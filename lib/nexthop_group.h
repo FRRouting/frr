@@ -49,6 +49,8 @@ void nexthop_group_delete(struct nexthop_group **nhg);
 
 void nexthop_group_copy(struct nexthop_group *to,
 			const struct nexthop_group *from);
+void nexthop_group_append(struct nexthop_group *to,
+			  const struct nexthop_group *from);
 
 /*
  * Copy a list of nexthops in 'nh' to an nhg, enforcing canonical sort order
@@ -101,6 +103,8 @@ struct nexthop_group_cmd {
 
 	struct list *nhg_list;
 
+	struct list *nhg_group_list;
+
 	QOBJ_FIELDS;
 };
 RB_HEAD(nhgc_entry_head, nexthp_group_cmd);
@@ -125,10 +129,10 @@ extern struct nhgc_entry_head nhgc_entries;
 void nexthop_group_init(
 	void (*create)(const char *name),
 	void (*modify)(const struct nexthop_group_cmd *nhgc, bool reset),
-	void (*add_nexthop)(const struct nexthop_group_cmd *nhgc,
-			    const struct nexthop *nhop),
-	void (*del_nexthop)(const struct nexthop_group_cmd *nhgc,
-			    const struct nexthop *nhop),
+	void (*add_nexthop_or_group)(const struct nexthop_group_cmd *nhgc,
+				     const struct nexthop *nhop),
+	void (*del_nexthop_or_group)(const struct nexthop_group_cmd *nhgc,
+				     const struct nexthop *nhop),
 	void (*destroy)(const char *name),
 	int (*write_config)(struct vty *vty,
 			    const struct nexthop_group_cmd *nhgc));
@@ -137,7 +141,9 @@ void nexthop_group_enable_vrf(struct vrf *vrf);
 void nexthop_group_disable_vrf(struct vrf *vrf);
 void nexthop_group_interface_state_change(struct interface *ifp,
 					  ifindex_t oldifindex);
-
+void nexthop_group_dependent_group_match(
+	const char *nhgc_name,
+	void (*cb_func)(const struct nexthop_group_cmd *nhgc));
 extern struct nexthop *nexthop_exists(const struct nexthop_group *nhg,
 				      const struct nexthop *nh);
 /* This assumes ordered */

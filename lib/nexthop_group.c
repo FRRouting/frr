@@ -18,6 +18,7 @@
 #include "lib/nexthop_group_clippy.c"
 
 DEFINE_MTYPE_STATIC(LIB, NEXTHOP_GROUP, "Nexthop Group");
+DEFINE_MTYPE_STATIC(LIB, NH_GROUP_ID, "Nexthop Group Id");
 
 /*
  * Internal struct used to hold nhg config strings
@@ -37,10 +38,10 @@ struct nexthop_hold {
 struct nexthop_group_hooks {
 	void (*new)(const char *name);
 	void (*modify)(const struct nexthop_group_cmd *nhgc, bool reset);
-	void (*add_nexthop)(const struct nexthop_group_cmd *nhg,
-			    const struct nexthop *nhop);
-	void (*del_nexthop)(const struct nexthop_group_cmd *nhg,
-			    const struct nexthop *nhop);
+	void (*add_nexthop_or_group)(const struct nexthop_group_cmd *nhg,
+				     const struct nexthop *nhop);
+	void (*del_nexthop_or_group)(const struct nexthop_group_cmd *nhg,
+				     const struct nexthop *nhop);
 	void (*delete)(const char *name);
 	int (*write_config)(struct vty *vty,
 			    const struct nexthop_group_cmd *nhg);
@@ -264,8 +265,25 @@ void nexthop_group_copy(struct nexthop_group *to,
 			const struct nexthop_group *from)
 {
 	to->nhgr = from->nhgr;
+	to->flags = from->flags;
 	/* Copy everything, including recursive info */
 	copy_nexthops(&to->nexthop, from->nexthop, NULL);
+}
+
+void nexthop_group_append(struct nexthop_group *to,
+			  const struct nexthop_group *from)
+{
+	struct nexthop *nexthop = nexthop_group_tail(to), **p_nexthop;
+
+	if (nexthop)
+		p_nexthop = &nexthop;
+	else
+		p_nexthop = &to->nexthop;
+
+	to->nhgr = from->nhgr;
+	to->flags = from->flags;
+	/* Copy everything, including recursive info */
+	copy_nexthops(p_nexthop, from->nexthop, NULL);
 }
 
 void nexthop_group_delete(struct nexthop_group **nhg)
@@ -489,8 +507,8 @@ static void nhgc_delete_nexthops(struct nexthop_group_cmd *nhgc)
 		struct nexthop *next = nexthop_next(nexthop);
 
 		_nexthop_del(&nhgc->nhg, nexthop);
-		if (nhg_hooks.del_nexthop)
-			nhg_hooks.del_nexthop(nhgc, nexthop);
+		if (nhg_hooks.del_nexthop_or_group)
+			nhg_hooks.del_nexthop_or_group(nhgc, nexthop);
 
 		nexthop_free(nexthop);
 
@@ -572,6 +590,16 @@ static void nhgl_delete(struct nexthop_hold *nh)
 	XFREE(MTYPE_TMP, nh);
 }
 
+static int nhgl_group_cmp(char *group1, char *group2)
+{
+	return nhgc_cmp_helper(group1, group2);
+}
+
+static void nhgl_group_delete(char *group1)
+{
+	XFREE(MTYPE_TMP, group1);
+}
+
 static struct nexthop_group_cmd *nhgc_get(const char *name)
 {
 	struct nexthop_group_cmd *nhgc;
@@ -587,6 +615,11 @@ static struct nexthop_group_cmd *nhgc_get(const char *name)
 		nhgc->nhg_list = list_new();
 		nhgc->nhg_list->cmp = (int (*)(void *, void *))nhgl_cmp;
 		nhgc->nhg_list->del = (void (*)(void *))nhgl_delete;
+
+		nhgc->nhg_group_list = list_new();
+		nhgc->nhg_group_list->cmp =
+			(int (*)(void *, void *))nhgl_group_cmp;
+		nhgc->nhg_group_list->del = (void (*)(void *))nhgl_group_delete;
 
 		if (nhg_hooks.new)
 			nhg_hooks.new(name);
@@ -605,9 +638,43 @@ static void nhgc_delete(struct nexthop_group_cmd *nhgc)
 	RB_REMOVE(nhgc_entry_head, &nhgc_entries, nhgc);
 
 	list_delete(&nhgc->nhg_list);
+	list_delete(&nhgc->nhg_group_list);
 
 	QOBJ_UNREG(nhgc);
 	XFREE(MTYPE_TMP, nhgc);
+}
+
+/* remove group configuration
+ * return true if found, false if not
+ */
+static bool nexthop_group_unsave_group(struct nexthop_group_cmd *nhgc,
+				       const char *group)
+{
+	char *groupname;
+	struct listnode *node;
+	bool found = false;
+
+	for (ALL_LIST_ELEMENTS_RO(nhgc->nhg_group_list, node, groupname)) {
+		if (nhgc_cmp_helper(group, groupname) == 0) {
+			found = true;
+			break;
+		}
+	}
+
+	list_delete_node(nhgc->nhg_group_list, node);
+	nhgl_group_delete(groupname);
+	return found;
+}
+
+static void nexthop_group_save_group(struct nexthop_group_cmd *nhgc,
+				     const char *group)
+{
+	char *nhgroup;
+
+	nhgroup = XSTRDUP(MTYPE_TMP, group);
+
+	if (!listnode_add_sort_nodup(nhgc->nhg_group_list, nhgroup))
+		XFREE(MTYPE_TMP, nhgroup);
 }
 
 DEFINE_QOBJ_TYPE(nexthop_group_cmd);
@@ -670,6 +737,33 @@ DEFPY(nexthop_group_allow_recursion,
 
 	if (nhg_hooks.modify)
 		nhg_hooks.modify(nhgc, true);
+
+	return CMD_SUCCESS;
+}
+
+DEFPY(nexthop_group_id, nexthop_group_id_cmd, "[no$no] group NHGNAME$name",
+      NO_STR "Specify a group name containing nexthops\n"
+	     "The name of the group\n")
+{
+	VTY_DECLVAR_CONTEXT(nexthop_group_cmd, nhgc);
+
+	/* if already nexthops, forbid */
+	if (listcount(nhgc->nhg_list)) {
+		vty_out(vty, "%% nexthop group ids nexthop group nexthop\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	if (no) {
+		if (nexthop_group_unsave_group(nhgc, name)) {
+			if (nhg_hooks.del_nexthop_or_group)
+				nhg_hooks.del_nexthop_or_group(nhgc, NULL);
+		}
+	} else {
+		nexthop_group_save_group(nhgc, name);
+
+		if (nhg_hooks.add_nexthop_or_group)
+			nhg_hooks.add_nexthop_or_group(nhgc, NULL);
+	}
 
 	return CMD_SUCCESS;
 }
@@ -983,6 +1077,11 @@ DEFPY(ecmp_nexthops, ecmp_nexthops_cmd,
 	struct nexthop_hold *nhh;
 	struct listnode *node;
 
+	if (listcount(nhgc->nhg_group_list)) {
+		vty_out(vty,
+			"%% nexthop not possible when 'group' is configured\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
 	/* Pre-parse backup string to validate */
 	if (backup_idx) {
 		lbl_ret = nexthop_str2backups(backup_idx, &num, backups);
@@ -1039,8 +1138,8 @@ DEFPY(ecmp_nexthops, ecmp_nexthops_cmd,
 	if (nh) {
 		nexthop_unlink(&nhgc->nhg, nh);
 
-		if (nhg_hooks.del_nexthop)
-			nhg_hooks.del_nexthop(nhgc, nh);
+		if (nhg_hooks.del_nexthop_or_group)
+			nhg_hooks.del_nexthop_or_group(nhgc, nh);
 
 		nexthop_free(nh);
 	}
@@ -1061,8 +1160,8 @@ DEFPY(ecmp_nexthops, ecmp_nexthops_cmd,
 		if (color)
 			nhgc_configure_color(nhgc, true);
 
-		if (legal && nhg_hooks.add_nexthop)
-			nhg_hooks.add_nexthop(nhgc, nh);
+		if (legal && nhg_hooks.add_nexthop_or_group)
+			nhg_hooks.add_nexthop_or_group(nhgc, nh);
 	} else {
 		for (ALL_LIST_ELEMENTS_RO(nhgc->nhg_list, node, nhh)) {
 			if (nhh->color)
@@ -1254,6 +1353,7 @@ static int nexthop_group_write(struct vty *vty)
 {
 	struct nexthop_group_cmd *nhgc;
 	struct nexthop_hold *nh;
+	char *group;
 
 	RB_FOREACH (nhgc, nhgc_entry_head, &nhgc_entries) {
 		struct listnode *node;
@@ -1281,6 +1381,9 @@ static int nexthop_group_write(struct vty *vty)
 			vty_out(vty, " ");
 			nexthop_group_write_nexthop_internal(vty, nh);
 		}
+
+		for (ALL_LIST_ELEMENTS_RO(nhgc->nhg_group_list, node, group))
+			vty_out(vty, " group %s\n", group);
 
 		if (nhg_hooks.write_config)
 			nhg_hooks.write_config(vty, nhgc);
@@ -1320,8 +1423,8 @@ void nexthop_group_enable_vrf(struct vrf *vrf)
 			memcpy(nh, &nhop, sizeof(nhop));
 			_nexthop_add(&nhgc->nhg.nexthop, nh);
 
-			if (nhg_hooks.add_nexthop)
-				nhg_hooks.add_nexthop(nhgc, nh);
+			if (nhg_hooks.add_nexthop_or_group)
+				nhg_hooks.add_nexthop_or_group(nhgc, nh);
 		}
 	}
 }
@@ -1330,10 +1433,18 @@ void nexthop_group_disable_vrf(struct vrf *vrf)
 {
 	struct nexthop_group_cmd *nhgc;
 	struct nexthop_hold *nhh;
+	char *groupname;
 
 	RB_FOREACH (nhgc, nhgc_entry_head, &nhgc_entries) {
 		struct listnode *node, *nnode;
 
+		for (ALL_LIST_ELEMENTS(nhgc->nhg_group_list, node, nnode,
+				       groupname)) {
+			if (nhg_hooks.del_nexthop_or_group)
+				nhg_hooks.del_nexthop_or_group(nhgc, NULL);
+			XFREE(MTYPE_TMP, groupname);
+			list_delete_node(nhgc->nhg_group_list, node);
+		}
 		for (ALL_LIST_ELEMENTS(nhgc->nhg_list, node, nnode, nhh)) {
 			struct nexthop nhop;
 			struct nexthop *nh;
@@ -1351,8 +1462,8 @@ void nexthop_group_disable_vrf(struct vrf *vrf)
 
 			_nexthop_del(&nhgc->nhg, nh);
 
-			if (nhg_hooks.del_nexthop)
-				nhg_hooks.del_nexthop(nhgc, nh);
+			if (nhg_hooks.del_nexthop_or_group)
+				nhg_hooks.del_nexthop_or_group(nhgc, nh);
 
 			nexthop_free(nh);
 
@@ -1363,6 +1474,24 @@ void nexthop_group_disable_vrf(struct vrf *vrf)
 	}
 }
 
+void nexthop_group_dependent_group_match(
+	const char *nhgc_name,
+	void (*cb_func)(const struct nexthop_group_cmd *nhgc))
+{
+	struct nexthop_group_cmd *nhgc_tmp;
+	struct listnode *node;
+	char *groupname;
+
+	RB_FOREACH (nhgc_tmp, nhgc_entry_head, &nhgc_entries) {
+		for (ALL_LIST_ELEMENTS_RO(nhgc_tmp->nhg_group_list, node,
+					  groupname)) {
+			if (strmatch(groupname, nhgc_name) && cb_func) {
+				(*cb_func)(nhgc_tmp);
+				break;
+			}
+		}
+	}
+}
 void nexthop_group_interface_state_change(struct interface *ifp,
 					  ifindex_t oldifindex)
 {
@@ -1403,8 +1532,8 @@ void nexthop_group_interface_state_change(struct interface *ifp,
 				memcpy(nh, &nhop, sizeof(nhop));
 				_nexthop_add(&nhgc->nhg.nexthop, nh);
 
-				if (nhg_hooks.add_nexthop)
-					nhg_hooks.add_nexthop(nhgc, nh);
+				if (nhg_hooks.add_nexthop_or_group)
+					nhg_hooks.add_nexthop_or_group(nhgc, nh);
 			}
 		} else {
 			struct nexthop *next_nh;
@@ -1427,8 +1556,8 @@ void nexthop_group_interface_state_change(struct interface *ifp,
 
 				_nexthop_del(&nhgc->nhg, nh);
 
-				if (nhg_hooks.del_nexthop)
-					nhg_hooks.del_nexthop(nhgc, nh);
+				if (nhg_hooks.del_nexthop_or_group)
+					nhg_hooks.del_nexthop_or_group(nhgc, nh);
 
 				nexthop_free(nh);
 			}
@@ -1452,10 +1581,10 @@ static const struct cmd_variable_handler nhg_name_handlers[] = {
 void nexthop_group_init(
 	void (*new)(const char *name),
 	void (*modify)(const struct nexthop_group_cmd *nhgc, bool reset),
-	void (*add_nexthop)(const struct nexthop_group_cmd *nhg,
-			    const struct nexthop *nhop),
-	void (*del_nexthop)(const struct nexthop_group_cmd *nhg,
-			    const struct nexthop *nhop),
+	void (*add_nexthop_or_group)(const struct nexthop_group_cmd *nhg,
+				     const struct nexthop *nhop),
+	void (*del_nexthop_or_group)(const struct nexthop_group_cmd *nhg,
+				     const struct nexthop *nhop),
 	void (*delete)(const char *name),
 	int (*write_config)(struct vty *vty,
 			    const struct nexthop_group_cmd *nhgc))
@@ -1470,6 +1599,7 @@ void nexthop_group_init(
 
 	install_default(NH_GROUP_NODE);
 	install_element(NH_GROUP_NODE, &nexthop_group_backup_cmd);
+	install_element(NH_GROUP_NODE, &nexthop_group_id_cmd);
 	install_element(NH_GROUP_NODE, &no_nexthop_group_backup_cmd);
 	install_element(NH_GROUP_NODE, &ecmp_nexthops_cmd);
 
@@ -1484,10 +1614,10 @@ void nexthop_group_init(
 		nhg_hooks.new = new;
 	if (modify)
 		nhg_hooks.modify = modify;
-	if (add_nexthop)
-		nhg_hooks.add_nexthop = add_nexthop;
-	if (del_nexthop)
-		nhg_hooks.del_nexthop = del_nexthop;
+	if (add_nexthop_or_group)
+		nhg_hooks.add_nexthop_or_group = add_nexthop_or_group;
+	if (del_nexthop_or_group)
+		nhg_hooks.del_nexthop_or_group = del_nexthop_or_group;
 	if (delete)
 		nhg_hooks.delete = delete;
 	if (write_config)
