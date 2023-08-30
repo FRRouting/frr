@@ -1699,7 +1699,7 @@ static void bgp_evpn_get_sync_info(struct bgp *bgp, esi_t *esi,
 	int paths_eq;
 	struct ethaddr *tmp_mac;
 	bool mac_cmp = false;
-	struct prefix_evpn *evp = (struct prefix_evpn *)&dest->p;
+	struct prefix_evpn *evp = (struct prefix_evpn *)&dest->rn->p;
 
 
 	/* mac comparison is not needed for MAC-only routes */
@@ -2361,15 +2361,15 @@ void bgp_evpn_update_type2_route_entry(struct bgp *bgp, struct bgpevpn *vpn,
 	 * VNI table MAC-IP prefixes don't have MAC so make sure it's set from
 	 * path info here.
 	 */
-	if (is_evpn_prefix_ipaddr_none((struct prefix_evpn *)&dest->p)) {
+	if (is_evpn_prefix_ipaddr_none((struct prefix_evpn *)&dest->rn->p)) {
 		/* VNI MAC -> Global */
 		evpn_type2_prefix_global_copy(
-			&evp, (struct prefix_evpn *)&dest->p, NULL /* mac */,
+			&evp, (struct prefix_evpn *)&dest->rn->p, NULL /* mac */,
 			evpn_type2_path_info_get_ip(local_pi));
 	} else {
 		/* VNI IP -> Global */
 		evpn_type2_prefix_global_copy(
-			&evp, (struct prefix_evpn *)&dest->p,
+			&evp, (struct prefix_evpn *)&dest->rn->p,
 			evpn_type2_path_info_get_mac(local_pi), NULL /* ip */);
 	}
 
@@ -3091,7 +3091,7 @@ static int install_evpn_route_entry_in_vni_common(
 
 			if (BGP_DEBUG(evpn_mh, EVPN_MH_RT))
 				zlog_debug("VNI %d path %pFX chg to %s es",
-					   vpn->vni, &pi->net->p,
+					   vpn->vni, &pi->net->rn->p,
 					   new_local_es ? "local"
 							: "non-local");
 			bgp_path_info_set_flag(dest, pi, BGP_PATH_ATTR_CHANGED);
@@ -4174,7 +4174,7 @@ void bgp_evpn_import_type2_route(struct bgp_path_info *pi, int import)
 		return;
 
 	install_uninstall_evpn_route(bgp_evpn, AFI_L2VPN, SAFI_EVPN,
-				     &pi->net->p, pi, import);
+				     &pi->net->rn->p, pi, import);
 }
 
 /*
@@ -7259,7 +7259,7 @@ static void bgp_evpn_remote_ip_hash_add(struct bgpevpn *vpn,
 	    || !CHECK_FLAG(pi->flags, BGP_PATH_VALID))
 		return;
 
-	evp = (struct prefix_evpn *)&pi->net->p;
+	evp = (struct prefix_evpn *)&pi->net->rn->p;
 
 	if (evp->family != AF_EVPN
 	    || evp->prefix.route_type != BGP_EVPN_MAC_IP_ROUTE
@@ -7292,7 +7292,7 @@ static void bgp_evpn_remote_ip_hash_del(struct bgpevpn *vpn,
 	if (!evpn_resolve_overlay_index())
 		return;
 
-	evp = (struct prefix_evpn *)&pi->net->p;
+	evp = (struct prefix_evpn *)&pi->net->rn->p;
 
 	if (evp->family != AF_EVPN
 	    || evp->prefix.route_type != BGP_EVPN_MAC_IP_ROUTE
@@ -7337,7 +7337,7 @@ static void show_remote_ip_entry(struct hash_bucket *bucket, void *args)
 		ipaddr2str(&ip->addr, buf, sizeof(buf)));
 	vty_out(vty, "      Linked MAC/IP routes:\n");
 	for (ALL_LIST_ELEMENTS_RO(ip->macip_path_list, node, pi))
-		vty_out(vty, "        %pFX\n", &pi->net->p);
+		vty_out(vty, "        %pFX\n", &pi->net->rn->p);
 }
 
 void bgp_evpn_show_remote_ip_hash(struct hash_bucket *bucket, void *args)
