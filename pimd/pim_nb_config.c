@@ -1633,7 +1633,7 @@ int lib_interface_pim_address_family_hello_interval_modify(
 		ifp = nb_running_get_entry(args->dnode, NULL, true);
 		pim_ifp = ifp->info;
 		pim_ifp->pim_hello_period =
-			yang_dnode_get_uint8(args->dnode, NULL);
+			yang_dnode_get_uint16(args->dnode, NULL);
 		pim_ifp->pim_default_holdtime = -1;
 		break;
 	}
