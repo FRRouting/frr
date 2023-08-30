@@ -519,11 +519,22 @@ void bgp_cluster_id_unset(struct bgp *bgp)
 }
 
 /* BGP timer configuration.  */
-void bgp_timers_set(struct bgp *bgp, uint32_t keepalive, uint32_t holdtime,
-		    uint32_t connect_retry, uint32_t delayopen)
+void bgp_timers_set(struct vty *vty, struct bgp *bgp, uint32_t keepalive,
+		    uint32_t holdtime, uint32_t connect_retry,
+		    uint32_t delayopen)
 {
-	bgp->default_keepalive =
-		(keepalive < holdtime / 3 ? keepalive : holdtime / 3);
+	uint32_t default_keepalive = holdtime / 3;
+
+	if (keepalive > default_keepalive) {
+		if (vty)
+			vty_out(vty,
+				"%% keepalive value %u is larger than 1/3 of the holdtime, setting to %u\n",
+				keepalive, default_keepalive);
+	} else {
+		default_keepalive = keepalive;
+	}
+
+	bgp->default_keepalive = default_keepalive;
 	bgp->default_holdtime = holdtime;
 	bgp->default_connect_retry = connect_retry;
 	bgp->default_delayopen = delayopen;
