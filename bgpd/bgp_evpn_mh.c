@@ -2825,7 +2825,7 @@ static void bgp_evpn_l3nhg_zebra_add_v4_or_v6(struct bgp_evpn_es_vrf *es_vrf,
 			continue;
 
 		/* Don't overrun the zapi buffer. */
-		if (api_nhg.nexthop_num == MULTIPATH_NUM)
+		if (api_nhg.nhg_nexthop.nexthop_num == MULTIPATH_NUM)
 			break;
 
 		/* overwrite the gw */
@@ -2836,10 +2836,11 @@ static void bgp_evpn_l3nhg_zebra_add_v4_or_v6(struct bgp_evpn_es_vrf *es_vrf,
 						 es_vtep->vtep_ip);
 
 		/* convert to zapi format */
-		api_nh = &api_nhg.nexthops[api_nhg.nexthop_num];
+		api_nh = &api_nhg.nhg_nexthop
+				  .nexthops[api_nhg.nhg_nexthop.nexthop_num];
 		zapi_nexthop_from_nexthop(api_nh, &nh);
 
-		++api_nhg.nexthop_num;
+		++api_nhg.nhg_nexthop.nexthop_num;
 		if (BGP_DEBUG(evpn_mh, EVPN_MH_ES))
 			zlog_debug("nhg %u vtep %pI4 l3-svi %d", api_nhg.id,
 				   &es_vtep->vtep_ip,
@@ -2848,7 +2849,7 @@ static void bgp_evpn_l3nhg_zebra_add_v4_or_v6(struct bgp_evpn_es_vrf *es_vrf,
 		frrtrace(3, frr_bgp, evpn_mh_nh_zsend, nhg_id, es_vtep, es_vrf);
 	}
 
-	if (!api_nhg.nexthop_num)
+	if (!api_nhg.nhg_nexthop.nexthop_num)
 		return;
 
 	zclient_nhg_send(zclient, ZEBRA_NHG_ADD, &api_nhg);

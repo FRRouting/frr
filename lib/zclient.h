@@ -475,17 +475,22 @@ struct zapi_nexthop {
 /*
  * ZAPI Nexthop Group. For use with protocol creation of nexthop groups.
  */
+struct zapi_nhg_nexthop {
+	uint16_t nexthop_num;
+	struct zapi_nexthop nexthops[MULTIPATH_NUM];
+
+	uint16_t backup_nexthop_num;
+	struct zapi_nexthop backup_nexthops[MULTIPATH_NUM];
+};
+
+
 struct zapi_nhg {
 	uint16_t proto;
 	uint32_t id;
 
 	struct nhg_resilience resilience;
 
-	uint16_t nexthop_num;
-	struct zapi_nexthop nexthops[MULTIPATH_NUM];
-
-	uint16_t backup_nexthop_num;
-	struct zapi_nexthop backup_nexthops[MULTIPATH_NUM];
+	struct zapi_nhg_nexthop nhg_nexthop;
 
 	/* nexthop group flags */
 	uint8_t flags;
