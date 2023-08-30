@@ -2916,6 +2916,7 @@ static int bgp_capability_msg_parse(struct peer *peer, uint8_t *pnt,
 				peer->remote_role = role;
 			} else {
 				UNSET_FLAG(peer->cap, PEER_CAP_ROLE_RCV);
+				peer->remote_role = ROLE_UNDEFINED;
 			}
 			break;
 		default:
