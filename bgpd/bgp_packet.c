@@ -2817,8 +2817,15 @@ static void bgp_dynamic_capability_graceful_restart(uint8_t *pnt, int action,
 	uint16_t gr_restart_flag_time;
 	uint8_t *data = pnt + 3;
 	uint8_t *end = pnt + hdr->length;
+	size_t len = end - data;
 
 	if (action == CAPABILITY_ACTION_SET) {
+		if (len < sizeof(gr_restart_flag_time)) {
+			zlog_err("%pBP: Received invalid Graceful-Restart capability length %d",
+				 peer, hdr->length);
+			return;
+		}
+
 		SET_FLAG(peer->cap, PEER_CAP_RESTART_RCV);
 		ptr_get_be16(data, &gr_restart_flag_time);
 		data += sizeof(gr_restart_flag_time);
