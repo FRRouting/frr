@@ -1146,6 +1146,44 @@ stream_failure:
 	return -1;
 }
 
+static int zapi_nhg_group_encode(struct stream *s, int cmd,
+				 struct zapi_nhg_group *api_nhg_group)
+{
+	int i;
+
+	if (cmd != ZEBRA_NHG_GROUP_ADD) {
+		flog_err(EC_LIB_ZAPI_ENCODE,
+			 "%s: Specified zapi NHG command (%d) doesn't exist",
+			 __func__, cmd);
+		return -1;
+	}
+
+	stream_reset(s);
+	zclient_create_header(s, cmd, VRF_DEFAULT);
+
+	stream_putw(s, api_nhg_group->proto);
+	stream_putl(s, api_nhg_group->id);
+
+	stream_putw(s, api_nhg_group->nh_grp_count);
+	for (i = 0; i < api_nhg_group->nh_grp_count; i++)
+		stream_putl(s, api_nhg_group->id_grp[i]);
+
+	stream_putw(s, api_nhg_group->backup_nh_grp_count);
+	for (i = 0; i < api_nhg_group->backup_nh_grp_count; i++)
+		stream_putl(s, api_nhg_group->backup_id_grp[i]);
+
+	stream_putw(s, api_nhg_group->resilience.buckets);
+	stream_putl(s, api_nhg_group->resilience.idle_timer);
+	stream_putl(s, api_nhg_group->resilience.unbalanced_timer);
+
+	stream_putc(s, api_nhg_group->flags);
+	stream_putc(s, api_nhg_group->message);
+
+	stream_putw_at(s, 0, stream_get_endp(s));
+
+	return 0;
+}
+
 static int zapi_nhg_encode(struct stream *s, int cmd, struct zapi_nhg *api_nhg)
 {
 	int i;
@@ -1210,6 +1248,18 @@ enum zclient_send_status zclient_nhg_send(struct zclient *zclient, int cmd,
 	api_nhg->proto = zclient->redist_default;
 
 	if (zapi_nhg_encode(zclient->obuf, cmd, api_nhg))
+		return -1;
+
+	return zclient_send_message(zclient);
+}
+
+enum zclient_send_status
+zclient_nhg_group_send(struct zclient *zclient, int cmd,
+		       struct zapi_nhg_group *api_nhg_group)
+{
+	api_nhg_group->proto = zclient->redist_default;
+
+	if (zapi_nhg_group_encode(zclient->obuf, cmd, api_nhg_group))
 		return -1;
 
 	return zclient_send_message(zclient);

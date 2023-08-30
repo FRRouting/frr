@@ -43,3 +43,10 @@ listing of ECMP nexthops used to forward packets.
 
    Allow a Nexthop Group to be considered as an IBGP nexthop. When used in ZEBRA,
    if `allow-recursion` is not used, some debug information is given.
+
+.. clicmd:: group NAME
+
+   Append a Nexthop Group group dependency in the current nexthop group. The protocol
+   daemon using it will ensure that the dependent group is configured at the protocol
+   level, and installed at ZEBRA level, before installing the parent Nexthop Group.
+   This option is very useful to consider nexthop groups having multiple paths.
