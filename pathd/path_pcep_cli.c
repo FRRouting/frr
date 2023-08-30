@@ -52,6 +52,7 @@ static int pcep_cli_pce_config_write(struct vty *vty);
 static int pcep_cli_pcep_pce_config_write(struct vty *vty);
 
 /* Internal Util Function declarations */
+static void reset_pcc_peer(const char *peer_name);
 static struct pce_opts_cli *pcep_cli_find_pce(const char *pce_name);
 static bool pcep_cli_add_pce(struct pce_opts_cli *pce_opts_cli);
 static struct pce_opts_cli *pcep_cli_create_pce_opts(const char *name);
@@ -744,12 +745,13 @@ static int path_pcep_cli_show_srte_pcep_pce(struct vty *vty,
 static int path_pcep_cli_peer_sr_draft07(struct vty *vty, bool reset)
 {
 	struct pcep_config_group_opts *pce_config = NULL;
+	struct pce_opts *pce_opts = &current_pce_opts_g->pce_opts;
+	bool pce_in_use = false;
 
 	if (vty->node == PCEP_PCE_NODE) {
-		/* TODO need to see if the pce is in use, and reset the
-		 * connection */
 		pce_config = &current_pce_opts_g->pce_config_group_opts;
 		current_pce_opts_g->merged = false;
+		pce_in_use = pcep_cli_pcc_has_pce(pce_opts->pce_name);
 	} else if (vty->node == PCEP_PCE_CONFIG_NODE) {
 		pce_config = current_pcep_config_group_opts_g;
 	} else {
@@ -758,18 +760,24 @@ static int path_pcep_cli_peer_sr_draft07(struct vty *vty, bool reset)
 
 	pce_config->draft07 = reset ? DEFAULT_SR_DRAFT07 : true;
 
+	if (pce_in_use) {
+		vty_out(vty, "%% PCE in use, resetting pcc peer session...\n");
+		reset_pcc_peer(pce_opts->pce_name);
+	}
+
 	return CMD_SUCCESS;
 }
 
 static int path_pcep_cli_peer_pce_initiated(struct vty *vty, bool reset)
 {
 	struct pcep_config_group_opts *pce_config = NULL;
+	struct pce_opts *pce_opts = &current_pce_opts_g->pce_opts;
+	bool pce_in_use = false;
 
 	if (vty->node == PCEP_PCE_NODE) {
-		/* TODO need to see if the pce is in use, and reset the
-		 * connection */
 		pce_config = &current_pce_opts_g->pce_config_group_opts;
 		current_pce_opts_g->merged = false;
+		pce_in_use = pcep_cli_pcc_has_pce(pce_opts->pce_name);
 	} else if (vty->node == PCEP_PCE_CONFIG_NODE) {
 		pce_config = current_pcep_config_group_opts_g;
 	} else {
@@ -777,6 +785,11 @@ static int path_pcep_cli_peer_pce_initiated(struct vty *vty, bool reset)
 	}
 
 	pce_config->pce_initiated = reset ? DEFAULT_PCE_INITIATED : true;
+
+	if (pce_in_use) {
+		vty_out(vty, "%% PCE in use, resetting pcc peer session...\n");
+		reset_pcc_peer(pce_opts->pce_name);
+	}
 
 	return CMD_SUCCESS;
 }
@@ -786,12 +799,13 @@ static int path_pcep_cli_peer_tcp_md5_auth(struct vty *vty,
 					   bool reset)
 {
 	struct pcep_config_group_opts *pce_config = NULL;
+	struct pce_opts *pce_opts = &current_pce_opts_g->pce_opts;
+	bool pce_in_use = false;
 
 	if (vty->node == PCEP_PCE_NODE) {
-		/* TODO need to see if the pce is in use, and reset the
-		 * connection */
 		pce_config = &current_pce_opts_g->pce_config_group_opts;
 		current_pce_opts_g->merged = false;
+		pce_in_use = pcep_cli_pcc_has_pce(pce_opts->pce_name);
 	} else if (vty->node == PCEP_PCE_CONFIG_NODE) {
 		pce_config = current_pcep_config_group_opts_g;
 	} else {
@@ -803,6 +817,11 @@ static int path_pcep_cli_peer_tcp_md5_auth(struct vty *vty,
 	else
 		strlcpy(pce_config->tcp_md5_auth, tcp_md5_auth,
 			sizeof(pce_config->tcp_md5_auth));
+
+	if (pce_in_use) {
+		vty_out(vty, "%% PCE in use, resetting pcc peer session...\n");
+		reset_pcc_peer(pce_opts->pce_name);
+	}
 
 	return CMD_SUCCESS;
 }
@@ -849,11 +868,13 @@ static int path_pcep_cli_peer_source_address(struct vty *vty,
 					     bool reset)
 {
 	struct pcep_config_group_opts *pce_config = NULL;
+	struct pce_opts *pce_opts = &current_pce_opts_g->pce_opts;
+	bool pce_in_use = false;
+
 	if (vty->node == PCEP_PCE_NODE) {
-		/* TODO need to see if the pce is in use, and reset the
-		 * connection */
 		pce_config = &current_pce_opts_g->pce_config_group_opts;
 		current_pce_opts_g->merged = false;
+		pce_in_use = pcep_cli_pcc_has_pce(pce_opts->pce_name);
 	} else if (vty->node == PCEP_PCE_CONFIG_NODE) {
 		pce_config = current_pcep_config_group_opts_g;
 	} else {
@@ -880,6 +901,11 @@ static int path_pcep_cli_peer_source_address(struct vty *vty,
 	/* Handle the optional port */
 	PCEP_VTYSH_INT_ARG_CHECK(port_str, port, pce_config->source_port, 0,
 				 65535);
+
+	if (pce_in_use) {
+		vty_out(vty, "%% PCE in use, resetting pcc peer session...\n");
+		reset_pcc_peer(pce_opts->pce_name);
+	}
 
 	return CMD_SUCCESS;
 }
@@ -921,11 +947,13 @@ static int path_pcep_cli_peer_timers(
 	const char *delegation_timeout_str, long delegation_timeout)
 {
 	struct pcep_config_group_opts *pce_config = NULL;
+	struct pce_opts *pce_opts = &current_pce_opts_g->pce_opts;
+	bool pce_in_use = false;
+
 	if (vty->node == PCEP_PCE_NODE) {
-		/* TODO need to see if the pce is in use, and reset the
-		 * connection */
 		pce_config = &current_pce_opts_g->pce_config_group_opts;
 		current_pce_opts_g->merged = false;
+		pce_in_use = pcep_cli_pcc_has_pce(pce_opts->pce_name);
 	} else if (vty->node == PCEP_PCE_CONFIG_NODE) {
 		pce_config = current_pcep_config_group_opts_g;
 	} else {
@@ -963,6 +991,11 @@ static int path_pcep_cli_peer_timers(
 	PCEP_VTYSH_INT_ARG_CHECK(delegation_timeout_str, delegation_timeout,
 				 pce_config->delegation_timeout_seconds, 0, 61);
 
+	if (pce_in_use) {
+		vty_out(vty, "%% PCE in use, resetting pcc peer session...\n");
+		reset_pcc_peer(pce_opts->pce_name);
+	}
+
 	return CMD_SUCCESS;
 }
 
@@ -991,6 +1024,37 @@ static int path_pcep_cli_pcc_pcc_msd(struct vty *vty, const char *msd_str,
 	PCEP_VTYSH_INT_ARG_CHECK(msd_str, msd, pcc_msd_g, 0, 33);
 
 	return CMD_SUCCESS;
+}
+
+void reset_pcc_peer(const char *peer_name)
+{
+	struct pce_opts_cli *pce_opts_cli = pcep_cli_find_pce(peer_name);
+
+	/* Remove the pcc peer */
+	pcep_cli_remove_pce_connection(&pce_opts_cli->pce_opts);
+	struct pce_opts *pce_opts_copy =
+		XMALLOC(MTYPE_PCEP, sizeof(struct pce_opts));
+	memcpy(pce_opts_copy, &pce_opts_cli->pce_opts, sizeof(struct pce_opts));
+	pcep_ctrl_remove_pcc(pcep_g->fpt, pce_opts_copy);
+
+	/* Re-add the pcc peer */
+	pcep_cli_merge_pcep_pce_config_options(pce_opts_cli);
+	pcep_cli_add_pce_connection(&pce_opts_cli->pce_opts);
+
+	/* Update the pcc_opts */
+	struct pcc_opts *pcc_opts_copy =
+		XMALLOC(MTYPE_PCEP, sizeof(struct pcc_opts));
+	memcpy(&pcc_opts_copy->addr,
+	       &pce_opts_cli->pce_opts.config_opts.source_ip,
+	       sizeof(pcc_opts_copy->addr));
+	pcc_opts_copy->msd = pcc_msd_g;
+	pcc_opts_copy->port = pce_opts_cli->pce_opts.config_opts.source_port;
+	pcep_ctrl_update_pcc_options(pcep_g->fpt, pcc_opts_copy);
+
+	/* Update the pce_opts */
+	pce_opts_copy = XMALLOC(MTYPE_PCEP, sizeof(struct pce_opts));
+	memcpy(pce_opts_copy, &pce_opts_cli->pce_opts, sizeof(struct pce_opts));
+	pcep_ctrl_update_pce_options(pcep_g->fpt, pce_opts_copy);
 }
 
 static int path_pcep_cli_pcc_pcc_peer(struct vty *vty, const char *peer_name,
