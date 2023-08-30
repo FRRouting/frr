@@ -825,7 +825,6 @@ static struct trap_object bgpv2TrapBackListv6[] = {
 	{ 6, { 1, 3, 1, BGP4V2_PEER_LAST_ERROR_RECEIVED_TEXT, 1, 2 } }
 };
 
-
 static struct variable bgpv2_variables[] = {
 	/* bgp4V2PeerEntry */
 	{BGP4V2_PEER_INSTANCE,
@@ -1450,6 +1449,9 @@ int bgpv2TrapEstablished(struct peer *peer)
 	oid index[sizeof(oid) * IN6_ADDR_SIZE];
 	size_t length;
 
+	if (!CHECK_FLAG(bm->options, BGP_OPT_TRAPS_BGP4MIBV2))
+		return 0;
+
 	/* Check if this peer just went to Established */
 	if ((peer->connection->ostatus != OpenConfirm) ||
 	    !(peer_established(peer->connection)))
@@ -1475,8 +1477,7 @@ int bgpv2TrapEstablished(struct peer *peer)
 			  BGP4V2ESTABLISHED);
 		break;
 	default:
-		return 0;
-		;
+		break;
 	}
 
 	return 0;
@@ -1486,6 +1487,9 @@ int bgpv2TrapBackwardTransition(struct peer *peer)
 {
 	oid index[sizeof(oid) * IN6_ADDR_SIZE];
 	size_t length;
+
+	if (!CHECK_FLAG(bm->options, BGP_OPT_TRAPS_BGP4MIBV2))
+		return 0;
 
 	switch (sockunion_family(&peer->connection->su)) {
 	case AF_INET:
@@ -1507,13 +1511,11 @@ int bgpv2TrapBackwardTransition(struct peer *peer)
 			  BGP4V2BACKWARDTRANSITION);
 		break;
 	default:
-		return 0;
-		;
+		break;
 	}
 
 	return 0;
 }
-
 
 int bgp_snmp_bgp4v2_init(struct event_loop *tm)
 {

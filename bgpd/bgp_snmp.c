@@ -31,30 +31,47 @@
 #include "bgpd/bgp_mplsvpn_snmp.h"
 #include "bgpd/bgp_snmp_clippy.c"
 
-uint32_t bgp_snmp_traps_flags;
+
 
 static int bgp_cli_snmp_traps_config_write(struct vty *vty);
 
 DEFPY(bgp_snmp_traps_rfc4273, bgp_snmp_traps_rfc4273_cmd,
-      "bgp snmp traps rfc4273 <enable$on|disable$off>",
-      BGP_STR "Configure BGP SNMP\n"
-	      "Configure SNMP traps for BGP \n"
-	      "Configure use of rfc4273 SNMP traps for BGP \n"
-	      "Enable rfc4273 traps\n"
-	      "Disable rfc4273 traps\n")
+      "[no$no] bgp snmp traps rfc4273",
+      NO_STR BGP_STR
+              "Configure BGP SNMP\n"
+	      "Configure SNMP traps for BGP\n"
+	      "Configure use of rfc4273 SNMP traps for BGP\n")
 {
-	if (on) {
-		SET_FLAG(bgp_snmp_traps_flags, BGP_SNMP_TRAPS_RFC4273_ENABLED);
+	if (no) {
+		UNSET_FLAG(bm->options, BGP_OPT_TRAPS_RFC4273);
 		return CMD_SUCCESS;
 	}
-	UNSET_FLAG(bgp_snmp_traps_flags, BGP_SNMP_TRAPS_RFC4273_ENABLED);
+	SET_FLAG(bm->options, BGP_OPT_TRAPS_RFC4273);
+	return CMD_SUCCESS;
+}
+
+DEFPY(bgp_snmp_traps_bgp4_mibv2, bgp_snmp_traps_bgp4_mibv2_cmd,
+      "[no$no] bgp snmp traps bgp4-mibv2",
+      NO_STR BGP_STR
+              "Configure BGP SNMP\n"
+	      "Configure SNMP traps for BGP\n"
+	      "Configure use of BGP4-MIBv2 SNMP traps for BGP\n")
+{
+	if (no) {
+		UNSET_FLAG(bm->options, BGP_OPT_TRAPS_BGP4MIBV2);
+		return CMD_SUCCESS;
+	}
+	SET_FLAG(bm->options, BGP_OPT_TRAPS_BGP4MIBV2);
 	return CMD_SUCCESS;
 }
 
 static void bgp_snmp_traps_init(void)
 {
 	install_element(CONFIG_NODE, &bgp_snmp_traps_rfc4273_cmd);
-	SET_FLAG(bgp_snmp_traps_flags, BGP_SNMP_TRAPS_RFC4273_ENABLED);
+	install_element(CONFIG_NODE, &bgp_snmp_traps_bgp4_mibv2_cmd);
+
+	SET_FLAG(bm->options, BGP_OPT_TRAPS_RFC4273);
+	/* BGP4MIBv2 traps are disabled by default */
 }
 
 int bgp_cli_snmp_traps_config_write(struct vty *vty)
@@ -75,15 +92,23 @@ int bgp_cli_snmp_traps_config_write(struct vty *vty)
 
 int bgpTrapEstablished(struct peer *peer)
 {
-	bgp4TrapEstablished(peer);
-	bgpv2TrapEstablished(peer);
+	if (CHECK_FLAG(bm->options, BGP_OPT_TRAPS_RFC4273))
+		bgp4TrapEstablished(peer);
+
+	if (CHECK_FLAG(bm->options, BGP_OPT_TRAPS_BGP4MIBV2))
+		bgpv2TrapEstablished(peer);
+
 	return 0;
 }
 
 int bgpTrapBackwardTransition(struct peer *peer)
 {
-	bgp4TrapBackwardTransition(peer);
-	bgpv2TrapBackwardTransition(peer);
+	if (CHECK_FLAG(bm->options, BGP_OPT_TRAPS_RFC4273))
+		bgp4TrapBackwardTransition(peer);
+
+	if (CHECK_FLAG(bm->options, BGP_OPT_TRAPS_BGP4MIBV2))
+		bgpv2TrapBackwardTransition(peer);
+
 	return 0;
 }
 

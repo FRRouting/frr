@@ -764,9 +764,6 @@ int bgp4TrapEstablished(struct peer *peer)
 	oid index[sizeof(oid) * IN_ADDR_SIZE];
 	struct peer_connection *connection = peer->connection;
 
-	if (!CHECK_FLAG(bgp_snmp_traps_flags, BGP_SNMP_TRAPS_RFC4273_ENABLED))
-		return 0;
-
 	/* Check if this peer just went to Established */
 	if ((connection->ostatus != OpenConfirm) ||
 	    !(peer_established(connection)))
@@ -790,9 +787,6 @@ int bgp4TrapBackwardTransition(struct peer *peer)
 	int ret;
 	struct in_addr addr;
 	oid index[sizeof(oid) * IN_ADDR_SIZE];
-
-	if (!CHECK_FLAG(bgp_snmp_traps_flags, BGP_SNMP_TRAPS_RFC4273_ENABLED))
-		return 0;
 
 	ret = inet_aton(peer->host, &addr);
 	if (ret == 0)

@@ -15,10 +15,6 @@
 #define IPADDRESS ASN_IPADDRESS
 #define GAUGE32 ASN_UNSIGNED
 
-extern uint32_t bgp_snmp_traps_flags;
-
-#define BGP_SNMP_TRAPS_RFC4273_ENABLED (1 << 0)
-
 extern int bgpTrapEstablished(struct peer *peer);
 extern int bgpTrapBackwardTransition(struct peer *peer);
 
