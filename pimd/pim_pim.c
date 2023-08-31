@@ -155,7 +155,7 @@ int pim_pim_packet(struct interface *ifp, uint8_t *buf, size_t len,
 	bool   no_fwd;
 
 #if PIM_IPV == 4
-	if (len < sizeof(*ip_hdr)) {
+	if (len <= sizeof(*ip_hdr)) {
 		if (PIM_DEBUG_PIM_PACKETS)
 			zlog_debug(
 				"PIM packet size=%zu shorter than minimum=%zu",
@@ -189,7 +189,6 @@ int pim_pim_packet(struct interface *ifp, uint8_t *buf, size_t len,
 	iovp->iov_len = pim_msg_len;
 	iovp++;
 
-	header = (struct pim_msg_header *)pim_msg;
 	if (pim_msg_len < PIM_PIM_MIN_LEN) {
 		if (PIM_DEBUG_PIM_PACKETS)
 			zlog_debug(
@@ -197,6 +196,7 @@ int pim_pim_packet(struct interface *ifp, uint8_t *buf, size_t len,
 				pim_msg_len, PIM_PIM_MIN_LEN);
 		return -1;
 	}
+	header = (struct pim_msg_header *)pim_msg;
 
 	if (header->ver != PIM_PROTO_VERSION) {
 		if (PIM_DEBUG_PIM_PACKETS)
