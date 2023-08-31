@@ -16974,7 +16974,8 @@ DEFUN (no_bgp_redistribute_ipv4_ospf,
 		protocol = ZEBRA_ROUTE_TABLE;
 
 	instance = strtoul(argv[idx_number]->arg, NULL, 10);
-	return bgp_redistribute_unset(bgp, AFI_IP, protocol, instance);
+	bgp_redistribute_unset(bgp, AFI_IP, protocol, instance);
+	return CMD_SUCCESS;
 }
 
 ALIAS_HIDDEN(
@@ -17010,7 +17011,8 @@ DEFUN (no_bgp_redistribute_ipv4,
 		vty_out(vty, "%% Invalid route type\n");
 		return CMD_WARNING_CONFIG_FAILED;
 	}
-	return bgp_redistribute_unset(bgp, AFI_IP, type, 0);
+	bgp_redistribute_unset(bgp, AFI_IP, type, 0);
+	return CMD_SUCCESS;
 }
 
 ALIAS_HIDDEN(
@@ -17194,7 +17196,8 @@ DEFUN (no_bgp_redistribute_ipv6,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	return bgp_redistribute_unset(bgp, AFI_IP6, type, 0);
+	bgp_redistribute_unset(bgp, AFI_IP6, type, 0);
+	return CMD_SUCCESS;
 }
 
 /* Neighbor update tcp-mss. */
