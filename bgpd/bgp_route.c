@@ -15571,8 +15571,8 @@ DEFUN (show_bgp_peerhash,
        struct bgp *bgp;
 
        for (ALL_LIST_ELEMENTS_RO(instances, node, bgp)) {
-               vty_out(vty, "BGP: %s\n", bgp->name);
-               hash_iterate(bgp->peerhash, show_bgp_peerhash_entry,
+	       vty_out(vty, "BGP: %s\n", bgp->name_pretty);
+	       hash_iterate(bgp->peerhash, show_bgp_peerhash_entry,
                             vty);
        }
 
