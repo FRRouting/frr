@@ -806,25 +806,6 @@ static void ospf_finish_final(struct ospf *ospf)
 		ospf_area_free(area);
 	}
 
-	/* Cancel all timers. */
-	EVENT_OFF(ospf->t_read);
-	EVENT_OFF(ospf->t_write);
-	EVENT_OFF(ospf->t_spf_calc);
-	EVENT_OFF(ospf->t_ase_calc);
-	EVENT_OFF(ospf->t_maxage);
-	EVENT_OFF(ospf->t_maxage_walker);
-	EVENT_OFF(ospf->t_abr_task);
-	EVENT_OFF(ospf->t_abr_fr);
-	EVENT_OFF(ospf->t_asbr_check);
-	EVENT_OFF(ospf->t_asbr_redist_update);
-	EVENT_OFF(ospf->t_distribute_update);
-	EVENT_OFF(ospf->t_lsa_refresher);
-	EVENT_OFF(ospf->t_opaque_lsa_self);
-	EVENT_OFF(ospf->t_sr_update);
-	EVENT_OFF(ospf->t_default_routemap_timer);
-	EVENT_OFF(ospf->t_external_aggr);
-	EVENT_OFF(ospf->gr_info.t_grace_period);
-
 	LSDB_LOOP (OPAQUE_AS_LSDB(ospf), rn, lsa)
 		ospf_discard_from_db(ospf, ospf->lsdb, lsa);
 	LSDB_LOOP (EXTERNAL_LSDB(ospf), rn, lsa)
@@ -912,8 +893,26 @@ static void ospf_finish_final(struct ospf *ospf)
 		}
 	}
 
-	route_table_finish(ospf->rt_aggr_tbl);
+	/* Cancel all timers. */
+	EVENT_OFF(ospf->t_read);
+	EVENT_OFF(ospf->t_write);
+	EVENT_OFF(ospf->t_spf_calc);
+	EVENT_OFF(ospf->t_ase_calc);
+	EVENT_OFF(ospf->t_maxage);
+	EVENT_OFF(ospf->t_maxage_walker);
+	EVENT_OFF(ospf->t_abr_task);
+	EVENT_OFF(ospf->t_abr_fr);
+	EVENT_OFF(ospf->t_asbr_check);
+	EVENT_OFF(ospf->t_asbr_redist_update);
+	EVENT_OFF(ospf->t_distribute_update);
+	EVENT_OFF(ospf->t_lsa_refresher);
+	EVENT_OFF(ospf->t_opaque_lsa_self);
+	EVENT_OFF(ospf->t_sr_update);
+	EVENT_OFF(ospf->t_default_routemap_timer);
+	EVENT_OFF(ospf->t_external_aggr);
+	EVENT_OFF(ospf->gr_info.t_grace_period);
 
+	route_table_finish(ospf->rt_aggr_tbl);
 
 	ospf_free_refresh_queue(ospf);
 
