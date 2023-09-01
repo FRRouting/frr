@@ -9471,9 +9471,16 @@ DEFPY (af_label_vpn_export,
 	vpn_leak_prechange(BGP_VPN_POLICY_DIR_TOVPN, afi,
 			   bgp_get_default(), bgp);
 
-	/* release any previous auto label */
 	if (CHECK_FLAG(bgp->vpn_policy[afi].flags,
-		       BGP_VPN_POLICY_TOVPN_LABEL_AUTO)) {
+		       BGP_VPN_POLICY_TOVPN_LABEL_MANUAL_REG)) {
+		bgp_zebra_release_label_range(bgp->vpn_policy[afi].tovpn_label,
+					      bgp->vpn_policy[afi].tovpn_label);
+		UNSET_FLAG(bgp->vpn_policy[afi].flags,
+			   BGP_VPN_POLICY_TOVPN_LABEL_MANUAL_REG);
+
+	} else if (CHECK_FLAG(bgp->vpn_policy[afi].flags,
+			      BGP_VPN_POLICY_TOVPN_LABEL_AUTO)) {
+		/* release any previous auto label */
 		if (bgp->vpn_policy[afi].tovpn_label != MPLS_LABEL_NONE) {
 
 			/*
@@ -9501,9 +9508,16 @@ DEFPY (af_label_vpn_export,
 			bgp_lp_get(LP_TYPE_VRF, &bgp->vpn_policy[afi],
 				   vpn_leak_label_callback);
 		} else {
+			bgp->vpn_policy[afi].tovpn_label = label;
 			UNSET_FLAG(bgp->vpn_policy[afi].flags,
 				   BGP_VPN_POLICY_TOVPN_LABEL_AUTO);
-			bgp->vpn_policy[afi].tovpn_label = label;
+			if (bgp->vpn_policy[afi].tovpn_label >=
+				    MPLS_LABEL_UNRESERVED_MIN &&
+			    bgp_zebra_request_label_range(bgp->vpn_policy[afi]
+								  .tovpn_label,
+							  1, false))
+				SET_FLAG(bgp->vpn_policy[afi].flags,
+					 BGP_VPN_POLICY_TOVPN_LABEL_MANUAL_REG);
 		}
 	} else {
 		UNSET_FLAG(bgp->vpn_policy[afi].flags,

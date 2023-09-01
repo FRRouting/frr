@@ -448,7 +448,7 @@ void bgp_lp_get(
 
 	if (lp_fifo_count(&lp->requests) > lp->pending_count) {
 		if (!bgp_zebra_request_label_range(MPLS_LABEL_BASE_ANY,
-						   lp->next_chunksize))
+						   lp->next_chunksize, true))
 			return;
 
 		lp->pending_count += lp->next_chunksize;
@@ -650,7 +650,8 @@ void bgp_lp_event_zebra_up(void)
 	 */
 	list_delete_all_node(lp->chunks);
 
-	if (!bgp_zebra_request_label_range(MPLS_LABEL_BASE_ANY, labels_needed))
+	if (!bgp_zebra_request_label_range(MPLS_LABEL_BASE_ANY, labels_needed,
+					   true))
 		return;
 
 	lp->pending_count = labels_needed;

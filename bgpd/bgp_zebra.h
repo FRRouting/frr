@@ -124,6 +124,7 @@ extern void bgp_zebra_send_nexthop_label(int cmd, mpls_label_t label,
 					 enum lsp_types_t ltype,
 					 struct prefix *p, uint32_t num_labels,
 					 mpls_label_t out_labels[]);
-extern bool bgp_zebra_request_label_range(uint32_t base, uint32_t chunk_size);
+extern bool bgp_zebra_request_label_range(uint32_t base, uint32_t chunk_size,
+					  bool label_auto);
 extern void bgp_zebra_release_label_range(uint32_t start, uint32_t end);
 #endif /* _QUAGGA_BGP_ZEBRA_H */

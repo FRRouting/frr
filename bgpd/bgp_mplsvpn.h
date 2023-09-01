@@ -13,6 +13,7 @@
 #include "bgpd/bgp_rd.h"
 #include "bgpd/bgp_zebra.h"
 #include "bgpd/bgp_vty.h"
+#include "bgpd/bgp_label.h"
 
 #define MPLS_LABEL_IS_SPECIAL(label) ((label) <= MPLS_LABEL_EXTENSION)
 #define MPLS_LABEL_IS_NULL(label)                                              \
@@ -163,6 +164,25 @@ static inline int vpn_leak_to_vpn_active(struct bgp *bgp_vrf, afi_t afi,
 		if (pmsg)
 			*pmsg = "auto label not allocated";
 		return 0;
+	}
+
+	/* Is there a "manual" export label that isn't allocated yet? */
+	if (!CHECK_FLAG(bgp_vrf->vpn_policy[afi].flags,
+			BGP_VPN_POLICY_TOVPN_LABEL_AUTO) &&
+	    bgp_vrf->vpn_policy[afi].tovpn_label != BGP_PREVENT_VRF_2_VRF_LEAK &&
+	    bgp_vrf->vpn_policy[afi].tovpn_label != MPLS_LABEL_NONE &&
+	    (bgp_vrf->vpn_policy[afi].tovpn_label >= MPLS_LABEL_UNRESERVED_MIN &&
+	     !CHECK_FLAG(bgp_vrf->vpn_policy[afi].flags,
+			 BGP_VPN_POLICY_TOVPN_LABEL_MANUAL_REG))) {
+		if (!bgp_zebra_request_label_range(bgp_vrf->vpn_policy[afi]
+							   .tovpn_label,
+						   1, false)) {
+			if (pmsg)
+				*pmsg = "manual label could not be allocated";
+			return 0;
+		}
+		SET_FLAG(bgp_vrf->vpn_policy[afi].flags,
+			 BGP_VPN_POLICY_TOVPN_LABEL_MANUAL_REG);
 	}
 
 	return 1;

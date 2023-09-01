@@ -3423,6 +3423,9 @@ static bool bgp_zebra_label_manager_connect(void)
 	/* tell label pool that zebra is connected */
 	bgp_lp_event_zebra_up();
 
+	/* tell BGP L3VPN that label manager is available */
+	if (bgp_get_default())
+		vpn_leak_postchange_all();
 	return true;
 }
 
@@ -3921,7 +3924,8 @@ void bgp_zebra_send_nexthop_label(int cmd, mpls_label_t label,
 	zebra_send_mpls_labels(zclient, cmd, &zl);
 }
 
-bool bgp_zebra_request_label_range(uint32_t base, uint32_t chunk_size)
+bool bgp_zebra_request_label_range(uint32_t base, uint32_t chunk_size,
+				   bool label_auto)
 {
 	int ret;
 	uint32_t start, end;
@@ -3943,7 +3947,13 @@ bool bgp_zebra_request_label_range(uint32_t base, uint32_t chunk_size)
 		return false;
 	}
 
-	bgp_lp_event_chunk(start, end);
+	if (label_auto)
+		/* label automatic is serviced by the bgp label pool
+		 * manager, which allocates label chunks in
+		 * pre-pools, and which needs to be notified about
+		 * new chunks availability
+		 */
+		bgp_lp_event_chunk(start, end);
 
 	return true;
 }
