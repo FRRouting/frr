@@ -11048,11 +11048,9 @@ static void bgp_show_peer_reset(struct vty * vty, struct peer *peer,
 					     msgbuf, sizeof(msgbuf),
 					     (uint8_t *)peer->notify.data,
 					     peer->notify.length);
-				if (msg_str)
-					json_object_string_add(
-					   json_peer,
-					   "lastShutdownDescription",
-					   msg_str);
+				json_object_string_add(json_peer,
+				   "lastShutdownDescription",
+				   msg_str);
 			}
 
 		}
