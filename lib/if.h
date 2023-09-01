@@ -252,6 +252,9 @@ struct interface {
 	/* Interface Speed in Mb/s */
 	uint32_t speed;
 
+	/* TX queue len */
+	uint32_t txqlen;
+
 	/* Interface MTU. */
 	unsigned int mtu; /* IPv4 MTU */
 	unsigned int

@@ -1508,6 +1508,7 @@ int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 	ns_id_t link_nsid = ns_id;
 	ifindex_t master_infindex = IFINDEX_INTERNAL;
 	uint8_t bypass = 0;
+	uint32_t txqlen = 0;
 
 	frrtrace(3, frr_zebra, netlink_interface, h, ns_id, startup);
 
@@ -1586,6 +1587,9 @@ int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 		link_nsid = ns_id_get_absolute(ns_id, link_nsid);
 	}
 
+	if (tb[IFLA_TXQLEN])
+		txqlen = *(uint32_t *)RTA_DATA(tb[IFLA_TXQLEN]);
+
 	struct zebra_dplane_ctx *ctx = dplane_ctx_alloc();
 	dplane_ctx_set_ns_id(ctx, ns_id);
 	dplane_ctx_set_ifp_link_nsid(ctx, link_nsid);
@@ -1594,6 +1598,7 @@ int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 	dplane_ctx_set_ifname(ctx, name);
 	dplane_ctx_set_ifp_startup(ctx, startup);
 	dplane_ctx_set_ifp_family(ctx, ifi->ifi_family);
+	dplane_ctx_set_intf_txqlen(ctx, txqlen);
 
 	/* We are interested in some AF_BRIDGE notifications. */
 #ifndef AF_BRIDGE
