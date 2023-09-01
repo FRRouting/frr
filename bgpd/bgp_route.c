@@ -12793,6 +12793,8 @@ DEFPY(show_ip_bgp, show_ip_bgp_cmd,
 			rpki_target_state = RPKI_VALID;
 		else if (argv_find(argv, argc, "invalid", &idx))
 			rpki_target_state = RPKI_INVALID;
+		else if (argv_find(argv, argc, "notfound", &idx))
+			rpki_target_state = RPKI_NOTFOUND;
 	}
 
 	/* Display prefixes with matching version numbers */
