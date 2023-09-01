@@ -1396,6 +1396,7 @@ bgp_attr_malformed(struct bgp_attr_parser_args *args, uint8_t subcode,
 	 */
 	case BGP_ATTR_ORIGIN:
 	case BGP_ATTR_AS_PATH:
+	case BGP_ATTR_AS4_PATH:
 	case BGP_ATTR_NEXT_HOP:
 	case BGP_ATTR_MULTI_EXIT_DISC:
 	case BGP_ATTR_LOCAL_PREF:
