@@ -303,6 +303,7 @@ enum zebra_dplane_result kernel_route_update(struct zebra_dplane_ctx *ctx)
 {
 	enum zebra_dplane_result res = ZEBRA_DPLANE_REQUEST_SUCCESS;
 	uint32_t type, old_type;
+	uint32_t flag, old_flag;
 
 	if (dplane_ctx_get_src(ctx) != NULL) {
 		zlog_err("route add: IPv6 sourcedest routes unsupported!");
@@ -312,7 +313,21 @@ enum zebra_dplane_result kernel_route_update(struct zebra_dplane_ctx *ctx)
 	type = dplane_ctx_get_type(ctx);
 	old_type = dplane_ctx_get_old_type(ctx);
 
+	flag = dplane_ctx_get_flags(ctx);
+	old_flag = dplane_ctx_get_old_flags(ctx);
 	frr_with_privs(&zserv_privs) {
+		/* If new route is set kernel-bypass,we just return success
+		 * unless old route is not kernel-bypass when update operation.
+		 */
+		if (!CHECK_FLAG(flag, ZEBRA_FLAG_KERNEL_BYPASS)) {
+			if (dplane_ctx_get_op(ctx) == DPLANE_OP_ROUTE_UPDATE &&
+			    !CHECK_FLAG(old_flag, ZEBRA_FLAG_KERNEL_BYPASS) &&
+						!RSYSTEM_ROUTE(old_type))
+				kernel_rtm(RTM_DELETE, dplane_ctx_get_dest(ctx),
+					   dplane_ctx_get_old_ng(ctx),
+					   dplane_ctx_get_old_metric(ctx));
+			continue;
+		}
 
 		if (dplane_ctx_get_op(ctx) == DPLANE_OP_ROUTE_DELETE) {
 			if (!RSYSTEM_ROUTE(type))

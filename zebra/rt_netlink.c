@@ -2968,7 +2968,23 @@ netlink_put_route_update_msg(struct nl_batch *bth, struct zebra_dplane_ctx *ctx)
 {
 	int cmd;
 	const struct prefix *p = dplane_ctx_get_dest(ctx);
+	uint32_t flag, old_flag;
 
+	flag = dplane_ctx_get_flags(ctx);
+	old_flag = dplane_ctx_get_old_flags(ctx);
+
+	/* If new route is set kernel-bypass,we just return success
+	 *  unless old route is not kernel-bypass when update operation .
+	 */
+	if (CHECK_FLAG(flag, ZEBRA_FLAG_KERNEL_BYPASS)) {
+		if (dplane_ctx_get_op(ctx) == DPLANE_OP_ROUTE_UPDATE &&
+		    !CHECK_FLAG(old_flag, ZEBRA_FLAG_KERNEL_BYPASS) &&
+					!RSYSTEM_ROUTE(dplane_ctx_get_old_type(ctx)))
+			netlink_batch_add_msg(bth, ctx,
+					      netlink_delroute_msg_encoder,
+					      true);
+		return FRR_NETLINK_SUCCESS;
+	}
 	if (dplane_ctx_get_op(ctx) == DPLANE_OP_ROUTE_DELETE) {
 		cmd = RTM_DELROUTE;
 	} else if (dplane_ctx_get_op(ctx) == DPLANE_OP_ROUTE_INSTALL) {

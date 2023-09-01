@@ -1205,6 +1205,7 @@ void dplane_rib_add_multipath(afi_t afi, safi_t safi, struct prefix *p,
 enum zebra_dplane_startup_notifications
 dplane_ctx_get_startup_spot(struct zebra_dplane_ctx *ctx);
 
+int dplane_ctx_get_old_flags(const struct zebra_dplane_ctx *ctx);
 #ifdef __cplusplus
 }
 #endif
