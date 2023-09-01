@@ -1,0 +1,10 @@
+{
+  "192.168.0.2": {
+    "remoteAs": 200,
+    "localAs": 100,
+    "bgpVersion": 4,
+    "remoteRouterId": "10.10.10.2",
+    "localRouterId": "10.10.10.1",
+    "bgpState": "Established"
+  }
+}
