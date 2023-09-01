@@ -360,6 +360,10 @@ Route Map Set Command
 
    Accept L3VPN traffic over GRE encapsulation.
 
+.. clicmd:: set kernel-bypass
+
+   Set route not to be installed in kernel. Only support mount to Zebra.
+
 .. _route-map-call-command:
 
 Route Map Call Command
