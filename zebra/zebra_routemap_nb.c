@@ -57,6 +57,13 @@ const struct frr_yang_module_info frr_zebra_route_map_info = {
 			}
 		},
 		{
+			.xpath = "/frr-route-map:lib/route-map/entry/set-action/rmap-set-action/frr-zebra-route-map:kernel-bypass",
+			.cbs = {
+				.create = lib_route_map_entry_set_action_rmap_set_action_kernel_bypass_create,
+				.destroy = lib_route_map_entry_set_action_rmap_set_action_kernel_bypass_destroy,
+			}
+		},
+		{
 			.xpath = NULL,
 		},
 	}

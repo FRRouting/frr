@@ -64,6 +64,12 @@ module frr-zebra-route-map {
       "Set IPv4/IPv6 source address for route";
   }
 
+  identity kernel-bypass {
+    base frr-route-map:rmap-set-type;
+    description
+      "Set Zebra kernel-bypas attribute";
+  }
+
   augment "/frr-route-map:lib"
     + "/frr-route-map:route-map"
     + "/frr-route-map:entry"
@@ -132,5 +138,12 @@ module frr-zebra-route-map {
         }
       }
     }
+
+    case kernel-bypass {
+      when "derived-from-or-self(../frr-route-map:action, 'frr-zebra-route-map:kernel-bypass')";
+      leaf kernel-bypass {
+        type empty;
+      }
+    } 
   }
 }
