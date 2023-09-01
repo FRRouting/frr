@@ -499,11 +499,11 @@ const char *bgp_notify_admin_message(char *buf, size_t bufsz, uint8_t *data,
 				     size_t datalen)
 {
 	if (!data || datalen < 1)
-		return NULL;
+		return buf;
 
 	uint8_t len = data[0];
 	if (!len || len > datalen - 1)
-		return NULL;
+		return buf;
 
 	return zlog_sanitize(buf, bufsz, data + 1, len);
 }
