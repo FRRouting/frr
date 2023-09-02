@@ -799,7 +799,30 @@ sed -i 's/ -M rpki//' %{_sysconfdir}/frr/daemons
 
 %changelog
 
-* Wed Jul 26 2023 Martin Winter <mwinter@opensourcerouting.org> - %{version}
+* Fri Sep 01 2023 Martin Winter <mwinter@opensourcerouting.org> - %{version}
+
+* Fri Sep 01 2023 Jafar Al-Gharaibeh <jafar@atcorp.com> - 9.0.1
+- bgpd
+-    Add peers back to peer hash when peer_xfer_conn fails
+-    Check the length of the rcv software version
+-    Do not explicitly print maxttl value for ebgp-multihop vty output
+-    Do not process nlris if the attribute length is zero
+-    Don't read the first byte of orf header if we are ahead of stream
+-    Evpn code was not properly unlocking rd_dest
+-    Fix `show bgp all rpki notfound`
+-    Make sure we have enough data to read two bytes when validating aigp
+-    Use treat-as-withdraw for tunnel encapsulation attribute
+- zebra
+-    Fix evpn nexthop config order
+- lib
+-    Allow unsetting walltime-warning and cpu-warning
+- ospfd
+-    Prevent use after free( and crash of ospf ) when no router ospf
+- pimd
+-    Prevent crash when receiving register message when the rp() is unknown
+-    When receiving a packet be more careful with length in pim_pim_packet
+- vtysh
+-    Print uniq lines when parsing `no service ...`
 
 * Wed Jul 26 2023 Jafar Al-Gharaibeh <jafar@atcorp.com> - 9.0
 - Major Highlights:
