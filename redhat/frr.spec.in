@@ -793,7 +793,54 @@ sed -i 's/ -M rpki//' %{_sysconfdir}/frr/daemons
 
 %changelog
 
-* Thu Jun 15 2023 Martin Winter <mwinter@opensourcerouting.org> - %{version}
+* Fri Sep 01 2023 Martin Winter <mwinter@opensourcerouting.org> - %{version}
+
+* Fri Sep 01 2023 Jafar Al-Gharaibeh <jafar@atcorp.com> - 8.5.3
+- bgpd
+-    Add peers back to peer hash when peer_xfer_conn fails
+-    Do not explicitly print maxttl value for ebgp-multihop vty output
+-    Do not process nlris if the attribute length is zero
+-    Do not try to redistribute routes if we are shutting down
+-    Don't read the first byte of orf header if we are ahead of stream
+-    Evpn code was not properly unlocking rd_dest
+-    Fix `show bgp all rpki notfound`
+-    Fix session reset issue caused by malformed core attributes
+-    Free bgp vpn policy
+-    Free previously dup'ed aspath attribute for aggregate routes
+-    Free temporary memory after using argv_concat()
+-    Intern attributes before putting into rib-out
+-    Make sure we have enough data to read two bytes when validating aigp
+-    Prevent use after free
+-    Rfapi memleak fixes, clean ce tables at exit
+-    Unlock dest if we return earlier for aggregate install
+-    Use treat-as-withdraw for tunnel encapsulation attribute
+- lib
+-    Allow unsetting walltime-warning and cpu-warning
+-    Skip route-map optimization if !af_inet(6)
+-    Use max_bitlen instead of magic number
+- ospf6d
+-    Fix crash because neighbor structure was freed
+-    Stop crash in ospf6_write
+- ospfd
+-    Check for nulls in vty code
+-    Prevent use after free( and crash of ospf ) when no router ospf
+- pbrd
+-    Fix crash with match command
+- pimd
+-    Prevent crash when receiving register message when the rp() is unknown
+-    When receiving a packet be more careful with length in pim_pim_packet
+- ripd, ripngd
+-    Revert "Cleanup memory allocations on shutdown"
+- tools
+-    Add what frr thinks as the fib routes for support_bundle
+- vtysh
+-    Print uniq lines when parsing `no service ...`
+- zebrad
+-    Abstract `dplane_ctx_route_init` to init route without copying
+-    Fix crash when `dplane_fpm_nl` fails to process received routes
+-    Further handle route replace semantics
+-    Fix command ipv6 nht xxx
+-    Fix evpn nexthop config order
 
 * Thu Jun 15 2023 Jafar Al-Gharaibeh <jafar@atcorp.com> - 8.5.2
 - Bug fixes:
@@ -817,16 +864,12 @@ sed -i 's/ -M rpki//' %{_sysconfdir}/frr/daemons
 -    Respect loopback's cost that is set and set loopback costs to 0
 - pim6d
 -    Fix crash in ipv6 pim command
-
 - pimd
 -    Pim not sending register packets after changing from non dr to dr
-
 -tools
 -    Fix list value remove in frr-reload
-
 - vtysh
 -    Give actual pam error messages
-
 - zebra
 -    Evpn handle del event for dup detected mac
 -    Fix dp_out_queued counter to actually reflect real life
