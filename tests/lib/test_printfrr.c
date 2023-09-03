@@ -166,6 +166,9 @@ int main(int argc, char **argv)
 	printchk("-77385308584349683 18369358765125201933 feed1278cafef00d",
 		 "%Ld %Lu %Lx", ui64, ui64, ui64);
 
+	FMT_NSTD(printchk("11110000000011111010010111000011", "%b", 0xf00fa5c3));
+	FMT_NSTD(printchk("0b01011010", "%#010b", 0x5a));
+
 	inet_aton("192.168.1.2", &ip);
 	printchk("192.168.1.2", "%pI4", &ip);
 	printchk("         192.168.1.2", "%20pI4", &ip);
