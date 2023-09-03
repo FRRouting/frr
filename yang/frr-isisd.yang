@@ -2051,6 +2051,12 @@ module frr-isisd {
             }
           }
         }
+        leaf interface {
+          type string;
+          description
+            "Dummy interface used to install SRv6 SIDs into the Linux data plane.";
+          default "sr0";
+        }
       }
 
       container mpls {
