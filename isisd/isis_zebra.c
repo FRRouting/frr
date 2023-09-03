@@ -942,11 +942,11 @@ void isis_zebra_srv6_sid_install(struct isis_area *area,
 	}
 
 	/* Attach the SID to the SRv6 interface */
-	ifp = if_lookup_by_name(SRV6_IFNAME, VRF_DEFAULT);
+	ifp = if_lookup_by_name(area->srv6db.config.srv6_ifname, VRF_DEFAULT);
 	if (!ifp) {
 		zlog_warn(
 			"Failed to install SRv6 SID %pI6: %s interface not found",
-			&sid->sid, SRV6_IFNAME);
+			&sid->sid, area->srv6db.config.srv6_ifname);
 		return;
 	}
 
@@ -999,10 +999,10 @@ void isis_zebra_srv6_sid_uninstall(struct isis_area *area,
 	}
 
 	/* The SID is attached to the SRv6 interface */
-	ifp = if_lookup_by_name(SRV6_IFNAME, VRF_DEFAULT);
+	ifp = if_lookup_by_name(area->srv6db.config.srv6_ifname, VRF_DEFAULT);
 	if (!ifp) {
 		zlog_warn("%s interface not found: nothing to uninstall",
-			  SRV6_IFNAME);
+			  area->srv6db.config.srv6_ifname);
 		return;
 	}
 

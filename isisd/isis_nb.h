@@ -350,6 +350,10 @@ int isis_instance_segment_routing_srv6_msd_node_msd_max_end_d_destroy(
 	struct nb_cb_destroy_args *args);
 void cli_show_isis_srv6_node_msd(struct vty *vty, const struct lyd_node *dnode,
 				 bool show_defaults);
+int isis_instance_segment_routing_srv6_interface_modify(
+	struct nb_cb_modify_args *args);
+void cli_show_isis_srv6_interface(struct vty *vty, const struct lyd_node *dnode,
+				bool show_defaults);
 int isis_instance_mpls_ldp_sync_destroy(struct nb_cb_destroy_args *args);
 int isis_instance_mpls_ldp_sync_create(struct nb_cb_create_args *args);
 int isis_instance_mpls_ldp_sync_holddown_modify(struct nb_cb_modify_args *args);

@@ -158,6 +158,46 @@ bool isis_srv6_locator_unset(struct isis_area *area)
 }
 
 /**
+ * Set the interface used to install SRv6 SIDs into the data plane.
+ *
+ * @param area	IS-IS area
+ */
+void isis_srv6_interface_set(struct isis_area *area, const char *ifname)
+{
+	struct listnode *node;
+	struct isis_srv6_sid *sid;
+
+	if (!ifname)
+		return;
+
+	if (!strncmp(ifname, area->srv6db.config.srv6_ifname, IF_NAMESIZE)) {
+		/* The interface has not changed, nothing to do */
+		return;
+	}
+
+	sr_debug("SRv6 interface for IS-IS area %s changed (old interface: %s, new interface: %s)", area->area_tag, area->srv6db.config.srv6_ifname, ifname);
+
+	/* Walk through all SIDs and uninstall them from the data plane */
+	for (ALL_LIST_ELEMENTS_RO(area->srv6db.srv6_sids, node, sid)) {
+		sr_debug("Uninstalling SID %pI6 from the data plane", &sid->sid);
+		isis_zebra_srv6_sid_uninstall(area, sid);
+	}
+
+	strncpy(area->srv6db.config.srv6_ifname, ifname, IF_NAMESIZE - 1);
+
+	if (!if_lookup_by_name(area->srv6db.config.srv6_ifname, VRF_DEFAULT)) {
+		sr_debug("Interface %s not yet exist in data plane, deferring SIDs installation until it's created", area->srv6db.config.srv6_ifname);
+		return;
+	}
+
+	/* Walk through all SIDs and re-install them into the data plane with the newly configured interface */
+	for (ALL_LIST_ELEMENTS_RO(area->srv6db.srv6_sids, node, sid)) {
+		sr_debug("Installing SID %pI6 from the data plane", &sid->sid);
+		isis_zebra_srv6_sid_install(area, sid);
+	}
+}
+
+/**
  * Encode SID function in the SRv6 SID.
  *
  * @param sid
@@ -683,6 +723,38 @@ DEFUN(show_srv6_node, show_srv6_node_cmd,
 	return CMD_SUCCESS;
 }
 
+int isis_srv6_ifp_up_notify(struct interface *ifp)
+{
+	struct isis *isis = isis_lookup_by_vrfid(VRF_DEFAULT);
+	struct listnode *node, *node2;
+	struct isis_area *area;
+	struct isis_srv6_sid *sid;
+
+	if (!isis)
+		return 0;
+
+	/* Walk through all areas of the ISIS instance */
+	for (ALL_LIST_ELEMENTS_RO(isis->area_list, node, area)) {
+		/* Skip area, if SRv6 is not enabled */
+		if (!area->srv6db.config.enabled)
+			continue;
+
+		/* Skip area if the interface is not the one configured for SRv6 */
+		if (strncmp(area->srv6db.config.srv6_ifname, ifp->name, IF_NAMESIZE))
+			continue;
+
+		sr_debug("Interface %s went up. Installing SIDs for area %s in data plane", ifp->name, area->area_tag);
+
+		/* Walk through all SIDs and re-install them into the data plane with the newly configured interface */
+		for (ALL_LIST_ELEMENTS_RO(area->srv6db.srv6_sids, node2, sid)) {
+			sr_debug("Installing SID %pI6 from the data plane", &sid->sid);
+			isis_zebra_srv6_sid_install(area, sid);
+		}
+	}
+
+	return 0;
+}
+
 /**
  * IS-IS SRv6 initialization for given area.
  *
@@ -716,6 +788,7 @@ void isis_srv6_area_init(struct isis_area *area)
 				       ISIS_SRV6);
 	srv6db->config.max_end_d_msd =
 		yang_get_default_uint8("%s/msd/node-msd/max-end-d", ISIS_SRV6);
+	strncpy(srv6db->config.srv6_ifname, yang_get_default_string("%s/interface", ISIS_SRV6), IF_NAMESIZE - 1);
 
 	/* Initialize SRv6 Locator chunks list */
 	srv6db->srv6_locator_chunks = list_new();

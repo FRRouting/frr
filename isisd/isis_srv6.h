@@ -13,9 +13,6 @@
 #include "lib/srv6.h"
 #include "isisd/isis_tlvs.h"
 
-/* Name of the interface used for installing SRv6 SIDs into the data plane */
-#define SRV6_IFNAME "sr0"
-
 /* SRv6 SID structure */
 struct isis_srv6_sid_structure {
 	uint8_t loc_block_len;
@@ -135,10 +132,15 @@ struct isis_srv6_db {
 
 		/* Maximum End D MSD supported by the router */
 		uint8_t max_end_d_msd;
+
+		/* Interface used for installing SRv6 SIDs into the data plane */
+		char srv6_ifname[IF_NAMESIZE];
 	} config;
 };
 
 bool isis_srv6_locator_unset(struct isis_area *area);
+
+void isis_srv6_interface_set(struct isis_area *area, const char *ifname);
 
 struct isis_srv6_sid *
 isis_srv6_sid_alloc(struct isis_area *area, struct srv6_locator_chunk *chunk,
@@ -167,5 +169,7 @@ void srv6_endx_sid_del(struct srv6_adjacency *sra);
 struct srv6_adjacency *isis_srv6_endx_sid_find(struct isis_adjacency *adj,
 					       enum srv6_adj_type type);
 void isis_area_delete_backup_srv6_endx_sids(struct isis_area *area, int level);
+
+int isis_srv6_ifp_up_notify(struct interface *ifp);
 
 #endif /* _FRR_ISIS_SRV6_H */

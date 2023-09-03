@@ -3719,6 +3719,31 @@ int isis_instance_segment_routing_srv6_msd_node_msd_max_end_d_destroy(
 }
 
 /*
+ * XPath: /frr-isisd:isis/instance/segment-routing-srv6/interface
+ */
+int isis_instance_segment_routing_srv6_interface_modify(
+	struct nb_cb_modify_args *args)
+{
+	struct isis_area *area;
+	const char *ifname;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	area = nb_running_get_entry(lyd_parent(lyd_parent(args->dnode)), NULL,
+				    true);
+
+	ifname = yang_dnode_get_string(args->dnode, NULL);
+
+	sr_debug("Changing SRv6 interface for IS-IS area %s to %s",
+		 area->area_tag, ifname);
+
+	isis_srv6_interface_set(area, ifname);
+
+	return NB_OK;
+}
+
+/*
  * XPath: /frr-isisd:isis/instance/mpls/ldp-sync
  */
 int isis_instance_mpls_ldp_sync_create(struct nb_cb_create_args *args)
