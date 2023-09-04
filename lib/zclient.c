@@ -2761,6 +2761,7 @@ static void zebra_interface_if_set_value(struct stream *s,
 	STREAM_GETC(s, ifp->ptm_status);
 	STREAM_GETL(s, ifp->metric);
 	STREAM_GETL(s, ifp->speed);
+	STREAM_GETL(s, ifp->txqlen);
 	STREAM_GETL(s, ifp->mtu);
 	STREAM_GETL(s, ifp->mtu6);
 	STREAM_GETL(s, ifp->bandwidth);

@@ -2060,6 +2060,7 @@ static void zebra_if_dplane_ifp_handling(struct zebra_dplane_ctx *ctx)
 			ifp->metric = 0;
 			ifp->speed = kernel_get_speed(ifp, NULL);
 			ifp->ptm_status = ZEBRA_PTM_STATUS_UNKNOWN;
+			ifp->txqlen = dplane_ctx_get_intf_txqlen(ctx);
 
 			/* Set interface type */
 			zebra_if_set_ziftype(ifp, zif_type, zif_slave_type);
@@ -2142,6 +2143,7 @@ static void zebra_if_dplane_ifp_handling(struct zebra_dplane_ctx *ctx)
 			set_ifindex(ifp, ifindex, zns);
 			ifp->mtu6 = ifp->mtu = mtu;
 			ifp->metric = 0;
+			ifp->txqlen = dplane_ctx_get_intf_txqlen(ctx);
 
 			/*
 			 * Update interface type - NOTE: Only slave_type can
@@ -2786,8 +2788,8 @@ static void if_dump_vty(struct vty *vty, struct interface *ifp)
 		return;
 	}
 
-	vty_out(vty, "  index %d metric %d mtu %d speed %u ", ifp->ifindex,
-		ifp->metric, ifp->mtu, ifp->speed);
+	vty_out(vty, "  index %d metric %d mtu %d speed %u txqlen %u",
+		ifp->ifindex, ifp->metric, ifp->mtu, ifp->speed, ifp->txqlen);
 	if (ifp->mtu6 != ifp->mtu)
 		vty_out(vty, "mtu6 %d ", ifp->mtu6);
 	vty_out(vty, "\n  flags: %s\n", if_flag_dump(ifp->flags));
@@ -3174,6 +3176,7 @@ static void if_dump_vty_json(struct vty *vty, struct interface *ifp,
 	if (ifp->mtu6 != ifp->mtu)
 		json_object_int_add(json_if, "mtu6", ifp->mtu6);
 	json_object_int_add(json_if, "speed", ifp->speed);
+	json_object_int_add(json_if, "txqlen", ifp->txqlen);
 	json_object_string_add(json_if, "flags", if_flag_dump(ifp->flags));
 
 	/* Hardware address. */
