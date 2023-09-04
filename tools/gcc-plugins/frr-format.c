@@ -3464,7 +3464,7 @@ class frr_range_label_for_type_mismatch : public range_label
   {
   }
 
-  label_text get_text (unsigned range_idx) const OVERRIDE;
+  label_text get_text (unsigned range_idx) const override;
 
  protected:
   tree m_labelled_type;
@@ -3564,19 +3564,26 @@ class range_label_for_format_type_mismatch
   {
   }
 
-  label_text get_text (unsigned range_idx) const FINAL OVERRIDE
+#if BUILDING_GCC_VERSION >= 13000
+#define text_get(text) text.get()
+#define text_return(text, result) return label_text::take(result)
+#else
+#define text_get(text) text.m_buffer
+#define text_return(text, result) text.maybe_free(); return label_take(result)
+#endif
+
+  label_text get_text (unsigned range_idx) const final override
   {
     label_text text = range_label_for_type_mismatch::get_text (range_idx);
-    if (text.m_buffer == NULL)
+    if (text_get(text) == NULL)
       return text;
 
     indirection_suffix suffix (m_pointer_count);
     char *p = (char *) alloca (suffix.get_buffer_size ());
     suffix.fill_buffer (p);
 
-    char *result = concat (text.m_buffer, p, NULL);
-    text.maybe_free ();
-    return label_take(result);
+    char *result = concat (text_get(text), p, NULL);
+    text_return(text, result);
   }
 
  private:
