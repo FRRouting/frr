@@ -69,6 +69,8 @@ struct pm_session {
 	int packet_size;
 #define PM_INTERVAL_DEFAULT PM_DEF_INTERVAL
 	int interval;
+#define PM_COUNT_DEFAULT PM_DEF_COUNT
+	int count;
 #define PM_PACKET_TOS_DEFAULT PM_DEF_TOS_VAL
 	uint8_t tos_val;
 #define PM_RETRIES_MODE_CONSECUTIVE 1

@@ -75,10 +75,11 @@ static void _pm_echo_remove(struct pm_echo *pme)
 	pm_id_list_delete(pme);
 	if (pme->rtt_stats)
 		pm_rtt_free_ctx(pme->rtt_stats);
-	if (pme->rx_buf)
-		XFREE(MTYPE_PM_PACKET, pme->rx_buf);
-	if (pme->tx_buf)
-		XFREE(MTYPE_PM_PACKET, pme->tx_buf);
+	if (pme->rtt_bulk_stats)
+		pm_rtt_free_ctx(pme->rtt_bulk_stats);
+	XFREE(MTYPE_PM_PACKET, pme->tx_buf);
+	XFREE(MTYPE_PM_PACKET, pme->rx_buf);
+	XFREE(MTYPE_PM_TIMEVAL, pme->stop);
 	memset(pme, 0, sizeof(struct pm_echo));
 	XFREE(MTYPE_PM_ECHO, pme);
 }
@@ -262,8 +263,9 @@ void pm_echo_receive(struct event *event)
 	struct icmphdr *icmp;
 	struct icmp6_hdr *icmp6;
 	socklen_t fromlen = sizeof(from);
-	int hlen, ret = 0;
+	int hlen, idx, ret = 0;
 	struct iphdr *ip;
+	struct timeval tmp;
 
 	if ((sockunion_family(&pme->peer) == AF_INET
 	     && pme->echofd < 0) ||
@@ -286,7 +288,7 @@ void pm_echo_receive(struct event *event)
 		zlog_err("error when receiving ICMP echo.");
 		return;
 	}
-	monotime(&pme->end);
+	monotime(&tmp);
 	if (sockunion_family(&pme->peer) == AF_INET) {
 		ip = (struct iphdr *)pme->rx_buf;
 		hlen = ip->ihl << 2;
@@ -330,12 +332,27 @@ void pm_echo_receive(struct event *event)
 			}
 			return;
 		}
-		if (ntohs(icmp->un.echo.sequence) != (pme->icmp_sequence - 1)) {
-			if (pm_debug_echo)
-				zlog_err("PMD: ICMP from %pI4 to %pI4 rx seq %u, expected %u",
-					 &pme->peer.sin.sin_addr, &ip->daddr,
-					 ntohs(icmp->un.echo.sequence),
-					 pme->icmp_sequence - 1);
+		idx = pme->icmp_sequence - ntohs(icmp->un.echo.sequence) - 1;
+		if (idx < 0 || idx >= pme->count) {
+			if (pm_debug_echo) {
+				if (pme->count > 1) {
+					zlog_debug(
+						"received ICMP from %pI4 to %pI4 Seq %u, "
+						"expected Seq between %u and %u",
+						&pme->peer.sin.sin_addr, &ip->daddr,
+						ntohs(icmp->un.echo.sequence),
+						pme->icmp_sequence - pme->count
+							- 1,
+						pme->icmp_sequence - 1);
+				} else {
+					zlog_debug(
+						"received ICMP from %pI4 to %pI4 Seq %u, "
+						"expected Seq %u",
+						&pme->peer.sin.sin_addr, &ip->daddr,
+						ntohs(icmp->un.echo.sequence),
+						pme->icmp_sequence - 1);
+				}
+			}
 			return;
 		}
 	} else {
@@ -357,19 +374,37 @@ void pm_echo_receive(struct event *event)
 					 pme->discriminator_id & 0xffff);
 			return;
 		}
-		if (ntohs(icmp6->icmp6_seq) != (pme->icmp_sequence - 1)) {
-			if (pm_debug_echo)
-				zlog_err("PMD: ICMP from %pI6 rx seq %u, expected %u",
-					 &pme->peer.sin6.sin6_addr,
-					 ntohs(icmp6->icmp6_seq),
-					 pme->icmp_sequence - 1);
+		idx = pme->icmp_sequence - ntohs(icmp6->icmp6_seq) - 1;
+		if (idx < 0 || idx >= pme->count) {
+			if (pm_debug_echo) {
+				if (pme->count > 1) {
+					zlog_err(
+						"received ICMP from %pI6 Seq %u, "
+						"expected Seq between %u ans %u",
+						&pme->peer.sin6.sin6_addr,
+						ntohs(icmp6->icmp6_seq),
+						pme->icmp_sequence - pme->count
+							- 1,
+						pme->icmp_sequence - 1);
+				} else {
+					zlog_err(
+						"received ICMP from %pI6 Seq %u, "
+						"expected Seq %u",
+						&pme->peer.sin6.sin6_addr,
+						ntohs(icmp6->icmp6_seq),
+						pme->icmp_sequence - 1);
+				}
+			}
 			return;
 		}
 	}
+	pme->stop[idx].tv_sec = tmp.tv_sec;
+	pme->stop[idx].tv_usec = tmp.tv_usec;
 	pme->stats_rx++;
-	pm_rtt_calculate(&pme->start, &pme->end,
-			 &pme->last_rtt, NULL);
+	pm_rtt_calculate(&pme->start, &pme->stop[idx], &pme->last_rtt, NULL);
 	pm_rtt_update_stats(pme->rtt_stats, &pme->last_rtt, NULL);
+	if (pm->key.type == PM_ICMP_SLA)
+		return;
 	if (pme->last_rtt.tv_sec * 1000 > pme->timeout ||
 	    ((pme->last_rtt.tv_sec * 1000 == pm->timeout) &&
 	     (pme->last_rtt.tv_usec > 0))) {
@@ -597,12 +632,15 @@ void pm_echo_send(struct event *event)
 {
 	struct pm_echo *pme = EVENT_ARG(event);
 	struct pm_session *pm = pme->back_ptr;
-	struct iphdr *iph;
+	struct iphdr *iph = NULL;
 	struct ipv6header *ip6h;
 	struct icmphdr *icmp = NULL;
-	struct icmp6_hdr *icmp6;
+	struct icmp6_hdr *icmp6, *cksum_icmp6;
 	struct ipv6pseudoheader *p_ip6h;
+	char cksum_ip6h[sizeof(struct ipv6pseudoheader)
+			+ sizeof(struct icmp6_hdr)] = {0};
 	int ret = 0;
+	uint16_t i;
 	size_t siz;
 	union g_addr *src_ip = NULL;
 	int family;
@@ -676,8 +714,8 @@ void pm_echo_send(struct event *event)
 
 	if (pme->oper_connect == false) {
 		/* XXX issues when using connect() with RAW ICMPV6 socket */
-		if (sockunion_family(&pme->gw) == AF_INET &&
-		    sockunion_same(&pme->gw, &pme->peer)) {
+		if (sockunion_family(&pme->gw) == AF_INET
+		    && sockunion_same(&pme->gw, &pme->peer)) {
 			ret = connect(pme->echofd,
 				      (struct sockaddr *)&pme->peer,
 				      sizeof(struct sockaddr_in));
@@ -697,7 +735,6 @@ void pm_echo_send(struct event *event)
 		iph->ihl = 5;
 		iph->version = 4;
 		iph->tos = pm->tos_val;
-		iph->id = random();
 		iph->ttl = 64;
 		iph->protocol = IPPROTO_ICMP;
 		iph->daddr = pme->peer.sin.sin_addr.s_addr;
@@ -706,7 +743,7 @@ void pm_echo_send(struct event *event)
 		if (!src_ip) {
 			zlog_warn("cancel ICMP echo send to %pSU without src IP",
 					&pme->peer);
-			goto label_end_tried_sending;
+			return;
 		} else
 			iph->saddr = src_ip->ipv4.s_addr;
 		pme->src.sin.sin_family = AF_INET;
@@ -716,55 +753,47 @@ void pm_echo_send(struct event *event)
 		icmp->type = ICMP_ECHO;
 		icmp->code = 0;
 		icmp->un.echo.id = htons(pme->discriminator_id & 0xffff);
-		icmp->un.echo.sequence = htons(pme->icmp_sequence++);
-		icmp->checksum = 0;
-		icmp->checksum = in_cksum((void *)icmp,
-					  pme->packet_size - sizeof(struct iphdr));
-		insns[2] = (struct sock_filter)BPF_JUMP(BPF_JMP|BPF_JEQ|BPF_K, ntohs(icmp->un.echo.id), 0, 1);
-		ret = setsockopt(pme->echofd, SOL_SOCKET, SO_ATTACH_FILTER, &filter, sizeof(filter));
-		if (ret < 0)
-			zlog_err("pm_echo_send, use SO_ATTACH_FILTER for session to %pSU failed (err %d)",
-				 &pme->peer, errno);
 	} else {
 		/* calculation of icmp6 checksum is done with pseudo header
 		 * as part of https://tools.ietf.org/html/rfc2460#section-8.1
 		 */
-		p_ip6h = (struct ipv6pseudoheader *)(pme->tx_buf);
-		icmp6 = (struct icmp6_hdr *)(pme->tx_buf + sizeof(struct ipv6pseudoheader));
+		p_ip6h = (struct ipv6pseudoheader *)cksum_ip6h;
+		icmp6 = (struct icmp6_hdr *)(cksum_ip6h
+					     + sizeof(struct ipv6pseudoheader));
 		memcpy(&p_ip6h->daddr, &pme->peer.sin6.sin6_addr,
 		       sizeof(struct in6_addr));
 		src_ip = pm_echo_choose_src_ip(pm);
 		if (!src_ip) {
 			zlog_warn("cancel sending ICMP echo to %pSU without src IP",
 				 &pme->peer);
-			goto label_end_tried_sending;
+			return;
 		} else
 			memcpy(&p_ip6h->saddr, &src_ip->ipv6.s6_addr,
 			       sizeof(struct in6_addr));
 		pme->src.sin6.sin6_family = AF_INET6;
 		memcpy(&pme->src.sin6.sin6_addr, &src_ip->ipv6.s6_addr,
 		       sizeof(struct in6_addr));
-		p_ip6h->upper_layer_packet_length = htonl(pme->packet_size
-					  - sizeof(struct ipv6header));
+		p_ip6h->upper_layer_packet_length =
+			htonl(pme->packet_size - sizeof(struct ipv6header));
 		p_ip6h->proto = IPPROTO_ICMPV6;
 
 		icmp6->icmp6_type = ICMP6_ECHO_REQUEST;
 		icmp6->icmp6_code = 0;
 		icmp6->icmp6_id = htons(pme->discriminator_id & 0xffff);
-		icmp6->icmp6_seq = htons(pme->icmp_sequence++);
-		icmp6->icmp6_cksum = 0;
-		icmp6->icmp6_cksum = in_cksum((void *)p_ip6h, pme->packet_size);
-		memset(pme->tx_buf, 0, sizeof(struct ipv6header));
 		ip6h = (struct ipv6header *)pme->tx_buf;
 		icmp6 = (struct icmp6_hdr *)(pme->tx_buf
 					     + sizeof(struct ipv6header));
+		cksum_icmp6 =
+			(struct icmp6_hdr *)(cksum_ip6h
+					     + sizeof(struct ipv6pseudoheader));
+		memcpy(icmp6, cksum_icmp6, sizeof(struct icmp6_hdr));
 		ip6h->version = 6;
 		ip6h->priority = 0;
 		ip6h->flow[0] = htons(pm->tos_val);
 		ip6h->flow[1] = 0;
 		ip6h->flow[2] = 0;
-		ip6h->length = htons(pme->packet_size
-				     - sizeof(struct ipv6header));
+		ip6h->length =
+			htons(pme->packet_size - sizeof(struct ipv6header));
 		ip6h->nexthdr = IPPROTO_ICMPV6;
 		ip6h->hoplimit = 255;
 		memcpy(&ip6h->daddr, &pme->peer.sin6.sin6_addr,
@@ -772,12 +801,11 @@ void pm_echo_send(struct event *event)
 		memcpy(&ip6h->saddr, &src_ip->ipv6.s6_addr,
 		       sizeof(struct in6_addr));
 		siz = sizeof(struct sockaddr_in6);
-		insns6[1] = (struct sock_filter)BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K, ntohs(icmp6->icmp6_id), 0, 1);
+	}
 
-		ret = setsockopt(pme->echofd_rx_ipv6, SOL_SOCKET, SO_ATTACH_FILTER, &filter6, sizeof(filter6));
-		if (ret < 0)
-			zlog_err("pm_echo_send, use SO_ATTACH_FILTER for session to %pSU failed (err %d)",
-				 &pme->peer, errno);
+	if (pm->key.type == PM_ICMP_SLA) {
+		if (pme->icmp_sequence + pme->count > UINT16_MAX) /* overflow */
+			pme->icmp_sequence = 0;
 	}
 
 	pme->oper_receive = false;
@@ -789,39 +817,85 @@ void pm_echo_send(struct event *event)
 			&pme->t_echo_receive);
 
 	monotime(&pme->start);
-	ret = sendto(pme->echofd, (char *)pme->tx_buf,
-		     pme->packet_size, 0,
-		     &pme->gw.sa, siz);
-	if (ret < 0) {
-		pme->last_errno = errno;
-		if (sockunion_family(&pme->peer) == AF_INET)
-			zlog_err("error when sending ICMP echo to %pSU Seq %d ID 0x%x (error %x)",
-				 &pme->peer, ntohs(icmp->un.echo.sequence),
-				 ntohs(icmp->un.echo.id),
-				 pme->last_errno);
-		else
-			zlog_err("error when sending ICMP echo to %pSU Seq %d ID 0x%x (error %x)",
-				 &pme->peer, ntohs(icmp6->icmp6_seq),
-				 ntohs(icmp6->icmp6_id),
-				 pme->last_errno);
-		pm_echo_trigger_down_event(pm);
-	} else {
-		pme->last_errno = 0;
-		pme->stats_tx++;
-		if (pm_debug_echo) {
+	for (i = 0; i < pme->count; ++i) {
+		if (sockunion_family(&pme->peer) == AF_INET) {
+			iph->id = random();
+			icmp->un.echo.sequence = htons(pme->icmp_sequence++);
+			icmp->checksum = 0;
+			icmp->checksum = in_cksum(
+				(void *)icmp,
+				pme->packet_size - sizeof(struct iphdr));
+			/* all created icmp echos must have same echo.id value
+			 */
+			insns[2] = (struct sock_filter)BPF_JUMP(
+				BPF_JMP | BPF_JEQ | BPF_K,
+				ntohs(icmp->un.echo.id), 0, 1);
+			ret = setsockopt(pme->echofd, SOL_SOCKET,
+					 SO_ATTACH_FILTER, &filter,
+					 sizeof(filter));
+		} else {
+			cksum_icmp6->icmp6_seq = htons(pme->icmp_sequence++);
+			cksum_icmp6->icmp6_cksum = 0;
+			/* no need to use in_cksum_with_ph6() in the loop
+			 * because the data have already been copied
+			 * previously */
+			cksum_icmp6->icmp6_cksum = in_cksum((void *)cksum_ip6h,
+							    sizeof(cksum_ip6h));
+			icmp6->icmp6_seq = cksum_icmp6->icmp6_seq;
+			icmp6->icmp6_cksum = cksum_icmp6->icmp6_cksum;
+			/* all created icmp echos must have same icmp6_id value
+			 */
+			insns6[1] = (struct sock_filter)BPF_JUMP(
+				BPF_JMP | BPF_JEQ | BPF_K,
+				ntohs(icmp6->icmp6_id), 0, 1);
+			ret = setsockopt(pme->echofd_rx_ipv6, SOL_SOCKET,
+					 SO_ATTACH_FILTER, &filter6,
+					 sizeof(filter6));
+		}
+		if (ret < 0)
+			zlog_err(
+				"pm_echo_send, use SO_ATTACH_FILTER for session to %pSU failed (err %d)",
+				&pme->peer, errno);
+		ret = sendto(pme->echofd, (char *)pme->tx_buf, pme->packet_size,
+			     0, &pme->gw.sa, siz);
+		if (ret < 0) {
+			pme->last_errno = errno;
 			if (sockunion_family(&pme->peer) == AF_INET)
-				zlog_debug("sent ICMP echo to %pSU Seq %d ID 0x%x",
-					 &pme->peer, ntohs(icmp->un.echo.sequence),
-					 ntohs(icmp->un.echo.id));
+				zlog_err(
+					"error when sending ICMP echo to %pSU Seq %d ID 0x%x (error %x)",
+					&pme->peer, ntohs(icmp->un.echo.sequence),
+					ntohs(icmp->un.echo.id),
+					pme->last_errno);
 			else
-				zlog_debug("sent ICMP echo to %pSU Seq %d ID 0x%x",
-					 &pme->peer, ntohs(icmp6->icmp6_seq),
-					 ntohs(icmp6->icmp6_id));
+				zlog_err(
+					"error when sending ICMP echo to %pSU Seq %d ID 0x%x (error %x)",
+					&pme->peer, ntohs(icmp6->icmp6_seq),
+					ntohs(icmp6->icmp6_id),
+					pme->last_errno);
+			pm_echo_trigger_down_event(pm);
+		} else {
+			pme->last_errno = 0;
+			pme->stats_tx++;
+			if (pm_debug_echo) {
+				if (sockunion_family(&pme->peer) == AF_INET)
+					zlog_debug(
+						"sent ICMP echo to %pSU Seq %d ID 0x%x",
+						&pme->peer,
+						ntohs(icmp->un.echo.sequence),
+						ntohs(icmp->un.echo.id));
+				else
+					zlog_debug(
+						"sent ICMP echo to %pSU Seq %d ID 0x%x",
+						&pme->peer, ntohs(icmp6->icmp6_seq),
+						ntohs(icmp6->icmp6_id));
+			}
 		}
 	}
  label_end_tried_sending:
 	pme->retry.retry_already_counted = false;
-	if (ret >= 0) /* launch timeout if emission was successfull */
+	/* launch timeout if emission was successfull (only for non-IPSLA
+	 * sessions) */
+	if (ret >= 0 && pm->key.type != PM_ICMP_SLA)
 		event_add_timer_msec(master, pm_echo_tmo, pme, pme->timeout,
 				      &pme->t_echo_tmo);
 
@@ -880,9 +954,11 @@ int pm_echo(struct pm_session *pm, char *errormsg, int errormsg_len)
 	pme_ptr->echofd_rx_ipv6 = -1;
 	pme_ptr->discriminator_id = pm_id_list_gen_id();
 	pme_ptr->icmp_sequence = 0;
-
+	pme_ptr->stop =
+		XCALLOC(MTYPE_PM_TIMEVAL, sizeof(*pme_ptr->stop) * pm->count);
 	pme_ptr->timeout = pm->timeout;
 	pme_ptr->interval = pm->interval;
+	pme_ptr->count = pm->count;
 	pme_ptr->packet_size = pm->packet_size;
 	pme_ptr->peer = peer;
 	pme_ptr->retries_mode = pm->retries_mode;
@@ -898,6 +974,8 @@ int pm_echo(struct pm_session *pm, char *errormsg, int errormsg_len)
 		pme_ptr->retry.retry_table_iterator = 0;
 	}
 	pme_ptr->rtt_stats = pm_rtt_allocate_ctx();
+	if (pm->key.type == PM_ICMP_SLA)
+		pme_ptr->rtt_bulk_stats = pm_rtt_allocate_ctx();
 	pme_ptr->gw = gw;
 	pme_ptr->oper_connect = false;
 	pme_ptr->oper_bind = false;
@@ -941,7 +1019,8 @@ void pm_echo_dump(struct vty *vty, struct pm_session *pm)
 	}
 	vty_out(vty, "\tpacket-size %u, interval %u",
 		pme->packet_size, pme->interval);
-	vty_out(vty, ", timeout %u\n", pm->timeout);
+	vty_out(vty, ", timeout %u", pm->timeout);
+	vty_out(vty, ", count %u\n", pm->count);
 	vty_out(vty, "\tpkt %u sent, %u rcvd (timeout %u)\n",
 		pme->stats_tx, pme->stats_rx, pme->stats_rx_timeout);
 	vty_out(vty, "\tlast round trip time %lu sec, %lu usec\n",

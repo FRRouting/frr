@@ -48,6 +48,7 @@ DEFINE_MTYPE(PMD, PM_SESSION, "PM sessions");
 DEFINE_MTYPE(PMD, PM_ECHO, "PM Echo contexts");
 DEFINE_MTYPE(PMD, PM_PACKET, "PM Packets");
 DEFINE_MTYPE(PMD, PM_RTT_STATS, "PM RTT stats");
+DEFINE_MTYPE(PMD, PM_TIMEVAL, "PM Timeval");
 
 DEFINE_HOOK(pm_tracking_new_session,
 	    (struct pm_session *pm), (pm));
@@ -386,6 +387,7 @@ void pm_initialise(struct pm_session *pm, bool validate_only,
 		pm_set_sess_state(pm, PM_ADM_DOWN);
 		pm->timeout = PM_TIMEOUT_DEFAULT;
 		pm->interval = PM_INTERVAL_DEFAULT;
+		pm->count = PM_COUNT_DEFAULT;
 		pm->packet_size = pm_get_default_packet_size(pm);
 		pm->tos_val = PM_PACKET_TOS_DEFAULT;
 		pm->retries_consecutive_up = PM_PACKET_RETRIES_CONSECUTIVE_UP_DEFAULT;

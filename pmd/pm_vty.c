@@ -120,6 +120,8 @@ static void pm_session_write_config_walker(struct hash_bucket *b, void *data)
 		vty_out(vty, "  packet-size %u\n", pm->packet_size);
 	if (pm->timeout != PM_TIMEOUT_DEFAULT)
 		vty_out(vty, "  timeout %u\n", pm->timeout);
+	if (pm->count != PM_COUNT_DEFAULT)
+		vty_out(vty, "  count %u\n", pm->count);
 	if (pm->retries_mode != PM_RETRIES_MODE_THRESHOLD)
 		vty_out(vty, "  retries mode consecutive\n");
 	if (pm->retries_consecutive_down != PM_PACKET_RETRIES_CONSECUTIVE_DOWN_DEFAULT
@@ -285,6 +287,27 @@ DEFPY(pm_packet_interval, pm_packet_interval_cmd,
 	return CMD_SUCCESS;
 }
 
+DEFPY(pm_packet_count, pm_packet_count_cmd, "[no] count [(1-65535)$pcount]",
+      NO_STR
+      "Number of packets to send in each bulk\n"
+      "Number of packets\n")
+{
+	struct pm_session *pm;
+
+	pm = VTY_GET_CONTEXT(pm_session);
+
+	if (pm->key.type != PM_ICMP_SLA) {
+		vty_out(vty, "%% Count cannot be set on icmp_echo sessions\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+	if (no)
+		pm->count = PM_COUNT_DEFAULT;
+	else if (pcount)
+		pm->count = pcount;
+	pm_try_run(vty, pm);
+	return CMD_SUCCESS;
+}
+
 DEFPY(pm_packet_size, pm_packet_size_cmd,
       "[no] packet-size [(1-65535)$psize]",
       NO_STR "Packet size in bytes\n" "Size of packet to send\n")
@@ -328,6 +351,10 @@ DEFPY(pm_packet_timeout, pm_packet_timeout_cmd,
 
 	pm = VTY_GET_CONTEXT(pm_session);
 
+	if (pm->key.type == PM_ICMP_SLA) {
+		vty_out(vty, "%% Timeout cannot be set on icmp_sla sessions\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
 	if (no)
 		pm->timeout = PM_TIMEOUT_DEFAULT;
 	else if (tmo)
@@ -350,6 +377,11 @@ DEFPY(pm_packet_threshold, pm_packet_threshold_cmd,
 
 	pm = VTY_GET_CONTEXT(pm_session);
 
+	if (pm->key.type == PM_ICMP_SLA) {
+		vty_out(vty,
+			"%% Packet threshold cannot be set on icmp_sla sessions\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
 	if (no) {
 		pm->retries_threshold = PM_PACKET_RETRIES_THRESHOLD_DEFAULT;
 		pm->retries_total = PM_PACKET_RETRIES_TOTAL_DEFAULT;
@@ -385,6 +417,12 @@ DEFPY(pm_packet_retries_mode, pm_packet_retries_mode_cmd,
 	uint8_t retries_mode;
 
 	pm = VTY_GET_CONTEXT(pm_session);
+
+	if (pm->key.type == PM_ICMP_SLA) {
+		vty_out(vty,
+			"%% Packet retries mode cannot be set on icmp_sla sessions\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
 	if (no)
 		retries_mode = PM_RETRIES_MODE_THRESHOLD;
 	else if (!strcmp(retries_mode_str, "consecutive"))
@@ -411,6 +449,11 @@ DEFPY(pm_packet_retries, pm_packet_retries_cmd,
 
 	pm = VTY_GET_CONTEXT(pm_session);
 
+	if (pm->key.type == PM_ICMP_SLA) {
+		vty_out(vty,
+			"%% Packet retries cannot be set on icmp_sla sessions\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
 	if (no) {
 		pm->retries_consecutive_up = PM_PACKET_RETRIES_CONSECUTIVE_UP_DEFAULT;
 		pm->retries_consecutive_down = PM_PACKET_RETRIES_CONSECUTIVE_DOWN_DEFAULT;
@@ -595,19 +638,23 @@ static struct json_object *__display_session_json(struct pm_session *pm,
 			       pm_get_probe_type(pm));
 	json_object_int_add(jo, "interval",
 			    pm->interval);
-	json_object_int_add(jo, "timeout",
-			    pm->timeout);
-	json_object_int_add(jo, "retries_up",
-			    pm->retries_consecutive_up);
-	json_object_int_add(jo, "retries_down",
-			    pm->retries_consecutive_down);
-	json_object_int_add(jo, "retries_threshold",
-			    pm->retries_threshold);
-	json_object_int_add(jo, "retries_total",
-			    pm->retries_total);
-	json_object_string_add(jo, "retries_mode",
-			       pm->retries_mode == PM_RETRIES_MODE_THRESHOLD ?
-			       "threshold" : "consecutive");
+	if (pm->key.type == PM_ICMP_SLA)
+		json_object_int_add(jo, "count", pm->count);
+	else {
+		json_object_int_add(jo, "timeout", pm->timeout);
+		json_object_int_add(jo, "retries_up",
+				    pm->retries_consecutive_up);
+		json_object_int_add(jo, "retries_down",
+				    pm->retries_consecutive_down);
+		json_object_int_add(jo, "retries_threshold",
+				    pm->retries_threshold);
+		json_object_int_add(jo, "retries_total", pm->retries_total);
+		json_object_string_add(
+			jo, "retries_mode",
+			pm->retries_mode == PM_RETRIES_MODE_THRESHOLD
+				? "threshold"
+				: "consecutive");
+	}
 	json_object_int_add(jo, "tos_val",
 			    pm->tos_val);
 	json_object_int_add(jo, "packet-size",
@@ -659,15 +706,21 @@ static void pm_session_dump_config_walker(struct hash_bucket *b, void *data)
 	}
 	vty_out(vty, "\tpacket-tos %u, packet-size %u",
 		pm->tos_val, pm->packet_size);
-	vty_out(vty, ", interval %u, timeout %u\n",
-		pm->interval, pm->timeout);
-	vty_out(vty, "\tretries mode %s\n",
-		pm->retries_mode == PM_RETRIES_MODE_THRESHOLD ?
-		"threshold" : "consecutive");
-	vty_out(vty, "\tretries threshold %u total %u\n",
-		pm->retries_threshold, pm->retries_total);
-	vty_out(vty, "\tretries up-count %u down-count %u\n",
-		pm->retries_consecutive_up, pm->retries_consecutive_down);
+	vty_out(vty, ", interval %u", pm->interval);
+	if (pm->key.type == PM_ICMP_SLA)
+		vty_out(vty, ", count %u\n", pm->count);
+	else {
+		vty_out(vty, ", timeout %u\n", pm->timeout);
+		vty_out(vty, "\tretries mode %s\n",
+			pm->retries_mode == PM_RETRIES_MODE_THRESHOLD
+				? "threshold"
+				: "consecutive");
+		vty_out(vty, "\tretries threshold %u total %u\n",
+			pm->retries_threshold, pm->retries_total);
+		vty_out(vty, "\tretries up-count %u down-count %u\n",
+			pm->retries_consecutive_up,
+			pm->retries_consecutive_down);
+	}
 	hook_call(pm_tracking_display, pm, vty, NULL);
 	vty_out(vty, "\tstatus: (0x%x)", pm->flags);
 	vty_out(vty, " session admin %s, run %s\n",
@@ -812,6 +865,7 @@ void pm_vty_init(void)
 	install_element(PM_SESSION_NODE, &pm_session_shutdown_cmd);
 	install_element(PM_SESSION_NODE, &pm_packet_timeout_cmd);
 	install_element(PM_SESSION_NODE, &pm_packet_interval_cmd);
+	install_element(PM_SESSION_NODE, &pm_packet_count_cmd);
 	install_element(PM_SESSION_NODE, &pm_packet_retries_cmd);
 	install_element(PM_SESSION_NODE, &pm_packet_threshold_cmd);
 	install_element(PM_SESSION_NODE, &pm_packet_retries_mode_cmd);

@@ -50,6 +50,7 @@ struct pm_echo {
 
 	int echofd;
 	int echofd_rx_ipv6;
+
 	uint8_t *tx_buf;
 	uint8_t *rx_buf;
 	uint16_t icmp_sequence;
@@ -58,9 +59,10 @@ struct pm_echo {
 	struct event *t_echo_send;
 	struct event *t_echo_receive;
 	struct timeval start;
-	struct timeval end;
+	struct timeval *stop;
 	struct timeval last_rtt;
 	struct pm_rtt_stats *rtt_stats;
+	struct pm_rtt_stats *rtt_bulk_stats;
 	enum pm_echo_alarm last_alarm;
 	/* to distinguish between network
 	 * unreachable and other error
@@ -70,6 +72,7 @@ struct pm_echo {
 	/* duplicate from config context */
 	int timeout;
 	int interval;
+	uint16_t count;
 	int packet_size;
 	uint8_t retries_mode;
 	uint8_t retries_consecutive_up;
