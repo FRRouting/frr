@@ -1526,7 +1526,13 @@ zebra_nhg_rib_find_nhe(struct nhg_hash_entry *rt_nhe, afi_t rt_afi)
 {
 	struct nhg_hash_entry *nhe = NULL;
 
-	if (!(rt_nhe && rt_nhe->nhg.nexthop)) {
+	if (!rt_nhe) {
+		flog_err(EC_ZEBRA_TABLE_LOOKUP_FAILED,
+			 "No nhg_hash_entry passed to %s", __func__);
+		return NULL;
+	}
+
+	if (!rt_nhe->nhg.nexthop) {
 		flog_err(EC_ZEBRA_TABLE_LOOKUP_FAILED,
 			 "No nexthop passed to %s", __func__);
 		return NULL;
