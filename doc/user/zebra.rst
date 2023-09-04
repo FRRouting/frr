@@ -1234,6 +1234,12 @@ FPM Commands
    The ``no`` form uses the old known FPM behavior of including next hop
    information in the route (e.g. ``RTM_NEWROUTE``) messages.
 
+.. clicmd:: fpm use-route-replace
+
+   Use the netlink ``NLM_F_REPLACE`` flag for updating routes instead of
+   two different messages to update a route
+   (``RTM_DELROUTE`` + ``RTM_NEWROUTE``).
+
 .. clicmd:: show fpm counters [json]
 
    Show the FPM statistics (plain text or JSON formatted).
