@@ -398,18 +398,29 @@ int route_entry_update_nhe(struct route_entry *re,
 
 done:
 	/* Detach / deref previous nhg */
-	if (old_nhg)
+
+	if (old_nhg) {
+		/*
+		 * Return true if we are deleting the previous NHE
+		 * Note: we dont check the return value of the function anywhere
+		 * except at rib_handle_nhg_replace().
+		 */
+		if (old_nhg->refcnt == 1)
+			ret = 1;
+
 		zebra_nhg_decrement_ref(old_nhg);
+	}
 
 	return ret;
 }
 
-void rib_handle_nhg_replace(struct nhg_hash_entry *old_entry,
-			    struct nhg_hash_entry *new_entry)
+int rib_handle_nhg_replace(struct nhg_hash_entry *old_entry,
+			   struct nhg_hash_entry *new_entry)
 {
 	struct zebra_router_table *zrt;
 	struct route_node *rn;
 	struct route_entry *re, *next;
+	int ret = 0;
 
 	if (IS_ZEBRA_DEBUG_RIB_DETAILED || IS_ZEBRA_DEBUG_NHG_DETAIL)
 		zlog_debug("%s: replacing routes nhe (%u) OLD %p NEW %p",
@@ -421,10 +432,17 @@ void rib_handle_nhg_replace(struct nhg_hash_entry *old_entry,
 		     rn = srcdest_route_next(rn)) {
 			RNODE_FOREACH_RE_SAFE (rn, re, next) {
 				if (re->nhe && re->nhe == old_entry)
-					route_entry_update_nhe(re, new_entry);
+					ret += route_entry_update_nhe(
+						re, new_entry);
 			}
 		}
 	}
+
+	/*
+	 * if ret > 0, some previous re->nhe has freed the address to which
+	 * old_entry is pointing.
+	 */
+	return ret;
 }
 
 struct route_entry *rib_match(afi_t afi, safi_t safi, vrf_id_t vrf_id,
