@@ -33,6 +33,7 @@
 #define CONNECTION_DELAY 5
 
 struct label_manager lbl_mgr;
+static uint32_t label_manager_platform_value;
 
 DEFINE_MGROUP(LBL_MGR, "Label Manager");
 DEFINE_MTYPE_STATIC(LBL_MGR, LM_CHUNK, "Label Manager Chunk");
@@ -286,6 +287,7 @@ static int label_manager_write_label_block_config(struct vty *vty,
  */
 void label_manager_init(void)
 {
+	label_manager_platform_value = MPLS_LABEL_UNRESERVED_MIN;
 	lbl_mgr.lc_list = list_new();
 	lbl_mgr.lc_list->del = delete_label_chunk;
 	lbl_mgr.dynamic_block_start = MPLS_LABEL_UNRESERVED_MIN;
@@ -572,6 +574,8 @@ int release_label_chunk(uint8_t proto, unsigned short instance,
 {
 	struct listnode *node;
 	struct label_manager_chunk *lmc;
+	struct label_manager_chunk *data;
+	uint32_t label_max = MPLS_LABEL_UNRESERVED_MIN;
 	int ret = -1;
 
 	/* check that size matches */
@@ -603,6 +607,22 @@ int release_label_chunk(uint8_t proto, unsigned short instance,
 		flog_err(EC_ZEBRA_LM_UNRELEASED_CHUNK,
 			 "%s: Label chunk not released!!", __func__);
 
+	else {
+		/* Update platform label according to the most recent label
+		 * manager list */
+		for (ALL_LIST_ELEMENTS_RO(lbl_mgr.lc_list, node, data)) {
+			if (data->end >= label_max)
+				label_max = data->end + 1;
+		}
+		if (label_max != label_manager_platform_value) {
+			if (mpls_platform_labels_set(label_max) < 0)
+				zlog_warn(
+					"%s: mpls platform_label can't be updated",
+					__func__);
+			else
+				label_manager_platform_value = label_max;
+		}
+	}
 	return ret;
 }
 
@@ -626,8 +646,30 @@ static int label_manager_get_chunk(struct label_manager_chunk **lmc,
 				   uint32_t size, uint32_t base,
 				   vrf_id_t vrf_id)
 {
+	uint32_t label_max = MPLS_LABEL_UNRESERVED_MIN;
+	struct label_manager_chunk *data;
+	struct listnode *node;
+
 	*lmc = assign_label_chunk(client->proto, client->instance,
 				  client->session_id, keep, size, base);
+
+	/* Update platform label according to the most recent label manager
+	 * list */
+	if (*lmc != NULL && !list_isempty(lbl_mgr.lc_list)) {
+		for (ALL_LIST_ELEMENTS_RO(lbl_mgr.lc_list, node, data)) {
+			if (data->end >= label_max)
+				label_max = data->end + 1;
+		}
+		if (label_max != label_manager_platform_value) {
+			if (mpls_platform_labels_set(label_max) < 0)
+				zlog_warn(
+					"%s: mpls platform_label can't be updated",
+					__func__);
+			else
+				label_manager_platform_value = label_max;
+		}
+	}
+
 	/* Respond to a get_chunk request */
 	if (!*lmc) {
 		if (base == MPLS_LABEL_BASE_ANY)

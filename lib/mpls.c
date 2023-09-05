@@ -90,3 +90,18 @@ char *mpls_label2str(uint8_t num_labels, const mpls_label_t *labels, char *buf,
 
 	return buf;
 }
+
+int mpls_platform_labels_set(uint32_t platform_labels)
+{
+	char buf[MAXPATHLEN];
+	FILE *fp;
+
+	snprintf(buf, sizeof(buf), "/proc/sys/net/mpls/platform_labels");
+	fp = fopen(buf, "w");
+	if (fp == NULL)
+		return -1;
+	fprintf(fp, "%d\n", platform_labels);
+	fclose(fp);
+
+	return platform_labels;
+}

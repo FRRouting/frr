@@ -244,4 +244,9 @@ char *mpls_label2str(uint8_t num_labels, const mpls_label_t *labels, char *buf,
 }
 #endif
 
+/*
+ * Sets the mpls net parameter platform_labels. It is the
+ * number of entries in the platform label table.
+ */
+int mpls_platform_labels_set(uint32_t platform_labels);
 #endif
