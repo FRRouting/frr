@@ -44,6 +44,8 @@ DEFPY(magic_test, magic_test_cmd,
 	return CMD_SUCCESS;
 }
 
+bool debug_flag_classic;
+
 DECLARE_DEBUGFLAG(TEST);
 DECLARE_DEBUGFLAG(TEST2);
 DECLARE_DEBUGFLAG_COMBO(TCOMBO);
@@ -75,9 +77,23 @@ DEFPY(debug_test, debug_test_cmd,
 	return CMD_SUCCESS;
 }
 
+DEFPY(debug_classic_ctl, debug_classic_ctl_cmd,
+      "[no] debug classic",
+      NO_STR
+      DEBUG_STR
+      "TEST flag\n")
+{
+	if (no)
+		debug_flag_classic = false;
+	else
+		debug_flag_classic = true;
+
+	return CMD_SUCCESS;
+}
+
 /*
 DEFUN(debug_test_ctl, debug_test_ctl_cmd,
-      "[no] debug test",
+      "[no] debug test1",
       NO_STR
       DEBUG_STR
       "TEST flag\n")
@@ -102,6 +118,40 @@ DEFUN(debug_tpar_ctl, debug_tpar_ctl_cmd,
       "TPAR flag\n")
 {
 	return zlog_debugflag_cli(_dbg_TPAR, vty, argc, argv);
+}
+
+DEFPY(debug_run_flag, debug_run_flag_cmd,
+      "debug run <flag$flag|classic> (1-4294967295)$iter",
+      DEBUG_STR
+      "Exercise debug logs\n"
+      "Use DEBUGFLAG handling\n"
+      "Use classic flag\n"
+      "Number of calls (x1000)\n")
+{
+	long long i, delta;
+	struct timespec ts1, ts2;
+
+	clock_gettime(CLOCK_THREAD_CPUTIME_ID, &ts1);
+	if (flag) {
+		for (i = 0; i < iter * 1000LL; i++) {
+			dbg(TEST, "test %lld", i);
+		}
+	} else {
+		for (i = 0; i < iter * 1000LL; i++) {
+			if (debug_flag_classic)
+				zlog_debug("test %lld", i);
+		}
+	}
+	clock_gettime(CLOCK_THREAD_CPUTIME_ID, &ts2);
+
+	if (ts2.tv_nsec < ts1.tv_nsec)
+		ts2.tv_nsec += 1000000000, ts2.tv_sec -= 1;
+	delta = (ts2.tv_nsec - ts1.tv_nsec);
+	delta += (ts2.tv_sec - ts1.tv_sec) * 1000000000;
+
+	vty_out(vty, "%lld messages in %lld ns, %lf ns/msg\n",
+		iter * 1000LL, delta, (double)delta * 0.001 / (double)iter);
+	return CMD_SUCCESS;
 }
 
 void test_init(int argc, char **argv)
@@ -134,9 +184,12 @@ void test_init(int argc, char **argv)
 	install_element(ENABLE_NODE, &cmd15_cmd);
 	install_element(ENABLE_NODE, &cmd16_cmd);
 	install_element(ENABLE_NODE, &magic_test_cmd);
-	
+
 	install_element(ENABLE_NODE, &debug_test_cmd);
+	install_element(ENABLE_NODE, &debug_classic_ctl_cmd);
 //	install_element(ENABLE_NODE, &debug_test_ctl_cmd);
 //	install_element(ENABLE_NODE, &debug_test2_ctl_cmd);
 	install_element(ENABLE_NODE, &debug_tpar_ctl_cmd);
+
+	install_element(ENABLE_NODE, &debug_run_flag_cmd);
 }
