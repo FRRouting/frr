@@ -737,8 +737,6 @@ AC_ARG_ENABLE([cumulus],
   AS_HELP_STRING([--enable-cumulus], [enable Cumulus Switch Special Extensions]))
 AC_ARG_ENABLE([datacenter],
   AS_HELP_STRING([--enable-datacenter], [enable Compilation for Data Center Extensions]))
-AC_ARG_ENABLE([rr-semantics],
-  AS_HELP_STRING([--disable-rr-semantics], [disable the v6 Route Replace semantics]))
 AC_ARG_ENABLE([protobuf],
   AS_HELP_STRING([--enable-protobuf], [Enable experimental protobuf support]))
 AC_ARG_ENABLE([oldvpn_commands],
@@ -827,10 +825,6 @@ case "${enable_cpu_time}" in
   "*")
   ;;
 esac
-
-if test "$enable_rr_semantics" != "no" ; then
-  AC_DEFINE([HAVE_V6_RR_SEMANTICS], [1], [Compile in v6 Route Replacement Semantics])
-fi
 
 if test "$enable_datacenter" = "yes" ; then
   AC_DEFINE([HAVE_DATACENTER], [1], [Compile extensions for a DataCenter])
