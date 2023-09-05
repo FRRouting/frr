@@ -3066,9 +3066,17 @@ DEFUN (bgp_graceful_restart_restart_time,
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
 	int idx_number = 3;
 	uint32_t restart;
+	struct listnode *node, *nnode;
+	struct peer *peer;
 
 	restart = strtoul(argv[idx_number]->arg, NULL, 10);
 	bgp->restart_time = restart;
+
+	for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer))
+		bgp_capability_send(peer, AFI_IP, SAFI_UNICAST,
+				    CAPABILITY_CODE_RESTART,
+				    CAPABILITY_ACTION_SET);
+
 	return CMD_SUCCESS;
 }
 
@@ -3119,8 +3127,16 @@ DEFUN (no_bgp_graceful_restart_restart_time,
 	"Delay value (seconds)\n")
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
+	struct listnode *node, *nnode;
+	struct peer *peer;
 
 	bgp->restart_time = BGP_DEFAULT_RESTART_TIME;
+
+	for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer))
+		bgp_capability_send(peer, AFI_IP, SAFI_UNICAST,
+				    CAPABILITY_CODE_RESTART,
+				    CAPABILITY_ACTION_UNSET);
+
 	return CMD_SUCCESS;
 }
 
@@ -3175,11 +3191,18 @@ DEFPY (bgp_graceful_restart_notification,
 	"Indicate Graceful Restart support for BGP NOTIFICATION messages\n")
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
+	struct listnode *node, *nnode;
+	struct peer *peer;
 
 	if (no)
 		UNSET_FLAG(bgp->flags, BGP_FLAG_GRACEFUL_NOTIFICATION);
 	else
 		SET_FLAG(bgp->flags, BGP_FLAG_GRACEFUL_NOTIFICATION);
+
+	for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer))
+		bgp_capability_send(peer, AFI_IP, SAFI_UNICAST,
+				    CAPABILITY_CODE_RESTART,
+				    CAPABILITY_ACTION_SET);
 
 	return CMD_SUCCESS;
 }
