@@ -63,6 +63,7 @@ struct pm_echo {
 	struct timeval last_rtt;
 	struct pm_rtt_stats *rtt_stats;
 	struct pm_rtt_stats *rtt_bulk_stats;
+	struct timeval bulk_start;
 	enum pm_echo_alarm last_alarm;
 	/* to distinguish between network
 	 * unreachable and other error

@@ -804,6 +804,10 @@ void pm_echo_send(struct event *event)
 	}
 
 	if (pm->key.type == PM_ICMP_SLA) {
+		/* update bulk stats before sending a new one */
+		/* (except for the very first bulk) */
+		if (pme->start.tv_sec != 0 || pme->start.tv_usec != 0)
+			pm_rtt_update_bulk_stats(pme);
 		if (pme->icmp_sequence + pme->count > UINT16_MAX) /* overflow */
 			pme->icmp_sequence = 0;
 	}
@@ -817,6 +821,7 @@ void pm_echo_send(struct event *event)
 			&pme->t_echo_receive);
 
 	monotime(&pme->start);
+	gettimeofday(&pme->bulk_start, NULL);
 	for (i = 0; i < pme->count; ++i) {
 		if (sockunion_family(&pme->peer) == AF_INET) {
 			iph->id = random();
@@ -1027,6 +1032,8 @@ void pm_echo_dump(struct vty *vty, struct pm_session *pm)
 		pme->last_rtt.tv_sec, pme->last_rtt.tv_usec);
 	vty_out(vty, "\t");
 	pm_rtt_display_stats(vty, pme->rtt_stats);
+	if (pm->key.type == PM_ICMP_SLA)
+		pm_rtt_display_bulk_stats(vty, pme);
 }
 
 /* keep pme session on suspend */

@@ -88,6 +88,41 @@ void pm_rtt_update_stats(struct pm_rtt_stats *rtt_stats,
 	}
 }
 
+/*
+ * Return the difference between start and stop in micro-seconds (usec).
+ */
+
+static inline uint32_t pm_rtt_from_timevals(struct timeval *start,
+					    struct timeval *stop)
+{
+	return (stop->tv_sec - start->tv_sec) * 1000000
+	       + (stop->tv_usec - start->tv_usec);
+}
+
+void pm_rtt_update_bulk_stats(struct pm_echo *pme)
+{
+	uint32_t rtt = pm_rtt_from_timevals(&pme->start, &pme->stop[0]);
+
+	pme->rtt_bulk_stats->min_rtt = rtt;
+	pme->rtt_bulk_stats->max_rtt = rtt;
+	pme->rtt_bulk_stats->sum_rtt = rtt;
+	if (pme->stop[0].tv_sec != 0 || pme->stop[0].tv_usec != 0)
+		pme->rtt_bulk_stats->total_count = 1;
+	else
+		pme->rtt_bulk_stats->total_count = 0;
+	for (int i = 1; i < pme->count; ++i) {
+		rtt = pm_rtt_from_timevals(&pme->start, &pme->stop[i]);
+		if (rtt < pme->rtt_bulk_stats->min_rtt)
+			pme->rtt_bulk_stats->min_rtt = rtt;
+		else if (rtt > pme->rtt_bulk_stats->max_rtt)
+			pme->rtt_bulk_stats->max_rtt = rtt;
+		pme->rtt_bulk_stats->sum_rtt += rtt;
+		++pme->rtt_bulk_stats->total_count;
+	}
+	pme->rtt_bulk_stats->avg_rtt =
+		pme->rtt_bulk_stats->sum_rtt / pme->rtt_bulk_stats->total_count;
+}
+
 void pm_rtt_display_stats(struct vty *vty, struct pm_rtt_stats *rtt_stats)
 {
 	if (!rtt_stats)
@@ -100,4 +135,35 @@ void pm_rtt_display_stats(struct vty *vty, struct pm_rtt_stats *rtt_stats)
 		"avg %u ms\r\n",
 		rtt_stats->total_count, rtt_stats->min_rtt,
 		rtt_stats->max_rtt, rtt_stats->avg_rtt);
+}
+
+const char *pm_rtt_tvtostr(struct timeval *tv)
+{
+	struct tm *nowtm;
+	static char buf[64];
+
+	buf[0] = '\0';
+
+	nowtm = localtime(&tv->tv_sec);
+	strftime(buf, sizeof(buf), "%Y-%m-%d %H:%M:%S", nowtm);
+	snprintf(buf + strlen(buf), sizeof(buf) - strlen(buf), ".%06ld", tv->tv_usec);
+
+	return buf;
+}
+
+void pm_rtt_display_bulk_stats(struct vty *vty, struct pm_echo *pme)
+{
+	int loss_ratio;
+
+	if (!pme->rtt_bulk_stats)
+		return;
+	loss_ratio =
+		100 - (pme->rtt_bulk_stats->total_count * 100 / pme->count);
+	vty_out(vty,
+		"\tlast bulk of %u started at %s\r\n"
+		"\trtt calculated min %u us, max %u us, avg %u us\r\n"
+		"\tloss ratio: %u%%\r\n",
+		pme->count, pm_rtt_tvtostr(&pme->bulk_start), pme->rtt_bulk_stats->min_rtt,
+		pme->rtt_bulk_stats->max_rtt, pme->rtt_bulk_stats->avg_rtt,
+		loss_ratio);
 }

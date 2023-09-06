@@ -603,6 +603,20 @@ static struct json_object *__display_session_json(struct pm_session *pm,
 		    sockunion_family(&pme->gw) == AF_INET6)
 			json_object_string_addf(jo, "nexthop", "%pSU", &pme->gw);
 		json_object_string_add(jo, "type", pm_get_probe_type(pm));
+		if (pm->key.type == PM_ICMP_SLA) {
+			json_object_string_add(jo, "bulk-start", pm_rtt_tvtostr(&pme->bulk_start));
+			json_object_int_add(jo, "bulk-min-rtt",
+					    pme->rtt_bulk_stats->min_rtt);
+			json_object_int_add(jo, "bulk-max-rtt",
+					    pme->rtt_bulk_stats->max_rtt);
+			json_object_int_add(jo, "bulk-avg-rtt",
+					    pme->rtt_bulk_stats->avg_rtt);
+			json_object_int_add(
+				jo, "bulk-loss",
+				100
+					- pme->rtt_bulk_stats->total_count * 100
+						  / pme->count);
+		}
 		return jo;
 	}
 	if (!pme) {

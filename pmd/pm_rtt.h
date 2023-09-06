@@ -37,6 +37,7 @@ struct pm_rtt_stats {
 
 extern struct pm_rtt_stats *pm_rtt_allocate_ctx(void);
 extern void pm_rtt_free_ctx(struct pm_rtt_stats *ctx);
+extern const char *pm_rtt_tvtostr(struct timeval *tv);
 
 /* start and stop params are mandatory
  * result or result_ms is optional
@@ -47,7 +48,11 @@ extern void pm_rtt_calculate(struct timeval *start, struct timeval *stop,
 extern void pm_rtt_update_stats(struct pm_rtt_stats *rtt_stats,
 				struct timeval *rtt, uint32_t *rtt_ms);
 
+extern void pm_rtt_update_bulk_stats(struct pm_echo *pme);
+
 extern void pm_rtt_display_stats(struct vty *vty,
 				 struct pm_rtt_stats *rtt_stats);
+
+extern void pm_rtt_display_bulk_stats(struct vty *vty, struct pm_echo *pme);
 
 #endif
