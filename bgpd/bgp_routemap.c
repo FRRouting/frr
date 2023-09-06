@@ -6207,27 +6207,12 @@ DEFPY_YANG(
 
 DEFUN_YANG (no_set_aspath_prepend,
 	    no_set_aspath_prepend_cmd,
-	    "no set as-path prepend [ASNUM]",
+	    "no set as-path prepend [ASNUM] [last-as [(1-10)]]",
 	    NO_STR
 	    SET_STR
 	    "Transform BGP AS_PATH attribute\n"
 	    "Prepend to the as-path\n"
-	    AS_STR)
-{
-	const char *xpath =
-		"./set-action[action='frr-bgp-route-map:as-path-prepend']";
-
-	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
-	return nb_cli_apply_changes(vty, NULL);
-}
-
-DEFUN_YANG (no_set_aspath_prepend_lastas,
-	    no_set_aspath_prepend_lastas_cmd,
-	    "no set as-path prepend last-as [(1-10)]",
-	    NO_STR
-	    SET_STR
-	    "Transform BGP AS_PATH attribute\n"
-	    "Prepend to the as-path\n"
+	    AS_STR
 	    "Use the peers AS-number\n"
 	    "Number of times to insert\n")
 {
@@ -7915,7 +7900,6 @@ void bgp_route_map_init(void)
 	install_element(RMAP_NODE, &set_aspath_replace_asn_cmd);
 	install_element(RMAP_NODE, &set_aspath_replace_access_list_cmd);
 	install_element(RMAP_NODE, &no_set_aspath_prepend_cmd);
-	install_element(RMAP_NODE, &no_set_aspath_prepend_lastas_cmd);
 	install_element(RMAP_NODE, &no_set_aspath_exclude_cmd);
 	install_element(RMAP_NODE, &no_set_aspath_exclude_all_cmd);
 	install_element(RMAP_NODE, &no_set_aspath_exclude_access_list_cmd);
