@@ -788,6 +788,12 @@ static struct log_ref ferr_zebra_err[] = {
 			"Wait for Zebra to reattempt update.",
 	},
 	{
+		.code = EC_ZEBRA_SRV6_SR0_CREATION_ERROR,
+		.title = "Zebra could not create sr0 interface",
+		.description = "Zebra's sr0 interface could not be created.",
+		.suggestion = "Ignore this error.",
+	},
+	{
 		.code = END_FERR,
 	}
 };

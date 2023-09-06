@@ -287,6 +287,7 @@ DEFUN_NOSH (srv6_locator,
 
 	VTY_PUSH_CONTEXT(SRV6_LOC_NODE, locator);
 	vty->node = SRV6_LOC_NODE;
+	zebra_srv6_check_sr0_created();
 	return CMD_SUCCESS;
 }
 

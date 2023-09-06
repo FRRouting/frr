@@ -7,6 +7,8 @@
 
 #include <zebra.h>
 
+#include <linux/rtnetlink.h>
+
 #include "network.h"
 #include "prefix.h"
 #include "stream.h"
@@ -18,6 +20,8 @@
 #include "zebra/zebra_srv6.h"
 #include "zebra/zebra_errors.h"
 #include "zebra/ge_netlink.h"
+#include "zebra/zebra_ns.h"
+#include "zebra/kernel_netlink.h"
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -88,6 +92,57 @@ int srv6_manager_client_disconnect_cb(struct zserv *client)
 static int zebra_srv6_cleanup(struct zserv *client)
 {
 	return 0;
+}
+
+static bool zebra_srv6_check_sr0_created_done;
+
+void zebra_srv6_check_sr0_created(void)
+{
+	struct zebra_ns *zns = zebra_ns_lookup(NS_DEFAULT);
+	int buflen = NL_PKT_BUF_SIZE;
+	char buf[NL_PKT_BUF_SIZE] = {};
+	struct rtattr *rta_info;
+	struct {
+		struct nlmsghdr n;
+		struct ifinfomsg ifi;
+		char buf[];
+	} *req = (void *)&buf[0];
+
+	if (zebra_srv6_check_sr0_created_done)
+		return;
+
+	if (!zns || zns->netlink_cmd.sock == -1)
+		goto netlink_error;
+
+	memset(req, 0, sizeof(*req));
+	req->n.nlmsg_len = NLMSG_LENGTH(sizeof(struct ifinfomsg));
+	req->n.nlmsg_flags = NLM_F_REQUEST | NLM_F_CREATE | NLM_F_REPLACE;
+	req->n.nlmsg_type = RTM_NEWLINK;
+	req->ifi.ifi_change = 0xFFFFFFFF;
+	req->ifi.ifi_flags = IFF_UP;
+	req->n.nlmsg_pid = zns->netlink_cmd.snl.nl_pid;
+
+	if (!nl_attr_put(&req->n, buflen, IFLA_IFNAME, "sr0", 3))
+		goto netlink_error;
+
+	rta_info = nl_attr_nest(&req->n, buflen, IFLA_LINKINFO);
+	if (!rta_info)
+		goto netlink_error;
+
+	if (!nl_attr_put(&req->n, buflen, IFLA_INFO_KIND, "dummy", 5))
+		goto netlink_error;
+
+	nl_attr_nest_end(&req->n, rta_info);
+
+	netlink_talk(netlink_talk_filter, &req->n, &zns->netlink_cmd, zns,
+		     0);
+
+	zebra_srv6_check_sr0_created_done = true;
+
+	return;
+ netlink_error:
+	flog_err(EC_ZEBRA_SRV6_SR0_CREATION_ERROR,
+		 "%s: SRv6 sr0 failed to be created: netlink_error", __func__);
 }
 
 void zebra_srv6_locator_add(struct srv6_locator *locator)
@@ -446,6 +501,7 @@ void zebra_srv6_terminate(void)
 
 void zebra_srv6_init(void)
 {
+	zebra_srv6_check_sr0_created_done = false;
 	hook_register(zserv_client_close, zebra_srv6_cleanup);
 	hook_register(srv6_manager_get_chunk,
 		      zebra_srv6_manager_get_locator_chunk);
