@@ -486,7 +486,7 @@ static const format_char_info print_char_table[] =
   /* C89 conversion specifiers.  */
                       /* none,    hh,      h,       l,       ll,      L,       z,       t,       j,       H,       D,       DD     */
   { "di",  0, STD_C89, { T89_I,   T99_SC,  T89_S,   T89_L,   T9L_LL,  TEX_S64, T99_SST, T99_PD,  T99_IM,  BADLEN,  BADLEN,  BADLEN },   "-wp0 +'I",  "i",  NULL, ext_d },
-  { "oxX", 0, STD_C89, { T89_UI,  T99_UC,  T89_US,  T89_UL,  T9L_ULL, TEX_U64, T99_ST,  T99_UPD, T99_UIM, BADLEN,  BADLEN,  BADLEN },   "-wp0#",     "i",  NULL, NULL },
+  { "oxXb",0, STD_C89, { T89_UI,  T99_UC,  T89_US,  T89_UL,  T9L_ULL, TEX_U64, T99_ST,  T99_UPD, T99_UIM, BADLEN,  BADLEN,  BADLEN },   "-wp0#",     "i",  NULL, NULL },
   { "u",   0, STD_C89, { T89_UI,  T99_UC,  T89_US,  T89_UL,  T9L_ULL, TEX_U64, T99_ST,  T99_UPD, T99_UIM, BADLEN,  BADLEN,  BADLEN },   "-wp0'I",    "i",  NULL, NULL },
   { "fgG", 0, STD_C89, { T89_D,   BADLEN,  BADLEN,  T99_D,   BADLEN,  T89_LD,  BADLEN,  BADLEN,  BADLEN,  TEX_D32, TEX_D64, TEX_D128 }, "-wp0 +#'I", "",   NULL, NULL },
   { "eE",  0, STD_C89, { T89_D,   BADLEN,  BADLEN,  T99_D,   BADLEN,  T89_LD,  BADLEN,  BADLEN,  BADLEN,  TEX_D32, TEX_D64, TEX_D128 }, "-wp0 +#I",  "",   NULL, NULL },
