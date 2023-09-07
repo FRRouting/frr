@@ -716,6 +716,8 @@ int netlink_qdisc_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 {
 	struct tcmsg *tcm;
 	struct zebra_tc_qdisc qdisc = {};
+	enum tc_qdisc_kind kind = TC_QDISC_UNSPEC;
+	const char *kind_str = "Unknown";
 
 	int len;
 	struct rtattr *tb[TCA_MAX + 1];
@@ -735,9 +737,11 @@ int netlink_qdisc_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 	tcm = NLMSG_DATA(h);
 	netlink_parse_rtattr(tb, TCA_MAX, TCA_RTA(tcm), len);
 
-	const char *kind_str = (const char *)RTA_DATA(tb[TCA_KIND]);
+	if (RTA_DATA(tb[TCA_KIND])) {
+		kind_str = (const char *)RTA_DATA(tb[TCA_KIND]);
 
-	enum tc_qdisc_kind kind = tc_qdisc_str2kind(kind_str);
+		kind = tc_qdisc_str2kind(kind_str);
+	}
 
 	qdisc.qdisc.ifindex = tcm->tcm_ifindex;
 
