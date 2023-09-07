@@ -17,6 +17,11 @@ extern "C" {
 
 /* generic macros for all list-like types */
 
+/* to iterate using the const variants of the functions, append "_const" to
+ * the name of the container, e.g. "frr_each (my_list, head, item)" becomes
+ * "frr_each (my_list_const, head, item)"
+ */
+
 #define frr_each(prefix, head, item)                                           \
 	for (item = prefix##_first(head); item;                                \
 			item = prefix##_next(head, item))
