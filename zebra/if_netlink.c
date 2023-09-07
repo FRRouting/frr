@@ -1214,7 +1214,7 @@ int netlink_interface_addr(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 		}
 		if (CHECK_FLAG(ifp->status, ZEBRA_INTERFACE_DUMMY) &&
 				IN6_IS_ADDR_LINKLOCAL(addr))
-			return -1;
+			return 0;
 
 		if (h->nlmsg_type == RTM_NEWADDR) {
 			/* Only consider valid addresses; we'll not get a
