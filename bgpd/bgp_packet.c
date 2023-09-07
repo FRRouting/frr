@@ -1211,6 +1211,8 @@ void bgp_capability_send(struct peer *peer, afi_t afi, safi_t safi,
 	unsigned long cap_len;
 	uint16_t len;
 	uint32_t gr_restart_time;
+	const char *capability = lookup_msg(capcode_str, capability_code,
+					    "Unknown");
 
 	if (!peer_established(peer->connection))
 		return;
@@ -1254,12 +1256,12 @@ void bgp_capability_send(struct peer *peer, afi_t afi, safi_t safi,
 		stream_putc_at(s, cap_len, len);
 
 		if (bgp_debug_neighbor_events(peer))
-			zlog_debug("%pBP sending CAPABILITY has %s Software Version for afi/safi: %s/%s",
+			zlog_debug("%pBP sending CAPABILITY has %s %s for afi/safi: %s/%s",
 				   peer,
 				   action == CAPABILITY_ACTION_SET
 					   ? "Advertising"
 					   : "Removing",
-				   iana_afi2str(pkt_afi),
+				   capability, iana_afi2str(pkt_afi),
 				   iana_safi2str(pkt_safi));
 		break;
 	case CAPABILITY_CODE_MP:
@@ -1271,12 +1273,13 @@ void bgp_capability_send(struct peer *peer, afi_t afi, safi_t safi,
 		stream_putc(s, pkt_safi);
 
 		if (bgp_debug_neighbor_events(peer))
-			zlog_debug(
-				"%pBP sending CAPABILITY has %s MP_EXT CAP for afi/safi: %s/%s",
-				peer,
-				action == CAPABILITY_ACTION_SET ? "Advertising"
-								: "Removing",
-				iana_afi2str(pkt_afi), iana_safi2str(pkt_safi));
+			zlog_debug("%pBP sending CAPABILITY has %s %s for afi/safi: %s/%s",
+				   peer,
+				   action == CAPABILITY_ACTION_SET
+					   ? "Advertising"
+					   : "Removing",
+				   capability, iana_afi2str(pkt_afi),
+				   iana_safi2str(pkt_safi));
 		break;
 	case CAPABILITY_CODE_RESTART:
 		if (!CHECK_FLAG(peer->flags, PEER_FLAG_GRACEFUL_RESTART) &&
@@ -1320,19 +1323,56 @@ void bgp_capability_send(struct peer *peer, afi_t afi, safi_t safi,
 			}
 		}
 
-		/* Software Version capability Len. */
 		len = stream_get_endp(s) - cap_len - 1;
 		stream_putc_at(s, cap_len, len);
 
 		if (bgp_debug_neighbor_events(peer))
-			zlog_debug("%pBP sending CAPABILITY has %s Graceful-Restart CAP for afi/safi: %s/%s",
+			zlog_debug("%pBP sending CAPABILITY has %s %s for afi/safi: %s/%s",
 				   peer,
 				   action == CAPABILITY_ACTION_SET
 					   ? "Advertising"
 					   : "Removing",
-				   iana_afi2str(pkt_afi),
+				   capability, iana_afi2str(pkt_afi),
 				   iana_safi2str(pkt_safi));
 
+		break;
+	case CAPABILITY_CODE_LLGR:
+		if (!CHECK_FLAG(peer->cap, PEER_CAP_RESTART_ADV))
+			return;
+
+		SET_FLAG(peer->cap, PEER_CAP_LLGR_ADV);
+
+		stream_putc(s, action);
+		stream_putc(s, CAPABILITY_CODE_LLGR);
+		cap_len = stream_get_endp(s);
+		stream_putc(s, 0);
+
+		FOREACH_AFI_SAFI (afi, safi) {
+			if (!peer->afc[afi][safi])
+				continue;
+
+			bgp_map_afi_safi_int2iana(afi, safi, &pkt_afi,
+						  &pkt_safi);
+
+			stream_putw(s, pkt_afi);
+			stream_putc(s, pkt_safi);
+			stream_putc(s, LLGR_F_BIT);
+			stream_put3(s, peer->bgp->llgr_stale_time);
+
+			SET_FLAG(peer->af_cap[afi][safi], PEER_CAP_LLGR_AF_ADV);
+		}
+
+		len = stream_get_endp(s) - cap_len - 1;
+		stream_putc_at(s, cap_len, len);
+
+		if (bgp_debug_neighbor_events(peer))
+			zlog_debug("%pBP sending CAPABILITY has %s %s for afi/safi: %s/%s",
+				   peer,
+				   action == CAPABILITY_ACTION_SET
+					   ? "Advertising"
+					   : "Removing",
+				   capability, iana_afi2str(pkt_afi),
+				   iana_safi2str(pkt_safi));
 		break;
 	case CAPABILITY_CODE_REFRESH:
 	case CAPABILITY_CODE_ORF:
@@ -1340,7 +1380,6 @@ void bgp_capability_send(struct peer *peer, afi_t afi, safi_t safi,
 	case CAPABILITY_CODE_DYNAMIC:
 	case CAPABILITY_CODE_ADDPATH:
 	case CAPABILITY_CODE_ENHANCED_RR:
-	case CAPABILITY_CODE_LLGR:
 	case CAPABILITY_CODE_FQDN:
 	case CAPABILITY_CODE_ENHE:
 	case CAPABILITY_CODE_EXT_MESSAGE:
@@ -2832,6 +2871,83 @@ static int bgp_route_refresh_receive(struct peer_connection *connection,
 	return BGP_PACKET_NOOP;
 }
 
+static void bgp_dynamic_capability_llgr(uint8_t *pnt, int action,
+					struct capability_header *hdr,
+					struct peer *peer)
+{
+	uint8_t *data = pnt + 3;
+	uint8_t *end = data + hdr->length;
+	size_t len = end - data;
+
+	if (action == CAPABILITY_ACTION_SET) {
+		if (len < BGP_CAP_LLGR_MIN_PACKET_LEN) {
+			zlog_err("%pBP: Received invalid Long-Lived Graceful-Restart capability length %zu",
+				 peer, len);
+			return;
+		}
+
+		SET_FLAG(peer->cap, PEER_CAP_LLGR_RCV);
+
+		while (data + BGP_CAP_LLGR_MIN_PACKET_LEN <= end) {
+			afi_t afi;
+			safi_t safi;
+			iana_afi_t pkt_afi;
+			iana_safi_t pkt_safi;
+			struct graceful_restart_af graf;
+
+			memcpy(&graf, data, sizeof(graf));
+			pkt_afi = ntohs(graf.afi);
+			pkt_safi = safi_int2iana(graf.safi);
+
+			/* Stale time is after AFI/SAFI/flags.
+			 * It's encoded as 24 bits (= 3 bytes), so we need to
+			 * put it into 32 bits.
+			 */
+			uint32_t stale_time;
+			uint8_t *stale_time_ptr = data + 4;
+
+			stale_time = stale_time_ptr[0] << 16;
+			stale_time |= stale_time_ptr[1] << 8;
+			stale_time |= stale_time_ptr[2];
+
+			if (bgp_map_afi_safi_iana2int(pkt_afi, pkt_safi, &afi,
+						      &safi)) {
+				if (bgp_debug_neighbor_events(peer))
+					zlog_debug("%s Addr-family %s/%s(afi/safi) not supported. Ignore the Long-lived Graceful Restart capability for this AFI/SAFI",
+						   peer->host,
+						   iana_afi2str(pkt_afi),
+						   iana_safi2str(pkt_safi));
+			} else if (!peer->afc[afi][safi] ||
+				   !CHECK_FLAG(peer->af_cap[afi][safi],
+					       PEER_CAP_RESTART_AF_RCV)) {
+				if (bgp_debug_neighbor_events(peer))
+					zlog_debug("%s Addr-family %s/%s(afi/safi) not enabled. Ignore the Long-lived Graceful Restart capability",
+						   peer->host,
+						   iana_afi2str(pkt_afi),
+						   iana_safi2str(pkt_safi));
+			} else {
+				if (bgp_debug_neighbor_events(peer))
+					zlog_debug("%s Addr-family %s/%s(afi/safi) Long-lived Graceful Restart capability stale time %u sec",
+						   peer->host,
+						   iana_afi2str(pkt_afi),
+						   iana_safi2str(pkt_safi),
+						   stale_time);
+
+				peer->llgr[afi][safi].flags = graf.flag;
+				peer->llgr[afi][safi].stale_time =
+					MIN(stale_time,
+					    peer->bgp->llgr_stale_time);
+				SET_FLAG(peer->af_cap[afi][safi],
+					 PEER_CAP_LLGR_AF_RCV);
+			}
+
+			data += BGP_CAP_LLGR_MIN_PACKET_LEN;
+		}
+	} else {
+		UNSET_FLAG(peer->cap, PEER_CAP_LLGR_RCV);
+	}
+}
+
 static void bgp_dynamic_capability_graceful_restart(uint8_t *pnt, int action,
 						    struct capability_header *hdr,
 						    struct peer *peer)
@@ -3065,13 +3181,15 @@ static int bgp_capability_msg_parse(struct peer *peer, uint8_t *pnt,
 			bgp_dynamic_capability_graceful_restart(pnt, action,
 								hdr, peer);
 			break;
+		case CAPABILITY_CODE_LLGR:
+			bgp_dynamic_capability_llgr(pnt, action, hdr, peer);
+			break;
 		case CAPABILITY_CODE_REFRESH:
 		case CAPABILITY_CODE_ORF:
 		case CAPABILITY_CODE_AS4:
 		case CAPABILITY_CODE_DYNAMIC:
 		case CAPABILITY_CODE_ADDPATH:
 		case CAPABILITY_CODE_ENHANCED_RR:
-		case CAPABILITY_CODE_LLGR:
 		case CAPABILITY_CODE_FQDN:
 		case CAPABILITY_CODE_ENHE:
 		case CAPABILITY_CODE_EXT_MESSAGE:
