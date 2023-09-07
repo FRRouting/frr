@@ -235,8 +235,11 @@ struct pm_session *pm_lookup_session(const char *peer, const char *local,
 	psc.pm_found = NULL;
 	hash_walk(pm_session_list, pm_lookup_unique_walker, &psc);
 	pm_search = psc.pm_found;
-	if (!create || pm_search)
+	if (!create || pm_search) {
+		if (!pm_search)
+			snprintf(ebuf, ebuflen, "session does not exist");
 		return pm_search;
+	}
 
 	/* create */
 	return pm_create_session(peer, local, ifname, vrfname, type);
