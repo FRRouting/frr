@@ -25,6 +25,19 @@ struct graceful_restart_af {
 	uint8_t flag;
 };
 
+/*
+ * +--------------------------------------------------+
+ * | Address Family Identifier (16 bits)              |
+ * +--------------------------------------------------+
+ * | Subsequent Address Family Identifier (8 bits)    |
+ * +--------------------------------------------------+
+ * | Flags for Address Family (8 bits)                |
+ * +--------------------------------------------------+
+ * | Long-lived Stale Time (24 bits)                  |
+ * +--------------------------------------------------+
+ */
+#define BGP_CAP_LLGR_MIN_PACKET_LEN 7
+
 /* Capability Code */
 #define CAPABILITY_CODE_MP              1 /* Multiprotocol Extensions */
 #define CAPABILITY_CODE_REFRESH         2 /* Route Refresh Capability */
