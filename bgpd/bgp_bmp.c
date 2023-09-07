@@ -703,7 +703,7 @@ static int bmp_peer_status_changed(struct peer *peer)
 	if (!bmpbgp)
 		return 0;
 
-	if (peer->status == Deleted) {
+	if (peer->connection->status == Deleted) {
 		bbpeer = bmp_bgp_peer_find(peer->qobj_node.nid);
 		if (bbpeer) {
 			XFREE(MTYPE_BMP_OPEN, bbpeer->open_rx);
@@ -715,10 +715,12 @@ static int bmp_peer_status_changed(struct peer *peer)
 	}
 
 	/* Check if this peer just went to Established */
-	if ((peer->ostatus != OpenConfirm) || !(peer_established(peer)))
+	if ((peer->connection->ostatus != OpenConfirm) ||
+	    !(peer_established(peer)))
 		return 0;
 
-	if (peer->doppelganger && (peer->doppelganger->status != Deleted)) {
+	if (peer->doppelganger &&
+	    (peer->doppelganger->connection->status != Deleted)) {
 		bbpeer = bmp_bgp_peer_get(peer);
 		bbdopp = bmp_bgp_peer_find(peer->doppelganger->qobj_node.nid);
 		if (bbdopp) {
@@ -1305,7 +1307,7 @@ static int bmp_process(struct bgp *bgp, afi_t afi, safi_t safi,
 	if (frrtrace_enabled(frr_bgp, bmp_process)) {
 		char pfxprint[PREFIX2STR_BUFFER];
 
-		prefix2str(&bn->p, pfxprint, sizeof(pfxprint));
+		prefix2str(&bn->rn->p, pfxprint, sizeof(pfxprint));
 		frrtrace(5, frr_bgp, bmp_process, peer, pfxprint, afi, safi,
 			 withdraw);
 	}

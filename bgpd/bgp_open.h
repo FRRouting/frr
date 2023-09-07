@@ -94,5 +94,6 @@ extern uint16_t bgp_open_capability(struct stream *s, struct peer *peer,
 extern void bgp_capability_vty_out(struct vty *vty, struct peer *peer,
 				   bool use_json, json_object *json_neigh);
 extern as_t peek_for_as4_capability(struct peer *peer, uint16_t length);
+extern const struct message capcode_str[];
 
 #endif /* _QUAGGA_BGP_OPEN_H */

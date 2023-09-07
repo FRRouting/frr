@@ -98,6 +98,8 @@ static int isis_zebra_if_address_add(ZAPI_CALLBACK_ARGS)
 			isis_circuit_add_addr(circuit, c);
 	}
 
+	sr_if_addr_update(c->ifp);
+
 	return 0;
 }
 
@@ -124,6 +126,8 @@ static int isis_zebra_if_address_del(ZAPI_CALLBACK_ARGS)
 		if (circuit)
 			isis_circuit_del_addr(circuit, c);
 	}
+
+	sr_if_addr_update(c->ifp);
 
 	connected_free(&c);
 
@@ -498,10 +502,10 @@ static int isis_zebra_read(ZAPI_CALLBACK_ARGS)
 
 	if (cmd == ZEBRA_REDISTRIBUTE_ROUTE_ADD)
 		isis_redist_add(isis, api.type, &api.prefix, &api.src_prefix,
-				api.distance, api.metric, api.tag);
+				api.distance, api.metric, api.tag, api.instance);
 	else
-		isis_redist_delete(isis, api.type, &api.prefix,
-				   &api.src_prefix);
+		isis_redist_delete(isis, api.type, &api.prefix, &api.src_prefix,
+				   api.instance);
 
 	return 0;
 }
@@ -511,24 +515,26 @@ int isis_distribute_list_update(int routetype)
 	return 0;
 }
 
-void isis_zebra_redistribute_set(afi_t afi, int type, vrf_id_t vrf_id)
+void isis_zebra_redistribute_set(afi_t afi, int type, vrf_id_t vrf_id,
+				 uint16_t tableid)
 {
 	if (type == DEFAULT_ROUTE)
 		zclient_redistribute_default(ZEBRA_REDISTRIBUTE_DEFAULT_ADD,
 					     zclient, afi, vrf_id);
 	else
 		zclient_redistribute(ZEBRA_REDISTRIBUTE_ADD, zclient, afi, type,
-				     0, vrf_id);
+				     tableid, vrf_id);
 }
 
-void isis_zebra_redistribute_unset(afi_t afi, int type, vrf_id_t vrf_id)
+void isis_zebra_redistribute_unset(afi_t afi, int type, vrf_id_t vrf_id,
+				   uint16_t tableid)
 {
 	if (type == DEFAULT_ROUTE)
 		zclient_redistribute_default(ZEBRA_REDISTRIBUTE_DEFAULT_DELETE,
 					     zclient, afi, vrf_id);
 	else
 		zclient_redistribute(ZEBRA_REDISTRIBUTE_DELETE, zclient, afi,
-				     type, 0, vrf_id);
+				     type, tableid, vrf_id);
 }
 
 /**

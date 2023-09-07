@@ -200,6 +200,7 @@ static void if_nhg_dependents_release(const struct interface *ifp)
 static int if_zebra_delete_hook(struct interface *ifp)
 {
 	struct zebra_if *zebra_if;
+	struct zebra_l2info_bond *bond;
 
 	if (ifp->info) {
 		zebra_if = ifp->info;
@@ -216,6 +217,10 @@ static int if_zebra_delete_hook(struct interface *ifp)
 			route_table_finish(zebra_if->ipv4_subnets);
 
 		rtadv_if_fini(zebra_if);
+
+		bond = &zebra_if->bond_info;
+		if (bond && bond->mbr_zifs)
+			list_delete(&bond->mbr_zifs);
 
 		zebra_l2_bridge_if_cleanup(ifp);
 		zebra_evpn_if_cleanup(zebra_if);
@@ -1190,6 +1195,12 @@ static bool if_ignore_set_protodown(const struct interface *ifp, bool new_down,
 
 	zif = ifp->info;
 
+	/*
+	 * FRR does not have enough data to make this request
+	 */
+	if (ifp->ifindex == IFINDEX_INTERNAL)
+		return true;
+
 	/* Current state as we know it */
 	old_down = !!(ZEBRA_IF_IS_PROTODOWN(zif));
 	old_set_down = !!CHECK_FLAG(zif->flags, ZIF_FLAG_SET_PROTODOWN);
@@ -1848,8 +1859,14 @@ static void interface_bridge_vxlan_update(struct zebra_dplane_ctx *ctx,
 	struct zebra_if *zif = ifp->info;
 	const struct zebra_dplane_bridge_vlan_info *bvinfo;
 
+	if (dplane_ctx_get_ifp_no_afspec(ctx))
+		return;
+
 	if (IS_ZEBRA_VXLAN_IF_SVD(zif))
 		interface_bridge_vxlan_vlan_vni_map_update(ctx, ifp);
+
+	if (dplane_ctx_get_ifp_no_bridge_vlan_info(ctx))
+		return;
 
 	bvinfo = dplane_ctx_get_ifp_bridge_vlan_info(ctx);
 
@@ -2043,6 +2060,7 @@ static void zebra_if_dplane_ifp_handling(struct zebra_dplane_ctx *ctx)
 			ifp->metric = 0;
 			ifp->speed = kernel_get_speed(ifp, NULL);
 			ifp->ptm_status = ZEBRA_PTM_STATUS_UNKNOWN;
+			ifp->txqlen = dplane_ctx_get_intf_txqlen(ctx);
 
 			/* Set interface type */
 			zebra_if_set_ziftype(ifp, zif_type, zif_slave_type);
@@ -2125,6 +2143,7 @@ static void zebra_if_dplane_ifp_handling(struct zebra_dplane_ctx *ctx)
 			set_ifindex(ifp, ifindex, zns);
 			ifp->mtu6 = ifp->mtu = mtu;
 			ifp->metric = 0;
+			ifp->txqlen = dplane_ctx_get_intf_txqlen(ctx);
 
 			/*
 			 * Update interface type - NOTE: Only slave_type can
@@ -2769,8 +2788,8 @@ static void if_dump_vty(struct vty *vty, struct interface *ifp)
 		return;
 	}
 
-	vty_out(vty, "  index %d metric %d mtu %d speed %u ", ifp->ifindex,
-		ifp->metric, ifp->mtu, ifp->speed);
+	vty_out(vty, "  index %d metric %d mtu %d speed %u txqlen %u",
+		ifp->ifindex, ifp->metric, ifp->mtu, ifp->speed, ifp->txqlen);
 	if (ifp->mtu6 != ifp->mtu)
 		vty_out(vty, "mtu6 %d ", ifp->mtu6);
 	vty_out(vty, "\n  flags: %s\n", if_flag_dump(ifp->flags));
@@ -3157,6 +3176,7 @@ static void if_dump_vty_json(struct vty *vty, struct interface *ifp,
 	if (ifp->mtu6 != ifp->mtu)
 		json_object_int_add(json_if, "mtu6", ifp->mtu6);
 	json_object_int_add(json_if, "speed", ifp->speed);
+	json_object_int_add(json_if, "txqlen", ifp->txqlen);
 	json_object_string_add(json_if, "flags", if_flag_dump(ifp->flags));
 
 	/* Hardware address. */
@@ -3777,23 +3797,20 @@ DEFUN (multicast,
 
 DEFPY (mpls,
        mpls_cmd,
-       "[no] mpls enable",
+       "[no] mpls <enable$on|disable$off>",
        NO_STR
        MPLS_STR
-       "Set mpls to be on for the interface\n")
+       "Set mpls to be on for the interface\n"
+       "Set mpls to be off for the interface\n")
 {
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	struct zebra_if *if_data = ifp->info;
+	if (!no)
+		nb_cli_enqueue_change(vty, "./frr-zebra:zebra/mpls",
+				      NB_OP_CREATE, on ? "true" : "false");
+	else
+		nb_cli_enqueue_change(vty, "./frr-zebra:zebra/mpls",
+				      NB_OP_DESTROY, NULL);
 
-	if (no) {
-		dplane_intf_mpls_modify_state(ifp, false);
-		if_data->mpls_config = IF_ZEBRA_DATA_UNSPEC;
-	} else {
-		dplane_intf_mpls_modify_state(ifp, true);
-		if_data->mpls_config = IF_ZEBRA_DATA_ON;
-	}
-
-	return CMD_SUCCESS;
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 int if_multicast_unset(struct interface *ifp)
@@ -5633,6 +5650,9 @@ static int if_config_write(struct vty *vty)
 
 				if (if_data->mpls_config == IF_ZEBRA_DATA_ON)
 					vty_out(vty, " mpls enable\n");
+				else if (if_data->mpls_config ==
+					 IF_ZEBRA_DATA_OFF)
+					vty_out(vty, " mpls disable\n");
 			}
 
 			hook_call(zebra_if_config_wr, vty, ifp);

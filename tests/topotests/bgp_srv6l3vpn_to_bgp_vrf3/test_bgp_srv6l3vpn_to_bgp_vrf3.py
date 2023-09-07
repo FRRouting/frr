@@ -21,6 +21,7 @@ from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
 from lib.common_config import required_linux_kernel_version
+from lib.checkping import check_ping, check_ping
 
 pytestmark = [pytest.mark.bgpd]
 
@@ -93,38 +94,6 @@ def open_json_file(filename):
         assert False, "Could not read file {}".format(filename)
 
 
-def check_ping4(name, dest_addr, expect_connected):
-    def _check(name, dest_addr, match):
-        tgen = get_topogen()
-        output = tgen.gears[name].run("ping {} -c 1 -w 1".format(dest_addr))
-        logger.info(output)
-        if match not in output:
-            return "ping fail"
-
-    match = ", {} packet loss".format("0%" if expect_connected else "100%")
-    logger.info("[+] check {} {} {}".format(name, dest_addr, match))
-    tgen = get_topogen()
-    func = functools.partial(_check, name, dest_addr, match)
-    success, result = topotest.run_and_expect(func, None, count=10, wait=0.5)
-    assert result is None, "Failed"
-
-
-def check_ping6(name, dest_addr, expect_connected):
-    def _check(name, dest_addr, match):
-        tgen = get_topogen()
-        output = tgen.gears[name].run("ping6 {} -c 1 -w 1".format(dest_addr))
-        logger.info(output)
-        if match not in output:
-            return "ping fail"
-
-    match = "{} packet loss".format("0%" if expect_connected else "100%")
-    logger.info("[+] check {} {} {}".format(name, dest_addr, match))
-    tgen = get_topogen()
-    func = functools.partial(_check, name, dest_addr, match)
-    success, result = topotest.run_and_expect(func, None, count=10, wait=1)
-    assert result is None, "Failed"
-
-
 def check_rib(name, cmd, expected_file):
     def _check(name, dest_addr, match):
         logger.info("polling")
@@ -170,32 +139,32 @@ def test_rib():
 
 
 def test_ping():
-    check_ping4("ce1", "192.168.2.2", True)
-    check_ping4("ce1", "192.168.3.2", True)
-    check_ping4("ce1", "192.168.4.2", False)
-    check_ping4("ce1", "192.168.5.2", False)
-    check_ping4("ce1", "192.168.6.2", False)
-    check_ping4("ce4", "192.168.1.2", False)
-    check_ping4("ce4", "192.168.2.2", False)
-    check_ping4("ce4", "192.168.3.2", False)
-    check_ping4("ce4", "192.168.5.2", True)
-    check_ping4("ce4", "192.168.6.2", True)
+    check_ping("ce1", "192.168.2.2", True, 10, 0.5)
+    check_ping("ce1", "192.168.3.2", True, 10, 0.5)
+    check_ping("ce1", "192.168.4.2", False, 10, 0.5)
+    check_ping("ce1", "192.168.5.2", False, 10, 0.5)
+    check_ping("ce1", "192.168.6.2", False, 10, 0.5)
+    check_ping("ce4", "192.168.1.2", False, 10, 0.5)
+    check_ping("ce4", "192.168.2.2", False, 10, 0.5)
+    check_ping("ce4", "192.168.3.2", False, 10, 0.5)
+    check_ping("ce4", "192.168.5.2", True, 10, 0.5)
+    check_ping("ce4", "192.168.6.2", True, 10, 0.5)
 
-    check_ping6("ce1", "2001:2::2", True)
-    check_ping6("ce1", "2001:3::2", True)
-    check_ping6("ce1", "2001:4::2", False)
-    check_ping6("ce1", "2001:5::2", False)
-    check_ping6("ce1", "2001:6::2", False)
-    check_ping6("ce4", "2001:1::2", False)
-    check_ping6("ce4", "2001:2::2", False)
-    check_ping6("ce4", "2001:3::2", False)
-    check_ping6("ce4", "2001:5::2", True)
-    check_ping6("ce4", "2001:6::2", True)
+    check_ping("ce1", "2001:2::2", True, 10, 1)
+    check_ping("ce1", "2001:3::2", True, 10, 1)
+    check_ping("ce1", "2001:4::2", False, 10, 1)
+    check_ping("ce1", "2001:5::2", False, 10, 1)
+    check_ping("ce1", "2001:6::2", False, 10, 1)
+    check_ping("ce4", "2001:1::2", False, 10, 1)
+    check_ping("ce4", "2001:2::2", False, 10, 1)
+    check_ping("ce4", "2001:3::2", False, 10, 1)
+    check_ping("ce4", "2001:5::2", True, 10, 1)
+    check_ping("ce4", "2001:6::2", True, 10, 1)
 
 
 def test_bgp_sid_vpn_export_disable():
-    check_ping4("ce1", "192.168.2.2", True)
-    check_ping6("ce1", "2001:2::2", True)
+    check_ping("ce1", "192.168.2.2", True, 10, 0.5)
+    check_ping("ce1", "2001:2::2", True, 10, 1)
     get_topogen().gears["r1"].vtysh_cmd(
         """
         configure terminal
@@ -216,13 +185,13 @@ def test_bgp_sid_vpn_export_disable():
     check_rib(
         "r2", "show bgp ipv6 vpn json", "r2/vpnv6_rib_sid_vpn_export_disabled.json"
     )
-    check_ping4("ce1", "192.168.2.2", False)
-    check_ping6("ce1", "2001:2::2", False)
+    check_ping("ce1", "192.168.2.2", False, 10, 0.5)
+    check_ping("ce1", "2001:2::2", False, 10, 1)
 
 
 def test_bgp_sid_vpn_export_reenable():
-    check_ping4("ce1", "192.168.2.2", False)
-    check_ping6("ce1", "2001:2::2", False)
+    check_ping("ce1", "192.168.2.2", False, 10, 0.5)
+    check_ping("ce1", "2001:2::2", False, 10, 1)
     get_topogen().gears["r1"].vtysh_cmd(
         """
         configure terminal
@@ -243,13 +212,13 @@ def test_bgp_sid_vpn_export_reenable():
     check_rib(
         "r2", "show bgp ipv6 vpn json", "r2/vpnv6_rib_sid_vpn_export_reenabled.json"
     )
-    check_ping4("ce1", "192.168.2.2", True)
-    check_ping6("ce1", "2001:2::2", True)
+    check_ping("ce1", "192.168.2.2", True, 10, 0.5)
+    check_ping("ce1", "2001:2::2", True, 10, 1)
 
 
 def test_locator_delete():
-    check_ping4("ce1", "192.168.2.2", True)
-    check_ping6("ce1", "2001:2::2", True)
+    check_ping("ce1", "192.168.2.2", True, 10, 0.5)
+    check_ping("ce1", "2001:2::2", True, 10, 1)
     get_topogen().gears["r1"].vtysh_cmd(
         """
         configure terminal
@@ -263,13 +232,13 @@ def test_locator_delete():
     check_rib("r2", "show bgp ipv4 vpn json", "r2/vpnv4_rib_locator_deleted.json")
     check_rib("r1", "show bgp ipv6 vpn json", "r1/vpnv6_rib_locator_deleted.json")
     check_rib("r2", "show bgp ipv6 vpn json", "r2/vpnv6_rib_locator_deleted.json")
-    check_ping4("ce1", "192.168.2.2", False)
-    check_ping6("ce1", "2001:2::2", False)
+    check_ping("ce1", "192.168.2.2", False, 10, 0.5)
+    check_ping("ce1", "2001:2::2", False, 10, 1)
 
 
 def test_locator_recreate():
-    check_ping4("ce1", "192.168.2.2", False)
-    check_ping6("ce1", "2001:2::2", False)
+    check_ping("ce1", "192.168.2.2", False, 10, 0.5)
+    check_ping("ce1", "2001:2::2", False, 10, 1)
     get_topogen().gears["r1"].vtysh_cmd(
         """
         configure terminal
@@ -284,13 +253,13 @@ def test_locator_recreate():
     check_rib("r2", "show bgp ipv4 vpn json", "r2/vpnv4_rib_locator_recreated.json")
     check_rib("r1", "show bgp ipv6 vpn json", "r1/vpnv6_rib_locator_recreated.json")
     check_rib("r2", "show bgp ipv6 vpn json", "r2/vpnv6_rib_locator_recreated.json")
-    check_ping4("ce1", "192.168.2.2", True)
-    check_ping6("ce1", "2001:2::2", True)
+    check_ping("ce1", "192.168.2.2", True, 10, 0.5)
+    check_ping("ce1", "2001:2::2", True, 10, 1)
 
 
 def test_bgp_locator_unset():
-    check_ping4("ce1", "192.168.2.2", True)
-    check_ping6("ce1", "2001:2::2", True)
+    check_ping("ce1", "192.168.2.2", True, 10, 0.5)
+    check_ping("ce1", "2001:2::2", True, 10, 1)
     get_topogen().gears["r1"].vtysh_cmd(
         """
         configure terminal
@@ -303,13 +272,13 @@ def test_bgp_locator_unset():
     check_rib("r2", "show bgp ipv4 vpn json", "r2/vpnv4_rib_locator_deleted.json")
     check_rib("r1", "show bgp ipv6 vpn json", "r1/vpnv6_rib_locator_deleted.json")
     check_rib("r2", "show bgp ipv6 vpn json", "r2/vpnv6_rib_locator_deleted.json")
-    check_ping4("ce1", "192.168.2.2", False)
-    check_ping6("ce1", "2001:2::2", False)
+    check_ping("ce1", "192.168.2.2", False, 10, 0.5)
+    check_ping("ce1", "2001:2::2", False, 10, 1)
 
 
 def test_bgp_locator_reset():
-    check_ping4("ce1", "192.168.2.2", False)
-    check_ping6("ce1", "2001:2::2", False)
+    check_ping("ce1", "192.168.2.2", False, 10, 0.5)
+    check_ping("ce1", "2001:2::2", False, 10, 1)
     get_topogen().gears["r1"].vtysh_cmd(
         """
         configure terminal
@@ -322,13 +291,13 @@ def test_bgp_locator_reset():
     check_rib("r2", "show bgp ipv4 vpn json", "r2/vpnv4_rib_locator_recreated.json")
     check_rib("r1", "show bgp ipv6 vpn json", "r1/vpnv6_rib_locator_recreated.json")
     check_rib("r2", "show bgp ipv6 vpn json", "r2/vpnv6_rib_locator_recreated.json")
-    check_ping4("ce1", "192.168.2.2", True)
-    check_ping6("ce1", "2001:2::2", True)
+    check_ping("ce1", "192.168.2.2", True, 10, 0.5)
+    check_ping("ce1", "2001:2::2", True, 10, 1)
 
 
 def test_bgp_srv6_unset():
-    check_ping4("ce1", "192.168.2.2", True)
-    check_ping6("ce1", "2001:2::2", True)
+    check_ping("ce1", "192.168.2.2", True, 10, 0.5)
+    check_ping("ce1", "2001:2::2", True, 10, 1)
     get_topogen().gears["r1"].vtysh_cmd(
         """
         configure terminal
@@ -340,13 +309,13 @@ def test_bgp_srv6_unset():
     check_rib("r2", "show bgp ipv4 vpn json", "r2/vpnv4_rib_locator_deleted.json")
     check_rib("r1", "show bgp ipv6 vpn json", "r1/vpnv6_rib_locator_deleted.json")
     check_rib("r2", "show bgp ipv6 vpn json", "r2/vpnv6_rib_locator_deleted.json")
-    check_ping4("ce1", "192.168.2.2", False)
-    check_ping6("ce1", "2001:2::2", False)
+    check_ping("ce1", "192.168.2.2", False, 10, 0.5)
+    check_ping("ce1", "2001:2::2", False, 10, 1)
 
 
 def test_bgp_srv6_reset():
-    check_ping4("ce1", "192.168.2.2", False)
-    check_ping6("ce1", "2001:2::2", False)
+    check_ping("ce1", "192.168.2.2", False, 10, 0.5)
+    check_ping("ce1", "2001:2::2", False, 10, 1)
     get_topogen().gears["r1"].vtysh_cmd(
         """
         configure terminal
@@ -359,8 +328,8 @@ def test_bgp_srv6_reset():
     check_rib("r2", "show bgp ipv4 vpn json", "r2/vpnv4_rib_locator_recreated.json")
     check_rib("r1", "show bgp ipv6 vpn json", "r1/vpnv6_rib_locator_recreated.json")
     check_rib("r2", "show bgp ipv6 vpn json", "r2/vpnv6_rib_locator_recreated.json")
-    check_ping4("ce1", "192.168.2.2", True)
-    check_ping6("ce1", "2001:2::2", True)
+    check_ping("ce1", "192.168.2.2", True, 10, 0.5)
+    check_ping("ce1", "2001:2::2", True, 10, 1)
 
 
 if __name__ == "__main__":

@@ -166,6 +166,11 @@ flavors (local LFA, Remote LFA and TI-LFA).
    Configure a prefix-list to select eligible PQ nodes for remote LFA
    backups (valid for all protected interfaces).
 
+.. clicmd:: redistribute <ipv4 | ipv6> table (1-65535) <level-1 | level-2> [metric (0-16777215)|route-map WORD]
+
+   Redistribute routes from a given routing table into the given ISIS
+   level database.
+
 .. _isis-region:
 
 ISIS region

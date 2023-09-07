@@ -86,6 +86,15 @@ be specified (:ref:`common-invocation-options`).
    be done to see if this is helping or not at the scale you are running
    at.
 
+.. option:: --v6-with-v4-nexthops
+
+   Allow BGP to peer in the V6 afi, when the interface only has v4 addresses.
+   This allows bgp to install the v6 routes with a v6 nexthop that has the
+   v4 address encoded in the nexthop.  Zebra's equivalent option currently
+   overrides the bgp setting.  This setting is only really usable when
+   the operator has turned off communication to zebra and is running bgpd
+   as a complete standalone process.
+
 LABEL MANAGER
 -------------
 
@@ -831,7 +840,10 @@ The following functionality is provided by graceful restart:
 1. The feature allows the restarting router to indicate to the helping peer the
    routes it can preserve in its forwarding plane during control plane restart
    by sending graceful restart capability in the OPEN message sent during
-   session establishment.
+   session establishment. Graceful restart notification flag and/or restart
+   time can also be changed during the dynamic BGP capabilities. If using
+   dynamic capabilities, no session reset is required, thus it's very useful
+   to increase restart time before doing a software upgrade or so.
 2. The feature allows helping router to advertise to all other peers the routes
    received from the restarting router which are preserved in the forwarding
    plane of the restarting router during control plane restart.
@@ -2133,6 +2145,14 @@ Using AS Path in Route Map
    ``any`` replaces each AS number in the AS-PATH with either the local AS
    number or the configured AS number.
 
+.. clicmd:: set as-path replace as-path-access-list WORD [<ASN>]
+
+   Replace some AS numbers from the AS_PATH of the BGP path's NLRI. Substituted
+   AS numbers are conformant with the regex defined in as-path access-list
+   WORD. Changed AS numbers are replaced either by the local AS number or the
+   configured AS number.
+   The no form of this command removes this set operation from the route-map.
+
 .. clicmd:: set as-path exclude all
 
    Remove all AS numbers from the AS_PATH of the BGP path's NLRI. The no form of
@@ -2143,8 +2163,8 @@ Using AS Path in Route Map
    Remove some AS numbers from the AS_PATH of the BGP path's NLRI. Removed AS
    numbers are conformant with the regex defined in as-path access-list  WORD.
    The no form of this command removes this set operation from the route-map.
-   
-   
+
+
 .. _bgp-communities-attribute:
 
 Communities Attribute

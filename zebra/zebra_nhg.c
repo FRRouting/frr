@@ -2401,10 +2401,13 @@ static int nexthop_active(struct nexthop *nexthop, struct nhg_hash_entry *nhe,
 							    nexthop->ifindex);
 
 			newhop = match->nhe->nhg.nexthop;
-			if (nexthop->type == NEXTHOP_TYPE_IPV4 ||
-			    nexthop->type == NEXTHOP_TYPE_IPV6)
+			if (nexthop->type == NEXTHOP_TYPE_IPV4) {
 				nexthop->ifindex = newhop->ifindex;
-			else if (nexthop->ifindex != newhop->ifindex) {
+				nexthop->type = NEXTHOP_TYPE_IPV4_IFINDEX;
+			} else if (nexthop->type == NEXTHOP_TYPE_IPV6) {
+				nexthop->ifindex = newhop->ifindex;
+				nexthop->type = NEXTHOP_TYPE_IPV6_IFINDEX;
+			} else if (nexthop->ifindex != newhop->ifindex) {
 				if (IS_ZEBRA_DEBUG_RIB_DETAILED)
 					zlog_debug(
 						"%s: %pNHv given ifindex does not match nexthops ifindex found: %pNHv",
@@ -2700,8 +2703,7 @@ skip_check:
 	}
 
 	/* It'll get set if required inside */
-	ret = zebra_route_map_check(family, re->type, re->instance, p, nexthop,
-				    zvrf, re->tag);
+	ret = zebra_route_map_check(family, re, p, nexthop, zvrf);
 	if (ret == RMAP_DENYMATCH) {
 		if (IS_ZEBRA_DEBUG_RIB) {
 			zlog_debug(
@@ -3418,6 +3420,7 @@ struct nhg_hash_entry *zebra_nhg_proto_add(uint32_t id, int type,
 	struct nhg_connected *rb_node_dep = NULL;
 	struct nexthop *newhop;
 	bool replace = false;
+	int ret = 0;
 
 	if (!nhg->nexthop) {
 		if (IS_ZEBRA_DEBUG_NHG)
@@ -3515,22 +3518,31 @@ struct nhg_hash_entry *zebra_nhg_proto_add(uint32_t id, int type,
 		if (CHECK_FLAG(old->flags, NEXTHOP_GROUP_PROTO_RELEASED))
 			zebra_nhg_increment_ref(old);
 
-		rib_handle_nhg_replace(old, new);
+		ret = rib_handle_nhg_replace(old, new);
+		if (ret)
+			/*
+			 * if ret > 0, some previous re->nhe has freed the
+			 * address to which old_entry is pointing. Hence mark
+			 * the old NHE as NULL
+			 */
+			old = NULL;
+		else {
+			/* We have to decrement its singletons
+			 * because some might not exist in NEW.
+			 */
+			if (!zebra_nhg_depends_is_empty(old)) {
+				frr_each (nhg_connected_tree, &old->nhg_depends,
+					  rb_node_dep)
+					zebra_nhg_decrement_ref(
+						rb_node_dep->nhe);
+			}
 
-		/* We have to decrement its singletons
-		 * because some might not exist in NEW.
-		 */
-		if (!zebra_nhg_depends_is_empty(old)) {
-			frr_each (nhg_connected_tree, &old->nhg_depends,
-				  rb_node_dep)
-				zebra_nhg_decrement_ref(rb_node_dep->nhe);
+			/* Dont call the dec API, we dont want to uninstall the ID */
+			old->refcnt = 0;
+			EVENT_OFF(old->timer);
+			zebra_nhg_free(old);
+			old = NULL;
 		}
-
-		/* Dont call the dec API, we dont want to uninstall the ID */
-		old->refcnt = 0;
-		EVENT_OFF(old->timer);
-		zebra_nhg_free(old);
-		old = NULL;
 	}
 
 	if (IS_ZEBRA_DEBUG_NHG_DETAIL)
@@ -3635,7 +3647,18 @@ unsigned long zebra_nhg_score_proto(int type)
 		 * This should be the last ref if we remove client routes too,
 		 * and thus should remove and free them.
 		 */
-		zebra_nhg_decrement_ref(nhe);
+		if (!CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_PROTO_RELEASED))
+			zebra_nhg_decrement_ref(nhe);
+		else {
+
+			/* protocol sends explicit delete of nhg, the
+			 * nhe->refcount is decremented in zread_nhg_del()
+			 */
+			if (IS_ZEBRA_DEBUG_RIB_DETAILED)
+				zlog_debug(
+					"%s: nhe %u (%p) refcount %u already decremented in zread_nhg_del",
+					__func__, nhe->id, nhe, nhe->refcnt);
+		}
 	}
 
 	count = iter.found->count;

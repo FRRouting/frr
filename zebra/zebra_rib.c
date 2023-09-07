@@ -365,7 +365,7 @@ int is_zebra_valid_kernel_table(uint32_t table_id)
 
 int is_zebra_main_routing_table(uint32_t table_id)
 {
-	if (table_id == RT_TABLE_MAIN)
+	if (table_id == rt_table_main_id)
 		return 1;
 	return 0;
 }
@@ -428,18 +428,29 @@ int route_entry_update_nhe(struct route_entry *re,
 
 done:
 	/* Detach / deref previous nhg */
-	if (old_nhg)
+
+	if (old_nhg) {
+		/*
+		 * Return true if we are deleting the previous NHE
+		 * Note: we dont check the return value of the function anywhere
+		 * except at rib_handle_nhg_replace().
+		 */
+		if (old_nhg->refcnt == 1)
+			ret = 1;
+
 		zebra_nhg_decrement_ref(old_nhg);
+	}
 
 	return ret;
 }
 
-void rib_handle_nhg_replace(struct nhg_hash_entry *old_entry,
-			    struct nhg_hash_entry *new_entry)
+int rib_handle_nhg_replace(struct nhg_hash_entry *old_entry,
+			   struct nhg_hash_entry *new_entry)
 {
 	struct zebra_router_table *zrt;
 	struct route_node *rn;
 	struct route_entry *re, *next;
+	int ret = 0;
 
 	if (IS_ZEBRA_DEBUG_RIB_DETAILED || IS_ZEBRA_DEBUG_NHG_DETAIL)
 		zlog_debug("%s: replacing routes nhe (%u) OLD %p NEW %p",
@@ -451,10 +462,17 @@ void rib_handle_nhg_replace(struct nhg_hash_entry *old_entry,
 		     rn = srcdest_route_next(rn)) {
 			RNODE_FOREACH_RE_SAFE (rn, re, next) {
 				if (re->nhe && re->nhe == old_entry)
-					route_entry_update_nhe(re, new_entry);
+					ret += route_entry_update_nhe(re,
+								      new_entry);
 			}
 		}
 	}
+
+	/*
+	 * if ret > 0, some previous re->nhe has freed the address to which
+	 * old_entry is pointing.
+	 */
+	return ret;
 }
 
 struct route_entry *rib_match(afi_t afi, safi_t safi, vrf_id_t vrf_id,
@@ -2706,6 +2724,8 @@ static void process_subq_early_route_add(struct zebra_early_route *ere)
 			return;
 		}
 	} else {
+		struct nexthop *tmp_nh;
+
 		/* Lookup nhe from route information */
 		nhe = zebra_nhg_rib_find_nhe(ere->re_nhe, ere->afi);
 		if (!nhe) {
@@ -2722,6 +2742,22 @@ static void process_subq_early_route_add(struct zebra_early_route *ere)
 
 			early_route_memory_free(ere);
 			return;
+		}
+		for (ALL_NEXTHOPS(nhe->nhg, tmp_nh)) {
+			if (CHECK_FLAG(tmp_nh->flags, NEXTHOP_FLAG_EVPN)) {
+				struct ipaddr vtep_ip = {};
+
+				if (ere->afi == AFI_IP) {
+					vtep_ip.ipa_type = IPADDR_V4;
+					vtep_ip.ipaddr_v4 = tmp_nh->gate.ipv4;
+				} else {
+					vtep_ip.ipa_type = IPADDR_V6;
+					vtep_ip.ipaddr_v6 = tmp_nh->gate.ipv6;
+				}
+				zebra_rib_queue_evpn_route_add(
+					re->vrf_id, &tmp_nh->rmac, &vtep_ip,
+					&ere->p);
+			}
 		}
 	}
 
@@ -3237,12 +3273,26 @@ static int rib_meta_queue_add(struct meta_queue *mq, void *data)
 		return -1;
 
 	/* Invariant: at this point we always have rn->info set. */
-	if (CHECK_FLAG(rib_dest_from_rnode(rn)->flags,
-		       RIB_ROUTE_QUEUED(qindex))) {
-		if (IS_ZEBRA_DEBUG_RIB_DETAILED)
+	/* A route node must only be in one sub-queue at a time. */
+	if (CHECK_FLAG(rib_dest_from_rnode(rn)->flags, MQ_BIT_MASK)) {
+		if (IS_ZEBRA_DEBUG_RIB_DETAILED) {
+			/*
+			 * curr_qindex_bitmask is power of 2, because a route node must only be in one sub-queue at a time,
+			 * so for getting current sub-queue index from bitmask we may use part of classic msb function
+			 * (find most significant set bit).
+			 */
+			const uint32_t curr_qindex_bitmask = CHECK_FLAG(rib_dest_from_rnode(rn)->flags, MQ_BIT_MASK);
+			static const uint8_t pos[32] = { 0, 1, 28, 2, 29, 14, 24, 3,
+				30, 22, 20, 15, 25, 17, 4, 8, 31, 27, 13, 23, 21, 19,
+				16, 7, 26, 12, 18, 6, 11, 5, 10, 9 };
+
+			curr_qindex = pos[(uint32_t)(curr_qindex_bitmask * 0x077CB531UL) >> 27];
+
 			rnode_debug(rn, re->vrf_id,
 				    "rn %p is already queued in sub-queue %s",
-				    (void *)rn, subqueue2str(qindex));
+				    (void *)rn, subqueue2str(curr_qindex));
+		}
+
 		return -1;
 	}
 
@@ -4170,10 +4220,10 @@ static int rib_meta_queue_early_route_add(struct meta_queue *mq, void *data)
 	mq->size++;
 
 	if (IS_ZEBRA_DEBUG_RIB_DETAILED)
-		zlog_debug(
-			"Route %pFX(%u) queued for processing into sub-queue %s",
-			&ere->p, ere->re->vrf_id,
-			subqueue2str(META_QUEUE_EARLY_ROUTE));
+		zlog_debug("Route %pFX(%u) (%s) queued for processing into sub-queue %s",
+			   &ere->p, ere->re->vrf_id,
+			   ere->deletion ? "delete" : "add",
+			   subqueue2str(META_QUEUE_EARLY_ROUTE));
 
 	return 0;
 }

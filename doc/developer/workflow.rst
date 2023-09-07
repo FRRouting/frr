@@ -761,6 +761,13 @@ following requirements have achieved consensus:
   tools can catch uninitialized value use that would otherwise be suppressed by
   the (incorrect) zero initialization.
 
+- Usage of ``system()`` or other c library routines that cause signals to
+  possibly be ignored are not allowed.  This includes the ``fork()`` and
+  ``execXX`` call patterns, which is actually what system() does underneath
+  the covers.  This pattern causes the system shutdown to never work properly
+  as the SIGINT sent is never received.  It is better to just prohibit code
+  that does this instead of having to debug shutdown issues again.
+
 Other than these specific rules, coding practices from the Linux kernel as
 well as CERT or MISRA C guidelines may provide useful input on safe C code.
 However, these rules are not applied as-is;  some of them expressly collide

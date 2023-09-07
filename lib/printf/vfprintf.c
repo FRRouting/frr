@@ -8,7 +8,7 @@
  * Chris Torek.
  *
  * Copyright (c) 2011 The FreeBSD Foundation
- * All rights reserved.
+ *
  * Portions of this software were developed by David Chisnall
  * under sponsorship from the FreeBSD Foundation.
  *
@@ -419,6 +419,19 @@ reswitch:	switch (ch) {
 		case 'z':
 			flags |= SIZET;
 			goto rflag;
+		case 'B':
+		case 'b':
+			if (flags & INTMAX_SIZE)
+				ujval = UJARG();
+			else
+				ulval = UARG();
+			base = 2;
+			/* leading 0b/B only if non-zero */
+			if (flags & ALT &&
+			    (flags & INTMAX_SIZE ? ujval != 0 : ulval != 0))
+				ox[1] = ch;
+			goto nosign;
+			break;
 		case 'C':
 			flags |= LONGINT;
 			/*FALLTHROUGH*/

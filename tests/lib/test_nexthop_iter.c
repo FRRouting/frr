@@ -19,9 +19,10 @@ static int verbose;
 static void str_append(char **buf, const char *repr)
 {
 	if (*buf) {
-		*buf = realloc(*buf, strlen(*buf) + strlen(repr) + 1);
+		size_t new_size = strlen(*buf) + strlen(repr) + 1;
+		*buf = realloc(*buf, new_size);
 		assert(*buf);
-		strncpy((*buf) + strlen(*buf), repr, strlen(repr) + 1);
+		(void)strlcat(*buf, repr, new_size);
 	} else {
 		*buf = strdup(repr);
 		assert(*buf);

@@ -11,6 +11,7 @@
 #include "lib/prefix.h"
 #include "lib/nexthop.h"
 #include "lib/nexthop_group.h"
+#include "lib/pbr.h"
 #include "lib/vlan.h"
 #include "zebra/zebra_ns.h"
 #include "zebra/rib.h"
@@ -428,6 +429,10 @@ struct zebra_dplane_bridge_vlan_info {
 	uint16_t flags;
 	uint16_t vid;
 };
+void dplane_ctx_set_ifp_no_afspec(struct zebra_dplane_ctx *ctx);
+bool dplane_ctx_get_ifp_no_afspec(const struct zebra_dplane_ctx *ctx);
+void dplane_ctx_set_ifp_no_bridge_vlan_info(struct zebra_dplane_ctx *ctx);
+bool dplane_ctx_get_ifp_no_bridge_vlan_info(struct zebra_dplane_ctx *ctx);
 void dplane_ctx_set_ifp_bridge_vlan_info(
 	struct zebra_dplane_ctx *ctx,
 	struct zebra_dplane_bridge_vlan_info *bvinfo);
@@ -667,6 +672,8 @@ void dplane_ctx_set_intf_dest(struct zebra_dplane_ctx *ctx,
 bool dplane_ctx_intf_has_label(const struct zebra_dplane_ctx *ctx);
 const char *dplane_ctx_get_intf_label(const struct zebra_dplane_ctx *ctx);
 void dplane_ctx_set_intf_label(struct zebra_dplane_ctx *ctx, const char *label);
+void dplane_ctx_set_intf_txqlen(struct zebra_dplane_ctx *ctx, uint32_t txqlen);
+uint32_t dplane_ctx_get_intf_txqlen(const struct zebra_dplane_ctx *ctx);
 
 /* Accessors for MAC information */
 vlanid_t dplane_ctx_mac_get_vlan(const struct zebra_dplane_ctx *ctx);
@@ -693,6 +700,8 @@ uint16_t dplane_ctx_neigh_get_state(const struct zebra_dplane_ctx *ctx);
 uint32_t dplane_ctx_neigh_get_update_flags(const struct zebra_dplane_ctx *ctx);
 
 /* Accessors for policy based routing rule information */
+void dplane_ctx_rule_get(const struct zebra_dplane_ctx *ctx,
+	struct pbr_rule *pNew, struct pbr_rule *pOld);
 int dplane_ctx_rule_get_sock(const struct zebra_dplane_ctx *ctx);
 int dplane_ctx_rule_get_unique(const struct zebra_dplane_ctx *ctx);
 int dplane_ctx_rule_get_seq(const struct zebra_dplane_ctx *ctx);

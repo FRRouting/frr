@@ -903,8 +903,7 @@ enum node_type node_parent(enum node_type node)
 }
 
 /* Execute command by argument vline vector. */
-static int cmd_execute_command_real(vector vline, enum cmd_filter_type filter,
-				    struct vty *vty,
+static int cmd_execute_command_real(vector vline, struct vty *vty,
 				    const struct cmd_element **cmd,
 				    unsigned int up_level)
 {
@@ -1041,8 +1040,7 @@ int cmd_execute_command(vector vline, struct vty *vty,
 			vector_set_index(shifted_vline, index - 1,
 					 vector_lookup(vline, index));
 
-		ret = cmd_execute_command_real(shifted_vline, FILTER_RELAXED,
-					       vty, cmd, 0);
+		ret = cmd_execute_command_real(shifted_vline, vty, cmd, 0);
 
 		vector_free(shifted_vline);
 		vty->node = onode;
@@ -1051,7 +1049,7 @@ int cmd_execute_command(vector vline, struct vty *vty,
 	}
 
 	saved_ret = ret =
-		cmd_execute_command_real(vline, FILTER_RELAXED, vty, cmd, 0);
+		cmd_execute_command_real(vline, vty, cmd, 0);
 
 	if (vtysh)
 		return saved_ret;
@@ -1069,8 +1067,7 @@ int cmd_execute_command(vector vline, struct vty *vty,
 			if (vty->xpath_index > 0 && !cnode->no_xpath)
 				vty->xpath_index--;
 
-			ret = cmd_execute_command_real(vline, FILTER_RELAXED,
-						       vty, cmd, 0);
+			ret = cmd_execute_command_real(vline, vty, cmd, 0);
 			if (ret == CMD_SUCCESS || ret == CMD_WARNING
 			    || ret == CMD_ERR_AMBIGUOUS || ret == CMD_ERR_INCOMPLETE
 			    || ret == CMD_NOT_MY_INSTANCE
@@ -1102,7 +1099,7 @@ int cmd_execute_command(vector vline, struct vty *vty,
 int cmd_execute_command_strict(vector vline, struct vty *vty,
 			       const struct cmd_element **cmd)
 {
-	return cmd_execute_command_real(vline, FILTER_STRICT, vty, cmd, 0);
+	return cmd_execute_command_real(vline, vty, cmd, 0);
 }
 
 /*
@@ -1274,8 +1271,7 @@ int command_config_read_one_line(struct vty *vty,
 	       && ret != CMD_ERR_AMBIGUOUS && ret != CMD_ERR_INCOMPLETE
 	       && ret != CMD_NOT_MY_INSTANCE && ret != CMD_WARNING_CONFIG_FAILED
 	       && ret != CMD_NO_LEVEL_UP)
-		ret = cmd_execute_command_real(vline, FILTER_STRICT, vty, cmd,
-					       ++up_level);
+		ret = cmd_execute_command_real(vline, vty, cmd, ++up_level);
 
 	if (ret == CMD_NO_LEVEL_UP)
 		ret = CMD_ERR_NO_MATCH;

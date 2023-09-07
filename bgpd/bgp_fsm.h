@@ -17,15 +17,14 @@ enum bgp_fsm_state_progress {
 /* Macro for BGP read, write and timer thread.  */
 #define BGP_TIMER_ON(T, F, V)                                                  \
 	do {                                                                   \
-		if ((peer->status != Deleted))                                 \
+		if ((peer->connection->status != Deleted))                     \
 			event_add_timer(bm->master, (F), peer, (V), &(T));     \
 	} while (0)
 
-#define BGP_EVENT_ADD(P, E)                                                    \
-	do {                                                                   \
-		if ((P)->status != Deleted)                                    \
-			event_add_event(bm->master, bgp_event, (P), (E),       \
-					NULL);                                 \
+#define BGP_EVENT_ADD(P, E)                                                     \
+	do {                                                                    \
+		if ((P)->connection->status != Deleted)                         \
+			event_add_event(bm->master, bgp_event, (P), (E), NULL); \
 	} while (0)
 
 #define BGP_EVENT_FLUSH(P)                                                     \
@@ -115,7 +114,7 @@ enum bgp_fsm_state_progress {
 extern void bgp_fsm_nht_update(struct peer *peer, bool has_valid_nexthops);
 extern void bgp_event(struct event *event);
 extern int bgp_event_update(struct peer *, enum bgp_fsm_events event);
-extern enum bgp_fsm_state_progress bgp_stop(struct peer *peer);
+extern enum bgp_fsm_state_progress bgp_stop(struct peer_connection *connection);
 extern void bgp_timer_set(struct peer *);
 extern void bgp_routeadv_timer(struct event *event);
 extern void bgp_fsm_change_status(struct peer *peer,

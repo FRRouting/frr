@@ -2476,7 +2476,7 @@ int kernel_get_ipmr_sg_stats(struct zebra_vrf *zvrf, void *in)
 	 * are trying to give me.  So now we have this little hack.
 	 */
 	if (mroute->family == AF_INET)
-		actual_table = (zvrf->table_id == RT_TABLE_MAIN)
+		actual_table = (zvrf->table_id == rt_table_main_id)
 				       ? RT_TABLE_DEFAULT
 				       : zvrf->table_id;
 	else
@@ -4759,7 +4759,7 @@ ssize_t netlink_mpls_multipath_msg_encode(int cmd, struct zebra_dplane_ctx *ctx,
 	req->n.nlmsg_pid = nl->snl.nl_pid;
 
 	req->r.rtm_family = AF_MPLS;
-	req->r.rtm_table = RT_TABLE_MAIN;
+	req->r.rtm_table = rt_table_main_id;
 	req->r.rtm_dst_len = MPLS_LABEL_LEN_BITS;
 	req->r.rtm_scope = RT_SCOPE_UNIVERSE;
 	req->r.rtm_type = RTN_UNICAST;

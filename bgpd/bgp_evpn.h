@@ -51,15 +51,15 @@ get_route_parent_evpn(struct bgp_path_info *ri)
 	struct bgp_path_info *parent_ri;
 
 	/* If not imported (or doesn't have a parent), bail. */
-	if (ri->sub_type != BGP_ROUTE_IMPORTED ||
-	    !ri->extra ||
-	    !ri->extra->parent)
+	if (ri->sub_type != BGP_ROUTE_IMPORTED || !ri->extra ||
+	    !ri->extra->vrfleak || !ri->extra->vrfleak->parent)
 		return NULL;
 
 	/* Determine parent recursively */
-	for (parent_ri = ri->extra->parent;
-	     parent_ri->extra && parent_ri->extra->parent;
-	     parent_ri = parent_ri->extra->parent)
+	for (parent_ri = ri->extra->vrfleak->parent;
+	     parent_ri->extra && parent_ri->extra->vrfleak &&
+	     parent_ri->extra->vrfleak->parent;
+	     parent_ri = parent_ri->extra->vrfleak->parent)
 		;
 
 	return parent_ri;
@@ -103,12 +103,11 @@ static inline bool is_route_injectable_into_evpn(struct bgp_path_info *pi)
 	struct bgp_table *table;
 	struct bgp_dest *dest;
 
-	if (pi->sub_type != BGP_ROUTE_IMPORTED ||
-	    !pi->extra ||
-	    !pi->extra->parent)
+	if (pi->sub_type != BGP_ROUTE_IMPORTED || !pi->extra ||
+	    !pi->extra->vrfleak || !pi->extra->vrfleak->parent)
 		return true;
 
-	parent_pi = (struct bgp_path_info *)pi->extra->parent;
+	parent_pi = (struct bgp_path_info *)pi->extra->vrfleak->parent;
 	dest = parent_pi->net;
 	if (!dest)
 		return true;

@@ -1047,6 +1047,7 @@ void nexthop_group_write_nexthop_simple(struct vty *vty,
 		vty_out(vty, "%pI6 %s", &nh->gate.ipv6, ifname);
 		break;
 	case NEXTHOP_TYPE_BLACKHOLE:
+		vty_out(vty, "%s", "drop");
 		break;
 	}
 }

@@ -1045,6 +1045,7 @@ void ospf6_receive_lsa(struct ospf6_neighbor *from,
 						zlog_debug(
 							"%s, GraceLSA doesn't exist in lsdb, so discarding GraceLSA",
 							__func__);
+					ospf6_lsa_delete(new);
 					return;
 				}
 			} else {

@@ -230,8 +230,8 @@ struct isis_area {
 #endif /* ifndef FABRICD */
 	/* Counters */
 	uint32_t circuit_state_changes;
-	struct isis_redist redist_settings[REDIST_PROTOCOL_COUNT]
-					  [ZEBRA_ROUTE_MAX + 1][ISIS_LEVELS];
+	struct list *redist_settings[REDIST_PROTOCOL_COUNT][ZEBRA_ROUTE_MAX + 1]
+				    [ISIS_LEVELS];
 	struct route_table *ext_reach[REDIST_PROTOCOL_COUNT][ISIS_LEVELS];
 
 	struct spf_backoff *spf_delay_ietf[ISIS_LEVELS]; /*Structure with IETF

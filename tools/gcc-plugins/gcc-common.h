@@ -111,6 +111,10 @@
 #include "varasm.h"
 #include "stor-layout.h"
 #include "internal-fn.h"
+#if BUILDING_GCC_VERSION >= 13000
+#include "gimple.h"
+#include "gimple-iterator.h"
+#endif
 #include "gimple-expr.h"
 #include "gimple-fold.h"
 #include "context.h"

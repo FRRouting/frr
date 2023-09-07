@@ -2893,7 +2893,6 @@ int pim_show_nexthop_lookup_cmd_helper(const char *vrf, struct vty *vty,
 	struct prefix grp;
 	struct pim_nexthop nexthop;
 	struct vrf *v;
-	char grp_str[PREFIX_STRLEN];
 
 	v = vrf_lookup_by_name(vrf ? vrf : VRF_DEFAULT_NAME);
 
@@ -2929,9 +2928,7 @@ int pim_show_nexthop_lookup_cmd_helper(const char *vrf, struct vty *vty,
 		return CMD_SUCCESS;
 	}
 
-	pim_addr_dump("<grp?>", &grp, grp_str, sizeof(grp_str));
-
-	vty_out(vty, "Group %s --- Nexthop %pPAs Interface %s\n", grp_str,
+	vty_out(vty, "Group %pFXh --- Nexthop %pPAs Interface %s\n", &grp,
 		&nexthop.mrib_nexthop_addr, nexthop.interface->name);
 
 	return CMD_SUCCESS;

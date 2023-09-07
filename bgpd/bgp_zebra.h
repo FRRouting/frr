@@ -10,9 +10,10 @@
 
 /* Macro to update bgp_original based on bpg_path_info */
 #define BGP_ORIGINAL_UPDATE(_bgp_orig, _mpinfo, _bgp)                          \
-	((_mpinfo->extra && _mpinfo->extra->bgp_orig                           \
-	  && _mpinfo->sub_type == BGP_ROUTE_IMPORTED)                          \
-		 ? (_bgp_orig = _mpinfo->extra->bgp_orig)                      \
+	((_mpinfo->extra && _mpinfo->extra->vrfleak &&                        \
+	  _mpinfo->extra->vrfleak->bgp_orig &&                                \
+	  _mpinfo->sub_type == BGP_ROUTE_IMPORTED)                             \
+		 ? (_bgp_orig = _mpinfo->extra->vrfleak->bgp_orig)            \
 		 : (_bgp_orig = _bgp))
 
 /* Default weight for next hop, if doing weighted ECMP. */
@@ -63,8 +64,8 @@ extern bool bgp_redistribute_rmap_set(struct bgp_redist *red, const char *name,
 				      struct route_map *route_map);
 extern bool bgp_redistribute_metric_set(struct bgp *bgp, struct bgp_redist *red,
 					afi_t afi, int type, uint32_t metric);
-extern int bgp_redistribute_unset(struct bgp *bgp, afi_t afi, int type,
-				  unsigned short instance);
+extern void bgp_redistribute_unset(struct bgp *bgp, afi_t afi, int type,
+				   unsigned short instance);
 extern int bgp_redistribute_unreg(struct bgp *bgp, afi_t afi, int type,
 				  unsigned short instance);
 

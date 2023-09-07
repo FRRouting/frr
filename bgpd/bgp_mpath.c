@@ -173,10 +173,11 @@ int bgp_path_info_nexthop_cmp(struct bgp_path_info *bpi1,
 	 * if they belong to same VRF
 	 */
 	if (!compare && bpi1->attr->nh_type != NEXTHOP_TYPE_BLACKHOLE) {
-		if (bpi1->extra && bpi1->extra->bgp_orig && bpi2->extra
-		    && bpi2->extra->bgp_orig) {
-			if (bpi1->extra->bgp_orig->vrf_id
-			    != bpi2->extra->bgp_orig->vrf_id) {
+		if (bpi1->extra && bpi1->extra->vrfleak &&
+		    bpi1->extra->vrfleak->bgp_orig && bpi2->extra &&
+		    bpi2->extra->vrfleak && bpi2->extra->vrfleak->bgp_orig) {
+			if (bpi1->extra->vrfleak->bgp_orig->vrf_id !=
+			    bpi2->extra->vrfleak->bgp_orig->vrf_id) {
 				compare = 1;
 			}
 		}

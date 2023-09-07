@@ -506,7 +506,6 @@ static void bgp_sync_label_manager(struct event *e)
 	struct lp_fifo *lf;
 
 	while ((lf = lp_fifo_pop(&lp->requests))) {
-
 		struct lp_lcb *lcb;
 		void *labelid = lf->lcb.labelid;
 
@@ -515,7 +514,7 @@ static void bgp_sync_label_manager(struct event *e)
 
 			if (debug) {
 				zlog_debug("%s: labelid %p: request no longer in effect",
-						__func__, labelid);
+					   __func__, labelid);
 			}
 			/* if this was a BGP_LU request, unlock node
 			 */
@@ -528,8 +527,8 @@ static void bgp_sync_label_manager(struct event *e)
 			/* request already has a label */
 			if (debug) {
 				zlog_debug("%s: labelid %p: request already has a label: %u=0x%x, lcb=%p",
-						__func__, labelid,
-						lcb->label, lcb->label, lcb);
+					   __func__, labelid, lcb->label,
+					   lcb->label, lcb);
 			}
 			/* if this was a BGP_LU request, unlock node
 			 */
@@ -546,7 +545,7 @@ static void bgp_sync_label_manager(struct event *e)
 			 */
 			if (debug) {
 				zlog_debug("%s: out of labels, await more",
-						__func__);
+					   __func__);
 			}
 			break;
 		}
@@ -556,7 +555,7 @@ static void bgp_sync_label_manager(struct event *e)
 		 * Enqueue response work item with new label.
 		 */
 		struct lp_cbq_item *q = XCALLOC(MTYPE_BGP_LABEL_CBQ,
-			sizeof(struct lp_cbq_item));
+						sizeof(struct lp_cbq_item));
 
 		q->cbfunc = lcb->cbfunc;
 		q->type = lcb->type;
@@ -566,16 +565,16 @@ static void bgp_sync_label_manager(struct event *e)
 
 		if (debug)
 			zlog_debug("%s: assigning label %u to labelid %p",
-				__func__, q->label, q->labelid);
+				   __func__, q->label, q->labelid);
 
 		work_queue_add(lp->callback_q, q);
 
 finishedrequest:
 		XFREE(MTYPE_BGP_LABEL_FIFO, lf);
-}
+	}
 
-event_add_timer(bm->master, bgp_sync_label_manager, NULL, 1,
-		&bm->t_bgp_sync_label_manager);
+	event_add_timer(bm->master, bgp_sync_label_manager, NULL, 1,
+			&bm->t_bgp_sync_label_manager);
 }
 
 void bgp_lp_event_chunk(uint32_t first, uint32_t last)

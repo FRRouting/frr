@@ -181,20 +181,21 @@ struct ospf6_intra_prefix_lsa {
 	do {                                                                   \
 		if (CHECK_FLAG((oa)->flag, OSPF6_AREA_ENABLE))                 \
 			event_execute(master, ospf6_router_lsa_originate, oa,  \
-				      0);                                      \
+				      0, NULL);                                \
 	} while (0)
 
 #define OSPF6_NETWORK_LSA_EXECUTE(oi)                                          \
 	do {                                                                   \
 		EVENT_OFF((oi)->thread_network_lsa);                           \
-		event_execute(master, ospf6_network_lsa_originate, oi, 0);     \
+		event_execute(master, ospf6_network_lsa_originate, oi, 0,      \
+			      NULL);                                           \
 	} while (0)
 
 #define OSPF6_LINK_LSA_EXECUTE(oi)                                             \
 	do {                                                                   \
 		if (!CHECK_FLAG((oi)->flag, OSPF6_INTERFACE_DISABLE))          \
 			event_execute(master, ospf6_link_lsa_originate, oi,    \
-				      0);                                      \
+				      0, NULL);                                \
 	} while (0)
 
 #define OSPF6_INTRA_PREFIX_LSA_EXECUTE_TRANSIT(oi)                             \
@@ -202,13 +203,13 @@ struct ospf6_intra_prefix_lsa {
 		EVENT_OFF((oi)->thread_intra_prefix_lsa);                      \
 		event_execute(master,                                          \
 			      ospf6_intra_prefix_lsa_originate_transit, oi,    \
-			      0);                                              \
+			      0, NULL);                                        \
 	} while (0)
 
 #define OSPF6_AS_EXTERN_LSA_EXECUTE(oi)                                        \
 	do {                                                                   \
 		EVENT_OFF((oi)->thread_as_extern_lsa);                         \
-		event_execute(master, ospf6_orig_as_external_lsa, oi, 0);      \
+		event_execute(master, ospf6_orig_as_external_lsa, oi, 0, NULL);\
 	} while (0)
 
 /* Function Prototypes */

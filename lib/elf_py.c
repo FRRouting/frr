@@ -1140,7 +1140,7 @@ static PyObject *elffile_load(PyTypeObject *type, PyObject *args,
 	fd = open(filename, O_RDONLY | O_NOCTTY);
 	if (fd < 0 || fstat(fd, &st)) {
 		PyErr_SetFromErrnoWithFilename(PyExc_OSError, filename);
-		if (fd > 0)
+		if (fd >= 0)
 			close(fd);
 		goto out;
 	}

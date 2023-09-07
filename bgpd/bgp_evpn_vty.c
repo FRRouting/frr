@@ -389,7 +389,7 @@ static void display_l3vni(struct vty *vty, struct bgp *bgp_vrf,
 		}
 		json_object_string_add(json, "advertiseGatewayMacip", "n/a");
 		json_object_string_add(json, "advertiseSviMacIp", "n/a");
-		if (bgp_vrf && bgp_vrf->evpn_info) {
+		if (bgp_vrf->evpn_info) {
 			json_object_string_add(json, "advertisePip",
 					       bgp_vrf->evpn_info->advertise_pip
 						       ? "Enabled"
@@ -714,7 +714,7 @@ static void bgp_evpn_show_routes_mac_ip_es(struct vty *vty, esi_t *esi,
 					   json_object *json, int detail,
 					   bool global_table)
 {
-	struct bgp_node *rn;
+	struct bgp_dest *bd;
 	struct bgp_path_info *pi;
 	int header = detail ? 0 : 1;
 	uint32_t path_cnt;
@@ -747,7 +747,7 @@ static void bgp_evpn_show_routes_mac_ip_es(struct vty *vty, esi_t *esi,
 			json_object *json_path = NULL;
 
 			pi = es_info->pi;
-			rn = pi->net;
+			bd = pi->net;
 
 			if (!CHECK_FLAG(pi->flags, BGP_PATH_VALID))
 				continue;
@@ -765,11 +765,11 @@ static void bgp_evpn_show_routes_mac_ip_es(struct vty *vty, esi_t *esi,
 
 			if (detail)
 				route_vty_out_detail(
-					vty, bgp, rn, bgp_dest_get_prefix(rn),
+					vty, bgp, bd, bgp_dest_get_prefix(bd),
 					pi, AFI_L2VPN, SAFI_EVPN,
 					RPKI_NOT_BEING_USED, json_path);
 			else
-				route_vty_out(vty, &rn->p, pi, 0, SAFI_EVPN,
+				route_vty_out(vty, &bd->rn->p, pi, 0, SAFI_EVPN,
 					      json_path, false);
 
 			if (json)
@@ -2081,12 +2081,12 @@ DEFUN(evpnrt5_network,
 	int idx_ethtag = 5;
 	int idx_routermac = 13;
 
-	return bgp_static_set_safi(
-		AFI_L2VPN, SAFI_EVPN, vty, argv[idx_ipv4_prefixlen]->arg,
-		argv[idx_route_distinguisher]->arg, argv[idx_label]->arg, NULL,
-		BGP_EVPN_IP_PREFIX_ROUTE, argv[idx_esi]->arg,
-		argv[idx_gwip]->arg, argv[idx_ethtag]->arg,
-		argv[idx_routermac]->arg);
+	return bgp_static_set(vty, false, argv[idx_ipv4_prefixlen]->arg,
+			      argv[idx_route_distinguisher]->arg,
+			      argv[idx_label]->arg, AFI_L2VPN, SAFI_EVPN, NULL,
+			      0, 0, BGP_EVPN_IP_PREFIX_ROUTE,
+			      argv[idx_esi]->arg, argv[idx_gwip]->arg,
+			      argv[idx_ethtag]->arg, argv[idx_routermac]->arg);
 }
 
 /* For testing purpose, static route of EVPN RT-5. */
@@ -2113,11 +2113,12 @@ DEFUN(no_evpnrt5_network,
 	int idx_ethtag = 6;
 	int idx_esi = 10;
 	int idx_gwip = 12;
-	return bgp_static_unset_safi(
-		AFI_L2VPN, SAFI_EVPN, vty, argv[idx_ipv4_prefixlen]->arg,
-		argv[idx_ext_community]->arg, argv[idx_label]->arg,
-		BGP_EVPN_IP_PREFIX_ROUTE, argv[idx_esi]->arg,
-		argv[idx_gwip]->arg, argv[idx_ethtag]->arg);
+
+	return bgp_static_set(vty, true, argv[idx_ipv4_prefixlen]->arg,
+			      argv[idx_ext_community]->arg,
+			      argv[idx_label]->arg, AFI_L2VPN, SAFI_EVPN, NULL,
+			      0, 0, BGP_EVPN_IP_PREFIX_ROUTE, argv[idx_esi]->arg,
+			      argv[idx_gwip]->arg, argv[idx_ethtag]->arg, NULL);
 }
 
 static void evpn_import_rt_delete_auto(struct bgp *bgp, struct bgpevpn *vpn)

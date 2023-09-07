@@ -27,22 +27,23 @@
 #include "bgpd/bgp_vty.h"
 #include "bgpd/bgp_memory.h"
 
-static const struct message capcode_str[] = {
-	{CAPABILITY_CODE_MP, "MultiProtocol Extensions"},
-	{CAPABILITY_CODE_REFRESH, "Route Refresh"},
-	{CAPABILITY_CODE_ORF, "Cooperative Route Filtering"},
-	{CAPABILITY_CODE_RESTART, "Graceful Restart"},
-	{CAPABILITY_CODE_AS4, "4-octet AS number"},
-	{CAPABILITY_CODE_ADDPATH, "AddPath"},
-	{CAPABILITY_CODE_DYNAMIC, "Dynamic"},
-	{CAPABILITY_CODE_ENHE, "Extended Next Hop Encoding"},
-	{CAPABILITY_CODE_FQDN, "FQDN"},
-	{CAPABILITY_CODE_ENHANCED_RR, "Enhanced Route Refresh"},
-	{CAPABILITY_CODE_EXT_MESSAGE, "BGP Extended Message"},
-	{CAPABILITY_CODE_LLGR, "Long-lived BGP Graceful Restart"},
-	{CAPABILITY_CODE_ROLE, "Role"},
-	{CAPABILITY_CODE_SOFT_VERSION, "Software Version"},
-	{0}};
+const struct message capcode_str[] = {
+	{ CAPABILITY_CODE_MP, "MultiProtocol Extensions" },
+	{ CAPABILITY_CODE_REFRESH, "Route Refresh" },
+	{ CAPABILITY_CODE_ORF, "Cooperative Route Filtering" },
+	{ CAPABILITY_CODE_RESTART, "Graceful Restart" },
+	{ CAPABILITY_CODE_AS4, "4-octet AS number" },
+	{ CAPABILITY_CODE_ADDPATH, "AddPath" },
+	{ CAPABILITY_CODE_DYNAMIC, "Dynamic" },
+	{ CAPABILITY_CODE_ENHE, "Extended Next Hop Encoding" },
+	{ CAPABILITY_CODE_FQDN, "FQDN" },
+	{ CAPABILITY_CODE_ENHANCED_RR, "Enhanced Route Refresh" },
+	{ CAPABILITY_CODE_EXT_MESSAGE, "BGP Extended Message" },
+	{ CAPABILITY_CODE_LLGR, "Long-lived BGP Graceful Restart" },
+	{ CAPABILITY_CODE_ROLE, "Role" },
+	{ CAPABILITY_CODE_SOFT_VERSION, "Software Version" },
+	{ 0 }
+};
 
 /* Minimum sizes for length field of each cap (so not inc. the header) */
 static const size_t cap_minsizes[] = {
@@ -911,8 +912,18 @@ static int bgp_capability_software_version(struct peer *peer,
 		return -1;
 	}
 
-	if (len) {
+	if (len > BGP_MAX_SOFT_VERSION) {
+		flog_warn(EC_BGP_CAPABILITY_INVALID_LENGTH,
+			  "%s: Received Software Version, but the length is too big, truncating, from peer %s",
+			  __func__, peer->host);
+		stream_get(str, s, BGP_MAX_SOFT_VERSION);
+		stream_forward_getp(s, len - BGP_MAX_SOFT_VERSION);
+		len = BGP_MAX_SOFT_VERSION;
+	} else if (len) {
 		stream_get(str, s, len);
+	}
+
+	if (len) {
 		str[len] = '\0';
 
 		XFREE(MTYPE_BGP_SOFT_VERSION, peer->soft_version);

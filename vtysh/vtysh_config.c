@@ -484,8 +484,7 @@ void vtysh_config_parse_line(void *arg, const char *line)
 			config = config_get(RPKI_NODE, line);
 		else {
 			if (strncmp(line, "log", strlen("log")) == 0 ||
-			    strncmp(line, "hostname", strlen("hostname")) ==
-				    0 ||
+			    strncmp(line, "hostname", strlen("hostname")) == 0 ||
 			    strncmp(line, "domainname", strlen("domainname")) ==
 				    0 ||
 			    strncmp(line, "allow-reserved-ranges",
@@ -497,12 +496,9 @@ void vtysh_config_parse_line(void *arg, const char *line)
 				    strlen("no ip prefix-list")) == 0 ||
 			    strncmp(line, "no ipv6 prefix-list",
 				    strlen("no ipv6 prefix-list")) == 0 ||
-			    strncmp(line, "service ", strlen("service ")) ==
-				    0 ||
-			    strncmp(line, "no service cputime-stats",
-				    strlen("no service cputime-stats")) == 0 ||
-			    strncmp(line, "service cputime-warning",
-				    strlen("service cputime-warning")) == 0)
+			    strncmp(line, "service ", strlen("service ")) == 0 ||
+			    strncmp(line, "no service ",
+				    strlen("no service ")) == 0)
 				config_add_line_uniq(config_top, line);
 			else
 				config_add_line(config_top, line);
@@ -548,9 +544,7 @@ static void configvec_dump(vector vec, bool nested)
 				 * are not under the VRF node.
 				 */
 				if (config->index == INTERFACE_NODE
-				    && (listcount(config->line) == 1)
-				    && (line = listnode_head(config->line))
-				    && strmatch(line, "exit")) {
+				    && list_isempty(config->line)) {
 					config_del(config);
 					continue;
 				}

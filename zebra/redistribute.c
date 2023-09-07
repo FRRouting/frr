@@ -647,10 +647,9 @@ int zebra_add_import_table_entry(struct zebra_vrf *zvrf, struct route_node *rn,
 
 	afi = family2afi(rn->p.family);
 	if (rmap_name)
-		ret = zebra_import_table_route_map_check(
-			afi, re->type, re->instance, &rn->p,
-			re->nhe->nhg.nexthop,
-			zvrf->vrf->vrf_id, re->tag, rmap_name);
+		ret = zebra_import_table_route_map_check(afi, re, &rn->p,
+							 re->nhe->nhg.nexthop,
+							 rmap_name);
 
 	if (ret != RMAP_PERMITMATCH) {
 		UNSET_FLAG(re->flags, ZEBRA_FLAG_SELECTED);
@@ -674,6 +673,8 @@ int zebra_add_import_table_entry(struct zebra_vrf *zvrf, struct route_node *rn,
 		UNSET_FLAG(same->flags, ZEBRA_FLAG_SELECTED);
 		zebra_del_import_table_entry(zvrf, rn, same);
 	}
+
+	UNSET_FLAG(re->flags, ZEBRA_FLAG_RR_USE_DISTANCE);
 
 	newre = zebra_rib_route_entry_new(
 		0, ZEBRA_ROUTE_TABLE, re->table, re->flags, re->nhe_id,
@@ -715,7 +716,7 @@ int zebra_import_table(afi_t afi, vrf_id_t vrf_id, uint32_t table_id,
 	struct zebra_vrf *zvrf = zebra_vrf_lookup_by_id(vrf_id);
 
 	if (!is_zebra_valid_kernel_table(table_id)
-	    || (table_id == RT_TABLE_MAIN))
+	    || (table_id == rt_table_main_id))
 		return -1;
 
 	if (afi >= AFI_MAX)

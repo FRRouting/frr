@@ -255,7 +255,8 @@ bool zebra_router_notify_on_ack(void)
 	return !zrouter.asic_offloaded || zrouter.notify_on_ack;
 }
 
-void zebra_router_init(bool asic_offload, bool notify_on_ack)
+void zebra_router_init(bool asic_offload, bool notify_on_ack,
+		       bool v6_with_v4_nexthop)
 {
 	zrouter.sequence_num = 0;
 
@@ -310,7 +311,7 @@ void zebra_router_init(bool asic_offload, bool notify_on_ack)
 
 	zrouter.asic_offloaded = asic_offload;
 	zrouter.notify_on_ack = notify_on_ack;
-
+	zrouter.v6_with_v4_nexthop = v6_with_v4_nexthop;
 	/*
 	 * If you start using asic_notification_nexthop_control
 	 * come talk to the FRR community about what you are doing

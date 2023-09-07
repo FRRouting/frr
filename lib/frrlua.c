@@ -259,25 +259,6 @@ void *lua_tosockunion(lua_State *L, int idx)
 	return su;
 }
 
-void lua_pushtimet(lua_State *L, const time_t *time)
-{
-	lua_pushinteger(L, *time);
-}
-
-void lua_decode_timet(lua_State *L, int idx, time_t *t)
-{
-	*t = lua_tointeger(L, idx);
-	lua_pop(L, 1);
-}
-
-void *lua_totimet(lua_State *L, int idx)
-{
-	time_t *t = XCALLOC(MTYPE_SCRIPT_RES, sizeof(time_t));
-
-	lua_decode_timet(L, idx, t);
-	return t;
-}
-
 void lua_pushintegerp(lua_State *L, const long long *num)
 {
 	lua_pushinteger(L, *num);

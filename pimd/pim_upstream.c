@@ -912,6 +912,7 @@ static struct pim_upstream *pim_upstream_new(struct pim_instance *pim,
 				false /*update_mroute*/);
 		rpf_result = pim_rpf_update(pim, up, NULL, __func__);
 		if (rpf_result == PIM_RPF_FAILURE) {
+			up->channel_oil->oil_inherited_rescan = 1;
 			if (PIM_DEBUG_PIM_TRACE)
 				zlog_debug(
 					"%s: Attempting to create upstream(%s), Unable to RPF for source",
@@ -1965,6 +1966,7 @@ static bool pim_upstream_kat_start_ok(struct pim_upstream *up)
 	struct channel_oil *c_oil = up->channel_oil;
 	struct interface *ifp = up->rpf.source_nexthop.interface;
 	struct pim_interface *pim_ifp;
+	struct pim_instance *pim = up->channel_oil->pim;
 
 	/* "iif == RPF_interface(S)" check is not easy to do as the info
 	 * we get from the kernel/ASIC is really a "lookup/key hit".
@@ -1984,8 +1986,9 @@ static bool pim_upstream_kat_start_ok(struct pim_upstream *up)
 	}
 
 	if ((up->join_state == PIM_UPSTREAM_JOINED)
-			&& !pim_upstream_empty_inherited_olist(up)) {
-		return true;
+	    && !pim_upstream_empty_inherited_olist(up)) {
+		if (I_am_RP(pim, up->sg.grp))
+			return true;
 	}
 
 	return false;

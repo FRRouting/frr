@@ -141,5 +141,21 @@
       "protocol": "connected",
       "selected": true
     }
+  ],
+  "192.0.2.6/32": [
+    {
+      "nexthops": [
+        {
+          "active": true,
+          "fib": true,
+          "ip": "10.0.10.6",
+          "interfaceName": "r5-eth0"
+        }
+      ],
+      "prefix": "192.0.2.6/32",
+      "protocol": "table",
+      "instance": 20,
+      "selected": true
+    }
   ]
 }

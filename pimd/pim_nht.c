@@ -31,6 +31,8 @@
 #include "pim_zlookup.h"
 #include "pim_rp.h"
 #include "pim_addr.h"
+#include "pim_register.h"
+#include "pim_vxlan.h"
 
 /**
  * pim_sendmsg_zebra_rnh -- Format and send a nexthop register/Unregister
@@ -399,17 +401,28 @@ static void pim_update_rp_nh(struct pim_instance *pim,
 {
 	struct listnode *node = NULL;
 	struct rp_info *rp_info = NULL;
+	struct interface *ifp;
 
 	/*Traverse RP list and update each RP Nexthop info */
 	for (ALL_LIST_ELEMENTS_RO(pnc->rp_list, node, rp_info)) {
 		if (pim_rpf_addr_is_inaddr_any(&rp_info->rp))
 			continue;
 
+		ifp = rp_info->rp.source_nexthop.interface;
 		// Compute PIM RPF using cached nexthop
 		if (!pim_ecmp_nexthop_lookup(pim, &rp_info->rp.source_nexthop,
 					     rp_info->rp.rpf_addr,
 					     &rp_info->group, 1))
 			pim_rp_nexthop_del(rp_info);
+
+		/*
+		 * If we transition from no path to a path
+		 * we need to search through all the vxlan's
+		 * that use this rp and send NULL registers
+		 * for all the vxlan S,G streams
+		 */
+		if (!ifp && rp_info->rp.source_nexthop.interface)
+			pim_vxlan_rp_info_is_alive(pim, &rp_info->rp);
 	}
 }
 
@@ -436,17 +449,27 @@ static int pim_update_upstream_nh_helper(struct hash_bucket *bucket, void *arg)
 		(rpf_result == PIM_RPF_FAILURE && old.source_nexthop.interface))
 		pim_zebra_upstream_rpf_changed(pim, up, &old);
 
+	/*
+	 * If we are a VXLAN source and we are transitioning from not
+	 * having an outgoing interface to having an outgoing interface
+	 * let's immediately send the null pim register
+	 */
+	if (!old.source_nexthop.interface && up->rpf.source_nexthop.interface &&
+	    PIM_UPSTREAM_FLAG_TEST_SRC_VXLAN_ORIG(up->flags) &&
+	    (up->reg_state == PIM_REG_NOINFO || up->reg_state == PIM_REG_JOIN)) {
+		pim_null_register_send(up);
+	}
 
 	if (PIM_DEBUG_PIM_NHT) {
-		zlog_debug(
-			"%s: NHT upstream %s(%s) old ifp %s new ifp %s",
-			__func__, up->sg_str, pim->vrf->name,
-			old.source_nexthop.interface ? old.source_nexthop
-							       .interface->name
-						     : "Unknown",
-			up->rpf.source_nexthop.interface ? up->rpf.source_nexthop
-								   .interface->name
-							 : "Unknown");
+		zlog_debug("%s: NHT upstream %s(%s) old ifp %s new ifp %s rpf_result: %d",
+			   __func__, up->sg_str, pim->vrf->name,
+			   old.source_nexthop.interface ? old.source_nexthop
+								  .interface->name
+							: "Unknown",
+			   up->rpf.source_nexthop.interface ? up->rpf.source_nexthop
+								      .interface->name
+							    : "Unknown",
+			   rpf_result);
 	}
 
 	return HASHWALK_CONTINUE;

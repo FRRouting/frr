@@ -195,7 +195,7 @@ struct cpu_event_history {
 	_xref_t_a(timer_tv, TIMER, m, f, a, v, t)
 #define event_add_event(m, f, a, v, t) _xref_t_a(event, EVENT, m, f, a, v, t)
 
-#define event_execute(m, f, a, v)                                              \
+#define event_execute(m, f, a, v, p)                                           \
 	({                                                                     \
 		static const struct xref_eventsched _xref __attribute__(       \
 			(used)) = {                                            \
@@ -205,7 +205,7 @@ struct cpu_event_history {
 			.event_type = EVENT_EXECUTE,                           \
 		};                                                             \
 		XREF_LINK(_xref.xref);                                         \
-		_event_execute(&_xref, m, f, a, v);                            \
+		_event_execute(&_xref, m, f, a, v, p);                         \
 	}) /* end */
 
 /* Prototypes. */
@@ -241,7 +241,8 @@ extern void _event_add_event(const struct xref_eventsched *xref,
 
 extern void _event_execute(const struct xref_eventsched *xref,
 			   struct event_loop *master,
-			   void (*fn)(struct event *), void *arg, int val);
+			   void (*fn)(struct event *), void *arg, int val,
+			   struct event **eref);
 
 extern void event_cancel(struct event **event);
 extern void event_cancel_async(struct event_loop *m, struct event **eptr,

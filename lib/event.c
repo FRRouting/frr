@@ -355,7 +355,7 @@ DEFPY (service_cputime_stats,
 
 DEFPY (service_cputime_warning,
        service_cputime_warning_cmd,
-       "[no] service cputime-warning (1-4294967295)",
+       "[no] service cputime-warning ![(1-4294967295)]",
        NO_STR
        "Set up miscellaneous service\n"
        "Warn for tasks exceeding CPU usage threshold\n"
@@ -368,16 +368,9 @@ DEFPY (service_cputime_warning,
 	return CMD_SUCCESS;
 }
 
-ALIAS (service_cputime_warning,
-       no_service_cputime_warning_cmd,
-       "no service cputime-warning",
-       NO_STR
-       "Set up miscellaneous service\n"
-       "Warn for tasks exceeding CPU usage threshold\n")
-
 DEFPY (service_walltime_warning,
        service_walltime_warning_cmd,
-       "[no] service walltime-warning (1-4294967295)",
+       "[no] service walltime-warning ![(1-4294967295)]",
        NO_STR
        "Set up miscellaneous service\n"
        "Warn for tasks exceeding total wallclock threshold\n"
@@ -389,13 +382,6 @@ DEFPY (service_walltime_warning,
 		walltime_threshold = walltime_warning * 1000;
 	return CMD_SUCCESS;
 }
-
-ALIAS (service_walltime_warning,
-       no_service_walltime_warning_cmd,
-       "no service walltime-warning",
-       NO_STR
-       "Set up miscellaneous service\n"
-       "Warn for tasks exceeding total wallclock threshold\n")
 
 static void show_thread_poll_helper(struct vty *vty, struct event_loop *m)
 {
@@ -525,9 +511,7 @@ void event_cmd_init(void)
 
 	install_element(CONFIG_NODE, &service_cputime_stats_cmd);
 	install_element(CONFIG_NODE, &service_cputime_warning_cmd);
-	install_element(CONFIG_NODE, &no_service_cputime_warning_cmd);
 	install_element(CONFIG_NODE, &service_walltime_warning_cmd);
-	install_element(CONFIG_NODE, &no_service_walltime_warning_cmd);
 
 	install_element(VIEW_NODE, &show_thread_timers_cmd);
 }
@@ -1491,9 +1475,9 @@ void event_cancel(struct event **thread)
 		cr->thread = *thread;
 		listnode_add(master->cancel_req, cr);
 		do_event_cancel(master);
-	}
 
-	*thread = NULL;
+		*thread = NULL;
+	}
 }
 
 /**
@@ -2066,9 +2050,14 @@ void event_call(struct event *thread)
 
 /* Execute thread */
 void _event_execute(const struct xref_eventsched *xref, struct event_loop *m,
-		    void (*func)(struct event *), void *arg, int val)
+		    void (*func)(struct event *), void *arg, int val,
+		    struct event **eref)
 {
 	struct event *thread;
+
+	/* Cancel existing scheduled task TODO -- nice to do in 1 lock cycle */
+	if (eref)
+		event_cancel(eref);
 
 	/* Get or allocate new thread to execute. */
 	frr_with_mutex (&m->mtx) {

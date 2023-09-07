@@ -69,24 +69,30 @@ uint32_t rcvbufsize = RCVBUFSIZE_MIN;
 uint32_t rcvbufsize = 128 * 1024;
 #endif
 
+uint32_t rt_table_main_id = RT_TABLE_MAIN;
+
 #define OPTION_V6_RR_SEMANTICS 2000
 #define OPTION_ASIC_OFFLOAD    2001
+#define OPTION_V6_WITH_V4_NEXTHOP 2002
 
 /* Command line options. */
 const struct option longopts[] = {
-	{"batch", no_argument, NULL, 'b'},
-	{"allow_delete", no_argument, NULL, 'a'},
-	{"socket", required_argument, NULL, 'z'},
-	{"ecmp", required_argument, NULL, 'e'},
-	{"retain", no_argument, NULL, 'r'},
-	{"graceful_restart", required_argument, NULL, 'K'},
-	{"asic-offload", optional_argument, NULL, OPTION_ASIC_OFFLOAD},
+	{ "batch", no_argument, NULL, 'b' },
+	{ "allow_delete", no_argument, NULL, 'a' },
+	{ "socket", required_argument, NULL, 'z' },
+	{ "ecmp", required_argument, NULL, 'e' },
+	{ "retain", no_argument, NULL, 'r' },
+	{ "graceful_restart", required_argument, NULL, 'K' },
+	{ "asic-offload", optional_argument, NULL, OPTION_ASIC_OFFLOAD },
+	{ "v6-with-v4-nexthops", no_argument, NULL, OPTION_V6_WITH_V4_NEXTHOP },
 #ifdef HAVE_NETLINK
-	{"vrfwnetns", no_argument, NULL, 'n'},
-	{"nl-bufsize", required_argument, NULL, 's'},
-	{"v6-rr-semantics", no_argument, NULL, OPTION_V6_RR_SEMANTICS},
+	{ "vrfwnetns", no_argument, NULL, 'n' },
+	{ "nl-bufsize", required_argument, NULL, 's' },
+	{ "v6-rr-semantics", no_argument, NULL, OPTION_V6_RR_SEMANTICS },
 #endif /* HAVE_NETLINK */
-	{0}};
+	{"routing-table", optional_argument, NULL, 'R'},
+	{ 0 }
+};
 
 zebra_capabilities_t _caps_p[] = {ZCAP_NET_ADMIN, ZCAP_SYS_ADMIN,
 				  ZCAP_NET_RAW,
@@ -287,6 +293,7 @@ int main(int argc, char **argv)
 	struct sockaddr_storage dummy;
 	socklen_t dummylen;
 	bool asic_offload = false;
+	bool v6_with_v4_nexthop = false;
 	bool notify_on_ack = true;
 
 	graceful_restart = 0;
@@ -294,27 +301,28 @@ int main(int argc, char **argv)
 
 	frr_preinit(&zebra_di, argc, argv);
 
-	frr_opt_add(
-		"baz:e:rK:s:"
+	frr_opt_add("baz:e:rK:s:R:"
 #ifdef HAVE_NETLINK
-		"n"
+		    "n"
 #endif
-		,
-		longopts,
-		"  -b, --batch              Runs in batch mode\n"
-		"  -a, --allow_delete       Allow other processes to delete zebra routes\n"
-		"  -z, --socket             Set path of zebra socket\n"
-		"  -e, --ecmp               Specify ECMP to use.\n"
-		"  -r, --retain             When program terminates, retain added route by zebra.\n"
-		"  -K, --graceful_restart   Graceful restart at the kernel level, timer in seconds for expiration\n"
-		"  -A, --asic-offload       FRR is interacting with an asic underneath the linux kernel\n"
+		    ,
+		    longopts,
+		    "  -b, --batch               Runs in batch mode\n"
+		    "  -a, --allow_delete        Allow other processes to delete zebra routes\n"
+		    "  -z, --socket              Set path of zebra socket\n"
+		    "  -e, --ecmp                Specify ECMP to use.\n"
+		    "  -r, --retain              When program terminates, retain added route by zebra.\n"
+		    "  -K, --graceful_restart    Graceful restart at the kernel level, timer in seconds for expiration\n"
+		    "  -A, --asic-offload        FRR is interacting with an asic underneath the linux kernel\n"
+		    "      --v6-with-v4-nexthops Underlying dataplane supports v6 routes with v4 nexthops"
 #ifdef HAVE_NETLINK
-		"  -s, --nl-bufsize         Set netlink receive buffer size\n"
-		"  -n, --vrfwnetns          Use NetNS as VRF backend\n"
-		"      --v6-rr-semantics    Use v6 RR semantics\n"
+		    "  -s, --nl-bufsize          Set netlink receive buffer size\n"
+		    "  -n, --vrfwnetns           Use NetNS as VRF backend\n"
+		    "      --v6-rr-semantics     Use v6 RR semantics\n"
 #else
-		"  -s,                      Set kernel socket receive buffer size\n"
+		    "  -s,                       Set kernel socket receive buffer size\n"
 #endif /* HAVE_NETLINK */
+		    "  -R, --routing-table       Set kernel routing table\n"
 	);
 
 	while (1) {
@@ -369,6 +377,9 @@ int main(int argc, char **argv)
 					"Rcvbufsize is smaller than recommended value: %d\n",
 					RCVBUFSIZE_MIN);
 			break;
+		case 'R':
+			rt_table_main_id = atoi(optarg);
+			break;
 #ifdef HAVE_NETLINK
 		case 'n':
 			vrf_configure_backend(VRF_BACKEND_NETNS);
@@ -383,6 +394,9 @@ int main(int argc, char **argv)
 				notify_on_ack = true;
 			asic_offload = true;
 			break;
+		case OPTION_V6_WITH_V4_NEXTHOP:
+			v6_with_v4_nexthop = true;
+			break;
 #endif /* HAVE_NETLINK */
 		default:
 			frr_help_exit(1);
@@ -392,7 +406,7 @@ int main(int argc, char **argv)
 	zrouter.master = frr_init();
 
 	/* Zebra related initialize. */
-	zebra_router_init(asic_offload, notify_on_ack);
+	zebra_router_init(asic_offload, notify_on_ack, v6_with_v4_nexthop);
 	zserv_init();
 	rib_init();
 	zebra_if_init();

@@ -56,10 +56,11 @@ static int bgp_isvalid_nexthop_for_ebgp(struct bgp_nexthop_cache *bnc,
 	struct bgp_interface *iifp;
 	struct peer *peer;
 
-	if (!path->extra || !path->extra->peer_orig)
+	if (!path->extra || !path->extra->vrfleak ||
+	    !path->extra->vrfleak->peer_orig)
 		return false;
 
-	peer = path->extra->peer_orig;
+	peer = path->extra->vrfleak->peer_orig;
 
 	/* only connected ebgp peers are valid */
 	if (peer->sort != BGP_PEER_EBGP || peer->ttl != BGP_DEFAULT_TTL ||
@@ -314,6 +315,21 @@ int bgp_find_or_add_nexthop(struct bgp *bgp_route, struct bgp *bgp_nexthop,
 		 * addr */
 		if (make_prefix(afi, pi, &p) < 0)
 			return 1;
+
+		/*
+		 * If it's a V6 nexthop, path is learnt from a v6 LL peer,
+		 * and if the NH prefix matches peer's LL address then
+		 * set the ifindex to peer's interface index so that
+		 * correct nexthop can be found in nexthop tree.
+		 *
+		 * NH could be set to different v6 LL address (compared to
+		 * peer's LL) using route-map. In such a scenario, do not set
+		 * the ifindex.
+		 */
+		if (afi == AFI_IP6 &&
+		    IN6_IS_ADDR_LINKLOCAL(&pi->peer->su.sin6.sin6_addr) &&
+		    IPV6_ADDR_SAME(&pi->peer->su.sin6.sin6_addr, &p.u.prefix6))
+			ifindex = pi->peer->su.sin6.sin6_scope_id;
 
 		if (!is_bgp_static_route && orig_prefix
 		    && prefix_same(&p, orig_prefix)) {

@@ -1529,7 +1529,7 @@ DEFPY (ospf_area_nssa,
 	/* Flush the external LSA for the specified area */
 	ospf_flush_lsa_from_area(ospf, area_id, OSPF_AS_EXTERNAL_LSA);
 	ospf_schedule_abr_task(ospf);
-	ospf_schedule_asbr_nssa_redist_update(ospf);
+	ospf_schedule_asbr_redist_update(ospf);
 
 	return CMD_SUCCESS;
 }
@@ -2058,6 +2058,13 @@ DEFUN (ospf_abr_type,
 	if (ospf->abr_type != abr_type) {
 		ospf->abr_type = abr_type;
 		ospf_schedule_abr_task(ospf);
+
+		/* The ABR task might not initiate SPF recalculation if the
+		 * OSPF flags remain the same. And inter-area routes would not
+		 * be added/deleted according to the new ABR type. So this
+		 * needs to be done here too.
+		 */
+		ospf_spf_calculate_schedule(ospf, SPF_FLAG_ABR_STATUS_CHANGE);
 	}
 
 	return CMD_SUCCESS;
@@ -9633,6 +9640,8 @@ DEFUN (ospf_default_metric,
 
 	ospf->default_metric = metric;
 
+	ospf_schedule_asbr_redist_update(ospf);
+
 	return CMD_SUCCESS;
 }
 
@@ -9646,6 +9655,8 @@ DEFUN (no_ospf_default_metric,
 	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
 
 	ospf->default_metric = -1;
+
+	ospf_schedule_asbr_redist_update(ospf);
 
 	return CMD_SUCCESS;
 }

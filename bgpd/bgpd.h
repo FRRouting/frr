@@ -168,6 +168,8 @@ struct bgp_master {
 	struct event *t_bgp_sync_label_manager;
 	struct event *t_bgp_start_label_manager;
 
+	bool v6_with_v4_nexthops;
+
 	QOBJ_FIELDS;
 };
 DECLARE_QOBJ_TYPE(bgp_master);
@@ -1118,6 +1120,36 @@ struct llgr_info {
 	uint8_t flags;
 };
 
+struct peer_connection {
+	struct peer *peer;
+
+	/* Status of the peer connection. */
+	enum bgp_fsm_status status;
+	enum bgp_fsm_status ostatus;
+
+	int fd;
+
+	/* Packet receive and send buffer. */
+	pthread_mutex_t io_mtx;	  // guards ibuf, obuf
+	struct stream_fifo *ibuf; // packets waiting to be processed
+	struct stream_fifo *obuf; // packets waiting to be written
+
+	struct ringbuf *ibuf_work; // WiP buffer used by bgp_read() only
+
+	struct event *t_read;
+	struct event *t_write;
+
+	struct event *t_process_packet;
+	struct event *t_process_packet_error;
+
+	/* Thread flags */
+	_Atomic uint32_t thread_flags;
+#define PEER_THREAD_WRITES_ON (1U << 0)
+#define PEER_THREAD_READS_ON (1U << 1)
+};
+extern struct peer_connection *bgp_peer_connection_new(struct peer *peer);
+extern void bgp_peer_connection_buffers_free(struct peer_connection *connection);
+
 /* BGP neighbor structure. */
 struct peer {
 	/* BGP structure.  */
@@ -1158,21 +1190,10 @@ struct peer {
 	/* Local router ID. */
 	struct in_addr local_id;
 
-	/* Packet receive and send buffer. */
-	pthread_mutex_t io_mtx;   // guards ibuf, obuf
-	struct stream_fifo *ibuf; // packets waiting to be processed
-	struct stream_fifo *obuf; // packets waiting to be written
-
-	struct ringbuf *ibuf_work; // WiP buffer used by bgp_read() only
-
 	struct stream *curr; // the current packet being parsed
 
 	/* the doppelganger peer structure, due to dual TCP conn setup */
 	struct peer *doppelganger;
-
-	/* Status of the peer. */
-	enum bgp_fsm_status status;
-	enum bgp_fsm_status ostatus;
 
 	/* FSM events, stored for debug purposes.
 	 * Note: uchar used for reduced memory usage.
@@ -1185,7 +1206,16 @@ struct peer {
 	uint16_t table_dump_index;
 
 	/* Peer information */
-	int fd;		     /* File descriptor */
+
+	/*
+	 * We will have 2 `struct peer_connection` data structures
+	 * connection is our attempt to talk to our peer.  incoming
+	 * is the peer attempting to talk to us.  When it is
+	 * time to consolidate between the two, we'll solidify
+	 * into the connection variable being used.
+	 */
+	struct peer_connection *connection;
+
 	int ttl;	     /* TTL of TCP connection to the peer. */
 	int rtt;	     /* Estimated round-trip-time from TCP_INFO */
 	int rtt_expected; /* Expected round-trip-time for a peer */
@@ -1518,8 +1548,6 @@ struct peer {
 	_Atomic uint32_t v_gr_restart;
 
 	/* Threads. */
-	struct event *t_read;
-	struct event *t_write;
 	struct event *t_start;
 	struct event *t_connect_check_r;
 	struct event *t_connect_check_w;
@@ -1533,16 +1561,12 @@ struct peer {
 	struct event *t_llgr_stale[AFI_MAX][SAFI_MAX];
 	struct event *t_revalidate_all[AFI_MAX][SAFI_MAX];
 	struct event *t_generate_updgrp_packets;
-	struct event *t_process_packet;
-	struct event *t_process_packet_error;
 	struct event *t_refresh_stalepath;
 
 	/* Thread flags. */
 	_Atomic uint32_t thread_flags;
-#define PEER_THREAD_WRITES_ON         (1U << 0)
-#define PEER_THREAD_READS_ON          (1U << 1)
-#define PEER_THREAD_KEEPALIVES_ON     (1U << 2)
-#define PEER_THREAD_SUBGRP_ADV_DELAY  (1U << 3)
+#define PEER_THREAD_KEEPALIVES_ON (1U << 0)
+#define PEER_THREAD_SUBGRP_ADV_DELAY (1U << 1)
 
 	/* workqueues */
 	struct work_queue *clear_node_queue;
@@ -1716,8 +1740,7 @@ struct peer {
 	 * a new value to the last_reset reason
 	 */
 
-	uint16_t last_reset_cause_size;
-	uint8_t last_reset_cause[BGP_MAX_PACKET_SIZE];
+	struct stream *last_reset_cause;
 
 	/* The kind of route-map Flags.*/
 	uint16_t rmap_type;
@@ -2231,8 +2254,9 @@ extern void bgp_confederation_peers_add(struct bgp *bgp, as_t as,
 					const char *as_str);
 extern void bgp_confederation_peers_remove(struct bgp *bgp, as_t as);
 
-extern void bgp_timers_set(struct bgp *, uint32_t keepalive, uint32_t holdtime,
-			   uint32_t connect_retry, uint32_t delayopen);
+extern void bgp_timers_set(struct vty *vty, struct bgp *, uint32_t keepalive,
+			   uint32_t holdtime, uint32_t connect_retry,
+			   uint32_t delayopen);
 extern void bgp_timers_unset(struct bgp *);
 
 extern void bgp_default_local_preference_set(struct bgp *bgp,
@@ -2573,7 +2597,7 @@ static inline char *timestamp_string(time_t ts)
 
 static inline bool peer_established(struct peer *peer)
 {
-	return peer->status == Established;
+	return peer->connection->status == Established;
 }
 
 static inline bool peer_dynamic_neighbor(struct peer *peer)
@@ -2669,7 +2693,7 @@ DECLARE_HOOK(peer_status_changed, (struct peer *peer), (peer));
 DECLARE_HOOK(bgp_snmp_init_stats, (struct bgp *bgp), (bgp));
 DECLARE_HOOK(bgp_snmp_update_last_changed, (struct bgp *bgp), (bgp));
 DECLARE_HOOK(bgp_snmp_update_stats,
-	     (struct bgp_node *rn, struct bgp_path_info *pi, bool added),
+	     (struct bgp_dest *rn, struct bgp_path_info *pi, bool added),
 	     (rn, pi, added));
 DECLARE_HOOK(bgp_rpki_prefix_status,
 	     (struct peer * peer, struct attr *attr,
