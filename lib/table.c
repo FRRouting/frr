@@ -284,6 +284,8 @@ struct route_node *route_node_get(struct route_table *table,
 	if (node && node->info) {
 		if (family2afi(p->family) == AFI_LINKSTATE)
 			prefix_linkstate_ptr_free(p);
+		else if (p->family == AF_FLOWSPEC)
+			prefix_flowspec_ptr_free(p);
 
 		return route_lock_node(node);
 	}
@@ -295,6 +297,9 @@ struct route_node *route_node_get(struct route_table *table,
 		if (node->p.prefixlen == prefixlen) {
 			if (family2afi(p->family) == AFI_LINKSTATE)
 				prefix_linkstate_ptr_free(p);
+			else if (p->family == AF_FLOWSPEC)
+				prefix_flowspec_ptr_free(p);
+
 			return route_lock_node(node);
 		}
 
@@ -333,6 +338,8 @@ struct route_node *route_node_get(struct route_table *table,
 
 	if (family2afi(p->family) == AFI_LINKSTATE)
 		prefix_linkstate_ptr_free(p);
+	else if (p->family == AF_FLOWSPEC)
+		prefix_flowspec_ptr_free(p);
 
 	return new;
 }

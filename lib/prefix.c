@@ -1286,6 +1286,17 @@ void prefix_linkstate_ptr_free(struct prefix *p)
 	p->u.prefix_linkstate.ptr = (uintptr_t)NULL;
 }
 
+void prefix_flowspec_ptr_free(struct prefix *p)
+{
+	void *temp;
+
+	if (!p || p->family != AF_FLOWSPEC || !p->u.prefix_flowspec.ptr)
+		return;
+
+	temp = (void *)p->u.prefix_flowspec.ptr;
+	XFREE(MTYPE_PREFIX_FLOWSPEC, temp);
+	p->u.prefix_flowspec.ptr = (uintptr_t)NULL;
+}
 
 struct prefix *prefix_new(void)
 {
@@ -1437,7 +1448,6 @@ unsigned prefix_hash_key(const void *pp)
 {
 	struct prefix copy;
 	uint32_t len;
-	void *temp;
 
 	/* make sure *all* unused bits are zero, particularly including
 	 * alignment /
@@ -1449,9 +1459,7 @@ unsigned prefix_hash_key(const void *pp)
 		len = jhash((void *)copy.u.prefix_flowspec.ptr,
 			    copy.prefixlen,
 			    0x55aa5a5a);
-		temp = (void *)copy.u.prefix_flowspec.ptr;
-		XFREE(MTYPE_PREFIX_FLOWSPEC, temp);
-		copy.u.prefix_flowspec.ptr = (uintptr_t)NULL;
+		prefix_flowspec_ptr_free(&copy);
 		return len;
 	} else if (((struct prefix *)pp)->family == AF_LINKSTATE) {
 		len = jhash((void *)copy.u.prefix_linkstate.ptr, copy.prefixlen,
