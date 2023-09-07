@@ -1032,7 +1032,9 @@ void if_up(struct interface *ifp, bool install_connected)
 			  __func__, ifp->name);
 		return;
 	}
-	zebra_interface_up_update(ifp);
+
+	if (install_connected)
+		zebra_interface_up_update(ifp);
 
 	if_nbr_ipv6ll_to_ipv4ll_neigh_add_all(ifp);
 
