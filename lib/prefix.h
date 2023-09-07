@@ -404,6 +404,8 @@ static inline afi_t prefix_afi(union prefixconstptr pu)
  */
 extern unsigned int prefix_bit(const uint8_t *prefix, const uint16_t bit_index);
 
+extern void prefix_flowspec_ptr_free(struct prefix *p);
+
 extern struct prefix *prefix_new(void);
 extern void prefix_free(struct prefix **p);
 /*
