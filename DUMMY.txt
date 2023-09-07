@@ -1,0 +1,4 @@
+DO NOT MERGE
+
+Just a dummy commit to test Github Checks Install
+(Test 2)
