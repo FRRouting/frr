@@ -441,6 +441,10 @@ int bgp_evpn_mh_route_update(struct bgp *bgp, struct bgp_evpn_es *es,
 					? "esr"
 					: (vpn ? "ead-evi" : "ead-es"),
 				&attr->mp_nexthop_global_in);
+
+		frrtrace(4, frr_bgp, evpn_mh_local_ead_es_evi_route_upd,
+			 &es->esi, (vpn ? vpn->vni : 0), evp->prefix.route_type,
+			 attr->mp_nexthop_global_in);
 	}
 
 	/* Return back the route entry. */
@@ -491,6 +495,8 @@ static int bgp_evpn_mh_route_delete(struct bgp *bgp, struct bgp_evpn_es *es,
 				: (vpn ? "ead-evi" : "ead-es"),
 			&es->originator_ip);
 
+	frrtrace(4, frr_bgp, evpn_mh_local_ead_es_evi_route_del, &es->esi,
+		 (vpn ? vpn->vni : 0), p->prefix.route_type, es->originator_ip);
 	/* Next, locate route node in the global EVPN routing table.
 	 * Note that this table is a 2-level tree (RD-level + Prefix-level)
 	 */
@@ -3460,6 +3466,10 @@ static void bgp_evpn_es_evi_vtep_add(struct bgp *bgp,
 			   evi_vtep->es_evi->vpn->vni, &evi_vtep->vtep_ip,
 			   ead_es ? "ead_es" : "ead_evi");
 
+	frrtrace(4, frr_bgp, evpn_mh_es_evi_vtep_add,
+		 &evi_vtep->es_evi->es->esi, evi_vtep->es_evi->vpn->vni,
+		 evi_vtep->vtep_ip, ead_es);
+
 	if (ead_es)
 		SET_FLAG(evi_vtep->flags, BGP_EVPN_EVI_VTEP_EAD_PER_ES);
 	else
@@ -3483,6 +3493,10 @@ static void bgp_evpn_es_evi_vtep_del(struct bgp *bgp,
 			   evi_vtep->es_evi->es->esi_str,
 			   evi_vtep->es_evi->vpn->vni, &evi_vtep->vtep_ip,
 			   ead_es ? "ead_es" : "ead_evi");
+
+	frrtrace(4, frr_bgp, evpn_mh_es_evi_vtep_del,
+		 &evi_vtep->es_evi->es->esi, evi_vtep->es_evi->vpn->vni,
+		 evi_vtep->vtep_ip, ead_es);
 
 	if (ead_es)
 		UNSET_FLAG(evi_vtep->flags, BGP_EVPN_EVI_VTEP_EAD_PER_ES);
