@@ -37,6 +37,7 @@
 #include "pmd/pm.h"
 #include "pmd/pm_memory.h"
 #include "pmd/pm_echo.h"
+#include "pmd/pm_zebra.h"
 
 
 /* IPv6 local definition.
@@ -806,8 +807,10 @@ void pm_echo_send(struct event *event)
 	if (pm->key.type == PM_ICMP_SLA) {
 		/* update bulk stats before sending a new one */
 		/* (except for the very first bulk) */
-		if (pme->start.tv_sec != 0 || pme->start.tv_usec != 0)
+		if (pme->start.tv_sec != 0 || pme->start.tv_usec != 0) {
 			pm_rtt_update_bulk_stats(pme);
+			pm_zebra_notify(pm);
+		}
 		if (pme->icmp_sequence + pme->count > UINT16_MAX) /* overflow */
 			pme->icmp_sequence = 0;
 	}

@@ -1089,6 +1089,8 @@ int pm_zebra_notify(struct pm_session *pm)
 
 	memcpy(&pm_to_fill, pm, sizeof(struct pm_session));
 	hook_call(pm_tracking_notify_filename, &pm_to_fill);
+	if (pm->key.type == PM_ICMP_SLA)
+		return 0;
 	/*
 	 * Message format:
 	 * - header: command, vrf

@@ -240,12 +240,18 @@ static int pm_tracking_notify_update_status(char *path, int status)
 static int pm_tracking_call_notify_filename(struct pm_session *pm)
 {
 	struct pm_tracking_ctx *ctx;
+	static uint8_t val = 0;
 	int status = 0;
-	int ret;
+	int ret = 0;
 
 	ctx = pm_tracking_lookup_from_pm(pm);
-	if (!ctx)
+	if (!ctx || !ctx->notify_path[0])
 		return 0;
+	if (pm->key.type == PM_ICMP_SLA) {
+		ret = pm_tracking_notify_update_status(ctx->notify_path, val);
+		val ^= 0x01;
+		return ret;
+	}
 	if (pm->ses_state == PM_UP)
 		status = 0;
 	else if ((pm->ses_state == PM_DOWN) ||
@@ -255,8 +261,6 @@ static int pm_tracking_call_notify_filename(struct pm_session *pm)
 		/* case init state or admin down
 		 * or other
 		 */
-		return 0;
-	if (!ctx->notify_path[0])
 		return 0;
 	ret = pm_tracking_notify_update_status(ctx->notify_path, status);
 	if (ret > 0)
