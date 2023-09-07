@@ -594,7 +594,7 @@ struct bgp_path_info *bgp_get_imported_bpi_ultimate(struct bgp_path_info *info)
  */
 int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 		      struct bgp_path_info *exist, int *paths_eq,
-		      struct bgp_maxpaths_cfg *mpath_cfg, int debug,
+		      struct bgp_maxpaths_cfg *mpath_cfg, bool debug,
 		      char *pfx_buf, afi_t afi, safi_t safi,
 		      enum bgp_path_selection_reason *reason)
 {
@@ -1503,9 +1503,10 @@ int bgp_evpn_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 {
 	enum bgp_path_selection_reason reason;
 	char pfx_buf[PREFIX2STR_BUFFER] = {};
+	bool debug = false;
 
-	return bgp_path_info_cmp(bgp, new, exist, paths_eq, NULL, 0, pfx_buf,
-				AFI_L2VPN, SAFI_EVPN, &reason);
+	return bgp_path_info_cmp(bgp, new, exist, paths_eq, NULL, debug,
+				 pfx_buf, AFI_L2VPN, SAFI_EVPN, &reason);
 }
 
 /* Compare two bgp route entity.  Return -1 if new is preferred, 1 if exist
@@ -1519,8 +1520,10 @@ int bgp_path_info_cmp_compatible(struct bgp *bgp, struct bgp_path_info *new,
 {
 	int paths_eq;
 	int ret;
-	ret = bgp_path_info_cmp(bgp, new, exist, &paths_eq, NULL, 0, pfx_buf,
-				afi, safi, reason);
+	bool debug = false;
+
+	ret = bgp_path_info_cmp(bgp, new, exist, &paths_eq, NULL, debug,
+				pfx_buf, afi, safi, reason);
 
 	if (paths_eq)
 		ret = 0;
@@ -2708,7 +2711,8 @@ void bgp_best_selection(struct bgp *bgp, struct bgp_dest *dest,
 	struct bgp_path_info *pi1;
 	struct bgp_path_info *pi2;
 	struct bgp_path_info *nextpi = NULL;
-	int paths_eq, do_mpath, debug;
+	int paths_eq, do_mpath;
+	bool debug;
 	struct list mp_list;
 	char pfx_buf[PREFIX2STR_BUFFER] = {};
 	char path_buf[PATH_ADDPATH_STR_BUFFER];
