@@ -715,16 +715,6 @@ int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 		 * sticky flag.
 		 */
 		if (newattr->sticky != existattr->sticky) {
-			if (!debug) {
-				prefix2str(new_p, pfx_buf,
-					   sizeof(*pfx_buf)
-						   * PREFIX2STR_BUFFER);
-				bgp_path_info_path_with_addpath_rx_str(
-					new, new_buf, sizeof(new_buf));
-				bgp_path_info_path_with_addpath_rx_str(
-					exist, exist_buf, sizeof(exist_buf));
-			}
-
 			if (newattr->sticky && !existattr->sticky) {
 				*reason = bgp_path_selection_evpn_sticky_mac;
 				if (debug)
@@ -1504,6 +1494,10 @@ int bgp_evpn_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 	enum bgp_path_selection_reason reason;
 	char pfx_buf[PREFIX2STR_BUFFER] = {};
 	bool debug = false;
+
+	if (debug)
+		prefix2str(bgp_dest_get_prefix(new->net), pfx_buf,
+			   sizeof(pfx_buf));
 
 	return bgp_path_info_cmp(bgp, new, exist, paths_eq, NULL, debug,
 				 pfx_buf, AFI_L2VPN, SAFI_EVPN, &reason);
