@@ -1351,7 +1351,7 @@ bgp_clearing_completed(struct peer_connection *connection)
 	enum bgp_fsm_state_progress rc = bgp_stop(connection);
 
 	if (rc >= BGP_FSM_SUCCESS)
-		BGP_EVENT_FLUSH(peer);
+		event_cancel_event_ready(bm->master, peer);
 
 	return rc;
 }
@@ -1387,7 +1387,7 @@ enum bgp_fsm_state_progress bgp_stop(struct peer_connection *connection)
 	/* Can't do this in Clearing; events are used for state transitions */
 	if (connection->status != Clearing) {
 		/* Delete all existing events of the peer */
-		BGP_EVENT_FLUSH(peer);
+		event_cancel_event_ready(bm->master, peer);
 	}
 
 	/* Increment Dropped count. */

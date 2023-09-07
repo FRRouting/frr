@@ -27,12 +27,6 @@ enum bgp_fsm_state_progress {
 			event_add_event(bm->master, bgp_event, (P), (E), NULL); \
 	} while (0)
 
-#define BGP_EVENT_FLUSH(P)                                                     \
-	do {                                                                   \
-		assert(peer);                                                  \
-		event_cancel_event_ready(bm->master, (P));                     \
-	} while (0)
-
 #define BGP_UPDATE_GROUP_TIMER_ON(T, F)                                        \
 	do {                                                                   \
 		if (BGP_SUPPRESS_FIB_ENABLED(peer->bgp) &&                     \
