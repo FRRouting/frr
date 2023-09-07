@@ -20,8 +20,8 @@ struct capability_mp_data {
 };
 
 struct graceful_restart_af {
-	afi_t afi;
-	safi_t safi;
+	uint16_t afi;
+	uint8_t safi;
 	uint8_t flag;
 };
 
