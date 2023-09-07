@@ -1671,6 +1671,9 @@ static int update_evpn_type5_route(struct bgp *bgp_vrf, struct prefix_evpn *evp,
 			vrf_id_to_name(bgp_vrf->vrf_id), evp, &attr.rmac,
 			&attr.nexthop);
 
+	frrtrace(4, frr_bgp, evpn_advertise_type5, bgp_vrf->vrf_id, evp,
+		 &attr.rmac, attr.nexthop);
+
 	attr.mp_nexthop_len = BGP_ATTR_NHLEN_IPV4;
 
 	if (src_afi == AFI_IP6 &&
@@ -2312,6 +2315,8 @@ static int delete_evpn_type5_route(struct bgp *bgp_vrf, struct prefix_evpn *evp)
 					   &bgp_vrf->vrf_prd, NULL);
 	if (!dest)
 		return 0;
+
+	frrtrace(2, frr_bgp, evpn_withdraw_type5, bgp_vrf->vrf_id, evp);
 
 	delete_evpn_route_entry(bgp_evpn, afi, safi, dest, &pi);
 	if (pi)
