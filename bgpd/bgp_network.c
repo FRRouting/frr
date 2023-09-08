@@ -35,7 +35,7 @@
 
 extern struct zebra_privs_t bgpd_privs;
 
-static char *bgp_get_bound_name(struct peer *peer);
+static char *bgp_get_bound_name(struct peer_connection *connection);
 
 void bgp_dump_listener_info(struct vty *vty)
 {
@@ -132,9 +132,9 @@ static int bgp_md5_set_password(struct peer_connection *connection,
 	frr_with_privs(&bgpd_privs) {
 		for (ALL_LIST_ELEMENTS_RO(bm->listen_sockets, node, listener))
 			if (listener->su.sa.sa_family ==
-			    peer->su.sa.sa_family) {
+			    connection->su.sa.sa_family) {
 				uint16_t prefixlen =
-					peer->su.sa.sa_family == AF_INET
+					connection->su.sa.sa_family == AF_INET
 						? IPV4_MAX_BITLEN
 						: IPV6_MAX_BITLEN;
 
@@ -151,8 +151,8 @@ static int bgp_md5_set_password(struct peer_connection *connection,
 					continue;
 
 				ret = bgp_md5_set_socket(listener->fd,
-							 &peer->su, prefixlen,
-							 password);
+							 &connection->su,
+							 prefixlen, password);
 				break;
 			}
 	}
@@ -225,7 +225,7 @@ int bgp_set_socket_ttl(struct peer_connection *connection)
 	struct peer *peer = connection->peer;
 
 	if (!peer->gtsm_hops) {
-		ret = sockopt_ttl(peer->su.sa.sa_family, connection->fd,
+		ret = sockopt_ttl(connection->su.sa.sa_family, connection->fd,
 				  peer->ttl);
 		if (ret) {
 			flog_err(
@@ -239,7 +239,8 @@ int bgp_set_socket_ttl(struct peer_connection *connection)
 		   with the
 		   outgoing ttl. Therefore setting both.
 		*/
-		ret = sockopt_ttl(peer->su.sa.sa_family, connection->fd, MAXTTL);
+		ret = sockopt_ttl(connection->su.sa.sa_family, connection->fd,
+				  MAXTTL);
 		if (ret) {
 			flog_err(
 				EC_LIB_SOCKET,
@@ -247,7 +248,7 @@ int bgp_set_socket_ttl(struct peer_connection *connection)
 				__func__, &peer->remote_id, errno);
 			return ret;
 		}
-		ret = sockopt_minttl(peer->su.sa.sa_family, connection->fd,
+		ret = sockopt_minttl(connection->su.sa.sa_family, connection->fd,
 				     MAXTTL + 1 - peer->gtsm_hops);
 		if (ret) {
 			flog_err(
@@ -570,7 +571,8 @@ static void bgp_accept(struct event *thread)
 	peer1->doppelganger = peer;
 	connection->fd = bgp_sock;
 	frr_with_privs(&bgpd_privs) {
-		vrf_bind(peer->bgp->vrf_id, bgp_sock, bgp_get_bound_name(peer));
+		vrf_bind(peer->bgp->vrf_id, bgp_sock,
+			 bgp_get_bound_name(peer->connection));
 	}
 	bgp_peer_reg_with_nht(peer);
 	bgp_fsm_change_status(connection, Active);
@@ -611,24 +613,23 @@ static void bgp_accept(struct event *thread)
 }
 
 /* BGP socket bind. */
-static char *bgp_get_bound_name(struct peer *peer)
+static char *bgp_get_bound_name(struct peer_connection *connection)
 {
-	if (!peer)
-		return NULL;
+	struct peer *peer = connection->peer;
 
 	if ((peer->bgp->vrf_id == VRF_DEFAULT) && !peer->ifname
 	    && !peer->conf_if)
 		return NULL;
 
-	if (peer->su.sa.sa_family != AF_INET
-	    && peer->su.sa.sa_family != AF_INET6)
+	if (connection->su.sa.sa_family != AF_INET &&
+	    connection->su.sa.sa_family != AF_INET6)
 		return NULL; // unexpected
 
 	/* For IPv6 peering, interface (unnumbered or link-local with interface)
 	 * takes precedence over VRF. For IPv4 peering, explicit interface or
 	 * VRF are the situations to bind.
 	 */
-	if (peer->su.sa.sa_family == AF_INET6 && peer->conf_if)
+	if (connection->su.sa.sa_family == AF_INET6 && peer->conf_if)
 		return peer->conf_if;
 
 	if (peer->ifname)
@@ -672,11 +673,12 @@ int bgp_update_address(struct interface *ifp, const union sockunion *dst,
 }
 
 /* Update source selection.  */
-static int bgp_update_source(struct peer *peer)
+static int bgp_update_source(struct peer_connection *connection)
 {
 	struct interface *ifp;
 	union sockunion addr;
 	int ret = 0;
+	struct peer *peer = connection->peer;
 
 	sockunion_init(&addr);
 
@@ -686,16 +688,16 @@ static int bgp_update_source(struct peer *peer)
 		if (!ifp)
 			return -1;
 
-		if (bgp_update_address(ifp, &peer->su, &addr))
+		if (bgp_update_address(ifp, &connection->su, &addr))
 			return -1;
 
-		ret = sockunion_bind(peer->connection->fd, &addr, 0, &addr);
+		ret = sockunion_bind(connection->fd, &addr, 0, &addr);
 	}
 
 	/* Source is specified with IP address.  */
 	if (peer->update_source)
-		ret = sockunion_bind(peer->connection->fd, peer->update_source,
-				     0, peer->update_source);
+		ret = sockunion_bind(connection->fd, peer->update_source, 0,
+				     peer->update_source);
 
 	return ret;
 }
@@ -709,16 +711,16 @@ int bgp_connect(struct peer_connection *connection)
 	assert(!CHECK_FLAG(connection->thread_flags, PEER_THREAD_READS_ON));
 	ifindex_t ifindex = 0;
 
-	if (peer->conf_if && BGP_PEER_SU_UNSPEC(peer)) {
+	if (peer->conf_if && BGP_CONNECTION_SU_UNSPEC(connection)) {
 		if (bgp_debug_neighbor_events(peer))
 			zlog_debug("Peer address not learnt: Returning from connect");
 		return 0;
 	}
 	frr_with_privs(&bgpd_privs) {
 		/* Make socket for the peer. */
-		connection->fd = vrf_sockunion_socket(&peer->su,
-						      peer->bgp->vrf_id,
-						      bgp_get_bound_name(peer));
+		connection->fd =
+			vrf_sockunion_socket(&connection->su, peer->bgp->vrf_id,
+					     bgp_get_bound_name(connection));
 	}
 	if (connection->fd < 0) {
 		peer->last_reset = PEER_DOWN_SOCKET_ERROR;
@@ -755,27 +757,27 @@ int bgp_connect(struct peer_connection *connection)
 
 #ifdef IPTOS_PREC_INTERNETCONTROL
 	frr_with_privs(&bgpd_privs) {
-		if (sockunion_family(&peer->su) == AF_INET)
+		if (sockunion_family(&connection->su) == AF_INET)
 			setsockopt_ipv4_tos(connection->fd, bm->tcp_dscp);
-		else if (sockunion_family(&peer->su) == AF_INET6)
+		else if (sockunion_family(&connection->su) == AF_INET6)
 			setsockopt_ipv6_tclass(connection->fd, bm->tcp_dscp);
 	}
 #endif
 
 	if (peer->password) {
-		uint16_t prefixlen = peer->su.sa.sa_family == AF_INET
+		uint16_t prefixlen = peer->connection->su.sa.sa_family == AF_INET
 					     ? IPV4_MAX_BITLEN
 					     : IPV6_MAX_BITLEN;
 
-		if (!BGP_PEER_SU_UNSPEC(peer))
+		if (!BGP_CONNECTION_SU_UNSPEC(connection))
 			bgp_md5_set(connection);
 
-		bgp_md5_set_connect(connection->fd, &peer->su, prefixlen,
+		bgp_md5_set_connect(connection->fd, &connection->su, prefixlen,
 				    peer->password);
 	}
 
 	/* Update source bind. */
-	if (bgp_update_source(peer) < 0) {
+	if (bgp_update_source(connection) < 0) {
 		peer->last_reset = PEER_DOWN_SOCKET_ERROR;
 		return connect_error;
 	}
@@ -790,8 +792,8 @@ int bgp_connect(struct peer_connection *connection)
 			   peer->host, connection->fd);
 
 	/* Connect to the remote peer. */
-	return sockunion_connect(connection->fd, &peer->su, htons(peer->port),
-				 ifindex);
+	return sockunion_connect(connection->fd, &connection->su,
+				 htons(peer->port), ifindex);
 }
 
 /* After TCP connection is established.  Get local address and port. */

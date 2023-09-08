@@ -43,14 +43,16 @@ static struct peer *peer_lookup_all_vrf(struct ipaddr *addr)
 
 	for (ALL_LIST_ELEMENTS_RO(bm->bgp, bgpnode, bgp)) {
 		for (ALL_LIST_ELEMENTS_RO(bgp->peer, node, peer)) {
-			switch (sockunion_family(&peer->su)) {
+			switch (sockunion_family(&peer->connection->su)) {
 			case AF_INET:
-				if (IPV4_ADDR_SAME(&peer->su.sin.sin_addr,
+				if (IPV4_ADDR_SAME(&peer->connection->su.sin
+							    .sin_addr,
 						   &addr->ip._v4_addr))
 					return peer;
 				break;
 			case AF_INET6:
-				if (IPV6_ADDR_SAME(&peer->su.sin6.sin6_addr,
+				if (IPV6_ADDR_SAME(&peer->connection->su.sin6
+							    .sin6_addr,
 						   &addr->ip._v6_addr))
 					return peer;
 				break;
@@ -74,38 +76,47 @@ static struct peer *peer_lookup_all_vrf_next(struct ipaddr *addr, oid *offset,
 
 	for (ALL_LIST_ELEMENTS_RO(bm->bgp, bgpnode, bgp)) {
 		for (ALL_LIST_ELEMENTS_RO(bgp->peer, node, peer)) {
-			sa_family_t peer_family = sockunion_family(&peer->su);
+			sa_family_t peer_family =
+				sockunion_family(&peer->connection->su);
 
 			if (peer_family != family)
 				continue;
 
-			switch (sockunion_family(&peer->su)) {
+			switch (peer_family) {
 			case AF_INET:
 				oid2in_addr(offset, IN_ADDR_SIZE,
 					    &addr->ip._v4_addr);
-				if (IPV4_ADDR_CMP(&peer->su.sin.sin_addr,
+				if (IPV4_ADDR_CMP(&peer->connection->su.sin
+							   .sin_addr,
 						  &addr->ip._v4_addr) < 0 ||
-				    IPV4_ADDR_SAME(&peer->su.sin.sin_addr,
+				    IPV4_ADDR_SAME(&peer->connection->su.sin
+							    .sin_addr,
 						   &addr->ip._v4_addr))
 					continue;
 
 				if (!next_peer ||
-				    IPV4_ADDR_CMP(&next_peer->su.sin.sin_addr,
-						  &peer->su.sin.sin_addr) > 0)
+				    IPV4_ADDR_CMP(&next_peer->connection->su.sin
+							   .sin_addr,
+						  &peer->connection->su.sin
+							   .sin_addr) > 0)
 					next_peer = peer;
 
 				break;
 			case AF_INET6:
 				oid2in6_addr(offset, &addr->ip._v6_addr);
-				if (IPV6_ADDR_CMP(&peer->su.sin6.sin6_addr,
+				if (IPV6_ADDR_CMP(&peer->connection->su.sin6
+							   .sin6_addr,
 						  &addr->ip._v6_addr) < 0 ||
-				    IPV6_ADDR_SAME(&peer->su.sin6.sin6_addr,
+				    IPV6_ADDR_SAME(&peer->connection->su.sin6
+							    .sin6_addr,
 						   &addr->ip._v6_addr))
 					continue;
 
 				if (!next_peer ||
-				    IPV6_ADDR_CMP(&next_peer->su.sin6.sin6_addr,
-						  &peer->su.sin6.sin6_addr) > 0)
+				    IPV6_ADDR_CMP(&next_peer->connection->su
+							   .sin6.sin6_addr,
+						  &peer->connection->su.sin6
+							   .sin6_addr) > 0)
 					next_peer = peer;
 
 				break;
@@ -158,13 +169,15 @@ static struct peer *bgpv2PeerTable_lookup(struct variable *v, oid name[],
 		if (peer == NULL)
 			return NULL;
 
-		switch (sockunion_family(&peer->su)) {
+		switch (sockunion_family(&peer->connection->su)) {
 		case AF_INET:
-			oid_copy_in_addr(offset, &peer->su.sin.sin_addr);
+			oid_copy_in_addr(offset,
+					 &peer->connection->su.sin.sin_addr);
 			*length = afi_len + namelen;
 			return peer;
 		case AF_INET6:
-			oid_copy_in6_addr(offset, &peer->su.sin6.sin6_addr);
+			oid_copy_in6_addr(offset,
+					  &peer->connection->su.sin6.sin6_addr);
 			*length = afi_len + namelen;
 			return peer;
 		default:
@@ -467,7 +480,8 @@ bgp4v2PathAttrLookup(struct variable *v, oid name[], size_t *length,
 		if (dest) {
 			for (path = bgp_dest_get_bgp_path_info(dest); path;
 			     path = path->next)
-				if (sockunion_same(&path->peer->su, &su))
+				if (sockunion_same(&path->peer->connection->su,
+						   &su))
 					return path;
 
 			bgp_dest_unlock_node(dest);
@@ -532,27 +546,29 @@ bgp4v2PathAttrLookup(struct variable *v, oid name[], size_t *length,
 		for (path = bgp_dest_get_bgp_path_info(dest); path;
 		     path = path->next) {
 			sa_family_t path_family =
-				sockunion_family(&path->peer->su);
+				sockunion_family(&path->peer->connection->su);
 
 			if (path_family == AF_INET &&
 			    IPV4_ADDR_CMP(&paddr.ip._v4_addr,
-					  &path->peer->su.sin.sin_addr) < 0) {
+					  &path->peer->connection->su.sin
+						   .sin_addr) < 0) {
 				if (!min ||
 				    (min &&
-				     IPV4_ADDR_CMP(
-					     &path->peer->su.sin.sin_addr,
-					     &min->peer->su.sin.sin_addr) < 0))
+				     IPV4_ADDR_CMP(&path->peer->connection->su
+							    .sin.sin_addr,
+						   &min->peer->connection->su
+							    .sin.sin_addr) < 0))
 					min = path;
 			} else if (path_family == AF_INET6 &&
-				   IPV6_ADDR_CMP(
-					   &paddr.ip._v6_addr,
-					   &path->peer->su.sin6.sin6_addr) <
-					   0) {
+				   IPV6_ADDR_CMP(&paddr.ip._v6_addr,
+						 &path->peer->connection->su
+							  .sin6.sin6_addr) < 0) {
 				if (!min ||
 				    (min &&
-				     IPV6_ADDR_CMP(
-					     &path->peer->su.sin6.sin6_addr,
-					     &min->peer->su.sin6.sin6_addr) <
+				     IPV6_ADDR_CMP(&path->peer->connection->su
+							    .sin6.sin6_addr,
+						   &min->peer->connection->su
+							    .sin6.sin6_addr) <
 					     0))
 					min = path;
 			}
@@ -578,11 +594,13 @@ bgp4v2PathAttrLookup(struct variable *v, oid name[], size_t *length,
 			/* Encode peer's IP into OID */
 			if (family == AF_INET) {
 				oid_copy_in_addr(offset,
-						 &min->peer->su.sin.sin_addr);
+						 &min->peer->connection->su.sin
+							  .sin_addr);
 				addr->u.prefix4 = rn_p->u.prefix4;
 			} else {
-				oid_copy_in6_addr(
-					offset, &min->peer->su.sin6.sin6_addr);
+				oid_copy_in6_addr(offset,
+						  &min->peer->connection->su
+							   .sin6.sin6_addr);
 				addr->u.prefix6 = rn_p->u.prefix6;
 			}
 

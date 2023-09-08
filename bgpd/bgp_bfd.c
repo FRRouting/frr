@@ -163,36 +163,35 @@ void bgp_peer_bfd_update_source(struct peer *p)
 	/* Update peer's source/destination addresses. */
 	bfd_sess_addresses(session, &family, &src.v6, &dst.v6);
 	if (family == AF_INET) {
-		if ((source && source->sin.sin_addr.s_addr != src.v4.s_addr)
-		    || p->su.sin.sin_addr.s_addr != dst.v4.s_addr) {
+		if ((source && source->sin.sin_addr.s_addr != src.v4.s_addr) ||
+		    p->connection->su.sin.sin_addr.s_addr != dst.v4.s_addr) {
 			if (BGP_DEBUG(bfd, BFD_LIB))
-				zlog_debug(
-					"%s: address [%pI4->%pI4] to [%pI4->%pI4]",
-					__func__, &src.v4, &dst.v4,
-					source ? &source->sin.sin_addr
-					       : &src.v4,
-					&p->su.sin.sin_addr);
+				zlog_debug("%s: address [%pI4->%pI4] to [%pI4->%pI4]",
+					   __func__, &src.v4, &dst.v4,
+					   source ? &source->sin.sin_addr
+						  : &src.v4,
+					   &p->connection->su.sin.sin_addr);
 
-			bfd_sess_set_ipv4_addrs(
-				session, source ? &source->sin.sin_addr : NULL,
-				&p->su.sin.sin_addr);
+			bfd_sess_set_ipv4_addrs(session,
+						source ? &source->sin.sin_addr
+						       : NULL,
+						&p->connection->su.sin.sin_addr);
 			changed = true;
 		}
 	} else {
-		if ((source && memcmp(&source->sin6, &src.v6, sizeof(src.v6)))
-		    || memcmp(&p->su.sin6, &dst.v6, sizeof(dst.v6))) {
+		if ((source && memcmp(&source->sin6, &src.v6, sizeof(src.v6))) ||
+		    memcmp(&p->connection->su.sin6, &dst.v6, sizeof(dst.v6))) {
 			if (BGP_DEBUG(bfd, BFD_LIB))
-				zlog_debug(
-					"%s: address [%pI6->%pI6] to [%pI6->%pI6]",
-					__func__, &src.v6, &dst.v6,
-					source ? &source->sin6.sin6_addr
-					       : &src.v6,
-					&p->su.sin6.sin6_addr);
+				zlog_debug("%s: address [%pI6->%pI6] to [%pI6->%pI6]",
+					   __func__, &src.v6, &dst.v6,
+					   source ? &source->sin6.sin6_addr
+						  : &src.v6,
+					   &p->connection->su.sin6.sin6_addr);
 
 			bfd_sess_set_ipv6_addrs(session,
 						source ? &source->sin6.sin6_addr
 						       : NULL,
-						&p->su.sin6.sin6_addr);
+						&p->connection->su.sin6.sin6_addr);
 			changed = true;
 		}
 	}
@@ -284,16 +283,17 @@ void bgp_peer_configure_bfd(struct peer *p, bool manual)
 	bgp_peer_bfd_reset(p);
 
 	/* Configure session with basic BGP peer data. */
-	if (p->su.sa.sa_family == AF_INET)
+	if (p->connection->su.sa.sa_family == AF_INET)
 		bfd_sess_set_ipv4_addrs(p->bfd_config->session,
 					p->su_local ? &p->su_local->sin.sin_addr
 						    : NULL,
-					&p->su.sin.sin_addr);
+					&p->connection->su.sin.sin_addr);
 	else
-		bfd_sess_set_ipv6_addrs(
-			p->bfd_config->session,
-			p->su_local ? &p->su_local->sin6.sin6_addr : NULL,
-			&p->su.sin6.sin6_addr);
+		bfd_sess_set_ipv6_addrs(p->bfd_config->session,
+					p->su_local
+						? &p->su_local->sin6.sin6_addr
+						: NULL,
+					&p->connection->su.sin6.sin6_addr);
 
 	bfd_sess_set_vrf(p->bfd_config->session, p->bgp->vrf_id);
 	bfd_sess_set_hop_count(p->bfd_config->session,

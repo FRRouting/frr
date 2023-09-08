@@ -83,10 +83,10 @@ static struct peer *peer_lookup_addr_ipv4(struct in_addr *src)
 
 	for (ALL_LIST_ELEMENTS_RO(bm->bgp, bgpnode, bgp)) {
 		for (ALL_LIST_ELEMENTS_RO(bgp->peer, node, peer)) {
-			if (sockunion_family(&peer->su) != AF_INET)
+			if (sockunion_family(&peer->connection->su) != AF_INET)
 				continue;
 
-			if (sockunion2ip(&peer->su) == src->s_addr)
+			if (sockunion2ip(&peer->connection->su) == src->s_addr)
 				return peer;
 		}
 	}
@@ -104,22 +104,22 @@ static struct peer *bgp_peer_lookup_next(struct in_addr *src)
 
 	for (ALL_LIST_ELEMENTS_RO(bm->bgp, bgpnode, bgp)) {
 		for (ALL_LIST_ELEMENTS_RO(bgp->peer, node, peer)) {
-			if (sockunion_family(&peer->su) != AF_INET)
+			if (sockunion_family(&peer->connection->su) != AF_INET)
 				continue;
-			if (ntohl(sockunion2ip(&peer->su)) <=
+			if (ntohl(sockunion2ip(&peer->connection->su)) <=
 			    ntohl(src->s_addr))
 				continue;
 
 			if (!next_peer ||
-			    ntohl(sockunion2ip(&next_peer->su)) >
-				    ntohl(sockunion2ip(&peer->su))) {
+			    ntohl(sockunion2ip(&next_peer->connection->su)) >
+				    ntohl(sockunion2ip(&peer->connection->su))) {
 				next_peer = peer;
 			}
 		}
 	}
 
 	if (next_peer) {
-		src->s_addr = sockunion2ip(&next_peer->su);
+		src->s_addr = sockunion2ip(&next_peer->connection->su);
 		return next_peer;
 	}
 
@@ -417,7 +417,8 @@ static struct bgp_path_info *bgp4PathAttrLookup(struct variable *v, oid name[],
 		if (dest) {
 			for (path = bgp_dest_get_bgp_path_info(dest); path;
 			     path = path->next)
-				if (sockunion_same(&path->peer->su, &su))
+				if (sockunion_same(&path->peer->connection->su,
+						   &su))
 					return path;
 
 			bgp_dest_unlock_node(dest);
@@ -467,15 +468,18 @@ static struct bgp_path_info *bgp4PathAttrLookup(struct variable *v, oid name[],
 
 			for (path = bgp_dest_get_bgp_path_info(dest); path;
 			     path = path->next) {
-				if (path->peer->su.sin.sin_family == AF_INET &&
+				if (path->peer->connection->su.sin.sin_family ==
+					    AF_INET &&
 				    ntohl(paddr.s_addr) <
-					    ntohl(path->peer->su.sin.sin_addr
-							  .s_addr)) {
+					    ntohl(path->peer->connection->su.sin
+							  .sin_addr.s_addr)) {
 					if (min) {
-						if (ntohl(path->peer->su.sin
+						if (ntohl(path->peer->connection
+								  ->su.sin
 								  .sin_addr
 								  .s_addr) <
-						    ntohl(min->peer->su.sin
+						    ntohl(min->peer->connection
+								  ->su.sin
 								  .sin_addr
 								  .s_addr))
 							min = path;
@@ -497,7 +501,8 @@ static struct bgp_path_info *bgp4PathAttrLookup(struct variable *v, oid name[],
 				*offset = rn_p->prefixlen;
 				offset++;
 				oid_copy_in_addr(offset,
-						 &min->peer->su.sin.sin_addr);
+						 &min->peer->connection->su.sin
+							  .sin_addr);
 				addr->prefix = rn_p->u.prefix4;
 				addr->prefixlen = rn_p->prefixlen;
 
@@ -535,7 +540,7 @@ static uint8_t *bgp4PathAttrTable(struct variable *v, oid name[],
 
 	switch (v->magic) {
 	case BGP4PATHATTRPEER: /* 1 */
-		return SNMP_IPADDRESS(path->peer->su.sin.sin_addr);
+		return SNMP_IPADDRESS(path->peer->connection->su.sin.sin_addr);
 	case BGP4PATHATTRIPADDRPREFIXLEN: /* 2 */
 		return SNMP_INTEGER(addr.prefixlen);
 	case BGP4PATHATTRIPADDRPREFIX: /* 3 */

@@ -80,7 +80,6 @@
 #include "bgp_trace.h"
 
 DEFINE_MTYPE_STATIC(BGPD, PEER_TX_SHUTDOWN_MSG, "Peer shutdown message (TX)");
-DEFINE_MTYPE_STATIC(BGPD, BGP_PEER_CONNECTION, "BGP Connection information");
 DEFINE_QOBJ_TYPE(bgp_master);
 DEFINE_QOBJ_TYPE(bgp);
 DEFINE_QOBJ_TYPE(peer);
@@ -948,13 +947,13 @@ int peer_cmp(struct peer *p1, struct peer *p2)
 	} else
 		return strcmp(p1->group->name, p2->group->name);
 
-	return sockunion_cmp(&p1->su, &p2->su);
+	return sockunion_cmp(&p1->connection->su, &p2->connection->su);
 }
 
 static unsigned int peer_hash_key_make(const void *p)
 {
 	const struct peer *peer = p;
-	return sockunion_hash(&peer->su);
+	return sockunion_hash(&peer->connection->su);
 }
 
 static bool peer_hash_same(const void *p1, const void *p2)
@@ -962,9 +961,9 @@ static bool peer_hash_same(const void *p1, const void *p2)
 	const struct peer *peer1 = p1;
 	const struct peer *peer2 = p2;
 
-	return (sockunion_same(&peer1->su, &peer2->su)
-		&& CHECK_FLAG(peer1->flags, PEER_FLAG_CONFIG_NODE)
-			   == CHECK_FLAG(peer2->flags, PEER_FLAG_CONFIG_NODE));
+	return (sockunion_same(&peer1->connection->su, &peer2->connection->su) &&
+		CHECK_FLAG(peer1->flags, PEER_FLAG_CONFIG_NODE) ==
+			CHECK_FLAG(peer2->flags, PEER_FLAG_CONFIG_NODE));
 }
 
 void peer_flag_inherit(struct peer *peer, uint64_t flag)
@@ -1220,7 +1219,8 @@ static void peer_free(struct peer *peer)
 	/* Free connected nexthop, if present */
 	if (CHECK_FLAG(peer->flags, PEER_FLAG_CONFIG_NODE)
 	    && !peer_dynamic_neighbor(peer))
-		bgp_delete_connected_nexthop(family2afi(peer->su.sa.sa_family),
+		bgp_delete_connected_nexthop(family2afi(peer->connection->su.sa
+								.sa_family),
 					     peer);
 
 	FOREACH_AFI_SAFI (afi, safi) {
@@ -1605,7 +1605,7 @@ void peer_xfer_config(struct peer *peer_dst, struct peer *peer_src)
 	peer_dst->ttl = peer_src->ttl;
 }
 
-static int bgp_peer_conf_if_to_su_update_v4(struct peer *peer,
+static int bgp_peer_conf_if_to_su_update_v4(struct peer_connection *connection,
 					    struct interface *ifp)
 {
 	struct connected *ifc;
@@ -1620,44 +1620,43 @@ static int bgp_peer_conf_if_to_su_update_v4(struct peer *peer,
 		if (ifc->address && (ifc->address->family == AF_INET)) {
 			prefix_copy(&p, CONNECTED_PREFIX(ifc));
 			if (p.prefixlen == 30) {
-				peer->su.sa.sa_family = AF_INET;
+				connection->su.sa.sa_family = AF_INET;
 				addr = ntohl(p.u.prefix4.s_addr);
 				if (addr % 4 == 1)
-					peer->su.sin.sin_addr.s_addr =
+					connection->su.sin.sin_addr.s_addr =
 						htonl(addr + 1);
 				else if (addr % 4 == 2)
-					peer->su.sin.sin_addr.s_addr =
+					connection->su.sin.sin_addr.s_addr =
 						htonl(addr - 1);
 #ifdef HAVE_STRUCT_SOCKADDR_IN_SIN_LEN
-				peer->su.sin.sin_len =
+				connection->su.sin.sin_len =
 					sizeof(struct sockaddr_in);
 #endif /* HAVE_STRUCT_SOCKADDR_IN_SIN_LEN */
 				return 1;
 			} else if (p.prefixlen == 31) {
-				peer->su.sa.sa_family = AF_INET;
+				connection->su.sa.sa_family = AF_INET;
 				addr = ntohl(p.u.prefix4.s_addr);
 				if (addr % 2 == 0)
-					peer->su.sin.sin_addr.s_addr =
+					connection->su.sin.sin_addr.s_addr =
 						htonl(addr + 1);
 				else
-					peer->su.sin.sin_addr.s_addr =
+					connection->su.sin.sin_addr.s_addr =
 						htonl(addr - 1);
 #ifdef HAVE_STRUCT_SOCKADDR_IN_SIN_LEN
-				peer->su.sin.sin_len =
+				connection->su.sin.sin_len =
 					sizeof(struct sockaddr_in);
 #endif /* HAVE_STRUCT_SOCKADDR_IN_SIN_LEN */
 				return 1;
-			} else if (bgp_debug_neighbor_events(peer))
-				zlog_debug(
-					"%s: IPv4 interface address is not /30 or /31, v4 session not started",
-					peer->conf_if);
+			} else if (bgp_debug_neighbor_events(connection->peer))
+				zlog_debug("%s: IPv4 interface address is not /30 or /31, v4 session not started",
+					   connection->peer->conf_if);
 		}
 	}
 
 	return 0;
 }
 
-static bool bgp_peer_conf_if_to_su_update_v6(struct peer *peer,
+static bool bgp_peer_conf_if_to_su_update_v6(struct peer_connection *connection,
 					     struct interface *ifp)
 {
 	struct nbr_connected *ifc_nbr;
@@ -1665,13 +1664,13 @@ static bool bgp_peer_conf_if_to_su_update_v6(struct peer *peer,
 	/* Have we learnt the peer's IPv6 link-local address? */
 	if (ifp->nbr_connected
 	    && (ifc_nbr = listnode_head(ifp->nbr_connected))) {
-		peer->su.sa.sa_family = AF_INET6;
-		memcpy(&peer->su.sin6.sin6_addr, &ifc_nbr->address->u.prefix,
-		       sizeof(struct in6_addr));
+		connection->su.sa.sa_family = AF_INET6;
+		memcpy(&connection->su.sin6.sin6_addr,
+		       &ifc_nbr->address->u.prefix, sizeof(struct in6_addr));
 #ifdef SIN6_LEN
-		peer->su.sin6.sin6_len = sizeof(struct sockaddr_in6);
+		connection->su.sin6.sin6_len = sizeof(struct sockaddr_in6);
 #endif
-		peer->su.sin6.sin6_scope_id = ifp->ifindex;
+		connection->su.sin6.sin6_scope_id = ifp->ifindex;
 		return true;
 	}
 
@@ -1683,13 +1682,14 @@ static bool bgp_peer_conf_if_to_su_update_v6(struct peer *peer,
  * learnt/derived peer address. If the address has changed, update the
  * password on the listen socket, if needed.
  */
-void bgp_peer_conf_if_to_su_update(struct peer *peer)
+void bgp_peer_conf_if_to_su_update(struct peer_connection *connection)
 {
 	struct interface *ifp;
 	int prev_family;
 	int peer_addr_updated = 0;
 	struct listnode *node;
 	union sockunion old_su;
+	struct peer *peer = connection->peer;
 
 	/*
 	 * This function is only ever needed when FRR an interface
@@ -1699,9 +1699,9 @@ void bgp_peer_conf_if_to_su_update(struct peer *peer)
 	if (!peer->conf_if)
 		return;
 
-	old_su = peer->su;
+	old_su = connection->su;
 
-	prev_family = peer->su.sa.sa_family;
+	prev_family = connection->su.sa.sa_family;
 	if ((ifp = if_lookup_by_name(peer->conf_if, peer->bgp->vrf_id))) {
 		peer->ifp = ifp;
 		/* If BGP unnumbered is not "v6only", we first see if we can
@@ -1710,7 +1710,8 @@ void bgp_peer_conf_if_to_su_update(struct peer *peer)
 		 */
 		if (!CHECK_FLAG(peer->flags, PEER_FLAG_IFPEER_V6ONLY))
 			peer_addr_updated =
-				bgp_peer_conf_if_to_su_update_v4(peer, ifp);
+				bgp_peer_conf_if_to_su_update_v4(connection,
+								 ifp);
 
 		/* If "v6only" or we can't derive peer's IPv4 address, see if
 		 * we've
@@ -1720,7 +1721,8 @@ void bgp_peer_conf_if_to_su_update(struct peer *peer)
 		 */
 		if (!peer_addr_updated)
 			peer_addr_updated =
-				bgp_peer_conf_if_to_su_update_v6(peer, ifp);
+				bgp_peer_conf_if_to_su_update_v6(connection,
+								 ifp);
 	}
 	/* If we could derive the peer address, we may need to install the
 	 * password
@@ -1732,20 +1734,21 @@ void bgp_peer_conf_if_to_su_update(struct peer *peer)
 	if (peer_addr_updated) {
 		if (CHECK_FLAG(peer->flags, PEER_FLAG_PASSWORD)
 		    && prev_family == AF_UNSPEC)
-			bgp_md5_set(peer->connection);
+			bgp_md5_set(connection);
 	} else {
 		if (CHECK_FLAG(peer->flags, PEER_FLAG_PASSWORD)
 		    && prev_family != AF_UNSPEC)
-			bgp_md5_unset(peer->connection);
-		peer->su.sa.sa_family = AF_UNSPEC;
-		memset(&peer->su.sin6.sin6_addr, 0, sizeof(struct in6_addr));
+			bgp_md5_unset(connection);
+		connection->su.sa.sa_family = AF_UNSPEC;
+		memset(&connection->su.sin6.sin6_addr, 0,
+		       sizeof(struct in6_addr));
 	}
 
 	/*
 	 * If they are the same, nothing to do here, move along
 	 */
-	if (!sockunion_same(&old_su, &peer->su)) {
-		union sockunion new_su = peer->su;
+	if (!sockunion_same(&old_su, &connection->su)) {
+		union sockunion new_su = connection->su;
 		struct bgp *bgp = peer->bgp;
 
 		/*
@@ -1774,11 +1777,11 @@ void bgp_peer_conf_if_to_su_update(struct peer *peer)
 			 * scan through looking for a matching
 			 * su if needed.
 			 */
-			peer->su = old_su;
+			connection->su = old_su;
 			hash_release(peer->bgp->peerhash, peer);
 			listnode_delete(peer->bgp->peer, peer);
 
-			peer->su = new_su;
+			connection->su = new_su;
 			(void)hash_get(peer->bgp->peerhash, peer,
 				       hash_alloc_intern);
 			listnode_add_sort(peer->bgp->peer, peer);
@@ -1845,13 +1848,13 @@ struct peer *peer_create(union sockunion *su, const char *conf_if,
 	if (conf_if) {
 		peer->conf_if = XSTRDUP(MTYPE_PEER_CONF_IF, conf_if);
 		if (su)
-			peer->su = *su;
+			peer->connection->su = *su;
 		else
-			bgp_peer_conf_if_to_su_update(peer);
+			bgp_peer_conf_if_to_su_update(peer->connection);
 		XFREE(MTYPE_BGP_PEER_HOST, peer->host);
 		peer->host = XSTRDUP(MTYPE_BGP_PEER_HOST, conf_if);
 	} else if (su) {
-		peer->su = *su;
+		peer->connection->su = *su;
 		sockunion2str(su, buf, SU_ADDRSTRLEN);
 		XFREE(MTYPE_BGP_PEER_HOST, peer->host);
 		peer->host = XSTRDUP(MTYPE_BGP_PEER_HOST, buf);
@@ -1890,7 +1893,7 @@ struct peer *peer_create(union sockunion *su, const char *conf_if,
 
 	active = peer_active(peer);
 	if (!active) {
-		if (peer->su.sa.sa_family == AF_UNSPEC)
+		if (peer->connection->su.sa.sa_family == AF_UNSPEC)
 			peer->last_reset = PEER_DOWN_NBR_ADDR;
 		else
 			peer->last_reset = PEER_DOWN_NOAFI_ACTIVATED;
@@ -2648,9 +2651,10 @@ int peer_delete(struct peer *peer)
 	/* Password configuration */
 	if (CHECK_FLAG(peer->flags, PEER_FLAG_PASSWORD)) {
 		XFREE(MTYPE_PEER_PASSWORD, peer->password);
-		if (!accept_peer && !BGP_PEER_SU_UNSPEC(peer)
-		    && !CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)
-		    && !CHECK_FLAG(peer->flags, PEER_FLAG_DYNAMIC_NEIGHBOR))
+		if (!accept_peer &&
+		    !BGP_CONNECTION_SU_UNSPEC(peer->connection) &&
+		    !CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP) &&
+		    !CHECK_FLAG(peer->flags, PEER_FLAG_DYNAMIC_NEIGHBOR))
 			bgp_md5_unset(peer->connection);
 	}
 
@@ -2862,7 +2866,7 @@ static void peer_group2peer_config_copy(struct peer_group *group,
 		PEER_STR_ATTR_INHERIT(peer, group, password,
 				      MTYPE_PEER_PASSWORD);
 
-	if (!BGP_PEER_SU_UNSPEC(peer))
+	if (!BGP_CONNECTION_SU_UNSPEC(peer->connection))
 		bgp_md5_set(peer->connection);
 
 	/* update-source apply */
@@ -3089,8 +3093,8 @@ int peer_group_listen_range_del(struct peer_group *group, struct prefix *range)
 		if (!peer_dynamic_neighbor(peer))
 			continue;
 
-		if (sockunion2hostprefix(&peer->su, &prefix2)
-		    && prefix_match(prefix, &prefix2)) {
+		if (sockunion2hostprefix(&peer->connection->su, &prefix2) &&
+		    prefix_match(prefix, &prefix2)) {
 			if (bgp_debug_neighbor_events(peer))
 				zlog_debug(
 					"Deleting dynamic neighbor %s group %s upon delete of listen range %pFX",
@@ -4121,8 +4125,11 @@ struct peer *peer_lookup(struct bgp *bgp, union sockunion *su)
 {
 	struct peer *peer = NULL;
 	struct peer tmp_peer;
+	struct peer_connection connection;
 
+	memset(&connection, 0, sizeof(struct peer_connection));
 	memset(&tmp_peer, 0, sizeof(struct peer));
+	tmp_peer.connection = &connection;
 
 	/*
 	 * We do not want to find the doppelganger peer so search for the peer
@@ -4131,7 +4138,7 @@ struct peer *peer_lookup(struct bgp *bgp, union sockunion *su)
 	 */
 	SET_FLAG(tmp_peer.flags, PEER_FLAG_CONFIG_NODE);
 
-	tmp_peer.su = *su;
+	connection.su = *su;
 
 	if (bgp != NULL) {
 		peer = hash_lookup(bgp->peerhash, &tmp_peer);
@@ -4365,7 +4372,7 @@ bool bgp_path_attribute_treat_as_withdraw(struct peer *peer, char *buf,
 /* If peer is configured at least one address family return 1. */
 bool peer_active(struct peer *peer)
 {
-	if (BGP_PEER_SU_UNSPEC(peer))
+	if (BGP_CONNECTION_SU_UNSPEC(peer->connection))
 		return false;
 	if (peer->afc[AFI_IP][SAFI_UNICAST] || peer->afc[AFI_IP][SAFI_MULTICAST]
 	    || peer->afc[AFI_IP][SAFI_LABELED_UNICAST]
@@ -6572,7 +6579,7 @@ int peer_password_set(struct peer *peer, const char *password)
 		 * Attempt to install password on socket and skip peer-group
 		 * mechanics.
 		 */
-		if (BGP_PEER_SU_UNSPEC(peer))
+		if (BGP_CONNECTION_SU_UNSPEC(peer->connection))
 			return BGP_SUCCESS;
 		return (bgp_md5_set(peer->connection) >= 0)
 			       ? BGP_SUCCESS
@@ -6606,7 +6613,7 @@ int peer_password_set(struct peer *peer, const char *password)
 			bgp_session_reset(member);
 
 		/* Attempt to install password on socket. */
-		if (!BGP_PEER_SU_UNSPEC(member) &&
+		if (!BGP_CONNECTION_SU_UNSPEC(member->connection) &&
 		    bgp_md5_set(member->connection) < 0)
 			ret = BGP_ERR_TCPSIG_FAILED;
 	}
@@ -6652,7 +6659,7 @@ int peer_password_unset(struct peer *peer)
 			bgp_session_reset(peer);
 
 		/* Attempt to uninstall password on socket. */
-		if (!BGP_PEER_SU_UNSPEC(peer))
+		if (!BGP_CONNECTION_SU_UNSPEC(peer->connection))
 			bgp_md5_unset(peer->connection);
 		/* Skip peer-group mechanics for regular peers. */
 		return 0;
@@ -6679,7 +6686,7 @@ int peer_password_unset(struct peer *peer)
 			bgp_session_reset(member);
 
 		/* Attempt to uninstall password on socket. */
-		if (!BGP_PEER_SU_UNSPEC(member))
+		if (!BGP_CONNECTION_SU_UNSPEC(member->connection))
 			bgp_md5_unset(member->connection);
 	}
 
@@ -7876,13 +7883,13 @@ int peer_ttl_security_hops_set(struct peer *peer, int gtsm_hops)
 			peer->gtsm_hops = gtsm_hops;
 
 			if (peer->connection->fd >= 0)
-				sockopt_minttl(peer->su.sa.sa_family,
+				sockopt_minttl(peer->connection->su.sa.sa_family,
 					       peer->connection->fd,
 					       MAXTTL + 1 - gtsm_hops);
 			if ((peer->connection->status < Established) &&
 			    peer->doppelganger &&
 			    (peer->doppelganger->connection->fd >= 0))
-				sockopt_minttl(peer->su.sa.sa_family,
+				sockopt_minttl(peer->connection->su.sa.sa_family,
 					       peer->doppelganger->connection->fd,
 					       MAXTTL + 1 - gtsm_hops);
 		} else {
@@ -7890,6 +7897,8 @@ int peer_ttl_security_hops_set(struct peer *peer, int gtsm_hops)
 			group->conf->gtsm_hops = gtsm_hops;
 			for (ALL_LIST_ELEMENTS(group->peer, node, nnode,
 					       gpeer)) {
+				struct peer_connection *connection =
+					gpeer->connection;
 				gpeer->gtsm_hops = group->conf->gtsm_hops;
 
 				/* Change setting of existing peer
@@ -7900,16 +7909,16 @@ int peer_ttl_security_hops_set(struct peer *peer, int gtsm_hops)
 				 *   no session then do nothing (will get
 				 * handled by next connection)
 				 */
-				if (gpeer->connection->fd >= 0 &&
+				if (connection->fd >= 0 &&
 				    gpeer->gtsm_hops != BGP_GTSM_HOPS_DISABLED)
-					sockopt_minttl(gpeer->su.sa.sa_family,
-						       gpeer->connection->fd,
+					sockopt_minttl(connection->su.sa.sa_family,
+						       connection->fd,
 						       MAXTTL + 1 -
 							       gpeer->gtsm_hops);
-				if ((gpeer->connection->status < Established) &&
+				if ((connection->status < Established) &&
 				    gpeer->doppelganger &&
 				    (gpeer->doppelganger->connection->fd >= 0))
-					sockopt_minttl(gpeer->su.sa.sa_family,
+					sockopt_minttl(connection->su.sa.sa_family,
 						       gpeer->doppelganger
 							       ->connection->fd,
 						       MAXTTL + 1 - gtsm_hops);
@@ -7945,13 +7954,13 @@ int peer_ttl_security_hops_unset(struct peer *peer)
 			ret = peer_ebgp_multihop_unset(peer);
 		else {
 			if (peer->connection->fd >= 0)
-				sockopt_minttl(peer->su.sa.sa_family,
+				sockopt_minttl(peer->connection->su.sa.sa_family,
 					       peer->connection->fd, 0);
 
 			if ((peer->connection->status < Established) &&
 			    peer->doppelganger &&
 			    (peer->doppelganger->connection->fd >= 0))
-				sockopt_minttl(peer->su.sa.sa_family,
+				sockopt_minttl(peer->connection->su.sa.sa_family,
 					       peer->doppelganger->connection->fd,
 					       0);
 		}
@@ -7963,13 +7972,15 @@ int peer_ttl_security_hops_unset(struct peer *peer)
 				ret = peer_ebgp_multihop_unset(peer);
 			else {
 				if (peer->connection->fd >= 0)
-					sockopt_minttl(peer->su.sa.sa_family,
+					sockopt_minttl(peer->connection->su.sa
+							       .sa_family,
 						       peer->connection->fd, 0);
 
 				if ((peer->connection->status < Established) &&
 				    peer->doppelganger &&
 				    (peer->doppelganger->connection->fd >= 0))
-					sockopt_minttl(peer->su.sa.sa_family,
+					sockopt_minttl(peer->connection->su.sa
+							       .sa_family,
 						       peer->doppelganger
 							       ->connection->fd,
 						       0);

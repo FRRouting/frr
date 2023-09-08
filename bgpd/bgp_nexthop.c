@@ -595,7 +595,7 @@ bool bgp_multiaccess_check_v4(struct in_addr nexthop, struct peer *peer)
 
 	p.family = AF_INET;
 	p.prefixlen = IPV4_MAX_BITLEN;
-	p.u.prefix4 = peer->su.sin.sin_addr;
+	p.u.prefix4 = peer->connection->su.sin.sin_addr;
 
 	dest2 = bgp_node_match(peer->bgp->connected_table[AFI_IP], &p);
 	if (!dest2) {
@@ -628,7 +628,7 @@ bool bgp_multiaccess_check_v6(struct in6_addr nexthop, struct peer *peer)
 
 	p.family = AF_INET6;
 	p.prefixlen = IPV6_MAX_BITLEN;
-	p.u.prefix6 = peer->su.sin6.sin6_addr;
+	p.u.prefix6 = peer->connection->su.sin6.sin6_addr;
 
 	dest2 = bgp_node_match(peer->bgp->connected_table[AFI_IP6], &p);
 	if (!dest2) {
@@ -670,7 +670,7 @@ bool bgp_subgrp_multiaccess_check_v6(struct in6_addr nexthop,
 		if (paf->peer == exclude)
 			continue;
 
-		p.u.prefix6 = paf->peer->su.sin6.sin6_addr;
+		p.u.prefix6 = paf->peer->connection->su.sin6.sin6_addr;
 		dest2 = bgp_node_match(bgp->connected_table[AFI_IP6], &p);
 		if (dest1 == dest2) {
 			bgp_dest_unlock_node(dest1);
@@ -712,7 +712,7 @@ bool bgp_subgrp_multiaccess_check_v4(struct in_addr nexthop,
 		if (paf->peer == exclude)
 			continue;
 
-		p.u.prefix4 = paf->peer->su.sin.sin_addr;
+		p.u.prefix4 = paf->peer->connection->su.sin.sin_addr;
 
 		dest2 = bgp_node_match(bgp->connected_table[AFI_IP], &p);
 		if (dest1 == dest2) {

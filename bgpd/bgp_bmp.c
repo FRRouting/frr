@@ -264,7 +264,7 @@ static void bmp_per_peer_hdr(struct stream *s, struct peer *peer,
 	stream_putc(s, BMP_PEER_TYPE_GLOBAL_INSTANCE);
 
 	/* Peer Flags */
-	if (peer->su.sa.sa_family == AF_INET6)
+	if (peer->connection->su.sa.sa_family == AF_INET6)
 		SET_FLAG(flags, BMP_PEER_FLAG_V);
 	else
 		UNSET_FLAG(flags, BMP_PEER_FLAG_V);
@@ -275,13 +275,13 @@ static void bmp_per_peer_hdr(struct stream *s, struct peer *peer,
 	stream_put(s, &peer_distinguisher[0], 8);
 
 	/* Peer Address */
-	if (peer->su.sa.sa_family == AF_INET6)
-		stream_put(s, &peer->su.sin6.sin6_addr, 16);
-	else if (peer->su.sa.sa_family == AF_INET) {
+	if (peer->connection->su.sa.sa_family == AF_INET6)
+		stream_put(s, &peer->connection->su.sin6.sin6_addr, 16);
+	else if (peer->connection->su.sa.sa_family == AF_INET) {
 		stream_putl(s, 0);
 		stream_putl(s, 0);
 		stream_putl(s, 0);
-		stream_put_in_addr(s, &peer->su.sin.sin_addr);
+		stream_put_in_addr(s, &peer->connection->su.sin.sin_addr);
 	} else {
 		stream_putl(s, 0);
 		stream_putl(s, 0);

@@ -93,9 +93,11 @@ int bgp_peer_reg_with_nht(struct peer *peer)
 	    && !CHECK_FLAG(peer->bgp->flags, BGP_FLAG_DISABLE_NH_CONNECTED_CHK))
 		connected = 1;
 
-	return bgp_find_or_add_nexthop(
-		peer->bgp, peer->bgp, family2afi(peer->su.sa.sa_family),
-		SAFI_UNICAST, NULL, peer, connected, NULL);
+	return bgp_find_or_add_nexthop(peer->bgp, peer->bgp,
+				       family2afi(
+					       peer->connection->su.sa.sa_family),
+				       SAFI_UNICAST, NULL, peer, connected,
+				       NULL);
 }
 
 static void peer_xfer_stats(struct peer *peer_dst, struct peer *peer_src)
@@ -1551,7 +1553,7 @@ enum bgp_fsm_state_progress bgp_stop(struct peer_connection *connection)
 		peer_delete(peer);
 		ret = BGP_FSM_FAILURE_AND_DELETE;
 	} else {
-		bgp_peer_conf_if_to_su_update(peer);
+		bgp_peer_conf_if_to_su_update(connection);
 	}
 	return ret;
 }
@@ -1797,9 +1799,9 @@ static enum bgp_fsm_state_progress bgp_start(struct peer_connection *connection)
 	struct peer *peer = connection->peer;
 	int status;
 
-	bgp_peer_conf_if_to_su_update(peer);
+	bgp_peer_conf_if_to_su_update(connection);
 
-	if (peer->su.sa.sa_family == AF_UNSPEC) {
+	if (connection->su.sa.sa_family == AF_UNSPEC) {
 		if (bgp_debug_neighbor_events(peer))
 			zlog_debug(
 				"%s [FSM] Unable to get neighbor's IP address, waiting...",

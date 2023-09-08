@@ -1712,11 +1712,11 @@ uint16_t bgp_open_capability(struct stream *s, struct peer *peer,
 			 * supporting RFC-5549 for
 			 * Link-Local peering only
 			 */
-			if (CHECK_FLAG(peer->flags, PEER_FLAG_CAPABILITY_ENHE)
-			    && peer->su.sa.sa_family == AF_INET6
-			    && afi == AFI_IP
-			    && (safi == SAFI_UNICAST || safi == SAFI_MPLS_VPN
-				|| safi == SAFI_LABELED_UNICAST)) {
+			if (CHECK_FLAG(peer->flags, PEER_FLAG_CAPABILITY_ENHE) &&
+			    peer->connection->su.sa.sa_family == AF_INET6 &&
+			    afi == AFI_IP &&
+			    (safi == SAFI_UNICAST || safi == SAFI_MPLS_VPN ||
+			     safi == SAFI_LABELED_UNICAST)) {
 				/* RFC 5549 Extended Next Hop Encoding
 				 */
 				SET_FLAG(peer->cap, PEER_CAP_ENHE_ADV);
