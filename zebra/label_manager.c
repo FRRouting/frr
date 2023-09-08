@@ -27,13 +27,13 @@
 #include "zebra/zebra_errors.h"
 #include "zebra/zapi_msg.h"
 #include "zebra/debug.h"
+#include "zebra/zebra_mpls.h"
 
 #include "zebra/label_manager_clippy.c"
 
 #define CONNECTION_DELAY 5
 
 struct label_manager lbl_mgr;
-static uint32_t label_manager_platform_value;
 
 DEFINE_MGROUP(LBL_MGR, "Label Manager");
 DEFINE_MTYPE_STATIC(LBL_MGR, LM_CHUNK, "Label Manager Chunk");
@@ -609,7 +609,7 @@ int release_label_chunk(uint8_t proto, unsigned short instance,
 		flog_err(EC_ZEBRA_LM_UNRELEASED_CHUNK,
 			 "%s: Label chunk not released!!", __func__);
 
-	else {
+	else if (zebra_mpls_is_platform_auto_enabled()) {
 		/* Update platform label according to the most recent label
 		 * manager list */
 		for (ALL_LIST_ELEMENTS_RO(lbl_mgr.lc_list, node, data)) {
@@ -657,7 +657,8 @@ static int label_manager_get_chunk(struct label_manager_chunk **lmc,
 
 	/* Update platform label according to the most recent label manager
 	 * list */
-	if (*lmc != NULL && !list_isempty(lbl_mgr.lc_list)) {
+	if (zebra_mpls_is_platform_auto_enabled()
+	    && (*lmc != NULL && !list_isempty(lbl_mgr.lc_list))) {
 		for (ALL_LIST_ELEMENTS_RO(lbl_mgr.lc_list, node, data)) {
 			if (data->end >= label_max)
 				label_max = data->end + 1;

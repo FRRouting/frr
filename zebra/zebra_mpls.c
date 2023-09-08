@@ -42,6 +42,9 @@ DEFINE_MTYPE_STATIC(ZEBRA, NHLFE, "MPLS nexthop object");
 bool mpls_enabled;
 bool mpls_pw_reach_strict; /* Strict reachability checking */
 
+uint32_t label_manager_platform_value;
+static bool platform_auto;
+
 /* static function declarations */
 
 static void fec_evaluate(struct zebra_vrf *zvrf);
@@ -4005,6 +4008,14 @@ int zebra_mpls_write_label_block_config(struct vty *vty, struct zebra_vrf *zvrf)
 	return 1;
 }
 
+int zebra_mpls_write_platform_auto_config(struct vty *vty)
+{
+	if (zebra_mpls_is_platform_auto_enabled())
+		return 0;
+	vty_out(vty, "no mpls label platform-auto\n");
+	return 1;
+}
+
 /*
  * Called when VRF becomes inactive, cleans up information but keeps
  * the table itself.
@@ -4130,6 +4141,36 @@ void zebra_mpls_turned_on(void)
 }
 
 /*
+ * Enable/disable label manager to control the only
+ * necessary mpls max label value to support.
+ */
+void zebra_mpls_enable_platform_auto(bool enable)
+{
+	if (enable) {
+		platform_auto = true;
+		return;
+	}
+
+	if (label_manager_platform_value != MPLS_LABEL_MAX) {
+		if (mpls_platform_labels_set(MPLS_LABEL_MAX) < 0)
+			zlog_warn("%s: mpls platform_label can't be updated",
+				  __func__);
+		else
+			label_manager_platform_value = MPLS_LABEL_MAX;
+	}
+	platform_auto = false;
+}
+
+/*
+ * Returns true if label manager controls the
+ * mpls max label value to support.
+ */
+bool zebra_mpls_is_platform_auto_enabled(void)
+{
+	return platform_auto;
+}
+
+/*
  * Global MPLS initialization.
  */
 void zebra_mpls_init(void)
@@ -4144,6 +4185,7 @@ void zebra_mpls_init(void)
 	}
 
 	zebra_mpls_turned_on();
+	zebra_mpls_enable_platform_auto(true);
 }
 
 void zebra_mpls_terminate(void)

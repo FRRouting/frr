@@ -261,6 +261,29 @@ DEFUN (no_mpls_label_bind,
 	return zebra_mpls_bind(vty, 0, argv[4]->arg, NULL);
 }
 
+DEFUN (enable_platform_labels,
+       enable_platform_labels_cmd,
+       "mpls label platform-auto",
+       MPLS_STR
+       "Label configuration\n"
+       "Control the necessary mpls max label value on the platform\n")
+{
+	zebra_mpls_enable_platform_auto(true);
+	return CMD_SUCCESS;
+}
+
+DEFUN (no_enable_platform_labels,
+       no_enable_platform_labels_cmd,
+       "no mpls label platform-auto",
+       NO_STR
+	   MPLS_STR
+       "Label configuration\n"
+       "Set the mpls label value to the maximum\n")
+{
+	zebra_mpls_enable_platform_auto(false);
+	return CMD_SUCCESS;
+}
+
 /* MPLS LSP configuration write function. */
 static int zebra_mpls_config(struct vty *vty)
 {
@@ -269,6 +292,7 @@ static int zebra_mpls_config(struct vty *vty)
 
 	zvrf = zebra_vrf_lookup_by_id(VRF_DEFAULT);
 
+	write += zebra_mpls_write_platform_auto_config(vty);
 	write += zebra_mpls_write_lsp_config(vty, zvrf);
 	write += zebra_mpls_write_fec_config(vty, zvrf);
 	write += zebra_mpls_write_label_block_config(vty, zvrf);
@@ -448,6 +472,9 @@ void zebra_mpls_vty_init(void)
 
 	install_element(CONFIG_NODE, &mpls_label_global_block_cmd);
 	install_element(CONFIG_NODE, &no_mpls_label_global_block_cmd);
+
+	install_element(CONFIG_NODE, &enable_platform_labels_cmd);
+	install_element(CONFIG_NODE, &no_enable_platform_labels_cmd);
 
 	install_element(VIEW_NODE, &show_mpls_table_cmd);
 	install_element(VIEW_NODE, &show_mpls_table_lsp_cmd);

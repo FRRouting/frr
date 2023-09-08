@@ -408,6 +408,21 @@ void zebra_mpls_init_tables(struct zebra_vrf *zvrf);
 void zebra_mpls_turned_on(void);
 
 /*
+ * Enable/disable label manager to control the only
+ * necessary mpls max label value to support.
+ */
+void zebra_mpls_enable_platform_auto(bool enable);
+
+/*
+ * Returns true if label manager controls the
+ * mpls max label value to support.
+ */
+bool zebra_mpls_is_platform_auto_enabled(void);
+
+/* used for show running-config */
+int zebra_mpls_write_platform_auto_config(struct vty *vty);
+
+/*
  * Global MPLS initialization/termination.
  */
 void zebra_mpls_init(void);
@@ -589,6 +604,7 @@ static inline int mpls_should_lsps_be_processed(struct route_node *rn)
 /* Global variables. */
 extern bool mpls_enabled;
 extern bool mpls_pw_reach_strict; /* Strict pseudowire reachability checking */
+extern uint32_t label_manager_platform_value;
 
 #ifdef __cplusplus
 }
