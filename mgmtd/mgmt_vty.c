@@ -12,6 +12,7 @@
 #include "json.h"
 #include "network.h"
 #include "northbound_cli.h"
+#include "mgmt_util.h"
 
 #include "mgmtd/mgmt.h"
 #include "mgmtd/mgmt_be_adapter.h"
@@ -500,7 +501,7 @@ void mgmt_vty_init(void)
 
 	install_element(ENABLE_NODE, &show_debugging_mgmt_cmd);
 
-	mgmt_fe_client_lib_vty_init();
+	mgmt_util_vty_init();
 	/*
 	 * TODO: Register and handlers for auto-completion here.
 	 */

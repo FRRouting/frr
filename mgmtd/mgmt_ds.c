@@ -14,6 +14,7 @@
 #include "mgmtd/mgmt_history.h"
 #include "mgmtd/mgmt_txn.h"
 #include "libyang/libyang.h"
+#include "mgmt_util.h"
 
 #define MGMTD_DS_DBG(fmt, ...)                                                 \
 	DEBUGD(&mgmt_debug_ds, "DS: %s: " fmt, __func__, ##__VA_ARGS__)
@@ -32,6 +33,23 @@ struct mgmt_ds_ctx {
 		struct nb_config *cfg_root;
 		struct lyd_node *dnode_root;
 	} root;
+};
+
+struct mgmt_ds_iter_ctx {
+	struct mgmt_ds_ctx *ds_ctx;
+	void (*ds_iter_fn)(struct mgmt_ds_ctx *ds_ctx,
+			   const char *xpath,
+			   struct lyd_node *node,
+			   struct nb_node *nb_node,
+			   void *ctx);
+	void *usr_ctx;
+};
+
+struct mgmt_ds_child_collect_ctx {
+	const char **child_xpath;
+	void **child_ctx;
+	int max_child;
+	int num_child;
 };
 
 const char *mgmt_ds_names[MGMTD_DS_MAX_ID + 1] = {
@@ -73,6 +91,165 @@ static int mgmt_ds_dump_in_memory(struct mgmt_ds_ctx *ds_ctx,
 		lyd_print_tree(out, root, format, options);
 
 	return 0;
+}
+
+/*
+ * Iterate over datastore nodes till leaf node or desired depth
+ * is reached.
+ */
+static int mgmt_walk_ds_nodes(struct mgmt_ds_ctx *ds_ctx,
+			      const char *base_xpath,
+			      struct lyd_node *base_dnode,
+			      void (*mgmt_ds_node_iter_fn)(
+					struct mgmt_ds_ctx *ds_ctx,
+					const char *xpath,
+					struct lyd_node *node,
+					struct nb_node *nb_node, void *ctx),
+			      void *ctx, int tree_depth, bool iter_base)
+{
+	/* this is 1k per recursion... */
+	char xpath[MGMTD_MAX_XPATH_LEN];
+	struct lyd_node *dnode;
+	struct nb_node *nbnode;
+	int ret = 0;
+	bool same_as_base;
+
+	assert(mgmt_ds_node_iter_fn);
+
+	MGMTD_DS_DBG(" -- START: Base: %s, Tree-Depth: %d, Iter-Base: %d",
+		     base_xpath, tree_depth, iter_base);
+
+	if (!base_dnode)
+		/*
+		 * This function only returns the first node of a possible set
+		 * of matches issuing a warning if more than 1 matches
+		 */
+		base_dnode = yang_dnode_get(
+			ds_ctx->config_ds ? ds_ctx->root.cfg_root->dnode
+					   : ds_ctx->root.dnode_root,
+			base_xpath);
+	if (!base_dnode)
+		return -1;
+
+	if (iter_base && mgmt_ds_node_iter_fn) {
+		MGMTD_DS_DBG("           search base schema: '%s'",
+			     lysc_path(base_dnode->schema, LYSC_PATH_LOG,
+				       xpath, sizeof(xpath)));
+
+		nbnode = (struct nb_node *)base_dnode->schema->priv;
+		(*mgmt_ds_node_iter_fn)(ds_ctx, base_xpath, base_dnode, nbnode,
+					ctx);
+	}
+
+	/*
+	 * If the base_xpath points to leaf node, or this is the bottom of the
+	 * tree depth desired we can skip the rest of the tree walk
+	 */
+	if (base_dnode->schema->nodetype & LYD_NODE_TERM || !tree_depth)
+		return 0;
+
+	LY_LIST_FOR (lyd_child(base_dnode), dnode) {
+		assert(dnode->schema && dnode->schema->priv);
+		nbnode = (struct nb_node *)dnode->schema->priv;
+
+		(void)lyd_path(dnode, LYD_PATH_STD, xpath, sizeof(xpath));
+
+		same_as_base = strncmp(xpath, base_xpath, strlen(xpath))
+				? false : true;
+		MGMTD_DS_DBG(" -- Child XPATH: %s, Same-as-Base: %d",
+			     xpath, same_as_base);
+
+		ret = mgmt_walk_ds_nodes(ds_ctx, xpath, dnode,
+					 mgmt_ds_node_iter_fn, ctx,
+					 same_as_base ?
+						tree_depth : tree_depth - 1,
+						!same_as_base);
+
+		if (ret != 0)
+			break;
+	}
+
+	return 0;
+}
+
+/*
+ * Stores the child node xpath and node in the given xpath context.
+ */
+static void mgmt_ds_collect_child_node(struct mgmt_ds_ctx *ds_ctx,
+				       const char *xpath,
+				       struct lyd_node *node,
+				       struct nb_node *nb_node, void *ctx)
+{
+	struct mgmt_ds_child_collect_ctx *coll_ctx;
+
+	coll_ctx = (struct mgmt_ds_child_collect_ctx *) ctx;
+
+	if (coll_ctx->num_child >= coll_ctx->max_child) {
+		MGMTD_DS_ERR("Number of child %d exceeded maximum %d",
+			     coll_ctx->num_child, coll_ctx->max_child);
+		return;
+	}
+
+	coll_ctx->child_xpath[coll_ctx->num_child] = xpath;
+	coll_ctx->child_ctx[coll_ctx->num_child] = node;
+	MGMTD_DS_DBG("   -- [%d] Child XPATH: %s", coll_ctx->num_child+1,
+		     coll_ctx->child_xpath[coll_ctx->num_child]);
+	coll_ctx->num_child++;
+}
+
+/*
+ * Iterates over the datastore nodes to get child nodes for the xpath.
+ */
+static void mgmt_ds_get_child_nodes(char *base_xpath, 
+				    const char *child_xpath[],
+				    void *child_ctx[], int *num_child,
+				    void *ctx, char *xpath_key)
+{
+	struct mgmt_ds_iter_ctx *iter_ctx;
+	struct mgmt_ds_ctx *ds_ctx;
+	int max_child;
+	struct mgmt_ds_child_collect_ctx coll_ctx = { 0 };
+
+	iter_ctx = (struct mgmt_ds_iter_ctx *)ctx;
+	ds_ctx = iter_ctx->ds_ctx;
+	max_child = *num_child;
+	*num_child = 0;
+	coll_ctx.child_ctx = child_ctx;
+	coll_ctx.child_xpath = child_xpath;
+	coll_ctx.max_child = max_child;
+	mgmt_walk_ds_nodes(ds_ctx, base_xpath, NULL,
+			   mgmt_ds_collect_child_node, &coll_ctx,
+			   1, false);
+	*num_child = coll_ctx.num_child;
+}
+
+/*
+ * Iterate over the data nodes.
+ */
+static int mgmt_ds_iter_data_nodes(const char *node_xpath, void *node_ctx,
+				   void *ctx)
+{
+	struct mgmt_ds_iter_ctx *iter_ctx;
+	struct mgmt_ds_ctx *ds_ctx;
+	struct lyd_node *dnode;
+
+	iter_ctx = (struct mgmt_ds_iter_ctx *)ctx;
+	ds_ctx = iter_ctx->ds_ctx;
+	dnode = (struct lyd_node *)node_ctx;
+
+	if (!dnode) {
+		dnode = yang_dnode_get(ds_ctx->config_ds ?
+					ds_ctx->root.cfg_root->dnode :
+					ds_ctx->root.dnode_root,
+					node_xpath);
+		if (!dnode)
+			return -1;
+	}
+
+	return mgmt_walk_ds_nodes(ds_ctx, node_xpath, dnode,
+				  iter_ctx->ds_iter_fn,
+				  iter_ctx->usr_ctx,
+				  -1, true);
 }
 
 static int mgmt_ds_replace_dst_with_src_ds(struct mgmt_ds_ctx *src,
@@ -300,70 +477,6 @@ struct nb_config *mgmt_ds_get_nb_config(struct mgmt_ds_ctx *ds_ctx)
 	return ds_ctx->config_ds ? ds_ctx->root.cfg_root : NULL;
 }
 
-static int mgmt_walk_ds_nodes(
-	struct nb_config *root, const char *base_xpath,
-	struct lyd_node *base_dnode,
-	void (*mgmt_ds_node_iter_fn)(const char *xpath, struct lyd_node *node,
-				     struct nb_node *nb_node, void *ctx),
-	void *ctx)
-{
-	/* this is 1k per recursion... */
-	char xpath[MGMTD_MAX_XPATH_LEN];
-	struct lyd_node *dnode;
-	struct nb_node *nbnode;
-	int ret = 0;
-
-	assert(mgmt_ds_node_iter_fn);
-
-	MGMTD_DS_DBG(" -- START: base xpath: '%s'", base_xpath);
-
-	if (!base_dnode)
-		/*
-		 * This function only returns the first node of a possible set
-		 * of matches issuing a warning if more than 1 matches
-		 */
-		base_dnode = yang_dnode_get(root->dnode, base_xpath);
-	if (!base_dnode)
-		return -1;
-
-	MGMTD_DS_DBG("           search base schema: '%s'",
-		     lysc_path(base_dnode->schema, LYSC_PATH_LOG, xpath,
-			       sizeof(xpath)));
-
-	nbnode = (struct nb_node *)base_dnode->schema->priv;
-	(*mgmt_ds_node_iter_fn)(base_xpath, base_dnode, nbnode, ctx);
-
-	/*
-	 * If the base_xpath points to a leaf node we can skip the tree walk.
-	 */
-	if (base_dnode->schema->nodetype & LYD_NODE_TERM)
-		return 0;
-
-	/*
-	 * at this point the xpath matched this container node (or some parent
-	 * and we're wildcard descending now) so by walking it's children we
-	 * continue to change the meaning of an xpath regex to rather be a
-	 * prefix matching path
-	 */
-
-	LY_LIST_FOR (lyd_child(base_dnode), dnode) {
-		assert(dnode->schema && dnode->schema->priv);
-
-		(void)lyd_path(dnode, LYD_PATH_STD, xpath, sizeof(xpath));
-
-		MGMTD_DS_DBG(" -- Child xpath: %s", xpath);
-
-		ret = mgmt_walk_ds_nodes(root, xpath, dnode,
-					 mgmt_ds_node_iter_fn, ctx);
-		if (ret != 0)
-			break;
-	}
-
-	MGMTD_DS_DBG(" -- END: base xpath: '%s'", base_xpath);
-
-	return ret;
-}
-
 struct lyd_node *mgmt_ds_find_data_node_by_xpath(struct mgmt_ds_ctx *ds_ctx,
 						 const char *xpath)
 {
@@ -444,7 +557,8 @@ int mgmt_ds_load_config_from_file(struct mgmt_ds_ctx *dst,
 
 int mgmt_ds_iter_data(Mgmtd__DatastoreId ds_id, struct nb_config *root,
 		      const char *base_xpath,
-		      void (*mgmt_ds_node_iter_fn)(const char *xpath,
+		      void (*mgmt_ds_node_iter_fn)(struct mgmt_ds_ctx *ds_ctx,
+						   const char *xpath,
 						   struct lyd_node *node,
 						   struct nb_node *nb_node,
 						   void *ctx),
@@ -454,11 +568,14 @@ int mgmt_ds_iter_data(Mgmtd__DatastoreId ds_id, struct nb_config *root,
 	char xpath[MGMTD_MAX_XPATH_LEN];
 	struct lyd_node *base_dnode = NULL;
 	struct lyd_node *node;
+	struct mgmt_ds_ctx *ds_ctx = { 0 };
+	struct mgmt_ds_iter_ctx iter_ctx =  { 0 };
 
 	if (!root)
 		return -1;
 
 	strlcpy(xpath, base_xpath, sizeof(xpath));
+	mgmt_remove_trailing_separator(xpath, '*');
 	mgmt_remove_trailing_separator(xpath, '/');
 
 	/*
@@ -471,7 +588,10 @@ int mgmt_ds_iter_data(Mgmtd__DatastoreId ds_id, struct nb_config *root,
 
 	/* If the base_xpath is empty then crawl the sibblings */
 	if (xpath[0] == 0) {
-		base_dnode = root->dnode;
+		base_dnode = root ? root->dnode :
+				ds_ctx->config_ds ?
+					ds_ctx->root.cfg_root->dnode
+					: ds_ctx->root.dnode_root;
 
 		/* get first top-level sibling */
 		while (base_dnode->parent)
@@ -481,12 +601,21 @@ int mgmt_ds_iter_data(Mgmtd__DatastoreId ds_id, struct nb_config *root,
 			base_dnode = base_dnode->prev;
 
 		LY_LIST_FOR (base_dnode, node) {
-			ret = mgmt_walk_ds_nodes(root, xpath, node,
-						 mgmt_ds_node_iter_fn, ctx);
+			lyd_path(node, LYD_PATH_STD, xpath, sizeof(xpath));
+			ret = mgmt_ds_iter_data(ds_id, root, xpath,
+						mgmt_ds_node_iter_fn, ctx);
 		}
-	} else
-		ret = mgmt_walk_ds_nodes(root, xpath, base_dnode,
-					 mgmt_ds_node_iter_fn, ctx);
+	} else {
+		ds_ctx = mgmt_ds_get_ctx_by_id(mgmt_ds_mm, ds_id);
+		assert(ds_ctx);
+		iter_ctx.ds_ctx = ds_ctx;
+		iter_ctx.ds_iter_fn = mgmt_ds_node_iter_fn;
+		iter_ctx.usr_ctx = ctx;
+		ret = mgmt_xpath_resolve_wildcard(xpath, 0,
+					mgmt_ds_get_child_nodes,
+					mgmt_ds_iter_data_nodes,
+					(void *)&iter_ctx, 0);
+	}
 
 	return ret;
 }

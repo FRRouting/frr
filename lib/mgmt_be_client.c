@@ -10,6 +10,7 @@
 #include "compiler.h"
 #include "libfrr.h"
 #include "mgmtd/mgmt.h"
+#include "mgmt_util.h"
 #include "mgmt_be_client.h"
 #include "mgmt_msg.h"
 #include "mgmt_pb.h"
@@ -968,6 +969,7 @@ void mgmt_be_client_lib_vty_init(void)
 	install_node(&mgmt_dbg_node);
 	install_element(ENABLE_NODE, &debug_mgmt_client_be_cmd);
 	install_element(CONFIG_NODE, &debug_mgmt_client_be_cmd);
+	mgmt_util_vty_init();
 }
 
 void mgmt_be_client_destroy(struct mgmt_be_client *client)

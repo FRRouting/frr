@@ -3906,6 +3906,8 @@ void vty_init(struct event_loop *master_thread, bool do_command_logging)
 	install_element(VTY_NODE, &no_vty_login_cmd);
 	install_element(VTY_NODE, &vty_ipv6_access_class_cmd);
 	install_element(VTY_NODE, &no_vty_ipv6_access_class_cmd);
+
+	mgmt_fe_client_lib_vty_init();
 }
 
 void vty_terminate(void)

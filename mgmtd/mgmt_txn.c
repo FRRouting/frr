@@ -1695,7 +1695,8 @@ static void mgmt_txn_send_getcfg_reply_data(struct mgmt_txn_req *txn_req,
 	mgmt_reset_get_data_reply_buf(get_req);
 }
 
-static void mgmt_txn_iter_and_send_get_cfg_reply(const char *xpath,
+static void mgmt_txn_iter_and_send_get_cfg_reply(struct mgmt_ds_ctx *ds_ctx,
+						 const char *xpath,
 						 struct lyd_node *node,
 						 struct nb_node *nb_node,
 						 void *ctx)

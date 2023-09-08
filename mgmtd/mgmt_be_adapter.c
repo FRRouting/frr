@@ -602,9 +602,11 @@ static void mgmt_be_adapter_process_msg(uint8_t version, uint8_t *data,
 	mgmtd__be_message__free_unpacked(be_msg, NULL);
 }
 
-static void mgmt_be_iter_and_get_cfg(const char *xpath, struct lyd_node *node,
+static void mgmt_be_iter_and_get_cfg(struct mgmt_ds_ctx *ds_ctx,
+				     const char *xpath, struct lyd_node *node,
 				     struct nb_node *nb_node, void *ctx)
 {
+	(void) ds_ctx;
 	struct mgmt_be_get_adapter_config_params *parms = ctx;
 	struct mgmt_be_client_adapter *adapter = parms->adapter;
 	uint subscr;
