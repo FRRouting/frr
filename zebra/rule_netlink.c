@@ -174,6 +174,17 @@ static ssize_t netlink_oldrule_msg_encoder(struct zebra_dplane_ctx *ctx,
 		dplane_ctx_rule_get_old_ipproto(ctx), buf, buflen);
 }
 
+/*
+ * Identify valid rule actions for netlink - other actions can't be installed
+ */
+static bool nl_rule_valid_action(uint32_t action)
+{
+	if (action == PBR_ACTION_TABLE)
+		return true;
+	else
+		return false;
+}
+
 /* Public functions */
 
 enum netlink_msg_status
@@ -181,6 +192,7 @@ netlink_put_rule_update_msg(struct nl_batch *bth, struct zebra_dplane_ctx *ctx)
 {
 	enum dplane_op_e op;
 	enum netlink_msg_status ret;
+	struct pbr_rule rule = {};
 
 	op = dplane_ctx_get_op(ctx);
 	if (!(op == DPLANE_OP_RULE_ADD || op == DPLANE_OP_RULE_UPDATE
@@ -190,6 +202,18 @@ netlink_put_rule_update_msg(struct nl_batch *bth, struct zebra_dplane_ctx *ctx)
 			"Context received for kernel rule update with incorrect OP code (%u)",
 			op);
 		return FRR_NETLINK_ERROR;
+	}
+
+	/* TODO -- special handling for rules that include actions that
+	 * netlink cannot install. Some of the rule attributes are not
+	 * available in netlink: only try to install valid actions.
+	 */
+	dplane_ctx_rule_get(ctx, &rule, NULL);
+	if (!nl_rule_valid_action(rule.action.flags)) {
+		if (IS_ZEBRA_DEBUG_KERNEL)
+			zlog_debug("%s: skip invalid action %#x", __func__,
+				   rule.action.flags);
+		return 0;
 	}
 
 	ret = netlink_batch_add_msg(bth, ctx, netlink_rule_msg_encoder, false);
