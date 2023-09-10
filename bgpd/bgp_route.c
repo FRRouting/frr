@@ -6007,7 +6007,8 @@ static void bgp_cleanup_table(struct bgp *bgp, struct bgp_table *table,
 					bgp_zebra_withdraw(p, pi, bgp, safi);
 			}
 
-			bgp_path_info_reap(dest, pi);
+			dest = bgp_path_info_reap(dest, pi);
+			assert(dest);
 		}
 }
 
