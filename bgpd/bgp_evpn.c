@@ -2649,7 +2649,9 @@ static void delete_all_vni_routes(struct bgp *bgp, struct bgpevpn *vpn)
 		     (pi != NULL) && (nextpi = pi->next, 1); pi = nextpi) {
 			bgp_evpn_remote_ip_hash_del(vpn, pi);
 			bgp_path_info_delete(dest, pi);
-			bgp_path_info_reap(dest, pi);
+			dest = bgp_path_info_reap(dest, pi);
+
+			assert(dest);
 		}
 	}
 
@@ -2658,7 +2660,9 @@ static void delete_all_vni_routes(struct bgp *bgp, struct bgpevpn *vpn)
 		for (pi = bgp_dest_get_bgp_path_info(dest);
 		     (pi != NULL) && (nextpi = pi->next, 1); pi = nextpi) {
 			bgp_path_info_delete(dest, pi);
-			bgp_path_info_reap(dest, pi);
+			dest = bgp_path_info_reap(dest, pi);
+
+			assert(dest);
 		}
 	}
 }
