@@ -2330,9 +2330,13 @@ static int delete_evpn_route(struct bgp *bgp, struct bgpevpn *vpn,
 	 */
 	delete_evpn_route_entry(bgp, afi, safi, dest, &pi);
 	if (pi) {
-		bgp_path_info_reap(dest, pi);
+		dest = bgp_path_info_reap(dest, pi);
+		assert(dest);
 		evpn_route_select_install(bgp, vpn, dest);
 	}
+
+	/* dest should still exist due to locking make coverity happy */
+	assert(dest);
 	bgp_dest_unlock_node(dest);
 
 	return 0;
