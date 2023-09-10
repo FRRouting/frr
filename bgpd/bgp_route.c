@@ -6891,7 +6891,8 @@ void bgp_static_delete(struct bgp *bgp)
 					bgp_static_free(bgp_static);
 					bgp_dest_set_bgp_static_info(rm,
 								     NULL);
-					bgp_dest_unlock_node(rm);
+					rm = bgp_dest_unlock_node(rm);
+					assert(rm);
 				}
 			} else {
 				bgp_static = bgp_dest_get_bgp_static_info(dest);
@@ -6900,7 +6901,8 @@ void bgp_static_delete(struct bgp *bgp)
 						    afi, safi, NULL);
 				bgp_static_free(bgp_static);
 				bgp_dest_set_bgp_static_info(dest, NULL);
-				bgp_dest_unlock_node(dest);
+				dest = bgp_dest_unlock_node(dest);
+				assert(dest);
 			}
 		}
 }
