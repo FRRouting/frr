@@ -8757,8 +8757,10 @@ void bgp_redistribute_withdraw(struct bgp *bgp, afi_t afi, int type,
 			if (!CHECK_FLAG(bgp->flags,
 					BGP_FLAG_DELETE_IN_PROGRESS))
 				bgp_process(bgp, dest, afi, SAFI_UNICAST);
-			else
-				bgp_path_info_reap(dest, pi);
+			else {
+				dest = bgp_path_info_reap(dest, pi);
+				assert(dest);
+			}
 		}
 	}
 }
