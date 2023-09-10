@@ -3504,11 +3504,12 @@ static void bgp_process_main_one(struct bgp *bgp, struct bgp_dest *dest,
 	/* Clear any route change flags. */
 	bgp_zebra_clear_route_change_flags(dest);
 
+	UNSET_FLAG(dest->flags, BGP_NODE_PROCESS_SCHEDULED);
+
 	/* Reap old select bgp_path_info, if it has been removed */
 	if (old_select && CHECK_FLAG(old_select->flags, BGP_PATH_REMOVED))
 		bgp_path_info_reap(dest, old_select);
 
-	UNSET_FLAG(dest->flags, BGP_NODE_PROCESS_SCHEDULED);
 	return;
 }
 
