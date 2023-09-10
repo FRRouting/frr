@@ -513,8 +513,11 @@ static int bgp_evpn_mh_route_delete(struct bgp *bgp, struct bgp_evpn_es *es,
 	 */
 	delete_evpn_route_entry(bgp, afi, safi, dest, &pi);
 	if (pi)
-		bgp_path_info_reap(dest, pi);
+		dest = bgp_path_info_reap(dest, pi);
+
+	assert(dest);
 	bgp_dest_unlock_node(dest);
+
 	return 0;
 }
 
