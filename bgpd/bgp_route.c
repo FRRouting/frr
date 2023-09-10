@@ -5671,9 +5671,11 @@ static void bgp_clear_route_table(struct peer *peer, afi_t afi, safi_t safi,
 			ain_next = ain->next;
 
 			if (ain->peer == peer)
-				bgp_adj_in_remove(dest, ain);
+				bgp_adj_in_remove(&dest, ain);
 
 			ain = ain_next;
+
+			assert(dest);
 		}
 
 		for (pi = bgp_dest_get_bgp_path_info(dest); pi; pi = next) {
@@ -5778,9 +5780,11 @@ void bgp_clear_adj_in(struct peer *peer, afi_t afi, safi_t safi)
 			ain_next = ain->next;
 
 			if (ain->peer == peer)
-				bgp_adj_in_remove(dest, ain);
+				bgp_adj_in_remove(&dest, ain);
 
 			ain = ain_next;
+
+			assert(dest);
 		}
 	}
 }
