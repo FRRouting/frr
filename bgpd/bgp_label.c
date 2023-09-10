@@ -195,7 +195,8 @@ int bgp_reg_for_label_callback(mpls_label_t new_label, void *labelid,
 		return -1;
 	}
 
-	bgp_dest_unlock_node(dest);
+	dest = bgp_dest_unlock_node(dest);
+	assert(dest);
 
 	if (BGP_DEBUG(labelpool, LABELPOOL))
 		zlog_debug("%s: FEC %pRN label=%u, allocated=%d", __func__,
