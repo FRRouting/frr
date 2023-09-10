@@ -130,7 +130,7 @@ extern bool bgp_adj_out_lookup(struct peer *peer, struct bgp_dest *dest,
 			       uint32_t addpath_tx_id);
 extern void bgp_adj_in_set(struct bgp_dest *dest, struct peer *peer,
 			   struct attr *attr, uint32_t addpath_id);
-extern bool bgp_adj_in_unset(struct bgp_dest *dest, struct peer *peer,
+extern bool bgp_adj_in_unset(struct bgp_dest **dest, struct peer *peer,
 			     uint32_t addpath_id);
 extern void bgp_adj_in_remove(struct bgp_dest **dest, struct bgp_adj_in *bai);
 

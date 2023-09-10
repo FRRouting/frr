@@ -5083,7 +5083,8 @@ void bgp_withdraw(struct peer *peer, const struct prefix *p,
 	 */
 	if (CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_SOFT_RECONFIG)
 	    && peer != bgp->peer_self)
-		if (!bgp_adj_in_unset(dest, peer, addpath_id)) {
+		if (!bgp_adj_in_unset(&dest, peer, addpath_id)) {
+			assert(dest);
 			peer->stat_pfx_dup_withdraw++;
 
 			if (bgp_debug_update(peer, p, NULL, 1)) {
@@ -5100,6 +5101,7 @@ void bgp_withdraw(struct peer *peer, const struct prefix *p,
 		}
 
 	/* Lookup withdrawn route. */
+	assert(dest);
 	for (pi = bgp_dest_get_bgp_path_info(dest); pi; pi = pi->next)
 		if (pi->peer == peer && pi->type == type
 		    && pi->sub_type == sub_type
