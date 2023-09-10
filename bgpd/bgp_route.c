@@ -5690,9 +5690,10 @@ static void bgp_clear_route_table(struct peer *peer, afi_t afi, safi_t safi,
 			if (pi->peer != peer)
 				continue;
 
-			if (force)
-				bgp_path_info_reap(dest, pi);
-			else {
+			if (force) {
+				dest = bgp_path_info_reap(dest, pi);
+				assert(dest);
+			} else {
 				struct bgp_clear_node_queue *cnq;
 
 				/* both unlocked in bgp_clear_node_queue_del */
