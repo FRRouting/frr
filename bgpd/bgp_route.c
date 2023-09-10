@@ -138,7 +138,9 @@ struct bgp_dest *bgp_afi_node_get(struct bgp_table *table, afi_t afi,
 			bgp_dest_set_bgp_table_info(
 				pdest, bgp_table_init(table->bgp, afi, safi));
 		else
-			bgp_dest_unlock_node(pdest);
+			pdest = bgp_dest_unlock_node(pdest);
+
+		assert(pdest);
 		table = bgp_dest_get_bgp_table_info(pdest);
 	}
 
