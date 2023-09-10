@@ -6033,7 +6033,9 @@ void bgp_cleanup_routes(struct bgp *bgp)
 					bgp_cleanup_table(bgp, table, safi);
 					bgp_table_finish(&table);
 					bgp_dest_set_bgp_table_info(dest, NULL);
-					bgp_dest_unlock_node(dest);
+					dest = bgp_dest_unlock_node(dest);
+
+					assert(dest);
 				}
 			}
 			safi = SAFI_ENCAP;
@@ -6044,7 +6046,9 @@ void bgp_cleanup_routes(struct bgp *bgp)
 					bgp_cleanup_table(bgp, table, safi);
 					bgp_table_finish(&table);
 					bgp_dest_set_bgp_table_info(dest, NULL);
-					bgp_dest_unlock_node(dest);
+					dest = bgp_dest_unlock_node(dest);
+
+					assert(dest);
 				}
 			}
 		}
@@ -6056,7 +6060,9 @@ void bgp_cleanup_routes(struct bgp *bgp)
 			bgp_cleanup_table(bgp, table, SAFI_EVPN);
 			bgp_table_finish(&table);
 			bgp_dest_set_bgp_table_info(dest, NULL);
-			bgp_dest_unlock_node(dest);
+			dest = bgp_dest_unlock_node(dest);
+
+			assert(dest);
 		}
 	}
 }
