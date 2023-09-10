@@ -332,11 +332,11 @@ int mgmt_xpath_find_first_wildcard(const char *xpath, int *key_end)
  * Resolve wildcard entry in a given xpath.
  */
 int mgmt_xpath_resolve_wildcard(char *xpath, int start_indx,
-				void (*get_child_fn)(char *base_xpath,
-						     const char *child_xpath[],
-						     void *child_ctxt[],
-						     int *num_child,
-						     void *ctxt, char* xpath_key),
+				int (*get_child_fn)(const char *base_xpath,
+						    char *child_xpath[],
+						    void *child_ctxt[],
+						    int *num_child,
+						    void *ctxt, char *xpath_key),
 				int (*iter_fn)(const char *child_xpath,
 					       void *child_ctxt,
 					       void *ctxt),
@@ -381,8 +381,12 @@ int mgmt_xpath_resolve_wildcard(char *xpath, int start_indx,
 		xpath[start_indx + wc_key_start - 1] = '\0';
 	}
 	num_child = array_size(chld_xpath);
-	(*get_child_fn)(xpath, (const char**)chld_xpath, chld_ctxt,
-			&num_child, ctxt, xpath_key);
+	ret = (*get_child_fn)(xpath, chld_xpath, chld_ctxt, &num_child,
+			      ctxt, xpath_key);
+	if (ret) {
+		MGMTD_UTIL_DBG("Value of get child function %d", ret);
+		return ret;
+	}
 	if (wc_key_start >= 0)
 		xpath[start_indx + wc_key_start - 1] = orig;
 

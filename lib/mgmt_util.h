@@ -280,11 +280,11 @@ extern int mgmt_xpath_find_first_wildcard(const char *xpath, int *key_end);
  *     recursive resolution level.
  */
 extern int mgmt_xpath_resolve_wildcard(char *xpath, int start_indx,
-				       void (*get_child_fn)(char *base_xpath,
-							const char *child_xpath[],
-						        void *child_ctxt[],
-							int *num_child,
-							void *ctxt, char* xpath_key),
+				       int (*get_child_fn)(const char *base_xpath,
+							   char *child_xpath[],
+							   void *child_ctxt[],
+							   int *num_child,
+							   void *ctxt, char *xpath_key),
 				       int (*iter_fn)(const char *child_xpath,
 						      void *child_ctxt,
 						      void *ctxt),

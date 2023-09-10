@@ -22,6 +22,7 @@
 #define MGMTD_TXN_SEND_CFGVALIDATE_DELAY_MSEC 100
 #define MGMTD_TXN_SEND_CFGAPPLY_DELAY_MSEC 100
 #define MGMTD_TXN_CFG_COMMIT_MAX_DELAY_MSEC 30000 /* 30 seconds */
+#define MGMTD_TXN_GET_DATA_MAX_DELAY_MSEC 30000 /* 30 seconds */
 
 #define MGMTD_TXN_CLEANUP_DELAY_MSEC 100
 #define MGMTD_TXN_CLEANUP_DELAY_USEC 10
@@ -200,7 +201,7 @@ mgmt_txn_notify_be_adapter_conn(struct mgmt_be_client_adapter *adapter,
  */
 extern int
 mgmt_txn_notify_be_txn_reply(uint64_t txn_id, bool create, bool success,
-				  struct mgmt_be_client_adapter *adapter);
+			     struct mgmt_be_client_adapter *adapter);
 
 /*
  * Reply to backend adapater with config data create request.
@@ -211,7 +212,7 @@ mgmt_txn_notify_be_cfgdata_reply(uint64_t txn_id, uint64_t batch_id,
 				     struct mgmt_be_client_adapter *adapter);
 
 /*
- * Reply to backend adapater with config data validate request.
+ * Reply to backend adapter with config data validate request.
  */
 extern int mgmt_txn_notify_be_cfg_validate_reply(
 	uint64_t txn_id, bool success, uint64_t batch_ids[],
@@ -219,13 +220,41 @@ extern int mgmt_txn_notify_be_cfg_validate_reply(
 	struct mgmt_be_client_adapter *adapter);
 
 /*
- * Reply to backend adapater with config data apply request.
+ * Reply to backend adapter with config data apply request.
  */
 extern int
 mgmt_txn_notify_be_cfg_apply_reply(uint64_t txn_id, bool success,
 				       uint64_t batch_ids[],
 				       size_t num_batch_ids, char *error_if_any,
 				       struct mgmt_be_client_adapter *adapter);
+
+/*
+ * Notify txn with get data request reply.
+ *
+ * txn_id
+ *    Unique transaction identifier.
+ *
+ * success
+ *    return status.
+ *
+ * batch_id
+ *    Batch id.
+ *
+ * data
+ *    YANG data reply.
+ *
+ * error_if_any
+ *    error string if any.
+ *
+ * adptr
+ *    backend adapter
+ */
+extern int
+mgmt_txn_notify_be_getdata_req_reply(uint64_t txn_id, bool success,
+				     uint64_t batch_id,
+				     Mgmtd__YangDataReply *data,
+				     char *error_if_any,
+				     struct mgmt_be_client_adapter *adptr);
 
 /*
  * Dump transaction status to vty.

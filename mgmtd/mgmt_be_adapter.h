@@ -81,9 +81,31 @@ DECLARE_LIST(mgmt_be_adapters, struct mgmt_be_client_adapter, list_linkage);
 #define MGMT_SUBSCR_OPER_OWN 0x4
 #define MGMT_SUBSCR_ALL 0x7
 
-struct mgmt_be_client_subscr_info {
-	uint xpath_subscr[MGMTD_BE_CLIENT_ID_MAX];
+PREDECL_LIST(mgmt_xpaths);
+struct mgmt_xpath_entry {
+	const char *xpath;
+	uint subscribed;
+	struct mgmt_xpaths_item xpaths_linkage;
 };
+DECLARE_LIST(mgmt_xpaths, struct mgmt_xpath_entry, xpaths_linkage);
+
+#define FOREACH_XPATH_IN_LIST(list, xp)						\
+	frr_each_safe(mgmt_xpaths, (list), (xp))
+
+struct mgmt_be_xpath_subscr_info {
+	uint subscribed;
+	struct mgmt_xpaths_head xpaths;
+};
+
+#define MGMTD_BE_MAX_NUM_XPATH_MAP 256
+
+struct mgmt_be_client_subscr_info {
+	struct mgmt_be_xpath_subscr_info
+		xpath_subscr[MGMTD_BE_CLIENT_ID_MAX];
+};
+
+#define FOREACH_XPATH_IN_SUBSCR_INFO(subscr, id, xp)					\
+	FOREACH_XPATH_IN_LIST (&(subscr)->xpath_subscr[(id)].xpaths, (xp))
 
 /* Initialise backend adapter module. */
 extern void mgmt_be_adapter_init(struct event_loop *tm);
@@ -92,10 +114,17 @@ extern void mgmt_be_adapter_init(struct event_loop *tm);
 extern void mgmt_be_adapter_destroy(void);
 
 /* Acquire lock for backend adapter. */
-extern void mgmt_be_adapter_lock(struct mgmt_be_client_adapter *adapter);
+extern void mgmt_be_adapter_lock(struct mgmt_be_client_adapter *adapter,
+				 const char *file, int line);
 
 /* Remove lock from backend adapter. */
-extern void mgmt_be_adapter_unlock(struct mgmt_be_client_adapter **adapter);
+extern void mgmt_be_adapter_unlock(struct mgmt_be_client_adapter **adapter,
+				   const char *file, int line);
+
+#define MGMTD_BE_ADAPTER_LOCK(adapter)				\
+	mgmt_be_adapter_lock(adapter, __FILE__, __LINE__)
+#define MGMTD_BE_ADAPTER_UNLOCK(adapter)			\
+	mgmt_be_adapter_unlock(adapter, __FILE__, __LINE__)
 
 /* Create backend adapter. */
 extern struct msg_conn *mgmt_be_create_adapter(int conn_fd,
@@ -180,14 +209,45 @@ extern void mgmt_be_xpath_register_write(struct vty *vty);
  *     subscr_info - An array of uint indexed by client id
  *                   each eleemnt holds the subscription info
  *                   for that client.
+ *     get_full_match - Gets the full matched xpaths.
  */
-extern void mgmt_be_get_subscr_info_for_xpath(
-	const char *xpath, struct mgmt_be_client_subscr_info *subscr_info);
+extern int mgmt_be_get_subscr_info_for_xpath(
+	const char *xpath, struct mgmt_be_client_subscr_info *subscr_info,
+	bool get_full_match);
 
 /*
  * Dump backend client information for a given xpath to vty.
  */
 extern void mgmt_be_xpath_subscr_info_write(struct vty *vty,
 					       const char *xpath);
+
+/*
+ * Cleanup xpath map
+ *
+ * Args:
+ *     subscr_info - An array of uint indexed by client id
+ *                   each eleemnt holds the subscription info
+ *                   for that client.
+ */
+extern void mgmt_be_cleanup_xpath_subscr_info(
+	struct mgmt_be_client_subscr_info *subscr);
+
+/*
+ * Send GET_DATA_REQ to a backend Adapter for a specific set
+ * XPATHs.
+ *
+ * Args:
+ *	adapter - Backend adapter information.
+ *	txn_id - Unique transaction identifier.
+ *	batch_id - Unique batch identifier.
+ *	data_req - Specific data-request to send.
+ *
+ * Returns:
+ *    0 on success, -1 on failure.
+ */
+extern int
+mgmt_be_send_get_data_req(struct mgmt_be_client_adapter *adptr,
+			     uint64_t txn_id, uint64_t batch_id,
+			     struct mgmt_be_datareq *data_req);
 
 #endif /* _FRR_MGMTD_BE_ADAPTER_H_ */

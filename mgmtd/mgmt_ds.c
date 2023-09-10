@@ -46,7 +46,7 @@ struct mgmt_ds_iter_ctx {
 };
 
 struct mgmt_ds_child_collect_ctx {
-	const char **child_xpath;
+	char **child_xpath;
 	void **child_ctx;
 	int max_child;
 	int num_child;
@@ -174,6 +174,9 @@ static int mgmt_walk_ds_nodes(struct mgmt_ds_ctx *ds_ctx,
 
 /*
  * Stores the child node xpath and node in the given xpath context.
+ * This function is called from mgmt_ds_get_child_nodes() which in
+ * turn is supplied as 'get_child_fn' parameter of
+ * mgmt_xpath_resolve_wildcard().
  */
 static void mgmt_ds_collect_child_node(struct mgmt_ds_ctx *ds_ctx,
 				       const char *xpath,
@@ -190,7 +193,15 @@ static void mgmt_ds_collect_child_node(struct mgmt_ds_ctx *ds_ctx,
 		return;
 	}
 
-	coll_ctx->child_xpath[coll_ctx->num_child] = xpath;
+	/*
+	 * Let's allocate a string for the Xpath and add it to
+	 * the results. The same should be freed up from
+	 * mgmt_xpath_resolve_wildcard().
+	 */
+	coll_ctx->child_xpath[coll_ctx->num_child] =
+		calloc(1, MGMTD_MAX_XPATH_LEN);
+	strlcpy(coll_ctx->child_xpath[coll_ctx->num_child], xpath,
+		MGMTD_MAX_XPATH_LEN);
 	coll_ctx->child_ctx[coll_ctx->num_child] = node;
 	MGMTD_DS_DBG("   -- [%d] Child XPATH: %s", coll_ctx->num_child+1,
 		     coll_ctx->child_xpath[coll_ctx->num_child]);
@@ -199,11 +210,13 @@ static void mgmt_ds_collect_child_node(struct mgmt_ds_ctx *ds_ctx,
 
 /*
  * Iterates over the datastore nodes to get child nodes for the xpath.
+ * This function is supplied as 'get_child_fn' parameter of
+ * mgmt_xpath_resolve_wildcard()
  */
-static void mgmt_ds_get_child_nodes(char *base_xpath, 
-				    const char *child_xpath[],
-				    void *child_ctx[], int *num_child,
-				    void *ctx, char *xpath_key)
+static int mgmt_ds_get_child_nodes(const char *base_xpath,
+				   char *child_xpath[],
+				   void *child_ctx[], int *num_child,
+				   void *ctx, char *xpath_key)
 {
 	struct mgmt_ds_iter_ctx *iter_ctx;
 	struct mgmt_ds_ctx *ds_ctx;
@@ -221,6 +234,8 @@ static void mgmt_ds_get_child_nodes(char *base_xpath,
 			   mgmt_ds_collect_child_node, &coll_ctx,
 			   1, false);
 	*num_child = coll_ctx.num_child;
+
+	return 0;
 }
 
 /*
