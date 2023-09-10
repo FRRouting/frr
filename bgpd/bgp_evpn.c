@@ -3029,13 +3029,13 @@ static int install_evpn_route_entry_in_vrf(struct bgp *bgp_vrf,
 	/* Process for route leaking. */
 	vpn_leak_from_vrf_update(bgp_get_default(), bgp_vrf, pi);
 
-	bgp_dest_unlock_node(dest);
-
 	if (bgp_debug_zebra(NULL))
 		zlog_debug("... %s pi dest %p (l %d) pi %p (l %d, f 0x%x)",
 			   new_pi ? "new" : "update", dest,
 			   bgp_dest_get_lock_count(dest), pi, pi->lock,
 			   pi->flags);
+
+	bgp_dest_unlock_node(dest);
 
 	return ret;
 }
