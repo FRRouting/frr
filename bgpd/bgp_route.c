@@ -6715,7 +6715,8 @@ int bgp_static_set(struct vty *vty, bool negate, const char *ip_str,
 		}
 
 		bgp_dest_set_bgp_static_info(dest, NULL);
-		bgp_dest_unlock_node(dest);
+		dest = bgp_dest_unlock_node(dest);
+		assert(dest);
 		bgp_dest_unlock_node(dest);
 	} else {
 		dest = bgp_node_get(table, &p);
