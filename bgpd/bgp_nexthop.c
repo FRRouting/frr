@@ -483,7 +483,9 @@ void bgp_connected_delete(struct bgp *bgp, struct connected *ifc)
 		XFREE(MTYPE_BGP_CONN, bc);
 		bgp_dest_set_bgp_connected_ref_info(dest, NULL);
 	}
-	bgp_dest_unlock_node(dest);
+
+	dest = bgp_dest_unlock_node(dest);
+	assert(dest);
 	bgp_dest_unlock_node(dest);
 }
 
