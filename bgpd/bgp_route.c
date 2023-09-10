@@ -438,7 +438,8 @@ void bgp_path_info_add_with_caller(const char *name, struct bgp_dest *dest,
 
 /* Do the actual removal of info from RIB, for use by bgp_process
    completion callback *only* */
-void bgp_path_info_reap(struct bgp_dest *dest, struct bgp_path_info *pi)
+struct bgp_dest *bgp_path_info_reap(struct bgp_dest *dest,
+				    struct bgp_path_info *pi)
 {
 	if (pi->next)
 		pi->next->prev = pi->prev;
@@ -450,7 +451,8 @@ void bgp_path_info_reap(struct bgp_dest *dest, struct bgp_path_info *pi)
 	bgp_path_info_mpath_dequeue(pi);
 	bgp_path_info_unlock(pi);
 	hook_call(bgp_snmp_update_stats, dest, pi, false);
-	bgp_dest_unlock_node(dest);
+
+	return bgp_dest_unlock_node(dest);
 }
 
 void bgp_path_info_delete(struct bgp_dest *dest, struct bgp_path_info *pi)

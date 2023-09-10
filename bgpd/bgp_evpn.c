@@ -2035,10 +2035,10 @@ static void evpn_zebra_reinstall_best_route(struct bgp *bgp,
  * additional handling to prevent bgp from injecting and holding on to a
  * non-best local path.
  */
-static void evpn_cleanup_local_non_best_route(struct bgp *bgp,
-					      struct bgpevpn *vpn,
-					      struct bgp_dest *dest,
-					      struct bgp_path_info *local_pi)
+static struct bgp_dest *
+evpn_cleanup_local_non_best_route(struct bgp *bgp, struct bgpevpn *vpn,
+				  struct bgp_dest *dest,
+				  struct bgp_path_info *local_pi)
 {
 	/* local path was not picked as the winner; kick it out */
 	if (bgp_debug_zebra(NULL))
@@ -2046,10 +2046,11 @@ static void evpn_cleanup_local_non_best_route(struct bgp *bgp,
 			   dest);
 
 	evpn_delete_old_local_route(bgp, vpn, dest, local_pi, NULL);
-	bgp_path_info_reap(dest, local_pi);
 
 	/* tell zebra to re-add the best remote path */
 	evpn_zebra_reinstall_best_route(bgp, vpn, dest);
+
+	return bgp_path_info_reap(dest, local_pi);
 }
 
 static inline bool bgp_evpn_route_add_l3_ecomm_ok(struct bgpevpn *vpn,
@@ -2186,7 +2187,8 @@ static int update_evpn_route(struct bgp *bgp, struct bgpevpn *vpn,
 	} else {
 		if (!CHECK_FLAG(pi->flags, BGP_PATH_SELECTED)) {
 			route_change = 0;
-			evpn_cleanup_local_non_best_route(bgp, vpn, dest, pi);
+			dest = evpn_cleanup_local_non_best_route(bgp, vpn, dest,
+								 pi);
 		} else {
 			bool new_is_sync;
 
@@ -2203,7 +2205,8 @@ static int update_evpn_route(struct bgp *bgp, struct bgpevpn *vpn,
 	}
 	bgp_path_info_unlock(pi);
 
-	bgp_dest_unlock_node(dest);
+	if (dest)
+		bgp_dest_unlock_node(dest);
 
 	/* If this is a new route or some attribute has changed, export the
 	 * route to the global table. The route will be advertised to peers
