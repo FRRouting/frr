@@ -12146,7 +12146,9 @@ static int bgp_show_route_in_table(struct vty *vty, struct bgp *bgp,
 							rm_p);
 					if (type5_pfxlen == match.prefixlen) {
 						is_exact_pfxlen_match = true;
-						bgp_dest_unlock_node(rm);
+						rm = bgp_dest_unlock_node(rm);
+
+						assert(rm);
 						break;
 					}
 				}
