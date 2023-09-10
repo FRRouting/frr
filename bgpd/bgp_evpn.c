@@ -2578,7 +2578,8 @@ static void delete_global_type2_routes(struct bgp *bgp, struct bgpevpn *vpn)
 	}
 }
 
-static void delete_vni_type2_route(struct bgp *bgp, struct bgp_dest *dest)
+static struct bgp_dest *delete_vni_type2_route(struct bgp *bgp,
+					       struct bgp_dest *dest)
 {
 	struct bgp_path_info *pi;
 	afi_t afi = AFI_L2VPN;
@@ -2588,13 +2589,15 @@ static void delete_vni_type2_route(struct bgp *bgp, struct bgp_dest *dest)
 		(const struct prefix_evpn *)bgp_dest_get_prefix(dest);
 
 	if (evp->prefix.route_type != BGP_EVPN_MAC_IP_ROUTE)
-		return;
+		return dest;
 
 	delete_evpn_route_entry(bgp, afi, safi, dest, &pi);
 
 	/* Route entry in local table gets deleted immediately. */
 	if (pi)
-		bgp_path_info_reap(dest, pi);
+		dest = bgp_path_info_reap(dest, pi);
+
+	return dest;
 }
 
 static void delete_vni_type2_routes(struct bgp *bgp, struct bgpevpn *vpn)
@@ -2605,12 +2608,16 @@ static void delete_vni_type2_routes(struct bgp *bgp, struct bgpevpn *vpn)
 	 * routes.
 	 */
 	for (dest = bgp_table_top(vpn->mac_table); dest;
-	     dest = bgp_route_next(dest))
-		delete_vni_type2_route(bgp, dest);
+	     dest = bgp_route_next(dest)) {
+		dest = delete_vni_type2_route(bgp, dest);
+		assert(dest);
+	}
 
 	for (dest = bgp_table_top(vpn->ip_table); dest;
-	     dest = bgp_route_next(dest))
-		delete_vni_type2_route(bgp, dest);
+	     dest = bgp_route_next(dest)) {
+		dest = delete_vni_type2_route(bgp, dest);
+		assert(dest);
+	}
 }
 
 /*
