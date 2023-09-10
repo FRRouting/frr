@@ -15049,7 +15049,8 @@ static int bgp_distance_unset(struct vty *vty, const char *distance_str,
 	bgp_distance_free(bdistance);
 
 	bgp_dest_set_bgp_path_info(dest, NULL);
-	bgp_dest_unlock_node(dest);
+	dest = bgp_dest_unlock_node(dest);
+	assert(dest);
 	bgp_dest_unlock_node(dest);
 
 	return CMD_SUCCESS;
