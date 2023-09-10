@@ -914,7 +914,7 @@ extern void bgp_path_info_add_with_caller(const char *caller,
 extern void bgp_aggregate_free(struct bgp_aggregate *aggregate);
 extern int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 			     struct bgp_path_info *exist, int *paths_eq,
-			     struct bgp_maxpaths_cfg *mpath_cfg, int debug,
+			     struct bgp_maxpaths_cfg *mpath_cfg, bool debug,
 			     char *pfx_buf, afi_t afi, safi_t safi,
 			     enum bgp_path_selection_reason *reason);
 #define bgp_path_info_add(A, B)                                                \
