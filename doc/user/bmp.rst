@@ -36,7 +36,7 @@ The `BMP` implementation in FRR has the following properties:
   successfully.  OPEN messages for failed sessions cannot currently be
   mirrored.
 
-- **route monitoring** is available for IPv4 and IPv6 AFIs, unicast, multicast
+- **route monitoring** is available for IPv4 and IPv6 AFIs, unicast, multicast,
   EVPN and VPN SAFIs. Other SAFIs (VPN, Labeled-Unicast, Flowspec, etc.) are not
   currently supported.
 
