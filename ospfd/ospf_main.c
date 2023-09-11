@@ -173,11 +173,12 @@ static struct ospf *FuzzingCreateOspf(void)
 {
 	struct prefix p;
 	struct interface *ifp = if_get_by_name("fuzziface", 0, "default");
+	struct vrf *vrf = vrf_get(VRF_DEFAULT, VRF_DEFAULT_NAME);
 	ifp->mtu = 68;
 	str2prefix("11.0.2.0/24", &p);
 
 	bool created;
-	struct ospf *o = ospf_get(0, "omgwtfbbq", &created);
+	struct ospf *o = ospf_get(0, VRF_DEFAULT_NAME, &created);
 	o->fd = 69;
 
 	struct in_addr in;
