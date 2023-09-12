@@ -426,6 +426,10 @@ def config_ospf_interface(
                     cmd = "ip ospf authentication null"
                 elif data_ospf_auth == "message-digest":
                     cmd = "ip ospf authentication message-digest"
+                elif data_ospf_auth == "key-chain":
+                    cmd = "ip ospf authentication key-chain {}".format(
+                        ospf_data["keychain"]
+                    )
                 else:
                     cmd = "ip ospf authentication"
 
