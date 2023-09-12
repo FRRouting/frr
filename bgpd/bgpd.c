@@ -4337,7 +4337,7 @@ bool bgp_path_attribute_discard(struct peer *peer, char *buf, size_t size)
 
 	buf[0] = '\0';
 
-	for (unsigned int i = 0; i < BGP_ATTR_MAX; i++) {
+	for (unsigned int i = 1; i <= BGP_ATTR_MAX; i++) {
 		if (peer->discard_attrs[i])
 			snprintf(buf + strlen(buf), size - strlen(buf), "%s%d",
 				 (strlen(buf) > 0) ? " " : "", i);
@@ -4357,7 +4357,7 @@ bool bgp_path_attribute_treat_as_withdraw(struct peer *peer, char *buf,
 
 	buf[0] = '\0';
 
-	for (unsigned int i = 0; i < BGP_ATTR_MAX; i++) {
+	for (unsigned int i = 1; i <= BGP_ATTR_MAX; i++) {
 		if (peer->withdraw_attrs[i])
 			snprintf(buf + strlen(buf), size - strlen(buf), "%s%d",
 				 (strlen(buf) > 0) ? " " : "", i);
