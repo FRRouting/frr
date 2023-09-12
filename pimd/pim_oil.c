@@ -286,13 +286,16 @@ int pim_channel_del_oif(struct channel_oil *channel_oil, struct interface *oif,
 	--channel_oil->oil_size;
 
 	if (PIM_DEBUG_MROUTE) {
-		zlog_debug(
-			"%s(%s): (S,G)=(%pPAs,%pPAs): proto_mask=%u IIF:%d OIF=%s vif_index=%d",
-			__func__, caller, oil_origin(channel_oil),
-			oil_mcastgrp(channel_oil),
-			proto_mask,
-			*oil_parent(channel_oil), oif->name,
-			pim_ifp->mroute_vif_index);
+		struct interface *iifp =
+			pim_if_find_by_vif_index(pim_ifp->pim,
+						 *oil_parent(channel_oil));
+
+
+		zlog_debug("%s(%s): (S,G)=(%pPAs,%pPAs): proto_mask=%u IIF:%s OIF=%s vif_index=%d",
+			   __func__, caller, oil_origin(channel_oil),
+			   oil_mcastgrp(channel_oil), proto_mask,
+			   iifp ? iifp->name : "Unknown", oif->name,
+			   pim_ifp->mroute_vif_index);
 	}
 
 	return 0;

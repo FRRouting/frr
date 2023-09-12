@@ -1276,10 +1276,15 @@ int pim_mroute_del(struct channel_oil *c_oil, const char *name)
 	if (!c_oil->installed) {
 		if (PIM_DEBUG_MROUTE) {
 			char buf[1000];
-			zlog_debug(
-				"%s %s: vifi %d for route is %s not installed, do not need to send del req. ",
-				__FILE__, __func__, *oil_parent(c_oil),
-				pim_channel_oil_dump(c_oil, buf, sizeof(buf)));
+			struct interface *iifp =
+				pim_if_find_by_vif_index(pim,
+							 *oil_parent(c_oil));
+
+			zlog_debug("%s %s: incoming interface %s for route is %s not installed, do not need to send del req. ",
+				   __FILE__, __func__,
+				   iifp ? iifp->name : "Unknown",
+				   pim_channel_oil_dump(c_oil, buf,
+							sizeof(buf)));
 		}
 		return -2;
 	}
