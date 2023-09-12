@@ -1,0 +1,19 @@
+{
+  "locators":[
+    {
+      "name":"loc1",
+      "prefix":"fc00:0:6::/48",
+      "blockBitsLength":32,
+      "nodeBitsLength":16,
+      "functionBitsLength":16,
+      "argumentBitsLength":0,
+      "statusUp":true,
+      "chunks":[
+        {
+          "prefix":"fc00:0:6::/48",
+          "proto":"isis"
+        }
+      ]
+    }
+  ]
+}

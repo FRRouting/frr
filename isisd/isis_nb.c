@@ -861,6 +861,62 @@ const struct frr_yang_module_info frr_isisd_info = {
 			},
 		},
 		{
+			.xpath = "/frr-isisd:isis/instance/segment-routing-srv6/enabled",
+			.cbs = {
+				.modify = isis_instance_segment_routing_srv6_enabled_modify,
+				.cli_show = cli_show_isis_srv6_enabled,
+			},
+		},
+		{
+			.xpath = "/frr-isisd:isis/instance/segment-routing-srv6/locator",
+			.cbs = {
+				.modify = isis_instance_segment_routing_srv6_locator_modify,
+				.destroy = isis_instance_segment_routing_srv6_locator_destroy,
+				.cli_show = cli_show_isis_srv6_locator,
+			},
+		},
+		{
+			.xpath = "/frr-isisd:isis/instance/segment-routing-srv6/msd/node-msd/max-segs-left",
+			.cbs = {
+				.modify = isis_instance_segment_routing_srv6_msd_node_msd_max_segs_left_modify,
+				.destroy = isis_instance_segment_routing_srv6_msd_node_msd_max_segs_left_destroy,
+			},
+		},
+		{
+			.xpath = "/frr-isisd:isis/instance/segment-routing-srv6/msd/node-msd/max-end-pop",
+			.cbs = {
+				.modify = isis_instance_segment_routing_srv6_msd_node_msd_max_end_pop_modify,
+				.destroy = isis_instance_segment_routing_srv6_msd_node_msd_max_end_pop_destroy,
+			},
+		},
+		{
+			.xpath = "/frr-isisd:isis/instance/segment-routing-srv6/msd/node-msd/max-h-encaps",
+			.cbs = {
+				.modify = isis_instance_segment_routing_srv6_msd_node_msd_max_h_encaps_modify,
+				.destroy = isis_instance_segment_routing_srv6_msd_node_msd_max_h_encaps_destroy,
+			},
+		},
+		{
+			.xpath = "/frr-isisd:isis/instance/segment-routing-srv6/msd/node-msd/max-end-d",
+			.cbs = {
+				.modify = isis_instance_segment_routing_srv6_msd_node_msd_max_end_d_modify,
+				.destroy = isis_instance_segment_routing_srv6_msd_node_msd_max_end_d_destroy,
+			},
+		},
+		{
+			.xpath = "/frr-isisd:isis/instance/segment-routing-srv6/msd/node-msd",
+			.cbs = {
+				.cli_show = cli_show_isis_srv6_node_msd,
+			},
+		},
+		{
+			.xpath = "/frr-isisd:isis/instance/segment-routing-srv6/interface",
+			.cbs = {
+				.modify = isis_instance_segment_routing_srv6_interface_modify,
+				.cli_show = cli_show_isis_srv6_interface,
+			},
+		},
+		{
 			.xpath = "/frr-isisd:isis/instance/mpls/ldp-sync",
 			.cbs = {
 				.cli_show = cli_show_isis_mpls_ldp_sync,

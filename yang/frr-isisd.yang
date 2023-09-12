@@ -1994,6 +1994,71 @@ module frr-isisd {
         }
       }
 
+      container segment-routing-srv6 {
+        description
+          "Segment Routing over IPv6 (SRv6) global configuration.";
+        leaf enabled {
+          type boolean;
+          default "false";
+          description
+            "Enable IS-IS extensions to support Segment Routing over
+             IPv6 data plane (SRv6).";
+          reference
+            "RFC 9352";
+        }
+        leaf locator {
+          type string;
+          description
+            "SRv6 locator.";
+        }
+        container msd {
+          description
+            "SRv6 Maximum SRv6 SID Depths.";
+          container node-msd {
+            description
+              "SRv6 Node Maximum SRv6 SID Depths.";
+            leaf max-segs-left {
+              type uint8 {
+                range "0..255";
+              }
+              default 3;
+              description
+               "Maximum Segments Left MSD.";
+            }
+            leaf max-end-pop {
+              type uint8 {
+                range "0..255";
+              }
+              default 3;
+              description
+               "Maximum End Pop MSD.";
+            }
+            leaf max-h-encaps {
+              type uint8 {
+                range "0..255";
+              }
+              default 2;
+              description
+               "Maximum H.Encaps MSD.";
+            }
+            leaf max-end-d {
+              type uint8 {
+                range "0..255";
+              }
+              default 5;
+              description
+               "Maximum End D MSD.";
+            }
+          }
+        }
+        leaf interface {
+          type string;
+          description
+            "Dummy interface used to install SRv6 SIDs into the Linux data plane.";
+          default "sr0";
+        }
+      }
+
       container mpls {
         description
           "Configuration of MPLS parameters";

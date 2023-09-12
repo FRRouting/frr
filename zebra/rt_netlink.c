@@ -407,6 +407,36 @@ static int parse_encap_mpls(struct rtattr *tb, mpls_label_t *labels)
 	return num_labels;
 }
 
+/**
+ * @parse_encap_seg6local_flavors() - Parses encapsulated SRv6 flavors
+ * attributes
+ * @tb:         Pointer to rtattr to look for nested items in.
+ * @flv:        Pointer to store SRv6 flavors info in.
+ *
+ * Return:      0 on success, non-zero on error
+ */
+static int parse_encap_seg6local_flavors(struct rtattr *tb,
+					 struct seg6local_flavors_info *flv)
+{
+	struct rtattr *tb_encap[SEG6_LOCAL_FLV_MAX + 1] = {};
+
+	netlink_parse_rtattr_nested(tb_encap, SEG6_LOCAL_FLV_MAX, tb);
+
+	if (tb_encap[SEG6_LOCAL_FLV_OPERATION])
+		flv->flv_ops = *(uint32_t *)RTA_DATA(
+			tb_encap[SEG6_LOCAL_FLV_OPERATION]);
+
+	if (tb_encap[SEG6_LOCAL_FLV_LCBLOCK_BITS])
+		flv->lcblock_len = *(uint8_t *)RTA_DATA(
+			tb_encap[SEG6_LOCAL_FLV_LCBLOCK_BITS]);
+
+	if (tb_encap[SEG6_LOCAL_FLV_LCNODE_FN_BITS])
+		flv->lcnode_func_len = *(uint8_t *)RTA_DATA(
+			tb_encap[SEG6_LOCAL_FLV_LCNODE_FN_BITS]);
+
+	return 0;
+}
+
 static enum seg6local_action_t
 parse_encap_seg6local(struct rtattr *tb,
 		      struct seg6local_context *ctx)
@@ -433,6 +463,11 @@ parse_encap_seg6local(struct rtattr *tb,
 	if (tb_encap[SEG6_LOCAL_VRFTABLE])
 		ctx->table =
 			*(uint32_t *)RTA_DATA(tb_encap[SEG6_LOCAL_VRFTABLE]);
+
+	if (tb_encap[SEG6_LOCAL_FLAVORS]) {
+		parse_encap_seg6local_flavors(tb_encap[SEG6_LOCAL_FLAVORS],
+					      &ctx->flv);
+	}
 
 	return act;
 }
@@ -531,6 +566,16 @@ parse_nexthop_unicast(ns_id_t ns_id, struct rtmsg *rtm, struct rtattr **tb,
 
 	if (num_labels)
 		nexthop_add_labels(&nh, ZEBRA_LSP_STATIC, num_labels, labels);
+
+	/* Resolve default values for SRv6 flavors */
+	if (seg6l_ctx.flv.flv_ops != ZEBRA_SEG6_LOCAL_FLV_OP_UNSPEC) {
+		if (seg6l_ctx.flv.lcblock_len == 0)
+			seg6l_ctx.flv.lcblock_len =
+				ZEBRA_DEFAULT_SEG6_LOCAL_FLV_LCBLOCK_LEN;
+		if (seg6l_ctx.flv.lcnode_func_len == 0)
+			seg6l_ctx.flv.lcnode_func_len =
+				ZEBRA_DEFAULT_SEG6_LOCAL_FLV_LCNODE_FN_LEN;
+	}
 
 	if (seg6l_act != ZEBRA_SEG6_LOCAL_ACTION_UNSPEC)
 		nexthop_add_srv6_seg6local(&nh, seg6l_act, &seg6l_ctx);
@@ -638,6 +683,17 @@ static uint8_t parse_multipath_nexthops_unicast(ns_id_t ns_id,
 			if (num_labels)
 				nexthop_add_labels(nh, ZEBRA_LSP_STATIC,
 						   num_labels, labels);
+
+			/* Resolve default values for SRv6 flavors */
+			if (seg6l_ctx.flv.flv_ops !=
+			    ZEBRA_SEG6_LOCAL_FLV_OP_UNSPEC) {
+				if (seg6l_ctx.flv.lcblock_len == 0)
+					seg6l_ctx.flv.lcblock_len =
+						ZEBRA_DEFAULT_SEG6_LOCAL_FLV_LCBLOCK_LEN;
+				if (seg6l_ctx.flv.lcnode_func_len == 0)
+					seg6l_ctx.flv.lcnode_func_len =
+						ZEBRA_DEFAULT_SEG6_LOCAL_FLV_LCNODE_FN_LEN;
+			}
 
 			if (seg6l_act != ZEBRA_SEG6_LOCAL_ACTION_UNSPEC)
 				nexthop_add_srv6_seg6local(nh, seg6l_act,
@@ -1491,6 +1547,46 @@ static ssize_t fill_seg6ipt_encap(char *buffer, size_t buflen,
 	return srhlen + 4;
 }
 
+static bool
+_netlink_nexthop_encode_seg6local_flavor(const struct nexthop *nexthop,
+					 struct nlmsghdr *nlmsg, size_t buflen)
+{
+	struct rtattr *nest;
+	struct seg6local_flavors_info *flv;
+
+	assert(nexthop);
+
+	if (!nexthop->nh_srv6)
+		return false;
+
+	flv = &nexthop->nh_srv6->seg6local_ctx.flv;
+
+	if (flv->flv_ops == ZEBRA_SEG6_LOCAL_FLV_OP_UNSPEC)
+		return true;
+
+	nest = nl_attr_nest(nlmsg, buflen, SEG6_LOCAL_FLAVORS);
+	if (!nest)
+		return false;
+
+	if (!nl_attr_put32(nlmsg, buflen, SEG6_LOCAL_FLV_OPERATION,
+			   flv->flv_ops))
+		return false;
+
+	if (flv->lcblock_len)
+		if (!nl_attr_put8(nlmsg, buflen, SEG6_LOCAL_FLV_LCBLOCK_BITS,
+				  flv->lcblock_len))
+			return false;
+
+	if (flv->lcnode_func_len)
+		if (!nl_attr_put8(nlmsg, buflen, SEG6_LOCAL_FLV_LCNODE_FN_BITS,
+				  flv->lcnode_func_len))
+			return false;
+
+	nl_attr_nest_end(nlmsg, nest);
+
+	return true;
+}
+
 /* This function takes a nexthop as argument and adds
  * the appropriate netlink attributes to an existing
  * netlink message.
@@ -1622,6 +1718,11 @@ static bool _netlink_route_build_singlepath(const struct prefix *p,
 					 nexthop->nh_srv6->seg6local_action);
 				return false;
 			}
+
+			if (!_netlink_nexthop_encode_seg6local_flavor(
+				    nexthop, nlmsg, req_size))
+				return false;
+
 			nl_attr_nest_end(nlmsg, nest);
 		}
 
@@ -2861,6 +2962,11 @@ ssize_t netlink_nexthop_msg_encode(uint16_t cmd,
 							 __func__, action);
 						return 0;
 					}
+
+					if (!_netlink_nexthop_encode_seg6local_flavor(
+						    nh, &req->n, buflen))
+						return false;
+
 					nl_attr_nest_end(&req->n, nest);
 				}
 
