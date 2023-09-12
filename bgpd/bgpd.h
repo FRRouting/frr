@@ -1802,10 +1802,10 @@ struct peer {
 
 #define BGP_ATTR_MAX 255
 	/* Path attributes discard */
-	bool discard_attrs[BGP_ATTR_MAX];
+	bool discard_attrs[BGP_ATTR_MAX + 1];
 
 	/* Path attributes treat-as-withdraw */
-	bool withdraw_attrs[BGP_ATTR_MAX];
+	bool withdraw_attrs[BGP_ATTR_MAX + 1];
 
 	/* BGP Software Version Capability */
 #define BGP_MAX_SOFT_VERSION 64
