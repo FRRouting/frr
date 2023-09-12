@@ -3729,8 +3729,9 @@ void rfapiBgpInfoFilteredImportVPN(
 		    prefix_same(&pfx_un, &un_prefix)) { /* compare */
 			un_match = 1;
 		}
-		if (!RFAPI_LOCAL_BI(bpi) && !RFAPI_LOCAL_BI(info_new)
-		    && sockunion_same(&bpi->peer->su, &info_new->peer->su)) {
+		if (!RFAPI_LOCAL_BI(bpi) && !RFAPI_LOCAL_BI(info_new) &&
+		    sockunion_same(&bpi->peer->connection->su,
+				   &info_new->peer->connection->su)) {
 			/* old & new are both remote, same peer */
 			remote_peer_match = 1;
 		}

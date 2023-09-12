@@ -45,7 +45,6 @@ static bool validate_header(struct peer_connection *connection);
 void bgp_writes_on(struct peer_connection *connection)
 {
 	struct frr_pthread *fpt = bgp_pth_io;
-	struct peer *peer = connection->peer;
 
 	assert(fpt->running);
 
@@ -53,8 +52,8 @@ void bgp_writes_on(struct peer_connection *connection)
 	assert(connection->obuf);
 	assert(connection->ibuf);
 	assert(connection->ibuf_work);
-	assert(!peer->t_connect_check_r);
-	assert(!peer->t_connect_check_w);
+	assert(!connection->t_connect_check_r);
+	assert(!connection->t_connect_check_w);
 	assert(connection->fd);
 
 	event_add_write(fpt->master, bgp_process_writes, connection,
@@ -69,14 +68,13 @@ void bgp_writes_off(struct peer_connection *connection)
 	assert(fpt->running);
 
 	event_cancel_async(fpt->master, &connection->t_write, NULL);
-	EVENT_OFF(peer->t_generate_updgrp_packets);
+	EVENT_OFF(connection->t_generate_updgrp_packets);
 
 	UNSET_FLAG(peer->connection->thread_flags, PEER_THREAD_WRITES_ON);
 }
 
 void bgp_reads_on(struct peer_connection *connection)
 {
-	struct peer *peer = connection->peer;
 	struct frr_pthread *fpt = bgp_pth_io;
 	assert(fpt->running);
 
@@ -85,8 +83,8 @@ void bgp_reads_on(struct peer_connection *connection)
 	assert(connection->fd);
 	assert(connection->ibuf_work);
 	assert(connection->obuf);
-	assert(!peer->t_connect_check_r);
-	assert(!peer->t_connect_check_w);
+	assert(!connection->t_connect_check_r);
+	assert(!connection->t_connect_check_w);
 	assert(connection->fd);
 
 	event_add_read(fpt->master, bgp_process_reads, connection,
@@ -151,7 +149,7 @@ static void bgp_process_writes(struct event *thread)
 		event_add_write(fpt->master, bgp_process_writes, connection,
 				connection->fd, &connection->t_write);
 	} else if (!fatal) {
-		BGP_UPDATE_GROUP_TIMER_ON(&peer->t_generate_updgrp_packets,
+		BGP_UPDATE_GROUP_TIMER_ON(&connection->t_generate_updgrp_packets,
 					  bgp_generate_updgrp_packets);
 	}
 }
@@ -362,7 +360,7 @@ static uint16_t bgp_write(struct peer_connection *connection)
 
 		if (num < 0) {
 			if (!ERRNO_IO_RETRY(errno)) {
-				BGP_EVENT_ADD(peer, TCP_fatal_error);
+				BGP_EVENT_ADD(connection, TCP_fatal_error);
 				SET_FLAG(status, BGP_IO_FATAL_ERR);
 			} else {
 				SET_FLAG(status, BGP_IO_TRANS_ERR);
@@ -439,7 +437,7 @@ static uint16_t bgp_write(struct peer_connection *connection)
 			 * Handle Graceful Restart case where the state changes
 			 * to Connect instead of Idle.
 			 */
-			BGP_EVENT_ADD(peer, BGP_Stop);
+			BGP_EVENT_ADD(connection, BGP_Stop);
 			goto done;
 
 		case BGP_MSG_KEEPALIVE:

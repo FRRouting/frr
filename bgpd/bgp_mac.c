@@ -219,7 +219,7 @@ static void bgp_mac_rescan_evpn_table(struct bgp *bgp, struct ethaddr *macaddr)
 		if (CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP))
 			continue;
 
-		if (!peer_established(peer))
+		if (!peer_established(peer->connection))
 			continue;
 
 		if (bgp_debug_update(peer, NULL, NULL, 1))

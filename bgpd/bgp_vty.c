@@ -2890,7 +2890,7 @@ DEFUN(bgp_reject_as_sets, bgp_reject_as_sets_cmd,
 	for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
 		if (BGP_IS_VALID_STATE_FOR_NOTIF(peer->connection->status)) {
 			peer->last_reset = PEER_DOWN_AS_SETS_REJECT;
-			bgp_notify_send(peer, BGP_NOTIFY_CEASE,
+			bgp_notify_send(peer->connection, BGP_NOTIFY_CEASE,
 					BGP_NOTIFY_CEASE_CONFIG_CHANGE);
 		}
 	}
@@ -2916,7 +2916,7 @@ DEFUN(no_bgp_reject_as_sets, no_bgp_reject_as_sets_cmd,
 	for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
 		if (BGP_IS_VALID_STATE_FOR_NOTIF(peer->connection->status)) {
 			peer->last_reset = PEER_DOWN_AS_SETS_REJECT;
-			bgp_notify_send(peer, BGP_NOTIFY_CEASE,
+			bgp_notify_send(peer->connection, BGP_NOTIFY_CEASE,
 					BGP_NOTIFY_CEASE_CONFIG_CHANGE);
 		}
 	}
@@ -4876,7 +4876,7 @@ static int peer_conf_interface_get(struct vty *vty, const char *conf_if,
 		/* v6only flag changed. Reset bgp seesion */
 		if (BGP_IS_VALID_STATE_FOR_NOTIF(peer->connection->status)) {
 			peer->last_reset = PEER_DOWN_V6ONLY_CHANGE;
-			bgp_notify_send(peer, BGP_NOTIFY_CEASE,
+			bgp_notify_send(peer->connection, BGP_NOTIFY_CEASE,
 					BGP_NOTIFY_CEASE_CONFIG_CHANGE);
 		} else
 			bgp_session_reset(peer);
@@ -10722,7 +10722,7 @@ static inline void calc_peers_cfgd_estbd(struct bgp *bgp, int *peers_cfgd,
 		if (!CHECK_FLAG(peer->flags, PEER_FLAG_CONFIG_NODE))
 			continue;
 		(*peers_cfgd)++;
-		if (peer_established(peer))
+		if (peer_established(peer->connection))
 			(*peers_estbd)++;
 	}
 }
@@ -11246,7 +11246,8 @@ static void bgp_show_peer_reset(struct vty * vty, struct peer *peer,
 static inline bool bgp_has_peer_failed(struct peer *peer, afi_t afi,
 				       safi_t safi)
 {
-	return ((!peer_established(peer)) || !peer->afc_recv[afi][safi]);
+	return ((!peer_established(peer->connection)) ||
+		!peer->afc_recv[afi][safi]);
 }
 
 static void bgp_show_failed_summary(struct vty *vty, struct bgp *bgp,
@@ -11273,7 +11274,7 @@ static void bgp_show_failed_summary(struct vty *vty, struct bgp *bgp,
 				    peer->dropped);
 		peer_uptime(peer->uptime, timebuf, BGP_UPTIME_LEN,
 			    use_json, json_peer);
-		if (peer_established(peer))
+		if (peer_established(peer->connection))
 			json_object_string_add(json_peer, "lastResetDueTo",
 					       "AFI/SAFI Not Negotiated");
 		else
@@ -11296,7 +11297,7 @@ static void bgp_show_failed_summary(struct vty *vty, struct bgp *bgp,
 			peer->dropped,
 			peer_uptime(peer->uptime, timebuf,
 				    BGP_UPTIME_LEN, 0, NULL));
-		if (peer_established(peer))
+		if (peer_established(peer->connection))
 			vty_out(vty, "  AFI/SAFI Not Negotiated\n");
 		else
 			bgp_show_peer_reset(vty, peer, NULL,
@@ -11883,10 +11884,10 @@ static int bgp_show_summary(struct vty *vty, struct bgp *bgp, int afi, int safi,
 			if (peer->conf_if)
 				json_object_string_add(json_peer, "idType",
 						       "interface");
-			else if (peer->su.sa.sa_family == AF_INET)
+			else if (peer->connection->su.sa.sa_family == AF_INET)
 				json_object_string_add(json_peer, "idType",
 						       "ipv4");
-			else if (peer->su.sa.sa_family == AF_INET6)
+			else if (peer->connection->su.sa.sa_family == AF_INET6)
 				json_object_string_add(json_peer, "idType",
 						       "ipv6");
 			json_object_object_add(json_peers, peer->host,
@@ -11977,7 +11978,7 @@ static int bgp_show_summary(struct vty *vty, struct bgp *bgp, int afi, int safi,
 					peer_uptime(peer->uptime, timebuf,
 						    BGP_UPTIME_LEN, 0, NULL));
 
-				if (peer_established(peer)) {
+				if (peer_established(peer->connection)) {
 					if (peer->afc_recv[afi][safi]) {
 						if (CHECK_FLAG(
 							    bgp->flags,
@@ -12433,9 +12434,9 @@ static void bgp_show_neighnor_graceful_restart_flags(struct vty *vty,
 	bool rbit = false;
 	bool nbit = false;
 
-	if (CHECK_FLAG(p->cap, PEER_CAP_RESTART_ADV)
-	    && (CHECK_FLAG(p->cap, PEER_CAP_RESTART_RCV))
-	    && (peer_established(p))) {
+	if (CHECK_FLAG(p->cap, PEER_CAP_RESTART_ADV) &&
+	    (CHECK_FLAG(p->cap, PEER_CAP_RESTART_RCV)) &&
+	    (peer_established(p->connection))) {
 		rbit = CHECK_FLAG(p->cap, PEER_CAP_GRACEFUL_RESTART_R_BIT_RCV);
 		nbit = CHECK_FLAG(p->cap, PEER_CAP_GRACEFUL_RESTART_N_BIT_RCV);
 	}
@@ -12458,9 +12459,8 @@ static void bgp_show_neighbor_graceful_restart_remote_mode(struct vty *vty,
 	if (!json)
 		vty_out(vty, "\n    Remote GR Mode: ");
 
-	if (CHECK_FLAG(peer->cap, PEER_CAP_RESTART_ADV)
-	    && (peer_established(peer))) {
-
+	if (CHECK_FLAG(peer->cap, PEER_CAP_RESTART_ADV) &&
+	    (peer_established(peer->connection))) {
 		if ((peer->nsf_af_count == 0)
 		    && !CHECK_FLAG(peer->cap, PEER_CAP_RESTART_RCV)) {
 
@@ -12623,11 +12623,12 @@ static void bgp_show_neighbor_graceful_restart_capability_per_afi_safi(
 			json_object_int_add(json_timer, "stalePathTimer",
 					    peer->bgp->stalepath_time);
 
-			if (peer->t_gr_stale != NULL) {
+			if (peer->connection->t_gr_stale != NULL) {
 				json_object_int_add(json_timer,
 						    "stalePathTimerRemaining",
 						    event_timer_remain_second(
-							    peer->t_gr_stale));
+							    peer->connection
+								    ->t_gr_stale));
 			}
 
 			/* Display Configured Selection
@@ -12657,11 +12658,11 @@ static void bgp_show_neighbor_graceful_restart_capability_per_afi_safi(
 				"        Configured Stale Path Time(sec): %u\n",
 				peer->bgp->stalepath_time);
 
-			if (peer->t_gr_stale != NULL)
+			if (peer->connection->t_gr_stale != NULL)
 				vty_out(vty,
 					"      Stale Path Remaining(sec): %ld\n",
 					event_timer_remain_second(
-						peer->t_gr_stale));
+						peer->connection->t_gr_stale));
 			/* Display Configured Selection
 			 * Deferral only when when
 			 * Gr mode is enabled.
@@ -12706,10 +12707,10 @@ static void bgp_show_neighbor_graceful_restart_time(struct vty *vty,
 		json_object_int_add(json_timer, "receivedRestartTimer",
 				    p->v_gr_restart);
 
-		if (p->t_gr_restart != NULL)
-			json_object_int_add(
-				json_timer, "restartTimerRemaining",
-				event_timer_remain_second(p->t_gr_restart));
+		if (p->connection->t_gr_restart != NULL)
+			json_object_int_add(json_timer, "restartTimerRemaining",
+					    event_timer_remain_second(
+						    p->connection->t_gr_restart));
 
 		json_object_object_add(json, "timers", json_timer);
 	} else {
@@ -12720,12 +12721,14 @@ static void bgp_show_neighbor_graceful_restart_time(struct vty *vty,
 
 		vty_out(vty, "      Received Restart Time(sec): %u\n",
 			p->v_gr_restart);
-		if (p->t_gr_restart != NULL)
+		if (p->connection->t_gr_restart != NULL)
 			vty_out(vty, "      Restart Time Remaining(sec): %ld\n",
-				event_timer_remain_second(p->t_gr_restart));
-		if (p->t_gr_restart != NULL) {
+				event_timer_remain_second(
+					p->connection->t_gr_restart));
+		if (p->connection->t_gr_restart != NULL) {
 			vty_out(vty, "      Restart Time Remaining(sec): %ld\n",
-				event_timer_remain_second(p->t_gr_restart));
+				event_timer_remain_second(
+					p->connection->t_gr_restart));
 		}
 	}
 }
@@ -12743,10 +12746,10 @@ static void bgp_show_peer_gr_status(struct vty *vty, struct peer *p,
 	if (p->conf_if) {
 		if (json)
 			json_object_string_addf(json, "neighborAddr", "%pSU",
-						&p->su);
+						&p->connection->su);
 		else
 			vty_out(vty, "BGP neighbor on %s: %pSU\n", p->conf_if,
-				&p->su);
+				&p->connection->su);
 	} else {
 		snprintf(neighborAddr, sizeof(neighborAddr), "%s%s", dn_flag,
 			 p->host);
@@ -13414,19 +13417,19 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 	if (!use_json) {
 		if (p->conf_if) /* Configured interface name. */
 			vty_out(vty, "BGP neighbor on %s: %pSU, ", p->conf_if,
-				&p->su);
+				&p->connection->su);
 		else /* Configured IP address. */
 			vty_out(vty, "BGP neighbor is %s%s, ", dn_flag,
 				p->host);
 	}
 
 	if (use_json) {
-		if (p->conf_if && BGP_PEER_SU_UNSPEC(p))
+		if (p->conf_if && BGP_CONNECTION_SU_UNSPEC(p->connection))
 			json_object_string_add(json_neigh, "bgpNeighborAddr",
 					       "none");
-		else if (p->conf_if && !BGP_PEER_SU_UNSPEC(p))
+		else if (p->conf_if && !BGP_CONNECTION_SU_UNSPEC(p->connection))
 			json_object_string_addf(json_neigh, "bgpNeighborAddr",
-						"%pSU", &p->su);
+						"%pSU", &p->connection->su);
 
 		asn_asn2json(json_neigh, "remoteAs", p->as, bgp->asnotation);
 
@@ -13555,7 +13558,8 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 			if (dn_flag[0]) {
 				struct prefix prefix, *range = NULL;
 
-				if (sockunion2hostprefix(&(p->su), &prefix))
+				if (sockunion2hostprefix(&p->connection->su,
+							 &prefix))
 					range = peer_group_lookup_dynamic_neighbor_range(
 						p->group, &prefix);
 
@@ -13574,7 +13578,8 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 			if (dn_flag[0]) {
 				struct prefix prefix, *range = NULL;
 
-				if (sockunion2hostprefix(&(p->su), &prefix))
+				if (sockunion2hostprefix(&p->connection->su,
+							 &prefix))
 					range = peer_group_lookup_dynamic_neighbor_range(
 						p->group, &prefix);
 
@@ -13612,7 +13617,7 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 				       lookup_msg(bgp_status_msg,
 						  p->connection->status, NULL));
 
-		if (peer_established(p)) {
+		if (peer_established(p->connection)) {
 			time_t uptime;
 
 			uptime = monotime(NULL);
@@ -13736,7 +13741,7 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 		vty_out(vty, "  BGP state = %s",
 			lookup_msg(bgp_status_msg, p->connection->status, NULL));
 
-		if (peer_established(p))
+		if (peer_established(p->connection))
 			vty_out(vty, ", up for %8s",
 				peer_uptime(p->uptime, timebuf, BGP_UPTIME_LEN,
 					    0, NULL));
@@ -13796,7 +13801,7 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 					bgp->t_condition_check));
 	}
 	/* Capability. */
-	if (peer_established(p) &&
+	if (peer_established(p->connection) &&
 	    (p->cap || peer_afc_advertised(p) || peer_afc_received(p))) {
 		if (use_json) {
 			json_object *json_cap = NULL;
@@ -14653,7 +14658,7 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 		json_grace_send = json_object_new_object();
 		json_grace_recv = json_object_new_object();
 
-		if ((peer_established(p)) &&
+		if ((peer_established(p->connection)) &&
 		    CHECK_FLAG(p->cap, PEER_CAP_RESTART_RCV)) {
 			FOREACH_AFI_SAFI (afi, safi) {
 				if (CHECK_FLAG(p->af_sflags[afi][safi],
@@ -14682,26 +14687,27 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 				       json_grace_recv);
 
 
-		if (p->t_gr_restart)
-			json_object_int_add(
-				json_grace, "gracefulRestartTimerMsecs",
-				event_timer_remain_second(p->t_gr_restart) *
-					1000);
+		if (p->connection->t_gr_restart)
+			json_object_int_add(json_grace,
+					    "gracefulRestartTimerMsecs",
+					    event_timer_remain_second(
+						    p->connection->t_gr_restart) *
+						    1000);
 
-		if (p->t_gr_stale)
-			json_object_int_add(
-				json_grace, "gracefulStalepathTimerMsecs",
-				event_timer_remain_second(p->t_gr_stale) *
-					1000);
+		if (p->connection->t_gr_stale)
+			json_object_int_add(json_grace,
+					    "gracefulStalepathTimerMsecs",
+					    event_timer_remain_second(
+						    p->connection->t_gr_stale) *
+						    1000);
 		/* more gr info in new format */
 		BGP_SHOW_PEER_GR_CAPABILITY(vty, p, json_grace);
 		json_object_object_add(json_neigh, "gracefulRestartInfo",
 				       json_grace);
 	} else {
 		vty_out(vty, "  Graceful restart information:\n");
-		if ((peer_established(p)) &&
+		if ((peer_established(p->connection)) &&
 		    CHECK_FLAG(p->cap, PEER_CAP_RESTART_RCV)) {
-
 			vty_out(vty, "    End-of-RIB send: ");
 			FOREACH_AFI_SAFI (afi, safi) {
 				if (CHECK_FLAG(p->af_sflags[afi][safi],
@@ -14729,15 +14735,17 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 			vty_out(vty, "\n");
 		}
 
-		if (p->t_gr_restart)
+		if (p->connection->t_gr_restart)
 			vty_out(vty,
 				"    The remaining time of restart timer is %ld\n",
-				event_timer_remain_second(p->t_gr_restart));
+				event_timer_remain_second(
+					p->connection->t_gr_restart));
 
-		if (p->t_gr_stale)
+		if (p->connection->t_gr_stale)
 			vty_out(vty,
 				"    The remaining time of stalepath timer is %ld\n",
-				event_timer_remain_second(p->t_gr_stale));
+				event_timer_remain_second(
+					p->connection->t_gr_stale));
 
 		/* more gr info in new format */
 		BGP_SHOW_PEER_GR_CAPABILITY(vty, p, NULL);
@@ -14965,21 +14973,22 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 			vty_out(vty,
 				"  Peer had exceeded the max. no. of prefixes configured.\n");
 
-		if (p->t_pmax_restart) {
+		if (p->connection->t_pmax_restart) {
 			if (use_json) {
 				json_object_boolean_true_add(
 					json_neigh, "reducePrefixNumFrom");
 				json_object_int_add(json_neigh,
 						    "restartInTimerMsec",
 						    event_timer_remain_second(
-							    p->t_pmax_restart) *
+							    p->connection
+								    ->t_pmax_restart) *
 							    1000);
 			} else
 				vty_out(vty,
 					"  Reduce the no. of prefix from %s, will restart in %ld seconds\n",
 					p->host,
 					event_timer_remain_second(
-						p->t_pmax_restart));
+						p->connection->t_pmax_restart));
 		} else {
 			if (use_json)
 				json_object_boolean_true_add(
@@ -15116,7 +15125,7 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 	if (use_json) {
 		json_object_int_add(json_neigh, "connectRetryTimer",
 				    p->v_connect);
-		if (peer_established(p)) {
+		if (peer_established(p->connection)) {
 			json_object_int_add(json_neigh, "estimatedRttInMsecs",
 					    p->rtt);
 			if (CHECK_FLAG(p->flags, PEER_FLAG_RTT_SHUTDOWN)) {
@@ -15128,21 +15137,25 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 						    p->rtt_keepalive_rcv);
 			}
 		}
-		if (p->t_start)
-			json_object_int_add(
-				json_neigh, "nextStartTimerDueInMsecs",
-				event_timer_remain_second(p->t_start) * 1000);
-		if (p->t_connect)
-			json_object_int_add(
-				json_neigh, "nextConnectTimerDueInMsecs",
-				event_timer_remain_second(p->t_connect) * 1000);
-		if (p->t_routeadv) {
+		if (p->connection->t_start)
+			json_object_int_add(json_neigh,
+					    "nextStartTimerDueInMsecs",
+					    event_timer_remain_second(
+						    p->connection->t_start) *
+						    1000);
+		if (p->connection->t_connect)
+			json_object_int_add(json_neigh,
+					    "nextConnectTimerDueInMsecs",
+					    event_timer_remain_second(
+						    p->connection->t_connect) *
+						    1000);
+		if (p->connection->t_routeadv) {
 			json_object_int_add(json_neigh, "mraiInterval",
 					    p->v_routeadv);
-			json_object_int_add(
-				json_neigh, "mraiTimerExpireInMsecs",
-				event_timer_remain_second(p->t_routeadv) *
-					1000);
+			json_object_int_add(json_neigh, "mraiTimerExpireInMsecs",
+					    event_timer_remain_second(
+						    p->connection->t_routeadv) *
+						    1000);
 		}
 		if (p->password)
 			json_object_int_add(json_neigh, "authenticationEnabled",
@@ -15162,7 +15175,7 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 	} else {
 		vty_out(vty, "BGP Connect Retry Timer in Seconds: %d\n",
 			p->v_connect);
-		if (peer_established(p)) {
+		if (peer_established(p->connection)) {
 			vty_out(vty, "Estimated round trip time: %d ms\n",
 				p->rtt);
 			if (CHECK_FLAG(p->flags, PEER_FLAG_RTT_SHUTDOWN))
@@ -15170,17 +15183,20 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 					"Shutdown when RTT > %dms, count > %u\n",
 					p->rtt_expected, p->rtt_keepalive_rcv);
 		}
-		if (p->t_start)
+		if (p->connection->t_start)
 			vty_out(vty, "Next start timer due in %ld seconds\n",
-				event_timer_remain_second(p->t_start));
-		if (p->t_connect)
+				event_timer_remain_second(
+					p->connection->t_start));
+		if (p->connection->t_connect)
 			vty_out(vty, "Next connect timer due in %ld seconds\n",
-				event_timer_remain_second(p->t_connect));
-		if (p->t_routeadv)
+				event_timer_remain_second(
+					p->connection->t_connect));
+		if (p->connection->t_routeadv)
 			vty_out(vty,
 				"MRAI (interval %u) timer expires in %ld seconds\n",
 				p->v_routeadv,
-				event_timer_remain_second(p->t_routeadv));
+				event_timer_remain_second(
+					p->connection->t_routeadv));
 		if (p->password)
 			vty_out(vty, "Peer Authentication Enabled\n");
 
@@ -15253,7 +15269,7 @@ static int bgp_show_neighbor_graceful_restart(struct vty *vty, struct bgp *bgp,
 								json_neighbor);
 				}
 			} else {
-				if (sockunion_same(&peer->su, su)) {
+				if (sockunion_same(&peer->connection->su, su)) {
 					found = true;
 					bgp_show_peer_gr_status(vty, peer,
 								json_neighbor);
@@ -15323,7 +15339,7 @@ static int bgp_show_neighbor(struct vty *vty, struct bgp *bgp,
 						      json);
 				}
 			} else {
-				if (sockunion_same(&peer->su, su)) {
+				if (sockunion_same(&peer->connection->su, su)) {
 					find = 1;
 					bgp_show_peer(vty, peer, use_json,
 						      json);
@@ -15345,7 +15361,9 @@ static int bgp_show_neighbor(struct vty *vty, struct bgp *bgp,
 							break;
 						}
 					} else {
-						if (sockunion_same(&peer->su, su)) {
+						if (sockunion_same(&peer->connection
+									    ->su,
+								   su)) {
 							find = 1;
 							bgp_show_peer(vty, peer, use_json,
 								      json);

@@ -2740,7 +2740,7 @@ void bgp_best_selection(struct bgp *bgp, struct bgp_dest *dest,
 			if (pi1->peer != bgp->peer_self &&
 			    !CHECK_FLAG(pi1->peer->sflags,
 					PEER_STATUS_NSF_WAIT)) {
-				if (!peer_established(pi1->peer))
+				if (!peer_established(pi1->peer->connection))
 					continue;
 			}
 
@@ -2755,7 +2755,8 @@ void bgp_best_selection(struct bgp *bgp, struct bgp_dest *dest,
 					if (pi2->peer != bgp->peer_self &&
 					    !CHECK_FLAG(pi2->peer->sflags,
 							PEER_STATUS_NSF_WAIT) &&
-					    !peer_established(pi2->peer))
+					    !peer_established(
+						    pi2->peer->connection))
 						continue;
 
 					if (!aspath_cmp_left(pi1->attr->aspath,
@@ -2826,8 +2827,7 @@ void bgp_best_selection(struct bgp *bgp, struct bgp_dest *dest,
 
 		if (pi->peer && pi->peer != bgp->peer_self
 		    && !CHECK_FLAG(pi->peer->sflags, PEER_STATUS_NSF_WAIT))
-			if (!peer_established(pi->peer)) {
-
+			if (!peer_established(pi->peer->connection)) {
 				if (debug)
 					zlog_debug(
 						"%s: %pBD(%s) non self peer %s not estab state",
@@ -2901,7 +2901,7 @@ void bgp_best_selection(struct bgp *bgp, struct bgp_dest *dest,
 			if (pi->peer && pi->peer != bgp->peer_self
 			    && !CHECK_FLAG(pi->peer->sflags,
 					   PEER_STATUS_NSF_WAIT))
-				if (!peer_established(pi->peer))
+				if (!peer_established(pi->peer->connection))
 					continue;
 
 			if (!bgp_path_info_nexthop_cmp(pi, new_select)) {
@@ -3722,10 +3722,8 @@ void bgp_add_eoiu_mark(struct bgp *bgp)
 
 static void bgp_maximum_prefix_restart_timer(struct event *thread)
 {
-	struct peer *peer;
-
-	peer = EVENT_ARG(thread);
-	peer->t_pmax_restart = NULL;
+	struct peer_connection *connection = EVENT_ARG(thread);
+	struct peer *peer = connection->peer;
 
 	if (bgp_debug_neighbor_events(peer))
 		zlog_debug(
@@ -3783,6 +3781,7 @@ bool bgp_maximum_prefix_overflow(struct peer *peer, afi_t afi, safi_t safi,
 				  ? bgp_filtered_routes_count(peer, afi, safi)
 					    + peer->pcount[afi][safi]
 				  : peer->pcount[afi][safi];
+	struct peer_connection *connection = peer->connection;
 
 	if (!CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_MAX_PREFIX))
 		return false;
@@ -3818,7 +3817,7 @@ bool bgp_maximum_prefix_overflow(struct peer *peer, afi_t afi, safi_t safi,
 			ndata[6] = (peer->pmax[afi][safi]);
 
 			SET_FLAG(peer->sflags, PEER_STATUS_PREFIX_OVERFLOW);
-			bgp_notify_send_with_data(peer, BGP_NOTIFY_CEASE,
+			bgp_notify_send_with_data(connection, BGP_NOTIFY_CEASE,
 						  BGP_NOTIFY_CEASE_MAX_PREFIX,
 						  ndata, 7);
 		}
@@ -3837,7 +3836,7 @@ bool bgp_maximum_prefix_overflow(struct peer *peer, afi_t afi, safi_t safi,
 					"%pBP Maximum-prefix restart timer started for %d secs",
 					peer, peer->v_pmax_restart);
 
-			BGP_TIMER_ON(peer->t_pmax_restart,
+			BGP_TIMER_ON(connection->t_pmax_restart,
 				     bgp_maximum_prefix_restart_timer,
 				     peer->v_pmax_restart);
 		}
@@ -5171,7 +5170,7 @@ static void bgp_announce_route_timer_expired(struct event *t)
 	paf = EVENT_ARG(t);
 	peer = paf->peer;
 
-	if (!peer_established(peer))
+	if (!peer_established(peer->connection))
 		return;
 
 	if (!peer->afc_nego[paf->afi][paf->safi])
@@ -5587,7 +5586,7 @@ static void bgp_clear_node_complete(struct work_queue *wq)
 	struct peer *peer = wq->spec.data;
 
 	/* Tickle FSM to start moving again */
-	BGP_EVENT_ADD(peer, Clearing_Completed);
+	BGP_EVENT_ADD(peer->connection, Clearing_Completed);
 
 	peer_unlock(peer); /* bgp_clear_route */
 }
@@ -9339,7 +9338,7 @@ void route_vty_out(struct vty *vty, const struct prefix *p,
 
 	if (json_paths)
 		json_object_string_addf(json_path, "peerId", "%pSU",
-					&path->peer->su);
+					&path->peer->connection->su);
 
 	/* Print aspath */
 	if (attr->aspath) {
@@ -9959,7 +9958,7 @@ static void route_vty_out_advertised_to(struct vty *vty, struct peer *peer,
 					       json_peer);
 		else
 			json_object_object_addf(json_adv_to, json_peer, "%pSU",
-						&peer->su);
+						&peer->connection->su);
 	} else {
 		if (*first) {
 			vty_out(vty, "%s", header);
@@ -9973,12 +9972,12 @@ static void route_vty_out_advertised_to(struct vty *vty, struct peer *peer,
 					peer->conf_if);
 			else
 				vty_out(vty, " %s(%pSU)", peer->hostname,
-					&peer->su);
+					&peer->connection->su);
 		} else {
 			if (peer->conf_if)
 				vty_out(vty, " %s", peer->conf_if);
 			else
-				vty_out(vty, " %pSU", &peer->su);
+				vty_out(vty, " %pSU", &peer->connection->su);
 		}
 	}
 }
@@ -10404,7 +10403,7 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 
 		if (json_paths) {
 			json_object_string_addf(json_peer, "peerId", "%pSU",
-						&path->peer->su);
+						&path->peer->connection->su);
 			json_object_string_addf(json_peer, "routerId", "%pI4",
 						&path->peer->remote_id);
 
@@ -10439,7 +10438,7 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 						path->peer->host);
 				else
 					vty_out(vty, " from %pSU",
-						&path->peer->su);
+						&path->peer->connection->su);
 			}
 
 			if (attr->flag & ATTR_FLAG_BIT(BGP_ATTR_ORIGINATOR_ID))
@@ -10980,10 +10979,10 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 				str, label2vni(&attr->label));
 	}
 
-	if (path->peer->t_gr_restart &&
+	if (path->peer->connection->t_gr_restart &&
 	    CHECK_FLAG(path->flags, BGP_PATH_STALE)) {
-		unsigned long gr_remaining =
-			event_timer_remain_second(path->peer->t_gr_restart);
+		unsigned long gr_remaining = event_timer_remain_second(
+			path->peer->connection->t_gr_restart);
 
 		if (json_paths) {
 			json_object_int_add(json_path,
@@ -14791,8 +14790,8 @@ static int bgp_show_neighbor_route(struct vty *vty, struct peer *peer,
 	if (safi == SAFI_LABELED_UNICAST)
 		safi = SAFI_UNICAST;
 
-	return bgp_show(vty, peer->bgp, afi, safi, type, &peer->su, show_flags,
-			RPKI_NOT_BEING_USED);
+	return bgp_show(vty, peer->bgp, afi, safi, type, &peer->connection->su,
+			show_flags, RPKI_NOT_BEING_USED);
 }
 
 /*
@@ -15067,8 +15066,8 @@ uint8_t bgp_distance_apply(const struct prefix *p, struct bgp_path_info *pinfo,
 	/* Check source address.
 	 * Note: for aggregate route, peer can have unspec af type.
 	 */
-	if (pinfo->sub_type != BGP_ROUTE_AGGREGATE
-	    && !sockunion2hostprefix(&peer->su, &q))
+	if (pinfo->sub_type != BGP_ROUTE_AGGREGATE &&
+	    !sockunion2hostprefix(&peer->connection->su, &q))
 		return 0;
 
 	dest = bgp_node_match(bgp_distance_table[afi][safi], &q);
@@ -15544,7 +15543,7 @@ static void show_bgp_peerhash_entry(struct hash_bucket *bucket, void *arg)
        struct vty *vty = arg;
        struct peer *peer = bucket->data;
 
-       vty_out(vty, "\tPeer: %s %pSU\n", peer->host, &peer->su);
+       vty_out(vty, "\tPeer: %s %pSU\n", peer->host, &peer->connection->su);
 }
 
 DEFUN (show_bgp_listeners,

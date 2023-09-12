@@ -1138,9 +1138,27 @@ struct peer_connection {
 
 	struct event *t_read;
 	struct event *t_write;
+	struct event *t_connect;
+	struct event *t_delayopen;
+	struct event *t_start;
+	struct event *t_holdtime;
 
+	struct event *t_connect_check_r;
+	struct event *t_connect_check_w;
+
+	struct event *t_gr_restart;
+	struct event *t_gr_stale;
+
+	struct event *t_generate_updgrp_packets;
+	struct event *t_pmax_restart;
+
+	struct event *t_routeadv;
 	struct event *t_process_packet;
 	struct event *t_process_packet_error;
+
+	union sockunion su;
+#define BGP_CONNECTION_SU_UNSPEC(connection)                                   \
+	(connection->su.sa.sa_family == AF_UNSPEC)
 
 	/* Thread flags */
 	_Atomic uint32_t thread_flags;
@@ -1148,6 +1166,7 @@ struct peer_connection {
 #define PEER_THREAD_READS_ON (1U << 1)
 };
 extern struct peer_connection *bgp_peer_connection_new(struct peer *peer);
+extern void bgp_peer_connection_free(struct peer_connection **connection);
 extern void bgp_peer_connection_buffers_free(struct peer_connection *connection);
 
 /* BGP neighbor structure. */
@@ -1225,8 +1244,7 @@ struct peer {
 	char *desc;	  /* Description of the peer. */
 	unsigned short port; /* Destination port for peer */
 	char *host;	  /* Printable address of the peer. */
-	union sockunion su;  /* Sockunion address of the peer. */
-#define BGP_PEER_SU_UNSPEC(peer) (peer->su.sa.sa_family == AF_UNSPEC)
+
 	time_t uptime;       /* Last Up/Down time */
 	time_t readtime;     /* Last read time */
 	time_t resettime;    /* Last reset time */
@@ -1548,19 +1566,8 @@ struct peer {
 	_Atomic uint32_t v_gr_restart;
 
 	/* Threads. */
-	struct event *t_start;
-	struct event *t_connect_check_r;
-	struct event *t_connect_check_w;
-	struct event *t_connect;
-	struct event *t_holdtime;
-	struct event *t_routeadv;
-	struct event *t_delayopen;
-	struct event *t_pmax_restart;
-	struct event *t_gr_restart;
-	struct event *t_gr_stale;
 	struct event *t_llgr_stale[AFI_MAX][SAFI_MAX];
 	struct event *t_revalidate_all[AFI_MAX][SAFI_MAX];
-	struct event *t_generate_updgrp_packets;
 	struct event *t_refresh_stalepath;
 
 	/* Thread flags. */
@@ -2164,7 +2171,7 @@ extern void bgp_set_evpn(struct bgp *bgp);
 extern struct peer *peer_lookup(struct bgp *, union sockunion *);
 extern struct peer *peer_lookup_by_conf_if(struct bgp *, const char *);
 extern struct peer *peer_lookup_by_hostname(struct bgp *, const char *);
-extern void bgp_peer_conf_if_to_su_update(struct peer *);
+extern void bgp_peer_conf_if_to_su_update(struct peer_connection *connection);
 extern int peer_group_listen_range_del(struct peer_group *, struct prefix *);
 extern struct peer_group *peer_group_lookup(struct bgp *, const char *);
 extern struct peer_group *peer_group_get(struct bgp *, const char *);
@@ -2595,9 +2602,9 @@ static inline char *timestamp_string(time_t ts)
 	return ctime(&tbuf);
 }
 
-static inline bool peer_established(struct peer *peer)
+static inline bool peer_established(struct peer_connection *connection)
 {
-	return peer->connection->status == Established;
+	return connection->status == Established;
 }
 
 static inline bool peer_dynamic_neighbor(struct peer *peer)

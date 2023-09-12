@@ -282,14 +282,14 @@ route_match_peer(void *rule, const struct prefix *prefix, void *object)
 	}
 
 	if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
-		if (sockunion_same(su, &peer->su))
+		if (sockunion_same(su, &peer->connection->su))
 			return RMAP_MATCH;
 
 		return RMAP_NOMATCH;
 	} else {
 		group = peer->group;
 		for (ALL_LIST_ELEMENTS(group->peer, node, nnode, peer)) {
-			if (sockunion_same(su, &peer->su))
+			if (sockunion_same(su, &peer->connection->su))
 				return RMAP_MATCH;
 		}
 		return RMAP_NOMATCH;
@@ -574,11 +574,11 @@ route_match_ip_route_source(void *rule, const struct prefix *pfx, void *object)
 		path = object;
 		peer = path->peer;
 
-		if (!peer || sockunion_family(&peer->su) != AF_INET)
+		if (!peer || sockunion_family(&peer->connection->su) != AF_INET)
 			return RMAP_NOMATCH;
 
 		p.family = AF_INET;
-		p.prefix = peer->su.sin.sin_addr;
+		p.prefix = peer->connection->su.sin.sin_addr;
 		p.prefixlen = IPV4_MAX_BITLEN;
 
 		alist = access_list_lookup(AFI_IP, (char *)rule);
@@ -927,11 +927,11 @@ route_match_ip_route_source_prefix_list(void *rule, const struct prefix *prefix,
 		path = object;
 		peer = path->peer;
 
-		if (!peer || sockunion_family(&peer->su) != AF_INET)
+		if (!peer || sockunion_family(&peer->connection->su) != AF_INET)
 			return RMAP_NOMATCH;
 
 		p.family = AF_INET;
-		p.prefix = peer->su.sin.sin_addr;
+		p.prefix = peer->connection->su.sin.sin_addr;
 		p.prefixlen = IPV4_MAX_BITLEN;
 
 		plist = prefix_list_lookup(AFI_IP, (char *)rule);
@@ -4340,7 +4340,7 @@ static void bgp_route_map_process_peer(const char *rmap_name,
 	    && (strcmp(rmap_name, filter->map[RMAP_IN].name) == 0)) {
 		filter->map[RMAP_IN].map = map;
 
-		if (route_update && peer_established(peer)) {
+		if (route_update && peer_established(peer->connection)) {
 			if (CHECK_FLAG(peer->af_flags[afi][safi],
 				       PEER_FLAG_SOFT_RECONFIG)) {
 				if (bgp_debug_update(peer, NULL, NULL, 1))
