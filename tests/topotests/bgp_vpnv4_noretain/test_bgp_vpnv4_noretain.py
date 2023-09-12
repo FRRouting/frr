@@ -336,7 +336,7 @@ router bgp 65500 vrf vrf2
 
 def test_bgp_no_retain_import_vrf1_step7():
     """
-    Import r2 vrf1 into r1 vrf2 and check bgp vpnv4 table
+    Import r1 vrf1 into r1 vrf2 and check bgp vpnv4 table
     """
 
     rname = "r1"
@@ -436,7 +436,7 @@ router bgp 65500 vrf vrf2
 
 def test_bgp_no_retain_remove_vrf2_step11():
     """
-    Import r2 vrf3 into r1 vrf2 and check bgp vpnv4 table
+    Remove BGP vrf2 on r1 and check bgp vpnv4 table
     """
 
     rname = "r1"
