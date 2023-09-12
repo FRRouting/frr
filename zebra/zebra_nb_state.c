@@ -156,6 +156,8 @@ const void *lib_vrf_zebra_ribs_rib_get_next(struct nb_cb_get_next_args *args)
 	safi_t safi;
 
 	zvrf = zebra_vrf_lookup_by_id(vrf->vrf_id);
+	if (!zvrf)
+		return NULL;
 
 	if (args->list_entry == NULL) {
 		afi = AFI_IP;
@@ -198,6 +200,8 @@ lib_vrf_zebra_ribs_rib_lookup_entry(struct nb_cb_lookup_entry_args *args)
 	uint32_t table_id = 0;
 
 	zvrf = zebra_vrf_lookup_by_id(vrf->vrf_id);
+	if (!zvrf)
+		return NULL;
 
 	yang_afi_safi_identity2value(args->keys->key[0], &afi, &safi);
 	table_id = yang_str2uint32(args->keys->key[1]);

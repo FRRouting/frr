@@ -79,6 +79,24 @@ static struct mgmt_be_client_xpath staticd_xpaths[] = {
 	},
 };
 #endif
+static struct mgmt_be_client_xpath zebra_xpaths[] = {
+	/*
+	 * For now we will add only support for retrieving Oerational
+	 * data. In future we need to enable support for Config data
+	 * it can be done by adding extra flags like below.
+	 *
+	 * .subscribed = MGMT_SUBSCR_VALIDATE_CFG | MGMT_SUBSCR_NOTIFY_CFG
+	 *		 | MGMT_SUBSCR_OPER_OWN,
+	 */
+	{
+		.xpath = "/frr-zebra:zebra/*",
+		.subscribed = MGMT_SUBSCR_OPER_OWN,
+	},
+	{
+		.xpath = "/frr-vrf:lib/vrf[name='*']/frr-zebra:zebra/*",
+		.subscribed = MGMT_SUBSCR_OPER_OWN,
+	},
+};
 
 static struct mgmt_be_client_xpath_map
 	mgmt_client_xpaths[MGMTD_BE_CLIENT_ID_MAX] = {
@@ -86,6 +104,8 @@ static struct mgmt_be_client_xpath_map
 		[MGMTD_BE_CLIENT_ID_STATICD] = {staticd_xpaths,
 						array_size(staticd_xpaths)},
 #endif
+		[MGMTD_BE_CLIENT_ID_ZEBRA] = {zebra_xpaths,
+					      array_size(zebra_xpaths)},
 };
 
 /*

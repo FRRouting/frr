@@ -170,6 +170,7 @@ const char *mgmt_be_client_names[MGMTD_BE_CLIENT_ID_MAX + 1] = {
 #ifdef HAVE_STATICD
 	[MGMTD_BE_CLIENT_ID_STATICD] = "staticd",
 #endif
+	[MGMTD_BE_CLIENT_ID_ZEBRA] = "zebra",
 	[MGMTD_BE_CLIENT_ID_MAX] = "Unknown/Invalid",
 };
 

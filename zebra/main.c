@@ -21,6 +21,7 @@
 #include "affinitymap.h"
 #include "routemap.h"
 #include "routing_nb.h"
+#include "mgmt_be_client.h"
 
 #include "zebra/zebra_router.h"
 #include "zebra/zebra_errors.h"
@@ -115,6 +116,8 @@ struct zebra_privs_t zserv_privs = {
 	.cap_num_p = array_size(_caps_p),
 	.cap_num_i = 0};
 
+struct mgmt_be_client *mgmt_be_client;
+
 /* SIGHUP handler. */
 static void sighup(void)
 {
@@ -139,6 +142,8 @@ static void sigint(void)
 	sigint_done = true;
 
 	zlog_notice("Terminating on signal");
+
+	mgmt_be_client_destroy(mgmt_be_client);
 
 	atomic_store_explicit(&zrouter.in_shutdown, true,
 			      memory_order_relaxed);
@@ -418,6 +423,11 @@ int main(int argc, char **argv)
 	zebra_ns_init();
 	router_id_cmd_init();
 	zebra_vty_init();
+
+	/* Initialize MGMT backend functionalities */
+	mgmt_be_client = mgmt_be_client_create("zebra", NULL, 0,
+					       zrouter.master);
+
 	access_list_init();
 	prefix_list_init();
 	rtadv_cmd_init();

@@ -20,6 +20,7 @@
 #include "vxlan.h"
 #include "termtable.h"
 #include "affinitymap.h"
+#include "mgmt_be_client.h"
 
 #include "zebra/zebra_router.h"
 #include "zebra/zserv.h"
@@ -4702,4 +4703,6 @@ void zebra_vty_init(void)
 #endif /* HAVE_SCRIPTING */
 
 	install_element(VIEW_NODE, &zebra_show_routing_tables_summary_cmd);
+
+	mgmt_be_client_lib_vty_init();
 }
