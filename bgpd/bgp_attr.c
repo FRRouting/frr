@@ -5050,7 +5050,7 @@ void bgp_path_attribute_discard_vty(struct vty *vty, struct peer *peer,
 	 * then flush all.
 	 */
 	if (!discard_attrs) {
-		for (i = 0; i < BGP_ATTR_MAX; i++)
+		for (i = 1; i <= BGP_ATTR_MAX; i++)
 			peer->discard_attrs[i] = false;
 		goto discard_soft_clear;
 	}
@@ -5059,7 +5059,7 @@ void bgp_path_attribute_discard_vty(struct vty *vty, struct peer *peer,
 		frrstr_split(discard_attrs, " ", &attributes, &num_attributes);
 
 		if (set)
-			for (i = 0; i < BGP_ATTR_MAX; i++)
+			for (i = 1; i <= BGP_ATTR_MAX; i++)
 				peer->discard_attrs[i] = false;
 
 		for (i = 0; i < num_attributes; i++) {
@@ -5119,7 +5119,7 @@ void bgp_path_attribute_withdraw_vty(struct vty *vty, struct peer *peer,
 	 * then flush all.
 	 */
 	if (!withdraw_attrs) {
-		for (i = 0; i < BGP_ATTR_MAX; i++)
+		for (i = 1; i <= BGP_ATTR_MAX; i++)
 			peer->withdraw_attrs[i] = false;
 		goto withdraw_soft_clear;
 	}
@@ -5128,7 +5128,7 @@ void bgp_path_attribute_withdraw_vty(struct vty *vty, struct peer *peer,
 		frrstr_split(withdraw_attrs, " ", &attributes, &num_attributes);
 
 		if (set)
-			for (i = 0; i < BGP_ATTR_MAX; i++)
+			for (i = 1; i <= BGP_ATTR_MAX; i++)
 				peer->withdraw_attrs[i] = false;
 
 		for (i = 0; i < num_attributes; i++) {
