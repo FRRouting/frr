@@ -157,6 +157,36 @@ def router_json_cmp_exact_filter(router, cmd, expected):
     return topotest.json_cmp(json_output, expected, exact=True)
 
 
+def router_vrf_json_cmp_exact_filter(router, cmd, expected):
+    output = router.vtysh_cmd(cmd)
+    logger.info("{}: {}\n{}".format(router.name, cmd, output))
+
+    json_output = json.loads(output)
+
+    # filter out tableVersion, version, nhVrfId and vrfId
+    for vrf, data in json_output.items():
+        if "vrfId" in data:
+            data.pop("vrfId")
+        if "tableVersion" in data:
+            data.pop("tableVersion")
+        if "routes" not in data:
+            continue
+        for route, attrs in data["routes"].items():
+            for attr in attrs:
+                if "nhVrfId" in attr:
+                    attr.pop("nhVrfId")
+                if "version" in attr:
+                    attr.pop("version")
+
+    # filter out VRF with no routes
+    json_tmp = deepcopy(json_output)
+    for vrf, data in json_tmp.items():
+        if "routes" not in data or len(data["routes"].keys()) == 0:
+            json_output.pop(vrf)
+
+    return topotest.json_cmp(json_output, expected, exact=True)
+
+
 def check_show_bgp_ipv4_vpn(rname, json_file):
     tgen = get_topogen()
     if tgen.routers_have_failure():
@@ -171,6 +201,27 @@ def check_show_bgp_ipv4_vpn(rname, json_file):
         router_json_cmp_exact_filter,
         router,
         "show bgp ipv4 vpn json",
+        expected,
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+    assertmsg = '"{}" JSON output mismatches'.format(router.name)
+    assert result is None, assertmsg
+
+
+def check_show_bgp_vrf_ipv4(rname, json_file):
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+    router = tgen.gears[rname]
+
+    logger.info("Checking VRF IPv4 routes for convergence on {}".format(rname))
+
+    json_file = "{}/{}/{}".format(CWD, router.name, json_file)
+    expected = json.loads(open(json_file).read())
+    test_func = partial(
+        router_vrf_json_cmp_exact_filter,
+        router,
+        "show bgp vrf all ipv4 unicast json",
         expected,
     )
     _, result = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
@@ -211,6 +262,8 @@ def test_bgp_no_retain_step1():
     check_show_bgp_ipv4_vpn(rname, "ipv4_vpn_routes_no_retain_init.json")
     check_show_bgp_ipv4_vpn("r2", "ipv4_vpn_routes_all.json")
 
+    check_show_bgp_vrf_ipv4(rname, "ipv4_vrf_all_routes_init.json")
+
 
 def test_bgp_retain_step2():
     """
@@ -234,6 +287,8 @@ router bgp 65500
     check_show_bgp_ipv4_vpn(rname, "ipv4_vpn_routes_all.json")
     check_show_bgp_ipv4_vpn("r2", "ipv4_vpn_routes_all.json")
 
+    check_show_bgp_vrf_ipv4(rname, "ipv4_vrf_all_routes_init.json")
+
 
 def test_bgp_no_retain_step3():
     """
@@ -253,10 +308,12 @@ def test_bgp_no_retain_step3():
     check_show_bgp_ipv4_vpn(rname, "ipv4_vpn_routes_no_retain_init.json")
     check_show_bgp_ipv4_vpn("r2", "ipv4_vpn_routes_all.json")
 
+    check_show_bgp_vrf_ipv4(rname, "ipv4_vrf_all_routes_init.json")
+
 
 def test_bgp_no_retain_add_vrf2_step4():
     """
-    Add vrf2 on r1 and check bgp vpnv4 table
+    Add vrf2 on r1 and check bgp tables
     """
 
     rname = "r1"
@@ -283,10 +340,12 @@ router bgp 65500 vrf vrf2
     check_show_bgp_ipv4_vpn(rname, "ipv4_vpn_routes_no_retain_init_plus_r2_vrf2.json")
     check_show_bgp_ipv4_vpn("r2", "ipv4_vpn_routes_all.json")
 
+    check_show_bgp_vrf_ipv4(rname, "ipv4_vrf_all_routes_plus_r2_vrf2.json")
+
 
 def test_bgp_no_retain_unimport_vrf2_step5():
     """
-    Unimport to vrf2 on r1 and check bgp vpnv4 table
+    Unimport to vrf2 on r1 and check bgp tables
     """
 
     rname = "r1"
@@ -308,10 +367,12 @@ router bgp 65500 vrf vrf2
     check_show_bgp_ipv4_vpn(rname, "ipv4_vpn_routes_no_retain_init.json")
     check_show_bgp_ipv4_vpn("r2", "ipv4_vpn_routes_all.json")
 
+    check_show_bgp_vrf_ipv4(rname, "ipv4_vrf_all_routes_init.json")
+
 
 def test_bgp_no_retain_import_vrf2_step6():
     """
-    Re-import to vrf2 on r1 and check bgp vpnv4 table
+    Re-import to vrf2 on r1 and check bgp tables
     """
 
     rname = "r1"
@@ -333,10 +394,12 @@ router bgp 65500 vrf vrf2
     check_show_bgp_ipv4_vpn(rname, "ipv4_vpn_routes_no_retain_init_plus_r2_vrf2.json")
     check_show_bgp_ipv4_vpn("r2", "ipv4_vpn_routes_all.json")
 
+    check_show_bgp_vrf_ipv4(rname, "ipv4_vrf_all_routes_plus_r2_vrf2.json")
+
 
 def test_bgp_no_retain_import_vrf1_step7():
     """
-    Import r2 vrf1 into r1 vrf2 and check bgp vpnv4 table
+    Import r1 vrf1 into r1 vrf2 and check bgp tables
     """
 
     rname = "r1"
@@ -358,10 +421,12 @@ router bgp 65500 vrf vrf2
     check_show_bgp_ipv4_vpn(rname, "ipv4_vpn_routes_no_retain_init.json")
     check_show_bgp_ipv4_vpn("r2", "ipv4_vpn_routes_all.json")
 
+    check_show_bgp_vrf_ipv4(rname, "ipv4_vrf_all_routes_plus_r1_vrf1.json")
+
 
 def test_bgp_no_retain_import_vrf3_step8():
     """
-    Import r2 vrf3 into r1 vrf2 and check bgp vpnv4 table
+    Import r2 vrf3 into r1 vrf2 and check bgp tables
     """
 
     rname = "r1"
@@ -383,10 +448,12 @@ router bgp 65500 vrf vrf2
     check_show_bgp_ipv4_vpn(rname, "ipv4_vpn_routes_no_retain_init_plus_r2_vrf3.json")
     check_show_bgp_ipv4_vpn("r2", "ipv4_vpn_routes_all.json")
 
+    check_show_bgp_vrf_ipv4(rname, "ipv4_vrf_all_routes_plus_r2_vrf3.json")
+
 
 def test_bgp_no_retain_unimport_vrf3_step9():
     """
-    Un-import r2 vrf3 into r1 vrf2 and check bgp vpnv4 table
+    Un-import r2 vrf3 into r1 vrf2 and check bgp tables
     """
 
     rname = "r1"
@@ -408,10 +475,12 @@ router bgp 65500 vrf vrf2
     check_show_bgp_ipv4_vpn(rname, "ipv4_vpn_routes_no_retain_init.json")
     check_show_bgp_ipv4_vpn("r2", "ipv4_vpn_routes_all.json")
 
+    check_show_bgp_vrf_ipv4(rname, "ipv4_vrf_all_routes_init.json")
+
 
 def test_bgp_no_retain_import_vrf3_step10():
     """
-    Import r2 vrf3 into r1 vrf2 and check bgp vpnv4 table
+    Import r2 vrf3 into r1 vrf2 and check bgp tables
     """
 
     rname = "r1"
@@ -433,10 +502,12 @@ router bgp 65500 vrf vrf2
     check_show_bgp_ipv4_vpn(rname, "ipv4_vpn_routes_no_retain_init_plus_r2_vrf3.json")
     check_show_bgp_ipv4_vpn("r2", "ipv4_vpn_routes_all.json")
 
+    check_show_bgp_vrf_ipv4(rname, "ipv4_vrf_all_routes_plus_r2_vrf3.json")
+
 
 def test_bgp_no_retain_remove_vrf2_step11():
     """
-    Import r2 vrf3 into r1 vrf2 and check bgp vpnv4 table
+    Remove BGP vrf2 on r1 and check bgp tables
     """
 
     rname = "r1"
@@ -454,10 +525,12 @@ no router bgp 65500 vrf vrf2
     check_show_bgp_ipv4_vpn(rname, "ipv4_vpn_routes_no_retain_init.json")
     check_show_bgp_ipv4_vpn("r2", "ipv4_vpn_routes_all.json")
 
+    check_show_bgp_vrf_ipv4(rname, "ipv4_vrf_all_routes_init.json")
+
 
 def test_bgp_retain_step12():
     """
-    Configure retain and check bgp vpnv4 table
+    Configure retain and check bgp tables
     """
 
     rname = "r1"
@@ -476,6 +549,8 @@ router bgp 65500
 
     check_show_bgp_ipv4_vpn(rname, "ipv4_vpn_routes_all.json")
     check_show_bgp_ipv4_vpn("r2", "ipv4_vpn_routes_all.json")
+
+    check_show_bgp_vrf_ipv4(rname, "ipv4_vrf_all_routes_init.json")
 
 
 def test_memory_leak():
