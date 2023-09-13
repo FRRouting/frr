@@ -1067,16 +1067,22 @@ DEFPY (show_ip_nht,
 	json_object *json = NULL;
 	json_object *json_vrf = NULL;
 	json_object *json_nexthop = NULL;
+	struct zebra_vrf *zvrf;
+	bool resolve_via_default = false;
 
 	if (uj)
 		json = json_object_new_object();
 
 	if (vrf_all) {
 		struct vrf *vrf;
-		struct zebra_vrf *zvrf;
 
 		RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
 			if ((zvrf = vrf->info) != NULL) {
+				resolve_via_default =
+					(afi == AFI_IP)
+						? zvrf->zebra_rnh_ip_default_route
+						: zvrf->zebra_rnh_ipv6_default_route;
+
 				if (uj) {
 					json_vrf = json_object_new_object();
 					json_nexthop = json_object_new_object();
@@ -1088,9 +1094,16 @@ DEFPY (show_ip_nht,
 								       ? "ipv4"
 								       : "ipv6",
 							       json_nexthop);
+					json_object_boolean_add(json_nexthop,
+								"resolveViaDefault",
+								resolve_via_default);
 				} else {
 					vty_out(vty, "\nVRF %s:\n",
 						zvrf_name(zvrf));
+					vty_out(vty,
+						" Resolve via default: %s\n",
+						resolve_via_default ? "on"
+								    : "off");
 				}
 				zebra_print_rnh_table(zvrf_id(zvrf), afi, safi,
 						      vty, NULL, json_nexthop);
@@ -1115,6 +1128,11 @@ DEFPY (show_ip_nht,
 		}
 	}
 
+	zvrf = zebra_vrf_lookup_by_id(vrf_id);
+	resolve_via_default = (afi == AFI_IP)
+				      ? zvrf->zebra_rnh_ip_default_route
+				      : zvrf->zebra_rnh_ipv6_default_route;
+
 	if (uj) {
 		json_vrf = json_object_new_object();
 		json_nexthop = json_object_new_object();
@@ -1126,6 +1144,13 @@ DEFPY (show_ip_nht,
 		json_object_object_add(json_vrf,
 				       (afi == AFI_IP) ? "ipv4" : "ipv6",
 				       json_nexthop);
+
+		json_object_boolean_add(json_nexthop, "resolveViaDefault",
+					resolve_via_default);
+	} else {
+		vty_out(vty, "VRF %s:\n", zvrf_name(zvrf));
+		vty_out(vty, " Resolve via default: %s\n",
+			resolve_via_default ? "on" : "off");
 	}
 
 	zebra_print_rnh_table(vrf_id, afi, safi, vty, p, json_nexthop);

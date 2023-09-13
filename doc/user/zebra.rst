@@ -334,10 +334,14 @@ the default route.
    Allow IPv4 nexthop tracking to resolve via the default route. This parameter
    is configured per-VRF, so the command is also available in the VRF subnode.
 
+   This is enabled by default for a traditional profile.
+
 .. clicmd:: ipv6 nht resolve-via-default
 
    Allow IPv6 nexthop tracking to resolve via the default route. This parameter
    is configured per-VRF, so the command is also available in the VRF subnode.
+
+   This is enabled by default for a traditional profile.
 
 .. clicmd:: show ip nht [vrf NAME] [A.B.C.D|X:X::X:X] [mrib] [json]
 
