@@ -1826,20 +1826,6 @@ static enum bgp_fsm_state_progress bgp_start(struct peer_connection *connection)
 		return BGP_FSM_FAILURE;
 	}
 
-	/* Scrub some information that might be left over from a previous,
-	 * session
-	 */
-	/* Connection information. */
-	if (peer->su_local) {
-		sockunion_free(peer->su_local);
-		peer->su_local = NULL;
-	}
-
-	if (peer->su_remote) {
-		sockunion_free(peer->su_remote);
-		peer->su_remote = NULL;
-	}
-
 	/* Clear remote router-id. */
 	peer->remote_id.s_addr = INADDR_ANY;
 
