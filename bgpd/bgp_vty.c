@@ -16781,8 +16781,15 @@ DEFUN (bgp_redistribute_ipv4_ospf,
 
 	if (strncmp(argv[idx_ospf_table]->arg, "o", 1) == 0)
 		protocol = ZEBRA_ROUTE_OSPF;
-	else
+	else {
+		if (bgp->vrf_id != VRF_DEFAULT) {
+			vty_out(vty,
+				"%% Only default BGP instance can use '%s'\n",
+				argv[idx_ospf_table]->arg);
+			return CMD_WARNING_CONFIG_FAILED;
+		}
 		protocol = ZEBRA_ROUTE_TABLE;
+	}
 
 	bgp_redist_add(bgp, AFI_IP, protocol, instance);
 	return bgp_redistribute_set(bgp, AFI_IP, protocol, instance, false);
@@ -16818,8 +16825,15 @@ DEFUN (bgp_redistribute_ipv4_ospf_rmap,
 
 	if (strncmp(argv[idx_ospf_table]->arg, "o", 1) == 0)
 		protocol = ZEBRA_ROUTE_OSPF;
-	else
+	else {
+		if (bgp->vrf_id != VRF_DEFAULT) {
+			vty_out(vty,
+				"%% Only default BGP instance can use '%s'\n",
+				argv[idx_ospf_table]->arg);
+			return CMD_WARNING_CONFIG_FAILED;
+		}
 		protocol = ZEBRA_ROUTE_TABLE;
+	}
 
 	instance = strtoul(argv[idx_number]->arg, NULL, 10);
 	red = bgp_redist_add(bgp, AFI_IP, protocol, instance);
@@ -16860,8 +16874,15 @@ DEFUN (bgp_redistribute_ipv4_ospf_metric,
 
 	if (strncmp(argv[idx_ospf_table]->arg, "o", 1) == 0)
 		protocol = ZEBRA_ROUTE_OSPF;
-	else
+	else {
+		if (bgp->vrf_id != VRF_DEFAULT) {
+			vty_out(vty,
+				"%% Only default BGP instance can use '%s'\n",
+				argv[idx_ospf_table]->arg);
+			return CMD_WARNING_CONFIG_FAILED;
+		}
 		protocol = ZEBRA_ROUTE_TABLE;
+	}
 
 	instance = strtoul(argv[idx_number]->arg, NULL, 10);
 	metric = strtoul(argv[idx_number_2]->arg, NULL, 10);
@@ -16909,8 +16930,15 @@ DEFUN (bgp_redistribute_ipv4_ospf_rmap_metric,
 
 	if (strncmp(argv[idx_ospf_table]->arg, "o", 1) == 0)
 		protocol = ZEBRA_ROUTE_OSPF;
-	else
+	else {
+		if (bgp->vrf_id != VRF_DEFAULT) {
+			vty_out(vty,
+				"%% Only default BGP instance can use '%s'\n",
+				argv[idx_ospf_table]->arg);
+			return CMD_WARNING_CONFIG_FAILED;
+		}
 		protocol = ZEBRA_ROUTE_TABLE;
+	}
 
 	instance = strtoul(argv[idx_number]->arg, NULL, 10);
 	metric = strtoul(argv[idx_number_2]->arg, NULL, 10);
@@ -16963,8 +16991,15 @@ DEFUN (bgp_redistribute_ipv4_ospf_metric_rmap,
 
 	if (strncmp(argv[idx_ospf_table]->arg, "o", 1) == 0)
 		protocol = ZEBRA_ROUTE_OSPF;
-	else
+	else {
+		if (bgp->vrf_id != VRF_DEFAULT) {
+			vty_out(vty,
+				"%% Only default BGP instance can use '%s'\n",
+				argv[idx_ospf_table]->arg);
+			return CMD_WARNING_CONFIG_FAILED;
+		}
 		protocol = ZEBRA_ROUTE_TABLE;
+	}
 
 	instance = strtoul(argv[idx_number]->arg, NULL, 10);
 	metric = strtoul(argv[idx_number_2]->arg, NULL, 10);
@@ -17011,8 +17046,15 @@ DEFUN (no_bgp_redistribute_ipv4_ospf,
 
 	if (strncmp(argv[idx_ospf_table]->arg, "o", 1) == 0)
 		protocol = ZEBRA_ROUTE_OSPF;
-	else
+	else {
+		if (bgp->vrf_id != VRF_DEFAULT) {
+			vty_out(vty,
+				"%% Only default BGP instance can use '%s'\n",
+				argv[idx_ospf_table]->arg);
+			return CMD_WARNING_CONFIG_FAILED;
+		}
 		protocol = ZEBRA_ROUTE_TABLE;
+	}
 
 	instance = strtoul(argv[idx_number]->arg, NULL, 10);
 	bgp_redistribute_unset(bgp, AFI_IP, protocol, instance);
