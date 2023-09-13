@@ -138,7 +138,9 @@ struct bgp_dest *bgp_afi_node_get(struct bgp_table *table, afi_t afi,
 			bgp_dest_set_bgp_table_info(
 				pdest, bgp_table_init(table->bgp, afi, safi));
 		else
-			bgp_dest_unlock_node(pdest);
+			pdest = bgp_dest_unlock_node(pdest);
+
+		assert(pdest);
 		table = bgp_dest_get_bgp_table_info(pdest);
 	}
 
@@ -438,7 +440,8 @@ void bgp_path_info_add_with_caller(const char *name, struct bgp_dest *dest,
 
 /* Do the actual removal of info from RIB, for use by bgp_process
    completion callback *only* */
-void bgp_path_info_reap(struct bgp_dest *dest, struct bgp_path_info *pi)
+struct bgp_dest *bgp_path_info_reap(struct bgp_dest *dest,
+				    struct bgp_path_info *pi)
 {
 	if (pi->next)
 		pi->next->prev = pi->prev;
@@ -450,7 +453,8 @@ void bgp_path_info_reap(struct bgp_dest *dest, struct bgp_path_info *pi)
 	bgp_path_info_mpath_dequeue(pi);
 	bgp_path_info_unlock(pi);
 	hook_call(bgp_snmp_update_stats, dest, pi, false);
-	bgp_dest_unlock_node(dest);
+
+	return bgp_dest_unlock_node(dest);
 }
 
 void bgp_path_info_delete(struct bgp_dest *dest, struct bgp_path_info *pi)
@@ -2812,9 +2816,11 @@ void bgp_best_selection(struct bgp *bgp, struct bgp_dest *dest,
 			/* reap REMOVED routes, if needs be
 			 * selected route must stay for a while longer though
 			 */
-			if (CHECK_FLAG(pi->flags, BGP_PATH_REMOVED)
-			    && (pi != old_select))
-				bgp_path_info_reap(dest, pi);
+			if (CHECK_FLAG(pi->flags, BGP_PATH_REMOVED) &&
+			    (pi != old_select)) {
+				dest = bgp_path_info_reap(dest, pi);
+				assert(dest);
+			}
 
 			if (debug)
 				zlog_debug(
@@ -3500,11 +3506,12 @@ static void bgp_process_main_one(struct bgp *bgp, struct bgp_dest *dest,
 	/* Clear any route change flags. */
 	bgp_zebra_clear_route_change_flags(dest);
 
+	UNSET_FLAG(dest->flags, BGP_NODE_PROCESS_SCHEDULED);
+
 	/* Reap old select bgp_path_info, if it has been removed */
 	if (old_select && CHECK_FLAG(old_select->flags, BGP_PATH_REMOVED))
 		bgp_path_info_reap(dest, old_select);
 
-	UNSET_FLAG(dest->flags, BGP_NODE_PROCESS_SCHEDULED);
 	return;
 }
 
@@ -5078,7 +5085,8 @@ void bgp_withdraw(struct peer *peer, const struct prefix *p,
 	 */
 	if (CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_SOFT_RECONFIG)
 	    && peer != bgp->peer_self)
-		if (!bgp_adj_in_unset(dest, peer, addpath_id)) {
+		if (!bgp_adj_in_unset(&dest, peer, addpath_id)) {
+			assert(dest);
 			peer->stat_pfx_dup_withdraw++;
 
 			if (bgp_debug_update(peer, p, NULL, 1)) {
@@ -5095,6 +5103,7 @@ void bgp_withdraw(struct peer *peer, const struct prefix *p,
 		}
 
 	/* Lookup withdrawn route. */
+	assert(dest);
 	for (pi = bgp_dest_get_bgp_path_info(dest); pi; pi = pi->next)
 		if (pi->peer == peer && pi->type == type
 		    && pi->sub_type == sub_type
@@ -5668,9 +5677,11 @@ static void bgp_clear_route_table(struct peer *peer, afi_t afi, safi_t safi,
 			ain_next = ain->next;
 
 			if (ain->peer == peer)
-				bgp_adj_in_remove(dest, ain);
+				bgp_adj_in_remove(&dest, ain);
 
 			ain = ain_next;
+
+			assert(dest);
 		}
 
 		for (pi = bgp_dest_get_bgp_path_info(dest); pi; pi = next) {
@@ -5678,9 +5689,10 @@ static void bgp_clear_route_table(struct peer *peer, afi_t afi, safi_t safi,
 			if (pi->peer != peer)
 				continue;
 
-			if (force)
-				bgp_path_info_reap(dest, pi);
-			else {
+			if (force) {
+				dest = bgp_path_info_reap(dest, pi);
+				assert(dest);
+			} else {
 				struct bgp_clear_node_queue *cnq;
 
 				/* both unlocked in bgp_clear_node_queue_del */
@@ -5775,9 +5787,11 @@ void bgp_clear_adj_in(struct peer *peer, afi_t afi, safi_t safi)
 			ain_next = ain->next;
 
 			if (ain->peer == peer)
-				bgp_adj_in_remove(dest, ain);
+				bgp_adj_in_remove(&dest, ain);
 
 			ain = ain_next;
+
+			assert(dest);
 		}
 	}
 }
@@ -5995,7 +6009,8 @@ static void bgp_cleanup_table(struct bgp *bgp, struct bgp_table *table,
 					bgp_zebra_withdraw(p, pi, bgp, safi);
 			}
 
-			bgp_path_info_reap(dest, pi);
+			dest = bgp_path_info_reap(dest, pi);
+			assert(dest);
 		}
 }
 
@@ -6024,7 +6039,9 @@ void bgp_cleanup_routes(struct bgp *bgp)
 					bgp_cleanup_table(bgp, table, safi);
 					bgp_table_finish(&table);
 					bgp_dest_set_bgp_table_info(dest, NULL);
-					bgp_dest_unlock_node(dest);
+					dest = bgp_dest_unlock_node(dest);
+
+					assert(dest);
 				}
 			}
 			safi = SAFI_ENCAP;
@@ -6035,7 +6052,9 @@ void bgp_cleanup_routes(struct bgp *bgp)
 					bgp_cleanup_table(bgp, table, safi);
 					bgp_table_finish(&table);
 					bgp_dest_set_bgp_table_info(dest, NULL);
-					bgp_dest_unlock_node(dest);
+					dest = bgp_dest_unlock_node(dest);
+
+					assert(dest);
 				}
 			}
 		}
@@ -6047,7 +6066,9 @@ void bgp_cleanup_routes(struct bgp *bgp)
 			bgp_cleanup_table(bgp, table, SAFI_EVPN);
 			bgp_table_finish(&table);
 			bgp_dest_set_bgp_table_info(dest, NULL);
-			bgp_dest_unlock_node(dest);
+			dest = bgp_dest_unlock_node(dest);
+
+			assert(dest);
 		}
 	}
 }
@@ -6696,7 +6717,8 @@ int bgp_static_set(struct vty *vty, bool negate, const char *ip_str,
 		}
 
 		bgp_dest_set_bgp_static_info(dest, NULL);
-		bgp_dest_unlock_node(dest);
+		dest = bgp_dest_unlock_node(dest);
+		assert(dest);
 		bgp_dest_unlock_node(dest);
 	} else {
 		dest = bgp_node_get(table, &p);
@@ -6873,7 +6895,8 @@ void bgp_static_delete(struct bgp *bgp)
 					bgp_static_free(bgp_static);
 					bgp_dest_set_bgp_static_info(rm,
 								     NULL);
-					bgp_dest_unlock_node(rm);
+					rm = bgp_dest_unlock_node(rm);
+					assert(rm);
 				}
 			} else {
 				bgp_static = bgp_dest_get_bgp_static_info(dest);
@@ -6882,7 +6905,8 @@ void bgp_static_delete(struct bgp *bgp)
 						    afi, safi, NULL);
 				bgp_static_free(bgp_static);
 				bgp_dest_set_bgp_static_info(dest, NULL);
-				bgp_dest_unlock_node(dest);
+				dest = bgp_dest_unlock_node(dest);
+				assert(dest);
 			}
 		}
 }
@@ -8213,7 +8237,8 @@ static int bgp_aggregate_unset(struct vty *vty, const char *prefix_str,
 	bgp_dest_set_bgp_aggregate_info(dest, NULL);
 
 	bgp_free_aggregate_info(aggregate);
-	bgp_dest_unlock_node(dest);
+	dest = bgp_dest_unlock_node(dest);
+	assert(dest);
 	bgp_dest_unlock_node(dest);
 
 	return CMD_SUCCESS;
@@ -8735,8 +8760,10 @@ void bgp_redistribute_withdraw(struct bgp *bgp, afi_t afi, int type,
 			if (!CHECK_FLAG(bgp->flags,
 					BGP_FLAG_DELETE_IN_PROGRESS))
 				bgp_process(bgp, dest, afi, SAFI_UNICAST);
-			else
-				bgp_path_info_reap(dest, pi);
+			else {
+				dest = bgp_path_info_reap(dest, pi);
+				assert(dest);
+			}
 		}
 	}
 }
@@ -12128,7 +12155,9 @@ static int bgp_show_route_in_table(struct vty *vty, struct bgp *bgp,
 							rm_p);
 					if (type5_pfxlen == match.prefixlen) {
 						is_exact_pfxlen_match = true;
-						bgp_dest_unlock_node(rm);
+						rm = bgp_dest_unlock_node(rm);
+
+						assert(rm);
 						break;
 					}
 				}
@@ -15031,7 +15060,8 @@ static int bgp_distance_unset(struct vty *vty, const char *distance_str,
 	bgp_distance_free(bdistance);
 
 	bgp_dest_set_bgp_path_info(dest, NULL);
-	bgp_dest_unlock_node(dest);
+	dest = bgp_dest_unlock_node(dest);
+	assert(dest);
 	bgp_dest_unlock_node(dest);
 
 	return CMD_SUCCESS;

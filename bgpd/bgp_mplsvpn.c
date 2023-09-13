@@ -1238,12 +1238,13 @@ leak_update(struct bgp *to_bgp, struct bgp_dest *bn,
 	bgp_aggregate_increment(to_bgp, p, new, afi, safi);
 	bgp_path_info_add(bn, new);
 
-	bgp_dest_unlock_node(bn);
 	bgp_process(to_bgp, bn, afi, safi);
 
 	if (debug)
 		zlog_debug("%s: ->%s: %pBD: Added new route", __func__,
 			   to_bgp->name_pretty, bn);
+
+	bgp_dest_unlock_node(bn);
 
 	return new;
 }

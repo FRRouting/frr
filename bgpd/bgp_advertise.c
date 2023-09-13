@@ -188,22 +188,22 @@ void bgp_adj_in_set(struct bgp_dest *dest, struct peer *peer, struct attr *attr,
 	bgp_dest_lock_node(dest);
 }
 
-void bgp_adj_in_remove(struct bgp_dest *dest, struct bgp_adj_in *bai)
+void bgp_adj_in_remove(struct bgp_dest **dest, struct bgp_adj_in *bai)
 {
 	bgp_attr_unintern(&bai->attr);
-	BGP_ADJ_IN_DEL(dest, bai);
-	bgp_dest_unlock_node(dest);
+	BGP_ADJ_IN_DEL(*dest, bai);
+	*dest = bgp_dest_unlock_node(*dest);
 	peer_unlock(bai->peer); /* adj_in peer reference */
 	XFREE(MTYPE_BGP_ADJ_IN, bai);
 }
 
-bool bgp_adj_in_unset(struct bgp_dest *dest, struct peer *peer,
+bool bgp_adj_in_unset(struct bgp_dest **dest, struct peer *peer,
 		      uint32_t addpath_id)
 {
 	struct bgp_adj_in *adj;
 	struct bgp_adj_in *adj_next;
 
-	adj = dest->adj_in;
+	adj = (*dest)->adj_in;
 
 	if (!adj)
 		return false;
@@ -215,6 +215,8 @@ bool bgp_adj_in_unset(struct bgp_dest *dest, struct peer *peer,
 			bgp_adj_in_remove(dest, adj);
 
 		adj = adj_next;
+
+		assert(*dest);
 	}
 
 	return true;

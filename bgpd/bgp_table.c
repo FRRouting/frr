@@ -75,7 +75,7 @@ const char *bgp_dest_get_prefix_str(struct bgp_dest *dest)
 /*
  * bgp_dest_unlock_node
  */
-inline void bgp_dest_unlock_node(struct bgp_dest *dest)
+inline struct bgp_dest *bgp_dest_unlock_node(struct bgp_dest *dest)
 {
 	frrtrace(1, frr_bgp, bgp_dest_unlock, dest);
 	bgp_delete_listnode(dest);
@@ -89,9 +89,12 @@ inline void bgp_dest_unlock_node(struct bgp_dest *dest)
 						   rt->safi);
 		}
 		XFREE(MTYPE_BGP_NODE, dest);
+		dest = NULL;
 		rn->info = NULL;
 	}
 	route_unlock_node(rn);
+
+	return dest;
 }
 
 /*
