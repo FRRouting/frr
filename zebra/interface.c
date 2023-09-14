@@ -1131,8 +1131,6 @@ void zebra_if_update_link(struct interface *ifp, ifindex_t link_ifindex,
 {
 	struct zebra_if *zif;
 
-	if (IS_ZEBRA_IF_VETH(ifp))
-		return;
 	zif = (struct zebra_if *)ifp->info;
 	zif->link_nsid = ns_id;
 	zif->link_ifindex = link_ifindex;
