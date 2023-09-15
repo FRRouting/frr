@@ -2751,7 +2751,7 @@ static int unpack_item_srv6_end_sid(uint16_t mtid, uint8_t len,
 				    void *dest, int indent)
 {
 	struct isis_subtlvs *subtlvs = dest;
-	struct isis_srv6_end_sid_subtlv *sid;
+	struct isis_srv6_end_sid_subtlv *sid = NULL;
 	size_t consume;
 	uint8_t subsubtlv_len;
 
@@ -2763,7 +2763,7 @@ static int unpack_item_srv6_end_sid(uint16_t mtid, uint8_t len,
 			log, indent,
 			"Not enough data left. (expected 19 or more bytes, got %hhu)\n",
 			len);
-		return 1;
+		goto out;
 	}
 
 	sid = XCALLOC(MTYPE_ISIS_SUBTLV, sizeof(*sid));
