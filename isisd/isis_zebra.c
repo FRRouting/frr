@@ -1074,11 +1074,14 @@ void isis_zebra_srv6_adj_sid_uninstall(struct srv6_adjacency *sra)
 	enum seg6local_action_t action = ZEBRA_SEG6_LOCAL_ACTION_UNSPEC;
 	struct interface *ifp;
 	uint16_t prefixlen = IPV6_MAX_BITLEN;
-	struct isis_circuit *circuit = sra->adj->circuit;
-	struct isis_area *area = circuit->area;
+	struct isis_circuit *circuit;
+	struct isis_area *area;
 
 	if (!sra)
 		return;
+
+	circuit = sra->adj->circuit;
+	area = circuit->area;
 
 	switch (sra->behavior) {
 	case SRV6_ENDPOINT_BEHAVIOR_END_X:
