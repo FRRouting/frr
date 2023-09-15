@@ -3496,6 +3496,8 @@ enum bgp_attr_parse_ret bgp_attr_parse(struct peer *peer, struct attr *attr,
 				ret = BGP_ATTR_PARSE_ERROR;
 			} else {
 				ret = BGP_ATTR_PARSE_WITHDRAW;
+				stream_forward_getp(BGP_INPUT(peer),
+						    endp - BGP_INPUT_PNT(peer));
 			}
 
 			goto done;
@@ -3526,6 +3528,8 @@ enum bgp_attr_parse_ret bgp_attr_parse(struct peer *peer, struct attr *attr,
 				ret = BGP_ATTR_PARSE_ERROR;
 			} else {
 				ret = BGP_ATTR_PARSE_WITHDRAW;
+				stream_forward_getp(BGP_INPUT(peer),
+						    endp - BGP_INPUT_PNT(peer));
 			}
 
 			goto done;
