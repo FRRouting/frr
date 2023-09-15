@@ -749,7 +749,6 @@ void pm_echo_send(struct event *event)
 			iph->saddr = src_ip->ipv4.s_addr;
 		pme->src.sin.sin_family = AF_INET;
 		pme->src.sin.sin_addr.s_addr = src_ip->ipv4.s_addr;
-		iph->check = in_cksum((void *)iph, sizeof(struct iphdr));
 		siz = sizeof(struct sockaddr_in);
 		icmp->type = ICMP_ECHO;
 		icmp->code = 0;
