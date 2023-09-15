@@ -1832,12 +1832,6 @@ static enum bgp_fsm_state_progress bgp_start(struct peer_connection *connection)
 	/* Clear peer capability flag. */
 	peer->cap = 0;
 
-	/* If the peer is passive mode, force to move to Active mode. */
-	if (CHECK_FLAG(peer->flags, PEER_FLAG_PASSIVE)) {
-		BGP_EVENT_ADD(connection, TCP_connection_open_failed);
-		return BGP_FSM_SUCCESS;
-	}
-
 	if (peer->bgp->vrf_id == VRF_UNKNOWN) {
 		if (bgp_debug_neighbor_events(peer))
 			flog_err(

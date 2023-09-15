@@ -782,6 +782,12 @@ int bgp_connect(struct peer_connection *connection)
 		return connect_error;
 	}
 
+	/* If the peer is passive mode, force to move to Active mode. */
+	if (CHECK_FLAG(peer->flags, PEER_FLAG_PASSIVE)) {
+		BGP_EVENT_ADD(connection, TCP_connection_open_failed);
+		return BGP_FSM_SUCCESS;
+	}
+
 	if (peer->conf_if || peer->ifname)
 		ifindex = ifname2ifindex(peer->conf_if ? peer->conf_if
 						       : peer->ifname,
