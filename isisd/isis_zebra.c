@@ -1017,11 +1017,14 @@ void isis_zebra_srv6_adj_sid_install(struct srv6_adjacency *sra)
 	struct seg6local_context ctx = {};
 	uint16_t prefixlen = IPV6_MAX_BITLEN;
 	struct interface *ifp;
-	struct isis_circuit *circuit = sra->adj->circuit;
-	struct isis_area *area = circuit->area;
+	struct isis_circuit *circuit;
+	struct isis_area *area;
 
 	if (!sra)
 		return;
+
+	circuit = sra->adj->circuit;
+	area = circuit->area;
 
 	sr_debug("ISIS-SRv6 (%s): setting adjacency SID %pI6", area->area_tag,
 		 &sra->sid);
