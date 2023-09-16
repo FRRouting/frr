@@ -87,7 +87,7 @@ static int ospf6_router_lsa_show(struct vty *vty, struct ospf6_lsa *lsa,
 	char buf[32], name[32], bits[16], options[32];
 	struct ospf6_router_lsa *router_lsa;
 	struct ospf6_router_lsdesc *lsdesc;
-	json_object *json_arr;
+	json_object *json_arr = NULL;
 	json_object *json_loop;
 
 	router_lsa =
@@ -460,7 +460,7 @@ static int ospf6_network_lsa_show(struct vty *vty, struct ospf6_lsa *lsa,
 	struct ospf6_network_lsa *network_lsa;
 	struct ospf6_network_lsdesc *lsdesc;
 	char buf[128], options[32];
-	json_object *json_arr;
+	json_object *json_arr = NULL;
 
 	network_lsa =
 		(struct ospf6_network_lsa *)((caddr_t)lsa->header
