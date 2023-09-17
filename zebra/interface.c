@@ -2051,6 +2051,8 @@ static void zebra_if_dplane_ifp_handling(struct zebra_dplane_ctx *ctx)
 					if_update_to_new_vrf(ifp, vrf_id);
 			}
 
+			zif = ifp->info;
+
 			/* Update interface information. */
 			set_ifindex(ifp, ifindex, zns);
 			ifp->flags = flags;
@@ -2068,16 +2070,6 @@ static void zebra_if_dplane_ifp_handling(struct zebra_dplane_ctx *ctx)
 
 			/* Update link. */
 			zebra_if_update_link(ifp, link_ifindex, link_nsid);
-
-			/*
-			 * Just set the @link/lower-device ifindex. During
-			 * nldump interfaces are not ordered in any fashion so
-			 * we may end up getting upper devices before lower
-			 * devices. We will setup the real linkage once the dump
-			 * is complete.
-			 */
-			zif = (struct zebra_if *)ifp->info;
-			zif->link_ifindex = link_ifindex;
 
 			ifp->ll_type = dplane_ctx_get_ifp_zltype(ctx);
 			interface_update_hw_addr(ctx, ifp);
