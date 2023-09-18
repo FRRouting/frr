@@ -13693,13 +13693,10 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 		}
 
 		/* Configured and Synced tcp-mss value for peer */
-		if (CHECK_FLAG(p->flags, PEER_FLAG_TCP_MSS)) {
-			sync_tcp_mss = sockopt_tcp_mss_get(p->connection->fd);
-			json_object_int_add(json_neigh, "bgpTcpMssConfigured",
-					    p->tcp_mss);
-			json_object_int_add(json_neigh, "bgpTcpMssSynced",
-					    sync_tcp_mss);
-		}
+		sync_tcp_mss = sockopt_tcp_mss_get(p->connection->fd);
+		json_object_int_add(json_neigh, "bgpTcpMssConfigured",
+				    p->tcp_mss);
+		json_object_int_add(json_neigh, "bgpTcpMssSynced", sync_tcp_mss);
 
 		/* Extended Optional Parameters Length for BGP OPEN Message */
 		if (BGP_OPEN_EXT_OPT_PARAMS_CAPABLE(p))
@@ -13779,11 +13776,9 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 				p->delayopen);
 
 		/* Configured and synced tcp-mss value for peer */
-		if (CHECK_FLAG(p->flags, PEER_FLAG_TCP_MSS)) {
-			sync_tcp_mss = sockopt_tcp_mss_get(p->connection->fd);
-			vty_out(vty, "  Configured tcp-mss is %d", p->tcp_mss);
-			vty_out(vty, ", synced tcp-mss is %d\n", sync_tcp_mss);
-		}
+		sync_tcp_mss = sockopt_tcp_mss_get(p->connection->fd);
+		vty_out(vty, "  Configured tcp-mss is %d", p->tcp_mss);
+		vty_out(vty, ", synced tcp-mss is %d\n", sync_tcp_mss);
 
 		/* Extended Optional Parameters Length for BGP OPEN Message */
 		if (BGP_OPEN_EXT_OPT_PARAMS_CAPABLE(p))
