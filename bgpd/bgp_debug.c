@@ -498,6 +498,7 @@ const char *bgp_notify_subcode_str(char code, char subcode)
 const char *bgp_notify_admin_message(char *buf, size_t bufsz, uint8_t *data,
 				     size_t datalen)
 {
+	memset(buf, 0, bufsz);
 	if (!data || datalen < 1)
 		return buf;
 
