@@ -1257,8 +1257,9 @@ int ospf_network_unset(struct ospf *ospf, struct prefix_ipv4 *p,
 {
 	struct route_node *rn;
 	struct ospf_network *network;
-	struct listnode *node, *nnode;
+	struct listnode *node;
 	struct ospf_interface *oi;
+	struct list *ospf_oiflist = NULL;
 
 	rn = route_node_lookup(ospf->networks, (struct prefix *)p);
 	if (rn == NULL)
@@ -1273,8 +1274,9 @@ int ospf_network_unset(struct ospf *ospf, struct prefix_ipv4 *p,
 	rn->info = NULL;
 	route_unlock_node(rn); /* initial reference */
 
-	/* Find interfaces that are not configured already.  */
-	for (ALL_LIST_ELEMENTS(ospf->oiflist, node, nnode, oi)) {
+	ospf_oiflist = list_dup(ospf->oiflist);
+	/* Find interfaces that are not configured already. */
+	for (ALL_LIST_ELEMENTS_RO(ospf_oiflist, node, oi)) {
 
 		if (oi->type == OSPF_IFTYPE_VIRTUALLINK)
 			continue;
@@ -1282,12 +1284,15 @@ int ospf_network_unset(struct ospf *ospf, struct prefix_ipv4 *p,
 		ospf_network_run_subnet(ospf, oi->connected, NULL, NULL);
 	}
 
+	list_delete(&ospf_oiflist);
+
 	/* Update connected redistribute. */
 	update_redistributed(ospf, 0); /* interfaces possibly removed */
 	ospf_area_check_free(ospf, area_id);
 
 	return 1;
 }
+
 
 /* Ensure there's an OSPF instance, as "ip ospf area" enabled OSPF means
  * there might not be any 'router ospf' config.
