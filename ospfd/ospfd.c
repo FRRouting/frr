@@ -1257,7 +1257,7 @@ int ospf_network_unset(struct ospf *ospf, struct prefix_ipv4 *p,
 {
 	struct route_node *rn;
 	struct ospf_network *network;
-	struct listnode *node, *nnode;
+	struct listnode *node;
 	struct ospf_interface *oi;
 	struct list *ospf_oiflist = NULL;
 
