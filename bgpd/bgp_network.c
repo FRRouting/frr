@@ -334,6 +334,53 @@ static int bgp_get_instance_for_inc_conn(int sock, struct bgp **bgp_inst)
 #endif
 }
 
+int bgp_tcp_mss_set(struct peer *peer)
+{
+	struct listnode *node;
+	int ret = 0;
+	struct bgp_listener *listener;
+	uint32_t min_mss = 0;
+	struct peer *p;
+
+	for (ALL_LIST_ELEMENTS_RO(peer->bgp->peer, node, p)) {
+		if (!CHECK_FLAG(p->flags, PEER_FLAG_TCP_MSS))
+			continue;
+
+		if (!p->tcp_mss)
+			continue;
+
+		if (!min_mss)
+			min_mss = p->tcp_mss;
+
+		min_mss = MIN(min_mss, p->tcp_mss);
+	}
+
+	frr_with_privs(&bgpd_privs) {
+		for (ALL_LIST_ELEMENTS_RO(bm->listen_sockets, node, listener)) {
+			if (listener->su.sa.sa_family !=
+			    peer->connection->su.sa.sa_family)
+				continue;
+
+			if (!listener->bgp) {
+				if (peer->bgp->vrf_id != VRF_DEFAULT)
+					continue;
+			} else if (listener->bgp != peer->bgp)
+				continue;
+
+			/* Set TCP MSS per listener only if there is at least
+			 * one peer that is in passive mode. Otherwise, TCP MSS
+			 * is set per socket via bgp_connect().
+			 */
+			if (CHECK_FLAG(peer->flags, PEER_FLAG_PASSIVE))
+				sockopt_tcp_mss_set(listener->fd, min_mss);
+
+			break;
+		}
+	}
+
+	return ret;
+}
+
 static void bgp_socket_set_buffer_size(const int fd)
 {
 	if (getsockopt_so_sendbuf(fd) < (int)bm->socket_buffer)

@@ -30,6 +30,7 @@ extern int bgp_md5_unset_prefix(struct bgp *bgp, struct prefix *p);
 extern int bgp_md5_set(struct peer_connection *connection);
 extern int bgp_md5_unset(struct peer_connection *connection);
 extern int bgp_set_socket_ttl(struct peer_connection *connection);
+extern int bgp_tcp_mss_set(struct peer *peer);
 extern int bgp_update_address(struct interface *ifp, const union sockunion *dst,
 			      union sockunion *addr);
 

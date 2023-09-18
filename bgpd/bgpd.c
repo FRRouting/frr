@@ -5779,6 +5779,7 @@ void peer_tcp_mss_set(struct peer *peer, uint32_t tcp_mss)
 {
 	peer->tcp_mss = tcp_mss;
 	SET_FLAG(peer->flags, PEER_FLAG_TCP_MSS);
+	bgp_tcp_mss_set(peer);
 }
 
 /* Reset the TCP-MSS value in the peer structure,
@@ -5789,6 +5790,7 @@ void peer_tcp_mss_unset(struct peer *peer)
 {
 	UNSET_FLAG(peer->flags, PEER_FLAG_TCP_MSS);
 	peer->tcp_mss = 0;
+	bgp_tcp_mss_set(peer);
 }
 
 /*
