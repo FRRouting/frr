@@ -972,6 +972,7 @@ static void bgp_show_nexthop(struct vty *vty, struct bgp *bgp,
 {
 	char buf[PREFIX2STR_BUFFER];
 	time_t tbuf;
+	char timebuf[32];
 	struct peer *peer;
 	json_object *json_last_update = NULL;
 	json_object *json_nexthop = NULL;
@@ -1070,14 +1071,14 @@ static void bgp_show_nexthop(struct vty *vty, struct bgp *bgp,
 			json_last_update = json_object_new_object();
 			json_object_int_add(json_last_update, "epoch", tbuf);
 			json_object_string_add(json_last_update, "string",
-					       ctime(&tbuf));
+					       ctime_r(&tbuf, timebuf));
 			json_object_object_add(json_nexthop, "lastUpdate",
 					       json_last_update);
 		} else {
 			json_object_int_add(json_nexthop, "lastUpdate", tbuf);
 		}
 	} else {
-		vty_out(vty, "  Last update: %s", ctime(&tbuf));
+		vty_out(vty, "  Last update: %s", ctime_r(&tbuf, timebuf));
 	}
 
 	/* show paths dependent on nexthop, if needed. */

@@ -10090,6 +10090,7 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 	char tag_buf[30];
 	struct attr *attr = path->attr;
 	time_t tbuf;
+	char timebuf[32];
 	json_object *json_bestpath = NULL;
 	json_object *json_cluster_list = NULL;
 	json_object *json_cluster_list_list = NULL;
@@ -10983,11 +10984,11 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 		json_last_update = json_object_new_object();
 		json_object_int_add(json_last_update, "epoch", tbuf);
 		json_object_string_add(json_last_update, "string",
-				       ctime(&tbuf));
+				       ctime_r(&tbuf, timebuf));
 		json_object_object_add(json_path, "lastUpdate",
 				       json_last_update);
 	} else
-		vty_out(vty, "      Last update: %s", ctime(&tbuf));
+		vty_out(vty, "      Last update: %s", ctime_r(&tbuf, timebuf));
 
 	/* Line 10 display PMSI tunnel attribute, if present */
 	if (attr->flag & ATTR_FLAG_BIT(BGP_ATTR_PMSI_TUNNEL)) {

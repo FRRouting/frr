@@ -689,6 +689,7 @@ static int update_group_show_walkcb(struct update_group *updgrp, void *arg)
 	json_object *json_peers = NULL;
 	json_object *json_pkt_info = NULL;
 	time_t epoch_tbuf, tbuf;
+	char timebuf[32];
 
 	if (!ctx)
 		return CMD_SUCCESS;
@@ -724,7 +725,7 @@ static int update_group_show_walkcb(struct update_group *updgrp, void *arg)
 		json_time = json_object_new_object();
 		json_object_int_add(json_time, "epoch", epoch_tbuf);
 		json_object_string_add(json_time, "epochString",
-				       ctime(&epoch_tbuf));
+				       ctime_r(&epoch_tbuf, timebuf));
 		json_object_object_add(json_updgrp, "groupCreateTime",
 				       json_time);
 		json_object_string_add(json_updgrp, "afi",
@@ -794,7 +795,7 @@ static int update_group_show_walkcb(struct update_group *updgrp, void *arg)
 			json_object_int_add(json_subgrp_time, "epoch",
 					    epoch_tbuf);
 			json_object_string_add(json_subgrp_time, "epochString",
-					       ctime(&epoch_tbuf));
+					       ctime_r(&epoch_tbuf, timebuf));
 			json_object_object_add(json_subgrp, "groupCreateTime",
 					       json_subgrp_time);
 		} else {
