@@ -533,7 +533,7 @@ int bgp_dest_set_defer_flag(struct bgp_dest *dest, bool delete)
 			bgp->gr_info[afi][safi].gr_deferred++;
 		SET_FLAG(dest->flags, BGP_NODE_SELECT_DEFER);
 		if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
-			zlog_debug("%s: Defer route %pRN, dest %p", bgp->name_pretty, dest, dest);
+			zlog_debug("%s: Defer route %pBD, dest %p", bgp->name_pretty, dest, dest);
 		return 0;
 	}
 
