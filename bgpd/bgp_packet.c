@@ -2149,11 +2149,19 @@ static int bgp_update_receive(struct peer_connection *connection,
 
 		peer->stat_upd_7606++;
 
-		if (attr_parse_ret == BGP_ATTR_PARSE_WITHDRAW)
+		if (attr_parse_ret == BGP_ATTR_PARSE_WITHDRAW) {
 			flog_err(
 				EC_BGP_UPDATE_RCV,
 				"%pBP rcvd UPDATE with errors in attr(s)!! Withdrawing route.",
 				peer);
+
+			/* If Total Path Attribute Length is less than minimum,
+			 * treat it as withdrawn. No need to continue and parse
+			 * NLRIs.
+			 */
+			if (attribute_len < BGP_ATTR_MIN_LEN)
+				goto done;
+		}
 
 		if (ret && bgp_debug_update(peer, NULL, NULL, 1)) {
 			zlog_debug("%pBP rcvd UPDATE w/ attr: %s", peer,
@@ -2319,7 +2327,7 @@ static int bgp_update_receive(struct peer_connection *connection,
 				peer->host, vrf ? vrf->name : VRF_DEFAULT_NAME);
 		}
 	}
-
+done:
 	/* Everything is done.  We unintern temporary structures which
 	   interned in bgp_attr_parse(). */
 	bgp_attr_unintern_sub(&attr);
