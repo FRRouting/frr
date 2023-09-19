@@ -795,13 +795,16 @@ struct thash_head {
 	uint8_t minshift, maxshift;
 };
 
-#define _HASH_SIZE(tabshift) \
-	((1U << (tabshift)) >> 1)
+#define _HASH_SIZE(tabshift)                                                   \
+	({                                                                     \
+		assume((tabshift) <= 31);                                      \
+		(1U << (tabshift)) >> 1;                                       \
+	})
 #define HASH_SIZE(head) \
 	_HASH_SIZE((head).tabshift)
 #define _HASH_KEY(tabshift, val)                                               \
 	({                                                                     \
-		assume((tabshift) >= 2 && (tabshift) <= 33);                   \
+		assume((tabshift) >= 2 && (tabshift) <= 31);                   \
 		(val) >> (33 - (tabshift));                                    \
 	})
 #define HASH_KEY(head, val) \
