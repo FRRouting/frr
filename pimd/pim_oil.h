@@ -112,7 +112,7 @@ static inline pim_addr *oil_mcastgrp(struct channel_oil *c_oil)
 	return &c_oil->oil.mfcc_mcastgrp;
 }
 
-static inline vifi_t *oil_parent(struct channel_oil *c_oil)
+static inline vifi_t *oil_incoming_vif(struct channel_oil *c_oil)
 {
 	return &c_oil->oil.mfcc_parent;
 }
@@ -143,7 +143,7 @@ static inline pim_addr *oil_mcastgrp(struct channel_oil *c_oil)
 	return &c_oil->oil.mf6cc_mcastgrp.sin6_addr;
 }
 
-static inline mifi_t *oil_parent(struct channel_oil *c_oil)
+static inline mifi_t *oil_incoming_vif(struct channel_oil *c_oil)
 {
 	return &c_oil->oil.mf6cc_parent;
 }
