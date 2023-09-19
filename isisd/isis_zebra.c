@@ -1017,11 +1017,14 @@ void isis_zebra_srv6_adj_sid_install(struct srv6_adjacency *sra)
 	struct seg6local_context ctx = {};
 	uint16_t prefixlen = IPV6_MAX_BITLEN;
 	struct interface *ifp;
-	struct isis_circuit *circuit = sra->adj->circuit;
-	struct isis_area *area = circuit->area;
+	struct isis_circuit *circuit;
+	struct isis_area *area;
 
 	if (!sra)
 		return;
+
+	circuit = sra->adj->circuit;
+	area = circuit->area;
 
 	sr_debug("ISIS-SRv6 (%s): setting adjacency SID %pI6", area->area_tag,
 		 &sra->sid);
@@ -1071,11 +1074,14 @@ void isis_zebra_srv6_adj_sid_uninstall(struct srv6_adjacency *sra)
 	enum seg6local_action_t action = ZEBRA_SEG6_LOCAL_ACTION_UNSPEC;
 	struct interface *ifp;
 	uint16_t prefixlen = IPV6_MAX_BITLEN;
-	struct isis_circuit *circuit = sra->adj->circuit;
-	struct isis_area *area = circuit->area;
+	struct isis_circuit *circuit;
+	struct isis_area *area;
 
 	if (!sra)
 		return;
+
+	circuit = sra->adj->circuit;
+	area = circuit->area;
 
 	switch (sra->behavior) {
 	case SRV6_ENDPOINT_BEHAVIOR_END_X:
@@ -1129,6 +1135,9 @@ static int isis_zebra_process_srv6_locator_chunk(ZAPI_CALLBACK_ARGS)
 	struct isis_adjacency *adj;
 	enum srv6_endpoint_behavior_codepoint behavior;
 	bool allocated = false;
+
+	if (!isis)
+		return -1;
 
 	/* Decode the received zebra message */
 	s = zclient->ibuf;
