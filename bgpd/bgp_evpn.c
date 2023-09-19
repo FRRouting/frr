@@ -1722,8 +1722,8 @@ static void bgp_evpn_get_sync_info(struct bgp *bgp, esi_t *esi,
 				continue;
 		}
 
-		if (bgp_evpn_path_info_cmp(bgp, tmp_pi,
-				second_best_path, &paths_eq))
+		if (bgp_evpn_path_info_cmp(bgp, tmp_pi, second_best_path,
+					   &paths_eq, false))
 			second_best_path = tmp_pi;
 	}
 

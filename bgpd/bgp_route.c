@@ -1493,11 +1493,11 @@ int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 
 
 int bgp_evpn_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
-			     struct bgp_path_info *exist, int *paths_eq)
+			   struct bgp_path_info *exist, int *paths_eq,
+			   bool debug)
 {
 	enum bgp_path_selection_reason reason;
 	char pfx_buf[PREFIX2STR_BUFFER] = {};
-	bool debug = false;
 
 	if (debug)
 		prefix2str(bgp_dest_get_prefix(new->net), pfx_buf,
