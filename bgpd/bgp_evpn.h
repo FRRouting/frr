@@ -95,6 +95,9 @@ static inline int is_route_parent_evpn(struct bgp_path_info *ri)
 	return 0;
 }
 
+#define IS_L2VPN_AFI_IN_NON_DEFAULT_VRF(bgp, afi, safi)                                           \
+	(afi == AFI_L2VPN && safi == SAFI_EVPN && bgp != bgp_get_evpn())
+
 /* Flag if the route path's family is EVPN. */
 static inline bool is_pi_family_evpn(struct bgp_path_info *pi)
 {

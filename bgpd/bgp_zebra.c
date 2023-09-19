@@ -4615,7 +4615,19 @@ int bgp_zebra_update(struct bgp *bgp, afi_t afi, safi_t safi,
 {
 	struct zapi_cap api = {0};
 
-	if (BGP_DEBUG(zebra, ZEBRA))
+	/*
+	 * For non-default VRF do not communicate UPDATE_PENDING or
+	 * UPDATE_COMPLTETE for l2vpn evpn AFI SAFI.
+	 */
+	if (IS_L2VPN_AFI_IN_NON_DEFAULT_VRF(bgp, afi, safi)) {
+		if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
+			zlog_debug("%s: %s afi: %u safi: %u Command %s ignore", __func__,
+				   bgp->name_pretty, afi, safi, zserv_gr_client_cap_string(type));
+
+		return BGP_GR_SUCCESS;
+	}
+
+	if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
 		zlog_debug("%s: %s afi: %u safi: %u Command %s", __func__,
 			   bgp->name_pretty, afi, safi,
 			   zserv_gr_client_cap_string(type));
