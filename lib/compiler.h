@@ -122,6 +122,14 @@ extern "C" {
 #define assume(x)
 #endif
 
+#ifdef __COVERITY__
+/* __coverity_panic__() is named a bit poorly, it's essentially the same as
+ * __builtin_unreachable().  Used to eliminate false positives.
+ */
+#undef assume
+#define assume(x) do { if (!(x)) __coverity_panic__(); } while (0)
+#endif
+
 /* for helper functions defined inside macros */
 #define macro_inline	static inline __attribute__((unused))
 #define macro_pure	static inline __attribute__((unused, pure))
