@@ -2378,9 +2378,6 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 	    bgp_otc_egress(peer, attr))
 		return false;
 
-	bgp_peer_remove_private_as(bgp, afi, safi, peer, attr);
-	bgp_peer_as_override(bgp, afi, safi, peer, attr);
-
 	if (filter->advmap.update_type == UPDATE_TYPE_WITHDRAW &&
 	    filter->advmap.aname &&
 	    route_map_lookup_by_name(filter->advmap.aname)) {
@@ -2452,6 +2449,9 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 			return false;
 		}
 	}
+
+	bgp_peer_remove_private_as(bgp, afi, safi, peer, attr);
+	bgp_peer_as_override(bgp, afi, safi, peer, attr);
 
 	/* RFC 8212 to prevent route leaks.
 	 * This specification intends to improve this situation by requiring the
