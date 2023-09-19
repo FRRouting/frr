@@ -1505,7 +1505,7 @@ int evpn_route_select_install(struct bgp *bgp, struct bgpevpn *vpn,
 	 */
 	if (CHECK_FLAG(dest->flags, BGP_NODE_SELECT_DEFER)) {
 		if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
-			zlog_debug("%s: SELECT_DEFER flag set for EVPN route %pRN, dest %p",
+			zlog_debug("%s: SELECT_DEFER flag set for EVPN route %pBD, dest %p",
 				   bgp->name_pretty, dest, dest);
 
 		return ret;
