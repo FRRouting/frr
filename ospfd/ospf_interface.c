@@ -549,6 +549,7 @@ static struct ospf_if_params *ospf_new_if_params(void)
 	UNSET_IF_PARAM(oip, auth_type);
 	UNSET_IF_PARAM(oip, if_area);
 	UNSET_IF_PARAM(oip, opaque_capable);
+	UNSET_IF_PARAM(oip, keychain_name);
 
 	oip->auth_crypt = list_new();
 
@@ -566,6 +567,7 @@ static void ospf_del_if_params(struct interface *ifp,
 			       struct ospf_if_params *oip)
 {
 	list_delete(&oip->auth_crypt);
+	XFREE(MTYPE_OSPF_IF_PARAMS, oip->keychain_name);
 	ospf_interface_disable_bfd(ifp, oip);
 	ldp_sync_info_free(&(oip->ldp_sync_info));
 	XFREE(MTYPE_OSPF_IF_PARAMS, oip);
@@ -601,6 +603,7 @@ void ospf_free_if_params(struct interface *ifp, struct in_addr addr)
 	    !OSPF_IF_PARAM_CONFIGURED(oip, if_area) &&
 	    !OSPF_IF_PARAM_CONFIGURED(oip, opaque_capable) &&
 	    !OSPF_IF_PARAM_CONFIGURED(oip, prefix_suppression) &&
+		!OSPF_IF_PARAM_CONFIGURED(oip, keychain_name) &&
 	    listcount(oip->auth_crypt) == 0) {
 		ospf_del_if_params(ifp, oip);
 		rn->info = NULL;
