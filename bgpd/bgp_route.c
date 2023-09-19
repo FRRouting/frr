@@ -434,10 +434,11 @@ bool bgp_path_info_nexthop_changed(struct bgp_path_info *pi, struct peer *to,
 }
 
 /* This function sets flag BGP_NODE_SELECT_DEFER based on condition */
-static int bgp_dest_set_defer_flag(struct bgp_dest *dest, bool delete)
+int bgp_dest_set_defer_flag(struct bgp_dest *dest, bool delete)
 {
 	struct peer *peer;
 	struct bgp_path_info *old_pi, *nextpi;
+	bool pi_is_imported_from_evpn = false;
 	bool set_flag = false;
 	struct bgp *bgp = NULL;
 	struct bgp_table *table = NULL;
@@ -465,22 +466,25 @@ static int bgp_dest_set_defer_flag(struct bgp_dest *dest, bool delete)
 	}
 
 	table = bgp_dest_table(dest);
-	if (table) {
-		bgp = table->bgp;
-		afi = table->afi;
-		safi = table->safi;
-	}
+	if (!table)
+		return -1;
+
+	bgp = table->bgp;
+	afi = table->afi;
+	safi = table->safi;
 
 	for (old_pi = bgp_dest_get_bgp_path_info(dest);
 	     (old_pi != NULL) && (nextpi = old_pi->next, 1); old_pi = nextpi) {
 		if (CHECK_FLAG(old_pi->flags, BGP_PATH_SELECTED))
 			continue;
 
+
 		/* Route selection is deferred if there is a stale path which
 		 * which indicates peer is in restart mode
 		 */
-		if (CHECK_FLAG(old_pi->flags, BGP_PATH_STALE)
-		    && (old_pi->sub_type == BGP_ROUTE_NORMAL)) {
+		if (CHECK_FLAG(old_pi->flags, BGP_PATH_STALE) &&
+		    (old_pi->sub_type == BGP_ROUTE_NORMAL ||
+		     IS_PATH_IMPORTED_FROM_EVPN_TABLE(old_pi))) {
 			set_flag = true;
 		} else {
 			/* If the peer is graceful restart capable and peer is
@@ -494,29 +498,45 @@ static int bgp_dest_set_defer_flag(struct bgp_dest *dest, bool delete)
 			peer = old_pi->peer;
 			if (BGP_PEER_GRACEFUL_RESTART_CAPABLE(peer) &&
 			    BGP_PEER_RESTARTING_MODE(peer) &&
-			    (old_pi && old_pi->sub_type == BGP_ROUTE_NORMAL)) {
+			    (old_pi && (old_pi->sub_type == BGP_ROUTE_NORMAL ||
+					IS_PATH_IMPORTED_FROM_EVPN_TABLE(old_pi)))) {
 				set_flag = true;
 			}
 		}
-		if (set_flag)
+		if (set_flag) {
+			if (IS_PATH_IMPORTED_FROM_EVPN_TABLE(old_pi))
+				pi_is_imported_from_evpn = true;
 			break;
-	}
-
-	/* Set the flag BGP_NODE_SELECT_DEFER if route selection deferral timer
-	 * is active
-	 */
-	if (set_flag && table) {
-		if (bgp && (bgp->gr_info[afi][safi].t_select_deferral ||
-			    bgp->gr_info[afi][safi].t_select_deferral_tier2)) {
-			if (!CHECK_FLAG(dest->flags, BGP_NODE_SELECT_DEFER))
-				bgp->gr_info[afi][safi].gr_deferred++;
-			SET_FLAG(dest->flags, BGP_NODE_SELECT_DEFER);
-			if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
-				zlog_debug("%s: Defer route %pBD, dest %p", bgp->name_pretty, dest,
-					   dest);
-			return 0;
 		}
 	}
+
+	if (!set_flag)
+		return -1;
+
+	struct bgp *bgp_evpn = bgp_get_evpn();
+
+	/* Set the flag BGP_NODE_SELECT_DEFER on prefix/dest if route selection
+	 * deferral timer is active. RFC4724 says that restarting BGP node must
+	 * defer bestpath selection for a prefix/dest until EORs are received
+	 * from all the GR helpers.
+	 *
+	 * If the dest is an imported route in destination VRF, check if the
+	 * GR timer for this afi-safi in destaination VRF is running. If the GR
+	 * timer for this afi-safi in destination VRF is not running, then check
+	 * if GR timer for L2VPN EVPN in global table is running. If yes, then
+	 * mark the route as deferred.
+	 */
+	if (BGP_GR_SELECT_DEFERRAL_TIMER_IS_RUNNING(bgp, afi, safi) ||
+	    (pi_is_imported_from_evpn && bgp_evpn != NULL &&
+	     BGP_GR_SELECT_DEFERRAL_TIMER_IS_RUNNING(bgp_evpn, AFI_L2VPN, SAFI_EVPN))) {
+		if (!CHECK_FLAG(dest->flags, BGP_NODE_SELECT_DEFER))
+			bgp->gr_info[afi][safi].gr_deferred++;
+		SET_FLAG(dest->flags, BGP_NODE_SELECT_DEFER);
+		if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
+			zlog_debug("%s: Defer route %pRN, dest %p", bgp->name_pretty, dest, dest);
+		return 0;
+	}
+
 	return -1;
 }
 
@@ -4338,11 +4358,38 @@ static void bgp_gr_start_tier2_timer_if_required(struct bgp *bgp, afi_t afi, saf
 	}
 }
 
+static inline int bgp_deferred_path_selection(struct bgp *bgp, afi_t afi, safi_t safi)
+{
+	struct bgp_dest *dest = NULL;
+	int cnt = 0;
+
+	for (dest = bgp_table_top(bgp->rib[afi][safi]);
+	     dest && bgp->gr_info[afi][safi].gr_deferred != 0 && cnt < BGP_MAX_BEST_ROUTE_SELECT;
+	     dest = bgp_route_next(dest)) {
+		if (!CHECK_FLAG(dest->flags, BGP_NODE_SELECT_DEFER))
+			continue;
+
+		UNSET_FLAG(dest->flags, BGP_NODE_SELECT_DEFER);
+		bgp->gr_info[afi][safi].gr_deferred--;
+		bgp_process_main_one(bgp, dest, afi, safi);
+		cnt++;
+	}
+
+	/* If iteration stopped before the entire table was traversed then the
+	 * node needs to be unlocked.
+	 */
+	if (dest) {
+		bgp_dest_unlock_node(dest);
+		dest = NULL;
+	}
+
+	return cnt;
+}
+
 /* Process the routes with the flag BGP_NODE_SELECT_DEFER set */
 void bgp_do_deferred_path_selection(struct bgp *bgp, afi_t afi, safi_t safi)
 {
 	struct bgp_dest *dest;
-	int cnt = 0;
 	struct afi_safi_info *thread_info;
 
 	if (bgp->gr_info[afi][safi].t_route_select) {
@@ -4365,25 +4412,72 @@ void bgp_do_deferred_path_selection(struct bgp *bgp, afi_t afi, safi_t safi)
 
 	frrtrace(4, frr_bgp, gr_eors, bgp->name_pretty, afi, safi, 7);
 
-	/* Process the route list */
-	for (dest = bgp_table_top(bgp->rib[afi][safi]);
-	     dest && bgp->gr_info[afi][safi].gr_deferred != 0 &&
-	     cnt < BGP_MAX_BEST_ROUTE_SELECT;
-	     dest = bgp_route_next(dest)) {
-		if (!CHECK_FLAG(dest->flags, BGP_NODE_SELECT_DEFER))
-			continue;
+	if (afi == AFI_L2VPN && safi == SAFI_EVPN) {
+		/*
+		struct bgp_dest *rd_dest;
+		struct bgp_table *table;
 
-		UNSET_FLAG(dest->flags, BGP_NODE_SELECT_DEFER);
-		bgp->gr_info[afi][safi].gr_deferred--;
-		bgp_process_main_one(bgp, dest, afi, safi);
-		cnt++;
-	}
-	/* If iteration stopped before the entire table was traversed then the
-	 * node needs to be unlocked.
-	 */
-	if (dest) {
-		bgp_dest_unlock_node(dest);
-		dest = NULL;
+		for (rd_dest = bgp_table_top(bgp->rib[afi][safi]); rd_dest;
+		     rd_dest = bgp_route_next(rd_dest)) {
+			table = bgp_dest_get_bgp_table_info(rd_dest);
+			if (!table)
+				continue;
+
+			for (dest = bgp_table_top(table); dest;
+			     dest = bgp_route_next(dest)) {
+				if (!CHECK_FLAG(dest->flags,
+						BGP_NODE_SELECT_DEFER))
+					continue;
+
+				UNSET_FLAG(dest->flags, BGP_NODE_SELECT_DEFER);
+				bgp->gr_info[afi][safi].gr_deferred--;
+				bgp_process_main_one(bgp, dest, afi, safi);
+				cnt++;
+			}
+		}*/
+	} else if (safi == SAFI_UNICAST && (afi == AFI_IP || afi == AFI_IP6)) {
+		struct bgp *bgp_evpn = bgp_get_evpn();
+
+		if (bgp->vrf_id == VRF_DEFAULT) {
+			/*
+			 * Process the route list for IPv4/IPv6 unicast table
+			 * in default VRF
+			 */
+			bgp_deferred_path_selection(bgp, afi, safi);
+		} else if (!bgp_evpn || !bgp_evpn->gr_info[AFI_L2VPN][SAFI_EVPN].af_enabled ||
+			   bgp_evpn->gr_info[AFI_L2VPN][SAFI_EVPN].route_sync_tier2) {
+			/*
+			 * Process the route list for IPv4/IPv6 unicast table
+			 * in non-default VRF.
+			 *
+			 * For non-default VRF, deferred bestpath selection will
+			 * take place if:
+			 *
+			 * 1. GR is NOT enabled for l2vpn evpn afi safi in EVPN
+			 * default VRF
+			 *
+			 * OR
+			 *
+			 * 2. GR is enabled for l2vpn evpn afi safi in EVPN
+			 * default VRF and GR is complete
+			 */
+			bgp_deferred_path_selection(bgp, afi, safi);
+		} else {
+			if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART)) {
+				if (bgp_evpn)
+					zlog_debug("%s: Skipped BGP deferred path selection for %s. GR %sabled for L2VPN EVPN. UPDATE_COMPLETE %s for %s",
+						   bgp->name_pretty,
+						   get_afi_safi_str(afi, safi, false),
+						   bgp_evpn->gr_info[AFI_L2VPN][SAFI_EVPN].af_enabled
+							   ? "en"
+							   : "dis",
+						   bgp_evpn->gr_info[AFI_L2VPN][SAFI_EVPN]
+								   .route_sync_tier2
+							   ? "done"
+							   : "NOT done",
+						   bgp_evpn->name_pretty);
+			}
+		}
 	}
 
 	/*
@@ -6707,14 +6801,12 @@ static wq_item_status bgp_clear_route_node(struct work_queue *wq, void *data)
 			continue;
 
 		/* graceful restart STALE flag set. */
-		if (((CHECK_FLAG(peer->sflags, PEER_STATUS_NSF_WAIT)
-		      && peer->nsf[afi][safi])
-		     || CHECK_FLAG(peer->af_sflags[afi][safi],
-				   PEER_STATUS_ENHANCED_REFRESH))
-		    && !CHECK_FLAG(pi->flags, BGP_PATH_STALE)
-		    && !CHECK_FLAG(pi->flags, BGP_PATH_UNUSEABLE))
+		if (((CHECK_FLAG(peer->sflags, PEER_STATUS_NSF_WAIT) && peer->nsf[afi][safi]) ||
+		     CHECK_FLAG(peer->af_sflags[afi][safi], PEER_STATUS_ENHANCED_REFRESH)) &&
+		    !CHECK_FLAG(pi->flags, BGP_PATH_STALE) &&
+		    !CHECK_FLAG(pi->flags, BGP_PATH_UNUSEABLE)) {
 			bgp_path_info_set_flag(dest, pi, BGP_PATH_STALE);
-		else {
+		} else {
 			/* If this is an EVPN route, process for
 			 * un-import. */
 			if (safi == SAFI_EVPN)

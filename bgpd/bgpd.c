@@ -3656,14 +3656,7 @@ peer_init:
 		bgp_maximum_paths_set(bgp, afi, safi, BGP_PEER_IBGP,
 				      multipath_num, 0);
 		/* Initialize graceful restart info */
-		bgp->gr_info[afi][safi].t_select_deferral = NULL;
-		bgp->gr_info[afi][safi].t_select_deferral_tier2 = NULL;
-		bgp->gr_info[afi][safi].t_route_select = NULL;
-		bgp->gr_info[afi][safi].gr_deferred = 0;
-		bgp->gr_info[afi][safi].select_defer_over = false;
-		bgp->gr_info[afi][safi].select_defer_over_tier2 = false;
-		bgp->gr_info[afi][safi].select_defer_tier2_required = false;
-		bgp->gr_info[afi][safi].route_sync_tier2 = false;
+		memset(&bgp->gr_info[afi][safi], 0, sizeof(struct graceful_restart_info));
 	}
 
 	bgp->v_update_delay = bm->v_update_delay;
