@@ -3619,9 +3619,15 @@ DEFUN(bgp_llgr_stalepath_time, bgp_llgr_stalepath_time_cmd,
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
 
 	uint32_t llgr_stale_time;
+	struct listnode *node, *nnode;
+	struct peer *peer;
 
 	llgr_stale_time = strtoul(argv[3]->arg, NULL, 10);
 	bgp->llgr_stale_time = llgr_stale_time;
+
+	for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer))
+		bgp_capability_send(peer, AFI_IP, SAFI_UNICAST,
+				    CAPABILITY_CODE_LLGR, CAPABILITY_ACTION_SET);
 
 	return CMD_SUCCESS;
 }
@@ -3634,8 +3640,15 @@ DEFUN(no_bgp_llgr_stalepath_time, no_bgp_llgr_stalepath_time_cmd,
       "Stale time value (seconds)\n")
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
+	struct listnode *node, *nnode;
+	struct peer *peer;
 
 	bgp->llgr_stale_time = BGP_DEFAULT_LLGR_STALE_TIME;
+
+	for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer))
+		bgp_capability_send(peer, AFI_IP, SAFI_UNICAST,
+				    CAPABILITY_CODE_LLGR,
+				    CAPABILITY_ACTION_UNSET);
 
 	return CMD_SUCCESS;
 }
@@ -12622,6 +12635,8 @@ static void bgp_show_neighbor_graceful_restart_capability_per_afi_safi(
 		if (json) {
 			json_object_int_add(json_timer, "stalePathTimer",
 					    peer->bgp->stalepath_time);
+			json_object_int_add(json_timer, "llgrStaleTime",
+					    peer->llgr[afi][safi].stale_time);
 
 			if (peer->connection->t_gr_stale != NULL) {
 				json_object_int_add(json_timer,
@@ -12672,6 +12687,9 @@ static void bgp_show_neighbor_graceful_restart_capability_per_afi_safi(
 					"        Configured Selection Deferral Time(sec): %u\n",
 					peer->bgp->select_defer_time);
 
+			vty_out(vty, "        LLGR Stale Path Time(sec): %u\n",
+				peer->llgr[afi][safi].stale_time);
+
 			if (peer->bgp->gr_info[afi][safi].t_select_deferral !=
 			    NULL)
 				vty_out(vty,
@@ -12703,6 +12721,8 @@ static void bgp_show_neighbor_graceful_restart_time(struct vty *vty,
 
 		json_object_int_add(json_timer, "configuredRestartTimer",
 				    p->bgp->restart_time);
+		json_object_int_add(json_timer, "configuredLlgrStaleTime",
+				    p->bgp->llgr_stale_time);
 
 		json_object_int_add(json_timer, "receivedRestartTimer",
 				    p->v_gr_restart);
@@ -12721,6 +12741,8 @@ static void bgp_show_neighbor_graceful_restart_time(struct vty *vty,
 
 		vty_out(vty, "      Received Restart Time(sec): %u\n",
 			p->v_gr_restart);
+		vty_out(vty, "      Configured LLGR Stale Path Time(sec): %u\n",
+			p->bgp->llgr_stale_time);
 		if (p->connection->t_gr_restart != NULL)
 			vty_out(vty, "      Restart Time Remaining(sec): %ld\n",
 				event_timer_remain_second(

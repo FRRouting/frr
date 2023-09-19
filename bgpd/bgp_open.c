@@ -576,18 +576,6 @@ static int bgp_capability_restart(struct peer *peer,
 static int bgp_capability_llgr(struct peer *peer,
 			       struct capability_header *caphdr)
 {
-/*
- * +--------------------------------------------------+
- * | Address Family Identifier (16 bits)              |
- * +--------------------------------------------------+
- * | Subsequent Address Family Identifier (8 bits)    |
- * +--------------------------------------------------+
- * | Flags for Address Family (8 bits)                |
- * +--------------------------------------------------+
- * | Long-lived Stale Time (24 bits)                  |
- * +--------------------------------------------------+
- */
-#define BGP_CAP_LLGR_MIN_PACKET_LEN 7
 	struct stream *s = BGP_INPUT(peer);
 	size_t end = stream_get_getp(s) + caphdr->length;
 
