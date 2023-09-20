@@ -43,6 +43,9 @@ from lib.pim import (
     verify_sg_traffic,
     verify_upstream_iif,
 )
+from lib.bgp import (
+    verify_bgp_convergence,
+)
 from lib.topogen import Topogen, get_topogen
 from lib.topojson import build_config_from_json
 from lib.topolog import logger
@@ -129,6 +132,12 @@ def setup_module(mod):
     # Creating configuration from JSON
     build_config_from_json(tgen, tgen.json_topo)
 
+    # Verify BGP convergence
+    BGP_CONVERGENCE = verify_bgp_convergence(tgen, topo, addr_type="ipv6")
+    assert BGP_CONVERGENCE is True, "setup_module : Failed \n Error:" " {}".format(
+        BGP_CONVERGENCE
+    )
+
     logger.info("Running setup_module() done")
 
 
@@ -212,6 +221,10 @@ def test_clear_mroute_and_verify_multicast_data_p0(request, app_helper):
 
     # Creating configuration from JSON
     reset_config_on_routers(tgen)
+
+    # Verify BGP convergence
+    result = verify_bgp_convergence(tgen, topo, addr_type="ipv6")
+    assert result is True, "Testcase {} : Failed \n Error {}".format(tc_name, result)
 
     app_helper.stop_all_hosts()
 
@@ -443,6 +456,10 @@ def test_verify_SPT_switchover_when_RPT_and_SPT_path_is_different_p0(
 
     # Creating configuration from JSON
     reset_config_on_routers(tgen)
+
+    # Verify BGP convergence
+    result = verify_bgp_convergence(tgen, topo, addr_type="ipv6")
+    assert result is True, "Testcase {} : Failed \n Error {}".format(tc_name, result)
 
     # Don"t run this test if we have any failure.
     if tgen.routers_have_failure():

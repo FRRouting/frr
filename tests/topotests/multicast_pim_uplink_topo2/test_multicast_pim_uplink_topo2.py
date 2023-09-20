@@ -56,6 +56,9 @@ from lib.pim import (
     verify_pim_interface_traffic,
     McastTesterHelper,
 )
+from lib.bgp import (
+    verify_bgp_convergence,
+)
 from lib.topolog import logger
 from lib.topojson import build_config_from_json
 
@@ -131,6 +134,12 @@ def setup_module(mod):
     global app_helper
     app_helper = McastTesterHelper(tgen)
 
+    # Verify BGP convergence
+    BGP_CONVERGENCE = verify_bgp_convergence(tgen, topo)
+    assert BGP_CONVERGENCE is True, "setup_module : Failed \n Error:" " {}".format(
+        BGP_CONVERGENCE
+    )
+
     logger.info("Running setup_module() done")
 
 
@@ -170,7 +179,6 @@ def get_interfaces_names(topo):
     """
 
     for link in range(1, 5):
-
         intf = topo["routers"]["r1"]["links"]["r2-link{}".format(link)]["interface"]
         r1_r2_links.append(intf)
 
@@ -254,6 +262,10 @@ def test_iif_oil_when_RP_address_changes_from_static_to_BSR_p1(request):
     clear_mroute(tgen)
     reset_config_on_routers(tgen)
     clear_pim_interface_traffic(tgen, topo)
+
+    # Verify BGP convergence
+    result = verify_bgp_convergence(tgen, topo)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     # Don"t run this test if we have any failure.
     if tgen.routers_have_failure():
@@ -516,6 +528,10 @@ def test_mroute_when_RPT_and_SPT_path_is_different_p1(request):
     reset_config_on_routers(tgen)
     clear_pim_interface_traffic(tgen, topo)
 
+    # Verify BGP convergence
+    result = verify_bgp_convergence(tgen, topo)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
+
     # Don"t run this test if we have any failure.
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
@@ -723,6 +739,10 @@ def test_mroutes_updated_with_correct_oil_iif_after_shut_noshut_upstream_interfa
     clear_mroute(tgen)
     reset_config_on_routers(tgen)
     clear_pim_interface_traffic(tgen, topo)
+
+    # Verify BGP convergence
+    result = verify_bgp_convergence(tgen, topo)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     # Don"t run this test if we have any failure.
     if tgen.routers_have_failure():
@@ -1093,6 +1113,10 @@ def test_mroutes_updated_with_correct_oil_iif_after_shut_noshut_downstream_inter
     clear_mroute(tgen)
     reset_config_on_routers(tgen)
     clear_pim_interface_traffic(tgen, topo)
+
+    # Verify BGP convergence
+    result = verify_bgp_convergence(tgen, topo)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     # Don"t run this test if we have any failure.
     if tgen.routers_have_failure():
