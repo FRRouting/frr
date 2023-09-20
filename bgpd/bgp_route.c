@@ -6597,7 +6597,7 @@ int bgp_static_set(struct vty *vty, bool negate, const char *ip_str,
 	int ret;
 	struct prefix p;
 	struct bgp_static *bgp_static;
-	struct prefix_rd prd;
+	struct prefix_rd prd = {};
 	struct bgp_dest *pdest;
 	struct bgp_dest *dest;
 	struct bgp_table *table;
@@ -6626,7 +6626,6 @@ int bgp_static_set(struct vty *vty, bool negate, const char *ip_str,
 	}
 
 	if (safi == SAFI_MPLS_VPN || safi == SAFI_EVPN) {
-		memset(&prd, 0, sizeof(prd));
 		ret = str2prefix_rd(rd_str, &prd);
 		if (!ret) {
 			vty_out(vty, "%% Malformed rd\n");
