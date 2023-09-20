@@ -2598,8 +2598,10 @@ static inline int peer_group_af_configured(struct peer_group *group)
 static inline char *timestamp_string(time_t ts)
 {
 	time_t tbuf;
+	char timebuf[32];
+
 	tbuf = time(NULL) - (monotime(NULL) - ts);
-	return ctime(&tbuf);
+	return ctime_r(&tbuf, timebuf);
 }
 
 static inline bool peer_established(struct peer_connection *connection)

@@ -120,6 +120,7 @@ int main(int argc, char **argv)
 	struct in_addr dip;
 	uint16_t viewno, seq_num;
 	struct prefix_ipv4 p;
+	char tbuf[32];
 
 	s = stream_new(10000);
 
@@ -155,7 +156,7 @@ int main(int argc, char **argv)
 		subtype = stream_getw(s);
 		len = stream_getl(s);
 
-		printf("TIME: %s", ctime(&now));
+		printf("TIME: %s", ctime_r(&now, tbuf));
 
 		/* printf ("TYPE: %d/%d\n", type, subtype); */
 
@@ -239,7 +240,8 @@ int main(int argc, char **argv)
 				source_as = stream_getw(s);
 
 				printf("FROM: %pI4 AS%d\n", &peer, source_as);
-				printf("ORIGINATED: %s", ctime(&originated));
+				printf("ORIGINATED: %s", ctime_r(&originated,
+								 tbuf));
 
 				attrlen = stream_getw(s);
 				printf("ATTRLEN: %d\n", attrlen);
