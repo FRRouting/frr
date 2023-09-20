@@ -881,6 +881,11 @@ static int zlog_5424_open(struct zlog_cfg_5424 *zcf, int sock_type)
 
 	case ZLOG_5424_DST_FD:
 		fd = dup(zcf->fd);
+		if (fd < 0) {
+			flog_err_sys(EC_LIB_SYSTEM_CALL,
+				     "failed to dup() log file descriptor: %m (FD limit too low?)");
+			break;
+		}
 
 		optlen = sizeof(sock_type);
 		if (!getsockopt(fd, SOL_SOCKET, SO_TYPE, &sock_type, &optlen)) {
