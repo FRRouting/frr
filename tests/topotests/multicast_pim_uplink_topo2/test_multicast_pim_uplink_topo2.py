@@ -23,6 +23,7 @@ import os
 import sys
 import time
 import pytest
+from time import sleep
 
 # Save the Current Working Directory to find configuration files.
 CWD = os.path.dirname(os.path.realpath(__file__))
@@ -430,7 +431,15 @@ def test_iif_oil_when_RP_address_changes_from_static_to_BSR_p1(request):
                     }
                 ]
             }
-        },
+        }
+    }
+    result = create_pim_config(tgen, topo, input_dict)
+    assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
+
+    # Need to wait for 10 sec to make sure prune is received before below RP change is executed
+    sleep(10)
+
+    input_dict = {
         "r5": {
             "pim": {
                 "rp": [
@@ -444,7 +453,6 @@ def test_iif_oil_when_RP_address_changes_from_static_to_BSR_p1(request):
             }
         },
     }
-
     result = create_pim_config(tgen, topo, input_dict)
     assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
 
