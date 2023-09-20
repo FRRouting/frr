@@ -382,6 +382,13 @@ static int static_nexthop_bh_type_modify(struct nb_cb_modify_args *args)
 		nh_vrf = yang_dnode_get_string(args->dnode, "../vrf");
 		if (nh_ifname && nh_vrf) {
 			struct vrf *vrf = vrf_lookup_by_name(nh_vrf);
+
+			if (!vrf) {
+				snprintf(args->errmsg, args->errmsg_len,
+					 "nexthop vrf %s not found", nh_vrf);
+				return NB_ERR_VALIDATION;
+			}
+
 			struct interface *ifp = if_lookup_by_name(nh_ifname,
 								  vrf->vrf_id);
 
