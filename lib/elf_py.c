@@ -1089,7 +1089,9 @@ static void elffile_add_dynreloc(struct elffile *w, Elf_Data *reldata,
 		symidx = relw->symidx = GELF_R_SYM(rela->r_info);
 		sym = relw->sym = gelf_getsym(symdata, symidx, &relw->_sym);
 		if (sym) {
-			relw->symname = elfdata_strptr(strdata, sym->st_name);
+			if (strdata)
+				relw->symname = elfdata_strptr(strdata,
+							       sym->st_name);
 			relw->symvalid = GELF_ST_TYPE(sym->st_info)
 					!= STT_NOTYPE;
 			relw->unresolved = sym->st_shndx == SHN_UNDEF;
