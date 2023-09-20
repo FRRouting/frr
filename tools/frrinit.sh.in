@@ -31,7 +31,11 @@ else
 fi
 
 # "/usr/lib/frr/frrinit.sh start somenamespace"
-FRR_PATHSPACE="$2"
+if [ "$1" = "signal" ]; then
+        FRR_PATHSPACE="$3"
+else
+        FRR_PATHSPACE="$2"
+fi
 
 self="`dirname $0`"
 if [ -r "$self/frrcommon.sh" ]; then
@@ -53,6 +57,16 @@ stop)
 	;;
 
 restart|force-reload)
+	daemon_stop watchfrr
+	all_stop --reallyall
+
+	daemon_list daemons
+	watchfrr_options="$watchfrr_options $daemons"
+	daemon_start watchfrr
+	;;
+
+signal)
+	sig="$2"
 	daemon_stop watchfrr
 	all_stop --reallyall
 
