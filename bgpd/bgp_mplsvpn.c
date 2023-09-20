@@ -1179,11 +1179,12 @@ leak_update(struct bgp *to_bgp, struct bgp_dest *bn,
 		/* Process change. */
 		bgp_aggregate_increment(to_bgp, p, bpi, afi, safi);
 		bgp_process(to_bgp, bn, afi, safi);
-		bgp_dest_unlock_node(bn);
 
 		if (debug)
 			zlog_debug("%s: ->%s: %pBD Found route, changed attr",
 				   __func__, to_bgp->name_pretty, bn);
+
+		bgp_dest_unlock_node(bn);
 
 		return bpi;
 	}
