@@ -791,7 +791,12 @@ static struct event *thread_get(struct event_loop *m, uint8_t type,
 	thread->master = m;
 	thread->arg = arg;
 	thread->yield = EVENT_YIELD_TIME_SLOT; /* default */
-	thread->ref = NULL;
+	/* thread->ref is zeroed either by XCALLOC above or by memset before
+	 * being put on the "unuse" list by thread_add_unuse().
+	 * Setting it here again makes coverity complain about a missing
+	 * lock :(
+	 */
+	/* thread->ref = NULL; */
 	thread->ignore_timer_late = false;
 
 	/*

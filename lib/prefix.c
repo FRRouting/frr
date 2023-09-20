@@ -261,7 +261,7 @@ int evpn_type5_prefix_match(const struct prefix *n, const struct prefix *p)
 		return 0;
 
 	prefixlen = evp->prefix.prefix_addr.ip_prefix_length;
-	np = &evp->prefix.prefix_addr.ip.ip.addr;
+	np = evp->prefix.prefix_addr.ip.ip.addrbytes;
 
 	/* If n's prefix is longer than p's one return 0. */
 	if (prefixlen > p->prefixlen)
