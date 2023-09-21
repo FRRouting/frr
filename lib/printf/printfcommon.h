@@ -68,7 +68,7 @@ io_print(struct io_state *iop, const CHAR * __restrict ptr, size_t len)
 {
 	size_t copylen = len;
 
-	if (!iop->cb)
+	if (!iop->cb || !len)
 		return 0;
 	if (iop->avail < copylen)
 		copylen = iop->avail;

@@ -2368,8 +2368,7 @@ static void vtysh_read(struct event *thread)
 				printf("result: %d\n", ret);
 				printf("vtysh node: %d\n", vty->node);
 #endif /* VTYSH_DEBUG */
-
-				if (vty->pass_fd != -1) {
+				if (vty->pass_fd >= 0) {
 					memset(vty->pass_fd_status, 0, 4);
 					vty->pass_fd_status[3] = ret;
 					vty->status = VTY_PASSFD;
@@ -2387,7 +2386,9 @@ static void vtysh_read(struct event *thread)
 					 * => skip vty_event(VTYSH_READ, vty)!
 					 */
 					return;
-				}
+				} else
+					/* normalize other invalid values */
+					vty->pass_fd = -1;
 
 				/* hack for asynchronous "write integrated"
 				 * - other commands in "buf" will be ditched
