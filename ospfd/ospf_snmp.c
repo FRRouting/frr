@@ -906,7 +906,7 @@ static struct ospf_lsa *ospfLsdbLookup(struct variable *v, oid *name,
 		area = ospf_area_lookup_by_area_id(ospf, *area_id);
 		if (!area)
 			return NULL;
-		offset += IN_ADDR_SIZE;
+		offset++;
 
 		/* Type. */
 		*type = *offset;
@@ -914,7 +914,7 @@ static struct ospf_lsa *ospfLsdbLookup(struct variable *v, oid *name,
 
 		/* LS ID. */
 		oid2in_addr(offset, IN_ADDR_SIZE, ls_id);
-		offset += IN_ADDR_SIZE;
+		offset++;
 
 		/* Router ID. */
 		oid2in_addr(offset, IN_ADDR_SIZE, router_id);
@@ -971,7 +971,7 @@ static struct ospf_lsa *ospfLsdbLookup(struct variable *v, oid *name,
 			}
 
 			/* Router ID. */
-			offset += IN_ADDR_SIZE;
+			offset++;
 			offsetlen -= IN_ADDR_SIZE;
 			len = offsetlen;
 
@@ -996,11 +996,11 @@ static struct ospf_lsa *ospfLsdbLookup(struct variable *v, oid *name,
 				/* Fill in value. */
 				offset = name + v->namelen;
 				oid_copy_in_addr(offset, area_id);
-				offset += IN_ADDR_SIZE;
+				offset++;
 				*offset = lsa->data->type;
 				offset++;
 				oid_copy_in_addr(offset, &lsa->data->id);
-				offset += IN_ADDR_SIZE;
+				offset++;
 				oid_copy_in_addr(offset,
 						 &lsa->data->adv_router);
 
@@ -1106,7 +1106,7 @@ static struct ospf_area_range *ospfAreaRangeLookup(struct variable *v,
 		if (!area)
 			return NULL;
 
-		offset += IN_ADDR_SIZE;
+		offset++;
 
 		/* Lookup area range. */
 		oid2in_addr(offset, IN_ADDR_SIZE, range_net);
@@ -1135,7 +1135,7 @@ static struct ospf_area_range *ospfAreaRangeLookup(struct variable *v,
 			return NULL;
 
 		do {
-			offset += IN_ADDR_SIZE;
+			offset++;
 			offsetlen -= IN_ADDR_SIZE;
 			len = offsetlen;
 
@@ -1157,7 +1157,7 @@ static struct ospf_area_range *ospfAreaRangeLookup(struct variable *v,
 				/* Fill in value. */
 				offset = name + v->namelen;
 				oid_copy_in_addr(offset, area_id);
-				offset += IN_ADDR_SIZE;
+				offset++;
 				oid_copy_in_addr(offset, range_net);
 
 				return range;
@@ -1560,7 +1560,7 @@ static struct ospf_interface *ospfIfLookup(struct variable *v, oid *name,
 			*length = v->namelen + IN_ADDR_SIZE + 1;
 			offset = name + v->namelen;
 			oid_copy_in_addr(offset, ifaddr);
-			offset += IN_ADDR_SIZE;
+			offset++;
 			*offset = *ifindex;
 			return oi;
 		}
@@ -1704,7 +1704,7 @@ static struct ospf_interface *ospfIfMetricLookup(struct variable *v, oid *name,
 			*length = v->namelen + IN_ADDR_SIZE + 1 + 1;
 			offset = name + v->namelen;
 			oid_copy_in_addr(offset, ifaddr);
-			offset += IN_ADDR_SIZE;
+			offset++;
 			*offset = *ifindex;
 			offset++;
 			*offset = OSPF_SNMP_METRIC_VALUE;
@@ -2242,7 +2242,7 @@ static struct ospf_lsa *ospfExtLsdbLookup(struct variable *v, oid *name,
 
 		/* LS ID. */
 		oid2in_addr(offset, IN_ADDR_SIZE, ls_id);
-		offset += IN_ADDR_SIZE;
+		offset++;
 
 		/* Router ID. */
 		oid2in_addr(offset, IN_ADDR_SIZE, router_id);
@@ -2270,7 +2270,7 @@ static struct ospf_lsa *ospfExtLsdbLookup(struct variable *v, oid *name,
 
 		oid2in_addr(offset, len, ls_id);
 
-		offset += IN_ADDR_SIZE;
+		offset++;
 		offsetlen -= IN_ADDR_SIZE;
 
 		/* Router ID. */
@@ -2293,7 +2293,7 @@ static struct ospf_lsa *ospfExtLsdbLookup(struct variable *v, oid *name,
 			*offset = OSPF_AS_EXTERNAL_LSA;
 			offset++;
 			oid_copy_in_addr(offset, &lsa->data->id);
-			offset += IN_ADDR_SIZE;
+			offset++;
 			oid_copy_in_addr(offset, &lsa->data->adv_router);
 
 			return lsa;
