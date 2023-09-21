@@ -18,8 +18,9 @@ administrator with an external editor.
 
 .. warning::
 
-   This also means the ``hostname`` and ``banner motd`` commands (which both do
-   have effect for vtysh) need to be manually updated in :file:`vtysh.conf`.
+   This also means the ``hostname``, ``domainname``, and ``banner motd`` commands
+   (which do have effect for vtysh) need to be manually updated
+   in :file:`vtysh.conf`.
 
 
 .. clicmd:: copy FILENAME running-config
