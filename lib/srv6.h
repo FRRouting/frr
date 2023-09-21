@@ -14,8 +14,11 @@
 #include <arpa/inet.h>
 #include <netinet/in.h>
 
-#define SRV6_MAX_SIDS 16
+#define SRV6_MAX_SIDS	  16
+#define SRV6_MAX_SEGS	  8
 #define SRV6_LOCNAME_SIZE 256
+#define SRH_BASE_HEADER_LENGTH 8
+#define SRH_SEGMENT_LENGTH     16
 
 #ifdef __cplusplus
 extern "C" {
@@ -74,6 +77,8 @@ enum seg6local_flavor_op {
 	ZEBRA_SEG6_LOCAL_FLV_OP_NEXT_CSID    = 4,
 };
 
+#define SRV6_SEG_STRLEN 1024
+
 struct seg6_segs {
 	size_t num_segs;
 	struct in6_addr segs[256];
@@ -87,6 +92,11 @@ struct seg6local_flavors_info {
 	uint8_t lcblock_len;
 	/* Locator-Node Function length, expressed in bits */
 	uint8_t lcnode_func_len;
+};
+
+struct seg6_seg_stack {
+	uint8_t num_segs;
+	struct in6_addr seg[0]; /* 1 or more segs */
 };
 
 struct seg6local_context {
@@ -170,7 +180,7 @@ struct nexthop_srv6 {
 	struct seg6local_context seg6local_ctx;
 
 	/* SRv6 Headend-behaviour */
-	struct in6_addr seg6_segs;
+	struct seg6_seg_stack *seg6_segs;
 };
 
 static inline const char *seg6_mode2str(enum seg6_mode_t mode)
@@ -206,12 +216,21 @@ static inline bool sid_diff(
 	return !sid_same(a, b);
 }
 
-static inline bool sid_zero(
-		const struct in6_addr *a)
+
+static inline bool sid_zero(const struct seg6_seg_stack *a)
 {
 	struct in6_addr zero = {};
 
-	return sid_same(a, &zero);
+	assert(a);
+
+	return sid_same(&a->seg[0], &zero);
+}
+
+static inline bool sid_zero_ipv6(const struct in6_addr *a)
+{
+	struct in6_addr zero = {};
+
+	return sid_same(&a[0], &zero);
 }
 
 static inline void *sid_copy(struct in6_addr *dst,
