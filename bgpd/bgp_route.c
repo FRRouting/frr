@@ -9824,7 +9824,7 @@ static void damp_route_vty_out(struct vty *vty, const struct prefix *p,
 {
 	struct attr *attr = path->attr;
 	int len;
-	char timebuf[BGP_UPTIME_LEN];
+	char timebuf[BGP_UPTIME_LEN] = {};
 	json_object *json_path = NULL;
 
 	if (use_json)
@@ -9883,7 +9883,7 @@ static void flap_route_vty_out(struct vty *vty, const struct prefix *p,
 {
 	struct attr *attr = path->attr;
 	struct bgp_damp_info *bdi;
-	char timebuf[BGP_UPTIME_LEN];
+	char timebuf[BGP_UPTIME_LEN] = {};
 	int len;
 	json_object *json_path = NULL;
 
