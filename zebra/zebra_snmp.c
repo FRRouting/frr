@@ -353,7 +353,7 @@ static void get_fwtable_route_node(struct variable *v, oid objid[],
 		if (policy) /* Not supported (yet?) */
 			return;
 		for (*np = route_top(table); *np; *np = route_next(*np)) {
-			if (!in_addr_cmp(&(*np)->p.u.prefix,
+			if (!in_addr_cmp((uint8_t *)&(*np)->p.u.prefix4,
 					 (uint8_t *)&dest)) {
 				RNODE_FOREACH_RE (*np, *re) {
 					if (!in_addr_cmp((uint8_t *)&(*re)->nhe
@@ -374,13 +374,14 @@ static void get_fwtable_route_node(struct variable *v, oid objid[],
 	for (np2 = route_top(table); np2; np2 = route_next(np2)) {
 
 		/* Check destination first */
-		if (in_addr_cmp(&np2->p.u.prefix, (uint8_t *)&dest) > 0)
+		if (in_addr_cmp((uint8_t *)&np2->p.u.prefix4,
+				(uint8_t *)&dest) > 0)
 			RNODE_FOREACH_RE (np2, re2) {
 				check_replace(np2, re2, np, re);
 			}
 
-		if (in_addr_cmp(&np2->p.u.prefix, (uint8_t *)&dest)
-		    == 0) { /* have to look at each re individually */
+		if (in_addr_cmp((uint8_t *)&np2->p.u.prefix4, (uint8_t *)&dest) ==
+		    0) { /* have to look at each re individually */
 			RNODE_FOREACH_RE (np2, re2) {
 				int proto2, policy2;
 
