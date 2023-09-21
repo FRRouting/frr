@@ -11085,7 +11085,7 @@ static int bgp_show_community(struct vty *vty, struct bgp *bgp,
 			      const char *comstr, int exact, afi_t afi,
 			      safi_t safi, uint16_t show_flags);
 
-static int bgp_show_table(struct vty *vty, struct bgp *bgp, safi_t safi,
+static int bgp_show_table(struct vty *vty, struct bgp *bgp, afi_t afi, safi_t safi,
 			  struct bgp_table *table, enum bgp_show_type type,
 			  void *output_arg, const char *rd, int is_last,
 			  unsigned long *output_cum, unsigned long *total_cum,
@@ -11446,12 +11446,12 @@ static int bgp_show_table(struct vty *vty, struct bgp *bgp, safi_t safi,
 			if (type == bgp_show_type_dampend_paths
 			    || type == bgp_show_type_damp_neighbor)
 				damp_route_vty_out(vty, dest_p, pi, display,
-						   AFI_IP, safi, use_json,
+						   afi, safi, use_json,
 						   json_paths);
 			else if (type == bgp_show_type_flap_statistics
 				 || type == bgp_show_type_flap_neighbor)
 				flap_route_vty_out(vty, dest_p, pi, display,
-						   AFI_IP, safi, use_json,
+						   afi, safi, use_json,
 						   json_paths);
 			else {
 				if (detail_routes || detail_json) {
@@ -11607,7 +11607,7 @@ static int bgp_show_table(struct vty *vty, struct bgp *bgp, safi_t safi,
 	return CMD_SUCCESS;
 }
 
-int bgp_show_table_rd(struct vty *vty, struct bgp *bgp, safi_t safi,
+int bgp_show_table_rd(struct vty *vty, struct bgp *bgp, afi_t afi, safi_t safi,
 		      struct bgp_table *table, struct prefix_rd *prd_match,
 		      enum bgp_show_type type, void *output_arg,
 		      uint16_t show_flags)
@@ -11636,7 +11636,7 @@ int bgp_show_table_rd(struct vty *vty, struct bgp *bgp, safi_t safi,
 
 			memcpy(&prd, dest_p, sizeof(struct prefix_rd));
 			prefix_rd2str(&prd, rd, sizeof(rd), bgp->asnotation);
-			bgp_show_table(vty, bgp, safi, itable, type, output_arg,
+			bgp_show_table(vty, bgp, afi, safi, itable, type, output_arg,
 				       rd, next == NULL, &output_cum,
 				       &total_cum, &json_header_depth,
 				       show_flags, RPKI_NOT_BEING_USED);
@@ -11686,7 +11686,7 @@ static int bgp_show(struct vty *vty, struct bgp *bgp, afi_t afi, safi_t safi,
 	table = bgp->rib[afi][safi];
 	/* use MPLS and ENCAP specific shows until they are merged */
 	if (safi == SAFI_MPLS_VPN) {
-		return bgp_show_table_rd(vty, bgp, safi, table, NULL, type,
+		return bgp_show_table_rd(vty, bgp, afi, safi, table, NULL, type,
 					 output_arg, show_flags);
 	}
 
@@ -11699,7 +11699,7 @@ static int bgp_show(struct vty *vty, struct bgp *bgp, afi_t afi, safi_t safi,
 	if (safi == SAFI_EVPN)
 		return bgp_evpn_show_all_routes(vty, bgp, type, use_json, 0);
 
-	return bgp_show_table(vty, bgp, safi, table, type, output_arg, NULL, 1,
+	return bgp_show_table(vty, bgp, afi, safi, table, type, output_arg, NULL, 1,
 			      NULL, NULL, &json_header_depth, show_flags,
 			      rpki_target_state);
 }
@@ -12023,7 +12023,7 @@ static void bgp_show_path_info(const struct prefix_rd *pfx_rd,
 			    || CHECK_FLAG(pi->flags, BGP_PATH_SELECTED))))
 			route_vty_out_detail(vty, bgp, bgp_node,
 					     bgp_dest_get_prefix(bgp_node), pi,
-					     AFI_IP, safi, rpki_curr_state,
+					     afi, safi, rpki_curr_state,
 					     json_paths);
 	}
 
