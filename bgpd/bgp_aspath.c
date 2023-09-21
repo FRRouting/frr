@@ -1703,7 +1703,7 @@ struct aspath *aspath_filter_exclude_acl(struct aspath *source,
 			if (cur_seg == source->segments)
 				/* first segment */
 				source->segments = cur_seg->next;
-			else
+			else if (prev_seg)
 				prev_seg->next = cur_seg->next;
 			assegment_free(cur_seg);
 		}
@@ -1725,8 +1725,9 @@ struct aspath *aspath_filter_exclude_acl(struct aspath *source,
 			else if (prev_seg)
 				prev_seg->next = new_seg;
 			assegment_free(cur_seg);
-		}
-		prev_seg = cur_seg;
+			prev_seg = new_seg;
+		} else
+			prev_seg = cur_seg;
 		cur_seg = next_seg;
 	}
 
