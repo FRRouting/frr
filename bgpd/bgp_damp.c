@@ -573,7 +573,7 @@ void bgp_damp_info_vty(struct vty *vty, struct bgp_path_info *path, afi_t afi,
 {
 	struct bgp_damp_info *bdi;
 	time_t t_now, t_diff;
-	char timebuf[BGP_UPTIME_LEN];
+	char timebuf[BGP_UPTIME_LEN] = {};
 	int penalty;
 	struct bgp_damp_config *bdc = &damp[afi][safi];
 
