@@ -2595,10 +2595,9 @@ static inline int peer_group_af_configured(struct peer_group *group)
 	return 0;
 }
 
-static inline char *timestamp_string(time_t ts)
+static inline char *timestamp_string(time_t ts, char *timebuf)
 {
 	time_t tbuf;
-	char timebuf[32];
 
 	tbuf = time(NULL) - (monotime(NULL) - ts);
 	return ctime_r(&tbuf, timebuf);
