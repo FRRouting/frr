@@ -404,8 +404,10 @@ void pm_echo_receive(struct event *event)
 	pme->stats_rx++;
 	pm_rtt_calculate(&pme->start, &pme->stop[idx], &pme->last_rtt, NULL);
 	pm_rtt_update_stats(pme->rtt_stats, &pme->last_rtt, NULL);
-	if (pm->key.type == PM_ICMP_SLA)
+	if (pm->key.type == PM_ICMP_SLA) {
+		pm_set_sess_state(pm, PM_UP);
 		return;
+	}
 	if (pme->last_rtt.tv_sec * 1000 > pme->timeout ||
 	    ((pme->last_rtt.tv_sec * 1000 == pm->timeout) &&
 	     (pme->last_rtt.tv_usec > 0))) {
@@ -810,6 +812,8 @@ void pm_echo_send(struct event *event)
 			pm_rtt_update_bulk_stats(pme);
 			pm_zebra_notify(pm);
 			memset(pme->stop, 0, sizeof(*pme->stop) * pme->count);
+			if (pme->rtt_bulk_stats->sum_rtt == 0)
+				pm_set_sess_state(pm, PM_DOWN);
 		}
 		if (pme->icmp_sequence + pme->count > UINT16_MAX) /* overflow */
 			pme->icmp_sequence = 0;
