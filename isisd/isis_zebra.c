@@ -1225,6 +1225,9 @@ static int isis_zebra_process_srv6_locator_add(ZAPI_CALLBACK_ARGS)
 	struct listnode *node;
 	struct isis_area *area;
 
+	if (!isis)
+		return -1;
+
 	/* Decode the SRv6 locator */
 	if (zapi_srv6_locator_decode(zclient->ibuf, &loc) < 0)
 		return -1;
@@ -1273,6 +1276,9 @@ static int isis_zebra_process_srv6_locator_delete(ZAPI_CALLBACK_ARGS)
 	struct srv6_locator_chunk *chunk;
 	struct isis_srv6_sid *sid;
 	struct srv6_adjacency *sra;
+
+	if (!isis)
+		return -1;
 
 	/* Decode the received zebra message */
 	if (zapi_srv6_locator_decode(zclient->ibuf, &loc) < 0)
