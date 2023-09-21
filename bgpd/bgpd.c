@@ -5784,7 +5784,7 @@ void peer_tcp_mss_set(struct peer *peer, uint32_t tcp_mss)
 	SET_FLAG(peer->flags, PEER_FLAG_TCP_MSS);
 
 	if (CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
-		for (ALL_LIST_ELEMENTS_RO(peer->group->peer, node, p)) {
+		for (ALL_LIST_ELEMENTS(peer->group->peer, node, p)) {
 			p->tcp_mss = tcp_mss;
 			SET_FLAG(p->flags, PEER_FLAG_TCP_MSS);
 		}
@@ -5806,7 +5806,7 @@ void peer_tcp_mss_unset(struct peer *peer)
 	peer->tcp_mss = 0;
 
 	if (CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
-		for (ALL_LIST_ELEMENTS_RO(peer->group->peer, node, p)) {
+		for (ALL_LIST_ELEMENTS(peer->group->peer, node, p)) {
 			UNSET_FLAG(p->flags, PEER_FLAG_TCP_MSS);
 			p->tcp_mss = 0;
 		}

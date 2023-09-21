@@ -117,5 +117,3 @@ refix
 /test-suite.log
 pceplib/test/*.log
 pceplib/test/*.trs
-*.si4project*
-*gitignore*
