@@ -402,13 +402,54 @@ static void prefix_list_trie_del(struct prefix_list *plist,
 		}
 }
 
+/**
+ * Find duplicated prefix entry (same prefix but different entry) in prefix
+ * list.
+ */
+static bool prefix_list_entry_is_duplicated(struct prefix_list *list,
+					    struct prefix_list_entry *entry)
+{
+	size_t depth, maxdepth = list->master->trie_depth;
+	uint8_t byte, *bytes = entry->prefix.u.val;
+	size_t validbits = entry->prefix.prefixlen;
+	struct pltrie_table *table = list->trie;
+	struct prefix_list_entry *pentry;
+
+	for (depth = 0; validbits > PLC_BITS && depth < maxdepth - 1; depth++) {
+		byte = bytes[depth];
+		if (!table->entries[byte].next_table)
+			return NULL;
+
+		table = table->entries[byte].next_table;
+		validbits -= PLC_BITS;
+	}
+
+	byte = bytes[depth];
+	if (validbits > PLC_BITS)
+		pentry = table->entries[byte].final_chain;
+	else
+		pentry = table->entries[byte].up_chain;
+
+	for (; pentry; pentry = pentry->next_best) {
+		if (pentry == entry)
+			continue;
+		if (prefix_same(&pentry->prefix, &entry->prefix))
+			return true;
+	}
+
+	return false;
+}
 
 void prefix_list_entry_delete(struct prefix_list *plist,
 			      struct prefix_list_entry *pentry,
 			      int update_list)
 {
+	bool duplicate;
+
 	if (plist == NULL || pentry == NULL)
 		return;
+
+	duplicate = prefix_list_entry_is_duplicated(plist, pentry);
 
 	prefix_list_trie_del(plist, pentry);
 
@@ -421,8 +462,10 @@ void prefix_list_entry_delete(struct prefix_list *plist,
 	else
 		plist->tail = pentry->prev;
 
-	route_map_notify_pentry_dependencies(plist->name, pentry,
-					     RMAP_EVENT_PLIST_DELETED);
+	if (!duplicate)
+		route_map_notify_pentry_dependencies(plist->name, pentry,
+						     RMAP_EVENT_PLIST_DELETED);
+
 	prefix_list_entry_free(pentry);
 
 	plist->count--;
@@ -557,10 +600,13 @@ static void prefix_list_entry_add(struct prefix_list *plist,
 void prefix_list_entry_update_start(struct prefix_list_entry *ple)
 {
 	struct prefix_list *pl = ple->pl;
+	bool duplicate;
 
 	/* Not installed, nothing to do. */
 	if (!ple->installed)
 		return;
+
+	duplicate = prefix_list_entry_is_duplicated(pl, ple);
 
 	prefix_list_trie_del(pl, ple);
 
@@ -574,8 +620,9 @@ void prefix_list_entry_update_start(struct prefix_list_entry *ple)
 	else
 		pl->tail = ple->prev;
 
-	route_map_notify_pentry_dependencies(pl->name, ple,
-					     RMAP_EVENT_PLIST_DELETED);
+	if (!duplicate)
+		route_map_notify_pentry_dependencies(pl->name, ple,
+						     RMAP_EVENT_PLIST_DELETED);
 	pl->count--;
 
 	route_map_notify_dependencies(pl->name, RMAP_EVENT_PLIST_DELETED);
