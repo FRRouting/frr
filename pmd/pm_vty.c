@@ -589,6 +589,8 @@ static struct json_object *__display_session_json(struct pm_session *pm,
 	struct pm_echo *pme = pm->oper_ctxt;
 	struct interface *ifp;
 
+	hook_call(pm_tracking_display, pm, NULL, jo);
+
 	if (operational) {
 		if (sockunion_family(&pme->src) == AF_INET ||
 		    sockunion_family(&pme->src) == AF_INET6)
@@ -673,7 +675,6 @@ static struct json_object *__display_session_json(struct pm_session *pm,
 			    pm->tos_val);
 	json_object_int_add(jo, "packet-size",
 			    pm->packet_size);
-	hook_call(pm_tracking_display, pm, NULL, jo);
 	return jo;
 }
 
@@ -714,6 +715,8 @@ static void pm_session_dump_config_walker(struct hash_bucket *b, void *data)
 		vty_out(vty, " vrf %s", pm->key.vrfname);
 	vty_out(vty, "\n");
 
+	hook_call(pm_tracking_display, pm, vty, NULL);
+
 	if (psd->oper) {
 		pm_echo_dump(vty, pm);
 		return;
@@ -735,7 +738,6 @@ static void pm_session_dump_config_walker(struct hash_bucket *b, void *data)
 			pm->retries_consecutive_up,
 			pm->retries_consecutive_down);
 	}
-	hook_call(pm_tracking_display, pm, vty, NULL);
 	vty_out(vty, "\tstatus: (0x%x)", pm->flags);
 	vty_out(vty, " session admin %s, run %s\n",
 		pm->flags & PM_SESS_FLAG_SHUTDOWN ? "down" : "up",
