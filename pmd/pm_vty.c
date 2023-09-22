@@ -591,7 +591,7 @@ static struct json_object *__display_session_json(struct pm_session *pm,
 
 	hook_call(pm_tracking_display, pm, NULL, jo);
 
-	if (operational) {
+	if (pme && operational) {
 		if (sockunion_family(&pme->src) == AF_INET ||
 		    sockunion_family(&pme->src) == AF_INET6)
 			json_object_string_addf(jo, "source-ip", "%pSU", &pme->src);
