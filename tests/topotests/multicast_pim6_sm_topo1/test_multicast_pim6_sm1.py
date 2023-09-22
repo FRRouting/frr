@@ -61,6 +61,9 @@ from lib.pim import (
     verify_sg_traffic,
     verify_upstream_iif,
 )
+from lib.bgp import (
+    verify_bgp_convergence,
+)
 from lib.topogen import Topogen, get_topogen
 from lib.topojson import build_config_from_json
 from lib.topolog import logger
@@ -139,6 +142,12 @@ def setup_module(mod):
 
     global app_helper
     app_helper = McastTesterHelper(tgen)
+
+    # Verify BGP convergence
+    BGP_CONVERGENCE = verify_bgp_convergence(tgen, topo, addr_type="ipv6")
+    assert BGP_CONVERGENCE is True, "setup_module : Failed \n Error:" " {}".format(
+        BGP_CONVERGENCE
+    )
 
     logger.info("Running setup_module() done")
 
@@ -275,6 +284,10 @@ def test_multicast_data_traffic_static_RP_send_traffic_then_join_p0(request):
 
     # Creating configuration from JSON
     reset_config_on_routers(tgen)
+
+    # Verify BGP convergence
+    result = verify_bgp_convergence(tgen, topo, addr_type="ipv6")
+    assert result is True, "Testcase {} : Failed \n Error {}".format(tc_name, result)
 
     app_helper.stop_all_hosts()
 
@@ -480,6 +493,10 @@ def test_verify_mroute_when_receiver_is_outside_frr_p0(request):
     # Creating configuration from JSON
     reset_config_on_routers(tgen)
 
+    # Verify BGP convergence
+    result = verify_bgp_convergence(tgen, topo, addr_type="ipv6")
+    assert result is True, "Testcase {} : Failed \n Error {}".format(tc_name, result)
+
     # Don"t run this test if we have any failure.
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
@@ -648,6 +665,10 @@ def test_verify_mroute_when_frr_is_transit_router_p2(request):
     # Creating configuration from JSON
     reset_config_on_routers(tgen)
 
+    # Verify BGP convergence
+    result = verify_bgp_convergence(tgen, topo, addr_type="ipv6")
+    assert result is True, "Testcase {} : Failed \n Error {}".format(tc_name, result)
+
     app_helper.stop_all_hosts()
 
     # Don"t run this test if we have any failure.
@@ -803,6 +824,10 @@ def test_verify_mroute_when_RP_unreachable_p1(request):
     # Creating configuration from JSON
     reset_config_on_routers(tgen)
 
+    # Verify BGP convergence
+    result = verify_bgp_convergence(tgen, topo, addr_type="ipv6")
+    assert result is True, "Testcase {} : Failed \n Error {}".format(tc_name, result)
+
     app_helper.stop_all_hosts()
 
     # Don"t run this test if we have any failure.
@@ -928,6 +953,10 @@ def test_modify_mld_query_timer_p0(request):
 
     # Creating configuration from JSON
     reset_config_on_routers(tgen)
+
+    # Verify BGP convergence
+    result = verify_bgp_convergence(tgen, topo, addr_type="ipv6")
+    assert result is True, "Testcase {} : Failed \n Error {}".format(tc_name, result)
 
     app_helper.stop_all_hosts()
 
@@ -1107,6 +1136,10 @@ def test_modify_mld_max_query_response_timer_p0(request):
 
     # Creating configuration from JSON
     reset_config_on_routers(tgen)
+
+    # Verify BGP convergence
+    result = verify_bgp_convergence(tgen, topo, addr_type="ipv6")
+    assert result is True, "Testcase {} : Failed \n Error {}".format(tc_name, result)
 
     app_helper.stop_all_hosts()
 
@@ -1376,6 +1409,10 @@ def test_verify_impact_on_multicast_traffic_when_RP_removed_p0(request):
 
     # Creating configuration from JSON
     reset_config_on_routers(tgen)
+
+    # Verify BGP convergence
+    result = verify_bgp_convergence(tgen, topo, addr_type="ipv6")
+    assert result is True, "Testcase {} : Failed \n Error {}".format(tc_name, result)
 
     app_helper.stop_all_hosts()
 
