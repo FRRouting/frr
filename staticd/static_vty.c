@@ -83,7 +83,7 @@ static int static_route_nb_run(struct vty *vty, struct static_route_args *args)
 	char buf_tag[PREFIX_STRLEN];
 	uint8_t label_stack_id = 0;
 	uint8_t segs_stack_id = 0;
-
+	char *orig_label = NULL, *orig_seg = NULL;
 	const char *buf_gate_str;
 	uint8_t distance = ZEBRA_STATIC_DISTANCE_DEFAULT;
 	route_tag_t tag = 0;
@@ -330,7 +330,7 @@ static int static_route_nb_run(struct vty *vty, struct static_route_args *args)
 			nb_cli_enqueue_change(vty, xpath_mpls, NB_OP_DESTROY,
 					      NULL);
 
-			ostr = XSTRDUP(MTYPE_TMP, args->label);
+			orig_label = ostr = XSTRDUP(MTYPE_TMP, args->label);
 			while ((nump = strsep(&ostr, "/")) != NULL) {
 				snprintf(ab_xpath, sizeof(ab_xpath),
 					 FRR_STATIC_ROUTE_NHLB_KEY_XPATH,
@@ -343,7 +343,6 @@ static int static_route_nb_run(struct vty *vty, struct static_route_args *args)
 						      NB_OP_MODIFY, nump);
 				label_stack_id++;
 			}
-			XFREE(MTYPE_TMP, ostr);
 		} else {
 			strlcpy(xpath_mpls, xpath_nexthop, sizeof(xpath_mpls));
 			strlcat(xpath_mpls, FRR_STATIC_ROUTE_NH_LABEL_XPATH,
@@ -364,7 +363,7 @@ static int static_route_nb_run(struct vty *vty, struct static_route_args *args)
 			nb_cli_enqueue_change(vty, xpath_segs, NB_OP_DESTROY,
 					      NULL);
 
-			ostr = XSTRDUP(MTYPE_TMP, args->segs);
+			orig_seg = ostr = XSTRDUP(MTYPE_TMP, args->segs);
 			while ((nump = strsep(&ostr, "/")) != NULL) {
 				snprintf(ab_xpath, sizeof(ab_xpath),
 					 FRR_STATIC_ROUTE_NH_SRV6_KEY_SEG_XPATH,
@@ -376,7 +375,6 @@ static int static_route_nb_run(struct vty *vty, struct static_route_args *args)
 						      NB_OP_MODIFY, nump);
 				segs_stack_id++;
 			}
-			XFREE(MTYPE_TMP, ostr);
 		} else {
 			strlcpy(xpath_segs, xpath_nexthop, sizeof(xpath_segs));
 			strlcat(xpath_segs, FRR_STATIC_ROUTE_NH_SRV6_SEGS_XPATH,
@@ -419,6 +417,11 @@ static int static_route_nb_run(struct vty *vty, struct static_route_args *args)
 		}
 
 		ret = nb_cli_apply_changes(vty, "%s", xpath_prefix);
+
+		if (orig_label)
+			XFREE(MTYPE_TMP, orig_label);
+		if (orig_seg)
+			XFREE(MTYPE_TMP, orig_seg);
 	} else {
 		if (args->source) {
 			if (args->distance)
