@@ -248,8 +248,12 @@ DEFPY(pm_remove_session, pm_remove_session_cmd,
 {
 	struct pm_session *pm = NULL;
 	char errormsg[128];
-	enum pm_probe_type type =
-		strmatch(typename, "icmp_sla") ? PM_ICMP_SLA : PM_ICMP_ECHO;
+	enum pm_probe_type type;
+
+	if (typename && strmatch(typename, "icmp_sla"))
+		type = PM_ICMP_SLA;
+	else
+		type = PM_ICMP_ECHO;
 
 	pm = pm_lookup_session(peer, local_str, ifname, vrfname, type, false,
 			       errormsg, sizeof(errormsg));
