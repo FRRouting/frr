@@ -309,6 +309,39 @@ static int is_vni_present_in_irt_vnis(struct list *vnis, struct bgpevpn *vpn)
 	return 0;
 }
 
+/* Flag if the route is injectable into EVPN.
+ * This would be following category:
+ * Non-imported route,
+ * Non-EVPN imported route,
+ * Non Aggregate suppressed route.
+ */
+bool is_route_injectable_into_evpn(struct bgp_path_info *pi)
+{
+	struct bgp_path_info *parent_pi;
+	struct bgp_table *table;
+	struct bgp_dest *dest;
+
+	/* do not import aggr suppressed routes */
+	if (bgp_path_suppressed(pi))
+		return false;
+
+	if (pi->sub_type != BGP_ROUTE_IMPORTED || !pi->extra ||
+	    !pi->extra || !pi->extra->parent)
+		return true;
+
+        parent_pi = (struct bgp_path_info *)pi->extra->parent;
+        dest = parent_pi->net;
+        if (!dest)
+		return true;
+        table = bgp_dest_table(dest);
+        if (table &&
+            table->afi == AFI_L2VPN &&
+            table->safi == SAFI_EVPN)
+                return false;
+
+        return true;
+}
+
 /*
  * Compare Route Targets.
  */
