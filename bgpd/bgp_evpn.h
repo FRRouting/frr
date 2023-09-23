@@ -94,6 +94,7 @@ static inline bool is_pi_family_evpn(struct bgp_path_info *pi)
 	return is_pi_family_matching(pi, AFI_L2VPN, SAFI_EVPN);
 }
 
+<<<<<<< HEAD
 /* Flag if the route is injectable into EVPN. This would be either a
  * non-imported route or a non-EVPN imported route.
  */
@@ -120,6 +121,8 @@ static inline bool is_route_injectable_into_evpn(struct bgp_path_info *pi)
 	return true;
 }
 
+=======
+>>>>>>> 71d08ecc9 (bgpd: aggr summary-only suppressed export to evpn)
 static inline bool evpn_resolve_overlay_index(void)
 {
 	struct bgp *bgp = NULL;
@@ -198,5 +201,6 @@ extern mpls_label_t *bgp_evpn_path_info_labels_get_l3vni(mpls_label_t *labels,
 extern vni_t bgp_evpn_path_info_get_l3vni(const struct bgp_path_info *pi);
 extern bool bgp_evpn_mpath_has_dvni(const struct bgp *bgp_vrf,
 				    struct bgp_path_info *mpinfo);
+extern bool is_route_injectable_into_evpn(struct bgp_path_info *pi);
 
 #endif /* _QUAGGA_BGP_EVPN_H */
