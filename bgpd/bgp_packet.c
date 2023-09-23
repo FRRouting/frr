@@ -2878,6 +2878,8 @@ static void bgp_dynamic_capability_llgr(uint8_t *pnt, int action,
 	uint8_t *data = pnt + 3;
 	uint8_t *end = data + hdr->length;
 	size_t len = end - data;
+	afi_t afi;
+	safi_t safi;
 
 	if (action == CAPABILITY_ACTION_SET) {
 		if (len < BGP_CAP_LLGR_MIN_PACKET_LEN) {
@@ -2944,6 +2946,15 @@ static void bgp_dynamic_capability_llgr(uint8_t *pnt, int action,
 			data += BGP_CAP_LLGR_MIN_PACKET_LEN;
 		}
 	} else {
+		FOREACH_AFI_SAFI (afi, safi) {
+			UNSET_FLAG(peer->af_cap[afi][safi],
+				   PEER_CAP_LLGR_AF_RCV);
+
+			peer->llgr[afi][safi].flags = 0;
+			peer->llgr[afi][safi].stale_time =
+				BGP_DEFAULT_LLGR_STALE_TIME;
+		}
+
 		UNSET_FLAG(peer->cap, PEER_CAP_LLGR_RCV);
 	}
 }
@@ -2957,6 +2968,8 @@ static void bgp_dynamic_capability_graceful_restart(uint8_t *pnt, int action,
 	uint8_t *data = pnt + 3;
 	uint8_t *end = pnt + hdr->length;
 	size_t len = end - data;
+	afi_t afi;
+	safi_t safi;
 
 	if (action == CAPABILITY_ACTION_SET) {
 		if (len < sizeof(gr_restart_flag_time)) {
@@ -3031,6 +3044,15 @@ static void bgp_dynamic_capability_graceful_restart(uint8_t *pnt, int action,
 			data += GRACEFUL_RESTART_CAPABILITY_PER_AFI_SAFI_SIZE;
 		}
 	} else {
+		FOREACH_AFI_SAFI (afi, safi) {
+			UNSET_FLAG(peer->af_cap[afi][safi],
+				   PEER_CAP_RESTART_AF_RCV);
+			UNSET_FLAG(peer->af_cap[afi][safi],
+				   PEER_CAP_RESTART_AF_PRESERVE_RCV);
+		}
+
+		UNSET_FLAG(peer->cap, PEER_CAP_GRACEFUL_RESTART_R_BIT_RCV);
+		UNSET_FLAG(peer->cap, PEER_CAP_GRACEFUL_RESTART_N_BIT_RCV);
 		UNSET_FLAG(peer->cap, PEER_CAP_RESTART_RCV);
 	}
 }
