@@ -914,6 +914,7 @@ extern void bgp_aggregate_toggle_suppressed(struct bgp_aggregate *aggregate,
 extern void subgroup_announce_reset_nhop(uint8_t family, struct attr *attr);
 const char *
 bgp_path_selection_reason2str(enum bgp_path_selection_reason reason);
+extern bool bgp_path_suppressed(struct bgp_path_info *pi);
 extern bool bgp_addpath_encode_rx(struct peer *peer, afi_t afi, safi_t safi);
 extern const struct prefix_rd *bgp_rd_from_dest(const struct bgp_dest *dest,
 						safi_t safi);

@@ -94,31 +94,6 @@ static inline bool is_pi_family_evpn(struct bgp_path_info *pi)
 	return is_pi_family_matching(pi, AFI_L2VPN, SAFI_EVPN);
 }
 
-/* Flag if the route is injectable into EVPN. This would be either a
- * non-imported route or a non-EVPN imported route.
- */
-static inline bool is_route_injectable_into_evpn(struct bgp_path_info *pi)
-{
-	struct bgp_path_info *parent_pi;
-	struct bgp_table *table;
-	struct bgp_dest *dest;
-
-	if (pi->sub_type != BGP_ROUTE_IMPORTED || !pi->extra ||
-	    !pi->extra->vrfleak || !pi->extra->vrfleak->parent)
-		return true;
-
-	parent_pi = (struct bgp_path_info *)pi->extra->vrfleak->parent;
-	dest = parent_pi->net;
-	if (!dest)
-		return true;
-	table = bgp_dest_table(dest);
-	if (table &&
-	    table->afi == AFI_L2VPN &&
-	    table->safi == SAFI_EVPN)
-		return false;
-	return true;
-}
-
 static inline bool evpn_resolve_overlay_index(void)
 {
 	struct bgp *bgp = NULL;
@@ -206,5 +181,6 @@ extern mpls_label_t *bgp_evpn_path_info_labels_get_l3vni(mpls_label_t *labels,
 extern vni_t bgp_evpn_path_info_get_l3vni(const struct bgp_path_info *pi);
 extern bool bgp_evpn_mpath_has_dvni(const struct bgp *bgp_vrf,
 				    struct bgp_path_info *mpinfo);
+extern bool is_route_injectable_into_evpn(struct bgp_path_info *pi);
 
 #endif /* _QUAGGA_BGP_EVPN_H */
