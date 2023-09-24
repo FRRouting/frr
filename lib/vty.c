@@ -2386,9 +2386,14 @@ static void vtysh_read(struct event *thread)
 					 * => skip vty_event(VTYSH_READ, vty)!
 					 */
 					return;
-				} else
+				} else {
+					assertf(vty->status != VTY_PASSFD,
+						"%p address=%s passfd=%d", vty,
+						vty->address, vty->pass_fd);
+
 					/* normalize other invalid values */
 					vty->pass_fd = -1;
+				}
 
 				/* hack for asynchronous "write integrated"
 				 * - other commands in "buf" will be ditched
