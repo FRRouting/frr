@@ -9434,7 +9434,7 @@ DEFPY (af_label_vpn_export,
        "Automatically assign a label\n")
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	mpls_label_t label = MPLS_LABEL_NONE;
+	mpls_label_t label = (mpls_label_t)label_val;
 	afi_t afi;
 	int idx = 0;
 	bool yes = true;
@@ -9442,24 +9442,28 @@ DEFPY (af_label_vpn_export,
 	if (argv_find(argv, argc, "no", &idx))
 		yes = false;
 
-	/* If "no ...", squash trailing parameter */
-	if (!yes)
-		label_auto = NULL;
-
-	if (yes) {
-		if (!label_auto)
-			label = label_val; /* parser should force unsigned */
-	}
-
 	afi = vpn_policy_getafi(vty, bgp, false);
 	if (afi == AFI_MAX)
 		return CMD_WARNING_CONFIG_FAILED;
 
-
-	if (label_auto && CHECK_FLAG(bgp->vpn_policy[afi].flags,
-				     BGP_VPN_POLICY_TOVPN_LABEL_AUTO))
-		/* no change */
-		return CMD_SUCCESS;
+	if (yes) {
+		if (label_auto && CHECK_FLAG(bgp->vpn_policy[afi].flags,
+					     BGP_VPN_POLICY_TOVPN_LABEL_AUTO))
+			/* no change */
+			return CMD_SUCCESS;
+		if (!label_auto && label == bgp->vpn_policy[afi].tovpn_label)
+			/* no change */
+			return CMD_SUCCESS;
+	} else {
+		if (label_auto && !CHECK_FLAG(bgp->vpn_policy[afi].flags,
+					      BGP_VPN_POLICY_TOVPN_LABEL_AUTO))
+			/* no match */
+			return CMD_WARNING_CONFIG_FAILED;
+		if (!label_auto && label_val &&
+		    label != bgp->vpn_policy[afi].tovpn_label)
+			/* no change */
+			return CMD_WARNING_CONFIG_FAILED;
+	}
 
 	/*
 	 * pre-change: un-export vpn routes (vpn->vrf routes unaffected)
@@ -9467,9 +9471,9 @@ DEFPY (af_label_vpn_export,
 	vpn_leak_prechange(BGP_VPN_POLICY_DIR_TOVPN, afi,
 			   bgp_get_default(), bgp);
 
-	if (!label_auto && CHECK_FLAG(bgp->vpn_policy[afi].flags,
-				      BGP_VPN_POLICY_TOVPN_LABEL_AUTO)) {
-
+	/* release any previous auto label */
+	if (CHECK_FLAG(bgp->vpn_policy[afi].flags,
+		       BGP_VPN_POLICY_TOVPN_LABEL_AUTO)) {
 		if (bgp->vpn_policy[afi].tovpn_label != MPLS_LABEL_NONE) {
 
 			/*
@@ -9486,16 +9490,25 @@ DEFPY (af_label_vpn_export,
 				       &bgp->vpn_policy[afi],
 				       bgp->vpn_policy[afi].tovpn_label);
 		}
-		UNSET_FLAG(bgp->vpn_policy[afi].flags,
-			   BGP_VPN_POLICY_TOVPN_LABEL_AUTO);
 	}
 
-	bgp->vpn_policy[afi].tovpn_label = label;
-	if (label_auto) {
-		SET_FLAG(bgp->vpn_policy[afi].flags,
-			 BGP_VPN_POLICY_TOVPN_LABEL_AUTO);
-		bgp_lp_get(LP_TYPE_VRF, &bgp->vpn_policy[afi],
-			   vpn_leak_label_callback);
+	if (yes) {
+		if (label_auto) {
+			SET_FLAG(bgp->vpn_policy[afi].flags,
+				 BGP_VPN_POLICY_TOVPN_LABEL_AUTO);
+			/* fetch a label */
+			bgp->vpn_policy[afi].tovpn_label = MPLS_LABEL_NONE;
+			bgp_lp_get(LP_TYPE_VRF, &bgp->vpn_policy[afi],
+				   vpn_leak_label_callback);
+		} else {
+			UNSET_FLAG(bgp->vpn_policy[afi].flags,
+				   BGP_VPN_POLICY_TOVPN_LABEL_AUTO);
+			bgp->vpn_policy[afi].tovpn_label = label;
+		}
+	} else {
+		UNSET_FLAG(bgp->vpn_policy[afi].flags,
+			   BGP_VPN_POLICY_TOVPN_LABEL_AUTO);
+		bgp->vpn_policy[afi].tovpn_label = MPLS_LABEL_NONE;
 	}
 
 	/* post-change: re-export vpn routes */
