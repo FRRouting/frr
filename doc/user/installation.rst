@@ -351,20 +351,6 @@ options from the list below.
 
    Use libpam for PAM support in vtysh.
 
-.. option:: --enable-time-check XXX
-
-   This option is deprecated as it was replaced by the
-   :clicmd:`service cputime-stats` CLI command, which may be adjusted at
-   runtime rather than being a compile-time setting.  See there for further
-   detail.
-
-.. option:: --disable-cpu-time
-
-   This option is deprecated as it was replaced by the
-   :clicmd:`service cputime-warning NNN` CLI command, which may be adjusted at
-   runtime rather than being a compile-time setting.  See there for further
-   detail.
-
 .. option:: --enable-pcreposix
 
    Turn on the usage of PCRE Posix libs for regex functionality.
