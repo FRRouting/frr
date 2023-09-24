@@ -1136,13 +1136,17 @@ static int isis_zebra_process_srv6_locator_chunk(ZAPI_CALLBACK_ARGS)
 	enum srv6_endpoint_behavior_codepoint behavior;
 	bool allocated = false;
 
-	if (!isis)
+	if (!isis) {
+		srv6_locator_chunk_free(&chunk);
 		return -1;
+	}
 
 	/* Decode the received zebra message */
 	s = zclient->ibuf;
-	if (zapi_srv6_locator_chunk_decode(s, chunk) < 0)
+	if (zapi_srv6_locator_chunk_decode(s, chunk) < 0) {
+		srv6_locator_chunk_free(&chunk);
 		return -1;
+	}
 
 	sr_debug(
 		"Received SRv6 locator chunk from zebra: name %s, "
