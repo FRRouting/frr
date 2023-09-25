@@ -893,6 +893,9 @@ void bgp_start_tier2_deferral_timer(struct bgp *bgp, afi_t afi, safi_t safi)
 		zlog_debug("%s: Started tier-2 path-select deferral timer for %s, duration %ds",
 			   bgp->name_pretty, get_afi_safi_str(afi, safi, false),
 			   bgp->select_defer_time);
+
+	frrtrace(5, frr_bgp, gr_deferral_timer_start, bgp->name_pretty, afi, safi,
+		 bgp->select_defer_time, 2);
 }
 
 /* Selection deferral timer processing function */
@@ -935,6 +938,10 @@ static void bgp_graceful_deferral_timer_expire(struct event *event)
 		zlog_debug("%s: Starting %s deferred path selection for %s, #routes %d -- timeout",
 			   bgp->name_pretty, (info->tier2_gr) ? "2nd" : "1st",
 			   get_afi_safi_str(afi, safi, false), bgp->gr_info[afi][safi].gr_deferred);
+
+	frrtrace(5, frr_bgp, gr_deferral_timer_expiry, bgp->name_pretty, info->tier2_gr, afi, safi,
+		 bgp->gr_info[afi][safi].gr_deferred);
+
 
 	XFREE(MTYPE_TMP, info);
 
@@ -1324,6 +1331,8 @@ static bool bgp_gr_check_all_eors(struct bgp *bgp, afi_t afi, safi_t safi,
 		zlog_debug("%s: Checking all peers for EOR receipt for %s", bgp->name_pretty,
 			   get_afi_safi_str(afi, safi, false));
 
+	frrtrace(4, frr_bgp, gr_eors, bgp->name_pretty, afi, safi, 1);
+
 	for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
 		if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
 			zlog_debug("....examining peer %s status %s flags 0x%" PRIx64
@@ -1350,6 +1359,8 @@ static bool bgp_gr_check_all_eors(struct bgp *bgp, afi_t afi, safi_t safi,
 				if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
 					zlog_debug(".... EOR still awaited from this peer for %s",
 						   get_afi_safi_str(afi, safi, false));
+				frrtrace(5, frr_bgp, gr_eor_peer, bgp->name_pretty, afi, safi,
+					 peer->host, 1);
 
 				return false;
 			}
@@ -1414,6 +1425,8 @@ static bool bgp_gr_check_all_eors(struct bgp *bgp, afi_t afi, safi_t safi,
 				if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
 					zlog_debug(".... EOR still awaited from this multihop peer for %s",
 						   get_afi_safi_str(afi, safi, false));
+				frrtrace(5, frr_bgp, gr_eor_peer, bgp->name_pretty, afi, safi,
+					 peer->host, 3);
 			} else {
 				/*
 				 * If EOR from directly connected peer
@@ -1427,6 +1440,8 @@ static bool bgp_gr_check_all_eors(struct bgp *bgp, afi_t afi, safi_t safi,
 						zlog_debug(".... Ignoring directly connected peer %s. Tier1 GR timer has expired already for %s",
 							   peer->host,
 							   get_afi_safi_str(afi, safi, false));
+					frrtrace(5, frr_bgp, gr_eor_peer, bgp->name_pretty, afi,
+						 safi, peer->host, 2);
 					continue;
 				}
 				/*
@@ -1439,6 +1454,8 @@ static bool bgp_gr_check_all_eors(struct bgp *bgp, afi_t afi, safi_t safi,
 				if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
 					zlog_debug(".... EOR still awaited from this directly connected peer for %s",
 						   get_afi_safi_str(afi, safi, false));
+				frrtrace(5, frr_bgp, gr_eor_peer, bgp->name_pretty, afi, safi,
+					 peer->host, 5);
 
 				return false;
 			}
@@ -1448,6 +1465,7 @@ static bool bgp_gr_check_all_eors(struct bgp *bgp, afi_t afi, safi_t safi,
 	if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
 		zlog_debug(".... EOR received from all directly connected peers for %s",
 			   get_afi_safi_str(afi, safi, false));
+	frrtrace(4, frr_bgp, gr_eors, bgp->name_pretty, afi, safi, 2);
 
 	/*
 	 * EOR is rcvd from all the directly connected peers at this point.
@@ -1469,12 +1487,15 @@ static bool bgp_gr_check_all_eors(struct bgp *bgp, afi_t afi, safi_t safi,
 		if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
 			zlog_debug(".... EOR NOT received from all multihop peers for %s",
 				   get_afi_safi_str(afi, safi, false));
+		frrtrace(4, frr_bgp, gr_eors, bgp->name_pretty, afi, safi, 3);
+
 		bgp_start_tier2_deferral_timer(bgp, afi, safi);
 		*multihop_eors_pending = true;
 	} else {
 		if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
 			zlog_debug(".... EOR received from all expected peers for %s",
 				   get_afi_safi_str(afi, safi, false));
+		frrtrace(4, frr_bgp, gr_eors, bgp->name_pretty, afi, safi, 4);
 	}
 
 	return true;
@@ -1513,6 +1534,8 @@ void bgp_gr_check_path_select(struct bgp *bgp, afi_t afi, safi_t safi)
 				zlog_debug("%s: No multihop EORs pending for %s, #routes %d -- EORs recvd",
 					   bgp->name_pretty, get_afi_safi_str(afi, safi, false),
 					   gr_info->gr_deferred);
+
+			frrtrace(4, frr_bgp, gr_eors, bgp->name_pretty, afi, safi, 5);
 		}
 
 		gr_info->select_defer_over = true;
@@ -1520,6 +1543,10 @@ void bgp_gr_check_path_select(struct bgp *bgp, afi_t afi, safi_t safi)
 			zlog_debug("%s: Starting deferred path selection for %s, #routes %d -- EORs recvd",
 				   bgp->name_pretty, get_afi_safi_str(afi, safi, false),
 				   gr_info->gr_deferred);
+
+		frrtrace(4, frr_bgp, gr_start_deferred_path_selection, bgp->name_pretty, afi, safi,
+			 gr_info->gr_deferred);
+
 		bgp_do_deferred_path_selection(bgp, afi, safi);
 	}
 }
@@ -1646,6 +1673,9 @@ static void bgp_start_deferral_timer(struct bgp *bgp, afi_t afi, safi_t safi,
 		zlog_debug("%s: Started path-select deferral timer for %s, duration %ds",
 			   bgp->name_pretty, get_afi_safi_str(afi, safi, false),
 			   bgp->select_defer_time);
+
+	frrtrace(5, frr_bgp, gr_deferral_timer_start, bgp->name_pretty, afi, safi,
+		 bgp->select_defer_time, 1);
 }
 
 /*
@@ -1750,6 +1780,9 @@ static void bgp_gr_process_peer_status_change(struct peer *peer)
 				zlog_debug("%s: Peer %s cap 0x%" PRIx64 " flags 0x%" PRIx64
 					   " restarted or GR not negotiated, check for path-selection",
 					   bgp->name_pretty, peer->host, peer->cap, peer->flags);
+
+			frrtrace(4, frr_bgp, gr_peer_up_ignore, bgp->name_pretty, peer->host,
+				 peer->cap, peer->flags);
 
 			bgp_gr_process_peer_up_ignore(bgp, peer);
 		} else {

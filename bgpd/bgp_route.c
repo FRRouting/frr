@@ -3089,6 +3089,9 @@ static void bgp_route_select_timer_expire(struct event *event)
 			   bgp->name_pretty, get_afi_safi_str(afi, safi, false),
 			   bgp->gr_info[afi][safi].gr_deferred);
 
+	frrtrace(4, frr_bgp, gr_continue_deferred_path_selection, bgp->name_pretty, afi, safi,
+		 bgp->gr_info[afi][safi].gr_deferred);
+
 	bgp_do_deferred_path_selection(bgp, afi, safi);
 }
 
@@ -4354,6 +4357,8 @@ void bgp_do_deferred_path_selection(struct bgp *bgp, afi_t afi, safi_t safi)
 	if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
 		zlog_debug("%s: Started doing BGP deferred path selection for %s",
 			   bgp->name_pretty, get_afi_safi_str(afi, safi, false));
+
+	frrtrace(4, frr_bgp, gr_eors, bgp->name_pretty, afi, safi, 7);
 
 	/* Process the route list */
 	for (dest = bgp_table_top(bgp->rib[afi][safi]);
