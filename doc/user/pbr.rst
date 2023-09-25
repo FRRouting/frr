@@ -28,8 +28,8 @@ documented elsewhere.
 
 .. _nexthop-groups:
 
-Nexthop Groups
-==============
+PBR Nexthop Groups
+==================
 
 A nexthop group is a list of ECMP nexthops used to forward packets
 when a pbr-map is matched.
