@@ -7581,6 +7581,15 @@ void bgp_clear_stale_route(struct peer *peer, afi_t afi, safi_t safi)
 						continue;
 
 					/*
+					 * If stale route which is being deleted
+					 * is a l2vpn evpn route, then unimport
+					 * it from all the VRFs and VNIs.
+					 */
+					if (safi == SAFI_EVPN && pi->sub_type == BGP_ROUTE_NORMAL)
+						bgp_evpn_unimport_route(peer->bgp, afi, safi,
+									bgp_dest_get_prefix(rm),
+									pi);
+					/*
 					 * If this is VRF leaked route
 					 * process for withdraw.
 					 */
