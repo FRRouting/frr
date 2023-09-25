@@ -20,6 +20,45 @@ import babeltrace
 
 
 ########################### common parsers - start ############################
+
+
+def print_location_gr_deferral_timer_start(field_val):
+    if field_val == 1:
+        return "Tier 1 deferral timer start"
+    elif field_val == 2:
+        return "Tier 2 deferral timer start"
+
+
+def print_location_gr_eors(field_val):
+    if field_val == 1:
+        return "Check all EORs"
+    elif field_val == 2:
+        return "All dir conn EORs rcvd"
+    elif field_val == 3:
+        return "All multihop EORs NOT rcvd"
+    elif field_val == 4:
+        return "All EORs rcvd"
+    elif field_val == 5:
+        return "No multihop EORs pending"
+    elif field_val == 6:
+        return "EOR rcvd,check path select"
+    elif field_val == 7:
+        return "Do deferred path selection"
+
+
+def print_location_gr_eor_peer(field_val):
+    if field_val == 1:
+        return "EOR awaited from"
+    elif field_val == 2:
+        return "EOR ignore"
+    elif field_val == 3:
+        return "Multihop EOR awaited"
+    elif field_val == 4:
+        return "Ignore EOR rcvd after tier1 expiry"
+    elif field_val == 5:
+        return "Dir conn EOR awaited"
+
+
 def print_ip_addr(field_val):
     """
     pretty print "struct ipaddr"
@@ -267,7 +306,6 @@ def print_family_str(field_val):
 
     return cmd_str
 
-
 ############################ common parsers - end #############################
 
 
@@ -463,6 +501,64 @@ def parse_frr_bgp_evpn_withdraw_type5(event):
     local originated type-5 route withdraw
     """
     field_parsers = {"ip": print_ip_addr}
+
+
+def parse_frr_bgp_gr_deferral_timer_start(event):
+    field_parsers = {
+        "location": print_location_gr_deferral_timer_start,
+        "afi": print_afi_string,
+        "safi": print_safi_string,
+    }
+
+    parse_event(event, field_parsers)
+
+
+def parse_frr_bgp_gr_deferral_timer_expiry(event):
+    field_parsers = {"afi": print_afi_string, "safi": print_safi_string}
+
+    parse_event(event, field_parsers)
+
+
+def parse_frr_bgp_gr_eors(event):
+    field_parsers = {
+        "location": print_location_gr_eors,
+        "afi": print_afi_string,
+        "safi": print_safi_string,
+    }
+
+    parse_event(event, field_parsers)
+
+
+def parse_frr_bgp_gr_eor_peer(event):
+    field_parsers = {
+        "location": print_location_gr_eor_peer,
+        "afi": print_afi_string,
+        "safi": print_safi_string,
+    }
+
+    parse_event(event, field_parsers)
+
+
+def parse_frr_bgp_gr_start_deferred_path_selection(event):
+    field_parsers = {"afi": print_afi_string, "safi": print_safi_string}
+
+    parse_event(event, field_parsers)
+
+
+def parse_frr_bgp_gr_send_fbit_capability(event):
+    field_parsers = {"afi": print_afi_string, "safi": print_safi_string}
+
+    parse_event(event, field_parsers)
+
+
+def parse_frr_bgp_gr_continue_deferred_path_selection(event):
+    field_parsers = {"afi": print_afi_string, "safi": print_safi_string}
+
+    parse_event(event, field_parsers)
+
+
+def parse_frr_bgp_gr_zebra_update(event):
+    field_parsers = {"afi": print_afi_string, "safi": print_safi_string}
 
     parse_event(event, field_parsers)
 
@@ -1261,6 +1357,14 @@ def main():
         "frr_zebra:zevpn_build_l2vni_hash": parse_frr_zebra_zevpn_build_l2vni_hash,
         "frr_zebra:zevpn_build_vni_hash": parse_frr_zebra_zevpn_build_vni_hash,
         "frr_zebra:if_netlink_parse_error": parse_frr_zebra_if_netlink_parse_error,
+        "frr_bgp:gr_deferral_timer_start": parse_frr_bgp_gr_deferral_timer_start,
+        "frr_bgp:gr_deferral_timer_expiry": parse_frr_bgp_gr_deferral_timer_expiry,
+        "frr_bgp:gr_eors": parse_frr_bgp_gr_eors,
+        "frr_bgp:gr_eor_peer": parse_frr_bgp_gr_eor_peer,
+        "frr_bgp:gr_start_deferred_path_selection": parse_frr_bgp_gr_start_deferred_path_selection,
+        "frr_bgp:gr_send_fbit_capability": parse_frr_bgp_gr_send_fbit_capability,
+        "frr_bgp:gr_continue_deferred_path_selection": parse_frr_bgp_gr_continue_deferred_path_selection,
+        "frr_bgp:gr_zebra_update": parse_frr_bgp_gr_zebra_update,
     }
 
     # get the trace path from the first command line argument
