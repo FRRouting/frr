@@ -185,6 +185,7 @@ def location_gr_client_not_found(field_val):
     elif field_val == 2:
         return "Stale route delete from table"
 
+
 ############################ common parsers - end #############################
 
 
