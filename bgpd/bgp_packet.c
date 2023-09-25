@@ -489,6 +489,16 @@ void bgp_generate_updgrp_packets(struct event *event)
 			afi = paf->afi;
 			safi = paf->safi;
 
+			/*
+			 * L2VPN EVPN routes must be advertised to peers only if
+			 * GR is done for all the VRFs. Waiting for overall GR
+			 * to be done will ensure that all the routes from
+			 * non-default VRFs will be exported to default VRF
+			 * before sending updates and EOR to peers.
+			 */
+			if (safi != SAFI_UNICAST && bgp_in_graceful_restart())
+				continue;
+
 			if (peer->bgp->gr_multihop_peer_exists && bgp_in_graceful_restart() &&
 			    peer->bgp->gr_info[afi][safi].af_enabled &&
 			    !peer->bgp->gr_info[afi][safi].route_sync)
