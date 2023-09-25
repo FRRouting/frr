@@ -621,7 +621,7 @@ Interfaces
 
    Example:
 
-   .. code:: frr
+   .. code:: sh
 
       r1(config)#key chain temp
       r1(config-keychain)#key 13
