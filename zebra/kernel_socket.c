@@ -1339,7 +1339,7 @@ static void kernel_read(struct event *thread)
 			 * reading the routing socket.  Ignore it.
 			 */
 			event_add_read(zrouter.master, kernel_read, NULL, sock,
-				       NULL);
+				       NULL, 0, 1, 2, 3, 4);
 			return;
 #else
 			flog_err(EC_ZEBRA_RECVMSG_OVERRUN,
