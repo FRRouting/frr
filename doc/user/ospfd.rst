@@ -314,7 +314,7 @@ To start OSPF process you have to specify the OSPF router.
 
    This command controls the ospf instance's socket buffer sizes. The
    'no' form resets one or both values to the default.
-   
+
 .. clicmd:: no socket-per-interface
 
    Ordinarily, ospfd uses a socket per interface for sending
@@ -603,9 +603,9 @@ Interfaces
 
    Specify that HMAC cryptographic authentication must be used on this interface
    using a key chain. Overrides any authentication enabled on a per-area basis
-   (:clicmd:`area A.B.C.D authentication message-digest`)
+   (:clicmd:`area A.B.C.D authentication message-digest`).
 
-   * ``KEYCHAIN``: Specifies the name of the key chain that contains the authentication
+   ``KEYCHAIN``: Specifies the name of the key chain that contains the authentication
    key(s) and cryptographic algorithms to be used for OSPF authentication. The key chain
    is a logical container that holds one or more authentication keys,
    allowing for key rotation and management.
