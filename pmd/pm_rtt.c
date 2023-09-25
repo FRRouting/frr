@@ -101,26 +101,31 @@ static inline uint32_t pm_rtt_from_timevals(struct timeval *start,
 
 void pm_rtt_update_bulk_stats(struct pm_echo *pme)
 {
-	uint32_t rtt = pm_rtt_from_timevals(&pme->start, &pme->stop[0]);
+	uint32_t rtt;
 
-	pme->rtt_bulk_stats->min_rtt = rtt;
-	pme->rtt_bulk_stats->max_rtt = rtt;
-	pme->rtt_bulk_stats->sum_rtt = rtt;
-	if (pme->stop[0].tv_sec != 0 || pme->stop[0].tv_usec != 0)
-		pme->rtt_bulk_stats->total_count = 1;
-	else
-		pme->rtt_bulk_stats->total_count = 0;
-	for (int i = 1; i < pme->count; ++i) {
+	pme->rtt_bulk_stats->min_rtt = UINT32_MAX;
+	pme->rtt_bulk_stats->max_rtt = 0;
+	pme->rtt_bulk_stats->sum_rtt = 0;
+	pme->rtt_bulk_stats->avg_rtt = 0;
+	pme->rtt_bulk_stats->total_count = 0;
+
+	for (int i = 0; i < pme->count; ++i) {
+		if (pme->stop[i].tv_sec == 0 && pme->stop[i].tv_usec == 0)
+			continue;
 		rtt = pm_rtt_from_timevals(&pme->start, &pme->stop[i]);
 		if (rtt < pme->rtt_bulk_stats->min_rtt)
 			pme->rtt_bulk_stats->min_rtt = rtt;
-		else if (rtt > pme->rtt_bulk_stats->max_rtt)
+		if (rtt > pme->rtt_bulk_stats->max_rtt)
 			pme->rtt_bulk_stats->max_rtt = rtt;
 		pme->rtt_bulk_stats->sum_rtt += rtt;
 		++pme->rtt_bulk_stats->total_count;
 	}
-	pme->rtt_bulk_stats->avg_rtt =
-		pme->rtt_bulk_stats->sum_rtt / pme->rtt_bulk_stats->total_count;
+
+	if (pme->rtt_bulk_stats->total_count > 0)
+		pme->rtt_bulk_stats->avg_rtt =
+			pme->rtt_bulk_stats->sum_rtt / pme->rtt_bulk_stats->total_count;
+	else
+		pme->rtt_bulk_stats->min_rtt = 0;
 }
 
 void pm_rtt_display_stats(struct vty *vty, struct pm_rtt_stats *rtt_stats)
