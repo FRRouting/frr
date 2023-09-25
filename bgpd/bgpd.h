@@ -2870,6 +2870,7 @@ int bgp_enqueue_conn_err(struct bgp *bgp, struct peer_connection *connection,
 			 int errcode);
 struct peer_connection *bgp_dequeue_conn_err(struct bgp *bgp, bool *more_p);
 void bgp_conn_err_reschedule(struct bgp *bgp);
+static inline bool bgp_gr_supported_for_afi_safi(afi_t afi, safi_t safi);
 
 #define BGP_GR_ROUTER_DETECT_AND_SEND_CAPABILITY_TO_ZEBRA(_bgp, _peer_list)    \
 	do {                                                                   \
