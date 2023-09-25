@@ -809,6 +809,7 @@ void pm_echo_send(struct event *event)
 		if (pme->start.tv_sec != 0 || pme->start.tv_usec != 0) {
 			pm_rtt_update_bulk_stats(pme);
 			pm_zebra_notify(pm);
+			memset(pme->stop, 0, sizeof(*pme->stop) * pme->count);
 		}
 		if (pme->icmp_sequence + pme->count > UINT16_MAX) /* overflow */
 			pme->icmp_sequence = 0;
