@@ -2855,7 +2855,7 @@ int bgp_show_mpls_vpn(struct vty *vty, afi_t afi, struct prefix_rd *prd,
 		return CMD_WARNING;
 	}
 	table = bgp->rib[afi][SAFI_MPLS_VPN];
-	return bgp_show_table_rd(vty, bgp, SAFI_MPLS_VPN, table, prd, type,
+	return bgp_show_table_rd(vty, bgp, afi, SAFI_MPLS_VPN, table, prd, type,
 				 output_arg, show_flags);
 }
 
