@@ -73,6 +73,7 @@
 #include "bgpd/bgp_flowspec.h"
 #include "bgpd/bgp_flowspec_util.h"
 #include "bgpd/bgp_pbr.h"
+#include "bgpd/bgp_linkstate_tlv.h"
 
 #include "bgpd/bgp_route_clippy.c"
 
@@ -1581,7 +1582,7 @@ static enum filter_type bgp_input_filter(struct peer *peer,
 
 done:
 	if (frrtrace_enabled(frr_bgp, input_filter)) {
-		char pfxprint[PREFIX2STR_BUFFER];
+		char pfxprint[PREFIX_STRLEN_EXTENDED];
 
 		prefix2str(p, pfxprint, sizeof(pfxprint));
 		frrtrace(5, frr_bgp, input_filter, peer, pfxprint, afi, safi,
@@ -1638,7 +1639,7 @@ static enum filter_type bgp_output_filter(struct peer *peer,
 	}
 
 	if (frrtrace_enabled(frr_bgp, output_filter)) {
-		char pfxprint[PREFIX2STR_BUFFER];
+		char pfxprint[PREFIX_STRLEN_EXTENDED];
 
 		prefix2str(p, pfxprint, sizeof(pfxprint));
 		frrtrace(5, frr_bgp, output_filter, peer, pfxprint, afi, safi,
@@ -2712,7 +2713,7 @@ void bgp_best_selection(struct bgp *bgp, struct bgp_dest *dest,
 	int paths_eq, do_mpath;
 	bool debug;
 	struct list mp_list;
-	char pfx_buf[PREFIX2STR_BUFFER] = {};
+	char pfx_buf[PREFIX_STRLEN_EXTENDED] = {};
 	char path_buf[PATH_ADDPATH_STR_BUFFER];
 
 	bgp_mp_list_init(&mp_list);
@@ -4167,7 +4168,7 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 	int allowas_in = 0;
 
 	if (frrtrace_enabled(frr_bgp, process_update)) {
-		char pfxprint[PREFIX2STR_BUFFER];
+		char pfxprint[PREFIX_STRLEN_EXTENDED];
 
 		prefix2str(p, pfxprint, sizeof(pfxprint));
 		frrtrace(6, frr_bgp, process_update, peer, pfxprint, addpath_id,
@@ -4729,8 +4730,8 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 		     (safi == SAFI_UNICAST || safi == SAFI_LABELED_UNICAST ||
 		      (safi == SAFI_MPLS_VPN &&
 		       pi->sub_type != BGP_ROUTE_IMPORTED))) ||
-		    (safi == SAFI_EVPN &&
-		     bgp_evpn_is_prefix_nht_supported(p))) {
+		    (safi == SAFI_EVPN && bgp_evpn_is_prefix_nht_supported(p)) ||
+		    afi == AFI_LINKSTATE) {
 			if (safi != SAFI_EVPN && peer->sort == BGP_PEER_EBGP
 			    && peer->ttl == BGP_DEFAULT_TTL
 			    && !CHECK_FLAG(peer->flags,
@@ -4877,9 +4878,9 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 	/* Nexthop reachability check. */
 	if (((afi == AFI_IP || afi == AFI_IP6) &&
 	     (safi == SAFI_UNICAST || safi == SAFI_LABELED_UNICAST ||
-	      (safi == SAFI_MPLS_VPN &&
-	       new->sub_type != BGP_ROUTE_IMPORTED))) ||
-	    (safi == SAFI_EVPN && bgp_evpn_is_prefix_nht_supported(p))) {
+	      (safi == SAFI_MPLS_VPN && new->sub_type != BGP_ROUTE_IMPORTED))) ||
+	    (safi == SAFI_EVPN && bgp_evpn_is_prefix_nht_supported(p)) ||
+	    afi == AFI_LINKSTATE) {
 		if (safi != SAFI_EVPN && peer->sort == BGP_PEER_EBGP
 		    && peer->ttl == BGP_DEFAULT_TTL
 		    && !CHECK_FLAG(peer->flags,
@@ -8772,7 +8773,7 @@ static void route_vty_out_route(struct bgp_dest *dest, const struct prefix *p,
 				struct vty *vty, json_object *json, bool wide)
 {
 	int len = 0;
-	char buf[INET6_ADDRSTRLEN];
+	char buf[PREFIX_STRLEN_EXTENDED];
 
 	if (p->family == AF_INET) {
 		if (!json) {
@@ -8798,6 +8799,14 @@ static void route_vty_out_route(struct bgp_dest *dest, const struct prefix *p,
 			       json ?
 			       NLRI_STRING_FORMAT_JSON_SIMPLE :
 			       NLRI_STRING_FORMAT_MIN, json);
+	} else if (p->family == AF_LINKSTATE) {
+		if (json) {
+			json_object_int_add(json, "version", dest->version);
+			bgp_linkstate_nlri_prefix_json(
+				json, p->u.prefix_linkstate.nlri_type,
+				p->u.prefix_linkstate.ptr, p->prefixlen);
+		} else
+			len = vty_out(vty, "%pFX", p);
 	} else {
 		if (!json)
 			len = vty_out(vty, "%pFX", p);
@@ -10103,6 +10112,7 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 	json_object *json_peer = NULL;
 	json_object *json_string = NULL;
 	json_object *json_adv_to = NULL;
+	json_object *json_bgp_ls_attr = NULL;
 	int first = 0;
 	struct listnode *node, *nnode;
 	struct peer *peer;
@@ -11037,6 +11047,28 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 				llgr_remaining);
 	}
 
+	if (safi == SAFI_LINKSTATE) {
+		/* BGP Link-State NLRI */
+		if (json_paths)
+			bgp_linkstate_nlri_prefix_json(
+				json_path, bn->rn->p.u.prefix_linkstate.nlri_type,
+				bn->rn->p.u.prefix_linkstate.ptr, bn->rn->p.prefixlen);
+
+		/* BGP Link-State Attributes */
+		if (attr->link_state) {
+			if (json_paths) {
+				json_bgp_ls_attr = json_object_new_object();
+				json_object_object_add(json_path,
+						       "linkStateAttributes",
+						       json_bgp_ls_attr);
+			} else {
+				vty_out(vty, "  BGP-LS attributes:\n");
+			}
+			bgp_linkstate_tlv_attribute_display(
+				vty, attr->link_state, 4, json_bgp_ls_attr);
+		}
+	}
+
 	/* Output some debug about internal state of the dest flags */
 	if (json_paths) {
 		if (CHECK_FLAG(bn->flags, BGP_NODE_PROCESS_SCHEDULED))
@@ -11419,7 +11451,7 @@ static int bgp_show_table(struct vty *vty, struct bgp *bgp, afi_t afi, safi_t sa
 				vty_out(vty, ASN_FORMAT(bgp->asnotation),
 					&bgp->as);
 				vty_out(vty, "\n");
-				if (!detail_routes) {
+				if (!detail_routes && safi != SAFI_LINKSTATE) {
 					vty_out(vty, BGP_SHOW_SCODE_HEADER);
 					vty_out(vty, BGP_SHOW_NCODE_HEADER);
 					vty_out(vty, BGP_SHOW_OCODE_HEADER);
@@ -12052,6 +12084,8 @@ const struct prefix_rd *bgp_rd_from_dest(const struct bgp_dest *dest,
 	case SAFI_UNICAST:
 	case SAFI_MULTICAST:
 	case SAFI_LABELED_UNICAST:
+	case SAFI_LINKSTATE:
+	case SAFI_LINKSTATE_VPN:
 	case SAFI_FLOWSPEC:
 	case SAFI_MAX:
 		return NULL;
@@ -12968,6 +13002,62 @@ DEFPY(show_ip_bgp, show_ip_bgp_cmd,
 	return CMD_SUCCESS;
 }
 
+/* BGP route print out function */
+DEFPY (show_ip_bgp_link_state, show_ip_bgp_link_state_cmd,
+      "show [ip] bgp [<view|vrf> VIEWVRFNAME] link-state link-state\
+          [all$all]\
+          [version (1-4294967295)\
+          |detail-routes$detail_routes\
+          ] [json$uj [detail$detail_json] | wide$wide]",
+      SHOW_STR IP_STR BGP_STR BGP_INSTANCE_HELP_STR
+	  BGP_AF_STR
+	  BGP_AF_MODIFIER_STR
+      "Display the entries for all address families\n"
+      "Display prefixes with matching version numbers\n"
+      "Version number and above\n"
+      "Display detailed version of all routes\n"
+      JSON_STR
+      "Display detailed version of JSON output\n"
+      "Increase table width for longer prefixes\n")
+{
+	afi_t afi = AFI_LINKSTATE;
+	safi_t safi = SAFI_LINKSTATE;
+	enum bgp_show_type sh_type = bgp_show_type_normal;
+	void *output_arg = NULL;
+	struct bgp *bgp = NULL;
+	int idx = 0;
+	uint16_t show_flags = 0;
+	enum rpki_states rpki_target_state = RPKI_NOT_BEING_USED;
+
+	if (uj) {
+		argc--;
+		SET_FLAG(show_flags, BGP_SHOW_OPT_JSON);
+	}
+
+	if (detail_json)
+		SET_FLAG(show_flags, BGP_SHOW_OPT_JSON_DETAIL);
+
+	if (detail_routes)
+		SET_FLAG(show_flags, BGP_SHOW_OPT_ROUTES_DETAIL);
+
+	if (wide)
+		SET_FLAG(show_flags, BGP_SHOW_OPT_WIDE);
+
+	bgp_vty_find_and_parse_afi_safi_bgp(vty, argv, argc, &idx, &afi, &safi,
+					    &bgp, uj);
+	if (!idx)
+		return CMD_WARNING;
+
+	/* Display prefixes with matching version numbers */
+	if (argv_find(argv, argc, "version", &idx)) {
+		sh_type = bgp_show_type_prefix_version;
+		output_arg = argv[idx + 1]->arg;
+	}
+
+	return bgp_show(vty, bgp, afi, safi, sh_type, output_arg, show_flags,
+			rpki_target_state);
+}
+
 DEFUN (show_ip_bgp_route,
        show_ip_bgp_route_cmd,
        "show [ip] bgp [<view|vrf> VIEWVRFNAME] ["BGP_AFI_CMD_STR" ["BGP_SAFI_WITH_LABEL_CMD_STR"]]<A.B.C.D|A.B.C.D/M|X:X::X:X|X:X::X:X/M> [<bestpath|multipath>] [rpki <valid|invalid|notfound>] [json]",
@@ -13048,13 +13138,13 @@ DEFUN (show_ip_bgp_route,
 
 DEFUN (show_ip_bgp_regexp,
        show_ip_bgp_regexp_cmd,
-       "show [ip] bgp [<view|vrf> VIEWVRFNAME] ["BGP_AFI_CMD_STR" ["BGP_SAFI_WITH_LABEL_CMD_STR"]] regexp REGEX [json]",
+       "show [ip] bgp [<view|vrf> VIEWVRFNAME] ["BGP_AFI_WITH_LS_CMD_STR" ["BGP_SAFI_WITH_LABEL_LS_CMD_STR"]] regexp REGEX [json]",
        SHOW_STR
        IP_STR
        BGP_STR
        BGP_INSTANCE_HELP_STR
-       BGP_AFI_HELP_STR
-       BGP_SAFI_WITH_LABEL_HELP_STR
+       BGP_AFI_WITH_LS_HELP_STR
+       BGP_SAFI_WITH_LABEL_LS_HELP_STR
        "Display routes matching the AS path regular expression\n"
        "A regular-expression (1234567890_^|[,{}() ]$*+.?-\\) to match the BGP AS paths\n"
        JSON_STR)
@@ -13301,6 +13391,8 @@ static void bgp_table_stats_walker(struct event *t)
 	case AFI_L2VPN:
 		space = EVPN_ROUTE_PREFIXLEN;
 		break;
+	case AFI_LINKSTATE:
+		/* TODO */
 	case AFI_UNSPEC:
 	case AFI_MAX:
 		return;
@@ -13557,6 +13649,8 @@ static int bgp_table_stats_single(struct vty *vty, struct bgp *bgp, afi_t afi,
 	case AFI_L2VPN:
 		bitlen = EVPN_ROUTE_PREFIXLEN;
 		break;
+	case AFI_LINKSTATE:
+		/* TODO */
 	case AFI_UNSPEC:
 	case AFI_MAX:
 		break;
@@ -14591,13 +14685,13 @@ DEFPY (show_ip_bgp_instance_neighbor_bestpath_route,
 
 DEFPY(show_ip_bgp_instance_neighbor_advertised_route,
       show_ip_bgp_instance_neighbor_advertised_route_cmd,
-      "show [ip] bgp [<view|vrf> VIEWVRFNAME] [" BGP_AFI_CMD_STR " [" BGP_SAFI_WITH_LABEL_CMD_STR "]] [all$all] neighbors <A.B.C.D|X:X::X:X|WORD> <advertised-routes|received-routes|filtered-routes> [route-map RMAP_NAME$route_map] [<A.B.C.D/M|X:X::X:X/M>$prefix | detail$detail] [json$uj | wide$wide]",
+      "show [ip] bgp [<view|vrf> VIEWVRFNAME] [" BGP_AFI_WITH_LS_CMD_STR " [" BGP_SAFI_WITH_LABEL_LS_CMD_STR "]] [all$all] neighbors <A.B.C.D|X:X::X:X|WORD> <advertised-routes|received-routes|filtered-routes> [route-map RMAP_NAME$route_map] [<A.B.C.D/M|X:X::X:X/M>$prefix | detail$detail] [json$uj | wide$wide]",
       SHOW_STR
       IP_STR
       BGP_STR
       BGP_INSTANCE_HELP_STR
-      BGP_AFI_HELP_STR
-      BGP_SAFI_WITH_LABEL_HELP_STR
+      BGP_AFI_WITH_LS_HELP_STR
+      BGP_SAFI_WITH_LABEL_LS_HELP_STR
       "Display the entries for all address families\n"
       "Detailed information on TCP and BGP neighbor connections\n"
       "Neighbor to display information about\n"
@@ -14650,6 +14744,12 @@ DEFPY(show_ip_bgp_instance_neighbor_advertised_route,
 					    &bgp, uj);
 	if (!idx)
 		return CMD_WARNING;
+
+	if (afi == AFI_LINKSTATE && prefix_str) {
+		vty_out(vty,
+			"The prefix option cannot be selected with AFI Link-State\n");
+		return CMD_WARNING;
+	}
 
 	/* neighbors <A.B.C.D|X:X::X:X|WORD> */
 	argv_find(argv, argc, "neighbors", &idx);
@@ -15873,6 +15973,7 @@ void bgp_route_init(void)
 	install_element(VIEW_NODE, &show_ip_bgp_l2vpn_evpn_statistics_cmd);
 	install_element(VIEW_NODE, &show_ip_bgp_dampening_params_cmd);
 	install_element(VIEW_NODE, &show_ip_bgp_cmd);
+	install_element(VIEW_NODE, &show_ip_bgp_link_state_cmd);
 	install_element(VIEW_NODE, &show_ip_bgp_route_cmd);
 	install_element(VIEW_NODE, &show_ip_bgp_regexp_cmd);
 	install_element(VIEW_NODE, &show_ip_bgp_statistics_all_cmd);
