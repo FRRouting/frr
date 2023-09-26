@@ -146,6 +146,8 @@ static void sigint(void)
 	/* send RA lifetime of 0 before stopping. rfc4861/6.2.5 */
 	rtadv_stop_ra_all();
 
+        full_error_here_for_ci_test();
+
 	frr_early_fini();
 
 	/* Stop the opaque module pthread */
