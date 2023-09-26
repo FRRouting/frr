@@ -356,7 +356,7 @@ MGMT Show commands
     Currenlty supported values for 'candidate' and 'running' only
     ('operational' shall be supported in future soon).
 
-.. clicmd:: show mgmt database-contents [candidate|operation|running] [xpath WORD] [file WORD] json|xml
+.. clicmd:: show mgmt datastore-contents [candidate|operation|running] [xpath WORD] [file WORD] json|xml
 
     This command dumps the subtree pointed by the xpath in JSON or XML format. If filepath is
     not present then the tree will be printed on the shell.
