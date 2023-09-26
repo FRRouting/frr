@@ -1261,8 +1261,8 @@ def rlimit_atleast(rname, min_value, raises=False):
 
 def fix_netns_limits(ns):
     # Maximum read and write socket buffer sizes
-    sysctl_atleast(ns, "net.ipv4.tcp_rmem", [10 * 1024, 87380, 16 * 2 ** 20])
-    sysctl_atleast(ns, "net.ipv4.tcp_wmem", [10 * 1024, 87380, 16 * 2 ** 20])
+    sysctl_atleast(ns, "net.ipv4.tcp_rmem", [10 * 1024, 87380, 16 * 2**20])
+    sysctl_atleast(ns, "net.ipv4.tcp_wmem", [10 * 1024, 87380, 16 * 2**20])
 
     sysctl_assure(ns, "net.ipv4.conf.all.rp_filter", 0)
     sysctl_assure(ns, "net.ipv4.conf.default.rp_filter", 0)
@@ -1321,8 +1321,8 @@ def fix_host_limits():
     sysctl_atleast(None, "net.core.netdev_max_backlog", 4 * 1024)
 
     # Maximum read and write socket buffer sizes
-    sysctl_atleast(None, "net.core.rmem_max", 16 * 2 ** 20)
-    sysctl_atleast(None, "net.core.wmem_max", 16 * 2 ** 20)
+    sysctl_atleast(None, "net.core.rmem_max", 16 * 2**20)
+    sysctl_atleast(None, "net.core.wmem_max", 16 * 2**20)
 
     # Garbage Collection Settings for ARP and Neighbors
     sysctl_atleast(None, "net.ipv4.neigh.default.gc_thresh2", 4 * 1024)
@@ -1420,6 +1420,7 @@ class Router(Node):
             "pathd": 0,
             "snmpd": 0,
             "mgmtd": 0,
+            "snmptrapd": 0,
         }
         self.daemons_options = {"zebra": ""}
         self.reportCores = True
@@ -1883,6 +1884,15 @@ class Router(Node):
                     daemon_opts
                 ) + "{}.pid -x /etc/frr/agentx".format(runbase)
                 # check_daemon_files.append(runbase + ".pid")
+            elif daemon == "snmptrapd":
+                binary = "/usr/sbin/snmptrapd"
+                cmdenv = ""
+                cmdopt = (
+                    "{} ".format(daemon_opts)
+                    + "-C -c /etc/{}/snmptrapd.conf".format(self.routertype)
+                    + " -p {}.pid".format(runbase)
+                    + " -LF 6-7 {}/{}/snmptrapd.log".format(self.logdir, self.name)
+                )
             else:
                 binary = os.path.join(self.daemondir, daemon)
                 check_daemon_files.extend([runbase + ".pid", runbase + ".vty"])
@@ -1922,6 +1932,7 @@ class Router(Node):
                         tail_log_files.append(
                             "{}/{}/{}.log".format(self.logdir, self.name, daemon)
                         )
+
             if extra_opts:
                 cmdopt += " " + extra_opts
 
@@ -1970,7 +1981,7 @@ class Router(Node):
                         "%s: %s %s started with perf", self, self.routertype, daemon
                     )
             else:
-                if daemon != "snmpd":
+                if daemon != "snmpd" and daemon != "snmptrapd":
                     cmdopt += " -d "
                 cmdopt += rediropt
 
@@ -2212,6 +2223,8 @@ class Router(Node):
 
         for daemon in self.daemons:
             if daemon == "snmpd":
+                continue
+            if daemon == "snmptrapd":
                 continue
             if (self.daemons[daemon] == 1) and not (daemon in daemonsRunning):
                 sys.stderr.write("%s: Daemon %s not running\n" % (self.name, daemon))

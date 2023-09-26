@@ -744,6 +744,7 @@ class TopoRouter(TopoGear):
     RD_SNMP = 18
     RD_PIM6 = 19
     RD_MGMTD = 20
+    RD_TRAP = 21
     RD = {
         RD_FRR: "frr",
         RD_ZEBRA: "zebra",
@@ -766,6 +767,7 @@ class TopoRouter(TopoGear):
         RD_PATH: "pathd",
         RD_SNMP: "snmpd",
         RD_MGMTD: "mgmtd",
+        RD_TRAP: "snmptrapd",
     }
 
     def __init__(self, tgen, cls, name, **params):
@@ -842,7 +844,7 @@ class TopoRouter(TopoGear):
         TopoRouter.RD_RIPNG, TopoRouter.RD_OSPF, TopoRouter.RD_OSPF6,
         TopoRouter.RD_ISIS, TopoRouter.RD_BGP, TopoRouter.RD_LDP,
         TopoRouter.RD_PIM, TopoRouter.RD_PIM6, TopoRouter.RD_PBR,
-        TopoRouter.RD_SNMP, TopoRouter.RD_MGMTD.
+        TopoRouter.RD_SNMP, TopoRouter.RD_MGMTD, TopoRouter.RD_TRAP.
 
         Possible `source` values are `None` for an empty config file, a path name which is
         used directly, or a file name with no path components which is first looked for
@@ -880,7 +882,7 @@ class TopoRouter(TopoGear):
         # Enable all daemon command logging, logging files
         # and set them to the start dir.
         for daemon, enabled in nrouter.daemons.items():
-            if enabled and daemon != "snmpd":
+            if enabled and daemon != "snmpd" and daemon != "snmptrapd":
                 self.vtysh_cmd(
                     "\n".join(
                         [
