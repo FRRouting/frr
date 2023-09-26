@@ -8925,13 +8925,21 @@ DEFUN(neighbor_disable_addpath_rx,
 	struct peer *peer;
 	afi_t afi = bgp_node_afi(vty);
 	safi_t safi = bgp_node_safi(vty);
+	int ret;
+	int action;
 
 	peer = peer_and_group_lookup_vty(vty, peer_str);
 	if (!peer)
 		return CMD_WARNING_CONFIG_FAILED;
 
-	return peer_af_flag_set_vty(vty, peer_str, afi, safi,
-				    PEER_FLAG_DISABLE_ADDPATH_RX);
+	action = bgp_addpath_capability_action(peer->addpath_type[afi][safi], 0);
+
+	ret = peer_af_flag_set_vty(vty, peer_str, afi, safi,
+				   PEER_FLAG_DISABLE_ADDPATH_RX);
+
+	bgp_capability_send(peer, afi, safi, CAPABILITY_CODE_ADDPATH, action);
+
+	return ret;
 }
 
 DEFUN(no_neighbor_disable_addpath_rx,
@@ -8946,13 +8954,21 @@ DEFUN(no_neighbor_disable_addpath_rx,
 	struct peer *peer;
 	afi_t afi = bgp_node_afi(vty);
 	safi_t safi = bgp_node_safi(vty);
+	int ret;
+	int action;
 
 	peer = peer_and_group_lookup_vty(vty, peer_str);
 	if (!peer)
 		return CMD_WARNING_CONFIG_FAILED;
 
-	return peer_af_flag_unset_vty(vty, peer_str, afi, safi,
-				      PEER_FLAG_DISABLE_ADDPATH_RX);
+	action = bgp_addpath_capability_action(peer->addpath_type[afi][safi], 0);
+
+	ret = peer_af_flag_unset_vty(vty, peer_str, afi, safi,
+				     PEER_FLAG_DISABLE_ADDPATH_RX);
+
+	bgp_capability_send(peer, afi, safi, CAPABILITY_CODE_ADDPATH, action);
+
+	return ret;
 }
 
 DEFUN (neighbor_addpath_tx_all_paths,
@@ -8964,13 +8980,15 @@ DEFUN (neighbor_addpath_tx_all_paths,
 {
 	int idx_peer = 1;
 	struct peer *peer;
+	afi_t afi = bgp_node_afi(vty);
+	safi_t safi = bgp_node_safi(vty);
 
 	peer = peer_and_group_lookup_vty(vty, argv[idx_peer]->arg);
 	if (!peer)
 		return CMD_WARNING_CONFIG_FAILED;
 
-	bgp_addpath_set_peer_type(peer, bgp_node_afi(vty), bgp_node_safi(vty),
-				  BGP_ADDPATH_ALL, 0);
+	bgp_addpath_set_peer_type(peer, afi, safi, BGP_ADDPATH_ALL, 0);
+
 	return CMD_SUCCESS;
 }
 
@@ -8990,20 +9008,20 @@ DEFUN (no_neighbor_addpath_tx_all_paths,
 {
 	int idx_peer = 2;
 	struct peer *peer;
+	afi_t afi = bgp_node_afi(vty);
+	safi_t safi = bgp_node_safi(vty);
 
 	peer = peer_and_group_lookup_vty(vty, argv[idx_peer]->arg);
 	if (!peer)
 		return CMD_WARNING_CONFIG_FAILED;
 
-	if (peer->addpath_type[bgp_node_afi(vty)][bgp_node_safi(vty)]
-	    != BGP_ADDPATH_ALL) {
+	if (peer->addpath_type[afi][safi] != BGP_ADDPATH_ALL) {
 		vty_out(vty,
 			"%% Peer not currently configured to transmit all paths.");
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	bgp_addpath_set_peer_type(peer, bgp_node_afi(vty), bgp_node_safi(vty),
-				  BGP_ADDPATH_NONE, 0);
+	bgp_addpath_set_peer_type(peer, afi, safi, BGP_ADDPATH_NONE, 0);
 
 	return CMD_SUCCESS;
 }
