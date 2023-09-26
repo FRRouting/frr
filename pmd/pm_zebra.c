@@ -582,6 +582,7 @@ static struct pm_session *pm_peer_sess_new(struct pm_peer_cfg *cfg)
 	pm->retries_consecutive_down = PM_PACKET_RETRIES_CONSECUTIVE_DOWN_DEFAULT;
 	pm->retries_threshold = PM_PACKET_RETRIES_THRESHOLD_DEFAULT;
 	pm->retries_total = PM_PACKET_RETRIES_TOTAL_DEFAULT;
+	pm->count = PM_COUNT_DEFAULT;
 	pm_initialise(pm, true, errormsg, sizeof(errormsg));
 	return pm;
 }
