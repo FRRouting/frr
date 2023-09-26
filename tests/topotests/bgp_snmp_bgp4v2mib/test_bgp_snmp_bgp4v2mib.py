@@ -24,6 +24,7 @@ sys.path.append(os.path.join(CWD, "../"))
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.snmptest import SnmpTester
 from lib import topotest
+from lib.topolog import logger
 
 pytestmark = [pytest.mark.bgpd, pytest.mark.snmp]
 
@@ -55,11 +56,17 @@ def setup_module(mod):
             os.path.join(CWD, "{}/bgpd.conf".format(rname)),
             "-M snmp",
         )
-        router.load_config(
-            TopoRouter.RD_SNMP,
-            os.path.join(CWD, "{}/snmpd.conf".format(rname)),
-            "-Le -Ivacm_conf,usmConf,iquery -V -DAgentX",
-        )
+
+    tgen.gears["r2"].load_config(
+        TopoRouter.RD_SNMP,
+        os.path.join(CWD, "{}/snmpd.conf".format(rname)),
+        "-Le -Ivacm_conf,usmConf,iquery -V -DAgentX",
+    )
+    tgen.gears["r2"].load_config(
+        TopoRouter.RD_TRAP,
+        os.path.join(CWD, "{}/snmptrapd.conf".format(rname)),
+        " -On -OQ ",
+    )
 
     tgen.start_router()
 
@@ -72,6 +79,7 @@ def teardown_module(mod):
 def test_bgp_snmp_bgp4v2():
     tgen = get_topogen()
 
+    r1 = tgen.gears["r1"]
     r2 = tgen.gears["r2"]
 
     def _bgp_converge_summary():
@@ -197,7 +205,9 @@ def test_bgp_snmp_bgp4v2():
         }
 
         # bgp4V2NlriOrigin
+        tgen.mininet_cli()
         output, _ = snmp.walk(".1.3.6.1.3.5.1.1.9.1.9")
+        logger.info(output)
         return output == expected
 
     _, result = topotest.run_and_expect(_snmpwalk_origin, True, count=10, wait=1)
@@ -218,6 +228,77 @@ def test_bgp_snmp_bgp4v2():
 
     _, result = topotest.run_and_expect(_snmpwalk_med, True, count=10, wait=1)
     assertmsg = "Can't fetch SNMP for bgp4V2NlriMed"
+    assert result, assertmsg
+
+    def _snmptrap_ipv4():
+        expected = [
+            ("1.3.6.1.2.1.15.3.1.7.192.168.12.1", "192.168.12.1"),
+            ("1.3.6.1.2.1.15.3.1.14.192.168.12.1", '"06 04 "'),
+            ("1.3.6.1.2.1.15.3.1.2.192.168.12.1", "7"),
+            ("1.3.6.1.2.1.15.3.1.7.192.168.12.1", "192.168.12.1"),
+            ("1.3.6.1.2.1.15.3.1.14.192.168.12.1", '"06 04 "'),
+            ("1.3.6.1.2.1.15.3.1.2.192.168.12.1", "6"),
+        ]
+
+        # load trapd resulting file
+        # tgen.mininet_cli()
+
+        snmptrapfile = "{}/{}/snmptrapd.log".format(r2.logdir, r2.name)
+        outputfile = open(snmptrapfile).read()
+        output = snmp.trap(outputfile)
+        return output == expected
+
+
+
+    # skip tests is SNMP not installed
+    if not os.path.isfile("/usr/sbin/snmptrapd"):
+        error_msg = "SNMP not installed - skipping"
+        pytest.skip(error_msg)
+
+
+    snmptrapfile = "{}/{}/snmptrapd.log".format(r2.logdir, r2.name)
+    trap_file = open(snmptrapfile, "w")
+    trap_file.truncate(0)
+    trap_file.close()
+    topotest.sleep(1)
+    r1.vtysh_cmd("clear bgp *")
+    _, result = topotest.run_and_expect(_snmptrap_ipv4, True, count=2, wait=10)
+    assertmsg = "Can't fetch SNMP trap for ipv4"
+    assert result, assertmsg
+
+    def _snmptrap_ipv6():
+        expected = [
+            ("1.3.6.1.3.5.1.1.2.1.13.1.1.192.168.12.1", "7"),
+            ("1.3.6.1.3.5.1.1.2.1.6.1.1.192.168.12.1", "179"),
+            ("1.3.6.1.3.5.1.1.3.1.1.1.1.192.168.12.1", "6"),
+            ("1.3.6.1.3.5.1.1.3.1.2.1.1.192.168.12.1", "4"),
+            ("1.3.6.1.3.5.1.1.3.1.4.1.1.192.168.12.1", '"00 "'),
+            ("1.3.6.1.3.5.1.1.2.1.13.1.2.32.1.13.184.0.0.0.0.0.0.0.0.0.18.0.1", "7"),
+            ("1.3.6.1.3.5.1.1.2.1.6.1.2.32.1.13.184.0.0.0.0.0.0.0.0.0.18.0.1", "179"),
+            ("1.3.6.1.3.5.1.1.3.1.1.1.2.32.1.13.184.0.0.0.0.0.0.0.0.0.18.0.1", "6"),
+            ("1.3.6.1.3.5.1.1.3.1.2.1.2.32.1.13.184.0.0.0.0.0.0.0.0.0.18.0.1", "4"),
+            (
+                "1.3.6.1.3.5.1.1.3.1.4.1.2.32.1.13.184.0.0.0.0.0.0.0.0.0.18.0.1",
+                '"00 "',
+            ),
+            ("1.3.6.1.3.5.1.1.2.1.13.1.1.192.168.12.1", "6"),
+            ("1.3.6.1.3.5.1.1.2.1.6.1.1.192.168.12.1", "179"),
+            ("1.3.6.1.3.5.1.1.2.1.13.1.2.32.1.13.184.0.0.0.0.0.0.0.0.0.18.0.1", "6"),
+            ("1.3.6.1.3.5.1.1.2.1.6.1.2.32.1.13.184.0.0.0.0.0.0.0.0.0.18.0.1", "179"),
+        ]
+
+        # load trapd resulting file
+        # tgen.mininet_cli()
+
+        snmptrapfile = "{}/{}/snmptrapd.log".format(r2.logdir, r2.name)
+        outputfile = open(snmptrapfile).read()
+        output = snmp.trap(outputfile)
+        logger.info(output)
+        return output == expected
+
+    r1.vtysh_cmd("clear bgp *")
+    _, result = topotest.run_and_expect(_snmptrap_ipv4, True, count=15, wait=2)
+    assertmsg = "Can't fetch SNMP trap for ipv4"
     assert result, assertmsg
 
 
