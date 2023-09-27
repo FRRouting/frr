@@ -24,59 +24,59 @@ to the cost of the cuurent path from the source up to the current node.
 
 The algorithm is as followed:
 
-```
-   cost = MAX_COST;
-	Priority_Queue.empty();
-	Visited_Node.empty();
-	Processed_Path.empty();
-   src = new_path(source_address);
-	src.cost = 0;
-   dst = new_destinatio(destination_address);
-   dst.cost = MAX_COST;
-	Processed_Path.add(src);
-	Processed_Path.add(dst);
-	while (Priority_Queue.count != 0) {
-		current_path = Priority_Queue.pop();
-		current_node = next_path.destination;
-      Visited_Node.add(current_node);
-		for (current_node.edges: edge) {
-			if (prune_edge(current_path, edge)
-				continue;
-			if (relax(current_path) && cost > current_path.cost) {
-				optim_path = current_path;
-				cost = current_path.cost;
-			}
-		}
-	}
+.. code-block:: c
 
-	prune_edge(path, edge) {
-		// check that path + edge meet constraints  e.g.
-		if (current_path.cost + edge.cost > constrained_cost)
-			return false;
-		else
-			return true;
-	}
+    cost = MAX_COST;
+    Priority_Queue.empty();
+    Visited_Node.empty();
+    Processed_Path.empty();
+    src = new_path(source_address);
+    src.cost = 0;
+    dst = new_destinatio(destination_address);
+    dst.cost = MAX_COST;
+    Processed_Path.add(src);
+    Processed_Path.add(dst);
+    while (Priority_Queue.count != 0) {
+        current_path = Priority_Queue.pop();
+        current_node = next_path.destination;
+        Visited_Node.add(current_node);
+        for (current_node.edges: edge) {
+            if (prune_edge(current_path, edge)
+                continue;
+            if (relax(current_path) && cost > current_path.cost) {
+                optim_path = current_path;
+                cost = current_path.cost;
+            }
+        }
+    }
 
-	relax_edge(current_path, edge) {
-		next_node = edge.destination;
-		if (Visited_Node.get(next_node))
-			return false;
-		next_path = Processed_Path.get(edge.destination);
-		if (!next_path) {
-			next_path = new path(edge.destination);
-			Processed_Path.add(next_path);
-		}
-		total_cost = current_path.cost + edge.cost;
-		if (total_cost < next_path.cost) {
-			next_path = current_path;
-			next_path.add_edge(edge);
-			next_path.cost = total_cost;
-			Priority_Queue.add(next_path);
-		}
-		return (next_path.destination == destination);
-	}
+    prune_edge(path, edge) {
+        // check that path + edge meet constraints  e.g.
+        if (current_path.cost + edge.cost > constrained_cost)
+            return false;
+        else
+            return true;
+    }
 
-```
+    relax_edge(current_path, edge) {
+        next_node = edge.destination;
+        if (Visited_Node.get(next_node))
+            return false;
+        next_path = Processed_Path.get(edge.destination);
+        if (!next_path) {
+            next_path = new path(edge.destination);
+            Processed_Path.add(next_path);
+        }
+        total_cost = current_path.cost + edge.cost;
+        if (total_cost < next_path.cost) {
+            next_path = current_path;
+            next_path.add_edge(edge);
+            next_path.cost = total_cost;
+            Priority_Queue.add(next_path);
+        }
+        return (next_path.destination == destination);
+    }
+
 
 Definition
 ----------
@@ -163,34 +163,34 @@ To perform a Path Computation with given constraints, proceed as follow:
 
 .. code-block:: c
 
-	struct cspf *algo;
-	struct ls_ted *ted;
-	struct in_addr src;
-	struct in_addr dst;
-	struct constraints csts;
-	struct c_path *path;
+    struct cspf *algo;
+    struct ls_ted *ted;
+    struct in_addr src;
+    struct in_addr dst;
+    struct constraints csts;
+    struct c_path *path;
 
-	// Create a new CSPF structure
-	algo = cspf_new();
+    // Create a new CSPF structure
+    algo = cspf_new();
 
-	// Initialize constraints
-	csts.cost = 100;
-	csts.ctype = CSPF_TE_METRIC;
-	csts.family = AF_INET;
-	csts.type = SR_TE;
-	csts.bw = 1000000;
-	csts.cos = 3;
+    // Initialize constraints
+    csts.cost = 100;
+    csts.ctype = CSPF_TE_METRIC;
+    csts.family = AF_INET;
+    csts.type = SR_TE;
+    csts.bw = 1000000;
+    csts.cos = 3;
 
-	// Then, initialise th CSPF with source, destination and constraints
-	cspf_init_v4(algo, ted, src, dst, &csts);
+    // Then, initialise th CSPF with source, destination and constraints
+    cspf_init_v4(algo, ted, src, dst, &csts);
 
-	// Finally, got the Computed Path;
-	path = compute_p2p_path(ted, algo);
+    // Finally, got the Computed Path;
+    path = compute_p2p_path(ted, algo);
 
-	if (path.status == SUCCESS)
-		zlog_info("Got a valid constraints path");
-	else
-		zlog_info("Unable to compute constraints path. Got %d status", path->status);
+    if (path.status == SUCCESS)
+        zlog_info("Got a valid constraints path");
+    else
+        zlog_info("Unable to compute constraints path. Got %d status", path->status);
 
 
 If you would compute another path, you must call `cspf_init()` prior to

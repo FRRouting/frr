@@ -817,6 +817,7 @@ The project provides multiple tools to allow you to correctly style your code
 as painlessly as possible, primarily built around ``clang-format``.
 
 clang-format
+
    In the project root there is a :file:`.clang-format` configuration file
    which can be used with the ``clang-format`` source formatter tool from the
    LLVM project. Most of the time, this is the easiest and smartest tool to
