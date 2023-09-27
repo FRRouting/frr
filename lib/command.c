@@ -1331,8 +1331,8 @@ DEFUN (config_terminal,
        config_terminal_cmd,
        "configure [terminal [file-lock]]",
        "Configuration from vty interface\n"
-       "Configuration with locked datastores\n"
-       "Configuration terminal\n")
+       "Configuration terminal\n"
+       "Configuration with locked datastores\n")
 {
 	return vty_config_enter(vty, false, false, argc == 3);
 }

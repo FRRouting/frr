@@ -2381,8 +2381,8 @@ DEFUNSH(VTYSH_REALLYALL, vtysh_disable, vtysh_disable_cmd, "disable",
 DEFUNSH(VTYSH_REALLYALL, vtysh_config_terminal, vtysh_config_terminal_cmd,
 	"configure [terminal [file-lock]]",
 	"Configuration from vty interface\n"
-	"Configuration with locked datastores\n"
-	"Configuration terminal\n")
+	"Configuration terminal\n"
+	"Configuration with locked datastores\n")
 {
 	vty->node = CONFIG_NODE;
 	return CMD_SUCCESS;
