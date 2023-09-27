@@ -167,13 +167,13 @@ as early as possible, i.e. the first 2-week window.
 For reference, the expected release schedule according to the above is:
 
 +---------+------------+------------+------------+
-| Release | 2023-07-04 | 2023-10-31 | 2024-02-27 |
+| Release | 2023-11-07 | 2024-03-05 | 2024-07-02 |
 +---------+------------+------------+------------+
-| RC      | 2023-06-20 | 2023-10-17 | 2024-02-13 |
+| RC      | 2023-10-24 | 2024-02-20 | 2024-06-18 |
 +---------+------------+------------+------------+
-| dev/X.Y | 2023-06-06 | 2023-10-03 | 2024-01-30 |
+| dev/X.Y | 2023-10-10 | 2024-02-06 | 2024-06-04 |
 +---------+------------+------------+------------+
-| freeze  | 2023-05-23 | 2023-09-19 | 2024-01-16 |
+| freeze  | 2023-09-26 | 2024-01-23 | 2024-05-21 |
 +---------+------------+------------+------------+
 
 Here is the hint on how to get the dates easily:
@@ -1353,12 +1353,12 @@ Coverity static analysis errors prior to submission using the
 be installed. For example, this can be accomplished on Ubuntu with the
 ``sudo apt-get install clang-tools`` command.  Then, touch the files you want scanned and
 invoke the ``scan-build`` command. For example::
-  
+
   cd ~/GitHub/frr
   touch ospfd/ospf_flood.c ospfd/ospf_vty.c ospfd/ospf_opaque.c
   cd build
   scan-build make -j32
-     
+
 The results of the scan including any static analysis errors will appear inline.
 Additionally, there will a directory in the /tmp containing the Coverity
 reports (e.g., scan-build-2023-06-09-120100-473730-1).
