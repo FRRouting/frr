@@ -2379,12 +2379,23 @@ DEFUNSH(VTYSH_REALLYALL, vtysh_disable, vtysh_disable_cmd, "disable",
 }
 
 DEFUNSH(VTYSH_REALLYALL, vtysh_config_terminal, vtysh_config_terminal_cmd,
-	"configure [terminal [file-lock]]",
+	"configure [terminal]",
+	"Configuration from vty interface\n"
+	"Configuration terminal\n")
+{
+	vty->node = CONFIG_NODE;
+	return CMD_SUCCESS;
+}
+
+DEFUNSH(VTYSH_REALLYALL, vtysh_config_terminal_file_lock,
+	vtysh_config_terminal_file_lock_cmd,
+	"configure terminal file-lock",
 	"Configuration from vty interface\n"
 	"Configuration terminal\n"
 	"Configuration with locked datastores\n")
 {
 	vty->node = CONFIG_NODE;
+	vty->vtysh_file_locked = true;
 	return CMD_SUCCESS;
 }
 
@@ -5021,6 +5032,7 @@ void vtysh_init_vty(void)
 	if (!user_mode)
 		install_element(VIEW_NODE, &vtysh_enable_cmd);
 	install_element(ENABLE_NODE, &vtysh_config_terminal_cmd);
+	install_element(ENABLE_NODE, &vtysh_config_terminal_file_lock_cmd);
 	install_element(ENABLE_NODE, &vtysh_disable_cmd);
 
 	/* "exit" command. */
