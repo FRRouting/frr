@@ -18,6 +18,8 @@
 extern "C" {
 #endif
 
+#define CONSUMED_TIME_CHECK 5000000
+
 extern bool cputime_enabled;
 extern unsigned long cputime_threshold;
 /* capturing wallclock time is always enabled since it is fast (reading

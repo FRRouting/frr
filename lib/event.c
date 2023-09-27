@@ -75,14 +75,7 @@ static struct list *masters;
 
 static void thread_free(struct event_loop *master, struct event *thread);
 
-#ifndef EXCLUDE_CPU_TIME
-#define EXCLUDE_CPU_TIME 0
-#endif
-#ifndef CONSUMED_TIME_CHECK
-#define CONSUMED_TIME_CHECK 0
-#endif
-
-bool cputime_enabled = !EXCLUDE_CPU_TIME;
+bool cputime_enabled = true;
 unsigned long cputime_threshold = CONSUMED_TIME_CHECK;
 unsigned long walltime_threshold = CONSUMED_TIME_CHECK;
 
