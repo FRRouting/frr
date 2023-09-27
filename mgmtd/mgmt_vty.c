@@ -239,7 +239,7 @@ DEFPY(show_mgmt_dump_data,
 	LYD_FORMAT format = fmt[0] == 'j' ? LYD_JSON : LYD_XML;
 	FILE *f = NULL;
 
-	if (datastore)
+	if (dsname)
 		datastore = mgmt_ds_name2id(dsname);
 
 	ds_ctx = mgmt_ds_get_ctx_by_id(mm, datastore);
