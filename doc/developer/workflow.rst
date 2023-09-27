@@ -180,15 +180,13 @@ Here is the hint on how to get the dates easily:
 
    .. code-block:: console
 
-      ~$ # Last freeze date was 2023-09-19
-      ~$ date +%F --date='2023-09-19 +119 days' # Next freeze date
-      2024-01-16
-      ~$ date +%F --date='2024-01-16 +14 days'  # Next dev/X.Y date
-      2024-01-30
-      ~$ date +%F --date='2024-01-30 +14 days'  # Next RC date
-      2024-02-13
-      ~$ date +%F --date='2024-02-13 +14 days'  # Next Release date
-      2024-02-27
+      ~$ # Release date is 2023-11-07 (First Tuesday each March/July/November)
+      ~$ date +%F --date='2023-11-07 -42 days' # Next freeze date
+      2023-09-26
+      ~$ date +%F --date='2023-11-07 -28 days' # Next dev/X.Y date
+      2023-10-10
+      ~$ date +%F --date='2023-11-07 -14 days' # Next RC date
+      2023-10-24
 
 Each release is managed by one or more volunteer release managers from the FRR
 community.  These release managers are expected to handle the branch for a period
