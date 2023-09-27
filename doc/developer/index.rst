@@ -5,6 +5,7 @@ FRRouting Developer's Guide
    :maxdepth: 2
 
    workflow
+   checkpatch
    building
    packaging
    process-architecture

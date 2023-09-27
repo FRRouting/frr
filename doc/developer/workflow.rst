@@ -876,6 +876,8 @@ clang-format
 checkpatch.sh
 checkpatch.pl
 
+   .. seealso:: :ref:`checkpatch`
+
    In the Linux kernel source tree there is a Perl script used to check
    incoming patches for style errors. FRR uses a shell script front end and an
    adapted version of the perl script for the same purpose. These scripts can
