@@ -1904,14 +1904,14 @@ void vpn_leak_from_vrf_withdraw(struct bgp *to_bgp,		/* to */
 		return;
 	}
 
-	if (debug)
-		zlog_debug("%s: withdrawing (path_vrf=%p)", __func__, path_vrf);
-
-	bn = bgp_afi_node_get(to_bgp->rib[afi][safi], afi, safi, p,
-			      &(from_bgp->vpn_policy[afi].tovpn_rd));
+	bn = bgp_safi_node_lookup(to_bgp->rib[afi][safi], safi, p,
+				  &(from_bgp->vpn_policy[afi].tovpn_rd));
 
 	if (!bn)
 		return;
+	if (debug)
+		zlog_debug("%s: withdrawing (path_vrf=%p)", __func__, path_vrf);
+
 	/*
 	 * vrf -> vpn
 	 * match original bpi imported from
