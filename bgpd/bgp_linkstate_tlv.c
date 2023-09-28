@@ -1528,6 +1528,11 @@ static void bgp_linkstate_tlv_isis_area_indentifier_display(struct vty *vty,
 {
 	struct iso_address addr;
 
+	if (length > sizeof(addr.area_addr)) {
+		bgp_linkstate_tlv_hexa_display(vty, pnt, length, json);
+		return;
+	}
+
 	addr.addr_len = length;
 	memcpy(addr.area_addr, pnt, length);
 
