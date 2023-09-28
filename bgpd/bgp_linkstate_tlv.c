@@ -1354,7 +1354,6 @@ static void bgp_linkstate_tlv_opaque_display(struct vty *vty, uint8_t *pnt,
 	uint8_t *lim = pnt + length;
 	bool ospf_tlv_header;
 	char tlv_type[6];
-	int i;
 
 
 	if (json) {
@@ -1400,21 +1399,15 @@ static void bgp_linkstate_tlv_opaque_display(struct vty *vty, uint8_t *pnt,
 			continue;
 		}
 
-		vty_out(vty, "\n%*sTLV type %u: 0x", indent, "", sub_type);
+		vty_out(vty, "\n%*sTLV type %u: ", indent, "", sub_type);
 
 		if (pnt + sub_length > lim) {
 			vty_out(vty, "Bad length received: %u\n", sub_length);
 			break;
 		}
 
-		for (i = 0; i < sub_length; i++) {
-			if (i != 0 && i % 8 == 0)
-				vty_out(vty, " ");
-			vty_out(vty, "%02x", *pnt);
-		}
+		bgp_linkstate_tlv_hexa_display(vty, pnt, sub_length, NULL);
 	}
-	if (!json)
-		vty_out(vty, "\n");
 }
 
 static void bgp_linkstate_tlv_rtm_capability_display(struct vty *vty,
