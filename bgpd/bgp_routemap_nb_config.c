@@ -1450,7 +1450,7 @@ int lib_route_map_entry_set_action_rmap_set_action_distance_destroy(
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
-		return lib_route_map_entry_match_destroy(args);
+		return lib_route_map_entry_set_destroy(args);
 	}
 
 	return NB_OK;
@@ -1504,7 +1504,7 @@ lib_route_map_entry_set_action_rmap_set_action_extcommunity_rt_destroy(
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
-		return lib_route_map_entry_match_destroy(args);
+		return lib_route_map_entry_set_destroy(args);
 	}
 
 	return NB_OK;
@@ -1556,7 +1556,7 @@ int lib_route_map_entry_set_action_rmap_set_action_extcommunity_nt_destroy(
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
-		return lib_route_map_entry_match_destroy(args);
+		return lib_route_map_entry_set_destroy(args);
 	}
 
 	return NB_OK;
@@ -1611,7 +1611,7 @@ lib_route_map_entry_set_action_rmap_set_action_extcommunity_soo_destroy(
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
-		return lib_route_map_entry_match_destroy(args);
+		return lib_route_map_entry_set_destroy(args);
 	}
 
 	return NB_OK;
@@ -3043,7 +3043,7 @@ int lib_route_map_entry_set_action_rmap_set_action_extcommunity_color_destroy(
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
-		return lib_route_map_entry_match_destroy(args);
+		return lib_route_map_entry_set_destroy(args);
 	}
 
 	return NB_OK;
