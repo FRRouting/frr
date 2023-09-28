@@ -1717,6 +1717,16 @@ Configuring Peers
    turning on this command will allow BGP to install v4 routes with
    v6 nexthops if you do not have v4 configured on interfaces.
 
+.. clicmd:: neighbor PEER capability dynamic
+
+   Allow BGP to negotiate the Dynamic Capability with its peers.
+
+   Dynamic Capability defines a new BGP message (CAPABILITY) that can be used
+   to set/unset BGP capabilities without bringing down a BGP session.
+
+   This includes changing graceful-restart (LLGR also) timers,
+   enabling/disabling add-path, and other supported capabilities.
+
 .. clicmd:: neighbor <A.B.C.D|X:X::X:X|WORD> accept-own
 
    Enable handling of self-originated VPN routes containing ``accept-own`` community.
