@@ -31,7 +31,7 @@ struct bgp_linkstate_tlv_info {
 #define UNDEF_MULTPL 1
 
 /* clang-format off */
-struct bgp_linkstate_tlv_info bgp_linkstate_tlv_infos[BGP_LS_TLV_MAX] = {
+struct bgp_linkstate_tlv_info bgp_linkstate_tlv_infos[BGP_LS_TLV_MAX + 1] = {
 	/* NLRI TLV */
 	[BGP_LS_TLV_LOCAL_NODE_DESCRIPTORS] = {"Local Node Descriptors", 1, MAX_SZ, UNDEF_MULTPL},
 	[BGP_LS_TLV_REMOTE_NODE_DESCRIPTORS] = {"Remote Node Descriptors", 1, MAX_SZ, UNDEF_MULTPL},
@@ -1706,7 +1706,7 @@ void bgp_linkstate_tlv_attribute_display(struct vty *vty,
 			json_tlv = json_object_new_object();
 			json_object_object_add(json, tlv_type, json_tlv);
 
-			if (type < BGP_LS_TLV_MAX &&
+			if (type <= BGP_LS_TLV_MAX &&
 			    bgp_linkstate_tlv_infos[type].descr != NULL)
 				json_object_string_add(
 					json_tlv, "description",
@@ -1721,7 +1721,7 @@ void bgp_linkstate_tlv_attribute_display(struct vty *vty,
 					"too high length received: %u", length);
 				break;
 			}
-			if (type < BGP_LS_TLV_MAX &&
+			if (type <= BGP_LS_TLV_MAX &&
 			    bgp_linkstate_tlv_infos[type].descr != NULL &&
 			    !bgp_ls_tlv_check_size(type, length))
 				json_object_string_addf(
@@ -1729,7 +1729,7 @@ void bgp_linkstate_tlv_attribute_display(struct vty *vty,
 					"unexpected length received: %u",
 					length);
 		} else {
-			if (type < BGP_LS_TLV_MAX &&
+			if (type <= BGP_LS_TLV_MAX &&
 			    bgp_linkstate_tlv_infos[type].descr != NULL)
 				vty_out(vty, "%*s%s: ", indent, "",
 					bgp_linkstate_tlv_infos[type].descr);
