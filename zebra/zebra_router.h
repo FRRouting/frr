@@ -244,6 +244,8 @@ struct zebra_router {
 
 	/* Should we allow non FRR processes to delete our routes */
 	bool allow_delete;
+
+	uint64_t nexthop_weight_scale_value;
 };
 
 #define GRACEFUL_RESTART_TIME 60

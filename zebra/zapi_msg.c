@@ -1766,7 +1766,8 @@ static bool zapi_read_nexthops(struct zserv *client, struct prefix *p,
 		for (i = 0; i < nexthop_num; i++) {
 			znh = &nhops[i];
 
-			tmp = (uint64_t)znh->weight * 255;
+			tmp = (uint64_t)znh->weight *
+			      zrouter.nexthop_weight_scale_value;
 			znh->weight = MAX(1, ((uint32_t)(tmp / max_weight)));
 		}
 	}
