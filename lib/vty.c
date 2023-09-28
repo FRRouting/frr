@@ -2884,6 +2884,12 @@ int vty_config_enter(struct vty *vty, bool private_config, bool exclusive,
 		}
 		assert(vty->mgmt_locked_candidate_ds);
 		assert(vty->mgmt_locked_running_ds);
+
+		/*
+		 * As datastores are locked explicitly, we don't need implicit
+		 * commits and should allow pending changes.
+		 */
+		vty->pending_allowed = true;
 	}
 
 	vty->node = CONFIG_NODE;
@@ -2939,6 +2945,8 @@ int vty_config_node_exit(struct vty *vty)
 	vty->xpath_index = 0;
 
 	/* TODO: could we check for un-commited changes here? */
+
+	vty->pending_allowed = false;
 
 	if (vty->mgmt_locked_running_ds)
 		vty_mgmt_unlock_running_inline(vty);
