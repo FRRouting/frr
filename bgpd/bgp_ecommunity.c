@@ -1042,6 +1042,34 @@ static int ecommunity_lb_str(char *buf, size_t bufsz, const uint8_t *pnt,
 	return len;
 }
 
+bool ecommunity_has_route_target(struct ecommunity *ecom)
+{
+	uint32_t i;
+	uint8_t *pnt;
+	uint8_t type = 0;
+	uint8_t sub_type = 0;
+
+	if (!ecom)
+		return false;
+	for (i = 0; i < ecom->size; i++) {
+		/* Retrieve value field */
+		pnt = ecom->val + (i * ecom->unit_size);
+
+		/* High-order octet is the type */
+		type = *pnt++;
+
+		if (type == ECOMMUNITY_ENCODE_AS ||
+		    type == ECOMMUNITY_ENCODE_IP ||
+		    type == ECOMMUNITY_ENCODE_AS4) {
+			/* Low-order octet of type. */
+			sub_type = *pnt++;
+			if (sub_type == ECOMMUNITY_ROUTE_TARGET)
+				return true;
+		}
+	}
+	return false;
+}
+
 /* Convert extended community attribute to string.
  * Due to historical reason of industry standard implementation, there
  * are three types of format:

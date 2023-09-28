@@ -4743,6 +4743,24 @@ static void bgp_route_map_delete(const char *rmap_name)
 	route_map_notify_dependencies(rmap_name, RMAP_EVENT_MATCH_DELETED);
 }
 
+bool bgp_route_map_has_extcommunity_rt(const struct route_map *map)
+{
+	struct route_map_index *index = NULL;
+	struct route_map_rule *set = NULL;
+
+	assert(map);
+
+	for (index = map->head; index; index = index->next) {
+		for (set = index->set_list.head; set; set = set->next) {
+			if (set->cmd && set->cmd->str &&
+			    (strmatch(set->cmd->str, "extcommunity rt") ||
+			     strmatch(set->cmd->str, "extended-comm-list")))
+				return true;
+		}
+	}
+	return false;
+}
+
 static void bgp_route_map_event(const char *rmap_name)
 {
 	if (route_map_mark_updated(rmap_name) == 0)

@@ -2446,6 +2446,8 @@ extern enum asnotation_mode bgp_get_asnotation(struct bgp *bgp);
 
 extern void bgp_route_map_terminate(void);
 
+extern bool bgp_route_map_has_extcommunity_rt(const struct route_map *map);
+
 extern int peer_cmp(struct peer *p1, struct peer *p2);
 
 extern int bgp_map_afi_safi_iana2int(iana_afi_t pkt_afi, iana_safi_t pkt_safi,
