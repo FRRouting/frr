@@ -461,6 +461,15 @@ Administrative Distance Metrics
 
    Sets the administrative distance for a particular route.
 
+   If the system has a static route configured from the kernel, it has a
+   distance of 0. In some cases, it might be useful to override the route
+   from the FRR. E.g.: Kernel has a statically configured default route,
+   and you received another default route from the BGP and want to install
+   it to be preferred over the static route. In such a case, you MUST set
+   a higher distance from the kernel.
+
+   .. seealso:: :ref:`administrative-distance`
+
 .. _bgp-requires-policy:
 
 Require policy on EBGP
