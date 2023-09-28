@@ -577,7 +577,8 @@ static bool bgp_linkstate_nlri_value_display(char *buf, size_t size,
 		break;
 	case BGP_LS_TLV_IP_REACHABILITY_INFORMATION:
 		mask_length = pnt_decode8(&pnt);
-		if (nlri_type == BGP_LINKSTATE_PREFIX4) {
+		if (nlri_type == BGP_LINKSTATE_PREFIX4 &&
+		    ((length - sizeof(mask_length)) <= sizeof(ipv4.s_addr))) {
 			memcpy(&ipv4.s_addr, pnt, length - sizeof(mask_length));
 			if (json)
 				json_object_string_addf(json, "ipReachability",
@@ -587,7 +588,8 @@ static bool bgp_linkstate_nlri_value_display(char *buf, size_t size,
 				snprintfrr(buf, size, "%sIPv4:%pI4/%u",
 					   first ? "" : " ", &ipv4,
 					   mask_length);
-		} else if (nlri_type == BGP_LINKSTATE_PREFIX6) {
+		} else if (nlri_type == BGP_LINKSTATE_PREFIX6 &&
+			   ((length - sizeof(mask_length)) <= sizeof(ipv6))) {
 			memcpy(&ipv6, pnt, length - sizeof(mask_length));
 			if (json)
 				json_object_string_addf(json, "ipReachability",
