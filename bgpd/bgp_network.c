@@ -588,12 +588,6 @@ static void bgp_accept(struct event *thread)
 		peer_delete(peer1->doppelganger);
 	}
 
-	if (bgp_set_socket_ttl(peer1->connection) < 0)
-		if (bgp_debug_neighbor_events(peer1))
-			zlog_debug(
-				"[Event] Unable to set min/max TTL on peer %s, Continuing",
-				peer1->host);
-
 	peer = peer_create(&su, peer1->conf_if, peer1->bgp, peer1->local_as,
 			   peer1->as, peer1->as_type, NULL, false, NULL);
 
@@ -617,6 +611,12 @@ static void bgp_accept(struct event *thread)
 	peer->doppelganger = peer1;
 	peer1->doppelganger = peer;
 	connection->fd = bgp_sock;
+
+	if (bgp_set_socket_ttl(connection) < 0)
+		if (bgp_debug_neighbor_events(peer))
+			zlog_debug("[Event] Unable to set min/max TTL on peer %s, Continuing",
+				   peer->host);
+
 	frr_with_privs(&bgpd_privs) {
 		vrf_bind(peer->bgp->vrf_id, bgp_sock,
 			 bgp_get_bound_name(peer->connection));
