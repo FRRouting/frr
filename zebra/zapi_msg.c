@@ -1715,10 +1715,14 @@ static bool zapi_read_nexthops(struct zserv *client, struct prefix *p,
 			       struct nexthop_group **png,
 			       struct nhg_backup_info **pbnhg)
 {
+	struct zapi_nexthop *znh;
 	struct nexthop_group *ng = NULL;
 	struct nhg_backup_info *bnhg = NULL;
 	uint16_t i;
 	struct nexthop *last_nh = NULL;
+	bool same_weight = true;
+	uint64_t max_weight = 0;
+	uint64_t tmp;
 
 	assert(!(png && pbnhg));
 
@@ -1731,6 +1735,40 @@ static bool zapi_read_nexthops(struct zserv *client, struct prefix *p,
 				   backup_nh_num);
 
 		bnhg = zebra_nhg_backup_alloc();
+	}
+
+	for (i = 0; i < nexthop_num; i++) {
+		znh = &nhops[i];
+
+		if (max_weight < znh->weight) {
+			if (i != 0 || znh->weight != 1)
+				same_weight = false;
+
+			max_weight = znh->weight;
+		}
+	}
+
+	/*
+	 * Let's convert the weights to a scaled value
+	 * between 1 and zrouter.nexthop_weight_scale_value
+	 * This is a simple application of a ratio:
+	 * scaled_weight/zrouter.nexthop_weight_scale_value = 
+         * weight/max_weight
+	 * This translates to:
+	 * scaled_weight = weight * zrouter.nexthop_weight_scale_value
+	 *                 -------------------------------------------
+	 *                           max_weight
+	 *
+	 * This same formula is applied to both the nexthops
+	 * and the backup nexthops
+	 */
+	if (!same_weight) {
+		for (i = 0; i < nexthop_num; i++) {
+			znh = &nhops[i];
+
+			tmp = (uint64_t)znh->weight * 255;
+			znh->weight = MAX(1, ((uint32_t)(tmp / max_weight)));
+		}
 	}
 
 	/*
