@@ -24,13 +24,14 @@ configuration changes regardless of where they came from. This
 model-driven design ensures feature parity across all management
 interfaces supported by FRR.
 
-Quoting RFC 7950: > YANG is a language originally designed to model data
-for the NETCONF protocol. A YANG module defines hierarchies of data that
-can be used for NETCONF-based operations, including configuration, state
-data, RPCs, and notifications. This allows a complete description of all
-data sent between a NETCONF client and server. Although out of scope for
-this specification, YANG can also be used with protocols other than
-NETCONF.
+Quoting :rfc:`7950`:
+
+   YANG is a language originally designed to model data for the NETCONF
+   protocol. A YANG module defines hierarchies of data that can be used for
+   NETCONF-based operations, including configuration, state data, RPCs, and
+   notifications. This allows a complete description of all data sent between a
+   NETCONF client and server. Although out of scope for this specification,
+   YANG can also be used with protocols other than NETCONF.
 
 While the YANG and NETCONF specifications are tightly coupled with one
 another, both are independent to a certain extent and are evolving
@@ -238,20 +239,22 @@ The new northbound adds the libyang library as a new mandatory
 dependency for FRR. To obtain and install this library, follow the steps
 below:
 
-::
+.. code-block:: console
 
-   $ git clone https://github.com/CESNET/libyang
-   $ cd libyang
-   $ git checkout devel
-   $ mkdir build ; cd build
-   $ cmake -DENABLE_LYD_PRIV=ON ..
-   $ make
-   $ sudo make install
+   git clone https://github.com/CESNET/libyang
+   cd libyang
+   git checkout devel
+   mkdir build ; cd build
+   cmake -DENABLE_LYD_PRIV=ON ..
+   make
+   sudo make install
 
-..
 
-   NOTE: first make sure to install the libyang
+.. note::
+
+   first make sure to install the libyang
    `requirements <https://github.com/CESNET/libyang#build-requirements>`__.
+
 
 FRR needs libyang from version 0.16.7 or newer, which is maintained in
 the ``devel`` branch. libyang 0.15.x is maintained in the ``master``
