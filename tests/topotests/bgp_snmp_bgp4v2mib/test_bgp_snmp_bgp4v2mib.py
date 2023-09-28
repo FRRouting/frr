@@ -205,7 +205,7 @@ def test_bgp_snmp_bgp4v2():
         }
 
         # bgp4V2NlriOrigin
-        tgen.mininet_cli()
+        # tgen.mininet_cli()
         output, _ = snmp.walk(".1.3.6.1.3.5.1.1.9.1.9")
         logger.info(output)
         return output == expected
@@ -248,19 +248,15 @@ def test_bgp_snmp_bgp4v2():
         output = snmp.trap(outputfile)
         return output == expected
 
-
-
     # skip tests is SNMP not installed
     if not os.path.isfile("/usr/sbin/snmptrapd"):
         error_msg = "SNMP not installed - skipping"
         pytest.skip(error_msg)
 
-
     snmptrapfile = "{}/{}/snmptrapd.log".format(r2.logdir, r2.name)
     trap_file = open(snmptrapfile, "w")
     trap_file.truncate(0)
     trap_file.close()
-    topotest.sleep(1)
     r1.vtysh_cmd("clear bgp *")
     _, result = topotest.run_and_expect(_snmptrap_ipv4, True, count=2, wait=10)
     assertmsg = "Can't fetch SNMP trap for ipv4"
@@ -293,12 +289,17 @@ def test_bgp_snmp_bgp4v2():
         snmptrapfile = "{}/{}/snmptrapd.log".format(r2.logdir, r2.name)
         outputfile = open(snmptrapfile).read()
         output = snmp.trap(outputfile)
-        logger.info(output)
         return output == expected
 
+    snmptrapfile = "{}/{}/snmptrapd.log".format(r2.logdir, r2.name)
+    trap_file = open(snmptrapfile, "w")
+    trap_file.truncate(0)
+    trap_file.close()
+    r2.vtysh_cmd("conf\nbgp snmp traps bgp4-mibv2")
+    r2.vtysh_cmd("conf\nno bgp snmp traps rfc4273")
     r1.vtysh_cmd("clear bgp *")
-    _, result = topotest.run_and_expect(_snmptrap_ipv4, True, count=15, wait=2)
-    assertmsg = "Can't fetch SNMP trap for ipv4"
+    _, result = topotest.run_and_expect(_snmptrap_ipv6, True, count=2, wait=10)
+    assertmsg = "Can't fetch SNMP trap for ipv6"
     assert result, assertmsg
 
 
