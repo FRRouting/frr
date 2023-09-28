@@ -2309,6 +2309,19 @@ ssize_t netlink_route_multipath_msg_encode(int cmd, struct zebra_dplane_ctx *ctx
 		nl_attr_nest_end(&req->n, nest);
 	}
 
+	/* Count overall nexthops so we can decide whether to use singlepath
+	 * or multipath case.
+	 */
+	nexthop_num = 0;
+	for (ALL_NEXTHOPS_PTR(dplane_ctx_get_ng(ctx), nexthop)) {
+		if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_RECURSIVE))
+			continue;
+		if (!NEXTHOP_IS_ACTIVE(nexthop->flags))
+			continue;
+
+		nexthop_num++;
+	}
+
 	/*
 	 * Always install blackhole routes without using nexthops, because of
 	 * the following kernel problems:
@@ -2316,7 +2329,7 @@ ssize_t netlink_route_multipath_msg_encode(int cmd, struct zebra_dplane_ctx *ctx
 	 * 2. Blackhole kernel nexthops are deleted when loopback is down.
 	 */
 	nexthop = dplane_ctx_get_ng(ctx)->nexthop;
-	if (nexthop) {
+	if (nexthop && nexthop_num == 1) {
 		if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_RECURSIVE))
 			nexthop = nexthop->resolved;
 
@@ -2371,19 +2384,6 @@ ssize_t netlink_route_multipath_msg_encode(int cmd, struct zebra_dplane_ctx *ctx
 		}
 
 		return NLMSG_ALIGN(req->n.nlmsg_len);
-	}
-
-	/* Count overall nexthops so we can decide whether to use singlepath
-	 * or multipath case.
-	 */
-	nexthop_num = 0;
-	for (ALL_NEXTHOPS_PTR(dplane_ctx_get_ng(ctx), nexthop)) {
-		if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_RECURSIVE))
-			continue;
-		if (!NEXTHOP_IS_ACTIVE(nexthop->flags))
-			continue;
-
-		nexthop_num++;
 	}
 
 	/* Singlepath case. */
