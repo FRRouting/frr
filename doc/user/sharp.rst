@@ -139,13 +139,22 @@ keyword. At present, no sharp commands will be preserved in the config.
 
 .. clicmd:: sharp import-te
 
-   Import Traffic Engineering Database produce by OSPF or IS-IS.
+   Import Traffic Engineering Database produced by OSPF or IS-IS.
 
 .. clicmd:: show sharp ted [verbose|json]
 
 .. clicmd:: show sharp ted [<vertex [A.B.C.D]|edge [A.B.C.D]|subnet [A.B.C.D/M]>] [verbose|json]
 
    Show imported Traffic Engineering Data Base
+
+.. clicmd:: show sharp cspf source <A.B.C.D|X:X:X:X> destination <A.B.C.D|X:X:X:X> <metric|te-metric|delay> (0-16777215) [rsv-bw (0-7) BANDWIDTH]
+
+   Show the result of a call to the Constraint Shortest Path First (CSPF)
+   algorithm that allows to compute a path between a source and a
+   destination under various constraints. Standard Metric, TE Metric, Delay
+   and Bandwidth are supported constraints. Prior to use this function, it is
+   necessary to import a Traffic Engineering Database with `sharp import-te`
+   command (see above).
 
 .. clicmd:: sharp install seg6-routes [vrf NAME] <A.B.C.D|X:X::X:X> nexthop-seg6 X:X::X:X encap X:X::X:X (1-1000000)
 
@@ -178,7 +187,7 @@ keyword. At present, no sharp commands will be preserved in the config.
 
    There are many End Functions defined in SRv6, which have been standardized
    in RFC 8986. The current implementation supports End, End.X, End.T, End.DX4,
-   and End.DT6, which can be configured as follows.
+   End.DT6 and End.DT46, which can be configured as follows.
 
 ::
 
@@ -187,6 +196,7 @@ keyword. At present, no sharp commands will be preserved in the config.
    router# sharp install seg6local-routes 1::3 nexthop-seg6local dum0 End_T 10 1
    router# sharp install seg6local-routes 1::4 nexthop-seg6local dum0 End_DX4 10.0.0.1 1
    router# sharp install seg6local-routes 1::5 nexthop-seg6local dum0 End_DT6 10 1
+   router# sharp install seg6local-routes 1::6 nexthop-seg6local dum0 End_DT46 10 1
 
    router# show ipv6 route
    D>* 1::1/128 [150/0] is directly connected, dum0, seg6local End USP, weight 1, 00:00:05
@@ -194,6 +204,7 @@ keyword. At present, no sharp commands will be preserved in the config.
    D>* 1::3/128 [150/0] is directly connected, dum0, seg6local End.T table 10, weight 1, 00:00:05
    D>* 1::4/128 [150/0] is directly connected, dum0, seg6local End.DX4 nh4 10.0.0.1, weight 1, 00:00:05
    D>* 1::5/128 [150/0] is directly connected, dum0, seg6local End.DT6 table 10, weight 1, 00:00:05
+   D>* 1::6/128 [150/0] is directly connected, dum0, seg6local End.DT46 table 10, weight 1, 00:00:05
 
    bash# ip -6 route
    1::1  encap seg6local action End dev dum0 proto 194 metric 20 pref medium
@@ -201,6 +212,7 @@ keyword. At present, no sharp commands will be preserved in the config.
    1::3  encap seg6local action End.T table 10 dev dum0 proto 194 metric 20 pref medium
    1::4  encap seg6local action End.DX4 nh4 10.0.0.1 dev dum0 proto 194 metric 20 pref medium
    1::5  encap seg6local action End.DT6 table 10 dev dum0 proto 194 metric 20 pref medium
+   1::6  encap seg6local action End.DT46 table 10 dev dum0 proto 194 metric 20 pref medium
 
 .. clicmd:: show sharp segment-routing srv6
 
@@ -287,3 +299,7 @@ keyword. At present, no sharp commands will be preserved in the config.
 
    router# show sharp segment-routing srv6
    (nothing)
+
+.. clicmd:: sharp interface IFNAME protodown
+
+   Set an interface protodown.

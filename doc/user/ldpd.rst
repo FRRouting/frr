@@ -24,7 +24,7 @@ Running Ldpd
 The *ldpd* daemon can be invoked with any of the common
 options (:ref:`common-invocation-options`).
 
-..option:: --ctl_socket
+.. option:: --ctl_socket
 
    This option allows you to override the path to the ldpd.sock file
    used to control this daemon.  If specified this option overrides
@@ -128,6 +128,21 @@ LDP Configuration
    the IPv4 or IPv6 transport-address used by the LDP protocol to talk on this
    interface.
 
+.. clicmd:: ttl-security disable
+
+   Located under the LDP address-family node, use this command to disable the
+   GTSM procedures described in RFC 6720 (for the IPv4 address-family) and
+   RFC 7552 (for the IPv6 address-family).
+
+   Since GTSM is mandatory for LDPv6, the only effect of disabling GTSM for the
+   IPv6 address-family is that *ldpd* will not discard packets with a hop limit
+   below 255. This may be necessary to interoperate with older implementations.
+   Outgoing packets will still be sent using a hop limit of 255 for maximum
+   compatibility.
+
+   If GTSM is enabled, multi-hop neighbors should have either GTSM disabled
+   individually or configured with an appropriate ttl-security hops distance.
+
 .. clicmd:: neighbor A.B.C.D password PASSWORD
 
    The following command located under MPLS router node configures the router
@@ -142,6 +157,19 @@ LDP Configuration
    mechanism. That value can be configured between 15 and 65535 seconds. After
    this time of non response, the LDP established session will be considered as
    set to down. By default, no holdtime is configured for the LDP devices.
+
+.. clicmd:: neighbor A.B.C.D ttl-security disable
+
+   Located under the MPLS LDP node, use this command to override the global
+   configuration and enable/disable GTSM for the specified neighbor.
+
+.. clicmd:: neighbor A.B.C.D ttl-security hops (1-254)
+
+   Located under the MPLS LDP node, use this command to set the maximum number
+   of hops the specified neighbor may be away. When GTSM is enabled for this
+   neighbor, incoming packets are required to have a TTL/hop limit of 256
+   minus this value, ensuring they have not passed through more than the
+   expected number of hops. The default value is 1.
 
 .. clicmd:: discovery hello holdtime HOLDTIME
 

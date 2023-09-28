@@ -1,22 +1,9 @@
 #!/usr/bin/env python
+# SPDX-License-Identifier: ISC
 
 #
 # Copyright (c) 2021 by
 # Donatas Abraitis <donatas.abraitis@gmail.com>
-#
-# Permission to use, copy, modify, and/or distribute this software
-# for any purpose with or without fee is hereby granted, provided
-# that the above copyright notice and this permission notice appear
-# in all copies.
-#
-# THE SOFTWARE IS PROVIDED "AS IS" AND NETDEF DISCLAIMS ALL WARRANTIES
-# WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
-# MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL NETDEF BE LIABLE FOR
-# ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY
-# DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS,
-# WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS
-# ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE
-# OF THIS SOFTWARE.
 #
 
 """
@@ -87,9 +74,26 @@ def test_bgp_peer_group():
         return topotest.json_cmp(output, expected)
 
     test_func = functools.partial(_bgp_peer_group_configured)
-    success, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+    assert result is None, "Failed bgp convergence in r1"
 
-    assert result is None, 'Failed bgp convergence in "{}"'.format(tgen.gears["r1"])
+    def _bgp_peer_group_check_advertised_routes():
+        output = json.loads(
+            tgen.gears["r3"].vtysh_cmd("show ip bgp neighbor PG advertised-routes json")
+        )
+        expected = {
+            "advertisedRoutes": {
+                "192.168.255.0/24": {
+                    "valid": True,
+                    "best": True,
+                }
+            }
+        }
+        return topotest.json_cmp(output, expected)
+
+    test_func = functools.partial(_bgp_peer_group_check_advertised_routes)
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+    assert result is None, "Failed checking advertised routes from r3"
 
 
 if __name__ == "__main__":

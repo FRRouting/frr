@@ -1,24 +1,7 @@
+// SPDX-License-Identifier: MIT
 /*
 Copyright (c) 2007, 2008 by Juliusz Chroboczek
 Copyright 2011 by Matthieu Boutier and Juliusz Chroboczek
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in
-all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-THE SOFTWARE.
 */
 
 #ifndef BABEL_UTIL_H
@@ -121,6 +104,12 @@ void uchar_to_in6addr(struct in6_addr *dest, const unsigned char *src);
 int daemonise(void);
 extern const unsigned char v4prefix[16];
 
+static inline bool
+is_default(const unsigned char *prefix, int plen)
+{
+    return plen == 0 || (plen == 96 && v4mapped(prefix));
+}
+
 /* If debugging is disabled, we want to avoid calling format_address
    for every omitted debugging message.  So debug is a macro.  But
    vararg macros are not portable. */
@@ -139,10 +128,11 @@ extern const unsigned char v4prefix[16];
 #define BABEL_DEBUG_ROUTE       (1 << 5)
 #define BABEL_DEBUG_ALL         (0xFFFF)
 
-#define debugf(level, ...) \
-do { \
-if(UNLIKELY(debug & level)) zlog_debug(__VA_ARGS__);     \
-} while(0)
+#define debugf(level, ...)                                                     \
+	do {                                                                   \
+		if (unlikely(debug & level))                                   \
+			zlog_debug(__VA_ARGS__);                               \
+	} while (0)
 
 #endif /* NO_DEBUG */
 

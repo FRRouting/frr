@@ -1,21 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* Zebra SR-TE code
  * Copyright (C) 2020  NetDEF, Inc.
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -116,8 +101,18 @@ static int zebra_sr_policy_notify_update_client(struct zebra_sr_policy *policy,
 	SET_FLAG(message, ZAPI_MESSAGE_SRTE);
 	stream_putl(s, message);
 
+	stream_putw(s, SAFI_UNICAST);
+	/*
+	 * The prefix is copied twice because the ZEBRA_NEXTHOP_UPDATE
+	 * code was modified to send back both the matched against
+	 * as well as the actual matched.  There does not appear to
+	 * be an equivalent here so just send the same thing twice.
+	 */
 	switch (policy->endpoint.ipa_type) {
 	case IPADDR_V4:
+		stream_putw(s, AF_INET);
+		stream_putc(s, IPV4_MAX_BITLEN);
+		stream_put_in_addr(s, &policy->endpoint.ipaddr_v4);
 		stream_putw(s, AF_INET);
 		stream_putc(s, IPV4_MAX_BITLEN);
 		stream_put_in_addr(s, &policy->endpoint.ipaddr_v4);
@@ -126,8 +121,11 @@ static int zebra_sr_policy_notify_update_client(struct zebra_sr_policy *policy,
 		stream_putw(s, AF_INET6);
 		stream_putc(s, IPV6_MAX_BITLEN);
 		stream_put(s, &policy->endpoint.ipaddr_v6, IPV6_MAX_BYTELEN);
+		stream_putw(s, AF_INET6);
+		stream_putc(s, IPV6_MAX_BITLEN);
+		stream_put(s, &policy->endpoint.ipaddr_v6, IPV6_MAX_BYTELEN);
 		break;
-	default:
+	case IPADDR_NONE:
 		flog_warn(EC_LIB_DEVELOPMENT,
 			  "%s: unknown policy endpoint address family: %u",
 			  __func__, policy->endpoint.ipa_type);
@@ -189,14 +187,14 @@ static void zebra_sr_policy_notify_update(struct zebra_sr_policy *policy)
 		p.prefixlen = IPV6_MAX_BITLEN;
 		p.u.prefix6 = policy->endpoint.ipaddr_v6;
 		break;
-	default:
+	case IPADDR_NONE:
 		flog_warn(EC_LIB_DEVELOPMENT,
 			  "%s: unknown policy endpoint address family: %u",
 			  __func__, policy->endpoint.ipa_type);
 		exit(1);
 	}
 
-	rnh = zebra_lookup_rnh(&p, zvrf_id(zvrf), RNH_NEXTHOP_TYPE);
+	rnh = zebra_lookup_rnh(&p, zvrf_id(zvrf), SAFI_UNICAST);
 	if (!rnh)
 		return;
 
@@ -205,8 +203,8 @@ static void zebra_sr_policy_notify_update(struct zebra_sr_policy *policy)
 			zebra_sr_policy_notify_update_client(policy, client);
 		else
 			/* Fallback to the IGP shortest path. */
-			zebra_send_rnh_update(rnh, client, RNH_NEXTHOP_TYPE,
-					      zvrf_id(zvrf), policy->color);
+			zebra_send_rnh_update(rnh, client, zvrf_id(zvrf),
+					      policy->color);
 	}
 }
 
@@ -371,6 +369,23 @@ int zebra_sr_policy_label_update(mpls_label_t label,
 	return 0;
 }
 
+static int zebra_srte_client_close_cleanup(struct zserv *client)
+{
+	int sock = client->sock;
+	struct zebra_sr_policy *policy, *policy_temp;
+
+	if (!sock)
+		return 0;
+
+	RB_FOREACH_SAFE (policy, zebra_sr_policy_instance_head,
+			 &zebra_sr_policy_instances, policy_temp) {
+		if (policy->sock == sock)
+			zebra_sr_policy_del(policy);
+	}
+	return 1;
+}
+
 void zebra_srte_init(void)
 {
+	hook_register(zserv_client_close, zebra_srte_client_close_cleanup);
 }

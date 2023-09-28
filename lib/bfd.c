@@ -1,23 +1,8 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /**
  * bfd.c: BFD handling routines
  *
  * @copyright Copyright (C) 2015 Cumulus Networks, Inc.
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -25,15 +10,17 @@
 #include "command.h"
 #include "memory.h"
 #include "prefix.h"
-#include "thread.h"
+#include "frrevent.h"
 #include "stream.h"
 #include "vrf.h"
 #include "zclient.h"
+#include "libfrr.h"
 #include "table.h"
 #include "vty.h"
 #include "bfd.h"
 
 DEFINE_MTYPE_STATIC(LIB, BFD_INFO, "BFD info");
+DEFINE_MTYPE_STATIC(LIB, BFD_SOURCE, "BFD source cache");
 
 /**
  * BFD protocol integration configuration.
@@ -46,6 +33,29 @@ enum bfd_session_event {
 	/** Install the BFD session configuration. */
 	BSE_INSTALL,
 };
+
+/**
+ * BFD source selection result cache.
+ *
+ * This structure will keep track of the result based on the destination
+ * prefix. When the result changes all related BFD sessions with automatic
+ * source will be updated.
+ */
+struct bfd_source_cache {
+	/** Address VRF belongs. */
+	vrf_id_t vrf_id;
+	/** Destination network address. */
+	struct prefix address;
+	/** Source selected. */
+	struct prefix source;
+	/** Is the source address valid? */
+	bool valid;
+	/** BFD sessions using this. */
+	size_t refcount;
+
+	SLIST_ENTRY(bfd_source_cache) entry;
+};
+SLIST_HEAD(bfd_source_list, bfd_source_cache);
 
 /**
  * Data structure to do the necessary tricks to hide the BFD protocol
@@ -65,7 +75,7 @@ struct bfd_session_params {
 	 * Next event.
 	 *
 	 * This variable controls what action to execute when the command batch
-	 * finishes. Normally we'd use `thread_add_event` value, however since
+	 * finishes. Normally we'd use `event_add_event` value, however since
 	 * that function is going to be called multiple times and the value
 	 * might be different we'll use this variable to keep track of it.
 	 */
@@ -77,10 +87,15 @@ struct bfd_session_params {
 	 * configuration load or northbound batch), so we'll use this to
 	 * install/uninstall the BFD session parameters only once.
 	 */
-	struct thread *installev;
+	struct event *installev;
 
 	/** BFD session installation state. */
 	bool installed;
+
+	/** Automatic source selection. */
+	bool auto_source;
+	/** Currently selected source. */
+	struct bfd_source_cache *source_cache;
 
 	/** Global BFD paramaters list. */
 	TAILQ_ENTRY(bfd_session_params) entry;
@@ -92,9 +107,11 @@ struct bfd_sessions_global {
 	 * without code duplication among daemons.
 	 */
 	TAILQ_HEAD(bsplist, bfd_session_params) bsplist;
+	/** BFD automatic source selection cache. */
+	struct bfd_source_list source_list;
 
 	/** Pointer to FRR's event manager. */
-	struct thread_master *tm;
+	struct event_loop *tm;
 	/** Pointer to zebra client data structure. */
 	struct zclient *zc;
 
@@ -109,6 +126,13 @@ static struct bfd_sessions_global bsglobal;
 
 /** Global empty address for IPv4/IPv6. */
 static const struct in6_addr i6a_zero;
+
+/*
+ * Prototypes
+ */
+
+static void bfd_source_cache_get(struct bfd_session_params *session);
+static void bfd_source_cache_put(struct bfd_session_params *session);
 
 /*
  * bfd_get_peer_info - Extract the Peer information for which the BFD session
@@ -143,8 +167,8 @@ static struct interface *bfd_get_peer_info(struct stream *s, struct prefix *dp,
 		if (ifp == NULL) {
 			if (bsglobal.debugging)
 				zlog_debug(
-					"zebra_interface_bfd_read: Can't find interface by ifindex: %d ",
-					ifindex);
+					"%s: Can't find interface by ifindex: %d ",
+					__func__, ifindex);
 			return NULL;
 		}
 	}
@@ -171,6 +195,12 @@ static struct interface *bfd_get_peer_info(struct stream *s, struct prefix *dp,
 	return ifp;
 
 stream_failure:
+	/*
+	 * Clean dp and sp because caller
+	 * will immediately check them valid or not
+	 */
+	memset(dp, 0, sizeof(*dp));
+	memset(sp, 0, sizeof(*sp));
 	return NULL;
 }
 
@@ -203,7 +233,7 @@ static void bfd_last_update(time_t last_update, char *buf, size_t len)
 	struct tm tm;
 	struct timeval tv;
 
-	/* If no BFD satatus update has ever been received, print `never'. */
+	/* If no BFD status update has ever been received, print `never'. */
 	if (last_update == 0) {
 		snprintf(buf, len, "never");
 		return;
@@ -251,8 +281,8 @@ void bfd_client_sendmsg(struct zclient *zclient, int command,
 	if (ret == ZCLIENT_SEND_FAILURE) {
 		if (bsglobal.debugging)
 			zlog_debug(
-				"bfd_client_sendmsg %ld: zclient_send_message() failed",
-				(long)getpid());
+				"%s:  %ld: zclient_send_message() failed",
+				__func__, (long)getpid());
 		return;
 	}
 
@@ -310,8 +340,8 @@ int zclient_bfd_command(struct zclient *zc, struct bfd_session_arg *args)
 	stream_putw(s, args->family);
 	stream_put(s, &args->src, addrlen);
 
-	/* Send the expected TTL. */
-	stream_putc(s, args->ttl);
+	/* Send the expected hops. */
+	stream_putc(s, args->hops);
 
 	/* Send interface name if any. */
 	if (args->mhop) {
@@ -349,8 +379,8 @@ int zclient_bfd_command(struct zclient *zc, struct bfd_session_arg *args)
 		stream_putw(s, args->family);
 		stream_put(s, &args->src, addrlen);
 
-		/* Send the expected TTL. */
-		stream_putc(s, args->ttl);
+		/* Send the expected hops. */
+		stream_putc(s, args->hops);
 	} else {
 		/* Multi hop indicator. */
 		stream_putc(s, 0);
@@ -396,7 +426,7 @@ struct bfd_session_params *bfd_sess_new(bsp_status_update updatecb, void *arg)
 
 	/* Set defaults. */
 	bsp->args.detection_multiplier = BFD_DEF_DETECT_MULT;
-	bsp->args.ttl = 1;
+	bsp->args.hops = 1;
 	bsp->args.min_rx = BFD_DEF_MIN_RX;
 	bsp->args.min_tx = BFD_DEF_MIN_TX;
 	bsp->args.vrf_id = VRF_DEFAULT;
@@ -455,14 +485,14 @@ static bool _bfd_sess_valid(const struct bfd_session_params *bsp)
 	return true;
 }
 
-static int _bfd_sess_send(struct thread *t)
+static void _bfd_sess_send(struct event *t)
 {
-	struct bfd_session_params *bsp = THREAD_ARG(t);
+	struct bfd_session_params *bsp = EVENT_ARG(t);
 	int rv;
 
 	/* Validate configuration before trying to send bogus data. */
 	if (!_bfd_sess_valid(bsp))
-		return 0;
+		return;
 
 	if (bsp->lastev == BSE_INSTALL) {
 		bsp->args.command = bsp->installed ? ZEBRA_BFD_DEST_UPDATE
@@ -472,7 +502,7 @@ static int _bfd_sess_send(struct thread *t)
 
 	/* If not installed and asked for uninstall, do nothing. */
 	if (!bsp->installed && bsp->args.command == ZEBRA_BFD_DEST_DEREGISTER)
-		return 0;
+		return;
 
 	rv = zclient_bfd_command(bsglobal.zc, &bsp->args);
 	/* Command was sent successfully. */
@@ -498,22 +528,20 @@ static int _bfd_sess_send(struct thread *t)
 			bsp->lastev == BSE_INSTALL ? "installed"
 						   : "uninstalled");
 	}
-
-	return 0;
 }
 
 static void _bfd_sess_remove(struct bfd_session_params *bsp)
 {
+	/* Cancel any pending installation request. */
+	EVENT_OFF(bsp->installev);
+
 	/* Not installed, nothing to do. */
 	if (!bsp->installed)
 		return;
 
-	/* Cancel any pending installation request. */
-	THREAD_OFF(bsp->installev);
-
 	/* Send request to remove any session. */
 	bsp->lastev = BSE_UNINSTALL;
-	thread_execute(bsglobal.tm, _bfd_sess_send, bsp, 0);
+	event_execute(bsglobal.tm, _bfd_sess_send, bsp, 0, NULL);
 }
 
 void bfd_sess_free(struct bfd_session_params **bsp)
@@ -526,6 +554,8 @@ void bfd_sess_free(struct bfd_session_params **bsp)
 
 	/* Remove from global list. */
 	TAILQ_REMOVE(&bsglobal.bsplist, (*bsp), entry);
+
+	bfd_source_cache_put(*bsp);
 
 	/* Free the memory and point to NULL. */
 	XFREE(MTYPE_BFD_INFO, (*bsp));
@@ -552,7 +582,8 @@ static bool bfd_sess_address_changed(const struct bfd_session_params *bsp,
 }
 
 void bfd_sess_set_ipv4_addrs(struct bfd_session_params *bsp,
-			     struct in_addr *src, struct in_addr *dst)
+			     const struct in_addr *src,
+			     const struct in_addr *dst)
 {
 	if (!bfd_sess_address_changed(bsp, AF_INET, (struct in6_addr *)src,
 				      (struct in6_addr *)dst))
@@ -560,6 +591,8 @@ void bfd_sess_set_ipv4_addrs(struct bfd_session_params *bsp,
 
 	/* If already installed, remove the old setting. */
 	_bfd_sess_remove(bsp);
+	/* Address changed so we must reapply auto source. */
+	bfd_source_cache_put(bsp);
 
 	bsp->args.family = AF_INET;
 
@@ -573,17 +606,22 @@ void bfd_sess_set_ipv4_addrs(struct bfd_session_params *bsp,
 
 	assert(dst);
 	memcpy(&bsp->args.dst, dst, sizeof(struct in_addr));
+
+	if (bsp->auto_source)
+		bfd_source_cache_get(bsp);
 }
 
 void bfd_sess_set_ipv6_addrs(struct bfd_session_params *bsp,
-			     struct in6_addr *src, struct in6_addr *dst)
+			     const struct in6_addr *src,
+			     const struct in6_addr *dst)
 {
-	if (!bfd_sess_address_changed(bsp, AF_INET, (struct in6_addr *)src,
-				      (struct in6_addr *)dst))
+	if (!bfd_sess_address_changed(bsp, AF_INET6, src, dst))
 		return;
 
 	/* If already installed, remove the old setting. */
 	_bfd_sess_remove(bsp);
+	/* Address changed so we must reapply auto source. */
+	bfd_source_cache_put(bsp);
 
 	bsp->args.family = AF_INET6;
 
@@ -595,6 +633,9 @@ void bfd_sess_set_ipv6_addrs(struct bfd_session_params *bsp,
 
 	assert(dst);
 	bsp->args.dst = *dst;
+
+	if (bsp->auto_source)
+		bfd_source_cache_get(bsp);
 }
 
 void bfd_sess_set_interface(struct bfd_session_params *bsp, const char *ifname)
@@ -641,36 +682,25 @@ void bfd_sess_set_vrf(struct bfd_session_params *bsp, vrf_id_t vrf_id)
 
 	/* If already installed, remove the old setting. */
 	_bfd_sess_remove(bsp);
+	/* Address changed so we must reapply auto source. */
+	bfd_source_cache_put(bsp);
 
 	bsp->args.vrf_id = vrf_id;
+
+	if (bsp->auto_source)
+		bfd_source_cache_get(bsp);
 }
 
-void bfd_sess_set_mininum_ttl(struct bfd_session_params *bsp, uint8_t min_ttl)
+void bfd_sess_set_hop_count(struct bfd_session_params *bsp, uint8_t hops)
 {
-	assert(min_ttl != 0);
-
-	if (bsp->args.ttl == ((BFD_SINGLE_HOP_TTL + 1) - min_ttl))
+	if (bsp->args.hops == hops)
 		return;
 
 	/* If already installed, remove the old setting. */
 	_bfd_sess_remove(bsp);
 
-	/* Invert TTL value: protocol expects number of hops. */
-	min_ttl = (BFD_SINGLE_HOP_TTL + 1) - min_ttl;
-	bsp->args.ttl = min_ttl;
-	bsp->args.mhop = (min_ttl > 1);
-}
-
-void bfd_sess_set_hop_count(struct bfd_session_params *bsp, uint8_t min_ttl)
-{
-	if (bsp->args.ttl == min_ttl)
-		return;
-
-	/* If already installed, remove the old setting. */
-	_bfd_sess_remove(bsp);
-
-	bsp->args.ttl = min_ttl;
-	bsp->args.mhop = (min_ttl > 1);
+	bsp->args.hops = hops;
+	bsp->args.mhop = (hops > 1);
 }
 
 
@@ -688,16 +718,28 @@ void bfd_sess_set_timers(struct bfd_session_params *bsp,
 	bsp->args.min_tx = min_tx;
 }
 
+void bfd_sess_set_auto_source(struct bfd_session_params *bsp, bool enable)
+{
+	if (bsp->auto_source == enable)
+		return;
+
+	bsp->auto_source = enable;
+	if (enable)
+		bfd_source_cache_get(bsp);
+	else
+		bfd_source_cache_put(bsp);
+}
+
 void bfd_sess_install(struct bfd_session_params *bsp)
 {
 	bsp->lastev = BSE_INSTALL;
-	thread_add_event(bsglobal.tm, _bfd_sess_send, bsp, 0, &bsp->installev);
+	event_add_event(bsglobal.tm, _bfd_sess_send, bsp, 0, &bsp->installev);
 }
 
 void bfd_sess_uninstall(struct bfd_session_params *bsp)
 {
 	bsp->lastev = BSE_UNINSTALL;
-	thread_add_event(bsglobal.tm, _bfd_sess_send, bsp, 0, &bsp->installev);
+	event_add_event(bsglobal.tm, _bfd_sess_send, bsp, 0, &bsp->installev);
 }
 
 enum bfd_session_state bfd_sess_status(const struct bfd_session_params *bsp)
@@ -705,14 +747,9 @@ enum bfd_session_state bfd_sess_status(const struct bfd_session_params *bsp)
 	return bsp->bss.state;
 }
 
-uint8_t bfd_sess_minimum_ttl(const struct bfd_session_params *bsp)
-{
-	return ((BFD_SINGLE_HOP_TTL + 1) - bsp->args.ttl);
-}
-
 uint8_t bfd_sess_hop_count(const struct bfd_session_params *bsp)
 {
-	return bsp->args.ttl;
+	return bsp->args.hops;
 }
 
 const char *bfd_sess_profile(const struct bfd_session_params *bsp)
@@ -760,6 +797,11 @@ void bfd_sess_timers(const struct bfd_session_params *bsp,
 	*detection_multiplier = bsp->args.detection_multiplier;
 	*min_rx = bsp->args.min_rx;
 	*min_tx = bsp->args.min_tx;
+}
+
+bool bfd_sess_auto_source(const struct bfd_session_params *bsp)
+{
+	return bsp->auto_source;
 }
 
 void bfd_sess_show(struct vty *vty, struct json_object *json,
@@ -821,9 +863,12 @@ void bfd_sess_show(struct vty *vty, struct json_object *json,
  *
  * Use this as `zclient` `bfd_dest_replay` callback.
  */
-static int zclient_bfd_session_reply(ZAPI_CALLBACK_ARGS)
+int zclient_bfd_session_replay(ZAPI_CALLBACK_ARGS)
 {
 	struct bfd_session_params *bsp;
+
+	if (!zclient->bfd_integration)
+		return 0;
 
 	/* Do nothing when shutting down. */
 	if (bsglobal.shutting_down)
@@ -845,17 +890,17 @@ static int zclient_bfd_session_reply(ZAPI_CALLBACK_ARGS)
 		bsp->installed = false;
 
 		/* Cancel any pending installation request. */
-		THREAD_OFF(bsp->installev);
+		EVENT_OFF(bsp->installev);
 
 		/* Ask for installation. */
 		bsp->lastev = BSE_INSTALL;
-		thread_execute(bsglobal.tm, _bfd_sess_send, bsp, 0);
+		event_execute(bsglobal.tm, _bfd_sess_send, bsp, 0, NULL);
 	}
 
 	return 0;
 }
 
-static int zclient_bfd_session_update(ZAPI_CALLBACK_ARGS)
+int zclient_bfd_session_update(ZAPI_CALLBACK_ARGS)
 {
 	struct bfd_session_params *bsp, *bspn;
 	size_t sessions_updated = 0;
@@ -867,6 +912,9 @@ static int zclient_bfd_session_update(ZAPI_CALLBACK_ARGS)
 	struct prefix dp;
 	struct prefix sp;
 	char ifstr[128], cbitstr[32];
+
+	if (!zclient->bfd_integration)
+		return 0;
 
 	/* Do nothing when shutting down. */
 	if (bsglobal.shutting_down)
@@ -960,21 +1008,54 @@ static int zclient_bfd_session_update(ZAPI_CALLBACK_ARGS)
 	return 0;
 }
 
-void bfd_protocol_integration_init(struct zclient *zc, struct thread_master *tm)
+/**
+ * Frees all allocated resources and stops any activity.
+ *
+ * Must be called after every BFD session has been successfully
+ * unconfigured otherwise this function will `free()` any available
+ * session causing existing pointers to dangle.
+ *
+ * This is just a comment, in practice it will be called by the FRR
+ * library late finish hook. \see `bfd_protocol_integration_init`.
+ */
+static int bfd_protocol_integration_finish(void)
+{
+	if (bsglobal.zc == NULL)
+		return 0;
+
+	while (!TAILQ_EMPTY(&bsglobal.bsplist)) {
+		struct bfd_session_params *session =
+			TAILQ_FIRST(&bsglobal.bsplist);
+		bfd_sess_free(&session);
+	}
+
+	/*
+	 * BFD source cache is linked to sessions, if all sessions are gone
+	 * then the source cache must be empty.
+	 */
+	if (!SLIST_EMPTY(&bsglobal.source_list))
+		zlog_warn("BFD integration source cache not empty");
+
+	return 0;
+}
+
+void bfd_protocol_integration_init(struct zclient *zc, struct event_loop *tm)
 {
 	/* Initialize data structure. */
 	TAILQ_INIT(&bsglobal.bsplist);
+	SLIST_INIT(&bsglobal.source_list);
 
 	/* Copy pointers. */
 	bsglobal.zc = zc;
 	bsglobal.tm = tm;
 
-	/* Install our callbacks. */
-	zc->interface_bfd_dest_update = zclient_bfd_session_update;
-	zc->bfd_dest_replay = zclient_bfd_session_reply;
+	/* Enable BFD callbacks. */
+	zc->bfd_integration = true;
 
 	/* Send the client registration */
 	bfd_client_sendmsg(zc, ZEBRA_BFD_CLIENT_REGISTER, VRF_DEFAULT);
+
+	hook_register(frr_fini, bfd_protocol_integration_finish);
 }
 
 void bfd_protocol_integration_set_debug(bool enable)
@@ -995,4 +1076,263 @@ bool bfd_protocol_integration_debug(void)
 bool bfd_protocol_integration_shutting_down(void)
 {
 	return bsglobal.shutting_down;
+}
+
+/*
+ * BFD automatic source selection
+ *
+ * This feature will use the next hop tracking (NHT) provided by zebra
+ * to find out the source address by looking at the output interface.
+ *
+ * When the interface address / routing table change we'll be notified
+ * and be able to update the source address accordingly.
+ *
+ *     <daemon>                 zebra
+ *         |
+ * +-----------------+
+ * | BFD session set |
+ * | to auto source  |
+ * +-----------------+
+ *         |
+ *         \                 +-----------------+
+ *          -------------->  | Resolves        |
+ *                           | destination     |
+ *                           | address         |
+ *                           +-----------------+
+ *                                |
+ * +-----------------+            /
+ * | Sets resolved   | <----------
+ * | source address  |
+ * +-----------------+
+ */
+static bool
+bfd_source_cache_session_match(const struct bfd_source_cache *source,
+			       const struct bfd_session_params *session)
+{
+	const struct in_addr *address;
+	const struct in6_addr *address_v6;
+
+	if (session->args.vrf_id != source->vrf_id)
+		return false;
+	if (session->args.family != source->address.family)
+		return false;
+
+	switch (session->args.family) {
+	case AF_INET:
+		address = (const struct in_addr *)&session->args.dst;
+		if (address->s_addr != source->address.u.prefix4.s_addr)
+			return false;
+		break;
+	case AF_INET6:
+		address_v6 = &session->args.dst;
+		if (memcmp(address_v6, &source->address.u.prefix6,
+			   sizeof(struct in6_addr)))
+			return false;
+		break;
+	default:
+		return false;
+	}
+
+	return true;
+}
+
+static struct bfd_source_cache *
+bfd_source_cache_find(vrf_id_t vrf_id, const struct prefix *prefix)
+{
+	struct bfd_source_cache *source;
+
+	SLIST_FOREACH (source, &bsglobal.source_list, entry) {
+		if (source->vrf_id != vrf_id)
+			continue;
+		if (!prefix_same(&source->address, prefix))
+			continue;
+
+		return source;
+	}
+
+	return NULL;
+}
+
+static void bfd_source_cache_get(struct bfd_session_params *session)
+{
+	struct bfd_source_cache *source;
+	struct prefix target = {};
+
+	switch (session->args.family) {
+	case AF_INET:
+		target.family = AF_INET;
+		target.prefixlen = IPV4_MAX_BITLEN;
+		memcpy(&target.u.prefix4, &session->args.dst,
+		       sizeof(struct in_addr));
+		break;
+	case AF_INET6:
+		target.family = AF_INET6;
+		target.prefixlen = IPV6_MAX_BITLEN;
+		memcpy(&target.u.prefix6, &session->args.dst,
+		       sizeof(struct in6_addr));
+		break;
+	default:
+		return;
+	}
+
+	source = bfd_source_cache_find(session->args.vrf_id, &target);
+	if (source) {
+		if (session->source_cache == source)
+			return;
+
+		bfd_source_cache_put(session);
+		session->source_cache = source;
+		source->refcount++;
+		return;
+	}
+
+	source = XCALLOC(MTYPE_BFD_SOURCE, sizeof(*source));
+	prefix_copy(&source->address, &target);
+	source->vrf_id = session->args.vrf_id;
+	SLIST_INSERT_HEAD(&bsglobal.source_list, source, entry);
+
+	bfd_source_cache_put(session);
+	session->source_cache = source;
+	source->refcount = 1;
+
+	return;
+}
+
+static void bfd_source_cache_put(struct bfd_session_params *session)
+{
+	if (session->source_cache == NULL)
+		return;
+
+	session->source_cache->refcount--;
+	if (session->source_cache->refcount > 0) {
+		session->source_cache = NULL;
+		return;
+	}
+
+	SLIST_REMOVE(&bsglobal.source_list, session->source_cache,
+		     bfd_source_cache, entry);
+	XFREE(MTYPE_BFD_SOURCE, session->source_cache);
+}
+
+/** Updates BFD running session if source address has changed. */
+static void
+bfd_source_cache_update_session(const struct bfd_source_cache *source,
+				struct bfd_session_params *session)
+{
+	const struct in_addr *address;
+	const struct in6_addr *address_v6;
+
+	switch (session->args.family) {
+	case AF_INET:
+		address = (const struct in_addr *)&session->args.src;
+		if (memcmp(address, &source->source.u.prefix4,
+			   sizeof(struct in_addr)) == 0)
+			return;
+
+		_bfd_sess_remove(session);
+		memcpy(&session->args.src, &source->source.u.prefix4,
+		       sizeof(struct in_addr));
+		break;
+	case AF_INET6:
+		address_v6 = &session->args.src;
+		if (memcmp(address_v6, &source->source.u.prefix6,
+			   sizeof(struct in6_addr)) == 0)
+			return;
+
+		_bfd_sess_remove(session);
+		memcpy(&session->args.src, &source->source.u.prefix6,
+		       sizeof(struct in6_addr));
+		break;
+	default:
+		return;
+	}
+
+	bfd_sess_install(session);
+}
+
+static void
+bfd_source_cache_update_sessions(const struct bfd_source_cache *source)
+{
+	struct bfd_session_params *session;
+
+	if (!source->valid)
+		return;
+
+	TAILQ_FOREACH (session, &bsglobal.bsplist, entry) {
+		if (!session->auto_source)
+			continue;
+		if (!bfd_source_cache_session_match(source, session))
+			continue;
+
+		bfd_source_cache_update_session(source, session);
+	}
+}
+
+/**
+ * Try to translate next hop information into source address.
+ *
+ * \returns `true` if source changed otherwise `false`.
+ */
+static bool bfd_source_cache_update(struct bfd_source_cache *source,
+				    const struct zapi_route *route)
+{
+	size_t nh_index;
+
+	for (nh_index = 0; nh_index < route->nexthop_num; nh_index++) {
+		const struct zapi_nexthop *nh = &route->nexthops[nh_index];
+		const struct interface *interface;
+		const struct connected *connected;
+		const struct listnode *node;
+
+		interface = if_lookup_by_index(nh->ifindex, nh->vrf_id);
+		if (interface == NULL) {
+			zlog_err("next hop interface not found (index %d)",
+				 nh->ifindex);
+			continue;
+		}
+
+		for (ALL_LIST_ELEMENTS_RO(interface->connected, node,
+					  connected)) {
+			if (source->address.family !=
+			    connected->address->family)
+				continue;
+			if (prefix_same(connected->address, &source->source))
+				return false;
+			/*
+			 * Skip link-local as it is only useful for single hop
+			 * and in that case no source is specified usually.
+			 */
+			if (source->address.family == AF_INET6 &&
+			    IN6_IS_ADDR_LINKLOCAL(
+				    &connected->address->u.prefix6))
+				continue;
+
+			prefix_copy(&source->source, connected->address);
+			source->valid = true;
+			return true;
+		}
+	}
+
+	memset(&source->source, 0, sizeof(source->source));
+	source->valid = false;
+	return false;
+}
+
+int bfd_nht_update(const struct prefix *match, const struct zapi_route *route)
+{
+	struct bfd_source_cache *source;
+
+	if (bsglobal.debugging)
+		zlog_debug("BFD NHT update for %pFX", &route->prefix);
+
+	SLIST_FOREACH (source, &bsglobal.source_list, entry) {
+		if (source->vrf_id != route->vrf_id)
+			continue;
+		if (!prefix_same(match, &source->address))
+			continue;
+		if (bfd_source_cache_update(source, route))
+			bfd_source_cache_update_sessions(source);
+	}
+
+	return 0;
 }

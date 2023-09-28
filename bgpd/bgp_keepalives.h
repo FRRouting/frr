@@ -1,23 +1,8 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* BGP Keepalives.
  * Implements a producer thread to generate BGP keepalives for peers.
  * Copyright (C) 2017 Cumulus Networks, Inc.
  * Quentin Young
- *
- * This file is part of FRRouting.
- *
- * FRRouting is free software; you can redistribute it and/or modify it under
- * the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2, or (at your option) any later
- * version.
- *
- * FRRouting is distributed in the hope that it will be useful, but WITHOUT ANY
- * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
- * FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more
- * details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef _FRR_BGP_KEEPALIVES_H
@@ -42,7 +27,7 @@
  * If the peer is already registered for keepalives via this function, nothing
  * happens.
  */
-extern void bgp_keepalives_on(struct peer *);
+extern void bgp_keepalives_on(struct peer_connection *connection);
 
 /**
  * Turns off keepalives for a peer.
@@ -51,7 +36,7 @@ extern void bgp_keepalives_on(struct peer *);
  *
  * If the peer is already unregistered for keepalives, nothing happens.
  */
-extern void bgp_keepalives_off(struct peer *);
+extern void bgp_keepalives_off(struct peer_connection *connection);
 
 /**
  * Pre-run initialization function for keepalives pthread.
@@ -72,18 +57,6 @@ extern void bgp_keepalives_init(void);
  * @param arg pthread arg, not used
  */
 extern void *bgp_keepalives_start(void *arg);
-
-/**
- * Poking function for keepalives pthread.
- *
- * Under normal circumstances the pthread will automatically wake itself
- * whenever it is necessary to do work. This function may be used to force the
- * thread to wake up and see if there is any work to do, or if it is time to
- * die.
- *
- * It is not necessary to call this after bgp_keepalives_on().
- */
-extern void bgp_keepalives_wake(void);
 
 /**
  * Stops the thread and blocks until it terminates.

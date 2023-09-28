@@ -1,22 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * OSPF Neighbor functions.
  * Copyright (C) 1999, 2000 Toshiaki Takada
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published
- * by the Free Software Foundation; either version 2, or (at your
- * option) any later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -26,7 +11,7 @@
 #include "prefix.h"
 #include "memory.h"
 #include "command.h"
-#include "thread.h"
+#include "frrevent.h"
 #include "stream.h"
 #include "table.h"
 #include "log.h"
@@ -140,17 +125,17 @@ void ospf_nbr_free(struct ospf_neighbor *nbr)
 	}
 
 	/* Cancel all timers. */
-	OSPF_NSM_TIMER_OFF(nbr->t_inactivity);
-	OSPF_NSM_TIMER_OFF(nbr->t_db_desc);
-	OSPF_NSM_TIMER_OFF(nbr->t_ls_req);
-	OSPF_NSM_TIMER_OFF(nbr->t_ls_upd);
+	EVENT_OFF(nbr->t_inactivity);
+	EVENT_OFF(nbr->t_db_desc);
+	EVENT_OFF(nbr->t_ls_req);
+	EVENT_OFF(nbr->t_ls_upd);
 
 	/* Cancel all events. */ /* Thread lookup cost would be negligible. */
-	thread_cancel_event(master, nbr);
+	event_cancel_event(master, nbr);
 
 	bfd_sess_free(&nbr->bfd_session);
 
-	OSPF_NSM_TIMER_OFF(nbr->gr_helper_info.t_grace_timer);
+	EVENT_OFF(nbr->gr_helper_info.t_grace_timer);
 
 	nbr->oi = NULL;
 	XFREE(MTYPE_OSPF_NEIGHBOR, nbr);
@@ -382,9 +367,16 @@ void ospf_renegotiate_optional_capabilities(struct ospf *top)
 	struct route_table *nbrs;
 	struct route_node *rn;
 	struct ospf_neighbor *nbr;
+	uint8_t shutdown_save = top->inst_shutdown;
 
 	/* At first, flush self-originated LSAs from routing domain. */
 	ospf_flush_self_originated_lsas_now(top);
+
+	/* ospf_flush_self_originated_lsas_now is primarily intended for shut
+	 * down scenarios. Reset the inst_shutdown flag that it sets. We are
+	 * just changing configuration, and the flag can change the scheduling
+	 * of when maxage LSAs are sent. */
+	top->inst_shutdown = shutdown_save;
 
 	/* Revert all neighbor status to ExStart. */
 	for (ALL_LIST_ELEMENTS_RO(top->oiflist, node, oi)) {
@@ -449,7 +441,7 @@ static struct ospf_neighbor *ospf_nbr_add(struct ospf_interface *oi,
 				nbr->nbr_nbma = nbr_nbma;
 
 				if (nbr_nbma->t_poll)
-					OSPF_POLL_TIMER_OFF(nbr_nbma->t_poll);
+					EVENT_OFF(nbr_nbma->t_poll);
 
 				nbr->state_change = nbr_nbma->state_change + 1;
 			}

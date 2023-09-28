@@ -1,22 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Socket union header.
  * Copyright (c) 1997 Kunihiro Ishiguro
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef _ZEBRA_SOCKUNION_H
@@ -95,7 +80,6 @@ extern int sockunion_bind(int sock, union sockunion *, unsigned short,
 			  union sockunion *);
 extern int sockopt_ttl(int family, int sock, int ttl);
 extern int sockopt_minttl(int family, int sock, int minttl);
-extern int sockopt_cork(int sock, int onoff);
 extern int sockunion_socket(const union sockunion *su);
 extern const char *inet_sutop(const union sockunion *su, char *str);
 extern enum connect_result sockunion_connect(int fd, const union sockunion *su,

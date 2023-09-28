@@ -1,20 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Copyright (C) 2016-2019 Cumulus Networks, Inc.
  * Donald Sharp, Quentin Young
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 #ifndef __FRRLUA_H__
 #define __FRRLUA_H__
@@ -100,6 +87,10 @@ void lua_pushin6addr(lua_State *L, const struct in6_addr *addr);
 
 void lua_decode_in6addr(lua_State *L, int idx, struct in6_addr *addr);
 
+void lua_pushipaddr(lua_State *L, const struct ipaddr *addr);
+
+void lua_pushethaddr(lua_State *L, const struct ethaddr *addr);
+
 /*
  * Converts the Lua value at idx to an in6_addr.
  *
@@ -107,21 +98,6 @@ void lua_decode_in6addr(lua_State *L, int idx, struct in6_addr *addr);
  *    struct in6_addr allocated with MTYPE_TMP.
  */
 void *lua_toin6addr(lua_State *L, int idx);
-
-/*
- * Converts a time_t to a Lua value and pushes it on the stack.
- */
-void lua_pushtimet(lua_State *L, const time_t *time);
-
-void lua_decode_timet(lua_State *L, int idx, time_t *time);
-
-/*
- * Converts the Lua value at idx to a time_t.
- *
- * Returns:
- *    time_t allocated with MTYPE_TMP.
- */
-void *lua_totimet(lua_State *L, int idx);
 
 /*
  * Converts a sockunion to a Lua value and pushes it on the stack.
@@ -137,6 +113,10 @@ void lua_decode_sockunion(lua_State *L, int idx, union sockunion *su);
  *    sockunion allocated with MTYPE_TMP.
  */
 void *lua_tosockunion(lua_State *L, int idx);
+
+void lua_pushnexthop_group(lua_State *L, const struct nexthop_group *ng);
+
+void lua_pushnexthop(lua_State *L, const struct nexthop *nexthop);
 
 /*
  * Converts an int to a Lua value and pushes it on the stack.

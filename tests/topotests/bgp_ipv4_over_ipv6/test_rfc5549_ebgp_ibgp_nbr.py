@@ -1,23 +1,10 @@
 #!/usr/bin/env python
+# SPDX-License-Identifier: ISC
 
 #
 # Copyright (c) 2021 by VMware, Inc. ("VMware")
 # Used Copyright (c) 2018 by Network Device Education Foundation, Inc.
 # ("NetDEF") in this file.
-#
-# Permission to use, copy, modify, and/or distribute this software
-# for any purpose with or without fee is hereby granted, provided
-# that the above copyright notice and this permission notice appear
-# in all copies.
-#
-# THE SOFTWARE IS PROVIDED "AS IS" AND VMWARE DISCLAIMS ALL WARRANTIES
-# WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
-# MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL VMWARE BE LIABLE FOR
-# ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY
-# DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS,
-# WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS
-# ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE
-# OF THIS SOFTWARE.
 #
 
 
@@ -55,6 +42,9 @@ from lib.bgp import (
     verify_bgp_rib,
 )
 from lib.topojson import build_config_from_json
+
+
+pytestmark = [pytest.mark.bgpd, pytest.mark.staticd]
 
 # Global variables
 topo = None
@@ -123,7 +113,7 @@ def setup_module(mod):
     topo = tgen.json_topo
 
     # Starting topology, create tmp files which are loaded to routers
-    #  to start deamons and then start routers
+    #  to start daemons and then start routers
     start_topology(tgen)
 
     # Creating configuration from JSON
@@ -155,7 +145,7 @@ def teardown_module():
 
 def get_llip(onrouter, intf):
     """
-    API to get the link local ipv6 address of a perticular interface
+    API to get the link local ipv6 address of a particular interface
 
     Parameters
     ----------
@@ -182,7 +172,7 @@ def get_llip(onrouter, intf):
 
 def get_glipv6(onrouter, intf):
     """
-    API to get the global ipv6 address of a perticular interface
+    API to get the global ipv6 address of a particular interface
 
     Parameters
     ----------

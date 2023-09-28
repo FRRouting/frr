@@ -1,21 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* Main routine of bgpd.
  * Copyright (C) 1996, 97, 98, 1999 Kunihiro Ishiguro
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -24,7 +9,7 @@
 #include "vector.h"
 #include "command.h"
 #include "getopt.h"
-#include "thread.h"
+#include "frrevent.h"
 #include <lib/version.h>
 #include "memory.h"
 #include "prefix.h"
@@ -72,15 +57,17 @@
 
 /* bgpd options, we use GNU getopt library. */
 static const struct option longopts[] = {
-	{"bgp_port", required_argument, NULL, 'p'},
-	{"listenon", required_argument, NULL, 'l'},
-	{"no_kernel", no_argument, NULL, 'n'},
-	{"skip_runas", no_argument, NULL, 'S'},
-	{"ecmp", required_argument, NULL, 'e'},
-	{"int_num", required_argument, NULL, 'I'},
-	{"no_zebra", no_argument, NULL, 'Z'},
-	{"socket_size", required_argument, NULL, 's'},
-	{0}};
+	{ "bgp_port", required_argument, NULL, 'p' },
+	{ "listenon", required_argument, NULL, 'l' },
+	{ "no_kernel", no_argument, NULL, 'n' },
+	{ "skip_runas", no_argument, NULL, 'S' },
+	{ "ecmp", required_argument, NULL, 'e' },
+	{ "int_num", required_argument, NULL, 'I' },
+	{ "no_zebra", no_argument, NULL, 'Z' },
+	{ "socket_size", required_argument, NULL, 's' },
+	{ "v6-with-v4-nexthops", no_argument, NULL, 'v' },
+	{ 0 }
+};
 
 /* signal definitions */
 void sighup(void);
@@ -90,7 +77,7 @@ void sigusr1(void);
 static void bgp_exit(int);
 static void bgp_vrf_terminate(void);
 
-static struct quagga_signal_t bgp_signals[] = {
+static struct frr_signal_t bgp_signals[] = {
 	{
 		.signal = SIGHUP,
 		.handler = &sighup,
@@ -294,19 +281,6 @@ static int bgp_vrf_enable(struct vrf *vrf)
 
 	bgp = bgp_lookup_by_name(vrf->name);
 	if (bgp && bgp->vrf_id != vrf->vrf_id) {
-		if (bgp->name && strmatch(vrf->name, VRF_DEFAULT_NAME)) {
-			XFREE(MTYPE_BGP, bgp->name);
-			XFREE(MTYPE_BGP, bgp->name_pretty);
-			bgp->name_pretty = XSTRDUP(MTYPE_BGP, "VRF default");
-			bgp->inst_type = BGP_INSTANCE_TYPE_DEFAULT;
-#ifdef ENABLE_BGP_VNC
-			if (!bgp->rfapi) {
-				bgp->rfapi = bgp_rfapi_new(bgp);
-				assert(bgp->rfapi);
-				assert(bgp->rfapi_cfg);
-			}
-#endif /* ENABLE_BGP_VNC */
-		}
 		old_vrf_id = bgp->vrf_id;
 		/* We have instance configured, link to VRF and make it "up". */
 		bgp_vrf_link(bgp, vrf);
@@ -367,8 +341,7 @@ static int bgp_vrf_disable(struct vrf *vrf)
 
 static void bgp_vrf_init(void)
 {
-	vrf_init(bgp_vrf_new, bgp_vrf_enable, bgp_vrf_disable,
-		 bgp_vrf_delete, bgp_vrf_enable);
+	vrf_init(bgp_vrf_new, bgp_vrf_enable, bgp_vrf_disable, bgp_vrf_delete);
 }
 
 static void bgp_vrf_terminate(void)
@@ -416,16 +389,16 @@ int main(int argc, char **argv)
 	addresses->cmp = (int (*)(void *, void *))strcmp;
 
 	frr_preinit(&bgpd_di, argc, argv);
-	frr_opt_add(
-		"p:l:SnZe:I:s:" DEPRECATED_OPTIONS, longopts,
-		"  -p, --bgp_port     Set BGP listen port number (0 means do not listen).\n"
-		"  -l, --listenon     Listen on specified address (implies -n)\n"
-		"  -n, --no_kernel    Do not install route to kernel.\n"
-		"  -Z, --no_zebra     Do not communicate with Zebra.\n"
-		"  -S, --skip_runas   Skip capabilities checks, and changing user and group IDs.\n"
-		"  -e, --ecmp         Specify ECMP to use.\n"
-		"  -I, --int_num      Set instance number (label-manager)\n"
-		"  -s, --socket_size  Set BGP peer socket send buffer size\n");
+	frr_opt_add("p:l:SnZe:I:s:" DEPRECATED_OPTIONS, longopts,
+		    "  -p, --bgp_port           Set BGP listen port number (0 means do not listen).\n"
+		    "  -l, --listenon           Listen on specified address (implies -n)\n"
+		    "  -n, --no_kernel          Do not install route to kernel.\n"
+		    "  -Z, --no_zebra           Do not communicate with Zebra.\n"
+		    "  -S, --skip_runas         Skip capabilities checks, and changing user and group IDs.\n"
+		    "  -e, --ecmp               Specify ECMP to use.\n"
+		    "  -I, --int_num            Set instance number (label-manager)\n"
+		    "  -s, --socket_size        Set BGP peer socket send buffer size\n"
+		    "    , --v6-with-v4-nexthop Allow BGP to form v6 neighbors using v4 nexthops\n");
 
 	/* Command line argument treatment. */
 	while (1) {
@@ -468,8 +441,7 @@ int main(int argc, char **argv)
 		}
 		case 'l':
 			listnode_add_sort_nodup(addresses, optarg);
-		/* listenon implies -n */
-		/* fallthru */
+			break;
 		case 'n':
 			no_fib_flag = 1;
 			break;
@@ -487,6 +459,9 @@ int main(int argc, char **argv)
 			break;
 		case 's':
 			buffer_size = atoi(optarg);
+			break;
+		case 'v':
+			bm->v6_with_v4_nexthops = true;
 			break;
 		default:
 			frr_help_exit(1);
@@ -525,6 +500,8 @@ int main(int argc, char **argv)
 					 - strlen(bgpd_di.startinfo),
 				 ", bgp@%s:%d", address, bm->port);
 	}
+
+	bgp_if_init();
 
 	frr_config_fork();
 	/* must be called after fork() */

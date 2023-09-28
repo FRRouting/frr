@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * This is an implementation of Segment Routing for IS-IS as per RFC 8667
  *
@@ -5,20 +6,6 @@
  *
  * Author: Olivier Dugeon <olivier.dugeon@orange.com>
  * Contributor: Renato Westphal <renato@opensourcerouting.org> for NetDEF
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -70,7 +57,17 @@ static void sr_adj_sid_del(struct sr_adjacency *sra);
 static inline int sr_prefix_sid_cfg_compare(const struct sr_prefix_cfg *a,
 					    const struct sr_prefix_cfg *b)
 {
-	return prefix_cmp(&a->prefix, &b->prefix);
+	int ret;
+
+	ret = prefix_cmp(&a->prefix, &b->prefix);
+	if (ret != 0)
+		return ret;
+
+	ret = a->algorithm - b->algorithm;
+	if (ret != 0)
+		return ret;
+
+	return 0;
 }
 DECLARE_RBTREE_UNIQ(srdb_prefix_cfg, struct sr_prefix_cfg, entry,
 		    sr_prefix_sid_cfg_compare);
@@ -344,7 +341,8 @@ int isis_sr_cfg_srlb_update(struct isis_area *area, uint32_t lower_bound,
  * @return	  Newly added Prefix-SID configuration structure
  */
 struct sr_prefix_cfg *isis_sr_cfg_prefix_add(struct isis_area *area,
-					     const struct prefix *prefix)
+					     const struct prefix *prefix,
+					     uint8_t algorithm)
 {
 	struct sr_prefix_cfg *pcfg;
 	struct interface *ifp;
@@ -354,6 +352,7 @@ struct sr_prefix_cfg *isis_sr_cfg_prefix_add(struct isis_area *area,
 	pcfg = XCALLOC(MTYPE_ISIS_SR_INFO, sizeof(*pcfg));
 	pcfg->prefix = *prefix;
 	pcfg->area = area;
+	pcfg->algorithm = algorithm;
 
 	/* Pull defaults from the YANG module. */
 	pcfg->sid_type = yang_get_default_enum(
@@ -399,11 +398,13 @@ void isis_sr_cfg_prefix_del(struct sr_prefix_cfg *pcfg)
  * @return	  Configured Prefix-SID structure if found, NULL otherwise
  */
 struct sr_prefix_cfg *isis_sr_cfg_prefix_find(struct isis_area *area,
-					      union prefixconstptr prefix)
+					      union prefixconstptr prefix,
+					      uint8_t algorithm)
 {
 	struct sr_prefix_cfg pcfg = {};
 
 	prefix_copy(&pcfg.prefix, prefix.p);
+	pcfg.algorithm = algorithm;
 	return srdb_prefix_cfg_find(&area->srdb.config.prefix_sids, &pcfg);
 }
 
@@ -418,7 +419,7 @@ void isis_sr_prefix_cfg2subtlv(const struct sr_prefix_cfg *pcfg, bool external,
 			       struct isis_prefix_sid *psid)
 {
 	/* Set SID algorithm. */
-	psid->algorithm = SR_ALGORITHM_SPF;
+	psid->algorithm = pcfg->algorithm;
 
 	/* Set SID flags. */
 	psid->flags = 0;
@@ -550,13 +551,13 @@ static void sr_local_block_delete(struct isis_area *area)
  */
 static mpls_label_t sr_local_block_request_label(struct sr_local_block *srlb)
 {
-
 	mpls_label_t label;
 	uint32_t index;
 	uint32_t pos;
+	uint32_t size = srlb->end - srlb->start + 1;
 
 	/* Check if we ran out of available labels */
-	if (srlb->current >= srlb->end)
+	if (srlb->current >= size)
 		return MPLS_INVALID_LABEL;
 
 	/* Get first available label and mark it used */
@@ -568,7 +569,7 @@ static mpls_label_t sr_local_block_request_label(struct sr_local_block *srlb)
 	/* Jump to the next free position */
 	srlb->current++;
 	pos = srlb->current % SRLB_BLOCK_SIZE;
-	while (srlb->current < srlb->end) {
+	while (srlb->current < size) {
 		if (pos == 0)
 			index++;
 		if (!((1ULL << pos) & srlb->used_mark[index]))
@@ -578,6 +579,10 @@ static mpls_label_t sr_local_block_request_label(struct sr_local_block *srlb)
 			pos = srlb->current % SRLB_BLOCK_SIZE;
 		}
 	}
+
+	if (srlb->current == size)
+		zlog_warn(
+			"SR: Warning, SRLB is depleted and next label request will fail");
 
 	return label;
 }
@@ -657,10 +662,10 @@ void sr_adj_sid_add_single(struct isis_adjacency *adj, int family, bool backup,
 		nexthop.ipv4 = adj->ipv4_addresses[0];
 		break;
 	case AF_INET6:
-		if (!circuit->ipv6_router || !adj->ipv6_address_count)
+		if (!circuit->ipv6_router || !adj->ll_ipv6_count)
 			return;
 
-		nexthop.ipv6 = adj->ipv6_addresses[0];
+		nexthop.ipv6 = adj->ll_ipv6_addrs[0];
 		break;
 	default:
 		flog_err(EC_LIB_DEVELOPMENT,
@@ -876,12 +881,14 @@ static int sr_adj_state_change(struct isis_adjacency *adj)
  *
  * @param adj	  IS-IS Adjacency
  * @param family  Inet Family (IPv4 or IPv6)
+ * @param global  Indicate if it concerns the Local or Global IPv6 addresses
  *
  * @return	  0
  */
-static int sr_adj_ip_enabled(struct isis_adjacency *adj, int family)
+static int sr_adj_ip_enabled(struct isis_adjacency *adj, int family,
+			     bool global)
 {
-	if (!adj->circuit->area->srdb.enabled)
+	if (!adj->circuit->area->srdb.enabled || global)
 		return 0;
 
 	sr_adj_sid_add(adj, family);
@@ -895,15 +902,17 @@ static int sr_adj_ip_enabled(struct isis_adjacency *adj, int family)
  *
  * @param adj	  IS-IS Adjacency
  * @param family  Inet Family (IPv4 or IPv6)
+ * @param global  Indicate if it concerns the Local or Global IPv6 addresses
  *
  * @return	  0
  */
-static int sr_adj_ip_disabled(struct isis_adjacency *adj, int family)
+static int sr_adj_ip_disabled(struct isis_adjacency *adj, int family,
+			      bool global)
 {
 	struct sr_adjacency *sra;
 	struct listnode *node, *nnode;
 
-	if (!adj->circuit->area->srdb.enabled)
+	if (!adj->circuit->area->srdb.enabled || global)
 		return 0;
 
 	for (ALL_LIST_ELEMENTS(adj->adj_sids, node, nnode, sra))
@@ -914,18 +923,21 @@ static int sr_adj_ip_disabled(struct isis_adjacency *adj, int family)
 }
 
 /**
- * Activate local Prefix-SID when loopback interface goes up for IS-IS.
+ * Update the Node-SID flag of the configured Prefix-SID mappings in response
+ * to an address addition or removal event.
  *
- * @param ifp	Loopback Interface
+ * @param ifp	Interface
  *
  * @return	0
  */
-static int sr_if_new_hook(struct interface *ifp)
+int sr_if_addr_update(struct interface *ifp)
 {
+	struct sr_prefix_cfg *pcfgs[SR_ALGORITHM_COUNT] = {NULL};
 	struct isis_circuit *circuit;
 	struct isis_area *area;
 	struct connected *connected;
 	struct listnode *node;
+	bool need_lsp_regenerate = false;
 
 	/* Get corresponding circuit */
 	circuit = circuit_scan_by_ifp(ifp);
@@ -936,23 +948,23 @@ static int sr_if_new_hook(struct interface *ifp)
 	if (!area)
 		return 0;
 
-	/*
-	 * Update the Node-SID flag of the configured Prefix-SID mappings if
-	 * necessary. This needs to be done here since isisd reads the startup
-	 * configuration before receiving interface information from zebra.
-	 */
 	FOR_ALL_INTERFACES_ADDRESSES (ifp, connected, node) {
-		struct sr_prefix_cfg *pcfg;
+		for (int i = 0; i < SR_ALGORITHM_COUNT; i++) {
+			pcfgs[i] = isis_sr_cfg_prefix_find(
+				area, connected->address, i);
 
-		pcfg = isis_sr_cfg_prefix_find(area, connected->address);
-		if (!pcfg)
-			continue;
+			if (!pcfgs[i])
+				continue;
 
-		if (sr_prefix_is_node_sid(ifp, &pcfg->prefix)) {
-			pcfg->node_sid = true;
-			lsp_regenerate_schedule(area, area->is_type, 0);
+			if (sr_prefix_is_node_sid(ifp, &pcfgs[i]->prefix)) {
+				pcfgs[i]->node_sid = true;
+				need_lsp_regenerate = true;
+			}
 		}
 	}
+
+	if (need_lsp_regenerate)
+		lsp_regenerate_schedule(area, area->is_type, 0);
 
 	return 0;
 }
@@ -1003,10 +1015,12 @@ char *sr_op2str(char *buf, size_t size, mpls_label_t label_in,
  * @param area	IS-IS area
  * @param level	IS-IS level
  */
-static void show_node(struct vty *vty, struct isis_area *area, int level)
+static void show_node(struct vty *vty, struct isis_area *area, int level,
+		      uint8_t algo)
 {
 	struct isis_lsp *lsp;
 	struct ttable *tt;
+	char buf[128];
 
 	vty_out(vty, " IS-IS %s SR-Nodes:\n\n", circuit_t2string(level));
 
@@ -1026,15 +1040,24 @@ static void show_node(struct vty *vty, struct isis_area *area, int level)
 		cap = lsp->tlvs->router_cap;
 		if (!cap)
 			continue;
+		if (cap->algo[algo] == SR_ALGORITHM_UNSET)
+			continue;
 
-		ttable_add_row(
-			tt, "%s|%u - %u|%u - %u|%s|%u",
-			sysid_print(lsp->hdr.lsp_id), cap->srgb.lower_bound,
-			cap->srgb.lower_bound + cap->srgb.range_size - 1,
-			cap->srlb.lower_bound,
-			cap->srlb.lower_bound + cap->srlb.range_size - 1,
-			cap->algo[0] == SR_ALGORITHM_SPF ? "SPF" : "S-SPF",
-			cap->msd);
+		if (cap->algo[algo] == SR_ALGORITHM_SPF)
+			snprintf(buf, sizeof(buf), "SPF");
+		else if (cap->algo[algo] == SR_ALGORITHM_STRICT_SPF)
+			snprintf(buf, sizeof(buf), "S-SPF");
+#ifndef FABRICD
+		else
+			snprintf(buf, sizeof(buf), "Flex-Algo %d", algo);
+#endif /* ifndef FABRICD */
+
+		ttable_add_row(tt, "%pSY|%u - %u|%u - %u|%s|%u",
+			       lsp->hdr.lsp_id, cap->srgb.lower_bound,
+			       cap->srgb.lower_bound + cap->srgb.range_size - 1,
+			       cap->srlb.lower_bound,
+			       cap->srlb.lower_bound + cap->srlb.range_size - 1,
+			       buf, cap->msd);
 	}
 
 	/* Dump the generated table. */
@@ -1049,23 +1072,43 @@ static void show_node(struct vty *vty, struct isis_area *area, int level)
 }
 
 DEFUN(show_sr_node, show_sr_node_cmd,
-      "show isis segment-routing node",
+      "show " PROTO_NAME
+      " segment-routing node"
+#ifndef FABRICD
+      " [algorithm (128-255)]"
+#endif /* ifndef FABRICD */
+      ,
       SHOW_STR PROTO_HELP
       "Segment-Routing\n"
-      "Segment-Routing node\n")
+      "Segment-Routing node\n"
+#ifndef FABRICD
+      "Show Flex-algo nodes\n"
+      "Algorithm number\n"
+#endif /* ifndef FABRICD */
+)
 {
 	struct listnode *node, *inode;
 	struct isis_area *area;
+	uint8_t algorithm = SR_ALGORITHM_SPF;
 	struct isis *isis;
+#ifndef FABRICD
+	int idx = 0;
+
+	if (argv_find(argv, argc, "algorithm", &idx))
+		algorithm = (uint8_t)strtoul(argv[idx + 1]->arg, NULL, 10);
+#endif /* ifndef FABRICD */
 
 	for (ALL_LIST_ELEMENTS_RO(im->isis, inode, isis)) {
 		for (ALL_LIST_ELEMENTS_RO(isis->area_list, node, area)) {
 			vty_out(vty, "Area %s:\n",
 				area->area_tag ? area->area_tag : "null");
-
+			if (!area->srdb.enabled) {
+				vty_out(vty, " Segment Routing is disabled\n");
+				continue;
+			}
 			for (int level = ISIS_LEVEL1; level <= ISIS_LEVELS;
 			     level++)
-				show_node(vty, area, level);
+				show_node(vty, area, level, algorithm);
 		}
 	}
 
@@ -1082,16 +1125,14 @@ DEFUN(show_sr_node, show_sr_node_cmd,
  *
  * @return		1 on success
  */
-static int sr_start_label_manager(struct thread *start)
+static void sr_start_label_manager(struct event *start)
 {
 	struct isis_area *area;
 
-	area = THREAD_ARG(start);
+	area = EVENT_ARG(start);
 
 	/* re-attempt to start SR & Label Manager connection */
 	isis_sr_start(area);
-
-	return 1;
 }
 
 /**
@@ -1111,8 +1152,8 @@ int isis_sr_start(struct isis_area *area)
 	if (!isis_zebra_label_manager_ready())
 		if (isis_zebra_label_manager_connect() < 0) {
 			/* Re-attempt to connect to Label Manager in 1 sec. */
-			thread_add_timer(master, sr_start_label_manager, area,
-					 1, &srdb->t_start_lm);
+			event_add_timer(master, sr_start_label_manager, area, 1,
+					&srdb->t_start_lm);
 			return -1;
 		}
 
@@ -1144,7 +1185,7 @@ int isis_sr_start(struct isis_area *area)
 	for (ALL_LIST_ELEMENTS_RO(area->adjacency_list, node, adj)) {
 		if (adj->ipv4_address_count > 0)
 			sr_adj_sid_add(adj, AF_INET);
-		if (adj->ipv6_address_count > 0)
+		if (adj->ll_ipv6_count > 0)
 			sr_adj_sid_add(adj, AF_INET6);
 	}
 
@@ -1171,7 +1212,7 @@ void isis_sr_stop(struct isis_area *area)
 		 area->area_tag);
 
 	/* Disable any re-attempt to connect to Label Manager */
-	thread_cancel(&srdb->t_start_lm);
+	EVENT_OFF(srdb->t_start_lm);
 
 	/* Uninstall all local Adjacency-SIDs. */
 	for (ALL_LIST_ELEMENTS(area->srdb.adj_sids, node, nnode, sra))
@@ -1244,6 +1285,9 @@ void isis_sr_area_term(struct isis_area *area)
 	if (area->srdb.enabled)
 		isis_sr_stop(area);
 
+	/* Free Adjacency SID list */
+	list_delete(&srdb->adj_sids);
+
 	/* Clear Prefix-SID configuration. */
 	while (srdb_prefix_cfg_count(&srdb->config.prefix_sids) > 0) {
 		struct sr_prefix_cfg *pcfg;
@@ -1264,7 +1308,6 @@ void isis_sr_init(void)
 	hook_register(isis_adj_state_change_hook, sr_adj_state_change);
 	hook_register(isis_adj_ip_enabled_hook, sr_adj_ip_enabled);
 	hook_register(isis_adj_ip_disabled_hook, sr_adj_ip_disabled);
-	hook_register(isis_if_new_hook, sr_if_new_hook);
 }
 
 /**
@@ -1276,5 +1319,4 @@ void isis_sr_term(void)
 	hook_unregister(isis_adj_state_change_hook, sr_adj_state_change);
 	hook_unregister(isis_adj_ip_enabled_hook, sr_adj_ip_enabled);
 	hook_unregister(isis_adj_ip_disabled_hook, sr_adj_ip_disabled);
-	hook_unregister(isis_if_new_hook, sr_if_new_hook);
 }

@@ -1,19 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Copyright (C) 2020  NetDEF, Inc.
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef _PATH_PCEP_PCC_H_
@@ -54,7 +41,7 @@ struct req_map_data {
 
 struct req_entry {
 	RB_ENTRY(req_entry) entry;
-	struct thread *t_retry;
+	struct event *t_retry;
 	int retry_count;
 	bool was_sent;
 	struct path *path;
@@ -79,9 +66,9 @@ struct pcc_state {
 	pcep_session *sess;
 	uint32_t retry_count;
 	bool synchronized;
-	struct thread *t_reconnect;
-	struct thread *t_update_best;
-	struct thread *t_session_timeout;
+	struct event *t_reconnect;
+	struct event *t_update_best;
+	struct event *t_session_timeout;
 	uint32_t next_reqid;
 	uint32_t next_plspid;
 	struct plspid_map_head plspid_map;

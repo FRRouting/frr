@@ -1,23 +1,9 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * EIGRP daemon northbound implementation.
  *
  * Copyright (C) 2019 Network Device Education Foundation, Inc. ("NetDEF")
  *                    Rafael Zalamena
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
- * 02110-1301 USA.
  */
 
 #include <zebra.h>
@@ -738,7 +724,7 @@ static int eigrpd_instance_redistribute_create(struct nb_cb_create_args *args)
 		else
 			vrfid = VRF_DEFAULT;
 
-		if (vrf_bitmap_check(zclient->redist[AFI_IP][proto], vrfid))
+		if (vrf_bitmap_check(&zclient->redist[AFI_IP][proto], vrfid))
 			return NB_ERR_INCONSISTENCY;
 		break;
 	case NB_EV_PREPARE:
@@ -1135,7 +1121,7 @@ static int lib_interface_eigrp_instance_create(struct nb_cb_create_args *args)
 		}
 
 		eigrp = eigrp_get(yang_dnode_get_uint16(args->dnode, "./asn"),
-				  ifp->vrf_id);
+				  ifp->vrf->vrf_id);
 		eif = eigrp_interface_lookup(eigrp, ifp->name);
 		if (eif == NULL)
 			return NB_ERR_INCONSISTENCY;
@@ -1147,7 +1133,7 @@ static int lib_interface_eigrp_instance_create(struct nb_cb_create_args *args)
 	case NB_EV_APPLY:
 		ifp = nb_running_get_entry(args->dnode, NULL, true);
 		eigrp = eigrp_get(yang_dnode_get_uint16(args->dnode, "./asn"),
-				  ifp->vrf_id);
+				  ifp->vrf->vrf_id);
 		eif = eigrp_interface_lookup(eigrp, ifp->name);
 		if (eif == NULL)
 			return NB_ERR_INCONSISTENCY;

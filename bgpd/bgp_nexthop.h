@@ -1,21 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* BGP nexthop scan
  * Copyright (C) 2000 Kunihiro Ishiguro
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef _QUAGGA_BGP_NEXTHOP_H
@@ -42,7 +27,7 @@ PREDECL_RBTREE_UNIQ(bgp_nexthop_cache);
 /* BGP nexthop cache value structure. */
 struct bgp_nexthop_cache {
 	/* The ifindex of the outgoing interface *if* it's a v6 LL */
-	ifindex_t ifindex;
+	ifindex_t ifindex_ipv6_ll;
 
 	/* RB-tree entry. */
 	struct bgp_nexthop_cache_item entry;
@@ -119,11 +104,6 @@ struct tip_addr {
 	int refcnt;
 };
 
-struct bgp_addrv6 {
-	struct in6_addr addrv6;
-	struct list *ifp_name_list;
-};
-
 /* Forward declaration(s). */
 struct peer;
 struct update_subgroup;
@@ -152,20 +132,21 @@ extern bool bgp_nexthop_self(struct bgp *bgp, afi_t afi, uint8_t type,
 			     struct bgp_dest *dest);
 extern struct bgp_nexthop_cache *bnc_new(struct bgp_nexthop_cache_head *tree,
 					 struct prefix *prefix,
-					 uint32_t srte_color);
+					 uint32_t srte_color,
+					 ifindex_t ifindex);
 extern bool bnc_existing_for_prefix(struct bgp_nexthop_cache *bnc);
 extern void bnc_free(struct bgp_nexthop_cache *bnc);
 extern struct bgp_nexthop_cache *bnc_find(struct bgp_nexthop_cache_head *tree,
 					  struct prefix *prefix,
-					  uint32_t srte_color);
+					  uint32_t srte_color,
+					  ifindex_t ifindex);
 extern void bnc_nexthop_free(struct bgp_nexthop_cache *bnc);
-extern const char *bnc_str(struct bgp_nexthop_cache *bnc, char *buf, int size);
 extern void bgp_scan_init(struct bgp *bgp);
 extern void bgp_scan_finish(struct bgp *bgp);
 extern void bgp_scan_vty_init(void);
 extern void bgp_address_init(struct bgp *bgp);
 extern void bgp_address_destroy(struct bgp *bgp);
-extern void bgp_tip_add(struct bgp *bgp, struct in_addr *tip);
+extern bool bgp_tip_add(struct bgp *bgp, struct in_addr *tip);
 extern void bgp_tip_del(struct bgp *bgp, struct in_addr *tip);
 extern void bgp_tip_hash_init(struct bgp *bgp);
 extern void bgp_tip_hash_destroy(struct bgp *bgp);

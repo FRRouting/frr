@@ -1,23 +1,9 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * FRR filter northbound implementation.
  *
  * Copyright (C) 2019 Network Device Education Foundation, Inc. ("NetDEF")
  *                    Rafael Zalamena
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
- * 02110-1301 USA.
  */
 
 #include "zebra.h"
@@ -70,7 +56,7 @@ static enum nb_error prefix_list_length_validate(struct nb_cb_modify_args *args)
 	 * prefix length <= le.
 	 */
 	if (yang_dnode_exists(args->dnode, xpath_le)) {
-		le = yang_dnode_get_uint8(args->dnode, xpath_le);
+		le = yang_dnode_get_uint8(args->dnode, "%s", xpath_le);
 		if (p.prefixlen > le)
 			goto log_and_fail;
 	}
@@ -80,7 +66,7 @@ static enum nb_error prefix_list_length_validate(struct nb_cb_modify_args *args)
 	 * prefix length <= ge.
 	 */
 	if (yang_dnode_exists(args->dnode, xpath_ge)) {
-		ge = yang_dnode_get_uint8(args->dnode, xpath_ge);
+		ge = yang_dnode_get_uint8(args->dnode, "%s", xpath_ge);
 		if (p.prefixlen > ge)
 			goto log_and_fail;
 	}
@@ -91,8 +77,8 @@ static enum nb_error prefix_list_length_validate(struct nb_cb_modify_args *args)
 	 */
 	if (yang_dnode_exists(args->dnode, xpath_le)
 	    && yang_dnode_exists(args->dnode, xpath_ge)) {
-		le = yang_dnode_get_uint8(args->dnode, xpath_le);
-		ge = yang_dnode_get_uint8(args->dnode, xpath_ge);
+		le = yang_dnode_get_uint8(args->dnode, "%s", xpath_le);
+		ge = yang_dnode_get_uint8(args->dnode, "%s", xpath_ge);
 		if (ge > le)
 			goto log_and_fail;
 	}
@@ -273,7 +259,8 @@ static int _acl_is_dup(const struct lyd_node *dnode, void *arg)
 			return YANG_ITER_CONTINUE;
 
 		/* Check if different value. */
-		if (strcmp(yang_dnode_get_string(dnode, ada->ada_xpath[idx]),
+		if (strcmp(yang_dnode_get_string(dnode, "%s",
+						 ada->ada_xpath[idx]),
 			   ada->ada_value[idx]))
 			return YANG_ITER_CONTINUE;
 	}
@@ -328,8 +315,8 @@ static bool acl_cisco_is_dup(const struct lyd_node *dnode)
 		}
 
 		ada.ada_xpath[arg_idx] = cisco_entries[idx];
-		ada.ada_value[arg_idx] =
-			yang_dnode_get_string(entry_dnode, cisco_entries[idx]);
+		ada.ada_value[arg_idx] = yang_dnode_get_string(
+			entry_dnode, "%s", cisco_entries[idx]);
 		arg_idx++;
 		idx++;
 	}
@@ -378,8 +365,8 @@ static bool acl_zebra_is_dup(const struct lyd_node *dnode,
 		}
 
 		ada.ada_xpath[arg_idx] = zebra_entries[idx];
-		ada.ada_value[arg_idx] =
-			yang_dnode_get_string(entry_dnode, zebra_entries[idx]);
+		ada.ada_value[arg_idx] = yang_dnode_get_string(
+			entry_dnode, "%s", zebra_entries[idx]);
 		arg_idx++;
 		idx++;
 	}
@@ -428,7 +415,7 @@ static void plist_dnode_to_prefix(const struct lyd_node *dnode, bool *any,
 static int _plist_is_dup(const struct lyd_node *dnode, void *arg)
 {
 	struct plist_dup_args *pda = arg;
-	struct prefix p;
+	struct prefix p = {};
 	int ge, le;
 	bool any;
 
@@ -467,24 +454,6 @@ bool plist_is_dup(const struct lyd_node *dnode, struct plist_dup_args *pda)
 		pda->pda_type, pda->pda_name);
 
 	return pda->pda_found;
-}
-
-static bool plist_is_dup_nb(const struct lyd_node *dnode)
-{
-	const struct lyd_node *entry_dnode =
-		yang_dnode_get_parent(dnode, "entry");
-	struct plist_dup_args pda = {};
-
-	/* Initialize. */
-	pda.pda_type = yang_dnode_get_string(entry_dnode, "../type");
-	pda.pda_name = yang_dnode_get_string(entry_dnode, "../name");
-	pda.pda_action = yang_dnode_get_string(entry_dnode, "action");
-	pda.pda_entry_dnode = entry_dnode;
-
-	plist_dnode_to_prefix(entry_dnode, &pda.any, &pda.prefix, &pda.ge,
-			      &pda.le);
-
-	return plist_is_dup(entry_dnode, &pda);
 }
 
 /*
@@ -1135,7 +1104,7 @@ static int lib_access_list_entry_any_destroy(struct nb_cb_destroy_args *args)
 
 	f = nb_running_get_entry(args->dnode, NULL, true);
 	fz = &f->u.zfilter;
-	fz->prefix.family = 0;
+	fz->prefix.family = AF_UNSPEC;
 
 	acl_notify_route_map(f->acl, RMAP_EVENT_FILTER_DELETED);
 
@@ -1344,13 +1313,6 @@ lib_prefix_list_entry_ipv4_prefix_modify(struct nb_cb_modify_args *args)
 		const struct lyd_node *plist_dnode =
 			yang_dnode_get_parent(args->dnode, "prefix-list");
 
-		if (plist_is_dup_nb(args->dnode)) {
-			snprintf(args->errmsg, args->errmsg_len,
-				 "duplicated prefix list value: %s",
-				 yang_dnode_get_string(args->dnode, NULL));
-			return NB_ERR_VALIDATION;
-		}
-
 		return prefix_list_nb_validate_v4_af_type(
 			plist_dnode, args->errmsg, args->errmsg_len);
 	}
@@ -1378,13 +1340,6 @@ lib_prefix_list_entry_ipv6_prefix_modify(struct nb_cb_modify_args *args)
 	if (args->event == NB_EV_VALIDATE) {
 		const struct lyd_node *plist_dnode =
 			yang_dnode_get_parent(args->dnode, "prefix-list");
-
-		if (plist_is_dup_nb(args->dnode)) {
-			snprintf(args->errmsg, args->errmsg_len,
-				 "duplicated prefix list value: %s",
-				 yang_dnode_get_string(args->dnode, NULL));
-			return NB_ERR_VALIDATION;
-		}
 
 		return prefix_list_nb_validate_v6_af_type(
 			plist_dnode, args->errmsg, args->errmsg_len);
@@ -1416,13 +1371,6 @@ static int lib_prefix_list_entry_ipv4_prefix_length_greater_or_equal_modify(
 	if (args->event == NB_EV_VALIDATE) {
 		const struct lyd_node *plist_dnode =
 			yang_dnode_get_parent(args->dnode, "prefix-list");
-
-		if (plist_is_dup_nb(args->dnode)) {
-			snprintf(args->errmsg, args->errmsg_len,
-				 "duplicated prefix list value: %s",
-				 yang_dnode_get_string(args->dnode, NULL));
-			return NB_ERR_VALIDATION;
-		}
 
 		return prefix_list_nb_validate_v4_af_type(
 			plist_dnode, args->errmsg, args->errmsg_len);
@@ -1461,13 +1409,6 @@ static int lib_prefix_list_entry_ipv4_prefix_length_lesser_or_equal_modify(
 		const struct lyd_node *plist_dnode =
 			yang_dnode_get_parent(args->dnode, "prefix-list");
 
-		if (plist_is_dup_nb(args->dnode)) {
-			snprintf(args->errmsg, args->errmsg_len,
-				 "duplicated prefix list value: %s",
-				 yang_dnode_get_string(args->dnode, NULL));
-			return NB_ERR_VALIDATION;
-		}
-
 		return prefix_list_nb_validate_v4_af_type(
 			plist_dnode, args->errmsg, args->errmsg_len);
 	}
@@ -1504,13 +1445,6 @@ static int lib_prefix_list_entry_ipv6_prefix_length_greater_or_equal_modify(
 	if (args->event == NB_EV_VALIDATE) {
 		const struct lyd_node *plist_dnode =
 			yang_dnode_get_parent(args->dnode, "prefix-list");
-
-		if (plist_is_dup_nb(args->dnode)) {
-			snprintf(args->errmsg, args->errmsg_len,
-				 "duplicated prefix list value: %s",
-				 yang_dnode_get_string(args->dnode, NULL));
-			return NB_ERR_VALIDATION;
-		}
 
 		return prefix_list_nb_validate_v6_af_type(
 			plist_dnode, args->errmsg, args->errmsg_len);
@@ -1549,13 +1483,6 @@ static int lib_prefix_list_entry_ipv6_prefix_length_lesser_or_equal_modify(
 		const struct lyd_node *plist_dnode =
 			yang_dnode_get_parent(args->dnode, "prefix-list");
 
-		if (plist_is_dup_nb(args->dnode)) {
-			snprintf(args->errmsg, args->errmsg_len,
-				 "duplicated prefix list value: %s",
-				 yang_dnode_get_string(args->dnode, NULL));
-			return NB_ERR_VALIDATION;
-		}
-
 		return prefix_list_nb_validate_v6_af_type(
 			plist_dnode, args->errmsg, args->errmsg_len);
 	}
@@ -1587,16 +1514,11 @@ static int lib_prefix_list_entry_any_create(struct nb_cb_create_args *args)
 	struct prefix_list_entry *ple;
 	int type;
 
-	if (args->event == NB_EV_VALIDATE) {
-		if (plist_is_dup_nb(args->dnode)) {
-			snprintf(args->errmsg, args->errmsg_len,
-				 "duplicated prefix list value: %s",
-				 yang_dnode_get_string(args->dnode, NULL));
-			return NB_ERR_VALIDATION;
-		}
-
+	/*
+	 * If we have gotten to this point, it's legal
+	 */
+	if (args->event == NB_EV_VALIDATE)
 		return NB_OK;
-	}
 
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
@@ -1643,7 +1565,7 @@ static int lib_prefix_list_entry_any_destroy(struct nb_cb_destroy_args *args)
 	/* Start prefix entry update procedure. */
 	prefix_list_entry_update_start(ple);
 
-	prefix_list_entry_set_empty(ple);
+	ple->any = false;
 
 	/* Finish prefix entry update procedure. */
 	prefix_list_entry_update_finish(ple);

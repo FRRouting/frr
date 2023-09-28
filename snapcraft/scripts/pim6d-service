@@ -1,0 +1,12 @@
+#!/bin/sh
+
+set -e -x
+
+if ! [ -e $SNAP_DATA/pim6d.conf ]; then
+    cp $SNAP/etc/frr/pim6d.conf.default $SNAP_DATA/pim6d.conf
+fi
+exec $SNAP/sbin/pim6d \
+    -f $SNAP_DATA/pim6d.conf \
+    --pid_file $SNAP_DATA/pim6d.pid \
+    --socket $SNAP_DATA/zsock \
+    --vty_socket $SNAP_DATA

@@ -1,23 +1,6 @@
+// SPDX-License-Identifier: MIT
 /*
 Copyright 2011 by Matthieu Boutier and Juliusz Chroboczek
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in
-all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-THE SOFTWARE.
 */
 
 #include <zebra.h>
@@ -31,6 +14,7 @@ THE SOFTWARE.
 #include "plist.h"
 #include "lib_errors.h"
 #include "network.h"
+#include "if.h"
 
 #include "babel_main.h"
 #include "babeld.h"
@@ -46,14 +30,18 @@ THE SOFTWARE.
 #include "babel_zebra.h"
 #include "babel_errors.h"
 
+#ifndef VTYSH_EXTRACT_PL
+#include "babeld/babeld_clippy.c"
+#endif
+
 DEFINE_MGROUP(BABELD, "babeld");
 DEFINE_MTYPE_STATIC(BABELD, BABEL, "Babel Structure");
 
-static int babel_init_routing_process(struct thread *thread);
+static void babel_init_routing_process(struct event *thread);
 static void babel_get_myid(void);
 static void babel_initial_noise(void);
-static int babel_read_protocol (struct thread *thread);
-static int babel_main_loop(struct thread *thread);
+static void babel_read_protocol(struct event *thread);
+static void babel_main_loop(struct event *thread);
 static void babel_set_timer(struct timeval *timeout);
 static void babel_fill_with_next_timeout(struct timeval *tv);
 static void
@@ -120,14 +108,14 @@ babel_config_write (struct vty *vty)
     /* list redistributed protocols */
     for (afi = AFI_IP; afi <= AFI_IP6; afi++) {
         for (i = 0; i < ZEBRA_ROUTE_MAX; i++) {
-            if (i != zclient->redist_default &&
-                vrf_bitmap_check (zclient->redist[afi][i], VRF_DEFAULT)) {
-                vty_out (vty, " redistribute %s %s\n",
-                         (afi == AFI_IP) ? "ipv4" : "ipv6",
-                         zebra_route_string(i));
-                lines++;
-            }
-        }
+		if (i != zclient->redist_default &&
+		    vrf_bitmap_check(&zclient->redist[afi][i], VRF_DEFAULT)) {
+			vty_out(vty, " redistribute %s %s\n",
+				(afi == AFI_IP) ? "ipv4" : "ipv6",
+				zebra_route_string(i));
+			lines++;
+		}
+	}
     }
 
     lines += config_write_distribute (vty, babel_routing_process->distribute_ctx);
@@ -160,9 +148,11 @@ babel_create_routing_process (void)
     }
 
     /* Threads. */
-    thread_add_read(master, &babel_read_protocol, NULL, protocol_socket, &babel_routing_process->t_read);
+    event_add_read(master, babel_read_protocol, NULL, protocol_socket,
+		   &babel_routing_process->t_read);
     /* wait a little: zebra will announce interfaces, addresses, routes... */
-    thread_add_timer_msec(master, babel_init_routing_process, NULL, 200L, &babel_routing_process->t_update);
+    event_add_timer_msec(master, babel_init_routing_process, NULL, 200L,
+			 &babel_routing_process->t_update);
 
     /* Distribute list install. */
     babel_routing_process->distribute_ctx = distribute_list_ctx_create (vrf_lookup_by_id(VRF_DEFAULT));
@@ -175,8 +165,7 @@ fail:
 }
 
 /* thread reading entries form others babel daemons */
-static int
-babel_read_protocol (struct thread *thread)
+static void babel_read_protocol(struct event *thread)
 {
     int rc;
     struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
@@ -206,15 +195,14 @@ babel_read_protocol (struct thread *thread)
     }
 
     /* re-add thread */
-    thread_add_read(master, &babel_read_protocol, NULL, protocol_socket, &babel_routing_process->t_read);
-    return 0;
+    event_add_read(master, &babel_read_protocol, NULL, protocol_socket,
+		   &babel_routing_process->t_read);
 }
 
 /* Zebra will give some information, especially about interfaces. This function
  must be call with a litte timeout wich may give zebra the time to do his job,
  making these inits have sense. */
-static int
-babel_init_routing_process(struct thread *thread)
+static void babel_init_routing_process(struct event *thread)
 {
     myseqno = (frr_weak_random() & 0xFFFF);
     babel_get_myid();
@@ -222,7 +210,6 @@ babel_init_routing_process(struct thread *thread)
     debugf(BABEL_DEBUG_COMMON, "My ID is : %s.", format_eui64(myid));
     babel_initial_noise();
     babel_main_loop(thread);/* this function self-add to the t_update thread */
-    return 0;
 }
 
 /* fill "myid" with an unique id (only if myid != {0}). */
@@ -255,7 +242,7 @@ babel_get_myid(void)
     /* We failed to get a global EUI64 from the interfaces we were given.
      Let's try to find an interface with a MAC address. */
     for(i = 1; i < 256; i++) {
-        char buf[IF_NAMESIZE], *ifname;
+        char buf[INTERFACE_NAMSIZ], *ifname;
         unsigned char eui[8];
         ifname = if_indextoname(i, buf);
         if(ifname == NULL)
@@ -276,7 +263,7 @@ babel_get_myid(void)
         exit(1);
     }
     /* Clear group and global bits */
-    myid[0] &= ~3;
+    UNSET_FLAG (myid[0], 3);
 }
 
 /* Make some noise so that others notice us, and send retractions in
@@ -319,16 +306,15 @@ babel_clean_routing_process(void)
     babel_interface_close_all();
 
     /* cancel events */
-    thread_cancel(&babel_routing_process->t_read);
-    thread_cancel(&babel_routing_process->t_update);
+    event_cancel(&babel_routing_process->t_read);
+    event_cancel(&babel_routing_process->t_update);
 
     distribute_list_delete(&babel_routing_process->distribute_ctx);
     XFREE(MTYPE_BABEL, babel_routing_process);
 }
 
 /* Function used with timeout. */
-static int
-babel_main_loop(struct thread *thread)
+static void babel_main_loop(struct event *thread)
 {
     struct timeval tv;
     struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
@@ -348,8 +334,8 @@ babel_main_loop(struct thread *thread)
             /* it happens often to have less than 1 ms, it's bad. */
             timeval_add_msec(&tv, &tv, 300);
             babel_set_timer(&tv);
-            return 0;
-        }
+	    return;
+	}
 
         gettime(&babel_now);
 
@@ -410,7 +396,6 @@ babel_main_loop(struct thread *thread)
     }
 
     assert(0); /* this line should never be reach */
-    return 0;
 }
 
 static void
@@ -459,37 +444,39 @@ babel_fill_with_next_timeout(struct timeval *tv)
 #if (defined NO_DEBUG)
 #define printIfMin(a,b,c,d)
 #else
-#define printIfMin(a,b,c,d) \
-  if (UNLIKELY(debug & BABEL_DEBUG_TIMEOUT)) {printIfMin(a,b,c,d);}
+#define printIfMin(a, b, c, d)                                                 \
+	if (unlikely(debug & BABEL_DEBUG_TIMEOUT)) {                           \
+		printIfMin(a, b, c, d);                                        \
+	}
 
-    struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
-    struct interface *ifp = NULL;
+	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
+	struct interface *ifp = NULL;
 
-    *tv = check_neighbours_timeout;
-    printIfMin(tv, 0, "check_neighbours_timeout", NULL);
-    timeval_min_sec(tv, expiry_time);
-    printIfMin(tv, 1, "expiry_time", NULL);
-    timeval_min_sec(tv, source_expiry_time);
-    printIfMin(tv, 1, "source_expiry_time", NULL);
-    timeval_min(tv, &resend_time);
-    printIfMin(tv, 1, "resend_time", NULL);
-    FOR_ALL_INTERFACES(vrf, ifp) {
-        babel_interface_nfo *babel_ifp = NULL;
-        if(!if_up(ifp))
-            continue;
-        babel_ifp = babel_get_if_nfo(ifp);
-        timeval_min(tv, &babel_ifp->flush_timeout);
-        printIfMin(tv, 1, "flush_timeout", ifp->name);
-        timeval_min(tv, &babel_ifp->hello_timeout);
-        printIfMin(tv, 1, "hello_timeout", ifp->name);
-        timeval_min(tv, &babel_ifp->update_timeout);
-        printIfMin(tv, 1, "update_timeout", ifp->name);
-        timeval_min(tv, &babel_ifp->update_flush_timeout);
-        printIfMin(tv, 1, "update_flush_timeout",ifp->name);
-    }
-    timeval_min(tv, &unicast_flush_timeout);
-    printIfMin(tv, 1, "unicast_flush_timeout", NULL);
-    printIfMin(tv, 2, NULL, NULL);
+	*tv = check_neighbours_timeout;
+	printIfMin(tv, 0, "check_neighbours_timeout", NULL);
+	timeval_min_sec(tv, expiry_time);
+	printIfMin(tv, 1, "expiry_time", NULL);
+	timeval_min_sec(tv, source_expiry_time);
+	printIfMin(tv, 1, "source_expiry_time", NULL);
+	timeval_min(tv, &resend_time);
+	printIfMin(tv, 1, "resend_time", NULL);
+	FOR_ALL_INTERFACES (vrf, ifp) {
+		babel_interface_nfo *babel_ifp = NULL;
+		if (!if_up(ifp))
+			continue;
+		babel_ifp = babel_get_if_nfo(ifp);
+		timeval_min(tv, &babel_ifp->flush_timeout);
+		printIfMin(tv, 1, "flush_timeout", ifp->name);
+		timeval_min(tv, &babel_ifp->hello_timeout);
+		printIfMin(tv, 1, "hello_timeout", ifp->name);
+		timeval_min(tv, &babel_ifp->update_timeout);
+		printIfMin(tv, 1, "update_timeout", ifp->name);
+		timeval_min(tv, &babel_ifp->update_flush_timeout);
+		printIfMin(tv, 1, "update_flush_timeout", ifp->name);
+	}
+	timeval_min(tv, &unicast_flush_timeout);
+	printIfMin(tv, 1, "unicast_flush_timeout", NULL);
+	printIfMin(tv, 2, NULL, NULL);
 #undef printIfMin
 #endif
 }
@@ -500,8 +487,9 @@ static void
 babel_set_timer(struct timeval *timeout)
 {
     long msecs = timeout->tv_sec * 1000 + timeout->tv_usec / 1000;
-    thread_cancel(&(babel_routing_process->t_update));
-    thread_add_timer_msec(master, babel_main_loop, NULL, msecs, &babel_routing_process->t_update);
+    event_cancel(&(babel_routing_process->t_update));
+    event_add_timer_msec(master, babel_main_loop, NULL, msecs,
+			 &babel_routing_process->t_update);
 }
 
 void
@@ -667,56 +655,48 @@ DEFUN (no_babel_diversity,
 }
 
 /* [Babel Command] */
-DEFUN (babel_diversity_factor,
+DEFPY (babel_diversity_factor,
        babel_diversity_factor_cmd,
-       "babel diversity-factor (1-256)",
+       "[no] babel diversity-factor (1-256)$factor",
+       NO_STR
        "Babel commands\n"
        "Set the diversity factor.\n"
        "Factor in units of 1/256.\n")
 {
-    int factor;
-
-    factor = strtoul(argv[2]->arg, NULL, 10);
-
-    diversity_factor = factor;
+    diversity_factor = no ? BABEL_DEFAULT_DIVERSITY_FACTOR : factor;
     return CMD_SUCCESS;
 }
 
 /* [Babel Command] */
-DEFUN (babel_set_resend_delay,
+DEFPY (babel_set_resend_delay,
        babel_set_resend_delay_cmd,
-       "babel resend-delay (20-655340)",
+       "[no] babel resend-delay (20-655340)$delay",
+       NO_STR
        "Babel commands\n"
        "Time before resending a message\n"
        "Milliseconds\n")
 {
-    int interval;
-
-    interval = strtoul(argv[2]->arg, NULL, 10);
-
-    resend_delay = interval;
+    resend_delay = no ? BABEL_DEFAULT_RESEND_DELAY : delay;
     return CMD_SUCCESS;
 }
 
 /* [Babel Command] */
-DEFUN (babel_set_smoothing_half_life,
+DEFPY (babel_set_smoothing_half_life,
        babel_set_smoothing_half_life_cmd,
-       "babel smoothing-half-life (0-65534)",
+       "[no] babel smoothing-half-life (0-65534)$seconds",
+       NO_STR
        "Babel commands\n"
        "Smoothing half-life\n"
        "Seconds (0 to disable)\n")
 {
-    int seconds;
-
-    seconds = strtoul(argv[2]->arg, NULL, 10);
-
-    change_smoothing_half_life(seconds);
+    change_smoothing_half_life(no ? BABEL_DEFAULT_SMOOTHING_HALF_LIFE
+        : seconds);
     return CMD_SUCCESS;
 }
 
 DEFUN (babel_distribute_list,
        babel_distribute_list_cmd,
-       "distribute-list [prefix] WORD <in|out> [WORD]",
+       "distribute-list [prefix] ACCESSLIST4_NAME <in|out> [WORD]",
        "Filter networks in routing updates\n"
        "Specify a prefix\n"
        "Access-list name\n"
@@ -736,7 +716,7 @@ DEFUN (babel_distribute_list,
 
 DEFUN (babel_no_distribute_list,
        babel_no_distribute_list_cmd,
-       "no distribute-list [prefix] WORD <in|out> [WORD]",
+       "no distribute-list [prefix] ACCESSLIST4_NAME <in|out> [WORD]",
        NO_STR
        "Filter networks in routing updates\n"
        "Specify a prefix\n"
@@ -758,7 +738,7 @@ DEFUN (babel_no_distribute_list,
 
 DEFUN (babel_ipv6_distribute_list,
        babel_ipv6_distribute_list_cmd,
-       "ipv6 distribute-list [prefix] WORD <in|out> [WORD]",
+       "ipv6 distribute-list [prefix] ACCESSLIST6_NAME <in|out> [WORD]",
        "IPv6\n"
        "Filter networks in routing updates\n"
        "Specify a prefix\n"
@@ -779,7 +759,7 @@ DEFUN (babel_ipv6_distribute_list,
 
 DEFUN (babel_no_ipv6_distribute_list,
        babel_no_ipv6_distribute_list_cmd,
-       "no ipv6 distribute-list [prefix] WORD <in|out> [WORD]",
+       "no ipv6 distribute-list [prefix] ACCESSLIST6_NAME <in|out> [WORD]",
        NO_STR
        "IPv6\n"
        "Filter networks in routing updates\n"

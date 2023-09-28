@@ -1,23 +1,9 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * pim_bsm.h: PIM BSM handling related
  *
  * Copyright (C) 2018-19 Vmware, Inc.
  * Saravanan K
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; see the file COPYING; if not, write to the
- * Free Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston,
- * MA 02110-1301 USA
  */
 
 #ifndef __PIM_BSM_H__
@@ -61,7 +47,7 @@ struct bsm_scope {
 	int sz_id;			/* scope zone id */
 	enum ncbsr_state state;		/* non candidate BSR state */
 	bool accept_nofwd_bsm;		/* no fwd bsm accepted for scope */
-	struct in_addr current_bsr;     /* current elected BSR for the sz */
+	pim_addr current_bsr;		/* current elected BSR for the sz */
 	uint32_t current_bsr_prio;      /* current BSR priority */
 	int64_t current_bsr_first_ts;   /* current BSR elected time */
 	int64_t current_bsr_last_ts;    /* Last BSM received from E-BSR */
@@ -73,7 +59,7 @@ struct bsm_scope {
 	struct bsm_frags_head bsm_frags[1];
 
 	struct route_table *bsrp_table; /* group2rp mapping rcvd from BSR */
-	struct thread *bs_timer;	/* Boot strap timer */
+	struct event *bs_timer;		/* Boot strap timer */
 };
 
 /* BSM packet (= fragment) - this is stored as list in bsm_frags inside scope
@@ -115,9 +101,9 @@ struct bsm_rpinfo {
 	uint32_t elapse_time;           /* upd at expiry of elected RP node */
 	uint16_t rp_prio;               /* RP priority */
 	uint16_t rp_holdtime;           /* RP holdtime - g2rp timer value */
-	struct in_addr rp_address;      /* RP Address */
+	pim_addr rp_address;		/* RP Address */
 	struct bsgrp_node *bsgrp_node;  /* Back ptr to bsgrp_node */
-	struct thread *g2rp_timer;      /* Run only for elected RP node */
+	struct event *g2rp_timer;	/* Run only for elected RP node */
 };
 
 extern int pim_bsm_rpinfo_cmp(const struct bsm_rpinfo *a,
@@ -185,18 +171,30 @@ struct bsm_hdr {
 	uint16_t frag_tag;
 	uint8_t hm_len;
 	uint8_t bsr_prio;
+#if PIM_IPV == 4
 	struct pim_encoded_ipv4_unicast bsr_addr;
+#else
+	struct pim_encoded_ipv6_unicast bsr_addr;
+#endif
 } __attribute__((packed));
 
 struct bsmmsg_grpinfo {
+#if PIM_IPV == 4
 	struct pim_encoded_group_ipv4 group;
+#else
+	struct pim_encoded_group_ipv6 group;
+#endif
 	uint8_t rp_count;
 	uint8_t frag_rp_count;
 	uint16_t reserved;
 } __attribute__((packed));
 
 struct bsmmsg_rpinfo {
+#if PIM_IPV == 4
 	struct pim_encoded_ipv4_unicast rpaddr;
+#else
+	struct pim_encoded_ipv6_unicast rpaddr;
+#endif
 	uint16_t rp_holdtime;
 	uint8_t rp_pri;
 	uint8_t reserved;
@@ -205,18 +203,11 @@ struct bsmmsg_rpinfo {
 /* API */
 void pim_bsm_proc_init(struct pim_instance *pim);
 void pim_bsm_proc_free(struct pim_instance *pim);
+void pim_bsm_clear(struct pim_instance *pim);
 void pim_bsm_write_config(struct vty *vty, struct interface *ifp);
-int  pim_bsm_process(struct interface *ifp,
-		     struct ip *ip_hdr,
-		     uint8_t *buf,
-		     uint32_t buf_size,
-		     bool no_fwd);
+int pim_bsm_process(struct interface *ifp, pim_sgaddr *sg, uint8_t *buf,
+		    uint32_t buf_size, bool no_fwd);
 bool pim_bsm_new_nbr_fwd(struct pim_neighbor *neigh, struct interface *ifp);
 struct bsgrp_node *pim_bsm_get_bsgrp_node(struct bsm_scope *scope,
 					  struct prefix *grp);
-void pim_bs_timer_stop(struct bsm_scope *scope);
-void pim_bsm_frags_free(struct bsm_scope *scope);
-void pim_bsm_rpinfos_free(struct bsm_rpinfos_head *head);
-void pim_free_bsgrp_data(struct bsgrp_node *bsgrp_node);
-void pim_free_bsgrp_node(struct route_table *rt, struct prefix *grp);
 #endif

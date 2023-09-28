@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * CLI backend interface.
  *
@@ -6,22 +7,6 @@
  * Copyright (C) 1997, 98, 99 Kunihiro Ishiguro
  * Copyright (C) 2013 by Open Source Routing.
  * Copyright (C) 2013 by Internet Systems Consortium, Inc. ("ISC")
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -32,7 +17,7 @@
 #include "memory.h"
 #include "log.h"
 #include "log_vty.h"
-#include "thread.h"
+#include "frrevent.h"
 #include "vector.h"
 #include "linklist.h"
 #include "vty.h"
@@ -46,8 +31,11 @@
 #include "jhash.h"
 #include "hook.h"
 #include "lib_errors.h"
+#include "mgmt_be_client.h"
+#include "mgmt_fe_client.h"
 #include "northbound_cli.h"
 #include "network.h"
+#include "routemap.h"
 
 #include "frrscript.h"
 
@@ -70,6 +58,7 @@ const struct message tokennames[] = {
 	item(IPV6_PREFIX_TKN),
 	item(MAC_TKN),
 	item(MAC_PREFIX_TKN),
+	item(ASNUM_TKN),
 	item(FORK_TKN),
 	item(JOIN_TKN),
 	item(START_TKN),
@@ -86,6 +75,9 @@ vector cmdvec = NULL;
 /* Host information structure. */
 struct host host;
 
+/* for vtysh, put together CLI trees only when switching into node */
+static bool defer_cli_tree;
+
 /*
  * Returns host.name if any, otherwise
  * it returns the system hostname.
@@ -101,6 +93,31 @@ const char *cmd_hostname_get(void)
 const char *cmd_domainname_get(void)
 {
 	return host.domainname;
+}
+
+const char *cmd_system_get(void)
+{
+	return host.system;
+}
+
+const char *cmd_release_get(void)
+{
+	return host.release;
+}
+
+const char *cmd_version_get(void)
+{
+	return host.version;
+}
+
+bool cmd_allow_reserved_ranges_get(void)
+{
+	return host.allow_reserved_ranges;
+}
+
+const char *cmd_software_version_get(void)
+{
+	return FRR_FULL_NAME "/" FRR_VERSION;
 }
 
 static int root_on_exit(struct vty *vty);
@@ -141,31 +158,6 @@ static struct cmd_node config_node = {
 	.config_write = config_write_host,
 	.node_exit = vty_config_node_exit,
 };
-
-static bool vty_check_node_for_xpath_decrement(enum node_type target_node,
-					       enum node_type node)
-{
-	/* bgp afi-safi (`address-family <afi> <safi>`) node
-	 * does not increment xpath_index.
-	 * In order to use (`router bgp`) BGP_NODE's xpath as a base,
-	 * retain xpath_index as 1 upon exiting from
-	 * afi-safi node.
-	 */
-
-	if (target_node == BGP_NODE
-	    && (node == BGP_IPV4_NODE || node == BGP_IPV6_NODE
-		|| node == BGP_IPV4M_NODE || node == BGP_IPV6M_NODE
-		|| node == BGP_VPNV4_NODE || node == BGP_VPNV6_NODE
-		|| node == BGP_EVPN_NODE || node == BGP_IPV4L_NODE
-		|| node == BGP_IPV6L_NODE || node == BGP_FLOWSPECV4_NODE
-		|| node == BGP_FLOWSPECV6_NODE))
-		return false;
-
-	if (target_node == INTERFACE_NODE && node == LINK_PARAMS_NODE)
-		return false;
-
-	return true;
-}
 
 /* This is called from main when a daemon is invoked with -v or --version. */
 void print_version(const char *progname)
@@ -266,8 +258,7 @@ void install_node(struct cmd_node *node)
 	node->cmdgraph = graph_new();
 	node->cmd_vector = vector_init(VECTOR_MIN_SIZE);
 	// add start node
-	struct cmd_token *token =
-		cmd_token_new(START_TKN, CMD_ATTR_NORMAL, NULL, NULL);
+	struct cmd_token *token = cmd_token_new(START_TKN, 0, NULL, NULL);
 	graph_new_node(node->cmdgraph, token,
 		       (void (*)(void *)) & cmd_token_del);
 
@@ -283,6 +274,11 @@ const char *cmd_prompt(enum node_type node)
 
 	cnode = vector_slot(cmdvec, node);
 	return cnode->prompt;
+}
+
+void cmd_defer_tree(bool val)
+{
+	defer_cli_tree = val;
 }
 
 /* Install a command into a node. */
@@ -317,22 +313,51 @@ void _install_element(enum node_type ntype, const struct cmd_element *cmd)
 		return;
 	}
 
-	assert(hash_get(cnode->cmd_hash, (void *)cmd, hash_alloc_intern));
+	(void)hash_get(cnode->cmd_hash, (void *)cmd, hash_alloc_intern);
 
+	if (cnode->graph_built || !defer_cli_tree) {
+		struct graph *graph = graph_new();
+		struct cmd_token *token =
+			cmd_token_new(START_TKN, 0, NULL, NULL);
+		graph_new_node(graph, token,
+			       (void (*)(void *)) & cmd_token_del);
+
+		cmd_graph_parse(graph, cmd);
+		cmd_graph_names(graph);
+		cmd_graph_merge(cnode->cmdgraph, graph, +1);
+		graph_delete_graph(graph);
+
+		cnode->graph_built = true;
+	}
+
+	vector_set(cnode->cmd_vector, (void *)cmd);
+
+	if (ntype == VIEW_NODE)
+		_install_element(ENABLE_NODE, cmd);
+}
+
+static void cmd_finalize_iter(struct hash_bucket *hb, void *arg)
+{
+	struct cmd_node *cnode = arg;
+	const struct cmd_element *cmd = hb->data;
 	struct graph *graph = graph_new();
-	struct cmd_token *token =
-		cmd_token_new(START_TKN, CMD_ATTR_NORMAL, NULL, NULL);
+	struct cmd_token *token = cmd_token_new(START_TKN, 0, NULL, NULL);
+
 	graph_new_node(graph, token, (void (*)(void *)) & cmd_token_del);
 
 	cmd_graph_parse(graph, cmd);
 	cmd_graph_names(graph);
 	cmd_graph_merge(cnode->cmdgraph, graph, +1);
 	graph_delete_graph(graph);
+}
 
-	vector_set(cnode->cmd_vector, (void *)cmd);
+void cmd_finalize_node(struct cmd_node *cnode)
+{
+	if (cnode->graph_built)
+		return;
 
-	if (ntype == VIEW_NODE)
-		_install_element(ENABLE_NODE, cmd);
+	hash_iterate(cnode->cmd_hash, cmd_finalize_iter, cnode);
+	cnode->graph_built = true;
 }
 
 void uninstall_element(enum node_type ntype, const struct cmd_element *cmd)
@@ -368,15 +393,18 @@ void uninstall_element(enum node_type ntype, const struct cmd_element *cmd)
 
 	vector_unset_value(cnode->cmd_vector, (void *)cmd);
 
-	struct graph *graph = graph_new();
-	struct cmd_token *token =
-		cmd_token_new(START_TKN, CMD_ATTR_NORMAL, NULL, NULL);
-	graph_new_node(graph, token, (void (*)(void *)) & cmd_token_del);
+	if (cnode->graph_built) {
+		struct graph *graph = graph_new();
+		struct cmd_token *token =
+			cmd_token_new(START_TKN, 0, NULL, NULL);
+		graph_new_node(graph, token,
+			       (void (*)(void *)) & cmd_token_del);
 
-	cmd_graph_parse(graph, cmd);
-	cmd_graph_names(graph);
-	cmd_graph_merge(cnode->cmdgraph, graph, -1);
-	graph_delete_graph(graph);
+		cmd_graph_parse(graph, cmd);
+		cmd_graph_names(graph);
+		cmd_graph_merge(cnode->cmdgraph, graph, -1);
+		graph_delete_graph(graph);
+	}
 
 	if (ntype == VIEW_NODE)
 		uninstall_element(ENABLE_NODE, cmd);
@@ -398,7 +426,6 @@ static char *zencrypt(const char *passwd)
 {
 	char salt[6];
 	struct timeval tv;
-	char *crypt(const char *, const char *);
 
 	gettimeofday(&tv, 0);
 
@@ -414,11 +441,18 @@ static bool full_cli;
 /* This function write configuration of this host. */
 static int config_write_host(struct vty *vty)
 {
-	if (cmd_hostname_get())
-		vty_out(vty, "hostname %s\n", cmd_hostname_get());
+	const char *name;
 
-	if (cmd_domainname_get())
-		vty_out(vty, "domainname %s\n", cmd_domainname_get());
+	name = cmd_hostname_get();
+	if (name && name[0] != '\0')
+		vty_out(vty, "hostname %s\n", name);
+
+	name = cmd_domainname_get();
+	if (name && name[0] != '\0')
+		vty_out(vty, "domainname %s\n", name);
+
+	if (cmd_allow_reserved_ranges_get())
+		vty_out(vty, "allow-reserved-ranges\n");
 
 	/* The following are all configuration commands that are not sent to
 	 * watchfrr.  For instance watchfrr is hardcoded to log to syslog so
@@ -443,35 +477,20 @@ static int config_write_host(struct vty *vty)
 		}
 		log_config_write(vty);
 
-		/* print disable always, but enable only if default is flipped
-		 * => prep for future removal of compile-time knob
-		 */
 		if (!cputime_enabled)
 			vty_out(vty, "no service cputime-stats\n");
-#ifdef EXCLUDE_CPU_TIME
-		else
-			vty_out(vty, "service cputime-stats\n");
-#endif
 
 		if (!cputime_threshold)
 			vty_out(vty, "no service cputime-warning\n");
-#if defined(CONSUMED_TIME_CHECK) && CONSUMED_TIME_CHECK != 5000000
-		else /* again, always print non-default */
-#else
-		else if (cputime_threshold != 5000000)
-#endif
+		else if (cputime_threshold != CONSUMED_TIME_CHECK)
 			vty_out(vty, "service cputime-warning %lu\n",
-				cputime_threshold);
+				cputime_threshold / 1000);
 
 		if (!walltime_threshold)
 			vty_out(vty, "no service walltime-warning\n");
-#if defined(CONSUMED_TIME_CHECK) && CONSUMED_TIME_CHECK != 5000000
-		else /* again, always print non-default */
-#else
-		else if (walltime_threshold != 5000000)
-#endif
+		else if (walltime_threshold != CONSUMED_TIME_CHECK)
 			vty_out(vty, "service walltime-warning %lu\n",
-				walltime_threshold);
+				walltime_threshold / 1000);
 
 		if (host.advanced)
 			vty_out(vty, "service advanced-vty\n");
@@ -503,6 +522,8 @@ static int config_write_host(struct vty *vty)
 static struct graph *cmd_node_graph(vector v, enum node_type ntype)
 {
 	struct cmd_node *cnode = vector_slot(v, ntype);
+
+	cmd_finalize_node(cnode);
 	return cnode->cmdgraph;
 }
 
@@ -699,9 +720,13 @@ char *cmd_variable_comp2str(vector comps, unsigned short cols)
 		char *item = vector_slot(comps, j);
 		itemlen = strlen(item);
 
-		if (cs + itemlen + AUTOCOMP_INDENT + 3 >= bsz)
-			buf = XREALLOC(MTYPE_TMP, buf, (bsz *= 2));
+		size_t next_sz = cs + itemlen + AUTOCOMP_INDENT + 3;
 
+		if (next_sz > bsz) {
+			/* Make sure the buf size is large enough */
+			bsz = next_sz;
+			buf = XREALLOC(MTYPE_TMP, buf, bsz);
+		}
 		if (lc + itemlen + 1 >= cols) {
 			cs += snprintf(&buf[cs], bsz - cs, "\n%*s",
 				       AUTOCOMP_INDENT, "");
@@ -863,8 +888,7 @@ enum node_type node_parent(enum node_type node)
 }
 
 /* Execute command by argument vline vector. */
-static int cmd_execute_command_real(vector vline, enum cmd_filter_type filter,
-				    struct vty *vty,
+static int cmd_execute_command_real(vector vline, struct vty *vty,
 				    const struct cmd_element **cmd,
 				    unsigned int up_level)
 {
@@ -879,13 +903,15 @@ static int cmd_execute_command_real(vector vline, enum cmd_filter_type filter,
 	 * a match before calling node_exit handlers below
 	 */
 	for (i = 0; i < up_level; i++) {
+		struct cmd_node *cnode;
+
 		if (node <= CONFIG_NODE)
 			return CMD_NO_LEVEL_UP;
 
+		cnode = vector_slot(cmdvec, node);
 		node = node_parent(node);
 
-		if (xpath_index > 0
-		    && vty_check_node_for_xpath_decrement(node, vty->node))
+		if (xpath_index > 0 && !cnode->no_xpath)
 			xpath_index--;
 	}
 
@@ -904,7 +930,8 @@ static int cmd_execute_command_real(vector vline, enum cmd_filter_type filter,
 			return CMD_ERR_INCOMPLETE;
 		case MATCHER_AMBIGUOUS:
 			return CMD_ERR_AMBIGUOUS;
-		default:
+		case MATCHER_NO_MATCH:
+		case MATCHER_OK:
 			return CMD_ERR_NO_MATCH;
 		}
 	}
@@ -944,7 +971,7 @@ static int cmd_execute_command_real(vector vline, enum cmd_filter_type filter,
 			 * Perform pending commit (if any) before executing
 			 * non-YANG command.
 			 */
-			if (matched_element->attr != CMD_ATTR_YANG)
+			if (!(matched_element->attr & CMD_ATTR_YANG))
 				(void)nb_cli_pending_commit_check(vty);
 		}
 
@@ -998,8 +1025,7 @@ int cmd_execute_command(vector vline, struct vty *vty,
 			vector_set_index(shifted_vline, index - 1,
 					 vector_lookup(vline, index));
 
-		ret = cmd_execute_command_real(shifted_vline, FILTER_RELAXED,
-					       vty, cmd, 0);
+		ret = cmd_execute_command_real(shifted_vline, vty, cmd, 0);
 
 		vector_free(shifted_vline);
 		vty->node = onode;
@@ -1008,7 +1034,7 @@ int cmd_execute_command(vector vline, struct vty *vty,
 	}
 
 	saved_ret = ret =
-		cmd_execute_command_real(vline, FILTER_RELAXED, vty, cmd, 0);
+		cmd_execute_command_real(vline, vty, cmd, 0);
 
 	if (vtysh)
 		return saved_ret;
@@ -1019,14 +1045,14 @@ int cmd_execute_command(vector vline, struct vty *vty,
 		/* This assumes all nodes above CONFIG_NODE are childs of
 		 * CONFIG_NODE */
 		while (vty->node > CONFIG_NODE) {
+			struct cmd_node *cnode = vector_slot(cmdvec, try_node);
+
 			try_node = node_parent(try_node);
 			vty->node = try_node;
-			if (vty->xpath_index > 0
-			    && vty_check_node_for_xpath_decrement(try_node,
-								  onode))
+			if (vty->xpath_index > 0 && !cnode->no_xpath)
 				vty->xpath_index--;
-			ret = cmd_execute_command_real(vline, FILTER_RELAXED,
-						       vty, cmd, 0);
+
+			ret = cmd_execute_command_real(vline, vty, cmd, 0);
 			if (ret == CMD_SUCCESS || ret == CMD_WARNING
 			    || ret == CMD_ERR_AMBIGUOUS || ret == CMD_ERR_INCOMPLETE
 			    || ret == CMD_NOT_MY_INSTANCE
@@ -1058,7 +1084,7 @@ int cmd_execute_command(vector vline, struct vty *vty,
 int cmd_execute_command_strict(vector vline, struct vty *vty,
 			       const struct cmd_element **cmd)
 {
-	return cmd_execute_command_real(vline, FILTER_STRICT, vty, cmd, 0);
+	return cmd_execute_command_real(vline, vty, cmd, 0);
 }
 
 /*
@@ -1230,8 +1256,7 @@ int command_config_read_one_line(struct vty *vty,
 	       && ret != CMD_ERR_AMBIGUOUS && ret != CMD_ERR_INCOMPLETE
 	       && ret != CMD_NOT_MY_INSTANCE && ret != CMD_WARNING_CONFIG_FAILED
 	       && ret != CMD_NO_LEVEL_UP)
-		ret = cmd_execute_command_real(vline, FILTER_STRICT, vty, cmd,
-					       ++up_level);
+		ret = cmd_execute_command_real(vline, vty, cmd, ++up_level);
 
 	if (ret == CMD_NO_LEVEL_UP)
 		ret = CMD_ERR_NO_MATCH;
@@ -1243,6 +1268,7 @@ int command_config_read_one_line(struct vty *vty,
 
 		memcpy(ve->error_buf, vty->buf, VTY_BUFSIZ);
 		ve->line_num = line_num;
+		ve->cmd_ret = ret;
 		if (!vty->error)
 			vty->error = list_new();
 
@@ -1263,6 +1289,14 @@ int config_from_file(struct vty *vty, FILE *fp, unsigned int *line_num)
 	while (fgets(vty->buf, VTY_BUFSIZ, fp)) {
 		++(*line_num);
 
+		if (vty_log_commands) {
+			int len = strlen(vty->buf);
+
+			/* now log the command */
+			zlog_notice("config-from-file# %.*s", len ? len - 1 : 0,
+				    vty->buf);
+		}
+
 		ret = command_config_read_one_line(vty, NULL, *line_num, 0);
 
 		if (ret != CMD_SUCCESS && ret != CMD_WARNING
@@ -1280,11 +1314,12 @@ int config_from_file(struct vty *vty, FILE *fp, unsigned int *line_num)
 /* Configuration from terminal */
 DEFUN (config_terminal,
        config_terminal_cmd,
-       "configure [terminal]",
+       "configure [terminal [file-lock]]",
        "Configuration from vty interface\n"
-       "Configuration terminal\n")
+       "Configuration terminal\n"
+       "Configuration with locked datastores\n")
 {
-	return vty_config_enter(vty, false, false);
+	return vty_config_enter(vty, false, false, argc == 3);
 }
 
 /* Enable command */
@@ -1343,8 +1378,7 @@ void cmd_exit(struct vty *vty)
 	}
 	if (cnode->parent_node)
 		vty->node = cnode->parent_node;
-	if (vty->xpath_index > 0
-	    && vty_check_node_for_xpath_decrement(vty->node, cnode->node))
+	if (vty->xpath_index > 0 && !cnode->no_xpath)
 		vty->xpath_index--;
 }
 
@@ -1378,8 +1412,9 @@ DEFUN (show_version,
        SHOW_STR
        "Displays zebra version\n")
 {
-	vty_out(vty, "%s %s (%s).\n", FRR_FULL_NAME, FRR_VERSION,
-		cmd_hostname_get() ? cmd_hostname_get() : "");
+	vty_out(vty, "%s %s (%s) on %s(%s).\n", FRR_FULL_NAME, FRR_VERSION,
+		cmd_hostname_get() ? cmd_hostname_get() : "", cmd_system_get(),
+		cmd_release_get());
 	vty_out(vty, "%s%s\n", FRR_COPYRIGHT, GIT_INFO);
 #ifdef ENABLE_VERSION_BUILD_CONFIG
 	vty_out(vty, "configured with:\n    %s\n", FRR_CONFIG_ARGS);
@@ -1424,8 +1459,7 @@ static void permute(struct graph_node *start, struct vty *vty)
 	for (unsigned int i = 0; i < vector_active(start->to); i++) {
 		struct graph_node *gn = vector_slot(start->to, i);
 		struct cmd_token *tok = gn->data;
-		if (tok->attr == CMD_ATTR_HIDDEN
-		    || tok->attr == CMD_ATTR_DEPRECATED)
+		if (tok->attr & CMD_ATTR_HIDDEN)
 			continue;
 		else if (tok->type == END_TKN || gn == start) {
 			vty_out(vty, " ");
@@ -1506,16 +1540,16 @@ int cmd_list_cmds(struct vty *vty, int do_permute)
 {
 	struct cmd_node *node = vector_slot(cmdvec, vty->node);
 
-	if (do_permute)
+	if (do_permute) {
+		cmd_finalize_node(node);
 		permute(vector_slot(node->cmdgraph->nodes, 0), vty);
-	else {
+	} else {
 		/* loop over all commands at this node */
 		const struct cmd_element *element = NULL;
 		for (unsigned int i = 0; i < vector_active(node->cmd_vector);
 		     i++)
-			if ((element = vector_slot(node->cmd_vector, i))
-			    && element->attr != CMD_ATTR_DEPRECATED
-			    && element->attr != CMD_ATTR_HIDDEN) {
+			if ((element = vector_slot(node->cmd_vector, i)) &&
+			    !(element->attr & CMD_ATTR_HIDDEN)) {
 				vty_out(vty, "    ");
 				print_cmd(vty, element->string);
 			}
@@ -1551,7 +1585,10 @@ DEFUN_HIDDEN(show_cli_graph,
              "Dump current command space as DOT graph\n")
 {
 	struct cmd_node *cn = vector_slot(cmdvec, vty->node);
-	char *dot = cmd_graph_dump_dot(cn->cmdgraph);
+	char *dot;
+
+	cmd_finalize_node(cn);
+	dot = cmd_graph_dump_dot(cn->cmdgraph);
 
 	vty_out(vty, "%s\n", dot);
 	XFREE(MTYPE_TMP, dot);
@@ -2199,9 +2236,9 @@ DEFUN (banner_motd_file,
 	int cmd = cmd_banner_motd_file(filename);
 
 	if (cmd == CMD_ERR_NO_FILE)
-		vty_out(vty, "%s does not exist", filename);
+		vty_out(vty, "%s does not exist\n", filename);
 	else if (cmd == CMD_WARNING_CONFIG_FAILED)
-		vty_out(vty, "%s must be in %s", filename, SYSCONFDIR);
+		vty_out(vty, "%s must be in %s\n", filename, SYSCONFDIR);
 
 	return cmd;
 }
@@ -2248,6 +2285,21 @@ DEFUN (no_banner_motd,
 	if (host.motdfile)
 		XFREE(MTYPE_HOST, host.motdfile);
 	host.motdfile = NULL;
+	return CMD_SUCCESS;
+}
+
+DEFUN(allow_reserved_ranges, allow_reserved_ranges_cmd, "allow-reserved-ranges",
+      "Allow using IPv4 (Class E) reserved IP space\n")
+{
+	host.allow_reserved_ranges = true;
+	return CMD_SUCCESS;
+}
+
+DEFUN(no_allow_reserved_ranges, no_allow_reserved_ranges_cmd,
+      "no allow-reserved-ranges",
+      NO_STR "Allow using IPv4 (Class E) reserved IP space\n")
+{
+	host.allow_reserved_ranges = false;
 	return CMD_SUCCESS;
 }
 
@@ -2380,6 +2432,13 @@ const char *host_config_get(void)
 	return host.config;
 }
 
+void cmd_show_lib_debugs(struct vty *vty)
+{
+	route_map_show_debug(vty);
+	mgmt_debug_be_client_show_debug(vty);
+	mgmt_debug_fe_client_show_debug(vty);
+}
+
 void install_default(enum node_type node)
 {
 	_install_element(node, &config_exit_cmd);
@@ -2421,6 +2480,10 @@ void cmd_init(int terminal)
 
 	/* Default host value settings. */
 	host.name = XSTRDUP(MTYPE_HOST, names.nodename);
+	host.system = XSTRDUP(MTYPE_HOST, names.sysname);
+	host.release = XSTRDUP(MTYPE_HOST, names.release);
+	host.version = XSTRDUP(MTYPE_HOST, names.version);
+
 #ifdef HAVE_STRUCT_UTSNAME_DOMAINNAME
 	if ((strcmp(names.domainname, "(none)") == 0))
 		host.domainname = NULL;
@@ -2436,6 +2499,7 @@ void cmd_init(int terminal)
 	host.lines = -1;
 	cmd_banner_motd_line(FRR_DEFAULT_MOTD);
 	host.motdfile = NULL;
+	host.allow_reserved_ranges = false;
 
 	/* Install top nodes. */
 	install_node(&view_node);
@@ -2477,7 +2541,7 @@ void cmd_init(int terminal)
 
 		install_default(CONFIG_NODE);
 
-		thread_cmd_init();
+		event_cmd_init();
 		workqueue_cmd_init();
 		hash_cmd_init();
 	}
@@ -2505,6 +2569,8 @@ void cmd_init(int terminal)
 		install_element(CONFIG_NODE, &no_banner_motd_cmd);
 		install_element(CONFIG_NODE, &service_terminal_length_cmd);
 		install_element(CONFIG_NODE, &no_service_terminal_length_cmd);
+		install_element(CONFIG_NODE, &allow_reserved_ranges_cmd);
+		install_element(CONFIG_NODE, &no_allow_reserved_ranges_cmd);
 
 		log_cmd_init();
 		vrf_install_commands();
@@ -2529,9 +2595,7 @@ void cmd_terminate(void)
 				// well
 				graph_delete_graph(cmd_node->cmdgraph);
 				vector_free(cmd_node->cmd_vector);
-				hash_clean(cmd_node->cmd_hash, NULL);
-				hash_free(cmd_node->cmd_hash);
-				cmd_node->cmd_hash = NULL;
+				hash_clean_and_free(&cmd_node->cmd_hash, NULL);
 			}
 
 		vector_free(cmdvec);
@@ -2539,6 +2603,9 @@ void cmd_terminate(void)
 	}
 
 	XFREE(MTYPE_HOST, host.name);
+	XFREE(MTYPE_HOST, host.system);
+	XFREE(MTYPE_HOST, host.release);
+	XFREE(MTYPE_HOST, host.version);
 	XFREE(MTYPE_HOST, host.domainname);
 	XFREE(MTYPE_HOST, host.password);
 	XFREE(MTYPE_HOST, host.password_encrypt);

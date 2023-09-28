@@ -1,20 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Copyright (C) 2020        Vmware
  *                           Sarita Patra
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 
@@ -67,6 +54,13 @@ const struct frr_yang_module_info frr_bgp_route_map_info = {
 			}
 		},
 		{
+			.xpath = "/frr-route-map:lib/route-map/entry/match-condition/rmap-match-condition/frr-bgp-route-map:rpki-extcommunity",
+			.cbs = {
+				.modify = lib_route_map_entry_match_condition_rmap_match_condition_rpki_extcommunity_modify,
+				.destroy = lib_route_map_entry_match_condition_rmap_match_condition_rpki_extcommunity_destroy,
+			}
+		},
+		{
 			.xpath = "/frr-route-map:lib/route-map/entry/match-condition/rmap-match-condition/frr-bgp-route-map:probability",
 			.cbs = {
 				.modify = lib_route_map_entry_match_condition_rmap_match_condition_probability_modify,
@@ -78,6 +72,13 @@ const struct frr_yang_module_info frr_bgp_route_map_info = {
 			.cbs = {
 				.modify = lib_route_map_entry_match_condition_rmap_match_condition_source_vrf_modify,
 				.destroy = lib_route_map_entry_match_condition_rmap_match_condition_source_vrf_destroy,
+			}
+		},
+	    {
+			.xpath = "/frr-route-map:lib/route-map/entry/match-condition/rmap-match-condition/frr-bgp-route-map:source-protocol",
+			.cbs = {
+				.modify = lib_route_map_entry_match_condition_rmap_match_condition_source_protocol_modify,
+				.destroy = lib_route_map_entry_match_condition_rmap_match_condition_source_protocol_destroy,
 			}
 		},
 		{
@@ -192,6 +193,13 @@ const struct frr_yang_module_info frr_bgp_route_map_info = {
 			}
 		},
 		{
+			.xpath = "/frr-route-map:lib/route-map/entry/set-action/rmap-set-action/frr-bgp-route-map:extcommunity-nt",
+			.cbs = {
+				.modify = lib_route_map_entry_set_action_rmap_set_action_extcommunity_nt_modify,
+				.destroy = lib_route_map_entry_set_action_rmap_set_action_extcommunity_nt_destroy,
+			}
+		},
+		{
 			.xpath = "/frr-route-map:lib/route-map/entry/set-action/rmap-set-action/frr-bgp-route-map:extcommunity-soo",
 			.cbs = {
 				.modify = lib_route_map_entry_set_action_rmap_set_action_extcommunity_soo_modify,
@@ -276,6 +284,13 @@ const struct frr_yang_module_info frr_bgp_route_map_info = {
 			}
 		},
 		{
+			.xpath = "/frr-route-map:lib/route-map/entry/set-action/rmap-set-action/frr-bgp-route-map:aigp-metric",
+			.cbs = {
+				.modify = lib_route_map_entry_set_action_rmap_set_action_aigp_metric_modify,
+				.destroy = lib_route_map_entry_set_action_rmap_set_action_aigp_metric_destroy,
+			}
+		},
+		{
 			.xpath = "/frr-route-map:lib/route-map/entry/set-action/rmap-set-action/frr-bgp-route-map:prepend-as-path",
 			.cbs = {
 				.modify = lib_route_map_entry_set_action_rmap_set_action_prepend_as_path_modify,
@@ -294,6 +309,13 @@ const struct frr_yang_module_info frr_bgp_route_map_info = {
 			.cbs = {
 				.modify = lib_route_map_entry_set_action_rmap_set_action_exclude_as_path_modify,
 				.destroy = lib_route_map_entry_set_action_rmap_set_action_exclude_as_path_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-route-map:lib/route-map/entry/set-action/rmap-set-action/frr-bgp-route-map:replace-as-path",
+			.cbs = {
+				.modify = lib_route_map_entry_set_action_rmap_set_action_replace_as_path_modify,
+				.destroy = lib_route_map_entry_set_action_rmap_set_action_replace_as_path_destroy,
 			}
 		},
 		{
@@ -379,6 +401,13 @@ const struct frr_yang_module_info frr_bgp_route_map_info = {
 			}
 		},
 		{
+			.xpath = "/frr-route-map:lib/route-map/entry/set-action/rmap-set-action/frr-bgp-route-map:extcommunity-color",
+			.cbs = {
+				.modify = lib_route_map_entry_set_action_rmap_set_action_extcommunity_color_modify,
+				.destroy = lib_route_map_entry_set_action_rmap_set_action_extcommunity_color_destroy,
+			}
+		},
+		{
 			.xpath = "/frr-route-map:lib/route-map/entry/set-action/rmap-set-action/frr-bgp-route-map:extcommunity-lb/two-octet-as-specific",
 			.cbs = {
 				.modify = lib_route_map_entry_set_action_rmap_set_action_extcommunity_lb_two_octet_as_specific_modify,
@@ -397,6 +426,13 @@ const struct frr_yang_module_info frr_bgp_route_map_info = {
 			.cbs = {
 				.modify = lib_route_map_entry_set_action_rmap_set_action_evpn_gateway_ip_ipv6_modify,
 				.destroy = lib_route_map_entry_set_action_rmap_set_action_evpn_gateway_ip_ipv6_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-route-map:lib/route-map/entry/set-action/rmap-set-action/frr-bgp-route-map:l3vpn-nexthop-encapsulation",
+			.cbs = {
+				.modify = lib_route_map_entry_set_action_rmap_set_action_l3vpn_nexthop_encapsulation_modify,
+				.destroy = lib_route_map_entry_set_action_rmap_set_action_l3vpn_nexthop_encapsulation_destroy,
 			}
 		},
 		{

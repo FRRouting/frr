@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# SPDX-License-Identifier: ISC
 
 #
 # test_rip_topo1.py
@@ -6,20 +7,6 @@
 #
 # Copyright (c) 2017 by
 # Network Device Education Foundation, Inc. ("NetDEF")
-#
-# Permission to use, copy, modify, and/or distribute this software
-# for any purpose with or without fee is hereby granted, provided
-# that the above copyright notice and this permission notice appear
-# in all copies.
-#
-# THE SOFTWARE IS PROVIDED "AS IS" AND NETDEF DISCLAIMS ALL WARRANTIES
-# WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
-# MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL NETDEF BE LIABLE FOR
-# ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY
-# DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS,
-# WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS
-# ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE
-# OF THIS SOFTWARE.
 #
 
 """
@@ -32,6 +19,7 @@ import re
 import sys
 import pytest
 from time import sleep
+import functools
 
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -108,7 +96,7 @@ def setup_module(module):
         tgen.gears["r%s" % i].start()
 
     # For debugging after starting FRR daemons, uncomment the next line
-    # CLI(net)
+    # tgen.mininet_cli()
 
 
 def teardown_module(module):
@@ -134,9 +122,6 @@ def test_router_running():
         fatal_error = net["r%s" % i].checkRouterRunning()
         assert fatal_error == "", fatal_error
 
-    # For debugging after starting FRR daemons, uncomment the next line
-    # CLI(net)
-
 
 def test_converge_protocols():
     global fatal_error
@@ -158,9 +143,6 @@ def test_converge_protocols():
     for i in range(1, 4):
         fatal_error = net["r%s" % i].checkRouterRunning()
         assert fatal_error == "", fatal_error
-
-    # For debugging after starting FRR daemons, uncomment the next line
-    # CLI(net)
 
 
 def test_rip_status():
@@ -220,9 +202,6 @@ def test_rip_status():
         fatal_error = net["r%s" % i].checkRouterRunning()
         assert fatal_error == "", fatal_error
 
-    # For debugging after starting FRR daemons, uncomment the next line
-    # CLI(net)
-
 
 def test_rip_routes():
     global fatal_error
@@ -275,13 +254,29 @@ def test_rip_routes():
         fatal_error = net["r%s" % i].checkRouterRunning()
         assert fatal_error == "", fatal_error
 
-    # For debugging after starting FRR daemons, uncomment the next line
-    # CLI(net)
-
 
 def test_zebra_ipv4_routingTable():
     global fatal_error
     net = get_topogen().net
+
+    def _verify_ip_route(expected):
+        # Actual output from router
+        actual = (
+            net["r%s" % i]
+            .cmd('vtysh -c "show ip route" 2> /dev/null | grep "^R"')
+            .rstrip()
+        )
+        # Drop timers on end of line
+        actual = re.sub(r", [0-2][0-9]:[0-5][0-9]:[0-5][0-9]", "", actual)
+        # Fix newlines (make them all the same)
+        actual = ("\n".join(actual.splitlines()) + "\n").splitlines(1)
+
+        return topotest.get_textdiff(
+            actual,
+            expected,
+            title1="actual Zebra IPv4 routing table",
+            title2="expected Zebra IPv4 routing table",
+        )
 
     # Skip if previous fatal error condition is raised
     if fatal_error != "":
@@ -289,60 +284,23 @@ def test_zebra_ipv4_routingTable():
 
     thisDir = os.path.dirname(os.path.realpath(__file__))
 
-    # Verify OSPFv3 Routing Table
     print("\n\n** Verifing Zebra IPv4 Routing Table")
     print("******************************************\n")
-    failures = 0
     for i in range(1, 4):
         refTableFile = "%s/r%s/show_ip_route.ref" % (thisDir, i)
         if os.path.isfile(refTableFile):
-            # Read expected result from file
             expected = open(refTableFile).read().rstrip()
             # Fix newlines (make them all the same)
             expected = ("\n".join(expected.splitlines()) + "\n").splitlines(1)
 
-            # Actual output from router
-            actual = (
-                net["r%s" % i]
-                .cmd('vtysh -c "show ip route" 2> /dev/null | grep "^R"')
-                .rstrip()
-            )
-            # Drop timers on end of line
-            actual = re.sub(r", [0-2][0-9]:[0-5][0-9]:[0-5][0-9]", "", actual)
-            # Fix newlines (make them all the same)
-            actual = ("\n".join(actual.splitlines()) + "\n").splitlines(1)
-
-            # Generate Diff
-            diff = topotest.get_textdiff(
-                actual,
-                expected,
-                title1="actual Zebra IPv4 routing table",
-                title2="expected Zebra IPv4 routing table",
-            )
-
-            # Empty string if it matches, otherwise diff contains unified diff
-            if diff:
-                sys.stderr.write(
-                    "r%s failed Zebra IPv4 Routing Table Check:\n%s\n" % (i, diff)
-                )
-                failures += 1
-            else:
-                print("r%s ok" % i)
-
-            assert (
-                failures == 0
-            ), "Zebra IPv4 Routing Table verification failed for router r%s:\n%s" % (
-                i,
-                diff,
-            )
+            test_func = functools.partial(_verify_ip_route, expected)
+            success, _ = topotest.run_and_expect(test_func, "", count=30, wait=1)
+            assert success, "Failed verifying IPv4 routes for r{}".format(i)
 
     # Make sure that all daemons are still running
     for i in range(1, 4):
         fatal_error = net["r%s" % i].checkRouterRunning()
         assert fatal_error == "", fatal_error
-
-    # For debugging after starting FRR daemons, uncomment the next line
-    # CLI(net)
 
 
 def test_shutdown_check_stderr():
@@ -372,7 +330,6 @@ def test_shutdown_check_stderr():
 
 
 if __name__ == "__main__":
-
     # To suppress tracebacks, either use the following pytest call or add "--tb=no" to cli
     # retval = pytest.main(["-s", "--tb=no"])
     retval = pytest.main(["-s"])

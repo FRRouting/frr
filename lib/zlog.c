@@ -1,17 +1,6 @@
+// SPDX-License-Identifier: ISC
 /*
  * Copyright (c) 2015-19  David Lamparter, for NetDEF, Inc.
- *
- * Permission to use, copy, modify, and distribute this software for any
- * purpose with or without fee is hereby granted, provided that the above
- * copyright notice and this permission notice appear in all copies.
- *
- * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
- * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
- * ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
- * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
- * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
- * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
 #include "zebra.h"
@@ -47,12 +36,19 @@
 #include <mach/mach_traps.h>
 #endif
 
+#ifdef HAVE_LIBUNWIND
+#define UNW_LOCAL_ONLY
+#include <libunwind.h>
+#include <dlfcn.h>
+#endif
+
 #include "memory.h"
 #include "atomlist.h"
 #include "printfrr.h"
 #include "frrcu.h"
 #include "zlog.h"
 #include "libfrr_trace.h"
+#include "frrevent.h"
 
 DEFINE_MTYPE_STATIC(LIB, LOG_MESSAGE,  "log message");
 DEFINE_MTYPE_STATIC(LIB, LOG_TLSBUF,   "log thread-local buffer");
@@ -394,7 +390,7 @@ void zlog_tls_buffer_flush(void)
 		return;
 
 	rcu_read_lock();
-	frr_each (zlog_targets, &zlog_targets, zt) {
+	frr_each_safe (zlog_targets, &zlog_targets, zt) {
 		if (!zt->logfn)
 			continue;
 
@@ -424,7 +420,7 @@ static void vzlog_notls(const struct xref_logmsg *xref, int prio,
 	msg->stackbufsz = sizeof(stackbuf);
 
 	rcu_read_lock();
-	frr_each (zlog_targets, &zlog_targets, zt) {
+	frr_each_safe (zlog_targets, &zlog_targets, zt) {
 		if (prio > zt->prio_min)
 			continue;
 		if (!zt->logfn)
@@ -508,6 +504,87 @@ static void vzlog_tls(struct zlog_tls *zlog_tls, const struct xref_logmsg *xref,
 		XFREE(MTYPE_LOG_MESSAGE, msg->text);
 }
 
+static void zlog_backtrace_msg(const struct xref_logmsg *xref, int prio)
+{
+	struct event *tc = pthread_getspecific(thread_current);
+	const char *uid = xref->xref.xrefdata->uid;
+	bool found_thread = false;
+
+	zlog(prio, "| (%s) message in thread %jd, at %s(), %s:%d", uid,
+	     zlog_gettid(), xref->xref.func, xref->xref.file, xref->xref.line);
+
+#ifdef HAVE_LIBUNWIND
+	const char *threadfunc = tc ? tc->xref->funcname : NULL;
+	bool found_caller = false;
+	unw_cursor_t cursor;
+	unw_context_t uc;
+	unw_word_t ip, off, sp;
+	Dl_info dlinfo;
+
+	unw_getcontext(&uc);
+
+	unw_init_local(&cursor, &uc);
+	while (unw_step(&cursor) > 0) {
+		char buf[96], name[128] = "?";
+		bool is_thread = false;
+
+		unw_get_reg(&cursor, UNW_REG_IP, &ip);
+		unw_get_reg(&cursor, UNW_REG_SP, &sp);
+
+		if (unw_is_signal_frame(&cursor))
+			zlog(prio, "| (%s)    ---- signal ----", uid);
+
+		if (!unw_get_proc_name(&cursor, buf, sizeof(buf), &off)) {
+			if (!strcmp(buf, xref->xref.func))
+				found_caller = true;
+			if (threadfunc && !strcmp(buf, threadfunc))
+				found_thread = is_thread = true;
+
+			snprintf(name, sizeof(name), "%s+%#lx", buf, (long)off);
+		}
+
+		if (!found_caller)
+			continue;
+
+		if (dladdr((void *)ip, &dlinfo))
+			zlog(prio, "| (%s) %-36s %16lx+%08lx %16lx %s", uid,
+			     name, (long)dlinfo.dli_fbase,
+			     (long)ip - (long)dlinfo.dli_fbase, (long)sp,
+			     dlinfo.dli_fname);
+		else
+			zlog(prio, "| (%s) %-36s %16lx %16lx", uid, name,
+			     (long)ip, (long)sp);
+
+		if (is_thread)
+			zlog(prio, "| (%s) ^- scheduled from %s(), %s:%u", uid,
+			     tc->xref->xref.func, tc->xref->xref.file,
+			     tc->xref->xref.line);
+	}
+#elif defined(HAVE_GLIBC_BACKTRACE)
+	void *frames[64];
+	char **names = NULL;
+	int n_frames, i;
+
+	n_frames = backtrace(frames, array_size(frames));
+	if (n_frames < 0)
+		n_frames = 0;
+	if (n_frames)
+		names = backtrace_symbols(frames, n_frames);
+
+	for (i = 0; i < n_frames; i++) {
+		void *retaddr = frames[i];
+		char *loc = names[i];
+
+		zlog(prio, "| (%s) %16lx %-36s", uid, (long)retaddr, loc);
+	}
+	free(names);
+#endif
+	if (!found_thread && tc)
+		zlog(prio, "| (%s) scheduled from %s(), %s:%u", uid,
+		     tc->xref->xref.func, tc->xref->xref.file,
+		     tc->xref->xref.line);
+}
+
 void vzlogx(const struct xref_logmsg *xref, int prio,
 	    const char *fmt, va_list ap)
 {
@@ -545,6 +622,15 @@ void vzlogx(const struct xref_logmsg *xref, int prio,
 		vzlog_tls(zlog_tls, xref, prio, fmt, ap);
 	else
 		vzlog_notls(xref, prio, fmt, ap);
+
+	if (xref) {
+		struct xrefdata_logmsg *xrdl;
+
+		xrdl = container_of(xref->xref.xrefdata, struct xrefdata_logmsg,
+				    xrefdata);
+		if (xrdl->fl_print_bt)
+			zlog_backtrace_msg(xref, prio);
+	}
 }
 
 void zlog_sigsafe(const char *text, size_t len)
@@ -646,7 +732,11 @@ const char *zlog_msg_text(struct zlog_msg *msg, size_t *textlen)
 		fb.outpos_i = 0;
 
 		va_copy(args, msg->args);
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wformat-nonliteral"
+		/* format-string checking is done further up the chain */
 		need += vbprintfrr(&fb, msg->fmt, args);
+#pragma GCC diagnostic pop
 		va_end(args);
 
 		msg->textlen = need;
@@ -665,7 +755,11 @@ const char *zlog_msg_text(struct zlog_msg *msg, size_t *textlen)
 			fb.outpos_i = 0;
 
 			va_copy(args, msg->args);
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wformat-nonliteral"
+			/* same as above */
 			vbprintfrr(&fb, msg->fmt, args);
+#pragma GCC diagnostic pop
 			va_end(args);
 
 			bputch(&fb, '\n');
@@ -811,6 +905,11 @@ size_t zlog_msg_ts_3164(struct zlog_msg *msg, struct fbuf *out, uint32_t flags)
 	return bputs(out, msg->ts_3164_str);
 }
 
+void zlog_msg_tsraw(struct zlog_msg *msg, struct timespec *ts)
+{
+	memcpy(ts, &msg->ts, sizeof(*ts));
+}
+
 void zlog_set_prefix_ec(bool enable)
 {
 	atomic_store_explicit(&zlog_ec, enable, memory_order_relaxed);
@@ -889,16 +988,14 @@ void zlog_init(const char *progname, const char *protoname,
 	zlog_instance = instance;
 
 	if (instance) {
-		snprintfrr(zlog_tmpdir, sizeof(zlog_tmpdir),
-			   "/var/tmp/frr/%s-%d.%ld",
-			   progname, instance, (long)getpid());
+		snprintfrr(zlog_tmpdir, sizeof(zlog_tmpdir), "%s/%s-%d.%ld",
+			   TMPBASEDIR, progname, instance, (long)getpid());
 
 		zlog_prefixsz = snprintfrr(zlog_prefix, sizeof(zlog_prefix),
 					   "%s[%d]: ", protoname, instance);
 	} else {
-		snprintfrr(zlog_tmpdir, sizeof(zlog_tmpdir),
-			   "/var/tmp/frr/%s.%ld",
-			   progname, (long)getpid());
+		snprintfrr(zlog_tmpdir, sizeof(zlog_tmpdir), "%s/%s.%ld",
+			   TMPBASEDIR, progname, (long)getpid());
 
 		zlog_prefixsz = snprintfrr(zlog_prefix, sizeof(zlog_prefix),
 					   "%s: ", protoname);

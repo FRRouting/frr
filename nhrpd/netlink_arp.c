@@ -1,10 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* NHRP netlink/neighbor table arpd code
  * Copyright (c) 2014-2016 Timo Teräs
- *
- * This file is free software: you may copy, redistribute and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 2 of the License, or
- * (at your option) any later version.
  */
 
 #ifdef HAVE_CONFIG_H
@@ -18,7 +14,7 @@
 #include <linux/neighbour.h>
 #include <linux/netfilter/nfnetlink_log.h>
 
-#include "thread.h"
+#include "frrevent.h"
 #include "stream.h"
 #include "prefix.h"
 #include "nhrpd.h"
@@ -27,7 +23,7 @@
 
 int netlink_nflog_group;
 static int netlink_log_fd = -1;
-static struct thread *netlink_log_thread;
+static struct event *netlink_log_thread;
 
 void netlink_update_binding(struct interface *ifp, union sockunion *proto,
 			    union sockunion *nbma)
@@ -100,10 +96,10 @@ static void netlink_log_indication(struct nlmsghdr *msg, struct zbuf *zb)
 	nhrp_peer_send_indication(ifp, htons(pkthdr->hw_protocol), &pktpl);
 }
 
-static int netlink_log_recv(struct thread *t)
+static void netlink_log_recv(struct event *t)
 {
 	uint8_t buf[ZNL_BUFFER_SIZE];
-	int fd = THREAD_FD(t);
+	int fd = EVENT_FD(t);
 	struct zbuf payload, zb;
 	struct nlmsghdr *n;
 
@@ -122,16 +118,14 @@ static int netlink_log_recv(struct thread *t)
 		}
 	}
 
-	thread_add_read(master, netlink_log_recv, 0, netlink_log_fd,
-			&netlink_log_thread);
-
-	return 0;
+	event_add_read(master, netlink_log_recv, 0, netlink_log_fd,
+		       &netlink_log_thread);
 }
 
 void netlink_set_nflog_group(int nlgroup)
 {
 	if (netlink_log_fd >= 0) {
-		thread_cancel(&netlink_log_thread);
+		event_cancel(&netlink_log_thread);
 		close(netlink_log_fd);
 		netlink_log_fd = -1;
 	}
@@ -142,12 +136,12 @@ void netlink_set_nflog_group(int nlgroup)
 			return;
 
 		netlink_log_register(netlink_log_fd, nlgroup);
-		thread_add_read(master, netlink_log_recv, 0, netlink_log_fd,
-				&netlink_log_thread);
+		event_add_read(master, netlink_log_recv, 0, netlink_log_fd,
+			       &netlink_log_thread);
 	}
 }
 
-void nhrp_neighbor_operation(ZAPI_CALLBACK_ARGS)
+int nhrp_neighbor_operation(ZAPI_CALLBACK_ARGS)
 {
 	union sockunion addr = {}, lladdr = {};
 	struct interface *ifp;
@@ -157,7 +151,7 @@ void nhrp_neighbor_operation(ZAPI_CALLBACK_ARGS)
 
 	zclient_neigh_ip_decode(zclient->ibuf, &api);
 	if (api.ip_in.ipa_type == AF_UNSPEC)
-		return;
+		return 0;
 	sockunion_family(&addr) = api.ip_in.ipa_type;
 	memcpy((uint8_t *)sockunion_get_addr(&addr), &api.ip_in.ip.addr,
 	       family2addrsize(api.ip_in.ipa_type));
@@ -172,10 +166,10 @@ void nhrp_neighbor_operation(ZAPI_CALLBACK_ARGS)
 	ndm_state = api.ndm_state;
 
 	if (!ifp)
-		return;
+		return 0;
 	c = nhrp_cache_get(ifp, &addr, 0);
 	if (!c)
-		return;
+		return 0;
 	debugf(NHRP_DEBUG_KERNEL,
 	       "Netlink: %s %pSU dev %s lladdr %pSU nud 0x%x cache used %u type %u",
 	       (cmd == ZEBRA_NHRP_NEIGH_GET)
@@ -200,4 +194,5 @@ void nhrp_neighbor_operation(ZAPI_CALLBACK_ARGS)
 			: ZEBRA_NEIGH_STATE_FAILED;
 		nhrp_cache_set_used(c, state == ZEBRA_NEIGH_STATE_REACHABLE);
 	}
+	return 0;
 }

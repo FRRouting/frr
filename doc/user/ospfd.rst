@@ -195,7 +195,7 @@ To start OSPF process you have to specify the OSPF router.
    This command supersedes the *timers spf* command in previous FRR
    releases.
 
-.. clicmd:: max-metric router-lsa [on-startup|on-shutdown] (5-86400)
+.. clicmd:: max-metric router-lsa [on-startup (5-86400)|on-shutdown (5-100)]
 
 .. clicmd:: max-metric router-lsa administrative
 
@@ -268,8 +268,10 @@ To start OSPF process you have to specify the OSPF router.
    the destination prefix. Otherwise, we test whether the network command prefix
    contains the local address prefix of the interface.
 
-   In some cases it may be more convenient to enable OSPF on a per
-   interface/subnet basis (:clicmd:`ip ospf area AREA [ADDR]`).
+   It is also possible to enable OSPF on a per interface/subnet basis
+   using the interface command (:clicmd:`ip ospf area AREA [ADDR]`).
+   However, mixing both network commands (:clicmd:`network`) and interface
+   commands (:clicmd:`ip ospf`) on the same router is not supported.
 
 .. clicmd:: proactive-arp
 
@@ -308,14 +310,26 @@ To start OSPF process you have to specify the OSPF router.
    of packets to process before returning. The defult value of this parameter
    is 20.
 
+.. clicmd:: socket buffer <send | recv | all> (1-4000000000)
+
+   This command controls the ospf instance's socket buffer sizes. The
+   'no' form resets one or both values to the default.
+
+.. clicmd:: no socket-per-interface
+
+   Ordinarily, ospfd uses a socket per interface for sending
+   packets. This command disables those per-interface sockets, and
+   causes ospfd to use a single socket per ospf instance for sending
+   and receiving packets.
+
 .. _ospf-area:
 
 Areas
 -----
 
-.. clicmd:: area A.B.C.D range A.B.C.D/M
+.. clicmd:: area A.B.C.D range A.B.C.D/M [advertise [cost (0-16777215)]]
 
-.. clicmd:: area (0-4294967295) range A.B.C.D/M
+.. clicmd:: area (0-4294967295) range A.B.C.D/M [advertise [cost (0-16777215)]]
 
 
 
@@ -323,7 +337,6 @@ Areas
    announced to other areas. This command can be used only in ABR and ONLY
    router-LSAs (Type-1) and network-LSAs (Type-2) (i.e. LSAs with scope area) can
    be summarized. Type-5 AS-external-LSAs can't be summarized - their scope is AS.
-   Summarizing Type-7 AS-external-LSAs isn't supported yet by FRR.
 
    .. code-block:: frr
 
@@ -337,14 +350,18 @@ Areas
    announced into backbone area if area 0.0.0.10 contains at least one intra-area
    network (i.e. described with router or network LSA) from this range.
 
-.. clicmd:: area A.B.C.D range IPV4_PREFIX not-advertise
+.. clicmd:: area A.B.C.D range A.B.C.D/M not-advertise
+
+.. clicmd:: area (0-4294967295) range A.B.C.D/M not-advertise
 
 
    Instead of summarizing intra area paths filter them - i.e. intra area paths from this
    range are not advertised into other areas.
    This command makes sense in ABR only.
 
-.. clicmd:: area A.B.C.D range IPV4_PREFIX substitute IPV4_PREFIX
+.. clicmd:: area A.B.C.D range A.B.C.D/M {substitute A.B.C.D/M|cost (0-16777215)}
+
+.. clicmd:: area (0-4294967295) range A.B.C.D/M {substitute A.B.C.D/M|cost (0-16777215)}
 
 
    Substitute summarized prefix with another prefix.
@@ -360,6 +377,11 @@ Areas
    One Type-3 summary-LSA with routing info 11.0.0.0/8 is announced into backbone area if
    area 0.0.0.10 contains at least one intra-area network (i.e. described with router-LSA or
    network-LSA) from range 10.0.0.0/8.
+
+   By default, the metric of the summary route is calculated as the highest
+   metric among the summarized routes. The `cost` option, however, can be used
+   to set an explicit metric.
+
    This command makes sense in ABR only.
 
 .. clicmd:: area A.B.C.D virtual-link A.B.C.D
@@ -419,6 +441,31 @@ Areas
     area for this command to take effect. This feature causes routers that are
     configured not to advertise forwarding addresses into the backbone to direct
     forwarded traffic to the NSSA ABR translator.
+
+.. clicmd:: area A.B.C.D nssa default-information-originate [metric-type (1-2)] [metric (0-16777214)]
+
+.. clicmd:: area (0-4294967295) nssa default-information-originate [metric-type (1-2)] [metric (0-16777214)]
+
+   NSSA ABRs and ASBRs can be configured with the `default-information-originate`
+   option to originate a Type-7 default route into the NSSA area. In the case
+   of NSSA ASBRs, the origination of the default route is conditioned to the
+   existence of a default route in the RIB that wasn't learned via the OSPF
+   protocol.
+
+.. clicmd:: area A.B.C.D nssa range A.B.C.D/M [<not-advertise|cost (0-16777215)>]
+
+.. clicmd:: area (0-4294967295) nssa range A.B.C.D/M [<not-advertise|cost (0-16777215)>]
+
+    Summarize a group of external subnets into a single Type-7 LSA, which is
+    then translated to a Type-5 LSA and avertised to the backbone.
+    This command can only be used at the area boundary (NSSA ABR router).
+
+    By default, the metric of the summary route is calculated as the highest
+    metric among the summarized routes. The `cost` option, however, can be used
+    to set an explicit metric.
+
+    The `not-advertise` option, when present, prevents the summary route from
+    being advertised, effectively filtering the summarized routes.
 
 .. clicmd:: area A.B.C.D default-cost (0-16777215)
 
@@ -506,12 +553,14 @@ Interfaces
 
 
    Enable OSPF on the interface, optionally restricted to just the IP address
-   given by `ADDR`, putting it in the `AREA` area. Per interface area settings
-   take precedence to network commands
-   (:clicmd:`network A.B.C.D/M area A.B.C.D`).
+   given by `ADDR`, putting it in the `AREA` area. If you have a lot of
+   interfaces, and/or a lot of subnets, then enabling OSPF via this command
+   instead of (:clicmd:`network A.B.C.D/M area A.B.C.D`) may result in a
+   slight performance improvement.
 
-   If you have a lot of interfaces, and/or a lot of subnets, then enabling OSPF
-   via this command may result in a slight performance improvement.
+   Notice that, mixing both network commands (:clicmd:`network`) and interface
+   commands (:clicmd:`ip ospf`) on the same router is not supported.
+   If (:clicmd:`ip ospf`) is present, (:clicmd:`network`) commands will fail.
 
 .. clicmd:: ip ospf authentication-key AUTH_KEY
 
@@ -550,6 +599,38 @@ Interfaces
    KEY is the actual message digest key, of up to 16 chars (larger strings will
    be truncated), and is associated with the given KEYID.
 
+.. clicmd:: ip ospf authentication key-chain KEYCHAIN
+
+   Specify that HMAC cryptographic authentication must be used on this interface
+   using a key chain. Overrides any authentication enabled on a per-area basis
+   (:clicmd:`area A.B.C.D authentication message-digest`).
+
+   ``KEYCHAIN``: Specifies the name of the key chain that contains the authentication
+   key(s) and cryptographic algorithms to be used for OSPF authentication. The key chain
+   is a logical container that holds one or more authentication keys,
+   allowing for key rotation and management.
+
+   Note that OSPF HMAC cryptographic authentication requires that time never go backwards
+   (correct time is NOT important, only that it never goes backwards), even
+   across resets, if ospfd is to be able to promptly reestablish adjacencies
+   with its neighbours after restarts/reboots. The host should have system time
+   be set at boot from an external or non-volatile source (e.g. battery backed
+   clock, NTP, etc.) or else the system clock should be periodically saved to
+   non-volatile storage and restored at boot if HMAC cryptographic authentication is to be
+   expected to work reliably.
+
+   Example:
+
+   .. code:: sh
+
+      r1(config)#key chain temp
+      r1(config-keychain)#key 13
+      r1(config-keychain-key)#key-string ospf
+      r1(config-keychain-key)#cryptographic-algorithm hmac-sha-256
+      r1(config)#int eth0
+      r1(config-if)#ip ospf authentication key-chain temp
+      r1(config-if)#ip ospf area 0
+
 .. clicmd:: ip ospf cost (1-65535)
 
 
@@ -586,7 +667,20 @@ Interfaces
    :clicmd:`ip ospf dead-interval minimal hello-multiplier (2-20)` is also
    specified for the interface.
 
-.. clicmd:: ip ospf network (broadcast|non-broadcast|point-to-multipoint|point-to-point [dmvpn])
+.. clicmd:: ip ospf graceful-restart hello-delay (1-1800)
+
+   Set the length of time during which Grace-LSAs are sent at 1-second intervals
+   while coming back up after an unplanned outage. During this time, no hello
+   packets are sent.
+
+   A higher hello delay will increase the chance that all neighbors are notified
+   about the ongoing graceful restart before receiving a hello packet (which is
+   crucial for the graceful restart to succeed). The hello delay shouldn't be set
+   too high, however, otherwise the adjacencies might time out. As a best practice,
+   it's recommended to set the hello delay and hello interval with the same values.
+   The default value is 10 seconds.
+
+.. clicmd:: ip ospf network (broadcast|non-broadcast|point-to-multipoint [delay-reflood]|point-to-point [dmvpn])
 
    When configuring a point-to-point network on an interface and the interface
    has a /32 address associated with then OSPF will treat the interface
@@ -597,6 +691,13 @@ Interfaces
    When used in a DMVPN network at a spoke, this OSPF will be configured in
    point-to-point, but the HUB will be a point-to-multipoint. To make this
    topology work, specify the optional 'dmvpn' parameter at the spoke.
+
+   When the network is configured as point-to-multipoint and `delay-reflood`
+   is specified, LSAs received on the interface from neighbors on the
+   interface will not be flooded back out on the interface immediately.
+   Rather, they will be added to the neighbor's link state retransmission
+   list and only sent to the neighbor if the neighbor doesn't acknowledge
+   the LSA prior to the link state retransmission timer expiring.
 
    Set explicitly network type for specified interface.
 
@@ -629,6 +730,15 @@ Interfaces
    scope) - as would occur if connected addresses were redistributed into
    OSPF (:ref:`redistribute-routes-to-ospf`). This is the only way to
    advertise non-OSPF links into stub areas.
+
+.. clicmd:: ip ospf prefix-suppression [A.B.C.D]
+
+   Configure OSPF to not advertise the IPv4 prefix associated with the
+   OSPF interface. The associated IPv4 prefix will be omitted from an OSPF
+   router-LSA or advertised with a host mask in an OSPF network-LSA as
+   specified in RFC 6860, "Hiding Transit-Only Networks in OSPF". If an
+   optional IPv4 address is specified, the prefix suppression will apply
+   to the OSPF interface associated with the specified interface address.
 
 .. clicmd:: ip ospf area (A.B.C.D|(0-4294967295))
 
@@ -721,6 +831,10 @@ Graceful Restart
    To perform a graceful shutdown, the "graceful-restart prepare ip ospf"
    EXEC-level command needs to be issued before restarting the ospfd daemon.
 
+   When Graceful Restart is enabled and the ospfd daemon crashes or is killed
+   abruptely (e.g. SIGKILL), it will attempt an unplanned Graceful Restart once
+   it restarts.
+
 .. clicmd:: graceful-restart helper enable [A.B.C.D]
 
 
@@ -769,7 +883,7 @@ Showing Information
 
 .. _show-ip-ospf:
 
-.. clicmd:: show ip ospf [json]
+.. clicmd:: show ip ospf [vrf <NAME|all>] [json]
 
    Show information on a variety of general OSPF and area state and
    configuration information.
@@ -781,44 +895,52 @@ Showing Information
 
 .. clicmd:: show ip ospf neighbor [json]
 
-.. clicmd:: show ip ospf neighbor INTERFACE [json]
+.. clicmd:: show ip ospf [vrf <NAME|all>] neighbor INTERFACE [json]
 
 .. clicmd:: show ip ospf neighbor detail [json]
 
-.. clicmd:: show ip ospf neighbor INTERFACE detail [json]
+.. clicmd:: show ip ospf [vrf <NAME|all>] neighbor A.B.C.D [detail] [json]
+
+.. clicmd:: show ip ospf [vrf <NAME|all>] neighbor INTERFACE detail [json]
 
    Display lsa information of LSDB.
    Json o/p of this command covers base route information
    i.e all LSAs except opaque lsa info.
 
-.. clicmd:: show ip ospf [vrf <NAME|all>] database [json]
-
-.. clicmd:: show ip ospf [vrf <NAME|all>] database (asbr-summary|external|network|router|summary) [json]
-
-.. clicmd:: show ip ospf [vrf <NAME|all>] database (asbr-summary|external|network|router|summary) LINK-STATE-ID [json]
-
-.. clicmd:: show ip ospf [vrf <NAME|all>] database (asbr-summary|external|network|router|summary) LINK-STATE-ID adv-router ADV-ROUTER [json]
-
-.. clicmd:: show ip ospf [vrf <NAME|all>] database (asbr-summary|external|network|router|summary) adv-router ADV-ROUTER [json]
-
-.. clicmd:: show ip ospf [vrf <NAME|all>] database (asbr-summary|external|network|router|summary) LINK-STATE-ID self-originate [json]
-
-.. clicmd:: show ip ospf [vrf <NAME|all>] database (asbr-summary|external|network|router|summary) self-originate [json]
-
-.. clicmd:: show ip ospf [vrf <NAME|all>] database max-age [json]
-
-.. clicmd:: show ip ospf [vrf <NAME|all>] database self-originate [json]
+.. clicmd:: show ip ospf [vrf <NAME|all>] database [self-originate] [json]
 
    Show the OSPF database summary.
 
-.. clicmd:: show ip ospf route [json]
+.. clicmd:: show ip ospf [vrf <NAME|all>] database max-age [json]
+
+   Show all MaxAge LSAs present in the OSPF link-state database.
+
+.. clicmd:: show ip ospf [vrf <NAME|all>] database detail [LINK-STATE-ID] [adv-router A.B.C.D] [json]
+
+.. clicmd:: show ip ospf [vrf <NAME|all>] database detail [LINK-STATE-ID] [self-originate] [json]
+
+.. clicmd:: show ip ospf [vrf <NAME|all>] database (asbr-summary|external|network|router|summary|nssa-external|opaque-link|opaque-area|opaque-as) [LINK-STATE-ID] [adv-router A.B.C.D] [json]
+
+.. clicmd:: show ip ospf [vrf <NAME|all>] database (asbr-summary|external|network|router|summary|nssa-external|opaque-link|opaque-area|opaque-as) [LINK-STATE-ID] [self-originate] [json]
+
+   Show detailed information about the OSPF link-state database.
+
+.. clicmd:: show ip ospf route [detail] [json]
 
    Show the OSPF routing table, as determined by the most recent SPF
-   calculation.
+   calculation. When detail option is used, it shows more information
+   to the CLI like advertising router ID for each route, etc.
+
+.. clicmd:: show ip ospf [vrf <NAME|all>] border-routers [json]
+
+   Show the list of ABR and ASBR border routers summary learnt via
+   OSPFv2 Type-3 (Summary LSA) and Type-4 (Summary ASBR LSA).
+   User can get that information as JSON format when ``json`` keyword
+   at the end of cli is presented.
 
 .. clicmd:: show ip ospf graceful-restart helper [detail] [json]
 
-   Displays the Grcaeful Restart Helper details including helper
+   Displays the Graceful Restart Helper details including helper
    config changes.
 
 .. _opaque-lsa:
@@ -832,13 +954,25 @@ Opaque LSA
 
 
 
-   *ospfd* supports Opaque LSA (:rfc:`2370`) as partial support for
+   *ospfd* supports Opaque LSA (:rfc:`5250`) as partial support for
    MPLS Traffic Engineering LSAs. The opaque-lsa capability must be
    enabled in the configuration. An alternate command could be
    "mpls-te on" (:ref:`ospf-traffic-engineering`). Note that FRR
    offers only partial support for some of the routing protocol
    extensions that are used with MPLS-TE; it does not support a
    complete RSVP-TE solution.
+
+.. clicmd:: ip ospf capability opaque [A.B.C.D]
+
+   Enable or disable OSPF LSA database exchange and flooding on an interface.
+   The default is that opaque capability is enabled as long as the opaque
+   capability is enabled with the :clicmd:`capability opaque` command at the
+   OSPF instance level (using the command above). Note that disabling opaque
+   LSA support on an interface will impact the applications using opaque LSAs
+   if the opaque LSAs are not received on other flooding paths by all the
+   OSPF routers using those applications. For example, OSPF Graceful Restart
+   uses opaque-link LSAs and disabling support on an interface will disable
+   graceful restart signaling on that interface.
 
 .. clicmd:: show ip ospf [vrf <NAME|all>] database (opaque-link|opaque-area|opaque-external)
 
@@ -853,6 +987,12 @@ Opaque LSA
 .. clicmd:: show ip ospf [vrf <NAME|all>] database (opaque-link|opaque-area|opaque-external) self-originate
 
    Show Opaque LSA from the database.
+
+.. clicmd:: show ip ospf (1-65535) reachable-routers
+
+.. clicmd:: show ip ospf [vrf <NAME|all>] reachable-routers
+
+   Show routing table of reachable routers.
 
 .. _ospf-traffic-engineering:
 
@@ -972,12 +1112,6 @@ dataplane.
    Block, i.e. the label range used for Adjacency SID. The negative version
    of the command always unsets both ranges.
 
-.. clicmd:: segment-routing local-block (16-1048575) (16-1048575)
-
-   Set the Segment Routing Local Block i.e. the label range used by MPLS to
-   store label in the MPLS FIB for Adjacency SID. This command is deprecated
-   in favor of the combined command above.
-
 .. clicmd:: segment-routing node-msd (1-16)
 
    Fix the Maximum Stack Depth supported by the router. The value depend of the
@@ -1016,10 +1150,11 @@ Summary Route will be originated on-behalf of all matched external LSAs.
 .. clicmd:: aggregation timer (5-1800)
 
    Configure aggregation delay timer interval. Summarisation starts only after
-   this delay timer expiry. By default, delay interval is 5 secs.
+   this delay timer expiry. By default, delay interval is 5 seconds.
 
 
-   Resetting the aggregation delay interval to default value.
+   The no form of the command resets the aggregation delay interval to default
+   value.
 
 .. clicmd:: show ip ospf [vrf <NAME|all>] summary-address [detail] [json]
 
@@ -1044,74 +1179,83 @@ TI-LFA requires a proper Segment Routing configuration.
 Debugging OSPF
 ==============
 
-.. clicmd:: debug ospf bfd
+.. clicmd:: debug ospf [(1-65535)] bfd
 
    Enable or disable debugging for BFD events. This will show BFD integration
    library messages and OSPF BFD integration messages that are mostly state
    transitions and validation problems.
 
-.. clicmd:: debug ospf packet (hello|dd|ls-request|ls-update|ls-ack|all) (send|recv) [detail]
+.. clicmd:: debug ospf [(1-65535)] client-api
+
+   Show debug information for the OSPF opaque data client API.
+
+.. clicmd:: debug ospf [(1-65535)] default-information
+
+   Show debug information of default information
+
+.. clicmd:: debug ospf [(1-65535)] packet (hello|dd|ls-request|ls-update|ls-ack|all) (send|recv) [detail]
 
 
    Dump Packet for debugging
 
-.. clicmd:: debug ospf ism
-
-.. clicmd:: debug ospf ism (status|events|timers)
+.. clicmd:: debug ospf [(1-65535)] ism [status|events|timers]
 
 
 
    Show debug information of Interface State Machine
 
-.. clicmd:: debug ospf nsm
-
-.. clicmd:: debug ospf nsm (status|events|timers)
+.. clicmd:: debug ospf [(1-65535)] nsm [status|events|timers]
 
 
 
    Show debug information of Network State Machine
 
-.. clicmd:: debug ospf event
+.. clicmd:: debug ospf [(1-65535)] event
 
 
    Show debug information of OSPF event
 
-.. clicmd:: debug ospf nssa
+.. clicmd:: debug ospf [(1-65535)] nssa
 
 
    Show debug information about Not So Stub Area
 
-.. clicmd:: debug ospf lsa
+.. clicmd:: debug ospf [(1-65535)] ldp-sync
 
-.. clicmd:: debug ospf lsa (generate|flooding|refresh)
+   Show debug information about LDP-Sync
+
+.. clicmd:: debug ospf [(1-65535)] lsa [aggregate|flooding|generate|install|refresh]
 
 
 
    Show debug detail of Link State messages
 
-.. clicmd:: debug ospf te
+.. clicmd:: debug ospf [(1-65535)] sr
+
+   Show debug information about Segment Routing
+
+.. clicmd:: debug ospf [(1-65535)] te
 
 
    Show debug information about Traffic Engineering LSA
 
-.. clicmd:: debug ospf zebra
+.. clicmd:: debug ospf [(1-65535)] ti-lfa
 
-.. clicmd:: debug ospf zebra (interface|redistribute)
+   Show debug information about SR TI-LFA
+
+.. clicmd:: debug ospf [(1-65535)] zebra [interface|redistribute]
 
 
 
    Show debug information of ZEBRA API
 
-.. clicmd:: debug ospf graceful-restart helper
+.. clicmd:: debug ospf [(1-65535)] graceful-restart
 
 
    Enable/disable debug information for OSPF Graceful Restart Helper
 
 .. clicmd:: show debugging ospf
 
-.. clicmd:: debug ospf lsa aggregate
-
-   Debug commnd to enable/disable external route summarisation specific debugs.
 
 
 Sample Configuration

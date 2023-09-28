@@ -1,0 +1,42 @@
+{
+  "neighbors": {
+    "1.1.1.1": [
+      {
+        "databaseSummaryListCounter": 0,
+        "linkStateRetransmissionListCounter": 0,
+        "nbrPriority": 1,
+        "converged": "Full",
+        "ifaceAddress": "10.0.1.1",
+        "linkStateRequestListCounter": 0
+      }
+    ],
+    "3.3.3.3": [
+      {
+        "databaseSummaryListCounter": 0,
+        "linkStateRetransmissionListCounter": 0,
+        "nbrPriority": 1,
+        "converged": "Full",
+        "ifaceAddress": "10.0.2.3",
+        "linkStateRequestListCounter": 0
+      },
+      {
+        "databaseSummaryListCounter": 0,
+        "linkStateRetransmissionListCounter": 0,
+        "nbrPriority": 1,
+        "converged": "Full",
+        "ifaceAddress": "10.0.3.3",
+        "linkStateRequestListCounter": 0
+      }
+    ],
+    "4.4.4.4": [
+      {
+        "databaseSummaryListCounter": 0,
+        "linkStateRetransmissionListCounter": 0,
+        "nbrPriority": 1,
+        "converged": "Full",
+        "ifaceAddress": "10.0.2.4",
+        "linkStateRequestListCounter": 0
+      }
+    ]
+  }
+}

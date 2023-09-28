@@ -1,23 +1,8 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  *
  * Copyright (C) 2000  Robert Olsson.
  * Swedish University of Agricultural Sciences
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 /*
@@ -49,7 +34,7 @@
 #include "sockunion.h"
 #include "sockunion.h"
 #include "stream.h"
-#include "thread.h"
+#include "frrevent.h"
 #include "vty.h"
 #include "zclient.h"
 #include "lib_errors.h"
@@ -67,7 +52,7 @@
 
 int irdp_sock = -1;
 
-extern struct thread *t_irdp_raw;
+extern struct event *t_irdp_raw;
 
 static void parse_irdp_packet(char *p, int len, struct interface *ifp)
 {
@@ -224,7 +209,7 @@ static int irdp_recvmsg(int sock, uint8_t *buf, int size, int *ifindex)
 	return ret;
 }
 
-int irdp_read_raw(struct thread *r)
+void irdp_read_raw(struct event *r)
 {
 	struct interface *ifp;
 	struct zebra_if *zi;
@@ -232,9 +217,9 @@ int irdp_read_raw(struct thread *r)
 	char buf[IRDP_RX_BUF];
 	int ret, ifindex = 0;
 
-	int irdp_sock = THREAD_FD(r);
-	thread_add_read(zrouter.master, irdp_read_raw, NULL, irdp_sock,
-			&t_irdp_raw);
+	int irdp_sock = EVENT_FD(r);
+	event_add_read(zrouter.master, irdp_read_raw, NULL, irdp_sock,
+		       &t_irdp_raw);
 
 	ret = irdp_recvmsg(irdp_sock, (uint8_t *)buf, IRDP_RX_BUF, &ifindex);
 
@@ -243,22 +228,22 @@ int irdp_read_raw(struct thread *r)
 
 	ifp = if_lookup_by_index(ifindex, VRF_DEFAULT);
 	if (!ifp)
-		return ret;
+		return;
 
 	zi = ifp->info;
 	if (!zi)
-		return ret;
+		return;
 
 	irdp = zi->irdp;
 	if (!irdp)
-		return ret;
+		return;
 
 	if (!(irdp->flags & IF_ACTIVE)) {
 
 		if (irdp->flags & IF_DEBUG_MISC)
 			zlog_debug("IRDP: RX ICMP for disabled interface %s",
 				   ifp->name);
-		return 0;
+		return;
 	}
 
 	if (irdp->flags & IF_DEBUG_PACKET) {
@@ -269,8 +254,6 @@ int irdp_read_raw(struct thread *r)
 	}
 
 	parse_irdp_packet(buf, ret, ifp);
-
-	return ret;
 }
 
 void send_packet(struct interface *ifp, struct stream *s, uint32_t dst,

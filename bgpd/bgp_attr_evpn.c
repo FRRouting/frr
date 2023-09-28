@@ -1,21 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* Ethernet-VPN Attribute handling file
  * Copyright (C) 2016 6WIND
- *
- * This file is part of FRRouting.
- *
- * FRRouting is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * FRRouting is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -36,18 +21,29 @@
 #include "bgpd/bgp_evpn.h"
 #include "bgpd/bgp_evpn_private.h"
 
+bool bgp_route_evpn_same(const struct bgp_route_evpn *e1,
+			 const struct bgp_route_evpn *e2)
+{
+	return (e1->type == e2->type &&
+		!memcmp(&(e1->eth_s_id), &(e2->eth_s_id), sizeof(esi_t)) &&
+		!ipaddr_cmp(&(e1->gw_ip), &(e2->gw_ip)));
+}
+
 void bgp_add_routermac_ecom(struct attr *attr, struct ethaddr *routermac)
 {
 	struct ecommunity_val routermac_ecom;
+	struct ecommunity *ecomm = bgp_attr_get_ecommunity(attr);
 
-	memset(&routermac_ecom, 0, sizeof(struct ecommunity_val));
+	memset(&routermac_ecom, 0, sizeof(routermac_ecom));
 	routermac_ecom.val[0] = ECOMMUNITY_ENCODE_EVPN;
 	routermac_ecom.val[1] = ECOMMUNITY_EVPN_SUBTYPE_ROUTERMAC;
 	memcpy(&routermac_ecom.val[2], routermac->octet, ETH_ALEN);
-	if (!attr->ecommunity)
-		attr->ecommunity = ecommunity_new();
-	ecommunity_add_val(attr->ecommunity, &routermac_ecom, false, false);
-	ecommunity_str(attr->ecommunity);
+	if (!ecomm) {
+		bgp_attr_set_ecommunity(attr, ecommunity_new());
+		ecomm = bgp_attr_get_ecommunity(attr);
+	}
+	ecommunity_add_val(ecomm, &routermac_ecom, false, false);
+	ecommunity_str(ecomm);
 }
 
 /* converts to an esi
@@ -92,7 +88,7 @@ bool bgp_attr_rmac(struct attr *attr, struct ethaddr *rmac)
 	uint32_t i = 0;
 	struct ecommunity *ecom;
 
-	ecom = attr->ecommunity;
+	ecom = bgp_attr_get_ecommunity(attr);
 	if (!ecom || !ecom->size)
 		return false;
 
@@ -124,7 +120,7 @@ uint8_t bgp_attr_default_gw(struct attr *attr)
 	struct ecommunity *ecom;
 	uint32_t i;
 
-	ecom = attr->ecommunity;
+	ecom = bgp_attr_get_ecommunity(attr);
 	if (!ecom || !ecom->size)
 		return 0;
 
@@ -157,7 +153,7 @@ uint16_t bgp_attr_df_pref_from_ec(struct attr *attr, uint8_t *alg)
 	uint16_t df_pref = 0;
 
 	*alg = EVPN_MH_DF_ALG_SERVICE_CARVING;
-	ecom = attr->ecommunity;
+	ecom = bgp_attr_get_ecommunity(attr);
 	if (!ecom || !ecom->size)
 		return 0;
 
@@ -193,7 +189,7 @@ uint32_t bgp_attr_mac_mobility_seqnum(struct attr *attr, uint8_t *sticky)
 	uint32_t i;
 	uint8_t flags = 0;
 
-	ecom = attr->ecommunity;
+	ecom = bgp_attr_get_ecommunity(attr);
 	if (!ecom || !ecom->size)
 		return 0;
 
@@ -240,7 +236,7 @@ void bgp_attr_evpn_na_flag(struct attr *attr,
 	uint32_t i;
 	uint8_t val;
 
-	ecom = attr->ecommunity;
+	ecom = bgp_attr_get_ecommunity(attr);
 	if (!ecom || !ecom->size)
 		return;
 
@@ -304,15 +300,3 @@ extern int bgp_build_evpn_prefix(int evpn_type, uint32_t eth_tag,
 		return -1;
 	return 0;
 }
-
-extern bool is_zero_gw_ip(const union gw_addr *gw_ip, const afi_t afi)
-{
-	if (afi == AF_INET6 && IN6_IS_ADDR_UNSPECIFIED(&gw_ip->ipv6))
-		return true;
-
-	if (afi == AF_INET && gw_ip->ipv4.s_addr == INADDR_ANY)
-		return true;
-
-	return false;
-}
-

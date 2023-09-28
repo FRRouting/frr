@@ -1,21 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* RIP SNMP support
  * Copyright (C) 1999 Kunihiro Ishiguro <kunihiro@zebra.org>
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -150,7 +135,7 @@ static struct variable rip_variables[] = {
 	{RIP2PEERRCVBADPACKETS, COUNTER, RONLY, rip2PeerTable, 3, {4, 1, 5}},
 	{RIP2PEERRCVBADROUTES, COUNTER, RONLY, rip2PeerTable, 3, {4, 1, 6}}};
 
-extern struct thread_master *master;
+extern struct event_loop *master;
 
 static uint8_t *rip2Globals(struct variable *v, oid name[], size_t *length,
 			    int exact, size_t *var_len,
@@ -257,7 +242,7 @@ static struct interface *rip2IfLookup(struct variable *v, oid name[],
 
 		oid2in_addr(name + v->namelen, sizeof(struct in_addr), addr);
 
-		return if_lookup_exact_address((void *)addr, AF_INET,
+		return if_lookup_address_local((void *)addr, AF_INET,
 					       VRF_DEFAULT);
 	} else {
 		len = *length - v->namelen;
@@ -356,7 +341,7 @@ static uint8_t *rip2IfStatEntry(struct variable *v, oid name[], size_t *length,
 	    == MATCH_FAILED)
 		return NULL;
 
-	memset(&addr, 0, sizeof(struct in_addr));
+	memset(&addr, 0, sizeof(addr));
 
 	/* Lookup interface. */
 	ifp = rip2IfLookup(v, name, length, &addr, exact);
@@ -457,7 +442,7 @@ static uint8_t *rip2IfConfAddress(struct variable *v, oid name[],
 	    == MATCH_FAILED)
 		return NULL;
 
-	memset(&addr, 0, sizeof(struct in_addr));
+	memset(&addr, 0, sizeof(addr));
 
 	/* Lookup interface. */
 	ifp = rip2IfLookup(v, name, length, &addr, exact);
@@ -529,7 +514,7 @@ static uint8_t *rip2PeerTable(struct variable *v, oid name[], size_t *length,
 	    == MATCH_FAILED)
 		return NULL;
 
-	memset(&addr, 0, sizeof(struct in_addr));
+	memset(&addr, 0, sizeof(addr));
 
 	/* Lookup interface. */
 	peer = rip2PeerLookup(v, name, length, &addr, exact);
@@ -568,7 +553,7 @@ static uint8_t *rip2PeerTable(struct variable *v, oid name[], size_t *length,
 }
 
 /* Register RIPv2-MIB. */
-static int rip_snmp_init(struct thread_master *master)
+static int rip_snmp_init(struct event_loop *master)
 {
 	rip_ifaddr_table = route_table_init();
 

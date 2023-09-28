@@ -1,26 +1,11 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Copyright (C) 2003 Yasuhiro Ohara
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
 
-#include "thread.h"
+#include "frrevent.h"
 #include "linklist.h"
 #include "vty.h"
 #include "command.h"
@@ -48,8 +33,16 @@
 #include "ospf6_gr.h"
 #include "lib/json.h"
 #include "ospf6_nssa.h"
+#include "ospf6_auth_trailer.h"
+#include "ospf6d/ospf6d_clippy.c"
 
 DEFINE_MGROUP(OSPF6D, "ospf6d");
+
+/* OSPF6 config processing timer thread */
+struct event *t_ospf6_cfg;
+
+/* OSPF6 debug event state */
+unsigned char conf_debug_ospf6_event;
 
 struct route_node *route_prev(struct route_node *node)
 {
@@ -76,6 +69,7 @@ struct route_node *route_prev(struct route_node *node)
 }
 
 static int config_write_ospf6_debug(struct vty *vty);
+static int config_write_ospf6_debug_event(struct vty *vty);
 static struct cmd_node debug_node = {
 	.name = "debug",
 	.node = DEBUG_NODE,
@@ -98,6 +92,8 @@ static int config_write_ospf6_debug(struct vty *vty)
 	config_write_ospf6_debug_flood(vty);
 	config_write_ospf6_debug_nssa(vty);
 	config_write_ospf6_debug_gr_helper(vty);
+	config_write_ospf6_debug_auth(vty);
+	config_write_ospf6_debug_event(vty);
 
 	return 0;
 }
@@ -112,6 +108,8 @@ DEFUN_NOSH (show_debugging_ospf6,
 	vty_out(vty, "OSPF6 debugging status:\n");
 
 	config_write_ospf6_debug(vty);
+
+	cmd_show_lib_debugs(vty);
 
 	return CMD_SUCCESS;
 }
@@ -292,10 +290,7 @@ static void ospf6_lsdb_show_wrapper(struct vty *vty,
 		json_object_array_add(json_array, json_obj);
 		json_object_object_add(json, "asScopedLinkStateDb", json_array);
 
-		vty_out(vty, "%s\n",
-			json_object_to_json_string_ext(
-				json, JSON_C_TO_STRING_PRETTY));
-		json_object_free(json);
+		vty_json(vty, json);
 	} else
 		vty_out(vty, "\n");
 }
@@ -386,12 +381,9 @@ static void ospf6_lsdb_type_show_wrapper(struct vty *vty,
 		assert(0);
 		break;
 	}
-	if (uj) {
-		vty_out(vty, "%s\n",
-			json_object_to_json_string_ext(
-				json, JSON_C_TO_STRING_PRETTY));
-		json_object_free(json);
-	} else
+	if (uj)
+		vty_json(vty, json);
+	else
 		vty_out(vty, "\n");
 }
 
@@ -426,6 +418,8 @@ DEFUN(show_ipv6_ospf6_database, show_ipv6_ospf6_database_cmd,
 				break;
 		}
 	}
+
+	OSPF6_CMD_CHECK_VRF(uj, all_vrf, ospf6);
 
 	return CMD_SUCCESS;
 }
@@ -477,6 +471,8 @@ DEFUN(show_ipv6_ospf6_database_type, show_ipv6_ospf6_database_type_cmd,
 		}
 	}
 
+	OSPF6_CMD_CHECK_VRF(uj, all_vrf, ospf6);
+
 	return CMD_SUCCESS;
 }
 
@@ -517,6 +513,8 @@ DEFUN(show_ipv6_ospf6_database_id, show_ipv6_ospf6_database_id_cmd,
 				break;
 		}
 	}
+
+	OSPF6_CMD_CHECK_VRF(uj, all_vrf, ospf6);
 
 	return CMD_SUCCESS;
 }
@@ -562,6 +560,8 @@ DEFUN(show_ipv6_ospf6_database_router, show_ipv6_ospf6_database_router_cmd,
 				break;
 		}
 	}
+
+	OSPF6_CMD_CHECK_VRF(uj, all_vrf, ospf6);
 
 	return CMD_SUCCESS;
 }
@@ -631,6 +631,8 @@ DEFUN_HIDDEN(
 		}
 	}
 
+	OSPF6_CMD_CHECK_VRF(false, all_vrf, ospf6);
+
 	return CMD_SUCCESS;
 }
 
@@ -686,6 +688,8 @@ DEFUN(show_ipv6_ospf6_database_type_id, show_ipv6_ospf6_database_type_id_cmd,
 				break;
 		}
 	}
+
+	OSPF6_CMD_CHECK_VRF(uj, all_vrf, ospf6);
 
 	return CMD_SUCCESS;
 }
@@ -746,6 +750,8 @@ DEFUN(show_ipv6_ospf6_database_type_router,
 		}
 	}
 
+	OSPF6_CMD_CHECK_VRF(uj, all_vrf, ospf6);
+
 	return CMD_SUCCESS;
 }
 
@@ -795,6 +801,8 @@ DEFUN(show_ipv6_ospf6_database_id_router,
 		}
 	}
 
+	OSPF6_CMD_CHECK_VRF(uj, all_vrf, ospf6);
+
 	return CMD_SUCCESS;
 }
 
@@ -843,6 +851,8 @@ DEFUN(show_ipv6_ospf6_database_adv_router_linkstate_id,
 				break;
 		}
 	}
+
+	OSPF6_CMD_CHECK_VRF(uj, all_vrf, ospf6);
 
 	return CMD_SUCCESS;
 }
@@ -904,6 +914,8 @@ DEFUN(show_ipv6_ospf6_database_type_id_router,
 				break;
 		}
 	}
+
+	OSPF6_CMD_CHECK_VRF(uj, all_vrf, ospf6);
 
 	return CMD_SUCCESS;
 }
@@ -973,6 +985,8 @@ DEFUN (show_ipv6_ospf6_database_type_adv_router_linkstate_id,
 		}
 	}
 
+	OSPF6_CMD_CHECK_VRF(uj, all_vrf, ospf6);
+
 	return CMD_SUCCESS;
 }
 
@@ -1013,6 +1027,8 @@ DEFUN(show_ipv6_ospf6_database_self_originated,
 				break;
 		}
 	}
+
+	OSPF6_CMD_CHECK_VRF(uj, all_vrf, ospf6);
 
 	return CMD_SUCCESS;
 }
@@ -1070,6 +1086,8 @@ DEFUN(show_ipv6_ospf6_database_type_self_originated,
 				break;
 		}
 	}
+
+	OSPF6_CMD_CHECK_VRF(uj, all_vrf, ospf6);
 
 	return CMD_SUCCESS;
 }
@@ -1133,6 +1151,8 @@ DEFUN(show_ipv6_ospf6_database_type_self_originated_linkstate_id,
 		}
 	}
 
+	OSPF6_CMD_CHECK_VRF(uj, all_vrf, ospf6);
+
 	return CMD_SUCCESS;
 }
 
@@ -1192,6 +1212,8 @@ DEFUN(show_ipv6_ospf6_database_type_id_self_originated,
 				break;
 		}
 	}
+
+	OSPF6_CMD_CHECK_VRF(uj, all_vrf, ospf6);
 
 	return CMD_SUCCESS;
 }
@@ -1269,6 +1291,8 @@ DEFUN(show_ipv6_ospf6_border_routers, show_ipv6_ospf6_border_routers_cmd,
 		}
 	}
 
+	OSPF6_CMD_CHECK_VRF(false, all_vrf, ospf6);
+
 	return CMD_SUCCESS;
 }
 
@@ -1312,6 +1336,8 @@ DEFUN(show_ipv6_ospf6_linkstate, show_ipv6_ospf6_linkstate_cmd,
 		}
 	}
 
+	OSPF6_CMD_CHECK_VRF(false, all_vrf, ospf6);
+
 	return CMD_SUCCESS;
 }
 
@@ -1352,11 +1378,36 @@ DEFUN(show_ipv6_ospf6_linkstate_detail, show_ipv6_ospf6_linkstate_detail_cmd,
 		}
 	}
 
+	OSPF6_CMD_CHECK_VRF(false, all_vrf, ospf6);
+
 	return CMD_SUCCESS;
 }
 
+DEFPY(debug_ospf6_event, debug_ospf6_event_cmd, "[no] debug ospf6 event",
+      NO_STR DEBUG_STR OSPF6_STR "Debug OSPFv3 event function\n")
+{
+	if (!no)
+		OSPF6_DEBUG_EVENT_ON();
+	else
+		OSPF6_DEBUG_EVENT_OFF();
+	return CMD_SUCCESS;
+}
+
+static int config_write_ospf6_debug_event(struct vty *vty)
+{
+	if (IS_OSPF6_DEBUG_EVENT)
+		vty_out(vty, "debug ospf6 event\n");
+	return 0;
+}
+
+static void install_element_ospf6_debug_event(void)
+{
+	install_element(ENABLE_NODE, &debug_ospf6_event_cmd);
+	install_element(CONFIG_NODE, &debug_ospf6_event_cmd);
+}
+
 /* Install ospf related commands. */
-void ospf6_init(struct thread_master *master)
+void ospf6_init(struct event_loop *master)
 {
 	ospf6_top_init();
 	ospf6_area_init();
@@ -1428,4 +1479,8 @@ void ospf6_init(struct thread_master *master)
 		VIEW_NODE,
 		&show_ipv6_ospf6_database_type_self_originated_linkstate_id_cmd);
 	install_element(VIEW_NODE, &show_ipv6_ospf6_database_aggr_router_cmd);
+	install_element_ospf6_debug_event();
+	install_element_ospf6_debug_auth();
+	ospf6_interface_auth_trailer_cmd_init();
+	install_element_ospf6_clear_intf_auth();
 }

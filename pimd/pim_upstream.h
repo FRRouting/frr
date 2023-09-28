@@ -1,20 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * PIM for Quagga
  * Copyright (C) 2008  Everton da Silva Marques
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef PIM_UPSTREAM_H
@@ -229,9 +216,9 @@ struct pim_upstream {
 	struct pim_instance *pim;
 	struct rb_pim_upstream_item upstream_rb;
 	struct pim_upstream *parent;
-	struct in_addr upstream_addr;     /* Who we are talking to */
-	struct in_addr upstream_register; /*Who we received a register from*/
-	struct prefix_sg sg;		  /* (S,G) group key */
+	pim_addr upstream_addr;		  /* Who we are talking to */
+	pim_addr upstream_register;       /*Who we received a register from*/
+	pim_sgaddr sg;			  /* (S,G) group key */
 	char sg_str[PIM_SG_LEN];
 	uint32_t flags;
 	struct channel_oil *channel_oil;
@@ -250,19 +237,19 @@ struct pim_upstream {
 
 	struct pim_up_mlag mlag;
 
-	struct thread *t_join_timer;
+	struct event *t_join_timer;
 
 	/*
 	 * RST(S,G)
 	 */
-	struct thread *t_rs_timer;
+	struct event *t_rs_timer;
 #define PIM_REGISTER_SUPPRESSION_PERIOD (60)
 #define PIM_REGISTER_PROBE_PERIOD        (5)
 
 	/*
 	 * KAT(S,G)
 	 */
-	struct thread *t_ka_timer;
+	struct event *t_ka_timer;
 #define PIM_KEEPALIVE_PERIOD  (210)
 #define PIM_RP_KEEPALIVE_PERIOD                                                \
 	(3 * router->register_suppress_time + router->register_probe_time)
@@ -270,7 +257,7 @@ struct pim_upstream {
 	/* on the RP we restart a timer to indicate if registers are being rxed
 	 * for
 	 * SG. This is needed by MSDP to determine its local SA cache */
-	struct thread *t_msdp_reg_timer;
+	struct event *t_msdp_reg_timer;
 #define PIM_MSDP_REG_RXED_PERIOD (3 * (1.5 * router->register_suppress_time))
 
 	int64_t state_transition; /* Record current state uptime */
@@ -291,12 +278,11 @@ static inline bool pim_up_mlag_is_local(struct pim_upstream *up)
 }
 
 struct pim_upstream *pim_upstream_find(struct pim_instance *pim,
-				       struct prefix_sg *sg);
-struct pim_upstream *pim_upstream_find_or_add(struct prefix_sg *sg,
+				       pim_sgaddr *sg);
+struct pim_upstream *pim_upstream_find_or_add(pim_sgaddr *sg,
 					      struct interface *ifp, int flags,
 					      const char *name);
-struct pim_upstream *pim_upstream_add(struct pim_instance *pim,
-				      struct prefix_sg *sg,
+struct pim_upstream *pim_upstream_add(struct pim_instance *pim, pim_sgaddr *sg,
 				      struct interface *ifp, int flags,
 				      const char *name,
 				      struct pim_ifchannel *ch);
@@ -318,8 +304,8 @@ void pim_upstream_update_join_desired(struct pim_instance *pim,
 				      struct pim_upstream *up);
 
 void pim_update_suppress_timers(uint32_t suppress_time);
-void pim_upstream_join_suppress(struct pim_upstream *up,
-				struct in_addr rpf_addr, int holdtime);
+void pim_upstream_join_suppress(struct pim_upstream *up, pim_addr rpf,
+				int holdtime);
 
 void pim_upstream_join_timer_decrease_to_t_override(const char *debug_label,
 						    struct pim_upstream *up);
@@ -327,7 +313,7 @@ void pim_upstream_join_timer_decrease_to_t_override(const char *debug_label,
 void pim_upstream_join_timer_restart(struct pim_upstream *up,
 				     struct pim_rpf *old);
 void pim_upstream_rpf_genid_changed(struct pim_instance *pim,
-				    struct in_addr neigh_addr);
+				    pim_addr neigh_addr);
 void pim_upstream_rpf_interface_changed(struct pim_upstream *up,
 					struct interface *old_rpf_ifp);
 
@@ -338,7 +324,7 @@ void pim_upstream_keep_alive_timer_start(struct pim_upstream *up,
 					 uint32_t time);
 
 int pim_upstream_switch_to_spt_desired_on_rp(struct pim_instance *pim,
-				       struct prefix_sg *sg);
+					     pim_sgaddr *sg);
 #define SwitchToSptDesiredOnRp(pim, sg) pim_upstream_switch_to_spt_desired_on_rp (pim, sg)
 int pim_upstream_is_sg_rpt(struct pim_upstream *up);
 

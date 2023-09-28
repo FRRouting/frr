@@ -1,23 +1,10 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * This file defines the lua interface into
  * FRRouting.
  *
  * Copyright (C) 2016-2019 Cumulus Networks, Inc.
  * Donald Sharp, Quentin Young
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -223,6 +210,21 @@ void *lua_toin6addr(lua_State *L, int idx)
 	return in6addr;
 }
 
+void lua_pushipaddr(lua_State *L, const struct ipaddr *addr)
+{
+	if (IS_IPADDR_V4(addr))
+		lua_pushinaddr(L, &addr->ipaddr_v4);
+	else
+		lua_pushin6addr(L, &addr->ipaddr_v6);
+}
+
+void lua_pushethaddr(lua_State *L, const struct ethaddr *addr)
+{
+	lua_newtable(L);
+	lua_pushinteger(L, *(addr->octet));
+	lua_setfield(L, -2, "octet");
+}
+
 void lua_pushsockunion(lua_State *L, const union sockunion *su)
 {
 	char buf[SU_ADDRSTRLEN];
@@ -257,25 +259,6 @@ void *lua_tosockunion(lua_State *L, int idx)
 	return su;
 }
 
-void lua_pushtimet(lua_State *L, const time_t *time)
-{
-	lua_pushinteger(L, *time);
-}
-
-void lua_decode_timet(lua_State *L, int idx, time_t *t)
-{
-	*t = lua_tointeger(L, idx);
-	lua_pop(L, 1);
-}
-
-void *lua_totimet(lua_State *L, int idx)
-{
-	time_t *t = XCALLOC(MTYPE_SCRIPT_RES, sizeof(time_t));
-
-	lua_decode_timet(L, idx, t);
-	return t;
-}
-
 void lua_pushintegerp(lua_State *L, const long long *num)
 {
 	lua_pushinteger(L, *num);
@@ -295,6 +278,58 @@ void *lua_tointegerp(lua_State *L, int idx)
 
 	lua_decode_integerp(L, idx, num);
 	return num;
+}
+
+void lua_pushnexthop(lua_State *L, const struct nexthop *nexthop)
+{
+	lua_newtable(L);
+	lua_pushinteger(L, nexthop->vrf_id);
+	lua_setfield(L, -2, "vrf_id");
+	lua_pushinteger(L, nexthop->ifindex);
+	lua_setfield(L, -2, "ifindex");
+	lua_pushinteger(L, nexthop->type);
+	lua_setfield(L, -2, "type");
+	lua_pushinteger(L, nexthop->flags);
+	lua_setfield(L, -2, "flags");
+	if (nexthop->type == NEXTHOP_TYPE_BLACKHOLE) {
+		lua_pushinteger(L, nexthop->bh_type);
+		lua_setfield(L, -2, "bh_type");
+	} else if (nexthop->type == NEXTHOP_TYPE_IPV4) {
+		lua_pushinaddr(L, &nexthop->gate.ipv4);
+		lua_setfield(L, -2, "gate");
+	} else if (nexthop->type == NEXTHOP_TYPE_IPV6) {
+		lua_pushin6addr(L, &nexthop->gate.ipv6);
+		lua_setfield(L, -2, "gate");
+	}
+	lua_pushinteger(L, nexthop->nh_label_type);
+	lua_setfield(L, -2, "nh_label_type");
+	lua_pushinteger(L, nexthop->weight);
+	lua_setfield(L, -2, "weight");
+	lua_pushinteger(L, nexthop->backup_num);
+	lua_setfield(L, -2, "backup_num");
+	lua_pushinteger(L, *(nexthop->backup_idx));
+	lua_setfield(L, -2, "backup_idx");
+	if (nexthop->nh_encap_type == NET_VXLAN) {
+		lua_pushinteger(L, nexthop->nh_encap.vni);
+		lua_setfield(L, -2, "vni");
+	}
+	lua_pushinteger(L, nexthop->nh_encap_type);
+	lua_setfield(L, -2, "nh_encap_type");
+	lua_pushinteger(L, nexthop->srte_color);
+	lua_setfield(L, -2, "srte_color");
+}
+
+void lua_pushnexthop_group(lua_State *L, const struct nexthop_group *ng)
+{
+	lua_newtable(L);
+	struct nexthop *nexthop;
+	int i = 0;
+
+	for (ALL_NEXTHOPS_PTR(ng, nexthop)) {
+		lua_pushnexthop(L, nexthop);
+		lua_seti(L, -2, i);
+		i++;
+	}
 }
 
 void lua_decode_stringp(lua_State *L, int idx, char *str)

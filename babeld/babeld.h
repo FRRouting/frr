@@ -1,24 +1,7 @@
+// SPDX-License-Identifier: MIT
 /*
 Copyright (c) 2007, 2008 by Juliusz Chroboczek
 Copyright 2011 by Matthieu Boutier and Juliusz Chroboczek
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in
-all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-THE SOFTWARE.
 */
 
 #ifndef BABEL_BABELD_H
@@ -43,12 +26,8 @@ THE SOFTWARE.
 
 #if defined(__GNUC__) && (__GNUC__ >= 3)
 #define ATTRIBUTE(x) __attribute__ (x)
-#define LIKELY(_x) __builtin_expect(!!(_x), 1)
-#define UNLIKELY(_x) __builtin_expect(!!(_x), 0)
 #else
 #define ATTRIBUTE(x) /**/
-#define LIKELY(_x) !!(_x)
-#define UNLIKELY(_x) !!(_x)
 #endif
 
 #if defined(__GNUC__) && (__GNUC__ >= 4) && (__GNUC_MINOR__ >= 3)
@@ -81,6 +60,11 @@ THE SOFTWARE.
 #define BABEL_DEFAULT_HELLO_INTERVAL 4000
 #define BABEL_DEFAULT_UPDATE_INTERVAL 16000
 #define BABEL_DEFAULT_RESEND_DELAY 2000
+#define BABEL_DEFAULT_RTT_DECAY 42
+
+/* Values in microseconds */
+#define BABEL_DEFAULT_RTT_MIN 10000
+#define BABEL_DEFAULT_RTT_MAX 120000
 
 /* In units of seconds */
 #define BABEL_DEFAULT_SMOOTHING_HALF_LIFE 4
@@ -90,13 +74,14 @@ THE SOFTWARE.
 
 #define BABEL_DEFAULT_RXCOST_WIRED 96
 #define BABEL_DEFAULT_RXCOST_WIRELESS 256
+#define BABEL_DEFAULT_MAX_RTT_PENALTY 150
 
 /* Babel structure. */
 struct babel
 {
     /* Babel threads. */
-    struct thread *t_read;    /* on Babel protocol's socket */
-    struct thread *t_update;  /* timers */
+    struct event *t_read;   /* on Babel protocol's socket */
+    struct event *t_update; /* timers */
     /* distribute_ctx */
     struct distribute_ctx *distribute_ctx;
 };

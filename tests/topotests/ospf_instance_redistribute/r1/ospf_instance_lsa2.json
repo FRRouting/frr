@@ -1,0 +1,25 @@
+{
+  "ospfInstance":3,
+  "routerId":"192.168.100.1",
+  "areas":{
+  },
+  "asExternalLinkStates":[
+    {
+      "lsId":"4.5.6.7",
+      "advertisedRouter":"192.168.100.1",
+      "sequenceNumber":"80000001",
+      "metricType":"E2",
+      "route":"4.5.6.7/32",
+      "tag":0
+    },
+    {
+      "lsId":"4.5.6.10",
+      "advertisedRouter":"192.168.100.1",
+      "sequenceNumber":"80000001",
+      "metricType":"E2",
+      "route":"4.5.6.10/32",
+      "tag":0
+    }
+  ],
+  "asExternalLinkStatesCount":2
+}

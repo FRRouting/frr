@@ -1,20 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Copyright (C) 2018  NetDEF, Inc.
  *                     Renato Westphal
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -36,12 +23,12 @@ DEFINE_MTYPE_STATIC(LIB, SYSREPO, "Sysrepo module");
 
 static struct debug nb_dbg_client_sysrepo = {0, "Northbound client: Sysrepo"};
 
-static struct thread_master *master;
+static struct event_loop *master;
 static sr_session_ctx_t *session;
 static sr_conn_ctx_t *connection;
 static struct nb_transaction *transaction;
 
-static int frr_sr_read_cb(struct thread *thread);
+static void frr_sr_read_cb(struct event *thread);
 static int frr_sr_finish(void);
 
 /* Convert FRR YANG data value to sysrepo YANG data value. */
@@ -77,11 +64,11 @@ static int yang_data_frr2sr(struct yang_data *frr_data, sr_val_t *sr_data)
 		return 0;
 	case LYS_LEAF:
 		sleaf = (struct lysc_node_leaf *)snode;
-		type = sleaf->type.base;
+		type = sleaf->type->basetype;
 		break;
 	case LYS_LEAFLIST:
 		sleaflist = (struct lysc_node_leaflist *)snode;
-		type = sleaflist->type.base;
+		type = sleaflist->type->basetype;
 		break;
 	default:
 		return -1;
@@ -281,8 +268,9 @@ static int frr_sr_config_change_cb_prepare(sr_session_ctx_t *session,
 	 * Validate the configuration changes and allocate all resources
 	 * required to apply them.
 	 */
-	ret = nb_candidate_commit_prepare(&context, candidate, NULL,
-					  &transaction, errmsg, sizeof(errmsg));
+	ret = nb_candidate_commit_prepare(context, candidate, NULL,
+					  &transaction, false, false, errmsg,
+					  sizeof(errmsg));
 	if (ret != NB_OK && ret != NB_ERR_NO_CHANGES)
 		flog_warn(
 			EC_LIB_LIBSYSREPO,
@@ -301,7 +289,7 @@ static int frr_sr_config_change_cb_prepare(sr_session_ctx_t *session,
 	case NB_ERR_LOCKED:
 		return SR_ERR_LOCKED;
 	case NB_ERR_RESOURCE:
-		return SR_ERR_NOMEM;
+		return SR_ERR_NO_MEMORY;
 	default:
 		return SR_ERR_VALIDATION_FAILED;
 	}
@@ -339,7 +327,7 @@ static int frr_sr_config_change_cb_abort(sr_session_ctx_t *session,
 }
 
 /* Callback for changes in the running configuration. */
-static int frr_sr_config_change_cb(sr_session_ctx_t *session,
+static int frr_sr_config_change_cb(sr_session_ctx_t *session, uint32_t sub_id,
 				   const char *module_name, const char *xpath,
 				   sr_event_t sr_ev, uint32_t request_id,
 				   void *private_data)
@@ -364,11 +352,12 @@ static int frr_sr_state_data_iter_cb(const struct lysc_node *snode,
 				     struct yang_data *data, void *arg)
 {
 	struct lyd_node *dnode = arg;
+	LY_ERR ly_errno;
 
 	ly_errno = 0;
-	dnode = lyd_new_path(dnode, ly_native_ctx, data->xpath, data->value, 0,
-			     LYD_PATH_OPT_UPDATE);
-	if (!dnode && ly_errno) {
+	ly_errno = lyd_new_path(NULL, ly_native_ctx, data->xpath, data->value,
+				0, &dnode);
+	if (ly_errno) {
 		flog_warn(EC_LIB_LIBYANG, "%s: lyd_new_path() failed",
 			  __func__);
 		yang_data_free(data);
@@ -380,10 +369,10 @@ static int frr_sr_state_data_iter_cb(const struct lysc_node *snode,
 }
 
 /* Callback for state retrieval. */
-static int frr_sr_state_cb(sr_session_ctx_t *session, const char *module_name,
-			   const char *xpath, const char *request_xpath,
-			   uint32_t request_id, struct lyd_node **parent,
-			   void *private_ctx)
+static int frr_sr_state_cb(sr_session_ctx_t *session, uint32_t sub_id,
+			   const char *module_name, const char *xpath,
+			   const char *request_xpath, uint32_t request_id,
+			   struct lyd_node **parent, void *private_ctx)
 {
 	struct lyd_node *dnode;
 
@@ -401,9 +390,8 @@ static int frr_sr_state_cb(sr_session_ctx_t *session, const char *module_name,
 
 	return SR_ERR_OK;
 }
-
-static int frr_sr_config_rpc_cb(sr_session_ctx_t *session, const char *xpath,
-				const sr_val_t *sr_input,
+static int frr_sr_config_rpc_cb(sr_session_ctx_t *session, uint32_t sub_id,
+				const char *xpath, const sr_val_t *sr_input,
 				const size_t input_cnt, sr_event_t sr_ev,
 				uint32_t request_id, sr_val_t **sr_output,
 				size_t *sr_output_cnt, void *private_ctx)
@@ -515,7 +503,7 @@ static int frr_sr_notification_send(const char *xpath, struct list *arguments)
 		}
 	}
 
-	ret = sr_event_notif_send(session, xpath, values, values_cnt);
+	ret = sr_notif_send(session, xpath, values, values_cnt, 0, 0);
 	if (ret != SR_ERR_OK) {
 		flog_err(EC_LIB_LIBSYSREPO,
 			 "%s: sr_event_notif_send() failed for xpath %s",
@@ -526,22 +514,21 @@ static int frr_sr_notification_send(const char *xpath, struct list *arguments)
 	return NB_OK;
 }
 
-static int frr_sr_read_cb(struct thread *thread)
+static void frr_sr_read_cb(struct event *thread)
 {
-	struct yang_module *module = THREAD_ARG(thread);
-	int fd = THREAD_FD(thread);
+	struct yang_module *module = EVENT_ARG(thread);
+	int fd = EVENT_FD(thread);
 	int ret;
 
-	ret = sr_process_events(module->sr_subscription, session, NULL);
+	ret = sr_subscription_process_events(module->sr_subscription, session,
+					     NULL);
 	if (ret != SR_ERR_OK) {
 		flog_err(EC_LIB_LIBSYSREPO, "%s: sr_fd_event_process(): %s",
 			 __func__, sr_strerror(ret));
-		return -1;
+		return;
 	}
 
-	thread_add_read(master, frr_sr_read_cb, module, fd, &module->sr_thread);
-
-	return 0;
+	event_add_read(master, frr_sr_read_cb, module, fd, &module->sr_thread);
 }
 
 static void frr_sr_subscribe_config(struct yang_module *module)
@@ -580,9 +567,9 @@ static int frr_sr_subscribe_state(const struct lysc_node *snode, void *arg)
 	DEBUGD(&nb_dbg_client_sysrepo, "sysrepo: providing data to '%s'",
 	       nb_node->xpath);
 
-	ret = sr_oper_get_items_subscribe(
-		session, snode->module->name, nb_node->xpath, frr_sr_state_cb,
-		NULL, SR_SUBSCR_CTX_REUSE, &module->sr_subscription);
+	ret = sr_oper_get_subscribe(session, snode->module->name,
+				    nb_node->xpath, frr_sr_state_cb, NULL, 0,
+				    &module->sr_subscription);
 	if (ret != SR_ERR_OK)
 		flog_err(EC_LIB_LIBSYSREPO, "sr_oper_get_items_subscribe(): %s",
 			 sr_strerror(ret));
@@ -607,8 +594,7 @@ static int frr_sr_subscribe_rpc(const struct lysc_node *snode, void *arg)
 	       nb_node->xpath);
 
 	ret = sr_rpc_subscribe(session, nb_node->xpath, frr_sr_config_rpc_cb,
-			       NULL, 0, SR_SUBSCR_CTX_REUSE,
-			       &module->sr_subscription);
+			       NULL, 0, 0, &module->sr_subscription);
 	if (ret != SR_ERR_OK)
 		flog_err(EC_LIB_LIBSYSREPO, "sr_rpc_subscribe(): %s",
 			 sr_strerror(ret));
@@ -702,8 +688,8 @@ static int frr_sr_init(void)
 				 sr_strerror(ret));
 			goto cleanup;
 		}
-		thread_add_read(master, frr_sr_read_cb, module,
-				event_pipe, &module->sr_thread);
+		event_add_read(master, frr_sr_read_cb, module, event_pipe,
+			       &module->sr_thread);
 	}
 
 	hook_register(nb_notification_send, frr_sr_notification_send);
@@ -724,7 +710,7 @@ static int frr_sr_finish(void)
 		if (!module->sr_subscription)
 			continue;
 		sr_unsubscribe(module->sr_subscription);
-		THREAD_OFF(module->sr_thread);
+		EVENT_OFF(module->sr_thread);
 	}
 
 	if (session)
@@ -735,7 +721,7 @@ static int frr_sr_finish(void)
 	return 0;
 }
 
-static int frr_sr_module_config_loaded(struct thread_master *tm)
+static int frr_sr_module_config_loaded(struct event_loop *tm)
 {
 	master = tm;
 
@@ -750,7 +736,7 @@ static int frr_sr_module_config_loaded(struct thread_master *tm)
 	return 0;
 }
 
-static int frr_sr_module_late_init(struct thread_master *tm)
+static int frr_sr_module_late_init(struct event_loop *tm)
 {
 	frr_sr_cli_init();
 

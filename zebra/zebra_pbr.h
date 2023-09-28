@@ -1,24 +1,8 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Zebra Policy Based Routing (PBR) Data structures and definitions
  * These are public definitions referenced by multiple files.
  * Copyright (C) 2018 Cumulus Networks, Inc.
- *
- * This file is part of FRR.
- *
- * FRR is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * FRR is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with FRR; see the file COPYING.  If not, write to the Free
- * Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
- * 02111-1307, USA.
  */
 
 #ifndef _ZEBRA_PBR_H
@@ -36,12 +20,35 @@
 extern "C" {
 #endif
 
+/* Memory type for PBR objects. */
+DECLARE_MTYPE(PBR_OBJ);
+
+struct zebra_pbr_action {
+	afi_t afi;
+
+	/* currently only one nexthop is supported */
+	union g_addr gate;
+
+	/* dest-interface */
+	ifindex_t ifindex;
+
+	/* dataplane info */
+	intptr_t dp_flow_ptr;
+
+	/* neigh */
+	struct zebra_neigh_ent *neigh;
+	/* zebra_pbr_rule is linked to neigh via neigh_listnode */
+	struct listnode neigh_listnode;
+};
+
 struct zebra_pbr_rule {
 	int sock;
 
 	struct pbr_rule rule;
 
 	char ifname[INTERFACE_NAMSIZ];
+
+	struct zebra_pbr_action action;
 
 	vrf_id_t vrf_id;
 };
@@ -54,8 +61,6 @@ struct zebra_pbr_rule {
 	(r->rule.filter.filter_bm & PBR_FILTER_SRC_PORT)
 #define IS_RULE_FILTERING_ON_DST_PORT(r) \
 	(r->rule.filter.filter_bm & PBR_FILTER_DST_PORT)
-#define IS_RULE_FILTERING_ON_DSFIELD(r) \
-	(r->rule.filter.filter_bm & PBR_FILTER_DSFIELD)
 #define IS_RULE_FILTERING_ON_FWMARK(r) \
 	(r->rule.filter.filter_bm & PBR_FILTER_FWMARK)
 
@@ -69,6 +74,8 @@ struct zebra_pbr_ipset_info {
 	 * but value is an enum ipset_type
 	 */
 	uint32_t type;
+
+	uint8_t family;
 
 	char ipset_name[ZEBRA_IPSET_NAME_SIZE];
 };
@@ -169,6 +176,9 @@ struct zebra_pbr_iptable {
 
 	struct list *interface_name_list;
 
+#define IPTABLE_INSTALL_QUEUED 1 << 1
+#define IPTABLE_UNINSTALL_QUEUED 1 << 2
+	uint8_t internal_flags;
 	char ipset_name[ZEBRA_IPSET_NAME_SIZE];
 };
 
@@ -238,6 +248,8 @@ extern void zebra_pbr_iptable_free(void *arg);
 extern uint32_t zebra_pbr_iptable_hash_key(const void *arg);
 extern bool zebra_pbr_iptable_hash_equal(const void *arg1, const void *arg2);
 
+extern void zebra_pbr_config_write(struct vty *vty);
+extern void zebra_pbr_expand_action_update(bool enable);
 extern void zebra_pbr_init(void);
 extern void zebra_pbr_show_ipset_list(struct vty *vty, char *ipsetname);
 extern void zebra_pbr_show_iptable(struct vty *vty, char *iptable);
@@ -245,6 +257,9 @@ extern void zebra_pbr_iptable_update_interfacelist(struct stream *s,
 				   struct zebra_pbr_iptable *zpi);
 size_t zebra_pbr_tcpflags_snprintf(char *buffer, size_t len,
 				   uint16_t tcp_val);
+extern void zebra_pbr_show_rule(struct vty *vty);
+extern void zebra_pbr_show_rule_unit(struct zebra_pbr_rule *rule,
+				     struct vty *vty);
 
 DECLARE_HOOK(zebra_pbr_ipset_entry_get_stat,
 	     (struct zebra_pbr_ipset_entry *ipset, uint64_t *pkts,

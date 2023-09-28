@@ -1,20 +1,8 @@
+// SPDX-License-Identifier: LGPL-2.1-or-later
 /*
  * This file is part of the PCEPlib, a PCEP protocol library.
  *
  * Copyright (C) 2020 Volta Networks https://voltanet.io/
- *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Lesser General Public
- * License as published by the Free Software Foundation; either
- * version 2 of the License, or (at your option) any later version.
- *
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public License
- * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *
  * Author : Brady Johnson <brady@voltanet.io>
  */
@@ -367,7 +355,7 @@ enum pcep_lsp_operational_status {
 };
 
 #define MAX_PLSP_ID 0x000fffff /* The plsp_id is only 20 bits */
-#define MAX_LSP_STATUS 0x0007 /* The status is only 3 bits */
+#define MAX_LSP_STATUS 0x0007  /* The status is only 3 bits */
 #define OBJECT_LSP_FLAG_D 0x01
 #define OBJECT_LSP_FLAG_S 0x02
 #define OBJECT_LSP_FLAG_R 0x04
@@ -542,7 +530,7 @@ struct pcep_ro_subobj_asn {
 	uint16_t asn; /* Autonomous system number */
 };
 
-/* The SR ERO and SR RRO subojbects are the same, except
+/* The SR ERO and SR RRO subobjects are the same, except
  * the SR-RRO does not have the L flag in the Type field.
  * Defined in draft-ietf-pce-segment-routing-16 */
 enum pcep_sr_subobj_nai {

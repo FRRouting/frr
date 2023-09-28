@@ -1,21 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Copyright (C) 2003 Yasuhiro Ohara
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef OSPF6_TOP_H
@@ -28,13 +13,13 @@ struct ospf6_master {
 	/* OSPFv3 instance. */
 	struct list *ospf6;
 	/* OSPFv3 thread master. */
-	struct thread_master *master;
+	struct event_loop *master;
 };
 
 /* ospf6->config_flags */
-enum {
-	OSPF6_LOG_ADJACENCY_CHANGES =	(1 << 0),
-	OSPF6_LOG_ADJACENCY_DETAIL =	(1 << 1),
+enum { OSPF6_LOG_ADJACENCY_CHANGES	= (1 << 0),
+       OSPF6_LOG_ADJACENCY_DETAIL	= (1 << 1),
+       OSPF6_SEND_EXTRA_DATA_TO_ZEBRA	= (1 << 2),
 };
 
 /* For processing route-map change update in the callback */
@@ -66,11 +51,13 @@ struct ospf6_gr_info {
 	bool prepare_in_progress;
 	bool finishing_restart;
 	uint32_t grace_period;
-	struct thread *t_grace_period;
+	int reason;
+	char *exit_reason;
+	struct event *t_grace_period;
 };
 
 struct ospf6_gr_helper {
-	/* Gracefull restart Helper supported configs*/
+	/* Graceful restart Helper supported configs*/
 	/* Supported grace interval*/
 	uint32_t supported_grace_time;
 
@@ -136,7 +123,6 @@ struct ospf6 {
 	struct ospf6_route_table *brouter_table;
 
 	struct ospf6_route_table *external_table;
-	struct route_table *external_id_table;
 #define OSPF6_EXT_INIT_LS_ID 1
 	uint32_t external_id;
 
@@ -184,14 +170,14 @@ struct ospf6 {
 
 	int fd;
 	/* Threads */
-	struct thread *t_spf_calc; /* SPF calculation timer. */
-	struct thread *t_ase_calc; /* ASE calculation timer. */
-	struct thread *maxage_remover;
-	struct thread *t_distribute_update; /* Distirbute update timer. */
-	struct thread *t_ospf6_receive; /* OSPF6 receive timer */
-	struct thread *t_external_aggr; /* OSPF6 aggregation timer */
+	struct event *t_spf_calc; /* SPF calculation timer. */
+	struct event *t_ase_calc; /* ASE calculation timer. */
+	struct event *maxage_remover;
+	struct event *t_distribute_update; /* Distirbute update timer. */
+	struct event *t_ospf6_receive;	   /* OSPF6 receive timer */
+	struct event *t_external_aggr;	   /* OSPF6 aggregation timer */
 #define OSPF6_WRITE_INTERFACE_COUNT_DEFAULT 20
-	struct thread *t_write;
+	struct event *t_write;
 
 	int write_oi_count; /* Num of packets sent per thread invocation */
 	uint32_t ref_bandwidth;
@@ -221,7 +207,7 @@ struct ospf6 {
 
 	/* Count of NSSA areas */
 	uint8_t anyNSSA;
-	struct thread *t_abr_task; /* ABR task timer. */
+	struct event *t_abr_task; /* ABR task timer. */
 	struct list *oi_write_q;
 
 	uint32_t redist_count;
@@ -229,9 +215,11 @@ struct ospf6 {
 	/* Action for aggregation of external LSAs */
 	int aggr_action;
 
+	uint32_t seqnum_l; /* lower order Sequence Number */
+	uint32_t seqnum_h; /* higher order Sequence Number */
 #define OSPF6_EXTL_AGGR_DEFAULT_DELAY 5
 	/* For ASBR summary delay timer */
-	int aggr_delay_interval;
+	uint16_t aggr_delay_interval;
 	/* Table of configured Aggregate addresses */
 	struct route_table *rt_aggr_tbl;
 
@@ -247,11 +235,12 @@ extern struct ospf6 *ospf6;
 extern struct ospf6_master *om6;
 
 /* prototypes */
-extern void ospf6_master_init(struct thread_master *master);
+extern void ospf6_master_init(struct event_loop *master);
 extern void install_element_ospf6_clear_process(void);
 extern void ospf6_top_init(void);
 extern void ospf6_delete(struct ospf6 *o);
 extern bool ospf6_router_id_update(struct ospf6 *ospf6, bool init);
+void ospf6_restart_spf(struct ospf6 *ospf6);
 
 extern void ospf6_maxage_remove(struct ospf6 *o);
 extern struct ospf6 *ospf6_instance_create(const char *name);

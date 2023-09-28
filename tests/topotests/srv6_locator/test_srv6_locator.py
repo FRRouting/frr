@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# SPDX-License-Identifier: ISC
 
 #
 # test_srv6_manager.py
@@ -6,20 +7,6 @@
 #
 # Copyright (c) 2020 by
 # LINE Corporation, Hiroki Shirokura <slank.dev@gmail.com>
-#
-# Permission to use, copy, modify, and/or distribute this software
-# for any purpose with or without fee is hereby granted, provided
-# that the above copyright notice and this permission notice appear
-# in all copies.
-#
-# THE SOFTWARE IS PROVIDED "AS IS" AND NETDEF DISCLAIMS ALL WARRANTIES
-# WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
-# MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL NETDEF BE LIABLE FOR
-# ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY
-# DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS,
-# WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS
-# ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE
-# OF THIS SOFTWARE.
 #
 
 """
@@ -94,12 +81,12 @@ def test_srv6():
 
     def check_srv6_locator(router, expected_file):
         func = functools.partial(_check_srv6_locator, router, expected_file)
-        success, result = topotest.run_and_expect(func, None, count=5, wait=0.5)
+        success, result = topotest.run_and_expect(func, None, count=10, wait=0.5)
         assert result is None, "Failed"
 
     def check_sharpd_chunk(router, expected_file):
         func = functools.partial(_check_sharpd_chunk, router, expected_file)
-        success, result = topotest.run_and_expect(func, None, count=5, wait=0.5)
+        success, result = topotest.run_and_expect(func, None, count=10, wait=0.5)
         assert result is None, "Failed"
 
     # FOR DEVELOPER:

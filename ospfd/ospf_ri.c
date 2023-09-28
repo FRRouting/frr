@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * This is an implementation of RFC4970 Router Information
  * with support of RFC5088 PCE Capabilites announcement
@@ -5,22 +6,6 @@
  * Module name: Router Information
  * Author: Olivier Dugeon <olivier.dugeon@orange.com>
  * Copyright (C) 2012 - 2017 Orange Labs http://www.orange.com/
- *
- * This file is part of GNU Quagga.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Quagga is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -35,7 +20,7 @@
 #include "vty.h"
 #include "stream.h"
 #include "log.h"
-#include "thread.h"
+#include "frrevent.h"
 #include "hash.h"
 #include "sockunion.h" /* for inet_aton() */
 #include "mpls.h"
@@ -66,14 +51,16 @@
 static struct ospf_router_info OspfRI;
 
 /*------------------------------------------------------------------------------*
- * Followings are initialize/terminate functions for Router Information
+ * Following are initialize/terminate functions for Router Information
  *handling.
  *------------------------------------------------------------------------------*/
 
 static void ospf_router_info_ism_change(struct ospf_interface *oi,
 					int old_status);
 static void ospf_router_info_config_write_router(struct vty *vty);
-static void ospf_router_info_show_info(struct vty *vty, struct ospf_lsa *lsa);
+static void ospf_router_info_show_info(struct vty *vty,
+				       struct json_object *json,
+				       struct ospf_lsa *lsa);
 static int ospf_router_info_lsa_originate(void *arg);
 static struct ospf_lsa *ospf_router_info_lsa_refresh(struct ospf_lsa *lsa);
 static void ospf_router_info_lsa_schedule(struct ospf_ri_area_info *ai,
@@ -88,7 +75,7 @@ int ospf_router_info_init(void)
 
 	zlog_info("RI (%s): Initialize Router Information", __func__);
 
-	memset(&OspfRI, 0, sizeof(struct ospf_router_info));
+	memset(&OspfRI, 0, sizeof(OspfRI));
 	OspfRI.enabled = false;
 	OspfRI.registered = 0;
 	OspfRI.scope = OSPF_OPAQUE_AS_LSA;
@@ -230,7 +217,7 @@ static struct ospf_ri_area_info *lookup_by_area(struct ospf_area *area)
 }
 
 /*------------------------------------------------------------------------*
- * Followings are control functions for ROUTER INFORMATION parameters
+ * Following are control functions for ROUTER INFORMATION parameters
  *management.
  *------------------------------------------------------------------------*/
 
@@ -666,7 +653,7 @@ void ospf_router_info_update_sr(bool enable, struct sr_node *srn)
 }
 
 /*------------------------------------------------------------------------*
- * Followings are callback functions against generic Opaque-LSAs handling.
+ * Following are callback functions against generic Opaque-LSAs handling.
  *------------------------------------------------------------------------*/
 static void ospf_router_info_ism_change(struct ospf_interface *oi,
 					int old_state)
@@ -691,7 +678,7 @@ static void ospf_router_info_ism_change(struct ospf_interface *oi,
 }
 
 /*------------------------------------------------------------------------*
- * Followings are OSPF protocol processing functions for ROUTER INFORMATION
+ * Following are OSPF protocol processing functions for ROUTER INFORMATION
  *------------------------------------------------------------------------*/
 
 static void build_tlv_header(struct stream *s, struct tlv_header *tlvh)
@@ -811,12 +798,9 @@ static struct ospf_lsa *ospf_router_info_lsa_new(struct ospf_area *area)
 	/* Now, create an OSPF LSA instance. */
 	new = ospf_lsa_new_and_data(length);
 
+	/* Routing Information is only supported for default VRF */
+	new->vrf_id = VRF_DEFAULT;
 	new->area = area;
-
-	if (new->area && new->area->ospf)
-		new->vrf_id = new->area->ospf->vrf_id;
-	else
-		new->vrf_id = VRF_DEFAULT;
 
 	SET_FLAG(new->flags, OSPF_LSA_SELF);
 	memcpy(new->data, lsah, length);
@@ -830,7 +814,6 @@ static int ospf_router_info_lsa_originate_as(void *arg)
 	struct ospf_lsa *new;
 	struct ospf *top;
 	int rc = -1;
-	vrf_id_t vrf_id = VRF_DEFAULT;
 
 	/* Sanity Check */
 	if (OspfRI.scope == OSPF_OPAQUE_AREA_LSA) {
@@ -843,13 +826,12 @@ static int ospf_router_info_lsa_originate_as(void *arg)
 
 	/* Create new Opaque-LSA/ROUTER INFORMATION instance. */
 	new = ospf_router_info_lsa_new(NULL);
-	new->vrf_id = VRF_DEFAULT;
 	top = (struct ospf *)arg;
 
 	/* Check ospf info */
 	if (top == NULL) {
 		zlog_debug("RI (%s): ospf instance not found for vrf id %u",
-			   __func__, vrf_id);
+			   __func__, VRF_DEFAULT);
 		ospf_lsa_unlock(&new);
 		return rc;
 	}
@@ -887,7 +869,6 @@ static int ospf_router_info_lsa_originate_area(void *arg)
 	struct ospf *top;
 	struct ospf_ri_area_info *ai = NULL;
 	int rc = -1;
-	vrf_id_t vrf_id = VRF_DEFAULT;
 
 	/* Sanity Check */
 	if (OspfRI.scope == OSPF_OPAQUE_AS_LSA) {
@@ -906,19 +887,18 @@ static int ospf_router_info_lsa_originate_area(void *arg)
 			__func__);
 		return rc;
 	}
-	if (ai->area->ospf) {
-		vrf_id = ai->area->ospf->vrf_id;
+
+	if (ai->area->ospf)
 		top = ai->area->ospf;
-	} else {
-		top = ospf_lookup_by_vrf_id(vrf_id);
-	}
+	else
+		top = ospf_lookup_by_vrf_id(VRF_DEFAULT);
+
 	new = ospf_router_info_lsa_new(ai->area);
-	new->vrf_id = vrf_id;
 
 	/* Check ospf info */
 	if (top == NULL) {
 		zlog_debug("RI (%s): ospf instance not found for vrf id %u",
-			   __func__, vrf_id);
+			   __func__, VRF_DEFAULT);
 		ospf_lsa_unlock(&new);
 		return rc;
 	}
@@ -1052,10 +1032,9 @@ static struct ospf_lsa *ospf_router_info_lsa_refresh(struct ospf_lsa *lsa)
 		/* Create new Opaque-LSA/ROUTER INFORMATION instance. */
 		new = ospf_router_info_lsa_new(ai->area);
 		new->data->ls_seqnum = lsa_seqnum_increment(lsa);
-		new->vrf_id = lsa->vrf_id;
 		/* Install this LSA into LSDB. */
 		/* Given "lsa" will be freed in the next function. */
-		top = ospf_lookup_by_vrf_id(lsa->vrf_id);
+		top = ospf_lookup_by_vrf_id(VRF_DEFAULT);
 		if (ospf_lsa_install(top, NULL /*oi */, new) == NULL) {
 			flog_warn(EC_OSPF_LSA_INSTALL_FAILURE,
 				  "RI (%s): ospf_lsa_install() ?", __func__);
@@ -1075,10 +1054,9 @@ static struct ospf_lsa *ospf_router_info_lsa_refresh(struct ospf_lsa *lsa)
 		/* Create new Opaque-LSA/ROUTER INFORMATION instance. */
 		new = ospf_router_info_lsa_new(NULL);
 		new->data->ls_seqnum = lsa_seqnum_increment(lsa);
-		new->vrf_id = lsa->vrf_id;
 		/* Install this LSA into LSDB. */
 		/* Given "lsa" will be freed in the next function. */
-		top = ospf_lookup_by_vrf_id(lsa->vrf_id);
+		top = ospf_lookup_by_vrf_id(VRF_DEFAULT);
 		if (ospf_lsa_install(top, NULL /*oi */, new) == NULL) {
 			flog_warn(EC_OSPF_LSA_INSTALL_FAILURE,
 				  "RI (%s): ospf_lsa_install() ?", __func__);
@@ -1221,7 +1199,7 @@ static int ospf_router_info_lsa_update(struct ospf_lsa *lsa)
 }
 
 /*------------------------------------------------------------------------*
- * Followings are vty session control functions.
+ * Following are vty session control functions.
  *------------------------------------------------------------------------*/
 
 #define check_tlv_size(size, msg)                                              \
@@ -1552,11 +1530,16 @@ static uint16_t show_vty_sr_msd(struct vty *vty, struct tlv_header *tlvh)
 	return TLV_SIZE(tlvh);
 }
 
-static void ospf_router_info_show_info(struct vty *vty, struct ospf_lsa *lsa)
+static void ospf_router_info_show_info(struct vty *vty,
+				       struct json_object *json,
+				       struct ospf_lsa *lsa)
 {
 	struct lsa_header *lsah = lsa->data;
 	struct tlv_header *tlvh;
 	uint16_t length = 0, sum = 0;
+
+	if (json)
+		return;
 
 	/* Initialize TLV browsing */
 	length = lsa->size - OSPF_LSA_HEADER_SIZE;
@@ -1653,7 +1636,7 @@ static void ospf_router_info_config_write_router(struct vty *vty)
 }
 
 /*------------------------------------------------------------------------*
- * Followings are vty command functions.
+ * Following are vty command functions.
  *------------------------------------------------------------------------*/
 /* Simple wrapper schedule RI LSA action in function of the scope */
 static void ospf_router_info_schedule(enum lsa_opcode opcode)
@@ -1684,9 +1667,17 @@ DEFUN (router_info,
 {
 	int idx_mode = 1;
 	uint8_t scope;
+	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
 
 	if (OspfRI.enabled)
 		return CMD_SUCCESS;
+
+	/* Check that the OSPF is using default VRF */
+	if (ospf->vrf_id != VRF_DEFAULT) {
+		vty_out(vty,
+			"Router Information is only supported in default VRF\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
 
 	/* Check and get Area value if present */
 	if (strncmp(argv[idx_mode]->arg, "as", 2) == 0)

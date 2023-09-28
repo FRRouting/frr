@@ -1,21 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* BGP advertisement and adjacency
  * Copyright (C) 1996, 97, 98, 99, 2000 Kunihiro Ishiguro
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef _QUAGGA_BGP_ADVERTISE_H
@@ -115,7 +100,6 @@ struct bgp_adj_in {
 struct bgp_synchronize {
 	struct bgp_adv_fifo_head update;
 	struct bgp_adv_fifo_head withdraw;
-	struct bgp_adv_fifo_head withdraw_low;
 };
 
 /* BGP adjacency linked list.  */
@@ -142,26 +126,27 @@ struct bgp_synchronize {
 #define BGP_ADJ_IN_DEL(N, A) BGP_PATH_INFO_DEL(N, A, adj_in)
 
 /* Prototypes.  */
-extern bool bgp_adj_out_lookup(struct peer *, struct bgp_dest *, uint32_t);
-extern void bgp_adj_in_set(struct bgp_dest *, struct peer *, struct attr *,
-			   uint32_t);
-extern bool bgp_adj_in_unset(struct bgp_dest *, struct peer *, uint32_t);
-extern void bgp_adj_in_remove(struct bgp_dest *, struct bgp_adj_in *);
+extern bool bgp_adj_out_lookup(struct peer *peer, struct bgp_dest *dest,
+			       uint32_t addpath_tx_id);
+extern void bgp_adj_in_set(struct bgp_dest *dest, struct peer *peer,
+			   struct attr *attr, uint32_t addpath_id);
+extern bool bgp_adj_in_unset(struct bgp_dest **dest, struct peer *peer,
+			     uint32_t addpath_id);
+extern void bgp_adj_in_remove(struct bgp_dest **dest, struct bgp_adj_in *bai);
 
-extern void bgp_sync_init(struct peer *);
-extern void bgp_sync_delete(struct peer *);
-extern unsigned int baa_hash_key(const void *p);
-extern bool baa_hash_cmp(const void *p1, const void *p2);
+extern unsigned int bgp_advertise_attr_hash_key(const void *p);
+extern bool bgp_advertise_attr_hash_cmp(const void *p1, const void *p2);
 extern void bgp_advertise_add(struct bgp_advertise_attr *baa,
 			      struct bgp_advertise *adv);
 extern struct bgp_advertise *bgp_advertise_new(void);
 extern void bgp_advertise_free(struct bgp_advertise *adv);
-extern struct bgp_advertise_attr *bgp_advertise_intern(struct hash *hash,
-						       struct attr *attr);
-extern struct bgp_advertise_attr *baa_new(void);
+extern struct bgp_advertise_attr *bgp_advertise_attr_intern(struct hash *hash,
+							    struct attr *attr);
+extern struct bgp_advertise_attr *bgp_advertise_attr_new(void);
 extern void bgp_advertise_delete(struct bgp_advertise_attr *baa,
 				 struct bgp_advertise *adv);
-extern void bgp_advertise_unintern(struct hash *hash,
-				   struct bgp_advertise_attr *baa);
+extern void bgp_advertise_attr_unintern(struct hash *hash,
+					struct bgp_advertise_attr *baa);
+extern void bgp_advertise_attr_free(struct bgp_advertise_attr *baa);
 
 #endif /* _QUAGGA_BGP_ADVERTISE_H */

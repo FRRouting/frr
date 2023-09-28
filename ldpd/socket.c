@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: ISC
 /*	$OpenBSD$ */
 
 /*
@@ -5,18 +6,6 @@
  * Copyright (c) 2009 Michele Marchetto <michele@openbsd.org>
  * Copyright (c) 2005 Claudio Jeker <claudio@openbsd.org>
  * Copyright (c) 2003, 2004 Henning Brauer <henning@openbsd.org>
- *
- * Permission to use, copy, modify, and distribute this software for any
- * purpose with or without fee is hereby granted, provided that the above
- * copyright notice and this permission notice appear in all copies.
- *
- * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
- * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
- * ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
- * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
- * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
- * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
 #include <zebra.h>
@@ -100,8 +89,7 @@ ldp_create_socket(int af, enum socket_type type)
 			return (-1);
 		}
 		if (type == LDP_SOCKET_DISC) {
-			if (sock_set_ipv4_mcast_ttl(fd,
-			    IP_DEFAULT_MULTICAST_TTL) == -1) {
+			if (sock_set_ipv4_mcast_ttl(fd, IP_DEFAULT_MULTICAST_TTL) == -1) {
 				close(fd);
 				return (-1);
 			}
@@ -152,7 +140,7 @@ ldp_create_socket(int af, enum socket_type type)
 				close(fd);
 				return (-1);
 			}
-			if (!(ldpd_conf->ipv6.flags & F_LDPD_AF_NO_GTSM)) {
+			if (!CHECK_FLAG(ldpd_conf->ipv6.flags, F_LDPD_AF_NO_GTSM)) {
 				/* ignore any possible error */
 				sock_set_ipv6_minhopcount(fd, 255);
 			}
@@ -182,8 +170,7 @@ ldp_create_socket(int af, enum socket_type type)
 
 #ifdef __OpenBSD__
 		opt = 1;
-		if (setsockopt(fd, IPPROTO_TCP, TCP_MD5SIG, &opt,
-		    sizeof(opt)) == -1) {
+		if (setsockopt(fd, IPPROTO_TCP, TCP_MD5SIG, &opt, sizeof(opt)) == -1) {
 			if (errno == ENOPROTOOPT) {	/* system w/o md5sig */
 				log_warnx("md5sig not available, disabling");
 				sysdep.no_md5sig = 1;
@@ -207,7 +194,7 @@ sock_set_nonblock(int fd)
 	if ((flags = fcntl(fd, F_GETFL, 0)) == -1)
 		fatal("fcntl F_GETFL");
 
-	flags |= O_NONBLOCK;
+	SET_FLAG(flags, O_NONBLOCK);
 
 	if (fcntl(fd, F_SETFL, flags) == -1)
 		fatal("fcntl F_SETFL");
@@ -221,7 +208,7 @@ sock_set_cloexec(int fd)
 	if ((flags = fcntl(fd, F_GETFD, 0)) == -1)
 		fatal("fcntl F_GETFD");
 
-	flags |= FD_CLOEXEC;
+	SET_FLAG(flags, FD_CLOEXEC);
 
 	if (fcntl(fd, F_SETFD, flags) == -1)
 		fatal("fcntl F_SETFD");
@@ -233,16 +220,14 @@ sock_set_recvbuf(int fd)
 	int	bsize;
 
 	bsize = 65535;
-	while (setsockopt(fd, SOL_SOCKET, SO_RCVBUF, &bsize,
-	    sizeof(bsize)) == -1)
+	while (setsockopt(fd, SOL_SOCKET, SO_RCVBUF, &bsize, sizeof(bsize)) == -1)
 		bsize /= 2;
 }
 
 int
 sock_set_reuse(int fd, int enable)
 {
-	if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &enable,
-	    sizeof(int)) < 0) {
+	if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(int)) < 0) {
 		log_warn("%s: error setting SO_REUSEADDR", __func__);
 		return (-1);
 	}
@@ -255,8 +240,7 @@ sock_set_bindany(int fd, int enable)
 {
 #ifdef HAVE_SO_BINDANY
 	frr_with_privs(&ldpd_privs) {
-		if (setsockopt(fd, SOL_SOCKET, SO_BINDANY, &enable,
-			       sizeof(int)) < 0) {
+		if (setsockopt(fd, SOL_SOCKET, SO_BINDANY, &enable, sizeof(int)) < 0) {
 			log_warn("%s: error setting SO_BINDANY", __func__);
 			return (-1);
 		}
@@ -270,8 +254,7 @@ sock_set_bindany(int fd, int enable)
 	return (0);
 #elif defined(IP_BINDANY)
 	frr_with_privs(&ldpd_privs) {
-		if (setsockopt(fd, IPPROTO_IP, IP_BINDANY, &enable, sizeof(int))
-		    < 0) {
+		if (setsockopt(fd, IPPROTO_IP, IP_BINDANY, &enable, sizeof(int)) < 0) {
 			log_warn("%s: error setting IP_BINDANY", __func__);
 			return (-1);
 		}
@@ -354,10 +337,8 @@ sock_set_ipv4_ucast_ttl(int fd, int ttl)
 int
 sock_set_ipv4_mcast_ttl(int fd, uint8_t ttl)
 {
-	if (setsockopt(fd, IPPROTO_IP, IP_MULTICAST_TTL,
-	    (char *)&ttl, sizeof(ttl)) < 0) {
-		log_warn("%s: error setting IP_MULTICAST_TTL to %d",
-		    __func__, ttl);
+	if (setsockopt(fd, IPPROTO_IP, IP_MULTICAST_TTL, (char *)&ttl, sizeof(ttl)) < 0) {
+		log_warn("%s: error setting IP_MULTICAST_TTL to %d", __func__, ttl);
 		return (-1);
 	}
 
@@ -369,8 +350,7 @@ sock_set_ipv4_mcast_ttl(int fd, uint8_t ttl)
 int
 sock_set_ipv4_pktinfo(int fd, int enable)
 {
-	if (setsockopt(fd, IPPROTO_IP, IP_PKTINFO, &enable,
-	    sizeof(enable)) < 0) {
+	if (setsockopt(fd, IPPROTO_IP, IP_PKTINFO, &enable, sizeof(enable)) < 0) {
 		log_warn("%s: error setting IP_PKTINFO", __func__);
 		return (-1);
 	}
@@ -381,8 +361,7 @@ sock_set_ipv4_pktinfo(int fd, int enable)
 int
 sock_set_ipv4_recvdstaddr(int fd, int enable)
 {
-	if (setsockopt(fd, IPPROTO_IP, IP_RECVDSTADDR, &enable,
-	    sizeof(enable)) < 0) {
+	if (setsockopt(fd, IPPROTO_IP, IP_RECVDSTADDR, &enable, sizeof(enable)) < 0) {
 		log_warn("%s: error setting IP_RECVDSTADDR", __func__);
 		return (-1);
 	}
@@ -420,8 +399,7 @@ sock_set_ipv4_mcast_loop(int fd)
 int
 sock_set_ipv6_dscp(int fd, int dscp)
 {
-	if (setsockopt(fd, IPPROTO_IPV6, IPV6_TCLASS, &dscp,
-	    sizeof(dscp)) < 0) {
+	if (setsockopt(fd, IPPROTO_IPV6, IPV6_TCLASS, &dscp, sizeof(dscp)) < 0) {
 		log_warn("%s: error setting IPV6_TCLASS", __func__);
 		return (-1);
 	}
@@ -432,8 +410,7 @@ sock_set_ipv6_dscp(int fd, int dscp)
 int
 sock_set_ipv6_pktinfo(int fd, int enable)
 {
-	if (setsockopt(fd, IPPROTO_IPV6, IPV6_RECVPKTINFO, &enable,
-	    sizeof(enable)) < 0) {
+	if (setsockopt(fd, IPPROTO_IPV6, IPV6_RECVPKTINFO, &enable, sizeof(enable)) < 0) {
 		log_warn("%s: error setting IPV6_RECVPKTINFO", __func__);
 		return (-1);
 	}

@@ -1,26 +1,18 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Network library header.
  * Copyright (C) 1998 Kunihiro Ishiguro
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef _ZEBRA_NETWORK_H
 #define _ZEBRA_NETWORK_H
+
+#ifdef HAVE_SYS_ENDIAN_H
+#include <sys/endian.h>
+#endif
+#ifdef HAVE_ENDIAN_H
+#include <endian.h>
+#endif
 
 #ifdef __cplusplus
 extern "C" {
@@ -44,6 +36,53 @@ extern int set_cloexec(int fd);
 
 extern float htonf(float);
 extern float ntohf(float);
+
+/* force type for be64toh/htobe64 to be uint64_t, *without* a direct cast
+ *
+ * this is a workaround for false-positive printfrr warnings from FRR's
+ * frr-format GCC plugin that would be triggered from
+ * { printfrr("%"PRIu64, (uint64_t)be64toh(...)); }
+ *
+ * the key element here is that "(uint64_t)expr" causes the warning, while
+ * "({ uint64_t x = expr; x; })" does not.  (The cast is the trigger, a
+ * variable of the same type works correctly.)
+ */
+
+/* zap system definitions... */
+#ifdef be64toh
+#undef be64toh
+#endif
+#ifdef htobe64
+#undef htobe64
+#endif
+
+#if BYTE_ORDER == LITTLE_ENDIAN
+#define be64toh(x)	({ uint64_t r = __builtin_bswap64(x); r; })
+#define htobe64(x)	({ uint64_t r = __builtin_bswap64(x); r; })
+#elif BYTE_ORDER == BIG_ENDIAN
+#define be64toh(x)	({ uint64_t r = (x); r; })
+#define htobe64(x)	({ uint64_t r = (x); r; })
+#else
+#error nobody expects the endianish inquisition. check OS endian.h headers.
+#endif
+
+/**
+ * Generate a sequence number using monotonic clock with a same second call
+ * protection to help guarantee a unique incremental sequence number that never
+ * goes back (except when wrapping/overflow).
+ *
+ * **NOTE** this function is not thread safe since it uses `static` variable.
+ *
+ * This function and `frr_sequence32_next` should be used to initialize
+ * sequence numbers without directly calling other `time_t` returning
+ * functions because of `time_t` truncation warnings.
+ *
+ * \returns `uint64_t` number based on the monotonic clock.
+ */
+extern uint64_t frr_sequence_next(void);
+
+/** Same as `frr_sequence_next` but returns truncated number. */
+extern uint32_t frr_sequence32_next(void);
 
 /**
  * Helper function that returns a random long value. The main purpose of

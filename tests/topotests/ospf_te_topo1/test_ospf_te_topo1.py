@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# SPDX-License-Identifier: ISC
 
 #
 # test_ospf_te_topo1.py
@@ -6,20 +7,6 @@
 #
 # Copyright (c) 2021 by Orange
 # Author: Olivier Dugeon <olivier.dugeon@orange.com>
-#
-# Permission to use, copy, modify, and/or distribute this software
-# for any purpose with or without fee is hereby granted, provided
-# that the above copyright notice and this permission notice appear
-# in all copies.
-#
-# THE SOFTWARE IS PROVIDED "AS IS" AND NETDEF DISCLAIMS ALL WARRANTIES
-# WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
-# MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL NETDEF BE LIABLE FOR
-# ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY
-# DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS,
-# WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS
-# ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE
-# OF THIS SOFTWARE.
 #
 
 """
@@ -224,7 +211,7 @@ def test_step4():
         'vtysh -c "conf t" -c "router ospf" -c "segment-routing node-msd 16"'
     )
     tgen.net["r2"].cmd(
-        'vtysh -c "conf t" -c "router ospf" -c "segment-routing local-block 5000 6999"'
+        'vtysh -c "conf t" -c "router ospf" -c "segment-routing global-block 16000 23999 local-block 5000 6999"'
     )
     tgen.net["r2"].cmd(
         'vtysh -c "conf t" -c "router ospf" -c "segment-routing prefix 10.0.255.2/32 index 20 explicit-null"'

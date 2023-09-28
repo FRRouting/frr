@@ -1,0 +1,183 @@
+// SPDX-License-Identifier: BSD-2-Clause
+module frr-gmp {
+  yang-version "1.1";
+  namespace "http://frrouting.org/yang/gmp";
+
+  prefix frr-gmp;
+
+  import frr-routing {
+    prefix "frr-rt";
+  }
+
+  import ietf-routing-types {
+    prefix "rt-types";
+  }
+
+  import ietf-inet-types {
+    prefix "inet";
+  }
+
+  import frr-interface {
+    prefix frr-interface;
+  }
+
+  organization
+    "FRRouting";
+
+  contact
+    "FRR Users List:       <mailto:frog@lists.frrouting.org>
+     FRR Development List: <mailto:dev@lists.frrouting.org>";
+
+  description
+    "This module defines a model for managing FRR pimd daemon.
+
+     Copyright 2020 FRRouting
+
+     Redistribution and use in source and binary forms, with or without
+     modification, are permitted provided that the following conditions
+     are met:
+
+     1. Redistributions of source code must retain the above copyright notice,
+     this list of conditions and the following disclaimer.
+
+     2. Redistributions in binary form must reproduce the above copyright
+     notice, this list of conditions and the following disclaimer in the
+     documentation and/or other materials provided with the distribution.
+
+     THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+     \"AS IS\" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+     LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+     A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+     HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+     SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+     LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+     DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+     THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+     (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+     OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.";
+
+  revision 2021-11-22 {
+    description
+      "Initial revision.";
+    reference
+      "RFC 2236: IGMP v2.
+       RFC 3376: IGMP v3.
+       RFC 2710: MLD.
+       RFC 3810: MLD v2.";
+  }
+
+  grouping interface-config-attributes {
+    description
+      "Configuration IGMP/MLD attributes applied to the interface level.";
+
+    leaf enable {
+      type boolean;
+      default "false";
+      description
+        "Enable IGMP/MLD flag on the interface.";
+    }
+
+    leaf igmp-version {
+      when "../frr-gmp:address-family = 'frr-rt:ipv4'" {
+        description
+          "Only applicable to IPv4 address family.";
+      }
+      type uint8 {
+        range "2..3";
+      }
+      description
+        "IGMP version.";
+    }
+
+    leaf mld-version {
+      when "../frr-gmp:address-family = 'frr-rt:ipv6'" {
+        description
+          "Only applicable to IPv6 address family.";
+      }
+      type uint8 {
+        range "1..2";
+      }
+      default "2";
+      description
+        "MLD version.";
+    }
+
+    leaf query-interval {
+      type uint16 {
+        range "1..max";
+      }
+      units seconds;
+      must ". * 10 > ../query-max-response-time";
+      default "125";
+      description
+        "The Query Interval is the interval between General Queries
+         sent by the Querier.";
+    }
+
+    leaf query-max-response-time {
+      type uint16 {
+        range "1..max";
+      }
+      units deciseconds;
+      must ". <= ../query-interval * 10";
+      default "100";
+      description
+        "Query maximum response time specifies the maximum time
+         allowed before sending a responding report.";
+    }
+
+    leaf last-member-query-interval {
+      type uint16 {
+        range "1..max";
+      }
+      units deciseconds;
+      default "10";
+      description
+        "Last Member Query Interval, which may be tuned to modify
+         the leave latency of the network.";
+    }
+
+    leaf robustness-variable {
+      type uint8 {
+        range "1..max";
+      }
+      default "2";
+      description
+        "Querier's Robustness Variable allows tuning for the
+         expected packet loss on a network.";
+    }
+
+    list static-group {
+      key "group-addr source-addr";
+      description
+        "A static multicast route, (*,G) or (S,G).
+         The version of IGMP must be 3 to support (S,G).";
+
+      leaf group-addr {
+        type rt-types:ip-multicast-group-address;
+        description
+          "Multicast group address.";
+      }
+      leaf source-addr {
+        type inet:ip-address;
+        description
+          "Multicast source address.";
+      }
+    }
+  } // interface-config-attributes
+
+  /*
+   * Per-interface configuration data
+   */
+  augment "/frr-interface:lib/frr-interface:interface" {
+    container gmp {
+      list address-family {
+        key "address-family";
+        description
+          "Each list entry for one address family.";
+        uses frr-rt:address-family;
+        uses interface-config-attributes;
+      } //address-family
+    }
+  }
+}

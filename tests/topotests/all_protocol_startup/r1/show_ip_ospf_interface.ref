@@ -7,9 +7,10 @@ r1-eth0 is up
   Designated Router (ID) 192.168.0.1 Interface Address 192.168.0.1/24
   No backup designated router on this network
   Multicast group memberships: OSPFAllRouters OSPFDesignatedRouters
-  Timer intervals configured, Hello 10s, Dead 40s, Wait 40s, Retransmit 5
+  Timer intervals configured, Hello 1s, Dead 5s, Wait 5s, Retransmit 5
     Hello due in XX.XXXs
   Neighbor Count is 0, Adjacent neighbor count is 0
+  Graceful Restart hello delay: 10s
 r1-eth3 is up
   ifindex X, MTU 1500 bytes, BW XX Mbit <UP,BROADCAST,RUNNING,MULTICAST>
   Internet Address 192.168.3.1/26, Broadcast 192.168.3.63, Area 0.0.0.0
@@ -19,6 +20,7 @@ r1-eth3 is up
   Designated Router (ID) 192.168.0.1 Interface Address 192.168.3.1/26
   No backup designated router on this network
   Multicast group memberships: OSPFAllRouters OSPFDesignatedRouters
-  Timer intervals configured, Hello 10s, Dead 40s, Wait 40s, Retransmit 5
+  Timer intervals configured, Hello 1s, Dead 5s, Wait 5s, Retransmit 5
     Hello due in XX.XXXs
   Neighbor Count is 0, Adjacent neighbor count is 0
+  Graceful Restart hello delay: 10s

@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Zebra connect library for EIGRP.
  * Copyright (C) 2013-2014
@@ -7,27 +8,11 @@
  *   Matej Perina
  *   Peter Orsag
  *   Peter Paluch
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
 
-#include "thread.h"
+#include "frrevent.h"
 #include "command.h"
 #include "network.h"
 #include "prefix.h"
@@ -64,7 +49,7 @@ static int eigrp_zebra_read_route(ZAPI_CALLBACK_ARGS);
 struct zclient *zclient = NULL;
 
 /* For registering threads. */
-extern struct thread_master *master;
+extern struct event_loop *master;
 struct in_addr router_id_zebra;
 
 /* Router-id update message from zebra. */
@@ -102,20 +87,24 @@ static void eigrp_zebra_connected(struct zclient *zclient)
 	zclient_send_reg_requests(zclient, VRF_DEFAULT);
 }
 
+static zclient_handler *const eigrp_handlers[] = {
+	[ZEBRA_ROUTER_ID_UPDATE] = eigrp_router_id_update_zebra,
+	[ZEBRA_INTERFACE_ADDRESS_ADD] = eigrp_interface_address_add,
+	[ZEBRA_INTERFACE_ADDRESS_DELETE] = eigrp_interface_address_delete,
+	[ZEBRA_REDISTRIBUTE_ROUTE_ADD] = eigrp_zebra_read_route,
+	[ZEBRA_REDISTRIBUTE_ROUTE_DEL] = eigrp_zebra_read_route,
+	[ZEBRA_ROUTE_NOTIFY_OWNER] = eigrp_zebra_route_notify_owner,
+};
+
 void eigrp_zebra_init(void)
 {
 	struct zclient_options opt = {.receive_notify = false};
 
-	zclient = zclient_new(master, &opt);
+	zclient = zclient_new(master, &opt, eigrp_handlers,
+			      array_size(eigrp_handlers));
 
 	zclient_init(zclient, ZEBRA_ROUTE_EIGRP, 0, &eigrpd_privs);
 	zclient->zebra_connected = eigrp_zebra_connected;
-	zclient->router_id_update = eigrp_router_id_update_zebra;
-	zclient->interface_address_add = eigrp_interface_address_add;
-	zclient->interface_address_delete = eigrp_interface_address_delete;
-	zclient->redistribute_route_add = eigrp_zebra_read_route;
-	zclient->redistribute_route_del = eigrp_zebra_read_route;
-	zclient->route_notify_owner = eigrp_zebra_route_notify_owner;
 }
 
 
@@ -260,9 +249,9 @@ void eigrp_zebra_route_delete(struct eigrp *eigrp, struct prefix *p)
 static int eigrp_is_type_redistributed(int type, vrf_id_t vrf_id)
 {
 	return ((DEFAULT_ROUTE_TYPE(type))
-			? vrf_bitmap_check(zclient->default_information[AFI_IP],
-					   vrf_id)
-			: vrf_bitmap_check(zclient->redist[AFI_IP][type],
+			? vrf_bitmap_check(
+				  &zclient->default_information[AFI_IP], vrf_id)
+			: vrf_bitmap_check(&zclient->redist[AFI_IP][type],
 					   vrf_id));
 }
 

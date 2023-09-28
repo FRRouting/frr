@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * EIGRP VTY Interface.
  * Copyright (C) 2013-2016
@@ -11,28 +12,12 @@
  *   Tomas Hvorkovy
  *   Martin Kontsek
  *   Lukas Koribsky
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
 
 #include "memory.h"
-#include "thread.h"
+#include "frrevent.h"
 #include "prefix.h"
 #include "table.h"
 #include "vty.h"
@@ -55,9 +40,7 @@
 #include "eigrpd/eigrp_dump.h"
 #include "eigrpd/eigrp_const.h"
 
-#ifndef VTYSH_EXTRACT_PL
 #include "eigrpd/eigrp_vty_clippy.c"
-#endif
 
 static void eigrp_vty_display_prefix_entry(struct vty *vty, struct eigrp *eigrp,
 					   struct eigrp_prefix_descriptor *pe,
@@ -240,14 +223,14 @@ DEFPY (show_ip_eigrp_interfaces,
 	struct eigrp *eigrp;
 
 	if (vrf && strncmp(vrf, "all", sizeof("all")) == 0) {
-		struct vrf *vrf;
+		struct vrf *v;
 
-		RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
-			eigrp = eigrp_lookup(vrf->vrf_id);
+		RB_FOREACH (v, vrf_name_head, &vrfs_by_name) {
+			eigrp = eigrp_lookup(v->vrf_id);
 			if (!eigrp)
 				continue;
 
-			vty_out(vty, "VRF %s:\n", vrf->name);
+			vty_out(vty, "VRF %s:\n", v->name);
 
 			eigrp_interface_helper(vty, eigrp, ifname, detail);
 		}

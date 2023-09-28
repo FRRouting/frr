@@ -1,21 +1,8 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * VRRP global definitions and state machine.
  * Copyright (C) 2018-2019 Cumulus Networks, Inc.
  * Quentin Young
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 #include <zebra.h>
 
@@ -216,7 +203,7 @@ static struct vrrp_vrouter *vrrp_lookup_by_if_mvl(struct interface *mvl_ifp)
 		return NULL;
 	}
 
-	p = if_lookup_by_index(mvl_ifp->link_ifindex, mvl_ifp->vrf_id);
+	p = if_lookup_by_index(mvl_ifp->link_ifindex, mvl_ifp->vrf->vrf_id);
 
 	if (!p) {
 		DEBUGD(&vrrp_dbg_zebra,
@@ -405,7 +392,7 @@ static bool vrrp_has_ip(struct vrrp_vrouter *vr, struct ipaddr *ip)
 	struct ipaddr *iter;
 
 	for (ALL_LIST_ELEMENTS_RO(r->addrs, ln, iter))
-		if (!memcmp(&iter->ip, &ip->ip, IPADDRSZ(ip)))
+		if (!ipaddr_cmp(iter, ip))
 			return true;
 
 	return false;
@@ -484,7 +471,7 @@ int vrrp_del_ip(struct vrrp_vrouter *vr, struct ipaddr *ip)
 		return 0;
 
 	for (ALL_LIST_ELEMENTS(r->addrs, ln, nn, iter))
-		if (!memcmp(&iter->ip, &ip->ip, IPADDRSZ(ip)))
+		if (!ipaddr_cmp(iter, ip))
 			list_delete_node(r->addrs, ln);
 
 	/*
@@ -544,7 +531,7 @@ static bool vrrp_attach_interface(struct vrrp_router *r)
 
 	size_t ifps_cnt =
 		if_lookup_by_hwaddr(r->vmac.octet, sizeof(r->vmac.octet), &ifps,
-				    r->vr->ifp->vrf_id);
+				    r->vr->ifp->vrf->vrf_id);
 
 	/*
 	 * Filter to only those macvlan interfaces whose parent is the base
@@ -647,6 +634,8 @@ struct vrrp_vrouter *vrrp_vrouter_create(struct interface *ifp, uint8_t vrid,
 	vr->priority = vd.priority;
 	vr->preempt_mode = vd.preempt_mode;
 	vr->accept_mode = vd.accept_mode;
+	vr->checksum_with_ipv4_pseudoheader =
+		vd.checksum_with_ipv4_pseudoheader;
 	vr->shutdown = vd.shutdown;
 
 	vr->v4 = vrrp_router_create(vr, AF_INET);
@@ -654,7 +643,7 @@ struct vrrp_vrouter *vrrp_vrouter_create(struct interface *ifp, uint8_t vrid,
 
 	vrrp_set_advertisement_interval(vr, vd.advertisement_interval);
 
-	hash_get(vrrp_vrouters_hash, vr, hash_alloc_intern);
+	(void)hash_get(vrrp_vrouters_hash, vr, hash_alloc_intern);
 
 	return vr;
 }
@@ -669,6 +658,9 @@ void vrrp_vrouter_destroy(struct vrrp_vrouter *vr)
 
 struct vrrp_vrouter *vrrp_lookup(const struct interface *ifp, uint8_t vrid)
 {
+	if (!ifp)
+		return NULL;
+
 	struct vrrp_vrouter vr;
 
 	vr.vrid = vrid;
@@ -681,8 +673,8 @@ struct vrrp_vrouter *vrrp_lookup(const struct interface *ifp, uint8_t vrid)
 
 /* Forward decls */
 static void vrrp_change_state(struct vrrp_router *r, int to);
-static int vrrp_adver_timer_expire(struct thread *thread);
-static int vrrp_master_down_timer_expire(struct thread *thread);
+static void vrrp_adver_timer_expire(struct event *thread);
+static void vrrp_master_down_timer_expire(struct event *thread);
 
 /*
  * Finds the first connected address of the appropriate family on a VRRP
@@ -789,7 +781,8 @@ static void vrrp_send_advertisement(struct vrrp_router *r)
 
 	pktsz = vrrp_pkt_adver_build(&pkt, &r->src, r->vr->version, r->vr->vrid,
 				     r->priority, r->vr->advertisement_interval,
-				     r->addrs->count, (struct ipaddr **)&addrs);
+				     r->addrs->count, (struct ipaddr **)&addrs,
+				     r->vr->checksum_with_ipv4_pseudoheader);
 
 	if (DEBUG_MODE_CHECK(&vrrp_dbg_pkt, DEBUG_MODE_ALL))
 		zlog_hexdump(pkt, (size_t)pktsz);
@@ -903,15 +896,15 @@ static int vrrp_recv_advertisement(struct vrrp_router *r, struct ipaddr *src,
 
 	switch (r->fsm.state) {
 	case VRRP_STATE_MASTER:
-		addrcmp = memcmp(&src->ip, &r->src.ip, IPADDRSZ(src));
+		addrcmp = ipaddr_cmp(src, &r->src);
 
 		if (pkt->hdr.priority == 0) {
 			vrrp_send_advertisement(r);
-			THREAD_OFF(r->t_adver_timer);
-			thread_add_timer_msec(
-				master, vrrp_adver_timer_expire, r,
-				r->vr->advertisement_interval * CS2MS,
-				&r->t_adver_timer);
+			EVENT_OFF(r->t_adver_timer);
+			event_add_timer_msec(master, vrrp_adver_timer_expire, r,
+					     r->vr->advertisement_interval *
+						     CS2MS,
+					     &r->t_adver_timer);
 		} else if (pkt->hdr.priority > r->priority
 			   || ((pkt->hdr.priority == r->priority)
 			       && addrcmp > 0)) {
@@ -920,17 +913,17 @@ static int vrrp_recv_advertisement(struct vrrp_router *r, struct ipaddr *src,
 				"Received advertisement from %s w/ priority %hhu; switching to Backup",
 				r->vr->vrid, family2str(r->family), sipstr,
 				pkt->hdr.priority);
-			THREAD_OFF(r->t_adver_timer);
+			EVENT_OFF(r->t_adver_timer);
 			if (r->vr->version == 3) {
 				r->master_adver_interval =
 					htons(pkt->hdr.v3.adver_int);
 			}
 			vrrp_recalculate_timers(r);
-			THREAD_OFF(r->t_master_down_timer);
-			thread_add_timer_msec(master,
-					      vrrp_master_down_timer_expire, r,
-					      r->master_down_interval * CS2MS,
-					      &r->t_master_down_timer);
+			EVENT_OFF(r->t_master_down_timer);
+			event_add_timer_msec(master,
+					     vrrp_master_down_timer_expire, r,
+					     r->master_down_interval * CS2MS,
+					     &r->t_master_down_timer);
 			vrrp_change_state(r, VRRP_STATE_BACKUP);
 		} else {
 			/* Discard advertisement */
@@ -943,8 +936,8 @@ static int vrrp_recv_advertisement(struct vrrp_router *r, struct ipaddr *src,
 		break;
 	case VRRP_STATE_BACKUP:
 		if (pkt->hdr.priority == 0) {
-			THREAD_OFF(r->t_master_down_timer);
-			thread_add_timer_msec(
+			EVENT_OFF(r->t_master_down_timer);
+			event_add_timer_msec(
 				master, vrrp_master_down_timer_expire, r,
 				r->skew_time * CS2MS, &r->t_master_down_timer);
 		} else if (!r->vr->preempt_mode
@@ -954,11 +947,11 @@ static int vrrp_recv_advertisement(struct vrrp_router *r, struct ipaddr *src,
 					ntohs(pkt->hdr.v3.adver_int);
 			}
 			vrrp_recalculate_timers(r);
-			THREAD_OFF(r->t_master_down_timer);
-			thread_add_timer_msec(master,
-					      vrrp_master_down_timer_expire, r,
-					      r->master_down_interval * CS2MS,
-					      &r->t_master_down_timer);
+			EVENT_OFF(r->t_master_down_timer);
+			event_add_timer_msec(master,
+					     vrrp_master_down_timer_expire, r,
+					     r->master_down_interval * CS2MS,
+					     &r->t_master_down_timer);
 		} else if (r->vr->preempt_mode
 			   && pkt->hdr.priority < r->priority) {
 			/* Discard advertisement */
@@ -983,9 +976,9 @@ static int vrrp_recv_advertisement(struct vrrp_router *r, struct ipaddr *src,
 /*
  * Read and process next IPvX datagram.
  */
-static int vrrp_read(struct thread *thread)
+static void vrrp_read(struct event *thread)
 {
-	struct vrrp_router *r = thread->arg;
+	struct vrrp_router *r = EVENT_ARG(thread);
 
 	struct vrrp_pkt *pkt;
 	ssize_t pktsize;
@@ -1027,8 +1020,10 @@ static int vrrp_read(struct thread *thread)
 		zlog_hexdump(r->ibuf, nbytes);
 	}
 
-	pktsize = vrrp_pkt_parse_datagram(r->family, r->vr->version, &m, nbytes,
-					  &src, &pkt, errbuf, sizeof(errbuf));
+	pktsize = vrrp_pkt_parse_datagram(
+		r->family, r->vr->version,
+		r->vr->checksum_with_ipv4_pseudoheader, &m, nbytes, &src, &pkt,
+		errbuf, sizeof(errbuf));
 
 	if (pktsize < 0)
 		DEBUGD(&vrrp_dbg_pkt,
@@ -1044,9 +1039,7 @@ done:
 	memset(r->ibuf, 0x00, sizeof(r->ibuf));
 
 	if (resched)
-		thread_add_read(master, vrrp_read, r, r->sock_rx, &r->t_read);
-
-	return 0;
+		event_add_read(master, vrrp_read, r, r->sock_rx, &r->t_read);
 }
 
 /*
@@ -1083,9 +1076,9 @@ static int vrrp_socket(struct vrrp_router *r)
 
 	frr_with_privs(&vrrp_privs) {
 		r->sock_rx = vrf_socket(r->family, SOCK_RAW, IPPROTO_VRRP,
-					r->vr->ifp->vrf_id, NULL);
+					r->vr->ifp->vrf->vrf_id, NULL);
 		r->sock_tx = vrf_socket(r->family, SOCK_RAW, IPPROTO_VRRP,
-					r->vr->ifp->vrf_id, NULL);
+					r->vr->ifp->vrf->vrf_id, NULL);
 	}
 
 	if (r->sock_rx < 0 || r->sock_tx < 0) {
@@ -1102,7 +1095,7 @@ static int vrrp_socket(struct vrrp_router *r)
 	 * Bind Tx socket to macvlan device - necessary for VRF support,
 	 * otherwise the kernel will select the vrf device
 	 */
-	if (r->vr->ifp->vrf_id != VRF_DEFAULT) {
+	if (r->vr->ifp->vrf->vrf_id != VRF_DEFAULT) {
 		frr_with_privs (&vrrp_privs) {
 			ret = setsockopt(r->sock_tx, SOL_SOCKET,
 					 SO_BINDTODEVICE, r->mvl_ifp->name,
@@ -1247,7 +1240,13 @@ static int vrrp_socket(struct vrrp_router *r)
 		}
 
 		/* Turn off multicast loop on Tx */
-		setsockopt_ipv6_multicast_loop(r->sock_tx, 0);
+		if (setsockopt_ipv6_multicast_loop(r->sock_tx, 0) < 0) {
+			zlog_warn(VRRP_LOGPFX VRRP_LOGPFX_VRID VRRP_LOGPFX_FAM
+				  "Failed to turn off IPv6 multicast",
+				  r->vr->vrid, family2str(r->family));
+			failed = true;
+			goto done;
+		}
 
 		/* Bind Rx socket to exact interface */
 		frr_with_privs(&vrrp_privs) {
@@ -1412,7 +1411,7 @@ static void vrrp_change_state_backup(struct vrrp_router *r)
 		vrrp_zebra_radv_set(r, false);
 
 	/* Disable Adver_Timer */
-	THREAD_OFF(r->t_adver_timer);
+	EVENT_OFF(r->t_adver_timer);
 
 	r->advert_pending = false;
 	r->garp_pending = false;
@@ -1480,9 +1479,9 @@ static void vrrp_change_state(struct vrrp_router *r, int to)
 /*
  * Called when Adver_Timer expires.
  */
-static int vrrp_adver_timer_expire(struct thread *thread)
+static void vrrp_adver_timer_expire(struct event *thread)
 {
-	struct vrrp_router *r = thread->arg;
+	struct vrrp_router *r = EVENT_ARG(thread);
 
 	DEBUGD(&vrrp_dbg_proto,
 	       VRRP_LOGPFX VRRP_LOGPFX_VRID VRRP_LOGPFX_FAM
@@ -1494,36 +1493,32 @@ static int vrrp_adver_timer_expire(struct thread *thread)
 		vrrp_send_advertisement(r);
 
 		/* Reset the Adver_Timer to Advertisement_Interval */
-		thread_add_timer_msec(master, vrrp_adver_timer_expire, r,
-				      r->vr->advertisement_interval * CS2MS,
-				      &r->t_adver_timer);
+		event_add_timer_msec(master, vrrp_adver_timer_expire, r,
+				     r->vr->advertisement_interval * CS2MS,
+				     &r->t_adver_timer);
 	} else {
 		zlog_err(VRRP_LOGPFX VRRP_LOGPFX_VRID VRRP_LOGPFX_FAM
 			 "Adver_Timer expired in state '%s'; this is a bug",
 			 r->vr->vrid, family2str(r->family),
 			 vrrp_state_names[r->fsm.state]);
 	}
-
-	return 0;
 }
 
 /*
  * Called when Master_Down_Timer expires.
  */
-static int vrrp_master_down_timer_expire(struct thread *thread)
+static void vrrp_master_down_timer_expire(struct event *thread)
 {
-	struct vrrp_router *r = thread->arg;
+	struct vrrp_router *r = EVENT_ARG(thread);
 
 	zlog_info(VRRP_LOGPFX VRRP_LOGPFX_VRID VRRP_LOGPFX_FAM
 		  "Master_Down_Timer expired",
 		  r->vr->vrid, family2str(r->family));
 
-	thread_add_timer_msec(master, vrrp_adver_timer_expire, r,
-			      r->vr->advertisement_interval * CS2MS,
-			      &r->t_adver_timer);
+	event_add_timer_msec(master, vrrp_adver_timer_expire, r,
+			     r->vr->advertisement_interval * CS2MS,
+			     &r->t_adver_timer);
 	vrrp_change_state(r, VRRP_STATE_MASTER);
-
-	return 0;
 }
 
 /*
@@ -1572,7 +1567,7 @@ static int vrrp_startup(struct vrrp_router *r)
 	}
 
 	/* Schedule listener */
-	thread_add_read(master, vrrp_read, r, r->sock_rx, &r->t_read);
+	event_add_read(master, vrrp_read, r, r->sock_rx, &r->t_read);
 
 	/* Configure effective priority */
 	assert(listhead(r->addrs));
@@ -1594,16 +1589,16 @@ static int vrrp_startup(struct vrrp_router *r)
 	}
 
 	if (r->priority == VRRP_PRIO_MASTER) {
-		thread_add_timer_msec(master, vrrp_adver_timer_expire, r,
-				      r->vr->advertisement_interval * CS2MS,
-				      &r->t_adver_timer);
+		event_add_timer_msec(master, vrrp_adver_timer_expire, r,
+				     r->vr->advertisement_interval * CS2MS,
+				     &r->t_adver_timer);
 		vrrp_change_state(r, VRRP_STATE_MASTER);
 	} else {
 		r->master_adver_interval = r->vr->advertisement_interval;
 		vrrp_recalculate_timers(r);
-		thread_add_timer_msec(master, vrrp_master_down_timer_expire, r,
-				      r->master_down_interval * CS2MS,
-				      &r->t_master_down_timer);
+		event_add_timer_msec(master, vrrp_master_down_timer_expire, r,
+				     r->master_down_interval * CS2MS,
+				     &r->t_master_down_timer);
 		vrrp_change_state(r, VRRP_STATE_BACKUP);
 	}
 
@@ -1643,10 +1638,10 @@ static int vrrp_shutdown(struct vrrp_router *r)
 	}
 
 	/* Cancel all timers */
-	THREAD_OFF(r->t_adver_timer);
-	THREAD_OFF(r->t_master_down_timer);
-	THREAD_OFF(r->t_read);
-	THREAD_OFF(r->t_write);
+	EVENT_OFF(r->t_adver_timer);
+	EVENT_OFF(r->t_master_down_timer);
+	EVENT_OFF(r->t_read);
+	EVENT_OFF(r->t_write);
 
 	/* Protodown macvlan */
 	if (r->mvl_ifp)
@@ -1751,7 +1746,7 @@ vrrp_autoconfig_autocreate(struct interface *mvl_ifp)
 	struct interface *p;
 	struct vrrp_vrouter *vr;
 
-	p = if_lookup_by_index(mvl_ifp->link_ifindex, mvl_ifp->vrf_id);
+	p = if_lookup_by_index(mvl_ifp->link_ifindex, mvl_ifp->vrf->vrf_id);
 
 	if (!p)
 		return NULL;
@@ -2353,6 +2348,12 @@ int vrrp_config_write_global(struct vty *vty)
 		vty_out(vty, "%svrrp default accept\n",
 			!vd.accept_mode ? "no " : "");
 
+	if (vd.checksum_with_ipv4_pseudoheader !=
+		    VRRP_DEFAULT_CHECKSUM_WITH_IPV4_PSEUDOHEADER &&
+	    ++writes)
+		vty_out(vty, "%svrrp default checksum-with-ipv4-pseudoheader\n",
+			!vd.checksum_with_ipv4_pseudoheader ? "no " : "");
+
 	if (vd.shutdown != VRRP_DEFAULT_SHUTDOWN && ++writes)
 		vty_out(vty, "%svrrp default shutdown\n",
 			!vd.shutdown ? "no " : "");
@@ -2393,12 +2394,14 @@ void vrrp_init(void)
 	vd.preempt_mode = yang_get_default_bool("%s/preempt", VRRP_XPATH_FULL);
 	vd.accept_mode =
 		yang_get_default_bool("%s/accept-mode", VRRP_XPATH_FULL);
+	vd.checksum_with_ipv4_pseudoheader = yang_get_default_bool(
+		"%s/checksum-with-ipv4-pseudoheader", VRRP_XPATH_FULL);
 	vd.shutdown = VRRP_DEFAULT_SHUTDOWN;
 
 	vrrp_autoconfig_version = 3;
 	vrrp_vrouters_hash = hash_create(&vrrp_hash_key, vrrp_hash_cmp,
 					 "VRRP virtual router hash");
-	vrf_init(NULL, NULL, NULL, NULL, NULL);
+	vrf_init(NULL, NULL, NULL, NULL);
 }
 
 void vrrp_fini(void)
@@ -2414,6 +2417,5 @@ void vrrp_fini(void)
 
 	list_delete(&vrs);
 
-	hash_clean(vrrp_vrouters_hash, NULL);
-	hash_free(vrrp_vrouters_hash);
+	hash_clean_and_free(&vrrp_vrouters_hash, NULL);
 }

@@ -1,24 +1,12 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Copyright (C) 2018  NetDEF, Inc.
  *                     Renato Westphal
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
 
+#include "base64.h"
 #include "log.h"
 #include "lib_errors.h"
 #include "northbound.h"
@@ -57,6 +45,7 @@
 		}                                                              \
 	} while (0)
 
+PRINTFRR(2, 0)
 static inline const char *
 yang_dnode_xpath_get_canon(const struct lyd_node *dnode, const char *xpath_fmt,
 			   va_list ap)
@@ -74,6 +63,7 @@ yang_dnode_xpath_get_canon(const struct lyd_node *dnode, const char *xpath_fmt,
 	return lyd_get_value(&__dleaf->node);
 }
 
+PRINTFRR(2, 0)
 static inline const struct lyd_value *
 yang_dnode_xpath_get_value(const struct lyd_node *dnode, const char *xpath_fmt,
 			   va_list ap)
@@ -99,7 +89,7 @@ static const char *yang_get_default_value(const char *xpath)
 	const struct lysc_node *snode;
 	const char *value;
 
-	snode = lys_find_path(ly_native_ctx, NULL, xpath, 0);
+	snode = yang_find_snode(ly_native_ctx, xpath, 0);
 	if (snode == NULL) {
 		flog_err(EC_LIB_YANG_UNKNOWN_DATA_PATH,
 			 "%s: unknown data path: %s", __func__, xpath);
@@ -216,7 +206,7 @@ int yang_str2enum(const char *xpath, const char *value)
 	const struct lysc_type_enum *type;
 	const struct lysc_type_bitenum_item *enums;
 
-	snode = lys_find_path(ly_native_ctx, NULL, xpath, 0);
+	snode = yang_find_snode(ly_native_ctx, xpath, 0);
 	if (snode == NULL) {
 		flog_err(EC_LIB_YANG_UNKNOWN_DATA_PATH,
 			 "%s: unknown data path: %s", __func__, xpath);
@@ -251,7 +241,7 @@ struct yang_data *yang_data_new_enum(const char *xpath, int value)
 	const struct lysc_type_enum *type;
 	const struct lysc_type_bitenum_item *enums;
 
-	snode = lys_find_path(ly_native_ctx, NULL, xpath, 0);
+	snode = yang_find_snode(ly_native_ctx, xpath, 0);
 	if (snode == NULL) {
 		flog_err(EC_LIB_YANG_UNKNOWN_DATA_PATH,
 			 "%s: unknown data path: %s", __func__, xpath);
@@ -675,6 +665,64 @@ void yang_get_default_string_buf(char *buf, size_t size, const char *xpath_fmt,
 			  "%s: value was truncated [xpath %s]", __func__,
 			  xpath);
 }
+
+/*
+ * Primitive type: binary.
+ */
+struct yang_data *yang_data_new_binary(const char *xpath, const char *value,
+				       size_t len)
+{
+	char *value_str;
+	struct base64_encodestate s;
+	int cnt;
+	char *c;
+	struct yang_data *data;
+
+	value_str = (char *)malloc(len * 2);
+	base64_init_encodestate(&s);
+	cnt = base64_encode_block(value, len, value_str, &s);
+	c = value_str + cnt;
+	cnt = base64_encode_blockend(c, &s);
+	c += cnt;
+	*c = 0;
+	data = yang_data_new(xpath, value_str);
+	free(value_str);
+	return data;
+}
+
+size_t yang_dnode_get_binary_buf(char *buf, size_t size,
+				 const struct lyd_node *dnode,
+				 const char *xpath_fmt, ...)
+{
+	const char *canon;
+	size_t cannon_len;
+	size_t decode_len;
+	size_t ret_len;
+	size_t cnt;
+	char *value_str;
+	struct base64_decodestate s;
+
+	canon = YANG_DNODE_XPATH_GET_CANON(dnode, xpath_fmt);
+	cannon_len = strlen(canon);
+	decode_len = cannon_len + 1;
+	value_str = (char *)malloc(decode_len);
+	base64_init_decodestate(&s);
+	cnt = base64_decode_block(canon, cannon_len, value_str, &s);
+
+	ret_len = size > cnt ? cnt : size;
+	memcpy(buf, value_str, ret_len);
+	if (size < cnt) {
+		char xpath[XPATH_MAXLEN];
+
+		yang_dnode_get_path(dnode, xpath, sizeof(xpath));
+		flog_warn(EC_LIB_YANG_DATA_TRUNCATED,
+			  "%s: value was truncated [xpath %s]", __func__,
+			  xpath);
+	}
+	free(value_str);
+	return ret_len;
+}
+
 
 /*
  * Primitive type: empty.

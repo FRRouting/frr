@@ -1,17 +1,6 @@
+// SPDX-License-Identifier: ISC
 /*
  * Copyright (c) 2017-20  David Lamparter, for NetDEF, Inc.
- *
- * Permission to use, copy, modify, and distribute this software for any
- * purpose with or without fee is hereby granted, provided that the above
- * copyright notice and this permission notice appear in all copies.
- *
- * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
- * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
- * ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
- * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
- * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
- * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
 #ifndef _FRR_XREF_H
@@ -22,6 +11,7 @@
 #include <limits.h>
 #include <errno.h>
 #include "compiler.h"
+#include "typesafe.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -30,7 +20,7 @@ extern "C" {
 enum xref_type {
 	XREFT_NONE = 0,
 
-	XREFT_THREADSCHED = 0x100,
+	XREFT_EVENTSCHED = 0x100,
 
 	XREFT_LOGMSG = 0x200,
 	XREFT_ASSERT = 0x280,
@@ -63,6 +53,8 @@ struct xref {
 	/* type-specific bits appended by embedding this struct */
 };
 
+PREDECL_RBTREE_UNIQ(xrefdata_uid);
+
 struct xrefdata {
 	/* pointer back to the const part;  this will be initialized at
 	 * program startup by xref_block_add().  (Creating structs with
@@ -88,7 +80,17 @@ struct xrefdata {
 	uint32_t hashu32[2];
 
 	/* -- 32 bytes (on 64bit) -- */
+	struct xrefdata_uid_item xui;
 };
+
+static inline int xrefdata_uid_cmp(const struct xrefdata *a,
+				   const struct xrefdata *b)
+{
+	return strcmp(a->uid, b->uid);
+}
+
+DECLARE_RBTREE_UNIQ(xrefdata_uid, struct xrefdata, xui, xrefdata_uid_cmp);
+extern struct xrefdata_uid_head xrefdata_uid;
 
 /* linker "magic" is used to create an array of pointers to struct xref.
  * the result is a contiguous block of pointers, each pointing to an xref
@@ -195,8 +197,19 @@ extern const struct xref * const __stop_xref_array[1] DSO_LOCAL;
  * some build issue with it just add -DFRR_XREF_NO_NOTE to your build flags
  * to disable it.
  */
-#ifdef FRR_XREF_NO_NOTE
+#if defined(FRR_XREF_NO_NOTE) || defined(__mips64)
 #define XREF_NOTE ""
+
+/* mips64 note:  MIPS64 (regardless of endianness, both mips64 & mips64el)
+ * does not have a 64-bit PC-relative relocation type.  Unfortunately, a
+ * 64-bit PC-relative relocation is exactly what the below asm magic emits.
+ * Therefore, the xref ELF note is permanently disabled on MIPS64.
+ *
+ * For some context, refer to https://reviews.llvm.org/D80390
+ *
+ * As noted above, xref extraction still works through the section header
+ * path, so no functionality is lost.
+ */
 #else
 
 #if __SIZEOF_POINTER__ == 4

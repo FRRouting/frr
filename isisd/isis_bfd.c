@@ -1,20 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * IS-IS Rout(e)ing protocol - BFD support
  * Copyright (C) 2018 Christian Franke
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 #include <zebra.h>
 
@@ -81,7 +68,7 @@ static void bfd_handle_adj_up(struct isis_adjacency *adj)
 	 */
 	if (circuit->ipv6_router
 	    && (listcount(circuit->ipv6_link) == 0
-		|| adj->ipv6_address_count == 0)) {
+		|| adj->ll_ipv6_count == 0)) {
 		if (IS_DEBUG_BFD)
 			zlog_debug(
 				"ISIS-BFD: skipping BFD initialization on adjacency with %s because IPv6 is enabled but not ready",
@@ -93,11 +80,11 @@ static void bfd_handle_adj_up(struct isis_adjacency *adj)
 	 * If IS-IS is enabled for both IPv4 and IPv6 on the circuit, prefer
 	 * creating a BFD session over IPv6.
 	 */
-	if (circuit->ipv6_router && adj->ipv6_address_count) {
+	if (circuit->ipv6_router && adj->ll_ipv6_count) {
 		family = AF_INET6;
-		dst_ip.ipv6 = adj->ipv6_addresses[0];
+		dst_ip.ipv6 = adj->ll_ipv6_addrs[0];
 		local_ips = circuit->ipv6_link;
-		if (!local_ips || list_isempty(local_ips)) {
+		if (list_isempty(local_ips)) {
 			if (IS_DEBUG_BFD)
 				zlog_debug(
 					"ISIS-BFD: skipping BFD initialization: IPv6 enabled and no local IPv6 addresses");
@@ -132,7 +119,8 @@ static void bfd_handle_adj_up(struct isis_adjacency *adj)
 		bfd_sess_set_ipv6_addrs(adj->bfd_session, &src_ip.ipv6,
 					&dst_ip.ipv6);
 	bfd_sess_set_interface(adj->bfd_session, adj->circuit->interface->name);
-	bfd_sess_set_vrf(adj->bfd_session, adj->circuit->interface->vrf_id);
+	bfd_sess_set_vrf(adj->bfd_session,
+			 adj->circuit->interface->vrf->vrf_id);
 	bfd_sess_set_profile(adj->bfd_session, circuit->bfd_config.profile);
 	bfd_sess_install(adj->bfd_session);
 	return;
@@ -167,6 +155,8 @@ void isis_bfd_circuit_cmd(struct isis_circuit *circuit)
 			struct listnode *node;
 			struct isis_adjacency *adj;
 
+			if (!adjdb)
+				continue;
 			for (ALL_LIST_ELEMENTS_RO(adjdb, node, adj))
 				bfd_adj_cmd(adj);
 		}
@@ -180,10 +170,11 @@ void isis_bfd_circuit_cmd(struct isis_circuit *circuit)
 	}
 }
 
-static int bfd_handle_adj_ip_enabled(struct isis_adjacency *adj, int family)
+static int bfd_handle_adj_ip_enabled(struct isis_adjacency *adj, int family,
+				     bool global)
 {
 
-	if (family != AF_INET6)
+	if (family != AF_INET6 || global)
 		return 0;
 
 	if (adj->bfd_session)
@@ -202,7 +193,7 @@ static int bfd_handle_circuit_add_addr(struct isis_circuit *circuit)
 	struct isis_adjacency *adj;
 	struct listnode *node;
 
-	if (circuit->area == 0)
+	if (circuit->area == NULL)
 		return 0;
 
 	for (ALL_LIST_ELEMENTS_RO(circuit->area->adjacency_list, node, adj)) {
@@ -218,7 +209,7 @@ static int bfd_handle_circuit_add_addr(struct isis_circuit *circuit)
 	return 0;
 }
 
-void isis_bfd_init(struct thread_master *tm)
+void isis_bfd_init(struct event_loop *tm)
 {
 	bfd_protocol_integration_init(zclient, tm);
 

@@ -1,20 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* Scripting foo
  * Copyright (C) 2020  NVIDIA Corporation
  * Quentin Young
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 #ifndef __FRRSCRIPT_H__
 #define __FRRSCRIPT_H__
@@ -24,12 +11,51 @@
 #ifdef HAVE_SCRIPTING
 
 #include <lua.h>
+#include <nexthop.h>
+#include <nexthop_group.h>
 #include "frrlua.h"
 #include "bgpd/bgp_script.h" // for peer and attr encoders/decoders
 
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+/* Forward declarations */
+struct zebra_dplane_ctx;
+extern void lua_pushzebra_dplane_ctx(lua_State *L,
+				     const struct zebra_dplane_ctx *ctx);
+extern void lua_decode_zebra_dplane_ctx(lua_State *L, int idx,
+					struct zebra_dplane_ctx *ctx);
+
+/*
+ * Script name hash
+ */
+PREDECL_HASH(frrscript_names);
+
+struct frrscript_names_entry {
+	/* Name of a Lua hook call */
+	char function_name[MAXPATHLEN];
+
+	/* Lua script in which to look for it */
+	char script_name[MAXPATHLEN];
+
+	struct frrscript_names_item item;
+};
+
+extern struct frrscript_names_head frrscript_names_hash;
+
+int frrscript_names_hash_cmp(const struct frrscript_names_entry *snhe1,
+			     const struct frrscript_names_entry *snhe2);
+uint32_t frrscript_names_hash_key(const struct frrscript_names_entry *snhe);
+
+DECLARE_HASH(frrscript_names, struct frrscript_names_entry, item,
+	     frrscript_names_hash_cmp, frrscript_names_hash_key);
+
+int frrscript_names_add_function_name(const char *function_name);
+void frrscript_names_destroy(void);
+int frrscript_names_set_script_name(const char *function_name,
+				    const char *script_name);
+char *frrscript_names_get_script_name(const char *function_name);
 
 typedef void (*encoder_func)(lua_State *, const void *);
 typedef void *(*decoder_func)(lua_State *, int);
@@ -123,6 +149,11 @@ void frrscript_register_type_codecs(struct frrscript_codec *codecs);
 void frrscript_init(const char *scriptdir);
 
 /*
+ * On shutdown clean up memory associated with the scripting subsystem
+ */
+void frrscript_fini(void);
+
+/*
  * This macro is mapped to every (name, value) in frrscript_call,
  * so this in turn maps them onto their encoders
  */
@@ -167,11 +198,15 @@ struct interface * : lua_pushinterface,                         \
 struct in_addr * : lua_pushinaddr,                              \
 struct in6_addr * : lua_pushin6addr,                            \
 union sockunion * : lua_pushsockunion,                          \
-time_t * : lua_pushtimet,                                       \
 char * : lua_pushstring_wrapper,                                \
 struct attr * : lua_pushattr,                                   \
 struct peer * : lua_pushpeer,                                   \
-const struct prefix * : lua_pushprefix                          \
+const struct prefix * : lua_pushprefix,                         \
+const struct ipaddr * : lua_pushipaddr,                         \
+const struct ethaddr * : lua_pushethaddr,                       \
+const struct nexthop_group * : lua_pushnexthop_group,           \
+const struct nexthop * : lua_pushnexthop,                       \
+struct zebra_dplane_ctx * : lua_pushzebra_dplane_ctx            \
 )((L), (value))
 
 #define DECODE_ARGS_WITH_STATE(L, value)                                       \
@@ -183,11 +218,15 @@ struct interface * : lua_decode_interface,                      \
 struct in_addr * : lua_decode_inaddr,                           \
 struct in6_addr * : lua_decode_in6addr,                         \
 union sockunion * : lua_decode_sockunion,                       \
-time_t * : lua_decode_timet,                                    \
 char * : lua_decode_stringp,                                    \
 struct attr * : lua_decode_attr,                                \
 struct peer * : lua_decode_noop,                                \
-const struct prefix * : lua_decode_noop                         \
+const struct prefix * : lua_decode_noop,                        \
+const struct ipaddr * : lua_decode_noop,                        \
+const struct ethaddr * : lua_decode_noop,                       \
+const struct nexthop_group * : lua_decode_noop,                 \
+const struct nexthop * : lua_decode_noop,                       \
+struct zebra_dplane_ctx * : lua_decode_noop                     \
 )((L), -1, (value))
 
 /*

@@ -1,22 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Logging of zebra
  * Copyright (C) 1997, 1998, 1999 Kunihiro Ishiguro
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #define FRR_DEFINE_DESC_TABLE
@@ -64,7 +49,7 @@ const char *lookup_msg(const struct message *mz, int kz, const char *nf)
 }
 
 /* For time string format. */
-size_t quagga_timestamp(int timestamp_precision, char *buf, size_t buflen)
+size_t frr_timestamp(int timestamp_precision, char *buf, size_t buflen)
 {
 	static struct {
 		time_t last;
@@ -155,7 +140,7 @@ void zlog_signal(int signo, const char *action, void *siginfo_v,
 
 	fb.pos = buf;
 
-	struct thread *tc;
+	struct event *tc;
 	tc = pthread_getspecific(thread_current);
 
 	if (!tc)
@@ -239,7 +224,7 @@ void zlog_backtrace(int priority)
 {
 #ifdef HAVE_LIBUNWIND
 	char buf[100];
-	unw_cursor_t cursor;
+	unw_cursor_t cursor = {};
 	unw_context_t uc;
 	unw_word_t ip, off, sp;
 	Dl_info dlinfo;
@@ -299,7 +284,7 @@ void zlog_backtrace(int priority)
 
 void zlog_thread_info(int log_level)
 {
-	struct thread *tc;
+	struct event *tc;
 	tc = pthread_getspecific(thread_current);
 
 	if (tc)
@@ -337,6 +322,7 @@ static const struct zebra_desc_table command_types[] = {
 	DESC_ENTRY(ZEBRA_INTERFACE_UP),
 	DESC_ENTRY(ZEBRA_INTERFACE_DOWN),
 	DESC_ENTRY(ZEBRA_INTERFACE_SET_MASTER),
+	DESC_ENTRY(ZEBRA_INTERFACE_SET_PROTODOWN),
 	DESC_ENTRY(ZEBRA_ROUTE_ADD),
 	DESC_ENTRY(ZEBRA_ROUTE_DELETE),
 	DESC_ENTRY(ZEBRA_ROUTE_NOTIFY_OWNER),
@@ -355,9 +341,6 @@ static const struct zebra_desc_table command_types[] = {
 	DESC_ENTRY(ZEBRA_INTERFACE_NBR_ADDRESS_ADD),
 	DESC_ENTRY(ZEBRA_INTERFACE_NBR_ADDRESS_DELETE),
 	DESC_ENTRY(ZEBRA_INTERFACE_BFD_DEST_UPDATE),
-	DESC_ENTRY(ZEBRA_IMPORT_ROUTE_REGISTER),
-	DESC_ENTRY(ZEBRA_IMPORT_ROUTE_UNREGISTER),
-	DESC_ENTRY(ZEBRA_IMPORT_CHECK_UPDATE),
 	DESC_ENTRY(ZEBRA_BFD_DEST_REGISTER),
 	DESC_ENTRY(ZEBRA_BFD_DEST_DEREGISTER),
 	DESC_ENTRY(ZEBRA_BFD_DEST_UPDATE),
@@ -373,7 +356,7 @@ static const struct zebra_desc_table command_types[] = {
 	DESC_ENTRY(ZEBRA_BFD_CLIENT_DEREGISTER),
 	DESC_ENTRY(ZEBRA_INTERFACE_ENABLE_RADV),
 	DESC_ENTRY(ZEBRA_INTERFACE_DISABLE_RADV),
-	DESC_ENTRY(ZEBRA_IPV4_NEXTHOP_LOOKUP_MRIB),
+	DESC_ENTRY(ZEBRA_NEXTHOP_LOOKUP_MRIB),
 	DESC_ENTRY(ZEBRA_INTERFACE_LINK_PARAMS),
 	DESC_ENTRY(ZEBRA_MPLS_LABELS_ADD),
 	DESC_ENTRY(ZEBRA_MPLS_LABELS_DELETE),
@@ -389,10 +372,10 @@ static const struct zebra_desc_table command_types[] = {
 	DESC_ENTRY(ZEBRA_FEC_REGISTER),
 	DESC_ENTRY(ZEBRA_FEC_UNREGISTER),
 	DESC_ENTRY(ZEBRA_FEC_UPDATE),
-	DESC_ENTRY(ZEBRA_ADVERTISE_ALL_VNI),
 	DESC_ENTRY(ZEBRA_ADVERTISE_DEFAULT_GW),
 	DESC_ENTRY(ZEBRA_ADVERTISE_SVI_MACIP),
 	DESC_ENTRY(ZEBRA_ADVERTISE_SUBNET),
+	DESC_ENTRY(ZEBRA_ADVERTISE_ALL_VNI),
 	DESC_ENTRY(ZEBRA_LOCAL_ES_ADD),
 	DESC_ENTRY(ZEBRA_LOCAL_ES_DEL),
 	DESC_ENTRY(ZEBRA_REMOTE_ES_VTEP_ADD),
@@ -441,19 +424,23 @@ static const struct zebra_desc_table command_types[] = {
 	DESC_ENTRY(ZEBRA_MLAG_CLIENT_REGISTER),
 	DESC_ENTRY(ZEBRA_MLAG_CLIENT_UNREGISTER),
 	DESC_ENTRY(ZEBRA_MLAG_FORWARD_MSG),
+	DESC_ENTRY(ZEBRA_NHG_ADD),
+	DESC_ENTRY(ZEBRA_NHG_DEL),
+	DESC_ENTRY(ZEBRA_NHG_NOTIFY_OWNER),
+	DESC_ENTRY(ZEBRA_EVPN_REMOTE_NH_ADD),
+	DESC_ENTRY(ZEBRA_EVPN_REMOTE_NH_DEL),
+	DESC_ENTRY(ZEBRA_SRV6_LOCATOR_ADD),
+	DESC_ENTRY(ZEBRA_SRV6_LOCATOR_DELETE),
+	DESC_ENTRY(ZEBRA_SRV6_MANAGER_GET_LOCATOR_CHUNK),
+	DESC_ENTRY(ZEBRA_SRV6_MANAGER_RELEASE_LOCATOR_CHUNK),
 	DESC_ENTRY(ZEBRA_ERROR),
 	DESC_ENTRY(ZEBRA_CLIENT_CAPABILITIES),
 	DESC_ENTRY(ZEBRA_OPAQUE_MESSAGE),
 	DESC_ENTRY(ZEBRA_OPAQUE_REGISTER),
 	DESC_ENTRY(ZEBRA_OPAQUE_UNREGISTER),
 	DESC_ENTRY(ZEBRA_NEIGH_DISCOVER),
-	DESC_ENTRY(ZEBRA_NHG_ADD),
-	DESC_ENTRY(ZEBRA_NHG_DEL),
-	DESC_ENTRY(ZEBRA_NHG_NOTIFY_OWNER),
 	DESC_ENTRY(ZEBRA_ROUTE_NOTIFY_REQUEST),
 	DESC_ENTRY(ZEBRA_CLIENT_CLOSE_NOTIFY),
-	DESC_ENTRY(ZEBRA_EVPN_REMOTE_NH_ADD),
-	DESC_ENTRY(ZEBRA_EVPN_REMOTE_NH_DEL),
 	DESC_ENTRY(ZEBRA_NHRP_NEIGH_ADDED),
 	DESC_ENTRY(ZEBRA_NHRP_NEIGH_REMOVED),
 	DESC_ENTRY(ZEBRA_NHRP_NEIGH_GET),
@@ -464,7 +451,15 @@ static const struct zebra_desc_table command_types[] = {
 	DESC_ENTRY(ZEBRA_CONFIGURE_ARP),
 	DESC_ENTRY(ZEBRA_GRE_GET),
 	DESC_ENTRY(ZEBRA_GRE_UPDATE),
-	DESC_ENTRY(ZEBRA_GRE_SOURCE_SET)};
+	DESC_ENTRY(ZEBRA_GRE_SOURCE_SET),
+	DESC_ENTRY(ZEBRA_TC_QDISC_INSTALL),
+	DESC_ENTRY(ZEBRA_TC_QDISC_UNINSTALL),
+	DESC_ENTRY(ZEBRA_TC_CLASS_ADD),
+	DESC_ENTRY(ZEBRA_TC_CLASS_DELETE),
+	DESC_ENTRY(ZEBRA_TC_FILTER_ADD),
+	DESC_ENTRY(ZEBRA_TC_FILTER_DELETE),
+	DESC_ENTRY(ZEBRA_OPAQUE_NOTIFY)
+};
 #undef DESC_ENTRY
 
 static const struct zebra_desc_table unknown = {0, "unknown", '?'};
@@ -511,6 +506,26 @@ const char *zserv_command_string(unsigned int command)
 		return unknown.string;
 	}
 	return command_types[command].string;
+}
+
+#define DESC_ENTRY(T) [(T)] = {(T), (#T), '\0'}
+static const struct zebra_desc_table gr_client_cap_types[] = {
+	DESC_ENTRY(ZEBRA_CLIENT_GR_CAPABILITIES),
+	DESC_ENTRY(ZEBRA_CLIENT_ROUTE_UPDATE_COMPLETE),
+	DESC_ENTRY(ZEBRA_CLIENT_ROUTE_UPDATE_PENDING),
+	DESC_ENTRY(ZEBRA_CLIENT_GR_DISABLE),
+	DESC_ENTRY(ZEBRA_CLIENT_RIB_STALE_TIME),
+};
+#undef DESC_ENTRY
+
+const char *zserv_gr_client_cap_string(uint32_t zcc)
+{
+	if (zcc >= array_size(gr_client_cap_types)) {
+		flog_err(EC_LIB_DEVELOPMENT, "unknown zserv command type: %u",
+			 zcc);
+		return unknown.string;
+	}
+	return gr_client_cap_types[zcc].string;
 }
 
 int proto_name2num(const char *s)

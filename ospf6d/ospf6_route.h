@@ -1,21 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Copyright (C) 2003 Yasuhiro Ohara
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef OSPF6_ROUTE_H
@@ -148,8 +133,7 @@ struct ospf6_path {
 #define OSPF6_PATH_TYPE_INTER        2
 #define OSPF6_PATH_TYPE_EXTERNAL1    3
 #define OSPF6_PATH_TYPE_EXTERNAL2    4
-#define OSPF6_PATH_TYPE_REDISTRIBUTE 5
-#define OSPF6_PATH_TYPE_MAX          6
+#define OSPF6_PATH_TYPE_MAX          5
 
 #define OSPF6_PATH_SUBTYPE_DEFAULT_RT   1
 
@@ -186,7 +170,7 @@ struct ospf6_route {
 	struct timeval changed;
 
 	/* flag */
-	uint8_t flag;
+	uint16_t flag;
 
 	/* Prefix Options */
 	uint8_t prefix_options;
@@ -221,14 +205,15 @@ struct ospf6_route {
 #define OSPF6_DEST_TYPE_RANGE      5
 #define OSPF6_DEST_TYPE_MAX        6
 
-#define OSPF6_ROUTE_CHANGE           0x01
-#define OSPF6_ROUTE_ADD              0x02
-#define OSPF6_ROUTE_REMOVE           0x04
-#define OSPF6_ROUTE_BEST             0x08
-#define OSPF6_ROUTE_ACTIVE_SUMMARY   0x10
-#define OSPF6_ROUTE_DO_NOT_ADVERTISE 0x20
-#define OSPF6_ROUTE_WAS_REMOVED      0x40
-#define OSPF6_ROUTE_BLACKHOLE_ADDED  0x80
+#define OSPF6_ROUTE_CHANGE           0x0001
+#define OSPF6_ROUTE_ADD              0x0002
+#define OSPF6_ROUTE_REMOVE           0x0004
+#define OSPF6_ROUTE_BEST             0x0008
+#define OSPF6_ROUTE_ACTIVE_SUMMARY   0x0010
+#define OSPF6_ROUTE_DO_NOT_ADVERTISE 0x0020
+#define OSPF6_ROUTE_WAS_REMOVED      0x0040
+#define OSPF6_ROUTE_BLACKHOLE_ADDED  0x0080
+#define OSPF6_ROUTE_NSSA_RANGE       0x0100
 struct ospf6;
 
 struct ospf6_route_table {
@@ -240,8 +225,6 @@ struct ospf6_route_table {
 	struct route_table *table;
 
 	uint32_t count;
-
-	bitfield_t idspace;
 
 	/* hooks */
 	void (*hook_add)(struct ospf6_route *);
@@ -292,20 +275,21 @@ extern const char *const ospf6_path_type_substr[OSPF6_PATH_TYPE_MAX];
 #define OSPF6_ROUTE_PREFIX_STR  "Display the route\n"
 #define OSPF6_ROUTE_MATCH_STR   "Display the route matches the prefix\n"
 
-#define ospf6_route_is_prefix(p, r)                                            \
-	(memcmp(p, &(r)->prefix, sizeof(struct prefix)) == 0)
+#define ospf6_route_is_prefix(p, r) (prefix_same(p, &(r)->prefix))
 #define ospf6_route_is_same(ra, rb) (prefix_same(&(ra)->prefix, &(rb)->prefix))
 #define ospf6_route_is_same_origin(ra, rb)                                     \
 	((ra)->path.area_id == (rb)->path.area_id                              \
-	 && memcmp(&(ra)->path.origin, &(rb)->path.origin,                     \
-		   sizeof(struct ospf6_ls_origin))                             \
-		    == 0)
+	 && (ra)->path.origin.type == (rb)->path.origin.type                   \
+	 && (ra)->path.origin.id == (rb)->path.origin.id                       \
+	 && (ra)->path.origin.adv_router == (rb)->path.origin.adv_router)
 #define ospf6_route_is_identical(ra, rb)                                       \
-	((ra)->type == (rb)->type                                              \
-	 && memcmp(&(ra)->prefix, &(rb)->prefix, sizeof(struct prefix)) == 0   \
-	 && memcmp(&(ra)->path, &(rb)->path, sizeof(struct ospf6_path)) == 0   \
-	 && listcount(ra->paths) == listcount(rb->paths)		       \
-	 && ospf6_route_cmp_nexthops(ra, rb) == 0)
+	((ra)->type == (rb)->type &&                                           \
+	 prefix_same(&(ra)->prefix, &(rb)->prefix) &&                          \
+	 (ra)->path.type == (rb)->path.type &&                                 \
+	 (ra)->path.cost == (rb)->path.cost &&                                 \
+	 (ra)->path.u.cost_e2 == (rb)->path.u.cost_e2 &&                       \
+	 listcount(ra->paths) == listcount(rb->paths) &&                       \
+	 ospf6_route_cmp_nexthops(ra, rb))
 
 #define ospf6_route_is_best(r) (CHECK_FLAG ((r)->flag, OSPF6_ROUTE_BEST))
 
@@ -328,11 +312,11 @@ extern int ospf6_num_nexthops(struct list *nh_list);
 extern void ospf6_copy_nexthops(struct list *dst, struct list *src);
 extern void ospf6_merge_nexthops(struct list *dst, struct list *src);
 extern void ospf6_add_nexthop(struct list *nh_list, int ifindex,
-			      struct in6_addr *addr);
+			      const struct in6_addr *addr);
 extern void ospf6_add_route_nexthop_blackhole(struct ospf6_route *route);
 extern int ospf6_num_nexthops(struct list *nh_list);
-extern int ospf6_route_cmp_nexthops(struct ospf6_route *a,
-				    struct ospf6_route *b);
+extern bool ospf6_route_cmp_nexthops(struct ospf6_route *a,
+				     struct ospf6_route *b);
 extern void ospf6_route_zebra_copy_nexthops(struct ospf6_route *route,
 					    struct zapi_nexthop nexthops[],
 					    int entries, vrf_id_t vrf_id);

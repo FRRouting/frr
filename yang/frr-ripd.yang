@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: BSD-2-Clause
 module frr-ripd {
   yang-version 1.1;
   namespace "http://frrouting.org/yang/ripd";
@@ -9,8 +10,17 @@ module frr-ripd {
   import ietf-yang-types {
     prefix yang;
   }
+  import frr-if-rmap {
+    prefix frr-if-rmap;
+  }
+  import frr-bfdd {
+    prefix frr-bfdd;
+  }
   import frr-interface {
     prefix frr-interface;
+  }
+  import frr-nexthop {
+    prefix frr-nexthop;
   }
   import frr-vrf {
     prefix frr-vrf;
@@ -59,6 +69,7 @@ module frr-ripd {
     description
       "Changed interface references to use
       frr-interface:interface-ref typedef";
+    reference "FRRouting";
   }
   revision 2017-12-06 {
     description
@@ -68,10 +79,35 @@ module frr-ripd {
        RFC 2453: RIP Version 2.";
   }
 
+  typedef rip-route-type {
+    type enumeration {
+      enum normal {
+        value 0;
+        description "Normal RIP route type.";
+      }
+      enum static {
+        value 1;
+        description "Static RIP route type.";
+      }
+      enum default {
+        value 2;
+        description "Default RIP route type.";
+      }
+      enum redistribute {
+        value 3;
+        description "Redistribute RIP route type.";
+      }
+      enum interface {
+        value 4;
+        description "Interface RIP route type.";
+      }
+    }
+    description
+      "Types of RIP routes.";
+  }
+
   container ripd {
-    /*
-     * Routing instance configuration.
-     */
+    description "rip routing instance data";
     list instance {
       key "vrf";
       description
@@ -83,8 +119,8 @@ module frr-ripd {
           "VRF name.";
       }
       leaf allow-ecmp {
-        type boolean;
-        default "false";
+        type uint8;
+        default 0;
         description
           "Allow equal-cost multi-path.";
       }
@@ -228,9 +264,9 @@ module frr-ripd {
           "Redistributes routes learned from other routing protocols.";
         leaf protocol {
           type frr-route-types:frr-route-types-v4;
+          must '. != "rip"';
           description
             "Routing protocol.";
-          must '. != "rip"';
         }
         leaf route-map {
           type frr-route-map:route-map-ref;
@@ -252,6 +288,9 @@ module frr-ripd {
              is 0.";
         }
       }
+
+      uses frr-if-rmap:if-route-maps-group;
+
       leaf-list static-route {
         type inet:ipv4-prefix;
         description
@@ -290,11 +329,8 @@ module frr-ripd {
         }
       }
       container version {
+        description "version of rip";
         leaf receive {
-          must
-            '(. = "1" and ../send = "1") or ' +
-            '(. = "2" and ../send = "2") or ' +
-            '(. = "1-2" and ../send = "2")';
           type enumeration {
             enum "1" {
               value 1;
@@ -312,15 +348,15 @@ module frr-ripd {
                 "Accept both RIPv1 and RIPv2 updates.";
             }
           }
+          must
+            '(. = "1" and ../send = "1") or ' +
+            '(. = "2" and ../send = "2") or ' +
+            '(. = "1-2" and ../send = "2")';
           default "1-2";
           description
             "Advertisement reception - Version control.";
         }
         leaf send {
-          must
-            '(../receive = "1" and . = "1") or ' +
-            '(../receive = "2" and . = "2") or ' +
-            '(../receive = "1-2" and . = "2")';
           type enumeration {
             enum "1" {
               value 1;
@@ -333,10 +369,20 @@ module frr-ripd {
                 "Send RIPv2 updates only.";
             }
           }
+          must
+            '(../receive = "1" and . = "1") or ' +
+            '(../receive = "2" and . = "2") or ' +
+            '(../receive = "1-2" and . = "2")';
           default "2";
           description
             "Advertisement transmission - Version control.";
         }
+      }
+
+      leaf default-bfd-profile {
+        description
+          "Use this BFD profile for all peers by default.";
+        type frr-bfdd:profile-ref;
       }
 
       /*
@@ -398,15 +444,58 @@ module frr-ripd {
                  separated by the slash (/) character. The range of
                  values for the prefix-length is 0 to 32.";
             }
-            leaf next-hop {
-              type inet:ipv4-address;
-              description
-                "Next hop IPv4 address.";
-            }
-            leaf interface {
-              type frr-interface:interface-ref;
-              description
-                "The interface that the route uses.";
+            container nexthops {
+              description "container of nexthops";
+              list nexthop {
+                description "A list of nexthop objects.";
+                leaf nh-type {
+                  type frr-nexthop:nexthop-type;
+                  mandatory true;
+                  description
+                    "The nexthop type.";
+                }
+                leaf protocol {
+                  type frr-route-types:frr-route-types-v4;
+                  description
+                    "The protocol originating this route.";
+                }
+                leaf rip-type {
+                  type rip-route-type;
+                  description
+                    "The RIP type of route.";
+                }
+                leaf gateway {
+                  type inet:ipv4-address;
+                  description
+                    "The nexthop gateway address.";
+                }
+                leaf interface {
+                  type frr-interface:interface-ref;
+                  description
+                    "The nexthop egress interface.";
+                }
+                leaf from {
+                  type inet:ipv4-address;
+                  description
+                    "The nexthop gateway address.";
+                }
+                leaf tag {
+                  type uint32;
+                  default "0";
+                  description
+                    "Route tag";
+                }
+                leaf external-metric {
+                  type uint32;
+                  description
+                    "External metric if learned from external protocol.";
+                }
+                leaf expire-time {
+                  type uint32;
+                  description
+                    "Seconds before route expires.";
+                }
+              }
             }
             leaf metric {
               type uint8 {
@@ -414,6 +503,21 @@ module frr-ripd {
               }
               description
                 "Route metric.";
+            }
+            /*
+             * Replaced by container `nexthops` above.
+             */
+            leaf next-hop {
+              type inet:ipv4-address;
+              status deprecated;
+              description
+                "Next hop IPv4 address.";
+            }
+            leaf interface {
+              type frr-interface:interface-ref;
+              status deprecated;
+              description
+                "The interface that the route uses.";
             }
           }
         }
@@ -425,6 +529,7 @@ module frr-ripd {
    * Per-interface configuration data
    */
   augment "/frr-interface:lib/frr-interface:interface" {
+    description "rip interface data";
     container rip {
       description
         "RIP interface parameters.";
@@ -580,6 +685,24 @@ module frr-ripd {
           type string;
           description
             "Key-chain name.";
+        }
+      }
+
+      container bfd-monitoring {
+        presence
+          "Present if BFD is configured for RIP peers in this interface.";
+
+        leaf enable {
+          type boolean;
+          description
+            "Enable/disable BFD monitoring.";
+          default false;
+        }
+
+        leaf profile {
+          type frr-bfdd:profile-ref;
+          description
+            "BFD profile to use.";
         }
       }
     }

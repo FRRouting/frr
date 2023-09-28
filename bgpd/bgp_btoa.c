@@ -1,21 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* BGP dump to ascii converter
  * Copyright (C) 1999 Kunihiro Ishiguro
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -77,7 +62,7 @@ static void attr_parse(struct stream *s, uint16_t len)
 
 	lim = s->getp + len;
 
-	printf("attr_parse s->getp %zd, len %d, lim %d\n", s->getp, len, lim);
+	printf("%s s->getp %zd, len %d, lim %d\n", __func__, s->getp, len, lim);
 
 	while (s->getp < lim) {
 		flag = stream_getc(s);
@@ -101,7 +86,8 @@ static void attr_parse(struct stream *s, uint16_t len)
 		case BGP_ATTR_AS_PATH: {
 			struct aspath *aspath;
 
-			aspath = aspath_parse(s, length, 1);
+			aspath = aspath_parse(s, length, 1,
+					      bgp_get_asnotation(NULL));
 			printf("ASPATH: %s\n", aspath->str);
 			aspath_free(aspath);
 		} break;
@@ -134,6 +120,7 @@ int main(int argc, char **argv)
 	struct in_addr dip;
 	uint16_t viewno, seq_num;
 	struct prefix_ipv4 p;
+	char tbuf[32];
 
 	s = stream_new(10000);
 
@@ -169,7 +156,7 @@ int main(int argc, char **argv)
 		subtype = stream_getw(s);
 		len = stream_getl(s);
 
-		printf("TIME: %s", ctime(&now));
+		printf("TIME: %s", ctime_r(&now, tbuf));
 
 		/* printf ("TYPE: %d/%d\n", type, subtype); */
 
@@ -189,6 +176,9 @@ int main(int argc, char **argv)
 				break;
 			case AFI_IP6:
 				printf("/AFI_IP6\n");
+				break;
+			case AFI_LINKSTATE:
+				printf("/AFI_LINKSTATE\n");
 				break;
 			default:
 				printf("/UNKNOWN %d", subtype);
@@ -253,7 +243,8 @@ int main(int argc, char **argv)
 				source_as = stream_getw(s);
 
 				printf("FROM: %pI4 AS%d\n", &peer, source_as);
-				printf("ORIGINATED: %s", ctime(&originated));
+				printf("ORIGINATED: %s", ctime_r(&originated,
+								 tbuf));
 
 				attrlen = stream_getw(s);
 				printf("ATTRLEN: %d\n", attrlen);

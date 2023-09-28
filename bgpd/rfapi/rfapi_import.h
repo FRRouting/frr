@@ -1,21 +1,8 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  *
  * Copyright 2009-2016, LabN Consulting, L.L.C.
  *
- *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 /*
@@ -26,7 +13,7 @@
 #ifndef QUAGGA_HGP_RFAPI_IMPORT_H
 #define QUAGGA_HGP_RFAPI_IMPORT_H
 
-#include "lib/thread.h"
+#include "frrevent.h"
 
 /*
  * These are per-rt-import-list
@@ -125,8 +112,6 @@ extern void rfapiCheckRefcount(struct agg_node *rn, safi_t safi,
 			       int lockoffset);
 
 extern int rfapiHasNonRemovedRoutes(struct agg_node *rn);
-
-extern int rfapiProcessDeferredClose(struct thread *t);
 
 extern int rfapiGetUnAddrOfVpnBi(struct bgp_path_info *bpi, struct prefix *p);
 

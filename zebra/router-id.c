@@ -1,23 +1,10 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Router ID for zebra daemon.
  *
  * Copyright (C) 2004 James R. Leu
  *
  * This file is part of Quagga routing suite.
- *
- * Quagga is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * Quagga is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -113,9 +100,14 @@ int router_id_get(afi_t afi, struct prefix *p, struct zebra_vrf *zvrf)
 		if (addr)
 			memcpy(&p->u.prefix6, addr, sizeof(struct in6_addr));
 		return 0;
-	default:
+	case AFI_UNSPEC:
+	case AFI_L2VPN:
+	case AFI_LINKSTATE:
+	case AFI_MAX:
 		return -1;
 	}
+
+	assert(!"Reached end of function we should never hit");
 }
 
 static int router_id_set(afi_t afi, struct prefix *p, struct zebra_vrf *zvrf)
@@ -133,7 +125,10 @@ static int router_id_set(afi_t afi, struct prefix *p, struct zebra_vrf *zvrf)
 	case AFI_IP6:
 		zvrf->rid6_user_assigned.u.prefix6 = p->u.prefix6;
 		break;
-	default:
+	case AFI_UNSPEC:
+	case AFI_L2VPN:
+	case AFI_LINKSTATE:
+	case AFI_MAX:
 		return -1;
 	}
 
@@ -159,7 +154,7 @@ void router_id_add_address(struct connected *ifc)
 	struct prefix before;
 	struct prefix after;
 	struct zserv *client;
-	struct zebra_vrf *zvrf = vrf_info_get(ifc->ifp->vrf_id);
+	struct zebra_vrf *zvrf = ifc->ifp->vrf->info;
 	afi_t afi;
 	struct list *rid_lo;
 	struct list *rid_all;
@@ -206,7 +201,7 @@ void router_id_del_address(struct connected *ifc)
 	struct prefix before;
 	struct listnode *node;
 	struct zserv *client;
-	struct zebra_vrf *zvrf = vrf_info_get(ifc->ifp->vrf_id);
+	struct zebra_vrf *zvrf = ifc->ifp->vrf->info;
 	afi_t afi;
 	struct list *rid_lo;
 	struct list *rid_all;
@@ -291,7 +286,7 @@ DEFUN (ip_router_id,
 	argv_find(argv, argc, "NAME", &idx);
 	VRF_GET_ID(vrf_id, argv[idx]->arg, false);
 
-	zvrf = vrf_info_lookup(vrf_id);
+	zvrf = zebra_vrf_lookup_by_id(vrf_id);
 	router_id_set(AFI_IP, &rid, zvrf);
 
 	return CMD_SUCCESS;
@@ -328,7 +323,7 @@ DEFUN (ipv6_router_id,
 	argv_find(argv, argc, "NAME", &idx);
 	VRF_GET_ID(vrf_id, argv[idx]->arg, false);
 
-	zvrf = vrf_info_lookup(vrf_id);
+	zvrf = zebra_vrf_lookup_by_id(vrf_id);
 	router_id_set(AFI_IP6, &rid, zvrf);
 
 	return CMD_SUCCESS;
@@ -342,7 +337,7 @@ DEFUN (ip_router_id_in_vrf,
        "Manually set the router-id\n"
        "IP address to use for router-id\n")
 {
-	ZEBRA_DECLVAR_CONTEXT(vrf, zvrf);
+	ZEBRA_DECLVAR_CONTEXT_VRF(vrf, zvrf);
 	int idx = 0;
 	struct prefix rid;
 
@@ -372,7 +367,7 @@ DEFUN (ipv6_router_id_in_vrf,
        "Manually set the IPv6 router-id\n"
        "IPV6 address to use for router-id\n")
 {
-	ZEBRA_DECLVAR_CONTEXT(vrf, zvrf);
+	ZEBRA_DECLVAR_CONTEXT_VRF(vrf, zvrf);
 	int idx = 0;
 	struct prefix rid;
 
@@ -410,7 +405,7 @@ DEFUN (no_ip_router_id,
 	if (argv_find(argv, argc, "NAME", &idx))
 		VRF_GET_ID(vrf_id, argv[idx]->arg, false);
 
-	zvrf = vrf_info_lookup(vrf_id);
+	zvrf = zebra_vrf_lookup_by_id(vrf_id);
 	router_id_set(AFI_IP, &rid, zvrf);
 
 	return CMD_SUCCESS;
@@ -444,7 +439,7 @@ DEFUN (no_ipv6_router_id,
 	if (argv_find(argv, argc, "NAME", &idx))
 		VRF_GET_ID(vrf_id, argv[idx]->arg, false);
 
-	zvrf = vrf_info_lookup(vrf_id);
+	zvrf = zebra_vrf_lookup_by_id(vrf_id);
 	router_id_set(AFI_IP6, &rid, zvrf);
 
 	return CMD_SUCCESS;
@@ -458,7 +453,7 @@ DEFUN (no_ip_router_id_in_vrf,
        "Remove the manually configured router-id\n"
        "IP address to use for router-id\n")
 {
-	ZEBRA_DECLVAR_CONTEXT(vrf, zvrf);
+	ZEBRA_DECLVAR_CONTEXT_VRF(vrf, zvrf);
 
 	struct prefix rid;
 
@@ -486,7 +481,7 @@ DEFUN (no_ipv6_router_id_in_vrf,
        "Remove the manually configured IPv6 router-id\n"
        "IPv6 address to use for router-id\n")
 {
-	ZEBRA_DECLVAR_CONTEXT(vrf, zvrf);
+	ZEBRA_DECLVAR_CONTEXT_VRF(vrf, zvrf);
 
 	struct prefix rid;
 
@@ -521,7 +516,7 @@ DEFUN (show_ip_router_id,
 		vrf_name = argv[idx]->arg;
 	}
 
-	zvrf = vrf_info_get(vrf_id);
+	zvrf = zebra_vrf_lookup_by_id(vrf_id);
 
 	if (zvrf != NULL) {
 		if (is_ipv6) {

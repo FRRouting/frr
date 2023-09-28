@@ -1,28 +1,15 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  *
  * Copyright 2009-2016, LabN Consulting, L.L.C.
  *
- *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef _QUAGGA_VNC_VNC_EXPORT_TABLE_H_
 #define _QUAGGA_VNC_VNC_EXPORT_TABLE_H_
 
 #include "lib/table.h"
-#include "lib/thread.h"
+#include "frrevent.h"
 #include "lib/vty.h"
 
 #include "bgpd/bgpd.h"
@@ -42,7 +29,7 @@ struct vnc_export_info {
 	uint8_t type;
 	uint8_t subtype;
 	uint32_t lifetime;
-	struct thread *timer;
+	struct event *timer;
 };
 
 extern struct agg_node *vnc_etn_get(struct bgp *bgp, vnc_export_type_t type,

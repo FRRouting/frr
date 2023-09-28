@@ -1,23 +1,8 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /**
  * bfd.h: BFD definitions and structures
  *
  * @copyright Copyright (C) 2015 Cumulus Networks, Inc.
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef _ZEBRA_BFD_H
@@ -124,7 +109,8 @@ void bfd_sess_free(struct bfd_session_params **bsp);
  * \param dst remote address (mandatory).
  */
 void bfd_sess_set_ipv4_addrs(struct bfd_session_params *bsp,
-			     struct in_addr *src, struct in_addr *dst);
+			     const struct in_addr *src,
+			     const struct in_addr *dst);
 
 /**
  * Set the local and peer address of the BFD session.
@@ -138,7 +124,8 @@ void bfd_sess_set_ipv4_addrs(struct bfd_session_params *bsp,
  * \param dst remote address (mandatory).
  */
 void bfd_sess_set_ipv6_addrs(struct bfd_session_params *bsp,
-			     struct in6_addr *src, struct in6_addr *dst);
+			     const struct in6_addr *src,
+			     const struct in6_addr *dst);
 
 /**
  * Configure the BFD session interface.
@@ -179,39 +166,14 @@ void bfd_sess_set_vrf(struct bfd_session_params *bsp, vrf_id_t vrf_id);
  * Configure the BFD session single/multi hop setting.
  *
  * NOTE:
- * If the TTL changed the session is removed and must be installed again
- * with `bfd_sess_install`.
+ * If the number of hops is changed the session is removed and must be
+ * installed again with `bfd_sess_install`.
  *
  * \param bsp BFD session parameters.
- * \param min_ttl minimum TTL value expected (255 for single hop, 254 for
- *                multi hop with single hop, 253 for multi hop with two hops
- *                and so on). See `BFD_SINGLE_HOP_TTL` and
- *                `BFD_MULTI_HOP_MIN_TTL` for defaults.
- *
- * To simplify things if your protocol only knows the amount of hops it is
- * better to use `bfd_sess_set_hops` instead.
+ * \param hops maximum amount of hops expected (1 for single hop, 2 or
+ *             more for multi hop).
  */
-void bfd_sess_set_mininum_ttl(struct bfd_session_params *bsp, uint8_t min_ttl);
-
-/** To use single hop the minimum TTL must be set to this. */
-#define BFD_SINGLE_HOP_TTL 255
-/** To use multi hop the minimum TTL must be set to this or less. */
-#define BFD_MULTI_HOP_MIN_TTL 254
-
-/**
- * This function is the inverted version of `bfd_sess_set_minimum_ttl`.
- * Instead of receiving the minimum expected TTL, it receives the amount of
- * hops the protocol will jump.
- *
- * NOTE:
- * If the TTL changed the session is removed and must be installed again
- * with `bfd_sess_install`.
- *
- * \param bsp BFD session parameters.
- * \param min_ttl minimum amount of hops expected (1 for single hop, 2 or
- *                more for multi hop).
- */
-void bfd_sess_set_hop_count(struct bfd_session_params *bsp, uint8_t min_ttl);
+void bfd_sess_set_hop_count(struct bfd_session_params *bsp, uint8_t hops);
 
 /**
  * Configure the BFD session to set the Control Plane Independent bit.
@@ -245,6 +207,18 @@ void bfd_sess_set_timers(struct bfd_session_params *bsp,
 			 uint32_t min_tx);
 
 /**
+ * Configures the automatic source selection for the BFD session.
+ *
+ * NOTE:
+ * Setting this configuration will override the IP source value set by
+ * `bfd_sess_set_ipv4_addrs` or `bfd_sess_set_ipv6_addrs`.
+ *
+ * \param bsp BFD session parameters
+ * \param enable BFD automatic source selection state.
+ */
+void bfd_sess_set_auto_source(struct bfd_session_params *bsp, bool enable);
+
+/**
  * Installs or updates the BFD session based on the saved session arguments.
  *
  * NOTE:
@@ -276,17 +250,7 @@ void bfd_sess_uninstall(struct bfd_session_params *bsp);
 enum bfd_session_state bfd_sess_status(const struct bfd_session_params *bsp);
 
 /**
- * Get BFD session minimum TTL configured value.
- *
- * \param bsp session parameters.
- *
- * \returns configured minimum TTL.
- */
-uint8_t bfd_sess_minimum_ttl(const struct bfd_session_params *bsp);
-
-/**
- * Inverted version of `bfd_sess_minimum_ttl`. Gets the amount of hops in the
- * way to the peer.
+ * Get BFD session amount of hops configured value.
  *
  * \param bsp session parameters.
  *
@@ -364,6 +328,11 @@ void bfd_sess_timers(const struct bfd_session_params *bsp,
 		     uint32_t *min_tx);
 
 /**
+ * Gets the automatic source selection state.
+ */
+bool bfd_sess_auto_source(const struct bfd_session_params *bsp);
+
+/**
  * Show BFD session configuration and status. If `json` is provided (e.g. not
  * `NULL`) then information will be inserted in object, otherwise printed to
  * `vty`.
@@ -379,7 +348,7 @@ void bfd_sess_show(struct vty *vty, struct json_object *json,
  * Initializes the BFD integration library. This function executes the
  * following actions:
  *
- * - Copy the `struct thread_master` pointer to use as "thread" to execute
+ * - Copy the `struct event_loop` pointer to use as "thread" to execute
  *   the BFD session parameters installation.
  * - Copy the `struct zclient` pointer to install its callbacks.
  * - Initializes internal data structures.
@@ -387,8 +356,7 @@ void bfd_sess_show(struct vty *vty, struct json_object *json,
  * \param tm normally the daemon main thread event manager.
  * \param zc the zebra client of the daemon.
  */
-void bfd_protocol_integration_init(struct zclient *zc,
-				   struct thread_master *tm);
+void bfd_protocol_integration_init(struct zclient *zc, struct event_loop *tm);
 
 /**
  * BFD session registration arguments.
@@ -418,8 +386,8 @@ struct bfd_session_arg {
 
 	/** Multi hop indicator. */
 	uint8_t mhop;
-	/** Expected TTL. */
-	uint8_t ttl;
+	/** Expected hops. */
+	uint8_t hops;
 	/** C bit (Control Plane Independent bit) indicator. */
 	uint8_t cbit;
 
@@ -488,6 +456,13 @@ extern bool bfd_protocol_integration_debug(void);
  * Get API shutdown state.
  */
 extern bool bfd_protocol_integration_shutting_down(void);
+
+/* Update nexthop-tracking (nht) information for BFD auto source selection.
+ * The function must be called from the daemon callback function
+ * that deals with the ZEBRA_NEXTHOP_UPDATE zclient command
+ */
+extern int bfd_nht_update(const struct prefix *match,
+			  const struct zapi_route *route);
 
 #ifdef __cplusplus
 }

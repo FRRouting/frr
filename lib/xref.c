@@ -1,17 +1,6 @@
+// SPDX-License-Identifier: ISC
 /*
  * Copyright (c) 2017-20  David Lamparter, for NetDEF, Inc.
- *
- * Permission to use, copy, modify, and distribute this software for any
- * purpose with or without fee is hereby granted, provided that the above
- * copyright notice and this permission notice appear in all copies.
- *
- * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
- * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
- * ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
- * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
- * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
- * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
 #ifdef HAVE_CONFIG_H
@@ -34,6 +23,8 @@
 
 struct xref_block *xref_blocks;
 static struct xref_block **xref_block_last = &xref_blocks;
+
+struct xrefdata_uid_head xrefdata_uid = INIT_RBTREE_UNIQ(xrefdata_uid);
 
 static void base32(uint8_t **inpos, int *bitpos,
 		   char *out, size_t n_chars)
@@ -109,6 +100,8 @@ static void xref_add_one(const struct xref *xref)
 	base32(&h, &bitpos, &xrefdata->uid[0], 5);
 	xrefdata->uid[5] = '-';
 	base32(&h, &bitpos, &xrefdata->uid[6], 5);
+
+	xrefdata_uid_add(&xrefdata_uid, xrefdata);
 }
 
 void xref_gcc_workaround(const struct xref *xref)

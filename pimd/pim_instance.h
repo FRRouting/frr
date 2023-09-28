@@ -1,22 +1,8 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * PIM for FRR - PIM Instance
  * Copyright (C) 2017 Cumulus Networks, Inc.
  * Donald Sharp
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; see the file COPYING; if not, write to the
- * Free Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston,
- * MA 02110-1301 USA
  */
 #ifndef __PIM_INSTANCE_H__
 #define __PIM_INSTANCE_H__
@@ -30,18 +16,7 @@
 #include "pim_vxlan_instance.h"
 #include "pim_oil.h"
 #include "pim_upstream.h"
-
-#if defined(HAVE_LINUX_MROUTE_H)
-#include <linux/mroute.h>
-#else
-/*
-  Below: from <linux/mroute.h>
-*/
-
-#ifndef MAXVIFS
-#define MAXVIFS (256)
-#endif
-#endif
+#include "pim_mroute.h"
 
 enum pim_spt_switchover {
 	PIM_SPT_IMMEDIATE,
@@ -89,7 +64,7 @@ enum pim_mlag_flags {
 };
 
 struct pim_router {
-	struct thread_master *master;
+	struct event_loop *master;
 
 	uint32_t debugs;
 
@@ -99,6 +74,7 @@ struct pim_router {
 	uint32_t register_suppress_time;
 	int packet_process;
 	uint32_t register_probe_time;
+	uint16_t multipath;
 
 	/*
 	 * What is the default vrf that we work in
@@ -116,7 +92,7 @@ struct pim_router {
 	/* Holds the client data(unencoded) that need to be pushed to MCLAGD*/
 	struct stream_fifo *mlag_fifo;
 	struct stream *mlag_stream;
-	struct thread *zpthread_mlag_write;
+	struct event *zpthread_mlag_write;
 	struct in_addr anycast_vtep_ip;
 	struct in_addr local_vtep_ip;
 	struct pim_mlag_stats mlag_stats;
@@ -144,8 +120,9 @@ struct pim_instance {
 
 	int send_v6_secondary;
 
-	struct thread *thread;
+	struct event *thread;
 	int mroute_socket;
+	int reg_sock; /* Socket to send register msg */
 	int64_t mroute_socket_creation;
 	int64_t mroute_add_events;
 	int64_t mroute_add_last;
@@ -176,10 +153,14 @@ struct pim_instance {
 	struct pim_vxlan_instance vxlan;
 
 	struct list *ssmpingd_list;
-	struct in_addr ssmpingd_group_addr;
+	pim_addr ssmpingd_group_addr;
 
-	unsigned int igmp_group_count;
-	unsigned int igmp_watermark_limit;
+	unsigned int gm_socket_if_count;
+	int gm_socket;
+	struct event *t_gm_recv;
+
+	unsigned int gm_group_count;
+	unsigned int gm_watermark_limit;
 	unsigned int keep_alive_time;
 	unsigned int rp_keep_alive_time;
 
@@ -195,7 +176,7 @@ struct pim_instance {
 	uint64_t bsm_dropped;
 
 	/* If we need to rescan all our upstreams */
-	struct thread *rpf_cache_refresher;
+	struct event *rpf_cache_refresher;
 	int64_t rpf_cache_refresh_requests;
 	int64_t rpf_cache_refresh_events;
 	int64_t rpf_cache_refresh_last;
@@ -205,6 +186,8 @@ struct pim_instance {
 	int64_t nexthop_lookups;
 	int64_t nexthop_lookups_avoided;
 	int64_t last_route_change_time;
+
+	uint64_t gm_rx_drop_sys;
 };
 
 void pim_vrf_init(void);

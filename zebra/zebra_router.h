@@ -1,23 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* Zebra Router header.
  * Copyright (C) 2018 Cumulus Networks, Inc.
  *                    Donald Sharp
- *
- * This file is part of FRR.
- *
- * FRR is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * FRR is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with FRR; see the file COPYING.  If not, write to the Free
- * Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
- * 02111-1307, USA.
  */
 #ifndef __ZEBRA_ROUTER_H__
 #define __ZEBRA_ROUTER_H__
@@ -68,19 +52,27 @@ enum multicast_mode {
  * physical device.
  */
 enum protodown_reasons {
+	/* A process outside of FRR's control protodowned the interface */
+	ZEBRA_PROTODOWN_EXTERNAL = (1 << 0),
 	/* On startup local ESs are held down for some time to
 	 * allow the underlay to converge and EVPN routes to
 	 * get learnt
 	 */
-	ZEBRA_PROTODOWN_EVPN_STARTUP_DELAY = (1 << 0),
+	ZEBRA_PROTODOWN_EVPN_STARTUP_DELAY = (1 << 1),
 	/* If all the uplinks are down the switch has lost access
 	 * to the VxLAN overlay and must shut down the access
 	 * ports to allow servers to re-direct their traffic to
 	 * other switches on the Ethernet Segment
 	 */
-	ZEBRA_PROTODOWN_EVPN_UPLINK_DOWN = (1 << 1),
-	ZEBRA_PROTODOWN_EVPN_ALL = (ZEBRA_PROTODOWN_EVPN_UPLINK_DOWN
-				    | ZEBRA_PROTODOWN_EVPN_STARTUP_DELAY)
+	ZEBRA_PROTODOWN_EVPN_UPLINK_DOWN = (1 << 2),
+	ZEBRA_PROTODOWN_EVPN_ALL = (ZEBRA_PROTODOWN_EVPN_UPLINK_DOWN |
+				    ZEBRA_PROTODOWN_EVPN_STARTUP_DELAY),
+	ZEBRA_PROTODOWN_VRRP = (1 << 3),
+	/* This reason used exclusively for testing */
+	ZEBRA_PROTODOWN_SHARP = (1 << 4),
+	/* Just used to clear our fields on shutdown, externel not included */
+	ZEBRA_PROTODOWN_ALL = (ZEBRA_PROTODOWN_EVPN_ALL | ZEBRA_PROTODOWN_VRRP |
+			       ZEBRA_PROTODOWN_SHARP)
 };
 #define ZEBRA_PROTODOWN_RC_STR_LEN 80
 
@@ -118,7 +110,7 @@ struct zebra_mlag_info {
 	struct frr_pthread *zebra_pth_mlag;
 
 	/* MLAG Thread context 'master' */
-	struct thread_master *th_master;
+	struct event_loop *th_master;
 
 	/*
 	 * Event for Initial MLAG Connection setup & Data Read
@@ -126,16 +118,16 @@ struct zebra_mlag_info {
 	 * so no issues.
 	 *
 	 */
-	struct thread *t_read;
+	struct event *t_read;
 	/* Event for MLAG write */
-	struct thread *t_write;
+	struct event *t_write;
 };
 
 struct zebra_router {
 	atomic_bool in_shutdown;
 
 	/* Thread master */
-	struct thread_master *master;
+	struct event_loop *master;
 
 	/* Lists of clients who have connected to us */
 	struct list *client_list;
@@ -151,6 +143,8 @@ struct zebra_router {
 	/* Tables and other global info maintained for EVPN multihoming */
 	struct zebra_evpn_mh_info *mh_info;
 
+	struct zebra_neigh_info *neigh_info;
+
 	/* EVPN MH broadcast domains indexed by the VID */
 	struct hash *evpn_vlan_table;
 
@@ -161,6 +155,10 @@ struct zebra_router {
 	struct hash *ipset_entry_hash;
 
 	struct hash *iptable_hash;
+
+	struct hash *qdisc_hash;
+	struct hash *class_hash;
+	struct hash *filter_hash;
 
 	/* A sequence number used for tracking routes */
 	_Atomic uint32_t sequence_num;
@@ -196,6 +194,7 @@ struct zebra_router {
 	 * Time for when we sweep the rib from old routes
 	 */
 	time_t startup_time;
+	struct event *sweeper;
 
 	/*
 	 * The hash of nexthop groups associated with this router
@@ -208,13 +207,39 @@ struct zebra_router {
 	 */
 	bool asic_offloaded;
 	bool notify_on_ack;
+	bool v6_with_v4_nexthop;
+
+	/*
+	 * If the asic is notifying us about successful nexthop
+	 * allocation/control.  Some developers have made their
+	 * asic take control of how many nexthops/ecmp they can
+	 * have and will report what is successfull or not
+	 */
+	bool asic_notification_nexthop_control;
+
+	bool supports_nhgs;
+
+	bool all_mc_forwardingv4, default_mc_forwardingv4;
+	bool all_mc_forwardingv6, default_mc_forwardingv6;
+	bool all_linkdownv4, default_linkdownv4;
+	bool all_linkdownv6, default_linkdownv6;
+
+#define ZEBRA_DEFAULT_NHG_KEEP_TIMER 180
+	uint32_t nhg_keep;
+
+	/* Should we allow non FRR processes to delete our routes */
+	bool allow_delete;
+
+	uint8_t protodown_r_bit;
 };
 
 #define GRACEFUL_RESTART_TIME 60
 
 extern struct zebra_router zrouter;
+extern uint32_t rcvbufsize;
 
-extern void zebra_router_init(bool asic_offload, bool notify_on_ack);
+extern void zebra_router_init(bool asic_offload, bool notify_on_ack,
+			      bool v6_with_v4_nexthop);
 extern void zebra_router_cleanup(void);
 extern void zebra_router_terminate(void);
 
@@ -254,6 +279,42 @@ extern void multicast_mode_ipv4_set(enum multicast_mode mode);
 extern enum multicast_mode multicast_mode_ipv4_get(void);
 
 extern bool zebra_router_notify_on_ack(void);
+
+static inline void zebra_router_set_supports_nhgs(bool support)
+{
+	zrouter.supports_nhgs = support;
+}
+
+static inline bool zebra_router_in_shutdown(void)
+{
+	return atomic_load_explicit(&zrouter.in_shutdown, memory_order_relaxed);
+}
+
+#define FRR_PROTODOWN_REASON_DEFAULT_BIT 7
+/* Protodown bit setter/getter
+ *
+ * Allow users to change the bit if it conflicts with another
+ * on their system.
+ */
+static inline void if_netlink_set_frr_protodown_r_bit(uint8_t bit)
+{
+	zrouter.protodown_r_bit = bit;
+}
+
+static inline void if_netlink_unset_frr_protodown_r_bit(void)
+{
+	zrouter.protodown_r_bit = FRR_PROTODOWN_REASON_DEFAULT_BIT;
+}
+
+static inline bool if_netlink_frr_protodown_r_bit_is_set(void)
+{
+	return (zrouter.protodown_r_bit != FRR_PROTODOWN_REASON_DEFAULT_BIT);
+}
+
+static inline uint8_t if_netlink_get_frr_protodown_r_bit(void)
+{
+	return zrouter.protodown_r_bit;
+}
 
 /* zebra_northbound.c */
 extern const struct frr_yang_module_info frr_zebra_info;

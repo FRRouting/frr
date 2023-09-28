@@ -1,22 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Packet interface
  * Copyright (C) 1999 Kunihiro Ishiguro
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -145,8 +130,7 @@ struct stream *stream_dup(const struct stream *s)
 
 	STREAM_VERIFY_SANE(s);
 
-	if ((snew = stream_new(s->endp)) == NULL)
-		return NULL;
+	snew = stream_new(s->endp);
 
 	return (stream_copy(snew, s));
 }
@@ -636,7 +620,7 @@ uint32_t stream_get_ipv4(struct stream *s)
 
 bool stream_get_ipaddr(struct stream *s, struct ipaddr *ip)
 {
-	uint16_t ipa_len;
+	uint16_t ipa_len = 0;
 
 	STREAM_VERIFY_SANE(s);
 
@@ -655,7 +639,7 @@ bool stream_get_ipaddr(struct stream *s, struct ipaddr *ip)
 	case IPADDR_V6:
 		ipa_len = IPV6_MAX_BYTELEN;
 		break;
-	default:
+	case IPADDR_NONE:
 		flog_err(EC_LIB_DEVELOPMENT,
 			 "%s: unknown ip address-family: %u", __func__,
 			 ip->ipa_type);
@@ -691,7 +675,7 @@ double stream_getd(struct stream *s)
 	return u.r;
 }
 
-/* Copy to source to stream.
+/* Copy from source to stream.
  *
  * XXX: This uses CHECK_SIZE and hence has funny semantics -> Size will wrap
  * around. This should be fixed once the stream updates are working.
@@ -948,7 +932,7 @@ bool stream_put_ipaddr(struct stream *s, struct ipaddr *ip)
 	case IPADDR_V6:
 		stream_write(s, (uint8_t *)&ip->ipaddr_v6, 16);
 		break;
-	default:
+	case IPADDR_NONE:
 		flog_err(EC_LIB_DEVELOPMENT,
 			 "%s: unknown ip address-family: %u", __func__,
 			 ip->ipa_type);
@@ -990,7 +974,7 @@ int stream_put_in6_addr_at(struct stream *s, size_t putp,
 
 /* Put prefix by nlri type format. */
 int stream_put_prefix_addpath(struct stream *s, const struct prefix *p,
-			      int addpath_encode, uint32_t addpath_tx_id)
+			      bool addpath_capable, uint32_t addpath_tx_id)
 {
 	size_t psize;
 	size_t psize_with_addpath;
@@ -999,7 +983,7 @@ int stream_put_prefix_addpath(struct stream *s, const struct prefix *p,
 
 	psize = PSIZE(p->prefixlen);
 
-	if (addpath_encode)
+	if (addpath_capable)
 		psize_with_addpath = psize + 4;
 	else
 		psize_with_addpath = psize;
@@ -1009,7 +993,7 @@ int stream_put_prefix_addpath(struct stream *s, const struct prefix *p,
 		return 0;
 	}
 
-	if (addpath_encode) {
+	if (addpath_capable) {
 		s->data[s->endp++] = (uint8_t)(addpath_tx_id >> 24);
 		s->data[s->endp++] = (uint8_t)(addpath_tx_id >> 16);
 		s->data[s->endp++] = (uint8_t)(addpath_tx_id >> 8);
@@ -1030,7 +1014,7 @@ int stream_put_prefix(struct stream *s, const struct prefix *p)
 
 /* Put NLRI with label */
 int stream_put_labeled_prefix(struct stream *s, const struct prefix *p,
-			      mpls_label_t *label, int addpath_encode,
+			      mpls_label_t *label, bool addpath_capable,
 			      uint32_t addpath_tx_id)
 {
 	size_t psize;
@@ -1040,14 +1024,14 @@ int stream_put_labeled_prefix(struct stream *s, const struct prefix *p,
 	STREAM_VERIFY_SANE(s);
 
 	psize = PSIZE(p->prefixlen);
-	psize_with_addpath = psize + (addpath_encode ? 4 : 0);
+	psize_with_addpath = psize + (addpath_capable ? 4 : 0);
 
 	if (STREAM_WRITEABLE(s) < (psize_with_addpath + 3)) {
 		STREAM_BOUND_WARN(s, "put");
 		return 0;
 	}
 
-	if (addpath_encode) {
+	if (addpath_capable) {
 		s->data[s->endp++] = (uint8_t)(addpath_tx_id >> 24);
 		s->data[s->endp++] = (uint8_t)(addpath_tx_id >> 16);
 		s->data[s->endp++] = (uint8_t)(addpath_tx_id >> 8);
@@ -1281,7 +1265,7 @@ void stream_fifo_push(struct stream_fifo *fifo, struct stream *s)
 
 void stream_fifo_push_safe(struct stream_fifo *fifo, struct stream *s)
 {
-	frr_with_mutex(&fifo->mtx) {
+	frr_with_mutex (&fifo->mtx) {
 		stream_fifo_push(fifo, s);
 	}
 }
@@ -1313,7 +1297,7 @@ struct stream *stream_fifo_pop_safe(struct stream_fifo *fifo)
 {
 	struct stream *ret;
 
-	frr_with_mutex(&fifo->mtx) {
+	frr_with_mutex (&fifo->mtx) {
 		ret = stream_fifo_pop(fifo);
 	}
 
@@ -1329,7 +1313,7 @@ struct stream *stream_fifo_head_safe(struct stream_fifo *fifo)
 {
 	struct stream *ret;
 
-	frr_with_mutex(&fifo->mtx) {
+	frr_with_mutex (&fifo->mtx) {
 		ret = stream_fifo_head(fifo);
 	}
 
@@ -1351,7 +1335,7 @@ void stream_fifo_clean(struct stream_fifo *fifo)
 
 void stream_fifo_clean_safe(struct stream_fifo *fifo)
 {
-	frr_with_mutex(&fifo->mtx) {
+	frr_with_mutex (&fifo->mtx) {
 		stream_fifo_clean(fifo);
 	}
 }

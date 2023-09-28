@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# SPDX-License-Identifier: ISC
 
 #
 # test_all_protocol_startup.py
@@ -6,20 +7,6 @@
 #
 # Copyright (c) 2017 by
 # Network Device Education Foundation, Inc. ("NetDEF")
-#
-# Permission to use, copy, modify, and/or distribute this software
-# for any purpose with or without fee is hereby granted, provided
-# that the above copyright notice and this permission notice appear
-# in all copies.
-#
-# THE SOFTWARE IS PROVIDED "AS IS" AND NETDEF DISCLAIMS ALL WARRANTIES
-# WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
-# MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL NETDEF BE LIABLE FOR
-# ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY
-# DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS,
-# WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS
-# ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE
-# OF THIS SOFTWARE.
 #
 
 """
@@ -34,7 +21,6 @@ import pytest
 import glob
 from time import sleep
 
-
 pytestmark = [
     pytest.mark.babeld,
     pytest.mark.bgpd,
@@ -48,6 +34,9 @@ pytestmark = [
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from lib import topotest
 from lib.topogen import Topogen, get_topogen
+from lib.common_config import (
+    required_linux_kernel_version,
+)
 
 fatal_error = ""
 
@@ -93,6 +82,7 @@ def setup_module(module):
     #
     # Main router
     for i in range(1, 2):
+        net["r%s" % i].loadConf("mgmtd", "%s/r%s/zebra.conf" % (thisDir, i))
         net["r%s" % i].loadConf("zebra", "%s/r%s/zebra.conf" % (thisDir, i))
         net["r%s" % i].loadConf("ripd", "%s/r%s/ripd.conf" % (thisDir, i))
         net["r%s" % i].loadConf("ripngd", "%s/r%s/ripngd.conf" % (thisDir, i))
@@ -115,7 +105,7 @@ def setup_module(module):
         tgen.gears["r%s" % i].start()
 
     # For debugging after starting FRR daemons, uncomment the next line
-    # CLI(net)
+    # tgen.mininet_cli()
 
 
 def teardown_module(module):
@@ -127,7 +117,8 @@ def teardown_module(module):
 
 def test_router_running():
     global fatal_error
-    net = get_topogen().net
+    tgen = get_topogen()
+    net = tgen.net
 
     # Skip if previous fatal error condition is raised
     if fatal_error != "":
@@ -143,7 +134,7 @@ def test_router_running():
         assert fatal_error == "", fatal_error
 
     # For debugging after starting FRR daemons, uncomment the next line
-    # CLI(net)
+    # tgen.mininet_cli()
 
 
 def test_error_messages_vtysh():
@@ -198,9 +189,6 @@ def test_error_messages_vtysh():
         fatal_error = net["r%s" % i].checkRouterRunning()
         assert fatal_error == "", fatal_error
 
-    # For debugging after starting FRR daemons, uncomment the next line
-    # CLI(net)
-
 
 def test_error_messages_daemons():
     global fatal_error
@@ -209,6 +197,12 @@ def test_error_messages_daemons():
     # Skip if previous fatal error condition is raised
     if fatal_error != "":
         pytest.skip(fatal_error)
+
+    if os.environ.get("TOPOTESTS_CHECK_STDERR") is None:
+        print(
+            "SKIPPED final check on StdErr output: Disabled (TOPOTESTS_CHECK_STDERR undefined)\n"
+        )
+        pytest.skip("Skipping test for Stderr output")
 
     print("\n\n** Check for error messages in daemons")
     print("******************************************\n")
@@ -289,9 +283,6 @@ def test_error_messages_daemons():
 
     assert error_logs == "", "Daemons report errors to StdErr"
 
-    # For debugging after starting FRR daemons, uncomment the next line
-    # CLI(net)
-
 
 def test_converge_protocols():
     global fatal_error
@@ -303,11 +294,22 @@ def test_converge_protocols():
 
     thisDir = os.path.dirname(os.path.realpath(__file__))
 
+    # We need loopback to have a link local so it always is the
+    # "selected" router for fe80::/64 when we static compare below.
+    print("Adding link-local to loopback for stable results")
+    cmd = (
+        "mac=`cat /sys/class/net/lo/address`; echo lo: $mac;"
+        " [ -z \"$mac\" ] && continue; IFS=':'; set $mac; unset IFS;"
+        " ip address add dev lo scope link"
+        " fe80::$(printf %02x $((0x$1 ^ 2)))$2:${3}ff:fe$4:$5$6/64"
+    )
+    net["r1"].cmd_raises(cmd)
+
     print("\n\n** Waiting for protocols convergence")
     print("******************************************\n")
 
     # Not really implemented yet - just sleep 60 secs for now
-    sleep(60)
+    sleep(5)
 
     # Make sure that all daemons are running
     failures = 0
@@ -325,7 +327,7 @@ def test_converge_protocols():
         actual = (
             net["r%s" % i]
             .cmd(
-                "vtysh -c \"show ip route\" | sed -e '/^Codes: /,/^\s*$/d' | sort 2> /dev/null"
+                "vtysh -c \"show ip route\" | sed -e '/^Codes: /,/^\\s*$/d' | sort 2> /dev/null"
             )
             .rstrip()
         )
@@ -358,7 +360,7 @@ def test_converge_protocols():
         actual = (
             net["r%s" % i]
             .cmd(
-                "vtysh -c \"show ipv6 route\" | sed -e '/^Codes: /,/^\s*$/d' | sort 2> /dev/null"
+                "vtysh -c \"show ipv6 route\" | sed -e '/^Codes: /,/^\\s*$/d' | sort 2> /dev/null"
             )
             .rstrip()
         )
@@ -379,9 +381,6 @@ def test_converge_protocols():
 
         assert failures == 0, "IPv6 Routing table failed for r%s\n%s" % (i, diff)
 
-    # For debugging after starting FRR daemons, uncomment the next line
-    ## CLI(net)
-
 
 def route_get_nhg_id(route_str):
     net = get_topogen().net
@@ -397,34 +396,71 @@ def route_get_nhg_id(route_str):
 
 def verify_nexthop_group(nhg_id, recursive=False, ecmp=0):
     net = get_topogen().net
-    # Verify NHG is valid/installed
-    output = net["r1"].cmd('vtysh -c "show nexthop-group rib %d"' % nhg_id)
+    count = 0
+    valid = None
+    ecmpcount = None
+    depends = None
+    resolved_id = None
+    installed = None
+    found = False
 
-    match = re.search(r"Valid", output)
-    assert match is not None, "Nexthop Group ID=%d not marked Valid" % nhg_id
+    while not found and count < 10:
+        count += 1
+        # Verify NHG is valid/installed
+        output = net["r1"].cmd('vtysh -c "show nexthop-group rib %d"' % nhg_id)
+        valid = re.search(r"Valid", output)
+        if valid is None:
+            found = False
+            sleep(1)
+            continue
 
+        if ecmp or recursive:
+            ecmpcount = re.search(r"Depends:.*\n", output)
+            if ecmpcount is None:
+                found = False
+                sleep(1)
+                continue
+
+            # list of IDs in group
+            depends = re.findall(r"\((\d+)\)", ecmpcount.group(0))
+
+            if ecmp:
+                if len(depends) != ecmp:
+                    found = False
+                    sleep(1)
+                    continue
+            else:
+                # If recursive, we need to look at its resolved group
+                if len(depends) != 1:
+                    found = False
+                    sleep(1)
+                    continue
+
+                resolved_id = int(depends[0])
+                verify_nexthop_group(resolved_id, False)
+        else:
+            installed = re.search(r"Installed", output)
+            if installed is None:
+                found = False
+                sleep(1)
+                continue
+        found = True
+
+    assert valid is not None, "Nexthop Group ID=%d not marked Valid" % nhg_id
     if ecmp or recursive:
-        match = re.search(r"Depends:.*\n", output)
-        assert match is not None, "Nexthop Group ID=%d has no depends" % nhg_id
-
-        # list of IDs in group
-        depends = re.findall(r"\((\d+)\)", match.group(0))
-
+        assert ecmpcount is not None, "Nexthop Group ID=%d has no depends" % nhg_id
         if ecmp:
             assert len(depends) == ecmp, (
                 "Nexthop Group ID=%d doesn't match ecmp size" % nhg_id
             )
         else:
-            # If recursive, we need to look at its resolved group
             assert len(depends) == 1, (
                 "Nexthop Group ID=%d should only have one recursive depend" % nhg_id
             )
-            resolved_id = int(depends[0])
-            verify_nexthop_group(resolved_id, False)
-
     else:
-        match = re.search(r"Installed", output)
-        assert match is not None, "Nexthop Group ID=%d not marked Installed" % nhg_id
+        assert installed is not None, (
+            "Nexthop Group ID=%d not marked Installed" % nhg_id
+        )
 
 
 def verify_route_nexthop_group(route_str, recursive=False, ecmp=0):
@@ -455,7 +491,6 @@ def test_nexthop_groups():
 
     # Create with sharpd using nexthop-group
     net["r1"].cmd('vtysh -c "sharp install routes 2.2.2.1 nexthop-group basic 1"')
-
     verify_route_nexthop_group("2.2.2.1/32")
 
     ## Connected
@@ -465,7 +500,6 @@ def test_nexthop_groups():
     )
 
     net["r1"].cmd('vtysh -c "sharp install routes 2.2.2.2 nexthop-group connected 1"')
-
     verify_route_nexthop_group("2.2.2.2/32")
 
     ## Recursive
@@ -542,32 +576,39 @@ def test_nexthop_groups():
     net["r1"].cmd(
         'vtysh -c "sharp install routes 6.6.6.4 nexthop-group infinite-recursive 1"'
     )
+    sleep(5)
 
     net["r1"].cmd(
         'vtysh -c "sharp install routes 6.6.6.3 nexthop-group infinite-recursive 1"'
     )
+    sleep(5)
 
     net["r1"].cmd(
         'vtysh -c "sharp install routes 6.6.6.2 nexthop-group infinite-recursive 1"'
     )
+    sleep(5)
 
     net["r1"].cmd(
         'vtysh -c "sharp install routes 6.6.6.1 nexthop-group infinite-recursive 1"'
     )
 
     # Get routes and test if has too many (duplicate) nexthops
+    count = 0
+    dups = []
     nhg_id = route_get_nhg_id("6.6.6.1/32")
-    output = net["r1"].cmd('vtysh -c "show nexthop-group rib %d"' % nhg_id)
+    while (len(dups) != 3) and count < 10:
+        output = net["r1"].cmd('vtysh -c "show nexthop-group rib %d"' % nhg_id)
 
-    dups = re.findall(r"(via 1\.1\.1\.1)", output)
+        dups = re.findall(r"(via 1\.1\.1\.1)", output)
+        if len(dups) != 3:
+            count += 1
+            sleep(1)
 
     # Should find 3, itself is inactive
     assert len(dups) == 3, (
         "Route 6.6.6.1/32 with Nexthop Group ID=%d has wrong number of resolved nexthops"
         % nhg_id
     )
-
-    ##CLI(net)
 
     ## Remove all NHG routes
 
@@ -638,9 +679,6 @@ def test_rip_status():
         fatal_error = net["r%s" % i].checkRouterRunning()
         assert fatal_error == "", fatal_error
 
-    # For debugging after starting FRR daemons, uncomment the next line
-    # CLI(net)
-
 
 def test_ripng_status():
     global fatal_error
@@ -704,9 +742,6 @@ def test_ripng_status():
     for i in range(1, 2):
         fatal_error = net["r%s" % i].checkRouterRunning()
         assert fatal_error == "", fatal_error
-
-    # For debugging after starting FRR daemons, uncomment the next line
-    # CLI(net)
 
 
 def test_ospfv2_interfaces():
@@ -790,9 +825,6 @@ def test_ospfv2_interfaces():
         fatal_error = net["r%s" % i].checkRouterRunning()
         assert fatal_error == "", fatal_error
 
-    # For debugging after starting FRR daemons, uncomment the next line
-    # CLI(net)
-
 
 def test_isis_interfaces():
     global fatal_error
@@ -855,9 +887,6 @@ def test_isis_interfaces():
     for i in range(1, 2):
         fatal_error = net["r%s" % i].checkRouterRunning()
         assert fatal_error == "", fatal_error
-
-    # For debugging after starting FRR daemons, uncomment the next line
-    # CLI(net)
 
 
 def test_bgp_summary():
@@ -1037,9 +1066,6 @@ def test_bgp_summary():
         fatal_error = net["r%s" % i].checkRouterRunning()
         assert fatal_error == "", fatal_error
 
-    # For debugging after starting FRR daemons, uncomment the next line
-    # CLI(net)
-
 
 def test_bgp_ipv6_summary():
     global fatal_error
@@ -1138,12 +1164,15 @@ def test_bgp_ipv6_summary():
         fatal_error = net["r%s" % i].checkRouterRunning()
         assert fatal_error == "", fatal_error
 
-    # For debugging after starting FRR daemons, uncomment the next line
-    # CLI(net)
-
 
 def test_nht():
+    global fatal_error
     net = get_topogen().net
+
+    # Skip if previous fatal error condition is raised
+    if fatal_error != "":
+        pytest.skip(fatal_error)
+
     print("\n\n**** Test that nexthop tracking is at least nominally working ****\n")
 
     thisDir = os.path.dirname(os.path.realpath(__file__))
@@ -1256,9 +1285,6 @@ def test_bgp_ipv4():
         fatal_error = net["r%s" % i].checkRouterRunning()
         assert fatal_error == "", fatal_error
 
-    # For debugging after starting FRR daemons, uncomment the next line
-    # CLI(net)
-
 
 def test_bgp_ipv6():
     global fatal_error
@@ -1324,9 +1350,6 @@ def test_bgp_ipv6():
     for i in range(1, 2):
         fatal_error = net["r%s" % i].checkRouterRunning()
         assert fatal_error == "", fatal_error
-
-    # For debugging after starting FRR daemons, uncomment the next line
-    # CLI(net)
 
 
 def test_route_map():
@@ -1488,6 +1511,14 @@ def test_nexthop_group_replace():
         'vtysh -c "c t" -c "nexthop-group replace" -c "nexthop 1.1.1.1 r1-eth1 onlink" -c "nexthop 1.1.1.2 r1-eth2 onlink"'
     )
 
+    # At the moment there is absolutely no real easy way to query sharpd
+    # for the nexthop group actually installed.  If it is not installed
+    # sharpd will just transmit the nexthops down instead of the nexthop
+    # group id.  Leading to a situation where the replace is not actually
+    # being tested.  So let's just wait some time here because this
+    # is hard and this test fails all the time
+    sleep(5)
+
     # Create with sharpd using nexthop-group
     net["r1"].cmd('vtysh -c "sharp install routes 3.3.3.1 nexthop-group replace 1"')
 
@@ -1567,8 +1598,23 @@ def test_mpls_interfaces():
         fatal_error = net["r%s" % i].checkRouterRunning()
         assert fatal_error == "", fatal_error
 
-    # For debugging after starting FRR daemons, uncomment the next line
-    # CLI(net)
+
+def test_resilient_nexthop_group():
+    net = get_topogen().net
+
+    result = required_linux_kernel_version("5.19")
+    if result is not True:
+        pytest.skip("Kernel requirements are not met, kernel version should be >= 5.19")
+
+    net["r1"].cmd(
+        'vtysh -c "conf" -c "nexthop-group resilience" -c "resilient buckets 64 idle-timer 128 unbalanced-timer 256" -c "nexthop 1.1.1.1 r1-eth1 onlink" -c "nexthop 1.1.1.2 r1-eth2 onlink"'
+    )
+
+    output = net["r1"].cmd('vtysh -c "show nexthop-group rib sharp"')
+    output = re.findall(r"Buckets", output)
+
+    verify_nexthop_group(185483878)
+    assert len(output) == 1, "Resilient NHG not created in zebra"
 
 
 def test_shutdown_check_stderr():

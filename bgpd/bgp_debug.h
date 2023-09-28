@@ -1,21 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* BGP message debug header.
  * Copyright (C) 1996, 97, 98 Kunihiro Ishiguro
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef _QUAGGA_BGP_DEBUG_H
@@ -75,11 +60,13 @@ extern unsigned long conf_bgp_debug_nht;
 extern unsigned long conf_bgp_debug_update_groups;
 extern unsigned long conf_bgp_debug_vpn;
 extern unsigned long conf_bgp_debug_flowspec;
+extern unsigned long conf_bgp_debug_linkstate;
 extern unsigned long conf_bgp_debug_labelpool;
 extern unsigned long conf_bgp_debug_pbr;
 extern unsigned long conf_bgp_debug_graceful_restart;
 extern unsigned long conf_bgp_debug_evpn_mh;
 extern unsigned long conf_bgp_debug_bfd;
+extern unsigned long conf_bgp_debug_cond_adv;
 
 extern unsigned long term_bgp_debug_as4;
 extern unsigned long term_bgp_debug_neighbor_events;
@@ -93,11 +80,13 @@ extern unsigned long term_bgp_debug_nht;
 extern unsigned long term_bgp_debug_update_groups;
 extern unsigned long term_bgp_debug_vpn;
 extern unsigned long term_bgp_debug_flowspec;
+extern unsigned long term_bgp_debug_linkstate;
 extern unsigned long term_bgp_debug_labelpool;
 extern unsigned long term_bgp_debug_pbr;
 extern unsigned long term_bgp_debug_graceful_restart;
 extern unsigned long term_bgp_debug_evpn_mh;
 extern unsigned long term_bgp_debug_bfd;
+extern unsigned long term_bgp_debug_cond_adv;
 
 extern struct list *bgp_debug_neighbor_events_peers;
 extern struct list *bgp_debug_keepalive_peers;
@@ -131,6 +120,7 @@ struct bgp_debug_filter {
 #define BGP_DEBUG_VPN_LEAK_RMAP_EVENT 0x04
 #define BGP_DEBUG_VPN_LEAK_LABEL      0x08
 #define BGP_DEBUG_FLOWSPEC            0x01
+#define BGP_DEBUG_LINKSTATE           0x01
 #define BGP_DEBUG_LABELPOOL           0x01
 #define BGP_DEBUG_PBR                 0x01
 #define BGP_DEBUG_PBR_ERROR           0x02
@@ -143,6 +133,7 @@ struct bgp_debug_filter {
 #define BGP_DEBUG_GRACEFUL_RESTART     0x01
 
 #define BGP_DEBUG_BFD_LIB             0x01
+#define BGP_DEBUG_COND_ADV 0x01
 
 #define CONF_DEBUG_ON(a, b)	(conf_bgp_debug_ ## a |= (BGP_DEBUG_ ## b))
 #define CONF_DEBUG_OFF(a, b)	(conf_bgp_debug_ ## a &= ~(BGP_DEBUG_ ## b))
@@ -166,16 +157,17 @@ struct bgp_debug_filter {
 
 extern const char *const bgp_type_str[];
 
-extern bool bgp_dump_attr(struct attr *, char *, size_t);
+extern bool bgp_dump_attr(struct attr *attr, char *buf, size_t size);
 extern bool bgp_debug_peer_updout_enabled(char *host);
-extern const char *bgp_notify_code_str(char);
-extern const char *bgp_notify_subcode_str(char, char);
-extern void bgp_notify_print(struct peer *, struct bgp_notify *, const char *);
+extern const char *bgp_notify_code_str(char code);
+extern const char *bgp_notify_subcode_str(char code, char subcode);
+extern void bgp_notify_print(struct peer *peer, struct bgp_notify *bgp_notify,
+			     const char *direct, bool hard_reset);
 
 extern const struct message bgp_status_msg[];
-extern int bgp_debug_neighbor_events(struct peer *peer);
-extern int bgp_debug_keepalive(struct peer *peer);
-extern bool bgp_debug_update(struct peer *peer, const struct prefix *p,
+extern bool bgp_debug_neighbor_events(const struct peer *peer);
+extern bool bgp_debug_keepalive(const struct peer *peer);
+extern bool bgp_debug_update(const struct peer *peer, const struct prefix *p,
 			     struct update_group *updgrp, unsigned int inbound);
 extern bool bgp_debug_bestpath(struct bgp_dest *dest);
 extern bool bgp_debug_zebra(const struct prefix *p);

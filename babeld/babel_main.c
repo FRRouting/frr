@@ -1,23 +1,6 @@
+// SPDX-License-Identifier: MIT
 /*
 Copyright 2011 by Matthieu Boutier and Juliusz Chroboczek
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in
-all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-THE SOFTWARE.
 */
 
 /* include zebra library */
@@ -25,7 +8,7 @@ THE SOFTWARE.
 #include "getopt.h"
 #include "if.h"
 #include "log.h"
-#include "thread.h"
+#include "frrevent.h"
 #include "privs.h"
 #include "sigevent.h"
 #include "lib/version.h"
@@ -50,12 +33,11 @@ THE SOFTWARE.
 
 static void babel_fail(void);
 static void babel_init_random(void);
-static void babel_replace_by_null(int fd);
 static void babel_exit_properly(void);
 static void babel_save_state_file(void);
 
 
-struct thread_master *master;     /* quagga's threads handler */
+struct event_loop *master;	  /* quagga's threads handler */
 struct timeval babel_now;         /* current time             */
 
 unsigned char myid[8];            /* unique id (mac address of an interface) */
@@ -115,7 +97,7 @@ babel_sigusr1 (void)
     zlog_rotate ();
 }
 
-static struct quagga_signal_t babel_signals[] =
+static struct frr_signal_t babel_signals[] =
   {
     {
       .signal = SIGUSR1,
@@ -199,8 +181,6 @@ main(int argc, char **argv)
     resend_delay = BABEL_DEFAULT_RESEND_DELAY;
     change_smoothing_half_life(BABEL_DEFAULT_SMOOTHING_HALF_LIFE);
 
-    babel_replace_by_null(STDIN_FILENO);
-
     /* init some quagga's dependencies, and babeld's commands */
     if_zapi_callbacks(babel_ifp_create, babel_ifp_up,
 		      babel_ifp_down, babel_ifp_destroy);
@@ -245,32 +225,6 @@ babel_init_random(void)
 
     seed ^= (babel_now.tv_sec ^ babel_now.tv_usec);
     srandom(seed);
-}
-
-/*
- close fd, and replace it by "/dev/null"
- exit if error
- */
-static void
-babel_replace_by_null(int fd)
-{
-    int fd_null;
-    int rc;
-
-    fd_null = open("/dev/null", O_RDONLY);
-    if(fd_null < 0) {
-        flog_err_sys(EC_LIB_SYSTEM_CALL, "open(null): %s", safe_strerror(errno));
-        exit(1);
-    }
-
-    rc = dup2(fd_null, fd);
-    if(rc < 0) {
-        flog_err_sys(EC_LIB_SYSTEM_CALL, "dup2(null, 0): %s",
-		  safe_strerror(errno));
-        exit(1);
-    }
-
-    close(fd_null);
 }
 
 /*

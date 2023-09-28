@@ -1,26 +1,12 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Prefix related functions.
  * Copyright (C) 1997, 98, 99 Kunihiro Ishiguro
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
 
+#include "command.h"
 #include "prefix.h"
 #include "ipaddr.h"
 #include "vty.h"
@@ -34,6 +20,7 @@
 
 DEFINE_MTYPE_STATIC(LIB, PREFIX, "Prefix");
 DEFINE_MTYPE_STATIC(LIB, PREFIX_FLOWSPEC, "Prefix Flowspec");
+DEFINE_MTYPE_STATIC(LIB, PREFIX_LINKSTATE, "Prefix Link-State");
 
 /* Maskbit. */
 static const uint8_t maskbit[] = {0x00, 0x80, 0xc0, 0xe0, 0xf0,
@@ -45,6 +32,18 @@ static const uint8_t maskbit[] = {0x00, 0x80, 0xc0, 0xe0, 0xf0,
 #endif /* PNBBY */
 
 #define MASKBIT(offset)  ((0xff << (PNBBY - (offset))) & 0xff)
+
+char *(*prefix_linkstate_display_hook)(char *buf, size_t size,
+				       uint16_t nlri_type, uintptr_t ptr,
+				       uint16_t len) = NULL;
+
+void prefix_set_linkstate_display_hook(char *(*func)(char *buf, size_t size,
+						     uint16_t nlri_type,
+						     uintptr_t ptr,
+						     uint16_t len))
+{
+	prefix_linkstate_display_hook = func;
+}
 
 int is_zero_mac(const struct ethaddr *mac)
 {
@@ -95,6 +94,8 @@ int str2family(const char *string)
 		return AF_ETHERNET;
 	else if (!strcmp("evpn", string))
 		return AF_EVPN;
+	else if (!strcmp("link-state", string))
+		return AF_LINKSTATE;
 	return -1;
 }
 
@@ -109,11 +110,13 @@ const char *family2str(int family)
 		return "Ethernet";
 	case AF_EVPN:
 		return "Evpn";
+	case AF_LINKSTATE:
+		return "Link-State";
 	}
 	return "?";
 }
 
-/* Address Famiy Identifier to Address Family converter. */
+/* Address Family Identifier to Address Family converter. */
 int afi2family(afi_t afi)
 {
 	if (afi == AFI_IP)
@@ -123,6 +126,8 @@ int afi2family(afi_t afi)
 	else if (afi == AFI_L2VPN)
 		return AF_ETHERNET;
 	/* NOTE: EVPN code should NOT use this interface. */
+	else if (afi == AFI_LINKSTATE)
+		return AF_LINKSTATE;
 	return 0;
 }
 
@@ -134,7 +139,28 @@ afi_t family2afi(int family)
 		return AFI_IP6;
 	else if (family == AF_ETHERNET || family == AF_EVPN)
 		return AFI_L2VPN;
+	else if (family == AF_LINKSTATE)
+		return AFI_LINKSTATE;
 	return 0;
+}
+
+const char *afi2str_lower(afi_t afi)
+{
+	switch (afi) {
+	case AFI_IP:
+		return "ipv4";
+	case AFI_IP6:
+		return "ipv6";
+	case AFI_L2VPN:
+		return "l2vpn";
+	case AFI_LINKSTATE:
+		return "link-state";
+	case AFI_MAX:
+	case AFI_UNSPEC:
+		return "bad-value";
+	}
+
+	assert(!"Reached end of function we should never reach");
 }
 
 const char *afi2str(afi_t afi)
@@ -146,12 +172,14 @@ const char *afi2str(afi_t afi)
 		return "IPv6";
 	case AFI_L2VPN:
 		return "l2vpn";
+	case AFI_LINKSTATE:
+		return "link-state";
 	case AFI_MAX:
+	case AFI_UNSPEC:
 		return "bad-value";
-	default:
-		break;
 	}
-	return NULL;
+
+	assert(!"Reached end of function we should never reach");
 }
 
 const char *safi2str(safi_t safi)
@@ -171,14 +199,23 @@ const char *safi2str(safi_t safi)
 		return "labeled-unicast";
 	case SAFI_FLOWSPEC:
 		return "flowspec";
-	default:
+	case SAFI_LINKSTATE:
+		return "link-state";
+	case SAFI_LINKSTATE_VPN:
+		return "link-state-vpn";
+	case SAFI_UNSPEC:
+	case SAFI_MAX:
 		return "unknown";
 	}
+
+	assert(!"Reached end of function we should never reach");
 }
 
 /* If n includes p prefix then return 1 else return 0. */
-int prefix_match(const struct prefix *n, const struct prefix *p)
+int prefix_match(union prefixconstptr unet, union prefixconstptr upfx)
 {
+	const struct prefix *n = unet.p;
+	const struct prefix *p = upfx.p;
 	int offset;
 	int shift;
 	const uint8_t *np, *pp;
@@ -202,6 +239,21 @@ int prefix_match(const struct prefix *n, const struct prefix *p)
 		pp = (const uint8_t *)&p->u.prefix_flowspec.ptr;
 
 		offset = n->u.prefix_flowspec.prefixlen;
+
+		while (offset--)
+			if (np[offset] != pp[offset])
+				return 0;
+		return 1;
+	} else if (n->family == AF_LINKSTATE) {
+		if (n->u.prefix_linkstate.nlri_type !=
+		    p->u.prefix_linkstate.nlri_type)
+			return 0;
+
+		/* Set both prefix's head pointer. */
+		np = (const uint8_t *)&n->u.prefix_linkstate.ptr;
+		pp = (const uint8_t *)&p->u.prefix_linkstate.ptr;
+
+		offset = n->prefixlen; /* length is checked above */
 
 		while (offset--)
 			if (np[offset] != pp[offset])
@@ -253,7 +305,7 @@ int evpn_type5_prefix_match(const struct prefix *n, const struct prefix *p)
 		return 0;
 
 	prefixlen = evp->prefix.prefix_addr.ip_prefix_length;
-	np = &evp->prefix.prefix_addr.ip.ip.addr;
+	np = evp->prefix.prefix_addr.ip.ip.addrbytes;
 
 	/* If n's prefix is longer than p's one return 0. */
 	if (prefixlen > p->prefixlen)
@@ -274,9 +326,11 @@ int evpn_type5_prefix_match(const struct prefix *n, const struct prefix *p)
 }
 
 /* If n includes p then return 1 else return 0. Prefix mask is not considered */
-int prefix_match_network_statement(const struct prefix *n,
-				   const struct prefix *p)
+int prefix_match_network_statement(union prefixconstptr unet,
+				   union prefixconstptr upfx)
 {
+	const struct prefix *n = unet.p;
+	const struct prefix *p = upfx.p;
 	int offset;
 	int shift;
 	const uint8_t *np, *pp;
@@ -306,6 +360,8 @@ void prefix_copy(union prefixptr udest, union prefixconstptr usrc)
 {
 	struct prefix *dest = udest.p;
 	const struct prefix *src = usrc.p;
+	void *temp;
+	int len;
 
 	dest->family = src->family;
 	dest->prefixlen = src->prefixlen;
@@ -324,9 +380,6 @@ void prefix_copy(union prefixptr udest, union prefixconstptr usrc)
 		dest->u.lp.id = src->u.lp.id;
 		dest->u.lp.adv_router = src->u.lp.adv_router;
 	} else if (src->family == AF_FLOWSPEC) {
-		void *temp;
-		int len;
-
 		len = src->u.prefix_flowspec.prefixlen;
 		dest->u.prefix_flowspec.prefixlen =
 			src->u.prefix_flowspec.prefixlen;
@@ -337,12 +390,55 @@ void prefix_copy(union prefixptr udest, union prefixconstptr usrc)
 		dest->u.prefix_flowspec.ptr = (uintptr_t)temp;
 		memcpy((void *)dest->u.prefix_flowspec.ptr,
 		       (void *)src->u.prefix_flowspec.ptr, len);
+	} else if (src->family == AF_LINKSTATE) {
+		len = src->prefixlen;
+		dest->u.prefix_linkstate.nlri_type =
+			src->u.prefix_linkstate.nlri_type;
+		temp = XCALLOC(MTYPE_PREFIX_LINKSTATE, len);
+		dest->u.prefix_linkstate.ptr = (uintptr_t)temp;
+		memcpy((void *)dest->u.prefix_linkstate.ptr,
+		       (void *)src->u.prefix_linkstate.ptr, len);
 	} else {
 		flog_err(EC_LIB_DEVELOPMENT,
 			 "prefix_copy(): Unknown address family %d",
 			 src->family);
 		assert(0);
 	}
+}
+
+bool evpn_addr_same(const struct evpn_addr *e1, const struct evpn_addr *e2)
+{
+	if (e1->route_type != e2->route_type)
+		return false;
+	if (e1->route_type == BGP_EVPN_AD_ROUTE)
+		return (!memcmp(&e1->ead_addr.esi.val,
+				&e2->ead_addr.esi.val, ESI_BYTES) &&
+			e1->ead_addr.eth_tag == e2->ead_addr.eth_tag &&
+			!ipaddr_cmp(&e1->ead_addr.ip, &e2->ead_addr.ip));
+	if (e1->route_type == BGP_EVPN_MAC_IP_ROUTE)
+		return (e1->macip_addr.eth_tag == e2->macip_addr.eth_tag &&
+			e1->macip_addr.ip_prefix_length
+				== e2->macip_addr.ip_prefix_length &&
+			!memcmp(&e1->macip_addr.mac,
+				&e2->macip_addr.mac, ETH_ALEN) &&
+			!ipaddr_cmp(&e1->macip_addr.ip, &e2->macip_addr.ip));
+	if (e1->route_type == BGP_EVPN_IMET_ROUTE)
+		return (e1->imet_addr.eth_tag == e2->imet_addr.eth_tag &&
+			e1->imet_addr.ip_prefix_length
+				== e2->imet_addr.ip_prefix_length &&
+			!ipaddr_cmp(&e1->imet_addr.ip, &e2->imet_addr.ip));
+	if (e1->route_type == BGP_EVPN_ES_ROUTE)
+		return (!memcmp(&e1->es_addr.esi.val,
+				&e2->es_addr.esi.val, ESI_BYTES) &&
+			e1->es_addr.ip_prefix_length
+				== e2->es_addr.ip_prefix_length &&
+			!ipaddr_cmp(&e1->es_addr.ip, &e2->es_addr.ip));
+	if (e1->route_type == BGP_EVPN_IP_PREFIX_ROUTE)
+		return (e1->prefix_addr.eth_tag == e2->prefix_addr.eth_tag &&
+			e1->prefix_addr.ip_prefix_length
+				== e2->prefix_addr.ip_prefix_length &&
+			!ipaddr_cmp(&e1->prefix_addr.ip, &e2->prefix_addr.ip));
+	return true;
 }
 
 /*
@@ -377,8 +473,7 @@ int prefix_same(union prefixconstptr up1, union prefixconstptr up2)
 				    sizeof(struct ethaddr)))
 				return 1;
 		if (p1->family == AF_EVPN)
-			if (!memcmp(&p1->u.prefix_evpn, &p2->u.prefix_evpn,
-				    sizeof(struct evpn_addr)))
+			if (evpn_addr_same(&p1->u.prefix_evpn, &p2->u.prefix_evpn))
 				return 1;
 		if (p1->family == AF_FLOWSPEC) {
 			if (p1->u.prefix_flowspec.family !=
@@ -390,6 +485,14 @@ int prefix_same(union prefixconstptr up1, union prefixconstptr up2)
 			if (!memcmp(&p1->u.prefix_flowspec.ptr,
 				    &p2->u.prefix_flowspec.ptr,
 				    p2->u.prefix_flowspec.prefixlen))
+				return 1;
+		}
+		if (p1->family == AF_LINKSTATE) {
+			if (p1->u.prefix_linkstate.nlri_type !=
+			    p2->u.prefix_linkstate.nlri_type)
+				return 0;
+			if (!memcmp(&p1->u.prefix_linkstate.ptr,
+				    &p2->u.prefix_linkstate.ptr, p2->prefixlen))
 				return 1;
 		}
 	}
@@ -439,6 +542,22 @@ int prefix_cmp(union prefixconstptr up1, union prefixconstptr up2)
 			if (pp1[offset] != pp2[offset])
 				return numcmp(pp1[offset], pp2[offset]);
 		return 0;
+	} else if (p1->family == AF_LINKSTATE) {
+		pp1 = (const uint8_t *)p1->u.prefix_linkstate.ptr;
+		pp2 = (const uint8_t *)p2->u.prefix_linkstate.ptr;
+
+		if (p1->u.prefix_linkstate.nlri_type !=
+		    p2->u.prefix_linkstate.nlri_type)
+			return 1;
+
+		if (p1->prefixlen != p2->prefixlen)
+			return numcmp(p1->prefixlen, p2->prefixlen);
+
+		offset = p1->prefixlen;
+		while (offset--)
+			if (pp1[offset] != pp2[offset])
+				return numcmp(pp1[offset], pp2[offset]);
+		return 0;
 	}
 	pp1 = p1->u.val;
 	pp2 = p2->u.val;
@@ -472,8 +591,10 @@ int prefix_cmp(union prefixconstptr up1, union prefixconstptr up2)
  * address families don't match, return -1; otherwise the return value is
  * in range 0 ... maximum prefix length for the address family.
  */
-int prefix_common_bits(const struct prefix *p1, const struct prefix *p2)
+int prefix_common_bits(union prefixconstptr ua, union prefixconstptr ub)
 {
+	const struct prefix *p1 = ua.p;
+	const struct prefix *p2 = ub.p;
 	int pos, bit;
 	int length = 0;
 	uint8_t xor ;
@@ -509,8 +630,10 @@ int prefix_common_bits(const struct prefix *p1, const struct prefix *p2)
 }
 
 /* Return prefix family type string. */
-const char *prefix_family_str(const struct prefix *p)
+const char *prefix_family_str(union prefixconstptr pu)
 {
+	const struct prefix *p = pu.p;
+
 	if (p->family == AF_INET)
 		return "inet";
 	if (p->family == AF_INET6)
@@ -815,14 +938,16 @@ void apply_mask_ipv6(struct prefix_ipv6 *p)
 	}
 }
 
-void apply_mask(struct prefix *p)
+void apply_mask(union prefixptr pu)
 {
+	struct prefix *p = pu.p;
+
 	switch (p->family) {
 	case AF_INET:
-		apply_mask_ipv4((struct prefix_ipv4 *)p);
+		apply_mask_ipv4(pu.p4);
 		break;
 	case AF_INET6:
-		apply_mask_ipv6((struct prefix_ipv6 *)p);
+		apply_mask_ipv6(pu.p6);
 		break;
 	default:
 		break;
@@ -868,8 +993,10 @@ void prefix2sockunion(const struct prefix *p, union sockunion *su)
 		       sizeof(struct in6_addr));
 }
 
-int prefix_blen(const struct prefix *p)
+int prefix_blen(union prefixconstptr pu)
 {
+	const struct prefix *p = pu.p;
+
 	switch (p->family) {
 	case AF_INET:
 		return IPV4_MAX_BYTELEN;
@@ -915,12 +1042,13 @@ static const char *prefixevpn_ead2str(const struct prefix_evpn *p, char *str,
 	char buf1[INET6_ADDRSTRLEN];
 
 	family = IS_IPADDR_V4(&p->prefix.ead_addr.ip) ? AF_INET : AF_INET6;
-	snprintf(str, size, "[%d]:[%u]:[%s]:[%d]:[%s]", p->prefix.route_type,
-		 p->prefix.ead_addr.eth_tag,
+	snprintf(str, size, "[%d]:[%u]:[%s]:[%d]:[%s]:[%u]",
+		 p->prefix.route_type, p->prefix.ead_addr.eth_tag,
 		 esi_to_str(&p->prefix.ead_addr.esi, buf, sizeof(buf)),
 		 (family == AF_INET) ? IPV4_MAX_BITLEN : IPV6_MAX_BITLEN,
 		 inet_ntop(family, &p->prefix.ead_addr.ip.ipaddr_v4, buf1,
-			   sizeof(buf1)));
+			   sizeof(buf1)),
+		 p->prefix.ead_addr.frag_id);
 	return str;
 }
 
@@ -1019,10 +1147,26 @@ static const char *prefixevpn2str(const struct prefix_evpn *p, char *str,
 	return str;
 }
 
+const char *bgp_linkstate_nlri_type_2str(uint16_t nlri_type)
+{
+	switch (nlri_type) {
+	case BGP_LINKSTATE_NODE:
+		return "Node";
+	case BGP_LINKSTATE_LINK:
+		return "Link";
+	case BGP_LINKSTATE_PREFIX4:
+		return "IPv4-Prefix";
+	case BGP_LINKSTATE_PREFIX6:
+		return "IPv6-Prefix";
+	}
+
+	return "Unknown";
+}
+
 const char *prefix2str(union prefixconstptr pu, char *str, int size)
 {
 	const struct prefix *p = pu.p;
-	char buf[PREFIX2STR_BUFFER];
+	char buf[PREFIX_STRLEN_EXTENDED];
 	int byte, tmp, a, b;
 	bool z = false;
 	size_t l;
@@ -1063,12 +1207,59 @@ const char *prefix2str(union prefixconstptr pu, char *str, int size)
 		strlcpy(str, "FS prefix", size);
 		break;
 
+	case AF_LINKSTATE:
+		if (prefix_linkstate_display_hook)
+			snprintf(str, size, "%s/%d",
+				 prefix_linkstate_display_hook(
+					 buf, sizeof(buf),
+					 p->u.prefix_linkstate.nlri_type,
+					 p->u.prefix_linkstate.ptr,
+					 p->prefixlen),
+				 p->prefixlen);
+		else
+			snprintf(str, size, "%s/%d",
+				 bgp_linkstate_nlri_type_2str(
+					 p->u.prefix_linkstate.nlri_type),
+				 p->prefixlen);
+		break;
+
 	default:
 		strlcpy(str, "UNK prefix", size);
 		break;
 	}
 
 	return str;
+}
+
+static ssize_t prefixhost2str(struct fbuf *fbuf, union prefixconstptr pu)
+{
+	const struct prefix *p = pu.p;
+	char buf[PREFIX_STRLEN_EXTENDED];
+
+	switch (p->family) {
+	case AF_INET:
+	case AF_INET6:
+		inet_ntop(p->family, &p->u.prefix, buf, sizeof(buf));
+		return bputs(fbuf, buf);
+
+	case AF_ETHERNET:
+		prefix_mac2str(&p->u.prefix_eth, buf, sizeof(buf));
+		return bputs(fbuf, buf);
+
+	case AF_LINKSTATE:
+		if (prefix_linkstate_display_hook)
+			prefix_linkstate_display_hook(
+				buf, sizeof(buf),
+				p->u.prefix_linkstate.nlri_type,
+				p->u.prefix_linkstate.ptr, p->prefixlen);
+		else
+			snprintf(buf, sizeof(buf), "%s",
+				 bgp_linkstate_nlri_type_2str(
+					 p->u.prefix_linkstate.nlri_type));
+		return bputs(fbuf, buf);
+	default:
+		return bprintfrr(fbuf, "{prefix.af=%dPF}", p->family);
+	}
 }
 
 void prefix_mcast_inet4_dump(const char *onfail, struct in_addr addr,
@@ -1099,6 +1290,20 @@ const char *prefix_sg2str(const struct prefix_sg *sg, char *sg_str)
 
 	return sg_str;
 }
+
+
+void prefix_linkstate_ptr_free(struct prefix *p)
+{
+	void *temp;
+
+	if (!p || p->family != AF_LINKSTATE || !p->u.prefix_linkstate.ptr)
+		return;
+
+	temp = (void *)p->u.prefix_linkstate.ptr;
+	XFREE(MTYPE_PREFIX_LINKSTATE, temp);
+	p->u.prefix_linkstate.ptr = (uintptr_t)NULL;
+}
+
 
 struct prefix *prefix_new(void)
 {
@@ -1249,17 +1454,16 @@ char *prefix_mac2str(const struct ethaddr *mac, char *buf, int size)
 unsigned prefix_hash_key(const void *pp)
 {
 	struct prefix copy;
+	uint32_t len;
+	void *temp;
+
+	/* make sure *all* unused bits are zero, particularly including
+	 * alignment /
+	 * padding and unused prefix bytes. */
+	memset(&copy, 0, sizeof(copy));
+	prefix_copy(&copy, (struct prefix *)pp);
 
 	if (((struct prefix *)pp)->family == AF_FLOWSPEC) {
-		uint32_t len;
-		void *temp;
-
-		/* make sure *all* unused bits are zero,
-		 * particularly including alignment /
-		 * padding and unused prefix bytes.
-		 */
-		memset(&copy, 0, sizeof(copy));
-		prefix_copy(&copy, (struct prefix *)pp);
 		len = jhash((void *)copy.u.prefix_flowspec.ptr,
 			    copy.u.prefix_flowspec.prefixlen,
 			    0x55aa5a5a);
@@ -1267,12 +1471,13 @@ unsigned prefix_hash_key(const void *pp)
 		XFREE(MTYPE_PREFIX_FLOWSPEC, temp);
 		copy.u.prefix_flowspec.ptr = (uintptr_t)NULL;
 		return len;
+	} else if (((struct prefix *)pp)->family == AF_LINKSTATE) {
+		len = jhash((void *)copy.u.prefix_linkstate.ptr, copy.prefixlen,
+			    0x55aa5a5a);
+		prefix_linkstate_ptr_free(&copy);
+		return len;
 	}
-	/* make sure *all* unused bits are zero, particularly including
-	 * alignment /
-	 * padding and unused prefix bytes. */
-	memset(&copy, 0, sizeof(copy));
-	prefix_copy(&copy, (struct prefix *)pp);
+
 	return jhash(&copy,
 		     offsetof(struct prefix, u.prefix) + PSIZE(copy.prefixlen),
 		     0x55aa5a5a);
@@ -1353,7 +1558,83 @@ char *evpn_es_df_alg2str(uint8_t df_alg, char *buf, int buf_len)
 	return buf;
 }
 
-printfrr_ext_autoreg_p("EA", printfrr_ea)
+bool ipv4_unicast_valid(const struct in_addr *addr)
+{
+	in_addr_t ip = ntohl(addr->s_addr);
+
+	if (IPV4_CLASS_D(ip))
+		return false;
+
+	if (IPV4_NET0(ip) || IPV4_NET127(ip) || IPV4_CLASS_E(ip)) {
+		if (cmd_allow_reserved_ranges_get())
+			return true;
+		else
+			return false;
+	}
+
+	return true;
+}
+
+static int ipaddr2prefix(const struct ipaddr *ip, uint16_t prefixlen,
+			 struct prefix *p)
+{
+	switch (ip->ipa_type) {
+	case (IPADDR_V4):
+		p->family = AF_INET;
+		p->u.prefix4 = ip->ipaddr_v4;
+		p->prefixlen = prefixlen;
+		break;
+	case (IPADDR_V6):
+		p->family = AF_INET6;
+		p->u.prefix6 = ip->ipaddr_v6;
+		p->prefixlen = prefixlen;
+		break;
+	case (IPADDR_NONE):
+		p->family = AF_UNSPEC;
+		break;
+	}
+
+	return 0;
+}
+
+/*
+ * Convert type-2 and type-5 evpn route prefixes into the more
+ * general ipv4/ipv6 prefix types so we can match prefix lists
+ * and such.
+ */
+int evpn_prefix2prefix(const struct prefix *evpn, struct prefix *to)
+{
+	const struct evpn_addr *addr;
+
+	if (evpn->family != AF_EVPN)
+		return -1;
+
+	addr = &evpn->u.prefix_evpn;
+
+	switch (addr->route_type) {
+	case BGP_EVPN_MAC_IP_ROUTE:
+		if (IS_IPADDR_V4(&addr->macip_addr.ip))
+			ipaddr2prefix(&addr->macip_addr.ip, IPV4_MAX_BITLEN,
+				      to);
+		else if (IS_IPADDR_V6(&addr->macip_addr.ip))
+			ipaddr2prefix(&addr->macip_addr.ip, IPV6_MAX_BITLEN,
+				      to);
+		else
+			return -1; /* mac only? */
+
+		break;
+	case BGP_EVPN_IP_PREFIX_ROUTE:
+		ipaddr2prefix(&addr->prefix_addr.ip,
+			      addr->prefix_addr.ip_prefix_length, to);
+		break;
+	default:
+		return -1;
+	}
+
+	return 0;
+}
+
+printfrr_ext_autoreg_p("EA", printfrr_ea);
 static ssize_t printfrr_ea(struct fbuf *buf, struct printfrr_eargs *ea,
 			   const void *ptr)
 {
@@ -1368,60 +1649,117 @@ static ssize_t printfrr_ea(struct fbuf *buf, struct printfrr_eargs *ea,
 	return bputs(buf, cbuf);
 }
 
-printfrr_ext_autoreg_p("IA", printfrr_ia)
+printfrr_ext_autoreg_p("IA", printfrr_ia);
 static ssize_t printfrr_ia(struct fbuf *buf, struct printfrr_eargs *ea,
 			   const void *ptr)
 {
 	const struct ipaddr *ipa = ptr;
 	char cbuf[INET6_ADDRSTRLEN];
+	bool use_star = false;
 
-	if (!ipa)
+	if (ea->fmt[0] == 's') {
+		use_star = true;
+		ea->fmt++;
+	}
+
+	if (!ipa || !ipa->ipa_type)
 		return bputs(buf, "(null)");
+
+	if (use_star) {
+		struct in_addr zero4 = {};
+		struct in6_addr zero6 = {};
+
+		switch (ipa->ipa_type) {
+		case IPADDR_V4:
+			if (!memcmp(&ipa->ip.addr, &zero4, sizeof(zero4)))
+				return bputch(buf, '*');
+			break;
+
+		case IPADDR_V6:
+			if (!memcmp(&ipa->ip.addr, &zero6, sizeof(zero6)))
+				return bputch(buf, '*');
+			break;
+
+		case IPADDR_NONE:
+			break;
+		}
+	}
 
 	ipaddr2str(ipa, cbuf, sizeof(cbuf));
 	return bputs(buf, cbuf);
 }
 
-printfrr_ext_autoreg_p("I4", printfrr_i4)
+printfrr_ext_autoreg_p("I4", printfrr_i4);
 static ssize_t printfrr_i4(struct fbuf *buf, struct printfrr_eargs *ea,
 			   const void *ptr)
 {
 	char cbuf[INET_ADDRSTRLEN];
+	bool use_star = false;
+	struct in_addr zero = {};
+
+	if (ea->fmt[0] == 's') {
+		use_star = true;
+		ea->fmt++;
+	}
 
 	if (!ptr)
 		return bputs(buf, "(null)");
+
+	if (use_star && !memcmp(ptr, &zero, sizeof(zero)))
+		return bputch(buf, '*');
 
 	inet_ntop(AF_INET, ptr, cbuf, sizeof(cbuf));
 	return bputs(buf, cbuf);
 }
 
-printfrr_ext_autoreg_p("I6", printfrr_i6)
+printfrr_ext_autoreg_p("I6", printfrr_i6);
 static ssize_t printfrr_i6(struct fbuf *buf, struct printfrr_eargs *ea,
 			   const void *ptr)
 {
 	char cbuf[INET6_ADDRSTRLEN];
+	bool use_star = false;
+	struct in6_addr zero = {};
+
+	if (ea->fmt[0] == 's') {
+		use_star = true;
+		ea->fmt++;
+	}
 
 	if (!ptr)
 		return bputs(buf, "(null)");
+
+	if (use_star && !memcmp(ptr, &zero, sizeof(zero)))
+		return bputch(buf, '*');
 
 	inet_ntop(AF_INET6, ptr, cbuf, sizeof(cbuf));
 	return bputs(buf, cbuf);
 }
 
-printfrr_ext_autoreg_p("FX", printfrr_pfx)
+printfrr_ext_autoreg_p("FX", printfrr_pfx);
 static ssize_t printfrr_pfx(struct fbuf *buf, struct printfrr_eargs *ea,
 			    const void *ptr)
 {
-	char cbuf[PREFIX_STRLEN];
+	bool host_only = false;
+
+	if (ea->fmt[0] == 'h') {
+		ea->fmt++;
+		host_only = true;
+	}
 
 	if (!ptr)
 		return bputs(buf, "(null)");
 
-	prefix2str(ptr, cbuf, sizeof(cbuf));
-	return bputs(buf, cbuf);
+	if (host_only)
+		return prefixhost2str(buf, (struct prefix *)ptr);
+	else {
+		char cbuf[PREFIX_STRLEN_EXTENDED];
+
+		prefix2str(ptr, cbuf, sizeof(cbuf));
+		return bputs(buf, cbuf);
+	}
 }
 
-printfrr_ext_autoreg_p("SG4", printfrr_psg)
+printfrr_ext_autoreg_p("PSG4", printfrr_psg);
 static ssize_t printfrr_psg(struct fbuf *buf, struct printfrr_eargs *ea,
 			    const void *ptr)
 {

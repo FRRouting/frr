@@ -1,26 +1,13 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * libzebra ZeroMQ bindings
  * Copyright (C) 2015  David Lamparter
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef _FRRZMQ_H
 #define _FRRZMQ_H
 
-#include "thread.h"
+#include "frrevent.h"
 #include <zmq.h>
 
 #ifdef __cplusplus
@@ -39,7 +26,7 @@ extern "C" {
 
 /* callback integration */
 struct cb_core {
-	struct thread *thread;
+	struct event *thread;
 	void *arg;
 
 	bool cancelled;
@@ -72,30 +59,29 @@ extern void frrzmq_finish(void);
 
 #define _xref_zmq_a(type, f, d, call)                                          \
 	({                                                                     \
-		static const struct xref_threadsched _xref                     \
-				__attribute__((used)) = {                      \
-			.xref = XREF_INIT(XREFT_THREADSCHED, NULL, __func__),  \
+		static const struct xref_eventsched _xref __attribute__(       \
+			(used)) = {                                            \
+			.xref = XREF_INIT(XREFT_EVENTSCHED, NULL, __func__),   \
 			.funcname = #f,                                        \
 			.dest = #d,                                            \
-			.thread_type = THREAD_ ## type,                        \
+			.event_type = EVENT_##type,                            \
 		};                                                             \
 		XREF_LINK(_xref.xref);                                         \
 		call;                                                          \
-	})                                                                     \
-	/* end */
+	}) /* end */
 
 /* core event registration, one of these 2 macros should be used */
-#define frrzmq_thread_add_read_msg(m, f, e, a, z, d)                           \
+#define frrzmq_event_add_read_msg(m, f, e, a, z, d)                            \
 	_xref_zmq_a(READ, f, d,                                                \
-		_frrzmq_thread_add_read(&_xref, m, f, NULL, e, a, z, d))
+		    _frrzmq_event_add_read(&_xref, m, f, NULL, e, a, z, d))
 
-#define frrzmq_thread_add_read_part(m, f, e, a, z, d)                          \
+#define frrzmq_event_add_read_part(m, f, e, a, z, d)                           \
 	_xref_zmq_a(READ, f, d,                                                \
-		_frrzmq_thread_add_read(&_xref, m, NULL, f, e, a, z, d))
+		    _frrzmq_event_add_read(&_xref, m, NULL, f, e, a, z, d))
 
-#define frrzmq_thread_add_write_msg(m, f, e, a, z, d)                          \
+#define frrzmq_event_add_write_msg(m, f, e, a, z, d)                           \
 	_xref_zmq_a(WRITE, f, d,                                               \
-		_frrzmq_thread_add_write(&_xref, m, f, e, a, z, d))
+		    _frrzmq_event_add_write(&_xref, m, f, e, a, z, d))
 
 struct cb_core;
 struct frrzmq_cb;
@@ -121,18 +107,20 @@ struct frrzmq_cb;
  *   may schedule the event to run as soon as libfrr is back in its main
  *   loop.
  */
-extern int _frrzmq_thread_add_read(
-	const struct xref_threadsched *xref, struct thread_master *master,
-	void (*msgfunc)(void *arg, void *zmqsock),
-	void (*partfunc)(void *arg, void *zmqsock, zmq_msg_t *msg,
-			 unsigned partnum),
-	void (*errfunc)(void *arg, void *zmqsock), void *arg, void *zmqsock,
-	struct frrzmq_cb **cb);
-extern int _frrzmq_thread_add_write(
-	const struct xref_threadsched *xref, struct thread_master *master,
-	void (*msgfunc)(void *arg, void *zmqsock),
-	void (*errfunc)(void *arg, void *zmqsock), void *arg, void *zmqsock,
-	struct frrzmq_cb **cb);
+extern int
+_frrzmq_event_add_read(const struct xref_eventsched *xref,
+		       struct event_loop *master,
+		       void (*msgfunc)(void *arg, void *zmqsock),
+		       void (*partfunc)(void *arg, void *zmqsock,
+					zmq_msg_t *msg, unsigned partnum),
+		       void (*errfunc)(void *arg, void *zmqsock), void *arg,
+		       void *zmqsock, struct frrzmq_cb **cb);
+extern int _frrzmq_event_add_write(const struct xref_eventsched *xref,
+				   struct event_loop *master,
+				   void (*msgfunc)(void *arg, void *zmqsock),
+				   void (*errfunc)(void *arg, void *zmqsock),
+				   void *arg, void *zmqsock,
+				   struct frrzmq_cb **cb);
 
 extern void frrzmq_thread_cancel(struct frrzmq_cb **cb, struct cb_core *core);
 

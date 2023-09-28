@@ -1,19 +1,8 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: ISC
 #
 # Copyright (C) 2021 by
 # Network Device Education Foundation, Inc. ("NetDEF")
-#
-# Permission to use, copy, modify, and/or distribute this software for any
-# purpose with or without fee is hereby granted, provided that the above
-# copyright notice and this permission notice appear in all copies.
-#
-# THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES WITH
-# REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY
-# AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY SPECIAL, DIRECT,
-# INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM
-# LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR
-# OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
-# PERFORMANCE OF THIS SOFTWARE.
 
 """
 Subscribe to a multicast group so that the kernel sends an IGMP JOIN
@@ -22,6 +11,7 @@ for the multicast group we subscribed to.
 
 import argparse
 import json
+import ipaddress
 import os
 import socket
 import struct
@@ -46,13 +36,16 @@ def interface_name_to_index(name):
 
 def multicast_join(sock, ifindex, group, port):
     "Joins a multicast group."
-    mreq = struct.pack(
-        "=4sLL", socket.inet_aton(args.group), socket.INADDR_ANY, ifindex
-    )
-
     sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    sock.bind((group, port))
-    sock.setsockopt(socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP, mreq)
+
+    if ip_version == 4:
+        mreq = group.packed + struct.pack("@II", socket.INADDR_ANY, ifindex)
+        opt = socket.IP_ADD_MEMBERSHIP
+    else:
+        mreq = group.packed + struct.pack("@I", ifindex)
+        opt = socket.IPV6_JOIN_GROUP
+    sock.bind((str(group), port))
+    sock.setsockopt(ip_proto, opt, mreq)
 
 
 #
@@ -61,14 +54,13 @@ def multicast_join(sock, ifindex, group, port):
 parser = argparse.ArgumentParser(description="Multicast RX utility")
 parser.add_argument("group", help="Multicast IP")
 parser.add_argument("interface", help="Interface name")
+parser.add_argument("--port", type=int, default=1000, help="port to send to")
+parser.add_argument("--ttl", type=int, default=16, help="TTL/hops for sending packets")
 parser.add_argument("--socket", help="Point to topotest UNIX socket")
 parser.add_argument(
     "--send", help="Transmit instead of join with interval", type=float, default=0
 )
 args = parser.parse_args()
-
-ttl = 16
-port = 1000
 
 # Get interface index/validate.
 ifindex = interface_name_to_index(args.interface)
@@ -96,7 +88,12 @@ else:
     # Set topotest socket non blocking so we can multiplex the main loop.
     toposock.setblocking(False)
 
-msock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+args.group = ipaddress.ip_address(args.group)
+ip_version = args.group.version
+ip_family = socket.AF_INET if ip_version == 4 else socket.AF_INET6
+ip_proto = socket.IPPROTO_IP if ip_version == 4 else socket.IPPROTO_IPV6
+
+msock = socket.socket(ip_family, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
 if args.send > 0:
     # Prepare multicast bit in that interface.
     msock.setsockopt(
@@ -104,12 +101,18 @@ if args.send > 0:
         25,
         struct.pack("%ds" % len(args.interface), args.interface.encode("utf-8")),
     )
-    # Set packets TTL.
-    msock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_TTL, struct.pack("b", ttl))
+
+    # Set packets TTL/hops.
+    ttlopt = socket.IP_MULTICAST_TTL if ip_version == 4 else socket.IPV6_MULTICAST_HOPS
+    if ip_version == 4:
+        msock.setsockopt(ip_proto, ttlopt, struct.pack("B", args.ttl))
+    else:
+        msock.setsockopt(ip_proto, ttlopt, struct.pack("I", args.ttl))
+
     # Block to ensure packet send.
     msock.setblocking(True)
 else:
-    multicast_join(msock, ifindex, args.group, port)
+    multicast_join(msock, ifindex, args.group, args.port)
 
 
 def should_exit():
@@ -131,7 +134,7 @@ def should_exit():
 counter = 0
 while not should_exit():
     if args.send > 0:
-        msock.sendto(b"test %d" % counter, (args.group, port))
+        msock.sendto(b"test %d" % counter, (str(args.group), args.port))
         counter += 1
         time.sleep(args.send)
 

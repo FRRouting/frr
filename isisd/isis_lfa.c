@@ -1,20 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Copyright (C) 2020  NetDEF, Inc.
  *                     Renato Westphal
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -267,8 +254,8 @@ void isis_lfa_excluded_ifaces_clear(struct isis_circuit *circuit, int level)
 void isis_lfa_excluded_iface_add(struct isis_circuit *circuit, int level,
 				 const char *ifname)
 {
-	hash_get(circuit->lfa_excluded_ifaces[level - 1], (char *)ifname,
-		 lfa_excl_interface_hash_alloc);
+	(void)hash_get(circuit->lfa_excluded_ifaces[level - 1], (char *)ifname,
+		       lfa_excl_interface_hash_alloc);
 }
 
 /**
@@ -368,6 +355,7 @@ bool isis_lfa_excise_node_check(const struct isis_spftree *spftree,
 
 struct tilfa_find_pnode_prefix_sid_args {
 	uint32_t sid_index;
+	int algorithm;
 };
 
 static int tilfa_find_pnode_prefix_sid_cb(const struct prefix *prefix,
@@ -381,15 +369,17 @@ static int tilfa_find_pnode_prefix_sid_cb(const struct prefix *prefix,
 	if (!subtlvs || subtlvs->prefix_sids.count == 0)
 		return LSP_ITER_CONTINUE;
 
-	psid = (struct isis_prefix_sid *)subtlvs->prefix_sids.head;
-
-	/* Require the node flag to be set. */
-	if (!CHECK_FLAG(psid->flags, ISIS_PREFIX_SID_NODE))
-		return LSP_ITER_CONTINUE;
-
-	args->sid_index = psid->value;
-
-	return LSP_ITER_STOP;
+	for (psid = (struct isis_prefix_sid *)subtlvs->prefix_sids.head; psid;
+	     psid = psid->next) {
+		/* Require the node flag to be set. */
+		if (!CHECK_FLAG(psid->flags, ISIS_PREFIX_SID_NODE))
+			continue;
+		if (psid->algorithm != args->algorithm)
+			continue;
+		args->sid_index = psid->value;
+		return LSP_ITER_STOP;
+	}
+	return LSP_ITER_CONTINUE;
 }
 
 /* Find Prefix-SID associated to a System ID. */
@@ -402,6 +392,8 @@ static uint32_t tilfa_find_pnode_prefix_sid(struct isis_spftree *spftree,
 	lsp = isis_root_system_lsp(spftree->lspdb, sysid);
 	if (!lsp)
 		return UINT32_MAX;
+
+	args.algorithm = spftree->algorithm;
 
 	args.sid_index = UINT32_MAX;
 	isis_lsp_iterate_ip_reach(lsp, spftree->family, spftree->mtid,
@@ -1111,7 +1103,8 @@ struct isis_spftree *isis_spf_reverse_run(const struct isis_spftree *spftree)
 	spftree_reverse = isis_spftree_new(
 		spftree->area, spftree->lspdb, spftree->sysid, spftree->level,
 		spftree->tree_id, SPF_TYPE_REVERSE,
-		F_SPFTREE_NO_ADJACENCIES | F_SPFTREE_NO_ROUTES);
+		F_SPFTREE_NO_ADJACENCIES | F_SPFTREE_NO_ROUTES,
+		spftree->algorithm);
 	isis_run_spf(spftree_reverse);
 
 	return spftree_reverse;
@@ -1207,7 +1200,8 @@ struct isis_spftree *isis_tilfa_compute(struct isis_area *area,
 	/* Create post-convergence SPF tree. */
 	spftree_pc = isis_spftree_new(area, spftree->lspdb, spftree->sysid,
 				      spftree->level, spftree->tree_id,
-				      SPF_TYPE_TI_LFA, spftree->flags);
+				      SPF_TYPE_TI_LFA, spftree->flags,
+				      spftree->algorithm);
 	spftree_pc->lfa.old.spftree = spftree;
 	spftree_pc->lfa.old.spftree_reverse = spftree_reverse;
 	spftree_pc->lfa.protected_resource = *resource;
@@ -1255,7 +1249,8 @@ int isis_spf_run_neighbors(struct isis_spftree *spftree)
 		adj_node->lfa.spftree = isis_spftree_new(
 			spftree->area, spftree->lspdb, adj_node->sysid,
 			spftree->level, spftree->tree_id, SPF_TYPE_FORWARD,
-			F_SPFTREE_NO_ADJACENCIES | F_SPFTREE_NO_ROUTES);
+			F_SPFTREE_NO_ADJACENCIES | F_SPFTREE_NO_ROUTES,
+			spftree->algorithm);
 		isis_run_spf(adj_node->lfa.spftree);
 	}
 
@@ -1401,16 +1396,14 @@ static struct rlfa *rlfa_lookup(struct isis_spftree *spftree,
 	return rlfa_tree_find(&spftree->lfa.remote.rlfas, &s);
 }
 
-static int isis_area_verify_routes_cb(struct thread *thread)
+static void isis_area_verify_routes_cb(struct event *thread)
 {
-	struct isis_area *area = THREAD_ARG(thread);
+	struct isis_area *area = EVENT_ARG(thread);
 
 	if (IS_DEBUG_LFA)
 		zlog_debug("ISIS-LFA: updating RLFAs in the RIB");
 
 	isis_area_verify_routes(area);
-
-	return 0;
 }
 
 static mpls_label_t rlfa_nexthop_label(struct isis_spftree *spftree,
@@ -1443,9 +1436,8 @@ static mpls_label_t rlfa_nexthop_label(struct isis_spftree *spftree,
 			}
 			break;
 		case AF_INET6:
-			for (unsigned int j = 0; j < adj->ipv6_address_count;
-			     j++) {
-				struct in6_addr addr = adj->ipv6_addresses[j];
+			for (unsigned int j = 0; j < adj->ll_ipv6_count; j++) {
+				struct in6_addr addr = adj->ll_ipv6_addrs[j];
 
 				if (!IPV6_ADDR_SAME(
 					    &addr,
@@ -1482,8 +1474,8 @@ int isis_rlfa_activate(struct isis_spftree *spftree, struct rlfa *rlfa,
 		if (ldp_label == MPLS_INVALID_LABEL) {
 			if (IS_DEBUG_LFA)
 				zlog_debug(
-					"ISIS-LFA: failed to activate RLFA: missing LDP label to reach PQ node through %s",
-					sysid_print(vadj->sadj->id));
+					"ISIS-LFA: failed to activate RLFA: missing LDP label to reach PQ node through %pSY",
+					vadj->sadj->id);
 			return -1;
 		}
 
@@ -1522,9 +1514,9 @@ int isis_rlfa_activate(struct isis_spftree *spftree, struct rlfa *rlfa,
 			  spftree->route_table_backup);
 	spftree->lfa.protection_counters.rlfa[vertex->N.ip.priority] += 1;
 
-	thread_cancel(&area->t_rlfa_rib_update);
-	thread_add_timer(master, isis_area_verify_routes_cb, area, 2,
-			 &area->t_rlfa_rib_update);
+	EVENT_OFF(area->t_rlfa_rib_update);
+	event_add_timer(master, isis_area_verify_routes_cb, area, 2,
+			&area->t_rlfa_rib_update);
 
 	return 0;
 }
@@ -1541,9 +1533,9 @@ void isis_rlfa_deactivate(struct isis_spftree *spftree, struct rlfa *rlfa)
 	isis_route_delete(area, rn, spftree->route_table_backup);
 	spftree->lfa.protection_counters.rlfa[vertex->N.ip.priority] -= 1;
 
-	thread_cancel(&area->t_rlfa_rib_update);
-	thread_add_timer(master, isis_area_verify_routes_cb, area, 2,
-			 &area->t_rlfa_rib_update);
+	EVENT_OFF(area->t_rlfa_rib_update);
+	event_add_timer(master, isis_area_verify_routes_cb, area, 2,
+			&area->t_rlfa_rib_update);
 }
 
 void isis_rlfa_list_init(struct isis_spftree *spftree)
@@ -1649,6 +1641,11 @@ void isis_ldp_rlfa_handle_client_close(struct zapi_client_close_info *info)
 			     level++) {
 				struct isis_spftree *spftree;
 
+				if (!(area->is_type & level))
+					continue;
+				if (!area->spftree[tree][level - 1])
+					continue;
+
 				spftree = area->spftree[tree][level - 1];
 				isis_rlfa_list_clear(spftree);
 			}
@@ -1733,7 +1730,8 @@ struct isis_spftree *isis_rlfa_compute(struct isis_area *area,
 	/* Create post-convergence SPF tree. */
 	spftree_pc = isis_spftree_new(area, spftree->lspdb, spftree->sysid,
 				      spftree->level, spftree->tree_id,
-				      SPF_TYPE_RLFA, spftree->flags);
+				      SPF_TYPE_RLFA, spftree->flags,
+				      spftree->algorithm);
 	spftree_pc->lfa.old.spftree = spftree;
 	spftree_pc->lfa.old.spftree_reverse = spftree_reverse;
 	spftree_pc->lfa.remote.max_metric = max_metric;
@@ -1834,7 +1832,7 @@ static bool clfa_loop_free_check(struct isis_spftree *spftree,
 				 struct isis_vertex *vertex_S_D,
 				 struct isis_spf_adj *sadj_primary,
 				 struct isis_spf_adj *sadj_N,
-				 uint32_t *lfa_metric)
+				 uint32_t *path_metric)
 {
 	struct isis_spf_node *node_N;
 	uint32_t dist_N_D;
@@ -1880,7 +1878,7 @@ static bool clfa_loop_free_check(struct isis_spftree *spftree,
 			   dist_N_S, dist_S_D);
 
 	if (dist_N_D < (dist_N_S + dist_S_D)) {
-		*lfa_metric = sadj_N->metric + dist_N_D;
+		*path_metric = sadj_N->metric + dist_N_D;
 		return true;
 	}
 
@@ -2080,7 +2078,7 @@ void isis_lfa_compute(struct isis_area *area, struct isis_circuit *circuit,
 		      struct isis_spftree *spftree,
 		      struct lfa_protected_resource *resource)
 {
-	struct isis_vertex *vertex;
+	struct isis_vertex *vertex, *parent_vertex;
 	struct listnode *vnode, *snode;
 	int level = spftree->level;
 
@@ -2097,7 +2095,7 @@ void isis_lfa_compute(struct isis_area *area, struct isis_circuit *circuit,
 		struct isis_vertex_adj *vadj_primary;
 		struct isis_spf_adj *sadj_primary;
 		bool allow_ecmp;
-		uint32_t best_metric = UINT32_MAX;
+		uint32_t prefix_metric, best_metric = UINT32_MAX;
 		char buf[VID2STR_BUFFER];
 
 		if (!VTYPE_IP(vertex->type))
@@ -2131,6 +2129,9 @@ void isis_lfa_compute(struct isis_area *area, struct isis_circuit *circuit,
 		vadj_primary = listnode_head(vertex->Adj_N);
 		sadj_primary = vadj_primary->sadj;
 
+		parent_vertex = listnode_head(vertex->parents);
+		prefix_metric = vertex->d_N - parent_vertex->d_N;
+
 		/*
 		 * Loop over list of SPF adjacencies and compute a list of
 		 * preliminary LFAs.
@@ -2138,7 +2139,7 @@ void isis_lfa_compute(struct isis_area *area, struct isis_circuit *circuit,
 		lfa_list = list_new();
 		lfa_list->del = isis_vertex_adj_free;
 		for (ALL_LIST_ELEMENTS_RO(spftree->sadj_list, snode, sadj_N)) {
-			uint32_t lfa_metric;
+			uint32_t lfa_metric, path_metric;
 			struct isis_vertex_adj *lfa;
 			struct isis_prefix_sid *psid = NULL;
 			bool last_hop = false;
@@ -2188,7 +2189,7 @@ void isis_lfa_compute(struct isis_area *area, struct isis_circuit *circuit,
 
 			/* Check loop-free criterion. */
 			if (!clfa_loop_free_check(spftree, vertex, sadj_primary,
-						  sadj_N, &lfa_metric)) {
+						  sadj_N, &path_metric)) {
 				if (IS_DEBUG_LFA)
 					zlog_debug(
 						"ISIS-LFA: LFA condition not met for %s",
@@ -2196,6 +2197,7 @@ void isis_lfa_compute(struct isis_area *area, struct isis_circuit *circuit,
 				continue;
 			}
 
+			lfa_metric = path_metric + prefix_metric;
 			if (lfa_metric < best_metric)
 				best_metric = lfa_metric;
 
@@ -2206,7 +2208,7 @@ void isis_lfa_compute(struct isis_area *area, struct isis_circuit *circuit,
 
 			if (vertex->N.ip.sr.present) {
 				psid = &vertex->N.ip.sr.sid;
-				if (lfa_metric == sadj_N->metric)
+				if (path_metric == sadj_N->metric)
 					last_hop = true;
 			}
 			lfa = isis_vertex_adj_add(spftree, vertex, lfa_list,

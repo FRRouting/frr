@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: BSD-2-Clause
 submodule frr-bgp-bmp {
   yang-version 1.1;
 
@@ -12,6 +13,8 @@ submodule frr-bgp-bmp {
   import frr-bgp-types {
     prefix frr-bt;
   }
+
+  include "frr-bgp-common-multiprotocol";
 
   organization
     "FRRouting";
@@ -84,7 +87,7 @@ submodule frr-bgp-bmp {
           type uint32 {
             range "100..86400000";
           }
-          units "miliseconds";
+          units "milliseconds";
           default "30000";
           description
             "Minimum connection retry interval.";
@@ -94,7 +97,7 @@ submodule frr-bgp-bmp {
           type uint32 {
             range "100..86400000";
           }
-          units "miliseconds";
+          units "milliseconds";
           default "720000";
           description
             "Maximum connection retry interval.";
@@ -168,7 +171,7 @@ submodule frr-bgp-bmp {
           type uint32 {
             range "100..86400000";
           }
-          units "miliseconds";
+          units "milliseconds";
           description
             "Interval to send BMP Stats.";
         }

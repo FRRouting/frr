@@ -1,29 +1,15 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Copyright (C) 1999 Yasuhiro Ohara
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
 #include <lib/version.h>
+#include <lib/keychain.h>
 #include <stdlib.h>
 
 #include "getopt.h"
-#include "thread.h"
+#include "frrevent.h"
 #include "log.h"
 #include "command.h"
 #include "vty.h"
@@ -76,7 +62,7 @@ struct zebra_privs_t ospf6d_privs = {
 struct option longopts[] = {{0}};
 
 /* Master of threads. */
-struct thread_master *master;
+struct event_loop *master;
 
 static void __attribute__((noreturn)) ospf6_exit(int status)
 {
@@ -148,7 +134,7 @@ static void sigusr1(void)
 	zlog_rotate();
 }
 
-struct quagga_signal_t ospf6_signals[] = {
+struct frr_signal_t ospf6_signals[] = {
 	{
 		.signal = SIGHUP,
 		.handler = &sighup,
@@ -187,6 +173,32 @@ FRR_DAEMON_INFO(ospf6d, OSPF6, .vty_port = OSPF6_VTY_PORT,
 		.n_yang_modules = array_size(ospf6d_yang_modules),
 );
 
+/* Max wait time for config to load before accepting hellos */
+#define OSPF6_PRE_CONFIG_MAX_WAIT_SECONDS 600
+
+static void ospf6_config_finish(struct event *t)
+{
+	zlog_err("OSPF6 configuration end timer expired after %d seconds.",
+		 OSPF6_PRE_CONFIG_MAX_WAIT_SECONDS);
+}
+
+static void ospf6_config_start(void)
+{
+	if (IS_OSPF6_DEBUG_EVENT)
+		zlog_debug("ospf6d config start received");
+	EVENT_OFF(t_ospf6_cfg);
+	event_add_timer(master, ospf6_config_finish, NULL,
+			OSPF6_PRE_CONFIG_MAX_WAIT_SECONDS, &t_ospf6_cfg);
+}
+
+static void ospf6_config_end(void)
+{
+	if (IS_OSPF6_DEBUG_EVENT)
+		zlog_debug("ospf6d config end received");
+
+	EVENT_OFF(t_ospf6_cfg);
+}
+
 /* Main routine of ospf6d. Treatment of argument and starting ospf finite
    state machine is handled here. */
 int main(int argc, char *argv[], char *envp[])
@@ -223,12 +235,16 @@ int main(int argc, char *argv[], char *envp[])
 	/* thread master */
 	master = om6->master;
 
+	keychain_init();
 	ospf6_vrf_init();
 	access_list_init();
 	prefix_list_init();
 
 	/* initialize ospf6 */
 	ospf6_init(master);
+
+	/* Configuration processing callback initialization. */
+	cmd_init_config_callbacks(ospf6_config_start, ospf6_config_end);
 
 	frr_config_fork();
 	frr_run(master);

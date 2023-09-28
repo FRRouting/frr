@@ -1,23 +1,10 @@
 #!/usr/bin/env python
+# SPDX-License-Identifier: ISC
 
 #
 # Copyright (c) 2019 by VMware, Inc. ("VMware")
 # Used Copyright (c) 2018 by Network Device Education Foundation,
 # Inc. ("NetDEF") in this file.
-#
-# Permission to use, copy, modify, and/or distribute this software
-# for any purpose with or without fee is hereby granted, provided
-# that the above copyright notice and this permission notice appear
-# in all copies.
-#
-# THE SOFTWARE IS PROVIDED "AS IS" AND VMWARE DISCLAIMS ALL WARRANTIES
-# WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
-# MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL VMWARE BE LIABLE FOR
-# ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY
-# DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS,
-# WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS
-# ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE
-# OF THIS SOFTWARE.
 #
 
 """
@@ -121,7 +108,7 @@ def setup_module(mod):
     # Required linux kernel version for this suite to run.
     result = required_linux_kernel_version("4.15")
     if result is not True:
-        pytest.skip("Kernel requirements are not met")
+        pytest.skip("Kernel requirements are not met, kernel version should be >=4.15")
 
     testsuite_run_time = time.asctime(time.localtime(time.time()))
     logger.info("Testsuite start time: {}".format(testsuite_run_time))
@@ -137,7 +124,7 @@ def setup_module(mod):
     # ... and here it calls Mininet initialization functions.
 
     # Starting topology, create tmp files which are loaded to routers
-    #  to start deamons and then start routers
+    #  to start daemons and then start routers
     start_topology(tgen)
 
     # Creating configuration from JSON
@@ -371,7 +358,7 @@ def test_bgp_timers_functionality(request):
     # Creating configuration from JSON
     reset_config_on_routers(tgen)
 
-    # Api call to modfiy BGP timerse
+    # Api call to modify BGP timerse
     input_dict = {
         "r1": {
             "bgp": {
@@ -1148,9 +1135,9 @@ def test_bgp_with_loopback_with_same_subnet_p1(request):
             tgen, addr_type, dut, input_dict_r1, expected=False
         )  # pylint: disable=E1123
         assert result is not True, (
-            "Testcase {} : Failed \n".format(tc_name)
-            + "Expected behavior: routes should not present in fib \n"
-            + "Error: {}".format(result)
+            "Testcase {} : Failed \n "
+            "Expected: Routes should not be present in {} FIB \n "
+            "Found: {}".format(tc_name, dut, result)
         )
 
     step("Verify Ipv4 and Ipv6 network installed in r3 RIB but not in FIB")
@@ -1169,9 +1156,9 @@ def test_bgp_with_loopback_with_same_subnet_p1(request):
             tgen, addr_type, dut, input_dict_r1, expected=False
         )  # pylint: disable=E1123
         assert result is not True, (
-            "Testcase {} : Failed \n".format(tc_name)
-            + "Expected behavior: routes should not present in fib \n"
-            + "Error: {}".format(result)
+            "Testcase {} : Failed \n "
+            "Expected: Routes should not be present in {} FIB \n "
+            "Found: {}".format(tc_name, dut, result)
         )
 
     write_test_footer(tc_name)

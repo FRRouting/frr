@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# SPDX-License-Identifier: ISC
 
 #
 # bgp_tcp_mss.py
@@ -6,20 +7,6 @@
 #
 # Copyright (c) 2021 by
 # Abhinay Ramesh <rabhinay@vmware.com>
-#
-# Permission to use, copy, modify, and/or distribute this software
-# for any purpose with or without fee is hereby granted, provided
-# that the above copyright notice and this permission notice appear
-# in all copies.
-#
-# THE SOFTWARE IS PROVIDED "AS IS" AND NETDEF DISCLAIMS ALL WARRANTIES
-# WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
-# MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL NETDEF BE LIABLE FOR
-# ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY
-# DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS,
-# WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS
-# ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE
-# OF THIS SOFTWARE.
 #
 
 """
@@ -153,7 +140,7 @@ def test_bgp_tcp_mss():
         "Verify if TCP MSS value is synced with neighbor in {}".format(router1.name)
     )
     test_func = functools.partial(_bgp_check_neighbor_tcp_mss, router1, "192.168.255.2")
-    success, result = topotest.run_and_expect(test_func, None, count=3, wait=0.5)
+    success, result = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
     assert (
         result is None
     ), 'Failed to sync TCP MSS value over BGP session in "{}"'.format(router1.name)
@@ -163,7 +150,7 @@ def test_bgp_tcp_mss():
         "Verify if TCP MSS value is synced with neighbor in {}".format(router2.name)
     )
     test_func = functools.partial(_bgp_check_neighbor_tcp_mss, router2, "192.168.255.1")
-    success, result = topotest.run_and_expect(test_func, None, count=3, wait=0.5)
+    success, result = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
     assert (
         result is None
     ), 'Failed to sync TCP MSS value over BGP session in "{}"'.format(router2.name)

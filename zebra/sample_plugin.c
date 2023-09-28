@@ -1,21 +1,8 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Sample plugin for the FRR zebra dataplane.
  *
  * Copyright (c) 2019 Volta Networks, Inc.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 /*
@@ -89,7 +76,7 @@ static int sample_process(struct zebra_dplane_provider *prov)
  * Init entry point called during zebra startup. This is registered during
  * module init.
  */
-static int init_sample_plugin(struct thread_master *tm)
+static int init_sample_plugin(struct event_loop *tm)
 {
 	int ret;
 

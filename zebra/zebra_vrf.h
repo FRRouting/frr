@@ -1,23 +1,8 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Zebra Vrf Header
  * Copyright (C) 2016 Cumulus Networks
  *                    Donald Sharp
- *
- * This file is part of Quagga.
- *
- * Quagga is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * Quagga is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 #if !defined(__ZEBRA_VRF_H__)
 #define __ZEBRA_VRF_H__
@@ -26,11 +11,18 @@
 
 #include <zebra/zebra_ns.h>
 #include <zebra/zebra_pw.h>
+#include <zebra/rtadv.h>
 #include <lib/vxlan.h>
+#include "defaults.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+FRR_CFG_DEFAULT_BOOL(ZEBRA_IP_NHT_RESOLVE_VIA_DEFAULT,
+	{ .val_bool = true, .match_profile = "traditional", },
+	{ .val_bool = false },
+);
 
 /* MPLS (Segment Routing) global block */
 struct mpls_srgb {
@@ -78,9 +70,7 @@ struct zebra_vrf {
 
 	/* Recursive Nexthop table */
 	struct route_table *rnh_table[AFI_MAX];
-
-	/* Import check table (used mostly by BGP */
-	struct route_table *import_check_table[AFI_MAX];
+	struct route_table *rnh_table_multicast[AFI_MAX];
 
 	struct otable_head other_tables;
 
@@ -179,12 +169,10 @@ struct zebra_vrf {
 
 	struct table_manager *tbl_mgr;
 
-#if defined(HAVE_RTADV)
 	struct rtadv rtadv;
-#endif /* HAVE_RTADV */
 
-	int zebra_rnh_ip_default_route;
-	int zebra_rnh_ipv6_default_route;
+	bool zebra_rnh_ip_default_route;
+	bool zebra_rnh_ipv6_default_route;
 };
 #define PROTO_RM_NAME(zvrf, afi, rtype) zvrf->proto_rm[afi][rtype].name
 #define NHT_RM_NAME(zvrf, afi, rtype) zvrf->nht_rm[afi][rtype].name
@@ -194,14 +182,10 @@ struct zebra_vrf {
 /*
  * special macro to allow us to get the correct zebra_vrf
  */
-#define ZEBRA_DECLVAR_CONTEXT(A, B)                                            \
-	struct vrf *A;                                                         \
-	if (vty->node == CONFIG_NODE)                                          \
-		A = vrf_lookup_by_id(VRF_DEFAULT);                             \
-	else                                                                   \
-		A = VTY_GET_CONTEXT(vrf);                                      \
-	VTY_CHECK_CONTEXT(A);                                                  \
-	struct zebra_vrf *B = A->info
+#define ZEBRA_DECLVAR_CONTEXT_VRF(vrfptr, zvrfptr)                             \
+	VTY_DECLVAR_CONTEXT_VRF(vrfptr);                                       \
+	struct zebra_vrf *zvrfptr = vrfptr->info;                              \
+	MACRO_REQUIRE_SEMICOLON() /* end */
 
 static inline vrf_id_t zvrf_id(struct zebra_vrf *zvrf)
 {
@@ -259,8 +243,17 @@ extern struct route_table *zebra_vrf_get_table_with_table_id(afi_t afi,
 extern void zebra_vrf_update_all(struct zserv *client);
 extern struct zebra_vrf *zebra_vrf_lookup_by_id(vrf_id_t vrf_id);
 extern struct zebra_vrf *zebra_vrf_lookup_by_name(const char *);
+extern vrf_id_t zebra_vrf_lookup_by_table(uint32_t table_id, ns_id_t ns_id);
 extern struct zebra_vrf *zebra_vrf_alloc(struct vrf *vrf);
 extern struct route_table *zebra_vrf_table(afi_t, safi_t, vrf_id_t);
+
+/*
+ * API to associate a VRF with a NETNS.
+ * Called either from vty or through discovery.
+ */
+extern int zebra_vrf_netns_handler_create(struct vty *vty, struct vrf *vrf,
+					  char *pathname, ns_id_t ext_ns_id,
+					  ns_id_t ns_id, ns_id_t rel_def_ns_id);
 
 extern void zebra_vrf_init(void);
 

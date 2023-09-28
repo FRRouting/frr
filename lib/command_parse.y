@@ -1,25 +1,9 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Command format string parser for CLI backend.
  *
  * --
  * Copyright (C) 2016 Cumulus Networks, Inc.
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with GNU Zebra; see the file COPYING.  If not, write to the Free
- * Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
- * 02111-1307, USA.
  */
 
 %{
@@ -104,6 +88,7 @@
 %token <string> RANGE
 %token <string> MAC
 %token <string> MAC_PREFIX
+%token <string> ASNUM
 
 /* special syntax, value is irrelevant */
 %token <string> EXCL_BRACKET
@@ -217,10 +202,12 @@ cmd_token:
 {
   if ((ctx->currnode = graph_add_edge (ctx->currnode, $1)) != $1)
     graph_delete_node (ctx->graph, $1);
+  cmd_token_varname_seqappend($1);
 }
 | selector
 {
   graph_add_edge (ctx->currnode, $1.start);
+  cmd_token_varname_seqappend($1.start);
   ctx->currnode = $1.end;
 }
 ;
@@ -291,13 +278,17 @@ placeholder_token_real:
   $$ = new_token_node (ctx, MAC_PREFIX_TKN, $1, doc_next(ctx));
   XFREE (MTYPE_LEX, $1);
 }
+| ASNUM
+{
+  $$ = new_token_node (ctx, ASNUM_TKN, $1, doc_next(ctx));
+  XFREE (MTYPE_LEX, $1);
+}
 
 placeholder_token:
   placeholder_token_real varname_token
 {
-  struct cmd_token *token = $$->data;
   $$ = $1;
-  cmd_token_varname_set (token, $2);
+  cmd_token_varname_set ($$->data, $2);
   XFREE (MTYPE_LEX, $2);
 };
 
@@ -306,7 +297,7 @@ placeholder_token:
 selector: '<' selector_seq_seq '>' varname_token
 {
   $$ = $2;
-  cmd_token_varname_set ($2.end->data, $4);
+  cmd_token_varname_join ($2.end, $4);
   XFREE (MTYPE_LEX, $4);
 };
 
@@ -338,11 +329,11 @@ selector: '{' selector_seq_seq '}' varname_token
    * 1) this allows "at least 1 of" semantics, which are otherwise impossible
    * 2) this would add a start->end->start loop in the graph that the current
    *    loop-avoidal fails to handle
-   * just use [{a|b}] if neccessary, that will work perfectly fine, and reason
+   * just use [{a|b}] if necessary, that will work perfectly fine, and reason
    * #1 is good enough to keep it this way. */
 
   loopcheck(ctx, &$$);
-  cmd_token_varname_set ($2.end->data, $4);
+  cmd_token_varname_join ($2.end, $4);
   XFREE (MTYPE_LEX, $4);
 };
 
@@ -359,6 +350,7 @@ selector_token_seq:
   selector_token_seq selector_token
 {
   graph_add_edge ($1.end, $2.start);
+  cmd_token_varname_seqappend($2.start);
   $$.start = $1.start;
   $$.end   = $2.end;
 }
@@ -370,7 +362,7 @@ selector: '[' selector_seq_seq ']' varname_token
 {
   $$ = $2;
   graph_add_edge ($$.start, $$.end);
-  cmd_token_varname_set ($2.end->data, $4);
+  cmd_token_varname_join ($2.end, $4);
   XFREE (MTYPE_LEX, $4);
 }
 ;
@@ -383,7 +375,7 @@ selector: EXCL_BRACKET selector_seq_seq ']' varname_token
   $$ = $2;
   graph_add_edge ($$.start, neg_only);
   graph_add_edge (neg_only, $$.end);
-  cmd_token_varname_set ($2.end->data, $4);
+  cmd_token_varname_join ($2.end, $4);
   XFREE (MTYPE_LEX, $4);
 }
 ;

@@ -1,17 +1,6 @@
+// SPDX-License-Identifier: ISC
 /*
  * Copyright (c) 2019  David Lamparter, for NetDEF, Inc.
- *
- * Permission to use, copy, modify, and distribute this software for any
- * purpose with or without fee is hereby granted, provided that the above
- * copyright notice and this permission notice appear in all copies.
- *
- * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
- * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
- * ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
- * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
- * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
- * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
 #ifndef _FRR_PRINTFRR_H
@@ -209,10 +198,11 @@ void printfrr_ext_reg(const struct printfrr_ext *);
 		.print_ptr = print_fn,                                         \
 	};                                                                     \
 	static void _printreg_##print_fn(void) __attribute__((constructor));   \
-	static void _printreg_##print_fn(void) {                               \
+	static void _printreg_##print_fn(void)                                 \
+	{                                                                      \
 		printfrr_ext_reg(&_printext_##print_fn);                       \
 	}                                                                      \
-	/* end */
+	MACRO_REQUIRE_SEMICOLON()
 
 #define printfrr_ext_autoreg_i(matchs, print_fn)                               \
 	static ssize_t print_fn(struct fbuf *, struct printfrr_eargs *,        \
@@ -222,10 +212,11 @@ void printfrr_ext_reg(const struct printfrr_ext *);
 		.print_int = print_fn,                                         \
 	};                                                                     \
 	static void _printreg_##print_fn(void) __attribute__((constructor));   \
-	static void _printreg_##print_fn(void) {                               \
+	static void _printreg_##print_fn(void)                                 \
+	{                                                                      \
 		printfrr_ext_reg(&_printext_##print_fn);                       \
 	}                                                                      \
-	/* end */
+	MACRO_REQUIRE_SEMICOLON()
 
 /* fbuf helper functions - note all 3 of these return the length that would
  * be written regardless of how much space was available in the buffer, as
@@ -286,6 +277,10 @@ struct va_format {
 
 #pragma FRR printfrr_ext "%pSE" (char *)
 #pragma FRR printfrr_ext "%pSQ" (char *)
+
+#pragma FRR printfrr_ext "%pTS" (struct timespec *)
+#pragma FRR printfrr_ext "%pTV" (struct timeval *)
+#pragma FRR printfrr_ext "%pTT" (time_t *)
 #endif
 
 /* when using non-ISO-C compatible extension specifiers... */

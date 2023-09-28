@@ -5,16 +5,6 @@
 if ISISD
 noinst_LIBRARIES += isisd/libisis.a
 sbin_PROGRAMS += isisd/isisd
-vtysh_scan += \
-	isisd/isis_cli.c \
-	isisd/isis_ldp_sync.c \
-	isisd/isis_redist.c \
-	isisd/isis_spf.c \
-	isisd/isis_te.c \
-	isisd/isis_sr.c \
-	isisd/isis_vty_fabricd.c \
-	isisd/isisd.c \
-	# end
 vtysh_daemons += isisd
 if SNMP
 module_LTLIBRARIES += isisd/isisd_snmp.la
@@ -25,22 +15,11 @@ endif
 if FABRICD
 noinst_LIBRARIES += isisd/libfabric.a
 sbin_PROGRAMS += isisd/fabricd
-if !ISISD
-vtysh_scan += \
-	isisd/isis_cli.c \
-	isisd/isis_ldp_sync.c \
-	isisd/isis_redist.c \
-	isisd/isis_spf.c \
-	isisd/isis_te.c \
-	isisd/isis_sr.c \
-	isisd/isis_vty_fabricd.c \
-	isisd/isisd.c \
-	# end
-endif
 vtysh_daemons += fabricd
 endif
 
 noinst_HEADERS += \
+	isisd/isis_affinitymap.h \
 	isisd/isis_adjacency.h \
 	isisd/isis_bfd.h \
 	isisd/isis_circuit.h \
@@ -67,6 +46,8 @@ noinst_HEADERS += \
 	isisd/isis_spf.h \
 	isisd/isis_spf_private.h \
 	isisd/isis_sr.h \
+	isisd/isis_flex_algo.h \
+	isisd/isis_srv6.h \
 	isisd/isis_te.h \
 	isisd/isis_tlvs.h \
 	isisd/isis_tx_queue.h \
@@ -77,6 +58,7 @@ noinst_HEADERS += \
 	# end
 
 LIBISIS_SOURCES = \
+	isisd/isis_affinitymap.c \
 	isisd/isis_adjacency.c \
 	isisd/isis_bfd.c \
 	isisd/isis_circuit.c \
@@ -98,6 +80,8 @@ LIBISIS_SOURCES = \
 	isisd/isis_routemap.c \
 	isisd/isis_spf.c \
 	isisd/isis_sr.c \
+	isisd/isis_flex_algo.c \
+	isisd/isis_srv6.c \
 	isisd/isis_te.c \
 	isisd/isis_tlvs.c \
 	isisd/isis_tx_queue.c \

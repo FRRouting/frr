@@ -1,26 +1,15 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * STATICd - static routes header
  * Copyright (C) 2018 Cumulus Networks, Inc.
  *               Donald Sharp
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 #ifndef __STATIC_ROUTES_H__
 #define __STATIC_ROUTES_H__
 
+#include "lib/bfd.h"
 #include "lib/mpls.h"
+#include "lib/srv6.h"
 #include "table.h"
 #include "memory.h"
 
@@ -30,11 +19,19 @@ extern "C" {
 
 DECLARE_MGROUP(STATIC);
 
+#include "staticd/static_vrf.h"
+
 /* Static route label information */
 struct static_nh_label {
 	uint8_t num_labels;
 	uint8_t reserved[3];
 	mpls_label_t label[MPLS_MAX_LABELS];
+};
+
+/* Static route seg information */
+struct static_nh_seg {
+	int num_segs;
+	struct in6_addr seg[SRV6_MAX_SIDS];
 };
 
 enum static_blackhole_type {
@@ -139,6 +136,9 @@ struct static_nexthop {
 	/* Label information */
 	struct static_nh_label snh_label;
 
+	/* SRv6 Seg information */
+	struct static_nh_seg snh_seg;
+
 	/*
 	 * Whether to pretend the nexthop is directly attached to the specified
 	 * link. Only meaningful when both a gateway address and interface name
@@ -148,6 +148,13 @@ struct static_nexthop {
 
 	/* SR-TE color */
 	uint32_t color;
+
+	/** BFD integration data. */
+	struct bfd_session_params *bsp;
+	/** Back pointer for route node. */
+	struct route_node *rn;
+	/** Path connection status. */
+	bool path_down;
 };
 
 DECLARE_DLIST(static_nexthop_list, struct static_nexthop, list);
@@ -162,7 +169,33 @@ static_route_info_from_rnode(struct route_node *rn)
 	return (struct static_route_info *)(rn->info);
 }
 
+static inline void static_get_nh_type(enum static_nh_type stype, char *type,
+				      size_t size)
+{
+	switch (stype) {
+	case STATIC_IFNAME:
+		strlcpy(type, "ifindex", size);
+		break;
+	case STATIC_IPV4_GATEWAY:
+		strlcpy(type, "ip4", size);
+		break;
+	case STATIC_IPV4_GATEWAY_IFNAME:
+		strlcpy(type, "ip4-ifindex", size);
+		break;
+	case STATIC_BLACKHOLE:
+		strlcpy(type, "blackhole", size);
+		break;
+	case STATIC_IPV6_GATEWAY:
+		strlcpy(type, "ip6", size);
+		break;
+	case STATIC_IPV6_GATEWAY_IFNAME:
+		strlcpy(type, "ip6-ifindex", size);
+		break;
+	};
+}
+
 extern bool mpls_enabled;
+extern uint32_t zebra_ecmp_count;
 
 extern struct zebra_privs_t static_privs;
 
@@ -194,8 +227,6 @@ extern struct static_path *static_add_path(struct route_node *rn,
 					   uint32_t table_id, uint8_t distance);
 extern void static_del_path(struct static_path *pn);
 
-extern void static_get_nh_type(enum static_nh_type stype, char *type,
-			       size_t size);
 extern bool static_add_nexthop_validate(const char *nh_vrf_name,
 					enum static_nh_type type,
 					struct ipaddr *ipaddr);
@@ -216,6 +247,24 @@ extern void zebra_stable_node_cleanup(struct route_table *table,
  */
 extern void static_get_nh_str(struct static_nexthop *nh, char *nexthop,
 			      size_t size);
+
+/*
+ * BFD integration.
+ */
+extern void static_next_hop_bfd_source(struct static_nexthop *sn,
+				       const struct ipaddr *source);
+extern void static_next_hop_bfd_auto_source(struct static_nexthop *sn);
+extern void static_next_hop_bfd_monitor_enable(struct static_nexthop *sn,
+					       const struct lyd_node *dnode);
+extern void static_next_hop_bfd_monitor_disable(struct static_nexthop *sn);
+extern void static_next_hop_bfd_profile(struct static_nexthop *sn,
+					const char *name);
+extern void static_next_hop_bfd_multi_hop(struct static_nexthop *sn, bool mhop);
+
+/** Call this function after zebra client initialization. */
+extern void static_bfd_initialize(struct zclient *zc, struct event_loop *tm);
+
+extern void static_bfd_show(struct vty *vty, bool isjson);
 
 #ifdef __cplusplus
 }

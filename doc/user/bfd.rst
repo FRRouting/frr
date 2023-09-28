@@ -10,6 +10,7 @@ the following RFCs:
 
 * :rfc:`5880`
 * :rfc:`5881`
+* :rfc:`5882`
 * :rfc:`5883`
 
 Currently, there are two implementations of the BFD commands in FRR:
@@ -224,20 +225,14 @@ BFD peers and profiles share the same BFD session configuration commands.
 BFD Peer Specific Commands
 --------------------------
 
-.. clicmd:: label WORD
-
-   Labels a peer with the provided word. This word can be referenced
-   later on other daemons to refer to a specific peer.
-
-
 .. clicmd:: profile BFDPROF
 
    Configure peer to use the profile configurations.
 
    Notes:
 
-   - Profile configurations can be overriden on a peer basis by specifying
-     new parameters in peer configuration node.
+   - Profile configurations can be overridden on a peer basis by specifying
+     non-default parameters in peer configuration node.
    - Non existing profiles can be configured and they will only be applied
      once they start to exist.
    - If the profile gets updated the new configuration will be applied to all
@@ -353,6 +348,81 @@ The following commands are available inside the interface configuration node.
    that interface.
 
 
+.. _bfd-rip-peer-config:
+
+RIP BFD configuration
+---------------------
+
+The following commands are available inside the interface configuration node:
+
+.. clicmd:: ip rip bfd
+
+   Automatically create BFD session for each RIP peer discovered in this
+   interface. When the BFD session monitor signalize that the link is down
+   the RIP peer is removed and all the learned routes associated with that
+   peer are removed.
+
+
+.. clicmd:: ip rip bfd profile BFD_PROFILE_NAME
+
+   Selects a BFD profile for the BFD sessions created in this interface.
+
+
+The following command is available in the RIP router configuration node:
+
+.. clicmd:: bfd default-profile BFD_PROFILE_NAME
+
+   Selects a default BFD profile for all sessions without a profile specified.
+
+
+.. _bfd-static-peer-config:
+
+BFD Static Route Monitoring Configuration
+-----------------------------------------
+
+A monitored static route conditions the installation to the RIB on the
+BFD session running state: when BFD session is up the route is installed
+to RIB, but when the BFD session is down it is removed from the RIB.
+
+The following commands are available inside the configuration node:
+
+.. clicmd:: ip route A.B.C.D/M A.B.C.D bfd [{multi-hop|source A.B.C.D|profile BFDPROF}]
+
+   Configure a static route for ``A.B.C.D/M`` using gateway ``A.B.C.D`` and use
+   the gateway address as BFD peer destination address.
+
+.. clicmd:: ipv6 route X:X::X:X/M [from X:X::X:X/M] X:X::X:X bfd [{multi-hop|source X:X::X:X|profile BFDPROF}]
+
+   Configure a static route for ``X:X::X:X/M`` using gateway
+   ``X:X::X:X`` and use the gateway address as BFD peer destination
+   address.
+
+The static routes when uninstalled will no longer show up in the output of
+the command ``show ip route`` or ``show ipv6 route``, instead we must use the
+BFD static route show command to see these monitored route status.
+
+.. clicmd:: show bfd static route [json]
+
+   Show all monitored static routes and their status.
+
+   Example output:
+
+   ::
+
+      Showing BFD monitored static routes:
+
+        Route groups:
+          rtg1 peer 172.16.0.1 (status: uninstalled):
+              2001:db8::100/128
+
+      Next hops:
+        VRF default IPv4 Unicast:
+            192.168.100.0/24 peer 172.16.0.1 (status: uninstalled)
+
+        VRF default IPv4 Multicast:
+
+        VRF default IPv6 Unicast:
+
 .. _bfd-configuration:
 
 Configuration
@@ -367,7 +437,6 @@ Here is an example of BFD configuration:
 
     bfd
      peer 192.168.0.1
-       label home-peer
        no shutdown
      !
     !
@@ -381,7 +450,7 @@ Here is an example of BFD configuration:
     !
 
 Peers can be identified by its address (use ``multihop`` when you need
-to specify a multi hop peer) or can be specified manually by a label.
+to specify a multi hop peer).
 
 Here are the available peer configurations:
 
@@ -424,7 +493,6 @@ Here are the available peer configurations:
 
     ! configure a peer with every option possible
     peer 192.168.0.4
-     label peer-label
      detect-multiplier 50
      receive-interval 60000
      transmit-interval 3000
@@ -472,7 +540,6 @@ You can inspect the current BFD peer status with the following commands:
                            Echo receive interval: 50ms
 
            peer 192.168.1.1
-                   label: router3-peer
                    ID: 2
                    Remote ID: 2
                    Status: up
@@ -495,7 +562,6 @@ You can inspect the current BFD peer status with the following commands:
    frr# show bfd peer 192.168.1.1
    BFD Peer:
                peer 192.168.1.1
-                   label: router3-peer
                    ID: 2
                    Remote ID: 2
                    Status: up
@@ -518,6 +584,10 @@ You can inspect the current BFD peer status with the following commands:
    frr# show bfd peer 192.168.0.1 json
    {"multihop":false,"peer":"192.168.0.1","id":1,"remote-id":1,"status":"up","uptime":161,"diagnostic":"ok","remote-diagnostic":"ok","receive-interval":300,"transmit-interval":300,"echo-receive-interval":50,"echo-transmit-interval":0,"detect-multiplier":3,"remote-receive-interval":300,"remote-transmit-interval":300,"remote-echo-receive-interval":50,"remote-detect-multiplier":3,"peer-type":"dynamic"}
 
+If you are running IPV4 BFD Echo, on a Linux platform, we also
+calculate round trip time for the packets.  We display minimum,
+average and maximum time it took to receive the looped Echo packets
+in the RTT fields.
 
 You can inspect the current BFD peer status in brief with the following commands:
 

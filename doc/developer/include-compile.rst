@@ -17,7 +17,6 @@ obtained by running ``./configure -h``. The options shown below are examples.
        --localstatedir=/var/run/frr \
        --sysconfdir=/etc/frr \
        --with-moduledir=\${prefix}/lib/frr/modules \
-       --with-libyang-pluginsdir=\${prefix}/lib/frr/libyang_plugins \
        --enable-configfile-mask=0640 \
        --enable-logfile-mask=0640 \
        --enable-snmp=agentx \

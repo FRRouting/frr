@@ -1,22 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Zebra connect library for OSPFd
  * Copyright (C) 1997, 98, 99, 2000 Kunihiro Ishiguro, Toshiaki Takada
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef _ZEBRA_OSPF_ZEBRA_H
@@ -84,6 +69,7 @@ extern int ospf_redistribute_set(struct ospf *, struct ospf_redist *, int,
 				 unsigned short, int, int);
 extern int ospf_redistribute_unset(struct ospf *, int, unsigned short);
 extern int ospf_redistribute_default_set(struct ospf *, int, int, int);
+extern void ospf_zebra_import_default_route(struct ospf *ospf, bool unreg);
 extern int ospf_distribute_list_out_set(struct ospf *, int, const char *);
 extern int ospf_distribute_list_out_unset(struct ospf *, int, const char *);
 extern void ospf_routemap_set(struct ospf_redist *, const char *);
@@ -94,7 +80,7 @@ extern int ospf_distance_set(struct vty *, struct ospf *, const char *,
 			     const char *, const char *);
 extern int ospf_distance_unset(struct vty *, struct ospf *, const char *,
 			       const char *, const char *);
-extern void ospf_zebra_init(struct thread_master *, unsigned short);
+extern void ospf_zebra_init(struct event_loop *m, unsigned short instance);
 extern void ospf_zebra_vrf_register(struct ospf *ospf);
 extern void ospf_zebra_vrf_deregister(struct ospf *ospf);
 bool ospf_external_default_routemap_apply_walk(

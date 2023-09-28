@@ -64,7 +64,7 @@ like this:
 Hopefully you get a nice, usable, PIC ``libpcre.a``.
 
 So now we have to link all these static libraries into FRR. Rather than modify
-FRR to accomodate this, the best option is to create an archive with all of
+FRR to accommodate this, the best option is to create an archive with all of
 libyang's dependencies. Then to avoid making any changes to FRR build foo,
 rename this ``libyang.a`` and copy it over the usual static library location.
 Ugly but it works. To do this, go into your libyang build directory, which

@@ -1,19 +1,8 @@
+// SPDX-License-Identifier: ISC
 /*	$OpenBSD$ */
 
 /*
  * Copyright (c) 2003, 2004 Henning Brauer <henning@openbsd.org>
- *
- * Permission to use, copy, modify, and distribute this software for any
- * purpose with or without fee is hereby granted, provided that the above
- * copyright notice and this permission notice appear in all copies.
- *
- * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
- * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
- * ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
- * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
- * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
- * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
 #include <zebra.h>
@@ -85,8 +74,7 @@ log_addr(int af, const union ldpd_addr *addr)
 	switch (af) {
 	case AF_INET:
 		round = (round + 1) % NUM_LOGS;
-		if (inet_ntop(AF_INET, &addr->v4, buf[round],
-		    sizeof(buf[round])) == NULL)
+		if (inet_ntop(AF_INET, &addr->v4, buf[round], sizeof(buf[round])) == NULL)
 			return ("???");
 		return (buf[round]);
 	case AF_INET6:
@@ -137,7 +125,7 @@ log_time(time_t t)
 	char		*buf;
 	static char	 tfbuf[TF_BUFS][TF_LEN];	/* ring buffer */
 	static int	 idx = 0;
-	unsigned int	 sec, min, hrs, day, week;
+	uint64_t	 sec, min, hrs, day, week;
 
 	buf = tfbuf[idx++];
 	if (idx == TF_BUFS)
@@ -155,11 +143,17 @@ log_time(time_t t)
 	week /= 7;
 
 	if (week > 0)
-		snprintf(buf, TF_LEN, "%02uw%01ud%02uh", week, day, hrs);
+		snprintfrr(buf, TF_LEN,
+			   "%02" PRIu64 "w%01" PRIu64 "d%02" PRIu64 "h", week,
+			   day, hrs);
 	else if (day > 0)
-		snprintf(buf, TF_LEN, "%01ud%02uh%02um", day, hrs, min);
+		snprintfrr(buf, TF_LEN,
+			   "%01" PRIu64 "d%02" PRIu64 "h%02" PRIu64 "m", day,
+			   hrs, min);
 	else
-		snprintf(buf, TF_LEN, "%02u:%02u:%02u", hrs, min, sec);
+		snprintfrr(buf, TF_LEN,
+			   "%02" PRIu64 ":%02" PRIu64 ":%02" PRIu64, hrs, min,
+			   sec);
 
 	return (buf);
 }
@@ -171,8 +165,7 @@ log_hello_src(const struct hello_source *src)
 
 	switch (src->type) {
 	case HELLO_LINK:
-		snprintf(buf, sizeof(buf), "iface %s",
-		    src->link.ia->iface->name);
+		snprintf(buf, sizeof(buf), "iface %s", src->link.ia->iface->name);
 		break;
 	case HELLO_TARGETED:
 		snprintf(buf, sizeof(buf), "source %s",

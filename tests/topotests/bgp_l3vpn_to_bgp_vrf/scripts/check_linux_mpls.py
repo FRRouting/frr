@@ -4,7 +4,7 @@ from lib import topotest
 ret = luCommand(
     "r2",
     "ip -M route show",
-    "\d*(?= via inet 10.0.2.4 dev r2-eth1)",
+    r"\d*(?= via inet 10.0.2.4 dev r2-eth1)",
     "wait",
     "See mpls route to r4",
 )
@@ -16,7 +16,7 @@ if ret != False and found != None:
     ret = luCommand(
         "r2",
         "ip -M route show",
-        "\d*(?= via inet 10.0.1.1 dev r2-eth0)",
+        r"\d*(?= via inet 10.0.1.1 dev r2-eth0)",
         "wait",
         "See mpls route to r1",
     )

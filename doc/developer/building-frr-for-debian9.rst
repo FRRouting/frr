@@ -11,7 +11,10 @@ Add packages:
    sudo apt-get install git autoconf automake libtool make \
      libreadline-dev texinfo libjson-c-dev pkg-config bison flex \
      libc-ares-dev python3-dev python3-pytest python3-sphinx build-essential \
-     libsnmp-dev libcap-dev libelf-dev
+     libsnmp-dev libcap-dev libelf-dev libunwind-dev \
+     libprotobuf-c-dev protobuf-c-compiler
+
+.. include:: building-libunwind-note.rst
 
 .. include:: building-libyang.rst
 

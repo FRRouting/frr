@@ -1,20 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Copyright (C) 2018 NetDEF, Inc.
  *                    Renato Westphal
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -23,6 +10,7 @@
 #include "libfrr.h"
 
 #include "ripngd/ripng_nb.h"
+#include "lib/if_rmap.h"
 
 /* clang-format off */
 const struct frr_yang_module_info frr_ripngd_info = {
@@ -126,6 +114,28 @@ const struct frr_yang_module_info frr_ripngd_info = {
 				.destroy = ripngd_instance_redistribute_metric_destroy,
 				.modify = ripngd_instance_redistribute_metric_modify,
 			},
+		},
+		{
+			.xpath = "/frr-ripngd:ripngd/instance/if-route-maps/if-route-map",
+			.cbs = {
+				.create = ripngd_instance_if_route_maps_if_route_map_create,
+				.destroy = ripngd_instance_if_route_maps_if_route_map_destroy,
+				.cli_show = cli_show_if_route_map,
+			}
+		},
+		{
+			.xpath = "/frr-ripngd:ripngd/instance/if-route-maps/if-route-map/in-route-map",
+			.cbs = {
+				.modify = ripngd_instance_if_route_maps_if_route_map_in_route_map_modify,
+				.destroy = ripngd_instance_if_route_maps_if_route_map_in_route_map_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-ripngd:ripngd/instance/if-route-maps/if-route-map/out-route-map",
+			.cbs = {
+				.modify = ripngd_instance_if_route_maps_if_route_map_out_route_map_modify,
+				.destroy = ripngd_instance_if_route_maps_if_route_map_out_route_map_destroy,
+			}
 		},
 		{
 			.xpath = "/frr-ripngd:ripngd/instance/static-route",

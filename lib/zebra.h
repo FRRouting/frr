@@ -1,21 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* Zebra common header.
  * Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002 Kunihiro Ishiguro
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef _ZEBRA_H
@@ -74,15 +59,6 @@
 #ifdef HAVE_ENDIAN_H
 #include <endian.h>
 #endif
-
-/* machine dependent includes */
-#ifdef HAVE_LINUX_VERSION_H
-#include <linux/version.h>
-#endif /* HAVE_LINUX_VERSION_H */
-
-#ifdef HAVE_ASM_TYPES_H
-#include <asm/types.h>
-#endif /* HAVE_ASM_TYPES_H */
 
 /* misc include group */
 #include <stdarg.h>
@@ -202,9 +178,9 @@
 #endif /* HAVE_GLIBC_BACKTRACE */
 
 /* Local includes: */
-#if !(defined(__GNUC__) || defined(VTYSH_EXTRACT_PL))
+#if !defined(__GNUC__)
 #define __attribute__(x)
-#endif /* !__GNUC__ || VTYSH_EXTRACT_PL */
+#endif /* !__GNUC__ */
 
 #include <assert.h>
 
@@ -228,6 +204,30 @@ size_t strlcat(char *__restrict dest,
 #ifndef HAVE_STRLCPY
 size_t strlcpy(char *__restrict dest,
 	       const char *__restrict src, size_t destsize);
+#endif
+
+#ifndef HAVE_EXPLICIT_BZERO
+void explicit_bzero(void *buf, size_t len);
+#endif
+
+#if !defined(HAVE_STRUCT_MMSGHDR_MSG_HDR) || !defined(HAVE_SENDMMSG)
+/* avoid conflicts in case we have partial support */
+#define mmsghdr frr_mmsghdr
+#define sendmmsg frr_sendmmsg
+
+struct mmsghdr {
+	struct msghdr msg_hdr;
+	unsigned int msg_len;
+};
+
+/* just go 1 at a time here, the loop this is used in will handle the rest */
+static inline int sendmmsg(int fd, struct mmsghdr *mmh, unsigned int len,
+			   int flags)
+{
+	int rv = sendmsg(fd, &mmh->msg_hdr, 0);
+
+	return rv > 0 ? 1 : rv;
+}
 #endif
 
 /*
@@ -314,17 +314,26 @@ struct in_pktinfo {
 
 #define strmatch(a,b) (!strcmp((a), (b)))
 
+#if BYTE_ORDER == LITTLE_ENDIAN
+#define htonll(x) (((uint64_t)htonl((x)&0xFFFFFFFF) << 32) | htonl((x) >> 32))
+#define ntohll(x) (((uint64_t)ntohl((x)&0xFFFFFFFF) << 32) | ntohl((x) >> 32))
+#else
+#define htonll(x) (x)
+#define ntohll(x) (x)
+#endif
+
 #ifndef INADDR_LOOPBACK
 #define	INADDR_LOOPBACK	0x7f000001	/* Internet address 127.0.0.1.  */
 #endif
 
-/* Address family numbers from RFC1700. */
+/* Address family numbers. */
 typedef enum {
 	AFI_UNSPEC = 0,
 	AFI_IP = 1,
 	AFI_IP6 = 2,
 	AFI_L2VPN = 3,
-	AFI_MAX = 4
+	AFI_LINKSTATE = 4, /* BGP-LS RFC 7752 */
+	AFI_MAX = 5,
 } afi_t;
 
 #define IS_VALID_AFI(a) ((a) > AFI_UNSPEC && (a) < AFI_MAX)
@@ -339,25 +348,39 @@ typedef enum {
 	SAFI_EVPN = 5,
 	SAFI_LABELED_UNICAST = 6,
 	SAFI_FLOWSPEC = 7,
-	SAFI_MAX = 8
+	SAFI_LINKSTATE = 8,	/* BGP-LS RFC 7752 */
+	SAFI_LINKSTATE_VPN = 9, /* BGP-LS RFC 7752 */
+	SAFI_MAX = 10,
 } safi_t;
 
 #define FOREACH_AFI_SAFI(afi, safi)                                            \
 	for (afi = AFI_IP; afi < AFI_MAX; afi++)                               \
 		for (safi = SAFI_UNICAST; safi < SAFI_MAX; safi++)
 
+#define FOREACH_AFI_SAFI_NSF(afi, safi)                                        \
+	for (afi = AFI_IP; afi < AFI_MAX; afi++)                               \
+		for (safi = SAFI_UNICAST; safi <= SAFI_MPLS_VPN; safi++)
+
 /* Default Administrative Distance of each protocol. */
-#define ZEBRA_KERNEL_DISTANCE_DEFAULT      0
-#define ZEBRA_CONNECT_DISTANCE_DEFAULT     0
-#define ZEBRA_STATIC_DISTANCE_DEFAULT      1
-#define ZEBRA_RIP_DISTANCE_DEFAULT       120
-#define ZEBRA_RIPNG_DISTANCE_DEFAULT     120
-#define ZEBRA_OSPF_DISTANCE_DEFAULT      110
-#define ZEBRA_OSPF6_DISTANCE_DEFAULT     110
-#define ZEBRA_ISIS_DISTANCE_DEFAULT      115
-#define ZEBRA_IBGP_DISTANCE_DEFAULT      200
-#define ZEBRA_EBGP_DISTANCE_DEFAULT       20
-#define ZEBRA_TABLE_DISTANCE_DEFAULT      15
+#define ZEBRA_KERNEL_DISTANCE_DEFAULT       0
+#define ZEBRA_CONNECT_DISTANCE_DEFAULT      0
+#define ZEBRA_STATIC_DISTANCE_DEFAULT       1
+#define ZEBRA_RIP_DISTANCE_DEFAULT        120
+#define ZEBRA_RIPNG_DISTANCE_DEFAULT      120
+#define ZEBRA_OSPF_DISTANCE_DEFAULT       110
+#define ZEBRA_OSPF6_DISTANCE_DEFAULT      110
+#define ZEBRA_ISIS_DISTANCE_DEFAULT       115
+#define ZEBRA_IBGP_DISTANCE_DEFAULT       200
+#define ZEBRA_EBGP_DISTANCE_DEFAULT        20
+#define ZEBRA_TABLE_DISTANCE_DEFAULT       15
+#define ZEBRA_EIGRP_DISTANCE_DEFAULT       90
+#define ZEBRA_NHRP_DISTANCE_DEFAULT        10
+#define ZEBRA_LDP_DISTANCE_DEFAULT        150
+#define ZEBRA_BABEL_DISTANCE_DEFAULT      100
+#define ZEBRA_SHARP_DISTANCE_DEFAULT      150
+#define ZEBRA_PBR_DISTANCE_DEFAULT        200
+#define ZEBRA_OPENFABRIC_DISTANCE_DEFAULT 115
+#define ZEBRA_MAX_DISTANCE_DEFAULT        255
 
 /* Flag manipulation macros. */
 #define CHECK_FLAG(V,F)      ((V) & (F))

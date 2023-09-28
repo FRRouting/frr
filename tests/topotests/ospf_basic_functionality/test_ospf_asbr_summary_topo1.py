@@ -1,23 +1,10 @@
 #!/usr/bin/python
+# SPDX-License-Identifier: ISC
 
 #
 # Copyright (c) 2020 by VMware, Inc. ("VMware")
 # Used Copyright (c) 2018 by Network Device Education Foundation, Inc.
 # ("NetDEF") in this file.
-#
-# Permission to use, copy, modify, and/or distribute this software
-# for any purpose with or without fee is hereby granted, provided
-# that the above copyright notice and this permission notice appear
-# in all copies.
-#
-# THE SOFTWARE IS PROVIDED "AS IS" AND VMWARE DISCLAIMS ALL WARRANTIES
-# WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
-# MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL VMWARE BE LIABLE FOR
-# ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY
-# DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS,
-# WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS
-# ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE
-# OF THIS SOFTWARE.
 #
 
 
@@ -53,7 +40,6 @@ from lib.common_config import (
     start_router_daemons,
     create_route_maps,
     shutdown_bringup_interface,
-    topo_daemons,
     create_prefix_lists,
     create_route_maps,
     create_interfaces_cfg,
@@ -98,8 +84,8 @@ SUMMARY = {"ipv4": ["11.0.0.0/8", "12.0.0.0/8", "11.0.0.0/24"]}
 """
 TOPOOLOGY =
       Please view in a fixed-width font such as Courier.
-      +---+  A0       +---+
-      +R1 +------------+R2 |
+      +---+  A0        +---+
+      |R1 +------------+R2 |
       +-+-+-           +--++
         |  --        --  |
         |    -- A0 --    |
@@ -108,8 +94,8 @@ TOPOOLOGY =
         |    --    --    |
         |  --        --  |
       +-+-+-            +-+-+
-      +R0 +-------------+R3 |
-      +---+     A0     +---+
+      |R0 +-------------+R3 |
+      +---+     A0      +---+
 
 TESTCASES =
 1. OSPF summarisation functionality.
@@ -142,12 +128,9 @@ def setup_module(mod):
     topo = tgen.json_topo
     # ... and here it calls Mininet initialization functions.
 
-    # get list of daemons needs to be started for this suite.
-    daemons = topo_daemons(tgen, topo)
-
     # Starting topology, create tmp files which are loaded to routers
-    #  to start deamons and then start routers
-    start_topology(tgen, daemons)
+    #  to start daemons and then start routers
+    start_topology(tgen)
 
     # Creating configuration from JSON
     build_config_from_json(tgen, topo)
@@ -157,7 +140,7 @@ def setup_module(mod):
         pytest.skip(tgen.errors)
     # Api call verify whether OSPF is converged
     ospf_covergence = verify_ospf_neighbor(tgen, topo)
-    assert ospf_covergence is True, "setup_module :Failed \n Error:" " {}".format(
+    assert ospf_covergence is True, "setup_module :Failed \n Error  {}".format(
         ospf_covergence
     )
 
@@ -277,11 +260,9 @@ def test_ospf_type5_summary_tc43_p0(request):
     result = verify_rib(tgen, "ipv4", dut, input_dict_static_rtes, protocol=protocol)
     assert (
         result is True
-    ), "Testcase {} : Failed" "Error: Routes is missing in RIB".format(tc_name)
+    ), "Testcase {} : Failed. Error: Routes is missing in RIB".format(tc_name)
 
-    step(
-        "Configure External Route summary in R0 to summarise 5" " routes to one route."
-    )
+    step("Configure External Route summary in R0 to summarise 5  routes to one route.")
     ospf_summ_r1 = {
         "r0": {
             "ospf": {
@@ -307,23 +288,23 @@ def test_ospf_type5_summary_tc43_p0(request):
     result = verify_rib(tgen, "ipv4", dut, input_dict_summary, protocol=protocol)
     assert (
         result is True
-    ), "Testcase {} : Failed" "Error: Routes is missing in RIB".format(tc_name)
+    ), "Testcase {} : Failed. Error: Routes is missing in RIB".format(tc_name)
 
     step("Verify that show ip ospf summary should show the summaries.")
     input_dict = {
         SUMMARY["ipv4"][0]: {
-            "Summary address": SUMMARY["ipv4"][0],
-            "Metric-type": "E2",
-            "Metric": 20,
-            "Tag": 0,
-            "External route count": 5,
+            "summaryAddress": SUMMARY["ipv4"][0],
+            "metricType": "E2",
+            "metric": 20,
+            "tag": 0,
+            "externalRouteCount": 5,
         }
     }
     dut = "r0"
     result = verify_ospf_summary(tgen, topo, dut, input_dict)
     assert (
         result is True
-    ), "Testcase {} : Failed" "Error: Summary missing in OSPF DB".format(tc_name)
+    ), "Testcase {} : Failed. Error: Summary missing in OSPF DB".format(tc_name)
 
     step("Change the summary address mask to lower match (ex - 16 to 8)")
     ospf_summ_r1 = {
@@ -340,18 +321,18 @@ def test_ospf_type5_summary_tc43_p0(request):
 
     input_dict = {
         "11.0.0.0/16": {
-            "Summary address": "11.0.0.0/16",
-            "Metric-type": "E2",
-            "Metric": 20,
-            "Tag": 0,
-            "External route count": 5,
+            "summaryAddress": "11.0.0.0/16",
+            "metricType": "E2",
+            "metric": 20,
+            "tag": 0,
+            "externalRouteCount": 5,
         }
     }
     dut = "r0"
     result = verify_ospf_summary(tgen, topo, dut, input_dict)
     assert (
         result is True
-    ), "Testcase {} : Failed" "Error: Summary missing in OSPF DB".format(tc_name)
+    ), "Testcase {} : Failed. Error: Summary missing in OSPF DB".format(tc_name)
 
     step(
         "Verify that external routes(static / connected) are summarised"
@@ -367,7 +348,7 @@ def test_ospf_type5_summary_tc43_p0(request):
     result = verify_rib(tgen, "ipv4", dut, input_dict_summary, protocol=protocol)
     assert (
         result is True
-    ), "Testcase {} : Failed" "Error: Routes is missing in RIB".format(tc_name)
+    ), "Testcase {} : Failed. Error: Routes is missing in RIB".format(tc_name)
 
     step("Change the summary address mask to higher match (ex - 8 to 24)")
     ospf_summ_r1 = {
@@ -384,18 +365,18 @@ def test_ospf_type5_summary_tc43_p0(request):
 
     input_dict = {
         "11.0.0.0/16": {
-            "Summary address": "11.0.0.0/24",
-            "Metric-type": "E2",
-            "Metric": 20,
-            "Tag": 0,
-            "External route count": 0,
+            "summaryAddress": "11.0.0.0/24",
+            "metricType": "E2",
+            "metric": 20,
+            "tag": 0,
+            "externalRouteCount": 0,
         }
     }
     dut = "r0"
     result = verify_ospf_summary(tgen, topo, dut, input_dict)
     assert (
         result is True
-    ), "Testcase {} : Failed" "Error: Summary missing in OSPF DB".format(tc_name)
+    ), "Testcase {} : Failed. Error: Summary missing in OSPF DB".format(tc_name)
 
     step(
         "Verify that external routes(static / connected) are summarised"
@@ -416,7 +397,7 @@ def test_ospf_type5_summary_tc43_p0(request):
     result = verify_rib(tgen, "ipv4", dut, input_dict_summary, protocol=protocol)
     assert (
         result is True
-    ), "Testcase {} : Failed" "Error: Routes is missing in RIB".format(tc_name)
+    ), "Testcase {} : Failed. Error: Routes is missing in RIB".format(tc_name)
 
     step(" Un configure one of the summary address.")
     ospf_summ_r1 = {
@@ -449,7 +430,7 @@ def test_ospf_type5_summary_tc43_p0(request):
     result = verify_rib(tgen, "ipv4", dut, input_dict_summary, protocol=protocol)
     assert (
         result is True
-    ), "Testcase {} : Failed" "Error: Routes is missing in RIB".format(tc_name)
+    ), "Testcase {} : Failed. Error: Routes is missing in RIB".format(tc_name)
 
     ospf_summ_r1 = {
         "r0": {
@@ -476,7 +457,7 @@ def test_ospf_type5_summary_tc43_p0(request):
     result = verify_rib(tgen, "ipv4", dut, input_dict_summary, protocol=protocol)
     assert (
         result is True
-    ), "Testcase {} : Failed" "Error: Routes is missing in RIB".format(tc_name)
+    ), "Testcase {} : Failed. Error: Routes is missing in RIB".format(tc_name)
 
     write_test_footer(tc_name)
 
@@ -523,11 +504,9 @@ def test_ospf_type5_summary_tc48_p0(request):
     result = verify_rib(tgen, "ipv4", dut, input_dict_static_rtes, protocol=protocol)
     assert (
         result is True
-    ), "Testcase {} : Failed" "Error: Routes is missing in RIB".format(tc_name)
+    ), "Testcase {} : Failed. Error: Routes is missing in RIB".format(tc_name)
 
-    step(
-        "Configure External Route summary in R0 to summarise 5" " routes to one route."
-    )
+    step("Configure External Route summary in R0 to summarise 5  routes to one route.")
 
     ospf_summ_r1 = {
         "r0": {
@@ -555,42 +534,42 @@ def test_ospf_type5_summary_tc48_p0(request):
     result = verify_rib(tgen, "ipv4", dut, input_dict_summary, protocol=protocol)
     assert (
         result is True
-    ), "Testcase {} : Failed" "Error: Routes is missing in RIB".format(tc_name)
+    ), "Testcase {} : Failed. Error: Routes is missing in RIB".format(tc_name)
 
     step("Verify that show ip ospf summary should show the summaries.")
     input_dict = {
         SUMMARY["ipv4"][0]: {
-            "Summary address": SUMMARY["ipv4"][0],
-            "Metric-type": "E2",
-            "Metric": 20,
-            "Tag": 0,
-            "External route count": 5,
+            "summaryAddress": SUMMARY["ipv4"][0],
+            "metricType": "E2",
+            "metric": 20,
+            "tag": 0,
+            "externalRouteCount": 5,
         }
     }
     dut = "r0"
     result = verify_ospf_summary(tgen, topo, dut, input_dict)
     assert (
         result is True
-    ), "Testcase {} : Failed" "Error: Summary missing in OSPF DB".format(tc_name)
+    ), "Testcase {} : Failed. Error: Summary missing in OSPF DB".format(tc_name)
 
-    step("Verify that originally advertised routes are withdraw from there" " peer.")
+    step("Verify that originally advertised routes are withdraw from there  peer.")
     input_dict = {
         "r0": {"static_routes": [{"network": NETWORK["ipv4"], "next_hop": "blackhole"}]}
     }
     dut = "r1"
     result = verify_ospf_rib(tgen, dut, input_dict, expected=False)
-    assert (
-        result is not True
-    ), "Testcase {} : Failed \n Error: " "Routes still present in OSPF RIB {}".format(
-        tc_name, result
+    assert result is not True, (
+        "Testcase {} : Failed\n Expected: Routes should not be present in OSPF RIB \n Error: "
+        "Routes still present in OSPF RIB {}".format(tc_name, result)
     )
 
     result = verify_rib(
         tgen, "ipv4", dut, input_dict, protocol=protocol, expected=False
     )
-    assert (
-        result is not True
-    ), "Testcase {} : Failed" "Error: Routes still present in RIB".format(tc_name)
+    assert result is not True, (
+        "Testcase {} : Failed \n Expected: Routes should not be present in RIB\n"
+        "Error: Routes still present in RIB".format(tc_name)
+    )
 
     step(
         "Configure route map and & rule to permit configured summary address,"
@@ -652,105 +631,22 @@ def test_ospf_type5_summary_tc48_p0(request):
     result = verify_rib(tgen, "ipv4", dut, input_dict_summary, protocol=protocol)
     assert (
         result is True
-    ), "Testcase {} : Failed" "Error: Routes is missing in RIB".format(tc_name)
+    ), "Testcase {} : Failed. Error: Routes is missing in RIB".format(tc_name)
 
     input_dict = {
         SUMMARY["ipv4"][0]: {
-            "Summary address": SUMMARY["ipv4"][0],
-            "Metric-type": "E2",
-            "Metric": 20,
-            "Tag": 0,
-            "External route count": 5,
+            "summaryAddress": SUMMARY["ipv4"][0],
+            "metricType": "E2",
+            "metric": 20,
+            "tag": 0,
+            "externalRouteCount": 5,
         }
     }
     dut = "r0"
     result = verify_ospf_summary(tgen, topo, dut, input_dict)
     assert (
         result is True
-    ), "Testcase {} : Failed" "Error: Summary missing in OSPF DB".format(tc_name)
-
-    step("Configure metric type as 1 in route map.")
-
-    routemaps = {
-        "r0": {
-            "route_maps": {
-                "rmap_ipv4": [{"action": "permit", "set": {"metric-type": "type-1"}}]
-            }
-        }
-    }
-    result = create_route_maps(tgen, routemaps)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
-
-    step(
-        "Verify that external routes(static / connected) are summarised"
-        " to configured summary address with metric type 2."
-    )
-    input_dict = {
-        SUMMARY["ipv4"][0]: {
-            "Summary address": SUMMARY["ipv4"][0],
-            "Metric-type": "E2",
-            "Metric": 20,
-            "Tag": 0,
-            "External route count": 5,
-        }
-    }
-    dut = "r0"
-    result = verify_ospf_summary(tgen, topo, dut, input_dict)
-    assert (
-        result is True
-    ), "Testcase {} : Failed" "Error: Summary missing in OSPF DB".format(tc_name)
-
-    step("Un configure metric type from route map.")
-
-    routemaps = {
-        "r0": {
-            "route_maps": {
-                "rmap_ipv4": [
-                    {
-                        "action": "permit",
-                        "set": {"metric-type": "type-1"},
-                        "delete": True,
-                    }
-                ]
-            }
-        }
-    }
-    result = create_route_maps(tgen, routemaps)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
-
-    step(
-        "Verify that external routes(static / connected) are summarised"
-        " to configured summary address with metric type 2."
-    )
-    input_dict = {
-        SUMMARY["ipv4"][0]: {
-            "Summary address": SUMMARY["ipv4"][0],
-            "Metric-type": "E2",
-            "Metric": 20,
-            "Tag": 0,
-            "External route count": 5,
-        }
-    }
-    dut = "r0"
-    result = verify_ospf_summary(tgen, topo, dut, input_dict)
-    assert (
-        result is True
-    ), "Testcase {} : Failed" "Error: Summary missing in OSPF DB".format(tc_name)
-
-    step("Change rule from permit to deny in prefix list.")
-    pfx_list = {
-        "r0": {
-            "prefix_lists": {
-                "ipv4": {
-                    "pf_list_1_ipv4": [
-                        {"seqid": 10, "network": "any", "action": "deny"}
-                    ]
-                }
-            }
-        }
-    }
-    result = create_prefix_lists(tgen, pfx_list)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
+    ), "Testcase {} : Failed. Error: Summary missing in OSPF DB".format(tc_name)
 
     write_test_footer(tc_name)
 
@@ -797,7 +693,7 @@ def test_ospf_type5_summary_tc42_p0(request):
     result = verify_rib(tgen, "ipv4", dut, input_dict_static_rtes, protocol=protocol)
     assert (
         result is True
-    ), "Testcase {} : Failed" "Error: Routes is missing in RIB".format(tc_name)
+    ), "Testcase {} : Failed. Error: Routes is missing in RIB".format(tc_name)
 
     step(
         "Configure External Route summary in R0 to summarise 5"
@@ -831,42 +727,42 @@ def test_ospf_type5_summary_tc42_p0(request):
     result = verify_rib(tgen, "ipv4", dut, input_dict_summary, protocol=protocol)
     assert (
         result is True
-    ), "Testcase {} : Failed" "Error: Routes is missing in RIB".format(tc_name)
+    ), "Testcase {} : Failed. Error: Routes is missing in RIB".format(tc_name)
 
     step("Verify that show ip ospf summary should show the summaries.")
     input_dict = {
         SUMMARY["ipv4"][0]: {
-            "Summary address": SUMMARY["ipv4"][0],
-            "Metric-type": "E2",
-            "Metric": 20,
-            "Tag": 0,
-            "External route count": 5,
+            "summaryAddress": SUMMARY["ipv4"][0],
+            "metricType": "E2",
+            "metric": 20,
+            "tag": 0,
+            "externalRouteCount": 5,
         }
     }
     dut = "r0"
     result = verify_ospf_summary(tgen, topo, dut, input_dict)
     assert (
         result is True
-    ), "Testcase {} : Failed" "Error: Summary missing in OSPF DB".format(tc_name)
+    ), "Testcase {} : Failed. Error: Summary missing in OSPF DB".format(tc_name)
 
-    step("Verify that originally advertised routes are withdraw from there" " peer.")
+    step("Verify that originally advertised routes are withdraw from there  peer.")
     input_dict = {
         "r0": {"static_routes": [{"network": NETWORK["ipv4"], "next_hop": "blackhole"}]}
     }
     dut = "r1"
     result = verify_ospf_rib(tgen, dut, input_dict, expected=False)
-    assert (
-        result is not True
-    ), "Testcase {} : Failed \n Error: " "Routes still present in OSPF RIB {}".format(
-        tc_name, result
+    assert result is not True, (
+        "Testcase {} : Failed \n Expected: Routes should not be present in OSPF RIB \n Error: "
+        "Routes still present in OSPF RIB {}".format(tc_name, result)
     )
 
     result = verify_rib(
         tgen, "ipv4", dut, input_dict, protocol=protocol, expected=False
     )
-    assert (
-        result is not True
-    ), "Testcase {} : Failed" "Error: Routes still present in RIB".format(tc_name)
+    assert result is not True, (
+        "Testcase {} : Failed \n Expected: Routes should not be present in RIB"
+        "Error: Routes still present in RIB".format(tc_name)
+    )
 
     step("Delete the configured summary")
     ospf_summ_r1 = {
@@ -889,36 +785,35 @@ def test_ospf_type5_summary_tc42_p0(request):
     step("Verify that summary lsa is withdrawn from R1 and deleted from R0.")
     dut = "r1"
     result = verify_ospf_rib(tgen, dut, input_dict, expected=False)
-    assert (
-        result is not True
-    ), "Testcase {} : Failed \n Error: " "Routes still present in OSPF RIB {}".format(
-        tc_name, result
+    assert result is not True, (
+        "Testcase {} : Failed \n Expected: Routes should not be present in OSPF RIB \n Error: "
+        "Routes still present in OSPF RIB {}".format(tc_name, result)
     )
 
     result = verify_rib(
         tgen, "ipv4", dut, input_dict_summary, protocol=protocol, expected=False
     )
-    assert (
-        result is not True
-    ), "Testcase {} : Failed" "Error: Summary Route still present in RIB".format(
-        tc_name
+    assert result is not True, (
+        "Testcase {} : Failed \n Expected: Summary Route should not present in RIB"
+        "Error: Summary Route still present in RIB".format(tc_name)
     )
 
     step("show ip ospf summary should not have any summary address.")
     input_dict = {
         SUMMARY["ipv4"][0]: {
-            "Summary address": SUMMARY["ipv4"][0],
-            "Metric-type": "E2",
-            "Metric": 20,
-            "Tag": 0,
-            "External route count": 5,
+            "summaryAddress": SUMMARY["ipv4"][0],
+            "metricType": "E2",
+            "metric": 20,
+            "tag": 0,
+            "externalRouteCount": 5,
         }
     }
     dut = "r0"
     result = verify_ospf_summary(tgen, topo, dut, input_dict, expected=False)
-    assert (
-        result is not True
-    ), "Testcase {} : Failed" "Error: Summary still present in DB".format(tc_name)
+    assert result is not True, (
+        "Testcase {} : Failed \n Expected: Summary Route should not present in OSPF DB"
+        "Error: Summary still present in DB".format(tc_name)
+    )
 
     dut = "r1"
     step("All 5 routes are advertised after deletion of configured summary.")
@@ -929,7 +824,7 @@ def test_ospf_type5_summary_tc42_p0(request):
     result = verify_rib(tgen, "ipv4", dut, input_dict_static_rtes, protocol=protocol)
     assert (
         result is True
-    ), "Testcase {} : Failed" "Error: Routes is missing in RIB".format(tc_name)
+    ), "Testcase {} : Failed. Error: Routes is missing in RIB".format(tc_name)
 
     step("configure the summary again and delete static routes .")
     ospf_summ_r1 = {
@@ -946,18 +841,18 @@ def test_ospf_type5_summary_tc42_p0(request):
 
     input_dict = {
         SUMMARY["ipv4"][0]: {
-            "Summary address": SUMMARY["ipv4"][0],
-            "Metric-type": "E2",
-            "Metric": 20,
-            "Tag": 0,
-            "External route count": 5,
+            "summaryAddress": SUMMARY["ipv4"][0],
+            "metricType": "E2",
+            "metric": 20,
+            "tag": 0,
+            "externalRouteCount": 5,
         }
     }
     dut = "r0"
     result = verify_ospf_summary(tgen, topo, dut, input_dict)
     assert (
         result is True
-    ), "Testcase {} : Failed" "Error: Summary missing in OSPF DB".format(tc_name)
+    ), "Testcase {} : Failed. Error: Summary missing in OSPF DB".format(tc_name)
 
     input_dict = {
         "r0": {
@@ -974,18 +869,18 @@ def test_ospf_type5_summary_tc42_p0(request):
 
     dut = "r1"
     result = verify_ospf_rib(tgen, dut, input_dict_summary, expected=False)
-    assert (
-        result is not True
-    ), "Testcase {} : Failed \n Error: " "Routes still present in OSPF RIB {}".format(
-        tc_name, result
+    assert result is not True, (
+        "Testcase {} : Failed \n Expected: Routes should not be present in OSPF RIB \n Error: "
+        "Routes still present in OSPF RIB {}".format(tc_name, result)
     )
 
     result = verify_rib(
         tgen, "ipv4", dut, input_dict_summary, protocol=protocol, expected=False
     )
-    assert (
-        result is not True
-    ), "Testcase {} : Failed" "Error: Routes still present in RIB".format(tc_name)
+    assert result is not True, (
+        "Testcase {} : Failed \n Expected: Routes should not be present in RIB\n"
+        "Error: Routes still present in RIB".format(tc_name)
+    )
 
     step("Add back static routes.")
     input_dict_static_rtes = {
@@ -1001,18 +896,18 @@ def test_ospf_type5_summary_tc42_p0(request):
     dut = "r1"
 
     result = verify_ospf_rib(tgen, dut, input_dict_static_rtes, expected=False)
-    assert (
-        result is not True
-    ), "Testcase {} : Failed \n Error: " "Routes still present in OSPF RIB {}".format(
-        tc_name, result
+    assert result is not True, (
+        "Testcase {} : Failed \n Expected: Routes should not be present in OSPF RIB \n Error: "
+        "Routes still present in OSPF RIB {}".format(tc_name, result)
     )
 
     result = verify_rib(
         tgen, "ipv4", dut, input_dict_static_rtes, protocol=protocol, expected=False
     )
-    assert (
-        result is not True
-    ), "Testcase {} : Failed" "Error: Routes still present in RIB".format(tc_name)
+    assert result is not True, (
+        "Testcase {} : Failed \n Expected: Routes should not be present in RIB"
+        "Error: Routes still present in RIB".format(tc_name)
+    )
 
     input_dict_summary = {"r0": {"static_routes": [{"network": SUMMARY["ipv4"][0]}]}}
     dut = "r1"
@@ -1023,24 +918,24 @@ def test_ospf_type5_summary_tc42_p0(request):
     result = verify_rib(tgen, "ipv4", dut, input_dict_summary, protocol=protocol)
     assert (
         result is True
-    ), "Testcase {} : Failed" "Error: Routes is missing in RIB".format(tc_name)
+    ), "Testcase {} : Failed. Error: Routes is missing in RIB".format(tc_name)
 
     step("Verify that show ip ospf summary should show configure summaries.")
 
     input_dict = {
         SUMMARY["ipv4"][0]: {
-            "Summary address": SUMMARY["ipv4"][0],
-            "Metric-type": "E2",
-            "Metric": 20,
-            "Tag": 0,
-            "External route count": 5,
+            "summaryAddress": SUMMARY["ipv4"][0],
+            "metricType": "E2",
+            "metric": 20,
+            "tag": 0,
+            "externalRouteCount": 5,
         }
     }
     dut = "r0"
     result = verify_ospf_summary(tgen, topo, dut, input_dict)
     assert (
         result is True
-    ), "Testcase {} : Failed" "Error: Summary missing in OSPF DB".format(tc_name)
+    ), "Testcase {} : Failed. Error: Summary missing in OSPF DB".format(tc_name)
 
     step("Configure new static route which is matching configured summary.")
     input_dict_static_rtes = {
@@ -1082,7 +977,7 @@ def test_ospf_type5_summary_tc42_p0(request):
 
     ip = topo["routers"]["r0"]["links"]["r3"]["ipv4"]
 
-    ip_net = str(ipaddress.ip_interface(u"{}".format(ip)).network)
+    ip_net = str(ipaddress.ip_interface("{}".format(ip)).network)
     ospf_summ_r1 = {
         "r0": {
             "ospf": {"summary-address": [{"prefix": ip_net.split("/")[0], "mask": "8"}]}
@@ -1104,7 +999,7 @@ def test_ospf_type5_summary_tc42_p0(request):
     result = verify_rib(tgen, "ipv4", dut, input_dict_summary, protocol=protocol)
     assert (
         result is True
-    ), "Testcase {} : Failed" "Error: Routes is missing in RIB".format(tc_name)
+    ), "Testcase {} : Failed. Error: Routes is missing in RIB".format(tc_name)
 
     step("Shut one of the interface")
     intf = topo["routers"]["r0"]["links"]["r3-link0"]["interface"]
@@ -1165,18 +1060,18 @@ def test_ospf_type5_summary_tc42_p0(request):
 
     input_dict = {
         SUMMARY["ipv4"][0]: {
-            "Summary address": SUMMARY["ipv4"][0],
-            "Metric-type": "E2",
-            "Metric": 20,
-            "Tag": 0,
-            "External route count": 5,
+            "summaryAddress": SUMMARY["ipv4"][0],
+            "metricType": "E2",
+            "metric": 20,
+            "tag": 0,
+            "externalRouteCount": 5,
         }
     }
     dut = "r0"
     result = verify_ospf_summary(tgen, topo, dut, input_dict)
     assert (
         result is True
-    ), "Testcase {} : Failed" "Error: Summary missing in OSPF DB".format(tc_name)
+    ), "Testcase {} : Failed. Error: Summary missing in OSPF DB".format(tc_name)
 
     input_dict_summary = {"r0": {"static_routes": [{"network": SUMMARY["ipv4"][0]}]}}
 
@@ -1187,7 +1082,7 @@ def test_ospf_type5_summary_tc42_p0(request):
     result = verify_rib(tgen, "ipv4", dut, input_dict_summary, protocol=protocol)
     assert (
         result is True
-    ), "Testcase {} : Failed" "Error: Routes is missing in RIB".format(tc_name)
+    ), "Testcase {} : Failed. Error: Routes is missing in RIB".format(tc_name)
 
     ospf_summ_r1 = {
         "r0": {
@@ -1213,18 +1108,18 @@ def test_ospf_type5_summary_tc42_p0(request):
 
     dut = "r1"
     result = verify_ospf_rib(tgen, dut, input_dict_summary, expected=False)
-    assert (
-        result is not True
-    ), "Testcase {} : Failed \n Error: " "Routes still present in OSPF RIB {}".format(
-        tc_name, result
+    assert result is not True, (
+        "Testcase {} : Failed \n Expected: Routes should not be present in OSPF RIB. \n Error: "
+        "Routes still present in OSPF RIB {}".format(tc_name, result)
     )
 
     result = verify_rib(
         tgen, "ipv4", dut, input_dict_summary, protocol=protocol, expected=False
     )
-    assert (
-        result is not True
-    ), "Testcase {} : Failed" "Error: Routes still present in RIB".format(tc_name)
+    assert result is not True, (
+        "Testcase {} : Failed \n Expected: Routes should not be present in RIB"
+        "Error: Routes still present in RIB".format(tc_name)
+    )
 
     ospf_summ_r1 = {
         "r0": {
@@ -1288,11 +1183,9 @@ def test_ospf_type5_summary_tc45_p0(request):
     result = verify_rib(tgen, "ipv4", dut, input_dict_static_rtes, protocol=protocol)
     assert (
         result is True
-    ), "Testcase {} : Failed" "Error: Routes is missing in RIB".format(tc_name)
+    ), "Testcase {} : Failed. Error: Routes is missing in RIB".format(tc_name)
 
-    step(
-        "Configure External Route summary in R0 to summarise 5" " routes to one route."
-    )
+    step("Configure External Route summary in R0 to summarise 5  routes to one route.")
     ospf_summ_r1 = {
         "r0": {
             "ospf": {
@@ -1324,23 +1217,23 @@ def test_ospf_type5_summary_tc45_p0(request):
     result = verify_rib(tgen, "ipv4", dut, input_dict_summary, protocol=protocol)
     assert (
         result is True
-    ), "Testcase {} : Failed" "Error: Routes is missing in RIB".format(tc_name)
+    ), "Testcase {} : Failed. Error: Routes is missing in RIB".format(tc_name)
 
     step("Verify that show ip ospf summary should show the summaries with tag.")
     input_dict = {
         SUMMARY["ipv4"][0]: {
-            "Summary address": SUMMARY["ipv4"][0],
-            "Metric-type": "E2",
-            "Metric": 20,
-            "Tag": 1234,
-            "External route count": 5,
+            "summaryAddress": SUMMARY["ipv4"][0],
+            "metricType": "E2",
+            "metric": 20,
+            "tag": 1234,
+            "externalRouteCount": 5,
         }
     }
     dut = "r0"
     result = verify_ospf_summary(tgen, topo, dut, input_dict)
     assert (
         result is True
-    ), "Testcase {} : Failed" "Error: Summary missing in OSPF DB".format(tc_name)
+    ), "Testcase {} : Failed. Error: Summary missing in OSPF DB".format(tc_name)
 
     step("Delete the configured summary")
     ospf_summ_r1 = {
@@ -1363,36 +1256,34 @@ def test_ospf_type5_summary_tc45_p0(request):
     step("Verify that summary lsa is withdrawn from R1 and deleted from R0.")
     dut = "r1"
     result = verify_ospf_rib(tgen, dut, input_dict_summary, expected=False)
-    assert (
-        result is not True
-    ), "Testcase {} : Failed \n Error: " "Routes still present in OSPF RIB {}".format(
-        tc_name, result
+    assert result is not True, (
+        "Testcase {} : Failed \n Expected: Routes should not be present in OSPF RIB \n Error: "
+        "Routes still present in OSPF RIB {}".format(tc_name, result)
     )
 
     result = verify_rib(
         tgen, "ipv4", dut, input_dict_summary, protocol=protocol, expected=False
     )
-    assert (
-        result is not True
-    ), "Testcase {} : Failed" "Error: Summary Route still present in RIB".format(
-        tc_name
+    assert result is not True, (
+        "Testcase {} : Failed \n Expected: Summary Routes should not be present in RIB. \n"
+        "Error: Summary Route still present in RIB".format(tc_name)
     )
 
     step("show ip ospf summary should not have any summary address.")
     input_dict = {
         SUMMARY["ipv4"][0]: {
-            "Summary address": SUMMARY["ipv4"][0],
-            "Metric-type": "E2",
-            "Metric": 20,
-            "Tag": 1234,
-            "External route count": 5,
+            "summaryAddress": SUMMARY["ipv4"][0],
+            "metricType": "E2",
+            "metric": 20,
+            "tag": 1234,
+            "externalRouteCount": 5,
         }
     }
     dut = "r0"
     result = verify_ospf_summary(tgen, topo, dut, input_dict, expected=False)
     assert (
         result is not True
-    ), "Testcase {} : Failed" "Error: Summary still present in DB".format(tc_name)
+    ), "Testcase {} : Failed. Error: Summary still present in DB".format(tc_name)
 
     step("Configure Min tag value")
     ospf_summ_r1 = {
@@ -1417,23 +1308,23 @@ def test_ospf_type5_summary_tc45_p0(request):
     result = verify_rib(tgen, "ipv4", dut, input_dict_summary, protocol=protocol)
     assert (
         result is True
-    ), "Testcase {} : Failed" "Error: Routes is missing in RIB".format(tc_name)
+    ), "Testcase {} : Failed. Error: Routes is missing in RIB".format(tc_name)
 
     step("Verify that show ip ospf summary should show the summaries with tag.")
     input_dict = {
         SUMMARY["ipv4"][0]: {
-            "Summary address": SUMMARY["ipv4"][0],
-            "Metric-type": "E2",
-            "Metric": 20,
-            "Tag": 1,
-            "External route count": 5,
+            "summaryAddress": SUMMARY["ipv4"][0],
+            "metricType": "E2",
+            "metric": 20,
+            "tag": 1,
+            "externalRouteCount": 5,
         }
     }
     dut = "r0"
     result = verify_ospf_summary(tgen, topo, dut, input_dict)
     assert (
         result is True
-    ), "Testcase {} : Failed" "Error: Summary missing in OSPF DB".format(tc_name)
+    ), "Testcase {} : Failed. Error: Summary missing in OSPF DB".format(tc_name)
 
     step("Configure Max Tag Value")
     ospf_summ_r1 = {
@@ -1463,7 +1354,7 @@ def test_ospf_type5_summary_tc45_p0(request):
     result = verify_rib(tgen, "ipv4", dut, input_dict_summary, protocol=protocol)
     assert (
         result is True
-    ), "Testcase {} : Failed" "Error: Routes is missing in RIB".format(tc_name)
+    ), "Testcase {} : Failed. Error: Routes is missing in RIB".format(tc_name)
 
     step(
         "Verify that boundary values tags are used for summary route"
@@ -1471,18 +1362,18 @@ def test_ospf_type5_summary_tc45_p0(request):
     )
     input_dict = {
         SUMMARY["ipv4"][0]: {
-            "Summary address": SUMMARY["ipv4"][0],
-            "Metric-type": "E2",
-            "Metric": 20,
-            "Tag": 4294967295,
-            "External route count": 5,
+            "summaryAddress": SUMMARY["ipv4"][0],
+            "metricType": "E2",
+            "metric": 20,
+            "tag": 4294967295,
+            "externalRouteCount": 5,
         }
     }
     dut = "r0"
     result = verify_ospf_summary(tgen, topo, dut, input_dict)
     assert (
         result is True
-    ), "Testcase {} : Failed" "Error: Summary missing in OSPF DB".format(tc_name)
+    ), "Testcase {} : Failed. Error: Summary missing in OSPF DB".format(tc_name)
 
     step("configure new static route with different tag.")
     input_dict_static_rtes_11 = {
@@ -1503,10 +1394,9 @@ def test_ospf_type5_summary_tc45_p0(request):
     dut = "r1"
 
     result = verify_ospf_rib(tgen, dut, input_dict_summary, tag="88888", expected=False)
-    assert (
-        result is not True
-    ), "Testcase {} : Failed \n Error: " "Routes still present in OSPF RIB {}".format(
-        tc_name, result
+    assert result is not True, (
+        "Testcase {} : Failed \n Expected: Routes should not be present in OSPF RIB \n Error: "
+        "Routes still present in OSPF RIB {}".format(tc_name, result)
     )
 
     result = verify_rib(
@@ -1518,9 +1408,10 @@ def test_ospf_type5_summary_tc45_p0(request):
         tag="88888",
         expected=False,
     )
-    assert (
-        result is not True
-    ), "Testcase {} : Failed" "Error: Routes still present in RIB".format(tc_name)
+    assert result is not True, (
+        "Testcase {} : Failed \n Expected: Routes should not be present in RIB\n"
+        "Error: Routes still present in RIB".format(tc_name)
+    )
 
     step(
         "Verify that boundary values tags are used for summary route"
@@ -1528,18 +1419,18 @@ def test_ospf_type5_summary_tc45_p0(request):
     )
     input_dict = {
         SUMMARY["ipv4"][0]: {
-            "Summary address": SUMMARY["ipv4"][0],
-            "Metric-type": "E2",
-            "Metric": 20,
-            "Tag": 88888,
-            "External route count": 5,
+            "summaryAddress": SUMMARY["ipv4"][0],
+            "metricType": "E2",
+            "metric": 20,
+            "tag": 88888,
+            "externalRouteCount": 5,
         }
     }
     dut = "r0"
     result = verify_ospf_summary(tgen, topo, dut, input_dict, expected=False)
     assert (
         result is not True
-    ), "Testcase {} : Failed" "Error: Summary missing in OSPF DB".format(tc_name)
+    ), "Testcase {} : Failed. Error: Summary missing in OSPF DB".format(tc_name)
 
     step("Delete the configured summary address")
     ospf_summ_r1 = {
@@ -1570,24 +1461,24 @@ def test_ospf_type5_summary_tc45_p0(request):
     result = verify_rib(tgen, "ipv4", dut, input_dict_static_rtes, protocol=protocol)
     assert (
         result is True
-    ), "Testcase {} : Failed" "Error: Routes is missing in RIB".format(tc_name)
+    ), "Testcase {} : Failed. Error: Routes is missing in RIB".format(tc_name)
 
     step("Verify that summary address is flushed from neighbor.")
 
     dut = "r1"
     result = verify_ospf_rib(tgen, dut, input_dict_summary, expected=False)
-    assert (
-        result is not True
-    ), "Testcase {} : Failed \n Error: " "Routes still present in OSPF RIB {}".format(
-        tc_name, result
+    assert result is not True, (
+        "Testcase {} : Failed \n Expected: Routes should not be present in OSPF RIB \n Error: "
+        "Routes still present in OSPF RIB {}".format(tc_name, result)
     )
 
     result = verify_rib(
         tgen, "ipv4", dut, input_dict_summary, protocol=protocol, expected=False
     )
-    assert (
-        result is not True
-    ), "Testcase {} : Failed" "Error: Routes still present in RIB".format(tc_name)
+    assert result is not True, (
+        "Testcase {} : Failed \n Expected: Routes should not be present in RIB\n"
+        "Error: Routes still present in RIB".format(tc_name)
+    )
 
     step("Configure summary first & then configure matching static route.")
 
@@ -1628,7 +1519,7 @@ def test_ospf_type5_summary_tc45_p0(request):
     step("Repeat steps 1 to 10 of summarisation in non Back bone area.")
     reset_config_on_routers(tgen)
 
-    step("Change the area id on the interface on R0")
+    step("Change the area id on the interface on R0 to R1 from 0.0.0.0 to 0.0.0.1")
     input_dict = {
         "r0": {
             "links": {
@@ -1658,7 +1549,7 @@ def test_ospf_type5_summary_tc45_p0(request):
     result = create_interfaces_cfg(tgen, input_dict)
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
-    step("Change the area id on the interface  ")
+    step("Change the area id on the interface on R1 to R0 from 0.0.0.0 to 0.0.0.1")
     input_dict = {
         "r1": {
             "links": {
@@ -1689,7 +1580,7 @@ def test_ospf_type5_summary_tc45_p0(request):
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     ospf_covergence = verify_ospf_neighbor(tgen, topo)
-    assert ospf_covergence is True, "setup_module :Failed \n Error:" " {}".format(
+    assert ospf_covergence is True, "setup_module :Failed \n Error  {}".format(
         ospf_covergence
     )
 
@@ -1719,11 +1610,9 @@ def test_ospf_type5_summary_tc45_p0(request):
     result = verify_rib(tgen, "ipv4", dut, input_dict_static_rtes, protocol=protocol)
     assert (
         result is True
-    ), "Testcase {} : Failed" "Error: Routes is missing in RIB".format(tc_name)
+    ), "Testcase {} : Failed. Error: Routes is missing in RIB".format(tc_name)
 
-    step(
-        "Configure External Route summary in R0 to summarise 5" " routes to one route."
-    )
+    step("Configure External Route summary in R0 to summarise 5  routes to one route.")
     ospf_summ_r1 = {
         "r0": {
             "ospf": {
@@ -1755,16 +1644,16 @@ def test_ospf_type5_summary_tc45_p0(request):
     result = verify_rib(tgen, "ipv4", dut, input_dict_summary, protocol=protocol)
     assert (
         result is True
-    ), "Testcase {} : Failed" "Error: Routes is missing in RIB".format(tc_name)
+    ), "Testcase {} : Failed. Error: Routes is missing in RIB".format(tc_name)
 
     step("Verify that show ip ospf summary should show the summaries with tag.")
     input_dict = {
         SUMMARY["ipv4"][0]: {
-            "Summary address": SUMMARY["ipv4"][0],
-            "Metric-type": "E2",
-            "Metric": 20,
-            "Tag": 1234,
-            "External route count": 5,
+            "summaryAddress": SUMMARY["ipv4"][0],
+            "metricType": "E2",
+            "metric": 20,
+            "tag": 1234,
+            "externalRouteCount": 5,
         }
     }
     dut = "r0"
@@ -1791,36 +1680,34 @@ def test_ospf_type5_summary_tc45_p0(request):
     step("Verify that summary lsa is withdrawn from R1 and deleted from R0.")
     dut = "r1"
     result = verify_ospf_rib(tgen, dut, input_dict, expected=False)
-    assert (
-        result is not True
-    ), "Testcase {} : Failed \n Error: " "Routes still present in OSPF RIB {}".format(
-        tc_name, result
+    assert result is not True, (
+        "Testcase {} : Failed \n Expected: Routes should not be present in OSPF RIB \n Error: "
+        "Routes still present in OSPF RIB {}".format(tc_name, result)
     )
 
     result = verify_rib(
         tgen, "ipv4", dut, input_dict_summary, protocol=protocol, expected=False
     )
-    assert (
-        result is not True
-    ), "Testcase {} : Failed" "Error: Summary Route still present in RIB".format(
-        tc_name
+    assert result is not True, (
+        "Testcase {} : Failed \n Expected: Routes should not be present in RIB "
+        "Error: Summary Route still present in RIB".format(tc_name)
     )
 
     step("show ip ospf summary should not have any summary address.")
     input_dict = {
         SUMMARY["ipv4"][0]: {
-            "Summary address": SUMMARY["ipv4"][0],
-            "Metric-type": "E2",
-            "Metric": 20,
-            "Tag": 1234,
-            "External route count": 5,
+            "summaryAddress": SUMMARY["ipv4"][0],
+            "metricType": "E2",
+            "metric": 20,
+            "tag": 1234,
+            "externalRouteCount": 5,
         }
     }
     dut = "r0"
     result = verify_ospf_summary(tgen, topo, dut, input_dict, expected=False)
     assert (
         result is not True
-    ), "Testcase {} : Failed" "Error: Summary still present in DB".format(tc_name)
+    ), "Testcase {} : Failed. Error: Summary still present in DB".format(tc_name)
 
     step("Configure Min tag value")
     ospf_summ_r1 = {
@@ -1845,23 +1732,23 @@ def test_ospf_type5_summary_tc45_p0(request):
     result = verify_rib(tgen, "ipv4", dut, input_dict_summary, protocol=protocol)
     assert (
         result is True
-    ), "Testcase {} : Failed" "Error: Routes is missing in RIB".format(tc_name)
+    ), "Testcase {} : Failed. Error: Routes is missing in RIB".format(tc_name)
 
     step("Verify that show ip ospf summary should show the summaries with tag.")
     input_dict = {
         SUMMARY["ipv4"][0]: {
-            "Summary address": SUMMARY["ipv4"][0],
-            "Metric-type": "E2",
-            "Metric": 20,
-            "Tag": 1,
-            "External route count": 5,
+            "summaryAddress": SUMMARY["ipv4"][0],
+            "metricType": "E2",
+            "metric": 20,
+            "tag": 1,
+            "externalRouteCount": 5,
         }
     }
     dut = "r0"
     result = verify_ospf_summary(tgen, topo, dut, input_dict)
     assert (
         result is True
-    ), "Testcase {} : Failed" "Error: Summary missing in OSPF DB".format(tc_name)
+    ), "Testcase {} : Failed. Error: Summary missing in OSPF DB".format(tc_name)
 
     step("Configure Max Tag Value")
     ospf_summ_r1 = {
@@ -1891,7 +1778,7 @@ def test_ospf_type5_summary_tc45_p0(request):
     result = verify_rib(tgen, "ipv4", dut, input_dict_summary, protocol=protocol)
     assert (
         result is True
-    ), "Testcase {} : Failed" "Error: Routes is missing in RIB".format(tc_name)
+    ), "Testcase {} : Failed. Error: Routes is missing in RIB".format(tc_name)
 
     step(
         "Verify that boundary values tags are used for summary route"
@@ -1899,18 +1786,18 @@ def test_ospf_type5_summary_tc45_p0(request):
     )
     input_dict = {
         SUMMARY["ipv4"][0]: {
-            "Summary address": SUMMARY["ipv4"][0],
-            "Metric-type": "E2",
-            "Metric": 20,
-            "Tag": 4294967295,
-            "External route count": 5,
+            "summaryAddress": SUMMARY["ipv4"][0],
+            "metricType": "E2",
+            "metric": 20,
+            "tag": 4294967295,
+            "externalRouteCount": 5,
         }
     }
     dut = "r0"
     result = verify_ospf_summary(tgen, topo, dut, input_dict)
     assert (
         result is True
-    ), "Testcase {} : Failed" "Error: Summary missing in OSPF DB".format(tc_name)
+    ), "Testcase {} : Failed. Error: Summary missing in OSPF DB".format(tc_name)
 
     step("configure new static route with different tag.")
     input_dict_static_rtes_11 = {
@@ -1931,10 +1818,9 @@ def test_ospf_type5_summary_tc45_p0(request):
     dut = "r1"
 
     result = verify_ospf_rib(tgen, dut, input_dict_summary, tag="88888", expected=False)
-    assert (
-        result is not True
-    ), "Testcase {} : Failed \n Error: " "Routes still present in OSPF RIB {}".format(
-        tc_name, result
+    assert result is not True, (
+        "Testcase {} : Failed \n Expected: Routes should not be present in OSPF RIB \n Error: "
+        "Routes still present in OSPF RIB {}".format(tc_name, result)
     )
 
     result = verify_rib(
@@ -1946,9 +1832,10 @@ def test_ospf_type5_summary_tc45_p0(request):
         tag="88888",
         expected=False,
     )
-    assert (
-        result is not True
-    ), "Testcase {} : Failed" "Error: Routes still present in RIB".format(tc_name)
+    assert result is not True, (
+        "Testcase {} : Failed\n Expected: Routes should not be present in RIB.\n"
+        "Error: Routes still present in RIB".format(tc_name)
+    )
 
     step(
         "Verify that boundary values tags are used for summary route"
@@ -1956,18 +1843,18 @@ def test_ospf_type5_summary_tc45_p0(request):
     )
     input_dict = {
         SUMMARY["ipv4"][0]: {
-            "Summary address": SUMMARY["ipv4"][0],
-            "Metric-type": "E2",
-            "Metric": 20,
-            "Tag": 88888,
-            "External route count": 5,
+            "summaryAddress": SUMMARY["ipv4"][0],
+            "metricType": "E2",
+            "metric": 20,
+            "tag": 88888,
+            "externalRouteCount": 5,
         }
     }
     dut = "r0"
     result = verify_ospf_summary(tgen, topo, dut, input_dict, expected=False)
     assert (
         result is not True
-    ), "Testcase {} : Failed" "Error: Summary missing in OSPF DB".format(tc_name)
+    ), "Testcase {} : Failed. Error: Summary missing in OSPF DB".format(tc_name)
 
     step("Delete the configured summary address")
     ospf_summ_r1 = {
@@ -1998,24 +1885,24 @@ def test_ospf_type5_summary_tc45_p0(request):
     result = verify_rib(tgen, "ipv4", dut, input_dict_static_rtes, protocol=protocol)
     assert (
         result is True
-    ), "Testcase {} : Failed" "Error: Routes is missing in RIB".format(tc_name)
+    ), "Testcase {} : Failed. Error: Routes is missing in RIB".format(tc_name)
 
     step("Verify that summary address is flushed from neighbor.")
 
     dut = "r1"
     result = verify_ospf_rib(tgen, dut, input_dict_summary, expected=False)
-    assert (
-        result is not True
-    ), "Testcase {} : Failed \n Error: " "Routes still present in OSPF RIB {}".format(
-        tc_name, result
+    assert result is not True, (
+        "Testcase {} : Failed \n Expected: Routes should not be present in OSPF RIB \n Error: "
+        "Routes still present in OSPF RIB {}".format(tc_name, result)
     )
 
     result = verify_rib(
         tgen, "ipv4", dut, input_dict_summary, protocol=protocol, expected=False
     )
-    assert (
-        result is not True
-    ), "Testcase {} : Failed" "Error: Routes still present in RIB".format(tc_name)
+    assert result is not True, (
+        "Testcase {} : Failed \n Expected: Routes should not be present in RIB \n"
+        "Error: Routes still present in RIB".format(tc_name)
+    )
 
     step("Configure summary first & then configure matching static route.")
 
@@ -2099,7 +1986,7 @@ def test_ospf_type5_summary_tc46_p0(request):
     result = verify_rib(tgen, "ipv4", dut, input_dict_static_rtes, protocol=protocol)
     assert (
         result is True
-    ), "Testcase {} : Failed" "Error: Routes is missing in RIB".format(tc_name)
+    ), "Testcase {} : Failed. Error: Routes is missing in RIB".format(tc_name)
 
     step(
         "Configure External Route summary in R0 to summarise 5"
@@ -2131,31 +2018,31 @@ def test_ospf_type5_summary_tc46_p0(request):
     dut = "r1"
 
     result = verify_ospf_rib(tgen, dut, input_dict_summary, expected=False)
-    assert (
-        result is not True
-    ), "Testcase {} : Failed \n Error: " "Routes still present in OSPF RIB {}".format(
-        tc_name, result
+    assert result is not True, (
+        "Testcase {} : Failed \n Expected: Routes should not be present in OSPF RIB.\n Error: "
+        "Routes still present in OSPF RIB {}".format(tc_name, result)
     )
 
     result = verify_rib(
         tgen, "ipv4", dut, input_dict_summary, protocol=protocol, expected=False
     )
-    assert (
-        result is not True
-    ), "Testcase {} : Failed" "Error: Routes still present in RIB".format(tc_name)
+    assert result is not True, (
+        "Testcase {} : Failed\n Expected: Routes should not be present in RIB."
+        "Error: Routes still present in RIB".format(tc_name)
+    )
 
-    step("Verify that show ip ospf summary should show the " "configured summaries.")
+    step("Verify that show ip ospf summary should show the  configured summaries.")
     input_dict = {
         SUMMARY["ipv4"][0]: {
-            "Summary address": SUMMARY["ipv4"][0],
-            "External route count": 5,
+            "summaryAddress": SUMMARY["ipv4"][0],
+            "externalRouteCount": 5,
         }
     }
     dut = "r0"
     result = verify_ospf_summary(tgen, topo, dut, input_dict)
     assert (
         result is True
-    ), "Testcase {} : Failed" "Error: Summary missing in OSPF DB".format(tc_name)
+    ), "Testcase {} : Failed. Error: Summary missing in OSPF DB".format(tc_name)
 
     step("Delete the configured summary")
     ospf_summ_r1 = {
@@ -2180,10 +2067,9 @@ def test_ospf_type5_summary_tc46_p0(request):
     step("Verify that summary lsa is withdrawn from R1 and deleted from R0.")
     dut = "r1"
     result = verify_ospf_rib(tgen, dut, input_dict, expected=False)
-    assert (
-        result is not True
-    ), "Testcase {} : Failed \n Error: " "Routes still present in OSPF RIB {}".format(
-        tc_name, result
+    assert result is not True, (
+        "Testcase {} : Failed \n Expected: Routes should not be present in OSPF RIB. \n Error: "
+        "Routes still present in OSPF RIB {}".format(tc_name, result)
     )
 
     result = verify_rib(
@@ -2191,25 +2077,23 @@ def test_ospf_type5_summary_tc46_p0(request):
     )
     assert (
         result is not True
-    ), "Testcase {} : Failed" "Error: Summary Route still present in RIB".format(
-        tc_name
-    )
+    ), "Testcase {} : Failed. Error: Summary Route still present in RIB".format(tc_name)
 
     step("show ip ospf summary should not have any summary address.")
     input_dict = {
         SUMMARY["ipv4"][0]: {
-            "Summary address": SUMMARY["ipv4"][0],
-            "Metric-type": "E2",
-            "Metric": 20,
-            "Tag": 1234,
-            "External route count": 5,
+            "summaryAddress": SUMMARY["ipv4"][0],
+            "metricType": "E2",
+            "metric": 20,
+            "tag": 1234,
+            "externalRouteCount": 5,
         }
     }
     dut = "r0"
     result = verify_ospf_summary(tgen, topo, dut, input_dict, expected=False)
     assert (
         result is not True
-    ), "Testcase {} : Failed" "Error: Summary still present in DB".format(tc_name)
+    ), "Testcase {} : Failed. Error: Summary still present in DB".format(tc_name)
 
     step("Reconfigure summary with no advertise.")
     ospf_summ_r1 = {
@@ -2238,31 +2122,31 @@ def test_ospf_type5_summary_tc46_p0(request):
     dut = "r1"
 
     result = verify_ospf_rib(tgen, dut, input_dict_summary, expected=False)
-    assert (
-        result is not True
-    ), "Testcase {} : Failed \n Error: " "Routes still present in OSPF RIB {}".format(
-        tc_name, result
+    assert result is not True, (
+        "Testcase {} : Failed \n Expected: Routes should not be present in OSPF RIB. \n Error: "
+        "Routes still present in OSPF RIB {}".format(tc_name, result)
     )
 
     result = verify_rib(
         tgen, "ipv4", dut, input_dict_summary, protocol=protocol, expected=False
     )
-    assert (
-        result is not True
-    ), "Testcase {} : Failed" "Error: Routes still present in RIB".format(tc_name)
+    assert result is not True, (
+        "Testcase {} : Failed \n Expected: Routes should not be present in RIB \n"
+        "Error: Routes still present in RIB".format(tc_name)
+    )
 
-    step("Verify that show ip ospf summary should show the " "configured summaries.")
+    step("Verify that show ip ospf summary should show the  configured summaries.")
     input_dict = {
         SUMMARY["ipv4"][0]: {
-            "Summary address": SUMMARY["ipv4"][0],
-            "External route count": 5,
+            "summaryAddress": SUMMARY["ipv4"][0],
+            "externalRouteCount": 5,
         }
     }
     dut = "r0"
     result = verify_ospf_summary(tgen, topo, dut, input_dict)
     assert (
         result is True
-    ), "Testcase {} : Failed" "Error: Summary missing in OSPF DB".format(tc_name)
+    ), "Testcase {} : Failed. Error: Summary missing in OSPF DB".format(tc_name)
 
     step(
         "Change summary address from no advertise to advertise "
@@ -2311,42 +2195,42 @@ def test_ospf_type5_summary_tc46_p0(request):
     result = verify_rib(tgen, "ipv4", dut, input_dict_summary, protocol=protocol)
     assert (
         result is True
-    ), "Testcase {} : Failed" "Error: Routes is missing in RIB".format(tc_name)
+    ), "Testcase {} : Failed. Error: Routes is missing in RIB".format(tc_name)
 
     step("Verify that show ip ospf summary should show the summaries.")
     input_dict = {
         SUMMARY["ipv4"][0]: {
-            "Summary address": SUMMARY["ipv4"][0],
-            "Metric-type": "E2",
-            "Metric": 20,
-            "Tag": 0,
-            "External route count": 5,
+            "summaryAddress": SUMMARY["ipv4"][0],
+            "metricType": "E2",
+            "metric": 20,
+            "tag": 0,
+            "externalRouteCount": 5,
         }
     }
     dut = "r0"
     result = verify_ospf_summary(tgen, topo, dut, input_dict)
     assert (
         result is True
-    ), "Testcase {} : Failed" "Error: Summary missing in OSPF DB".format(tc_name)
+    ), "Testcase {} : Failed. Error: Summary missing in OSPF DB".format(tc_name)
 
-    step("Verify that originally advertised routes are withdraw from there" " peer.")
+    step("Verify that originally advertised routes are withdraw from there  peer.")
     input_dict = {
         "r0": {"static_routes": [{"network": NETWORK["ipv4"], "next_hop": "blackhole"}]}
     }
     dut = "r1"
     result = verify_ospf_rib(tgen, dut, input_dict, expected=False)
-    assert (
-        result is not True
-    ), "Testcase {} : Failed \n Error: " "Routes still present in OSPF RIB {}".format(
-        tc_name, result
+    assert result is not True, (
+        "Testcase {} : Failed \n Expected: Routes should not be present in OSPF RIB \n Error: "
+        "Routes still present in OSPF RIB {}".format(tc_name, result)
     )
 
     result = verify_rib(
         tgen, "ipv4", dut, input_dict, protocol=protocol, expected=False
     )
-    assert (
-        result is not True
-    ), "Testcase {} : Failed" "Error: Routes is present in RIB".format(tc_name)
+    assert result is not True, (
+        "Testcase {} : Failed\n Expected: Routes should not be present in RIB"
+        "Error: Routes is present in RIB".format(tc_name)
+    )
 
     write_test_footer(tc_name)
 
@@ -2393,11 +2277,9 @@ def test_ospf_type5_summary_tc47_p0(request):
     result = verify_rib(tgen, "ipv4", dut, input_dict_static_rtes, protocol=protocol)
     assert (
         result is True
-    ), "Testcase {} : Failed" "Error: Routes is missing in RIB".format(tc_name)
+    ), "Testcase {} : Failed. Error: Routes is missing in RIB".format(tc_name)
 
-    step(
-        "Configure External Route summary in R0 to summarise 5" " routes to one route."
-    )
+    step("Configure External Route summary in R0 to summarise 5  routes to one route.")
 
     ospf_summ_r1 = {
         "r0": {
@@ -2425,42 +2307,42 @@ def test_ospf_type5_summary_tc47_p0(request):
     result = verify_rib(tgen, "ipv4", dut, input_dict_summary, protocol=protocol)
     assert (
         result is True
-    ), "Testcase {} : Failed" "Error: Routes is missing in RIB".format(tc_name)
+    ), "Testcase {} : Failed. Error: Routes is missing in RIB".format(tc_name)
 
     step("Verify that show ip ospf summary should show the summaries.")
     input_dict = {
         SUMMARY["ipv4"][0]: {
-            "Summary address": SUMMARY["ipv4"][0],
-            "Metric-type": "E2",
-            "Metric": 20,
-            "Tag": 0,
-            "External route count": 5,
+            "summaryAddress": SUMMARY["ipv4"][0],
+            "metricType": "E2",
+            "metric": 20,
+            "tag": 0,
+            "externalRouteCount": 5,
         }
     }
     dut = "r0"
     result = verify_ospf_summary(tgen, topo, dut, input_dict)
     assert (
         result is True
-    ), "Testcase {} : Failed" "Error: Summary missing in OSPF DB".format(tc_name)
+    ), "Testcase {} : Failed. Error: Summary missing in OSPF DB".format(tc_name)
 
-    step("Verify that originally advertised routes are withdraw from there" " peer.")
+    step("Verify that originally advertised routes are withdraw from there  peer.")
     input_dict = {
         "r0": {"static_routes": [{"network": NETWORK["ipv4"], "next_hop": "blackhole"}]}
     }
     dut = "r1"
     result = verify_ospf_rib(tgen, dut, input_dict, expected=False)
-    assert (
-        result is not True
-    ), "Testcase {} : Failed \n Error: " "Routes still present in OSPF RIB {}".format(
-        tc_name, result
+    assert result is not True, (
+        "Testcase {} : Failed \n \n Expected: Routes should not be present in OSPF RIB.\n Error: "
+        "Routes still present in OSPF RIB {}".format(tc_name, result)
     )
 
     result = verify_rib(
         tgen, "ipv4", dut, input_dict, protocol=protocol, expected=False
     )
-    assert (
-        result is not True
-    ), "Testcase {} : Failed" "Error: Routes still present in RIB".format(tc_name)
+    assert result is not True, (
+        "Testcase {} : Failed\n Expected: Routes should not be present in RIB.\n"
+        "Error: Routes still present in RIB".format(tc_name)
+    )
 
     step(
         "configure route map and add rule to permit configured static "
@@ -2523,15 +2405,15 @@ def test_ospf_type5_summary_tc47_p0(request):
     result = verify_rib(tgen, "ipv4", dut, input_dict_summary, protocol=protocol)
     assert (
         result is True
-    ), "Testcase {} : Failed" "Error: Routes is missing in RIB".format(tc_name)
+    ), "Testcase {} : Failed. Error: Routes is missing in RIB".format(tc_name)
 
     input_dict = {
         SUMMARY["ipv4"][0]: {
-            "Summary address": SUMMARY["ipv4"][0],
-            "Metric-type": "E2",
-            "Metric": 20,
-            "Tag": 0,
-            "External route count": 5,
+            "summaryAddress": SUMMARY["ipv4"][0],
+            "metricType": "E2",
+            "metric": 20,
+            "tag": 0,
+            "externalRouteCount": 5,
         }
     }
     dut = "r0"
@@ -2561,18 +2443,18 @@ def test_ospf_type5_summary_tc47_p0(request):
     step("Verify that advertised summary route is flushed from neighbor.")
     dut = "r1"
     result = verify_ospf_rib(tgen, dut, input_dict_summary, expected=False)
-    assert (
-        result is not True
-    ), "Testcase {} : Failed \n Error: " "Routes still present in OSPF RIB {}".format(
-        tc_name, result
+    assert result is not True, (
+        "Testcase {} : Failed \n Expected: Routes should not be present in OSPF RIB\n Error: "
+        "Routes still present in OSPF RIB {}".format(tc_name, result)
     )
 
     result = verify_rib(
         tgen, "ipv4", dut, input_dict_summary, protocol=protocol, expected=False
     )
-    assert (
-        result is not True
-    ), "Testcase {} : Failed" "Error: Routes still present in RIB".format(tc_name)
+    assert result is not True, (
+        "Testcase {} : Failed \n Expected: Routes should not be present in RIB.\n"
+        "Error: Routes still present in RIB".format(tc_name)
+    )
 
     step("Delete the configured route map.")
 
@@ -2611,22 +2493,22 @@ def test_ospf_type5_summary_tc47_p0(request):
     result = verify_rib(tgen, "ipv4", dut, input_dict_summary, protocol=protocol)
     assert (
         result is True
-    ), "Testcase {} : Failed" "Error: Routes is missing in RIB".format(tc_name)
+    ), "Testcase {} : Failed. Error: Routes is missing in RIB".format(tc_name)
 
     input_dict = {
         SUMMARY["ipv4"][0]: {
-            "Summary address": SUMMARY["ipv4"][0],
-            "Metric-type": "E2",
-            "Metric": 20,
-            "Tag": 0,
-            "External route count": 5,
+            "summaryAddress": SUMMARY["ipv4"][0],
+            "metricType": "E2",
+            "metric": 20,
+            "tag": 0,
+            "externalRouteCount": 5,
         }
     }
     dut = "r0"
     result = verify_ospf_summary(tgen, topo, dut, input_dict)
     assert (
         result is True
-    ), "Testcase {} : Failed" "Error: Summary missing in OSPF DB".format(tc_name)
+    ), "Testcase {} : Failed. Error: Summary missing in OSPF DB".format(tc_name)
 
     step("Reconfigure the route map with denying configure summary address.")
 
@@ -2670,7 +2552,7 @@ def test_ospf_type5_summary_tc47_p0(request):
     result = verify_rib(tgen, "ipv4", dut, input_dict_summary, protocol=protocol)
     assert (
         result is True
-    ), "Testcase {} : Failed" "Error: Routes is missing in RIB".format(tc_name)
+    ), "Testcase {} : Failed. Error: Routes is missing in RIB".format(tc_name)
 
     step("Redistribute static/connected routes without route map.")
 
@@ -2706,22 +2588,22 @@ def test_ospf_type5_summary_tc47_p0(request):
     result = verify_rib(tgen, "ipv4", dut, input_dict_summary, protocol=protocol)
     assert (
         result is True
-    ), "Testcase {} : Failed" "Error: Routes is missing in RIB".format(tc_name)
+    ), "Testcase {} : Failed. Error: Routes is missing in RIB".format(tc_name)
 
     input_dict = {
         SUMMARY["ipv4"][0]: {
-            "Summary address": SUMMARY["ipv4"][0],
-            "Metric-type": "E2",
-            "Metric": 20,
-            "Tag": 0,
-            "External route count": 5,
+            "summaryAddress": SUMMARY["ipv4"][0],
+            "metricType": "E2",
+            "metric": 20,
+            "tag": 0,
+            "externalRouteCount": 5,
         }
     }
     dut = "r0"
     result = verify_ospf_summary(tgen, topo, dut, input_dict)
     assert (
         result is True
-    ), "Testcase {} : Failed" "Error: Summary missing in OSPF DB".format(tc_name)
+    ), "Testcase {} : Failed. Error: Summary missing in OSPF DB".format(tc_name)
 
     step(
         "Configure rule to deny all the routes in route map and configure"
@@ -2772,18 +2654,18 @@ def test_ospf_type5_summary_tc47_p0(request):
     step("Verify that no summary route is originated.")
     dut = "r1"
     result = verify_ospf_rib(tgen, dut, input_dict_summary, expected=False)
-    assert (
-        result is not True
-    ), "Testcase {} : Failed \n Error: " "Routes still present in OSPF RIB {}".format(
-        tc_name, result
+    assert result is not True, (
+        "Testcase {} : Failed \n Expected: Routes should not be present in OSPF RIB.\n  Error: "
+        "Routes still present in OSPF RIB {}".format(tc_name, result)
     )
 
     result = verify_rib(
         tgen, "ipv4", dut, input_dict_summary, protocol=protocol, expected=False
     )
-    assert (
-        result is not True
-    ), "Testcase {} : Failed" "Error: Routes still present in RIB".format(tc_name)
+    assert result is not True, (
+        "Testcase {} : Failed\n Expected: Routes should not be present in RIB"
+        "Error: Routes still present in RIB".format(tc_name)
+    )
 
     routemaps = {
         "r0": {
@@ -2873,23 +2755,23 @@ def test_ospf_type5_summary_tc47_p0(request):
     result = verify_rib(tgen, "ipv4", dut, input_dict_summary, protocol=protocol)
     assert (
         result is True
-    ), "Testcase {} : Failed" "Error: Routes is missing in RIB".format(tc_name)
+    ), "Testcase {} : Failed. Error: Routes is missing in RIB".format(tc_name)
 
     step("Verify that show ip ospf summary should show the summaries.")
     input_dict = {
         "12.0.0.0/8": {
-            "Summary address": "12.0.0.0/8",
-            "Metric-type": "E2",
-            "Metric": 20,
-            "Tag": 0,
-            "External route count": 5,
+            "summaryAddress": "12.0.0.0/8",
+            "metricType": "E2",
+            "metric": 20,
+            "tag": 0,
+            "externalRouteCount": 5,
         }
     }
     dut = "r0"
     result = verify_ospf_summary(tgen, topo, dut, input_dict)
     assert (
         result is True
-    ), "Testcase {} : Failed" "Error: Summary missing in OSPF DB".format(tc_name)
+    ), "Testcase {} : Failed. Error: Summary missing in OSPF DB".format(tc_name)
 
     step("Change route map rule for 1 of the routes to deny.")
     # Create ip prefix list
@@ -2922,7 +2804,7 @@ def test_ospf_type5_summary_tc47_p0(request):
     result = verify_rib(tgen, "ipv4", dut, input_dict_summary, protocol=protocol)
     assert (
         result is True
-    ), "Testcase {} : Failed" "Error: Routes is missing in RIB".format(tc_name)
+    ), "Testcase {} : Failed. Error: Routes is missing in RIB".format(tc_name)
 
     step("add rule in route map to deny configured summary address.")
     # Create ip prefix list
@@ -2955,7 +2837,7 @@ def test_ospf_type5_summary_tc47_p0(request):
     result = verify_rib(tgen, "ipv4", dut, input_dict_summary, protocol=protocol)
     assert (
         result is True
-    ), "Testcase {} : Failed" "Error: Routes is missing in RIB".format(tc_name)
+    ), "Testcase {} : Failed. Error: Routes is missing in RIB".format(tc_name)
 
     write_test_footer(tc_name)
 
@@ -3084,18 +2966,18 @@ def test_ospf_type5_summary_tc51_p2(request):
 
     input_dict = {
         SUMMARY["ipv4"][2]: {
-            "Summary address": SUMMARY["ipv4"][2],
-            "Metric-type": "E2",
-            "Metric": 20,
-            "Tag": 0,
-            "External route count": 0,
+            "summaryAddress": SUMMARY["ipv4"][2],
+            "metricType": "E2",
+            "metric": 20,
+            "tag": 0,
+            "externalRouteCount": 0,
         }
     }
     dut = "r0"
     result = verify_ospf_summary(tgen, topo, dut, input_dict)
     assert (
         result is True
-    ), "Testcase {} : Failed" "Error: Summary missing in OSPF DB".format(tc_name)
+    ), "Testcase {} : Failed. Error: Summary missing in OSPF DB".format(tc_name)
 
     write_test_footer(tc_name)
 
@@ -3142,11 +3024,9 @@ def test_ospf_type5_summary_tc49_p2(request):
     result = verify_rib(tgen, "ipv4", dut, input_dict_static_rtes, protocol=protocol)
     assert (
         result is True
-    ), "Testcase {} : Failed" "Error: Routes is missing in RIB".format(tc_name)
+    ), "Testcase {} : Failed. Error: Routes is missing in RIB".format(tc_name)
 
-    step(
-        "Configure External Route summary in R0 to summarise 5" " routes to one route."
-    )
+    step("Configure External Route summary in R0 to summarise 5  routes to one route.")
 
     ospf_summ_r1 = {
         "r0": {
@@ -3174,42 +3054,42 @@ def test_ospf_type5_summary_tc49_p2(request):
     result = verify_rib(tgen, "ipv4", dut, input_dict_summary, protocol=protocol)
     assert (
         result is True
-    ), "Testcase {} : Failed" "Error: Routes is missing in RIB".format(tc_name)
+    ), "Testcase {} : Failed. Error: Routes is missing in RIB".format(tc_name)
 
     step("Verify that show ip ospf summary should show the summaries.")
     input_dict = {
         SUMMARY["ipv4"][0]: {
-            "Summary address": SUMMARY["ipv4"][0],
-            "Metric-type": "E2",
-            "Metric": 20,
-            "Tag": 0,
-            "External route count": 5,
+            "summaryAddress": SUMMARY["ipv4"][0],
+            "metricType": "E2",
+            "metric": 20,
+            "tag": 0,
+            "externalRouteCount": 5,
         }
     }
     dut = "r0"
     result = verify_ospf_summary(tgen, topo, dut, input_dict)
     assert (
         result is True
-    ), "Testcase {} : Failed" "Error: Summary missing in OSPF DB".format(tc_name)
+    ), "Testcase {} : Failed. Error: Summary missing in OSPF DB".format(tc_name)
 
-    step("Verify that originally advertised routes are withdraw from there" " peer.")
+    step("Verify that originally advertised routes are withdraw from there  peer.")
     input_dict = {
         "r0": {"static_routes": [{"network": NETWORK["ipv4"], "next_hop": "blackhole"}]}
     }
     dut = "r1"
     result = verify_ospf_rib(tgen, dut, input_dict, expected=False)
-    assert (
-        result is not True
-    ), "Testcase {} : Failed \n Error: " "Routes still present in OSPF RIB {}".format(
-        tc_name, result
+    assert result is not True, (
+        "Testcase {} : Failed \n Expected: Routes should not be present in OSPF RIB.\n Error: "
+        "Routes still present in OSPF RIB {}".format(tc_name, result)
     )
 
     result = verify_rib(
         tgen, "ipv4", dut, input_dict, protocol=protocol, expected=False
     )
-    assert (
-        result is not True
-    ), "Testcase {} : Failed" "Error: Routes still present in RIB".format(tc_name)
+    assert result is not True, (
+        "Testcase {} : Failed\n Expected: Routes should not be present in RIB.\n"
+        "Error: Routes still present in RIB".format(tc_name)
+    )
 
     step("Reload the FRR router")
     # stop/start -> restart FRR router and verify
@@ -3230,42 +3110,42 @@ def test_ospf_type5_summary_tc49_p2(request):
     result = verify_rib(tgen, "ipv4", dut, input_dict_summary, protocol=protocol)
     assert (
         result is True
-    ), "Testcase {} : Failed" "Error: Routes is missing in RIB".format(tc_name)
+    ), "Testcase {} : Failed. Error: Routes is missing in RIB".format(tc_name)
 
     step("Verify that show ip ospf summary should show the summaries.")
     input_dict = {
         SUMMARY["ipv4"][0]: {
-            "Summary address": SUMMARY["ipv4"][0],
-            "Metric-type": "E2",
-            "Metric": 20,
-            "Tag": 0,
-            "External route count": 5,
+            "summaryAddress": SUMMARY["ipv4"][0],
+            "metricType": "E2",
+            "metric": 20,
+            "tag": 0,
+            "externalRouteCount": 5,
         }
     }
     dut = "r0"
     result = verify_ospf_summary(tgen, topo, dut, input_dict)
     assert (
         result is True
-    ), "Testcase {} : Failed" "Error: Summary missing in OSPF DB".format(tc_name)
+    ), "Testcase {} : Failed. Error: Summary missing in OSPF DB".format(tc_name)
 
-    step("Verify that originally advertised routes are withdraw from there" " peer.")
+    step("Verify that originally advertised routes are withdraw from there  peer.")
     input_dict = {
         "r0": {"static_routes": [{"network": NETWORK["ipv4"], "next_hop": "blackhole"}]}
     }
     dut = "r1"
     result = verify_ospf_rib(tgen, dut, input_dict, expected=False)
-    assert (
-        result is not True
-    ), "Testcase {} : Failed \n Error: " "Routes still present in OSPF RIB {}".format(
-        tc_name, result
+    assert result is not True, (
+        "Testcase {} : Failed \n Expected: Routes should not be present in OSPF RIB. \n Error: "
+        "Routes still present in OSPF RIB {}".format(tc_name, result)
     )
 
     result = verify_rib(
         tgen, "ipv4", dut, input_dict, protocol=protocol, expected=False
     )
-    assert (
-        result is not True
-    ), "Testcase {} : Failed" "Error: Routes still present in RIB".format(tc_name)
+    assert result is not True, (
+        "Testcase {} : Failed\n Expected: Routes should not be present in RIB\n"
+        "Error: Routes still present in RIB".format(tc_name)
+    )
 
     step("Kill OSPFd daemon on R0.")
     kill_router_daemons(tgen, "r0", ["ospfd"])
@@ -3276,7 +3156,7 @@ def test_ospf_type5_summary_tc49_p2(request):
     step("Verify OSPF neighbors are up after bringing back ospfd in R0")
     # Api call verify whether OSPF is converged
     ospf_covergence = verify_ospf_neighbor(tgen, topo)
-    assert ospf_covergence is True, "setup_module :Failed \n Error:" " {}".format(
+    assert ospf_covergence is True, "setup_module :Failed \n Error  {}".format(
         ospf_covergence
     )
 
@@ -3294,42 +3174,42 @@ def test_ospf_type5_summary_tc49_p2(request):
     result = verify_rib(tgen, "ipv4", dut, input_dict_summary, protocol=protocol)
     assert (
         result is True
-    ), "Testcase {} : Failed" "Error: Routes is missing in RIB".format(tc_name)
+    ), "Testcase {} : Failed. Error: Routes is missing in RIB".format(tc_name)
 
     step("Verify that show ip ospf summary should show the summaries.")
     input_dict = {
         SUMMARY["ipv4"][0]: {
-            "Summary address": SUMMARY["ipv4"][0],
-            "Metric-type": "E2",
-            "Metric": 20,
-            "Tag": 0,
-            "External route count": 5,
+            "summaryAddress": SUMMARY["ipv4"][0],
+            "metricType": "E2",
+            "metric": 20,
+            "tag": 0,
+            "externalRouteCount": 5,
         }
     }
     dut = "r0"
     result = verify_ospf_summary(tgen, topo, dut, input_dict)
     assert (
         result is True
-    ), "Testcase {} : Failed" "Error: Summary missing in OSPF DB".format(tc_name)
+    ), "Testcase {} : Failed. Error: Summary missing in OSPF DB".format(tc_name)
 
-    step("Verify that originally advertised routes are withdraw from there" " peer.")
+    step("Verify that originally advertised routes are withdraw from there  peer.")
     input_dict = {
         "r0": {"static_routes": [{"network": NETWORK["ipv4"], "next_hop": "blackhole"}]}
     }
     dut = "r1"
     result = verify_ospf_rib(tgen, dut, input_dict, expected=False)
-    assert (
-        result is not True
-    ), "Testcase {} : Failed \n Error: " "Routes still present in OSPF RIB {}".format(
-        tc_name, result
+    assert result is not True, (
+        "Testcase {} : Failed \n Expected: Routes should not be present in OSPF RIB. \n Error: "
+        "Routes still present in OSPF RIB {}".format(tc_name, result)
     )
 
     result = verify_rib(
         tgen, "ipv4", dut, input_dict, protocol=protocol, expected=False
     )
-    assert (
-        result is not True
-    ), "Testcase {} : Failed" "Error: Routes still present in RIB".format(tc_name)
+    assert result is not True, (
+        "Testcase {} : Failed\n Expected: Routes should not be present in RIB\n"
+        "Error: Routes still present in RIB".format(tc_name)
+    )
 
     step("restart zebrad")
     kill_router_daemons(tgen, "r0", ["zebra"])
@@ -3351,42 +3231,42 @@ def test_ospf_type5_summary_tc49_p2(request):
     result = verify_rib(tgen, "ipv4", dut, input_dict_summary, protocol=protocol)
     assert (
         result is True
-    ), "Testcase {} : Failed" "Error: Routes is missing in RIB".format(tc_name)
+    ), "Testcase {} : Failed. Error: Routes is missing in RIB".format(tc_name)
 
     step("Verify that show ip ospf summary should show the summaries.")
     input_dict = {
         SUMMARY["ipv4"][0]: {
-            "Summary address": SUMMARY["ipv4"][0],
-            "Metric-type": "E2",
-            "Metric": 20,
-            "Tag": 0,
-            "External route count": 5,
+            "summaryAddress": SUMMARY["ipv4"][0],
+            "metricType": "E2",
+            "metric": 20,
+            "tag": 0,
+            "externalRouteCount": 5,
         }
     }
     dut = "r0"
     result = verify_ospf_summary(tgen, topo, dut, input_dict)
     assert (
         result is True
-    ), "Testcase {} : Failed" "Error: Summary missing in OSPF DB".format(tc_name)
+    ), "Testcase {} : Failed. Error: Summary missing in OSPF DB".format(tc_name)
 
-    step("Verify that originally advertised routes are withdraw from there" " peer.")
+    step("Verify that originally advertised routes are withdraw from there  peer.")
     input_dict = {
         "r0": {"static_routes": [{"network": NETWORK["ipv4"], "next_hop": "blackhole"}]}
     }
     dut = "r1"
     result = verify_ospf_rib(tgen, dut, input_dict, expected=False)
-    assert (
-        result is not True
-    ), "Testcase {} : Failed \n Error: " "Routes still present in OSPF RIB {}".format(
-        tc_name, result
+    assert result is not True, (
+        "Testcase {} : Failed\n Expected: Routes should not be present in OSPF RIB. \n Error: "
+        "Routes still present in OSPF RIB {}".format(tc_name, result)
     )
 
     result = verify_rib(
         tgen, "ipv4", dut, input_dict, protocol=protocol, expected=False
     )
-    assert (
-        result is not True
-    ), "Testcase {} : Failed" "Error: Routes still present in RIB".format(tc_name)
+    assert result is not True, (
+        "Testcase {} : Failed\n Expected: Routes should not be present in RIB.\n"
+        "Error: Routes still present in RIB".format(tc_name)
+    )
 
     write_test_footer(tc_name)
 

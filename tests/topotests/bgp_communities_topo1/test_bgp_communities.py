@@ -1,23 +1,10 @@
 #!/usr/bin/python
+# SPDX-License-Identifier: ISC
 
 #
 # Copyright (c) 2020 by VMware, Inc. ("VMware")
 # Used Copyright (c) 2018 by Network Device Education Foundation,
 # Inc. ("NetDEF") in this file.
-#
-# Permission to use, copy, modify, and/or distribute this software
-# for any purpose with or without fee is hereby granted, provided
-# that the above copyright notice and this permission notice appear
-# in all copies.
-#
-# THE SOFTWARE IS PROVIDED "AS IS" AND VMWARE DISCLAIMS ALL WARRANTIES
-# WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
-# MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL VMWARE BE LIABLE FOR
-# ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY
-# DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS,
-# WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS
-# ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE
-# OF THIS SOFTWARE.
 #
 
 """
@@ -83,7 +70,7 @@ def setup_module(mod):
     # Required linux kernel version for this suite to run.
     result = required_linux_kernel_version("4.15")
     if result is not True:
-        pytest.skip("Kernel requirements are not met")
+        pytest.skip("Kernel requirements are not met, kernel version should be >= 4.15")
 
     testsuite_run_time = time.asctime(time.localtime(time.time()))
     logger.info("Testsuite start time: {}".format(testsuite_run_time))
@@ -99,7 +86,7 @@ def setup_module(mod):
     # ... and here it calls Mininet initialization functions.
 
     # Starting topology, create tmp files which are loaded to routers
-    #  to start deamons and then start routers
+    #  to start daemons and then start routers
     start_topology(tgen)
 
     # Creating configuration from JSON
@@ -317,17 +304,18 @@ def test_bgp_no_advertise_community_p0(request):
         )
 
         result = verify_bgp_rib(tgen, addr_type, dut, input_dict, expected=False)
-        assert result is not True, "Testcase {} : Failed \n ".format(
-            tc_name
-        ) + " Routes still present in R3 router. Error: {}".format(result)
+        assert result is not True, (
+            "Testcase {} : Failed \n Expected: "
+            "Routes still present in {} router. Found: {}".format(tc_name, dut, result)
+        )
 
         result = verify_rib(
             tgen, addr_type, dut, input_dict, protocol=protocol, expected=False
         )
         assert (
             result is not True
-        ), "Testcase {} : Failed \n  Routes still present in R3 router. Error: {}".format(
-            tc_name, result
+        ), "Testcase {} : Failed \n  Expected: Routes still present in {} router. Found: {}".format(
+            tc_name, dut, result
         )
 
         step("Remove and Add no advertise community")

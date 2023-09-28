@@ -1,25 +1,12 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Copyright (C) 2020  NetDEF, Inc.
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 #include <zebra.h>
 
 #include <lib/version.h>
 #include "getopt.h"
-#include "thread.h"
+#include "frrevent.h"
 #include "command.h"
 #include "log.h"
 #include "memory.h"
@@ -54,7 +41,7 @@ struct zebra_privs_t pathd_privs = {
 struct option longopts[] = {{0}};
 
 /* Master of threads. */
-struct thread_master *master;
+struct event_loop *master;
 
 static struct frr_daemon_info pathd_di;
 
@@ -83,7 +70,7 @@ static void sigusr1(void)
 	zlog_rotate();
 }
 
-struct quagga_signal_t path_signals[] = {
+struct frr_signal_t path_signals[] = {
 	{
 		.signal = SIGHUP,
 		.handler = &sighup,

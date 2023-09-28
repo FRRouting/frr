@@ -13,23 +13,26 @@ Build-Depends: bison,
                install-info,
                libc-ares-dev,
                libcap-dev,
-               libelf-dev,
+               libelf-dev:native,
                libjson-c-dev | libjson0-dev,
                libpam0g-dev | libpam-dev,
                libpcre2-dev,
-               libpython3-dev,
+               libprotobuf-c-dev,
+               libpython3-dev:native,
                libreadline-dev,
-               librtr-dev <!pkg.frr.nortrlib>,
+               librtr-dev (>= 0.8.0~) <!pkg.frr.nortrlib>,
                libsnmp-dev,
                libssh-dev <!pkg.frr.nortrlib>,
-               libyang2-dev,
+               libyang2-dev (>= 2.1.80),
                lsb-base,
                pkg-config,
-               python3,
-               python3-dev,
-               python3-pytest <!nocheck>,
-               python3-sphinx,
+               protobuf-c-compiler,
+               python3:native,
+               python3-dev:native,
+               python3-pytest:native <!nocheck>,
+               python3-sphinx:native,
                texinfo (>= 4.7),
+               lua5.3 <pkg.frr.lua>,
                liblua5.3-dev <pkg.frr.lua>
 Standards-Version: 4.5.0.3
 Homepage: https://www.frrouting.org/
@@ -38,7 +41,7 @@ Vcs-Git: https://github.com/FRRouting/frr.git -b debian/master
 
 Package: frr
 Architecture: linux-any
-Depends: iproute2 | iproute,
+Depends: iproute2,
          logrotate (>= 3.2-11),
          lsof,
          ${misc:Depends},
@@ -103,9 +106,8 @@ Package: frr-doc
 Section: doc
 Architecture: all
 Multi-Arch: foreign
-Depends: libjs-jquery,
-         libjs-underscore,
-         ${misc:Depends}
+Depends: ${misc:Depends},
+         ${sphinxdoc:Depends}
 Suggests: frr
 Conflicts: quagga-doc
 Description: FRRouting suite - user manual

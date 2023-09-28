@@ -1,21 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * BFD daemon code
  * Copyright (C) 2018 Network Device Education Foundation, Inc. ("NetDEF")
- *
- * FRR is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * FRR is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with FRR; see the file COPYING.  If not, write to the Free
- * Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
- * 02111-1307, USA.
  */
 
 #include <zebra.h>
@@ -42,11 +28,11 @@
  * FRR related code.
  */
 DEFINE_MGROUP(BFDD, "Bidirectional Forwarding Detection Daemon");
-DEFINE_MTYPE(BFDD, BFDD_CONTROL, "long-lived control socket memory");
-DEFINE_MTYPE(BFDD, BFDD_NOTIFICATION, "short-lived control notification data");
+DEFINE_MTYPE(BFDD, BFDD_CONTROL, "control socket memory");
+DEFINE_MTYPE(BFDD, BFDD_NOTIFICATION, "control notification data");
 
 /* Master of threads. */
-struct thread_master *master;
+struct event_loop *master;
 
 /* BFDd privileges */
 static zebra_capabilities_t _caps_p[] = {ZCAP_BIND, ZCAP_SYS_ADMIN, ZCAP_NET_RAW};
@@ -103,7 +89,7 @@ static void sighup_handler(void)
 	vty_read_config(NULL, bfdd_di.config_file, config_default);
 }
 
-static struct quagga_signal_t bfd_signals[] = {
+static struct frr_signal_t bfd_signals[] = {
 	{
 		.signal = SIGUSR1,
 		.handler = &sigusr1_handler,
@@ -337,6 +323,8 @@ int main(int argc, char *argv[])
 	bool ctlsockused = false;
 	int opt;
 
+	bglobal.bg_use_dplane = false;
+
 	/* Initialize system sockets. */
 	bg_init();
 
@@ -387,8 +375,8 @@ int main(int argc, char *argv[])
 	/* Initialize zebra connection. */
 	bfdd_zclient_init(&bglobal.bfdd_privs);
 
-	thread_add_read(master, control_accept, NULL, bglobal.bg_csock,
-			&bglobal.bg_csockev);
+	event_add_read(master, control_accept, NULL, bglobal.bg_csock,
+		       &bglobal.bg_csockev);
 
 	/* Install commands. */
 	bfdd_vty_init();

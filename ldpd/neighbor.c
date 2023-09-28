@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: ISC
 /*	$OpenBSD$ */
 
 /*
@@ -5,18 +6,6 @@
  * Copyright (c) 2009 Michele Marchetto <michele@openbsd.org>
  * Copyright (c) 2005 Claudio Jeker <claudio@openbsd.org>
  * Copyright (c) 2004, 2005, 2008 Esben Norby <norby@openbsd.org>
- *
- * Permission to use, copy, modify, and distribute this software for any
- * purpose with or without fee is hereby granted, provided that the above
- * copyright notice and this permission notice appear in all copies.
- *
- * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
- * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
- * ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
- * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
- * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
- * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
 #include <zebra.h>
@@ -30,18 +19,16 @@ DEFINE_HOOK(ldp_nbr_state_change, (struct nbr * nbr, int old_state),
 	    (nbr, old_state));
 
 static __inline int	 nbr_id_compare(const struct nbr *, const struct nbr *);
-static __inline int	 nbr_addr_compare(const struct nbr *,
-			    const struct nbr *);
-static __inline int	 nbr_pid_compare(const struct nbr *,
-			    const struct nbr *);
+static __inline int	 nbr_addr_compare(const struct nbr *, const struct nbr *);
+static __inline int	 nbr_pid_compare(const struct nbr *, const struct nbr *);
 static void		 nbr_update_peerid(struct nbr *);
-static int		 nbr_ktimer(struct thread *);
+static void nbr_ktimer(struct event *thread);
 static void		 nbr_start_ktimer(struct nbr *);
-static int		 nbr_ktimeout(struct thread *);
+static void nbr_ktimeout(struct event *thread);
 static void		 nbr_start_ktimeout(struct nbr *);
-static int		 nbr_itimeout(struct thread *);
+static void nbr_itimeout(struct event *thread);
 static void		 nbr_start_itimeout(struct nbr *);
-static int		 nbr_idtimer(struct thread *);
+static void nbr_idtimer(struct event *thread);
 static int		 nbr_act_session_operational(struct nbr *);
 static void		 nbr_send_labelmappings(struct nbr *);
 static __inline int	 nbr_params_compare(const struct nbr_params *,
@@ -138,7 +125,7 @@ nbr_fsm(struct nbr *nbr, enum nbr_event event)
 
 	old_state = nbr->state;
 	for (i = 0; nbr_fsm_tbl[i].state != -1; i++)
-		if ((nbr_fsm_tbl[i].state & old_state) &&
+		if (CHECK_FLAG(nbr_fsm_tbl[i].state, old_state) &&
 		    (nbr_fsm_tbl[i].event == event)) {
 			new_state = nbr_fsm_tbl[i].new_state;
 			break;
@@ -207,8 +194,7 @@ nbr_fsm(struct nbr *nbr, enum nbr_event event)
 		send_keepalive(nbr);
 		break;
 	case NBR_ACT_CLOSE_SESSION:
-		ldpe_imsg_compose_lde(IMSG_NEIGHBOR_DOWN, nbr->peerid, 0,
-		    NULL, 0);
+		ldpe_imsg_compose_lde(IMSG_NEIGHBOR_DOWN, nbr->peerid, 0, NULL, 0);
 		session_close(nbr);
 		break;
 	case NBR_ACT_NOTHING:
@@ -307,7 +293,7 @@ nbr_del(struct nbr *nbr)
 	nbr->auth.method = AUTH_NONE;
 
 	if (nbr_pending_connect(nbr))
-		thread_cancel(&nbr->ev_connect);
+		EVENT_OFF(nbr->ev_connect);
 	nbr_stop_ktimer(nbr);
 	nbr_stop_ktimeout(nbr);
 	nbr_stop_itimeout(nbr);
@@ -359,8 +345,7 @@ nbr_find_ldpid(uint32_t lsr_id)
 	return (RB_FIND(nbr_id_head, &nbrs_by_id, &n));
 }
 
-struct nbr *
-nbr_get_first_ldpid()
+struct nbr *nbr_get_first_ldpid(void)
 {
 	return (RB_MIN(nbr_id_head, &nbrs_by_id));
 }
@@ -419,16 +404,13 @@ nbr_session_active_role(struct nbr *nbr)
 
 /* Keepalive timer: timer to send keepalive message to neighbors */
 
-static int
-nbr_ktimer(struct thread *thread)
+static void nbr_ktimer(struct event *thread)
 {
-	struct nbr	*nbr = THREAD_ARG(thread);
+	struct nbr *nbr = EVENT_ARG(thread);
 
 	nbr->keepalive_timer = NULL;
 	send_keepalive(nbr);
 	nbr_start_ktimer(nbr);
-
-	return (0);
 }
 
 static void
@@ -438,60 +420,54 @@ nbr_start_ktimer(struct nbr *nbr)
 
 	/* send three keepalives per period */
 	secs = nbr->keepalive / KEEPALIVE_PER_PERIOD;
-	thread_cancel(&nbr->keepalive_timer);
+	EVENT_OFF(nbr->keepalive_timer);
 	nbr->keepalive_timer = NULL;
-	thread_add_timer(master, nbr_ktimer, nbr, secs, &nbr->keepalive_timer);
+	event_add_timer(master, nbr_ktimer, nbr, secs, &nbr->keepalive_timer);
 }
 
 void
 nbr_stop_ktimer(struct nbr *nbr)
 {
-	thread_cancel(&nbr->keepalive_timer);
+	EVENT_OFF(nbr->keepalive_timer);
 }
 
 /* Keepalive timeout: if the nbr hasn't sent keepalive */
 
-static int
-nbr_ktimeout(struct thread *thread)
+static void nbr_ktimeout(struct event *thread)
 {
-	struct nbr *nbr = THREAD_ARG(thread);
+	struct nbr *nbr = EVENT_ARG(thread);
 
 	nbr->keepalive_timeout = NULL;
 
 	log_debug("%s: lsr-id %pI4", __func__, &nbr->id);
 
 	session_shutdown(nbr, S_KEEPALIVE_TMR, 0, 0);
-
-	return (0);
 }
 
 static void
 nbr_start_ktimeout(struct nbr *nbr)
 {
-	thread_cancel(&nbr->keepalive_timeout);
+	EVENT_OFF(nbr->keepalive_timeout);
 	nbr->keepalive_timeout = NULL;
-	thread_add_timer(master, nbr_ktimeout, nbr, nbr->keepalive,
-			 &nbr->keepalive_timeout);
+	event_add_timer(master, nbr_ktimeout, nbr, nbr->keepalive,
+			&nbr->keepalive_timeout);
 }
 
 void
 nbr_stop_ktimeout(struct nbr *nbr)
 {
-	thread_cancel(&nbr->keepalive_timeout);
+	EVENT_OFF(nbr->keepalive_timeout);
 }
 
 /* Session initialization timeout: if nbr got stuck in the initialization FSM */
 
-static int
-nbr_itimeout(struct thread *thread)
+static void nbr_itimeout(struct event *thread)
 {
-	struct nbr	*nbr = THREAD_ARG(thread);
+	struct nbr *nbr = EVENT_ARG(thread);
 
 	log_debug("%s: lsr-id %pI4", __func__, &nbr->id);
 
 	nbr_fsm(nbr, NBR_EVT_CLOSE_SESSION);
-
-	return (0);
 }
 
 static void
@@ -500,31 +476,28 @@ nbr_start_itimeout(struct nbr *nbr)
 	int		 secs;
 
 	secs = INIT_FSM_TIMEOUT;
-	thread_cancel(&nbr->init_timeout);
+	EVENT_OFF(nbr->init_timeout);
 	nbr->init_timeout = NULL;
-	thread_add_timer(master, nbr_itimeout, nbr, secs, &nbr->init_timeout);
+	event_add_timer(master, nbr_itimeout, nbr, secs, &nbr->init_timeout);
 }
 
 void
 nbr_stop_itimeout(struct nbr *nbr)
 {
-	thread_cancel(&nbr->init_timeout);
+	EVENT_OFF(nbr->init_timeout);
 }
 
 /* Init delay timer: timer to retry to iniziatize session */
 
-static int
-nbr_idtimer(struct thread *thread)
+static void nbr_idtimer(struct event *thread)
 {
-	struct nbr *nbr = THREAD_ARG(thread);
+	struct nbr *nbr = EVENT_ARG(thread);
 
 	nbr->initdelay_timer = NULL;
 
 	log_debug("%s: lsr-id %pI4", __func__, &nbr->id);
 
 	nbr_establish_connection(nbr);
-
-	return (0);
 }
 
 void
@@ -549,16 +522,15 @@ nbr_start_idtimer(struct nbr *nbr)
 		break;
 	}
 
-	thread_cancel(&nbr->initdelay_timer);
+	EVENT_OFF(nbr->initdelay_timer);
 	nbr->initdelay_timer = NULL;
-	thread_add_timer(master, nbr_idtimer, nbr, secs,
-			 &nbr->initdelay_timer);
+	event_add_timer(master, nbr_idtimer, nbr, secs, &nbr->initdelay_timer);
 }
 
 void
 nbr_stop_idtimer(struct nbr *nbr)
 {
-	thread_cancel(&nbr->initdelay_timer);
+	EVENT_OFF(nbr->initdelay_timer);
 }
 
 int
@@ -573,10 +545,9 @@ nbr_pending_connect(struct nbr *nbr)
 	return (nbr->ev_connect != NULL);
 }
 
-static int
-nbr_connect_cb(struct thread *thread)
+static void nbr_connect_cb(struct event *thread)
 {
-	struct nbr	*nbr = THREAD_ARG(thread);
+	struct nbr *nbr = EVENT_ARG(thread);
 	int		 error;
 	socklen_t	 len;
 
@@ -585,7 +556,7 @@ nbr_connect_cb(struct thread *thread)
 	len = sizeof(error);
 	if (getsockopt(nbr->fd, SOL_SOCKET, SO_ERROR, &error, &len) < 0) {
 		log_warn("%s: getsockopt SOL_SOCKET SO_ERROR", __func__);
-		return (0);
+		return;
 	}
 
 	if (error) {
@@ -593,12 +564,10 @@ nbr_connect_cb(struct thread *thread)
 		errno = error;
 		log_debug("%s: error while connecting to %s: %s", __func__,
 		    log_addr(nbr->af, &nbr->raddr), strerror(errno));
-		return (0);
+		return;
 	}
 
 	nbr_fsm(nbr, NBR_EVT_CONNECT_UP);
-
-	return (0);
 }
 
 int
@@ -634,8 +603,7 @@ nbr_establish_connection(struct nbr *nbr)
 			return (-1);
 		}
 #else
-		sock_set_md5sig(nbr->fd, nbr->af, &nbr->raddr,
-		    nbrp->auth.md5key);
+		sock_set_md5sig(nbr->fd, nbr->af, &nbr->raddr, nbrp->auth.md5key);
 #endif
 	}
 
@@ -674,11 +642,10 @@ nbr_establish_connection(struct nbr *nbr)
 		send_hello(adj->source.type, adj->source.link.ia,
 		    adj->source.target);
 
-	if (connect(nbr->fd, &remote_su.sa, sockaddr_len(&remote_su.sa))
-	    == -1) {
+	if (connect(nbr->fd, &remote_su.sa, sockaddr_len(&remote_su.sa)) == -1) {
 		if (errno == EINPROGRESS) {
-			thread_add_write(master, nbr_connect_cb, nbr, nbr->fd,
-					 &nbr->ev_connect);
+			event_add_write(master, nbr_connect_cb, nbr, nbr->fd,
+					&nbr->ev_connect);
 			return (0);
 		}
 		log_warn("%s: error while connecting to %s", __func__,
@@ -702,14 +669,14 @@ nbr_gtsm_enabled(struct nbr *nbr, struct nbr_params *nbrp)
 	 * statically (e.g., via configuration) and/or dynamically override the
 	 * default behavior and enable/disable GTSM on a per-peer basis".
 	 */
-	if (nbrp && (nbrp->flags & F_NBRP_GTSM))
+	if (nbrp && CHECK_FLAG(nbrp->flags, F_NBRP_GTSM))
 		return (nbrp->gtsm_enabled);
 
-	if ((ldp_af_conf_get(leconf, nbr->af))->flags & F_LDPD_AF_NO_GTSM)
+	if (CHECK_FLAG((ldp_af_conf_get(leconf, nbr->af))->flags, F_LDPD_AF_NO_GTSM))
 		return (0);
 
 	/* By default, GTSM support has to be negotiated for LDPv4 */
-	if (nbr->af == AF_INET && !(nbr->flags & F_NBR_GTSM_NEGOTIATED))
+	if (nbr->af == AF_INET && !CHECK_FLAG(nbr->flags, F_NBR_GTSM_NEGOTIATED))
 		return (0);
 
 	return (1);
@@ -720,7 +687,7 @@ nbr_gtsm_setup(int fd, int af, struct nbr_params *nbrp)
 {
 	int	 ttl = 255;
 
-	if (nbrp && (nbrp->flags & F_NBRP_GTSM_HOPS))
+	if (nbrp && CHECK_FLAG(nbrp->flags, F_NBRP_GTSM_HOPS))
 		ttl = 256 - nbrp->gtsm_hops;
 
 	switch (af) {
@@ -768,8 +735,7 @@ nbr_gtsm_check(int fd, struct nbr *nbr, struct nbr_params *nbrp)
 	}
 
 	if (nbr_gtsm_setup(fd, nbr->af, nbrp) == -1) {
-		log_warnx("%s: error enabling GTSM for lsr-id %pI4", __func__,
-		    &nbr->id);
+		log_warnx("%s: error enabling GTSM for lsr-id %pI4", __func__, &nbr->id);
 		return (-1);
 	}
 
@@ -800,8 +766,7 @@ nbr_act_session_operational(struct nbr *nbr)
 static void
 nbr_send_labelmappings(struct nbr *nbr)
 {
-	ldpe_imsg_compose_lde(IMSG_LABEL_MAPPING_FULL, nbr->peerid, 0,
-	    NULL, 0);
+	ldpe_imsg_compose_lde(IMSG_LABEL_MAPPING_FULL, nbr->peerid, 0, NULL, 0);
 }
 
 static __inline int
@@ -838,7 +803,7 @@ nbr_get_keepalive(int af, struct in_addr lsr_id)
 	struct nbr_params	*nbrp;
 
 	nbrp = nbr_params_find(leconf, lsr_id);
-	if (nbrp && (nbrp->flags & F_NBRP_KEEPALIVE))
+	if (nbrp && CHECK_FLAG(nbrp->flags, F_NBRP_KEEPALIVE))
 		return (nbrp->keepalive);
 
 	return ((ldp_af_conf_get(leconf, af))->keepalive);
@@ -862,11 +827,7 @@ nbr_to_ctl(struct nbr *nbr)
 	nctl.stats = nbr->stats;
 	nctl.flags = nbr->flags;
 	nctl.max_pdu_len = nbr->max_pdu_len;
-	if (nbr->keepalive_timer)
-		nctl.hold_time_remaining =
-		    thread_timer_remain_second(nbr->keepalive_timer);
-	else
-		nctl.hold_time_remaining = 0;
+	nctl.hold_time_remaining = event_timer_remain_second(nbr->keepalive_timer);
 
 	gettimeofday(&now, NULL);
 	if (nbr->state == NBR_STA_OPER) {

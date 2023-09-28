@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * CLI graph handling
  *
@@ -6,20 +7,6 @@
  * Copyright (C) 1997, 98, 99 Kunihiro Ishiguro
  * Copyright (C) 2013 by Open Source Routing.
  * Copyright (C) 2013 by Internet Systems Consortium, Inc. ("ISC")
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef _FRR_COMMAND_GRAPH_H
@@ -58,6 +45,7 @@ enum cmd_token_type {
 	IPV6_PREFIX_TKN, // IPV6 network prefixes
 	MAC_TKN,         // Ethernet address
 	MAC_PREFIX_TKN,  // Ethernet address w/ CIDR mask
+	ASNUM_TKN,       // AS dot format
 
 	/* plumbing types */
 	FORK_TKN,  // marks subgraph beginning
@@ -73,10 +61,19 @@ enum cmd_token_type {
 #define IS_VARYING_TOKEN(x) ((x) >= VARIABLE_TKN && (x) < FORK_TKN)
 
 /* Command attributes */
-enum { CMD_ATTR_NORMAL,
-       CMD_ATTR_DEPRECATED,
-       CMD_ATTR_HIDDEN,
-       CMD_ATTR_YANG,
+enum {
+	CMD_ATTR_YANG = (1 << 0),
+	CMD_ATTR_HIDDEN = (1 << 1),
+	CMD_ATTR_DEPRECATED = (1 << 2),
+	CMD_ATTR_NOSH = (1 << 3),
+};
+
+enum varname_src {
+	VARNAME_NONE = 0,
+	VARNAME_AUTO,
+	VARNAME_VAR,
+	VARNAME_TEXT,
+	VARNAME_EXPLICIT,
 };
 
 /* Command token struct. */
@@ -84,6 +81,7 @@ struct cmd_token {
 	enum cmd_token_type type; // token type
 	uint8_t attr;		  // token attributes
 	bool allowrepeat; // matcher allowed to match token repetitively?
+	uint8_t varname_src;
 	uint32_t refcnt;
 
 	char *text;	 // token text
@@ -119,6 +117,8 @@ extern struct cmd_token *cmd_token_new(enum cmd_token_type, uint8_t attr,
 extern struct cmd_token *cmd_token_dup(struct cmd_token *);
 extern void cmd_token_del(struct cmd_token *);
 extern void cmd_token_varname_set(struct cmd_token *token, const char *varname);
+extern void cmd_token_varname_seqappend(struct graph_node *n);
+extern void cmd_token_varname_join(struct graph_node *n, const char *varname);
 
 extern void cmd_graph_parse(struct graph *graph, const struct cmd_element *cmd);
 extern void cmd_graph_names(struct graph *graph);

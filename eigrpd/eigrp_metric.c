@@ -1,24 +1,9 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * EIGRP Metric Math Functions.
  * Copyright (C) 2013-2016
  * Authors:
  *   Donnie Savage
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -86,19 +71,24 @@ eigrp_metric_t eigrp_calculate_metrics(struct eigrp *eigrp,
 	 */
 
 	if (eigrp->k_values[0])
-		composite += (eigrp->k_values[0] * metric.bandwidth);
+		composite += ((eigrp_metric_t)eigrp->k_values[0] *
+			      (eigrp_metric_t)metric.bandwidth);
 	if (eigrp->k_values[1])
-		composite += ((eigrp->k_values[1] * metric.bandwidth)
-			      / (256 - metric.load));
+		composite += (((eigrp_metric_t)eigrp->k_values[1] *
+			       (eigrp_metric_t)metric.bandwidth) /
+			      (256 - metric.load));
 	if (eigrp->k_values[2])
-		composite += (eigrp->k_values[2] * metric.delay);
+		composite += ((eigrp_metric_t)eigrp->k_values[2] *
+			      (eigrp_metric_t)metric.delay);
 	if (eigrp->k_values[3] && !eigrp->k_values[4])
-		composite *= eigrp->k_values[3];
+		composite *= (eigrp_metric_t)eigrp->k_values[3];
 	if (!eigrp->k_values[3] && eigrp->k_values[4])
-		composite *= (eigrp->k_values[4] / metric.reliability);
+		composite *= ((eigrp_metric_t)eigrp->k_values[4] /
+			      (eigrp_metric_t)metric.reliability);
 	if (eigrp->k_values[3] && eigrp->k_values[4])
-		composite *= ((eigrp->k_values[4] / metric.reliability)
-			      + eigrp->k_values[3]);
+		composite *= (((eigrp_metric_t)eigrp->k_values[4] /
+			       (eigrp_metric_t)metric.reliability) +
+			      (eigrp_metric_t)eigrp->k_values[3]);
 
 	composite =
 		(composite <= EIGRP_METRIC_MAX) ? composite : EIGRP_METRIC_MAX;

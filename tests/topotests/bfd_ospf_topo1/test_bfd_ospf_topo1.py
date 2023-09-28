@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# SPDX-License-Identifier: ISC
 
 #
 # test_bfd_ospf_topo1.py
@@ -6,20 +7,6 @@
 #
 # Copyright (c) 2020 by
 # Network Device Education Foundation, Inc. ("NetDEF")
-#
-# Permission to use, copy, modify, and/or distribute this software
-# for any purpose with or without fee is hereby granted, provided
-# that the above copyright notice and this permission notice appear
-# in all copies.
-#
-# THE SOFTWARE IS PROVIDED "AS IS" AND NETDEF DISCLAIMS ALL WARRANTIES
-# WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
-# MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL NETDEF BE LIABLE FOR
-# ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY
-# DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS,
-# WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS
-# ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE
-# OF THIS SOFTWARE.
 #
 
 """
@@ -195,16 +182,16 @@ def test_bfd_ospf_interface_failure_rt2_step3():
 
     # By default BFD provides a recovery time of 900ms plus jitter, so let's wait
     # initial 2 seconds to let the CI not suffer.
-    topotest.sleep(2, 'Wait for BFD down notification')
+    topotest.sleep(2, "Wait for BFD down notification")
 
     router_compare_json_output(
-        "rt1", "show ip route ospf json", "step3/show_ip_route_rt2_down.ref", 1, 0
+        "rt1", "show ip route ospf json", "step3/show_ip_route_rt2_down.ref", 10, 2
     )
     router_compare_json_output(
-        "rt1", "show ipv6 route ospf json", "step3/show_ipv6_route_rt2_down.ref", 1, 0
+        "rt1", "show ipv6 route ospf json", "step3/show_ipv6_route_rt2_down.ref", 10, 2
     )
     router_compare_json_output(
-        "rt1", "show bfd peers json", "step3/show_bfd_peers_rt2_down.ref", 1, 0
+        "rt1", "show bfd peers json", "step3/show_bfd_peers_rt2_down.ref", 10, 2
     )
 
     # Check recovery, this can take some time
@@ -234,15 +221,15 @@ def test_bfd_ospf_interface_failure_rt3_step3():
 
     # By default BFD provides a recovery time of 900ms plus jitter, so let's wait
     # initial 2 seconds to let the CI not suffer.
-    topotest.sleep(2, 'Wait for BFD down notification')
+    topotest.sleep(2, "Wait for BFD down notification")
     router_compare_json_output(
-        "rt1", "show ip route ospf json", "step3/show_ip_route_rt3_down.ref", 1, 0
+        "rt1", "show ip route ospf json", "step3/show_ip_route_rt3_down.ref", 10, 2
     )
     router_compare_json_output(
-        "rt1", "show ipv6 route ospf json", "step3/show_ipv6_route_rt3_down.ref", 1, 0
+        "rt1", "show ipv6 route ospf json", "step3/show_ipv6_route_rt3_down.ref", 10, 2
     )
     router_compare_json_output(
-        "rt1", "show bfd peers json", "step3/show_bfd_peers_rt3_down.ref", 1, 0
+        "rt1", "show bfd peers json", "step3/show_bfd_peers_rt3_down.ref", 10, 2
     )
 
     # Check recovery, this can take some time

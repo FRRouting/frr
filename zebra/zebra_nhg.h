@@ -1,24 +1,8 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* Zebra Nexthop Group header.
  * Copyright (C) 2019 Cumulus Networks, Inc.
  *                    Donald Sharp
  *                    Stephen Worley
- *
- * This file is part of FRR.
- *
- * FRR is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * FRR is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with FRR; see the file COPYING.  If not, write to the Free
- * Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
- * 02111-1307, USA.
  */
 #ifndef __ZEBRA_NHG_H__
 #define __ZEBRA_NHG_H__
@@ -79,15 +63,33 @@ struct nhg_hash_entry {
 
 	uint32_t flags;
 
-	/* Dependency tree for other entries.
+	/* Dependency trees for other entries.
 	 * For instance a group with two
 	 * nexthops will have two dependencies
 	 * pointing to those nhg_hash_entries.
 	 *
 	 * Using a rb tree here to make lookups
 	 * faster with ID's.
+	 *
+	 * nhg_depends the RB tree of entries that this
+	 * group contains.
+	 *
+	 * nhg_dependents the RB tree of entries that
+	 * this group is being used by
+	 *
+	 * NHG id 3 with nexthops id 1/2
+	 * nhg(3)->nhg_depends has 1 and 2 in the tree
+	 * nhg(3)->nhg_dependents is empty
+	 *
+	 * nhg(1)->nhg_depends is empty
+	 * nhg(1)->nhg_dependents is 3 in the tree
+	 *
+	 * nhg(2)->nhg_depends is empty
+	 * nhg(3)->nhg_dependents is 3 in the tree
 	 */
 	struct nhg_connected_tree_head nhg_depends, nhg_dependents;
+
+	struct event *timer;
 
 /*
  * Is this nexthop group valid, ie all nexthops are fully resolved.
@@ -128,6 +130,15 @@ struct nhg_hash_entry {
  *
  */
 #define NEXTHOP_GROUP_PROTO_RELEASED (1 << 5)
+
+/*
+ * When deleting a NHG notice that it is still installed
+ * and if it is, slightly delay the actual removal to
+ * the future.  So that upper level protocols might
+ * be able to take advantage of some NHG's that
+ * are there
+ */
+#define NEXTHOP_GROUP_KEEP_AROUND (1 << 6)
 
 /*
  * Track FPM installation status..
@@ -201,6 +212,7 @@ struct nhg_ctx {
 		struct nh_grp grp[MULTIPATH_NUM];
 	} u;
 
+	struct nhg_resilience resilience;
 	enum nhg_ctx_op_e op;
 	enum nhg_ctx_status status;
 };
@@ -229,6 +241,7 @@ struct nhg_hash_entry *zebra_nhg_alloc(void);
 void zebra_nhg_free(struct nhg_hash_entry *nhe);
 /* In order to clear a generic hash, we need a generic api, sigh. */
 void zebra_nhg_hash_free(void *p);
+void zebra_nhg_hash_free_zero_id(struct hash_bucket *b, void *arg);
 
 /* Init an nhe, for use in a hash lookup for example. There's some fuzziness
  * if the nhe represents only a single nexthop, so we try to capture that
@@ -280,7 +293,8 @@ void nhg_ctx_free(struct nhg_ctx **ctx);
 extern int zebra_nhg_kernel_find(uint32_t id, struct nexthop *nh,
 				 struct nh_grp *grp, uint8_t count,
 				 vrf_id_t vrf_id, afi_t afi, int type,
-				 int startup);
+				 int startup,
+				 struct nhg_resilience *resilience);
 /* Del via kernel */
 extern int zebra_nhg_kernel_del(uint32_t id, vrf_id_t vrf_id);
 
@@ -344,6 +358,7 @@ extern uint8_t zebra_nhg_nhe2grp(struct nh_grp *grp, struct nhg_hash_entry *nhe,
 /* Dataplane install/uninstall */
 extern void zebra_nhg_install_kernel(struct nhg_hash_entry *nhe);
 extern void zebra_nhg_uninstall_kernel(struct nhg_hash_entry *nhe);
+extern void zebra_interface_nhg_reinstall(struct interface *ifp);
 
 /* Forward ref of dplane update context type */
 struct zebra_dplane_ctx;
@@ -363,6 +378,10 @@ extern void zebra_nhg_mark_keep(void);
 /* Nexthop resolution processing */
 struct route_entry; /* Forward ref to avoid circular includes */
 extern int nexthop_active_update(struct route_node *rn, struct route_entry *re);
+
+#ifdef _FRR_ATTRIBUTE_PRINTFRR
+#pragma FRR printfrr_ext "%pNG" (const struct nhg_hash_entry *)
+#endif
 
 #ifdef __cplusplus
 }

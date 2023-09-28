@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * This is an implementation of RFC7684 OSPFv2 Prefix/Link Attribute
  * Advertisement
@@ -8,20 +9,6 @@
  * Author: Anselme Sawadogo <anselmesawadogo@gmail.com>
  *
  * Copyright (C) 2016 - 2018 Orange Labs http://www.orange.com
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -38,7 +25,7 @@
 #include "vty.h"
 #include "stream.h"
 #include "log.h"
-#include "thread.h"
+#include "frrevent.h"
 #include "hash.h"
 #include "sockunion.h" /* for inet_aton() */
 #include "network.h"
@@ -74,13 +61,14 @@ static struct ospf_ext_lp OspfEXT;
 
 /*
  * -----------------------------------------------------------------------
- * Followings are initialize/terminate functions for Extended Prefix/Link
+ * Following are initialize/terminate functions for Extended Prefix/Link
  * Opaque LSA handling.
  * -----------------------------------------------------------------------
  */
 
 /* Extended Prefix Opaque LSA related callback functions */
-static void ospf_ext_pref_show_info(struct vty *vty, struct ospf_lsa *lsa);
+static void ospf_ext_pref_show_info(struct vty *vty, struct json_object *json,
+				    struct ospf_lsa *lsa);
 static int ospf_ext_pref_lsa_originate(void *arg);
 static struct ospf_lsa *ospf_ext_pref_lsa_refresh(struct ospf_lsa *lsa);
 static void ospf_ext_pref_lsa_schedule(struct ext_itf *exti,
@@ -90,7 +78,8 @@ static int ospf_ext_link_new_if(struct interface *ifp);
 static int ospf_ext_link_del_if(struct interface *ifp);
 static void ospf_ext_ism_change(struct ospf_interface *oi, int old_status);
 static void ospf_ext_link_nsm_change(struct ospf_neighbor *nbr, int old_status);
-static void ospf_ext_link_show_info(struct vty *vty, struct ospf_lsa *lsa);
+static void ospf_ext_link_show_info(struct vty *vty, struct json_object *json,
+				    struct ospf_lsa *lsa);
 static int ospf_ext_link_lsa_originate(void *arg);
 static struct ospf_lsa *ospf_ext_link_lsa_refresh(struct ospf_lsa *lsa);
 static void ospf_ext_link_lsa_schedule(struct ext_itf *exti,
@@ -112,7 +101,7 @@ int ospf_ext_init(void)
 {
 	int rc = 0;
 
-	memset(&OspfEXT, 0, sizeof(struct ospf_ext_lp));
+	memset(&OspfEXT, 0, sizeof(OspfEXT));
 	OspfEXT.enabled = false;
 	/* Only Area flooding is supported yet */
 	OspfEXT.scope = OSPF_OPAQUE_AREA_LSA;
@@ -214,7 +203,7 @@ void ospf_ext_finish(void)
 
 /*
  * ---------------------------------------------------------------------
- * Followings are control functions for Extended Prefix/Link Opaque LSA
+ * Following are control functions for Extended Prefix/Link Opaque LSA
  * parameters management.
  * ---------------------------------------------------------------------
  */
@@ -254,10 +243,10 @@ static uint32_t get_ext_link_instance_value(void)
 /* Lookup Extended Prefix/Links by ifp from OspfEXT struct iflist */
 static struct ext_itf *lookup_ext_by_ifp(struct interface *ifp)
 {
-	struct listnode *node, *nnode;
+	struct listnode *node;
 	struct ext_itf *exti;
 
-	for (ALL_LIST_ELEMENTS(OspfEXT.iflist, node, nnode, exti))
+	for (ALL_LIST_ELEMENTS_RO(OspfEXT.iflist, node, exti))
 		if (exti->ifp == ifp)
 			return exti;
 
@@ -679,7 +668,7 @@ void ospf_ext_update_sr(bool enable)
 
 /*
  * -----------------------------------------------------------------------
- * Followings are callback functions against generic Opaque-LSAs handling
+ * Following are callback functions against generic Opaque-LSAs handling
  * -----------------------------------------------------------------------
  */
 
@@ -983,7 +972,7 @@ static int ospf_ext_pref_lsa_update(struct ospf_lsa *lsa)
 
 /*
  * -------------------------------------------------------
- * Followings are OSPF protocol processing functions for
+ * Following are OSPF protocol processing functions for
  * Extended Prefix/Link Opaque LSA
  * -------------------------------------------------------
  */
@@ -1711,7 +1700,7 @@ static void ospf_ext_lsa_schedule(struct ext_itf *exti, enum lsa_opcode op)
 
 /*
  * ------------------------------------
- * Followings are vty show functions.
+ * Following are vty show functions.
  * ------------------------------------
  */
 
@@ -1846,11 +1835,15 @@ static uint16_t show_vty_link_info(struct vty *vty, struct tlv_header *ext,
 }
 
 /* Extended Link TLVs */
-static void ospf_ext_link_show_info(struct vty *vty, struct ospf_lsa *lsa)
+static void ospf_ext_link_show_info(struct vty *vty, struct json_object *json,
+				    struct ospf_lsa *lsa)
 {
 	struct lsa_header *lsah = lsa->data;
 	struct tlv_header *tlvh;
 	uint16_t length = 0, sum = 0;
+
+	if (json)
+		return;
 
 	/* Initialize TLV browsing */
 	length = lsa->size - OSPF_LSA_HEADER_SIZE;
@@ -1932,11 +1925,15 @@ static uint16_t show_vty_pref_info(struct vty *vty, struct tlv_header *ext,
 }
 
 /* Extended Prefix TLVs */
-static void ospf_ext_pref_show_info(struct vty *vty, struct ospf_lsa *lsa)
+static void ospf_ext_pref_show_info(struct vty *vty, struct json_object *json,
+				    struct ospf_lsa *lsa)
 {
 	struct lsa_header *lsah = lsa->data;
 	struct tlv_header *tlvh;
 	uint16_t length = 0, sum = 0;
+
+	if (json)
+		return;
 
 	/* Initialize TLV browsing */
 	length = lsa->size - OSPF_LSA_HEADER_SIZE;

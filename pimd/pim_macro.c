@@ -1,20 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * PIM for Quagga
  * Copyright (C) 2008  Everton da Silva Marques
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -25,6 +12,7 @@
 #include "plist.h"
 
 #include "pimd.h"
+#include "pim_instance.h"
 #include "pim_macro.h"
 #include "pim_iface.h"
 #include "pim_ifchannel.h"
@@ -128,11 +116,11 @@ int pim_macro_ch_lost_assert(const struct pim_ifchannel *ch)
 		return 0; /* false */
 	}
 
-	if (PIM_INADDR_IS_ANY(ch->ifassert_winner))
+	if (pim_addr_is_any(ch->ifassert_winner))
 		return 0; /* false */
 
 	/* AssertWinner(S,G,I) == me ? */
-	if (ch->ifassert_winner.s_addr == pim_ifp->primary_address.s_addr)
+	if (!pim_addr_cmp(ch->ifassert_winner, pim_ifp->primary_address))
 		return 0; /* false */
 
 	spt_assert_metric = pim_macro_spt_assert_metric(
@@ -170,7 +158,7 @@ int pim_macro_chisin_pim_include(const struct pim_ifchannel *ch)
 		return 0; /* false */
 
 	/* OR AssertWinner(S,G,I) == me ? */
-	if (ch->ifassert_winner.s_addr == pim_ifp->primary_address.s_addr)
+	if (!pim_addr_cmp(ch->ifassert_winner, pim_ifp->primary_address))
 		return 1; /* true */
 
 	/*
@@ -261,7 +249,7 @@ int pim_macro_ch_could_assert_eval(const struct pim_ifchannel *ch)
     }
 */
 struct pim_assert_metric pim_macro_spt_assert_metric(const struct pim_rpf *rpf,
-						     struct in_addr ifaddr)
+						     pim_addr ifaddr)
 {
 	struct pim_assert_metric metric;
 
@@ -412,8 +400,8 @@ int pim_macro_assert_tracking_desired_eval(const struct pim_ifchannel *ch)
 			return 1; /* true */
 
 		/* AssertWinner(S,G,I) == me ? */
-		if (ch->ifassert_winner.s_addr
-		    == pim_ifp->primary_address.s_addr)
+		if (!pim_addr_cmp(ch->ifassert_winner,
+				  pim_ifp->primary_address))
 			return 1; /* true */
 	}
 

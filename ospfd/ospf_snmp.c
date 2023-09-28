@@ -1,24 +1,9 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* OSPFv2 SNMP support
  * Copyright (C) 2005 6WIND <alain.ritoux@6wind.com>
  * Copyright (C) 2000 IP Infusion Inc.
  *
  * Written by Kunihiro Ishiguro <kunihiro@zebra.org>
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -49,6 +34,8 @@
 #include "ospfd/ospf_dump.h"
 #include "ospfd/ospf_route.h"
 #include "ospfd/ospf_zebra.h"
+
+DEFINE_MTYPE_STATIC(OSPFD, SNMP, "OSPF SNMP");
 
 /* OSPF2-MIB. */
 #define OSPF2MIB 1,3,6,1,2,1,14
@@ -693,7 +680,7 @@ static uint8_t *ospfAreaEntry(struct variable *v, oid *name, size_t *length,
 	    == MATCH_FAILED)
 		return NULL;
 
-	memset(&addr, 0, sizeof(struct in_addr));
+	memset(&addr, 0, sizeof(addr));
 
 	area = ospfAreaLookup(v, name, length, &addr, exact);
 	if (!area)
@@ -821,7 +808,7 @@ static uint8_t *ospfStubAreaEntry(struct variable *v, oid *name, size_t *length,
 	    == MATCH_FAILED)
 		return NULL;
 
-	memset(&addr, 0, sizeof(struct in_addr));
+	memset(&addr, 0, sizeof(addr));
 
 	area = ospfStubAreaLookup(v, name, length, &addr, exact);
 	if (!area)
@@ -919,7 +906,7 @@ static struct ospf_lsa *ospfLsdbLookup(struct variable *v, oid *name,
 		area = ospf_area_lookup_by_area_id(ospf, *area_id);
 		if (!area)
 			return NULL;
-		offset += IN_ADDR_SIZE;
+		offset++;
 
 		/* Type. */
 		*type = *offset;
@@ -927,7 +914,7 @@ static struct ospf_lsa *ospfLsdbLookup(struct variable *v, oid *name,
 
 		/* LS ID. */
 		oid2in_addr(offset, IN_ADDR_SIZE, ls_id);
-		offset += IN_ADDR_SIZE;
+		offset++;
 
 		/* Router ID. */
 		oid2in_addr(offset, IN_ADDR_SIZE, router_id);
@@ -984,7 +971,7 @@ static struct ospf_lsa *ospfLsdbLookup(struct variable *v, oid *name,
 			}
 
 			/* Router ID. */
-			offset += IN_ADDR_SIZE;
+			offset++;
 			offsetlen -= IN_ADDR_SIZE;
 			len = offsetlen;
 
@@ -1009,11 +996,11 @@ static struct ospf_lsa *ospfLsdbLookup(struct variable *v, oid *name,
 				/* Fill in value. */
 				offset = name + v->namelen;
 				oid_copy_in_addr(offset, area_id);
-				offset += IN_ADDR_SIZE;
+				offset++;
 				*offset = lsa->data->type;
 				offset++;
 				oid_copy_in_addr(offset, &lsa->data->id);
-				offset += IN_ADDR_SIZE;
+				offset++;
 				oid_copy_in_addr(offset,
 						 &lsa->data->adv_router);
 
@@ -1044,10 +1031,10 @@ static uint8_t *ospfLsdbEntry(struct variable *v, oid *name, size_t *length,
 	/* INDEX { ospfLsdbAreaId, ospfLsdbType,
 	   ospfLsdbLsid, ospfLsdbRouterId } */
 
-	memset(&area_id, 0, sizeof(struct in_addr));
+	memset(&area_id, 0, sizeof(area_id));
 	type = 0;
-	memset(&ls_id, 0, sizeof(struct in_addr));
-	memset(&router_id, 0, sizeof(struct in_addr));
+	memset(&ls_id, 0, sizeof(ls_id));
+	memset(&router_id, 0, sizeof(router_id));
 
 	/* Check OSPF instance. */
 	ospf = ospf_lookup_by_vrf_id(VRF_DEFAULT);
@@ -1119,13 +1106,13 @@ static struct ospf_area_range *ospfAreaRangeLookup(struct variable *v,
 		if (!area)
 			return NULL;
 
-		offset += IN_ADDR_SIZE;
+		offset++;
 
 		/* Lookup area range. */
 		oid2in_addr(offset, IN_ADDR_SIZE, range_net);
 		p.prefix = *range_net;
 
-		return ospf_area_range_lookup(area, &p);
+		return ospf_area_range_lookup(area, area->ranges, &p);
 	} else {
 		/* Set OID offset for Area ID. */
 		offset = name + v->namelen;
@@ -1148,7 +1135,7 @@ static struct ospf_area_range *ospfAreaRangeLookup(struct variable *v,
 			return NULL;
 
 		do {
-			offset += IN_ADDR_SIZE;
+			offset++;
 			offsetlen -= IN_ADDR_SIZE;
 			len = offsetlen;
 
@@ -1170,7 +1157,7 @@ static struct ospf_area_range *ospfAreaRangeLookup(struct variable *v,
 				/* Fill in value. */
 				offset = name + v->namelen;
 				oid_copy_in_addr(offset, area_id);
-				offset += IN_ADDR_SIZE;
+				offset++;
 				oid_copy_in_addr(offset, range_net);
 
 				return range;
@@ -1279,7 +1266,7 @@ static uint8_t *ospfHostEntry(struct variable *v, oid *name, size_t *length,
 	if (ospf == NULL)
 		return NULL;
 
-	memset(&addr, 0, sizeof(struct in_addr));
+	memset(&addr, 0, sizeof(addr));
 
 	nbr_nbma = ospfHostLookup(v, name, length, &addr, exact);
 	if (nbr_nbma == NULL)
@@ -1321,12 +1308,12 @@ struct ospf_snmp_if {
 
 static struct ospf_snmp_if *ospf_snmp_if_new(void)
 {
-	return XCALLOC(MTYPE_TMP, sizeof(struct ospf_snmp_if));
+	return XCALLOC(MTYPE_SNMP, sizeof(struct ospf_snmp_if));
 }
 
 static void ospf_snmp_if_free(struct ospf_snmp_if *osif)
 {
-	XFREE(MTYPE_TMP, osif);
+	XFREE(MTYPE_SNMP, osif);
 }
 
 static int ospf_snmp_if_delete(struct interface *ifp)
@@ -1573,7 +1560,7 @@ static struct ospf_interface *ospfIfLookup(struct variable *v, oid *name,
 			*length = v->namelen + IN_ADDR_SIZE + 1;
 			offset = name + v->namelen;
 			oid_copy_in_addr(offset, ifaddr);
-			offset += IN_ADDR_SIZE;
+			offset++;
 			*offset = *ifindex;
 			return oi;
 		}
@@ -1595,7 +1582,7 @@ static uint8_t *ospfIfEntry(struct variable *v, oid *name, size_t *length,
 		return NULL;
 
 	ifindex = 0;
-	memset(&ifaddr, 0, sizeof(struct in_addr));
+	memset(&ifaddr, 0, sizeof(ifaddr));
 
 	/* Check OSPF instance. */
 	ospf = ospf_lookup_by_vrf_id(VRF_DEFAULT);
@@ -1717,7 +1704,7 @@ static struct ospf_interface *ospfIfMetricLookup(struct variable *v, oid *name,
 			*length = v->namelen + IN_ADDR_SIZE + 1 + 1;
 			offset = name + v->namelen;
 			oid_copy_in_addr(offset, ifaddr);
-			offset += IN_ADDR_SIZE;
+			offset++;
 			*offset = *ifindex;
 			offset++;
 			*offset = OSPF_SNMP_METRIC_VALUE;
@@ -1742,7 +1729,7 @@ static uint8_t *ospfIfMetricEntry(struct variable *v, oid *name, size_t *length,
 		return NULL;
 
 	ifindex = 0;
-	memset(&ifaddr, 0, sizeof(struct in_addr));
+	memset(&ifaddr, 0, sizeof(ifaddr));
 
 	/* Check OSPF instance. */
 	ospf = ospf_lookup_by_vrf_id(VRF_DEFAULT);
@@ -1778,8 +1765,8 @@ static int ospf_snmp_vl_add(struct ospf_vl_data *vl_data)
 	struct prefix_ls lp;
 	struct route_node *rn;
 
-	memset(&lp, 0, sizeof(struct prefix_ls));
-	lp.family = 0;
+	memset(&lp, 0, sizeof(lp));
+	lp.family = AF_UNSPEC;
 	lp.prefixlen = 64;
 	lp.id = vl_data->vl_area_id;
 	lp.adv_router = vl_data->vl_peer;
@@ -1797,8 +1784,8 @@ static int ospf_snmp_vl_delete(struct ospf_vl_data *vl_data)
 	struct prefix_ls lp;
 	struct route_node *rn;
 
-	memset(&lp, 0, sizeof(struct prefix_ls));
-	lp.family = 0;
+	memset(&lp, 0, sizeof(lp));
+	lp.family = AF_UNSPEC;
 	lp.prefixlen = 64;
 	lp.id = vl_data->vl_area_id;
 	lp.adv_router = vl_data->vl_peer;
@@ -1819,8 +1806,8 @@ static struct ospf_vl_data *ospf_snmp_vl_lookup(struct in_addr *area_id,
 	struct route_node *rn;
 	struct ospf_vl_data *vl_data;
 
-	memset(&lp, 0, sizeof(struct prefix_ls));
-	lp.family = 0;
+	memset(&lp, 0, sizeof(lp));
+	lp.family = AF_UNSPEC;
 	lp.prefixlen = 64;
 	lp.id = *area_id;
 	lp.adv_router = *neighbor;
@@ -1842,8 +1829,8 @@ static struct ospf_vl_data *ospf_snmp_vl_lookup_next(struct in_addr *area_id,
 	struct route_node *rn;
 	struct ospf_vl_data *vl_data;
 
-	memset(&lp, 0, sizeof(struct prefix_ls));
-	lp.family = 0;
+	memset(&lp, 0, sizeof(lp));
+	lp.family = AF_UNSPEC;
 	lp.prefixlen = 64;
 	lp.id = *area_id;
 	lp.adv_router = *neighbor;
@@ -1927,8 +1914,8 @@ static uint8_t *ospfVirtIfEntry(struct variable *v, oid *name, size_t *length,
 	    == MATCH_FAILED)
 		return NULL;
 
-	memset(&area_id, 0, sizeof(struct in_addr));
-	memset(&neighbor, 0, sizeof(struct in_addr));
+	memset(&area_id, 0, sizeof(area_id));
+	memset(&neighbor, 0, sizeof(neighbor));
 
 	vl_data = ospfVirtIfLookup(v, name, length, &area_id, &neighbor, exact);
 	if (!vl_data)
@@ -2090,7 +2077,7 @@ static struct ospf_neighbor *ospfNbrLookup(struct variable *v, oid *name,
 	return NULL;
 }
 
-/* map internal quagga neighbor states to official MIB values:
+/* map internal frr neighbor states to official MIB values:
 
 ospfNbrState OBJECT-TYPE
 	SYNTAX   INTEGER    {
@@ -2139,7 +2126,7 @@ static uint8_t *ospfNbrEntry(struct variable *v, oid *name, size_t *length,
 	    == MATCH_FAILED)
 		return NULL;
 
-	memset(&nbr_addr, 0, sizeof(struct in_addr));
+	memset(&nbr_addr, 0, sizeof(nbr_addr));
 	ifindex = 0;
 
 	nbr = ospfNbrLookup(v, name, length, &nbr_addr, &ifindex, exact);
@@ -2190,8 +2177,8 @@ static uint8_t *ospfVirtNbrEntry(struct variable *v, oid *name, size_t *length,
 	    == MATCH_FAILED)
 		return NULL;
 
-	memset(&area_id, 0, sizeof(struct in_addr));
-	memset(&neighbor, 0, sizeof(struct in_addr));
+	memset(&area_id, 0, sizeof(area_id));
+	memset(&neighbor, 0, sizeof(neighbor));
 
 	/* Check OSPF instance. */
 	ospf = ospf_lookup_by_vrf_id(VRF_DEFAULT);
@@ -2255,7 +2242,7 @@ static struct ospf_lsa *ospfExtLsdbLookup(struct variable *v, oid *name,
 
 		/* LS ID. */
 		oid2in_addr(offset, IN_ADDR_SIZE, ls_id);
-		offset += IN_ADDR_SIZE;
+		offset++;
 
 		/* Router ID. */
 		oid2in_addr(offset, IN_ADDR_SIZE, router_id);
@@ -2283,7 +2270,7 @@ static struct ospf_lsa *ospfExtLsdbLookup(struct variable *v, oid *name,
 
 		oid2in_addr(offset, len, ls_id);
 
-		offset += IN_ADDR_SIZE;
+		offset++;
 		offsetlen -= IN_ADDR_SIZE;
 
 		/* Router ID. */
@@ -2306,7 +2293,7 @@ static struct ospf_lsa *ospfExtLsdbLookup(struct variable *v, oid *name,
 			*offset = OSPF_AS_EXTERNAL_LSA;
 			offset++;
 			oid_copy_in_addr(offset, &lsa->data->id);
-			offset += IN_ADDR_SIZE;
+			offset++;
 			oid_copy_in_addr(offset, &lsa->data->adv_router);
 
 			return lsa;
@@ -2331,8 +2318,8 @@ static uint8_t *ospfExtLsdbEntry(struct variable *v, oid *name, size_t *length,
 		return NULL;
 
 	type = OSPF_AS_EXTERNAL_LSA;
-	memset(&ls_id, 0, sizeof(struct in_addr));
-	memset(&router_id, 0, sizeof(struct in_addr));
+	memset(&ls_id, 0, sizeof(ls_id));
+	memset(&router_id, 0, sizeof(router_id));
 
 	/* Check OSPF instance. */
 	ospf = ospf_lookup_by_vrf_id(VRF_DEFAULT);
@@ -2432,7 +2419,7 @@ static void ospfTrapNbrStateChange(struct ospf_neighbor *on)
 	oid index[sizeof(oid) * (IN_ADDR_SIZE + 1)];
 	char msgbuf[16];
 
-	ospf_nbr_state_message(on, msgbuf, sizeof(msgbuf));
+	ospf_nbr_ism_state_message(on, msgbuf, sizeof(msgbuf));
 	if (IS_DEBUG_OSPF_EVENT)
 		zlog_info("%s: trap sent: %pI4 now %s", __func__,
 			  &on->address.u.prefix4, msgbuf);
@@ -2538,7 +2525,7 @@ static int ospf_snmp_ism_change(struct ospf_interface *oi, int state,
 }
 
 /* Register OSPF2-MIB. */
-static int ospf_snmp_init(struct thread_master *tm)
+static int ospf_snmp_init(struct event_loop *tm)
 {
 	ospf_snmp_iflist = list_new();
 	ospf_snmp_vl_table = route_table_init();

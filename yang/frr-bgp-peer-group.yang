@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: BSD-2-Clause
 submodule frr-bgp-peer-group {
   yang-version 1.1;
 
@@ -12,6 +13,10 @@ submodule frr-bgp-peer-group {
   import frr-bgp-types {
     prefix frr-bt;
   }
+
+  include "frr-bgp-common-structure";
+
+  include "frr-bgp-neighbor";
 
   organization
     "FRRouting";

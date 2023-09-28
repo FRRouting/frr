@@ -1,22 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * OSPFd main routine.
  *   Copyright (C) 1998, 99 Kunihiro Ishiguro, Toshiaki Takada
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -24,7 +9,7 @@
 #include <lib/version.h>
 #include "bfd.h"
 #include "getopt.h"
-#include "thread.h"
+#include "frrevent.h"
 #include "prefix.h"
 #include "linklist.h"
 #include "if.h"
@@ -42,6 +27,7 @@
 #include "vrf.h"
 #include "libfrr.h"
 #include "routemap.h"
+#include "keychain.h"
 
 #include "ospfd/ospfd.h"
 #include "ospfd/ospf_interface.h"
@@ -85,7 +71,7 @@ const struct option longopts[] = {
 /* OSPFd program name */
 
 /* Master of threads. */
-struct thread_master *master;
+struct event_loop *master;
 
 #ifdef SUPPORT_OSPF_API
 extern int ospf_apiserver_enable;
@@ -112,7 +98,7 @@ static void sigusr1(void)
 	zlog_rotate();
 }
 
-struct quagga_signal_t ospf_signals[] = {
+struct frr_signal_t ospf_signals[] = {
 	{
 		.signal = SIGHUP,
 		.handler = &sighup,
@@ -148,6 +134,32 @@ FRR_DAEMON_INFO(ospfd, OSPF, .vty_port = OSPF_VTY_PORT,
 		.privs = &ospfd_privs, .yang_modules = ospfd_yang_modules,
 		.n_yang_modules = array_size(ospfd_yang_modules),
 );
+
+/** Max wait time for config to load before accepting hellos */
+#define OSPF_PRE_CONFIG_MAX_WAIT_SECONDS 600
+
+static void ospf_config_finish(struct event *t)
+{
+	zlog_err("OSPF configuration end timer expired after %d seconds.",
+		 OSPF_PRE_CONFIG_MAX_WAIT_SECONDS);
+}
+
+static void ospf_config_start(void)
+{
+	EVENT_OFF(t_ospf_cfg);
+	if (IS_DEBUG_OSPF_EVENT)
+		zlog_debug("ospfd config start callback received.");
+	event_add_timer(master, ospf_config_finish, NULL,
+			OSPF_PRE_CONFIG_MAX_WAIT_SECONDS, &t_ospf_cfg);
+}
+
+static void ospf_config_end(void)
+{
+	if (IS_DEBUG_OSPF_EVENT)
+		zlog_debug("ospfd config end callback received.");
+
+	EVENT_OFF(t_ospf_cfg);
+}
 
 /* OSPFd main routine. */
 int main(int argc, char **argv)
@@ -207,6 +219,10 @@ int main(int argc, char **argv)
 
 	access_list_init();
 	prefix_list_init();
+	keychain_init();
+
+	/* Configuration processing callback initialization. */
+	cmd_init_config_callbacks(ospf_config_start, ospf_config_end);
 
 	/* OSPFd inits. */
 	ospf_if_init();

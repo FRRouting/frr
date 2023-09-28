@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# SPDX-License-Identifier: ISC
 
 #
 # test_ospf6_topo2.py
@@ -6,20 +7,6 @@
 #
 # Copyright (c) 2021 by
 # Network Device Education Foundation, Inc. ("NetDEF")
-#
-# Permission to use, copy, modify, and/or distribute this software
-# for any purpose with or without fee is hereby granted, provided
-# that the above copyright notice and this permission notice appear
-# in all copies.
-#
-# THE SOFTWARE IS PROVIDED "AS IS" AND NETDEF DISCLAIMS ALL WARRANTIES
-# WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
-# MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL NETDEF BE LIABLE FOR
-# ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY
-# DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS,
-# WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS
-# ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE
-# OF THIS SOFTWARE.
 #
 
 """
@@ -131,6 +118,9 @@ def build_topo(tgen):
     switch.add_link(tgen.gears["r2"])
     switch.add_link(tgen.gears["r4"])
 
+    switch = tgen.add_switch("s4")
+    switch.add_link(tgen.gears["r4"], nodeif="r4-stubnet")
+
 
 def setup_module(mod):
     "Sets up the pytest environment"
@@ -139,6 +129,7 @@ def setup_module(mod):
 
     router_list = tgen.routers()
     for rname, router in router_list.items():
+
         daemon_file = "{}/{}/zebra.conf".format(CWD, rname)
         if os.path.isfile(daemon_file):
             router.load_config(TopoRouter.RD_ZEBRA, daemon_file)
@@ -240,7 +231,7 @@ def test_ospf6_default_route():
             "show ipv6 route json",
             {route: [{"metric": metric}]},
         )
-        _, result = topotest.run_and_expect(test_func, None, count=4, wait=1)
+        _, result = topotest.run_and_expect(test_func, None, count=5, wait=1)
         assertmsg = '"{}" convergence failure'.format(router)
         assert result is None, assertmsg
 
@@ -484,7 +475,7 @@ def test_area_filters():
         pytest.skip(tgen.errors)
 
     #
-    # Configure import/export filters on r2 (ABR for area 1).
+    # Configure import/export filters on r2 (ABR for area 2).
     #
     config = """
     configure terminal
@@ -542,6 +533,104 @@ def test_area_filters():
     logger.info("Expecting ::/0 to be re-added on r1")
     routes = {"::/0": {}}
     expect_ospfv3_routes("r1", routes, wait=30, type="inter-area")
+
+
+def test_nssa_range():
+    """
+    Test NSSA ABR ranges.
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    # Configure new addresses on r4 and enable redistribution of connected
+    # routes.
+    config = """
+    configure terminal
+    interface r4-stubnet
+    ipv6 address 2001:db8:1000::1/128
+    ipv6 address 2001:db8:1000::2/128
+    router ospf6
+    redistribute connected
+    """
+    tgen.gears["r4"].vtysh_cmd(config)
+    logger.info("Expecting NSSA-translated external routes to be added on r3")
+    routes = {"2001:db8:1000::1/128": {}, "2001:db8:1000::2/128": {}}
+    expect_ospfv3_routes("r3", routes, wait=30, type="external-2")
+
+    # Configure an NSSA range on r2 (ABR for area 2).
+    config = """
+    configure terminal
+    router ospf6
+    area 2 nssa range 2001:db8:1000::/64
+    """
+    tgen.gears["r2"].vtysh_cmd(config)
+    logger.info("Expecting summarized routes to be removed from r3")
+    for route in ["2001:db8:1000::1/128", "2001:db8:1000::2/128"]:
+        test_func = partial(dont_expect_route, "r3", route, type="external-2")
+        _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+        assertmsg = "{}'s {} summarized route still exists".format("r3", route)
+        assert result is None, assertmsg
+    logger.info("Expecting NSSA range to be added on r3")
+    routes = {
+        "2001:db8:1000::/64": {
+            "metricType": 2,
+            "metricCost": 20,
+            "metricCostE2": 10,
+        }
+    }
+    expect_ospfv3_routes("r3", routes, wait=30, type="external-2", detail=True)
+
+    # Change the NSSA range cost.
+    config = """
+    configure terminal
+    router ospf6
+    area 2 nssa range 2001:db8:1000::/64 cost 1000
+    """
+    tgen.gears["r2"].vtysh_cmd(config)
+    logger.info("Expecting NSSA range to be updated with new cost")
+    routes = {
+        "2001:db8:1000::/64": {
+            "metricType": 2,
+            "metricCost": 20,
+            "metricCostE2": 1000,
+        }
+    }
+    expect_ospfv3_routes("r3", routes, wait=30, type="external-2", detail=True)
+
+    # Configure the NSSA range to not be advertised.
+    config = """
+    configure terminal
+    router ospf6
+    area 2 nssa range 2001:db8:1000::/64 not-advertise
+    """
+    tgen.gears["r2"].vtysh_cmd(config)
+    logger.info("Expecting NSSA summary route to be removed")
+    route = "2001:db8:1000::/64"
+    test_func = partial(dont_expect_route, "r3", route, type="external-2")
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    assertmsg = "{}'s {} NSSA summary route still exists".format("r3", route)
+    assert result is None, assertmsg
+
+    # Remove the NSSA range.
+    config = """
+    configure terminal
+    router ospf6
+    no area 2 nssa range 2001:db8:1000::/64
+    """
+    tgen.gears["r2"].vtysh_cmd(config)
+    logger.info("Expecting previously summarized routes to be re-added")
+    routes = {
+        "2001:db8:1000::1/128": {
+            "metricType": 2,
+            "metricCostE2": 20,
+        },
+        "2001:db8:1000::2/128": {
+            "metricType": 2,
+            "metricCostE2": 20,
+        },
+    }
+    expect_ospfv3_routes("r3", routes, wait=30, type="external-2", detail=True)
 
 
 def teardown_module(_mod):

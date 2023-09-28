@@ -1,9 +1,9 @@
 name: frr
-version: @VERSION@
+version: '@VERSION@'
 summary: FRRouting BGP/OSPFv2/OSPFv3/ISIS/RIP/RIPng/PIM/LDP/EIGRP/BFD routing daemon
 description: BGP/OSPFv2/OSPFv3/ISIS/RIP/RIPng/PIM/LDP/EIGRP/BFD routing daemon
- FRRouting (FRR) is free software which manages TCP/IP based routing 
- protocols. It supports BGP4, BGP4+, OSPFv2, OSPFv3, IS-IS, RIPv1, RIPv2, 
+ FRRouting (FRR) is free software which manages TCP/IP based routing
+ protocols. It supports BGP4, BGP4+, OSPFv2, OSPFv3, IS-IS, RIPv1, RIPv2,
  RIPng, PIM, LDP, Babel, EIGRP, PBR (Policy-based routing), PATHD (Segment
  routing), BFD and OpenFabric as well as the IPv6 versions of these.
  FRRouting (frr) is a fork of Quagga.
@@ -74,6 +74,13 @@ apps:
             - network-control
     pimd:
         command: bin/pimd-service
+        daemon: simple
+        plugs:
+            - network
+            - network-bind
+            - network-control
+    pim6d:
+        command: bin/pim6d-service
         daemon: simple
         plugs:
             - network
@@ -199,6 +206,12 @@ apps:
             - network
             - network-bind
             - network-control
+    pim6d-debug:
+        command: sbin/pim6d -f $SNAP_DATA/pim6d.conf --pid_file $SNAP_DATA/pim6d.pid --socket $SNAP_DATA/zsock --vty_socket $SNAP_DATA
+        plugs:
+            - network
+            - network-bind
+            - network-control
     ldpd-debug:
         command: sbin/ldpd -f $SNAP_DATA/ldpd.conf --pid_file $SNAP_DATA/ldpd.pid --socket $SNAP_DATA/zsock --ctl_socket $SNAP_DATA --vty_socket $SNAP_DATA
         plugs:
@@ -272,10 +285,10 @@ parts:
            - zlib1g
         prime:
            - lib/librtr.so*
-           - usr/lib/x86_64-linux-gnu/libssh.so*
+           - usr/lib/$SNAPCRAFT_ARCH_TRIPLET/libssh.so*
         source: https://github.com/rtrlib/rtrlib.git
         source-type: git
-        source-tag: v0.7.0
+        source-tag: v0.8.0
         plugin: cmake
         configflags:
            - -DCMAKE_BUILD_TYPE=Release
@@ -289,14 +302,14 @@ parts:
            - libpcre2-8-0
         source: https://github.com/CESNET/libyang.git
         source-type: git
-        source-tag: v2.0.7
+        source-tag: v2.1.80
         plugin: cmake
         configflags:
            - -DCMAKE_INSTALL_PREFIX:PATH=/usr
            - -DENABLE_LYD_PRIV=ON
            - -DENABLE_CACHE=ON
            - -DCMAKE_BUILD_TYPE:String="Release"
-    frr: 
+    frr:
         after: [rtrlib,libyang]
         build-packages:
            - gcc
@@ -306,6 +319,7 @@ parts:
            - make
            - gawk
            - libreadline-dev
+           - libelf-dev
            - texinfo
            - libncurses5-dev
            - texlive-latex-base
@@ -359,13 +373,14 @@ parts:
             - --enable-user=root
             - --enable-group=root
             - --enable-pimd
+            - --enable-pim6d
             - --enable-ldpd
             - --enable-fpm
             - --enable-protobuf
             - --enable-rpki
             - --enable-vrrpd
             - --enable-configfile-mask=0640
-            - --enable-logfile-mask=0640 
+            - --enable-logfile-mask=0640
             - --localstatedir=/var/run
             - --sbindir=/sbin
             - --bindir=/bin
@@ -381,6 +396,7 @@ parts:
             ospf6d.conf.default: etc/frr/ospf6d.conf.default
             ospfd.conf.default: etc/frr/ospfd.conf.default
             pimd.conf.default: etc/frr/pimd.conf.default
+            pim6d.conf.default: etc/frr/pim6d.conf.default
             ripd.conf.default: etc/frr/ripd.conf.default
             ripngd.conf.default: etc/frr/ripngd.conf.default
             ldpd.conf.default: etc/frr/ldpd.conf.default
@@ -416,4 +432,3 @@ parts:
             README.usage.md: doc/README.usage.md
             README.snap_build.md: doc/README.snap_build.md
             extra_version_info.txt: doc/extra_version_info.txt
-

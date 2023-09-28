@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# SPDX-License-Identifier: ISC
 
 #
 # test_bgp_features.py
@@ -6,20 +7,6 @@
 #
 # Copyright (c) 2020 by
 # Network Device Education Foundation, Inc. ("NetDEF")
-#
-# Permission to use, copy, modify, and/or distribute this software
-# for any purpose with or without fee is hereby granted, provided
-# that the above copyright notice and this permission notice appear
-# in all copies.
-#
-# THE SOFTWARE IS PROVIDED "AS IS" AND NETDEF DISCLAIMS ALL WARRANTIES
-# WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
-# MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL NETDEF BE LIABLE FOR
-# ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY
-# DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS,
-# WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS
-# ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE
-# OF THIS SOFTWARE.
 #
 
 """
@@ -189,6 +176,19 @@ def test_bgp_convergence():
     # tgen.mininet_cli()
 
 
+def get_shut_msg_count(tgen):
+    shuts = {}
+    for rtrNum in [2, 4]:
+        shutmsg = tgen.net["r{}".format(rtrNum)].cmd_nostatus(
+            'grep -c "NOTIFICATION.*Cease/Administrative Shutdown" bgpd.log', warn=False
+        )
+        try:
+            shuts[rtrNum] = int(shutmsg.strip())
+        except ValueError:
+            shuts[rtrNum] = 0
+    return shuts
+
+
 def test_bgp_shutdown():
     "Test BGP instance shutdown"
 
@@ -197,6 +197,8 @@ def test_bgp_shutdown():
     # Skip if previous fatal error condition is raised
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
+
+    shuts_before = get_shut_msg_count(tgen)
 
     tgen.net["r1"].cmd(
         'vtysh -c "conf t" -c "router bgp 65000" -c "bgp shutdown message ABCDabcd"'
@@ -221,6 +223,11 @@ def test_bgp_shutdown():
         )
         assert res is None, assertmsg
 
+    shuts_after = get_shut_msg_count(tgen)
+
+    for k in shuts_before:
+        assert shuts_before[k] + 1 == shuts_after[k]
+
 
 def test_bgp_shutdown_message():
     "Test BGP Peer Shutdown Message"
@@ -235,22 +242,10 @@ def test_bgp_shutdown_message():
         logger.info("Checking BGP shutdown received on router r{}".format(rtrNum))
 
         shut_message = tgen.net["r{}".format(rtrNum)].cmd(
-            'tail bgpd.log | grep "NOTIFICATION.*Cease/Administratively Shutdown"'
+            'grep -e "NOTIFICATION.*Cease/Administrative Shutdown.*ABCDabcd" bgpd.log'
         )
         assertmsg = "BGP shutdown message not received on router R{}".format(rtrNum)
         assert shut_message != "", assertmsg
-
-        m = re.search(".*([0-9]+ bytes[ 0-9a-fA-F]+)", shut_message)
-        if m:
-            found = m.group(1)
-        else:
-            found = ""
-        assertmsg = "Incorrect BGP shutdown message received on router R{}".format(
-            rtrNum
-        )
-        assert found == "8 bytes 41 42 43 44 61 62 63 64", assertmsg
-
-    # tgen.mininet_cli()
 
 
 def test_bgp_no_shutdown():
@@ -790,7 +785,7 @@ def test_bgp_delayopen_without():
         test_func = functools.partial(
             topotest.router_json_cmp, router, "show ip bgp summary json", expected
         )
-        _, res = topotest.run_and_expect(test_func, None, count=3, wait=1)
+        _, res = topotest.run_and_expect(test_func, None, count=5, wait=1)
         assertmsg = "BGP session on r{} did not shut down peer".format(router_num)
         assert res is None, assertmsg
 
@@ -867,7 +862,7 @@ def test_bgp_delayopen_singular():
         test_func = functools.partial(
             topotest.router_json_cmp, router, "show ip bgp summary json", expected
         )
-        _, res = topotest.run_and_expect(test_func, None, count=3, wait=1)
+        _, res = topotest.run_and_expect(test_func, None, count=5, wait=1)
         assertmsg = "BGP session on r{} did not shut down peer".format(router_num)
         assert res is None, assertmsg
 
@@ -885,7 +880,7 @@ def test_bgp_delayopen_singular():
     test_func = functools.partial(
         topotest.router_json_cmp, router, "show bgp neighbors json", expected
     )
-    _, res = topotest.run_and_expect(test_func, None, count=3, wait=1)
+    _, res = topotest.run_and_expect(test_func, None, count=5, wait=1)
     assertmsg = "BGP session on r1 failed to set DelayOpenTime for r4"
     assert res is None, assertmsg
 
@@ -979,7 +974,7 @@ def test_bgp_delayopen_dual():
         test_func = functools.partial(
             topotest.router_json_cmp, router, "show ip bgp summary json", expected
         )
-        _, res = topotest.run_and_expect(test_func, None, count=3, wait=1)
+        _, res = topotest.run_and_expect(test_func, None, count=5, wait=1)
         assertmsg = "BGP session on r{} did not shut down peer".format(router_num)
         assert res is None, assertmsg
 
@@ -1008,7 +1003,7 @@ def test_bgp_delayopen_dual():
         test_func = functools.partial(
             topotest.router_json_cmp, router, "show bgp neighbors json", expected
         )
-        _, res = topotest.run_and_expect(test_func, None, count=3, wait=1)
+        _, res = topotest.run_and_expect(test_func, None, count=5, wait=1)
         assertmsg = "BGP session on r{} failed to set DelayOpenTime".format(router_num)
         assert res is None, assertmsg
 
@@ -1037,7 +1032,7 @@ def test_bgp_delayopen_dual():
         test_func = functools.partial(
             topotest.router_json_cmp, router, "show ip bgp summary json", expected
         )
-        _, res = topotest.run_and_expect(test_func, None, count=3, wait=1)
+        _, res = topotest.run_and_expect(test_func, None, count=5, wait=1)
         assertmsg = "BGP session on r{} did not enter Connect state with peer".format(
             router_num
         )
@@ -1068,7 +1063,7 @@ def test_bgp_delayopen_dual():
 
     delay_stop = int(time.time())
     assertmsg = "BGP peering between r2 and r5 was established before DelayOpenTimer (30sec) on r2 could expire"
-    assert (delay_stop - delay_start) > 30, assertmsg
+    assert (delay_stop - delay_start) >= 30, assertmsg
 
     # 3.8 unset delayopen on R2 and R5
     logger.info("Disabling DelayOpenTimer for neighbor r5 on r2")

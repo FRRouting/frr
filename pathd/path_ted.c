@@ -1,23 +1,14 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Copyright (C) 2020 Volta Networks, Inc
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
  *
  * You should have received a copy of the GNU Lesser General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-#include "stdlib.h"
-
 #include <zebra.h>
+
+#include <stdlib.h>
 
 #include "memory.h"
 #include "log.h"
@@ -29,9 +20,7 @@
 #include "pathd/path_errors.h"
 #include "pathd/path_ted.h"
 
-#ifndef VTYSH_EXTRACT_PL
 #include "pathd/path_ted_clippy.c"
-#endif
 
 static struct ls_ted *path_ted_create_ted(void);
 static void path_ted_register_vty(void);
@@ -39,8 +28,8 @@ static void path_ted_unregister_vty(void);
 static uint32_t path_ted_start_importing_igp(const char *daemon_str);
 static uint32_t path_ted_stop_importing_igp(void);
 static enum zclient_send_status path_ted_link_state_sync(void);
-static int path_ted_timer_handler_sync(struct thread *thread);
-static int path_ted_timer_handler_refresh(struct thread *thread);
+static void path_ted_timer_handler_sync(struct event *thread);
+static void path_ted_timer_handler_refresh(struct event *thread);
 static int path_ted_cli_debug_config_write(struct vty *vty);
 static int path_ted_cli_debug_set_all(uint32_t flags, bool set);
 
@@ -52,7 +41,7 @@ struct ted_state ted_state_g = {};
  * path_path_ted public API function implementations
  */
 
-void path_ted_init(struct thread_master *master)
+void path_ted_init(struct event_loop *master)
 {
 	ted_state_g.main = master;
 	ted_state_g.link_state_delay_interval = TIMER_RETRY_DELAY;
@@ -66,7 +55,7 @@ uint32_t path_ted_teardown(void)
 	PATH_TED_DEBUG("%s : TED [%p]", __func__, ted_state_g.ted);
 	path_ted_unregister_vty();
 	path_ted_stop_importing_igp();
-	ls_ted_del_all(ted_state_g.ted);
+	ls_ted_del_all(&ted_state_g.ted);
 	path_ted_timer_sync_cancel();
 	path_ted_timer_refresh_cancel();
 	return 0;
@@ -162,7 +151,7 @@ bool path_ted_is_initialized(void)
  *
  * @return		Ptr to ted or NULL
  */
-struct ls_ted *path_ted_create_ted()
+struct ls_ted *path_ted_create_ted(void)
 {
 	struct ls_ted *ted = ls_ted_new(TED_KEY, TED_NAME, TED_ASN);
 
@@ -217,7 +206,7 @@ uint32_t path_ted_query_type_f(struct ipaddr *local, struct ipaddr *remote)
 {
 	uint32_t sid = MPLS_LABEL_NONE;
 	struct ls_edge *edge;
-	uint64_t key;
+	struct ls_edge_key key;
 
 	if (!path_ted_is_initialized())
 		return MPLS_LABEL_NONE;
@@ -229,7 +218,8 @@ uint32_t path_ted_query_type_f(struct ipaddr *local, struct ipaddr *remote)
 	case IPADDR_V4:
 		/* We have local and remote ip */
 		/* so check all attributes in ted */
-		key = ((uint64_t)ntohl(local->ip._v4_addr.s_addr)) & 0xffffffff;
+		key.family = AF_INET;
+		IPV4_ADDR_COPY(&key.k.addr, &local->ip._v4_addr);
 		edge = ls_find_edge_by_key(ted_state_g.ted, key);
 		if (edge) {
 			if (edge->attributes->standard.remote.s_addr
@@ -243,16 +233,16 @@ uint32_t path_ted_query_type_f(struct ipaddr *local, struct ipaddr *remote)
 		}
 		break;
 	case IPADDR_V6:
-		key = (uint64_t)(local->ip._v6_addr.s6_addr32[0] & 0xffffffff)
-		      | ((uint64_t)local->ip._v6_addr.s6_addr32[1] << 32);
+		key.family = AF_INET6;
+		IPV6_ADDR_COPY(&key.k.addr6, &local->ip._v6_addr);
 		edge = ls_find_edge_by_key(ted_state_g.ted, key);
 		if (edge) {
-			if ((memcmp(&edge->attributes->standard.remote6,
-				    &remote->ip._v6_addr,
-				    sizeof(remote->ip._v6_addr))
-			     && CHECK_FLAG(edge->attributes->flags,
-					   LS_ATTR_ADJ_SID))) {
-				sid = edge->attributes->adj_sid[0]
+			if ((0 == memcmp(&edge->attributes->standard.remote6,
+					 &remote->ip._v6_addr,
+					 sizeof(remote->ip._v6_addr)) &&
+			     CHECK_FLAG(edge->attributes->flags,
+					LS_ATTR_ADJ_SID6))) {
+				sid = edge->attributes->adj_sid[ADJ_PRI_IPV6]
 					      .sid; /* from primary */
 				break;
 			}
@@ -279,7 +269,7 @@ uint32_t path_ted_query_type_c(struct prefix *prefix, uint8_t algo)
 	switch (prefix->family) {
 	case AF_INET:
 	case AF_INET6:
-		subnet = ls_find_subnet(ted_state_g.ted, *prefix);
+		subnet = ls_find_subnet(ted_state_g.ted, prefix);
 		if (subnet) {
 			if ((CHECK_FLAG(subnet->ls_pref->flags, LS_PREF_SR))
 			    && (subnet->ls_pref->sr.algo == algo))
@@ -309,7 +299,7 @@ uint32_t path_ted_query_type_e(struct prefix *prefix, uint32_t iface_id)
 	switch (prefix->family) {
 	case AF_INET:
 	case AF_INET6:
-		subnet = ls_find_subnet(ted_state_g.ted, *prefix);
+		subnet = ls_find_subnet(ted_state_g.ted, prefix);
 		if (subnet && subnet->vertex
 		    && subnet->vertex->outgoing_edges) {
 			/* from the vertex linked in subnet */
@@ -353,7 +343,7 @@ DEFPY (debug_path_ted,
 }
 
 /*
- * Followings are vty command functions.
+ * Following are vty command functions.
  */
 /* clang-format off */
 DEFUN (path_ted_on,
@@ -385,13 +375,13 @@ DEFUN (no_path_ted,
        "Disable the TE Database functionality\n")
 /* clang-format on */
 {
-	if (ted_state_g.enabled) {
+	if (!ted_state_g.enabled) {
 		PATH_TED_DEBUG("%s: PATHD-TED: OFF -> OFF", __func__);
 		return CMD_SUCCESS;
 	}
 
 	/* Remove TED */
-	ls_ted_del_all(ted_state_g.ted);
+	ls_ted_del_all(&ted_state_g.ted);
 	ted_state_g.enabled = false;
 	PATH_TED_DEBUG("%s: PATHD-TED: ON -> OFF", __func__);
 	ted_state_g.import = IMPORT_UNKNOWN;
@@ -447,7 +437,7 @@ DEFUN (no_path_ted_import,
 }
 
 /* clang-format off */
-DEFPY (show_pahtd_ted_db,
+DEFPY (show_pathd_ted_db,
        show_pathd_ted_db_cmd,
        "show pathd ted database <verbose|json>$ver_json ",
        "show command\n"
@@ -462,7 +452,7 @@ DEFPY (show_pahtd_ted_db,
 	json_object *json = NULL;
 
 	if (!ted_state_g.enabled) {
-		vty_out(vty, "PATHD TED database is not enabled\n");
+		vty_out(vty, "Traffic Engineering database is not enabled\n");
 		return CMD_WARNING;
 	}
 	if (strcmp(ver_json, "json") == 0) {
@@ -471,12 +461,8 @@ DEFPY (show_pahtd_ted_db,
 	}
 	/* Show the complete TED */
 	ls_show_ted(ted_state_g.ted, vty, json, !st_json);
-	if (st_json) {
-		vty_out(vty, "%s\n",
-			json_object_to_json_string_ext(
-				json, JSON_C_TO_STRING_PRETTY));
-		json_object_free(json);
-	}
+	if (st_json)
+		vty_json(vty, json);
 	return CMD_SUCCESS;
 }
 
@@ -492,6 +478,12 @@ int path_ted_cli_debug_config_write(struct vty *vty)
 		return 1;
 	}
 	return 0;
+}
+
+void path_ted_show_debugging(struct vty *vty)
+{
+	if (DEBUG_FLAGS_CHECK(&ted_state_g.dbg, PATH_TED_DEBUG_BASIC))
+		vty_out(vty, "  Path TED debugging is on\n");
 }
 
 int path_ted_cli_debug_set_all(uint32_t flags, bool set)
@@ -527,7 +519,7 @@ uint32_t path_ted_config_write(struct vty *vty)
 		case IMPORT_OSPFv3:
 			vty_out(vty, "  mpls-te import ospfv3\n");
 			break;
-		default:
+		case IMPORT_UNKNOWN:
 			break;
 		}
 	}
@@ -592,9 +584,9 @@ enum zclient_send_status path_ted_link_state_sync(void)
 		PATH_TED_DEBUG("%s: PATHD-TED: Opaque asked for TED sync ",
 			       __func__);
 	}
-	thread_add_timer(ted_state_g.main, path_ted_timer_handler_sync,
-			 &ted_state_g, ted_state_g.link_state_delay_interval,
-			 &ted_state_g.t_link_state_sync);
+	event_add_timer(ted_state_g.main, path_ted_timer_handler_sync,
+			&ted_state_g, ted_state_g.link_state_delay_interval,
+			&ted_state_g.t_link_state_sync);
 
 	return status;
 }
@@ -606,14 +598,14 @@ enum zclient_send_status path_ted_link_state_sync(void)
  *
  * @return		status
  */
-int path_ted_timer_handler_sync(struct thread *thread)
+void path_ted_timer_handler_sync(struct event *thread)
 {
 	/* data unpacking */
-	struct ted_state *data = THREAD_ARG(thread);
+	struct ted_state *data = EVENT_ARG(thread);
 
 	assert(data != NULL);
 	/* Retry the sync */
-	return path_ted_link_state_sync();
+	path_ted_link_state_sync();
 }
 
 /**
@@ -628,10 +620,9 @@ int path_ted_segment_list_refresh(void)
 	int status = 0;
 
 	path_ted_timer_refresh_cancel();
-	thread_add_timer(ted_state_g.main, path_ted_timer_handler_refresh,
-			 &ted_state_g,
-			 ted_state_g.segment_list_refresh_interval,
-			 &ted_state_g.t_segment_list_refresh);
+	event_add_timer(ted_state_g.main, path_ted_timer_handler_refresh,
+			&ted_state_g, ted_state_g.segment_list_refresh_interval,
+			&ted_state_g.t_segment_list_refresh);
 
 	return status;
 }
@@ -643,19 +634,18 @@ int path_ted_segment_list_refresh(void)
  *
  * @return		status
  */
-int path_ted_timer_handler_refresh(struct thread *thread)
+void path_ted_timer_handler_refresh(struct event *thread)
 {
 	if (!path_ted_is_initialized())
-		return MPLS_LABEL_NONE;
+		return;
 
 	PATH_TED_DEBUG("%s: PATHD-TED: Refresh sid from current TED", __func__);
 	/* data unpacking */
-	struct ted_state *data = THREAD_ARG(thread);
+	struct ted_state *data = EVENT_ARG(thread);
 
 	assert(data != NULL);
 
 	srte_policy_update_ted_sid();
-	return 0;
 }
 
 /**
@@ -668,7 +658,7 @@ int path_ted_timer_handler_refresh(struct thread *thread)
 void path_ted_timer_sync_cancel(void)
 {
 	if (ted_state_g.t_link_state_sync != NULL) {
-		thread_cancel(&ted_state_g.t_link_state_sync);
+		event_cancel(&ted_state_g.t_link_state_sync);
 		ted_state_g.t_link_state_sync = NULL;
 	}
 }
@@ -683,7 +673,7 @@ void path_ted_timer_sync_cancel(void)
 void path_ted_timer_refresh_cancel(void)
 {
 	if (ted_state_g.t_segment_list_refresh != NULL) {
-		thread_cancel(&ted_state_g.t_segment_list_refresh);
+		event_cancel(&ted_state_g.t_segment_list_refresh);
 		ted_state_g.t_segment_list_refresh = NULL;
 	}
 }

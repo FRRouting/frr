@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: BSD-2-Clause
 submodule frr-bgp-common-multiprotocol {
   yang-version 1.1;
 
@@ -202,6 +203,16 @@ submodule frr-bgp-common-multiprotocol {
       }
       description
         "IPv6 flowspec configuration options.";
+    }
+
+    container linkstate-linkstate {
+      when "derived-from-or-self(../afi-safi-name, 'frr-rt:linkstate-linkstate')" {
+        description
+          "Include this container for Link-State specific
+           configuration.";
+      }
+      description
+        "Link-State configuration options.";
     }
   }
 }

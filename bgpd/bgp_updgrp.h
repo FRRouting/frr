@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /**
  * bgp_updgrp.c: BGP update group structures
  *
@@ -6,22 +7,6 @@
  * @author Avneesh Sachdev <avneesh@sproute.net>
  * @author Rajesh Varadarajan <rajesh@sproute.net>
  * @author Pradosh Mohapatra <pradosh@sproute.net>
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef _QUAGGA_BGP_UPDGRP_H
@@ -70,11 +55,10 @@
 #define PEER_UPDGRP_CAP_FLAGS (PEER_CAP_AS4_RCV)
 
 #define PEER_UPDGRP_AF_CAP_FLAGS                                               \
-	(PEER_CAP_ORF_PREFIX_SM_RCV | PEER_CAP_ORF_PREFIX_SM_OLD_RCV           \
-	 | PEER_CAP_ADDPATH_AF_TX_ADV | PEER_CAP_ADDPATH_AF_RX_RCV             \
-	 | PEER_CAP_ENHE_AF_NEGO)
+	(PEER_CAP_ORF_PREFIX_SM_RCV | PEER_CAP_ADDPATH_AF_TX_ADV |             \
+	 PEER_CAP_ADDPATH_AF_RX_RCV | PEER_CAP_ENHE_AF_NEGO)
 
-typedef enum { BGP_ATTR_VEC_NH = 0, BGP_ATTR_VEC_MAX } bpacket_attr_vec_type;
+enum bpacket_attr_vec_type { BGP_ATTR_VEC_NH = 0, BGP_ATTR_VEC_MAX };
 
 typedef struct {
 	uint32_t flags;
@@ -88,6 +72,8 @@ typedef struct {
 #define BPKT_ATTRVEC_FLAGS_RMAP_IPV4_NH_CHANGED   (1 << 4)
 #define BPKT_ATTRVEC_FLAGS_RMAP_IPV6_GNH_CHANGED  (1 << 5)
 #define BPKT_ATTRVEC_FLAGS_RMAP_IPV6_LNH_CHANGED  (1 << 6)
+#define BPKT_ATTRVEC_FLAGS_RMAP_VPNV4_NH_CHANGED  (1 << 7)
+#define BPKT_ATTRVEC_FLAGS_RMAP_VPNV6_GNH_CHANGED (1 << 8)
 
 typedef struct bpacket_attr_vec_arr {
 	bpacket_attr_vec entries[BGP_ATTR_VEC_MAX];
@@ -204,13 +190,16 @@ struct update_subgroup {
 	/* send prefix count */
 	uint32_t scount;
 
+	/* send prefix count prior to packet update */
+	uint32_t pscount;
+
 	/* announcement attribute hash */
 	struct hash *hash;
 
-	struct thread *t_coalesce;
+	struct event *t_coalesce;
 	uint32_t v_coalesce;
 
-	struct thread *t_merge_check;
+	struct event *t_merge_check;
 
 	/* table version that the subgroup has caught up to. */
 	uint64_t version;
@@ -248,6 +237,14 @@ struct update_subgroup {
 	uint16_t sflags;
 #define SUBGRP_STATUS_DEFAULT_ORIGINATE (1 << 0)
 #define SUBGRP_STATUS_FORCE_UPDATES (1 << 1)
+#define SUBGRP_STATUS_TABLE_REPARSING (1 << 2)
+/*
+ * This flag has been added to ensure that the SNT counters
+ * gets incremented and decremented only during the creation
+ * and deletion workflows of default originate,
+ * not during the update workflow.
+ */
+#define SUBGRP_STATUS_PEER_DEFAULT_ORIGINATED (1 << 3)
 
 	uint16_t flags;
 #define SUBGRP_FLAG_NEEDS_REFRESH (1 << 0)
@@ -284,13 +281,15 @@ struct updwalk_context {
 	struct bgp_path_info *pi;
 	uint64_t updgrp_id;
 	uint64_t subgrp_id;
-	bgp_policy_type_e policy_type;
+	enum bgp_policy_type policy_type;
 	const char *policy_name;
 	int policy_event_start_flag;
-	int policy_route_update;
+	bool policy_route_update;
 	updgrp_walkcb cb;
 	void *context;
 	uint8_t flags;
+	bool uj;
+	json_object *json_updategrps;
 
 #define UPDWALK_FLAGS_ADVQUEUE   (1 << 0)
 #define UPDWALK_FLAGS_ADVERTISED (1 << 1)
@@ -352,7 +351,7 @@ extern void update_bgp_group_init(struct bgp *);
 extern void udpate_bgp_group_free(struct bgp *);
 
 extern void update_group_show(struct bgp *bgp, afi_t afi, safi_t safi,
-			      struct vty *vty, uint64_t subgrp_id);
+			      struct vty *vty, uint64_t subgrp_id, bool uj);
 extern void update_group_show_stats(struct bgp *bgp, struct vty *vty);
 extern void update_group_adjust_peer(struct peer_af *paf);
 extern int update_group_adjust_soloness(struct peer *peer, int set);
@@ -364,15 +363,16 @@ extern void update_subgroup_split_peer(struct peer_af *, struct update_group *);
 extern bool update_subgroup_check_merge(struct update_subgroup *, const char *);
 extern bool update_subgroup_trigger_merge_check(struct update_subgroup *,
 						int force);
-extern void update_group_policy_update(struct bgp *bgp, bgp_policy_type_e ptype,
-				       const char *pname, int route_update,
+extern void update_group_policy_update(struct bgp *bgp,
+				       enum bgp_policy_type ptype,
+				       const char *pname, bool route_update,
 				       int start_event);
 extern void update_group_af_walk(struct bgp *bgp, afi_t afi, safi_t safi,
 				 updgrp_walkcb cb, void *ctx);
 extern void update_group_walk(struct bgp *bgp, updgrp_walkcb cb, void *ctx);
 extern void update_group_periodic_merge(struct bgp *bgp);
-extern int
-update_group_refresh_default_originate_route_map(struct thread *thread);
+extern void
+update_group_refresh_default_originate_route_map(struct event *thread);
 extern void update_group_start_advtimer(struct bgp *bgp);
 
 extern void update_subgroup_inherit_info(struct update_subgroup *to,
@@ -405,7 +405,7 @@ extern struct stream *bpacket_reformat_for_peer(struct bpacket *pkt,
 						struct peer_af *paf);
 extern void bpacket_attr_vec_arr_reset(struct bpacket_attr_vec_arr *vecarr);
 extern void bpacket_attr_vec_arr_set_vec(struct bpacket_attr_vec_arr *vecarr,
-					 bpacket_attr_vec_type type,
+					 enum bpacket_attr_vec_type type,
 					 struct stream *s, struct attr *attr);
 extern void subgroup_default_update_packet(struct update_subgroup *subgrp,
 					   struct attr *attr,
@@ -457,7 +457,11 @@ extern int update_group_clear_update_dbg(struct update_group *updgrp,
 					 void *arg);
 
 extern void update_bgp_group_free(struct bgp *bgp);
-extern int bgp_addpath_encode_tx(struct peer *peer, afi_t afi, safi_t safi);
+extern bool bgp_addpath_encode_tx(struct peer *peer, afi_t afi, safi_t safi);
+extern bool bgp_check_selected(struct bgp_path_info *bpi, struct peer *peer,
+			       bool addpath_capable, afi_t afi, safi_t safi);
+extern bool bgp_addpath_capable(struct bgp_path_info *bpi, struct peer *peer,
+				afi_t afi, safi_t safi);
 
 /*
  * Inline functions
@@ -580,11 +584,9 @@ static inline void bgp_announce_peer(struct peer *peer)
  */
 static inline int advertise_list_is_empty(struct update_subgroup *subgrp)
 {
-	if (bgp_adv_fifo_count(&subgrp->sync->update)
-	    || bgp_adv_fifo_count(&subgrp->sync->withdraw)
-	    || bgp_adv_fifo_count(&subgrp->sync->withdraw_low)) {
+	if (bgp_adv_fifo_count(&subgrp->sync->update) ||
+	    bgp_adv_fifo_count(&subgrp->sync->withdraw))
 		return 0;
-	}
 
 	return 1;
 }

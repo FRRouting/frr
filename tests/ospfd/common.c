@@ -17,7 +17,7 @@
 
 #include "common.h"
 
-struct thread_master *master;
+struct event_loop *master;
 struct zebra_privs_t ospfd_privs;
 
 
@@ -74,7 +74,8 @@ void print_route_table(struct vty *vty, struct route_table *rt)
 				label_stack = path->srni.backup_label_stack;
 				mpls_label2str(label_stack->num_labels,
 					       label_stack->label, buf,
-					       MPLS_LABEL_STRLEN, true);
+					       MPLS_LABEL_STRLEN,
+					       ZEBRA_LSP_NONE, true);
 				vty_out(vty, " and backup path %s", buf);
 			}
 			vty_out(vty, "\n");

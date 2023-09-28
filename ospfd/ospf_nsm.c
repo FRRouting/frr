@@ -1,28 +1,13 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * OSPF version 2  Neighbor State Machine
  * From RFC2328 [OSPF Version 2]
  * Copyright (C) 1999, 2000 Toshiaki Takada
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
 
-#include "thread.h"
+#include "frrevent.h"
 #include "memory.h"
 #include "hash.h"
 #include "linklist.h"
@@ -59,11 +44,11 @@ DEFINE_HOOK(ospf_nsm_change,
 static void nsm_clear_adj(struct ospf_neighbor *);
 
 /* OSPF NSM Timer functions. */
-static int ospf_inactivity_timer(struct thread *thread)
+static void ospf_inactivity_timer(struct event *thread)
 {
 	struct ospf_neighbor *nbr;
 
-	nbr = THREAD_ARG(thread);
+	nbr = EVENT_ARG(thread);
 	nbr->t_inactivity = NULL;
 
 	if (IS_DEBUG_OSPF(nsm, NSM_TIMERS))
@@ -76,22 +61,21 @@ static int ospf_inactivity_timer(struct thread *thread)
 	 */
 	if (!OSPF_GR_IS_ACTIVE_HELPER(nbr))
 		OSPF_NSM_EVENT_SCHEDULE(nbr, NSM_InactivityTimer);
-	else if (IS_DEBUG_OSPF_GR) {
-		zlog_debug(
-			"%s, Acting as HELPER for this neighbour, So restart the dead timer",
-			__func__);
+	else {
+		if (IS_DEBUG_OSPF_GR)
+			zlog_debug(
+				"%s, Acting as HELPER for this neighbour, So restart the dead timer",
+				__func__);
 		OSPF_NSM_TIMER_ON(nbr->t_inactivity, ospf_inactivity_timer,
 				  nbr->v_inactivity);
 	}
-
-	return 0;
 }
 
-static int ospf_db_desc_timer(struct thread *thread)
+static void ospf_db_desc_timer(struct event *thread)
 {
 	struct ospf_neighbor *nbr;
 
-	nbr = THREAD_ARG(thread);
+	nbr = EVENT_ARG(thread);
 	nbr->t_db_desc = NULL;
 
 	if (IS_DEBUG_OSPF(nsm, NSM_TIMERS))
@@ -105,8 +89,6 @@ static int ospf_db_desc_timer(struct thread *thread)
 
 	/* DD Retransmit timer set. */
 	OSPF_NSM_TIMER_ON(nbr->t_db_desc, ospf_db_desc_timer, nbr->v_db_desc);
-
-	return 0;
 }
 
 /* Hook function called after ospf NSM event is occurred.
@@ -123,32 +105,32 @@ static void nsm_timer_set(struct ospf_neighbor *nbr)
 	switch (nbr->state) {
 	case NSM_Deleted:
 	case NSM_Down:
-		OSPF_NSM_TIMER_OFF(nbr->t_inactivity);
-		OSPF_NSM_TIMER_OFF(nbr->t_hello_reply);
+		EVENT_OFF(nbr->t_inactivity);
+		EVENT_OFF(nbr->t_hello_reply);
 	/* fallthru */
 	case NSM_Attempt:
 	case NSM_Init:
 	case NSM_TwoWay:
-		OSPF_NSM_TIMER_OFF(nbr->t_db_desc);
-		OSPF_NSM_TIMER_OFF(nbr->t_ls_upd);
-		OSPF_NSM_TIMER_OFF(nbr->t_ls_req);
+		EVENT_OFF(nbr->t_db_desc);
+		EVENT_OFF(nbr->t_ls_upd);
+		EVENT_OFF(nbr->t_ls_req);
 		break;
 	case NSM_ExStart:
 		OSPF_NSM_TIMER_ON(nbr->t_db_desc, ospf_db_desc_timer,
 				  nbr->v_db_desc);
-		OSPF_NSM_TIMER_OFF(nbr->t_ls_upd);
-		OSPF_NSM_TIMER_OFF(nbr->t_ls_req);
+		EVENT_OFF(nbr->t_ls_upd);
+		EVENT_OFF(nbr->t_ls_req);
 		break;
 	case NSM_Exchange:
 		OSPF_NSM_TIMER_ON(nbr->t_ls_upd, ospf_ls_upd_timer,
 				  nbr->v_ls_upd);
 		if (!IS_SET_DD_MS(nbr->dd_flags))
-			OSPF_NSM_TIMER_OFF(nbr->t_db_desc);
+			EVENT_OFF(nbr->t_db_desc);
 		break;
 	case NSM_Loading:
 	case NSM_Full:
 	default:
-		OSPF_NSM_TIMER_OFF(nbr->t_db_desc);
+		EVENT_OFF(nbr->t_db_desc);
 		break;
 	}
 }
@@ -179,13 +161,13 @@ int nsm_should_adj(struct ospf_neighbor *nbr)
 static int nsm_hello_received(struct ospf_neighbor *nbr)
 {
 	/* Start or Restart Inactivity Timer. */
-	OSPF_NSM_TIMER_OFF(nbr->t_inactivity);
+	EVENT_OFF(nbr->t_inactivity);
 
 	OSPF_NSM_TIMER_ON(nbr->t_inactivity, ospf_inactivity_timer,
 			  nbr->v_inactivity);
 
 	if (nbr->oi->type == OSPF_IFTYPE_NBMA && nbr->nbr_nbma)
-		OSPF_POLL_TIMER_OFF(nbr->nbr_nbma->t_poll);
+		EVENT_OFF(nbr->nbr_nbma->t_poll);
 
 	/* Send proactive ARP requests */
 	if (nbr->state < NSM_Exchange)
@@ -197,9 +179,9 @@ static int nsm_hello_received(struct ospf_neighbor *nbr)
 static int nsm_start(struct ospf_neighbor *nbr)
 {
 	if (nbr->nbr_nbma)
-		OSPF_POLL_TIMER_OFF(nbr->nbr_nbma->t_poll);
+		EVENT_OFF(nbr->nbr_nbma->t_poll);
 
-	OSPF_NSM_TIMER_OFF(nbr->t_inactivity);
+	EVENT_OFF(nbr->t_inactivity);
 
 	OSPF_NSM_TIMER_ON(nbr->t_inactivity, ospf_inactivity_timer,
 			  nbr->v_inactivity);
@@ -385,6 +367,10 @@ static void nsm_clear_adj(struct ospf_neighbor *nbr)
 
 static int nsm_kill_nbr(struct ospf_neighbor *nbr)
 {
+	struct ospf_interface *oi = nbr->oi;
+	struct ospf_neighbor *on;
+	struct route_node *rn;
+
 	/* killing nbr_self is invalid */
 	if (nbr == nbr->oi->nbr_self) {
 		assert(nbr != nbr->oi->nbr_self);
@@ -410,6 +396,35 @@ static int nsm_kill_nbr(struct ospf_neighbor *nbr)
 				ospf_get_name(nbr->oi->ospf));
 	}
 
+	/*
+	 * Do we have any neighbors that are also operating
+	 * on this interface?
+	 */
+	for (rn = route_top(oi->nbrs); rn; rn = route_next(rn)) {
+		on = rn->info;
+
+		if (!on)
+			continue;
+
+		if (on == nbr || on == oi->nbr_self)
+			continue;
+
+		/*
+		 * on is in some state where we might be
+		 * sending packets on this interface
+		 */
+		if (on->state > NSM_Down) {
+			route_unlock_node(rn);
+			return 0;
+		}
+	}
+	/*
+	 * If we get here we know that this interface
+	 * has no neighbors in a state where we could
+	 * be sending packets.  Let's flush anything
+	 * we got.
+	 */
+	ospf_interface_fifo_flush(oi);
 	return 0;
 }
 
@@ -614,12 +629,13 @@ static void nsm_notice_state_change(struct ospf_neighbor *nbr, int next_state,
 	if (CHECK_FLAG(nbr->oi->ospf->config, OSPF_LOG_ADJACENCY_CHANGES)
 	    && (CHECK_FLAG(nbr->oi->ospf->config, OSPF_LOG_ADJACENCY_DETAIL)
 		|| (next_state == NSM_Full) || (next_state < nbr->state)))
-		zlog_notice("AdjChg: Nbr %pI4(%s) on %s: %s -> %s (%s)",
-			    &nbr->router_id,
-			    ospf_get_name(nbr->oi->ospf), IF_NAME(nbr->oi),
-			    lookup_msg(ospf_nsm_state_msg, nbr->state, NULL),
-			    lookup_msg(ospf_nsm_state_msg, next_state, NULL),
-			    ospf_nsm_event_str[event]);
+		zlog_notice(
+			"AdjChg: Nbr %pI4, NbrIP %pI4 (%s) on %s: %s -> %s (%s)",
+			&nbr->router_id, &nbr->src,
+			ospf_get_name(nbr->oi->ospf), IF_NAME(nbr->oi),
+			lookup_msg(ospf_nsm_state_msg, nbr->state, NULL),
+			lookup_msg(ospf_nsm_state_msg, next_state, NULL),
+			ospf_nsm_event_str[event]);
 
 	/* Advance in NSM */
 	if (next_state > nbr->state)
@@ -759,10 +775,8 @@ static void nsm_change_state(struct ospf_neighbor *nbr, int state)
 		if (CHECK_FLAG(oi->ospf->config, OSPF_LOG_ADJACENCY_DETAIL))
 			zlog_info(
 				"%s: Initializing [DD]: %pI4 with seqnum:%x , flags:%x",
-				(oi->ospf->name) ? oi->ospf->name
-						 : VRF_DEFAULT_NAME,
-				&nbr->router_id, nbr->dd_seqnum,
-				nbr->dd_flags);
+				ospf_get_name(oi->ospf), &nbr->router_id,
+				nbr->dd_seqnum, nbr->dd_flags);
 		ospf_db_desc_send(nbr);
 	}
 
@@ -777,14 +791,14 @@ static void nsm_change_state(struct ospf_neighbor *nbr, int state)
 }
 
 /* Execute NSM event process. */
-int ospf_nsm_event(struct thread *thread)
+void ospf_nsm_event(struct event *thread)
 {
 	int event;
 	int next_state;
 	struct ospf_neighbor *nbr;
 
-	nbr = THREAD_ARG(thread);
-	event = THREAD_VAL(thread);
+	nbr = EVENT_ARG(thread);
+	event = EVENT_VAL(thread);
 
 	if (IS_DEBUG_OSPF(nsm, NSM_EVENTS))
 		zlog_debug("NSM[%s:%pI4:%s]: %s (%s)", IF_NAME(nbr->oi),
@@ -847,8 +861,6 @@ int ospf_nsm_event(struct thread *thread)
 	 */
 	if (nbr->state == NSM_Deleted)
 		ospf_nbr_delete(nbr);
-
-	return 0;
 }
 
 /* Check loading state. */

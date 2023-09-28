@@ -4,7 +4,6 @@
 
 if NHRPD
 sbin_PROGRAMS += nhrpd/nhrpd
-vtysh_scan += nhrpd/nhrp_vty.c
 vtysh_daemons += nhrpd
 man8 += $(MANBUILD)/frr-nhrpd.8
 endif
@@ -34,7 +33,6 @@ nhrpd_nhrpd_SOURCES = \
 
 noinst_HEADERS += \
 	nhrpd/debug.h \
-	nhrpd/list.h \
 	nhrpd/netlink.h \
 	nhrpd/nhrp_errors.h \
 	nhrpd/nhrp_protocol.h \

@@ -1,19 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Copyright (C) 2020  NetDEF, Inc.
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -31,9 +18,7 @@
 
 #include "pathd/pathd.h"
 #include "pathd/path_nb.h"
-#ifndef VTYSH_EXTRACT_PL
 #include "pathd/path_cli_clippy.c"
-#endif
 #include "pathd/path_ted.h"
 
 #define XPATH_MAXATTRSIZE 64
@@ -128,7 +113,7 @@ DEFPY(show_srte_policy,
 	ttable_rowseps(tt, 0, BOTTOM, true, '-');
 
 	RB_FOREACH (policy, srte_policy_head, &srte_policies) {
-		char endpoint[46];
+		char endpoint[ENDPOINT_STR_LENGTH];
 		char binding_sid[16] = "-";
 
 		ipaddr2str(&policy->endpoint, endpoint, sizeof(endpoint));
@@ -175,7 +160,7 @@ DEFPY(show_srte_policy_detail,
 	vty_out(vty, "\n");
 	RB_FOREACH (policy, srte_policy_head, &srte_policies) {
 		struct srte_candidate *candidate;
-		char endpoint[46];
+		char endpoint[ENDPOINT_STR_LENGTH];
 		char binding_sid[16] = "-";
 		char *segment_list_info;
 		static char undefined_info[] = "(undefined)";
@@ -298,14 +283,15 @@ DEFPY(srte_no_segment_list,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-void cli_show_srte_segment_list(struct vty *vty, struct lyd_node *dnode,
+void cli_show_srte_segment_list(struct vty *vty, const struct lyd_node *dnode,
 				bool show_defaults)
 {
 	vty_out(vty, "  segment-list %s\n",
 		yang_dnode_get_string(dnode, "./name"));
 }
 
-void cli_show_srte_segment_list_end(struct vty *vty, struct lyd_node *dnode)
+void cli_show_srte_segment_list_end(struct vty *vty,
+				    const struct lyd_node *dnode)
 {
 	vty_out(vty, "  exit\n");
 }
@@ -526,7 +512,7 @@ DEFPY(srte_segment_list_segment, srte_segment_list_segment_cmd,
 					 adj_src_ipv4, adj_dst_ipv4,
 					 adj_src_ipv6, adj_dst_ipv6,
 					 adj_src_ipv4_str, adj_dst_ipv4_str,
-					 adj_dst_ipv6_str, adj_src_ipv6_str);
+					 adj_src_ipv6_str, adj_dst_ipv6_str);
 		if (status != CMD_SUCCESS)
 			return status;
 	} else {
@@ -557,7 +543,7 @@ DEFPY(srte_segment_list_no_segment,
 }
 
 void cli_show_srte_segment_list_segment(struct vty *vty,
-					struct lyd_node *dnode,
+					const struct lyd_node *dnode,
 					bool show_defaults)
 {
 	vty_out(vty, "   index %s", yang_dnode_get_string(dnode, "./index"));
@@ -668,7 +654,7 @@ DEFPY(srte_no_policy,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-void cli_show_srte_policy(struct vty *vty, struct lyd_node *dnode,
+void cli_show_srte_policy(struct vty *vty, const struct lyd_node *dnode,
 			  bool show_defaults)
 {
 	vty_out(vty, "  policy color %s endpoint %s\n",
@@ -676,7 +662,7 @@ void cli_show_srte_policy(struct vty *vty, struct lyd_node *dnode,
 		yang_dnode_get_string(dnode, "./endpoint"));
 }
 
-void cli_show_srte_policy_end(struct vty *vty, struct lyd_node *dnode)
+void cli_show_srte_policy_end(struct vty *vty, const struct lyd_node *dnode)
 {
 	vty_out(vty, "  exit\n");
 }
@@ -708,8 +694,8 @@ DEFPY(srte_policy_no_name,
 }
 
 
-void cli_show_srte_policy_name(struct vty *vty, struct lyd_node *dnode,
-				     bool show_defaults)
+void cli_show_srte_policy_name(struct vty *vty, const struct lyd_node *dnode,
+			       bool show_defaults)
 {
 	vty_out(vty, "   name %s\n", yang_dnode_get_string(dnode, NULL));
 }
@@ -741,7 +727,7 @@ DEFPY(srte_policy_no_binding_sid,
 }
 
 void cli_show_srte_policy_binding_sid(struct vty *vty,
-				      struct lyd_node *dnode,
+				      const struct lyd_node *dnode,
 				      bool show_defaults)
 {
 	vty_out(vty, "   binding-sid %s\n", yang_dnode_get_string(dnode, NULL));
@@ -1080,9 +1066,11 @@ static const char *objfun_type_name(enum objfun_type type)
 		return "mss";
 	case OBJFUN_MSN:
 		return "msn";
-	default:
+	case OBJFUN_UNDEFINED:
 		return NULL;
 	}
+
+	assert(!"Reached end of function we should never hit");
 }
 
 DEFPY_NOSH(show_debugging_pathd, show_debugging_pathd_cmd,
@@ -1091,7 +1079,26 @@ DEFPY_NOSH(show_debugging_pathd, show_debugging_pathd_cmd,
 	   "State of each debugging option\n"
 	   "pathd module debugging\n")
 {
+
+	vty_out(vty, "Path debugging status:\n");
+
+	cmd_show_lib_debugs(vty);
 	/* nothing to do here */
+	path_ted_show_debugging(vty);
+	path_policy_show_debugging(vty);
+	return CMD_SUCCESS;
+}
+
+DEFPY(debug_path_policy, debug_path_policy_cmd, "[no] debug pathd policy",
+      NO_STR DEBUG_STR
+      "path debugging\n"
+      "policy debugging\n")
+{
+	uint32_t mode = DEBUG_NODE2MODE(vty->node);
+	bool no_debug = no;
+
+	DEBUG_MODE_SET(&path_policy_debug, mode, !no);
+	DEBUG_FLAGS_SET(&path_policy_debug, PATH_POLICY_DEBUG_BASIC, !no_debug);
 	return CMD_SUCCESS;
 }
 
@@ -1187,7 +1194,7 @@ static int config_write_metric_cb(const struct lyd_node *dnode, void *arg)
 }
 
 void cli_show_srte_policy_candidate_path(struct vty *vty,
-					 struct lyd_node *dnode,
+					 const struct lyd_node *dnode,
 					 bool show_defaults)
 {
 	float bandwidth;
@@ -1253,7 +1260,7 @@ void cli_show_srte_policy_candidate_path(struct vty *vty,
 }
 
 void cli_show_srte_policy_candidate_path_end(struct vty *vty,
-					     struct lyd_node *dnode)
+					     const struct lyd_node *dnode)
 {
 	const char *type = yang_dnode_get_string(dnode, "./type");
 
@@ -1265,7 +1272,7 @@ static int config_write_dnode(const struct lyd_node *dnode, void *arg)
 {
 	struct vty *vty = arg;
 
-	nb_cli_show_dnode_cmds(vty, (struct lyd_node *)dnode, false);
+	nb_cli_show_dnode_cmds(vty, dnode, false);
 
 	return YANG_ITER_CONTINUE;
 }
@@ -1290,8 +1297,34 @@ int config_write_segment_routing(struct vty *vty)
 	return 1;
 }
 
+static int path_policy_cli_debug_config_write(struct vty *vty)
+{
+	if (DEBUG_MODE_CHECK(&path_policy_debug, DEBUG_MODE_CONF)) {
+		if (DEBUG_FLAGS_CHECK(&path_policy_debug,
+				      PATH_POLICY_DEBUG_BASIC))
+			vty_out(vty, "debug pathd policy\n");
+		return 1;
+	}
+	return 0;
+}
+
+static int path_policy_cli_debug_set_all(uint32_t flags, bool set)
+{
+	DEBUG_FLAGS_SET(&path_policy_debug, flags, set);
+
+	/* If all modes have been turned off, don't preserve options. */
+	if (!DEBUG_MODE_CHECK(&path_policy_debug, DEBUG_MODE_ALL))
+		DEBUG_CLEAR(&path_policy_debug);
+
+	return 0;
+}
+
 void path_cli_init(void)
 {
+	hook_register(nb_client_debug_config_write,
+		      path_policy_cli_debug_config_write);
+	hook_register(nb_client_debug_set_all, path_policy_cli_debug_set_all);
+
 	install_node(&segment_routing_node);
 	install_node(&sr_traffic_eng_node);
 	install_node(&srte_segment_list_node);
@@ -1306,6 +1339,9 @@ void path_cli_init(void)
 	install_element(ENABLE_NODE, &show_debugging_pathd_cmd);
 	install_element(ENABLE_NODE, &show_srte_policy_cmd);
 	install_element(ENABLE_NODE, &show_srte_policy_detail_cmd);
+
+	install_element(ENABLE_NODE, &debug_path_policy_cmd);
+	install_element(CONFIG_NODE, &debug_path_policy_cmd);
 
 	install_element(CONFIG_NODE, &segment_routing_cmd);
 	install_element(SEGMENT_ROUTING_NODE, &sr_traffic_eng_cmd);

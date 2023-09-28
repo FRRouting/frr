@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# SPDX-License-Identifier: ISC
 
 #
 # Part of NetDEF Topology Tests
@@ -6,22 +7,8 @@
 # Copyright (c) 2017 by
 # Network Device Education Foundation, Inc. ("NetDEF")
 #
-# Permission to use, copy, modify, and/or distribute this software
-# for any purpose with or without fee is hereby granted, provided
-# that the above copyright notice and this permission notice appear
-# in all copies.
-#
-# THE SOFTWARE IS PROVIDED "AS IS" AND NETDEF DISCLAIMS ALL WARRANTIES
-# WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
-# MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL NETDEF BE LIABLE FOR
-# ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY
-# DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS,
-# WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS
-# ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE
-# OF THIS SOFTWARE.
-#
 
-"""
+r"""
 customize.py: Simple FRR MPLS L3VPN test topology
 
                   |
@@ -137,22 +124,6 @@ def ltemplatePreRouterStartHook():
     if tgen.hasmpls != True:
         logger.info("MPLS not available, skipping setup")
         return False
-    # configure r2 mpls interfaces
-    intfs = ["lo", "r2-eth0", "r2-eth1", "r2-eth2"]
-    for intf in intfs:
-        cc.doCmd(tgen, "r2", "echo 1 > /proc/sys/net/mpls/conf/{}/input".format(intf))
-    # configure MPLS
-    rtrs = ["r1", "r3", "r4"]
-    cmds = ["echo 1 > /proc/sys/net/mpls/conf/lo/input"]
-    for rtr in rtrs:
-        router = tgen.gears[rtr]
-        for cmd in cmds:
-            cc.doCmd(tgen, rtr, cmd)
-        intfs = ["lo", rtr + "-eth0", rtr + "-eth4"]
-        for intf in intfs:
-            cc.doCmd(
-                tgen, rtr, "echo 1 > /proc/sys/net/mpls/conf/{}/input".format(intf)
-            )
     logger.info("setup mpls input")
     return True
 

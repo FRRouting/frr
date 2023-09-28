@@ -1,22 +1,10 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* BGP community, large-community aliasing.
  *
  * Copyright (C) 2021 Donatas Abraitis <donatas.abraitis@gmail.com>
- *
- * This file is part of FRRouting (FRR).
- *
- * FRR is free software; you can redistribute it and/or modify it under the
- * terms of the GNU General Public License as published by the Free Software
- * Foundation; either version 2, or (at your option) any later version.
- *
- * FRR is distributed in the hope that it will be useful, but WITHOUT ANY
- * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
- * FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more
- * details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
+
+#include "zebra.h"
 
 #include "memory.h"
 #include "lib/jhash.h"
@@ -40,9 +28,7 @@ static bool bgp_ca_community_hash_cmp(const void *p1, const void *p2)
 	const struct community_alias *ca1 = p1;
 	const struct community_alias *ca2 = p2;
 
-	return (strncmp(ca1->community, ca2->community,
-			sizeof(struct community_alias))
-		== 0);
+	return (strcmp(ca1->community, ca2->community) == 0);
 }
 
 static unsigned int bgp_ca_alias_hash_key(const void *p)
@@ -57,8 +43,7 @@ static bool bgp_ca_alias_hash_cmp(const void *p1, const void *p2)
 	const struct community_alias *ca1 = p1;
 	const struct community_alias *ca2 = p2;
 
-	return (strncmp(ca1->alias, ca2->alias, sizeof(struct community_alias))
-		== 0);
+	return (strcmp(ca1->alias, ca2->alias) == 0);
 }
 
 static void *bgp_community_alias_alloc(void *p)
@@ -82,10 +67,15 @@ void bgp_community_alias_init(void)
 			    "BGP community alias (alias)");
 }
 
+static void bgp_ca_free(void *ca)
+{
+	XFREE(MTYPE_COMMUNITY_ALIAS, ca);
+}
+
 void bgp_community_alias_finish(void)
 {
-	hash_free(bgp_ca_community_hash);
-	hash_free(bgp_ca_alias_hash);
+	hash_clean_and_free(&bgp_ca_community_hash, bgp_ca_free);
+	hash_clean_and_free(&bgp_ca_alias_hash, bgp_ca_free);
 }
 
 static void bgp_community_alias_show_iterator(struct hash_bucket *hb,
@@ -107,12 +97,12 @@ int bgp_community_alias_write(struct vty *vty)
 
 void bgp_ca_community_insert(struct community_alias *ca)
 {
-	hash_get(bgp_ca_community_hash, ca, bgp_community_alias_alloc);
+	(void)hash_get(bgp_ca_community_hash, ca, bgp_community_alias_alloc);
 }
 
 void bgp_ca_alias_insert(struct community_alias *ca)
 {
-	hash_get(bgp_ca_alias_hash, ca, bgp_community_alias_alloc);
+	(void)hash_get(bgp_ca_alias_hash, ca, bgp_community_alias_alloc);
 }
 
 void bgp_ca_community_delete(struct community_alias *ca)

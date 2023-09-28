@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Link State Database definition - ted.h
  *
@@ -6,25 +7,12 @@
  * Copyright (C) 2020 Orange http://www.orange.com
  *
  * This file is part of Free Range Routing (FRR).
- *
- * FRR is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * FRR is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef _FRR_LINK_STATE_H_
 #define _FRR_LINK_STATE_H_
 
+#include "admin_group.h"
 #include "typesafe.h"
 
 #ifdef __cplusplus
@@ -91,8 +79,21 @@ struct ls_node_id {
 			uint8_t level;			/* ISIS Level */
 			uint8_t padding;
 		} iso;
-	} id __attribute__((aligned(8)));
+	} id;
 };
+
+/**
+ * Check if two Link State Node IDs are equal. Note that this routine has the
+ * same return value sense as '==' (which is different from a comparison).
+ *
+ * @param i1	First Link State Node Identifier
+ * @param i2	Second Link State Node Identifier
+ * @return	1 if equal, 0 otherwise
+ */
+extern int ls_node_id_same(struct ls_node_id i1, struct ls_node_id i2);
+
+/* Supported number of algorithm by the link-state library */
+#define LIB_LS_SR_ALGO_COUNT 2
 
 /* Link State flags to indicate which Node parameters are valid */
 #define LS_NODE_UNSET		0x0000
@@ -112,7 +113,7 @@ struct ls_node {
 	struct ls_node_id adv;		/* Adv. Router of this Link State */
 	char name[MAX_NAME_LENGTH];	/* Name of the Node (IS-IS only) */
 	struct in_addr router_id;	/* IPv4 Router ID */
-	struct in6_addr router6_id;	/* IPv6 Router ID */
+	struct in6_addr router_id6;	/* IPv6 Router ID */
 	uint8_t node_flag;		/* IS-IS or OSPF Node flag */
 	enum ls_node_type type;		/* Type of Node */
 	uint32_t as_number;		/* Local or neighbor AS number */
@@ -125,7 +126,7 @@ struct ls_node {
 		uint32_t lower_bound;		/* MPLS label lower bound */
 		uint32_t range_size;		/* MPLS label range size */
 	} srlb;
-	uint8_t algo[2];		/* Segment Routing Algorithms */
+	uint8_t algo[LIB_LS_SR_ALGO_COUNT]; /* Segment Routing Algorithms */
 	uint8_t msd;			/* Maximum Stack Depth */
 };
 
@@ -156,7 +157,10 @@ struct ls_node {
 #define LS_ATTR_USE_BW		0x00400000
 #define LS_ATTR_ADJ_SID		0x01000000
 #define LS_ATTR_BCK_ADJ_SID	0x02000000
+#define LS_ATTR_ADJ_SID6	0x04000000
+#define LS_ATTR_BCK_ADJ_SID6	0x08000000
 #define LS_ATTR_SRLG		0x10000000
+#define LS_ATTR_EXT_ADM_GRP 0x20000000
 
 /* Link State Attributes */
 struct ls_attributes {
@@ -190,6 +194,12 @@ struct ls_attributes {
 		float rsv_bw;		/* Reserved Bandwidth */
 		float used_bw;		/* Utilized Bandwidth */
 	} extended;
+	struct admin_group ext_admin_group; /* Extended Admin. Group */
+#define ADJ_PRI_IPV4	0
+#define ADJ_BCK_IPV4	1
+#define ADJ_PRI_IPV6	2
+#define ADJ_BCK_IPV6	3
+#define LS_ADJ_MAX	4
 	struct ls_adjacency {		/* (LAN)-Adjacency SID for OSPF */
 		uint32_t sid;		/* SID as MPLS label or index */
 		uint8_t flags;		/* Flags */
@@ -198,7 +208,7 @@ struct ls_attributes {
 			struct in_addr addr;	/* Neighbor @IP for OSPF */
 			uint8_t sysid[ISO_SYS_ID_LEN]; /* or Sys-ID for ISIS */
 		} neighbor;
-	} adj_sid[2];		/* Primary & Backup (LAN)-Adj. SID */
+	} adj_sid[4];		/* IPv4/IPv6 & Primary/Backup (LAN)-Adj. SID */
 	uint32_t *srlgs;	/* List of Shared Risk Link Group */
 	uint8_t srlg_len;	/* number of SRLG in the list */
 };
@@ -307,7 +317,7 @@ extern int ls_attributes_same(struct ls_attributes *a1,
  *
  * @return	New Link State Prefix
  */
-extern struct ls_prefix *ls_prefix_new(struct ls_node_id adv, struct prefix p);
+extern struct ls_prefix *ls_prefix_new(struct ls_node_id adv, struct prefix *p);
 
 /**
  * Remove Link State Prefix. Data Structure is freed.
@@ -375,13 +385,23 @@ struct ls_vertex {
 	struct list *prefixes;		/* List of advertised prefix */
 };
 
+/* Link State Edge Key structure */
+struct ls_edge_key {
+	uint8_t family;
+	union {
+		struct in_addr addr;
+		struct in6_addr addr6;
+		uint64_t link_id;
+	} k;
+};
+
 /* Link State Edge structure */
 PREDECL_RBTREE_UNIQ(edges);
 struct ls_edge {
 	enum ls_type type;		/* Link State Type */
 	enum ls_status status;		/* Status of the Edge in the TED */
 	struct edges_item entry;	/* Entry in RB tree */
-	uint64_t key;			/* Unique Key identifier */
+	struct ls_edge_key key;		/* Unique Key identifier */
 	struct ls_attributes *attributes;	/* Link State attributes */
 	struct ls_vertex *source;	/* Pointer to the source Vertex */
 	struct ls_vertex *destination;	/* Pointer to the destination Vertex */
@@ -402,21 +422,46 @@ struct ls_subnet {
 macro_inline int vertex_cmp(const struct ls_vertex *node1,
 			    const struct ls_vertex *node2)
 {
-	return (node1->key - node2->key);
+	return numcmp(node1->key, node2->key);
 }
 DECLARE_RBTREE_UNIQ(vertices, struct ls_vertex, entry, vertex_cmp);
 
 macro_inline int edge_cmp(const struct ls_edge *edge1,
 			  const struct ls_edge *edge2)
 {
-	return (edge1->key - edge2->key);
+	if (edge1->key.family != edge2->key.family)
+		return numcmp(edge1->key.family, edge2->key.family);
+
+	switch (edge1->key.family) {
+	case AF_INET:
+		return memcmp(&edge1->key.k.addr, &edge2->key.k.addr, 4);
+	case AF_INET6:
+		return memcmp(&edge1->key.k.addr6, &edge2->key.k.addr6, 16);
+	case AF_LOCAL:
+		return numcmp(edge1->key.k.link_id, edge2->key.k.link_id);
+	default:
+		return 0;
+	}
 }
 DECLARE_RBTREE_UNIQ(edges, struct ls_edge, entry, edge_cmp);
 
+/*
+ * Prefix comparison are done to the host part so, 10.0.0.1/24
+ * and 10.0.0.2/24 are considered different
+ */
 macro_inline int subnet_cmp(const struct ls_subnet *a,
-			     const struct ls_subnet *b)
+			    const struct ls_subnet *b)
 {
-	return prefix_cmp(&a->key, &b->key);
+	if (a->key.family != b->key.family)
+		return numcmp(a->key.family, b->key.family);
+
+	if (a->key.prefixlen != b->key.prefixlen)
+		return numcmp(a->key.prefixlen, b->key.prefixlen);
+
+	if (a->key.family == AF_INET)
+		return memcmp(&a->key.u.val, &b->key.u.val, 4);
+
+	return memcmp(&a->key.u.val, &b->key.u.val, 16);
 }
 DECLARE_RBTREE_UNIQ(subnets, struct ls_subnet, entry, subnet_cmp);
 
@@ -493,6 +538,16 @@ extern struct ls_vertex *ls_vertex_update(struct ls_ted *ted,
  */
 extern void ls_vertex_clean(struct ls_ted *ted, struct ls_vertex *vertex,
 			    struct zclient *zclient);
+
+/**
+ * This function convert the ISIS ISO system ID into a 64 bits unsigned integer
+ * following the architecture dependent byte order.
+ *
+ * @param sysid The ISO system ID
+ * @return	Key as 64 bits unsigned integer
+ */
+extern uint64_t sysid_to_key(const uint8_t sysid[ISO_SYS_ID_LEN]);
+
 /**
  * Find Vertex in the Link State DB by its unique key.
  *
@@ -589,7 +644,7 @@ extern void ls_edge_del_all(struct ls_ted *ted, struct ls_edge *edge);
  * @return	Edge if found, NULL otherwise
  */
 extern struct ls_edge *ls_find_edge_by_key(struct ls_ted *ted,
-					   const uint64_t key);
+					   const struct ls_edge_key key);
 
 /**
  * Find Edge in the Link State Data Base by the source (local IPv4 or IPv6
@@ -679,7 +734,7 @@ extern void ls_subnet_del_all(struct ls_ted *ted, struct ls_subnet *subnet);
  * @return		Subnet if found, NULL otherwise
  */
 extern struct ls_subnet *ls_find_subnet(struct ls_ted *ted,
-					const struct prefix prefix);
+					const struct prefix *prefix);
 
 /**
  * Create a new Link State Data Base.
@@ -706,7 +761,7 @@ extern void ls_ted_del(struct ls_ted *ted);
  *
  * @param ted	Link State Data Base
  */
-extern void ls_ted_del_all(struct ls_ted *ted);
+extern void ls_ted_del_all(struct ls_ted **ted);
 
 /**
  * Clean Link State Data Base by removing all Vertices, Edges and SubNets marked

@@ -1,22 +1,8 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * PIM for FRR - PIM Instance
  * Copyright (C) 2017 Cumulus Networks, Inc.
  * Donald Sharp
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; see the file COPYING; if not, write to the
- * Free Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston,
- * MA 02110-1301 USA
  */
 #include <zebra.h>
 
@@ -25,6 +11,7 @@
 #include "lib_errors.h"
 
 #include "pimd.h"
+#include "pim_instance.h"
 #include "pim_ssm.h"
 #include "pim_rpf.h"
 #include "pim_rp.h"
@@ -35,6 +22,7 @@
 #include "pim_vty.h"
 #include "pim_bsm.h"
 #include "pim_mlag.h"
+#include "pim_sock.h"
 
 static void pim_instance_terminate(struct pim_instance *pim)
 {
@@ -57,17 +45,17 @@ static void pim_instance_terminate(struct pim_instance *pim)
 	pim_bsm_proc_free(pim);
 
 	/* Traverse and cleanup rpf_hash */
-	if (pim->rpf_hash) {
-		hash_clean(pim->rpf_hash, (void *)pim_rp_list_hash_clean);
-		hash_free(pim->rpf_hash);
-		pim->rpf_hash = NULL;
-	}
+	hash_clean_and_free(&pim->rpf_hash, (void *)pim_rp_list_hash_clean);
 
 	pim_if_terminate(pim);
 
 	pim_oil_terminate(pim);
 
 	pim_msdp_exit(pim);
+
+	close(pim->reg_sock);
+
+	pim_mroute_socket_disable(pim);
 
 	XFREE(MTYPE_PIM_PLIST_NAME, pim->spt.plist);
 	XFREE(MTYPE_PIM_PLIST_NAME, pim->register_plist);
@@ -114,6 +102,8 @@ static struct pim_instance *pim_instance_init(struct vrf *vrf)
 
 	pim->send_v6_secondary = 1;
 
+	pim->gm_socket = -1;
+
 	pim_rp_init(pim);
 
 	pim_bsm_proc_init(pim);
@@ -125,6 +115,10 @@ static struct pim_instance *pim_instance_init(struct vrf *vrf)
 	pim_instance_mlag_init(pim);
 
 	pim->last_route_change_time = -1;
+
+	pim->reg_sock = pim_reg_sock();
+	if (pim->reg_sock < 0)
+		assert(0);
 
 	/* MSDP global timer defaults. */
 	pim->msdp.hold_time = PIM_MSDP_PEER_HOLD_TIME;
@@ -184,6 +178,8 @@ static int pim_vrf_enable(struct vrf *vrf)
 
 	zlog_debug("%s: for %s %u", __func__, vrf->name, vrf->vrf_id);
 
+	pim_mroute_socket_enable(pim);
+
 	FOR_ALL_INTERFACES (vrf, ifp) {
 		if (!ifp->info)
 			continue;
@@ -191,8 +187,6 @@ static int pim_vrf_enable(struct vrf *vrf)
 		pim_if_create_pimreg(pim);
 		break;
 	}
-
-	pim_mroute_socket_enable(pim);
 
 	return 0;
 }
@@ -228,13 +222,27 @@ static int pim_vrf_config_write(struct vty *vty)
 
 void pim_vrf_init(void)
 {
-	vrf_init(pim_vrf_new, pim_vrf_enable, pim_vrf_disable,
-		 pim_vrf_delete, NULL);
+	vrf_init(pim_vrf_new, pim_vrf_enable, pim_vrf_disable, pim_vrf_delete);
 
 	vrf_cmd_init(pim_vrf_config_write);
 }
 
 void pim_vrf_terminate(void)
 {
+	struct vrf *vrf;
+
+	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
+		struct pim_instance *pim;
+
+		pim = vrf->info;
+		if (!pim)
+			continue;
+
+		pim_ssmpingd_destroy(pim);
+		pim_instance_terminate(pim);
+
+		vrf->info = NULL;
+	}
+
 	vrf_terminate();
 }

@@ -1,23 +1,8 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Nexthop structure definition.
  * Copyright (C) 1997, 98, 99, 2001 Kunihiro Ishiguro
  * Copyright (C) 2013 Cumulus Networks, Inc.
- *
- * This file is part of Quagga.
- *
- * Quagga is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * Quagga is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef _LIB_NEXTHOP_H
@@ -81,7 +66,7 @@ struct nexthop {
 
 	enum nexthop_types_t type;
 
-	uint8_t flags;
+	uint16_t flags;
 #define NEXTHOP_FLAG_ACTIVE     (1 << 0) /* This nexthop is alive. */
 #define NEXTHOP_FLAG_FIB        (1 << 1) /* FIB nexthop. */
 #define NEXTHOP_FLAG_RECURSIVE  (1 << 2) /* Recursive nexthop. */
@@ -94,6 +79,8 @@ struct nexthop {
 #define NEXTHOP_FLAG_RNH_FILTERED  (1 << 5) /* rmap filtered, used by rnh */
 #define NEXTHOP_FLAG_HAS_BACKUP (1 << 6)    /* Backup nexthop index is set */
 #define NEXTHOP_FLAG_SRTE       (1 << 7) /* SR-TE color used for BGP traffic */
+#define NEXTHOP_FLAG_EVPN       (1 << 8) /* nexthop is EVPN */
+#define NEXTHOP_FLAG_LINKDOWN   (1 << 9) /* is not removed on link down */
 
 #define NEXTHOP_IS_ACTIVE(flags)                                               \
 	(CHECK_FLAG(flags, NEXTHOP_FLAG_ACTIVE)                                \
@@ -138,6 +125,12 @@ struct nexthop {
 		vni_t vni;
 	} nh_encap;
 
+	/* EVPN router's MAC.
+	 * Don't support multiple RMAC from the same VTEP yet, so it's not
+	 * included in hash key.
+	 */
+	struct ethaddr rmac;
+
 	/* SR-TE color used for matching SR-TE policies */
 	uint32_t srte_color;
 
@@ -164,8 +157,8 @@ void nexthop_del_labels(struct nexthop *);
 void nexthop_add_srv6_seg6local(struct nexthop *nexthop, uint32_t action,
 				const struct seg6local_context *ctx);
 void nexthop_del_srv6_seg6local(struct nexthop *nexthop);
-void nexthop_add_srv6_seg6(struct nexthop *nexthop,
-			   const struct in6_addr *segs);
+void nexthop_add_srv6_seg6(struct nexthop *nexthop, const struct in6_addr *seg,
+			   int num_segs);
 void nexthop_del_srv6_seg6(struct nexthop *nexthop);
 
 /*
@@ -247,6 +240,9 @@ extern struct nexthop *nexthop_dup(const struct nexthop *nexthop,
 extern struct nexthop *nexthop_dup_no_recurse(const struct nexthop *nexthop,
 					      struct nexthop *rparent);
 
+/* Check nexthop of IFINDEX type */
+extern bool nexthop_is_ifindex_type(const struct nexthop *nh);
+
 /*
  * Parse one or more backup index values, as comma-separated numbers,
  * into caller's array of uint8_ts. The array must be NEXTHOP_MAX_BACKUPS
@@ -260,6 +256,7 @@ int nexthop_str2backups(const char *str, int *num_backups,
 #pragma FRR printfrr_ext "%pNH"  (struct nexthop *)
 #endif
 
+ssize_t printfrr_nhs(struct fbuf *buf, const struct nexthop *nh);
 #ifdef __cplusplus
 }
 #endif

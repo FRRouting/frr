@@ -1,10 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* NHRP daemon main functions
  * Copyright (c) 2014-2015 Timo Teräs
- *
- * This file is free software: you may copy, redistribute and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 2 of the License, or
- * (at your option) any later version.
  */
 
 #ifdef HAVE_CONFIG_H
@@ -16,7 +12,7 @@
 #include "zebra.h"
 #include "privs.h"
 #include "getopt.h"
-#include "thread.h"
+#include "frrevent.h"
 #include "sigevent.h"
 #include "lib/version.h"
 #include "log.h"
@@ -32,7 +28,7 @@ DEFINE_MGROUP(NHRPD, "NHRP");
 
 unsigned int debug_flags = 0;
 
-struct thread_master *master;
+struct event_loop *master;
 struct timeval current_time;
 
 /* nhrpd options. */
@@ -55,7 +51,9 @@ struct zebra_privs_t nhrpd_privs = {
 #endif
 	.caps_p = _caps_p,
 	.cap_num_p = array_size(_caps_p),
+	.cap_num_i = 0
 };
+
 
 static void parse_arguments(int argc, char **argv)
 {
@@ -99,7 +97,7 @@ static void nhrp_request_stop(void)
 	exit(0);
 }
 
-static struct quagga_signal_t sighandlers[] = {
+static struct frr_signal_t sighandlers[] = {
 	{
 		.signal = SIGUSR1,
 		.handler = &nhrp_sigusr1,
@@ -140,7 +138,7 @@ int main(int argc, char **argv)
 	/* Library inits. */
 	master = frr_init();
 	nhrp_error_init();
-	vrf_init(NULL, NULL, NULL, NULL, NULL);
+	vrf_init(NULL, NULL, NULL, NULL);
 	nhrp_interface_init();
 	resolver_init(master);
 

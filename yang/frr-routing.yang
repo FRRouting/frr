@@ -1,7 +1,8 @@
+// SPDX-License-Identifier: BSD-2-Clause
 module frr-routing {
   yang-version "1.1";
   namespace "http://frrouting.org/yang/routing";
-  prefix "rt";
+  prefix "frr-routing";
 
   import ietf-yang-types {
     prefix "yang";
@@ -168,6 +169,13 @@ module frr-routing {
     base afi-safi-type;
     description
       "This identity represents the IPv6 flowspec address family.";
+  }
+
+
+  identity linkstate-linkstate {
+    base afi-safi-type;
+    description
+      "This identity represents the link-state address family.";
   }
 
 

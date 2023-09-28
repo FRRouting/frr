@@ -1,23 +1,8 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * SHARP - code to track nexthops
  * Copyright (C) Cumulus Networks, Inc.
  *               Donald Sharp
- *
- * This file is part of FRR.
- *
- * FRR is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * FRR is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 #include <zebra.h>
 
@@ -124,6 +109,24 @@ static void sharp_nhgroup_add_cb(const char *name)
 	sharp_nhg_rb_add(&nhg_head, snhg);
 }
 
+static void sharp_nhgroup_modify_cb(const struct nexthop_group_cmd *nhgc)
+{
+	struct sharp_nhg lookup;
+	struct sharp_nhg *snhg;
+	struct nexthop_group_cmd *bnhgc = NULL;
+
+	strlcpy(lookup.name, nhgc->name, sizeof(lookup.name));
+	snhg = sharp_nhg_rb_find(&nhg_head, &lookup);
+
+	if (!nhgc->nhg.nexthop)
+		return;
+
+	if (nhgc->backup_list_name[0])
+		bnhgc = nhgc_find(nhgc->backup_list_name);
+
+	nhg_add(snhg->id, &nhgc->nhg, (bnhgc ? &bnhgc->nhg : NULL));
+}
+
 static void sharp_nhgroup_add_nexthop_cb(const struct nexthop_group_cmd *nhgc,
 					 const struct nexthop *nhop)
 {
@@ -215,7 +218,8 @@ void sharp_nhgroup_init(void)
 	sharp_nhg_rb_init(&nhg_head);
 	nhg_id = zclient_get_nhg_start(ZEBRA_ROUTE_SHARP);
 
-	nexthop_group_init(sharp_nhgroup_add_cb, sharp_nhgroup_add_nexthop_cb,
+	nexthop_group_init(sharp_nhgroup_add_cb, sharp_nhgroup_modify_cb,
+			   sharp_nhgroup_add_nexthop_cb,
 			   sharp_nhgroup_del_nexthop_cb,
 			   sharp_nhgroup_delete_cb);
 }

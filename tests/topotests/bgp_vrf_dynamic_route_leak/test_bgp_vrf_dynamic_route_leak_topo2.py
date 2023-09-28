@@ -1,23 +1,10 @@
 #!/usr/bin/env python
+# SPDX-License-Identifier: ISC
 
 #
 # Copyright (c) 2020 by VMware, Inc. ("VMware")
 # Used Copyright (c) 2018 by Network Device Education Foundation,
 # Inc. ("NetDEF") in this file.
-#
-# Permission to use, copy, modify, and/or distribute this software
-# for any purpose with or without fee is hereby granted, provided
-# that the above copyright notice and this permission notice appear
-# in all copies.
-#
-# THE SOFTWARE IS PROVIDED "AS IS" AND VMWARE DISCLAIMS ALL WARRANTIES
-# WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
-# MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL VMWARE BE LIABLE FOR
-# ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY
-# DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS,
-# WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS
-# ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE
-# OF THIS SOFTWARE.
 #
 
 """
@@ -75,28 +62,12 @@ from lib.topojson import build_topo_from_json, build_config_from_json
 
 pytestmark = [pytest.mark.bgpd, pytest.mark.staticd]
 
-
-# Reading the data from JSON File for topology creation
-jsonFile = "{}/bgp_vrf_dynamic_route_leak_topo2.json".format(CWD)
-try:
-    with open(jsonFile, "r") as topoJson:
-        topo = json.load(topoJson)
-except IOError:
-    assert False, "Could not read file {}".format(jsonFile)
-
 # Global variables
 NETWORK1_1 = {"ipv4": "11.11.11.1/32", "ipv6": "11:11::1/128"}
 NETWORK3_3 = {"ipv4": "50.50.50.5/32", "ipv6": "50:50::5/128"}
 NETWORK3_4 = {"ipv4": "50.50.50.50/32", "ipv6": "50:50::50/128"}
 
 PREFERRED_NEXT_HOP = "global"
-
-
-def build_topo(tgen):
-    """Build function"""
-
-    # Building topology from json file
-    build_topo_from_json(tgen, topo)
 
 
 def setup_module(mod):
@@ -114,11 +85,13 @@ def setup_module(mod):
     logger.info("Running setup_module to create topology")
 
     # This function initiates the topology build with Topogen...
-    tgen = Topogen(build_topo, mod.__name__)
+    json_file = "{}/bgp_vrf_dynamic_route_leak_topo2.json".format(CWD)
+    tgen = Topogen(json_file, mod.__name__)
+    topo = tgen.json_topo
     # ... and here it calls Mininet initialization functions.
 
     # Starting topology, create tmp files which are loaded to routers
-    #  to start deamons and then start routers
+    #  to start daemons and then start routers
     start_topology(tgen)
 
     # Run these tests for kernel version 4.19 or above
@@ -183,7 +156,6 @@ def test_bgp_best_path_with_dynamic_import_p0(request):
         check_router_status(tgen)
 
     for addr_type in ADDR_TYPES:
-
         step(
             "Redistribute configured static routes into BGP process" " on R1/R2 and R3"
         )
@@ -215,7 +187,6 @@ def test_bgp_best_path_with_dynamic_import_p0(request):
         )
 
     for addr_type in ADDR_TYPES:
-
         step("Import from default vrf into vrf ISR on R1 and R2 as below")
 
         input_dict_vrf = {}
@@ -273,7 +244,6 @@ def test_bgp_best_path_with_dynamic_import_p0(request):
     )
 
     for addr_type in ADDR_TYPES:
-
         step("Verify Pre-emption")
 
         input_routes_r3 = {
@@ -305,7 +275,6 @@ def test_bgp_best_path_with_dynamic_import_p0(request):
     shutdown_bringup_interface(tgen, "r4", intf_r4_r1, False)
 
     for addr_type in ADDR_TYPES:
-
         input_routes_r3 = {
             "r3": {"static_routes": [{"network": [NETWORK3_3[addr_type]]}]}
         }
@@ -336,7 +305,6 @@ def test_bgp_best_path_with_dynamic_import_p0(request):
     shutdown_bringup_interface(tgen, "r4", intf_r4_r1, True)
 
     for addr_type in ADDR_TYPES:
-
         input_routes_r3 = {
             "r3": {"static_routes": [{"network": [NETWORK3_3[addr_type]]}]}
         }
@@ -366,7 +334,6 @@ def test_bgp_best_path_with_dynamic_import_p0(request):
     step("Active-Standby scenario(as-path prepend and Local pref)")
 
     for addr_type in ADDR_TYPES:
-
         step("Create prefix-list")
 
         input_dict_pf = {
@@ -390,7 +357,6 @@ def test_bgp_best_path_with_dynamic_import_p0(request):
         )
 
     for addr_type in ADDR_TYPES:
-
         step("Create route-map to match prefix-list and set localpref 500")
 
         input_dict_rm = {
@@ -498,15 +464,10 @@ def test_bgp_best_path_with_dynamic_import_p0(request):
     attribute = "locPrf"
 
     for addr_type in ADDR_TYPES:
-
         step("Verify bestpath is installed as per highest localpref")
 
         input_routes_r3 = {
-            "r3": {
-                "static_routes": [
-                    {"network": [NETWORK3_3[addr_type], NETWORK3_4[addr_type]]}
-                ]
-            }
+            "r3": {"static_routes": [{"network": [NETWORK3_4[addr_type]]}]}
         }
 
         result = verify_best_path_as_per_bgp_attribute(
@@ -517,7 +478,6 @@ def test_bgp_best_path_with_dynamic_import_p0(request):
         )
 
     for addr_type in ADDR_TYPES:
-
         step("Create route-map to match prefix-list and set localpref 700")
 
         input_dict_rm = {
@@ -545,15 +505,10 @@ def test_bgp_best_path_with_dynamic_import_p0(request):
         )
 
     for addr_type in ADDR_TYPES:
-
         step("Verify bestpath is changed as per highest localpref")
 
         input_routes_r3 = {
-            "r3": {
-                "static_routes": [
-                    {"network": [NETWORK3_3[addr_type], NETWORK3_4[addr_type]]}
-                ]
-            }
+            "r3": {"static_routes": [{"network": [NETWORK3_4[addr_type]]}]}
         }
 
         result = verify_best_path_as_per_bgp_attribute(
@@ -564,7 +519,6 @@ def test_bgp_best_path_with_dynamic_import_p0(request):
         )
 
     for addr_type in ADDR_TYPES:
-
         step("Create route-map to match prefix-list and set as-path prepend")
 
         input_dict_rm = {
@@ -597,15 +551,10 @@ def test_bgp_best_path_with_dynamic_import_p0(request):
     attribute = "path"
 
     for addr_type in ADDR_TYPES:
-
         step("Verify bestpath is changed as per shortest as-path")
 
         input_routes_r3 = {
-            "r3": {
-                "static_routes": [
-                    {"network": [NETWORK3_3[addr_type], NETWORK3_4[addr_type]]}
-                ]
-            }
+            "r3": {"static_routes": [{"network": [NETWORK3_4[addr_type]]}]}
         }
 
         result = verify_best_path_as_per_bgp_attribute(
@@ -634,7 +583,6 @@ def test_modify_route_map_match_set_clauses_p1(request):
         check_router_status(tgen)
 
     for addr_type in ADDR_TYPES:
-
         step(
             "Configure route-map to set community attribute for a specific"
             "prefix on R1 in vrf ISR"
@@ -699,7 +647,6 @@ def test_modify_route_map_match_set_clauses_p1(request):
         )
 
     for addr_type in ADDR_TYPES:
-
         step(
             "Apply this route-map on R1 to vrf ISR while redistributing the"
             " prefixes into BGP"
@@ -741,7 +688,6 @@ def test_modify_route_map_match_set_clauses_p1(request):
         )
 
     for addr_type in ADDR_TYPES:
-
         step(
             "Configure another route-map for filtering the prefixes based on"
             " community attribute while importing into default vrf"
@@ -767,7 +713,6 @@ def test_modify_route_map_match_set_clauses_p1(request):
         )
 
     for addr_type in ADDR_TYPES:
-
         step(
             "Apply the route-map while Importing vrf ISR's prefixes into "
             "default vrf on router R1:"
@@ -814,7 +759,6 @@ def test_modify_route_map_match_set_clauses_p1(request):
         )
 
     for addr_type in ADDR_TYPES:
-
         step(
             "Verify on R1 that only prefixes with community value 100:100"
             "in vrf ISR are imported to vrf default. While importing, the"
@@ -835,7 +779,6 @@ def test_modify_route_map_match_set_clauses_p1(request):
         )
 
     for addr_type in ADDR_TYPES:
-
         step("Add set clause in route-map IMP:")
 
         input_dict_rm = {
@@ -862,7 +805,6 @@ def test_modify_route_map_match_set_clauses_p1(request):
         )
 
     for addr_type in ADDR_TYPES:
-
         step(
             "Verify that as we continue adding different attributes "
             "step-by-step in route-map IMP those attributes gets "
@@ -925,7 +867,6 @@ def test_modify_route_map_match_set_clauses_p1(request):
     assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     for addr_type in ADDR_TYPES:
-
         input_routes_r1 = {
             "r1": {
                 "static_routes": [

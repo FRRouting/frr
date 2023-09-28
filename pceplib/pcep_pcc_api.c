@@ -1,20 +1,8 @@
+// SPDX-License-Identifier: LGPL-2.1-or-later
 /*
  * This file is part of the PCEPlib, a PCEP protocol library.
  *
  * Copyright (C) 2020 Volta Networks https://voltanet.io/
- *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Lesser General Public
- * License as published by the Free Software Foundation; either
- * version 2 of the License, or (at your option) any later version.
- *
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public License
- * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *
  * Author : Brady Johnson <brady@voltanet.io>
  *
@@ -55,7 +43,7 @@ const char UNKNOWN_EVENT_STR[] = "UNKNOWN Event Type";
 /* Session Logic Handle managed in pcep_session_logic.c */
 extern pcep_event_queue *session_logic_event_queue_;
 
-bool initialize_pcc()
+bool initialize_pcc(void)
 {
 	if (!run_session_logic()) {
 		pcep_log(LOG_ERR, "%s: Error initializing PCC session logic.",
@@ -85,13 +73,13 @@ bool initialize_pcc_infra(struct pceplib_infra_config *infra_config)
 
 
 /* this function is blocking */
-bool initialize_pcc_wait_for_completion()
+bool initialize_pcc_wait_for_completion(void)
 {
 	return run_session_logic_wait_for_completion();
 }
 
 
-bool destroy_pcc()
+bool destroy_pcc(void)
 {
 	if (!stop_session_logic()) {
 		pcep_log(LOG_WARNING, "%s: Error stopping PCC session logic.",
@@ -103,7 +91,7 @@ bool destroy_pcc()
 }
 
 
-pcep_configuration *create_default_pcep_configuration()
+pcep_configuration *create_default_pcep_configuration(void)
 {
 	pcep_configuration *config =
 		pceplib_malloc(PCEPLIB_INFRA, sizeof(pcep_configuration));
@@ -226,7 +214,7 @@ void send_message(pcep_session *session, struct pcep_message *msg,
 }
 
 /* Returns true if the queue is empty, false otherwise */
-bool event_queue_is_empty()
+bool event_queue_is_empty(void)
 {
 	if (session_logic_event_queue_ == NULL) {
 		pcep_log(
@@ -246,7 +234,7 @@ bool event_queue_is_empty()
 
 
 /* Return the number of events on the queue, 0 if empty */
-uint32_t event_queue_num_events_available()
+uint32_t event_queue_num_events_available(void)
 {
 	if (session_logic_event_queue_ == NULL) {
 		pcep_log(
@@ -266,7 +254,7 @@ uint32_t event_queue_num_events_available()
 
 
 /* Return the next event on the queue, NULL if empty */
-struct pcep_event *event_queue_get_event()
+struct pcep_event *event_queue_get_event(void)
 {
 	if (session_logic_event_queue_ == NULL) {
 		pcep_log(

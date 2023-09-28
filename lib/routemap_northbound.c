@@ -1,23 +1,9 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Route map northbound implementation.
  *
  * Copyright (C) 2019 Network Device Education Foundation, Inc. ("NetDEF")
  *                    Rafael Zalamena
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
- * 02110-1301 USA.
  */
 
 #include <zebra.h>
@@ -367,6 +353,7 @@ static int
 lib_route_map_entry_exit_policy_modify(struct nb_cb_modify_args *args)
 {
 	struct route_map_index *rmi;
+	struct route_map *map;
 	int rm_action;
 	int policy;
 
@@ -396,6 +383,7 @@ lib_route_map_entry_exit_policy_modify(struct nb_cb_modify_args *args)
 		break;
 	case NB_EV_APPLY:
 		rmi = nb_running_get_entry(args->dnode, NULL, true);
+		map = rmi->map;
 		policy = yang_dnode_get_enum(args->dnode, NULL);
 
 		switch (policy) {
@@ -409,6 +397,14 @@ lib_route_map_entry_exit_policy_modify(struct nb_cb_modify_args *args)
 			rmi->exitpolicy = RMAP_GOTO;
 			break;
 		}
+
+		/* Execute event hook. */
+		if (route_map_master.event_hook) {
+			(*route_map_master.event_hook)(map->name);
+			route_map_notify_dependencies(map->name,
+						      RMAP_EVENT_CALL_ADDED);
+		}
+
 		break;
 	}
 
@@ -601,6 +597,16 @@ static int lib_route_map_entry_match_condition_list_name_modify(
 			rhc->rhc_rmi, "ip next-hop", acl,
 			RMAP_EVENT_FILTER_ADDED,
 			args->errmsg, args->errmsg_len);
+	} else if (IS_MATCH_IPv6_NEXTHOP_LIST(condition)) {
+		if (rmap_match_set_hook.match_ipv6_next_hop == NULL)
+			return NB_OK;
+		rhc->rhc_mhook = rmap_match_set_hook.no_match_ipv6_next_hop;
+		rhc->rhc_rule = "ipv6 next-hop";
+		rhc->rhc_event = RMAP_EVENT_FILTER_DELETED;
+		rv = rmap_match_set_hook.match_ipv6_next_hop(
+			rhc->rhc_rmi, "ipv6 next-hop", acl,
+			RMAP_EVENT_FILTER_ADDED, args->errmsg,
+			args->errmsg_len);
 	} else if (IS_MATCH_IPv4_NEXTHOP_PREFIX_LIST(condition)) {
 		if (rmap_match_set_hook.match_ip_next_hop_prefix_list == NULL)
 			return NB_OK;
@@ -612,6 +618,16 @@ static int lib_route_map_entry_match_condition_list_name_modify(
 			rhc->rhc_rmi, "ip next-hop prefix-list", acl,
 			RMAP_EVENT_PLIST_ADDED,
 			args->errmsg, args->errmsg_len);
+	} else if (IS_MATCH_IPv6_NEXTHOP_PREFIX_LIST(condition)) {
+		if (rmap_match_set_hook.match_ipv6_next_hop_prefix_list == NULL)
+			return NB_OK;
+		rhc->rhc_mhook =
+			rmap_match_set_hook.no_match_ipv6_next_hop_prefix_list;
+		rhc->rhc_rule = "ipv6 next-hop prefix-list";
+		rhc->rhc_event = RMAP_EVENT_PLIST_DELETED;
+		rv = rmap_match_set_hook.match_ipv6_next_hop_prefix_list(
+			rhc->rhc_rmi, "ipv6 next-hop prefix-list", acl,
+			RMAP_EVENT_PLIST_ADDED, args->errmsg, args->errmsg_len);
 	} else if (IS_MATCH_IPv6_ADDRESS_LIST(condition)) {
 		if (rmap_match_set_hook.match_ipv6_address == NULL)
 			return NB_OK;
@@ -867,7 +883,7 @@ static int lib_route_map_entry_set_action_ipv4_address_modify(
 		 * only implemented action.
 		 */
 		yang_dnode_get_ipv4(&ia, args->dnode, NULL);
-		if (ia.s_addr == INADDR_ANY || IPV4_CLASS_DE(ntohl(ia.s_addr)))
+		if (ia.s_addr == INADDR_ANY || !ipv4_unicast_valid(&ia))
 			return NB_ERR_VALIDATION;
 		/* FALLTHROUGH */
 	case NB_EV_PREPARE:
@@ -1017,6 +1033,110 @@ lib_route_map_entry_set_action_value_modify(struct nb_cb_modify_args *args)
 
 static int
 lib_route_map_entry_set_action_value_destroy(struct nb_cb_destroy_args *args)
+{
+	return lib_route_map_entry_set_destroy(args);
+}
+
+/*
+ * XPath: /frr-route-map:lib/route-map/entry/set-action/min-metric
+ */
+static int set_action_min_metric_modify(enum nb_event event,
+					const struct lyd_node *dnode,
+					union nb_resource *resource,
+					const char *value, char *errmsg,
+					size_t errmsg_len)
+{
+	struct routemap_hook_context *rhc;
+	int rv;
+
+	if (event != NB_EV_APPLY)
+		return NB_OK;
+
+	/* Check for hook function. */
+	if (rmap_match_set_hook.set_min_metric == NULL)
+		return NB_OK;
+
+	/* Add configuration. */
+	rhc = nb_running_get_entry(dnode, NULL, true);
+
+	/* Set destroy information. */
+	rhc->rhc_shook = rmap_match_set_hook.no_set_min_metric;
+	rhc->rhc_rule = "min-metric";
+
+	rv = rmap_match_set_hook.set_min_metric(rhc->rhc_rmi, "min-metric",
+						value, errmsg, errmsg_len);
+	if (rv != CMD_SUCCESS) {
+		rhc->rhc_shook = NULL;
+		return NB_ERR_INCONSISTENCY;
+	}
+
+	return NB_OK;
+}
+
+static int
+lib_route_map_entry_set_action_min_metric_modify(struct nb_cb_modify_args *args)
+{
+	const char *min_metric = yang_dnode_get_string(args->dnode, NULL);
+
+	return set_action_min_metric_modify(args->event, args->dnode,
+					    args->resource, min_metric,
+					    args->errmsg, args->errmsg_len);
+}
+
+static int lib_route_map_entry_set_action_min_metric_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	return lib_route_map_entry_set_destroy(args);
+}
+
+/*
+ * XPath: /frr-route-map:lib/route-map/entry/set-action/max-metric
+ */
+static int set_action_max_metric_modify(enum nb_event event,
+					const struct lyd_node *dnode,
+					union nb_resource *resource,
+					const char *value, char *errmsg,
+					size_t errmsg_len)
+{
+	struct routemap_hook_context *rhc;
+	int rv;
+
+	if (event != NB_EV_APPLY)
+		return NB_OK;
+
+	/* Check for hook function. */
+	if (rmap_match_set_hook.set_max_metric == NULL)
+		return NB_OK;
+
+	/* Add configuration. */
+	rhc = nb_running_get_entry(dnode, NULL, true);
+
+	/* Set destroy information. */
+	rhc->rhc_shook = rmap_match_set_hook.no_set_max_metric;
+	rhc->rhc_rule = "max-metric";
+
+	rv = rmap_match_set_hook.set_max_metric(rhc->rhc_rmi, "max-metric",
+						value, errmsg, errmsg_len);
+	if (rv != CMD_SUCCESS) {
+		rhc->rhc_shook = NULL;
+		return NB_ERR_INCONSISTENCY;
+	}
+
+	return NB_OK;
+}
+
+static int
+lib_route_map_entry_set_action_max_metric_modify(struct nb_cb_modify_args *args)
+{
+	const char *max_metric = yang_dnode_get_string(args->dnode, NULL);
+
+	return set_action_max_metric_modify(args->event, args->dnode,
+					    args->resource, max_metric,
+					    args->errmsg, args->errmsg_len);
+}
+
+static int lib_route_map_entry_set_action_max_metric_destroy(
+	struct nb_cb_destroy_args *args)
 {
 	return lib_route_map_entry_set_destroy(args);
 }
@@ -1360,6 +1480,20 @@ const struct frr_yang_module_info frr_route_map_info = {
 			.cbs = {
 				.modify = lib_route_map_entry_set_action_value_modify,
 				.destroy = lib_route_map_entry_set_action_value_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-route-map:lib/route-map/entry/set-action/rmap-set-action/min-metric",
+			.cbs = {
+				.modify = lib_route_map_entry_set_action_min_metric_modify,
+				.destroy = lib_route_map_entry_set_action_min_metric_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-route-map:lib/route-map/entry/set-action/rmap-set-action/max-metric",
+			.cbs = {
+				.modify = lib_route_map_entry_set_action_max_metric_modify,
+				.destroy = lib_route_map_entry_set_action_max_metric_destroy,
 			}
 		},
 		{

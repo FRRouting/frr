@@ -1,21 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* Bitfields
  * Copyright (C) 2016 Cumulus Networks, Inc.
- *
- * This file is part of Quagga.
- *
- * Quagga is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * Quagga is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 /**
  * A simple bit array implementation to allocate and free IDs. An example
@@ -72,7 +57,8 @@ DECLARE_MTYPE(BITFIELD);
 	do {                                                                   \
 		(v).n = 0;                                                     \
 		(v).m = ((N) / WORD_SIZE + 1);                                 \
-		(v).data = XCALLOC(MTYPE_BITFIELD, ((v).m * sizeof(word_t)));  \
+		(v).data = (word_t *)XCALLOC(MTYPE_BITFIELD,                   \
+					     ((v).m * sizeof(word_t)));        \
 	} while (0)
 
 /**
@@ -128,7 +114,8 @@ DECLARE_MTYPE(BITFIELD);
 		(v).n += ((v).data[w] == WORD_MAX);                            \
 		if ((v).n == (v).m) {                                          \
 			(v).m = (v).m + 1;                                     \
-			(v).data = realloc((v).data, (v).m * sizeof(word_t));  \
+			(v).data = XREALLOC(MTYPE_BITFIELD, (v).data,          \
+					    (v).m * sizeof(word_t));           \
 		}                                                              \
 	} while (0)
 
@@ -157,6 +144,76 @@ DECLARE_MTYPE(BITFIELD);
 		(b) |= sh;                                                     \
 		(b) += (w * WORD_SIZE);                                        \
 	} while (0)
+
+/*
+ * Find a clear bit in v and return it
+ * Start looking in the word containing bit position start_index.
+ * If necessary, wrap around after bit position max_index.
+ */
+static inline unsigned int
+bf_find_next_clear_bit_wrap(bitfield_t *v, word_t start_index, word_t max_index)
+{
+	int start_bit;
+	unsigned long i, offset, scanbits, wordcount_max, index_max;
+
+	if (start_index > max_index)
+		start_index = 0;
+
+	start_bit = start_index & (WORD_SIZE - 1);
+	wordcount_max = bf_index(max_index) + 1;
+
+	scanbits = WORD_SIZE;
+	for (i = bf_index(start_index); i < v->m; ++i) {
+		if (v->data[i] == WORD_MAX) {
+			/* if the whole word is full move to the next */
+			start_bit = 0;
+			continue;
+		}
+		/* scan one word for clear bits */
+		if ((i == v->m - 1) && (v->m >= wordcount_max))
+			/* max index could be only part of word */
+			scanbits = (max_index % WORD_SIZE) + 1;
+		for (offset = start_bit; offset < scanbits; ++offset) {
+			if (!((v->data[i] >> offset) & 1))
+				return ((i * WORD_SIZE) + offset);
+		}
+		/* move to the next word */
+		start_bit = 0;
+	}
+
+	if (v->m < wordcount_max) {
+		/*
+		 * We can expand bitfield, so no need to wrap.
+		 * Return the index of the first bit of the next word.
+		 * Assumption is that caller will call bf_set_bit which
+		 * will allocate additional space.
+		 */
+		v->m += 1;
+		v->data = (word_t *)XREALLOC(MTYPE_BITFIELD, v->data,
+					     v->m * sizeof(word_t));
+		v->data[v->m - 1] = 0;
+		return v->m * WORD_SIZE;
+	}
+
+	/*
+	 * start looking for a clear bit at the start of the bitfield and
+	 * stop when we reach start_index
+	 */
+	scanbits = WORD_SIZE;
+	index_max = bf_index(start_index - 1);
+	for (i = 0; i <= index_max; ++i) {
+		if (i == index_max)
+			scanbits = ((start_index - 1) % WORD_SIZE) + 1;
+		for (offset = start_bit; offset < scanbits; ++offset) {
+			if (!((v->data[i] >> offset) & 1))
+				return ((i * WORD_SIZE) + offset);
+		}
+		/* move to the next word */
+		start_bit = 0;
+	}
+
+	return WORD_MAX;
+}
 
 static inline unsigned int bf_find_next_set_bit(bitfield_t v,
 		word_t start_index)
@@ -198,6 +255,19 @@ static inline unsigned int bf_find_next_set_bit(bitfield_t v,
 		XFREE(MTYPE_BITFIELD, (v).data);                               \
 		(v).data = NULL;                                               \
 	} while (0)
+
+static inline bitfield_t bf_copy(bitfield_t src)
+{
+	bitfield_t dst;
+
+	assert(bf_is_inited(src));
+	bf_init(dst, WORD_SIZE * (src.m - 1));
+	for (size_t i = 0; i < src.m; i++)
+		dst.data[i] = src.data[i];
+	dst.n = src.n;
+	return dst;
+}
+
 
 #ifdef __cplusplus
 }

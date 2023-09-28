@@ -1,30 +1,17 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * IS-IS Routing protocol - isis_pdu_counter.c
  * Copyright (C) 2018 Christian Franke, for NetDEF Inc.
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
 
 #include "vty.h"
 
-#include "isisd/isis_pdu_counter.h"
 #include "isisd/isisd.h"
 #include "isisd/isis_circuit.h"
 #include "isisd/isis_pdu.h"
+#include "isisd/isis_pdu_counter.h"
 
 static int pdu_type_to_counter_index(uint8_t pdu_type)
 {
@@ -77,9 +64,11 @@ static const char *pdu_counter_index_to_name(enum pdu_counter_index index)
 		return "L1 PSNP";
 	case L2_PARTIAL_SEQ_NUM_INDEX:
 		return "L2 PSNP";
-	default:
+	case PDU_COUNTER_SIZE:
 		return "???????";
 	}
+
+	assert(!"Reached end of function where we were not expecting to");
 }
 
 void pdu_counter_count(pdu_counter_t counter, uint8_t pdu_type)
@@ -101,4 +90,24 @@ void pdu_counter_print(struct vty *vty, const char *prefix,
 		vty_out(vty, "%s%s: %" PRIu64 "\n", prefix,
 			pdu_counter_index_to_name(i), counter[i]);
 	}
+}
+
+void pdu_counter_count_drop(struct isis_area *area, uint8_t pdu_type)
+{
+	pdu_counter_count(area->pdu_drop_counters, pdu_type);
+
+	if (area->log_pdu_drops) {
+		isis_log_pdu_drops(
+			area, pdu_counter_index_to_name(
+				      pdu_type_to_counter_index(pdu_type)));
+	}
+}
+
+uint64_t pdu_counter_get_count(pdu_counter_t counter, uint8_t pdu_type)
+{
+	int index = pdu_type_to_counter_index(pdu_type);
+
+	if (index < 0)
+		return -1;
+	return counter[index];
 }

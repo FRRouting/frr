@@ -1,22 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * VRF related header.
  * Copyright (C) 2014 6WIND S.A.
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published
- * by the Free Software Foundation; either version 2, or (at your
- * option) any later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef _ZEBRA_VRF_H
@@ -176,23 +161,20 @@ static inline uint32_t vrf_interface_count(struct vrf *vrf)
  * Utilities to obtain the user data
  */
 
-/* Get the data pointer of the specified VRF. If not found, create one. */
-extern void *vrf_info_get(vrf_id_t);
 /* Look up the data pointer of the specified VRF. */
 extern void *vrf_info_lookup(vrf_id_t);
 
 /*
  * VRF bit-map: maintaining flags, one bit per VRF ID
  */
-
 typedef void *vrf_bitmap_t;
 #define VRF_BITMAP_NULL     NULL
 
-extern vrf_bitmap_t vrf_bitmap_init(void);
-extern void vrf_bitmap_free(vrf_bitmap_t);
-extern void vrf_bitmap_set(vrf_bitmap_t, vrf_id_t);
-extern void vrf_bitmap_unset(vrf_bitmap_t, vrf_id_t);
-extern int vrf_bitmap_check(vrf_bitmap_t, vrf_id_t);
+extern void vrf_bitmap_init(vrf_bitmap_t *pbmap);
+extern void vrf_bitmap_free(vrf_bitmap_t *pbmap);
+extern void vrf_bitmap_set(vrf_bitmap_t *pbmap, vrf_id_t vrf_id);
+extern void vrf_bitmap_unset(vrf_bitmap_t *pbmap, vrf_id_t vrf_id);
+extern int vrf_bitmap_check(vrf_bitmap_t *pbmap, vrf_id_t vrf_id);
 
 /*
  * VRF initializer/destructor
@@ -214,9 +196,10 @@ extern int vrf_bitmap_check(vrf_bitmap_t, vrf_id_t);
  * delete -> Called back when a vrf is being deleted from
  *           the system ( 2 and 3 ) above.
  */
-extern void vrf_init(int (*create)(struct vrf *vrf), int (*enable)(struct vrf *vrf),
-		     int (*disable)(struct vrf *vrf), int (*destroy)(struct vrf *vrf),
-		     int (*update)(struct vrf *vrf));
+extern void vrf_init(int (*create)(struct vrf *vrf),
+		     int (*enable)(struct vrf *vrf),
+		     int (*disable)(struct vrf *vrf),
+		     int (*destroy)(struct vrf *vrf));
 
 /*
  * Call vrf_terminate when the protocol is being shutdown
@@ -269,7 +252,9 @@ extern int vrf_ioctl(vrf_id_t vrf_id, int d, unsigned long request, char *args);
 /* The default VRF ID */
 #define VRF_DEFAULT 0
 
-extern void vrf_set_default_name(const char *default_name, bool force);
+/* Must be called only during startup, before config is read */
+extern void vrf_set_default_name(const char *default_name);
+
 extern const char *vrf_get_default_name(void);
 #define VRF_DEFAULT_NAME    vrf_get_default_name()
 
@@ -300,21 +285,6 @@ extern void vrf_install_commands(void);
 extern int vrf_configure_backend(enum vrf_backend_type backend);
 extern int vrf_get_backend(void);
 extern int vrf_is_backend_netns(void);
-
-
-/* API to create a VRF. either from vty
- * or through discovery
- */
-extern int vrf_handler_create(struct vty *vty, const char *name,
-			      struct vrf **vrf);
-
-/* API to associate a VRF with a NETNS.
- * called either from vty or through discovery
- * should be called from zebra only
- */
-extern int vrf_netns_handler_create(struct vty *vty, struct vrf *vrf,
-				    char *pathname, ns_id_t ext_ns_id,
-				    ns_id_t ns_id, ns_id_t rel_def_ns_id);
 
 /* used internally to enable or disable VRF.
  * Notify a change in the VRF ID of the VRF

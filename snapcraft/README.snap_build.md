@@ -87,11 +87,11 @@ All the commands are prefixed with frr.
     frr.ospf6d-debug
     frr.ospfd-debug
     frr.pimd-debug
+    frr.pim6d-debug
     frr.ripd-debug
     frr.ripngd-debug
     frr.ldp-debug
     frr.zebra-debug
-    frr.pimd-debug
     frr.nhrpd-debug
     frr.babeld-debug
     frr.eigrpd-debug

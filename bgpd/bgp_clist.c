@@ -1,21 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* BGP community-list and extcommunity-list.
  * Copyright (C) 1999 Kunihiro Ishiguro
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -184,7 +169,7 @@ community_list_insert(struct community_list_handler *ch, const char *name,
 	new->name_hash = bgp_clist_hash_key_community_list(new);
 
 	/* Save for later */
-	hash_get(cm->hash, new, hash_alloc_intern);
+	(void)hash_get(cm->hash, new, hash_alloc_intern);
 
 	/* If name is made by all digit character.  We treat it as
 	   number. */
@@ -464,9 +449,6 @@ static char *community_str_get(struct community *com, int i)
 	comval = ntohl(comval);
 
 	switch (comval) {
-	case COMMUNITY_INTERNET:
-		str = XSTRDUP(MTYPE_COMMUNITY_STR, "internet");
-		break;
 	case COMMUNITY_GSHUT:
 		str = XSTRDUP(MTYPE_COMMUNITY_STR, "graceful-shutdown");
 		break;
@@ -557,7 +539,7 @@ static bool community_regexp_match(struct community *com, regex_t *reg)
 	if (com == NULL || com->size == 0)
 		str = "";
 	else
-		str = community_str(com, false);
+		str = community_str(com, false, true);
 
 	regstr = bgp_alias2community_str(str);
 
@@ -631,7 +613,7 @@ static bool lcommunity_regexp_match(struct lcommunity *com, regex_t *reg)
 	if (com == NULL || com->size == 0)
 		str = "";
 	else
-		str = lcommunity_str(com, false);
+		str = lcommunity_str(com, false, true);
 
 	regstr = bgp_alias2community_str(str);
 
@@ -670,13 +652,7 @@ bool community_list_match(struct community *com, struct community_list *list)
 	struct community_entry *entry;
 
 	for (entry = list->head; entry; entry = entry->next) {
-		if (entry->any)
-			return entry->direct == COMMUNITY_PERMIT;
-
 		if (entry->style == COMMUNITY_LIST_STANDARD) {
-			if (community_include(entry->u.com, COMMUNITY_INTERNET))
-				return entry->direct == COMMUNITY_PERMIT;
-
 			if (community_match(com, entry->u.com))
 				return entry->direct == COMMUNITY_PERMIT;
 		} else if (entry->style == COMMUNITY_LIST_EXPANDED) {
@@ -692,9 +668,6 @@ bool lcommunity_list_match(struct lcommunity *lcom, struct community_list *list)
 	struct community_entry *entry;
 
 	for (entry = list->head; entry; entry = entry->next) {
-		if (entry->any)
-			return entry->direct == COMMUNITY_PERMIT;
-
 		if (entry->style == LARGE_COMMUNITY_LIST_STANDARD) {
 			if (lcommunity_match(lcom, entry->u.lcom))
 				return entry->direct == COMMUNITY_PERMIT;
@@ -716,9 +689,6 @@ bool lcommunity_list_exact_match(struct lcommunity *lcom,
 	struct community_entry *entry;
 
 	for (entry = list->head; entry; entry = entry->next) {
-		if (entry->any)
-			return entry->direct == COMMUNITY_PERMIT;
-
 		if (entry->style == LARGE_COMMUNITY_LIST_STANDARD) {
 			if (lcommunity_cmp(lcom, entry->u.lcom))
 				return entry->direct == COMMUNITY_PERMIT;
@@ -735,9 +705,6 @@ bool ecommunity_list_match(struct ecommunity *ecom, struct community_list *list)
 	struct community_entry *entry;
 
 	for (entry = list->head; entry; entry = entry->next) {
-		if (entry->any)
-			return entry->direct == COMMUNITY_PERMIT;
-
 		if (entry->style == EXTCOMMUNITY_LIST_STANDARD) {
 			if (ecommunity_match(ecom, entry->u.ecom))
 				return entry->direct == COMMUNITY_PERMIT;
@@ -757,13 +724,7 @@ bool community_list_exact_match(struct community *com,
 	struct community_entry *entry;
 
 	for (entry = list->head; entry; entry = entry->next) {
-		if (entry->any)
-			return entry->direct == COMMUNITY_PERMIT;
-
 		if (entry->style == COMMUNITY_LIST_STANDARD) {
-			if (community_include(entry->u.com, COMMUNITY_INTERNET))
-				return entry->direct == COMMUNITY_PERMIT;
-
 			if (community_cmp(com, entry->u.com))
 				return entry->direct == COMMUNITY_PERMIT;
 		} else if (entry->style == COMMUNITY_LIST_EXPANDED) {
@@ -792,28 +753,15 @@ struct community *community_list_match_delete(struct community *com,
 		val = community_val_get(com, i);
 
 		for (entry = list->head; entry; entry = entry->next) {
-			if (entry->any) {
+			if ((entry->style == COMMUNITY_LIST_STANDARD) &&
+			    community_include(entry->u.com, val)) {
 				if (entry->direct == COMMUNITY_PERMIT) {
 					com_index_to_delete[delete_index] = i;
 					delete_index++;
 				}
 				break;
-			}
-
-			else if ((entry->style == COMMUNITY_LIST_STANDARD)
-				 && (community_include(entry->u.com,
-						       COMMUNITY_INTERNET)
-				     || community_include(entry->u.com, val))) {
-				if (entry->direct == COMMUNITY_PERMIT) {
-					com_index_to_delete[delete_index] = i;
-					delete_index++;
-				}
-				break;
-			}
-
-			else if ((entry->style == COMMUNITY_LIST_EXPANDED)
-				 && community_regexp_include(entry->reg, com,
-							     i)) {
+			} else if ((entry->style == COMMUNITY_LIST_EXPANDED) &&
+				   community_regexp_include(entry->reg, com, i)) {
 				if (entry->direct == COMMUNITY_PERMIT) {
 					com_index_to_delete[delete_index] = i;
 					delete_index++;
@@ -846,12 +794,6 @@ static bool community_list_dup_check(struct community_list *list,
 
 		if (entry->direct != new->direct)
 			continue;
-
-		if (entry->any != new->any)
-			continue;
-
-		if (entry->any)
-			return true;
 
 		switch (entry->style) {
 		case COMMUNITY_LIST_STANDARD:
@@ -910,20 +852,17 @@ int community_list_set(struct community_list_handler *ch, const char *name,
 		}
 	}
 
-	if (str) {
-		if (style == COMMUNITY_LIST_STANDARD)
-			com = community_str2com(str);
-		else
-			regex = bgp_regcomp(str);
+	if (style == COMMUNITY_LIST_STANDARD)
+		com = community_str2com(str);
+	else
+		regex = bgp_regcomp(str);
 
-		if (!com && !regex)
-			return COMMUNITY_LIST_ERR_MALFORMED_VAL;
-	}
+	if (!com && !regex)
+		return COMMUNITY_LIST_ERR_MALFORMED_VAL;
 
 	entry = community_entry_new();
 	entry->direct = direct;
 	entry->style = style;
-	entry->any = (str ? false : true);
 	entry->u.com = com;
 	entry->reg = regex;
 	entry->seq = seqnum;
@@ -1000,7 +939,8 @@ struct lcommunity *lcommunity_list_match_delete(struct lcommunity *lcom,
 	for (i = 0; i < lcom->size; i++) {
 		ptr = lcom->val + (i * LCOMMUNITY_SIZE);
 		for (entry = list->head; entry; entry = entry->next) {
-			if (entry->any) {
+			if ((entry->style == LARGE_COMMUNITY_LIST_STANDARD) &&
+			    lcommunity_include(entry->u.lcom, ptr)) {
 				if (entry->direct == COMMUNITY_PERMIT) {
 					com_index_to_delete[delete_index] = i;
 					delete_index++;
@@ -1008,18 +948,10 @@ struct lcommunity *lcommunity_list_match_delete(struct lcommunity *lcom,
 				break;
 			}
 
-			else if ((entry->style == LARGE_COMMUNITY_LIST_STANDARD)
-				 && lcommunity_include(entry->u.lcom, ptr)) {
-				if (entry->direct == COMMUNITY_PERMIT) {
-					com_index_to_delete[delete_index] = i;
-					delete_index++;
-				}
-				break;
-			}
-
-			else if ((entry->style == LARGE_COMMUNITY_LIST_EXPANDED)
-				 && lcommunity_regexp_include(entry->reg, lcom,
-							      i)) {
+			else if ((entry->style ==
+				  LARGE_COMMUNITY_LIST_EXPANDED) &&
+				 lcommunity_regexp_include(entry->reg, lcom,
+							   i)) {
 				if (entry->direct == COMMUNITY_PERMIT) {
 					com_index_to_delete[delete_index] = i;
 					delete_index++;
@@ -1036,6 +968,44 @@ struct lcommunity *lcommunity_list_match_delete(struct lcommunity *lcom,
 	}
 
 	return lcom;
+}
+
+/* Delete all permitted extended communities in the list from ecom.*/
+struct ecommunity *ecommunity_list_match_delete(struct ecommunity *ecom,
+						struct community_list *list)
+{
+	struct community_entry *entry;
+	uint32_t com_index_to_delete[ecom->size];
+	uint8_t *ptr;
+	uint32_t delete_index = 0;
+	uint32_t i;
+	struct ecommunity local_ecom = {.size = 1};
+	struct ecommunity_val local_eval = {0};
+
+	for (i = 0; i < ecom->size; i++) {
+		local_ecom.val = ecom->val + (i * ECOMMUNITY_SIZE);
+		for (entry = list->head; entry; entry = entry->next) {
+			if (((entry->style == EXTCOMMUNITY_LIST_STANDARD) &&
+			     ecommunity_include(entry->u.ecom, &local_ecom)) ||
+			   ((entry->style == EXTCOMMUNITY_LIST_EXPANDED) &&
+			    ecommunity_regexp_match(ecom, entry->reg))) {
+				if (entry->direct == COMMUNITY_PERMIT) {
+					com_index_to_delete[delete_index] = i;
+					delete_index++;
+				}
+				break;
+			}
+		}
+	}
+
+	/* Delete all of the extended communities we flagged for deletion */
+	for (i = delete_index; i > 0; i--) {
+		ptr = ecom->val + (com_index_to_delete[i-1] * ECOMMUNITY_SIZE);
+		memcpy(&local_eval.val, ptr, sizeof(local_eval.val));
+		ecommunity_del_val(ecom, &local_eval);
+	}
+
+	return ecom;
 }
 
 /* Helper to check if every octet do not exceed UINT_MAX */
@@ -1138,7 +1108,6 @@ int lcommunity_list_set(struct community_list_handler *ch, const char *name,
 	entry = community_entry_new();
 	entry->direct = direct;
 	entry->style = style;
-	entry->any = (str ? false : true);
 	entry->u.lcom = lcom;
 	entry->reg = regex;
 	entry->seq = seqnum;
@@ -1259,7 +1228,6 @@ int extcommunity_list_set(struct community_list_handler *ch, const char *name,
 	entry = community_entry_new();
 	entry->direct = direct;
 	entry->style = style;
-	entry->any = false;
 	if (ecom)
 		entry->config = ecommunity_ecom2str(
 			ecom, ECOMMUNITY_FORMAT_COMMUNITY_LIST, 0);

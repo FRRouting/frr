@@ -1,8 +1,87 @@
-frr (8.1~dev-1) UNRELEASED; urgency=medium
+frr (9.1~dev-1) UNRELEASED; urgency=medium
 
-  * New upstream release...
+  * FRR Dev 9.1
 
- -- Ondřej Surý <ondrej@debian.org>  Tue, 04 May 2021 22:52:47 +0200
+ -- Jafar Al-Gharaibeh <jafar@atcorp.com>  Tue, 06 Jun 2023 12:00:00 -0600
+
+frr (8.5-0) unstable; urgency=medium
+
+  * New upstream release FRR 8.5
+
+ -- Jafar Al-Gharaibeh <jafar@atcorp.com>  Fri, 10 Mar 2023 02:00:00 -0600
+
+frr (8.4.2-1) unstable; urgency=medium
+
+  * new upstream release FRR 8.4.2
+  * drop all patches in debian/patches/, they got merged upstream
+
+ -- David Lamparter <equinox-debian@diac24.net>  Mon, 23 Jan 2023 17:32:02 +0100
+
+frr (8.4.1-2) unstable; urgency=medium
+
+  * commit to git tarball as source instead of dist tarball
+  * ditch unneeded sphinx missing files patch
+  * fix clippy symbol lookup issue (build SEGV on mips64el)
+  * correctly mark :native for libelf-dev & libpython3-dev to fix cross-build
+  * use mutex for zserv stats (atomic uint64_t is too wide for 32-bit archs)
+
+ -- David Lamparter <equinox-debian@diac24.net>  Fri, 06 Jan 2023 14:59:57 +0100
+
+frr (8.4.1-1) unstable; urgency=medium
+
+  * New upstream release FRR 8.4.1 (closes: #1017518)
+  * New frr@ systemd service unit to run inside network namespace
+  * egrep to grep -E
+  * upstream fix ospfd crash (PR 8876) (closes: #981139)
+  * upstream fix isisd parsing issues CVE-2022-26125, CVE-2022-26126 and
+    babeld parsing issues CVE-2022-26127, CVE-2022-26128, CVE-2022-26129
+    (closes: #1008010)
+  * upstream fix bgpd out-of-bounds read CVE-2022-37032 (closes: #1021016)
+  * upstream fix bgpd UAF CVE-2022-37035 (closes: #1016978)
+  * libyang-related pcre3 dep replaced with pcre2 (closes: #1000032)
+  * disable ELF magic on mips64el
+  * fixed texinfo figure installation directory
+  * enable dh_sphinxdoc to get rid of embedded javascript in frr-doc
+  * removed bogus iproute dependency choice
+
+ -- David Lamparter <equinox-debian@diac24.net>  Mon, 02 Jan 2023 14:46:06 +0100
+
+frr (8.4-0) unstable; urgency=medium
+
+  * New upstream release FRR 8.4
+
+ -- Jafar Al-Gharaibeh <jafar@atcorp.com>  Tue, 01 Nov 2022 10:00:00 +0500
+
+frr (8.3-0) unstable; urgency=medium
+
+  * New upstream release FRR 8.3
+
+ -- Jafar Al-Gharaibeh <jafar@atcorp.com>  Wed, 13 Jul 2022 10:00:00 +0500
+
+frr (8.2-0) unstable; urgency=medium
+
+  * New upstream release FRR 8.2
+
+ -- Jafar Al-Gharaibeh <jafar@atcorp.com>  Tue, 01 Mar 2022 10:00:00 +0500
+
+frr (8.1-1) unstable; urgency=medium
+
+  * New upstream release FRR 8.1
+  * Upload to unstable.
+
+ -- Ondřej Surý <ondrej@debian.org>  Sat, 13 Nov 2021 13:32:48 +0100
+
+frr (8.1-0) unstable; urgency=medium
+
+  * New upstream release FRR 8.1
+
+ -- Jafar Al-Gharaibeh <jafar@atcorp.com>  Tue, 02 Nov 2021 14:00:00 +0500
+
+frr (8.0-0) unstable; urgency=medium
+
+  * New upstream release FRR 8.0
+
+ -- Martin Winter <mwinter@opensourcerouting.org>  Wed, 21 Jul 2021 13:42:00 +0200
 
 frr (7.5.1-1) unstable; urgency=medium
 

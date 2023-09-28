@@ -95,10 +95,65 @@ March/July/November.  Walking backwards from this date:
    are considered lowest priority (regardless of when they were opened.)
 
  - 4 weeks earlier, the stable branch separates from master (named
-   ``dev/MAJOR.MINOR`` at this point) and a ``rc1`` release candidate is
-   tagged.  Master is unfrozen and new features may again proceed.
+   ``dev/MAJOR.MINOR`` at this point) and tagged as ``base_X.Y``.
+   Master is unfrozen and new features may again proceed.
 
- - 2 weeks earlier, a ``rc2`` release candidate is tagged.
+   Part of unfreezing master is editing the ``AC_INIT`` statement in
+   :file:`configure.ac` to reflect the new development version that master
+   now refers to.  This is accompanied by a ``frr-X.Y-dev`` tag on master,
+   which should always be on the first commit on master *after* the stable
+   branch was forked (even if that is not the edit to ``AC_INIT``; it's more
+   important to have it on the very first commit on master after the fork.)
+
+   (The :file:`configure.ac` edit and tag push are considered git housekeeping
+   and are pushed directly to ``master``, not through a PR.)
+
+   Below is the snippet of the commands to use in this step.
+
+     .. code-block:: console
+
+        % git remote --verbose
+        upstream  git@github.com:frrouting/frr (fetch)
+        upstream  git@github.com:frrouting/frr (push)
+
+        % git checkout master
+        % git pull upstream master
+        % git checkout -b dev/8.2
+        % git tag base_8.2
+        % git push upstream base_8.2
+        % git push upstream dev/8.2
+        % git checkout master
+        % sed -i 's/8.2-dev/8.3-dev/' configure.ac
+        % git add configure.ac
+        % git commit -s -m "build: FRR 8.3 development version"
+        % git tag -a frr-8.3-dev -m "frr-8.3-dev"
+        % git push upstream master
+        % git push upstream frr-8.3-dev
+
+   In this step, we also have to update package versions to reflect
+   the development version. Versions need to be updated using
+   a standard way of development (Pull Requests) based on master branch.
+
+   Only change the version number with no other changes. This will produce
+   packages with the a version number that is higher than any previous
+   version. Once the release is done, whatever updates we make to changelog
+   files on the release branch need to be cherry-picked to the master branch.
+
+   Update essential dates in advance for reference table (below) when
+   the next freeze, dev/X.Y, RC, and release phases are scheduled. This should
+   go in the ``master`` branch.
+
+ - 2 weeks earlier, a ``frr-X.Y-rc`` release candidate is tagged.
+
+     .. code-block:: console
+
+        % git remote --verbose
+        upstream  git@github.com:frrouting/frr (fetch)
+        upstream  git@github.com:frrouting/frr (push)
+
+        % git checkout dev/8.2
+        % git tag frr-8.2-rc
+        % git push upstream frr-8.2-rc
 
  - on release date, the branch is renamed to ``stable/MAJOR.MINOR``.
 
@@ -111,26 +166,41 @@ as early as possible, i.e. the first 2-week window.
 
 For reference, the expected release schedule according to the above is:
 
-+------------+------------+------------+------------+------------+------------+
-| Release    | 2021-11-02 | 2022-03-01 | 2022-07-05 | 2022-11-01 | 2023-03-07 |
-+------------+------------+------------+------------+------------+------------+
-| rc2        | 2021-10-19 | 2022-02-15 | 2022-06-21 | 2022-10-18 | 2023-02-21 |
-+------------+------------+------------+------------+------------+------------+
-| rc1/branch | 2021-10-05 | 2022-02-01 | 2022-06-07 | 2022-10-04 | 2023-02-07 |
-+------------+------------+------------+------------+------------+------------+
-| freeze     | 2021-09-21 | 2022-01-18 | 2022-05-24 | 2022-09-20 | 2023-01-24 |
-+------------+------------+------------+------------+------------+------------+
++---------+------------+------------+------------+
+| Release | 2023-11-07 | 2024-03-05 | 2024-07-02 |
++---------+------------+------------+------------+
+| RC      | 2023-10-24 | 2024-02-20 | 2024-06-18 |
++---------+------------+------------+------------+
+| dev/X.Y | 2023-10-10 | 2024-02-06 | 2024-06-04 |
++---------+------------+------------+------------+
+| freeze  | 2023-09-26 | 2024-01-23 | 2024-05-21 |
++---------+------------+------------+------------+
+
+Here is the hint on how to get the dates easily:
+
+   .. code-block:: console
+
+      ~$ # Release date is 2023-11-07 (First Tuesday each March/July/November)
+      ~$ date +%F --date='2023-11-07 -42 days' # Next freeze date
+      2023-09-26
+      ~$ date +%F --date='2023-11-07 -28 days' # Next dev/X.Y date
+      2023-10-10
+      ~$ date +%F --date='2023-11-07 -14 days' # Next RC date
+      2023-10-24
 
 Each release is managed by one or more volunteer release managers from the FRR
-community.  To spread and distribute this workload, this should be rotated for
+community.  These release managers are expected to handle the branch for a period
+of one year.  To spread and distribute this workload, this should be rotated for
 subsequent releases.  The release managers are currently assumed/expected to
 run a release management meeting during the weeks listed above.  Barring other
 constraints, this would be scheduled before the regular weekly FRR community
 call such that important items can be carried over into that call.
 
-Bugfixes are applied to the two most recent releases. However, backporting of bug
-fixes to older than the two most recent releases will not be prevented, if acked
-under the classical development workflow applying for a pull request.
+Bugfixes are applied to the two most recent releases.  It is expected that
+each bugfix backported should include some reasoning for its inclusion
+as well as receiving approval by the release managers for that release before
+accepted into the release branch.  This does not necessarily preclude backporting of
+bug fixes to older than the two most recent releases.
 
 Security fixes are backported to all releases less than or equal to at least one
 year old. Security fixes may also be backported to older releases depending on
@@ -236,26 +306,31 @@ your changes is usually not required and will be added based on your commit
 messages by the maintainers. However, you are free to include an update to the
 changelog with some better description.
 
+Accords: non-code community consensus
+=====================================
+
+The FRR repository has a place for "accords" - these are items of
+consideration for FRR that influence how we work as a community, but either
+haven't resulted in code *yet*, or may *never* result in code being written.
+They are placed in the ``doc/accords/`` directory.
+
+The general idea is to simply pass small blurbs of text through our normal PR
+procedures, giving them the same visibility, comment and review mechanisms as
+code PRs - and changing them later is another PR.  Please refer to the README
+file in ``doc/accords/`` for further details.  The file names of items in that
+directory are hopefully helpful in determining whether some of them might be
+relevant to your work.
+
 Submitting Patches and Enhancements
 ===================================
 
-FRR accepts patches from two sources:
-
-- GitHub pull request
-
-Contributors are highly encouraged to use GitHub's fork-and-PR workflow. It is
-easier for us to review it, test it, try it and discuss it on GitHub than it is
-via email, thus your patch will get more attention more quickly on GitHub.
+FRR accepts patches using GitHub pull requests.
 
 The base branch for new contributions and non-critical bug fixes should be
 ``master``. Please ensure your pull request is based on this branch when you
 submit it.
 
-GitHub Pull Requests
---------------------
-
-The preferred method of submitting changes is a GitHub pull request.  Code
-submitted by pull request will be automatically tested by one or more CI
+Code submitted by pull request will be automatically tested by one or more CI
 systems. Once the automated tests succeed, other developers will review your
 code for quality and correctness. After any concerns are resolved, your code
 will be merged into the branch it was submitted against.
@@ -264,6 +339,45 @@ The title of the pull request should provide a high level technical
 summary of the included patches.  The description should provide
 additional details that will help the reviewer to understand the context
 of the included patches.
+
+Squash commits
+--------------
+
+Before merging make sure a PR has squashed the following kinds of commits:
+
+- Fixes/review feedback
+- Typos
+- Merges and rebases
+- Work in progress
+
+This helps to automatically generate human-readable changelog messages.
+
+Commit Guidelines
+-----------------
+
+There is a built-in commit linter. Basic rules:
+
+- Commit messages must be prefixed with the name of the changed subsystem, followed
+  by a colon and a space and start with an imperative verb.
+
+   `Check <https://github.com/FRRouting/frr/tree/master/.github/commitlint.config.js>`_ all
+   the supported subsystems.
+
+- Commit messages must not end with a period ``.``
+
+Why was my pull request closed?
+-------------------------------
+
+Pull requests older than 180 days will be closed. Exceptions can be made for
+pull requests that have active review comments, or that are awaiting other
+dependent pull requests. Closed pull requests are easy to recreate, and little
+work is lost by closing a pull request that subsequently needs to be reopened.
+
+We want to limit the total number of pull requests in flight to:
+
+- Maintain a clean project
+- Remove old pull requests that would be difficult to rebase as the underlying code has changed over time
+- Encourage code velocity
 
 .. _license-for-contributions:
 
@@ -301,6 +415,13 @@ Pre-submission Checklist
   requirement that automated testing must be written that exercises
   the new feature within our existing CI infrastructure.  Also the
   addition of automated testing to cover any pull request is encouraged.
+
+- All new code must use the current latest version of acceptable code.
+
+   - If a daemon is converted to YANG, then new code must use YANG.
+   - DEFPY's must be used for new cli
+   - Typesafe lists must be used
+   - printf formatting changes must be used
 
 .. _signing-off:
 
@@ -414,7 +535,8 @@ Programming Languages, Tools and Libraries
 ==========================================
 
 The core of FRR is written in C (gcc or clang supported) and makes
-use of GNU compiler extensions. A few non-essential scripts are
+use of GNU compiler extensions. Additionally, the CLI generation
+tool, `clippy`, requires Python. A few other non-essential scripts are
 implemented in Perl and Python. FRR requires the following tools
 to build distribution packages: automake, autoconf, texinfo, libtool and
 gawk and various libraries (i.e. libpam and libjson-c).
@@ -547,31 +669,36 @@ above) added to the file. The header should be:
 
 .. code-block:: c
 
+    // SPDX-License-Identifier: GPL-2.0-or-later
     /*
      * Title/Function of file
      * Copyright (C) YEAR  Author’s Name
-     *
-     * This program is free software; you can redistribute it and/or modify it
-     * under the terms of the GNU General Public License as published by the Free
-     * Software Foundation; either version 2 of the License, or (at your option)
-     * any later version.
-     *
-     * This program is distributed in the hope that it will be useful, but WITHOUT
-     * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-     * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
-     * more details.
-     *
-     * You should have received a copy of the GNU General Public License along
-     * with this program; see the file COPYING; if not, write to the Free Software
-     * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
      */
 
     #include <zebra.h>
 
-Please copy-paste this header verbatim. In particular:
+A ``SPDX-License-Identifier`` header is required in all source files, i.e.
+``.c``, ``.h``, ``.cpp`` and ``.py`` files.  The license boilerplate should be
+removed in these files.  Some existing files are missing this header, this is
+slowly being fixed.
 
-- Do not replace "This program" with "FRR"
-- Do not change the address of the FSF
+A ``SPDX-License-Identifier`` header *and* the full license boilerplate is
+required in schema definition files, i.e. ``.yang`` and ``.proto``.  The
+rationale for this is that these files are likely to be individually copied to
+places outside FRR, and having only the SPDX header would become a "dangling
+pointer".
+
+.. warning::
+
+   **DO NOT REMOVE A "Copyright" LINE OR AUTHOR NAME, EVER.**
+
+   **DO NOT APPLY AN SPDX HEADER WHEN THE LICENSE IS UNCLEAR, UNLESS YOU HAVE
+   CHECKED WITH *ALL* SIGNIFICANT AUTHORS.**
+
+Please to keep ``#include <zebra.h>``.  The absolute first header included in
+any C file **must** be either ``zebra.h`` or ``config.h`` (with HAVE_CONFIG_H
+guard.)
+
 
 Adding Copyright Claims to Existing Files
 -----------------------------------------
@@ -632,6 +759,13 @@ following requirements have achieved consensus:
   tools can catch uninitialized value use that would otherwise be suppressed by
   the (incorrect) zero initialization.
 
+- Usage of ``system()`` or other c library routines that cause signals to
+  possibly be ignored are not allowed.  This includes the ``fork()`` and
+  ``execXX`` call patterns, which is actually what system() does underneath
+  the covers.  This pattern causes the system shutdown to never work properly
+  as the SIGINT sent is never received.  It is better to just prohibit code
+  that does this instead of having to debug shutdown issues again.
+
 Other than these specific rules, coding practices from the Linux kernel as
 well as CERT or MISRA C guidelines may provide useful input on safe C code.
 However, these rules are not applied as-is;  some of them expressly collide
@@ -683,6 +817,7 @@ The project provides multiple tools to allow you to correctly style your code
 as painlessly as possible, primarily built around ``clang-format``.
 
 clang-format
+
    In the project root there is a :file:`.clang-format` configuration file
    which can be used with the ``clang-format`` source formatter tool from the
    LLVM project. Most of the time, this is the easiest and smartest tool to
@@ -739,14 +874,19 @@ clang-format
    https://clang.llvm.org/docs/ClangFormat.html
 
 checkpatch.sh
+checkpatch.pl
+
+   .. seealso:: :ref:`checkpatch`
+
    In the Linux kernel source tree there is a Perl script used to check
-   incoming patches for style errors. FRR uses an adapted version of this
-   script for the same purpose. It can be found at
-   :file:`tools/checkpatch.sh`. This script takes a git-formatted diff or
-   patch file, applies it to a clean FRR tree, and inspects the result to catch
-   potential style errors. Running this script on your patches before
-   submission is highly recommended. The CI system runs this script as well and
-   will comment on the PR with the results if style errors are found.
+   incoming patches for style errors. FRR uses a shell script front end and an
+   adapted version of the perl script for the same purpose. These scripts can
+   be found at :file:`tools/checkpatch.sh` and :file:`tools/checkpatch.pl`.
+   This script takes a git-formatted diff or patch file, applies it to a clean
+   FRR tree, and inspects the result to catch potential style errors. Running
+   this script on your patches before submission is highly recommended. The CI
+   system runs this script as well and will comment on the PR with the results
+   if style errors are found.
 
    It is run like this::
 
@@ -786,6 +926,10 @@ checkpatch.sh
 
    If the script finds one or more WARNINGs it will exit with 1. If it finds
    one or more ERRORs it will exit with 2.
+
+   For convenience the Linux documentation for the :file:`tools/checkpatch.pl`
+   script has been included unmodified (i.e., it has not been updated to
+   reflect local changes) :doc:`here <checkpatch>`
 
 
 Please remember that while FRR provides these tools for your convenience,
@@ -843,6 +987,26 @@ necessary replacements.
 +-----------+--------------------------+
 | u_long    | unsigned long            |
 +-----------+--------------------------+
+
+FRR also uses unnamed struct fields, enabled with ``-fms-extensions`` (cf.
+https://gcc.gnu.org/onlinedocs/gcc/Unnamed-Fields.html).  The following two
+patterns can/should be used where contextually appropriate:
+
+.. code-block:: c
+
+   struct outer {
+           struct inner;
+   };
+
+.. code-block:: c
+
+   struct outer {
+           union {
+                   struct inner;
+                   struct inner inner_name;
+           };
+   };
+
 
 .. _style-exceptions:
 
@@ -1151,10 +1315,54 @@ but are no longer actively maintained. MemorySanitizer is not available in GCC.
    The different Sanitizers are mostly incompatible with each other.  Please
    refer to GCC/LLVM documentation for details.
 
-Additionally, the FRR codebase is regularly scanned with Coverity.
-Unfortunately Coverity does not have the ability to handle scanning pull
-requests, but after code is merged it will send an email notifying project
-members with Coverity access of newly introduced defects.
+frr-format plugin
+   This is a GCC plugin provided with FRR that does extended type checks for
+   ``%pFX``-style printfrr extensions.  To use this plugin,
+
+   1. install GCC plugin development files, e.g.::
+
+         apt-get install gcc-10-plugin-dev
+
+   2. **before** running ``configure``, compile the plugin with::
+
+         make -C tools/gcc-plugins CXX=g++-10
+
+   (Edit the GCC version to what you're using, it should work for GCC 9 or
+   newer.)
+
+   After this, the plugin should be automatically picked up by ``configure``.
+   The plugin does not change very frequently, so you can keep it around across
+   work on different FRR branches.  After a ``git clean -x``, the ``make`` line
+   will need to be run again.  You can also add ``--with-frr-format`` to the
+   ``configure`` line to make sure the plugin is used, otherwise if something
+   is not set up correctly it might be silently ignored.
+
+   .. warning::
+
+      Do **not** enable this plugin for package/release builds.  It is intended
+      for developer/debug builds only.  Since it modifies the compiler, it may
+      cause silent corruption of the executable files.
+
+      Using the plugin also changes the string for ``PRI[udx]64`` from the
+      system value to ``%L[udx]`` (normally ``%ll[udx]`` or ``%l[udx]``.)
+
+Additionally, the FRR codebase is regularly scanned for static analysis
+errors with Coverity and pull request changes are scanned as part of the
+Continuous Integration (CI) process. Developers can scan their commits for
+Coverity static analysis errors prior to submission using the
+``scan-build`` command. To use this command, the ``clang-tools`` package must
+be installed. For example, this can be accomplished on Ubuntu with the
+``sudo apt-get install clang-tools`` command.  Then, touch the files you want scanned and
+invoke the ``scan-build`` command. For example::
+
+  cd ~/GitHub/frr
+  touch ospfd/ospf_flood.c ospfd/ospf_vty.c ospfd/ospf_opaque.c
+  cd build
+  scan-build make -j32
+
+The results of the scan including any static analysis errors will appear inline.
+Additionally, there will a directory in the /tmp containing the Coverity
+reports (e.g., scan-build-2023-06-09-120100-473730-1).
 
 Executing non-installed dynamic binaries
 ----------------------------------------
@@ -1171,12 +1379,14 @@ is to correctly set up `LD_LIBRARY_PATH` so that libraries from the build tree
 are used.  (On some systems, `libtool` is also available from PATH, but this is
 not always the case.)
 
+.. _cli-workflow:
+
 CLI changes
 -----------
 
 CLI's are a complicated ugly beast. Additions or changes to the CLI should use
-a DEFUN to encapsulate one setting as much as is possible.  Additionally as new
-DEFUN's are added to the system, documentation should be provided for the new
+a DEFPY to encapsulate one setting as much as is possible.  Additionally as new
+DEFPY's are added to the system, documentation should be provided for the new
 commands.
 
 Backwards Compatibility
@@ -1237,9 +1447,23 @@ the development mailing list / public Slack instance.
 JSON Output
 ^^^^^^^^^^^
 
-* All JSON keys are to be camelCased, with no spaces
+New JSON output in FRR needs to be backed by schema, in particular a YANG model.
+When adding new JSON, first search for an existing YANG model, either in FRR or
+a standard model (e.g., IETF) and use that model as the basis for any JSON
+structure and *especially* for key names and canonical values formats.
+
+If no YANG model exists to support the JSON then an FRR YANG model needs to be
+added to or created to support the JSON format.
+
+* All JSON keys are to be ``camelCased``, with no spaces. YANG modules almost
+  always use ``kebab-case`` (i.e., all lower case with hyphens to separate
+  words), so these identifiers need to be mapped to ``camelCase`` by removing
+  the hyphen (or symbol) and capitalizing the following letter, for
+  example "router-id" becomes "routerId"
 * Commands which output JSON should produce ``{}`` if they have nothing to
   display
+* In general JSON commands include a ``json`` keyword typically at the end of
+  the CLI command (e.g., ``show ip ospf json``)
 
 Use of const
 ^^^^^^^^^^^^
@@ -1263,6 +1487,24 @@ may not be obvious in how to fix.  Here are some notes on specific warnings:
   Without the ``void``, in C, it's a function with *unspecified* parameters
   (and varargs calling convention.)  This is a notable difference to C++, where
   the ``void`` is optional and an empty parameter list means no parameters.
+
+* ``"strict match required"`` from the frr-format plugin:  check if you are
+  using a cast in a printf parameter list.  The frr-format plugin cannot
+  access correct full type information for casts like
+  ``printfrr(..., (uint64_t)something, ...)`` and will print incorrect
+  warnings particularly if ``uint64_t``, ``size_t`` or ``ptrdiff_t`` are
+  involved.  The problem is *not* triggered with a variable or function return
+  value of the exact same type (without a cast).
+
+  Since these cases are very rare, community consensus is to just work around
+  the warning even though the code might be correct.  If you are running into
+  this, your options are:
+
+  1. try to avoid the cast altogether, maybe using a different printf format
+     specifier (e.g. ``%lu`` instead of ``%zu`` or ``PRIu64``).
+  2. fix the type(s) of the function/variable/struct member being printed
+  3. create a temporary variable with the value and print that without a cast
+     (this is the last resort and was not necessary anywhere so far.)
 
 
 .. _documentation:

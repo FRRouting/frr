@@ -1,21 +1,8 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * PBR-nht Code
  * Copyright (C) 2018 Cumulus Networks, Inc.
  *               Donald Sharp
- *
- * FRR is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * FRR is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 #include <zebra.h>
 
@@ -227,6 +214,10 @@ void pbr_nhgroup_add_cb(const char *name)
 	DEBUGD(&pbr_dbg_nht, "%s: Added nexthop-group %s", __func__, name);
 
 	pbr_map_check_nh_group_change(name);
+}
+
+void pbr_nhgroup_modify_cb(const struct nexthop_group_cmd *nhgc)
+{
 }
 
 void pbr_nhgroup_add_nexthop_cb(const struct nexthop_group_cmd *nhgc,
@@ -522,6 +513,51 @@ char *pbr_nht_nexthop_make_name(char *name, size_t l,
 	return buffer;
 }
 
+/* Set data derived from nhg in pbrms */
+void pbr_nht_set_seq_nhg_data(struct pbr_map_sequence *pbrms,
+			      const struct nexthop_group_cmd *nhgc)
+{
+	const struct nexthop_group *nhg;
+
+	if (!nhgc)
+		return;
+
+	nhg = &nhgc->nhg;
+	if (!nhg->nexthop)
+		return;
+
+	switch (nhg->nexthop->type) {
+	case NEXTHOP_TYPE_IPV6:
+	case NEXTHOP_TYPE_IPV6_IFINDEX:
+		pbrms->family = AF_INET6;
+		break;
+	case NEXTHOP_TYPE_IPV4:
+	case NEXTHOP_TYPE_IPV4_IFINDEX:
+		pbrms->family = AF_INET;
+	case NEXTHOP_TYPE_IFINDEX:
+	case NEXTHOP_TYPE_BLACKHOLE:
+		break;
+	}
+}
+
+/* Configure a routemap sequence to use a given nexthop group */
+void pbr_nht_set_seq_nhg(struct pbr_map_sequence *pbrms, const char *name)
+{
+	struct nexthop_group_cmd *nhgc;
+
+	if (!name)
+		return;
+
+	pbrms->nhgrp_name = XSTRDUP(MTYPE_TMP, name);
+	pbrms->forwarding_type = PBR_FT_NEXTHOP_GROUP;
+
+	nhgc = nhgc_find(name);
+	if (!nhgc)
+		return;
+
+	pbr_nht_set_seq_nhg_data(pbrms, nhgc);
+}
+
 void pbr_nht_add_individual_nexthop(struct pbr_map_sequence *pbrms,
 				    const struct nexthop *nhop)
 {
@@ -537,6 +573,7 @@ void pbr_nht_add_individual_nexthop(struct pbr_map_sequence *pbrms,
 		MTYPE_TMP,
 		pbr_nht_nexthop_make_name(pbrms->parent->name, PBR_NHC_NAMELEN,
 					  pbrms->seqno, buf));
+	pbrms->forwarding_type = PBR_FT_NEXTHOP_SINGLE;
 
 	nh = nexthop_new();
 	memcpy(nh, nhop, sizeof(*nh));
@@ -998,8 +1035,9 @@ static int pbr_nht_individual_nexthop_vrf_handle(struct hash_bucket *b,
 						     nhrcvi.nhrc);
 					nhrcvi.nhrc->nexthop.vrf_id =
 						pbr_vrf_id(pnhi->pbr_vrf);
-					hash_get(pbr_nhrc_hash, nhrcvi.nhrc,
-						 hash_alloc_intern);
+					(void)hash_get(pbr_nhrc_hash,
+						       nhrcvi.nhrc,
+						       hash_alloc_intern);
 					pbr_send_rnh(&nhrcvi.nhrc->nexthop, true);
 				}
 			} while (nhrcvi.nhrc);
@@ -1044,7 +1082,8 @@ static void pbr_nht_nexthop_vrf_handle(struct hash_bucket *b, void *data)
 		if (pnhi.pnhc) {
 			pnhi.pnhc->nexthop.vrf_id = pbr_vrf_id(pbr_vrf);
 
-			hash_get(pnhgc->nhh, pnhi.pnhc, hash_alloc_intern);
+			(void)hash_get(pnhgc->nhh, pnhi.pnhc,
+				       hash_alloc_intern);
 		} else
 			pnhc->nexthop.vrf_id = pbr_vrf_id(pbr_vrf);
 
@@ -1098,11 +1137,11 @@ static void pbr_nht_nexthop_interface_handle(struct hash_bucket *b, void *data)
 		if (nhrc) {
 			hash_release(pbr_nhrc_hash, nhrc);
 			nhrc->nexthop.ifindex = ifp->ifindex;
-			hash_get(pbr_nhrc_hash, nhrc, hash_alloc_intern);
+			(void)hash_get(pbr_nhrc_hash, nhrc, hash_alloc_intern);
 		}
 		pnhi.pnhc->nexthop.ifindex = ifp->ifindex;
 
-		hash_get(pnhgc->nhh, pnhi.pnhc, hash_alloc_intern);
+		(void)hash_get(pnhgc->nhh, pnhi.pnhc, hash_alloc_intern);
 
 		pbr_map_check_interface_nh_group_change(pnhgc->name, ifp,
 							old_ifindex);
@@ -1247,7 +1286,7 @@ uint32_t pbr_nht_reserve_next_table_id(struct pbr_nexthop_group_cache *nhgc)
 	nhgc->table_id = pbr_next_unallocated_table_id;
 
 	/* Mark table id as allocated in id-indexed hash */
-	hash_get(pbr_nhg_allocated_id_hash, nhgc, hash_alloc_intern);
+	(void)hash_get(pbr_nhg_allocated_id_hash, nhgc, hash_alloc_intern);
 
 	/* Pre-compute the next unallocated table id */
 	pbr_nht_update_next_unallocated_table_id();

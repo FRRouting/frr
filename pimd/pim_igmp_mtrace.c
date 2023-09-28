@@ -1,20 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Multicast traceroute for FRRouting
  * Copyright (C) 2017  Mladen Sablic
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 /* based on draft-ietf-idmr-traceroute-ipm-07 */
@@ -22,6 +9,7 @@
 #include <zebra.h>
 
 #include "pimd.h"
+#include "pim_instance.h"
 #include "pim_util.h"
 #include "pim_sock.h"
 #include "pim_rp.h"
@@ -81,11 +69,9 @@ static bool mtrace_fwd_info_weak(struct pim_instance *pim,
 		zlog_debug("mtrace pim_nexthop_lookup OK");
 
 	if (PIM_DEBUG_MTRACE)
-		zlog_debug("mtrace next_hop=%pI4",
-			   &nexthop.mrib_nexthop_addr.u.prefix4);
+		zlog_debug("mtrace next_hop=%pPAs", &nexthop.mrib_nexthop_addr);
 
-	if (nexthop.mrib_nexthop_addr.family == AF_INET)
-		nh_addr = nexthop.mrib_nexthop_addr.u.prefix4;
+	nh_addr = nexthop.mrib_nexthop_addr;
 
 	ifp_in = nexthop.interface;
 
@@ -106,20 +92,20 @@ static bool mtrace_fwd_info(struct pim_instance *pim,
 			    struct igmp_mtrace_rsp *rspp,
 			    struct interface **ifpp)
 {
-	struct prefix_sg sg;
+	pim_sgaddr sg;
 	struct pim_upstream *up;
 	struct interface *ifp_in;
 	struct in_addr nh_addr;
 	uint32_t total;
 
-	memset(&sg, 0, sizeof(struct prefix_sg));
+	memset(&sg, 0, sizeof(sg));
 	sg.src = mtracep->src_addr;
 	sg.grp = mtracep->grp_addr;
 
 	up = pim_upstream_find(pim, &sg);
 
 	if (!up) {
-		sg.src.s_addr = INADDR_ANY;
+		sg.src = PIMADDR_ANY;
 		up = pim_upstream_find(pim, &sg);
 	}
 
@@ -134,7 +120,7 @@ static bool mtrace_fwd_info(struct pim_instance *pim,
 	}
 
 	ifp_in = up->rpf.source_nexthop.interface;
-	nh_addr = up->rpf.source_nexthop.mrib_nexthop_addr.u.prefix4;
+	nh_addr = up->rpf.source_nexthop.mrib_nexthop_addr;
 	total = htonl(MTRACE_UNKNOWN_COUNT);
 
 	if (PIM_DEBUG_MTRACE)
@@ -154,7 +140,7 @@ static bool mtrace_fwd_info(struct pim_instance *pim,
 	rspp->rtg_proto = MTRACE_RTG_PROTO_PIM;
 
 	/* 6.2.2. 4. Fill in ... S, and Src Mask */
-	if (sg.src.s_addr != INADDR_ANY) {
+	if (!pim_addr_is_any(sg.src)) {
 		rspp->s = 1;
 		rspp->src_mask = MTRACE_SRC_MASK_SOURCE;
 	} else {
@@ -366,19 +352,9 @@ static int mtrace_un_forward_packet(struct pim_instance *pim, struct ip *ip_hdr,
 	if (ip_hdr->ip_ttl-- <= 1)
 		return -1;
 
-	ip_hdr->ip_sum = in_cksum(ip_hdr, ip_hdr->ip_hl * 4);
-
-	fd = pim_socket_raw(IPPROTO_RAW);
-
-	if (fd < 0)
-		return -1;
-
-	pim_socket_ip_hdr(fd);
-
 	if (interface == NULL) {
 		memset(&nexthop, 0, sizeof(nexthop));
 		if (!pim_nexthop_lookup(pim, &nexthop, ip_hdr->ip_dst, 0)) {
-			close(fd);
 			if (PIM_DEBUG_MTRACE)
 				zlog_debug(
 					"Dropping mtrace packet, no route to destination");
@@ -389,6 +365,15 @@ static int mtrace_un_forward_packet(struct pim_instance *pim, struct ip *ip_hdr,
 	} else {
 		if_out = interface;
 	}
+
+	ip_hdr->ip_sum = in_cksum(ip_hdr, ip_hdr->ip_hl * 4);
+
+	fd = pim_socket_raw(IPPROTO_RAW);
+
+	if (fd < 0)
+		return -1;
+
+	pim_socket_ip_hdr(fd);
 
 	ret = pim_socket_bind(fd, if_out);
 
@@ -426,14 +411,14 @@ static int mtrace_un_forward_packet(struct pim_instance *pim, struct ip *ip_hdr,
 
 static int mtrace_mc_forward_packet(struct pim_instance *pim, struct ip *ip_hdr)
 {
-	struct prefix_sg sg;
+	pim_sgaddr sg;
 	struct channel_oil *c_oil;
 	struct listnode *chnode;
 	struct listnode *chnextnode;
 	struct pim_ifchannel *ch = NULL;
 	int ret = -1;
 
-	memset(&sg, 0, sizeof(struct prefix_sg));
+	memset(&sg, 0, sizeof(sg));
 	sg.grp = ip_hdr->ip_dst;
 
 	c_oil = pim_find_channel_oil(pim, &sg);
@@ -477,14 +462,14 @@ static int mtrace_send_mc_response(struct pim_instance *pim,
 				   struct igmp_mtrace *mtracep,
 				   size_t mtrace_len)
 {
-	struct prefix_sg sg;
+	pim_sgaddr sg;
 	struct channel_oil *c_oil;
 	struct listnode *chnode;
 	struct listnode *chnextnode;
 	struct pim_ifchannel *ch = NULL;
 	int ret = -1;
 
-	memset(&sg, 0, sizeof(struct prefix_sg));
+	memset(&sg, 0, sizeof(sg));
 	sg.grp = mtracep->rsp_addr;
 
 	c_oil = pim_find_channel_oil(pim, &sg);
@@ -564,7 +549,7 @@ static int mtrace_send_response(struct pim_instance *pim,
 				  mtracep->rsp_addr, mtracep->grp_addr);
 }
 
-int igmp_mtrace_recv_qry_req(struct igmp_sock *igmp, struct ip *ip_hdr,
+int igmp_mtrace_recv_qry_req(struct gm_sock *igmp, struct ip *ip_hdr,
 			     struct in_addr from, const char *from_str,
 			     char *igmp_msg, int igmp_msg_len)
 {
@@ -596,8 +581,8 @@ int igmp_mtrace_recv_qry_req(struct igmp_sock *igmp, struct ip *ip_hdr,
 	 * if applicable
 	 */
 	if (!IPV4_CLASS_DE(ntohl(ip_hdr->ip_dst.s_addr)))
-		if (!if_lookup_exact_address(&ip_hdr->ip_dst, AF_INET,
-					     pim->vrf->vrf_id))
+		if (!if_address_is_local(&ip_hdr->ip_dst, AF_INET,
+					 pim->vrf->vrf_id))
 			return mtrace_forward_packet(pim, ip_hdr);
 
 	if (igmp_msg_len < (int)sizeof(struct igmp_mtrace)) {
@@ -626,7 +611,7 @@ int igmp_mtrace_recv_qry_req(struct igmp_sock *igmp, struct ip *ip_hdr,
 	}
 
 	/* Collecting IGMP Rx stats */
-	igmp->rx_stats.mtrace_req++;
+	igmp->igmp_stats.mtrace_req++;
 
 	if (PIM_DEBUG_MTRACE)
 		mtrace_debug(pim_ifp, mtracep, igmp_msg_len);
@@ -771,7 +756,8 @@ int igmp_mtrace_recv_qry_req(struct igmp_sock *igmp, struct ip *ip_hdr,
 	}
 
 	/* 6.2.2 8. If this router is the Rendez-vous Point */
-	if (pim_rp_i_am_rp(pim, mtracep->grp_addr)) {
+	if (mtracep->grp_addr.s_addr != INADDR_ANY &&
+	    pim_rp_i_am_rp(pim, mtracep->grp_addr)) {
 		mtrace_rsp_set_fwd_code(rspp, MTRACE_FWD_CODE_REACHED_RP);
 		/* 7.7.1. PIM-SM ...RP has not performed source-specific join */
 		if (rspp->src_mask == MTRACE_SRC_MASK_GROUP)
@@ -799,7 +785,7 @@ int igmp_mtrace_recv_qry_req(struct igmp_sock *igmp, struct ip *ip_hdr,
 }
 
 /* 6.3. Traceroute responses */
-int igmp_mtrace_recv_response(struct igmp_sock *igmp, struct ip *ip_hdr,
+int igmp_mtrace_recv_response(struct gm_sock *igmp, struct ip *ip_hdr,
 			      struct in_addr from, const char *from_str,
 			      char *igmp_msg, int igmp_msg_len)
 {
@@ -843,7 +829,7 @@ int igmp_mtrace_recv_response(struct igmp_sock *igmp, struct ip *ip_hdr,
 	mtracep->checksum = checksum;
 
 	/* Collecting IGMP Rx stats */
-	igmp->rx_stats.mtrace_rsp++;
+	igmp->igmp_stats.mtrace_rsp++;
 
 	if (PIM_DEBUG_MTRACE)
 		mtrace_debug(pim_ifp, mtracep, igmp_msg_len);

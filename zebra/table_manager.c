@@ -1,19 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* zebra table Manager for routing table identifier management
  * Copyright (C) 2018 6WIND
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include "zebra.h"
@@ -72,17 +59,16 @@ void table_manager_enable(struct zebra_vrf *zvrf)
 
 	if (zvrf->tbl_mgr)
 		return;
-	if (!vrf_is_backend_netns() && zvrf_id(zvrf) != VRF_DEFAULT) {
+	if (!vrf_is_backend_netns()
+	    && strcmp(zvrf_name(zvrf), VRF_DEFAULT_NAME)) {
 		struct zebra_vrf *def = zebra_vrf_lookup_by_id(VRF_DEFAULT);
 
-		if (def)
-			zvrf->tbl_mgr = def->tbl_mgr;
+		zvrf->tbl_mgr = def->tbl_mgr;
 		return;
 	}
 	zvrf->tbl_mgr = XCALLOC(MTYPE_TM_TABLE, sizeof(struct table_manager));
 	zvrf->tbl_mgr->lc_list = list_new();
 	zvrf->tbl_mgr->lc_list->del = delete_table_chunk;
-	hook_register(zserv_client_close, release_daemon_table_chunks);
 }
 
 /**
@@ -119,8 +105,6 @@ struct table_manager_chunk *assign_table_chunk(uint8_t proto, uint16_t instance,
 	}
 	/* otherwise create a new one */
 	tmc = XCALLOC(MTYPE_TM_CHUNK, sizeof(struct table_manager_chunk));
-	if (!tmc)
-		return NULL;
 
 	if (zvrf->tbl_mgr->start || zvrf->tbl_mgr->end)
 		manual_conf = true;
@@ -285,7 +269,8 @@ void table_manager_disable(struct zebra_vrf *zvrf)
 {
 	if (!zvrf->tbl_mgr)
 		return;
-	if (!vrf_is_backend_netns() && zvrf_id(zvrf) != VRF_DEFAULT) {
+	if (!vrf_is_backend_netns()
+	    && strcmp(zvrf_name(zvrf), VRF_DEFAULT_NAME)) {
 		zvrf->tbl_mgr = NULL;
 		return;
 	}

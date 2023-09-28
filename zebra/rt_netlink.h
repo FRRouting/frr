@@ -1,21 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* Header file exported by rt_netlink.c to zebra.
  * Copyright (C) 1997, 98, 99 Kunihiro Ishiguro
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef _ZEBRA_RT_NETLINK_H
@@ -30,7 +15,6 @@
 extern "C" {
 #endif
 
-#define NL_DEFAULT_ROUTE_METRIC 20
 
 /*
  * Additional protocol strings to push into routes
@@ -72,7 +56,8 @@ extern ssize_t netlink_mpls_multipath_msg_encode(int cmd,
 extern ssize_t netlink_route_multipath_msg_encode(int cmd,
 						  struct zebra_dplane_ctx *ctx,
 						  uint8_t *data, size_t datalen,
-						  bool fpm, bool force_nhg);
+						  bool fpm, bool force_nhg,
+						  bool force_rr);
 extern ssize_t netlink_macfdb_update_ctx(struct zebra_dplane_ctx *ctx,
 					 void *data, size_t datalen);
 
@@ -84,7 +69,7 @@ extern int netlink_nexthop_change(struct nlmsghdr *h, ns_id_t ns_id,
 extern int netlink_nexthop_read(struct zebra_ns *zns);
 extern ssize_t netlink_nexthop_msg_encode(uint16_t cmd,
 					  const struct zebra_dplane_ctx *ctx,
-					  void *buf, size_t buflen);
+					  void *buf, size_t buflen, bool fpm);
 
 extern ssize_t netlink_lsp_msg_encoder(struct zebra_dplane_ctx *ctx, void *buf,
 				       size_t buflen);
@@ -93,7 +78,10 @@ extern int netlink_neigh_change(struct nlmsghdr *h, ns_id_t ns_id);
 extern int netlink_macfdb_read(struct zebra_ns *zns);
 extern int netlink_macfdb_read_for_bridge(struct zebra_ns *zns,
 					  struct interface *ifp,
-					  struct interface *br_if);
+					  struct interface *br_if,
+					  vlanid_t vid);
+extern int netlink_macfdb_read_mcast_for_vni(struct zebra_ns *zns,
+					     struct interface *ifp, vni_t vni);
 extern int netlink_neigh_read(struct zebra_ns *zns);
 extern int netlink_neigh_read_for_vlan(struct zebra_ns *zns,
 				       struct interface *vlan_if);
@@ -103,7 +91,6 @@ extern int netlink_macfdb_read_specific_mac(struct zebra_ns *zns,
 					    uint16_t vid);
 extern int netlink_neigh_read_specific_ip(const struct ipaddr *ip,
 					  struct interface *vlan_if);
-extern vrf_id_t vrf_lookup_by_table(uint32_t table_id, ns_id_t ns_id);
 
 struct nl_batch;
 extern enum netlink_msg_status
@@ -122,18 +109,26 @@ netlink_put_lsp_update_msg(struct nl_batch *bth, struct zebra_dplane_ctx *ctx);
 extern enum netlink_msg_status
 netlink_put_pw_update_msg(struct nl_batch *bth, struct zebra_dplane_ctx *ctx);
 
+int netlink_route_change_read_unicast_internal(struct nlmsghdr *h,
+					       ns_id_t ns_id, int startup,
+					       struct zebra_dplane_ctx *ctx);
+
 #ifdef NETLINK_DEBUG
 const char *nlmsg_type2str(uint16_t type);
 const char *af_type2str(int type);
 const char *ifi_type2str(int type);
 const char *rta_type2str(int type);
 const char *rtm_type2str(int type);
+const char *ifla_pdr_type2str(int type);
+const char *ifla_info_type2str(int type);
 const char *rtm_protocol2str(int type);
 const char *rtm_scope2str(int type);
 const char *rtm_rta2str(int type);
 const char *neigh_rta2str(int type);
 const char *ifa_rta2str(int type);
 const char *nhm_rta2str(int type);
+const char *frh_rta2str(int type);
+const char *frh_action2str(uint8_t action);
 const char *nlmsg_flags2str(uint16_t flags, char *buf, size_t buflen);
 const char *if_flags2str(uint32_t flags, char *buf, size_t buflen);
 const char *rtm_flags2str(uint32_t flags, char *buf, size_t buflen);
@@ -143,6 +138,9 @@ const char *ifa_flags2str(uint32_t flags, char *buf, size_t buflen);
 const char *nh_flags2str(uint32_t flags, char *buf, size_t buflen);
 
 void nl_dump(void *msg, size_t msglen);
+
+extern int zebra2proto(int proto);
+
 #endif /* NETLINK_DEBUG */
 
 #ifdef __cplusplus

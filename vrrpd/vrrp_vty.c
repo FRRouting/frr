@@ -1,21 +1,8 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * VRRP CLI commands.
  * Copyright (C) 2018-2019 Cumulus Networks, Inc.
  * Quentin Young
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 #include <zebra.h>
 
@@ -33,9 +20,7 @@
 #include "vrrp_debug.h"
 #include "vrrp_vty.h"
 #include "vrrp_zebra.h"
-#ifndef VTYSH_EXTRACT_PL
 #include "vrrpd/vrrp_vty_clippy.c"
-#endif
 
 
 #define VRRP_STR "Virtual Router Redundancy Protocol\n"
@@ -75,7 +60,7 @@ DEFPY_YANG(vrrp_vrid,
 	return nb_cli_apply_changes(vty, VRRP_XPATH_ENTRY, vrid);
 }
 
-void cli_show_vrrp(struct vty *vty, struct lyd_node *dnode, bool show_defaults)
+void cli_show_vrrp(struct vty *vty, const struct lyd_node *dnode, bool show_defaults)
 {
 	const char *vrid = yang_dnode_get_string(dnode, "./virtual-router-id");
 	const char *ver = yang_dnode_get_string(dnode, "./version");
@@ -103,7 +88,7 @@ DEFPY_YANG(vrrp_shutdown,
 	return nb_cli_apply_changes(vty, VRRP_XPATH_ENTRY, vrid);
 }
 
-void cli_show_shutdown(struct vty *vty, struct lyd_node *dnode,
+void cli_show_shutdown(struct vty *vty, const struct lyd_node *dnode,
 		       bool show_defaults)
 {
 	const char *vrid = yang_dnode_get_string(dnode, "../virtual-router-id");
@@ -121,7 +106,7 @@ DEFPY_YANG(vrrp_priority,
       VRRP_STR
       VRRP_VRID_STR
       VRRP_PRIORITY_STR
-      "Priority value")
+      "Priority value\n")
 {
 	nb_cli_enqueue_change(vty, "./priority", NB_OP_MODIFY, priority_str);
 
@@ -138,14 +123,14 @@ DEFPY_YANG(no_vrrp_priority,
       VRRP_STR
       VRRP_VRID_STR
       VRRP_PRIORITY_STR
-      "Priority value")
+      "Priority value\n")
 {
 	nb_cli_enqueue_change(vty, "./priority", NB_OP_MODIFY, NULL);
 
 	return nb_cli_apply_changes(vty, VRRP_XPATH_ENTRY, vrid);
 }
 
-void cli_show_priority(struct vty *vty, struct lyd_node *dnode,
+void cli_show_priority(struct vty *vty, const struct lyd_node *dnode,
 		       bool show_defaults)
 {
 	const char *vrid = yang_dnode_get_string(dnode, "../virtual-router-id");
@@ -162,7 +147,7 @@ DEFPY_YANG(vrrp_advertisement_interval,
       vrrp_advertisement_interval_cmd,
       "vrrp (1-255)$vrid advertisement-interval (10-40950)",
       VRRP_STR VRRP_VRID_STR VRRP_ADVINT_STR
-      "Advertisement interval in milliseconds; must be multiple of 10")
+      "Advertisement interval in milliseconds; must be multiple of 10\n")
 {
 	char val[20];
 
@@ -183,7 +168,7 @@ DEFPY_YANG(no_vrrp_advertisement_interval,
       no_vrrp_advertisement_interval_cmd,
       "no vrrp (1-255)$vrid advertisement-interval [(10-40950)]",
       NO_STR VRRP_STR VRRP_VRID_STR VRRP_ADVINT_STR
-      "Advertisement interval in milliseconds; must be multiple of 10")
+      "Advertisement interval in milliseconds; must be multiple of 10\n")
 {
 	nb_cli_enqueue_change(vty, "./advertisement-interval", NB_OP_MODIFY,
 			      NULL);
@@ -191,7 +176,7 @@ DEFPY_YANG(no_vrrp_advertisement_interval,
 	return nb_cli_apply_changes(vty, VRRP_XPATH_ENTRY, vrid);
 }
 
-void cli_show_advertisement_interval(struct vty *vty, struct lyd_node *dnode,
+void cli_show_advertisement_interval(struct vty *vty, const struct lyd_node *dnode,
 				     bool show_defaults)
 {
 	const char *vrid = yang_dnode_get_string(dnode, "../virtual-router-id");
@@ -220,7 +205,7 @@ DEFPY_YANG(vrrp_ip,
 	return nb_cli_apply_changes(vty, VRRP_XPATH_ENTRY, vrid);
 }
 
-void cli_show_ip(struct vty *vty, struct lyd_node *dnode, bool show_defaults)
+void cli_show_ip(struct vty *vty, const struct lyd_node *dnode, bool show_defaults)
 {
 	const char *vrid =
 		yang_dnode_get_string(dnode, "../../virtual-router-id");
@@ -248,7 +233,7 @@ DEFPY_YANG(vrrp_ip6,
 	return nb_cli_apply_changes(vty, VRRP_XPATH_ENTRY, vrid);
 }
 
-void cli_show_ipv6(struct vty *vty, struct lyd_node *dnode, bool show_defaults)
+void cli_show_ipv6(struct vty *vty, const struct lyd_node *dnode, bool show_defaults)
 {
 	const char *vrid =
 		yang_dnode_get_string(dnode, "../../virtual-router-id");
@@ -274,13 +259,42 @@ DEFPY_YANG(vrrp_preempt,
 	return nb_cli_apply_changes(vty, VRRP_XPATH_ENTRY, vrid);
 }
 
-void cli_show_preempt(struct vty *vty, struct lyd_node *dnode,
+void cli_show_preempt(struct vty *vty, const struct lyd_node *dnode,
 		      bool show_defaults)
 {
 	const char *vrid = yang_dnode_get_string(dnode, "../virtual-router-id");
 	const bool pre = yang_dnode_get_bool(dnode, NULL);
 
 	vty_out(vty, " %svrrp %s preempt\n", pre ? "" : "no ", vrid);
+}
+
+/*
+ * XPath: /frr-interface:lib/interface/frr-vrrpd:vrrp/vrrp-group/checksum-with-
+ *        ipv4-pseudoheader
+ */
+DEFPY_YANG(vrrp_checksum_with_ipv4_pseudoheader,
+      vrrp_checksum_with_ipv4_pseudoheader_cmd,
+      "[no] vrrp (1-255)$vrid checksum-with-ipv4-pseudoheader",
+      NO_STR
+      VRRP_STR
+      VRRP_VRID_STR
+      "Checksum mode in VRRPv3\n")
+{
+	nb_cli_enqueue_change(vty, "./checksum-with-ipv4-pseudoheader",
+			      NB_OP_MODIFY, no ? "false" : "true");
+
+	return nb_cli_apply_changes(vty, VRRP_XPATH_ENTRY, vrid);
+}
+
+void cli_show_checksum_with_ipv4_pseudoheader(struct vty *vty,
+					      const struct lyd_node *dnode,
+					      bool show_defaults)
+{
+	const char *vrid = yang_dnode_get_string(dnode, "../virtual-router-id");
+	const bool pre = yang_dnode_get_bool(dnode, NULL);
+
+	vty_out(vty, " %svrrp %s checksum-with-ipv4-pseudoheader\n",
+		pre ? "" : "no ", vrid);
 }
 
 /* XXX: yang conversion */
@@ -306,7 +320,7 @@ DEFPY_YANG(vrrp_autoconfigure,
 /* XXX: yang conversion */
 DEFPY_YANG(vrrp_default,
       vrrp_default_cmd,
-      "[no] vrrp default <advertisement-interval$adv (10-40950)$advint|preempt$p|priority$prio (1-254)$prioval|shutdown$s>",
+      "[no] vrrp default <advertisement-interval$adv (10-40950)$advint|preempt$p|priority$prio (1-254)$prioval|checksum-with-ipv4-pseudoheader$ipv4ph|shutdown$s>",
       NO_STR
       VRRP_STR
       "Configure defaults for new VRRP instances\n"
@@ -315,6 +329,7 @@ DEFPY_YANG(vrrp_default,
       "Preempt mode\n"
       VRRP_PRIORITY_STR
       "Priority value\n"
+      "Checksum mode in VRRPv3\n"
       "Force VRRP router into administrative shutdown\n")
 {
 	if (adv) {
@@ -331,6 +346,8 @@ DEFPY_YANG(vrrp_default,
 		vd.preempt_mode = !no;
 	if (prio)
 		vd.priority = no ? VRRP_DEFAULT_PRIORITY : prioval;
+	if (ipv4ph)
+		vd.checksum_with_ipv4_pseudoheader = !no;
 	if (s)
 		vd.shutdown = !no;
 
@@ -376,9 +393,12 @@ static struct json_object *vrrp_build_json(struct vrrp_vrouter *vr)
 	json_object_boolean_add(j, "shutdown", vr->shutdown);
 	json_object_boolean_add(j, "preemptMode", vr->preempt_mode);
 	json_object_boolean_add(j, "acceptMode", vr->accept_mode);
+	json_object_boolean_add(j, "checksumWithIpv4Pseudoheader",
+				vr->checksum_with_ipv4_pseudoheader);
 	json_object_string_add(j, "interface", vr->ifp->name);
 	json_object_int_add(j, "advertisementInterval",
 			    vr->advertisement_interval * CS2MS);
+	json_object_int_add(j, "priority", vr->priority);
 	/* v4 */
 	json_object_string_add(v4, "interface",
 			       vr->v4->mvl_ifp ? vr->v4->mvl_ifp->name : "");
@@ -501,13 +521,15 @@ static void vrrp_show(struct vty *vty, struct vrrp_vrouter *vr)
 		       vr->preempt_mode ? "Yes" : "No");
 	ttable_add_row(tt, "%s|%s", "Accept Mode",
 		       vr->accept_mode ? "Yes" : "No");
+	ttable_add_row(tt, "%s|%s", "Checksum with IPv4 Pseudoheader",
+		       vr->checksum_with_ipv4_pseudoheader ? "Yes" : "No");
 	ttable_add_row(tt, "%s|%d ms", "Advertisement Interval",
 		       vr->advertisement_interval * CS2MS);
-	ttable_add_row(tt, "%s|%d ms",
-		       "Master Advertisement Interval (v4)",
+	ttable_add_row(tt, "%s|%d ms (stale)",
+		       "Master Advertisement Interval (v4) Rx",
 		       vr->v4->master_adver_interval * CS2MS);
-	ttable_add_row(tt, "%s|%d ms",
-		       "Master Advertisement Interval (v6)",
+	ttable_add_row(tt, "%s|%d ms (stale)",
+		       "Master Advertisement Interval (v6) Rx",
 		       vr->v6->master_adver_interval * CS2MS);
 	ttable_add_row(tt, "%s|%u", "Advertisements Tx (v4)",
 		       vr->v4->stats.adver_tx_cnt);
@@ -710,39 +732,12 @@ DEFUN_NOSH (show_debugging_vrrp,
 
 	vrrp_debug_status_write(vty);
 
+	cmd_show_lib_debugs(vty);
+
 	return CMD_SUCCESS;
 }
 
 /* clang-format on */
-
-/*
- * Write per interface VRRP config.
- */
-static int vrrp_config_write_interface(struct vty *vty)
-{
-	struct vrf *vrf;
-	int write = 0;
-
-	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
-		struct interface *ifp;
-
-		FOR_ALL_INTERFACES (vrf, ifp) {
-			struct lyd_node *dnode;
-
-			dnode = yang_dnode_getf(
-				running_config->dnode,
-				"/frr-interface:lib/interface[name='%s'][vrf='%s']",
-				ifp->name, vrf->name);
-			if (dnode == NULL)
-				continue;
-
-			write = 1;
-			nb_cli_show_dnode_cmds(vty, dnode, false);
-		}
-	}
-
-	return write;
-}
 
 static struct cmd_node debug_node = {
 	.name = "debug",
@@ -763,7 +758,7 @@ void vrrp_vty_init(void)
 	install_node(&debug_node);
 	install_node(&vrrp_node);
 	vrf_cmd_init(NULL);
-	if_cmd_init(vrrp_config_write_interface);
+	if_cmd_init_default();
 
 	install_element(VIEW_NODE, &vrrp_vrid_show_cmd);
 	install_element(VIEW_NODE, &vrrp_vrid_show_summary_cmd);
@@ -781,4 +776,6 @@ void vrrp_vty_init(void)
 	install_element(INTERFACE_NODE, &vrrp_ip_cmd);
 	install_element(INTERFACE_NODE, &vrrp_ip6_cmd);
 	install_element(INTERFACE_NODE, &vrrp_preempt_cmd);
+	install_element(INTERFACE_NODE,
+			&vrrp_checksum_with_ipv4_pseudoheader_cmd);
 }

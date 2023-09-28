@@ -1,17 +1,6 @@
+// SPDX-License-Identifier: ISC
 /*
  * Copyright (c) 2015-19  David Lamparter, for NetDEF, Inc.
- *
- * Permission to use, copy, modify, and distribute this software for any
- * purpose with or without fee is hereby granted, provided that the above
- * copyright notice and this permission notice appear in all copies.
- *
- * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
- * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
- * ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
- * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
- * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
- * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
 #ifndef _FRR_ZLOG_H
@@ -54,21 +43,25 @@ struct xref_logmsg {
 	const char *args;
 };
 
+/* whether flag was added in config mode or enable mode */
+#define LOGMSG_FLAG_EPHEMERAL	(1 << 0)
+#define LOGMSG_FLAG_PERSISTENT	(1 << 1)
+
 struct xrefdata_logmsg {
 	struct xrefdata xrefdata;
 
-	/* nothing more here right now */
+	uint8_t fl_print_bt;
 };
 
 /* These functions are set up to write to stdout/stderr without explicit
  * initialization and/or before config load.  There is no need to call e.g.
  * fprintf(stderr, ...) just because it's "too early" at startup.  Depending
  * on context, it may still be the right thing to use fprintf though -- try to
- * determine wether something is a log message or something else.
+ * determine whether something is a log message or something else.
  */
 
-extern void vzlogx(const struct xref_logmsg *xref, int prio,
-		   const char *fmt, va_list ap);
+extern void vzlogx(const struct xref_logmsg *xref, int prio, const char *fmt,
+		   va_list ap) PRINTFRR(3, 0);
 #define vzlog(prio, ...) vzlogx(NULL, prio, __VA_ARGS__)
 
 PRINTFRR(2, 3)
@@ -94,15 +87,19 @@ static inline void zlog_ref(const struct xref_logmsg *xref,
 
 #define _zlog_ecref(ec_, prio, msg, ...)                                       \
 	do {                                                                   \
-		static struct xrefdata _xrefdata = {                           \
-			.xref = NULL,                                          \
-			.uid = {},                                             \
-			.hashstr = (msg),                                      \
-			.hashu32 = {(prio), (ec_)},                            \
+		static struct xrefdata_logmsg _xrefdata = {                    \
+			.xrefdata =                                            \
+				{                                              \
+					.xref = NULL,                          \
+					.uid = {},                             \
+					.hashstr = (msg),                      \
+					.hashu32 = {(prio), (ec_)},            \
+				},                                             \
 		};                                                             \
 		static const struct xref_logmsg _xref __attribute__(           \
 			(used)) = {                                            \
-			.xref = XREF_INIT(XREFT_LOGMSG, &_xrefdata, __func__), \
+			.xref = XREF_INIT(XREFT_LOGMSG, &_xrefdata.xrefdata,   \
+					  __func__),                           \
 			.fmtstring = (msg),                                    \
 			.priority = (prio),                                    \
 			.ec = (ec_),                                           \
@@ -175,8 +172,11 @@ extern void zlog_msg_args(struct zlog_msg *msg, size_t *hdrlen,
 /* default is local time zone */
 #define ZLOG_TS_UTC		(1 << 10)
 
+struct timespec;
+
 extern size_t zlog_msg_ts(struct zlog_msg *msg, struct fbuf *out,
 			  uint32_t flags);
+extern void zlog_msg_tsraw(struct zlog_msg *msg, struct timespec *ts);
 
 /* "mmm dd hh:mm:ss" for RFC3164 syslog.  Only ZLOG_TS_UTC for flags. */
 extern size_t zlog_msg_ts_3164(struct zlog_msg *msg, struct fbuf *out,

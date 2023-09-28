@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: BSD-2-Clause
 module frr-bfdd {
   yang-version 1.1;
   namespace "http://frrouting.org/yang/bfdd";
@@ -67,14 +68,14 @@ module frr-bfdd {
   typedef multiplier {
     description "Detection multiplier";
     type uint8 {
-      range 2..255;
+      range "2..255";
     }
   }
 
   typedef discriminator {
     description "BFD session identification";
     type uint32 {
-      range 1..4294967295;
+      range "1..4294967295";
     }
   }
 
@@ -170,14 +171,18 @@ module frr-bfdd {
     }
 
     leaf desired-transmission-interval {
-      type uint32;
+      type uint32 {
+          range "10000..60000000";
+      }
       units microseconds;
       default 300000;
       description "Minimum desired control packet transmission interval";
     }
 
     leaf required-receive-interval {
-      type uint32;
+      type uint32 {
+          range "10000..60000000";
+      }
       units microseconds;
       default 300000;
       description "Minimum required control packet receive interval";
@@ -207,14 +212,18 @@ module frr-bfdd {
     }
 
     leaf desired-echo-transmission-interval {
-      type uint32;
+      type uint32 {
+          range "10000..60000000";
+      }
       units microseconds;
       default 50000;
       description "Minimum desired echo packet transmission interval";
     }
 
     leaf required-echo-receive-interval {
-      type uint32;
+      type uint32 {
+          range "0 | 10000..60000000";
+      }
       units microseconds;
       default 50000;
       description "Minimum required echo packet receive interval";
@@ -226,10 +235,41 @@ module frr-bfdd {
 
     leaf minimum-ttl {
       type uint8 {
-        range 1..254;
+        range "1..254";
       }
+      default "254";
       description
         "Minimum expected TTL on received packets.";
+    }
+  }
+
+  grouping bfd-monitoring {
+    description
+      "BFD monitoring template for protocol integration.";
+
+    leaf source {
+      type inet:ip-address;
+      description
+        "Source address to use for liveness check.
+
+         When source is not set and multi-hop is `false` the source
+         address will be `0.0.0.0` (any).
+
+         When source is not set and multi-hop is `true` the source
+         address will be automatic selected through Next Hop Tracking (NHT).";
+    }
+
+    leaf multi-hop {
+      description
+        "Use multi hop session instead of single hop.";
+      type boolean;
+      default false;
+    }
+
+    leaf profile {
+      description
+        "BFD pre configured profile.";
+      type frr-bfdd:profile-ref;
     }
   }
 

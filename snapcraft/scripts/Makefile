@@ -10,6 +10,7 @@ install:
 	install -D -m 0755 ripngd-service $(DESTDIR)/bin/
 	install -D -m 0755 isisd-service $(DESTDIR)/bin/
 	install -D -m 0755 pimd-service $(DESTDIR)/bin/
+	install -D -m 0755 pim6d-service $(DESTDIR)/bin/
 	install -D -m 0755 ldpd-service $(DESTDIR)/bin/
 	install -D -m 0755 nhrpd-service $(DESTDIR)/bin/
 	install -D -m 0755 babeld-service $(DESTDIR)/bin/
@@ -22,4 +23,3 @@ install:
 	install -D -m 0755 pathd-service $(DESTDIR)/bin/
 	install -D -m 0755 set-options $(DESTDIR)/bin/
 	install -D -m 0755 show_version $(DESTDIR)/bin/
-

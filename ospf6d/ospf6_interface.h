@@ -1,21 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Copyright (C) 2003 Yasuhiro Ohara
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef OSPF6_INTERFACE_H
@@ -24,12 +9,30 @@
 #include "qobj.h"
 #include "hook.h"
 #include "if.h"
+#include "ospf6d.h"
+
+DECLARE_MTYPE(OSPF6_AUTH_MANUAL_KEY);
 
 /* Debug option */
 extern unsigned char conf_debug_ospf6_interface;
 #define OSPF6_DEBUG_INTERFACE_ON() (conf_debug_ospf6_interface = 1)
 #define OSPF6_DEBUG_INTERFACE_OFF() (conf_debug_ospf6_interface = 0)
 #define IS_OSPF6_DEBUG_INTERFACE (conf_debug_ospf6_interface)
+
+struct ospf6_auth_data {
+	/* config data */
+	uint8_t hash_algo; /* hash algorithm type */
+	uint16_t key_id;   /* key-id used as SA in auth packet */
+	char *auth_key;    /* Auth key */
+	char *keychain;    /* keychain name */
+
+	/* operational data */
+	uint8_t flags; /* Flags related to auth config */
+
+	/* Counters and Statistics */
+	uint32_t tx_drop; /* Pkt drop due to auth fail while sending */
+	uint32_t rx_drop; /* Pkt drop due to auth fail while reading */
+};
 
 /* Interface structure */
 struct ospf6_interface {
@@ -71,6 +74,15 @@ struct ospf6_interface {
 	uint16_t dead_interval;
 	uint32_t rxmt_interval;
 
+	/* Graceful-Restart data. */
+	struct {
+		struct {
+			uint16_t interval;
+			uint16_t elapsed_seconds;
+			struct event *t_grace_send;
+		} hello_delay;
+	} gr;
+
 	uint32_t state_change;
 
 	/* Cost */
@@ -87,13 +99,16 @@ struct ospf6_interface {
 
 	/* Interface socket setting trial counter, resets on success */
 	uint8_t sso_try_cnt;
-	struct thread *thread_sso;
+	struct event *thread_sso;
 
 	/* OSPF6 Interface flag */
 	char flag;
 
 	/* MTU mismatch check */
 	uint8_t mtu_ignore;
+
+	/* Authentication trailer related config */
+	struct ospf6_auth_data at_data;
 
 	/* Decision of DR Election */
 	in_addr_t drouter;
@@ -109,15 +124,15 @@ struct ospf6_interface {
 	struct ospf6_lsdb *lsack_list;
 
 	/* Ongoing Tasks */
-	struct thread *thread_send_hello;
-	struct thread *thread_send_lsupdate;
-	struct thread *thread_send_lsack;
+	struct event *thread_send_hello;
+	struct event *thread_send_lsupdate;
+	struct event *thread_send_lsack;
 
-	struct thread *thread_network_lsa;
-	struct thread *thread_link_lsa;
-	struct thread *thread_intra_prefix_lsa;
-	struct thread *thread_as_extern_lsa;
-	struct thread *thread_wait_timer;
+	struct event *thread_network_lsa;
+	struct event *thread_link_lsa;
+	struct event *thread_intra_prefix_lsa;
+	struct event *thread_as_extern_lsa;
+	struct event *thread_wait_timer;
 
 	struct ospf6_route_table *route_connected;
 
@@ -205,11 +220,11 @@ extern struct in6_addr *
 ospf6_interface_get_global_address(struct interface *ifp);
 
 /* interface event */
-extern int interface_up(struct thread *thread);
-extern int interface_down(struct thread *thread);
-extern int wait_timer(struct thread *thread);
-extern int backup_seen(struct thread *thread);
-extern int neighbor_change(struct thread *thread);
+extern void interface_up(struct event *thread);
+extern void interface_down(struct event *thread);
+extern void wait_timer(struct event *thread);
+extern void backup_seen(struct event *thread);
+extern void neighbor_change(struct event *thread);
 
 extern void ospf6_interface_init(void);
 extern void ospf6_interface_clear(struct interface *ifp);
@@ -221,6 +236,9 @@ extern void install_element_ospf6_debug_interface(void);
 extern int ospf6_interface_neighbor_count(struct ospf6_interface *oi);
 extern uint8_t dr_election(struct ospf6_interface *oi);
 
+extern void ospf6_interface_auth_trailer_cmd_init(void);
+extern void ospf6_auth_write_config(struct vty *vty,
+				    struct ospf6_auth_data *at_data);
 DECLARE_HOOK(ospf6_interface_change,
 	     (struct ospf6_interface * oi, int state, int old_state),
 	     (oi, state, old_state));

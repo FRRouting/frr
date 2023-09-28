@@ -1,20 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Copyright (C) 2016 by Open Source Routing.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; see the file COPYING; if not, write to the
- * Free Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston,
- * MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -25,9 +11,7 @@
 
 #include "ldpd/ldpd.h"
 #include "ldpd/ldp_vty.h"
-#ifndef VTYSH_EXTRACT_PL
 #include "ldpd/ldp_vty_cmds_clippy.c"
-#endif
 
 DEFPY_NOSH(ldp_mpls_ldp,
 	ldp_mpls_ldp_cmd,
@@ -246,21 +230,19 @@ DEFPY  (ldp_allow_broken_lsps,
 	"[no] install allow-broken-lsps",
 	NO_STR
 	"install lsps\n"
-	"if no remote-label install with imp-null")
+	"if no remote-label install with imp-null\n")
 {
 	return (ldp_vty_allow_broken_lsp(vty, no));
 }
 
 DEFPY  (ldp_discovery_targeted_hello_accept,
 	ldp_discovery_targeted_hello_accept_cmd,
-	"[no] discovery targeted-hello accept [from <(1-199)|(1300-2699)|WORD>$from_acl]",
+	"[no] discovery targeted-hello accept [from ACCESSLIST_NAME$from_acl]",
 	NO_STR
 	"Configure discovery parameters\n"
 	"LDP Targeted Hellos\n"
 	"Accept and respond to targeted hellos\n"
 	"Access list to specify acceptable targeted hello source\n"
-	"IP access-list number\n"
-	"IP access-list number (expanded range)\n"
 	"IP access-list name\n")
 {
 	return (ldp_vty_targeted_hello_accept(vty, no, from_acl));
@@ -290,18 +272,14 @@ DEFPY  (ldp_discovery_transport_address_ipv6,
 
 DEFPY  (ldp_label_local_advertise,
 	ldp_label_local_advertise_cmd,
-	"[no] label local advertise [{to <(1-199)|(1300-2699)|WORD>$to_acl|for <(1-199)|(1300-2699)|WORD>$for_acl}]",
+	"[no] label local advertise [{to ACCESSLIST_NAME$to_acl|for ACCESSLIST_NAME$for_acl}]",
 	NO_STR
 	"Configure label control and policies\n"
 	"Configure local label control and policies\n"
 	"Configure outbound label advertisement control\n"
 	"IP Access-list specifying controls on LDP Peers\n"
-	"IP access-list number\n"
-	"IP access-list number (expanded range)\n"
 	"IP access-list name\n"
 	"IP access-list for destination prefixes\n"
-	"IP access-list number\n"
-	"IP access-list number (expanded range)\n"
 	"IP access-list name\n")
 {
 	return (ldp_vty_label_advertise(vty, no, to_acl, for_acl));
@@ -309,15 +287,13 @@ DEFPY  (ldp_label_local_advertise,
 
 DEFPY  (ldp_label_local_advertise_explicit_null,
 	ldp_label_local_advertise_explicit_null_cmd,
-	"[no] label local advertise explicit-null [for <(1-199)|(1300-2699)|WORD>$for_acl]",
+	"[no] label local advertise explicit-null [for ACCESSLIST_NAME$for_acl]",
 	NO_STR
 	"Configure label control and policies\n"
 	"Configure local label control and policies\n"
 	"Configure outbound label advertisement control\n"
 	"Configure explicit-null advertisement\n"
 	"IP access-list for destination prefixes\n"
-	"IP access-list number\n"
-	"IP access-list number (expanded range)\n"
 	"IP access-list name\n")
 {
 	return (ldp_vty_label_expnull(vty, no, for_acl));
@@ -325,15 +301,13 @@ DEFPY  (ldp_label_local_advertise_explicit_null,
 
 DEFPY  (ldp_label_local_allocate,
 	ldp_label_local_allocate_cmd,
-	"[no] label local allocate <host-routes$host_routes|for <(1-199)|(1300-2699)|WORD>$for_acl>",
+	"[no] label local allocate <host-routes$host_routes|for ACCESSLIST_NAME$for_acl>",
 	NO_STR
 	"Configure label control and policies\n"
 	"Configure local label control and policies\n"
 	"Configure label allocation control\n"
 	"allocate local label for host routes only\n"
 	"IP access-list\n"
-	"IP access-list number\n"
-	"IP access-list number (expanded range)\n"
 	"IP access-list name\n")
 {
 	return (ldp_vty_label_allocate(vty, no, host_routes, for_acl));
@@ -341,18 +315,14 @@ DEFPY  (ldp_label_local_allocate,
 
 DEFPY  (ldp_label_remote_accept,
 	ldp_label_remote_accept_cmd,
-	"[no] label remote accept {from <(1-199)|(1300-2699)|WORD>$from_acl|for <(1-199)|(1300-2699)|WORD>$for_acl}",
+	"[no] label remote accept {from ACCESSLIST_NAME$from_acl|for ACCESSLIST_NAME$for_acl}",
 	NO_STR
 	"Configure label control and policies\n"
 	"Configure remote/peer label control and policies\n"
 	"Configure inbound label acceptance control\n"
 	"Neighbor from whom to accept label advertisement\n"
-	"IP access-list number\n"
-	"IP access-list number (expanded range)\n"
 	"IP access-list name\n"
 	"IP access-list for destination prefixes\n"
-	"IP access-list number\n"
-	"IP access-list number (expanded range)\n"
 	"IP access-list name\n")
 {
 	return (ldp_vty_label_accept(vty, no, from_acl, for_acl));
@@ -788,7 +758,11 @@ DEFPY_NOSH (ldp_show_debugging_mpls_ldp,
 	    "MPLS information\n"
 	    "Label Distribution Protocol\n")
 {
-	return (ldp_vty_show_debugging(vty));
+	ldp_vty_show_debugging(vty);
+
+	cmd_show_lib_debugs(vty);
+
+	return CMD_SUCCESS;
 }
 
 static void

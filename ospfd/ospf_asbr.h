@@ -1,22 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * OSPF AS Boundary Router functions.
  * Copyright (C) 1999, 2000 Kunihiro Ishiguro, Toshiaki Takada
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef _ZEBRA_OSPF_ASBR_H
@@ -29,6 +14,8 @@ struct route_map_set_values {
 
 /* Redistributed external information. */
 struct external_info {
+	struct ospf *ospf;
+
 	/* Type of source protocol. */
 	uint8_t type;
 
@@ -48,6 +35,10 @@ struct external_info {
 
 	/* Actual tag received from zebra*/
 	route_tag_t orig_tag;
+
+	uint32_t metric;
+	uint32_t min_metric;
+	uint32_t max_metric;
 
 	struct route_map_set_values route_map_set;
 #define ROUTEMAP_METRIC(E) (E)->route_map_set.metric
@@ -104,25 +95,25 @@ struct ospf_external_aggr_rt {
 };
 
 #define OSPF_ASBR_CHECK_DELAY 30
-#define OSPF_ASBR_NSSA_REDIST_UPDATE_DELAY 9
+#define OSPF_ASBR_REDIST_UPDATE_DELAY 9
 
 extern void ospf_external_route_remove(struct ospf *, struct prefix_ipv4 *);
-extern struct external_info *ospf_external_info_new(uint8_t, unsigned short);
+extern struct external_info *ospf_external_info_new(struct ospf *, uint8_t,
+						    unsigned short);
 extern void ospf_reset_route_map_set_values(struct route_map_set_values *);
 extern int ospf_route_map_set_compare(struct route_map_set_values *,
 				      struct route_map_set_values *);
-extern struct external_info *ospf_external_info_add(struct ospf *, uint8_t,
-						    unsigned short,
-						    struct prefix_ipv4,
-						    ifindex_t, struct in_addr,
-						    route_tag_t);
+extern struct external_info *
+ospf_external_info_add(struct ospf *, uint8_t, unsigned short,
+		       struct prefix_ipv4, ifindex_t, struct in_addr,
+		       route_tag_t, uint32_t metric);
 extern void ospf_external_info_delete(struct ospf *, uint8_t, unsigned short,
 				      struct prefix_ipv4);
 extern struct external_info *ospf_external_info_lookup(struct ospf *, uint8_t,
 						       unsigned short,
 						       struct prefix_ipv4 *);
 extern void ospf_asbr_status_update(struct ospf *, uint8_t);
-extern void ospf_schedule_asbr_nssa_redist_update(struct ospf *ospf);
+extern void ospf_schedule_asbr_redist_update(struct ospf *ospf);
 
 extern void ospf_redistribute_withdraw(struct ospf *, uint8_t, unsigned short);
 extern void ospf_asbr_check(void);
@@ -145,7 +136,7 @@ ospf_originate_summary_lsa(struct ospf *ospf,
 			   struct ospf_external_aggr_rt *aggr,
 			   struct external_info *ei);
 extern int ospf_external_aggregator_timer_set(struct ospf *ospf,
-					      unsigned int interval);
+					      uint16_t interval);
 extern void ospf_external_aggrigator_free(struct ospf_external_aggr_rt *aggr);
 
 extern struct ospf_external_aggr_rt *

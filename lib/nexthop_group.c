@@ -1,21 +1,8 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Nexthop Group structure definition.
  * Copyright (C) 2018 Cumulus Networks, Inc.
  *                    Donald Sharp
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 #include <zebra.h>
 
@@ -28,9 +15,7 @@
 #include <command.h>
 #include <jhash.h>
 
-#ifndef VTYSH_EXTRACT_PL
 #include "lib/nexthop_group_clippy.c"
-#endif
 
 DEFINE_MTYPE_STATIC(LIB, NEXTHOP_GROUP, "Nexthop Group");
 
@@ -43,12 +28,14 @@ struct nexthop_hold {
 	char *intf;
 	bool onlink;
 	char *labels;
+	vni_t vni;
 	uint32_t weight;
 	char *backup_str;
 };
 
 struct nexthop_group_hooks {
 	void (*new)(const char *name);
+	void (*modify)(const struct nexthop_group_cmd *nhgc);
 	void (*add_nexthop)(const struct nexthop_group_cmd *nhg,
 			    const struct nexthop *nhop);
 	void (*del_nexthop)(const struct nexthop_group_cmd *nhg,
@@ -130,6 +117,18 @@ nexthop_group_active_nexthop_num_no_recurse(const struct nexthop_group *nhg)
 	}
 
 	return num;
+}
+
+bool nexthop_group_has_label(const struct nexthop_group *nhg)
+{
+	struct nexthop *nhop;
+
+	for (ALL_NEXTHOPS_PTR(nhg, nhop)) {
+		if (nhop->nh_label)
+			return true;
+	}
+
+	return false;
 }
 
 struct nexthop *nexthop_exists(const struct nexthop_group *nhg,
@@ -274,6 +273,7 @@ struct nexthop_group *nexthop_group_new(void)
 void nexthop_group_copy(struct nexthop_group *to,
 			const struct nexthop_group *from)
 {
+	to->nhgr = from->nhgr;
 	/* Copy everything, including recursive info */
 	copy_nexthops(&to->nexthop, from->nexthop, NULL);
 }
@@ -675,6 +675,50 @@ DEFPY(no_nexthop_group_backup, no_nexthop_group_backup_cmd,
 	return CMD_SUCCESS;
 }
 
+DEFPY(nexthop_group_resilience,
+      nexthop_group_resilience_cmd,
+      "resilient buckets (1-256) idle-timer (1-4294967295) unbalanced-timer (1-4294967295)",
+      "A resilient Nexthop Group\n"
+      "Buckets in the Hash for this Group\n"
+      "Number of buckets\n"
+      "The Idle timer for this Resilient Nexthop Group in seconds\n"
+      "Number of seconds of Idle time\n"
+      "The length of time that the Nexthop Group can be unbalanced\n"
+      "Number of seconds of Unbalanced time\n")
+{
+	VTY_DECLVAR_CONTEXT(nexthop_group_cmd, nhgc);
+
+	nhgc->nhg.nhgr.buckets = buckets;
+	nhgc->nhg.nhgr.idle_timer = idle_timer;
+	nhgc->nhg.nhgr.unbalanced_timer = unbalanced_timer;
+
+	if (nhg_hooks.modify)
+		nhg_hooks.modify(nhgc);
+
+	return CMD_SUCCESS;
+}
+
+DEFPY(no_nexthop_group_resilience,
+      no_nexthop_group_resilience_cmd,
+      "no resilient [buckets (1-256) idle-timer (1-4294967295) unbalanced-timer (1-4294967295)]",
+      NO_STR
+      "A resilient Nexthop Group\n"
+      "Buckets in the Hash for this Group\n"
+      "Number of buckets\n"
+      "The Idle timer for this Resilient Nexthop Group in seconds\n"
+      "Number of seconds of Idle time\n"
+      "The length of time that the Nexthop Group can be unbalanced\n"
+      "Number of seconds of Unbalanced time\n")
+{
+	VTY_DECLVAR_CONTEXT(nexthop_group_cmd, nhgc);
+
+	nhgc->nhg.nhgr.buckets = 0;
+	nhgc->nhg.nhgr.idle_timer = 0;
+	nhgc->nhg.nhgr.unbalanced_timer = 0;
+
+	return CMD_SUCCESS;
+}
+
 static void nexthop_group_save_nhop(struct nexthop_group_cmd *nhgc,
 				    const char *nhvrf_name,
 				    const union sockunion *addr,
@@ -747,12 +791,13 @@ static bool nexthop_group_parse_nexthop(struct nexthop *nhop,
 					const union sockunion *addr,
 					const char *intf, bool onlink,
 					const char *name, const char *labels,
-					int *lbl_ret, uint32_t weight,
-					const char *backup_str)
+					vni_t vni, int *lbl_ret,
+					uint32_t weight, const char *backup_str)
 {
 	int ret = 0;
 	struct vrf *vrf;
 	int num;
+	uint8_t labelnum = 0;
 
 	memset(nhop, 0, sizeof(*nhop));
 
@@ -793,10 +838,9 @@ static bool nexthop_group_parse_nexthop(struct nexthop *nhop,
 		nhop->type = NEXTHOP_TYPE_IFINDEX;
 
 	if (labels) {
-		uint8_t num = 0;
 		mpls_label_t larray[MPLS_MAX_LABELS];
 
-		ret = mpls_str2label(labels, &num, larray);
+		ret = mpls_str2label(labels, &labelnum, larray);
 
 		/* Return label parse result */
 		if (lbl_ret)
@@ -804,9 +848,14 @@ static bool nexthop_group_parse_nexthop(struct nexthop *nhop,
 
 		if (ret < 0)
 			return false;
-		else if (num > 0)
-			nexthop_add_labels(nhop, ZEBRA_LSP_NONE,
-					   num, larray);
+		else if (labelnum > 0)
+			nexthop_add_labels(nhop, ZEBRA_LSP_NONE, labelnum,
+					   larray);
+	} else if (vni) {
+		mpls_label_t label = MPLS_INVALID_LABEL;
+
+		vni2label(vni, &label);
+		nexthop_add_labels(nhop, ZEBRA_LSP_EVPN, 1, &label);
 	}
 
 	nhop->weight = weight;
@@ -833,7 +882,7 @@ static bool nexthop_group_parse_nhh(struct nexthop *nhop,
 {
 	return (nexthop_group_parse_nexthop(
 		nhop, nhh->addr, nhh->intf, nhh->onlink, nhh->nhvrf_name,
-		nhh->labels, NULL, nhh->weight, nhh->backup_str));
+		nhh->labels, nhh->vni, NULL, nhh->weight, nhh->backup_str));
 }
 
 DEFPY(ecmp_nexthops, ecmp_nexthops_cmd,
@@ -845,6 +894,7 @@ DEFPY(ecmp_nexthops, ecmp_nexthops_cmd,
 	[{ \
 	   nexthop-vrf NAME$vrf_name \
 	   |label WORD \
+	   |vni (1-16777215) \
            |weight (1-255) \
            |backup-idx WORD \
 	}]",
@@ -859,6 +909,8 @@ DEFPY(ecmp_nexthops, ecmp_nexthops_cmd,
       "The nexthop-vrf Name\n"
       "Specify label(s) for this nexthop\n"
       "One or more labels in the range (16-1048575) separated by '/'\n"
+      "Specify VNI(s) for this nexthop\n"
+      "VNI in the range (1-16777215)\n"
       "Weight to be used by the nexthop for purposes of ECMP\n"
       "Weight value to be used\n"
       "Specify backup nexthop indexes in another group\n"
@@ -883,8 +935,8 @@ DEFPY(ecmp_nexthops, ecmp_nexthops_cmd,
 	}
 
 	legal = nexthop_group_parse_nexthop(&nhop, addr, intf, !!onlink,
-					    vrf_name, label, &lbl_ret, weight,
-					    backup_idx);
+					    vrf_name, label, vni, &lbl_ret,
+					    weight, backup_idx);
 
 	if (nhop.type == NEXTHOP_TYPE_IPV6
 	    && IN6_IS_ADDR_LINKLOCAL(&nhop.gate.ipv6)) {
@@ -953,12 +1005,6 @@ DEFPY(ecmp_nexthops, ecmp_nexthops_cmd,
 			nhg_hooks.add_nexthop(nhgc, nh);
 	}
 
-	if (intf) {
-		struct interface *ifp = if_lookup_by_name_all_vrf(intf);
-
-		if (ifp)
-			ifp->configured = true;
-	}
 	return CMD_SUCCESS;
 }
 
@@ -1001,6 +1047,7 @@ void nexthop_group_write_nexthop_simple(struct vty *vty,
 		vty_out(vty, "%pI6 %s", &nh->gate.ipv6, ifname);
 		break;
 	case NEXTHOP_TYPE_BLACKHOLE:
+		vty_out(vty, "%s", "drop");
 		break;
 	}
 }
@@ -1020,9 +1067,8 @@ void nexthop_group_write_nexthop(struct vty *vty, const struct nexthop *nh)
 	if (nh->nh_label && nh->nh_label->num_labels > 0) {
 		char buf[200];
 
-		mpls_label2str(nh->nh_label->num_labels,
-			       nh->nh_label->label,
-			       buf, sizeof(buf), 0);
+		mpls_label2str(nh->nh_label->num_labels, nh->nh_label->label,
+			       buf, sizeof(buf), nh->nh_label_type, 0);
 		vty_out(vty, " label %s", buf);
 	}
 
@@ -1041,7 +1087,6 @@ void nexthop_group_write_nexthop(struct vty *vty, const struct nexthop *nh)
 
 void nexthop_group_json_nexthop(json_object *j, const struct nexthop *nh)
 {
-	char buf[100];
 	struct vrf *vrf;
 	json_object *json_backups = NULL;
 	int i;
@@ -1052,26 +1097,18 @@ void nexthop_group_json_nexthop(json_object *j, const struct nexthop *nh)
 				       ifindex2ifname(nh->ifindex, nh->vrf_id));
 		break;
 	case NEXTHOP_TYPE_IPV4:
-		json_object_string_add(
-			j, "nexthop",
-			inet_ntop(AF_INET, &nh->gate.ipv4, buf, sizeof(buf)));
+		json_object_string_addf(j, "nexthop", "%pI4", &nh->gate.ipv4);
 		break;
 	case NEXTHOP_TYPE_IPV4_IFINDEX:
-		json_object_string_add(
-			j, "nexthop",
-			inet_ntop(AF_INET, &nh->gate.ipv4, buf, sizeof(buf)));
+		json_object_string_addf(j, "nexthop", "%pI4", &nh->gate.ipv4);
 		json_object_string_add(j, "vrfId",
 				       ifindex2ifname(nh->ifindex, nh->vrf_id));
 		break;
 	case NEXTHOP_TYPE_IPV6:
-		json_object_string_add(
-			j, "nexthop",
-			inet_ntop(AF_INET6, &nh->gate.ipv6, buf, sizeof(buf)));
+		json_object_string_addf(j, "nexthop", "%pI6", &nh->gate.ipv6);
 		break;
 	case NEXTHOP_TYPE_IPV6_IFINDEX:
-		json_object_string_add(
-			j, "nexthop",
-			inet_ntop(AF_INET6, &nh->gate.ipv6, buf, sizeof(buf)));
+		json_object_string_addf(j, "nexthop", "%pI6", &nh->gate.ipv6);
 		json_object_string_add(j, "vrfId",
 				       ifindex2ifname(nh->ifindex, nh->vrf_id));
 		break;
@@ -1088,7 +1125,7 @@ void nexthop_group_json_nexthop(json_object *j, const struct nexthop *nh)
 		char buf[200];
 
 		mpls_label2str(nh->nh_label->num_labels, nh->nh_label->label,
-			       buf, sizeof(buf), 0);
+			       buf, sizeof(buf), nh->nh_label_type, 0);
 		json_object_string_add(j, "label", buf);
 	}
 
@@ -1109,12 +1146,10 @@ void nexthop_group_json_nexthop(json_object *j, const struct nexthop *nh)
 static void nexthop_group_write_nexthop_internal(struct vty *vty,
 						 const struct nexthop_hold *nh)
 {
-	char buf[100];
-
 	vty_out(vty, "nexthop");
 
 	if (nh->addr)
-		vty_out(vty, " %s", sockunion2str(nh->addr, buf, sizeof(buf)));
+		vty_out(vty, " %pSU", nh->addr);
 
 	if (nh->intf)
 		vty_out(vty, " %s", nh->intf);
@@ -1127,6 +1162,9 @@ static void nexthop_group_write_nexthop_internal(struct vty *vty,
 
 	if (nh->labels)
 		vty_out(vty, " label %s", nh->labels);
+
+	if (nh->vni)
+		vty_out(vty, " vni %u", nh->vni);
 
 	if (nh->weight)
 		vty_out(vty, " weight %u", nh->weight);
@@ -1146,6 +1184,13 @@ static int nexthop_group_write(struct vty *vty)
 		struct listnode *node;
 
 		vty_out(vty, "nexthop-group %s\n", nhgc->name);
+
+		if (nhgc->nhg.nhgr.buckets)
+			vty_out(vty,
+				" resilient buckets %u idle-timer %u unbalanced-timer %u\n",
+				nhgc->nhg.nhgr.buckets,
+				nhgc->nhg.nhgr.idle_timer,
+				nhgc->nhg.nhgr.unbalanced_timer);
 
 		if (nhgc->backup_list_name[0])
 			vty_out(vty, " backup-group %s\n",
@@ -1265,7 +1310,6 @@ void nexthop_group_interface_state_change(struct interface *ifp,
 				if (ifp->ifindex != nhop.ifindex)
 					continue;
 
-				ifp->configured = true;
 				nh = nexthop_new();
 
 				memcpy(nh, &nhop, sizeof(nhop));
@@ -1318,6 +1362,7 @@ static const struct cmd_variable_handler nhg_name_handlers[] = {
 	{.completions = NULL}};
 
 void nexthop_group_init(void (*new)(const char *name),
+			void (*modify)(const struct nexthop_group_cmd *nhgc),
 			void (*add_nexthop)(const struct nexthop_group_cmd *nhg,
 					    const struct nexthop *nhop),
 			void (*del_nexthop)(const struct nexthop_group_cmd *nhg,
@@ -1337,10 +1382,15 @@ void nexthop_group_init(void (*new)(const char *name),
 	install_element(NH_GROUP_NODE, &no_nexthop_group_backup_cmd);
 	install_element(NH_GROUP_NODE, &ecmp_nexthops_cmd);
 
+	install_element(NH_GROUP_NODE, &nexthop_group_resilience_cmd);
+	install_element(NH_GROUP_NODE, &no_nexthop_group_resilience_cmd);
+
 	memset(&nhg_hooks, 0, sizeof(nhg_hooks));
 
 	if (new)
 		nhg_hooks.new = new;
+	if (modify)
+		nhg_hooks.modify = modify;
 	if (add_nexthop)
 		nhg_hooks.add_nexthop = add_nexthop;
 	if (del_nexthop)

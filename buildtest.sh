@@ -1,4 +1,5 @@
 #!/bin/bash
+# SPDX-License-Identifier: NONE
 # written 2012-2013 by David Lamparter, placed in Public Domain.
 #
 # builds some git commit of FRR in some different configurations

@@ -1,23 +1,10 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Zebra API server.
  * Portions:
  *   Copyright (C) 1997-1999  Kunihiro Ishiguro
  *   Copyright (C) 2015-2018  Cumulus Networks, Inc.
  *   et al.
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef _ZEBRA_ZSERV_H
@@ -32,17 +19,17 @@
 #include "lib/vrf.h"          /* for vrf_bitmap_t */
 #include "lib/zclient.h"      /* for redist_proto */
 #include "lib/stream.h"       /* for stream, stream_fifo */
-#include "lib/thread.h"       /* for thread, thread_master */
+#include "frrevent.h"            /* for thread, thread_master */
 #include "lib/linklist.h"     /* for list */
 #include "lib/workqueue.h"    /* for work_queue */
 #include "lib/hook.h"         /* for DECLARE_HOOK, DECLARE_KOOH */
-
-#include "zebra/zebra_vrf.h"  /* for zebra_vrf */
 /* clang-format on */
 
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+struct zebra_vrf;
 
 /* Default port information. */
 #define ZEBRA_VTY_PORT                2601
@@ -64,9 +51,6 @@ struct client_gr_info {
 	/* VRF for which GR enabled */
 	vrf_id_t vrf_id;
 
-	/* AFI */
-	afi_t current_afi;
-
 	/* Stale time and GR cap */
 	uint32_t stale_removal_time;
 	enum zserv_client_capabilities capabilities;
@@ -77,13 +61,12 @@ struct client_gr_info {
 	bool stale_client;
 
 	/* Route sync and enable flags for AFI/SAFI */
-	bool af_enabled[AFI_MAX][SAFI_MAX];
-	bool route_sync[AFI_MAX][SAFI_MAX];
+	bool af_enabled[AFI_MAX];
+	bool route_sync[AFI_MAX];
 
 	/* Book keeping */
-	struct prefix *current_prefix;
 	void *stale_client_ptr;
-	struct thread *t_stale_removal;
+	struct event *t_stale_removal;
 
 	TAILQ_ENTRY(client_gr_info) gr_info;
 };
@@ -118,14 +101,14 @@ struct zserv {
 	struct buffer *wb;
 
 	/* Threads for read/write. */
-	struct thread *t_read;
-	struct thread *t_write;
+	struct event *t_read;
+	struct event *t_write;
 
 	/* Event for message processing, for the main pthread */
-	struct thread *t_process;
+	struct event *t_process;
 
 	/* Event for the main pthread */
-	struct thread *t_cleanup;
+	struct event *t_cleanup;
 
 	/* This client's redistribute flag. */
 	struct redist_proto mi_redist[AFI_MAX][ZEBRA_ROUTE_MAX];
@@ -215,16 +198,21 @@ struct zserv {
 	 * relative to last_read_time.
 	 */
 
+	pthread_mutex_t stats_mtx;
+	/* BEGIN covered by stats_mtx */
+
 	/* monotime of client creation */
-	_Atomic uint32_t connect_time;
+	uint64_t connect_time;
 	/* monotime of last message received */
-	_Atomic uint32_t last_read_time;
+	uint64_t last_read_time;
 	/* monotime of last message sent */
-	_Atomic uint32_t last_write_time;
+	uint64_t last_write_time;
 	/* command code of last message read */
-	_Atomic uint32_t last_read_cmd;
+	uint64_t last_read_cmd;
 	/* command code of last message written */
-	_Atomic uint32_t last_write_cmd;
+	uint64_t last_write_cmd;
+
+	/* END covered by stats_mtx */
 
 	/*
 	 * Number of instances configured with
@@ -364,6 +352,13 @@ extern void zserv_release_client(struct zserv *client);
 extern void zserv_close_client(struct zserv *client);
 
 /*
+ * Free memory for a zserv client object - note that this does not
+ * clean up the internal allocations associated with the zserv client,
+ * this just free the struct's memory.
+ */
+void zserv_client_delete(struct zserv *client);
+
+/*
  * Log a ZAPI message hexdump.
  *
  * errmsg
@@ -379,7 +374,7 @@ void zserv_log_message(const char *errmsg, struct stream *msg,
 		       struct zmsghdr *hdr);
 
 /* TODO */
-__attribute__((__noreturn__)) int zebra_finalize(struct thread *event);
+__attribute__((__noreturn__)) void zebra_finalize(struct event *event);
 
 /*
  * Graceful restart functions.

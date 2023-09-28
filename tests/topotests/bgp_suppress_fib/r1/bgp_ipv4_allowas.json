@@ -1,0 +1,40 @@
+{
+  "prefix":"192.168.1.1/32",
+  "paths":[
+    {
+      "aspath":{
+        "string":"2",
+        "segments":[
+          {
+            "type":"as-sequence",
+            "list":[
+              2
+            ]
+          }
+        ],
+        "length":1
+      },
+      "origin":"incomplete",
+      "metric":0,
+      "valid":true,
+      "bestpath":{
+        "overall":true,
+        "selectionReason":"First path received"
+      },
+      "nexthops":[
+        {
+          "ip":"10.0.0.2",
+          "afi":"ipv4",
+          "metric":0,
+          "accessible":true,
+          "used":true
+        }
+      ],
+      "peer":{
+        "peerId":"10.0.0.2",
+        "routerId":"60.0.0.1",
+        "type":"external"
+      }
+    }
+  ]
+}

@@ -1,21 +1,8 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  *
  * Copyright 2009-2016, LabN Consulting, L.L.C.
  *
- *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 #include "lib/zebra.h"
 
@@ -94,7 +81,7 @@ DEFINE_QOBJ_TYPE(rfapi_l2_group_cfg);
  */
 time_t rfapi_time(time_t *t)
 {
-	time_t clock = bgp_clock();
+	time_t clock = monotime(NULL);
 	if (t)
 		*t = clock;
 	return clock;
@@ -423,6 +410,7 @@ DEFUN (vnc_defaults_rd,
 
 	} else {
 
+		/* TODO: save RD format */
 		ret = str2prefix_rd(argv[1]->arg, &prd);
 		if (!ret) {
 			vty_out(vty, "%% Malformed rd\n");
@@ -2887,6 +2875,7 @@ DEFUN (vnc_nve_group_rd,
 
 	} else {
 
+		/* TODO: save RD format */
 		ret = str2prefix_rd(argv[1]->arg, &prd);
 		if (!ret) {
 			vty_out(vty, "%% Malformed rd\n");
@@ -3359,6 +3348,7 @@ DEFUN (vnc_vrf_policy_rd,
 
 	} else {
 
+		/* TODO: save RD format */
 		ret = str2prefix_rd(argv[1]->arg, &prd);
 		if (!ret) {
 			vty_out(vty, "%% Malformed rd\n");
@@ -3847,6 +3837,13 @@ struct rfapi_cfg *bgp_rfapi_cfg_new(struct rfapi_rfp_cfg *cfg)
 	return h;
 }
 
+static void bgp_rfapi_rfgn_list_delete(void *data)
+{
+	struct rfapi_rfg_name *rfgn = data;
+	free(rfgn->name);
+	rfgn_free(rfgn);
+}
+
 void bgp_rfapi_cfg_destroy(struct bgp *bgp, struct rfapi_cfg *h)
 {
 	afi_t afi;
@@ -3858,8 +3855,13 @@ void bgp_rfapi_cfg_destroy(struct bgp *bgp, struct rfapi_cfg *h)
 	if (h->l2_groups != NULL)
 		list_delete(&h->l2_groups);
 	list_delete(&h->nve_groups_sequential);
+
+	h->rfg_export_direct_bgp_l->del = bgp_rfapi_rfgn_list_delete;
 	list_delete(&h->rfg_export_direct_bgp_l);
+
+	h->rfg_export_zebra_l->del = bgp_rfapi_rfgn_list_delete;
 	list_delete(&h->rfg_export_zebra_l);
+
 	if (h->default_rt_export_list)
 		ecommunity_free(&h->default_rt_export_list);
 	if (h->default_rt_import_list)
@@ -3913,8 +3915,6 @@ int bgp_rfapi_cfg_write(struct vty *vty, struct bgp *bgp)
 			}
 
 			if (rfg->rd.prefixlen) {
-				char buf[RD_ADDRSTRLEN];
-
 				if (AF_UNIX == rfg->rd.family) {
 
 					uint16_t value = 0;
@@ -3927,9 +3927,7 @@ int bgp_rfapi_cfg_write(struct vty *vty, struct bgp *bgp)
 						value);
 
 				} else
-					vty_out(vty, "  rd %s\n",
-						prefix_rd2str(&rfg->rd, buf,
-							      sizeof(buf)));
+					vty_out(vty, "  rd %pRDP\n", &rfg->rd);
 			}
 
 			if (rfg->rt_import_list && rfg->rt_export_list
@@ -4137,8 +4135,6 @@ int bgp_rfapi_cfg_write(struct vty *vty, struct bgp *bgp)
 			vty_out(vty, " vnc defaults\n");
 
 			if (hc->default_rd.prefixlen) {
-				char buf[RD_ADDRSTRLEN];
-
 				if (AF_UNIX == hc->default_rd.family) {
 					uint16_t value = 0;
 
@@ -4151,10 +4147,8 @@ int bgp_rfapi_cfg_write(struct vty *vty, struct bgp *bgp)
 						value);
 
 				} else
-					vty_out(vty, "  rd %s\n",
-						prefix_rd2str(&hc->default_rd,
-							      buf,
-							      sizeof(buf)));
+					vty_out(vty, "  rd %pRDP\n",
+						&hc->default_rd);
 			}
 			if (hc->default_response_lifetime
 			    != BGP_VNC_DEFAULT_RESPONSE_LIFETIME_DEFAULT) {
@@ -4219,8 +4213,6 @@ int bgp_rfapi_cfg_write(struct vty *vty, struct bgp *bgp)
 
 
 				if (rfg->rd.prefixlen) {
-					char buf[RD_ADDRSTRLEN];
-
 					if (AF_UNIX == rfg->rd.family) {
 
 						uint16_t value = 0;
@@ -4235,10 +4227,8 @@ int bgp_rfapi_cfg_write(struct vty *vty, struct bgp *bgp)
 							value);
 
 					} else
-						vty_out(vty, "  rd %s\n",
-							prefix_rd2str(
-								&rfg->rd, buf,
-								sizeof(buf)));
+						vty_out(vty, "  rd %pRDP\n",
+							&rfg->rd);
 				}
 				if (rfg->flags & RFAPI_RFG_RESPONSE_LIFETIME) {
 					vty_out(vty, "  response-lifetime ");

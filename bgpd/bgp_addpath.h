@@ -1,20 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Addpath TX ID selection, and related utilities
  * Copyright (C) 2018  Amazon.com, Inc. or its affiliates
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef _QUAGGA_BGPD_TX_ADDPATH_H
@@ -63,7 +50,8 @@ bool bgp_addpath_tx_path(enum bgp_addpath_strat strat,
  * Change the type of addpath used for a peer.
  */
 void bgp_addpath_set_peer_type(struct peer *peer, afi_t afi, safi_t safi,
-			      enum bgp_addpath_strat addpath_type);
+			       enum bgp_addpath_strat addpath_type,
+			       uint8_t paths);
 
 void bgp_addpath_update_ids(struct bgp *bgp, struct bgp_dest *dest, afi_t afi,
 			    safi_t safi);

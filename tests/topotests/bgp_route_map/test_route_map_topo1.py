@@ -1,23 +1,10 @@
 #!/usr/bin/env python
+# SPDX-License-Identifier: ISC
 
 #
 # Copyright (c) 2019 by VMware, Inc. ("VMware")
 # Used Copyright (c) 2018 by Network Device Education Foundation,
 # Inc. ("NetDEF") in this file.
-#
-# Permission to use, copy, modify, and/or distribute this software
-# for any purpose with or without fee is hereby granted, provided
-# that the above copyright notice and this permission notice appear
-# in all copies.
-#
-# THE SOFTWARE IS PROVIDED "AS IS" AND VMWARE DISCLAIMS ALL WARRANTIES
-# WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
-# MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL VMWARE BE LIABLE FOR
-# ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY
-# DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS,
-# WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS
-# ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE
-# OF THIS SOFTWARE.
 #
 
 import sys
@@ -131,7 +118,7 @@ def setup_module(mod):
     # ... and here it calls Mininet initialization functions.
 
     # Starting topology, create tmp files which are loaded to routers
-    #  to start deamons and then start routers
+    #  to start daemons and then start routers
     start_topology(tgen)
 
     # Creating configuration from JSON
@@ -445,10 +432,10 @@ def test_route_map_inbound_outbound_same_neighbor_p0(request):
             tgen, adt, dut, input_dict_2, protocol=protocol, expected=False
         )
         assert result is not True, (
-            "Testcase {} : Failed \n"
-            "routes are not present in rib \n Error: {}".format(tc_name, result)
+            "Testcase {} : Failed \n "
+            "Expected: Routes should not be present in {} BGP RIB \n "
+            "Found: {}".format(tc_name, dut, result)
         )
-        logger.info("Expected behaviour: {}".format(result))
 
         # Verifying RIB routes
         dut = "r4"
@@ -468,9 +455,9 @@ def test_route_map_inbound_outbound_same_neighbor_p0(request):
         )
         assert result is not True, (
             "Testcase {} : Failed \n "
-            "routes are not present in rib \n Error: {}".format(tc_name, result)
+            "Expected: Routes should not be present in {} FIB \n "
+            "Found: {}".format(tc_name, dut, result)
         )
-        logger.info("Expected behaviour: {}".format(result))
 
     write_test_footer(tc_name)
 
@@ -666,9 +653,9 @@ def test_route_map_with_action_values_combination_of_prefix_action_p0(
             )
             assert result is not True, (
                 "Testcase {} : Failed \n "
-                "Routes are still present \n Error: {}".format(tc_name, result)
+                "Expected: Routes should not be present in {} FIB \n "
+                "Found: {}".format(tc_name, dut, result)
             )
-            logger.info("Expected behaviour: {}".format(result))
         else:
             result = verify_rib(tgen, adt, dut, input_dict_2, protocol=protocol)
             assert result is True, "Testcase {} : Failed \n Error: {}".format(

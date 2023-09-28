@@ -1,21 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* Declarations and definitions for kernel interaction over netlink
  * Copyright (C) 2016 Cumulus Networks, Inc.
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef _ZEBRA_KERNEL_NETLINK_H
@@ -27,7 +12,11 @@ extern "C" {
 
 #ifdef HAVE_NETLINK
 
-#define NL_RCV_PKT_BUF_SIZE     32768
+#define RTM_NHA(h)                                                             \
+	((struct rtattr *)(((char *)(h)) + NLMSG_ALIGN(sizeof(struct nhmsg))))
+
+
+#define NL_RCV_PKT_BUF_SIZE     (34 * 1024)
 #define NL_PKT_BUF_SIZE         8192
 
 /*
@@ -44,6 +33,8 @@ extern bool nl_attr_put16(struct nlmsghdr *n, unsigned int maxlen, int type,
 			  uint16_t data);
 extern bool nl_attr_put32(struct nlmsghdr *n, unsigned int maxlen, int type,
 			  uint32_t data);
+extern bool nl_attr_put64(struct nlmsghdr *n, unsigned int maxlen, int type,
+			  uint64_t data);
 
 /*
  * nl_attr_nest - start an attribute nest.
@@ -86,13 +77,21 @@ extern void netlink_parse_rtattr_flags(struct rtattr **tb, int max,
 				 unsigned short flags);
 extern void netlink_parse_rtattr_nested(struct rtattr **tb, int max,
 					struct rtattr *rta);
+/*
+ * nl_addraw_l copies raw form the netlink message buffer into netlink
+ * message header pointer. It ensures the aligned data buffer does not
+ * override past max length.
+ * return value is 0 if its successful
+ */
+extern bool nl_addraw_l(struct nlmsghdr *n, unsigned int maxlen,
+			const void *data, unsigned int len);
 extern const char *nl_msg_type_to_str(uint16_t msg_type);
 extern const char *nl_rtproto_to_str(uint8_t rtproto);
 extern const char *nl_family_to_str(uint8_t family);
 extern const char *nl_rttype_to_str(uint8_t rttype);
 
 extern int netlink_parse_info(int (*filter)(struct nlmsghdr *, ns_id_t, int),
-			      const struct nlsock *nl,
+			      struct nlsock *nl,
 			      const struct zebra_dplane_info *dp_info,
 			      int count, bool startup);
 extern int netlink_talk_filter(struct nlmsghdr *h, ns_id_t ns, int startup);
@@ -142,6 +141,7 @@ extern int netlink_config_write_helper(struct vty *vty);
 extern void netlink_set_batch_buffer_size(uint32_t size, uint32_t threshold,
 					  bool set);
 
+extern struct nlsock *kernel_netlink_nlsock_lookup(int sock);
 #endif /* HAVE_NETLINK */
 
 #ifdef __cplusplus

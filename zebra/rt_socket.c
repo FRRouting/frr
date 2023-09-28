@@ -1,22 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Kernel routing table updates by routing socket.
  * Copyright (C) 1997, 98 Kunihiro Ishiguro
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -282,6 +267,12 @@ static int kernel_rtm(int cmd, const struct prefix *p,
 			continue;
 
 			/* Note any unexpected status returns */
+		case ZEBRA_ERR_RTNOEXIST:
+			if (cmd != RTM_DELETE)
+				flog_err(EC_LIB_SYSTEM_CALL,
+					 "%s: rtm_write() returned %d for command %d",
+					 __func__, error, cmd);
+			break;
 		default:
 			flog_err(
 				EC_LIB_SYSTEM_CALL,

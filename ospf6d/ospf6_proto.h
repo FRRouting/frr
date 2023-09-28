@@ -1,22 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Common protocol data and data structures.
  * Copyright (C) 2003 Yasuhiro Ohara
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef OSPF6_PROTO_H
@@ -40,13 +25,20 @@
 
 /* OSPF options */
 /* present in HELLO, DD, LSA */
-#define OSPF6_OPT_SET(x,opt)   ((x)[2] |=  (opt))
-#define OSPF6_OPT_ISSET(x,opt) ((x)[2] &   (opt))
-#define OSPF6_OPT_CLEAR(x,opt) ((x)[2] &= ~(opt))
+#define OSPF6_OPT_SET(x, opt) ((x)[2] |= (opt))
+#define OSPF6_OPT_ISSET(x, opt) ((x)[2] & (opt))
+#define OSPF6_OPT_CLEAR(x, opt) ((x)[2] &= ~(opt))
+#define OSPF6_OPT_SET_EXT(x, opt) ((x)[1] |= (opt))
+#define OSPF6_OPT_ISSET_EXT(x, opt) ((x)[1] & (opt))
+#define OSPF6_OPT_CLEAR_EXT(x, opt) ((x)[1] &= ~(opt))
 #define OSPF6_OPT_CLEAR_ALL(x) ((x)[0] = (x)[1] = (x)[2] = 0)
 
+#define OSPF6_OPT_AT (1 << 2) /* Authentication trailer Capability */
+#define OSPF6_OPT_L (1 << 1)  /* Link local signalling Capability */
+#define OSPF6_OPT_AF (1 << 0) /* Address family Capability */
+/* 2 bits reserved for OSPFv2 migrated options */
 #define OSPF6_OPT_DC (1 << 5)   /* Demand Circuit handling Capability */
-#define OSPF6_OPT_R  (1 << 4)   /* Forwarding Capability (Any Protocol) */
+#define OSPF6_OPT_R (1 << 4)    /* Forwarding Capability (Any Protocol) */
 #define OSPF6_OPT_N  (1 << 3)   /* Handling Type-7 LSA Capability */
 #define OSPF6_OPT_MC (1 << 2)   /* Multicasting Capability */
 #define OSPF6_OPT_E  (1 << 1)   /* AS External Capability */

@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * IS-IS Rout(e)ing protocol - isis_lsp.h
  *                             LSP processing
@@ -5,20 +6,6 @@
  * Copyright (C) 2001,2002   Sampo Saaristo
  *                           Tampere University of Technology
  *                           Institute of Communications Engineering
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public Licenseas published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful,but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef _ZEBRA_ISIS_LSP_H
@@ -65,7 +52,8 @@ DECLARE_RBTREE_UNIQ(lspdb, struct isis_lsp, dbe, lspdb_compare);
 
 void lsp_db_init(struct lspdb_head *head);
 void lsp_db_fini(struct lspdb_head *head);
-int lsp_tick(struct thread *thread);
+void lsp_tick(struct event *thread);
+void set_overload_on_start_timer(struct event *thread);
 
 int lsp_generate(struct isis_area *area, int level);
 #define lsp_regenerate_schedule(area, level, all_pseudo) \
@@ -120,12 +108,19 @@ void lsp_update(struct isis_lsp *lsp, struct isis_lsp_hdr *hdr,
 void lsp_inc_seqno(struct isis_lsp *lsp, uint32_t seqno);
 void lspid_print(uint8_t *lsp_id, char *dest, size_t dest_len, char dynhost,
 		 char frag, struct isis *isis);
-void lsp_print(struct isis_lsp *lsp, struct vty *vty, char dynhost,
-	       struct isis *isis);
-void lsp_print_detail(struct isis_lsp *lsp, struct vty *vty, char dynhost,
+void lsp_print_common(struct isis_lsp *lsp, struct vty *vty,
+		      struct json_object *json, char dynhost,
 		      struct isis *isis);
-int lsp_print_all(struct vty *vty, struct lspdb_head *head, char detail,
-		  char dynhost, struct isis *isis);
+void lsp_print_vty(struct isis_lsp *lsp, struct vty *vty, char dynhost,
+		   struct isis *isis);
+void lsp_print_json(struct isis_lsp *lsp, struct json_object *json,
+		    char dynhost, struct isis *isis);
+void lsp_print_detail(struct isis_lsp *lsp, struct vty *vty,
+		      struct json_object *json, char dynhost,
+		      struct isis *isis);
+int lsp_print_all(struct vty *vty, struct json_object *json,
+		  struct lspdb_head *head, char detail, char dynhost,
+		  struct isis *isis);
 /* sets SRMflags for all active circuits of an lsp */
 void lsp_set_all_srmflags(struct isis_lsp *lsp, bool set);
 

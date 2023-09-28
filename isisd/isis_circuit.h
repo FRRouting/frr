@@ -1,23 +1,10 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * IS-IS Rout(e)ing protocol - isis_circuit.h
  *
  * Copyright (C) 2001,2002   Sampo Saaristo
  *                           Tampere University of Technology
  *                           Institute of Communications Engineering
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public Licenseas published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful,but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef ISIS_CIRCUIT_H
@@ -28,6 +15,7 @@
 #include "qobj.h"
 #include "prefix.h"
 #include "ferr.h"
+#include "nexthop.h"
 
 #include "isis_constants.h"
 #include "isis_common.h"
@@ -53,26 +41,35 @@ struct metric {
 struct isis_bcast_info {
 	uint8_t snpa[ETH_ALEN];		      /* SNPA of this circuit */
 	char run_dr_elect[ISIS_LEVELS];       /* Should we run dr election ? */
-	struct thread *t_run_dr[ISIS_LEVELS]; /* DR election thread */
-	struct thread *t_send_lan_hello[ISIS_LEVELS]; /* send LAN IIHs in this
-							 thread */
+	struct event *t_run_dr[ISIS_LEVELS];  /* DR election thread */
+	struct event *t_send_lan_hello[ISIS_LEVELS];  /* send LAN IIHs in this
+							  thread */
 	struct list *adjdb[ISIS_LEVELS];	      /* adjacency dbs */
 	struct list *lan_neighs[ISIS_LEVELS];     /* list of lx neigh snpa */
 	char is_dr[ISIS_LEVELS];		  /* Are we level x DR ? */
 	uint8_t l1_desig_is[ISIS_SYS_ID_LEN + 1]; /* level-1 DR */
 	uint8_t l2_desig_is[ISIS_SYS_ID_LEN + 1]; /* level-2 DR */
-	struct thread *t_refresh_pseudo_lsp[ISIS_LEVELS]; /* refresh pseudo-node
+	struct event *t_refresh_pseudo_lsp[ISIS_LEVELS]; /* refresh pseudo-node
 							     LSPs */
 };
 
 struct isis_p2p_info {
 	struct isis_adjacency *neighbor;
-	struct thread *t_send_p2p_hello; /* send P2P IIHs in this thread  */
+	struct event *t_send_p2p_hello; /* send P2P IIHs in this thread  */
 };
 
 struct isis_circuit_arg {
 	int level;
 	struct isis_circuit *circuit;
+};
+
+/*
+ * Hello padding types
+ */
+enum isis_hello_padding {
+	ISIS_HELLO_PADDING_ALWAYS,
+	ISIS_HELLO_PADDING_DISABLED,
+	ISIS_HELLO_PADDING_DURING_ADJACENCY_FORMATION
 };
 
 struct isis_circuit {
@@ -88,9 +85,9 @@ struct isis_circuit {
 	/*
 	 * Threads
 	 */
-	struct thread *t_read;
-	struct thread *t_send_csnp[ISIS_LEVELS];
-	struct thread *t_send_psnp[ISIS_LEVELS];
+	struct event *t_read;
+	struct event *t_send_csnp[ISIS_LEVELS];
+	struct event *t_send_psnp[ISIS_LEVELS];
 	struct isis_tx_queue *tx_queue;
 	struct isis_circuit_arg
 		level_arg[ISIS_LEVELS]; /* used as argument for threads */
@@ -112,7 +109,7 @@ struct isis_circuit {
 		struct isis_p2p_info p2p;
 	} u;
 	uint8_t priority[ISIS_LEVELS]; /* l1/2 IS configured priority */
-	int pad_hellos;     /* add padding to Hello PDUs ? */
+	enum isis_hello_padding pad_hellos; /* type of Hello PDUs padding */
 	char ext_domain;    /* externalDomain   (boolean) */
 	int lsp_regenerate_pending[ISIS_LEVELS];
 	uint64_t lsp_error_counter;
@@ -122,6 +119,7 @@ struct isis_circuit {
 	 */
 	char *tag;		       /* area tag */
 	struct isis_passwd passwd;     /* Circuit rx/tx password */
+	int is_type_config;	       /* configured circuit is type */
 	int is_type;		       /* circuit is type == level of circuit
 					* differentiated from circuit type (media) */
 	uint32_t hello_interval[ISIS_LEVELS];   /* hello-interval in seconds */
@@ -140,6 +138,7 @@ struct isis_circuit {
 	struct list *ipv6_non_link; /* our non-link local IPv6 addresses */
 	uint16_t upadjcount[ISIS_LEVELS];
 #define ISIS_CIRCUIT_FLAPPED_AFTER_SPF 0x01
+#define ISIS_CIRCUIT_IF_DOWN_FROM_Z 0x02
 	uint8_t flags;
 	bool disable_threeway_adj;
 	struct {
@@ -185,8 +184,6 @@ DECLARE_QOBJ_TYPE(isis_circuit);
 void isis_circuit_init(void);
 struct isis_circuit *isis_circuit_new(struct interface *ifp, const char *tag);
 void isis_circuit_del(struct isis_circuit *circuit);
-struct isis_circuit *circuit_lookup_by_ifp(struct interface *ifp,
-					   struct list *list);
 struct isis_circuit *circuit_scan_by_ifp(struct interface *ifp);
 void isis_circuit_configure(struct isis_circuit *circuit,
 			    struct isis_area *area);
@@ -207,7 +204,12 @@ void isis_circuit_down(struct isis_circuit *);
 void circuit_update_nlpids(struct isis_circuit *circuit);
 void isis_circuit_print_vty(struct isis_circuit *circuit, struct vty *vty,
 			    char detail);
+void isis_circuit_print_json(struct isis_circuit *circuit,
+			     struct json_object *json, char detail);
 size_t isis_circuit_pdu_size(struct isis_circuit *circuit);
+void isis_circuit_switchover_routes(struct isis_circuit *circuit, int family,
+				    union g_addr *nexthop_ip,
+				    ifindex_t ifindex);
 void isis_circuit_stream(struct isis_circuit *circuit, struct stream **stream);
 
 void isis_circuit_af_set(struct isis_circuit *circuit, bool ip_router,

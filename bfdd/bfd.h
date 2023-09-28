@@ -1,19 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*********************************************************************
  * Copyright 2014,2015,2016,2017 Cumulus Networks, Inc.  All rights reserved.
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  *
  * bfd.h: implements the BFD protocol.
  */
@@ -45,6 +32,11 @@ DECLARE_MGROUP(BFDD);
 DECLARE_MTYPE(BFDD_CONTROL);
 DECLARE_MTYPE(BFDD_NOTIFICATION);
 
+/* bfd Authentication Type. */
+#define BFD_AUTH_NULL 0
+#define BFD_AUTH_SIMPLE 1
+#define BFD_AUTH_CRYPTOGRAPHIC 2
+
 struct bfd_timers {
 	uint32_t desired_min_tx;
 	uint32_t required_min_rx;
@@ -74,6 +66,15 @@ struct bfd_pkt {
 };
 
 /*
+ * Format of authentification.
+ */
+struct bfd_auth {
+	uint8_t type;
+	uint8_t length;
+};
+
+
+/*
  * Format of Echo packet.
  */
 struct bfd_echo_pkt {
@@ -86,12 +87,13 @@ struct bfd_echo_pkt {
 		};
 	};
 	uint32_t my_discr;
-	uint8_t pad[16];
+	uint64_t time_sent_sec;
+	uint64_t time_sent_usec;
 };
 
 
 /* Macros for manipulating control packets */
-#define BFD_VERMASK 0x03
+#define BFD_VERMASK 0x07
 #define BFD_DIAGMASK 0x1F
 #define BFD_GETVER(diag) ((diag >> 5) & BFD_VERMASK)
 #define BFD_SETVER(diag, val) ((diag) |= (val & BFD_VERMASK) << 5)
@@ -168,9 +170,10 @@ enum bfd_session_flags {
 						 * expires
 						 */
 	BFD_SESS_FLAG_SHUTDOWN = 1 << 7,	/* disable BGP peer function */
-	BFD_SESS_FLAG_CONFIG = 1 << 8,	/* Session configured with bfd NB API */
-	BFD_SESS_FLAG_CBIT = 1 << 9,	/* CBIT is set */
+	BFD_SESS_FLAG_CONFIG = 1 << 8, /* Session configured with bfd NB API */
+	BFD_SESS_FLAG_CBIT = 1 << 9,   /* CBIT is set */
 	BFD_SESS_FLAG_PASSIVE = 1 << 10, /* Passive mode */
+	BFD_SESS_FLAG_MAC_SET = 1 << 11, /* MAC of peer known */
 };
 
 /*
@@ -190,8 +193,8 @@ struct bfd_key {
 	uint16_t mhop;
 	struct in6_addr peer;
 	struct in6_addr local;
-	char ifname[MAXNAMELEN];
-	char vrfname[MAXNAMELEN];
+	char ifname[INTERFACE_NAMSIZ];
+	char vrfname[VRF_NAMSIZ];
 } __attribute__((packed));
 
 struct bfd_session_stats {
@@ -248,6 +251,8 @@ struct bfd_config_timers {
 	uint32_t required_min_echo_rx;
 };
 
+#define BFD_RTT_SAMPLE 8
+
 /*
  * Session state information
  */
@@ -274,12 +279,12 @@ struct bfd_session {
 	struct bfd_config_timers timers;
 	struct bfd_timers cur_timers;
 	uint64_t detect_TO;
-	struct thread *echo_recvtimer_ev;
-	struct thread *recvtimer_ev;
+	struct event *echo_recvtimer_ev;
+	struct event *recvtimer_ev;
 	uint64_t xmt_TO;
 	uint64_t echo_xmt_TO;
-	struct thread *xmttimer_ev;
-	struct thread *echo_xmttimer_ev;
+	struct event *xmttimer_ev;
+	struct event *echo_xmttimer_ev;
 	uint64_t echo_detect_TO;
 
 	/* software object state */
@@ -291,6 +296,7 @@ struct bfd_session {
 
 	struct bfd_dplane_ctx *bdc;
 	struct sockaddr_any local_address;
+	uint8_t peer_hw_addr[ETH_ALEN];
 	struct interface *ifp;
 	struct vrf *vrf;
 
@@ -309,6 +315,10 @@ struct bfd_session {
 	struct bfd_timers remote_timers;
 
 	uint64_t refcount; /* number of pointers referencing this. */
+
+	uint8_t rtt_valid;	    /* number of valid samples */
+	uint8_t rtt_index;	    /* last index added */
+	uint64_t rtt[BFD_RTT_SAMPLE]; /* RRT in usec for echo to be looped */
 };
 
 struct peer_label {
@@ -405,8 +415,8 @@ struct bfd_control_socket {
 	TAILQ_ENTRY(bfd_control_socket) bcs_entry;
 
 	int bcs_sd;
-	struct thread *bcs_ev;
-	struct thread *bcs_outev;
+	struct event *bcs_ev;
+	struct event *bcs_outev;
 	struct bcqueue bcs_bcqueue;
 
 	/* Notification data */
@@ -426,7 +436,7 @@ int control_init(const char *path);
 void control_shutdown(void);
 int control_notify(struct bfd_session *bs, uint8_t notify_state);
 int control_notify_config(const char *op, struct bfd_session *bs);
-int control_accept(struct thread *t);
+void control_accept(struct event *t);
 
 
 /*
@@ -443,7 +453,7 @@ struct bfd_vrf_global {
 	int bg_echov6;
 	struct vrf *vrf;
 
-	struct thread *bg_ev[6];
+	struct event *bg_ev[6];
 };
 
 /* Forward declaration of data plane context struct. */
@@ -452,7 +462,7 @@ TAILQ_HEAD(dplane_queue, bfd_dplane_ctx);
 
 struct bfd_global {
 	int bg_csock;
-	struct thread *bg_csockev;
+	struct event *bg_csockev;
 	struct bcslist bg_bcslist;
 
 	struct pllist bg_pllist;
@@ -470,7 +480,7 @@ struct bfd_global {
 	/* Distributed BFD items. */
 	bool bg_use_dplane;
 	int bg_dplane_sock;
-	struct thread *bg_dplane_sockev;
+	struct event *bg_dplane_sockev;
 	struct dplane_queue bg_dplaneq;
 
 	/* Debug options. */
@@ -555,8 +565,9 @@ int bp_echov6_socket(const struct vrf *vrf);
 
 void ptm_bfd_snd(struct bfd_session *bfd, int fbit);
 void ptm_bfd_echo_snd(struct bfd_session *bfd);
+void ptm_bfd_echo_fp_snd(struct bfd_session *bfd);
 
-int bfd_recv_cb(struct thread *t);
+void bfd_recv_cb(struct event *t);
 
 
 /*
@@ -564,7 +575,7 @@ int bfd_recv_cb(struct thread *t);
  *
  * Contains the code related with event loop.
  */
-typedef void (*bfd_ev_cb)(struct thread *t);
+typedef void (*bfd_ev_cb)(struct event *t);
 
 void bfd_recvtimer_update(struct bfd_session *bs);
 void bfd_echo_recvtimer_update(struct bfd_session *bs);
@@ -600,7 +611,8 @@ void ptm_bfd_start_xmt_timer(struct bfd_session *bfd, bool is_echo);
 struct bfd_session *ptm_bfd_sess_find(struct bfd_pkt *cp,
 				      struct sockaddr_any *peer,
 				      struct sockaddr_any *local,
-				      ifindex_t ifindex, vrf_id_t vrfid,
+				      struct interface *ifp,
+				      vrf_id_t vrfid,
 				      bool is_mhop);
 
 struct bfd_session *bs_peer_find(struct bfd_peer_cfg *bpc);
@@ -631,6 +643,7 @@ const struct bfd_session *bfd_session_next(const struct bfd_session *bs,
 					   bool mhop);
 void bfd_sessions_remove_manual(void);
 void bfd_profiles_remove(void);
+void bfd_rtt_init(struct bfd_session *bfd);
 
 /**
  * Set the BFD session echo state.
@@ -687,12 +700,12 @@ void bfd_key_iterate(hash_iter_func hif, void *arg);
 unsigned long bfd_get_session_count(void);
 
 /* Export callback functions for `event.c`. */
-extern struct thread_master *master;
+extern struct event_loop *master;
 
-int bfd_recvtimer_cb(struct thread *t);
-int bfd_echo_recvtimer_cb(struct thread *t);
-int bfd_xmt_cb(struct thread *t);
-int bfd_echo_xmt_cb(struct thread *t);
+void bfd_recvtimer_cb(struct event *t);
+void bfd_echo_recvtimer_cb(struct event *t);
+void bfd_xmt_cb(struct event *t);
+void bfd_echo_xmt_cb(struct event *t);
 
 extern struct in6_addr zero_addr;
 
@@ -723,7 +736,7 @@ void bfd_profile_free(struct bfd_profile *bp);
 
 /**
  * Apply a profile configuration to an existing BFD session. The non default
- * values will not be overriden.
+ * values will not be overridden.
  *
  * NOTE: if the profile doesn't exist yet, then the profile will be applied
  * once it begins to exist.
@@ -773,7 +786,6 @@ void bfdd_zclient_unregister(vrf_id_t vrf_id);
 void bfdd_zclient_register(vrf_id_t vrf_id);
 void bfdd_sessions_enable_vrf(struct vrf *vrf);
 void bfdd_sessions_disable_vrf(struct vrf *vrf);
-void bfd_session_update_vrf_name(struct bfd_session *bs, struct vrf *vrf);
 
 int ptm_bfd_notify(struct bfd_session *bs, uint8_t notify_state);
 

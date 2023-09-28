@@ -1,19 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* BGP FlowSpec VTY
  * Copyright (C) 2018 6WIND
- *
- * FRRouting is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * FRRouting is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -303,12 +290,13 @@ void route_vty_out_flowspec(struct vty *vty, const struct prefix *p,
 	if (path->attr)
 		ipv6_ecomm = bgp_attr_get_ipv6_ecommunity(path->attr);
 
-	if (path->attr && (path->attr->ecommunity || ipv6_ecomm)) {
+	if (path->attr && (bgp_attr_get_ecommunity(path->attr) || ipv6_ecomm)) {
 		/* Print attribute */
 		attr = path->attr;
-		if (attr->ecommunity)
-			s1 = ecommunity_ecom2str(attr->ecommunity,
-						ECOMMUNITY_FORMAT_ROUTE_MAP, 0);
+		if (bgp_attr_get_ecommunity(attr))
+			s1 = ecommunity_ecom2str(bgp_attr_get_ecommunity(attr),
+						 ECOMMUNITY_FORMAT_ROUTE_MAP,
+						 0);
 		if (ipv6_ecomm)
 			s2 = ecommunity_ecom2str(
 				ipv6_ecomm, ECOMMUNITY_FORMAT_ROUTE_MAP, 0);
@@ -337,18 +325,14 @@ void route_vty_out_flowspec(struct vty *vty, const struct prefix *p,
 			local_buff[0] = '\0';
 			if (p->u.prefix_flowspec.family == AF_INET
 			    && attr->nexthop.s_addr != INADDR_ANY)
-				inet_ntop(AF_INET,
-					  &attr->nexthop.s_addr,
-					  local_buff,
-					  INET6_ADDRSTRLEN);
+				inet_ntop(AF_INET, &attr->nexthop.s_addr,
+					  local_buff, sizeof(local_buff));
 			else if (p->u.prefix_flowspec.family == AF_INET6 &&
 				 attr->mp_nexthop_len != 0 &&
 				 attr->mp_nexthop_len != BGP_ATTR_NHLEN_IPV4 &&
 				 attr->mp_nexthop_len != BGP_ATTR_NHLEN_VPNV4)
-				inet_ntop(AF_INET6,
-					  &attr->mp_nexthop_global,
-					  local_buff,
-					  INET6_ADDRSTRLEN);
+				inet_ntop(AF_INET6, &attr->mp_nexthop_global,
+					  local_buff, sizeof(local_buff));
 			if (local_buff[0] != '\0')
 				vty_out(vty, "\tNLRI NH %s\n",
 					local_buff);
@@ -371,7 +355,8 @@ void route_vty_out_flowspec(struct vty *vty, const struct prefix *p,
 			bgp_path_info_extra_get(path);
 		bool list_began = false;
 
-		if (extra->bgp_fs_pbr && listcount(extra->bgp_fs_pbr)) {
+		if (extra->flowspec && extra->flowspec->bgp_fs_pbr &&
+		    listcount(extra->flowspec->bgp_fs_pbr)) {
 			struct listnode *node;
 			struct bgp_pbr_match_entry *bpme;
 			struct bgp_pbr_match *bpm;
@@ -379,8 +364,8 @@ void route_vty_out_flowspec(struct vty *vty, const struct prefix *p,
 
 			list_bpm = list_new();
 			vty_out(vty, "\tinstalled in PBR");
-			for (ALL_LIST_ELEMENTS_RO(extra->bgp_fs_pbr,
-						  node, bpme)) {
+			for (ALL_LIST_ELEMENTS_RO(extra->flowspec->bgp_fs_pbr, node,
+						  bpme)) {
 				bpm = bpme->backpointer;
 				if (listnode_lookup(list_bpm, bpm))
 					continue;
@@ -394,13 +379,14 @@ void route_vty_out_flowspec(struct vty *vty, const struct prefix *p,
 			}
 			list_delete(&list_bpm);
 		}
-		if (extra->bgp_fs_iprule && listcount(extra->bgp_fs_iprule)) {
+		if (extra->flowspec && extra->flowspec->bgp_fs_iprule &&
+		    listcount(extra->flowspec->bgp_fs_iprule)) {
 			struct listnode *node;
 			struct bgp_pbr_rule *bpr;
 
 			if (!list_began)
 				vty_out(vty, "\tinstalled in PBR");
-			for (ALL_LIST_ELEMENTS_RO(extra->bgp_fs_iprule,
+			for (ALL_LIST_ELEMENTS_RO(extra->flowspec->bgp_fs_iprule,
 						  node, bpr)) {
 				if (!bpr->action)
 					continue;
@@ -449,11 +435,7 @@ int bgp_show_table_flowspec(struct vty *vty, struct bgp *bgp, afi_t afi,
 					       pi, display, json_paths);
 		}
 		if (use_json) {
-			vty_out(vty, "%s\n",
-				json_object_to_json_string_ext(
-						json_paths,
-						JSON_C_TO_STRING_PRETTY));
-			json_object_free(json_paths);
+			vty_json(vty, json_paths);
 			json_paths = NULL;
 		}
 	}

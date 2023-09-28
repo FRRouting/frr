@@ -1,0 +1,66 @@
+if !ISISD
+PYTEST_IGNORE += --ignore=isisd/
+endif
+ISISD_TEST_LDADD = isisd/libisis.a $(ALL_TESTS_LDADD)
+noinst_HEADERS += \
+	tests/isisd/test_common.h \
+	# end
+
+
+if ISISD
+check_PROGRAMS += tests/isisd/test_fuzz_isis_tlv
+endif
+tests_isisd_test_fuzz_isis_tlv_CFLAGS = $(TESTS_CFLAGS) -I$(top_builddir)/tests/isisd
+tests_isisd_test_fuzz_isis_tlv_CPPFLAGS = $(TESTS_CPPFLAGS) -I$(top_builddir)/tests/isisd
+tests_isisd_test_fuzz_isis_tlv_LDADD = $(ISISD_TEST_LDADD)
+tests_isisd_test_fuzz_isis_tlv_SOURCES = tests/isisd/test_fuzz_isis_tlv.c tests/isisd/test_common.c
+nodist_tests_isisd_test_fuzz_isis_tlv_SOURCES = tests/isisd/test_fuzz_isis_tlv_tests.h
+EXTRA_DIST += \
+	tests/isisd/test_fuzz_isis_tlv.py \
+	tests/isisd/test_fuzz_isis_tlv_tests.h.gz \
+	# end
+
+tests/isisd/test_fuzz_isis_tlv_tests.h: $(top_srcdir)/tests/isisd/test_fuzz_isis_tlv_tests.h.gz
+	@$(MKDIR_P) tests/isisd
+	$(AM_V_GEN)gzip -d < $(top_srcdir)/tests/isisd/test_fuzz_isis_tlv_tests.h.gz > "$@"
+CLEANFILES += tests/isisd/test_fuzz_isis_tlv_tests.h
+
+tests/isisd/tests_isisd_test_fuzz_isis_tlv-test_fuzz_isis_tlv.$(OBJEXT): \
+	tests/isisd/test_fuzz_isis_tlv_tests.h
+tests/isisd/test_fuzz_isis_tlv-test_fuzz_isis_tlv.$(OBJEXT): \
+	tests/isisd/test_fuzz_isis_tlv_tests.h
+
+
+if ISISD
+check_PROGRAMS += tests/isisd/test_isis_lspdb
+endif
+tests_isisd_test_isis_lspdb_CFLAGS = $(TESTS_CFLAGS)
+tests_isisd_test_isis_lspdb_CPPFLAGS = $(TESTS_CPPFLAGS)
+tests_isisd_test_isis_lspdb_LDADD = $(ISISD_TEST_LDADD)
+tests_isisd_test_isis_lspdb_SOURCES = tests/isisd/test_isis_lspdb.c tests/isisd/test_common.c
+EXTRA_DIST += tests/isisd/test_isis_lspdb.py
+
+
+if ISISD
+check_PROGRAMS += tests/isisd/test_isis_spf
+endif
+tests_isisd_test_isis_spf_CFLAGS = $(TESTS_CFLAGS)
+tests_isisd_test_isis_spf_CPPFLAGS = $(TESTS_CPPFLAGS)
+tests_isisd_test_isis_spf_LDADD = $(ISISD_TEST_LDADD)
+tests_isisd_test_isis_spf_SOURCES = tests/isisd/test_isis_spf.c tests/isisd/test_common.c tests/isisd/test_topologies.c
+nodist_tests_isisd_test_isis_spf_SOURCES = yang/frr-isisd.yang.c
+EXTRA_DIST += \
+	tests/isisd/test_isis_spf.py \
+	tests/isisd/test_isis_spf.in \
+	tests/isisd/test_isis_spf.refout \
+	# end
+
+
+if ISISD
+check_PROGRAMS += tests/isisd/test_isis_vertex_queue
+endif
+tests_isisd_test_isis_vertex_queue_CFLAGS = $(TESTS_CFLAGS)
+tests_isisd_test_isis_vertex_queue_CPPFLAGS = $(TESTS_CPPFLAGS)
+tests_isisd_test_isis_vertex_queue_LDADD = $(ISISD_TEST_LDADD)
+tests_isisd_test_isis_vertex_queue_SOURCES = tests/isisd/test_isis_vertex_queue.c tests/isisd/test_common.c
+EXTRA_DIST += tests/isisd/test_isis_vertex_queue.py

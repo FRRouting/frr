@@ -1,0 +1,32 @@
+{
+  "neighbors": {
+    "2.2.2.2": [
+      {
+        "databaseSummaryListCounter": 0,
+        "linkStateRetransmissionListCounter": 0,
+        "nbrPriority": 1,
+        "converged": "Full",
+        "ifaceAddress": "10.0.2.2",
+        "linkStateRequestListCounter": 0
+      },
+      {
+        "databaseSummaryListCounter": 0,
+        "linkStateRetransmissionListCounter": 0,
+        "nbrPriority": 1,
+        "converged": "Full",
+        "ifaceAddress": "10.0.3.2",
+        "linkStateRequestListCounter": 0
+      }
+    ],
+    "4.4.4.4": [
+      {
+        "databaseSummaryListCounter": 0,
+        "linkStateRetransmissionListCounter": 0,
+        "nbrPriority": 1,
+        "converged": "Full",
+        "ifaceAddress": "10.0.2.4",
+        "linkStateRequestListCounter": 0
+      }
+    ]
+  }
+}

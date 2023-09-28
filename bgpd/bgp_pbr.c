@@ -1,20 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * BGP pbr
  * Copyright (C) 6WIND
- *
- * FRR is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * FRR is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include "zebra.h"
@@ -770,8 +757,8 @@ int bgp_pbr_build_and_validate_entry(const struct prefix *p,
 	if (ret < 0)
 		return -1;
 	/* extract actiosn from flowspec ecom list */
-	if (path && path->attr->ecommunity) {
-		ecom = path->attr->ecommunity;
+	if (path && bgp_attr_get_ecommunity(path->attr)) {
+		ecom = bgp_attr_get_ecommunity(path->attr);
 		for (i = 0; i < ecom->size; i++) {
 			ecom_eval = (struct ecommunity_val *)
 				(ecom->val + (i * ECOMMUNITY_SIZE));
@@ -1027,7 +1014,7 @@ static void bgp_pbr_match_free(void *arg)
 			bpm->action = NULL;
 		}
 	}
-	hash_free(bpm->entry_hash);
+	hash_clean_and_free(&bpm->entry_hash, NULL);
 
 	XFREE(MTYPE_PBR_MATCH, bpm);
 }
@@ -1314,10 +1301,7 @@ bool bgp_pbr_action_hash_equal(const void *arg1, const void *arg2)
 	if (r1->afi != r2->afi)
 		return false;
 
-	if (memcmp(&r1->nh, &r2->nh, sizeof(struct nexthop)))
-		return false;
-
-	return true;
+	return nexthop_same(&r1->nh, &r2->nh);
 }
 
 struct bgp_pbr_rule *bgp_pbr_rule_lookup(vrf_id_t vrf_id,
@@ -1402,23 +1386,13 @@ struct bgp_pbr_match *bgp_pbr_match_iptable_lookup(vrf_id_t vrf_id,
 
 void bgp_pbr_cleanup(struct bgp *bgp)
 {
-	if (bgp->pbr_match_hash) {
-		hash_clean(bgp->pbr_match_hash, bgp_pbr_match_free);
-		hash_free(bgp->pbr_match_hash);
-		bgp->pbr_match_hash = NULL;
-	}
-	if (bgp->pbr_rule_hash) {
-		hash_clean(bgp->pbr_rule_hash, bgp_pbr_rule_free);
-		hash_free(bgp->pbr_rule_hash);
-		bgp->pbr_rule_hash = NULL;
-	}
-	if (bgp->pbr_action_hash) {
-		hash_clean(bgp->pbr_action_hash, bgp_pbr_action_free);
-		hash_free(bgp->pbr_action_hash);
-		bgp->pbr_action_hash = NULL;
-	}
+	hash_clean_and_free(&bgp->pbr_match_hash, bgp_pbr_match_free);
+	hash_clean_and_free(&bgp->pbr_rule_hash, bgp_pbr_rule_free);
+	hash_clean_and_free(&bgp->pbr_action_hash, bgp_pbr_action_free);
+
 	if (bgp->bgp_pbr_cfg == NULL)
 		return;
+
 	bgp_pbr_reset(bgp, AFI_IP);
 	bgp_pbr_reset(bgp, AFI_IP6);
 	XFREE(MTYPE_PBR, bgp->bgp_pbr_cfg);
@@ -1639,9 +1613,8 @@ void bgp_pbr_print_policy_route(struct bgp_pbr_entry_main *api)
 				ptr_ip = &api->actions[i].u.zr.redirect_ip_v4;
 			else
 				ptr_ip = &api->actions[i].u.zr.redirect_ip_v6;
-			if (inet_ntop(afi2family(api->afi),
-				      ptr_ip, local_buff,
-				      INET6_ADDRSTRLEN) != NULL) {
+			if (inet_ntop(afi2family(api->afi), ptr_ip, local_buff,
+				      sizeof(local_buff)) != NULL) {
 				delta = snprintf(ptr, len,
 					  "@redirect ip nh %s", local_buff);
 				len -= delta;
@@ -1694,8 +1667,8 @@ static void bgp_pbr_flush_iprule(struct bgp *bgp, struct bgp_pbr_action *bpa,
 			/* unlink path to bpme */
 			path = (struct bgp_path_info *)bpr->path;
 			extra = bgp_path_info_extra_get(path);
-			if (extra->bgp_fs_iprule)
-				listnode_delete(extra->bgp_fs_iprule, bpr);
+			if (extra->flowspec && extra->flowspec->bgp_fs_iprule)
+				listnode_delete(extra->flowspec->bgp_fs_iprule, bpr);
 			bpr->path = NULL;
 		}
 	}
@@ -1723,8 +1696,8 @@ static void bgp_pbr_flush_entry(struct bgp *bgp, struct bgp_pbr_action *bpa,
 			/* unlink path to bpme */
 			path = (struct bgp_path_info *)bpme->path;
 			extra = bgp_path_info_extra_get(path);
-			if (extra->bgp_fs_pbr)
-				listnode_delete(extra->bgp_fs_pbr, bpme);
+			if (extra->flowspec && extra->flowspec->bgp_fs_pbr)
+				listnode_delete(extra->flowspec->bgp_fs_pbr, bpme);
 			bpme->path = NULL;
 		}
 	}
@@ -2077,6 +2050,9 @@ static void bgp_pbr_icmp_action(struct bgp *bgp, struct bgp_path_info *path,
 					bgp, path, bpf);
 		}
 	}
+
+	bpf->src_port = NULL;
+	bpf->dst_port = NULL;
 }
 
 static void bgp_pbr_policyroute_remove_from_zebra_recursive(
@@ -2353,7 +2329,7 @@ static void bgp_pbr_policyroute_add_to_zebra_unit(struct bgp *bgp,
 		pbr_rule.action = bpa;
 		bpr = hash_get(bgp->pbr_rule_hash, &pbr_rule,
 			       bgp_pbr_rule_alloc_intern);
-		if (bpr && bpr->unique == 0) {
+		if (bpr->unique == 0) {
 			bpr->unique = ++bgp_pbr_action_counter_unique;
 			bpr->installed = false;
 			bpr->install_in_progress = false;
@@ -2362,12 +2338,12 @@ static void bgp_pbr_policyroute_add_to_zebra_unit(struct bgp *bgp,
 		} else
 			bpr_found = true;
 		/* already installed */
-		if (bpr_found && bpr) {
+		if (bpr_found) {
 			struct bgp_path_info_extra *extra =
 				bgp_path_info_extra_get(path);
 
-			if (extra &&
-			    listnode_lookup_nocheck(extra->bgp_fs_iprule,
+			if (extra && extra->flowspec &&
+			    listnode_lookup_nocheck(extra->flowspec->bgp_fs_iprule,
 						    bpr)) {
 				if (BGP_DEBUG(pbr, PBR_ERROR))
 					zlog_err("%s: entry %p/%p already installed in bgp pbr iprule",
@@ -2379,7 +2355,7 @@ static void bgp_pbr_policyroute_add_to_zebra_unit(struct bgp *bgp,
 		bgp_pbr_bpa_add(bpa);
 
 		/* ip rule add */
-		if (bpr && !bpr->installed)
+		if (!bpr->installed)
 			bgp_send_pbr_rule_action(bpa, bpr, true);
 
 		/* A previous entry may already exist
@@ -2525,8 +2501,8 @@ static void bgp_pbr_policyroute_add_to_zebra_unit(struct bgp *bgp,
 		struct bgp_path_info_extra *extra =
 			bgp_path_info_extra_get(path);
 
-		if (extra &&
-		    listnode_lookup_nocheck(extra->bgp_fs_pbr, bpme)) {
+		if (extra && extra->flowspec &&
+		    listnode_lookup_nocheck(extra->flowspec->bgp_fs_pbr, bpme)) {
 			if (BGP_DEBUG(pbr, PBR_ERROR))
 				zlog_err(
 					"%s: entry %p/%p already installed in bgp pbr",
@@ -2682,9 +2658,9 @@ static void bgp_pbr_handle_entry(struct bgp *bgp, struct bgp_path_info *path,
 	struct bgp_pbr_val_mask bpvm;
 
 	memset(&range, 0, sizeof(range));
-	memset(&nh, 0, sizeof(struct nexthop));
-	memset(&bpf, 0, sizeof(struct bgp_pbr_filter));
-	memset(&bpof, 0, sizeof(struct bgp_pbr_or_filter));
+	memset(&nh, 0, sizeof(nh));
+	memset(&bpf, 0, sizeof(bpf));
+	memset(&bpof, 0, sizeof(bpof));
 	if (api->match_bitmask & PREFIX_SRC_PRESENT ||
 	    (api->type == BGP_PBR_IPRULE &&
 	     api->match_bitmask_iprule & PREFIX_SRC_PRESENT))
@@ -2695,7 +2671,7 @@ static void bgp_pbr_handle_entry(struct bgp *bgp, struct bgp_path_info *path,
 		dst = &api->dst_prefix;
 	if (api->type == BGP_PBR_IPRULE)
 		bpf.type = api->type;
-	memset(&nh, 0, sizeof(struct nexthop));
+	memset(&nh, 0, sizeof(nh));
 	nh.vrf_id = VRF_UNKNOWN;
 	if (api->match_protocol_num) {
 		proto = (uint8_t)api->protocol[0].value;

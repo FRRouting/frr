@@ -1,20 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* BMP support.
  * Copyright (C) 2018 Yasuhiro Ohara
  * Copyright (C) 2019 David Lamparter for NetDEF, Inc.
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef _BGP_BMP_H_
@@ -125,7 +112,7 @@ struct bmp {
 
 	int socket;
 	char remote[SU_ADDRSTRLEN + 6];
-	struct thread *t_read;
+	struct event *t_read;
 
 	struct pullwr *pullwr;
 
@@ -179,6 +166,8 @@ struct bmp_active {
 	char *hostname;
 	int port;
 	unsigned minretry, maxretry;
+	char *ifsrc;
+	union sockunion addrsrc;
 
 	struct resolver_query resq;
 
@@ -187,7 +176,7 @@ struct bmp_active {
 	union sockunion addrs[8];
 	int socket;
 	const char *last_err;
-	struct thread *t_timer, *t_read, *t_write;
+	struct event *t_timer, *t_read, *t_write;
 };
 
 /* config & state for passive / listening sockets */
@@ -201,7 +190,7 @@ struct bmp_listener {
 	union sockunion addr;
 	int port;
 
-	struct thread *t_accept;
+	struct event *t_accept;
 	int sock;
 };
 
@@ -237,7 +226,7 @@ struct bmp_targets {
 
 	struct bmp_actives_head actives;
 
-	struct thread *t_stats;
+	struct event *t_stats;
 	struct bmp_session_head sessions;
 
 	struct bmp_qhash_head updhash;

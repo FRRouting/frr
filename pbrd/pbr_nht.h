@@ -1,21 +1,8 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * PBR-nht Header
  * Copyright (C) 2018 Cumulus Networks, Inc.
  *               Donald Sharp
- *
- * FRR is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * FRR is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 #ifndef __PBR_NHT_H__
 #define __PBR_NHT_H__
@@ -96,6 +83,7 @@ extern void pbr_nht_set_rule_range(uint32_t low, uint32_t high);
 extern uint32_t pbr_nht_get_next_rule(uint32_t seqno);
 
 extern void pbr_nhgroup_add_cb(const char *name);
+extern void pbr_nhgroup_modify_cb(const struct nexthop_group_cmd *nhgc);
 extern void pbr_nhgroup_add_nexthop_cb(const struct nexthop_group_cmd *nhg,
 				       const struct nexthop *nhop);
 extern void pbr_nhgroup_del_nexthop_cb(const struct nexthop_group_cmd *nhg,
@@ -108,6 +96,11 @@ extern bool pbr_nht_nexthop_group_valid(const char *name);
 extern struct pbr_nexthop_group_cache *pbr_nht_add_group(const char *name);
 extern void pbr_nht_change_group(const char *name);
 extern void pbr_nht_delete_group(const char *name);
+
+extern void pbr_nht_set_seq_nhg_data(struct pbr_map_sequence *pbrms,
+				     const struct nexthop_group_cmd *nhgc);
+extern void pbr_nht_set_seq_nhg(struct pbr_map_sequence *pbrms,
+				const char *name);
 
 extern void pbr_nht_add_individual_nexthop(struct pbr_map_sequence *pbrms,
 					   const struct nexthop *nhop);

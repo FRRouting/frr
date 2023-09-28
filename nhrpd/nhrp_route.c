@@ -1,10 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* NHRP routing functions
  * Copyright (c) 2014-2015 Timo Teräs
- *
- * This file is free software: you may copy, redistribute and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 2 of the License, or
- * (at your option) any later version.
  */
 
 #ifdef HAVE_CONFIG_H
@@ -112,11 +108,10 @@ void nhrp_route_update_nhrp(const struct prefix *p, struct interface *ifp)
 
 void nhrp_route_announce(int add, enum nhrp_cache_type type,
 			 const struct prefix *p, struct interface *ifp,
-			 const union sockunion *nexthop, uint32_t mtu)
+			 const union sockunion *nexthop_ref, uint32_t mtu)
 {
 	struct zapi_route api;
 	struct zapi_nexthop *api_nh;
-	union sockunion *nexthop_ref = (union sockunion *)nexthop;
 
 	if (zclient->sock < 0)
 		return;
@@ -129,9 +124,10 @@ void nhrp_route_announce(int add, enum nhrp_cache_type type,
 
 	switch (type) {
 	case NHRP_CACHE_NEGATIVE:
+		/* Fill in a blackhole nexthop */
 		zapi_route_set_blackhole(&api, BLACKHOLE_REJECT);
 		ifp = NULL;
-		nexthop = NULL;
+		nexthop_ref = NULL;
 		break;
 	case NHRP_CACHE_DYNAMIC:
 	case NHRP_CACHE_NHS:
@@ -139,7 +135,17 @@ void nhrp_route_announce(int add, enum nhrp_cache_type type,
 		/* Regular route, so these are announced
 		 * to other routing daemons */
 		break;
-	default:
+	case NHRP_CACHE_INVALID:
+	case NHRP_CACHE_INCOMPLETE:
+		/*
+		 * I cannot believe that we want to set a FIB_OVERRIDE
+		 * for invalid state or incomplete.  But this matches
+		 * the original code.  Someone will probably notice
+		 * the problem eventually
+		 */
+	case NHRP_CACHE_CACHED:
+	case NHRP_CACHE_LOCAL:
+	case NHRP_CACHE_NUM_TYPES:
 		SET_FLAG(api.flags, ZEBRA_FLAG_FIB_OVERRIDE);
 		break;
 	}
@@ -366,21 +372,25 @@ static void nhrp_zebra_connected(struct zclient *zclient)
 	nhrp_zebra_register_neigh(VRF_DEFAULT, AFI_IP6, true);
 }
 
+static zclient_handler *const nhrp_handlers[] = {
+	[ZEBRA_INTERFACE_ADDRESS_ADD] = nhrp_interface_address_add,
+	[ZEBRA_INTERFACE_ADDRESS_DELETE] = nhrp_interface_address_delete,
+	[ZEBRA_REDISTRIBUTE_ROUTE_ADD] = nhrp_route_read,
+	[ZEBRA_REDISTRIBUTE_ROUTE_DEL] = nhrp_route_read,
+	[ZEBRA_NHRP_NEIGH_ADDED] = nhrp_neighbor_operation,
+	[ZEBRA_NHRP_NEIGH_REMOVED] = nhrp_neighbor_operation,
+	[ZEBRA_NHRP_NEIGH_GET] = nhrp_neighbor_operation,
+	[ZEBRA_GRE_UPDATE] = nhrp_gre_update,
+};
+
 void nhrp_zebra_init(void)
 {
 	zebra_rib[AFI_IP] = route_table_init();
 	zebra_rib[AFI_IP6] = route_table_init();
 
-	zclient = zclient_new(master, &zclient_options_default);
+	zclient = zclient_new(master, &zclient_options_default, nhrp_handlers,
+			      array_size(nhrp_handlers));
 	zclient->zebra_connected = nhrp_zebra_connected;
-	zclient->interface_address_add = nhrp_interface_address_add;
-	zclient->interface_address_delete = nhrp_interface_address_delete;
-	zclient->redistribute_route_add = nhrp_route_read;
-	zclient->redistribute_route_del = nhrp_route_read;
-	zclient->neighbor_added = nhrp_neighbor_operation;
-	zclient->neighbor_removed = nhrp_neighbor_operation;
-	zclient->neighbor_get = nhrp_neighbor_operation;
-	zclient->gre_update = nhrp_gre_update;
 	zclient_init(zclient, ZEBRA_ROUTE_NHRP, 0, &nhrpd_privs);
 }
 
@@ -404,9 +414,7 @@ void nhrp_send_zebra_configure_arp(struct interface *ifp, int family)
 	}
 	s = zclient->obuf;
 	stream_reset(s);
-	zclient_create_header(s,
-			      ZEBRA_CONFIGURE_ARP,
-			      ifp->vrf_id);
+	zclient_create_header(s, ZEBRA_CONFIGURE_ARP, ifp->vrf->vrf_id);
 	stream_putc(s, family);
 	stream_putl(s, ifp->ifindex);
 	stream_putw_at(s, 0, stream_get_endp(s));
@@ -429,9 +437,7 @@ void nhrp_send_zebra_gre_source_set(struct interface *ifp,
 	}
 	s = zclient->obuf;
 	stream_reset(s);
-	zclient_create_header(s,
-			      ZEBRA_GRE_SOURCE_SET,
-			      ifp->vrf_id);
+	zclient_create_header(s, ZEBRA_GRE_SOURCE_SET, ifp->vrf->vrf_id);
 	stream_putl(s, ifp->ifindex);
 	stream_putl(s, link_idx);
 	stream_putl(s, link_vrf_id);
@@ -476,7 +482,7 @@ void nhrp_zebra_terminate(void)
 	route_table_finish(zebra_rib[AFI_IP6]);
 }
 
-void nhrp_gre_update(ZAPI_CALLBACK_ARGS)
+int nhrp_gre_update(ZAPI_CALLBACK_ARGS)
 {
 	struct stream *s;
 	struct nhrp_gre_info gre_info, *val;
@@ -485,7 +491,7 @@ void nhrp_gre_update(ZAPI_CALLBACK_ARGS)
 	/* result */
 	s = zclient->ibuf;
 	if (vrf_id != VRF_DEFAULT)
-		return;
+		return 0;
 
 	/* read GRE information */
 	STREAM_GETL(s, gre_info.ifindex);
@@ -516,7 +522,9 @@ void nhrp_gre_update(ZAPI_CALLBACK_ARGS)
 	       ifp ? ifp->name : "<none>", gre_info.ifindex, vrf_id);
 	if (ifp)
 		nhrp_interface_update_nbma(ifp, val);
-	return;
+	return 0;
+
 stream_failure:
 	zlog_err("%s(): error reading response ..", __func__);
+	return -1;
 }

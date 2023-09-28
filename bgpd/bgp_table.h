@@ -1,29 +1,10 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* BGP routing table
  * Copyright (C) 1998, 2001 Kunihiro Ishiguro
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef _QUAGGA_BGP_TABLE_H
 #define _QUAGGA_BGP_TABLE_H
-
-/* XXX BEGIN TEMPORARY COMPAT */
-#define bgp_dest bgp_node
-/* XXX END TEMPORARY COMPAT */
 
 #include "mpls.h"
 #include "table.h"
@@ -44,7 +25,7 @@ struct bgp_table {
 
 	/* soft_reconfig_table in progress */
 	bool soft_reconfig_init;
-	struct thread *soft_reconfig_thread;
+	struct event *soft_reconfig_thread;
 
 	/* list of peers on which soft_reconfig_table has to run */
 	struct list *soft_reconfig_peers;
@@ -63,7 +44,9 @@ enum bgp_path_selection_reason {
 	bgp_path_selection_evpn_lower_ip,
 	bgp_path_selection_weight,
 	bgp_path_selection_local_pref,
+	bgp_path_selection_accept_own,
 	bgp_path_selection_local_route,
+	bgp_path_selection_aigp,
 	bgp_path_selection_confed_as_path,
 	bgp_path_selection_as_path,
 	bgp_path_selection_origin,
@@ -80,16 +63,10 @@ enum bgp_path_selection_reason {
 	bgp_path_selection_default,
 };
 
-struct bgp_node {
-	/*
-	 * CAUTION
-	 *
-	 * These fields must be the very first fields in this structure.
-	 *
-	 * @see bgp_node_to_rnode
-	 * @see bgp_node_from_rnode
-	 */
-	ROUTE_NODE_FIELDS
+struct bgp_dest {
+	struct route_node *rn;
+
+	void *info;
 
 	struct bgp_adj_out_rb adj_out;
 
@@ -113,6 +90,7 @@ struct bgp_node {
 #define BGP_NODE_FIB_INSTALLED          (1 << 6)
 #define BGP_NODE_LABEL_REQUESTED        (1 << 7)
 #define BGP_NODE_SOFT_RECONFIG (1 << 8)
+#define BGP_NODE_PROCESS_CLEAR (1 << 9)
 
 	struct bgp_addpath_node_data tx_addpath;
 
@@ -134,7 +112,7 @@ extern struct bgp_table *bgp_table_init(struct bgp *bgp, afi_t, safi_t);
 extern void bgp_table_lock(struct bgp_table *);
 extern void bgp_table_unlock(struct bgp_table *);
 extern void bgp_table_finish(struct bgp_table **);
-extern void bgp_dest_unlock_node(struct bgp_dest *dest);
+extern struct bgp_dest *bgp_dest_unlock_node(struct bgp_dest *dest);
 extern struct bgp_dest *bgp_dest_lock_node(struct bgp_dest *dest);
 extern const char *bgp_dest_get_prefix_str(struct bgp_dest *dest);
 
@@ -146,7 +124,7 @@ extern const char *bgp_dest_get_prefix_str(struct bgp_dest *dest);
  */
 static inline struct bgp_dest *bgp_dest_from_rnode(struct route_node *rnode)
 {
-	return (struct bgp_dest *)rnode;
+	return (rnode && rnode->info) ? (struct bgp_dest *)rnode->info : NULL;
 }
 
 /*
@@ -156,7 +134,7 @@ static inline struct bgp_dest *bgp_dest_from_rnode(struct route_node *rnode)
  */
 static inline struct route_node *bgp_dest_to_rnode(const struct bgp_dest *dest)
 {
-	return (struct route_node *)dest;
+	return dest ? dest->rn : NULL;
 }
 
 /*
@@ -178,6 +156,9 @@ static inline struct bgp_dest *bgp_dest_parent_nolock(struct bgp_dest *dest)
 {
 	struct route_node *rn = bgp_dest_to_rnode(dest)->parent;
 
+	while (rn && !rn->info)
+		rn = rn->parent;
+
 	return bgp_dest_from_rnode(rn);
 }
 
@@ -191,7 +172,17 @@ static inline struct bgp_dest *bgp_dest_parent_nolock(struct bgp_dest *dest)
 static inline struct bgp_dest *
 bgp_table_top_nolock(const struct bgp_table *const table)
 {
-	return bgp_dest_from_rnode(table->route_table->top);
+	struct route_node *top;
+	struct route_node *rn = top = table->route_table->top;
+
+	while (rn && !rn->info) {
+		if (rn == top)
+			route_lock_node(rn);
+		rn = route_next(rn);
+	}
+	if (rn && rn != top)
+		route_unlock_node(rn);
+	return rn ? rn->info : NULL;
 }
 
 /*
@@ -200,7 +191,11 @@ bgp_table_top_nolock(const struct bgp_table *const table)
 static inline struct bgp_dest *
 bgp_table_top(const struct bgp_table *const table)
 {
-	return bgp_dest_from_rnode(route_top(table->route_table));
+	struct route_node *rn = route_top(table->route_table);
+
+	while (rn && !rn->info)
+		rn = route_next(rn);
+	return rn ? rn->info : NULL;
 }
 
 /*
@@ -208,7 +203,11 @@ bgp_table_top(const struct bgp_table *const table)
  */
 static inline struct bgp_dest *bgp_route_next(struct bgp_dest *dest)
 {
-	return bgp_dest_from_rnode(route_next(bgp_dest_to_rnode(dest)));
+	struct route_node *rn = route_next(bgp_dest_to_rnode(dest));
+
+	while (rn && !rn->info)
+		rn = route_next(rn);
+	return bgp_dest_from_rnode(rn);
 }
 
 /*
@@ -222,6 +221,9 @@ static inline struct bgp_dest *bgp_route_next_until(struct bgp_dest *dest,
 	rnode = route_next_until(bgp_dest_to_rnode(dest),
 			bgp_dest_to_rnode(limit));
 
+	while (rnode && !rnode->info)
+		rnode = route_next_until(rnode, bgp_dest_to_rnode(limit));
+
 	return bgp_dest_from_rnode(rnode);
 }
 
@@ -231,7 +233,17 @@ static inline struct bgp_dest *bgp_route_next_until(struct bgp_dest *dest,
 static inline struct bgp_dest *bgp_node_get(struct bgp_table *const table,
 					    const struct prefix *p)
 {
-	return bgp_dest_from_rnode(route_node_get(table->route_table, p));
+	struct route_node *rn = route_node_get(table->route_table, p);
+
+	if (!rn->info) {
+		struct bgp_dest *dest = XCALLOC(MTYPE_BGP_NODE,
+						sizeof(struct bgp_dest));
+
+		RB_INIT(bgp_adj_out_rb, &dest->adj_out);
+		rn->info = dest;
+		dest->rn = rn;
+	}
+	return rn->info;
 }
 
 /*
@@ -256,28 +268,6 @@ static inline struct bgp_dest *bgp_node_match(const struct bgp_table *table,
 	return bgp_dest_from_rnode(rn);
 }
 
-/*
- * bgp_node_match_ipv4
- */
-static inline struct bgp_dest *
-bgp_node_match_ipv4(const struct bgp_table *table, struct in_addr *addr)
-{
-	struct route_node *rn = route_node_match_ipv4(table->route_table, addr);
-
-	return bgp_dest_from_rnode(rn);
-}
-
-/*
- * bgp_node_match_ipv6
- */
-static inline struct bgp_dest *
-bgp_node_match_ipv6(const struct bgp_table *table, struct in6_addr *addr)
-{
-	struct route_node *rn = route_node_match_ipv6(table->route_table, addr);
-
-	return bgp_dest_from_rnode(rn);
-}
-
 static inline unsigned long bgp_table_count(const struct bgp_table *const table)
 {
 	return route_table_count(table->route_table);
@@ -289,60 +279,11 @@ static inline unsigned long bgp_table_count(const struct bgp_table *const table)
 static inline struct bgp_dest *bgp_table_get_next(const struct bgp_table *table,
 						  const struct prefix *p)
 {
-	return bgp_dest_from_rnode(route_table_get_next(table->route_table, p));
-}
+	struct route_node *rn = route_table_get_next(table->route_table, p);
 
-/*
- * bgp_table_iter_init
- */
-static inline void bgp_table_iter_init(bgp_table_iter_t *iter,
-				       struct bgp_table *table)
-{
-	bgp_table_lock(table);
-	iter->table = table;
-	route_table_iter_init(&iter->rt_iter, table->route_table);
-}
-
-/*
- * bgp_table_iter_next
- */
-static inline struct bgp_dest *bgp_table_iter_next(bgp_table_iter_t *iter)
-{
-	return bgp_dest_from_rnode(route_table_iter_next(&iter->rt_iter));
-}
-
-/*
- * bgp_table_iter_cleanup
- */
-static inline void bgp_table_iter_cleanup(bgp_table_iter_t *iter)
-{
-	route_table_iter_cleanup(&iter->rt_iter);
-	bgp_table_unlock(iter->table);
-	iter->table = NULL;
-}
-
-/*
- * bgp_table_iter_pause
- */
-static inline void bgp_table_iter_pause(bgp_table_iter_t *iter)
-{
-	route_table_iter_pause(&iter->rt_iter);
-}
-
-/*
- * bgp_table_iter_is_done
- */
-static inline int bgp_table_iter_is_done(bgp_table_iter_t *iter)
-{
-	return route_table_iter_is_done(&iter->rt_iter);
-}
-
-/*
- * bgp_table_iter_started
- */
-static inline int bgp_table_iter_started(bgp_table_iter_t *iter)
-{
-	return route_table_iter_started(&iter->rt_iter);
+	while (rn && !rn->info)
+		rn = route_next(rn);
+	return bgp_dest_from_rnode(rn);
 }
 
 /* This would benefit from a real atomic operation...
@@ -444,7 +385,7 @@ static inline void bgp_dest_set_bgp_path_info(struct bgp_dest *dest,
 static inline struct bgp_table *
 bgp_dest_get_bgp_table_info(struct bgp_dest *dest)
 {
-	return dest->info;
+	return dest ? dest->info : NULL;
 }
 
 static inline void bgp_dest_set_bgp_table_info(struct bgp_dest *dest,
@@ -455,17 +396,17 @@ static inline void bgp_dest_set_bgp_table_info(struct bgp_dest *dest,
 
 static inline bool bgp_dest_has_bgp_path_info_data(struct bgp_dest *dest)
 {
-	return !!dest->info;
+	return dest ? !!dest->info : false;
 }
 
 static inline const struct prefix *bgp_dest_get_prefix(const struct bgp_dest *dest)
 {
-	return &dest->p;
+	return dest ? &dest->rn->p : NULL;
 }
 
 static inline unsigned int bgp_dest_get_lock_count(const struct bgp_dest *dest)
 {
-	return dest->lock;
+	return dest ? dest->rn->lock : 0;
 }
 
 #ifdef _FRR_ATTRIBUTE_PRINTFRR

@@ -1,21 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* OSPFv3 SNMP support
  * Copyright (C) 2004 Yasuhiro Ohara
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -971,8 +956,7 @@ static uint8_t *ospfv3WwLsdbEntry(struct variable *v, oid *name, size_t *length,
 			for (ALL_LIST_ELEMENTS_RO(ifslist, node, iif)) {
 				if (!iif->ifindex)
 					continue;
-				oi = ospf6_interface_lookup_by_ifindex(
-					iif->ifindex, iif->vrf_id);
+				oi = iif->info;
 				if (!oi)
 					continue;
 				if (iif->ifindex < ifindex)
@@ -1039,7 +1023,6 @@ static uint8_t *ospfv3WwLsdbEntry(struct variable *v, oid *name, size_t *length,
 		return SNMP_INTEGER(OSPF6_LSA_IS_KNOWN(lsa->header->type)
 					    ? SNMP_TRUE
 					    : SNMP_FALSE);
-		break;
 	}
 	return NULL;
 }
@@ -1107,8 +1090,7 @@ static uint8_t *ospfv3IfEntry(struct variable *v, oid *name, size_t *length,
 		for (ALL_LIST_ELEMENTS_RO(ifslist, i, iif)) {
 			if (!iif->ifindex)
 				continue;
-			oi = ospf6_interface_lookup_by_ifindex(iif->ifindex,
-							       iif->vrf_id);
+			oi = iif->info;
 			if (!oi)
 				continue;
 			if (iif->ifindex > ifindex
@@ -1273,8 +1255,7 @@ static uint8_t *ospfv3NbrEntry(struct variable *v, oid *name, size_t *length,
 		for (ALL_LIST_ELEMENTS_RO(ifslist, i, iif)) {
 			if (!iif->ifindex)
 				continue;
-			oi = ospf6_interface_lookup_by_ifindex(iif->ifindex,
-							       iif->vrf_id);
+			oi = iif->info;
 			if (!oi)
 				continue;
 			for (ALL_LIST_ELEMENTS_RO(oi->neighbor_list, j, on)) {
@@ -1402,7 +1383,7 @@ static int ospf6TrapIfStateChange(struct ospf6_interface *oi, int next_state,
 }
 
 /* Register OSPFv3-MIB. */
-static int ospf6_snmp_init(struct thread_master *master)
+static int ospf6_snmp_init(struct event_loop *master)
 {
 	smux_init(master);
 	REGISTER_MIB("OSPFv3MIB", ospfv3_variables, variable, ospfv3_oid);

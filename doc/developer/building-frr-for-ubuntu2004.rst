@@ -15,7 +15,9 @@ Installing Dependencies
       pkg-config libpam0g-dev libjson-c-dev bison flex \
       libc-ares-dev python3-dev python3-sphinx \
       install-info build-essential libsnmp-dev perl \
-      libcap-dev python2 libelf-dev
+      libcap-dev python2 libelf-dev libunwind-dev
+
+.. include:: building-libunwind-note.rst
 
 Note that Ubuntu 20 no longer installs python 2.x, so it must be
 installed explicitly. Ensure that your system has a symlink named

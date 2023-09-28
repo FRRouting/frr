@@ -1,21 +1,8 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * libfrr overall management functions
  *
  * Copyright (C) 2016  David Lamparter for NetDEF, Inc.
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -46,9 +33,10 @@
 #include "frrscript.h"
 #include "systemd.h"
 
-DEFINE_HOOK(frr_late_init, (struct thread_master * tm), (tm));
-DEFINE_HOOK(frr_config_pre, (struct thread_master * tm), (tm));
-DEFINE_HOOK(frr_config_post, (struct thread_master * tm), (tm));
+DEFINE_HOOK(frr_early_init, (struct event_loop * tm), (tm));
+DEFINE_HOOK(frr_late_init, (struct event_loop * tm), (tm));
+DEFINE_HOOK(frr_config_pre, (struct event_loop * tm), (tm));
+DEFINE_HOOK(frr_config_post, (struct event_loop * tm), (tm));
 DEFINE_KOOH(frr_early_fini, (), ());
 DEFINE_KOOH(frr_fini, (), ());
 
@@ -116,53 +104,67 @@ static const struct option lo_always[] = {
 	{"module", no_argument, NULL, 'M'},
 	{"profile", required_argument, NULL, 'F'},
 	{"pathspace", required_argument, NULL, 'N'},
+	{"vrfdefaultname", required_argument, NULL, 'o'},
 	{"vty_socket", required_argument, NULL, OPTION_VTYSOCK},
 	{"moduledir", required_argument, NULL, OPTION_MODULEDIR},
 	{"scriptdir", required_argument, NULL, OPTION_SCRIPTDIR},
 	{"log", required_argument, NULL, OPTION_LOG},
 	{"log-level", required_argument, NULL, OPTION_LOGLEVEL},
-	{"tcli", no_argument, NULL, OPTION_TCLI},
 	{"command-log-always", no_argument, NULL, OPTION_LOGGING},
 	{"limit-fds", required_argument, NULL, OPTION_LIMIT_FDS},
 	{NULL}};
 static const struct optspec os_always = {
-	"hvdM:F:N:",
+	"hvdM:F:N:o:",
 	"  -h, --help         Display this help and exit\n"
 	"  -v, --version      Print program version\n"
 	"  -d, --daemon       Runs in daemon mode\n"
 	"  -M, --module       Load specified module\n"
 	"  -F, --profile      Use specified configuration profile\n"
 	"  -N, --pathspace    Insert prefix into config & socket paths\n"
+	"  -o, --vrfdefaultname     Set default VRF name.\n"
 	"      --vty_socket   Override vty socket path\n"
 	"      --moduledir    Override modules directory\n"
 	"      --scriptdir    Override scripts directory\n"
 	"      --log          Set Logging to stdout, syslog, or file:<name>\n"
 	"      --log-level    Set Logging Level to use, debug, info, warn, etc\n"
-	"      --tcli         Use transaction-based CLI\n"
 	"      --limit-fds    Limit number of fds supported\n",
 	lo_always};
 
+static bool logging_to_stdout = false; /* set when --log stdout specified */
 
-static const struct option lo_cfg_pid_dry[] = {
-	{"pid_file", required_argument, NULL, 'i'},
+static const struct option lo_cfg[] = {
 	{"config_file", required_argument, NULL, 'f'},
+	{"dryrun", no_argument, NULL, 'C'},
+	{NULL}};
+static const struct optspec os_cfg = {
+	"f:C",
+	"  -f, --config_file  Set configuration file name\n"
+	"  -C, --dryrun       Check configuration for validity and exit\n",
+	lo_cfg};
+
+
+static const struct option lo_fullcli[] = {
+	{"terminal", no_argument, NULL, 't'},
+	{"tcli", no_argument, NULL, OPTION_TCLI},
 #ifdef HAVE_SQLITE3
 	{"db_file", required_argument, NULL, OPTION_DB_FILE},
 #endif
-	{"dryrun", no_argument, NULL, 'C'},
-	{"terminal", no_argument, NULL, 't'},
 	{NULL}};
-static const struct optspec os_cfg_pid_dry = {
-	"f:i:Ct",
-	"  -f, --config_file  Set configuration file name\n"
-	"  -i, --pid_file     Set process identifier file name\n"
-#ifdef HAVE_SQLITE3
-	"      --db_file      Set database file name\n"
-#endif
-	"  -C, --dryrun       Check configuration for validity and exit\n"
+static const struct optspec os_fullcli = {
+	"t",
+	"      --tcli         Use transaction-based CLI\n"
 	"  -t, --terminal     Open terminal session on stdio\n"
 	"  -d -t              Daemonize after terminal session ends\n",
-	lo_cfg_pid_dry};
+	lo_fullcli};
+
+
+static const struct option lo_pid[] = {
+	{"pid_file", required_argument, NULL, 'i'},
+	{NULL}};
+static const struct optspec os_pid = {
+	"i:",
+	"  -i, --pid_file     Set process identifier file name\n",
+	lo_pid};
 
 
 static const struct option lo_zclient[] = {
@@ -319,9 +321,15 @@ void frr_preinit(struct frr_daemon_info *daemon, int argc, char **argv)
 
 	umask(0027);
 
+	log_args_init(daemon->early_logging);
+
 	opt_extend(&os_always);
-	if (!(di->flags & FRR_NO_CFG_PID_DRY))
-		opt_extend(&os_cfg_pid_dry);
+	if (!(di->flags & FRR_NO_SPLIT_CONFIG))
+		opt_extend(&os_cfg);
+	if (!(di->flags & FRR_LIMITED_CLI))
+		opt_extend(&os_fullcli);
+	if (!(di->flags & FRR_NO_PID))
+		opt_extend(&os_pid);
 	if (!(di->flags & FRR_NO_PRIVSEP))
 		opt_extend(&os_user);
 	if (!(di->flags & FRR_NO_ZCLIENT))
@@ -413,6 +421,8 @@ static int frr_opt(int opt)
 	static int vty_port_set = 0;
 	static int vty_addr_set = 0;
 	struct option_chain *oc;
+	struct log_arg *log_arg;
+	size_t arg_len;
 	char *err;
 
 	switch (opt) {
@@ -459,12 +469,12 @@ static int frr_opt(int opt)
 		frr_defaults_profile_set(optarg);
 		break;
 	case 'i':
-		if (di->flags & FRR_NO_CFG_PID_DRY)
+		if (di->flags & FRR_NO_PID)
 			return 1;
 		di->pid_file = optarg;
 		break;
 	case 'f':
-		if (di->flags & FRR_NO_CFG_PID_DRY)
+		if (di->flags & FRR_NO_SPLIT_CONFIG)
 			return 1;
 		di->config_file = optarg;
 		break;
@@ -495,20 +505,23 @@ static int frr_opt(int opt)
 		snprintf(pidfile_default, sizeof(pidfile_default), "%s/%s.pid",
 			 frr_vtydir, di->name);
 		break;
+	case 'o':
+		vrf_set_default_name(optarg);
+		break;
 #ifdef HAVE_SQLITE3
 	case OPTION_DB_FILE:
-		if (di->flags & FRR_NO_CFG_PID_DRY)
+		if (di->flags & FRR_NO_PID)
 			return 1;
 		di->db_file = optarg;
 		break;
 #endif
 	case 'C':
-		if (di->flags & FRR_NO_CFG_PID_DRY)
+		if (di->flags & FRR_NO_SPLIT_CONFIG)
 			return 1;
 		di->dryrun = true;
 		break;
 	case 't':
-		if (di->flags & FRR_NO_CFG_PID_DRY)
+		if (di->flags & FRR_LIMITED_CLI)
 			return 1;
 		di->terminal = true;
 		break;
@@ -592,7 +605,10 @@ static int frr_opt(int opt)
 		di->privs->group = optarg;
 		break;
 	case OPTION_LOG:
-		di->early_logging = optarg;
+		arg_len = strlen(optarg) + 1;
+		log_arg = XCALLOC(MTYPE_TMP, sizeof(*log_arg) + arg_len);
+		memcpy(log_arg->target, optarg, arg_len);
+		log_args_add_tail(di->early_logging, log_arg);
 		break;
 	case OPTION_LOGLEVEL:
 		di->early_loglevel = optarg;
@@ -681,14 +697,16 @@ static void _err_print(const void *cookie, const char *errstr)
 	fprintf(stderr, "%s: %s\n", prefix, errstr);
 }
 
-static struct thread_master *master;
-struct thread_master *frr_init(void)
+static struct event_loop *master;
+struct event_loop *frr_init(void)
 {
 	struct option_chain *oc;
+	struct log_arg *log_arg;
 	struct frrmod_runtime *module;
 	struct zprivs_ids_t ids;
 	char p_instance[16] = "", p_pathspace[256] = "";
 	const char *dir;
+
 	dir = di->module_path ? di->module_path : frr_moduledir;
 
 	srandom(time(NULL));
@@ -718,7 +736,16 @@ struct thread_master *frr_init(void)
 	zlog_init(di->progname, di->logname, di->instance,
 		  ids.uid_normal, ids.gid_normal);
 
-	command_setup_early_logging(di->early_logging, di->early_loglevel);
+	while ((log_arg = log_args_pop(di->early_logging))) {
+		command_setup_early_logging(log_arg->target,
+					    di->early_loglevel);
+		/* this is a bit of a hack,
+		   but need to notice when
+		   the target is stdout */
+		if (strcmp(log_arg->target, "stdout") == 0)
+			logging_to_stdout = true;
+		XFREE(MTYPE_TMP, log_arg);
+	}
 
 	if (!frr_zclient_addr(&zclient_addr, &zclient_addr_len,
 			      frr_zclientpath)) {
@@ -748,13 +775,14 @@ struct thread_master *frr_init(void)
 
 	zprivs_init(di->privs);
 
-	master = thread_master_create(NULL);
+	master = event_master_create(NULL);
 	signal_init(master, di->n_signals, di->signals);
+	hook_call(frr_early_init, master);
 
 #ifdef HAVE_SQLITE3
 	if (!di->db_file)
 		di->db_file = dbfile_default;
-	db_init(di->db_file);
+	db_init("%s", di->db_file);
 #endif
 
 	if (di->flags & FRR_LIMITED_CLI)
@@ -928,6 +956,8 @@ static void frr_daemonize(void)
 	}
 
 	close(fds[1]);
+	nb_terminate();
+	yang_terminate();
 	frr_daemon_wait(fds[0]);
 }
 
@@ -940,7 +970,7 @@ static void frr_daemonize(void)
  * to read the config in after thread execution starts, so that
  * we can match this behavior.
  */
-static int frr_config_read_in(struct thread *t)
+static void frr_config_read_in(struct event *t)
 {
 	hook_call(frr_config_pre, master);
 
@@ -968,7 +998,7 @@ static int frr_config_read_in(struct thread *t)
 		int ret;
 
 		context.client = NB_CLIENT_CLI;
-		ret = nb_candidate_commit(&context, vty_shared_candidate_config,
+		ret = nb_candidate_commit(context, vty_shared_candidate_config,
 					  true, "Read configuration file", NULL,
 					  errmsg, sizeof(errmsg));
 		if (ret != NB_OK && ret != NB_ERR_NO_CHANGES)
@@ -978,23 +1008,21 @@ static int frr_config_read_in(struct thread *t)
 	}
 
 	hook_call(frr_config_post, master);
-
-	return 0;
 }
 
 void frr_config_fork(void)
 {
 	hook_call(frr_late_init, master);
 
-	if (!(di->flags & FRR_NO_CFG_PID_DRY)) {
+	if (!(di->flags & FRR_NO_SPLIT_CONFIG)) {
 		/* Don't start execution if we are in dry-run mode */
 		if (di->dryrun) {
 			frr_config_read_in(NULL);
 			exit(0);
 		}
 
-		thread_add_event(master, frr_config_read_in, NULL, 0,
-				 &di->read_in);
+		event_add_event(master, frr_config_read_in, NULL, 0,
+				&di->read_in);
 	}
 
 	if (di->daemon_mode || di->terminal)
@@ -1008,7 +1036,7 @@ void frr_config_fork(void)
 	zlog_tls_buffer_init();
 }
 
-static void frr_vty_serv(void)
+void frr_vty_serv_start(void)
 {
 	/* allow explicit override of vty_path in the future
 	 * (not currently set anywhere) */
@@ -1030,7 +1058,15 @@ static void frr_vty_serv(void)
 		di->vty_path = vtypath_default;
 	}
 
-	vty_serv_sock(di->vty_addr, di->vty_port, di->vty_path);
+	vty_serv_start(di->vty_addr, di->vty_port, di->vty_path);
+}
+
+void frr_vty_serv_stop(void)
+{
+	vty_serv_stop();
+
+	if (di->vty_path)
+		unlink(di->vty_path);
 }
 
 static void frr_check_detach(void)
@@ -1066,16 +1102,22 @@ static void frr_terminal_close(int isexit)
 			     "%s: failed to open /dev/null: %s", __func__,
 			     safe_strerror(errno));
 	} else {
-		dup2(nullfd, 0);
-		dup2(nullfd, 1);
-		dup2(nullfd, 2);
+		int fd;
+		/*
+		 * only redirect stdin, stdout, stderr to null when a tty also
+		 * don't redirect when stdout is set with --log stdout
+		 */
+		for (fd = 2; fd >= 0; fd--)
+			if (isatty(fd) &&
+			    (fd != STDOUT_FILENO || !logging_to_stdout))
+				dup2(nullfd, fd);
 		close(nullfd);
 	}
 }
 
-static struct thread *daemon_ctl_thread = NULL;
+static struct event *daemon_ctl_thread = NULL;
 
-static int frr_daemon_ctl(struct thread *t)
+static void frr_daemon_ctl(struct event *t)
 {
 	char buf[1];
 	ssize_t nr;
@@ -1084,7 +1126,7 @@ static int frr_daemon_ctl(struct thread *t)
 	if (nr < 0 && (errno == EINTR || errno == EAGAIN))
 		goto out;
 	if (nr <= 0)
-		return 0;
+		return;
 
 	switch (buf[0]) {
 	case 'S': /* SIGTSTP */
@@ -1107,9 +1149,8 @@ static int frr_daemon_ctl(struct thread *t)
 	}
 
 out:
-	thread_add_read(master, frr_daemon_ctl, NULL, daemon_ctl_sock,
-			&daemon_ctl_thread);
-	return 0;
+	event_add_read(master, frr_daemon_ctl, NULL, daemon_ctl_sock,
+		       &daemon_ctl_thread);
 }
 
 void frr_detach(void)
@@ -1118,11 +1159,12 @@ void frr_detach(void)
 	frr_check_detach();
 }
 
-void frr_run(struct thread_master *master)
+void frr_run(struct event_loop *master)
 {
 	char instanceinfo[64] = "";
 
-	frr_vty_serv();
+	if (!(di->flags & FRR_MANUAL_VTY_START))
+		frr_vty_serv_start();
 
 	if (di->instance)
 		snprintf(instanceinfo, sizeof(instanceinfo), "instance %u ",
@@ -1137,8 +1179,8 @@ void frr_run(struct thread_master *master)
 		vty_stdio(frr_terminal_close);
 		if (daemon_ctl_sock != -1) {
 			set_nonblocking(daemon_ctl_sock);
-			thread_add_read(master, frr_daemon_ctl, NULL,
-					daemon_ctl_sock, &daemon_ctl_thread);
+			event_add_read(master, frr_daemon_ctl, NULL,
+				       daemon_ctl_sock, &daemon_ctl_thread);
 		}
 	} else if (di->daemon_mode) {
 		int nullfd = open("/dev/null", O_RDONLY | O_NOCTTY);
@@ -1147,9 +1189,16 @@ void frr_run(struct thread_master *master)
 				     "%s: failed to open /dev/null: %s",
 				     __func__, safe_strerror(errno));
 		} else {
-			dup2(nullfd, 0);
-			dup2(nullfd, 1);
-			dup2(nullfd, 2);
+			int fd;
+			/*
+			 * only redirect stdin, stdout, stderr to null when a
+			 * tty also don't redirect when stdout is set with --log
+			 * stdout
+			 */
+			for (fd = 2; fd >= 0; fd--)
+				if (isatty(fd) &&
+				    (fd != STDOUT_FILENO || !logging_to_stdout))
+					dup2(nullfd, fd);
 			close(nullfd);
 		}
 
@@ -1159,9 +1208,9 @@ void frr_run(struct thread_master *master)
 	/* end fixed stderr startup logging */
 	zlog_startup_end();
 
-	struct thread thread;
-	while (thread_fetch(master, &thread))
-		thread_call(&thread);
+	struct event thread;
+	while (event_fetch(master, &thread))
+		event_call(&thread);
 }
 
 void frr_early_fini(void)
@@ -1173,7 +1222,7 @@ void frr_fini(void)
 {
 	FILE *fp;
 	char filename[128];
-	int have_leftovers;
+	int have_leftovers = 0;
 
 	hook_call(frr_fini);
 
@@ -1185,26 +1234,29 @@ void frr_fini(void)
 	db_close();
 #endif
 	log_ref_fini();
+
+#ifdef HAVE_SCRIPTING
+	frrscript_fini();
+#endif
 	frr_pthread_finish();
 	zprivs_terminate(di->privs);
 	/* signal_init -> nothing needed */
-	thread_master_free(master);
+	event_master_free(master);
 	master = NULL;
 	zlog_tls_buffer_fini();
 	zlog_fini();
 	/* frrmod_init -> nothing needed / hooks */
 	rcu_shutdown();
 
-	if (!debug_memstats_at_exit)
-		return;
-
-	have_leftovers = log_memstats(stderr, di->name);
+	/* also log memstats to stderr when stderr goes to a file*/
+	if (debug_memstats_at_exit || !isatty(STDERR_FILENO))
+		have_leftovers = log_memstats(stderr, di->name);
 
 	/* in case we decide at runtime that we want exit-memstats for
-	 * a daemon, but it has no stderr because it's daemonized
+	 * a daemon
 	 * (only do this if we actually have something to print though)
 	 */
-	if (!have_leftovers)
+	if (!debug_memstats_at_exit || !have_leftovers)
 		return;
 
 	snprintf(filename, sizeof(filename), "/tmp/frr-memstats-%s-%llu-%llu",

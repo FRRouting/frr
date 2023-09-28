@@ -13,7 +13,7 @@ operation (and not a set of APIs.)  The core ideas are:
   "invisible" copies.  Other threads, when they access the structure, see an
   older (but consistent) copy.
 
-* once done, the updated copy is swapped in in a single operation so that
+* once done, the updated copy is swapped in a single operation so that
   other threads see either the old or the new data but no inconsistent state
   between.
 
@@ -120,7 +120,7 @@ atomic ops & datastructures with other types of locking, e.g. rwlocks.
    The ``thread_master`` code currently always holds RCU everywhere, except
    while doing the actual ``poll()`` syscall.  This is both an optimization as
    well as an "easement" into getting RCU going.  The current implementation
-   contract is that any ``struct thread *`` callback is called with a RCU
+   contract is that any ``struct event *`` callback is called with a RCU
    holding depth of 1, and that this is owned by the thread so it may (should)
    drop and reacquire it when doing some longer-running work.
 
@@ -133,9 +133,9 @@ atomic ops & datastructures with other types of locking, e.g. rwlocks.
       become invalid, as another thread may have called :c:func:`rcu_free` on
       them.
 
-.. c:type:: struct rcu_head
-.. c:type:: struct rcu_head_close
-.. c:type:: struct rcu_action
+.. c:struct:: rcu_head
+.. c:struct:: rcu_head_close
+.. c:struct:: rcu_action
 
    The ``rcu_head`` structures are small (16-byte) bits that contain the
    queueing machinery for the RCU sweeper/cleanup mechanisms.
@@ -209,7 +209,7 @@ atomic ops & datastructures with other types of locking, e.g. rwlocks.
 Internals
 ^^^^^^^^^
 
-.. c:type:: struct rcu_thread
+.. c:struct:: rcu_thread
 
    Per-thread state maintained by the RCU code, set up by the following
    functions.  A pointer to a thread's own ``rcu_thread`` is saved in

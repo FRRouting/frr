@@ -1,23 +1,9 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * FRR filter CLI implementation.
  *
  * Copyright (C) 2019 Network Device Education Foundation, Inc. ("NetDEF")
  *                    Rafael Zalamena
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
- * 02110-1301 USA.
  */
 
 #include "zebra.h"
@@ -31,15 +17,10 @@
 #include "lib/plist_int.h"
 #include "lib/printfrr.h"
 
-#ifndef VTYSH_EXTRACT_PL
 #include "lib/filter_cli_clippy.c"
-#endif /* VTYSH_EXTRACT_PL */
 
 #define ACCESS_LIST_STR "Access list entry\n"
-#define ACCESS_LIST_LEG_STR "IP standard access list\n"
-#define ACCESS_LIST_ELEG_STR "IP extended access list\n"
-#define ACCESS_LIST_ELEG_EXT_STR "IP extended access list (expanded range)\n"
-#define ACCESS_LIST_ZEBRA_STR "Access list entry\n"
+#define ACCESS_LIST_ZEBRA_STR "Access list name\n"
 #define ACCESS_LIST_SEQ_STR                                                    \
 	"Sequence number of an entry\n"                                        \
 	"Sequence number\n"
@@ -71,16 +52,21 @@ static int acl_get_seq_cb(const struct lyd_node *dnode, void *arg)
  *
  * \param[in] vty shell context with the candidate configuration.
  * \param[in] xpath the XPath to look for the sequence leaf.
- * \returns next unused sequence number.
+ * \returns next unused sequence number, -1 if out of range when adding.
  */
-static long acl_get_seq(struct vty *vty, const char *xpath)
+static int64_t acl_get_seq(struct vty *vty, const char *xpath, bool is_remove)
 {
 	int64_t seq = 0;
 
 	yang_dnode_iterate(acl_get_seq_cb, &seq, vty->candidate_config->dnode,
 			   "%s/entry", xpath);
 
-	return seq + 5;
+	seq += 5;
+	if (!is_remove && seq > UINT32_MAX) {
+		vty_out(vty, "%% Malformed sequence value\n");
+		return -1;
+	}
+	return seq;
 }
 
 static int acl_remove_if_empty(struct vty *vty, const char *iptype,
@@ -103,7 +89,7 @@ static int acl_remove_if_empty(struct vty *vty, const char *iptype,
 	 * NOTE: if the list is empty it will return the first sequence
 	 * number: 5.
 	 */
-	if (acl_get_seq(vty, xpath) != 5)
+	if (acl_get_seq(vty, xpath, true) != 5)
 		return CMD_SUCCESS;
 
 	/* Nobody is using this list, lets remove it. */
@@ -137,7 +123,7 @@ DEFPY_YANG(
 	access_list_std, access_list_std_cmd,
 	"access-list WORD$name [seq (1-4294967295)$seq] <deny|permit>$action <[host] A.B.C.D$host|A.B.C.D$host A.B.C.D$mask>",
 	ACCESS_LIST_STR
-	ACCESS_LIST_LEG_STR
+	ACCESS_LIST_ZEBRA_STR
 	ACCESS_LIST_SEQ_STR
 	ACCESS_LIST_ACTION_STR
 	"A single host address\n"
@@ -154,27 +140,24 @@ DEFPY_YANG(
 	 * Backward compatibility: don't complain about duplicated values,
 	 * just silently accept.
 	 */
-	if (seq_str == NULL) {
-		ada.ada_type = "ipv4";
-		ada.ada_name = name;
-		ada.ada_action = action;
-		if (host_str && mask_str == NULL) {
-			ada.ada_xpath[0] = "./host";
-			ada.ada_value[0] = host_str;
-		} else if (host_str && mask_str) {
-			ada.ada_xpath[0] = "./network/address";
-			ada.ada_value[0] = host_str;
-			ada.ada_xpath[1] = "./network/mask";
-			ada.ada_value[1] = mask_str;
-		} else {
-			ada.ada_xpath[0] = "./source-any";
-			ada.ada_value[0] = "";
-		}
-
-		/* Duplicated entry without sequence, just quit. */
-		if (acl_is_dup(vty->candidate_config->dnode, &ada))
-			return CMD_SUCCESS;
+	ada.ada_type = "ipv4";
+	ada.ada_name = name;
+	ada.ada_action = action;
+	if (host_str && mask_str == NULL) {
+		ada.ada_xpath[0] = "./host";
+		ada.ada_value[0] = host_str;
+	} else if (host_str && mask_str) {
+		ada.ada_xpath[0] = "./network/address";
+		ada.ada_value[0] = host_str;
+		ada.ada_xpath[1] = "./network/mask";
+		ada.ada_value[1] = mask_str;
+	} else {
+		ada.ada_xpath[0] = "./source-any";
+		ada.ada_value[0] = "";
 	}
+
+	if (acl_is_dup(vty->candidate_config->dnode, &ada))
+		return CMD_SUCCESS;
 
 	/*
 	 * Create the access-list first, so we can generate sequence if
@@ -182,16 +165,19 @@ DEFPY_YANG(
 	 */
 	snprintf(xpath, sizeof(xpath),
 		 "/frr-filter:lib/access-list[type='ipv4'][name='%s']", name);
-	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
 	if (seq_str == NULL) {
 		/* Use XPath to find the next sequence number. */
-		sseq = acl_get_seq(vty, xpath);
+		sseq = acl_get_seq(vty, xpath, false);
+		if (sseq < 0)
+			return CMD_WARNING_CONFIG_FAILED;
+
 		snprintfrr(xpath_entry, sizeof(xpath_entry),
 			   "%s/entry[sequence='%" PRId64 "']", xpath, sseq);
 	} else
 		snprintfrr(xpath_entry, sizeof(xpath_entry),
 			   "%s/entry[sequence='%s']", xpath, seq_str);
 
+	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
 	nb_cli_enqueue_change(vty, xpath_entry, NB_OP_CREATE, NULL);
 
 	nb_cli_enqueue_change(vty, "./action", NB_OP_MODIFY, action);
@@ -206,7 +192,7 @@ DEFPY_YANG(
 		nb_cli_enqueue_change(vty, "./source-any", NB_OP_CREATE, NULL);
 	}
 
-	return nb_cli_apply_changes(vty, xpath_entry);
+	return nb_cli_apply_changes(vty, "%s", xpath_entry);
 }
 
 DEFPY_YANG(
@@ -214,7 +200,7 @@ DEFPY_YANG(
 	"no access-list WORD$name [seq (1-4294967295)$seq] <deny|permit>$action <[host] A.B.C.D$host|A.B.C.D$host A.B.C.D$mask>",
 	NO_STR
 	ACCESS_LIST_STR
-	ACCESS_LIST_LEG_STR
+	ACCESS_LIST_ZEBRA_STR
 	ACCESS_LIST_SEQ_STR
 	ACCESS_LIST_ACTION_STR
 	"A single host address\n"
@@ -258,7 +244,7 @@ DEFPY_YANG(
 	access_list_ext, access_list_ext_cmd,
 	"access-list WORD$name [seq (1-4294967295)$seq] <deny|permit>$action ip <A.B.C.D$src A.B.C.D$src_mask|host A.B.C.D$src|any> <A.B.C.D$dst A.B.C.D$dst_mask|host A.B.C.D$dst|any>",
 	ACCESS_LIST_STR
-	ACCESS_LIST_ELEG_STR
+	ACCESS_LIST_ZEBRA_STR
 	ACCESS_LIST_SEQ_STR
 	ACCESS_LIST_ACTION_STR
 	"IPv4 address\n"
@@ -283,48 +269,45 @@ DEFPY_YANG(
 	 * Backward compatibility: don't complain about duplicated values,
 	 * just silently accept.
 	 */
-	if (seq_str == NULL) {
-		ada.ada_type = "ipv4";
-		ada.ada_name = name;
-		ada.ada_action = action;
-		if (src_str && src_mask_str == NULL) {
-			ada.ada_xpath[idx] = "./host";
-			ada.ada_value[idx] = src_str;
-			idx++;
-		} else if (src_str && src_mask_str) {
-			ada.ada_xpath[idx] = "./network/address";
-			ada.ada_value[idx] = src_str;
-			idx++;
-			ada.ada_xpath[idx] = "./network/mask";
-			ada.ada_value[idx] = src_mask_str;
-			idx++;
-		} else {
-			ada.ada_xpath[idx] = "./source-any";
-			ada.ada_value[idx] = "";
-			idx++;
-		}
-
-		if (dst_str && dst_mask_str == NULL) {
-			ada.ada_xpath[idx] = "./destination-host";
-			ada.ada_value[idx] = dst_str;
-			idx++;
-		} else if (dst_str && dst_mask_str) {
-			ada.ada_xpath[idx] = "./destination-network/address";
-			ada.ada_value[idx] = dst_str;
-			idx++;
-			ada.ada_xpath[idx] = "./destination-network/mask";
-			ada.ada_value[idx] = dst_mask_str;
-			idx++;
-		} else {
-			ada.ada_xpath[idx] = "./destination-any";
-			ada.ada_value[idx] = "";
-			idx++;
-		}
-
-		/* Duplicated entry without sequence, just quit. */
-		if (acl_is_dup(vty->candidate_config->dnode, &ada))
-			return CMD_SUCCESS;
+	ada.ada_type = "ipv4";
+	ada.ada_name = name;
+	ada.ada_action = action;
+	if (src_str && src_mask_str == NULL) {
+		ada.ada_xpath[idx] = "./host";
+		ada.ada_value[idx] = src_str;
+		idx++;
+	} else if (src_str && src_mask_str) {
+		ada.ada_xpath[idx] = "./network/address";
+		ada.ada_value[idx] = src_str;
+		idx++;
+		ada.ada_xpath[idx] = "./network/mask";
+		ada.ada_value[idx] = src_mask_str;
+		idx++;
+	} else {
+		ada.ada_xpath[idx] = "./source-any";
+		ada.ada_value[idx] = "";
+		idx++;
 	}
+
+	if (dst_str && dst_mask_str == NULL) {
+		ada.ada_xpath[idx] = "./destination-host";
+		ada.ada_value[idx] = dst_str;
+		idx++;
+	} else if (dst_str && dst_mask_str) {
+		ada.ada_xpath[idx] = "./destination-network/address";
+		ada.ada_value[idx] = dst_str;
+		idx++;
+		ada.ada_xpath[idx] = "./destination-network/mask";
+		ada.ada_value[idx] = dst_mask_str;
+		idx++;
+	} else {
+		ada.ada_xpath[idx] = "./destination-any";
+		ada.ada_value[idx] = "";
+		idx++;
+	}
+
+	if (acl_is_dup(vty->candidate_config->dnode, &ada))
+		return CMD_SUCCESS;
 
 	/*
 	 * Create the access-list first, so we can generate sequence if
@@ -332,16 +315,19 @@ DEFPY_YANG(
 	 */
 	snprintf(xpath, sizeof(xpath),
 		 "/frr-filter:lib/access-list[type='ipv4'][name='%s']", name);
-	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
 	if (seq_str == NULL) {
 		/* Use XPath to find the next sequence number. */
-		sseq = acl_get_seq(vty, xpath);
+		sseq = acl_get_seq(vty, xpath, false);
+		if (sseq < 0)
+			return CMD_WARNING_CONFIG_FAILED;
+
 		snprintfrr(xpath_entry, sizeof(xpath_entry),
 			   "%s/entry[sequence='%" PRId64 "']", xpath, sseq);
 	} else
 		snprintfrr(xpath_entry, sizeof(xpath_entry),
 			   "%s/entry[sequence='%s']", xpath, seq_str);
 
+	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
 	nb_cli_enqueue_change(vty, xpath_entry, NB_OP_CREATE, NULL);
 
 	nb_cli_enqueue_change(vty, "./action", NB_OP_MODIFY, action);
@@ -369,7 +355,7 @@ DEFPY_YANG(
 				      NULL);
 	}
 
-	return nb_cli_apply_changes(vty, xpath_entry);
+	return nb_cli_apply_changes(vty, "%s", xpath_entry);
 }
 
 DEFPY_YANG(
@@ -377,7 +363,7 @@ DEFPY_YANG(
 	"no access-list WORD$name [seq (1-4294967295)$seq] <deny|permit>$action ip <A.B.C.D$src A.B.C.D$src_mask|host A.B.C.D$src|any> <A.B.C.D$dst A.B.C.D$dst_mask|host A.B.C.D$dst|any>",
 	NO_STR
 	ACCESS_LIST_STR
-	ACCESS_LIST_ELEG_STR
+	ACCESS_LIST_ZEBRA_STR
 	ACCESS_LIST_SEQ_STR
 	ACCESS_LIST_ACTION_STR
 	"Any Internet Protocol\n"
@@ -469,27 +455,24 @@ DEFPY_YANG(
 	 * Backward compatibility: don't complain about duplicated values,
 	 * just silently accept.
 	 */
-	if (seq_str == NULL) {
-		ada.ada_type = "ipv4";
-		ada.ada_name = name;
-		ada.ada_action = action;
+	ada.ada_type = "ipv4";
+	ada.ada_name = name;
+	ada.ada_action = action;
 
-		if (prefix_str) {
-			ada.ada_xpath[0] = "./ipv4-prefix";
-			ada.ada_value[0] = prefix_str;
-			if (exact) {
-				ada.ada_xpath[1] = "./ipv4-exact-match";
-				ada.ada_value[1] = "true";
-			}
-		} else {
-			ada.ada_xpath[0] = "./any";
-			ada.ada_value[0] = "";
+	if (prefix_str) {
+		ada.ada_xpath[0] = "./ipv4-prefix";
+		ada.ada_value[0] = prefix_str;
+		if (exact) {
+			ada.ada_xpath[1] = "./ipv4-exact-match";
+			ada.ada_value[1] = "true";
 		}
-
-		/* Duplicated entry without sequence, just quit. */
-		if (acl_is_dup(vty->candidate_config->dnode, &ada))
-			return CMD_SUCCESS;
+	} else {
+		ada.ada_xpath[0] = "./any";
+		ada.ada_value[0] = "";
 	}
+
+	if (acl_is_dup(vty->candidate_config->dnode, &ada))
+		return CMD_SUCCESS;
 
 	/*
 	 * Create the access-list first, so we can generate sequence if
@@ -497,16 +480,19 @@ DEFPY_YANG(
 	 */
 	snprintf(xpath, sizeof(xpath),
 		 "/frr-filter:lib/access-list[type='ipv4'][name='%s']", name);
-	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
 	if (seq_str == NULL) {
 		/* Use XPath to find the next sequence number. */
-		sseq = acl_get_seq(vty, xpath);
+		sseq = acl_get_seq(vty, xpath, false);
+		if (sseq < 0)
+			return CMD_WARNING_CONFIG_FAILED;
+
 		snprintfrr(xpath_entry, sizeof(xpath_entry),
 			   "%s/entry[sequence='%" PRId64 "']", xpath, sseq);
 	} else
 		snprintfrr(xpath_entry, sizeof(xpath_entry),
 			   "%s/entry[sequence='%s']", xpath, seq_str);
 
+	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
 	nb_cli_enqueue_change(vty, xpath_entry, NB_OP_CREATE, NULL);
 
 	nb_cli_enqueue_change(vty, "./action", NB_OP_MODIFY, action);
@@ -519,7 +505,7 @@ DEFPY_YANG(
 		nb_cli_enqueue_change(vty, "./any", NB_OP_CREATE, NULL);
 	}
 
-	return nb_cli_apply_changes(vty, xpath_entry);
+	return nb_cli_apply_changes(vty, "%s", xpath_entry);
 }
 
 DEFPY_YANG(
@@ -600,7 +586,7 @@ DEFPY_YANG(
 
 	remark = argv_concat(argv, argc, 3);
 	nb_cli_enqueue_change(vty, "./remark", NB_OP_CREATE, remark);
-	rv = nb_cli_apply_changes(vty, xpath);
+	rv = nb_cli_apply_changes(vty, "%s", xpath);
 	XFREE(MTYPE_TMP, remark);
 
 	return rv;
@@ -659,27 +645,24 @@ DEFPY_YANG(
 	 * Backward compatibility: don't complain about duplicated values,
 	 * just silently accept.
 	 */
-	if (seq_str == NULL) {
-		ada.ada_type = "ipv6";
-		ada.ada_name = name;
-		ada.ada_action = action;
+	ada.ada_type = "ipv6";
+	ada.ada_name = name;
+	ada.ada_action = action;
 
-		if (prefix_str) {
-			ada.ada_xpath[0] = "./ipv6-prefix";
-			ada.ada_value[0] = prefix_str;
-			if (exact) {
-				ada.ada_xpath[1] = "./ipv6-exact-match";
-				ada.ada_value[1] = "true";
-			}
-		} else {
-			ada.ada_xpath[0] = "./any";
-			ada.ada_value[0] = "";
+	if (prefix_str) {
+		ada.ada_xpath[0] = "./ipv6-prefix";
+		ada.ada_value[0] = prefix_str;
+		if (exact) {
+			ada.ada_xpath[1] = "./ipv6-exact-match";
+			ada.ada_value[1] = "true";
 		}
-
-		/* Duplicated entry without sequence, just quit. */
-		if (acl_is_dup(vty->candidate_config->dnode, &ada))
-			return CMD_SUCCESS;
+	} else {
+		ada.ada_xpath[0] = "./any";
+		ada.ada_value[0] = "";
 	}
+
+	if (acl_is_dup(vty->candidate_config->dnode, &ada))
+		return CMD_SUCCESS;
 
 	/*
 	 * Create the access-list first, so we can generate sequence if
@@ -687,16 +670,19 @@ DEFPY_YANG(
 	 */
 	snprintf(xpath, sizeof(xpath),
 		 "/frr-filter:lib/access-list[type='ipv6'][name='%s']", name);
-	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
 	if (seq_str == NULL) {
 		/* Use XPath to find the next sequence number. */
-		sseq = acl_get_seq(vty, xpath);
+		sseq = acl_get_seq(vty, xpath, false);
+		if (sseq < 0)
+			return CMD_WARNING_CONFIG_FAILED;
+
 		snprintfrr(xpath_entry, sizeof(xpath_entry),
 			   "%s/entry[sequence='%" PRId64 "']", xpath, sseq);
 	} else
 		snprintfrr(xpath_entry, sizeof(xpath_entry),
 			   "%s/entry[sequence='%s']", xpath, seq_str);
 
+	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
 	nb_cli_enqueue_change(vty, xpath_entry, NB_OP_CREATE, NULL);
 
 	nb_cli_enqueue_change(vty, "./action", NB_OP_MODIFY, action);
@@ -709,7 +695,7 @@ DEFPY_YANG(
 		nb_cli_enqueue_change(vty, "./any", NB_OP_CREATE, NULL);
 	}
 
-	return nb_cli_apply_changes(vty, xpath_entry);
+	return nb_cli_apply_changes(vty, "%s", xpath_entry);
 }
 
 DEFPY_YANG(
@@ -793,7 +779,7 @@ DEFPY_YANG(
 
 	remark = argv_concat(argv, argc, 4);
 	nb_cli_enqueue_change(vty, "./remark", NB_OP_CREATE, remark);
-	rv = nb_cli_apply_changes(vty, xpath);
+	rv = nb_cli_apply_changes(vty, "%s", xpath);
 	XFREE(MTYPE_TMP, remark);
 
 	return rv;
@@ -825,7 +811,7 @@ DEFPY_YANG(
 
 ALIAS(
 	no_ipv6_access_list_remark, no_ipv6_access_list_remark_line_cmd,
-	"no ipv6 access-list WORD$name remark LINE...",
+	"no ipv6 access-list ACCESSLIST6_NAME$name remark LINE...",
 	NO_STR
 	IPV6_STR
 	ACCESS_LIST_STR
@@ -835,7 +821,7 @@ ALIAS(
 
 DEFPY_YANG(
 	mac_access_list, mac_access_list_cmd,
-	"mac access-list WORD$name [seq (1-4294967295)$seq] <deny|permit>$action <X:X:X:X:X:X$mac|any>",
+	"mac access-list ACCESSLIST_MAC_NAME$name [seq (1-4294967295)$seq] <deny|permit>$action <X:X:X:X:X:X$mac|any>",
 	MAC_STR
 	ACCESS_LIST_STR
 	ACCESS_LIST_ZEBRA_STR
@@ -853,23 +839,20 @@ DEFPY_YANG(
 	 * Backward compatibility: don't complain about duplicated values,
 	 * just silently accept.
 	 */
-	if (seq_str == NULL) {
-		ada.ada_type = "mac";
-		ada.ada_name = name;
-		ada.ada_action = action;
+	ada.ada_type = "mac";
+	ada.ada_name = name;
+	ada.ada_action = action;
 
-		if (mac_str) {
-			ada.ada_xpath[0] = "./mac";
-			ada.ada_value[0] = mac_str;
-		} else {
-			ada.ada_xpath[0] = "./any";
-			ada.ada_value[0] = "";
-		}
-
-		/* Duplicated entry without sequence, just quit. */
-		if (acl_is_dup(vty->candidate_config->dnode, &ada))
-			return CMD_SUCCESS;
+	if (mac_str) {
+		ada.ada_xpath[0] = "./mac";
+		ada.ada_value[0] = mac_str;
+	} else {
+		ada.ada_xpath[0] = "./any";
+		ada.ada_value[0] = "";
 	}
+
+	if (acl_is_dup(vty->candidate_config->dnode, &ada))
+		return CMD_SUCCESS;
 
 	/*
 	 * Create the access-list first, so we can generate sequence if
@@ -877,16 +860,19 @@ DEFPY_YANG(
 	 */
 	snprintf(xpath, sizeof(xpath),
 		 "/frr-filter:lib/access-list[type='mac'][name='%s']", name);
-	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
 	if (seq_str == NULL) {
 		/* Use XPath to find the next sequence number. */
-		sseq = acl_get_seq(vty, xpath);
+		sseq = acl_get_seq(vty, xpath, false);
+		if (sseq < 0)
+			return CMD_WARNING_CONFIG_FAILED;
+
 		snprintfrr(xpath_entry, sizeof(xpath_entry),
 			   "%s/entry[sequence='%" PRId64 "']", xpath, sseq);
 	} else
 		snprintfrr(xpath_entry, sizeof(xpath_entry),
 			   "%s/entry[sequence='%s']", xpath, seq_str);
 
+	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
 	nb_cli_enqueue_change(vty, xpath_entry, NB_OP_CREATE, NULL);
 
 	nb_cli_enqueue_change(vty, "./action", NB_OP_MODIFY, action);
@@ -896,12 +882,12 @@ DEFPY_YANG(
 		nb_cli_enqueue_change(vty, "./any", NB_OP_CREATE, NULL);
 	}
 
-	return nb_cli_apply_changes(vty, xpath_entry);
+	return nb_cli_apply_changes(vty, "%s", xpath_entry);
 }
 
 DEFPY_YANG(
 	no_mac_access_list, no_mac_access_list_cmd,
-	"no mac access-list WORD$name [seq (1-4294967295)$seq] <deny|permit>$action <X:X:X:X:X:X$mac|any>",
+	"no mac access-list ACCESSLIST_MAC_NAME$name [seq (1-4294967295)$seq] <deny|permit>$action <X:X:X:X:X:X$mac|any>",
 	NO_STR
 	MAC_STR
 	ACCESS_LIST_STR
@@ -941,7 +927,7 @@ DEFPY_YANG(
 
 DEFPY_YANG(
 	no_mac_access_list_all, no_mac_access_list_all_cmd,
-	"no mac access-list WORD$name",
+	"no mac access-list ACCESSLIST_MAC_NAME$name",
 	NO_STR
 	MAC_STR
 	ACCESS_LIST_STR
@@ -958,7 +944,7 @@ DEFPY_YANG(
 
 DEFPY_YANG(
 	mac_access_list_remark, mac_access_list_remark_cmd,
-	"mac access-list WORD$name remark LINE...",
+	"mac access-list ACCESSLIST_MAC_NAME$name remark LINE...",
 	MAC_STR
 	ACCESS_LIST_STR
 	ACCESS_LIST_ZEBRA_STR
@@ -975,7 +961,7 @@ DEFPY_YANG(
 
 	remark = argv_concat(argv, argc, 4);
 	nb_cli_enqueue_change(vty, "./remark", NB_OP_CREATE, remark);
-	rv = nb_cli_apply_changes(vty, xpath);
+	rv = nb_cli_apply_changes(vty, "%s", xpath);
 	XFREE(MTYPE_TMP, remark);
 
 	return rv;
@@ -983,7 +969,7 @@ DEFPY_YANG(
 
 DEFPY_YANG(
 	no_mac_access_list_remark, no_mac_access_list_remark_cmd,
-	"no mac access-list WORD$name remark",
+	"no mac access-list ACCESSLIST_MAC_NAME$name remark",
 	NO_STR
 	MAC_STR
 	ACCESS_LIST_STR
@@ -1007,7 +993,7 @@ DEFPY_YANG(
 
 ALIAS(
 	no_mac_access_list_remark, no_mac_access_list_remark_line_cmd,
-	"no mac access-list WORD$name remark LINE...",
+	"no mac access-list ACCESSLIST_MAC_NAME$name remark LINE...",
 	NO_STR
 	MAC_STR
 	ACCESS_LIST_STR
@@ -1015,7 +1001,8 @@ ALIAS(
 	ACCESS_LIST_REMARK_STR
 	ACCESS_LIST_REMARK_LINE_STR)
 
-int access_list_cmp(struct lyd_node *dnode1, struct lyd_node *dnode2)
+int access_list_cmp(const struct lyd_node *dnode1,
+		    const struct lyd_node *dnode2)
 {
 	uint32_t seq1 = yang_dnode_get_uint32(dnode1, "./sequence");
 	uint32_t seq2 = yang_dnode_get_uint32(dnode2, "./sequence");
@@ -1023,7 +1010,7 @@ int access_list_cmp(struct lyd_node *dnode1, struct lyd_node *dnode2)
 	return seq1 - seq2;
 }
 
-void access_list_show(struct vty *vty, struct lyd_node *dnode,
+void access_list_show(struct vty *vty, const struct lyd_node *dnode,
 		      bool show_defaults)
 {
 	int type = yang_dnode_get_enum(dnode, "../type");
@@ -1137,7 +1124,7 @@ void access_list_show(struct vty *vty, struct lyd_node *dnode,
 	vty_out(vty, "\n");
 }
 
-void access_list_remark_show(struct vty *vty, struct lyd_node *dnode,
+void access_list_remark_show(struct vty *vty, const struct lyd_node *dnode,
 			     bool show_defaults)
 {
 	int type = yang_dnode_get_enum(dnode, "../type");
@@ -1186,7 +1173,7 @@ static int plist_remove_if_empty(struct vty *vty, const char *iptype,
 	 * NOTE: if the list is empty it will return the first sequence
 	 * number: 5.
 	 */
-	if (acl_get_seq(vty, xpath) != 5)
+	if (acl_get_seq(vty, xpath, true) != 5)
 		return CMD_SUCCESS;
 
 	/* Nobody is using this list, lets remove it. */
@@ -1274,21 +1261,15 @@ DEFPY_YANG(
 	 * Backward compatibility: don't complain about duplicated values,
 	 * just silently accept.
 	 */
-	if (seq_str == NULL) {
-		pda.pda_type = "ipv4";
-		pda.pda_name = name;
-		pda.pda_action = action;
-		if (prefix_str) {
-			prefix_copy(&pda.prefix, prefix);
-			pda.ge = ge;
-			pda.le = le;
-		} else {
-			pda.any = true;
-		}
-
-		/* Duplicated entry without sequence, just quit. */
-		if (plist_is_dup(vty->candidate_config->dnode, &pda))
-			return CMD_SUCCESS;
+	pda.pda_type = "ipv4";
+	pda.pda_name = name;
+	pda.pda_action = action;
+	if (prefix_str) {
+		prefix_copy(&pda.prefix, prefix);
+		pda.ge = ge;
+		pda.le = le;
+	} else {
+		pda.any = true;
 	}
 
 	/*
@@ -1297,16 +1278,19 @@ DEFPY_YANG(
 	 */
 	snprintf(xpath, sizeof(xpath),
 		 "/frr-filter:lib/prefix-list[type='ipv4'][name='%s']", name);
-	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
 	if (seq_str == NULL) {
 		/* Use XPath to find the next sequence number. */
-		sseq = acl_get_seq(vty, xpath);
+		sseq = acl_get_seq(vty, xpath, false);
+		if (sseq < 0)
+			return CMD_WARNING_CONFIG_FAILED;
+
 		snprintfrr(xpath_entry, sizeof(xpath_entry),
 			   "%s/entry[sequence='%" PRId64 "']", xpath, sseq);
 	} else
 		snprintfrr(xpath_entry, sizeof(xpath_entry),
 			   "%s/entry[sequence='%s']", xpath, seq_str);
 
+	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
 	nb_cli_enqueue_change(vty, xpath_entry, NB_OP_CREATE, NULL);
 
 	nb_cli_enqueue_change(vty, "./action", NB_OP_MODIFY, action);
@@ -1339,11 +1323,12 @@ DEFPY_YANG(
 				vty, "./ipv4-prefix-length-lesser-or-equal",
 				NB_OP_DESTROY, NULL);
 		}
+		nb_cli_enqueue_change(vty, "./any", NB_OP_DESTROY, NULL);
 	} else {
 		nb_cli_enqueue_change(vty, "./any", NB_OP_CREATE, NULL);
 	}
 
-	return nb_cli_apply_changes(vty, xpath_entry);
+	return nb_cli_apply_changes(vty, "%s", xpath_entry);
 }
 
 DEFPY_YANG(
@@ -1414,7 +1399,7 @@ DEFPY_YANG(
 
 	remark = argv_concat(argv, argc, 4);
 	nb_cli_enqueue_change(vty, "./remark", NB_OP_CREATE, remark);
-	rv = nb_cli_apply_changes(vty, xpath);
+	rv = nb_cli_apply_changes(vty, "%s", xpath);
 	XFREE(MTYPE_TMP, remark);
 
 	return rv;
@@ -1478,21 +1463,15 @@ DEFPY_YANG(
 	 * Backward compatibility: don't complain about duplicated values,
 	 * just silently accept.
 	 */
-	if (seq_str == NULL) {
-		pda.pda_type = "ipv6";
-		pda.pda_name = name;
-		pda.pda_action = action;
-		if (prefix_str) {
-			prefix_copy(&pda.prefix, prefix);
-			pda.ge = ge;
-			pda.le = le;
-		} else {
-			pda.any = true;
-		}
-
-		/* Duplicated entry without sequence, just quit. */
-		if (plist_is_dup(vty->candidate_config->dnode, &pda))
-			return CMD_SUCCESS;
+	pda.pda_type = "ipv6";
+	pda.pda_name = name;
+	pda.pda_action = action;
+	if (prefix_str) {
+		prefix_copy(&pda.prefix, prefix);
+		pda.ge = ge;
+		pda.le = le;
+	} else {
+		pda.any = true;
 	}
 
 	/*
@@ -1501,16 +1480,19 @@ DEFPY_YANG(
 	 */
 	snprintf(xpath, sizeof(xpath),
 		 "/frr-filter:lib/prefix-list[type='ipv6'][name='%s']", name);
-	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
 	if (seq_str == NULL) {
 		/* Use XPath to find the next sequence number. */
-		sseq = acl_get_seq(vty, xpath);
+		sseq = acl_get_seq(vty, xpath, false);
+		if (sseq < 0)
+			return CMD_WARNING_CONFIG_FAILED;
+
 		snprintfrr(xpath_entry, sizeof(xpath_entry),
 			   "%s/entry[sequence='%" PRId64 "']", xpath, sseq);
 	} else
 		snprintfrr(xpath_entry, sizeof(xpath_entry),
 			   "%s/entry[sequence='%s']", xpath, seq_str);
 
+	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
 	nb_cli_enqueue_change(vty, xpath_entry, NB_OP_CREATE, NULL);
 
 	nb_cli_enqueue_change(vty, "./action", NB_OP_MODIFY, action);
@@ -1543,11 +1525,12 @@ DEFPY_YANG(
 				vty, "./ipv6-prefix-length-lesser-or-equal",
 				NB_OP_DESTROY, NULL);
 		}
+		nb_cli_enqueue_change(vty, "./any", NB_OP_DESTROY, NULL);
 	} else {
 		nb_cli_enqueue_change(vty, "./any", NB_OP_CREATE, NULL);
 	}
 
-	return nb_cli_apply_changes(vty, xpath_entry);
+	return nb_cli_apply_changes(vty, "%s", xpath_entry);
 }
 
 DEFPY_YANG(
@@ -1618,7 +1601,7 @@ DEFPY_YANG(
 
 	remark = argv_concat(argv, argc, 4);
 	nb_cli_enqueue_change(vty, "./remark", NB_OP_CREATE, remark);
-	rv = nb_cli_apply_changes(vty, xpath);
+	rv = nb_cli_apply_changes(vty, "%s", xpath);
 	XFREE(MTYPE_TMP, remark);
 
 	return rv;
@@ -1658,7 +1641,8 @@ ALIAS(
 	ACCESS_LIST_REMARK_STR
 	ACCESS_LIST_REMARK_LINE_STR)
 
-int prefix_list_cmp(struct lyd_node *dnode1, struct lyd_node *dnode2)
+int prefix_list_cmp(const struct lyd_node *dnode1,
+		    const struct lyd_node *dnode2)
 {
 	uint32_t seq1 = yang_dnode_get_uint32(dnode1, "./sequence");
 	uint32_t seq2 = yang_dnode_get_uint32(dnode2, "./sequence");
@@ -1666,7 +1650,7 @@ int prefix_list_cmp(struct lyd_node *dnode1, struct lyd_node *dnode2)
 	return seq1 - seq2;
 }
 
-void prefix_list_show(struct vty *vty, struct lyd_node *dnode,
+void prefix_list_show(struct vty *vty, const struct lyd_node *dnode,
 		      bool show_defaults)
 {
 	int type = yang_dnode_get_enum(dnode, "../type");
@@ -1725,7 +1709,7 @@ void prefix_list_show(struct vty *vty, struct lyd_node *dnode,
 	vty_out(vty, "\n");
 }
 
-void prefix_list_remark_show(struct vty *vty, struct lyd_node *dnode,
+void prefix_list_remark_show(struct vty *vty, const struct lyd_node *dnode,
 			     bool show_defaults)
 {
 	int type = yang_dnode_get_enum(dnode, "../type");

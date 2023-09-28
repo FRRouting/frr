@@ -1,9 +1,14 @@
+// SPDX-License-Identifier: BSD-2-Clause
 submodule frr-bgp-neighbor {
   yang-version 1.1;
 
   belongs-to frr-bgp {
     prefix "bgp";
   }
+
+  include "frr-bgp-common-multiprotocol";
+
+  include "frr-bgp-common-structure";
 
   organization
     "FRRouting";

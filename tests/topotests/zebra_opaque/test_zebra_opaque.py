@@ -1,21 +1,8 @@
 #!/usr/bin/env python
+# SPDX-License-Identifier: ISC
 
 # Copyright (c) 2021 by
 # Donatas Abraitis <donatas.abraitis@gmail.com>
-#
-# Permission to use, copy, modify, and/or distribute this software
-# for any purpose with or without fee is hereby granted, provided
-# that the above copyright notice and this permission notice appear
-# in all copies.
-#
-# THE SOFTWARE IS PROVIDED "AS IS" AND NETDEF DISCLAIMS ALL WARRANTIES
-# WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
-# MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL NETDEF BE LIABLE FOR
-# ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY
-# DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS,
-# WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS
-# ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE
-# OF THIS SOFTWARE.
 #
 
 """
@@ -35,11 +22,11 @@ sys.path.append(os.path.join(CWD, "../"))
 from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
 
-pytestmark = [pytest.mark.bgpd]
+pytestmark = [pytest.mark.bgpd, pytest.mark.ospfd, pytest.mark.ospf6d]
 
 
 def setup_module(mod):
-    topodef = {"s1": ("r1", "r2")}
+    topodef = {"s1": ("r1", "r2"), "s2": ("r3", "r4")}
     tgen = Topogen(topodef, mod.__name__)
     tgen.start_topology()
 
@@ -51,6 +38,12 @@ def setup_module(mod):
         )
         router.load_config(
             TopoRouter.RD_BGP, os.path.join(CWD, "{}/bgpd.conf".format(rname))
+        )
+        router.load_config(
+            TopoRouter.RD_OSPF, os.path.join(CWD, "{}/ospfd.conf".format(rname))
+        )
+        router.load_config(
+            TopoRouter.RD_OSPF6, os.path.join(CWD, "{}/ospf6d.conf".format(rname))
         )
 
     tgen.start_router()
@@ -67,8 +60,6 @@ def test_zebra_opaque():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    router = tgen.gears["r1"]
-
     def _bgp_converge(router):
         output = json.loads(router.vtysh_cmd("show ip route 192.168.1.0/24 json"))
         expected = {
@@ -81,10 +72,44 @@ def test_zebra_opaque():
         }
         return topotest.json_cmp(output, expected)
 
+    def _ospf_converge(router):
+        output = json.loads(router.vtysh_cmd("show ip route 192.168.1.0/24 json"))
+        expected = {
+            "192.168.1.0/24": [
+                {
+                    "ospfPathType": "Intra-Area",
+                    "ospfAreaId": "0.0.0.0",
+                }
+            ]
+        }
+        return topotest.json_cmp(output, expected)
+
+    def _ospf6_converge(router):
+        output = json.loads(router.vtysh_cmd("show ipv6 route 2001:db8:1::/64 json"))
+        expected = {
+            "2001:db8:1::/64": [
+                {
+                    "ospfPathType": "Intra-Area",
+                    "ospfAreaId": "0.0.0.0",
+                }
+            ]
+        }
+        return topotest.json_cmp(output, expected)
+
+    router = tgen.gears["r1"]
     test_func = functools.partial(_bgp_converge, router)
     success, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
-
     assert result is None, 'Cannot see BGP community aliases "{}"'.format(router)
+
+    router = tgen.gears["r3"]
+    test_func = functools.partial(_ospf_converge, router)
+    success, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+    assert result is None, 'Cannot see OSPFv2 opaque attributes "{}"'.format(router)
+
+    router = tgen.gears["r3"]
+    test_func = functools.partial(_ospf6_converge, router)
+    success, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+    assert result is None, 'Cannot see OSPFv3 opaque attributes "{}"'.format(router)
 
 
 if __name__ == "__main__":

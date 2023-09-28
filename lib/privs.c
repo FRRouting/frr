@@ -1,24 +1,9 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Zebra privileges.
  *
  * Copyright (C) 2003 Paul Jakma.
  * Copyright (c) 2005, 2011, Oracle and/or its affiliates. All rights reserved.
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 #include <zebra.h>
 #include "log.h"
@@ -163,6 +148,10 @@ static struct {
 			{
 				1, (pvalue_t[]){CAP_IPC_LOCK},
 			},
+		[ZCAP_SYS_RAWIO] =
+			{
+				1, (pvalue_t[]){CAP_SYS_RAWIO},
+			},
 #endif /* HAVE_LCAPS */
 };
 
@@ -257,8 +246,34 @@ zebra_privs_current_t zprivs_state_caps(void)
 	return ZPRIVS_LOWERED;
 }
 
+/** Release private cap state if allocated. */
+static void zprivs_state_free_caps(void)
+{
+	if (zprivs_state.syscaps_p) {
+		if (zprivs_state.syscaps_p->num)
+			XFREE(MTYPE_PRIVS, zprivs_state.syscaps_p->caps);
+
+		XFREE(MTYPE_PRIVS, zprivs_state.syscaps_p);
+	}
+
+	if (zprivs_state.syscaps_i) {
+		if (zprivs_state.syscaps_i->num)
+			XFREE(MTYPE_PRIVS, zprivs_state.syscaps_i->caps);
+
+		XFREE(MTYPE_PRIVS, zprivs_state.syscaps_i);
+	}
+
+	if (zprivs_state.caps) {
+		cap_free(zprivs_state.caps);
+		zprivs_state.caps = NULL;
+	}
+}
+
 static void zprivs_caps_init(struct zebra_privs_t *zprivs)
 {
+	/* Release allocated zcaps if this function was called before. */
+	zprivs_state_free_caps();
+
 	zprivs_state.syscaps_p = zcaps2sys(zprivs->caps_p, zprivs->cap_num_p);
 	zprivs_state.syscaps_i = zcaps2sys(zprivs->caps_i, zprivs->cap_num_i);
 
@@ -282,9 +297,6 @@ static void zprivs_caps_init(struct zebra_privs_t *zprivs)
 		}
 	}
 
-	if (!zprivs_state.syscaps_p)
-		return;
-
 	if (!(zprivs_state.caps = cap_init())) {
 		fprintf(stderr, "privs_init: failed to cap_init, %s\n",
 			safe_strerror(errno));
@@ -297,10 +309,12 @@ static void zprivs_caps_init(struct zebra_privs_t *zprivs)
 		exit(1);
 	}
 
-	/* set permitted caps */
-	cap_set_flag(zprivs_state.caps, CAP_PERMITTED,
-		     zprivs_state.syscaps_p->num, zprivs_state.syscaps_p->caps,
-		     CAP_SET);
+	/* set permitted caps, if any */
+	if (zprivs_state.syscaps_p && zprivs_state.syscaps_p->num) {
+		cap_set_flag(zprivs_state.caps, CAP_PERMITTED,
+			     zprivs_state.syscaps_p->num,
+			     zprivs_state.syscaps_p->caps, CAP_SET);
+	}
 
 	/* set inheritable caps, if any */
 	if (zprivs_state.syscaps_i && zprivs_state.syscaps_i->num) {
@@ -359,18 +373,7 @@ static void zprivs_caps_terminate(void)
 		exit(1);
 	}
 
-	/* free up private state */
-	if (zprivs_state.syscaps_p->num) {
-		XFREE(MTYPE_PRIVS, zprivs_state.syscaps_p->caps);
-		XFREE(MTYPE_PRIVS, zprivs_state.syscaps_p);
-	}
-
-	if (zprivs_state.syscaps_i && zprivs_state.syscaps_i->num) {
-		XFREE(MTYPE_PRIVS, zprivs_state.syscaps_i->caps);
-		XFREE(MTYPE_PRIVS, zprivs_state.syscaps_i);
-	}
-
-	cap_free(zprivs_state.caps);
+	zprivs_state_free_caps();
 }
 #else /* !HAVE_LCAPS */
 #error "no Linux capabilities, dazed and confused..."
@@ -485,7 +488,7 @@ struct zebra_privs_t *_zprivs_raise(struct zebra_privs_t *privs,
 	 * Serialize 'raise' operations; particularly important for
 	 * OSes where privs are process-wide.
 	 */
-	frr_with_mutex(&(privs->mutex)) {
+	frr_with_mutex (&(privs->mutex)) {
 		/* Locate ref-counting object to use */
 		refs = get_privs_refs(privs);
 
@@ -514,7 +517,7 @@ void _zprivs_lower(struct zebra_privs_t **privs)
 	/* Serialize 'lower privs' operation - particularly important
 	 * when OS privs are process-wide.
 	 */
-	frr_with_mutex(&(*privs)->mutex) {
+	frr_with_mutex (&(*privs)->mutex) {
 		refs = get_privs_refs(*privs);
 
 		if (--(refs->refcount) == 0) {
@@ -684,7 +687,7 @@ void zprivs_init(struct zebra_privs_t *zprivs)
 
 #else  /* !HAVE_CAPABILITIES */
 	/* we dont have caps. we'll need to maintain rid and saved uid
-	 * and change euid back to saved uid (who we presume has all neccessary
+	 * and change euid back to saved uid (who we presume has all necessary
 	 * privileges) whenever we are asked to raise our privileges.
 	 *
 	 * This is not worth that much security wise, but all we can do.

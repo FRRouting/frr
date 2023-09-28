@@ -3,13 +3,7 @@
 #
 
 if RIPD
-noinst_LIBRARIES += ripd/librip.a
 sbin_PROGRAMS += ripd/ripd
-vtysh_scan += \
-	ripd/rip_cli.c \
-	ripd/rip_debug.c \
-	ripd/ripd.c \
-	# end
 vtysh_daemons += ripd
 
 if SNMP
@@ -18,12 +12,14 @@ endif
 man8 += $(MANBUILD)/frr-ripd.8
 endif
 
-ripd_librip_a_SOURCES = \
+ripd_ripd_SOURCES = \
+	ripd/rip_bfd.c \
 	ripd/rip_cli.c \
 	ripd/rip_debug.c \
 	ripd/rip_errors.c \
 	ripd/rip_interface.c \
 	ripd/rip_offset.c \
+	ripd/rip_main.c \
 	ripd/rip_nb.c \
 	ripd/rip_nb_config.c \
 	ripd/rip_nb_rpcs.c \
@@ -36,10 +32,12 @@ ripd_librip_a_SOURCES = \
 	# end
 
 clippy_scan += \
+	ripd/rip_bfd.c \
 	ripd/rip_cli.c \
 	# end
 
 noinst_HEADERS += \
+	ripd/rip_bfd.h \
 	ripd/rip_debug.h \
 	ripd/rip_errors.h \
 	ripd/rip_interface.h \
@@ -47,12 +45,10 @@ noinst_HEADERS += \
 	ripd/ripd.h \
 	# end
 
-ripd_ripd_LDADD = ripd/librip.a lib/libfrr.la $(LIBCAP)
-ripd_ripd_SOURCES = \
-	ripd/rip_main.c \
-	# end
+ripd_ripd_LDADD = lib/libfrr.la $(LIBCAP)
 nodist_ripd_ripd_SOURCES = \
 	yang/frr-ripd.yang.c \
+	yang/frr-bfdd.yang.c \
 	# end
 
 ripd_ripd_snmp_la_SOURCES = ripd/rip_snmp.c

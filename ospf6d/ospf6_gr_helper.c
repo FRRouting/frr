@@ -1,24 +1,9 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * OSPF6 Graceful Restart helper functions.
  *
  * Copyright (C) 2021-22 Vmware, Inc.
  * Rajesh Kumar Girada
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -49,9 +34,7 @@
 #include "ospf6d.h"
 #include "ospf6_gr.h"
 #include "lib/json.h"
-#ifndef VTYSH_EXTRACT_PL
 #include "ospf6d/ospf6_gr_helper_clippy.c"
-#endif
 
 DEFINE_MTYPE_STATIC(OSPF6D, OSPF6_GR_HELPER, "OSPF6 Graceful restart helper");
 
@@ -127,10 +110,8 @@ static void ospf6_enable_rtr_hash_destroy(struct ospf6 *ospf6)
 	if (ospf6->ospf6_helper_cfg.enable_rtr_list == NULL)
 		return;
 
-	hash_clean(ospf6->ospf6_helper_cfg.enable_rtr_list,
-		   ospf6_disable_rtr_hash_free);
-	hash_free(ospf6->ospf6_helper_cfg.enable_rtr_list);
-	ospf6->ospf6_helper_cfg.enable_rtr_list = NULL;
+	hash_clean_and_free(&ospf6->ospf6_helper_cfg.enable_rtr_list,
+			    ospf6_disable_rtr_hash_free);
 }
 
 /*
@@ -154,11 +135,27 @@ static int ospf6_extract_grace_lsa_fields(struct ospf6_lsa *lsa,
 	int sum = 0;
 
 	lsah = (struct ospf6_lsa_header *)lsa->header;
+	if (ntohs(lsah->length) <= OSPF6_LSA_HEADER_SIZE) {
+		if (IS_DEBUG_OSPF6_GR)
+			zlog_debug("%s: undersized (%u B) lsa", __func__,
+				   ntohs(lsah->length));
+		return OSPF6_FAILURE;
+	}
 
 	length = ntohs(lsah->length) - OSPF6_LSA_HEADER_SIZE;
 
-	for (tlvh = TLV_HDR_TOP(lsah); sum < length;
+	for (tlvh = TLV_HDR_TOP(lsah); sum < length && tlvh;
 	     tlvh = TLV_HDR_NEXT(tlvh)) {
+
+		/* Check TLV len against overall LSA */
+		if (sum + TLV_SIZE(tlvh) > length) {
+			if (IS_DEBUG_OSPF6_GR)
+				zlog_debug(
+					"%s: Malformed packet: Invalid TLV len:%d",
+					__func__, TLV_SIZE(tlvh));
+			return OSPF6_FAILURE;
+		}
+
 		switch (ntohs(tlvh->type)) {
 		case GRACE_PERIOD_TYPE:
 			gracePeriod = (struct grace_tlv_graceperiod *)tlvh;
@@ -198,14 +195,11 @@ static int ospf6_extract_grace_lsa_fields(struct ospf6_lsa *lsa,
  * Returns:
  *    Nothing
  */
-static int ospf6_handle_grace_timer_expiry(struct thread *thread)
+static void ospf6_handle_grace_timer_expiry(struct event *thread)
 {
-	struct ospf6_neighbor *nbr = THREAD_ARG(thread);
-
-	nbr->gr_helper_info.t_grace_timer = NULL;
+	struct ospf6_neighbor *nbr = EVENT_ARG(thread);
 
 	ospf6_gr_helper_exit(nbr, OSPF6_GR_HELPER_GRACE_TIMEOUT);
-	return OSPF6_SUCCESS;
 }
 
 /*
@@ -234,9 +228,9 @@ static bool ospf6_check_chg_in_rxmt_list(struct ospf6_neighbor *nbr)
 					  lsa->header->adv_router, lsa->lsdb);
 
 		if (lsa_in_db && lsa_in_db->tobe_acknowledged) {
-			ospf6_lsa_unlock(lsa);
+			ospf6_lsa_unlock(&lsa);
 			if (lsanext)
-				ospf6_lsa_unlock(lsanext);
+				ospf6_lsa_unlock(&lsanext);
 
 			return OSPF6_TRUE;
 		}
@@ -284,8 +278,9 @@ int ospf6_process_grace_lsa(struct ospf6 *ospf6, struct ospf6_lsa *lsa,
 
 	if (IS_DEBUG_OSPF6_GR)
 		zlog_debug(
-			"%s, Grace LSA received from  %pI4, grace interval:%u, restart reason :%s",
-			__func__, &restarter->router_id, grace_interval,
+			"%s, Grace LSA received from %s(%pI4), grace interval:%u, restart reason:%s",
+			__func__, restarter->name, &restarter->router_id,
+			grace_interval,
 			ospf6_restart_reason_desc[restart_reason]);
 
 	/* Verify Helper enabled globally */
@@ -327,7 +322,7 @@ int ospf6_process_grace_lsa(struct ospf6 *ospf6, struct ospf6_lsa *lsa,
 	    && !OSPF6_GR_IS_PLANNED_RESTART(restart_reason)) {
 		if (IS_DEBUG_OSPF6_GR)
 			zlog_debug(
-				"%s, Router supports only planned restarts but received the GRACE LSA due a unplanned restart",
+				"%s, Router supports only planned restarts but received the GRACE LSA due to an unplanned restart",
 				__func__);
 		restarter->gr_helper_info.rejected_reason =
 			OSPF6_HELPER_PLANNED_ONLY_RESTART;
@@ -387,8 +382,7 @@ int ospf6_process_grace_lsa(struct ospf6 *ospf6, struct ospf6_lsa *lsa,
 	}
 
 	if (OSPF6_GR_IS_ACTIVE_HELPER(restarter)) {
-		if (restarter->gr_helper_info.t_grace_timer)
-			THREAD_OFF(restarter->gr_helper_info.t_grace_timer);
+		EVENT_OFF(restarter->gr_helper_info.t_grace_timer);
 
 		if (ospf6->ospf6_helper_cfg.active_restarter_cnt > 0)
 			ospf6->ospf6_helper_cfg.active_restarter_cnt--;
@@ -421,9 +415,9 @@ int ospf6_process_grace_lsa(struct ospf6 *ospf6, struct ospf6_lsa *lsa,
 			   actual_grace_interval);
 
 	/* Start the grace timer */
-	thread_add_timer(master, ospf6_handle_grace_timer_expiry, restarter,
-			 actual_grace_interval,
-			 &restarter->gr_helper_info.t_grace_timer);
+	event_add_timer(master, ospf6_handle_grace_timer_expiry, restarter,
+			actual_grace_interval,
+			&restarter->gr_helper_info.t_grace_timer);
 
 	return OSPF6_GR_ACTIVE_HELPER;
 }
@@ -476,7 +470,7 @@ void ospf6_gr_helper_exit(struct ospf6_neighbor *nbr,
 	 * expiry, stop the grace timer.
 	 */
 	if (reason != OSPF6_GR_HELPER_GRACE_TIMEOUT)
-		THREAD_OFF(nbr->gr_helper_info.t_grace_timer);
+		EVENT_OFF(nbr->gr_helper_info.t_grace_timer);
 
 	if (ospf6->ospf6_helper_cfg.active_restarter_cnt <= 0) {
 		zlog_err(
@@ -824,8 +818,8 @@ static void ospf6_gr_helper_support_set_per_routerid(struct ospf6 *ospf6,
 
 	} else {
 		/* Add the routerid to the enable router hash table */
-		hash_get(ospf6->ospf6_helper_cfg.enable_rtr_list, &temp,
-			 ospf6_enable_rtr_hash_alloc);
+		(void)hash_get(ospf6->ospf6_helper_cfg.enable_rtr_list, &temp,
+			       ospf6_enable_rtr_hash_alloc);
 	}
 }
 
@@ -839,7 +833,7 @@ static void show_ospfv6_gr_helper_per_nbr(struct vty *vty, json_object *json,
 		vty_out(vty, "   Actual Grace period : %d(in seconds)\n",
 			nbr->gr_helper_info.actual_grace_period);
 		vty_out(vty, "   Remaining GraceTime:%ld(in seconds).\n",
-			thread_timer_remain_second(
+			event_timer_remain_second(
 				nbr->gr_helper_info.t_grace_timer));
 		vty_out(vty, "   Graceful Restart reason: %s.\n\n",
 			ospf6_restart_reason_desc[nbr->gr_helper_info
@@ -856,8 +850,8 @@ static void show_ospfv6_gr_helper_per_nbr(struct vty *vty, json_object *json,
 		json_object_int_add(json_neigh, "actualGraceInterval",
 			nbr->gr_helper_info.actual_grace_period);
 		json_object_int_add(json_neigh, "remainGracetime",
-			thread_timer_remain_second(
-				nbr->gr_helper_info.t_grace_timer));
+				    event_timer_remain_second(
+					    nbr->gr_helper_info.t_grace_timer));
 		json_object_string_add(json_neigh, "restartReason",
 			ospf6_restart_reason_desc[
 				nbr->gr_helper_info.gr_restart_reason]);
@@ -943,8 +937,18 @@ static void show_ospf6_gr_helper_details(struct vty *vty, struct ospf6 *ospf6,
 			(ospf6->ospf6_helper_cfg.strict_lsa_check)
 				? "Enabled"
 				: "Disabled");
+
+#if CONFDATE > 20240401
+		CPP_NOTICE("Remove deprecated json key: restartSupoort")
+#endif
 		json_object_string_add(
 			json, "restartSupoort",
+			(ospf6->ospf6_helper_cfg.only_planned_restart)
+				? "Planned Restart only"
+				: "Planned and Unplanned Restarts");
+
+		json_object_string_add(
+			json, "restartSupport",
 			(ospf6->ospf6_helper_cfg.only_planned_restart)
 				? "Planned Restart only"
 				: "Planned and Unplanned Restarts");
@@ -953,13 +957,18 @@ static void show_ospf6_gr_helper_details(struct vty *vty, struct ospf6 *ospf6,
 			json, "supportedGracePeriod",
 			ospf6->ospf6_helper_cfg.supported_grace_time);
 
-		if (ospf6->ospf6_helper_cfg.last_exit_reason
-		    != OSPF6_GR_HELPER_EXIT_NONE)
+		if (ospf6->ospf6_helper_cfg.last_exit_reason !=
+		    OSPF6_GR_HELPER_EXIT_NONE)
 			json_object_string_add(
-				json, "LastExitReason",
+				json, "lastExitReason",
 				ospf6_exit_reason_desc
 					[ospf6->ospf6_helper_cfg
 						 .last_exit_reason]);
+
+		if (ospf6->ospf6_helper_cfg.active_restarter_cnt)
+			json_object_int_add(
+				json, "activeRestarterCnt",
+				ospf6->ospf6_helper_cfg.active_restarter_cnt);
 
 		if (OSPF6_HELPER_ENABLE_RTR_COUNT(ospf6)) {
 			struct json_object *json_rid_array =
@@ -986,13 +995,13 @@ static void show_ospf6_gr_helper_details(struct vty *vty, struct ospf6 *ospf6,
 
 				if (uj) {
 					json_object_object_get_ex(
-						json, "Neighbors",
+						json, "neighbors",
 						&json_neighbors);
 					if (!json_neighbors) {
 						json_neighbors =
 						json_object_new_object();
 						json_object_object_add(
-							json, "Neighbors",
+							json, "neighbors",
 							json_neighbors);
 					}
 				}
@@ -1180,12 +1189,8 @@ DEFPY(show_ipv6_ospf6_gr_helper,
 
 	show_ospf6_gr_helper_details(vty, ospf6, json, uj, detail);
 
-	if (uj) {
-		vty_out(vty, "%s\n",
-			json_object_to_json_string_ext(
-				json, JSON_C_TO_STRING_PRETTY));
-		json_object_free(json);
-	}
+	if (uj)
+		vty_json(vty, json);
 
 	return CMD_SUCCESS;
 }
@@ -1227,6 +1232,12 @@ static int ospf6_grace_lsa_show_info(struct vty *vty, struct ospf6_lsa *lsa,
 	int sum = 0;
 
 	lsah = (struct ospf6_lsa_header *)lsa->header;
+	if (ntohs(lsah->length) <= OSPF6_LSA_HEADER_SIZE) {
+		if (IS_DEBUG_OSPF6_GR)
+			zlog_debug("%s: undersized (%u B) lsa", __func__,
+				   ntohs(lsah->length));
+		return OSPF6_FAILURE;
+	}
 
 	length = ntohs(lsah->length) - OSPF6_LSA_HEADER_SIZE;
 
@@ -1237,8 +1248,20 @@ static int ospf6_grace_lsa_show_info(struct vty *vty, struct ospf6_lsa *lsa,
 		zlog_debug("  TLV info:");
 	}
 
-	for (tlvh = TLV_HDR_TOP(lsah); sum < length;
+	for (tlvh = TLV_HDR_TOP(lsah); sum < length && tlvh;
 	     tlvh = TLV_HDR_NEXT(tlvh)) {
+
+		/* Check TLV len */
+		if (sum + TLV_SIZE(tlvh) > length) {
+			if (vty)
+				vty_out(vty, "%% Invalid TLV length: %d\n",
+					TLV_SIZE(tlvh));
+			else if (IS_DEBUG_OSPF6_GR)
+				zlog_debug("%% Invalid TLV length: %d",
+					   TLV_SIZE(tlvh));
+			return OSPF6_FAILURE;
+		}
+
 		switch (ntohs(tlvh->type)) {
 		case GRACE_PERIOD_TYPE:
 			gracePeriod = (struct grace_tlv_graceperiod *)tlvh;

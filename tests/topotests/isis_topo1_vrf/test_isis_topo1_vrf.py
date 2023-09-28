@@ -1,23 +1,10 @@
 #!/usr/bin/env python
+# SPDX-License-Identifier: ISC
 
 #
 # Copyright (c) 2020 by  Niral Networks, Inc. ("Niral Networks")
 # Used Copyright (c) 2018 by Network Device Education Foundation,
 # Inc. ("NetDEF") in this file.
-#
-# Permission to use, copy, modify, and/or distribute this software
-# for any purpose with or without fee is hereby granted, provided
-# that the above copyright notice and this permission notice appear
-# in all copies.
-#
-# THE SOFTWARE IS PROVIDED "AS IS" AND NETDEF DISCLAIMS ALL WARRANTIES
-# WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
-# MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL NETDEF BE LIABLE FOR
-# ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY
-# DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS,
-# WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS
-# ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE
-# OF THIS SOFTWARE.
 #
 
 """
@@ -105,14 +92,20 @@ def setup_module(mod):
         "ip link add {0}-cust1 type vrf table 1001",
         "ip link add loop1 type dummy",
         "ip link set {0}-eth0 master {0}-cust1",
-        "ip link set {0}-eth1 master {0}-cust1",
     ]
+
+    eth1_cmds = ["ip link set {0}-eth1 master {0}-cust1"]
 
     # For all registered routers, load the zebra configuration file
     for rname, router in tgen.routers().items():
         # create VRF rx-cust1 and link rx-eth0 to rx-cust1
         for cmd in cmds:
             output = tgen.net[rname].cmd(cmd.format(rname))
+
+        # If router has an rX-eth1, link that to vrf also
+        if "{}-eth1".format(rname) in router.links.keys():
+            for cmd in eth1_cmds:
+                output = output + tgen.net[rname].cmd(cmd.format(rname))
 
     for rname, router in tgen.routers().items():
         router.load_config(
@@ -169,11 +162,19 @@ def test_isis_route_installation():
     for rname, router in tgen.routers().items():
         filename = "{0}/{1}/{1}_route.json".format(CWD, rname)
         expected = json.loads(open(filename, "r").read())
-        actual = router.vtysh_cmd(
-            "show ip route vrf {0}-cust1 json".format(rname), isjson=True
-        )
-        assertmsg = "Router '{}' routes mismatch".format(rname)
-        assert topotest.json_cmp(actual, expected) is None, assertmsg
+
+        def compare_routing_table(router, expected):
+            "Helper function to ensure zebra rib convergence"
+
+            actual = router.vtysh_cmd(
+                "show ip route vrf {0}-cust1 json".format(rname), isjson=True
+            )
+            return topotest.json_cmp(actual, expected)
+
+        test_func = functools.partial(compare_routing_table, router, expected)
+        (result, diff) = topotest.run_and_expect(test_func, None, count=20, wait=1)
+        assertmsg = "Router '{}' routes mismatch diff: {}".format(rname, diff)
+        assert result, assertmsg
 
 
 def test_isis_linux_route_installation():
@@ -214,12 +215,18 @@ def test_isis_route6_installation():
     for rname, router in tgen.routers().items():
         filename = "{0}/{1}/{1}_route6.json".format(CWD, rname)
         expected = json.loads(open(filename, "r").read())
-        actual = router.vtysh_cmd(
-            "show ipv6 route vrf {}-cust1 json".format(rname), isjson=True
-        )
 
-        assertmsg = "Router '{}' routes mismatch".format(rname)
-        assert topotest.json_cmp(actual, expected) is None, assertmsg
+        def compare_routing_table(router, expected):
+            "Helper function to ensure zebra rib convergence"
+            actual = router.vtysh_cmd(
+                "show ipv6 route vrf {}-cust1 json".format(rname), isjson=True
+            )
+            return topotest.json_cmp(actual, expected)
+
+        test_func = functools.partial(compare_routing_table, router, expected)
+        (result, diff) = topotest.run_and_expect(test_func, None, count=20, wait=1)
+        assertmsg = "Router '{}' routes mismatch diff: ".format(rname, diff)
+        assert result, assertmsg
 
 
 def test_isis_linux_route6_installation():

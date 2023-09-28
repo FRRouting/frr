@@ -1,22 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* BGP EVPN internal definitions
  * Copyright (C) 2017 Cumulus Networks, Inc.
- *
- * This file is part of FRR.
- *
- * FRR is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * FRR is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with FRR; see the file COPYING.  If not, write to the Free
- * Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
- * 02111-1307, USA.
  */
 
 #ifndef _BGP_EVPN_PRIVATE_H
@@ -92,6 +76,7 @@ struct bgpevpn {
 
 	/* RD for this VNI. */
 	struct prefix_rd prd;
+	char *prd_pretty;
 
 	/* Route type 3 field */
 	struct in_addr originator_ip;
@@ -112,9 +97,10 @@ struct bgpevpn {
 	 */
 	struct hash *remote_ip_hash;
 
-	/* Route table for EVPN routes for
+	/* Route tables for EVPN routes for
 	 * this VNI. */
-	struct bgp_table *route_table;
+	struct bgp_table *ip_table;
+	struct bgp_table *mac_table;
 
 	/* RB tree of ES-EVIs */
 	struct bgp_es_evi_rb_head es_evi_rb_tree;
@@ -176,6 +162,13 @@ struct bgp_evpn_info {
 	/* EVPN enable - advertise svi macip routes */
 	int advertise_svi_macip;
 
+	/* MAC-VRF Site-of-Origin
+	 * - added to all routes exported from L2VNI
+	 * - Type-2/3 routes with matching SoO not imported into L2VNI
+	 * - Type-2/5 routes with matching SoO not imported into L3VNI
+	 */
+	struct ecommunity *soo;
+
 	/* PIP feature knob */
 	bool advertise_pip;
 	/* PIP IP (sys ip) */
@@ -192,6 +185,18 @@ struct bgp_evpn_info {
 struct evpn_remote_ip {
 	struct ipaddr addr;
 	struct list *macip_path_list;
+};
+
+/*
+ * Wrapper struct for l3 RT's
+ */
+struct vrf_route_target {
+	/* flags based on config to determine how RTs are handled */
+	uint8_t flags;
+#define BGP_VRF_RT_AUTO (1 << 0)
+#define BGP_VRF_RT_WILD (1 << 1)
+
+	struct ecommunity *ecom;
 };
 
 static inline int is_vrf_rd_configured(struct bgp *bgp_vrf)
@@ -314,12 +319,6 @@ static inline int is_import_rt_configured(struct bgpevpn *vpn)
 static inline int is_export_rt_configured(struct bgpevpn *vpn)
 {
 	return (CHECK_FLAG(vpn->flags, VNI_FLAG_EXPRT_CFGD));
-}
-
-static inline int is_vni_param_configured(struct bgpevpn *vpn)
-{
-	return (is_rd_configured(vpn) || is_import_rt_configured(vpn)
-		|| is_export_rt_configured(vpn));
 }
 
 static inline void encode_es_rt_extcomm(struct ecommunity_val *eval,
@@ -456,8 +455,7 @@ static inline void build_evpn_type2_prefix(struct prefix_evpn *p,
 	p->prefix.route_type = BGP_EVPN_MAC_IP_ROUTE;
 	memcpy(&p->prefix.macip_addr.mac.octet, mac->octet, ETH_ALEN);
 	p->prefix.macip_addr.ip.ipa_type = IPADDR_NONE;
-	if (ip)
-		memcpy(&p->prefix.macip_addr.ip, ip, sizeof(*ip));
+	memcpy(&p->prefix.macip_addr.ip, ip, sizeof(*ip));
 }
 
 static inline void
@@ -532,21 +530,93 @@ static inline void evpn_type1_prefix_global_copy(struct prefix_evpn *global_p,
 	memcpy(global_p, vni_p, sizeof(*global_p));
 	global_p->prefix.ead_addr.ip.ipa_type = 0;
 	global_p->prefix.ead_addr.ip.ipaddr_v4.s_addr = INADDR_ANY;
+	global_p->prefix.ead_addr.frag_id = 0;
 }
 
 /* EAD prefix in the global table doesn't include the VTEP-IP so
  * we need to create a different copy for the VNI
  */
-static inline struct prefix_evpn *evpn_type1_prefix_vni_copy(
-		struct prefix_evpn *vni_p,
-		const struct prefix_evpn *global_p,
-		struct in_addr originator_ip)
+static inline struct prefix_evpn *
+evpn_type1_prefix_vni_ip_copy(struct prefix_evpn *vni_p,
+			      const struct prefix_evpn *global_p,
+			      struct in_addr originator_ip)
 {
 	memcpy(vni_p, global_p, sizeof(*vni_p));
 	vni_p->prefix.ead_addr.ip.ipa_type = IPADDR_V4;
 	vni_p->prefix.ead_addr.ip.ipaddr_v4 = originator_ip;
 
 	return vni_p;
+}
+
+static inline void evpn_type2_prefix_global_copy(
+	struct prefix_evpn *global_p, const struct prefix_evpn *vni_p,
+	const struct ethaddr *mac, const struct ipaddr *ip)
+{
+	memcpy(global_p, vni_p, sizeof(*global_p));
+
+	if (mac)
+		global_p->prefix.macip_addr.mac = *mac;
+
+	if (ip)
+		global_p->prefix.macip_addr.ip = *ip;
+}
+
+static inline void
+evpn_type2_prefix_vni_ip_copy(struct prefix_evpn *vni_p,
+			      const struct prefix_evpn *global_p)
+{
+	memcpy(vni_p, global_p, sizeof(*vni_p));
+	memset(&vni_p->prefix.macip_addr.mac, 0, sizeof(struct ethaddr));
+}
+
+static inline void
+evpn_type2_prefix_vni_mac_copy(struct prefix_evpn *vni_p,
+			       const struct prefix_evpn *global_p)
+{
+	memcpy(vni_p, global_p, sizeof(*vni_p));
+	memset(&vni_p->prefix.macip_addr.ip, 0, sizeof(struct ipaddr));
+}
+
+/* Get MAC of path_info prefix */
+static inline struct ethaddr *
+evpn_type2_path_info_get_mac(const struct bgp_path_info *local_pi)
+{
+	assert(local_pi->extra && local_pi->extra->evpn);
+	return &local_pi->extra->evpn->vni_info.mac;
+}
+
+/* Get IP of path_info prefix */
+static inline struct ipaddr *
+evpn_type2_path_info_get_ip(const struct bgp_path_info *local_pi)
+{
+	assert(local_pi->extra && local_pi->extra->evpn);
+	return &local_pi->extra->evpn->vni_info.ip;
+}
+
+/* Set MAC of path_info prefix */
+static inline void evpn_type2_path_info_set_mac(struct bgp_path_info *local_pi,
+						const struct ethaddr mac)
+{
+	assert(local_pi->extra && local_pi->extra->evpn);
+	local_pi->extra->evpn->vni_info.mac = mac;
+}
+
+/* Set IP of path_info prefix */
+static inline void evpn_type2_path_info_set_ip(struct bgp_path_info *local_pi,
+					       const struct ipaddr ip)
+{
+	assert(local_pi->extra && local_pi->extra->evpn);
+	local_pi->extra->evpn->vni_info.ip = ip;
+}
+
+/* Is the IP empty for the RT's dest? */
+static inline bool is_evpn_type2_dest_ipaddr_none(const struct bgp_dest *dest)
+{
+	const struct prefix_evpn *evp =
+		(const struct prefix_evpn *)bgp_dest_get_prefix(dest);
+
+	assert(evp->prefix.route_type == BGP_EVPN_MAC_IP_ROUTE);
+	return is_evpn_prefix_ipaddr_none(evp);
 }
 
 static inline int evpn_default_originate_set(struct bgp *bgp, afi_t afi,
@@ -596,21 +666,29 @@ extern struct zclient *zclient;
 extern void bgp_evpn_install_uninstall_default_route(struct bgp *bgp_vrf,
 						     afi_t afi, safi_t safi,
 						     bool add);
-extern void evpn_rt_delete_auto(struct bgp *, vni_t, struct list *);
+extern void evpn_rt_delete_auto(struct bgp *bgp, vni_t vni, struct list *rtl,
+				bool is_l3);
 extern void bgp_evpn_configure_export_rt_for_vrf(struct bgp *bgp_vrf,
 						 struct ecommunity *ecomadd);
+extern void bgp_evpn_configure_export_auto_rt_for_vrf(struct bgp *bgp_vrf);
 extern void bgp_evpn_unconfigure_export_rt_for_vrf(struct bgp *bgp_vrf,
 						   struct ecommunity *ecomdel);
+extern void bgp_evpn_unconfigure_export_auto_rt_for_vrf(struct bgp *bgp_vrf);
 extern void bgp_evpn_configure_import_rt_for_vrf(struct bgp *bgp_vrf,
-						 struct ecommunity *ecomadd);
+						 struct ecommunity *ecomadd,
+						 bool is_wildcard);
+extern void bgp_evpn_configure_import_auto_rt_for_vrf(struct bgp *bgp_vrf);
 extern void bgp_evpn_unconfigure_import_rt_for_vrf(struct bgp *bgp_vrf,
 						   struct ecommunity *ecomdel);
+extern void bgp_evpn_unconfigure_import_auto_rt_for_vrf(struct bgp *bgp_vrf);
 extern int bgp_evpn_handle_export_rt_change(struct bgp *bgp,
 					    struct bgpevpn *vpn);
 extern void bgp_evpn_handle_autort_change(struct bgp *bgp);
 extern void bgp_evpn_handle_vrf_rd_change(struct bgp *bgp_vrf, int withdraw);
 extern void bgp_evpn_handle_rd_change(struct bgp *bgp, struct bgpevpn *vpn,
 				      int withdraw);
+void bgp_evpn_handle_global_macvrf_soo_change(struct bgp *bgp,
+					      struct ecommunity *new_soo);
 extern int bgp_evpn_install_routes(struct bgp *bgp, struct bgpevpn *vpn);
 extern int bgp_evpn_uninstall_routes(struct bgp *bgp, struct bgpevpn *vpn);
 extern void bgp_evpn_map_vrf_to_its_rts(struct bgp *bgp_vrf);
@@ -639,22 +717,47 @@ extern void delete_evpn_route_entry(struct bgp *bgp, afi_t afi, safi_t safi,
 int vni_list_cmp(void *p1, void *p2);
 extern int evpn_route_select_install(struct bgp *bgp, struct bgpevpn *vpn,
 				     struct bgp_dest *dest);
-extern struct bgp_dest *bgp_global_evpn_node_get(struct bgp_table *table,
-						 afi_t afi, safi_t safi,
-						 const struct prefix_evpn *evp,
-						 struct prefix_rd *prd);
 extern struct bgp_dest *
-bgp_global_evpn_node_lookup(struct bgp_table *table, afi_t afi, safi_t safi,
+bgp_evpn_global_node_get(struct bgp_table *table, afi_t afi, safi_t safi,
+			 const struct prefix_evpn *evp, struct prefix_rd *prd,
+			 const struct bgp_path_info *local_pi);
+extern struct bgp_dest *bgp_evpn_global_node_lookup(
+	struct bgp_table *table, safi_t safi, const struct prefix_evpn *evp,
+	struct prefix_rd *prd, const struct bgp_path_info *local_pi);
+extern struct bgp_dest *
+bgp_evpn_vni_ip_node_get(struct bgp_table *const table,
+			 const struct prefix_evpn *evp,
+			 const struct bgp_path_info *parent_pi);
+extern struct bgp_dest *
+bgp_evpn_vni_ip_node_lookup(const struct bgp_table *const table,
 			    const struct prefix_evpn *evp,
-			    struct prefix_rd *prd);
+			    const struct bgp_path_info *parent_pi);
+extern struct bgp_dest *
+bgp_evpn_vni_mac_node_get(struct bgp_table *const table,
+			  const struct prefix_evpn *evp,
+			  const struct bgp_path_info *parent_pi);
+extern struct bgp_dest *
+bgp_evpn_vni_mac_node_lookup(const struct bgp_table *const table,
+			     const struct prefix_evpn *evp,
+			     const struct bgp_path_info *parent_pi);
+extern struct bgp_dest *
+bgp_evpn_vni_node_get(struct bgpevpn *vpn, const struct prefix_evpn *p,
+		      const struct bgp_path_info *parent_pi);
+extern struct bgp_dest *
+bgp_evpn_vni_node_lookup(const struct bgpevpn *vpn, const struct prefix_evpn *p,
+			 const struct bgp_path_info *parent_pi);
+
 extern void bgp_evpn_import_route_in_vrfs(struct bgp_path_info *pi, int import);
 extern void bgp_evpn_update_type2_route_entry(struct bgp *bgp,
 					      struct bgpevpn *vpn,
-					      struct bgp_node *rn,
+					      struct bgp_dest *rn,
 					      struct bgp_path_info *local_pi,
 					      const char *caller);
 extern int bgp_evpn_route_entry_install_if_vrf_match(struct bgp *bgp_vrf,
 						     struct bgp_path_info *pi,
 						     int install);
 extern void bgp_evpn_import_type2_route(struct bgp_path_info *pi, int import);
+extern void bgp_evpn_xxport_delete_ecomm(void *val);
+extern int bgp_evpn_route_target_cmp(struct ecommunity *ecom1,
+				     struct ecommunity *ecom2);
 #endif /* _BGP_EVPN_PRIVATE_H */

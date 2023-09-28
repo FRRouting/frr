@@ -1,24 +1,7 @@
+// SPDX-License-Identifier: MIT
 /*
 Copyright 2007, 2008 by Grégoire Henry, Julien Cristau and Juliusz Chroboczek
 Copyright 2011, 2012 by Matthieu Boutier and Juliusz Chroboczek
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in
-all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-THE SOFTWARE.
 */
 
 #ifdef HAVE_CONFIG_H
@@ -46,7 +29,7 @@ THE SOFTWARE.
 #include "command.h"
 #include "vty.h"
 #include "memory.h"
-#include "thread.h"
+#include "frrevent.h"
 #include "nexthop.h"
 
 #include "util.h"
@@ -227,10 +210,10 @@ if_eui64(int ifindex, unsigned char *eui)
 
 /* Like gettimeofday, but returns monotonic time.  If POSIX clocks are not
    available, falls back to gettimeofday but enforces monotonicity. */
-int
+void
 gettime(struct timeval *tv)
 {
-    return monotime(tv);
+    monotime(tv);
 }
 
 /* If /dev/urandom doesn't exist, this will fail with ENOENT, which the

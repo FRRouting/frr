@@ -1,10 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* NHRP interface
  * Copyright (c) 2014-2015 Timo Teräs
- *
- * This file is free software: you may copy, redistribute and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 2 of the License, or
- * (at your option) any later version.
  */
 
 #ifdef HAVE_CONFIG_H
@@ -15,7 +11,7 @@
 #include "zebra.h"
 #include "linklist.h"
 #include "memory.h"
-#include "thread.h"
+#include "frrevent.h"
 
 #include "nhrpd.h"
 #include "os.h"
@@ -79,8 +75,8 @@ static int nhrp_if_new_hook(struct interface *ifp)
 	for (afi = 0; afi < AFI_MAX; afi++) {
 		struct nhrp_afi_data *ad = &nifp->afi[afi];
 		ad->holdtime = NHRPD_DEFAULT_HOLDTIME;
-		list_init(&ad->nhslist_head);
-		list_init(&ad->mcastlist_head);
+		nhrp_nhslist_init(&ad->nhslist_head);
+		nhrp_mcastlist_init(&ad->mcastlist_head);
 	}
 
 	return 0;
@@ -143,13 +139,13 @@ static void nhrp_interface_update_source(struct interface *ifp)
 {
 	struct nhrp_interface *nifp = ifp->info;
 
-	if (!nifp->source || !nifp->nbmaifp ||
-	    ((ifindex_t)nifp->link_idx == nifp->nbmaifp->ifindex &&
-	     (nifp->link_vrf_id == nifp->nbmaifp->vrf_id)))
+	if (!nifp->source || !nifp->nbmaifp
+	    || ((ifindex_t)nifp->link_idx == nifp->nbmaifp->ifindex
+		&& (nifp->link_vrf_id == nifp->nbmaifp->vrf->vrf_id)))
 		return;
 
 	nifp->link_idx = nifp->nbmaifp->ifindex;
-	nifp->link_vrf_id = nifp->nbmaifp->vrf_id;
+	nifp->link_vrf_id = nifp->nbmaifp->vrf->vrf_id;
 	debugf(NHRP_DEBUG_IF, "%s: bound device index changed to %d, vr %u",
 	       ifp->name, nifp->link_idx, nifp->link_vrf_id);
 	nhrp_send_zebra_gre_source_set(ifp, nifp->link_idx, nifp->link_vrf_id);
@@ -165,8 +161,7 @@ static void nhrp_interface_interface_notifier(struct notifier_block *n,
 
 	switch (cmd) {
 	case NOTIFY_INTERFACE_CHANGED:
-		nhrp_interface_update_mtu(nifp->ifp, AFI_IP);
-		nhrp_interface_update_source(nifp->ifp);
+		nhrp_interface_update_nbma(nifp->ifp, NULL);
 		break;
 	case NOTIFY_INTERFACE_ADDRESS_CHANGED:
 		nifp->nbma = nbmanifp->afi[AFI_IP].addr;
@@ -185,16 +180,17 @@ void nhrp_interface_update_nbma(struct interface *ifp,
 	struct nhrp_interface *nifp = ifp->info, *nbmanifp = NULL;
 	struct interface *nbmaifp = NULL;
 	union sockunion nbma;
+	struct in_addr saddr = {0};
 
 	sockunion_family(&nbma) = AF_UNSPEC;
 
 	if (nifp->source)
 		nbmaifp = if_lookup_by_name(nifp->source, nifp->link_vrf_id);
 
-	switch (ifp->ll_type) {
-	case ZEBRA_LLT_IPGRE: {
-		struct in_addr saddr = {0};
-
+	if (ifp->ll_type != ZEBRA_LLT_IPGRE)
+		debugf(NHRP_DEBUG_IF, "%s: Ignoring non GRE interface type %u",
+		       __func__, ifp->ll_type);
+	else {
 		if (!gre_info) {
 			nhrp_send_zebra_gre_request(ifp);
 			return;
@@ -215,17 +211,18 @@ void nhrp_interface_update_nbma(struct interface *ifp,
 			nbmaifp =
 				if_lookup_by_index(nifp->link_idx,
 						   nifp->link_vrf_id);
-	} break;
-	default:
-		break;
 	}
 
 	if (nbmaifp)
 		nbmanifp = nbmaifp->info;
 
 	if (nbmaifp != nifp->nbmaifp) {
-		if (nifp->nbmaifp)
-			notifier_del(&nifp->nbmanifp_notifier);
+		if (nifp->nbmaifp) {
+			struct nhrp_interface *prev_nifp = nifp->nbmaifp->info;
+
+			notifier_del(&nifp->nbmanifp_notifier,
+				     &prev_nifp->notifier_list);
+		}
 		nifp->nbmaifp = nbmaifp;
 		if (nbmaifp) {
 			notifier_add(&nifp->nbmanifp_notifier,
@@ -410,7 +407,7 @@ static void interface_config_update_nhrp_map(struct nhrp_cache_config *cc,
 		return;
 
 	/* gre layer not ready */
-	if (ifp->vrf_id == VRF_UNKNOWN)
+	if (ifp->vrf->vrf_id == VRF_UNKNOWN)
 		return;
 
 	c = nhrp_cache_get(ifp, &cc->remote_addr, ctx->enabled ? 1 : 0);
@@ -509,12 +506,15 @@ void nhrp_interface_notify_add(struct interface *ifp, struct notifier_block *n,
 			       notifier_fn_t fn)
 {
 	struct nhrp_interface *nifp = ifp->info;
+
 	notifier_add(n, &nifp->notifier_list, fn);
 }
 
 void nhrp_interface_notify_del(struct interface *ifp, struct notifier_block *n)
 {
-	notifier_del(n);
+	struct nhrp_interface *nifp = ifp->info;
+
+	notifier_del(n, &nifp->notifier_list);
 }
 
 void nhrp_interface_set_protection(struct interface *ifp, const char *profile,

@@ -22,14 +22,17 @@ Basics
    :maxdepth: 2
 
    basic
+   extlog
    vtysh
    grpc
    filter
    routemap
+   affinitymap
    ipv6
    kernel
    snmp
    scripting
+   nexthop_groups
 .. modules
 
 #########
@@ -47,12 +50,14 @@ Protocols
    fabricd
    ldpd
    eigrpd
+   evpn
    isisd
    nhrpd
    ospfd
    ospf6d
    pathd
    pim
+   pimv6
    pbr
    ripd
    ripngd
@@ -62,6 +67,7 @@ Protocols
    vrrp
    bmp
    watchfrr
+   mgmtd
 
 ########
 Appendix

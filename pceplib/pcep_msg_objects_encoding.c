@@ -1,20 +1,8 @@
+// SPDX-License-Identifier: LGPL-2.1-or-later
 /*
  * This file is part of the PCEPlib, a PCEP protocol library.
  *
  * Copyright (C) 2020 Volta Networks https://voltanet.io/
- *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Lesser General Public
- * License as published by the Free Software Foundation; either
- * version 2 of the License, or (at your option) any later version.
- *
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public License
- * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *
  * Author : Brady Johnson <brady@voltanet.io>
  *
@@ -463,7 +451,7 @@ uint16_t pcep_encode_obj_bandwidth(struct pcep_object_header *hdr,
 	struct pcep_object_bandwidth *bandwidth =
 		(struct pcep_object_bandwidth *)hdr;
 	uint32_t *uint32_ptr = (uint32_t *)obj_body_buf;
-	/* Seems like the compiler doesnt correctly copy the float, so memcpy()
+	/* Seems like the compiler doesn't correctly copy the float, so memcpy()
 	 * it */
 	memcpy(uint32_ptr, &(bandwidth->bandwidth), sizeof(uint32_t));
 	*uint32_ptr = htonl(*uint32_ptr);
@@ -481,7 +469,7 @@ uint16_t pcep_encode_obj_metric(struct pcep_object_header *hdr,
 			   | (metric->flag_b ? OBJECT_METRIC_FLAC_B : 0x00));
 	obj_body_buf[3] = metric->type;
 	uint32_t *uint32_ptr = (uint32_t *)(obj_body_buf + 4);
-	/* Seems like the compiler doesnt correctly copy the float, so memcpy()
+	/* Seems like the compiler doesn't correctly copy the float, so memcpy()
 	 * it */
 	memcpy(uint32_ptr, &(metric->value), sizeof(uint32_t));
 	*uint32_ptr = htonl(*uint32_ptr);
@@ -923,12 +911,13 @@ uint16_t pcep_encode_obj_ro(struct pcep_object_header *hdr,
 				index += LENGTH_10WORDS;
 				break;
 
-			default:
+			case PCEP_SR_SUBOBJ_NAI_ABSENT:
+			case PCEP_SR_SUBOBJ_NAI_UNKNOWN:
 				break;
 			}
 		} break;
 
-		default:
+		case RO_SUBOBJ_UNKNOWN:
 			break;
 		}
 	}
@@ -1206,7 +1195,7 @@ pcep_decode_obj_bandwidth(struct pcep_object_header *hdr,
 			hdr, sizeof(struct pcep_object_bandwidth));
 
 	uint32_t value = ntohl(*((uint32_t *)obj_buf));
-	/* Seems like the compiler doesnt correctly copy to the float, so
+	/* Seems like the compiler doesn't correctly copy to the float, so
 	 * memcpy() it */
 	memcpy(&obj->bandwidth, &value, sizeof(uint32_t));
 
@@ -1223,7 +1212,7 @@ pcep_decode_obj_metric(struct pcep_object_header *hdr, const uint8_t *obj_buf)
 	obj->flag_c = (obj_buf[2] & OBJECT_METRIC_FLAC_C);
 	obj->type = obj_buf[3];
 	uint32_t value = ntohl(*((uint32_t *)(obj_buf + 4)));
-	/* Seems like the compiler doesnt correctly copy to the float, so
+	/* Seems like the compiler doesn't correctly copy to the float, so
 	 * memcpy() it */
 	memcpy(&obj->value, &value, sizeof(uint32_t));
 
@@ -1712,7 +1701,7 @@ struct pcep_object_header *pcep_decode_obj_ro(struct pcep_object_header *hdr,
 			} break;
 
 			case PCEP_SR_SUBOBJ_NAI_ABSENT:
-			default:
+			case PCEP_SR_SUBOBJ_NAI_UNKNOWN:
 				break;
 			}
 		} break;

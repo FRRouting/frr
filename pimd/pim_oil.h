@@ -1,20 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * PIM for Quagga
  * Copyright (C) 2008  Everton da Silva Marques
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef PIM_OIL_H
@@ -27,18 +14,18 @@ struct pim_interface;
 /*
  * Where did we get this (S,G) from?
  *
- * IGMP - Learned from IGMP
+ * GM - Learned from IGMP/MLD
  * PIM - Learned from PIM
  * SOURCE - Learned from Source multicast packet received
  * STAR - Inherited
  */
-#define PIM_OIF_FLAG_PROTO_IGMP   (1 << 0)
+#define PIM_OIF_FLAG_PROTO_GM     (1 << 0)
 #define PIM_OIF_FLAG_PROTO_PIM    (1 << 1)
 #define PIM_OIF_FLAG_PROTO_STAR   (1 << 2)
 #define PIM_OIF_FLAG_PROTO_VXLAN  (1 << 3)
-#define PIM_OIF_FLAG_PROTO_ANY                                 \
-	(PIM_OIF_FLAG_PROTO_IGMP | PIM_OIF_FLAG_PROTO_PIM      \
-	 | PIM_OIF_FLAG_PROTO_STAR | PIM_OIF_FLAG_PROTO_VXLAN)
+#define PIM_OIF_FLAG_PROTO_ANY                                                 \
+	(PIM_OIF_FLAG_PROTO_GM | PIM_OIF_FLAG_PROTO_PIM |                      \
+	 PIM_OIF_FLAG_PROTO_STAR | PIM_OIF_FLAG_PROTO_VXLAN)
 
 /* OIF is present in the OIL but must not be used for forwarding traffic */
 #define PIM_OIF_FLAG_MUTE         (1 << 4)
@@ -98,7 +85,11 @@ struct channel_oil {
 
 	struct rb_pim_oil_item oil_rb;
 
+#if PIM_IPV == 4
 	struct mfcctl oil;
+#else
+	struct mf6cctl oil;
+#endif
 	int installed;
 	int oil_inherited_rescan;
 	int oil_size;
@@ -110,26 +101,88 @@ struct channel_oil {
 	time_t mroute_creation;
 };
 
+#if PIM_IPV == 4
+static inline pim_addr *oil_origin(struct channel_oil *c_oil)
+{
+	return &c_oil->oil.mfcc_origin;
+}
+
+static inline pim_addr *oil_mcastgrp(struct channel_oil *c_oil)
+{
+	return &c_oil->oil.mfcc_mcastgrp;
+}
+
+static inline vifi_t *oil_incoming_vif(struct channel_oil *c_oil)
+{
+	return &c_oil->oil.mfcc_parent;
+}
+
+static inline bool oil_if_has(struct channel_oil *c_oil, vifi_t ifi)
+{
+	return !!c_oil->oil.mfcc_ttls[ifi];
+}
+
+static inline void oil_if_set(struct channel_oil *c_oil, vifi_t ifi, uint8_t set)
+{
+	c_oil->oil.mfcc_ttls[ifi] = set;
+}
+
+static inline int oil_if_cmp(struct mfcctl *oil1, struct mfcctl *oil2)
+{
+	return memcmp(&oil1->mfcc_ttls[0], &oil2->mfcc_ttls[0],
+		      sizeof(oil1->mfcc_ttls));
+}
+#else
+static inline pim_addr *oil_origin(struct channel_oil *c_oil)
+{
+	return &c_oil->oil.mf6cc_origin.sin6_addr;
+}
+
+static inline pim_addr *oil_mcastgrp(struct channel_oil *c_oil)
+{
+	return &c_oil->oil.mf6cc_mcastgrp.sin6_addr;
+}
+
+static inline mifi_t *oil_incoming_vif(struct channel_oil *c_oil)
+{
+	return &c_oil->oil.mf6cc_parent;
+}
+
+static inline bool oil_if_has(struct channel_oil *c_oil, mifi_t ifi)
+{
+	return !!IF_ISSET(ifi, &c_oil->oil.mf6cc_ifset);
+}
+
+static inline void oil_if_set(struct channel_oil *c_oil, mifi_t ifi,
+			      uint8_t set)
+{
+	if (set)
+		IF_SET(ifi, &c_oil->oil.mf6cc_ifset);
+	else
+		IF_CLR(ifi, &c_oil->oil.mf6cc_ifset);
+}
+
+static inline int oil_if_cmp(struct mf6cctl *oil1, struct mf6cctl *oil2)
+{
+	return memcmp(&oil1->mf6cc_ifset, &oil2->mf6cc_ifset,
+		      sizeof(oil1->mf6cc_ifset));
+}
+#endif
+
 extern int pim_channel_oil_compare(const struct channel_oil *c1,
 				   const struct channel_oil *c2);
 DECLARE_RBTREE_UNIQ(rb_pim_oil, struct channel_oil, oil_rb,
                     pim_channel_oil_compare);
-
-
-extern struct list *pim_channel_oil_list;
 
 void pim_oil_init(struct pim_instance *pim);
 void pim_oil_terminate(struct pim_instance *pim);
 
 void pim_channel_oil_free(struct channel_oil *c_oil);
 struct channel_oil *pim_find_channel_oil(struct pim_instance *pim,
-					 struct prefix_sg *sg);
+					 pim_sgaddr *sg);
 struct channel_oil *pim_channel_oil_add(struct pim_instance *pim,
-					struct prefix_sg *sg,
-					const char *name);
-void pim_channel_oil_change_iif(struct pim_instance *pim,
-				struct channel_oil *c_oil, int input_vif_index,
-				const char *name);
+					pim_sgaddr *sg, const char *name);
+void pim_clear_nocache_state(struct pim_interface *pim_ifp);
 struct channel_oil *pim_channel_oil_del(struct channel_oil *c_oil,
 					const char *name);
 

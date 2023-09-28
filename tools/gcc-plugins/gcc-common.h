@@ -111,6 +111,10 @@
 #include "varasm.h"
 #include "stor-layout.h"
 #include "internal-fn.h"
+#if BUILDING_GCC_VERSION >= 13000
+#include "gimple.h"
+#include "gimple-iterator.h"
+#endif
 #include "gimple-expr.h"
 #include "gimple-fold.h"
 #include "context.h"
@@ -980,6 +984,11 @@ static inline void debug_gimple_stmt(const_gimple s)
 #if BUILDING_GCC_VERSION < 7000
 #define SET_DECL_ALIGN(decl, align)	DECL_ALIGN(decl) = (align)
 #define SET_DECL_MODE(decl, mode)	DECL_MODE(decl) = (mode)
+#endif
+
+#if BUILDING_GCC_VERSION < 12000
+#define check_function_arguments_recurse(arg, ctx, tree, num, opt)             \
+	check_function_arguments_recurse(arg, ctx, tree, num)
 #endif
 
 #endif

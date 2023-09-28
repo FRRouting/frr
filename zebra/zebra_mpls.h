@@ -1,22 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Zebra MPLS Data structures and definitions
  * Copyright (C) 2015 Cumulus Networks, Inc.
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef _ZEBRA_MPLS_H
@@ -260,17 +245,30 @@ void zebra_mpls_print_fec(struct vty *vty, struct zebra_vrf *zvrf,
 /*
  * Handle zapi request to install/uninstall LSP and
  * (optionally) FEC-To-NHLFE (FTN) bindings.
+ *
+ * mpls_zapi_labels_process -> Installs for future processing
+ *                             in the meta-q
+ * zebra_mpls_labels_process -> called by the meta-q
  */
-int mpls_zapi_labels_process(bool add_p, struct zebra_vrf *zvrf,
-			     const struct zapi_labels *zl);
+void mpls_zapi_labels_process(bool add_p, struct zebra_vrf *zvrf,
+			      const struct zapi_labels *zl);
+void zebra_mpls_zapi_labels_process(bool add_p, struct zebra_vrf *zvrf,
+				    const struct zapi_labels *zl);
 
 /*
  * Uninstall all NHLFEs bound to a single FEC.
+ *
+ * mpls_ftn_uninstall -> Called to enqueue into early label processing
+ *                       via the metaq
+ * zebra_mpls_ftn_uninstall -> Called when we process the meta q
+ *                             for this item
  */
-int mpls_ftn_uninstall(struct zebra_vrf *zvrf, enum lsp_types_t type,
-		       struct prefix *prefix, uint8_t route_type,
-		       unsigned short route_instance);
-
+void mpls_ftn_uninstall(struct zebra_vrf *zvrf, enum lsp_types_t type,
+			struct prefix *prefix, uint8_t route_type,
+			uint8_t route_instance);
+void zebra_mpls_ftn_uninstall(struct zebra_vrf *zvrf, enum lsp_types_t type,
+			      struct prefix *prefix, uint8_t route_type,
+			      uint8_t route_instance);
 /*
  * Install/update a NHLFE for an LSP in the forwarding table. This may be
  * a new LSP entry or a new NHLFE for an existing in-label or an update of
@@ -395,6 +393,13 @@ void zebra_mpls_close_tables(struct zebra_vrf *zvrf);
 void zebra_mpls_init_tables(struct zebra_vrf *zvrf);
 
 /*
+ * If mpls is turned on *after* FRR is brought
+ * up let's actually notice this and turn on
+ * the relevant bits to make it work.
+ */
+void zebra_mpls_turned_on(void);
+
+/*
  * Global MPLS initialization.
  */
 void zebra_mpls_init(void);
@@ -426,6 +431,7 @@ static inline uint8_t lsp_distance(enum lsp_types_t type)
 		return (route_distance(ZEBRA_ROUTE_BGP));
 	case ZEBRA_LSP_NONE:
 	case ZEBRA_LSP_SHARP:
+	case ZEBRA_LSP_EVPN:
 	case ZEBRA_LSP_OSPF_SR:
 	case ZEBRA_LSP_ISIS_SR:
 	case ZEBRA_LSP_SRTE:
@@ -478,6 +484,7 @@ static inline int re_type_from_lsp_type(enum lsp_types_t lsp_type)
 	case ZEBRA_LSP_LDP:
 		return ZEBRA_ROUTE_LDP;
 	case ZEBRA_LSP_BGP:
+	case ZEBRA_LSP_EVPN:
 		return ZEBRA_ROUTE_BGP;
 	case ZEBRA_LSP_OSPF_SR:
 		return ZEBRA_ROUTE_OSPF;
@@ -518,6 +525,8 @@ static inline const char *nhlfe_type2str(enum lsp_types_t lsp_type)
 		return "SHARP";
 	case ZEBRA_LSP_SRTE:
 		return "SR-TE";
+	case ZEBRA_LSP_EVPN:
+		return "EVPN";
 	case ZEBRA_LSP_NONE:
 		return "Unknown";
 	}
@@ -569,7 +578,7 @@ static inline int mpls_should_lsps_be_processed(struct route_node *rn)
 }
 
 /* Global variables. */
-extern int mpls_enabled;
+extern bool mpls_enabled;
 extern bool mpls_pw_reach_strict; /* Strict pseudowire reachability checking */
 
 #ifdef __cplusplus

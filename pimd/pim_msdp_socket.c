@@ -1,20 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * IP MSDP socket management
  * Copyright (C) 2016 Cumulus Networks, Inc.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -22,13 +9,14 @@
 #include <lib/log.h>
 #include <lib/network.h>
 #include <lib/sockunion.h>
-#include <lib/thread.h>
+#include "frrevent.h"
 #include <lib/vty.h>
 #include <lib/if.h>
 #include <lib/vrf.h>
 #include <lib/lib_errors.h>
 
 #include "pimd.h"
+#include "pim_instance.h"
 #include "pim_sock.h"
 #include "pim_errors.h"
 
@@ -62,10 +50,10 @@ static void pim_msdp_update_sock_send_buffer_size(int fd)
 }
 
 /* passive peer socket accept */
-static int pim_msdp_sock_accept(struct thread *thread)
+static void pim_msdp_sock_accept(struct event *thread)
 {
 	union sockunion su;
-	struct pim_instance *pim = THREAD_ARG(thread);
+	struct pim_instance *pim = EVENT_ARG(thread);
 	int accept_sock;
 	int msdp_sock;
 	struct pim_msdp_peer *mp;
@@ -73,22 +61,22 @@ static int pim_msdp_sock_accept(struct thread *thread)
 	sockunion_init(&su);
 
 	/* re-register accept thread */
-	accept_sock = THREAD_FD(thread);
+	accept_sock = EVENT_FD(thread);
 	if (accept_sock < 0) {
 		flog_err(EC_LIB_DEVELOPMENT, "accept_sock is negative value %d",
 			 accept_sock);
-		return -1;
+		return;
 	}
 	pim->msdp.listener.thread = NULL;
-	thread_add_read(router->master, pim_msdp_sock_accept, pim, accept_sock,
-			&pim->msdp.listener.thread);
+	event_add_read(router->master, pim_msdp_sock_accept, pim, accept_sock,
+		       &pim->msdp.listener.thread);
 
 	/* accept client connection. */
 	msdp_sock = sockunion_accept(accept_sock, &su);
 	if (msdp_sock < 0) {
 		flog_err_sys(EC_LIB_SOCKET, "pim_msdp_sock_accept failed (%s)",
 			     safe_strerror(errno));
-		return -1;
+		return;
 	}
 
 	/* see if have peer config for this */
@@ -100,7 +88,7 @@ static int pim_msdp_sock_accept(struct thread *thread)
 				 "msdp peer connection refused from %pSU", &su);
 		}
 		close(msdp_sock);
-		return -1;
+		return;
 	}
 
 	if (PIM_DEBUG_MSDP_INTERNAL) {
@@ -122,7 +110,6 @@ static int pim_msdp_sock_accept(struct thread *thread)
 	set_nonblocking(mp->fd);
 	pim_msdp_update_sock_send_buffer_size(mp->fd);
 	pim_msdp_peer_established(mp);
-	return 0;
 }
 
 /* global listener for the MSDP well know TCP port */
@@ -205,8 +192,8 @@ int pim_msdp_sock_listen(struct pim_instance *pim)
 	/* add accept thread */
 	listener->fd = sock;
 	memcpy(&listener->su, &sin, socklen);
-	thread_add_read(pim->msdp.master, pim_msdp_sock_accept, pim, sock,
-			&listener->thread);
+	event_add_read(pim->msdp.master, pim_msdp_sock_accept, pim, sock,
+		       &listener->thread);
 
 	pim->msdp.flags |= PIM_MSDPF_LISTENER;
 	return 0;

@@ -1,10 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* Stream/packet buffer API
  * Copyright (c) 2014-2015 Timo Teräs
- *
- * This file is free software: you may copy, redistribute and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 2 of the License, or
- * (at your option) any later version.
  */
 
 #ifndef ZBUF_H
@@ -15,18 +11,22 @@
 #include <endian.h>
 #include <sys/types.h>
 
-#include "list.h"
+#include "typesafe.h"
+
+PREDECL_DLIST(zbuf_queue);
 
 struct zbuf {
-	struct list_head queue_list;
+	struct zbuf_queue_item queue_entry;
 	unsigned allocated : 1;
 	unsigned error : 1;
 	uint8_t *buf, *end;
 	uint8_t *head, *tail;
 };
 
+DECLARE_DLIST(zbuf_queue, struct zbuf, queue_entry);
+
 struct zbuf_queue {
-	struct list_head queue_head;
+	struct zbuf_queue_head queue_head;
 };
 
 struct zbuf *zbuf_alloc(size_t size);

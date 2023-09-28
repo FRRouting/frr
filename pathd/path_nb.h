@@ -1,19 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Copyright (C) 2020  NetDEF, Inc.
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef _FRR_PATH_NB_H_
@@ -110,23 +97,26 @@ int pathd_srte_policy_candidate_path_segment_list_name_destroy(
 void pathd_apply_finish(struct nb_cb_apply_finish_args *args);
 
 /* Optional 'cli_show' callbacks. */
-void cli_show_srte_segment_list(struct vty *vty, struct lyd_node *dnode,
+void cli_show_srte_segment_list(struct vty *vty, const struct lyd_node *dnode,
 				bool show_defaults);
-void cli_show_srte_segment_list_end(struct vty *vty, struct lyd_node *dnode);
-void cli_show_srte_segment_list_segment(struct vty *vty, struct lyd_node *dnode,
+void cli_show_srte_segment_list_end(struct vty *vty,
+				    const struct lyd_node *dnode);
+void cli_show_srte_segment_list_segment(struct vty *vty,
+					const struct lyd_node *dnode,
 					bool show_defaults);
-void cli_show_srte_policy(struct vty *vty, struct lyd_node *dnode,
+void cli_show_srte_policy(struct vty *vty, const struct lyd_node *dnode,
 			  bool show_defaults);
-void cli_show_srte_policy_end(struct vty *vty, struct lyd_node *dnode);
-void cli_show_srte_policy_name(struct vty *vty, struct lyd_node *dnode,
+void cli_show_srte_policy_end(struct vty *vty, const struct lyd_node *dnode);
+void cli_show_srte_policy_name(struct vty *vty, const struct lyd_node *dnode,
 			       bool show_defaults);
-void cli_show_srte_policy_binding_sid(struct vty *vty, struct lyd_node *dnode,
+void cli_show_srte_policy_binding_sid(struct vty *vty,
+				      const struct lyd_node *dnode,
 				      bool show_defaults);
 void cli_show_srte_policy_candidate_path(struct vty *vty,
-					 struct lyd_node *dnode,
+					 const struct lyd_node *dnode,
 					 bool show_defaults);
 void cli_show_srte_policy_candidate_path_end(struct vty *vty,
-					     struct lyd_node *dnode);
+					     const struct lyd_node *dnode);
 
 /* Utility functions */
 typedef void (*of_pref_cp_t)(enum objfun_type type, void *arg);

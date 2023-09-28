@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: BSD-2-Clause
 submodule frr-bgp-common-structure {
   yang-version 1.1;
 
@@ -24,6 +25,8 @@ submodule frr-bgp-common-structure {
   import frr-bgp-types {
     prefix frr-bt;
   }
+
+  include "frr-bgp-common";
 
   organization
     "FRRouting";
@@ -157,7 +160,7 @@ submodule frr-bgp-common-structure {
         type uint16 {
           range "50..60000";
         }
-        units "miliseconds";
+        units "milliseconds";
         default "300";
         description
           "Required min receive interval.";
@@ -168,7 +171,7 @@ submodule frr-bgp-common-structure {
         type uint16 {
           range "50..60000";
         }
-        units "miliseconds";
+        units "milliseconds";
         default "300";
         description
           "Desired min transmit interval.";

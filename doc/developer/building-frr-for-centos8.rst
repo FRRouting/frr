@@ -15,7 +15,10 @@ Add packages:
       automake libtool make readline-devel texinfo net-snmp-devel pkgconfig \
       groff pkgconfig json-c-devel pam-devel bison flex python2-pytest \
       c-ares-devel python2-devel libcap-devel \
-      elfutils-libelf-devel
+      elfutils-libelf-devel libunwind-devel \
+      protobuf-c-devel
+
+.. include:: building-libunwind-note.rst
 
 .. include:: building-libyang.rst
 

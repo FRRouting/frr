@@ -1,21 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * BFD daemon code
  * Copyright (C) 2018 Network Device Education Foundation, Inc. ("NetDEF")
- *
- * FRR is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * FRR is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with FRR; see the file COPYING.  If not, write to the Free
- * Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
- * 02111-1307, USA.
  */
 
 #include <zebra.h>
@@ -28,9 +14,7 @@
 
 #include "bfd.h"
 
-#ifndef VTYSH_EXTRACT_PL
 #include "bfdd/bfdd_vty_clippy.c"
-#endif
 
 /*
  * Commands help string definitions.
@@ -66,6 +50,9 @@ static void _display_peer_counters_json(struct vty *vty, struct bfd_session *bs)
 static void _display_peer_counter_iter(struct hash_bucket *hb, void *arg);
 static void _display_peer_counter_json_iter(struct hash_bucket *hb, void *arg);
 static void _display_peers_counter(struct vty *vty, char *vrfname, bool use_json);
+static void _display_rtt(uint32_t *min, uint32_t *avg, uint32_t *max,
+			 struct bfd_session *bs);
+
 static struct bfd_session *
 _find_peer_or_error(struct vty *vty, int argc, struct cmd_token **argv,
 		    const char *label, const char *peer_str,
@@ -106,6 +93,9 @@ static void _display_peer(struct vty *vty, struct bfd_session *bs)
 {
 	char buf[256];
 	time_t now;
+	uint32_t min = 0;
+	uint32_t avg = 0;
+	uint32_t max = 0;
 
 	_display_peer_header(vty, bs);
 
@@ -150,6 +140,8 @@ static void _display_peer(struct vty *vty, struct bfd_session *bs)
 	vty_out(vty, "\t\tRemote diagnostics: %s\n", diag2str(bs->remote_diag));
 	vty_out(vty, "\t\tPeer Type: %s\n",
 		CHECK_FLAG(bs->flags, BFD_SESS_FLAG_CONFIG) ? "configured" : "dynamic");
+	_display_rtt(&min, &avg, &max, bs);
+	vty_out(vty, "\t\tRTT min/avg/max: %u/%u/%u usec\n", min, avg, max);
 
 	vty_out(vty, "\t\tLocal timers:\n");
 	vty_out(vty, "\t\t\tDetect-multiplier: %u\n",
@@ -217,7 +209,12 @@ static struct json_object *_peer_json_header(struct bfd_session *bs)
 static struct json_object *__display_peer_json(struct bfd_session *bs)
 {
 	struct json_object *jo = _peer_json_header(bs);
+	uint32_t min = 0;
+	uint32_t avg = 0;
+	uint32_t max = 0;
 
+	if (bs->key.ifname[0])
+		json_object_string_add(jo, "interface", bs->key.ifname);
 	json_object_int_add(jo, "id", bs->discrs.my_discr);
 	json_object_int_add(jo, "remote-id", bs->discrs.remote_discr);
 	json_object_boolean_add(jo, "passive-mode",
@@ -251,6 +248,10 @@ static struct json_object *__display_peer_json(struct bfd_session *bs)
 	json_object_string_add(jo, "diagnostic", diag2str(bs->local_diag));
 	json_object_string_add(jo, "remote-diagnostic",
 			       diag2str(bs->remote_diag));
+	if (CHECK_FLAG(bs->flags, BFD_SESS_FLAG_CONFIG))
+		json_object_string_add(jo, "type", "configured");
+	else
+		json_object_string_add(jo, "type", "dynamic");
 
 	json_object_int_add(jo, "receive-interval",
 			    bs->timers.required_min_rx / 1000);
@@ -275,6 +276,11 @@ static struct json_object *__display_peer_json(struct bfd_session *bs)
 	json_object_int_add(jo, "remote-detect-multiplier",
 			    bs->remote_detect_mult);
 
+	_display_rtt(&min, &avg, &max, bs);
+	json_object_int_add(jo, "rtt-min", min);
+	json_object_int_add(jo, "rtt-avg", avg);
+	json_object_int_add(jo, "rtt-max", max);
+
 	return jo;
 }
 
@@ -282,8 +288,7 @@ static void _display_peer_json(struct vty *vty, struct bfd_session *bs)
 {
 	struct json_object *jo = __display_peer_json(bs);
 
-	vty_out(vty, "%s\n", json_object_to_json_string_ext(jo, 0));
-	json_object_free(jo);
+	vty_json(vty, jo);
 }
 
 struct bfd_vrf_tuple {
@@ -353,8 +358,7 @@ static void _display_all_peers(struct vty *vty, char *vrfname, bool use_json)
 	bvt.jo = jo;
 	bfd_id_iterate(_display_peer_json_iter, &bvt);
 
-	vty_out(vty, "%s\n", json_object_to_json_string_ext(jo, 0));
-	json_object_free(jo);
+	vty_json(vty, jo);
 }
 
 static void _display_peer_counter(struct vty *vty, struct bfd_session *bs)
@@ -407,8 +411,7 @@ static void _display_peer_counters_json(struct vty *vty, struct bfd_session *bs)
 {
 	struct json_object *jo = __display_peer_counters_json(bs);
 
-	vty_out(vty, "%s\n", json_object_to_json_string_ext(jo, 0));
-	json_object_free(jo);
+	vty_json(vty, jo);
 }
 
 static void _display_peer_counter_iter(struct hash_bucket *hb, void *arg)
@@ -472,11 +475,10 @@ static void _display_peers_counter(struct vty *vty, char *vrfname, bool use_json
 	bvt.jo = jo;
 	bfd_id_iterate(_display_peer_counter_json_iter, &bvt);
 
-	vty_out(vty, "%s\n", json_object_to_json_string_ext(jo, 0));
-	json_object_free(jo);
+	vty_json(vty, jo);
 }
 
-static void _clear_peer_counter(struct bfd_session *bs) 
+static void _clear_peer_counter(struct bfd_session *bs)
 {
 	/* Clear only pkt stats, intention is not to loose system
 	   events counters */
@@ -490,21 +492,12 @@ static void _display_peer_brief(struct vty *vty, struct bfd_session *bs)
 {
 	char addr_buf[INET6_ADDRSTRLEN];
 
-	if (CHECK_FLAG(bs->flags, BFD_SESS_FLAG_MH)) {
-		vty_out(vty, "%-10u", bs->discrs.my_discr);
-		inet_ntop(bs->key.family, &bs->key.local, addr_buf, sizeof(addr_buf));
-		vty_out(vty, " %-40s", addr_buf);
-		inet_ntop(bs->key.family, &bs->key.peer, addr_buf, sizeof(addr_buf));
-		vty_out(vty, " %-40s", addr_buf);
-		vty_out(vty, "%-15s\n", state_list[bs->ses_state].str);
-	} else {
-		vty_out(vty, "%-10u", bs->discrs.my_discr);
-		vty_out(vty, " %-40s", satostr(&bs->local_address));
-		inet_ntop(bs->key.family, &bs->key.peer, addr_buf, sizeof(addr_buf));
-		vty_out(vty, " %-40s", addr_buf);
-
-		vty_out(vty, "%-15s\n", state_list[bs->ses_state].str);
-	}
+	vty_out(vty, "%-10u", bs->discrs.my_discr);
+	inet_ntop(bs->key.family, &bs->key.local, addr_buf, sizeof(addr_buf));
+	vty_out(vty, " %-40s", addr_buf);
+	inet_ntop(bs->key.family, &bs->key.peer, addr_buf, sizeof(addr_buf));
+	vty_out(vty, " %-40s", addr_buf);
+	vty_out(vty, "%-15s\n", state_list[bs->ses_state].str);
 }
 
 static void _display_peer_brief_iter(struct hash_bucket *hb, void *arg)
@@ -556,8 +549,7 @@ static void _display_peers_brief(struct vty *vty, const char *vrfname, bool use_
 
 	bfd_id_iterate(_display_peer_json_iter, &bvt);
 
-	vty_out(vty, "%s\n", json_object_to_json_string_ext(jo, 0));
-	json_object_free(jo);
+	vty_json(vty, jo);
 }
 
 static struct bfd_session *
@@ -579,7 +571,7 @@ _find_peer_or_error(struct vty *vty, int argc, struct cmd_token **argv,
 		pl = pl_find(label);
 		if (pl)
 			bs = pl->pl_bs;
-	} else {
+	} else if (peer_str) {
 		strtosa(peer_str, &psa);
 		if (local_str) {
 			strtosa(local_str, &lsa);
@@ -599,6 +591,9 @@ _find_peer_or_error(struct vty *vty, int argc, struct cmd_token **argv,
 		}
 
 		bs = bs_peer_find(&bpc);
+	} else {
+		vty_out(vty, "%% Invalid arguments\n");
+		return NULL;
 	}
 
 	/* Find peer data. */
@@ -619,6 +614,31 @@ _find_peer_or_error(struct vty *vty, int argc, struct cmd_token **argv,
 	return bs;
 }
 
+void _display_rtt(uint32_t *min, uint32_t *avg, uint32_t *max,
+		  struct bfd_session *bs)
+{
+#ifdef BFD_LINUX
+	uint8_t i;
+	uint32_t average = 0;
+
+	if (bs->rtt_valid == 0)
+		return;
+
+	*max = bs->rtt[0];
+	*min = 1000;
+	*avg = 0;
+
+	for (i = 0; i < bs->rtt_valid; i++) {
+		if (bs->rtt[i] < *min)
+			*min = bs->rtt[i];
+		if (bs->rtt[i] > *max)
+			*max = bs->rtt[i];
+		average += bs->rtt[i];
+	}
+	*avg = average / bs->rtt_valid;
+
+#endif
+}
 
 /*
  * Show commands.
@@ -745,7 +765,7 @@ DEFPY(bfd_clear_peer_counters, bfd_clear_peer_counters_cmd,
 				ifname, vrfname);
 	if (bs == NULL)
 		return CMD_WARNING_CONFIG_FAILED;
-    
+
 	_clear_peer_counter(bs);
 
 	return CMD_SUCCESS;
@@ -942,6 +962,8 @@ DEFUN_NOSH(show_debugging_bfd,
 		vty_out(vty, "  Zebra events debugging is on.\n");
 	if (bglobal.debug_network)
 		vty_out(vty, "  Network layer debugging is on.\n");
+
+	cmd_show_lib_debugs(vty);
 
 	return CMD_SUCCESS;
 }

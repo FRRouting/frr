@@ -5,12 +5,12 @@
 if STATICD
 noinst_LIBRARIES += staticd/libstatic.a
 sbin_PROGRAMS += staticd/staticd
-vtysh_scan += staticd/static_vty.c
 vtysh_daemons += staticd
 man8 += $(MANBUILD)/frr-staticd.8
 endif
 
 staticd_libstatic_a_SOURCES = \
+	staticd/static_bfd.c \
 	staticd/static_debug.c \
 	staticd/static_nht.c \
 	staticd/static_routes.c \
@@ -39,5 +39,6 @@ staticd_staticd_SOURCES = staticd/static_main.c
 staticd_staticd_LDADD = staticd/libstatic.a lib/libfrr.la $(LIBCAP)
 
 nodist_staticd_staticd_SOURCES = \
+	yang/frr-bfdd.yang.c \
 	yang/frr-staticd.yang.c \
 	# end

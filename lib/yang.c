@@ -1,20 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Copyright (C) 2018  NetDEF, Inc.
  *                     Renato Westphal
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -48,6 +35,11 @@ static LY_ERR yang_module_imp_clb(const char *mod_name, const char *mod_rev,
 				  void (**free_module_data)(void *, void *))
 {
 	struct yang_module_embed *e;
+
+	if (!strcmp(mod_name, "ietf-inet-types") ||
+	    !strcmp(mod_name, "ietf-yang-types"))
+		/* libyang has these built in, don't try finding them here */
+		return LY_ENOTFOUND;
 
 	for (e = embeds; e; e = e->next) {
 		if (e->sub_mod_name && submod_name) {
@@ -83,6 +75,7 @@ static const char *const frr_native_modules[] = {
 	"frr-interface",
 	"frr-vrf",
 	"frr-routing",
+	"frr-affinity-map",
 	"frr-route-map",
 	"frr-nexthop",
 	"frr-ripd",
@@ -257,6 +250,23 @@ void yang_snode_get_path(const struct lysc_node *snode,
 	}
 }
 
+struct lysc_node *yang_find_snode(struct ly_ctx *ly_ctx, const char *xpath,
+				  uint32_t options)
+{
+	struct lysc_node *snode;
+	struct ly_set *set;
+	LY_ERR err;
+
+	err = lys_find_xpath(ly_native_ctx, NULL, xpath, options, &set);
+	if (err || !set->count)
+		return NULL;
+
+	snode = set->snodes[0];
+	ly_set_free(set, NULL);
+
+	return snode;
+}
+
 struct lysc_node *yang_snode_real_parent(const struct lysc_node *snode)
 {
 	struct lysc_node *parent = snode->parent;
@@ -402,7 +412,12 @@ struct lyd_node *yang_dnode_get(const struct lyd_node *dnode, const char *xpath)
 		xpath += 2;
 
 	if (lyd_find_xpath(dnode, xpath, &set)) {
-		assert(0); /* XXX replicates old libyang1 base code */
+		/*
+		 * Commenting out the below assert failure as it crashes mgmtd
+		 * when bad xpath is passed.
+		 *
+		 * assert(0);  XXX replicates old libyang1 base code
+		 */
 		goto exit;
 	}
 	if (set->count == 0)

@@ -1,27 +1,12 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* BGP carrying label information
  * Copyright (C) 2013 Cumulus Networks, Inc.
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
 
 #include "command.h"
-#include "thread.h"
+#include "frrevent.h"
 #include "prefix.h"
 #include "zclient.h"
 #include "stream.h"
@@ -55,7 +40,7 @@ int bgp_parse_fec_update(void)
 
 	s = zclient->ibuf;
 
-	memset(&p, 0, sizeof(struct prefix));
+	memset(&p, 0, sizeof(p));
 	p.family = stream_getw(s);
 	p.prefixlen = stream_getc(s);
 	stream_get(p.u.val, s, PSIZE(p.prefixlen));
@@ -85,7 +70,7 @@ int bgp_parse_fec_update(void)
 	if (label == MPLS_INVALID_LABEL)
 		bgp_unset_valid_label(&dest->local_label);
 	else {
-		label_ntop(label, 1, &dest->local_label);
+		dest->local_label = mpls_lse_encode(label, 0, 0, 1);
 		bgp_set_valid_label(&dest->local_label);
 	}
 	SET_FLAG(dest->flags, BGP_NODE_LABEL_CHANGED);
@@ -129,9 +114,16 @@ static void bgp_send_fec_register_label_msg(struct bgp_dest *dest, bool reg,
 	uint16_t flags = 0;
 	size_t flags_pos = 0;
 	mpls_label_t *local_label = &(dest->local_label);
-	bool have_label_to_reg =
-		bgp_is_valid_label(local_label)
-		&& label_pton(local_label) != MPLS_LABEL_IMPLICIT_NULL;
+	uint32_t ttl = 0;
+	uint32_t bos = 0;
+	uint32_t exp = 0;
+	mpls_label_t label = MPLS_INVALID_LABEL;
+	bool have_label_to_reg;
+
+	mpls_lse_decode(*local_label, &label, &ttl, &exp, &bos);
+
+	have_label_to_reg = bgp_is_valid_label(local_label) &&
+			    label != MPLS_LABEL_IMPLICIT_NULL;
 
 	p = bgp_dest_get_prefix(dest);
 
@@ -142,7 +134,7 @@ static void bgp_send_fec_register_label_msg(struct bgp_dest *dest, bool reg,
 	if (BGP_DEBUG(labelpool, LABELPOOL))
 		zlog_debug("%s: FEC %sregister %pRN label_index=%u label=%u",
 			   __func__, reg ? "" : "un", bgp_dest_to_rnode(dest),
-			   label_index, label_pton(local_label));
+			   label_index, label);
 	/* If the route node has a local_label assigned or the
 	 * path node has an MPLS SR label index allowing zebra to
 	 * derive the label, proceed with registration. */
@@ -161,7 +153,7 @@ static void bgp_send_fec_register_label_msg(struct bgp_dest *dest, bool reg,
 			stream_putl(s, label_index);
 		} else if (have_label_to_reg) {
 			flags |= ZEBRA_FEC_REGISTER_LABEL;
-			stream_putl(s, label_pton(local_label));
+			stream_putl(s, label);
 		}
 		SET_FLAG(dest->flags, BGP_NODE_REGISTERED_FOR_LABEL);
 	} else
@@ -203,7 +195,8 @@ int bgp_reg_for_label_callback(mpls_label_t new_label, void *labelid,
 		return -1;
 	}
 
-	bgp_dest_unlock_node(dest);
+	dest = bgp_dest_unlock_node(dest);
+	assert(dest);
 
 	if (BGP_DEBUG(labelpool, LABELPOOL))
 		zlog_debug("%s: FEC %pRN label=%u, allocated=%d", __func__,
@@ -216,13 +209,13 @@ int bgp_reg_for_label_callback(mpls_label_t new_label, void *labelid,
 		 */
 		if (CHECK_FLAG(dest->flags, BGP_NODE_REGISTERED_FOR_LABEL)) {
 			UNSET_FLAG(dest->flags, BGP_NODE_LABEL_REQUESTED);
-			label_ntop(MPLS_LABEL_IMPLICIT_NULL, 1,
-				   &dest->local_label);
+			dest->local_label = mpls_lse_encode(
+				MPLS_LABEL_IMPLICIT_NULL, 0, 0, 1);
 			bgp_set_valid_label(&dest->local_label);
 		}
 	}
 
-	label_ntop(new_label, 1, &dest->local_label);
+	dest->local_label = mpls_lse_encode(new_label, 0, 0, 1);
 	bgp_set_valid_label(&dest->local_label);
 
 	/*
@@ -238,11 +231,22 @@ void bgp_reg_dereg_for_label(struct bgp_dest *dest, struct bgp_path_info *pi,
 {
 	bool with_label_index = false;
 	const struct prefix *p;
-	bool have_label_to_reg =
-		bgp_is_valid_label(&dest->local_label)
-		&& label_pton(&dest->local_label) != MPLS_LABEL_IMPLICIT_NULL;
+	bool have_label_to_reg;
+	uint32_t ttl = 0;
+	uint32_t bos = 0;
+	uint32_t exp = 0;
+	mpls_label_t label = MPLS_INVALID_LABEL;
+
+	mpls_lse_decode(dest->local_label, &label, &ttl, &exp, &bos);
+
+	have_label_to_reg = bgp_is_valid_label(&dest->local_label) &&
+			    label != MPLS_LABEL_IMPLICIT_NULL;
 
 	p = bgp_dest_get_prefix(dest);
+
+	if (BGP_DEBUG(labelpool, LABELPOOL))
+		zlog_debug("%s: %pFX: %s ", __func__, p,
+			   (reg ? "reg" : "dereg"));
 
 	if (reg) {
 		assert(pi);
@@ -279,8 +283,7 @@ void bgp_reg_dereg_for_label(struct bgp_dest *dest, struct bgp_path_info *pi,
 		}
 	} else {
 		UNSET_FLAG(dest->flags, BGP_NODE_LABEL_REQUESTED);
-		bgp_lp_release(LP_TYPE_BGP_LU, dest,
-			       label_pton(&dest->local_label));
+		bgp_lp_release(LP_TYPE_BGP_LU, dest, label);
 	}
 
 	bgp_send_fec_register_label_msg(
@@ -294,6 +297,9 @@ static int bgp_nlri_get_labels(struct peer *peer, uint8_t *pnt, uint8_t plen,
 	uint8_t *lim = pnt + plen;
 	uint8_t llen = 0;
 	uint8_t label_depth = 0;
+
+	if (plen < BGP_LABEL_BYTES)
+		return 0;
 
 	for (; data < lim; data += BGP_LABEL_BYTES) {
 		memcpy(label, data, BGP_LABEL_BYTES);
@@ -309,14 +315,14 @@ static int bgp_nlri_get_labels(struct peer *peer, uint8_t *pnt, uint8_t plen,
 	/* If we RX multiple labels we will end up keeping only the last
 	 * one. We do not yet support a label stack greater than 1. */
 	if (label_depth > 1)
-		zlog_info("%s rcvd UPDATE with label stack %d deep", peer->host,
+		zlog_info("%pBP rcvd UPDATE with label stack %d deep", peer,
 			  label_depth);
 
 	if (!(bgp_is_withdraw_label(label) || label_bos(label)))
 		flog_warn(
 			EC_BGP_INVALID_LABEL_STACK,
-			"%s rcvd UPDATE with invalid label stack - no bottom of stack",
-			peer->host);
+			"%pBP rcvd UPDATE with invalid label stack - no bottom of stack",
+			peer);
 
 	return llen;
 }
@@ -331,7 +337,7 @@ int bgp_nlri_parse_label(struct peer *peer, struct attr *attr,
 	int prefixlen;
 	afi_t afi;
 	safi_t safi;
-	int addpath_encoded;
+	bool addpath_capable;
 	uint32_t addpath_id;
 	mpls_label_t label = MPLS_INVALID_LABEL;
 	uint8_t llen;
@@ -342,16 +348,13 @@ int bgp_nlri_parse_label(struct peer *peer, struct attr *attr,
 	safi = packet->safi;
 	addpath_id = 0;
 
-	addpath_encoded =
-		(CHECK_FLAG(peer->af_cap[afi][safi], PEER_CAP_ADDPATH_AF_RX_ADV)
-		 && CHECK_FLAG(peer->af_cap[afi][safi],
-			       PEER_CAP_ADDPATH_AF_TX_RCV));
+	addpath_capable = bgp_addpath_encode_rx(peer, afi, safi);
 
 	for (; pnt < lim; pnt += psize) {
 		/* Clear prefix structure. */
-		memset(&p, 0, sizeof(struct prefix));
+		memset(&p, 0, sizeof(p));
 
-		if (addpath_encoded) {
+		if (addpath_capable) {
 
 			/* When packet overflow occurs return immediately. */
 			if (pnt + BGP_ADDPATH_ID_LEN > lim)
@@ -360,6 +363,9 @@ int bgp_nlri_parse_label(struct peer *peer, struct attr *attr,
 			memcpy(&addpath_id, pnt, BGP_ADDPATH_ID_LEN);
 			addpath_id = ntohl(addpath_id);
 			pnt += BGP_ADDPATH_ID_LEN;
+
+			if (pnt >= lim)
+				return BGP_NLRI_PARSE_ERROR_PACKET_OVERFLOW;
 		}
 
 		/* Fetch prefix length. */
@@ -378,6 +384,13 @@ int bgp_nlri_parse_label(struct peer *peer, struct attr *attr,
 
 		/* Fill in the labels */
 		llen = bgp_nlri_get_labels(peer, pnt, psize, &label);
+		if (llen == 0) {
+			flog_err(
+				EC_BGP_UPDATE_RCV,
+				"%s [Error] Update packet error (wrong label length 0)",
+				peer->host);
+			return BGP_NLRI_PARSE_ERROR_LABEL_LENGTH;
+		}
 		p.prefixlen = prefixlen - BSIZE(llen);
 
 		/* There needs to be at least one label */
@@ -385,8 +398,6 @@ int bgp_nlri_parse_label(struct peer *peer, struct attr *attr,
 			flog_err(EC_BGP_UPDATE_RCV,
 				 "%s [Error] Update packet error (wrong label length %d)",
 				 peer->host, prefixlen);
-			bgp_notify_send(peer, BGP_NOTIFY_UPDATE_ERR,
-					BGP_NOTIFY_UPDATE_INVAL_NETWORK);
 			return BGP_NLRI_PARSE_ERROR_LABEL_LENGTH;
 		}
 
@@ -440,10 +451,10 @@ int bgp_nlri_parse_label(struct peer *peer, struct attr *attr,
 
 		if (attr) {
 			bgp_update(peer, &p, addpath_id, attr, packet->afi,
-				   SAFI_UNICAST, ZEBRA_ROUTE_BGP,
-				   BGP_ROUTE_NORMAL, NULL, &label, 1, 0, NULL);
+				   safi, ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL,
+				   NULL, &label, 1, 0, NULL);
 		} else {
-			bgp_withdraw(peer, &p, addpath_id, attr, packet->afi,
+			bgp_withdraw(peer, &p, addpath_id, packet->afi,
 				     SAFI_UNICAST, ZEBRA_ROUTE_BGP,
 				     BGP_ROUTE_NORMAL, NULL, &label, 1, NULL);
 		}
@@ -459,4 +470,21 @@ int bgp_nlri_parse_label(struct peer *peer, struct attr *attr,
 	}
 
 	return BGP_NLRI_PARSE_OK;
+}
+
+bool bgp_labels_same(const mpls_label_t *tbl_a, const uint32_t num_labels_a,
+		     const mpls_label_t *tbl_b, const uint32_t num_labels_b)
+{
+	uint32_t i;
+
+	if (num_labels_a != num_labels_b)
+		return false;
+	if (num_labels_a == 0)
+		return true;
+
+	for (i = 0; i < num_labels_a; i++) {
+		if (tbl_a[i] != tbl_b[i])
+			return false;
+	}
+	return true;
 }

@@ -1,21 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* Hash routine.
  * Copyright (C) 1998 Kunihiro Ishiguro
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published
- * by the Free Software Foundation; either version 2, or (at your
- * option) any later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef _ZEBRA_HASH_H
@@ -161,7 +146,7 @@ hash_create_size(unsigned int size, unsigned int (*hash_key)(const void *),
  * an element from its key, you must provide the data item itself, with the
  * portions used in the hash function set to the same values as the data item
  * to retrieve. To insert a data element, either provide the key as just
- * described and provide alloc_func as descrbied below to allocate the full
+ * described and provide alloc_func as described below to allocate the full
  * data element, or provide the full data element and pass 'hash_alloc_intern'
  * to alloc_func.
  *
@@ -235,9 +220,10 @@ extern void *hash_release(struct hash *hash, void *data);
 /*
  * Iterate over the elements in a hash table.
  *
- * It is safe to delete items passed to the iteration function from the hash
- * table during iteration. More than one item cannot be deleted during each
- * iteration. Please note that adding entries to the hash
+ * The passed in arg to the handler function is the only safe
+ * item to delete from the hash.
+ *
+ * Please note that adding entries to the hash
  * during the walk will cause undefined behavior in that some new entries
  * will be walked and some will not.  So do not do this.
  *
@@ -258,8 +244,10 @@ extern void hash_iterate(struct hash *hash,
 /*
  * Iterate over the elements in a hash table, stopping on condition.
  *
- * It is safe to delete items passed to the iteration function from the hash
- * table during iteration.  Please note that adding entries to the hash
+ * The passed in arg to the handler function is the only safe item
+ * to delete from the hash.
+ *
+ * Please note that adding entries to the hash
  * during the walk will cause undefined behavior in that some new entries
  * will be walked and some will not.  So do not do this.
  *
@@ -288,6 +276,17 @@ extern void hash_walk(struct hash *hash,
  *    function to call with each removed item; intended to free the data
  */
 extern void hash_clean(struct hash *hash, void (*free_func)(void *));
+
+/*
+ * Remove all elements from a hash table and free the table,
+ * setting the pointer to NULL.
+ *
+ * hash
+ *    hash table to operate on
+ * free_func
+ *    function to call with each removed item, intended to free the data
+ */
+extern void hash_clean_and_free(struct hash **hash, void (*free_func)(void *));
 
 /*
  * Delete a hash table.

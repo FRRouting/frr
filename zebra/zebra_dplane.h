@@ -1,20 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Zebra dataplane layer api interfaces.
  * Copyright (c) 2018 Volta Networks, Inc.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef _ZEBRA_DPLANE_H
@@ -24,7 +11,7 @@
 #include "lib/prefix.h"
 #include "lib/nexthop.h"
 #include "lib/nexthop_group.h"
-#include "lib/queue.h"
+#include "lib/pbr.h"
 #include "lib/vlan.h"
 #include "zebra/zebra_ns.h"
 #include "zebra/rib.h"
@@ -41,7 +28,8 @@ struct zebra_dplane_info {
 	ns_id_t ns_id;
 
 #if defined(HAVE_NETLINK)
-	struct nlsock nls;
+	int sock;
+	int seq;
 	bool is_cmd;
 #endif
 };
@@ -56,9 +44,11 @@ zebra_dplane_info_from_zns(struct zebra_dplane_info *zns_info,
 #if defined(HAVE_NETLINK)
 	zns_info->is_cmd = is_cmd;
 	if (is_cmd) {
-		zns_info->nls = zns->netlink_cmd;
+		zns_info->sock = zns->netlink_cmd.sock;
+		zns_info->seq = zns->netlink_cmd.seq;
 	} else {
-		zns_info->nls = zns->netlink;
+		zns_info->sock = zns->netlink.sock;
+		zns_info->seq = zns->netlink.seq;
 	}
 #endif /* NETLINK */
 }
@@ -98,6 +88,11 @@ enum zebra_dplane_result {
 	ZEBRA_DPLANE_REQUEST_FAILURE,
 };
 
+enum zebra_dplane_startup_notifications {
+	ZEBRA_DPLANE_INTERFACES_READ,
+	ZEBRA_DPLANE_TUNNELS_READ,
+	ZEBRA_DPLANE_ADDRESSES_READ,
+};
 /*
  * API between the zebra dataplane system and the main zebra processing
  * context.
@@ -182,6 +177,27 @@ enum dplane_op_e {
 	/* Incoming interface address events */
 	DPLANE_OP_INTF_ADDR_ADD,
 	DPLANE_OP_INTF_ADDR_DEL,
+
+	/* Incoming interface config events */
+	DPLANE_OP_INTF_NETCONFIG,
+
+	/* Interface update */
+	DPLANE_OP_INTF_INSTALL,
+	DPLANE_OP_INTF_UPDATE,
+	DPLANE_OP_INTF_DELETE,
+
+	/* Traffic control */
+	DPLANE_OP_TC_QDISC_INSTALL,
+	DPLANE_OP_TC_QDISC_UNINSTALL,
+	DPLANE_OP_TC_CLASS_ADD,
+	DPLANE_OP_TC_CLASS_DELETE,
+	DPLANE_OP_TC_CLASS_UPDATE,
+	DPLANE_OP_TC_FILTER_ADD,
+	DPLANE_OP_TC_FILTER_DELETE,
+	DPLANE_OP_TC_FILTER_UPDATE,
+
+	/* Startup Control */
+	DPLANE_OP_STARTUP_STAGE,
 };
 
 /*
@@ -219,6 +235,22 @@ enum dplane_op_e {
 
 #define DPLANE_BR_PORT_NON_DF (1 << 0)
 
+/* Definitions for the dplane 'netconf' apis, corresponding to the netlink
+ * NETCONF api.
+ * Sadly, netlink sends incremental updates, so its messages may contain
+ * just a single changed attribute, and not necessarily
+ * a complete snapshot of the attributes.
+ */
+enum dplane_netconf_status_e {
+	DPLANE_NETCONF_STATUS_UNKNOWN = 0,
+	DPLANE_NETCONF_STATUS_ENABLED,
+	DPLANE_NETCONF_STATUS_DISABLED
+};
+
+/* Some special ifindex values that may be part of the dplane netconf api. */
+#define DPLANE_NETCONF_IFINDEX_ALL     -1
+#define DPLANE_NETCONF_IFINDEX_DEFAULT -2
+
 /* Enable system route notifications */
 void dplane_enable_sys_route_notifs(void);
 
@@ -228,14 +260,15 @@ void dplane_enable_sys_route_notifs(void);
  * they cannot share existing global data structures safely.
  */
 
-/* Define a tailq list type for context blocks. The list is exposed/public,
+/* Define a list type for context blocks. The list is exposed/public,
  * but the internal linkage in the context struct is private, so there
  * are accessor apis that support enqueue and dequeue.
  */
-TAILQ_HEAD(dplane_ctx_q, zebra_dplane_ctx);
+
+PREDECL_DLIST(dplane_ctx_list);
 
 /* Declare a type for (optional) extended interface info objects. */
-TAILQ_HEAD(dplane_intf_extra_q, dplane_intf_extra);
+PREDECL_DLIST(dplane_intf_extra_list);
 
 /* Allocate a context object */
 struct zebra_dplane_ctx *dplane_ctx_alloc(void);
@@ -263,17 +296,21 @@ void dplane_ctx_fini(struct zebra_dplane_ctx **pctx);
 /* Enqueue a context block to caller's tailq. This exists so that the
  * context struct can remain opaque.
  */
-void dplane_ctx_enqueue_tail(struct dplane_ctx_q *q,
+void dplane_ctx_enqueue_tail(struct dplane_ctx_list_head *q,
 			     const struct zebra_dplane_ctx *ctx);
 
 /* Append a list of context blocks to another list - again, just keeping
  * the context struct opaque.
  */
-void dplane_ctx_list_append(struct dplane_ctx_q *to_list,
-			    struct dplane_ctx_q *from_list);
+void dplane_ctx_list_append(struct dplane_ctx_list_head *to_list,
+			    struct dplane_ctx_list_head *from_list);
 
 /* Dequeue a context block from the head of caller's tailq */
-struct zebra_dplane_ctx *dplane_ctx_dequeue(struct dplane_ctx_q *q);
+struct zebra_dplane_ctx *dplane_ctx_dequeue(struct dplane_ctx_list_head *q);
+struct zebra_dplane_ctx *dplane_ctx_get_head(struct dplane_ctx_list_head *q);
+
+/* Init a list of contexts */
+void dplane_ctx_q_init(struct dplane_ctx_list_head *q);
 
 /*
  * Accessors for information from the context object
@@ -295,6 +332,122 @@ const char *dplane_ctx_get_ifname(const struct zebra_dplane_ctx *ctx);
 void dplane_ctx_set_ifname(struct zebra_dplane_ctx *ctx, const char *ifname);
 ifindex_t dplane_ctx_get_ifindex(const struct zebra_dplane_ctx *ctx);
 void dplane_ctx_set_ifindex(struct zebra_dplane_ctx *ctx, ifindex_t ifindex);
+void dplane_ctx_set_ifp_bond_ifindex(struct zebra_dplane_ctx *ctx,
+				     ifindex_t ifindex);
+ifindex_t dplane_ctx_get_ifp_bond_ifindex(const struct zebra_dplane_ctx *ctx);
+enum zebra_iftype
+dplane_ctx_get_ifp_zif_type(const struct zebra_dplane_ctx *ctx);
+void dplane_ctx_set_ifp_zif_type(struct zebra_dplane_ctx *ctx,
+				 enum zebra_iftype zif_type);
+void dplane_ctx_set_ifp_table_id(struct zebra_dplane_ctx *ctx,
+				 uint32_t table_id);
+uint32_t dplane_ctx_get_ifp_table_id(const struct zebra_dplane_ctx *ctx);
+void dplane_ctx_set_ifp_hw_addr(struct zebra_dplane_ctx *ctx,
+				int32_t hw_addr_len, uint8_t *hw_addr);
+int32_t dplane_ctx_get_ifp_hw_addr_len(const struct zebra_dplane_ctx *ctx);
+const uint8_t *dplane_ctx_get_ifp_hw_addr(const struct zebra_dplane_ctx *ctx);
+struct zebra_l2info_bridge;
+void dplane_ctx_set_ifp_bridge_info(struct zebra_dplane_ctx *ctx,
+				    struct zebra_l2info_bridge *binfo);
+const struct zebra_l2info_bridge *
+dplane_ctx_get_ifp_bridge_info(const struct zebra_dplane_ctx *ctx);
+struct zebra_l2info_vlan;
+void dplane_ctx_set_ifp_vlan_info(struct zebra_dplane_ctx *ctx,
+				  struct zebra_l2info_vlan *vinfo);
+const struct zebra_l2info_vlan *
+dplane_ctx_get_ifp_vlan_info(const struct zebra_dplane_ctx *ctx);
+struct zebra_l2info_vxlan;
+void dplane_ctx_set_ifp_vxlan_info(struct zebra_dplane_ctx *ctx,
+				   struct zebra_l2info_vxlan *vxinfo);
+const struct zebra_l2info_vxlan *
+dplane_ctx_get_ifp_vxlan_info(const struct zebra_dplane_ctx *ctx);
+struct zebra_l2info_gre;
+void dplane_ctx_set_ifp_gre_info(struct zebra_dplane_ctx *ctx,
+				 struct zebra_l2info_gre *greinfo);
+const struct zebra_l2info_gre *
+dplane_ctx_get_ifp_gre_info(const struct zebra_dplane_ctx *ctx);
+void dplane_ctx_set_ifp_zltype(struct zebra_dplane_ctx *ctx,
+			       enum zebra_link_type zlt);
+enum zebra_link_type
+dplane_ctx_get_ifp_zltype(const struct zebra_dplane_ctx *ctx);
+void dplane_ctx_set_ifp_link_nsid(struct zebra_dplane_ctx *ctx, ns_id_t ns_id);
+ns_id_t dplane_ctx_get_ifp_link_nsid(const struct zebra_dplane_ctx *ctx);
+void dplane_ctx_set_ifp_desc(struct zebra_dplane_ctx *ctx, const char *desc);
+char *dplane_ctx_get_ifp_desc(struct zebra_dplane_ctx *ctx);
+void dplane_ctx_set_ifp_mtu(struct zebra_dplane_ctx *ctx, uint32_t mtu);
+uint32_t dplane_ctx_get_ifp_mtu(const struct zebra_dplane_ctx *ctx);
+void dplane_ctx_set_ifp_vrf_id(struct zebra_dplane_ctx *ctx, vrf_id_t vrf_id);
+vrf_id_t dplane_ctx_get_ifp_vrf_id(const struct zebra_dplane_ctx *ctx);
+enum zebra_slave_iftype;
+void dplane_ctx_set_ifp_zif_slave_type(struct zebra_dplane_ctx *ctx,
+				       enum zebra_slave_iftype zslave_type);
+enum zebra_slave_iftype
+dplane_ctx_get_ifp_zif_slave_type(const struct zebra_dplane_ctx *ctx);
+void dplane_ctx_set_ifp_master_ifindex(struct zebra_dplane_ctx *ctx,
+				       ifindex_t master_ifindex);
+ifindex_t dplane_ctx_get_ifp_master_ifindex(const struct zebra_dplane_ctx *ctx);
+void dplane_ctx_set_ifp_bridge_ifindex(struct zebra_dplane_ctx *ctx,
+				       ifindex_t bridge_ifindex);
+ifindex_t dplane_ctx_get_ifp_bridge_ifindex(const struct zebra_dplane_ctx *ctx);
+void dplane_ctx_set_ifp_bypass(struct zebra_dplane_ctx *ctx, uint8_t bypass);
+uint8_t dplane_ctx_get_ifp_bypass(const struct zebra_dplane_ctx *ctx);
+void dplane_ctx_set_ifp_flags(struct zebra_dplane_ctx *ctx, uint64_t flags);
+uint64_t dplane_ctx_get_ifp_flags(const struct zebra_dplane_ctx *ctx);
+void dplane_ctx_set_ifp_protodown(struct zebra_dplane_ctx *ctx, bool protodown);
+bool dplane_ctx_get_ifp_protodown(const struct zebra_dplane_ctx *ctx);
+void dplane_ctx_set_ifp_startup(struct zebra_dplane_ctx *ctx, bool startup);
+bool dplane_ctx_get_ifp_startup(const struct zebra_dplane_ctx *ctx);
+void dplane_ctx_set_ifp_protodown_set(struct zebra_dplane_ctx *ctx, bool set);
+bool dplane_ctx_get_ifp_protodown_set(const struct zebra_dplane_ctx *ctx);
+void dplane_ctx_set_ifp_rc_bitfield(struct zebra_dplane_ctx *ctx,
+				    uint32_t rc_bitfield);
+uint32_t dplane_ctx_get_ifp_rc_bitfield(const struct zebra_dplane_ctx *ctx);
+void dplane_ctx_set_ifp_link_ifindex(struct zebra_dplane_ctx *ctx,
+				     ifindex_t link_ifindex);
+ifindex_t dplane_ctx_get_ifp_link_ifindex(const struct zebra_dplane_ctx *ctx);
+void dplane_ctx_set_ifp_family(struct zebra_dplane_ctx *ctx, uint8_t family);
+uint8_t dplane_ctx_get_ifp_family(const struct zebra_dplane_ctx *ctx);
+struct zebra_vxlan_vni_array;
+void dplane_ctx_set_ifp_vxlan_vni_array(struct zebra_dplane_ctx *ctx,
+					struct zebra_vxlan_vni_array *vniarray);
+
+/*
+ * These defines mirror the values for bridge values in linux
+ * at this point since we only have a linux implementation
+ * we don't need to do any type of translation.  Let's just
+ * pass these through and use them
+ */
+#define DPLANE_BRIDGE_VLAN_INFO_PVID                                           \
+	(1 << 1) /* VLAN is PVID, ingress untagged */
+#define DPLANE_BRIDGE_VLAN_INFO_RANGE_BEGIN                                    \
+	(1 << 3) /* VLAN is start of vlan range */
+#define DPLANE_BRIDGE_VLAN_INFO_RANGE_END                                      \
+	(1 << 4) /* VLAN is end of vlan range */
+const struct zebra_vxlan_vni_array *
+dplane_ctx_get_ifp_vxlan_vni_array(const struct zebra_dplane_ctx *ctx);
+struct zebra_dplane_bridge_vlan_info {
+	uint16_t flags;
+	uint16_t vid;
+};
+void dplane_ctx_set_ifp_no_afspec(struct zebra_dplane_ctx *ctx);
+bool dplane_ctx_get_ifp_no_afspec(const struct zebra_dplane_ctx *ctx);
+void dplane_ctx_set_ifp_no_bridge_vlan_info(struct zebra_dplane_ctx *ctx);
+bool dplane_ctx_get_ifp_no_bridge_vlan_info(struct zebra_dplane_ctx *ctx);
+void dplane_ctx_set_ifp_bridge_vlan_info(
+	struct zebra_dplane_ctx *ctx,
+	struct zebra_dplane_bridge_vlan_info *bvinfo);
+const struct zebra_dplane_bridge_vlan_info *
+dplane_ctx_get_ifp_bridge_vlan_info(const struct zebra_dplane_ctx *ctx);
+
+struct zebra_dplane_bridge_vlan_info_array {
+	int count;
+	struct zebra_dplane_bridge_vlan_info array[0];
+};
+void dplane_ctx_set_ifp_bridge_vlan_info_array(
+	struct zebra_dplane_ctx *ctx,
+	struct zebra_dplane_bridge_vlan_info_array *bvarray);
+const struct zebra_dplane_bridge_vlan_info_array *
+dplane_ctx_get_ifp_bridge_vlan_info_array(const struct zebra_dplane_ctx *ctx);
 
 /* Retrieve last/current provider id */
 uint32_t dplane_ctx_get_provider(const struct zebra_dplane_ctx *ctx);
@@ -342,6 +495,8 @@ route_tag_t dplane_ctx_get_old_tag(const struct zebra_dplane_ctx *ctx);
 uint16_t dplane_ctx_get_instance(const struct zebra_dplane_ctx *ctx);
 void dplane_ctx_set_instance(struct zebra_dplane_ctx *ctx, uint16_t instance);
 uint16_t dplane_ctx_get_old_instance(const struct zebra_dplane_ctx *ctx);
+uint32_t dplane_ctx_get_flags(const struct zebra_dplane_ctx *ctx);
+void dplane_ctx_set_flags(struct zebra_dplane_ctx *ctx, uint32_t flags);
 uint32_t dplane_ctx_get_metric(const struct zebra_dplane_ctx *ctx);
 uint32_t dplane_ctx_get_old_metric(const struct zebra_dplane_ctx *ctx);
 uint32_t dplane_ctx_get_mtu(const struct zebra_dplane_ctx *ctx);
@@ -349,6 +504,44 @@ uint32_t dplane_ctx_get_nh_mtu(const struct zebra_dplane_ctx *ctx);
 uint8_t dplane_ctx_get_distance(const struct zebra_dplane_ctx *ctx);
 void dplane_ctx_set_distance(struct zebra_dplane_ctx *ctx, uint8_t distance);
 uint8_t dplane_ctx_get_old_distance(const struct zebra_dplane_ctx *ctx);
+
+/* Accessors for traffic control context */
+int dplane_ctx_tc_qdisc_get_kind(const struct zebra_dplane_ctx *ctx);
+const char *
+dplane_ctx_tc_qdisc_get_kind_str(const struct zebra_dplane_ctx *ctx);
+
+uint32_t dplane_ctx_tc_class_get_handle(const struct zebra_dplane_ctx *ctx);
+int dplane_ctx_tc_class_get_kind(const struct zebra_dplane_ctx *ctx);
+const char *
+dplane_ctx_tc_class_get_kind_str(const struct zebra_dplane_ctx *ctx);
+uint64_t dplane_ctx_tc_class_get_rate(const struct zebra_dplane_ctx *ctx);
+uint64_t dplane_ctx_tc_class_get_ceil(const struct zebra_dplane_ctx *ctx);
+
+int dplane_ctx_tc_filter_get_kind(const struct zebra_dplane_ctx *ctx);
+const char *
+dplane_ctx_tc_filter_get_kind_str(const struct zebra_dplane_ctx *ctx);
+uint32_t dplane_ctx_tc_filter_get_priority(const struct zebra_dplane_ctx *ctx);
+uint32_t dplane_ctx_tc_filter_get_handle(const struct zebra_dplane_ctx *ctx);
+uint16_t dplane_ctx_tc_filter_get_minor(const struct zebra_dplane_ctx *ctx);
+uint16_t dplane_ctx_tc_filter_get_eth_proto(const struct zebra_dplane_ctx *ctx);
+uint32_t dplane_ctx_tc_filter_get_filter_bm(const struct zebra_dplane_ctx *ctx);
+const struct prefix *
+dplane_ctx_tc_filter_get_src_ip(const struct zebra_dplane_ctx *ctx);
+uint16_t
+dplane_ctx_tc_filter_get_src_port_min(const struct zebra_dplane_ctx *ctx);
+uint16_t
+dplane_ctx_tc_filter_get_src_port_max(const struct zebra_dplane_ctx *ctx);
+const struct prefix *
+dplane_ctx_tc_filter_get_dst_ip(const struct zebra_dplane_ctx *ctx);
+uint16_t
+dplane_ctx_tc_filter_get_dst_port_min(const struct zebra_dplane_ctx *ctx);
+uint16_t
+dplane_ctx_tc_filter_get_dst_port_max(const struct zebra_dplane_ctx *ctx);
+uint8_t dplane_ctx_tc_filter_get_ip_proto(const struct zebra_dplane_ctx *ctx);
+uint8_t dplane_ctx_tc_filter_get_dsfield(const struct zebra_dplane_ctx *ctx);
+uint8_t
+dplane_ctx_tc_filter_get_dsfield_mask(const struct zebra_dplane_ctx *ctx);
+uint32_t dplane_ctx_tc_filter_get_classid(const struct zebra_dplane_ctx *ctx);
 
 void dplane_ctx_set_nexthops(struct zebra_dplane_ctx *ctx, struct nexthop *nh);
 void dplane_ctx_set_backup_nhg(struct zebra_dplane_ctx *ctx,
@@ -457,6 +650,9 @@ dplane_ctx_get_pw_backup_nhg(const struct zebra_dplane_ctx *ctx);
 /* Accessors for interface information */
 uint32_t dplane_ctx_get_intf_metric(const struct zebra_dplane_ctx *ctx);
 void dplane_ctx_set_intf_metric(struct zebra_dplane_ctx *ctx, uint32_t metric);
+uint32_t dplane_ctx_get_intf_pd_reason_val(const struct zebra_dplane_ctx *ctx);
+void dplane_ctx_set_intf_pd_reason_val(struct zebra_dplane_ctx *ctx, bool val);
+bool dplane_ctx_intf_is_protodown(const struct zebra_dplane_ctx *ctx);
 /* Is interface addr p2p? */
 bool dplane_ctx_intf_is_connected(const struct zebra_dplane_ctx *ctx);
 void dplane_ctx_intf_set_connected(struct zebra_dplane_ctx *ctx);
@@ -476,6 +672,8 @@ void dplane_ctx_set_intf_dest(struct zebra_dplane_ctx *ctx,
 bool dplane_ctx_intf_has_label(const struct zebra_dplane_ctx *ctx);
 const char *dplane_ctx_get_intf_label(const struct zebra_dplane_ctx *ctx);
 void dplane_ctx_set_intf_label(struct zebra_dplane_ctx *ctx, const char *label);
+void dplane_ctx_set_intf_txqlen(struct zebra_dplane_ctx *ctx, uint32_t txqlen);
+uint32_t dplane_ctx_get_intf_txqlen(const struct zebra_dplane_ctx *ctx);
 
 /* Accessors for MAC information */
 vlanid_t dplane_ctx_mac_get_vlan(const struct zebra_dplane_ctx *ctx);
@@ -484,6 +682,7 @@ uint32_t dplane_ctx_mac_get_update_flags(const struct zebra_dplane_ctx *ctx);
 uint32_t dplane_ctx_mac_get_nhg_id(const struct zebra_dplane_ctx *ctx);
 const struct ethaddr *dplane_ctx_mac_get_addr(
 	const struct zebra_dplane_ctx *ctx);
+vni_t dplane_ctx_mac_get_vni(const struct zebra_dplane_ctx *ctx);
 const struct in_addr *dplane_ctx_mac_get_vtep_ip(
 	const struct zebra_dplane_ctx *ctx);
 ifindex_t dplane_ctx_mac_get_br_ifindex(const struct zebra_dplane_ctx *ctx);
@@ -493,6 +692,7 @@ const struct ipaddr *dplane_ctx_neigh_get_ipaddr(
 	const struct zebra_dplane_ctx *ctx);
 const struct ethaddr *dplane_ctx_neigh_get_mac(
 	const struct zebra_dplane_ctx *ctx);
+vni_t dplane_ctx_neigh_get_vni(const struct zebra_dplane_ctx *ctx);
 const struct ipaddr *
 dplane_ctx_neigh_get_link_ip(const struct zebra_dplane_ctx *ctx);
 uint32_t dplane_ctx_neigh_get_flags(const struct zebra_dplane_ctx *ctx);
@@ -500,6 +700,8 @@ uint16_t dplane_ctx_neigh_get_state(const struct zebra_dplane_ctx *ctx);
 uint32_t dplane_ctx_neigh_get_update_flags(const struct zebra_dplane_ctx *ctx);
 
 /* Accessors for policy based routing rule information */
+void dplane_ctx_rule_get(const struct zebra_dplane_ctx *ctx,
+	struct pbr_rule *pNew, struct pbr_rule *pOld);
 int dplane_ctx_rule_get_sock(const struct zebra_dplane_ctx *ctx);
 int dplane_ctx_rule_get_unique(const struct zebra_dplane_ctx *ctx);
 int dplane_ctx_rule_get_seq(const struct zebra_dplane_ctx *ctx);
@@ -516,6 +718,10 @@ uint8_t dplane_ctx_rule_get_dsfield(const struct zebra_dplane_ctx *ctx);
 uint8_t dplane_ctx_rule_get_old_dsfield(const struct zebra_dplane_ctx *ctx);
 uint8_t dplane_ctx_rule_get_ipproto(const struct zebra_dplane_ctx *ctx);
 uint8_t dplane_ctx_rule_get_old_ipproto(const struct zebra_dplane_ctx *ctx);
+uint16_t dplane_ctx_rule_get_src_port(const struct zebra_dplane_ctx *ctx);
+uint16_t dplane_ctx_rule_get_old_src_port(const struct zebra_dplane_ctx *ctx);
+uint16_t dplane_ctx_rule_get_dst_port(const struct zebra_dplane_ctx *ctx);
+uint16_t dplane_ctx_rule_get_old_dst_port(const struct zebra_dplane_ctx *ctx);
 const struct prefix *
 dplane_ctx_rule_get_src_ip(const struct zebra_dplane_ctx *ctx);
 const struct prefix *
@@ -524,19 +730,26 @@ const struct prefix *
 dplane_ctx_rule_get_dst_ip(const struct zebra_dplane_ctx *ctx);
 const struct prefix *
 dplane_ctx_rule_get_old_dst_ip(const struct zebra_dplane_ctx *ctx);
+const struct ethaddr *
+dplane_ctx_rule_get_smac(const struct zebra_dplane_ctx *ctx);
+const struct ethaddr *
+dplane_ctx_rule_get_dmac(const struct zebra_dplane_ctx *ctx);
+int dplane_ctx_rule_get_out_ifindex(const struct zebra_dplane_ctx *ctx);
+intptr_t dplane_ctx_rule_get_dp_flow_ptr(const struct zebra_dplane_ctx *ctx);
+intptr_t
+dplane_ctx_rule_get_old_dp_flow_ptr(const struct zebra_dplane_ctx *ctx);
+void dplane_ctx_rule_set_dp_flow_ptr(struct zebra_dplane_ctx *ctx,
+				     intptr_t dp_flow_ptr);
 /* Accessors for policy based routing iptable information */
 struct zebra_pbr_iptable;
-bool
-dplane_ctx_get_pbr_iptable(const struct zebra_dplane_ctx *ctx,
-			   struct zebra_pbr_iptable *table);
+void dplane_ctx_get_pbr_iptable(const struct zebra_dplane_ctx *ctx,
+				struct zebra_pbr_iptable *table);
 struct zebra_pbr_ipset;
-bool
-dplane_ctx_get_pbr_ipset(const struct zebra_dplane_ctx *ctx,
-			 struct zebra_pbr_ipset *ipset);
+void dplane_ctx_get_pbr_ipset(const struct zebra_dplane_ctx *ctx,
+			      struct zebra_pbr_ipset *ipset);
 struct zebra_pbr_ipset_entry;
-bool
-dplane_ctx_get_pbr_ipset_entry(const struct zebra_dplane_ctx *ctx,
-			       struct zebra_pbr_ipset_entry *entry);
+void dplane_ctx_get_pbr_ipset_entry(const struct zebra_dplane_ctx *ctx,
+				    struct zebra_pbr_ipset_entry *entry);
 /* Accessors for bridge port information */
 uint32_t dplane_ctx_get_br_port_flags(const struct zebra_dplane_ctx *ctx);
 uint32_t
@@ -563,9 +776,25 @@ dplane_ctx_gre_get_mtu(const struct zebra_dplane_ctx *ctx);
 const struct zebra_l2info_gre *
 dplane_ctx_gre_get_info(const struct zebra_dplane_ctx *ctx);
 
-/* Namespace info - esp. for netlink communication */
+/* Interface netconf info */
+enum dplane_netconf_status_e
+dplane_ctx_get_netconf_mpls(const struct zebra_dplane_ctx *ctx);
+enum dplane_netconf_status_e
+dplane_ctx_get_netconf_mcast(const struct zebra_dplane_ctx *ctx);
+enum dplane_netconf_status_e
+dplane_ctx_get_netconf_linkdown(const struct zebra_dplane_ctx *ctx);
+
+void dplane_ctx_set_netconf_mpls(struct zebra_dplane_ctx *ctx,
+				 enum dplane_netconf_status_e val);
+void dplane_ctx_set_netconf_mcast(struct zebra_dplane_ctx *ctx,
+				  enum dplane_netconf_status_e val);
+void dplane_ctx_set_netconf_linkdown(struct zebra_dplane_ctx *ctx,
+				     enum dplane_netconf_status_e val);
+
+/* Namespace fd info - esp. for netlink communication */
 const struct zebra_dplane_info *dplane_ctx_get_ns(
 	const struct zebra_dplane_ctx *ctx);
+int dplane_ctx_get_ns_sock(const struct zebra_dplane_ctx *ctx);
 
 /* Indicates zebra shutdown/exit is in progress. Some operations may be
  * simplified or skipped during shutdown processing.
@@ -632,6 +861,8 @@ enum zebra_dplane_result dplane_lsp_notif_update(struct zebra_lsp *lsp,
 enum zebra_dplane_result dplane_pw_install(struct zebra_pw *pw);
 enum zebra_dplane_result dplane_pw_uninstall(struct zebra_pw *pw);
 
+enum zebra_dplane_result
+dplane_intf_mpls_modify_state(const struct interface *ifp, const bool set);
 /*
  * Enqueue interface address changes for the dataplane.
  */
@@ -639,6 +870,31 @@ enum zebra_dplane_result dplane_intf_addr_set(const struct interface *ifp,
 					      const struct connected *ifc);
 enum zebra_dplane_result dplane_intf_addr_unset(const struct interface *ifp,
 						const struct connected *ifc);
+
+/*
+ * Enqueue interface link changes for the dataplane.
+ */
+enum zebra_dplane_result dplane_intf_add(const struct interface *ifp);
+enum zebra_dplane_result dplane_intf_update(const struct interface *ifp);
+
+/*
+ * Enqueue tc link changes for the dataplane.
+ */
+
+struct zebra_tc_qdisc;
+struct zebra_tc_class;
+struct zebra_tc_filter;
+enum zebra_dplane_result dplane_tc_qdisc_install(struct zebra_tc_qdisc *qdisc);
+enum zebra_dplane_result
+dplane_tc_qdisc_uninstall(struct zebra_tc_qdisc *qdisc);
+enum zebra_dplane_result dplane_tc_class_add(struct zebra_tc_class *class);
+enum zebra_dplane_result dplane_tc_class_delete(struct zebra_tc_class *class);
+enum zebra_dplane_result dplane_tc_class_update(struct zebra_tc_class *class);
+enum zebra_dplane_result dplane_tc_filter_add(struct zebra_tc_filter *filter);
+enum zebra_dplane_result
+dplane_tc_filter_delete(struct zebra_tc_filter *filter);
+enum zebra_dplane_result
+dplane_tc_filter_update(struct zebra_tc_filter *filter);
 
 /*
  * Link layer operations for the dataplane.
@@ -653,14 +909,11 @@ enum zebra_dplane_result dplane_neigh_ip_update(enum dplane_op_e op,
 /*
  * Enqueue evpn mac operations for the dataplane.
  */
-enum zebra_dplane_result dplane_rem_mac_add(const struct interface *ifp,
-					const struct interface *bridge_ifp,
-					vlanid_t vid,
-					const struct ethaddr *mac,
-					struct in_addr vtep_ip,
-					bool sticky,
-					uint32_t nhg_id,
-					bool was_static);
+enum zebra_dplane_result
+dplane_rem_mac_add(const struct interface *ifp,
+		   const struct interface *bridge_ifp, vlanid_t vid,
+		   const struct ethaddr *mac, vni_t vni, struct in_addr vtep_ip,
+		   bool sticky, uint32_t nhg_id, bool was_static);
 
 enum zebra_dplane_result dplane_local_mac_add(const struct interface *ifp,
 					const struct interface *bridge_ifp,
@@ -676,20 +929,17 @@ dplane_local_mac_del(const struct interface *ifp,
 		     const struct ethaddr *mac);
 
 enum zebra_dplane_result dplane_rem_mac_del(const struct interface *ifp,
-					const struct interface *bridge_ifp,
-					vlanid_t vid,
-					const struct ethaddr *mac,
-					struct in_addr vtep_ip);
+					    const struct interface *bridge_ifp,
+					    vlanid_t vid,
+					    const struct ethaddr *mac,
+					    vni_t vni, struct in_addr vtep_ip);
 
 /* Helper api to init an empty or new context for a MAC update */
-void dplane_mac_init(struct zebra_dplane_ctx *ctx,
-		     const struct interface *ifp,
-		     const struct interface *br_ifp,
-		     vlanid_t vid,
-		     const struct ethaddr *mac,
-		     struct in_addr vtep_ip,
-		     bool sticky,
-		     uint32_t nhg_id, uint32_t update_flags);
+void dplane_mac_init(struct zebra_dplane_ctx *ctx, const struct interface *ifp,
+		     const struct interface *br_ifp, vlanid_t vid,
+		     const struct ethaddr *mac, vni_t vni,
+		     struct in_addr vtep_ip, bool sticky, uint32_t nhg_id,
+		     uint32_t update_flags);
 
 /*
  * Enqueue evpn neighbor updates for the dataplane.
@@ -774,9 +1024,22 @@ dplane_pbr_ipset_entry_delete(struct zebra_pbr_ipset_entry *ipset);
 int dplane_ctx_route_init(struct zebra_dplane_ctx *ctx, enum dplane_op_e op,
 			  struct route_node *rn, struct route_entry *re);
 
+int dplane_ctx_route_init_basic(struct zebra_dplane_ctx *ctx,
+				enum dplane_op_e op, struct route_entry *re,
+				const struct prefix *p,
+				const struct prefix_ipv6 *src_p, afi_t afi,
+				safi_t safi);
+
 /* Encode next hop information into data plane context. */
 int dplane_ctx_nexthop_init(struct zebra_dplane_ctx *ctx, enum dplane_op_e op,
 			    struct nhg_hash_entry *nhe);
+
+/* Encode interface information into data plane context. */
+int dplane_ctx_intf_init(struct zebra_dplane_ctx *ctx, enum dplane_op_e op,
+			 const struct interface *ifp);
+
+/* Encode traffic control information into data plane context. */
+int dplane_ctx_tc_init(struct zebra_dplane_ctx *ctx, enum dplane_op_e op);
 
 /* Retrieve the limit on the number of pending, unprocessed updates. */
 uint32_t dplane_get_in_queue_limit(void);
@@ -871,7 +1134,7 @@ void dplane_provider_lock(struct zebra_dplane_provider *prov);
 void dplane_provider_unlock(struct zebra_dplane_provider *prov);
 
 /* Obtain thread_master for dataplane thread */
-struct thread_master *dplane_get_thread_master(void);
+struct event_loop *dplane_get_thread_master(void);
 
 /* Providers should (generally) limit number of updates per work cycle */
 int dplane_provider_get_work_limit(const struct zebra_dplane_provider *prov);
@@ -887,7 +1150,7 @@ struct zebra_dplane_ctx *dplane_provider_dequeue_in_ctx(
 
 /* Dequeue work to a list, maintain counter and locking, return count */
 int dplane_provider_dequeue_in_list(struct zebra_dplane_provider *prov,
-				    struct dplane_ctx_q *listp);
+				    struct dplane_ctx_list_head *listp);
 
 /* Current completed work queue length */
 uint32_t dplane_provider_out_ctx_queue_len(struct zebra_dplane_provider *prov);
@@ -912,7 +1175,7 @@ void dplane_enable_intf_extra_info(void);
  * so the expectation is that the contexts are queued for the zebra
  * main pthread.
  */
-void zebra_dplane_init(int (*) (struct dplane_ctx_q *));
+void zebra_dplane_init(int (*)(struct dplane_ctx_list_head *));
 
 /*
  * Start the dataplane pthread. This step needs to be run later than the
@@ -931,6 +1194,22 @@ void zebra_dplane_start(void);
 void zebra_dplane_pre_finish(void);
 void zebra_dplane_finish(void);
 void zebra_dplane_shutdown(void);
+
+void zebra_dplane_startup_stage(struct zebra_ns *zns,
+				enum zebra_dplane_startup_notifications spot);
+
+/*
+ * decision point for sending a routing update through the old
+ * straight to zebra master pthread or through the dplane to
+ * the master pthread for handling
+ */
+void dplane_rib_add_multipath(afi_t afi, safi_t safi, struct prefix *p,
+			      struct prefix_ipv6 *src_p, struct route_entry *re,
+			      struct nexthop_group *ng, int startup,
+			      struct zebra_dplane_ctx *ctx);
+
+enum zebra_dplane_startup_notifications
+dplane_ctx_get_startup_spot(struct zebra_dplane_ctx *ctx);
 
 #ifdef __cplusplus
 }

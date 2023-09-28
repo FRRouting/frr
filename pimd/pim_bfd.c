@@ -1,23 +1,9 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * pim_bfd.c: PIM BFD handling routines
  *
  * Copyright (C) 2017 Cumulus Networks, Inc.
  * Chirag Shah
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; see the file COPYING; if not, write to the
- * Free Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston,
- * MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -29,7 +15,6 @@
 
 #include "pim_instance.h"
 #include "pim_neighbor.h"
-#include "pim_cmd.h"
 #include "pim_vty.h"
 #include "pim_iface.h"
 #include "pim_bfd.h"
@@ -51,15 +36,15 @@ void pim_bfd_write_config(struct vty *vty, struct interface *ifp)
 	if (pim_ifp->bfd_config.detection_multiplier != BFD_DEF_DETECT_MULT
 	    || pim_ifp->bfd_config.min_rx != BFD_DEF_MIN_RX
 	    || pim_ifp->bfd_config.min_tx != BFD_DEF_MIN_TX)
-		vty_out(vty, " ip pim bfd %d %d %d\n",
+		vty_out(vty, " " PIM_AF_NAME " pim bfd %d %d %d\n",
 			pim_ifp->bfd_config.detection_multiplier,
 			pim_ifp->bfd_config.min_rx, pim_ifp->bfd_config.min_tx);
 	else
 #endif /* ! HAVE_BFDD */
-		vty_out(vty, " ip pim bfd\n");
+		vty_out(vty, " " PIM_AF_NAME " pim bfd\n");
 
 	if (pim_ifp->bfd_config.profile)
-		vty_out(vty, " ip pim bfd profile %s\n",
+		vty_out(vty, " " PIM_AF_NAME " pim bfd profile %s\n",
 			pim_ifp->bfd_config.profile);
 }
 
@@ -95,9 +80,13 @@ void pim_bfd_info_nbr_create(struct pim_interface *pim_ifp,
 	bfd_sess_set_timers(
 		neigh->bfd_session, pim_ifp->bfd_config.detection_multiplier,
 		pim_ifp->bfd_config.min_rx, pim_ifp->bfd_config.min_tx);
+#if PIM_IPV == 4
 	bfd_sess_set_ipv4_addrs(neigh->bfd_session, NULL, &neigh->source_addr);
+#else
+	bfd_sess_set_ipv6_addrs(neigh->bfd_session, NULL, &neigh->source_addr);
+#endif
 	bfd_sess_set_interface(neigh->bfd_session, neigh->interface->name);
-	bfd_sess_set_vrf(neigh->bfd_session, neigh->interface->vrf_id);
+	bfd_sess_set_vrf(neigh->bfd_session, neigh->interface->vrf->vrf_id);
 	bfd_sess_set_profile(neigh->bfd_session, pim_ifp->bfd_config.profile);
 	bfd_sess_install(neigh->bfd_session);
 }

@@ -1,23 +1,8 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * SHARP - vty code
  * Copyright (C) Cumulus Networks, Inc.
  *               Donald Sharp
- *
- * This file is part of FRR.
- *
- * FRR is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * FRR is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 #include <zebra.h>
 
@@ -29,15 +14,16 @@
 #include "vrf.h"
 #include "zclient.h"
 #include "nexthop_group.h"
+#include "linklist.h"
 #include "link_state.h"
+#include "cspf.h"
+#include "tc.h"
 
 #include "sharpd/sharp_globals.h"
 #include "sharpd/sharp_zebra.h"
 #include "sharpd/sharp_nht.h"
 #include "sharpd/sharp_vty.h"
-#ifndef VTYSH_EXTRACT_PL
 #include "sharpd/sharp_vty_clippy.c"
-#endif
 
 DEFINE_MTYPE_STATIC(SHARPD, SRV6_LOCATOR, "SRv6 Locator");
 
@@ -102,7 +88,7 @@ DEFPY(watch_nexthop_v6, watch_nexthop_v6_cmd,
 		p.family = AF_INET6;
 	} else {
 		type_import = true;
-		p = *(const struct prefix *)inhop;
+		prefix_copy(&p, inhop);
 	}
 
 	sharp_nh_tracker_get(&p);
@@ -147,7 +133,7 @@ DEFPY(watch_nexthop_v4, watch_nexthop_v4_cmd,
 	}
 	else {
 		type_import = true;
-		p = *(const struct prefix *)inhop;
+		prefix_copy(&p, inhop);
 	}
 
 	sharp_nh_tracker_get(&p);
@@ -193,7 +179,7 @@ DEFPY (install_routes,
 	  <nexthop <A.B.C.D$nexthop4|X:X::X:X$nexthop6>|\
 	   nexthop-group NHGNAME$nexthop_group>\
 	  [backup$backup <A.B.C.D$backup_nexthop4|X:X::X:X$backup_nexthop6>] \
-	  (1-1000000)$routes [instance (0-255)$instance] [repeat (2-1000)$rpt] [opaque WORD]",
+	  (1-1000000)$routes [instance (0-255)$instance] [repeat (2-1000)$rpt] [opaque WORD] [no-recurse$norecurse]",
        "Sharp routing Protocol\n"
        "install some routes\n"
        "Routes to install\n"
@@ -215,7 +201,8 @@ DEFPY (install_routes,
        "Should we repeat this command\n"
        "How many times to repeat this command\n"
        "What opaque data to send down\n"
-       "The opaque data\n")
+       "The opaque data\n"
+       "No recursive nexthops\n")
 {
 	struct vrf *vrf;
 	struct prefix prefix;
@@ -224,6 +211,7 @@ DEFPY (install_routes,
 
 	sg.r.total_routes = routes;
 	sg.r.installed_routes = 0;
+	sg.r.flags = 0;
 
 	if (rpt >= 2)
 		sg.r.repeat = rpt * 2;
@@ -232,6 +220,8 @@ DEFPY (install_routes,
 
 	memset(&prefix, 0, sizeof(prefix));
 	memset(&sg.r.orig_prefix, 0, sizeof(sg.r.orig_prefix));
+	nexthop_del_srv6_seg6local(&sg.r.nhop);
+	nexthop_del_srv6_seg6(&sg.r.nhop);
 	memset(&sg.r.nhop, 0, sizeof(sg.r.nhop));
 	memset(&sg.r.nhop_group, 0, sizeof(sg.r.nhop_group));
 	memset(&sg.r.backup_nhop, 0, sizeof(sg.r.nhop));
@@ -329,12 +319,16 @@ DEFPY (install_routes,
 	else
 		sg.r.opaque[0] = '\0';
 
+	/* Default is to ask for recursive nexthop resolution */
+	if (norecurse == NULL)
+		SET_FLAG(sg.r.flags, ZEBRA_FLAG_ALLOW_RECURSION);
+
 	sg.r.inst = instance;
 	sg.r.vrf_id = vrf->vrf_id;
 	rts = routes;
 	sharp_install_routes_helper(&prefix, sg.r.vrf_id, sg.r.inst, nhgid,
 				    &sg.r.nhop_group, &sg.r.backup_nhop_group,
-				    rts, 0, sg.r.opaque);
+				    rts, sg.r.flags, sg.r.opaque);
 
 	return CMD_SUCCESS;
 }
@@ -374,6 +368,8 @@ DEFPY (install_seg6_routes,
 
 	memset(&prefix, 0, sizeof(prefix));
 	memset(&sg.r.orig_prefix, 0, sizeof(sg.r.orig_prefix));
+	nexthop_del_srv6_seg6local(&sg.r.nhop);
+	nexthop_del_srv6_seg6(&sg.r.nhop);
 	memset(&sg.r.nhop, 0, sizeof(sg.r.nhop));
 	memset(&sg.r.nhop_group, 0, sizeof(sg.r.nhop_group));
 	memset(&sg.r.backup_nhop, 0, sizeof(sg.r.nhop));
@@ -406,7 +402,7 @@ DEFPY (install_seg6_routes,
 	sg.r.nhop.gate.ipv6 = seg6_nh6;
 	sg.r.nhop.vrf_id = vrf->vrf_id;
 	sg.r.nhop_group.nexthop = &sg.r.nhop;
-	nexthop_add_srv6_seg6(&sg.r.nhop, &seg6_seg);
+	nexthop_add_srv6_seg6(&sg.r.nhop, &seg6_seg, 1);
 
 	sg.r.vrf_id = vrf->vrf_id;
 	sharp_install_routes_helper(&prefix, sg.r.vrf_id, sg.r.inst, 0,
@@ -425,7 +421,9 @@ DEFPY (install_seg6local_routes,
 	      End_X$seg6l_endx X:X::X:X$seg6l_endx_nh6|\
 	      End_T$seg6l_endt (1-4294967295)$seg6l_endt_table|\
 	      End_DX4$seg6l_enddx4 A.B.C.D$seg6l_enddx4_nh4|\
-	      End_DT6$seg6l_enddt6 (1-4294967295)$seg6l_enddt6_table>\
+	      End_DT6$seg6l_enddt6 (1-4294967295)$seg6l_enddt6_table|\
+	      End_DT4$seg6l_enddt4 (1-4294967295)$seg6l_enddt4_table|\
+	      End_DT46$seg6l_enddt46 (1-4294967295)$seg6l_enddt46_table>\
 	  (1-1000000)$routes [repeat (2-1000)$rpt]",
        "Sharp routing Protocol\n"
        "install some routes\n"
@@ -443,6 +441,10 @@ DEFPY (install_seg6local_routes,
        "SRv6 End.DX4 function to use\n"
        "V4 Nexthop address to use\n"
        "SRv6 End.DT6 function to use\n"
+       "Redirect table id to use\n"
+       "SRv6 End.DT4 function to use\n"
+       "Redirect table id to use\n"
+       "SRv6 End.DT46 function to use\n"
        "Redirect table id to use\n"
        "How many to create\n"
        "Should we repeat this command\n"
@@ -462,6 +464,8 @@ DEFPY (install_seg6local_routes,
 		sg.r.repeat = 0;
 
 	memset(&sg.r.orig_prefix, 0, sizeof(sg.r.orig_prefix));
+	nexthop_del_srv6_seg6local(&sg.r.nhop);
+	nexthop_del_srv6_seg6(&sg.r.nhop);
 	memset(&sg.r.nhop, 0, sizeof(sg.r.nhop));
 	memset(&sg.r.nhop_group, 0, sizeof(sg.r.nhop_group));
 	memset(&sg.r.backup_nhop, 0, sizeof(sg.r.nhop));
@@ -494,6 +498,12 @@ DEFPY (install_seg6local_routes,
 	} else if (seg6l_enddt6) {
 		action = ZEBRA_SEG6_LOCAL_ACTION_END_DT6;
 		ctx.table = seg6l_enddt6_table;
+	} else if (seg6l_enddt4) {
+		action = ZEBRA_SEG6_LOCAL_ACTION_END_DT4;
+		ctx.table = seg6l_enddt4_table;
+	} else if (seg6l_enddt46) {
+		action = ZEBRA_SEG6_LOCAL_ACTION_END_DT46;
+		ctx.table = seg6l_enddt46_table;
 	} else {
 		action = ZEBRA_SEG6_LOCAL_ACTION_END;
 	}
@@ -532,7 +542,7 @@ DEFPY(vrf_label, vrf_label_cmd,
 		vrf = vrf_lookup_by_name(vrf_name);
 
 	if (!vrf) {
-		vty_out(vty, "Unable to find vrf you silly head");
+		vty_out(vty, "Unable to find vrf you silly head\n");
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
@@ -600,6 +610,8 @@ DEFUN_NOSH (show_debugging_sharpd,
 	    "Sharp Information\n")
 {
 	vty_out(vty, "Sharp debugging status:\n");
+
+	cmd_show_lib_debugs(vty);
 
 	return CMD_SUCCESS;
 }
@@ -859,6 +871,24 @@ DEFPY (send_opaque_reg,
 	return CMD_SUCCESS;
 }
 
+/* Opaque notifications - register or unregister */
+DEFPY (send_opaque_notif_reg,
+       send_opaque_notif_reg_cmd,
+       "sharp send opaque notify <reg$reg | unreg> type (1-1000)",
+       SHARP_STR
+       "Send messages for testing\n"
+       "Send opaque messages\n"
+       "Opaque notification messages\n"
+       "Send notify registration\n"
+       "Send notify unregistration\n"
+       "Opaque sub-type code\n"
+       "Opaque sub-type code\n")
+{
+	sharp_zebra_opaque_notif_reg((reg != NULL), type);
+
+	return CMD_SUCCESS;
+}
+
 DEFPY (neigh_discover,
        neigh_discover_cmd,
        "sharp neigh discover [vrf NAME$vrf_name] <A.B.C.D$dst4|X:X::X:X$dst6> IFNAME$ifname",
@@ -916,6 +946,11 @@ DEFPY (import_te,
 	return CMD_SUCCESS;
 }
 
+static void sharp_srv6_locator_chunk_free(struct prefix_ipv6 *chunk)
+{
+	prefix_ipv6_free((struct prefix_ipv6 **)&chunk);
+}
+
 DEFPY (sharp_srv6_manager_get_locator_chunk,
        sharp_srv6_manager_get_locator_chunk_cmd,
        "sharp srv6-manager get-locator-chunk NAME$locator_name",
@@ -939,6 +974,8 @@ DEFPY (sharp_srv6_manager_get_locator_chunk,
 		loc = XCALLOC(MTYPE_SRV6_LOCATOR,
 			      sizeof(struct sharp_srv6_locator));
 		loc->chunks = list_new();
+		loc->chunks->del =
+			(void (*)(void *))sharp_srv6_locator_chunk_free;
 		snprintf(loc->name, SRV6_LOCNAME_SIZE, "%s", locator_name);
 		listnode_add(sg.srv6_locators, loc);
 	}
@@ -972,6 +1009,7 @@ DEFUN (show_sharp_ted,
 	struct ls_edge *edge;
 	struct ls_subnet *subnet;
 	uint64_t key;
+	struct ls_edge_key ekey;
 	bool verbose = false;
 	bool uj = use_json(argc, argv);
 	json_object *json = NULL;
@@ -1022,8 +1060,9 @@ DEFUN (show_sharp_ted,
 				return CMD_WARNING_CONFIG_FAILED;
 			}
 			/* Get the Edge from the Link State Database */
-			key = ((uint64_t)ip_addr.s_addr) & 0xffffffff;
-			edge = ls_find_edge_by_key(sg.ted, key);
+			ekey.family = AF_INET;
+			IPV4_ADDR_COPY(&ekey.k.addr, &ip_addr);
+			edge = ls_find_edge_by_key(sg.ted, ekey);
 			if (!edge) {
 				vty_out(vty, "No edge found for ID %pI4\n",
 					&ip_addr);
@@ -1046,7 +1085,7 @@ DEFUN (show_sharp_ted,
 				return CMD_WARNING_CONFIG_FAILED;
 			}
 			/* Get the Subnet from the Link State Database */
-			subnet = ls_find_subnet(sg.ted, pref);
+			subnet = ls_find_subnet(sg.ted, &pref);
 			if (!subnet) {
 				vty_out(vty, "No subnet found for ID %pFX\n",
 					&pref);
@@ -1065,12 +1104,8 @@ DEFUN (show_sharp_ted,
 		ls_show_ted(sg.ted, vty, json, verbose);
 	}
 
-	if (uj) {
-		vty_out(vty, "%s\n",
-			json_object_to_json_string_ext(
-				json, JSON_C_TO_STRING_PRETTY));
-		json_object_free(json);
-	}
+	if (uj)
+		vty_json(vty, json);
 
 	return CMD_SUCCESS;
 }
@@ -1092,6 +1127,7 @@ DEFPY (sharp_srv6_manager_release_locator_chunk,
 			list_delete_all_node(loc->chunks);
 			list_delete(&loc->chunks);
 			listnode_delete(sg.srv6_locators, loc);
+			XFREE(MTYPE_SRV6_LOCATOR, loc);
 			break;
 		}
 	}
@@ -1137,9 +1173,7 @@ DEFPY (show_sharp_segment_routing_srv6,
 			}
 		}
 
-		vty_out(vty, "%s\n", json_object_to_json_string_ext(
-				jo_locs, JSON_C_TO_STRING_PRETTY));
-		json_object_free(jo_locs);
+		vty_json(vty, jo_locs);
 	} else {
 		for (ALL_LIST_ELEMENTS_RO(sg.srv6_locators, loc_node, loc)) {
 			vty_out(vty, "Locator %s has %d prefix chunks\n",
@@ -1152,6 +1186,226 @@ DEFPY (show_sharp_segment_routing_srv6,
 			vty_out(vty, "\n");
 		}
 	}
+
+	return CMD_SUCCESS;
+}
+
+DEFPY (show_sharp_cspf,
+       show_sharp_cspf_cmd,
+       "show sharp cspf source <A.B.C.D$src4|X:X::X:X$src6> \
+        destination <A.B.C.D$dst4|X:X::X:X$dst6> \
+        <metric|te-metric|delay> (0-16777215)$cost \
+        [rsv-bw (0-7)$cos BANDWIDTH$bw]",
+       SHOW_STR
+       SHARP_STR
+       "Constraint Shortest Path First path computation\n"
+       "Source of the path\n"
+       "IPv4 Source address in dot decimal A.B.C.D\n"
+       "IPv6 Source address as X:X:X:X\n"
+       "Destination of the path\n"
+       "IPv4 Destination address in dot decimal A.B.C.D\n"
+       "IPv6 Destination address as X:X:X:X\n"
+       "Maximum Metric\n"
+       "Maximum TE Metric\n"
+       "Maxim Delay\n"
+       "Value of Maximum cost\n"
+       "Reserved Bandwidth of this path\n"
+       "Class of Service or Priority level\n"
+       "Bytes/second (IEEE floating point format)\n")
+{
+
+	struct cspf *algo;
+	struct constraints csts;
+	struct c_path *path;
+	struct listnode *node;
+	struct ls_edge *edge;
+	int idx;
+
+	if (sg.ted == NULL) {
+		vty_out(vty, "MPLS-TE import is not enabled\n");
+		return CMD_WARNING;
+	}
+
+	if ((src4.s_addr != INADDR_ANY && dst4.s_addr == INADDR_ANY) ||
+	    (src4.s_addr == INADDR_ANY && dst4.s_addr != INADDR_ANY)) {
+		vty_out(vty, "Don't mix IPv4 and IPv6 addresses\n");
+		return CMD_WARNING;
+	}
+
+	idx = 6;
+	memset(&csts, 0, sizeof(struct constraints));
+	if (argv_find(argv, argc, "metric", &idx)) {
+		csts.ctype = CSPF_METRIC;
+		csts.cost = cost;
+	}
+	idx = 6;
+	if (argv_find(argv, argc, "te-metric", &idx)) {
+		csts.ctype = CSPF_TE_METRIC;
+		csts.cost = cost;
+	}
+	idx = 6;
+	if (argv_find(argv, argc, "delay", &idx)) {
+		csts.ctype = CSPF_DELAY;
+		csts.cost = cost;
+	}
+	if (argc > 9) {
+		if (sscanf(bw, "%g", &csts.bw) != 1) {
+			vty_out(vty, "Bandwidth constraints: fscanf: %s\n",
+				safe_strerror(errno));
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+		csts.cos = cos;
+	}
+
+	/* Initialize and call point-to-point Path computation */
+	if (src4.s_addr != INADDR_ANY)
+		algo = cspf_init_v4(NULL, sg.ted, src4, dst4, &csts);
+	else
+		algo = cspf_init_v6(NULL, sg.ted, src6, dst6, &csts);
+	path = compute_p2p_path(algo, sg.ted);
+	cspf_del(algo);
+
+	if (!path) {
+		vty_out(vty, "Path computation failed without error\n");
+		return CMD_SUCCESS;
+	}
+	if (path->status != SUCCESS) {
+		vty_out(vty, "Path computation failed: %d\n", path->status);
+		cpath_del(path);
+		return CMD_SUCCESS;
+	}
+
+	vty_out(vty, "Path computation success\n");
+	vty_out(vty, "\tCost: %d\n", path->weight);
+	vty_out(vty, "\tEdges:");
+	for (ALL_LIST_ELEMENTS_RO(path->edges, node, edge)) {
+		if (src4.s_addr != INADDR_ANY)
+			vty_out(vty, " %pI4",
+				&edge->attributes->standard.remote);
+		else
+			vty_out(vty, " %pI6",
+				&edge->attributes->standard.remote6);
+	}
+	vty_out(vty, "\n");
+	cpath_del(path);
+	return CMD_SUCCESS;
+}
+
+static struct interface *if_lookup_vrf_all(const char *ifname)
+{
+	struct interface *ifp;
+	struct vrf *vrf;
+
+	RB_FOREACH(vrf, vrf_name_head, &vrfs_by_name) {
+		ifp = if_lookup_by_name(ifname, vrf->vrf_id);
+		if (ifp)
+			return ifp;
+	}
+
+	return NULL;
+}
+
+DEFPY (sharp_interface_protodown,
+       sharp_interface_protodown_cmd,
+       "sharp interface IFNAME$ifname protodown",
+       SHARP_STR
+       INTERFACE_STR
+       IFNAME_STR
+       "Set interface protodown\n")
+{
+	struct interface *ifp;
+
+	ifp = if_lookup_vrf_all(ifname);
+
+	if (!ifp) {
+		vty_out(vty, "%% Can't find interface %s\n", ifname);
+		return CMD_WARNING;
+	}
+
+	if (sharp_zebra_send_interface_protodown(ifp, true) != 0)
+		return CMD_WARNING;
+
+	return CMD_SUCCESS;
+}
+
+DEFPY (no_sharp_interface_protodown,
+       no_sharp_interface_protodown_cmd,
+       "no sharp interface IFNAME$ifname protodown",
+       NO_STR
+       SHARP_STR
+       INTERFACE_STR
+       IFNAME_STR
+       "Set interface protodown\n")
+{
+	struct interface *ifp;
+
+	ifp = if_lookup_vrf_all(ifname);
+
+	if (!ifp) {
+		vty_out(vty, "%% Can't find interface %s\n", ifname);
+		return CMD_WARNING;
+	}
+
+	if (sharp_zebra_send_interface_protodown(ifp, false) != 0)
+		return CMD_WARNING;
+
+	return CMD_SUCCESS;
+}
+
+DEFPY (tc_filter_rate,
+       tc_filter_rate_cmd,
+       "sharp tc dev IFNAME$ifname \
+        source <A.B.C.D/M|X:X::X:X/M>$src \
+        destination <A.B.C.D/M|X:X::X:X/M>$dst \
+        ip-protocol <tcp|udp>$ip_proto \
+        src-port (1-65535)$src_port \
+        dst-port (1-65535)$dst_port \
+        rate RATE$ratestr",
+       SHARP_STR
+       "Traffic control\n"
+       "TC interface (for qdisc, class, filter)\n"
+       "TC interface name\n"
+       "TC filter source\n"
+       "TC filter source IPv4 prefix\n"
+       "TC filter source IPv6 prefix\n"
+       "TC filter destination\n"
+       "TC filter destination IPv4 prefix\n"
+       "TC filter destination IPv6 prefix\n"
+       "TC filter IP protocol\n"
+       "TC filter IP protocol TCP\n"
+       "TC filter IP protocol UDP\n"
+       "TC filter source port\n"
+       "TC filter source port\n"
+       "TC filter destination port\n"
+       "TC filter destination port\n"
+       "TC rate\n"
+       "TC rate number (bits/s) or rate string (suffixed with Bps or bit)\n")
+{
+	struct interface *ifp;
+	struct protoent *p;
+	uint64_t rate;
+
+	ifp = if_lookup_vrf_all(ifname);
+
+	if (!ifp) {
+		vty_out(vty, "%% Can't find interface %s\n", ifname);
+		return CMD_WARNING;
+	}
+
+	p = getprotobyname(ip_proto);
+	if (!p) {
+		vty_out(vty, "Unable to convert %s to proto id\n", ip_proto);
+		return CMD_WARNING;
+	}
+
+	if (tc_getrate(ratestr, &rate) != 0) {
+		vty_out(vty, "Unable to convert %s to rate\n", ratestr);
+		return CMD_WARNING;
+	}
+
+	if (sharp_zebra_send_tc_filter_rate(ifp, src, dst, p->p_proto, src_port,
+					    dst_port, rate) != 0)
+		return CMD_WARNING;
 
 	return CMD_SUCCESS;
 }
@@ -1176,16 +1430,23 @@ void sharp_vty_init(void)
 	install_element(ENABLE_NODE, &send_opaque_cmd);
 	install_element(ENABLE_NODE, &send_opaque_unicast_cmd);
 	install_element(ENABLE_NODE, &send_opaque_reg_cmd);
+	install_element(ENABLE_NODE, &send_opaque_notif_reg_cmd);
 	install_element(ENABLE_NODE, &neigh_discover_cmd);
 	install_element(ENABLE_NODE, &import_te_cmd);
 
 	install_element(ENABLE_NODE, &show_debugging_sharpd_cmd);
 	install_element(ENABLE_NODE, &show_sharp_ted_cmd);
+	install_element(ENABLE_NODE, &show_sharp_cspf_cmd);
 
 	install_element(ENABLE_NODE, &sharp_srv6_manager_get_locator_chunk_cmd);
 	install_element(ENABLE_NODE,
 			&sharp_srv6_manager_release_locator_chunk_cmd);
 	install_element(ENABLE_NODE, &show_sharp_segment_routing_srv6_cmd);
+
+	install_element(ENABLE_NODE, &sharp_interface_protodown_cmd);
+	install_element(ENABLE_NODE, &no_sharp_interface_protodown_cmd);
+
+	install_element(ENABLE_NODE, &tc_filter_rate_cmd);
 
 	return;
 }

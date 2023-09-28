@@ -1,23 +1,10 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * IS-IS Rout(e)ing protocol - Multi Topology Support
  *
  * Copyright (C) 2017 Christian Franke
  *
  * This file is part of FRRouting (FRR)
- *
- * FRR is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * FRR is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 #ifndef ISIS_MT_H
 #define ISIS_MT_H
@@ -27,15 +14,18 @@
 #define ISIS_MT_AT_MASK        0x4000
 
 #define ISIS_MT_IPV4_UNICAST   0
+#define ISIS_MT_STANDARD ISIS_MT_IPV4_UNICAST
 #define ISIS_MT_IPV4_MGMT      1
 #define ISIS_MT_IPV6_UNICAST   2
 #define ISIS_MT_IPV4_MULTICAST 3
 #define ISIS_MT_IPV6_MULTICAST 4
 #define ISIS_MT_IPV6_MGMT      5
 #define ISIS_MT_IPV6_DSTSRC    3996 /* FIXME: IANA */
+/* Use first Reserved Flag to indicate that there is no MT Topology active */
+#define ISIS_MT_DISABLE        4096
 
 #define ISIS_MT_NAMES                                                          \
-	"<ipv4-unicast"                                                        \
+	"<standard"                                                            \
 	"|ipv4-mgmt"                                                           \
 	"|ipv6-unicast"                                                        \
 	"|ipv4-multicast"                                                      \

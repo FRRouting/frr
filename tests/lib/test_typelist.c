@@ -1,17 +1,6 @@
+// SPDX-License-Identifier: ISC
 /*
  * Copyright (c) 2016-2018  David Lamparter, for NetDEF, Inc.
- *
- * Permission to use, copy, modify, and distribute this software for any
- * purpose with or without fee is hereby granted, provided that the above
- * copyright notice and this permission notice appear in all copies.
- *
- * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
- * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
- * ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
- * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
- * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
- * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
 #ifdef HAVE_CONFIG_H
@@ -58,9 +47,10 @@
 #define T_HASH			(1 << 2)
 #define T_HEAP			(1 << 3)
 #define T_ATOMIC		(1 << 4)
+#define T_REVERSE		(1 << 5)
 
 #define _T_LIST			(0)
-#define _T_DLIST		(0)
+#define _T_DLIST		(0                 | T_REVERSE)
 #define _T_ATOMLIST		(0                 | T_ATOMIC)
 #define _T_HEAP			(T_SORTED          | T_HEAP)
 #define _T_SORTLIST_UNIQ	(T_SORTED | T_UNIQ)
@@ -68,8 +58,8 @@
 #define _T_HASH			(T_SORTED | T_UNIQ | T_HASH)
 #define _T_SKIPLIST_UNIQ	(T_SORTED | T_UNIQ)
 #define _T_SKIPLIST_NONUNIQ	(T_SORTED)
-#define _T_RBTREE_UNIQ		(T_SORTED | T_UNIQ)
-#define _T_RBTREE_NONUNIQ	(T_SORTED)
+#define _T_RBTREE_UNIQ		(T_SORTED | T_UNIQ | T_REVERSE)
+#define _T_RBTREE_NONUNIQ	(T_SORTED          | T_REVERSE)
 #define _T_ATOMSORT_UNIQ	(T_SORTED | T_UNIQ | T_ATOMIC)
 #define _T_ATOMSORT_NONUNIQ	(T_SORTED          | T_ATOMIC)
 
@@ -79,6 +69,7 @@
 #define IS_HASH(type)		(_T_TYPE(type) & T_HASH)
 #define IS_HEAP(type)		(_T_TYPE(type) & T_HEAP)
 #define IS_ATOMIC(type)		(_T_TYPE(type) & T_ATOMIC)
+#define IS_REVERSE(type)	(_T_TYPE(type) & T_REVERSE)
 
 static struct timeval ref, ref0;
 

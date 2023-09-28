@@ -8,7 +8,6 @@
     "192.168.1.2":{
       "remoteAs":65002,
       "version":4,
-      "tableVersion":0,
       "outq":0,
       "inq":0,
       "pfxRcd":3,
@@ -21,7 +20,6 @@
     "192.168.2.3":{
       "remoteAs":65003,
       "version":4,
-      "tableVersion":0,
       "outq":0,
       "inq":0,
       "pfxRcd":3,

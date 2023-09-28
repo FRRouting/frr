@@ -1,21 +1,8 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* Tracing for BGP
  *
  * Copyright (C) 2020  NVIDIA Corporation
  * Quentin Young
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #if !defined(_BGP_TRACE_H) || defined(TRACEPOINT_HEADER_MULTI_READ)
@@ -67,9 +54,9 @@ PKT_PROCESS_TRACEPOINT_INSTANCE(refresh_process)
 TRACEPOINT_EVENT(
 	frr_bgp,
 	packet_read,
-	TP_ARGS(struct peer *, peer, struct stream *, pkt),
+	TP_ARGS(struct peer_connection *, connection, struct stream *, pkt),
 	TP_FIELDS(
-		ctf_string(peer, PEER_HOSTNAME(peer))
+		ctf_string(peer, PEER_HOSTNAME(connection->peer))
 		ctf_sequence_hex(uint8_t, packet, pkt->data, size_t,
 				 STREAM_READABLE(pkt))
 	)
@@ -247,6 +234,71 @@ TRACEPOINT_EVENT(
 )
 TRACEPOINT_LOGLEVEL(frr_bgp, bgp_dest_unlock, TRACE_INFO)
 
+/*
+ * peer_lock/peer_unlock
+ */
+TRACEPOINT_EVENT(
+	frr_bgp,
+	bgp_peer_lock,
+	TP_ARGS(struct peer *, peer,
+		const char *, name),
+	TP_FIELDS(
+		ctf_string(caller, name)
+		ctf_string(peer, PEER_HOSTNAME(peer))
+		ctf_integer(unsigned int, count, peer->lock)
+	)
+)
+TRACEPOINT_LOGLEVEL(frr_bgp, bgp_peer_lock, TRACE_INFO)
+
+TRACEPOINT_EVENT(
+	frr_bgp,
+	bgp_peer_unlock,
+	TP_ARGS(struct peer *, peer,
+		const char *, name),
+	TP_FIELDS(
+		ctf_string(caller, name)
+		ctf_string(peer, PEER_HOSTNAME(peer))
+		ctf_integer(unsigned int, count, peer->lock)
+	)
+)
+TRACEPOINT_LOGLEVEL(frr_bgp, bgp_peer_unlock, TRACE_INFO)
+
+/*
+ * bgp_path_info_add/bgp_path_info_free
+ */
+TRACEPOINT_EVENT(
+	frr_bgp,
+	bgp_path_info_add,
+	TP_ARGS(struct bgp_dest *, dest,
+		struct bgp_path_info *, bpi,
+		const char *, name),
+	TP_FIELDS(
+		ctf_string(caller, name)
+		ctf_string(prefix, bgp_dest_get_prefix_str(dest))
+		ctf_string(peer, PEER_HOSTNAME(bpi->peer))
+		ctf_integer(unsigned int, dest_lock,
+			    bgp_dest_get_lock_count(dest))
+		ctf_integer(unsigned int, peer_lock, bpi->peer->lock)
+	)
+)
+TRACEPOINT_LOGLEVEL(frr_bgp, bgp_path_info_add, TRACE_INFO)
+
+TRACEPOINT_EVENT(
+	frr_bgp,
+	bgp_path_info_free,
+	TP_ARGS(struct bgp_path_info *, bpi,
+		const char *, name),
+	TP_FIELDS(
+		ctf_string(caller, name)
+		ctf_string(prefix, bgp_dest_get_prefix_str(bpi->net))
+		ctf_string(peer, PEER_HOSTNAME(bpi->peer))
+		ctf_integer(unsigned int, dest_lock,
+			    bgp_dest_get_lock_count(bpi->net))
+		ctf_integer(unsigned int, peer_lock, bpi->peer->lock)
+	)
+)
+TRACEPOINT_LOGLEVEL(frr_bgp, bgp_path_info_free, TRACE_INFO)
+
 TRACEPOINT_EVENT(
 	frr_bgp,
 	evpn_mac_ip_zsend,
@@ -334,6 +386,147 @@ TRACEPOINT_EVENT(
 	)
 )
 TRACEPOINT_LOGLEVEL(frr_bgp, evpn_nh_rmac_zsend, TRACE_INFO)
+
+TRACEPOINT_EVENT(
+	frr_bgp,
+	evpn_mh_local_es_add_zrecv,
+	TP_ARGS(esi_t *, esi, struct in_addr, vtep,
+		uint8_t, active, uint8_t, bypass, uint16_t, df_pref),
+	TP_FIELDS(
+		ctf_array(unsigned char, esi, esi, sizeof(esi_t))
+		ctf_integer_network_hex(unsigned int, vtep, vtep.s_addr)
+		ctf_integer(uint8_t, active, active)
+		ctf_integer(uint8_t, bypass, bypass)
+		ctf_integer(uint16_t, df_pref, df_pref)
+	)
+)
+TRACEPOINT_LOGLEVEL(frr_bgp, evpn_mh_local_es_add_zrecv, TRACE_INFO)
+
+TRACEPOINT_EVENT(
+	frr_bgp,
+	evpn_mh_local_es_del_zrecv,
+	TP_ARGS(esi_t *, esi),
+	TP_FIELDS(
+		ctf_array(unsigned char, esi, esi, sizeof(esi_t))
+	)
+)
+TRACEPOINT_LOGLEVEL(frr_bgp, evpn_mh_local_es_del_zrecv, TRACE_INFO)
+
+TRACEPOINT_EVENT(
+	frr_bgp,
+	evpn_mh_local_es_evi_add_zrecv,
+	TP_ARGS(esi_t *, esi, vni_t, vni),
+	TP_FIELDS(
+		ctf_array(unsigned char, esi, esi, sizeof(esi_t))
+		ctf_integer(vni_t, vni, vni)
+	)
+)
+TRACEPOINT_LOGLEVEL(frr_bgp, evpn_mh_local_es_evi_add_zrecv, TRACE_INFO)
+
+TRACEPOINT_EVENT(
+	frr_bgp,
+	evpn_mh_local_es_evi_del_zrecv,
+	TP_ARGS(esi_t *, esi, vni_t, vni),
+	TP_FIELDS(
+		ctf_array(unsigned char, esi, esi, sizeof(esi_t))
+		ctf_integer(vni_t, vni, vni)
+	)
+)
+TRACEPOINT_LOGLEVEL(frr_bgp, evpn_mh_local_es_evi_del_zrecv, TRACE_INFO)
+
+TRACEPOINT_EVENT(
+	frr_bgp,
+	evpn_local_vni_add_zrecv,
+	TP_ARGS(vni_t, vni, struct in_addr, vtep, vrf_id_t, vrf,
+			struct in_addr, mc_grp),
+	TP_FIELDS(
+		ctf_integer(vni_t, vni, vni)
+		ctf_integer_network_hex(unsigned int, vtep, vtep.s_addr)
+		ctf_integer_network_hex(unsigned int, mc_grp,
+			mc_grp.s_addr)
+		ctf_integer(int, vrf, vrf)
+	)
+)
+TRACEPOINT_LOGLEVEL(frr_bgp, evpn_local_vni_add_zrecv, TRACE_INFO)
+
+TRACEPOINT_EVENT(
+	frr_bgp,
+	evpn_local_vni_del_zrecv,
+	TP_ARGS(vni_t, vni),
+	TP_FIELDS(
+		ctf_integer(vni_t, vni, vni)
+	)
+)
+TRACEPOINT_LOGLEVEL(frr_bgp, evpn_local_vni_del_zrecv, TRACE_INFO)
+
+TRACEPOINT_EVENT(
+	frr_bgp,
+	evpn_local_macip_add_zrecv,
+	TP_ARGS(vni_t, vni, struct ethaddr *, mac,
+		struct ipaddr *, ip, uint32_t, flags,
+		uint32_t, seqnum, esi_t *, esi),
+	TP_FIELDS(
+		ctf_integer(vni_t, vni, vni)
+		ctf_array(unsigned char, mac, mac,
+			sizeof(struct ethaddr))
+		ctf_array(unsigned char, ip, ip,
+			sizeof(struct ipaddr))
+		ctf_integer(uint32_t, flags, flags)
+		ctf_integer(uint32_t, seq, seqnum)
+		ctf_array(unsigned char, esi, esi, sizeof(esi_t))
+	)
+)
+TRACEPOINT_LOGLEVEL(frr_bgp, evpn_local_macip_add_zrecv, TRACE_INFO)
+
+TRACEPOINT_EVENT(
+	frr_bgp,
+	evpn_local_macip_del_zrecv,
+	TP_ARGS(vni_t, vni, struct ethaddr *, mac, struct ipaddr *, ip,
+			int, state),
+	TP_FIELDS(
+		ctf_integer(vni_t, vni, vni)
+		ctf_array(unsigned char, mac, mac,
+			sizeof(struct ethaddr))
+		ctf_array(unsigned char, ip, ip,
+			sizeof(struct ipaddr))
+		ctf_integer(int, state, state)
+	)
+)
+TRACEPOINT_LOGLEVEL(frr_bgp, evpn_local_macip_del_zrecv, TRACE_INFO)
+
+TRACEPOINT_EVENT(
+	frr_bgp,
+	evpn_local_l3vni_add_zrecv,
+	TP_ARGS(vni_t, vni, vrf_id_t, vrf,
+			struct ethaddr *, svi_rmac,
+			struct ethaddr *, vrr_rmac, int, filter,
+			struct in_addr, vtep, int, svi_ifindex,
+			bool, anycast_mac),
+	TP_FIELDS(
+		ctf_integer(vni_t, vni, vni)
+		ctf_integer(int, vrf, vrf)
+		ctf_array(unsigned char, svi_rmac, svi_rmac,
+			sizeof(struct ethaddr))
+		ctf_array(unsigned char, vrr_rmac, vrr_rmac,
+			sizeof(struct ethaddr))
+		ctf_integer_network_hex(unsigned int, vtep, vtep.s_addr)
+		ctf_integer(int, filter, filter)
+		ctf_integer(int, svi_ifindex, svi_ifindex)
+		ctf_string(anycast_mac, anycast_mac ? "y" : "n")
+	)
+)
+TRACEPOINT_LOGLEVEL(frr_bgp, evpn_local_l3vni_add_zrecv, TRACE_INFO)
+
+TRACEPOINT_EVENT(
+	frr_bgp,
+	evpn_local_l3vni_del_zrecv,
+	TP_ARGS(vni_t, vni, vrf_id_t, vrf),
+	TP_FIELDS(
+		ctf_integer(vni_t, vni, vni)
+		ctf_integer(int, vrf, vrf)
+	)
+)
+TRACEPOINT_LOGLEVEL(frr_bgp, evpn_local_l3vni_del_zrecv, TRACE_INFO)
 /* clang-format on */
 
 #include <lttng/tracepoint-event.h>

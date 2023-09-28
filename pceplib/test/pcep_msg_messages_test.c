@@ -1,20 +1,8 @@
+// SPDX-License-Identifier: LGPL-2.1-or-later
 /*
  * This file is part of the PCEPlib, a PCEP protocol library.
  *
  * Copyright (C) 2020 Volta Networks https://voltanet.io/
- *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Lesser General Public
- * License as published by the Free Software Foundation; either
- * version 2 of the License, or (at your option) any later version.
- *
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public License
- * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *
  * Author : Brady Johnson <brady@voltanet.io>
  *
@@ -119,7 +107,7 @@ void test_pcep_msg_create_request()
 	/* Test IPv4 */
 	struct pcep_object_rp *rp_obj =
 		pcep_obj_create_rp(0, false, false, false, false, 10, NULL);
-	struct in_addr src_addr={}, dst_addr={};
+	struct in_addr src_addr = {}, dst_addr = {};
 	struct pcep_object_endpoints_ipv4 *ipv4_obj =
 		pcep_obj_create_endpoint_ipv4(&src_addr, &dst_addr);
 	message = pcep_msg_create_request(rp_obj, ipv4_obj, NULL);
@@ -143,7 +131,7 @@ void test_pcep_msg_create_request()
 
 	/* Test IPv6 */
 	rp_obj = pcep_obj_create_rp(0, false, false, false, false, 10, NULL);
-	struct in6_addr src_addr_ipv6, dst_addr_ipv6;
+	struct in6_addr src_addr_ipv6 = {}, dst_addr_ipv6 = {};
 	struct pcep_object_endpoints_ipv6 *ipv6_obj =
 		pcep_obj_create_endpoint_ipv6(&src_addr_ipv6, &dst_addr_ipv6);
 	message = pcep_msg_create_request_ipv6(rp_obj, ipv6_obj, NULL);

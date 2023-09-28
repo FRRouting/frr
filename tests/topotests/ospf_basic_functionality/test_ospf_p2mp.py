@@ -1,23 +1,10 @@
 #!/usr/bin/python
+# SPDX-License-Identifier: ISC
 
 #
 # Copyright (c) 2020 by VMware, Inc. ("VMware")
 # Used Copyright (c) 2018 by Network Device Education Foundation, Inc.
 # ("NetDEF") in this file.
-#
-# Permission to use, copy, modify, and/or distribute this software
-# for any purpose with or without fee is hereby granted, provided
-# that the above copyright notice and this permission notice appear
-# in all copies.
-#
-# THE SOFTWARE IS PROVIDED "AS IS" AND VMWARE DISCLAIMS ALL WARRANTIES
-# WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
-# MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL VMWARE BE LIABLE FOR
-# ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY
-# DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS,
-# WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS
-# ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE
-# OF THIS SOFTWARE.
 #
 
 
@@ -46,11 +33,12 @@ from lib.common_config import (
     reset_config_on_routers,
     step,
     create_interfaces_cfg,
-    topo_daemons,
+    retry,
+    run_frr_cmd,
 )
 from lib.topolog import logger
 from lib.topojson import build_config_from_json
-from lib.topotest import frr_unicode
+from lib.topotest import frr_unicode, json_cmp
 
 from lib.ospf import (
     verify_ospf_interface,
@@ -103,12 +91,9 @@ def setup_module(mod):
     topo = tgen.json_topo
     # ... and here it calls Mininet initialization functions.
 
-    # get list of daemons needs to be started for this suite.
-    daemons = topo_daemons(tgen, topo)
-
     # Starting topology, create tmp files which are loaded to routers
-    #  to start deamons and then start routers
-    start_topology(tgen, daemons)
+    #  to start daemons and then start routers
+    start_topology(tgen)
 
     # Creating configuration from JSON
     build_config_from_json(tgen, topo)
@@ -376,6 +361,337 @@ def test_ospf_p2mp_tc1_p0(request):
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     write_test_footer(tc_name)
+
+
+def test_ospf_p2mp_tc_delay_reflood(request):
+    """OSPF IFSM -Verify "delay-reflood" parameter in p2mp network."""
+    tc_name = request.node.name
+    write_test_header(tc_name)
+    tgen = get_topogen()
+    r0 = tgen.gears["r0"]
+
+    # Don't run this test if we have any failure.
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    global topo
+
+    step("Verify for interface with network type P2MP that delay-reflood is configured")
+    r0.vtysh_multicmd(
+        "conf t\ninterface r0-r1-eth0\nip ospf network point-to-multipoint delay-reflood"
+    )
+
+    dut = "r0"
+    input_dict = {
+        "r0": {
+            "links": {
+                "r1": {
+                    "ospf": {
+                        "mcastMemberOspfAllRouters": True,
+                        "ospfEnabled": True,
+                        "networkType": "POINTOMULTIPOINT",
+                        "p2mpDelayReflood": True,
+                    }
+                },
+                "r2": {
+                    "ospf": {
+                        "mcastMemberOspfAllRouters": True,
+                        "ospfEnabled": True,
+                        "networkType": "POINTOMULTIPOINT",
+                        "p2mpDelayReflood": False,
+                    }
+                },
+                "r3": {
+                    "ospf": {
+                        "mcastMemberOspfAllRouters": True,
+                        "ospfEnabled": True,
+                        "networkType": "POINTOMULTIPOINT",
+                        "p2mpDelayReflood": False,
+                    }
+                },
+            }
+        }
+    }
+    result = verify_ospf_interface(tgen, topo, dut=dut, input_dict=input_dict)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
+    delay_reflood_cfg = (
+        tgen.net["r0"]
+        .cmd(
+            'vtysh -c "show running" | grep "^ ip ospf network point-to-multipoint delay-reflood"'
+        )
+        .rstrip()
+    )
+
+    assertmsg = "delay-reflood' configuration applied, but not present in configuration"
+    assert (
+        delay_reflood_cfg == " ip ospf network point-to-multipoint delay-reflood"
+    ), assertmsg
+
+    step("Verify for interface with network type P2MP that delay-reflood is removed")
+    r0.vtysh_multicmd(
+        "conf t\ninterface r0-r1-eth0\nip ospf network point-to-multipoint"
+    )
+
+    input_dict = {
+        "r0": {
+            "links": {
+                "r1": {
+                    "ospf": {
+                        "mcastMemberOspfAllRouters": True,
+                        "ospfEnabled": True,
+                        "networkType": "POINTOMULTIPOINT",
+                        "p2mpDelayReflood": False,
+                    }
+                },
+                "r2": {
+                    "ospf": {
+                        "mcastMemberOspfAllRouters": True,
+                        "ospfEnabled": True,
+                        "networkType": "POINTOMULTIPOINT",
+                        "p2mpDelayReflood": False,
+                    }
+                },
+                "r3": {
+                    "ospf": {
+                        "mcastMemberOspfAllRouters": True,
+                        "ospfEnabled": True,
+                        "networkType": "POINTOMULTIPOINT",
+                        "p2mpDelayReflood": False,
+                    }
+                },
+            }
+        }
+    }
+    result = verify_ospf_interface(tgen, topo, dut=dut, input_dict=input_dict)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
+
+    delay_reflood_cfg = (
+        tgen.net["r0"]
+        .cmd(
+            'vtysh -c "show running" | grep "^ ip ospf network point-to-multipoint delay-reflood"'
+        )
+        .rstrip()
+    )
+    assertmsg = (
+        "delay-reflood' configuration removed, but still present in configuration"
+    )
+    assert (
+        delay_reflood_cfg != " ip ospf network point-to-multipoint delay-reflood"
+    ), assertmsg
+
+    step(
+        "Verify for interface with network type P2MP that delay-reflood is removed with removal of network type"
+    )
+    r0.vtysh_multicmd(
+        "conf t\ninterface r0-r1-eth0\nip ospf network point-to-multipoint delay-reflood"
+    )
+    r0.vtysh_multicmd(
+        "conf t\ninterface r0-r1-eth0\nno ip ospf network point-to-multipoint"
+    )
+    r0.vtysh_multicmd(
+        "conf t\ninterface r0-r1-eth0\nip ospf network point-to-multipoint"
+    )
+
+    input_dict = {
+        "r0": {
+            "links": {
+                "r1": {
+                    "ospf": {
+                        "mcastMemberOspfAllRouters": True,
+                        "ospfEnabled": True,
+                        "networkType": "POINTOMULTIPOINT",
+                        "p2mpDelayReflood": False,
+                    }
+                },
+                "r2": {
+                    "ospf": {
+                        "mcastMemberOspfAllRouters": True,
+                        "ospfEnabled": True,
+                        "networkType": "POINTOMULTIPOINT",
+                        "p2mpDelayReflood": False,
+                    }
+                },
+                "r3": {
+                    "ospf": {
+                        "mcastMemberOspfAllRouters": True,
+                        "ospfEnabled": True,
+                        "networkType": "POINTOMULTIPOINT",
+                        "p2mpDelayReflood": False,
+                    }
+                },
+            }
+        }
+    }
+    result = verify_ospf_interface(tgen, topo, dut=dut, input_dict=input_dict)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
+
+    delay_reflood_cfg = (
+        tgen.net["r0"]
+        .cmd(
+            'vtysh -c "show running" | grep "^ ip ospf network point-to-multipoint delay-reflood"'
+        )
+        .rstrip()
+    )
+    assertmsg = (
+        "delay-reflood' configuration removed, but still present in configuration"
+    )
+    assert (
+        delay_reflood_cfg != " ip ospf network point-to-multipoint delay-reflood"
+    ), assertmsg
+
+    write_test_footer(tc_name)
+
+
+@retry(retry_timeout=30)
+def verify_ospf_json(tgen, dut, input_dict, cmd="show ip ospf database json"):
+    del tgen
+    show_ospf_json = run_frr_cmd(dut, cmd, isjson=True)
+    if not bool(show_ospf_json):
+        return "ospf is not running"
+    result = json_cmp(show_ospf_json, input_dict)
+    return str(result) if result else None
+
+
+@pytest.mark.parametrize("tgen", [2], indirect=True)
+def test_ospf_nbrs(tgen):
+    db_full = {
+        "areas": {
+            "0.0.0.0": {
+                "routerLinkStates": [
+                    {
+                        "lsId": "100.1.1.0",
+                        "advertisedRouter": "100.1.1.0",
+                        "numOfRouterLinks": 6,
+                    },
+                    {
+                        "lsId": "100.1.1.1",
+                        "advertisedRouter": "100.1.1.1",
+                        "numOfRouterLinks": 6,
+                    },
+                    {
+                        "lsId": "100.1.1.2",
+                        "advertisedRouter": "100.1.1.2",
+                        "numOfRouterLinks": 6,
+                    },
+                    {
+                        "lsId": "100.1.1.3",
+                        "advertisedRouter": "100.1.1.3",
+                        "numOfRouterLinks": 7,
+                    },
+                ]
+            }
+        }
+    }
+    input = [
+        [
+            "r0",
+            "show ip ospf n json",
+            {
+                "neighbors": {
+                    "100.1.1.1": [
+                        {
+                            "nbrState": "Full/DROther",
+                        }
+                    ],
+                    "100.1.1.2": [
+                        {
+                            "nbrState": "Full/DROther",
+                        }
+                    ],
+                    "100.1.1.3": [
+                        {
+                            "nbrState": "Full/DROther",
+                        }
+                    ],
+                }
+            },
+        ],
+        [
+            "r1",
+            "show ip ospf n json",
+            {
+                "neighbors": {
+                    "100.1.1.0": [
+                        {
+                            "nbrState": "Full/DROther",
+                        }
+                    ],
+                    "100.1.1.2": [
+                        {
+                            "nbrState": "Full/DROther",
+                        }
+                    ],
+                    "100.1.1.3": [
+                        {
+                            "nbrState": "Full/DROther",
+                        }
+                    ],
+                }
+            },
+        ],
+        [
+            "r2",
+            "show ip ospf n json",
+            {
+                "neighbors": {
+                    "100.1.1.0": [
+                        {
+                            "nbrState": "Full/DROther",
+                        }
+                    ],
+                    "100.1.1.1": [
+                        {
+                            "nbrState": "Full/DROther",
+                        }
+                    ],
+                    "100.1.1.3": [
+                        {
+                            "nbrState": "Full/DROther",
+                        }
+                    ],
+                }
+            },
+        ],
+        [
+            "r3",
+            "show ip ospf n json",
+            {
+                "neighbors": {
+                    "100.1.1.0": [
+                        {
+                            "nbrState": "Full/DROther",
+                        }
+                    ],
+                    "100.1.1.1": [
+                        {
+                            "nbrState": "Full/DROther",
+                        }
+                    ],
+                    "100.1.1.2": [
+                        {
+                            "nbrState": "Full/DROther",
+                        }
+                    ],
+                }
+            },
+        ],
+        ["r0", "show ip ospf database json", db_full],
+        ["r1", "show ip ospf database json", db_full],
+        ["r2", "show ip ospf database json", db_full],
+        ["r3", "show ip ospf database json", db_full],
+        ["r0", "show ip ospf database json", db_full],
+        ["r0", "show ip ospf database router json", {}],
+        ["r0", "show ip ospf interface traffic json", {}],
+        ["r1", "show ip ospf interface traffic json", {}],
+        ["r2", "show ip ospf interface traffic json", {}],
+        ["r3", "show ip ospf interface traffic json", {}],
+    ]
+    for cmd_set in input:
+        step("test_ospf: %s - %s" % (cmd_set[0], cmd_set[1]))
+        assert (
+            verify_ospf_json(tgen, tgen.gears[cmd_set[0]], cmd_set[2], cmd_set[1])
+            is None
+        )
 
 
 if __name__ == "__main__":

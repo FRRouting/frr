@@ -1,14 +1,11 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* NHRP daemon Linux specific glue
  * Copyright (c) 2014-2015 Timo Teräs
- *
- * This file is free software: you may copy, redistribute and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 2 of the License, or
- * (at your option) any later version.
  */
 
-#include <errno.h>
 #include "zebra.h"
+
+#include <errno.h>
 #include <linux/if_packet.h>
 
 #include "nhrp_protocol.h"

@@ -1,20 +1,8 @@
+// SPDX-License-Identifier: LGPL-2.1-or-later
 /*
  * This file is part of the PCEPlib, a PCEP protocol library.
  *
  * Copyright (C) 2020 Volta Networks https://voltanet.io/
- *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Lesser General Public
- * License as published by the Free Software Foundation; either
- * version 2 of the License, or (at your option) any later version.
- *
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public License
- * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *
  * Author : Brady Johnson <brady@voltanet.io>
  *
@@ -674,8 +662,9 @@ pcep_obj_create_ro_subobj_sr_ipv4_node(bool loose_hop, bool sid_absent,
 	}
 	obj->nai_list = dll_initialize();
 	/* Since the IP has to be stored in the list, copy it so the caller
-	 * doesnt have any restrictions about the type of memory used externally
-	 * for the IP. This memory will be freed with the object is freed. */
+	 * doesn't have any restrictions about the type of memory used
+	 * externally for the IP. This memory will be freed with the object is
+	 * freed. */
 	struct in_addr *ipv4_node_id_copy =
 		pceplib_malloc(PCEPLIB_MESSAGES, sizeof(struct in_addr));
 	ipv4_node_id_copy->s_addr = ipv4_node_id->s_addr;

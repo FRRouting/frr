@@ -67,6 +67,15 @@ OPTIONS available for the vtysh command:
 
    Display a usage message on standard output and exit.
 
+.. option:: -t, --timestamp
+
+   Print a timestamp before going to shell or reading the configuration file.
+
+.. option:: --no-fork
+
+   When used in conjunction with ``-b``, prevents vtysh from forking children to handle configuring each target daemon.
+
+
 ENVIRONMENT VARIABLES
 =====================
 VTYSH_PAGER
@@ -74,7 +83,7 @@ VTYSH_PAGER
 
 VTYSH_HISTFILE
    Override the history file for vtysh commands. Logging can be turned off using ``VTYSH_HISTFILE=/dev/null vtysh``.
-   Environment is prefered way to override the history file path over command line argument (-H/--histfile).
+   Environment is preferred way to override the history file path over command line argument (-H/--histfile).
 
 FILES
 =====

@@ -1,20 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * C++ compatibility compile-time smoketest
  * Copyright (C) 2019  David Lamparter for NetDEF, Inc.
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #define test__cplusplus
@@ -38,7 +25,6 @@
 #include "lib/frr_pthread.h"
 #include "lib/frratomic.h"
 #include "lib/frrstr.h"
-#include "lib/getopt.h"
 #include "lib/graph.h"
 #include "lib/hash.h"
 #include "lib/hook.h"
@@ -91,7 +77,7 @@
 #include "lib/stream.h"
 #include "lib/table.h"
 #include "lib/termtable.h"
-#include "lib/thread.h"
+#include "frrevent.h"
 #include "lib/typesafe.h"
 #include "lib/typerb.h"
 #include "lib/vector.h"

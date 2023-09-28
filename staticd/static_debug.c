@@ -1,29 +1,15 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Staticd debug related functions
  * Copyright (C) 2019 Volta Networks Inc.
  * Mark Stapp
- *
- * This file is part of FRRouting (FRR).
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * This program is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
 
 #include "lib/command.h"
 #include "lib/debug.h"
+#include "lib/bfd.h"
 
 #include "static_debug.h"
 
@@ -35,15 +21,18 @@
 /* clang-format off */
 struct debug static_dbg_events = {0, "Staticd events"};
 struct debug static_dbg_route = {0, "Staticd route"};
+struct debug static_dbg_bfd = {0, "Staticd bfd"};
 
 struct debug *static_debug_arr[] =  {
 	&static_dbg_events,
-	&static_dbg_route
+	&static_dbg_route,
+	&static_dbg_bfd
 };
 
 const char *static_debugs_conflines[] = {
 	"debug static events",
-	"debug static route"
+	"debug static route",
+	"debug static bfd"
 };
 /* clang-format on */
 
@@ -105,7 +94,8 @@ int static_debug_status_write(struct vty *vty)
  *    Debug general internal events
  *
  */
-void static_debug_set(int vtynode, bool onoff, bool events, bool route)
+void static_debug_set(int vtynode, bool onoff, bool events, bool route,
+		      bool bfd)
 {
 	uint32_t mode = DEBUG_NODE2MODE(vtynode);
 
@@ -113,6 +103,10 @@ void static_debug_set(int vtynode, bool onoff, bool events, bool route)
 		DEBUG_MODE_SET(&static_dbg_events, mode, onoff);
 	if (route)
 		DEBUG_MODE_SET(&static_dbg_route, mode, onoff);
+	if (bfd) {
+		DEBUG_MODE_SET(&static_dbg_bfd, mode, onoff);
+		bfd_protocol_integration_set_debug(onoff);
+	}
 }
 
 /*

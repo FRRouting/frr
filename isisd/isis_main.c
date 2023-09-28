@@ -1,29 +1,16 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * IS-IS Rout(e)ing protocol - isis_main.c
  *
  * Copyright (C) 2001,2002   Sampo Saaristo
  *                           Tampere University of Technology
  *                           Institute of Communications Engineering
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public Licenseas published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful,but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
 
 #include "getopt.h"
-#include "thread.h"
+#include "frrevent.h"
 #include "log.h"
 #include <lib/version.h>
 #include "command.h"
@@ -40,7 +27,9 @@
 #include "qobj.h"
 #include "libfrr.h"
 #include "routemap.h"
+#include "affinitymap.h"
 
+#include "isisd/isis_affinitymap.h"
 #include "isisd/isis_constants.h"
 #include "isisd/isis_common.h"
 #include "isisd/isis_flags.h"
@@ -89,7 +78,7 @@ static const struct option longopts[] = {
 	{0}};
 
 /* Master of threads. */
-struct thread_master *master;
+struct event_loop *master;
 
 /*
  * Prototypes.
@@ -104,6 +93,7 @@ static __attribute__((__noreturn__)) void terminate(int i)
 {
 	isis_terminate();
 	isis_sr_term();
+	isis_srv6_term();
 	isis_zebra_stop();
 	exit(i);
 }
@@ -147,7 +137,7 @@ void sigusr1(void)
 	zlog_rotate();
 }
 
-struct quagga_signal_t isisd_signals[] = {
+struct frr_signal_t isisd_signals[] = {
 	{
 		.signal = SIGHUP,
 		.handler = &sighup,
@@ -167,6 +157,7 @@ struct quagga_signal_t isisd_signals[] = {
 };
 
 
+/* clang-format off */
 static const struct frr_yang_module_info *const isisd_yang_modules[] = {
 	&frr_filter_info,
 	&frr_interface_info,
@@ -174,8 +165,52 @@ static const struct frr_yang_module_info *const isisd_yang_modules[] = {
 	&frr_isisd_info,
 #endif /* ifndef FABRICD */
 	&frr_route_map_info,
+	&frr_affinity_map_info,
 	&frr_vrf_info,
 };
+/* clang-format on */
+
+
+/* Max wait time for config to load before generating LSPs */
+#define ISIS_PRE_CONFIG_MAX_WAIT_SECONDS 600
+
+static void isis_config_finish(struct event *t)
+{
+	struct listnode *node, *inode;
+	struct isis *isis;
+	struct isis_area *area;
+
+	for (ALL_LIST_ELEMENTS_RO(im->isis, inode, isis)) {
+		for (ALL_LIST_ELEMENTS_RO(isis->area_list, node, area))
+			config_end_lsp_generate(area);
+	}
+}
+
+static void isis_config_end_timeout(struct event *t)
+{
+	zlog_err("IS-IS configuration end timer expired after %d seconds.",
+		 ISIS_PRE_CONFIG_MAX_WAIT_SECONDS);
+	isis_config_finish(t);
+}
+
+static void isis_config_start(void)
+{
+	EVENT_OFF(t_isis_cfg);
+	event_add_timer(im->master, isis_config_end_timeout, NULL,
+			ISIS_PRE_CONFIG_MAX_WAIT_SECONDS, &t_isis_cfg);
+}
+
+static void isis_config_end(void)
+{
+	/* If ISIS config processing thread isn't running, then
+	 * we can return and rely it's properly handled.
+	 */
+	if (!event_is_scheduled(t_isis_cfg))
+		return;
+
+	EVENT_OFF(t_isis_cfg);
+	isis_config_finish(t_isis_cfg);
+}
 
 #ifdef FABRICD
 FRR_DAEMON_INFO(fabricd, OPEN_FABRIC, .vty_port = FABRICD_VTY_PORT,
@@ -240,6 +275,7 @@ int main(int argc, char **argv, char **envp)
 	/*
 	 *  initializations
 	 */
+	cmd_init_config_callbacks(isis_config_start, isis_config_end);
 	isis_error_init();
 	access_list_init();
 	access_list_add_hook(isis_filter_update);
@@ -255,14 +291,19 @@ int main(int argc, char **argv, char **envp)
 #endif /* FABRICD */
 #ifndef FABRICD
 	isis_cli_init();
-#endif /* ifdef FABRICD */
+#endif /* ifndef FABRICD */
 	isis_spf_init();
 	isis_redist_init();
 	isis_route_map_init();
 	isis_mpls_te_init();
 	isis_sr_init();
+	isis_srv6_init();
 	lsp_init();
 	mt_init();
+
+#ifndef FABRICD
+	isis_affinity_map_init();
+#endif /* ifndef FABRICD */
 
 	isis_zebra_init(master, instance);
 	isis_bfd_init(master);

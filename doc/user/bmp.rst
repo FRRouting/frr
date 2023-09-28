@@ -108,13 +108,15 @@ BMP session configuration
 Inside a ``bmp targets`` block, the following commands control session
 establishment:
 
-.. clicmd:: bmp connect HOSTNAME port (1-65535) {min-retry MSEC|max-retry MSEC}
+
+.. clicmd:: bmp connect HOSTNAME port (1-65535) {min-retry MSEC|max-retry MSEC} [source-interface WORD]
 
    Add/remove an active outbound BMP session.  HOSTNAME is resolved via DNS,
    if multiple addresses are returned they are tried in nondeterministic
    order.  Only one connection will be established even if multiple addresses
    are returned.  ``min-retry`` and ``max-retry`` specify (in milliseconds)
-   bounds for exponential backoff.
+   bounds for exponential backoff. ``source-interface`` is the local interface on
+   which the connection has to bind.
 
 .. warning::
 
@@ -147,8 +149,9 @@ associated with a particular ``bmp targets``:
 .. clicmd:: bmp monitor AFI SAFI <pre-policy|post-policy>
 
    Perform Route Monitoring for the specified AFI and SAFI.  Only IPv4 and
-   IPv6 are currently valid for AFI, and only unicast and multicast are valid
-   for SAFI.  Other AFI/SAFI combinations may be added in the future.
+   IPv6 are currently valid for AFI. SAFI valid values are currently 
+   unicast, multicast, evpn and vpn.
+   Other AFI/SAFI combinations may be added in the future.
 
    All BGP neighbors are included in Route Monitoring.  Options to select
    a subset of BGP sessions may be added in the future.

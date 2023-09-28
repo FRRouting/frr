@@ -1,21 +1,8 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Logging - Filtered file log target
  * Copyright (C) 2019 Cumulus Networks, Inc.
  *                    Stephen Worley
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -43,14 +30,14 @@ static int zlog_filter_lookup(const char *lookup)
 
 void zlog_filter_clear(void)
 {
-	frr_with_mutex(&logfilterlock) {
+	frr_with_mutex (&logfilterlock) {
 		zlog_filter_count = 0;
 	}
 }
 
 int zlog_filter_add(const char *filter)
 {
-	frr_with_mutex(&logfilterlock) {
+	frr_with_mutex (&logfilterlock) {
 		if (zlog_filter_count >= ZLOG_FILTERS_MAX)
 			return 1;
 
@@ -74,7 +61,7 @@ int zlog_filter_add(const char *filter)
 
 int zlog_filter_del(const char *filter)
 {
-	frr_with_mutex(&logfilterlock) {
+	frr_with_mutex (&logfilterlock) {
 		int found_idx = zlog_filter_lookup(filter);
 		int last_idx = zlog_filter_count - 1;
 
@@ -96,7 +83,7 @@ int zlog_filter_dump(char *buf, size_t max_size)
 {
 	int len = 0;
 
-	frr_with_mutex(&logfilterlock) {
+	frr_with_mutex (&logfilterlock) {
 		for (int i = 0; i < zlog_filter_count; i++) {
 			int ret;
 
@@ -115,7 +102,7 @@ static int search_buf(const char *buf, size_t len)
 {
 	char *found = NULL;
 
-	frr_with_mutex(&logfilterlock) {
+	frr_with_mutex (&logfilterlock) {
 		for (int i = 0; i < zlog_filter_count; i++) {
 			found = memmem(buf, len, zlog_filters[i],
 				       strlen(zlog_filters[i]));

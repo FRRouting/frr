@@ -1,23 +1,10 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Copyright (C) 2001,2002   Sampo Saaristo
  *                           Tampere University of Technology
  *                           Institute of Communications Engineering
  * Copyright (C) 2018        Volta Networks
  *                           Emanuele Di Pascale
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -33,6 +20,8 @@
 #include "lib_errors.h"
 #include "vrf.h"
 #include "ldp_sync.h"
+#include "link_state.h"
+#include "affinitymap.h"
 
 #include "isisd/isisd.h"
 #include "isisd/isis_nb.h"
@@ -46,14 +35,19 @@
 #include "isisd/isis_adjacency.h"
 #include "isisd/isis_spf.h"
 #include "isisd/isis_spf_private.h"
+#include "isisd/isis_srv6.h"
 #include "isisd/isis_te.h"
 #include "isisd/isis_mt.h"
 #include "isisd/isis_redist.h"
 #include "isisd/isis_ldp_sync.h"
 #include "isisd/isis_dr.h"
+#include "isisd/isis_sr.h"
+#include "isisd/isis_flex_algo.h"
+#include "isisd/isis_zebra.h"
 
-DEFINE_MTYPE_STATIC(ISISD, ISIS_MPLS_TE,    "ISIS MPLS_TE parameters");
-DEFINE_MTYPE_STATIC(ISISD, ISIS_PLIST_NAME, "ISIS prefix-list name");
+#define AFFINITY_INCLUDE_ANY 0
+#define AFFINITY_INCLUDE_ALL 1
+#define AFFINITY_EXCLUDE_ANY 2
 
 /*
  * XPath: /frr-isisd:isis/instance
@@ -84,12 +78,17 @@ int isis_instance_create(struct nb_cb_create_args *args)
 int isis_instance_destroy(struct nb_cb_destroy_args *args)
 {
 	struct isis_area *area;
+	struct isis *isis;
 
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 	area = nb_running_unset_entry(args->dnode);
-
+	isis = area->isis;
 	isis_area_destroy(area);
+
+	if (listcount(isis->area_list) == 0)
+		isis_finish(isis);
+
 	return NB_OK;
 }
 
@@ -112,14 +111,14 @@ int isis_instance_is_type_modify(struct nb_cb_modify_args *args)
 }
 
 struct sysid_iter {
-	struct area_addr *addr;
+	struct iso_address *addr;
 	bool same;
 };
 
 static int sysid_iter_cb(const struct lyd_node *dnode, void *arg)
 {
 	struct sysid_iter *iter = arg;
-	struct area_addr addr;
+	struct iso_address addr;
 	const char *net;
 
 	net = yang_dnode_get_string(dnode, NULL);
@@ -139,7 +138,7 @@ static int sysid_iter_cb(const struct lyd_node *dnode, void *arg)
 int isis_instance_area_address_create(struct nb_cb_create_args *args)
 {
 	struct isis_area *area;
-	struct area_addr addr, *addrr = NULL, *addrp = NULL;
+	struct iso_address addr, *addrr = NULL, *addrp = NULL;
 	struct listnode *node;
 	struct sysid_iter iter;
 	uint8_t buff[255];
@@ -170,7 +169,8 @@ int isis_instance_area_address_create(struct nb_cb_create_args *args)
 		}
 		break;
 	case NB_EV_PREPARE:
-		addrr = XMALLOC(MTYPE_ISIS_AREA_ADDR, sizeof(struct area_addr));
+		addrr = XMALLOC(MTYPE_ISIS_AREA_ADDR,
+				sizeof(struct iso_address));
 		addrr->addr_len = dotformat2buff(buff, net_title);
 		memcpy(addrr->area_addr, buff, addrr->addr_len);
 		args->resource->ptr = addrr;
@@ -226,7 +226,7 @@ int isis_instance_area_address_create(struct nb_cb_create_args *args)
 
 int isis_instance_area_address_destroy(struct nb_cb_destroy_args *args)
 {
-	struct area_addr addr, *addrp = NULL;
+	struct iso_address addr, *addrp = NULL;
 	struct listnode *node;
 	uint8_t buff[255];
 	struct isis_area *area;
@@ -332,9 +332,9 @@ int isis_instance_attached_modify(struct nb_cb_modify_args *args)
 }
 
 /*
- * XPath: /frr-isisd:isis/instance/overload
+ * XPath: /frr-isisd:isis/instance/overload/enabled
  */
-int isis_instance_overload_modify(struct nb_cb_modify_args *args)
+int isis_instance_overload_enabled_modify(struct nb_cb_modify_args *args)
 {
 	struct isis_area *area;
 	bool overload;
@@ -344,7 +344,45 @@ int isis_instance_overload_modify(struct nb_cb_modify_args *args)
 
 	area = nb_running_get_entry(args->dnode, NULL, true);
 	overload = yang_dnode_get_bool(args->dnode, NULL);
+	area->overload_configured = overload;
+
 	isis_area_overload_bit_set(area, overload);
+
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-isisd:isis/instance/overload/on-startup
+ */
+int isis_instance_overload_on_startup_modify(struct nb_cb_modify_args *args)
+{
+	struct isis_area *area;
+	uint32_t overload_time;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	overload_time = yang_dnode_get_uint32(args->dnode, NULL);
+	area = nb_running_get_entry(args->dnode, NULL, true);
+	isis_area_overload_on_startup_set(area, overload_time);
+
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-isisd:isis/instance/advertise-high-metrics
+ */
+int isis_instance_advertise_high_metrics_modify(struct nb_cb_modify_args *args)
+{
+	struct isis_area *area;
+	bool advertise_high_metrics;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	advertise_high_metrics = yang_dnode_get_bool(args->dnode, NULL);
+	area = nb_running_get_entry(args->dnode, NULL, true);
+	isis_area_advertise_high_metrics_set(area, advertise_high_metrics);
 
 	return NB_OK;
 }
@@ -386,35 +424,81 @@ int isis_instance_purge_originator_modify(struct nb_cb_modify_args *args)
 	return NB_OK;
 }
 
+
+/*
+ * XPath: /frr-isisd:isis/instance/admin-group-send-zero
+ */
+int isis_instance_admin_group_send_zero_modify(struct nb_cb_modify_args *args)
+{
+	struct isis_circuit *circuit;
+	struct isis_area *area;
+	struct listnode *node;
+	struct flex_algo *fa;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	area = nb_running_get_entry(args->dnode, NULL, true);
+	area->admin_group_send_zero = yang_dnode_get_bool(args->dnode, NULL);
+
+	if (area->admin_group_send_zero) {
+		for (ALL_LIST_ELEMENTS_RO(area->flex_algos->flex_algos, node,
+					  fa)) {
+			admin_group_allow_explicit_zero(
+				&fa->admin_group_exclude_any);
+			admin_group_allow_explicit_zero(
+				&fa->admin_group_include_any);
+			admin_group_allow_explicit_zero(
+				&fa->admin_group_include_all);
+		}
+	} else {
+		for (ALL_LIST_ELEMENTS_RO(area->flex_algos->flex_algos, node,
+					  fa)) {
+			admin_group_disallow_explicit_zero(
+				&fa->admin_group_exclude_any);
+			admin_group_disallow_explicit_zero(
+				&fa->admin_group_include_any);
+			admin_group_disallow_explicit_zero(
+				&fa->admin_group_include_all);
+		}
+	}
+
+	for (ALL_LIST_ELEMENTS_RO(area->circuit_list, node, circuit))
+		isis_link_params_update(circuit, circuit->interface);
+
+	lsp_regenerate_schedule(area, IS_LEVEL_1 | IS_LEVEL_2, 0);
+
+	return NB_OK;
+}
+
+
+/*
+ * XPath: /frr-isisd:isis/instance/asla-legacy-flag
+ */
+int isis_instance_asla_legacy_flag_modify(struct nb_cb_modify_args *args)
+{
+	struct isis_area *area;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	area = nb_running_get_entry(args->dnode, NULL, true);
+	area->asla_legacy_flag = yang_dnode_get_bool(args->dnode, NULL);
+	lsp_regenerate_schedule(area, IS_LEVEL_1 | IS_LEVEL_2, 0);
+
+	return NB_OK;
+}
+
 /*
  * XPath: /frr-isisd:isis/instance/lsp/mtu
  */
 int isis_instance_lsp_mtu_modify(struct nb_cb_modify_args *args)
 {
-	struct listnode *node;
-	struct isis_circuit *circuit;
 	uint16_t lsp_mtu = yang_dnode_get_uint16(args->dnode, NULL);
 	struct isis_area *area;
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
-		area = nb_running_get_entry(args->dnode, NULL, false);
-		if (!area)
-			break;
-		for (ALL_LIST_ELEMENTS_RO(area->circuit_list, node, circuit)) {
-			if (circuit->state != C_STATE_INIT
-			    && circuit->state != C_STATE_UP)
-				continue;
-			if (lsp_mtu > isis_circuit_pdu_size(circuit)) {
-				snprintf(
-					args->errmsg, args->errmsg_len,
-					"ISIS area contains circuit %s, which has a maximum PDU size of %zu",
-					circuit->interface->name,
-					isis_circuit_pdu_size(circuit));
-				return NB_ERR_VALIDATION;
-			}
-		}
-		break;
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
 		break;
@@ -423,6 +507,26 @@ int isis_instance_lsp_mtu_modify(struct nb_cb_modify_args *args)
 		isis_area_lsp_mtu_set(area, lsp_mtu);
 		break;
 	}
+
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-isisd:isis/instance/advertise-passive-only
+ */
+int isis_instance_advertise_passive_only_modify(struct nb_cb_modify_args *args)
+{
+	struct isis_area *area;
+	bool advertise_passive_only;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	area = nb_running_get_entry(args->dnode, NULL, true);
+	advertise_passive_only = yang_dnode_get_bool(args->dnode, NULL);
+	area->advertise_passive_only = advertise_passive_only;
+
+	lsp_regenerate_schedule(area, IS_LEVEL_1 | IS_LEVEL_2, 1);
 
 	return NB_OK;
 }
@@ -985,7 +1089,7 @@ void default_info_origin_apply_finish(const struct lyd_node *dnode, int family)
 		routemap = yang_dnode_get_string(dnode, "./route-map");
 
 	isis_redist_set(area, level, family, DEFAULT_ROUTE, metric, routemap,
-			originate_type);
+			originate_type, 0);
 }
 
 void default_info_origin_ipv4_apply_finish(struct nb_cb_apply_finish_args *args)
@@ -1016,7 +1120,7 @@ int isis_instance_default_information_originate_ipv4_destroy(
 
 	area = nb_running_get_entry(args->dnode, NULL, true);
 	level = yang_dnode_get_enum(args->dnode, "./level");
-	isis_redist_unset(area, level, AF_INET, DEFAULT_ROUTE);
+	isis_redist_unset(area, level, AF_INET, DEFAULT_ROUTE, 0);
 
 	return NB_OK;
 }
@@ -1079,7 +1183,7 @@ int isis_instance_default_information_originate_ipv6_destroy(
 
 	area = nb_running_get_entry(args->dnode, NULL, true);
 	level = yang_dnode_get_enum(args->dnode, "./level");
-	isis_redist_unset(area, level, AF_INET6, DEFAULT_ROUTE);
+	isis_redist_unset(area, level, AF_INET6, DEFAULT_ROUTE, 0);
 
 	return NB_OK;
 }
@@ -1141,7 +1245,7 @@ void redistribute_apply_finish(const struct lyd_node *dnode, int family)
 	if (yang_dnode_exists(dnode, "./route-map"))
 		routemap = yang_dnode_get_string(dnode, "./route-map");
 
-	isis_redist_set(area, level, family, type, metric, routemap, 0);
+	isis_redist_set(area, level, family, type, metric, routemap, 0, 0);
 }
 
 void redistribute_ipv4_apply_finish(struct nb_cb_apply_finish_args *args)
@@ -1171,13 +1275,14 @@ int isis_instance_redistribute_ipv4_destroy(struct nb_cb_destroy_args *args)
 	area = nb_running_get_entry(args->dnode, NULL, true);
 	level = yang_dnode_get_enum(args->dnode, "./level");
 	type = yang_dnode_get_enum(args->dnode, "./protocol");
-	isis_redist_unset(area, level, AF_INET, type);
+	isis_redist_unset(area, level, AF_INET, type, 0);
 
 	return NB_OK;
 }
 
 /*
  * XPath: /frr-isisd:isis/instance/redistribute/ipv4/route-map
+ * XPath: /frr-isisd:isis/instance/redistribute/ipv4/table/route-map
  */
 int isis_instance_redistribute_ipv4_route_map_modify(
 	struct nb_cb_modify_args *args)
@@ -1195,11 +1300,64 @@ int isis_instance_redistribute_ipv4_route_map_destroy(
 
 /*
  * XPath: /frr-isisd:isis/instance/redistribute/ipv4/metric
+ * XPath: /frr-isisd:isis/instance/redistribute/ipv4/table/metric
  */
 int isis_instance_redistribute_ipv4_metric_modify(
 	struct nb_cb_modify_args *args)
 {
 	/* It's all done by redistribute_apply_finish */
+	return NB_OK;
+}
+
+int isis_instance_redistribute_ipv4_metric_destroy(struct nb_cb_destroy_args *args)
+{
+	/* It's all done by redistribute_apply_finish */
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-isisd:isis/instance/redistribute/ipv4/table
+ */
+int isis_instance_redistribute_ipv4_table_create(struct nb_cb_create_args *args)
+{
+	uint16_t table;
+	int type, level;
+	unsigned long metric = 0;
+	const char *routemap = NULL;
+	struct isis_area *area;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	type = yang_dnode_get_enum(args->dnode, "../protocol");
+	level = yang_dnode_get_enum(args->dnode, "../level");
+	area = nb_running_get_entry(args->dnode, "../.", true);
+
+	if (yang_dnode_exists(args->dnode, "./metric"))
+		metric = yang_dnode_get_uint32(args->dnode, "./metric");
+	if (yang_dnode_exists(args->dnode, "./route-map"))
+		routemap = yang_dnode_get_string(args->dnode, "./route-map");
+
+	table = yang_dnode_get_uint16(args->dnode, "./table");
+	isis_redist_set(area, level, AF_INET, type, metric, routemap, 0, table);
+
+	return NB_OK;
+}
+int isis_instance_redistribute_ipv4_table_destroy(struct nb_cb_destroy_args *args)
+{
+	struct isis_area *area;
+	int level, type;
+	uint16_t table;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	area = nb_running_get_entry(args->dnode, "../.", true);
+	level = yang_dnode_get_enum(args->dnode, "../level");
+	type = yang_dnode_get_enum(args->dnode, "../protocol");
+	table = yang_dnode_get_uint16(args->dnode, "./table");
+	isis_redist_unset(area, level, AF_INET, type, table);
+
 	return NB_OK;
 }
 
@@ -1223,7 +1381,7 @@ int isis_instance_redistribute_ipv6_destroy(struct nb_cb_destroy_args *args)
 	area = nb_running_get_entry(args->dnode, NULL, true);
 	level = yang_dnode_get_enum(args->dnode, "./level");
 	type = yang_dnode_get_enum(args->dnode, "./protocol");
-	isis_redist_unset(area, level, AF_INET6, type);
+	isis_redist_unset(area, level, AF_INET6, type, 0);
 
 	return NB_OK;
 }
@@ -1252,6 +1410,33 @@ int isis_instance_redistribute_ipv6_metric_modify(
 	struct nb_cb_modify_args *args)
 {
 	/* It's all done by redistribute_apply_finish */
+	return NB_OK;
+}
+
+int isis_instance_redistribute_ipv6_metric_destroy(struct nb_cb_destroy_args *args)
+{
+	/* It's all done by redistribute_apply_finish */
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-isisd:isis/instance/redistribute/ipv6/table
+ */
+int isis_instance_redistribute_ipv6_table_create(struct nb_cb_create_args *args)
+{
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	/* TODO */
+	return NB_OK;
+}
+
+int isis_instance_redistribute_ipv6_table_destroy(struct nb_cb_destroy_args *args)
+{
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	/* TODO */
 	return NB_OK;
 }
 
@@ -1800,42 +1985,34 @@ int isis_instance_log_adjacency_changes_modify(struct nb_cb_modify_args *args)
 }
 
 /*
- * XPath: /frr-isisd:isis/instance/mpls-te
+ * XPath: /frr-isisd:isis/instance/log-pdu-drops
  */
-int isis_instance_mpls_te_create(struct nb_cb_create_args *args)
+int isis_instance_log_pdu_drops_modify(struct nb_cb_modify_args *args)
 {
-	struct listnode *node;
 	struct isis_area *area;
-	struct isis_circuit *circuit;
+	bool log = yang_dnode_get_bool(args->dnode, NULL);
 
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
 	area = nb_running_get_entry(args->dnode, NULL, true);
-	if (area->mta == NULL) {
+	area->log_pdu_drops = log ? 1 : 0;
 
-		struct mpls_te_area *new;
+	return NB_OK;
+}
 
-		zlog_debug("ISIS-TE(%s): Initialize MPLS Traffic Engineering",
-			   area->area_tag);
+/*
+ * XPath: /frr-isisd:isis/instance/mpls-te
+ */
+int isis_instance_mpls_te_create(struct nb_cb_create_args *args)
+{
+	struct isis_area *area;
 
-		new = XCALLOC(MTYPE_ISIS_MPLS_TE, sizeof(struct mpls_te_area));
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
 
-		/* Initialize MPLS_TE structure */
-		new->status = enable;
-		new->level = 0;
-		new->inter_as = off;
-		new->interas_areaid.s_addr = 0;
-		new->router_id.s_addr = 0;
-
-		area->mta = new;
-	} else {
-		area->mta->status = enable;
-	}
-
-	/* Update Extended TLVs according to Interface link parameters */
-	for (ALL_LIST_ELEMENTS_RO(area->circuit_list, node, circuit))
-		isis_link_params_update(circuit, circuit->interface);
+	area = nb_running_get_entry(args->dnode, NULL, true);
+	isis_mpls_te_create(area);
 
 	/* Reoriginate STD_TE & GMPLS circuits */
 	lsp_regenerate_schedule(area, area->is_type, 0);
@@ -1845,32 +2022,16 @@ int isis_instance_mpls_te_create(struct nb_cb_create_args *args)
 
 int isis_instance_mpls_te_destroy(struct nb_cb_destroy_args *args)
 {
-	struct listnode *node;
 	struct isis_area *area;
-	struct isis_circuit *circuit;
 
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
 	area = nb_running_get_entry(args->dnode, NULL, true);
-	if (IS_MPLS_TE(area->mta))
-		area->mta->status = disable;
-	else
+	if (!IS_MPLS_TE(area->mta))
 		return NB_OK;
 
-	/* Flush LSP if circuit engage */
-	for (ALL_LIST_ELEMENTS_RO(area->circuit_list, node, circuit)) {
-		if (!IS_EXT_TE(circuit->ext))
-			continue;
-
-		/* disable MPLS_TE Circuit keeping SR one's */
-		if (IS_SUBTLV(circuit->ext, EXT_ADJ_SID))
-			circuit->ext->status = EXT_ADJ_SID;
-		else if (IS_SUBTLV(circuit->ext, EXT_LAN_ADJ_SID))
-			circuit->ext->status = EXT_LAN_ADJ_SID;
-		else
-			circuit->ext->status = 0;
-	}
+	isis_mpls_te_disable(area);
 
 	/* Reoriginate STD_TE & GMPLS circuits */
 	lsp_regenerate_schedule(area, area->is_type, 0);
@@ -1925,6 +2086,88 @@ int isis_instance_mpls_te_router_address_destroy(
 
 	/* And re-schedule LSP update */
 	lsp_regenerate_schedule(area, area->is_type, 0);
+
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-isisd:isis/instance/mpls-te/router-address-v6
+ */
+int isis_instance_mpls_te_router_address_ipv6_modify(
+	struct nb_cb_modify_args *args)
+{
+	struct in6_addr value;
+	struct isis_area *area;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	area = nb_running_get_entry(args->dnode, NULL, true);
+	/* only proceed if MPLS-TE is enabled */
+	if (!IS_MPLS_TE(area->mta))
+		return NB_OK;
+
+	yang_dnode_get_ipv6(&value, args->dnode, NULL);
+	/* Update Area IPv6 Router ID if different */
+	if (!IPV6_ADDR_SAME(&area->mta->router_id_ipv6, &value)) {
+		IPV6_ADDR_COPY(&area->mta->router_id_ipv6, &value);
+
+		/* And re-schedule LSP update */
+		lsp_regenerate_schedule(area, area->is_type, 0);
+	}
+
+	return NB_OK;
+}
+
+int isis_instance_mpls_te_router_address_ipv6_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	struct isis_area *area;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	area = nb_running_get_entry(args->dnode, NULL, true);
+	/* only proceed if MPLS-TE is enabled */
+	if (!IS_MPLS_TE(area->mta))
+		return NB_OK;
+
+	/* Reset Area Router ID */
+	IPV6_ADDR_COPY(&area->mta->router_id_ipv6, &in6addr_any);
+
+	/* And re-schedule LSP update */
+	lsp_regenerate_schedule(area, area->is_type, 0);
+
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-isisd:isis/instance/mpls-te/export
+ */
+int isis_instance_mpls_te_export_modify(struct nb_cb_modify_args *args)
+{
+	struct isis_area *area;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	area = nb_running_get_entry(args->dnode, NULL, true);
+	/* only proceed if MPLS-TE is enabled */
+	if (!IS_MPLS_TE(area->mta))
+		return NB_OK;
+
+	area->mta->export = yang_dnode_get_bool(args->dnode, NULL);
+	if (area->mta->export) {
+		if (IS_DEBUG_EVENTS)
+			zlog_debug("MPLS-TE: Enabled Link State export");
+		if (isis_zebra_ls_register(true) != 0)
+			zlog_warn("Unable to register Link State");
+	} else {
+		if (IS_DEBUG_EVENTS)
+			zlog_debug("MPLS-TE: Disable Link State export");
+		if (isis_zebra_ls_register(false) != 0)
+			zlog_warn("Unable to register Link State");
+	}
 
 	return NB_OK;
 }
@@ -2187,7 +2430,7 @@ int isis_instance_segment_routing_prefix_sid_map_prefix_sid_create(
 	area = nb_running_get_entry(args->dnode, NULL, true);
 	yang_dnode_get_prefix(&prefix, args->dnode, "./prefix");
 
-	pcfg = isis_sr_cfg_prefix_add(area, &prefix);
+	pcfg = isis_sr_cfg_prefix_add(area, &prefix, SR_ALGORITHM_SPF);
 	nb_running_set_entry(args->dnode, pcfg);
 
 	return NB_OK;
@@ -2378,6 +2621,1129 @@ int isis_instance_segment_routing_prefix_sid_map_prefix_sid_n_flag_clear_modify(
 }
 
 /*
+ * XPath:
+ * /frr-isisd:isis/instance/segment-routing/algorithm-prefix-sids/algorithm-prefix-sid
+ */
+int isis_instance_segment_routing_algorithm_prefix_sid_create(
+	struct nb_cb_create_args *args)
+{
+	struct isis_area *area;
+	struct prefix prefix;
+	struct sr_prefix_cfg *pcfg;
+	uint32_t algorithm;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	area = nb_running_get_entry(args->dnode, NULL, true);
+	yang_dnode_get_prefix(&prefix, args->dnode, "./prefix");
+	algorithm = yang_dnode_get_uint32(args->dnode, "./algo");
+
+	pcfg = isis_sr_cfg_prefix_add(area, &prefix, algorithm);
+	pcfg->algorithm = algorithm;
+	nb_running_set_entry(args->dnode, pcfg);
+
+	return NB_OK;
+}
+
+int isis_instance_segment_routing_algorithm_prefix_sid_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	struct sr_prefix_cfg *pcfg;
+	struct isis_area *area;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	pcfg = nb_running_unset_entry(args->dnode);
+	area = pcfg->area;
+	isis_sr_cfg_prefix_del(pcfg);
+	lsp_regenerate_schedule(area, area->is_type, 0);
+
+	return NB_OK;
+}
+
+int isis_instance_segment_routing_algorithm_prefix_sid_pre_validate(
+	struct nb_cb_pre_validate_args *args)
+{
+	const struct lyd_node *area_dnode;
+	struct isis_area *area;
+	struct prefix prefix;
+	uint32_t srgb_lbound;
+	uint32_t srgb_ubound;
+	uint32_t srgb_range;
+	uint32_t sid;
+	enum sr_sid_value_type sid_type;
+	struct isis_prefix_sid psid = {};
+
+	yang_dnode_get_prefix(&prefix, args->dnode, "./prefix");
+	srgb_lbound = yang_dnode_get_uint32(
+		args->dnode, "../../label-blocks/srgb/lower-bound");
+	srgb_ubound = yang_dnode_get_uint32(
+		args->dnode, "../../label-blocks/srgb/upper-bound");
+	sid = yang_dnode_get_uint32(args->dnode, "./sid-value");
+	sid_type = yang_dnode_get_enum(args->dnode, "./sid-value-type");
+
+	/* Check for invalid indexes/labels. */
+	srgb_range = srgb_ubound - srgb_lbound + 1;
+	psid.value = sid;
+	switch (sid_type) {
+	case SR_SID_VALUE_TYPE_INDEX:
+		if (sid >= srgb_range) {
+			snprintf(args->errmsg, args->errmsg_len,
+				 "SID index %u falls outside local SRGB range",
+				 sid);
+			return NB_ERR_VALIDATION;
+		}
+		break;
+	case SR_SID_VALUE_TYPE_ABSOLUTE:
+		if (!IS_MPLS_UNRESERVED_LABEL(sid)) {
+			snprintf(args->errmsg, args->errmsg_len,
+				 "Invalid absolute SID %u", sid);
+			return NB_ERR_VALIDATION;
+		}
+		SET_FLAG(psid.flags, ISIS_PREFIX_SID_VALUE);
+		SET_FLAG(psid.flags, ISIS_PREFIX_SID_LOCAL);
+		break;
+	}
+
+	/* Check for Prefix-SID collisions. */
+	area_dnode = yang_dnode_get_parent(args->dnode, "instance");
+	area = nb_running_get_entry(area_dnode, NULL, false);
+	if (!area)
+		return NB_OK;
+
+	for (int tree = SPFTREE_IPV4; tree < SPFTREE_COUNT; tree++) {
+		for (int level = ISIS_LEVEL1; level <= ISIS_LEVEL2; level++) {
+			struct isis_spftree *spftree;
+			struct isis_vertex *vertex_psid;
+
+			if (!(area->is_type & level))
+				continue;
+			spftree = area->spftree[tree][level - 1];
+			if (!spftree)
+				continue;
+
+			vertex_psid =
+				isis_spf_prefix_sid_lookup(spftree, &psid);
+			if (vertex_psid &&
+			    !prefix_same(&vertex_psid->N.ip.p.dest, &prefix)) {
+				snprintfrr(
+					args->errmsg, args->errmsg_len,
+					"Prefix-SID collision detected, SID %s %u is already in use by prefix %pFX (L%u)",
+					CHECK_FLAG(psid.flags,
+						   ISIS_PREFIX_SID_VALUE)
+						? "label"
+						: "index",
+					psid.value, &vertex_psid->N.ip.p.dest,
+					level);
+				return NB_ERR_VALIDATION;
+			}
+		}
+	}
+
+	return NB_OK;
+}
+
+void isis_instance_segment_routing_algorithm_prefix_sid_apply_finish(
+	struct nb_cb_apply_finish_args *args)
+{
+	struct sr_prefix_cfg *pcfg;
+	struct isis_area *area;
+
+	pcfg = nb_running_get_entry(args->dnode, NULL, true);
+	area = pcfg->area;
+	lsp_regenerate_schedule(area, area->is_type, 0);
+}
+
+/*
+ * XPath:
+ * /frr-isisd:isis/instance/segment-routing/algorithm-prefix-sids/algorithm-prefix-sid/sid-value-type
+ */
+int isis_instance_segment_routing_algorithm_prefix_sid_sid_value_type_modify(
+	struct nb_cb_modify_args *args)
+{
+	struct sr_prefix_cfg *pcfg;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	pcfg = nb_running_get_entry(args->dnode, NULL, true);
+	pcfg->sid_type = yang_dnode_get_enum(args->dnode, NULL);
+
+	return NB_OK;
+}
+
+/*
+ * XPath:
+ * /frr-isisd:isis/instance/segment-routing/algorithm-prefix-sids/algorithm-prefix-sid/sid-value
+ */
+int isis_instance_segment_routing_algorithm_prefix_sid_sid_value_modify(
+	struct nb_cb_modify_args *args)
+{
+	struct sr_prefix_cfg *pcfg;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	pcfg = nb_running_get_entry(args->dnode, NULL, true);
+	pcfg->sid = yang_dnode_get_uint32(args->dnode, NULL);
+
+	return NB_OK;
+}
+
+/*
+ * XPath:
+ * /frr-isisd:isis/instance/segment-routing/algorithm-prefix-sid-map/algorithm-prefix-sid/last-hop-behavior
+ */
+int isis_instance_segment_routing_algorithm_prefix_sid_last_hop_behavior_modify(
+	struct nb_cb_modify_args *args)
+{
+	struct sr_prefix_cfg *pcfg;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	pcfg = nb_running_get_entry(args->dnode, NULL, true);
+	pcfg->last_hop_behavior = yang_dnode_get_enum(args->dnode, NULL);
+
+	return NB_OK;
+}
+
+/*
+ * XPath:
+ * /frr-isisd:isis/instance/segment-routing/algorithm-prefix-sids/algorithm-prefix-sid/n-flag-clear
+ */
+int isis_instance_segment_routing_algorithm_prefix_sid_n_flag_clear_modify(
+	struct nb_cb_modify_args *args)
+{
+	struct sr_prefix_cfg *pcfg;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	pcfg = nb_running_get_entry(args->dnode, NULL, true);
+	pcfg->n_flag_clear = yang_dnode_get_bool(args->dnode, NULL);
+
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-isisd:isis/instance/flex-algos/flex-algo
+ */
+int isis_instance_flex_algo_create(struct nb_cb_create_args *args)
+{
+	struct isis_area *area;
+	struct flex_algo *fa;
+	bool advertise;
+	uint32_t algorithm;
+	uint32_t priority = FLEX_ALGO_PRIO_DEFAULT;
+	struct isis_flex_algo_alloc_arg arg;
+
+	algorithm = yang_dnode_get_uint32(args->dnode, "./flex-algo");
+	advertise = yang_dnode_exists(args->dnode, "./advertise-definition");
+
+	switch (args->event) {
+	case NB_EV_APPLY:
+		area = nb_running_get_entry(args->dnode, NULL, true);
+		arg.algorithm = algorithm;
+		arg.area = area;
+		fa = flex_algo_alloc(area->flex_algos, algorithm, &arg);
+		fa->priority = priority;
+		fa->advertise_definition = advertise;
+		if (area->admin_group_send_zero) {
+			admin_group_allow_explicit_zero(
+				&fa->admin_group_exclude_any);
+			admin_group_allow_explicit_zero(
+				&fa->admin_group_include_any);
+			admin_group_allow_explicit_zero(
+				&fa->admin_group_include_all);
+		}
+		lsp_regenerate_schedule(area, area->is_type, 0);
+		break;
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	}
+
+	return NB_OK;
+}
+
+int isis_instance_flex_algo_destroy(struct nb_cb_destroy_args *args)
+{
+	struct isis_area *area;
+	uint32_t algorithm;
+
+	algorithm = yang_dnode_get_uint32(args->dnode, "./flex-algo");
+	area = nb_running_get_entry(args->dnode, NULL, true);
+
+	switch (args->event) {
+	case NB_EV_APPLY:
+		flex_algo_delete(area->flex_algos, algorithm);
+		lsp_regenerate_schedule(area, area->is_type, 0);
+		break;
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	}
+
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-isisd:isis/instance/flex-algos/flex-algo/advertise-definition
+ */
+int isis_instance_flex_algo_advertise_definition_modify(
+	struct nb_cb_modify_args *args)
+{
+	struct isis_area *area;
+	struct flex_algo *fa;
+	bool advertise;
+	uint32_t algorithm;
+
+
+	algorithm = yang_dnode_get_uint32(args->dnode, "./../flex-algo");
+	advertise = yang_dnode_exists(args->dnode, "./../advertise-definition");
+
+	switch (args->event) {
+	case NB_EV_APPLY:
+		area = nb_running_get_entry(args->dnode, NULL, true);
+		fa = flex_algo_lookup(area->flex_algos, algorithm);
+		if (!fa) {
+			snprintf(args->errmsg, args->errmsg_len,
+				 "flex-algo object not found");
+			return NB_ERR_RESOURCE;
+		}
+		fa->advertise_definition = advertise;
+		lsp_regenerate_schedule(area, area->is_type, 0);
+		break;
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	}
+
+	return NB_OK;
+}
+
+int isis_instance_flex_algo_advertise_definition_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	struct isis_area *area;
+	struct flex_algo *fa;
+	uint32_t algorithm;
+
+	area = nb_running_get_entry(args->dnode, NULL, true);
+
+	algorithm = yang_dnode_get_uint32(args->dnode, "./../flex-algo");
+
+	switch (args->event) {
+	case NB_EV_APPLY:
+		fa = flex_algo_lookup(area->flex_algos, algorithm);
+		if (!fa) {
+			snprintf(args->errmsg, args->errmsg_len,
+				 "flex-algo object not found");
+			return NB_ERR_RESOURCE;
+		}
+		fa->advertise_definition = false;
+		lsp_regenerate_schedule(area, area->is_type, 0);
+		break;
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	}
+
+	return NB_OK;
+}
+
+static int isis_instance_flex_algo_affinity_set(struct nb_cb_create_args *args,
+						int type)
+{
+	struct affinity_map *map;
+	struct isis_area *area;
+	struct admin_group *ag;
+	struct flex_algo *fa;
+	uint32_t algorithm;
+	const char *val;
+
+	algorithm = yang_dnode_get_uint32(args->dnode, "../../flex-algo");
+	area = nb_running_get_entry(args->dnode, NULL, true);
+	val = yang_dnode_get_string(args->dnode, ".");
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+		fa = flex_algo_lookup(area->flex_algos, algorithm);
+		if (!fa) {
+			snprintf(args->errmsg, args->errmsg_len,
+				 "flex-algo object not found");
+			return NB_ERR_RESOURCE;
+		}
+		map = affinity_map_get(val);
+		if (!map) {
+			snprintf(args->errmsg, args->errmsg_len,
+				 "affinity map %s isn't found", val);
+			return NB_ERR_VALIDATION;
+		}
+		break;
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	case NB_EV_APPLY:
+		fa = flex_algo_lookup(area->flex_algos, algorithm);
+		if (!fa) {
+			snprintf(args->errmsg, args->errmsg_len,
+				 "flex-algo object not found");
+			return NB_ERR_RESOURCE;
+		}
+		map = affinity_map_get(val);
+		if (!map) {
+			snprintf(args->errmsg, args->errmsg_len,
+				 "affinity map %s isn't found", val);
+			return NB_ERR_RESOURCE;
+		}
+		if (type == AFFINITY_INCLUDE_ANY)
+			ag = &fa->admin_group_include_any;
+		else if (type == AFFINITY_INCLUDE_ALL)
+			ag = &fa->admin_group_include_all;
+		else if (type == AFFINITY_EXCLUDE_ANY)
+			ag = &fa->admin_group_exclude_any;
+		else
+			break;
+
+		admin_group_set(ag, map->bit_position);
+		lsp_regenerate_schedule(area, area->is_type, 0);
+		break;
+	}
+
+	return NB_OK;
+}
+
+static int
+isis_instance_flex_algo_affinity_unset(struct nb_cb_destroy_args *args,
+				       int type)
+{
+	struct affinity_map *map;
+	struct isis_area *area;
+	struct admin_group *ag;
+	struct flex_algo *fa;
+	uint32_t algorithm;
+	const char *val;
+
+	algorithm = yang_dnode_get_uint32(args->dnode, "../../flex-algo");
+	area = nb_running_get_entry(args->dnode, NULL, true);
+	val = yang_dnode_get_string(args->dnode, ".");
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+		fa = flex_algo_lookup(area->flex_algos, algorithm);
+		if (!fa) {
+			snprintf(args->errmsg, args->errmsg_len,
+				 "flex-algo object not found");
+			return NB_ERR_RESOURCE;
+		}
+		map = affinity_map_get(val);
+		if (!map) {
+			snprintf(args->errmsg, args->errmsg_len,
+				 "affinity map %s isn't found", val);
+			return NB_ERR_VALIDATION;
+		}
+		break;
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	case NB_EV_APPLY:
+		fa = flex_algo_lookup(area->flex_algos, algorithm);
+		if (!fa) {
+			snprintf(args->errmsg, args->errmsg_len,
+				 "flex-algo object not found");
+			return NB_ERR_RESOURCE;
+		}
+		map = affinity_map_get(val);
+		if (!map) {
+			snprintf(args->errmsg, args->errmsg_len,
+				 "affinity map %s isn't found", val);
+			return NB_ERR_RESOURCE;
+		}
+		if (type == AFFINITY_INCLUDE_ANY)
+			ag = &fa->admin_group_include_any;
+		else if (type == AFFINITY_INCLUDE_ALL)
+			ag = &fa->admin_group_include_all;
+		else if (type == AFFINITY_EXCLUDE_ANY)
+			ag = &fa->admin_group_exclude_any;
+		else
+			break;
+
+		admin_group_unset(ag, map->bit_position);
+		if (area->admin_group_send_zero)
+			admin_group_allow_explicit_zero(ag);
+		lsp_regenerate_schedule(area, area->is_type, 0);
+		break;
+	}
+
+	return NB_OK;
+}
+
+/*
+ * XPath:
+ * /frr-isisd:isis/instance/flex-algos/flex-algo/affinity-include-anies/affinity-include-any
+ */
+int isis_instance_flex_algo_affinity_include_any_create(
+	struct nb_cb_create_args *args)
+{
+	return isis_instance_flex_algo_affinity_set(args, AFFINITY_INCLUDE_ANY);
+}
+
+int isis_instance_flex_algo_affinity_include_any_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	return isis_instance_flex_algo_affinity_unset(args,
+						      AFFINITY_INCLUDE_ANY);
+}
+
+/*
+ * XPath:
+ * /frr-isisd:isis/instance/flex-algos/flex-algo/affinity-include-alls/affinity-include-all
+ */
+int isis_instance_flex_algo_affinity_include_all_create(
+	struct nb_cb_create_args *args)
+{
+	return isis_instance_flex_algo_affinity_set(args, AFFINITY_INCLUDE_ALL);
+}
+
+int isis_instance_flex_algo_affinity_include_all_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	return isis_instance_flex_algo_affinity_unset(args,
+						      AFFINITY_INCLUDE_ALL);
+}
+
+/*
+ * XPath:
+ * /frr-isisd:isis/instance/flex-algos/flex-algo/affinity-exclude-anies/affinity-exclude-any
+ */
+int isis_instance_flex_algo_affinity_exclude_any_create(
+	struct nb_cb_create_args *args)
+{
+	return isis_instance_flex_algo_affinity_set(args, AFFINITY_EXCLUDE_ANY);
+}
+
+int isis_instance_flex_algo_affinity_exclude_any_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	return isis_instance_flex_algo_affinity_unset(args,
+						      AFFINITY_EXCLUDE_ANY);
+}
+
+/*
+ * XPath: /frr-isisd:isis/instance/flex-algos/flex-algo/prefix-metric
+ */
+
+int isis_instance_flex_algo_prefix_metric_create(struct nb_cb_create_args *args)
+{
+	struct isis_area *area;
+	const char *area_tag;
+	struct flex_algo *fa;
+	uint32_t algorithm;
+
+	area_tag = yang_dnode_get_string(args->dnode, "../../../area-tag");
+	area = isis_area_lookup(area_tag, VRF_DEFAULT);
+	if (!area)
+		return NB_ERR_RESOURCE;
+
+	algorithm = yang_dnode_get_uint32(args->dnode, "./../flex-algo");
+
+	switch (args->event) {
+	case NB_EV_APPLY:
+		fa = flex_algo_lookup(area->flex_algos, algorithm);
+		if (!fa) {
+			snprintf(args->errmsg, args->errmsg_len,
+				 "flex-algo object not found");
+			return NB_ERR_RESOURCE;
+		}
+		SET_FLAG(fa->flags, FAD_FLAG_M);
+		lsp_regenerate_schedule(area, area->is_type, 0);
+		break;
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	}
+
+	return NB_OK;
+}
+
+int isis_instance_flex_algo_prefix_metric_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	struct isis_area *area;
+	const char *area_tag;
+	struct flex_algo *fa;
+	uint32_t algorithm;
+
+	area_tag = yang_dnode_get_string(args->dnode, "../../../area-tag");
+	area = isis_area_lookup(area_tag, VRF_DEFAULT);
+	if (!area)
+		return NB_ERR_RESOURCE;
+
+	algorithm = yang_dnode_get_uint32(args->dnode, "./../flex-algo");
+
+	switch (args->event) {
+	case NB_EV_APPLY:
+		fa = flex_algo_lookup(area->flex_algos, algorithm);
+		if (!fa) {
+			snprintf(args->errmsg, args->errmsg_len,
+				 "flex-algo object not found");
+			return NB_ERR_RESOURCE;
+		}
+		UNSET_FLAG(fa->flags, FAD_FLAG_M);
+		lsp_regenerate_schedule(area, area->is_type, 0);
+		break;
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	}
+
+	return NB_OK;
+}
+
+static int isis_instance_flex_algo_dplane_set(struct nb_cb_create_args *args,
+					      int type)
+{
+	struct isis_area *area;
+	const char *area_tag;
+	struct flex_algo *fa;
+	uint32_t algorithm;
+
+	area_tag = yang_dnode_get_string(args->dnode, "../../../area-tag");
+	area = isis_area_lookup(area_tag, VRF_DEFAULT);
+	if (!area)
+		return NB_ERR_RESOURCE;
+
+	algorithm = yang_dnode_get_uint32(args->dnode, "./../flex-algo");
+
+	switch (args->event) {
+	case NB_EV_APPLY:
+		fa = flex_algo_lookup(area->flex_algos, algorithm);
+		if (!fa) {
+			snprintf(args->errmsg, args->errmsg_len,
+				 "flex-algo object not found");
+			return NB_ERR_RESOURCE;
+		}
+		SET_FLAG(fa->dataplanes, type);
+		lsp_regenerate_schedule(area, area->is_type, 0);
+		break;
+	case NB_EV_VALIDATE:
+		if (type == FLEX_ALGO_SRV6 || type == FLEX_ALGO_IP) {
+			snprintf(args->errmsg, args->errmsg_len,
+				 "%s Flex-algo dataplane is not yet supported.",
+				 type == FLEX_ALGO_SRV6 ? "SRv6" : "IP");
+			return NB_ERR_VALIDATION;
+		}
+		break;
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	}
+
+	return NB_OK;
+}
+
+static int isis_instance_flex_algo_dplane_unset(struct nb_cb_destroy_args *args,
+						int type)
+{
+	struct isis_area *area;
+	const char *area_tag;
+	struct flex_algo *fa;
+	uint32_t algorithm;
+
+	area_tag = yang_dnode_get_string(args->dnode, "../../../area-tag");
+	area = isis_area_lookup(area_tag, VRF_DEFAULT);
+	if (!area)
+		return NB_ERR_RESOURCE;
+
+	algorithm = yang_dnode_get_uint32(args->dnode, "./../flex-algo");
+
+	switch (args->event) {
+	case NB_EV_APPLY:
+		fa = flex_algo_lookup(area->flex_algos, algorithm);
+		if (!fa) {
+			snprintf(args->errmsg, args->errmsg_len,
+				 "flex-algo object not found");
+			return NB_ERR_RESOURCE;
+		}
+		UNSET_FLAG(fa->dataplanes, type);
+		lsp_regenerate_schedule(area, area->is_type, 0);
+		break;
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	}
+
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-isisd:isis/instance/flex-algos/flex-algo/dplane-sr-mpls
+ */
+
+int isis_instance_flex_algo_dplane_sr_mpls_create(
+	struct nb_cb_create_args *args)
+{
+	return isis_instance_flex_algo_dplane_set(args, FLEX_ALGO_SR_MPLS);
+}
+
+int isis_instance_flex_algo_dplane_sr_mpls_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	return isis_instance_flex_algo_dplane_unset(args, FLEX_ALGO_SR_MPLS);
+}
+
+/*
+ * XPath: /frr-isisd:isis/instance/flex-algos/flex-algo/dplane-srv6
+ */
+
+int isis_instance_flex_algo_dplane_srv6_create(struct nb_cb_create_args *args)
+{
+	return isis_instance_flex_algo_dplane_set(args, FLEX_ALGO_SRV6);
+}
+
+int isis_instance_flex_algo_dplane_srv6_destroy(struct nb_cb_destroy_args *args)
+{
+	return isis_instance_flex_algo_dplane_unset(args, FLEX_ALGO_SRV6);
+}
+
+/*
+ * XPath: /frr-isisd:isis/instance/flex-algos/flex-algo/dplane-ip
+ */
+
+int isis_instance_flex_algo_dplane_ip_create(struct nb_cb_create_args *args)
+{
+	return isis_instance_flex_algo_dplane_set(args, FLEX_ALGO_IP);
+}
+
+int isis_instance_flex_algo_dplane_ip_destroy(struct nb_cb_destroy_args *args)
+{
+	return isis_instance_flex_algo_dplane_unset(args, FLEX_ALGO_IP);
+}
+
+/*
+ * XPath: /frr-isisd:isis/instance/flex-algos/flex-algo/metric-type
+ */
+
+int isis_instance_flex_algo_metric_type_modify(struct nb_cb_modify_args *args)
+{
+	struct isis_area *area;
+	const char *area_tag;
+	struct flex_algo *fa;
+	uint32_t algorithm;
+	enum flex_algo_metric_type metric_type;
+
+	area_tag = yang_dnode_get_string(args->dnode, "../../../area-tag");
+	area = isis_area_lookup(area_tag, VRF_DEFAULT);
+	if (!area)
+		return NB_ERR_RESOURCE;
+
+	algorithm = yang_dnode_get_uint32(args->dnode, "./../flex-algo");
+	metric_type = yang_dnode_get_enum(args->dnode, NULL);
+
+	switch (args->event) {
+	case NB_EV_APPLY:
+		fa = flex_algo_lookup(area->flex_algos, algorithm);
+		if (!fa) {
+			snprintf(args->errmsg, args->errmsg_len,
+				 "flex-algo object not found");
+			return NB_ERR_RESOURCE;
+		}
+		fa->metric_type = metric_type;
+		lsp_regenerate_schedule(area, area->is_type, 0);
+		break;
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	}
+
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-isisd:isis/instance/flex-algos/flex-algo/priority
+ */
+
+int isis_instance_flex_algo_priority_modify(struct nb_cb_modify_args *args)
+{
+	struct isis_area *area;
+	const char *area_tag;
+	struct flex_algo *fa;
+	uint32_t algorithm;
+	uint32_t priority;
+
+	area_tag = yang_dnode_get_string(args->dnode, "../../../area-tag");
+	area = isis_area_lookup(area_tag, VRF_DEFAULT);
+	if (!area)
+		return NB_ERR_RESOURCE;
+
+	algorithm = yang_dnode_get_uint32(args->dnode, "./../flex-algo");
+	priority = yang_dnode_get_uint32(args->dnode, NULL);
+
+	switch (args->event) {
+	case NB_EV_APPLY:
+		fa = flex_algo_lookup(area->flex_algos, algorithm);
+		if (!fa) {
+			snprintf(args->errmsg, args->errmsg_len,
+				 "flex-algo object not found");
+			return NB_ERR_RESOURCE;
+		}
+		fa->priority = priority;
+		lsp_regenerate_schedule(area, area->is_type, 0);
+		break;
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	}
+
+	return NB_OK;
+}
+
+int isis_instance_flex_algo_priority_destroy(struct nb_cb_destroy_args *args)
+{
+	struct isis_area *area;
+	const char *area_tag;
+	struct flex_algo *fa;
+	uint32_t algorithm;
+	uint32_t priority = FLEX_ALGO_PRIO_DEFAULT;
+
+	area_tag = yang_dnode_get_string(args->dnode, "../../../area-tag");
+	area = isis_area_lookup(area_tag, VRF_DEFAULT);
+	if (!area)
+		return NB_ERR_RESOURCE;
+
+	algorithm = yang_dnode_get_uint32(args->dnode, "./../flex-algo");
+	priority = yang_dnode_get_uint32(args->dnode, NULL);
+
+	switch (args->event) {
+	case NB_EV_APPLY:
+		fa = flex_algo_lookup(area->flex_algos, algorithm);
+		if (!fa) {
+			snprintf(args->errmsg, args->errmsg_len,
+				 "flex-algo object not found");
+			return NB_ERR_RESOURCE;
+		}
+		fa->priority = priority;
+		lsp_regenerate_schedule(area, area->is_type, 0);
+		break;
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	}
+
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-isisd:isis/instance/segment-routing-srv6/enabled
+ */
+int isis_instance_segment_routing_srv6_enabled_modify(
+	struct nb_cb_modify_args *args)
+{
+	struct isis_area *area;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	area = nb_running_get_entry(args->dnode, NULL, true);
+	area->srv6db.config.enabled = yang_dnode_get_bool(args->dnode, NULL);
+
+	if (area->srv6db.config.enabled) {
+		if (IS_DEBUG_EVENTS)
+			zlog_debug(
+				"Segment Routing over IPv6 (SRv6): OFF -> ON");
+	} else {
+		if (IS_DEBUG_EVENTS)
+			zlog_debug(
+				"Segment Routing over IPv6 (SRv6): ON -> OFF");
+	}
+
+	/* Regenerate LSPs to advertise SRv6 capabilities or signal that the
+	 * node is no longer SRv6-capable. */
+	lsp_regenerate_schedule(area, area->is_type, 0);
+
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-isisd:isis/instance/segment-routing-srv6/locator
+ */
+int isis_instance_segment_routing_srv6_locator_modify(
+	struct nb_cb_modify_args *args)
+{
+	struct isis_area *area;
+	const char *loc_name;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	area = nb_running_get_entry(lyd_parent(lyd_parent(args->dnode)), NULL,
+				    true);
+
+	loc_name = yang_dnode_get_string(args->dnode, NULL);
+
+	if (strncmp(loc_name, area->srv6db.config.srv6_locator_name,
+		    sizeof(area->srv6db.config.srv6_locator_name)) == 0) {
+		snprintf(args->errmsg, args->errmsg_len,
+			 "SRv6 locator %s is already configured", loc_name);
+		return NB_ERR_NO_CHANGES;
+	}
+
+	/* Remove previously configured locator */
+	if (strncmp(area->srv6db.config.srv6_locator_name, "",
+		    sizeof(area->srv6db.config.srv6_locator_name)) != 0) {
+		sr_debug("Unsetting previously configured SRv6 locator");
+		if (!isis_srv6_locator_unset(area)) {
+			zlog_warn("Failed to unset SRv6 locator");
+			return NB_ERR;
+		}
+	}
+
+	strlcpy(area->srv6db.config.srv6_locator_name, loc_name,
+		sizeof(area->srv6db.config.srv6_locator_name));
+
+	sr_debug("Configured SRv6 locator %s for IS-IS area %s", loc_name,
+		 area->area_tag);
+
+	sr_debug("Trying to get a chunk from locator %s for IS-IS area %s",
+		 loc_name, area->area_tag);
+
+	if (isis_zebra_srv6_manager_get_locator_chunk(loc_name) < 0)
+		return NB_ERR;
+
+	return NB_OK;
+}
+
+int isis_instance_segment_routing_srv6_locator_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	struct isis_area *area;
+	const char *loc_name;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	area = nb_running_get_entry(lyd_parent(lyd_parent(args->dnode)), NULL,
+				    true);
+
+	loc_name = yang_dnode_get_string(args->dnode, NULL);
+
+	sr_debug("Trying to unset SRv6 locator %s", loc_name);
+
+	if (strncmp(loc_name, area->srv6db.config.srv6_locator_name,
+		    sizeof(area->srv6db.config.srv6_locator_name)) != 0) {
+		sr_debug("SRv6 locator %s is not configured", loc_name);
+		snprintf(args->errmsg, args->errmsg_len,
+			 "SRv6 locator %s is not configured", loc_name);
+		return NB_ERR_NO_CHANGES;
+	}
+
+	if (!isis_srv6_locator_unset(area)) {
+		zlog_warn("Failed to unset SRv6 locator");
+		return NB_ERR;
+	}
+
+	sr_debug("Deleted SRv6 locator %s for IS-IS area %s", loc_name,
+		 area->area_tag);
+
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-isisd:isis/instance/segment-routing-srv6/msd/node-msd/max-segs-left
+ */
+int isis_instance_segment_routing_srv6_msd_node_msd_max_segs_left_modify(
+	struct nb_cb_modify_args *args)
+{
+	struct isis_area *area;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	area = nb_running_get_entry(args->dnode, NULL, true);
+	area->srv6db.config.max_seg_left_msd = yang_dnode_get_uint8(args->dnode,
+								    NULL);
+
+	/* Update and regenerate LSP */
+	lsp_regenerate_schedule(area, area->is_type, 0);
+
+	return NB_OK;
+}
+
+int isis_instance_segment_routing_srv6_msd_node_msd_max_segs_left_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	struct isis_area *area;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	area = nb_running_get_entry(args->dnode, NULL, true);
+	area->srv6db.config.max_seg_left_msd =
+		yang_get_default_uint8("./msd/node-msd/max-segs-left");
+
+	/* Update and regenerate LSP */
+	lsp_regenerate_schedule(area, area->is_type, 0);
+
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-isisd:isis/instance/segment-routing-srv6/msd/node-msd/max-end-pop
+ */
+int isis_instance_segment_routing_srv6_msd_node_msd_max_end_pop_modify(
+	struct nb_cb_modify_args *args)
+{
+	struct isis_area *area;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	area = nb_running_get_entry(args->dnode, NULL, true);
+	area->srv6db.config.max_end_pop_msd = yang_dnode_get_uint8(args->dnode,
+								   NULL);
+
+	/* Update and regenerate LSP */
+	lsp_regenerate_schedule(area, area->is_type, 0);
+
+	return NB_OK;
+}
+
+int isis_instance_segment_routing_srv6_msd_node_msd_max_end_pop_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	struct isis_area *area;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	area = nb_running_get_entry(args->dnode, NULL, true);
+	area->srv6db.config.max_end_pop_msd =
+		yang_get_default_uint8("./msd/node-msd/max-end-pop");
+
+	/* Update and regenerate LSP */
+	lsp_regenerate_schedule(area, area->is_type, 0);
+
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-isisd:isis/instance/segment-routing-srv6/msd/node-msd/max-h-encaps
+ */
+int isis_instance_segment_routing_srv6_msd_node_msd_max_h_encaps_modify(
+	struct nb_cb_modify_args *args)
+{
+	struct isis_area *area;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	area = nb_running_get_entry(args->dnode, NULL, true);
+	area->srv6db.config.max_h_encaps_msd = yang_dnode_get_uint8(args->dnode,
+								    NULL);
+
+	/* Update and regenerate LSP */
+	lsp_regenerate_schedule(area, area->is_type, 0);
+
+	return NB_OK;
+}
+
+int isis_instance_segment_routing_srv6_msd_node_msd_max_h_encaps_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	struct isis_area *area;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	area = nb_running_get_entry(args->dnode, NULL, true);
+	area->srv6db.config.max_h_encaps_msd =
+		yang_get_default_uint8("./msd/node-msd/max-h-encaps");
+
+	/* Update and regenerate LSP */
+	lsp_regenerate_schedule(area, area->is_type, 0);
+
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-isisd:isis/instance/segment-routing-srv6/msd/node-msd/max-end-d
+ */
+int isis_instance_segment_routing_srv6_msd_node_msd_max_end_d_modify(
+	struct nb_cb_modify_args *args)
+{
+	struct isis_area *area;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	area = nb_running_get_entry(args->dnode, NULL, true);
+	area->srv6db.config.max_end_d_msd = yang_dnode_get_uint8(args->dnode,
+								 NULL);
+
+	/* Update and regenerate LSP */
+	lsp_regenerate_schedule(area, area->is_type, 0);
+
+	return NB_OK;
+}
+
+int isis_instance_segment_routing_srv6_msd_node_msd_max_end_d_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	struct isis_area *area;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	area = nb_running_get_entry(args->dnode, NULL, true);
+	area->srv6db.config.max_end_d_msd =
+		yang_get_default_uint8("./msd/node-msd/max-end-d");
+
+	/* Update and regenerate LSP */
+	lsp_regenerate_schedule(area, area->is_type, 0);
+
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-isisd:isis/instance/segment-routing-srv6/interface
+ */
+int isis_instance_segment_routing_srv6_interface_modify(
+	struct nb_cb_modify_args *args)
+{
+	struct isis_area *area;
+	const char *ifname;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	area = nb_running_get_entry(lyd_parent(lyd_parent(args->dnode)), NULL,
+				    true);
+
+	ifname = yang_dnode_get_string(args->dnode, NULL);
+
+	sr_debug("Changing SRv6 interface for IS-IS area %s to %s",
+		 area->area_tag, ifname);
+
+	isis_srv6_interface_set(area, ifname);
+
+	return NB_OK;
+}
+
+/*
  * XPath: /frr-isisd:isis/instance/mpls/ldp-sync
  */
 int isis_instance_mpls_ldp_sync_create(struct nb_cb_create_args *args)
@@ -2458,43 +3824,14 @@ int isis_instance_mpls_ldp_sync_holddown_modify(struct nb_cb_modify_args *args)
  */
 int lib_interface_isis_create(struct nb_cb_create_args *args)
 {
-	struct isis_area *area = NULL;
 	struct interface *ifp;
 	struct isis_circuit *circuit = NULL;
 	const char *area_tag = yang_dnode_get_string(args->dnode, "./area-tag");
-	uint32_t min_mtu, actual_mtu;
 
 	switch (args->event) {
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		break;
 	case NB_EV_VALIDATE:
-		/* check if interface mtu is sufficient. If the area has not
-		 * been created yet, assume default MTU for the area
-		 */
-		ifp = nb_running_get_entry(args->dnode, NULL, false);
-		/* zebra might not know yet about the MTU - nothing we can do */
-		if (!ifp || ifp->mtu == 0)
-			break;
-		actual_mtu =
-			if_is_broadcast(ifp) ? ifp->mtu - LLC_LEN : ifp->mtu;
-
-		area = isis_area_lookup(area_tag, ifp->vrf_id);
-		if (area)
-			min_mtu = area->lsp_mtu;
-		else
-#ifndef FABRICD
-			min_mtu = yang_get_default_uint16(
-				"/frr-isisd:isis/instance/lsp/mtu");
-#else
-			min_mtu = DEFAULT_LSP_MTU;
-#endif /* ifndef FABRICD */
-		if (actual_mtu < min_mtu) {
-			snprintf(args->errmsg, args->errmsg_len,
-				 "Interface %s has MTU %u, minimum MTU for the area is %u",
-				 ifp->name, actual_mtu, min_mtu);
-			return NB_ERR_VALIDATION;
-		}
 		break;
 	case NB_EV_APPLY:
 		ifp = nb_running_get_entry(args->dnode, NULL, true);
@@ -2526,31 +3863,13 @@ int lib_interface_isis_destroy(struct nb_cb_destroy_args *args)
 int lib_interface_isis_area_tag_modify(struct nb_cb_modify_args *args)
 {
 	struct isis_circuit *circuit;
-	struct interface *ifp;
-	struct vrf *vrf;
-	const char *area_tag, *ifname, *vrfname;
 
 	if (args->event == NB_EV_VALIDATE) {
-		/* libyang doesn't like relative paths across module boundaries
-		 */
-		ifname = yang_dnode_get_string(
-			lyd_parent(lyd_parent(args->dnode)), "./name");
-		vrfname = yang_dnode_get_string(
-			lyd_parent(lyd_parent(args->dnode)), "./vrf");
-		vrf = vrf_lookup_by_name(vrfname);
-		assert(vrf);
-		ifp = if_lookup_by_name(ifname, vrf->vrf_id);
-
-		if (!ifp)
-			return NB_OK;
-
-		circuit = circuit_scan_by_ifp(ifp);
-		area_tag = yang_dnode_get_string(args->dnode, NULL);
-		if (circuit && circuit->area && circuit->area->area_tag
-		    && strcmp(circuit->area->area_tag, area_tag)) {
+		circuit = nb_running_get_entry_non_rec(lyd_parent(args->dnode),
+						       NULL, false);
+		if (circuit) {
 			snprintf(args->errmsg, args->errmsg_len,
-				 "ISIS circuit is already defined on %s",
-				 circuit->area->area_tag);
+				 "Changing area tag is not allowed");
 			return NB_ERR_VALIDATION;
 		}
 	}
@@ -2565,39 +3884,15 @@ int lib_interface_isis_circuit_type_modify(struct nb_cb_modify_args *args)
 {
 	int circ_type = yang_dnode_get_enum(args->dnode, NULL);
 	struct isis_circuit *circuit;
-	struct interface *ifp;
-	struct vrf *vrf;
-	const char *ifname, *vrfname;
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
-		/* libyang doesn't like relative paths across module boundaries
-		 */
-		ifname = yang_dnode_get_string(
-			lyd_parent(lyd_parent(args->dnode)), "./name");
-		vrfname = yang_dnode_get_string(
-			lyd_parent(lyd_parent(args->dnode)), "./vrf");
-		vrf = vrf_lookup_by_name(vrfname);
-		assert(vrf);
-		ifp = if_lookup_by_name(ifname, vrf->vrf_id);
-		if (!ifp)
-			break;
-
-		circuit = circuit_scan_by_ifp(ifp);
-		if (circuit && circuit->state == C_STATE_UP
-		    && circuit->area->is_type != IS_LEVEL_1_AND_2
-		    && circuit->area->is_type != circ_type) {
-			snprintf(args->errmsg, args->errmsg_len,
-				 "Invalid circuit level for area %s",
-				 circuit->area->area_tag);
-			return NB_ERR_VALIDATION;
-		}
-		break;
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
 		circuit = nb_running_get_entry(args->dnode, NULL, true);
+		circuit->is_type_config = circ_type;
 		isis_circuit_is_type_set(circuit, circ_type);
 		break;
 	}
@@ -2784,7 +4079,7 @@ int lib_interface_isis_hello_padding_modify(struct nb_cb_modify_args *args)
 		return NB_OK;
 
 	circuit = nb_running_get_entry(args->dnode, NULL, true);
-	circuit->pad_hellos = yang_dnode_get_bool(args->dnode, NULL);
+	circuit->pad_hellos = yang_dnode_get_enum(args->dnode, NULL);
 
 	return NB_OK;
 }
@@ -2979,23 +4274,7 @@ int lib_interface_isis_network_type_modify(struct nb_cb_modify_args *args)
 int lib_interface_isis_passive_modify(struct nb_cb_modify_args *args)
 {
 	struct isis_circuit *circuit;
-	struct interface *ifp;
 	bool passive = yang_dnode_get_bool(args->dnode, NULL);
-
-	/* validation only applies if we are setting passive to false */
-	if (!passive && args->event == NB_EV_VALIDATE) {
-		circuit = nb_running_get_entry(args->dnode, NULL, false);
-		if (!circuit)
-			return NB_OK;
-		ifp = circuit->interface;
-		if (!ifp)
-			return NB_OK;
-		if (if_is_loopback_or_vrf(ifp)) {
-			snprintf(args->errmsg, args->errmsg_len,
-				 "Loopback is always passive");
-			return NB_ERR_VALIDATION;
-		}
-	}
 
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
@@ -3083,10 +4362,6 @@ int lib_interface_isis_disable_three_way_handshake_modify(
 	return NB_OK;
 }
 
-/*
- * XPath:
- * /frr-interface:lib/interface/frr-isisd:isis/multi-topology/ipv4-unicast
- */
 static int lib_interface_isis_multi_topology_common(
 	enum nb_event event, const struct lyd_node *dnode, char *errmsg,
 	size_t errmsg_len, uint16_t mtid)
@@ -3117,12 +4392,16 @@ static int lib_interface_isis_multi_topology_common(
 	return NB_OK;
 }
 
-int lib_interface_isis_multi_topology_ipv4_unicast_modify(
+/*
+ * XPath:
+ * /frr-interface:lib/interface/frr-isisd:isis/multi-topology/standard
+ */
+int lib_interface_isis_multi_topology_standard_modify(
 	struct nb_cb_modify_args *args)
 {
 	return lib_interface_isis_multi_topology_common(
 		args->event, args->dnode, args->errmsg, args->errmsg_len,
-		ISIS_MT_IPV4_UNICAST);
+		ISIS_MT_STANDARD);
 }
 
 /*
@@ -3204,19 +4483,9 @@ int lib_interface_isis_mpls_ldp_sync_modify(struct nb_cb_modify_args *args)
 	struct isis_circuit *circuit;
 	struct ldp_sync_info *ldp_sync_info;
 	bool ldp_sync_enable;
-	const char *vrfname;
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
-		vrfname = yang_dnode_get_string(
-			lyd_parent(lyd_parent(lyd_parent(args->dnode))),
-			"./vrf");
-		if (strcmp(vrfname, VRF_DEFAULT_NAME)) {
-			snprintf(args->errmsg, args->errmsg_len,
-				 "LDP-Sync only runs on Default VRF");
-			return NB_ERR_VALIDATION;
-		}
-		break;
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
 		break;
@@ -3248,19 +4517,9 @@ int lib_interface_isis_mpls_holddown_modify(struct nb_cb_modify_args *args)
 	struct isis_circuit *circuit;
 	struct ldp_sync_info *ldp_sync_info;
 	uint16_t holddown;
-	const char *vrfname;
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
-		vrfname = yang_dnode_get_string(
-			lyd_parent(lyd_parent(lyd_parent(args->dnode))),
-			"./vrf");
-		if (strcmp(vrfname, VRF_DEFAULT_NAME)) {
-			snprintf(args->errmsg, args->errmsg_len,
-				 "LDP-Sync only runs on Default VRF");
-			return NB_ERR_VALIDATION;
-		}
-		break;
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
 		break;
@@ -3281,19 +4540,9 @@ int lib_interface_isis_mpls_holddown_destroy(struct nb_cb_destroy_args *args)
 {
 	struct isis_circuit *circuit;
 	struct ldp_sync_info *ldp_sync_info;
-	const char *vrfname;
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
-		vrfname = yang_dnode_get_string(
-			lyd_parent(lyd_parent(lyd_parent(args->dnode))),
-			"./vrf");
-		if (strcmp(vrfname, VRF_DEFAULT_NAME)) {
-			snprintf(args->errmsg, args->errmsg_len,
-				 "LDP-Sync only runs on Default VRF");
-			return NB_ERR_VALIDATION;
-		}
-		break;
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
 		break;

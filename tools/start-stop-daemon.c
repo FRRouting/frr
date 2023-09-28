@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: NONE
 /*
  * A rewrite of the original Debian's start-stop-daemon Perl script
  * in C (faster - it is executed many times during system startup).
@@ -885,7 +886,7 @@ static int run_stop_schedule(void)
 					      strerror(errno));
 			}
 
-		default:
+		case sched_forever:
 			assert(!"schedule[].type value must be valid");
 		}
 

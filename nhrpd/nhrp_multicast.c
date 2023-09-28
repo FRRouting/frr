@@ -1,10 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* NHRP Multicast Support
  * Copyright (c) 2020-2021 4RF Limited
- *
- * This file is free software: you may copy, redistribute and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 2 of the License, or
- * (at your option) any later version.
  */
 
 #ifdef HAVE_CONFIG_H
@@ -22,7 +18,7 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 
-#include "thread.h"
+#include "frrevent.h"
 #include "nhrpd.h"
 #include "netlink.h"
 #include "znl.h"
@@ -32,7 +28,7 @@ DEFINE_MTYPE_STATIC(NHRPD, NHRP_MULTICAST, "NHRP Multicast");
 
 int netlink_mcast_nflog_group;
 static int netlink_mcast_log_fd = -1;
-static struct thread *netlink_mcast_log_thread;
+static struct event *netlink_mcast_log_thread;
 
 struct mcast_ctx {
 	struct interface *ifp;
@@ -142,10 +138,10 @@ static void netlink_mcast_log_handler(struct nlmsghdr *msg, struct zbuf *zb)
 	}
 }
 
-static int netlink_mcast_log_recv(struct thread *t)
+static void netlink_mcast_log_recv(struct event *t)
 {
 	uint8_t buf[65535]; /* Max OSPF Packet size */
-	int fd = THREAD_FD(t);
+	int fd = EVENT_FD(t);
 	struct zbuf payload, zb;
 	struct nlmsghdr *n;
 
@@ -164,10 +160,8 @@ static int netlink_mcast_log_recv(struct thread *t)
 		}
 	}
 
-	thread_add_read(master, netlink_mcast_log_recv, 0, netlink_mcast_log_fd,
-			&netlink_mcast_log_thread);
-
-	return 0;
+	event_add_read(master, netlink_mcast_log_recv, 0, netlink_mcast_log_fd,
+		       &netlink_mcast_log_thread);
 }
 
 static void netlink_mcast_log_register(int fd, int group)
@@ -196,7 +190,7 @@ static void netlink_mcast_log_register(int fd, int group)
 void netlink_mcast_set_nflog_group(int nlgroup)
 {
 	if (netlink_mcast_log_fd >= 0) {
-		THREAD_OFF(netlink_mcast_log_thread);
+		EVENT_OFF(netlink_mcast_log_thread);
 		close(netlink_mcast_log_fd);
 		netlink_mcast_log_fd = -1;
 		debugf(NHRP_DEBUG_COMMON, "De-register nflog group");
@@ -208,9 +202,8 @@ void netlink_mcast_set_nflog_group(int nlgroup)
 			return;
 
 		netlink_mcast_log_register(netlink_mcast_log_fd, nlgroup);
-		thread_add_read(master, netlink_mcast_log_recv, 0,
-				netlink_mcast_log_fd,
-				&netlink_mcast_log_thread);
+		event_add_read(master, netlink_mcast_log_recv, 0,
+			       netlink_mcast_log_fd, &netlink_mcast_log_thread);
 		debugf(NHRP_DEBUG_COMMON, "Register nflog group: %d",
 		       netlink_mcast_nflog_group);
 	}
@@ -219,7 +212,9 @@ void netlink_mcast_set_nflog_group(int nlgroup)
 static int nhrp_multicast_free(struct interface *ifp,
 			       struct nhrp_multicast *mcast)
 {
-	list_del(&mcast->list_entry);
+	struct nhrp_interface *nifp = ifp->info;
+
+	nhrp_mcastlist_del(&nifp->afi[mcast->afi].mcastlist_head, mcast);
 	XFREE(MTYPE_NHRP_MULTICAST, mcast);
 	return 0;
 }
@@ -230,8 +225,7 @@ int nhrp_multicast_add(struct interface *ifp, afi_t afi,
 	struct nhrp_interface *nifp = ifp->info;
 	struct nhrp_multicast *mcast;
 
-	list_for_each_entry(mcast, &nifp->afi[afi].mcastlist_head, list_entry)
-	{
+	frr_each (nhrp_mcastlist, &nifp->afi[afi].mcastlist_head, mcast) {
 		if (sockunion_same(&mcast->nbma_addr, nbma_addr))
 			return NHRP_ERR_ENTRY_EXISTS;
 	}
@@ -241,7 +235,7 @@ int nhrp_multicast_add(struct interface *ifp, afi_t afi,
 	*mcast = (struct nhrp_multicast){
 		.afi = afi, .ifp = ifp, .nbma_addr = *nbma_addr,
 	};
-	list_add_tail(&mcast->list_entry, &nifp->afi[afi].mcastlist_head);
+	nhrp_mcastlist_add_tail(&nifp->afi[afi].mcastlist_head, mcast);
 
 	debugf(NHRP_DEBUG_COMMON, "Adding multicast entry (%pSU)", nbma_addr);
 
@@ -252,11 +246,9 @@ int nhrp_multicast_del(struct interface *ifp, afi_t afi,
 		       union sockunion *nbma_addr)
 {
 	struct nhrp_interface *nifp = ifp->info;
-	struct nhrp_multicast *mcast, *tmp;
+	struct nhrp_multicast *mcast;
 
-	list_for_each_entry_safe(mcast, tmp, &nifp->afi[afi].mcastlist_head,
-				 list_entry)
-	{
+	frr_each_safe (nhrp_mcastlist, &nifp->afi[afi].mcastlist_head, mcast) {
 		if (!sockunion_same(&mcast->nbma_addr, nbma_addr))
 			continue;
 
@@ -274,17 +266,15 @@ int nhrp_multicast_del(struct interface *ifp, afi_t afi,
 void nhrp_multicast_interface_del(struct interface *ifp)
 {
 	struct nhrp_interface *nifp = ifp->info;
-	struct nhrp_multicast *mcast, *tmp;
+	struct nhrp_multicast *mcast;
 	afi_t afi;
 
 	for (afi = 0; afi < AFI_MAX; afi++) {
-		debugf(NHRP_DEBUG_COMMON,
-		       "Cleaning up multicast entries (%d)",
-		       !list_empty(&nifp->afi[afi].mcastlist_head));
+		debugf(NHRP_DEBUG_COMMON, "Cleaning up multicast entries (%zu)",
+		       nhrp_mcastlist_count(&nifp->afi[afi].mcastlist_head));
 
-		list_for_each_entry_safe(
-			mcast, tmp, &nifp->afi[afi].mcastlist_head, list_entry)
-		{
+		frr_each_safe (nhrp_mcastlist, &nifp->afi[afi].mcastlist_head,
+			       mcast) {
 			nhrp_multicast_free(ifp, mcast);
 		}
 	}
@@ -297,8 +287,7 @@ void nhrp_multicast_foreach(struct interface *ifp, afi_t afi,
 	struct nhrp_interface *nifp = ifp->info;
 	struct nhrp_multicast *mcast;
 
-	list_for_each_entry(mcast, &nifp->afi[afi].mcastlist_head, list_entry)
-	{
+	frr_each (nhrp_mcastlist, &nifp->afi[afi].mcastlist_head, mcast) {
 		cb(mcast, ctx);
 	}
 }

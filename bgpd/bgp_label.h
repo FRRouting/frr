@@ -1,21 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* BGP carrying Label information
  * Copyright (C) 2013 Cumulus Networks, Inc.
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef _BGP_LABEL_H
@@ -41,6 +26,10 @@ extern mpls_label_t bgp_adv_label(struct bgp_dest *dest,
 
 extern int bgp_nlri_parse_label(struct peer *peer, struct attr *attr,
 				struct bgp_nlri *packet);
+extern bool bgp_labels_same(const mpls_label_t *tbl_a,
+			    const uint32_t num_labels_a,
+			    const mpls_label_t *tbl_b,
+			    const uint32_t num_labels_b);
 
 static inline int bgp_labeled_safi(safi_t safi)
 {
@@ -65,7 +54,7 @@ static inline int bgp_is_withdraw_label(mpls_label_t *label)
 	return 0;
 }
 
-static inline int bgp_is_valid_label(mpls_label_t *label)
+static inline int bgp_is_valid_label(const mpls_label_t *label)
 {
 	uint8_t *t = (uint8_t *)label;
 	if (!t)
@@ -96,25 +85,6 @@ static inline void bgp_register_for_label(struct bgp_dest *dest,
 static inline void bgp_unregister_for_label(struct bgp_dest *dest)
 {
 	bgp_reg_dereg_for_label(dest, NULL, false);
-}
-
-/* Label stream to value */
-static inline uint32_t label_pton(mpls_label_t *label)
-{
-	uint8_t *t = (uint8_t *)label;
-	return ((((unsigned int)t[0]) << 12) | (((unsigned int)t[1]) << 4)
-		| ((unsigned int)((t[2] & 0xF0) >> 4)));
-}
-
-/* Encode label values */
-static inline void label_ntop(uint32_t l, int bos, mpls_label_t *label)
-{
-	uint8_t *t = (uint8_t *)label;
-	t[0] = ((l & 0x000FF000) >> 12);
-	t[1] = ((l & 0x00000FF0) >> 4);
-	t[2] = ((l & 0x0000000F) << 4);
-	if (bos)
-		t[2] |= 0x01;
 }
 
 /* Return BOS value of label stream */

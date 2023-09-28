@@ -1,27 +1,12 @@
+// SPDX-License-Identifier: LicenseRef-Skiplist-BSD-0-Clause
 /*
  * Copyright 1990 William Pugh
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted.
- *
- * THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS ``AS IS''
- * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED
- * TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A
- * PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE AUTHOR OR
- * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
- * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
- * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF
- * USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
- * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
- * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT
- * OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
- * SUCH DAMAGE.
  *
  * Permission to include in quagga provide on March 31, 2016
  */
 
 /*
- * Skip List impementation based on code from William Pugh.
+ * Skip List implementation based on code from William Pugh.
  * ftp://ftp.cs.umd.edu/pub/skipLists/
  *
  * Skip Lists are a probabilistic alternative to balanced trees, as

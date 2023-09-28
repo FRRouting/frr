@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# SPDX-License-Identifier: ISC
 
 #
 # test_pim_vrf.py
@@ -6,20 +7,6 @@
 #
 # Copyright (c) 2020 by
 # Network Device Education Foundation, Inc. ("NetDEF")
-#
-# Permission to use, copy, modify, and/or distribute this software
-# for any purpose with or without fee is hereby granted, provided
-# that the above copyright notice and this permission notice appear
-# in all copies.
-#
-# THE SOFTWARE IS PROVIDED "AS IS" AND NETDEF DISCLAIMS ALL WARRANTIES
-# WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
-# MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL NETDEF BE LIABLE FOR
-# ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY
-# DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS,
-# WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS
-# ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE
-# OF THIS SOFTWARE.
 #
 
 """
@@ -166,6 +153,11 @@ def setup_module(module):
     tgen = Topogen(build_topo, module.__name__)
     tgen.start_topology()
 
+    # Required linux kernel version for this suite to run.
+    result = required_linux_kernel_version("4.19")
+    if result is not True:
+        pytest.skip("Kernel requirements are not met")
+
     vrf_setup_cmds = [
         "ip link add name blue type vrf table 11",
         "ip link add name red type vrf table 12",
@@ -209,11 +201,6 @@ def teardown_module(module):
 def test_ospf_convergence():
     "Test for OSPFv2 convergence"
     tgen = get_topogen()
-
-    # Required linux kernel version for this suite to run.
-    result = required_linux_kernel_version("4.15")
-    if result is not True:
-        pytest.skip("Kernel requirements are not met")
 
     # iproute2 needs to support VRFs for this suite to run.
     if not iproute2_is_vrf_capable():

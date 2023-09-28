@@ -1,25 +1,10 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Code for encoding/decoding FPM messages that are in netlink format.
  *
  * Copyright (C) 1997, 98, 99 Kunihiro Ishiguro
  * Copyright (C) 2012 by Open Source Routing.
  * Copyright (C) 2012 by Internet Systems Consortium, Inc. ("ISC")
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -116,6 +101,8 @@ struct fpm_nh_encap_info_t {
  * data structures for convenience.
  */
 struct netlink_nh_info {
+	/* Weight of the nexthop ( for unequal cost ECMP ) */
+	uint8_t weight;
 	uint32_t if_index;
 	union g_addr *gateway;
 
@@ -179,6 +166,7 @@ static int netlink_route_info_add_nh(struct netlink_route_info *ri,
 	nhi.recursive = nexthop->rparent ? 1 : 0;
 	nhi.type = nexthop->type;
 	nhi.if_index = nexthop->ifindex;
+	nhi.weight = nexthop->weight;
 
 	if (nexthop->type == NEXTHOP_TYPE_IPV4
 	    || nexthop->type == NEXTHOP_TYPE_IPV4_IFINDEX) {
@@ -205,7 +193,7 @@ static int netlink_route_info_add_nh(struct netlink_route_info *ri,
 	if (!nhi.gateway && nhi.if_index == 0)
 		return 0;
 
-	if (re && CHECK_FLAG(re->flags, ZEBRA_FLAG_EVPN_ROUTE)) {
+	if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_EVPN)) {
 		nhi.encap_info.encap_type = FPM_NH_ENCAP_VXLAN;
 
 		/* Extract VNI id for the nexthop SVI interface */
@@ -250,14 +238,7 @@ static int netlink_route_info_add_nh(struct netlink_route_info *ri,
  */
 static uint8_t netlink_proto_from_route_type(int type)
 {
-	switch (type) {
-	case ZEBRA_ROUTE_KERNEL:
-	case ZEBRA_ROUTE_CONNECT:
-		return RTPROT_KERNEL;
-
-	default:
-		return RTPROT_ZEBRA;
-	}
+	return zebra2proto(type);
 }
 
 /*
@@ -271,20 +252,15 @@ static int netlink_route_info_fill(struct netlink_route_info *ri, int cmd,
 				   rib_dest_t *dest, struct route_entry *re)
 {
 	struct nexthop *nexthop;
-	struct rib_table_info *table_info =
-		rib_table_info(rib_dest_table(dest));
-	struct zebra_vrf *zvrf = table_info->zvrf;
 
 	memset(ri, 0, sizeof(*ri));
 
 	ri->prefix = rib_dest_prefix(dest);
 	ri->af = rib_dest_af(dest);
 
-	if (zvrf && zvrf->zns)
-		ri->nlmsg_pid = zvrf->zns->netlink_dplane_out.snl.nl_pid;
+	ri->nlmsg_pid = pid;
 
 	ri->nlmsg_type = cmd;
-	ri->rtm_table = table_info->table_id;
 	ri->rtm_protocol = RTPROT_UNSPEC;
 
 	/*
@@ -299,6 +275,8 @@ static int netlink_route_info_fill(struct netlink_route_info *ri, int cmd,
 		return 0;
 	}
 
+	ri->rtm_table = re->table;
+
 	ri->rtm_protocol = netlink_proto_from_route_type(re->type);
 	ri->rtm_type = RTN_UNICAST;
 	ri->metric = &re->metric;
@@ -308,6 +286,8 @@ static int netlink_route_info_fill(struct netlink_route_info *ri, int cmd,
 			break;
 
 		if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_RECURSIVE))
+			continue;
+		if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_DUPLICATE))
 			continue;
 
 		if (nexthop->type == NEXTHOP_TYPE_BLACKHOLE) {
@@ -319,7 +299,7 @@ static int netlink_route_info_fill(struct netlink_route_info *ri, int cmd,
 				ri->rtm_type = RTN_UNREACHABLE;
 				break;
 			case BLACKHOLE_NULL:
-			default:
+			case BLACKHOLE_UNSPEC:
 				ri->rtm_type = RTN_BLACKHOLE;
 				break;
 			}
@@ -395,7 +375,7 @@ static int netlink_route_info_encode(struct netlink_route_info *ri,
 	req->r.rtm_family = ri->af;
 
 	/*
-	 * rtm_table field is a uchar field which can accomodate table_id less
+	 * rtm_table field is a uchar field which can accommodate table_id less
 	 * than 256.
 	 * To support table id greater than 255, if the table_id is greater than
 	 * 255, set rtm_table to RT_TABLE_UNSPEC and add RTA_TABLE attribute
@@ -480,6 +460,8 @@ static int netlink_route_info_encode(struct netlink_route_info *ri,
 			rtnh->rtnh_ifindex = nhi->if_index;
 		}
 
+		rtnh->rtnh_hops = nhi->weight;
+
 		encap = nhi->encap_info.encap_type;
 		switch (encap) {
 		case FPM_NH_ENCAP_NONE:
@@ -506,7 +488,7 @@ static int netlink_route_info_encode(struct netlink_route_info *ri,
 done:
 
 	if (ri->pref_src) {
-		nl_attr_put(&req->n, in_buf_len, RTA_PREFSRC, &ri->pref_src,
+		nl_attr_put(&req->n, in_buf_len, RTA_PREFSRC, ri->pref_src,
 			    bytelen);
 	}
 
@@ -534,10 +516,15 @@ static void zfpm_log_route_info(struct netlink_route_info *ri,
 	for (i = 0; i < ri->num_nhs; i++) {
 		nhi = &ri->nhs[i];
 
-		if (ri->af == AF_INET)
-			inet_ntop(AF_INET, &nhi->gateway, buf, sizeof(buf));
-		else
-			inet_ntop(AF_INET6, &nhi->gateway, buf, sizeof(buf));
+		if (nhi->gateway) {
+			if (ri->af == AF_INET)
+				inet_ntop(AF_INET, nhi->gateway, buf,
+					  sizeof(buf));
+			else
+				inet_ntop(AF_INET6, nhi->gateway, buf,
+					  sizeof(buf));
+		} else
+			strlcpy(buf, "none", sizeof(buf));
 
 		zfpm_debug("  Intf: %u, Gateway: %s, Recursive: %s, Type: %s, Encap type: %s",
 			   nhi->if_index, buf, nhi->recursive ? "yes" : "no",

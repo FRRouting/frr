@@ -1,26 +1,13 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* PIM support for VxLAN BUM flooding
  *
  * Copyright (C) 2019 Cumulus Networks, Inc.
- *
- * This file is part of FRR.
- *
- * FRR is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * FRR is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
  */
 
 #ifndef PIM_VXLAN_H
 #define PIM_VXLAN_H
+
+#include "pim_instance.h"
 
 /* global timer used for miscellaneous staggered processing */
 #define PIM_VXLAN_WORK_TIME 1
@@ -41,7 +28,7 @@ struct pim_vxlan_sg {
 	struct pim_instance *pim;
 
 	/* key */
-	struct prefix_sg sg;
+	pim_sgaddr sg;
 	char sg_str[PIM_SG_LEN];
 
 	enum pim_vxlan_sg_flags flags;
@@ -88,7 +75,7 @@ enum pim_vxlan_flags {
 struct pim_vxlan {
 	enum pim_vxlan_flags flags;
 
-	struct thread *work_timer;
+	struct event *work_timer;
 	struct list *work_list;
 	struct listnode *next_work;
 	int max_work_cnt;
@@ -109,14 +96,14 @@ struct pim_vxlan {
  */
 static inline bool pim_vxlan_is_orig_mroute(struct pim_vxlan_sg *vxlan_sg)
 {
-	return (vxlan_sg->sg.src.s_addr != INADDR_ANY);
+	return !pim_addr_is_any(vxlan_sg->sg.src);
 }
 
 static inline bool pim_vxlan_is_local_sip(struct pim_upstream *up)
 {
-	return (up->sg.src.s_addr != INADDR_ANY) &&
-		up->rpf.source_nexthop.interface &&
-		if_is_loopback_or_vrf(up->rpf.source_nexthop.interface);
+	return !pim_addr_is_any(up->sg.src) &&
+	       up->rpf.source_nexthop.interface &&
+	       if_is_loopback(up->rpf.source_nexthop.interface);
 }
 
 static inline bool pim_vxlan_is_term_dev_cfg(struct pim_instance *pim,
@@ -127,10 +114,10 @@ static inline bool pim_vxlan_is_term_dev_cfg(struct pim_instance *pim,
 
 extern struct pim_vxlan *pim_vxlan_p;
 extern struct pim_vxlan_sg *pim_vxlan_sg_find(struct pim_instance *pim,
-					    struct prefix_sg *sg);
+					      pim_sgaddr *sg);
 extern struct pim_vxlan_sg *pim_vxlan_sg_add(struct pim_instance *pim,
-					   struct prefix_sg *sg);
-extern void pim_vxlan_sg_del(struct pim_instance *pim, struct prefix_sg *sg);
+					     pim_sgaddr *sg);
+extern void pim_vxlan_sg_del(struct pim_instance *pim, pim_sgaddr *sg);
 extern void pim_vxlan_update_sg_reg_state(struct pim_instance *pim,
 		struct pim_upstream *up, bool reg_join);
 extern struct pim_interface *pim_vxlan_get_term_ifp(struct pim_instance *pim);
@@ -147,6 +134,9 @@ extern void pim_vxlan_mlag_update(bool enable, bool peer_state, uint32_t role,
 extern bool pim_vxlan_do_mlag_reg(void);
 extern void pim_vxlan_inherit_mlag_flags(struct pim_instance *pim,
 		struct pim_upstream *up, bool inherit);
+
+extern void pim_vxlan_rp_info_is_alive(struct pim_instance *pim,
+				       struct pim_rpf *rpg_changed);
 
 /* Shutdown of PIM stop the thread */
 extern void pim_vxlan_terminate(void);

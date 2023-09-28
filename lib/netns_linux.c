@@ -1,22 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * NS functions.
  * Copyright (C) 2014 6WIND S.A.
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published
- * by the Free Software Foundation; either version 2, or (at your
- * option) any later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -279,7 +264,7 @@ static void ns_disable_internal(struct ns *ns)
 	}
 }
 
-/* VRF list existance check by name. */
+/* VRF list existence check by name. */
 static struct ns_map_nsid *ns_map_nsid_lookup_by_nsid(ns_id_t ns_id)
 {
 	struct ns_map_nsid ns_map;

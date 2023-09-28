@@ -87,6 +87,7 @@
 {arch}
 build
 .cache
+.dir-locals.el
 .msg
 .rebase-*
 *~
@@ -105,6 +106,7 @@ GSYMS
 GRTAGS
 GPATH
 compile_commands.json
+.ccls
 .ccls-cache
 .dirstamp
 refix

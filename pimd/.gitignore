@@ -1,3 +1,4 @@
-pimd
-mtracebis
-test_igmpv3_join
+/pimd
+/pim6d
+/mtracebis
+/test_igmpv3_join

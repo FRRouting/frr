@@ -1,17 +1,6 @@
+// SPDX-License-Identifier: ISC
 /*
  * Copyright (c) 2015-19  David Lamparter, for NetDEF, Inc.
- *
- * Permission to use, copy, modify, and distribute this software for any
- * purpose with or without fee is hereby granted, provided that the above
- * copyright notice and this permission notice appear in all copies.
- *
- * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
- * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
- * ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
- * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
- * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
- * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
 #include "zebra.h"
@@ -242,14 +231,14 @@ static bool zlog_file_cycle(struct zlog_cfg_file *zcf)
 
 void zlog_file_set_other(struct zlog_cfg_file *zcf)
 {
-	frr_with_mutex(&zcf->cfg_mtx) {
+	frr_with_mutex (&zcf->cfg_mtx) {
 		zlog_file_cycle(zcf);
 	}
 }
 
 bool zlog_file_set_filename(struct zlog_cfg_file *zcf, const char *filename)
 {
-	frr_with_mutex(&zcf->cfg_mtx) {
+	frr_with_mutex (&zcf->cfg_mtx) {
 		XFREE(MTYPE_LOG_FD_NAME, zcf->filename);
 		zcf->filename = XSTRDUP(MTYPE_LOG_FD_NAME, filename);
 		zcf->fd = -1;
@@ -257,11 +246,12 @@ bool zlog_file_set_filename(struct zlog_cfg_file *zcf, const char *filename)
 		return zlog_file_cycle(zcf);
 	}
 	assert(0);
+	return false;
 }
 
 bool zlog_file_set_fd(struct zlog_cfg_file *zcf, int fd)
 {
-	frr_with_mutex(&zcf->cfg_mtx) {
+	frr_with_mutex (&zcf->cfg_mtx) {
 		if (zcf->fd == fd)
 			return true;
 
@@ -271,6 +261,7 @@ bool zlog_file_set_fd(struct zlog_cfg_file *zcf, int fd)
 		return zlog_file_cycle(zcf);
 	}
 	assert(0);
+	return false;
 }
 
 struct rcu_close_rotate {
@@ -283,7 +274,7 @@ bool zlog_file_rotate(struct zlog_cfg_file *zcf)
 	struct rcu_close_rotate *rcr;
 	int fd;
 
-	frr_with_mutex(&zcf->cfg_mtx) {
+	frr_with_mutex (&zcf->cfg_mtx) {
 		if (!zcf->active || !zcf->filename)
 			return true;
 
@@ -517,7 +508,7 @@ void zlog_syslog_set_facility(int facility)
 	struct zlog_target *newztc;
 	struct zlt_syslog *newzt;
 
-	frr_with_mutex(&syslog_cfg_mutex) {
+	frr_with_mutex (&syslog_cfg_mutex) {
 		if (facility == syslog_facility)
 			return;
 		syslog_facility = facility;
@@ -540,10 +531,11 @@ void zlog_syslog_set_facility(int facility)
 
 int zlog_syslog_get_facility(void)
 {
-	frr_with_mutex(&syslog_cfg_mutex) {
+	frr_with_mutex (&syslog_cfg_mutex) {
 		return syslog_facility;
 	}
 	assert(0);
+	return 0;
 }
 
 void zlog_syslog_set_prio_min(int prio_min)
@@ -551,7 +543,7 @@ void zlog_syslog_set_prio_min(int prio_min)
 	struct zlog_target *newztc;
 	struct zlt_syslog *newzt = NULL;
 
-	frr_with_mutex(&syslog_cfg_mutex) {
+	frr_with_mutex (&syslog_cfg_mutex) {
 		if (prio_min == syslog_prio_min)
 			return;
 		syslog_prio_min = prio_min;
@@ -577,8 +569,9 @@ void zlog_syslog_set_prio_min(int prio_min)
 
 int zlog_syslog_get_prio_min(void)
 {
-	frr_with_mutex(&syslog_cfg_mutex) {
+	frr_with_mutex (&syslog_cfg_mutex) {
 		return syslog_prio_min;
 	}
 	assert(0);
+	return 0;
 }

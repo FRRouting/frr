@@ -1,21 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* Socket union related function.
  * Copyright (c) 1997, 98 Kunihiro Ishiguro
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -107,7 +92,7 @@ static void sockunion_normalise_mapped(union sockunion *su)
 
 	if (su->sa.sa_family == AF_INET6
 	    && IN6_IS_ADDR_V4MAPPED(&su->sin6.sin6_addr)) {
-		memset(&sin, 0, sizeof(struct sockaddr_in));
+		memset(&sin, 0, sizeof(sin));
 		sin.sin_family = AF_INET;
 		sin.sin_port = su->sin6.sin6_port;
 		memcpy(&sin.sin_addr, ((char *)&su->sin6.sin6_addr) + 12, 4);
@@ -290,8 +275,10 @@ int sockopt_reuseaddr(int sock)
 	ret = setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, (void *)&on,
 			 sizeof(on));
 	if (ret < 0) {
-		flog_err(EC_LIB_SOCKET,
-			 "can't set sockopt SO_REUSEADDR to socket %d", sock);
+		flog_err(
+			EC_LIB_SOCKET,
+			"can't set sockopt SO_REUSEADDR to socket %d errno=%d: %s",
+			sock, errno, safe_strerror(errno));
 		return -1;
 	}
 	return 0;
@@ -348,21 +335,6 @@ int sockopt_ttl(int family, int sock, int ttl)
 		}
 		return 0;
 	}
-	return 0;
-}
-
-/*
- * This function called setsockopt(.., TCP_CORK,...)
- * Which on linux is a no-op since it is enabled by
- * default and on BSD it uses TCP_NOPUSH to do
- * the same thing( which it was not configured to
- * use).  This cleanup of the api occurred on 8/1/17
- * I imagine if after more than 1 year of no-one
- * complaining, and a major upgrade release we
- * can deprecate and remove this function call
- */
-int sockopt_cork(int sock, int onoff)
-{
 	return 0;
 }
 
@@ -540,6 +512,11 @@ union sockunion *sockunion_getsockname(int fd)
 		sockunion_normalise_mapped(su);
 		return su;
 	}
+
+	flog_err(
+		EC_LIB_SOCKET,
+		"Unexpected AFI received(%d) for sockunion_getsockname call for fd: %d",
+		name.sa.sa_family, fd);
 	return NULL;
 }
 
@@ -576,6 +553,11 @@ union sockunion *sockunion_getpeername(int fd)
 		sockunion_normalise_mapped(su);
 		return su;
 	}
+
+	flog_err(
+		EC_LIB_SOCKET,
+		"Unexpected AFI received(%d) for sockunion_getpeername call for fd: %d",
+		name.sa.sa_family, fd);
 	return NULL;
 }
 
@@ -662,7 +644,7 @@ void sockunion_init(union sockunion *su)
 	memset(su, 0, sizeof(union sockunion));
 }
 
-printfrr_ext_autoreg_p("SU", printfrr_psu)
+printfrr_ext_autoreg_p("SU", printfrr_psu);
 static ssize_t printfrr_psu(struct fbuf *buf, struct printfrr_eargs *ea,
 			    const void *ptr)
 {
@@ -752,7 +734,7 @@ int sockunion_is_null(const union sockunion *su)
 	}
 }
 
-printfrr_ext_autoreg_i("PF", printfrr_pf)
+printfrr_ext_autoreg_i("PF", printfrr_pf);
 static ssize_t printfrr_pf(struct fbuf *buf, struct printfrr_eargs *ea,
 			   uintmax_t val)
 {
@@ -775,7 +757,7 @@ static ssize_t printfrr_pf(struct fbuf *buf, struct printfrr_eargs *ea,
 	return bprintfrr(buf, "AF_(%ju)", val);
 }
 
-printfrr_ext_autoreg_i("SO", printfrr_so)
+printfrr_ext_autoreg_i("SO", printfrr_so);
 static ssize_t printfrr_so(struct fbuf *buf, struct printfrr_eargs *ea,
 			   uintmax_t val)
 {

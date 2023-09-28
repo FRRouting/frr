@@ -5,7 +5,6 @@
 if SHARPD
 noinst_LIBRARIES += sharpd/libsharp.a
 sbin_PROGRAMS += sharpd/sharpd
-vtysh_scan += sharpd/sharp_vty.c
 vtysh_daemons += sharpd
 man8 += $(MANBUILD)/frr-sharpd.8
 endif

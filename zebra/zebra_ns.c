@@ -1,23 +1,8 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* zebra NS Routines
  * Copyright (C) 2016 Cumulus Networks, Inc.
  *                    Donald Sharp
  * Copyright (C) 2017/2018 6WIND
- *
- * This file is part of Quagga.
- *
- * Quagga is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * Quagga is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 #include "zebra.h"
 
@@ -34,9 +19,11 @@
 #include "zebra_netns_notify.h"
 #include "zebra_netns_id.h"
 #include "zebra_pbr.h"
+#include "zebra_tc.h"
 #include "rib.h"
 #include "table_manager.h"
 #include "zebra_errors.h"
+#include "zebra_dplane.h"
 
 extern struct zebra_privs_t zserv_privs;
 
@@ -115,6 +102,36 @@ int zebra_ns_disabled(struct ns *ns)
 	return zebra_ns_disable_internal(zns, true);
 }
 
+void zebra_ns_startup_continue(struct zebra_dplane_ctx *ctx)
+{
+	struct zebra_ns *zns = zebra_ns_lookup(dplane_ctx_get_ns_id(ctx));
+	enum zebra_dplane_startup_notifications spot;
+
+	if (!zns) {
+		zlog_err("%s: No Namespace associated with %u", __func__,
+			 dplane_ctx_get_ns_id(ctx));
+		return;
+	}
+
+	spot = dplane_ctx_get_startup_spot(ctx);
+
+	switch (spot) {
+	case ZEBRA_DPLANE_INTERFACES_READ:
+		interface_list_tunneldump(zns);
+		break;
+	case ZEBRA_DPLANE_TUNNELS_READ:
+		interface_list_second(zns);
+		break;
+	case ZEBRA_DPLANE_ADDRESSES_READ:
+		route_read(zns);
+
+		vlan_read(zns);
+		kernel_read_pbr_rules(zns);
+		kernel_read_tc_qdisc(zns);
+		break;
+	}
+}
+
 /* Do global enable actions - open sockets, read kernel config etc. */
 int zebra_ns_enable(ns_id_t ns_id, void **info)
 {
@@ -125,8 +142,6 @@ int zebra_ns_enable(ns_id_t ns_id, void **info)
 	kernel_init(zns);
 	zebra_dplane_ns_enable(zns, true);
 	interface_list(zns);
-	route_read(zns);
-	kernel_read_pbr_rules(zns);
 
 	return 0;
 }
@@ -136,7 +151,9 @@ int zebra_ns_enable(ns_id_t ns_id, void **info)
  */
 static int zebra_ns_disable_internal(struct zebra_ns *zns, bool complete)
 {
-	route_table_finish(zns->if_table);
+	if (zns->if_table)
+		route_table_finish(zns->if_table);
+	zns->if_table = NULL;
 
 	zebra_dplane_ns_enable(zns, false /*Disable*/);
 
@@ -180,7 +197,7 @@ int zebra_ns_final_shutdown(struct ns *ns,
 	return NS_WALK_CONTINUE;
 }
 
-int zebra_ns_init(const char *optional_default_name)
+int zebra_ns_init(void)
 {
 	struct ns *default_ns;
 	ns_id_t ns_id;
@@ -212,10 +229,6 @@ int zebra_ns_init(const char *optional_default_name)
 
 	/* Default NS is activated */
 	zebra_ns_enable(ns_id_external, (void **)&dzns);
-
-	if (optional_default_name)
-		vrf_set_default_name(optional_default_name,
-				     true);
 
 	if (vrf_is_backend_netns()) {
 		ns_add_hook(NS_NEW_HOOK, zebra_ns_new);

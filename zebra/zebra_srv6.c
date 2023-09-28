@@ -1,21 +1,8 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Zebra SRv6 definitions
  * Copyright (C) 2020  Hiroki Shirokura, LINE Corporation
  * Copyright (C) 2020  Masakazu Asama
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -162,6 +149,7 @@ void zebra_srv6_locator_delete(struct srv6_locator *locator)
 	}
 
 	listnode_delete(srv6->locators, locator);
+	srv6_locator_free(locator);
 }
 
 struct srv6_locator *zebra_srv6_locator_lookup(const char *name)
@@ -174,6 +162,58 @@ struct srv6_locator *zebra_srv6_locator_lookup(const char *name)
 		if (!strncmp(name, locator->name, SRV6_LOCNAME_SIZE))
 			return locator;
 	return NULL;
+}
+
+void zebra_notify_srv6_locator_add(struct srv6_locator *locator)
+{
+	struct listnode *node;
+	struct zserv *client;
+
+	/*
+	 * Notify new locator info to zclients.
+	 *
+	 * The srv6 locators and their prefixes are managed by zserv(zebra).
+	 * And an actual configuration the srv6 sid in the srv6 locator is done
+	 * by zclient(bgpd, isisd, etc). The configuration of each locator
+	 * allocation and specify it by zserv and zclient should be
+	 * asynchronous. For that, zclient should be received the event via
+	 * ZAPI when a srv6 locator is added on zebra.
+	 * Basically, in SRv6, adding/removing SRv6 locators is performed less
+	 * frequently than adding rib entries, so a broad to all zclients will
+	 * not degrade the overall performance of FRRouting.
+	 */
+	for (ALL_LIST_ELEMENTS_RO(zrouter.client_list, node, client))
+		zsend_zebra_srv6_locator_add(client, locator);
+}
+
+void zebra_notify_srv6_locator_delete(struct srv6_locator *locator)
+{
+	struct listnode *n;
+	struct srv6_locator_chunk *c;
+	struct zserv *client;
+
+	/*
+	 * Notify deleted locator info to zclients if needed.
+	 *
+	 * zclient(bgpd,isisd,etc) allocates a sid from srv6 locator chunk and
+	 * uses it for its own purpose. For example, in the case of BGP L3VPN,
+	 * the SID assigned to vpn unicast rib will be given.
+	 * And when the locator is deleted by zserv(zebra), those SIDs need to
+	 * be withdrawn. The zclient must initiate the withdrawal of the SIDs
+	 * by ZEBRA_SRV6_LOCATOR_DELETE, and this notification is sent to the
+	 * owner of each chunk.
+	 */
+	for (ALL_LIST_ELEMENTS_RO((struct list *)locator->chunks, n, c)) {
+		if (c->proto == ZEBRA_ROUTE_SYSTEM)
+			continue;
+		client = zserv_find_client(c->proto, c->instance);
+		if (!client) {
+			zlog_warn("Not found zclient(proto=%u, instance=%u).",
+				  c->proto, c->instance);
+			continue;
+		}
+		zsend_zebra_srv6_locator_delete(client, locator);
+	}
 }
 
 struct zebra_srv6 *zebra_srv6_get_default(void)

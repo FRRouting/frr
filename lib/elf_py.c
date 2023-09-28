@@ -1,20 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * fast ELF file accessor
  * Copyright (C) 2018-2020  David Lamparter for NetDEF, Inc.
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 /* Note: this wrapper is intended to be used as build-time helper.  While
@@ -50,10 +37,10 @@
 
 #define PY_SSIZE_T_CLEAN
 
-#include <Python.h>
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
+#include <Python.h>
 #include "structmember.h"
 #include <string.h>
 #include <stdlib.h>
@@ -293,7 +280,7 @@ static PyObject *elfreloc_getsection(PyObject *self, PyObject *args)
 	if (!w->es)
 		Py_RETURN_NONE;
 
-	if (w->symidx == 0) {
+	if (!w->symvalid || w->symidx == 0) {
 		size_t idx = 0;
 		Elf_Scn *scn;
 
@@ -636,6 +623,9 @@ static Elf_Scn *elf_find_addr(struct elffile *ef, uint64_t addr, size_t *idx)
 		Elf_Scn *scn = elf_getscn(ef->elf, i);
 		GElf_Shdr _shdr, *shdr = gelf_getshdr(scn, &_shdr);
 
+		/* virtual address is kinda meaningless for TLS sections */
+		if (shdr->sh_flags & SHF_TLS)
+			continue;
 		if (addr < shdr->sh_addr ||
 		    addr >= shdr->sh_addr + shdr->sh_size)
 			continue;
@@ -1068,26 +1058,25 @@ static void elffile_add_dynreloc(struct elffile *w, Elf_Data *reldata,
 			 * always be a pointer...
 			 */
 			if (elffile_virt2file(w, rel->r_offset, &offs)) {
-				Elf_Data *ptr, *conv;
-				GElf_Addr tmp;
-				Elf_Data mem = {
-					.d_buf = (void *)&tmp,
-					.d_type = ELF_T_ADDR,
-					.d_version = EV_CURRENT,
-					.d_size = sizeof(tmp),
-					.d_off = 0,
-					.d_align = 0,
-				};
+				Elf_Data *ptr;
 
+				/* NB: this endian-converts! */
 				ptr = elf_getdata_rawchunk(w->elf, offs,
 							   w->elfclass / 8,
 							   ELF_T_ADDR);
 
-				conv = gelf_xlatetom(w->elf, &mem, ptr,
-						     w->mmap[EI_DATA]);
-				if (conv) {
-					memcpy(&rel_offs, conv->d_buf,
-					       conv->d_size);
+				if (ptr) {
+					char *dst = (char *)&rel_offs;
+
+					/* sigh.  it endian-converts.  but
+					 * doesn't size-convert.
+					 */
+					if (BYTE_ORDER == BIG_ENDIAN &&
+					    ptr->d_size < sizeof(rel_offs))
+						dst += sizeof(rel_offs) -
+						       ptr->d_size;
+
+					memcpy(dst, ptr->d_buf, ptr->d_size);
 
 					relw->relative = false;
 					relw->rela->r_addend = rel_offs;
@@ -1100,7 +1089,9 @@ static void elffile_add_dynreloc(struct elffile *w, Elf_Data *reldata,
 		symidx = relw->symidx = GELF_R_SYM(rela->r_info);
 		sym = relw->sym = gelf_getsym(symdata, symidx, &relw->_sym);
 		if (sym) {
-			relw->symname = elfdata_strptr(strdata, sym->st_name);
+			if (strdata)
+				relw->symname = elfdata_strptr(strdata,
+							       sym->st_name);
 			relw->symvalid = GELF_ST_TYPE(sym->st_info)
 					!= STT_NOTYPE;
 			relw->unresolved = sym->st_shndx == SHN_UNDEF;
@@ -1151,7 +1142,8 @@ static PyObject *elffile_load(PyTypeObject *type, PyObject *args,
 	fd = open(filename, O_RDONLY | O_NOCTTY);
 	if (fd < 0 || fstat(fd, &st)) {
 		PyErr_SetFromErrnoWithFilename(PyExc_OSError, filename);
-		close(fd);
+		if (fd >= 0)
+			close(fd);
 		goto out;
 	}
 	w->len = st.st_size;

@@ -1,22 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * kernel routing table update prototype.
  * Copyright (C) 1998 Kunihiro Ishiguro
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef _ZEBRA_RT_H
@@ -34,6 +19,8 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+#define ROUTE_INSTALLATION_METRIC 20
 
 #define RKERNEL_ROUTE(type) ((type) == ZEBRA_ROUTE_KERNEL)
 
@@ -66,6 +53,13 @@ enum zebra_dplane_result kernel_neigh_update_ctx(struct zebra_dplane_ctx *ctx);
 extern enum zebra_dplane_result
 kernel_pbr_rule_update(struct zebra_dplane_ctx *ctx);
 
+extern enum zebra_dplane_result
+kernel_intf_update(struct zebra_dplane_ctx *ctx);
+
+extern enum zebra_dplane_result
+kernel_intf_netconf_update(struct zebra_dplane_ctx *ctx);
+extern enum zebra_dplane_result kernel_tc_update(struct zebra_dplane_ctx *ctx);
+
 #endif /* !HAVE_NETLINK */
 
 extern int kernel_neigh_update(int cmd, int ifindex, void *addr, char *lla,
@@ -78,6 +72,10 @@ extern int kernel_interface_set_master(struct interface *master,
 
 extern int mpls_kernel_init(void);
 
+/* Global init and deinit for platform-/OS-specific things */
+void kernel_router_init(void);
+void kernel_router_terminate(void);
+
 extern uint32_t kernel_get_speed(struct interface *ifp, int *error);
 extern int kernel_get_ipmr_sg_stats(struct zebra_vrf *zvrf, void *mroute);
 
@@ -86,11 +84,15 @@ extern int kernel_get_ipmr_sg_stats(struct zebra_vrf *zvrf, void *mroute);
  * state.
  */
 extern void interface_list(struct zebra_ns *zns);
+extern void interface_list_tunneldump(struct zebra_ns *zns);
+extern void interface_list_second(struct zebra_ns *zns);
 extern void kernel_init(struct zebra_ns *zns);
 extern void kernel_terminate(struct zebra_ns *zns, bool complete);
 extern void macfdb_read(struct zebra_ns *zns);
 extern void macfdb_read_for_bridge(struct zebra_ns *zns, struct interface *ifp,
-				   struct interface *br_if);
+				   struct interface *br_if, vlanid_t vid);
+extern void macfdb_read_mcast_entry_for_vni(struct zebra_ns *zns,
+					    struct interface *ifp, vni_t vni);
 extern void macfdb_read_specific_mac(struct zebra_ns *zns,
 				     struct interface *br_if,
 				     const struct ethaddr *mac, vlanid_t vid);
@@ -108,12 +110,13 @@ extern int kernel_del_mac_nhg(uint32_t nhg_id);
 /*
  * Message batching interface.
  */
-extern void kernel_update_multi(struct dplane_ctx_q *ctx_list);
+extern void kernel_update_multi(struct dplane_ctx_list_head *ctx_list);
 
 /*
  * Called by the dplane pthread to read incoming OS messages and dispatch them.
  */
 int kernel_dplane_read(struct zebra_dplane_info *info);
+extern void vlan_read(struct zebra_ns *zns);
 
 #ifdef __cplusplus
 }

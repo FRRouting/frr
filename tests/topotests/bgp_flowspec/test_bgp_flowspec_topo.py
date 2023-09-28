@@ -1,24 +1,11 @@
 #!/usr/bin/env python
+# SPDX-License-Identifier: ISC
 
 #
 # test_bgp_flowspec_topo.py
 # Part of NetDEF Topology Tests
 #
 # Copyright (c) 2019 by 6WIND
-#
-# Permission to use, copy, modify, and/or distribute this software
-# for any purpose with or without fee is hereby granted, provided
-# that the above copyright notice and this permission notice appear
-# in all copies.
-#
-# THE SOFTWARE IS PROVIDED "AS IS" AND NETDEF DISCLAIMS ALL WARRANTIES
-# WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
-# MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL NETDEF BE LIABLE FOR
-# ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY
-# DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS,
-# WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS
-# ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE
-# OF THIS SOFTWARE.
 #
 
 """
@@ -64,6 +51,7 @@ sys.path.append(os.path.join(CWD, "../"))
 from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
+from lib.common_config import generate_support_bundle
 
 # Required to instantiate the topology builder class.
 
@@ -150,9 +138,12 @@ def test_bgp_convergence():
     test_func = functools.partial(
         topotest.router_json_cmp, router, "show bgp summary json", expected
     )
-    _, res = topotest.run_and_expect(test_func, None, count=90, wait=0.5)
+    _, res = topotest.run_and_expect(test_func, None, count=210, wait=1)
     assertmsg = "BGP router network did not converge"
-    assert res is None, assertmsg
+    if res is not None:
+        generate_support_bundle()
+        assert res is None, assertmsg
+    generate_support_bundle()
 
 
 def test_bgp_flowspec():
@@ -196,7 +187,6 @@ def test_bgp_flowspec():
 
 
 if __name__ == "__main__":
-
     args = ["-s"] + sys.argv[1:]
     ret = pytest.main(args)
 

@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  *
  * Copyright (C) 1997, 2000
@@ -8,22 +9,6 @@
  *
  * Thanks to Jens Laas at Swedish University of Agricultural Sciences
  * for reviewing and tests.
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -39,7 +24,7 @@
 #include "connected.h"
 #include "log.h"
 #include "zclient.h"
-#include "thread.h"
+#include "frrevent.h"
 #include "lib_errors.h"
 #include "zebra/interface.h"
 #include "zebra/rtadv.h"
@@ -200,12 +185,12 @@ static void if_set_defaults(struct irdp_interface *irdp)
 
 static struct Adv *Adv_new(void)
 {
-	return XCALLOC(MTYPE_TMP, sizeof(struct Adv));
+	return XCALLOC(MTYPE_IRDP_IF, sizeof(struct Adv));
 }
 
 static void Adv_free(struct Adv *adv)
 {
-	XFREE(MTYPE_TMP, adv);
+	XFREE(MTYPE_IRDP_IF, adv);
 }
 
 static void irdp_if_start(struct interface *ifp, int multicast,
@@ -287,8 +272,8 @@ static void irdp_if_start(struct interface *ifp, int multicast,
 			   timer);
 
 	irdp->t_advertise = NULL;
-	thread_add_timer(zrouter.master, irdp_send_thread, ifp, timer,
-			 &irdp->t_advertise);
+	event_add_timer(zrouter.master, irdp_send_thread, ifp, timer,
+			&irdp->t_advertise);
 }
 
 static void irdp_if_stop(struct interface *ifp)

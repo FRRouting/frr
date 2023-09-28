@@ -1,24 +1,11 @@
 #!/usr/bin/env python
+# SPDX-License-Identifier: ISC
 #
 # test_zebra_rib.py
 #
 # Copyright (c) 2019 by
 # Cumulus Networks, Inc
 # Donald Sharp
-#
-# Permission to use, copy, modify, and/or distribute this software
-# for any purpose with or without fee is hereby granted, provided
-# that the above copyright notice and this permission notice appear
-# in all copies.
-#
-# THE SOFTWARE IS PROVIDED "AS IS" AND NETDEF DISCLAIMS ALL WARRANTIES
-# WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
-# MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL NETDEF BE LIABLE FOR
-# ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY
-# DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS,
-# WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS
-# ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE
-# OF THIS SOFTWARE.
 #
 
 """
@@ -31,6 +18,7 @@ import sys
 from functools import partial
 import pytest
 import json
+import platform
 
 # Save the Current Working Directory to find configuration files.
 CWD = os.path.dirname(os.path.realpath(__file__))
@@ -45,11 +33,26 @@ from time import sleep
 
 
 pytestmark = [pytest.mark.sharpd]
+krel = platform.release()
+
+
+def config_macvlan(tgen, r_str, device, macvlan):
+    "Creates specified macvlan interace on physical device"
+
+    if topotest.version_cmp(krel, "5.1") < 0:
+        return
+
+    router = tgen.gears[r_str]
+    router.run(
+        "ip link add {} link {} type macvlan mode bridge".format(macvlan, device)
+    )
+    router.run("ip link set {} up".format(macvlan))
 
 
 def setup_module(mod):
     "Sets up the pytest environment"
-    topodef = {"s1": ("r1", "r1", "r1", "r1", "r1", "r1", "r1", "r1")}
+    # 8 links to 8 switches on r1
+    topodef = {"s{}".format(x): ("r1",) for x in range(1, 9)}
     tgen = Topogen(topodef, mod.__name__)
     tgen.start_topology()
 
@@ -62,6 +65,8 @@ def setup_module(mod):
             TopoRouter.RD_SHARP, os.path.join(CWD, "{}/sharpd.conf".format(rname))
         )
 
+    # Macvlan interface for protodown func test */
+    config_macvlan(tgen, "r1", "r1-eth0", "r1-eth0-macvlan")
     # Initialize all routers.
     tgen.start_router()
 
@@ -70,6 +75,41 @@ def teardown_module(mod):
     "Teardown the pytest environment"
     tgen = get_topogen()
     tgen.stop_topology()
+
+
+def test_zebra_kernel_route_vrf():
+    "Test kernel routes should be removed after interface changes vrf"
+    logger.info("Test kernel routes should be removed after interface changes vrf")
+    vrf = "RED"
+    tgen = get_topogen()
+    r1 = tgen.gears["r1"]
+
+    # Add kernel routes, the interface is initially in default vrf
+    r1.run("ip route add 3.5.1.0/24 via 192.168.210.1 dev r1-eth0")
+    json_file = "{}/r1/v4_route_1_vrf_before.json".format(CWD)
+    expected = json.loads(open(json_file).read())
+    test_func = partial(
+        topotest.router_json_cmp, r1, "show ip route 3.5.1.0/24 json", expected
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=5, wait=1)
+    assert result is None, '"r1" JSON output mismatches'
+
+    # Change the interface's vrf
+    r1.run("ip link add {} type vrf table 1".format(vrf))
+    r1.run("ip link set {} up".format(vrf))
+    r1.run("ip link set dev r1-eth0 master {}".format(vrf))
+
+    expected = "{}"
+    test_func = partial(
+        topotest.router_output_cmp, r1, "show ip route 3.5.1.0/24 json", expected
+    )
+    result, diff = topotest.run_and_expect(test_func, "", count=5, wait=1)
+    assertmsg = "{} should not have the kernel route.\n{}".format('"r1"', diff)
+    assert result, assertmsg
+
+    # Clean up
+    r1.run("ip link set dev r1-eth0 nomaster")
+    r1.run("ip link del dev {}".format(vrf))
 
 
 def test_zebra_kernel_admin_distance():
@@ -186,7 +226,16 @@ def test_route_map_usage():
     r1.vtysh_cmd("conf\nip route 10.100.100.100/32 192.168.216.3")
     r1.vtysh_cmd("conf\nip route 10.100.100.101/32 10.0.0.44")
     r1.vtysh_cmd("sharp install route 10.0.0.0 nexthop 192.168.216.3 500")
-    sleep(4)
+
+    def check_initial_routes_installed(router):
+        output = json.loads(router.vtysh_cmd("show ip route summ json"))
+        expected = {
+            "routes": [{"type": "static", "rib": 2}, {"type": "sharp", "rib": 500}]
+        }
+        return topotest.json_cmp(output, expected)
+
+    test_func = partial(check_initial_routes_installed, r1)
+    success, result = topotest.run_and_expect(test_func, None, count=40, wait=1)
 
     static_rmapfile = "%s/r1/static_rmap.ref" % (thisDir)
     expected = open(static_rmapfile).read().rstrip()
@@ -206,7 +255,7 @@ def test_route_map_usage():
         )
 
     ok, result = topotest.run_and_expect(
-        check_static_map_correct_runs, "", count=5, wait=1
+        check_static_map_correct_runs, "", count=10, wait=1
     )
     assert ok, result
 
@@ -226,7 +275,7 @@ def test_route_map_usage():
         )
 
     ok, result = topotest.run_and_expect(
-        check_sharp_map_correct_runs, "", count=5, wait=1
+        check_sharp_map_correct_runs, "", count=10, wait=1
     )
     assert ok, result
 
@@ -267,6 +316,46 @@ def test_route_map_usage():
 
     ok, result = topotest.run_and_expect(check_routes_installed, "", count=5, wait=1)
     assert ok, result
+
+
+def test_protodown():
+    "Run protodown basic functionality test and report results."
+    pdown = False
+    count = 0
+    tgen = get_topogen()
+    if topotest.version_cmp(krel, "5.1") < 0:
+        tgen.errors = "kernel 5.1 needed for protodown tests"
+        pytest.skip(tgen.errors)
+
+    r1 = tgen.gears["r1"]
+
+    # Set interface protodown on
+    r1.vtysh_cmd("sharp interface r1-eth0-macvlan protodown")
+
+    # Timeout to wait for dplane to handle it
+    while count < 10:
+        count += 1
+        output = r1.vtysh_cmd("show interface r1-eth0-macvlan")
+        if re.search(r"protodown reasons:.*sharp", output):
+            pdown = True
+            break
+        sleep(1)
+
+    assert pdown is True, "Interface r1-eth0-macvlan not set protodown"
+
+    # Set interface protodown off
+    r1.vtysh_cmd("no sharp interface r1-eth0-macvlan protodown")
+
+    # Timeout to wait for dplane to handle it
+    while count < 10:
+        count += 1
+        output = r1.vtysh_cmd("show interface r1-eth0-macvlan")
+        if not re.search(r"protodown reasons:.*sharp", output):
+            pdown = False
+            break
+        sleep(1)
+
+    assert pdown is False, "Interface r1-eth0-macvlan not set protodown off"
 
 
 def test_memory_leak():

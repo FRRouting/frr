@@ -1,21 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Copyright (C) 2003 Yasuhiro Ohara
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -33,6 +18,7 @@
 #include "ospf6_top.h"
 #include "ospf6_network.h"
 #include "ospf6d.h"
+#include "ospf6_message.h"
 
 struct in6_addr allspfrouters6;
 struct in6_addr alldrouters6;
@@ -58,20 +44,6 @@ static void ospf6_set_transport_class(int ospf6_sock)
 #ifdef IPTOS_PREC_INTERNETCONTROL
 	setsockopt_ipv6_tclass(ospf6_sock, IPTOS_PREC_INTERNETCONTROL);
 #endif
-}
-
-static void ospf6_set_checksum(int ospf6_sock)
-{
-	int offset = 12;
-#ifndef DISABLE_IPV6_CHECKSUM
-	if (setsockopt(ospf6_sock, IPPROTO_IPV6, IPV6_CHECKSUM, &offset,
-		       sizeof(offset))
-	    < 0)
-		zlog_warn("Network: set IPV6_CHECKSUM failed: %s",
-			  safe_strerror(errno));
-#else
-	zlog_warn("Network: Don't set IPV6_CHECKSUM");
-#endif /* DISABLE_IPV6_CHECKSUM */
 }
 
 void ospf6_serv_close(int *ospf6_sock)
@@ -113,7 +85,6 @@ int ospf6_serv_sock(struct ospf6 *ospf6)
 	ospf6_reset_mcastloop(ospf6_sock);
 	ospf6_set_pktinfo(ospf6_sock);
 	ospf6_set_transport_class(ospf6_sock);
-	ospf6_set_checksum(ospf6_sock);
 
 	ospf6->fd = ospf6_sock;
 	/* setup global in6_addr, allspf6 and alldr6 for later use */
@@ -187,7 +158,7 @@ int ospf6_sendmsg(struct in6_addr *src, struct in6_addr *dst,
 	memset(&cmsgbuf, 0, sizeof(cmsgbuf));
 	scmsgp = (struct cmsghdr *)&cmsgbuf;
 	pktinfo = (struct in6_pktinfo *)(CMSG_DATA(scmsgp));
-	memset(&dst_sin6, 0, sizeof(struct sockaddr_in6));
+	memset(&dst_sin6, 0, sizeof(dst_sin6));
 
 	/* source address */
 	pktinfo->ipi6_ifindex = ifindex;
@@ -240,7 +211,7 @@ int ospf6_recvmsg(struct in6_addr *src, struct in6_addr *dst,
 
 	rcmsgp = (struct cmsghdr *)cmsgbuf;
 	pktinfo = (struct in6_pktinfo *)(CMSG_DATA(rcmsgp));
-	memset(&src_sin6, 0, sizeof(struct sockaddr_in6));
+	memset(&src_sin6, 0, sizeof(src_sin6));
 
 	/* receive control msg */
 	rcmsgp->cmsg_level = IPPROTO_IPV6;

@@ -1,23 +1,10 @@
 #!/usr/bin/env python
+# SPDX-License-Identifier: ISC
 
 #
 # Copyright (c) 2020 by VMware, Inc. ("VMware")
 # Used Copyright (c) 2018 by Network Device Education Foundation,
 # Inc. ("NetDEF") in this file.
-#
-# Permission to use, copy, modify, and/or distribute this software
-# for any purpose with or without fee is hereby granted, provided
-# that the above copyright notice and this permission notice appear
-# in all copies.
-#
-# THE SOFTWARE IS PROVIDED "AS IS" AND VMWARE DISCLAIMS ALL WARRANTIES
-# WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
-# MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL VMWARE BE LIABLE FOR
-# ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY
-# DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS,
-# WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS
-# ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE
-# OF THIS SOFTWARE.
 #
 
 """
@@ -141,7 +128,7 @@ def setup_module(mod):
     # ... and here it calls Mininet initialization functions.
 
     # Starting topology, create tmp files which are loaded to routers
-    #  to start deamons and then start routers
+    #  to start daemons and then start routers
     start_topology(tgen)
 
     # Creating configuration from JSON
@@ -829,10 +816,11 @@ def test_RT_verification_auto_p0(request):
         }
 
         result = verify_rib(tgen, addr_type, "d2", input_routes, expected=False)
-        assert (
-            result is not True
-        ), "Testcase {} :Failed \n Routes are still present: {}".format(tc_name, result)
-        logger.info("Expected Behavior: {}".format(result))
+        assert result is not True, (
+            "Testcase {} : Failed \n "
+            "Expected: Routes should not be present in {} RIB \n "
+            "Found: {}".format(tc_name, "d2", result)
+        )
 
     step(
         "Revert back to original VNI number for all 3 VRFs on Edge-1 "
@@ -965,12 +953,11 @@ def test_RT_verification_auto_p0(request):
         result = verify_attributes_for_evpn_routes(
             tgen, topo, "d2", input_routes_1, rt="auto", rt_peer="e1", expected=False
         )
-        assert (
-            result is not True
-        ), "Testcase {} :Failed \n Malfaromed Auto-RT value accepted: {}".format(
-            tc_name, result
+        assert result is not True, (
+            "Testcase {} : Failed \n "
+            "Expected: Malformed Auto-RT value should not be accepted in {} \n "
+            "Found: {}".format(tc_name, "d2", result)
         )
-        logger.info("Expected Behavior: {}".format(result))
 
     step("Configure VNI number more than boundary limit (16777215)")
 
@@ -1000,12 +987,11 @@ def test_RT_verification_auto_p0(request):
         result = verify_attributes_for_evpn_routes(
             tgen, topo, "d2", input_routes_1, rt="auto", rt_peer="e1", expected=False
         )
-        assert (
-            result is not True
-        ), "Testcase {} :Failed \n Malfaromed Auto-RT value accepted: {}".format(
-            tc_name, result
+        assert result is not True, (
+            "Testcase {} : Failed \n "
+            "Expected: Malformed Auto-RT value should not be accepted in {} \n "
+            "Found: {}".format(tc_name, "d2", result)
         )
-        logger.info("Expected Behavior: {}".format(result))
 
     step("Un-configure VNI number more than boundary limit (16777215)")
 

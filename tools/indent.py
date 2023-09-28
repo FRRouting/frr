@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+# SPDX-License-Identifier: NONE
 # 2017 by David Lamparter, placed in public domain
 
 import sys, re, subprocess, os

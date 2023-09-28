@@ -1,27 +1,12 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * OSPF AS external route calculation.
  * Copyright (C) 1999, 2000 Alex Zinin, Toshiaki Takada
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
 
-#include "thread.h"
+#include "frrevent.h"
 #include "memory.h"
 #include "hash.h"
 #include "linklist.h"
@@ -174,7 +159,9 @@ ospf_ase_calculate_new_route(struct ospf_lsa *lsa,
 
 	if (!IS_EXTERNAL_METRIC(al->e[0].tos)) {
 		if (IS_DEBUG_OSPF(lsa, LSA))
-			zlog_debug("Route[External]: type-1 created.");
+			zlog_debug(
+				"Route[External]: type-1 created, asbr cost:%d  metric:%d.",
+				asbr_route->cost, metric);
 		new->path_type = OSPF_PATH_TYPE1_EXTERNAL;
 		new->cost = asbr_route->cost + metric; /* X + Y */
 	} else {
@@ -212,12 +199,12 @@ int ospf_ase_calculate_route(struct ospf *ospf, struct ospf_lsa *lsa)
 
 	if (lsa->data->type == OSPF_AS_NSSA_LSA)
 		if (IS_DEBUG_OSPF_NSSA)
-			zlog_debug("ospf_ase_calc(): Processing Type-7");
+			zlog_debug("%s: Processing Type-7", __func__);
 
 	/* Stay away from any Local Translated Type-7 LSAs */
 	if (CHECK_FLAG(lsa->flags, OSPF_LSA_LOCAL_XLT)) {
 		if (IS_DEBUG_OSPF_NSSA)
-			zlog_debug("ospf_ase_calc(): Rejecting Local Xlt'd");
+			zlog_debug("%s: Rejecting Local Xlt'd", __func__);
 		return 0;
 	}
 
@@ -277,6 +264,19 @@ int ospf_ase_calculate_route(struct ospf *ospf, struct ospf_lsa *lsa)
 		if (IS_DEBUG_OSPF(lsa, LSA))
 			zlog_debug(
 				"Route[External]: Originating router is not an ASBR");
+		return 0;
+	}
+
+	/* Type-5 shouldn't be calculated if it is originated from NSSA ASBR.
+	 * As per RFC 3101, expectation is to receive type-7 lsas from
+	 * NSSA ASBR. Ignore calculation, if the current LSA is type-5 and
+	 * originated ASBR's area is NSSA.
+	 */
+	if ((lsa->data->type == OSPF_AS_EXTERNAL_LSA)
+	    && (asbr_route->u.std.external_routing != OSPF_AREA_DEFAULT)) {
+		if (IS_DEBUG_OSPF(lsa, LSA))
+			zlog_debug(
+				"Route[External]: Ignore, If type-5 LSA from NSSA area.");
 		return 0;
 	}
 
@@ -551,7 +551,7 @@ static int ospf_ase_compare_tables(struct ospf *ospf,
 	return 0;
 }
 
-static int ospf_ase_calculate_timer(struct thread *t)
+static void ospf_ase_calculate_timer(struct event *t)
 {
 	struct ospf *ospf;
 	struct ospf_lsa *lsa;
@@ -560,7 +560,7 @@ static int ospf_ase_calculate_timer(struct thread *t)
 	struct ospf_area *area;
 	struct timeval start_time, stop_time;
 
-	ospf = THREAD_ARG(t);
+	ospf = EVENT_ARG(t);
 	ospf->t_ase_calc = NULL;
 
 	if (ospf->ase_calc) {
@@ -576,9 +576,8 @@ static int ospf_ase_calculate_timer(struct thread *t)
 		if (ospf->anyNSSA)
 			for (ALL_LIST_ELEMENTS_RO(ospf->areas, node, area)) {
 				if (IS_DEBUG_OSPF_NSSA)
-					zlog_debug(
-						"ospf_ase_calculate_timer(): looking at area %pI4",
-						&area->area_id);
+					zlog_debug("%s: looking at area %pI4",
+						   __func__, &area->area_id);
 
 				if (area->external_routing == OSPF_AREA_NSSA)
 					LSDB_LOOP (NSSA_LSDB(area), rn, lsa)
@@ -616,10 +615,9 @@ static int ospf_ase_calculate_timer(struct thread *t)
 	 */
 	if (ospf->gr_info.finishing_restart) {
 		ospf_zebra_gr_disable(ospf);
+		ospf_zebra_gr_enable(ospf, ospf->gr_info.grace_period);
 		ospf->gr_info.finishing_restart = false;
 	}
-
-	return 0;
 }
 
 void ospf_ase_calculate_schedule(struct ospf *ospf)
@@ -635,8 +633,8 @@ void ospf_ase_calculate_timer_add(struct ospf *ospf)
 	if (ospf == NULL)
 		return;
 
-	thread_add_timer(master, ospf_ase_calculate_timer, ospf,
-			 OSPF_ASE_CALC_INTERVAL, &ospf->t_ase_calc);
+	event_add_timer(master, ospf_ase_calculate_timer, ospf,
+			OSPF_ASE_CALC_INTERVAL, &ospf->t_ase_calc);
 }
 
 void ospf_ase_register_external_lsa(struct ospf_lsa *lsa, struct ospf *top)

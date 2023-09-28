@@ -1,22 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Interface looking up by ioctl ().
  * Copyright (C) 1997, 98 Kunihiro Ishiguro
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -109,7 +94,8 @@ static int interface_list_ioctl(void)
 		unsigned int size;
 
 		ifreq = (struct ifreq *)((caddr_t)ifconf.ifc_req + n);
-		ifp = if_get_by_name(ifreq->ifr_name, VRF_DEFAULT);
+		ifp = if_get_by_name(ifreq->ifr_name, VRF_DEFAULT,
+				     VRF_DEFAULT_NAME);
 		if_add_update(ifp);
 		size = ifreq->ifr_addr.sa_len;
 		if (size < sizeof(ifreq->ifr_addr))
@@ -119,7 +105,8 @@ static int interface_list_ioctl(void)
 	}
 #else
 	for (n = 0; n < ifconf.ifc_len; n += sizeof(struct ifreq)) {
-		ifp = if_get_by_name(ifreq->ifr_name, VRF_DEFAULT);
+		ifp = if_get_by_name(ifreq->ifr_name, VRF_DEFAULT,
+				     VRF_DEFAULT_NAME);
 		if_add_update(ifp);
 		ifreq++;
 	}
@@ -150,7 +137,7 @@ static int if_get_hwaddr(struct interface *ifp)
 	ifreq.ifr_addr.sa_family = AF_INET;
 
 	/* Fetch Hardware address if available. */
-	ret = vrf_if_ioctl(SIOCGIFHWADDR, (caddr_t)&ifreq, ifp->vrf_id);
+	ret = vrf_if_ioctl(SIOCGIFHWADDR, (caddr_t)&ifreq, ifp->vrf->vrf_id);
 	if (ret < 0)
 		ifp->hw_addr_len = 0;
 	else {
@@ -197,7 +184,7 @@ static int if_getaddrs(void)
 		ifp = if_lookup_by_name(ifap->ifa_name, VRF_DEFAULT);
 		if (ifp == NULL) {
 			flog_err(EC_LIB_INTERFACE,
-				 "if_getaddrs(): Can't lookup interface %s\n",
+				 "%s: Can't lookup interface %s", __func__,
 				 ifap->ifa_name);
 			continue;
 		}
@@ -288,7 +275,7 @@ static void interface_info_ioctl()
 void interface_list(struct zebra_ns *zns)
 {
 
-	zlog_info("interface_list: NS %u", zns->ns_id);
+	zlog_info("%s: NS %u", __func__, zns->ns_id);
 
 /* Linux can do both proc & ioctl, ioctl is the only way to get
    interface aliases in 2.2 series kernels. */

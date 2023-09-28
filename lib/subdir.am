@@ -1,13 +1,20 @@
 #
 # libfrr
 #
+
 lib_LTLIBRARIES += lib/libfrr.la
 lib_libfrr_la_LDFLAGS = $(LIB_LDFLAGS) -version-info 0:0:0 -Xlinker -e_libfrr_version
-lib_libfrr_la_LIBADD = $(LIBCAP) $(UNWIND_LIBS) $(LIBYANG_LIBS) $(LUA_LIB) $(UST_LIBS) $(LIBM)
+lib_libfrr_la_LIBADD = $(LIBCAP) $(UNWIND_LIBS) $(LIBYANG_LIBS) $(LUA_LIB) $(UST_LIBS) $(LIBCRYPT) $(LIBDL) $(LIBM)
 
 lib_libfrr_la_SOURCES = \
+	lib/admin_group.c \
+	lib/affinitymap.c \
+	lib/affinitymap_cli.c \
+	lib/affinitymap_northbound.c \
 	lib/agg_table.c \
 	lib/atomlist.c \
+	lib/asn.c \
+	lib/base64.c \
 	lib/bfd.c \
 	lib/buffer.c \
 	lib/checksum.c \
@@ -16,21 +23,23 @@ lib_libfrr_la_SOURCES = \
 	lib/command_lex.l \
 	lib/command_match.c \
 	lib/command_parse.y \
+	lib/cspf.c \
 	lib/csv.c \
+	lib/darr.c \
 	lib/debug.c \
 	lib/defaults.c \
 	lib/distribute.c \
+	lib/explicit_bzero.c \
 	lib/ferr.c \
 	lib/filter.c \
 	lib/filter_cli.c \
 	lib/filter_nb.c \
+	lib/flex_algo.c \
 	lib/frrcu.c \
 	lib/frrlua.c \
 	lib/frrscript.c \
 	lib/frr_pthread.c \
 	lib/frrstr.c \
-	lib/getopt.c \
-	lib/getopt1.c \
 	lib/grammar_sandbox.c \
 	lib/graph.c \
 	lib/hash.c \
@@ -40,6 +49,7 @@ lib_libfrr_la_SOURCES = \
 	lib/if_rmap.c \
 	lib/imsg-buffer.c \
 	lib/imsg.c \
+	lib/iso.c \
 	lib/jhash.c \
 	lib/json.c \
 	lib/keychain.c \
@@ -55,6 +65,9 @@ lib_libfrr_la_SOURCES = \
 	lib/log_vty.c \
 	lib/md5.c \
 	lib/memory.c \
+	lib/mgmt_be_client.c \
+	lib/mgmt_fe_client.c \
+	lib/mgmt_msg.c \
 	lib/mlag.c \
 	lib/module.c \
 	lib/mpls.c \
@@ -88,6 +101,7 @@ lib_libfrr_la_SOURCES = \
 	lib/sockopt.c \
 	lib/sockunion.c \
 	lib/spf_backoff.c \
+	lib/segment_routing.c \
 	lib/srcdest_table.c \
 	lib/stream.c \
 	lib/strformat.c \
@@ -96,7 +110,7 @@ lib_libfrr_la_SOURCES = \
 	lib/systemd.c \
 	lib/table.c \
 	lib/termtable.c \
-	lib/thread.c \
+	lib/event.c \
 	lib/typerb.c \
 	lib/typesafe.c \
 	lib/vector.c \
@@ -110,16 +124,22 @@ lib_libfrr_la_SOURCES = \
 	lib/yang_wrappers.c \
 	lib/zclient.c \
 	lib/zlog.c \
+	lib/zlog_5424.c \
+	lib/zlog_5424_cli.c \
+	lib/zlog_live.c \
 	lib/zlog_targets.c \
 	lib/printf/printf-pos.c \
 	lib/printf/vfprintf.c \
 	lib/printf/glue.c \
 	lib/routing_nb.c \
 	lib/routing_nb_config.c \
+	lib/tc.c \
 	# end
 
 nodist_lib_libfrr_la_SOURCES = \
+	yang/frr-affinity-map.yang.c \
 	yang/frr-filter.yang.c \
+	yang/frr-if-rmap.yang.c \
 	yang/frr-interface.yang.c \
 	yang/frr-route-map.yang.c \
 	yang/frr-route-types.yang.c \
@@ -130,29 +150,24 @@ nodist_lib_libfrr_la_SOURCES = \
 	yang/ietf/ietf-interfaces.yang.c \
 	yang/ietf/ietf-bgp-types.yang.c \
 	yang/frr-module-translator.yang.c \
-	yang/frr-nexthop.yang.c \
 	# end
 
-vtysh_scan += \
-	lib/distribute.c \
-	lib/filter.c \
-	lib/filter_cli.c \
-	lib/if.c \
-	lib/if_rmap.c \
-	lib/keychain.c \
-	lib/lib_vty.c \
-	lib/log_vty.c \
-	lib/nexthop_group.c \
-	lib/plist.c \
-	lib/routemap.c \
-	lib/routemap_cli.c \
-	lib/spf_backoff.c \
-	lib/thread.c \
-	lib/vrf.c \
-	lib/vty.c \
+# Add logic to build mgmt.proto
+lib_libfrr_la_LIBADD += $(PROTOBUF_C_LIBS)
+
+BUILT_SOURCES += \
+	lib/mgmt.pb-c.c \
+	lib/mgmt.pb-c.h \
 	# end
-# can be loaded as DSO - always include for vtysh
-vtysh_scan += lib/agentx.c
+
+CLEANFILES += \
+	lib/mgmt.pb-c.h \
+	lib/mgmt.pb-c.c \
+	# end
+
+lib_libfrr_la_SOURCES += \
+	lib/mgmt.pb-c.c \
+	#end
 
 if SQLITE3
 lib_libfrr_la_LIBADD += $(SQLITE3_LIBS)
@@ -160,20 +175,30 @@ lib_libfrr_la_SOURCES += lib/db.c
 endif
 
 clippy_scan += \
+	lib/affinitymap_cli.c \
 	lib/if.c \
 	lib/filter_cli.c \
+	lib/if_rmap.c \
 	lib/log_vty.c \
+	lib/mgmt_be_client.c \
+	lib/mgmt_fe_client.c \
 	lib/nexthop_group.c \
 	lib/northbound_cli.c \
 	lib/plist.c \
+	lib/routemap.c \
 	lib/routemap_cli.c \
-	lib/thread.c \
+	lib/event.c \
 	lib/vty.c \
+	lib/zlog_5424_cli.c \
 	# end
 
 pkginclude_HEADERS += \
+	lib/admin_group.h \
+	lib/affinitymap.h \
 	lib/agg_table.h \
+	lib/asn.h \
 	lib/atomlist.h \
+	lib/base64.h \
 	lib/bfd.h \
 	lib/bitfield.h \
 	lib/buffer.h \
@@ -183,13 +208,16 @@ pkginclude_HEADERS += \
 	lib/command_graph.h \
 	lib/command_match.h \
 	lib/compiler.h \
+	lib/cspf.h \
 	lib/csv.h \
+	lib/darr.h \
 	lib/db.h \
 	lib/debug.h \
 	lib/defaults.h \
 	lib/distribute.h \
 	lib/ferr.h \
 	lib/filter.h \
+	lib/flex_algo.h \
 	lib/freebsd-queue.h \
 	lib/frrlua.h \
 	lib/frrscript.h \
@@ -197,7 +225,6 @@ pkginclude_HEADERS += \
 	lib/frratomic.h \
 	lib/frrcu.h \
 	lib/frrstr.h \
-	lib/getopt.h \
 	lib/graph.h \
 	lib/hash.h \
 	lib/hook.h \
@@ -207,6 +234,7 @@ pkginclude_HEADERS += \
 	lib/if_rmap.h \
 	lib/imsg.h \
 	lib/ipaddr.h \
+	lib/iso.h \
 	lib/jhash.h \
 	lib/json.h \
 	lib/keychain.h \
@@ -222,6 +250,11 @@ pkginclude_HEADERS += \
 	lib/log_vty.h \
 	lib/md5.h \
 	lib/memory.h \
+	lib/mgmt.pb-c.h \
+	lib/mgmt_be_client.h \
+	lib/mgmt_fe_client.h \
+	lib/mgmt_msg.h \
+	lib/mgmt_pb.h \
 	lib/module.h \
 	lib/monotime.h \
 	lib/mpls.h \
@@ -257,13 +290,14 @@ pkginclude_HEADERS += \
 	lib/sockopt.h \
 	lib/sockunion.h \
 	lib/spf_backoff.h \
+	lib/segment_routing.h \
 	lib/srcdest_table.h \
 	lib/srte.h \
 	lib/stream.h \
 	lib/systemd.h \
 	lib/table.h \
 	lib/termtable.h \
-	lib/thread.h \
+	lib/frrevent.h \
 	lib/trace.h \
 	lib/typerb.h \
 	lib/typesafe.h \
@@ -282,8 +316,11 @@ pkginclude_HEADERS += \
 	lib/zclient.h \
 	lib/zebra.h \
 	lib/zlog.h \
+	lib/zlog_5424.h \
+	lib/zlog_live.h \
 	lib/zlog_targets.h \
 	lib/pbr.h \
+	lib/tc.h \
 	lib/routing_nb.h \
 	\
 	lib/assert/assert.h \
@@ -328,13 +365,13 @@ lib_libfrrsnmp_la_SOURCES = \
 	lib/snmp.c \
 	# end
 
+
 #
 # c-ares support
 #
 if CARES
 lib_LTLIBRARIES += lib/libfrrcares.la
 pkginclude_HEADERS += lib/resolver.h
-vtysh_scan += lib/resolver.c
 endif
 
 lib_libfrrcares_la_CFLAGS = $(AM_CFLAGS) $(CARES_CFLAGS)
@@ -457,11 +494,7 @@ am__v_XRELFO_ = $(am__v_XRELFO_$(AM_DEFAULT_VERBOSITY))
 am__v_XRELFO_0 = @echo "  XRELFO  " $@;
 am__v_XRELFO_1 =
 
-if DEV_BUILD
 XRELFO_FLAGS = -Wlog-format -Wlog-args
-else
-XRELFO_FLAGS =
-endif
 
 SUFFIXES += .xref
 %.xref: % $(CLIPPY)
@@ -469,12 +502,17 @@ SUFFIXES += .xref
 
 # dependencies added in python/makefile.py
 frr.xref:
-	$(AM_V_XRELFO) $(CLIPPY) $(top_srcdir)/python/xrelfo.py -o $@ $^
+	$(AM_V_XRELFO) $(CLIPPY) $(top_srcdir)/python/xrelfo.py -o $@ -c vtysh/vtysh_cmd.c $^
 all-am: frr.xref
 
 clean-xref:
 	-rm -rf $(xrefs) frr.xref
 clean-local: clean-xref
+
+CLEANFILES += vtysh/vtysh_cmd.c
+vtysh/vtysh_cmd.c: frr.xref
+	@test -f $@ || rm -f frr.xref || true
+	@test -f $@ || $(MAKE) $(AM_MAKEFLAGS) frr.xref
 
 ## automake's "ylwrap" is a great piece of GNU software... not.
 .l.c:
@@ -513,6 +551,11 @@ lib/clippy-command_lex.$(OBJEXT): lib/command_parse.h
 lib/clippy-command_parse.$(OBJEXT): lib/command_lex.h
 lib/lib_clippy-command_lex.$(OBJEXT): lib/command_parse.h
 lib/lib_clippy-command_parse.$(OBJEXT): lib/command_lex.h
+
+DISTCLEANFILES += lib/command_lex.h \
+		  lib/command_lex.c \
+		  lib/command_parse.h \
+		  lib/command_parse.c
 
 rt_enabled =
 
@@ -569,12 +612,13 @@ rt_enabled += --enabled zebra
 endif
 
 lib/route_types.h: $(top_srcdir)/lib/route_types.txt $(top_srcdir)/lib/route_types.pl
+	@$(MKDIR_P) lib
 	$(PERL) $(top_srcdir)/lib/route_types.pl $(rt_enabled) < $(top_srcdir)/lib/route_types.txt > $@
 DISTCLEANFILES += lib/route_types.h
 
 if GIT_VERSION
 # bit of a trick here to always have up-to-date git stamps without triggering
-# unneccessary rebuilds.  .PHONY causes the .tmp file to be rebuilt always,
+# unnecessary rebuilds.  .PHONY causes the .tmp file to be rebuilt always,
 # but if we use that on gitversion.h it'll ripple through the .c file deps.
 # (even if gitversion.h's file timestamp doesn't change, make will think it
 # did, because of .PHONY...)
@@ -583,6 +627,7 @@ PHONY_GITVERSION=lib/gitversion.h.tmp
 .SILENT: lib/gitversion.h lib/gitversion.h.tmp
 GITH=lib/gitversion.h
 lib/gitversion.h.tmp: $(top_srcdir)/.git
+	@$(MKDIR_P) lib
 	$(PERL) $(top_srcdir)/lib/gitversion.pl $(top_srcdir) > ${GITH}.tmp
 lib/gitversion.h: lib/gitversion.h.tmp
 	{ test -f ${GITH} && diff -s -q ${GITH}.tmp ${GITH}; } || cp ${GITH}.tmp ${GITH}

@@ -1,24 +1,9 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * OSPF Graceful Restart helper functions.
  *
  * Copyright (C) 2020-21 Vmware, Inc.
  * Rajesh Kumar Girada
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef _ZEBRA_OSPF_GR_H
@@ -105,7 +90,7 @@ struct ospf_helper_info {
 	 * helper until this timer until
 	 * this timer expires.
 	 */
-	struct thread *t_grace_timer;
+	struct event *t_grace_timer;
 
 	/* Helper status */
 	uint32_t gr_helper_status;
@@ -181,11 +166,16 @@ extern void ospf_gr_helper_supported_gracetime_set(struct ospf *ospf,
 						   uint32_t interval);
 extern void ospf_gr_helper_set_supported_planned_only_restart(struct ospf *ospf,
 							     bool planned_only);
-
+extern void ospf_gr_iface_send_grace_lsa(struct event *thread);
+extern void ospf_gr_restart_enter(struct ospf *ospf,
+				  enum ospf_gr_restart_reason reason,
+				  time_t timestamp);
 extern void ospf_gr_check_lsdb_consistency(struct ospf *ospf,
 						  struct ospf_area *area);
 extern void ospf_gr_check_adjs(struct ospf *ospf);
 extern void ospf_gr_nvm_read(struct ospf *ospf);
+extern void ospf_gr_nvm_delete(struct ospf *ospf);
+extern void ospf_gr_unplanned_start_interface(struct ospf_interface *oi);
 extern void ospf_gr_init(void);
 
 #endif /* _ZEBRA_OSPF_GR_H */

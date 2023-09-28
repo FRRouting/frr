@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# SPDX-License-Identifier: ISC
 
 #
 # scale_test_common.py
@@ -6,20 +7,6 @@
 # Copyright (c) 2020 by
 # Cumulus Networks, Inc.
 # Donald Sharp
-#
-# Permission to use, copy, modify, and/or distribute this software
-# for any purpose with or without fee is hereby granted, provided
-# that the above copyright notice and this permission notice appear
-# in all copies.
-#
-# THE SOFTWARE IS PROVIDED "AS IS" AND NETDEF DISCLAIMS ALL WARRANTIES
-# WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
-# MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL NETDEF BE LIABLE FOR
-# ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY
-# DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS,
-# WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS
-# ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE
-# OF THIS SOFTWARE.
 #
 
 """
@@ -158,7 +145,7 @@ def route_install_helper(iter):
 
     # Avoid top ecmp case for runs with < 4G memory
     output = tgen.net.cmd_raises("free")
-    m = re.search("Mem:\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)", output)
+    m = re.search(r"Mem:\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)", output)
     total_mem = int(m.group(2))
     if total_mem < 4000000 and iter == 5:
         logger.info(
@@ -178,7 +165,7 @@ def route_install_helper(iter):
 
     # Table of defaults, used for timeout values and 'expected' objects
     scale_defaults = dict(
-        zip(scale_keys, [None, None, 7, 30, expected_installed, expected_removed])
+        zip(scale_keys, [None, None, 10, 50, expected_installed, expected_removed])
     )
 
     # List of params for each step in the test; note extra time given

@@ -1,21 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* Distribute list functions
  * Copyright (C) 1998, 1999 Kunihiro Ishiguro
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published
- * by the Free Software Foundation; either version 2, or (at your
- * option) any later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -460,14 +445,15 @@ int config_write_distribute(struct vty *vty,
 
 void distribute_list_delete(struct distribute_ctx **ctx)
 {
-	if ((*ctx)->disthash) {
-		hash_clean((*ctx)->disthash, (void (*)(void *))distribute_free);
+	hash_clean_and_free(&(*ctx)->disthash,
+			    (void (*)(void *))distribute_free);
+
+	if (dist_ctx_list) {
+		listnode_delete(dist_ctx_list, *ctx);
+		if (list_isempty(dist_ctx_list))
+			list_delete(&dist_ctx_list);
 	}
-	if (!dist_ctx_list)
-		dist_ctx_list = list_new();
-	listnode_delete(dist_ctx_list, *ctx);
-	if (list_isempty(dist_ctx_list))
-		list_delete(&dist_ctx_list);
+
 	XFREE(MTYPE_DISTRIBUTE_CTX, (*ctx));
 }
 

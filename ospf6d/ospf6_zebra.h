@@ -1,21 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Copyright (C) 2003 Yasuhiro Ohara
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef OSPF6_ZEBRA_H
@@ -53,8 +38,8 @@ extern void ospf6_zebra_route_update_remove(struct ospf6_route *request,
 extern void ospf6_zebra_redistribute(int, vrf_id_t vrf_id);
 extern void ospf6_zebra_no_redistribute(int, vrf_id_t vrf_id);
 #define ospf6_zebra_is_redistribute(type, vrf_id)                              \
-	vrf_bitmap_check(zclient->redist[AFI_IP6][type], vrf_id)
-extern void ospf6_zebra_init(struct thread_master *tm);
+	vrf_bitmap_check(&zclient->redist[AFI_IP6][type], vrf_id)
+extern void ospf6_zebra_init(struct event_loop *tm);
 extern void ospf6_zebra_import_default_route(struct ospf6 *ospf6, bool unreg);
 extern void ospf6_zebra_add_discard(struct ospf6_route *request,
 				    struct ospf6 *ospf6);

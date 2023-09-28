@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# SPDX-License-Identifier: ISC
 
 #
 # test_ldp_vpls_topo1.py
@@ -6,20 +7,6 @@
 #
 # Copyright (c) 2017 by
 # Network Device Education Foundation, Inc. ("NetDEF")
-#
-# Permission to use, copy, modify, and/or distribute this software
-# for any purpose with or without fee is hereby granted, provided
-# that the above copyright notice and this permission notice appear
-# in all copies.
-#
-# THE SOFTWARE IS PROVIDED "AS IS" AND NETDEF DISCLAIMS ALL WARRANTIES
-# WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
-# MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL NETDEF BE LIABLE FOR
-# ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY
-# DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS,
-# WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS
-# ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE
-# OF THIS SOFTWARE.
 #
 
 """
@@ -272,9 +259,15 @@ def test_ldp_pseudowires_after_link_down():
 
     # Shut down r1-r2 link */
     tgen = get_topogen()
-    tgen.gears["r1"].peer_link_enable("r1-eth1", False)
-    topotest.sleep(5, "Waiting for the network to reconverge")
-
+    rname = "r1"
+    tgen.gears[rname].peer_link_enable("r1-eth1", False)
+    router_compare_json_output(
+        rname,
+        "show ip route json",
+        "show_ip_route_after_link_down.ref",
+        count=160,
+        wait=1,
+    )
     # check if the pseudowire is still up (using an alternate path
     # for nexthop resolution). Give some extra wait time.
     for rname in ["r1", "r2", "r3"]:

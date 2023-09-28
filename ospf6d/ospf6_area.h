@@ -1,21 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Copyright (C) 2003 Yasuhiro Ohara
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef OSPF_AREA_H
@@ -46,6 +31,7 @@ struct ospf6_area {
 	/* Summary routes to be originated (includes Configured Address Ranges)
 	 */
 	struct ospf6_route_table *range_table;
+	struct ospf6_route_table *nssa_range_table;
 	struct ospf6_route_table *summary_prefix;
 	struct ospf6_route_table *summary_router;
 
@@ -74,8 +60,8 @@ struct ospf6_area {
 
 	uint32_t spf_calculation; /* SPF calculation count */
 
-	struct thread *thread_router_lsa;
-	struct thread *thread_intra_prefix_lsa;
+	struct event *thread_router_lsa;
+	struct event *thread_intra_prefix_lsa;
 	uint32_t router_lsa_size_limit;
 
 	/* Area announce list */
@@ -123,7 +109,6 @@ struct ospf6_area {
 #define OSPF6_NSSA_TRANSLATE_ENABLED  1
 };
 
-#define OSPF6_AREA_DEFAULT    0x00
 #define OSPF6_AREA_ENABLE     0x01
 #define OSPF6_AREA_ACTIVE     0x02
 #define OSPF6_AREA_TRANSIT    0x04 /* TransitCapability */

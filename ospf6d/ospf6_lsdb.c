@@ -1,21 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Copyright (C) 2003 Yasuhiro Ohara
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -28,8 +13,10 @@
 #include "vty.h"
 
 #include "ospf6_proto.h"
+#include "ospf6_area.h"
 #include "ospf6_lsa.h"
 #include "ospf6_lsdb.h"
+#include "ospf6_abr.h"
 #include "ospf6_asbr.h"
 #include "ospf6_route.h"
 #include "ospf6d.h"
@@ -92,6 +79,16 @@ static void _lsdb_count_assert(struct ospf6_lsdb *lsdb)
 #define ospf6_lsdb_count_assert(t) ((void) 0)
 #endif /*DEBUG*/
 
+static inline void ospf6_lsdb_stats_update(struct ospf6_lsa *lsa,
+					   struct ospf6_lsdb *lsdb, int count)
+{
+	uint16_t stat = ntohs(lsa->header->type) & OSPF6_LSTYPE_FCODE_MASK;
+
+	if (stat >= OSPF6_LSTYPE_SIZE)
+		stat = OSPF6_LSTYPE_UNKNOWN;
+	lsdb->stats[stat] += count;
+}
+
 void ospf6_lsdb_add(struct ospf6_lsa *lsa, struct ospf6_lsdb *lsdb)
 {
 	struct prefix_ipv6 key;
@@ -112,6 +109,7 @@ void ospf6_lsdb_add(struct ospf6_lsa *lsa, struct ospf6_lsdb *lsdb)
 
 	if (!old) {
 		lsdb->count++;
+		ospf6_lsdb_stats_update(lsa, lsdb, 1);
 
 		if (OSPF6_LSA_IS_MAXAGE(lsa)) {
 			if (lsdb->hook_remove)
@@ -121,6 +119,8 @@ void ospf6_lsdb_add(struct ospf6_lsa *lsa, struct ospf6_lsdb *lsdb)
 				(*lsdb->hook_add)(lsa);
 		}
 	} else {
+		lsa->retrans_count = old->retrans_count;
+
 		if (OSPF6_LSA_IS_CHANGED(old, lsa)) {
 			if (OSPF6_LSA_IS_MAXAGE(lsa)) {
 				if (lsdb->hook_remove) {
@@ -139,7 +139,7 @@ void ospf6_lsdb_add(struct ospf6_lsa *lsa, struct ospf6_lsdb *lsdb)
 		}
 		/* to free the lookup lock in node get*/
 		route_unlock_node(current);
-		ospf6_lsa_unlock(old);
+		ospf6_lsa_unlock(&old);
 	}
 
 	ospf6_lsdb_count_assert(lsdb);
@@ -161,13 +161,14 @@ void ospf6_lsdb_remove(struct ospf6_lsa *lsa, struct ospf6_lsdb *lsdb)
 
 	node->info = NULL;
 	lsdb->count--;
+	ospf6_lsdb_stats_update(lsa, lsdb, -1);
 
 	if (lsdb->hook_remove)
 		(*lsdb->hook_remove)(lsa);
 
 	route_unlock_node(node); /* to free the lookup lock */
 	route_unlock_node(node); /* to free the original lock */
-	ospf6_lsa_unlock(lsa);
+	ospf6_lsa_unlock(&lsa);
 
 	ospf6_lsdb_count_assert(lsdb);
 }
@@ -215,6 +216,33 @@ struct ospf6_lsa *ospf6_find_external_lsa(struct ospf6 *ospf6, struct prefix *p)
 	lsa = ospf6_lsdb_lookup(htons(OSPF6_LSTYPE_AS_EXTERNAL),
 				htonl(info->id), ospf6->router_id, ospf6->lsdb);
 	return lsa;
+}
+
+struct ospf6_lsa *ospf6_find_inter_prefix_lsa(struct ospf6 *ospf6,
+					      struct ospf6_area *area,
+					      struct prefix *p)
+{
+	struct ospf6_lsa *lsa;
+	uint16_t type = htons(OSPF6_LSTYPE_INTER_PREFIX);
+
+	for (ALL_LSDB_TYPED_ADVRTR(area->lsdb, type, ospf6->router_id, lsa)) {
+		struct ospf6_inter_prefix_lsa *prefix_lsa;
+		struct prefix prefix;
+
+		prefix_lsa =
+			(struct ospf6_inter_prefix_lsa *)OSPF6_LSA_HEADER_END(
+				lsa->header);
+		prefix.family = AF_INET6;
+		prefix.prefixlen = prefix_lsa->prefix.prefix_length;
+		ospf6_prefix_in6_addr(&prefix.u.prefix6, prefix_lsa,
+				      &prefix_lsa->prefix);
+		if (prefix_same(p, &prefix)) {
+			ospf6_lsa_unlock(&lsa);
+			return lsa;
+		}
+	}
+
+	return NULL;
 }
 
 struct ospf6_lsa *ospf6_lsdb_lookup_next(uint16_t type, uint32_t id,
@@ -300,7 +328,7 @@ struct ospf6_lsa *ospf6_lsdb_next(const struct route_node *iterend,
 {
 	struct route_node *node = lsa->rn;
 
-	ospf6_lsa_unlock(lsa);
+	ospf6_lsa_unlock(&lsa);
 
 	do
 		node = route_next_until(node, iterend);
@@ -333,7 +361,7 @@ void ospf6_lsdb_lsa_unlock(struct ospf6_lsa *lsa)
 	if (lsa != NULL) {
 		if (lsa->rn != NULL)
 			route_unlock_node(lsa->rn);
-		ospf6_lsa_unlock(lsa);
+		ospf6_lsa_unlock(&lsa);
 	}
 }
 
@@ -369,8 +397,8 @@ int ospf6_lsdb_maxage_remover(struct ospf6_lsdb *lsdb)
 				htonl(OSPF_MAX_SEQUENCE_NUMBER + 1);
 			ospf6_lsa_checksum(lsa->header);
 
-			THREAD_OFF(lsa->refresh);
-			thread_execute(master, ospf6_lsa_refresh, lsa, 0);
+			EVENT_OFF(lsa->refresh);
+			event_execute(master, ospf6_lsa_refresh, lsa, 0, NULL);
 		} else {
 			zlog_debug("calling ospf6_lsdb_remove %s", lsa->name);
 			ospf6_lsdb_remove(lsa, lsdb);

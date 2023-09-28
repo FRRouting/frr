@@ -1,20 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Copyright (C) 2018 NetDEF, Inc.
  *                    Renato Westphal
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef _FRR_RIPNG_NB_H_
@@ -51,6 +38,18 @@ int ripngd_instance_redistribute_route_map_destroy(
 	struct nb_cb_destroy_args *args);
 int ripngd_instance_redistribute_metric_modify(struct nb_cb_modify_args *args);
 int ripngd_instance_redistribute_metric_destroy(
+	struct nb_cb_destroy_args *args);
+int ripngd_instance_if_route_maps_if_route_map_create(
+	struct nb_cb_create_args *args);
+int ripngd_instance_if_route_maps_if_route_map_destroy(
+	struct nb_cb_destroy_args *args);
+int ripngd_instance_if_route_maps_if_route_map_in_route_map_modify(
+	struct nb_cb_modify_args *args);
+int ripngd_instance_if_route_maps_if_route_map_in_route_map_destroy(
+	struct nb_cb_destroy_args *args);
+int ripngd_instance_if_route_maps_if_route_map_out_route_map_modify(
+	struct nb_cb_modify_args *args);
+int ripngd_instance_if_route_maps_if_route_map_out_route_map_destroy(
 	struct nb_cb_destroy_args *args);
 int ripngd_instance_static_route_create(struct nb_cb_create_args *args);
 int ripngd_instance_static_route_destroy(struct nb_cb_destroy_args *args);
@@ -101,32 +100,38 @@ void ripngd_instance_redistribute_apply_finish(
 void ripngd_instance_timers_apply_finish(struct nb_cb_apply_finish_args *args);
 
 /* Optional 'cli_show' callbacks. */
-void cli_show_router_ripng(struct vty *vty, struct lyd_node *dnode,
+void cli_show_router_ripng(struct vty *vty, const struct lyd_node *dnode,
 			   bool show_defaults);
-void cli_show_ripng_allow_ecmp(struct vty *vty, struct lyd_node *dnode,
+void cli_show_ripng_allow_ecmp(struct vty *vty, const struct lyd_node *dnode,
 			       bool show_defaults);
 void cli_show_ripng_default_information_originate(struct vty *vty,
-						  struct lyd_node *dnode,
+						  const struct lyd_node *dnode,
 						  bool show_defaults);
-void cli_show_ripng_default_metric(struct vty *vty, struct lyd_node *dnode,
+void cli_show_ripng_default_metric(struct vty *vty,
+				   const struct lyd_node *dnode,
 				   bool show_defaults);
-void cli_show_ripng_network_prefix(struct vty *vty, struct lyd_node *dnode,
+void cli_show_ripng_network_prefix(struct vty *vty,
+				   const struct lyd_node *dnode,
 				   bool show_defaults);
-void cli_show_ripng_network_interface(struct vty *vty, struct lyd_node *dnode,
+void cli_show_ripng_network_interface(struct vty *vty,
+				      const struct lyd_node *dnode,
 				      bool show_defaults);
-void cli_show_ripng_offset_list(struct vty *vty, struct lyd_node *dnode,
+void cli_show_ripng_offset_list(struct vty *vty, const struct lyd_node *dnode,
 				bool show_defaults);
-void cli_show_ripng_passive_interface(struct vty *vty, struct lyd_node *dnode,
+void cli_show_ripng_passive_interface(struct vty *vty,
+				      const struct lyd_node *dnode,
 				      bool show_defaults);
-void cli_show_ripng_redistribute(struct vty *vty, struct lyd_node *dnode,
+void cli_show_ripng_redistribute(struct vty *vty, const struct lyd_node *dnode,
 				 bool show_defaults);
-void cli_show_ripng_route(struct vty *vty, struct lyd_node *dnode,
+void cli_show_ripng_route(struct vty *vty, const struct lyd_node *dnode,
 			  bool show_defaults);
-void cli_show_ripng_aggregate_address(struct vty *vty, struct lyd_node *dnode,
+void cli_show_ripng_aggregate_address(struct vty *vty,
+				      const struct lyd_node *dnode,
 				      bool show_defaults);
-void cli_show_ripng_timers(struct vty *vty, struct lyd_node *dnode,
+void cli_show_ripng_timers(struct vty *vty, const struct lyd_node *dnode,
 			   bool show_defaults);
-void cli_show_ipv6_ripng_split_horizon(struct vty *vty, struct lyd_node *dnode,
+void cli_show_ipv6_ripng_split_horizon(struct vty *vty,
+				       const struct lyd_node *dnode,
 				       bool show_defaults);
 
 #endif /* _FRR_RIPNG_NB_H_ */

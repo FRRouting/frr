@@ -1,21 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* RIPng daemon
  * Copyright (C) 1998, 1999 Kunihiro Ishiguro
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -23,7 +8,7 @@
 #include "prefix.h"
 #include "filter.h"
 #include "log.h"
-#include "thread.h"
+#include "frrevent.h"
 #include "memory.h"
 #include "if.h"
 #include "stream.h"
@@ -61,7 +46,7 @@ void ripng_output_process(struct interface *, struct sockaddr_in6 *, int);
 static void ripng_instance_enable(struct ripng *ripng, struct vrf *vrf,
 				  int sock);
 static void ripng_instance_disable(struct ripng *ripng);
-int ripng_triggered_update(struct thread *);
+static void ripng_triggered_update(struct event *);
 static void ripng_if_rmap_update(struct if_rmap_ctx *ctx,
 				 struct if_rmap *if_rmap);
 
@@ -196,7 +181,7 @@ int ripng_send_packet(caddr_t buf, int bufsize, struct sockaddr_in6 *to,
 		zlog_debug("  send packet size %d", bufsize);
 	}
 
-	memset(&addr, 0, sizeof(struct sockaddr_in6));
+	memset(&addr, 0, sizeof(addr));
 	addr.sin6_family = AF_INET6;
 #ifdef SIN6_LEN
 	addr.sin6_len = sizeof(struct sockaddr_in6);
@@ -217,7 +202,7 @@ int ripng_send_packet(caddr_t buf, int bufsize, struct sockaddr_in6 *to,
 	msg.msg_namelen = sizeof(struct sockaddr_in6);
 	msg.msg_iov = &iov;
 	msg.msg_iovlen = 1;
-	msg.msg_control = (void *)adata;
+	msg.msg_control = adata;
 	msg.msg_controllen = CMSG_SPACE(sizeof(struct in6_pktinfo));
 
 	iov.iov_base = buf;
@@ -259,7 +244,7 @@ static int ripng_recv_packet(int sock, uint8_t *buf, int bufsize,
 	struct cmsghdr *cmsgptr;
 	struct in6_addr dst = {.s6_addr = {0}};
 
-	memset(&dst, 0, sizeof(struct in6_addr));
+	memset(&dst, 0, sizeof(dst));
 
 	/* Ancillary data.  This store cmsghdr and in6_pktinfo.  But at this
 	   point I can't determine size of cmsghdr */
@@ -423,15 +408,15 @@ static int ripng_lladdr_check(struct interface *ifp, struct in6_addr *addr)
 }
 
 /* RIPng route garbage collect timer. */
-static int ripng_garbage_collect(struct thread *t)
+static void ripng_garbage_collect(struct event *t)
 {
 	struct ripng_info *rinfo;
 	struct agg_node *rp;
 
-	rinfo = THREAD_ARG(t);
+	rinfo = EVENT_ARG(t);
 
 	/* Off timeout timer. */
-	RIPNG_TIMER_OFF(rinfo->t_timeout);
+	EVENT_OFF(rinfo->t_timeout);
 
 	/* Get route_node pointer. */
 	rp = rinfo->rp;
@@ -445,8 +430,6 @@ static int ripng_garbage_collect(struct thread *t)
 
 	/* Free RIPng routing information. */
 	ripng_info_free(rinfo);
-
-	return 0;
 }
 
 static void ripng_timeout_update(struct ripng *ripng, struct ripng_info *rinfo);
@@ -460,7 +443,10 @@ struct ripng_info *ripng_ecmp_add(struct ripng *ripng,
 {
 	struct agg_node *rp = rinfo_new->rp;
 	struct ripng_info *rinfo = NULL;
+	struct ripng_info *rinfo_exist = NULL;
 	struct list *list = NULL;
+	struct listnode *node = NULL;
+	struct listnode *nnode = NULL;
 
 	if (rp->info == NULL)
 		rp->info = list_new();
@@ -471,6 +457,33 @@ struct ripng_info *ripng_ecmp_add(struct ripng *ripng,
 	if (listcount(list) && !ripng->ecmp)
 		return NULL;
 
+	/* Add or replace an existing ECMP path with lower neighbor IP */
+	if (listcount(list) && listcount(list) >= ripng->ecmp) {
+		struct ripng_info *from_highest = NULL;
+
+		/* Find the rip_info struct that has the highest nexthop IP */
+		for (ALL_LIST_ELEMENTS(list, node, nnode, rinfo_exist))
+			if (!from_highest ||
+			    (from_highest &&
+			     IPV6_ADDR_CMP(&rinfo_exist->from,
+					   &from_highest->from) > 0)) {
+				from_highest = rinfo_exist;
+			}
+
+		/* If we have a route in ECMP group, delete the old
+		 * one that has a higher next-hop address. Lower IP is
+		 * preferred.
+		 */
+		if (ripng->ecmp > 1 && from_highest &&
+		    IPV6_ADDR_CMP(&from_highest->from, &rinfo_new->from) > 0) {
+			ripng_ecmp_delete(ripng, from_highest);
+			goto add_or_replace;
+		}
+
+		return NULL;
+	}
+
+add_or_replace:
 	rinfo = ripng_info_new();
 	memcpy(rinfo, rinfo_new, sizeof(struct ripng_info));
 	listnode_add(list, rinfo);
@@ -490,6 +503,36 @@ struct ripng_info *ripng_ecmp_add(struct ripng *ripng,
 	ripng_event(ripng, RIPNG_TRIGGERED_UPDATE, 0);
 
 	return rinfo;
+}
+
+/* Update ECMP routes to zebra when `allow-ecmp` changed. */
+void ripng_ecmp_change(struct ripng *ripng)
+{
+	struct agg_node *rp;
+	struct ripng_info *rinfo;
+	struct list *list;
+	struct listnode *node, *nextnode;
+
+	for (rp = agg_route_top(ripng->table); rp; rp = agg_route_next(rp)) {
+		list = rp->info;
+		if (list && listcount(list) > 1) {
+			while (listcount(list) > ripng->ecmp) {
+				struct ripng_info *from_highest = NULL;
+
+				for (ALL_LIST_ELEMENTS(list, node, nextnode,
+						       rinfo)) {
+					if (!from_highest ||
+					    (from_highest &&
+					     IPV6_ADDR_CMP(
+						     &rinfo->from,
+						     &from_highest->from) > 0))
+						from_highest = rinfo;
+				}
+
+				ripng_ecmp_delete(ripng, from_highest);
+			}
+		}
+	}
 }
 
 /* Replace the ECMP list with the new route.
@@ -520,14 +563,14 @@ struct ripng_info *ripng_ecmp_replace(struct ripng *ripng,
 	/* Re-use the first entry, and delete the others. */
 	for (ALL_LIST_ELEMENTS(list, node, nextnode, tmp_rinfo))
 		if (tmp_rinfo != rinfo) {
-			RIPNG_TIMER_OFF(tmp_rinfo->t_timeout);
-			RIPNG_TIMER_OFF(tmp_rinfo->t_garbage_collect);
+			EVENT_OFF(tmp_rinfo->t_timeout);
+			EVENT_OFF(tmp_rinfo->t_garbage_collect);
 			list_delete_node(list, node);
 			ripng_info_free(tmp_rinfo);
 		}
 
-	RIPNG_TIMER_OFF(rinfo->t_timeout);
-	RIPNG_TIMER_OFF(rinfo->t_garbage_collect);
+	EVENT_OFF(rinfo->t_timeout);
+	EVENT_OFF(rinfo->t_garbage_collect);
 	memcpy(rinfo, rinfo_new, sizeof(struct ripng_info));
 
 	if (ripng_route_rte(rinfo)) {
@@ -559,7 +602,7 @@ struct ripng_info *ripng_ecmp_delete(struct ripng *ripng,
 	struct agg_node *rp = rinfo->rp;
 	struct list *list = (struct list *)rp->info;
 
-	RIPNG_TIMER_OFF(rinfo->t_timeout);
+	EVENT_OFF(rinfo->t_timeout);
 
 	if (rinfo->metric != RIPNG_METRIC_INFINITY)
 		ripng_aggregate_decrement(rp, rinfo);
@@ -567,10 +610,10 @@ struct ripng_info *ripng_ecmp_delete(struct ripng *ripng,
 	if (listcount(list) > 1) {
 		/* Some other ECMP entries still exist. Just delete this entry.
 		 */
-		RIPNG_TIMER_OFF(rinfo->t_garbage_collect);
+		EVENT_OFF(rinfo->t_garbage_collect);
 		listnode_delete(list, rinfo);
-		if (ripng_route_rte(rinfo)
-		    && CHECK_FLAG(rinfo->flags, RIPNG_RTF_FIB))
+		if (ripng_route_rte(rinfo) &&
+		    CHECK_FLAG(rinfo->flags, RIPNG_RTF_FIB))
 			/* The ADD message implies the update. */
 			ripng_zebra_ipv6_add(ripng, rp);
 		ripng_info_free(rinfo);
@@ -586,8 +629,8 @@ struct ripng_info *ripng_ecmp_delete(struct ripng *ripng,
 		RIPNG_TIMER_ON(rinfo->t_garbage_collect, ripng_garbage_collect,
 			       ripng->garbage_time);
 
-		if (ripng_route_rte(rinfo)
-		    && CHECK_FLAG(rinfo->flags, RIPNG_RTF_FIB))
+		if (ripng_route_rte(rinfo) &&
+		    CHECK_FLAG(rinfo->flags, RIPNG_RTF_FIB))
 			ripng_zebra_ipv6_delete(ripng, rp);
 	}
 
@@ -602,22 +645,20 @@ struct ripng_info *ripng_ecmp_delete(struct ripng *ripng,
 }
 
 /* Timeout RIPng routes. */
-static int ripng_timeout(struct thread *t)
+static void ripng_timeout(struct event *t)
 {
-	struct ripng_info *rinfo = THREAD_ARG(t);
+	struct ripng_info *rinfo = EVENT_ARG(t);
 	struct ripng *ripng = ripng_info_get_instance(rinfo);
 
 	ripng_ecmp_delete(ripng, rinfo);
-
-	return 0;
 }
 
 static void ripng_timeout_update(struct ripng *ripng, struct ripng_info *rinfo)
 {
 	if (rinfo->metric != RIPNG_METRIC_INFINITY) {
-		RIPNG_TIMER_OFF(rinfo->t_timeout);
-		thread_add_timer(master, ripng_timeout, rinfo,
-				 ripng->timeout_time, &rinfo->t_timeout);
+		EVENT_OFF(rinfo->t_timeout);
+		event_add_timer(master, ripng_timeout, rinfo,
+				ripng->timeout_time, &rinfo->t_timeout);
 	}
 }
 
@@ -635,8 +676,7 @@ static int ripng_filter(int ripng_distribute, struct prefix_ipv6 *p,
 	/* Input distribute-list filtering. */
 	if (ri->list[ripng_distribute]) {
 		if (access_list_apply(ri->list[ripng_distribute],
-				      (struct prefix *)p)
-		    == FILTER_DENY) {
+				      (struct prefix *)p) == FILTER_DENY) {
 			if (IS_RIPNG_DEBUG_PACKET)
 				zlog_debug("%pFX filtered by distribute %s", p,
 					   inout);
@@ -645,8 +685,7 @@ static int ripng_filter(int ripng_distribute, struct prefix_ipv6 *p,
 	}
 	if (ri->prefix[ripng_distribute]) {
 		if (prefix_list_apply(ri->prefix[ripng_distribute],
-				      (struct prefix *)p)
-		    == PREFIX_DENY) {
+				      (struct prefix *)p) == PREFIX_DENY) {
 			if (IS_RIPNG_DEBUG_PACKET)
 				zlog_debug("%pFX filtered by prefix-list %s", p,
 					   inout);
@@ -777,9 +816,8 @@ static void ripng_route_process(struct rte *rte, struct sockaddr_in6 *from,
 			}
 		}
 		rte->tag = htons(newinfo.tag_out); /* XXX */
-		rte->metric =
-			newinfo.metric_out; /* XXX: the routemap uses the
-					       metric_out field */
+		rte->metric = newinfo.metric_out;  /* XXX: the routemap uses the
+			 metric_out field */
 	}
 
 	/* Once the entry has been validated, update the metric by
@@ -896,18 +934,18 @@ static void ripng_route_process(struct rte *rte, struct sockaddr_in6 *from,
 		 * but
 		 * highly recommended".
 		 */
-		if (!ripng->ecmp && !same && rinfo->metric == rte->metric
-		    && rinfo->t_timeout
-		    && (thread_timer_remain_second(rinfo->t_timeout)
-			< (ripng->timeout_time / 2))) {
+		if (!ripng->ecmp && !same && rinfo->metric == rte->metric &&
+		    rinfo->t_timeout &&
+		    (event_timer_remain_second(rinfo->t_timeout) <
+		     (ripng->timeout_time / 2))) {
 			ripng_ecmp_replace(ripng, &newinfo);
 		}
 		/* Next, compare the metrics.  If the datagram is from the same
 		   router as the existing route, and the new metric is different
 		   than the old one; or, if the new metric is lower than the old
 		   one; do the following actions: */
-		else if ((same && rinfo->metric != rte->metric)
-			 || rte->metric < rinfo->metric) {
+		else if ((same && rinfo->metric != rte->metric) ||
+			 rte->metric < rinfo->metric) {
 			if (listcount(list) == 1) {
 				if (newinfo.metric != RIPNG_METRIC_INFINITY)
 					ripng_ecmp_replace(ripng, &newinfo);
@@ -944,7 +982,7 @@ void ripng_redistribute_add(struct ripng *ripng, int type, int sub_type,
 
 	rp = agg_node_get(ripng->table, (struct prefix *)p);
 
-	memset(&newinfo, 0, sizeof(struct ripng_info));
+	memset(&newinfo, 0, sizeof(newinfo));
 	newinfo.type = type;
 	newinfo.sub_type = sub_type;
 	newinfo.ifindex = ifindex;
@@ -1026,12 +1064,12 @@ void ripng_redistribute_delete(struct ripng *ripng, int type, int sub_type,
 				RIPNG_TIMER_ON(rinfo->t_garbage_collect,
 					       ripng_garbage_collect,
 					       ripng->garbage_time);
-				RIPNG_TIMER_OFF(rinfo->t_timeout);
+				EVENT_OFF(rinfo->t_timeout);
 
 				/* Aggregate count decrement. */
 				ripng_aggregate_decrement(rp, rinfo);
 
-				rinfo->flags |= RIPNG_RTF_CHANGED;
+				SET_FLAG(rinfo->flags, RIPNG_RTF_CHANGED);
 
 				if (IS_RIPNG_DEBUG_EVENT)
 					zlog_debug(
@@ -1065,12 +1103,12 @@ void ripng_redistribute_withdraw(struct ripng *ripng, int type)
 				RIPNG_TIMER_ON(rinfo->t_garbage_collect,
 					       ripng_garbage_collect,
 					       ripng->garbage_time);
-				RIPNG_TIMER_OFF(rinfo->t_timeout);
+				EVENT_OFF(rinfo->t_timeout);
 
 				/* Aggregate count decrement. */
 				ripng_aggregate_decrement(rp, rinfo);
 
-				rinfo->flags |= RIPNG_RTF_CHANGED;
+				SET_FLAG(rinfo->flags, RIPNG_RTF_CHANGED);
 
 				if (IS_RIPNG_DEBUG_EVENT) {
 					struct prefix_ipv6 *p =
@@ -1149,7 +1187,7 @@ static void ripng_response_process(struct ripng_packet *packet, int size,
 	ripng_peer_update(ripng, from, packet->version);
 
 	/* Reset nexthop. */
-	memset(&nexthop, 0, sizeof(struct ripng_nexthop));
+	memset(&nexthop, 0, sizeof(nexthop));
 	nexthop.flag = RIPNG_NEXTHOP_UNSPEC;
 
 	/* Set RTE pointer. */
@@ -1276,7 +1314,7 @@ static void ripng_request_process(struct ripng_packet *packet, int size,
 		   field.  Once all the entries have been filled in, change the
 		   command from Request to Response and send the datagram back
 		   to the requestor. */
-		memset(&p, 0, sizeof(struct prefix_ipv6));
+		memset(&p, 0, sizeof(p));
 		p.family = AF_INET6;
 
 		for (; ((caddr_t)rte) < lim; rte++) {
@@ -1301,9 +1339,9 @@ static void ripng_request_process(struct ripng_packet *packet, int size,
 }
 
 /* First entry point of reading RIPng packet. */
-static int ripng_read(struct thread *thread)
+static void ripng_read(struct event *thread)
 {
-	struct ripng *ripng = THREAD_ARG(thread);
+	struct ripng *ripng = EVENT_ARG(thread);
 	int len;
 	int sock;
 	struct sockaddr_in6 from;
@@ -1318,7 +1356,7 @@ static int ripng_read(struct thread *thread)
 
 	/* Fetch thread data and set read pointer to empty for event
 	   managing.  `sock' sould be same as ripng->sock. */
-	sock = THREAD_FD(thread);
+	sock = EVENT_FD(thread);
 
 	/* Add myself to the next event. */
 	ripng_event(ripng, RIPNG_READ, sock);
@@ -1330,7 +1368,7 @@ static int ripng_read(struct thread *thread)
 	if (len < 0) {
 		zlog_warn("RIPng recvfrom failed (VRF %s): %s.",
 			  ripng->vrf_name, safe_strerror(errno));
-		return len;
+		return;
 	}
 
 	/* Check RTE boundary.  RTE size (Packet length - RIPng header size
@@ -1339,7 +1377,7 @@ static int ripng_read(struct thread *thread)
 		zlog_warn("RIPng invalid packet size %d from %pI6 (VRF %s)",
 			  len, &from.sin6_addr, ripng->vrf_name);
 		ripng_peer_bad_packet(ripng, &from);
-		return 0;
+		return;
 	}
 
 	packet = (struct ripng_packet *)STREAM_DATA(ripng->ibuf);
@@ -1361,7 +1399,7 @@ static int ripng_read(struct thread *thread)
 		zlog_warn(
 			"RIPng packet comes from unknown interface %d (VRF %s)",
 			ifindex, ripng->vrf_name);
-		return 0;
+		return;
 	}
 
 	/* Packet version mismatch checking. */
@@ -1370,7 +1408,7 @@ static int ripng_read(struct thread *thread)
 			"RIPng packet version %d doesn't fit to my version %d (VRF %s)",
 			packet->version, ripng->version, ripng->vrf_name);
 		ripng_peer_bad_packet(ripng, &from);
-		return 0;
+		return;
 	}
 
 	/* Process RIPng packet. */
@@ -1387,7 +1425,6 @@ static int ripng_read(struct thread *thread)
 		ripng_peer_bad_packet(ripng, &from);
 		break;
 	}
-	return 0;
 }
 
 /* Walk down the RIPng routing table then clear changed flag. */
@@ -1410,9 +1447,9 @@ static void ripng_clear_changed_flag(struct ripng *ripng)
 
 /* Regular update of RIPng route.  Send all routing formation to RIPng
    enabled interface. */
-static int ripng_update(struct thread *t)
+static void ripng_update(struct event *t)
 {
-	struct ripng *ripng = THREAD_ARG(t);
+	struct ripng *ripng = EVENT_ARG(t);
 	struct interface *ifp;
 	struct ripng_interface *ri;
 
@@ -1450,37 +1487,34 @@ static int ripng_update(struct thread *t)
 
 	/* Triggered updates may be suppressed if a regular update is due by
 	   the time the triggered update would be sent. */
-	thread_cancel(&ripng->t_triggered_interval);
+	EVENT_OFF(ripng->t_triggered_interval);
 	ripng->trigger = 0;
 
 	/* Reset flush event. */
 	ripng_event(ripng, RIPNG_UPDATE_EVENT, 0);
-
-	return 0;
 }
 
 /* Triggered update interval timer. */
-static int ripng_triggered_interval(struct thread *t)
+static void ripng_triggered_interval(struct event *t)
 {
-	struct ripng *ripng = THREAD_ARG(t);
+	struct ripng *ripng = EVENT_ARG(t);
 
 	if (ripng->trigger) {
 		ripng->trigger = 0;
 		ripng_triggered_update(t);
 	}
-	return 0;
 }
 
 /* Execute triggered update. */
-int ripng_triggered_update(struct thread *t)
+void ripng_triggered_update(struct event *t)
 {
-	struct ripng *ripng = THREAD_ARG(t);
+	struct ripng *ripng = EVENT_ARG(t);
 	struct interface *ifp;
 	struct ripng_interface *ri;
 	int interval;
 
 	/* Cancel interval timer. */
-	thread_cancel(&ripng->t_triggered_interval);
+	EVENT_OFF(ripng->t_triggered_interval);
 	ripng->trigger = 0;
 
 	/* Logging triggered update. */
@@ -1516,10 +1550,8 @@ int ripng_triggered_update(struct thread *t)
 	   update is triggered when the timer expires. */
 	interval = (frr_weak_random() % 5) + 1;
 
-	thread_add_timer(master, ripng_triggered_interval, ripng, interval,
-			 &ripng->t_triggered_interval);
-
-	return 0;
+	event_add_timer(master, ripng_triggered_interval, ripng, interval,
+			&ripng->t_triggered_interval);
 }
 
 /* Write routing table entry to the stream and return next index of
@@ -1610,8 +1642,8 @@ void ripng_output_process(struct interface *ifp, struct sockaddr_in6 *to,
 				continue;
 
 			/* Changed route only output. */
-			if (route_type == ripng_changed_route
-			    && (!(rinfo->flags & RIPNG_RTF_CHANGED)))
+			if (route_type == ripng_changed_route &&
+			    (!CHECK_FLAG(rinfo->flags, RIPNG_RTF_CHANGED)))
 				continue;
 
 			/* Split horizon. */
@@ -1622,9 +1654,10 @@ void ripng_output_process(struct interface *ifp, struct sockaddr_in6 *to,
 
 				for (ALL_LIST_ELEMENTS_RO(list, listnode,
 							  tmp_rinfo))
-					if (tmp_rinfo->type == ZEBRA_ROUTE_RIPNG
-					    && tmp_rinfo->ifindex
-						       == ifp->ifindex) {
+					if (tmp_rinfo->type ==
+						    ZEBRA_ROUTE_RIPNG &&
+					    tmp_rinfo->ifindex ==
+						    ifp->ifindex) {
 						suppress = 1;
 						break;
 					}
@@ -1682,11 +1715,11 @@ void ripng_output_process(struct interface *ifp, struct sockaddr_in6 *to,
 					/* If the route is not connected or
 					   localy generated
 					   one, use default-metric value */
-					if (rinfo->type != ZEBRA_ROUTE_RIPNG
-					    && rinfo->type
-						       != ZEBRA_ROUTE_CONNECT
-					    && rinfo->metric
-						       != RIPNG_METRIC_INFINITY)
+					if (rinfo->type != ZEBRA_ROUTE_RIPNG &&
+					    rinfo->type !=
+						    ZEBRA_ROUTE_CONNECT &&
+					    rinfo->metric !=
+						    RIPNG_METRIC_INFINITY)
 						rinfo->metric_out =
 							ripng->default_metric;
 				}
@@ -1703,16 +1736,15 @@ void ripng_output_process(struct interface *ifp, struct sockaddr_in6 *to,
 			/* Perform split-horizon with poisoned reverse
 			 * for RIPng routes.
 			 **/
-			if (ri->split_horizon
-			    == RIPNG_SPLIT_HORIZON_POISONED_REVERSE) {
+			if (ri->split_horizon ==
+			    RIPNG_SPLIT_HORIZON_POISONED_REVERSE) {
 				struct ripng_info *tmp_rinfo = NULL;
 
 				for (ALL_LIST_ELEMENTS_RO(list, listnode,
 							  tmp_rinfo))
-					if ((tmp_rinfo->type
-					     == ZEBRA_ROUTE_RIPNG)
-					    && tmp_rinfo->ifindex
-						       == ifp->ifindex)
+					if ((tmp_rinfo->type ==
+					     ZEBRA_ROUTE_RIPNG) &&
+					    tmp_rinfo->ifindex == ifp->ifindex)
 						rinfo->metric_out =
 							RIPNG_METRIC_INFINITY;
 			}
@@ -1839,7 +1871,7 @@ struct ripng *ripng_create(const char *vrf_name, struct vrf *vrf, int socket)
 		"%s/timers/flush-interval", RIPNG_INSTANCE);
 	ripng->default_metric =
 		yang_get_default_uint8("%s/default-metric", RIPNG_INSTANCE);
-	ripng->ecmp = yang_get_default_bool("%s/allow-ecmp", RIPNG_INSTANCE);
+	ripng->ecmp = yang_get_default_uint8("%s/allow-ecmp", RIPNG_INSTANCE);
 
 	/* Make buffer.  */
 	ripng->ibuf = stream_new(RIPNG_MAX_PACKET_SIZE * 5);
@@ -1923,27 +1955,27 @@ void ripng_event(struct ripng *ripng, enum ripng_event event, int sock)
 
 	switch (event) {
 	case RIPNG_READ:
-		thread_add_read(master, ripng_read, ripng, sock,
-				&ripng->t_read);
+		event_add_read(master, ripng_read, ripng, sock, &ripng->t_read);
 		break;
 	case RIPNG_UPDATE_EVENT:
-		thread_cancel(&ripng->t_update);
+		EVENT_OFF(ripng->t_update);
 
 		/* Update timer jitter. */
 		jitter = ripng_update_jitter(ripng->update_time);
 
-		thread_add_timer(master, ripng_update, ripng,
-				 sock ? 2 : ripng->update_time + jitter,
-				 &ripng->t_update);
+		event_add_timer(master, ripng_update, ripng,
+				sock ? 2 : ripng->update_time + jitter,
+				&ripng->t_update);
 		break;
 	case RIPNG_TRIGGERED_UPDATE:
 		if (ripng->t_triggered_interval)
 			ripng->trigger = 1;
 		else
-			thread_add_event(master, ripng_triggered_update, ripng,
-					 0, &ripng->t_triggered_update);
+			event_add_event(master, ripng_triggered_update, ripng,
+					0, &ripng->t_triggered_update);
 		break;
-	default:
+	case RIPNG_ZEBRA:
+	case RIPNG_REQUEST_EVENT:
 		break;
 	}
 }
@@ -1956,15 +1988,15 @@ static void ripng_vty_out_uptime(struct vty *vty, struct ripng_info *rinfo)
 	struct tm tm;
 #define TIME_BUF 25
 	char timebuf[TIME_BUF];
-	struct thread *thread;
+	struct event *thread;
 
 	if ((thread = rinfo->t_timeout) != NULL) {
-		clock = thread_timer_remain_second(thread);
+		clock = event_timer_remain_second(thread);
 		gmtime_r(&clock, &tm);
 		strftime(timebuf, TIME_BUF, "%M:%S", &tm);
 		vty_out(vty, "%5s", timebuf);
 	} else if ((thread = rinfo->t_garbage_collect) != NULL) {
-		clock = thread_timer_remain_second(thread);
+		clock = event_timer_remain_second(thread);
 		gmtime_r(&clock, &tm);
 		strftime(timebuf, TIME_BUF, "%M:%S", &tm);
 		vty_out(vty, "%5s", timebuf);
@@ -2153,7 +2185,7 @@ DEFUN (show_ipv6_ripng_status,
 	vty_out(vty, "  Sending updates every %u seconds with +/-50%%,",
 		ripng->update_time);
 	vty_out(vty, " next due in %lu seconds\n",
-		thread_timer_remain_second(ripng->t_update));
+		event_timer_remain_second(ripng->t_update));
 	vty_out(vty, "  Timeout after %u seconds,", ripng->timeout_time);
 	vty_out(vty, " garbage collect after %u seconds\n",
 		ripng->garbage_time);
@@ -2219,9 +2251,8 @@ void ripng_ecmp_disable(struct ripng *ripng)
 			/* Drop all other entries, except the first one. */
 			for (ALL_LIST_ELEMENTS(list, node, nextnode, tmp_rinfo))
 				if (tmp_rinfo != rinfo) {
-					RIPNG_TIMER_OFF(tmp_rinfo->t_timeout);
-					RIPNG_TIMER_OFF(
-						tmp_rinfo->t_garbage_collect);
+					EVENT_OFF(tmp_rinfo->t_timeout);
+					EVENT_OFF(tmp_rinfo->t_garbage_collect);
 					list_delete_node(list, node);
 					ripng_info_free(tmp_rinfo);
 				}
@@ -2257,7 +2288,6 @@ static int ripng_config_write(struct vty *vty)
 		nb_cli_show_dnode_cmds(vty, dnode, false);
 
 		config_write_distribute(vty, ripng->distribute_ctx);
-		config_write_if_rmap(vty, ripng->if_rmap_ctx);
 
 		vty_out(vty, "exit\n");
 
@@ -2538,8 +2568,8 @@ static void ripng_instance_disable(struct ripng *ripng)
 				ripng_zebra_ipv6_delete(ripng, rp);
 
 			for (ALL_LIST_ELEMENTS_RO(list, listnode, rinfo)) {
-				RIPNG_TIMER_OFF(rinfo->t_timeout);
-				RIPNG_TIMER_OFF(rinfo->t_garbage_collect);
+				EVENT_OFF(rinfo->t_timeout);
+				EVENT_OFF(rinfo->t_garbage_collect);
 				ripng_info_free(rinfo);
 			}
 			list_delete(&list);
@@ -2558,12 +2588,12 @@ static void ripng_instance_disable(struct ripng *ripng)
 	ripng_redistribute_disable(ripng);
 
 	/* Cancel the RIPng timers */
-	RIPNG_TIMER_OFF(ripng->t_update);
-	RIPNG_TIMER_OFF(ripng->t_triggered_update);
-	RIPNG_TIMER_OFF(ripng->t_triggered_interval);
+	EVENT_OFF(ripng->t_update);
+	EVENT_OFF(ripng->t_triggered_update);
+	EVENT_OFF(ripng->t_triggered_interval);
 
 	/* Cancel the read thread */
-	thread_cancel(&ripng->t_read);
+	EVENT_OFF(ripng->t_read);
 
 	/* Close the RIPng socket */
 	if (ripng->sock >= 0) {
@@ -2604,45 +2634,7 @@ static int ripng_vrf_enable(struct vrf *vrf)
 	int socket;
 
 	ripng = ripng_lookup_by_vrf_name(vrf->name);
-	if (!ripng) {
-		char *old_vrf_name = NULL;
-
-		ripng = (struct ripng *)vrf->info;
-		if (!ripng)
-			return 0;
-		/* update vrf name */
-		if (ripng->vrf_name)
-			old_vrf_name = ripng->vrf_name;
-		ripng->vrf_name = XSTRDUP(MTYPE_RIPNG_VRF_NAME, vrf->name);
-		/*
-		 * HACK: Change the RIPng VRF in the running configuration directly,
-		 * bypassing the northbound layer. This is necessary to avoid deleting
-		 * the RIPng and readding it in the new VRF, which would have
-		 * several implications.
-		 */
-		if (yang_module_find("frr-ripngd") && old_vrf_name) {
-			struct lyd_node *ripng_dnode;
-			char oldpath[XPATH_MAXLEN];
-			char newpath[XPATH_MAXLEN];
-
-			ripng_dnode = yang_dnode_getf(
-				running_config->dnode,
-				"/frr-ripngd:ripngd/instance[vrf='%s']/vrf",
-				old_vrf_name);
-			if (ripng_dnode) {
-				yang_dnode_get_path(lyd_parent(ripng_dnode),
-						    oldpath, sizeof(oldpath));
-				yang_dnode_change_leaf(ripng_dnode, vrf->name);
-				yang_dnode_get_path(lyd_parent(ripng_dnode),
-						    newpath, sizeof(newpath));
-				nb_running_move_tree(oldpath, newpath);
-				running_config->version++;
-			}
-		}
-		XFREE(MTYPE_RIPNG_VRF_NAME, old_vrf_name);
-	}
-
-	if (ripng->enabled)
+	if (!ripng || ripng->enabled)
 		return 0;
 
 	if (IS_RIPNG_DEBUG_EVENT)
@@ -2681,7 +2673,7 @@ static int ripng_vrf_disable(struct vrf *vrf)
 void ripng_vrf_init(void)
 {
 	vrf_init(ripng_vrf_new, ripng_vrf_enable, ripng_vrf_disable,
-		 ripng_vrf_delete, ripng_vrf_enable);
+		 ripng_vrf_delete);
 
 	vrf_cmd_init(NULL);
 }

@@ -1,24 +1,13 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Copyright (C) 2019  Cumulus Networks, Inc.
  * Chirag Shah
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
 
+#include "lib/admin_group.h"
+#include "lib/affinitymap.h"
 #include "lib/log.h"
 #include "lib/northbound.h"
 #include "lib/printfrr.h"
@@ -1099,6 +1088,50 @@ int lib_interface_zebra_shutdown_destroy(struct nb_cb_destroy_args *args)
 }
 
 /*
+ * XPath: /frr-interface:lib/interface/frr-zebra:zebra/mpls
+ */
+int lib_interface_zebra_mpls_modify(struct nb_cb_modify_args *args)
+{
+	struct interface *ifp;
+	bool mpls;
+	struct zebra_if *zif;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	ifp = nb_running_get_entry(args->dnode, NULL, true);
+	zif = ifp->info;
+	mpls = yang_dnode_get_bool(args->dnode, NULL);
+
+	if (mpls)
+		zif->mpls_config = IF_ZEBRA_DATA_ON;
+	else
+		zif->mpls_config = IF_ZEBRA_DATA_OFF;
+
+	dplane_intf_mpls_modify_state(ifp, mpls);
+
+	return NB_OK;
+}
+
+int lib_interface_zebra_mpls_destroy(struct nb_cb_destroy_args *args)
+{
+	struct interface *ifp;
+	struct zebra_if *zif;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	ifp = nb_running_get_entry(args->dnode, NULL, true);
+	zif = ifp->info;
+
+	zif->mpls_config = IF_ZEBRA_DATA_UNSPEC;
+
+	/* keep the state as it is */
+
+	return NB_OK;
+}
+
+/*
  * XPath: /frr-interface:lib/interface/frr-zebra:zebra/bandwidth
  */
 int lib_interface_zebra_bandwidth_modify(struct nb_cb_modify_args *args)
@@ -1140,6 +1173,275 @@ int lib_interface_zebra_bandwidth_destroy(struct nb_cb_destroy_args *args)
 }
 
 /*
+ * XPath:
+ * /frr-interface:lib/interface/frr-zebra:zebra/link-params/legacy-admin-group
+ */
+int lib_interface_zebra_legacy_admin_group_modify(
+	struct nb_cb_modify_args *args)
+{
+	struct interface *ifp;
+	struct if_link_params *iflp;
+	uint32_t admin_group_value;
+
+	ifp = nb_running_get_entry(args->dnode, NULL, true);
+	admin_group_value = yang_dnode_get_uint32(args->dnode, ".");
+
+	if (!ifp)
+		return NB_ERR_RESOURCE;
+
+	iflp = if_link_params_get(ifp);
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	case NB_EV_APPLY:
+		if (!iflp)
+			iflp = if_link_params_enable(ifp);
+
+		iflp->admin_grp = admin_group_value;
+		SET_PARAM(iflp, LP_ADM_GRP);
+
+		admin_group_clear(&iflp->ext_admin_grp);
+		UNSET_PARAM(iflp, LP_EXTEND_ADM_GRP);
+
+		if (if_is_operative(ifp))
+			zebra_interface_parameters_update(ifp);
+		break;
+	}
+	return NB_OK;
+}
+
+int lib_interface_zebra_legacy_admin_group_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	struct interface *ifp;
+	struct if_link_params *iflp;
+
+	ifp = nb_running_get_entry(args->dnode, NULL, true);
+
+	if (!ifp)
+		return NB_ERR_RESOURCE;
+
+	iflp = if_link_params_get(ifp);
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	case NB_EV_APPLY:
+		if (!iflp)
+			iflp = if_link_params_enable(ifp);
+
+		iflp->admin_grp = 0;
+		UNSET_PARAM(iflp, LP_ADM_GRP);
+
+		if (if_is_operative(ifp))
+			zebra_interface_parameters_update(ifp);
+		break;
+	}
+	return NB_OK;
+}
+
+/*
+ * XPath:
+ * /frr-interface:lib/interface/frr-zebra:zebra/link-params/affinities/affinity
+ */
+int lib_interface_zebra_affinity_create(struct nb_cb_create_args *args)
+{
+	struct interface *ifp;
+	const char *affname;
+	struct if_link_params *iflp;
+	struct affinity_map *affmap;
+	enum affinity_mode affinity_mode;
+
+
+	ifp = nb_running_get_entry(args->dnode, NULL, true);
+	affname = yang_dnode_get_string(args->dnode, ".");
+	affinity_mode = yang_dnode_get_enum(args->dnode, "../../affinity-mode");
+
+	if (!ifp)
+		return NB_ERR_RESOURCE;
+
+	affmap = affinity_map_get(affname);
+	iflp = if_link_params_get(ifp);
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+		if (!affmap) {
+			snprintf(args->errmsg, args->errmsg_len,
+				 "affinity-map %s not found.", affname);
+			return NB_ERR_VALIDATION;
+		}
+		if (affinity_mode == AFFINITY_MODE_STANDARD &&
+		    affmap->bit_position > 31) {
+			snprintf(
+				args->errmsg, args->errmsg_len,
+				"affinity %s bit-position %d is not compatible with affinity-mode standard (bit-position > 31).",
+				affname, affmap->bit_position);
+			return NB_ERR_VALIDATION;
+		}
+		break;
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	case NB_EV_APPLY:
+		if (!iflp)
+			iflp = if_link_params_enable(ifp);
+
+		if (affmap->bit_position < 32 &&
+		    (affinity_mode == AFFINITY_MODE_STANDARD ||
+		     affinity_mode == AFFINITY_MODE_BOTH)) {
+			iflp->admin_grp |= 1 << affmap->bit_position;
+			SET_PARAM(iflp, LP_ADM_GRP);
+		}
+		if (affinity_mode == AFFINITY_MODE_EXTENDED ||
+		    affinity_mode == AFFINITY_MODE_BOTH) {
+			admin_group_set(&iflp->ext_admin_grp,
+					affmap->bit_position);
+			SET_PARAM(iflp, LP_EXTEND_ADM_GRP);
+		}
+
+		if (if_is_operative(ifp))
+			zebra_interface_parameters_update(ifp);
+		break;
+	}
+	return NB_OK;
+}
+
+int lib_interface_zebra_affinity_destroy(struct nb_cb_destroy_args *args)
+{
+	struct interface *ifp;
+	const char *affname;
+	struct if_link_params *iflp;
+	struct affinity_map *affmap;
+	enum affinity_mode affinity_mode;
+
+	ifp = nb_running_get_entry(args->dnode, NULL, true);
+	affname = yang_dnode_get_string(args->dnode, ".");
+	affinity_mode = yang_dnode_get_enum(args->dnode, "../../affinity-mode");
+
+	if (!ifp)
+		return NB_ERR_RESOURCE;
+
+	affmap = affinity_map_get(affname);
+	iflp = if_link_params_get(ifp);
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+		if (!affmap) {
+			snprintf(args->errmsg, args->errmsg_len,
+				 "affinity-map %s not found.", affname);
+			return NB_ERR_VALIDATION;
+		}
+		break;
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	case NB_EV_APPLY:
+		if (!iflp)
+			return NB_OK;
+		if (affmap->bit_position < 32 &&
+		    (affinity_mode == AFFINITY_MODE_STANDARD ||
+		     affinity_mode == AFFINITY_MODE_BOTH)) {
+			iflp->admin_grp &= ~(1 << affmap->bit_position);
+			if (iflp->admin_grp == 0)
+				UNSET_PARAM(iflp, LP_ADM_GRP);
+		}
+		if (affinity_mode == AFFINITY_MODE_EXTENDED ||
+		    affinity_mode == AFFINITY_MODE_BOTH) {
+			admin_group_unset(&iflp->ext_admin_grp,
+					  affmap->bit_position);
+			if (admin_group_zero(&iflp->ext_admin_grp))
+				UNSET_PARAM(iflp, LP_EXTEND_ADM_GRP);
+		}
+
+		if (if_is_operative(ifp))
+			zebra_interface_parameters_update(ifp);
+		break;
+	}
+	return NB_OK;
+}
+
+/*
+ * XPath:
+ * /frr-interface:lib/interface/frr-zebra:zebra/link-params/affinity-mode
+ */
+int lib_interface_zebra_affinity_mode_modify(struct nb_cb_modify_args *args)
+{
+	struct interface *ifp;
+	struct if_link_params *iflp;
+	enum affinity_mode affinity_mode;
+
+
+	ifp = nb_running_get_entry(args->dnode, NULL, true);
+	affinity_mode = yang_dnode_get_enum(args->dnode, ".");
+
+	if (!ifp)
+		return NB_ERR_RESOURCE;
+
+	iflp = if_link_params_get(ifp);
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+		if (affinity_mode == AFFINITY_MODE_STANDARD &&
+		    admin_group_nb_words(&iflp->ext_admin_grp) > 1) {
+			snprintf(
+				args->errmsg, args->errmsg_len,
+				"affinity-mode standard cannot be set when a bit-position > 31 is set.");
+			return NB_ERR_VALIDATION;
+		}
+		break;
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	case NB_EV_APPLY:
+		if (!iflp)
+			iflp = if_link_params_enable(ifp);
+		if (affinity_mode == AFFINITY_MODE_STANDARD) {
+			if (!IS_PARAM_SET(iflp, LP_ADM_GRP) &&
+			    IS_PARAM_SET(iflp, LP_EXTEND_ADM_GRP)) {
+				iflp->admin_grp = admin_group_get_offset(
+					&iflp->ext_admin_grp, 0);
+				SET_PARAM(iflp, LP_ADM_GRP);
+			}
+			admin_group_clear(&iflp->ext_admin_grp);
+			UNSET_PARAM(iflp, LP_EXTEND_ADM_GRP);
+		}
+		if (affinity_mode == AFFINITY_MODE_EXTENDED) {
+			if (!IS_PARAM_SET(iflp, LP_EXTEND_ADM_GRP) &&
+			    IS_PARAM_SET(iflp, LP_ADM_GRP)) {
+				admin_group_bulk_set(&iflp->ext_admin_grp,
+						     iflp->admin_grp, 0);
+				SET_PARAM(iflp, LP_EXTEND_ADM_GRP);
+			}
+			iflp->admin_grp = 0;
+			UNSET_PARAM(iflp, LP_ADM_GRP);
+		}
+		if (affinity_mode == AFFINITY_MODE_BOTH) {
+			if (!IS_PARAM_SET(iflp, LP_EXTEND_ADM_GRP) &&
+			    IS_PARAM_SET(iflp, LP_ADM_GRP)) {
+				admin_group_bulk_set(&iflp->ext_admin_grp,
+						     iflp->admin_grp, 0);
+				SET_PARAM(iflp, LP_EXTEND_ADM_GRP);
+			} else if (!IS_PARAM_SET(iflp, LP_ADM_GRP) &&
+				   IS_PARAM_SET(iflp, LP_EXTEND_ADM_GRP)) {
+				iflp->admin_grp = admin_group_get_offset(
+					&iflp->ext_admin_grp, 0);
+				SET_PARAM(iflp, LP_ADM_GRP);
+			}
+		}
+
+		if (if_is_operative(ifp))
+			zebra_interface_parameters_update(ifp);
+		break;
+	}
+	return NB_OK;
+}
+
+/*
  * XPath: /frr-vrf:lib/vrf/frr-zebra:zebra/l3vni-id
  */
 int lib_vrf_zebra_l3vni_id_modify(struct nb_cb_modify_args *args)
@@ -1148,7 +1450,6 @@ int lib_vrf_zebra_l3vni_id_modify(struct nb_cb_modify_args *args)
 	struct zebra_vrf *zvrf;
 	vni_t vni = 0;
 	struct zebra_l3vni *zl3vni = NULL;
-	struct zebra_vrf *zvrf_evpn = NULL;
 	char err[ERR_STR_SZ];
 	bool pfx_only = false;
 	const struct lyd_node *pn_dnode;
@@ -1159,33 +1460,25 @@ int lib_vrf_zebra_l3vni_id_modify(struct nb_cb_modify_args *args)
 	case NB_EV_ABORT:
 		return NB_OK;
 	case NB_EV_VALIDATE:
-		zvrf_evpn = zebra_vrf_get_evpn();
-		if (!zvrf_evpn) {
-			snprintf(args->errmsg, args->errmsg_len,
-				 "evpn vrf is not present.");
-			return NB_ERR_VALIDATION;
-		}
 		vni = yang_dnode_get_uint32(args->dnode, NULL);
 		/* Get vrf info from parent node, reject configuration
 		 * if zebra vrf already mapped to different vni id.
 		 */
 		pn_dnode = yang_dnode_get_parent(args->dnode, "vrf");
-		if (pn_dnode) {
-			vrfname = yang_dnode_get_string(pn_dnode, "./name");
-			zvrf = zebra_vrf_lookup_by_name(vrfname);
-			if (!zvrf) {
-				snprintf(args->errmsg, args->errmsg_len,
-					 "zebra vrf info not found for vrf:%s.",
-					 vrfname);
-				return NB_ERR_VALIDATION;
-			}
-			if (zvrf->l3vni && zvrf->l3vni != vni) {
-				snprintf(
-					args->errmsg, args->errmsg_len,
-					"vni %u cannot be configured as vni %u is already configured under the vrf",
-					vni, zvrf->l3vni);
-				return NB_ERR_VALIDATION;
-			}
+		vrfname = yang_dnode_get_string(pn_dnode, "./name");
+		zvrf = zebra_vrf_lookup_by_name(vrfname);
+		if (!zvrf) {
+			snprintf(args->errmsg, args->errmsg_len,
+				 "zebra vrf info not found for vrf:%s.",
+				 vrfname);
+			return NB_ERR_VALIDATION;
+		}
+		if (zvrf->l3vni && zvrf->l3vni != vni) {
+			snprintf(
+				args->errmsg, args->errmsg_len,
+				"vni %u cannot be configured as vni %u is already configured under the vrf",
+				vni, zvrf->l3vni);
+			return NB_ERR_VALIDATION;
 		}
 
 		/* Check if this VNI is already present in the system */

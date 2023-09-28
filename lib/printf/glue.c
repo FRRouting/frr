@@ -1,17 +1,6 @@
+// SPDX-License-Identifier: ISC
 /*
  * Copyright (c) 2019  David Lamparter, for NetDEF, Inc.
- *
- * Permission to use, copy, modify, and distribute this software for any
- * purpose with or without fee is hereby granted, provided that the above
- * copyright notice and this permission notice appear in all copies.
- *
- * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
- * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
- * ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
- * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
- * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
- * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
 #ifdef HAVE_CONFIG_H
@@ -256,7 +245,7 @@ ssize_t printfrr_exti(struct fbuf *buf, struct printfrr_eargs *ea,
 	return -1;
 }
 
-printfrr_ext_autoreg_p("FB", printfrr_fb)
+printfrr_ext_autoreg_p("FB", printfrr_fb);
 static ssize_t printfrr_fb(struct fbuf *out, struct printfrr_eargs *ea,
 			   const void *ptr)
 {
@@ -278,12 +267,13 @@ static ssize_t printfrr_fb(struct fbuf *out, struct printfrr_eargs *ea,
 	return in->pos - in->buf;
 }
 
-printfrr_ext_autoreg_p("VA", printfrr_va)
+printfrr_ext_autoreg_p("VA", printfrr_va);
 static ssize_t printfrr_va(struct fbuf *buf, struct printfrr_eargs *ea,
 			   const void *ptr)
 {
 	const struct va_format *vaf = ptr;
 	va_list ap;
+	ssize_t s;
 
 	if (!vaf || !vaf->fmt || !vaf->va)
 		return bputs(buf, "NULL");
@@ -293,5 +283,12 @@ static ssize_t printfrr_va(struct fbuf *buf, struct printfrr_eargs *ea,
 	 * when allocating a larger buffer in asnprintfrr()
 	 */
 	va_copy(ap, *vaf->va);
-	return vbprintfrr(buf, vaf->fmt, ap);
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wformat-nonliteral"
+	/* can't format check this */
+	s = vbprintfrr(buf, vaf->fmt, ap);
+#pragma GCC diagnostic pop
+	va_end(ap);
+
+	return s;
 }

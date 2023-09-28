@@ -1,0 +1,13 @@
+{
+  "routes":[
+    {
+      "fib":3,
+      "rib":3,
+      "fibOffLoaded":0,
+      "fibTrapped":0,
+      "type":"sharp"
+    }
+  ],
+  "routesTotal":4,
+  "routesTotalFib":4
+}

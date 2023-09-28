@@ -1,23 +1,10 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * IS-IS Rout(e)ing protocol - isis_bpf.c
  *
  * Copyright (C) 2001,2002    Sampo Saaristo
  *                            Tampere University of Technology
  *                            Institute of Communications Engineering
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public Licenseas published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful,but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -161,11 +148,11 @@ static int open_bpf_dev(struct isis_circuit *circuit)
 	/*
 	 * And set the filter
 	 */
-	memset(&bpf_prog, 0, sizeof(struct bpf_program));
+	memset(&bpf_prog, 0, sizeof(bpf_prog));
 	bpf_prog.bf_len = 8;
 	bpf_prog.bf_insns = &(llcfilter[0]);
 	if (ioctl(fd, BIOCSETF, (caddr_t)&bpf_prog) < 0) {
-		zlog_warn("open_bpf_dev(): failed to install filter: %s",
+		zlog_warn("%s: failed to install filter: %s", __func__,
 			  safe_strerror(errno));
 		return ISIS_WARNING;
 	}
@@ -198,7 +185,7 @@ int isis_sock_init(struct isis_circuit *circuit)
 			circuit->tx = isis_send_pdu_bcast;
 			circuit->rx = isis_recv_pdu_bcast;
 		} else {
-			zlog_warn("isis_sock_init(): unknown circuit type");
+			zlog_warn("%s: unknown circuit type", __func__);
 			retval = ISIS_WARNING;
 			break;
 		}
@@ -223,8 +210,8 @@ int isis_recv_pdu_bcast(struct isis_circuit *circuit, uint8_t *ssnpa)
 		bytesread = read(circuit->fd, readbuff, readblen);
 	}
 	if (bytesread < 0) {
-		zlog_warn("isis_recv_pdu_bcast(): read() failed: %s",
-				safe_strerror(errno));
+		zlog_warn("%s: read() failed: %s", __func__,
+			  safe_strerror(errno));
 		return ISIS_WARNING;
 	}
 
@@ -267,8 +254,9 @@ int isis_send_pdu_bcast(struct isis_circuit *circuit, int level)
 	buflen = stream_get_endp(circuit->snd_stream) + LLC_LEN + ETHER_HDR_LEN;
 	if (buflen > sizeof(sock_buff)) {
 		zlog_warn(
-			"isis_send_pdu_bcast: sock_buff size %zu is less than output pdu size %zu on circuit %s",
-			sizeof(sock_buff), buflen, circuit->interface->name);
+			"%s: sock_buff size %zu is less than output pdu size %zu on circuit %s",
+			__func__, sizeof(sock_buff), buflen,
+			circuit->interface->name);
 		return ISIS_WARNING;
 	}
 

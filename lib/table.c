@@ -1,22 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Routing Table functions.
  * Copyright (C) 1998 Kunihiro Ishiguro
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #define FRR_COMPILING_TABLE_C
@@ -157,7 +142,7 @@ static void route_common(const struct prefix *n, const struct prefix *p,
 	const uint8_t *pp;
 	uint8_t *newp;
 
-	if (n->family == AF_FLOWSPEC)
+	if (n->family == AF_FLOWSPEC || n->family == AF_LINKSTATE)
 		return prefix_copy(new, p);
 	np = (const uint8_t *)&n->u.prefix;
 	pp = (const uint8_t *)&p->u.prefix;
@@ -228,7 +213,7 @@ struct route_node *route_node_match_ipv4(struct route_table *table,
 {
 	struct prefix_ipv4 p;
 
-	memset(&p, 0, sizeof(struct prefix_ipv4));
+	memset(&p, 0, sizeof(p));
 	p.family = AF_INET;
 	p.prefixlen = IPV4_MAX_BITLEN;
 	p.prefix = *addr;
@@ -241,7 +226,7 @@ struct route_node *route_node_match_ipv6(struct route_table *table,
 {
 	struct prefix_ipv6 p;
 
-	memset(&p, 0, sizeof(struct prefix_ipv6));
+	memset(&p, 0, sizeof(p));
 	p.family = AF_INET6;
 	p.prefixlen = IPV6_MAX_BITLEN;
 	p.prefix = *addr;
@@ -296,15 +281,22 @@ struct route_node *route_node_get(struct route_table *table,
 	const uint8_t *prefix = &p->u.prefix;
 
 	node = rn_hash_node_find(&table->hash, &search);
-	if (node && node->info)
+	if (node && node->info) {
+		if (family2afi(p->family) == AFI_LINKSTATE)
+			prefix_linkstate_ptr_free(p);
+
 		return route_lock_node(node);
+	}
 
 	match = NULL;
 	node = table->top;
 	while (node && node->p.prefixlen <= prefixlen
 	       && prefix_match(&node->p, p)) {
-		if (node->p.prefixlen == prefixlen)
+		if (node->p.prefixlen == prefixlen) {
+			if (family2afi(p->family) == AFI_LINKSTATE)
+				prefix_linkstate_ptr_free(p);
 			return route_lock_node(node);
+		}
 
 		match = node;
 		node = node->link[prefix_bit(prefix, node->p.prefixlen)];
@@ -339,6 +331,9 @@ struct route_node *route_node_get(struct route_table *table,
 	table->count++;
 	route_lock_node(new);
 
+	if (family2afi(p->family) == AFI_LINKSTATE)
+		prefix_linkstate_ptr_free(p);
+
 	return new;
 }
 
@@ -349,7 +344,6 @@ void route_node_delete(struct route_node *node)
 	struct route_node *parent;
 
 	assert(node->lock == 0);
-	assert(node->info == NULL);
 
 	if (node->l_left && node->l_right)
 		return;
@@ -393,7 +387,7 @@ void route_node_delete(struct route_node *node)
 		route_node_delete(parent);
 }
 
-/* Get fist node and lock it.  This function is useful when one want
+/* Get first node and lock it.  This function is useful when one wants
    to lookup all the node exist in the routing table. */
 struct route_node *route_top(struct route_table *table)
 {

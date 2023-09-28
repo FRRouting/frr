@@ -1,20 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Zebra SRv6 VTY functions
  * Copyright (C) 2020  Hiroki Shirokura, LINE Corporation
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -40,9 +27,7 @@
 #include "zebra/zebra_routemap.h"
 #include "zebra/zebra_dplane.h"
 
-#ifndef VTYSH_EXTRACT_PL
 #include "zebra/zebra_srv6_vty_clippy.c"
-#endif
 
 static int zebra_sr_config(struct vty *vty);
 
@@ -108,9 +93,7 @@ DEFUN (show_srv6_locator,
 
 		}
 
-		vty_out(vty, "%s\n", json_object_to_json_string_ext(json,
-					JSON_C_TO_STRING_PRETTY));
-		json_object_free(json);
+		vty_json(vty, json);
 	} else {
 		vty_out(vty, "Locator:\n");
 		vty_out(vty, "Name                 ID      Prefix                   Status\n");
@@ -147,10 +130,16 @@ DEFUN (show_srv6_locator_detail,
 	struct listnode *node;
 	char str[256];
 	const char *locator_name = argv[4]->arg;
+	json_object *json_locator = NULL;
 
 	if (uj) {
-		vty_out(vty, "JSON format isn't supported\n");
-		return CMD_WARNING;
+		locator = zebra_srv6_locator_lookup(locator_name);
+		if (!locator)
+			return CMD_WARNING;
+
+		json_locator = srv6_locator_detailed_json(locator);
+		vty_json(vty, json_locator);
+		return CMD_SUCCESS;
 	}
 
 	for (ALL_LIST_ELEMENTS_RO(srv6->locators, node, locator)) {
@@ -163,8 +152,15 @@ DEFUN (show_srv6_locator_detail,
 		prefix2str(&locator->prefix, str, sizeof(str));
 		vty_out(vty, "Name: %s\n", locator->name);
 		vty_out(vty, "Prefix: %s\n", str);
+		vty_out(vty, "Block-Bit-Len: %u\n", locator->block_bits_length);
+		vty_out(vty, "Node-Bit-Len: %u\n", locator->node_bits_length);
 		vty_out(vty, "Function-Bit-Len: %u\n",
 			locator->function_bits_length);
+		vty_out(vty, "Argument-Bit-Len: %u\n",
+			locator->argument_bits_length);
+
+		if (CHECK_FLAG(locator->flags, SRV6_LOCATOR_USID))
+			vty_out(vty, "Behavior: uSID\n");
 
 		vty_out(vty, "Chunks:\n");
 		for (ALL_LIST_ELEMENTS_RO((struct list *)locator->chunks, node,
@@ -267,9 +263,14 @@ DEFUN (no_srv6_locator,
 
 DEFPY (locator_prefix,
        locator_prefix_cmd,
-       "prefix X:X::X:X/M$prefix [func-bits (16-64)$func_bit_len]",
+       "prefix X:X::X:X/M$prefix [block-len (16-64)$block_bit_len]  \
+	        [node-len (16-64)$node_bit_len] [func-bits (0-64)$func_bit_len]",
        "Configure SRv6 locator prefix\n"
        "Specify SRv6 locator prefix\n"
+       "Configure SRv6 locator block length in bits\n"
+       "Specify SRv6 locator block length in bits\n"
+       "Configure SRv6 locator node length in bits\n"
+       "Specify SRv6 locator node length in bits\n"
        "Configure SRv6 locator function length in bits\n"
        "Specify SRv6 locator function length in bits\n")
 {
@@ -278,24 +279,48 @@ DEFPY (locator_prefix,
 	struct listnode *node = NULL;
 
 	locator->prefix = *prefix;
+	func_bit_len = func_bit_len ?: ZEBRA_SRV6_FUNCTION_LENGTH;
+
+	/* Resolve optional arguments */
+	if (block_bit_len == 0 && node_bit_len == 0) {
+		block_bit_len =
+			prefix->prefixlen - ZEBRA_SRV6_LOCATOR_NODE_LENGTH;
+		node_bit_len = ZEBRA_SRV6_LOCATOR_NODE_LENGTH;
+	} else if (block_bit_len == 0) {
+		block_bit_len = prefix->prefixlen - node_bit_len;
+	} else if (node_bit_len == 0) {
+		node_bit_len = prefix->prefixlen - block_bit_len;
+	} else {
+		if (block_bit_len + node_bit_len != prefix->prefixlen) {
+			vty_out(vty,
+				"%% block-len + node-len must be equal to the selected prefix length %d\n",
+				prefix->prefixlen);
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+	}
+
+	if (prefix->prefixlen + func_bit_len + 0 > 128) {
+		vty_out(vty,
+			"%% prefix-len + function-len + arg-len (%ld) cannot be greater than 128\n",
+			prefix->prefixlen + func_bit_len + 0);
+		return CMD_WARNING_CONFIG_FAILED;
+	}
 
 	/*
-	 * TODO(slankdev): please support variable node-bit-length.
-	 * In draft-ietf-bess-srv6-services-05#section-3.2.1.
-	 * Locator block length and Locator node length are defined.
-	 * Which are defined as "locator-len == block-len + node-len".
-	 * In current implementation, node bits length is hardcoded as 24.
-	 * It should be supported various val.
-	 *
-	 * Cisco IOS-XR support only following pattern.
-	 *  (1) Teh locator length should be 64-bits long.
-	 *  (2) The SID block portion (MSBs) cannot exceed 40 bits.
-	 *      If this value is less than 40 bits,
-	 *      user should use a pattern of zeros as a filler.
-	 *  (3) The Node Id portion (LSBs) cannot exceed 24 bits.
+	 * Currently, the SID transposition algorithm implemented in bgpd
+	 * handles incorrectly the SRv6 locators with function length greater
+	 * than 20 bits. To prevent issues, we currently limit the function
+	 * length to 20 bits.
+	 * This limit will be removed when the bgpd SID transposition is fixed.
 	 */
-	locator->block_bits_length = prefix->prefixlen - 24;
-	locator->node_bits_length = 24;
+	if (func_bit_len > 20) {
+		vty_out(vty,
+			"%% currently func_bit_len > 20 is not supported\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	locator->block_bits_length = block_bit_len;
+	locator->node_bits_length = node_bit_len;
 	locator->function_bits_length = func_bit_len;
 	locator->argument_bits_length = 0;
 
@@ -334,6 +359,38 @@ DEFPY (locator_prefix,
 	return CMD_SUCCESS;
 }
 
+DEFPY (locator_behavior,
+       locator_behavior_cmd,
+       "[no] behavior usid",
+       NO_STR
+       "Configure SRv6 behavior\n"
+       "Specify SRv6 behavior uSID\n")
+{
+	VTY_DECLVAR_CONTEXT(srv6_locator, locator);
+
+	if (no && !CHECK_FLAG(locator->flags, SRV6_LOCATOR_USID))
+		/* SRv6 locator uSID flag already unset, nothing to do */
+		return CMD_SUCCESS;
+
+	if (!no && CHECK_FLAG(locator->flags, SRV6_LOCATOR_USID))
+		/* SRv6 locator uSID flag already set, nothing to do */
+		return CMD_SUCCESS;
+
+	/* Remove old locator from zclients */
+	zebra_notify_srv6_locator_delete(locator);
+
+	/* Set/Unset the SRV6_LOCATOR_USID */
+	if (no)
+		UNSET_FLAG(locator->flags, SRV6_LOCATOR_USID);
+	else
+		SET_FLAG(locator->flags, SRV6_LOCATOR_USID);
+
+	/* Notify the new locator to zclients */
+	zebra_notify_srv6_locator_add(locator);
+
+	return CMD_SUCCESS;
+}
+
 static int zebra_sr_config(struct vty *vty)
 {
 	struct zebra_srv6 *srv6 = zebra_srv6_get_default();
@@ -350,8 +407,23 @@ static int zebra_sr_config(struct vty *vty)
 			inet_ntop(AF_INET6, &locator->prefix.prefix,
 				  str, sizeof(str));
 			vty_out(vty, "   locator %s\n", locator->name);
-			vty_out(vty, "    prefix %s/%u\n", str,
+			vty_out(vty, "    prefix %s/%u", str,
 				locator->prefix.prefixlen);
+			if (locator->block_bits_length)
+				vty_out(vty, " block-len %u",
+					locator->block_bits_length);
+			if (locator->node_bits_length)
+				vty_out(vty, " node-len %u",
+					locator->node_bits_length);
+			if (locator->function_bits_length)
+				vty_out(vty, " func-bits %u",
+					locator->function_bits_length);
+			if (locator->argument_bits_length)
+				vty_out(vty, " arg-len %u",
+					locator->argument_bits_length);
+			vty_out(vty, "\n");
+			if (CHECK_FLAG(locator->flags, SRV6_LOCATOR_USID))
+				vty_out(vty, "    behavior usid\n");
 			vty_out(vty, "   exit\n");
 			vty_out(vty, "   !\n");
 		}
@@ -387,6 +459,7 @@ void zebra_srv6_vty_init(void)
 
 	/* Command for configuration */
 	install_element(SRV6_LOC_NODE, &locator_prefix_cmd);
+	install_element(SRV6_LOC_NODE, &locator_behavior_cmd);
 
 	/* Command for operation */
 	install_element(VIEW_NODE, &show_srv6_locator_cmd);

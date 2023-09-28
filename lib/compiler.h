@@ -1,17 +1,6 @@
+// SPDX-License-Identifier: ISC
 /*
  * Copyright (c) 2015-2017  David Lamparter, for NetDEF, Inc.
- *
- * Permission to use, copy, modify, and distribute this software for any
- * purpose with or without fee is hereby granted, provided that the above
- * copyright notice and this permission notice appear in all copies.
- *
- * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
- * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
- * ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
- * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
- * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
- * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
 #ifndef _FRR_COMPILER_H
@@ -72,6 +61,16 @@ extern "C" {
 #endif
 #endif
 
+#ifdef __INTELLISENSE__
+/*
+ * Fix Visual Studio Code error: attribute "constructor" does not take
+ * arguments.
+ *
+ * Caused by the macro `DEFINE_MTYPE_ATTR` in `lib/memory.h`.
+ */
+#pragma diag_suppress 1094
+#endif /* __INTELISENSE__ */
+
 #if __has_attribute(hot)
 #  define _OPTIMIZE_HOT __attribute__((hot))
 #else
@@ -121,6 +120,14 @@ extern "C" {
 #endif
 #ifndef assume
 #define assume(x)
+#endif
+
+#ifdef __COVERITY__
+/* __coverity_panic__() is named a bit poorly, it's essentially the same as
+ * __builtin_unreachable().  Used to eliminate false positives.
+ */
+#undef assume
+#define assume(x) do { if (!(x)) __coverity_panic__(); } while (0)
 #endif
 
 /* for helper functions defined inside macros */
@@ -410,6 +417,43 @@ _Static_assert(sizeof(_uint64_t) == 8 && sizeof(_int64_t) == 8,
 
 #endif /* !__cplusplus */
 #endif /* !_FRR_ATTRIBUTE_PRINTFRR */
+
+/* helper to get type safety/avoid casts on calls
+ * (w/o this, functions accepting all prefix types need casts on the caller
+ * side, which strips type safety since the cast will accept any pointer
+ * type.)
+ */
+#ifndef __cplusplus
+#define prefixtype(uname, typename, fieldname) typename *fieldname;
+#define TRANSPARENT_UNION __attribute__((transparent_union))
+#else
+#define prefixtype(uname, typename, fieldname)                                 \
+	typename *fieldname;                                                   \
+	uname(typename *x)                                                     \
+	{                                                                      \
+		this->fieldname = x;                                           \
+	}
+#define TRANSPARENT_UNION
+#endif
+
+#ifdef __INTELLISENSE__
+/*
+ * Fix Visual Studio Code error: argument of type "struct prefix *" is
+ * incompatible with parameter of type "union prefixptr".
+ *
+ * This is caused by all functions having the transparent unions in the
+ * prototype. Example: `prefixptr` and `prefixconstptr` from `lib/prefix.h`.
+ */
+#pragma diag_suppress 167
+#endif /* __INTELISENSE__ */
+
+#if defined(__GNUC__) && (__GNUC__ >= 3)
+#define likely(_x) __builtin_expect(!!(_x), 1)
+#define unlikely(_x) __builtin_expect(!!(_x), 0)
+#else
+#define likely(_x) !!(_x)
+#define unlikely(_x) !!(_x)
+#endif
 
 #ifdef __cplusplus
 }

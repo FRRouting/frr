@@ -212,7 +212,8 @@ options from the list below.
 
 .. option:: --disable-ospfclient
 
-   Disable building of the example OSPF-API client.
+   Disable installation of the python ospfclient and building of the example
+   OSPF-API client.
 
 .. option:: --disable-isisd
 
@@ -230,7 +231,8 @@ options from the list below.
 
    Enable the support of Linux Realms. Convert tag values from 1-255 into a
    realm value when inserting into the Linux kernel. Then routing policy can be
-   assigned to the realm. See the tc man page.
+   assigned to the realm. See the tc man page.  This option is currently not
+   compatible with the usage of nexthop groups in the linux kernel itself.
 
 .. option:: --disable-irdp
 
@@ -273,6 +275,13 @@ options from the list below.
 
    Build with FPM module support.
 
+.. option:: --with-service-timeout=X
+
+   Set timeout value for FRR service. The time of restarting or reloading FRR
+   service should not exceed this value. This number can be from 0-999.
+   Additionally if this parameter is not passed or setting X = 0, FRR will take
+   default value: 2 minutes.
+
 .. option:: --enable-numeric-version
 
    Alpine Linux does not allow non-numeric characters in the version string.
@@ -285,6 +294,7 @@ options from the list below.
    arguments when reporting the version string in `show version` command.
 
 .. option:: --with-pkg-extra-version=VER
+
    Add extra version field, for packagers/distributions
 
 .. option::  --with-pkg-git-version
@@ -304,7 +314,8 @@ options from the list below.
 
    Turn on the ability of FRR to access some shell options( telnet/ssh/bash/etc. )
    from vtysh itself.  This option is considered extremely unsecure and should only
-   be considered for usage if you really really know what you are doing.
+   be considered for usage if you really really know what you are doing.  This
+   option is deprecated and will be removed on Feb 1, 2024.
 
 .. option:: --enable-gcov
 
@@ -340,23 +351,16 @@ options from the list below.
 
    Use libpam for PAM support in vtysh.
 
-.. option:: --enable-time-check XXX
-
-   This option is deprecated as it was replaced by the
-   :clicmd:`service cputime-stats` CLI command, which may be adjusted at
-   runtime rather than being a compile-time setting.  See there for further
-   detail.
-
-.. option:: --disable-cpu-time
-
-   This option is deprecated as it was replaced by the
-   :clicmd:`service cputime-warning NNN` CLI command, which may be adjusted at
-   runtime rather than being a compile-time setting.  See there for further
-   detail.
-
 .. option:: --enable-pcreposix
 
    Turn on the usage of PCRE Posix libs for regex functionality.
+
+.. option:: --enable-pcre2posix
+
+   Turn on the usage of PCRE2 Posix libs for regex functionality.
+
+   PCRE2 versions <= 10.31 work a bit differently. We suggest using at least
+   >= 10.36.
 
 .. option:: --enable-rpath
 
@@ -371,6 +375,18 @@ script. By default, the executables are placed in :file:`/usr/local/sbin`
 and the configuration files in :file:`/usr/local/etc`. The :file:`/usr/local/`
 installation prefix and other directories may be changed using the following
 options to the configuration script.
+
+.. option:: --enable-ccls
+
+   Enable the creation of a :file:`.ccls` file in the top level source
+   directory.
+
+   Some development environments (e.g., LSP server within emacs, et al.) can
+   utilize :clicmd:`ccls` to provide highly sophisticated IDE features (e.g.,
+   semantically accurate jump-to definition/reference, and even code
+   refactoring). The `--enable-ccls` causes :file:`configure` to generate a
+   configuration for the :clicmd:`ccls` command, based on the configured
+   FRR build environment.
 
 .. option:: --prefix <prefix>
 
