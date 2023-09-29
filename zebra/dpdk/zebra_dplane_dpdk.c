@@ -611,11 +611,11 @@ static void zd_dpdk_port_init(void)
 		if (rte_flow_isolate(port_id, 1, &error)) {
 			if (IS_ZEBRA_DEBUG_DPLANE_DPDK)
 				zlog_debug(
-					"Flow isolate on port %u failed %d\n",
+					"Flow isolate on port %u failed %d",
 					port_id, error.type);
 		} else {
 			if (IS_ZEBRA_DEBUG_DPLANE_DPDK)
-				zlog_debug("Flow isolate on port %u\n",
+				zlog_debug("Flow isolate on port %u",
 					   port_id);
 		}
 		rc = rte_eth_dev_start(port_id);

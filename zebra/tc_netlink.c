@@ -160,7 +160,7 @@ static ssize_t netlink_qdisc_msg_encode(int cmd, struct zebra_dplane_ctx *ctx,
 		struct nlmsghdr n;
 		struct tcmsg t;
 		char buf[0];
-	} *req = (void *)data;
+	} *req = data;
 
 	if (datalen < sizeof(*req))
 		return 0;
@@ -236,7 +236,7 @@ static ssize_t netlink_tclass_msg_encode(int cmd, struct zebra_dplane_ctx *ctx,
 		struct nlmsghdr n;
 		struct tcmsg t;
 		char buf[0];
-	} *req = (void *)data;
+	} *req = data;
 
 	if (datalen < sizeof(*req))
 		return 0;
@@ -486,7 +486,7 @@ static ssize_t netlink_tfilter_msg_encode(int cmd, struct zebra_dplane_ctx *ctx,
 		struct nlmsghdr n;
 		struct tcmsg t;
 		char buf[0];
-	} *req = (void *)data;
+	} *req = data;
 
 	if (datalen < sizeof(*req))
 		return 0;

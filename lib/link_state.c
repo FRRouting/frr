@@ -1739,7 +1739,7 @@ struct ls_message *ls_subnet2msg(struct ls_message *msg,
 struct ls_vertex *ls_msg2vertex(struct ls_ted *ted, struct ls_message *msg,
 				bool delete)
 {
-	struct ls_node *node = (struct ls_node *)msg->data.node;
+	struct ls_node *node = msg->data.node;
 	struct ls_vertex *vertex = NULL;
 
 	switch (msg->event) {
@@ -1779,7 +1779,7 @@ struct ls_vertex *ls_msg2vertex(struct ls_ted *ted, struct ls_message *msg,
 struct ls_edge *ls_msg2edge(struct ls_ted *ted, struct ls_message *msg,
 			    bool delete)
 {
-	struct ls_attributes *attr = (struct ls_attributes *)msg->data.attr;
+	struct ls_attributes *attr = msg->data.attr;
 	struct ls_edge *edge = NULL;
 
 	switch (msg->event) {
@@ -1819,7 +1819,7 @@ struct ls_edge *ls_msg2edge(struct ls_ted *ted, struct ls_message *msg,
 struct ls_subnet *ls_msg2subnet(struct ls_ted *ted, struct ls_message *msg,
 				bool delete)
 {
-	struct ls_prefix *pref = (struct ls_prefix *)msg->data.prefix;
+	struct ls_prefix *pref = msg->data.prefix;
 	struct ls_subnet *subnet = NULL;
 
 	switch (msg->event) {

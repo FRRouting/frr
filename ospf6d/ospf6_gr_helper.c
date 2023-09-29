@@ -134,7 +134,7 @@ static int ospf6_extract_grace_lsa_fields(struct ospf6_lsa *lsa,
 	uint16_t length = 0;
 	int sum = 0;
 
-	lsah = (struct ospf6_lsa_header *)lsa->header;
+	lsah = lsa->header;
 	if (ntohs(lsah->length) <= OSPF6_LSA_HEADER_SIZE) {
 		if (IS_DEBUG_OSPF6_GR)
 			zlog_debug("%s: undersized (%u B) lsa", __func__,
@@ -1231,7 +1231,7 @@ static int ospf6_grace_lsa_show_info(struct vty *vty, struct ospf6_lsa *lsa,
 	uint16_t length = 0;
 	int sum = 0;
 
-	lsah = (struct ospf6_lsa_header *)lsa->header;
+	lsah = lsa->header;
 	if (ntohs(lsah->length) <= OSPF6_LSA_HEADER_SIZE) {
 		if (IS_DEBUG_OSPF6_GR)
 			zlog_debug("%s: undersized (%u B) lsa", __func__,
