@@ -1270,24 +1270,18 @@ static bool update_ipv6nh_for_route_install(int nh_othervrf, struct bgp *nh_bgp,
 static bool bgp_zebra_use_nhop_weighted(struct bgp *bgp, struct attr *attr,
 					uint64_t tot_bw, uint32_t *nh_weight)
 {
-	uint32_t bw;
-	uint64_t tmp;
-
-	bw = attr->link_bw;
 	/* zero link-bandwidth and link-bandwidth not present are treated
 	 * as the same situation.
 	 */
-	if (!bw) {
+	if (!attr->link_bw) {
 		/* the only situations should be if we're either told
 		 * to skip or use default weight.
 		 */
 		if (bgp->lb_handling == BGP_LINK_BW_SKIP_MISSING)
 			return false;
 		*nh_weight = BGP_ZEBRA_DEFAULT_NHOP_WEIGHT;
-	} else {
-		tmp = (uint64_t)bw * 100;
-		*nh_weight = ((uint32_t)(tmp / tot_bw));
-	}
+	} else
+		*nh_weight = attr->link_bw;
 
 	return true;
 }
