@@ -124,6 +124,7 @@ clippy_scan += \
 	zebra/zebra_srv6_vty.c \
 	zebra/zebra_vrf.c \
 	zebra/dpdk/zebra_dplane_dpdk_vty.c \
+	zebra/label_manager.c \
 	# end
 
 noinst_HEADERS += \
