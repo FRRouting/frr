@@ -1066,10 +1066,9 @@ static void bgp_linkstate_tlv_sid_display(struct vty *vty, uint8_t *pnt,
 			/* IS-IS System-ID */
 			if (json)
 				json_object_string_addf(json_data, "neighborId",
-							"%pSY\n",
-							(uint8_t *)pnt);
+							"%pSY\n", pnt);
 			else
-				vty_out(vty, "%pSY\n", (uint8_t *)pnt);
+				vty_out(vty, "%pSY\n", pnt);
 			pnt += 6;
 		}
 	}

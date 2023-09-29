@@ -109,6 +109,6 @@ void *__darr_insert_n(void *a, uint at, uint count, size_t esize, bool zero)
 		memset(_a_at(at), 0, esize * count);
 	}
 
-	return (void *)a;
+	return a;
 #undef _a_at
 }

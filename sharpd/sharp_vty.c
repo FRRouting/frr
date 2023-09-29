@@ -948,7 +948,7 @@ DEFPY (import_te,
 
 static void sharp_srv6_locator_chunk_free(struct prefix_ipv6 *chunk)
 {
-	prefix_ipv6_free((struct prefix_ipv6 **)&chunk);
+	prefix_ipv6_free(&chunk);
 }
 
 DEFPY (sharp_srv6_manager_get_locator_chunk,

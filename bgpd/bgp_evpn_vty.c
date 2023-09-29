@@ -2687,16 +2687,16 @@ static void evpn_show_route_vni_macip(struct vty *vty, struct bgp *bgp,
 		 */
 		if (is_evpn_prefix_ipaddr_none(evp)) {
 			/* VNI MAC -> Global */
-			evpn_type2_prefix_global_copy(
-				(struct prefix_evpn *)&tmp_p, evp,
-				NULL /* mac */,
-				evpn_type2_path_info_get_ip(pi));
+			evpn_type2_prefix_global_copy(&tmp_p, evp,
+						      NULL /* mac */,
+						      evpn_type2_path_info_get_ip(
+							      pi));
 		} else {
 			/* VNI IP -> Global */
-			evpn_type2_prefix_global_copy(
-				(struct prefix_evpn *)&tmp_p, evp,
-				evpn_type2_path_info_get_mac(pi),
-				NULL /* ip */);
+			evpn_type2_prefix_global_copy(&tmp_p, evp,
+						      evpn_type2_path_info_get_mac(
+							      pi),
+						      NULL /* ip */);
 		}
 
 		route_vty_out_detail(vty, bgp, dest, (struct prefix *)&tmp_p,
