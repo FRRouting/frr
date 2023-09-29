@@ -24,13 +24,14 @@ configuration changes regardless of where they came from. This
 model-driven design ensures feature parity across all management
 interfaces supported by FRR.
 
-Quoting RFC 7950: > YANG is a language originally designed to model data
-for the NETCONF protocol. A YANG module defines hierarchies of data that
-can be used for NETCONF-based operations, including configuration, state
-data, RPCs, and notifications. This allows a complete description of all
-data sent between a NETCONF client and server. Although out of scope for
-this specification, YANG can also be used with protocols other than
-NETCONF.
+Quoting :rfc:`7950`:
+
+   YANG is a language originally designed to model data for the NETCONF
+   protocol. A YANG module defines hierarchies of data that can be used for
+   NETCONF-based operations, including configuration, state data, RPCs, and
+   notifications. This allows a complete description of all data sent between a
+   NETCONF client and server. Although out of scope for this specification,
+   YANG can also be used with protocols other than NETCONF.
 
 While the YANG and NETCONF specifications are tightly coupled with one
 another, both are independent to a certain extent and are evolving
@@ -98,11 +99,10 @@ scripts that send CLI commands and parse the text output (which usually
 doesn’t have any structure) using screen scraping and regular
 expressions.
 
-+-----------------------------------------+
-| |space-1.jpg|                           |
-+=========================================+
-| *Figure 1: old northbound architecture* |
-+-----------------------------------------+
+.. figure:: images/arch-before.png
+   :alt: diagram of northbound architecture prior to nbapi conversion
+
+   Old northbound architecture
 
 The new northbound architectures, on the other hand, features a
 multitude of different management APIs, all of them connected to the
@@ -116,11 +116,10 @@ write custom northbound plugins that can be tailored to all needs
 (e.g. support custom transport protocols, different data encoding
 formats, fine-grained access control, etc).
 
-+-----------------------------------------+
-| |space-1.jpg|                           |
-+=========================================+
-| *Figure 2: new northbound architecture* |
-+-----------------------------------------+
+.. figure:: images/arch-after.png
+   :alt: diagram of northbound architecture after nbapi conversion
+
+   New northbound architecture
 
 Figure 3 shows the internal view of the FRR northbound architecture. In
 this image we can see that northbound layer is an abstract entity
@@ -133,11 +132,10 @@ plugins that can be maintained separately. The northbound plugins, in
 turn, have their own APIs to communicate with external management
 clients.
 
-+---------------------------------------------------------+
-| |space-1.jpg|                                           |
-+=========================================================+
-| *Figure 3: new northbound architecture - internal view* |
-+---------------------------------------------------------+
+.. figure:: images/nb-layer.png
+   :alt: diagram of northbound architecture internals
+
+   New northbound architecture - internal view
 
 Initially the CLI (and all of its commands) will be maintained inside
 the FRR daemons. In the long term, however, the goal is to move the CLI
@@ -210,29 +208,29 @@ definitive solution to support standard models or not.
 Northbound Architecture
 -----------------------
 
-+-----------------------------------------------+
-| |space-1.jpg|                                 |
-+===============================================+
-| *Figure 4: libyang’s lys_node data structure* |
-+-----------------------------------------------+
+.. figure:: images/lys-node.png
+   :alt: diagram of libyanbg's lys_node data structure
 
-+-----------------------------------------------+
-| |space-1.jpg|                                 |
-+===============================================+
-| *Figure 5: libyang’s lyd_node data structure* |
-+-----------------------------------------------+
+   ``libyang's`` lys_node data structure
 
-+---------------------------------------------+
-| |space-1.jpg|                               |
-+=============================================+
-| *Figure 6: libyang’s ly_ctx data structure* |
-+---------------------------------------------+
 
-+----------------------------------------+
-| |space-1.jpg|                          |
-+========================================+
-| *Figure 7: configuration transactions* |
-+----------------------------------------+
+.. figure:: images/lyd-node.png
+   :alt: diagram of libyanbg's lyd_node data structure
+
+   ``libyang's`` lyd_node data structure
+
+
+.. figure:: images/ly-ctx.png
+   :alt: diagram of libyanbg's ly_ctx data structure
+
+   ``libyang's`` ly_ctx data structure
+
+
+.. figure:: images/transactions.png
+   :alt: diagram showing how configuration transactions work
+
+   Configuration transactions
+
 
 Testing
 -------
@@ -241,20 +239,22 @@ The new northbound adds the libyang library as a new mandatory
 dependency for FRR. To obtain and install this library, follow the steps
 below:
 
-::
+.. code-block:: console
 
-   $ git clone https://github.com/CESNET/libyang
-   $ cd libyang
-   $ git checkout devel
-   $ mkdir build ; cd build
-   $ cmake -DENABLE_LYD_PRIV=ON ..
-   $ make
-   $ sudo make install
+   git clone https://github.com/CESNET/libyang
+   cd libyang
+   git checkout devel
+   mkdir build ; cd build
+   cmake -DENABLE_LYD_PRIV=ON ..
+   make
+   sudo make install
 
-..
 
-   NOTE: first make sure to install the libyang
+.. note::
+
+   first make sure to install the libyang
    `requirements <https://github.com/CESNET/libyang#build-requirements>`__.
+
 
 FRR needs libyang from version 0.16.7 or newer, which is maintained in
 the ``devel`` branch. libyang 0.15.x is maintained in the ``master``
@@ -273,11 +273,3 @@ commands. The ``debug northbound`` command can be used to see which
 northbound callbacks are called in response to the ``commit`` command.
 For reference, the [[Demos]] page shows a small demonstration of the
 transactional CLI in action and what it’s capable of.
-
-.. |space-1.jpg| image:: https://s22.postimg.cc/se52j8awh/arch-before.png
-.. |space-1.jpg| image:: https://s22.postimg.cc/fziaiwboh/arch-after.png
-.. |space-1.jpg| image:: https://s22.postimg.cc/qmc3ocmep/nb-layer.png
-.. |space-1.jpg| image:: https://s22.postimg.cc/z4ljsodht/lys_node.png
-.. |space-1.jpg| image:: https://s22.postimg.cc/6eynw1h7l/lyd_node.png
-.. |space-1.jpg| image:: https://s22.postimg.cc/5cohdhiyp/ly_ctx.png
-.. |space-1.jpg| image:: https://s22.postimg.cc/8waf3bgjl/transactions.png
