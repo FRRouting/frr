@@ -780,7 +780,7 @@ static bool link_state_hash_cmp(const void *p1, const void *p2)
 
 	if (!link_state1 && link_state2)
 		return false;
-	if (!link_state1 && link_state2)
+	if (link_state1 && !link_state2)
 		return false;
 	if (!link_state1 && !link_state2)
 		return true;
@@ -4982,7 +4982,7 @@ bgp_size_t bgp_packet_attribute(struct bgp *bgp, struct peer *peer,
 	}
 
 	/* BGP Link-State */
-	if (attr && attr->link_state) {
+	if (attr->link_state) {
 		stream_putc(s, BGP_ATTR_FLAG_OPTIONAL);
 		stream_putc(s, BGP_ATTR_LINK_STATE);
 		stream_putc(s, attr->link_state->length);

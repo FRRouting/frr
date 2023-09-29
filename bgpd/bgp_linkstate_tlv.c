@@ -31,7 +31,7 @@ struct bgp_linkstate_tlv_info {
 #define UNDEF_MULTPL 1
 
 /* clang-format off */
-struct bgp_linkstate_tlv_info bgp_linkstate_tlv_infos[BGP_LS_TLV_MAX] = {
+struct bgp_linkstate_tlv_info bgp_linkstate_tlv_infos[BGP_LS_TLV_MAX + 1] = {
 	/* NLRI TLV */
 	[BGP_LS_TLV_LOCAL_NODE_DESCRIPTORS] = {"Local Node Descriptors", 1, MAX_SZ, UNDEF_MULTPL},
 	[BGP_LS_TLV_REMOTE_NODE_DESCRIPTORS] = {"Remote Node Descriptors", 1, MAX_SZ, UNDEF_MULTPL},
@@ -577,7 +577,8 @@ static bool bgp_linkstate_nlri_value_display(char *buf, size_t size,
 		break;
 	case BGP_LS_TLV_IP_REACHABILITY_INFORMATION:
 		mask_length = pnt_decode8(&pnt);
-		if (nlri_type == BGP_LINKSTATE_PREFIX4) {
+		if (nlri_type == BGP_LINKSTATE_PREFIX4 &&
+		    ((length - sizeof(mask_length)) <= sizeof(ipv4.s_addr))) {
 			memcpy(&ipv4.s_addr, pnt, length - sizeof(mask_length));
 			if (json)
 				json_object_string_addf(json, "ipReachability",
@@ -587,7 +588,8 @@ static bool bgp_linkstate_nlri_value_display(char *buf, size_t size,
 				snprintfrr(buf, size, "%sIPv4:%pI4/%u",
 					   first ? "" : " ", &ipv4,
 					   mask_length);
-		} else if (nlri_type == BGP_LINKSTATE_PREFIX6) {
+		} else if (nlri_type == BGP_LINKSTATE_PREFIX6 &&
+			   ((length - sizeof(mask_length)) <= sizeof(ipv6))) {
 			memcpy(&ipv6, pnt, length - sizeof(mask_length));
 			if (json)
 				json_object_string_addf(json, "ipReachability",
@@ -1352,7 +1354,6 @@ static void bgp_linkstate_tlv_opaque_display(struct vty *vty, uint8_t *pnt,
 	uint8_t *lim = pnt + length;
 	bool ospf_tlv_header;
 	char tlv_type[6];
-	int i;
 
 
 	if (json) {
@@ -1398,21 +1399,15 @@ static void bgp_linkstate_tlv_opaque_display(struct vty *vty, uint8_t *pnt,
 			continue;
 		}
 
-		vty_out(vty, "\n%*sTLV type %u: 0x", indent, "", sub_type);
+		vty_out(vty, "\n%*sTLV type %u: ", indent, "", sub_type);
 
 		if (pnt + sub_length > lim) {
 			vty_out(vty, "Bad length received: %u\n", sub_length);
 			break;
 		}
 
-		for (i = 0; i < sub_length; i++) {
-			if (i != 0 && i % 8 == 0)
-				vty_out(vty, " ");
-			vty_out(vty, "%02x", *pnt);
-		}
+		bgp_linkstate_tlv_hexa_display(vty, pnt, sub_length, NULL);
 	}
-	if (!json)
-		vty_out(vty, "\n");
 }
 
 static void bgp_linkstate_tlv_rtm_capability_display(struct vty *vty,
@@ -1525,6 +1520,11 @@ static void bgp_linkstate_tlv_isis_area_indentifier_display(struct vty *vty,
 							    json_object *json)
 {
 	struct iso_address addr;
+
+	if (length > sizeof(addr.area_addr)) {
+		bgp_linkstate_tlv_hexa_display(vty, pnt, length, json);
+		return;
+	}
 
 	addr.addr_len = length;
 	memcpy(addr.area_addr, pnt, length);
@@ -1706,7 +1706,7 @@ void bgp_linkstate_tlv_attribute_display(struct vty *vty,
 			json_tlv = json_object_new_object();
 			json_object_object_add(json, tlv_type, json_tlv);
 
-			if (type < BGP_LS_TLV_MAX &&
+			if (type <= BGP_LS_TLV_MAX &&
 			    bgp_linkstate_tlv_infos[type].descr != NULL)
 				json_object_string_add(
 					json_tlv, "description",
@@ -1721,7 +1721,7 @@ void bgp_linkstate_tlv_attribute_display(struct vty *vty,
 					"too high length received: %u", length);
 				break;
 			}
-			if (type < BGP_LS_TLV_MAX &&
+			if (type <= BGP_LS_TLV_MAX &&
 			    bgp_linkstate_tlv_infos[type].descr != NULL &&
 			    !bgp_ls_tlv_check_size(type, length))
 				json_object_string_addf(
@@ -1729,7 +1729,7 @@ void bgp_linkstate_tlv_attribute_display(struct vty *vty,
 					"unexpected length received: %u",
 					length);
 		} else {
-			if (type < BGP_LS_TLV_MAX &&
+			if (type <= BGP_LS_TLV_MAX &&
 			    bgp_linkstate_tlv_infos[type].descr != NULL)
 				vty_out(vty, "%*s%s: ", indent, "",
 					bgp_linkstate_tlv_infos[type].descr);
