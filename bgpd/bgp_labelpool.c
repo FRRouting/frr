@@ -667,8 +667,7 @@ void bgp_lp_event_zebra_up(void)
 	if (labels_needed && !bgp_zebra_request_label_range(MPLS_LABEL_BASE_ANY,
 							    labels_needed, true))
 		return;
-
-	lp->pending_count = labels_needed;
+	lp->pending_count += labels_needed;
 
 	/*
 	 * Invalidate any existing labels and requeue them as requests
