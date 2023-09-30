@@ -14,7 +14,9 @@
 
 #include "pimd.h"
 #include "pim_instance.h"
+#include "pim_rp.h"
 #include "pim_str.h"
+#include "pim_util.h"
 #include "pim_errors.h"
 
 #include "pim_msdp.h"
@@ -387,6 +389,9 @@ static void pim_msdp_pkt_sa_gen(struct pim_instance *pim,
 {
 	struct listnode *sanode;
 	struct pim_msdp_sa *sa;
+	struct rp_info *rp_info;
+	struct prefix group_all;
+	struct in_addr rp;
 	int sa_count;
 	int local_cnt = pim->msdp.local_cnt;
 
@@ -395,8 +400,15 @@ static void pim_msdp_pkt_sa_gen(struct pim_instance *pim,
 		zlog_debug("  sa gen  %d", local_cnt);
 	}
 
-	local_cnt = pim_msdp_pkt_sa_fill_hdr(pim, local_cnt,
-					     pim->msdp.originator_id);
+	rp = pim->msdp.originator_id;
+	if (pim_get_all_mcast_group(&group_all)) {
+	    rp_info = pim_rp_find_match_group(pim, &group_all);
+	    if (rp_info) {
+	        rp = rp_info->rp.rpf_addr;
+	    }
+	}
+
+	local_cnt = pim_msdp_pkt_sa_fill_hdr(pim, local_cnt, rp);
 
 	for (ALL_LIST_ELEMENTS_RO(pim->msdp.sa_list, sanode, sa)) {
 		if (!(sa->flags & PIM_MSDP_SAF_LOCAL)) {
@@ -418,7 +430,7 @@ static void pim_msdp_pkt_sa_gen(struct pim_instance *pim,
 					   local_cnt);
 			}
 			local_cnt = pim_msdp_pkt_sa_fill_hdr(
-				pim, local_cnt, pim->msdp.originator_id);
+				pim, local_cnt, rp);
 		}
 	}
 
