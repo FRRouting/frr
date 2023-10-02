@@ -2341,6 +2341,7 @@ void ospf6_hello_send_addr(struct ospf6_interface *oi,
 
 			opdup = ospf6_packet_dup(op);
 			opdup->dst = on->linklocal_addr;
+			ospf6_fill_hdr_checksum(oi, opdup);
 			ospf6_packet_add_top(oi, opdup);
 			anything = true;
 		}
@@ -2353,6 +2354,7 @@ void ospf6_hello_send_addr(struct ospf6_interface *oi,
 		 * they can't get delayed by things like long queues of LS
 		 * Update packets
 		 */
+		ospf6_fill_hdr_checksum(oi, op);
 		ospf6_packet_add_top(oi, op);
 		anything = true;
 	}
