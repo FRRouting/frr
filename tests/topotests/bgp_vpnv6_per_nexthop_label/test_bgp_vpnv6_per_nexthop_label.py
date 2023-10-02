@@ -54,7 +54,7 @@ pytestmark = [pytest.mark.bgpd]
 PREFIXES_R11 = ["172:31::11/128", "172:31::20/128", "172:31::111/128"]
 PREFIXES_R12 = ["172:31::12/128", "172:31::15/128"]
 PREFIXES_REDIST_R14 = ["172:31::14/128"]
-PREFIXES_CONNECTED = ["192:168::255/112", "192:2::/64"]
+PREFIXES_CONNECTED = ["192:168::255:0/112", "192:2::/64"]
 
 
 def build_topo(tgen):
@@ -150,6 +150,16 @@ def teardown_module(_mod):
     tgen.stop_topology()
 
 
+def check_bgp_vpnv6_prefix_presence(router, prefix):
+    "Check the presence of a prefix"
+    tgen = get_topogen()
+
+    dump = router.vtysh_cmd("show bgp ipv6 vpn {} json".format(prefix), isjson=True)
+    if not dump:
+        return "{}, prefix ipv6 vpn {} is not installed yet".format(router.name, prefix)
+    return None
+
+
 def bgp_vpnv6_table_check(router, group, label_list=None, label_value_expected=None):
     """
     Dump and check that vpnv6 entries have the same MPLS label value
@@ -162,6 +172,12 @@ def bgp_vpnv6_table_check(router, group, label_list=None, label_value_expected=N
 
     stored_label_inited = False
     for prefix in group:
+        test_func = functools.partial(check_bgp_vpnv6_prefix_presence, router, prefix)
+        success, result = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+        assert success, "{}, prefix ipv6 vpn {} is not installed yet".format(
+            router.name, prefix
+        )
+
         dump = router.vtysh_cmd("show bgp ipv6 vpn {} json".format(prefix), isjson=True)
         for rd, pathes in dump.items():
             for path in pathes["paths"]:
@@ -237,7 +253,9 @@ def check_show_mpls_table(router, blacklist=None, label_list=None, whitelist=Non
             label_list.add(in_label)
         for nh in label_info["nexthops"]:
             if "installed" not in nh.keys():
-                return "{} {} is not installed yet on {}".format(in_label, label_info, router.name)
+                return "{} {} is not installed yet on {}".format(
+                    in_label, label_info, router.name
+                )
             if nh["installed"] != True or nh["type"] != "BGP":
                 return "{}, show mpls table, nexthop is not installed".format(
                     router.name

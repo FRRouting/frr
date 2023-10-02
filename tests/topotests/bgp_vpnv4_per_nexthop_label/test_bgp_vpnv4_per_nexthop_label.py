@@ -151,6 +151,16 @@ def teardown_module(_mod):
     tgen.stop_topology()
 
 
+def check_bgp_vpnv4_prefix_presence(router, prefix):
+    "Check the presence of a prefix"
+    tgen = get_topogen()
+
+    dump = router.vtysh_cmd("show bgp ipv4 vpn {} json".format(prefix), isjson=True)
+    if not dump:
+        return "{}, prefix ipv4 vpn {} is not installed yet".format(router.name, prefix)
+    return None
+
+
 def bgp_vpnv4_table_check(router, group, label_list=None, label_value_expected=None):
     """
     Dump and check that vpnv4 entries have the same MPLS label value
@@ -163,6 +173,12 @@ def bgp_vpnv4_table_check(router, group, label_list=None, label_value_expected=N
 
     stored_label_inited = False
     for prefix in group:
+        test_func = functools.partial(check_bgp_vpnv4_prefix_presence, router, prefix)
+        success, result = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+        assert success, "{}, prefix ipv4 vpn {} is not installed yet".format(
+            router.name, prefix
+        )
+
         dump = router.vtysh_cmd("show bgp ipv4 vpn {} json".format(prefix), isjson=True)
         assert dump, "{0}, {1}, route distinguisher not present".format(
             router.name, prefix
