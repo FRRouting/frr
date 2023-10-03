@@ -111,7 +111,7 @@ def test_bgp_dynamic_capability_software_version():
                 if not adv and not rcv:
                     return ""
 
-                pattern = "FRRouting/\\d.+"
+                pattern = "^FRRouting/\\d.+"
                 if re.search(pattern, adv) and re.search(pattern, rcv):
                     return adv, rcv
             except:
