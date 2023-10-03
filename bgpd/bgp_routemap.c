@@ -1528,7 +1528,8 @@ static const struct route_map_rule_cmd route_match_aspath_cmd = {
 struct rmap_community {
 	char *name;
 	uint32_t name_hash;
-	int exact;
+	bool exact;
+	bool any;
 };
 
 /* Match function for community match. */
@@ -1550,6 +1551,12 @@ route_match_community(void *rule, const struct prefix *prefix, void *object)
 	if (rcom->exact) {
 		if (community_list_exact_match(
 			    bgp_attr_get_community(path->attr), list))
+			return RMAP_MATCH;
+	} else if (rcom->any) {
+		if (!bgp_attr_get_community(path->attr))
+			return RMAP_OKAY;
+		if (community_list_any_match(bgp_attr_get_community(path->attr),
+					     list))
 			return RMAP_MATCH;
 	} else {
 		if (community_list_match(bgp_attr_get_community(path->attr),
@@ -1574,10 +1581,15 @@ static void *route_match_community_compile(const char *arg)
 		len = p - arg;
 		rcom->name = XCALLOC(MTYPE_ROUTE_MAP_COMPILED, len + 1);
 		memcpy(rcom->name, arg, len);
-		rcom->exact = 1;
+		p++;
+		if (*p == 'e')
+			rcom->exact = true;
+		else
+			rcom->any = true;
 	} else {
 		rcom->name = XSTRDUP(MTYPE_ROUTE_MAP_COMPILED, arg);
-		rcom->exact = 0;
+		rcom->exact = false;
+		rcom->any = false;
 	}
 
 	rcom->name_hash = bgp_clist_hash_key(rcom->name);
@@ -1637,6 +1649,12 @@ route_match_lcommunity(void *rule, const struct prefix *prefix, void *object)
 		if (lcommunity_list_exact_match(
 			    bgp_attr_get_lcommunity(path->attr), list))
 			return RMAP_MATCH;
+	} else if (rcom->any) {
+		if (!bgp_attr_get_lcommunity(path->attr))
+			return RMAP_OKAY;
+		if (lcommunity_list_any_match(bgp_attr_get_lcommunity(path->attr),
+					      list))
+			return RMAP_MATCH;
 	} else {
 		if (lcommunity_list_match(bgp_attr_get_lcommunity(path->attr),
 					  list))
@@ -1660,10 +1678,15 @@ static void *route_match_lcommunity_compile(const char *arg)
 		len = p - arg;
 		rcom->name = XCALLOC(MTYPE_ROUTE_MAP_COMPILED, len + 1);
 		memcpy(rcom->name, arg, len);
-		rcom->exact = 1;
+		p++;
+		if (*p == 'e')
+			rcom->exact = true;
+		else
+			rcom->any = true;
 	} else {
 		rcom->name = XSTRDUP(MTYPE_ROUTE_MAP_COMPILED, arg);
-		rcom->exact = 0;
+		rcom->exact = false;
+		rcom->any = false;
 	}
 
 	rcom->name_hash = bgp_clist_hash_key(rcom->name);
@@ -5493,15 +5516,15 @@ DEFUN_YANG(no_match_alias, no_match_alias_cmd, "no match alias [ALIAS_NAME]",
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFPY_YANG (match_community,
-       match_community_cmd,
-       "match community <(1-99)|(100-500)|COMMUNITY_LIST_NAME> [exact-match]",
-       MATCH_STR
-       "Match BGP community list\n"
-       "Community-list number (standard)\n"
-       "Community-list number (expanded)\n"
-       "Community-list name\n"
-       "Do exact matching of communities\n")
+DEFPY_YANG(
+	match_community, match_community_cmd,
+	"match community <(1-99)|(100-500)|COMMUNITY_LIST_NAME> [<exact-match$exact|any$any>]",
+	MATCH_STR "Match BGP community list\n"
+		  "Community-list number (standard)\n"
+		  "Community-list number (expanded)\n"
+		  "Community-list name\n"
+		  "Do exact matching of communities\n"
+		  "Do matching of any community\n")
 {
 	const char *xpath =
 		"./match-condition[condition='frr-bgp-route-map:match-community']";
@@ -5517,35 +5540,35 @@ DEFPY_YANG (match_community,
 		xpath);
 	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, argv[idx_comm_list]->arg);
 
-	if (argc == 4) {
-		snprintf(
-			xpath_match, sizeof(xpath_match),
-			"%s/rmap-match-condition/frr-bgp-route-map:comm-list/comm-list-name-exact-match",
-			xpath);
+	snprintf(xpath_match, sizeof(xpath_match),
+		 "%s/rmap-match-condition/frr-bgp-route-map:comm-list/comm-list-name-exact-match",
+		 xpath);
+	if (exact)
 		nb_cli_enqueue_change(vty, xpath_match, NB_OP_MODIFY,
 				"true");
-	} else {
-		snprintf(
-			xpath_match, sizeof(xpath_match),
-			"%s/rmap-match-condition/frr-bgp-route-map:comm-list/comm-list-name-exact-match",
-			xpath);
-		nb_cli_enqueue_change(vty, xpath_match, NB_OP_MODIFY,
-				"false");
-	}
+	else
+		nb_cli_enqueue_change(vty, xpath_match, NB_OP_MODIFY, "false");
+
+	snprintf(xpath_match, sizeof(xpath_match),
+		 "%s/rmap-match-condition/frr-bgp-route-map:comm-list/comm-list-name-any",
+		 xpath);
+	if (any)
+		nb_cli_enqueue_change(vty, xpath_match, NB_OP_MODIFY, "true");
+	else
+		nb_cli_enqueue_change(vty, xpath_match, NB_OP_MODIFY, "false");
 
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFUN_YANG (no_match_community,
-	    no_match_community_cmd,
-	    "no match community [<(1-99)|(100-500)|COMMUNITY_LIST_NAME> [exact-match]]",
-	    NO_STR
-	    MATCH_STR
-	    "Match BGP community list\n"
-	    "Community-list number (standard)\n"
-	    "Community-list number (expanded)\n"
-	    "Community-list name\n"
-	    "Do exact matching of communities\n")
+DEFUN_YANG(
+	no_match_community, no_match_community_cmd,
+	"no match community [<(1-99)|(100-500)|COMMUNITY_LIST_NAME> [<exact-match$exact|any$any>]]",
+	NO_STR MATCH_STR "Match BGP community list\n"
+			 "Community-list number (standard)\n"
+			 "Community-list number (expanded)\n"
+			 "Community-list name\n"
+			 "Do exact matching of communities\n"
+			 "Do matching of any community\n")
 {
 	const char *xpath =
 		"./match-condition[condition='frr-bgp-route-map:match-community']";
@@ -5554,15 +5577,15 @@ DEFUN_YANG (no_match_community,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFPY_YANG (match_lcommunity,
-	    match_lcommunity_cmd,
-	    "match large-community <(1-99)|(100-500)|LCOMMUNITY_LIST_NAME> [exact-match]",
-	    MATCH_STR
-	    "Match BGP large community list\n"
-	    "Large Community-list number (standard)\n"
-	    "Large Community-list number (expanded)\n"
-	    "Large Community-list name\n"
-	    "Do exact matching of communities\n")
+DEFPY_YANG(
+	match_lcommunity, match_lcommunity_cmd,
+	"match large-community <(1-99)|(100-500)|LCOMMUNITY_LIST_NAME> [<exact-match$exact|any$any>]",
+	MATCH_STR "Match BGP large community list\n"
+		  "Large Community-list number (standard)\n"
+		  "Large Community-list number (expanded)\n"
+		  "Large Community-list name\n"
+		  "Do exact matching of communities\n"
+		  "Do matching of any community\n")
 {
 	const char *xpath =
 		"./match-condition[condition='frr-bgp-route-map:match-large-community']";
@@ -5578,35 +5601,35 @@ DEFPY_YANG (match_lcommunity,
 		xpath);
 	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, argv[idx_lcomm_list]->arg);
 
-	if (argc == 4) {
-		snprintf(
-			xpath_match, sizeof(xpath_match),
-			"%s/rmap-match-condition/frr-bgp-route-map:comm-list/comm-list-name-exact-match",
-			xpath);
+	snprintf(xpath_match, sizeof(xpath_match),
+		 "%s/rmap-match-condition/frr-bgp-route-map:comm-list/comm-list-name-exact-match",
+		 xpath);
+	if (exact)
 		nb_cli_enqueue_change(vty, xpath_match, NB_OP_MODIFY,
 				"true");
-	} else {
-		snprintf(
-			xpath_match, sizeof(xpath_match),
-			"%s/rmap-match-condition/frr-bgp-route-map:comm-list/comm-list-name-exact-match",
-			xpath);
-		nb_cli_enqueue_change(vty, xpath_match, NB_OP_MODIFY,
-				"false");
-	}
+	else
+		nb_cli_enqueue_change(vty, xpath_match, NB_OP_MODIFY, "false");
+
+	snprintf(xpath_match, sizeof(xpath_match),
+		 "%s/rmap-match-condition/frr-bgp-route-map:comm-list/comm-list-name-any",
+		 xpath);
+	if (any)
+		nb_cli_enqueue_change(vty, xpath_match, NB_OP_MODIFY, "true");
+	else
+		nb_cli_enqueue_change(vty, xpath_match, NB_OP_MODIFY, "false");
 
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFUN_YANG (no_match_lcommunity,
-	    no_match_lcommunity_cmd,
-	    "no match large-community [<(1-99)|(100-500)|LCOMMUNITY_LIST_NAME> [exact-match]]",
-	    NO_STR
-	    MATCH_STR
-	    "Match BGP large community list\n"
-	    "Large Community-list number (standard)\n"
-	    "Large Community-list number (expanded)\n"
-	    "Large Community-list name\n"
-	    "Do exact matching of communities\n")
+DEFUN_YANG(
+	no_match_lcommunity, no_match_lcommunity_cmd,
+	"no match large-community [<(1-99)|(100-500)|LCOMMUNITY_LIST_NAME> [<exact-match|any>]]",
+	NO_STR MATCH_STR "Match BGP large community list\n"
+			 "Large Community-list number (standard)\n"
+			 "Large Community-list number (expanded)\n"
+			 "Large Community-list name\n"
+			 "Do exact matching of communities\n"
+			 "Do matching of any community\n")
 {
 	const char *xpath =
 		"./match-condition[condition='frr-bgp-route-map:match-large-community']";

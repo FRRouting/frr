@@ -2,23 +2,28 @@
 # SPDX-License-Identifier: ISC
 
 #
-# Copyright (c) 2022 by
-# Donatas Abraitis <donatas@opensourcerouting.org>
+# Copyright 2023 by 6WIND S.A.
 #
 
 """
-Check if BGP community-list works as OR if multiple community entries specified,
-like:
+Check if BGP large-community-list works
+when used as match rule in incoming route-maps.
 
-bgp community-list 1 seq 5 permit 65001:1 65002:2
-bgp community-list 1 seq 10 permit 65001:3
+- case 1 should deny incoming updates with large-community-list 1
+bgp large-community-list 1 seq 5 permit 65001:1:1 65001:2:1
+bgp large-community-list 1 seq 10 permit 65001:3:1
 !
+route-map r1 deny 10
+ match large-community 1
+
 route-map test deny 10
  match community 1
-route-map test permit 20
 
-Here, we should deny routes in/out if the path has:
-(65001:1 AND 65001:2) OR 65001:3.
+- case 2 should deny incoming updates with any large-community-list 1
+bgp large-community-list 2 seq 10 permit 65001:12:1
+!
+route-map r1 deny 10
+ match large-community 2 any
 """
 
 import os
@@ -72,7 +77,7 @@ def teardown_module(mod):
     tgen.stop_topology()
 
 
-def test_bgp_comm_list_match():
+def test_bgp_large_comm_list_match():
     tgen = get_topogen()
 
     if tgen.routers_have_failure():
@@ -98,13 +103,15 @@ def test_bgp_comm_list_match():
         }
         return topotest.json_cmp(output, expected)
 
-    step("Initial BGP converge between R1 and R2")
+    step("BGP filtering check with large-community-list on R2")
     test_func = functools.partial(_bgp_converge)
     _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
-    assert result is None, "Failed to filter BGP UPDATES with community-list on R2"
+    assert (
+        result is None
+    ), "Failed to filter BGP UPDATES with large-community-list on R2"
 
 
-def test_bgp_comm_list_match_any():
+def test_bgp_large_comm_list_match_any():
     tgen = get_topogen()
 
     if tgen.routers_have_failure():
@@ -127,10 +134,10 @@ def test_bgp_comm_list_match_any():
         }
         return topotest.json_cmp(output, expected)
 
-    step("Initial BGP converge between R3 and R2")
+    step("BGP filtering check with large-community-list on R3")
     test_func = functools.partial(_bgp_converge)
     _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
-    assert result is None, "Failed to filter BGP UPDATES with community-list on R3"
+    assert result is None, "Failed to filter BGP UPDATES with large-community-list on R3"
 
 
 if __name__ == "__main__":

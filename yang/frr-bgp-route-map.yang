@@ -777,6 +777,13 @@ identity set-extcommunity-color {
           description
             "Do exact matching of communities";
         }
+
+        leaf comm-list-name-any {
+          type boolean;
+          description
+            "Do matching of any community";
+        }
+
       }
     }
 

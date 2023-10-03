@@ -1127,6 +1127,7 @@ lib_route_map_entry_match_condition_rmap_match_condition_comm_list_finish(
 	struct routemap_hook_context *rhc;
 	const char *value;
 	bool exact_match = false;
+	bool any = false;
 	char *argstr;
 	const char *condition;
 	route_map_event_t event;
@@ -1140,12 +1141,21 @@ lib_route_map_entry_match_condition_rmap_match_condition_comm_list_finish(
 		exact_match = yang_dnode_get_bool(
 			args->dnode, "./comm-list-name-exact-match");
 
+	if (yang_dnode_exists(args->dnode, "./comm-list-name-any"))
+		any = yang_dnode_get_bool(args->dnode, "./comm-list-name-any");
+
 	if (exact_match) {
 		argstr = XMALLOC(MTYPE_ROUTE_MAP_COMPILED,
 				 strlen(value) + strlen("exact-match") + 2);
 
 		snprintf(argstr, (strlen(value) + strlen("exact-match") + 2),
 			 "%s exact-match", value);
+	} else if (any) {
+		argstr = XMALLOC(MTYPE_ROUTE_MAP_COMPILED,
+				 strlen(value) + strlen("any") + 2);
+
+		snprintf(argstr, (strlen(value) + strlen("any") + 2), "%s any",
+			 value);
 	} else
 		argstr = (char *)value;
 
@@ -1215,6 +1225,39 @@ lib_route_map_entry_match_condition_rmap_match_condition_comm_list_comm_list_nam
 
 	return NB_OK;
 
+}
+
+/*
+ * XPath:
+ * /frr-route-map:lib/route-map/entry/match-condition/rmap-match-condition/frr-bgp-route-map:comm-list/comm-list-name-any
+ */
+int lib_route_map_entry_match_condition_rmap_match_condition_comm_list_comm_list_name_any_modify(
+	struct nb_cb_modify_args *args)
+{
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+	case NB_EV_APPLY:
+		break;
+	}
+
+	return NB_OK;
+}
+
+int lib_route_map_entry_match_condition_rmap_match_condition_comm_list_comm_list_name_any_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	case NB_EV_APPLY:
+		return lib_route_map_entry_match_destroy(args);
+	}
+
+	return NB_OK;
 }
 
 /*

@@ -735,6 +735,27 @@ bool community_list_exact_match(struct community *com,
 	return false;
 }
 
+bool community_list_any_match(struct community *com, struct community_list *list)
+{
+	struct community_entry *entry;
+	uint32_t val;
+	int i;
+
+	for (i = 0; i < com->size; i++) {
+		val = community_val_get(com, i);
+
+		for (entry = list->head; entry; entry = entry->next) {
+			if (entry->style == COMMUNITY_LIST_STANDARD &&
+			    community_include(entry->u.com, val))
+				return entry->direct == COMMUNITY_PERMIT;
+			if ((entry->style == COMMUNITY_LIST_EXPANDED) &&
+			    community_regexp_include(entry->reg, com, i))
+				return entry->direct == COMMUNITY_PERMIT;
+		}
+	}
+	return false;
+}
+
 /* Delete all permitted communities in the list from com.  */
 struct community *community_list_match_delete(struct community *com,
 					      struct community_list *list)
@@ -920,6 +941,28 @@ int community_list_unset(struct community_list_handler *ch, const char *name,
 	route_map_notify_dependencies(name, RMAP_EVENT_CLIST_DELETED);
 
 	return 0;
+}
+
+bool lcommunity_list_any_match(struct lcommunity *lcom,
+			       struct community_list *list)
+{
+	struct community_entry *entry;
+	uint8_t *ptr;
+	int i;
+
+	for (i = 0; i < lcom->size; i++) {
+		ptr = lcom->val + (i * LCOMMUNITY_SIZE);
+
+		for (entry = list->head; entry; entry = entry->next) {
+			if ((entry->style == LARGE_COMMUNITY_LIST_STANDARD) &&
+			    lcommunity_include(entry->u.lcom, ptr))
+				return entry->direct == COMMUNITY_PERMIT;
+			if ((entry->style == LARGE_COMMUNITY_LIST_EXPANDED) &&
+			    lcommunity_regexp_include(entry->reg, lcom, i))
+				return entry->direct == COMMUNITY_PERMIT;
+		}
+	}
+	return false;
 }
 
 /* Delete all permitted large communities in the list from com.  */

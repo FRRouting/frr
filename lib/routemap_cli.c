@@ -729,6 +729,10 @@ void route_map_condition_show(struct vty *vty, const struct lyd_node *dnode,
 			    dnode,
 			    "./rmap-match-condition/frr-bgp-route-map:comm-list/comm-list-name-exact-match"))
 			vty_out(vty, " exact-match");
+		if (yang_dnode_get_bool(
+			    dnode,
+			    "./rmap-match-condition/frr-bgp-route-map:comm-list/comm-list-name-any"))
+			vty_out(vty, " any");
 		vty_out(vty, "\n");
 	} else if (IS_MATCH_LCOMMUNITY(condition)) {
 		vty_out(vty, " match large-community %s",
@@ -739,6 +743,10 @@ void route_map_condition_show(struct vty *vty, const struct lyd_node *dnode,
 			    dnode,
 			    "./rmap-match-condition/frr-bgp-route-map:comm-list/comm-list-name-exact-match"))
 			vty_out(vty, " exact-match");
+		if (yang_dnode_get_bool(
+			    dnode,
+			    "./rmap-match-condition/frr-bgp-route-map:comm-list/comm-list-name-any"))
+			vty_out(vty, " any");
 		vty_out(vty, "\n");
 	} else if (IS_MATCH_EXTCOMMUNITY(condition)) {
 		vty_out(vty, " match extcommunity %s\n",
