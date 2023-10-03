@@ -400,6 +400,7 @@ assign_label_chunk(uint8_t proto, unsigned short instance, uint32_t session_id,
 	struct label_manager_chunk *lmc;
 	struct listnode *node;
 	uint32_t prev_end = lbl_mgr.dynamic_block_start - 1;
+	struct label_manager_chunk *lmc_block_last = NULL;
 
 	/* handle chunks request with a specific base label
 	 * - static label requests: BGP hardset value, Pathd
@@ -416,7 +417,9 @@ assign_label_chunk(uint8_t proto, unsigned short instance, uint32_t session_id,
 	for (ALL_LIST_ELEMENTS_RO(lbl_mgr.lc_list, node, lmc)) {
 		if (lmc->start <= prev_end)
 			continue;
-		if (lmc->proto == NO_PROTO && lmc->end - lmc->start + 1 == size) {
+		if (lmc->proto == NO_PROTO &&
+		    lmc->end - lmc->start + 1 == size &&
+		    lmc->end <= lbl_mgr.dynamic_block_end) {
 			lmc->proto = proto;
 			lmc->instance = instance;
 			lmc->session_id = session_id;
@@ -426,7 +429,8 @@ assign_label_chunk(uint8_t proto, unsigned short instance, uint32_t session_id,
 		}
 		/* check if we hadve a "hole" behind us that we can squeeze into
 		 */
-		if (lmc->start - prev_end > size) {
+		if (lmc->start - prev_end > size &&
+		    prev_end + 1 + size <= lbl_mgr.dynamic_block_end) {
 			lmc = create_label_chunk(proto, instance, session_id,
 						 keep, prev_end + 1,
 						 prev_end + size, true);
@@ -434,17 +438,19 @@ assign_label_chunk(uint8_t proto, unsigned short instance, uint32_t session_id,
 			return lmc;
 		}
 		prev_end = lmc->end;
+
+		/* check if we have a chunk that goes over the end block */
+		if (lmc->end > lbl_mgr.dynamic_block_end)
+			continue;
+		lmc_block_last = lmc;
 	}
 	/* otherwise create a new one */
 	uint32_t start_free;
 
-	if (list_isempty(lbl_mgr.lc_list))
+	if (lmc_block_last == NULL)
 		start_free = lbl_mgr.dynamic_block_start;
 	else
-		start_free = ((struct label_manager_chunk *)listgetdata(
-				      listtail(lbl_mgr.lc_list)))
-				     ->end
-			     + 1;
+		start_free = lmc_block_last->end + 1;
 
 	if (start_free > lbl_mgr.dynamic_block_end - size + 1) {
 		flog_err(EC_ZEBRA_LM_EXHAUSTED_LABELS,
