@@ -314,7 +314,7 @@ assign_label_chunk(uint8_t proto, unsigned short instance, uint32_t session_id,
 {
 	struct label_manager_chunk *lmc;
 	struct listnode *node;
-	uint32_t prev_end = MPLS_LABEL_UNRESERVED_MIN;
+	uint32_t prev_end = MPLS_LABEL_UNRESERVED_MIN - 1;
 
 	/* handle chunks request with a specific base label
 	 * - static label requests: BGP hardset value, Pathd
