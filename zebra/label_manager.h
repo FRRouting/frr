@@ -62,11 +62,14 @@ DECLARE_HOOK(lm_get_chunk,
 DECLARE_HOOK(lm_release_chunk,
 	     (struct zserv *client, uint32_t start, uint32_t end),
 	     (client, start, end));
+DECLARE_HOOK(lm_write_label_block_config,
+	     (struct vty *vty, struct zebra_vrf *zvrf),
+	     (vty, zvrf));
 DECLARE_HOOK(lm_cbs_inited, (), ());
 
 
-/* declare wrappers to be called in zapi_msg.c (as hooks must be called in
- * source file where they were defined)
+/* declare wrappers to be called in zapi_msg.c or zebra_mpls_vty.c (as hooks
+ * must be called in source file where they were defined)
  */
 void lm_client_connect_call(struct zserv *client, vrf_id_t vrf_id);
 void lm_get_chunk_call(struct label_manager_chunk **lmc, struct zserv *client,
@@ -74,6 +77,7 @@ void lm_get_chunk_call(struct label_manager_chunk **lmc, struct zserv *client,
 		       vrf_id_t vrf_id);
 void lm_release_chunk_call(struct zserv *client, uint32_t start,
 			   uint32_t end);
+int lm_write_label_block_config_call(struct vty *vty, struct zebra_vrf *zvrf);
 
 /* API for an external LM to return responses for requests */
 int lm_client_connect_response(uint8_t proto, uint16_t instance,
@@ -96,6 +100,8 @@ void lm_hooks_unregister(void);
  */
 struct label_manager {
 	struct list *lc_list;
+	uint32_t dynamic_block_start;
+	uint32_t dynamic_block_end;
 };
 
 void label_manager_init(void);

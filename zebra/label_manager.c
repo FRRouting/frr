@@ -51,10 +51,14 @@ DEFINE_HOOK(lm_get_chunk,
 DEFINE_HOOK(lm_release_chunk,
 	     (struct zserv *client, uint32_t start, uint32_t end),
 	     (client, start, end));
+/* show running-config needs an API for dynamic-block */
+DEFINE_HOOK(lm_write_label_block_config,
+	    (struct vty *vty, struct zebra_vrf *zvrf),
+	    (vty, zvrf));
 DEFINE_HOOK(lm_cbs_inited, (), ());
 
-/* define wrappers to be called in zapi_msg.c (as hooks must be called in
- * source file where they were defined)
+/* define wrappers to be called in zapi_msg.c or zebra_mpls_vty.c (as hooks
+ * must be called in source file where they were defined)
  */
 void lm_client_connect_call(struct zserv *client, vrf_id_t vrf_id)
 {
@@ -71,6 +75,11 @@ void lm_release_chunk_call(struct zserv *client, uint32_t start, uint32_t end)
 	hook_call(lm_release_chunk, client, start, end);
 }
 
+int lm_write_label_block_config_call(struct vty *vty, struct zebra_vrf *zvrf)
+{
+	return hook_call(lm_write_label_block_config, vty, zvrf);
+}
+
 /* forward declarations of the static functions to be used for some hooks */
 static int label_manager_connect(struct zserv *client, vrf_id_t vrf_id);
 static int label_manager_disconnect(struct zserv *client);
@@ -80,6 +89,8 @@ static int label_manager_get_chunk(struct label_manager_chunk **lmc,
 				   vrf_id_t vrf_id);
 static int label_manager_release_label_chunk(struct zserv *client,
 					     uint32_t start, uint32_t end);
+static int label_manager_write_label_block_config(struct vty *vty,
+						  struct zebra_vrf *zvrf);
 
 void delete_label_chunk(void *val)
 {
@@ -138,6 +149,8 @@ void lm_hooks_register(void)
 	hook_register(lm_client_disconnect, label_manager_disconnect);
 	hook_register(lm_get_chunk, label_manager_get_chunk);
 	hook_register(lm_release_chunk, label_manager_release_label_chunk);
+	hook_register(lm_write_label_block_config,
+		      label_manager_write_label_block_config);
 }
 void lm_hooks_unregister(void)
 {
@@ -145,6 +158,8 @@ void lm_hooks_unregister(void)
 	hook_unregister(lm_client_disconnect, label_manager_disconnect);
 	hook_unregister(lm_get_chunk, label_manager_get_chunk);
 	hook_unregister(lm_release_chunk, label_manager_release_label_chunk);
+	hook_unregister(lm_write_label_block_config,
+			label_manager_write_label_block_config);
 }
 
 DEFPY(show_label_table, show_label_table_cmd, "show debugging label-table",
@@ -163,6 +178,73 @@ DEFPY(show_label_table, show_label_table_cmd, "show debugging label-table",
 	return CMD_SUCCESS;
 }
 
+DEFPY(mpls_label_dynamic_block, mpls_label_dynamic_block_cmd,
+      "[no$no] mpls label dynamic-block [(16-1048575)$start (16-1048575)$end]",
+      NO_STR
+      MPLS_STR
+      "Label configuration\n"
+      "Configure dynamic label block\n"
+      "Start label\n"
+      "End label\n")
+{
+	struct listnode *node;
+	struct label_manager_chunk *lmc;
+
+	/* unset dynamic range */
+	if (no ||
+	    (start == MPLS_LABEL_UNRESERVED_MIN && end == MPLS_LABEL_MAX)) {
+		lbl_mgr.dynamic_block_start = MPLS_LABEL_UNRESERVED_MIN;
+		lbl_mgr.dynamic_block_end = MPLS_LABEL_MAX;
+		return CMD_SUCCESS;
+	}
+	if (!start || !end) {
+		vty_out(vty,
+			"%% label dynamic-block, range missing, aborting\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+	if (start > end) {
+		vty_out(vty,
+			"%% label dynamic-block, wrong range (%ld > %ld), aborting\n",
+			start, end);
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	for (ALL_LIST_ELEMENTS_RO(lbl_mgr.lc_list, node, lmc)) {
+		if (lmc->proto == NO_PROTO)
+			continue;
+		if (!lmc->is_dynamic && lmc->start >= (uint32_t)start &&
+		    lmc->end <= (uint32_t)end) {
+			vty_out(vty,
+				"%% Found a static label chunk [%u-%u] for %s in conflict with the dynamic label block\n",
+				lmc->start, lmc->end,
+				zebra_route_string(lmc->proto));
+			return CMD_WARNING_CONFIG_FAILED;
+		} else if (lmc->is_dynamic && (lmc->end > (uint32_t)end ||
+					       lmc->start < (uint32_t)start)) {
+			vty_out(vty,
+				"%% Found a dynamic label chunk [%u-%u] for %s outside the new dynamic label block, consider restart the service\n",
+				lmc->start, lmc->end,
+				zebra_route_string(lmc->proto));
+		}
+	}
+	lbl_mgr.dynamic_block_start = start;
+	lbl_mgr.dynamic_block_end = end;
+	return CMD_SUCCESS;
+}
+
+static int label_manager_write_label_block_config(struct vty *vty,
+						  struct zebra_vrf *zvrf)
+{
+	if (zvrf_id(zvrf) != VRF_DEFAULT)
+		return 0;
+	if (lbl_mgr.dynamic_block_start == MPLS_LABEL_UNRESERVED_MIN &&
+	    lbl_mgr.dynamic_block_end == MPLS_LABEL_MAX)
+		return 0;
+	vty_out(vty, "mpls label dynamic-block %u %u\n",
+		lbl_mgr.dynamic_block_start, lbl_mgr.dynamic_block_end);
+	return 1;
+}
+
 /**
  * Init label manager (or proxy to an external one)
  */
@@ -170,6 +252,8 @@ void label_manager_init(void)
 {
 	lbl_mgr.lc_list = list_new();
 	lbl_mgr.lc_list->del = delete_label_chunk;
+	lbl_mgr.dynamic_block_start = MPLS_LABEL_UNRESERVED_MIN;
+	lbl_mgr.dynamic_block_end = MPLS_LABEL_MAX;
 	hook_register(zserv_client_close, lm_client_disconnect_cb);
 
 	/* register default hooks for the label manager actions */
@@ -179,6 +263,7 @@ void label_manager_init(void)
 	hook_call(lm_cbs_inited);
 
 	install_element(VIEW_NODE, &show_label_table_cmd);
+	install_element(CONFIG_NODE, &mpls_label_dynamic_block_cmd);
 }
 
 /* alloc and fill a label chunk */
