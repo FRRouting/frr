@@ -1078,7 +1078,7 @@ void pim_show_state(struct pim_instance *pim, struct vty *vty,
 			   oil_mcastgrp(c_oil));
 		snprintfrr(src_str, sizeof(src_str), "%pPAs",
 			   oil_origin(c_oil));
-		ifp_in = pim_if_find_by_vif_index(pim, *oil_parent(c_oil));
+		ifp_in = pim_if_find_by_vif_index(pim, *oil_incoming_vif(c_oil));
 
 		if (ifp_in)
 			strlcpy(in_ifname, ifp_in->name, sizeof(in_ifname));
@@ -3723,7 +3723,7 @@ void show_mroute(struct pim_instance *pim, struct vty *vty, pim_sgaddr *sg,
 		if (pim_channel_oil_empty(c_oil))
 			strlcat(state_str, "P", sizeof(state_str));
 
-		ifp_in = pim_if_find_by_vif_index(pim, *oil_parent(c_oil));
+		ifp_in = pim_if_find_by_vif_index(pim, *oil_incoming_vif(c_oil));
 
 		if (ifp_in)
 			strlcpy(in_ifname, ifp_in->name, sizeof(in_ifname));
@@ -3789,7 +3789,7 @@ void show_mroute(struct pim_instance *pim, struct vty *vty, pim_sgaddr *sg,
 			if (c_oil->oif_flags[oif_vif_index] & PIM_OIF_FLAG_MUTE)
 				continue;
 
-			if (*oil_parent(c_oil) == oif_vif_index &&
+			if (*oil_incoming_vif(c_oil) == oif_vif_index &&
 			    !pim_mroute_allow_iif_in_oil(c_oil, oif_vif_index))
 				continue;
 
@@ -3840,7 +3840,7 @@ void show_mroute(struct pim_instance *pim, struct vty *vty, pim_sgaddr *sg,
 						       "inboundInterface",
 						       in_ifname);
 				json_object_int_add(json_ifp_out, "iVifI",
-						    *oil_parent(c_oil));
+						    *oil_incoming_vif(c_oil));
 				json_object_string_add(json_ifp_out,
 						       "outboundInterface",
 						       out_ifname);
@@ -3989,9 +3989,9 @@ void show_mroute(struct pim_instance *pim, struct vty *vty, pim_sgaddr *sg,
 				json_object_string_add(json_ifp_out,
 						       "inboundInterface",
 						       in_ifname);
-				json_object_int_add(
-					json_ifp_out, "iVifI",
-					*oil_parent(&s_route->c_oil));
+				json_object_int_add(json_ifp_out, "iVifI",
+						    *oil_incoming_vif(
+							    &s_route->c_oil));
 				json_object_string_add(json_ifp_out,
 						       "outboundInterface",
 						       out_ifname);

@@ -1131,7 +1131,7 @@ static void show_bgp_nexthop_label_afi(struct vty *vty, afi_t afi,
 				ifindex2ifname(iter->nh->ifindex,
 					       iter->nh->vrf_id));
 		tbuf = time(NULL) - (monotime(NULL) - iter->last_update);
-		vty_out(vty, "  Last update: %s", ctime(&tbuf));
+		vty_out(vty, "  Last update: %s", ctime_r(&tbuf, buf));
 		if (!detail)
 			continue;
 		vty_out(vty, "  Paths:\n");

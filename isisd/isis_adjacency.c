@@ -90,6 +90,7 @@ struct isis_adjacency *isis_new_adj(const uint8_t *id, const uint8_t *snpa,
 		}
 	}
 	adj->adj_sids = list_new();
+	adj->srv6_endx_sids = list_new();
 	listnode_add(circuit->area->adjacency_list, adj);
 
 	return adj;
@@ -160,6 +161,7 @@ void isis_delete_adj(void *arg)
 	XFREE(MTYPE_ISIS_ADJACENCY_INFO, adj->global_ipv6_addrs);
 	adj_mt_finish(adj);
 	list_delete(&adj->adj_sids);
+	list_delete(&adj->srv6_endx_sids);
 
 	listnode_delete(adj->circuit->area->adjacency_list, adj);
 	XFREE(MTYPE_ISIS_ADJACENCY, adj);

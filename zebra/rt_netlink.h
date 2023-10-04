@@ -56,7 +56,8 @@ extern ssize_t netlink_mpls_multipath_msg_encode(int cmd,
 extern ssize_t netlink_route_multipath_msg_encode(int cmd,
 						  struct zebra_dplane_ctx *ctx,
 						  uint8_t *data, size_t datalen,
-						  bool fpm, bool force_nhg);
+						  bool fpm, bool force_nhg,
+						  bool force_rr);
 extern ssize_t netlink_macfdb_update_ctx(struct zebra_dplane_ctx *ctx,
 					 void *data, size_t datalen);
 

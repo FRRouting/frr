@@ -15,6 +15,7 @@ Building FRR
    building-frr-for-centos8
    building-frr-for-debian8
    building-frr-for-debian9
+   building-frr-for-debian12
    building-frr-for-fedora
    building-frr-for-freebsd9
    building-frr-for-freebsd10

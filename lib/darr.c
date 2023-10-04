@@ -7,8 +7,9 @@
  */
 #include <zebra.h>
 #include "darr.h"
+#include "memory.h"
 
-void __dar_resize(void **a, uint count, size_t esize);
+DEFINE_MTYPE_STATIC(LIB, DARR, "Dynamic Array");
 
 static uint _msb(uint count)
 {
@@ -56,15 +57,12 @@ void *__darr_resize(void *a, uint count, size_t esize)
 	uint ncount = darr_next_count(count, esize);
 	size_t osz = (a == NULL) ? 0 : darr_size(darr_cap(a), esize);
 	size_t sz = darr_size(ncount, esize);
-	struct darr_metadata *dm = realloc(a ? _darr_meta(a) : NULL, sz);
-	/* do *not* use a */
+	struct darr_metadata *dm = XREALLOC(MTYPE_DARR,
+					    a ? _darr_meta(a) : NULL, sz);
 
-	assert(dm);
 	if (sz > osz)
 		memset((char *)dm + osz, 0, sz - osz);
-
 	dm->cap = ncount;
-
 	return (void *)(dm + 1);
 }
 
@@ -109,6 +107,6 @@ void *__darr_insert_n(void *a, uint at, uint count, size_t esize, bool zero)
 		memset(_a_at(at), 0, esize * count);
 	}
 
-	return (void *)a;
+	return a;
 #undef _a_at
 }

@@ -1,3 +1,5 @@
+VRF default:
+ Resolve via default: on
 1.1.1.1
  resolved via static
  is directly connected, r1-eth1 (vrf default), weight 1

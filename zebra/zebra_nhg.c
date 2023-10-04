@@ -1868,11 +1868,18 @@ static struct nexthop *nexthop_set_resolved(afi_t afi,
 				   labels);
 
 	if (nexthop->nh_srv6) {
-		nexthop_add_srv6_seg6local(resolved_hop,
-					   nexthop->nh_srv6->seg6local_action,
-					   &nexthop->nh_srv6->seg6local_ctx);
-		nexthop_add_srv6_seg6(resolved_hop,
-				      &nexthop->nh_srv6->seg6_segs);
+		if (nexthop->nh_srv6->seg6local_action !=
+		    ZEBRA_SEG6_LOCAL_ACTION_UNSPEC)
+			nexthop_add_srv6_seg6local(resolved_hop,
+						   nexthop->nh_srv6
+							   ->seg6local_action,
+						   &nexthop->nh_srv6
+							    ->seg6local_ctx);
+		if (nexthop->nh_srv6->seg6_segs)
+			nexthop_add_srv6_seg6(resolved_hop,
+					      &nexthop->nh_srv6->seg6_segs->seg[0],
+					      nexthop->nh_srv6->seg6_segs
+						      ->num_segs);
 	}
 
 	resolved_hop->rparent = nexthop;
@@ -2281,6 +2288,7 @@ static int nexthop_active(struct nexthop *nexthop, struct nhg_hash_entry *nhe,
 			break;
 		case AFI_UNSPEC:
 		case AFI_L2VPN:
+		case AFI_LINKSTATE:
 		case AFI_MAX:
 			flog_err(EC_LIB_DEVELOPMENT,
 				 "%s: unknown address-family: %u", __func__,
@@ -2324,6 +2332,7 @@ static int nexthop_active(struct nexthop *nexthop, struct nhg_hash_entry *nhe,
 		break;
 	case AFI_UNSPEC:
 	case AFI_L2VPN:
+	case AFI_LINKSTATE:
 	case AFI_MAX:
 		assert(afi != AFI_IP && afi != AFI_IP6);
 		break;

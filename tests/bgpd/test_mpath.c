@@ -467,9 +467,10 @@ int main(void)
 {
 	int pass_count, fail_count;
 	time_t cur_time;
+	char buf[32];
 
 	time(&cur_time);
-	printf("BGP Multipath Tests Run at %s", ctime(&cur_time));
+	printf("BGP Multipath Tests Run at %s", ctime_r(&cur_time, buf));
 	if (global_test_init() != 0) {
 		printf("Global init failed. Terminating.\n");
 		exit(1);

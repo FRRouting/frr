@@ -37,17 +37,18 @@ DECLARE_HOOK(bgp_packet_send,
 	do {                                                                   \
 		_s = bgp_update_packet_eor(_peer, _afi, _safi);                \
 		if (_s) {                                                      \
-			bgp_packet_add(_peer, _s);                             \
+			bgp_packet_add(_peer->connection, _peer, _s);          \
 		}                                                              \
 	} while (0)
 
 /* Packet send and receive function prototypes. */
 extern void bgp_keepalive_send(struct peer *peer);
-extern void bgp_open_send(struct peer *peer);
-extern void bgp_notify_send(struct peer *peer, uint8_t code, uint8_t sub_code);
-extern void bgp_notify_send_with_data(struct peer *peer, uint8_t code,
-				      uint8_t sub_code, uint8_t *data,
-				      size_t datalen);
+extern void bgp_open_send(struct peer_connection *connection);
+extern void bgp_notify_send(struct peer_connection *connection, uint8_t code,
+			    uint8_t sub_code);
+extern void bgp_notify_send_with_data(struct peer_connection *connection,
+				      uint8_t code, uint8_t sub_code,
+				      uint8_t *data, size_t datalen);
 void bgp_notify_io_invalid(struct peer *peer, uint8_t code, uint8_t sub_code,
 			   uint8_t *data, size_t datalen);
 extern void bgp_route_refresh_send(struct peer *peer, afi_t afi, safi_t safi,
@@ -56,8 +57,8 @@ extern void bgp_route_refresh_send(struct peer *peer, afi_t afi, safi_t safi,
 extern void bgp_capability_send(struct peer *peer, afi_t afi, safi_t safi,
 				int capabilty_code, int action);
 
-extern int bgp_capability_receive(struct peer *peer, bgp_size_t length);
-
+extern int bgp_capability_receive(struct peer_connection *connection,
+				  struct peer *peer, bgp_size_t length);
 extern int bgp_nlri_parse(struct peer *peer, struct attr *attr,
 			  struct bgp_nlri *nlri, bool mp_withdraw);
 

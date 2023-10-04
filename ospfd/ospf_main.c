@@ -27,6 +27,7 @@
 #include "vrf.h"
 #include "libfrr.h"
 #include "routemap.h"
+#include "keychain.h"
 
 #include "ospfd/ospfd.h"
 #include "ospfd/ospf_interface.h"
@@ -218,6 +219,7 @@ int main(int argc, char **argv)
 
 	access_list_init();
 	prefix_list_init();
+	keychain_init();
 
 	/* Configuration processing callback initialization. */
 	cmd_init_config_callbacks(ospf_config_start, ospf_config_end);

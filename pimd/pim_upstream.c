@@ -1977,7 +1977,7 @@ static bool pim_upstream_kat_start_ok(struct pim_upstream *up)
 		return false;
 
 	pim_ifp = ifp->info;
-	if (pim_ifp->mroute_vif_index != *oil_parent(c_oil))
+	if (pim_ifp->mroute_vif_index != *oil_incoming_vif(c_oil))
 		return false;
 
 	if (pim_if_connected_to_source(up->rpf.source_nexthop.interface,

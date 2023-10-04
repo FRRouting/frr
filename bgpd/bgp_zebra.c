@@ -140,11 +140,11 @@ static void bgp_start_interface_nbrs(struct bgp *bgp, struct interface *ifp)
 	struct peer *peer;
 
 	for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
-		if (peer->conf_if && (strcmp(peer->conf_if, ifp->name) == 0)
-		    && !peer_established(peer)) {
+		if (peer->conf_if && (strcmp(peer->conf_if, ifp->name) == 0) &&
+		    !peer_established(peer->connection)) {
 			if (peer_active(peer))
-				BGP_EVENT_ADD(peer, BGP_Stop);
-			BGP_EVENT_ADD(peer, BGP_Start);
+				BGP_EVENT_ADD(peer->connection, BGP_Stop);
+			BGP_EVENT_ADD(peer->connection, BGP_Start);
 		}
 	}
 }
@@ -183,7 +183,7 @@ static void bgp_nbr_connected_delete(struct bgp *bgp, struct nbr_connected *ifc,
 		if (peer->conf_if
 		    && (strcmp(peer->conf_if, ifc->ifp->name) == 0)) {
 			peer->last_reset = PEER_DOWN_NBR_ADDR_DEL;
-			BGP_EVENT_ADD(peer, BGP_Stop);
+			BGP_EVENT_ADD(peer->connection, BGP_Stop);
 		}
 	}
 	/* Free neighbor also, if we're asked to. */
@@ -279,7 +279,7 @@ static int bgp_ifp_down(struct interface *ifp)
 				continue;
 
 			if (ifp == peer->nexthop.ifp) {
-				BGP_EVENT_ADD(peer, BGP_Stop);
+				BGP_EVENT_ADD(peer->connection, BGP_Stop);
 				peer->last_reset = PEER_DOWN_IF_DOWN;
 			}
 		}
@@ -515,7 +515,8 @@ static int bgp_interface_vrf_update(ZAPI_CALLBACK_ARGS)
 					continue;
 
 				if (ifp == peer->nexthop.ifp)
-					BGP_EVENT_ADD(peer, BGP_Stop);
+					BGP_EVENT_ADD(peer->connection,
+						      BGP_Stop);
 			}
 		}
 	}
@@ -1321,6 +1322,10 @@ void bgp_zebra_announce(struct bgp_dest *dest, const struct prefix *p,
 	uint32_t bos = 0;
 	uint32_t exp = 0;
 
+	if (afi == AFI_LINKSTATE)
+		/* nothing to install */
+		return;
+
 	/*
 	 * BGP is installing this route and bgp has been configured
 	 * to suppress announcements until the route has been installed
@@ -1556,17 +1561,17 @@ void bgp_zebra_announce(struct bgp_dest *dest, const struct prefix *p,
 		api_nh->weight = nh_weight;
 
 		if (((mpinfo->attr->srv6_l3vpn &&
-		      !sid_zero(&mpinfo->attr->srv6_l3vpn->sid)) ||
+		      !sid_zero_ipv6(&mpinfo->attr->srv6_l3vpn->sid)) ||
 		     (mpinfo->attr->srv6_vpn &&
-		      !sid_zero(&mpinfo->attr->srv6_vpn->sid))) &&
+		      !sid_zero_ipv6(&mpinfo->attr->srv6_vpn->sid))) &&
 		    !is_evpn && bgp_is_valid_label(&labels[0])) {
 			struct in6_addr *sid_tmp =
 				mpinfo->attr->srv6_l3vpn
 					? (&mpinfo->attr->srv6_l3vpn->sid)
 					: (&mpinfo->attr->srv6_vpn->sid);
 
-			memcpy(&api_nh->seg6_segs, sid_tmp,
-			       sizeof(api_nh->seg6_segs));
+			memcpy(&api_nh->seg6_segs[0], sid_tmp,
+			       sizeof(api_nh->seg6_segs[0]));
 
 			if (mpinfo->attr->srv6_l3vpn &&
 			    mpinfo->attr->srv6_l3vpn->transposition_len != 0) {
@@ -1580,13 +1585,14 @@ void bgp_zebra_announce(struct bgp_dest *dest, const struct prefix *p,
 					continue;
 				}
 
-				transpose_sid(&api_nh->seg6_segs, nh_label,
+				transpose_sid(&api_nh->seg6_segs[0], nh_label,
 					      mpinfo->attr->srv6_l3vpn
 						      ->transposition_offset,
 					      mpinfo->attr->srv6_l3vpn
 						      ->transposition_len);
 			}
 
+			api_nh->seg_num = 1;
 			SET_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_SEG6);
 		}
 
@@ -1703,7 +1709,7 @@ void bgp_zebra_announce(struct bgp_dest *dest, const struct prefix *p,
 			if (CHECK_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_SEG6) &&
 			    !CHECK_FLAG(api_nh->flags,
 					ZAPI_NEXTHOP_FLAG_EVPN)) {
-				inet_ntop(AF_INET6, &api_nh->seg6_segs,
+				inet_ntop(AF_INET6, &api_nh->seg6_segs[0],
 					  sid_buf, sizeof(sid_buf));
 				snprintf(segs_buf, sizeof(segs_buf), "segs %s",
 					 sid_buf);

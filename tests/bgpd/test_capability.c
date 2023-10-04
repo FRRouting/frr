@@ -847,7 +847,7 @@ static void parse_test(struct peer *peer, struct test_segment *t, int type)
 		ret = bgp_open_option_parse(peer, len, &capability);
 		break;
 	case DYNCAP:
-		ret = bgp_capability_receive(peer, t->len);
+		ret = bgp_capability_receive(peer->connection, peer, t->len);
 		break;
 	default:
 		printf("unknown type %u\n", type);

@@ -36,13 +36,8 @@ def setup_module(mod):
 
     router_list = tgen.routers()
 
-    for i, (rname, router) in enumerate(router_list.items(), 1):
-        router.load_config(
-            TopoRouter.RD_ZEBRA, os.path.join(CWD, "{}/zebra.conf".format(rname))
-        )
-        router.load_config(
-            TopoRouter.RD_BGP, os.path.join(CWD, "{}/bgpd.conf".format(rname))
-        )
+    for _, (rname, router) in enumerate(router_list.items(), 1):
+        router.load_frr_config(os.path.join(CWD, "{}/frr.conf".format(rname)))
 
     tgen.start_router()
 
@@ -73,8 +68,6 @@ def test_bgp_dynamic_capability_software_version():
                         "receivedSoftwareVersion": None,
                     },
                 },
-                "connectionsEstablished": 1,
-                "connectionsDropped": 0,
             }
         }
         return topotest.json_cmp(output, expected)
@@ -87,6 +80,9 @@ def test_bgp_dynamic_capability_software_version():
 
     step("Enable software version capability and check if it's exchanged dynamically")
 
+    # Clear message stats to check if we receive a notification or not after we
+    # change the settings fo LLGR.
+    r1.vtysh_cmd("clear bgp 192.168.1.2 message-stats")
     r1.vtysh_cmd(
         """
     configure terminal
@@ -115,7 +111,7 @@ def test_bgp_dynamic_capability_software_version():
                 if not adv and not rcv:
                     return ""
 
-                pattern = "FRRouting/\\d.+"
+                pattern = "^FRRouting/\\d.+"
                 if re.search(pattern, adv) and re.search(pattern, rcv):
                     return adv, rcv
             except:
@@ -133,8 +129,10 @@ def test_bgp_dynamic_capability_software_version():
                         "receivedSoftwareVersion": rcv,
                     },
                 },
-                "connectionsEstablished": 1,
-                "connectionsDropped": 0,
+                "messageStats": {
+                    "notificationsRecv": 0,
+                    "capabilityRecv": 1,
+                },
             }
         }
         return topotest.json_cmp(output, expected)

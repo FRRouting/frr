@@ -385,6 +385,7 @@ void bgp_connected_add(struct bgp *bgp, struct connected *ifc)
 	struct bgp_connected_ref *bc;
 	struct listnode *node, *nnode;
 	struct peer *peer;
+	struct peer_connection *connection;
 
 	addr = ifc->address;
 
@@ -409,14 +410,14 @@ void bgp_connected_add(struct bgp *bgp, struct connected *ifc)
 		}
 
 		for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
-			if (peer->conf_if
-			    && (strcmp(peer->conf_if, ifc->ifp->name) == 0)
-			    && !peer_established(peer)
-			    && !CHECK_FLAG(peer->flags,
-					   PEER_FLAG_IFPEER_V6ONLY)) {
+			if (peer->conf_if &&
+			    (strcmp(peer->conf_if, ifc->ifp->name) == 0) &&
+			    !peer_established(peer->connection) &&
+			    !CHECK_FLAG(peer->flags, PEER_FLAG_IFPEER_V6ONLY)) {
+				connection = peer->connection;
 				if (peer_active(peer))
-					BGP_EVENT_ADD(peer, BGP_Stop);
-				BGP_EVENT_ADD(peer, BGP_Start);
+					BGP_EVENT_ADD(connection, BGP_Stop);
+				BGP_EVENT_ADD(connection, BGP_Start);
 			}
 		}
 	} else if (addr->family == AF_INET6) {
@@ -483,7 +484,9 @@ void bgp_connected_delete(struct bgp *bgp, struct connected *ifc)
 		XFREE(MTYPE_BGP_CONN, bc);
 		bgp_dest_set_bgp_connected_ref_info(dest, NULL);
 	}
-	bgp_dest_unlock_node(dest);
+
+	dest = bgp_dest_unlock_node(dest);
+	assert(dest);
 	bgp_dest_unlock_node(dest);
 }
 
@@ -594,7 +597,7 @@ bool bgp_multiaccess_check_v4(struct in_addr nexthop, struct peer *peer)
 
 	p.family = AF_INET;
 	p.prefixlen = IPV4_MAX_BITLEN;
-	p.u.prefix4 = peer->su.sin.sin_addr;
+	p.u.prefix4 = peer->connection->su.sin.sin_addr;
 
 	dest2 = bgp_node_match(peer->bgp->connected_table[AFI_IP], &p);
 	if (!dest2) {
@@ -627,7 +630,7 @@ bool bgp_multiaccess_check_v6(struct in6_addr nexthop, struct peer *peer)
 
 	p.family = AF_INET6;
 	p.prefixlen = IPV6_MAX_BITLEN;
-	p.u.prefix6 = peer->su.sin6.sin6_addr;
+	p.u.prefix6 = peer->connection->su.sin6.sin6_addr;
 
 	dest2 = bgp_node_match(peer->bgp->connected_table[AFI_IP6], &p);
 	if (!dest2) {
@@ -669,7 +672,7 @@ bool bgp_subgrp_multiaccess_check_v6(struct in6_addr nexthop,
 		if (paf->peer == exclude)
 			continue;
 
-		p.u.prefix6 = paf->peer->su.sin6.sin6_addr;
+		p.u.prefix6 = paf->peer->connection->su.sin6.sin6_addr;
 		dest2 = bgp_node_match(bgp->connected_table[AFI_IP6], &p);
 		if (dest1 == dest2) {
 			bgp_dest_unlock_node(dest1);
@@ -711,7 +714,7 @@ bool bgp_subgrp_multiaccess_check_v4(struct in_addr nexthop,
 		if (paf->peer == exclude)
 			continue;
 
-		p.u.prefix4 = paf->peer->su.sin.sin_addr;
+		p.u.prefix4 = paf->peer->connection->su.sin.sin_addr;
 
 		dest2 = bgp_node_match(bgp->connected_table[AFI_IP], &p);
 		if (dest1 == dest2) {
@@ -969,6 +972,7 @@ static void bgp_show_nexthop(struct vty *vty, struct bgp *bgp,
 {
 	char buf[PREFIX2STR_BUFFER];
 	time_t tbuf;
+	char timebuf[32];
 	struct peer *peer;
 	json_object *json_last_update = NULL;
 	json_object *json_nexthop = NULL;
@@ -1067,14 +1071,14 @@ static void bgp_show_nexthop(struct vty *vty, struct bgp *bgp,
 			json_last_update = json_object_new_object();
 			json_object_int_add(json_last_update, "epoch", tbuf);
 			json_object_string_add(json_last_update, "string",
-					       ctime(&tbuf));
+					       ctime_r(&tbuf, timebuf));
 			json_object_object_add(json_nexthop, "lastUpdate",
 					       json_last_update);
 		} else {
 			json_object_int_add(json_nexthop, "lastUpdate", tbuf);
 		}
 	} else {
-		vty_out(vty, "  Last update: %s", ctime(&tbuf));
+		vty_out(vty, "  Last update: %s", ctime_r(&tbuf, timebuf));
 	}
 
 	/* show paths dependent on nexthop, if needed. */

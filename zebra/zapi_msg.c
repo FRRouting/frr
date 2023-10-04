@@ -565,6 +565,7 @@ int zsend_redistribute_route(int cmd, struct zserv *client,
 			client->redist_v6_del_cnt++;
 		break;
 	case AFI_L2VPN:
+	case AFI_LINKSTATE:
 	case AFI_MAX:
 	case AFI_UNSPEC:
 		break;
@@ -1794,7 +1795,8 @@ static bool zapi_read_nexthops(struct zserv *client, struct prefix *p,
 			if (IS_ZEBRA_DEBUG_RECV)
 				zlog_debug("%s: adding seg6", __func__);
 
-			nexthop_add_srv6_seg6(nexthop, &api_nh->seg6_segs);
+			nexthop_add_srv6_seg6(nexthop, &api_nh->seg6_segs[0],
+					      api_nh->seg_num);
 		}
 
 		if (IS_ZEBRA_DEBUG_RECV) {

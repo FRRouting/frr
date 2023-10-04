@@ -477,33 +477,18 @@ static int config_write_host(struct vty *vty)
 		}
 		log_config_write(vty);
 
-		/* print disable always, but enable only if default is flipped
-		 * => prep for future removal of compile-time knob
-		 */
 		if (!cputime_enabled)
 			vty_out(vty, "no service cputime-stats\n");
-#ifdef EXCLUDE_CPU_TIME
-		else
-			vty_out(vty, "service cputime-stats\n");
-#endif
 
 		if (!cputime_threshold)
 			vty_out(vty, "no service cputime-warning\n");
-#if defined(CONSUMED_TIME_CHECK) && CONSUMED_TIME_CHECK != 5000000
-		else /* again, always print non-default */
-#else
-		else if (cputime_threshold != 5000000)
-#endif
+		else if (cputime_threshold != CONSUMED_TIME_CHECK)
 			vty_out(vty, "service cputime-warning %lu\n",
 				cputime_threshold / 1000);
 
 		if (!walltime_threshold)
 			vty_out(vty, "no service walltime-warning\n");
-#if defined(CONSUMED_TIME_CHECK) && CONSUMED_TIME_CHECK != 5000000
-		else /* again, always print non-default */
-#else
-		else if (walltime_threshold != 5000000)
-#endif
+		else if (walltime_threshold != CONSUMED_TIME_CHECK)
 			vty_out(vty, "service walltime-warning %lu\n",
 				walltime_threshold / 1000);
 
@@ -1331,8 +1316,8 @@ DEFUN (config_terminal,
        config_terminal_cmd,
        "configure [terminal [file-lock]]",
        "Configuration from vty interface\n"
-       "Configuration with locked datastores\n"
-       "Configuration terminal\n")
+       "Configuration terminal\n"
+       "Configuration with locked datastores\n")
 {
 	return vty_config_enter(vty, false, false, argc == 3);
 }

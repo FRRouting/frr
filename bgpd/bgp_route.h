@@ -727,7 +727,8 @@ extern struct bgp_path_info *
 bgp_get_imported_bpi_ultimate(struct bgp_path_info *info);
 extern void bgp_path_info_add(struct bgp_dest *dest, struct bgp_path_info *pi);
 extern void bgp_path_info_extra_free(struct bgp_path_info_extra **extra);
-extern void bgp_path_info_reap(struct bgp_dest *dest, struct bgp_path_info *pi);
+extern struct bgp_dest *bgp_path_info_reap(struct bgp_dest *dest,
+					   struct bgp_path_info *pi);
 extern void bgp_path_info_delete(struct bgp_dest *dest,
 				 struct bgp_path_info *pi);
 extern struct bgp_path_info_extra *
@@ -886,7 +887,7 @@ extern void route_vty_out_detail(struct vty *vty, struct bgp *bgp,
 				 struct bgp_path_info *path, afi_t afi,
 				 safi_t safi, enum rpki_states,
 				 json_object *json_paths);
-extern int bgp_show_table_rd(struct vty *vty, struct bgp *bgp, safi_t safi,
+extern int bgp_show_table_rd(struct vty *vty, struct bgp *bgp, afi_t afi, safi_t safi,
 			     struct bgp_table *table, struct prefix_rd *prd,
 			     enum bgp_show_type type, void *output_arg,
 			     uint16_t show_flags);
@@ -895,7 +896,8 @@ extern bool bgp_update_martian_nexthop(struct bgp *bgp, afi_t afi, safi_t safi,
 				       uint8_t type, uint8_t stype,
 				       struct attr *attr, struct bgp_dest *dest);
 extern int bgp_evpn_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
-			     struct bgp_path_info *exist, int *paths_eq);
+				  struct bgp_path_info *exist, int *paths_eq,
+				  bool debug);
 extern void bgp_aggregate_toggle_suppressed(struct bgp_aggregate *aggregate,
 					    struct bgp *bgp,
 					    const struct prefix *p, afi_t afi,
@@ -914,7 +916,7 @@ extern void bgp_path_info_add_with_caller(const char *caller,
 extern void bgp_aggregate_free(struct bgp_aggregate *aggregate);
 extern int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 			     struct bgp_path_info *exist, int *paths_eq,
-			     struct bgp_maxpaths_cfg *mpath_cfg, int debug,
+			     struct bgp_maxpaths_cfg *mpath_cfg, bool debug,
 			     char *pfx_buf, afi_t afi, safi_t safi,
 			     enum bgp_path_selection_reason *reason);
 #define bgp_path_info_add(A, B)                                                \

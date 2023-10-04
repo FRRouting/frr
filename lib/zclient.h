@@ -438,7 +438,8 @@ struct zapi_nexthop {
 	struct seg6local_context seg6local_ctx;
 
 	/* SRv6 Headend-behaviour */
-	struct in6_addr seg6_segs;
+	int seg_num;
+	struct in6_addr seg6_segs[SRV6_MAX_SEGS];
 };
 
 /*

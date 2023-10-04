@@ -402,7 +402,7 @@ DEFPY (install_seg6_routes,
 	sg.r.nhop.gate.ipv6 = seg6_nh6;
 	sg.r.nhop.vrf_id = vrf->vrf_id;
 	sg.r.nhop_group.nexthop = &sg.r.nhop;
-	nexthop_add_srv6_seg6(&sg.r.nhop, &seg6_seg);
+	nexthop_add_srv6_seg6(&sg.r.nhop, &seg6_seg, 1);
 
 	sg.r.vrf_id = vrf->vrf_id;
 	sharp_install_routes_helper(&prefix, sg.r.vrf_id, sg.r.inst, 0,
@@ -948,7 +948,7 @@ DEFPY (import_te,
 
 static void sharp_srv6_locator_chunk_free(struct prefix_ipv6 *chunk)
 {
-	prefix_ipv6_free((struct prefix_ipv6 **)&chunk);
+	prefix_ipv6_free(&chunk);
 }
 
 DEFPY (sharp_srv6_manager_get_locator_chunk,

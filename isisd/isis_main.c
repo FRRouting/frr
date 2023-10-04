@@ -93,6 +93,7 @@ static __attribute__((__noreturn__)) void terminate(int i)
 {
 	isis_terminate();
 	isis_sr_term();
+	isis_srv6_term();
 	isis_zebra_stop();
 	exit(i);
 }
@@ -296,6 +297,7 @@ int main(int argc, char **argv, char **envp)
 	isis_route_map_init();
 	isis_mpls_te_init();
 	isis_sr_init();
+	isis_srv6_init();
 	lsp_init();
 	mt_init();
 

@@ -337,6 +337,7 @@ struct isis_area *isis_area_create(const char *area_tag, const char *vrf_name)
 	flags_initialize(&area->flags);
 
 	isis_sr_area_init(area);
+	isis_srv6_area_init(area);
 
 	/*
 	 * Default values
@@ -525,6 +526,7 @@ void isis_area_destroy(struct isis_area *area)
 #endif /* ifndef FABRICD */
 
 	isis_sr_area_term(area);
+	isis_srv6_area_term(area);
 
 	isis_mpls_te_term(area);
 
@@ -3830,6 +3832,20 @@ struct cmd_node isis_flex_algo_node = {
 };
 #endif /* ifdnef FABRICD */
 
+struct cmd_node isis_srv6_node = {
+	.name = "isis-srv6",
+	.node = ISIS_SRV6_NODE,
+	.parent_node = ISIS_NODE,
+	.prompt = "%s(config-router-srv6)# ",
+};
+
+struct cmd_node isis_srv6_node_msd_node = {
+	.name = "isis-srv6-node-msd",
+	.node = ISIS_SRV6_NODE_MSD_NODE,
+	.parent_node = ISIS_SRV6_NODE,
+	.prompt = "%s(config-router-srv6-node-msd)# ",
+};
+
 void isis_init(void)
 {
 	/* Install IS-IS top node */
@@ -3941,6 +3957,12 @@ void isis_init(void)
 	install_node(&isis_flex_algo_node);
 	install_default(ISIS_FLEX_ALGO_NODE);
 #endif /* ifdnef FABRICD */
+
+	install_node(&isis_srv6_node);
+	install_default(ISIS_SRV6_NODE);
+
+	install_node(&isis_srv6_node_msd_node);
+	install_default(ISIS_SRV6_NODE_MSD_NODE);
 
 	spf_backoff_cmd_init();
 }

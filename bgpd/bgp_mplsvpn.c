@@ -1179,11 +1179,12 @@ leak_update(struct bgp *to_bgp, struct bgp_dest *bn,
 		/* Process change. */
 		bgp_aggregate_increment(to_bgp, p, bpi, afi, safi);
 		bgp_process(to_bgp, bn, afi, safi);
-		bgp_dest_unlock_node(bn);
 
 		if (debug)
 			zlog_debug("%s: ->%s: %pBD Found route, changed attr",
 				   __func__, to_bgp->name_pretty, bn);
+
+		bgp_dest_unlock_node(bn);
 
 		return bpi;
 	}
@@ -1238,12 +1239,13 @@ leak_update(struct bgp *to_bgp, struct bgp_dest *bn,
 	bgp_aggregate_increment(to_bgp, p, new, afi, safi);
 	bgp_path_info_add(bn, new);
 
-	bgp_dest_unlock_node(bn);
 	bgp_process(to_bgp, bn, afi, safi);
 
 	if (debug)
 		zlog_debug("%s: ->%s: %pBD: Added new route", __func__,
 			   to_bgp->name_pretty, bn);
+
+	bgp_dest_unlock_node(bn);
 
 	return new;
 }
@@ -3140,7 +3142,7 @@ int bgp_show_mpls_vpn(struct vty *vty, afi_t afi, struct prefix_rd *prd,
 		return CMD_WARNING;
 	}
 	table = bgp->rib[afi][SAFI_MPLS_VPN];
-	return bgp_show_table_rd(vty, bgp, SAFI_MPLS_VPN, table, prd, type,
+	return bgp_show_table_rd(vty, bgp, afi, SAFI_MPLS_VPN, table, prd, type,
 				 output_arg, show_flags);
 }
 
@@ -4203,6 +4205,7 @@ static void show_bgp_mplsvpn_nh_label_bind_internal(struct vty *vty,
 	struct bgp *bgp_path;
 	struct bgp_table *table;
 	time_t tbuf;
+	char buf[32];
 
 	vty_out(vty, "Current BGP mpls-vpn nexthop label bind cache, %s\n",
 		bgp->name_pretty);
@@ -4220,7 +4223,7 @@ static void show_bgp_mplsvpn_nh_label_bind_internal(struct vty *vty,
 				ifindex2ifname(iter->nh->ifindex,
 					       iter->nh->vrf_id));
 		tbuf = time(NULL) - (monotime(NULL) - iter->last_update);
-		vty_out(vty, "  Last update: %s", ctime(&tbuf));
+		vty_out(vty, "  Last update: %s", ctime_r(&tbuf, buf));
 		if (!detail)
 			continue;
 		vty_out(vty, "  Paths:\n");

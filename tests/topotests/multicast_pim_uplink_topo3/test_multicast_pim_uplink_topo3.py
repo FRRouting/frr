@@ -53,6 +53,9 @@ from lib.pim import (
     verify_local_igmp_groups,
     McastTesterHelper,
 )
+from lib.bgp import (
+    verify_bgp_convergence,
+)
 from lib.topolog import logger
 from lib.topojson import build_config_from_json
 
@@ -181,6 +184,12 @@ def setup_module(mod):
     global app_helper
     app_helper = McastTesterHelper(tgen)
 
+    # Verify BGP convergence
+    BGP_CONVERGENCE = verify_bgp_convergence(tgen, topo)
+    assert BGP_CONVERGENCE is True, "setup_module : Failed \n Error:" " {}".format(
+        BGP_CONVERGENCE
+    )
+
     logger.info("Running setup_module() done")
 
 
@@ -220,7 +229,6 @@ def get_interfaces_names(topo):
     """
 
     for link in range(1, 5):
-
         intf = topo["routers"]["r1"]["links"]["r2-link{}".format(link)]["interface"]
         r1_r2_links.append(intf)
 
@@ -331,6 +339,10 @@ def test_ip_igmp_local_joins_p0(request):
     reset_config_on_routers(tgen)
     clear_pim_interface_traffic(tgen, topo)
 
+    # Verify BGP convergence
+    result = verify_bgp_convergence(tgen, topo)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
+
     # Don"t run this test if we have any failure.
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
@@ -411,6 +423,10 @@ def test_mroute_with_igmp_local_joins_p0(request):
     clear_mroute(tgen)
     reset_config_on_routers(tgen)
     clear_pim_interface_traffic(tgen, topo)
+
+    # Verify BGP convergence
+    result = verify_bgp_convergence(tgen, topo)
+    assert result is True, "Testcase {} : Failed \n Error {}".format(tc_name, result)
 
     # Don"t run this test if we have any failure.
     if tgen.routers_have_failure():
@@ -606,6 +622,10 @@ def test_igmp_local_join_with_reserved_address_p0(request):
     reset_config_on_routers(tgen)
     clear_pim_interface_traffic(tgen, topo)
 
+    # Verify BGP convergence
+    result = verify_bgp_convergence(tgen, topo)
+    assert result is True, "Testcase {} : Failed \n Error {}".format(tc_name, result)
+
     # Don"t run this test if we have any failure.
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
@@ -670,6 +690,10 @@ def test_remove_add_igmp_local_joins_p1(request):
     clear_mroute(tgen)
     reset_config_on_routers(tgen)
     clear_pim_interface_traffic(tgen, topo)
+
+    # Verify BGP convergence
+    result = verify_bgp_convergence(tgen, topo)
+    assert result is True, "Testcase {} : Failed \n Error {}".format(tc_name, result)
 
     # Don"t run this test if we have any failure.
     if tgen.routers_have_failure():

@@ -41,6 +41,7 @@
 #include "isisd/isisd.h"
 #include "isisd/isis_csm.h"
 #include "isisd/isis_events.h"
+#include "isisd/isis_srv6.h"
 #include "isisd/isis_te.h"
 #include "isisd/isis_mt.h"
 #include "isisd/isis_errors.h"
@@ -1630,6 +1631,9 @@ static int isis_ifp_up(struct interface *ifp)
 		UNSET_FLAG(circuit->flags, ISIS_CIRCUIT_IF_DOWN_FROM_Z);
 		isis_csm_state_change(IF_UP_FROM_Z, circuit, ifp);
 	}
+
+	/* Notify SRv6 that the interface went up */
+	isis_srv6_ifp_up_notify(ifp);
 
 	return 0;
 }

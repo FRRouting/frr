@@ -314,7 +314,7 @@ To start OSPF process you have to specify the OSPF router.
 
    This command controls the ospf instance's socket buffer sizes. The
    'no' form resets one or both values to the default.
-   
+
 .. clicmd:: no socket-per-interface
 
    Ordinarily, ospfd uses a socket per interface for sending
@@ -598,6 +598,38 @@ Interfaces
 
    KEY is the actual message digest key, of up to 16 chars (larger strings will
    be truncated), and is associated with the given KEYID.
+
+.. clicmd:: ip ospf authentication key-chain KEYCHAIN
+
+   Specify that HMAC cryptographic authentication must be used on this interface
+   using a key chain. Overrides any authentication enabled on a per-area basis
+   (:clicmd:`area A.B.C.D authentication message-digest`).
+
+   ``KEYCHAIN``: Specifies the name of the key chain that contains the authentication
+   key(s) and cryptographic algorithms to be used for OSPF authentication. The key chain
+   is a logical container that holds one or more authentication keys,
+   allowing for key rotation and management.
+
+   Note that OSPF HMAC cryptographic authentication requires that time never go backwards
+   (correct time is NOT important, only that it never goes backwards), even
+   across resets, if ospfd is to be able to promptly reestablish adjacencies
+   with its neighbours after restarts/reboots. The host should have system time
+   be set at boot from an external or non-volatile source (e.g. battery backed
+   clock, NTP, etc.) or else the system clock should be periodically saved to
+   non-volatile storage and restored at boot if HMAC cryptographic authentication is to be
+   expected to work reliably.
+
+   Example:
+
+   .. code:: sh
+
+      r1(config)#key chain temp
+      r1(config-keychain)#key 13
+      r1(config-keychain-key)#key-string ospf
+      r1(config-keychain-key)#cryptographic-algorithm hmac-sha-256
+      r1(config)#int eth0
+      r1(config-if)#ip ospf authentication key-chain temp
+      r1(config-if)#ip ospf area 0
 
 .. clicmd:: ip ospf cost (1-65535)
 

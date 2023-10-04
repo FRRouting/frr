@@ -6,8 +6,9 @@
 #
 
 """
-Test if BGP graceful restart capability's restart time and notification
-flag are exchanged dynamically.
+Test if BGP graceful restart / long-lived graceful restart capabilities
+(restart time, stale time and notification flag) are exchanged dynamically
+via BGP dynamic capability.
 """
 
 import os
@@ -37,13 +38,8 @@ def setup_module(mod):
 
     router_list = tgen.routers()
 
-    for i, (rname, router) in enumerate(router_list.items(), 1):
-        router.load_config(
-            TopoRouter.RD_ZEBRA, os.path.join(CWD, "{}/zebra.conf".format(rname))
-        )
-        router.load_config(
-            TopoRouter.RD_BGP, os.path.join(CWD, "{}/bgpd.conf".format(rname))
-        )
+    for _, (rname, router) in enumerate(router_list.items(), 1):
+        router.load_frr_config(os.path.join(CWD, "{}/frr.conf".format(rname)))
 
     tgen.start_router()
 
@@ -70,15 +66,20 @@ def test_bgp_dynamic_capability_graceful_restart():
                 "neighborCapabilities": {
                     "dynamic": "advertisedAndReceived",
                     "gracefulRestart": "advertisedAndReceived",
+                    "longLivedGracefulRestart": "advertisedAndReceived",
                 },
                 "gracefulRestartInfo": {
                     "nBit": True,
                     "timers": {
                         "receivedRestartTimer": 120,
+                        "configuredLlgrStaleTime": 10,
+                    },
+                    "ipv4Unicast": {
+                        "timers": {
+                            "llgrStaleTime": 10,
+                        }
                     },
                 },
-                "connectionsEstablished": 1,
-                "connectionsDropped": 0,
             }
         }
         return topotest.json_cmp(output, expected)
@@ -89,17 +90,23 @@ def test_bgp_dynamic_capability_graceful_restart():
     _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
     assert result is None, "Can't converge"
 
-    step("Change Graceful-Restart restart-time, and check if it's changed dynamically")
+    step(
+        "Change Graceful-Restart restart-time, LLGR stale-time and check if they changed dynamically"
+    )
 
+    # Clear message stats to check if we receive a notification or not after we
+    # change the settings fo LLGR.
+    r1.vtysh_cmd("clear bgp 192.168.1.2 message-stats")
     r2.vtysh_cmd(
         """
     configure terminal
     router bgp
      bgp graceful-restart restart-time 123
+     bgp long-lived-graceful-restart stale-time 5
     """
     )
 
-    def _bgp_check_if_session_not_reset_after_changing_restart_time():
+    def _bgp_check_if_session_not_reset_after_changing_gr_settings():
         output = json.loads(r1.vtysh_cmd("show bgp neighbor json"))
         expected = {
             "192.168.1.2": {
@@ -107,21 +114,30 @@ def test_bgp_dynamic_capability_graceful_restart():
                 "neighborCapabilities": {
                     "dynamic": "advertisedAndReceived",
                     "gracefulRestart": "advertisedAndReceived",
+                    "longLivedGracefulRestart": "advertisedAndReceived",
                 },
                 "gracefulRestartInfo": {
                     "nBit": True,
                     "timers": {
                         "receivedRestartTimer": 123,
+                        "configuredLlgrStaleTime": 10,
+                    },
+                    "ipv4Unicast": {
+                        "timers": {
+                            "llgrStaleTime": 5,
+                        }
                     },
                 },
-                "connectionsEstablished": 1,
-                "connectionsDropped": 0,
+                "messageStats": {
+                    "notificationsRecv": 0,
+                    "capabilityRecv": 2,
+                },
             }
         }
         return topotest.json_cmp(output, expected)
 
     test_func = functools.partial(
-        _bgp_check_if_session_not_reset_after_changing_restart_time,
+        _bgp_check_if_session_not_reset_after_changing_gr_settings,
     )
     _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
     assert (
@@ -132,6 +148,9 @@ def test_bgp_dynamic_capability_graceful_restart():
         "Disable Graceful-Restart notification support, and check if it's changed dynamically"
     )
 
+    # Clear message stats to check if we receive a notification or not after we
+    # change the settings fo LLGR.
+    r1.vtysh_cmd("clear bgp 192.168.1.2 message-stats")
     r2.vtysh_cmd(
         """
     configure terminal
@@ -148,15 +167,24 @@ def test_bgp_dynamic_capability_graceful_restart():
                 "neighborCapabilities": {
                     "dynamic": "advertisedAndReceived",
                     "gracefulRestart": "advertisedAndReceived",
+                    "longLivedGracefulRestart": "advertisedAndReceived",
                 },
                 "gracefulRestartInfo": {
                     "nBit": False,
                     "timers": {
                         "receivedRestartTimer": 123,
+                        "configuredLlgrStaleTime": 10,
+                    },
+                    "ipv4Unicast": {
+                        "timers": {
+                            "llgrStaleTime": 5,
+                        }
                     },
                 },
-                "connectionsEstablished": 1,
-                "connectionsDropped": 0,
+                "messageStats": {
+                    "notificationsRecv": 0,
+                    "capabilityRecv": 1,
+                },
             }
         }
         return topotest.json_cmp(output, expected)

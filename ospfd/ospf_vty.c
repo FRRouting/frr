@@ -21,6 +21,7 @@
 #include <lib/json.h>
 #include "defaults.h"
 #include "lib/printfrr.h"
+#include "keychain.h"
 
 #include "ospfd/ospfd.h"
 #include "ospfd/ospf_asbr.h"
@@ -40,6 +41,7 @@
 #include "ospfd/ospf_bfd.h"
 #include "ospfd/ospf_ldp_sync.h"
 #include "ospfd/ospf_network.h"
+#include "ospfd/ospf_memory.h"
 
 FRR_CFG_DEFAULT_BOOL(OSPF_LOG_ADJACENCY_CHANGES,
 	{ .val_bool = true, .match_profile = "datacenter", },
@@ -808,6 +810,8 @@ struct ospf_vl_config_data {
 	char *auth_key;		/* simple password if present */
 	int crypto_key_id;      /* Cryptographic key ID */
 	char *md5_key;		/* MD5 authentication key */
+	char *keychain;     /* Cryptographic keychain */
+	int del_keychain;
 	int hello_interval;     /* Obvious what these are... */
 	int retransmit_interval;
 	int transmit_delay;
@@ -890,6 +894,10 @@ static int ospf_vl_set_security(struct ospf_vl_data *vl_data,
 		strlcpy((char *)IF_DEF_PARAMS(ifp)->auth_simple,
 			vl_config->auth_key,
 			sizeof(IF_DEF_PARAMS(ifp)->auth_simple));
+	} else if (vl_config->keychain) {
+		SET_IF_PARAM(IF_DEF_PARAMS(ifp), keychain_name);
+		XFREE(MTYPE_OSPF_IF_PARAMS, IF_DEF_PARAMS(ifp)->keychain_name);
+		IF_DEF_PARAMS(ifp)->keychain_name = XSTRDUP(MTYPE_OSPF_IF_PARAMS, vl_config->keychain);
 	} else if (vl_config->md5_key) {
 		if (ospf_crypt_key_lookup(IF_DEF_PARAMS(ifp)->auth_crypt,
 					  vl_config->crypto_key_id)
@@ -918,6 +926,9 @@ static int ospf_vl_set_security(struct ospf_vl_data *vl_data,
 
 		ospf_crypt_key_delete(IF_DEF_PARAMS(ifp)->auth_crypt,
 				      vl_config->crypto_key_id);
+	} else if (vl_config->del_keychain) {
+		UNSET_IF_PARAM(IF_DEF_PARAMS(ifp), keychain_name);
+		XFREE(MTYPE_OSPF_IF_PARAMS, IF_DEF_PARAMS(ifp)->keychain_name);
 	}
 
 	return CMD_SUCCESS;
@@ -1022,9 +1033,11 @@ static int ospf_vl_set(struct ospf *ospf, struct ospf_vl_config_data *vl_config)
 
 DEFUN (ospf_area_vlink,
        ospf_area_vlink_cmd,
-       "area <A.B.C.D|(0-4294967295)> virtual-link A.B.C.D [authentication [<message-digest|null>]] [<message-digest-key (1-255) md5 KEY|authentication-key AUTH_KEY>]",
+       "area <A.B.C.D|(0-4294967295)> virtual-link A.B.C.D [authentication [<key-chain KEYCHAIN_NAME|message-digest|null>]] [<message-digest-key (1-255) md5 KEY|authentication-key AUTH_KEY>]",
        VLINK_HELPSTR_IPADDR
        "Enable authentication on this virtual link\n"
+	   "Use a key-chain for cryptographic authentication keys\n"
+	   "Key-chain name\n"
        "Use message-digest authentication\n"
        "Use null authentication\n"
        VLINK_HELPSTR_AUTH_MD5
@@ -1067,7 +1080,10 @@ DEFUN (ospf_area_vlink,
 		vl_config.auth_type = OSPF_AUTH_SIMPLE;
 	}
 
-	if (argv_find(argv, argc, "message-digest", &idx)) {
+	if (argv_find(argv, argc, "key-chain", &idx)) {
+		vl_config.auth_type = OSPF_AUTH_CRYPTOGRAPHIC;
+		vl_config.keychain = argv[idx+1]->arg;
+	} else if (argv_find(argv, argc, "message-digest", &idx)) {
 		/* authentication message-digest */
 		vl_config.auth_type = OSPF_AUTH_CRYPTOGRAPHIC;
 	} else if (argv_find(argv, argc, "null", &idx)) {
@@ -1097,10 +1113,12 @@ DEFUN (ospf_area_vlink,
 
 DEFUN (no_ospf_area_vlink,
        no_ospf_area_vlink_cmd,
-       "no area <A.B.C.D|(0-4294967295)> virtual-link A.B.C.D [authentication [<message-digest|null>]] [<message-digest-key (1-255) md5 KEY|authentication-key AUTH_KEY>]",
+       "no area <A.B.C.D|(0-4294967295)> virtual-link A.B.C.D [authentication [<key-chain KEYCHAIN_NAME|message-digest|null>]] [<message-digest-key (1-255) md5 KEY|authentication-key AUTH_KEY>]",
        NO_STR
        VLINK_HELPSTR_IPADDR
        "Enable authentication on this virtual link\n"
+	   "Use a key-chain for cryptographic authentication keys\n"
+	   "Key-chain name\n"
        "Use message-digest authentication\n"
        "Use null authentication\n"
        VLINK_HELPSTR_AUTH_MD5
@@ -1158,6 +1176,11 @@ DEFUN (no_ospf_area_vlink,
 		/* authentication  - this option can only occur
 		at start of command line */
 		vl_config.auth_type = OSPF_AUTH_NOTSET;
+	}
+
+	if (argv_find(argv, argc, "key-chain", &idx)) {
+		vl_config.del_keychain = 1;
+		vl_config.keychain = NULL;
 	}
 
 	if (argv_find(argv, argc, "message-digest-key", &idx)) {
@@ -3597,18 +3620,41 @@ static void ospf_interface_auth_show(struct vty *vty, struct ospf_interface *oi,
 	case OSPF_AUTH_CRYPTOGRAPHIC: {
 		struct crypt_key *ckey;
 
-		if (list_isempty(OSPF_IF_PARAM(oi, auth_crypt)))
-			return;
-
-		ckey = listgetdata(listtail(OSPF_IF_PARAM(oi, auth_crypt)));
-		if (ckey) {
+		if (OSPF_IF_PARAM(oi, keychain_name)) {
 			if (use_json) {
 				json_object_string_add(json, "authentication",
-						       "authenticationMessageDigest");
+							  "authenticationKeyChain");
+				json_object_string_add(json, "keychain",
+							  OSPF_IF_PARAM(oi, keychain_name));
 			} else {
 				vty_out(vty,
 					"  Cryptographic authentication enabled\n");
-				vty_out(vty, "  Algorithm:MD5\n");
+				struct keychain *keychain = keychain_lookup(OSPF_IF_PARAM(oi, keychain_name));
+
+				if (keychain) {
+					struct key *key = key_lookup_for_send(keychain);
+
+					if (key) {
+						vty_out(vty, "    Sending SA: Key %u, Algorithm %s - key chain %s\n",
+								key->index, keychain_get_algo_name_by_id(key->hash_algo),
+								OSPF_IF_PARAM(oi, keychain_name));
+					}
+				}
+			}
+		} else {
+			if (list_isempty(OSPF_IF_PARAM(oi, auth_crypt)))
+				return;
+
+			ckey = listgetdata(listtail(OSPF_IF_PARAM(oi, auth_crypt)));
+			if (ckey) {
+				if (use_json) {
+					json_object_string_add(json, "authentication",
+								"authenticationMessageDigest");
+				} else {
+					vty_out(vty,
+						"  Cryptographic authentication enabled\n");
+					vty_out(vty, "  Algorithm:MD5\n");
+				}
 			}
 		}
 		break;
@@ -7535,24 +7581,26 @@ DEFPY (show_ip_ospf_database,
 
 DEFUN (ip_ospf_authentication_args,
        ip_ospf_authentication_args_addr_cmd,
-       "ip ospf authentication <null|message-digest> [A.B.C.D]",
+       "ip ospf authentication <null|message-digest|key-chain KEYCHAIN_NAME> [A.B.C.D]",
        "IP Information\n"
        "OSPF interface commands\n"
        "Enable authentication on this interface\n"
        "Use null authentication\n"
        "Use message-digest authentication\n"
+	   "Use a key-chain for cryptographic authentication keys\n"
+	   "Key-chain name\n"
        "Address of interface\n")
 {
 	VTY_DECLVAR_CONTEXT(interface, ifp);
 	int idx_encryption = 3;
-	int idx_ipv4 = 4;
+	int idx_ipv4 = argc-1;
 	struct in_addr addr;
 	int ret;
 	struct ospf_if_params *params;
 
 	params = IF_DEF_PARAMS(ifp);
 
-	if (argc == 5) {
+	if (argv[idx_ipv4]->type == IPV4_TKN) {
 		ret = inet_aton(argv[idx_ipv4]->arg, &addr);
 		if (!ret) {
 			vty_out(vty,
@@ -7575,6 +7623,17 @@ DEFUN (ip_ospf_authentication_args,
 	if (argv[idx_encryption]->arg[0] == 'm') {
 		SET_IF_PARAM(params, auth_type);
 		params->auth_type = OSPF_AUTH_CRYPTOGRAPHIC;
+		UNSET_IF_PARAM(params, keychain_name);
+		XFREE(MTYPE_OSPF_IF_PARAMS, params->keychain_name);
+		return CMD_SUCCESS;
+	}
+
+	if (argv[idx_encryption]->arg[0] == 'k') {
+		SET_IF_PARAM(params, auth_type);
+		params->auth_type = OSPF_AUTH_CRYPTOGRAPHIC;
+		SET_IF_PARAM(params, keychain_name);
+		params->keychain_name = XSTRDUP(MTYPE_OSPF_IF_PARAMS, argv[idx_encryption+1]->arg);
+		UNSET_IF_PARAM(params, auth_crypt);
 		return CMD_SUCCESS;
 	}
 
@@ -7618,18 +7677,20 @@ DEFUN (ip_ospf_authentication,
 
 DEFUN (no_ip_ospf_authentication_args,
        no_ip_ospf_authentication_args_addr_cmd,
-       "no ip ospf authentication <null|message-digest> [A.B.C.D]",
+       "no ip ospf authentication <null|message-digest|key-chain [KEYCHAIN_NAME]> [A.B.C.D]",
        NO_STR
        "IP Information\n"
        "OSPF interface commands\n"
        "Enable authentication on this interface\n"
        "Use null authentication\n"
        "Use message-digest authentication\n"
+	   "Use a key-chain for cryptographic authentication keys\n"
+	   "Key-chain name\n"
        "Address of interface\n")
 {
 	VTY_DECLVAR_CONTEXT(interface, ifp);
 	int idx_encryption = 4;
-	int idx_ipv4 = 5;
+	int idx_ipv4 = argc-1;
 	struct in_addr addr;
 	int ret;
 	struct ospf_if_params *params;
@@ -7638,7 +7699,7 @@ DEFUN (no_ip_ospf_authentication_args,
 
 	params = IF_DEF_PARAMS(ifp);
 
-	if (argc == 6) {
+	if (argv[idx_ipv4]->type == IPV4_TKN) {
 		ret = inet_aton(argv[idx_ipv4]->arg, &addr);
 		if (!ret) {
 			vty_out(vty,
@@ -7653,6 +7714,10 @@ DEFUN (no_ip_ospf_authentication_args,
 		}
 		params->auth_type = OSPF_AUTH_NOTSET;
 		UNSET_IF_PARAM(params, auth_type);
+
+		XFREE(MTYPE_OSPF_IF_PARAMS, params->keychain_name);
+		UNSET_IF_PARAM(params, keychain_name);
+
 		if (params != IF_DEF_PARAMS(ifp)) {
 			ospf_free_if_params(ifp, addr);
 			ospf_if_update_params(ifp, addr);
@@ -7660,7 +7725,8 @@ DEFUN (no_ip_ospf_authentication_args,
 	} else {
 		if (argv[idx_encryption]->arg[0] == 'n') {
 			auth_type = OSPF_AUTH_NULL;
-		} else if (argv[idx_encryption]->arg[0] == 'm') {
+		} else if (argv[idx_encryption]->arg[0] == 'm' ||
+				   argv[idx_encryption]->arg[0] == 'k') {
 			auth_type = OSPF_AUTH_CRYPTOGRAPHIC;
 		} else {
 			vty_out(vty, "Unexpected input encountered\n");
@@ -7676,6 +7742,8 @@ DEFUN (no_ip_ospf_authentication_args,
 		if (params->auth_type == auth_type) {
 			params->auth_type = OSPF_AUTH_NOTSET;
 			UNSET_IF_PARAM(params, auth_type);
+			XFREE(MTYPE_OSPF_IF_PARAMS, params->keychain_name);
+			UNSET_IF_PARAM(params, keychain_name);
 		}
 
 		for (rn = route_top(IF_OIFS_PARAMS(ifp)); rn;
@@ -7684,6 +7752,8 @@ DEFUN (no_ip_ospf_authentication_args,
 				if (params->auth_type == auth_type) {
 					params->auth_type = OSPF_AUTH_NOTSET;
 					UNSET_IF_PARAM(params, auth_type);
+					XFREE(MTYPE_OSPF_IF_PARAMS, params->keychain_name);
+					UNSET_IF_PARAM(params, keychain_name);
 					if (params != IF_DEF_PARAMS(ifp)) {
 						ospf_free_if_params(
 							ifp, rn->p.u.prefix4);
@@ -12098,11 +12168,11 @@ static const char *const ospf_int_type_str[] = {
 	"loopback"
 };
 
-static const char *interface_config_auth_str(struct ospf_if_params *params)
+static int interface_config_auth_str(struct ospf_if_params *params, char *buf)
 {
 	if (!OSPF_IF_PARAM_CONFIGURED(params, auth_type)
 	    || params->auth_type == OSPF_AUTH_NOTSET)
-		return NULL;
+		return 0;
 
 	/* Translation tables are not that much help
 	 * here due to syntax
@@ -12110,16 +12180,22 @@ static const char *interface_config_auth_str(struct ospf_if_params *params)
 	switch (params->auth_type) {
 
 	case OSPF_AUTH_NULL:
-		return " null";
+		snprintf(buf, BUFSIZ, " null");
+		break;
 
 	case OSPF_AUTH_SIMPLE:
-		return "";
+		snprintf(buf, BUFSIZ, " ");
+		break;
 
 	case OSPF_AUTH_CRYPTOGRAPHIC:
-		return " message-digest";
+		if (OSPF_IF_PARAM_CONFIGURED(params, keychain_name))
+			snprintf(buf, BUFSIZ, " key-chain %s", params->keychain_name);
+		else
+			snprintf(buf, BUFSIZ, " message-digest");
+		break;
 	}
 
-	return "";
+	return 1;
 }
 
 static int config_write_interface_one(struct vty *vty, struct vrf *vrf)
@@ -12129,7 +12205,8 @@ static int config_write_interface_one(struct vty *vty, struct vrf *vrf)
 	struct crypt_key *ck;
 	struct route_node *rn = NULL;
 	struct ospf_if_params *params;
-	const char *auth_str;
+	char buf[BUFSIZ];
+	int ret = 0;
 	int write = 0;
 
 	FOR_ALL_INTERFACES (vrf, ifp) {
@@ -12170,10 +12247,10 @@ static int config_write_interface_one(struct vty *vty, struct vrf *vrf)
 			}
 
 			/* OSPF interface authentication print */
-			auth_str = interface_config_auth_str(params);
-			if (auth_str) {
+			ret = interface_config_auth_str(params, buf);
+			if (ret) {
 				vty_out(vty, " ip ospf authentication%s",
-					auth_str);
+					buf);
 				if (params != IF_DEF_PARAMS(ifp) && rn)
 					vty_out(vty, " %pI4",
 						&rn->p.u.prefix4);
@@ -12613,8 +12690,9 @@ static int config_write_virtual_link(struct vty *vty, struct ospf *ospf)
 {
 	struct listnode *node;
 	struct ospf_vl_data *vl_data;
-	const char *auth_str;
 	char buf[INET_ADDRSTRLEN];
+	char buf2[BUFSIZ];
+	int ret = 0;
 
 	/* Virtual-Link print */
 	for (ALL_LIST_ELEMENTS_RO(ospf->vlinks, node, vl_data)) {
@@ -12647,12 +12725,12 @@ static int config_write_virtual_link(struct vty *vty, struct ospf *ospf)
 				vty_out(vty, " area %s virtual-link %pI4\n", buf,
 					&vl_data->vl_peer);
 			/* Auth type */
-			auth_str = interface_config_auth_str(
-				IF_DEF_PARAMS(oi->ifp));
-			if (auth_str)
+			ret = interface_config_auth_str(
+				IF_DEF_PARAMS(oi->ifp), buf2);
+			if (ret)
 				vty_out(vty,
 					" area %s virtual-link %pI4 authentication%s\n",
-					buf, &vl_data->vl_peer, auth_str);
+					buf, &vl_data->vl_peer, buf2);
 			/* Auth key */
 			if (IF_DEF_PARAMS(vl_data->vl_oi->ifp)->auth_simple[0]
 			    != '\0')

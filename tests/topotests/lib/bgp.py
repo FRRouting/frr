@@ -1325,7 +1325,7 @@ def verify_router_id(tgen, topo, input_dict, expected=True):
 
 
 @retry(retry_timeout=150)
-def verify_bgp_convergence(tgen, topo=None, dut=None, expected=True):
+def verify_bgp_convergence(tgen, topo=None, dut=None, expected=True, addr_type=None):
     """
     API will verify if BGP is converged with in the given time frame.
     Running "show bgp summary json" command and verify bgp neighbor
@@ -1336,6 +1336,7 @@ def verify_bgp_convergence(tgen, topo=None, dut=None, expected=True):
     * `tgen`: topogen object
     * `topo`: input json file data
     * `dut`: device under test
+    * `addr_type` : address type for which verification to be done, by-default both v4 and v6
 
     Usage
     -----
@@ -1439,20 +1440,27 @@ def verify_bgp_convergence(tgen, topo=None, dut=None, expected=True):
                     return errormsg
             else:
                 total_peer = 0
-                for addr_type in bgp_addr_type.keys():
-                    if not check_address_types(addr_type):
+                for _addr_type in bgp_addr_type.keys():
+                    if not check_address_types(_addr_type):
                         continue
 
-                    bgp_neighbors = bgp_addr_type[addr_type]["unicast"]["neighbor"]
+                    if addr_type and addr_type != _addr_type:
+                        continue
+
+                    bgp_neighbors = bgp_addr_type[_addr_type]["unicast"]["neighbor"]
 
                     for bgp_neighbor in bgp_neighbors:
                         total_peer += len(bgp_neighbors[bgp_neighbor]["dest_link"])
 
                 no_of_peer = 0
-                for addr_type in bgp_addr_type.keys():
+                for _addr_type in bgp_addr_type.keys():
                     if not check_address_types(addr_type):
                         continue
-                    bgp_neighbors = bgp_addr_type[addr_type]["unicast"]["neighbor"]
+
+                    if addr_type and addr_type != _addr_type:
+                        continue
+
+                    bgp_neighbors = bgp_addr_type[_addr_type]["unicast"]["neighbor"]
 
                     for bgp_neighbor, peer_data in bgp_neighbors.items():
                         for dest_link in peer_data["dest_link"].keys():
@@ -1473,7 +1481,7 @@ def verify_bgp_convergence(tgen, topo=None, dut=None, expected=True):
                                 elif "source_link" in peer_details:
                                     neighbor_ip = topo["routers"][bgp_neighbor][
                                         "links"
-                                    ][peer_details["source_link"]][addr_type].split(
+                                    ][peer_details["source_link"]][_addr_type].split(
                                         "/"
                                     )[
                                         0
@@ -1484,12 +1492,12 @@ def verify_bgp_convergence(tgen, topo=None, dut=None, expected=True):
                                 ):
                                     neighbor_ip = data[dest_link]["peer-interface"]
                                 else:
-                                    neighbor_ip = data[dest_link][addr_type].split("/")[
-                                        0
-                                    ]
+                                    neighbor_ip = data[dest_link][_addr_type].split(
+                                        "/"
+                                    )[0]
                                 nh_state = None
                                 neighbor_ip = neighbor_ip.lower()
-                                if addr_type == "ipv4":
+                                if _addr_type == "ipv4":
                                     ipv4_data = show_bgp_json[vrf]["ipv4Unicast"][
                                         "peers"
                                     ]

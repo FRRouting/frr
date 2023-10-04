@@ -11,6 +11,7 @@ dev_RSTFILES = \
 	doc/developer/building-frr-for-centos7.rst \
 	doc/developer/building-frr-for-debian8.rst \
 	doc/developer/building-frr-for-debian9.rst \
+	doc/developer/building-frr-for-debian12.rst \
 	doc/developer/building-frr-for-fedora.rst \
 	doc/developer/building-frr-for-freebsd10.rst \
 	doc/developer/building-frr-for-freebsd11.rst \
@@ -67,6 +68,19 @@ dev_RSTFILES = \
 	doc/developer/workflow.rst \
 	doc/developer/xrefs.rst \
 	doc/developer/zebra.rst \
+	doc/developer/northbound/advanced-topics.rst \
+	doc/developer/northbound/architecture.rst \
+	doc/developer/northbound/demos.rst \
+	doc/developer/northbound/links.rst \
+	doc/developer/northbound/northbound.rst \
+	doc/developer/northbound/operational-data-rpcs-and-notifications.rst \
+	doc/developer/northbound/plugins-sysrepo.rst \
+	doc/developer/northbound/ppr-basic-test-topology.rst \
+	doc/developer/northbound/ppr-mpls-basic-test-topology.rst \
+	doc/developer/northbound/retrofitting-configuration-commands.rst \
+	doc/developer/northbound/transactional-cli.rst \
+	doc/developer/northbound/yang-module-translator.rst \
+	doc/developer/northbound/yang-tools.rst \
 	# end
 
 EXTRA_DIST += \

@@ -2368,8 +2368,7 @@ static void vtysh_read(struct event *thread)
 				printf("result: %d\n", ret);
 				printf("vtysh node: %d\n", vty->node);
 #endif /* VTYSH_DEBUG */
-
-				if (vty->pass_fd != -1) {
+				if (vty->pass_fd >= 0) {
 					memset(vty->pass_fd_status, 0, 4);
 					vty->pass_fd_status[3] = ret;
 					vty->status = VTY_PASSFD;
@@ -2387,6 +2386,13 @@ static void vtysh_read(struct event *thread)
 					 * => skip vty_event(VTYSH_READ, vty)!
 					 */
 					return;
+				} else {
+					assertf(vty->status != VTY_PASSFD,
+						"%p address=%s passfd=%d", vty,
+						vty->address, vty->pass_fd);
+
+					/* normalize other invalid values */
+					vty->pass_fd = -1;
 				}
 
 				/* hack for asynchronous "write integrated"
@@ -2884,6 +2890,12 @@ int vty_config_enter(struct vty *vty, bool private_config, bool exclusive,
 		}
 		assert(vty->mgmt_locked_candidate_ds);
 		assert(vty->mgmt_locked_running_ds);
+
+		/*
+		 * As datastores are locked explicitly, we don't need implicit
+		 * commits and should allow pending changes.
+		 */
+		vty->pending_allowed = true;
 	}
 
 	vty->node = CONFIG_NODE;
@@ -2939,6 +2951,8 @@ int vty_config_node_exit(struct vty *vty)
 	vty->xpath_index = 0;
 
 	/* TODO: could we check for un-commited changes here? */
+
+	vty->pending_allowed = false;
 
 	if (vty->mgmt_locked_running_ds)
 		vty_mgmt_unlock_running_inline(vty);

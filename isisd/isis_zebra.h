@@ -57,4 +57,15 @@ void isis_zebra_vrf_register(struct isis *isis);
 void isis_zebra_vrf_deregister(struct isis *isis);
 int isis_zebra_ls_register(bool up);
 
+extern void isis_zebra_srv6_sid_install(struct isis_area *area,
+					struct isis_srv6_sid *sid);
+extern void isis_zebra_srv6_sid_uninstall(struct isis_area *area,
+					  struct isis_srv6_sid *sid);
+
+void isis_zebra_srv6_adj_sid_install(struct srv6_adjacency *sra);
+void isis_zebra_srv6_adj_sid_uninstall(struct srv6_adjacency *sra);
+
+extern int isis_zebra_srv6_manager_get_locator_chunk(const char *name);
+extern int isis_zebra_srv6_manager_release_locator_chunk(const char *name);
+
 #endif /* _ZEBRA_ISIS_ZEBRA_H */

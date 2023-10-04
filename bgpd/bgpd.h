@@ -81,6 +81,8 @@ enum bgp_af_index {
 	BGP_AF_IPV6_LBL_UNICAST,
 	BGP_AF_IPV4_FLOWSPEC,
 	BGP_AF_IPV6_FLOWSPEC,
+	BGP_AF_LINKSTATE,
+	BGP_AF_LINKSTATE_VPN,
 	BGP_AF_MAX
 };
 
@@ -1138,9 +1140,27 @@ struct peer_connection {
 
 	struct event *t_read;
 	struct event *t_write;
+	struct event *t_connect;
+	struct event *t_delayopen;
+	struct event *t_start;
+	struct event *t_holdtime;
 
+	struct event *t_connect_check_r;
+	struct event *t_connect_check_w;
+
+	struct event *t_gr_restart;
+	struct event *t_gr_stale;
+
+	struct event *t_generate_updgrp_packets;
+	struct event *t_pmax_restart;
+
+	struct event *t_routeadv;
 	struct event *t_process_packet;
 	struct event *t_process_packet_error;
+
+	union sockunion su;
+#define BGP_CONNECTION_SU_UNSPEC(connection)                                   \
+	(connection->su.sa.sa_family == AF_UNSPEC)
 
 	/* Thread flags */
 	_Atomic uint32_t thread_flags;
@@ -1148,6 +1168,7 @@ struct peer_connection {
 #define PEER_THREAD_READS_ON (1U << 1)
 };
 extern struct peer_connection *bgp_peer_connection_new(struct peer *peer);
+extern void bgp_peer_connection_free(struct peer_connection **connection);
 extern void bgp_peer_connection_buffers_free(struct peer_connection *connection);
 
 /* BGP neighbor structure. */
@@ -1225,8 +1246,7 @@ struct peer {
 	char *desc;	  /* Description of the peer. */
 	unsigned short port; /* Destination port for peer */
 	char *host;	  /* Printable address of the peer. */
-	union sockunion su;  /* Sockunion address of the peer. */
-#define BGP_PEER_SU_UNSPEC(peer) (peer->su.sa.sa_family == AF_UNSPEC)
+
 	time_t uptime;       /* Last Up/Down time */
 	time_t readtime;     /* Last read time */
 	time_t resettime;    /* Last reset time */
@@ -1548,19 +1568,8 @@ struct peer {
 	_Atomic uint32_t v_gr_restart;
 
 	/* Threads. */
-	struct event *t_start;
-	struct event *t_connect_check_r;
-	struct event *t_connect_check_w;
-	struct event *t_connect;
-	struct event *t_holdtime;
-	struct event *t_routeadv;
-	struct event *t_delayopen;
-	struct event *t_pmax_restart;
-	struct event *t_gr_restart;
-	struct event *t_gr_stale;
 	struct event *t_llgr_stale[AFI_MAX][SAFI_MAX];
 	struct event *t_revalidate_all[AFI_MAX][SAFI_MAX];
-	struct event *t_generate_updgrp_packets;
 	struct event *t_refresh_stalepath;
 
 	/* Thread flags. */
@@ -1802,10 +1811,10 @@ struct peer {
 
 #define BGP_ATTR_MAX 255
 	/* Path attributes discard */
-	bool discard_attrs[BGP_ATTR_MAX];
+	bool discard_attrs[BGP_ATTR_MAX + 1];
 
 	/* Path attributes treat-as-withdraw */
-	bool withdraw_attrs[BGP_ATTR_MAX];
+	bool withdraw_attrs[BGP_ATTR_MAX + 1];
 
 	/* BGP Software Version Capability */
 #define BGP_MAX_SOFT_VERSION 64
@@ -1917,6 +1926,7 @@ struct bgp_nlri {
 #define BGP_ATTR_ENCAP                          23
 #define BGP_ATTR_IPV6_EXT_COMMUNITIES           25
 #define BGP_ATTR_AIGP                           26
+#define BGP_ATTR_LINK_STATE                     29
 #define BGP_ATTR_LARGE_COMMUNITIES              32
 #define BGP_ATTR_OTC                            35
 #define BGP_ATTR_PREFIX_SID                     40
@@ -2164,7 +2174,7 @@ extern void bgp_set_evpn(struct bgp *bgp);
 extern struct peer *peer_lookup(struct bgp *, union sockunion *);
 extern struct peer *peer_lookup_by_conf_if(struct bgp *, const char *);
 extern struct peer *peer_lookup_by_hostname(struct bgp *, const char *);
-extern void bgp_peer_conf_if_to_su_update(struct peer *);
+extern void bgp_peer_conf_if_to_su_update(struct peer_connection *connection);
 extern int peer_group_listen_range_del(struct peer_group *, struct prefix *);
 extern struct peer_group *peer_group_lookup(struct bgp *, const char *);
 extern struct peer_group *peer_group_get(struct bgp *, const char *);
@@ -2497,6 +2507,8 @@ static inline int afindex(afi_t afi, safi_t safi)
 			return BGP_AF_IPV4_ENCAP;
 		case SAFI_FLOWSPEC:
 			return BGP_AF_IPV4_FLOWSPEC;
+		case SAFI_LINKSTATE:
+		case SAFI_LINKSTATE_VPN:
 		case SAFI_EVPN:
 		case SAFI_UNSPEC:
 		case SAFI_MAX:
@@ -2517,6 +2529,8 @@ static inline int afindex(afi_t afi, safi_t safi)
 			return BGP_AF_IPV6_ENCAP;
 		case SAFI_FLOWSPEC:
 			return BGP_AF_IPV6_FLOWSPEC;
+		case SAFI_LINKSTATE:
+		case SAFI_LINKSTATE_VPN:
 		case SAFI_EVPN:
 		case SAFI_UNSPEC:
 		case SAFI_MAX:
@@ -2527,6 +2541,26 @@ static inline int afindex(afi_t afi, safi_t safi)
 		switch (safi) {
 		case SAFI_EVPN:
 			return BGP_AF_L2VPN_EVPN;
+		case SAFI_UNICAST:
+		case SAFI_MULTICAST:
+		case SAFI_LABELED_UNICAST:
+		case SAFI_MPLS_VPN:
+		case SAFI_ENCAP:
+		case SAFI_FLOWSPEC:
+		case SAFI_UNSPEC:
+		case SAFI_LINKSTATE:
+		case SAFI_LINKSTATE_VPN:
+		case SAFI_MAX:
+			return BGP_AF_MAX;
+		}
+		break;
+	case AFI_LINKSTATE:
+		switch (safi) {
+		case SAFI_LINKSTATE:
+			return BGP_AF_LINKSTATE;
+		case SAFI_LINKSTATE_VPN:
+			return BGP_AF_LINKSTATE_VPN;
+		case SAFI_EVPN:
 		case SAFI_UNICAST:
 		case SAFI_MULTICAST:
 		case SAFI_LABELED_UNICAST:
@@ -2563,7 +2597,9 @@ static inline int peer_afi_active_nego(const struct peer *peer, afi_t afi)
 	    || peer->afc_nego[afi][SAFI_MPLS_VPN]
 	    || peer->afc_nego[afi][SAFI_ENCAP]
 	    || peer->afc_nego[afi][SAFI_FLOWSPEC]
-	    || peer->afc_nego[afi][SAFI_EVPN])
+	    || peer->afc_nego[afi][SAFI_EVPN]
+	    || peer->afc_nego[afi][SAFI_LINKSTATE]
+	    || peer->afc_nego[afi][SAFI_LINKSTATE_VPN])
 		return 1;
 	return 0;
 }
@@ -2583,21 +2619,24 @@ static inline int peer_group_af_configured(struct peer_group *group)
 	    || peer->afc[AFI_IP6][SAFI_MPLS_VPN]
 	    || peer->afc[AFI_IP6][SAFI_ENCAP]
 	    || peer->afc[AFI_IP6][SAFI_FLOWSPEC]
-	    || peer->afc[AFI_L2VPN][SAFI_EVPN])
+	    || peer->afc[AFI_L2VPN][SAFI_EVPN]
+	    || peer->afc[AFI_LINKSTATE][SAFI_LINKSTATE]
+	    || peer->afc[AFI_LINKSTATE][SAFI_LINKSTATE_VPN])
 		return 1;
 	return 0;
 }
 
-static inline char *timestamp_string(time_t ts)
+static inline char *timestamp_string(time_t ts, char *timebuf)
 {
 	time_t tbuf;
+
 	tbuf = time(NULL) - (monotime(NULL) - ts);
-	return ctime(&tbuf);
+	return ctime_r(&tbuf, timebuf);
 }
 
-static inline bool peer_established(struct peer *peer)
+static inline bool peer_established(struct peer_connection *connection)
 {
-	return peer->connection->status == Established;
+	return connection->status == Established;
 }
 
 static inline bool peer_dynamic_neighbor(struct peer *peer)

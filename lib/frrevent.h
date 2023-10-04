@@ -18,6 +18,8 @@
 extern "C" {
 #endif
 
+#define CONSUMED_TIME_CHECK 5000000
+
 extern bool cputime_enabled;
 extern unsigned long cputime_threshold;
 /* capturing wallclock time is always enabled since it is fast (reading
@@ -65,6 +67,8 @@ struct xref_eventsched {
 	uint32_t event_type;
 };
 
+PREDECL_HASH(cpu_records);
+
 /* Master of the theads. */
 struct event_loop {
 	char *name;
@@ -76,7 +80,7 @@ struct event_loop {
 	struct list *cancel_req;
 	bool canceled;
 	pthread_cond_t cancel_cond;
-	struct hash *cpu_record;
+	struct cpu_records_head cpu_records[1];
 	int io_pipe[2];
 	int fd_limit;
 	struct fd_handler handler;
@@ -130,6 +134,8 @@ struct event {
 #endif
 
 struct cpu_event_history {
+	struct cpu_records_item item;
+
 	void (*func)(struct event *e);
 	atomic_size_t total_cpu_warn;
 	atomic_size_t total_wall_warn;

@@ -14,6 +14,7 @@
 
 /* bgp4V2PeerEntry:
  * offset 1.3.6.1.3.5.1.1.2.1.x.(1|2).(4|16) = 13
+ * offset 1.3.6.1.4.1.7336.3.2.1.1.2.1.x.1.(1|2) = 16
  */
 #define BGP4V2_PEER_ENTRY_OFFSET 13
 #define BGP4V2_PEER_INSTANCE 1
@@ -49,6 +50,7 @@
 
 /* bgp4V2NlriEntry
  * offset 1.3.6.1.3.5.1.1.9.1.x.(1|2).(4|16) = 13
+ * offset 1.3.6.1.4.1.7336.3.2.1.1.9.1.x.1.(1|2) = 16
  */
 #define BGP4V2_NLRI_ENTRY_OFFSET 13
 #define BGP4V2_NLRI_INDEX 1

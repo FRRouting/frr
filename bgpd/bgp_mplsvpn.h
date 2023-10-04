@@ -245,8 +245,7 @@ static inline void vpn_leak_postchange(enum vpn_policy_direction direction,
 		if (!CHECK_FLAG(bgp_vpn->af_flags[afi][SAFI_MPLS_VPN],
 				BGP_VPNVX_RETAIN_ROUTE_TARGET_ALL))
 			bgp_clear_soft_in(bgp_vpn, afi, SAFI_MPLS_VPN);
-		else
-			vpn_leak_to_vrf_update_all(bgp_vrf, bgp_vpn, afi);
+		vpn_leak_to_vrf_update_all(bgp_vrf, bgp_vpn, afi);
 	}
 	if (direction == BGP_VPN_POLICY_DIR_TOVPN) {
 

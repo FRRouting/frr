@@ -987,6 +987,7 @@ static void ospf_handle_external_aggr_update(struct ospf *ospf)
 				&aggr->match_extnl_hash,
 				(void *)ospf_aggr_handle_external_info);
 
+			ospf_external_aggregator_free(aggr);
 		} else if (aggr->action == OSPF_ROUTE_AGGR_MODIFY) {
 
 			aggr->action = OSPF_ROUTE_AGGR_NONE;

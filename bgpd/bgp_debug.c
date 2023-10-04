@@ -51,6 +51,7 @@ unsigned long conf_bgp_debug_nht;
 unsigned long conf_bgp_debug_update_groups;
 unsigned long conf_bgp_debug_vpn;
 unsigned long conf_bgp_debug_flowspec;
+unsigned long conf_bgp_debug_linkstate;
 unsigned long conf_bgp_debug_labelpool;
 unsigned long conf_bgp_debug_pbr;
 unsigned long conf_bgp_debug_graceful_restart;
@@ -72,6 +73,7 @@ unsigned long term_bgp_debug_nht;
 unsigned long term_bgp_debug_update_groups;
 unsigned long term_bgp_debug_vpn;
 unsigned long term_bgp_debug_flowspec;
+unsigned long term_bgp_debug_linkstate;
 unsigned long term_bgp_debug_labelpool;
 unsigned long term_bgp_debug_pbr;
 unsigned long term_bgp_debug_graceful_restart;
@@ -498,12 +500,13 @@ const char *bgp_notify_subcode_str(char code, char subcode)
 const char *bgp_notify_admin_message(char *buf, size_t bufsz, uint8_t *data,
 				     size_t datalen)
 {
+	memset(buf, 0, bufsz);
 	if (!data || datalen < 1)
-		return NULL;
+		return buf;
 
 	uint8_t len = data[0];
 	if (!len || len > datalen - 1)
-		return NULL;
+		return buf;
 
 	return zlog_sanitize(buf, bufsz, data + 1, len);
 }

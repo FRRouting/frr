@@ -520,7 +520,7 @@ static void revalidate_all_routes(void)
 				if (!bgp->rib[afi][safi])
 					continue;
 
-				if (!peer_established(peer))
+				if (!peer_established(peer->connection))
 					continue;
 
 				rvp = XCALLOC(MTYPE_BGP_RPKI_REVALIDATE,
