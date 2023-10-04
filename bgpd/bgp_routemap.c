@@ -107,6 +107,7 @@ o Cisco route-map
       metric-type       :  Not yet
       origin            :  Done
       tag               :  Done
+      dscp              :  Done
       weight            :  Done
       table             :  Done
 
@@ -3565,6 +3566,30 @@ static const struct route_map_rule_cmd route_set_tag_cmd = {
 	route_set_tag,
 	route_map_rule_tag_compile,
 	route_map_rule_tag_free,
+};
+
+/* Set dscp to object. object must be pointer to struct bgp_path_info */
+static enum route_map_cmd_result_t
+route_set_dscp(void *rule, const struct prefix *prefix, void *object)
+{
+	struct bgp_path_info *path;
+	uint8_t *rawDscp;
+
+	rawDscp = rule;
+	path = object;
+
+	/* Set dscp value */
+	path->attr->dscp = *rawDscp;
+
+	return RMAP_OKAY;
+}
+
+/* Route map commands for dscp set. */
+static const struct route_map_rule_cmd route_set_dscp_cmd = {
+	"dscp",
+	route_set_dscp,
+	route_map_rule_dscp_compile,
+	route_map_rule_dscp_free,
 };
 
 /* Set label-index to object. object must be pointer to struct bgp_path_info */
@@ -7840,6 +7865,9 @@ void bgp_route_map_init(void)
 	route_map_set_tag_hook(generic_set_add);
 	route_map_no_set_tag_hook(generic_set_delete);
 
+	route_map_set_dscp_hook(generic_set_add);
+	route_map_no_set_dscp_hook(generic_set_delete);
+
 	route_map_install_match(&route_match_peer_cmd);
 	route_map_install_match(&route_match_alias_cmd);
 	route_map_install_match(&route_match_local_pref_cmd);
@@ -7903,6 +7931,7 @@ void bgp_route_map_init(void)
 	route_map_install_set(&route_set_ecommunity_color_cmd);
 	route_map_install_set(&route_set_ecommunity_none_cmd);
 	route_map_install_set(&route_set_tag_cmd);
+	route_map_install_set(&route_set_dscp_cmd);
 	route_map_install_set(&route_set_label_index_cmd);
 	route_map_install_set(&route_set_l3vpn_nexthop_encapsulation_cmd);
 

@@ -317,6 +317,7 @@ DECLARE_QOBJ_TYPE(route_map);
 #define IS_SET_MIN_METRIC(A) (strmatch(A, "frr-route-map:set-min-metric"))
 #define IS_SET_MAX_METRIC(A) (strmatch(A, "frr-route-map:set-max-metric"))
 #define IS_SET_TAG(A) (strmatch(A, "frr-route-map:set-tag"))
+#define IS_SET_DSCP(A) (strmatch(A, "frr-route-map:set-dscp"))
 #define IS_SET_SR_TE_COLOR(A)                                                  \
 	(strmatch(A, "frr-route-map:set-sr-te-color"))
 /* Zebra route-map set actions */
@@ -725,8 +726,22 @@ extern void route_map_no_set_tag_hook(int (*func)(struct route_map_index *index,
 						  char *errmsg,
 						  size_t errmsg_len));
 
+/* set dscp */
+extern void route_map_set_dscp_hook(int (*func)(struct route_map_index *index,
+						const char *command,
+						const char *arg, char *errmsg,
+						size_t errmsg_len));
+/* no set dscp */
+extern void route_map_no_set_dscp_hook(
+	int (*func)(struct route_map_index *index, const char *command,
+		    const char *arg, char *errmsg, size_t errmsg_len));
+
 extern void *route_map_rule_tag_compile(const char *arg);
 extern void route_map_rule_tag_free(void *rule);
+extern uint8_t route_map_decode_dscp_enum(const char *name);
+extern const char *route_map_dscp_enum_str(int dscp);
+extern void *route_map_rule_dscp_compile(const char *dscp);
+extern void route_map_rule_dscp_free(void *dscp);
 
 /* Increment the route-map used counter */
 extern void route_map_counter_increment(struct route_map *map);
@@ -977,6 +992,14 @@ struct route_map_match_set_hooks {
 	int (*no_set_tag)(struct route_map_index *index,
 			  const char *command, const char *arg,
 			  char *errmsg, size_t errmsg_len);
+
+	/* set dscp */
+	int (*set_dscp)(struct route_map_index *index, const char *command,
+			const char *arg, char *errmsg, size_t errmsg_len);
+
+	/* no set dscp */
+	int (*no_set_dscp)(struct route_map_index *index, const char *command,
+			   const char *arg, char *errmsg, size_t errmsg_len);
 };
 
 extern struct route_map_match_set_hooks rmap_match_set_hook;

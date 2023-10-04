@@ -1233,7 +1233,7 @@ static void bgp_zebra_announce_parse_nexthop(
 	struct bgp_path_info *info, const struct prefix *p, struct bgp *bgp,
 	struct zapi_route *api, unsigned int *valid_nh_count, afi_t afi,
 	safi_t safi, uint32_t *nhg_id, uint32_t *metric, route_tag_t *tag,
-	bool *allow_recursion)
+	uint8_t *dscp, bool *allow_recursion)
 {
 	struct zapi_nexthop *api_nh;
 	int nh_family;
@@ -1334,13 +1334,21 @@ static void bgp_zebra_announce_parse_nexthop(
 						 p, mpinfo_cp))
 				continue;
 
-			/* metric/tag is only allowed to be
+			/* metric/tag/dscp is only allowed to be
 			 * overridden on 1st nexthop */
 			if (mpinfo == info) {
 				if (metric)
 					*metric = mpinfo_cp->attr->med;
 				if (tag)
 					*tag = mpinfo_cp->attr->tag;
+				if (dscp) {
+					/* used by hook from the QPPB plugin */
+					*dscp = mpinfo_cp->attr->dscp;
+					/* expose value back to CLI `show bgp ipv4 nh`
+					 * displayed by route_vty_out_detail()`
+					 */
+					mpinfo->attr->dscp = *dscp;
+				}
 			}
 		}
 
@@ -1532,7 +1540,7 @@ bgp_zebra_announce_actual(struct bgp_dest *dest, struct bgp_path_info *info,
 	struct zapi_route api = { 0 };
 	unsigned int valid_nh_count = 0;
 	bool allow_recursion = false;
-	uint8_t distance;
+	uint8_t distance, dscp = 0;
 	struct peer *peer;
 	uint32_t metric;
 	route_tag_t tag;
@@ -1589,7 +1597,7 @@ bgp_zebra_announce_actual(struct bgp_dest *dest, struct bgp_path_info *info,
 
 	bgp_zebra_announce_parse_nexthop(info, p, bgp, &api, &valid_nh_count,
 					 table->afi, table->safi, &nhg_id,
-					 &metric, &tag, &allow_recursion);
+					 &metric, &tag, &dscp, &allow_recursion);
 
 	is_add = (valid_nh_count || nhg_id) ? true : false;
 
