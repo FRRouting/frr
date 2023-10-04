@@ -167,28 +167,26 @@ as early as possible, i.e. the first 2-week window.
 For reference, the expected release schedule according to the above is:
 
 +---------+------------+------------+------------+
-| Release | 2023-07-04 | 2023-10-31 | 2024-02-27 |
+| Release | 2023-11-07 | 2024-03-05 | 2024-07-02 |
 +---------+------------+------------+------------+
-| RC      | 2023-06-20 | 2023-10-17 | 2024-02-13 |
+| RC      | 2023-10-24 | 2024-02-20 | 2024-06-18 |
 +---------+------------+------------+------------+
-| dev/X.Y | 2023-06-06 | 2023-10-03 | 2024-01-30 |
+| dev/X.Y | 2023-10-10 | 2024-02-06 | 2024-06-04 |
 +---------+------------+------------+------------+
-| freeze  | 2023-05-23 | 2023-09-19 | 2024-01-16 |
+| freeze  | 2023-09-26 | 2024-01-23 | 2024-05-21 |
 +---------+------------+------------+------------+
 
 Here is the hint on how to get the dates easily:
 
    .. code-block:: console
 
-      ~$ # Last freeze date was 2023-09-19
-      ~$ date +%F --date='2023-09-19 +119 days' # Next freeze date
-      2024-01-16
-      ~$ date +%F --date='2024-01-16 +14 days'  # Next dev/X.Y date
-      2024-01-30
-      ~$ date +%F --date='2024-01-30 +14 days'  # Next RC date
-      2024-02-13
-      ~$ date +%F --date='2024-02-13 +14 days'  # Next Release date
-      2024-02-27
+      ~$ # Release date is 2023-11-07 (First Tuesday each March/July/November)
+      ~$ date +%F --date='2023-11-07 -42 days' # Next freeze date
+      2023-09-26
+      ~$ date +%F --date='2023-11-07 -28 days' # Next dev/X.Y date
+      2023-10-10
+      ~$ date +%F --date='2023-11-07 -14 days' # Next RC date
+      2023-10-24
 
 Each release is managed by one or more volunteer release managers from the FRR
 community.  These release managers are expected to handle the branch for a period
@@ -761,6 +759,13 @@ following requirements have achieved consensus:
   tools can catch uninitialized value use that would otherwise be suppressed by
   the (incorrect) zero initialization.
 
+- Usage of ``system()`` or other c library routines that cause signals to
+  possibly be ignored are not allowed.  This includes the ``fork()`` and
+  ``execXX`` call patterns, which is actually what system() does underneath
+  the covers.  This pattern causes the system shutdown to never work properly
+  as the SIGINT sent is never received.  It is better to just prohibit code
+  that does this instead of having to debug shutdown issues again.
+
 Other than these specific rules, coding practices from the Linux kernel as
 well as CERT or MISRA C guidelines may provide useful input on safe C code.
 However, these rules are not applied as-is;  some of them expressly collide
@@ -812,6 +817,7 @@ The project provides multiple tools to allow you to correctly style your code
 as painlessly as possible, primarily built around ``clang-format``.
 
 clang-format
+
    In the project root there is a :file:`.clang-format` configuration file
    which can be used with the ``clang-format`` source formatter tool from the
    LLVM project. Most of the time, this is the easiest and smartest tool to
@@ -868,14 +874,19 @@ clang-format
    https://clang.llvm.org/docs/ClangFormat.html
 
 checkpatch.sh
+checkpatch.pl
+
+   .. seealso:: :ref:`checkpatch`
+
    In the Linux kernel source tree there is a Perl script used to check
-   incoming patches for style errors. FRR uses an adapted version of this
-   script for the same purpose. It can be found at
-   :file:`tools/checkpatch.sh`. This script takes a git-formatted diff or
-   patch file, applies it to a clean FRR tree, and inspects the result to catch
-   potential style errors. Running this script on your patches before
-   submission is highly recommended. The CI system runs this script as well and
-   will comment on the PR with the results if style errors are found.
+   incoming patches for style errors. FRR uses a shell script front end and an
+   adapted version of the perl script for the same purpose. These scripts can
+   be found at :file:`tools/checkpatch.sh` and :file:`tools/checkpatch.pl`.
+   This script takes a git-formatted diff or patch file, applies it to a clean
+   FRR tree, and inspects the result to catch potential style errors. Running
+   this script on your patches before submission is highly recommended. The CI
+   system runs this script as well and will comment on the PR with the results
+   if style errors are found.
 
    It is run like this::
 
@@ -915,6 +926,10 @@ checkpatch.sh
 
    If the script finds one or more WARNINGs it will exit with 1. If it finds
    one or more ERRORs it will exit with 2.
+
+   For convenience the Linux documentation for the :file:`tools/checkpatch.pl`
+   script has been included unmodified (i.e., it has not been updated to
+   reflect local changes) :doc:`here <checkpatch>`
 
 
 Please remember that while FRR provides these tools for your convenience,
@@ -1331,10 +1346,23 @@ frr-format plugin
       Using the plugin also changes the string for ``PRI[udx]64`` from the
       system value to ``%L[udx]`` (normally ``%ll[udx]`` or ``%l[udx]``.)
 
-Additionally, the FRR codebase is regularly scanned with Coverity.
-Unfortunately Coverity does not have the ability to handle scanning pull
-requests, but after code is merged it will send an email notifying project
-members with Coverity access of newly introduced defects.
+Additionally, the FRR codebase is regularly scanned for static analysis
+errors with Coverity and pull request changes are scanned as part of the
+Continuous Integration (CI) process. Developers can scan their commits for
+Coverity static analysis errors prior to submission using the
+``scan-build`` command. To use this command, the ``clang-tools`` package must
+be installed. For example, this can be accomplished on Ubuntu with the
+``sudo apt-get install clang-tools`` command.  Then, touch the files you want scanned and
+invoke the ``scan-build`` command. For example::
+
+  cd ~/GitHub/frr
+  touch ospfd/ospf_flood.c ospfd/ospf_vty.c ospfd/ospf_opaque.c
+  cd build
+  scan-build make -j32
+
+The results of the scan including any static analysis errors will appear inline.
+Additionally, there will a directory in the /tmp containing the Coverity
+reports (e.g., scan-build-2023-06-09-120100-473730-1).
 
 Executing non-installed dynamic binaries
 ----------------------------------------

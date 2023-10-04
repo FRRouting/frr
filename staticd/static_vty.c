@@ -47,6 +47,7 @@ struct static_route_args {
 	const char *source;
 	const char *gateway;
 	const char *interface_name;
+	const char *segs;
 	const char *flag;
 	const char *tag;
 	const char *distance;
@@ -58,6 +59,8 @@ struct static_route_args {
 	bool bfd_multi_hop;
 	const char *bfd_source;
 	const char *bfd_profile;
+
+	const char *input;
 };
 
 static int static_route_nb_run(struct vty *vty, struct static_route_args *args)
@@ -71,12 +74,16 @@ static int static_route_nb_run(struct vty *vty, struct static_route_args *args)
 	char xpath_nexthop[XPATH_MAXLEN];
 	char xpath_mpls[XPATH_MAXLEN];
 	char xpath_label[XPATH_MAXLEN];
+	char xpath_segs[XPATH_MAXLEN];
+	char xpath_seg[XPATH_MAXLEN];
 	char ab_xpath[XPATH_MAXLEN];
 	char buf_prefix[PREFIX_STRLEN];
 	char buf_src_prefix[PREFIX_STRLEN] = {};
 	char buf_nh_type[PREFIX_STRLEN] = {};
 	char buf_tag[PREFIX_STRLEN];
 	uint8_t label_stack_id = 0;
+	uint8_t segs_stack_id = 0;
+
 	const char *buf_gate_str;
 	uint8_t distance = ZEBRA_STATIC_DISTANCE_DEFAULT;
 	route_tag_t tag = 0;
@@ -124,6 +131,7 @@ static int static_route_nb_run(struct vty *vty, struct static_route_args *args)
 			assert(!!str2prefix(args->source, &src));
 		break;
 	case AFI_L2VPN:
+	case AFI_LINKSTATE:
 	case AFI_UNSPEC:
 	case AFI_MAX:
 		break;
@@ -145,9 +153,20 @@ static int static_route_nb_run(struct vty *vty, struct static_route_args *args)
 	else
 		buf_gate_str = "";
 
-	if (args->gateway == NULL && args->interface_name == NULL)
+	if (args->gateway == NULL && args->interface_name == NULL) {
 		type = STATIC_BLACKHOLE;
-	else if (args->gateway && args->interface_name) {
+		/* If this is blackhole/reject flagged route, then
+		 * specify interface_name with the value of what was really
+		 * entered.
+		 * interface_name will be validated later in NB functions
+		 * to check if we don't create blackhole/reject routes that
+		 * match the real interface names.
+		 * E.g.: `ip route 10.0.0.1/32 bla` will create a blackhole
+		 * route despite the real interface named `bla` exists.
+		 */
+		if (args->input)
+			args->interface_name = args->input;
+	} else if (args->gateway && args->interface_name) {
 		if (args->afi == AFI_IP)
 			type = STATIC_IPV4_GATEWAY_IFNAME;
 		else
@@ -332,7 +351,39 @@ static int static_route_nb_run(struct vty *vty, struct static_route_args *args)
 			nb_cli_enqueue_change(vty, xpath_mpls, NB_OP_DESTROY,
 					      NULL);
 		}
+		if (args->segs) {
+			/* copy of seg string (start) */
+			char *ostr;
+			/* pointer to next segment */
+			char *nump;
 
+			strlcpy(xpath_segs, xpath_nexthop, sizeof(xpath_segs));
+			strlcat(xpath_segs, FRR_STATIC_ROUTE_NH_SRV6_SEGS_XPATH,
+				sizeof(xpath_segs));
+
+			nb_cli_enqueue_change(vty, xpath_segs, NB_OP_DESTROY,
+					      NULL);
+
+			ostr = XSTRDUP(MTYPE_TMP, args->segs);
+			while ((nump = strsep(&ostr, "/")) != NULL) {
+				snprintf(ab_xpath, sizeof(ab_xpath),
+					 FRR_STATIC_ROUTE_NH_SRV6_KEY_SEG_XPATH,
+					 segs_stack_id);
+				strlcpy(xpath_seg, xpath_segs,
+					sizeof(xpath_seg));
+				strlcat(xpath_seg, ab_xpath, sizeof(xpath_seg));
+				nb_cli_enqueue_change(vty, xpath_seg,
+						      NB_OP_MODIFY, nump);
+				segs_stack_id++;
+			}
+			XFREE(MTYPE_TMP, ostr);
+		} else {
+			strlcpy(xpath_segs, xpath_nexthop, sizeof(xpath_segs));
+			strlcat(xpath_segs, FRR_STATIC_ROUTE_NH_SRV6_SEGS_XPATH,
+				sizeof(xpath_segs));
+			nb_cli_enqueue_change(vty, xpath_segs, NB_OP_DESTROY,
+					      NULL);
+		}
 		if (args->bfd) {
 			char xpath_bfd[XPATH_MAXLEN];
 
@@ -499,6 +550,8 @@ DEFPY_YANG(ip_route_blackhole,
       "Table to configure\n"
       "The table number to configure\n")
 {
+	int idx_flag = 0;
+
 	struct static_route_args args = {
 		.delete = !!no,
 		.afi = AFI_IP,
@@ -512,6 +565,9 @@ DEFPY_YANG(ip_route_blackhole,
 		.table = table_str,
 		.vrf = vrf,
 	};
+
+	if (flag && argv_find(argv, argc, flag, &idx_flag))
+		args.input = argv[idx_flag]->arg;
 
 	return static_route_nb_run(vty, &args);
 }
@@ -541,6 +597,8 @@ DEFPY_YANG(ip_route_blackhole_vrf,
       "Table to configure\n"
       "The table number to configure\n")
 {
+	int idx_flag = 0;
+
 	struct static_route_args args = {
 		.delete = !!no,
 		.afi = AFI_IP,
@@ -561,6 +619,9 @@ DEFPY_YANG(ip_route_blackhole_vrf,
 	 * valid.  Add an assert to make it happy
 	 */
 	assert(args.prefix);
+
+	if (flag && argv_find(argv, argc, flag, &idx_flag))
+		args.input = argv[idx_flag]->arg;
 
 	return static_route_nb_run(vty, &args);
 }
@@ -852,6 +913,8 @@ DEFPY_YANG(ipv6_route_blackhole,
       "Table to configure\n"
       "The table number to configure\n")
 {
+	int idx_flag = 0;
+
 	struct static_route_args args = {
 		.delete = !!no,
 		.afi = AFI_IP6,
@@ -865,6 +928,9 @@ DEFPY_YANG(ipv6_route_blackhole,
 		.table = table_str,
 		.vrf = vrf,
 	};
+
+	if (flag && argv_find(argv, argc, flag, &idx_flag))
+		args.input = argv[idx_flag]->arg;
 
 	return static_route_nb_run(vty, &args);
 }
@@ -894,6 +960,8 @@ DEFPY_YANG(ipv6_route_blackhole_vrf,
       "Table to configure\n"
       "The table number to configure\n")
 {
+	int idx_flag = 0;
+
 	struct static_route_args args = {
 		.delete = !!no,
 		.afi = AFI_IP6,
@@ -915,12 +983,14 @@ DEFPY_YANG(ipv6_route_blackhole_vrf,
 	 */
 	assert(args.prefix);
 
+	if (flag && argv_find(argv, argc, flag, &idx_flag))
+		args.input = argv[idx_flag]->arg;
+
 	return static_route_nb_run(vty, &args);
 }
 
-DEFPY_YANG(ipv6_route_address_interface,
-      ipv6_route_address_interface_cmd,
-      "[no] ipv6 route X:X::X:X/M$prefix [from X:X::X:X/M] \
+DEFPY_YANG(ipv6_route_address_interface, ipv6_route_address_interface_cmd,
+	   "[no] ipv6 route X:X::X:X/M$prefix [from X:X::X:X/M] \
           X:X::X:X$gate                                    \
           <INTERFACE|Null0>$ifname                         \
           [{                                               \
@@ -933,33 +1003,28 @@ DEFPY_YANG(ipv6_route_address_interface,
 	    |onlink$onlink                                 \
 	    |color (1-4294967295)                          \
 	    |bfd$bfd [{multi-hop$bfd_multi_hop|source X:X::X:X$bfd_source|profile BFDPROF$bfd_profile}] \
+		|segments WORD 								   \
           }]",
-      NO_STR
-      IPV6_STR
-      "Establish static routes\n"
-      "IPv6 destination prefix (e.g. 3ffe:506::/32)\n"
-      "IPv6 source-dest route\n"
-      "IPv6 source prefix\n"
-      "IPv6 gateway address\n"
-      "IPv6 gateway interface name\n"
-      "Null interface\n"
-      "Set tag for this route\n"
-      "Tag value\n"
-      "Distance value for this prefix\n"
-      VRF_CMD_HELP_STR
-      MPLS_LABEL_HELPSTR
-      "Table to configure\n"
-      "The table number to configure\n"
-      VRF_CMD_HELP_STR
-      "Treat the nexthop as directly attached to the interface\n"
-      "SR-TE color\n"
-      "The SR-TE color to configure\n"
-      BFD_INTEGRATION_STR
-      BFD_INTEGRATION_MULTI_HOP_STR
-      BFD_INTEGRATION_SOURCE_STR
-      BFD_INTEGRATION_SOURCEV4_STR
-      BFD_PROFILE_STR
-      BFD_PROFILE_NAME_STR)
+	   NO_STR IPV6_STR
+	   "Establish static routes\n"
+	   "IPv6 destination prefix (e.g. 3ffe:506::/32)\n"
+	   "IPv6 source-dest route\n"
+	   "IPv6 source prefix\n"
+	   "IPv6 gateway address\n"
+	   "IPv6 gateway interface name\n"
+	   "Null interface\n"
+	   "Set tag for this route\n"
+	   "Tag value\n"
+	   "Distance value for this prefix\n" VRF_CMD_HELP_STR MPLS_LABEL_HELPSTR
+	   "Table to configure\n"
+	   "The table number to configure\n" VRF_CMD_HELP_STR
+	   "Treat the nexthop as directly attached to the interface\n"
+	   "SR-TE color\n"
+	   "The SR-TE color to configure\n" BFD_INTEGRATION_STR
+		   BFD_INTEGRATION_MULTI_HOP_STR BFD_INTEGRATION_SOURCE_STR
+			   BFD_INTEGRATION_SOURCEV4_STR BFD_PROFILE_STR
+				   BFD_PROFILE_NAME_STR "Value of segs\n"
+	   "Segs (SIDs)\n")
 {
 	struct static_route_args args = {
 		.delete = !!no,
@@ -981,14 +1046,15 @@ DEFPY_YANG(ipv6_route_address_interface,
 		.bfd_multi_hop = !!bfd_multi_hop,
 		.bfd_source = bfd_source_str,
 		.bfd_profile = bfd_profile,
+		.segs = segments,
 	};
 
 	return static_route_nb_run(vty, &args);
 }
 
 DEFPY_YANG(ipv6_route_address_interface_vrf,
-      ipv6_route_address_interface_vrf_cmd,
-      "[no] ipv6 route X:X::X:X/M$prefix [from X:X::X:X/M] \
+	   ipv6_route_address_interface_vrf_cmd,
+	   "[no] ipv6 route X:X::X:X/M$prefix [from X:X::X:X/M] \
           X:X::X:X$gate                                    \
           <INTERFACE|Null0>$ifname                         \
           [{                                               \
@@ -1000,32 +1066,28 @@ DEFPY_YANG(ipv6_route_address_interface_vrf,
 	    |onlink$onlink                                 \
 	    |color (1-4294967295)                          \
 	    |bfd$bfd [{multi-hop$bfd_multi_hop|source X:X::X:X$bfd_source|profile BFDPROF$bfd_profile}] \
+		|segments WORD 								   \
           }]",
-      NO_STR
-      IPV6_STR
-      "Establish static routes\n"
-      "IPv6 destination prefix (e.g. 3ffe:506::/32)\n"
-      "IPv6 source-dest route\n"
-      "IPv6 source prefix\n"
-      "IPv6 gateway address\n"
-      "IPv6 gateway interface name\n"
-      "Null interface\n"
-      "Set tag for this route\n"
-      "Tag value\n"
-      "Distance value for this prefix\n"
-      MPLS_LABEL_HELPSTR
-      "Table to configure\n"
-      "The table number to configure\n"
-      VRF_CMD_HELP_STR
-      "Treat the nexthop as directly attached to the interface\n"
-      "SR-TE color\n"
-      "The SR-TE color to configure\n"
-      BFD_INTEGRATION_STR
-      BFD_INTEGRATION_MULTI_HOP_STR
-      BFD_INTEGRATION_SOURCE_STR
-      BFD_INTEGRATION_SOURCEV4_STR
-      BFD_PROFILE_STR
-      BFD_PROFILE_NAME_STR)
+	   NO_STR IPV6_STR
+	   "Establish static routes\n"
+	   "IPv6 destination prefix (e.g. 3ffe:506::/32)\n"
+	   "IPv6 source-dest route\n"
+	   "IPv6 source prefix\n"
+	   "IPv6 gateway address\n"
+	   "IPv6 gateway interface name\n"
+	   "Null interface\n"
+	   "Set tag for this route\n"
+	   "Tag value\n"
+	   "Distance value for this prefix\n" MPLS_LABEL_HELPSTR
+	   "Table to configure\n"
+	   "The table number to configure\n" VRF_CMD_HELP_STR
+	   "Treat the nexthop as directly attached to the interface\n"
+	   "SR-TE color\n"
+	   "The SR-TE color to configure\n" BFD_INTEGRATION_STR
+		   BFD_INTEGRATION_MULTI_HOP_STR BFD_INTEGRATION_SOURCE_STR
+			   BFD_INTEGRATION_SOURCEV4_STR BFD_PROFILE_STR
+				   BFD_PROFILE_NAME_STR "Value of segs\n"
+	   "Segs (SIDs)\n")
 {
 	struct static_route_args args = {
 		.delete = !!no,
@@ -1047,14 +1109,14 @@ DEFPY_YANG(ipv6_route_address_interface_vrf,
 		.bfd_multi_hop = !!bfd_multi_hop,
 		.bfd_source = bfd_source_str,
 		.bfd_profile = bfd_profile,
+		.segs = segments,
 	};
 
 	return static_route_nb_run(vty, &args);
 }
 
-DEFPY_YANG(ipv6_route,
-      ipv6_route_cmd,
-      "[no] ipv6 route X:X::X:X/M$prefix [from X:X::X:X/M] \
+DEFPY_YANG(ipv6_route, ipv6_route_cmd,
+	   "[no] ipv6 route X:X::X:X/M$prefix [from X:X::X:X/M] \
           <X:X::X:X$gate|<INTERFACE|Null0>$ifname>         \
           [{                                               \
             tag (1-4294967295)                             \
@@ -1065,32 +1127,26 @@ DEFPY_YANG(ipv6_route,
             |nexthop-vrf NAME                              \
             |color (1-4294967295)                          \
 	    |bfd$bfd [{multi-hop$bfd_multi_hop|source X:X::X:X$bfd_source|profile BFDPROF$bfd_profile}] \
+			|segments WORD 								   \
           }]",
-      NO_STR
-      IPV6_STR
-      "Establish static routes\n"
-      "IPv6 destination prefix (e.g. 3ffe:506::/32)\n"
-      "IPv6 source-dest route\n"
-      "IPv6 source prefix\n"
-      "IPv6 gateway address\n"
-      "IPv6 gateway interface name\n"
-      "Null interface\n"
-      "Set tag for this route\n"
-      "Tag value\n"
-      "Distance value for this prefix\n"
-      VRF_CMD_HELP_STR
-      MPLS_LABEL_HELPSTR
-      "Table to configure\n"
-      "The table number to configure\n"
-      VRF_CMD_HELP_STR
-      "SR-TE color\n"
-      "The SR-TE color to configure\n"
-      BFD_INTEGRATION_STR
-      BFD_INTEGRATION_MULTI_HOP_STR
-      BFD_INTEGRATION_SOURCE_STR
-      BFD_INTEGRATION_SOURCEV4_STR
-      BFD_PROFILE_STR
-      BFD_PROFILE_NAME_STR)
+	   NO_STR IPV6_STR
+	   "Establish static routes\n"
+	   "IPv6 destination prefix (e.g. 3ffe:506::/32)\n"
+	   "IPv6 source-dest route\n"
+	   "IPv6 source prefix\n"
+	   "IPv6 gateway address\n"
+	   "IPv6 gateway interface name\n"
+	   "Null interface\n"
+	   "Set tag for this route\n"
+	   "Tag value\n"
+	   "Distance value for this prefix\n" VRF_CMD_HELP_STR MPLS_LABEL_HELPSTR
+	   "Table to configure\n"
+	   "The table number to configure\n" VRF_CMD_HELP_STR "SR-TE color\n"
+	   "The SR-TE color to configure\n" BFD_INTEGRATION_STR
+		   BFD_INTEGRATION_MULTI_HOP_STR BFD_INTEGRATION_SOURCE_STR
+			   BFD_INTEGRATION_SOURCEV4_STR BFD_PROFILE_STR
+				   BFD_PROFILE_NAME_STR "Value of segs\n"
+	   "Segs (SIDs)\n")
 {
 	struct static_route_args args = {
 		.delete = !!no,
@@ -1111,14 +1167,15 @@ DEFPY_YANG(ipv6_route,
 		.bfd_multi_hop = !!bfd_multi_hop,
 		.bfd_source = bfd_source_str,
 		.bfd_profile = bfd_profile,
+		.segs = segments,
+
 	};
 
 	return static_route_nb_run(vty, &args);
 }
 
-DEFPY_YANG(ipv6_route_vrf,
-      ipv6_route_vrf_cmd,
-      "[no] ipv6 route X:X::X:X/M$prefix [from X:X::X:X/M] \
+DEFPY_YANG(ipv6_route_vrf, ipv6_route_vrf_cmd,
+	   "[no] ipv6 route X:X::X:X/M$prefix [from X:X::X:X/M] \
           <X:X::X:X$gate|<INTERFACE|Null0>$ifname>                 \
           [{                                               \
             tag (1-4294967295)                             \
@@ -1128,31 +1185,26 @@ DEFPY_YANG(ipv6_route_vrf,
             |nexthop-vrf NAME                              \
 	    |color (1-4294967295)                          \
 	    |bfd$bfd [{multi-hop$bfd_multi_hop|source X:X::X:X$bfd_source|profile BFDPROF$bfd_profile}] \
+		|segments WORD 								   \
           }]",
-      NO_STR
-      IPV6_STR
-      "Establish static routes\n"
-      "IPv6 destination prefix (e.g. 3ffe:506::/32)\n"
-      "IPv6 source-dest route\n"
-      "IPv6 source prefix\n"
-      "IPv6 gateway address\n"
-      "IPv6 gateway interface name\n"
-      "Null interface\n"
-      "Set tag for this route\n"
-      "Tag value\n"
-      "Distance value for this prefix\n"
-      MPLS_LABEL_HELPSTR
-      "Table to configure\n"
-      "The table number to configure\n"
-      VRF_CMD_HELP_STR
-      "SR-TE color\n"
-      "The SR-TE color to configure\n"
-      BFD_INTEGRATION_STR
-      BFD_INTEGRATION_MULTI_HOP_STR
-      BFD_INTEGRATION_SOURCE_STR
-      BFD_INTEGRATION_SOURCEV4_STR
-      BFD_PROFILE_STR
-      BFD_PROFILE_NAME_STR)
+	   NO_STR IPV6_STR
+	   "Establish static routes\n"
+	   "IPv6 destination prefix (e.g. 3ffe:506::/32)\n"
+	   "IPv6 source-dest route\n"
+	   "IPv6 source prefix\n"
+	   "IPv6 gateway address\n"
+	   "IPv6 gateway interface name\n"
+	   "Null interface\n"
+	   "Set tag for this route\n"
+	   "Tag value\n"
+	   "Distance value for this prefix\n" MPLS_LABEL_HELPSTR
+	   "Table to configure\n"
+	   "The table number to configure\n" VRF_CMD_HELP_STR "SR-TE color\n"
+	   "The SR-TE color to configure\n" BFD_INTEGRATION_STR
+		   BFD_INTEGRATION_MULTI_HOP_STR BFD_INTEGRATION_SOURCE_STR
+			   BFD_INTEGRATION_SOURCEV4_STR BFD_PROFILE_STR
+				   BFD_PROFILE_NAME_STR "Value of segs\n"
+	   "Segs (SIDs)\n")
 {
 	struct static_route_args args = {
 		.delete = !!no,
@@ -1173,6 +1225,7 @@ DEFPY_YANG(ipv6_route_vrf,
 		.bfd_multi_hop = !!bfd_multi_hop,
 		.bfd_source = bfd_source_str,
 		.bfd_profile = bfd_profile,
+		.segs = segments,
 	};
 
 	return static_route_nb_run(vty, &args);
@@ -1219,6 +1272,39 @@ static int mpls_label_iter_cb(const struct lyd_node *dnode, void *arg)
 	return YANG_ITER_CONTINUE;
 }
 
+struct srv6_seg_iter {
+	struct vty *vty;
+	bool first;
+};
+
+static int srv6_seg_iter_cb(const struct lyd_node *dnode, void *arg)
+{
+	struct srv6_seg_iter *iter = arg;
+	char buffer[INET6_ADDRSTRLEN];
+	struct in6_addr cli_seg;
+
+	if (yang_dnode_exists(dnode, "./seg")) {
+		if (iter->first) {
+			yang_dnode_get_ipv6(&cli_seg, dnode, "./seg");
+			if (inet_ntop(AF_INET6, &cli_seg, buffer,
+				      INET6_ADDRSTRLEN) == NULL) {
+				return 1;
+			}
+			vty_out(iter->vty, " segments %s", buffer);
+		} else {
+			yang_dnode_get_ipv6(&cli_seg, dnode, "./seg");
+			if (inet_ntop(AF_INET6, &cli_seg, buffer,
+				      INET6_ADDRSTRLEN) == NULL) {
+				return 1;
+			}
+			vty_out(iter->vty, "/%s", buffer);
+		}
+		iter->first = false;
+	}
+
+	return YANG_ITER_CONTINUE;
+}
+
 static void nexthop_cli_show(struct vty *vty, const struct lyd_node *route,
 			     const struct lyd_node *src,
 			     const struct lyd_node *path,
@@ -1233,6 +1319,7 @@ static void nexthop_cli_show(struct vty *vty, const struct lyd_node *route,
 	uint32_t tag;
 	uint8_t distance;
 	struct mpls_label_iter iter;
+	struct srv6_seg_iter seg_iter;
 	const char *nexthop_vrf;
 	uint32_t table_id;
 	bool onlink;
@@ -1309,6 +1396,11 @@ static void nexthop_cli_show(struct vty *vty, const struct lyd_node *route,
 	yang_dnode_iterate(mpls_label_iter_cb, &iter, nexthop,
 			   "./mpls-label-stack/entry");
 
+	seg_iter.vty = vty;
+	seg_iter.first = true;
+	yang_dnode_iterate(srv6_seg_iter_cb, &seg_iter, nexthop,
+			   "./srv6-segs-stack/entry");
+
 	nexthop_vrf = yang_dnode_get_string(nexthop, "./vrf");
 	if (strcmp(vrf, nexthop_vrf))
 		vty_out(vty, " nexthop-vrf %s", nexthop_vrf);
@@ -1374,6 +1466,7 @@ int static_nexthop_cli_cmp(const struct lyd_node *dnode1,
 {
 	enum static_nh_type nh_type1, nh_type2;
 	struct prefix prefix1, prefix2;
+	const char *vrf1, *vrf2;
 	int ret = 0;
 
 	nh_type1 = yang_dnode_get_enum(dnode1, "./nh-type");
@@ -1413,8 +1506,14 @@ int static_nexthop_cli_cmp(const struct lyd_node *dnode1,
 	if (ret)
 		return ret;
 
-	return if_cmp_name_func(yang_dnode_get_string(dnode1, "./vrf"),
-				yang_dnode_get_string(dnode2, "./vrf"));
+	vrf1 = yang_dnode_get_string(dnode1, "./vrf");
+	if (strmatch(vrf1, "default"))
+		vrf1 = "";
+	vrf2 = yang_dnode_get_string(dnode2, "./vrf");
+	if (strmatch(vrf2, "default"))
+		vrf2 = "";
+
+	return if_cmp_name_func(vrf1, vrf2);
 }
 
 int static_route_list_cli_cmp(const struct lyd_node *dnode1,

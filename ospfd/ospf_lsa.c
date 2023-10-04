@@ -539,16 +539,23 @@ static int lsa_link_ptop_set(struct stream **s, struct ospf_interface *oi)
 		}
 
 	/* no need for a stub link for unnumbered interfaces */
-	if (oi->ptp_dmvpn
-	    || !CHECK_FLAG(oi->connected->flags, ZEBRA_IFA_UNNUMBERED)) {
-		/* Regardless of the state of the neighboring router, we must
-		   add a Type 3 link (stub network).
-		   N.B. Options 1 & 2 share basically the same logic. */
-		masklen2ip(oi->address->prefixlen, &mask);
-		id.s_addr = CONNECTED_PREFIX(oi->connected)->u.prefix4.s_addr
-			    & mask.s_addr;
-		links += link_info_set(s, id, mask, LSA_LINK_TYPE_STUB, 0,
-				       oi->output_cost);
+	if (OSPF_IF_PARAM(oi, prefix_suppression)) {
+		if (IS_DEBUG_OSPF(lsa, LSA_GENERATE))
+			zlog_debug("LSA[Type1]: Interface %s stub link omitted due prefix-suppression",
+				   oi->ifp->name);
+	} else {
+		if (oi->ptp_dmvpn ||
+		    !CHECK_FLAG(oi->connected->flags, ZEBRA_IFA_UNNUMBERED)) {
+			/* Regardless of the state of the neighboring router, we must
+			   add a Type 3 link (stub network).
+			   N.B. Options 1 & 2 share basically the same logic. */
+			masklen2ip(oi->address->prefixlen, &mask);
+			id.s_addr =
+				CONNECTED_PREFIX(oi->connected)->u.prefix4.s_addr &
+				mask.s_addr;
+			links += link_info_set(s, id, mask, LSA_LINK_TYPE_STUB,
+					       0, oi->output_cost);
+		}
 	}
 
 	return links;
@@ -563,10 +570,15 @@ static int lsa_link_broadcast_set(struct stream **s, struct ospf_interface *oi)
 
 	/* Describe Type 3 Link. */
 	if (oi->state == ISM_Waiting) {
+		if (OSPF_IF_PARAM(oi, prefix_suppression)) {
+			if (IS_DEBUG_OSPF(lsa, LSA_GENERATE))
+				zlog_debug("LSA[Type1]: Interface %s stub link omitted due prefix-suppression",
+					   oi->ifp->name);
+			return 0;
+		}
 		if (IS_DEBUG_OSPF(lsa, LSA_GENERATE))
-			zlog_debug(
-				"LSA[Type1]: Interface %s is in state Waiting. Adding stub interface",
-				oi->ifp->name);
+			zlog_debug("LSA[Type1]: Interface %s is in state Waiting. Adding stub interface",
+				   oi->ifp->name);
 		masklen2ip(oi->address->prefixlen, &mask);
 		id.s_addr = oi->address->u.prefix4.s_addr & mask.s_addr;
 		return link_info_set(s, id, mask, LSA_LINK_TYPE_STUB, 0,
@@ -587,10 +599,15 @@ static int lsa_link_broadcast_set(struct stream **s, struct ospf_interface *oi)
 	}
 	/* Describe type 3 link. */
 	else {
+		if (OSPF_IF_PARAM(oi, prefix_suppression)) {
+			if (IS_DEBUG_OSPF(lsa, LSA_GENERATE))
+				zlog_debug("LSA[Type1]: Interface %s stub link omitted due prefix-suppression",
+					   oi->ifp->name);
+			return 0;
+		}
 		if (IS_DEBUG_OSPF(lsa, LSA_GENERATE))
-			zlog_debug(
-				"LSA[Type1]: Interface %s has no DR. Adding stub interface",
-				oi->ifp->name);
+			zlog_debug("LSA[Type1]: Interface %s has no DR. Adding stub interface",
+				   oi->ifp->name);
 		masklen2ip(oi->address->prefixlen, &mask);
 		id.s_addr = oi->address->u.prefix4.s_addr & mask.s_addr;
 		return link_info_set(s, id, mask, LSA_LINK_TYPE_STUB, 0,
@@ -603,7 +620,7 @@ static int lsa_link_loopback_set(struct stream **s, struct ospf_interface *oi)
 	struct in_addr id, mask;
 
 	/* Describe Type 3 Link. */
-	if (oi->state != ISM_Loopback)
+	if ((oi->state != ISM_Loopback) || OSPF_IF_PARAM(oi, prefix_suppression))
 		return 0;
 
 	mask.s_addr = 0xffffffff;
@@ -645,9 +662,15 @@ static int lsa_link_ptomp_set(struct stream **s, struct ospf_interface *oi)
 	struct in_addr id, mask;
 	uint16_t cost = ospf_link_cost(oi);
 
-	mask.s_addr = 0xffffffff;
-	id.s_addr = oi->address->u.prefix4.s_addr;
-	links += link_info_set(s, id, mask, LSA_LINK_TYPE_STUB, 0, 0);
+	if (OSPF_IF_PARAM(oi, prefix_suppression)) {
+		if (IS_DEBUG_OSPF(lsa, LSA_GENERATE))
+			zlog_debug("LSA[Type1]: Interface %s stub link omitted due prefix-suppression",
+				   oi->ifp->name);
+	} else {
+		mask.s_addr = 0xffffffff;
+		id.s_addr = oi->address->u.prefix4.s_addr;
+		links += link_info_set(s, id, mask, LSA_LINK_TYPE_STUB, 0, 0);
+	}
 
 	if (IS_DEBUG_OSPF(lsa, LSA_GENERATE))
 		zlog_debug("PointToMultipoint: running ptomultip_set");
@@ -1006,7 +1029,14 @@ static void ospf_network_lsa_body_set(struct stream *s,
 	struct route_node *rn;
 	struct ospf_neighbor *nbr;
 
-	masklen2ip(oi->address->prefixlen, &mask);
+	if (OSPF_IF_PARAM(oi, prefix_suppression)) {
+		mask.s_addr = 0xffffffff;
+		if (IS_DEBUG_OSPF(lsa, LSA_GENERATE))
+			zlog_debug("LSA[Type2]: Interface %s network mask set to host mask due prefix-suppression",
+				   oi->ifp->name);
+	} else {
+		masklen2ip(oi->address->prefixlen, &mask);
+	}
 	stream_put_ipv4(s, mask.s_addr);
 
 	/* The network-LSA lists those routers that are fully adjacent to
@@ -2007,7 +2037,6 @@ static struct ospf_lsa *ospf_lsa_translated_nssa_new(struct ospf *ospf,
 
 	/* add translated flag, checksum and lock new lsa */
 	SET_FLAG(new->flags, OSPF_LSA_LOCAL_XLT); /* Translated from 7  */
-	new = ospf_lsa_lock(new);
 
 	return new;
 }
@@ -3751,7 +3780,7 @@ void ospf_flush_self_originated_lsas_now(struct ospf *ospf)
 	 */
 	if (ospf->t_maxage != NULL) {
 		EVENT_OFF(ospf->t_maxage);
-		event_execute(master, ospf_maxage_lsa_remover, ospf, 0);
+		event_execute(master, ospf_maxage_lsa_remover, ospf, 0, NULL);
 	}
 
 	return;

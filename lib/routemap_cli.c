@@ -729,6 +729,10 @@ void route_map_condition_show(struct vty *vty, const struct lyd_node *dnode,
 			    dnode,
 			    "./rmap-match-condition/frr-bgp-route-map:comm-list/comm-list-name-exact-match"))
 			vty_out(vty, " exact-match");
+		if (yang_dnode_get_bool(
+			    dnode,
+			    "./rmap-match-condition/frr-bgp-route-map:comm-list/comm-list-name-any"))
+			vty_out(vty, " any");
 		vty_out(vty, "\n");
 	} else if (IS_MATCH_LCOMMUNITY(condition)) {
 		vty_out(vty, " match large-community %s",
@@ -739,6 +743,10 @@ void route_map_condition_show(struct vty *vty, const struct lyd_node *dnode,
 			    dnode,
 			    "./rmap-match-condition/frr-bgp-route-map:comm-list/comm-list-name-exact-match"))
 			vty_out(vty, " exact-match");
+		if (yang_dnode_get_bool(
+			    dnode,
+			    "./rmap-match-condition/frr-bgp-route-map:comm-list/comm-list-name-any"))
+			vty_out(vty, " any");
 		vty_out(vty, "\n");
 	} else if (IS_MATCH_EXTCOMMUNITY(condition)) {
 		vty_out(vty, " match extcommunity %s\n",
@@ -1197,6 +1205,16 @@ void route_map_action_show(struct vty *vty, const struct lyd_node *dnode,
 		assert(acl);
 
 		vty_out(vty, " set large-comm-list %s delete\n", acl);
+	} else if (IS_SET_EXTCOMM_LIST_DEL(action)) {
+		acl = NULL;
+		ln = yang_dnode_get(dnode, "./rmap-set-action/frr-bgp-route-map:comm-list-name");
+
+		if (ln)
+			acl = yang_dnode_get_string(ln, NULL);
+
+		assert(acl);
+
+		vty_out(vty, " set extended-comm-list %s delete\n", acl);
 	} else if (IS_SET_LCOMMUNITY(action)) {
 		if (yang_dnode_exists(
 			    dnode,
@@ -1270,6 +1288,11 @@ void route_map_action_show(struct vty *vty, const struct lyd_node *dnode,
 			strlcat(str, " non-transitive", sizeof(str));
 
 		vty_out(vty, " set extcommunity bandwidth %s\n", str);
+	} else if (IS_SET_EXTCOMMUNITY_COLOR(action)) {
+		vty_out(vty, " set extcommunity color %s\n",
+			yang_dnode_get_string(
+				dnode,
+				"./rmap-set-action/frr-bgp-route-map:extcommunity-color"));
 	} else if (IS_SET_EXTCOMMUNITY_NONE(action)) {
 		if (yang_dnode_get_bool(
 			    dnode,

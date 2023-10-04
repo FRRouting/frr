@@ -1240,7 +1240,13 @@ static int vrrp_socket(struct vrrp_router *r)
 		}
 
 		/* Turn off multicast loop on Tx */
-		setsockopt_ipv6_multicast_loop(r->sock_tx, 0);
+		if (setsockopt_ipv6_multicast_loop(r->sock_tx, 0) < 0) {
+			zlog_warn(VRRP_LOGPFX VRRP_LOGPFX_VRID VRRP_LOGPFX_FAM
+				  "Failed to turn off IPv6 multicast",
+				  r->vr->vrid, family2str(r->family));
+			failed = true;
+			goto done;
+		}
 
 		/* Bind Rx socket to exact interface */
 		frr_with_privs(&vrrp_privs) {

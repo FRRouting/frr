@@ -98,8 +98,8 @@ int if_cmp_name_func(const char *p1, const char *p2)
 		if (!*p2)
 			return 1;
 
-		x1 = strtol(p1, (char **)&tmp1, 10);
-		x2 = strtol(p2, (char **)&tmp2, 10);
+		x1 = strtol(p1, &tmp1, 10);
+		x2 = strtol(p2, &tmp2, 10);
 
 		/* let's compare numbers now */
 		if (x1 < x2)

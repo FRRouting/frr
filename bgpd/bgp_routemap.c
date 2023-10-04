@@ -282,14 +282,14 @@ route_match_peer(void *rule, const struct prefix *prefix, void *object)
 	}
 
 	if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
-		if (sockunion_same(su, &peer->su))
+		if (sockunion_same(su, &peer->connection->su))
 			return RMAP_MATCH;
 
 		return RMAP_NOMATCH;
 	} else {
 		group = peer->group;
 		for (ALL_LIST_ELEMENTS(group->peer, node, nnode, peer)) {
-			if (sockunion_same(su, &peer->su))
+			if (sockunion_same(su, &peer->connection->su))
 				return RMAP_MATCH;
 		}
 		return RMAP_NOMATCH;
@@ -574,11 +574,11 @@ route_match_ip_route_source(void *rule, const struct prefix *pfx, void *object)
 		path = object;
 		peer = path->peer;
 
-		if (!peer || sockunion_family(&peer->su) != AF_INET)
+		if (!peer || sockunion_family(&peer->connection->su) != AF_INET)
 			return RMAP_NOMATCH;
 
 		p.family = AF_INET;
-		p.prefix = peer->su.sin.sin_addr;
+		p.prefix = peer->connection->su.sin.sin_addr;
 		p.prefixlen = IPV4_MAX_BITLEN;
 
 		alist = access_list_lookup(AFI_IP, (char *)rule);
@@ -927,11 +927,11 @@ route_match_ip_route_source_prefix_list(void *rule, const struct prefix *prefix,
 		path = object;
 		peer = path->peer;
 
-		if (!peer || sockunion_family(&peer->su) != AF_INET)
+		if (!peer || sockunion_family(&peer->connection->su) != AF_INET)
 			return RMAP_NOMATCH;
 
 		p.family = AF_INET;
-		p.prefix = peer->su.sin.sin_addr;
+		p.prefix = peer->connection->su.sin.sin_addr;
 		p.prefixlen = IPV4_MAX_BITLEN;
 
 		plist = prefix_list_lookup(AFI_IP, (char *)rule);
@@ -1313,12 +1313,13 @@ route_match_vrl_source_vrf(void *rule, const struct prefix *prefix,
 	if (strncmp(vrf_name, "n/a", VRF_NAMSIZ) == 0)
 		return RMAP_NOMATCH;
 
-	if (path->extra == NULL || path->extra->bgp_orig == NULL)
+	if (path->extra == NULL || path->extra->vrfleak == NULL ||
+	    path->extra->vrfleak->bgp_orig == NULL)
 		return RMAP_NOMATCH;
 
-	if (strncmp(vrf_name, vrf_id_to_name(path->extra->bgp_orig->vrf_id),
-		    VRF_NAMSIZ)
-	    == 0)
+	if (strncmp(vrf_name,
+		    vrf_id_to_name(path->extra->vrfleak->bgp_orig->vrf_id),
+		    VRF_NAMSIZ) == 0)
 		return RMAP_MATCH;
 
 	return RMAP_NOMATCH;
@@ -1527,7 +1528,8 @@ static const struct route_map_rule_cmd route_match_aspath_cmd = {
 struct rmap_community {
 	char *name;
 	uint32_t name_hash;
-	int exact;
+	bool exact;
+	bool any;
 };
 
 /* Match function for community match. */
@@ -1549,6 +1551,12 @@ route_match_community(void *rule, const struct prefix *prefix, void *object)
 	if (rcom->exact) {
 		if (community_list_exact_match(
 			    bgp_attr_get_community(path->attr), list))
+			return RMAP_MATCH;
+	} else if (rcom->any) {
+		if (!bgp_attr_get_community(path->attr))
+			return RMAP_OKAY;
+		if (community_list_any_match(bgp_attr_get_community(path->attr),
+					     list))
 			return RMAP_MATCH;
 	} else {
 		if (community_list_match(bgp_attr_get_community(path->attr),
@@ -1573,10 +1581,15 @@ static void *route_match_community_compile(const char *arg)
 		len = p - arg;
 		rcom->name = XCALLOC(MTYPE_ROUTE_MAP_COMPILED, len + 1);
 		memcpy(rcom->name, arg, len);
-		rcom->exact = 1;
+		p++;
+		if (*p == 'e')
+			rcom->exact = true;
+		else
+			rcom->any = true;
 	} else {
 		rcom->name = XSTRDUP(MTYPE_ROUTE_MAP_COMPILED, arg);
-		rcom->exact = 0;
+		rcom->exact = false;
+		rcom->any = false;
 	}
 
 	rcom->name_hash = bgp_clist_hash_key(rcom->name);
@@ -1636,6 +1649,12 @@ route_match_lcommunity(void *rule, const struct prefix *prefix, void *object)
 		if (lcommunity_list_exact_match(
 			    bgp_attr_get_lcommunity(path->attr), list))
 			return RMAP_MATCH;
+	} else if (rcom->any) {
+		if (!bgp_attr_get_lcommunity(path->attr))
+			return RMAP_OKAY;
+		if (lcommunity_list_any_match(bgp_attr_get_lcommunity(path->attr),
+					      list))
+			return RMAP_MATCH;
 	} else {
 		if (lcommunity_list_match(bgp_attr_get_lcommunity(path->attr),
 					  list))
@@ -1659,10 +1678,15 @@ static void *route_match_lcommunity_compile(const char *arg)
 		len = p - arg;
 		rcom->name = XCALLOC(MTYPE_ROUTE_MAP_COMPILED, len + 1);
 		memcpy(rcom->name, arg, len);
-		rcom->exact = 1;
+		p++;
+		if (*p == 'e')
+			rcom->exact = true;
+		else
+			rcom->any = true;
 	} else {
 		rcom->name = XSTRDUP(MTYPE_ROUTE_MAP_COMPILED, arg);
-		rcom->exact = 0;
+		rcom->exact = false;
+		rcom->any = false;
 	}
 
 	rcom->name_hash = bgp_clist_hash_key(rcom->name);
@@ -2300,6 +2324,42 @@ static const struct route_map_rule_cmd route_set_aspath_prepend_cmd = {
 };
 
 /* `set as-path exclude ASn' */
+struct aspath_exclude {
+	struct aspath *aspath;
+	bool exclude_all;
+	char *exclude_aspath_acl_name;
+	struct as_list *exclude_aspath_acl;
+};
+
+static void *route_aspath_exclude_compile(const char *arg)
+{
+	struct aspath_exclude *ase;
+	const char *str = arg;
+	static const char asp_acl[] = "as-path-access-list";
+
+	ase = XCALLOC(MTYPE_ROUTE_MAP_COMPILED, sizeof(struct aspath_exclude));
+	if (strmatch(str, "all"))
+		ase->exclude_all = true;
+	else if (!strncmp(str, asp_acl, strlen(asp_acl))) {
+		str += strlen(asp_acl);
+		while (*str == ' ')
+			str++;
+		ase->exclude_aspath_acl_name = XSTRDUP(MTYPE_TMP, str);
+		ase->exclude_aspath_acl = as_list_lookup(str);
+	} else
+		ase->aspath = aspath_str2aspath(str, bgp_get_asnotation(NULL));
+	return ase;
+}
+
+static void route_aspath_exclude_free(void *rule)
+{
+	struct aspath_exclude *ase = rule;
+
+	aspath_free(ase->aspath);
+	if (ase->exclude_aspath_acl_name)
+		XFREE(MTYPE_TMP, ase->exclude_aspath_acl_name);
+	XFREE(MTYPE_ROUTE_MAP_COMPILED, ase);
+}
 
 /* For ASN exclude mechanism.
  * Iterate over ASns requested and filter them from the given AS_PATH one by
@@ -2309,26 +2369,48 @@ static const struct route_map_rule_cmd route_set_aspath_prepend_cmd = {
 static enum route_map_cmd_result_t
 route_set_aspath_exclude(void *rule, const struct prefix *dummy, void *object)
 {
-	struct aspath *new_path, *exclude_path;
+	struct aspath *new_path;
 	struct bgp_path_info *path;
+	struct aspath_exclude *ase = rule;
 
-	exclude_path = rule;
 	path = object;
+
+	if (path->peer->sort != BGP_PEER_EBGP) {
+		zlog_warn(
+			"`set as-path exclude` is supported only for EBGP peers");
+		return RMAP_NOOP;
+	}
+
 	if (path->attr->aspath->refcnt)
 		new_path = aspath_dup(path->attr->aspath);
 	else
 		new_path = path->attr->aspath;
-	path->attr->aspath = aspath_filter_exclude(new_path, exclude_path);
+
+	if (ase->aspath)
+		path->attr->aspath =
+			aspath_filter_exclude(new_path, ase->aspath);
+	else if (ase->exclude_all)
+		path->attr->aspath = aspath_filter_exclude_all(new_path);
+
+	else if (ase->exclude_aspath_acl_name) {
+		if (!ase->exclude_aspath_acl)
+			ase->exclude_aspath_acl =
+				as_list_lookup(ase->exclude_aspath_acl_name);
+		if (ase->exclude_aspath_acl)
+			path->attr->aspath =
+				aspath_filter_exclude_acl(new_path,
+							  ase->exclude_aspath_acl);
+	}
 
 	return RMAP_OKAY;
 }
 
-/* Set ASn exlude rule structure. */
+/* Set ASn exclude rule structure. */
 static const struct route_map_rule_cmd route_set_aspath_exclude_cmd = {
 	"as-path exclude",
 	route_set_aspath_exclude,
-	route_aspath_compile,
-	route_aspath_free,
+	route_aspath_exclude_compile,
+	route_aspath_exclude_free,
 };
 
 /* `set as-path replace AS-PATH` */
@@ -2348,13 +2430,84 @@ route_set_aspath_replace(void *rule, const struct prefix *dummy, void *object)
 	struct aspath *aspath_new;
 	const char *replace = rule;
 	struct bgp_path_info *path = object;
-	as_t own_asn = path->peer->change_local_as ? path->peer->change_local_as
-						   : path->peer->local_as;
+	as_t replace_asn = 0;
+	as_t configured_asn;
+	char *buf;
+	char src_asn[ASN_STRING_MAX_SIZE];
+	char *acl_list_name = NULL;
+	uint32_t acl_list_name_len = 0;
+	char *buf_acl_name = NULL;
+	static const char asp_acl[] = "as-path-access-list";
+	struct as_list *aspath_acl = NULL;
 
 	if (path->peer->sort != BGP_PEER_EBGP) {
 		zlog_warn(
 			"`set as-path replace` is supported only for EBGP peers");
-		return RMAP_NOOP;
+		goto end_ko;
+	}
+
+	buf = strchr(replace, ' ');
+	if (!buf) {
+		configured_asn = path->peer->change_local_as
+					 ? path->peer->change_local_as
+					 : path->peer->local_as;
+	} else if (!strncmp(replace, asp_acl, strlen(asp_acl))) {
+		/* its as-path-acl-list command get the access list name */
+		while (*buf == ' ')
+			buf++;
+		buf_acl_name = buf;
+		buf = strchr(buf_acl_name, ' ');
+		if (buf)
+			acl_list_name_len = buf - buf_acl_name;
+		else
+			acl_list_name_len = strlen(buf_acl_name);
+
+		buf_acl_name[acl_list_name_len] = 0;
+		/* get the acl-list */
+		aspath_acl = as_list_lookup(buf_acl_name);
+		if (!aspath_acl) {
+			zlog_warn("`set as-path replace`, invalid as-path-access-list name: %s",
+				  buf_acl_name);
+			goto end_ko;
+		}
+		acl_list_name = XSTRDUP(MTYPE_TMP, buf_acl_name);
+		buf_acl_name[acl_list_name_len] = ' ';
+
+		if (!buf) {
+			configured_asn = path->peer->change_local_as
+						 ? path->peer->change_local_as
+						 : path->peer->local_as;
+		} else {
+			while (*buf == ' ')
+				buf++;
+			/* get the configured asn */
+			if (!asn_str2asn(buf, &configured_asn)) {
+				zlog_warn(
+					"`set as-path replace`, invalid configured AS %s",
+					buf);
+				goto end_ko;
+			}
+		}
+
+		replace = buf;
+
+	} else {
+		memcpy(src_asn, replace, (size_t)(buf - replace));
+		src_asn[(size_t)(buf - replace)] = '\0';
+		replace = src_asn;
+		buf++;
+		if (!asn_str2asn(buf, &configured_asn)) {
+			zlog_warn(
+				"`set as-path replace`, invalid configured AS %s",
+				buf);
+			goto end_ko;
+		}
+	}
+
+	if (replace && !strmatch(replace, "any") &&
+	    !asn_str2asn(replace, &replace_asn)) {
+		zlog_warn("`set as-path replace`, invalid AS %s", replace);
+		goto end_ko;
 	}
 
 	if (path->attr->aspath->refcnt)
@@ -2362,19 +2515,29 @@ route_set_aspath_replace(void *rule, const struct prefix *dummy, void *object)
 	else
 		aspath_new = path->attr->aspath;
 
-	if (strmatch(replace, "any")) {
+	if (aspath_acl) {
+		path->attr->aspath = aspath_replace_regex_asn(aspath_new,
+							      aspath_acl,
+							      configured_asn);
+	} else if (strmatch(replace, "any")) {
 		path->attr->aspath =
-			aspath_replace_all_asn(aspath_new, own_asn);
+			aspath_replace_all_asn(aspath_new, configured_asn);
 	} else {
-		as_t replace_asn = strtoul(replace, NULL, 10);
-
 		path->attr->aspath = aspath_replace_specific_asn(
-			aspath_new, replace_asn, own_asn);
+			aspath_new, replace_asn, configured_asn);
 	}
-
 	aspath_free(aspath_new);
 
+
+	if (acl_list_name)
+		XFREE(MTYPE_TMP, acl_list_name);
 	return RMAP_OKAY;
+
+end_ko:
+	if (acl_list_name)
+		XFREE(MTYPE_TMP, acl_list_name);
+	return RMAP_NOOP;
+
 }
 
 static const struct route_map_rule_cmd route_set_aspath_replace_cmd = {
@@ -2772,6 +2935,83 @@ static const struct route_map_rule_cmd route_set_community_delete_cmd = {
 	route_set_community_delete_free,
 };
 
+/* `set extcomm-list (<1-99>|<100-500>|WORD) delete' */
+static enum route_map_cmd_result_t
+route_set_ecommunity_delete(void *rule, const struct prefix *prefix,
+			   void *object)
+{
+	struct community_list *list;
+	struct ecommunity *merge;
+	struct ecommunity *new;
+	struct ecommunity *old;
+	struct bgp_path_info *path;
+	struct rmap_community *rcom = rule;
+
+	if (!rcom)
+		return RMAP_OKAY;
+
+	path = object;
+	list = community_list_lookup(bgp_clist, rcom->name, rcom->name_hash,
+				     EXTCOMMUNITY_LIST_MASTER);
+	old = bgp_attr_get_ecommunity(path->attr);
+	if (list && old) {
+		merge = ecommunity_list_match_delete(ecommunity_dup(old), list);
+		new = ecommunity_uniq_sort(merge);
+		ecommunity_free(&merge);
+
+		/* HACK: if the old community is not intern'd,
+		 * we should free it here, or all reference to it may be
+		 * lost.
+		 * Really need to cleanup attribute caching sometime.
+		 */
+		if (old->refcnt == 0)
+			ecommunity_free(&old);
+
+		if (new->size == 0) {
+			bgp_attr_set_ecommunity(path->attr, NULL);
+			ecommunity_free(&new);
+		} else {
+			bgp_attr_set_ecommunity(path->attr, new);
+		}
+	}
+
+	return RMAP_OKAY;
+}
+
+static void *route_set_ecommunity_delete_compile(const char *arg)
+{
+	struct rmap_community *rcom;
+	char **splits;
+	int num;
+
+	frrstr_split(arg, " ", &splits, &num);
+
+	rcom = XCALLOC(MTYPE_ROUTE_MAP_COMPILED, sizeof(struct rmap_community));
+	rcom->name = XSTRDUP(MTYPE_ROUTE_MAP_COMPILED, splits[0]);
+	rcom->name_hash = bgp_clist_hash_key(rcom->name);
+
+	for (int i = 0; i < num; i++)
+		XFREE(MTYPE_TMP, splits[i]);
+	XFREE(MTYPE_TMP, splits);
+
+	return rcom;
+}
+
+static void route_set_ecommunity_delete_free(void *rule)
+{
+	struct rmap_community *rcom = rule;
+
+	XFREE(MTYPE_ROUTE_MAP_COMPILED, rcom->name);
+	XFREE(MTYPE_ROUTE_MAP_COMPILED, rcom);
+}
+
+static const struct route_map_rule_cmd route_set_ecommunity_delete_cmd = {
+	"extended-comm-list",
+	route_set_ecommunity_delete,
+	route_set_ecommunity_delete_compile,
+	route_set_ecommunity_delete_free,
+};
+
 /* `set extcommunity rt COMMUNITY' */
 
 struct rmap_ecom_set {
@@ -3054,6 +3294,44 @@ static void *route_set_ecommunity_lb_compile(const char *arg)
 
 	return rels;
 }
+
+static enum route_map_cmd_result_t
+route_set_ecommunity_color(void *rule, const struct prefix *prefix,
+			   void *object)
+{
+	struct bgp_path_info *path;
+
+	path = object;
+
+	route_set_ecommunity(rule, prefix, object);
+
+	path->attr->flag |= ATTR_FLAG_BIT(BGP_ATTR_SRTE_COLOR);
+	return RMAP_OKAY;
+}
+
+static void *route_set_ecommunity_color_compile(const char *arg)
+{
+	struct rmap_ecom_set *rcs;
+	struct ecommunity *ecom;
+
+	ecom = ecommunity_str2com(arg, ECOMMUNITY_COLOR, 0);
+	if (!ecom)
+		return NULL;
+
+	rcs = XCALLOC(MTYPE_ROUTE_MAP_COMPILED, sizeof(struct rmap_ecom_set));
+	rcs->ecom = ecommunity_intern(ecom);
+	rcs->none = false;
+
+	return rcs;
+}
+
+static const struct route_map_rule_cmd route_set_ecommunity_color_cmd = {
+	"extcommunity color",
+	route_set_ecommunity_color,
+	route_set_ecommunity_color_compile,
+	route_set_ecommunity_free,
+};
+
 
 static void route_set_ecommunity_lb_free(void *rule)
 {
@@ -4085,7 +4363,7 @@ static void bgp_route_map_process_peer(const char *rmap_name,
 	    && (strcmp(rmap_name, filter->map[RMAP_IN].name) == 0)) {
 		filter->map[RMAP_IN].map = map;
 
-		if (route_update && peer_established(peer)) {
+		if (route_update && peer_established(peer->connection)) {
 			if (CHECK_FLAG(peer->af_flags[afi][safi],
 				       PEER_FLAG_SOFT_RECONFIG)) {
 				if (bgp_debug_update(peer, NULL, NULL, 1))
@@ -4095,10 +4373,7 @@ static void bgp_route_map_process_peer(const char *rmap_name,
 						safi2str(safi), peer->host);
 
 				bgp_soft_reconfig_in(peer, afi, safi);
-			} else if (CHECK_FLAG(peer->cap,
-					      PEER_CAP_REFRESH_OLD_RCV)
-				   || CHECK_FLAG(peer->cap,
-						 PEER_CAP_REFRESH_NEW_RCV)) {
+			} else if (CHECK_FLAG(peer->cap, PEER_CAP_REFRESH_RCV)) {
 				if (bgp_debug_update(peer, NULL, NULL, 1))
 					zlog_debug(
 						"Processing route_map %s(%s:%s) update on peer %s (inbound, route-refresh)",
@@ -5241,15 +5516,15 @@ DEFUN_YANG(no_match_alias, no_match_alias_cmd, "no match alias [ALIAS_NAME]",
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFPY_YANG (match_community,
-       match_community_cmd,
-       "match community <(1-99)|(100-500)|COMMUNITY_LIST_NAME> [exact-match]",
-       MATCH_STR
-       "Match BGP community list\n"
-       "Community-list number (standard)\n"
-       "Community-list number (expanded)\n"
-       "Community-list name\n"
-       "Do exact matching of communities\n")
+DEFPY_YANG(
+	match_community, match_community_cmd,
+	"match community <(1-99)|(100-500)|COMMUNITY_LIST_NAME> [<exact-match$exact|any$any>]",
+	MATCH_STR "Match BGP community list\n"
+		  "Community-list number (standard)\n"
+		  "Community-list number (expanded)\n"
+		  "Community-list name\n"
+		  "Do exact matching of communities\n"
+		  "Do matching of any community\n")
 {
 	const char *xpath =
 		"./match-condition[condition='frr-bgp-route-map:match-community']";
@@ -5265,35 +5540,35 @@ DEFPY_YANG (match_community,
 		xpath);
 	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, argv[idx_comm_list]->arg);
 
-	if (argc == 4) {
-		snprintf(
-			xpath_match, sizeof(xpath_match),
-			"%s/rmap-match-condition/frr-bgp-route-map:comm-list/comm-list-name-exact-match",
-			xpath);
+	snprintf(xpath_match, sizeof(xpath_match),
+		 "%s/rmap-match-condition/frr-bgp-route-map:comm-list/comm-list-name-exact-match",
+		 xpath);
+	if (exact)
 		nb_cli_enqueue_change(vty, xpath_match, NB_OP_MODIFY,
 				"true");
-	} else {
-		snprintf(
-			xpath_match, sizeof(xpath_match),
-			"%s/rmap-match-condition/frr-bgp-route-map:comm-list/comm-list-name-exact-match",
-			xpath);
-		nb_cli_enqueue_change(vty, xpath_match, NB_OP_MODIFY,
-				"false");
-	}
+	else
+		nb_cli_enqueue_change(vty, xpath_match, NB_OP_MODIFY, "false");
+
+	snprintf(xpath_match, sizeof(xpath_match),
+		 "%s/rmap-match-condition/frr-bgp-route-map:comm-list/comm-list-name-any",
+		 xpath);
+	if (any)
+		nb_cli_enqueue_change(vty, xpath_match, NB_OP_MODIFY, "true");
+	else
+		nb_cli_enqueue_change(vty, xpath_match, NB_OP_MODIFY, "false");
 
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFUN_YANG (no_match_community,
-	    no_match_community_cmd,
-	    "no match community [<(1-99)|(100-500)|COMMUNITY_LIST_NAME> [exact-match]]",
-	    NO_STR
-	    MATCH_STR
-	    "Match BGP community list\n"
-	    "Community-list number (standard)\n"
-	    "Community-list number (expanded)\n"
-	    "Community-list name\n"
-	    "Do exact matching of communities\n")
+DEFUN_YANG(
+	no_match_community, no_match_community_cmd,
+	"no match community [<(1-99)|(100-500)|COMMUNITY_LIST_NAME> [<exact-match$exact|any$any>]]",
+	NO_STR MATCH_STR "Match BGP community list\n"
+			 "Community-list number (standard)\n"
+			 "Community-list number (expanded)\n"
+			 "Community-list name\n"
+			 "Do exact matching of communities\n"
+			 "Do matching of any community\n")
 {
 	const char *xpath =
 		"./match-condition[condition='frr-bgp-route-map:match-community']";
@@ -5302,15 +5577,15 @@ DEFUN_YANG (no_match_community,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFPY_YANG (match_lcommunity,
-	    match_lcommunity_cmd,
-	    "match large-community <(1-99)|(100-500)|LCOMMUNITY_LIST_NAME> [exact-match]",
-	    MATCH_STR
-	    "Match BGP large community list\n"
-	    "Large Community-list number (standard)\n"
-	    "Large Community-list number (expanded)\n"
-	    "Large Community-list name\n"
-	    "Do exact matching of communities\n")
+DEFPY_YANG(
+	match_lcommunity, match_lcommunity_cmd,
+	"match large-community <(1-99)|(100-500)|LCOMMUNITY_LIST_NAME> [<exact-match$exact|any$any>]",
+	MATCH_STR "Match BGP large community list\n"
+		  "Large Community-list number (standard)\n"
+		  "Large Community-list number (expanded)\n"
+		  "Large Community-list name\n"
+		  "Do exact matching of communities\n"
+		  "Do matching of any community\n")
 {
 	const char *xpath =
 		"./match-condition[condition='frr-bgp-route-map:match-large-community']";
@@ -5326,35 +5601,35 @@ DEFPY_YANG (match_lcommunity,
 		xpath);
 	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, argv[idx_lcomm_list]->arg);
 
-	if (argc == 4) {
-		snprintf(
-			xpath_match, sizeof(xpath_match),
-			"%s/rmap-match-condition/frr-bgp-route-map:comm-list/comm-list-name-exact-match",
-			xpath);
+	snprintf(xpath_match, sizeof(xpath_match),
+		 "%s/rmap-match-condition/frr-bgp-route-map:comm-list/comm-list-name-exact-match",
+		 xpath);
+	if (exact)
 		nb_cli_enqueue_change(vty, xpath_match, NB_OP_MODIFY,
 				"true");
-	} else {
-		snprintf(
-			xpath_match, sizeof(xpath_match),
-			"%s/rmap-match-condition/frr-bgp-route-map:comm-list/comm-list-name-exact-match",
-			xpath);
-		nb_cli_enqueue_change(vty, xpath_match, NB_OP_MODIFY,
-				"false");
-	}
+	else
+		nb_cli_enqueue_change(vty, xpath_match, NB_OP_MODIFY, "false");
+
+	snprintf(xpath_match, sizeof(xpath_match),
+		 "%s/rmap-match-condition/frr-bgp-route-map:comm-list/comm-list-name-any",
+		 xpath);
+	if (any)
+		nb_cli_enqueue_change(vty, xpath_match, NB_OP_MODIFY, "true");
+	else
+		nb_cli_enqueue_change(vty, xpath_match, NB_OP_MODIFY, "false");
 
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFUN_YANG (no_match_lcommunity,
-	    no_match_lcommunity_cmd,
-	    "no match large-community [<(1-99)|(100-500)|LCOMMUNITY_LIST_NAME> [exact-match]]",
-	    NO_STR
-	    MATCH_STR
-	    "Match BGP large community list\n"
-	    "Large Community-list number (standard)\n"
-	    "Large Community-list number (expanded)\n"
-	    "Large Community-list name\n"
-	    "Do exact matching of communities\n")
+DEFUN_YANG(
+	no_match_lcommunity, no_match_lcommunity_cmd,
+	"no match large-community [<(1-99)|(100-500)|LCOMMUNITY_LIST_NAME> [<exact-match|any>]]",
+	NO_STR MATCH_STR "Match BGP large community list\n"
+			 "Large Community-list number (standard)\n"
+			 "Large Community-list number (expanded)\n"
+			 "Large Community-list name\n"
+			 "Do exact matching of communities\n"
+			 "Do matching of any community\n")
 {
 	const char *xpath =
 		"./match-condition[condition='frr-bgp-route-map:match-large-community']";
@@ -5401,6 +5676,51 @@ DEFUN_YANG (no_match_ecommunity,
 {
 	const char *xpath =
 		"./match-condition[condition='frr-bgp-route-map:match-extcommunity']";
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+
+DEFPY_YANG (set_ecommunity_delete,
+	    set_ecommunity_delete_cmd,
+            "set extended-comm-list " EXTCOMM_LIST_CMD_STR " delete",
+	    SET_STR
+	    "set BGP extended community list (for deletion)\n"
+	    EXTCOMM_STD_LIST_NUM_STR
+	    EXTCOMM_EXP_LIST_NUM_STR
+	    EXTCOMM_LIST_NAME_STR
+            "Delete matching extended communities\n")
+{
+	const char *xpath =
+		"./set-action[action='frr-bgp-route-map:extended-comm-list-delete']";
+	char xpath_value[XPATH_MAXLEN];
+	int idx_comm_list = 2;
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+
+	snprintf(xpath_value, sizeof(xpath_value),
+		 "%s/rmap-set-action/frr-bgp-route-map:comm-list-name",
+		 xpath);
+	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY,
+			argv[idx_comm_list]->arg);
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+
+DEFPY_YANG (no_set_ecommunity_delete,
+	    no_set_ecommunity_delete_cmd,
+            "no set extended-comm-list [" EXTCOMM_LIST_CMD_STR "] delete",
+	    NO_STR
+	    SET_STR
+	    "set BGP extended community list (for deletion)\n"
+	    EXTCOMM_STD_LIST_NUM_STR
+	    EXTCOMM_EXP_LIST_NUM_STR
+	    EXTCOMM_LIST_NAME_STR
+            "Delete matching extended communities\n")
+{
+	const char *xpath =
+		"./set-action[action='frr-bgp-route-map:extended-comm-list-delete']";
 
 	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
 	return nb_cli_apply_changes(vty, NULL);
@@ -5800,41 +6120,106 @@ DEFUN_YANG (set_aspath_prepend_lastas,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFPY_YANG (set_aspath_replace_asn,
-	    set_aspath_replace_asn_cmd,
-	    "set as-path replace <any|ASNUM>$replace",
-	    SET_STR
-	    "Transform BGP AS_PATH attribute\n"
-	    "Replace AS number to local AS number\n"
-	    "Replace any AS number to local AS number\n"
-	    "Replace a specific AS number in plain or dotted format to local AS number\n")
+DEFPY_YANG(set_aspath_replace_asn, set_aspath_replace_asn_cmd,
+	   "set as-path replace <any|ASNUM>$replace [<ASNUM>$configured_asn]",
+	   SET_STR
+	   "Transform BGP AS_PATH attribute\n"
+	   "Replace AS number to local or configured AS number\n"
+	   "Replace any AS number to local or configured AS number\n"
+	   "Replace a specific AS number to local or configured AS number\n"
+	   "Define the configured AS number\n")
 {
 	const char *xpath =
 		"./set-action[action='frr-bgp-route-map:as-path-replace']";
 	char xpath_value[XPATH_MAXLEN];
-	as_t as_value;
+	as_t as_value, as_configured_value;
+	char replace_value[ASN_STRING_MAX_SIZE * 2];
 
 	if (!strmatch(replace, "any") && !asn_str2asn(replace, &as_value)) {
 		vty_out(vty, "%% Invalid AS value %s\n", replace);
 		return CMD_WARNING_CONFIG_FAILED;
 	}
-
-	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+	if (configured_asn_str &&
+	    !asn_str2asn(configured_asn_str, &as_configured_value)) {
+		vty_out(vty, "%% Invalid AS configured value %s\n",
+			configured_asn_str);
+		return CMD_WARNING_CONFIG_FAILED;
+	}
 	snprintf(xpath_value, sizeof(xpath_value),
 		 "%s/rmap-set-action/frr-bgp-route-map:replace-as-path", xpath);
-	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, replace);
+	snprintf(replace_value, sizeof(replace_value), "%s%s%s", replace,
+		 configured_asn_str ? " " : "",
+		 configured_asn_str ? configured_asn_str : "");
+	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, replace_value);
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFPY_YANG (no_set_aspath_replace_asn,
-	    no_set_aspath_replace_asn_cmd,
-	    "no set as-path replace [<any|ASNUM>]",
-	    NO_STR
-	    SET_STR
-	    "Transform BGP AS_PATH attribute\n"
-	    "Replace AS number to local AS number\n"
-	    "Replace any AS number to local AS number\n"
-	    "Replace a specific AS number in plain or dotted format to local AS number\n")
+DEFPY_YANG(no_set_aspath_replace_asn, no_set_aspath_replace_asn_cmd,
+	   "no set as-path replace [<any|ASNUM>] [<ASNUM>$configured_asn]",
+	   NO_STR SET_STR
+	   "Transform BGP AS_PATH attribute\n"
+	   "Replace AS number to local or configured AS number\n"
+	   "Replace any AS number to local or configured AS number\n"
+	   "Replace a specific AS number to local or configured AS number\n"
+	   "Define the configured AS number\n")
+{
+	const char *xpath =
+		"./set-action[action='frr-bgp-route-map:as-path-replace']";
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG(
+	set_aspath_replace_access_list, set_aspath_replace_access_list_cmd,
+	"set as-path replace as-path-access-list AS_PATH_FILTER_NAME$aspath_filter_name [<ASNUM>$configured_asn]",
+	SET_STR
+	"Transform BGP AS-path attribute\n"
+	"Replace AS number to local or configured AS number\n"
+	"Specify an as path access list name\n"
+	"AS path access list name\n"
+	"Define the configured AS number\n")
+{
+	char *str;
+	const char *xpath =
+		"./set-action[action='frr-bgp-route-map:as-path-replace']";
+	char xpath_value[XPATH_MAXLEN];
+	as_t as_configured_value;
+	char replace_value[ASN_STRING_MAX_SIZE * 2];
+	int ret;
+
+	if (configured_asn_str &&
+	    !asn_str2asn(configured_asn_str, &as_configured_value)) {
+		vty_out(vty, "%% Invalid AS configured value %s\n",
+			configured_asn_str);
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	str = argv_concat(argv, argc, 3);
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+
+	snprintf(replace_value, sizeof(replace_value), "%s %s", aspath_filter_name, str);
+
+	snprintf(xpath_value, sizeof(xpath_value),
+		 "%s/rmap-set-action/frr-bgp-route-map:replace-as-path", xpath);
+	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, str);
+
+	ret = nb_cli_apply_changes(vty, NULL);
+	XFREE(MTYPE_TMP, str);
+	return ret;
+}
+
+DEFPY_YANG(
+	no_set_aspath_replace_access_list, no_set_aspath_replace_access_list_cmd,
+	"no set as-path replace as-path-access-list [AS_PATH_FILTER_NAME] [<ASNUM>$configured_asn]",
+	NO_STR
+	SET_STR
+	"Transform BGP AS_PATH attribute\n"
+	"Replace AS number to local or configured AS number\n"
+	"Specify an as path access list name\n"
+	"AS path access list name\n"
+	"Define the configured AS number\n")
 {
 	const char *xpath =
 		"./set-action[action='frr-bgp-route-map:as-path-replace']";
@@ -5845,27 +6230,12 @@ DEFPY_YANG (no_set_aspath_replace_asn,
 
 DEFUN_YANG (no_set_aspath_prepend,
 	    no_set_aspath_prepend_cmd,
-	    "no set as-path prepend [ASNUM]",
+	    "no set as-path prepend [ASNUM] [last-as [(1-10)]]",
 	    NO_STR
 	    SET_STR
 	    "Transform BGP AS_PATH attribute\n"
 	    "Prepend to the as-path\n"
-	    AS_STR)
-{
-	const char *xpath =
-		"./set-action[action='frr-bgp-route-map:as-path-prepend']";
-
-	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
-	return nb_cli_apply_changes(vty, NULL);
-}
-
-DEFUN_YANG (no_set_aspath_prepend_lastas,
-	    no_set_aspath_prepend_lastas_cmd,
-	    "no set as-path prepend last-as [(1-10)]",
-	    NO_STR
-	    SET_STR
-	    "Transform BGP AS_PATH attribute\n"
-	    "Prepend to the as-path\n"
+	    AS_STR
 	    "Use the peers AS-number\n"
 	    "Number of times to insert\n")
 {
@@ -5910,6 +6280,32 @@ DEFUN_YANG (set_aspath_exclude,
 	return ret;
 }
 
+DEFPY_YANG(set_aspath_exclude_all, set_aspath_exclude_all_cmd,
+	   "[no$no] set as-path exclude all$all",
+	   NO_STR SET_STR
+	   "Transform BGP AS-path attribute\n"
+	   "Exclude from the as-path\n"
+	   "Exclude all AS numbers from the as-path\n")
+{
+	int ret;
+	const char *xpath =
+		"./set-action[action='frr-bgp-route-map:as-path-exclude']";
+	char xpath_value[XPATH_MAXLEN];
+
+	if (no)
+		nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+	else {
+		nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+		snprintf(xpath_value, sizeof(xpath_value),
+			 "%s/rmap-set-action/frr-bgp-route-map:exclude-as-path",
+			 xpath);
+		nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, all);
+	}
+	ret = nb_cli_apply_changes(vty, NULL);
+
+	return ret;
+}
+
 DEFUN_YANG (no_set_aspath_exclude,
 	    no_set_aspath_exclude_cmd,
 	    "no set as-path exclude ASNUM...",
@@ -5918,6 +6314,49 @@ DEFUN_YANG (no_set_aspath_exclude,
 	    "Transform BGP AS_PATH attribute\n"
 	    "Exclude from the as-path\n"
 	    "AS number\n")
+{
+	const char *xpath =
+		"./set-action[action='frr-bgp-route-map:as-path-exclude']";
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG(set_aspath_exclude_access_list, set_aspath_exclude_access_list_cmd,
+	   "set as-path exclude as-path-access-list AS_PATH_FILTER_NAME",
+	   SET_STR
+	   "Transform BGP AS-path attribute\n"
+	   "Exclude from the as-path\n"
+	   "Specify an as path access list name\n"
+	   "AS path access list name\n")
+{
+	char *str;
+	const char *xpath =
+		"./set-action[action='frr-bgp-route-map:as-path-exclude']";
+	char xpath_value[XPATH_MAXLEN];
+	int ret;
+
+	str = argv_concat(argv, argc, 3);
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+
+	snprintf(xpath_value, sizeof(xpath_value),
+		 "%s/rmap-set-action/frr-bgp-route-map:exclude-as-path", xpath);
+	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, str);
+
+	ret = nb_cli_apply_changes(vty, NULL);
+	XFREE(MTYPE_TMP, str);
+	return ret;
+}
+
+DEFPY_YANG(no_set_aspath_exclude_access_list, no_set_aspath_exclude_access_list_cmd,
+	   "no set as-path exclude as-path-access-list [AS_PATH_FILTER_NAME]",
+	   NO_STR
+	   SET_STR
+	   "Transform BGP AS_PATH attribute\n"
+	   "Exclude from the as-path\n"
+	   "Specify an as path access list name\n"
+	   "AS path access list name\n")
 {
 	const char *xpath =
 		"./set-action[action='frr-bgp-route-map:as-path-exclude']";
@@ -5972,16 +6411,6 @@ DEFUN_YANG (set_community,
 		else
 			first = 1;
 
-#if CONFDATE > 20230801
-CPP_NOTICE("Deprecate COMMUNITY_INTERNET BGP community")
-#endif
-		if (strncmp(argv[i]->arg, "internet", strlen(argv[i]->arg))
-		    == 0) {
-			buffer_putstr(b, "internet");
-			vty_out(vty, "%% `internet` community is deprecated\n");
-			zlog_warn("`internet` community is deprecated");
-			continue;
-		}
 		if (strncmp(argv[i]->arg, "local-AS", strlen(argv[i]->arg))
 		    == 0) {
 			buffer_putstr(b, "local-AS");
@@ -6518,6 +6947,57 @@ DEFPY_YANG (no_set_ecommunity_nt,
 {
 	const char *xpath =
 		"./set-action[action='frr-bgp-route-map:set-extcommunity-nt']";
+	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG(set_ecommunity_color, set_ecommunity_color_cmd,
+	   "set extcommunity color RTLIST...",
+	   SET_STR
+	   "BGP extended community attribute\n"
+	   "Color extended community\n"
+	   "Color ID\n")
+{
+	int idx_color = 3;
+	char *str;
+	int ret;
+	const char *xpath =
+		"./set-action[action='frr-bgp-route-map:set-extcommunity-color']";
+	char xpath_value[XPATH_MAXLEN];
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+
+	snprintf(xpath_value, sizeof(xpath_value),
+		 "%s/rmap-set-action/frr-bgp-route-map:extcommunity-color",
+		 xpath);
+	str = argv_concat(argv, argc, idx_color);
+	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, str);
+	ret = nb_cli_apply_changes(vty, NULL);
+	XFREE(MTYPE_TMP, str);
+	return ret;
+}
+
+DEFPY_YANG(no_set_ecommunity_color_all, no_set_ecommunity_color_all_cmd,
+	   "no set extcommunity color",
+	   NO_STR SET_STR
+	   "BGP extended community attribute\n"
+	   "Color extended community\n")
+{
+	const char *xpath =
+		"./set-action[action='frr-bgp-route-map:set-extcommunity-color']";
+	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG(no_set_ecommunity_color, no_set_ecommunity_color_cmd,
+	   "no set extcommunity color RTLIST...",
+	   NO_STR SET_STR
+	   "BGP extended community attribute\n"
+	   "Color extended community\n"
+	   "Color ID\n")
+{
+	const char *xpath =
+		"./set-action[action='frr-bgp-route-map:set-extcommunity-color']";
 	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
 	return nb_cli_apply_changes(vty, NULL);
 }
@@ -7366,6 +7846,7 @@ void bgp_route_map_init(void)
 	route_map_install_set(&route_set_aggregator_as_cmd);
 	route_map_install_set(&route_set_community_cmd);
 	route_map_install_set(&route_set_community_delete_cmd);
+	route_map_install_set(&route_set_ecommunity_delete_cmd);
 	route_map_install_set(&route_set_lcommunity_cmd);
 	route_map_install_set(&route_set_lcommunity_delete_cmd);
 	route_map_install_set(&route_set_vpnv4_nexthop_cmd);
@@ -7375,6 +7856,7 @@ void bgp_route_map_init(void)
 	route_map_install_set(&route_set_ecommunity_nt_cmd);
 	route_map_install_set(&route_set_ecommunity_soo_cmd);
 	route_map_install_set(&route_set_ecommunity_lb_cmd);
+	route_map_install_set(&route_set_ecommunity_color_cmd);
 	route_map_install_set(&route_set_ecommunity_none_cmd);
 	route_map_install_set(&route_set_tag_cmd);
 	route_map_install_set(&route_set_label_index_cmd);
@@ -7436,12 +7918,16 @@ void bgp_route_map_init(void)
 	install_element(RMAP_NODE, &set_aspath_prepend_asn_cmd);
 	install_element(RMAP_NODE, &set_aspath_prepend_lastas_cmd);
 	install_element(RMAP_NODE, &set_aspath_exclude_cmd);
+	install_element(RMAP_NODE, &set_aspath_exclude_all_cmd);
+	install_element(RMAP_NODE, &set_aspath_exclude_access_list_cmd);
 	install_element(RMAP_NODE, &set_aspath_replace_asn_cmd);
+	install_element(RMAP_NODE, &set_aspath_replace_access_list_cmd);
 	install_element(RMAP_NODE, &no_set_aspath_prepend_cmd);
-	install_element(RMAP_NODE, &no_set_aspath_prepend_lastas_cmd);
 	install_element(RMAP_NODE, &no_set_aspath_exclude_cmd);
 	install_element(RMAP_NODE, &no_set_aspath_exclude_all_cmd);
+	install_element(RMAP_NODE, &no_set_aspath_exclude_access_list_cmd);
 	install_element(RMAP_NODE, &no_set_aspath_replace_asn_cmd);
+	install_element(RMAP_NODE, &no_set_aspath_replace_access_list_cmd);
 	install_element(RMAP_NODE, &set_origin_cmd);
 	install_element(RMAP_NODE, &no_set_origin_cmd);
 	install_element(RMAP_NODE, &set_atomic_aggregate_cmd);
@@ -7478,6 +7964,11 @@ void bgp_route_map_init(void)
 	install_element(RMAP_NODE, &set_ecommunity_nt_cmd);
 	install_element(RMAP_NODE, &no_set_ecommunity_nt_cmd);
 	install_element(RMAP_NODE, &no_set_ecommunity_nt_short_cmd);
+	install_element(RMAP_NODE, &set_ecommunity_color_cmd);
+	install_element(RMAP_NODE, &no_set_ecommunity_color_cmd);
+	install_element(RMAP_NODE, &no_set_ecommunity_color_all_cmd);
+	install_element(RMAP_NODE, &set_ecommunity_delete_cmd);
+	install_element(RMAP_NODE, &no_set_ecommunity_delete_cmd);
 #ifdef KEEP_OLD_VPN_COMMANDS
 	install_element(RMAP_NODE, &set_vpn_nexthop_cmd);
 	install_element(RMAP_NODE, &no_set_vpn_nexthop_cmd);

@@ -70,6 +70,9 @@
 /* Default socket buffer size */
 #define OSPF_DEFAULT_SOCK_BUFSIZE   (8 * 1024 * 1024)
 
+/* OSPF config processing timer thread */
+extern struct event *t_ospf_cfg;
+
 struct ospf_external {
 	unsigned short instance;
 	struct route_table *external_info;
@@ -265,8 +268,8 @@ struct ospf {
 	struct event *t_abr_task;		 /* ABR task timer. */
 	struct event *t_abr_fr;			 /* ABR FR timer. */
 	struct event *t_asbr_check;		 /* ASBR check timer. */
-	struct event *t_asbr_nssa_redist_update; /* ASBR NSSA redistribution
-						     update timer. */
+	struct event *t_asbr_redist_update; /* ASBR redistribution update
+					       timer. */
 	struct event *t_distribute_update; /* Distirbute list update timer. */
 	struct event *t_spf_calc;	   /* SPF calculation timer. */
 	struct event *t_ase_calc;	   /* ASE calculation timer. */

@@ -355,6 +355,7 @@ static const char *const gm_states[] = {
 static void gm_sg_update(struct gm_sg *sg, bool has_expired)
 {
 	struct gm_if *gm_ifp = sg->iface;
+	struct pim_interface *pim_ifp = gm_ifp->ifp->info;
 	enum gm_sg_state prev, desired;
 	bool new_join;
 	struct gm_sg *grp = NULL;
@@ -404,9 +405,12 @@ static void gm_sg_update(struct gm_sg *sg, bool has_expired)
 			gm_sg_timer_start(gm_ifp, sg, timers.expire_wait);
 
 			EVENT_OFF(sg->t_sg_query);
-			sg->n_query = gm_ifp->cur_lmqc;
 			sg->query_sbit = false;
-			gm_trigger_specific(sg);
+			/* Trigger the specific queries only for querier. */
+			if (IPV6_ADDR_SAME(&gm_ifp->querier, &pim_ifp->ll_lowest)) {
+				sg->n_query = gm_ifp->cur_lmqc;
+				gm_trigger_specific(sg);
+			}
 		}
 	}
 	prev = sg->state;
@@ -1239,6 +1243,7 @@ static void gm_handle_q_groupsrc(struct gm_if *gm_ifp,
 
 	for (i = 0; i < n_src; i++) {
 		sg = gm_sg_find(gm_ifp, grp, srcs[i]);
+		GM_UPDATE_SG_STATE(sg);
 		gm_sg_timer_start(gm_ifp, sg, timers->expire_wait);
 	}
 }
@@ -1313,6 +1318,7 @@ static void gm_handle_q_group(struct gm_if *gm_ifp,
 		if (PIM_DEBUG_GM_TRACE)
 			zlog_debug(log_ifp("*,%pPAs expiry timer starting"),
 				   &grp);
+		GM_UPDATE_SG_STATE(sg);
 		gm_sg_timer_start(gm_ifp, sg, timers->expire_wait);
 
 		sg = gm_sgs_next(gm_ifp->sgs, sg);
@@ -1361,7 +1367,7 @@ static void gm_bump_querier(struct gm_if *gm_ifp)
 
 	gm_ifp->n_startup = gm_ifp->cur_qrv;
 
-	event_execute(router->master, gm_t_query, gm_ifp, 0);
+	event_execute(router->master, gm_t_query, gm_ifp, 0, NULL);
 }
 
 static void gm_t_other_querier(struct event *t)
@@ -1374,7 +1380,7 @@ static void gm_t_other_querier(struct event *t)
 	gm_ifp->querier = pim_ifp->ll_lowest;
 	gm_ifp->n_startup = gm_ifp->cur_qrv;
 
-	event_execute(router->master, gm_t_query, gm_ifp, 0);
+	event_execute(router->master, gm_t_query, gm_ifp, 0, NULL);
 }
 
 static void gm_handle_query(struct gm_if *gm_ifp,
@@ -1924,7 +1930,6 @@ static void gm_t_gsq_pend(struct event *t)
 static void gm_trigger_specific(struct gm_sg *sg)
 {
 	struct gm_if *gm_ifp = sg->iface;
-	struct pim_interface *pim_ifp = gm_ifp->ifp->info;
 	struct gm_gsq_pending *pend_gsq, ref = {};
 
 	sg->n_query--;
@@ -1933,8 +1938,20 @@ static void gm_trigger_specific(struct gm_sg *sg)
 				     gm_ifp->cur_query_intv_trig,
 				     &sg->t_sg_query);
 
-	if (!IPV6_ADDR_SAME(&gm_ifp->querier, &pim_ifp->ll_lowest))
-		return;
+	/* As per RFC 2271, s6 p14:
+	 * E.g. a router that starts as a Querier, receives a
+	 * Done message for a group and then receives a Query from a router with
+	 * a lower address (causing a transition to the Non-Querier state)
+	 * continues to send multicast-address-specific queries for the group in
+	 * question until it either receives a Report or its timer expires, at
+	 * which time it starts performing the actions of a Non-Querier for this
+	 * group.
+	 */
+	 /* Therefore here we do not need to check if this router is querier or
+	  * not. This is called only for querier, hence it will work even if the
+	  * router transitions from querier to non-querier.
+	  */
+
 	if (gm_ifp->pim->gm_socket == -1)
 		return;
 
@@ -2250,7 +2267,7 @@ static void gm_update_ll(struct interface *ifp)
 		return;
 
 	gm_ifp->n_startup = gm_ifp->cur_qrv;
-	event_execute(router->master, gm_t_query, gm_ifp, 0);
+	event_execute(router->master, gm_t_query, gm_ifp, 0, NULL);
 }
 
 void gm_ifp_update(struct interface *ifp)

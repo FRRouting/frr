@@ -219,7 +219,7 @@ static void bgp_mac_rescan_evpn_table(struct bgp *bgp, struct ethaddr *macaddr)
 		if (CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP))
 			continue;
 
-		if (!peer_established(peer))
+		if (!peer_established(peer->connection))
 			continue;
 
 		if (bgp_debug_update(peer, NULL, NULL, 1))
@@ -279,15 +279,29 @@ static void bgp_mac_remove_ifp_internal(struct bgp_self_mac *bsm, char *ifname,
 	}
 }
 
+/* Add/Update entry of the 'bgp mac hash' table.
+ * A rescan of the EVPN tables is only needed if
+ * a new hash bucket is allocated.
+ * Learning an existing mac on a new interface (or
+ * having an existing mac move from one interface to
+ * another) does not result in changes to self mac
+ * state, so we shouldn't trigger a rescan.
+ */
 void bgp_mac_add_mac_entry(struct interface *ifp)
 {
 	struct bgp_self_mac lookup;
 	struct bgp_self_mac *bsm;
 	struct bgp_self_mac *old_bsm;
 	char *ifname;
+	bool mac_added = false;
 
 	memcpy(&lookup.macaddr, &ifp->hw_addr, ETH_ALEN);
-	bsm = hash_get(bm->self_mac_hash, &lookup, bgp_mac_hash_alloc);
+	bsm = hash_lookup(bm->self_mac_hash, &lookup);
+	if (!bsm) {
+		bsm = hash_get(bm->self_mac_hash, &lookup, bgp_mac_hash_alloc);
+		/* mac is new, rescan needs to be triggered */
+		mac_added = true;
+	}
 
 	/*
 	 * Does this happen to be a move
@@ -318,7 +332,8 @@ void bgp_mac_add_mac_entry(struct interface *ifp)
 		listnode_add(bsm->ifp_list, ifname);
 	}
 
-	bgp_mac_rescan_all_evpn_tables(&bsm->macaddr);
+	if (mac_added)
+		bgp_mac_rescan_all_evpn_tables(&bsm->macaddr);
 }
 
 void bgp_mac_del_mac_entry(struct interface *ifp)

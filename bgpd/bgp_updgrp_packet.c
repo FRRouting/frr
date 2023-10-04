@@ -789,6 +789,29 @@ struct bpacket *subgroup_update_packet(struct update_subgroup *subgrp)
 						      safi);
 				label_pnt = &label;
 				num_labels = 1;
+			} else if (safi == SAFI_MPLS_VPN && path &&
+				   CHECK_FLAG(path->flags,
+					      BGP_PATH_MPLSVPN_NH_LABEL_BIND) &&
+				   path->mplsvpn.bmnc.nh_label_bind_cache &&
+				   path->peer && path->peer != peer &&
+				   path->sub_type != BGP_ROUTE_IMPORTED &&
+				   path->sub_type != BGP_ROUTE_STATIC &&
+				   bgp_mplsvpn_path_uses_valid_mpls_label(
+					   path) &&
+				   bgp_path_info_nexthop_changed(path, peer,
+								 afi)) {
+				/* Redistributed mpls vpn route between distinct
+				 * peers from 'pi->peer' to 'to',
+				 * and an mpls label is used in this path,
+				 * and there is a nh label bind entry,
+				 * then get appropriate mpls local label. When
+				 * called here, 'get_label()' returns a valid
+				 * label.
+				 */
+				label = bgp_mplsvpn_nh_label_bind_get_label(
+					path);
+				label_pnt = &label;
+				num_labels = 1;
 			} else if (path && path->extra) {
 				label_pnt = &path->extra->label[0];
 				num_labels = path->extra->num_labels;
@@ -1057,8 +1080,7 @@ void subgroup_default_update_packet(struct update_subgroup *subgrp,
 	safi_t safi;
 	struct bpacket_attr_vec_arr vecarr;
 	bool addpath_capable = false;
-	uint8_t default_originate_label[4] = {0x80, 0x00, 0x00};
-	mpls_label_t *label = NULL;
+	mpls_label_t label = MPLS_LABEL_IMPLICIT_NULL;
 	uint32_t num_labels = 0;
 
 	if (DISABLE_BGP_ANNOUNCE)
@@ -1074,7 +1096,11 @@ void subgroup_default_update_packet(struct update_subgroup *subgrp,
 	addpath_capable = bgp_addpath_encode_tx(peer, afi, safi);
 
 	if (safi == SAFI_LABELED_UNICAST) {
-		label = (mpls_label_t *)default_originate_label;
+		label = mpls_lse_encode((afi == AFI_IP)
+						? MPLS_LABEL_IPV4_EXPLICIT_NULL
+						: MPLS_LABEL_IPV6_EXPLICIT_NULL,
+					0, 0, 1);
+		bgp_set_valid_label(&label);
 		num_labels = 1;
 	}
 
@@ -1119,10 +1145,12 @@ void subgroup_default_update_packet(struct update_subgroup *subgrp,
 	/* Make place for total attribute length.  */
 	pos = stream_get_endp(s);
 	stream_putw(s, 0);
-	total_attr_len = bgp_packet_attribute(
-		NULL, peer, s, attr, &vecarr, &p, afi, safi, from, NULL, label,
-		num_labels, addpath_capable,
-		BGP_ADDPATH_TX_ID_FOR_DEFAULT_ORIGINATE, NULL);
+	total_attr_len =
+		bgp_packet_attribute(NULL, peer, s, attr, &vecarr, &p, afi,
+				     safi, from, NULL, &label, num_labels,
+				     addpath_capable,
+				     BGP_ADDPATH_TX_ID_FOR_DEFAULT_ORIGINATE,
+				     NULL);
 
 	/* Set Total Path Attribute Length. */
 	stream_putw_at(s, pos, total_attr_len);

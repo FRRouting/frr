@@ -107,6 +107,23 @@ def test_bgp_blackhole_community():
 
         return topotest.json_cmp(output, expected)
 
+    def _bgp_verify_nexthop_validity():
+        output = json.loads(tgen.gears["r4"].vtysh_cmd("show bgp nexthop json"))
+
+        expected = {
+            "ipv6": {
+                "fe80::202:ff:fe00:99": {
+                    "valid": True,
+                    "complete": True,
+                    "igpMetric": 0,
+                    "pathCount": 2,
+                    "nexthops": [{"interfaceName": "r4-eth0"}],
+                },
+            }
+        }
+
+        return topotest.json_cmp(output, expected)
+
     test_func = functools.partial(_bgp_converge)
     success, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
 
@@ -124,7 +141,6 @@ def test_bgp_blackhole_community():
     )
 
     step("Check if 172.16.255.254/32 is advertised to iBGP peers")
-
     test_func = functools.partial(_bgp_no_advertise_ibgp)
     success, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
 
@@ -133,6 +149,11 @@ def test_bgp_blackhole_community():
     ), 'Withdrawn blackhole tagged prefix to iBGP peers in "{}"'.format(
         tgen.gears["r2"]
     )
+
+    step("Verify if the nexthop set via route-map on r4 is marked valid")
+    test_func = functools.partial(_bgp_verify_nexthop_validity)
+    success, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+    assert result is None, 'Nexthops are not valid "{}"'.format(tgen.gears["r4"])
 
 
 if __name__ == "__main__":

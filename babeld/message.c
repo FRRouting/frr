@@ -556,7 +556,7 @@ parse_packet(const unsigned char *from, struct interface *ifp,
             int rc;
             rc = network_address(message[2], message + 4, len - 2,
                                  nh);
-            if(rc < 0) {
+            if(rc <= 0) {
                 have_v4_nh = 0;
                 have_v6_nh = 0;
                 goto fail;
@@ -731,7 +731,7 @@ parse_packet(const unsigned char *from, struct interface *ifp,
             DO_NTOHS(seqno, message + 4);
             rc = network_prefix(message[2], message[3], 0,
                                 message + 16, NULL, len - 14, prefix);
-            if(rc < 0) goto fail;
+            if(rc <= 0) goto fail;
             plen = message[3] + (message[2] == 1 ? 96 : 0);
             debugf(BABEL_DEBUG_COMMON,"Received request (%d) for %s from %s on %s (%s, %d).",
                    message[6],

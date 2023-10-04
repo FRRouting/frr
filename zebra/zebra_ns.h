@@ -68,6 +68,8 @@ int zebra_ns_final_shutdown(struct ns *ns,
 			    void **param_out __attribute__((unused)));
 int zebra_ns_config_write(struct vty *vty, struct ns *ns);
 
+void zebra_ns_startup_continue(struct zebra_dplane_ctx *ctx);
+
 #ifdef __cplusplus
 }
 #endif

@@ -157,9 +157,7 @@ DEFPY(mgmt_set_config_data, mgmt_set_config_data_cmd,
 	vty->cfg_changes[0].operation = NB_OP_CREATE;
 	vty->num_cfg_changes = 1;
 
-	vty->no_implicit_commit = true;
-	vty_mgmt_send_config_data(vty);
-	vty->no_implicit_commit = false;
+	vty_mgmt_send_config_data(vty, false);
 	return CMD_SUCCESS;
 }
 
@@ -176,9 +174,7 @@ DEFPY(mgmt_delete_config_data, mgmt_delete_config_data_cmd,
 	vty->cfg_changes[0].operation = NB_OP_DESTROY;
 	vty->num_cfg_changes = 1;
 
-	vty->no_implicit_commit = true;
-	vty_mgmt_send_config_data(vty);
-	vty->no_implicit_commit = false;
+	vty_mgmt_send_config_data(vty, false);
 	return CMD_SUCCESS;
 }
 
@@ -198,7 +194,7 @@ DEFPY(show_mgmt_get_config, show_mgmt_get_config_cmd,
 		datastore = mgmt_ds_name2id(dsname);
 
 	xpath_list[0] = path;
-	vty_mgmt_send_get_config(vty, datastore, xpath_list, 1);
+	vty_mgmt_send_get_req(vty, true, datastore, xpath_list, 1);
 	return CMD_SUCCESS;
 }
 
@@ -218,7 +214,7 @@ DEFPY(show_mgmt_get_data, show_mgmt_get_data_cmd,
 		datastore = mgmt_ds_name2id(dsname);
 
 	xpath_list[0] = path;
-	vty_mgmt_send_get_data(vty, datastore, xpath_list, 1);
+	vty_mgmt_send_get_req(vty, false, datastore, xpath_list, 1);
 	return CMD_SUCCESS;
 }
 
@@ -243,7 +239,7 @@ DEFPY(show_mgmt_dump_data,
 	LYD_FORMAT format = fmt[0] == 'j' ? LYD_JSON : LYD_XML;
 	FILE *f = NULL;
 
-	if (datastore)
+	if (dsname)
 		datastore = mgmt_ds_name2id(dsname);
 
 	ds_ctx = mgmt_ds_get_ctx_by_id(mm, datastore);

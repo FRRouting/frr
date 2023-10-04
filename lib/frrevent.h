@@ -18,6 +18,8 @@
 extern "C" {
 #endif
 
+#define CONSUMED_TIME_CHECK 5000000
+
 extern bool cputime_enabled;
 extern unsigned long cputime_threshold;
 /* capturing wallclock time is always enabled since it is fast (reading
@@ -65,6 +67,8 @@ struct xref_eventsched {
 	uint32_t event_type;
 };
 
+PREDECL_HASH(cpu_records);
+
 /* Master of the theads. */
 struct event_loop {
 	char *name;
@@ -76,7 +80,7 @@ struct event_loop {
 	struct list *cancel_req;
 	bool canceled;
 	pthread_cond_t cancel_cond;
-	struct hash *cpu_record;
+	struct cpu_records_head cpu_records[1];
 	int io_pipe[2];
 	int fd_limit;
 	struct fd_handler handler;
@@ -130,6 +134,8 @@ struct event {
 #endif
 
 struct cpu_event_history {
+	struct cpu_records_item item;
+
 	void (*func)(struct event *e);
 	atomic_size_t total_cpu_warn;
 	atomic_size_t total_wall_warn;
@@ -195,7 +201,7 @@ struct cpu_event_history {
 	_xref_t_a(timer_tv, TIMER, m, f, a, v, t)
 #define event_add_event(m, f, a, v, t) _xref_t_a(event, EVENT, m, f, a, v, t)
 
-#define event_execute(m, f, a, v)                                              \
+#define event_execute(m, f, a, v, p)                                           \
 	({                                                                     \
 		static const struct xref_eventsched _xref __attribute__(       \
 			(used)) = {                                            \
@@ -205,7 +211,7 @@ struct cpu_event_history {
 			.event_type = EVENT_EXECUTE,                           \
 		};                                                             \
 		XREF_LINK(_xref.xref);                                         \
-		_event_execute(&_xref, m, f, a, v);                            \
+		_event_execute(&_xref, m, f, a, v, p);                         \
 	}) /* end */
 
 /* Prototypes. */
@@ -241,7 +247,8 @@ extern void _event_add_event(const struct xref_eventsched *xref,
 
 extern void _event_execute(const struct xref_eventsched *xref,
 			   struct event_loop *master,
-			   void (*fn)(struct event *), void *arg, int val);
+			   void (*fn)(struct event *), void *arg, int val,
+			   struct event **eref);
 
 extern void event_cancel(struct event **event);
 extern void event_cancel_async(struct event_loop *m, struct event **eptr,

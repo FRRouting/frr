@@ -23,6 +23,7 @@
 #include "rib.h"
 #include "table_manager.h"
 #include "zebra_errors.h"
+#include "zebra_dplane.h"
 
 extern struct zebra_privs_t zserv_privs;
 
@@ -101,6 +102,36 @@ int zebra_ns_disabled(struct ns *ns)
 	return zebra_ns_disable_internal(zns, true);
 }
 
+void zebra_ns_startup_continue(struct zebra_dplane_ctx *ctx)
+{
+	struct zebra_ns *zns = zebra_ns_lookup(dplane_ctx_get_ns_id(ctx));
+	enum zebra_dplane_startup_notifications spot;
+
+	if (!zns) {
+		zlog_err("%s: No Namespace associated with %u", __func__,
+			 dplane_ctx_get_ns_id(ctx));
+		return;
+	}
+
+	spot = dplane_ctx_get_startup_spot(ctx);
+
+	switch (spot) {
+	case ZEBRA_DPLANE_INTERFACES_READ:
+		interface_list_tunneldump(zns);
+		break;
+	case ZEBRA_DPLANE_TUNNELS_READ:
+		interface_list_second(zns);
+		break;
+	case ZEBRA_DPLANE_ADDRESSES_READ:
+		route_read(zns);
+
+		vlan_read(zns);
+		kernel_read_pbr_rules(zns);
+		kernel_read_tc_qdisc(zns);
+		break;
+	}
+}
+
 /* Do global enable actions - open sockets, read kernel config etc. */
 int zebra_ns_enable(ns_id_t ns_id, void **info)
 {
@@ -111,11 +142,6 @@ int zebra_ns_enable(ns_id_t ns_id, void **info)
 	kernel_init(zns);
 	zebra_dplane_ns_enable(zns, true);
 	interface_list(zns);
-	route_read(zns);
-
-	vlan_read(zns);
-	kernel_read_pbr_rules(zns);
-	kernel_read_tc_qdisc(zns);
 
 	return 0;
 }

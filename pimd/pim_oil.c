@@ -31,7 +31,7 @@ char *pim_channel_oil_dump(struct channel_oil *c_oil, char *buf, size_t size)
 
 	sg.src = *oil_origin(c_oil);
 	sg.grp = *oil_mcastgrp(c_oil);
-	ifp = pim_if_find_by_vif_index(c_oil->pim, *oil_parent(c_oil));
+	ifp = pim_if_find_by_vif_index(c_oil->pim, *oil_incoming_vif(c_oil));
 	snprintfrr(buf, size, "%pSG IIF: %s, OIFS: ", &sg,
 		   ifp ? ifp->name : "(?)");
 
@@ -135,7 +135,7 @@ struct channel_oil *pim_channel_oil_add(struct pim_instance *pim,
 	*oil_mcastgrp(c_oil) = sg->grp;
 	*oil_origin(c_oil) = sg->src;
 
-	*oil_parent(c_oil) = MAXVIFS;
+	*oil_incoming_vif(c_oil) = MAXVIFS;
 	c_oil->oil_ref_count = 1;
 	c_oil->installed = 0;
 	c_oil->up = pim_upstream_find(pim, sg);
@@ -164,7 +164,7 @@ void pim_clear_nocache_state(struct pim_interface *pim_ifp)
 		    !(PIM_UPSTREAM_FLAG_TEST_SRC_NOCACHE(c_oil->up->flags)))
 			continue;
 
-		if (*oil_parent(c_oil) != pim_ifp->mroute_vif_index)
+		if (*oil_incoming_vif(c_oil) != pim_ifp->mroute_vif_index)
 			continue;
 
 		EVENT_OFF(c_oil->up->t_ka_timer);
@@ -286,13 +286,15 @@ int pim_channel_del_oif(struct channel_oil *channel_oil, struct interface *oif,
 	--channel_oil->oil_size;
 
 	if (PIM_DEBUG_MROUTE) {
-		zlog_debug(
-			"%s(%s): (S,G)=(%pPAs,%pPAs): proto_mask=%u IIF:%d OIF=%s vif_index=%d",
-			__func__, caller, oil_origin(channel_oil),
-			oil_mcastgrp(channel_oil),
-			proto_mask,
-			*oil_parent(channel_oil), oif->name,
-			pim_ifp->mroute_vif_index);
+		struct interface *iifp =
+			pim_if_find_by_vif_index(pim_ifp->pim,
+						 *oil_incoming_vif(channel_oil));
+
+		zlog_debug("%s(%s): (S,G)=(%pPAs,%pPAs): proto_mask=%u IIF:%s OIF=%s vif_index=%d",
+			   __func__, caller, oil_origin(channel_oil),
+			   oil_mcastgrp(channel_oil), proto_mask,
+			   iifp ? iifp->name : "Unknown", oif->name,
+			   pim_ifp->mroute_vif_index);
 	}
 
 	return 0;
@@ -522,7 +524,7 @@ int pim_channel_add_oif(struct channel_oil *channel_oil, struct interface *oif,
 	/* channel_oil->oil.mfcc_parent != MAXVIFS indicate this entry is not
 	 * valid to get installed in kernel.
 	 */
-	if (*oil_parent(channel_oil) != MAXVIFS) {
+	if (*oil_incoming_vif(channel_oil) != MAXVIFS) {
 		if (pim_upstream_mroute_add(channel_oil, __func__)) {
 			if (PIM_DEBUG_MROUTE) {
 				zlog_debug(

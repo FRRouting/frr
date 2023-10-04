@@ -93,6 +93,7 @@ static __attribute__((__noreturn__)) void terminate(int i)
 {
 	isis_terminate();
 	isis_sr_term();
+	isis_srv6_term();
 	isis_zebra_stop();
 	exit(i);
 }
@@ -170,6 +171,9 @@ static const struct frr_yang_module_info *const isisd_yang_modules[] = {
 /* clang-format on */
 
 
+/* Max wait time for config to load before generating LSPs */
+#define ISIS_PRE_CONFIG_MAX_WAIT_SECONDS 600
+
 static void isis_config_finish(struct event *t)
 {
 	struct listnode *node, *inode;
@@ -182,12 +186,17 @@ static void isis_config_finish(struct event *t)
 	}
 }
 
+static void isis_config_end_timeout(struct event *t)
+{
+	zlog_err("IS-IS configuration end timer expired after %d seconds.",
+		 ISIS_PRE_CONFIG_MAX_WAIT_SECONDS);
+	isis_config_finish(t);
+}
+
 static void isis_config_start(void)
 {
-	/* Max wait time for config to load before generating lsp */
-#define ISIS_PRE_CONFIG_MAX_WAIT_SECONDS 600
 	EVENT_OFF(t_isis_cfg);
-	event_add_timer(im->master, isis_config_finish, NULL,
+	event_add_timer(im->master, isis_config_end_timeout, NULL,
 			ISIS_PRE_CONFIG_MAX_WAIT_SECONDS, &t_isis_cfg);
 }
 
@@ -288,6 +297,7 @@ int main(int argc, char **argv, char **envp)
 	isis_route_map_init();
 	isis_mpls_te_init();
 	isis_sr_init();
+	isis_srv6_init();
 	lsp_init();
 	mt_init();
 

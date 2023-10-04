@@ -19,6 +19,7 @@
 #include "isisd/isis_pdu_counter.h"
 #include "isisd/isis_circuit.h"
 #include "isisd/isis_sr.h"
+#include "isisd/isis_srv6.h"
 #include "isis_flags.h"
 #include "isis_lsp.h"
 #include "isis_lfa.h"
@@ -208,6 +209,8 @@ struct isis_area {
 	struct mpls_te_area *mta;
 	/* Segment Routing information */
 	struct isis_sr_db srdb;
+	/* Segment Routing over IPv6 (SRv6) information */
+	struct isis_srv6_db srv6db;
 	int ipv6_circuits;
 	bool purge_originator;
 	/* SPF prefix priorities. */
@@ -230,8 +233,8 @@ struct isis_area {
 #endif /* ifndef FABRICD */
 	/* Counters */
 	uint32_t circuit_state_changes;
-	struct isis_redist redist_settings[REDIST_PROTOCOL_COUNT]
-					  [ZEBRA_ROUTE_MAX + 1][ISIS_LEVELS];
+	struct list *redist_settings[REDIST_PROTOCOL_COUNT][ZEBRA_ROUTE_MAX + 1]
+				    [ISIS_LEVELS];
 	struct route_table *ext_reach[REDIST_PROTOCOL_COUNT][ISIS_LEVELS];
 
 	struct spf_backoff *spf_delay_ietf[ISIS_LEVELS]; /*Structure with IETF
@@ -339,6 +342,7 @@ void config_end_lsp_generate(struct isis_area *area);
 /* YANG paths */
 #define ISIS_INSTANCE	"/frr-isisd:isis/instance"
 #define ISIS_SR		"/frr-isisd:isis/instance/segment-routing"
+#define ISIS_SRV6	"/frr-isisd:isis/instance/segment-routing-srv6"
 
 /* Master of threads. */
 extern struct event_loop *master;

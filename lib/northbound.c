@@ -2691,7 +2691,6 @@ void nb_init(struct event_loop *tm,
 	     size_t nmodules, bool db_enabled)
 {
 	struct yang_module *loaded[nmodules], **loadedp = loaded;
-	bool explicit_compile;
 
 	/*
 	 * Currently using this explicit compile feature in libyang2 leads to
@@ -2699,8 +2698,9 @@ void nb_init(struct event_loop *tm,
 	 * of modules until they have all been loaded into the context. This
 	 * avoids multiple recompiles of the same modules as they are
 	 * imported/augmented etc.
+	 * (Done as a #define to make coverity happy)
 	 */
-	explicit_compile = false;
+#define explicit_compile false
 
 	nb_db_enabled = db_enabled;
 

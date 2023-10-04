@@ -14,8 +14,11 @@
 #include <arpa/inet.h>
 #include <netinet/in.h>
 
-#define SRV6_MAX_SIDS 16
+#define SRV6_MAX_SIDS	  16
+#define SRV6_MAX_SEGS	  8
 #define SRV6_LOCNAME_SIZE 256
+#define SRH_BASE_HEADER_LENGTH 8
+#define SRH_SEGMENT_LENGTH     16
 
 #ifdef __cplusplus
 extern "C" {
@@ -23,6 +26,16 @@ extern "C" {
 
 #define sid2str(sid, str, size) \
 	inet_ntop(AF_INET6, sid, str, size)
+
+/* SRv6 flavors manipulation macros */
+#define CHECK_SRV6_FLV_OP(OPS,OP)      ((OPS) & (1 << OP))
+#define SET_SRV6_FLV_OP(OPS,OP)        (OPS) |= (1 << OP)
+#define UNSET_SRV6_FLV_OP(OPS,OP)      (OPS) &= ~(1 << OP)
+#define RESET_SRV6_FLV_OP(OPS)         (OPS) = 0
+
+/* SRv6 Flavors default values */
+#define ZEBRA_DEFAULT_SEG6_LOCAL_FLV_LCBLOCK_LEN 32
+#define ZEBRA_DEFAULT_SEG6_LOCAL_FLV_LCNODE_FN_LEN 16
 
 enum seg6_mode_t {
 	INLINE,
@@ -50,15 +63,47 @@ enum seg6local_action_t {
 	ZEBRA_SEG6_LOCAL_ACTION_END_DT46     = 16,
 };
 
+/* Flavor operations for SRv6 End* Behaviors */
+enum seg6local_flavor_op {
+	ZEBRA_SEG6_LOCAL_FLV_OP_UNSPEC       = 0,
+	/* PSP Flavor as per RFC 8986 section #4.16.1 */
+	ZEBRA_SEG6_LOCAL_FLV_OP_PSP          = 1,
+	/* USP Flavor as per RFC 8986 section #4.16.2 */
+	ZEBRA_SEG6_LOCAL_FLV_OP_USP          = 2,
+	/* USD Flavor as per RFC 8986 section #4.16.3 */
+	ZEBRA_SEG6_LOCAL_FLV_OP_USD          = 3,
+	/* NEXT-C-SID Flavor as per draft-ietf-spring-srv6-srh-compression-03
+	   section 4.1 */
+	ZEBRA_SEG6_LOCAL_FLV_OP_NEXT_CSID    = 4,
+};
+
+#define SRV6_SEG_STRLEN 1024
+
 struct seg6_segs {
 	size_t num_segs;
 	struct in6_addr segs[256];
+};
+
+struct seg6local_flavors_info {
+	/* Flavor operations */
+	uint32_t flv_ops;
+
+	/* Locator-Block length, expressed in bits */
+	uint8_t lcblock_len;
+	/* Locator-Node Function length, expressed in bits */
+	uint8_t lcnode_func_len;
+};
+
+struct seg6_seg_stack {
+	uint8_t num_segs;
+	struct in6_addr seg[0]; /* 1 or more segs */
 };
 
 struct seg6local_context {
 	struct in_addr nh4;
 	struct in6_addr nh6;
 	uint32_t table;
+	struct seg6local_flavors_info flv;
 };
 
 struct srv6_locator {
@@ -115,14 +160,18 @@ struct srv6_locator_chunk {
  * https://www.iana.org/assignments/segment-routing/segment-routing.xhtml
  */
 enum srv6_endpoint_behavior_codepoint {
-	SRV6_ENDPOINT_BEHAVIOR_RESERVED       = 0x0000,
-	SRV6_ENDPOINT_BEHAVIOR_END_DT6        = 0x0012,
-	SRV6_ENDPOINT_BEHAVIOR_END_DT4        = 0x0013,
-	SRV6_ENDPOINT_BEHAVIOR_END_DT46       = 0x0014,
-	SRV6_ENDPOINT_BEHAVIOR_END_DT6_USID   = 0x003E,
-	SRV6_ENDPOINT_BEHAVIOR_END_DT4_USID   = 0x003F,
-	SRV6_ENDPOINT_BEHAVIOR_END_DT46_USID  = 0x0040,
-	SRV6_ENDPOINT_BEHAVIOR_OPAQUE         = 0xFFFF,
+	SRV6_ENDPOINT_BEHAVIOR_RESERVED         = 0x0000,
+	SRV6_ENDPOINT_BEHAVIOR_END              = 0x0001,
+	SRV6_ENDPOINT_BEHAVIOR_END_X            = 0x0005,
+	SRV6_ENDPOINT_BEHAVIOR_END_DT6          = 0x0012,
+	SRV6_ENDPOINT_BEHAVIOR_END_DT4          = 0x0013,
+	SRV6_ENDPOINT_BEHAVIOR_END_DT46         = 0x0014,
+	SRV6_ENDPOINT_BEHAVIOR_END_NEXT_CSID    = 0x002B,
+	SRV6_ENDPOINT_BEHAVIOR_END_X_NEXT_CSID  = 0x002C,
+	SRV6_ENDPOINT_BEHAVIOR_END_DT6_USID     = 0x003E,
+	SRV6_ENDPOINT_BEHAVIOR_END_DT4_USID     = 0x003F,
+	SRV6_ENDPOINT_BEHAVIOR_END_DT46_USID    = 0x0040,
+	SRV6_ENDPOINT_BEHAVIOR_OPAQUE           = 0xFFFF,
 };
 
 struct nexthop_srv6 {
@@ -131,7 +180,7 @@ struct nexthop_srv6 {
 	struct seg6local_context seg6local_ctx;
 
 	/* SRv6 Headend-behaviour */
-	struct in6_addr seg6_segs;
+	struct seg6_seg_stack *seg6_segs;
 };
 
 static inline const char *seg6_mode2str(enum seg6_mode_t mode)
@@ -167,12 +216,21 @@ static inline bool sid_diff(
 	return !sid_same(a, b);
 }
 
-static inline bool sid_zero(
-		const struct in6_addr *a)
+
+static inline bool sid_zero(const struct seg6_seg_stack *a)
 {
 	struct in6_addr zero = {};
 
-	return sid_same(a, &zero);
+	assert(a);
+
+	return sid_same(&a->seg[0], &zero);
+}
+
+static inline bool sid_zero_ipv6(const struct in6_addr *a)
+{
+	struct in6_addr zero = {};
+
+	return sid_same(&a[0], &zero);
 }
 
 static inline void *sid_copy(struct in6_addr *dst,

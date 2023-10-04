@@ -41,6 +41,7 @@
 #include "ospfd/ospf_errors.h"
 #include "ospfd/ospf_zebra.h"
 #include "ospfd/ospf_gr.h"
+#include "ospfd/ospf_auth.h"
 
 /*
  * OSPF Fragmentation / fragmented writes
@@ -98,27 +99,6 @@ static const uint16_t ospf_lsa_minlen[] = {
 	OSPF_OPAQUE_LSA_MIN_SIZE,      /* OSPF_OPAQUE_AREA_LSA */
 	OSPF_OPAQUE_LSA_MIN_SIZE,      /* OSPF_OPAQUE_AS_LSA */
 };
-
-/* for ospf_check_auth() */
-static int ospf_check_sum(struct ospf_header *);
-
-/* OSPF authentication checking function */
-static int ospf_auth_type(struct ospf_interface *oi)
-{
-	int auth_type;
-
-	if (OSPF_IF_PARAM(oi, auth_type) == OSPF_AUTH_NOTSET)
-		auth_type = oi->area->auth_type;
-	else
-		auth_type = OSPF_IF_PARAM(oi, auth_type);
-
-	/* Handle case where MD5 key list is not configured aka Cisco */
-	if (auth_type == OSPF_AUTH_CRYPTOGRAPHIC
-	    && list_isempty(OSPF_IF_PARAM(oi, auth_crypt)))
-		return OSPF_AUTH_NULL;
-
-	return auth_type;
-}
 
 static struct ospf_packet *ospf_packet_new(size_t size)
 {
@@ -258,8 +238,8 @@ static struct ospf_packet *ospf_packet_dup(struct ospf_packet *op)
 			"ospf_packet_dup stream %lu ospf_packet %u size mismatch",
 			(unsigned long)STREAM_SIZE(op->s), op->length);
 
-	/* Reserve space for MD5 authentication that may be added later. */
-	new = ospf_packet_new(stream_get_endp(op->s) + OSPF_AUTH_MD5_SIZE);
+	/* Reserve space for MD5/HMAC SHA authentication that may be added later. */
+	new = ospf_packet_new(stream_get_endp(op->s) + KEYCHAIN_MAX_HASH_SIZE);
 	stream_copy(new->s, op->s);
 
 	new->dst = op->dst;
@@ -274,7 +254,7 @@ static unsigned int ospf_packet_authspace(struct ospf_interface *oi)
 	int auth = 0;
 
 	if (ospf_auth_type(oi) == OSPF_AUTH_CRYPTOGRAPHIC)
-		auth = OSPF_AUTH_MD5_SIZE;
+		auth = KEYCHAIN_MAX_HASH_SIZE;
 
 	return auth;
 }
@@ -289,155 +269,6 @@ static unsigned int ospf_packet_max(struct ospf_interface *oi)
 
 	return max;
 }
-
-
-static int ospf_check_md5_digest(struct ospf_interface *oi,
-				 struct ospf_header *ospfh)
-{
-#ifdef CRYPTO_OPENSSL
-	EVP_MD_CTX *ctx;
-#elif CRYPTO_INTERNAL
-	MD5_CTX ctx;
-#endif
-	unsigned char digest[OSPF_AUTH_MD5_SIZE];
-	struct crypt_key *ck;
-	struct ospf_neighbor *nbr;
-	uint16_t length = ntohs(ospfh->length);
-
-	/* Get secret key. */
-	ck = ospf_crypt_key_lookup(OSPF_IF_PARAM(oi, auth_crypt),
-				   ospfh->u.crypt.key_id);
-	if (ck == NULL) {
-		flog_warn(
-			EC_OSPF_MD5,
-			"interface %s: ospf_check_md5 no key %d, Router-ID: %pI4",
-			IF_NAME(oi), ospfh->u.crypt.key_id, &ospfh->router_id);
-		return 0;
-	}
-
-	/* check crypto seqnum. */
-	nbr = ospf_nbr_lookup_by_routerid(oi->nbrs, &ospfh->router_id);
-
-	if (nbr
-	    && ntohl(nbr->crypt_seqnum) > ntohl(ospfh->u.crypt.crypt_seqnum)) {
-		flog_warn(
-			EC_OSPF_MD5,
-			"interface %s: ospf_check_md5 bad sequence %d (expect %d), Router-ID: %pI4",
-			IF_NAME(oi), ntohl(ospfh->u.crypt.crypt_seqnum),
-			ntohl(nbr->crypt_seqnum), &ospfh->router_id);
-		return 0;
-	}
-
-	/* Generate a digest for the ospf packet - their digest + our digest. */
-#ifdef CRYPTO_OPENSSL
-	unsigned int md5_size = OSPF_AUTH_MD5_SIZE;
-	ctx = EVP_MD_CTX_new();
-	EVP_DigestInit(ctx, EVP_md5());
-	EVP_DigestUpdate(ctx, ospfh, length);
-	EVP_DigestUpdate(ctx, ck->auth_key, OSPF_AUTH_MD5_SIZE);
-	EVP_DigestFinal(ctx, digest, &md5_size);
-	EVP_MD_CTX_free(ctx);
-#elif CRYPTO_INTERNAL
-	memset(&ctx, 0, sizeof(ctx));
-	MD5Init(&ctx);
-	MD5Update(&ctx, ospfh, length);
-	MD5Update(&ctx, ck->auth_key, OSPF_AUTH_MD5_SIZE);
-	MD5Final(digest, &ctx);
-#endif
-
-	/* compare the two */
-	if (memcmp((caddr_t)ospfh + length, digest, OSPF_AUTH_MD5_SIZE)) {
-		flog_warn(
-			EC_OSPF_MD5,
-			"interface %s: ospf_check_md5 checksum mismatch, Router-ID: %pI4",
-			IF_NAME(oi), &ospfh->router_id);
-		return 0;
-	}
-
-	/* save neighbor's crypt_seqnum */
-	if (nbr)
-		nbr->crypt_seqnum = ospfh->u.crypt.crypt_seqnum;
-	return 1;
-}
-
-/* This function is called from ospf_write(), it will detect the
-   authentication scheme and if it is MD5, it will change the sequence
-   and update the MD5 digest. */
-static int ospf_make_md5_digest(struct ospf_interface *oi,
-				struct ospf_packet *op)
-{
-	struct ospf_header *ospfh;
-	unsigned char digest[OSPF_AUTH_MD5_SIZE] = {0};
-#ifdef CRYPTO_OPENSSL
-	EVP_MD_CTX *ctx;
-#elif CRYPTO_INTERNAL
-	MD5_CTX ctx;
-#endif
-	void *ibuf;
-	uint32_t t;
-	struct crypt_key *ck;
-	const uint8_t *auth_key;
-
-	ibuf = STREAM_DATA(op->s);
-	ospfh = (struct ospf_header *)ibuf;
-
-	if (ntohs(ospfh->auth_type) != OSPF_AUTH_CRYPTOGRAPHIC)
-		return 0;
-
-	/* We do this here so when we dup a packet, we don't have to
-	   waste CPU rewriting other headers.
-
-	   Note that frr_time /deliberately/ is not used here */
-	t = (time(NULL) & 0xFFFFFFFF);
-	if (t > oi->crypt_seqnum)
-		oi->crypt_seqnum = t;
-	else
-		oi->crypt_seqnum++;
-
-	ospfh->u.crypt.crypt_seqnum = htonl(oi->crypt_seqnum);
-
-	/* Get MD5 Authentication key from auth_key list. */
-	if (list_isempty(OSPF_IF_PARAM(oi, auth_crypt)))
-		auth_key = (const uint8_t *)digest;
-	else {
-		ck = listgetdata(listtail(OSPF_IF_PARAM(oi, auth_crypt)));
-		auth_key = ck->auth_key;
-	}
-
-	/* Generate a digest for the entire packet + our secret key. */
-#ifdef CRYPTO_OPENSSL
-	unsigned int md5_size = OSPF_AUTH_MD5_SIZE;
-	ctx = EVP_MD_CTX_new();
-	EVP_DigestInit(ctx, EVP_md5());
-	EVP_DigestUpdate(ctx, ibuf, ntohs(ospfh->length));
-	EVP_DigestUpdate(ctx, auth_key, OSPF_AUTH_MD5_SIZE);
-	EVP_DigestFinal(ctx, digest, &md5_size);
-	EVP_MD_CTX_free(ctx);
-#elif CRYPTO_INTERNAL
-	memset(&ctx, 0, sizeof(ctx));
-	MD5Init(&ctx);
-	MD5Update(&ctx, ibuf, ntohs(ospfh->length));
-	MD5Update(&ctx, auth_key, OSPF_AUTH_MD5_SIZE);
-	MD5Final(digest, &ctx);
-#endif
-
-	/* Append md5 digest to the end of the stream. */
-	stream_put(op->s, digest, OSPF_AUTH_MD5_SIZE);
-
-	/* We do *NOT* increment the OSPF header length. */
-	op->length = ntohs(ospfh->length) + OSPF_AUTH_MD5_SIZE;
-
-	if (stream_get_endp(op->s) != op->length)
-		/* XXX size_t */
-		flog_warn(
-			EC_OSPF_MD5,
-			"%s: length mismatch stream %lu ospf_packet %u, Router-ID %pI4",
-			__func__, (unsigned long)stream_get_endp(op->s),
-			op->length, &ospfh->router_id);
-
-	return OSPF_AUTH_MD5_SIZE;
-}
-
 
 static void ospf_ls_req_timer(struct event *thread)
 {
@@ -677,7 +508,7 @@ static void ospf_write(struct event *thread)
 			ospf_if_ipmulticast(fd, oi->address, oi->ifp->ifindex);
 
 		/* Rewrite the md5 signature & update the seq */
-		ospf_make_md5_digest(oi, op);
+		ospf_auth_make(oi, op);
 
 		/* Retrieve OSPF packet type. */
 		stream_set_getp(op->s, 1);
@@ -953,8 +784,9 @@ static void ospf_hello(struct ip *iph, struct ospf_header *ospfh,
 	}
 #endif /* REJECT_IF_TBIT_ON */
 
-	if (CHECK_FLAG(oi->ospf->config, OSPF_OPAQUE_CAPABLE)
-	    && CHECK_FLAG(hello->options, OSPF_OPTION_O)) {
+	if (CHECK_FLAG(oi->ospf->config, OSPF_OPAQUE_CAPABLE) &&
+	    OSPF_IF_PARAM(oi, opaque_capable) &&
+	    CHECK_FLAG(hello->options, OSPF_OPTION_O)) {
 		/*
 		 * This router does know the correct usage of O-bit
 		 * the bit should be set in DD packet only.
@@ -1362,8 +1194,9 @@ static void ospf_db_desc(struct ip *iph, struct ospf_header *ospfh,
 	}
 #endif /* REJECT_IF_TBIT_ON */
 
-	if (CHECK_FLAG(dd->options, OSPF_OPTION_O)
-	    && !CHECK_FLAG(oi->ospf->config, OSPF_OPAQUE_CAPABLE)) {
+	if (CHECK_FLAG(dd->options, OSPF_OPTION_O) &&
+	    (!CHECK_FLAG(oi->ospf->config, OSPF_OPAQUE_CAPABLE) ||
+	     !OSPF_IF_PARAM(oi, opaque_capable))) {
 		/*
 		 * This node is not configured to handle O-bit, for now.
 		 * Clear it to ignore unsupported capability proposed by
@@ -1448,7 +1281,8 @@ static void ospf_db_desc(struct ip *iph, struct ospf_header *ospfh,
 		/* This is where the real Options are saved */
 		nbr->options = dd->options;
 
-		if (CHECK_FLAG(oi->ospf->config, OSPF_OPAQUE_CAPABLE)) {
+		if (CHECK_FLAG(oi->ospf->config, OSPF_OPAQUE_CAPABLE) &&
+		    OSPF_IF_PARAM(oi, opaque_capable)) {
 			if (IS_DEBUG_OSPF_EVENT)
 				zlog_debug(
 					"Neighbor[%pI4] is %sOpaque-capable.",
@@ -2473,142 +2307,6 @@ static int ospf_check_network_mask(struct ospf_interface *oi,
 	return 0;
 }
 
-/* Return 1, if the packet is properly authenticated and checksummed,
-   0 otherwise. In particular, check that AuType header field is valid and
-   matches the locally configured AuType, and that D.5 requirements are met. */
-static int ospf_check_auth(struct ospf_interface *oi, struct ospf_header *ospfh)
-{
-	struct crypt_key *ck;
-	uint16_t iface_auth_type;
-	uint16_t pkt_auth_type = ntohs(ospfh->auth_type);
-
-	switch (pkt_auth_type) {
-	case OSPF_AUTH_NULL: /* RFC2328 D.5.1 */
-		if (OSPF_AUTH_NULL != (iface_auth_type = ospf_auth_type(oi))) {
-			if (IS_DEBUG_OSPF_PACKET(ospfh->type - 1, RECV))
-				flog_warn(
-					EC_OSPF_PACKET,
-					"interface %s: auth-type mismatch, local %s, rcvd Null, Router-ID %pI4",
-					IF_NAME(oi),
-					lookup_msg(ospf_auth_type_str,
-						   iface_auth_type, NULL),
-					&ospfh->router_id);
-			return 0;
-		}
-		if (!ospf_check_sum(ospfh)) {
-			if (IS_DEBUG_OSPF_PACKET(ospfh->type - 1, RECV))
-				flog_warn(
-					EC_OSPF_PACKET,
-					"interface %s: Null auth OK, but checksum error, Router-ID %pI4",
-					IF_NAME(oi),
-					&ospfh->router_id);
-			return 0;
-		}
-		return 1;
-	case OSPF_AUTH_SIMPLE: /* RFC2328 D.5.2 */
-		if (OSPF_AUTH_SIMPLE
-		    != (iface_auth_type = ospf_auth_type(oi))) {
-			if (IS_DEBUG_OSPF_PACKET(ospfh->type - 1, RECV))
-				flog_warn(
-					EC_OSPF_PACKET,
-					"interface %s: auth-type mismatch, local %s, rcvd Simple, Router-ID %pI4",
-					IF_NAME(oi),
-					lookup_msg(ospf_auth_type_str,
-						   iface_auth_type, NULL),
-					&ospfh->router_id);
-			return 0;
-		}
-		if (memcmp(OSPF_IF_PARAM(oi, auth_simple), ospfh->u.auth_data,
-			   OSPF_AUTH_SIMPLE_SIZE)) {
-			if (IS_DEBUG_OSPF_PACKET(ospfh->type - 1, RECV))
-				flog_warn(
-					EC_OSPF_PACKET,
-					"interface %s: Simple auth failed, Router-ID %pI4",
-					IF_NAME(oi), &ospfh->router_id);
-			return 0;
-		}
-		if (!ospf_check_sum(ospfh)) {
-			if (IS_DEBUG_OSPF_PACKET(ospfh->type - 1, RECV))
-				flog_warn(
-					EC_OSPF_PACKET,
-					"interface %s: Simple auth OK, checksum error, Router-ID %pI4",
-					IF_NAME(oi),
-					&ospfh->router_id);
-			return 0;
-		}
-		return 1;
-	case OSPF_AUTH_CRYPTOGRAPHIC: /* RFC2328 D.5.3 */
-		if (OSPF_AUTH_CRYPTOGRAPHIC
-		    != (iface_auth_type = ospf_auth_type(oi))) {
-			if (IS_DEBUG_OSPF_PACKET(ospfh->type - 1, RECV))
-				flog_warn(
-					EC_OSPF_PACKET,
-					"interface %s: auth-type mismatch, local %s, rcvd Cryptographic, Router-ID %pI4",
-					IF_NAME(oi),
-					lookup_msg(ospf_auth_type_str,
-						   iface_auth_type, NULL),
-					&ospfh->router_id);
-			return 0;
-		}
-		if (ospfh->checksum) {
-			if (IS_DEBUG_OSPF_PACKET(ospfh->type - 1, RECV))
-				flog_warn(
-					EC_OSPF_PACKET,
-					"interface %s: OSPF header checksum is not 0, Router-ID %pI4",
-					IF_NAME(oi), &ospfh->router_id);
-			return 0;
-		}
-		/* only MD5 crypto method can pass ospf_packet_examin() */
-		if (NULL == (ck = listgetdata(
-				     listtail(OSPF_IF_PARAM(oi, auth_crypt))))
-		    || ospfh->u.crypt.key_id != ck->key_id ||
-		    /* Condition above uses the last key ID on the list,
-		       which is
-		       different from what ospf_crypt_key_lookup() does. A
-		       bug? */
-		    !ospf_check_md5_digest(oi, ospfh)) {
-			if (IS_DEBUG_OSPF_PACKET(ospfh->type - 1, RECV))
-				flog_warn(
-					EC_OSPF_MD5,
-					"interface %s: MD5 auth failed, Router-ID %pI4",
-					IF_NAME(oi), &ospfh->router_id);
-			return 0;
-		}
-		return 1;
-	default:
-		if (IS_DEBUG_OSPF_PACKET(ospfh->type - 1, RECV))
-			flog_warn(
-				EC_OSPF_PACKET,
-				"interface %s: invalid packet auth-type (%02x), Router-ID %pI4",
-				IF_NAME(oi), pkt_auth_type, &ospfh->router_id);
-		return 0;
-	}
-}
-
-static int ospf_check_sum(struct ospf_header *ospfh)
-{
-	uint32_t ret;
-	uint16_t sum;
-
-	/* clear auth_data for checksum. */
-	memset(ospfh->u.auth_data, 0, OSPF_AUTH_SIMPLE_SIZE);
-
-	/* keep checksum and clear. */
-	sum = ospfh->checksum;
-	memset(&ospfh->checksum, 0, sizeof(uint16_t));
-
-	/* calculate checksum. */
-	ret = in_cksum(ospfh, ntohs(ospfh->length));
-
-	if (ret != sum) {
-		zlog_info("%s: checksum mismatch, my %X, his %X", __func__, ret,
-			  sum);
-		return 0;
-	}
-
-	return 1;
-}
-
 /* Verify, that given link/TOS records are properly sized/aligned and match
    Router-LSA "# links" and "# TOS" fields as specified in RFC2328 A.4.2. */
 static unsigned ospf_router_lsa_links_examin(struct router_lsa_link *link,
@@ -2832,14 +2530,14 @@ static unsigned ospf_packet_examin(struct ospf_header *oh,
 	if (ntohs(oh->auth_type) != OSPF_AUTH_CRYPTOGRAPHIC)
 		bytesauth = 0;
 	else {
-		if (oh->u.crypt.auth_data_len != OSPF_AUTH_MD5_SIZE) {
+		if (oh->u.crypt.auth_data_len > KEYCHAIN_MAX_HASH_SIZE) {
 			if (IS_DEBUG_OSPF_PACKET(0, RECV))
 				zlog_debug(
 					"%s: unsupported crypto auth length (%u B)",
 					__func__, oh->u.crypt.auth_data_len);
 			return MSG_NG;
 		}
-		bytesauth = OSPF_AUTH_MD5_SIZE;
+		bytesauth = oh->u.crypt.auth_data_len;
 	}
 	if (bytesdeclared + bytesauth > bytesonwire) {
 		if (IS_DEBUG_OSPF_PACKET(0, RECV))
@@ -2950,7 +2648,7 @@ static int ospf_verify_header(struct stream *ibuf, struct ospf_interface *oi,
 
 	/* Check authentication. The function handles logging actions, where
 	 * required. */
-	if (!ospf_check_auth(oi, ospfh))
+	if (!ospf_auth_check(oi, iph, ospfh))
 		return -1;
 
 	return 0;
@@ -3258,44 +2956,6 @@ static void ospf_make_header(int type, struct ospf_interface *oi,
 	stream_forward_endp(s, OSPF_HEADER_SIZE);
 }
 
-/* Make Authentication Data. */
-static int ospf_make_auth(struct ospf_interface *oi, struct ospf_header *ospfh)
-{
-	struct crypt_key *ck;
-
-	switch (ospf_auth_type(oi)) {
-	case OSPF_AUTH_NULL:
-		/* memset (ospfh->u.auth_data, 0, sizeof(ospfh->u.auth_data));
-		 */
-		break;
-	case OSPF_AUTH_SIMPLE:
-		memcpy(ospfh->u.auth_data, OSPF_IF_PARAM(oi, auth_simple),
-		       OSPF_AUTH_SIMPLE_SIZE);
-		break;
-	case OSPF_AUTH_CRYPTOGRAPHIC:
-		/* If key is not set, then set 0. */
-		if (list_isempty(OSPF_IF_PARAM(oi, auth_crypt))) {
-			ospfh->u.crypt.zero = 0;
-			ospfh->u.crypt.key_id = 0;
-			ospfh->u.crypt.auth_data_len = OSPF_AUTH_MD5_SIZE;
-		} else {
-			ck = listgetdata(
-				listtail(OSPF_IF_PARAM(oi, auth_crypt)));
-			ospfh->u.crypt.zero = 0;
-			ospfh->u.crypt.key_id = ck->key_id;
-			ospfh->u.crypt.auth_data_len = OSPF_AUTH_MD5_SIZE;
-		}
-		/* note: the seq is done in ospf_make_md5_digest() */
-		break;
-	default:
-		/* memset (ospfh->u.auth_data, 0, sizeof(ospfh->u.auth_data));
-		 */
-		break;
-	}
-
-	return 0;
-}
-
 /* Fill rest of OSPF header. */
 static void ospf_fill_header(struct ospf_interface *oi, struct stream *s,
 			     uint16_t length)
@@ -3314,7 +2974,9 @@ static void ospf_fill_header(struct ospf_interface *oi, struct stream *s,
 		ospfh->checksum = 0;
 
 	/* Add Authentication Data. */
-	ospf_make_auth(oi, ospfh);
+	oi->keychain = NULL;
+	oi->key = NULL;
+	ospf_auth_make_data(oi, ospfh);
 }
 
 static int ospf_make_hello(struct ospf_interface *oi, struct stream *s)
@@ -3435,7 +3097,8 @@ static int ospf_make_db_desc(struct ospf_interface *oi,
 
 	/* Set Options. */
 	options = OPTIONS(oi);
-	if (CHECK_FLAG(oi->ospf->config, OSPF_OPAQUE_CAPABLE))
+	if (CHECK_FLAG(oi->ospf->config, OSPF_OPAQUE_CAPABLE) &&
+	    OSPF_IF_PARAM(oi, opaque_capable))
 		SET_FLAG(options, OSPF_OPTION_O);
 	if (OSPF_FR_CONFIG(oi->ospf, oi->area))
 		SET_FLAG(options, OSPF_OPTION_DC);
@@ -3681,6 +3344,16 @@ static void ospf_hello_send_sub(struct ospf_interface *oi, in_addr_t addr)
 {
 	struct ospf_packet *op;
 	uint16_t length = OSPF_HEADER_SIZE;
+
+	/* Check if config is still being processed */
+	if (event_is_scheduled(t_ospf_cfg)) {
+		if (IS_DEBUG_OSPF_PACKET(0, SEND))
+			zlog_debug(
+				"Suppressing hello to %pI4 on %s during config load",
+				&(addr), IF_NAME(oi));
+
+		return;
+	}
 
 	op = ospf_packet_new(oi->ifp->mtu);
 

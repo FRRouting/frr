@@ -337,6 +337,7 @@ struct isis_area *isis_area_create(const char *area_tag, const char *vrf_name)
 	flags_initialize(&area->flags);
 
 	isis_sr_area_init(area);
+	isis_srv6_area_init(area);
 
 	/*
 	 * Default values
@@ -525,6 +526,7 @@ void isis_area_destroy(struct isis_area *area)
 #endif /* ifndef FABRICD */
 
 	isis_sr_area_term(area);
+	isis_srv6_area_term(area);
 
 	isis_mpls_te_term(area);
 
@@ -599,64 +601,66 @@ static int isis_vrf_delete(struct vrf *vrf)
 
 static void isis_set_redist_vrf_bitmaps(struct isis *isis, bool set)
 {
-	struct listnode *node;
+	struct listnode *node, *lnode;
 	struct isis_area *area;
 	int type;
 	int level;
 	int protocol;
-
-	char do_subscribe[REDIST_PROTOCOL_COUNT][ZEBRA_ROUTE_MAX + 1];
-
-	memset(do_subscribe, 0, sizeof(do_subscribe));
+	struct isis_redist *redist;
 
 	for (ALL_LIST_ELEMENTS_RO(isis->area_list, node, area))
 		for (protocol = 0; protocol < REDIST_PROTOCOL_COUNT; protocol++)
 			for (type = 0; type < ZEBRA_ROUTE_MAX + 1; type++)
-				for (level = 0; level < ISIS_LEVELS; level++)
-					if (area->redist_settings[protocol]
-								 [type][level]
-									 .redist
-					    == 1)
-						do_subscribe[protocol][type] =
-							1;
+				for (level = 0; level < ISIS_LEVELS; level++) {
+					if (area->redist_settings[protocol][type]
+								 [level] == NULL)
+						continue;
+					for (ALL_LIST_ELEMENTS_RO(area->redist_settings
+									  [protocol]
+									  [type]
+									  [level],
+								  lnode,
+								  redist)) {
+						if (redist->redist == 0)
+							continue;
+						/* This field is actually
+						 * controlling transmission of
+						 * the IS-IS
+						 * routes to Zebra and has
+						 * nothing to do with
+						 * redistribution,
+						 * so skip it. */
+						afi_t afi =
+							afi_for_redist_protocol(
+								protocol);
 
-	for (protocol = 0; protocol < REDIST_PROTOCOL_COUNT; protocol++)
-		for (type = 0; type < ZEBRA_ROUTE_MAX + 1; type++) {
-			/* This field is actually controlling transmission of
-			 * the IS-IS
-			 * routes to Zebra and has nothing to do with
-			 * redistribution,
-			 * so skip it. */
-			if (type == PROTO_TYPE)
-				continue;
-
-			if (!do_subscribe[protocol][type])
-				continue;
-
-			afi_t afi = afi_for_redist_protocol(protocol);
-
-			if (type == DEFAULT_ROUTE) {
-				if (set)
-					vrf_bitmap_set(
-						zclient->default_information
-							[afi],
-						isis->vrf_id);
-				else
-					vrf_bitmap_unset(
-						zclient->default_information
-							[afi],
-						isis->vrf_id);
-			} else {
-				if (set)
-					vrf_bitmap_set(
-						zclient->redist[afi][type],
-						isis->vrf_id);
-				else
-					vrf_bitmap_unset(
-						zclient->redist[afi][type],
-						isis->vrf_id);
-			}
-		}
+						if (type == DEFAULT_ROUTE) {
+							if (set)
+								vrf_bitmap_set(
+									&zclient->default_information
+										 [afi],
+									isis->vrf_id);
+							else
+								vrf_bitmap_unset(
+									&zclient->default_information
+										 [afi],
+									isis->vrf_id);
+						} else {
+							if (set)
+								vrf_bitmap_set(
+									&zclient->redist
+										 [afi]
+										 [type],
+									isis->vrf_id);
+							else
+								vrf_bitmap_unset(
+									&zclient->redist
+										 [afi]
+										 [type],
+									isis->vrf_id);
+						}
+					}
+				}
 }
 
 static int isis_vrf_enable(struct vrf *vrf)
@@ -3828,6 +3832,20 @@ struct cmd_node isis_flex_algo_node = {
 };
 #endif /* ifdnef FABRICD */
 
+struct cmd_node isis_srv6_node = {
+	.name = "isis-srv6",
+	.node = ISIS_SRV6_NODE,
+	.parent_node = ISIS_NODE,
+	.prompt = "%s(config-router-srv6)# ",
+};
+
+struct cmd_node isis_srv6_node_msd_node = {
+	.name = "isis-srv6-node-msd",
+	.node = ISIS_SRV6_NODE_MSD_NODE,
+	.parent_node = ISIS_SRV6_NODE,
+	.prompt = "%s(config-router-srv6-node-msd)# ",
+};
+
 void isis_init(void)
 {
 	/* Install IS-IS top node */
@@ -3939,6 +3957,12 @@ void isis_init(void)
 	install_node(&isis_flex_algo_node);
 	install_default(ISIS_FLEX_ALGO_NODE);
 #endif /* ifdnef FABRICD */
+
+	install_node(&isis_srv6_node);
+	install_default(ISIS_SRV6_NODE);
+
+	install_node(&isis_srv6_node_msd_node);
+	install_default(ISIS_SRV6_NODE_MSD_NODE);
 
 	spf_backoff_cmd_init();
 }

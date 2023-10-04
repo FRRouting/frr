@@ -28,6 +28,7 @@ struct ipaddr {
 	enum ipaddr_type_t ipa_type;
 	union {
 		uint8_t addr;
+		uint8_t addrbytes[16];
 		struct in_addr _v4_addr;
 		struct in6_addr _v6_addr;
 	} ip;

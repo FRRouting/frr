@@ -32,6 +32,41 @@ static void pim_vxlan_work_timer_setup(bool start);
 static void pim_vxlan_set_peerlink_rif(struct pim_instance *pim,
 			struct interface *ifp);
 
+/*
+ * The rp info has gone from no path to having a
+ * path.  Let's immediately send out the null pim register
+ * as that else we will be sitting for up to 60 seconds waiting
+ * for it too pop.  Which is not cool.
+ */
+void pim_vxlan_rp_info_is_alive(struct pim_instance *pim,
+				struct pim_rpf *rpg_changed)
+{
+	struct listnode *listnode;
+	struct pim_vxlan_sg *vxlan_sg;
+	struct pim_rpf *rpg;
+
+	/*
+	 * No vxlan here, move along, nothing to see
+	 */
+	if (!vxlan_info.work_list)
+		return;
+
+	for (listnode = vxlan_info.work_list->head; listnode;
+	     listnode = listnode->next) {
+		vxlan_sg = listgetdata(listnode);
+
+		rpg = RP(pim, vxlan_sg->up->sg.grp);
+
+		/*
+		 * If the rp is the same we should send
+		 */
+		if (rpg == rpg_changed) {
+			zlog_debug("VXLAN RP INFO is alive sending");
+			pim_null_register_send(vxlan_sg->up);
+		}
+	}
+}
+
 /*************************** vxlan work list **********************************
  * A work list is maintained for staggered generation of pim null register
  * messages for vxlan SG entries that are in a reg_join state.
@@ -66,6 +101,7 @@ static void pim_vxlan_do_reg_work(void)
 
 	for (; listnode; listnode = listnode->next) {
 		vxlan_sg = (struct pim_vxlan_sg *)listnode->data;
+
 		if (vxlan_sg->up && (vxlan_sg->up->reg_state == PIM_REG_JOIN)) {
 			if (PIM_DEBUG_VXLAN)
 				zlog_debug("vxlan SG %s periodic NULL register",

@@ -166,6 +166,11 @@ flavors (local LFA, Remote LFA and TI-LFA).
    Configure a prefix-list to select eligible PQ nodes for remote LFA
    backups (valid for all protected interfaces).
 
+.. clicmd:: redistribute <ipv4 | ipv6> table (1-65535) <level-1 | level-2> [metric (0-16777215)|route-map WORD]
+
+   Redistribute routes from a given routing table into the given ISIS
+   level database.
+
 .. _isis-region:
 
 ISIS region
@@ -589,6 +594,40 @@ The following command show Flex-Algo information:
 includes an 'algorithm (128-255)' optional argument. See
 :ref:`showing-isis-information` and :ref:`isis-segment-routing`.
 
+.. _isis-srv6:
+
+Segment Routing over IPv6 (SRv6)
+================================
+
+This feature enables extensions in IS-IS to support Segment Routing over IPv6
+data plane (SRv6) as per RFC 9352.
+
+.. clicmd:: segment-routing srv6
+
+   Enable Segment Routing over IPv6 data plane (SRv6).
+
+.. clicmd:: locator NAME
+
+   Specify the SRv6 locator to use for SRv6. The locator must be configured in
+   Zebra. Once the locator is configured, IS-IS automatically allocates prefix
+   SID and adjacency SIDs, creates local SID entries in the data plane, and
+   advertises them in the IGP domain.
+
+.. clicmd:: interface NAME
+
+   Specify the dummy interface used to install SRv6 SIDs in the Linux data plane.
+   The interface must be created manually. By default, the interface is 'sr0'.
+   The interface can be created using the iproute2 utility:
+
+   .. code-block:: bash
+
+      ip link add sr0 type dummy
+      ip link set sr0 up
+
+.. clicmd:: show isis segment-routing srv6 node
+
+   Show detailed information about all learned SRv6 Nodes.
+
 Debugging ISIS
 ==============
 
@@ -768,6 +807,33 @@ A Segment Routing configuration, with IPv4, IPv6, SRGB and MSD configuration.
     segment-routing prefix 10.1.1.1/32 index 100 explicit-null
     segment-routing prefix 2001:db8:1000::1/128 index 101 explicit-null
    !
+
+An SRv6 configuration:
+
+.. code-block:: frr
+
+   hostname HOSTNAME
+   password PASSWORD
+   log file /var/log/isisd.log
+   !
+   !
+   interface eth0
+   ipv6 router isis FOO
+   ip router isis FOO
+   isis hello-interval 5
+   !
+   interface eth1
+   ip router isis FOO
+   !
+   !
+   router isis FOO
+   net 49.0001.1111.1111.1111.00
+   is-type level-2-only
+   metric-style wide
+   segment-routing srv6
+      locator loc1
+   !
+   line vty
 
 
 .. _isis-vrf-config-examples:

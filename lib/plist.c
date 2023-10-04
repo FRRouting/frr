@@ -336,22 +336,6 @@ prefix_list_entry_lookup(struct prefix_list *plist, struct prefix *prefix,
 	return NULL;
 }
 
-static bool
-prefix_list_entry_lookup_prefix(struct prefix_list *plist,
-				struct prefix_list_entry *plist_entry)
-{
-	struct prefix_list_entry *pentry = NULL;
-
-	for (pentry = plist->head; pentry; pentry = pentry->next) {
-		if (pentry == plist_entry)
-			continue;
-		if (prefix_same(&pentry->prefix, &plist_entry->prefix))
-			return true;
-	}
-
-	return false;
-}
-
 static void trie_walk_affected(size_t validbits, struct pltrie_table *table,
 			       uint8_t byte, struct prefix_list_entry *object,
 			       void (*fn)(struct prefix_list_entry *object,
@@ -418,17 +402,54 @@ static void prefix_list_trie_del(struct prefix_list *plist,
 		}
 }
 
+/**
+ * Find duplicated prefix entry (same prefix but different entry) in prefix
+ * list.
+ */
+static bool prefix_list_entry_is_duplicated(struct prefix_list *list,
+					    struct prefix_list_entry *entry)
+{
+	size_t depth, maxdepth = list->master->trie_depth;
+	uint8_t byte, *bytes = entry->prefix.u.val;
+	size_t validbits = entry->prefix.prefixlen;
+	struct pltrie_table *table = list->trie;
+	struct prefix_list_entry *pentry;
+
+	for (depth = 0; validbits > PLC_BITS && depth < maxdepth - 1; depth++) {
+		byte = bytes[depth];
+		if (!table->entries[byte].next_table)
+			return NULL;
+
+		table = table->entries[byte].next_table;
+		validbits -= PLC_BITS;
+	}
+
+	byte = bytes[depth];
+	if (validbits > PLC_BITS)
+		pentry = table->entries[byte].final_chain;
+	else
+		pentry = table->entries[byte].up_chain;
+
+	for (; pentry; pentry = pentry->next_best) {
+		if (pentry == entry)
+			continue;
+		if (prefix_same(&pentry->prefix, &entry->prefix))
+			return true;
+	}
+
+	return false;
+}
 
 void prefix_list_entry_delete(struct prefix_list *plist,
-			      struct prefix_list_entry *pentry, int update_list)
+			      struct prefix_list_entry *pentry,
+			      int update_list)
 {
-	bool duplicate = false;
+	bool duplicate;
 
 	if (plist == NULL || pentry == NULL)
 		return;
 
-	if (prefix_list_entry_lookup_prefix(plist, pentry))
-		duplicate = true;
+	duplicate = prefix_list_entry_is_duplicated(plist, pentry);
 
 	prefix_list_trie_del(plist, pentry);
 
@@ -579,14 +600,13 @@ static void prefix_list_entry_add(struct prefix_list *plist,
 void prefix_list_entry_update_start(struct prefix_list_entry *ple)
 {
 	struct prefix_list *pl = ple->pl;
-	bool duplicate = false;
+	bool duplicate;
 
 	/* Not installed, nothing to do. */
 	if (!ple->installed)
 		return;
 
-	if (prefix_list_entry_lookup_prefix(pl, ple))
-		duplicate = true;
+	duplicate = prefix_list_entry_is_duplicated(pl, ple);
 
 	prefix_list_trie_del(pl, ple);
 

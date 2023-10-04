@@ -1495,9 +1495,32 @@ module frr-isisd {
               "IS-IS level into which the routes should be redistributed.";
           }
 
-          uses redistribute-attributes;
-        }
+          choice protocol-type {
+            case protocol-table {
+              when "./protocol = \"table\"";
+              list table {
+                key "table";
+                when "../protocol = \"table\"";
+                description
+                  "Routing table number";
 
+                leaf table {
+                  type uint16 {
+                     range "1..65535";
+                  }
+                  description
+                    "Routing table number.";
+                }
+
+                uses redistribute-attributes;
+              }
+            }
+            case protocol-other {
+              uses redistribute-attributes;
+            }
+          }
+
+        }
         list ipv6 {
           key "protocol level";
           description
@@ -1516,7 +1539,29 @@ module frr-isisd {
               "IS-IS level into which the routes should be redistributed.";
           }
 
-          uses redistribute-attributes;
+          choice protocol-type {
+            case protocol-table {
+              when "./protocol = \"table\"";
+              list table {
+                key "table";
+                when "../protocol = \"table\"";
+
+                leaf table {
+                  type uint16 {
+                     range "1..65535";
+                  }
+                  description
+                    "Routing table number.";
+                }
+
+                uses redistribute-attributes;
+              }
+            }
+            case protocol-other {
+              uses redistribute-attributes;
+            }
+          }
+
         }
       }
 
@@ -1946,6 +1991,71 @@ module frr-isisd {
                 "Not a node SID";
             }
           }
+        }
+      }
+
+      container segment-routing-srv6 {
+        description
+          "Segment Routing over IPv6 (SRv6) global configuration.";
+        leaf enabled {
+          type boolean;
+          default "false";
+          description
+            "Enable IS-IS extensions to support Segment Routing over
+             IPv6 data plane (SRv6).";
+          reference
+            "RFC 9352";
+        }
+        leaf locator {
+          type string;
+          description
+            "SRv6 locator.";
+        }
+        container msd {
+          description
+            "SRv6 Maximum SRv6 SID Depths.";
+          container node-msd {
+            description
+              "SRv6 Node Maximum SRv6 SID Depths.";
+            leaf max-segs-left {
+              type uint8 {
+                range "0..255";
+              }
+              default 3;
+              description
+               "Maximum Segments Left MSD.";
+            }
+            leaf max-end-pop {
+              type uint8 {
+                range "0..255";
+              }
+              default 3;
+              description
+               "Maximum End Pop MSD.";
+            }
+            leaf max-h-encaps {
+              type uint8 {
+                range "0..255";
+              }
+              default 2;
+              description
+               "Maximum H.Encaps MSD.";
+            }
+            leaf max-end-d {
+              type uint8 {
+                range "0..255";
+              }
+              default 5;
+              description
+               "Maximum End D MSD.";
+            }
+          }
+        }
+        leaf interface {
+          type string;
+          description
+            "Dummy interface used to install SRv6 SIDs into the Linux data plane.";
+          default "sr0";
         }
       }
 

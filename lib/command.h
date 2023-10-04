@@ -172,6 +172,9 @@ enum node_type {
 	OPENFABRIC_NODE,	/* OpenFabric router configuration node */
 	VRRP_NODE,		 /* VRRP node */
 	BMP_NODE,		/* BMP config under router bgp */
+	ISIS_SRV6_NODE,    /* ISIS SRv6 node */
+	ISIS_SRV6_NODE_MSD_NODE,    /* ISIS SRv6 Node MSDs node */
+	BGP_LS_NODE,	/* BGP-LS configuration node */
 	NODE_TYPE_MAX, /* maximum */
 };
 /* clang-format on */
@@ -416,6 +419,10 @@ struct cmd_node {
 #define COMMUNITY_AANN_STR "Community number where AA and NN are (0-65535)\n"
 #define COMMUNITY_VAL_STR                                                      \
 	"Community number in AA:NN format (where AA and NN are (0-65535)) or local-AS|no-advertise|no-export|internet|graceful-shutdown|accept-own-nexthop|accept-own|route-filter-translated-v4|route-filter-v4|route-filter-translated-v6|route-filter-v6|llgr-stale|no-llgr|blackhole|no-peer or additive\n"
+#define EXTCOMM_LIST_CMD_STR "<(1-99)|(100-500)|EXTCOMMUNITY_LIST_NAME>"
+#define EXTCOMM_STD_LIST_NUM_STR "Extended community-list number (standard)\n"
+#define EXTCOMM_EXP_LIST_NUM_STR "Extended community-list number (expanded)\n"
+#define EXTCOMM_LIST_NAME_STR "Extended community-list name\n"
 #define MPLS_TE_STR "MPLS-TE specific commands\n"
 #define LINK_PARAMS_STR "Configure interface link parameters\n"
 #define OSPF_RI_STR "OSPF Router Information specific commands\n"

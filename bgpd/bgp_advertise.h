@@ -100,7 +100,6 @@ struct bgp_adj_in {
 struct bgp_synchronize {
 	struct bgp_adv_fifo_head update;
 	struct bgp_adv_fifo_head withdraw;
-	struct bgp_adv_fifo_head withdraw_low;
 };
 
 /* BGP adjacency linked list.  */
@@ -131,12 +130,10 @@ extern bool bgp_adj_out_lookup(struct peer *peer, struct bgp_dest *dest,
 			       uint32_t addpath_tx_id);
 extern void bgp_adj_in_set(struct bgp_dest *dest, struct peer *peer,
 			   struct attr *attr, uint32_t addpath_id);
-extern bool bgp_adj_in_unset(struct bgp_dest *dest, struct peer *peer,
+extern bool bgp_adj_in_unset(struct bgp_dest **dest, struct peer *peer,
 			     uint32_t addpath_id);
-extern void bgp_adj_in_remove(struct bgp_dest *dest, struct bgp_adj_in *bai);
+extern void bgp_adj_in_remove(struct bgp_dest **dest, struct bgp_adj_in *bai);
 
-extern void bgp_sync_init(struct peer *peer);
-extern void bgp_sync_delete(struct peer *peer);
 extern unsigned int bgp_advertise_attr_hash_key(const void *p);
 extern bool bgp_advertise_attr_hash_cmp(const void *p1, const void *p2);
 extern void bgp_advertise_add(struct bgp_advertise_attr *baa,

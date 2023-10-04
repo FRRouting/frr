@@ -181,9 +181,10 @@ void zserv_log_message(const char *errmsg, struct stream *msg,
  */
 static void zserv_client_fail(struct zserv *client)
 {
-	flog_warn(EC_ZEBRA_CLIENT_IO_ERROR,
-		  "Client '%s' encountered an error and is shutting down.",
-		  zebra_route_string(client->proto));
+	flog_warn(
+		EC_ZEBRA_CLIENT_IO_ERROR,
+		"Client '%s' (session id %d) encountered an error and is shutting down.",
+		zebra_route_string(client->proto), client->session_id);
 
 	atomic_store_explicit(&client->pthread->running, false,
 			      memory_order_relaxed);
@@ -581,23 +582,27 @@ static void zserv_client_free(struct zserv *client)
 
 	/* Close file descriptor. */
 	if (client->sock) {
-		unsigned long nroutes;
-		unsigned long nnhgs;
+		unsigned long nroutes = 0;
+		unsigned long nnhgs = 0;
 
 		close(client->sock);
 
 		if (DYNAMIC_CLIENT_GR_DISABLED(client)) {
-			zebra_mpls_client_cleanup_vrf_label(client->proto);
+			if (!client->synchronous) {
+				zebra_mpls_client_cleanup_vrf_label(
+					client->proto);
 
-			nroutes = rib_score_proto(client->proto,
-						  client->instance);
+				nroutes = rib_score_proto(client->proto,
+							  client->instance);
+			}
 			zlog_notice(
 				"client %d disconnected %lu %s routes removed from the rib",
 				client->sock, nroutes,
 				zebra_route_string(client->proto));
 
 			/* Not worrying about instance for now */
-			nnhgs = zebra_nhg_score_proto(client->proto);
+			if (!client->synchronous)
+				nnhgs = zebra_nhg_score_proto(client->proto);
 			zlog_notice(
 				"client %d disconnected %lu %s nhgs removed from the rib",
 				client->sock, nnhgs,
@@ -626,13 +631,13 @@ static void zserv_client_free(struct zserv *client)
 	/* Free bitmaps. */
 	for (afi_t afi = AFI_IP; afi < AFI_MAX; afi++) {
 		for (int i = 0; i < ZEBRA_ROUTE_MAX; i++) {
-			vrf_bitmap_free(client->redist[afi][i]);
+			vrf_bitmap_free(&client->redist[afi][i]);
 			redist_del_all_instances(&client->mi_redist[afi][i]);
 		}
 
-		vrf_bitmap_free(client->redist_default[afi]);
-		vrf_bitmap_free(client->ridinfo[afi]);
-		vrf_bitmap_free(client->nhrp_neighinfo[afi]);
+		vrf_bitmap_free(&client->redist_default[afi]);
+		vrf_bitmap_free(&client->ridinfo[afi]);
+		vrf_bitmap_free(&client->nhrp_neighinfo[afi]);
 	}
 
 	/*
@@ -750,10 +755,10 @@ static struct zserv *zserv_client_create(int sock)
 	/* Initialize flags */
 	for (afi = AFI_IP; afi < AFI_MAX; afi++) {
 		for (i = 0; i < ZEBRA_ROUTE_MAX; i++)
-			client->redist[afi][i] = vrf_bitmap_init();
-		client->redist_default[afi] = vrf_bitmap_init();
-		client->ridinfo[afi] = vrf_bitmap_init();
-		client->nhrp_neighinfo[afi] = vrf_bitmap_init();
+			vrf_bitmap_init(&client->redist[afi][i]);
+		vrf_bitmap_init(&client->redist_default[afi]);
+		vrf_bitmap_init(&client->ridinfo[afi]);
+		vrf_bitmap_init(&client->nhrp_neighinfo[afi]);
 	}
 
 	/* Add this client to linked list. */

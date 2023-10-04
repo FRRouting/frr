@@ -44,33 +44,89 @@ def get_logs_path(rundir):
 
 
 def gdb_core(obj, daemon, corefiles):
-    gdbcmds = """
-        info threads
-        bt full
-        disassemble
-        up
-        disassemble
-        up
-        disassemble
-        up
-        disassemble
-        up
-        disassemble
-        up
-        disassemble
+    gdbcmds = r"""
+set print elements 1024
+echo -------\n
+echo threads\n
+echo -------\n
+info threads
+echo ---------\n
+echo registers\n
+echo ---------\n
+info registers
+echo ---------\n
+echo backtrace\n
+echo ---------\n
+bt
     """
     gdbcmds = [["-ex", i.strip()] for i in gdbcmds.strip().split("\n")]
     gdbcmds = [item for sl in gdbcmds for item in sl]
 
     daemon_path = os.path.join(obj.daemondir, daemon)
-    backtrace = subprocess.check_output(
-        ["gdb", daemon_path, corefiles[0], "--batch"] + gdbcmds
+    p = subprocess.run(
+        ["gdb", daemon_path, corefiles[0], "--batch"] + gdbcmds,
+        encoding="utf-8",
+        errors="ignore",
+        capture_output=True,
     )
+    backtrace = p.stdout
+
+    #
+    # Grab the disassemble of top couple frames
+    #
+    m = re.search(r"#(\d+) .*assert.*", backtrace)
+    if not m:
+        m = re.search(r"#(\d+) .*abort.*", backtrace)
+    frames = re.findall(r"\n#(\d+) ", backtrace)
+    if m:
+        frstart = -1
+        astart = int(m.group(1)) + 1
+        ocount = f"-{int(frames[-1]) - astart + 1}"
+    else:
+        astart = -1
+        frstart = 0
+        ocount = ""
+        m = re.search(r"#(\d+) .*core_handler.*", backtrace)
+        if m:
+            frstart = int(m.group(1)) + 2
+            ocount = f"-{int(frames[-1]) - frstart + 1}"
+
     sys.stderr.write(
-        "\n%s: %s crashed. Core file found - Backtrace follows:\n" % (obj.name, daemon)
+        f"\nCORE FOUND: {obj.name}: {daemon} crashed: see log for backtrace and more\n"
     )
-    sys.stderr.write("%s" % backtrace)
-    return backtrace
+
+    gdbcmds = rf"""
+set print elements 1024
+echo -------------------------\n
+echo backtrace with local args\n
+echo -------------------------\n
+bt full {ocount}
+"""
+    if frstart >= 0:
+        gdbcmds += rf"""echo ---------------------------------------\n
+echo disassemble of failing funciton (guess)\n
+echo ---------------------------------------\n
+fr {frstart}
+disassemble /m
+"""
+
+    gdbcmds = [["-ex", i.strip()] for i in gdbcmds.strip().split("\n")]
+    gdbcmds = [item for sl in gdbcmds for item in sl]
+
+    daemon_path = os.path.join(obj.daemondir, daemon)
+    p = subprocess.run(
+        ["gdb", daemon_path, corefiles[0], "-q", "--batch"] + gdbcmds,
+        encoding="utf-8",
+        errors="ignore",
+        capture_output=True,
+    )
+    btdump = p.stdout
+
+    # sys.stderr.write(
+    #     "\n%s: %s crashed. Core file found - Backtrace follows:\n" % (obj.name, daemon)
+    # )
+
+    return backtrace + btdump
 
 
 class json_cmp_result(object):
@@ -98,7 +154,7 @@ class json_cmp_result(object):
         )
 
 
-def gen_json_diff_report(d1, d2, exact=False, path="> $", acc=(0, "")):
+def gen_json_diff_report(output, expected, exact=False, path="> $", acc=(0, "")):
     """
     Internal workhorse which compares two JSON data structures and generates an error report suited to be read by a human eye.
     """
@@ -146,60 +202,62 @@ def gen_json_diff_report(d1, d2, exact=False, path="> $", acc=(0, "")):
     def has_errors(other_acc):
         return other_acc[0] > 0
 
-    if d2 == "*" or (
-        not isinstance(d1, (list, dict))
-        and not isinstance(d2, (list, dict))
-        and d1 == d2
+    if expected == "*" or (
+        not isinstance(output, (list, dict))
+        and not isinstance(expected, (list, dict))
+        and output == expected
     ):
         return acc
     elif (
-        not isinstance(d1, (list, dict))
-        and not isinstance(d2, (list, dict))
-        and d1 != d2
+        not isinstance(output, (list, dict))
+        and not isinstance(expected, (list, dict))
+        and output != expected
     ):
         acc = add_error(
             acc,
-            "d1 has element with value '{}' but in d2 it has value '{}'".format(d1, d2),
+            "output has element with value '{}' but in expected it has value '{}'".format(
+                output, expected
+            ),
         )
     elif (
-        isinstance(d1, list)
-        and isinstance(d2, list)
-        and ((len(d2) > 0 and d2[0] == "__ordered__") or exact)
+        isinstance(output, list)
+        and isinstance(expected, list)
+        and ((len(expected) > 0 and expected[0] == "__ordered__") or exact)
     ):
         if not exact:
-            del d2[0]
-        if len(d1) != len(d2):
+            del expected[0]
+        if len(output) != len(expected):
             acc = add_error(
                 acc,
-                "d1 has Array of length {} but in d2 it is of length {}".format(
-                    len(d1), len(d2)
+                "output has Array of length {} but in expected it is of length {}".format(
+                    len(output), len(expected)
                 ),
             )
         else:
-            for idx, v1, v2 in zip(range(0, len(d1)), d1, d2):
+            for idx, v1, v2 in zip(range(0, len(output)), output, expected):
                 acc = merge_errors(
                     acc, gen_json_diff_report(v1, v2, exact=exact, path=add_idx(idx))
                 )
-    elif isinstance(d1, list) and isinstance(d2, list):
-        if len(d1) < len(d2):
+    elif isinstance(output, list) and isinstance(expected, list):
+        if len(output) < len(expected):
             acc = add_error(
                 acc,
-                "d1 has Array of length {} but in d2 it is of length {}".format(
-                    len(d1), len(d2)
+                "output has Array of length {} but in expected it is of length {}".format(
+                    len(output), len(expected)
                 ),
             )
         else:
-            for idx2, v2 in zip(range(0, len(d2)), d2):
+            for idx2, v2 in zip(range(0, len(expected)), expected):
                 found_match = False
                 closest_diff = None
                 closest_idx = None
-                for idx1, v1 in zip(range(0, len(d1)), d1):
+                for idx1, v1 in zip(range(0, len(output)), output):
                     tmp_v1 = deepcopy(v1)
                     tmp_v2 = deepcopy(v2)
                     tmp_diff = gen_json_diff_report(tmp_v1, tmp_v2, path=add_idx(idx1))
                     if not has_errors(tmp_diff):
                         found_match = True
-                        del d1[idx1]
+                        del output[idx1]
                         break
                     elif not closest_diff or get_errors_n(tmp_diff) < get_errors_n(
                         closest_diff
@@ -213,50 +271,62 @@ def gen_json_diff_report(d1, d2, exact=False, path="> $", acc=(0, "")):
                     acc = add_error(
                         acc,
                         (
-                            "d2 has the following element at index {} which is not present in d1: "
-                            + "\n\n{}\n\n\tClosest match in d1 is at index {} with the following errors: {}"
+                            "expected has the following element at index {} which is not present in output: "
+                            + "\n\n{}\n\n\tClosest match in output is at index {} with the following errors: {}"
                         ).format(idx2, dump_json(v2), closest_idx, sub_error),
                     )
                 if not found_match and not isinstance(v2, (list, dict)):
                     acc = add_error(
                         acc,
-                        "d2 has the following element at index {} which is not present in d1: {}".format(
+                        "expected has the following element at index {} which is not present in output: {}".format(
                             idx2, dump_json(v2)
                         ),
                     )
-    elif isinstance(d1, dict) and isinstance(d2, dict) and exact:
-        invalid_keys_d1 = [k for k in d1.keys() if k not in d2.keys()]
-        invalid_keys_d2 = [k for k in d2.keys() if k not in d1.keys()]
+    elif isinstance(output, dict) and isinstance(expected, dict) and exact:
+        invalid_keys_d1 = [k for k in output.keys() if k not in expected.keys()]
+        invalid_keys_d2 = [k for k in expected.keys() if k not in output.keys()]
         for k in invalid_keys_d1:
-            acc = add_error(acc, "d1 has key '{}' which is not present in d2".format(k))
+            acc = add_error(
+                acc, "output has key '{}' which is not present in expected".format(k)
+            )
         for k in invalid_keys_d2:
-            acc = add_error(acc, "d2 has key '{}' which is not present in d1".format(k))
-        valid_keys_intersection = [k for k in d1.keys() if k in d2.keys()]
+            acc = add_error(
+                acc, "expected has key '{}' which is not present in output".format(k)
+            )
+        valid_keys_intersection = [k for k in output.keys() if k in expected.keys()]
         for k in valid_keys_intersection:
             acc = merge_errors(
-                acc, gen_json_diff_report(d1[k], d2[k], exact=exact, path=add_key(k))
+                acc,
+                gen_json_diff_report(
+                    output[k], expected[k], exact=exact, path=add_key(k)
+                ),
             )
-    elif isinstance(d1, dict) and isinstance(d2, dict):
-        none_keys = [k for k, v in d2.items() if v == None]
-        none_keys_present = [k for k in d1.keys() if k in none_keys]
+    elif isinstance(output, dict) and isinstance(expected, dict):
+        none_keys = [k for k, v in expected.items() if v == None]
+        none_keys_present = [k for k in output.keys() if k in none_keys]
         for k in none_keys_present:
             acc = add_error(
-                acc, "d1 has key '{}' which is not supposed to be present".format(k)
+                acc, "output has key '{}' which is not supposed to be present".format(k)
             )
-        keys = [k for k, v in d2.items() if v != None]
-        invalid_keys_intersection = [k for k in keys if k not in d1.keys()]
+        keys = [k for k, v in expected.items() if v != None]
+        invalid_keys_intersection = [k for k in keys if k not in output.keys()]
         for k in invalid_keys_intersection:
-            acc = add_error(acc, "d2 has key '{}' which is not present in d1".format(k))
-        valid_keys_intersection = [k for k in keys if k in d1.keys()]
+            acc = add_error(
+                acc, "expected has key '{}' which is not present in output".format(k)
+            )
+        valid_keys_intersection = [k for k in keys if k in output.keys()]
         for k in valid_keys_intersection:
             acc = merge_errors(
-                acc, gen_json_diff_report(d1[k], d2[k], exact=exact, path=add_key(k))
+                acc,
+                gen_json_diff_report(
+                    output[k], expected[k], exact=exact, path=add_key(k)
+                ),
             )
     else:
         acc = add_error(
             acc,
-            "d1 has element of type '{}' but the corresponding element in d2 is of type '{}'".format(
-                json_type(d1), json_type(d2)
+            "output has element of type '{}' but the corresponding element in expected is of type '{}'".format(
+                json_type(output), json_type(expected)
             ),
             points=2,
         )
@@ -264,29 +334,31 @@ def gen_json_diff_report(d1, d2, exact=False, path="> $", acc=(0, "")):
     return acc
 
 
-def json_cmp(d1, d2, exact=False):
+def json_cmp(output, expected, exact=False):
     """
     JSON compare function. Receives two parameters:
-    * `d1`: parsed JSON data structure
-    * `d2`: parsed JSON data structure
+    * `output`: parsed JSON data structure from outputed vtysh command
+    * `expected``: parsed JSON data structure from what is expected to be seen
 
-    Returns 'None' when all JSON Object keys and all Array elements of d2 have a match
-    in d1, i.e., when d2 is a "subset" of d1 without honoring any order. Otherwise an
+    Returns 'None' when all JSON Object keys and all Array elements of expected have a match
+    in output, i.e., when expected is a "subset" of output without honoring any order. Otherwise an
     error report is generated and wrapped in a 'json_cmp_result()'. There are special
     parameters and notations explained below which can be used to cover rather unusual
     cases:
 
-    * when 'exact is set to 'True' then d1 and d2 are tested for equality (including
+    * when 'exact is set to 'True' then output and expected are tested for equality (including
       order within JSON Arrays)
     * using 'null' (or 'None' in Python) as JSON Object value is checking for key
-      absence in d1
-    * using '*' as JSON Object value or Array value is checking for presence in d1
+      absence in output
+    * using '*' as JSON Object value or Array value is checking for presence in output
       without checking the values
-    * using '__ordered__' as first element in a JSON Array in d2 will also check the
-      order when it is compared to an Array in d1
+    * using '__ordered__' as first element in a JSON Array in expected will also check the
+      order when it is compared to an Array in output
     """
 
-    (errors_n, errors) = gen_json_diff_report(deepcopy(d1), deepcopy(d2), exact=exact)
+    (errors_n, errors) = gen_json_diff_report(
+        deepcopy(output), deepcopy(expected), exact=exact
+    )
 
     if errors_n > 0:
         result = json_cmp_result()
@@ -1189,8 +1261,8 @@ def rlimit_atleast(rname, min_value, raises=False):
 
 def fix_netns_limits(ns):
     # Maximum read and write socket buffer sizes
-    sysctl_atleast(ns, "net.ipv4.tcp_rmem", [10 * 1024, 87380, 16 * 2**20])
-    sysctl_atleast(ns, "net.ipv4.tcp_wmem", [10 * 1024, 87380, 16 * 2**20])
+    sysctl_atleast(ns, "net.ipv4.tcp_rmem", [10 * 1024, 87380, 16 * 2 ** 20])
+    sysctl_atleast(ns, "net.ipv4.tcp_wmem", [10 * 1024, 87380, 16 * 2 ** 20])
 
     sysctl_assure(ns, "net.ipv4.conf.all.rp_filter", 0)
     sysctl_assure(ns, "net.ipv4.conf.default.rp_filter", 0)
@@ -1249,8 +1321,8 @@ def fix_host_limits():
     sysctl_atleast(None, "net.core.netdev_max_backlog", 4 * 1024)
 
     # Maximum read and write socket buffer sizes
-    sysctl_atleast(None, "net.core.rmem_max", 16 * 2**20)
-    sysctl_atleast(None, "net.core.wmem_max", 16 * 2**20)
+    sysctl_atleast(None, "net.core.rmem_max", 16 * 2 ** 20)
+    sysctl_atleast(None, "net.core.wmem_max", 16 * 2 ** 20)
 
     # Garbage Collection Settings for ARP and Neighbors
     sysctl_atleast(None, "net.ipv4.neigh.default.gc_thresh2", 4 * 1024)
@@ -1642,8 +1714,6 @@ class Router(Node):
         # TODO remove the following lines after all tests are migrated to Topogen.
         # Try to find relevant old logfiles in /tmp and delete them
         map(os.remove, glob.glob("{}/{}/*.log".format(self.logdir, self.name)))
-        # Remove old core files
-        map(os.remove, glob.glob("{}/{}/*.dmp".format(self.logdir, self.name)))
         # Remove IP addresses from OS first - we have them in zebra.conf
         self.removeIPs()
         # If ldp is used, check for LDP to be compiled and Linux Kernel to be 4.5 or higher
@@ -2090,8 +2160,7 @@ class Router(Node):
                     backtrace = gdb_core(self, daemon, corefiles)
                     traces = (
                         traces
-                        + "\n%s: %s crashed. Core file found - Backtrace follows:\n%s"
-                        % (self.name, daemon, backtrace)
+                        + f"\nCORE FOUND: {self.name}: {daemon} crashed. Backtrace follows:\n{backtrace}"
                     )
                     reportMade = True
                 elif reportLeaks:

@@ -36,7 +36,7 @@ daemon_flags = {
     "lib/filter.c": "VTYSH_ACL",
     "lib/filter_cli.c": "VTYSH_ACL",
     "lib/if.c": "VTYSH_INTERFACE",
-    "lib/keychain.c": "VTYSH_RIPD|VTYSH_EIGRPD|VTYSH_OSPF6D",
+    "lib/keychain.c": "VTYSH_KEYS",
     "lib/mgmt_be_client.c": "VTYSH_STATICD",
     "lib/mgmt_fe_client.c": "VTYSH_MGMTD",
     "lib/lib_vty.c": "VTYSH_ALL",

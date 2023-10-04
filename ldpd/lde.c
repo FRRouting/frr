@@ -87,7 +87,7 @@ static struct list *label_chunk_list;
 static struct listnode *current_label_chunk;
 
 /* Synchronous zclient to request labels */
-static struct zclient *zclient_sync;
+struct zclient *zclient_sync;
 
 /* SIGINT / SIGTERM handler. */
 static void

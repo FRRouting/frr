@@ -1667,8 +1667,8 @@ static void bgp_pbr_flush_iprule(struct bgp *bgp, struct bgp_pbr_action *bpa,
 			/* unlink path to bpme */
 			path = (struct bgp_path_info *)bpr->path;
 			extra = bgp_path_info_extra_get(path);
-			if (extra->bgp_fs_iprule)
-				listnode_delete(extra->bgp_fs_iprule, bpr);
+			if (extra->flowspec && extra->flowspec->bgp_fs_iprule)
+				listnode_delete(extra->flowspec->bgp_fs_iprule, bpr);
 			bpr->path = NULL;
 		}
 	}
@@ -1696,8 +1696,8 @@ static void bgp_pbr_flush_entry(struct bgp *bgp, struct bgp_pbr_action *bpa,
 			/* unlink path to bpme */
 			path = (struct bgp_path_info *)bpme->path;
 			extra = bgp_path_info_extra_get(path);
-			if (extra->bgp_fs_pbr)
-				listnode_delete(extra->bgp_fs_pbr, bpme);
+			if (extra->flowspec && extra->flowspec->bgp_fs_pbr)
+				listnode_delete(extra->flowspec->bgp_fs_pbr, bpme);
 			bpme->path = NULL;
 		}
 	}
@@ -2342,8 +2342,8 @@ static void bgp_pbr_policyroute_add_to_zebra_unit(struct bgp *bgp,
 			struct bgp_path_info_extra *extra =
 				bgp_path_info_extra_get(path);
 
-			if (extra &&
-			    listnode_lookup_nocheck(extra->bgp_fs_iprule,
+			if (extra && extra->flowspec &&
+			    listnode_lookup_nocheck(extra->flowspec->bgp_fs_iprule,
 						    bpr)) {
 				if (BGP_DEBUG(pbr, PBR_ERROR))
 					zlog_err("%s: entry %p/%p already installed in bgp pbr iprule",
@@ -2501,8 +2501,8 @@ static void bgp_pbr_policyroute_add_to_zebra_unit(struct bgp *bgp,
 		struct bgp_path_info_extra *extra =
 			bgp_path_info_extra_get(path);
 
-		if (extra &&
-		    listnode_lookup_nocheck(extra->bgp_fs_pbr, bpme)) {
+		if (extra && extra->flowspec &&
+		    listnode_lookup_nocheck(extra->flowspec->bgp_fs_pbr, bpme)) {
 			if (BGP_DEBUG(pbr, PBR_ERROR))
 				zlog_err(
 					"%s: entry %p/%p already installed in bgp pbr",

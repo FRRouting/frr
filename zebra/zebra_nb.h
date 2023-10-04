@@ -96,6 +96,8 @@ int lib_interface_zebra_shutdown_modify(struct nb_cb_modify_args *args);
 int lib_interface_zebra_shutdown_destroy(struct nb_cb_destroy_args *args);
 int lib_interface_zebra_bandwidth_modify(struct nb_cb_modify_args *args);
 int lib_interface_zebra_bandwidth_destroy(struct nb_cb_destroy_args *args);
+int lib_interface_zebra_mpls_modify(struct nb_cb_modify_args *args);
+int lib_interface_zebra_mpls_destroy(struct nb_cb_destroy_args *args);
 int lib_interface_zebra_legacy_admin_group_modify(
 	struct nb_cb_modify_args *args);
 int lib_interface_zebra_legacy_admin_group_destroy(
@@ -236,6 +238,20 @@ lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_nexthop_onlink_get_elem(
 	struct nb_cb_get_elem_args *args);
 struct yang_data *
 lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_nexthop_color_get_elem(
+	struct nb_cb_get_elem_args *args);
+const void *
+lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_nexthop_srv6_segs_stack_entry_get_next(
+	struct nb_cb_get_next_args *args);
+int lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_nexthop_srv6_segs_stack_entry_get_keys(
+	struct nb_cb_get_keys_args *args);
+const void *
+lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_nexthop_srv6_segs_stack_entry_lookup_entry(
+	struct nb_cb_lookup_entry_args *args);
+struct yang_data *
+lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_nexthop_srv6_segs_stack_entry_id_get_elem(
+	struct nb_cb_get_elem_args *args);
+struct yang_data *
+lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_nexthop_srv6_segs_stack_entry_seg_get_elem(
 	struct nb_cb_get_elem_args *args);
 const void *
 lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_nexthop_mpls_label_stack_entry_get_next(

@@ -123,6 +123,7 @@ struct ospf6_neighbor {
 	struct event *thread_send_lsack;
 	struct event *thread_exchange_done;
 	struct event *thread_adj_ok;
+	struct event *event_loading_done;
 
 	/* BFD information */
 	struct bfd_session_params *bfd_session;

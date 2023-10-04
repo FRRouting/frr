@@ -27,7 +27,7 @@ PREDECL_RBTREE_UNIQ(bgp_nexthop_cache);
 /* BGP nexthop cache value structure. */
 struct bgp_nexthop_cache {
 	/* The ifindex of the outgoing interface *if* it's a v6 LL */
-	ifindex_t ifindex;
+	ifindex_t ifindex_ipv6_ll;
 
 	/* RB-tree entry. */
 	struct bgp_nexthop_cache_item entry;
@@ -102,11 +102,6 @@ DECLARE_RBTREE_UNIQ(bgp_nexthop_cache, struct bgp_nexthop_cache, entry,
 struct tip_addr {
 	struct in_addr addr;
 	int refcnt;
-};
-
-struct bgp_addrv6 {
-	struct in6_addr addrv6;
-	struct list *ifp_name_list;
 };
 
 /* Forward declaration(s). */

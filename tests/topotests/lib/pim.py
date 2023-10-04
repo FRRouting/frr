@@ -1,34 +1,34 @@
+# -*- coding: utf-8 eval: (blacken-mode 1) -*-
 # SPDX-License-Identifier: ISC
 # Copyright (c) 2019 by VMware, Inc. ("VMware")
 # Used Copyright (c) 2018 by Network Device Education Foundation, Inc.
 # ("NetDEF") in this file.
 
 import datetime
+import functools
 import os
 import re
 import sys
 import traceback
-import functools
 from copy import deepcopy
 from time import sleep
-from lib import topotest
-
 
 # Import common_config to use commomnly used APIs
 from lib.common_config import (
-    create_common_configurations,
     HostApplicationHelper,
     InvalidCLIError,
     create_common_configuration,
-    InvalidCLIError,
+    create_common_configurations,
+    get_frr_ipv6_linklocal,
     retry,
     run_frr_cmd,
     validate_ip_address,
-    get_frr_ipv6_linklocal,
 )
 from lib.micronet import get_exec_path
 from lib.topolog import logger
 from lib.topotest import frr_unicode
+
+from lib import topotest
 
 ####
 CWD = os.path.dirname(os.path.realpath(__file__))
@@ -1132,7 +1132,7 @@ def verify_upstream_iif(
                                     grp_addr,
                                     in_interface,
                                     group_addr_json[src_address]["inboundInterface"],
-                                    joinState,
+                                    "Joined",
                                     group_addr_json[src_address]["joinState"],
                                 )
                             )

@@ -87,10 +87,6 @@ mgmt_fe_adapter_unlock(struct mgmt_fe_client_adapter **adapter);
 extern struct msg_conn *mgmt_fe_create_adapter(int conn_fd,
 					       union sockunion *su);
 
-/* Fetch frontend adapter given a name */
-extern struct mgmt_fe_client_adapter *
-mgmt_fe_get_adapter(const char *name);
-
 /*
  * Send set-config reply to the frontend client.
  *
@@ -134,29 +130,13 @@ extern int mgmt_fe_send_commit_cfg_reply(
 	enum mgmt_result result, const char *error_if_any);
 
 /*
- * Send get-config reply to the frontend client.
+ * Send get-config/get-data reply to the frontend client.
  */
-extern int mgmt_fe_send_get_cfg_reply(uint64_t session_id, uint64_t txn_id,
-					  Mgmtd__DatastoreId ds_id,
-					  uint64_t req_id,
-					  enum mgmt_result result,
-					  Mgmtd__YangDataReply *data_resp,
-					  const char *error_if_any);
-
-/*
- * Send get-data reply to the frontend client.
- */
-extern int mgmt_fe_send_get_data_reply(
-	uint64_t session_id, uint64_t txn_id, Mgmtd__DatastoreId ds_id,
-	uint64_t req_id, enum mgmt_result result,
-	Mgmtd__YangDataReply *data_resp, const char *error_if_any);
-
-/*
- * Send data notify to the frontend client.
- */
-extern int mgmt_fe_send_data_notify(Mgmtd__DatastoreId ds_id,
-					Mgmtd__YangData * data_resp[],
-					int num_data);
+extern int mgmt_fe_send_get_reply(uint64_t session_id, uint64_t txn_id,
+				  Mgmtd__DatastoreId ds_id, uint64_t req_id,
+				  enum mgmt_result result,
+				  Mgmtd__YangDataReply *data_resp,
+				  const char *error_if_any);
 
 /* Fetch frontend client session set-config stats */
 extern struct mgmt_setcfg_stats *

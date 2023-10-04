@@ -47,7 +47,7 @@ DEFINE_MTYPE_STATIC(OSPFD, OSPF_REDISTRIBUTE, "OSPF Redistriute");
 /* Zebra structure to hold current status. */
 struct zclient *zclient = NULL;
 /* and for the Synchronous connection to the Label Manager */
-static struct zclient *zclient_sync;
+struct zclient *zclient_sync;
 
 /* For registering threads. */
 extern struct event_loop *master;
@@ -814,16 +814,16 @@ int ospf_is_type_redistributed(struct ospf *ospf, int type,
 			       unsigned short instance)
 {
 	return (DEFAULT_ROUTE_TYPE(type)
-			? vrf_bitmap_check(zclient->default_information[AFI_IP],
-					   ospf->vrf_id)
-			: ((instance
-			    && redist_check_instance(
+			? vrf_bitmap_check(
+				  &zclient->default_information[AFI_IP],
+				  ospf->vrf_id)
+			: ((instance &&
+			    redist_check_instance(
 				    &zclient->mi_redist[AFI_IP][type],
-				    instance))
-			   || (!instance
-			       && vrf_bitmap_check(
-				       zclient->redist[AFI_IP][type],
-				       ospf->vrf_id))));
+				    instance)) ||
+			   (!instance &&
+			    vrf_bitmap_check(&zclient->redist[AFI_IP][type],
+					     ospf->vrf_id))));
 }
 
 int ospf_redistribute_update(struct ospf *ospf, struct ospf_redist *red,
@@ -2161,9 +2161,9 @@ static int ospf_opaque_msg_handler(ZAPI_CALLBACK_ARGS)
 
 	switch (info.type) {
 	case LINK_STATE_SYNC:
-		STREAM_GETC(s, dst.proto);
-		STREAM_GETW(s, dst.instance);
-		STREAM_GETL(s, dst.session_id);
+		dst.proto = info.src_proto;
+		dst.instance = info.src_instance;
+		dst.session_id = info.src_session_id;
 		dst.type = LINK_STATE_SYNC;
 		ret = ospf_te_sync_ted(dst);
 		break;

@@ -2,7 +2,5 @@
   "ledger":0,
   "inUse":0,
   "requests":0,
-  "labelChunks":0,
-  "pending":0,
-  "reconnects":0
+  "labelChunks":1
 }

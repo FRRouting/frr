@@ -10,6 +10,7 @@
 #include "lib/bfd.h"
 #include "qobj.h"
 #include "hook.h"
+#include "keychain.h"
 #include "ospfd/ospf_packet.h"
 #include "ospfd/ospf_spf.h"
 
@@ -81,6 +82,9 @@ struct ospf_if_params {
 	/* Fast-Hellos */
 	DECLARE_IF_PARAM(uint8_t, fast_hello);
 
+	/* Prefix-Suppression */
+	DECLARE_IF_PARAM(bool, prefix_suppression);
+
 	/* Authentication data. */
 	uint8_t auth_simple[OSPF_AUTH_SIMPLE_SIZE + 1]; /* Simple password. */
 	uint8_t auth_simple__config : 1;
@@ -88,6 +92,8 @@ struct ospf_if_params {
 	DECLARE_IF_PARAM(struct list *,
 			 auth_crypt);     /* List of Auth cryptographic data. */
 	DECLARE_IF_PARAM(int, auth_type); /* OSPF authentication type */
+
+	DECLARE_IF_PARAM(char*, keychain_name); /* OSPF HMAC Cryptographic Authentication*/
 
 	/* Other, non-configuration state */
 	uint32_t network_lsa_seqnum; /* Network LSA seqnum */
@@ -112,6 +118,9 @@ struct ospf_if_params {
 
 	/* point-to-multipoint delayed reflooding configuration */
 	bool p2mp_delay_reflood;
+
+	/* Opaque LSA capability at interface level (see RFC5250) */
+	DECLARE_IF_PARAM(bool, opaque_capable);
 };
 
 enum { MEMBER_ALLROUTERS = 0,
@@ -272,6 +281,10 @@ struct ospf_interface {
 	uint32_t state_change; /* Number of status change. */
 
 	uint32_t full_nbrs;
+
+	/* Buffered values for keychain and key */
+	struct keychain *keychain;
+	struct key *key;
 
 	QOBJ_FIELDS;
 };

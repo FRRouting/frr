@@ -1029,8 +1029,6 @@ static void lsp_processq_del(struct work_queue *wq, void *data)
 		return;
 
 	zvrf = zebra_vrf_lookup_by_id(VRF_DEFAULT);
-	assert(zvrf);
-
 	lsp_table = zvrf->lsp_table;
 	if (!lsp_table) // unexpected
 		return;
@@ -1776,9 +1774,6 @@ void zebra_mpls_lsp_dplane_result(struct zebra_dplane_ctx *ctx)
 	case DPLANE_OP_LSP_UPDATE:
 		/* Look for zebra LSP object */
 		zvrf = zebra_vrf_lookup_by_id(VRF_DEFAULT);
-		if (zvrf == NULL)
-			break;
-
 		lsp_table = zvrf->lsp_table;
 
 		tmp_ile.in_label = label;
@@ -1883,6 +1878,7 @@ void zebra_mpls_lsp_dplane_result(struct zebra_dplane_ctx *ctx)
 	case DPLANE_OP_TC_FILTER_ADD:
 	case DPLANE_OP_TC_FILTER_DELETE:
 	case DPLANE_OP_TC_FILTER_UPDATE:
+	case DPLANE_OP_STARTUP_STAGE:
 		break;
 
 	} /* Switch */
@@ -2092,9 +2088,6 @@ void zebra_mpls_process_dplane_notify(struct zebra_dplane_ctx *ctx)
 
 	/* Look for zebra LSP object */
 	zvrf = zebra_vrf_lookup_by_id(VRF_DEFAULT);
-	if (zvrf == NULL)
-		return;
-
 	lsp_table = zvrf->lsp_table;
 
 	tmp_ile.in_label = dplane_ctx_get_in_label(ctx);

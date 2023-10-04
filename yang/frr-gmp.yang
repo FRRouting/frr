@@ -107,7 +107,7 @@ module frr-gmp {
         range "1..max";
       }
       units seconds;
-      must ". * 10 >= ../query-max-response-time";
+      must ". * 10 > ../query-max-response-time";
       default "125";
       description
         "The Query Interval is the interval between General Queries

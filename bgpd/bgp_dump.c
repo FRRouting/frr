@@ -246,14 +246,15 @@ static void bgp_dump_routes_index_table(struct bgp *bgp)
 
 	/* Walk down all peers */
 	for (ALL_LIST_ELEMENTS_RO(bgp->peer, node, peer)) {
+		int family = sockunion_family(&peer->connection->su);
 
 		/* Peer's type */
-		if (sockunion_family(&peer->su) == AF_INET) {
+		if (family == AF_INET) {
 			stream_putc(
 				obuf,
 				TABLE_DUMP_V2_PEER_INDEX_TABLE_AS4
 					+ TABLE_DUMP_V2_PEER_INDEX_TABLE_IP);
-		} else if (sockunion_family(&peer->su) == AF_INET6) {
+		} else if (family == AF_INET6) {
 			stream_putc(
 				obuf,
 				TABLE_DUMP_V2_PEER_INDEX_TABLE_AS4
@@ -264,10 +265,13 @@ static void bgp_dump_routes_index_table(struct bgp *bgp)
 		stream_put_in_addr(obuf, &peer->remote_id);
 
 		/* Peer's IP address */
-		if (sockunion_family(&peer->su) == AF_INET) {
-			stream_put_in_addr(obuf, &peer->su.sin.sin_addr);
-		} else if (sockunion_family(&peer->su) == AF_INET6) {
-			stream_write(obuf, (uint8_t *)&peer->su.sin6.sin6_addr,
+		if (family == AF_INET) {
+			stream_put_in_addr(obuf,
+					   &peer->connection->su.sin.sin_addr);
+		} else if (family == AF_INET6) {
+			stream_write(obuf,
+				     (uint8_t *)&peer->connection->su.sin6
+					     .sin6_addr,
 				     IPV6_MAX_BYTELEN);
 		}
 
@@ -468,24 +472,26 @@ static void bgp_dump_common(struct stream *obuf, struct peer *peer,
 		stream_putw(obuf, peer->local_as);
 	}
 
-	if (peer->su.sa.sa_family == AF_INET) {
+	if (peer->connection->su.sa.sa_family == AF_INET) {
 		stream_putw(obuf, peer->ifp ? peer->ifp->ifindex : 0);
 		stream_putw(obuf, AFI_IP);
 
-		stream_put(obuf, &peer->su.sin.sin_addr, IPV4_MAX_BYTELEN);
+		stream_put(obuf, &peer->connection->su.sin.sin_addr,
+			   IPV4_MAX_BYTELEN);
 
 		if (peer->su_local)
 			stream_put(obuf, &peer->su_local->sin.sin_addr,
 				   IPV4_MAX_BYTELEN);
 		else
 			stream_put(obuf, empty, IPV4_MAX_BYTELEN);
-	} else if (peer->su.sa.sa_family == AF_INET6) {
+	} else if (peer->connection->su.sa.sa_family == AF_INET6) {
 		/* Interface Index and Address family. */
 		stream_putw(obuf, peer->ifp ? peer->ifp->ifindex : 0);
 		stream_putw(obuf, AFI_IP6);
 
 		/* Source IP Address and Destination IP Address. */
-		stream_put(obuf, &peer->su.sin6.sin6_addr, IPV6_MAX_BYTELEN);
+		stream_put(obuf, &peer->connection->su.sin6.sin6_addr,
+			   IPV6_MAX_BYTELEN);
 
 		if (peer->su_local)
 			stream_put(obuf, &peer->su_local->sin6.sin6_addr,
@@ -512,8 +518,8 @@ int bgp_dump_state(struct peer *peer)
 			bgp_dump_all.type);
 	bgp_dump_common(obuf, peer, 1); /* force this in as4speak*/
 
-	stream_putw(obuf, peer->ostatus);
-	stream_putw(obuf, peer->status);
+	stream_putw(obuf, peer->connection->ostatus);
+	stream_putw(obuf, peer->connection->status);
 
 	/* Set length. */
 	bgp_dump_set_size(obuf, MSG_PROTOCOL_BGP4MP);
@@ -532,10 +538,10 @@ static void bgp_dump_packet_func(struct bgp_dump *bgp_dump, struct peer *peer,
 	/* If dump file pointer is disabled return immediately. */
 	if (bgp_dump->fp == NULL)
 		return;
-	if (peer->su.sa.sa_family == AF_INET) {
+	if (peer->connection->su.sa.sa_family == AF_INET) {
 		addpath_capable =
 			bgp_addpath_encode_rx(peer, AFI_IP, SAFI_UNICAST);
-	} else if (peer->su.sa.sa_family == AF_INET6) {
+	} else if (peer->connection->su.sa.sa_family == AF_INET6) {
 		addpath_capable =
 			bgp_addpath_encode_rx(peer, AFI_IP6, SAFI_UNICAST);
 	}

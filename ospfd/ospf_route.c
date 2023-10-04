@@ -48,6 +48,7 @@ struct ospf_route *ospf_route_new(void)
 
 	new->paths = list_new();
 	new->paths->del = (void (*)(void *))ospf_path_free;
+	new->u.std.transit = false;
 
 	return new;
 }
@@ -462,6 +463,12 @@ void ospf_intra_add_transit(struct route_table *rt, struct vertex *v,
 	   the IP network number, which can be obtained by masking the
 	   Vertex ID (Link State ID) with its associated subnet mask (found
 	   in the body of the associated network-LSA). */
+	if (lsa->mask.s_addr == 0xffffffff) {
+		if (IS_DEBUG_OSPF_EVENT)
+			zlog_debug("Suppress installing LSA[Type2,%pI4] route due to host mask",
+				   &(lsa->header.id));
+		return;
+	}
 	p.family = AF_INET;
 	p.prefix = v->id;
 	p.prefixlen = ip_masklen(lsa->mask);
@@ -500,6 +507,7 @@ void ospf_intra_add_transit(struct route_table *rt, struct vertex *v,
 	or->cost = v->distance;
 	or->type = OSPF_DESTINATION_NETWORK;
 	or->u.std.origin = (struct lsa_header *)lsa;
+	or->u.std.transit = true;
 
 	ospf_route_copy_nexthops_from_vertex(area, or, v);
 
@@ -684,6 +692,8 @@ void ospf_intra_add_stub(struct route_table *rt, struct router_lsa_link *link,
 					   __func__);
 		}
 	}
+	if (rn->info)
+		ospf_route_free(rn->info);
 
 	rn->info = or ;
 
@@ -849,7 +859,7 @@ void ospf_route_copy_nexthops_from_vertex(struct ospf_area *area,
 		    || area->spf_dry_run) {
 			path = ospf_path_new();
 			path->nexthop = nexthop->router;
-			path->adv_router = v->id;
+			path->adv_router = v->lsa->adv_router;
 
 			if (oi) {
 				path->ifindex = oi->ifp->ifindex;

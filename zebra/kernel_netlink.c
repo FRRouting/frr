@@ -398,7 +398,7 @@ static int netlink_information_fetch(struct nlmsghdr *h, ns_id_t ns_id,
 	case RTM_NEWLINK:
 		return netlink_link_change(h, ns_id, startup);
 	case RTM_DELLINK:
-		return netlink_link_change(h, ns_id, startup);
+		return 0;
 	case RTM_NEWNEIGH:
 	case RTM_DELNEIGH:
 	case RTM_GETNEIGH:
@@ -474,6 +474,7 @@ static int dplane_netlink_information_fetch(struct nlmsghdr *h, ns_id_t ns_id,
 
 	case RTM_NEWLINK:
 	case RTM_DELLINK:
+		return netlink_link_change(h, ns_id, startup);
 
 	default:
 		break;
@@ -738,58 +739,6 @@ struct rtnexthop *nl_attr_rtnh(struct nlmsghdr *n, unsigned int maxlen)
 void nl_attr_rtnh_end(struct nlmsghdr *n, struct rtnexthop *rtnh)
 {
 	rtnh->rtnh_len = (uint8_t *)NLMSG_TAIL(n) - (uint8_t *)rtnh;
-}
-
-bool nl_rta_put(struct rtattr *rta, unsigned int maxlen, int type,
-		const void *data, int alen)
-{
-	struct rtattr *subrta;
-	int len = RTA_LENGTH(alen);
-
-	if (RTA_ALIGN(rta->rta_len) + RTA_ALIGN(len) > maxlen) {
-		zlog_err("ERROR max allowed bound %d exceeded for rtattr",
-			 maxlen);
-		return false;
-	}
-	subrta = (struct rtattr *)(((char *)rta) + RTA_ALIGN(rta->rta_len));
-	subrta->rta_type = type;
-	subrta->rta_len = len;
-	if (alen)
-		memcpy(RTA_DATA(subrta), data, alen);
-	rta->rta_len = NLMSG_ALIGN(rta->rta_len) + RTA_ALIGN(len);
-
-	return true;
-}
-
-bool nl_rta_put16(struct rtattr *rta, unsigned int maxlen, int type,
-		  uint16_t data)
-{
-	return nl_rta_put(rta, maxlen, type, &data, sizeof(uint16_t));
-}
-
-bool nl_rta_put64(struct rtattr *rta, unsigned int maxlen, int type,
-		  uint64_t data)
-{
-	return nl_rta_put(rta, maxlen, type, &data, sizeof(uint64_t));
-}
-
-struct rtattr *nl_rta_nest(struct rtattr *rta, unsigned int maxlen, int type)
-{
-	struct rtattr *nest = RTA_TAIL(rta);
-
-	if (nl_rta_put(rta, maxlen, type, NULL, 0))
-		return NULL;
-
-	nest->rta_type |= NLA_F_NESTED;
-
-	return nest;
-}
-
-int nl_rta_nest_end(struct rtattr *rta, struct rtattr *nest)
-{
-	nest->rta_len = (uint8_t *)RTA_TAIL(rta) - (uint8_t *)nest;
-
-	return rta->rta_len;
 }
 
 const char *nl_msg_type_to_str(uint16_t msg_type)
@@ -1169,7 +1118,6 @@ int netlink_parse_info(int (*filter)(struct nlmsghdr *, ns_id_t, int),
 					h->nlmsg_type, h->nlmsg_len,
 					h->nlmsg_seq, h->nlmsg_pid);
 
-
 			/*
 			 * Ignore messages that maybe sent from
 			 * other actors besides the kernel
@@ -1289,17 +1237,14 @@ int netlink_request(struct nlsock *nl, void *req)
 	return 0;
 }
 
-static int nl_batch_read_resp(struct nl_batch *bth)
+static int nl_batch_read_resp(struct nl_batch *bth, struct nlsock *nl)
 {
 	struct nlmsghdr *h;
 	struct sockaddr_nl snl;
 	struct msghdr msg = {};
 	int status, seq;
-	struct nlsock *nl;
 	struct zebra_dplane_ctx *ctx;
 	bool ignore_msg;
-
-	nl = kernel_netlink_nlsock_lookup(bth->zns->sock);
 
 	msg.msg_name = (void *)&snl;
 	msg.msg_namelen = sizeof(snl);
@@ -1493,7 +1438,7 @@ static void nl_batch_send(struct nl_batch *bth)
 			err = true;
 
 		if (!err) {
-			if (nl_batch_read_resp(bth) == -1)
+			if (nl_batch_read_resp(bth, nl) == -1)
 				err = true;
 		}
 	}
@@ -1631,6 +1576,7 @@ static enum netlink_msg_status nl_put_msg(struct nl_batch *bth,
 	case DPLANE_OP_IPSET_DELETE:
 	case DPLANE_OP_IPSET_ENTRY_ADD:
 	case DPLANE_OP_IPSET_ENTRY_DELETE:
+	case DPLANE_OP_STARTUP_STAGE:
 		return FRR_NETLINK_ERROR;
 
 	case DPLANE_OP_GRE_SET:
@@ -1777,17 +1723,11 @@ void kernel_init(struct zebra_ns *zns)
 	 * groups are added further below after SOL_NETLINK is verified to
 	 * exist.
 	 */
-	groups = RTMGRP_LINK                   |
-			RTMGRP_IPV4_ROUTE              |
-			RTMGRP_IPV4_IFADDR             |
-			RTMGRP_IPV6_ROUTE              |
-			RTMGRP_IPV6_IFADDR             |
-			RTMGRP_IPV4_MROUTE             |
-			RTMGRP_NEIGH                   |
-			((uint32_t) 1 << (RTNLGRP_IPV4_RULE - 1)) |
-			((uint32_t) 1 << (RTNLGRP_IPV6_RULE - 1)) |
-			((uint32_t) 1 << (RTNLGRP_NEXTHOP - 1))   |
-			((uint32_t) 1 << (RTNLGRP_TC - 1));
+	groups = RTMGRP_IPV4_ROUTE | RTMGRP_IPV6_ROUTE | RTMGRP_IPV4_MROUTE |
+		 RTMGRP_NEIGH | ((uint32_t)1 << (RTNLGRP_IPV4_RULE - 1)) |
+		 ((uint32_t)1 << (RTNLGRP_IPV6_RULE - 1)) |
+		 ((uint32_t)1 << (RTNLGRP_NEXTHOP - 1)) |
+		 ((uint32_t)1 << (RTNLGRP_TC - 1));
 
 	dplane_groups = (RTMGRP_LINK            |
 			 RTMGRP_IPV4_IFADDR     |

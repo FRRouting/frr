@@ -17,6 +17,8 @@ struct bgp;
 #define BGP_AF_MODIFIER_STR "Address Family modifier\n"
 #define BGP_AFI_CMD_STR         "<ipv4|ipv6>"
 #define BGP_AFI_HELP_STR BGP_AF_STR BGP_AF_STR
+#define BGP_AFI_WITH_LS_CMD_STR "<ipv4|ipv6|link-state>"
+#define BGP_AFI_WITH_LS_HELP_STR BGP_AF_STR BGP_AF_STR BGP_AF_STR
 #define BGP_SAFI_CMD_STR        "<unicast|multicast|vpn>"
 #define BGP_SAFI_HELP_STR                                                      \
 	BGP_AF_MODIFIER_STR BGP_AF_MODIFIER_STR BGP_AF_MODIFIER_STR
@@ -27,6 +29,12 @@ struct bgp;
 #define BGP_SAFI_WITH_LABEL_HELP_STR                                           \
 	BGP_AF_MODIFIER_STR BGP_AF_MODIFIER_STR BGP_AF_MODIFIER_STR            \
 		BGP_AF_MODIFIER_STR BGP_AF_MODIFIER_STR
+
+#define BGP_SAFI_WITH_LABEL_LS_CMD_STR                                         \
+	"<unicast|multicast|vpn|labeled-unicast|flowspec|link-state>"
+#define BGP_SAFI_WITH_LABEL_LS_HELP_STR                                        \
+	BGP_AF_MODIFIER_STR BGP_AF_MODIFIER_STR BGP_AF_MODIFIER_STR            \
+		BGP_AF_MODIFIER_STR BGP_AF_MODIFIER_STR BGP_AF_MODIFIER_STR
 
 #define BGP_SELF_ORIG_CMD_STR       "self-originate"
 #define BGP_SELF_ORIG_HELP_STR      "Display only self-originated routes\n"
@@ -145,7 +153,7 @@ extern void bgp_config_write_wpkt_quanta(struct vty *vty, struct bgp *bgp);
 extern void bgp_config_write_rpkt_quanta(struct vty *vty, struct bgp *bgp);
 extern void bgp_config_write_listen(struct vty *vty, struct bgp *bgp);
 extern void bgp_config_write_coalesce_time(struct vty *vty, struct bgp *bgp);
-extern int bgp_vty_return(struct vty *vty, int ret);
+extern int bgp_vty_return(struct vty *vty, enum bgp_create_error_code ret);
 extern bool bgp_config_inprocess(void);
 extern struct peer *peer_and_group_lookup_vty(struct vty *vty,
 					      const char *peer_str);

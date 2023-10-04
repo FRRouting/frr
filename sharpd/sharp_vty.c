@@ -179,7 +179,7 @@ DEFPY (install_routes,
 	  <nexthop <A.B.C.D$nexthop4|X:X::X:X$nexthop6>|\
 	   nexthop-group NHGNAME$nexthop_group>\
 	  [backup$backup <A.B.C.D$backup_nexthop4|X:X::X:X$backup_nexthop6>] \
-	  (1-1000000)$routes [instance (0-255)$instance] [repeat (2-1000)$rpt] [opaque WORD]",
+	  (1-1000000)$routes [instance (0-255)$instance] [repeat (2-1000)$rpt] [opaque WORD] [no-recurse$norecurse]",
        "Sharp routing Protocol\n"
        "install some routes\n"
        "Routes to install\n"
@@ -201,7 +201,8 @@ DEFPY (install_routes,
        "Should we repeat this command\n"
        "How many times to repeat this command\n"
        "What opaque data to send down\n"
-       "The opaque data\n")
+       "The opaque data\n"
+       "No recursive nexthops\n")
 {
 	struct vrf *vrf;
 	struct prefix prefix;
@@ -210,6 +211,7 @@ DEFPY (install_routes,
 
 	sg.r.total_routes = routes;
 	sg.r.installed_routes = 0;
+	sg.r.flags = 0;
 
 	if (rpt >= 2)
 		sg.r.repeat = rpt * 2;
@@ -317,12 +319,16 @@ DEFPY (install_routes,
 	else
 		sg.r.opaque[0] = '\0';
 
+	/* Default is to ask for recursive nexthop resolution */
+	if (norecurse == NULL)
+		SET_FLAG(sg.r.flags, ZEBRA_FLAG_ALLOW_RECURSION);
+
 	sg.r.inst = instance;
 	sg.r.vrf_id = vrf->vrf_id;
 	rts = routes;
 	sharp_install_routes_helper(&prefix, sg.r.vrf_id, sg.r.inst, nhgid,
 				    &sg.r.nhop_group, &sg.r.backup_nhop_group,
-				    rts, 0, sg.r.opaque);
+				    rts, sg.r.flags, sg.r.opaque);
 
 	return CMD_SUCCESS;
 }
@@ -396,7 +402,7 @@ DEFPY (install_seg6_routes,
 	sg.r.nhop.gate.ipv6 = seg6_nh6;
 	sg.r.nhop.vrf_id = vrf->vrf_id;
 	sg.r.nhop_group.nexthop = &sg.r.nhop;
-	nexthop_add_srv6_seg6(&sg.r.nhop, &seg6_seg);
+	nexthop_add_srv6_seg6(&sg.r.nhop, &seg6_seg, 1);
 
 	sg.r.vrf_id = vrf->vrf_id;
 	sharp_install_routes_helper(&prefix, sg.r.vrf_id, sg.r.inst, 0,
@@ -865,6 +871,24 @@ DEFPY (send_opaque_reg,
 	return CMD_SUCCESS;
 }
 
+/* Opaque notifications - register or unregister */
+DEFPY (send_opaque_notif_reg,
+       send_opaque_notif_reg_cmd,
+       "sharp send opaque notify <reg$reg | unreg> type (1-1000)",
+       SHARP_STR
+       "Send messages for testing\n"
+       "Send opaque messages\n"
+       "Opaque notification messages\n"
+       "Send notify registration\n"
+       "Send notify unregistration\n"
+       "Opaque sub-type code\n"
+       "Opaque sub-type code\n")
+{
+	sharp_zebra_opaque_notif_reg((reg != NULL), type);
+
+	return CMD_SUCCESS;
+}
+
 DEFPY (neigh_discover,
        neigh_discover_cmd,
        "sharp neigh discover [vrf NAME$vrf_name] <A.B.C.D$dst4|X:X::X:X$dst6> IFNAME$ifname",
@@ -924,7 +948,7 @@ DEFPY (import_te,
 
 static void sharp_srv6_locator_chunk_free(struct prefix_ipv6 *chunk)
 {
-	prefix_ipv6_free((struct prefix_ipv6 **)&chunk);
+	prefix_ipv6_free(&chunk);
 }
 
 DEFPY (sharp_srv6_manager_get_locator_chunk,
@@ -1406,6 +1430,7 @@ void sharp_vty_init(void)
 	install_element(ENABLE_NODE, &send_opaque_cmd);
 	install_element(ENABLE_NODE, &send_opaque_unicast_cmd);
 	install_element(ENABLE_NODE, &send_opaque_reg_cmd);
+	install_element(ENABLE_NODE, &send_opaque_notif_reg_cmd);
 	install_element(ENABLE_NODE, &neigh_discover_cmd);
 	install_element(ENABLE_NODE, &import_te_cmd);
 

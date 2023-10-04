@@ -51,15 +51,15 @@ get_route_parent_evpn(struct bgp_path_info *ri)
 	struct bgp_path_info *parent_ri;
 
 	/* If not imported (or doesn't have a parent), bail. */
-	if (ri->sub_type != BGP_ROUTE_IMPORTED ||
-	    !ri->extra ||
-	    !ri->extra->parent)
+	if (ri->sub_type != BGP_ROUTE_IMPORTED || !ri->extra ||
+	    !ri->extra->vrfleak || !ri->extra->vrfleak->parent)
 		return NULL;
 
 	/* Determine parent recursively */
-	for (parent_ri = ri->extra->parent;
-	     parent_ri->extra && parent_ri->extra->parent;
-	     parent_ri = parent_ri->extra->parent)
+	for (parent_ri = ri->extra->vrfleak->parent;
+	     parent_ri->extra && parent_ri->extra->vrfleak &&
+	     parent_ri->extra->vrfleak->parent;
+	     parent_ri = parent_ri->extra->vrfleak->parent)
 		;
 
 	return parent_ri;
@@ -103,12 +103,11 @@ static inline bool is_route_injectable_into_evpn(struct bgp_path_info *pi)
 	struct bgp_table *table;
 	struct bgp_dest *dest;
 
-	if (pi->sub_type != BGP_ROUTE_IMPORTED ||
-	    !pi->extra ||
-	    !pi->extra->parent)
+	if (pi->sub_type != BGP_ROUTE_IMPORTED || !pi->extra ||
+	    !pi->extra->vrfleak || !pi->extra->vrfleak->parent)
 		return true;
 
-	parent_pi = (struct bgp_path_info *)pi->extra->parent;
+	parent_pi = (struct bgp_path_info *)pi->extra->vrfleak->parent;
 	dest = parent_pi->net;
 	if (!dest)
 		return true;
@@ -157,7 +156,16 @@ extern int bgp_evpn_import_route(struct bgp *bgp, afi_t afi, safi_t safi,
 extern int bgp_evpn_unimport_route(struct bgp *bgp, afi_t afi, safi_t safi,
 				   const struct prefix *p,
 				   struct bgp_path_info *ri);
-extern int bgp_filter_evpn_routes_upon_martian_nh_change(struct bgp *bgp);
+extern void
+bgp_reimport_evpn_routes_upon_macvrf_soo_change(struct bgp *bgp,
+						struct ecommunity *old_soo,
+						struct ecommunity *new_soo);
+extern void bgp_reimport_evpn_routes_upon_martian_change(
+	struct bgp *bgp, enum bgp_martian_type martian_type, void *old_martian,
+	void *new_martian);
+extern void
+bgp_filter_evpn_routes_upon_martian_change(struct bgp *bgp,
+					   enum bgp_martian_type martian_type);
 extern int bgp_evpn_local_macip_del(struct bgp *bgp, vni_t vni,
 				    struct ethaddr *mac, struct ipaddr *ip,
 					int state);

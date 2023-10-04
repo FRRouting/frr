@@ -63,8 +63,7 @@ void table_manager_enable(struct zebra_vrf *zvrf)
 	    && strcmp(zvrf_name(zvrf), VRF_DEFAULT_NAME)) {
 		struct zebra_vrf *def = zebra_vrf_lookup_by_id(VRF_DEFAULT);
 
-		if (def)
-			zvrf->tbl_mgr = def->tbl_mgr;
+		zvrf->tbl_mgr = def->tbl_mgr;
 		return;
 	}
 	zvrf->tbl_mgr = XCALLOC(MTYPE_TM_TABLE, sizeof(struct table_manager));

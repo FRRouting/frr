@@ -847,7 +847,7 @@ static void parse_test(struct peer *peer, struct test_segment *t, int type)
 		ret = bgp_open_option_parse(peer, len, &capability);
 		break;
 	case DYNCAP:
-		ret = bgp_capability_receive(peer, t->len);
+		ret = bgp_capability_receive(peer->connection, peer, t->len);
 		break;
 	default:
 		printf("unknown type %u\n", type);
@@ -972,7 +972,8 @@ int main(void)
 		parse_test(peer, &opt_params[i++], OPT_PARAM);
 
 	SET_FLAG(peer->cap, PEER_CAP_DYNAMIC_ADV);
-	peer->status = Established;
+	peer->connection = bgp_peer_connection_new(peer);
+	peer->connection->status = Established;
 
 	i = 0;
 	while (dynamic_cap_msgs[i].name)

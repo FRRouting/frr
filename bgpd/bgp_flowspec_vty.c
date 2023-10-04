@@ -355,7 +355,8 @@ void route_vty_out_flowspec(struct vty *vty, const struct prefix *p,
 			bgp_path_info_extra_get(path);
 		bool list_began = false;
 
-		if (extra->bgp_fs_pbr && listcount(extra->bgp_fs_pbr)) {
+		if (extra->flowspec && extra->flowspec->bgp_fs_pbr &&
+		    listcount(extra->flowspec->bgp_fs_pbr)) {
 			struct listnode *node;
 			struct bgp_pbr_match_entry *bpme;
 			struct bgp_pbr_match *bpm;
@@ -363,8 +364,8 @@ void route_vty_out_flowspec(struct vty *vty, const struct prefix *p,
 
 			list_bpm = list_new();
 			vty_out(vty, "\tinstalled in PBR");
-			for (ALL_LIST_ELEMENTS_RO(extra->bgp_fs_pbr,
-						  node, bpme)) {
+			for (ALL_LIST_ELEMENTS_RO(extra->flowspec->bgp_fs_pbr, node,
+						  bpme)) {
 				bpm = bpme->backpointer;
 				if (listnode_lookup(list_bpm, bpm))
 					continue;
@@ -378,13 +379,14 @@ void route_vty_out_flowspec(struct vty *vty, const struct prefix *p,
 			}
 			list_delete(&list_bpm);
 		}
-		if (extra->bgp_fs_iprule && listcount(extra->bgp_fs_iprule)) {
+		if (extra->flowspec && extra->flowspec->bgp_fs_iprule &&
+		    listcount(extra->flowspec->bgp_fs_iprule)) {
 			struct listnode *node;
 			struct bgp_pbr_rule *bpr;
 
 			if (!list_began)
 				vty_out(vty, "\tinstalled in PBR");
-			for (ALL_LIST_ELEMENTS_RO(extra->bgp_fs_iprule,
+			for (ALL_LIST_ELEMENTS_RO(extra->flowspec->bgp_fs_iprule,
 						  node, bpr)) {
 				if (!bpr->action)
 					continue;

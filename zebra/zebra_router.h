@@ -207,6 +207,7 @@ struct zebra_router {
 	 */
 	bool asic_offloaded;
 	bool notify_on_ack;
+	bool v6_with_v4_nexthop;
 
 	/*
 	 * If the asic is notifying us about successful nexthop
@@ -228,6 +229,8 @@ struct zebra_router {
 
 	/* Should we allow non FRR processes to delete our routes */
 	bool allow_delete;
+
+	uint8_t protodown_r_bit;
 };
 
 #define GRACEFUL_RESTART_TIME 60
@@ -235,7 +238,8 @@ struct zebra_router {
 extern struct zebra_router zrouter;
 extern uint32_t rcvbufsize;
 
-extern void zebra_router_init(bool asic_offload, bool notify_on_ack);
+extern void zebra_router_init(bool asic_offload, bool notify_on_ack,
+			      bool v6_with_v4_nexthop);
 extern void zebra_router_cleanup(void);
 extern void zebra_router_terminate(void);
 
@@ -284,6 +288,32 @@ static inline void zebra_router_set_supports_nhgs(bool support)
 static inline bool zebra_router_in_shutdown(void)
 {
 	return atomic_load_explicit(&zrouter.in_shutdown, memory_order_relaxed);
+}
+
+#define FRR_PROTODOWN_REASON_DEFAULT_BIT 7
+/* Protodown bit setter/getter
+ *
+ * Allow users to change the bit if it conflicts with another
+ * on their system.
+ */
+static inline void if_netlink_set_frr_protodown_r_bit(uint8_t bit)
+{
+	zrouter.protodown_r_bit = bit;
+}
+
+static inline void if_netlink_unset_frr_protodown_r_bit(void)
+{
+	zrouter.protodown_r_bit = FRR_PROTODOWN_REASON_DEFAULT_BIT;
+}
+
+static inline bool if_netlink_frr_protodown_r_bit_is_set(void)
+{
+	return (zrouter.protodown_r_bit != FRR_PROTODOWN_REASON_DEFAULT_BIT);
+}
+
+static inline uint8_t if_netlink_get_frr_protodown_r_bit(void)
+{
+	return zrouter.protodown_r_bit;
 }
 
 /* zebra_northbound.c */

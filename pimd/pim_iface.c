@@ -40,9 +40,8 @@
 
 #include "pim6_mld.h"
 
-#if PIM_IPV == 4
-static void pim_if_igmp_join_del_all(struct interface *ifp);
-#endif
+static void pim_if_gm_join_del_all(struct interface *ifp);
+
 static int gm_join_sock(const char *ifname, ifindex_t ifindex,
 			pim_addr group_addr, pim_addr source_addr,
 			struct pim_interface *pim_ifp);
@@ -189,11 +188,9 @@ void pim_if_delete(struct interface *ifp)
 	assert(pim_ifp);
 
 	pim_ifp->pim->mcast_if_count--;
-#if PIM_IPV == 4
 	if (pim_ifp->gm_join_list) {
-		pim_if_igmp_join_del_all(ifp);
+		pim_if_gm_join_del_all(ifp);
 	}
-#endif
 
 	pim_ifchannel_delete_all(ifp);
 #if PIM_IPV == 4
@@ -893,6 +890,7 @@ pim_addr pim_find_primary_addr(struct interface *ifp)
 #else
 	int v4_addrs = 0;
 	int v6_addrs = 0;
+	struct connected *promote_ifc = NULL;
 
 	for (ALL_LIST_ELEMENTS_RO(ifp->connected, node, ifc)) {
 		switch (ifc->address->family) {
@@ -906,13 +904,22 @@ pim_addr pim_find_primary_addr(struct interface *ifp)
 			continue;
 		}
 
-		if (CHECK_FLAG(ifc->flags, ZEBRA_IFA_SECONDARY))
-			continue;
-
 		if (ifc->address->family != PIM_AF)
 			continue;
 
+		if (CHECK_FLAG(ifc->flags, ZEBRA_IFA_SECONDARY)) {
+			promote_ifc = ifc;
+			continue;
+		}
+
 		return pim_addr_from_prefix(ifc->address);
+	}
+
+
+	/* Promote the new primary address. */
+	if (v4_addrs && promote_ifc) {
+		UNSET_FLAG(promote_ifc->flags, ZEBRA_IFA_SECONDARY);
+		return pim_addr_from_prefix(promote_ifc->address);
 	}
 
 	/*
@@ -1380,9 +1387,8 @@ int pim_if_gm_join_del(struct interface *ifp, pim_addr group_addr,
 	return 0;
 }
 
-#if PIM_IPV == 4
 __attribute__((unused))
-static void pim_if_igmp_join_del_all(struct interface *ifp)
+static void pim_if_gm_join_del_all(struct interface *ifp)
 {
 	struct pim_interface *pim_ifp;
 	struct listnode *node;
@@ -1402,7 +1408,6 @@ static void pim_if_igmp_join_del_all(struct interface *ifp)
 	for (ALL_LIST_ELEMENTS(pim_ifp->gm_join_list, node, nextnode, ij))
 		pim_if_gm_join_del(ifp, ij->group_addr, ij->source_addr);
 }
-#endif /* PIM_IPV == 4 */
 
 /*
   RFC 4601
@@ -1761,4 +1766,62 @@ void pim_iface_init(void)
 
 	if_zapi_callbacks(pim_ifp_create, pim_ifp_up, pim_ifp_down,
 			  pim_ifp_destroy);
+}
+
+static void pim_if_membership_clear(struct interface *ifp)
+{
+	struct pim_interface *pim_ifp;
+
+	pim_ifp = ifp->info;
+	assert(pim_ifp);
+
+	if (pim_ifp->pim_enable && pim_ifp->gm_enable)
+		return;
+
+	pim_ifchannel_membership_clear(ifp);
+}
+
+void pim_pim_interface_delete(struct interface *ifp)
+{
+	struct pim_interface *pim_ifp = ifp->info;
+
+	if (!pim_ifp)
+		return;
+
+	pim_ifp->pim_enable = false;
+
+	pim_if_membership_clear(ifp);
+
+	/*
+	 * pim_sock_delete() removes all neighbors from
+	 * pim_ifp->pim_neighbor_list.
+	 */
+	pim_sock_delete(ifp, "pim unconfigured on interface");
+	pim_upstream_nh_if_update(pim_ifp->pim, ifp);
+
+	if (!pim_ifp->gm_enable) {
+		pim_if_addr_del_all(ifp);
+		pim_if_delete(ifp);
+	}
+}
+
+void pim_gm_interface_delete(struct interface *ifp)
+{
+	struct pim_interface *pim_ifp = ifp->info;
+
+	if (!pim_ifp)
+		return;
+
+	pim_ifp->gm_enable = false;
+
+	pim_if_membership_clear(ifp);
+
+#if PIM_IPV == 4
+	igmp_sock_delete_all(ifp);
+#else
+	gm_ifp_teardown(ifp);
+#endif
+
+	if (!pim_ifp->pim_enable)
+		pim_if_delete(ifp);
 }

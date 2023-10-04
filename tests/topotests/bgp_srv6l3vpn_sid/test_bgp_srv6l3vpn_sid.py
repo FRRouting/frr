@@ -35,10 +35,11 @@ from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
 from lib.common_config import required_linux_kernel_version
+from lib.checkping import check_ping
 
 
 def build_topo(tgen):
-    """
+    r"""
      CE1     CE3      CE5
     (eth0)  (eth0)   (eth0)
       :2      :2      :2
@@ -167,22 +168,6 @@ def open_json_file(filename):
         assert False, "Could not read file {}".format(filename)
 
 
-def check_ping(name, dest_addr, expect_connected):
-    def _check(name, dest_addr, match):
-        tgen = get_topogen()
-        output = tgen.gears[name].run("ping {} -c 1 -w 1".format(dest_addr))
-        logger.info(output)
-        if match not in output:
-            return True
-
-    match = ", {} packet loss".format("0%" if expect_connected else "100%")
-    logger.info("[+] check {} {} {}".format(name, dest_addr, match))
-    tgen = get_topogen()
-    func = functools.partial(_check, name, dest_addr, match)
-    success, result = topotest.run_and_expect(func, None, count=10, wait=0.5)
-    assert result is None, "Failed"
-
-
 def check_rib(name, cmd, expected_file):
     def _check(name, cmd, expected_file):
         logger.info("polling")
@@ -215,21 +200,21 @@ def test_rib():
 
 
 def test_ping():
-    check_ping("ce1", "2001:2::2", True)
-    check_ping("ce1", "2001:3::2", True)
-    check_ping("ce1", "2001:4::2", False)
-    check_ping("ce1", "2001:5::2", False)
-    check_ping("ce1", "2001:6::2", False)
-    check_ping("ce4", "2001:1::2", False)
-    check_ping("ce4", "2001:2::2", False)
-    check_ping("ce4", "2001:3::2", False)
-    check_ping("ce4", "2001:5::2", True)
-    check_ping("ce4", "2001:6::2", True)
+    check_ping("ce1", "2001:2::2", True, 10, 0.5)
+    check_ping("ce1", "2001:3::2", True, 10, 0.5)
+    check_ping("ce1", "2001:4::2", False, 10, 0.5)
+    check_ping("ce1", "2001:5::2", False, 10, 0.5)
+    check_ping("ce1", "2001:6::2", False, 10, 0.5)
+    check_ping("ce4", "2001:1::2", False, 10, 0.5)
+    check_ping("ce4", "2001:2::2", False, 10, 0.5)
+    check_ping("ce4", "2001:3::2", False, 10, 0.5)
+    check_ping("ce4", "2001:5::2", True, 10, 0.5)
+    check_ping("ce4", "2001:6::2", True, 10, 0.5)
 
 
 def test_sid_per_afv6_auto():
     check_rib("r1", "show ipv6 route vrf vrf10 json", "r1/vrf10_afv6_auto_sid_rib.json")
-    check_ping("ce1", "2001:2::2", True)
+    check_ping("ce1", "2001:2::2", True, 10, 0.5)
     get_topogen().gears["r2"].vtysh_cmd(
         """
         configure terminal
@@ -241,7 +226,7 @@ def test_sid_per_afv6_auto():
     check_rib(
         "r1", "show ipv6 route vrf vrf10 json", "r1/vrf10_afv6_auto_no_sid_rib.json"
     )
-    check_ping("ce1", "2001:2::2", False)
+    check_ping("ce1", "2001:2::2", False, 10, 0.5)
 
     get_topogen().gears["r2"].vtysh_cmd(
         """
@@ -252,7 +237,7 @@ def test_sid_per_afv6_auto():
         """
     )
     check_rib("r1", "show ipv6 route vrf vrf10 json", "r1/vrf10_afv6_auto_sid_rib.json")
-    check_ping("ce1", "2001:2::2", True)
+    check_ping("ce1", "2001:2::2", True, 10, 0.5)
 
     get_topogen().gears["r2"].vtysh_cmd(
         """
@@ -265,14 +250,14 @@ def test_sid_per_afv6_auto():
     check_rib(
         "r1", "show ipv6 route vrf vrf10 json", "r1/vrf10_afv6_auto_no_sid_rib.json"
     )
-    check_ping("ce1", "2001:2::2", False)
+    check_ping("ce1", "2001:2::2", False, 10, 0.5)
 
 
 def test_sid_per_afv6_manual():
     check_rib(
         "r1", "show ipv6 route vrf vrf10 json", "r1/vrf10_afv6_manual_no_sid_rib.json"
     )
-    check_ping("ce1", "2001:2::2", False)
+    check_ping("ce1", "2001:2::2", False, 10, 0.5)
 
     get_topogen().gears["r2"].vtysh_cmd(
         """
@@ -286,7 +271,7 @@ def test_sid_per_afv6_manual():
     check_rib(
         "r1", "show ipv6 route vrf vrf10 json", "r1/vrf10_afv6_manual_sid_rib.json"
     )
-    check_ping("ce1", "2001:2::2", True)
+    check_ping("ce1", "2001:2::2", True, 10, 0.5)
 
     get_topogen().gears["r2"].vtysh_cmd(
         """
@@ -299,12 +284,12 @@ def test_sid_per_afv6_manual():
     check_rib(
         "r1", "show ipv6 route vrf vrf10 json", "r1/vrf10_afv6_manual_no_sid_rib.json"
     )
-    check_ping("ce1", "2001:2::2", False)
+    check_ping("ce1", "2001:2::2", False, 10, 0.5)
 
 
 def test_sid_per_afv4_auto():
     check_rib("r1", "show ip route vrf vrf10 json", "r1/vrf10_afv4_auto_sid_rib.json")
-    check_ping("ce1", "192.168.2.2", True)
+    check_ping("ce1", "192.168.2.2", True, 10, 0.5)
     get_topogen().gears["r2"].vtysh_cmd(
         """
         configure terminal
@@ -317,7 +302,7 @@ def test_sid_per_afv4_auto():
     check_rib(
         "r1", "show ip route vrf vrf10 json", "r1/vrf10_afv4_auto_no_sid_rib.json"
     )
-    check_ping("ce1", "192.168.2.2", False)
+    check_ping("ce1", "192.168.2.2", False, 10, 0.5)
 
     get_topogen().gears["r2"].vtysh_cmd(
         """
@@ -329,7 +314,7 @@ def test_sid_per_afv4_auto():
     )
 
     check_rib("r1", "show ip route vrf vrf10 json", "r1/vrf10_afv4_auto_sid_rib.json")
-    check_ping("ce1", "192.168.2.2", True)
+    check_ping("ce1", "192.168.2.2", True, 10, 0.5)
 
     get_topogen().gears["r2"].vtysh_cmd(
         """
@@ -342,14 +327,14 @@ def test_sid_per_afv4_auto():
     check_rib(
         "r1", "show ip route vrf vrf10 json", "r1/vrf10_afv4_auto_no_sid_rib.json"
     )
-    check_ping("ce1", "192.168.2.2", False)
+    check_ping("ce1", "192.168.2.2", False, 10, 0.5)
 
 
 def test_sid_per_afv4_manual():
     check_rib(
         "r1", "show ip route vrf vrf10 json", "r1/vrf10_afv4_manual_no_sid_rib.json"
     )
-    check_ping("ce1", "192.168.2.2", False)
+    check_ping("ce1", "192.168.2.2", False, 10, 0.5)
     get_topogen().gears["r2"].vtysh_cmd(
         """
         configure terminal
@@ -360,7 +345,7 @@ def test_sid_per_afv4_manual():
     )
 
     check_rib("r1", "show ip route vrf vrf10 json", "r1/vrf10_afv4_manual_sid_rib.json")
-    check_ping("ce1", "192.168.2.2", True)
+    check_ping("ce1", "192.168.2.2", True, 10, 0.5)
 
     get_topogen().gears["r2"].vtysh_cmd(
         """
@@ -370,7 +355,7 @@ def test_sid_per_afv4_manual():
            no sid vpn export 8
         """
     )
-    check_ping("ce1", "192.168.2.2", False)
+    check_ping("ce1", "192.168.2.2", False, 10, 0.5)
     check_rib(
         "r1", "show ip route vrf vrf10 json", "r1/vrf10_afv4_manual_no_sid_rib.json"
     )
@@ -380,7 +365,7 @@ def test_sid_per_vrf_auto():
     check_rib(
         "r1", "show ipv6 route vrf vrf10 json", "r1/vrf10_pervrf_auto_no_sid_rib.json"
     )
-    check_ping("ce1", "2001:2::2", False)
+    check_ping("ce1", "2001:2::2", False, 10, 0.5)
     get_topogen().gears["r2"].vtysh_cmd(
         """
         configure terminal
@@ -392,11 +377,11 @@ def test_sid_per_vrf_auto():
     check_rib(
         "r1", "show ipv6 route vrf vrf10 json", "r1/vrf10_pervrf6_auto_sid_rib.json"
     )
-    check_ping("ce1", "2001:2::2", True)
+    check_ping("ce1", "2001:2::2", True, 10, 0.5)
     check_rib(
         "r1", "show ip route vrf vrf10 json", "r1/vrf10_pervrf4_auto_sid_rib.json"
     )
-    check_ping("ce1", "192.168.2.2", True)
+    check_ping("ce1", "192.168.2.2", True, 10, 0.5)
 
     get_topogen().gears["r2"].vtysh_cmd(
         """
@@ -409,14 +394,14 @@ def test_sid_per_vrf_auto():
     check_rib(
         "r1", "show ipv6 route vrf vrf10 json", "r1/vrf10_pervrf_auto_no_sid_rib.json"
     )
-    check_ping("ce1", "2001:2::2", False)
+    check_ping("ce1", "2001:2::2", False, 10, 0.5)
 
 
 def test_sid_per_vrf_manual():
     check_rib(
         "r1", "show ip route vrf vrf10 json", "r1/vrf10_pervrf_manual_no_sid_rib.json"
     )
-    check_ping("ce1", "192.168.2.2", False)
+    check_ping("ce1", "192.168.2.2", False, 10, 0.5)
     get_topogen().gears["r2"].vtysh_cmd(
         """
         configure terminal
@@ -428,11 +413,11 @@ def test_sid_per_vrf_manual():
     check_rib(
         "r1", "show ipv6 route vrf vrf10 json", "r1/vrf10_pervrf6_manual_sid_rib.json"
     )
-    check_ping("ce1", "2001:2::2", True)
+    check_ping("ce1", "2001:2::2", True, 10, 0.5)
     check_rib(
         "r1", "show ip route vrf vrf10 json", "r1/vrf10_pervrf4_manual_sid_rib.json"
     )
-    check_ping("ce1", "192.168.2.2", True)
+    check_ping("ce1", "192.168.2.2", True, 10, 0.5)
 
     get_topogen().gears["r2"].vtysh_cmd(
         """
@@ -445,7 +430,7 @@ def test_sid_per_vrf_manual():
     check_rib(
         "r1", "show ip route vrf vrf10 json", "r1/vrf10_pervrf_manual_no_sid_rib.json"
     )
-    check_ping("ce1", "192.168.2.2", False)
+    check_ping("ce1", "192.168.2.2", False, 10, 0.5)
 
 
 if __name__ == "__main__":

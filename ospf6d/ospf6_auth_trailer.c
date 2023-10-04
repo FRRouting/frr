@@ -604,20 +604,19 @@ void ospf6_auth_digest_send(struct in6_addr *src, struct ospf6_interface *oi,
 	else
 		return;
 
-	ospf6->seqnum_l++;
 	if (ospf6->seqnum_l == 0xFFFFFFFF) {
-		ospf6->seqnum_h++;
-		ospf6->seqnum_l = 0;
+		if (ospf6->seqnum_h == 0xFFFFFFFF) {
+			/* Key must be reset, which is not handled as of now. */
+			zlog_err("Sequence number wrapped; key must be reset.");
+			ospf6->seqnum_h = 0;
+		} else {
+			ospf6->seqnum_h++;
+		}
 		ospf6_auth_seqno_nvm_update(ospf6);
-	}
 
-	/* Key must be reset. which is not handled as of now. */
-	if ((ospf6->seqnum_l == 0xFFFFFFFF)
-	    && (ospf6->seqnum_h == 0xFFFFFFFF)) {
 		ospf6->seqnum_l = 0;
-		ospf6->seqnum_h = 0;
-		zlog_err(
-			"Both Higher and Lower sequence number has wrapped. Need to reset the key");
+	} else {
+		ospf6->seqnum_l++;
 	}
 
 	memset(apad, 0, sizeof(apad));
@@ -665,7 +664,7 @@ void ospf6_auth_update_digest(struct ospf6_interface *oi,
 			      struct ospf6_auth_hdr *ospf6_auth, char *auth_str,
 			      uint32_t pkt_len, enum keychain_hash_algo algo)
 {
-	static const uint16_t cpid = 1;
+	const uint16_t cpid = htons(OSPFV3_CRYPTO_PROTO_ID);
 	uint32_t hash_len = keychain_get_hash_len(algo);
 	uint32_t block_s = keychain_get_block_size(algo);
 	uint32_t k_len = strlen(auth_str);

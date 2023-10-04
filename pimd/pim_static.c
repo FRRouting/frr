@@ -44,7 +44,7 @@ static struct static_route *static_route_new(ifindex_t iif, ifindex_t oif,
 	s_route->c_oil.oil_ref_count = 1;
 	*oil_origin(&s_route->c_oil) = source;
 	*oil_mcastgrp(&s_route->c_oil) = group;
-	*oil_parent(&s_route->c_oil) = iif;
+	*oil_incoming_vif(&s_route->c_oil) = iif;
 	oil_if_set(&s_route->c_oil, oif, 1);
 	s_route->c_oil.oif_creation[oif] = pim_time_monotonic_sec();
 

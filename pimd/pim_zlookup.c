@@ -497,14 +497,14 @@ int pim_zlookup_sg_statistics(struct channel_oil *c_oil)
 	int ret;
 	pim_sgaddr more = {};
 	struct interface *ifp =
-		pim_if_find_by_vif_index(c_oil->pim, *oil_parent(c_oil));
+		pim_if_find_by_vif_index(c_oil->pim, *oil_incoming_vif(c_oil));
 
 	if (PIM_DEBUG_ZEBRA) {
 		more.src = *oil_origin(c_oil);
 		more.grp = *oil_mcastgrp(c_oil);
-		zlog_debug(
-			"Sending Request for New Channel Oil Information%pSG VIIF %d(%s)",
-			&more, *oil_parent(c_oil), c_oil->pim->vrf->name);
+		zlog_debug("Sending Request for New Channel Oil Information%pSG VIIF %d(%s:%s)",
+			   &more, *oil_incoming_vif(c_oil),
+			   ifp ? ifp->name : "Unknown", c_oil->pim->vrf->name);
 	}
 
 	if (!ifp)

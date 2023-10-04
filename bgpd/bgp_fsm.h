@@ -7,37 +7,38 @@
 #ifndef _QUAGGA_BGP_FSM_H
 #define _QUAGGA_BGP_FSM_H
 
+enum bgp_fsm_state_progress {
+	BGP_FSM_FAILURE_AND_DELETE = -2,
+	BGP_FSM_FAILURE = -1,
+	BGP_FSM_SUCCESS = 0,
+	BGP_FSM_SUCCESS_STATE_TRANSFER = 1,
+};
+
 /* Macro for BGP read, write and timer thread.  */
 #define BGP_TIMER_ON(T, F, V)                                                  \
 	do {                                                                   \
-		if ((peer->status != Deleted))                                 \
-			event_add_timer(bm->master, (F), peer, (V), &(T));     \
+		if ((connection->status != Deleted))                           \
+			event_add_timer(bm->master, (F), connection, (V),      \
+					&(T));                                 \
 	} while (0)
 
-#define BGP_EVENT_ADD(P, E)                                                    \
-	do {                                                                   \
-		if ((P)->status != Deleted)                                    \
-			event_add_event(bm->master, bgp_event, (P), (E),       \
-					NULL);                                 \
+#define BGP_EVENT_ADD(C, E)                                                     \
+	do {                                                                    \
+		if ((C)->status != Deleted)                                     \
+			event_add_event(bm->master, bgp_event, (C), (E), NULL); \
 	} while (0)
 
-#define BGP_EVENT_FLUSH(P)                                                     \
-	do {                                                                   \
-		assert(peer);                                                  \
-		event_cancel_event_ready(bm->master, (P));                     \
-	} while (0)
-
-#define BGP_UPDATE_GROUP_TIMER_ON(T, F)                                        \
-	do {                                                                   \
-		if (BGP_SUPPRESS_FIB_ENABLED(peer->bgp) &&                     \
-		    PEER_ROUTE_ADV_DELAY(peer))                                \
-			event_add_timer_msec(                                  \
-				bm->master, (F), peer,                         \
-				(BGP_DEFAULT_UPDATE_ADVERTISEMENT_TIME *       \
-				 1000),                                        \
-				(T));                                          \
-		else                                                           \
-			event_add_timer_msec(bm->master, (F), peer, 0, (T));   \
+#define BGP_UPDATE_GROUP_TIMER_ON(T, F)                                               \
+	do {                                                                          \
+		if (BGP_SUPPRESS_FIB_ENABLED(peer->bgp) &&                            \
+		    PEER_ROUTE_ADV_DELAY(peer))                                       \
+			event_add_timer_msec(bm->master, (F), connection,             \
+					     (BGP_DEFAULT_UPDATE_ADVERTISEMENT_TIME * \
+					      1000),                                  \
+					     (T));                                    \
+		else                                                                  \
+			event_add_timer_msec(bm->master, (F), connection, 0,          \
+					     (T));                                    \
 	} while (0)
 
 #define BGP_MSEC_JITTER 10
@@ -105,13 +106,15 @@
 /*
  * Update FSM for peer based on whether we have valid nexthops or not.
  */
-extern void bgp_fsm_nht_update(struct peer *peer, bool has_valid_nexthops);
+extern void bgp_fsm_nht_update(struct peer_connection *connection,
+			       struct peer *peer, bool has_valid_nexthops);
 extern void bgp_event(struct event *event);
-extern int bgp_event_update(struct peer *, enum bgp_fsm_events event);
-extern int bgp_stop(struct peer *peer);
-extern void bgp_timer_set(struct peer *);
+extern int bgp_event_update(struct peer_connection *connection,
+			    enum bgp_fsm_events event);
+extern enum bgp_fsm_state_progress bgp_stop(struct peer_connection *connection);
+extern void bgp_timer_set(struct peer_connection *connection);
 extern void bgp_routeadv_timer(struct event *event);
-extern void bgp_fsm_change_status(struct peer *peer,
+extern void bgp_fsm_change_status(struct peer_connection *connection,
 				  enum bgp_fsm_status status);
 extern const char *const peer_down_str[];
 extern void bgp_update_delay_end(struct bgp *);

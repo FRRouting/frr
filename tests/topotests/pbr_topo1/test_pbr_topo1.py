@@ -8,6 +8,8 @@
 # Cumulus Networks, Inc.
 # Donald Sharp
 #
+# Copyright (c) 2023 LabN Consulting, L.L.C.
+#
 
 """
 test_pbr_topo1.py: Testing PBR
@@ -19,6 +21,7 @@ import sys
 import pytest
 import json
 import platform
+import re
 from functools import partial
 
 # Save the Current Working Directory to find configuration files.
@@ -109,8 +112,29 @@ def test_converge_protocols():
     topotest.sleep(5, "Waiting for PBR convergence")
 
 
+#
+# router: r1
+# tag: "show pbr interface"
+# cmd: "show pbr interface json"
+# expfile: "{}/{}/pbr-interface.json".format(CWD, router.name)
+#
+def runit(router, tag, cmd, expfile):
+    logger.info(expfile)
+
+    # Read expected result from file
+    expected = json.loads(open(expfile).read())
+
+    # Actual output from router
+    test_func = partial(topotest.router_json_cmp, router, cmd, expected)
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    assertmsg = '"{}" mismatches on {}'.format(tag, router.name)
+    if result is not None:
+        gather_pbr_data_on_error(router)
+        assert result is None, assertmsg
+
+
 def test_pbr_data():
-    "Test PBR 'show ip eigrp'"
+    "Test PBR"
 
     tgen = get_topogen()
     # Don't run this test if we have any failure.
@@ -122,53 +146,188 @@ def test_pbr_data():
 
     router_list = tgen.routers().values()
     for router in router_list:
-        intf_file = "{}/{}/pbr-interface.json".format(CWD, router.name)
-        logger.info(intf_file)
-
-        # Read expected result from file
-        expected = json.loads(open(intf_file).read())
-
-        # Actual output from router
-        test_func = partial(
-            topotest.router_json_cmp, router, "show pbr interface json", expected
+        runit(
+            router,
+            "show pbr interface",
+            "show pbr interface json",
+            "{}/{}/pbr-interface.json".format(CWD, router.name),
         )
-        _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
-        assertmsg = '"show pbr interface" mismatches on {}'.format(router.name)
+
+        runit(
+            router,
+            "show pbr map",
+            "show pbr map json",
+            "{}/{}/pbr-map.json".format(CWD, router.name),
+        )
+
+        runit(
+            router,
+            "show pbr nexthop-groups",
+            "show pbr nexthop-groups json",
+            "{}/{}/pbr-nexthop-groups.json".format(CWD, router.name),
+        )
+
+
+########################################################################
+# 			Field test - START
+########################################################################
+
+#
+# New fields:
+# match ip-protocol (was only tcp|udp, now any value in /etc/protocols)
+# match pcp (0-7)
+# match vlan (1-4094)
+# match vlan (tagged|untagged|untagged-or-zero)
+#
+
+#
+# c:   command
+# cDN: omit default destination IP address (special case)
+# tm:  must-match pattern
+# tN:  must Not match pattern
+#
+# Note we are searching amid a bunch of other rules, so these elements
+# should be unique.
+#
+ftest = [
+    {"c": "match ip-protocol icmp", "tm": r"IP protocol Match: 1$"},
+    {"c": "no match ip-protocol icmp", "tN": r"IP protocol Match:"},
+    {"c": "match pcp 6", "tm": r"PCP Match: 6$"},
+    {"c": "match pcp 0", "tm": r"PCP Match: 0$"},
+    {"c": "no match pcp 0", "tN": r"PCP Match:"},
+    {"c": "match vlan 33", "tm": r"VLAN ID Match: 33$"},
+    {"c": "no match vlan 33", "tN": r"VLAN ID Match:"},
+    {"c": "match vlan tagged", "tm": r"VLAN Flags Match: tagged$"},
+    {"c": "match vlan untagged", "tm": r"VLAN Flags Match: untagged$"},
+    {"c": "match vlan untagged-or-zero", "tm": r"VLAN Flags Match: untagged-or-zero$"},
+    {"c": "no match vlan tagged", "tN": r"VLAN Flags Match:"},
+    {"c": "match src-ip 37.49.22.0/24", "tm": r"SRC IP Match: 37.49.22.0/24$"},
+    {"c": "no match src-ip 37.49.22.0/24", "tN": r"SRC IP Match: 37.49.22.0/24$"},
+    {
+        "c": "match dst-ip 38.41.29.0/25",
+        "cDN": "foo",
+        "tm": r"DST IP Match: 38.41.29.0/25$",
+    },
+    {"c": "no match dst-ip 38.41.29.0/25", "tN": r"DST IP Match: 38.41.29.0/25$"},
+    {"c": "match src-port 117", "tm": r"SRC Port Match: 117$"},
+    {"c": "no match src-port 117", "tN": r"SRC Port Match: 117$"},
+    {"c": "match dst-port 119", "tm": r"DST Port Match: 119$"},
+    {"c": "no match dst-port 119", "tN": r"DST Port Match: 119$"},
+    {"c": "match dscp cs3", "tm": r"DSCP Match: 24$"},
+    {"c": "no match dscp cs3", "tN": r"DSCP Match: 24$"},
+    {"c": "match dscp 5", "tm": r"DSCP Match: 5$"},
+    {"c": "no match dscp 5", "tN": r"DSCP Match: 5$"},
+    {"c": "match ecn 2", "tm": r"ECN Match: 2$"},
+    {"c": "no match ecn 2", "tN": r"ECN Match: 2$"},
+    {"c": "match mark 337", "tm": r"MARK Match: 337$"},
+    {"c": "no match mark 337", "tN": r"MARK Match: 337$"},
+    {"c": "set src-ip 44.100.1.1", "tm": r"Set SRC IP: 44.100.1.1$"},
+    {"c": "no set src-ip 44.100.1.1", "tN": r"Set SRC IP: 44.100.1.1$"},
+    {"c": "set dst-ip 44.105.1.1", "tm": r"Set DST IP: 44.105.1.1$"},
+    {"c": "no set dst-ip 44.105.1.1", "tN": r"Set DST IP: 44.105.1.1$"},
+    {"c": "set src-port 41", "tm": r"Set SRC PORT: 41$"},
+    {"c": "no set src-port 41", "tN": r"Set SRC PORT: 41$"},
+    {"c": "set dst-port 43", "tm": r"Set DST PORT: 43$"},
+    {"c": "no set dst-port 43", "tN": r"Set DST PORT: 43$"},
+    {"c": "set dscp 24", "tm": r"Set DSCP: 24$"},
+    {"c": "no set dscp 24", "tN": r"Set DSCP: 24$"},
+    {"c": "set dscp cs7", "tm": r"Set DSCP: 56$"},
+    {"c": "no set dscp cs7", "tN": r"Set DSCP: 56$"},
+    {"c": "set ecn 1", "tm": r"Set ECN: 1$"},
+    {"c": "no set ecn 1", "tN": r"Set ECN: 1$"},
+]
+
+
+# returns None if command output is correct, otherwise returns output
+def rtr_field_cmp(rtr, cmd, pat_mustmatch, pat_mustnotmatch):
+    outstr = rtr.vtysh_cmd(cmd)
+    if pat_mustmatch is not None:
+        logger.info("MUSTMATCH: {}".format(pat_mustmatch))
+        m = re.search(pat_mustmatch, outstr, flags=re.M)
+        if not m:
+            logger.info('Missing MUSTMATCH "{}"'.format(pat_mustmatch))
+            return "MISSING MUSTMATCH: " + outstr
+    if pat_mustnotmatch is not None:
+        logger.info("MUSTNOTMATCH: {}".format(pat_mustnotmatch))
+        m = re.search(pat_mustnotmatch, outstr, flags=re.M)
+        if m:
+            logger.info('Has MUSTNOTMATCH "{}"'.format(pat_mustnotmatch))
+            return "HAS MUSTNOTMATCH: " + outstr
+    return None
+
+
+#
+# This test sets fields in pbrd and looks for them in zebra via "sh pbr map"
+#
+def test_pbr_fields():
+    "Test setting and clearing rule fields"
+
+    tgen = get_topogen()
+    # Don't run this test if we have any failure.
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    logger.info("Verifying PBR rule fields")
+
+    # uncomment for manual interaction
+    # tgen.cli()
+
+    tag = "field"
+
+    router_list = tgen.routers().values()
+    for router in router_list:
+        for t in ftest:
+            # send field-setting command
+            # always have a match dst-ip to satisfy rule non-empty check
+            if "cDN" in t:
+                match_dstip = ""
+            else:
+                match_dstip = "match dst-ip 9.9.9.9/32\n"
+            vcmd = "c t\npbr-map ASAKUSA seq 100\n{}\n{}set nexthop-group A\nend\nend".format(
+                t["c"], match_dstip
+            )
+            router.vtysh_multicmd(vcmd)
+
+            # debug
+            router.vtysh_cmd("sh pbr map")
+
+            match = None
+            notmatch = None
+
+            if "tm" in t:
+                match = t["tm"]
+                logger.info("MUSTMATCH: {}".format(match))
+            if "tN" in t:
+                notmatch = t["tN"]
+                logger.info("NOTMATCH: {}".format(notmatch))
+
+            test_func = partial(rtr_field_cmp, router, "sh pbr rule", match, notmatch)
+            _, result = topotest.run_and_expect(test_func, None, count=10, wait=1)
+            assertmsg = '"{}" mismatches on {}'.format(tag, router.name)
+            if result is not None:
+                gather_pbr_data_on_error(router)
+                assert result is None, assertmsg
+
+        #
+        # clean up
+        #
+        vcmd = "c t\nno pbr-map ASAKUSA seq 100\nend"
+        router.vtysh_multicmd(vcmd)
+
+        match = None
+        notmatch = r"Seq 100\w"
+
+        test_func = partial(rtr_field_cmp, router, "sh pbr rule", match, notmatch)
+        _, result = topotest.run_and_expect(test_func, None, count=10, wait=1)
+        assertmsg = '"{}" mismatches on {}'.format(tag, router.name)
         if result is not None:
             gather_pbr_data_on_error(router)
             assert result is None, assertmsg
 
-        map_file = "{}/{}/pbr-map.json".format(CWD, router.name)
-        logger.info(map_file)
 
-        # Read expected result from file
-        expected = json.loads(open(map_file).read())
-
-        # Actual output from router
-        test_func = partial(
-            topotest.router_json_cmp, router, "show pbr map json", expected
-        )
-        _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
-        assertmsg = '"show pbr map" mismatches on {}'.format(router.name)
-        if result is not None:
-            gather_pbr_data_on_error(router)
-            assert result is None, assertmsg
-
-        nexthop_file = "{}/{}/pbr-nexthop-groups.json".format(CWD, router.name)
-        logger.info(nexthop_file)
-
-        # Read expected result from file
-        expected = json.loads(open(nexthop_file).read())
-
-        # Actual output from router
-        test_func = partial(
-            topotest.router_json_cmp, router, "show pbr nexthop-groups json", expected
-        )
-        _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
-        assertmsg = '"show pbr nexthop-groups" mismatches on {}'.format(router.name)
-        if result is not None:
-            gather_pbr_data_on_error(router)
-            assert result is None, assertmsg
+########################################################################
+# 			Field test - END
+########################################################################
 
 
 def test_pbr_flap():
@@ -243,6 +402,7 @@ def test_rule_linux_installation():
 if __name__ == "__main__":
     args = ["-s"] + sys.argv[1:]
     sys.exit(pytest.main(args))
+
 
 #
 # EXTRA SAUCE

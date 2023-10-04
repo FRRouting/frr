@@ -164,3 +164,23 @@ network 9.9.9.9/24:
 .. code-block:: frr
 
   ip route 9.9.9.9/24 6.6.6.6 color 123
+
+SRv6 Route Commands
+====================
+
+It is possible to specify a static route for ipv6 prefixes using an SRv6
+`segments` instruction. The `/` separator can be used to specify
+multiple segments instructions.
+
+.. code-block:: frr
+
+  ipv6 route X:X::X:X <X:X::X:X|nexthop> segments U:U::U:U/Y:Y::Y:Y/Z:Z::Z:Z
+
+
+::
+
+  router(config)# ipv6 route 2005::1/64 ens3 segments 2001:db8:aaaa::7/2002::4/2002::3/2002::2
+
+  router# show ipv6 route
+  [..]
+  S>* 2005::/64 [1/0] is directly connected, ens3, seg6 2001:db8:aaaa::7,2002::4,2002::3,2002::2, weight 1, 00:00:06

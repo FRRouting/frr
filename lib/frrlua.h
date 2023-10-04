@@ -100,21 +100,6 @@ void lua_pushethaddr(lua_State *L, const struct ethaddr *addr);
 void *lua_toin6addr(lua_State *L, int idx);
 
 /*
- * Converts a time_t to a Lua value and pushes it on the stack.
- */
-void lua_pushtimet(lua_State *L, const time_t *time);
-
-void lua_decode_timet(lua_State *L, int idx, time_t *time);
-
-/*
- * Converts the Lua value at idx to a time_t.
- *
- * Returns:
- *    time_t allocated with MTYPE_TMP.
- */
-void *lua_totimet(lua_State *L, int idx);
-
-/*
  * Converts a sockunion to a Lua value and pushes it on the stack.
  */
 void lua_pushsockunion(lua_State *L, const union sockunion *su);

@@ -1851,9 +1851,9 @@ static void ospf_opaque_type9_lsa_reoriginate_timer(struct event *t)
 		return;
 	}
 
-	if (!CHECK_FLAG(top->config, OSPF_OPAQUE_CAPABLE)
-	    || !ospf_if_is_enable(oi)
-	    || ospf_nbr_count_opaque_capable(oi) == 0) {
+	if (!CHECK_FLAG(top->config, OSPF_OPAQUE_CAPABLE) ||
+	    !OSPF_IF_PARAM(oi, opaque_capable) || !ospf_if_is_enable(oi) ||
+	    ospf_nbr_count_opaque_capable(oi) == 0) {
 		if (IS_DEBUG_OSPF_EVENT)
 			zlog_debug(
 				"Suspend re-origination of Type-9 Opaque-LSAs (opaque-type=%u) for a while...",

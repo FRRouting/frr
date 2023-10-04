@@ -721,10 +721,6 @@ AC_ARG_ENABLE([gcc_ultra_verbose],
   AS_HELP_STRING([--enable-gcc-ultra-verbose], [enable ultra verbose GCC warnings]))
 AC_ARG_ENABLE([backtrace],
   AS_HELP_STRING([--disable-backtrace], [disable crash backtraces (default autodetect)]))
-AC_ARG_ENABLE([time-check],
-  AS_HELP_STRING([--disable-time-check], [disable slow thread warning messages]))
-AC_ARG_ENABLE([cpu-time],
-  AS_HELP_STRING([--disable-cpu-time], [disable cpu usage data gathering]))
 AC_ARG_ENABLE([pcreposix],
   AS_HELP_STRING([--enable-pcreposix], [enable using PCRE Posix libs for regex functions]))
 AC_ARG_ENABLE([pcre2posix],
@@ -737,8 +733,6 @@ AC_ARG_ENABLE([cumulus],
   AS_HELP_STRING([--enable-cumulus], [enable Cumulus Switch Special Extensions]))
 AC_ARG_ENABLE([datacenter],
   AS_HELP_STRING([--enable-datacenter], [enable Compilation for Data Center Extensions]))
-AC_ARG_ENABLE([rr-semantics],
-  AS_HELP_STRING([--disable-rr-semantics], [disable the v6 Route Replace semantics]))
 AC_ARG_ENABLE([protobuf],
   AS_HELP_STRING([--enable-protobuf], [Enable experimental protobuf support]))
 AC_ARG_ENABLE([oldvpn_commands],
@@ -811,26 +805,6 @@ if test "$enable_netlink_debug" != "no" ; then
 fi
 
 AM_CONDITIONAL([NETLINK_DEBUG], [test "$enable_netlink_debug" != "no"])
-
-if test "$enable_time_check" != "no" ; then
-  if test "$enable_time_check" = "yes" -o "$enable_time_check" = "" ; then
-    AC_DEFINE([CONSUMED_TIME_CHECK], [5000000], [Consumed Time Check])
-  else
-    AC_DEFINE_UNQUOTED([CONSUMED_TIME_CHECK], [$enable_time_check], [Consumed Time Check])
-  fi
-fi
-
-case "${enable_cpu_time}" in
-  "no")
-  AC_DEFINE([EXCLUDE_CPU_TIME], [1], [Exclude getrusage data gathering])
-  ;;
-  "*")
-  ;;
-esac
-
-if test "$enable_rr_semantics" != "no" ; then
-  AC_DEFINE([HAVE_V6_RR_SEMANTICS], [1], [Compile in v6 Route Replacement Semantics])
-fi
 
 if test "$enable_datacenter" = "yes" ; then
   AC_DEFINE([HAVE_DATACENTER], [1], [Compile extensions for a DataCenter])
@@ -1385,7 +1359,9 @@ if test "$enable_protobuf3" = "yes"; then
                   [PROTO3=false && AC_MSG_FAILURE([protobuf3 requested but protobuf-c.h not found.  Install protobuf-c.])])
 fi
 
-AC_DEFINE([HAVE_PROTOBUF], [1], [protobuf])
+if test "$enable_protobuf" != "no"; then
+  AC_DEFINE([HAVE_PROTOBUF], [1], [protobuf])
+fi
 #
 # End of logic for protobuf support.
 #
@@ -2848,6 +2824,7 @@ EOF
             cat >> "${srcdir}/.ccls" <<EOF
 %c $(echo ${FRR_ALL_CCLS_CFLAGS} | sed -e 's/  */\n%c /g')
 %c -Wno-unused-function
+%c -Wno-microsoft
 EOF
 fi
     ], [
@@ -2914,12 +2891,6 @@ directory and to the config files in the config file directory."
 
 if test -n "$enable_datacenter"; then
   AC_MSG_WARN([The --enable-datacenter compile time option is deprecated.  Please modify the init script to pass -F datacenter to the daemons instead.])
-fi
-if test -n "$enable_time_check"; then
-  AC_MSG_WARN([The --enable-time-check compile time option is deprecated.  Please use the service cputime-stats configuration option instead.])
-fi
-if test -n "$enable_cpu_time"; then
-  AC_MSG_WARN([The --enable-cpu-time compile time option is deprecated.  Please use the service cputime-warning NNN configuration option instead.])
 fi
 
 if test "$enable_doc" != "no" -a "$frr_py_mod_sphinx" = "false"; then

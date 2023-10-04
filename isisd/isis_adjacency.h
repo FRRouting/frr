@@ -98,6 +98,8 @@ struct isis_adjacency {
 	struct list *adj_sids; /* Segment Routing Adj-SIDs. */
 	uint32_t snmp_idx;
 	struct listnode *snmp_list_node;
+
+	struct list *srv6_endx_sids; /* SRv6 End.X SIDs. */
 };
 
 struct isis_threeway_adj;

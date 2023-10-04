@@ -913,7 +913,7 @@ void eigrp_update_send_GR_thread(struct event *thread)
 
 	/* if it wasn't last chunk, schedule this thread again */
 	if (nbr->nbr_gr_packet_type != EIGRP_PACKET_PART_LAST) {
-		event_execute(master, eigrp_update_send_GR_thread, nbr, 0);
+		event_execute(master, eigrp_update_send_GR_thread, nbr, 0, NULL);
 	}
 }
 
@@ -979,7 +979,7 @@ void eigrp_update_send_GR(struct eigrp_neighbor *nbr, enum GR_type gr_type,
 	/* indicate, that this is first GR Update packet chunk */
 	nbr->nbr_gr_packet_type = EIGRP_PACKET_PART_FIRST;
 	/* execute packet sending in thread */
-	event_execute(master, eigrp_update_send_GR_thread, nbr, 0);
+	event_execute(master, eigrp_update_send_GR_thread, nbr, 0, NULL);
 }
 
 /**

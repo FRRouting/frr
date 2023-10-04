@@ -371,9 +371,42 @@ struct zebra_vrf *zebra_vrf_alloc(struct vrf *vrf)
 	zebra_vxlan_init_tables(zvrf);
 	zebra_mpls_init_tables(zvrf);
 	zebra_pw_init(zvrf);
-	zvrf->table_id = RT_TABLE_MAIN;
+	zvrf->table_id = rt_table_main_id;
 	/* by default table ID is default one */
+
+	if (DFLT_ZEBRA_IP_NHT_RESOLVE_VIA_DEFAULT) {
+		zvrf->zebra_rnh_ip_default_route = true;
+		zvrf->zebra_rnh_ipv6_default_route = true;
+	}
+
 	return zvrf;
+}
+
+/*
+ * Pending: create an efficient table_id (in a tree/hash) based lookup)
+ */
+vrf_id_t zebra_vrf_lookup_by_table(uint32_t table_id, ns_id_t ns_id)
+{
+	struct vrf *vrf;
+	struct zebra_vrf *zvrf;
+
+	RB_FOREACH (vrf, vrf_id_head, &vrfs_by_id) {
+		zvrf = vrf->info;
+		if (zvrf == NULL)
+			continue;
+		/* case vrf with netns : match the netnsid */
+		if (vrf_is_backend_netns()) {
+			if (ns_id == zvrf_id(zvrf))
+				return zvrf_id(zvrf);
+		} else {
+			/* VRF is VRF_BACKEND_VRF_LITE */
+			if (zvrf->table_id != table_id)
+				continue;
+			return zvrf_id(zvrf);
+		}
+	}
+
+	return VRF_DEFAULT;
 }
 
 /* Lookup VRF by identifier.  */
@@ -429,11 +462,20 @@ static int vrf_config_write(struct vty *vty)
 						zvrf->l3vni)
 						? " prefix-routes-only"
 						: "");
-			if (zvrf->zebra_rnh_ip_default_route)
-				vty_out(vty, "ip nht resolve-via-default\n");
 
-			if (zvrf->zebra_rnh_ipv6_default_route)
-				vty_out(vty, "ipv6 nht resolve-via-default\n");
+			if (zvrf->zebra_rnh_ip_default_route !=
+			    SAVE_ZEBRA_IP_NHT_RESOLVE_VIA_DEFAULT)
+				vty_out(vty, "%sip nht resolve-via-default\n",
+					zvrf->zebra_rnh_ip_default_route
+						? ""
+						: "no ");
+
+			if (zvrf->zebra_rnh_ipv6_default_route !=
+			    SAVE_ZEBRA_IP_NHT_RESOLVE_VIA_DEFAULT)
+				vty_out(vty, "%sipv6 nht resolve-via-default\n",
+					zvrf->zebra_rnh_ipv6_default_route
+						? ""
+						: "no ");
 
 			if (zvrf->tbl_mgr
 			    && (zvrf->tbl_mgr->start || zvrf->tbl_mgr->end))
@@ -449,11 +491,19 @@ static int vrf_config_write(struct vty *vty)
 						? " prefix-routes-only"
 						: "");
 			zebra_ns_config_write(vty, (struct ns *)vrf->ns_ctxt);
-			if (zvrf->zebra_rnh_ip_default_route)
-				vty_out(vty, " ip nht resolve-via-default\n");
+			if (zvrf->zebra_rnh_ip_default_route !=
+			    SAVE_ZEBRA_IP_NHT_RESOLVE_VIA_DEFAULT)
+				vty_out(vty, " %sip nht resolve-via-default\n",
+					zvrf->zebra_rnh_ip_default_route
+						? ""
+						: "no ");
 
-			if (zvrf->zebra_rnh_ipv6_default_route)
-				vty_out(vty, " ipv6 nht resolve-via-default\n");
+			if (zvrf->zebra_rnh_ipv6_default_route !=
+			    SAVE_ZEBRA_IP_NHT_RESOLVE_VIA_DEFAULT)
+				vty_out(vty, " %sipv6 nht resolve-via-default\n",
+					zvrf->zebra_rnh_ipv6_default_route
+						? ""
+						: "no ");
 
 			if (zvrf->tbl_mgr && vrf_is_backend_netns()
 			    && (zvrf->tbl_mgr->start || zvrf->tbl_mgr->end))

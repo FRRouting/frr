@@ -5,6 +5,8 @@
  *   Copyright (C) 1997-1999  Kunihiro Ishiguro
  *   Copyright (C) 2015-2018  Cumulus Networks, Inc.
  *   et al.
+ *   Copyright (c) 2021 The MITRE Corporation.
+ *   Copyright (c) 2023 LabN Consulting, L.L.C.
  */
 
 #include <zebra.h>
@@ -69,6 +71,7 @@ static void zserv_encode_interface(struct stream *s, struct interface *ifp)
 	stream_putc(s, ifp->ptm_status);
 	stream_putl(s, ifp->metric);
 	stream_putl(s, ifp->speed);
+	stream_putl(s, ifp->txqlen);
 	stream_putl(s, ifp->mtu);
 	stream_putl(s, ifp->mtu6);
 	stream_putl(s, ifp->bandwidth);
@@ -562,6 +565,7 @@ int zsend_redistribute_route(int cmd, struct zserv *client,
 			client->redist_v6_del_cnt++;
 		break;
 	case AFI_L2VPN:
+	case AFI_LINKSTATE:
 	case AFI_MAX:
 	case AFI_UNSPEC:
 		break;
@@ -995,7 +999,7 @@ void zsend_nhrp_neighbor_notify(int cmd, struct interface *ifp,
 	       family2addrsize(sockunion_family(&ip)));
 
 	for (ALL_LIST_ELEMENTS(zrouter.client_list, node, nnode, client)) {
-		if (!vrf_bitmap_check(client->nhrp_neighinfo[afi],
+		if (!vrf_bitmap_check(&client->nhrp_neighinfo[afi],
 				      ifp->vrf->vrf_id))
 			continue;
 
@@ -1016,7 +1020,7 @@ int zsend_router_id_update(struct zserv *client, afi_t afi, struct prefix *p,
 	struct stream *s;
 
 	/* Check this client need interface information. */
-	if (!vrf_bitmap_check(client->ridinfo[afi], vrf_id))
+	if (!vrf_bitmap_check(&client->ridinfo[afi], vrf_id))
 		return 0;
 
 	s = stream_new(ZEBRA_MAX_PACKET_SIZ);
@@ -1337,8 +1341,6 @@ static void zread_fec_register(ZAPI_HANDLER_ARGS)
 
 	s = msg;
 	zvrf = zebra_vrf_lookup_by_id(VRF_DEFAULT);
-	if (!zvrf)
-		return;
 
 	/*
 	 * The minimum amount of data that can be sent for one fec
@@ -1400,8 +1402,6 @@ static void zread_fec_unregister(ZAPI_HANDLER_ARGS)
 
 	s = msg;
 	zvrf = zebra_vrf_lookup_by_id(VRF_DEFAULT);
-	if (!zvrf)
-		return;
 
 	/*
 	 * The minimum amount of data that can be sent for one
@@ -1560,7 +1560,6 @@ static struct nexthop *nexthop_from_zapi(const struct zapi_nexthop *api_nh,
 					 uint16_t backup_nexthop_num)
 {
 	struct nexthop *nexthop = NULL;
-	struct ipaddr vtep_ip;
 	struct interface *ifp;
 	int i;
 	char nhbuf[INET6_ADDRSTRLEN] = "";
@@ -1596,13 +1595,8 @@ static struct nexthop *nexthop_from_zapi(const struct zapi_nexthop *api_nh,
 		 * the nexthop and associated MAC need to be installed.
 		 */
 		if (CHECK_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_EVPN)) {
-			memset(&vtep_ip, 0, sizeof(vtep_ip));
-			vtep_ip.ipa_type = IPADDR_V4;
-			memcpy(&(vtep_ip.ipaddr_v4), &(api_nh->gate.ipv4),
-			       sizeof(struct in_addr));
-			zebra_rib_queue_evpn_route_add(
-				api_nh->vrf_id, &api_nh->rmac, &vtep_ip, p);
 			SET_FLAG(nexthop->flags, NEXTHOP_FLAG_EVPN);
+			nexthop->rmac = api_nh->rmac;
 		}
 		break;
 	case NEXTHOP_TYPE_IPV6:
@@ -1630,13 +1624,8 @@ static struct nexthop *nexthop_from_zapi(const struct zapi_nexthop *api_nh,
 		 * the nexthop and associated MAC need to be installed.
 		 */
 		if (CHECK_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_EVPN)) {
-			memset(&vtep_ip, 0, sizeof(vtep_ip));
-			vtep_ip.ipa_type = IPADDR_V6;
-			memcpy(&vtep_ip.ipaddr_v6, &(api_nh->gate.ipv6),
-			       sizeof(struct in6_addr));
-			zebra_rib_queue_evpn_route_add(
-				api_nh->vrf_id, &api_nh->rmac, &vtep_ip, p);
 			SET_FLAG(nexthop->flags, NEXTHOP_FLAG_EVPN);
+			nexthop->rmac = api_nh->rmac;
 		}
 		break;
 	case NEXTHOP_TYPE_BLACKHOLE:
@@ -1806,7 +1795,8 @@ static bool zapi_read_nexthops(struct zserv *client, struct prefix *p,
 			if (IS_ZEBRA_DEBUG_RECV)
 				zlog_debug("%s: adding seg6", __func__);
 
-			nexthop_add_srv6_seg6(nexthop, &api_nh->seg6_segs);
+			nexthop_add_srv6_seg6(nexthop, &api_nh->seg6_segs[0],
+					      api_nh->seg_num);
 		}
 
 		if (IS_ZEBRA_DEBUG_RECV) {
@@ -2281,7 +2271,7 @@ static void zread_router_id_add(ZAPI_HANDLER_ARGS)
 	}
 
 	/* Router-id information is needed. */
-	vrf_bitmap_set(client->ridinfo[afi], zvrf_id(zvrf));
+	vrf_bitmap_set(&client->ridinfo[afi], zvrf_id(zvrf));
 
 	router_id_get(afi, &p, zvrf);
 
@@ -2317,7 +2307,7 @@ static void zread_router_id_delete(ZAPI_HANDLER_ARGS)
 		goto stream_failure;
 	}
 
-	vrf_bitmap_unset(client->ridinfo[afi], zvrf_id(zvrf));
+	vrf_bitmap_unset(&client->ridinfo[afi], zvrf_id(zvrf));
 
 stream_failure:
 	return;
@@ -2332,7 +2322,7 @@ static void zsend_capabilities(struct zserv *client, struct zebra_vrf *zvrf)
 	stream_putc(s, mpls_enabled);
 	stream_putl(s, zrouter.multipath_num);
 	stream_putc(s, zebra_mlag_get_role());
-
+	stream_putc(s, zrouter.v6_with_v4_nexthop);
 	stream_putw_at(s, 0, stream_get_endp(s));
 	zserv_send_message(client, s);
 }
@@ -2407,10 +2397,11 @@ static void zread_vrf_unregister(ZAPI_HANDLER_ARGS)
 
 	for (afi = AFI_IP; afi < AFI_MAX; afi++) {
 		for (i = 0; i < ZEBRA_ROUTE_MAX; i++)
-			vrf_bitmap_unset(client->redist[afi][i], zvrf_id(zvrf));
-		vrf_bitmap_unset(client->redist_default[afi], zvrf_id(zvrf));
-		vrf_bitmap_unset(client->ridinfo[afi], zvrf_id(zvrf));
-		vrf_bitmap_unset(client->nhrp_neighinfo[afi], zvrf_id(zvrf));
+			vrf_bitmap_unset(&client->redist[afi][i],
+					 zvrf_id(zvrf));
+		vrf_bitmap_unset(&client->redist_default[afi], zvrf_id(zvrf));
+		vrf_bitmap_unset(&client->ridinfo[afi], zvrf_id(zvrf));
+		vrf_bitmap_unset(&client->nhrp_neighinfo[afi], zvrf_id(zvrf));
 	}
 }
 
@@ -3185,7 +3176,6 @@ static inline void zread_rule(ZAPI_HANDLER_ARGS)
 	struct zebra_pbr_rule zpr;
 	struct stream *s;
 	uint32_t total, i;
-	char ifname[INTERFACE_NAMSIZ + 1] = {};
 
 	s = msg;
 	STREAM_GETL(s, total);
@@ -3195,59 +3185,38 @@ static inline void zread_rule(ZAPI_HANDLER_ARGS)
 
 		zpr.sock = client->sock;
 		zpr.rule.vrf_id = hdr->vrf_id;
-		STREAM_GETL(s, zpr.rule.seq);
-		STREAM_GETL(s, zpr.rule.priority);
-		STREAM_GETL(s, zpr.rule.unique);
-		STREAM_GETC(s, zpr.rule.filter.ip_proto);
-		STREAM_GETC(s, zpr.rule.filter.src_ip.family);
-		STREAM_GETC(s, zpr.rule.filter.src_ip.prefixlen);
-		STREAM_GET(&zpr.rule.filter.src_ip.u.prefix, s,
-			   prefix_blen(&zpr.rule.filter.src_ip));
-		STREAM_GETW(s, zpr.rule.filter.src_port);
-		STREAM_GETC(s, zpr.rule.filter.dst_ip.family);
-		STREAM_GETC(s, zpr.rule.filter.dst_ip.prefixlen);
-		STREAM_GET(&zpr.rule.filter.dst_ip.u.prefix, s,
-			   prefix_blen(&zpr.rule.filter.dst_ip));
-		STREAM_GETW(s, zpr.rule.filter.dst_port);
-		STREAM_GETC(s, zpr.rule.filter.dsfield);
-		STREAM_GETL(s, zpr.rule.filter.fwmark);
 
-		STREAM_GETL(s, zpr.rule.action.queue_id);
-		STREAM_GETW(s, zpr.rule.action.vlan_id);
-		STREAM_GETW(s, zpr.rule.action.vlan_flags);
-		STREAM_GETW(s, zpr.rule.action.pcp);
+		if (!zapi_pbr_rule_decode(s, &zpr.rule))
+			goto stream_failure;
 
-		STREAM_GETL(s, zpr.rule.action.table);
-		STREAM_GET(ifname, s, INTERFACE_NAMSIZ);
+		strlcpy(zpr.ifname, zpr.rule.ifname, sizeof(zpr.ifname));
 
-		strlcpy(zpr.ifname, ifname, sizeof(zpr.ifname));
-		strlcpy(zpr.rule.ifname, ifname, sizeof(zpr.rule.ifname));
+		if ((zpr.rule.family != AF_INET) &&
+		    (zpr.rule.family != AF_INET6)) {
+			zlog_warn("Unsupported PBR source IP family: %s (%hhu)",
+				  family2str(zpr.rule.family), zpr.rule.family);
+			return;
+		}
 
-		if (!is_default_prefix(&zpr.rule.filter.src_ip))
-			zpr.rule.filter.filter_bm |= PBR_FILTER_SRC_IP;
+		/*
+		 * Fixup filter src/dst IP addresses if they are unset
+		 * because the netlink code currently obtains address family
+		 * from them. Address family is used to specify which
+		 * kernel database to use when adding/deleting rule.
+		 *
+		 * TBD: propagate zpr.rule.family into dataplane and
+		 * netlink code so they can stop using filter src/dst addrs.
+		 */
+		if (!CHECK_FLAG(zpr.rule.filter.filter_bm, PBR_FILTER_SRC_IP))
+			zpr.rule.filter.src_ip.family = zpr.rule.family;
+		if (!CHECK_FLAG(zpr.rule.filter.filter_bm, PBR_FILTER_DST_IP))
+			zpr.rule.filter.dst_ip.family = zpr.rule.family;
 
-		if (!is_default_prefix(&zpr.rule.filter.dst_ip))
-			zpr.rule.filter.filter_bm |= PBR_FILTER_DST_IP;
-
-		if (zpr.rule.filter.src_port)
-			zpr.rule.filter.filter_bm |= PBR_FILTER_SRC_PORT;
-
-		if (zpr.rule.filter.dst_port)
-			zpr.rule.filter.filter_bm |= PBR_FILTER_DST_PORT;
-
-		if (zpr.rule.filter.dsfield)
-			zpr.rule.filter.filter_bm |= PBR_FILTER_DSFIELD;
-
-		if (zpr.rule.filter.ip_proto)
-			zpr.rule.filter.filter_bm |= PBR_FILTER_IP_PROTOCOL;
-
-		if (zpr.rule.filter.fwmark)
-			zpr.rule.filter.filter_bm |= PBR_FILTER_FWMARK;
-
+		/* TBD delete below block when netlink code gets family from zpr.rule.family */
 		if (!(zpr.rule.filter.src_ip.family == AF_INET
 		      || zpr.rule.filter.src_ip.family == AF_INET6)) {
 			zlog_warn(
-				"Unsupported PBR source IP family: %s (%hhu)",
+				"Unsupported PBR source IP family: %s (%u)",
 				family2str(zpr.rule.filter.src_ip.family),
 				zpr.rule.filter.src_ip.family);
 			return;
@@ -3255,11 +3224,12 @@ static inline void zread_rule(ZAPI_HANDLER_ARGS)
 		if (!(zpr.rule.filter.dst_ip.family == AF_INET
 		      || zpr.rule.filter.dst_ip.family == AF_INET6)) {
 			zlog_warn(
-				"Unsupported PBR destination IP family: %s (%hhu)",
+				"Unsupported PBR destination IP family: %s (%u)",
 				family2str(zpr.rule.filter.dst_ip.family),
 				zpr.rule.filter.dst_ip.family);
 			return;
 		}
+		/* TBD delete above block when netlink code gets family from zpr.rule.family */
 
 
 		zpr.vrf_id = zvrf->vrf->vrf_id;
@@ -3514,7 +3484,7 @@ static inline void zread_ipset_entry(ZAPI_HANDLER_ARGS)
 		if (zpi.src_port_max != 0)
 			zpi.filter_bm |= PBR_FILTER_SRC_PORT_RANGE;
 		if (zpi.proto != 0)
-			zpi.filter_bm |= PBR_FILTER_PROTO;
+			zpi.filter_bm |= PBR_FILTER_IP_PROTOCOL;
 
 		if (!(zpi.dst.family == AF_INET
 		      || zpi.dst.family == AF_INET6)) {
@@ -3563,7 +3533,7 @@ static inline void zebra_neigh_register(ZAPI_HANDLER_ARGS)
 			afi);
 		goto stream_failure;
 	}
-	vrf_bitmap_set(client->nhrp_neighinfo[afi], zvrf_id(zvrf));
+	vrf_bitmap_set(&client->nhrp_neighinfo[afi], zvrf_id(zvrf));
 stream_failure:
 	return;
 }
@@ -3579,7 +3549,7 @@ static inline void zebra_neigh_unregister(ZAPI_HANDLER_ARGS)
 			afi);
 		goto stream_failure;
 	}
-	vrf_bitmap_unset(client->nhrp_neighinfo[afi], zvrf_id(zvrf));
+	vrf_bitmap_unset(&client->nhrp_neighinfo[afi], zvrf_id(zvrf));
 stream_failure:
 	return;
 }
@@ -3982,8 +3952,7 @@ void zserv_handle_commands(struct zserv *client, struct stream_fifo *fifo)
 		hdr.length -= ZEBRA_HEADER_SIZE;
 
 		/* Before checking for a handler function, check for
-		 * special messages that are handled in another module;
-		 * we'll treat these as opaque.
+		 * special messages that are handled the 'opaque zapi' module.
 		 */
 		if (zebra_opaque_handles_msgid(hdr.command)) {
 			/* Reset message buffer */

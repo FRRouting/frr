@@ -344,4 +344,6 @@ void path_zebra_stop(void)
 {
 	zclient_stop(zclient);
 	zclient_free(zclient);
+	zclient_stop(zclient_sync);
+	zclient_free(zclient_sync);
 }

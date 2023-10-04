@@ -271,6 +271,10 @@ struct ospf_interface *ospf_if_new(struct ospf *ospf, struct interface *ifp,
 
 	QOBJ_REG(oi, ospf_interface);
 
+	/* If first oi, check per-intf write socket */
+	if (ospf->oi_running && ospf->intf_socket_enabled)
+		ospf_ifp_sock_init(ifp);
+
 	if (IS_DEBUG_OSPF_EVENT)
 		zlog_debug("%s: ospf interface %s vrf %s id %u created",
 			   __func__, ifp->name, ospf_get_name(ospf),
@@ -327,6 +331,8 @@ void ospf_if_cleanup(struct ospf_interface *oi)
 
 void ospf_if_free(struct ospf_interface *oi)
 {
+	struct interface *ifp = oi->ifp;
+
 	ospf_if_down(oi);
 
 	ospf_fifo_free(oi->obuf);
@@ -360,6 +366,10 @@ void ospf_if_free(struct ospf_interface *oi)
 	listnode_delete(oi->area->oiflist, oi);
 
 	event_cancel_event(master, oi);
+
+	/* If last oi, close per-interface socket */
+	if (ospf_oi_count(ifp) == 0)
+		ospf_ifp_sock_close(ifp);
 
 	memset(oi, 0, sizeof(*oi));
 	XFREE(MTYPE_OSPF_IF, oi);
@@ -538,6 +548,8 @@ static struct ospf_if_params *ospf_new_if_params(void)
 	UNSET_IF_PARAM(oip, auth_crypt);
 	UNSET_IF_PARAM(oip, auth_type);
 	UNSET_IF_PARAM(oip, if_area);
+	UNSET_IF_PARAM(oip, opaque_capable);
+	UNSET_IF_PARAM(oip, keychain_name);
 
 	oip->auth_crypt = list_new();
 
@@ -546,6 +558,7 @@ static struct ospf_if_params *ospf_new_if_params(void)
 
 	oip->ptp_dmvpn = 0;
 	oip->p2mp_delay_reflood = OSPF_P2MP_DELAY_REFLOOD_DEFAULT;
+	oip->opaque_capable = OSPF_OPAQUE_CAPABLE_DEFAULT;
 
 	return oip;
 }
@@ -554,6 +567,7 @@ static void ospf_del_if_params(struct interface *ifp,
 			       struct ospf_if_params *oip)
 {
 	list_delete(&oip->auth_crypt);
+	XFREE(MTYPE_OSPF_IF_PARAMS, oip->keychain_name);
 	ospf_interface_disable_bfd(ifp, oip);
 	ldp_sync_info_free(&(oip->ldp_sync_info));
 	XFREE(MTYPE_OSPF_IF_PARAMS, oip);
@@ -575,19 +589,22 @@ void ospf_free_if_params(struct interface *ifp, struct in_addr addr)
 	oip = rn->info;
 	route_unlock_node(rn);
 
-	if (!OSPF_IF_PARAM_CONFIGURED(oip, output_cost_cmd)
-	    && !OSPF_IF_PARAM_CONFIGURED(oip, transmit_delay)
-	    && !OSPF_IF_PARAM_CONFIGURED(oip, retransmit_interval)
-	    && !OSPF_IF_PARAM_CONFIGURED(oip, passive_interface)
-	    && !OSPF_IF_PARAM_CONFIGURED(oip, v_hello)
-	    && !OSPF_IF_PARAM_CONFIGURED(oip, fast_hello)
-	    && !OSPF_IF_PARAM_CONFIGURED(oip, v_wait)
-	    && !OSPF_IF_PARAM_CONFIGURED(oip, priority)
-	    && !OSPF_IF_PARAM_CONFIGURED(oip, type)
-	    && !OSPF_IF_PARAM_CONFIGURED(oip, auth_simple)
-	    && !OSPF_IF_PARAM_CONFIGURED(oip, auth_type)
-	    && !OSPF_IF_PARAM_CONFIGURED(oip, if_area)
-	    && listcount(oip->auth_crypt) == 0) {
+	if (!OSPF_IF_PARAM_CONFIGURED(oip, output_cost_cmd) &&
+	    !OSPF_IF_PARAM_CONFIGURED(oip, transmit_delay) &&
+	    !OSPF_IF_PARAM_CONFIGURED(oip, retransmit_interval) &&
+	    !OSPF_IF_PARAM_CONFIGURED(oip, passive_interface) &&
+	    !OSPF_IF_PARAM_CONFIGURED(oip, v_hello) &&
+	    !OSPF_IF_PARAM_CONFIGURED(oip, fast_hello) &&
+	    !OSPF_IF_PARAM_CONFIGURED(oip, v_wait) &&
+	    !OSPF_IF_PARAM_CONFIGURED(oip, priority) &&
+	    !OSPF_IF_PARAM_CONFIGURED(oip, type) &&
+	    !OSPF_IF_PARAM_CONFIGURED(oip, auth_simple) &&
+	    !OSPF_IF_PARAM_CONFIGURED(oip, auth_type) &&
+	    !OSPF_IF_PARAM_CONFIGURED(oip, if_area) &&
+	    !OSPF_IF_PARAM_CONFIGURED(oip, opaque_capable) &&
+	    !OSPF_IF_PARAM_CONFIGURED(oip, prefix_suppression) &&
+		!OSPF_IF_PARAM_CONFIGURED(oip, keychain_name) &&
+	    listcount(oip->auth_crypt) == 0) {
 		ospf_del_if_params(ifp, oip);
 		rn->info = NULL;
 		route_unlock_node(rn);
@@ -692,6 +709,11 @@ int ospf_if_new_hook(struct interface *ifp)
 
 	SET_IF_PARAM(IF_DEF_PARAMS(ifp), auth_type);
 	IF_DEF_PARAMS(ifp)->auth_type = OSPF_AUTH_NOTSET;
+
+	SET_IF_PARAM(IF_DEF_PARAMS(ifp), opaque_capable);
+	IF_DEF_PARAMS(ifp)->opaque_capable = OSPF_OPAQUE_CAPABLE_DEFAULT;
+
+	IF_DEF_PARAMS(ifp)->prefix_suppression = OSPF_PREFIX_SUPPRESSION_DEFAULT;
 
 	rc = ospf_opaque_new_if(ifp);
 	return rc;
@@ -1346,18 +1368,28 @@ static int ospf_ifp_create(struct interface *ifp)
 
 	if (IS_DEBUG_OSPF(zebra, ZEBRA_INTERFACE))
 		zlog_debug(
-			"Zebra: interface add %s vrf %s[%u] index %d flags %llx metric %d mtu %d speed %u",
+			"Zebra: interface add %s vrf %s[%u] index %d flags %llx metric %d mtu %d speed %u status 0x%x",
 			ifp->name, ifp->vrf->name, ifp->vrf->vrf_id,
 			ifp->ifindex, (unsigned long long)ifp->flags,
-			ifp->metric, ifp->mtu, ifp->speed);
+			ifp->metric, ifp->mtu, ifp->speed, ifp->status);
 
 	assert(ifp->info);
 
 	oii = ifp->info;
 	oii->curr_mtu = ifp->mtu;
 
-	if (IF_DEF_PARAMS(ifp)
-	    && !OSPF_IF_PARAM_CONFIGURED(IF_DEF_PARAMS(ifp), type)) {
+	/* Change ospf type param based on following
+	 * condition:
+	 * ospf type params is not set (first creation),
+	 * OR ospf param type is changed based on
+	 * link event, currently only handle for
+	 * loopback interface type, for other ospf interface,
+	 * type can be set from user config which needs to be
+	 * preserved.
+	 */
+	if (IF_DEF_PARAMS(ifp) &&
+	    (!OSPF_IF_PARAM_CONFIGURED(IF_DEF_PARAMS(ifp), type) ||
+	     if_is_loopback(ifp))) {
 		SET_IF_PARAM(IF_DEF_PARAMS(ifp), type);
 		IF_DEF_PARAMS(ifp)->type = ospf_default_iftype(ifp);
 	}
@@ -1394,7 +1426,8 @@ static int ospf_ifp_up(struct interface *ifp)
 
 	/* Open per-intf write socket if configured */
 	ospf = ifp->vrf->info;
-	if (ospf && ospf->intf_socket_enabled)
+
+	if (ospf && ospf->oi_running && ospf->intf_socket_enabled)
 		ospf_ifp_sock_init(ifp);
 
 	ospf_if_recalculate_output_cost(ifp);

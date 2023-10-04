@@ -229,8 +229,10 @@ void *bgp_keepalives_start(void *arg)
 
 /* --- thread external functions ------------------------------------------- */
 
-void bgp_keepalives_on(struct peer *peer)
+void bgp_keepalives_on(struct peer_connection *connection)
 {
+	struct peer *peer = connection->peer;
+
 	if (CHECK_FLAG(peer->thread_flags, PEER_THREAD_KEEPALIVES_ON))
 		return;
 
@@ -258,8 +260,10 @@ void bgp_keepalives_on(struct peer *peer)
 	}
 }
 
-void bgp_keepalives_off(struct peer *peer)
+void bgp_keepalives_off(struct peer_connection *connection)
 {
+	struct peer *peer = connection->peer;
+
 	if (!CHECK_FLAG(peer->thread_flags, PEER_THREAD_KEEPALIVES_ON))
 		return;
 

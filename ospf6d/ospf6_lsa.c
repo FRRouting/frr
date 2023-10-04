@@ -333,7 +333,7 @@ void ospf6_lsa_premature_aging(struct ospf6_lsa *lsa)
 	ospf6_flood_clear(lsa);
 
 	lsa->header->age = htons(OSPF_LSA_MAXAGE);
-	event_execute(master, ospf6_lsa_expire, lsa, 0);
+	event_execute(master, ospf6_lsa_expire, lsa, 0, NULL);
 }
 
 /* check which is more recent. if a is more recent, return -1;
@@ -797,17 +797,17 @@ struct ospf6_lsa *ospf6_lsa_lock(struct ospf6_lsa *lsa)
 }
 
 /* decrement reference counter of struct ospf6_lsa */
-struct ospf6_lsa *ospf6_lsa_unlock(struct ospf6_lsa *lsa)
+void ospf6_lsa_unlock(struct ospf6_lsa **lsa)
 {
 	/* decrement reference counter */
-	assert(lsa->lock > 0);
-	lsa->lock--;
+	assert((*lsa)->lock > 0);
+	(*lsa)->lock--;
 
-	if (lsa->lock != 0)
-		return lsa;
+	if ((*lsa)->lock != 0)
+		return;
 
-	ospf6_lsa_delete(lsa);
-	return NULL;
+	ospf6_lsa_delete(*lsa);
+	*lsa = NULL;
 }
 
 

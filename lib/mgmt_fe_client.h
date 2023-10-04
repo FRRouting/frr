@@ -91,7 +91,7 @@ struct mgmt_fe_client_cbs {
 				  uintptr_t session_id,
 				  uintptr_t user_session_client,
 				  uint64_t req_id, bool success,
-				  Mgmtd__DatastoreId ds_id,
+				  Mgmtd__DatastoreId ds_id, bool implcit_commit,
 				  char *errmsg_if_any);
 
 	void (*commit_config_notify)(struct mgmt_fe_client *client,
@@ -119,18 +119,17 @@ struct mgmt_fe_client_cbs {
 
 extern struct debug mgmt_dbg_fe_client;
 
+/***************************************************************
+ * API prototypes
+ ***************************************************************/
+
 #define MGMTD_FE_CLIENT_DBG(fmt, ...)                                          \
-	DEBUGD(&mgmt_dbg_fe_client, "FE-CLIENT: %s:" fmt, __func__,            \
+	DEBUGD(&mgmt_dbg_fe_client, "FE-CLIENT: %s: " fmt, __func__,           \
 	       ##__VA_ARGS__)
 #define MGMTD_FE_CLIENT_ERR(fmt, ...)                                          \
 	zlog_err("FE-CLIENT: %s: ERROR: " fmt, __func__, ##__VA_ARGS__)
 #define MGMTD_DBG_FE_CLIENT_CHECK()                                            \
 	DEBUG_MODE_CHECK(&mgmt_dbg_fe_client, DEBUG_MODE_ALL)
-
-
-/***************************************************************
- * API prototypes
- ***************************************************************/
 
 /*
  * Initialize library and try connecting with MGMTD FrontEnd interface.
@@ -220,7 +219,8 @@ mgmt_fe_destroy_client_session(struct mgmt_fe_client *client,
  */
 extern int mgmt_fe_send_lockds_req(struct mgmt_fe_client *client,
 				   uint64_t session_id, uint64_t req_id,
-				   Mgmtd__DatastoreId ds_id, bool lock_ds);
+				   Mgmtd__DatastoreId ds_id, bool lock_ds,
+				   bool scok);
 
 /*
  * Send SET_CONFIG_REQ to MGMTD for one or more config data(s).
@@ -294,13 +294,19 @@ extern int mgmt_fe_send_commitcfg_req(struct mgmt_fe_client *client,
 				      bool validate_only, bool abort);
 
 /*
- * Send GET_CONFIG_REQ to MGMTD for one or more config data item(s).
+ * Send GET_REQ to MGMTD for one or more config data item(s).
+ *
+ * If is_config is true gets config from the MGMTD datastore, otherwise
+ * operational state is queried from the backend clients.
  *
  * lib_hndl
  *    Client library handler.
  *
  * session_id
  *    Client session ID.
+ *
+ * is_config
+ *    True if get-config else get-data.
  *
  * req_id
  *    Client request ID.
@@ -309,31 +315,19 @@ extern int mgmt_fe_send_commitcfg_req(struct mgmt_fe_client *client,
  *    Datastore ID (Running/Candidate)
  *
  * data_req
- *    Get config requested.
+ *    Get xpaths requested.
  *
  * num_req
- *    Number of get config requests.
+ *    Number of get xpath requests.
  *
  * Returns:
  *    0 on success, otherwise msg_conn_send_msg() return values.
  */
-extern int mgmt_fe_send_getcfg_req(struct mgmt_fe_client *client,
-				   uint64_t session_id, uint64_t req_id,
-				   Mgmtd__DatastoreId ds_id,
-				   Mgmtd__YangGetDataReq **data_req,
-				   int num_reqs);
+extern int mgmt_fe_send_get_req(struct mgmt_fe_client *client,
+				uint64_t session_id, uint64_t req_id,
+				bool is_config, Mgmtd__DatastoreId ds_id,
+				Mgmtd__YangGetDataReq **data_req, int num_reqs);
 
-/*
- * Send GET_DATA_REQ to MGMTD for one or more data item(s).
- *
- * Similar to get config request but supports getting data
- * from operational ds aka backend clients directly.
- */
-extern int mgmt_fe_send_getdata_req(struct mgmt_fe_client *client,
-				    uint64_t session_id, uint64_t req_id,
-				    Mgmtd__DatastoreId ds_id,
-				    Mgmtd__YangGetDataReq **data_req,
-				    int num_reqs);
 
 /*
  * Send NOTIFY_REGISTER_REQ to MGMTD daemon.
@@ -378,6 +372,12 @@ extern void mgmt_fe_client_destroy(struct mgmt_fe_client *client);
  * Get count of open sessions.
  */
 extern uint mgmt_fe_client_session_count(struct mgmt_fe_client *client);
+
+/*
+ * True if the current handled message is being short-circuited
+ */
+extern bool
+mgmt_fe_client_current_msg_short_circuit(struct mgmt_fe_client *client);
 
 #ifdef __cplusplus
 }

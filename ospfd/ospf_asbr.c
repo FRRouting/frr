@@ -265,17 +265,17 @@ void ospf_asbr_status_update(struct ospf *ospf, uint8_t status)
 }
 
 /* If there's redistribution configured, we need to refresh external
- * LSAs in order to install Type-7 and flood to all NSSA Areas
+ * LSAs (e.g. when default-metric changes or NSSA settings change).
  */
-static void ospf_asbr_nssa_redist_update_timer(struct event *thread)
+static void ospf_asbr_redist_update_timer(struct event *thread)
 {
 	struct ospf *ospf = EVENT_ARG(thread);
 	int type;
 
-	ospf->t_asbr_nssa_redist_update = NULL;
+	ospf->t_asbr_redist_update = NULL;
 
 	if (IS_DEBUG_OSPF_EVENT)
-		zlog_debug("Running ASBR NSSA redistribution update on timer");
+		zlog_debug("Running ASBR redistribution update on timer");
 
 	for (type = 0; type < ZEBRA_ROUTE_MAX; type++) {
 		struct list *red_list;
@@ -295,14 +295,14 @@ static void ospf_asbr_nssa_redist_update_timer(struct event *thread)
 	ospf_external_lsa_refresh_default(ospf);
 }
 
-void ospf_schedule_asbr_nssa_redist_update(struct ospf *ospf)
+void ospf_schedule_asbr_redist_update(struct ospf *ospf)
 {
 	if (IS_DEBUG_OSPF_EVENT)
-		zlog_debug("Scheduling ASBR NSSA redistribution update");
+		zlog_debug("Scheduling ASBR redistribution update");
 
-	event_add_timer(master, ospf_asbr_nssa_redist_update_timer, ospf,
-			OSPF_ASBR_NSSA_REDIST_UPDATE_DELAY,
-			&ospf->t_asbr_nssa_redist_update);
+	event_add_timer(master, ospf_asbr_redist_update_timer, ospf,
+			OSPF_ASBR_REDIST_UPDATE_DELAY,
+			&ospf->t_asbr_redist_update);
 }
 
 void ospf_redistribute_withdraw(struct ospf *ospf, uint8_t type,
@@ -987,6 +987,7 @@ static void ospf_handle_external_aggr_update(struct ospf *ospf)
 				&aggr->match_extnl_hash,
 				(void *)ospf_aggr_handle_external_info);
 
+			ospf_external_aggregator_free(aggr);
 		} else if (aggr->action == OSPF_ROUTE_AGGR_MODIFY) {
 
 			aggr->action = OSPF_ROUTE_AGGR_NONE;

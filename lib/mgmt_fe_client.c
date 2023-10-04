@@ -50,6 +50,22 @@ struct mgmt_fe_client {
 struct debug mgmt_dbg_fe_client = {0, "Management frontend client operations"};
 
 
+static inline const char *dsid2name(Mgmtd__DatastoreId id)
+{
+	switch ((int)id) {
+	case MGMTD_DS_NONE:
+		return "none";
+	case MGMTD_DS_RUNNING:
+		return "running";
+	case MGMTD_DS_CANDIDATE:
+		return "candidate";
+	case MGMTD_DS_OPERATIONAL:
+		return "operational";
+	default:
+		return "unknown-datastore-id";
+	}
+}
+
 static struct mgmt_fe_client_session *
 mgmt_fe_find_session_by_client_id(struct mgmt_fe_client *client,
 				  uint64_t client_id)
@@ -124,18 +140,15 @@ static int mgmt_fe_send_session_req(struct mgmt_fe_client *client,
 {
 	Mgmtd__FeMessage fe_msg;
 	Mgmtd__FeSessionReq sess_req;
-	bool scok;
 
 	mgmtd__fe_session_req__init(&sess_req);
 	sess_req.create = create;
 	if (create) {
 		sess_req.id_case = MGMTD__FE_SESSION_REQ__ID_CLIENT_CONN_ID;
 		sess_req.client_conn_id = session->client_id;
-		scok = true;
 	} else {
 		sess_req.id_case = MGMTD__FE_SESSION_REQ__ID_SESSION_ID;
 		sess_req.session_id = session->session_id;
-		scok = false;
 	}
 
 	mgmtd__fe_message__init(&fe_msg);
@@ -146,12 +159,12 @@ static int mgmt_fe_send_session_req(struct mgmt_fe_client *client,
 		"Sending SESSION_REQ %s message for client-id %" PRIu64,
 		create ? "create" : "destroy", session->client_id);
 
-	return mgmt_fe_client_send_msg(client, &fe_msg, scok);
+	return mgmt_fe_client_send_msg(client, &fe_msg, true);
 }
 
 int mgmt_fe_send_lockds_req(struct mgmt_fe_client *client, uint64_t session_id,
 			    uint64_t req_id, Mgmtd__DatastoreId ds_id,
-			    bool lock)
+			    bool lock, bool scok)
 {
 	(void)req_id;
 	Mgmtd__FeMessage fe_msg;
@@ -168,10 +181,11 @@ int mgmt_fe_send_lockds_req(struct mgmt_fe_client *client, uint64_t session_id,
 	fe_msg.lockds_req = &lockds_req;
 
 	MGMTD_FE_CLIENT_DBG(
-		"Sending %sLOCK_REQ message for Ds:%d session-id %" PRIu64,
-		lock ? "" : "UN", ds_id, session_id);
+		"Sending LOCKDS_REQ (%sLOCK) message for DS:%s session-id %" PRIu64,
+		lock ? "" : "UN", dsid2name(ds_id), session_id);
 
-	return mgmt_fe_client_send_msg(client, &fe_msg, false);
+
+	return mgmt_fe_client_send_msg(client, &fe_msg, scok);
 }
 
 int mgmt_fe_send_setcfg_req(struct mgmt_fe_client *client, uint64_t session_id,
@@ -197,9 +211,9 @@ int mgmt_fe_send_setcfg_req(struct mgmt_fe_client *client, uint64_t session_id,
 	fe_msg.setcfg_req = &setcfg_req;
 
 	MGMTD_FE_CLIENT_DBG(
-		"Sending SET_CONFIG_REQ message for Ds:%d session-id %" PRIu64
+		"Sending SET_CONFIG_REQ message for DS:%s session-id %" PRIu64
 		" (#xpaths:%d)",
-		ds_id, session_id, num_data_reqs);
+		dsid2name(ds_id), session_id, num_data_reqs);
 
 	return mgmt_fe_client_send_msg(client, &fe_msg, false);
 }
@@ -227,64 +241,37 @@ int mgmt_fe_send_commitcfg_req(struct mgmt_fe_client *client,
 	fe_msg.commcfg_req = &commitcfg_req;
 
 	MGMTD_FE_CLIENT_DBG(
-		"Sending COMMIT_CONFIG_REQ message for Src-Ds:%d, Dst-Ds:%d session-id %" PRIu64,
-		src_ds_id, dest_ds_id, session_id);
+		"Sending COMMIT_CONFIG_REQ message for Src-DS:%s, Dst-DS:%s session-id %" PRIu64,
+		dsid2name(src_ds_id), dsid2name(dest_ds_id), session_id);
 
 	return mgmt_fe_client_send_msg(client, &fe_msg, false);
 }
 
-int mgmt_fe_send_getcfg_req(struct mgmt_fe_client *client, uint64_t session_id,
-			    uint64_t req_id, Mgmtd__DatastoreId ds_id,
-			    Mgmtd__YangGetDataReq *data_req[],
-			    int num_data_reqs)
+int mgmt_fe_send_get_req(struct mgmt_fe_client *client, uint64_t session_id,
+			 uint64_t req_id, bool is_config,
+			 Mgmtd__DatastoreId ds_id,
+			 Mgmtd__YangGetDataReq *data_req[], int num_data_reqs)
 {
 	(void)req_id;
 	Mgmtd__FeMessage fe_msg;
-	Mgmtd__FeGetConfigReq getcfg_req;
+	Mgmtd__FeGetReq getcfg_req;
 
-	mgmtd__fe_get_config_req__init(&getcfg_req);
+	mgmtd__fe_get_req__init(&getcfg_req);
 	getcfg_req.session_id = session_id;
+	getcfg_req.config = is_config;
 	getcfg_req.ds_id = ds_id;
 	getcfg_req.req_id = req_id;
 	getcfg_req.data = data_req;
 	getcfg_req.n_data = (size_t)num_data_reqs;
 
 	mgmtd__fe_message__init(&fe_msg);
-	fe_msg.message_case = MGMTD__FE_MESSAGE__MESSAGE_GETCFG_REQ;
-	fe_msg.getcfg_req = &getcfg_req;
+	fe_msg.message_case = MGMTD__FE_MESSAGE__MESSAGE_GET_REQ;
+	fe_msg.get_req = &getcfg_req;
 
-	MGMTD_FE_CLIENT_DBG(
-		"Sending GET_CONFIG_REQ message for Ds:%d session-id %" PRIu64
-		" (#xpaths:%d)",
-		ds_id, session_id, num_data_reqs);
-
-	return mgmt_fe_client_send_msg(client, &fe_msg, false);
-}
-
-int mgmt_fe_send_getdata_req(struct mgmt_fe_client *client, uint64_t session_id,
-			     uint64_t req_id, Mgmtd__DatastoreId ds_id,
-			     Mgmtd__YangGetDataReq *data_req[],
-			     int num_data_reqs)
-{
-	(void)req_id;
-	Mgmtd__FeMessage fe_msg;
-	Mgmtd__FeGetDataReq getdata_req;
-
-	mgmtd__fe_get_data_req__init(&getdata_req);
-	getdata_req.session_id = session_id;
-	getdata_req.ds_id = ds_id;
-	getdata_req.req_id = req_id;
-	getdata_req.data = data_req;
-	getdata_req.n_data = (size_t)num_data_reqs;
-
-	mgmtd__fe_message__init(&fe_msg);
-	fe_msg.message_case = MGMTD__FE_MESSAGE__MESSAGE_GETDATA_REQ;
-	fe_msg.getdata_req = &getdata_req;
-
-	MGMTD_FE_CLIENT_DBG(
-		"Sending GET_CONFIG_REQ message for Ds:%d session-id %" PRIu64
-		" (#xpaths:%d)",
-		ds_id, session_id, num_data_reqs);
+	MGMTD_FE_CLIENT_DBG("Sending GET_REQ (iscfg %d) message for DS:%s session-id %" PRIu64
+			    " (#xpaths:%d)",
+			    is_config, dsid2name(ds_id), session_id,
+			    num_data_reqs);
 
 	return mgmt_fe_client_send_msg(client, &fe_msg, false);
 }
@@ -397,6 +384,7 @@ static int mgmt_fe_client_handle_msg(struct mgmt_fe_client *client,
 				session->user_ctx, fe_msg->setcfg_reply->req_id,
 				fe_msg->setcfg_reply->success,
 				fe_msg->setcfg_reply->ds_id,
+				fe_msg->setcfg_reply->implicit_commit,
 				fe_msg->setcfg_reply->error_if_any);
 		break;
 	case MGMTD__FE_MESSAGE__MESSAGE_COMMCFG_REPLY:
@@ -419,58 +407,33 @@ static int mgmt_fe_client_handle_msg(struct mgmt_fe_client *client,
 				fe_msg->commcfg_reply->validate_only,
 				fe_msg->commcfg_reply->error_if_any);
 		break;
-	case MGMTD__FE_MESSAGE__MESSAGE_GETCFG_REPLY:
-		MGMTD_FE_CLIENT_DBG("Got GETCFG_REPLY for session-id %" PRIu64,
-				    fe_msg->getcfg_reply->session_id);
+	case MGMTD__FE_MESSAGE__MESSAGE_GET_REPLY:
+		MGMTD_FE_CLIENT_DBG("Got GET_REPLY for session-id %" PRIu64,
+				    fe_msg->get_reply->session_id);
 
-		session = mgmt_fe_find_session_by_session_id(
-			client, fe_msg->getcfg_reply->session_id);
-
-		if (session && session->client &&
-		    session->client->cbs.get_data_notify)
-			(*session->client->cbs.get_data_notify)(
-				client, client->user_data, session->client_id,
-				fe_msg->getcfg_reply->session_id,
-				session->user_ctx, fe_msg->getcfg_reply->req_id,
-				fe_msg->getcfg_reply->success,
-				fe_msg->getcfg_reply->ds_id,
-				fe_msg->getcfg_reply->data
-					? fe_msg->getcfg_reply->data->data
-					: NULL,
-				fe_msg->getcfg_reply->data
-					? fe_msg->getcfg_reply->data->n_data
-					: 0,
-				fe_msg->getcfg_reply->data
-					? fe_msg->getcfg_reply->data->next_indx
-					: 0,
-				fe_msg->getcfg_reply->error_if_any);
-		break;
-	case MGMTD__FE_MESSAGE__MESSAGE_GETDATA_REPLY:
-		MGMTD_FE_CLIENT_DBG("Got GETDATA_REPLY for session-id %" PRIu64,
-				    fe_msg->getdata_reply->session_id);
-
-		session = mgmt_fe_find_session_by_session_id(
-			client, fe_msg->getdata_reply->session_id);
+		session =
+			mgmt_fe_find_session_by_session_id(client,
+							   fe_msg->get_reply
+								   ->session_id);
 
 		if (session && session->client &&
 		    session->client->cbs.get_data_notify)
 			(*session->client->cbs.get_data_notify)(
 				client, client->user_data, session->client_id,
-				fe_msg->getdata_reply->session_id,
-				session->user_ctx,
-				fe_msg->getdata_reply->req_id,
-				fe_msg->getdata_reply->success,
-				fe_msg->getdata_reply->ds_id,
-				fe_msg->getdata_reply->data
-					? fe_msg->getdata_reply->data->data
+				fe_msg->get_reply->session_id,
+				session->user_ctx, fe_msg->get_reply->req_id,
+				fe_msg->get_reply->success,
+				fe_msg->get_reply->ds_id,
+				fe_msg->get_reply->data
+					? fe_msg->get_reply->data->data
 					: NULL,
-				fe_msg->getdata_reply->data
-					? fe_msg->getdata_reply->data->n_data
+				fe_msg->get_reply->data
+					? fe_msg->get_reply->data->n_data
 					: 0,
-				fe_msg->getdata_reply->data
-					? fe_msg->getdata_reply->data->next_indx
+				fe_msg->get_reply->data
+					? fe_msg->get_reply->data->next_indx
 					: 0,
-				fe_msg->getdata_reply->error_if_any);
+				fe_msg->get_reply->error_if_any);
 		break;
 	case MGMTD__FE_MESSAGE__MESSAGE_NOTIFY_DATA_REQ:
 	case MGMTD__FE_MESSAGE__MESSAGE_REGNOTIFY_REQ:
@@ -487,8 +450,7 @@ static int mgmt_fe_client_handle_msg(struct mgmt_fe_client *client,
 	case MGMTD__FE_MESSAGE__MESSAGE_LOCKDS_REQ:
 	case MGMTD__FE_MESSAGE__MESSAGE_SETCFG_REQ:
 	case MGMTD__FE_MESSAGE__MESSAGE_COMMCFG_REQ:
-	case MGMTD__FE_MESSAGE__MESSAGE_GETCFG_REQ:
-	case MGMTD__FE_MESSAGE__MESSAGE_GETDATA_REQ:
+	case MGMTD__FE_MESSAGE__MESSAGE_GET_REQ:
 	case MGMTD__FE_MESSAGE__MESSAGE__NOT_SET:
 	default:
 		/*
@@ -665,6 +627,11 @@ void mgmt_fe_client_lib_vty_init(void)
 uint mgmt_fe_client_session_count(struct mgmt_fe_client *client)
 {
 	return mgmt_sessions_count(&client->sessions);
+}
+
+bool mgmt_fe_client_current_msg_short_circuit(struct mgmt_fe_client *client)
+{
+	return client->client.conn.is_short_circuit;
 }
 
 /*

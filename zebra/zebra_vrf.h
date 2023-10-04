@@ -13,10 +13,16 @@
 #include <zebra/zebra_pw.h>
 #include <zebra/rtadv.h>
 #include <lib/vxlan.h>
+#include "defaults.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+FRR_CFG_DEFAULT_BOOL(ZEBRA_IP_NHT_RESOLVE_VIA_DEFAULT,
+	{ .val_bool = true, .match_profile = "traditional", },
+	{ .val_bool = false },
+);
 
 /* MPLS (Segment Routing) global block */
 struct mpls_srgb {
@@ -237,6 +243,7 @@ extern struct route_table *zebra_vrf_get_table_with_table_id(afi_t afi,
 extern void zebra_vrf_update_all(struct zserv *client);
 extern struct zebra_vrf *zebra_vrf_lookup_by_id(vrf_id_t vrf_id);
 extern struct zebra_vrf *zebra_vrf_lookup_by_name(const char *);
+extern vrf_id_t zebra_vrf_lookup_by_table(uint32_t table_id, ns_id_t ns_id);
 extern struct zebra_vrf *zebra_vrf_alloc(struct vrf *vrf);
 extern struct route_table *zebra_vrf_table(afi_t, safi_t, vrf_id_t);
 

@@ -83,10 +83,10 @@ static struct peer *peer_lookup_addr_ipv4(struct in_addr *src)
 
 	for (ALL_LIST_ELEMENTS_RO(bm->bgp, bgpnode, bgp)) {
 		for (ALL_LIST_ELEMENTS_RO(bgp->peer, node, peer)) {
-			if (sockunion_family(&peer->su) != AF_INET)
+			if (sockunion_family(&peer->connection->su) != AF_INET)
 				continue;
 
-			if (sockunion2ip(&peer->su) == src->s_addr)
+			if (sockunion2ip(&peer->connection->su) == src->s_addr)
 				return peer;
 		}
 	}
@@ -104,22 +104,22 @@ static struct peer *bgp_peer_lookup_next(struct in_addr *src)
 
 	for (ALL_LIST_ELEMENTS_RO(bm->bgp, bgpnode, bgp)) {
 		for (ALL_LIST_ELEMENTS_RO(bgp->peer, node, peer)) {
-			if (sockunion_family(&peer->su) != AF_INET)
+			if (sockunion_family(&peer->connection->su) != AF_INET)
 				continue;
-			if (ntohl(sockunion2ip(&peer->su)) <=
+			if (ntohl(sockunion2ip(&peer->connection->su)) <=
 			    ntohl(src->s_addr))
 				continue;
 
 			if (!next_peer ||
-			    ntohl(sockunion2ip(&next_peer->su)) >
-				    ntohl(sockunion2ip(&peer->su))) {
+			    ntohl(sockunion2ip(&next_peer->connection->su)) >
+				    ntohl(sockunion2ip(&peer->connection->su))) {
 				next_peer = peer;
 			}
 		}
 	}
 
 	if (next_peer) {
-		src->s_addr = sockunion2ip(&next_peer->su);
+		src->s_addr = sockunion2ip(&next_peer->connection->su);
 		return next_peer;
 	}
 
@@ -173,6 +173,7 @@ static int write_bgpPeerTable(int action, uint8_t *var_val,
 {
 	struct in_addr addr;
 	struct peer *peer;
+	struct peer_connection *connection;
 	long intval;
 
 	if (var_val_type != ASN_INTEGER) {
@@ -190,6 +191,8 @@ static int write_bgpPeerTable(int action, uint8_t *var_val,
 	if (!peer)
 		return SNMP_ERR_NOSUCHNAME;
 
+	connection = peer->connection;
+
 	if (action != SNMP_MSG_INTERNAL_SET_COMMIT)
 		return SNMP_ERR_NOERROR;
 
@@ -202,7 +205,7 @@ static int write_bgpPeerTable(int action, uint8_t *var_val,
 #define BGP_PeerAdmin_start 2
 		/* When the peer is established,   */
 		if (intval == BGP_PeerAdmin_stop)
-			BGP_EVENT_ADD(peer, BGP_Stop);
+			BGP_EVENT_ADD(connection, BGP_Stop);
 		else if (intval == BGP_PeerAdmin_start)
 			; /* Do nothing. */
 		else
@@ -251,7 +254,7 @@ static uint8_t *bgpPeerTable(struct variable *v, oid name[], size_t *length,
 	case BGPPEERIDENTIFIER:
 		return SNMP_IPADDRESS(peer->remote_id);
 	case BGPPEERSTATE:
-		return SNMP_INTEGER(peer->status);
+		return SNMP_INTEGER(peer->connection->status);
 	case BGPPEERADMINSTATUS:
 		*write_method = write_bgpPeerTable;
 #define BGP_PeerAdmin_stop 1
@@ -398,7 +401,7 @@ static struct bgp_path_info *bgp4PathAttrLookup(struct variable *v, oid name[],
 		/* Set OID offset for prefix. */
 		offset = name + v->namelen;
 		oid2in_addr(offset, IN_ADDR_SIZE, &addr->prefix);
-		offset += IN_ADDR_SIZE;
+		offset++;
 
 		/* Prefix length. */
 		addr->prefixlen = *offset;
@@ -414,7 +417,8 @@ static struct bgp_path_info *bgp4PathAttrLookup(struct variable *v, oid name[],
 		if (dest) {
 			for (path = bgp_dest_get_bgp_path_info(dest); path;
 			     path = path->next)
-				if (sockunion_same(&path->peer->su, &su))
+				if (sockunion_same(&path->peer->connection->su,
+						   &su))
 					return path;
 
 			bgp_dest_unlock_node(dest);
@@ -464,15 +468,18 @@ static struct bgp_path_info *bgp4PathAttrLookup(struct variable *v, oid name[],
 
 			for (path = bgp_dest_get_bgp_path_info(dest); path;
 			     path = path->next) {
-				if (path->peer->su.sin.sin_family == AF_INET &&
+				if (path->peer->connection->su.sin.sin_family ==
+					    AF_INET &&
 				    ntohl(paddr.s_addr) <
-					    ntohl(path->peer->su.sin.sin_addr
-							  .s_addr)) {
+					    ntohl(path->peer->connection->su.sin
+							  .sin_addr.s_addr)) {
 					if (min) {
-						if (ntohl(path->peer->su.sin
+						if (ntohl(path->peer->connection
+								  ->su.sin
 								  .sin_addr
 								  .s_addr) <
-						    ntohl(min->peer->su.sin
+						    ntohl(min->peer->connection
+								  ->su.sin
 								  .sin_addr
 								  .s_addr))
 							min = path;
@@ -490,11 +497,12 @@ static struct bgp_path_info *bgp4PathAttrLookup(struct variable *v, oid name[],
 
 				offset = name + v->namelen;
 				oid_copy_in_addr(offset, &rn_p->u.prefix4);
-				offset += IN_ADDR_SIZE;
+				offset++;
 				*offset = rn_p->prefixlen;
 				offset++;
 				oid_copy_in_addr(offset,
-						 &min->peer->su.sin.sin_addr);
+						 &min->peer->connection->su.sin
+							  .sin_addr);
 				addr->prefix = rn_p->u.prefix4;
 				addr->prefixlen = rn_p->prefixlen;
 
@@ -532,7 +540,7 @@ static uint8_t *bgp4PathAttrTable(struct variable *v, oid name[],
 
 	switch (v->magic) {
 	case BGP4PATHATTRPEER: /* 1 */
-		return SNMP_IPADDRESS(path->peer->su.sin.sin_addr);
+		return SNMP_IPADDRESS(path->peer->connection->su.sin.sin_addr);
 	case BGP4PATHATTRIPADDRPREFIXLEN: /* 2 */
 		return SNMP_INTEGER(addr.prefixlen);
 	case BGP4PATHATTRIPADDRPREFIX: /* 3 */
@@ -754,9 +762,11 @@ int bgpTrapEstablished(struct peer *peer)
 	int ret;
 	struct in_addr addr;
 	oid index[sizeof(oid) * IN_ADDR_SIZE];
+	struct peer_connection *connection = peer->connection;
 
 	/* Check if this peer just went to Established */
-	if ((peer->ostatus != OpenConfirm) || !(peer_established(peer)))
+	if ((connection->ostatus != OpenConfirm) ||
+	    !(peer_established(connection)))
 		return 0;
 
 	ret = inet_aton(peer->host, &addr);

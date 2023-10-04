@@ -297,6 +297,56 @@ def check_for_memleaks():
         pytest.fail("memleaks found for daemons: " + " ".join(daemons))
 
 
+def check_for_core_dumps():
+    tgen = get_topogen()  # pylint: disable=redefined-outer-name
+    if not tgen:
+        return
+
+    if not hasattr(tgen, "existing_core_files"):
+        tgen.existing_core_files = set()
+    existing = tgen.existing_core_files
+
+    cores = glob.glob(os.path.join(tgen.logdir, "*/*.dmp"))
+    latest = {x for x in cores if x not in existing}
+    if latest:
+        existing |= latest
+        tgen.existing_core_files = existing
+
+        emsg = "New core[s] found: " + ", ".join(latest)
+        logger.error(emsg)
+        pytest.fail(emsg)
+
+
+def check_for_backtraces():
+    tgen = get_topogen()  # pylint: disable=redefined-outer-name
+    if not tgen:
+        return
+
+    if not hasattr(tgen, "existing_backtrace_files"):
+        tgen.existing_backtrace_files = {}
+    existing = tgen.existing_backtrace_files
+
+    latest = glob.glob(os.path.join(tgen.logdir, "*/*.log"))
+    backtraces = []
+    for vfile in latest:
+        with open(vfile, encoding="ascii") as vf:
+            vfcontent = vf.read()
+            btcount = vfcontent.count("Backtrace:")
+        if not btcount:
+            continue
+        if vfile not in existing:
+            existing[vfile] = 0
+        if btcount == existing[vfile]:
+            continue
+        existing[vfile] = btcount
+        backtraces.append(vfile)
+
+    if backtraces:
+        emsg = "New backtraces found in: " + ", ".join(backtraces)
+        logger.error(emsg)
+        pytest.fail(emsg)
+
+
 @pytest.fixture(autouse=True, scope="module")
 def module_autouse(request):
     basename = get_test_logdir(request.node.nodeid, True)
@@ -349,9 +399,13 @@ def pytest_runtest_call(item: pytest.Item) -> None:
     # Let the default pytest_runtest_call execute the test function
     yield
 
+    check_for_backtraces()
+    check_for_core_dumps()
+
     # Check for leaks if requested
     if item.config.option.valgrind_memleaks:
         check_for_valgrind_memleaks()
+
     if item.config.option.memleaks:
         check_for_memleaks()
 

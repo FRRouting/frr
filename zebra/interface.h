@@ -39,7 +39,6 @@ enum zebra_iftype {
 	ZEBRA_IF_MACVLAN,   /* MAC VLAN interface*/
 	ZEBRA_IF_VETH,      /* VETH interface*/
 	ZEBRA_IF_BOND,	    /* Bond */
-	ZEBRA_IF_BOND_SLAVE,	    /* Bond */
 	ZEBRA_IF_GRE,      /* GRE interface */
 };
 
@@ -113,6 +112,9 @@ struct zebra_if {
 
 	/* MPLS status. */
 	bool mpls;
+
+	/* MPLS configuration */
+	uint8_t mpls_config;
 
 	/* Linkdown status */
 	bool linkdown, linkdownv6;

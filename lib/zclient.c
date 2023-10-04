@@ -180,14 +180,14 @@ void zclient_stop(struct zclient *zclient)
 
 	for (afi = AFI_IP; afi < AFI_MAX; afi++) {
 		for (i = 0; i < ZEBRA_ROUTE_MAX; i++) {
-			vrf_bitmap_free(zclient->redist[afi][i]);
+			vrf_bitmap_free(&zclient->redist[afi][i]);
 			zclient->redist[afi][i] = VRF_BITMAP_NULL;
 		}
 		redist_del_instance(
 			&zclient->mi_redist[afi][zclient->redist_default],
 			zclient->instance);
 
-		vrf_bitmap_free(zclient->default_information[afi]);
+		vrf_bitmap_free(&zclient->default_information[afi]);
 		zclient->default_information[afi] = VRF_BITMAP_NULL;
 	}
 }
@@ -494,7 +494,7 @@ void zclient_send_reg_requests(struct zclient *zclient, vrf_id_t vrf_id)
 
 	/* Set unwanted redistribute route. */
 	for (afi = AFI_IP; afi < AFI_MAX; afi++)
-		vrf_bitmap_set(zclient->redist[afi][zclient->redist_default],
+		vrf_bitmap_set(&zclient->redist[afi][zclient->redist_default],
 			       vrf_id);
 
 	/* Flush all redistribute request. */
@@ -524,15 +524,15 @@ void zclient_send_reg_requests(struct zclient *zclient, vrf_id_t vrf_id)
 	/* Resend all redistribute request. */
 	for (afi = AFI_IP; afi < AFI_MAX; afi++) {
 		for (i = 0; i < ZEBRA_ROUTE_MAX; i++)
-			if (i != zclient->redist_default
-			    && vrf_bitmap_check(zclient->redist[afi][i],
-						vrf_id))
+			if (i != zclient->redist_default &&
+			    vrf_bitmap_check(&zclient->redist[afi][i], vrf_id))
 				zebra_redistribute_send(ZEBRA_REDISTRIBUTE_ADD,
 							zclient, afi, i, 0,
 							vrf_id);
 
 		/* If default information is needed. */
-		if (vrf_bitmap_check(zclient->default_information[afi], vrf_id))
+		if (vrf_bitmap_check(&zclient->default_information[afi],
+				     vrf_id))
 			zebra_redistribute_default_send(
 				ZEBRA_REDISTRIBUTE_DEFAULT_ADD, zclient, afi,
 				vrf_id);
@@ -561,7 +561,7 @@ void zclient_send_dereg_requests(struct zclient *zclient, vrf_id_t vrf_id)
 
 	/* Set unwanted redistribute route. */
 	for (afi = AFI_IP; afi < AFI_MAX; afi++)
-		vrf_bitmap_unset(zclient->redist[afi][zclient->redist_default],
+		vrf_bitmap_unset(&zclient->redist[afi][zclient->redist_default],
 				 vrf_id);
 
 	/* Flush all redistribute request. */
@@ -591,15 +591,15 @@ void zclient_send_dereg_requests(struct zclient *zclient, vrf_id_t vrf_id)
 	/* Flush all redistribute request. */
 	for (afi = AFI_IP; afi < AFI_MAX; afi++) {
 		for (i = 0; i < ZEBRA_ROUTE_MAX; i++)
-			if (i != zclient->redist_default
-			    && vrf_bitmap_check(zclient->redist[afi][i],
-						vrf_id))
+			if (i != zclient->redist_default &&
+			    vrf_bitmap_check(&zclient->redist[afi][i], vrf_id))
 				zebra_redistribute_send(
 					ZEBRA_REDISTRIBUTE_DELETE, zclient, afi,
 					i, 0, vrf_id);
 
 		/* If default information is needed. */
-		if (vrf_bitmap_check(zclient->default_information[afi], vrf_id))
+		if (vrf_bitmap_check(&zclient->default_information[afi],
+				     vrf_id))
 			zebra_redistribute_default_send(
 				ZEBRA_REDISTRIBUTE_DEFAULT_DELETE, zclient, afi,
 				vrf_id);
@@ -726,7 +726,7 @@ void zclient_init(struct zclient *zclient, int redist_default,
 	/* Clear redistribution flags. */
 	for (afi = AFI_IP; afi < AFI_MAX; afi++)
 		for (i = 0; i < ZEBRA_ROUTE_MAX; i++)
-			zclient->redist[afi][i] = vrf_bitmap_init();
+			vrf_bitmap_init(&zclient->redist[afi][i]);
 
 	/* Set unwanted redistribute route.  bgpd does not need BGP route
 	   redistribution. */
@@ -738,7 +738,7 @@ void zclient_init(struct zclient *zclient, int redist_default,
 				    instance);
 
 		/* Set default-information redistribute to zero. */
-		zclient->default_information[afi] = vrf_bitmap_init();
+		vrf_bitmap_init(&zclient->default_information[afi]);
 	}
 
 	if (zclient_debug)
@@ -1061,10 +1061,11 @@ int zapi_nexthop_encode(struct stream *s, const struct zapi_nexthop *api_nh,
 			     sizeof(struct seg6local_context));
 	}
 
-	if (CHECK_FLAG(nh_flags, ZAPI_NEXTHOP_FLAG_SEG6))
-		stream_write(s, &api_nh->seg6_segs,
-			     sizeof(struct in6_addr));
-
+	if (CHECK_FLAG(nh_flags, ZAPI_NEXTHOP_FLAG_SEG6)) {
+		stream_putc(s, api_nh->seg_num);
+		stream_put(s, &api_nh->seg6_segs[0],
+			   api_nh->seg_num * sizeof(struct in6_addr));
+	}
 done:
 	return ret;
 }
@@ -1430,9 +1431,18 @@ int zapi_nexthop_decode(struct stream *s, struct zapi_nexthop *api_nh,
 			   sizeof(struct seg6local_context));
 	}
 
-	if (CHECK_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_SEG6))
-		STREAM_GET(&api_nh->seg6_segs, s,
-			   sizeof(struct in6_addr));
+	if (CHECK_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_SEG6)) {
+		STREAM_GETC(s, api_nh->seg_num);
+		if (api_nh->seg_num > SRV6_MAX_SIDS) {
+			flog_err(EC_LIB_ZAPI_ENCODE,
+				 "%s: invalid number of SRv6 Segs (%u)",
+				 __func__, api_nh->seg_num);
+			return -1;
+		}
+
+		STREAM_GET(&api_nh->seg6_segs[0], s,
+			   api_nh->seg_num * sizeof(struct in6_addr));
+	}
 
 	/* Success */
 	ret = 0;
@@ -1611,35 +1621,265 @@ static void zapi_encode_prefix(struct stream *s, struct prefix *p,
 	stream_put(s, &p->u.prefix, prefix_blen(p));
 }
 
-int zapi_pbr_rule_encode(uint8_t cmd, struct stream *s, struct pbr_rule *zrule)
+static bool zapi_decode_prefix(struct stream *s, struct prefix *p)
 {
-	stream_reset(s);
-	zclient_create_header(s, cmd, zrule->vrf_id);
+	STREAM_GETC(s, p->family);
+	STREAM_GETC(s, p->prefixlen);
+	STREAM_GET(&(p->u.prefix), s, prefix_blen(p));
+	return true;
+
+stream_failure:
+	return false;
+}
+
+static void zapi_encode_sockunion(struct stream *s, const union sockunion *su)
+{
+	int family = sockunion_family(su);
+	size_t addrlen = family2addrsize(family);
 
 	/*
-	 * We are sending one item at a time at the moment
+	 * Must know length to encode
+	 */
+	assert(addrlen);
+
+	stream_putc(s, (uint8_t)family);
+
+	stream_write(s, sockunion_get_addr(su), addrlen);
+}
+
+static bool zapi_decode_sockunion(struct stream *s, union sockunion *su)
+{
+	uint8_t family;
+	size_t addrlen;
+	uint8_t buf[sizeof(union sockunion)];
+
+	memset(su, 0, sizeof(*su));
+
+	STREAM_GETC(s, family);
+	sockunion_family(su) = family;
+
+	addrlen = family2addrsize(family);
+	if (!addrlen)
+		return false;
+
+	if (addrlen > sizeof(buf))
+		return false;
+
+	STREAM_GET(buf, s, addrlen);
+	sockunion_set(su, family, buf, addrlen);
+	return true;
+
+stream_failure:
+	return false;
+}
+
+/*
+ * Encode filter subsection of pbr_rule
+ */
+static void zapi_pbr_rule_filter_encode(struct stream *s, struct pbr_filter *f)
+{
+	assert(f->src_ip.family == f->dst_ip.family);
+	assert((f->src_ip.family == AF_INET) || (f->src_ip.family == AF_INET6));
+
+	stream_putl(s, f->filter_bm);
+
+	if (CHECK_FLAG(f->filter_bm, PBR_FILTER_IP_PROTOCOL))
+		stream_putc(s, f->ip_proto);
+
+	/* addresses */
+	if (CHECK_FLAG(f->filter_bm, PBR_FILTER_SRC_IP))
+		zapi_encode_prefix(s, &f->src_ip, f->src_ip.family);
+	if (CHECK_FLAG(f->filter_bm, PBR_FILTER_DST_IP))
+		zapi_encode_prefix(s, &f->dst_ip, f->dst_ip.family);
+
+	/* port numbers */
+	if (CHECK_FLAG(f->filter_bm, PBR_FILTER_SRC_PORT))
+		stream_putw(s, f->src_port);
+	if (CHECK_FLAG(f->filter_bm, PBR_FILTER_DST_PORT))
+		stream_putw(s, f->dst_port);
+
+	if (CHECK_FLAG(f->filter_bm, PBR_FILTER_DSCP))
+		stream_putc(s, f->dsfield & PBR_DSFIELD_DSCP);
+	if (CHECK_FLAG(f->filter_bm, PBR_FILTER_ECN))
+		stream_putc(s, f->dsfield & PBR_DSFIELD_ECN);
+
+	/* vlan */
+	if (CHECK_FLAG(f->filter_bm, PBR_FILTER_PCP))
+		stream_putc(s, f->pcp);
+	if (CHECK_FLAG(f->filter_bm, PBR_FILTER_VLAN_ID))
+		stream_putw(s, f->vlan_id);
+	if (CHECK_FLAG(f->filter_bm, PBR_FILTER_VLAN_FLAGS))
+		stream_putw(s, f->vlan_flags);
+
+
+	if (CHECK_FLAG(f->filter_bm, PBR_FILTER_FWMARK))
+		stream_putl(s, f->fwmark);
+}
+
+static bool zapi_pbr_rule_filter_decode(struct stream *s, struct pbr_filter *f)
+{
+	uint8_t dscp = 0;
+	uint8_t ecn = 0;
+
+	STREAM_GETL(s, f->filter_bm);
+
+	if (CHECK_FLAG(f->filter_bm, PBR_FILTER_IP_PROTOCOL))
+		STREAM_GETC(s, f->ip_proto);
+
+	if (CHECK_FLAG(f->filter_bm, PBR_FILTER_SRC_IP))
+		if (!zapi_decode_prefix(s, &(f->src_ip)))
+			goto stream_failure;
+	if (CHECK_FLAG(f->filter_bm, PBR_FILTER_DST_IP))
+		if (!zapi_decode_prefix(s, &(f->dst_ip)))
+			goto stream_failure;
+
+	if (CHECK_FLAG(f->filter_bm, PBR_FILTER_SRC_PORT))
+		STREAM_GETW(s, f->src_port);
+	if (CHECK_FLAG(f->filter_bm, PBR_FILTER_DST_PORT))
+		STREAM_GETW(s, f->dst_port);
+
+	if (CHECK_FLAG(f->filter_bm, PBR_FILTER_DSCP))
+		STREAM_GETC(s, dscp);
+	if (CHECK_FLAG(f->filter_bm, PBR_FILTER_ECN))
+		STREAM_GETC(s, ecn);
+	f->dsfield = (dscp & PBR_DSFIELD_DSCP) | (ecn & PBR_DSFIELD_ECN);
+
+	/* vlan */
+	if (CHECK_FLAG(f->filter_bm, PBR_FILTER_PCP))
+		STREAM_GETC(s, f->pcp);
+	if (CHECK_FLAG(f->filter_bm, PBR_FILTER_VLAN_ID))
+		STREAM_GETW(s, f->vlan_id);
+	if (CHECK_FLAG(f->filter_bm, PBR_FILTER_VLAN_FLAGS))
+		STREAM_GETW(s, f->vlan_flags);
+
+	if (CHECK_FLAG(f->filter_bm, PBR_FILTER_FWMARK))
+		STREAM_GETL(s, f->fwmark);
+
+	return true;
+
+stream_failure:
+	return false;
+}
+
+static void zapi_pbr_rule_action_encode(struct stream *s, struct pbr_action *a)
+{
+	stream_putl(s, a->flags);
+
+	if (CHECK_FLAG(a->flags, PBR_ACTION_TABLE))
+		stream_putl(s, a->table);
+	if (CHECK_FLAG(a->flags, PBR_ACTION_QUEUE_ID))
+		stream_putl(s, a->queue_id);
+
+	/* L3 */
+	if (CHECK_FLAG(a->flags, PBR_ACTION_SRC_IP))
+		zapi_encode_sockunion(s, &a->src_ip);
+	if (CHECK_FLAG(a->flags, PBR_ACTION_DST_IP))
+		zapi_encode_sockunion(s, &a->dst_ip);
+	if (CHECK_FLAG(a->flags, PBR_ACTION_SRC_PORT))
+		stream_putw(s, a->src_port);
+	if (CHECK_FLAG(a->flags, PBR_ACTION_DST_PORT))
+		stream_putw(s, a->dst_port);
+
+	if (CHECK_FLAG(a->flags, PBR_ACTION_DSCP))
+		stream_putc(s, a->dscp & PBR_DSFIELD_DSCP);
+	if (CHECK_FLAG(a->flags, PBR_ACTION_ECN))
+		stream_putc(s, a->ecn & PBR_DSFIELD_ECN);
+
+	/* L2 */
+	if (CHECK_FLAG(a->flags, PBR_ACTION_PCP))
+		stream_putc(s, a->pcp);
+	if (CHECK_FLAG(a->flags, PBR_ACTION_VLAN_ID))
+		stream_putw(s, a->vlan_id);
+}
+
+static bool zapi_pbr_rule_action_decode(struct stream *s, struct pbr_action *a)
+{
+	STREAM_GETL(s, a->flags);
+
+	if (CHECK_FLAG(a->flags, PBR_ACTION_TABLE))
+		STREAM_GETL(s, a->table);
+	if (CHECK_FLAG(a->flags, PBR_ACTION_QUEUE_ID))
+		STREAM_GETL(s, a->queue_id);
+
+	/* L3 */
+	if (CHECK_FLAG(a->flags, PBR_ACTION_SRC_IP)) {
+		if (!zapi_decode_sockunion(s, &(a->src_ip)))
+			goto stream_failure;
+	}
+	if (CHECK_FLAG(a->flags, PBR_ACTION_DST_IP))
+		if (!zapi_decode_sockunion(s, &(a->dst_ip)))
+			goto stream_failure;
+
+	if (CHECK_FLAG(a->flags, PBR_ACTION_SRC_PORT))
+		STREAM_GETW(s, a->src_port);
+	if (CHECK_FLAG(a->flags, PBR_ACTION_DST_PORT))
+		STREAM_GETW(s, a->dst_port);
+
+	if (CHECK_FLAG(a->flags, PBR_ACTION_DSCP)) {
+		STREAM_GETC(s, a->dscp);
+		a->dscp &= PBR_DSFIELD_DSCP;
+	}
+	if (CHECK_FLAG(a->flags, PBR_ACTION_ECN)) {
+		STREAM_GETC(s, a->ecn);
+		a->ecn &= PBR_DSFIELD_ECN;
+	}
+
+	/* L2 */
+	if (CHECK_FLAG(a->flags, PBR_ACTION_PCP))
+		STREAM_GETC(s, a->pcp);
+	if (CHECK_FLAG(a->flags, PBR_ACTION_VLAN_ID))
+		STREAM_GETW(s, a->vlan_id);
+
+	return true;
+
+stream_failure:
+	return false;
+}
+
+int zapi_pbr_rule_encode(struct stream *s, struct pbr_rule *r)
+{
+	/*
+	 * PBR record count is always 1
 	 */
 	stream_putl(s, 1);
 
-	stream_putl(s, zrule->seq);
-	stream_putl(s, zrule->priority);
-	stream_putl(s, zrule->unique);
+	stream_putc(s, r->family);
+	stream_putl(s, r->seq);
+	stream_putl(s, r->priority);
+	stream_putl(s, r->unique);
 
-	zapi_encode_prefix(s, &(zrule->filter.src_ip),
-			   zrule->filter.src_ip.family);
-	stream_putw(s, zrule->filter.src_port); /* src port */
-	zapi_encode_prefix(s, &(zrule->filter.dst_ip),
-			   zrule->filter.src_ip.family);
-	stream_putw(s, zrule->filter.dst_port); /* dst port */
-	stream_putw(s, zrule->filter.fwmark);   /* fwmark */
+	zapi_pbr_rule_filter_encode(s, &(r->filter));
+	zapi_pbr_rule_action_encode(s, &(r->action));
 
-	stream_putl(s, zrule->action.table);
-	stream_put(s, zrule->ifname, INTERFACE_NAMSIZ);
+	stream_put(s, r->ifname, INTERFACE_NAMSIZ);
 
 	/* Put length at the first point of the stream. */
 	stream_putw_at(s, 0, stream_get_endp(s));
 
 	return 0;
+}
+
+bool zapi_pbr_rule_decode(struct stream *s, struct pbr_rule *r)
+{
+	/* NB caller has already read 4-byte rule count */
+
+	memset(r, 0, sizeof(*r));
+
+	STREAM_GETC(s, r->family);
+	STREAM_GETL(s, r->seq);
+	STREAM_GETL(s, r->priority);
+	STREAM_GETL(s, r->unique);
+
+	if (!zapi_pbr_rule_filter_decode(s, &(r->filter)))
+		goto stream_failure;
+	if (!zapi_pbr_rule_action_decode(s, &(r->action)))
+		goto stream_failure;
+
+	STREAM_GET(r->ifname, s, INTERFACE_NAMSIZ);
+	return true;
+
+stream_failure:
+	return false;
 }
 
 int zapi_tc_qdisc_encode(uint8_t cmd, struct stream *s, struct tc_qdisc *qdisc)
@@ -1902,8 +2142,8 @@ struct nexthop *nexthop_from_zapi_nexthop(const struct zapi_nexthop *znh)
 		nexthop_add_srv6_seg6local(n, znh->seg6local_action,
 					   &znh->seg6local_ctx);
 
-	if (!sid_zero(&znh->seg6_segs))
-		nexthop_add_srv6_seg6(n, &znh->seg6_segs);
+	if (znh->seg_num && !sid_zero_ipv6(znh->seg6_segs))
+		nexthop_add_srv6_seg6(n, &znh->seg6_segs[0], znh->seg_num);
 
 	return n;
 }
@@ -1963,10 +2203,14 @@ int zapi_nexthop_from_nexthop(struct zapi_nexthop *znh,
 			       sizeof(struct seg6local_context));
 		}
 
-		if (!sid_zero(&nh->nh_srv6->seg6_segs)) {
+		if (nh->nh_srv6->seg6_segs && nh->nh_srv6->seg6_segs->num_segs &&
+		    !sid_zero(nh->nh_srv6->seg6_segs)) {
 			SET_FLAG(znh->flags, ZAPI_NEXTHOP_FLAG_SEG6);
-			memcpy(&znh->seg6_segs, &nh->nh_srv6->seg6_segs,
-			       sizeof(struct in6_addr));
+			znh->seg_num = nh->nh_srv6->seg6_segs->num_segs;
+			for (i = 0; i < nh->nh_srv6->seg6_segs->num_segs; i++)
+				memcpy(&znh->seg6_segs[i],
+				       &nh->nh_srv6->seg6_segs->seg[i],
+				       sizeof(struct in6_addr));
 		}
 	}
 
@@ -2531,6 +2775,7 @@ static void zebra_interface_if_set_value(struct stream *s,
 	STREAM_GETC(s, ifp->ptm_status);
 	STREAM_GETL(s, ifp->metric);
 	STREAM_GETL(s, ifp->speed);
+	STREAM_GETL(s, ifp->txqlen);
 	STREAM_GETL(s, ifp->mtu);
 	STREAM_GETL(s, ifp->mtu6);
 	STREAM_GETL(s, ifp->bandwidth);
@@ -3779,6 +4024,7 @@ static int zclient_capability_decode(ZAPI_CALLBACK_ARGS)
 	cap.mpls_enabled = !!mpls_enabled;
 	STREAM_GETL(s, cap.ecmp);
 	STREAM_GETC(s, cap.role);
+	STREAM_GETC(s, cap.v6_with_v4_nexthop);
 
 	if (zclient->zebra_capabilities)
 		(*zclient->zebra_capabilities)(&cap);
@@ -3824,6 +4070,53 @@ enum zclient_send_status zclient_send_mlag_data(struct zclient *client,
 }
 
 /*
+ * Init/header setup for opaque zapi messages
+ */
+enum zclient_send_status zapi_opaque_init(struct zclient *zclient,
+					  uint32_t type, uint16_t flags)
+{
+	struct stream *s;
+
+	s = zclient->obuf;
+	stream_reset(s);
+
+	zclient_create_header(s, ZEBRA_OPAQUE_MESSAGE, VRF_DEFAULT);
+
+	/* Send sub-type and flags */
+	stream_putl(s, type);
+	stream_putw(s, flags);
+
+	/* Source daemon identifiers */
+	stream_putc(s, zclient->redist_default);
+	stream_putw(s, zclient->instance);
+	stream_putl(s, zclient->session_id);
+
+	return ZCLIENT_SEND_SUCCESS;
+}
+
+/*
+ * Init, header setup for opaque unicast messages.
+ */
+enum zclient_send_status
+zapi_opaque_unicast_init(struct zclient *zclient, uint32_t type, uint16_t flags,
+			 uint8_t proto, uint16_t instance, uint32_t session_id)
+{
+	struct stream *s;
+
+	s = zclient->obuf;
+
+	/* Common init */
+	zapi_opaque_init(zclient, type, flags | ZAPI_OPAQUE_FLAG_UNICAST);
+
+	/* Send destination client info */
+	stream_putc(s, proto);
+	stream_putw(s, instance);
+	stream_putl(s, session_id);
+
+	return ZCLIENT_SEND_SUCCESS;
+}
+
+/*
  * Send an OPAQUE message, contents opaque to zebra. The message header
  * is a message subtype.
  */
@@ -3840,16 +4133,12 @@ enum zclient_send_status zclient_send_opaque(struct zclient *zclient,
 		return ZCLIENT_SEND_FAILURE;
 
 	s = zclient->obuf;
-	stream_reset(s);
 
-	zclient_create_header(s, ZEBRA_OPAQUE_MESSAGE, VRF_DEFAULT);
-
-	/* Send sub-type and flags */
-	stream_putl(s, type);
-	stream_putw(s, flags);
+	zapi_opaque_init(zclient, type, flags);
 
 	/* Send opaque data */
-	stream_write(s, data, datasize);
+	if (datasize > 0)
+		stream_write(s, data, datasize);
 
 	/* Put length into the header at the start of the stream. */
 	stream_putw_at(s, 0, stream_get_endp(s));
@@ -3876,22 +4165,14 @@ zclient_send_opaque_unicast(struct zclient *zclient, uint32_t type,
 		return ZCLIENT_SEND_FAILURE;
 
 	s = zclient->obuf;
-	stream_reset(s);
 
-	zclient_create_header(s, ZEBRA_OPAQUE_MESSAGE, VRF_DEFAULT);
-
-	/* Send sub-type and flags */
-	SET_FLAG(flags, ZAPI_OPAQUE_FLAG_UNICAST);
-	stream_putl(s, type);
-	stream_putw(s, flags);
-
-	/* Send destination client info */
-	stream_putc(s, proto);
-	stream_putw(s, instance);
-	stream_putl(s, session_id);
+	/* Common init */
+	zapi_opaque_unicast_init(zclient, type, flags, proto, instance,
+				 session_id);
 
 	/* Send opaque data */
-	stream_write(s, data, datasize);
+	if (datasize > 0)
+		stream_write(s, data, datasize);
 
 	/* Put length into the header at the start of the stream. */
 	stream_putw_at(s, 0, stream_get_endp(s));
@@ -3910,11 +4191,16 @@ int zclient_opaque_decode(struct stream *s, struct zapi_opaque_msg *info)
 	STREAM_GETL(s, info->type);
 	STREAM_GETW(s, info->flags);
 
-	/* Decode unicast client info if present */
+	/* Decode sending daemon info */
+	STREAM_GETC(s, info->src_proto);
+	STREAM_GETW(s, info->src_instance);
+	STREAM_GETL(s, info->src_session_id);
+
+	/* Decode unicast destination info, if present */
 	if (CHECK_FLAG(info->flags, ZAPI_OPAQUE_FLAG_UNICAST)) {
-		STREAM_GETC(s, info->proto);
-		STREAM_GETW(s, info->instance);
-		STREAM_GETL(s, info->session_id);
+		STREAM_GETC(s, info->dest_proto);
+		STREAM_GETW(s, info->dest_instance);
+		STREAM_GETL(s, info->dest_session_id);
 	}
 
 	info->len = STREAM_READABLE(s);
@@ -4168,15 +4454,15 @@ void zclient_redistribute(int command, struct zclient *zclient, afi_t afi,
 
 	} else {
 		if (command == ZEBRA_REDISTRIBUTE_ADD) {
-			if (vrf_bitmap_check(zclient->redist[afi][type],
+			if (vrf_bitmap_check(&zclient->redist[afi][type],
 					     vrf_id))
 				return;
-			vrf_bitmap_set(zclient->redist[afi][type], vrf_id);
+			vrf_bitmap_set(&zclient->redist[afi][type], vrf_id);
 		} else {
-			if (!vrf_bitmap_check(zclient->redist[afi][type],
+			if (!vrf_bitmap_check(&zclient->redist[afi][type],
 					      vrf_id))
 				return;
-			vrf_bitmap_unset(zclient->redist[afi][type], vrf_id);
+			vrf_bitmap_unset(&zclient->redist[afi][type], vrf_id);
 		}
 	}
 
@@ -4191,14 +4477,15 @@ void zclient_redistribute_default(int command, struct zclient *zclient,
 {
 
 	if (command == ZEBRA_REDISTRIBUTE_DEFAULT_ADD) {
-		if (vrf_bitmap_check(zclient->default_information[afi], vrf_id))
+		if (vrf_bitmap_check(&zclient->default_information[afi],
+				     vrf_id))
 			return;
-		vrf_bitmap_set(zclient->default_information[afi], vrf_id);
+		vrf_bitmap_set(&zclient->default_information[afi], vrf_id);
 	} else {
-		if (!vrf_bitmap_check(zclient->default_information[afi],
+		if (!vrf_bitmap_check(&zclient->default_information[afi],
 				      vrf_id))
 			return;
-		vrf_bitmap_unset(zclient->default_information[afi], vrf_id);
+		vrf_bitmap_unset(&zclient->default_information[afi], vrf_id);
 	}
 
 	if (zclient->sock > 0)
@@ -4471,4 +4758,126 @@ int zclient_send_zebra_gre_request(struct zclient *client,
 	stream_putw_at(s, 0, stream_get_endp(s));
 	zclient_send_message(client);
 	return 0;
+}
+
+
+/*
+ * Opaque notification features
+ */
+
+/*
+ * Common encode helper for opaque notifications, both registration
+ * and async notification messages.
+ */
+static int opaque_notif_encode_common(struct stream *s, uint32_t msg_type,
+				      bool request, bool reg, uint8_t proto,
+				      uint16_t instance, uint32_t session_id)
+{
+	int ret = 0;
+	uint8_t val = 0;
+
+	stream_reset(s);
+
+	zclient_create_header(s, ZEBRA_OPAQUE_NOTIFY, VRF_DEFAULT);
+
+	/* Notification or request */
+	if (request)
+		val = 1;
+	stream_putc(s, val);
+
+	if (reg)
+		val = 1;
+	else
+		val = 0;
+	stream_putc(s, val);
+
+	stream_putl(s, msg_type);
+
+	stream_putc(s, proto);
+	stream_putw(s, instance);
+	stream_putl(s, session_id);
+
+	/* And capture message length */
+	stream_putw_at(s, 0, stream_get_endp(s));
+
+	return ret;
+}
+
+/*
+ * Encode a zapi opaque message type notification into buffer 's'
+ */
+int zclient_opaque_notif_encode(struct stream *s, uint32_t msg_type, bool reg,
+				uint8_t proto, uint16_t instance,
+				uint32_t session_id)
+{
+	return opaque_notif_encode_common(s, msg_type, false /* !request */,
+					  reg, proto, instance, session_id);
+}
+
+/*
+ * Decode an incoming zapi opaque message type notification
+ */
+int zclient_opaque_notif_decode(struct stream *s,
+				struct zapi_opaque_notif_info *info)
+{
+	uint8_t val;
+
+	memset(info, 0, sizeof(*info));
+
+	STREAM_GETC(s, val); /* Registration or notification */
+	info->request = (val != 0);
+
+	STREAM_GETC(s, val);
+	info->reg = (val != 0);
+
+	STREAM_GETL(s, info->msg_type);
+
+	STREAM_GETC(s, info->proto);
+	STREAM_GETW(s, info->instance);
+	STREAM_GETL(s, info->session_id);
+
+	return 0;
+
+stream_failure:
+	return -1;
+}
+
+/*
+ * Encode and send a zapi opaque message type notification request to zebra
+ */
+enum zclient_send_status zclient_opaque_request_notify(struct zclient *zclient,
+						       uint32_t msgtype)
+{
+	struct stream *s;
+
+	if (!zclient || zclient->sock < 0)
+		return ZCLIENT_SEND_FAILURE;
+
+	s = zclient->obuf;
+
+	opaque_notif_encode_common(s, msgtype, true /* request */,
+				   true /* register */, zclient->redist_default,
+				   zclient->instance, zclient->session_id);
+
+	return zclient_send_message(zclient);
+}
+
+/*
+ * Encode and send a request to drop notifications for an opaque message type.
+ */
+enum zclient_send_status zclient_opaque_drop_notify(struct zclient *zclient,
+						    uint32_t msgtype)
+{
+	struct stream *s;
+
+	if (!zclient || zclient->sock < 0)
+		return ZCLIENT_SEND_FAILURE;
+
+	s = zclient->obuf;
+
+	opaque_notif_encode_common(s, msgtype, true /* req */,
+				   false /* unreg */, zclient->redist_default,
+				   zclient->instance, zclient->session_id);
+
+	return zclient_send_message(zclient);
 }

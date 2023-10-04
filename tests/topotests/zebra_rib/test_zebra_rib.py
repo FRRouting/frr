@@ -77,6 +77,41 @@ def teardown_module(mod):
     tgen.stop_topology()
 
 
+def test_zebra_kernel_route_vrf():
+    "Test kernel routes should be removed after interface changes vrf"
+    logger.info("Test kernel routes should be removed after interface changes vrf")
+    vrf = "RED"
+    tgen = get_topogen()
+    r1 = tgen.gears["r1"]
+
+    # Add kernel routes, the interface is initially in default vrf
+    r1.run("ip route add 3.5.1.0/24 via 192.168.210.1 dev r1-eth0")
+    json_file = "{}/r1/v4_route_1_vrf_before.json".format(CWD)
+    expected = json.loads(open(json_file).read())
+    test_func = partial(
+        topotest.router_json_cmp, r1, "show ip route 3.5.1.0/24 json", expected
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=5, wait=1)
+    assert result is None, '"r1" JSON output mismatches'
+
+    # Change the interface's vrf
+    r1.run("ip link add {} type vrf table 1".format(vrf))
+    r1.run("ip link set {} up".format(vrf))
+    r1.run("ip link set dev r1-eth0 master {}".format(vrf))
+
+    expected = "{}"
+    test_func = partial(
+        topotest.router_output_cmp, r1, "show ip route 3.5.1.0/24 json", expected
+    )
+    result, diff = topotest.run_and_expect(test_func, "", count=5, wait=1)
+    assertmsg = "{} should not have the kernel route.\n{}".format('"r1"', diff)
+    assert result, assertmsg
+
+    # Clean up
+    r1.run("ip link set dev r1-eth0 nomaster")
+    r1.run("ip link del dev {}".format(vrf))
+
+
 def test_zebra_kernel_admin_distance():
     "Test some basic kernel routes added that should be accepted"
     logger.info("Test some basic kernel routes that should be accepted")
@@ -223,7 +258,7 @@ def test_route_map_usage():
         )
 
     ok, result = topotest.run_and_expect(
-        check_static_map_correct_runs, "", count=5, wait=1
+        check_static_map_correct_runs, "", count=10, wait=1
     )
     assert ok, result
 
@@ -243,7 +278,7 @@ def test_route_map_usage():
         )
 
     ok, result = topotest.run_and_expect(
-        check_sharp_map_correct_runs, "", count=5, wait=1
+        check_sharp_map_correct_runs, "", count=10, wait=1
     )
     assert ok, result
 

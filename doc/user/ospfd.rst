@@ -314,7 +314,7 @@ To start OSPF process you have to specify the OSPF router.
 
    This command controls the ospf instance's socket buffer sizes. The
    'no' form resets one or both values to the default.
-   
+
 .. clicmd:: no socket-per-interface
 
    Ordinarily, ospfd uses a socket per interface for sending
@@ -599,6 +599,38 @@ Interfaces
    KEY is the actual message digest key, of up to 16 chars (larger strings will
    be truncated), and is associated with the given KEYID.
 
+.. clicmd:: ip ospf authentication key-chain KEYCHAIN
+
+   Specify that HMAC cryptographic authentication must be used on this interface
+   using a key chain. Overrides any authentication enabled on a per-area basis
+   (:clicmd:`area A.B.C.D authentication message-digest`).
+
+   ``KEYCHAIN``: Specifies the name of the key chain that contains the authentication
+   key(s) and cryptographic algorithms to be used for OSPF authentication. The key chain
+   is a logical container that holds one or more authentication keys,
+   allowing for key rotation and management.
+
+   Note that OSPF HMAC cryptographic authentication requires that time never go backwards
+   (correct time is NOT important, only that it never goes backwards), even
+   across resets, if ospfd is to be able to promptly reestablish adjacencies
+   with its neighbours after restarts/reboots. The host should have system time
+   be set at boot from an external or non-volatile source (e.g. battery backed
+   clock, NTP, etc.) or else the system clock should be periodically saved to
+   non-volatile storage and restored at boot if HMAC cryptographic authentication is to be
+   expected to work reliably.
+
+   Example:
+
+   .. code:: sh
+
+      r1(config)#key chain temp
+      r1(config-keychain)#key 13
+      r1(config-keychain-key)#key-string ospf
+      r1(config-keychain-key)#cryptographic-algorithm hmac-sha-256
+      r1(config)#int eth0
+      r1(config-if)#ip ospf authentication key-chain temp
+      r1(config-if)#ip ospf area 0
+
 .. clicmd:: ip ospf cost (1-65535)
 
 
@@ -698,6 +730,15 @@ Interfaces
    scope) - as would occur if connected addresses were redistributed into
    OSPF (:ref:`redistribute-routes-to-ospf`). This is the only way to
    advertise non-OSPF links into stub areas.
+
+.. clicmd:: ip ospf prefix-suppression [A.B.C.D]
+
+   Configure OSPF to not advertise the IPv4 prefix associated with the
+   OSPF interface. The associated IPv4 prefix will be omitted from an OSPF
+   router-LSA or advertised with a host mask in an OSPF network-LSA as
+   specified in RFC 6860, "Hiding Transit-Only Networks in OSPF". If an
+   optional IPv4 address is specified, the prefix suppression will apply
+   to the OSPF interface associated with the specified interface address.
 
 .. clicmd:: ip ospf area (A.B.C.D|(0-4294967295))
 
@@ -884,10 +925,11 @@ Showing Information
 
    Show detailed information about the OSPF link-state database.
 
-.. clicmd:: show ip ospf route [json]
+.. clicmd:: show ip ospf route [detail] [json]
 
    Show the OSPF routing table, as determined by the most recent SPF
-   calculation.
+   calculation. When detail option is used, it shows more information
+   to the CLI like advertising router ID for each route, etc.
 
 .. clicmd:: show ip ospf [vrf <NAME|all>] border-routers [json]
 
@@ -898,7 +940,7 @@ Showing Information
 
 .. clicmd:: show ip ospf graceful-restart helper [detail] [json]
 
-   Displays the Grcaeful Restart Helper details including helper
+   Displays the Graceful Restart Helper details including helper
    config changes.
 
 .. _opaque-lsa:
@@ -912,13 +954,25 @@ Opaque LSA
 
 
 
-   *ospfd* supports Opaque LSA (:rfc:`2370`) as partial support for
+   *ospfd* supports Opaque LSA (:rfc:`5250`) as partial support for
    MPLS Traffic Engineering LSAs. The opaque-lsa capability must be
    enabled in the configuration. An alternate command could be
    "mpls-te on" (:ref:`ospf-traffic-engineering`). Note that FRR
    offers only partial support for some of the routing protocol
    extensions that are used with MPLS-TE; it does not support a
    complete RSVP-TE solution.
+
+.. clicmd:: ip ospf capability opaque [A.B.C.D]
+
+   Enable or disable OSPF LSA database exchange and flooding on an interface.
+   The default is that opaque capability is enabled as long as the opaque
+   capability is enabled with the :clicmd:`capability opaque` command at the
+   OSPF instance level (using the command above). Note that disabling opaque
+   LSA support on an interface will impact the applications using opaque LSAs
+   if the opaque LSAs are not received on other flooding paths by all the
+   OSPF routers using those applications. For example, OSPF Graceful Restart
+   uses opaque-link LSAs and disabling support on an interface will disable
+   graceful restart signaling on that interface.
 
 .. clicmd:: show ip ospf [vrf <NAME|all>] database (opaque-link|opaque-area|opaque-external)
 
