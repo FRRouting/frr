@@ -138,6 +138,7 @@ lib_libfrr_la_SOURCES = \
 	lib/printf/glue.c \
 	lib/routing_nb.c \
 	lib/routing_nb_config.c \
+	lib/dscp.c \
 	lib/tc.c \
 	# end
 
@@ -333,6 +334,7 @@ pkginclude_HEADERS += \
 	lib/zlog_recirculate.h \
 	lib/zlog_targets.h \
 	lib/pbr.h \
+	lib/dscp.h \
 	lib/tc.h \
 	lib/routing_nb.h \
 	\
