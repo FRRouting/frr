@@ -20,6 +20,7 @@
 #include "json.h"
 #include "debug.h"
 #include "pbr.h"
+#include "dscp.h"
 
 #include "pbrd/pbr_nht.h"
 #include "pbrd/pbr_map.h"
@@ -437,7 +438,7 @@ DEFPY  (pbr_map_match_dscp,
 		if (!CHECK_FLAG(pbrms->filter_bm, PBR_FILTER_DSCP))
 			return CMD_SUCCESS;
 		UNSET_FLAG(pbrms->filter_bm, PBR_FILTER_DSCP);
-		pbrms->dsfield &= ~PBR_DSFIELD_DSCP;
+		pbrms->dsfield &= ~DSFIELD_DSCP;
 		goto check;
 	}
 
@@ -448,23 +449,23 @@ DEFPY  (pbr_map_match_dscp,
 	assert(dscp);
 	ul_dscp = strtoul(dscp, &pend, 0);
 	if (pend && *pend)
-		ul_dscp = pbr_map_decode_dscp_enum(dscp);
+		ul_dscp = dscp_decode_enum(dscp);
 
-	if (ul_dscp > (PBR_DSFIELD_DSCP >> 2)) {
+	if (ul_dscp > (DSFIELD_DSCP >> 2)) {
 		vty_out(vty, "Invalid dscp value: %s%s\n", dscp,
 			((pend && *pend) ? "" : " (numeric value must be in range 0-63)"));
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	shifted_dscp = (ul_dscp << 2) & PBR_DSFIELD_DSCP;
+	shifted_dscp = (ul_dscp << 2) & DSFIELD_DSCP;
 
 	if (CHECK_FLAG(pbrms->filter_bm, PBR_FILTER_DSCP) &&
-	    ((pbrms->dsfield & PBR_DSFIELD_DSCP) == shifted_dscp)) {
+	    ((pbrms->dsfield & DSFIELD_DSCP) == shifted_dscp)) {
 		return CMD_SUCCESS;
 	}
 
 	/* Set the DSCP bits of the DSField */
-	pbrms->dsfield = (pbrms->dsfield & ~PBR_DSFIELD_DSCP) | shifted_dscp;
+	pbrms->dsfield = (pbrms->dsfield & ~DSFIELD_DSCP) | shifted_dscp;
 	SET_FLAG(pbrms->filter_bm, PBR_FILTER_DSCP);
 
 check:
@@ -491,17 +492,17 @@ DEFPY  (pbr_map_match_ecn,
 		if (!CHECK_FLAG(pbrms->filter_bm, PBR_FILTER_ECN))
 			return CMD_SUCCESS;
 		UNSET_FLAG(pbrms->filter_bm, PBR_FILTER_ECN);
-		pbrms->dsfield &= ~PBR_DSFIELD_ECN;
+		pbrms->dsfield &= ~DSFIELD_ECN;
 		goto check;
 	}
 
 	if (CHECK_FLAG(pbrms->filter_bm, PBR_FILTER_ECN) &&
-	    ((pbrms->dsfield & PBR_DSFIELD_ECN) == ecn)) {
+	    ((pbrms->dsfield & DSFIELD_ECN) == ecn)) {
 		return CMD_SUCCESS;
 	}
 
 	/* Set the ECN bits of the DSField */
-	pbrms->dsfield = (pbrms->dsfield & ~PBR_DSFIELD_ECN) | ecn;
+	pbrms->dsfield = (pbrms->dsfield & ~DSFIELD_ECN) | ecn;
 	SET_FLAG(pbrms->filter_bm, PBR_FILTER_ECN);
 
 check:
@@ -876,15 +877,15 @@ DEFPY  (pbr_map_action_dscp,
 	assert(dscp);
 	ul_dscp = strtoul(dscp, &pend, 0);
 	if (pend && *pend)
-		ul_dscp = pbr_map_decode_dscp_enum(dscp);
+		ul_dscp = dscp_decode_enum(dscp);
 
-	if (ul_dscp > (PBR_DSFIELD_DSCP >> 2)) {
+	if (ul_dscp > (DSFIELD_DSCP >> 2)) {
 		vty_out(vty, "Invalid dscp value: %s%s\n", dscp,
 			((pend && *pend) ? "" : " (numeric value must be in range 0-63)"));
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	shifted_dscp = (ul_dscp << 2) & PBR_DSFIELD_DSCP;
+	shifted_dscp = (ul_dscp << 2) & DSFIELD_DSCP;
 
 	if (CHECK_FLAG(pbrms->action_bm, PBR_ACTION_DSCP) &&
 	    (pbrms->action_dscp == shifted_dscp)) {
@@ -1549,10 +1550,10 @@ static void vty_show_pbrms(struct vty *vty,
 
 	if (CHECK_FLAG(pbrms->filter_bm, PBR_FILTER_DSCP))
 		vty_out(vty, "        DSCP Match: %u\n",
-			(pbrms->dsfield & PBR_DSFIELD_DSCP) >> 2);
+			(pbrms->dsfield & DSFIELD_DSCP) >> 2);
 	if (CHECK_FLAG(pbrms->filter_bm, PBR_FILTER_ECN))
 		vty_out(vty, "        ECN Match: %u\n",
-			pbrms->dsfield & PBR_DSFIELD_ECN);
+			pbrms->dsfield & DSFIELD_ECN);
 
 	if (CHECK_FLAG(pbrms->filter_bm, PBR_FILTER_FWMARK))
 		vty_out(vty, "        MARK Match: %u\n", pbrms->mark);
@@ -1716,11 +1717,10 @@ static void vty_json_pbrms(json_object *j, struct vty *vty,
 
 	if (CHECK_FLAG(pbrms->filter_bm, PBR_FILTER_DSCP))
 		json_object_int_add(jpbrm, "matchDscp",
-				    (pbrms->dsfield & PBR_DSFIELD_DSCP) >> 2);
+				    (pbrms->dsfield & DSFIELD_DSCP) >> 2);
 	if (CHECK_FLAG(pbrms->filter_bm, PBR_FILTER_ECN))
 		json_object_int_add(jpbrm, "matchEcn",
-				    pbrms->dsfield & PBR_DSFIELD_ECN);
-
+				    pbrms->dsfield & DSFIELD_ECN);
 	/* L2 headers */
 	if (CHECK_FLAG(pbrms->filter_bm, PBR_FILTER_PCP))
 		json_object_int_add(jpbrm, "matchPcp", pbrms->match_pcp);
@@ -2066,11 +2066,11 @@ static int pbr_vty_map_config_write_sequence(struct vty *vty,
 
 	if (CHECK_FLAG(pbrms->filter_bm, PBR_FILTER_DSCP))
 		vty_out(vty, " match dscp %u\n",
-			(pbrms->dsfield & PBR_DSFIELD_DSCP) >> 2);
+			(pbrms->dsfield & DSFIELD_DSCP) >> 2);
 
 	if (CHECK_FLAG(pbrms->filter_bm, PBR_FILTER_ECN))
 		vty_out(vty, " match ecn %u\n",
-			pbrms->dsfield & PBR_DSFIELD_ECN);
+			pbrms->dsfield & DSFIELD_ECN);
 
 	if (CHECK_FLAG(pbrms->filter_bm, PBR_FILTER_PCP))
 		vty_out(vty, " match pcp %d\n", pbrms->match_pcp);

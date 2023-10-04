@@ -12,6 +12,7 @@
 #include <hash.h>
 #include <memory.h>
 #include <hook.h>
+#include <dscp.h>
 
 #include "zebra/zebra_router.h"
 #include "zebra/zebra_pbr.h"
@@ -533,10 +534,10 @@ void zebra_pbr_show_rule_unit(struct zebra_pbr_rule *rule, struct vty *vty)
 
 	if (prule->filter.filter_bm & PBR_FILTER_DSCP)
 		vty_out(vty, "  DSCP Match: %u\n",
-			(prule->filter.dsfield & PBR_DSFIELD_DSCP) >> 2);
+			(prule->filter.dsfield & DSFIELD_DSCP) >> 2);
 	if (prule->filter.filter_bm & PBR_FILTER_ECN)
 		vty_out(vty, "  ECN Match: %u\n",
-			prule->filter.dsfield & PBR_DSFIELD_ECN);
+			prule->filter.dsfield & DSFIELD_ECN);
 
 	if (prule->filter.filter_bm & PBR_FILTER_FWMARK)
 		vty_out(vty, "  MARK Match: %u\n", prule->filter.fwmark);

@@ -43,9 +43,6 @@ struct pbr_filter {
 #define PBR_FILTER_VLAN_FLAGS     (1 << 11)
 #define PBR_FILTER_VLAN_ID        (1 << 12)
 
-#define PBR_DSFIELD_DSCP (0xfc) /* Upper 6 bits of DS field: DSCP */
-#define PBR_DSFIELD_ECN (0x03)	/* Lower 2 bits of DS field: BCN */
-
 #define PBR_PCP (0x07)		/* 3-bit value 0..7 for prioritization*/
 
 #define PBR_VLAN_FLAGS_NO_WILD	  0

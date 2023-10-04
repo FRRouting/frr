@@ -214,8 +214,6 @@ extern void pbr_map_add_interface(struct pbr_map *pbrm, struct interface *ifp);
 extern void pbr_map_interface_delete(struct pbr_map *pbrm,
 				     struct interface *ifp);
 
-extern uint8_t pbr_map_decode_dscp_enum(const char *name);
-
 /* Update maps installed on interface */
 extern void pbr_map_policy_interface_update(const struct interface *ifp,
 					    bool state_up);
