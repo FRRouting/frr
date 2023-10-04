@@ -20,6 +20,7 @@
 #include "table.h"
 #include "json.h"
 #include "jhash.h"
+#include "dscp.h"
 
 #include "lib/routemap_clippy.c"
 
@@ -444,6 +445,24 @@ void route_map_no_set_tag_hook(int (*func)(struct route_map_index *index,
 					   char *errmsg, size_t errmsg_len))
 {
 	rmap_match_set_hook.no_set_tag = func;
+}
+
+/* set dscp */
+void route_map_set_dscp_hook(int (*func)(struct route_map_index *index,
+					 const char *command, const char *arg,
+					 char *errmsg, size_t errmsg_len))
+{
+
+	rmap_match_set_hook.set_dscp = func;
+}
+
+/* no set dscp */
+void route_map_no_set_dscp_hook(int (*func)(struct route_map_index *index,
+					    const char *command,
+					    const char *arg, char *errmsg,
+					    size_t errmsg_len))
+{
+	rmap_match_set_hook.no_set_dscp = func;
 }
 
 int generic_match_add(struct route_map_index *index,
@@ -3226,6 +3245,33 @@ void *route_map_rule_tag_compile(const char *arg)
 	*tag = tmp;
 
 	return tag;
+}
+
+void *route_map_rule_dscp_compile(const char *dscp)
+{
+	unsigned long ul_dscp;
+	char *pend = NULL;
+	uint8_t *shifted_dscp;
+
+	assert(dscp);
+	ul_dscp = strtoul(dscp, &pend, 0);
+	if (pend && *pend)
+		ul_dscp = dscp_decode_enum(dscp);
+
+	if (ul_dscp > (DSFIELD_DSCP >> 2)) {
+		zlog_err("Invalid dscp value: %s%s", dscp,
+			((pend && *pend) ? "" : " (numeric value must be in range 0-63)"));
+		return NULL;
+	}
+
+	shifted_dscp = XMALLOC(MTYPE_ROUTE_MAP_COMPILED, sizeof(*shifted_dscp));
+	*shifted_dscp = (ul_dscp << 2) & DSFIELD_DSCP;
+	return shifted_dscp;
+}
+
+void route_map_rule_dscp_free(void *rule)
+{
+	XFREE(MTYPE_ROUTE_MAP_COMPILED, rule);
 }
 
 void route_map_rule_tag_free(void *rule)

@@ -309,6 +309,9 @@ struct attr {
 	/* SR-TE Color */
 	uint32_t srte_color;
 
+	/* DSCP tag, used by the QPPB plugin */
+	uint8_t dscp;
+
 	/* Nexthop type */
 	enum nexthop_types_t nh_type;
 
