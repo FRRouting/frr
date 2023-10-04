@@ -132,10 +132,6 @@ DEBUG_LOGS = {
     ],
 }
 
-g_iperf_client_procs = {}
-g_iperf_server_procs = {}
-
-
 def is_string(value):
     try:
         return isinstance(value, basestring)
@@ -4725,127 +4721,158 @@ class HostApplicationHelper(object):
 
 class IPerfHelper(HostApplicationHelper):
     def __str__(self):
-        return "IPerfHelper()"
+        return "IPerfHelper({})".format(self.iperf_path)
 
-    def run_join(
+    def __init__(self, tgen=None):
+        super(IPerfHelper, self).__init__(tgen)
+        self.iperf_path = tgen.net.get_exec_path("iperf3")
+        logger.debug("IPerfHelper initialized...")
+
+    def iperf(
         self,
         host,
-        join_addr,
-        l4Type="UDP",
-        join_interval=1,
-        join_intf=None,
-        join_towards=None,
+        length=0,
+        timeout=0,
+        dst=None,
+        port=None,
+        dscp=None,
+        json=False,
+        server=False,
+        oneoff=False,
+        bind_addr=None,
+        background=False,
     ):
         """
-        Use iperf to send IGMP join and listen to traffic
-
-        Parameters:
-        -----------
-        * `host`: iperf host from where IGMP join would be sent
-        * `l4Type`: string, one of [ TCP, UDP ]
-        * `join_addr`: multicast address (or addresses) to join to
-        * `join_interval`: seconds between periodic bandwidth reports
-        * `join_intf`: the interface to bind the join to
-        * `join_towards`: router whos interface to bind the join to
-
-        returns: Success (bool)
+        Run iperf ...
+        Return: Success ;)
         """
+        log_name = "iperf_{}_{}_".format(host.name, dst if dst else "")
+        log_name += "server.log" if server else "client.json"
+        log_file = "{}/{}".format(self.tgen.logdir, log_name)
 
-        iperf_path = self.tgen.net.get_exec_path("iperf")
+        iperf_args = []
+        if background:
+            iperf_args.append("nohup &>" + log_file)
+        if timeout > 0:
+            iperf_args.append("timeout {}".format(timeout))
 
-        assert join_addr
-        if not isinstance(join_addr, list) and not isinstance(join_addr, tuple):
-            join_addr = [ipaddress.IPv4Address(frr_unicode(join_addr))]
+        iperf_args.append(self.iperf_path)
+        if server:
+            iperf_args.append("-s")
+        else:
+            iperf_args.append("-c")
+            iperf_args.append(dst)
 
-        for bindTo in join_addr:
-            iperf_args = [iperf_path, "-s"]
+        if length and not timeout:
+            iperf_args.append("-t")
+            iperf_args.append(str(length))
+        if port:
+            iperf_args.append("-p")
+            iperf_args.append(str(port))
+        if oneoff:
+            iperf_args.append("-1")
+        if json:
+            iperf_args.append("-J")
 
-            if l4Type == "UDP":
-                iperf_args.append("-u")
-
+        if bind_addr:
             iperf_args.append("-B")
-            if join_towards:
-                to_intf = frr_unicode(
-                    self.tgen.json_topo["routers"][host]["links"][join_towards][
-                        "interface"
-                    ]
-                )
-                iperf_args.append("{}%{}".format(str(bindTo), to_intf))
-            elif join_intf:
-                iperf_args.append("{}%{}".format(str(bindTo), join_intf))
-            else:
-                iperf_args.append(str(bindTo))
+            iperf_args.append(bind_addr)
+        if dscp:
+            iperf_args.append("--dscp")
+            iperf_args.append(str(dscp))
+        if background:
+            iperf_args.append("&")
 
-            if join_interval:
-                iperf_args.append("-i")
-                iperf_args.append(str(join_interval))
+        # XXX: installing `bash -c` as base_cmd doesn't work
+        cmd = ["bash", "-c", " ".join(iperf_args)]
+        return self.run(host.name, cmd)
 
-            p = self.run(host, iperf_args)
-            if p.poll() is not None:
-                logger.error("IGMP join failed on %s: %s", bindTo, comm_error(p))
-                return False
-        return True
 
-    def run_traffic(
-        self, host, sentToAddress, ttl, time=0, l4Type="UDP", bind_towards=None
+class TcpDumpHelper(HostApplicationHelper):
+    def __str__(self):
+        return "TcpdumpHelper({},{},{})".format(
+            self.protocol, self.options, self.cap_file
+        )
+
+    def __init__(
+        self,
+        tgen=None,
+        protocol=None,
+        options="-A -vv",
+        cap_file="ping_test.txt",
+    ):
+        super(TcpDumpHelper, self).__init__(tgen)
+        self.protocol = protocol
+        self.options = options
+        self.cap_file = cap_file
+        logger.debug("TcpdumpHelper initialized ...")
+
+    def capture_start(
+        self,
+        host,
+        intf,
+        timeout=0,
+        background=False,
     ):
         """
-        Run iperf to send IGMP join and traffic
-
-        Parameters:
-        -----------
-        * `host`: iperf host to send traffic from
-        * `l4Type`: string, one of [ TCP, UDP ]
-        * `sentToAddress`: multicast address to send traffic to
-        * `ttl`: time to live
-        * `time`: time in seconds to transmit for
-        * `bind_towards`: Router who's interface the source ip address is got from
-
-        returns: Success (bool)
+        API to capture network packets using tcp dump.
         """
+        logger.debug("Entering lib API: {}".format(sys._getframe().f_code.co_name))
+        cmd = ["bash", "-c"]
+        host = host.name
+        cmdargs = []
 
-        iperf_path = self.tgen.net.get_exec_path("iperf")
+        tcpdump_path = self.tgen.net.get_exec_path("tcpdump")
+        log_file = os.path.join(self.tgen.logdir, host, self.cap_file)
+        if timeout > 0:
+            cmdargs.append("timeout {}".format(timeout))
 
-        if sentToAddress and not isinstance(sentToAddress, list):
-            sentToAddress = [ipaddress.IPv4Address(frr_unicode(sentToAddress))]
+        cmdargs.append(tcpdump_path)
+        if intf:
+            cmdargs.append("-i {}".format(intf))
+        if self.protocol:
+            cmdargs.append("'%s'" % self.protocol)
+        if self.options:
+            cmdargs.append("-s 0 {}".format(self.options))
 
-        for sendTo in sentToAddress:
-            iperf_args = [iperf_path, "-c", sendTo]
+        if not background:
+            cmd.append(cmdargs)
+        else:
+            tcpdump_args = ["nohup &>" + log_file, *cmdargs, "&"]
+            cmd.append(" ".join(tcpdump_args))
 
-            # Bind to Interface IP
-            if bind_towards:
-                ifaddr = frr_unicode(
-                    self.tgen.json_topo["routers"][host]["links"][bind_towards]["ipv4"]
+        logger.info("Running tcpdump command: " + str(cmd))
+        return self.run(host, cmd)
+
+    def find_msg(self, host, message, count=0):
+        """
+        API to find messages in tcpdump capture file
+        """
+        matches = 0
+        host = host.name
+        filepath = os.path.join(self.tgen.logdir, host, self.cap_file)
+        with open(filepath) as f:
+            matches = len(re.findall("{}".format(message), f.read()))
+            if count and matches < count:
+                errormsg = (
+                    "[DUT: %s]: Verify Message: %s in tcpdump "
+                    "[%s!=%s FAILED!!]"
+                    % (
+                        host,
+                        count,
+                        matches,
+                        message,
+                    )
                 )
-                ipaddr = ipaddress.IPv4Interface(ifaddr).ip
-                iperf_args.append("-B")
-                iperf_args.append(str(ipaddr))
+                return errormsg, matches
 
-            # UDP/TCP
-            if l4Type == "UDP":
-                iperf_args.append("-u")
-                iperf_args.append("-b")
-                iperf_args.append("0.012m")
-
-            # TTL
-            if ttl:
-                iperf_args.append("-T")
-                iperf_args.append(str(ttl))
-
-            # Time
-            if time:
-                iperf_args.append("-t")
-                iperf_args.append(str(time))
-
-            p = self.run(host, iperf_args)
-            if p.poll() is not None:
-                logger.error(
-                    "mcast traffic send failed for %s: %s", sendTo, comm_error(p)
-                )
-                return False
-
-        return True
-
+            logger.info(
+                "[DUT: %s]: Found message: %s in tcpdump " " count: %s [PASSED!!]",
+                host,
+                message,
+                matches,
+            )
+        return matches != 0, matches
 
 def verify_ip_nht(tgen, input_dict):
     """
