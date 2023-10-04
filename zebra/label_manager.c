@@ -184,7 +184,7 @@ void label_manager_init(void)
 /* alloc and fill a label chunk */
 struct label_manager_chunk *
 create_label_chunk(uint8_t proto, unsigned short instance, uint32_t session_id,
-		   uint8_t keep, uint32_t start, uint32_t end)
+		   uint8_t keep, uint32_t start, uint32_t end, bool is_dynamic)
 {
 	/* alloc chunk, fill it and return it */
 	struct label_manager_chunk *lmc =
@@ -196,6 +196,7 @@ create_label_chunk(uint8_t proto, unsigned short instance, uint32_t session_id,
 	lmc->instance = instance;
 	lmc->session_id = session_id;
 	lmc->keep = keep;
+	lmc->is_dynamic = is_dynamic;
 
 	return lmc;
 }
@@ -254,7 +255,7 @@ assign_specific_label_chunk(uint8_t proto, unsigned short instance,
 	/* insert chunk between existing chunks */
 	if (insert_node) {
 		lmc = create_label_chunk(proto, instance, session_id, keep,
-					 base, end);
+					 base, end, false);
 		listnode_add_before(lbl_mgr.lc_list, insert_node, lmc);
 		return lmc;
 	}
@@ -277,7 +278,7 @@ assign_specific_label_chunk(uint8_t proto, unsigned short instance,
 		}
 
 		lmc = create_label_chunk(proto, instance, session_id, keep,
-					 base, end);
+					 base, end, false);
 		if (last_node)
 			listnode_add_before(lbl_mgr.lc_list, last_node, lmc);
 		else
@@ -288,7 +289,7 @@ assign_specific_label_chunk(uint8_t proto, unsigned short instance,
 		/* create a new chunk past all the existing ones and link at
 		 * tail */
 		lmc = create_label_chunk(proto, instance, session_id, keep,
-					 base, end);
+					 base, end, false);
 		listnode_add(lbl_mgr.lc_list, lmc);
 		return lmc;
 	}
@@ -315,7 +316,10 @@ assign_label_chunk(uint8_t proto, unsigned short instance, uint32_t session_id,
 	struct listnode *node;
 	uint32_t prev_end = MPLS_LABEL_UNRESERVED_MIN;
 
-	/* handle chunks request with a specific base label */
+	/* handle chunks request with a specific base label
+	 * - static label requests: BGP hardset value, Pathd
+	 * - segment routing label requests
+	 */
 	if (base != MPLS_LABEL_BASE_ANY)
 		return assign_specific_label_chunk(proto, instance, session_id,
 						   keep, size, base);
@@ -331,6 +335,7 @@ assign_label_chunk(uint8_t proto, unsigned short instance, uint32_t session_id,
 			lmc->instance = instance;
 			lmc->session_id = session_id;
 			lmc->keep = keep;
+			lmc->is_dynamic = true;
 			return lmc;
 		}
 		/* check if we hadve a "hole" behind us that we can squeeze into
@@ -338,7 +343,7 @@ assign_label_chunk(uint8_t proto, unsigned short instance, uint32_t session_id,
 		if ((lmc->start > prev_end) && (lmc->start - prev_end > size)) {
 			lmc = create_label_chunk(proto, instance, session_id,
 						 keep, prev_end + 1,
-						 prev_end + size);
+						 prev_end + size, true);
 			listnode_add_before(lbl_mgr.lc_list, node, lmc);
 			return lmc;
 		}
@@ -364,7 +369,7 @@ assign_label_chunk(uint8_t proto, unsigned short instance, uint32_t session_id,
 
 	/* create chunk and link at tail */
 	lmc = create_label_chunk(proto, instance, session_id, keep, start_free,
-				 start_free + size - 1);
+				 start_free + size - 1, true);
 	listnode_add(lbl_mgr.lc_list, lmc);
 	return lmc;
 }

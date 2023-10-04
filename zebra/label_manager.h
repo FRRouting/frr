@@ -42,6 +42,7 @@ struct label_manager_chunk {
 	unsigned short instance;
 	uint32_t session_id;
 	uint8_t keep;
+	uint8_t is_dynamic; /* Tell if chunk is dynamic or static */
 	uint32_t start; /* First label of the chunk */
 	uint32_t end;   /* Last label of the chunk */
 };
@@ -82,7 +83,7 @@ int lm_client_connect_response(uint8_t proto, uint16_t instance,
 /* convenience function to allocate an lmc to be consumed by the above API */
 struct label_manager_chunk *
 create_label_chunk(uint8_t proto, unsigned short instance, uint32_t session_id,
-		   uint8_t keep, uint32_t start, uint32_t end);
+		   uint8_t keep, uint32_t start, uint32_t end, bool is_dynamic);
 void delete_label_chunk(void *val);
 
 /* register/unregister callbacks for hooks */
