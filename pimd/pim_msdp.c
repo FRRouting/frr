@@ -374,6 +374,8 @@ void pim_msdp_sa_ref(struct pim_instance *pim, struct pim_msdp_peer *mp,
 		     pim_sgaddr *sg, struct in_addr rp)
 {
 	struct pim_msdp_sa *sa;
+	struct rp_info *rp_info;
+	struct prefix grp;
 
 	sa = pim_msdp_sa_add(pim, sg, rp);
 	if (!sa) {
@@ -406,6 +408,14 @@ void pim_msdp_sa_ref(struct pim_instance *pim, struct pim_msdp_peer *mp,
 					   sa->sg_str);
 			}
 			/* send an immediate SA update to peers */
+			pim_addr_to_prefix(&grp, sa->sg.grp);
+			rp_info = pim_rp_find_match_group(pim, &grp);
+			if (rp_info) {
+			    sa->rp = rp_info->rp.rpf_addr;
+			} else
+			{
+			    sa->rp = pim->msdp.originator_id;
+			}
 			sa->rp = pim->msdp.originator_id;
 			pim_msdp_pkt_sa_tx_one(sa);
 		}
