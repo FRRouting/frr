@@ -162,19 +162,42 @@ void lm_hooks_unregister(void)
 			label_manager_write_label_block_config);
 }
 
-DEFPY(show_label_table, show_label_table_cmd, "show debugging label-table",
+static json_object *lmc_json(struct label_manager_chunk *lmc)
+{
+	json_object *json = json_object_new_object();
+
+	json_object_string_add(json, "protocol", zebra_route_string(lmc->proto));
+	json_object_int_add(json, "instance", lmc->instance);
+	json_object_int_add(json, "sessionId", lmc->session_id);
+	json_object_int_add(json, "start", lmc->start);
+	json_object_int_add(json, "end", lmc->end);
+	json_object_boolean_add(json, "dynamic", lmc->is_dynamic);
+	return json;
+}
+
+DEFPY(show_label_table, show_label_table_cmd, "show debugging label-table [json$uj]",
       SHOW_STR
       DEBUG_STR
-      "Display allocated label chunks\n")
+      "Display allocated label chunks\n"
+      JSON_STR)
 {
 	struct label_manager_chunk *lmc;
 	struct listnode *node;
+	json_object *json_array = NULL;
+
+	if (uj)
+		json_array = json_object_new_array();
 
 	for (ALL_LIST_ELEMENTS_RO(lbl_mgr.lc_list, node, lmc)) {
+		if (uj) {
+			json_object_array_add(json_array, lmc_json(lmc));
+			continue;
+		}
 		vty_out(vty, "Proto %s: [%u/%u]\n",
 			zebra_route_string(lmc->proto), lmc->start, lmc->end);
 	}
-
+	if (uj)
+		vty_json(vty, json_array);
 	return CMD_SUCCESS;
 }
 
