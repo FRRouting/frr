@@ -38,6 +38,9 @@ from lib.common_config import (
     required_linux_kernel_version,
 )
 
+from lib.topolog import logger
+import json
+
 fatal_error = ""
 
 
@@ -1611,10 +1614,21 @@ def test_resilient_nexthop_group():
     )
 
     output = net["r1"].cmd('vtysh -c "show nexthop-group rib sharp"')
-    output = re.findall(r"Buckets", output)
+    buckets = re.findall(r"Buckets", output)
 
-    verify_nexthop_group(185483878)
-    assert len(output) == 1, "Resilient NHG not created in zebra"
+    output = net["r1"].cmd('vtysh -c "show nexthop-group rib sharp json"')
+
+    joutput = json.loads(output)
+
+    # Use the json output and collect the nhg id from it
+
+    for nhgid in joutput:
+        n = joutput[nhgid]
+        if "buckets" in n:
+            break
+
+    verify_nexthop_group(int(nhgid))
+    assert len(buckets) == 1, "Resilient NHG not created in zebra"
 
 
 def test_shutdown_check_stderr():
