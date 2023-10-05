@@ -1608,10 +1608,10 @@ static enum route_map_cmd_result_t
 route_set_initcwnd(void *rule, const struct prefix *prefix, void *object)
 {
 	uint32_t initcwnd = *(uint32_t *)rule;
-	struct nh_rmap_obj *nh_data;
+        struct zebra_rmap_obj rm_obj;
 
-	nh_data = (struct nh_rmap_obj *)object;
-	nh_data->nexthop->initcwnd = initcwnd;
+        rm_data = (struct zebra_rmap_obj *)object;
+	rm_data->nexthop->initcwnd = initcwnd;
 
 	return RMAP_OKAY;
 }
@@ -1660,10 +1660,10 @@ route_set_initrwnd(void *rule, const struct prefix *prefix, void *object)
 {
 	uint32_t initrwnd = *(uint32_t *)rule;
 
-	struct nh_rmap_obj *nh_data;
+        struct zebra_rmap_obj rm_obj;
 
-	nh_data = (struct nh_rmap_obj *)object;
-	nh_data->nexthop->initrwnd = initrwnd;
+        rm_data = (struct zebra_rmap_obj *)object;
+	rm_data->nexthop->initrwnd = initrwnd;
 
 	return RMAP_OKAY;
 }
