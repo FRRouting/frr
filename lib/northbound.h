@@ -83,28 +83,22 @@ enum nb_event {
 };
 
 /*
- * Northbound operations.
+ * Northbound callback operations.
  *
  * Refer to the documentation comments of nb_callbacks for more details.
  */
-enum nb_operation {
-	NB_OP_CREATE,
-	NB_OP_MODIFY,
-	NB_OP_DESTROY,
-	NB_OP_MOVE,
-	NB_OP_PRE_VALIDATE,
-	NB_OP_APPLY_FINISH,
-	NB_OP_GET_ELEM,
-	NB_OP_GET_NEXT,
-	NB_OP_GET_KEYS,
-	NB_OP_LOOKUP_ENTRY,
-	NB_OP_RPC,
-};
-
-struct nb_cfg_change {
-	char xpath[XPATH_MAXLEN];
-	enum nb_operation operation;
-	const char *value;
+enum nb_cb_operation {
+	NB_CB_CREATE,
+	NB_CB_MODIFY,
+	NB_CB_DESTROY,
+	NB_CB_MOVE,
+	NB_CB_PRE_VALIDATE,
+	NB_CB_APPLY_FINISH,
+	NB_CB_GET_ELEM,
+	NB_CB_GET_NEXT,
+	NB_CB_GET_KEYS,
+	NB_CB_LOOKUP_ENTRY,
+	NB_CB_RPC,
 };
 
 union nb_resource {
@@ -693,7 +687,7 @@ struct nb_context {
 /* Northbound configuration callback. */
 struct nb_config_cb {
 	RB_ENTRY(nb_config_cb) entry;
-	enum nb_operation operation;
+	enum nb_cb_operation operation;
 	uint32_t seq;
 	const struct nb_node *nb_node;
 	const struct lyd_node *dnode;
@@ -720,6 +714,20 @@ struct nb_transaction {
 struct nb_config {
 	struct lyd_node *dnode;
 	uint32_t version;
+};
+
+/* Northbound operations */
+enum nb_operation {
+	NB_OP_CREATE,
+	NB_OP_MODIFY,
+	NB_OP_DESTROY,
+	NB_OP_MOVE,
+};
+
+struct nb_cfg_change {
+	char xpath[XPATH_MAXLEN];
+	enum nb_operation operation;
+	const char *value;
 };
 
 /* Callback function used by nb_oper_data_iterate(). */
@@ -893,6 +901,32 @@ extern int nb_config_merge(struct nb_config *config_dst,
 extern void nb_config_replace(struct nb_config *config_dst,
 			      struct nb_config *config_src,
 			      bool preserve_source);
+
+/*
+ * Return a human-readable string representing a northbound operation.
+ *
+ * operation
+ *    Northbound operation.
+ *
+ * Returns:
+ *    String representation of the given northbound operation.
+ */
+extern const char *nb_operation_name(enum nb_operation operation);
+
+/*
+ * Validate if the northbound operation is allowed for the given node.
+ *
+ * nb_node
+ *    Northbound node.
+ *
+ * operation
+ *    Operation we want to check.
+ *
+ * Returns:
+ *    true if the operation is allowed, false otherwise.
+ */
+extern bool nb_is_operation_allowed(struct nb_node *nb_node,
+				    enum nb_operation oper);
 
 /*
  * Edit a candidate configuration.
@@ -1368,7 +1402,7 @@ extern void nb_oper_cancel_walk(void *walk);
 extern void nb_oper_cancel_all_walks(void);
 
 /*
- * Validate if the northbound operation is valid for the given node.
+ * Validate if the northbound callback operation is valid for the given node.
  *
  * operation
  *    Operation we want to check.
@@ -1379,8 +1413,8 @@ extern void nb_oper_cancel_all_walks(void);
  * Returns:
  *    true if the operation is valid, false otherwise.
  */
-extern bool nb_operation_is_valid(enum nb_operation operation,
-				  const struct lysc_node *snode);
+extern bool nb_cb_operation_is_valid(enum nb_cb_operation operation,
+				     const struct lysc_node *snode);
 
 /*
  * Send a YANG notification. This is a no-op unless the 'nb_notification_send'
@@ -1504,15 +1538,15 @@ extern void *nb_running_get_entry_non_rec(const struct lyd_node *dnode,
 extern const char *nb_event_name(enum nb_event event);
 
 /*
- * Return a human-readable string representing a northbound operation.
+ * Return a human-readable string representing a northbound callback operation.
  *
  * operation
- *    Northbound operation.
+ *    Northbound callback operation.
  *
  * Returns:
- *    String representation of the given northbound operation.
+ *    String representation of the given northbound callback operation.
  */
-extern const char *nb_operation_name(enum nb_operation operation);
+extern const char *nb_cb_operation_name(enum nb_cb_operation operation);
 
 /*
  * Return a human-readable string representing a northbound error.

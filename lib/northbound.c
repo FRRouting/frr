@@ -209,12 +209,12 @@ bool nb_node_has_dependency(struct nb_node *node)
 }
 
 static int nb_node_validate_cb(const struct nb_node *nb_node,
-			       enum nb_operation operation,
+			       enum nb_cb_operation operation,
 			       int callback_implemented, bool optional)
 {
 	bool valid;
 
-	valid = nb_operation_is_valid(operation, nb_node->snode);
+	valid = nb_cb_operation_is_valid(operation, nb_node->snode);
 
 	/*
 	 * Add an exception for operational data callbacks. A rw list usually
@@ -226,15 +226,15 @@ static int nb_node_validate_cb(const struct nb_node *nb_node,
 	 * depends on context (e.g. some daemons might augment "frr-interface"
 	 * while others don't).
 	 */
-	if (!valid && callback_implemented && operation != NB_OP_GET_NEXT
-	    && operation != NB_OP_GET_KEYS && operation != NB_OP_LOOKUP_ENTRY)
+	if (!valid && callback_implemented && operation != NB_CB_GET_NEXT
+	    && operation != NB_CB_GET_KEYS && operation != NB_CB_LOOKUP_ENTRY)
 		flog_warn(EC_LIB_NB_CB_UNNEEDED,
 			  "unneeded '%s' callback for '%s'",
-			  nb_operation_name(operation), nb_node->xpath);
+			  nb_cb_operation_name(operation), nb_node->xpath);
 
 	if (!optional && valid && !callback_implemented) {
 		flog_err(EC_LIB_NB_CB_MISSING, "missing '%s' callback for '%s'",
-			 nb_operation_name(operation), nb_node->xpath);
+			 nb_cb_operation_name(operation), nb_node->xpath);
 		return 1;
 	}
 
@@ -253,27 +253,27 @@ static unsigned int nb_node_validate_cbs(const struct nb_node *nb_node)
 	if (CHECK_FLAG(nb_node->flags, F_NB_NODE_IGNORE_CBS))
 		return error;
 
-	error += nb_node_validate_cb(nb_node, NB_OP_CREATE,
+	error += nb_node_validate_cb(nb_node, NB_CB_CREATE,
 				     !!nb_node->cbs.create, false);
-	error += nb_node_validate_cb(nb_node, NB_OP_MODIFY,
+	error += nb_node_validate_cb(nb_node, NB_CB_MODIFY,
 				     !!nb_node->cbs.modify, false);
-	error += nb_node_validate_cb(nb_node, NB_OP_DESTROY,
+	error += nb_node_validate_cb(nb_node, NB_CB_DESTROY,
 				     !!nb_node->cbs.destroy, false);
-	error += nb_node_validate_cb(nb_node, NB_OP_MOVE, !!nb_node->cbs.move,
+	error += nb_node_validate_cb(nb_node, NB_CB_MOVE, !!nb_node->cbs.move,
 				     false);
-	error += nb_node_validate_cb(nb_node, NB_OP_PRE_VALIDATE,
+	error += nb_node_validate_cb(nb_node, NB_CB_PRE_VALIDATE,
 				     !!nb_node->cbs.pre_validate, true);
-	error += nb_node_validate_cb(nb_node, NB_OP_APPLY_FINISH,
+	error += nb_node_validate_cb(nb_node, NB_CB_APPLY_FINISH,
 				     !!nb_node->cbs.apply_finish, true);
-	error += nb_node_validate_cb(nb_node, NB_OP_GET_ELEM,
+	error += nb_node_validate_cb(nb_node, NB_CB_GET_ELEM,
 				     !!nb_node->cbs.get_elem, false);
-	error += nb_node_validate_cb(nb_node, NB_OP_GET_NEXT,
+	error += nb_node_validate_cb(nb_node, NB_CB_GET_NEXT,
 				     !!nb_node->cbs.get_next, false);
-	error += nb_node_validate_cb(nb_node, NB_OP_GET_KEYS,
+	error += nb_node_validate_cb(nb_node, NB_CB_GET_KEYS,
 				     !!nb_node->cbs.get_keys, false);
-	error += nb_node_validate_cb(nb_node, NB_OP_LOOKUP_ENTRY,
+	error += nb_node_validate_cb(nb_node, NB_CB_LOOKUP_ENTRY,
 				     !!nb_node->cbs.lookup_entry, false);
-	error += nb_node_validate_cb(nb_node, NB_OP_RPC, !!nb_node->cbs.rpc,
+	error += nb_node_validate_cb(nb_node, NB_CB_RPC, !!nb_node->cbs.rpc,
 				     false);
 
 	return error;
@@ -409,7 +409,7 @@ static inline int nb_config_cb_compare(const struct nb_config_cb *a,
 RB_GENERATE(nb_config_cbs, nb_config_cb, entry, nb_config_cb_compare);
 
 static void nb_config_diff_add_change(struct nb_config_cbs *changes,
-				      enum nb_operation operation,
+				      enum nb_cb_operation operation,
 				      uint32_t *seq,
 				      const struct lyd_node *dnode)
 {
@@ -449,7 +449,7 @@ void nb_config_diff_del_changes(struct nb_config_cbs *changes)
 void nb_config_diff_created(const struct lyd_node *dnode, uint32_t *seq,
 			    struct nb_config_cbs *changes)
 {
-	enum nb_operation operation;
+	enum nb_cb_operation operation;
 	struct lyd_node *child;
 
 	/* Ignore unimplemented nodes. */
@@ -462,10 +462,10 @@ void nb_config_diff_created(const struct lyd_node *dnode, uint32_t *seq,
 		if (lyd_is_default(dnode))
 			break;
 
-		if (nb_operation_is_valid(NB_OP_CREATE, dnode->schema))
-			operation = NB_OP_CREATE;
-		else if (nb_operation_is_valid(NB_OP_MODIFY, dnode->schema))
-			operation = NB_OP_MODIFY;
+		if (nb_cb_operation_is_valid(NB_CB_CREATE, dnode->schema))
+			operation = NB_CB_CREATE;
+		else if (nb_cb_operation_is_valid(NB_CB_MODIFY, dnode->schema))
+			operation = NB_CB_MODIFY;
 		else
 			return;
 
@@ -473,8 +473,8 @@ void nb_config_diff_created(const struct lyd_node *dnode, uint32_t *seq,
 		break;
 	case LYS_CONTAINER:
 	case LYS_LIST:
-		if (nb_operation_is_valid(NB_OP_CREATE, dnode->schema))
-			nb_config_diff_add_change(changes, NB_OP_CREATE, seq,
+		if (nb_cb_operation_is_valid(NB_CB_CREATE, dnode->schema))
+			nb_config_diff_add_change(changes, NB_CB_CREATE, seq,
 						  dnode);
 
 		/* Process child nodes recursively. */
@@ -494,8 +494,8 @@ static void nb_config_diff_deleted(const struct lyd_node *dnode, uint32_t *seq,
 	if (!dnode->schema->priv)
 		return;
 
-	if (nb_operation_is_valid(NB_OP_DESTROY, dnode->schema))
-		nb_config_diff_add_change(changes, NB_OP_DESTROY, seq, dnode);
+	if (nb_cb_operation_is_valid(NB_CB_DESTROY, dnode->schema))
+		nb_config_diff_add_change(changes, NB_CB_DESTROY, seq, dnode);
 	else if (CHECK_FLAG(dnode->schema->nodetype, LYS_CONTAINER)) {
 		struct lyd_node *child;
 
@@ -644,7 +644,7 @@ void nb_config_diff(const struct nb_config *config1,
 				/* either moving an entry or changing a value */
 				target = yang_dnode_get(config2->dnode, path);
 				assert(target);
-				nb_config_diff_add_change(changes, NB_OP_MODIFY,
+				nb_config_diff_add_change(changes, NB_CB_MODIFY,
 							  &seq, target);
 				break;
 			case 'n': /* none */
@@ -748,27 +748,29 @@ int nb_candidate_edit(struct nb_config *candidate,
 	case NB_OP_MOVE:
 		/* TODO: update configuration. */
 		break;
-	case NB_OP_PRE_VALIDATE:
-	case NB_OP_APPLY_FINISH:
-	case NB_OP_GET_ELEM:
-	case NB_OP_GET_NEXT:
-	case NB_OP_GET_KEYS:
-	case NB_OP_LOOKUP_ENTRY:
-	case NB_OP_RPC:
-		flog_warn(EC_LIB_DEVELOPMENT,
-			  "%s: unknown operation (%u) [xpath %s]", __func__,
-			  operation, xpath_edit);
-		return NB_ERR;
 	}
 
 	return NB_OK;
 }
 
-static bool nb_is_operation_allowed(struct nb_node *nb_node,
-				    struct nb_cfg_change *change)
+const char *nb_operation_name(enum nb_operation operation)
 {
-	enum nb_operation oper = change->operation;
+	switch (operation) {
+	case NB_OP_CREATE:
+		return "create";
+	case NB_OP_MODIFY:
+		return "modify";
+	case NB_OP_DESTROY:
+		return "destroy";
+	case NB_OP_MOVE:
+		return "move";
+	}
 
+	assert(!"Reached end of function we should never hit");
+}
+
+bool nb_is_operation_allowed(struct nb_node *nb_node, enum nb_operation oper)
+{
 	if (lysc_is_key(nb_node->snode)) {
 		if (oper == NB_OP_MODIFY || oper == NB_OP_DESTROY)
 			return false;
@@ -815,7 +817,7 @@ void nb_candidate_edit_config_changes(
 			continue;
 		}
 		/* Find if the node to be edited is not a key node */
-		if (!nb_is_operation_allowed(nb_node, change)) {
+		if (!nb_is_operation_allowed(nb_node, change->operation)) {
 			zlog_err(" Xpath %s points to key node", xpath);
 			if (error)
 				*error = true;
@@ -1140,7 +1142,7 @@ int nb_running_lock_check(enum nb_client client, const void *user)
 }
 
 static void nb_log_config_callback(const enum nb_event event,
-				   enum nb_operation operation,
+				   enum nb_cb_operation operation,
 				   const struct lyd_node *dnode)
 {
 	const char *value;
@@ -1157,7 +1159,7 @@ static void nb_log_config_callback(const enum nb_event event,
 
 	zlog_debug(
 		"northbound callback: event [%s] op [%s] xpath [%s] value [%s]",
-		nb_event_name(event), nb_operation_name(operation), xpath,
+		nb_event_name(event), nb_cb_operation_name(operation), xpath,
 		value);
 }
 
@@ -1173,7 +1175,7 @@ static int nb_callback_create(struct nb_context *context,
 
 	assert(!CHECK_FLAG(nb_node->flags, F_NB_NODE_IGNORE_CBS));
 
-	nb_log_config_callback(event, NB_OP_CREATE, dnode);
+	nb_log_config_callback(event, NB_CB_CREATE, dnode);
 
 	args.context = context;
 	args.event = event;
@@ -1224,7 +1226,7 @@ static int nb_callback_modify(struct nb_context *context,
 
 	assert(!CHECK_FLAG(nb_node->flags, F_NB_NODE_IGNORE_CBS));
 
-	nb_log_config_callback(event, NB_OP_MODIFY, dnode);
+	nb_log_config_callback(event, NB_CB_MODIFY, dnode);
 
 	args.context = context;
 	args.event = event;
@@ -1275,7 +1277,7 @@ static int nb_callback_destroy(struct nb_context *context,
 
 	assert(!CHECK_FLAG(nb_node->flags, F_NB_NODE_IGNORE_CBS));
 
-	nb_log_config_callback(event, NB_OP_DESTROY, dnode);
+	nb_log_config_callback(event, NB_CB_DESTROY, dnode);
 
 	args.context = context;
 	args.event = event;
@@ -1320,7 +1322,7 @@ static int nb_callback_move(struct nb_context *context,
 
 	assert(!CHECK_FLAG(nb_node->flags, F_NB_NODE_IGNORE_CBS));
 
-	nb_log_config_callback(event, NB_OP_MOVE, dnode);
+	nb_log_config_callback(event, NB_CB_MOVE, dnode);
 
 	args.context = context;
 	args.event = event;
@@ -1366,7 +1368,7 @@ static int nb_callback_pre_validate(struct nb_context *context,
 	if (CHECK_FLAG(nb_node->flags, F_NB_NODE_IGNORE_CBS))
 		return 0;
 
-	nb_log_config_callback(NB_EV_VALIDATE, NB_OP_PRE_VALIDATE, dnode);
+	nb_log_config_callback(NB_EV_VALIDATE, NB_CB_PRE_VALIDATE, dnode);
 
 	args.dnode = dnode;
 	args.errmsg = errmsg;
@@ -1400,7 +1402,7 @@ static void nb_callback_apply_finish(struct nb_context *context,
 	if (CHECK_FLAG(nb_node->flags, F_NB_NODE_IGNORE_CBS))
 		return;
 
-	nb_log_config_callback(NB_EV_APPLY, NB_OP_APPLY_FINISH, dnode);
+	nb_log_config_callback(NB_EV_APPLY, NB_CB_APPLY_FINISH, dnode);
 
 	args.context = context;
 	args.dnode = dnode;
@@ -1552,7 +1554,7 @@ static int nb_callback_configuration(struct nb_context *context,
 				     struct nb_config_change *change,
 				     char *errmsg, size_t errmsg_len)
 {
-	enum nb_operation operation = change->cb.operation;
+	enum nb_cb_operation operation = change->cb.operation;
 	char xpath[XPATH_MAXLEN];
 	const struct nb_node *nb_node = change->cb.nb_node;
 	const struct lyd_node *dnode = change->cb.dnode;
@@ -1568,29 +1570,29 @@ static int nb_callback_configuration(struct nb_context *context,
 		resource = &change->resource;
 
 	switch (operation) {
-	case NB_OP_CREATE:
+	case NB_CB_CREATE:
 		ret = nb_callback_create(context, nb_node, event, dnode,
 					 resource, errmsg, errmsg_len);
 		break;
-	case NB_OP_MODIFY:
+	case NB_CB_MODIFY:
 		ret = nb_callback_modify(context, nb_node, event, dnode,
 					 resource, errmsg, errmsg_len);
 		break;
-	case NB_OP_DESTROY:
+	case NB_CB_DESTROY:
 		ret = nb_callback_destroy(context, nb_node, event, dnode,
 					  errmsg, errmsg_len);
 		break;
-	case NB_OP_MOVE:
+	case NB_CB_MOVE:
 		ret = nb_callback_move(context, nb_node, event, dnode, errmsg,
 				       errmsg_len);
 		break;
-	case NB_OP_PRE_VALIDATE:
-	case NB_OP_APPLY_FINISH:
-	case NB_OP_GET_ELEM:
-	case NB_OP_GET_NEXT:
-	case NB_OP_GET_KEYS:
-	case NB_OP_LOOKUP_ENTRY:
-	case NB_OP_RPC:
+	case NB_CB_PRE_VALIDATE:
+	case NB_CB_APPLY_FINISH:
+	case NB_CB_GET_ELEM:
+	case NB_CB_GET_NEXT:
+	case NB_CB_GET_KEYS:
+	case NB_CB_LOOKUP_ENTRY:
+	case NB_CB_RPC:
 		yang_dnode_get_path(dnode, xpath, sizeof(xpath));
 		flog_err(EC_LIB_DEVELOPMENT,
 			 "%s: unknown operation (%u) [xpath %s]", __func__,
@@ -1606,28 +1608,28 @@ static int nb_callback_configuration(struct nb_context *context,
 			flog_warn(EC_LIB_NB_CB_CONFIG_VALIDATE,
 				  "error processing configuration change: error [%s] event [%s] operation [%s] xpath [%s]%s%s",
 				  nb_err_name(ret), nb_event_name(event),
-				  nb_operation_name(operation), xpath,
+				  nb_cb_operation_name(operation), xpath,
 				  errmsg[0] ? " message: " : "", errmsg);
 			break;
 		case NB_EV_PREPARE:
 			flog_warn(EC_LIB_NB_CB_CONFIG_PREPARE,
 				  "error processing configuration change: error [%s] event [%s] operation [%s] xpath [%s]%s%s",
 				  nb_err_name(ret), nb_event_name(event),
-				  nb_operation_name(operation), xpath,
+				  nb_cb_operation_name(operation), xpath,
 				  errmsg[0] ? " message: " : "", errmsg);
 			break;
 		case NB_EV_ABORT:
 			flog_warn(EC_LIB_NB_CB_CONFIG_ABORT,
 				  "error processing configuration change: error [%s] event [%s] operation [%s] xpath [%s]%s%s",
 				  nb_err_name(ret), nb_event_name(event),
-				  nb_operation_name(operation), xpath,
+				  nb_cb_operation_name(operation), xpath,
 				  errmsg[0] ? " message: " : "", errmsg);
 			break;
 		case NB_EV_APPLY:
 			flog_err(EC_LIB_NB_CB_CONFIG_APPLY,
 				 "error processing configuration change: error [%s] event [%s] operation [%s] xpath [%s]%s%s",
 				 nb_err_name(ret), nb_event_name(event),
-				 nb_operation_name(operation), xpath,
+				 nb_cb_operation_name(operation), xpath,
 				 errmsg[0] ? " message: " : "", errmsg);
 			break;
 		default:
@@ -1775,7 +1777,7 @@ static void nb_transaction_apply_finish(struct nb_transaction *transaction,
 		 * (the 'apply_finish' callbacks from the node ancestors should
 		 * be called though).
 		 */
-		if (change->cb.operation == NB_OP_DESTROY) {
+		if (change->cb.operation == NB_CB_DESTROY) {
 			char xpath[XPATH_MAXLEN];
 
 			dnode = lyd_parent(dnode);
@@ -1826,15 +1828,15 @@ static void nb_transaction_apply_finish(struct nb_transaction *transaction,
 	}
 }
 
-bool nb_operation_is_valid(enum nb_operation operation,
-			   const struct lysc_node *snode)
+bool nb_cb_operation_is_valid(enum nb_cb_operation operation,
+			      const struct lysc_node *snode)
 {
 	struct nb_node *nb_node = snode->priv;
 	struct lysc_node_container *scontainer;
 	struct lysc_node_leaf *sleaf;
 
 	switch (operation) {
-	case NB_OP_CREATE:
+	case NB_CB_CREATE:
 		if (!CHECK_FLAG(snode->flags, LYS_CONFIG_W))
 			return false;
 
@@ -1856,7 +1858,7 @@ bool nb_operation_is_valid(enum nb_operation operation,
 			return false;
 		}
 		return true;
-	case NB_OP_MODIFY:
+	case NB_CB_MODIFY:
 		if (!CHECK_FLAG(snode->flags, LYS_CONFIG_W))
 			return false;
 
@@ -1874,7 +1876,7 @@ bool nb_operation_is_valid(enum nb_operation operation,
 			return false;
 		}
 		return true;
-	case NB_OP_DESTROY:
+	case NB_CB_DESTROY:
 		if (!CHECK_FLAG(snode->flags, LYS_CONFIG_W))
 			return false;
 
@@ -1910,7 +1912,7 @@ bool nb_operation_is_valid(enum nb_operation operation,
 			return false;
 		}
 		return true;
-	case NB_OP_MOVE:
+	case NB_CB_MOVE:
 		if (!CHECK_FLAG(snode->flags, LYS_CONFIG_W))
 			return false;
 
@@ -1924,12 +1926,12 @@ bool nb_operation_is_valid(enum nb_operation operation,
 			return false;
 		}
 		return true;
-	case NB_OP_PRE_VALIDATE:
-	case NB_OP_APPLY_FINISH:
+	case NB_CB_PRE_VALIDATE:
+	case NB_CB_APPLY_FINISH:
 		if (!CHECK_FLAG(snode->flags, LYS_CONFIG_W))
 			return false;
 		return true;
-	case NB_OP_GET_ELEM:
+	case NB_CB_GET_ELEM:
 		if (!CHECK_FLAG(snode->flags, LYS_CONFIG_R))
 			return false;
 
@@ -1946,7 +1948,7 @@ bool nb_operation_is_valid(enum nb_operation operation,
 			return false;
 		}
 		return true;
-	case NB_OP_GET_NEXT:
+	case NB_CB_GET_NEXT:
 		switch (snode->nodetype) {
 		case LYS_LIST:
 			if (CHECK_FLAG(nb_node->flags, F_NB_NODE_CONFIG_ONLY))
@@ -1960,8 +1962,8 @@ bool nb_operation_is_valid(enum nb_operation operation,
 			return false;
 		}
 		return true;
-	case NB_OP_GET_KEYS:
-	case NB_OP_LOOKUP_ENTRY:
+	case NB_CB_GET_KEYS:
+	case NB_CB_LOOKUP_ENTRY:
 		switch (snode->nodetype) {
 		case LYS_LIST:
 			if (CHECK_FLAG(nb_node->flags, F_NB_NODE_CONFIG_ONLY))
@@ -1973,7 +1975,7 @@ bool nb_operation_is_valid(enum nb_operation operation,
 			return false;
 		}
 		return true;
-	case NB_OP_RPC:
+	case NB_CB_RPC:
 		if (CHECK_FLAG(snode->flags, LYS_CONFIG_W | LYS_CONFIG_R))
 			return false;
 
@@ -2175,30 +2177,30 @@ const char *nb_event_name(enum nb_event event)
 	assert(!"Reached end of function we should never hit");
 }
 
-const char *nb_operation_name(enum nb_operation operation)
+const char *nb_cb_operation_name(enum nb_cb_operation operation)
 {
 	switch (operation) {
-	case NB_OP_CREATE:
+	case NB_CB_CREATE:
 		return "create";
-	case NB_OP_MODIFY:
+	case NB_CB_MODIFY:
 		return "modify";
-	case NB_OP_DESTROY:
+	case NB_CB_DESTROY:
 		return "destroy";
-	case NB_OP_MOVE:
+	case NB_CB_MOVE:
 		return "move";
-	case NB_OP_PRE_VALIDATE:
+	case NB_CB_PRE_VALIDATE:
 		return "pre_validate";
-	case NB_OP_APPLY_FINISH:
+	case NB_CB_APPLY_FINISH:
 		return "apply_finish";
-	case NB_OP_GET_ELEM:
+	case NB_CB_GET_ELEM:
 		return "get_elem";
-	case NB_OP_GET_NEXT:
+	case NB_CB_GET_NEXT:
 		return "get_next";
-	case NB_OP_GET_KEYS:
+	case NB_CB_GET_KEYS:
 		return "get_keys";
-	case NB_OP_LOOKUP_ENTRY:
+	case NB_CB_LOOKUP_ENTRY:
 		return "lookup_entry";
-	case NB_OP_RPC:
+	case NB_CB_RPC:
 		return "rpc";
 	}
 

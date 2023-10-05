@@ -911,7 +911,7 @@ static int mgmt_txn_create_config_batches(struct mgmt_txn_req *txn_req,
 			batch->cfg_datap[batch->num_cfg_data] =
 				&batch->cfg_data[batch->num_cfg_data];
 
-			if (chg->cb.operation == NB_OP_DESTROY)
+			if (chg->cb.operation == NB_CB_DESTROY)
 				batch->cfg_data[batch->num_cfg_data].req_type =
 					MGMTD__CFG_DATA_REQ_TYPE__DELETE_DATA;
 			else
