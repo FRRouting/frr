@@ -569,7 +569,7 @@ static int mgmt_be_update_setcfg_in_batch(struct mgmt_be_client *client_ctx,
 		    == MGMTD__CFG_DATA_REQ_TYPE__DELETE_DATA)
 			cfg_chg->operation = NB_OP_DESTROY;
 		else
-			cfg_chg->operation = NB_OP_CREATE;
+			cfg_chg->operation = NB_OP_MODIFY;
 
 		strlcpy(cfg_chg->xpath, cfg_req[index]->data->xpath,
 			sizeof(cfg_chg->xpath));

@@ -718,6 +718,7 @@ struct nb_config {
 
 /* Northbound operations */
 enum nb_operation {
+	NB_OP_CREATE_EXCL,
 	NB_OP_CREATE,
 	NB_OP_MODIFY,
 	NB_OP_DESTROY,

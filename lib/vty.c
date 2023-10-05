@@ -4001,6 +4001,11 @@ int vty_mgmt_send_config_data(struct vty *vty, const char *xpath_base,
 				MGMTD__CFG_DATA_REQ_TYPE__DELETE_DATA;
 			break;
 
+		case NB_OP_CREATE_EXCL:
+			cfg_req[indx].req_type =
+				MGMTD__CFG_DATA_REQ_TYPE__CREATE_DATA;
+			break;
+
 		case NB_OP_CREATE:
 		case NB_OP_MODIFY:
 		case NB_OP_MOVE:

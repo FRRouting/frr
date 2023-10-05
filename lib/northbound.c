@@ -668,6 +668,7 @@ int nb_candidate_edit(struct nb_config *candidate,
 	struct lyd_node *dnode, *dep_dnode;
 	char xpath_edit[XPATH_MAXLEN];
 	char dep_xpath[XPATH_MAXLEN];
+	uint32_t options = 0;
 	LY_ERR err;
 
 	/* Use special notation for leaf-lists (RFC 6020, section 9.13.5). */
@@ -680,9 +681,11 @@ int nb_candidate_edit(struct nb_config *candidate,
 	switch (operation) {
 	case NB_OP_CREATE:
 	case NB_OP_MODIFY:
+		options = LYD_NEW_PATH_UPDATE;
+		fallthrough;
+	case NB_OP_CREATE_EXCL:
 		err = lyd_new_path(candidate->dnode, ly_native_ctx, xpath_edit,
-				   (void *)data->value, LYD_NEW_PATH_UPDATE,
-				   &dnode);
+				   (void *)data->value, options, &dnode);
 		if (err) {
 			flog_warn(EC_LIB_LIBYANG,
 				  "%s: lyd_new_path(%s) failed: %d", __func__,
@@ -756,6 +759,8 @@ int nb_candidate_edit(struct nb_config *candidate,
 const char *nb_operation_name(enum nb_operation operation)
 {
 	switch (operation) {
+	case NB_OP_CREATE_EXCL:
+		return "create exclusive";
 	case NB_OP_CREATE:
 		return "create";
 	case NB_OP_MODIFY:
