@@ -849,7 +849,9 @@ void zsend_rule_notify_owner(const struct zebra_dplane_ctx *ctx,
 
 	s = stream_new(ZEBRA_MAX_PACKET_SIZ);
 
-	zclient_create_header(s, ZEBRA_RULE_NOTIFY_OWNER, VRF_DEFAULT);
+	zclient_create_header(s, ZEBRA_RULE_NOTIFY_OWNER,
+			      dplane_ctx_rule_get_vrfid(ctx));
+
 	stream_put(s, &note, sizeof(note));
 	stream_putl(s, dplane_ctx_rule_get_seq(ctx));
 	stream_putl(s, dplane_ctx_rule_get_priority(ctx));
