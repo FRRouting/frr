@@ -183,10 +183,21 @@ DEFPY(show_label_table, show_label_table_cmd, "show debugging label-table [json$
 {
 	struct label_manager_chunk *lmc;
 	struct listnode *node;
-	json_object *json_array = NULL;
+	json_object *json_array = NULL, *json_global = NULL, *json_dyn_block;
 
-	if (uj)
+	if (uj) {
 		json_array = json_object_new_array();
+		json_global = json_object_new_object();
+		json_dyn_block = json_object_new_object();
+		json_object_int_add(json_dyn_block, "lowerBound",
+				    lbl_mgr.dynamic_block_start);
+		json_object_int_add(json_dyn_block, "upperBound",
+				    lbl_mgr.dynamic_block_end);
+		json_object_object_add(json_global, "dynamicBlock",
+				       json_dyn_block);
+	} else
+		vty_out(vty, "Dynamic block: lower-bound %u, upper-bound %u\n",
+			lbl_mgr.dynamic_block_start, lbl_mgr.dynamic_block_end);
 
 	for (ALL_LIST_ELEMENTS_RO(lbl_mgr.lc_list, node, lmc)) {
 		if (uj) {
@@ -196,8 +207,10 @@ DEFPY(show_label_table, show_label_table_cmd, "show debugging label-table [json$
 		vty_out(vty, "Proto %s: [%u/%u]\n",
 			zebra_route_string(lmc->proto), lmc->start, lmc->end);
 	}
-	if (uj)
-		vty_json(vty, json_array);
+	if (uj) {
+		json_object_object_add(json_global, "chunks", json_array);
+		vty_json(vty, json_global);
+	}
 	return CMD_SUCCESS;
 }
 
