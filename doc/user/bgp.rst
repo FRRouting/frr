@@ -1436,6 +1436,23 @@ Defining Peers
    peers ASN is the same as mine as specified under the :clicmd:`router bgp ASN`
    command the connection will be denied.
 
+.. clicmd:: neighbor PEER oad
+
+   Mark a peer belonging to the One Administrative Domain.
+
+   Some networks span more than one autonomous system and require more
+   flexibility in the propagation of path attributes.It is worth noting that
+   these multi-AS networks have a common or single administrative entity.
+   These networks are said to belong to One Administrative Domain (OAD).
+   It is desirable to carry IBGP-only attributes across EBGP peerings when
+   the peers belong to an OAD.
+
+   Enabling this peering sub-type will allow the propagation of non-transitive
+   attributes across EBGP peerings (e.g. local-preference). Make sure to
+   turn this peering type on for all peers in the OAD.
+
+   Disabled by default.
+
 .. clicmd:: bgp listen range <A.B.C.D/M|X:X::X:X/M> peer-group PGNAME
 
    Accept connections from any peers in the specified prefix. Configuration
