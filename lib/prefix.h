@@ -320,6 +320,7 @@ union prefixptr {
 	prefixtype(prefixptr, struct prefix_evpn, evp)
 	prefixtype(prefixptr, struct prefix_fs,   fs)
 	prefixtype(prefixptr, struct prefix_rd,   rd)
+	prefixtype(prefixptr, struct prefix_bgpls, ls)
 } TRANSPARENT_UNION;
 
 union prefixconstptr {
@@ -329,6 +330,7 @@ union prefixconstptr {
 	prefixtype(prefixconstptr, const struct prefix_evpn, evp)
 	prefixtype(prefixconstptr, const struct prefix_fs,   fs)
 	prefixtype(prefixconstptr, const struct prefix_rd,   rd)
+	prefixtype(prefixconstptr, const struct prefix_bgpls, ls)
 } TRANSPARENT_UNION;
 
 #ifndef INET_ADDRSTRLEN
