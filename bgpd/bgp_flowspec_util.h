@@ -17,6 +17,8 @@ enum bgp_flowspec_util_nlri_t {
 	BGP_FLOWSPEC_RETURN_JSON = 3,
 };
 
+extern uintptr_t bgp_flowspec_ptr_new(uint8_t *pnt, uint16_t length);
+extern void bgp_flowspec_ptr_free(uintptr_t ptr);
 
 extern int bgp_flowspec_op_decode(enum bgp_flowspec_util_nlri_t type,
 				  uint8_t *nlri_ptr,

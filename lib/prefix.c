@@ -333,8 +333,6 @@ void prefix_copy(union prefixptr udest, union prefixconstptr usrc)
 {
 	struct prefix *dest = udest.p;
 	const struct prefix *src = usrc.p;
-	void *temp;
-	int len;
 
 	dest->family = src->family;
 	dest->prefixlen = src->prefixlen;
@@ -353,15 +351,11 @@ void prefix_copy(union prefixptr udest, union prefixconstptr usrc)
 		dest->u.lp.id = src->u.lp.id;
 		dest->u.lp.adv_router = src->u.lp.adv_router;
 	} else if (src->family == AF_FLOWSPEC) {
-		len = src->u.prefix_flowspec.prefixlen;
 		dest->u.prefix_flowspec.prefixlen =
 			src->u.prefix_flowspec.prefixlen;
 		dest->u.prefix_flowspec.family =
 			src->u.prefix_flowspec.family;
-		temp = XCALLOC(MTYPE_PREFIX_FLOWSPEC, len);
-		dest->u.prefix_flowspec.ptr = (uintptr_t)temp;
-		memcpy((void *)dest->u.prefix_flowspec.ptr,
-		       (void *)src->u.prefix_flowspec.ptr, len);
+		dest->u.prefix_flowspec.ptr = src->u.prefix_flowspec.ptr;
 	} else if (src->family == AF_LINKSTATE) {
 		dest->u.prefix_linkstate.nlri_type =
 			src->u.prefix_linkstate.nlri_type;
@@ -1409,8 +1403,6 @@ char *prefix_mac2str(const struct ethaddr *mac, char *buf, int size)
 unsigned prefix_hash_key(const void *pp)
 {
 	struct prefix copy;
-	uint32_t len;
-	void *temp;
 
 	/* make sure *all* unused bits are zero, particularly including
 	 * alignment /
@@ -1418,15 +1410,10 @@ unsigned prefix_hash_key(const void *pp)
 	memset(&copy, 0, sizeof(copy));
 	prefix_copy(&copy, (struct prefix *)pp);
 
-	if (((struct prefix *)pp)->family == AF_FLOWSPEC) {
-		len = jhash((void *)copy.u.prefix_flowspec.ptr,
-			    copy.u.prefix_flowspec.prefixlen,
-			    0x55aa5a5a);
-		temp = (void *)copy.u.prefix_flowspec.ptr;
-		XFREE(MTYPE_PREFIX_FLOWSPEC, temp);
-		copy.u.prefix_flowspec.ptr = (uintptr_t)NULL;
-		return len;
-	} else if (((struct prefix *)pp)->family == AF_LINKSTATE)
+	if (((struct prefix *)pp)->family == AF_FLOWSPEC)
+		return jhash((void *)copy.u.prefix_flowspec.ptr,
+			     copy.u.prefix_flowspec.prefixlen, 0x55aa5a5a);
+	else if (((struct prefix *)pp)->family == AF_LINKSTATE)
 		return jhash((void *)copy.u.prefix_linkstate.ptr,
 			     copy.prefixlen, 0x55aa5a5a);
 

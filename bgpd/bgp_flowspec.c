@@ -90,7 +90,6 @@ int bgp_nlri_parse_flowspec(struct peer *peer, struct attr *attr,
 	safi_t safi;
 	int psize = 0;
 	struct prefix p;
-	void *temp;
 
 	/* Start processing the NLRI - there may be multiple in the MP_REACH */
 	pnt = packet->nlri;
@@ -152,9 +151,7 @@ int bgp_nlri_parse_flowspec(struct peer *peer, struct attr *attr,
 		/* Flowspec encoding is in bytes */
 		p.u.prefix_flowspec.prefixlen = psize;
 		p.u.prefix_flowspec.family = afi2family(afi);
-		temp = XCALLOC(MTYPE_TMP, psize);
-		memcpy(temp, pnt, psize);
-		p.u.prefix_flowspec.ptr = (uintptr_t) temp;
+		p.u.prefix_flowspec.ptr = bgp_flowspec_ptr_new(pnt, psize);
 
 		if (BGP_DEBUG(flowspec, FLOWSPEC)) {
 			char return_string[BGP_FLOWSPEC_NLRI_STRING_MAX];
@@ -197,8 +194,6 @@ int bgp_nlri_parse_flowspec(struct peer *peer, struct attr *attr,
 			bgp_withdraw(peer, &p, 0, afi, safi, ZEBRA_ROUTE_BGP,
 				     BGP_ROUTE_NORMAL, NULL, NULL, 0, NULL);
 		}
-
-		XFREE(MTYPE_TMP, temp);
 	}
 	return BGP_NLRI_PARSE_OK;
 }

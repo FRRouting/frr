@@ -19,6 +19,26 @@
 #include "bgp_pbr.h"
 #include "bgp_errors.h"
 
+DEFINE_MTYPE_STATIC(BGPD, PTR_FLOWSPEC, "FLOWSPEC Prefix Pointer");
+
+uintptr_t bgp_flowspec_ptr_new(uint8_t *pnt, uint16_t length)
+{
+	void *ptr = XCALLOC(MTYPE_PTR_FLOWSPEC, length);
+
+	memcpy(ptr, pnt, length);
+
+	return (uintptr_t)ptr;
+}
+
+void bgp_flowspec_ptr_free(uintptr_t ptr)
+{
+	void *tmp;
+
+	tmp = (void *)ptr;
+
+	XFREE(MTYPE_PTR_FLOWSPEC, tmp);
+}
+
 static void hex2bin(uint8_t *hex, int *bin)
 {
 	int remainder = *hex;

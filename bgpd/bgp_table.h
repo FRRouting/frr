@@ -245,6 +245,11 @@ static inline struct bgp_dest *bgp_node_get(struct bgp_table *const table,
 		/* ptr pointer has not been referenced in a new route_node, free it. */
 		prefix_copy(&p2, p);
 		bgp_linkstate_ptr_free(p2.u.prefix_linkstate.ptr);
+	} else if (table->safi == SAFI_FLOWSPEC &&
+		   table->route_table->count == count) {
+		prefix_copy(&p2, p);
+		/* ptr pointer has not been referenced in a new route_node, free it. */
+		bgp_flowspec_ptr_free(p2.u.prefix_flowspec.ptr);
 	}
 
 	if (!rn->info) {
