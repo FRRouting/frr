@@ -345,6 +345,15 @@ assign_specific_label_chunk(uint8_t proto, unsigned short instance,
 		return NULL;
 	}
 
+	if ((lbl_mgr.dynamic_block_start != MPLS_LABEL_UNRESERVED_MIN ||
+	     lbl_mgr.dynamic_block_end != MPLS_LABEL_MAX) &&
+	    base >= lbl_mgr.dynamic_block_start &&
+	    end <= lbl_mgr.dynamic_block_end) {
+		zlog_warn("Invalid LM request arguments: base: %u, size: %u for %s in conflict with the dynamic label block",
+			  base, size, zebra_route_string(proto));
+		return NULL;
+	}
+
 	/* Scan the existing chunks to see if the requested range of labels
 	 * falls inside any of such chunks */
 	for (ALL_LIST_ELEMENTS_RO(lbl_mgr.lc_list, node, lmc)) {
