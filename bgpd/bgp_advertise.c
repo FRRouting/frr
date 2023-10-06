@@ -36,6 +36,8 @@ struct bgp_advertise_attr *bgp_advertise_attr_new(void)
 
 void bgp_advertise_attr_free(struct bgp_advertise_attr *baa)
 {
+	bgp_advertise_attr_fifo_fini(&baa->fifo);
+
 	XFREE(MTYPE_BGP_ADVERTISE_ATTR, baa);
 }
 
@@ -46,6 +48,9 @@ static void *bgp_advertise_attr_hash_alloc(void *p)
 
 	baa = bgp_advertise_attr_new();
 	baa->attr = ref->attr;
+
+	bgp_advertise_attr_fifo_init(&baa->fifo);
+
 	return baa;
 }
 
@@ -83,21 +88,20 @@ void bgp_advertise_free(struct bgp_advertise *adv)
 void bgp_advertise_add(struct bgp_advertise_attr *baa,
 		       struct bgp_advertise *adv)
 {
+<<<<<<< HEAD
 	adv->next = baa->adv;
 	if (baa->adv)
 		baa->adv->prev = adv;
 	baa->adv = adv;
+=======
+	bgp_advertise_attr_fifo_add_tail(&baa->fifo, adv);
+>>>>>>> b2e0c12d7 (bgpd: Convert the bgp_advertise_attr->adv to a fifo)
 }
 
 void bgp_advertise_delete(struct bgp_advertise_attr *baa,
 			  struct bgp_advertise *adv)
 {
-	if (adv->next)
-		adv->next->prev = adv->prev;
-	if (adv->prev)
-		adv->prev->next = adv->next;
-	else
-		baa->adv = adv->next;
+	bgp_advertise_attr_fifo_del(&baa->fifo, adv);
 }
 
 struct bgp_advertise_attr *bgp_advertise_attr_intern(struct hash *hash,
