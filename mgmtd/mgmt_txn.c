@@ -918,7 +918,7 @@ static int mgmt_txn_create_config_batches(struct mgmt_txn_req *txn_req,
 			 */
 			if (chg->cb.operation == NB_CB_DESTROY)
 				batch->cfg_data[batch->num_cfg_data].req_type =
-					MGMTD__CFG_DATA_REQ_TYPE__DELETE_DATA;
+					MGMTD__CFG_DATA_REQ_TYPE__REMOVE_DATA;
 			else
 				batch->cfg_data[batch->num_cfg_data].req_type =
 					MGMTD__CFG_DATA_REQ_TYPE__SET_DATA;
@@ -2052,6 +2052,9 @@ int mgmt_txn_send_set_config_req(uint64_t txn_id, uint64_t req_id,
 
 		switch (cfg_req[indx]->req_type) {
 		case MGMTD__CFG_DATA_REQ_TYPE__DELETE_DATA:
+			cfg_chg->operation = NB_OP_DELETE;
+			break;
+		case MGMTD__CFG_DATA_REQ_TYPE__REMOVE_DATA:
 			cfg_chg->operation = NB_OP_DESTROY;
 			break;
 		case MGMTD__CFG_DATA_REQ_TYPE__SET_DATA:

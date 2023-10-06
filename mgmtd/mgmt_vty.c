@@ -188,6 +188,23 @@ DEFPY(mgmt_delete_config_data, mgmt_delete_config_data_cmd,
 	strlcpy(vty->cfg_changes[0].xpath, path,
 		sizeof(vty->cfg_changes[0].xpath));
 	vty->cfg_changes[0].value = NULL;
+	vty->cfg_changes[0].operation = NB_OP_DELETE;
+	vty->num_cfg_changes = 1;
+
+	vty_mgmt_send_config_data(vty, NULL, false);
+	return CMD_SUCCESS;
+}
+
+DEFPY(mgmt_remove_config_data, mgmt_remove_config_data_cmd,
+      "mgmt remove-config WORD$path",
+      MGMTD_STR
+      "Remove configuration data\n"
+      "XPath expression specifying the YANG data path\n")
+{
+
+	strlcpy(vty->cfg_changes[0].xpath, path,
+		sizeof(vty->cfg_changes[0].xpath));
+	vty->cfg_changes[0].value = NULL;
 	vty->cfg_changes[0].operation = NB_OP_DESTROY;
 	vty->num_cfg_changes = 1;
 
@@ -547,6 +564,7 @@ void mgmt_vty_init(void)
 	install_element(CONFIG_NODE, &mgmt_create_config_data_cmd);
 	install_element(CONFIG_NODE, &mgmt_set_config_data_cmd);
 	install_element(CONFIG_NODE, &mgmt_delete_config_data_cmd);
+	install_element(CONFIG_NODE, &mgmt_remove_config_data_cmd);
 	install_element(CONFIG_NODE, &mgmt_load_config_cmd);
 	install_element(CONFIG_NODE, &mgmt_save_config_cmd);
 	install_element(CONFIG_NODE, &mgmt_rollback_cmd);

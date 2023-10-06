@@ -722,6 +722,7 @@ enum nb_operation {
 	NB_OP_CREATE,
 	NB_OP_MODIFY,
 	NB_OP_DESTROY,
+	NB_OP_DELETE,
 	NB_OP_MOVE,
 };
 
@@ -953,7 +954,6 @@ extern bool nb_is_operation_allowed(struct nb_node *nb_node,
  *
  * Returns:
  *    - NB_OK on success.
- *    - NB_ERR_NOT_FOUND when the element to be deleted was not found.
  *    - NB_ERR for other errors.
  */
 extern int nb_candidate_edit(struct nb_config *candidate,

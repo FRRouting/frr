@@ -731,13 +731,14 @@ int nb_candidate_edit(struct nb_config *candidate,
 		}
 		break;
 	case NB_OP_DESTROY:
+	case NB_OP_DELETE:
 		dnode = yang_dnode_get(candidate->dnode, xpath_edit);
-		if (!dnode)
-			/*
-			 * Return a special error code so the caller can choose
-			 * whether to ignore it or not.
-			 */
-			return NB_ERR_NOT_FOUND;
+		if (!dnode) {
+			if (operation == NB_OP_DELETE)
+				return NB_ERR;
+			else
+				return NB_OK;
+		}
 		/* destroy dependant */
 		if (nb_node->dep_cbs.get_dependant_xpath) {
 			nb_node->dep_cbs.get_dependant_xpath(dnode, dep_xpath);
@@ -767,6 +768,8 @@ const char *nb_operation_name(enum nb_operation operation)
 		return "modify";
 	case NB_OP_DESTROY:
 		return "destroy";
+	case NB_OP_DELETE:
+		return "delete";
 	case NB_OP_MOVE:
 		return "move";
 	}
@@ -777,7 +780,8 @@ const char *nb_operation_name(enum nb_operation operation)
 bool nb_is_operation_allowed(struct nb_node *nb_node, enum nb_operation oper)
 {
 	if (lysc_is_key(nb_node->snode)) {
-		if (oper == NB_OP_MODIFY || oper == NB_OP_DESTROY)
+		if (oper == NB_OP_MODIFY || oper == NB_OP_DESTROY
+		    || oper == NB_OP_DELETE)
 			return false;
 	}
 	return true;
@@ -842,7 +846,7 @@ void nb_candidate_edit_config_changes(
 		ret = nb_candidate_edit(candidate_config, nb_node,
 					change->operation, xpath, NULL, data);
 		yang_data_free(data);
-		if (ret != NB_OK && ret != NB_ERR_NOT_FOUND) {
+		if (ret != NB_OK) {
 			flog_warn(
 				EC_LIB_NB_CANDIDATE_EDIT_ERROR,
 				"%s: failed to edit candidate configuration: operation [%s] xpath [%s]",

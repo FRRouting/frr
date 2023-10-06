@@ -3996,9 +3996,14 @@ int vty_mgmt_send_config_data(struct vty *vty, const char *xpath_base,
 		mgmt_yang_cfg_data_req_init(&cfg_req[indx]);
 		cfg_req[indx].data = &cfg_data[indx];
 		switch (vty->cfg_changes[indx].operation) {
-		case NB_OP_DESTROY:
+		case NB_OP_DELETE:
 			cfg_req[indx].req_type =
 				MGMTD__CFG_DATA_REQ_TYPE__DELETE_DATA;
+			break;
+
+		case NB_OP_DESTROY:
+			cfg_req[indx].req_type =
+				MGMTD__CFG_DATA_REQ_TYPE__REMOVE_DATA;
 			break;
 
 		case NB_OP_CREATE_EXCL:
