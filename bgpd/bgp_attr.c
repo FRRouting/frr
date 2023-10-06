@@ -3417,6 +3417,14 @@ bgp_attr_linkstate(struct bgp_attr_parser_args *args)
 	if (STREAM_READABLE(s) == 0)
 		return BGP_ATTR_PARSE_PROCEED;
 
+	/* Length check. */
+	if (STREAM_READABLE(s) < length) {
+		flog_err(EC_BGP_ATTR_LEN,
+			 "BGP-LS attribute length is too big [%u]", length);
+		return bgp_attr_malformed(args, BGP_NOTIFY_UPDATE_ATTR_LENG_ERR,
+					  args->total);
+	}
+
 	attr->flag |= ATTR_FLAG_BIT(BGP_ATTR_LINK_STATE);
 
 	bgp_attr_ls = XCALLOC(MTYPE_BGP_ATTR_LS, sizeof(struct bgp_attr_ls));
