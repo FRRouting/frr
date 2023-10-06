@@ -4990,10 +4990,21 @@ bgp_size_t bgp_packet_attribute(struct bgp *bgp, struct peer *peer,
 	}
 
 	/* BGP Link-State */
-	if (attr->link_state) {
-		stream_putc(s, BGP_ATTR_FLAG_OPTIONAL);
+	if (attr->link_state &&
+	    attr->link_state->length < peer->max_packet_size) {
+		uint8_t flags = BGP_ATTR_FLAG_OPTIONAL;
+
+		if (attr->link_state->length > 255)
+			SET_FLAG(flags, BGP_ATTR_FLAG_EXTLEN);
+
+		stream_putc(s, flags);
 		stream_putc(s, BGP_ATTR_LINK_STATE);
-		stream_putc(s, attr->link_state->length);
+
+		if (CHECK_FLAG(flags, BGP_ATTR_FLAG_EXTLEN))
+			stream_putw(s, attr->link_state->length);
+		else
+			stream_putc(s, attr->link_state->length);
+
 		stream_put(s, attr->link_state->data, attr->link_state->length);
 	}
 

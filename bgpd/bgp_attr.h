@@ -139,7 +139,7 @@ struct bgp_attr_srv6_l3vpn {
 struct bgp_attr_ls {
 	unsigned long refcnt;
 
-	uint8_t length;
+	uint16_t length;
 	void *data;
 };
 
