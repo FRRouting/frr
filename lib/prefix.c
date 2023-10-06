@@ -223,32 +223,13 @@ int prefix_match(union prefixconstptr unet, union prefixconstptr upfx)
 	if (n->prefixlen > p->prefixlen)
 		return 0;
 
-	if (n->family == AF_FLOWSPEC) {
-		/* prefixlen is unused. look at fs prefix len */
-		if (n->u.prefix_flowspec.family !=
-		    p->u.prefix_flowspec.family)
-			return 0;
-
-		if (n->u.prefix_flowspec.prefixlen >
-		    p->u.prefix_flowspec.prefixlen)
-			return 0;
-
-		/* Set both prefix's head pointer. */
-		np = (const uint8_t *)&n->u.prefix_flowspec.ptr;
-		pp = (const uint8_t *)&p->u.prefix_flowspec.ptr;
-
-		offset = n->u.prefix_flowspec.prefixlen;
-
-		while (offset--)
-			if (np[offset] != pp[offset])
-				return 0;
-		return 1;
-	} else if (n->family == AF_LINKSTATE)
-		/* BGP Link-State prefixes are pseudo-prefixes that contain information
-		 * about IGP Link-State. The length of prefixes is used for compatibility
-		 * purposes and does not indicate the length of a real range. Checking
-		 * whether a BGP-LS prefix n is a sub-range of range p is not is not
-		 * relevant.
+	if (n->family == AF_FLOWSPEC || n->family == AF_LINKSTATE)
+		/* BGP Flowspec and Link-State prefixes are pseudo prefixes that
+		 * carries respectively traffic flow specification and IGP Link-State
+		 * information. Their prefix length are used for compatibility and do
+		 * not indicate the length of a range.
+		 * Checking whether a Flowspec or Link-State prefix n is a sub-range of
+		 * p range is not relevant.
 		 * Compare the prefixes instead.
 		 */
 		return prefix_same(n, p);
