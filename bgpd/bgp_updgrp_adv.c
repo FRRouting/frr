@@ -426,7 +426,7 @@ bgp_advertise_clean_subgroup(struct update_subgroup *subgrp,
 		bgp_advertise_delete(baa, adv);
 
 		/* Fetch next advertise candidate. */
-		next = baa->adv;
+		next = bgp_advertise_attr_fifo_first(&baa->fifo);
 
 		/* Unintern BGP advertise attribute.  */
 		bgp_advertise_attr_unintern(subgrp->hash, baa);
