@@ -241,8 +241,8 @@ static inline struct bgp_dest *bgp_node_get(struct bgp_table *const table,
 
 	rn = route_node_get(table->route_table, p);
 
-	if (rn->p.family == AF_LINKSTATE && table->route_table->count == count) {
-		/* ptr pointer has not referenced in a new route_node, free it. */
+	if (table->afi == AFI_LINKSTATE && table->route_table->count == count) {
+		/* ptr pointer has not been referenced in a new route_node, free it. */
 		prefix_copy(&p2, p);
 		bgp_linkstate_ptr_free(p2.u.prefix_linkstate.ptr);
 	}
