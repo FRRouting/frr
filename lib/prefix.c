@@ -20,7 +20,6 @@
 
 DEFINE_MTYPE_STATIC(LIB, PREFIX, "Prefix");
 DEFINE_MTYPE_STATIC(LIB, PREFIX_FLOWSPEC, "Prefix Flowspec");
-DEFINE_MTYPE_STATIC(LIB, PREFIX_LINKSTATE, "Prefix Link-State");
 
 /* Maskbit. */
 static const uint8_t maskbit[] = {0x00, 0x80, 0xc0, 0xe0, 0xf0,
@@ -384,13 +383,9 @@ void prefix_copy(union prefixptr udest, union prefixconstptr usrc)
 		memcpy((void *)dest->u.prefix_flowspec.ptr,
 		       (void *)src->u.prefix_flowspec.ptr, len);
 	} else if (src->family == AF_LINKSTATE) {
-		len = src->prefixlen;
 		dest->u.prefix_linkstate.nlri_type =
 			src->u.prefix_linkstate.nlri_type;
-		temp = XCALLOC(MTYPE_PREFIX_LINKSTATE, len);
-		dest->u.prefix_linkstate.ptr = (uintptr_t)temp;
-		memcpy((void *)dest->u.prefix_linkstate.ptr,
-		       (void *)src->u.prefix_linkstate.ptr, len);
+		dest->u.prefix_linkstate.ptr = src->u.prefix_linkstate.ptr;
 	} else {
 		flog_err(EC_LIB_DEVELOPMENT,
 			 "prefix_copy(): Unknown address family %d",
@@ -1285,20 +1280,6 @@ const char *prefix_sg2str(const struct prefix_sg *sg, char *sg_str)
 	return sg_str;
 }
 
-
-void prefix_linkstate_ptr_free(struct prefix *p)
-{
-	void *temp;
-
-	if (!p || p->family != AF_LINKSTATE || !p->u.prefix_linkstate.ptr)
-		return;
-
-	temp = (void *)p->u.prefix_linkstate.ptr;
-	XFREE(MTYPE_PREFIX_LINKSTATE, temp);
-	p->u.prefix_linkstate.ptr = (uintptr_t)NULL;
-}
-
-
 struct prefix *prefix_new(void)
 {
 	struct prefix *p;
@@ -1465,12 +1446,9 @@ unsigned prefix_hash_key(const void *pp)
 		XFREE(MTYPE_PREFIX_FLOWSPEC, temp);
 		copy.u.prefix_flowspec.ptr = (uintptr_t)NULL;
 		return len;
-	} else if (((struct prefix *)pp)->family == AF_LINKSTATE) {
-		len = jhash((void *)copy.u.prefix_linkstate.ptr, copy.prefixlen,
-			    0x55aa5a5a);
-		prefix_linkstate_ptr_free(&copy);
-		return len;
-	}
+	} else if (((struct prefix *)pp)->family == AF_LINKSTATE)
+		return jhash((void *)copy.u.prefix_linkstate.ptr,
+			     copy.prefixlen, 0x55aa5a5a);
 
 	return jhash(&copy,
 		     offsetof(struct prefix, u.prefix) + PSIZE(copy.prefixlen),

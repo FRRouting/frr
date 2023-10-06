@@ -274,7 +274,7 @@ int bgp_nlri_parse_linkstate(struct peer *peer, struct attr *attr,
 		}
 		p.family = AF_LINKSTATE;
 
-		p.u.prefix_linkstate.ptr = (uintptr_t)pnt;
+		p.u.prefix_linkstate.ptr = bgp_linkstate_ptr_new(pnt, length);
 		p.prefixlen = length;
 
 		if (BGP_DEBUG(linkstate, LINKSTATE)) {

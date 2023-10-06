@@ -12,6 +12,8 @@
 #include "linklist.h"
 #include "bgpd.h"
 #include "bgp_advertise.h"
+#include "bgp_flowspec_util.h"
+#include "bgp_linkstate.h"
 
 struct bgp_table {
 	/* table belongs to this instance */
@@ -233,7 +235,17 @@ static inline struct bgp_dest *bgp_route_next_until(struct bgp_dest *dest,
 static inline struct bgp_dest *bgp_node_get(struct bgp_table *const table,
 					    const struct prefix *p)
 {
-	struct route_node *rn = route_node_get(table->route_table, p);
+	struct route_node *rn;
+	unsigned long count = table->route_table->count;
+	struct prefix p2;
+
+	rn = route_node_get(table->route_table, p);
+
+	if (rn->p.family == AF_LINKSTATE && table->route_table->count == count) {
+		/* ptr pointer has not referenced in a new route_node, free it. */
+		prefix_copy(&p2, p);
+		bgp_linkstate_ptr_free(p2.u.prefix_linkstate.ptr);
+	}
 
 	if (!rn->info) {
 		struct bgp_dest *dest = XCALLOC(MTYPE_BGP_NODE,
