@@ -491,8 +491,9 @@ int prefix_same(union prefixconstptr up1, union prefixconstptr up2)
 			if (p1->u.prefix_linkstate.nlri_type !=
 			    p2->u.prefix_linkstate.nlri_type)
 				return 0;
-			if (!memcmp(&p1->u.prefix_linkstate.ptr,
-				    &p2->u.prefix_linkstate.ptr, p2->prefixlen))
+			if (!memcmp((const void *)p1->u.prefix_linkstate.ptr,
+				    (const void *)p1->u.prefix_linkstate.ptr,
+				    p2->prefixlen))
 				return 1;
 		}
 	}
