@@ -398,7 +398,7 @@ DEFUN (mpls_label_global_block,
        "mpls label global-block (16-1048575) (16-1048575)",
        MPLS_STR
        "Label configuration\n"
-       "Configure global label block\n"
+       "Configure BGP segment routing global label block\n"
        "Start label\n"
        "End label\n")
 {
@@ -411,7 +411,7 @@ DEFUN (no_mpls_label_global_block,
        NO_STR
        MPLS_STR
        "Label configuration\n"
-       "Configure global label block\n"
+       "Configure segment routing global label block\n"
        "Start label\n"
        "End label\n")
 {
