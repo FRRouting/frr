@@ -244,22 +244,15 @@ int prefix_match(union prefixconstptr unet, union prefixconstptr upfx)
 			if (np[offset] != pp[offset])
 				return 0;
 		return 1;
-	} else if (n->family == AF_LINKSTATE) {
-		if (n->u.prefix_linkstate.nlri_type !=
-		    p->u.prefix_linkstate.nlri_type)
-			return 0;
-
-		/* Set both prefix's head pointer. */
-		np = (const uint8_t *)&n->u.prefix_linkstate.ptr;
-		pp = (const uint8_t *)&p->u.prefix_linkstate.ptr;
-
-		offset = n->prefixlen; /* length is checked above */
-
-		while (offset--)
-			if (np[offset] != pp[offset])
-				return 0;
-		return 1;
-	}
+	} else if (n->family == AF_LINKSTATE)
+		/* BGP Link-State prefixes are pseudo-prefixes that contain information
+		 * about IGP Link-State. The length of prefixes is used for compatibility
+		 * purposes and does not indicate the length of a real range. Checking
+		 * whether a BGP-LS prefix n is a sub-range of range p is not is not
+		 * relevant.
+		 * Compare the prefixes instead.
+		 */
+		return prefix_same(n, p);
 
 	/* Set both prefix's head pointer. */
 	np = n->u.val;
