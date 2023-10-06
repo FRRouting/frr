@@ -358,7 +358,6 @@ void prefix_copy(union prefixptr udest, union prefixconstptr usrc)
 			src->u.prefix_flowspec.prefixlen;
 		dest->u.prefix_flowspec.family =
 			src->u.prefix_flowspec.family;
-		dest->family = src->family;
 		temp = XCALLOC(MTYPE_PREFIX_FLOWSPEC, len);
 		dest->u.prefix_flowspec.ptr = (uintptr_t)temp;
 		memcpy((void *)dest->u.prefix_flowspec.ptr,
