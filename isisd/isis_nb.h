@@ -334,20 +334,12 @@ void cli_show_isis_srv6_locator(struct vty *vty, const struct lyd_node *dnode,
 				bool show_defaults);
 int isis_instance_segment_routing_srv6_msd_node_msd_max_segs_left_modify(
 	struct nb_cb_modify_args *args);
-int isis_instance_segment_routing_srv6_msd_node_msd_max_segs_left_destroy(
-	struct nb_cb_destroy_args *args);
 int isis_instance_segment_routing_srv6_msd_node_msd_max_end_pop_modify(
 	struct nb_cb_modify_args *args);
-int isis_instance_segment_routing_srv6_msd_node_msd_max_end_pop_destroy(
-	struct nb_cb_destroy_args *args);
 int isis_instance_segment_routing_srv6_msd_node_msd_max_h_encaps_modify(
 	struct nb_cb_modify_args *args);
-int isis_instance_segment_routing_srv6_msd_node_msd_max_h_encaps_destroy(
-	struct nb_cb_destroy_args *args);
 int isis_instance_segment_routing_srv6_msd_node_msd_max_end_d_modify(
 	struct nb_cb_modify_args *args);
-int isis_instance_segment_routing_srv6_msd_node_msd_max_end_d_destroy(
-	struct nb_cb_destroy_args *args);
 void cli_show_isis_srv6_node_msd(struct vty *vty, const struct lyd_node *dnode,
 				 bool show_defaults);
 int isis_instance_segment_routing_srv6_interface_modify(
