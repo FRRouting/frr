@@ -1193,25 +1193,11 @@ static int mgmt_txn_prepare_config(struct mgmt_txn_ctx *txn)
 		goto mgmt_txn_prepare_config_done;
 	}
 
-	/*
-	 * Check for diffs from scratch buffer. If found empty
-	 * get the diff from Candidate DS itself.
-	 */
-	cfg_chgs = &nb_config->cfg_chgs;
-	if (RB_EMPTY(nb_config_cbs, cfg_chgs)) {
-		/*
-		 * This could be the case when the config is directly
-		 * loaded onto the candidate DS from a file. Get the
-		 * diff from a full comparison of the candidate and
-		 * running DSs.
-		 */
-		nb_config_diff(mgmt_ds_get_nb_config(
-				       txn->commit_cfg_req->req.commit_cfg
-					       .dst_ds_ctx),
-			       nb_config, &changes);
-		cfg_chgs = &changes;
-		del_cfg_chgs = true;
-	}
+	nb_config_diff(mgmt_ds_get_nb_config(txn->commit_cfg_req->req.commit_cfg
+					     .dst_ds_ctx),
+		       nb_config, &changes);
+	cfg_chgs = &changes;
+	del_cfg_chgs = true;
 
 	if (RB_EMPTY(nb_config_cbs, cfg_chgs)) {
 		/*

@@ -305,8 +305,6 @@ struct nb_config *nb_config_new(struct lyd_node *dnode)
 		config->dnode = yang_dnode_new(ly_native_ctx, true);
 	config->version = 0;
 
-	RB_INIT(nb_config_cbs, &config->cfg_chgs);
-
 	return config;
 }
 
@@ -314,7 +312,7 @@ void nb_config_free(struct nb_config *config)
 {
 	if (config->dnode)
 		yang_dnode_free(config->dnode);
-	nb_config_diff_del_changes(&config->cfg_chgs);
+
 	XFREE(MTYPE_NB_CONFIG, config);
 }
 
@@ -325,8 +323,6 @@ struct nb_config *nb_config_dup(const struct nb_config *config)
 	dup = XCALLOC(MTYPE_NB_CONFIG, sizeof(*dup));
 	dup->dnode = yang_dnode_dup(config->dnode);
 	dup->version = config->version;
-
-	RB_INIT(nb_config_cbs, &dup->cfg_chgs);
 
 	return dup;
 }
@@ -753,65 +749,6 @@ int nb_candidate_edit(struct nb_config *candidate,
 	return NB_OK;
 }
 
-static void nb_update_candidate_changes(struct nb_config *candidate,
-					struct nb_cfg_change *change,
-					uint32_t *seq)
-{
-	enum nb_operation oper = change->operation;
-	char *xpath = change->xpath;
-	struct lyd_node *root = NULL;
-	struct lyd_node *dnode;
-	struct nb_config_cbs *cfg_chgs = &candidate->cfg_chgs;
-	int op;
-
-	switch (oper) {
-	case NB_OP_CREATE:
-	case NB_OP_MODIFY:
-		root = yang_dnode_get(candidate->dnode, xpath);
-		break;
-	case NB_OP_DESTROY:
-		root = yang_dnode_get(running_config->dnode, xpath);
-		/* code */
-		break;
-	case NB_OP_MOVE:
-	case NB_OP_PRE_VALIDATE:
-	case NB_OP_APPLY_FINISH:
-	case NB_OP_GET_ELEM:
-	case NB_OP_GET_NEXT:
-	case NB_OP_GET_KEYS:
-	case NB_OP_LOOKUP_ENTRY:
-	case NB_OP_RPC:
-		break;
-	default:
-		assert(!"non-enum value, invalid");
-	}
-
-	if (!root)
-		return;
-
-	LYD_TREE_DFS_BEGIN (root, dnode) {
-		op = nb_lyd_diff_get_op(dnode);
-		switch (op) {
-		case 'c': /* create */
-			nb_config_diff_created(dnode, seq, cfg_chgs);
-			LYD_TREE_DFS_continue = 1;
-			break;
-		case 'd': /* delete */
-			nb_config_diff_deleted(dnode, seq, cfg_chgs);
-			LYD_TREE_DFS_continue = 1;
-			break;
-		case 'r': /* replace */
-			nb_config_diff_add_change(cfg_chgs, NB_OP_MODIFY, seq,
-						  dnode);
-			break;
-		case 'n': /* none */
-		default:
-			break;
-		}
-		LYD_TREE_DFS_END(root, dnode);
-	}
-}
-
 static bool nb_is_operation_allowed(struct nb_node *nb_node,
 				    struct nb_cfg_change *change)
 {
@@ -829,8 +766,6 @@ void nb_candidate_edit_config_changes(
 	size_t num_cfg_changes, const char *xpath_base, const char *curr_xpath,
 	int xpath_index, char *err_buf, int err_bufsize, bool *error)
 {
-	uint32_t seq = 0;
-
 	if (error)
 		*error = false;
 
@@ -900,7 +835,6 @@ void nb_candidate_edit_config_changes(
 				*error = true;
 			continue;
 		}
-		nb_update_candidate_changes(candidate_config, change, &seq);
 	}
 
 	if (error && *error) {
