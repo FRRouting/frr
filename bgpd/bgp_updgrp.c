@@ -128,6 +128,7 @@ static void conf_copy(struct peer *dst, struct peer *src, afi_t afi,
 
 	dst->bgp = src->bgp;
 	dst->sort = src->sort;
+	dst->sub_sort = src->sub_sort;
 	dst->as = src->as;
 	dst->v_routeadv = src->v_routeadv;
 	dst->flags = src->flags;

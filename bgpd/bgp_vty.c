@@ -6985,6 +6985,28 @@ DEFPY(no_neighbor_role,
 	return ret;
 }
 
+DEFPY (neighbor_oad,
+       neighbor_oad_cmd,
+       "[no$no] neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor oad",
+       NO_STR
+       NEIGHBOR_STR
+       NEIGHBOR_ADDR_STR2
+       "Set peering session type to EBGP-OAD\n")
+{
+	struct peer *peer;
+
+	peer = peer_and_group_lookup_vty(vty, neighbor);
+	if (!peer)
+		return CMD_WARNING_CONFIG_FAILED;
+
+	if (no)
+		peer->sub_sort = 0;
+	else if (peer->sort == BGP_PEER_EBGP)
+		peer->sub_sort = BGP_PEER_EBGP_OAD;
+
+	return CMD_SUCCESS;
+}
+
 /* disable-connected-check */
 DEFUN (neighbor_disable_connected_check,
        neighbor_disable_connected_check_cmd,
@@ -17971,6 +17993,9 @@ static void bgp_config_write_peer_global(struct vty *vty, struct bgp *bgp,
 				? " strict-mode"
 				: "");
 
+	if (peer->sub_sort == BGP_PEER_EBGP_OAD)
+		vty_out(vty, " neighbor %s oad\n", addr);
+
 	/* ttl-security hops */
 	if (peer->gtsm_hops != BGP_GTSM_HOPS_DISABLED) {
 		if (!peer_group_active(peer)
@@ -19556,6 +19581,9 @@ void bgp_vty_init(void)
 	install_element(BGP_NODE, &neighbor_role_cmd);
 	install_element(BGP_NODE, &neighbor_role_strict_cmd);
 	install_element(BGP_NODE, &no_neighbor_role_cmd);
+
+	/* "neighbor oad" commands. */
+	install_element(BGP_NODE, &neighbor_oad_cmd);
 
 	/* "neighbor aigp" commands. */
 	install_element(BGP_NODE, &neighbor_aigp_cmd);
