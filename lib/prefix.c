@@ -470,8 +470,8 @@ int prefix_same(union prefixconstptr up1, union prefixconstptr up2)
 			if (p1->u.prefix_flowspec.prefixlen !=
 			    p2->u.prefix_flowspec.prefixlen)
 				return 0;
-			if (!memcmp(&p1->u.prefix_flowspec.ptr,
-				    &p2->u.prefix_flowspec.ptr,
+			if (!memcmp((const void *)p1->u.prefix_flowspec.ptr,
+				    (const void *)p2->u.prefix_flowspec.ptr,
 				    p2->u.prefix_flowspec.prefixlen))
 				return 1;
 		}
