@@ -159,74 +159,86 @@ static int eigrpd_instance_router_id_destroy(struct nb_cb_destroy_args *args)
 }
 
 /*
+ * XPath: /frr-eigrpd:eigrpd/instance/passive-default
+ */
+static int eigrpd_instance_passive_default_modify(struct nb_cb_modify_args *args)
+{
+	struct eigrp *eigrp;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	eigrp = nb_running_get_entry(args->dnode, NULL, true);
+	eigrp->passive_interface_default = yang_dnode_get_bool(args->dnode, NULL);
+	eigrp_passive_nondefault_clean(eigrp);
+
+	return NB_OK;
+}
+
+/*
  * XPath: /frr-eigrpd:eigrpd/instance/passive-interface
  */
 static int
 eigrpd_instance_passive_interface_create(struct nb_cb_create_args *args)
 {
-	struct eigrp_interface *eif;
 	struct eigrp *eigrp;
 	const char *ifname;
 
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-		eigrp = nb_running_get_entry(args->dnode, NULL, false);
-		if (eigrp == NULL) {
-			/*
-			 * XXX: we can't verify if the interface exists
-			 * and is active until EIGRP is up.
-			 */
-			break;
-		}
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
 
-		ifname = yang_dnode_get_string(args->dnode, NULL);
-		eif = eigrp_interface_lookup(eigrp, ifname);
-		if (eif == NULL)
-			return NB_ERR_INCONSISTENCY;
-		break;
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-		/* NOTHING */
-		break;
-	case NB_EV_APPLY:
-		eigrp = nb_running_get_entry(args->dnode, NULL, true);
-		ifname = yang_dnode_get_string(args->dnode, NULL);
-		eif = eigrp_interface_lookup(eigrp, ifname);
-		if (eif == NULL)
-			return NB_ERR_INCONSISTENCY;
-
-		eif->params.passive_interface = EIGRP_IF_PASSIVE;
-		break;
-	}
-
-	return NB_OK;
+	eigrp = nb_running_get_entry(args->dnode, NULL, true);
+	ifname = yang_dnode_get_string(args->dnode, NULL);
+	return eigrp_passive_nondefault_set(eigrp, ifname);
 }
 
 static int
 eigrpd_instance_passive_interface_destroy(struct nb_cb_destroy_args *args)
 {
-	struct eigrp_interface *eif;
 	struct eigrp *eigrp;
 	const char *ifname;
 
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-		/* NOTHING */
-		break;
-	case NB_EV_APPLY:
-		eigrp = nb_running_get_entry(args->dnode, NULL, true);
-		ifname = yang_dnode_get_string(args->dnode, NULL);
-		eif = eigrp_interface_lookup(eigrp, ifname);
-		if (eif == NULL)
-			break;
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
 
-		eif->params.passive_interface = EIGRP_IF_ACTIVE;
-		break;
-	}
+	eigrp = nb_running_get_entry(args->dnode, NULL, true);
+	ifname = yang_dnode_get_string(args->dnode, NULL);
+
+	return eigrp_passive_nondefault_unset(eigrp, ifname);
+}
+
+/*
+ * XPath: /frr-eigrpd:eigrpd/instance/non-passive-interface
+ */
+static int
+eigrpd_instance_non_passive_interface_create(struct nb_cb_create_args *args)
+{
+	struct eigrp *eigrp;
+	const char *ifname;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	eigrp = nb_running_get_entry(args->dnode, NULL, true);
+	ifname = yang_dnode_get_string(args->dnode, NULL);
+	eigrp_passive_nondefault_set(eigrp, ifname);
 
 	return NB_OK;
+}
+
+static int
+eigrpd_instance_non_passive_interface_destroy(struct nb_cb_destroy_args *args)
+{
+	struct eigrp *eigrp;
+	const char *ifname;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	eigrp = nb_running_get_entry(args->dnode, NULL, true);
+	ifname = yang_dnode_get_string(args->dnode, NULL);
+
+	return eigrp_passive_nondefault_unset(eigrp, ifname);
 }
 
 /*
@@ -1325,11 +1337,26 @@ const struct frr_yang_module_info frr_eigrpd_info = {
 			}
 		},
 		{
+			.xpath = "/frr-eigrpd:eigrpd/instance/passive-default",
+			.cbs = {
+				.cli_show = eigrpd_cli_show_passive_default,
+				.modify = eigrpd_instance_passive_default_modify,
+			}
+		},
+		{
 			.xpath = "/frr-eigrpd:eigrpd/instance/passive-interface",
 			.cbs = {
 				.create = eigrpd_instance_passive_interface_create,
 				.destroy = eigrpd_instance_passive_interface_destroy,
 				.cli_show = eigrp_cli_show_passive_interface,
+			}
+		},
+		{
+			.xpath = "/frr-eigrpd:eigrpd/instance/non-passive-interface",
+			.cbs = {
+				.create = eigrpd_instance_non_passive_interface_create,
+				.destroy = eigrpd_instance_non_passive_interface_destroy,
+				.cli_show = eigrp_cli_show_non_passive_interface,
 			}
 		},
 		{

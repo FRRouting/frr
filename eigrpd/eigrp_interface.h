@@ -32,9 +32,13 @@ extern void eigrp_if_free(struct eigrp_interface *, int);
 extern int eigrp_if_down(struct eigrp_interface *);
 extern void eigrp_if_stream_unset(struct eigrp_interface *);
 
-extern struct eigrp_interface *eigrp_if_lookup_by_local_addr(struct eigrp *,
-							     struct interface *,
-							     struct in_addr);
+extern void eigrp_passive_nondefault_clean(struct eigrp *);
+extern int eigrp_passive_nondefault_set(struct eigrp *eigrp, const char *ifname);
+extern int eigrp_passive_nondefault_unset(struct eigrp *eigrp, const char *ifname);
+
+extern struct eigrp_interface *eigrp_if_lookup_by_local_addr(struct eigrp *eigrp,
+							     struct interface *ifp,
+							     struct in_addr address);
 extern struct eigrp_interface *eigrp_if_lookup_by_name(struct eigrp *,
 						       const char *);
 

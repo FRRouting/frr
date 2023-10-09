@@ -18,6 +18,7 @@
 #define _ZEBRA_EIGRP_STRUCTS_H_
 
 #include "filter.h"
+#include "vector.h"
 
 #include "eigrpd/eigrp_const.h"
 #include "eigrpd/eigrp_macros.h"
@@ -60,7 +61,10 @@ struct eigrp {
 	struct in_addr router_id_static; /* Configured manually. */
 
 	struct list *eiflist;		  /* eigrp interfaces */
-	uint8_t passive_interface_default; /* passive-interface default */
+	bool passive_interface_default; /* passive-interface default */
+
+	/* Vector to store passive-interface name. */
+	vector passive_nondefault;
 
 	int fd;
 	unsigned int maxsndbuflen;
