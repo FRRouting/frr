@@ -659,6 +659,32 @@ void nb_config_diff(const struct nb_config *config1,
 	lyd_free_all(diff);
 }
 
+static int dnode_create(struct nb_config *candidate, const char *xpath,
+			const char *value, uint32_t options,
+			struct lyd_node **new_dnode)
+{
+	struct lyd_node *dnode;
+	LY_ERR err;
+
+	err = lyd_new_path(candidate->dnode, ly_native_ctx, xpath, value,
+			   options, &dnode);
+	if (err) {
+		flog_warn(EC_LIB_LIBYANG, "%s: lyd_new_path(%s) failed: %d",
+			  __func__, xpath, err);
+		return NB_ERR;
+	} else if (dnode) {
+		err = lyd_new_implicit_tree(dnode, LYD_IMPLICIT_NO_STATE, NULL);
+		if (err) {
+			flog_warn(EC_LIB_LIBYANG,
+				  "%s: lyd_new_implicit_all failed: %d",
+				  __func__, err);
+		}
+	}
+	if (new_dnode)
+		*new_dnode = dnode;
+	return NB_OK;
+}
+
 int nb_candidate_edit(struct nb_config *candidate,
 		      const struct nb_node *nb_node,
 		      enum nb_operation operation, const char *xpath,
@@ -684,22 +710,11 @@ int nb_candidate_edit(struct nb_config *candidate,
 		options = LYD_NEW_PATH_UPDATE;
 		fallthrough;
 	case NB_OP_CREATE_EXCL:
-		err = lyd_new_path(candidate->dnode, ly_native_ctx, xpath_edit,
-				   (void *)data->value, options, &dnode);
+		err = dnode_create(candidate, xpath_edit, data->value, options,
+				   &dnode);
 		if (err) {
-			flog_warn(EC_LIB_LIBYANG,
-				  "%s: lyd_new_path(%s) failed: %d", __func__,
-				  xpath_edit, err);
-			return NB_ERR;
+			return err;
 		} else if (dnode) {
-			/* Create default nodes */
-			LY_ERR err = lyd_new_implicit_tree(
-				dnode, LYD_IMPLICIT_NO_STATE, NULL);
-			if (err) {
-				flog_warn(EC_LIB_LIBYANG,
-					  "%s: lyd_new_implicit_all failed: %d",
-					  __func__, err);
-			}
 			/*
 			 * create dependency
 			 *
@@ -711,21 +726,11 @@ int nb_candidate_edit(struct nb_config *candidate,
 				nb_node->dep_cbs.get_dependency_xpath(
 					dnode, dep_xpath);
 
-				err = lyd_new_path(candidate->dnode,
-						   ly_native_ctx, dep_xpath,
-						   NULL, LYD_NEW_PATH_UPDATE,
-						   &dep_dnode);
-				/* Create default nodes */
-				if (!err && dep_dnode)
-					err = lyd_new_implicit_tree(
-						dep_dnode,
-						LYD_IMPLICIT_NO_STATE, NULL);
+				err = dnode_create(candidate, dep_xpath, NULL,
+						   LYD_NEW_PATH_UPDATE, NULL);
 				if (err) {
-					flog_warn(
-						EC_LIB_LIBYANG,
-						"%s: dependency: lyd_new_path(%s) failed: %d",
-						__func__, dep_xpath, err);
-					return NB_ERR;
+					lyd_free_tree(dnode);
+					return err;
 				}
 			}
 		}
