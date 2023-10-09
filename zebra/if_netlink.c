@@ -2054,8 +2054,28 @@ int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 		desc = (char *)RTA_DATA(tb[IFLA_IFALIAS]);
 	}
 
+<<<<<<< HEAD
 	/* See if interface is present. */
 	ifp = if_lookup_by_name_per_ns(zns, name);
+=======
+	if (h->nlmsg_type == RTM_NEWLINK) {
+		dplane_ctx_set_ifp_link_ifindex(ctx, link_ifindex);
+		dplane_ctx_set_op(ctx, DPLANE_OP_INTF_INSTALL);
+		dplane_ctx_set_status(ctx, ZEBRA_DPLANE_REQUEST_QUEUED);
+		if (tb[IFLA_IFALIAS]) {
+			dplane_ctx_set_ifp_desc(ctx,
+						RTA_DATA(tb[IFLA_IFALIAS]));
+		}
+		if (!tb[IFLA_MTU]) {
+			if (IS_ZEBRA_DEBUG_KERNEL)
+				zlog_debug(
+					"RTM_NEWLINK for interface %s(%u) without MTU set",
+					name, ifi->ifi_index);
+			dplane_ctx_fini(&ctx);
+			return 0;
+		}
+		dplane_ctx_set_ifp_mtu(ctx, *(int *)RTA_DATA(tb[IFLA_MTU]));
+>>>>>>> 11b987ed2 (zebra: Prevent leaking ctx memory in err condition)
 
 	if (h->nlmsg_type == RTM_NEWLINK) {
 		/* If VRF, create or update the VRF structure itself. */
