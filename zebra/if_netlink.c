@@ -1622,6 +1622,7 @@ int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 				zlog_debug(
 					"RTM_NEWLINK for interface %s(%u) without MTU set",
 					name, ifi->ifi_index);
+			dplane_ctx_fini(&ctx);
 			return 0;
 		}
 		dplane_ctx_set_ifp_mtu(ctx, *(int *)RTA_DATA(tb[IFLA_MTU]));
