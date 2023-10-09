@@ -740,6 +740,8 @@ intptr_t
 dplane_ctx_rule_get_old_dp_flow_ptr(const struct zebra_dplane_ctx *ctx);
 void dplane_ctx_rule_set_dp_flow_ptr(struct zebra_dplane_ctx *ctx,
 				     intptr_t dp_flow_ptr);
+vrf_id_t dplane_ctx_rule_get_vrfid(const struct zebra_dplane_ctx *ctx);
+
 /* Accessors for policy based routing iptable information */
 struct zebra_pbr_iptable;
 void dplane_ctx_get_pbr_iptable(const struct zebra_dplane_ctx *ctx,

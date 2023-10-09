@@ -3031,6 +3031,13 @@ void dplane_ctx_rule_set_dp_flow_ptr(struct zebra_dplane_ctx *ctx,
 	ctx->u.rule.new.dp_flow_ptr = dp_flow_ptr;
 }
 
+vrf_id_t dplane_ctx_rule_get_vrfid(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return ctx->u.rule.new.prule.vrf_id;
+}
+
 /***********************************************************************
  *		PBR RULE ACCESSORS - end
  **********************************************************************/
