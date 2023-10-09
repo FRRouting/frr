@@ -723,6 +723,7 @@ enum nb_operation {
 	NB_OP_MODIFY,
 	NB_OP_DESTROY,
 	NB_OP_DELETE,
+	NB_OP_REPLACE,
 	NB_OP_MOVE,
 };
 

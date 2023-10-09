@@ -212,6 +212,24 @@ DEFPY(mgmt_remove_config_data, mgmt_remove_config_data_cmd,
 	return CMD_SUCCESS;
 }
 
+DEFPY(mgmt_replace_config_data, mgmt_replace_config_data_cmd,
+      "mgmt replace-config WORD$path VALUE",
+      MGMTD_STR
+      "Replace configuration data\n"
+      "XPath expression specifying the YANG data path\n"
+      "Value of the data to set\n")
+{
+
+	strlcpy(vty->cfg_changes[0].xpath, path,
+		sizeof(vty->cfg_changes[0].xpath));
+	vty->cfg_changes[0].value = value;
+	vty->cfg_changes[0].operation = NB_OP_REPLACE;
+	vty->num_cfg_changes = 1;
+
+	vty_mgmt_send_config_data(vty, NULL, false);
+	return CMD_SUCCESS;
+}
+
 DEFPY(show_mgmt_get_config, show_mgmt_get_config_cmd,
       "show mgmt get-config [candidate|operational|running]$dsname WORD$path",
       SHOW_STR MGMTD_STR
@@ -565,6 +583,7 @@ void mgmt_vty_init(void)
 	install_element(CONFIG_NODE, &mgmt_set_config_data_cmd);
 	install_element(CONFIG_NODE, &mgmt_delete_config_data_cmd);
 	install_element(CONFIG_NODE, &mgmt_remove_config_data_cmd);
+	install_element(CONFIG_NODE, &mgmt_replace_config_data_cmd);
 	install_element(CONFIG_NODE, &mgmt_load_config_cmd);
 	install_element(CONFIG_NODE, &mgmt_save_config_cmd);
 	install_element(CONFIG_NODE, &mgmt_rollback_cmd);

@@ -691,7 +691,7 @@ int nb_candidate_edit(struct nb_config *candidate,
 		      const struct yang_data *previous,
 		      const struct yang_data *data)
 {
-	struct lyd_node *dnode, *dep_dnode;
+	struct lyd_node *dnode, *dep_dnode, *old_dnode, *parent;
 	char xpath_edit[XPATH_MAXLEN];
 	char dep_xpath[XPATH_MAXLEN];
 	uint32_t options = 0;
@@ -754,6 +754,41 @@ int nb_candidate_edit(struct nb_config *candidate,
 		}
 		lyd_free_tree(dnode);
 		break;
+	case NB_OP_REPLACE:
+		old_dnode = yang_dnode_get(candidate->dnode, xpath_edit);
+		if (old_dnode) {
+			parent = lyd_parent(old_dnode);
+			lyd_unlink_tree(old_dnode);
+		}
+		err = dnode_create(candidate, xpath_edit, data->value, options,
+				   &dnode);
+		if (!err && dnode && !old_dnode) {
+			/* create dependency if the node didn't exist */
+			nb_node = dnode->schema->priv;
+			if (nb_node->dep_cbs.get_dependency_xpath) {
+				nb_node->dep_cbs.get_dependency_xpath(
+					dnode, dep_xpath);
+
+				err = dnode_create(candidate, dep_xpath, NULL,
+						   LYD_NEW_PATH_UPDATE, NULL);
+				if (err)
+					lyd_free_tree(dnode);
+			}
+		}
+		if (old_dnode) {
+			/* restore original node on error, free it otherwise */
+			if (err) {
+				if (parent)
+					lyd_insert_child(parent, old_dnode);
+				else
+					lyd_insert_sibling(candidate->dnode,
+							   old_dnode, NULL);
+				return err;
+			}
+
+			lyd_free_tree(old_dnode);
+		}
+		break;
 	case NB_OP_MOVE:
 		/* TODO: update configuration. */
 		break;
@@ -775,6 +810,8 @@ const char *nb_operation_name(enum nb_operation operation)
 		return "destroy";
 	case NB_OP_DELETE:
 		return "delete";
+	case NB_OP_REPLACE:
+		return "replace";
 	case NB_OP_MOVE:
 		return "move";
 	}
@@ -786,7 +823,7 @@ bool nb_is_operation_allowed(struct nb_node *nb_node, enum nb_operation oper)
 {
 	if (lysc_is_key(nb_node->snode)) {
 		if (oper == NB_OP_MODIFY || oper == NB_OP_DESTROY
-		    || oper == NB_OP_DELETE)
+		    || oper == NB_OP_DELETE || oper == NB_OP_REPLACE)
 			return false;
 	}
 	return true;

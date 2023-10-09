@@ -577,6 +577,7 @@ static int mgmt_be_update_setcfg_in_batch(struct mgmt_be_client *client_ctx,
 			break;
 		case MGMTD__CFG_DATA_REQ_TYPE__SET_DATA:
 		case MGMTD__CFG_DATA_REQ_TYPE__CREATE_DATA:
+		case MGMTD__CFG_DATA_REQ_TYPE__REPLACE_DATA:
 			cfg_chg->operation = NB_OP_MODIFY;
 			break;
 		case MGMTD__CFG_DATA_REQ_TYPE__REQ_TYPE_NONE:

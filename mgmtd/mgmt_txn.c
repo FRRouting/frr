@@ -2072,6 +2072,9 @@ int mgmt_txn_send_set_config_req(uint64_t txn_id, uint64_t req_id,
 		case MGMTD__CFG_DATA_REQ_TYPE__CREATE_DATA:
 			cfg_chg->operation = NB_OP_CREATE_EXCL;
 			break;
+		case MGMTD__CFG_DATA_REQ_TYPE__REPLACE_DATA:
+			cfg_chg->operation = NB_OP_REPLACE;
+			break;
 		case MGMTD__CFG_DATA_REQ_TYPE__REQ_TYPE_NONE:
 		case _MGMTD__CFG_DATA_REQ_TYPE_IS_INT_SIZE:
 		default:

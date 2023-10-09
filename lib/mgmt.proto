@@ -58,6 +58,7 @@ enum CfgDataReqType {
   REMOVE_DATA = 2;
   CREATE_DATA = 3;
   DELETE_DATA = 4;
+  REPLACE_DATA = 5;
 }
 
 message YangCfgDataReq {
