@@ -660,8 +660,6 @@ static const char *str_from_afi(afi_t afi)
 		return "ipv6";
 	case AFI_L2VPN:
 		return "l2vpn";
-	case AFI_LINKSTATE:
-		return "link-state";
 	case AFI_MAX:
 	case AFI_UNSPEC:
 		return "bad-value";
