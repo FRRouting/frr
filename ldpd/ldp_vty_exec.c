@@ -1106,7 +1106,7 @@ show_lib_msg(struct vty *vty, struct imsg *imsg, struct show_params *params)
 		if (params->lib.remote_label != NO_LABEL &&
 		    params->lib.remote_label != rt->remote_label)
 			return (0);
-		/* FALLTHROUGH */
+		fallthrough;
 	case IMSG_CTL_SHOW_LIB_RCVD:
 		rt = imsg->data;
 

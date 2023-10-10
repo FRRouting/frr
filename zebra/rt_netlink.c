@@ -366,7 +366,8 @@ static inline int proto2zebra(int proto, int family, bool is_nexthop)
 			proto = ZEBRA_ROUTE_NHG;
 			break;
 		}
-		/* Intentional fall thru */
+		proto = ZEBRA_ROUTE_KERNEL;
+		break;
 	default:
 		/*
 		 * When a user adds a new protocol this will show up

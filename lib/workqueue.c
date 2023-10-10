@@ -271,9 +271,10 @@ void work_queue_run(struct event *thread)
 		switch (ret) {
 		case WQ_QUEUE_BLOCKED: {
 			/* decrement item->ran again, cause this isn't an item
-			 * specific error, and fall through to WQ_RETRY_LATER
+			 * specific error, and retry later
 			 */
 			item->ran--;
+			goto stats;
 		}
 		case WQ_RETRY_LATER: {
 			goto stats;
@@ -296,9 +297,10 @@ void work_queue_run(struct event *thread)
 			break;
 		}
 		case WQ_RETRY_NOW:
-		/* a RETRY_NOW that gets here has exceeded max_tries, same as
-		 * ERROR */
-		/* fallthru */
+			/* a RETRY_NOW that gets here has exceeded max_tries, same
+			 * as ERROR
+			 */
+			fallthrough;
 		case WQ_SUCCESS:
 		default: {
 			work_queue_item_remove(wq, item);

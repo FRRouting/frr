@@ -631,8 +631,8 @@ static void ospf6_dbdesc_recv_master(struct ospf6_header *oh,
 					"Neighbor state is not ExStart, ignore");
 			return;
 		}
-	/* else fall through to ExStart */
-	/* fallthru */
+		/* else fall through to ExStart */
+		fallthrough;
 	case OSPF6_NEIGHBOR_EXSTART:
 		/* if neighbor obeys us as our slave, schedule negotiation_done
 		   and process LSA Headers. Otherwise, ignore this message */
@@ -650,8 +650,8 @@ static void ospf6_dbdesc_recv_master(struct ospf6_header *oh,
 				  on->ospf6_if->interface->vrf->name, on->name);
 			return;
 		}
-	/* fall through to exchange */
-
+		/* fall through to exchange */
+		fallthrough;
 	case OSPF6_NEIGHBOR_EXCHANGE:
 		if (!memcmp(dbdesc, &on->dbdesc_last,
 			    sizeof(struct ospf6_dbdesc))) {
@@ -835,8 +835,8 @@ static void ospf6_dbdesc_recv_slave(struct ospf6_header *oh,
 					"Neighbor state is not ExStart, ignore");
 			return;
 		}
-	/* else fall through to ExStart */
-	/* fallthru */
+		/* else fall through to ExStart */
+		fallthrough;
 	case OSPF6_NEIGHBOR_EXSTART:
 		/* If the neighbor is Master, act as Slave. Schedule
 		   negotiation_done

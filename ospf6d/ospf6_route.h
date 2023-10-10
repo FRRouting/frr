@@ -67,7 +67,7 @@ static inline bool ospf6_nexthop_is_same(const struct ospf6_nexthop *nha,
 	case NEXTHOP_TYPE_IPV6_IFINDEX:
 		if (nha->ifindex != nhb->ifindex)
 			return false;
-		/* FALLTHROUGH */
+		fallthrough;
 	case NEXTHOP_TYPE_IPV6:
 		if (!IN6_ARE_ADDR_EQUAL(&nha->address, &nhb->address))
 			return false;

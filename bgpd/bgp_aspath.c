@@ -1892,7 +1892,7 @@ struct aspath *aspath_reconcile_as4(struct aspath *aspath,
 						"[AS4] AS4PATHmangle: AS_CONFED_SEQUENCE falls across 2/4 ASN boundary somewhere, broken..");
 				hops = seg->length;
 			}
-		/* fallthru */
+			fallthrough;
 		case AS_SEQUENCE:
 			cpasns = MIN(seg->length, hops);
 			hops -= seg->length;

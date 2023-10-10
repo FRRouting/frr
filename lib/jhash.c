@@ -86,34 +86,34 @@ uint32_t jhash(const void *key, uint32_t length, uint32_t initval)
 	switch (len) {
 	case 11:
 		c += ((uint32_t)k[10] << 24);
-	/* fallthru */
+		fallthrough;
 	case 10:
 		c += ((uint32_t)k[9] << 16);
-	/* fallthru */
+		fallthrough;
 	case 9:
 		c += ((uint32_t)k[8] << 8);
-	/* fallthru */
+		fallthrough;
 	case 8:
 		b += ((uint32_t)k[7] << 24);
-	/* fallthru */
+		fallthrough;
 	case 7:
 		b += ((uint32_t)k[6] << 16);
-	/* fallthru */
+		fallthrough;
 	case 6:
 		b += ((uint32_t)k[5] << 8);
-	/* fallthru */
+		fallthrough;
 	case 5:
 		b += k[4];
-	/* fallthru */
+		fallthrough;
 	case 4:
 		a += ((uint32_t)k[3] << 24);
-	/* fallthru */
+		fallthrough;
 	case 3:
 		a += ((uint32_t)k[2] << 16);
-	/* fallthru */
+		fallthrough;
 	case 2:
 		a += ((uint32_t)k[1] << 8);
-	/* fallthru */
+		fallthrough;
 	case 1:
 		a += k[0];
 	}
@@ -148,7 +148,7 @@ uint32_t jhash2(const uint32_t *k, uint32_t length, uint32_t initval)
 	switch (len) {
 	case 2:
 		b += k[1];
-	/* fallthru */
+		fallthrough;
 	case 1:
 		a += k[0];
 	}

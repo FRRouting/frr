@@ -363,7 +363,7 @@ void ospf6_route_zebra_copy_nexthops(struct ospf6_route *route,
 
 			case NEXTHOP_TYPE_IPV6_IFINDEX:
 				nexthops[i].ifindex = nh->ifindex;
-				/* FALLTHROUGH */
+				fallthrough;
 			case NEXTHOP_TYPE_IPV6:
 				nexthops[i].gate.ipv6 = nh->address;
 				break;

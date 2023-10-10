@@ -4082,7 +4082,6 @@ static void _route_entry_dump_nh(const struct route_entry *re,
 			 ifp ? ifp->name : "Unknown");
 		break;
 	case NEXTHOP_TYPE_IPV4:
-		/* fallthrough */
 	case NEXTHOP_TYPE_IPV4_IFINDEX:
 		inet_ntop(AF_INET, &nexthop->gate, nhname, INET6_ADDRSTRLEN);
 		break;
@@ -5043,7 +5042,7 @@ struct route_table *rib_tables_iter_next(rib_tables_iter_t *iter)
 		iter->vrf_id = VRF_DEFAULT;
 		iter->afi_safi_ix = -1;
 
-	/* Fall through */
+		fallthrough;
 
 	case RIB_TABLES_ITER_S_ITERATING:
 		iter->afi_safi_ix++;

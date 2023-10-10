@@ -1747,7 +1747,7 @@ int lib_route_map_entry_set_action_rmap_set_action_ipv6_address_modify(
 			    || IN6_IS_ADDR_LINKLOCAL(&i6a))
 				return NB_ERR_VALIDATION;
 		}
-	/* FALLTHROUGH */
+		return NB_OK;
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
 		return NB_OK;

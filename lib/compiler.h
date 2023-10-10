@@ -33,7 +33,7 @@ extern "C" {
 #  define _RET_NONNULL    , returns_nonnull
 #endif
 #if __has_attribute(fallthrough)
-#  define _FALLTHROUGH __attribute__((fallthrough));
+#  define fallthrough __attribute__((fallthrough));
 #endif
 # define _CONSTRUCTOR(x)  constructor(x)
 # define _DEPRECATED(x) deprecated(x)
@@ -57,7 +57,7 @@ extern "C" {
 #  define __has_attribute(x) 0
 #endif
 #if __GNUC__ >= 7
-#  define _FALLTHROUGH __attribute__((fallthrough));
+#  define fallthrough __attribute__((fallthrough));
 #endif
 #endif
 
@@ -112,8 +112,8 @@ extern "C" {
 #ifndef _ALLOC_SIZE
 # define _ALLOC_SIZE(x)
 #endif
-#ifndef _FALLTHROUGH
-#define _FALLTHROUGH
+#ifndef fallthrough
+#define fallthrough
 #endif
 #ifndef _DEPRECATED
 #define _DEPRECATED(x) deprecated

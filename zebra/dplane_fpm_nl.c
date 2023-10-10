@@ -859,7 +859,7 @@ static int fpm_nl_enqueue(struct fpm_nl_ctx *fnc, struct zebra_dplane_ctx *ctx)
 		if (op == DPLANE_OP_ROUTE_DELETE)
 			break;
 
-		/* FALL THROUGH */
+		fallthrough;
 	case DPLANE_OP_ROUTE_INSTALL:
 		rv = netlink_route_multipath_msg_encode(RTM_NEWROUTE, ctx,
 							&nl_buf[nl_buf_len],

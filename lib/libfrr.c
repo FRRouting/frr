@@ -218,7 +218,8 @@ bool frr_zclient_addr(struct sockaddr_storage *sa, socklen_t *sa_len,
 			break;
 		case '6':
 			path++;
-		/* fallthrough */
+			af = AF_INET6;
+			break;
 		default:
 			af = AF_INET6;
 			break;

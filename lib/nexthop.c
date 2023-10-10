@@ -173,7 +173,7 @@ static int _nexthop_cmp_no_labels(const struct nexthop *next1,
 		ret = _nexthop_gateway_cmp(next1, next2);
 		if (ret != 0)
 			return ret;
-		/* Intentional Fall-Through */
+		fallthrough;
 	case NEXTHOP_TYPE_IFINDEX:
 		if (next1->ifindex < next2->ifindex)
 			return -1;
@@ -295,7 +295,7 @@ int nexthop_cmp_basic(const struct nexthop *nh1,
 		ret = nexthop_g_addr_cmp(nh1->type, &nh1->gate, &nh2->gate);
 		if (ret != 0)
 			return ret;
-		/* Intentional Fall-Through */
+		fallthrough;
 	case NEXTHOP_TYPE_IFINDEX:
 		if (nh1->ifindex < nh2->ifindex)
 			return -1;

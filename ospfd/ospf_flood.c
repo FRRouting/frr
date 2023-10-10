@@ -954,7 +954,7 @@ int ospf_flood_through(struct ospf *ospf, struct ospf_neighbor *inbr,
 
 		if (IS_DEBUG_OSPF_NSSA)
 			zlog_debug("%s: LOCAL NSSA FLOOD of Type-7.", __func__);
-	/* Fallthrough */
+		fallthrough;
 	default:
 		lsa_ack_flag = ospf_flood_through_area(lsa->area, inbr, lsa);
 		break;

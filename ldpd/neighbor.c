@@ -505,21 +505,12 @@ nbr_start_idtimer(struct nbr *nbr)
 {
 	int	secs;
 
-	secs = INIT_DELAY_TMR;
-	switch(nbr->idtimer_cnt) {
-	default:
+	if (nbr->idtimer_cnt > 2) {
 		/* do not further increase the counter */
 		secs = MAX_DELAY_TMR;
-		break;
-	case 2:
-		secs *= 2;
-		/* FALLTHROUGH */
-	case 1:
-		secs *= 2;
-		/* FALLTHROUGH */
-	case 0:
+	} else {
+		secs = INIT_DELAY_TMR * (1 << nbr->idtimer_cnt);
 		nbr->idtimer_cnt++;
-		break;
 	}
 
 	EVENT_OFF(nbr->initdelay_timer);

@@ -364,7 +364,6 @@ lib_route_map_entry_exit_policy_modify(struct nb_cb_modify_args *args)
 		case 0: /* permit-or-deny */
 			break;
 		case 1: /* next */
-			/* FALLTHROUGH */
 		case 2: /* goto */
 			rm_action =
 				yang_dnode_get_enum(args->dnode, "../action");
@@ -885,7 +884,7 @@ static int lib_route_map_entry_set_action_ipv4_address_modify(
 		yang_dnode_get_ipv4(&ia, args->dnode, NULL);
 		if (ia.s_addr == INADDR_ANY || !ipv4_unicast_valid(&ia))
 			return NB_ERR_VALIDATION;
-		/* FALLTHROUGH */
+		return NB_OK;
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
 		return NB_OK;
@@ -944,7 +943,7 @@ static int lib_route_map_entry_set_action_ipv6_address_modify(
 		yang_dnode_get_ipv6(&i6a, args->dnode, NULL);
 		if (!IN6_IS_ADDR_LINKLOCAL(&i6a))
 			return NB_ERR_VALIDATION;
-		/* FALLTHROUGH */
+		return NB_OK;
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
 		return NB_OK;

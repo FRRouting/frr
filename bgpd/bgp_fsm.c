@@ -445,7 +445,7 @@ void bgp_timer_set(struct peer_connection *connection)
 
 		EVENT_OFF(peer->connection->t_pmax_restart);
 		EVENT_OFF(peer->t_refresh_stalepath);
-	/* fallthru */
+		fallthrough;
 	case Clearing:
 		EVENT_OFF(connection->t_start);
 		EVENT_OFF(connection->t_connect);
@@ -2384,6 +2384,7 @@ void bgp_fsm_nht_update(struct peer_connection *connection, struct peer *peer,
 		    && (peer->gtsm_hops == BGP_GTSM_HOPS_CONNECTED
 			|| peer->bgp->fast_convergence))
 			BGP_EVENT_ADD(connection, TCP_fatal_error);
+		break;
 	case Clearing:
 	case Deleted:
 	case BGP_STATUS_MAX:
