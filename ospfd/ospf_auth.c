@@ -89,7 +89,7 @@ static int ospf_auth_check_hmac_sha_digest(struct ospf_interface *oi,
 	uint16_t length = ntohs(ospfh->length);
 	uint16_t hash_length = keychain_get_hash_len(key->hash_algo);
 #ifdef CRYPTO_OPENSSL
-	unsigned int openssl_hash_length = hash_length;
+	uint32_t openssl_hash_length = hash_length;
 	HMAC_CTX *ctx;
 	const EVP_MD *md_alg = ospf_auth_get_openssl_evp_md_from_key(key);
 
@@ -159,6 +159,13 @@ static int ospf_auth_check_md5_digest(struct ospf_interface *oi,
 	struct crypt_key *ck = NULL;
 	uint16_t length = ntohs(ospfh->length);
 
+	if (length < sizeof(struct ospf_header)) {/* for coverity's sake */
+		flog_warn(EC_OSPF_AUTH,
+			  "%s: Invalid packet length of %u received on interface %s, Router-ID: %pI4",
+			  __func__, length, IF_NAME(oi), &ospfh->router_id);
+		return 0;
+	}
+
 	if (key == NULL) {
 		ck = ospf_crypt_key_lookup(OSPF_IF_PARAM(oi, auth_crypt),
 				   ospfh->u.crypt.key_id);
@@ -189,7 +196,7 @@ static int ospf_auth_check_md5_digest(struct ospf_interface *oi,
 		strlcpy(auth_key, (char *)ck->auth_key, OSPF_AUTH_MD5_SIZE + 1);
 	/* Generate a digest for the ospf packet - their digest + our digest. */
 #ifdef CRYPTO_OPENSSL
-	unsigned int md5_size = OSPF_AUTH_MD5_SIZE;
+	uint32_t md5_size = OSPF_AUTH_MD5_SIZE;
 
 	ctx = EVP_MD_CTX_new();
 	EVP_DigestInit(ctx, EVP_md5());
@@ -222,10 +229,10 @@ static int ospf_auth_check_md5_digest(struct ospf_interface *oi,
 static int ospf_auth_make_md5_digest(struct ospf_interface *oi,
 				     struct ospf_packet *op, struct key *key)
 {
-	void *ibuf;
-	struct ospf_header *ospfh;
+	void *ibuf = STREAM_DATA(op->s);
+	struct ospf_header *ospfh = (struct ospf_header *)ibuf;
 	unsigned char digest[OSPF_AUTH_MD5_SIZE];
-	uint16_t length;
+	uint16_t length = ntohs(ospfh->length);
 #ifdef CRYPTO_OPENSSL
 	EVP_MD_CTX *ctx;
 #elif CRYPTO_INTERNAL
@@ -233,14 +240,18 @@ static int ospf_auth_make_md5_digest(struct ospf_interface *oi,
 #endif
 	char auth_key[OSPF_AUTH_MD5_SIZE + 1];
 
+	if ((length < (sizeof(struct ospf_header))) || (length > op->length)) { /* for coverity's sake */
+		flog_warn(EC_OSPF_AUTH,
+			  "%s: Invalid packet length of %u received on interface %s, Router-ID: %pI4",
+			  __func__, length, IF_NAME(oi), &ospfh->router_id);
+		return 0;
+	}
+
 	memset(auth_key, 0, OSPF_AUTH_MD5_SIZE + 1);
 	strlcpy(auth_key, key->string, OSPF_AUTH_MD5_SIZE + 1);
-	ibuf = STREAM_DATA(op->s);
-	ospfh = (struct ospf_header *)ibuf;
-	length = ntohs(ospfh->length);
 	/* Generate a digest for the ospf packet - their digest + our digest. */
 #ifdef CRYPTO_OPENSSL
-	unsigned int md5_size = OSPF_AUTH_MD5_SIZE;
+	uint32_t md5_size = OSPF_AUTH_MD5_SIZE;
 
 	ctx = EVP_MD_CTX_new();
 	EVP_DigestInit(ctx, EVP_md5());
@@ -282,7 +293,7 @@ static int ospf_auth_make_hmac_sha_digest(struct ospf_interface *oi,
 	ibuf = STREAM_DATA(op->s);
 	ospfh = (struct ospf_header *)ibuf;
 #ifdef CRYPTO_OPENSSL
-	unsigned int openssl_hash_length = hash_length;
+	uint32_t openssl_hash_length = hash_length;
 	HMAC_CTX *ctx;
 	const EVP_MD *md_alg = ospf_auth_get_openssl_evp_md_from_key(key);
 
@@ -491,7 +502,7 @@ int ospf_auth_make(struct ospf_interface *oi, struct ospf_packet *op)
 	if (auth_key) {
 		/* Generate a digest for the entire packet + our secret key. */
 #ifdef CRYPTO_OPENSSL
-		unsigned int md5_size = OSPF_AUTH_MD5_SIZE;
+		uint32_t md5_size = OSPF_AUTH_MD5_SIZE;
 
 		ctx = EVP_MD_CTX_new();
 		EVP_DigestInit(ctx, EVP_md5());
