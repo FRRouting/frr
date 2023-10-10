@@ -197,7 +197,7 @@ enum bgp_linkstate_tlv {
 		1251, /* draft-ietf-idr-bgpls-srv6-ext-08 */
 	BGP_LS_TLV_SRV6_SID_STRUCTURE_TLV =
 		1252,	       /* draft-ietf-idr-bgpls-srv6-ext-08 */
-	BGP_LS_TLV_MAX = 1252, /* max TLV value for table size*/
+	BGP_LS_TLV_MAX = 1253, /* max TLV value for table size*/
 };
 
 /* RFC7752 #3.2.1.4 IGP router-ID */
