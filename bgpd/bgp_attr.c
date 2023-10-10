@@ -40,7 +40,6 @@
 #endif
 #include "bgp_evpn.h"
 #include "bgp_flowspec_private.h"
-#include "bgp_linkstate_tlv.h"
 #include "bgp_mac.h"
 
 /* Attribute strings for logging. */
@@ -4006,6 +4005,8 @@ size_t bgp_packet_mpattr_start(struct stream *s, struct peer *peer, afi_t afi,
 		switch (safi) {
 		case SAFI_LINKSTATE:
 		case SAFI_LINKSTATE_VPN:
+			/* TODO */
+			break;
 		case SAFI_UNICAST:
 		case SAFI_MULTICAST:
 		case SAFI_LABELED_UNICAST:
@@ -4041,6 +4042,8 @@ size_t bgp_packet_mpattr_start(struct stream *s, struct peer *peer, afi_t afi,
 		switch (safi) {
 		case SAFI_LINKSTATE:
 		case SAFI_LINKSTATE_VPN:
+			/* TODO */
+			break;
 		case SAFI_UNICAST:
 		case SAFI_MULTICAST:
 		case SAFI_LABELED_UNICAST:
@@ -4092,8 +4095,10 @@ size_t bgp_packet_mpattr_start(struct stream *s, struct peer *peer, afi_t afi,
 		}
 		break;
 	case AFI_LINKSTATE:
+		/* TODO */
+		break;
 	case AFI_L2VPN:
-		if (nh_afi == AFI_L2VPN && safi != SAFI_FLOWSPEC)
+		if (safi != SAFI_FLOWSPEC)
 			flog_err(
 				EC_BGP_ATTR_NH_SEND_LEN,
 				"Bad nexthop when sending to %s, AFI %u SAFI %u nhlen %d",
@@ -4145,10 +4150,8 @@ void bgp_packet_mpattr_prefix(struct stream *s, afi_t afi, safi_t safi,
 					  addpath_tx_id);
 		break;
 	case SAFI_LINKSTATE:
-		bgp_nlri_encode_linkstate(s, p);
-		break;
 	case SAFI_LINKSTATE_VPN:
-		/* not yet supported */
+		/* TODO */
 		break;
 	case SAFI_FLOWSPEC:
 		stream_putc(s, p->u.prefix_flowspec.prefixlen);
@@ -4178,6 +4181,8 @@ size_t bgp_packet_mpattr_prefix_size(afi_t afi, safi_t safi,
 		break;
 	case SAFI_LINKSTATE:
 	case SAFI_LINKSTATE_VPN:
+		/* TODO */
+		break;
 	case SAFI_UNICAST:
 	case SAFI_MULTICAST:
 		break;
