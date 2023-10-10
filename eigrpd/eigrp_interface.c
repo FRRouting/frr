@@ -43,8 +43,7 @@
 #include "eigrpd/eigrp_types.h"
 #include "eigrpd/eigrp_metric.h"
 
-DEFINE_MTYPE_STATIC(EIGRPD, EIGRP_IF,      "EIGRP interface");
-DEFINE_MTYPE_STATIC(EIGRPD, EIGRP_IF_INFO, "EIGRP Interface Information");
+DEFINE_MTYPE_STATIC(EIGRPD, EIGRP_IF, "EIGRP interface");
 
 struct eigrp_interface *eigrp_if_new(struct eigrp *eigrp, struct interface *ifp,
 				     struct prefix *p)
@@ -110,7 +109,7 @@ int eigrp_if_delete_hook(struct interface *ifp)
 
 	eigrp_fifo_free(ei->obuf);
 
-	XFREE(MTYPE_EIGRP_IF_INFO, ifp->info);
+	XFREE(MTYPE_EIGRP_IF, ifp->info);
 
 	return 0;
 }
