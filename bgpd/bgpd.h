@@ -1926,7 +1926,6 @@ struct bgp_nlri {
 #define BGP_ATTR_ENCAP                          23
 #define BGP_ATTR_IPV6_EXT_COMMUNITIES           25
 #define BGP_ATTR_AIGP                           26
-#define BGP_ATTR_LINK_STATE                     29
 #define BGP_ATTR_LARGE_COMMUNITIES              32
 #define BGP_ATTR_OTC                            35
 #define BGP_ATTR_PREFIX_SID                     40
