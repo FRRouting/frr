@@ -11419,7 +11419,7 @@ static int bgp_show_table(struct vty *vty, struct bgp *bgp, afi_t afi, safi_t sa
 				vty_out(vty, ASN_FORMAT(bgp->asnotation),
 					&bgp->as);
 				vty_out(vty, "\n");
-				if (!detail_routes && safi != SAFI_LINKSTATE) {
+				if (!detail_routes) {
 					vty_out(vty, BGP_SHOW_SCODE_HEADER);
 					vty_out(vty, BGP_SHOW_NCODE_HEADER);
 					vty_out(vty, BGP_SHOW_OCODE_HEADER);
