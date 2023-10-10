@@ -1585,60 +1585,34 @@ static void bgp_gr_evaluate_mix_peer_type(struct bgp *bgp)
 
 	bgp->gr_multihop_peer_exists = false;
 
-	for (afi = AFI_IP; afi < AFI_MAX; afi++) {
-		for (safi = SAFI_UNICAST; safi <= SAFI_MPLS_VPN; safi++) {
+	FOREACH_AFI_SAFI_NSF (afi, safi) {
+		/*
+		 * GR is not supported for this afi-safi
+		 */
+		if (!bgp_gr_supported_for_afi_safi(afi, safi))
+			continue;
+
+		for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
 			/*
-			 * GR is not supported for this afi-safi
+			 * If this is not a config node or
+			 * if this peer is admin shutdown or
+			 * if GR is not enabled for peer then skip this
+			 * peer
 			 */
-			if (!bgp_gr_supported_for_afi_safi(afi, safi))
+			if (!CHECK_FLAG(peer->flags, PEER_FLAG_CONFIG_NODE) ||
+			    CHECK_FLAG(peer->flags, PEER_FLAG_SHUTDOWN) ||
+			    !CHECK_FLAG(peer->flags, PEER_FLAG_GRACEFUL_RESTART))
 				continue;
 
-			for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
-				/*
-				 * If this is not a config node or
-				 * if this peer is admin shutdown or
-				 * if GR is not enabled for peer then skip this
-				 * peer
-				 */
-				if (!CHECK_FLAG(peer->flags, PEER_FLAG_CONFIG_NODE) ||
-				    CHECK_FLAG(peer->flags, PEER_FLAG_SHUTDOWN) ||
-				    !CHECK_FLAG(peer->flags, PEER_FLAG_GRACEFUL_RESTART))
-					continue;
-
-				/*
-				 * If this is a multihop peer with GR supported
-				 * afi-safi is configured for it, then set the
-				 * value to true.
-				 */
-				if (PEER_IS_MULTIHOP(peer) && peer->afc[afi][safi]) {
-					bgp->gr_multihop_peer_exists = true;
-					break;
-				}
+			/*
+			 * If this is a multihop peer with GR supported
+			 * afi-safi is configured for it, then set the
+			 * value to true.
+			 */
+			if (PEER_IS_MULTIHOP(peer) && peer->afc[afi][safi]) {
+				bgp->gr_multihop_peer_exists = true;
+				return;
 			}
-			if (bgp->gr_multihop_peer_exists)
-				break;
-		}
-		if (bgp->gr_multihop_peer_exists)
-			break;
-	}
-
-	if (!bgp->gr_multihop_peer_exists)
-		return;
-
-	/*
-	 * start the GR deferral timer for all GR supported afi-safis
-	 * if multihop peer is present
-	 */
-	for (afi = AFI_IP; afi < AFI_MAX; afi++) {
-		for (safi = SAFI_UNICAST; safi <= SAFI_MPLS_VPN; safi++) {
-			struct graceful_restart_info *gr_info = NULL;
-
-			if (!bgp_gr_supported_for_afi_safi(afi, safi))
-				continue;
-
-			gr_info = &(bgp->gr_info[afi][safi]);
-			if (!gr_info->t_select_deferral)
-				bgp_start_deferral_timer(bgp, afi, safi, gr_info);
 		}
 	}
 }
