@@ -51,7 +51,6 @@ bgpd_libbgp_a_SOURCES = \
 	bgpd/bgp_label.c \
 	bgpd/bgp_labelpool.c \
 	bgpd/bgp_lcommunity.c \
-	bgpd/bgp_linkstate_tlv.c \
 	bgpd/bgp_mac.c \
 	bgpd/bgp_memory.c \
 	bgpd/bgp_mpath.c \
@@ -134,7 +133,6 @@ noinst_HEADERS += \
 	bgpd/bgp_label.h \
 	bgpd/bgp_labelpool.h \
 	bgpd/bgp_lcommunity.h \
-	bgpd/bgp_linkstate_tlv.h \
 	bgpd/bgp_mac.h \
 	bgpd/bgp_memory.h \
 	bgpd/bgp_mpath.h \
