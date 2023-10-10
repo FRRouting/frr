@@ -3750,8 +3750,13 @@ void zebra_interface_nhg_reinstall(struct interface *ifp)
 					rb_node_dep->nhe->flags);
 			zebra_nhg_install_kernel(rb_node_dep->nhe);
 
-			/* mark depedent uninstall, when interface associated
-			 * singleton is installed, install depedent
+			/* Don't need to modify dependents if installed */
+			if (CHECK_FLAG(rb_node_dep->nhe->flags,
+				       NEXTHOP_GROUP_INSTALLED))
+				continue;
+
+			/* mark dependent uninstalled; when interface associated
+			 * singleton is installed, install dependent
 			 */
 			frr_each_safe (nhg_connected_tree,
 				       &rb_node_dep->nhe->nhg_dependents,
