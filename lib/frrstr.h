@@ -167,12 +167,18 @@ int all_digit(const char *str);
  */
 char *frrstr_hex(char *buff, size_t bufsiz, const uint8_t *str, size_t num);
 
-
 /*
  * Advance past a given char `skipc` in a string, while honoring quoting and
  * backslash escapes (i.e., ignore `skipc` which occur in quoted sections).
  */
 const char *frrstr_skip_over_char(const char *s, int skipc);
+
+/*
+ * Advance back from end to a given char `toc` in a string, while honoring
+ * quoting and backslash escapes. `toc` chars inside quote or escaped are
+ * ignored.
+ */
+const char *frrstr_back_to_char(const char *s, int toc);
 
 #ifdef __cplusplus
 }

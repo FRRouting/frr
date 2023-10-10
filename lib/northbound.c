@@ -2032,6 +2032,62 @@ static int nb_oper_data_iter_node(const struct lysc_node *snode,
 	return ret;
 }
 
+static int nb_xpath_dirname(char *xpath)
+{
+	int len = strlen(xpath);
+	bool abs = xpath[0] == '/';
+	char *slash;
+
+	/* "//" or "/" => NULL */
+	if (abs && (len == 1 || (len == 2 && xpath[1] == '/')))
+		return NB_ERR_NOT_FOUND;
+	slash = (char *)frrstr_back_to_char(xpath, '/');
+	/* "/foo/bar/" or "/foo/bar//" => "/foo " */
+	if (slash && slash == &xpath[len - 1]) {
+		xpath[--len] = 0;
+		slash = (char *)frrstr_back_to_char(xpath, '/');
+		if (slash && slash == &xpath[len - 1]) {
+			xpath[--len] = 0;
+			slash = (char *)frrstr_back_to_char(xpath, '/');
+		}
+	}
+	if (!slash)
+		return NB_ERR_NOT_FOUND;
+	*slash = 0;
+	return NB_OK;
+}
+
+static int nb_oper_data_xpath_to_tree(const char *xpath_in,
+				      struct lyd_node **dnode,
+				      bool is_top_node_list)
+{
+	/* Eventually this function will loop until it finds a concrete path */
+	char *xpath;
+	LY_ERR err;
+	int ret;
+
+	err = lyd_new_path2(NULL, ly_native_ctx, xpath_in, NULL, 0, 0,
+			    LYD_NEW_PATH_UPDATE, NULL, dnode);
+	if (err == LY_SUCCESS)
+		return NB_OK;
+	if (!is_top_node_list)
+		return NB_ERR_NOT_FOUND;
+
+	xpath = XSTRDUP(MTYPE_TMP, xpath_in);
+	ret = nb_xpath_dirname(xpath);
+	if (ret != NB_OK)
+		goto done;
+
+	err = lyd_new_path2(NULL, ly_native_ctx, xpath, NULL, 0, 0,
+			    LYD_NEW_PATH_UPDATE, NULL, dnode);
+	if (err != LY_SUCCESS)
+		ret = NB_ERR_NOT_FOUND;
+done:
+	XFREE(MTYPE_TMP, xpath);
+	return ret;
+}
+
+
 int nb_oper_data_iterate(const char *xpath, struct yang_translator *translator,
 			 uint32_t flags, nb_oper_data_cb cb, void *arg)
 {
@@ -2064,25 +2120,23 @@ int nb_oper_data_iterate(const char *xpath, struct yang_translator *translator,
 	 * all YANG lists (if any).
 	 */
 
-	LY_ERR err = lyd_new_path2(NULL, ly_native_ctx, xpath, NULL, 0, 0,
-				   LYD_NEW_PATH_UPDATE, NULL, &dnode);
-	if (err || !dnode) {
-		const char *errmsg =
-			err ? ly_errmsg(ly_native_ctx) : "node not found";
-		flog_warn(EC_LIB_LIBYANG, "%s: lyd_new_path() failed %s",
-			  __func__, errmsg);
-		return NB_ERR;
+	ret = nb_oper_data_xpath_to_tree(xpath, &dnode,
+					 nb_node->snode->nodetype == LYS_LIST);
+	if (ret) {
+		flog_warn(EC_LIB_LIBYANG,
+			  "%s: can't instantiate concrete path using xpath: %s",
+			  __func__, xpath);
+		return ret;
 	}
 
 	/*
 	 * Create a linked list to sort the data nodes starting from the root.
 	 */
 	list_dnodes = list_new();
-	for (dn = dnode; dn; dn = lyd_parent(dn)) {
-		if (dn->schema->nodetype != LYS_LIST || !lyd_child(dn))
-			continue;
-		listnode_add_head(list_dnodes, dn);
-	}
+	for (dn = dnode; dn; dn = lyd_parent(dn))
+		if (dn->schema->nodetype == LYS_LIST)
+			listnode_add_head(list_dnodes, dn);
+
 	/*
 	 * Use the northbound callbacks to find list entry pointer corresponding
 	 * to the given XPath.
@@ -2104,6 +2158,10 @@ int nb_oper_data_iterate(const char *xpath, struct yang_translator *translator,
 		}
 		list_keys.num = n;
 		if (list_keys.num != yang_snode_num_keys(dn->schema)) {
+			flog_warn(
+				EC_LIB_NB_OPERATIONAL_DATA,
+				"%s: internal list entry '%s' missing required key values predicates in xpath: %s",
+				__func__, dn->schema->name, xpath);
 			list_delete(&list_dnodes);
 			yang_dnode_free(dnode);
 			return NB_ERR_NOT_FOUND;
@@ -2121,6 +2179,11 @@ int nb_oper_data_iterate(const char *xpath, struct yang_translator *translator,
 			return NB_ERR;
 		}
 
+		/* NOTE: To add support for multiple levels of unspecified keys
+		 * we need to loop here using the list entry's get_next to work
+		 * with each "existing in the data" list entry. It will be a bit
+		 * tricky b/c we are inside a loop here.
+		 */
 		list_entry =
 			nb_callback_lookup_entry(nn, list_entry, &list_keys);
 		if (list_entry == NULL) {
@@ -2130,8 +2193,11 @@ int nb_oper_data_iterate(const char *xpath, struct yang_translator *translator,
 		}
 	}
 
-	/* If a list entry was given, iterate over that list entry only. */
-	if (dnode->schema->nodetype == LYS_LIST && lyd_child(dnode))
+	/* If a list entry was given with keys as the last node in the path,
+	 * iterate over that list entry only.
+	 */
+	if (dnode->schema->nodetype == LYS_LIST && lyd_child(dnode)
+	    && dnode->schema == nb_node->snode)
 		ret = nb_oper_data_iter_children(
 			nb_node->snode, xpath, list_entry, &list_keys,
 			translator, true, flags, cb, arg);
