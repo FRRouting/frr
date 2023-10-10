@@ -789,14 +789,8 @@ static int mgmt_fe_session_handle_get_req_msg(struct mgmt_fe_session_ctx *sessio
 	struct nb_config *cfg_root = NULL;
 	Mgmtd__DatastoreId ds_id = get_req->ds_id;
 	uint64_t req_id = get_req->req_id;
-	bool is_cfg = get_req->config;
-	bool ds_ok = true;
 
-	if (is_cfg && ds_id != MGMTD_DS_CANDIDATE && ds_id != MGMTD_DS_RUNNING)
-		ds_ok = false;
-	else if (!is_cfg && ds_id != MGMTD_DS_OPERATIONAL)
-		ds_ok = false;
-	if (!ds_ok) {
+	if (ds_id != MGMTD_DS_CANDIDATE && ds_id != MGMTD_DS_RUNNING) {
 		fe_adapter_send_get_reply(session, ds_id, req_id, false, NULL,
 					  "get-req on unsupported datastore");
 		return 0;
@@ -832,8 +826,7 @@ static int mgmt_fe_session_handle_get_req_msg(struct mgmt_fe_session_ctx *sessio
 	/*
 	 * Get a copy of the datastore config root, avoids locking.
 	 */
-	if (is_cfg)
-		cfg_root = nb_config_dup(mgmt_ds_get_nb_config(ds_ctx));
+	cfg_root = nb_config_dup(mgmt_ds_get_nb_config(ds_ctx));
 
 	/*
 	 * Create a GET request under the transaction.
@@ -1029,9 +1022,8 @@ mgmt_fe_adapter_handle_msg(struct mgmt_fe_client_adapter *adapter,
 		break;
 	case MGMTD__FE_MESSAGE__MESSAGE_GET_REQ:
 		session = mgmt_session_id2ctx(fe_msg->get_req->session_id);
-		MGMTD_FE_ADAPTER_DBG("Got GET_REQ (iscfg %d) for DS:%s (xpaths: %d) on session-id %" PRIu64
+		MGMTD_FE_ADAPTER_DBG("Got GET_REQ for DS:%s (xpaths: %d) on session-id %" PRIu64
 				     " from '%s'",
-				     (int)fe_msg->get_req->config,
 				     mgmt_ds_id2name(fe_msg->get_req->ds_id),
 				     (int)fe_msg->get_req->n_data,
 				     fe_msg->get_req->session_id, adapter->name);

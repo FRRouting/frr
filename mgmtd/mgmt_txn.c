@@ -29,7 +29,6 @@ enum mgmt_txn_event {
 	MGMTD_TXN_PROC_SETCFG = 1,
 	MGMTD_TXN_PROC_COMMITCFG,
 	MGMTD_TXN_PROC_GETCFG,
-	MGMTD_TXN_PROC_GETDATA,
 	MGMTD_TXN_PROC_GETTREE,
 	MGMTD_TXN_COMMITCFG_TIMEOUT,
 	MGMTD_TXN_GETTREE_TIMEOUT,
@@ -243,14 +242,6 @@ struct mgmt_txn_ctx {
 	 */
 	struct mgmt_txn_reqs_head get_cfg_reqs;
 	/*
-	 * List of pending get-data requests for a given
-	 * transaction/session Two lists, one for requests
-	 * not processed at all, and one for requests that
-	 * has been sent to backend for processing.
-	 */
-	struct mgmt_txn_reqs_head get_data_reqs;
-	struct mgmt_txn_reqs_head pending_get_datas;
-	/*
 	 * List of pending get-tree requests.
 	 */
 	struct mgmt_txn_reqs_head get_tree_reqs;
@@ -412,16 +403,6 @@ static struct mgmt_txn_req *mgmt_txn_req_alloc(struct mgmt_txn_ctx *txn,
 			      " txn-id: %" PRIu64 " session-id: %" PRIu64,
 			      txn_req->req_id, txn->txn_id, txn->session_id);
 		break;
-	case MGMTD_TXN_PROC_GETDATA:
-		txn_req->req.get_data =
-			XCALLOC(MTYPE_MGMTD_TXN_GETDATA_REQ,
-				sizeof(struct mgmt_get_data_req));
-		assert(txn_req->req.get_data);
-		mgmt_txn_reqs_add_tail(&txn->get_data_reqs, txn_req);
-		MGMTD_TXN_DBG("Added a new GETDATA req-id: %" PRIu64
-			      " txn-id: %" PRIu64 " session-id: %" PRIu64,
-			      txn_req->req_id, txn->txn_id, txn->session_id);
-		break;
 	case MGMTD_TXN_PROC_GETTREE:
 		txn_req->req.get_tree = XCALLOC(MTYPE_MGMTD_TXN_GETTREE_REQ,
 						sizeof(struct txn_req_get_tree));
@@ -529,23 +510,6 @@ static void mgmt_txn_req_free(struct mgmt_txn_req **txn_req)
 		if ((*txn_req)->req.get_data->cfg_root)
 			nb_config_free((*txn_req)->req.get_data->cfg_root);
 
-		XFREE(MTYPE_MGMTD_TXN_GETDATA_REQ, (*txn_req)->req.get_data);
-		break;
-	case MGMTD_TXN_PROC_GETDATA:
-		for (indx = 0; indx < (*txn_req)->req.get_data->num_xpaths;
-		     indx++) {
-			if ((*txn_req)->req.get_data->xpaths[indx])
-				free((void *)(*txn_req)
-					     ->req.get_data->xpaths[indx]);
-		}
-		pending_list = &(*txn_req)->txn->pending_get_datas;
-		req_list = &(*txn_req)->txn->get_data_reqs;
-		MGMTD_TXN_DBG("Deleting GETDATA req-id: %" PRIu64
-			      " txn-id: %" PRIu64,
-			      (*txn_req)->req_id, (*txn_req)->txn->txn_id);
-		if ((*txn_req)->req.get_data->reply)
-			XFREE(MTYPE_MGMTD_TXN_GETDATA_REPLY,
-			      (*txn_req)->req.get_data->reply);
 		XFREE(MTYPE_MGMTD_TXN_GETDATA_REQ, (*txn_req)->req.get_data);
 		break;
 	case MGMTD_TXN_PROC_GETTREE:
@@ -1579,18 +1543,6 @@ static void mgmt_txn_send_getcfg_reply_data(struct mgmt_txn_req *txn_req,
 				      txn_req->txn->session_id, txn_req->req_id);
 		}
 		break;
-	case MGMTD_TXN_PROC_GETDATA:
-		if (mgmt_fe_send_get_reply(txn_req->txn->session_id,
-					   txn_req->txn->txn_id, get_req->ds_id,
-					   txn_req->req_id, MGMTD_SUCCESS,
-					   data_reply, NULL) != 0) {
-			MGMTD_TXN_ERR("Failed to send GET-DATA-REPLY txn-id: %" PRIu64
-				      " session-id: %" PRIu64
-				      " req-id: %" PRIu64,
-				      txn_req->txn->txn_id,
-				      txn_req->txn->session_id, txn_req->req_id);
-		}
-		break;
 	case MGMTD_TXN_PROC_SETCFG:
 	case MGMTD_TXN_PROC_COMMITCFG:
 	case MGMTD_TXN_PROC_GETTREE:
@@ -1623,8 +1575,7 @@ static void txn_iter_get_config_data_cb(const char *xpath, struct lyd_node *node
 	if (!(node->schema->nodetype & LYD_NODE_TERM))
 		return;
 
-	assert(txn_req->req_event == MGMTD_TXN_PROC_GETCFG ||
-	       txn_req->req_event == MGMTD_TXN_PROC_GETDATA);
+	assert(txn_req->req_event == MGMTD_TXN_PROC_GETCFG);
 
 	get_req = txn_req->req.get_data;
 	assert(get_req);
@@ -1769,54 +1720,6 @@ static void mgmt_txn_process_get_cfg(struct event *thread)
 	}
 }
 
-static void mgmt_txn_process_get_data(struct event *thread)
-{
-	struct mgmt_txn_ctx *txn;
-	struct mgmt_txn_req *txn_req;
-	int num_processed = 0;
-
-	txn = (struct mgmt_txn_ctx *)EVENT_ARG(thread);
-	assert(txn);
-
-	MGMTD_TXN_DBG("Processing %zu GET_DATA requests txn-id: %" PRIu64
-		      " session-id: %" PRIu64,
-		      mgmt_txn_reqs_count(&txn->get_data_reqs), txn->txn_id,
-		      txn->session_id);
-
-	FOREACH_TXN_REQ_IN_LIST (&txn->get_data_reqs, txn_req) {
-		assert(txn_req->req_event == MGMTD_TXN_PROC_GETDATA);
-
-		/*
-		 * TODO: Trigger GET procedures for Backend
-		 * For now return back error.
-		 */
-		mgmt_fe_send_get_reply(txn->session_id, txn->txn_id,
-				       txn_req->req.get_data->ds_id,
-				       txn_req->req_id, MGMTD_INTERNAL_ERROR,
-				       NULL, "GET-DATA is not supported yet!");
-		/*
-		 * Delete the txn request.
-		 * Note: The following will remove it from the list
-		 * as well.
-		 */
-		mgmt_txn_req_free(&txn_req);
-
-		/*
-		 * Else the transaction would have been already deleted or
-		 * moved to corresponding pending list. No need to delete it.
-		 */
-		num_processed++;
-		if (num_processed == MGMTD_TXN_MAX_NUM_GETDATA_PROC)
-			break;
-	}
-
-	if (mgmt_txn_reqs_count(&txn->get_data_reqs)) {
-		MGMTD_TXN_DBG("Processed maximum number of Get-Data requests (%d/%d). Rescheduling for rest.",
-			      num_processed, MGMTD_TXN_MAX_NUM_GETDATA_PROC);
-		mgmt_txn_register_event(txn, MGMTD_TXN_PROC_GETDATA);
-	}
-}
-
 static struct mgmt_txn_ctx *
 mgmt_fe_find_txn_by_session_id(struct mgmt_master *cm, uint64_t session_id,
 			       enum mgmt_txn_type type)
@@ -1857,8 +1760,6 @@ static struct mgmt_txn_ctx *mgmt_txn_create_new(uint64_t session_id,
 		/* TODO: why do we need N lists for one transaction */
 		mgmt_txn_reqs_init(&txn->set_cfg_reqs);
 		mgmt_txn_reqs_init(&txn->get_cfg_reqs);
-		mgmt_txn_reqs_init(&txn->get_data_reqs);
-		mgmt_txn_reqs_init(&txn->pending_get_datas);
 		mgmt_txn_reqs_init(&txn->get_tree_reqs);
 		txn->commit_cfg_req = NULL;
 		txn->refcount = 0;
@@ -2036,10 +1937,6 @@ static void mgmt_txn_register_event(struct mgmt_txn_ctx *txn,
 	case MGMTD_TXN_PROC_GETCFG:
 		event_add_timer_tv(mgmt_txn_tm, mgmt_txn_process_get_cfg, txn,
 				   &tv, &txn->proc_get_cfg);
-		break;
-	case MGMTD_TXN_PROC_GETDATA:
-		event_add_timer_tv(mgmt_txn_tm, mgmt_txn_process_get_data, txn,
-				   &tv, &txn->proc_get_data);
 		break;
 	case MGMTD_TXN_COMMITCFG_TIMEOUT:
 		event_add_timer(mgmt_txn_tm, mgmt_txn_cfg_commit_timedout, txn,
@@ -2438,8 +2335,7 @@ int mgmt_txn_send_get_req(uint64_t txn_id, uint64_t req_id,
 	if (!txn)
 		return -1;
 
-	req_event = cfg_root ? MGMTD_TXN_PROC_GETCFG : MGMTD_TXN_PROC_GETDATA;
-
+	req_event = MGMTD_TXN_PROC_GETCFG;
 	txn_req = mgmt_txn_req_alloc(txn, req_id, req_event);
 	txn_req->req.get_data->ds_id = ds_id;
 	txn_req->req.get_data->cfg_root = cfg_root;
@@ -2567,7 +2463,6 @@ int mgmt_txn_notify_error(struct mgmt_be_client_adapter *adapter,
 	case MGMTD_TXN_PROC_SETCFG:
 	case MGMTD_TXN_PROC_COMMITCFG:
 	case MGMTD_TXN_PROC_GETCFG:
-	case MGMTD_TXN_PROC_GETDATA:
 	case MGMTD_TXN_COMMITCFG_TIMEOUT:
 	case MGMTD_TXN_GETTREE_TIMEOUT:
 	case MGMTD_TXN_CLEANUP:

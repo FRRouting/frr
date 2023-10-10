@@ -417,17 +417,11 @@ mgmt_be_adapter_handle_msg(struct mgmt_be_client_adapter *adapter,
 			be_msg->cfg_apply_reply->success,
 			be_msg->cfg_apply_reply->error_if_any, adapter);
 		break;
-	case MGMTD__BE_MESSAGE__MESSAGE_GET_REPLY:
-		/*
-		 * TODO: Add handling code in future.
-		 */
-		break;
 	/*
 	 * NOTE: The following messages are always sent from MGMTD to
 	 * Backend clients only and/or need not be handled on MGMTd.
 	 */
 	case MGMTD__BE_MESSAGE__MESSAGE_SUBSCR_REPLY:
-	case MGMTD__BE_MESSAGE__MESSAGE_GET_REQ:
 	case MGMTD__BE_MESSAGE__MESSAGE_TXN_REQ:
 	case MGMTD__BE_MESSAGE__MESSAGE_CFG_DATA_REQ:
 	case MGMTD__BE_MESSAGE__MESSAGE_CFG_APPLY_REQ:

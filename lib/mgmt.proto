@@ -114,23 +114,9 @@ message BeCfgDataApplyReply {
   optional string error_if_any = 3;
 }
 
-message BeOperDataGetReq {
-  required uint64 txn_id = 1;
-  required uint64 batch_id = 2;
-  repeated YangGetDataReq data = 3;
-}
-
 message YangDataReply {
   repeated YangData data = 1;
   required int64 next_indx = 2;
-}
-
-message BeOperDataGetReply {
-  required uint64 txn_id = 1;
-  required uint64 batch_id = 2;
-  required bool success = 3;
-  optional string error = 4;
-  optional YangDataReply data = 5;
 }
 
 //
@@ -146,8 +132,6 @@ message BeMessage {
     BeCfgDataCreateReply cfg_data_reply = 7;
     BeCfgDataApplyReq cfg_apply_req = 8;
     BeCfgDataApplyReply cfg_apply_reply = 9;
-    BeOperDataGetReq get_req = 10;
-    BeOperDataGetReply get_reply = 11;
   }
 }
 

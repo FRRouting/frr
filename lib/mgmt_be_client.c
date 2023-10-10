@@ -30,7 +30,6 @@ DEFINE_MTYPE_STATIC(LIB, MGMTD_BE_TXN, "backend transaction data");
 enum mgmt_be_txn_event {
 	MGMTD_BE_TXN_PROC_SETCFG = 1,
 	MGMTD_BE_TXN_PROC_GETCFG,
-	MGMTD_BE_TXN_PROC_GETDATA
 };
 
 struct mgmt_be_set_cfg_req {
@@ -38,16 +37,10 @@ struct mgmt_be_set_cfg_req {
 	uint16_t num_cfg_changes;
 };
 
-struct mgmt_be_get_data_req {
-	char *xpaths[MGMTD_MAX_NUM_DATA_REQ_IN_BATCH];
-	uint16_t num_xpaths;
-};
-
 struct mgmt_be_txn_req {
 	enum mgmt_be_txn_event event;
 	union {
 		struct mgmt_be_set_cfg_req set_cfg;
-		struct mgmt_be_get_data_req get_data;
 	} req;
 };
 
@@ -755,19 +748,11 @@ static int mgmt_be_client_handle_msg(struct mgmt_be_client *client_ctx,
 		mgmt_be_process_cfg_apply(
 			client_ctx, (uint64_t)be_msg->cfg_apply_req->txn_id);
 		break;
-	case MGMTD__BE_MESSAGE__MESSAGE_GET_REQ:
-		MGMTD_BE_CLIENT_ERR("Got unhandled message type %u",
-				    be_msg->message_case);
-		/*
-		 * TODO: Add handling code in future.
-		 */
-		break;
 	/*
 	 * NOTE: The following messages are always sent from Backend
 	 * clients to MGMTd only and/or need not be handled here.
 	 */
 	case MGMTD__BE_MESSAGE__MESSAGE_SUBSCR_REQ:
-	case MGMTD__BE_MESSAGE__MESSAGE_GET_REPLY:
 	case MGMTD__BE_MESSAGE__MESSAGE_TXN_REPLY:
 	case MGMTD__BE_MESSAGE__MESSAGE_CFG_DATA_REPLY:
 	case MGMTD__BE_MESSAGE__MESSAGE_CFG_APPLY_REPLY:

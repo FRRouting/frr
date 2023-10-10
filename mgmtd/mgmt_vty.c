@@ -199,29 +199,10 @@ DEFPY(show_mgmt_get_config, show_mgmt_get_config_cmd,
 }
 
 DEFPY(show_mgmt_get_data, show_mgmt_get_data_cmd,
-      "show mgmt get-data [candidate|operational|running]$dsname WORD$path",
-      SHOW_STR MGMTD_STR
-      "Get data from a specific datastore\n"
-      "Candidate datastore\n"
-      "Operational datastore (default)\n"
-      "Running datastore\n"
-      "XPath expression specifying the YANG data path\n")
-{
-	const char *xpath_list[VTY_MAXCFGCHANGES] = {0};
-	Mgmtd__DatastoreId datastore = MGMTD_DS_OPERATIONAL;
-
-	if (dsname)
-		datastore = mgmt_ds_name2id(dsname);
-
-	xpath_list[0] = path;
-	vty_mgmt_send_get_req(vty, false, datastore, xpath_list, 1);
-	return CMD_SUCCESS;
-}
-
-DEFPY(show_mgmt_get_data_tree, show_mgmt_get_data_tree_cmd,
-      "show mgmt get-data-tree WORD$path [json|xml]$fmt",
-      SHOW_STR MGMTD_STR
-      "Get a data tree from the operational datastore\n"
+      "show mgmt get-data WORD$path [json|xml]$fmt",
+      SHOW_STR
+      MGMTD_STR
+      "Get a data from the operational datastore\n"
       "XPath expression specifying the YANG data root\n"
       "JSON output format\n"
       "XML output format\n")
@@ -541,7 +522,6 @@ void mgmt_vty_init(void)
 	install_element(VIEW_NODE, &show_mgmt_ds_cmd);
 	install_element(VIEW_NODE, &show_mgmt_get_config_cmd);
 	install_element(VIEW_NODE, &show_mgmt_get_data_cmd);
-	install_element(VIEW_NODE, &show_mgmt_get_data_tree_cmd);
 	install_element(VIEW_NODE, &show_mgmt_dump_data_cmd);
 	install_element(VIEW_NODE, &show_mgmt_map_xpath_cmd);
 	install_element(VIEW_NODE, &show_mgmt_cmt_hist_cmd);
