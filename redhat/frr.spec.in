@@ -799,9 +799,29 @@ sed -i 's/ -M rpki//' %{_sysconfdir}/frr/daemons
 
 %changelog
 
-* Tue Jun 06 2023 Martin Winter <mwinter@opensourcerouting.org> - %{version}
+* Tue Oct 10 2023 Donatas Abraitis <donatas@opensourcerouting.org> - %{version}
 
-* Tue Jun 06 2023 Jafar Al-Gharaibeh <jafar@atcorp.com> - 9.0
+* Tue Oct 10 2023 Donatas Abraitis <donatas@opensourcerouting.org> - 9.1
+
+* Wed Jul 26 2023 Jafar Al-Gharaibeh <jafar@atcorp.com> - 9.0
+- Major Highlights:
+-   Introduce `mgmtd` daemon
+-   Add BGP `neighbor path-attribute treat-as-withdraw` command
+-   Add BGP ASN dot notation support (RFC 5396)
+-   Add BGP Software Version capability
+-   Allow BGP peering via 127.0.0.0/8
+-   Deprecate BGP `internet` community - this is the Cisco-specific community, which is never been RFC-defined and confusing
+-   Implement `match source-protocol` for BGP route maps
+-   Implement BGP Node Target extended communities (draft-ietf-idr-node-target-ext-comm)
+-   Implement Flex-Algo for SR-MPLS (RFC 9350)
+-   Add support for IS-IS `advertise-passive-only`
+-   Add IS-IS `affinity-map` support
+-   Add the `graceful-restart hello-delay` OSPFv2/OSPFv3 command
+-   Add the `ipv6 mld join` PIMv6 command
+-   Add `allow-ecmp x` RIP/RIPng Command
+-   Add BFD support for RIP
+- For a full list of new features and bug fixes, please refer to:
+-   https://frrouting.org/release/
 
 * Fri Mar 10 2023 Jafar Al-Gharaibeh <jafar@atcorp.com> - 8.5
 - Major Highlights:
