@@ -1166,7 +1166,7 @@ const char *bgp_linkstate_nlri_type_2str(uint16_t nlri_type)
 const char *prefix2str(union prefixconstptr pu, char *str, int size)
 {
 	const struct prefix *p = pu.p;
-	char buf[PREFIX_STRLEN_EXTENDED];
+	char buf[PREFIX2STR_BUFFER];
 	int byte, tmp, a, b;
 	bool z = false;
 	size_t l;
@@ -1234,7 +1234,7 @@ const char *prefix2str(union prefixconstptr pu, char *str, int size)
 static ssize_t prefixhost2str(struct fbuf *fbuf, union prefixconstptr pu)
 {
 	const struct prefix *p = pu.p;
-	char buf[PREFIX_STRLEN_EXTENDED];
+	char buf[PREFIX2STR_BUFFER];
 
 	switch (p->family) {
 	case AF_INET:
@@ -1752,7 +1752,7 @@ static ssize_t printfrr_pfx(struct fbuf *buf, struct printfrr_eargs *ea,
 	if (host_only)
 		return prefixhost2str(buf, (struct prefix *)ptr);
 	else {
-		char cbuf[PREFIX_STRLEN_EXTENDED];
+		char cbuf[PREFIX_STRLEN];
 
 		prefix2str(ptr, cbuf, sizeof(cbuf));
 		return bputs(buf, cbuf);

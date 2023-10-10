@@ -347,11 +347,6 @@ union prefixconstptr {
 /* Maximum string length of the result of prefix2str */
 #define PREFIX_STRLEN 80
 
-/* Maximum string length of the result of prefix2str for
- * long string prefixes (eg. BGP Link-State)
- */
-#define PREFIX_STRLEN_EXTENDED 512
-
 /*
  * Longest possible length of a (S,G) string is 34 bytes
  * 123.123.123.123 = 15 * 2
