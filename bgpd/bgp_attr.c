@@ -780,7 +780,7 @@ static bool link_state_hash_cmp(const void *p1, const void *p2)
 
 	if (!link_state1 && link_state2)
 		return false;
-	if (link_state1 && !link_state2)
+	if (!link_state1 && link_state2)
 		return false;
 	if (!link_state1 && !link_state2)
 		return true;
