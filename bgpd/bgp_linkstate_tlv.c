@@ -71,17 +71,3 @@ int bgp_nlri_parse_linkstate(struct peer *peer, struct attr *attr,
 	}
 	return BGP_NLRI_PARSE_OK;
 }
-
-/*
- * Encode Link-State prefix in Update (MP_REACH)
- */
-void bgp_nlri_encode_linkstate(struct stream *s, const struct prefix *p)
-{
-	/* NLRI type */
-	stream_putw(s, p->u.prefix_linkstate.nlri_type);
-
-	/* Size */
-	stream_putw(s, p->prefixlen);
-
-	stream_put(s, (const void *)p->u.prefix_linkstate.ptr, p->prefixlen);
-}
