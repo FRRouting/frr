@@ -1016,8 +1016,6 @@ static struct assegment *aspath_aggregate_as_set_add(struct aspath *aspath,
 				seg = seg->next;
 			seg->next = asset;
 		}
-		asset->type = AS_SET;
-		asset->length = 1;
 		asset->as[0] = as;
 	} else {
 		/* Check this AS value already exists or not. */
