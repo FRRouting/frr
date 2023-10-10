@@ -60,7 +60,6 @@ extern unsigned long conf_bgp_debug_nht;
 extern unsigned long conf_bgp_debug_update_groups;
 extern unsigned long conf_bgp_debug_vpn;
 extern unsigned long conf_bgp_debug_flowspec;
-extern unsigned long conf_bgp_debug_linkstate;
 extern unsigned long conf_bgp_debug_labelpool;
 extern unsigned long conf_bgp_debug_pbr;
 extern unsigned long conf_bgp_debug_graceful_restart;
@@ -80,7 +79,6 @@ extern unsigned long term_bgp_debug_nht;
 extern unsigned long term_bgp_debug_update_groups;
 extern unsigned long term_bgp_debug_vpn;
 extern unsigned long term_bgp_debug_flowspec;
-extern unsigned long term_bgp_debug_linkstate;
 extern unsigned long term_bgp_debug_labelpool;
 extern unsigned long term_bgp_debug_pbr;
 extern unsigned long term_bgp_debug_graceful_restart;
@@ -120,7 +118,6 @@ struct bgp_debug_filter {
 #define BGP_DEBUG_VPN_LEAK_RMAP_EVENT 0x04
 #define BGP_DEBUG_VPN_LEAK_LABEL      0x08
 #define BGP_DEBUG_FLOWSPEC            0x01
-#define BGP_DEBUG_LINKSTATE           0x01
 #define BGP_DEBUG_LABELPOOL           0x01
 #define BGP_DEBUG_PBR                 0x01
 #define BGP_DEBUG_PBR_ERROR           0x02
