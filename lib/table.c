@@ -142,7 +142,7 @@ static void route_common(const struct prefix *n, const struct prefix *p,
 	const uint8_t *pp;
 	uint8_t *newp;
 
-	if (n->family == AF_FLOWSPEC || n->family == AF_LINKSTATE)
+	if (n->family == AF_FLOWSPEC)
 		return prefix_copy(new, p);
 	np = (const uint8_t *)&n->u.prefix;
 	pp = (const uint8_t *)&p->u.prefix;
