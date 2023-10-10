@@ -20,7 +20,6 @@
 
 DEFINE_MTYPE_STATIC(LIB, PREFIX, "Prefix");
 DEFINE_MTYPE_STATIC(LIB, PREFIX_FLOWSPEC, "Prefix Flowspec");
-DEFINE_MTYPE_STATIC(LIB, PREFIX_LINKSTATE, "Prefix Link-State");
 
 /* Maskbit. */
 static const uint8_t maskbit[] = {0x00, 0x80, 0xc0, 0xe0, 0xf0,
@@ -32,18 +31,6 @@ static const uint8_t maskbit[] = {0x00, 0x80, 0xc0, 0xe0, 0xf0,
 #endif /* PNBBY */
 
 #define MASKBIT(offset)  ((0xff << (PNBBY - (offset))) & 0xff)
-
-char *(*prefix_linkstate_display_hook)(char *buf, size_t size,
-				       uint16_t nlri_type, uintptr_t ptr,
-				       uint16_t len) = NULL;
-
-void prefix_set_linkstate_display_hook(char *(*func)(char *buf, size_t size,
-						     uint16_t nlri_type,
-						     uintptr_t ptr,
-						     uint16_t len))
-{
-	prefix_linkstate_display_hook = func;
-}
 
 int is_zero_mac(const struct ethaddr *mac)
 {
@@ -94,8 +81,6 @@ int str2family(const char *string)
 		return AF_ETHERNET;
 	else if (!strcmp("evpn", string))
 		return AF_EVPN;
-	else if (!strcmp("link-state", string))
-		return AF_LINKSTATE;
 	return -1;
 }
 
@@ -110,8 +95,6 @@ const char *family2str(int family)
 		return "Ethernet";
 	case AF_EVPN:
 		return "Evpn";
-	case AF_LINKSTATE:
-		return "Link-State";
 	}
 	return "?";
 }
@@ -126,8 +109,6 @@ int afi2family(afi_t afi)
 	else if (afi == AFI_L2VPN)
 		return AF_ETHERNET;
 	/* NOTE: EVPN code should NOT use this interface. */
-	else if (afi == AFI_LINKSTATE)
-		return AF_LINKSTATE;
 	return 0;
 }
 
@@ -139,8 +120,6 @@ afi_t family2afi(int family)
 		return AFI_IP6;
 	else if (family == AF_ETHERNET || family == AF_EVPN)
 		return AFI_L2VPN;
-	else if (family == AF_LINKSTATE)
-		return AFI_LINKSTATE;
 	return 0;
 }
 
@@ -239,21 +218,6 @@ int prefix_match(union prefixconstptr unet, union prefixconstptr upfx)
 		pp = (const uint8_t *)&p->u.prefix_flowspec.ptr;
 
 		offset = n->u.prefix_flowspec.prefixlen;
-
-		while (offset--)
-			if (np[offset] != pp[offset])
-				return 0;
-		return 1;
-	} else if (n->family == AF_LINKSTATE) {
-		if (n->u.prefix_linkstate.nlri_type !=
-		    p->u.prefix_linkstate.nlri_type)
-			return 0;
-
-		/* Set both prefix's head pointer. */
-		np = (const uint8_t *)&n->u.prefix_linkstate.ptr;
-		pp = (const uint8_t *)&p->u.prefix_linkstate.ptr;
-
-		offset = n->prefixlen; /* length is checked above */
 
 		while (offset--)
 			if (np[offset] != pp[offset])
@@ -360,8 +324,6 @@ void prefix_copy(union prefixptr udest, union prefixconstptr usrc)
 {
 	struct prefix *dest = udest.p;
 	const struct prefix *src = usrc.p;
-	void *temp;
-	int len;
 
 	dest->family = src->family;
 	dest->prefixlen = src->prefixlen;
@@ -380,6 +342,9 @@ void prefix_copy(union prefixptr udest, union prefixconstptr usrc)
 		dest->u.lp.id = src->u.lp.id;
 		dest->u.lp.adv_router = src->u.lp.adv_router;
 	} else if (src->family == AF_FLOWSPEC) {
+		void *temp;
+		int len;
+
 		len = src->u.prefix_flowspec.prefixlen;
 		dest->u.prefix_flowspec.prefixlen =
 			src->u.prefix_flowspec.prefixlen;
@@ -390,14 +355,6 @@ void prefix_copy(union prefixptr udest, union prefixconstptr usrc)
 		dest->u.prefix_flowspec.ptr = (uintptr_t)temp;
 		memcpy((void *)dest->u.prefix_flowspec.ptr,
 		       (void *)src->u.prefix_flowspec.ptr, len);
-	} else if (src->family == AF_LINKSTATE) {
-		len = src->prefixlen;
-		dest->u.prefix_linkstate.nlri_type =
-			src->u.prefix_linkstate.nlri_type;
-		temp = XCALLOC(MTYPE_PREFIX_LINKSTATE, len);
-		dest->u.prefix_linkstate.ptr = (uintptr_t)temp;
-		memcpy((void *)dest->u.prefix_linkstate.ptr,
-		       (void *)src->u.prefix_linkstate.ptr, len);
 	} else {
 		flog_err(EC_LIB_DEVELOPMENT,
 			 "prefix_copy(): Unknown address family %d",
@@ -487,14 +444,6 @@ int prefix_same(union prefixconstptr up1, union prefixconstptr up2)
 				    p2->u.prefix_flowspec.prefixlen))
 				return 1;
 		}
-		if (p1->family == AF_LINKSTATE) {
-			if (p1->u.prefix_linkstate.nlri_type !=
-			    p2->u.prefix_linkstate.nlri_type)
-				return 0;
-			if (!memcmp(&p1->u.prefix_linkstate.ptr,
-				    &p2->u.prefix_linkstate.ptr, p2->prefixlen))
-				return 1;
-		}
 	}
 	return 0;
 }
@@ -538,22 +487,6 @@ int prefix_cmp(union prefixconstptr up1, union prefixconstptr up2)
 				      p2->u.prefix_flowspec.prefixlen);
 
 		offset = p1->u.prefix_flowspec.prefixlen;
-		while (offset--)
-			if (pp1[offset] != pp2[offset])
-				return numcmp(pp1[offset], pp2[offset]);
-		return 0;
-	} else if (p1->family == AF_LINKSTATE) {
-		pp1 = (const uint8_t *)p1->u.prefix_linkstate.ptr;
-		pp2 = (const uint8_t *)p2->u.prefix_linkstate.ptr;
-
-		if (p1->u.prefix_linkstate.nlri_type !=
-		    p2->u.prefix_linkstate.nlri_type)
-			return 1;
-
-		if (p1->prefixlen != p2->prefixlen)
-			return numcmp(p1->prefixlen, p2->prefixlen);
-
-		offset = p1->prefixlen;
 		while (offset--)
 			if (pp1[offset] != pp2[offset])
 				return numcmp(pp1[offset], pp2[offset]);
@@ -1147,22 +1080,6 @@ static const char *prefixevpn2str(const struct prefix_evpn *p, char *str,
 	return str;
 }
 
-const char *bgp_linkstate_nlri_type_2str(uint16_t nlri_type)
-{
-	switch (nlri_type) {
-	case BGP_LINKSTATE_NODE:
-		return "Node";
-	case BGP_LINKSTATE_LINK:
-		return "Link";
-	case BGP_LINKSTATE_PREFIX4:
-		return "IPv4-Prefix";
-	case BGP_LINKSTATE_PREFIX6:
-		return "IPv6-Prefix";
-	}
-
-	return "Unknown";
-}
-
 const char *prefix2str(union prefixconstptr pu, char *str, int size)
 {
 	const struct prefix *p = pu.p;
@@ -1207,22 +1124,6 @@ const char *prefix2str(union prefixconstptr pu, char *str, int size)
 		strlcpy(str, "FS prefix", size);
 		break;
 
-	case AF_LINKSTATE:
-		if (prefix_linkstate_display_hook)
-			snprintf(str, size, "%s/%d",
-				 prefix_linkstate_display_hook(
-					 buf, sizeof(buf),
-					 p->u.prefix_linkstate.nlri_type,
-					 p->u.prefix_linkstate.ptr,
-					 p->prefixlen),
-				 p->prefixlen);
-		else
-			snprintf(str, size, "%s/%d",
-				 bgp_linkstate_nlri_type_2str(
-					 p->u.prefix_linkstate.nlri_type),
-				 p->prefixlen);
-		break;
-
 	default:
 		strlcpy(str, "UNK prefix", size);
 		break;
@@ -1246,17 +1147,6 @@ static ssize_t prefixhost2str(struct fbuf *fbuf, union prefixconstptr pu)
 		prefix_mac2str(&p->u.prefix_eth, buf, sizeof(buf));
 		return bputs(fbuf, buf);
 
-	case AF_LINKSTATE:
-		if (prefix_linkstate_display_hook)
-			prefix_linkstate_display_hook(
-				buf, sizeof(buf),
-				p->u.prefix_linkstate.nlri_type,
-				p->u.prefix_linkstate.ptr, p->prefixlen);
-		else
-			snprintf(buf, sizeof(buf), "%s",
-				 bgp_linkstate_nlri_type_2str(
-					 p->u.prefix_linkstate.nlri_type));
-		return bputs(fbuf, buf);
 	default:
 		return bprintfrr(fbuf, "{prefix.af=%dPF}", p->family);
 	}
@@ -1290,20 +1180,6 @@ const char *prefix_sg2str(const struct prefix_sg *sg, char *sg_str)
 
 	return sg_str;
 }
-
-
-void prefix_linkstate_ptr_free(struct prefix *p)
-{
-	void *temp;
-
-	if (!p || p->family != AF_LINKSTATE || !p->u.prefix_linkstate.ptr)
-		return;
-
-	temp = (void *)p->u.prefix_linkstate.ptr;
-	XFREE(MTYPE_PREFIX_LINKSTATE, temp);
-	p->u.prefix_linkstate.ptr = (uintptr_t)NULL;
-}
-
 
 struct prefix *prefix_new(void)
 {
@@ -1454,16 +1330,17 @@ char *prefix_mac2str(const struct ethaddr *mac, char *buf, int size)
 unsigned prefix_hash_key(const void *pp)
 {
 	struct prefix copy;
-	uint32_t len;
-	void *temp;
-
-	/* make sure *all* unused bits are zero, particularly including
-	 * alignment /
-	 * padding and unused prefix bytes. */
-	memset(&copy, 0, sizeof(copy));
-	prefix_copy(&copy, (struct prefix *)pp);
 
 	if (((struct prefix *)pp)->family == AF_FLOWSPEC) {
+		uint32_t len;
+		void *temp;
+
+		/* make sure *all* unused bits are zero,
+		 * particularly including alignment /
+		 * padding and unused prefix bytes.
+		 */
+		memset(&copy, 0, sizeof(copy));
+		prefix_copy(&copy, (struct prefix *)pp);
 		len = jhash((void *)copy.u.prefix_flowspec.ptr,
 			    copy.u.prefix_flowspec.prefixlen,
 			    0x55aa5a5a);
@@ -1471,13 +1348,12 @@ unsigned prefix_hash_key(const void *pp)
 		XFREE(MTYPE_PREFIX_FLOWSPEC, temp);
 		copy.u.prefix_flowspec.ptr = (uintptr_t)NULL;
 		return len;
-	} else if (((struct prefix *)pp)->family == AF_LINKSTATE) {
-		len = jhash((void *)copy.u.prefix_linkstate.ptr, copy.prefixlen,
-			    0x55aa5a5a);
-		prefix_linkstate_ptr_free(&copy);
-		return len;
 	}
-
+	/* make sure *all* unused bits are zero, particularly including
+	 * alignment /
+	 * padding and unused prefix bytes. */
+	memset(&copy, 0, sizeof(copy));
+	prefix_copy(&copy, (struct prefix *)pp);
 	return jhash(&copy,
 		     offsetof(struct prefix, u.prefix) + PSIZE(copy.prefixlen),
 		     0x55aa5a5a);
