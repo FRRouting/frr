@@ -819,17 +819,6 @@ module frr-bgp {
     uses structure-neighbor-group-filter-config;
   }
 
-
-  augment "/frr-rt:routing/frr-rt:control-plane-protocols/frr-rt:control-plane-protocol/bgp/neighbors/neighbor/afi-safis/afi-safi/linkstate-linkstate" {
-    uses structure-neighbor-route-reflector;
-
-    uses structure-neighbor-route-server;
-
-    uses structure-neighbor-group-soft-reconfiguration;
-
-    uses structure-neighbor-group-filter-config;
-  }
-
   augment "/frr-rt:routing/frr-rt:control-plane-protocols/frr-rt:control-plane-protocol/bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-unicast" {
     uses structure-neighbor-group-add-paths;
 
@@ -1092,16 +1081,6 @@ module frr-bgp {
   }
 
   augment "/frr-rt:routing/frr-rt:control-plane-protocols/frr-rt:control-plane-protocol/bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-flowspec" {
-    uses structure-neighbor-route-reflector;
-
-    uses structure-neighbor-route-server;
-
-    uses structure-neighbor-group-soft-reconfiguration;
-
-    uses structure-neighbor-group-filter-config;
-  }
-
-  augment "/frr-rt:routing/frr-rt:control-plane-protocols/frr-rt:control-plane-protocol/bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/linkstate-linkstate" {
     uses structure-neighbor-route-reflector;
 
     uses structure-neighbor-route-server;
@@ -1379,16 +1358,6 @@ module frr-bgp {
   }
 
   augment "/frr-rt:routing/frr-rt:control-plane-protocols/frr-rt:control-plane-protocol/bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-flowspec" {
-    uses structure-neighbor-route-reflector;
-
-    uses structure-neighbor-route-server;
-
-    uses structure-neighbor-group-soft-reconfiguration;
-
-    uses structure-neighbor-group-filter-config;
-  }
-
-  augment "/frr-rt:routing/frr-rt:control-plane-protocols/frr-rt:control-plane-protocol/bgp/peer-groups/peer-group/afi-safis/afi-safi/linkstate-linkstate" {
     uses structure-neighbor-route-reflector;
 
     uses structure-neighbor-route-server;
