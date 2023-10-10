@@ -12385,11 +12385,11 @@ int bgp_show_summary_vty(struct vty *vty, const char *name, afi_t afi,
 
 /* `show [ip] bgp summary' commands. */
 DEFPY(show_ip_bgp_summary, show_ip_bgp_summary_cmd,
-      "show [ip] bgp [<view|vrf> VIEWVRFNAME] [" BGP_AFI_WITH_LS_CMD_STR
-      " [" BGP_SAFI_WITH_LABEL_LS_CMD_STR
+      "show [ip] bgp [<view|vrf> VIEWVRFNAME] [" BGP_AFI_CMD_STR
+      " [" BGP_SAFI_WITH_LABEL_CMD_STR
       "]] [all$all] summary [established|failed] [<neighbor <A.B.C.D|X:X::X:X|WORD>|remote-as <ASNUM|internal|external>>] [terse] [wide] [json$uj]",
-      SHOW_STR IP_STR BGP_STR BGP_INSTANCE_HELP_STR BGP_AFI_WITH_LS_HELP_STR
-	      BGP_SAFI_WITH_LABEL_LS_HELP_STR
+      SHOW_STR IP_STR BGP_STR BGP_INSTANCE_HELP_STR BGP_AFI_HELP_STR
+	      BGP_SAFI_WITH_LABEL_HELP_STR
       "Display the entries for all address families\n"
       "Summary of BGP neighbor status\n"
       "Show only sessions in Established state\n"
