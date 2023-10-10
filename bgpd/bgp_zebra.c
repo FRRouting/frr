@@ -1262,10 +1262,6 @@ void bgp_zebra_announce(struct bgp_dest *dest, const struct prefix *p,
 	uint32_t bos = 0;
 	uint32_t exp = 0;
 
-	if (afi == AFI_LINKSTATE)
-		/* nothing to install */
-		return;
-
 	/*
 	 * BGP is installing this route and bgp has been configured
 	 * to suppress announcements until the route has been installed
