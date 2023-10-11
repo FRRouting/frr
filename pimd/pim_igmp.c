@@ -1146,8 +1146,9 @@ void pim_igmp_if_reset(struct pim_interface *pim_ifp)
 	}
 }
 
-void pim_igmp_if_fini(struct pim_interface *pim_ifp)
+void pim_igmp_if_fini(struct interface *ifp)
 {
+	struct pim_interface *pim_ifp = ifp->info;
 	pim_igmp_if_reset(pim_ifp);
 
 	assert(pim_ifp->gm_group_list);

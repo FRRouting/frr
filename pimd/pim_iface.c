@@ -201,7 +201,7 @@ void pim_if_delete(struct interface *ifp)
 
 	pim_if_del_vif(ifp);
 
-	pim_igmp_if_fini(pim_ifp);
+	pim_igmp_if_fini(ifp);
 
 	list_delete(&pim_ifp->pim_neighbor_list);
 	list_delete(&pim_ifp->upstream_switch_list);
