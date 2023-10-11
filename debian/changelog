@@ -1,8 +1,20 @@
-frr (9.1~dev-1) UNRELEASED; urgency=medium
+frr (9.2~dev-1) UNRELEASED; urgency=medium
 
-  * FRR Dev 9.1
+  * FRR Dev 9.2
+
+ -- Donatas Abraitis <donatas@opensourcerouting.org>  Tue, 10 Oct 2023 12:00:00 -0600
+
+frr (9.1-0) UNRELEASED; urgency=medium
+
+  * New upstream release FRR 9.1
 
  -- Jafar Al-Gharaibeh <jafar@atcorp.com>  Tue, 06 Jun 2023 12:00:00 -0600
+
+frr (9.0-0) unstable; urgency=medium
+
+  * New upstream release FRR 9.0
+
+ -- Jafar Al-Gharaibeh <jafar@atcorp.com>  Wed, 26 Jul 2023 02:00:00 -0600
 
 frr (8.5-0) unstable; urgency=medium
 
