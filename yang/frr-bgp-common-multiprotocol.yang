@@ -204,15 +204,5 @@ submodule frr-bgp-common-multiprotocol {
       description
         "IPv6 flowspec configuration options.";
     }
-
-    container linkstate-linkstate {
-      when "derived-from-or-self(../afi-safi-name, 'frr-rt:linkstate-linkstate')" {
-        description
-          "Include this container for Link-State specific
-           configuration.";
-      }
-      description
-        "Link-State configuration options.";
-    }
   }
 }

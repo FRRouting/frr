@@ -102,7 +102,6 @@ int router_id_get(afi_t afi, struct prefix *p, struct zebra_vrf *zvrf)
 		return 0;
 	case AFI_UNSPEC:
 	case AFI_L2VPN:
-	case AFI_LINKSTATE:
 	case AFI_MAX:
 		return -1;
 	}
@@ -127,7 +126,6 @@ static int router_id_set(afi_t afi, struct prefix *p, struct zebra_vrf *zvrf)
 		break;
 	case AFI_UNSPEC:
 	case AFI_L2VPN:
-	case AFI_LINKSTATE:
 	case AFI_MAX:
 		return -1;
 	}

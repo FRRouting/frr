@@ -17,8 +17,6 @@ struct bgp;
 #define BGP_AF_MODIFIER_STR "Address Family modifier\n"
 #define BGP_AFI_CMD_STR         "<ipv4|ipv6>"
 #define BGP_AFI_HELP_STR BGP_AF_STR BGP_AF_STR
-#define BGP_AFI_WITH_LS_CMD_STR "<ipv4|ipv6|link-state>"
-#define BGP_AFI_WITH_LS_HELP_STR BGP_AF_STR BGP_AF_STR BGP_AF_STR
 #define BGP_SAFI_CMD_STR        "<unicast|multicast|vpn>"
 #define BGP_SAFI_HELP_STR                                                      \
 	BGP_AF_MODIFIER_STR BGP_AF_MODIFIER_STR BGP_AF_MODIFIER_STR
@@ -29,12 +27,6 @@ struct bgp;
 #define BGP_SAFI_WITH_LABEL_HELP_STR                                           \
 	BGP_AF_MODIFIER_STR BGP_AF_MODIFIER_STR BGP_AF_MODIFIER_STR            \
 		BGP_AF_MODIFIER_STR BGP_AF_MODIFIER_STR
-
-#define BGP_SAFI_WITH_LABEL_LS_CMD_STR                                         \
-	"<unicast|multicast|vpn|labeled-unicast|flowspec|link-state>"
-#define BGP_SAFI_WITH_LABEL_LS_HELP_STR                                        \
-	BGP_AF_MODIFIER_STR BGP_AF_MODIFIER_STR BGP_AF_MODIFIER_STR            \
-		BGP_AF_MODIFIER_STR BGP_AF_MODIFIER_STR BGP_AF_MODIFIER_STR
 
 #define BGP_SELF_ORIG_CMD_STR       "self-originate"
 #define BGP_SELF_ORIG_HELP_STR      "Display only self-originated routes\n"

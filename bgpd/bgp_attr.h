@@ -136,13 +136,6 @@ struct bgp_attr_srv6_l3vpn {
 	uint8_t transposition_offset;
 };
 
-struct bgp_attr_ls {
-	unsigned long refcnt;
-
-	uint8_t length;
-	void *data;
-};
-
 /* BGP core attribute structure. */
 struct attr {
 	/* AS Path structure */
@@ -165,8 +158,6 @@ struct attr {
 
 	/* Path origin attribute */
 	uint8_t origin;
-
-	struct bgp_attr_ls *link_state; /*  BGP Link State attribute  */
 
 	/* PMSI tunnel type (RFC 6514). */
 	enum pta_type pmsi_tnl_type;

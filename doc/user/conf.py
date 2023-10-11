@@ -130,7 +130,6 @@ exclude_patterns = [
     "rpki.rst",
     "routeserver.rst",
     "ospf_fundamentals.rst",
-    "bgp-linkstate.rst",
     "flowspec.rst",
     "snmptrap.rst",
     "wecmp_linkbw.rst",

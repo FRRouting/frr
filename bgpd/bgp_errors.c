@@ -450,12 +450,6 @@ static struct log_ref ferr_bgp_err[] = {
 		.suggestion = "Gather log files from the router and open an issue, Restart FRR"
 	},
 	{
-		.code = EC_BGP_LINKSTATE_PACKET,
-		.title = "BGP Link-State packet processing error",
-		.description = "The BGP Link-State subsystem has detected a error in the send or receive of a packet",
-		.suggestion = "Gather log files from both sides of the peering relationship and open an issue"
-	},
-	{
 		.code = EC_BGP_DOPPELGANGER_CONFIG,
 		.title = "BGP has detected a configuration overwrite during peer collision resolution",
 		.description = "As part of BGP startup, the peer and ourselves can start connections to each other at the same time. During this process BGP received additional configuration, but it was only applied to one of the two nascent connections. Depending on the result of collision detection and resolution this configuration might be lost.  To remedy this, after performing collision detection and resolution the peer session has been reset in order to apply the new configuration.",

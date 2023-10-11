@@ -326,14 +326,13 @@ struct in_pktinfo {
 #define	INADDR_LOOPBACK	0x7f000001	/* Internet address 127.0.0.1.  */
 #endif
 
-/* Address family numbers. */
+/* Address family numbers from RFC1700. */
 typedef enum {
 	AFI_UNSPEC = 0,
 	AFI_IP = 1,
 	AFI_IP6 = 2,
 	AFI_L2VPN = 3,
-	AFI_LINKSTATE = 4, /* BGP-LS RFC 7752 */
-	AFI_MAX = 5,
+	AFI_MAX = 4
 } afi_t;
 
 #define IS_VALID_AFI(a) ((a) > AFI_UNSPEC && (a) < AFI_MAX)
@@ -348,9 +347,7 @@ typedef enum {
 	SAFI_EVPN = 5,
 	SAFI_LABELED_UNICAST = 6,
 	SAFI_FLOWSPEC = 7,
-	SAFI_LINKSTATE = 8,	/* BGP-LS RFC 7752 */
-	SAFI_LINKSTATE_VPN = 9, /* BGP-LS RFC 7752 */
-	SAFI_MAX = 10,
+	SAFI_MAX = 8
 } safi_t;
 
 #define FOREACH_AFI_SAFI(afi, safi)                                            \
