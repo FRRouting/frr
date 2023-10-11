@@ -1808,6 +1808,9 @@ void pim_pim_interface_delete(struct interface *ifp)
 	pim_sock_delete(ifp, "pim unconfigured on interface");
 	pim_upstream_nh_if_update(pim_ifp->pim, ifp);
 
+	if (pim_ifp->gm_enable)
+		pim_gm_if_reset(ifp);
+
 	if (!pim_ifp->gm_enable) {
 		pim_if_addr_del_all(ifp);
 		pim_if_delete(ifp);
