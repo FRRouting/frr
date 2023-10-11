@@ -57,6 +57,7 @@ struct pm_session {
 #define PM_SESS_FLAG_NH_REGISTERED (1 << 5)
 #define PM_SESS_FLAG_RESOLUTION_ON (1 << 6)
 #define PM_SESS_FLAG_TRACKING_CFG_ERROR  (1 << 7)
+#define PM_SESS_FLAG_DYNAMIC_VRF (1 << 8) /* only for vrf-lite mode */
 	uint32_t flags;
 	union sockunion peer;
 	struct resolver_query dns_resolve;
@@ -192,5 +193,6 @@ extern void pm_get_gw(struct pm_session *pm, union sockunion *gw);
 
 extern void pm_vrf_init(void);
 extern void pm_vrf_terminate(void);
+extern struct vrf *pm_vrf_lookup_by_interface_name(const char *name);
 
 #endif

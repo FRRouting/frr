@@ -66,4 +66,7 @@ DECLARE_HOOK(pm_tracking_check_param,
 	      void (*callback)(struct vty *, struct pm_session *)),
 	     (pm, ret, callback));
 
+DECLARE_HOOK(pm_tracking_dynamic_vrf_update,
+	     (struct pm_session * pm, char *vrfname), (pm, vrfname));
+
 #endif /* _PM_TRACKING_H */

@@ -59,6 +59,9 @@ static int pm_tracking_call_display(struct pm_session *pm,
 				    struct vty *vty,
 				    struct json_object *jo);
 
+static int pm_tracking_call_dynamic_vrf_update(struct pm_session *pm,
+					       char *vrfname);
+
 static int pm_tracking_init(struct event_loop *t);
 
 static void pm_tracking_gateway_resolver_cb(struct resolver_query *q, const char *errstr,
@@ -87,6 +90,8 @@ static int pm_tracking_module_init(void)
 		      pm_tracking_call_get_gateway_address);
 	hook_register(pm_tracking_display,
 		      pm_tracking_call_display);
+	hook_register(pm_tracking_dynamic_vrf_update,
+		      pm_tracking_call_dynamic_vrf_update);
 	return 0;
 }
 
@@ -695,5 +700,24 @@ static int pm_tracking_init(struct event_loop *t)
 	install_element(PM_SESSION_NODE, &pm_tracking_notify_cmd);
 	install_element(PM_SESSION_NODE, &pm_tracking_alternate_cmd);
 	install_element(PM_SESSION_NODE, &pm_tracking_label_cmd);
+	return 0;
+}
+
+static int pm_tracking_call_dynamic_vrf_update(struct pm_session *pm,
+					       char *vrfname)
+{
+	struct pm_tracking_ctx ctx, *pm_ctx;
+
+	memset(&ctx, 0, sizeof(struct pm_tracking_ctx));
+	memcpy(&ctx.key, &pm->key, sizeof(struct pm_session_key));
+
+	pm_ctx = hash_get(pm_tracking_list, &ctx, NULL);
+	if (pm_ctx == NULL)
+		return -1;
+
+	hash_release(pm_tracking_list, &pm_ctx);
+	memcpy(pm_ctx->key.vrfname, vrfname, IFNAMSIZ);
+	hash_get(pm_tracking_list, pm_ctx, hash_alloc_intern);
+
 	return 0;
 }

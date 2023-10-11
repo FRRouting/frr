@@ -106,7 +106,8 @@ static void pm_session_write_config_walker(struct hash_bucket *b, void *data)
 			&pm->key.local);
 	if (pm->key.ifname[0])
 		vty_out(vty, " interface %s", pm->key.ifname);
-	if (pm->key.vrfname[0])
+	if (pm->key.vrfname[0]
+	    && !PM_CHECK_FLAG(PM_SESS_FLAG_DYNAMIC_VRF, pm->flags))
 		vty_out(vty, " vrf %s", pm->key.vrfname);
 	if (pm->key.type == PM_ICMP_SLA)
 		vty_out(vty, " type %s",
@@ -179,6 +180,8 @@ DEFUN_NOSH(
 	const char *ifname = NULL, *local = NULL, *vrfname = NULL;
 	enum pm_probe_type type;
 	char errormsg[128];
+	struct vrf *vrf;
+	uint32_t flags = 0;
 
 	idx = 0;
 	if (argv_find(argv, argc, "interface", &idx))
@@ -199,6 +202,15 @@ DEFUN_NOSH(
 	else
 		type = PM_ICMP_ECHO;
 
+	if (vrfname == NULL && ifname != NULL
+	    && (vrf_get_backend() == VRF_BACKEND_VRF_LITE
+		|| vrf_get_backend() == VRF_BACKEND_UNKNOWN)) {
+		vrf = pm_vrf_lookup_by_interface_name(ifname);
+		if (vrf && vrf->vrf_id != VRF_DEFAULT)
+			vrfname = vrf->name;
+		PM_SET_FLAG(flags, PM_SESS_FLAG_DYNAMIC_VRF);
+	}
+
 	pm = pm_lookup_session(peer, local, ifname, vrfname, type, false,
 			       errormsg, sizeof(errormsg));
 	if (pm) {
@@ -217,6 +229,7 @@ DEFUN_NOSH(
 			errormsg);
 		return CMD_WARNING_CONFIG_FAILED;
 	}
+	PM_SET_FLAG(pm->flags, flags);
 	pm_initialise(pm, false, errormsg, sizeof(errormsg));
 	VTY_PUSH_CONTEXT(PM_SESSION_NODE, pm);
 	return CMD_SUCCESS;
@@ -249,11 +262,20 @@ DEFPY(pm_remove_session, pm_remove_session_cmd,
 	struct pm_session *pm = NULL;
 	char errormsg[128];
 	enum pm_probe_type type;
+	struct vrf *vrf;
 
 	if (typename && strmatch(typename, "icmp_sla"))
 		type = PM_ICMP_SLA;
 	else
 		type = PM_ICMP_ECHO;
+
+	if (vrfname == NULL && ifname != NULL
+	    && (vrf_get_backend() == VRF_BACKEND_VRF_LITE
+		|| vrf_get_backend() == VRF_BACKEND_UNKNOWN)) {
+		vrf = pm_vrf_lookup_by_interface_name(ifname);
+		if (vrf && vrf->vrf_id != VRF_DEFAULT)
+			vrfname = vrf->name;
+	}
 
 	pm = pm_lookup_session(peer, local_str, ifname, vrfname, type, false,
 			       errormsg, sizeof(errormsg));

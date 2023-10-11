@@ -63,6 +63,9 @@ DEFINE_HOOK(pm_tracking_check_param,
 	     int *ret,
 	     void (*callback)(struct vty *, struct pm_session *)),
 	    (pm, ret, callback));
+DEFINE_HOOK(pm_tracking_dynamic_vrf_update,
+	    (struct pm_session * pm, char *vrfname), (pm, vrfname));
+
 
 static int pm_sessions_change_ifp_walkcb(struct hash_bucket *backet,
 					 void *arg);
@@ -713,6 +716,38 @@ struct pm_session_ifp {
 	bool enable;
 };
 
+static void pm_dynamic_vrf_update(struct pm_session *pm, struct vrf *vrf)
+{
+	char vrfname[sizeof(vrf->name)];
+	char local[INET6_ADDRSTRLEN];
+	char errmsg[128];
+
+	memcpy(vrfname, vrf->name, sizeof(vrfname));
+
+	/* ignore pm sessions with same vrf in pm session */
+	if (!strcmp(pm->key.vrfname, vrfname)
+	    || (!pm->key.vrfname[0] && !strcmp(vrfname, VRF_DEFAULT_NAME)))
+		return;
+
+	if (sockunion_family(&pm->key.local) != AF_UNSPEC)
+		sockunion2str(&pm->key.local, local, sizeof(local));
+	else
+		memset(local, 0, sizeof(local));
+
+	if (!strcmp(vrfname, VRF_DEFAULT_NAME))
+		memset(vrfname, 0, sizeof(vrfname));
+
+	if (pm_lookup_session(pm->key.peer, local, pm->key.ifname, vrfname,
+			      pm->key.type, false, errmsg, sizeof(errmsg)))
+		return;
+
+	hook_call(pm_tracking_dynamic_vrf_update, pm, vrfname);
+
+	hash_release(pm_session_list, pm);
+	memcpy(pm->key.vrfname, vrfname, IFNAMSIZ);
+	hash_get(pm_session_list, pm, hash_alloc_intern);
+}
+
 static int pm_sessions_change_ifp_walkcb(struct hash_bucket *backet, void *arg)
 {
 	struct pm_session_ifp *psi = (struct pm_session_ifp *)arg;
@@ -729,7 +764,8 @@ static int pm_sessions_change_ifp_walkcb(struct hash_bucket *backet, void *arg)
 		vrf_ctx = vrf_lookup_by_name(pm->key.vrfname);
 	else
 		vrf_ctx = vrf_lookup_by_id(VRF_DEFAULT);
-	if (vrf_ctx != vrf)
+	if (vrf_ctx != vrf
+	    && !PM_CHECK_FLAG(pm->flags, PM_SESS_FLAG_DYNAMIC_VRF))
 		return HASHWALK_CONTINUE;
 
 	if (!pm->key.ifname[0])
@@ -739,9 +775,14 @@ static int pm_sessions_change_ifp_walkcb(struct hash_bucket *backet, void *arg)
 		return HASHWALK_CONTINUE;
 	if (if_ctx != ifp)
 		return HASHWALK_CONTINUE;
-	if (enable)
+	if (enable) {
+		if (PM_CHECK_FLAG(pm->flags, PM_SESS_FLAG_DYNAMIC_VRF)) {
+			if (vrf_ctx != vrf)
+				pm_zebra_nht_register(pm, false, NULL);
+			pm_dynamic_vrf_update(pm, vrf);
+		}
 		pm_zebra_nht_register(pm, true, NULL);
-	else {
+	} else {
 		pm_echo_stop(pm, errormsg, sizeof(errormsg), true);
 		pm_zebra_nht_register(pm, false, NULL);
 	}
@@ -917,6 +958,23 @@ void pm_vrf_init(void)
 void pm_vrf_terminate(void)
 {
 	vrf_terminate();
+}
+
+struct vrf *pm_vrf_lookup_by_interface_name(const char *name)
+{
+	struct interface *ifp;
+	struct vrf *vrf;
+
+	if (!name || strnlen(name, IFNAMSIZ) == IFNAMSIZ)
+		return NULL;
+
+	RB_FOREACH (vrf, vrf_id_head, &vrfs_by_id) {
+		ifp = if_lookup_by_name(name, vrf->vrf_id);
+		if (ifp && ifp->ifindex != IFINDEX_INTERNAL)
+			return vrf;
+	}
+
+	return NULL;
 }
 
 void pm_set_sess_state(struct pm_session *pm, uint8_t ses_state)
