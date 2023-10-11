@@ -685,6 +685,7 @@ int zebra_add_import_table_entry(struct zebra_vrf *zvrf, struct route_node *rn,
 	copy_nexthops(&ng->nexthop, re->nhe->nhg.nexthop, NULL);
 
 	rib_add_multipath(afi, SAFI_UNICAST, &p, NULL, newre, ng, false);
+	nexthop_group_delete(&ng);
 
 	return 0;
 }
