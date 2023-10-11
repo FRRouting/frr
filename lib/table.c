@@ -142,7 +142,7 @@ static void route_common(const struct prefix *n, const struct prefix *p,
 	const uint8_t *pp;
 	uint8_t *newp;
 
-	if (n->family == AF_FLOWSPEC || n->family == AF_LINKSTATE)
+	if (n->family == AF_FLOWSPEC)
 		return prefix_copy(new, p);
 	np = (const uint8_t *)&n->u.prefix;
 	pp = (const uint8_t *)&p->u.prefix;
@@ -281,22 +281,15 @@ struct route_node *route_node_get(struct route_table *table,
 	const uint8_t *prefix = &p->u.prefix;
 
 	node = rn_hash_node_find(&table->hash, &search);
-	if (node && node->info) {
-		if (family2afi(p->family) == AFI_LINKSTATE)
-			prefix_linkstate_ptr_free(p);
-
+	if (node && node->info)
 		return route_lock_node(node);
-	}
 
 	match = NULL;
 	node = table->top;
 	while (node && node->p.prefixlen <= prefixlen
 	       && prefix_match(&node->p, p)) {
-		if (node->p.prefixlen == prefixlen) {
-			if (family2afi(p->family) == AFI_LINKSTATE)
-				prefix_linkstate_ptr_free(p);
+		if (node->p.prefixlen == prefixlen)
 			return route_lock_node(node);
-		}
 
 		match = node;
 		node = node->link[prefix_bit(prefix, node->p.prefixlen)];
@@ -330,9 +323,6 @@ struct route_node *route_node_get(struct route_table *table,
 	}
 	table->count++;
 	route_lock_node(new);
-
-	if (family2afi(p->family) == AFI_LINKSTATE)
-		prefix_linkstate_ptr_free(p);
 
 	return new;
 }

@@ -40,11 +40,7 @@
 #endif
 #include "bgp_evpn.h"
 #include "bgp_flowspec_private.h"
-#include "bgp_linkstate_tlv.h"
 #include "bgp_mac.h"
-
-DEFINE_MTYPE_STATIC(BGPD, BGP_ATTR_LS, "BGP Attribute Link-State");
-DEFINE_MTYPE_STATIC(BGPD, BGP_ATTR_LS_DATA, "BGP Attribute Link-State Data");
 
 /* Attribute strings for logging. */
 static const struct message attr_str[] = {
@@ -69,7 +65,6 @@ static const struct message attr_str[] = {
 #ifdef ENABLE_BGP_VNC_ATTR
 	{BGP_ATTR_VNC, "VNC"},
 #endif
-	{BGP_ATTR_LINK_STATE, "LINK_STATE"},
 	{BGP_ATTR_LARGE_COMMUNITIES, "LARGE_COMMUNITY"},
 	{BGP_ATTR_PREFIX_SID, "PREFIX_SID"},
 	{BGP_ATTR_IPV6_EXT_COMMUNITIES, "IPV6_EXT_COMMUNITIES"},
@@ -203,8 +198,6 @@ static struct hash *vnc_hash = NULL;
 #endif
 static struct hash *srv6_l3vpn_hash;
 static struct hash *srv6_vpn_hash;
-
-static struct hash *link_state_hash;
 
 struct bgp_attr_encap_subtlv *encap_tlv_dup(struct bgp_attr_encap_subtlv *orig)
 {
@@ -723,99 +716,6 @@ static void srv6_finish(void)
 	hash_clean_and_free(&srv6_vpn_hash, (void (*)(void *))srv6_vpn_free);
 }
 
-static void *link_state_hash_alloc(void *p)
-{
-	return p;
-}
-
-static void link_state_free(struct bgp_attr_ls *link_state)
-{
-	XFREE(MTYPE_BGP_ATTR_LS_DATA, link_state->data);
-	XFREE(MTYPE_BGP_ATTR_LS, link_state);
-}
-
-static struct bgp_attr_ls *link_state_intern(struct bgp_attr_ls *link_state)
-{
-	struct bgp_attr_ls *find;
-
-	find = hash_get(link_state_hash, link_state, link_state_hash_alloc);
-	if (find != link_state)
-		link_state_free(link_state);
-	find->refcnt++;
-	return find;
-}
-
-static void link_state_unintern(struct bgp_attr_ls **link_statep)
-{
-	struct bgp_attr_ls *link_state = *link_statep;
-
-	if (!*link_statep)
-		return;
-
-	if (link_state->refcnt)
-		link_state->refcnt--;
-
-	if (link_state->refcnt == 0) {
-		hash_release(link_state_hash, link_state);
-		link_state_free(link_state);
-		*link_statep = NULL;
-	}
-}
-
-static uint32_t link_state_hash_key_make(const void *p)
-{
-	const struct bgp_attr_ls *link_state = p;
-	uint32_t key = 0;
-
-	key = jhash_1word(link_state->length, key);
-	key = jhash(link_state->data, link_state->length, key);
-
-	return key;
-}
-
-static bool link_state_hash_cmp(const void *p1, const void *p2)
-{
-	const struct bgp_attr_ls *link_state1 = p1;
-	const struct bgp_attr_ls *link_state2 = p2;
-
-	if (!link_state1 && link_state2)
-		return false;
-	if (link_state1 && !link_state2)
-		return false;
-	if (!link_state1 && !link_state2)
-		return true;
-
-	if (link_state1->length != link_state2->length)
-		return false;
-
-	return !memcmp(link_state1->data, link_state2->data,
-		       link_state1->length);
-}
-
-static bool link_state_same(const struct bgp_attr_ls *h1,
-			    const struct bgp_attr_ls *h2)
-{
-	if (h1 == h2)
-		return true;
-	else if (h1 == NULL || h2 == NULL)
-		return false;
-	else
-		return link_state_hash_cmp((const void *)h1, (const void *)h2);
-}
-
-static void link_state_init(void)
-{
-	link_state_hash =
-		hash_create(link_state_hash_key_make, link_state_hash_cmp,
-			    "BGP Link-State Attributes TLVs");
-}
-
-static void link_state_finish(void)
-{
-	hash_clean_and_free(&link_state_hash,
-			    (void (*)(void *))link_state_free);
-}
-
 static unsigned int transit_hash_key_make(const void *p)
 {
 	const struct transit *transit = p;
@@ -905,8 +805,6 @@ unsigned int attrhash_key_make(const void *p)
 	MIX(attr->bh_type);
 	MIX(attr->otc);
 	MIX(bgp_attr_get_aigp_metric(attr));
-	if (attr->link_state)
-		MIX(link_state_hash_key_make(attr->link_state));
 
 	return key;
 }
@@ -972,8 +870,7 @@ bool attrhash_cmp(const void *p1, const void *p2)
 		    attr1->srte_color == attr2->srte_color &&
 		    attr1->nh_type == attr2->nh_type &&
 		    attr1->bh_type == attr2->bh_type &&
-		    attr1->otc == attr2->otc &&
-		    link_state_same(attr1->link_state, attr2->link_state))
+		    attr1->otc == attr2->otc)
 			return true;
 	}
 
@@ -1132,12 +1029,6 @@ struct attr *bgp_attr_intern(struct attr *attr)
 			attr->srv6_vpn = srv6_vpn_intern(attr->srv6_vpn);
 		else
 			attr->srv6_vpn->refcnt++;
-	}
-	if (attr->link_state) {
-		if (!attr->link_state->refcnt)
-			attr->link_state = link_state_intern(attr->link_state);
-		else
-			attr->link_state->refcnt++;
 	}
 #ifdef ENABLE_BGP_VNC
 	struct bgp_attr_encap_subtlv *vnc_subtlvs =
@@ -1357,8 +1248,6 @@ void bgp_attr_unintern_sub(struct attr *attr)
 
 	srv6_l3vpn_unintern(&attr->srv6_l3vpn);
 	srv6_vpn_unintern(&attr->srv6_vpn);
-
-	link_state_unintern(&attr->link_state);
 }
 
 /* Free bgp attribute and aspath. */
@@ -1522,7 +1411,6 @@ bgp_attr_malformed(struct bgp_attr_parser_args *args, uint8_t subcode,
 	case BGP_ATTR_ENCAP:
 	case BGP_ATTR_OTC:
 		return BGP_ATTR_PARSE_WITHDRAW;
-	case BGP_ATTR_LINK_STATE:
 	case BGP_ATTR_MP_REACH_NLRI:
 	case BGP_ATTR_MP_UNREACH_NLRI:
 		bgp_notify_send_with_data(peer->connection,
@@ -1609,7 +1497,6 @@ const uint8_t attr_flags_values[] = {
 	[BGP_ATTR_IPV6_EXT_COMMUNITIES] =
 		BGP_ATTR_FLAG_OPTIONAL | BGP_ATTR_FLAG_TRANS,
 	[BGP_ATTR_AIGP] = BGP_ATTR_FLAG_OPTIONAL,
-	[BGP_ATTR_LINK_STATE] = BGP_ATTR_FLAG_OPTIONAL,
 };
 static const size_t attr_flags_values_max = array_size(attr_flags_values) - 1;
 
@@ -3403,32 +3290,6 @@ aigp_ignore:
 	return bgp_attr_ignore(peer, args->type);
 }
 
-/* Link-State (rfc7752) */
-static enum bgp_attr_parse_ret
-bgp_attr_linkstate(struct bgp_attr_parser_args *args)
-{
-	struct peer *const peer = args->peer;
-	struct attr *const attr = args->attr;
-	const bgp_size_t length = args->length;
-	struct stream *s = peer->curr;
-	struct bgp_attr_ls *bgp_attr_ls;
-	void *bgp_attr_ls_data;
-
-	if (STREAM_READABLE(s) == 0)
-		return BGP_ATTR_PARSE_PROCEED;
-
-	attr->flag |= ATTR_FLAG_BIT(BGP_ATTR_LINK_STATE);
-
-	bgp_attr_ls = XCALLOC(MTYPE_BGP_ATTR_LS, sizeof(struct bgp_attr_ls));
-	bgp_attr_ls->length = length;
-	bgp_attr_ls_data = XCALLOC(MTYPE_BGP_ATTR_LS_DATA, length);
-	bgp_attr_ls->data = bgp_attr_ls_data;
-	stream_get(bgp_attr_ls_data, s, length);
-	attr->link_state = link_state_intern(bgp_attr_ls);
-
-	return BGP_ATTR_PARSE_PROCEED;
-}
-
 /* OTC attribute. */
 static enum bgp_attr_parse_ret bgp_attr_otc(struct bgp_attr_parser_args *args)
 {
@@ -3886,9 +3747,6 @@ enum bgp_attr_parse_ret bgp_attr_parse(struct peer *peer, struct attr *attr,
 		case BGP_ATTR_AIGP:
 			ret = bgp_attr_aigp(&attr_args);
 			break;
-		case BGP_ATTR_LINK_STATE:
-			ret = bgp_attr_linkstate(&attr_args);
-			break;
 		default:
 			ret = bgp_attr_unknown(&attr_args);
 			break;
@@ -4145,8 +4003,6 @@ size_t bgp_packet_mpattr_start(struct stream *s, struct peer *peer, afi_t afi,
 	switch (nh_afi) {
 	case AFI_IP:
 		switch (safi) {
-		case SAFI_LINKSTATE:
-		case SAFI_LINKSTATE_VPN:
 		case SAFI_UNICAST:
 		case SAFI_MULTICAST:
 		case SAFI_LABELED_UNICAST:
@@ -4180,8 +4036,6 @@ size_t bgp_packet_mpattr_start(struct stream *s, struct peer *peer, afi_t afi,
 		break;
 	case AFI_IP6:
 		switch (safi) {
-		case SAFI_LINKSTATE:
-		case SAFI_LINKSTATE_VPN:
 		case SAFI_UNICAST:
 		case SAFI_MULTICAST:
 		case SAFI_LABELED_UNICAST:
@@ -4232,9 +4086,8 @@ size_t bgp_packet_mpattr_start(struct stream *s, struct peer *peer, afi_t afi,
 			break;
 		}
 		break;
-	case AFI_LINKSTATE:
 	case AFI_L2VPN:
-		if (nh_afi == AFI_L2VPN && safi != SAFI_FLOWSPEC)
+		if (safi != SAFI_FLOWSPEC)
 			flog_err(
 				EC_BGP_ATTR_NH_SEND_LEN,
 				"Bad nexthop when sending to %s, AFI %u SAFI %u nhlen %d",
@@ -4285,12 +4138,6 @@ void bgp_packet_mpattr_prefix(struct stream *s, afi_t afi, safi_t safi,
 		stream_put_labeled_prefix(s, p, label, addpath_capable,
 					  addpath_tx_id);
 		break;
-	case SAFI_LINKSTATE:
-		bgp_nlri_encode_linkstate(s, p);
-		break;
-	case SAFI_LINKSTATE_VPN:
-		/* not yet supported */
-		break;
 	case SAFI_FLOWSPEC:
 		stream_putc(s, p->u.prefix_flowspec.prefixlen);
 		stream_put(s, (const void *)p->u.prefix_flowspec.ptr,
@@ -4317,8 +4164,6 @@ size_t bgp_packet_mpattr_prefix_size(afi_t afi, safi_t safi,
 	case SAFI_MAX:
 		assert(!"Attempting to figure size for a SAFI_UNSPEC/SAFI_MAX this is a DEV ESCAPE");
 		break;
-	case SAFI_LINKSTATE:
-	case SAFI_LINKSTATE_VPN:
 	case SAFI_UNICAST:
 	case SAFI_MULTICAST:
 		break;
@@ -4981,14 +4826,6 @@ bgp_size_t bgp_packet_attribute(struct bgp *bgp, struct peer *peer,
 #endif
 	}
 
-	/* BGP Link-State */
-	if (attr->link_state) {
-		stream_putc(s, BGP_ATTR_FLAG_OPTIONAL);
-		stream_putc(s, BGP_ATTR_LINK_STATE);
-		stream_putc(s, attr->link_state->length);
-		stream_put(s, attr->link_state->data, attr->link_state->length);
-	}
-
 	/* PMSI Tunnel */
 	if (attr->flag & ATTR_FLAG_BIT(BGP_ATTR_PMSI_TUNNEL)) {
 		stream_putc(s, BGP_ATTR_FLAG_OPTIONAL | BGP_ATTR_FLAG_TRANS);
@@ -5093,7 +4930,6 @@ void bgp_attr_init(void)
 	transit_init();
 	encap_init();
 	srv6_init();
-	link_state_init();
 }
 
 void bgp_attr_finish(void)
@@ -5107,7 +4943,6 @@ void bgp_attr_finish(void)
 	transit_finish();
 	encap_finish();
 	srv6_finish();
-	link_state_finish();
 }
 
 /* Make attribute packet. */

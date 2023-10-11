@@ -125,15 +125,6 @@ struct evpn_addr {
 #define prefix_addr u._prefix_addr
 };
 
-/* BGP Link-State NRLI types*/
-enum bgp_linkstate_nlri_type {
-	/* RFC7752 Table 1 */
-	BGP_LINKSTATE_NODE = 1,
-	BGP_LINKSTATE_LINK = 2,
-	BGP_LINKSTATE_PREFIX4 = 3, /* IPv4 Topology Prefix */
-	BGP_LINKSTATE_PREFIX6 = 4, /* IPv6 Topology Prefix */
-};
-
 /*
  * A struct prefix contains an address family, a prefix length, and an
  * address.  This can represent either a 'network prefix' as defined
@@ -167,18 +158,9 @@ enum bgp_linkstate_nlri_type {
 #define AF_FLOWSPEC (AF_MAX + 2)
 #endif
 
-#if !defined(AF_LINKSTATE)
-#define AF_LINKSTATE (AF_MAX + 3)
-#endif
-
 struct flowspec_prefix {
 	uint8_t family;
 	uint16_t prefixlen; /* length in bytes */
-	uintptr_t ptr;
-};
-
-struct linkstate_prefix {
-	uint16_t nlri_type;
 	uintptr_t ptr;
 };
 
@@ -200,7 +182,6 @@ struct prefix {
 		uintptr_t ptr;
 		struct evpn_addr prefix_evpn; /* AF_EVPN */
 		struct flowspec_prefix prefix_flowspec; /* AF_FLOWSPEC */
-		struct linkstate_prefix prefix_linkstate; /* AF_LINKSTATE */
 	} u __attribute__((aligned(8)));
 };
 
@@ -298,14 +279,6 @@ struct prefix_fs {
 	struct flowspec_prefix  prefix __attribute__((aligned(8)));
 };
 
-
-/* Prefix for a BGP-LS entry */
-struct prefix_bgpls {
-	uint8_t family;
-	uint16_t prefixlen;
-	struct linkstate_prefix prefix __attribute__((aligned(8)));
-};
-
 struct prefix_sg {
 	uint8_t family;
 	uint16_t prefixlen;
@@ -346,11 +319,6 @@ union prefixconstptr {
 
 /* Maximum string length of the result of prefix2str */
 #define PREFIX_STRLEN 80
-
-/* Maximum string length of the result of prefix2str for
- * long string prefixes (eg. BGP Link-State)
- */
-#define PREFIX_STRLEN_EXTENDED 512
 
 /*
  * Longest possible length of a (S,G) string is 34 bytes
@@ -408,10 +376,6 @@ static inline void ipv4_addr_copy(struct in_addr *dst,
 #define s6_addr32 __u6_addr.__u6_addr32
 #endif /*s6_addr32*/
 
-extern void prefix_set_linkstate_display_hook(
-	char *(*func)(char *buf, size_t size, uint16_t nlri_type, uintptr_t ptr,
-		      uint16_t len));
-
 /* Prototypes. */
 extern int str2family(const char *string);
 extern int afi2family(afi_t afi);
@@ -437,8 +401,6 @@ static inline afi_t prefix_afi(union prefixconstptr pu)
  */
 extern unsigned int prefix_bit(const uint8_t *prefix, const uint16_t bit_index);
 
-extern void prefix_linkstate_ptr_free(struct prefix *p);
-
 extern struct prefix *prefix_new(void);
 extern void prefix_free(struct prefix **p);
 /*
@@ -456,7 +418,6 @@ extern void prefix_mcast_inet4_dump(const char *onfail, struct in_addr addr,
 extern const char *prefix_sg2str(const struct prefix_sg *sg, char *str);
 extern const char *prefix2str(union prefixconstptr upfx, char *buffer,
 			      int size);
-extern const char *bgp_linkstate_nlri_type_2str(uint16_t nlri_type);
 extern int evpn_type5_prefix_match(const struct prefix *evpn_pfx,
 				   const struct prefix *match_pfx);
 extern int prefix_match(union prefixconstptr unet, union prefixconstptr upfx);
