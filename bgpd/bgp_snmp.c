@@ -38,9 +38,9 @@ static int bgp_cli_snmp_traps_config_write(struct vty *vty);
 DEFPY(bgp_snmp_traps_rfc4273, bgp_snmp_traps_rfc4273_cmd,
       "[no$no] bgp snmp traps rfc4273",
       NO_STR BGP_STR
-              "Configure BGP SNMP\n"
-	      "Configure SNMP traps for BGP\n"
-	      "Configure use of rfc4273 SNMP traps for BGP\n")
+      "Configure BGP SNMP\n"
+      "Configure SNMP traps for BGP\n"
+      "Configure use of rfc4273 SNMP traps for BGP\n")
 {
 	if (no) {
 		UNSET_FLAG(bm->options, BGP_OPT_TRAPS_RFC4273);
@@ -53,9 +53,9 @@ DEFPY(bgp_snmp_traps_rfc4273, bgp_snmp_traps_rfc4273_cmd,
 DEFPY(bgp_snmp_traps_bgp4_mibv2, bgp_snmp_traps_bgp4_mibv2_cmd,
       "[no$no] bgp snmp traps bgp4-mibv2",
       NO_STR BGP_STR
-              "Configure BGP SNMP\n"
-	      "Configure SNMP traps for BGP\n"
-	      "Configure use of BGP4-MIBv2 SNMP traps for BGP\n")
+      "Configure BGP SNMP\n"
+      "Configure SNMP traps for BGP\n"
+      "Configure use of BGP4-MIBv2 SNMP traps for BGP\n")
 {
 	if (no) {
 		UNSET_FLAG(bm->options, BGP_OPT_TRAPS_BGP4MIBV2);
