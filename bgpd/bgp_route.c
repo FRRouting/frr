@@ -2299,8 +2299,8 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 
 	/* Remove MED if its an EBGP peer - will get overwritten by route-maps
 	 */
-	if (peer->sort == BGP_PEER_EBGP
-	    && attr->flag & ATTR_FLAG_BIT(BGP_ATTR_MULTI_EXIT_DISC)) {
+	if (peer->sort == BGP_PEER_EBGP && peer->sub_sort != BGP_PEER_EBGP_OAD &&
+	    attr->flag & ATTR_FLAG_BIT(BGP_ATTR_MULTI_EXIT_DISC)) {
 		if (from != bgp->peer_self && !transparent
 		    && !CHECK_FLAG(peer->af_flags[afi][safi],
 				   PEER_FLAG_MED_UNCHANGED))
@@ -2514,8 +2514,9 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 		return false;
 
 	if (bgp_in_graceful_shutdown(bgp)) {
-		if (peer->sort == BGP_PEER_IBGP
-		    || peer->sort == BGP_PEER_CONFED) {
+		if (peer->sort == BGP_PEER_IBGP ||
+		    peer->sort == BGP_PEER_CONFED ||
+		    peer->sub_sort == BGP_PEER_EBGP_OAD) {
 			attr->flag |= ATTR_FLAG_BIT(BGP_ATTR_LOCAL_PREF);
 			attr->local_pref = BGP_GSHUT_LOCAL_PREF;
 		} else {

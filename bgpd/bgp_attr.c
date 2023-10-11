@@ -1839,7 +1839,9 @@ bgp_attr_local_pref(struct bgp_attr_parser_args *args)
 	 * UPDATE message SHALL be handled using the approach of "treat-as-
 	 * withdraw".
 	 */
-	if (peer->sort == BGP_PEER_IBGP && length != 4) {
+	if ((peer->sort == BGP_PEER_IBGP ||
+	     peer->sub_sort == BGP_PEER_EBGP_OAD) &&
+	    length != 4) {
 		flog_err(EC_BGP_ATTR_LEN,
 			 "LOCAL_PREF attribute length isn't 4 [%u]", length);
 		return bgp_attr_malformed(args, BGP_NOTIFY_UPDATE_ATTR_LENG_ERR,
@@ -1849,7 +1851,7 @@ bgp_attr_local_pref(struct bgp_attr_parser_args *args)
 	/* If it is contained in an UPDATE message that is received from an
 	   external peer, then this attribute MUST be ignored by the
 	   receiving speaker. */
-	if (peer->sort == BGP_PEER_EBGP) {
+	if (peer->sort == BGP_PEER_EBGP && peer->sub_sort != BGP_PEER_EBGP_OAD) {
 		STREAM_FORWARD_GETP(peer->curr, length);
 		return BGP_ATTR_PARSE_PROCEED;
 	}
@@ -3267,7 +3269,8 @@ static enum bgp_attr_parse_ret bgp_attr_aigp(struct bgp_attr_parser_args *args)
 	 * the default value of AIGP_SESSION SHOULD be "enabled".
 	 */
 	if (peer->sort == BGP_PEER_EBGP &&
-	    !CHECK_FLAG(peer->flags, PEER_FLAG_AIGP)) {
+	    (!CHECK_FLAG(peer->flags, PEER_FLAG_AIGP) ||
+	     peer->sub_sort != BGP_PEER_EBGP_OAD)) {
 		zlog_warn(
 			"%pBP received AIGP attribute, but eBGP peer do not support it",
 			peer);
@@ -4484,7 +4487,8 @@ bgp_size_t bgp_packet_attribute(struct bgp *bgp, struct peer *peer,
 	}
 
 	/* Local preference. */
-	if (peer->sort == BGP_PEER_IBGP || peer->sort == BGP_PEER_CONFED) {
+	if (peer->sort == BGP_PEER_IBGP || peer->sort == BGP_PEER_CONFED ||
+	    peer->sub_sort == BGP_PEER_EBGP_OAD) {
 		stream_putc(s, BGP_ATTR_FLAG_TRANS);
 		stream_putc(s, BGP_ATTR_LOCAL_PREF);
 		stream_putc(s, 4);
@@ -4850,6 +4854,7 @@ bgp_size_t bgp_packet_attribute(struct bgp *bgp, struct peer *peer,
 	/* AIGP */
 	if (bpi && attr->flag & ATTR_FLAG_BIT(BGP_ATTR_AIGP) &&
 	    (CHECK_FLAG(peer->flags, PEER_FLAG_AIGP) ||
+	     peer->sub_sort == BGP_PEER_EBGP_OAD ||
 	     peer->sort != BGP_PEER_EBGP)) {
 		/* At the moment only AIGP Metric TLV exists for AIGP
 		 * attribute. If more comes in, do not forget to update

@@ -971,6 +971,14 @@ enum bgp_peer_sort {
 	BGP_PEER_CONFED,
 };
 
+/* BGP peering sub-types
+ * E.g.:
+ * EBGP-OAD - https://datatracker.ietf.org/doc/html/draft-uttaro-idr-bgp-oad
+ */
+enum bgp_peer_sub_sort {
+	BGP_PEER_EBGP_OAD = 1,
+};
+
 /* BGP message header and packet size.  */
 #define BGP_MARKER_SIZE		                16
 #define BGP_HEADER_SIZE		                19
@@ -1197,6 +1205,7 @@ struct peer {
 	as_t local_as;
 
 	enum bgp_peer_sort sort;
+	enum bgp_peer_sub_sort sub_sort;
 
 	/* Peer's Change local AS number. */
 	as_t change_local_as;

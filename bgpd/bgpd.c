@@ -3147,6 +3147,7 @@ int peer_group_bind(struct bgp *bgp, union sockunion *su, struct peer *peer,
 			peer->as_type = group->conf->as_type;
 			peer->as = group->conf->as;
 			peer->sort = group->conf->sort;
+			peer->sub_sort = group->conf->sub_sort;
 		}
 
 		ptype = peer_sort(peer);
