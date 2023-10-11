@@ -682,15 +682,17 @@ static int bgp_capability_addpath(struct peer *peer,
 		uint8_t send_receive = stream_getc(s);
 
 		if (bgp_debug_neighbor_events(peer))
-			zlog_debug(
-				"%s OPEN has %s capability for afi/safi: %s/%s%s%s",
-				peer->host,
-				lookup_msg(capcode_str, hdr->code, NULL),
-				iana_afi2str(pkt_afi), iana_safi2str(pkt_safi),
-				(send_receive & BGP_ADDPATH_RX) ? ", receive"
-								: "",
-				(send_receive & BGP_ADDPATH_TX) ? ", transmit"
-								: "");
+			zlog_debug("%s OPEN has %s capability for afi/safi: %s/%s%s%s",
+				   peer->host,
+				   lookup_msg(capcode_str, hdr->code, NULL),
+				   iana_afi2str(pkt_afi),
+				   iana_safi2str(pkt_safi),
+				   CHECK_FLAG(send_receive, BGP_ADDPATH_RX)
+					   ? ", receive"
+					   : "",
+				   CHECK_FLAG(send_receive, BGP_ADDPATH_TX)
+					   ? ", transmit"
+					   : "");
 
 		/* Convert AFI, SAFI to internal values, check. */
 		if (bgp_map_afi_safi_iana2int(pkt_afi, pkt_safi, &afi, &safi)) {
@@ -709,13 +711,19 @@ static int bgp_capability_addpath(struct peer *peer,
 			continue;
 		}
 
-		if (send_receive & BGP_ADDPATH_RX)
+		if (CHECK_FLAG(send_receive, BGP_ADDPATH_RX))
 			SET_FLAG(peer->af_cap[afi][safi],
 				 PEER_CAP_ADDPATH_AF_RX_RCV);
+		else
+			UNSET_FLAG(peer->af_cap[afi][safi],
+				   PEER_CAP_ADDPATH_AF_RX_RCV);
 
-		if (send_receive & BGP_ADDPATH_TX)
+		if (CHECK_FLAG(send_receive, BGP_ADDPATH_TX))
 			SET_FLAG(peer->af_cap[afi][safi],
 				 PEER_CAP_ADDPATH_AF_TX_RCV);
+		else
+			UNSET_FLAG(peer->af_cap[afi][safi],
+				   PEER_CAP_ADDPATH_AF_TX_RCV);
 	}
 
 	return 0;
