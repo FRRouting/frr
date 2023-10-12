@@ -88,8 +88,13 @@ static void nhrp_request_stop(void)
 	nhrp_zebra_terminate();
 	vici_terminate();
 	evmgr_terminate();
+<<<<<<< HEAD
 	nhrp_vc_terminate();
 	nhrp_shortcut_terminate();
+=======
+	vrf_terminate();
+	nhrp_vc_terminate();
+>>>>>>> d163f89e1 (nhrpd: Fix nhrp_peer leak)
 
 	debugf(NHRP_DEBUG_COMMON, "Done.");
 	frr_fini();
