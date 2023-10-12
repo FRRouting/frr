@@ -7,12 +7,12 @@
         {
           "fib":true,
           "ip":"11.1.1.6",
-          "weight":25
+          "weight":85
         },
         {
           "fib":true,
           "ip":"11.1.1.2",
-          "weight":75
+          "weight":255
         }
       ]
     }
