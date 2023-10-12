@@ -457,11 +457,19 @@ static int label_manager_get_chunk(struct label_manager_chunk **lmc,
 	*lmc = assign_label_chunk(client->proto, client->instance,
 				  client->session_id, keep, size, base);
 	/* Respond to a get_chunk request */
-	if (!*lmc)
-		flog_err(EC_ZEBRA_LM_CANNOT_ASSIGN_CHUNK,
-			 "Unable to assign Label Chunk to %s instance %u",
-			 zebra_route_string(client->proto), client->instance);
-	else if (IS_ZEBRA_DEBUG_PACKET)
+	if (!*lmc) {
+		if (base == MPLS_LABEL_BASE_ANY)
+			flog_err(EC_ZEBRA_LM_CANNOT_ASSIGN_CHUNK,
+				 "Unable to assign Label Chunk size %u to %s instance %u",
+				 size, zebra_route_string(client->proto),
+				 client->instance);
+		else
+			flog_err(EC_ZEBRA_LM_CANNOT_ASSIGN_CHUNK,
+				 "Unable to assign Label Chunk %u - %u to %s instance %u",
+				 base, base + size - 1,
+				 zebra_route_string(client->proto),
+				 client->instance);
+	} else if (IS_ZEBRA_DEBUG_PACKET)
 		zlog_debug("Assigned Label Chunk %u - %u to %s instance %u",
 			   (*lmc)->start, (*lmc)->end,
 			   zebra_route_string(client->proto), client->instance);
