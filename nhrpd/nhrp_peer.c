@@ -47,9 +47,16 @@ static void nhrp_peer_check_delete(struct nhrp_peer *p)
 	debugf(NHRP_DEBUG_COMMON, "Deleting peer ref:%d remote:%pSU local:%pSU",
 	       p->ref, &p->vc->remote.nbma, &p->vc->local.nbma);
 
+<<<<<<< HEAD
 	THREAD_OFF(p->t_fallback);
 	THREAD_OFF(p->t_timer);
 	hash_release(nifp->peer_hash, p);
+=======
+	EVENT_OFF(p->t_fallback);
+	EVENT_OFF(p->t_timer);
+	if (nifp->peer_hash)
+		hash_release(nifp->peer_hash, p);
+>>>>>>> d163f89e1 (nhrpd: Fix nhrp_peer leak)
 	nhrp_interface_notify_del(p->ifp, &p->ifp_notifier);
 	nhrp_vc_notify_del(p->vc, &p->vc_notifier);
 	XFREE(MTYPE_NHRP_PEER, p);

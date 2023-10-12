@@ -74,8 +74,17 @@ static void nhrp_cache_free(struct nhrp_cache *c)
 	notifier_call(&c->notifier_list, NOTIFY_CACHE_DELETE);
 	assert(!notifier_active(&c->notifier_list));
 	hash_release(nifp->cache_hash, c);
+<<<<<<< HEAD
 	THREAD_OFF(c->t_timeout);
 	THREAD_OFF(c->t_auth);
+=======
+	if (c->cur.peer)
+		nhrp_peer_notify_del(c->cur.peer, &c->peer_notifier);
+	nhrp_peer_unref(c->cur.peer);
+	nhrp_peer_unref(c->new.peer);
+	EVENT_OFF(c->t_timeout);
+	EVENT_OFF(c->t_auth);
+>>>>>>> d163f89e1 (nhrpd: Fix nhrp_peer leak)
 	XFREE(MTYPE_NHRP_CACHE, c);
 }
 
