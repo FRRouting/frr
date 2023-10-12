@@ -112,6 +112,9 @@ static const struct message nlmsg_str[] = {{RTM_NEWROUTE, "RTM_NEWROUTE"},
 					   {RTM_NEWVLAN, "RTM_NEWVLAN"},
 					   {RTM_DELVLAN, "RTM_DELVLAN"},
 					   {RTM_GETVLAN, "RTM_GETVLAN"},
+					   {RTM_NEWCHAIN, "RTM_NEWCHAIN"},
+					   {RTM_DELCHAIN, "RTM_DELCHAIN"},
+					   {RTM_GETCHAIN, "RTM_GETCHAIN"},
 					   {0}};
 
 static const struct message rtproto_str[] = {
