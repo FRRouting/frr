@@ -425,6 +425,12 @@ static int netlink_information_fetch(struct nlmsghdr *h, ns_id_t ns_id,
 	case RTM_DELVLAN:
 		return netlink_vlan_change(h, ns_id, startup);
 
+	/* Messages we may receive, but ignore */
+	case RTM_NEWCHAIN:
+	case RTM_DELCHAIN:
+	case RTM_GETCHAIN:
+		return 0;
+
 	/* Messages handled in the dplane thread */
 	case RTM_NEWADDR:
 	case RTM_DELADDR:
