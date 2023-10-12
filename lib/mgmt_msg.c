@@ -634,7 +634,7 @@ static void msg_client_sched_connect(struct msg_client *client,
 				&client->conn_retry_tmr);
 }
 
-static bool msg_client_connect_short_circuit(struct msg_client *client)
+static int msg_client_connect_short_circuit(struct msg_client *client)
 {
 	struct msg_conn *server_conn;
 	struct msg_server *server;
@@ -648,10 +648,9 @@ static bool msg_client_connect_short_circuit(struct msg_client *client)
 			break;
 	if (!server) {
 		MGMT_MSG_DBG(dbgtag,
-			     "no short-circuit connection available for %s",
+			     "no short-circuit server available yet for %s",
 			     client->sopath);
-
-		return false;
+		return -1;
 	}
 
 	if (socketpair(AF_UNIX, SOCK_STREAM, 0, sockets)) {
@@ -659,7 +658,7 @@ static bool msg_client_connect_short_circuit(struct msg_client *client)
 			&client->conn.mstate,
 			"socketpair failed trying to short-circuit connection on %s: %s",
 			client->sopath, safe_strerror(errno));
-		return false;
+		return -1;
 	}
 
 	/* client side */
@@ -687,7 +686,7 @@ static bool msg_client_connect_short_circuit(struct msg_client *client)
 		client->sopath, client->conn.mstate.idtag, client->conn.fd,
 		server_conn->mstate.idtag, server_conn->fd);
 
-	return true;
+	return 0;
 }
 
 
@@ -697,11 +696,12 @@ static void msg_client_connect(struct msg_client *client)
 	struct msg_conn *conn = &client->conn;
 	const char *dbgtag = conn->debug ? conn->mstate.idtag : NULL;
 
-	if (!client->short_circuit_ok ||
-	    !msg_client_connect_short_circuit(client))
+	if (!client->short_circuit_ok)
 		conn->fd =
 			mgmt_msg_connect(client->sopath, MSG_CONN_SEND_BUF_SIZE,
 					 MSG_CONN_RECV_BUF_SIZE, dbgtag);
+	else if (msg_client_connect_short_circuit(client))
+		conn->fd = -1;
 
 	if (conn->fd == -1)
 		/* retry the connection */
@@ -741,7 +741,6 @@ void msg_client_init(struct msg_client *client, struct event_loop *tm,
 	mgmt_msg_init(&conn->mstate, max_read_buf, max_write_buf, max_msg_sz,
 		      idtag);
 
-	/* XXX maybe just have client kick this off */
 	/* Start trying to connect to server */
 	msg_client_sched_connect(client, 0);
 }

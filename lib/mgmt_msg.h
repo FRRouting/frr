@@ -136,6 +136,10 @@ struct msg_client {
 extern void msg_client_cleanup(struct msg_client *client);
 
 /*
+ * If `short_circuit_ok` is true, then the client-server connection will use a
+ * socketpair() rather than a unix-domain socket. This must be passed true if
+ * you wish to send messages short-circuit later.
+ *
  * `notify_disconnect` is not called when the user `msg_client_cleanup` is
  * called for a client which is currently connected. The socket is closed
  * but there is no notification.
