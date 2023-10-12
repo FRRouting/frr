@@ -1225,8 +1225,9 @@ leak_update(struct bgp *to_bgp, struct bgp_dest *bn,
 	new->extra->vrfleak->parent = bgp_path_info_lock(parent);
 	bgp_dest_lock_node(
 		(struct bgp_dest *)parent->net);
-	if (bgp_orig)
-		new->extra->vrfleak->bgp_orig = bgp_lock(bgp_orig);
+
+	new->extra->vrfleak->bgp_orig = bgp_lock(bgp_orig);
+
 	if (nexthop_orig)
 		new->extra->vrfleak->nexthop_orig = *nexthop_orig;
 
