@@ -1728,6 +1728,7 @@ void vpn_leak_from_vrf_update(struct bgp *to_bgp,	     /* to */
 			zlog_debug(
 				"%s: %s skipping: waiting for a valid per-label nexthop.",
 				__func__, from_bgp->name_pretty);
+		bgp_attr_flush(&static_attr);
 		return;
 	}
 	if (label_val == MPLS_LABEL_NONE)
