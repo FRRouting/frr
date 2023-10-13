@@ -500,6 +500,27 @@ static void nb_config_diff_deleted(const struct lyd_node *dnode, uint32_t *seq,
 	}
 }
 
+/*
+ * Check if a data node already exists in one of the config change
+ * entry. If so return the exact config change entry.
+ */
+static struct nb_config_change *nb_config_find_change(struct nb_config_cbs *changes,
+						      struct lyd_node *dnode)
+{
+	struct nb_config_cb *cb;
+	struct nb_config_change *chg = NULL;
+
+	RB_FOREACH (cb, nb_config_cbs, changes) {
+		chg = (struct nb_config_change *)cb;
+
+		zlog_debug("%s: Dnode: %p", __func__, chg->cb.dnode);
+		if (chg->cb.dnode == dnode)
+			return chg;
+	}
+
+	return NULL;
+}
+
 static int nb_lyd_diff_get_op(const struct lyd_node *dnode)
 {
 	const struct lyd_meta *meta;
@@ -753,6 +774,50 @@ int nb_candidate_edit(struct nb_config *candidate,
 	return NB_OK;
 }
 
+/*
+ * Remove all references of a item (or its children) being requested
+ * to delete, that may have been added to candidate scratch buffer earlier.
+ * If not done, it may leave invalid references to data items in the
+ * scrathc buffer that may have been deleted from memory already.
+ */
+static void nb_remove_candidate_changes(struct nb_config *candidate,
+					struct nb_cfg_change *change)
+{
+	char *xpath = change->xpath;
+	struct lyd_node *root = NULL;
+	struct lyd_node *dnode;
+	struct nb_config_cbs *cfg_chgs = &candidate->cfg_chgs;
+	char dn_xpath[XPATH_MAXLEN];
+	struct nb_config_change *chg = NULL;
+
+	root = yang_dnode_get(candidate->dnode, xpath);
+	if (!root || change->operation != NB_OP_DESTROY)
+		return;
+
+	zlog_debug("%s: Dnode: %p, XPath: %s, Oper: DESTROY",
+		   __func__, root, xpath);
+
+	LYD_TREE_DFS_BEGIN (root, dnode) {
+		lyd_path(dnode, LYD_PATH_STD, dn_xpath,
+			 sizeof(dn_xpath)-1);
+		zlog_debug("%s: -- Dnode: %p, XPath: %s", __func__, dnode,
+			   dn_xpath);
+		chg = nb_config_find_change(cfg_chgs, dnode);
+		if (chg) {
+			zlog_debug("Delete dnode %p, xpath: %s from Scratch Buffer!",
+				   dnode, xpath);
+			RB_REMOVE(nb_config_cbs, cfg_chgs, &chg->cb);
+			XFREE(MTYPE_TMP, chg);
+		}
+
+		LYD_TREE_DFS_END(root, dnode);
+	}
+}
+
+/*
+ * Update changes to the scratch buffer associated with the specifc
+ * candidate data tree.
+ */
 static void nb_update_candidate_changes(struct nb_config *candidate,
 					struct nb_cfg_change *change,
 					uint32_t *seq)
@@ -763,14 +828,38 @@ static void nb_update_candidate_changes(struct nb_config *candidate,
 	struct lyd_node *dnode;
 	struct nb_config_cbs *cfg_chgs = &candidate->cfg_chgs;
 	int op;
+	bool new = false, delete = false;
+	char dn_xpath[XPATH_MAXLEN];
 
 	switch (oper) {
 	case NB_OP_CREATE:
+		root = yang_dnode_get(candidate->dnode, xpath);
+		new = true;
+		zlog_debug("%s: Dnode: %p, XPath: %s, Oper: CREATE",
+			   __func__, root, xpath);
+		break;
 	case NB_OP_MODIFY:
 		root = yang_dnode_get(candidate->dnode, xpath);
+		zlog_debug("%s: Dnode: %p, XPath: %s, Oper: MODIFY",
+			   __func__, root, xpath);
 		break;
 	case NB_OP_DESTROY:
+		/*
+		 * Let's first check if the config item being requested
+		 * to delete (or any of its children ) has been recently
+		 * added to the scratch buffer or not. If so we need to
+		 * remove from the scratch buffer first.
+		 */
+		nb_remove_candidate_changes(candidate, change);
+
+		/*
+		 * Next check if the config item being requested
+		 * to delete has been previously committed to the
+		 * running datastore or not. If so we need to add
+		 * a delete request in the scratch buffer.
+		 */
 		root = yang_dnode_get(running_config->dnode, xpath);
+		delete = true;
 		/* code */
 		break;
 	case NB_OP_MOVE:
@@ -790,24 +879,45 @@ static void nb_update_candidate_changes(struct nb_config *candidate,
 		return;
 
 	LYD_TREE_DFS_BEGIN (root, dnode) {
+		lyd_path(dnode, LYD_PATH_STD, dn_xpath,
+			 sizeof(dn_xpath)-1);
 		op = nb_lyd_diff_get_op(dnode);
 		switch (op) {
 		case 'c': /* create */
-			nb_config_diff_created(dnode, seq, cfg_chgs);
 			LYD_TREE_DFS_continue = 1;
 			break;
 		case 'd': /* delete */
-			nb_config_diff_deleted(dnode, seq, cfg_chgs);
 			LYD_TREE_DFS_continue = 1;
 			break;
 		case 'r': /* replace */
-			nb_config_diff_add_change(cfg_chgs, NB_OP_MODIFY, seq,
-						  dnode);
 			break;
 		case 'n': /* none */
+			/*
+			 * There are no operational metadata associated. Just
+			 * follow the original operation.
+			 */
+			if (new || delete)
+				LYD_TREE_DFS_continue = 1;
+			break;
 		default:
 			break;
 		}
+
+		if (delete) {
+			zlog_debug("%s: Add dnode %p, xpath: %s to Scratch Buffer for deletion",
+					__func__, dnode, dn_xpath);
+			nb_config_diff_deleted(dnode, seq, cfg_chgs);
+		} else if (new) {
+			zlog_debug("%s: Add dnode %p, xpath: %s to Scratch Buffer for creation",
+					__func__, dnode, dn_xpath);
+			nb_config_diff_created(dnode, seq, cfg_chgs);
+		} else {
+			zlog_debug("%s: Add dnode %p, xpath: %s to Scratch Buffer for modification",
+					__func__, dnode, dn_xpath);
+			nb_config_diff_add_change(cfg_chgs,
+				NB_OP_MODIFY, seq, dnode);
+		}
+
 		LYD_TREE_DFS_END(root, dnode);
 	}
 }
@@ -827,7 +937,8 @@ static bool nb_is_operation_allowed(struct nb_node *nb_node,
 void nb_candidate_edit_config_changes(
 	struct nb_config *candidate_config, struct nb_cfg_change cfg_changes[],
 	size_t num_cfg_changes, const char *xpath_base, const char *curr_xpath,
-	int xpath_index, char *err_buf, int err_bufsize, bool *error)
+	int xpath_index, bool update_scratchbuf, char *err_buf,
+	int err_bufsize, bool *error)
 {
 	uint32_t seq = 0;
 
@@ -884,6 +995,28 @@ void nb_candidate_edit_config_changes(
 		data = yang_data_new(xpath, change->value);
 
 		/*
+		 * NOTE:
+		 * It is time to update the change in Candidate datastore. But
+		 * we also need to consider adding the change to the scratch
+		 * buffer associated with the Candidate datastore. Adding to
+		 * scratch buffer helps in scenarios where we have few config
+		 * changes and a big running and candidate tree already. In
+		 * such cases a regular diff between candidate and running
+		 * tree takes unusually very long.
+		 */
+
+		/*
+		 * If this is a delete operation we need to remove it from
+		 * the scratch buffer before updating the candidate node
+		 * (if it has been added previously as part of the same
+		 * commit).
+		 */
+		if (update_scratchbuf && change->operation == NB_OP_DESTROY)
+			nb_update_candidate_changes(candidate_config, change,
+						    &seq);
+
+		/*
+		 * And then add the changes to the actual candidate data tree.
 		 * Ignore "not found" errors when editing the candidate
 		 * configuration.
 		 */
@@ -900,7 +1033,14 @@ void nb_candidate_edit_config_changes(
 				*error = true;
 			continue;
 		}
-		nb_update_candidate_changes(candidate_config, change, &seq);
+
+		/*
+		 * And finally add all create/modify requests to the scratch
+		 * buffer associated with the candidate data tree.
+		 */
+		if (update_scratchbuf && change->operation != NB_OP_DESTROY)
+			nb_update_candidate_changes(candidate_config, change,
+						    &seq);
 	}
 
 	if (error && *error) {

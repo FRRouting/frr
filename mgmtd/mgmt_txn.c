@@ -666,7 +666,7 @@ static void mgmt_txn_process_set_cfg(struct event *thread)
 						 txn_req->req.set_cfg->cfg_changes,
 						 (size_t)txn_req->req.set_cfg
 							 ->num_cfg_changes,
-						 NULL, NULL, 0, err_buf,
+						 NULL, NULL, 0, true, err_buf,
 						 sizeof(err_buf), &error);
 		if (error) {
 			mgmt_fe_send_set_cfg_reply(txn->session_id, txn->txn_id,
@@ -1199,6 +1199,7 @@ static int mgmt_txn_prepare_config(struct mgmt_txn_ctx *txn)
 	 */
 	cfg_chgs = &nb_config->cfg_chgs;
 	if (RB_EMPTY(nb_config_cbs, cfg_chgs)) {
+		MGMTD_TXN_DBG("Candidate Scratch buffer Empty! Computing FULL Diff!");
 		/*
 		 * This could be the case when the config is directly
 		 * loaded onto the candidate DS from a file. Get the
@@ -1211,6 +1212,8 @@ static int mgmt_txn_prepare_config(struct mgmt_txn_ctx *txn)
 			       nb_config, &changes);
 		cfg_chgs = &changes;
 		del_cfg_chgs = true;
+	} else {
+		MGMTD_TXN_DBG("Found changes in Candidate Scratch buffer!");
 	}
 
 	if (RB_EMPTY(nb_config_cbs, cfg_chgs)) {
@@ -2228,12 +2231,16 @@ int mgmt_txn_send_set_config_req(uint64_t txn_id, uint64_t req_id,
 		else
 			continue;
 
-		MGMTD_TXN_DBG("XPath: '%s', Value: '%s'",
+		MGMTD_TXN_DBG("XPath: '%s', Value: '%s', OPER: %s",
 			      cfg_req[indx]->data->xpath,
 			      (cfg_req[indx]->data->value &&
 					       cfg_req[indx]->data->value->encoded_str_val
 				       ? cfg_req[indx]->data->value->encoded_str_val
-				       : "NULL"));
+				       : "NULL"),
+			      (cfg_chg->operation == NB_OP_CREATE ? "Create"
+			       : cfg_chg->operation == NB_OP_MODIFY ? "Modify"
+			       : cfg_chg->operation == NB_OP_DESTROY
+			       ? "Destroy" : "Other"));
 		strlcpy(cfg_chg->xpath, cfg_req[indx]->data->xpath,
 			sizeof(cfg_chg->xpath));
 		cfg_chg->value =

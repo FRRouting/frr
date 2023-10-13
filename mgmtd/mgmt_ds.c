@@ -101,6 +101,14 @@ static int mgmt_ds_replace_dst_with_src_ds(struct mgmt_ds_ctx *src,
 		nb_config_diff_del_changes(&src->root.cfg_root->cfg_chgs);
 	}
 
+	if (dst->ds_id == MGMTD_DS_CANDIDATE) {
+		/*
+		 * Drop the changes in scratch-buffer.
+		 */
+		MGMTD_DS_DBG("Emptying Candidate Scratch buffer!");
+		nb_config_diff_del_changes(&dst->root.cfg_root->cfg_chgs);
+	}
+
 	return 0;
 }
 
@@ -132,6 +140,14 @@ static int mgmt_ds_merge_src_with_dst_ds(struct mgmt_ds_ctx *src,
 		 */
 		MGMTD_DS_DBG("Emptying Candidate Scratch buffer!");
 		nb_config_diff_del_changes(&src->root.cfg_root->cfg_chgs);
+	}
+
+	if (dst->ds_id == MGMTD_DS_CANDIDATE) {
+		/*
+		 * Drop the changes in scratch-buffer.
+		 */
+		MGMTD_DS_DBG("Emptying Candidate Scratch buffer!");
+		nb_config_diff_del_changes(&dst->root.cfg_root->cfg_chgs);
 	}
 
 	return 0;
