@@ -1207,26 +1207,20 @@ static bool update_ipv6nh_for_route_install(int nh_othervrf, struct bgp *nh_bgp,
 }
 
 static bool bgp_zebra_use_nhop_weighted(struct bgp *bgp, struct attr *attr,
-					uint64_t tot_bw, uint32_t *nh_weight)
+					uint32_t *nh_weight)
 {
-	uint32_t bw;
-	uint64_t tmp;
-
-	bw = attr->link_bw;
 	/* zero link-bandwidth and link-bandwidth not present are treated
 	 * as the same situation.
 	 */
-	if (!bw) {
+	if (!attr->link_bw) {
 		/* the only situations should be if we're either told
 		 * to skip or use default weight.
 		 */
 		if (bgp->lb_handling == BGP_LINK_BW_SKIP_MISSING)
 			return false;
 		*nh_weight = BGP_ZEBRA_DEFAULT_NHOP_WEIGHT;
-	} else {
-		tmp = (uint64_t)bw * 100;
-		*nh_weight = ((uint32_t)(tmp / tot_bw));
-	}
+	} else
+		*nh_weight = attr->link_bw;
 
 	return true;
 }
@@ -1255,7 +1249,6 @@ void bgp_zebra_announce(struct bgp_dest *dest, const struct prefix *p,
 	int nh_othervrf = 0;
 	bool nh_updated = false;
 	bool do_wt_ecmp;
-	uint64_t cum_bw = 0;
 	uint32_t nhg_id = 0;
 	bool is_add;
 	uint32_t ttl = 0;
@@ -1339,8 +1332,6 @@ void bgp_zebra_announce(struct bgp_dest *dest, const struct prefix *p,
 
 	/* Determine if we're doing weighted ECMP or not */
 	do_wt_ecmp = bgp_path_info_mpath_chkwtd(bgp, info);
-	if (do_wt_ecmp)
-		cum_bw = bgp_path_info_mpath_cumbw(info);
 
 	/* EVPN MAC-IP routes are installed with a L3 NHG id */
 	if (bgp_evpn_path_es_use_nhg(bgp, info, &nhg_id)) {
@@ -1382,7 +1373,7 @@ void bgp_zebra_announce(struct bgp_dest *dest, const struct prefix *p,
 		 */
 		if (do_wt_ecmp) {
 			if (!bgp_zebra_use_nhop_weighted(bgp, mpinfo->attr,
-							 cum_bw, &nh_weight))
+							 &nh_weight))
 				continue;
 		}
 		api_nh = &api.nexthops[valid_nh_count];

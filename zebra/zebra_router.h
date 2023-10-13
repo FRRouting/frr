@@ -231,6 +231,8 @@ struct zebra_router {
 	bool allow_delete;
 
 	uint8_t protodown_r_bit;
+
+	uint64_t nexthop_weight_scale_value;
 };
 
 #define GRACEFUL_RESTART_TIME 60
