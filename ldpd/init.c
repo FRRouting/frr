@@ -229,9 +229,11 @@ send_capability(struct nbr *nbr, uint16_t capability, int enable)
 		 * Announcement Parameter in Capability messages sent to
 		 * its peers".
 		 */
-		fallthrough;
+		fatalx("send_capability: An LDP speaker MUST NOT include the Dynamic Capability Announcement Parameter");
+		break;
 	default:
 		fatalx("send_capability: unsupported capability");
+		break;
 	}
 
 	if (err) {
