@@ -452,7 +452,14 @@ DEFPY(debug_mgmt, debug_mgmt_cmd,
 
 static void mgmt_config_read_in(struct event *event)
 {
-	mgmt_vty_read_configs();
+	if (vty_mgmt_fe_enabled())
+		mgmt_vty_read_configs();
+	else {
+		zlog_warn("%s: no connection to front-end server, retry in 1s",
+			  __func__);
+		event_add_timer(mm->master, mgmt_config_read_in, NULL, 1,
+				&mgmt_daemon_info->read_in);
+	}
 }
 
 void mgmt_vty_init(void)

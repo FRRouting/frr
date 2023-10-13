@@ -52,17 +52,26 @@ void mgmt_init(void)
 	/* Initialize the MGMTD Frontend Adapter Module */
 	mgmt_fe_adapter_init(mm->master);
 
-	/* Initialize the CLI frontend client */
+	/*
+	 * Initialize the CLI frontend client -- this queues an event for the
+	 * client to short-circuit connect to the server (ourselves).
+	 */
 	vty_init_mgmt_fe();
 
-	/* MGMTD VTY commands installation. */
+	/*
+	 * MGMTD VTY commands installation -- the frr lib code will queue an
+	 * event to read the config files which needs to happen after the
+	 * connect from above is made.
+	 */
 	mgmt_vty_init();
 
 	/*
 	 * Initialize the MGMTD Backend Adapter Module
 	 *
-	 * We do this after the FE stuff so that we always read our config file
-	 * prior to any BE connection.
+	 * We do this after the FE stuff so that we have read our config file
+	 * prior to any BE connection. Setting up the server will queue a
+	 * "socket read" event to accept BE connections. So the code is counting
+	 * on the above 2 events to run prior to any `accept` event from here.
 	 */
 	mgmt_be_adapter_init(mm->master);
 }
