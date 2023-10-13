@@ -456,7 +456,17 @@ static int label_manager_get_chunk(struct label_manager_chunk **lmc,
 {
 	*lmc = assign_label_chunk(client->proto, client->instance,
 				  client->session_id, keep, size, base);
-	return lm_get_chunk_response(*lmc, client, vrf_id);
+	/* Respond to a get_chunk request */
+	if (!*lmc)
+		flog_err(EC_ZEBRA_LM_CANNOT_ASSIGN_CHUNK,
+			 "Unable to assign Label Chunk to %s instance %u",
+			 zebra_route_string(client->proto), client->instance);
+	else if (IS_ZEBRA_DEBUG_PACKET)
+		zlog_debug("Assigned Label Chunk %u - %u to %s instance %u",
+			   (*lmc)->start, (*lmc)->end,
+			   zebra_route_string(client->proto), client->instance);
+
+	return zsend_assign_label_chunk_response(client, vrf_id, *lmc);
 }
 
 /* Respond to a connect request */
@@ -473,22 +483,6 @@ int lm_client_connect_response(uint8_t proto, uint16_t instance,
 		return 1;
 	}
 	return zsend_label_manager_connect_response(client, vrf_id, result);
-}
-
-/* Respond to a get_chunk request */
-int lm_get_chunk_response(struct label_manager_chunk *lmc, struct zserv *client,
-			  vrf_id_t vrf_id)
-{
-	if (!lmc)
-		flog_err(EC_ZEBRA_LM_CANNOT_ASSIGN_CHUNK,
-			 "Unable to assign Label Chunk to %s instance %u",
-			 zebra_route_string(client->proto), client->instance);
-	else if (IS_ZEBRA_DEBUG_PACKET)
-		zlog_debug("Assigned Label Chunk %u - %u to %s instance %u",
-			   lmc->start, lmc->end,
-			   zebra_route_string(client->proto), client->instance);
-
-	return zsend_assign_label_chunk_response(client, vrf_id, lmc);
 }
 
 void label_manager_close(void)
