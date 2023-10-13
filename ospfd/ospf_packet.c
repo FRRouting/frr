@@ -1042,7 +1042,7 @@ static void ospf_db_desc_proc(struct stream *s, struct ospf_interface *oi,
 			/* Neighbour has a more recent LSA, we must request it
 			 */
 			ospf_ls_request_add(nbr, new);
-		/* fallthru */
+			fallthrough;
 		case 0:
 			/* If we have a copy of this LSA, it's either less
 			 * recent
@@ -1231,7 +1231,7 @@ static void ospf_db_desc(struct ip *iph, struct ospf_header *ospfh,
 		   through to case ExStart below.  */
 		if (nbr->state != NSM_ExStart)
 			break;
-	/* fallthru */
+		fallthrough;
 	case NSM_ExStart:
 		/* Initial DBD */
 		if ((IS_SET_DD_ALL(dd->flags) == OSPF_DD_FLAG_ALL)
@@ -1641,7 +1641,7 @@ static struct list *ospf_ls_upd_list_lsa(struct ospf_neighbor *nbr,
 		case OSPF_OPAQUE_LINK_LSA:
 			lsa->oi = oi; /* Remember incoming interface for
 					 flooding control. */
-		/* Fallthrough */
+			fallthrough;
 		default:
 			lsa->area = oi->area;
 			break;

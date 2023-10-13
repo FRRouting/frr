@@ -697,8 +697,8 @@ static uint8_t *ospfv3GeneralGroup(struct variable *v, oid *name,
 	case OSPFv3REFERENCEBANDWIDTH:
 		if (ospf6)
 			return SNMP_INTEGER(ospf6->ref_bandwidth);
-	/* Otherwise, like for "not implemented". */
-	/* fallthru */
+		/* Otherwise, like for "not implemented". */
+		return NULL;
 	case OSPFv3RESTARTSUPPORT:
 	case OSPFv3RESTARTINTERVAL:
 	case OSPFv3RESTARTSTRICTLSACHECKING:

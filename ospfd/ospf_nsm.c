@@ -107,7 +107,7 @@ static void nsm_timer_set(struct ospf_neighbor *nbr)
 	case NSM_Down:
 		EVENT_OFF(nbr->t_inactivity);
 		EVENT_OFF(nbr->t_hello_reply);
-	/* fallthru */
+		fallthrough;
 	case NSM_Attempt:
 	case NSM_Init:
 	case NSM_TwoWay:

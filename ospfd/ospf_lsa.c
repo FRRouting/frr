@@ -3096,13 +3096,14 @@ struct ospf_lsa *ospf_lsa_install(struct ospf *ospf, struct ospf_interface *oi,
 			/* Incoming "oi" for this LSA has set at LSUpd
 			 * reception. */
 		}
-	/* Fallthrough */
+		fallthrough;
 	case OSPF_OPAQUE_AREA_LSA:
 	case OSPF_OPAQUE_AS_LSA:
 		new = ospf_opaque_lsa_install(lsa, rt_recalc);
 		break;
 	case OSPF_AS_NSSA_LSA:
 		new = ospf_external_lsa_install(ospf, lsa, rt_recalc);
+		break;
 	default: /* type-6,8,9....nothing special */
 		break;
 	}

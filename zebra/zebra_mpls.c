@@ -1182,6 +1182,7 @@ static char *nhlfe2str(const struct zebra_nhlfe *nhlfe, char *buf, int size)
 		break;
 	case NEXTHOP_TYPE_IFINDEX:
 		snprintf(buf, size, "Ifindex: %u", nexthop->ifindex);
+		break;
 	case NEXTHOP_TYPE_BLACKHOLE:
 		break;
 	}

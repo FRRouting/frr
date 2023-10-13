@@ -340,7 +340,7 @@ reswitch:	switch (ch) {
 			if (width >= 0)
 				goto rflag;
 			width = -width;
-			/* FALLTHROUGH */
+			fallthrough;
 		case '-':
 			flags |= LADJUST;
 			goto rflag;
@@ -434,7 +434,7 @@ reswitch:	switch (ch) {
 			break;
 		case 'C':
 			flags |= LONGINT;
-			/*FALLTHROUGH*/
+			fallthrough;
 		case 'c':
 #ifdef WCHAR_SUPPORT
 			if (flags & LONGINT) {
@@ -460,7 +460,7 @@ reswitch:	switch (ch) {
 			break;
 		case 'D':
 			flags |= LONGINT;
-			/*FALLTHROUGH*/
+			fallthrough;
 		case 'd':
 		case 'i':
 			if (flags & INTMAX_SIZE)
@@ -551,7 +551,7 @@ reswitch:	switch (ch) {
 			break;
 		case 'O':
 			flags |= LONGINT;
-			/*FALLTHROUGH*/
+			fallthrough;
 		case 'o':
 			if (flags & INTMAX_SIZE)
 				ujval = UJARG();
@@ -595,7 +595,7 @@ reswitch:	switch (ch) {
 			goto nosign;
 		case 'S':
 			flags |= LONGINT;
-			/*FALLTHROUGH*/
+			fallthrough;
 		case 's':
 #ifdef WCHAR_SUPPORT
 			if (flags & LONGINT) {
@@ -621,7 +621,7 @@ reswitch:	switch (ch) {
 			break;
 		case 'U':
 			flags |= LONGINT;
-			/*FALLTHROUGH*/
+			fallthrough;
 		case 'u':
 			if (flags & INTMAX_SIZE)
 				ujval = UJARG();

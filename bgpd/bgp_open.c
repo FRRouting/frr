@@ -1028,6 +1028,7 @@ static int bgp_capability_parse(struct peer *peer, size_t length,
 						BGP_NOTIFY_OPEN_MALFORMED_ATTR);
 				return -1;
 			}
+			break;
 		/* we deliberately ignore unknown codes, see below */
 		default:
 			break;

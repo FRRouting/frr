@@ -1310,6 +1310,7 @@ int nhg_ctx_process(struct nhg_ctx *ctx)
 		break;
 	case NHG_CTX_OP_DEL:
 		ret = nhg_ctx_process_del(ctx);
+		break;
 	case NHG_CTX_OP_NONE:
 		break;
 	}

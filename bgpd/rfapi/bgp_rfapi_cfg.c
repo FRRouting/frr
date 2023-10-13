@@ -1720,7 +1720,8 @@ DEFUN (vnc_nve_group_export_no_routemap,
 	switch (argv[idx]->text[0]) {
 	case 'z':
 		is_bgp = 0;
-	/* fall thru */
+		idx += 2;
+		break;
 	case 'b':
 		idx += 2;
 		break;
@@ -3590,7 +3591,9 @@ DEFUN (vnc_l2_group_rt,
 
 	switch (argv[1]->arg[0]) {
 	case 'b':
-		do_export = 1; /* fall through */
+		do_export = 1;
+		do_import = 1;
+		break;
 	case 'i':
 		do_import = 1;
 		break;

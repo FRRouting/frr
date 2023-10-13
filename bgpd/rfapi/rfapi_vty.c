@@ -4151,6 +4151,7 @@ static int rfapi_vty_show_nve_summary(struct vty *vty,
 
 		case SHOW_NVE_SUMMARY_RESPONSES:
 			rfapiRibShowResponsesSummary(vty);
+			break;
 
 		case SHOW_NVE_SUMMARY_UNKNOWN_NVES:
 		case SHOW_NVE_SUMMARY_MAX:

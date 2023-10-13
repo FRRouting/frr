@@ -229,7 +229,7 @@ send_capability(struct nbr *nbr, uint16_t capability, int enable)
 		 * Announcement Parameter in Capability messages sent to
 		 * its peers".
 		 */
-		/* FALLTHROUGH */
+		fallthrough;
 	default:
 		fatalx("send_capability: unsupported capability");
 	}
@@ -333,7 +333,7 @@ recv_capability(struct nbr *nbr, char *buf, uint16_t len)
 			 * parameter and process any other Capability Parameters
 			 * in the message".
 			 */
-			/* FALLTHROUGH */
+			fallthrough;
 		default:
 			if (!CHECK_FLAG(ntohs(tlv.type), UNKNOWN_FLAG))
 				send_notification_rtlvs(nbr, S_UNSSUPORTDCAP,

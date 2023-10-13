@@ -180,7 +180,7 @@ static struct nexthop *nhg_nh_find(const struct nexthop_group *nhg,
 						 &nexthop->gate, &nh->gate);
 			if (ret != 0)
 				continue;
-			/* Intentional Fall-Through */
+			fallthrough;
 		case NEXTHOP_TYPE_IFINDEX:
 			if (nexthop->ifindex != nh->ifindex)
 				continue;

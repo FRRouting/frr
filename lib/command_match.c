@@ -405,10 +405,10 @@ enum matcher_rv command_complete(struct graph *graph, vector vline,
 				listnode_add(next, newstack);
 				break;
 			case partly_match:
-				trace_matcher("trivial_match\n");
+				trace_matcher("partly_match\n");
 				if (exact_match_exists && !last_token)
 					break;
-			/* fallthru */
+				fallthrough;
 			case exact_match:
 				trace_matcher("exact_match\n");
 				if (last_token) {

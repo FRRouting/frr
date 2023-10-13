@@ -338,7 +338,7 @@ bool pim_nht_bsr_rpf_check(struct pim_instance *pim, pim_addr bsr_addr,
 			if (nh->ifindex == IFINDEX_INTERNAL)
 				continue;
 
-			/* fallthru */
+			fallthrough;
 		case NEXTHOP_TYPE_IPV4_IFINDEX:
 			nhaddr = nh->gate.ipv4;
 			break;
@@ -350,7 +350,7 @@ bool pim_nht_bsr_rpf_check(struct pim_instance *pim, pim_addr bsr_addr,
 			if (nh->ifindex == IFINDEX_INTERNAL)
 				continue;
 
-			/* fallthru */
+			fallthrough;
 		case NEXTHOP_TYPE_IPV6_IFINDEX:
 			nhaddr = nh->gate.ipv6;
 			break;

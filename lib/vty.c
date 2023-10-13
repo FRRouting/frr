@@ -1565,7 +1565,7 @@ static void vty_read(struct event *thread)
 			break;
 		case '\r':
 			vty->escape = VTY_CR;
-			/* fallthru */
+			fallthrough;
 		case '\n':
 			vty_out(vty, "\n");
 			buffer_flush_available(vty->obuf, vty->wfd);

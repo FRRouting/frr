@@ -891,7 +891,7 @@ static int zapi_nexthop_cmp_no_labels(const struct zapi_nexthop *next1,
 					 &next2->gate);
 		if (ret != 0)
 			return ret;
-		/* Intentional Fall-Through */
+		fallthrough;
 	case NEXTHOP_TYPE_IFINDEX:
 		if (next1->ifindex < next2->ifindex)
 			return -1;
