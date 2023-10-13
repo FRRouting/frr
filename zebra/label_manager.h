@@ -78,8 +78,6 @@ void lm_release_chunk_call(struct zserv *client, uint32_t start,
 int lm_client_connect_response(uint8_t proto, uint16_t instance,
 			       uint32_t session_id, vrf_id_t vrf_id,
 			       uint8_t result);
-int lm_get_chunk_response(struct label_manager_chunk *lmc, struct zserv *client,
-			  vrf_id_t vrf_id);
 
 /* convenience function to allocate an lmc to be consumed by the above API */
 struct label_manager_chunk *
