@@ -1376,6 +1376,56 @@ ospf6_external_aggr_match(struct ospf6 *ospf6, struct prefix *p)
 	return node->info;
 }
 
+static void ospf6_external_lsa_fwd_addr_set(struct ospf6 *ospf6,
+					    const struct in6_addr *nexthop,
+					    struct in6_addr *fwd_addr)
+{
+	struct vrf *vrf;
+	struct interface *ifp;
+	struct prefix nh;
+
+	/* Initialize forwarding address to zero. */
+	memset(fwd_addr, 0, sizeof(*fwd_addr));
+
+	vrf = vrf_lookup_by_id(ospf6->vrf_id);
+	if (!vrf)
+		return;
+
+	nh.family = AF_INET6;
+	nh.u.prefix6 = *nexthop;
+	nh.prefixlen = IPV6_MAX_BITLEN;
+
+	/*
+	 * Use the route's nexthop as the forwarding address if it meets the
+	 * following conditions:
+	 * - It's a global address.
+	 * - The associated nexthop interface is OSPF-enabled.
+	 */
+	if (IN6_IS_ADDR_UNSPECIFIED(nexthop) || IN6_IS_ADDR_LINKLOCAL(nexthop))
+		return;
+
+	FOR_ALL_INTERFACES (vrf, ifp) {
+		struct ospf6_interface *oi = ifp->info;
+		struct connected *connected;
+		struct listnode *node;
+
+		if (!oi || CHECK_FLAG(oi->flag, OSPF6_INTERFACE_DISABLE))
+			continue;
+
+		FOR_ALL_INTERFACES_ADDRESSES (ifp, connected, node) {
+			if (connected->address->family != AF_INET6)
+				continue;
+			if (IN6_IS_ADDR_LINKLOCAL(&connected->address->u.prefix6))
+				continue;
+			if (!prefix_match(connected->address, &nh))
+				continue;
+
+			*fwd_addr = *nexthop;
+			return;
+		}
+	}
+}
+
 void ospf6_asbr_redistribute_add(int type, ifindex_t ifindex,
 				 struct prefix *prefix,
 				 unsigned int nexthop_num,
@@ -1470,10 +1520,8 @@ void ospf6_asbr_redistribute_add(int type, ifindex_t ifindex,
 
 		if (nexthop_num && nexthop) {
 			ospf6_route_add_nexthop(match, ifindex, nexthop);
-			if (!IN6_IS_ADDR_UNSPECIFIED(nexthop)
-			    && !IN6_IS_ADDR_LINKLOCAL(nexthop))
-				memcpy(&info->forwarding, nexthop,
-				       sizeof(struct in6_addr));
+			ospf6_external_lsa_fwd_addr_set(ospf6, nexthop,
+							&info->forwarding);
 		} else
 			ospf6_route_add_nexthop(match, ifindex, NULL);
 
@@ -1520,10 +1568,8 @@ void ospf6_asbr_redistribute_add(int type, ifindex_t ifindex,
 	info->type = type;
 	if (nexthop_num && nexthop) {
 		ospf6_route_add_nexthop(route, ifindex, nexthop);
-		if (!IN6_IS_ADDR_UNSPECIFIED(nexthop)
-		    && !IN6_IS_ADDR_LINKLOCAL(nexthop))
-			memcpy(&info->forwarding, nexthop,
-			       sizeof(struct in6_addr));
+		ospf6_external_lsa_fwd_addr_set(ospf6, nexthop,
+						&info->forwarding);
 	} else
 		ospf6_route_add_nexthop(route, ifindex, NULL);
 
