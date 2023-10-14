@@ -1492,7 +1492,7 @@ DEFPY (show_yang_operational_data,
 	/* Obtain data. */
 	dnode = yang_dnode_new(ly_ctx, false);
 	ret = nb_oper_data_iterate(xpath, translator, 0, nb_cli_oper_data_cb,
-				   dnode);
+				   dnode, NULL);
 	if (ret != NB_OK) {
 		if (format == LYD_JSON)
 			vty_out(vty, "{}\n");

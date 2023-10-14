@@ -378,7 +378,7 @@ static int frr_sr_state_cb(sr_session_ctx_t *session, uint32_t sub_id,
 
 	dnode = *parent;
 	if (nb_oper_data_iterate(request_xpath, NULL, 0,
-				 frr_sr_state_data_iter_cb, dnode)
+				 frr_sr_state_data_iter_cb, dnode, NULL)
 	    != NB_OK) {
 		flog_warn(EC_LIB_NB_OPERATIONAL_DATA,
 			  "%s: failed to obtain operational data [xpath %s]",

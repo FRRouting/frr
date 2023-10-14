@@ -770,45 +770,6 @@ static int mgmt_be_client_handle_msg(struct mgmt_be_client *client_ctx,
 	return 0;
 }
 
-
-static int be_client_oper_data_cb(const struct lysc_node *snode,
-				  struct yang_translator *translator,
-				  struct yang_data *data, void *arg)
-{
-	struct be_oper_iter_arg *iarg = arg;
-	struct ly_ctx *ly_ctx = ly_native_ctx;
-	struct lyd_node *hint = iarg->hint;
-	struct lyd_node *dnode = NULL;
-	LY_ERR err;
-
-	if (hint &&
-	    (snode == hint->schema || snode->parent == hint->schema->parent)) {
-		/* This node and the previous node share the same parent, use
-		 * this fact to create the sibling node directly in the tree.
-		 */
-		err = lyd_new_term_canon(&hint->parent->node, snode->module,
-					 snode->name, data->value, true, &dnode);
-	} else if (hint && snode->parent == hint->schema) {
-		/* This node is a child of the previous added element (e.g., a list) */
-		err = lyd_new_term_canon(hint, snode->module, snode->name,
-					 data->value, true, &dnode);
-	} else {
-		/* Use the generic xpath parsing create function. This is
-		 * required for creating list entries (along with their child
-		 * key leafs) and other multiple node adding operations.
-		 */
-		err = lyd_new_path(iarg->root, ly_ctx, data->xpath,
-				   (void *)data->value, LYD_NEW_PATH_UPDATE,
-				   &dnode);
-	}
-	if (err)
-		flog_warn(EC_LIB_LIBYANG, "%s: failed creating node: %s: %s",
-			  __func__, data->xpath, ly_errmsg(ly_native_ctx));
-	iarg->hint = dnode;
-	yang_data_free(data);
-	return err ? NB_ERR : NB_OK;
-}
-
 /*
  * Process the get-tree request on our local oper state
  */
@@ -818,8 +779,7 @@ static void be_client_handle_get_tree(struct mgmt_be_client *client,
 {
 	struct mgmt_msg_get_tree *get_tree_msg = msgbuf;
 	struct mgmt_msg_tree_data *tree_msg = NULL;
-	struct be_oper_iter_arg iter_arg = {};
-	struct lyd_node *dnode;
+	struct lyd_node *dnode = NULL;
 	uint8_t *buf = NULL;
 	int ret;
 
@@ -832,13 +792,12 @@ static void be_client_handle_get_tree(struct mgmt_be_client *client,
 	 */
 
 	/* Obtain data. */
-	dnode = yang_dnode_new(ly_native_ctx, false);
-	iter_arg.root = dnode;
 	ret = nb_oper_data_iterate(get_tree_msg->xpath, NULL, 0,
-				   be_client_oper_data_cb, &iter_arg);
+				   NULL, NULL, &dnode);
 	if (ret != NB_OK) {
 fail:
-		yang_dnode_free(dnode);
+		if (dnode)
+			yang_dnode_free(dnode);
 		darr_free(buf);
 		be_client_send_error(client, get_tree_msg->txn_id,
 				     get_tree_msg->req_id, false, -EINVAL,

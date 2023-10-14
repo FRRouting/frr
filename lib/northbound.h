@@ -1268,12 +1268,16 @@ extern int nb_running_lock_check(enum nb_client client, const void *user);
  * arg
  *    Arbitrary argument passed as the fourth parameter in each call to 'cb'.
  *
+ * tree
+ *    If non-NULL will contain the data tree built from the walk.
+ *
  * Returns:
  *    NB_OK on success, NB_ERR otherwise.
  */
 extern int nb_oper_data_iterate(const char *xpath,
 				struct yang_translator *translator,
-				uint32_t flags, nb_oper_data_cb cb, void *arg);
+				uint32_t flags, nb_oper_data_cb cb, void *arg,
+				struct lyd_node **tree);
 
 /*
  * Validate if the northbound operation is valid for the given node.
