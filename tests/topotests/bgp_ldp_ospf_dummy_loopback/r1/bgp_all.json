@@ -1,0 +1,16 @@
+{
+  "ipv4Unicast": {
+    "vrfId": 0,
+    "vrfName": "default",
+    "routerId": "192.0.2.1",
+    "defaultLocPrf": 100,
+    "localAS": 65001
+  },
+  "ipv4Vpn": {
+    "vrfId": 0,
+    "vrfName": "default",
+    "routerId": "192.0.2.1",
+    "defaultLocPrf": 100,
+    "localAS": 65001
+  }
+}

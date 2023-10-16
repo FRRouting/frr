@@ -1,0 +1,16 @@
+{
+  "neighbors":[
+    {
+      "addressFamily":"ipv4",
+      "neighborId":"192.0.2.2",
+      "state":"OPERATIONAL",
+      "transportAddress":"192.0.2.2"
+    },
+    {
+      "addressFamily":"ipv4",
+      "neighborId":"192.0.2.3",
+      "state":"OPERATIONAL",
+      "transportAddress":"192.0.2.3"
+    }
+  ]
+}
