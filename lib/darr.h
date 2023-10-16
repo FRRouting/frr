@@ -10,15 +10,16 @@
  *  - darr_append_n
  *  - darr_append_nz
  *  - darr_cap
+ *  - darr_ensure_avail
  *  - darr_ensure_cap
  *  - darr_ensure_i
- *  - darr_foreach_i
- *  - darr_foreach_p
  *  - darr_free
  *  - darr_insert
  *  - darr_insertz
  *  - darr_insert_n
  *  - darr_insert_nz
+ *  - darr_last
+ *  - darr_lasti
  *  - darr_len
  *  - darr_maxi
  *  - darr_pop
@@ -28,23 +29,55 @@
  *  - darr_remove_n
  *  - darr_reset
  *  - darr_setlen
+ *
+ * Iteration
+ * ---------
+ *  - darr_foreach_i
+ *  - darr_foreach_p
+ *
+ * String Utilities
+ * ----------------
+ *  - darr_in_strcat_tail
+ *  - darr_in_strcatf, darr_in_vstrcatf
+ *  - darr_in_strdup
+ *  - darr_in_strdup_cap
+ *  - darr_in_sprintf, darr_in_vsprintf
+ *  - darr_set_strlen
+ *  - darr_strdup
+ *  - darr_strdup_cap
+ *  - darr_strlen
+ *  - darr_strnul
+ *  - darr_sprintf, darr_vsprintf
  */
 /*
  * A few assured items
  *
  * - DAs will never have capacity 0 unless they are NULL pointers.
  */
+
+/*
+ * NOTE: valgrind by default enables a "length64" heuristic (among others) which
+ * identifies "interior-pointer" 8 bytes forward of a "start-pointer" as a
+ * "start-pointer". This should cause what normally would be "possibly-lost"
+ * errors to instead be definite for dynamic arrays. This is b/c the header is 8 bytes
+ */
+
 #include <zebra.h>
 #include "memory.h"
 
 DECLARE_MTYPE(DARR);
 
 struct darr_metadata {
-	uint len;
-	uint cap;
+	uint32_t len;
+	uint32_t cap;
 };
 void *__darr_insert_n(void *a, uint at, uint count, size_t esize, bool zero);
+char *__darr_in_sprintf(char **sp, bool concat, const char *fmt, ...)
+	PRINTFRR(3, 4);
+char *__darr_in_vsprintf(char **sp, bool concat, const char *fmt, va_list ap)
+	PRINTFRR(3, 0);
 void *__darr_resize(void *a, uint count, size_t esize);
+
 
 #define _darr_esize(A)	   sizeof((A)[0])
 #define darr_esize(A)	   sizeof((A)[0])
@@ -55,14 +88,15 @@ void *__darr_resize(void *a, uint count, size_t esize);
 /* Get the current capacity of the array */
 #define darr_cap(A) (((A) == NULL) ? 0 : _darr_meta(A)->cap)
 
+/* Get the current available expansion space */
+#define darr_avail(A) (((A) == NULL) ? 0 : (darr_cap(A) - darr_len(A)))
+
 /* Get the largest possible index one can `darr_ensure_i` w/o resizing */
 #define darr_maxi(A) ((int)darr_cap(A) - 1)
 
 /**
- * Get the current length of the array.
- *
- * As long as `A` is non-NULL, this macro may be used as an L-value to modify
- * the length of the array.
+ * darr_len() - Get the current length of the array as a unsigned int.
+ * darr_ilen() - Get the current length of the array as an int.
  *
  * Args:
  *	A: The dynamic array, can be NULL.
@@ -70,7 +104,19 @@ void *__darr_resize(void *a, uint count, size_t esize);
  * Return:
  *      The current length of the array.
  */
-#define darr_len(A) (((A) == NULL) ? 0 : _darr_meta(A)->len)
+#define darr_len(A)  (((A) == NULL) ? 0 : _darr_meta(A)->len)
+#define darr_ilen(A) (((A) == NULL) ? 0 : (ssize_t)_darr_meta(A)->len)
+
+/**
+ * darr_lasti() - Get the last element's index.
+ *
+ * Args:
+ *	A: The dynamic array, can be NULL.
+ *
+ * Return:
+ *      The current last element index, or -1 for none.
+ */
+#define darr_lasti(A) (darr_ilen(A) - 1)
 
 /**
  * Set the current length of the array `A` to 0.
@@ -99,10 +145,40 @@ void *__darr_resize(void *a, uint count, size_t esize);
 		assert((A) || !(L));                                           \
 		if ((A)) {                                                     \
 			/* have to cast to avoid compiler warning for "0" */   \
-			assert((long long)darr_cap(A) >= (L));                 \
+			assert((long long)darr_cap(A) >= (long long)(L));      \
 			_darr_len(A) = (L);                                    \
 		}                                                              \
 	} while (0)
+
+/**
+ * Set the string length of the array `S` to `L`, and NUL
+ * terminate the string at L. The dynamic array length will be `L` + 1.
+ *
+ * Thus after calling:
+ *
+ *    darr_len(S) == L + 1
+ *    darr_strlen(S) == L
+ *    S[L] == 0
+ *
+ * This function does *not* guarantee the `L` + 1 memory is allocated to
+ * the array, use `darr_ensure` or `*_cap` functions for that.
+ *
+ * Args:
+ *	S: The dynamic array, cannot be NULL.
+ *      L: The new str length of the array, will set
+ *
+ * Return:
+ *      A pointer to the end of S (i.e., pointing to the NUL byte).
+ */
+#define darr_set_strlen(S, L)                                                  \
+	({                                                                     \
+		assert((S));                                                   \
+		/* have to cast to avoid compiler warning for "0" */           \
+		assert((long long)darr_cap(S) >= (long long)(L));              \
+		_darr_len(S) = (L) + 1;                                        \
+		*darr_last(S) = 0;                                             \
+		darr_last(S);                                                  \
+	})
 
 /**
  * Free memory allocated for the dynamic array `A`
@@ -121,6 +197,31 @@ void *__darr_resize(void *a, uint count, size_t esize);
 	} while (0)
 
 /**
+ * Make sure that there is room in the dynamic array `A` to add `C` elements.
+ *
+ * Available space is `darr_cap(a) - darr_len(a)`.
+ *
+ * The value `A` may be changed as a result of this call in which case any
+ * pointers into the previous memory block are no longer valid. The `A` value
+ * is guaranteed not to change if there is sufficient capacity in the array.
+ *
+ * Args:
+ *	A: (IN/OUT) the dynamic array, can be NULL.
+ *	S: Amount of free space to guarantee.
+ *
+ * Return:
+ *      A pointer to the (possibly moved) array.
+ */
+#define darr_ensure_avail(A, S)                                                \
+	({                                                                     \
+		ssize_t need = (ssize_t)(S) -                                  \
+			       (ssize_t)(darr_cap(A) - darr_len(A));           \
+		if (need > 0)                                                  \
+			_darr_resize((A), darr_cap(A) + need);                 \
+		(A);                                                           \
+	})
+
+/**
  * Make sure that there is room in the dynamic array `A` for `C` elements.
  *
  * The value `A` may be changed as a result of this call in which case any
@@ -129,14 +230,15 @@ void *__darr_resize(void *a, uint count, size_t esize);
  *
  * Args:
  *	A: (IN/OUT) the dynamic array, can be NULL.
- *	I: the index to guarantee memory exists for
+ *	C: Total capacity to guarantee.
  *
  * Return:
  *      A pointer to the (possibly moved) array.
  */
 #define darr_ensure_cap(A, C)                                                  \
 	({                                                                     \
-		if (darr_cap(A) < (C))                                         \
+		/* Cast to avoid warning when C == 0 */                        \
+		if ((ssize_t)darr_cap(A) < (ssize_t)(C))                       \
 			_darr_resize((A), (C));                                \
 		(A);                                                           \
 	})
@@ -347,6 +449,242 @@ void *__darr_resize(void *a, uint count, size_t esize);
  *	if `A` is NULL.
  */
 #define darr_end(A) ((A) + darr_len(A))
+
+/**
+ * darr_last() - Get a pointer to the last element of the array.
+ * darr_strnul() - Get a pointer to the NUL byte of the darr string or NULL.
+ *
+ * Args:
+ *	A: The dynamic array, can be NULL.
+ *
+ * Return:
+ *      A pointer to the last element of the array or NULL if the array is
+ *      empty.
+ */
+#define darr_last(A)                                                           \
+	({                                                                     \
+		uint __len = darr_len(A);                                      \
+		((__len > 0) ? &(A)[__len - 1] : NULL);                        \
+	})
+#define darr_strnul(S) darr_last(S)
+
+/**
+ * darr_in_sprintf() - sprintf into D.
+ *
+ * Args:
+ *      D: The destination darr, D's value may be NULL.
+ *      F: The format string
+ *      ...: variable arguments for format string.
+ *
+ * Return:
+ *	The dynamic_array D with the new string content.
+ */
+#define darr_in_sprintf(D, F, ...) __darr_in_sprintf(&(D), 0, F, __VA_ARGS__)
+
+
+/**
+ * darr_in_strcat() - concat a string into a darr string.
+ *
+ * Args:
+ *      D: The destination darr, D's value may be NULL.
+ *      S: The string to concat onto D.
+ *
+ * Return:
+ *	The dynamic_array D with the new string content.
+ */
+#define darr_in_strcat(D, S)                                                   \
+	({                                                                     \
+		uint __dlen = darr_strlen(D);                                  \
+		uint __slen = strlen(S);                                       \
+		darr_ensure_cap(D, __dlen + __slen + 1);                       \
+		if (darr_len(D) == 0)                                          \
+			*darr_append(D) = 0;                                   \
+		memcpy(darr_last(D), (S), __slen + 1);                         \
+		_darr_len(D) += __slen;                                        \
+		D;                                                             \
+	})
+
+/**
+ * darr_in_strcatf() - concat a formatted string into a darr string.
+ *
+ * Args:
+ *      D: The destination darr, D's value may be NULL.
+ *      F: The format string to concat onto D after adding arguments.
+ *    ...: The arguments for the format string.
+ * Return:
+ *	The dynamic_array D with the new string content.
+ */
+#define darr_in_strcatf(D, F, ...)                                             \
+	__darr_in_sprintf(&(D), true, (F), __VA_ARGS__)
+
+/**
+ * darr_in_strcat_tail() - copies end of one darr str to another.
+ *
+ * This is a rather specialized function, it takes 2 darr's, a destination and a
+ * source. If the source is not longer than the destination nothing is done.
+ * Otherwise the characters in the source that lie beyond the length of the dest
+ * are added to the dest. No checking is done to make sure the common prefix
+ * matches. For example:
+ *
+ *     D: "/foo"
+ *     S: "/foo/bar"
+ *  -> D: "/foo/bar"
+ *
+ *     perhaps surprising results:
+ *     D: "/foo"
+ *     S: "/zoo/bar"
+ *  -> D: "/foo/bar"
+ *
+ * Args:
+ *      D: The destination darr, D's value may be NULL.
+ *      S: The string to copy the tail from.
+ *
+ * Return:
+ *	The dynamic_array D with the extended string content.
+ */
+#define darr_in_strcat_tail(D, S)                                              \
+	({                                                                     \
+		int __dsize, __ssize, __extra;                                 \
+									       \
+		if (darr_len(D) == 0)                                          \
+			*darr_append(D) = 0;                                   \
+		__dsize = darr_ilen(D);                                        \
+		__ssize = darr_ilen(S);                                        \
+		__extra = __ssize - __dsize;                                   \
+		if (__extra > 0) {                                             \
+			darr_ensure_cap(D, (uint)__ssize);                     \
+			memcpy(darr_last(D), (S) + __dsize - 1, __extra + 1);  \
+			_darr_len(D) += __extra;                               \
+		}                                                              \
+		D;                                                             \
+	})
+
+/**
+ * darr_in_strdup_cap() - duplicate the string into a darr reserving capacity.
+ * darr_in_strdup() - duplicate the string into a darr.
+ *
+ * Args:
+ *      D: The destination darr, D's value may be NULL.
+ *      S: The string to duplicate.
+ *      C: The capacity to reserve.
+ *
+ * Return:
+ *	The dynamic_array D with the duplicated string.
+ */
+#define darr_in_strdup_cap(D, S, C)                                            \
+	({                                                                     \
+		size_t __size = strlen(S) + 1;                                 \
+		darr_reset(D);                                                 \
+		darr_ensure_cap(D, ((size_t)(C) > __size) ? (size_t)(C)        \
+							  : __size);           \
+		strlcpy(D, (S), darr_cap(D));                                  \
+		darr_setlen((D), (size_t)__size);                              \
+		D;                                                             \
+	})
+#define darr_in_strdup(D, S) darr_in_strdup_cap(D, S, 1)
+
+/**
+ * darr_in_vsprintf() - vsprintf into D.
+ *
+ * Args:
+ *      D: The destination darr, D's value may be NULL.
+ *      F: The format string
+ *      A: Varargs
+ *
+ * Return:
+ *	The dynamic_array D with the new string content.
+ */
+#define darr_in_vsprintf(D, F, A) __darr_in_vsprintf(&(D), 0, F, A)
+
+/**
+ * darr_in_vstrcatf() - concat a formatted string into a darr string.
+ *
+ * Args:
+ *      D: The destination darr, D's value may be NULL.
+ *      F: The format string to concat onto D after adding arguments.
+ *      A: Varargs
+ *
+ * Return:
+ *	The dynamic_array D with the new string content.
+ */
+#define darr_in_vstrcatf(D, F, A) __darr_in_vsprintf(&(D), true, (F), (A))
+
+/**
+ * darr_sprintf() - sprintf into a new dynamic array.
+ *
+ * Args:
+ *      F: The format string
+ *      ...: variable arguments for format string.
+ *
+ * Return:
+ *	A char * dynamic_array with the new string content.
+ */
+#define darr_sprintf(F, ...)                                                   \
+	({                                                                     \
+		char *d = NULL;                                                \
+		__darr_in_sprintf(&d, false, F, __VA_ARGS__);                  \
+		d;                                                             \
+	})
+
+/**
+ * darr_strdup_cap() - duplicate the string reserving capacity.
+ * darr_strdup() - duplicate the string into a dynamic array.
+ *
+ * Args:
+ *      S: The string to duplicate.
+ *      C: The capacity to reserve.
+ *
+ * Return:
+ *	The dynamic_array with the duplicated string.
+ */
+#define darr_strdup_cap(S, C)                                                  \
+	({                                                                     \
+		size_t __size = strlen(S) + 1;                                 \
+		char *__s = NULL;                                              \
+		/* Cast to ssize_t to avoid warning when C == 0 */             \
+		darr_ensure_cap(__s, ((ssize_t)(C) > (ssize_t)__size)          \
+					     ? (size_t)(C)                     \
+					     : __size);                        \
+		strlcpy(__s, (S), darr_cap(__s));                              \
+		darr_setlen(__s, (size_t)__size);                              \
+		__s;                                                           \
+	})
+#define darr_strdup(S) darr_strdup_cap(S, 0)
+
+/**
+ * darr_strlen() - get the length of the NUL terminated string in a darr.
+ *
+ * Args:
+ *      S: The string to measure, value may be NULL.
+ *
+ * Return:
+ *	The length of the NUL terminated string in @S
+ */
+#define darr_strlen(S)                                                         \
+	({                                                                     \
+		uint __size = darr_len(S);                                     \
+		if (__size)                                                    \
+			__size -= 1;                                           \
+		assert(!(S) || ((char *)(S))[__size] == 0);                    \
+		__size;                                                        \
+	})
+
+/**
+ * darr_vsprintf() - vsprintf into a new dynamic array.
+ *
+ * Args:
+ *      F: The format string
+ *      A: Varargs
+ *
+ * Return:
+ *	The dynamic_array D with the new string content.
+ */
+#define darr_vsprintf(F, A)                                                    \
+	({                                                                     \
+		char *d = NULL;                                                \
+		darr_in_vsprintf(d, F, A);                                     \
+		d;                                                             \
+	})
 
 /**
  * Iterate over array `A` using a pointer to each element in `P`.
