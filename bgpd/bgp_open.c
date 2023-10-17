@@ -340,15 +340,14 @@ static void bgp_capability_orf_not_support(struct peer *peer, iana_afi_t afi,
 			peer->host, afi, safi, type, mode);
 }
 
-static const struct message orf_type_str[] = {
-	{ORF_TYPE_RESERVED, "Reserved"},
-	{ORF_TYPE_PREFIX, "Prefixlist"},
-	{0}};
+const struct message orf_type_str[] = { { ORF_TYPE_RESERVED, "Reserved" },
+					{ ORF_TYPE_PREFIX, "Prefixlist" },
+					{ 0 } };
 
-static const struct message orf_mode_str[] = {{ORF_MODE_RECEIVE, "Receive"},
-					      {ORF_MODE_SEND, "Send"},
-					      {ORF_MODE_BOTH, "Both"},
-					      {0}};
+const struct message orf_mode_str[] = { { ORF_MODE_RECEIVE, "Receive" },
+					{ ORF_MODE_SEND, "Send" },
+					{ ORF_MODE_BOTH, "Both" },
+					{ 0 } };
 
 static int bgp_capability_orf_entry(struct peer *peer,
 				    struct capability_header *hdr)
