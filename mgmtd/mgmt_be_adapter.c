@@ -469,14 +469,10 @@ mgmt_be_adapter_handle_msg(struct mgmt_be_client_adapter *adapter,
 	case MGMTD__BE_MESSAGE__MESSAGE_CFG_APPLY_REPLY:
 		MGMTD_BE_ADAPTER_DBG(
 			"Got %s CFG_APPLY_REPLY from '%s' txn-id %" PRIx64
-			" for %zu batches id %" PRIu64 "-%" PRIu64 " err:'%s'",
+			" err:'%s'",
 			be_msg->cfg_apply_reply->success ? "successful"
 							 : "failed",
 			adapter->name, be_msg->cfg_apply_reply->txn_id,
-			be_msg->cfg_apply_reply->n_batch_ids,
-			be_msg->cfg_apply_reply->batch_ids[0],
-			be_msg->cfg_apply_reply->batch_ids
-				[be_msg->cfg_apply_reply->n_batch_ids - 1],
 			be_msg->cfg_apply_reply->error_if_any
 				? be_msg->cfg_apply_reply->error_if_any
 				: "None");
@@ -486,8 +482,6 @@ mgmt_be_adapter_handle_msg(struct mgmt_be_client_adapter *adapter,
 		mgmt_txn_notify_be_cfg_apply_reply(
 			be_msg->cfg_apply_reply->txn_id,
 			be_msg->cfg_apply_reply->success,
-			(uint64_t *)be_msg->cfg_apply_reply->batch_ids,
-			be_msg->cfg_apply_reply->n_batch_ids,
 			be_msg->cfg_apply_reply->error_if_any, adapter);
 		break;
 	case MGMTD__BE_MESSAGE__MESSAGE_GET_REPLY:

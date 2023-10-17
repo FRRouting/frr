@@ -610,8 +610,7 @@ failed:
 }
 
 static int mgmt_be_send_apply_reply(struct mgmt_be_client *client_ctx,
-				    uint64_t txn_id, uint64_t batch_ids[],
-				    size_t num_batch_ids, bool success,
+				    uint64_t txn_id, bool success,
 				    const char *error_if_any)
 {
 	Mgmtd__BeMessage be_msg;
@@ -620,8 +619,6 @@ static int mgmt_be_send_apply_reply(struct mgmt_be_client *client_ctx,
 	mgmtd__be_cfg_data_apply_reply__init(&apply_reply);
 	apply_reply.success = success;
 	apply_reply.txn_id = txn_id;
-	apply_reply.batch_ids = (uint64_t *)batch_ids;
-	apply_reply.n_batch_ids = num_batch_ids;
 
 	if (error_if_any)
 		apply_reply.error_if_any = (char *)error_if_any;
@@ -630,12 +627,7 @@ static int mgmt_be_send_apply_reply(struct mgmt_be_client *client_ctx,
 	be_msg.message_case = MGMTD__BE_MESSAGE__MESSAGE_CFG_APPLY_REPLY;
 	be_msg.cfg_apply_reply = &apply_reply;
 
-	MGMTD_BE_CLIENT_DBG(
-		"Sending CFG_APPLY_REPLY txn-id %" PRIu64
-		" %zu batch ids %" PRIu64 " - %" PRIu64,
-		txn_id, num_batch_ids,
-		success && num_batch_ids ? batch_ids[0] : 0,
-		success && num_batch_ids ? batch_ids[num_batch_ids - 1] : 0);
+	MGMTD_BE_CLIENT_DBG("Sending CFG_APPLY_REPLY txn-id %" PRIu64, txn_id);
 
 	return mgmt_be_client_send_msg(client_ctx, &be_msg);
 }
@@ -648,14 +640,11 @@ static int mgmt_be_txn_proc_cfgapply(struct mgmt_be_txn_ctx *txn)
 	unsigned long apply_nb_cfg_tm;
 	struct mgmt_be_batch_ctx *batch;
 	char err_buf[BUFSIZ];
-	size_t num_processed;
-	static uint64_t batch_ids[MGMTD_BE_MAX_BATCH_IDS_IN_REQ];
 
 	assert(txn && txn->client);
 	client_ctx = txn->client;
 
 	assert(txn->nb_txn);
-	num_processed = 0;
 
 	/*
 	 * Now apply all the batches we have applied in one go.
@@ -673,9 +662,6 @@ static int mgmt_be_txn_proc_cfgapply(struct mgmt_be_txn_ctx *txn)
 	client_ctx->num_apply_nb_cfg++;
 	txn->nb_txn = NULL;
 
-	/*
-	 * Send back CFG_APPLY_REPLY for all batches applied.
-	 */
 	FOREACH_BE_APPLY_BATCH_IN_LIST (txn, batch) {
 		/*
 		 * No need to delete the batch yet. Will be deleted during
@@ -684,19 +670,9 @@ static int mgmt_be_txn_proc_cfgapply(struct mgmt_be_txn_ctx *txn)
 		SET_FLAG(batch->flags, MGMTD_BE_TXN_FLAGS_CFG_APPLIED);
 		mgmt_be_batches_del(&txn->apply_cfgs, batch);
 		mgmt_be_batches_add_tail(&txn->cfg_batches, batch);
-
-		batch_ids[num_processed] = batch->batch_id;
-		num_processed++;
-		if (num_processed == MGMTD_BE_MAX_BATCH_IDS_IN_REQ) {
-			mgmt_be_send_apply_reply(client_ctx, txn->txn_id,
-						    batch_ids, num_processed,
-						    true, NULL);
-			num_processed = 0;
-		}
 	}
 
-	mgmt_be_send_apply_reply(client_ctx, txn->txn_id, batch_ids,
-				    num_processed, true, NULL);
+	mgmt_be_send_apply_reply(client_ctx, txn->txn_id, true, NULL);
 
 	MGMTD_BE_CLIENT_DBG("Nb-apply-duration %lu (avg: %lu) uSec",
 			    apply_nb_cfg_tm, client_ctx->avg_apply_nb_cfg_tm);
