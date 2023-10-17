@@ -4979,6 +4979,16 @@ static int peer_af_flag_modify(struct peer *peer, afi_t afi, safi_t safi,
 			else if (flag == PEER_FLAG_ORF_PREFIX_RM)
 				peer->last_reset = PEER_DOWN_CAPABILITY_CHANGE;
 
+			/* We should not reset the session if
+			 * dynamic capability is enabled and we
+			 * are changing the ORF prefix flags.
+			 */
+			if ((CHECK_FLAG(peer->cap, PEER_CAP_DYNAMIC_RCV) &&
+			     CHECK_FLAG(peer->cap, PEER_CAP_DYNAMIC_ADV)) &&
+			    (flag == PEER_FLAG_ORF_PREFIX_RM ||
+			     flag == PEER_FLAG_ORF_PREFIX_SM))
+				action.type = peer_change_none;
+
 			peer_change_action(peer, afi, safi, action.type);
 		}
 	}
@@ -5038,6 +5048,18 @@ static int peer_af_flag_modify(struct peer *peer, afi_t afi, safi_t safi,
 						 == PEER_FLAG_ORF_PREFIX_RM)
 						member->last_reset =
 							PEER_DOWN_CAPABILITY_CHANGE;
+
+					/* We should not reset the session if
+					 * dynamic capability is enabled and we
+					 * are changing the ORF prefix flags.
+					 */
+					if ((CHECK_FLAG(peer->cap,
+							PEER_CAP_DYNAMIC_RCV) &&
+					     CHECK_FLAG(peer->cap,
+							PEER_CAP_DYNAMIC_ADV)) &&
+					    (flag == PEER_FLAG_ORF_PREFIX_RM ||
+					     flag == PEER_FLAG_ORF_PREFIX_SM))
+						action.type = peer_change_none;
 
 					peer_change_action(member, afi, safi,
 							   action.type);
