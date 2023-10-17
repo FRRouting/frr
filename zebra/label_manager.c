@@ -287,7 +287,7 @@ static int label_manager_write_label_block_config(struct vty *vty,
  */
 void label_manager_init(void)
 {
-	label_manager_platform_value = MPLS_LABEL_UNRESERVED_MIN;
+	label_manager_platform_value = MPLS_LABEL_RESERVED_MAX + 1;
 	lbl_mgr.lc_list = list_new();
 	lbl_mgr.lc_list->del = delete_label_chunk;
 	lbl_mgr.dynamic_block_start = MPLS_LABEL_UNRESERVED_MIN;
@@ -302,6 +302,8 @@ void label_manager_init(void)
 
 	install_element(VIEW_NODE, &show_label_table_cmd);
 	install_element(CONFIG_NODE, &mpls_label_dynamic_block_cmd);
+
+	mpls_platform_labels_set(label_manager_platform_value);
 }
 
 void label_manager_terminate(void)
@@ -575,7 +577,7 @@ int release_label_chunk(uint8_t proto, unsigned short instance,
 	struct listnode *node;
 	struct label_manager_chunk *lmc;
 	struct label_manager_chunk *data;
-	uint32_t label_max = MPLS_LABEL_UNRESERVED_MIN;
+	uint32_t label_max = MPLS_LABEL_RESERVED_MAX + 1;
 	int ret = -1;
 
 	/* check that size matches */
@@ -646,7 +648,7 @@ static int label_manager_get_chunk(struct label_manager_chunk **lmc,
 				   uint32_t size, uint32_t base,
 				   vrf_id_t vrf_id)
 {
-	uint32_t label_max = MPLS_LABEL_UNRESERVED_MIN;
+	uint32_t label_max = MPLS_LABEL_RESERVED_MAX + 1;
 	struct label_manager_chunk *data;
 	struct listnode *node;
 
