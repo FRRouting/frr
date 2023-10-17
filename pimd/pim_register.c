@@ -416,11 +416,8 @@ void pim_null_register_send(struct pim_upstream *up)
 	memset(buffer, 0, (sizeof(ip6_hdr) + sizeof(pim_msg_header)));
 	memcpy(buffer, &ip6_hdr, sizeof(ip6_hdr));
 
-	pim_msg_header.ver = 0;
-	pim_msg_header.type = 0;
-	pim_msg_header.reserved = 0;
-
-	pim_msg_header.checksum = 0;
+	memset(&pim_msg_header, 0, sizeof(pim_msg_header));
+	memset(&ph, 0, sizeof(ph));
 
 	ph.src = up->sg.src;
 	ph.dst = up->sg.grp;
