@@ -2449,6 +2449,8 @@ ssize_t netlink_route_multipath_msg_encode(int cmd, struct zebra_dplane_ctx *ctx
 
 		nexthop_num = 0;
 		for (ALL_NEXTHOPS_PTR(dplane_ctx_get_ng(ctx), nexthop)) {
+			if (nexthop->type == NEXTHOP_TYPE_BLACKHOLE)
+				continue;
 			if (CHECK_FLAG(nexthop->flags,
 				       NEXTHOP_FLAG_RECURSIVE)) {
 				/* This only works for IPv4 now */
