@@ -4442,6 +4442,8 @@ int zebra_vxlan_check_readd_vtep(struct interface *ifp, vni_t vni, struct ipaddr
 	if (!zvtep)
 		return 0;
 
+	zvtep->gr_refresh_time = monotime(NULL);
+
 	if (IS_ZEBRA_DEBUG_VXLAN)
 		zlog_debug("Del MAC for remote VTEP %pIA intf %s(%u) VNI %u - readd", vtep_ip,
 			   ifp->name, ifp->ifindex, vni);
@@ -4804,6 +4806,8 @@ void zebra_vxlan_remote_vtep_del(vrf_id_t vrf_id, vni_t vni, struct ipaddr *vtep
 	if (!zvtep)
 		return;
 
+	zvtep->gr_refresh_time = monotime(NULL);
+
 	zebra_evpn_vtep_uninstall(zevpn, vtep_ip);
 	zebra_evpn_vtep_del(zevpn, zvtep);
 }
@@ -4871,6 +4875,9 @@ void zebra_vxlan_remote_vtep_add(vrf_id_t vrf_id, vni_t vni, struct ipaddr *vtep
 		if (IS_ZEBRA_DEBUG_KERNEL)
 			zlog_debug("%s: VTEP %pIA already exists for VNI %u flood_control %d (received flood_control %d)",
 				   __func__, vtep_ip, vni, zvtep->flood_control, flood_control);
+
+		/* Refresh entry */
+		zvtep->gr_refresh_time = monotime(NULL);
 
 		/* If the remote VTEP already exists check if
 		 * the flood mode has changed
