@@ -1614,19 +1614,63 @@ int zebra_evpn_local_neigh_update(struct zebra_evpn *zevpn,
 	return 0;
 }
 
-int zebra_evpn_remote_neigh_update(struct zebra_evpn *zevpn,
-				   struct interface *ifp,
-				   const struct ipaddr *ip,
-				   const struct ethaddr *macaddr,
-				   uint16_t state)
+static void zebra_evpn_stale_remote_neigh_add(struct zebra_evpn *zevpn, const struct ipaddr *ip,
+					      const struct ethaddr *macaddr, bool is_router)
+{
+	struct zebra_neigh *n = NULL;
+	struct zebra_mac *zmac = NULL;
+
+	/* Nothing to do if the entry already exists */
+	if (zebra_evpn_neigh_lookup(zevpn, ip))
+		return;
+
+	/* Check if the MAC exists. */
+	zmac = zebra_evpn_mac_lookup(zevpn, macaddr);
+	if (!zmac) {
+		if (IS_ZEBRA_DEBUG_VXLAN)
+			zlog_debug("EVPN-GR: zmac for MAC %pEA not found. L2VNI %u", macaddr,
+				   zevpn->vni);
+		return;
+	}
+
+	/* New neighbor - create */
+	n = zebra_evpn_neigh_add(zevpn, ip, macaddr, zmac, 0);
+	if (!n) {
+		if (IS_ZEBRA_DEBUG_VXLAN)
+			zlog_debug("EVPN-GR: Can't create neigh entry for IP %pIA MAC %pEA, L2VNI %u",
+				   ip, macaddr, zevpn->vni);
+		return;
+	}
+
+	/* Set "remote" forwarding info. */
+	SET_FLAG(n->flags, ZEBRA_NEIGH_REMOTE);
+	ZEBRA_NEIGH_SET_ACTIVE(n);
+	n->r_vtep_ip = zmac->fwd_info.r_vtep_ip;
+
+	if (is_router)
+		SET_FLAG(n->flags, ZEBRA_NEIGH_ROUTER_FLAG);
+	else
+		UNSET_FLAG(n->flags, ZEBRA_NEIGH_ROUTER_FLAG);
+
+	if (IS_ZEBRA_DEBUG_VXLAN)
+		zlog_debug("EVPN-GR: Added stale remote %sneigh entry IP %pIA MAC %pEA, L2VNI %u",
+			   is_router ? "router " : "", ip, macaddr, zevpn->vni);
+}
+
+int zebra_evpn_remote_neigh_update(struct zebra_evpn *zevpn, struct interface *ifp,
+				   const struct ipaddr *ip, const struct ethaddr *macaddr,
+				   uint16_t state, bool is_router)
 {
 	struct zebra_neigh *n = NULL;
 	struct zebra_mac *zmac = NULL;
 
 	/* If the neighbor is unknown, there is no further action. */
 	n = zebra_evpn_neigh_lookup(zevpn, ip);
-	if (!n)
+	if (!n) {
+		if (zrouter.graceful_restart)
+			zebra_evpn_stale_remote_neigh_add(zevpn, ip, macaddr, is_router);
 		return 0;
+	}
 
 	/* If a remote entry, see if it needs to be refreshed */
 	if (CHECK_FLAG(n->flags, ZEBRA_NEIGH_REMOTE)) {
