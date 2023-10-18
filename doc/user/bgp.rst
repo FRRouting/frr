@@ -1483,6 +1483,13 @@ Configuring Peers
    value is carried encoded as uint32. To enable backward compatibility we
    need to disable IEEE floating-point encoding option per-peer.
 
+.. clicmd:: neighbor PEER enforce-first-as
+
+   Discard updates received from the specified (eBGP) peer if the AS_PATH
+   attribute does not contain the PEER's ASN as the first AS_PATH segment.
+
+   Default: disabled.
+
 .. clicmd:: neighbor PEER extended-optional-parameters
 
    Force Extended Optional Parameters Length format to be used for OPEN messages.
