@@ -1624,6 +1624,8 @@ static struct zebra_neigh *_nh_add(struct zebra_l3vni *zl3vni,
 	SET_FLAG(n->flags, ZEBRA_NEIGH_REMOTE);
 	SET_FLAG(n->flags, ZEBRA_NEIGH_REMOTE_NH);
 
+	n->gr_refresh_time = monotime(NULL);
+
 	return n;
 }
 
@@ -1788,6 +1790,7 @@ static int zl3vni_remote_nh_add(struct zebra_l3vni *zl3vni,
 		/* install the nh neigh in kernel */
 		zl3vni_nh_install(zl3vni, nh);
 	} else if (memcmp(&nh->emac, rmac, ETH_ALEN) != 0) {
+		nh->gr_refresh_time = monotime(NULL);
 		if (IS_ZEBRA_DEBUG_VXLAN)
 			zlog_debug(
 				"L3VNI %u RMAC change(%pEA --> %pEA) for nexthop %pIA, prefix %pFX",
@@ -1800,6 +1803,8 @@ static int zl3vni_remote_nh_add(struct zebra_l3vni *zl3vni,
 		memcpy(&nh->emac, rmac, ETH_ALEN);
 		/* install (update) the nh neigh in kernel */
 		zl3vni_nh_install(zl3vni, nh);
+	} else {
+		nh->gr_refresh_time = monotime(NULL);
 	}
 
 	rb_find_or_add_host(&nh->host_rb, host_prefix);
