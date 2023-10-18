@@ -565,6 +565,7 @@ static struct zebra_neigh *zebra_evpn_neigh_add(struct zebra_evpn *zevpn,
 	n->dad_ip_auto_recovery_timer = NULL;
 	n->flags = n_flags;
 	n->uptime = monotime(NULL);
+	n->gr_refresh_time = monotime(NULL);
 
 	if (!zmac)
 		zmac = zebra_evpn_mac_lookup(zevpn, mac);
@@ -798,6 +799,7 @@ struct zebra_neigh *zebra_evpn_proc_sync_neigh_update(
 		}
 
 		n->uptime = monotime(NULL);
+		n->gr_refresh_time = monotime(NULL);
 	}
 
 	/* update the neigh seq. we don't bother with the mac seq as
@@ -1349,6 +1351,8 @@ int zebra_evpn_local_neigh_update(struct zebra_evpn *zevpn,
 		n->ifindex = ifp->ifindex;
 		created = true;
 	} else {
+		n->gr_refresh_time = monotime(NULL);
+
 		if (CHECK_FLAG(n->flags, ZEBRA_NEIGH_LOCAL)) {
 			bool mac_different;
 			bool cur_is_router;
@@ -2136,6 +2140,9 @@ void zebra_evpn_neigh_remote_macip_add(struct zebra_evpn *zevpn, struct zebra_vr
 			n = zebra_evpn_neigh_add(zevpn, ipaddr, &mac->macaddr,
 						 mac, 0);
 		} else {
+			/* Refresh entry */
+			n->gr_refresh_time = monotime(NULL);
+
 			/* When host moves but changes its (MAC,IP)
 			 * binding, BGP may install a MACIP entry that
 			 * corresponds to "older" location of the host
@@ -2242,6 +2249,8 @@ int zebra_evpn_neigh_gw_macip_add(struct interface *ifp,
 	n = zebra_evpn_neigh_lookup(zevpn, ip);
 	if (!n)
 		n = zebra_evpn_neigh_add(zevpn, ip, &mac->macaddr, mac, 0);
+	else
+		n->gr_refresh_time = monotime(NULL);
 
 	/* Set "local" forwarding info. */
 	SET_FLAG(n->flags, ZEBRA_NEIGH_LOCAL);
