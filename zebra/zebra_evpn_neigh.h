@@ -242,11 +242,9 @@ int zebra_evpn_local_neigh_update(struct zebra_evpn *zevpn,
 				  const struct ipaddr *ip,
 				  const struct ethaddr *macaddr, bool is_router,
 				  bool local_inactive, bool dp_static);
-int zebra_evpn_remote_neigh_update(struct zebra_evpn *zevpn,
-				   struct interface *ifp,
-				   const struct ipaddr *ip,
-				   const struct ethaddr *macaddr,
-				   uint16_t state);
+int zebra_evpn_remote_neigh_update(struct zebra_evpn *zevpn, struct interface *ifp,
+				   const struct ipaddr *ip, const struct ethaddr *macaddr,
+				   uint16_t state, bool is_router);
 void zebra_evpn_send_neigh_to_client(struct zebra_evpn *zevpn);
 void zebra_evpn_clear_dup_neigh_hash(struct hash_bucket *bucket, void *ctxt);
 void zebra_evpn_print_neigh(struct zebra_neigh *n, void *ctxt,
