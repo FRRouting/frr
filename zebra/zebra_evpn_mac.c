@@ -1092,6 +1092,8 @@ struct zebra_mac *zebra_evpn_mac_add(struct zebra_evpn *zevpn,
 	mac->neigh_list->cmp = neigh_list_cmp;
 
 	mac->uptime = monotime(NULL);
+	mac->gr_refresh_time = monotime(NULL);
+
 	if (IS_ZEBRA_DEBUG_VXLAN || IS_ZEBRA_DEBUG_EVPN_MH_MAC) {
 		char mac_buf[MAC_BUF_SIZE];
 
@@ -1694,6 +1696,7 @@ struct zebra_mac *zebra_evpn_proc_sync_mac_update(struct zebra_evpn *zevpn,
 		bool remote_gw;
 
 		mac->uptime = monotime(NULL);
+		mac->gr_refresh_time = monotime(NULL);
 
 		old_flags = mac->flags;
 		sticky = !!CHECK_FLAG(old_flags, ZEBRA_MAC_STICKY);
@@ -2009,6 +2012,9 @@ int zebra_evpn_mac_remote_macip_add(struct zebra_evpn *zevpn, struct zebra_vrf *
 			mac = zebra_evpn_mac_add(zevpn, macaddr);
 			zebra_evpn_es_mac_ref(mac, esi);
 		} else {
+			/* Refresh the timestamp */
+			mac->gr_refresh_time = monotime(NULL);
+
 			/* When host moves but changes its (MAC,IP)
 			 * binding, BGP may install a MACIP entry that
 			 * corresponds to "older" location of the host
@@ -2147,6 +2153,8 @@ int zebra_evpn_add_update_local_mac(struct zebra_vrf *zvrf,
 			SET_FLAG(mac->flags, ZEBRA_MAC_STICKY);
 		inform_client = true;
 	} else {
+		mac->gr_refresh_time = monotime(NULL);
+
 		if (IS_ZEBRA_DEBUG_VXLAN || IS_ZEBRA_DEBUG_EVPN_MH_MAC) {
 			char mac_buf[MAC_BUF_SIZE];
 
@@ -2428,6 +2436,8 @@ void zebra_evpn_mac_gw_macip_add(struct interface *ifp, struct zebra_evpn *zevpn
 		mac = zebra_evpn_mac_lookup(zevpn, macaddr);
 		if (!mac)
 			mac = zebra_evpn_mac_add(zevpn, macaddr);
+		else
+			mac->gr_refresh_time = monotime(NULL);
 		*macp = mac;
 	} else
 		mac = *macp;

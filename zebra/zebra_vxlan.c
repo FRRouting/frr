@@ -1262,6 +1262,8 @@ static struct zebra_mac *zl3vni_rmac_add(struct zebra_l3vni *zl3vni,
 	SET_FLAG(zrmac->flags, ZEBRA_MAC_REMOTE);
 	SET_FLAG(zrmac->flags, ZEBRA_MAC_REMOTE_RMAC);
 
+	zrmac->gr_refresh_time = monotime(NULL);
+
 	return zrmac;
 }
 
@@ -1438,6 +1440,8 @@ static int zl3vni_remote_rmac_add(struct zebra_l3vni *zl3vni,
 		/* install rmac in kernel */
 		zl3vni_rmac_install(zl3vni, zrmac);
 	} else {
+		zrmac->gr_refresh_time = monotime(NULL);
+
 		if (!ipaddr_is_same(&zrmac->fwd_info.r_vtep_ip, &ip_vtep)) {
 			if (IS_ZEBRA_DEBUG_VXLAN)
 				zlog_debug("L3VNI %u Remote VTEP change(%pIA -> %pIA) for RMAC %pEA",
