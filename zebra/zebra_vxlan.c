@@ -6481,3 +6481,66 @@ void zebra_vlan_dplane_result(struct zebra_dplane_ctx *ctx)
 					   state);
 	}
 }
+
+/*********************** EVPN graceful restart *******************/
+void zebra_vxlan_stale_hrep_add(struct ipaddr vtep_ip, vni_t vni)
+{
+	struct zebra_evpn *zevpn = NULL;
+	struct zebra_vtep *zvtep = NULL;
+
+	zevpn = zebra_evpn_lookup(vni);
+	if (!zevpn || !zevpn->vxlan_if) {
+		if (IS_ZEBRA_DEBUG_VXLAN)
+			zlog_debug("EVPN-GR: Add HREP %pIA, VNI %u,could not find EVPN inst/intf (%p)",
+				   &vtep_ip, vni, zevpn);
+		return;
+	}
+
+	zvtep = zebra_evpn_vtep_find(zevpn, &vtep_ip);
+	if (!zvtep) {
+		/* Remote VTEP will be installed in kernel only if
+		 * flood_control type is VXLAN_FLOOD_HEAD_END_REPL. So
+		 * if we found the remote neigh with 0 MAC, then it's
+		 * safe to set the flood_control type to
+		 * VXLAN_FLOOD_HEAD_END_REPL
+		 */
+		zvtep = zebra_evpn_vtep_add(zevpn, &vtep_ip, VXLAN_FLOOD_HEAD_END_REPL);
+		if (!zvtep) {
+			zlog_debug("EVPN-GR: Failed to add HREP entry for %pIA, vni %u)", &vtep_ip,
+				   vni);
+			return;
+		}
+
+		if (IS_ZEBRA_DEBUG_VXLAN)
+			zlog_debug("EVPN-GR: Added stale HREP entry for %pIA, vni %u", &vtep_ip,
+				   vni);
+	}
+}
+
+void zebra_vxlan_stale_remote_mac_add_l3vni(struct zebra_l3vni *zl3vni, struct ethaddr *macaddr,
+					    struct ipaddr vtep_ip)
+{
+	struct zebra_mac *zrmac = NULL;
+
+	zrmac = zl3vni_rmac_lookup(zl3vni, macaddr);
+	if (zrmac) {
+		if (IS_ZEBRA_DEBUG_VXLAN)
+			zlog_debug("EVPN-GR: RMAC %pEA (%p) zl3vni %p,VTEP %pIA L3VNI %d exists",
+				   macaddr, zrmac, zl3vni, &vtep_ip, zl3vni->vni);
+		return;
+	}
+
+	/* Create the RMAC entry*/
+	zrmac = zl3vni_rmac_add(zl3vni, macaddr);
+	if (!zrmac) {
+		zlog_debug("EVPN-GR: Failed to add RMAC %pEA. VTEP %pIA L3VNI %u", macaddr,
+			   &vtep_ip, zl3vni->vni);
+		return;
+	}
+
+	zrmac->fwd_info.r_vtep_ip = vtep_ip;
+
+	if (IS_ZEBRA_DEBUG_VXLAN)
+		zlog_debug("EVPN-GR: Added stale RMAC %pEA (%p) zl3vni %p,remote vtep %pIA L3VNI %d",
+			   macaddr, zrmac, zl3vni, &vtep_ip, zl3vni->vni);
+}
