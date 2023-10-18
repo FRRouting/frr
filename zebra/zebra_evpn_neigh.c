@@ -887,6 +887,14 @@ static void zebra_evpn_neigh_del_hash_entry(struct hash_bucket *bucket,
 	    ((wctx->flags & DEL_REMOTE_NEIGH) && (n->flags & ZEBRA_NEIGH_REMOTE)) ||
 	    ((wctx->flags & DEL_REMOTE_NEIGH_FROM_VTEP) && (n->flags & ZEBRA_NEIGH_REMOTE) &&
 	     ipaddr_is_same(&n->r_vtep_ip, &wctx->r_vtep_ip))) {
+		/*
+		 * If we are doing stale cleanup of remote neighs
+		 * and if this neigh is not marked stale, then don't delete it.
+		 */
+		if (wctx->gr_stale_cleanup && CHECK_FLAG(n->flags, ZEBRA_NEIGH_REMOTE) &&
+		    (n->gr_refresh_time > wctx->gr_cleanup_time))
+			return;
+
 		if (wctx->upd_client && (n->flags & ZEBRA_NEIGH_LOCAL))
 			zebra_evpn_neigh_send_del_to_client(
 				wctx->zevpn->vni, &n->ip, &n->emac, n->flags,
@@ -911,8 +919,8 @@ static void zebra_evpn_neigh_del_hash_entry(struct hash_bucket *bucket,
 /*
  * Delete all neighbor entries for this EVPN.
  */
-void zebra_evpn_neigh_del_all(struct zebra_evpn *zevpn, int uninstall,
-			      int upd_client, uint32_t flags)
+void zebra_evpn_neigh_del_all(struct zebra_evpn *zevpn, int uninstall, int upd_client,
+			      uint32_t flags, struct l2vni_walk_ctx *l2_wctx)
 {
 	struct neigh_walk_ctx wctx;
 
@@ -924,6 +932,10 @@ void zebra_evpn_neigh_del_all(struct zebra_evpn *zevpn, int uninstall,
 	wctx.uninstall = uninstall;
 	wctx.upd_client = upd_client;
 	wctx.flags = flags;
+	if (l2_wctx) {
+		wctx.gr_stale_cleanup = l2_wctx->gr_stale_cleanup;
+		wctx.gr_cleanup_time = l2_wctx->gr_cleanup_time;
+	}
 
 	hash_iterate(zevpn->neigh_table, zebra_evpn_neigh_del_hash_entry,
 		     &wctx);
