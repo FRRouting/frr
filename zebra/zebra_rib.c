@@ -5026,6 +5026,7 @@ void rib_sweep_route(struct event *t)
 
 	zebra_router_sweep_route();
 	zebra_router_sweep_nhgs();
+	zebra_evpn_stale_entries_cleanup(zrouter.startup_time);
 }
 
 /* Remove specific by protocol routes from 'table'. */
