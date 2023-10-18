@@ -130,6 +130,12 @@ struct zebra_mac {
 	uint32_t sync_neigh_cnt;
 
 	time_t uptime;
+
+	/*
+	 * Timestamp of when this entry was created/refreshed.
+	 * This field is used to do GR stale entry cleanup
+	 */
+	uint64_t gr_refresh_time;
 };
 
 /*
