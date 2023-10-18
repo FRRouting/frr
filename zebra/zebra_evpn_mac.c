@@ -2501,3 +2501,75 @@ void zebra_evpn_mac_svi_add(struct interface *ifp, struct zebra_evpn *zevpn)
 	new_bgp_ready = zebra_evpn_mac_is_ready_for_bgp(mac->flags);
 	zebra_evpn_mac_send_add_del_to_client(mac, old_bgp_ready, new_bgp_ready);
 }
+
+static void zebra_vxlan_stale_remote_mac_add_l2vni(struct zebra_evpn *zevpn,
+						   struct ethaddr *macaddr, struct ipaddr vtep_ip,
+						   bool sticky)
+{
+	struct zebra_mac *mac;
+
+	mac = zebra_evpn_mac_lookup(zevpn, macaddr);
+	if (mac) {
+		if (IS_ZEBRA_DEBUG_VXLAN)
+			zlog_debug("EVPN-GR: Remote %sMAC %pEA (%p) zevpn %p,VTEP %pIA L2VNI %d exists",
+				   sticky ? "sticky " : "", macaddr, mac, zevpn, &vtep_ip,
+				   zevpn->vni);
+		return;
+	}
+
+	/* Create remote MAC entry in table*/
+	mac = zebra_evpn_mac_add(zevpn, macaddr);
+	if (!mac) {
+		zlog_debug("EVPN-GR: Failed to add remote MAC %pEA, VTEP %pIA, L2VNI %d", macaddr,
+			   &vtep_ip, zevpn->vni);
+		return;
+	}
+
+	/* Set "remote" forwarding info. */
+	SET_FLAG(mac->flags, ZEBRA_MAC_REMOTE);
+	mac->fwd_info.r_vtep_ip = vtep_ip;
+
+	/*
+	 * Sticky could be set either when ZEBRA_MAC_STICKY or
+	 * ZEBRA_MAC_REMOTE_DEF_GW is set. So set both here.
+	 * If one of them is not required, then zebra will
+	 * update it correctly when BGP downloads the remote MAC
+	 * to zebra.
+	 */
+	if (sticky) {
+		SET_FLAG(mac->flags, ZEBRA_MAC_STICKY);
+		SET_FLAG(mac->flags, ZEBRA_MAC_REMOTE_DEF_GW);
+	} else {
+		UNSET_FLAG(mac->flags, ZEBRA_MAC_STICKY);
+		UNSET_FLAG(mac->flags, ZEBRA_MAC_REMOTE_DEF_GW);
+	}
+
+	if (IS_ZEBRA_DEBUG_VXLAN)
+		zlog_debug("EVPN-GR: Added stale remote %sMAC %pEA (%p) zevpn %p, VTEP %pIA L2VNI %d",
+			   sticky ? "sticky " : "", macaddr, mac, zevpn, &vtep_ip, zevpn->vni);
+}
+
+void zebra_vxlan_stale_remote_mac_add(struct ethaddr *macaddr, struct ipaddr vtep_ip, bool sticky,
+				      vni_t vni)
+{
+	struct zebra_evpn *zevpn;
+	struct zebra_l3vni *zl3vni = NULL;
+
+	/* Restore remote Router-MAC */
+	zl3vni = zl3vni_lookup(vni);
+	if (zl3vni) {
+		zebra_vxlan_stale_remote_mac_add_l3vni(zl3vni, macaddr, vtep_ip);
+		return;
+	}
+
+	/* Restore remote MAC */
+	zevpn = zebra_evpn_lookup(vni);
+	if (!zevpn || !zevpn->vxlan_if) {
+		if (IS_ZEBRA_DEBUG_VXLAN)
+			zlog_debug("EVPN-GR: Add of remote %sMAC %pEA VNI %u, could not find EVPN inst/intf (%p)",
+				   sticky ? "sticky " : "", macaddr, vni, zevpn);
+		return;
+	}
+
+	zebra_vxlan_stale_remote_mac_add_l2vni(zevpn, macaddr, vtep_ip, sticky);
+}
