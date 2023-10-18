@@ -644,6 +644,11 @@ static int label_manager_get_chunk(struct label_manager_chunk **lmc,
 			   (*lmc)->start, (*lmc)->end,
 			   zebra_route_string(client->proto), client->instance);
 
+	if (client->proto == ZEBRA_ROUTE_STATIC)
+		/* static LSP entries are computed from zebra. do not send back
+		 * responses */
+		return 0;
+
 	return zsend_assign_label_chunk_response(client, vrf_id, *lmc);
 }
 

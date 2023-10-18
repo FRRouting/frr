@@ -33,6 +33,7 @@
 #include "zebra/zebra_mpls.h"
 #include "zebra/zebra_srte.h"
 #include "zebra/zebra_errors.h"
+#include "zebra/label_manager.h"
 
 DEFINE_MTYPE_STATIC(ZEBRA, LSP, "MPLS LSP object");
 DEFINE_MTYPE_STATIC(ZEBRA, FEC, "MPLS FEC object");
@@ -3519,6 +3520,8 @@ int zebra_mpls_static_lsp_add(struct zebra_vrf *zvrf, mpls_label_t in_label,
 	struct zebra_lsp *lsp;
 	struct zebra_nhlfe *nhlfe;
 	char buf[BUFSIZ];
+	struct zserv client = {0};
+	struct label_manager_chunk *lmc = NULL;
 
 	/* Lookup table. */
 	slsp_table = zvrf->slsp_table;
@@ -3527,7 +3530,21 @@ int zebra_mpls_static_lsp_add(struct zebra_vrf *zvrf, mpls_label_t in_label,
 
 	/* Find or create LSP. */
 	tmp_ile.in_label = in_label;
-	lsp = hash_get(slsp_table, &tmp_ile, lsp_alloc);
+	lsp = hash_lookup(slsp_table, &tmp_ile);
+	if (!lsp) {
+		/* there is no registered lsp for in_label
+		 * we can have multiple lsp entries for the same
+		 * in_label:
+		 * #mpls lsp 16 192.0.2.1 17
+		 * #mpls lsp 16 192.0.2.2 18
+		 */
+		lsp = hash_get(slsp_table, &tmp_ile, lsp_alloc);
+
+		client.proto = ZEBRA_ROUTE_STATIC;
+		lm_get_chunk_call(&lmc, &client, 0, 1, in_label, VRF_DEFAULT);
+		if (!lmc)
+			SET_FLAG(lsp->flags, LSP_FLAG_NEED_LM);
+	}
 
 	nhlfe = nhlfe_find(&lsp->nhlfe_list, ZEBRA_LSP_STATIC, gtype, gate,
 			   ifindex);
@@ -3572,6 +3589,9 @@ int zebra_mpls_static_lsp_add(struct zebra_vrf *zvrf, mpls_label_t in_label,
 		}
 	}
 
+	if (CHECK_FLAG(lsp->flags, LSP_FLAG_NEED_LM))
+		return 0;
+
 	/* (Re)Install LSP in the main table. */
 	if (mpls_lsp_install(zvrf, ZEBRA_LSP_STATIC, in_label, 1, &out_label,
 			     gtype, gate, ifindex))
@@ -3595,6 +3615,7 @@ int zebra_mpls_static_lsp_del(struct zebra_vrf *zvrf, mpls_label_t in_label,
 	struct zebra_ile tmp_ile;
 	struct zebra_lsp *lsp;
 	struct zebra_nhlfe *nhlfe;
+	struct zserv client = {0};
 
 	/* Lookup table. */
 	slsp_table = zvrf->slsp_table;
@@ -3645,6 +3666,10 @@ int zebra_mpls_static_lsp_del(struct zebra_vrf *zvrf, mpls_label_t in_label,
 	 * above.
 	 */
 	if (nhlfe_list_first(&lsp->nhlfe_list) == NULL) {
+		/* do not wait kernel lsp deletion, release chunk */
+		client.proto = ZEBRA_ROUTE_STATIC;
+		if (!CHECK_FLAG(lsp->flags, LSP_FLAG_NEED_LM))
+			lm_release_chunk_call(&client, in_label, in_label);
 		lsp = hash_release(slsp_table, &tmp_ile);
 		lsp_free_nhlfe(lsp);
 		XFREE(MTYPE_LSP, lsp);

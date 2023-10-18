@@ -95,6 +95,7 @@ struct zebra_lsp {
 #define LSP_FLAG_INSTALLED        (1 << 1)
 #define LSP_FLAG_CHANGED          (1 << 2)
 #define LSP_FLAG_FPM              (1 << 3)
+#define LSP_FLAG_NEED_LM          (1 << 4)
 
 	/* Address-family of NHLFE - saved here for delete. All NHLFEs */
 	/* have to be of the same AF */
