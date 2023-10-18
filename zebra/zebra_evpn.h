@@ -51,6 +51,12 @@ struct zebra_vtep {
 	/* Links. */
 	struct zebra_vtep *next;
 	struct zebra_vtep *prev;
+
+	/*
+	 * Timestamp of when this entry was created/refreshed.
+	 * This field is used to do GR stale entry cleanup
+	 */
+	uint64_t gr_refresh_time;
 };
 
 /*
