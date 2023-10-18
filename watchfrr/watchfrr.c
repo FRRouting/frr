@@ -600,6 +600,9 @@ static void daemon_restarting_operational(struct event *thread)
 
 static void daemon_down(struct daemon *dmn, const char *why)
 {
+	if (dmn->ignore_timeout)
+		return;
+
 	if (IS_UP(dmn) || (dmn->state == DAEMON_INIT))
 		flog_err(EC_WATCHFRR_CONNECTION, "%s state -> down : %s",
 			 dmn->name, why);
