@@ -1186,15 +1186,34 @@ static bool zebra_evpn_check_mac_del_from_db(struct mac_walk_ctx *wctx,
 	    CHECK_FLAG(mac->flags, ZEBRA_MAC_LOCAL))
 		return true;
 	else if (CHECK_FLAG(wctx->flags, DEL_REMOTE_MAC) &&
-		 CHECK_FLAG(mac->flags, ZEBRA_MAC_REMOTE))
-		return true;
-	else if (CHECK_FLAG(wctx->flags, DEL_REMOTE_MAC_FROM_VTEP) &&
-		 CHECK_FLAG(mac->flags, ZEBRA_MAC_REMOTE) &&
-		 ipaddr_is_same(&mac->fwd_info.r_vtep_ip, &wctx->r_vtep_ip))
-		return true;
-	else if (CHECK_FLAG(wctx->flags, DEL_LOCAL_MAC) &&
-		 CHECK_FLAG(mac->flags, ZEBRA_MAC_AUTO) &&
-		 !listcount(mac->neigh_list)) {
+		 CHECK_FLAG(mac->flags, ZEBRA_MAC_REMOTE)) {
+		if (wctx->gr_stale_cleanup) {
+			/*
+			 * If zebra is doing stale cleanup, then return true
+			 * only if this is a stale remote MAC entry.
+			 * Return false if this entry was refreshed.
+			 */
+			if (mac->gr_refresh_time < wctx->gr_cleanup_time)
+				return true;
+		} else {
+			return true;
+		}
+	} else if (CHECK_FLAG(wctx->flags, DEL_REMOTE_MAC_FROM_VTEP) &&
+		   CHECK_FLAG(mac->flags, ZEBRA_MAC_REMOTE) &&
+		   ipaddr_is_same(&mac->fwd_info.r_vtep_ip, &wctx->r_vtep_ip)) {
+		if (wctx->gr_stale_cleanup) {
+			/*
+			 * If zebra is doing stale cleanup, then return true
+			 * only if this is a stale remote MAC entry.
+			 * Return false if this entry was refreshed.
+			 */
+			if (mac->gr_refresh_time < wctx->gr_cleanup_time)
+				return true;
+		} else {
+			return true;
+		}
+	} else if (CHECK_FLAG(wctx->flags, DEL_LOCAL_MAC) &&
+		   CHECK_FLAG(mac->flags, ZEBRA_MAC_AUTO) && !listcount(mac->neigh_list)) {
 		if (IS_ZEBRA_DEBUG_VXLAN) {
 			char mac_buf[MAC_BUF_SIZE];
 
@@ -1244,8 +1263,8 @@ static void zebra_evpn_mac_del_hash_entry(struct hash_bucket *bucket, void *arg)
 /*
  * Delete all MAC entries for this EVPN.
  */
-void zebra_evpn_mac_del_all(struct zebra_evpn *zevpn, int uninstall,
-			    int upd_client, uint32_t flags)
+void zebra_evpn_mac_del_all(struct zebra_evpn *zevpn, int uninstall, int upd_client,
+			    uint32_t flags, struct l2vni_walk_ctx *l2_wctx)
 {
 	struct mac_walk_ctx wctx;
 
@@ -1257,6 +1276,10 @@ void zebra_evpn_mac_del_all(struct zebra_evpn *zevpn, int uninstall,
 	wctx.uninstall = uninstall;
 	wctx.upd_client = upd_client;
 	wctx.flags = flags;
+	if (l2_wctx) {
+		wctx.gr_stale_cleanup = l2_wctx->gr_stale_cleanup;
+		wctx.gr_cleanup_time = l2_wctx->gr_cleanup_time;
+	}
 
 	hash_iterate(zevpn->mac_table, zebra_evpn_mac_del_hash_entry, &wctx);
 }

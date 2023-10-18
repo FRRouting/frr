@@ -2468,11 +2468,11 @@ static int zebra_vxlan_handle_vni_transition(struct zebra_vrf *zvrf, vni_t vni,
 		/* Delete EVPN from BGP. */
 		zebra_evpn_send_del_to_client(zevpn);
 
-		zebra_evpn_neigh_del_all(zevpn, 0, 0, DEL_ALL_NEIGH);
-		zebra_evpn_mac_del_all(zevpn, 0, 0, DEL_ALL_MAC);
+		zebra_evpn_neigh_del_all(zevpn, 0, 0, DEL_ALL_NEIGH, NULL);
+		zebra_evpn_mac_del_all(zevpn, 0, 0, DEL_ALL_MAC, NULL);
 
 		/* Free up all remote VTEPs, if any. */
-		zebra_evpn_vtep_del_all(zevpn, 1);
+		zebra_evpn_vtep_del_all(zevpn, 1, NULL);
 
 		zl3vni = zl3vni_from_vrf(zevpn->vrf_id);
 		if (zl3vni)
@@ -2548,14 +2548,29 @@ static int zebra_vxlan_handle_vni_transition(struct zebra_vrf *zvrf, vni_t vni,
 	return 0;
 }
 
+struct l3vni_walk_ctx {
+	struct zebra_l3vni *zl3vni;
+	bool gr_stale_cleanup;
+	uint64_t gr_cleanup_time;
+};
+
 /* delete and uninstall rmac hash entry */
 static void zl3vni_del_rmac_hash_entry(struct hash_bucket *bucket, void *ctx)
 {
 	struct zebra_mac *zrmac = NULL;
 	struct zebra_l3vni *zl3vni = NULL;
+	struct l3vni_walk_ctx *wctx = ctx;
 
 	zrmac = (struct zebra_mac *)bucket->data;
-	zl3vni = (struct zebra_l3vni *)ctx;
+	zl3vni = wctx->zl3vni;
+
+	/*
+	 * If we are doing stale cleanup but this RMAC is not
+	 * marked stale, then do not delete it
+	 */
+	if (wctx->gr_stale_cleanup && (zrmac->gr_refresh_time > wctx->gr_cleanup_time))
+		return;
+
 	zl3vni_rmac_uninstall(zl3vni, zrmac);
 
 	/* Send RMAC for FPM processing */
@@ -2569,9 +2584,10 @@ static void zl3vni_del_nh_hash_entry(struct hash_bucket *bucket, void *ctx)
 {
 	struct zebra_neigh *n = NULL, *svd_nh = NULL;
 	struct zebra_l3vni *zl3vni = NULL;
+	struct l3vni_walk_ctx *wctx = ctx;
 
 	n = (struct zebra_neigh *)bucket->data;
-	zl3vni = (struct zebra_l3vni *)ctx;
+	zl3vni = (struct zebra_l3vni *)wctx->zl3vni;
 
 	/* remove SVD based remote nexthop neigh entry */
 	svd_nh = svd_nh_lookup(&n->ip);
@@ -2586,6 +2602,13 @@ static void zl3vni_del_nh_hash_entry(struct hash_bucket *bucket, void *ctx)
 			svd_nh_del(svd_nh);
 		}
 	}
+
+	/*
+	 * If we are doing stale cleanup but this neigh is not
+	 * marked stale, then do not delete it
+	 */
+	if (wctx->gr_stale_cleanup && (n->gr_refresh_time > wctx->gr_cleanup_time))
+		return;
 
 	zl3vni_nh_uninstall(zl3vni, n);
 	zl3vni_nh_del(zl3vni, n);
@@ -5380,13 +5403,17 @@ void zebra_vxlan_process_vrf_vni_cmd(struct zebra_vrf *zvrf, vni_t vni,
 
 		zebra_vxlan_process_l3vni_oper_down(zl3vni);
 
+		struct l3vni_walk_ctx wctx;
+
+		wctx.zl3vni = zl3vni;
+		wctx.gr_stale_cleanup = false;
+		wctx.gr_cleanup_time = 0;
+
 		/* delete and uninstall all rmacs */
-		hash_iterate(zl3vni->rmac_table, zl3vni_del_rmac_hash_entry,
-			     zl3vni);
+		hash_iterate(zl3vni->rmac_table, zl3vni_del_rmac_hash_entry, &wctx);
 
 		/* delete and uninstall all next-hops */
-		hash_iterate(zl3vni->nh_table, zl3vni_del_nh_hash_entry,
-			     zl3vni);
+		hash_iterate(zl3vni->nh_table, zl3vni_del_nh_hash_entry, &wctx);
 
 		zvrf->l3vni = 0;
 		zl3vni_del(zl3vni);
@@ -5414,6 +5441,7 @@ int zebra_vxlan_vrf_enable(struct zebra_vrf *zvrf)
 int zebra_vxlan_vrf_disable(struct zebra_vrf *zvrf)
 {
 	struct zebra_l3vni *zl3vni = NULL;
+	struct l3vni_walk_ctx wctx;
 
 	if (zvrf->l3vni)
 		zl3vni = zl3vni_lookup(zvrf->l3vni);
@@ -5422,10 +5450,14 @@ int zebra_vxlan_vrf_disable(struct zebra_vrf *zvrf)
 
 	zebra_vxlan_process_l3vni_oper_down(zl3vni);
 
+	wctx.zl3vni = zl3vni;
+	wctx.gr_stale_cleanup = false;
+	wctx.gr_cleanup_time = 0;
+
 	/* delete and uninstall all rmacs */
-	hash_iterate(zl3vni->rmac_table, zl3vni_del_rmac_hash_entry, zl3vni);
+	hash_iterate(zl3vni->rmac_table, zl3vni_del_rmac_hash_entry, &wctx);
 	/* delete and uninstall all next-hops */
-	hash_iterate(zl3vni->nh_table, zl3vni_del_nh_hash_entry, zl3vni);
+	hash_iterate(zl3vni->nh_table, zl3vni_del_nh_hash_entry, &wctx);
 
 	zl3vni->vrf_id = VRF_UNKNOWN;
 
@@ -6298,26 +6330,58 @@ void zebra_vxlan_sg_replay(ZAPI_HANDLER_ARGS)
 
 
 /* Cleanup EVPN configuration of a specific VRF */
-static void zebra_evpn_vrf_cfg_cleanup(struct zebra_vrf *zvrf)
+static void zebra_evpn_vrf_cfg_cleanup(struct zebra_vrf *zvrf, bool stale_cleanup,
+				       uint64_t gr_cleanup_time)
 {
 	struct zebra_l3vni *zl3vni = NULL;
+	struct l2vni_walk_ctx wctx;
 
-	zvrf->advertise_all_vni = 0;
-	zvrf->advertise_gw_macip = 0;
-	zvrf->advertise_svi_macip = 0;
-	zvrf->vxlan_flood_ctrl = VXLAN_FLOOD_HEAD_END_REPL;
+	if (!stale_cleanup) {
+		zvrf->advertise_all_vni = 0;
+		zvrf->advertise_gw_macip = 0;
+		zvrf->advertise_svi_macip = 0;
+		zvrf->vxlan_flood_ctrl = VXLAN_FLOOD_HEAD_END_REPL;
+	}
 
-	hash_iterate(zvrf->evpn_table, zebra_evpn_cfg_cleanup, NULL);
+	wctx.gr_stale_cleanup = stale_cleanup;
+	wctx.gr_cleanup_time = gr_cleanup_time;
+	hash_iterate(zvrf->evpn_table, zebra_evpn_cfg_cleanup, &wctx);
 
 	if (zvrf->l3vni)
 		zl3vni = zl3vni_lookup(zvrf->l3vni);
 	if (zl3vni) {
+		struct l3vni_walk_ctx l3wctx;
+
+		l3wctx.zl3vni = zl3vni;
+		l3wctx.gr_stale_cleanup = stale_cleanup;
+		l3wctx.gr_cleanup_time = gr_cleanup_time;
+
 		/* delete and uninstall all rmacs */
-		hash_iterate(zl3vni->rmac_table, zl3vni_del_rmac_hash_entry,
-			     zl3vni);
+		hash_iterate(zl3vni->rmac_table, zl3vni_del_rmac_hash_entry, &l3wctx);
 		/* delete and uninstall all next-hops */
-		hash_iterate(zl3vni->nh_table, zl3vni_del_nh_hash_entry,
-			     zl3vni);
+		hash_iterate(zl3vni->nh_table, zl3vni_del_nh_hash_entry, &l3wctx);
+	}
+}
+
+/*
+ * Cleanup stale EVPN entries in VRF
+ */
+void zebra_evpn_stale_entries_cleanup(uint64_t gr_cleanup_time)
+{
+	struct vrf *vrf;
+	struct zebra_vrf *zvrf;
+
+	if (IS_ZEBRA_DEBUG_EVENT)
+		zlog_debug("EVPN-GR: Cleaning up stale entries in all VRFs");
+
+	RB_FOREACH (vrf, vrf_id_head, &vrfs_by_id) {
+		if (IS_ZEBRA_DEBUG_EVENT)
+			zlog_debug("EVPN-GR: Cleaning up stale entries in  %s(%u)", vrf->name,
+				   vrf->vrf_id);
+
+		zvrf = vrf->info;
+		if (zvrf)
+			zebra_evpn_vrf_cfg_cleanup(zvrf, true, gr_cleanup_time);
 	}
 }
 
@@ -6330,7 +6394,7 @@ static int zebra_evpn_bgp_cfg_clean_up(struct zserv *client)
 	RB_FOREACH (vrf, vrf_id_head, &vrfs_by_id) {
 		zvrf = vrf->info;
 		if (zvrf)
-			zebra_evpn_vrf_cfg_cleanup(zvrf);
+			zebra_evpn_vrf_cfg_cleanup(zvrf, false, 0);
 	}
 
 	return 0;
@@ -6351,8 +6415,20 @@ static int zebra_evpn_pim_cfg_clean_up(struct zserv *client)
 
 static int zebra_evpn_cfg_clean_up(struct zserv *client)
 {
-	if (client->proto == ZEBRA_ROUTE_BGP)
-		return zebra_evpn_bgp_cfg_clean_up(client);
+	if (client->proto == ZEBRA_ROUTE_BGP) {
+		if (DYNAMIC_CLIENT_GR_DISABLED(client)) {
+			if (IS_ZEBRA_DEBUG_EVENT)
+				zlog_debug(
+					"EVPN-GR: client bgp has GR disabled. Cleaning up EVPN entries");
+			return zebra_evpn_bgp_cfg_clean_up(client);
+		}
+		/*
+		 * BGP has GR enabled, do not cleanup the neigh
+		 * and fdb entries from kernel.
+		 */
+		if (IS_ZEBRA_DEBUG_EVENT)
+			zlog_debug("EVPN-GR: client bgp has GR enabled. Retaining EVPN entries");
+	}
 
 	if (client->proto == ZEBRA_ROUTE_PIM)
 		return zebra_evpn_pim_cfg_clean_up(client);
