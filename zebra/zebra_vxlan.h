@@ -225,6 +225,10 @@ extern int zebra_vxlan_dp_network_mac_del(struct interface *ifp,
 extern void zebra_vxlan_set_accept_bgp_seq(bool set);
 extern bool zebra_vxlan_get_accept_bgp_seq(void);
 extern void zebra_vlan_dplane_result(struct zebra_dplane_ctx *ctx);
+extern void zebra_vxlan_stale_hrep_add(struct ipaddr vtep_ip, vni_t vni);
+extern void zebra_vxlan_stale_remote_mac_add(struct ethaddr *macaddr, struct ipaddr vtep_ip,
+					     bool sticky, vni_t vni);
+
 #ifdef __cplusplus
 }
 #endif
