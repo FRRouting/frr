@@ -47,7 +47,7 @@ def teardown_module(mod):
     tgen.stop_topology()
 
 
-def test_bgp_dynamic_capability_role():
+def test_bgp_dynamic_capability_addpath():
     tgen = get_topogen()
 
     if tgen.routers_have_failure():
