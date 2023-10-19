@@ -654,7 +654,7 @@ int pathd_srte_policy_template_candidate_path_originator_modify(
 }
 
 /*
- * XPath: /frr-pathd:pathd/srte/policy/candidate-path/type
+ * XPath: /frr-pathd:pathd/frr-pathd:srte/frr-pathd-triggered-srte:policy-template/candidate-path/type
  */
 int pathd_srte_policy_template_candidate_path_type_modify(
 	struct nb_cb_modify_args *args)
@@ -696,7 +696,7 @@ int pathd_srte_policy_template_candidate_path_type_modify(
 }
 
 /*
- * XPath: /frr-pathd:pathd/srte/policy/candidate-path/flex-algo-number
+ * XPath: /frr-pathd:pathd/frr-pathd:srte/frr-pathd-triggered-srte:policy-template/candidate-path/flex-algo-number
  */
 int pathd_srte_policy_template_candidate_path_flex_algo_number_modify(
 	struct nb_cb_modify_args *args)
