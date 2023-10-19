@@ -78,8 +78,6 @@ pytestmark = [pytest.mark.isisd, pytest.mark.bgpd, pytest.mark.pathd]
 zebra_conf_head = """\
 log file zebra.log
 !
-hostname rt1
-!
 log stdout notifications
 log monitor notifications
 log commands
@@ -489,6 +487,7 @@ def isisd_conf_itfs(tgen, idx):
 
 def write_zebra_conf(tgen, idx, filename):
     with open(filename, "w") as _fp:
+        print("hostname %s" % router_names[idx], file=_fp)
         print(zebra_conf_head, file=_fp)
         print(zebra_conf_itfs(tgen, idx), file=_fp)
         print(zebra_conf_tail, file=_fp)
@@ -498,6 +497,7 @@ def write_zebra_conf(tgen, idx, filename):
 def write_isisd_conf(tgen, idx, filename):
     idx_02x = f"{idx:02x}" if idx > 0 else f"{num_routers:02x}"
     with open(filename, "w") as _fp:
+        print("hostname %s" % router_names[idx], file=_fp)
         print(isisd_conf_itfs(tgen, idx), file=_fp)
         print(isisd_conf_area_fmt.format(isis_area, idx_02x), file=_fp)
         for _fa, aff, part in zip(
@@ -537,11 +537,13 @@ def write_bgpd_conf(tgen, idx, peeridx, filename):
     network = faconfig.v4net(idx, network_v4_base)
     args = (neighbor, neighbor, network, neighbor)
     with open(filename, "w") as _fp:
+        print("hostname %s" % router_names[idx], file=_fp)
         print(bgpd_conf_fmt.format(*args), file=_fp)
 
 
 def write_pathd_conf(tgen, idx, filename):
     with open(filename, "w") as _fp:
+        print("hostname %s" % router_names[idx], file=_fp)
         print(pathd_conf_fmt.format(isis_area), file=_fp)
 
 
