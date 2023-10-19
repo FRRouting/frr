@@ -5831,24 +5831,37 @@ DEFUN (neighbor_capability_orf_prefix,
 	struct peer *peer;
 	afi_t afi = bgp_node_afi(vty);
 	safi_t safi = bgp_node_safi(vty);
+	int ret;
 
 	peer = peer_and_group_lookup_vty(vty, peer_str);
 	if (!peer)
 		return CMD_WARNING_CONFIG_FAILED;
 
-	if (strmatch(argv[idx_send_recv]->text, "send"))
-		return peer_af_flag_set_vty(vty, peer_str, afi, safi,
-					    PEER_FLAG_ORF_PREFIX_SM);
+	if (strmatch(argv[idx_send_recv]->text, "send")) {
+		ret = peer_af_flag_set_vty(vty, peer_str, afi, safi,
+					   PEER_FLAG_ORF_PREFIX_SM);
+		bgp_capability_send(peer, afi, safi, CAPABILITY_CODE_ORF,
+				    CAPABILITY_ACTION_SET);
+		return ret;
+	}
 
-	if (strmatch(argv[idx_send_recv]->text, "receive"))
-		return peer_af_flag_set_vty(vty, peer_str, afi, safi,
-					    PEER_FLAG_ORF_PREFIX_RM);
+	if (strmatch(argv[idx_send_recv]->text, "receive")) {
+		ret = peer_af_flag_set_vty(vty, peer_str, afi, safi,
+					   PEER_FLAG_ORF_PREFIX_RM);
+		bgp_capability_send(peer, afi, safi, CAPABILITY_CODE_ORF,
+				    CAPABILITY_ACTION_SET);
+		return ret;
+	}
 
-	if (strmatch(argv[idx_send_recv]->text, "both"))
-		return peer_af_flag_set_vty(vty, peer_str, afi, safi,
-					    PEER_FLAG_ORF_PREFIX_SM)
-		       | peer_af_flag_set_vty(vty, peer_str, afi, safi,
-					      PEER_FLAG_ORF_PREFIX_RM);
+	if (strmatch(argv[idx_send_recv]->text, "both")) {
+		ret = peer_af_flag_set_vty(vty, peer_str, afi, safi,
+					   PEER_FLAG_ORF_PREFIX_SM) |
+		      peer_af_flag_set_vty(vty, peer_str, afi, safi,
+					   PEER_FLAG_ORF_PREFIX_RM);
+		bgp_capability_send(peer, afi, safi, CAPABILITY_CODE_ORF,
+				    CAPABILITY_ACTION_SET);
+		return ret;
+	}
 
 	return CMD_WARNING_CONFIG_FAILED;
 }
@@ -5883,24 +5896,37 @@ DEFUN (no_neighbor_capability_orf_prefix,
 	struct peer *peer;
 	afi_t afi = bgp_node_afi(vty);
 	safi_t safi = bgp_node_safi(vty);
+	int ret;
 
 	peer = peer_and_group_lookup_vty(vty, peer_str);
 	if (!peer)
 		return CMD_WARNING_CONFIG_FAILED;
 
-	if (strmatch(argv[idx_send_recv]->text, "send"))
-		return peer_af_flag_unset_vty(vty, peer_str, afi, safi,
-					      PEER_FLAG_ORF_PREFIX_SM);
+	if (strmatch(argv[idx_send_recv]->text, "send")) {
+		ret = peer_af_flag_unset_vty(vty, peer_str, afi, safi,
+					     PEER_FLAG_ORF_PREFIX_SM);
+		bgp_capability_send(peer, afi, safi, CAPABILITY_CODE_ORF,
+				    CAPABILITY_ACTION_UNSET);
+		return ret;
+	}
 
-	if (strmatch(argv[idx_send_recv]->text, "receive"))
-		return peer_af_flag_unset_vty(vty, peer_str, afi, safi,
-					      PEER_FLAG_ORF_PREFIX_RM);
+	if (strmatch(argv[idx_send_recv]->text, "receive")) {
+		ret = peer_af_flag_unset_vty(vty, peer_str, afi, safi,
+					     PEER_FLAG_ORF_PREFIX_RM);
+		bgp_capability_send(peer, afi, safi, CAPABILITY_CODE_ORF,
+				    CAPABILITY_ACTION_UNSET);
+		return ret;
+	}
 
-	if (strmatch(argv[idx_send_recv]->text, "both"))
-		return peer_af_flag_unset_vty(vty, peer_str, afi, safi,
-					      PEER_FLAG_ORF_PREFIX_SM)
-		       | peer_af_flag_unset_vty(vty, peer_str, afi, safi,
-						PEER_FLAG_ORF_PREFIX_RM);
+	if (strmatch(argv[idx_send_recv]->text, "both")) {
+		ret = peer_af_flag_unset_vty(vty, peer_str, afi, safi,
+					     PEER_FLAG_ORF_PREFIX_SM) |
+		      peer_af_flag_unset_vty(vty, peer_str, afi, safi,
+					     PEER_FLAG_ORF_PREFIX_RM);
+		bgp_capability_send(peer, afi, safi, CAPABILITY_CODE_ORF,
+				    CAPABILITY_ACTION_UNSET);
+		return ret;
+	}
 
 	return CMD_WARNING_CONFIG_FAILED;
 }
