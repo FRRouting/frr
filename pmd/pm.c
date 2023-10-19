@@ -404,6 +404,8 @@ void pm_initialise(struct pm_session *pm, bool validate_only,
 		pm->ifindex_out = IFINDEX_INTERNAL;
 	}
 
+	PM_UNSET_FLAG(pm->flags, PM_SESS_FLAG_VALIDATE);
+
 	/* check if consistent */
 	if (pm->key.vrfname[0])
 		vrf = vrf_lookup_by_name(pm->key.vrfname);
@@ -498,11 +500,11 @@ void pm_initialise(struct pm_session *pm, bool validate_only,
 	}
 	if (pm->interval < pm->timeout) {
 		snprintf(ebuf, ebuflen,
-			 "session to %pSU, timeout %u greater than interval %u",
-			 &pm->key.peer, pm->timeout, pm->interval);
+			 "session to %s, timeout %u greater than interval %u",
+			 pm->key.peer, pm->timeout, pm->interval);
 		return;
 	}
-	pm->flags |= PM_SESS_FLAG_VALIDATE;
+	PM_SET_FLAG(pm->flags, PM_SESS_FLAG_VALIDATE);
 
 }
 
@@ -575,6 +577,9 @@ void pm_try_run(struct vty *vty, struct pm_session *pm)
 	if (PM_CHECK_FLAG(pm->flags, PM_SESS_FLAG_SHUTDOWN))
 		return;
 
+	/* flush previous context if necessary */
+	pm_echo_stop(pm, errormsg, sizeof(errormsg), false);
+
 	/* check config is consistent */
 	pm_initialise(pm, true, errormsg, sizeof(errormsg));
 	if (!PM_CHECK_FLAG(pm->flags, PM_SESS_FLAG_VALIDATE)) {
@@ -601,8 +606,6 @@ void pm_try_run(struct vty *vty, struct pm_session *pm)
 		return;
 	}
 
-	/* flush previous context if necessary */
-	pm_echo_stop(pm, errormsg, sizeof(errormsg), false);
 	/* rerun it */
 	ret = pm_echo(pm, errormsg, sizeof(errormsg));
 	if (ret) {
