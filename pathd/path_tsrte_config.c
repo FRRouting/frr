@@ -703,11 +703,12 @@ int pathd_srte_policy_template_candidate_path_flex_algo_number_modify(
 {
 	struct srte_candidate_template *candidate;
 	uint8_t flex_algo_number;
+	char xpath[XPATH_MAXLEN];
+	char xpath_buf[XPATH_MAXLEN - 3];
 
 	if (args->event != NB_EV_APPLY && args->event != NB_EV_VALIDATE)
 		return NB_OK;
 
-	candidate = nb_running_get_entry(args->dnode, NULL, true);
 
 	/*
 	 * Once the flex-algo number is set, it can't be changed (doing it
@@ -715,7 +716,14 @@ int pathd_srte_policy_template_candidate_path_flex_algo_number_modify(
 	 * the needed info)
 	 */
 	if (args->event == NB_EV_VALIDATE) {
-		if (CHECK_FLAG(candidate->flags,
+		/* first get the precise path to the candidate path */
+		yang_dnode_get_path(args->dnode, xpath_buf, sizeof(xpath_buf));
+		snprintf(xpath, sizeof(xpath), "%s%s", xpath_buf, "/..");
+
+		candidate = nb_running_get_entry_non_rec(NULL, xpath, false);
+
+		/* then check if it exists and if the type was provided */
+		if (candidate && CHECK_FLAG(candidate->flags,
 			       F_CANDIDATE_HAS_FLEX_ALGO_NUMBER)) {
 
 			flog_warn(
@@ -725,6 +733,8 @@ int pathd_srte_policy_template_candidate_path_flex_algo_number_modify(
 		}
 		return NB_OK;
 	}
+
+	candidate = nb_running_get_entry(args->dnode, NULL, true);
 
 	flex_algo_number = yang_dnode_get_uint8(args->dnode, NULL);
 
