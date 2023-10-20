@@ -125,6 +125,8 @@ const void *lib_vrf_zebra_ribs_rib_get_next(struct nb_cb_get_next_args *args);
 int lib_vrf_zebra_ribs_rib_get_keys(struct nb_cb_get_keys_args *args);
 const void *
 lib_vrf_zebra_ribs_rib_lookup_entry(struct nb_cb_lookup_entry_args *args);
+const void *
+lib_vrf_zebra_ribs_rib_lookup_next(struct nb_cb_lookup_entry_args *args);
 struct yang_data *
 lib_vrf_zebra_ribs_rib_afi_safi_name_get_elem(struct nb_cb_get_elem_args *args);
 struct yang_data *
@@ -134,6 +136,8 @@ lib_vrf_zebra_ribs_rib_route_get_next(struct nb_cb_get_next_args *args);
 int lib_vrf_zebra_ribs_rib_route_get_keys(struct nb_cb_get_keys_args *args);
 const void *
 lib_vrf_zebra_ribs_rib_route_lookup_entry(struct nb_cb_lookup_entry_args *args);
+const void *
+lib_vrf_zebra_ribs_rib_route_lookup_next(struct nb_cb_lookup_entry_args *args);
 struct yang_data *
 lib_vrf_zebra_ribs_rib_route_prefix_get_elem(struct nb_cb_get_elem_args *args);
 struct yang_data *lib_vrf_zebra_ribs_rib_route_protocol_get_elem(

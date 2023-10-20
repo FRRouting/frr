@@ -212,6 +212,28 @@ lib_vrf_zebra_ribs_rib_lookup_entry(struct nb_cb_lookup_entry_args *args)
 	return zebra_router_find_zrt(zvrf, table_id, afi, safi);
 }
 
+const void *
+lib_vrf_zebra_ribs_rib_lookup_next(struct nb_cb_lookup_entry_args *args)
+{
+	struct vrf *vrf = (struct vrf *)args->parent_list_entry;
+	struct zebra_vrf *zvrf;
+	afi_t afi;
+	safi_t safi;
+	uint32_t table_id = 0;
+
+	zvrf = zebra_vrf_lookup_by_id(vrf->vrf_id);
+	if (!zvrf)
+		return NULL;
+
+	yang_afi_safi_identity2value(args->keys->key[0], &afi, &safi);
+	table_id = yang_str2uint32(args->keys->key[1]);
+	/* table_id 0 assume vrf's table_id. */
+	if (!table_id)
+		table_id = zvrf->table_id;
+
+	return zebra_router_find_next_zrt(zvrf, table_id, afi, safi);
+}
+
 /*
  * XPath: /frr-vrf:lib/vrf/frr-zebra:zebra/ribs/rib/afi-safi-name
  */
@@ -280,6 +302,25 @@ lib_vrf_zebra_ribs_rib_route_lookup_entry(struct nb_cb_lookup_entry_args *args)
 	yang_str2prefix(args->keys->key[0], &p);
 
 	rn = route_node_lookup(zrt->table, &p);
+
+	if (!rn)
+		return NULL;
+
+	route_unlock_node(rn);
+
+	return rn;
+}
+
+const void *
+lib_vrf_zebra_ribs_rib_route_lookup_next(struct nb_cb_lookup_entry_args *args)
+{
+	const struct zebra_router_table *zrt = args->parent_list_entry;
+	struct prefix p;
+	struct route_node *rn;
+
+	yang_str2prefix(args->keys->key[0], &p);
+
+	rn = route_table_get_next(zrt->table, &p);
 
 	if (!rn)
 		return NULL;
