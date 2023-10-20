@@ -17,6 +17,7 @@ import json
 import pytest
 import functools
 
+from time import sleep
 from copy import deepcopy
 
 CWD = os.path.dirname(os.path.realpath(__file__))
@@ -136,7 +137,7 @@ def check_bgp_vpn_prefix(label, rname="r1", rd=None):
     return topotest.json_cmp(output, expected, exact=(label is None))
 
 
-def check_mpls_table(label, protocol):
+def check_mpls_table(label, protocol, nexthop_ip=None, swap=False):
     tgen = get_topogen()
 
     if label == "auto":
@@ -155,7 +156,16 @@ def check_mpls_table(label, protocol):
                 output = data
                 break
 
-    if protocol:
+    if protocol and nexthop_ip:
+        expected = {
+            "nexthops": [
+                {
+                    "type": protocol,
+                    "nexthop": nexthop_ip,
+                },
+            ]
+        }
+    elif protocol:
         expected = {
             "nexthops": [
                 {
@@ -166,7 +176,12 @@ def check_mpls_table(label, protocol):
     else:
         expected = {}
 
-    return topotest.json_cmp(output, expected, exact=(protocol is None))
+    ret = topotest.json_cmp(output, expected, exact=(protocol is None))
+    if swap:
+        if ret is None:
+            return "Test not ok"
+        return None
+    return ret
 
 
 def check_mpls_ldp_binding(label="16", rname="r1", prefix="192.0.2.2/32"):
@@ -699,3 +714,144 @@ def test_vpn_label_unconfigure_dynamic_range():
 
     output = tgen.gears["r2"].vtysh_cmd("show debugging label-table")
     assert "Proto bgp: " in output, "Failed to see BGP label chunk"
+
+
+def test_vpn_mpls_configure_first_lsp_static():
+    """
+    Test configuration first STATIC LSP entry with in_label 200
+    Check that the label chunk 200 is taken by STATIC LSP
+    """
+
+    tgen = get_topogen()
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    tgen.gears["r2"].vtysh_cmd("conf\n" "mpls lsp 200 192.168.1.1 203\n")
+
+    step("Check that the LSP route mpls lsp 200 192.168.1.1 203 is installed")
+    test_func = functools.partial(
+        check_mpls_table, 200, "Static", nexthop_ip="192.168.1.1"
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+    assert result is None, "Unexpected Static label on R2"
+
+    step("Check that the in_label 200 is reserved in lm chunks")
+    output = tgen.gears["r2"].vtysh_cmd("show debugging label-table")
+    assert (
+        "Proto static: [200/200]" in output
+    ), "Failure, STATIC label chunk not present"
+
+
+def test_vpn_mpls_configure_second_lsp_static():
+    """
+    Test configuration second STATIC LSP entry with in_label 200
+    Check that the second LSP entry is accepted and operational.
+    """
+
+    tgen = get_topogen()
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    tgen.gears["r2"].vtysh_cmd("conf\n" "mpls lsp 200 192.168.1.100 204\n")
+
+    step("Check that the LSP route mpls lsp 200 192.168.1.100 204 is installed")
+    test_func = functools.partial(
+        check_mpls_table, 200, "Static", nexthop_ip="192.168.1.100"
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+    assert result is None, "Unexpected Static label on R2"
+
+    step("Check that a second LSP operation with in_label 200 is authorized")
+    output = tgen.gears["r2"].vtysh_cmd("show debugging label-table")
+    assert (
+        "Proto static: [200/200]" in output
+    ), "Failure, STATIC label chunk not present"
+    output = tgen.gears["r2"].vtysh_cmd("show running-config zebra")
+    assert (
+        "mpls lsp 200 192.168.1.100 204" in output
+    ), "Failure, STATIC LSP entry not present"
+
+
+def test_vpn_mpls_configure_lsp_static_with_16_label():
+    """
+    Test configuring a STATIC LSP entry with the 16 label value
+    - Check that the LSP entry is saved in configuration
+    - Check that the lm chunk corresponding to the 16 label value it not allocated to STATIC
+    """
+
+    tgen = get_topogen()
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    step(
+        "Check that when configuring 'mpls lsp 16 192.168.1.10 100', entry is kept but no lm chunks is taken"
+    )
+    tgen.gears["r2"].vtysh_cmd("conf\n" "mpls lsp 16 192.168.1.10 100\n")
+
+    output = tgen.gears["r2"].vtysh_cmd("show running-config zebra")
+    assert (
+        "mpls lsp 16 192.168.1.10 100" in output
+    ), "Failure, STATIC LSP entry not present"
+
+    # wait 5 seconds to wait that MPLS LSP entry did not reserve
+    # the label 16 in the label manager
+    sleep(5)
+    output = tgen.gears["r2"].vtysh_cmd("show debugging label-table")
+    assert (
+        "Proto static: [16/16]" not in output
+    ), "Failure, STATIC label chunk 16 should not be reserved"
+
+
+def test_vpn_mpls_unconfigure_first_lsp_static():
+    """
+    Test unconfiguration of the first STATIC LSP entry with in_label 200
+    Check that the label chunk 200 is still taken by STATIC LSP
+    """
+
+    tgen = get_topogen()
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    tgen.gears["r2"].vtysh_cmd("conf\n" "no mpls lsp 200 192.168.1.1 203\n")
+    step("Check that the LSP route mpls lsp 200 192.168.1.1 203 is uninstalled")
+    test_func = functools.partial(
+        check_mpls_table, 200, "Static", nexthop_ip="192.168.1.1", swap=True
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+    assert result is None, "Unexpected Static label on R2"
+
+    step("Check that the in_label 200 is still reserved in lm chunks")
+    output = tgen.gears["r2"].vtysh_cmd("show debugging label-table")
+    assert (
+        "Proto static: [200/200]" in output
+    ), "Failure, STATIC label chunk not present"
+
+
+def test_vpn_mpls_unconfigure_second_lsp_static():
+    """
+    Test unconfiguration of the second STATIC LSP entry with in_label 200
+    Test that the label chunk is released.
+    """
+
+    tgen = get_topogen()
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    tgen.gears["r2"].vtysh_cmd("conf\n" "no mpls lsp 200 192.168.1.100 204\n")
+    step("Check that the LSP route mpls lsp 200 192.168.1.1 204 is uninstalled")
+    test_func = functools.partial(
+        check_mpls_table, 200, "Static", nexthop_ip="192.168.1.100", swap=True
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+    assert result is None, "Unexpected Static label on R2"
+
+    step("Check that the in_label 200 is removed from lm chunks")
+    output = tgen.gears["r2"].vtysh_cmd("show debugging label-table")
+    assert (
+        "Proto static: [200/200]" not in output
+    ), "Failure, STATIC label chunk still present"
