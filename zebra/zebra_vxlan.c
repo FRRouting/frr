@@ -6378,6 +6378,8 @@ void zebra_evpn_stale_entries_cleanup(uint64_t gr_cleanup_time)
 		if (IS_ZEBRA_DEBUG_EVENT)
 			zlog_debug("EVPN-GR: Cleaning up stale entries in  %s(%u)", vrf->name,
 				   vrf->vrf_id);
+		frrtrace(2, frr_zebra, gr_evpn_stale_entries_cleanup, VRF_LOGNAME(vrf),
+			 gr_cleanup_time);
 
 		zvrf = vrf->info;
 		if (zvrf)
