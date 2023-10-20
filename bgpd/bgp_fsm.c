@@ -1506,6 +1506,17 @@ void bgp_gr_check_path_select(struct bgp *bgp, afi_t afi, safi_t safi)
 	struct graceful_restart_info *gr_info;
 	bool multihop_eors_pending = false;
 
+	/*
+	 * This function returns true if EORs are rcvd from all the
+	 * directly connected peers for this AFI-SAFI in this BGP
+	 * instance.
+	 *  OR
+	 * If none of the directly connected peers have negotiated
+	 * this AFI-SAFI.
+	 *
+	 * This function returns false if EORs are not rcvd for this AFI-SAFI
+	 * from all the dirctly connected peers.
+	 */
 	if (bgp_gr_check_all_eors(bgp, afi, safi, &multihop_eors_pending)) {
 		gr_info = &(bgp->gr_info[afi][safi]);
 		if (!BGP_SUPPRESS_FIB_ENABLED(bgp)) {
@@ -1536,6 +1547,34 @@ void bgp_gr_check_path_select(struct bgp *bgp, afi_t afi, safi_t safi)
 					   gr_info->gr_deferred);
 
 			frrtrace(4, frr_bgp, gr_eors, bgp->name_pretty, afi, safi, 5);
+		} else {
+			/*
+			 * For afi-safi like l2VPN EVPN, we are here because
+			 * EORs were rcvd from all directly connected peers and
+			 * BGP is waiting to rcv EORs from all multihop peers.
+			 * Wait for all directly connected and multihop peers to
+			 * send EORs before doing deferred bestpath selection.
+			 */
+			if (afi == AFI_L2VPN) {
+				gr_info->select_defer_over = true;
+				return;
+			}
+
+			/*
+			 * For IPv4/IPv6 unicast, we are here either because
+			 * EORs are rcvd for all directly connected peers or
+			 * none of the directly connected peers have this
+			 * AFI-SAFI negotiated.
+			 *
+			 * Return if we have already done 1st round of deferred
+			 * bestpath selection (Either because tier1
+			 * select-deferral-timeout or EORs were rcvd from all
+			 * the directly connected peers)
+			 * and if we are still waiting on all multihop bgp peers
+			 * to come up.
+			 */
+			if (gr_info->select_defer_over)
+				return;
 		}
 
 		gr_info->select_defer_over = true;
