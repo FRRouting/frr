@@ -1,0 +1,7 @@
+30.0.0.0/28 proto 196 metric 20
+        nexthop via 192.168.3.2 dev r1-eth1 weight 1
+        nexthop via 192.168.4.2 dev r1-eth2 weight 1
+blackhole 192.168.0.0/16 proto 196 metric 20
+192.168.2.0/24 dev r1-eth0 proto kernel scope link src 192.168.2.1 linkdown
+192.168.3.0/24 dev r1-eth1 proto kernel scope link src 192.168.3.1
+192.168.4.0/24 dev r1-eth2 proto kernel scope link src 192.168.4.1
