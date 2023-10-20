@@ -350,6 +350,9 @@ void zread_client_capabilities(ZAPI_HANDLER_ARGS)
 		       zebra_route_string(client->proto),
 		       client->gr_instance_count);
 
+		frrtrace(3, frr_zebra, gr_client_capability, api.cap, api.vrf_id,
+			 client->gr_instance_count);
+
 		if ((info->gr_enable) && (client->gr_instance_count > 0))
 			client->gr_instance_count--;
 
@@ -370,6 +373,9 @@ void zread_client_capabilities(ZAPI_HANDLER_ARGS)
 			       VRF_LOGNAME(vrf), api.vrf_id,
 			       client->gr_instance_count);
 
+			frrtrace(3, frr_zebra, gr_client_capability, api.cap, api.vrf_id,
+				 client->gr_instance_count);
+
 			info->capabilities = api.cap;
 			info->stale_removal_time = api.stale_removal_time;
 			info->vrf_id = api.vrf_id;
@@ -388,6 +394,9 @@ void zread_client_capabilities(ZAPI_HANDLER_ARGS)
 			       info->stale_removal_time,
 			       api.stale_removal_time);
 
+			frrtrace(3, frr_zebra, gr_client_stale_time, api.cap, api.vrf_id,
+				 api.stale_removal_time);
+
 			info->stale_removal_time = api.stale_removal_time;
 		}
 
@@ -403,6 +412,9 @@ void zread_client_capabilities(ZAPI_HANDLER_ARGS)
 		LOG_GR("%s: Client %s vrf %s(%u) route update complete for AFI %d, SAFI %d",
 		       __func__, zebra_route_string(client->proto),
 		       VRF_LOGNAME(vrf), info->vrf_id, api.afi, api.safi);
+
+		frrtrace(4, frr_zebra, gr_client_update, api.cap, info->vrf_id, api.afi, api.safi);
+
 		info->route_sync[api.afi] = true;
 
 		/*
@@ -422,6 +434,9 @@ void zread_client_capabilities(ZAPI_HANDLER_ARGS)
 			       __func__, zebra_route_string(client->proto),
 			       VRF_LOGNAME(vrf), info->vrf_id, api.afi,
 			       api.safi);
+
+			frrtrace(4, frr_zebra, gr_client_update, api.cap, info->vrf_id, api.afi,
+				 api.safi);
 
 			info->af_enabled[api.afi] = true;
 
@@ -523,6 +538,8 @@ static void zebra_gr_delete_stale_route_table_afi(struct event *event)
 		goto done;
 
 	LOG_GR("%s: Deleting stale routes for %s, afi %d", __func__, zvrf->vrf->name, gac->afi);
+
+	frrtrace(2, frr_zebra, gr_delete_stale_route_table_afi, zvrf->vrf->name, gac->afi);
 
 	if (gac->afi == AFI_L2VPN) {
 		zebra_evpn_stale_entries_cleanup(gac->restart_time);
@@ -666,6 +683,8 @@ static void zebra_gr_process_client_stale_routes(struct zserv *client,
 			LOG_GR("%s: Client %s vrf: %s(%u) route update not completed for AFI %d",
 			       __func__, zebra_route_string(client->proto),
 			       VRF_LOGNAME(vrf), info->vrf_id, afi);
+			frrtrace(4, frr_zebra, gr_process_client_stale_routes,
+				 zebra_route_string(client->proto), VRF_LOGNAME(vrf), afi, 1);
 			return;
 		}
 	}
@@ -682,6 +701,9 @@ static void zebra_gr_process_client_stale_routes(struct zserv *client,
 		       __func__, zebra_route_string(client->proto),
 		       VRF_LOGNAME(vrf), info->vrf_id);
 		event_cancel(&info->t_stale_removal);
+
+		frrtrace(4, frr_zebra, gr_process_client_stale_routes,
+			 zebra_route_string(client->proto), VRF_LOGNAME(vrf), afi, 0);
 	}
 }
 
