@@ -1995,7 +1995,6 @@ done:
 }
 
 
-
 /*
  * Route-update results processing after async dataplane update.
  */
