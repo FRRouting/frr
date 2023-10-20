@@ -949,3 +949,78 @@ uint32_t yang_get_list_elements_count(const struct lyd_node *node)
 	} while (node);
 	return count;
 }
+
+int yang_get_key_preds(char *s, const struct lysc_node *snode,
+		       struct yang_list_keys *keys, ssize_t space)
+{
+	const struct lysc_node_leaf *skey;
+	ssize_t len2, len = 0;
+	ssize_t i = 0;
+
+	LY_FOR_KEYS (snode, skey) {
+		assert(i < keys->num);
+		len2 = snprintf(s + len, space - len, "[%s='%s']", skey->name,
+				keys->key[i]);
+		if (len2 > space - len)
+			len = space;
+		else
+			len += len2;
+		i++;
+	}
+
+	assert(i == keys->num);
+	return i;
+}
+
+LY_ERR yang_lyd_new_list(struct lyd_node_inner *parent,
+			 const struct lysc_node *snode,
+			 const struct yang_list_keys *list_keys,
+			 struct lyd_node_inner **node)
+{
+	struct lyd_node *pnode = &parent->node;
+	struct lyd_node **nodepp = (struct lyd_node **)node;
+	const char(*keys)[LIST_MAXKEYLEN] = list_keys->key;
+
+	/*
+	 * When
+	 * https://github.com/CESNET/libyang/commit/2c1e327c7c2dd3ba12d466a4ebcf62c1c44116c4
+	 * is released in libyang we should add a configure.ac check for the
+	 * lyd_new_list3 function and use it here.
+	 */
+	switch (list_keys->num) {
+	case 0:
+		return lyd_new_list(pnode, snode->module, snode->name, false,
+				    nodepp);
+	case 1:
+		return lyd_new_list(pnode, snode->module, snode->name, false,
+				    nodepp, keys[0]);
+	case 2:
+		return lyd_new_list(pnode, snode->module, snode->name, false,
+				    nodepp, keys[0], keys[1]);
+	case 3:
+		return lyd_new_list(pnode, snode->module, snode->name, false,
+				    nodepp, keys[0], keys[1], keys[2]);
+	case 4:
+		return lyd_new_list(pnode, snode->module, snode->name, false,
+				    nodepp, keys[0], keys[1], keys[2], keys[3]);
+	case 5:
+		return lyd_new_list(pnode, snode->module, snode->name, false,
+				    nodepp, keys[0], keys[1], keys[2], keys[3],
+				    keys[4]);
+	case 6:
+		return lyd_new_list(pnode, snode->module, snode->name, false,
+				    nodepp, keys[0], keys[1], keys[2], keys[3],
+				    keys[4], keys[5]);
+	case 7:
+		return lyd_new_list(pnode, snode->module, snode->name, false,
+				    nodepp, keys[0], keys[1], keys[2], keys[3],
+				    keys[4], keys[5], keys[6]);
+	case 8:
+		return lyd_new_list(pnode, snode->module, snode->name, false,
+				    nodepp, keys[0], keys[1], keys[2], keys[3],
+				    keys[4], keys[5], keys[6], keys[7]);
+	}
+	_Static_assert(LIST_MAXKEYS == 8, "max key mismatch in switch unroll");
+	/*NOTREACHED*/
+	return LY_EINVAL;
+}
