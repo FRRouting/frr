@@ -215,13 +215,14 @@ static void srte_triggered_policy_removing_specific(
 		SET_FLAG(candidate->flags, F_CANDIDATE_DELETED);
 	}
 
+	srte_policy_apply_changes(policy);
+	UNSET_FLAG(policy->flags, F_POLICY_NEW);
+	UNSET_FLAG(policy->flags, F_POLICY_MODIFIED);
+
 	if (policy_delete) {
 		SET_FLAG(policy->flags, F_POLICY_DELETED);
 		srte_policy_del(policy);
 	}
-	srte_policy_apply_changes(policy);
-	UNSET_FLAG(policy->flags, F_POLICY_NEW);
-	UNSET_FLAG(policy->flags, F_POLICY_MODIFIED);
 }
 
 /**
