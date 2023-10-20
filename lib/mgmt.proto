@@ -94,16 +94,14 @@ message BeTxnReply {
 
 message BeCfgDataCreateReq {
   required uint64 txn_id = 1;
-  required uint64 batch_id = 2;
-  repeated YangCfgDataReq data_req = 3;
-  required bool end_of_data = 4;
+  repeated YangCfgDataReq data_req = 2;
+  required bool end_of_data = 3;
 }
 
 message BeCfgDataCreateReply {
   required uint64 txn_id = 1;
-  required uint64 batch_id = 2;
-  required bool success = 3;
-  optional string error_if_any = 4;
+  required bool success = 2;
+  optional string error_if_any = 3;
 }
 
 message BeCfgDataApplyReq {

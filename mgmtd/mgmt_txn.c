@@ -77,7 +77,6 @@ PREDECL_LIST(mgmt_txn_batches);
 
 struct mgmt_txn_be_cfg_batch {
 	struct mgmt_txn_ctx *txn;
-	uint64_t batch_id;
 	enum mgmt_be_client_id be_id;
 	struct mgmt_be_client_adapter *be_adapter;
 	Mgmtd__YangCfgDataReq cfg_data[MGMTD_MAX_CFG_CHANGES_IN_BATCH];
@@ -86,7 +85,6 @@ struct mgmt_txn_be_cfg_batch {
 	Mgmtd__YangDataValue value[MGMTD_MAX_CFG_CHANGES_IN_BATCH];
 	size_t num_cfg_data;
 	int buf_space_left;
-	enum mgmt_commit_phase comm_phase;
 	struct mgmt_txn_batches_item list_linkage;
 };
 
@@ -110,6 +108,8 @@ struct mgmt_commit_cfg_req {
 	enum mgmt_commit_phase curr_phase;
 	enum mgmt_commit_phase next_phase;
 
+	enum mgmt_commit_phase be_phase[MGMTD_BE_CLIENT_ID_MAX];
+
 	/*
 	 * Set of config changes to commit. This is used only
 	 * when changes are NOT to be determined by comparing
@@ -129,21 +129,12 @@ struct mgmt_commit_cfg_req {
 	/*
 	 * List of backend batches for this commit to be validated
 	 * and applied at the backend.
-	 *
-	 * FIXME: Need to re-think this design for the case set of
-	 * validators for a given YANG data item is different from
-	 * the set of notifiers for the same. We may need to have
-	 * separate list of batches for VALIDATE and APPLY.
 	 */
-	struct mgmt_txn_batches_head curr_batches[MGMTD_BE_CLIENT_ID_MAX];
-	struct mgmt_txn_batches_head next_batches[MGMTD_BE_CLIENT_ID_MAX];
+	struct mgmt_txn_batches_head batches[MGMTD_BE_CLIENT_ID_MAX];
 	/*
-	 * The last batch added for any backend client. This is always on
-	 * 'curr_batches'
+	 * The last batch added for any backend client.
 	 */
 	struct mgmt_txn_be_cfg_batch *last_be_cfg_batch[MGMTD_BE_CLIENT_ID_MAX];
-	struct hash *batches;
-	uint64_t next_batch_id;
 
 	struct mgmt_commit_stats *cmt_stats;
 };
@@ -276,10 +267,6 @@ static struct mgmt_master *mgmt_txn_mm;
 static void mgmt_txn_register_event(struct mgmt_txn_ctx *txn,
 				    enum mgmt_txn_event event);
 
-static int
-mgmt_move_be_commit_to_next_phase(struct mgmt_txn_ctx *txn,
-				  struct mgmt_be_client_adapter *adapter);
-
 static struct mgmt_txn_be_cfg_batch *
 mgmt_txn_cfg_batch_alloc(struct mgmt_txn_ctx *txn, enum mgmt_be_client_id id,
 			 struct mgmt_be_client_adapter *be_adapter)
@@ -295,7 +282,7 @@ mgmt_txn_cfg_batch_alloc(struct mgmt_txn_ctx *txn, enum mgmt_be_client_id id,
 	MGMTD_TXN_LOCK(txn);
 	assert(txn->commit_cfg_req);
 	mgmt_txn_batches_add_tail(&txn->commit_cfg_req->req.commit_cfg
-					   .curr_batches[id],
+					   .batches[id],
 				  batch);
 	batch->be_adapter = be_adapter;
 	batch->buf_space_left = MGMTD_BE_CFGDATA_MAX_MSG_LEN;
@@ -303,11 +290,6 @@ mgmt_txn_cfg_batch_alloc(struct mgmt_txn_ctx *txn, enum mgmt_be_client_id id,
 		mgmt_be_adapter_lock(be_adapter);
 
 	txn->commit_cfg_req->req.commit_cfg.last_be_cfg_batch[id] = batch;
-	if (!txn->commit_cfg_req->req.commit_cfg.next_batch_id)
-		txn->commit_cfg_req->req.commit_cfg.next_batch_id++;
-	batch->batch_id = txn->commit_cfg_req->req.commit_cfg.next_batch_id++;
-	hash_get(txn->commit_cfg_req->req.commit_cfg.batches, batch,
-		 hash_alloc_intern);
 
 	return batch;
 }
@@ -317,15 +299,12 @@ static void mgmt_txn_cfg_batch_free(struct mgmt_txn_be_cfg_batch **batch)
 	size_t indx;
 	struct mgmt_commit_cfg_req *cmtcfg_req;
 
-	MGMTD_TXN_DBG(" freeing batch-id: %" PRIu64 " txn-id %" PRIu64,
-		      (*batch)->batch_id, (*batch)->txn->txn_id);
+	MGMTD_TXN_DBG(" freeing batch txn-id %" PRIu64, (*batch)->txn->txn_id);
 
 	assert((*batch)->txn && (*batch)->txn->type == MGMTD_TXN_TYPE_CONFIG);
 
 	cmtcfg_req = &(*batch)->txn->commit_cfg_req->req.commit_cfg;
-	hash_release(cmtcfg_req->batches, *batch);
-	mgmt_txn_batches_del(&cmtcfg_req->curr_batches[(*batch)->be_id], *batch);
-	mgmt_txn_batches_del(&cmtcfg_req->next_batches[(*batch)->be_id], *batch);
+	mgmt_txn_batches_del(&cmtcfg_req->batches[(*batch)->be_id], *batch);
 
 	if ((*batch)->be_adapter)
 		mgmt_be_adapter_unlock(&(*batch)->be_adapter);
@@ -343,57 +322,13 @@ static void mgmt_txn_cfg_batch_free(struct mgmt_txn_be_cfg_batch **batch)
 	*batch = NULL;
 }
 
-static unsigned int mgmt_txn_cfgbatch_hash_key(const void *data)
-{
-	const struct mgmt_txn_be_cfg_batch *batch = data;
-
-	return jhash2((uint32_t *)&batch->batch_id,
-		      sizeof(batch->batch_id) / sizeof(uint32_t), 0);
-}
-
-static bool mgmt_txn_cfgbatch_hash_cmp(const void *d1, const void *d2)
-{
-	const struct mgmt_txn_be_cfg_batch *batch1 = d1;
-	const struct mgmt_txn_be_cfg_batch *batch2 = d2;
-
-	return (batch1->batch_id == batch2->batch_id);
-}
-
-static void mgmt_txn_cfgbatch_hash_free(void *data)
-{
-	struct mgmt_txn_be_cfg_batch *batch = data;
-
-	mgmt_txn_cfg_batch_free(&batch);
-}
-
-static inline struct mgmt_txn_be_cfg_batch *
-mgmt_txn_cfgbatch_id2ctx(struct mgmt_txn_ctx *txn, uint64_t batch_id)
-{
-	struct mgmt_txn_be_cfg_batch key = { 0 };
-	struct mgmt_txn_be_cfg_batch *batch;
-
-	if (!txn->commit_cfg_req)
-		return NULL;
-
-	key.batch_id = batch_id;
-	batch = hash_lookup(txn->commit_cfg_req->req.commit_cfg.batches, &key);
-
-	return batch;
-}
-
 static void mgmt_txn_cleanup_be_cfg_batches(struct mgmt_txn_ctx *txn,
 					    enum mgmt_be_client_id id)
 {
 	struct mgmt_txn_be_cfg_batch *batch;
 	struct mgmt_txn_batches_head *list;
 
-	list = &txn->commit_cfg_req->req.commit_cfg.curr_batches[id];
-	FOREACH_TXN_CFG_BATCH_IN_LIST (list, batch)
-		mgmt_txn_cfg_batch_free(&batch);
-
-	mgmt_txn_batches_fini(list);
-
-	list = &txn->commit_cfg_req->req.commit_cfg.next_batches[id];
+	list = &txn->commit_cfg_req->req.commit_cfg.batches[id];
 	FOREACH_TXN_CFG_BATCH_IN_LIST (list, batch)
 		mgmt_txn_cfg_batch_free(&batch);
 
@@ -433,16 +368,13 @@ static struct mgmt_txn_req *mgmt_txn_req_alloc(struct mgmt_txn_ctx *txn,
 			      txn_req->req_id, txn->txn_id, txn->session_id);
 
 		FOREACH_MGMTD_BE_CLIENT_ID (id) {
+			txn_req->req.commit_cfg.be_phase[id] =
+				MGMTD_COMMIT_PHASE_PREPARE_CFG;
 			mgmt_txn_batches_init(
-				&txn_req->req.commit_cfg.curr_batches[id]);
-			mgmt_txn_batches_init(
-				&txn_req->req.commit_cfg.next_batches[id]);
+				&txn_req->req.commit_cfg.batches[id]);
 		}
 
-		txn_req->req.commit_cfg.batches =
-			hash_create(mgmt_txn_cfgbatch_hash_key,
-				    mgmt_txn_cfgbatch_hash_cmp,
-				    "MGMT Config Batches");
+		txn_req->req.commit_cfg.curr_phase = MGMTD_COMMIT_PHASE_PREPARE_CFG;
 		break;
 	case MGMTD_TXN_PROC_GETCFG:
 		txn_req->req.get_data =
@@ -533,12 +465,6 @@ static void mgmt_txn_req_free(struct mgmt_txn_req **txn_req)
 			 * anything more with them
 			 */
 			mgmt_txn_cleanup_be_cfg_batches((*txn_req)->txn, id);
-			if (ccreq->batches) {
-				hash_clean(ccreq->batches,
-					   mgmt_txn_cfgbatch_hash_free);
-				hash_free(ccreq->batches);
-				ccreq->batches = NULL;
-			}
 
 			/*
 			 * If we were in the middle of the state machine then
@@ -860,49 +786,10 @@ static int mgmt_txn_send_commit_cfg_reply(struct mgmt_txn_ctx *txn,
 	return 0;
 }
 
-static void
-mgmt_move_txn_cfg_batch_to_next(struct mgmt_commit_cfg_req *cmtcfg_req,
-				struct mgmt_txn_be_cfg_batch *batch,
-				struct mgmt_txn_batches_head *src_list,
-				struct mgmt_txn_batches_head *dst_list,
-				bool update_commit_phase,
-				enum mgmt_commit_phase to_phase)
-{
-	mgmt_txn_batches_del(src_list, batch);
-
-	if (update_commit_phase) {
-		MGMTD_TXN_DBG("Move txn-id %" PRIu64 " batch-id: %" PRIu64
-			      " from '%s' --> '%s'",
-			      batch->txn->txn_id, batch->batch_id,
-			      mgmt_commit_phase2str(batch->comm_phase),
-			      mgmt_txn_commit_phase_str(batch->txn, false));
-		batch->comm_phase = to_phase;
-	}
-
-	mgmt_txn_batches_add_tail(dst_list, batch);
-}
-
-static void mgmt_move_txn_cfg_batches(struct mgmt_txn_ctx *txn,
-				      struct mgmt_commit_cfg_req *cmtcfg_req,
-				      struct mgmt_txn_batches_head *src_list,
-				      struct mgmt_txn_batches_head *dst_list,
-				      bool update_commit_phase,
-				      enum mgmt_commit_phase to_phase)
-{
-	struct mgmt_txn_be_cfg_batch *batch;
-
-	FOREACH_TXN_CFG_BATCH_IN_LIST (src_list, batch) {
-		mgmt_move_txn_cfg_batch_to_next(cmtcfg_req, batch, src_list,
-						dst_list, update_commit_phase,
-						to_phase);
-	}
-}
-
 static int
 mgmt_try_move_commit_to_next_phase(struct mgmt_txn_ctx *txn,
 				   struct mgmt_commit_cfg_req *cmtcfg_req)
 {
-	struct mgmt_txn_batches_head *curr_list, *next_list;
 	enum mgmt_be_client_id id;
 
 	MGMTD_TXN_DBG("txn-id: %" PRIu64 ", Phase(current:'%s' next:'%s')",
@@ -914,7 +801,7 @@ mgmt_try_move_commit_to_next_phase(struct mgmt_txn_ctx *txn,
 	 */
 	FOREACH_MGMTD_BE_CLIENT_ID (id) {
 		if (IS_IDBIT_SET(cmtcfg_req->clients, id) &&
-		    mgmt_txn_batches_count(&cmtcfg_req->curr_batches[id])) {
+		    cmtcfg_req->be_phase[id] == cmtcfg_req->curr_phase) {
 			/*
 			 * There's atleast once client who hasn't moved to
 			 * next phase.
@@ -937,54 +824,8 @@ mgmt_try_move_commit_to_next_phase(struct mgmt_txn_ctx *txn,
 	 */
 	cmtcfg_req->curr_phase = cmtcfg_req->next_phase;
 	cmtcfg_req->next_phase++;
-	MGMTD_TXN_DBG("Move back all config batches for txn-id: %" PRIu64
-		      " from next to current branch",
-		      txn->txn_id);
-	FOREACH_MGMTD_BE_CLIENT_ID (id) {
-		curr_list = &cmtcfg_req->curr_batches[id];
-		next_list = &cmtcfg_req->next_batches[id];
-		mgmt_move_txn_cfg_batches(txn, cmtcfg_req, next_list, curr_list,
-					  false, 0);
-	}
 
 	mgmt_txn_register_event(txn, MGMTD_TXN_PROC_COMMITCFG);
-
-	return 0;
-}
-
-static int
-mgmt_move_be_commit_to_next_phase(struct mgmt_txn_ctx *txn,
-				  struct mgmt_be_client_adapter *adapter)
-{
-	struct mgmt_commit_cfg_req *cmtcfg_req;
-	struct mgmt_txn_batches_head *curr_list, *next_list;
-
-	if (txn->type != MGMTD_TXN_TYPE_CONFIG || !txn->commit_cfg_req)
-		return -1;
-
-	cmtcfg_req = &txn->commit_cfg_req->req.commit_cfg;
-
-	MGMTD_TXN_DBG("Move txn-id: %" PRIu64
-		      " for '%s' Phase(current: '%s' next:'%s')",
-		      txn->txn_id, adapter->name,
-		      mgmt_txn_commit_phase_str(txn, true),
-		      mgmt_txn_commit_phase_str(txn, false));
-
-	MGMTD_TXN_DBG("Move all config batches for '%s' from current to next list",
-		      adapter->name);
-	curr_list = &cmtcfg_req->curr_batches[adapter->id];
-	next_list = &cmtcfg_req->next_batches[adapter->id];
-	mgmt_move_txn_cfg_batches(txn, cmtcfg_req, curr_list, next_list, true,
-				  cmtcfg_req->next_phase);
-
-	MGMTD_TXN_DBG("txn-id: %" PRIu64 ", Phase(current:'%s' next:'%s')",
-		      txn->txn_id, mgmt_txn_commit_phase_str(txn, true),
-		      mgmt_txn_commit_phase_str(txn, false));
-
-	/*
-	 * Check if all clients has moved to next phase or not.
-	 */
-	mgmt_try_move_commit_to_next_phase(txn, cmtcfg_req);
 
 	return 0;
 }
@@ -1086,8 +927,7 @@ static int mgmt_txn_create_config_batches(struct mgmt_txn_req *txn_req,
 				value;
 			value = NULL;
 
-			MGMTD_TXN_DBG(" -- %s, batch-id: %" PRIu64 " item:%d",
-				      adapter->name, batch->batch_id,
+			MGMTD_TXN_DBG(" -- %s, batch item:%d", adapter->name,
 				      (int)batch->num_cfg_data);
 
 			batch->num_cfg_data++;
@@ -1110,6 +950,13 @@ static int mgmt_txn_create_config_batches(struct mgmt_txn_req *txn_req,
 						     MGMTD_NO_CFG_CHANGES,
 						     "No changes found to commit!");
 		return -1;
+	}
+
+	/* Move all BE clients to create phase */
+	FOREACH_MGMTD_BE_CLIENT_ID(id) {
+		if (IS_IDBIT_SET(cmtcfg_req->clients, id))
+			cmtcfg_req->be_phase[id] =
+				MGMTD_COMMIT_PHASE_TXN_CREATE;
 	}
 
 	cmtcfg_req->next_phase = MGMTD_COMMIT_PHASE_TXN_CREATE;
@@ -1289,7 +1136,6 @@ static int mgmt_txn_send_be_txn_create(struct mgmt_txn_ctx *txn)
 	enum mgmt_be_client_id id;
 	struct mgmt_be_client_adapter *adapter;
 	struct mgmt_commit_cfg_req *cmtcfg_req;
-	struct mgmt_txn_be_cfg_batch *batch;
 
 	assert(txn->type == MGMTD_TXN_TYPE_CONFIG && txn->commit_cfg_req);
 
@@ -1303,13 +1149,6 @@ static int mgmt_txn_send_be_txn_create(struct mgmt_txn_ctx *txn)
 					"Could not send TXN_CREATE to backend adapter");
 				return -1;
 			}
-
-			FOREACH_TXN_CFG_BATCH_IN_LIST (&txn->commit_cfg_req->req
-								.commit_cfg
-								.curr_batches[id],
-						       batch)
-				batch->comm_phase =
-					MGMTD_COMMIT_PHASE_TXN_CREATE;
 		}
 	}
 
@@ -1344,9 +1183,8 @@ static int mgmt_txn_send_be_cfg_data(struct mgmt_txn_ctx *txn,
 	assert(IS_IDBIT_SET(cmtcfg_req->clients, adapter->id));
 
 	indx = 0;
-	num_batches =
-		mgmt_txn_batches_count(&cmtcfg_req->curr_batches[adapter->id]);
-	FOREACH_TXN_CFG_BATCH_IN_LIST (&cmtcfg_req->curr_batches[adapter->id],
+	num_batches = mgmt_txn_batches_count(&cmtcfg_req->batches[adapter->id]);
+	FOREACH_TXN_CFG_BATCH_IN_LIST (&cmtcfg_req->batches[adapter->id],
 				       batch) {
 		assert(cmtcfg_req->next_phase == MGMTD_COMMIT_PHASE_SEND_CFG);
 
@@ -1354,7 +1192,6 @@ static int mgmt_txn_send_be_cfg_data(struct mgmt_txn_ctx *txn,
 		cfg_req.num_reqs = batch->num_cfg_data;
 		indx++;
 		if (mgmt_be_send_cfgdata_req(adapter, txn->txn_id,
-					     batch->batch_id,
 					     cfg_req.cfgdata_reqs,
 					     cfg_req.num_reqs,
 					     indx == num_batches)) {
@@ -1362,19 +1199,14 @@ static int mgmt_txn_send_be_cfg_data(struct mgmt_txn_ctx *txn,
 				txn, MGMTD_INTERNAL_ERROR,
 				"Internal Error! Could not send config data to backend!");
 			MGMTD_TXN_ERR("Could not send CFGDATA_CREATE txn-id: %" PRIu64
-				      " batch-id: %" PRIu64 " to client '%s",
-				      txn->txn_id, batch->batch_id,
-				      adapter->name);
+				      " to client '%s", txn->txn_id, adapter->name);
 			return -1;
 		}
 
 		cmtcfg_req->cmt_stats->last_num_cfgdata_reqs++;
-		mgmt_move_txn_cfg_batch_to_next(
-			cmtcfg_req, batch,
-			&cmtcfg_req->curr_batches[adapter->id],
-			&cmtcfg_req->next_batches[adapter->id], true,
-			MGMTD_COMMIT_PHASE_SEND_CFG);
 	}
+
+	cmtcfg_req->be_phase[adapter->id] = MGMTD_COMMIT_PHASE_SEND_CFG;
 
 	/*
 	 * This could be the last Backend Client to send CFGDATA_CREATE_REQ to.
@@ -1392,7 +1224,6 @@ static int mgmt_txn_send_be_txn_delete(struct mgmt_txn_ctx *txn,
 		&txn->commit_cfg_req->req.commit_cfg;
 
 	assert(txn->type == MGMTD_TXN_TYPE_CONFIG);
-	assert(!mgmt_txn_batches_count(&cmtcfg_req->curr_batches[adapter->id]));
 
 	if (IS_IDBIT_UNSET(cmtcfg_req->clients, adapter->id))
 		return 0;
@@ -1438,8 +1269,6 @@ static int mgmt_txn_send_be_cfg_apply(struct mgmt_txn_ctx *txn)
 	enum mgmt_be_client_id id;
 	struct mgmt_be_client_adapter *adapter;
 	struct mgmt_commit_cfg_req *cmtcfg_req;
-	struct mgmt_txn_batches_head *batch_list;
-	struct mgmt_txn_be_cfg_batch *batch;
 
 	assert(txn->type == MGMTD_TXN_TYPE_CONFIG && txn->commit_cfg_req);
 
@@ -1458,7 +1287,6 @@ static int mgmt_txn_send_be_cfg_apply(struct mgmt_txn_ctx *txn)
 			if (!adapter)
 				return -1;
 
-			batch_list = &cmtcfg_req->curr_batches[id];
 			if (mgmt_be_send_cfgapply_req(adapter, txn->txn_id)) {
 				(void)mgmt_txn_send_commit_cfg_reply(
 					txn, MGMTD_INTERNAL_ERROR,
@@ -1469,9 +1297,6 @@ static int mgmt_txn_send_be_cfg_apply(struct mgmt_txn_ctx *txn)
 
 			UNSET_FLAG(adapter->flags,
 				   MGMTD_BE_ADAPTER_FLAGS_CFG_SYNCED);
-
-			FOREACH_TXN_CFG_BATCH_IN_LIST (batch_list, batch)
-				batch->comm_phase = MGMTD_COMMIT_PHASE_APPLY_CFG;
 		}
 	}
 
@@ -2387,23 +2212,16 @@ int mgmt_txn_notify_be_txn_reply(uint64_t txn_id, bool create, bool success,
 				txn, MGMTD_INTERNAL_ERROR,
 				"Internal error! Failed to initiate transaction at backend!");
 		}
-	} else {
-		/*
-		 * Done with TXN_DELETE. Move the backend client to next phase.
-		 */
-		if (false)
-			mgmt_move_be_commit_to_next_phase(txn, adapter);
 	}
 
 	return 0;
 }
 
-int mgmt_txn_notify_be_cfgdata_reply(uint64_t txn_id, uint64_t batch_id,
-				     bool success, char *error_if_any,
+int mgmt_txn_notify_be_cfgdata_reply(uint64_t txn_id, bool success,
+				     char *error_if_any,
 				     struct mgmt_be_client_adapter *adapter)
 {
 	struct mgmt_txn_ctx *txn;
-	struct mgmt_txn_be_cfg_batch *batch;
 	struct mgmt_commit_cfg_req *cmtcfg_req;
 
 	txn = mgmt_txn_id2ctx(txn_id);
@@ -2414,14 +2232,9 @@ int mgmt_txn_notify_be_cfgdata_reply(uint64_t txn_id, uint64_t batch_id,
 		return -1;
 	cmtcfg_req = &txn->commit_cfg_req->req.commit_cfg;
 
-	batch = mgmt_txn_cfgbatch_id2ctx(txn, batch_id);
-	if (!batch || batch->txn != txn)
-		return -1;
-
 	if (!success) {
 		MGMTD_TXN_ERR("CFGDATA_CREATE_REQ sent to '%s' failed txn-id: %" PRIu64
-			      " batch-id %" PRIu64 " err: %s",
-			      adapter->name, txn->txn_id, batch->batch_id,
+			      " err: %s", adapter->name, txn->txn_id,
 			      error_if_any ? error_if_any : "None");
 		mgmt_txn_send_commit_cfg_reply(
 			txn, MGMTD_INTERNAL_ERROR,
@@ -2432,13 +2245,10 @@ int mgmt_txn_notify_be_cfgdata_reply(uint64_t txn_id, uint64_t batch_id,
 	}
 
 	MGMTD_TXN_DBG("CFGDATA_CREATE_REQ sent to '%s' was successful txn-id: %" PRIu64
-		      " batch-id %" PRIu64 " err: %s",
-		      adapter->name, txn->txn_id, batch->batch_id,
+		      " err: %s", adapter->name, txn->txn_id,
 		      error_if_any ? error_if_any : "None");
-	mgmt_move_txn_cfg_batch_to_next(cmtcfg_req, batch,
-					&cmtcfg_req->curr_batches[adapter->id],
-					&cmtcfg_req->next_batches[adapter->id],
-					true, MGMTD_COMMIT_PHASE_APPLY_CFG);
+
+	cmtcfg_req->be_phase[adapter->id] = MGMTD_COMMIT_PHASE_APPLY_CFG;
 
 	mgmt_try_move_commit_to_next_phase(txn, cmtcfg_req);
 
@@ -2471,10 +2281,7 @@ int mgmt_txn_notify_be_cfg_apply_reply(uint64_t txn_id, bool success,
 		return 0;
 	}
 
-	mgmt_move_txn_cfg_batches(txn, cmtcfg_req,
-				  &cmtcfg_req->curr_batches[adapter->id],
-				  &cmtcfg_req->next_batches[adapter->id],
-				  true, MGMTD_COMMIT_PHASE_TXN_DELETE);
+	cmtcfg_req->be_phase[adapter->id] = MGMTD_COMMIT_PHASE_TXN_DELETE;
 
 	/*
 	 * All configuration for the specific backend has been applied.

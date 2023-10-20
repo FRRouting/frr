@@ -51,9 +51,6 @@ struct mgmt_be_txn_req {
 
 PREDECL_LIST(mgmt_be_batches);
 struct mgmt_be_batch_ctx {
-	/* Batch-Id as assigned by MGMTD */
-	uint64_t batch_id;
-
 	struct mgmt_be_txn_req txn_req;
 
 	uint32_t flags;
@@ -128,37 +125,15 @@ static int mgmt_be_client_send_msg(struct mgmt_be_client *client_ctx,
 }
 
 static struct mgmt_be_batch_ctx *
-mgmt_be_find_batch_by_id(struct mgmt_be_txn_ctx *txn,
-			    uint64_t batch_id)
+mgmt_be_batch_create(struct mgmt_be_txn_ctx *txn)
 {
 	struct mgmt_be_batch_ctx *batch = NULL;
 
-	FOREACH_BE_TXN_BATCH_IN_LIST (txn, batch) {
-		if (batch->batch_id == batch_id)
-			return batch;
-	}
+	batch = XCALLOC(MTYPE_MGMTD_BE_BATCH, sizeof(struct mgmt_be_batch_ctx));
 
-	return NULL;
-}
+	mgmt_be_batches_add_tail(&txn->cfg_batches, batch);
 
-static struct mgmt_be_batch_ctx *
-mgmt_be_batch_create(struct mgmt_be_txn_ctx *txn, uint64_t batch_id)
-{
-	struct mgmt_be_batch_ctx *batch = NULL;
-
-	batch = mgmt_be_find_batch_by_id(txn, batch_id);
-	if (!batch) {
-		batch = XCALLOC(MTYPE_MGMTD_BE_BATCH,
-				sizeof(struct mgmt_be_batch_ctx));
-		assert(batch);
-
-		batch->batch_id = batch_id;
-		mgmt_be_batches_add_tail(&txn->cfg_batches, batch);
-
-		MGMTD_BE_CLIENT_DBG("Added new batch-id: %" PRIu64
-				    " to transaction",
-				    batch_id);
-	}
+	MGMTD_BE_CLIENT_DBG("Added new batch to transaction");
 
 	return batch;
 }
@@ -335,8 +310,7 @@ failed:
 }
 
 static int mgmt_be_send_cfgdata_create_reply(struct mgmt_be_client *client_ctx,
-					     uint64_t txn_id, uint64_t batch_id,
-					     bool success,
+					     uint64_t txn_id, bool success,
 					     const char *error_if_any)
 {
 	Mgmtd__BeMessage be_msg;
@@ -344,7 +318,6 @@ static int mgmt_be_send_cfgdata_create_reply(struct mgmt_be_client *client_ctx,
 
 	mgmtd__be_cfg_data_create_reply__init(&cfgdata_reply);
 	cfgdata_reply.txn_id = (uint64_t)txn_id;
-	cfgdata_reply.batch_id = (uint64_t)batch_id;
 	cfgdata_reply.success = success;
 	if (error_if_any)
 		cfgdata_reply.error_if_any = (char *)error_if_any;
@@ -353,9 +326,8 @@ static int mgmt_be_send_cfgdata_create_reply(struct mgmt_be_client *client_ctx,
 	be_msg.message_case = MGMTD__BE_MESSAGE__MESSAGE_CFG_DATA_REPLY;
 	be_msg.cfg_data_reply = &cfgdata_reply;
 
-	MGMTD_BE_CLIENT_DBG("Sending CFGDATA_CREATE_REPLY txn-id: %" PRIu64
-			    " batch-id: %" PRIu64,
-			    txn_id, batch_id);
+	MGMTD_BE_CLIENT_DBG("Sending CFGDATA_CREATE_REPLY txn-id: %" PRIu64,
+			    txn_id);
 
 	return mgmt_be_client_send_msg(client_ctx, &be_msg);
 }
@@ -432,9 +404,8 @@ static int mgmt_be_txn_cfg_prepare(struct mgmt_be_txn_ctx *txn)
 				err_buf[sizeof(err_buf) - 1] = 0;
 				MGMTD_BE_CLIENT_ERR(
 					"Failed to update configs for txn-id: %" PRIu64
-					" batch-id: %" PRIu64
 					" to candidate, err: '%s'",
-					txn->txn_id, batch->batch_id, err_buf);
+					txn->txn_id, err_buf);
 				return -1;
 			}
 			gettimeofday(&edit_nb_cfg_end, NULL);
@@ -497,9 +468,6 @@ static int mgmt_be_txn_cfg_prepare(struct mgmt_be_txn_ctx *txn)
 	client_ctx->num_prep_nb_cfg++;
 
 	FOREACH_BE_TXN_BATCH_IN_LIST (txn, batch) {
-		mgmt_be_send_cfgdata_create_reply(
-			client_ctx, txn->txn_id, batch->batch_id,
-			error ? false : true, error ? err_buf : NULL);
 		if (!error) {
 			SET_FLAG(batch->flags,
 				 MGMTD_BE_BATCH_FLAGS_CFG_PREPARED);
@@ -507,6 +475,9 @@ static int mgmt_be_txn_cfg_prepare(struct mgmt_be_txn_ctx *txn)
 			mgmt_be_batches_add_tail(&txn->apply_cfgs, batch);
 		}
 	}
+
+	mgmt_be_send_cfgdata_create_reply(client_ctx, txn->txn_id,
+		error ? false : true, error ? err_buf : NULL);
 
 	MGMTD_BE_CLIENT_DBG(
 		"Avg-nb-edit-duration %lu uSec, nb-prep-duration %lu (avg: %lu) uSec, batch size %u",
@@ -524,7 +495,6 @@ static int mgmt_be_txn_cfg_prepare(struct mgmt_be_txn_ctx *txn)
  */
 static int mgmt_be_update_setcfg_in_batch(struct mgmt_be_client *client_ctx,
 					  struct mgmt_be_txn_ctx *txn,
-					  uint64_t batch_id,
 					  Mgmtd__YangCfgDataReq *cfg_req[],
 					  int num_req)
 {
@@ -533,17 +503,13 @@ static int mgmt_be_update_setcfg_in_batch(struct mgmt_be_client *client_ctx,
 	int index;
 	struct nb_cfg_change *cfg_chg;
 
-	batch = mgmt_be_batch_create(txn, batch_id);
-	if (!batch) {
-		MGMTD_BE_CLIENT_ERR("Batch create failed!");
-		return -1;
-	}
+	batch = mgmt_be_batch_create(txn);
+	assert(batch);
 
 	txn_req = &batch->txn_req;
 	txn_req->event = MGMTD_BE_TXN_PROC_SETCFG;
-	MGMTD_BE_CLIENT_DBG("Created SETCFG request for batch-id: %" PRIu64
-			    " txn-id: %" PRIu64 " cfg-items:%d",
-			    batch_id, txn->txn_id, num_req);
+	MGMTD_BE_CLIENT_DBG("Created SETCFG request for txn-id: %" PRIu64
+			    " cfg-items:%d", txn->txn_id, num_req);
 
 	txn_req->req.set_cfg.num_cfg_changes = num_req;
 	for (index = 0; index < num_req; index++) {
@@ -577,7 +543,7 @@ static int mgmt_be_update_setcfg_in_batch(struct mgmt_be_client *client_ctx,
 }
 
 static int mgmt_be_process_cfgdata_req(struct mgmt_be_client *client_ctx,
-				       uint64_t txn_id, uint64_t batch_id,
+				       uint64_t txn_id,
 				       Mgmtd__YangCfgDataReq *cfg_req[],
 				       int num_req, bool end_of_data)
 {
@@ -587,8 +553,7 @@ static int mgmt_be_process_cfgdata_req(struct mgmt_be_client *client_ctx,
 	if (!txn)
 		goto failed;
 
-	mgmt_be_update_setcfg_in_batch(client_ctx, txn, batch_id, cfg_req,
-				       num_req);
+	mgmt_be_update_setcfg_in_batch(client_ctx, txn, cfg_req, num_req);
 
 	if (txn && end_of_data) {
 		MGMTD_BE_CLIENT_DBG("End of data; CFG_PREPARE_REQ processing");
@@ -719,13 +684,11 @@ static int mgmt_be_client_handle_msg(struct mgmt_be_client *client_ctx,
 		break;
 	case MGMTD__BE_MESSAGE__MESSAGE_CFG_DATA_REQ:
 		MGMTD_BE_CLIENT_DBG("Got CFG_DATA_REQ txn-id: %" PRIu64
-				    " batch-id: %" PRIu64 " end-of-data %u",
+				    " end-of-data %u",
 				    be_msg->cfg_data_req->txn_id,
-				    be_msg->cfg_data_req->batch_id,
 				    be_msg->cfg_data_req->end_of_data);
 		mgmt_be_process_cfgdata_req(
 			client_ctx, be_msg->cfg_data_req->txn_id,
-			be_msg->cfg_data_req->batch_id,
 			be_msg->cfg_data_req->data_req,
 			be_msg->cfg_data_req->n_data_req,
 			be_msg->cfg_data_req->end_of_data);
