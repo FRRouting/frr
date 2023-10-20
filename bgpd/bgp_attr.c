@@ -2418,7 +2418,7 @@ int bgp_mp_reach_parse(struct bgp_attr_parser_args *args,
 
 		mp_update->afi = afi;
 		mp_update->safi = safi;
-		return BGP_ATTR_PARSE_EOR;
+		return bgp_attr_malformed(args, BGP_NOTIFY_UPDATE_MAL_ATTR, 0);
 	}
 
 	mp_update->afi = afi;
@@ -3706,10 +3706,6 @@ enum bgp_attr_parse_ret bgp_attr_parse(struct peer *peer, struct attr *attr,
 			bgp_notify_send(peer, BGP_NOTIFY_UPDATE_ERR,
 					BGP_NOTIFY_UPDATE_MAL_ATTR);
 			ret = BGP_ATTR_PARSE_ERROR;
-			goto done;
-		}
-
-		if (ret == BGP_ATTR_PARSE_EOR) {
 			goto done;
 		}
 
