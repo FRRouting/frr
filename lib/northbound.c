@@ -906,11 +906,6 @@ void nb_candidate_edit_config_changes(
 	if (error && *error) {
 		char buf[BUFSIZ];
 
-		/*
-		 * Failure to edit the candidate configuration should never
-		 * happen in practice, unless there's a bug in the code. When
-		 * that happens, log the error but otherwise ignore it.
-		 */
 		snprintf(err_buf, err_bufsize,
 			 "%% Failed to edit configuration.\n\n%s",
 			 yang_print_errors(ly_native_ctx, buf, sizeof(buf)));
