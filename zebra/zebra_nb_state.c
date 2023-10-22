@@ -169,7 +169,8 @@ const void *lib_vrf_zebra_ribs_rib_get_next(struct nb_cb_get_next_args *args)
 	} else {
 		zrt = RB_NEXT(zebra_router_table_head, zrt);
 		/* vrf_id/ns_id do not match, only walk for the given VRF */
-		while (zrt && zrt->ns_id != zvrf->zns->ns_id)
+		while (zrt && (zrt->tableid != zvrf->table_id ||
+			       zrt->ns_id != zvrf->zns->ns_id))
 			zrt = RB_NEXT(zebra_router_table_head, zrt);
 	}
 
