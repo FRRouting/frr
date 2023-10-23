@@ -3503,6 +3503,58 @@ int zebra_mpls_lsp_label_consistent(struct zebra_vrf *zvrf,
 }
 #endif /* HAVE_CUMULUS */
 
+void zebra_mpls_static_label_chunk_free_notify(uint32_t label_start,
+					       uint32_t size)
+{
+	uint32_t label;
+	struct zebra_vrf *zvrf;
+	struct hash *slsp_table;
+	struct zebra_ile tmp_ile;
+	struct zserv client = { 0 };
+	struct label_manager_chunk *lmc;
+	struct zebra_nhlfe *nhlfe;
+	struct nexthop *nh;
+	struct zebra_lsp *lsp;
+	char buf[NEXTHOP_STRLEN];
+
+	zvrf = zebra_vrf_lookup_by_id(VRF_DEFAULT);
+	if (!zvrf)
+		return;
+
+	slsp_table = zvrf->slsp_table;
+	if (!slsp_table)
+		return;
+
+	for (label = label_start; label < label_start + size; label++) {
+		tmp_ile.in_label = label;
+		lsp = hash_lookup(slsp_table, &tmp_ile);
+		if (!lsp || !CHECK_FLAG(lsp->flags, LSP_FLAG_NEED_LM))
+			continue;
+
+		lmc = NULL;
+		client.proto = ZEBRA_ROUTE_STATIC;
+		lm_get_chunk_call(&lmc, &client, 0, 1, label, VRF_DEFAULT);
+		if (!lmc)
+			continue;
+
+		UNSET_FLAG(lsp->flags, LSP_FLAG_NEED_LM);
+
+		frr_each_safe (nhlfe_list, &lsp->nhlfe_list, nhlfe) {
+			nh = nhlfe->nexthop;
+			assert(nh->nh_label);
+			/* (Re)Install LSP in the main table. */
+			if (mpls_lsp_install(zvrf, ZEBRA_LSP_STATIC, label, 1,
+					     &nh->nh_label->label[0], nh->type,
+					     &nh->gate, nh->ifindex)) {
+				zlog_err("%s: Unable to install LSP: label %u, znh %s",
+					 __func__, label,
+					 nexthop2str(nh, buf, sizeof(buf)));
+				continue;
+			}
+		}
+	}
+}
+
 /*
  * Add static LSP entry. This may be the first entry for this incoming label
  * or an additional nexthop; an existing entry may also have outgoing label

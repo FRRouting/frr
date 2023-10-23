@@ -541,6 +541,8 @@ label_manager_label_chunk_free_notify(struct label_manager_chunk *lmc)
 	struct listnode *node;
 	struct stream *s;
 
+	zebra_mpls_static_label_chunk_free_notify(lmc->start,
+						  lmc->end - lmc->start + 1);
 	for (ALL_LIST_ELEMENTS_RO(zrouter.client_list, node, client)) {
 		/* limit notifications to BGP */
 		if (client->proto != ZEBRA_ROUTE_BGP)

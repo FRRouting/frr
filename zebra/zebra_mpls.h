@@ -315,6 +315,13 @@ int zebra_mpls_lsp_label_consistent(struct zebra_vrf *zvrf,
 #endif /* HAVE_CUMULUS */
 
 /*
+ * Notification from label manager to tell static LSP that a label chunk
+ * is available.
+ */
+void zebra_mpls_static_label_chunk_free_notify(uint32_t label_start,
+					       uint32_t size);
+
+/*
  * Add static LSP entry. This may be the first entry for this incoming label
  * or an additional nexthop; an existing entry may also have outgoing label
  * changed.
