@@ -3106,13 +3106,15 @@ bgp_attr_unknown(struct bgp_attr_parser_args *args)
 }
 
 /* Well-known attribute check. */
-static int bgp_attr_check(struct peer *peer, struct attr *attr)
+static int bgp_attr_check(struct peer *peer, struct attr *attr,
+			  bgp_size_t length)
 {
 	uint8_t type = 0;
 
 	/* BGP Graceful-Restart End-of-RIB for IPv4 unicast is signaled as an
 	 * empty UPDATE.  */
-	if (CHECK_FLAG(peer->cap, PEER_CAP_RESTART_RCV) && !attr->flag)
+	if (CHECK_FLAG(peer->cap, PEER_CAP_RESTART_RCV) && !attr->flag &&
+	    !length)
 		return BGP_ATTR_PARSE_PROCEED;
 
 	/* "An UPDATE message that contains the MP_UNREACH_NLRI is not required
@@ -3164,7 +3166,7 @@ enum bgp_attr_parse_ret bgp_attr_parse(struct peer *peer, struct attr *attr,
 	enum bgp_attr_parse_ret ret;
 	uint8_t flag = 0;
 	uint8_t type = 0;
-	bgp_size_t length;
+	bgp_size_t length = 0;
 	uint8_t *startp, *endp;
 	uint8_t *attr_endp;
 	uint8_t seen[BGP_ATTR_BITMAP_SIZE];
@@ -3484,7 +3486,7 @@ enum bgp_attr_parse_ret bgp_attr_parse(struct peer *peer, struct attr *attr,
 	}
 
 	/* Check all mandatory well-known attributes are present */
-	ret = bgp_attr_check(peer, attr);
+	ret = bgp_attr_check(peer, attr, length);
 	if (ret < 0)
 		goto done;
 
