@@ -821,13 +821,21 @@ def _read_nft_counter(tgen, hostname, device, addr=None):
     for v in _traf_labels_of_interest:
         # shifted value used in rule
         vs = v << 4
+        vs_hexa = hex(vs)
         pat = (
             r"ether\s+type\s+0x8847\s+@ll,112,24\s+&\s+16777200\s+==\s+"
             + re.escape(f"{vs}")
             + r"\s+counter\s+packets\s+(\d+)\s+bytes\s+(\d+)"
         )
+        pat_hexa = (
+            r"ether\s+type\s+0x8847\s+@ll,112,24\s+&\s+0xfffff0\s+==\s+"
+            + re.escape(f"{vs_hexa}")
+            + r"\s+counter\s+packets\s+(\d+)\s+bytes\s+(\d+)"
+        )
         for line in out.splitlines():
             m = re.search(pat, line)
+            if m is None:
+                m = re.search(pat_hexa, line)
             if m:
                 count_p = m.group(1)
                 count_b = m.group(2)
