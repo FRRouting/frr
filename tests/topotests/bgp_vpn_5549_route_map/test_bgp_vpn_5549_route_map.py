@@ -115,6 +115,47 @@ def test_bgp_vpn_5549():
         }
         return topotest.json_cmp(output, expected)
 
+<<<<<<< HEAD
+=======
+    def _bgp_verify_v4_nexthop_validity():
+        output = json.loads(tgen.gears["cpe1"].vtysh_cmd("show bgp nexthop json"))
+        expected = {
+            "ipv4": {
+                "192.168.1.2": {
+                    "valid": True,
+                    "complete": True,
+                    "igpMetric": 0,
+                    "pathCount": 0,
+                    "nexthops": [{"interfaceName": "cpe1-eth0"}],
+                },
+            }
+        }
+        return topotest.json_cmp(output, expected)
+
+    def _bgp_verify_v6_global_nexthop_validity():
+        output = json.loads(tgen.gears["pe2"].vtysh_cmd("show bgp nexthop json"))
+        expected = {
+            "ipv6": {
+                "2001:db8::1": {
+                    "valid": True,
+                    "complete": True,
+                    "igpMetric": 0,
+                    "pathCount": 2,
+                    "nexthops": [{"interfaceName": "pe2-eth0"}],
+                },
+                "2001:db8:1::1": {
+                    "valid": True,
+                    "complete": True,
+                    "igpMetric": 10,
+                    "pathCount": 2,
+                    "peer": "2001:db8:1::1",
+                    "nexthops": [{"interfaceName": "pe2-eth0"}],
+                },
+            }
+        }
+        return topotest.json_cmp(output, expected)
+
+>>>>>>> d7e971464 (tests: Use igpMetric as 10 not 20, after OSPFv3 loopback cost changes)
     test_func = functools.partial(_bgp_vpn_nexthop_changed)
     _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
     assert result is None, "Failed overriding IPv6 next-hop for VPN underlay"
