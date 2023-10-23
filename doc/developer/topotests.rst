@@ -583,6 +583,12 @@ Here's an example of launching ``zebra`` and ``bgpd`` inside ``gdb`` on router
           --gdb-breakpoints=nb_config_diff \
           all-protocol-startup
 
+Finally, for Emacs users, you can specify ``--gdb-use-emacs``. When specified
+the first router and daemon to be launched in gdb will be launched and run with
+Emacs gdb functionality by using `emacsclient --eval` commands. This provides an
+IDE debugging experience for Emacs users. This functionality works best when
+using password-less sudo.
+
 Reporting Memleaks with FRR Memory Statistics
 """""""""""""""""""""""""""""""""""""""""""""
 

@@ -31,7 +31,8 @@ from copy import deepcopy
 import lib.topolog as topolog
 from lib.micronet_compat import Node
 from lib.topolog import logger
-from munet.base import Timeout
+from munet.base import commander, get_exec_path_host, Timeout
+from munet.testing.util import retry
 
 from lib import micronet
 
@@ -1261,8 +1262,8 @@ def rlimit_atleast(rname, min_value, raises=False):
 
 def fix_netns_limits(ns):
     # Maximum read and write socket buffer sizes
-    sysctl_atleast(ns, "net.ipv4.tcp_rmem", [10 * 1024, 87380, 16 * 2 ** 20])
-    sysctl_atleast(ns, "net.ipv4.tcp_wmem", [10 * 1024, 87380, 16 * 2 ** 20])
+    sysctl_atleast(ns, "net.ipv4.tcp_rmem", [10 * 1024, 87380, 16 * 2**20])
+    sysctl_atleast(ns, "net.ipv4.tcp_wmem", [10 * 1024, 87380, 16 * 2**20])
 
     sysctl_assure(ns, "net.ipv4.conf.all.rp_filter", 0)
     sysctl_assure(ns, "net.ipv4.conf.default.rp_filter", 0)
@@ -1321,8 +1322,8 @@ def fix_host_limits():
     sysctl_atleast(None, "net.core.netdev_max_backlog", 4 * 1024)
 
     # Maximum read and write socket buffer sizes
-    sysctl_atleast(None, "net.core.rmem_max", 16 * 2 ** 20)
-    sysctl_atleast(None, "net.core.wmem_max", 16 * 2 ** 20)
+    sysctl_atleast(None, "net.core.rmem_max", 16 * 2**20)
+    sysctl_atleast(None, "net.core.wmem_max", 16 * 2**20)
 
     # Garbage Collection Settings for ARP and Neighbors
     sysctl_atleast(None, "net.ipv4.neigh.default.gc_thresh2", 4 * 1024)
@@ -1362,6 +1363,8 @@ def setup_node_tmpdir(logdir, name):
 
 class Router(Node):
     "A Node with IPv4/IPv6 forwarding enabled"
+
+    gdb_emacs_router = None
 
     def __init__(self, name, *posargs, **params):
         # Backward compatibility:
@@ -1799,6 +1802,7 @@ class Router(Node):
         gdb_breakpoints = g_pytest_config.get_option_list("--gdb-breakpoints")
         gdb_daemons = g_pytest_config.get_option_list("--gdb-daemons")
         gdb_routers = g_pytest_config.get_option_list("--gdb-routers")
+        gdb_use_emacs = bool(g_pytest_config.option.gdb_use_emacs)
         valgrind_extra = bool(g_pytest_config.option.valgrind_extra)
         valgrind_memleaks = bool(g_pytest_config.option.valgrind_memleaks)
         strace_daemons = g_pytest_config.get_option_list("--strace-daemons")
@@ -1926,12 +1930,19 @@ class Router(Node):
                 cmdopt += " " + extra_opts
 
             if (
-                (gdb_routers or gdb_daemons)
+                (not gdb_use_emacs or Router.gdb_emacs_router)
+                and (gdb_routers or gdb_daemons)
                 and (
                     not gdb_routers or self.name in gdb_routers or "all" in gdb_routers
                 )
                 and (not gdb_daemons or daemon in gdb_daemons or "all" in gdb_daemons)
             ):
+                if Router.gdb_emacs_router is not None:
+                    logger.warning(
+                        "--gdb-use-emacs can only run a single router and daemon, using"
+                        " new window"
+                    )
+
                 if daemon == "snmpd":
                     cmdopt += " -f "
 
@@ -1942,8 +1953,83 @@ class Router(Node):
                 for bp in gdb_breakpoints:
                     gdbcmd += " -ex 'b {}'".format(bp)
                 gdbcmd += " -ex 'run {}'".format(cmdopt)
-
                 self.run_in_window(gdbcmd, daemon)
+
+                logger.info(
+                    "%s: %s %s launched in gdb window", self, self.routertype, daemon
+                )
+            elif (
+                gdb_use_emacs
+                and (daemon in gdb_daemons)
+                and (not gdb_routers or self.name in gdb_routers)
+            ):
+                assert Router.gdb_emacs_router is None
+                Router.gdb_emacs_router = self
+
+                if daemon == "snmpd":
+                    cmdopt += " -f "
+                cmdopt += rediropt
+
+                sudo_path = get_exec_path_host("sudo")
+                ecbin = [
+                    sudo_path,
+                    "-Eu",
+                    os.environ["SUDO_USER"],
+                    get_exec_path_host("emacsclient"),
+                ]
+                pre_cmd = self._get_pre_cmd(True, False, ns_only=True, root_level=True)
+                # why fail:? gdb -i=mi -iex='set debuginfod enabled off' {binary} "
+                gdbcmd = f"{sudo_path} {pre_cmd} gdb -i=mi {binary} "
+
+                commander.cmd_raises(
+                    ecbin
+                    + [
+                        "--eval",
+                        f'(gdb "{gdbcmd}"))',
+                    ]
+                )
+
+                elcheck = (
+                    '(ignore-errors (with-current-buffer "*gud-nsenter*"'
+                    " (and (string-match-p"
+                    ' "(gdb) "'
+                    " (buffer-substring-no-properties "
+                    '  (- (point-max) 10) (point-max))) "ready")))'
+                )
+
+                @retry(10)
+                def emacs_gdb_ready():
+                    check = commander.cmd_nostatus(ecbin + ["--eval", elcheck])
+                    return None if "ready" in check else False
+
+                emacs_gdb_ready()
+
+                # target gdb commands
+                cmd = "set breakpoint pending on"
+                self.cmd_raises(
+                    ecbin
+                    + [
+                        "--eval",
+                        f'(gud-gdb-run-command-fetch-lines "{cmd}" "*gud-gdb*")',
+                    ]
+                )
+                # gdb breakpoints
+                for bp in gdb_breakpoints:
+                    self.cmd_raises(
+                        ecbin
+                        + [
+                            "--eval",
+                            f'(gud-gdb-run-command-fetch-lines "br {bp}" "*gud-gdb*")',
+                        ]
+                    )
+                # gdb run cmd
+                self.cmd_raises(
+                    ecbin
+                    + [
+                        "--eval",
+                        f'(gud-gdb-run-command-fetch-lines "run {cmdopt}" "*gud-gdb*")',
+                    ]
+                )
 
                 logger.info(
                     "%s: %s %s launched in gdb window", self, self.routertype, daemon
