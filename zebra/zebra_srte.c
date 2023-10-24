@@ -426,7 +426,8 @@ void zebra_sr_policy_show(struct vty *vty, bool uj)
 	struct ttable *tt;
 	struct json_object *json;
 	char endpoint[INET6_ADDRSTRLEN];
-	char *path, *local_label_str;
+	char path[MPLS_LABEL_STRLEN] = {};
+	char local_label_str[MPLS_LABEL_STRLEN] = {};
 	char *table;
 
 	tt = ttable_new(&ttable_styles[TTSTYLE_BLANK]);
@@ -436,14 +437,12 @@ void zebra_sr_policy_show(struct vty *vty, bool uj)
 	ttable_rowseps(tt, 0, BOTTOM, true, '-');
 	ttable_add_row(tt,
 		       "Endpoint|Color|Name|Status|Local Label|Segment List");
-	path = XMALLOC(MTYPE_TMP, 1024);
-	local_label_str = XMALLOC(MTYPE_TMP, 1024);
 
 	RB_FOREACH (policy, zebra_sr_policy_instance_head,
 		    &zebra_sr_policy_instances) {
-		*path = 0;
 		mpls_label2str(policy->segment_list.label_num,
-			       policy->segment_list.labels, path, 1024, 0, 0);
+			       policy->segment_list.labels, path, sizeof(path),
+			       0, 0);
 		mpls_label2str(1, &policy->segment_list.local_label, local_label_str,
 			       sizeof(local_label_str), 0, 1);
 		ipaddr2str(&policy->endpoint, endpoint, sizeof(endpoint));
@@ -463,10 +462,8 @@ void zebra_sr_policy_show(struct vty *vty, bool uj)
 		json_object_free(json);
 		goto out;
 	}
-	XFREE(MTYPE_TMP, path);
 	table = ttable_dump(tt, "\n");
 	vty_out(vty, "%s\n", table);
-	XFREE(MTYPE_TMP, table);
 
 out:
 	ttable_del(tt);
