@@ -3938,6 +3938,26 @@ The following are available in the top level *enable* mode:
    Clear BGP message statistics for a specified peer or for all peers,
    optionally filtered by activated address-family and sub-address-family.
 
+.. clicmd:: clear bgp [ipv4|ipv6] [unicast] PEER|\* capabilities
+
+   Clear specific BGP capabilities for a specified peer or for all peers. This
+   includes such capabilities like FQDN capability, that can't be controlled by
+   any other configuration knob.
+
+   For example, if you want to change the FQDN, you MUST reset the BGP session
+   in order to send a new FQDN capability to the peer. This command allows you
+   to resend FQDN capability without resetting the session.
+
+   .. code-block:: frr
+
+      hostname bgp-new.example.com
+      clear bgp 10.10.10.1 capabilities
+
+.. note::
+
+   Changing the hostname is possible only when connected to the specific daemon.
+   If you change the hostname via ``vtysh``, it won't be changed.
+
 The following are available in the ``router bgp`` mode:
 
 .. clicmd:: write-quanta (1-64)

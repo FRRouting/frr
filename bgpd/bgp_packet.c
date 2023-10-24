@@ -1218,6 +1218,8 @@ void bgp_capability_send(struct peer *peer, afi_t afi, safi_t safi,
 	uint8_t number_of_orfs = 0;
 	const char *capability = lookup_msg(capcode_str, capability_code,
 					    "Unknown");
+	const char *hostname = cmd_hostname_get();
+	const char *domainname = cmd_domainname_get();
 
 	if (!peer_established(peer->connection))
 		return;
@@ -1531,11 +1533,48 @@ void bgp_capability_send(struct peer *peer, afi_t afi, safi_t safi,
 				   capability, iana_afi2str(pkt_afi),
 				   iana_safi2str(pkt_safi));
 		break;
+	case CAPABILITY_CODE_FQDN:
+		if (hostname) {
+			SET_FLAG(peer->cap, PEER_CAP_HOSTNAME_ADV);
+			stream_putc(s, action);
+			stream_putc(s, CAPABILITY_CODE_FQDN);
+			cap_len = stream_get_endp(s);
+			stream_putc(s, 0); /* Capability Length */
+
+			len = strlen(hostname);
+			if (len > BGP_MAX_HOSTNAME)
+				len = BGP_MAX_HOSTNAME;
+
+			stream_putc(s, len);
+			stream_put(s, hostname, len);
+
+			if (domainname) {
+				len = strlen(domainname);
+				if (len > BGP_MAX_HOSTNAME)
+					len = BGP_MAX_HOSTNAME;
+
+				stream_putc(s, len);
+				stream_put(s, domainname, len);
+			} else
+				stream_putc(s, 0);
+
+			len = stream_get_endp(s) - cap_len - 1;
+			stream_putc_at(s, cap_len, len);
+
+			if (bgp_debug_neighbor_events(peer))
+				zlog_debug("%pBP sending CAPABILITY has %s %s for afi/safi: %s/%s",
+					   peer,
+					   action == CAPABILITY_ACTION_SET
+						   ? "Advertising"
+						   : "Removing",
+					   capability, iana_afi2str(pkt_afi),
+					   iana_safi2str(pkt_safi));
+		}
+		break;
 	case CAPABILITY_CODE_REFRESH:
 	case CAPABILITY_CODE_AS4:
 	case CAPABILITY_CODE_DYNAMIC:
 	case CAPABILITY_CODE_ENHANCED_RR:
-	case CAPABILITY_CODE_FQDN:
 	case CAPABILITY_CODE_ENHE:
 	case CAPABILITY_CODE_EXT_MESSAGE:
 		break;
@@ -3233,6 +3272,89 @@ static void bgp_dynamic_capability_orf(uint8_t *pnt, int action,
 	}
 }
 
+static void bgp_dynamic_capability_fqdn(uint8_t *pnt, int action,
+					struct capability_header *hdr,
+					struct peer *peer)
+{
+	uint8_t *data = pnt + 3;
+	uint8_t *end = data + hdr->length;
+	char str[BGP_MAX_HOSTNAME + 1] = {};
+	uint8_t len;
+
+	if (action == CAPABILITY_ACTION_SET) {
+		/* hostname */
+		if (data + 1 > end) {
+			zlog_err("%pBP: Received invalid FQDN capability (host name length)",
+				 peer);
+			return;
+		}
+
+		len = *data;
+		if (data + len > end) {
+			zlog_err("%pBP: Received invalid FQDN capability length (host name) %d",
+				 peer, hdr->length);
+			return;
+		}
+		data++;
+
+		if (len > BGP_MAX_HOSTNAME) {
+			memcpy(&str, data, BGP_MAX_HOSTNAME);
+			str[BGP_MAX_HOSTNAME] = '\0';
+		} else if (len) {
+			memcpy(&str, data, len);
+			str[len] = '\0';
+		}
+		data += len;
+
+		if (len) {
+			str[len] = '\0';
+
+			XFREE(MTYPE_BGP_PEER_HOST, peer->hostname);
+			XFREE(MTYPE_BGP_PEER_HOST, peer->domainname);
+
+			peer->hostname = XSTRDUP(MTYPE_BGP_PEER_HOST, str);
+		}
+
+		if (data + 1 > end) {
+			zlog_err("%pBP: Received invalid FQDN capability (domain name length)",
+				 peer);
+			return;
+		}
+
+		/* domainname */
+		len = *data;
+		if (data + len > end) {
+			zlog_err("%pBP: Received invalid FQDN capability length (domain name) %d",
+				 peer, len);
+			return;
+		}
+		data++;
+
+		if (len > BGP_MAX_HOSTNAME) {
+			memcpy(&str, data, BGP_MAX_HOSTNAME);
+			str[BGP_MAX_HOSTNAME] = '\0';
+		} else if (len) {
+			memcpy(&str, data, len);
+			str[len] = '\0';
+		}
+		data += len;
+
+		if (len) {
+			str[len] = '\0';
+
+			XFREE(MTYPE_BGP_PEER_HOST, peer->domainname);
+
+			peer->domainname = XSTRDUP(MTYPE_BGP_PEER_HOST, str);
+		}
+
+		SET_FLAG(peer->cap, PEER_CAP_HOSTNAME_RCV);
+	} else {
+		UNSET_FLAG(peer->cap, PEER_CAP_HOSTNAME_RCV);
+		XFREE(MTYPE_BGP_PEER_HOST, peer->hostname);
+		XFREE(MTYPE_BGP_PEER_HOST, peer->domainname);
+	}
+}
+
 static void bgp_dynamic_capability_llgr(uint8_t *pnt, int action,
 					struct capability_header *hdr,
 					struct peer *peer)
@@ -3593,11 +3715,13 @@ static int bgp_capability_msg_parse(struct peer *peer, uint8_t *pnt,
 		case CAPABILITY_CODE_ORF:
 			bgp_dynamic_capability_orf(pnt, action, hdr, peer);
 			break;
+		case CAPABILITY_CODE_FQDN:
+			bgp_dynamic_capability_fqdn(pnt, action, hdr, peer);
+			break;
 		case CAPABILITY_CODE_REFRESH:
 		case CAPABILITY_CODE_AS4:
 		case CAPABILITY_CODE_DYNAMIC:
 		case CAPABILITY_CODE_ENHANCED_RR:
-		case CAPABILITY_CODE_FQDN:
 		case CAPABILITY_CODE_ENHE:
 		case CAPABILITY_CODE_EXT_MESSAGE:
 			break;

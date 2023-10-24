@@ -8046,6 +8046,16 @@ static void peer_reset_message_stats(struct peer *peer)
 	}
 }
 
+/* Helper function to resend some BGP capabilities that are uncontrolled.
+ * For instance, FQDN capability, that can't be turned off, but let's say
+ * we changed the hostname, we need to resend it.
+ */
+static void peer_clear_capabilities(struct peer *peer, afi_t afi, safi_t safi)
+{
+	bgp_capability_send(peer, afi, safi, CAPABILITY_CODE_FQDN,
+			    CAPABILITY_ACTION_SET);
+}
+
 /*
  * If peer clear is invoked in a loop for all peers on the BGP instance,
  * it may end up freeing the doppelganger, and if this was the next node
@@ -8153,6 +8163,9 @@ int peer_clear_soft(struct peer *peer, afi_t afi, safi_t safi,
 
 	if (stype == BGP_CLEAR_MESSAGE_STATS)
 		peer_reset_message_stats(peer);
+
+	if (stype == BGP_CLEAR_CAPABILITIES)
+		peer_clear_capabilities(peer, afi, safi);
 
 	return 0;
 }
