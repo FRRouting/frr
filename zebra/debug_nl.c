@@ -983,6 +983,7 @@ next_rta:
 	zlog_debug("    rta [len=%d (payload=%zu) type=(%d) %s]", rta->rta_len,
 		   plen, rta_type, rta_type2str(rta_type));
 	switch (rta_type) {
+	case IFLA_IFNAME:
 	case IFLA_IFALIAS:
 		if (plen == 0) {
 			zlog_debug("      invalid length");
