@@ -819,6 +819,7 @@ def _read_nft_counter(tgen, hostname, device, addr=None):
     # extract packet counts for all labels of interest
     #
     for v in _traf_labels_of_interest:
+        found = False
         # shifted value used in rule
         vs = v << 4
         vs_hexa = hex(vs)
@@ -841,7 +842,11 @@ def _read_nft_counter(tgen, hostname, device, addr=None):
                 count_b = m.group(2)
                 counters[v] = {"p": int(m.group(1)), "b": int(m.group(2))}
                 logger.info(f"{hostname}: mlabel {v} packets: {m.group(1)}")
+                found = True
                 break
+
+        assertmsg = f'Unable to parse {hostname} "{cmd}" output - label {v} not found'
+        assert found, assertmsg
 
     return counters
 
