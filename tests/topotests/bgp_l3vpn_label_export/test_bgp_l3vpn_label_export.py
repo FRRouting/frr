@@ -855,3 +855,37 @@ def test_vpn_mpls_unconfigure_second_lsp_static():
     assert (
         "Proto static: [200/200]" not in output
     ), "Failure, STATIC label chunk still present"
+
+
+def test_vpn_mpls_static_operational_when_bgp_unconfigured():
+    "Test that if bgp is unconfigured, then the static mpls lsp entry is operational."
+
+    tgen = get_topogen()
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+    tgen.gears["r2"].vtysh_cmd(
+        "conf\n"
+        "router bgp 65002 vrf vrf1\n"
+        "address-family ipv4 unicast\n"
+        "no label vpn export auto"
+    )
+
+    step("Check that no label vpn export auto is OK")
+    test_func = functools.partial(
+        check_bgp_vpn_prefix, LABEL_IMPLICIT_NULL, rname="r2", rd="102:1"
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+    assert result is None, "Unexpected BGP prefix on R2"
+
+    step("Check that unconfiguring bgp will give the 16 label chunk to STATIC")
+    output = tgen.gears["r2"].vtysh_cmd("show debugging label-table")
+    assert (
+        "Proto static: [16/16]" in output
+    ), "Failure, STATIC label chunk still present"
+
+    step("Check that MPLS LSP command is in the FIB")
+    output = tgen.net["r2"].cmd("ip -f mpls ro show | grep 16")
+    assert (
+        "16 as to 100 via inet 192.168.1.10 dev r2-eth0 proto 196" in output
+    ), "Failure, STATIC label chunk not installed"
