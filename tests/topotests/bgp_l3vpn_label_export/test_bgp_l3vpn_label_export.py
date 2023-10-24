@@ -169,23 +169,32 @@ def check_mpls_table(label, protocol):
     return topotest.json_cmp(output, expected, exact=(protocol is None))
 
 
-def check_mpls_ldp_binding():
+def check_mpls_ldp_binding(label="16", rname="r1", prefix="192.0.2.2/32"):
     tgen = get_topogen()
 
     output = json.loads(
-        tgen.gears["r1"].vtysh_cmd("show mpls ldp binding 192.0.2.2/32 json")
+        tgen.gears[rname].vtysh_cmd("show mpls ldp binding {0} json".format(prefix))
     )
     expected = {
         "bindings": [
             {
-                "prefix": "192.0.2.2/32",
-                "localLabel": "16",  # first available label
+                "prefix": prefix,
+                "localLabel": label,  # first available label
                 "inUse": 1,
             },
         ]
     }
 
     return topotest.json_cmp(output, expected)
+
+
+def check_label_manager_table(expected):
+    tgen = get_topogen()
+
+    output = tgen.gears["r2"].vtysh_cmd("show debugging label-table")
+    if expected in output:
+        return None
+    return "{} not present in label manager table".format(expected)
 
 
 def test_convergence():
@@ -261,6 +270,107 @@ def test_vpn_label_export_16():
 
     output = tgen.gears["r2"].vtysh_cmd("show debugging label-table")
     assert "Proto bgp" not in output, "Unexpected BGP label chunk"
+
+
+def test_vpn_label_stop_ldp():
+    "Test that if ldp is stopped, then BGP can obtain that label"
+
+    tgen = get_topogen()
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    router_list = tgen.routers()
+
+    step("Kill LDP on R2")
+    kill_router_daemons(tgen, "r2", ["ldpd"])
+
+    test_func = functools.partial(check_label_manager_table, "Proto bgp: [16/16]")
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+    assert result is None, "Failed to see BGP label chunk"
+
+    step("Check that label vpn export 16 is OK")
+    test_func = functools.partial(check_bgp_vpn_prefix, 16, rname="r2", rd="102:1")
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+    assert result is None, "Failed to see BGP prefix on R1"
+
+
+def test_vpn_label_restart_first_ldp():
+    """
+    Restart LDP
+    * Test that BGP will export the label 16
+    * Test that LDP will use  labels starting from 17
+    """
+
+    tgen = get_topogen()
+
+    step("Bring up LDP on R2")
+    start_router_daemons(tgen, "r2", ["ldpd"])
+
+    test_func = functools.partial(
+        check_mpls_ldp_binding, label="17", rname="r2", prefix="192.0.2.1/32"
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+    assert result is None, "Failed to see LDP binding on R2"
+
+    test_func = functools.partial(check_mpls_table, 17, "LDP")
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+    assert result is None, "Failed to see LDP label on R2"
+
+    test_func = functools.partial(check_mpls_table, "16", "BGP")
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+    assert result is None, "Unexpected BGP label on R2"
+
+
+def test_vpn_label_export_nothing():
+    "Test that unsetting label vpn export will release the label 16. Restart LDP."
+    tgen = get_topogen()
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    tgen.gears["r2"].vtysh_cmd(
+        "conf\n"
+        "router bgp 65002 vrf vrf1\n"
+        "address-family ipv4 unicast\n"
+        "no label vpn export 16"
+    )
+
+    step("Check that no label vpn export 16 is OK")
+    test_func = functools.partial(
+        check_bgp_vpn_prefix, LABEL_IMPLICIT_NULL, rname="r2", rd="102:1"
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+    assert result is None, "Unexpected BGP prefix on R2"
+
+    output = tgen.gears["r2"].vtysh_cmd("show debugging label-table")
+    assert "Proto bgp: [16/16]" not in output, "Failed to see BGP label chunk"
+
+
+def test_vpn_label_restart_second_ldp():
+    "Restart LDP and check that the LDP takes the label 16 again."
+    tgen = get_topogen()
+
+    step("Kill LDP on R2")
+    kill_router_daemons(tgen, "r2", ["ldpd"])
+
+    step("Bring up LDP on R2")
+    start_router_daemons(tgen, "r2", ["ldpd"])
+
+    test_func = functools.partial(
+        check_mpls_ldp_binding, label="16", rname="r2", prefix="192.0.2.1/32"
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+    assert result is None, "Failed to see LDP binding on R2"
+
+    test_func = functools.partial(check_mpls_table, 16, "LDP")
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+    assert result is None, "Failed to see LDP label on R2"
+
+    output = tgen.net["r2"].cmd("vtysh -c 'show debugging label-table' | grep Proto")
+    assert re.match(
+        r"Proto ldp: \[16/(1[7-9]|[2-9]\d+|\d{3,})\]", output
+    ), "Failed to see LDP label chunk"
 
 
 def test_vpn_label_export_2222():
