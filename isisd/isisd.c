@@ -556,6 +556,7 @@ void isis_area_destroy(struct isis_area *area)
 	isis_area_verify_routes(area);
 
 #ifndef FABRICD
+	isis_fae_free_db(&area->fae);
 	flex_algos_free(area->flex_algos);
 #endif /* ifndef FABRICD */
 
