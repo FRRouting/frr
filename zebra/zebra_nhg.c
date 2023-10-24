@@ -2248,20 +2248,6 @@ static int nexthop_active(struct nexthop *nexthop, struct nhg_hash_entry *nhe,
 		return 1;
 	}
 
-	if (top &&
-	    ((top->family == AF_INET && top->prefixlen == IPV4_MAX_BITLEN &&
-	      nexthop->gate.ipv4.s_addr == top->u.prefix4.s_addr) ||
-	     (top->family == AF_INET6 && top->prefixlen == IPV6_MAX_BITLEN &&
-	      memcmp(&nexthop->gate.ipv6, &top->u.prefix6, IPV6_MAX_BYTELEN) ==
-		      0)) &&
-	    nexthop->vrf_id == vrf_id) {
-		if (IS_ZEBRA_DEBUG_RIB_DETAILED)
-			zlog_debug(
-				"        :%s: Attempting to install a max prefixlength route through itself",
-				__func__);
-		return 0;
-	}
-
 	/* Validation for ipv4 mapped ipv6 nexthop. */
 	if (IS_MAPPED_IPV6(&nexthop->gate.ipv6)) {
 		afi = AFI_IP;
@@ -2364,7 +2350,7 @@ static int nexthop_active(struct nexthop *nexthop, struct nhg_hash_entry *nhe,
 					zlog_debug(
 						"        %s: Matched against ourself and prefix length is not max bit length",
 						__func__);
-				return 0;
+				goto continue_up_tree;
 			}
 
 		/* Pick up selected route. */
@@ -2391,20 +2377,12 @@ static int nexthop_active(struct nexthop *nexthop, struct nhg_hash_entry *nhe,
 		/* If there is no selected route or matched route is EGP, go up
 		 * tree.
 		 */
-		if (!match) {
-			do {
-				rn = rn->parent;
-			} while (rn && rn->info == NULL);
-			if (rn)
-				route_lock_node(rn);
-			continue;
-		}
 
 		/* If the candidate match's type is considered "connected",
 		 * we consider it first.
 		 */
-		if (RIB_CONNECTED_ROUTE(match) ||
-		    (RIB_SYSTEM_ROUTE(match) && RSYSTEM_ROUTE(type))) {
+		if (match && (RIB_CONNECTED_ROUTE(match) ||
+			      (RIB_SYSTEM_ROUTE(match) && RSYSTEM_ROUTE(type)))) {
 			match = zebra_nhg_connected_ifindex(rn, match,
 							    nexthop->ifindex);
 
@@ -2420,11 +2398,7 @@ static int nexthop_active(struct nexthop *nexthop, struct nhg_hash_entry *nhe,
 					zlog_debug(
 						"%s: %pNHv given ifindex does not match nexthops ifindex found: %pNHv",
 						__func__, nexthop, newhop);
-				/*
-				 * NEXTHOP_TYPE_*_IFINDEX but ifindex
-				 * doesn't match what we found.
-				 */
-				return 0;
+				goto continue_up_tree;
 			}
 
 			/* NHRP special case: need to indicate onlink */
@@ -2437,7 +2411,7 @@ static int nexthop_active(struct nexthop *nexthop, struct nhg_hash_entry *nhe,
 					__func__, match, match->nhe, newhop);
 
 			return 1;
-		} else if (CHECK_FLAG(flags, ZEBRA_FLAG_ALLOW_RECURSION)) {
+		} else if (match && CHECK_FLAG(flags, ZEBRA_FLAG_ALLOW_RECURSION)) {
 			struct nexthop_group *nhg;
 			struct nexthop *resolver;
 			struct backup_nh_map_s map = {};
@@ -2472,6 +2446,10 @@ static int nexthop_active(struct nexthop *nexthop, struct nhg_hash_entry *nhe,
 					zlog_debug(
 						"%s: match %p (%pNG) not installed or being Route Replaced",
 						__func__, match, match->nhe);
+
+				if (CHECK_FLAG(match->status,
+					       ROUTE_ENTRY_QUEUED))
+					goto continue_up_tree;
 
 				goto done_with_match;
 			}
@@ -2541,25 +2519,37 @@ done_with_match:
 				if (pmtu)
 					*pmtu = match->mtu;
 
-			} else if (IS_ZEBRA_DEBUG_RIB_DETAILED)
-				zlog_debug(
-					"        %s: Recursion failed to find",
-					__func__);
-
-			return resolved;
-		} else {
-			if (IS_ZEBRA_DEBUG_RIB_DETAILED) {
-				zlog_debug(
-					"        %s: Route Type %s has not turned on recursion",
-					__func__, zebra_route_string(type));
-				if (type == ZEBRA_ROUTE_BGP
-				    && !CHECK_FLAG(flags, ZEBRA_FLAG_IBGP))
+			} else {
+				if (IS_ZEBRA_DEBUG_RIB_DETAILED)
 					zlog_debug(
-						"        EBGP: see \"disable-ebgp-connected-route-check\" or \"disable-connected-check\"");
+						"        %s: Recursion failed to find while looking at %pRN",
+						__func__, rn);
+				goto continue_up_tree;
 			}
-			return 0;
+
+			return 1;
+		} else if (IS_ZEBRA_DEBUG_RIB_DETAILED) {
+			zlog_debug(
+				"        %s: Route Type %s has not turned on recursion %pRN failed to match",
+				__func__, zebra_route_string(type), rn);
+			if (type == ZEBRA_ROUTE_BGP
+			    && !CHECK_FLAG(flags, ZEBRA_FLAG_IBGP))
+				zlog_debug(
+					"        EBGP: see \"disable-ebgp-connected-route-check\" or \"disable-connected-check\"");
 		}
+
+	continue_up_tree:
+		/*
+		 * If there is no selected route or matched route is EGP, go up
+		 * tree.
+		 */
+		do {
+			rn = rn->parent;
+		} while (rn && rn->info == NULL);
+		if (rn)
+			route_lock_node(rn);
 	}
+
 	if (IS_ZEBRA_DEBUG_RIB_DETAILED)
 		zlog_debug("        %s: Nexthop did not lookup in table",
 			   __func__);

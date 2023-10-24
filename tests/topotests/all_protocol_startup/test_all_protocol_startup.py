@@ -599,16 +599,16 @@ def test_nexthop_groups():
     count = 0
     dups = []
     nhg_id = route_get_nhg_id("6.6.6.1/32")
-    while (len(dups) != 3) and count < 10:
+    while (len(dups) != 4) and count < 10:
         output = net["r1"].cmd('vtysh -c "show nexthop-group rib %d"' % nhg_id)
 
         dups = re.findall(r"(via 1\.1\.1\.1)", output)
-        if len(dups) != 3:
+        if len(dups) != 4:
             count += 1
             sleep(1)
 
     # Should find 3, itself is inactive
-    assert len(dups) == 3, (
+    assert len(dups) == 4, (
         "Route 6.6.6.1/32 with Nexthop Group ID=%d has wrong number of resolved nexthops"
         % nhg_id
     )
