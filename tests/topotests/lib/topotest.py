@@ -1423,6 +1423,7 @@ class Router(Node):
             "pathd": 0,
             "snmpd": 0,
             "mgmtd": 0,
+            "snmptrapd": 0,
         }
         self.daemons_options = {"zebra": ""}
         self.reportCores = True
@@ -1887,6 +1888,15 @@ class Router(Node):
                     daemon_opts
                 ) + "{}.pid -x /etc/frr/agentx".format(runbase)
                 # check_daemon_files.append(runbase + ".pid")
+            elif daemon == "snmptrapd":
+                binary = "/usr/sbin/snmptrapd"
+                cmdenv = ""
+                cmdopt = (
+                    "{} ".format(daemon_opts)
+                    + "-C -c /etc/{}/snmptrapd.conf".format(self.routertype)
+                    + " -p {}.pid".format(runbase)
+                    + " -LF 6-7 {}/{}/snmptrapd.log".format(self.logdir, self.name)
+                )
             else:
                 binary = os.path.join(self.daemondir, daemon)
                 check_daemon_files.extend([runbase + ".pid", runbase + ".vty"])
@@ -1926,6 +1936,7 @@ class Router(Node):
                         tail_log_files.append(
                             "{}/{}/{}.log".format(self.logdir, self.name, daemon)
                         )
+
             if extra_opts:
                 cmdopt += " " + extra_opts
 
@@ -2056,7 +2067,7 @@ class Router(Node):
                         "%s: %s %s started with perf", self, self.routertype, daemon
                     )
             else:
-                if daemon != "snmpd":
+                if daemon != "snmpd" and daemon != "snmptrapd":
                     cmdopt += " -d "
                 cmdopt += rediropt
 
@@ -2298,6 +2309,8 @@ class Router(Node):
 
         for daemon in self.daemons:
             if daemon == "snmpd":
+                continue
+            if daemon == "snmptrapd":
                 continue
             if (self.daemons[daemon] == 1) and not (daemon in daemonsRunning):
                 sys.stderr.write("%s: Daemon %s not running\n" % (self.name, daemon))

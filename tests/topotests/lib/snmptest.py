@@ -18,6 +18,7 @@ Basic usage instructions:
 """
 
 from lib.topolog import logger
+import re
 
 
 class SnmpTester(object):
@@ -72,15 +73,38 @@ class SnmpTester(object):
         # third token onwards is the value of the object
         return tokens[0].split(".", 1)[1]
 
-    @staticmethod
-    def _get_snmp_oid(snmp_output):
-        tokens = snmp_output.strip().split()
+    def _parse_notification_trap(self, snmp_out):
+        # we use the "=" as separator thus we will have
+        # element of list formated "value   oid"
+        # value for index i is corresponding to index i-1
+        results = snmp_out.strip().split("=")
 
-        #        if len(tokens) > 5:
-        #            return None
+        # remove the notification part date, notification OID
+        del results[0:2]
 
-        # third token is the value of the object
-        return tokens[0].split(".", 1)[1]
+        index = 0
+        oid_list = []
+        next_oid = ""
+        oid = ""
+        while index < len(results):
+            result = results[index].strip().split()
+            if index < len(results) - 1:
+                raw_oid = result[-1]
+                # remove initial "." of oid
+                next_oid = raw_oid.split(".", 1)[1]
+                # remove oid from result to have only value
+                del result[-1]
+            if index > 0:
+                value = " ".join(result)
+                # ignore remote port oid 1.3.6.1.3.5.1.1.2.1.9 since
+                # it's value is variable
+                local_port = re.search("1.3.6.1.3.5.1.1.2.1.9", oid)
+                if not local_port:
+                    oid_list.append((oid, value))
+
+            oid = next_oid
+            index += 1
+        return oid_list
 
     def _parse_multiline(self, snmp_output):
         results = snmp_output.strip().split("\n")
@@ -92,6 +116,15 @@ class SnmpTester(object):
             out_list.append(self._get_snmp_value(response))
 
         return out_dict, out_list
+
+    def _parse_multiline_trap(self, results):
+        out_list = []
+        results = [elem for index, elem in enumerate(results) if index % 2 != 0]
+
+        for response in results:
+            oid_list = self._parse_notification_trap(response)
+            out_list += oid_list
+        return out_list
 
     def get(self, oid):
         cmd = "snmpget {0} {1}".format(self._snmp_config(), oid)
@@ -115,6 +148,11 @@ class SnmpTester(object):
 
         result = self.router.cmd(cmd)
         return self._parse_multiline(result)
+
+    def trap(self, outputfile):
+        whitecleanfile = re.sub("\t", " ", outputfile)
+        results = whitecleanfile.strip().split("\n")
+        return self._parse_multiline_trap(results)
 
     def test_oid(self, oid, value):
         print("oid: {}".format(self.get_next(oid)))

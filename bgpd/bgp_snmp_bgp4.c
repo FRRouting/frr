@@ -757,7 +757,7 @@ static struct variable bgp_variables[] = {
 	 {6, 1, 14}},
 };
 
-int bgpTrapEstablished(struct peer *peer)
+int bgp4TrapEstablished(struct peer *peer)
 {
 	int ret;
 	struct in_addr addr;
@@ -782,7 +782,7 @@ int bgpTrapEstablished(struct peer *peer)
 	return 0;
 }
 
-int bgpTrapBackwardTransition(struct peer *peer)
+int bgp4TrapBackwardTransition(struct peer *peer)
 {
 	int ret;
 	struct in_addr addr;
