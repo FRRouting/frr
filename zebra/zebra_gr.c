@@ -37,6 +37,15 @@
 
 DEFINE_MTYPE_STATIC(ZEBRA, ZEBRA_GR, "GR");
 
+struct zebra_gr_afi_clean {
+	struct client_gr_info *info;
+	afi_t afi;
+	uint8_t proto;
+	uint8_t instance;
+	uint64_t restart_time;
+	struct event *t_gac;
+};
+
 /*
  * Forward declaration.
  */
@@ -46,6 +55,9 @@ static int32_t zebra_gr_delete_stale_routes(struct client_gr_info *info);
 static void zebra_gr_process_client_stale_routes(struct zserv *client,
 						 struct client_gr_info *info);
 static void zebra_gr_delete_stale_route_table_afi(struct event *event);
+static bool zebra_gr_unicast_stale_route_delete(struct route_table *table,
+						struct zebra_gr_afi_clean *gac, bool no_max);
+
 /*
  * Debug macros.
  */
@@ -272,16 +284,6 @@ void zebra_gr_client_reconnect(struct zserv *client)
 	zserv_client_delete(old_client);
 }
 
-struct zebra_gr_afi_clean {
-	struct client_gr_info *info;
-	afi_t afi;
-	uint8_t proto;
-	uint8_t instance;
-	time_t restart_time;
-
-	struct event *t_gac;
-};
-
 /*
  * Functions to deal with capabilities
  */
@@ -455,6 +457,68 @@ void zread_client_capabilities(ZAPI_HANDLER_ARGS)
  * Stale route handling
  */
 
+static bool zebra_gr_enabled_for_vrf(struct zserv *client, vrf_id_t vrf_id)
+{
+	struct client_gr_info *info = NULL;
+
+	TAILQ_FOREACH (info, &client->gr_info_queue, gr_info) {
+		if (info->vrf_id == vrf_id && info->gr_enable)
+			return true;
+	}
+
+	return false;
+}
+
+/* Cleans up stale ipv4 and ipv6 unicast routes that
+ * were imported from default EVPN VRF into GR disabled
+ * destination VRF and installed in kernel in that
+ * destination VRF.
+ */
+static void zebra_gr_cleanup_of_non_gr_vrf(struct zebra_gr_afi_clean *gac)
+{
+	struct vrf *vrf;
+	struct zebra_vrf *zvrf;
+	struct route_table *table;
+	afi_t afi;
+	struct zserv *client = zserv_find_client(gac->proto, gac->instance);
+
+	RB_FOREACH (vrf, vrf_id_head, &vrfs_by_id) {
+		zvrf = vrf->info;
+		if (!zvrf)
+			continue;
+
+		/*
+		 * Skip if this is default EVPN VRF
+		 */
+		if (zvrf == zebra_vrf_get_evpn())
+			continue;
+
+		/*
+		 * If GR is enabled for this VRF, then zebra
+		 * would have done the stale cleanup when BGP
+		 * indicated UPDATE_COMPLETE for this VRF for
+		 * all gr-enabled afi-safis. So skip such VRFs.
+		 */
+		if (zebra_gr_enabled_for_vrf(client, vrf->vrf_id))
+			continue;
+
+		for (afi = AFI_IP; afi <= AFI_IP6; afi++) {
+			table = zvrf->table[afi][SAFI_UNICAST];
+			if (!table)
+				continue;
+
+			LOG_GR("EVPN-GR: Cleaning up imported stale afi:%d unicast routes in %s(%u)",
+			       afi, vrf->name, vrf->vrf_id);
+
+			/*
+			 * Cleanup stale unicast routes
+			 */
+			zebra_gr_unicast_stale_route_delete(table, gac, true);
+		}
+	}
+}
+
+
 /*
  * Delete all the stale routes that have not been refreshed
  * post restart.
@@ -525,30 +589,12 @@ static void zebra_gr_delete_stale_info_client(struct event *event)
 	XFREE(MTYPE_ZEBRA_GR, gac);
 }
 
-static void zebra_gr_delete_stale_route_table_afi(struct event *event)
+static bool zebra_gr_unicast_stale_route_delete(struct route_table *table,
+						struct zebra_gr_afi_clean *gac, bool no_max)
 {
-	struct zebra_gr_afi_clean *gac = EVENT_ARG(event);
-	struct route_table *table;
 	struct route_node *rn;
 	struct route_entry *re, *next;
-	struct zebra_vrf *zvrf = zebra_vrf_lookup_by_id(gac->info->vrf_id);
-	int32_t n = 0;
-
-	if (!zvrf)
-		goto done;
-
-	LOG_GR("%s: Deleting stale routes for %s, afi %d", __func__, zvrf->vrf->name, gac->afi);
-
-	frrtrace(2, frr_zebra, gr_delete_stale_route_table_afi, zvrf->vrf->name, gac->afi);
-
-	if (gac->afi == AFI_L2VPN) {
-		zebra_evpn_stale_entries_cleanup(gac->restart_time);
-		goto done;
-	}
-
-	table = zvrf->table[gac->afi][SAFI_UNICAST];
-	if (!table)
-		goto done;
+	uint32_t n = 0;
 
 	for (rn = route_top(table); rn; rn = srcdest_route_next(rn)) {
 		RNODE_FOREACH_RE_SAFE (rn, re, next) {
@@ -572,18 +618,46 @@ static void zebra_gr_delete_stale_route_table_afi(struct event *event)
 			 * Store the current prefix and afi
 			 */
 			if ((n >= ZEBRA_MAX_STALE_ROUTE_COUNT) &&
-			    (gac->info->do_delete == false)) {
-				LOG_GR("%s: Stale routes deleted %d. Restarting timer.", __func__,
-				       n);
+			    (gac->info->do_delete == false) && !no_max) {
+				LOG_GR("GR: Stale routes deleted %d. Restarting timer.", n);
 				event_add_timer(
 					zrouter.master,
 					zebra_gr_delete_stale_route_table_afi,
 					gac, ZEBRA_DEFAULT_STALE_UPDATE_DELAY,
 					&gac->t_gac);
-				return;
+				return true;
 			}
 		}
 	}
+	return false;
+}
+
+static void zebra_gr_delete_stale_route_table_afi(struct event *event)
+{
+	struct zebra_gr_afi_clean *gac = EVENT_ARG(event);
+	struct route_table *table;
+	struct zebra_vrf *zvrf = zebra_vrf_lookup_by_id(gac->info->vrf_id);
+
+	if (!zvrf)
+		goto done;
+
+	LOG_GR("GR: Deleting stale routes for %s, afi %d", zvrf->vrf->name, gac->afi);
+
+	frrtrace(2, frr_zebra, gr_delete_stale_route_table_afi, zvrf->vrf->name, gac->afi);
+
+	if (gac->afi == AFI_L2VPN && zvrf == zebra_vrf_get_evpn()) {
+		zebra_gr_cleanup_of_non_gr_vrf(gac);
+		zebra_evpn_stale_entries_cleanup(gac->restart_time);
+		goto done;
+	}
+
+	table = zvrf->table[gac->afi][SAFI_UNICAST];
+	if (!table)
+		goto done;
+
+	/* Return if timer was restarted */
+	if (zebra_gr_unicast_stale_route_delete(table, gac, false))
+		return;
 
 done:
 	XFREE(MTYPE_ZEBRA_GR, gac);
