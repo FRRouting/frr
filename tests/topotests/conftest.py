@@ -103,6 +103,12 @@ def pytest_addoption(parser):
     )
 
     parser.addoption(
+        "--gdb-use-emacs",
+        action="store_true",
+        help="Use emacsclient to run gdb instead of a shell",
+    )
+
+    parser.addoption(
         "--logd",
         action="append",
         metavar="DAEMON[,ROUTER[,...]",
