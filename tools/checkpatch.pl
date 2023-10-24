@@ -547,7 +547,7 @@ our $Operators	= qr{
 
 our $c90_Keywords = qr{do|for|while|if|else|return|goto|continue|switch|default|case|break}x;
 our $Iterators	= qr{
-			frr_each|frr_each_safe|frr_each_from|
+			darr_foreach_p|darr_foreach_i|frr_each|frr_each_safe|frr_each_from|
 			frr_with_mutex|frr_with_privs|
 			LIST_FOREACH|LIST_FOREACH_SAFE|
 			SLIST_FOREACH|SLIST_FOREACH_SAFE|SLIST_FOREACH_PREVPTR|
