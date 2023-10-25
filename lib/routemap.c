@@ -1861,7 +1861,7 @@ route_map_get_index(struct route_map *map, const struct prefix *prefix,
 	 * must be AF_INET or AF_INET6 in order for the lookup to succeed. So if
 	 * the AF doesn't line up with the LPM trees, skip the optimization.
 	 */
-	if (map->optimization_disabled) {
+	if (map->optimization_disabled || prefix->family == AF_FLOWSPEC) {
 		if (unlikely(CHECK_FLAG(rmap_debug, DEBUG_ROUTEMAP_DETAIL)))
 			zlog_debug(
 				"Skipping route-map optimization for route-map: %s, pfx: %pFX, family: %d",
@@ -2617,6 +2617,9 @@ route_map_result_t route_map_apply_ext(struct route_map *map,
 			ret = RMAP_DENYMATCH;
 		goto route_map_apply_end;
 	}
+
+	if (map->optimization_disabled || prefix->family == AF_FLOWSPEC)
+		skip_match_clause = false;
 
 	for (; index; index = index->next) {
 		if (!skip_match_clause) {
