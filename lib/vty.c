@@ -3645,19 +3645,15 @@ static int vty_mgmt_get_data_result_notified(
 			    " req-id %" PRIu64,
 			    client_id, req_id);
 
-	if (req_id != mgmt_last_req_id) {
+	if (req_id != mgmt_last_req_id)
 		mgmt_last_req_id = req_id;
-		vty_out(vty, "[\n");
-	}
 
-	for (indx = 0; indx < num_data; indx++) {
+	for (indx = 0; indx < num_data; indx++)
 		vty_out(vty, "  \"%s\": \"%s\"\n", yang_data[indx]->xpath,
 			yang_data[indx]->value->encoded_str_val);
-	}
-	if (next_key < 0) {
-		vty_out(vty, "]\n");
+
+	if (next_key < 0)
 		vty_mgmt_resume_response(vty, success);
-	}
 
 	return 0;
 }
@@ -3914,6 +3910,8 @@ void vty_init(struct event_loop *master_thread, bool do_command_logging)
 	install_element(VTY_NODE, &no_vty_login_cmd);
 	install_element(VTY_NODE, &vty_ipv6_access_class_cmd);
 	install_element(VTY_NODE, &no_vty_ipv6_access_class_cmd);
+
+	mgmt_fe_client_lib_vty_init();
 }
 
 void vty_terminate(void)

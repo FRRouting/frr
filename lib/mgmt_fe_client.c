@@ -13,6 +13,7 @@
 #include "mgmt_fe_client.h"
 #include "mgmt_msg.h"
 #include "mgmt_pb.h"
+#include "mgmt_util.h"
 #include "network.h"
 #include "stream.h"
 #include "sockopt.h"
@@ -622,6 +623,7 @@ void mgmt_fe_client_lib_vty_init(void)
 	install_node(&mgmt_dbg_node);
 	install_element(ENABLE_NODE, &debug_mgmt_client_fe_cmd);
 	install_element(CONFIG_NODE, &debug_mgmt_client_fe_cmd);
+	mgmt_util_vty_init();
 }
 
 uint mgmt_fe_client_session_count(struct mgmt_fe_client *client)

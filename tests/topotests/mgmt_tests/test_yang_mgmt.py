@@ -44,8 +44,10 @@ sys.path.append(os.path.join(CWD, "../lib/"))
 
 # pylint: disable=C0413
 # Import topogen and topotest helpers
+from lib import topotest
 from lib.topogen import Topogen, get_topogen
 from lib.topotest import version_cmp
+from functools import partial
 
 # Import topoJson from lib, to create topology and initial configuration
 from lib.common_config import (
@@ -154,6 +156,47 @@ def populate_nh():
         },
     }
     return next_hop_ip
+
+
+def router_compare_text_output(rname, command, reference, check_for_mismatch=False):
+    "Compare router text output"
+
+    logger.info('Comparing router "%s" "%s" output', rname, command)
+
+    tgen = get_topogen()
+    filename = "{}/{}/{}".format(CWD, rname, reference)
+    expected = open(filename).read()
+
+    # Run test function until we get an result. Wait at most 80 seconds.
+    test_func = partial(
+        topotest.router_output_cmp, tgen.gears[rname], command, expected
+    )
+    if check_for_mismatch:
+        result, diff = topotest.run_and_expect(test_func, "", count=5, wait=1)
+        logger.info("Expected result:\n========\n{}\n==========".format(expected))
+        logger.info(
+            "Actual result:\n========\n{}\n========".format(
+                tgen.gears[rname].vtysh_cmd(command)
+            )
+        )
+        assertmsg = '"{}" Text output does not mismatch the expected result. Diff:\n {}\n'.format(
+            rname, diff
+        )
+        assert result is not None, assertmsg
+    else:
+        result, diff = topotest.run_and_expect(test_func, "", count=5, wait=1)
+        logger.info("Expected result:\n========\n{}\n==========".format(expected))
+        logger.info(
+            "Actual result:\n========\n{}\n========".format(
+                tgen.gears[rname].vtysh_cmd(command)
+            )
+        )
+        assertmsg = (
+            '"{}" Text output mismatches the expected result. Diff:\n {}\n'.format(
+                rname, diff
+            )
+        )
+        assert result, assertmsg
 
 
 #####################################################
@@ -397,6 +440,94 @@ def test_mgmt_delete_config(request):
     assert (
         result is not True
     ), "Testcase {} : Failed" "Error: Routes is still present in RIB".format(tc_name)
+
+    write_test_footer(tc_name)
+
+
+def test_mgmt_get_oper_data(request):
+    """
+    Verify mgmt get oper-data.
+
+    """
+    tc_name = request.node.name
+    write_test_header(tc_name)
+    tgen = get_topogen()
+    # Don't run this test if we have any failure.
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    reset_config_on_routers(tgen)
+
+    step("Configure a static route using commit apply")
+
+    raw_config = {
+        "r1": {
+            "raw_config": [
+                "mgmt set-config /frr-routing:routing/control-plane-protocols/control-plane-protocol[type='frr-staticd:staticd'][name='staticd'][vrf='default']/frr-staticd:staticd/route-list[prefix='192.168.1.1/32'][afi-safi='frr-routing:ipv4-unicast']/path-list[table-id='0'][distance='1']/frr-nexthops/nexthop[nh-type='blackhole'][vrf='default'][gateway=''][interface='(null)']/vrf default",
+                "mgmt commit apply",
+            ]
+        }
+    }
+
+    result = apply_raw_config(tgen, raw_config)
+    assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
+
+    step("Get and verify oper-data from Zebra for route #1")
+    router_compare_text_output(
+        "r1",
+        "show mgmt get-data operational /frr-vrf:lib/vrf[name='default']/frr-zebra:zebra/ribs/rib[afi-safi-name='*'][table-id='*']/route[prefix='192.168.1.1/32']/route-entry[protocol='static']/distance",
+        "test_oper_data/show_mgmt_oper_data_route_1.ref",
+    )
+
+    step("Configure another static route using commit apply")
+
+    raw_config = {
+        "r1": {
+            "raw_config": [
+                "mgmt set-config /frr-routing:routing/control-plane-protocols/control-plane-protocol[type='frr-staticd:staticd'][name='staticd'][vrf='default']/frr-staticd:staticd/route-list[prefix='192.168.1.3/32'][afi-safi='frr-routing:ipv4-unicast']/path-list[table-id='0'][distance='1']/frr-nexthops/nexthop[nh-type='blackhole'][vrf='default'][gateway=''][interface='(null)']/vrf default",
+                "mgmt commit apply",
+            ]
+        }
+    }
+
+    result = apply_raw_config(tgen, raw_config)
+    assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
+
+    step("Get and verify oper-data from Zebra for route #2")
+    router_compare_text_output(
+        "r1",
+        "show mgmt get-data operational /frr-vrf:lib/vrf[name='default']/frr-zebra:zebra/ribs/rib[afi-safi-name='*'][table-id='*']/route[prefix='192.168.1.3/32']/route-entry[protocol='static']/distance",
+        "test_oper_data/show_mgmt_oper_data_route_2.ref",
+    )
+
+    step("Get and verify oper-data from Zebra for both route #1 and #2")
+    router_compare_text_output(
+        "r1",
+        "show mgmt get-data operational /frr-vrf:lib/vrf[name='default']/frr-zebra:zebra/ribs/rib[afi-safi-name='*'][table-id='*']/route[prefix='192.168.*/32']/route-entry[protocol='static']/distance",
+        "test_oper_data/show_mgmt_oper_data_route_1_2.ref",
+    )
+
+    step("Delete static route 1 and 2")
+    raw_config = {
+        "r1": {
+            "raw_config": [
+                "mgmt delete-config /frr-routing:routing/control-plane-protocols/control-plane-protocol[type='frr-staticd:staticd'][name='staticd'][vrf='default']/frr-staticd:staticd/route-list[prefix='192.168.1.1/32'][afi-safi='frr-routing:ipv4-unicast']",
+                "mgmt delete-config /frr-routing:routing/control-plane-protocols/control-plane-protocol[type='frr-staticd:staticd'][name='staticd'][vrf='default']/frr-staticd:staticd/route-list[prefix='192.168.1.3/32'][afi-safi='frr-routing:ipv4-unicast']",
+                "mgmt commit apply",
+            ]
+        }
+    }
+
+    result = apply_raw_config(tgen, raw_config)
+    assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
+
+    step("Verify that the routes are deleted from RIB")
+    router_compare_text_output(
+        "r1",
+        "show mgmt get-data operational /frr-vrf:lib/vrf[name='default']/frr-zebra:zebra/ribs/rib[afi-safi-name='*'][table-id='*']/route[prefix='192.168.*/32']/route-entry[protocol='static']/distance",
+        "test_oper_data/show_mgmt_oper_data_route_1_2.ref",
+        check_for_mismatch=True,
+    )
 
     write_test_footer(tc_name)
 

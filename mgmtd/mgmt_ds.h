@@ -16,8 +16,6 @@
 #include "mgmtd/mgmt_be_adapter.h"
 #include "mgmtd/mgmt_fe_adapter.h"
 
-#define MGMTD_MAX_NUM_DSNODES_PER_BATCH 128
-
 #define MGMTD_DS_NAME_MAX_LEN 32
 #define MGMTD_DS_NAME_NONE "none"
 #define MGMTD_DS_NAME_RUNNING "running"
@@ -93,63 +91,6 @@ static inline Mgmtd__DatastoreId mgmt_get_ds_id_by_name(const char *ds_name)
 	else if (!strncmp(ds_name, "operational", sizeof("operational")))
 		return MGMTD_DS_OPERATIONAL;
 	return MGMTD_DS_NONE;
-}
-
-/*
- * Appends trail wildcard '/' '*' to a given xpath.
- *
- * xpath
- *     YANG xpath.
- *
- * path_len
- *     xpath length.
- */
-static inline void mgmt_xpath_append_trail_wildcard(char *xpath,
-						    size_t *xpath_len)
-{
-	if (!xpath || !xpath_len)
-		return;
-
-	if (!*xpath_len)
-		*xpath_len = strlen(xpath);
-
-	if (*xpath_len > 2 && *xpath_len < MGMTD_MAX_XPATH_LEN - 2) {
-		if (xpath[*xpath_len - 1] == '/') {
-			xpath[*xpath_len] = '*';
-			xpath[*xpath_len + 1] = 0;
-			(*xpath_len)++;
-		} else if (xpath[*xpath_len - 1] != '*') {
-			xpath[*xpath_len] = '/';
-			xpath[*xpath_len + 1] = '*';
-			xpath[*xpath_len + 2] = 0;
-			(*xpath_len) += 2;
-		}
-	}
-}
-
-/*
- * Removes trail wildcard '/' '*' from a given xpath.
- *
- * xpath
- *     YANG xpath.
- *
- * path_len
- *     xpath length.
- */
-static inline void mgmt_xpath_remove_trail_wildcard(char *xpath,
-						    size_t *xpath_len)
-{
-	if (!xpath || !xpath_len)
-		return;
-
-	if (!*xpath_len)
-		*xpath_len = strlen(xpath);
-
-	if (*xpath_len > 2 && xpath[*xpath_len - 2] == '/'
-	    && xpath[*xpath_len - 1] == '*') {
-		xpath[*xpath_len - 2] = 0;
-		(*xpath_len) -= 2;
-	}
 }
 
 /* Initialise datastore */
@@ -257,7 +198,8 @@ extern int mgmt_ds_delete_data_nodes(struct mgmt_ds_ctx *ds_ctx,
 extern int mgmt_ds_iter_data(
 	Mgmtd__DatastoreId ds_id, struct nb_config *root,
 	const char *base_xpath,
-	void (*mgmt_ds_node_iter_fn)(const char *xpath, struct lyd_node *node,
+	void (*mgmt_ds_node_iter_fn)(struct mgmt_ds_ctx *ds_ctx,
+				     const char *xpath, struct lyd_node *node,
 				     struct nb_node *nb_node, void *ctx),
 	void *ctx);
 

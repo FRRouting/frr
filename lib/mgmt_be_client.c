@@ -10,6 +10,7 @@
 #include "compiler.h"
 #include "libfrr.h"
 #include "mgmtd/mgmt.h"
+#include "mgmt_util.h"
 #include "mgmt_be_client.h"
 #include "mgmt_msg.h"
 #include "mgmt_pb.h"
@@ -24,6 +25,14 @@ DEFINE_MTYPE_STATIC(LIB, MGMTD_BE_CLIENT, "backend client");
 DEFINE_MTYPE_STATIC(LIB, MGMTD_BE_CLIENT_NAME, "backend client name");
 DEFINE_MTYPE_STATIC(LIB, MGMTD_BE_BATCH, "backend transaction batch data");
 DEFINE_MTYPE_STATIC(LIB, MGMTD_BE_TXN, "backend transaction data");
+DEFINE_MTYPE_STATIC(LIB, MGMTD_BE_GETDATA_REPLY, "MGMTD backend get-data reply message");
+
+struct mgmt_be_iter_ctx {
+	int (*db_iter_fn)(const struct lysc_node *snode,
+			       struct yang_translator *translator,
+			       struct yang_data *data, void *arg);
+	void *usr_ctx;
+};
 
 enum mgmt_be_txn_event {
 	MGMTD_BE_TXN_PROC_SETCFG = 1,
@@ -36,9 +45,29 @@ struct mgmt_be_set_cfg_req {
 	uint16_t num_cfg_changes;
 };
 
+struct mgmt_be_get_data_reply {
+	/* Buffer space for preparing data reply */
+	int num_reply;
+	int last_batch;
+	Mgmtd__YangDataReply data_reply;
+	Mgmtd__YangData reply_data[MGMTD_MAX_NUM_DATA_REPLY_IN_BATCH];
+	Mgmtd__YangData * reply_datap[MGMTD_MAX_NUM_DATA_REPLY_IN_BATCH];
+	Mgmtd__YangDataValue reply_value[MGMTD_MAX_NUM_DATA_REPLY_IN_BATCH];
+	char *reply_xpathp[MGMTD_MAX_NUM_DATA_REPLY_IN_BATCH];
+};
+
 struct mgmt_be_get_data_req {
 	char *xpaths[MGMTD_MAX_NUM_DATA_REQ_IN_BATCH];
 	uint16_t num_xpaths;
+
+	/*
+	 * Buffer space for preparing reply.
+	 * NOTE: Should only be malloc-ed on demand to reduce
+	 * memory footprint. Freed up via mgmt_trx_req_free()
+	 */
+	struct mgmt_be_get_data_reply *reply;
+
+	int total_reply;
 };
 
 struct mgmt_be_txn_req {
@@ -49,10 +78,16 @@ struct mgmt_be_txn_req {
 	} req;
 };
 
+struct mgmt_be_client;
+
 PREDECL_LIST(mgmt_be_batches);
 struct mgmt_be_batch_ctx {
 	/* Batch-Id as assigned by MGMTD */
 	uint64_t batch_id;
+
+	uint64_t txn_id;
+
+	struct mgmt_be_client *client_ctx;
 
 	struct mgmt_be_txn_req txn_req;
 
@@ -76,6 +111,7 @@ struct mgmt_be_txn_ctx {
 	/* List of batches belonging to this transaction */
 	struct mgmt_be_batches_head cfg_batches;
 	struct mgmt_be_batches_head apply_cfgs;
+	struct mgmt_be_batches_head get_data;
 
 	struct mgmt_be_txns_item list_linkage;
 
@@ -91,6 +127,9 @@ DECLARE_LIST(mgmt_be_txns, struct mgmt_be_txn_ctx, list_linkage);
 
 #define FOREACH_BE_APPLY_BATCH_IN_LIST(txn, batch)                             \
 	frr_each_safe (mgmt_be_batches, &(txn)->apply_cfgs, (batch))
+
+#define FOREACH_BE_GETDATA_BATCH_IN_LIST(txn, batch)                           \
+	frr_each_safe (mgmt_be_batches, &(txn)->get_data, (batch))
 
 struct mgmt_be_client {
 	struct msg_client client;
@@ -116,12 +155,22 @@ struct mgmt_be_client {
 #define FOREACH_BE_TXN_IN_LIST(client_ctx, txn)                                \
 	frr_each_safe (mgmt_be_txns, &(client_ctx)->txn_head, (txn))
 
+struct mgmt_be_child_iter_ctx {
+	const char *base_xpath;
+	char **child_xpath;
+	void **child_ctx;
+	int num_child;
+	void *ctx;
+	char *xpath_key;
+};
+
 struct debug mgmt_dbg_be_client = {0, "Management backend client operations"};
 
 const char *mgmt_be_client_names[MGMTD_BE_CLIENT_ID_MAX + 1] = {
 #ifdef HAVE_STATICD
 	[MGMTD_BE_CLIENT_ID_STATICD] = "staticd",
 #endif
+	[MGMTD_BE_CLIENT_ID_ZEBRA] = "zebra",
 	[MGMTD_BE_CLIENT_ID_MAX] = "Unknown/Invalid",
 };
 
@@ -149,7 +198,8 @@ mgmt_be_find_batch_by_id(struct mgmt_be_txn_ctx *txn,
 }
 
 static struct mgmt_be_batch_ctx *
-mgmt_be_batch_create(struct mgmt_be_txn_ctx *txn, uint64_t batch_id)
+mgmt_be_batch_create(struct mgmt_be_txn_ctx *txn, uint64_t batch_id,
+		     enum mgmt_be_txn_event event)
 {
 	struct mgmt_be_batch_ctx *batch = NULL;
 
@@ -159,12 +209,24 @@ mgmt_be_batch_create(struct mgmt_be_txn_ctx *txn, uint64_t batch_id)
 				sizeof(struct mgmt_be_batch_ctx));
 		assert(batch);
 
+		batch->txn_id = txn->txn_id;
 		batch->batch_id = batch_id;
-		mgmt_be_batches_add_tail(&txn->cfg_batches, batch);
+		switch (event) {
+		case MGMTD_BE_TXN_PROC_SETCFG:
+			mgmt_be_batches_add_tail(&txn->cfg_batches, batch);
+			break;
+		case MGMTD_BE_TXN_PROC_GETDATA:
+			mgmt_be_batches_add_tail(&txn->get_data, batch);
+			break;
+		case MGMTD_BE_TXN_PROC_GETCFG:
+		default:
+			assert(!"Invalid event type!!!");
+		}
 
+		batch->txn_req.event = event;
 		MGMTD_BE_CLIENT_DBG("Added new batch-id: %" PRIu64
-				    " to transaction",
-				    batch_id);
+				    " to transaction %p id: %" PRIu64,
+				    batch_id, txn, txn->txn_id);
 	}
 
 	return batch;
@@ -206,6 +268,10 @@ static void mgmt_be_cleanup_all_batches(struct mgmt_be_txn_ctx *txn)
 	FOREACH_BE_APPLY_BATCH_IN_LIST (txn, batch) {
 		mgmt_be_batch_delete(txn, &batch);
 	}
+
+	FOREACH_BE_GETDATA_BATCH_IN_LIST (txn, batch) {
+		mgmt_be_batch_delete(txn, &batch);
+	}
 }
 
 static struct mgmt_be_txn_ctx *
@@ -240,6 +306,7 @@ mgmt_be_txn_create(struct mgmt_be_client *client_ctx, uint64_t txn_id)
 	txn->client = client_ctx;
 	mgmt_be_batches_init(&txn->cfg_batches);
 	mgmt_be_batches_init(&txn->apply_cfgs);
+	mgmt_be_batches_init(&txn->get_data);
 	mgmt_be_txns_add_tail(&client_ctx->txn_head, txn);
 
 	MGMTD_BE_CLIENT_DBG("Created new txn-id: %" PRIu64, txn_id);
@@ -540,14 +607,16 @@ static int mgmt_be_update_setcfg_in_batch(struct mgmt_be_client *client_ctx,
 	int index;
 	struct nb_cfg_change *cfg_chg;
 
-	batch = mgmt_be_batch_create(txn, batch_id);
+	batch = mgmt_be_find_batch_by_id(txn, batch_id);
+	if (!batch)
+		batch = mgmt_be_batch_create(txn, batch_id,
+					     MGMTD_BE_TXN_PROC_SETCFG);
 	if (!batch) {
 		MGMTD_BE_CLIENT_ERR("Batch create failed!");
 		return -1;
 	}
 
 	txn_req = &batch->txn_req;
-	txn_req->event = MGMTD_BE_TXN_PROC_SETCFG;
 	MGMTD_BE_CLIENT_DBG("Created SETCFG request for batch-id: %" PRIu64
 			    " txn-id: %" PRIu64 " cfg-items:%d",
 			    batch_id, txn->txn_id, num_req);
@@ -723,6 +792,313 @@ failed:
 	return -1;
 }
 
+/*
+ * Initialize backend getdata reply pointer.
+ */
+static void mgmt_be_init_get_data_reply(struct mgmt_be_get_data_reply *get_reply)
+{
+	size_t indx;
+
+	for (indx = 0; indx < array_size(get_reply->reply_data); indx++)
+		get_reply->reply_datap[indx] = &get_reply->reply_data[indx];
+}
+
+/*
+ * Reset getdata reply structure to zero.
+ */
+static void mgmt_be_reset_get_data_reply(struct mgmt_be_get_data_reply *get_reply)
+{
+	int indx;
+
+	for (indx = 0; indx < get_reply->num_reply; indx++) {
+		if (get_reply->reply_xpathp[indx]) {
+			free(get_reply->reply_xpathp[indx]);
+			get_reply->reply_xpathp[indx] = 0;
+		}
+		if (get_reply->reply_data[indx].xpath) {
+			MGMTD_BE_CLIENT_DBG("free xpath %p -> %s",
+				   get_reply->reply_data[indx].xpath,
+				   get_reply->reply_data[indx].xpath);
+			XFREE(MTYPE_TMP, get_reply->reply_data[indx].xpath);
+			XFREE(MTYPE_TMP, get_reply->reply_data[indx].value
+				->encoded_str_val);
+			get_reply->reply_data[indx].xpath = 0;
+		}
+	}
+
+	get_reply->num_reply = 0;
+	memset(&get_reply->data_reply, 0, sizeof(get_reply->data_reply));
+	memset(&get_reply->reply_data, 0, sizeof(get_reply->reply_data));
+	memset(&get_reply->reply_datap, 0, sizeof(get_reply->reply_datap));
+
+	memset(&get_reply->reply_value, 0, sizeof(get_reply->reply_value));
+
+	mgmt_be_init_get_data_reply(get_reply);
+}
+
+/*
+ * Reset getdata reply buffer to zero.
+ */
+static void mgmt_be_reset_get_data_reply_buf(struct mgmt_be_get_data_req *get_data)
+{
+	if (get_data->reply)
+		mgmt_be_reset_get_data_reply(get_data->reply);
+}
+
+/*
+ * Get data reply function from backend client to mgmt.
+ */
+static void mgmt_be_send_get_data_reply(uint64_t txn_id,
+					struct mgmt_be_get_data_req *get_req,
+					struct mgmt_be_batch_ctx *batch,
+					bool success, const char *error_if_any)
+{
+	struct mgmt_be_get_data_reply *get_reply;
+	Mgmtd__BeMessage be_msg;
+	Mgmtd__BeOperDataGetReply data_reply;
+	Mgmtd__YangDataReply reply;
+
+	get_reply = get_req->reply;
+
+	mgmtd__be_oper_data_get_reply__init(&data_reply);
+
+	mgmt_yang_data_reply_init(&reply);
+	reply.data = get_reply->reply_datap;
+	reply.n_data = get_reply->num_reply;
+	reply.next_indx =
+		(!get_reply->last_batch ? get_req->total_reply : -1);
+
+	data_reply.txn_id = batch->txn_id;
+	data_reply.batch_id = batch->batch_id;
+	data_reply.data = &reply;
+	data_reply.success = success;
+	data_reply.error = (char *)error_if_any;
+
+	mgmtd__be_message__init(&be_msg);
+	be_msg.message_case = MGMTD__BE_MESSAGE__MESSAGE_GET_REPLY;
+	be_msg.get_reply = &data_reply;
+
+	MGMTD_BE_CLIENT_DBG(
+		"Sending GETDATA_REPLY message to MGMTD for txn 0x%llx, batch 0x%llx, success: %c, num-xpaths:%u, last:%d, next_indx:%" PRId64 "",
+		(unsigned long long)be_msg.get_reply->txn_id,
+		(unsigned long long)be_msg.get_reply->batch_id,
+		be_msg.get_reply->success ? 'Y' : 'N',
+		(unsigned int)be_msg.get_reply->data->n_data,
+		get_reply->last_batch, be_msg.get_reply->data->next_indx);
+
+	mgmt_be_client_send_msg(batch->client_ctx, &be_msg);
+
+	/*
+	 * Reset reply buffer for next reply.
+	 */
+	mgmt_be_reset_get_data_reply_buf(get_req);
+}
+
+/*
+ * Backend operdata callback function to send reply.
+ */
+static int mgmt_be_oper_data_callback(const struct lysc_node *snode,
+				      struct yang_translator *translator,
+				      struct yang_data *y_data, void *arg)
+{
+	struct mgmt_be_batch_ctx *batch = (struct mgmt_be_batch_ctx *)arg;
+	struct mgmt_be_get_data_req *get_req;
+	struct mgmt_be_get_data_reply *get_reply;
+	Mgmtd__YangData *data;
+	Mgmtd__YangDataValue *data_value;
+
+	MGMTD_BE_CLIENT_DBG("reached for xpath %s and value %s",
+			    y_data->xpath, y_data->value);
+
+	get_req = &batch->txn_req.req.get_data;
+	assert(get_req);
+	get_reply = get_req->reply;
+	data = &get_reply->reply_data[get_reply->num_reply];
+	data_value = &get_reply->reply_value[get_reply->num_reply];
+
+	mgmt_yang_data_init(data);
+	data->xpath = XSTRDUP(MTYPE_TMP, y_data->xpath);
+	mgmt_yang_data_value_init(data_value);
+	data_value->value_case = MGMTD__YANG_DATA_VALUE__VALUE_ENCODED_STR_VAL;
+	data_value->encoded_str_val = XSTRDUP(MTYPE_TMP, y_data->value);
+	data->value = data_value;
+
+	get_reply->num_reply++;
+	get_req->total_reply++;
+
+	if (get_reply->num_reply == MGMTD_MAX_NUM_DATA_REPLY_IN_BATCH)
+		mgmt_be_send_get_data_reply(
+			batch->txn_id, get_req, batch, true, NULL);
+
+	yang_data_free(y_data);
+
+	return 0;
+}
+
+/*
+ * Copy the xpath info into child xpath context. This function is called
+ * from mgmt_be_get_children() which in turn is supplied as
+ * 'get_child_fn' parameter of mgmt_xpath_resolve_wildcard().
+ */
+static int mgmt_be_iter_child(const struct lysc_node *snode,
+			       struct yang_translator *translator,
+			       struct yang_data *data, void *arg)
+{
+	struct mgmt_be_child_iter_ctx *ctx;
+	char *xpath;
+
+
+	ctx = (struct mgmt_be_child_iter_ctx *)arg;
+	MGMTD_BE_CLIENT_DBG(" -- child_xpath %s", data->xpath);
+
+	/*
+	 * Let's allocate a string for the Xpath and add it to
+	 * the results. The same should be freed up from
+	 * mgmt_xpath_resolve_wildcard().
+	 */
+	xpath = calloc(1, MGMTD_MAX_XPATH_LEN);
+	strlcpy(xpath, data->xpath, MGMTD_MAX_XPATH_LEN);
+	ctx->child_xpath[ctx->num_child] = xpath;
+	ctx->num_child++;
+
+	yang_data_free(data);
+
+	return 0;
+}
+
+/*
+ * Get the number of children for the given base xpath. This function is
+ * supplied as 'get_child_fn' parameter of mgmt_xpath_resolve_wildcard()
+ */
+static int mgmt_be_get_children(const char *base_xpath,
+				char *child_xpath[], void *child_ctx[],
+				int *num_child, void *ctx, char *xpath_key)
+{
+	char nb_xpath[MGMTD_MAX_XPATH_LEN];
+	int nb_index, ret;
+	struct mgmt_be_child_iter_ctx iter_ctx;
+
+	MGMTD_BE_CLIENT_DBG("started for base_xpath %s, xpath_key %s",
+			    base_xpath, xpath_key);
+
+	*num_child = 0;
+
+	nb_index = mgmt_xpath_find_character(xpath_key, strlen(base_xpath), '[');
+	if (nb_index == -1)
+		return -1;
+	strlcpy(nb_xpath, base_xpath, sizeof(nb_xpath));
+
+	iter_ctx.base_xpath = base_xpath;
+	iter_ctx.child_xpath = child_xpath;
+	iter_ctx.child_ctx = child_ctx;
+	iter_ctx.xpath_key = xpath_key;
+	iter_ctx.num_child = 0;
+	iter_ctx.ctx = ctx;
+
+	ret = nb_oper_data_iterate(nb_xpath, NULL,
+				   NB_OPER_DATA_ITER_VISITLISTKEYS,
+				   mgmt_be_iter_child, &iter_ctx);
+
+	MGMTD_BE_CLIENT_DBG("Got %d key values for %s",
+			    iter_ctx.num_child, xpath_key);
+	*num_child = iter_ctx.num_child;
+
+	return ret;
+}
+
+/*
+ * Wrapper function to iterate over the oper DB.
+ */
+static int mgmt_be_iterate_oper_db(const char *xpath, void *node_ctx,
+				   void *ctx)
+{
+	struct mgmt_be_iter_ctx *iter_ctx;
+	int ret;
+
+	iter_ctx = (struct mgmt_be_iter_ctx *)ctx;
+
+	MGMTD_BE_CLIENT_DBG("Xpath: %s", xpath);
+
+	ret = nb_oper_data_iterate(xpath, NULL, 0, iter_ctx->db_iter_fn,
+			iter_ctx->usr_ctx);
+
+	return ret;
+}
+
+/*
+ * Wrapper function to resolve wildcard entry in the given xpath.
+ */
+static int mgmt_be_resolve_wildcard(char *xpath, struct mgmt_be_batch_ctx *batch)
+{
+	struct mgmt_be_iter_ctx iter_ctx = {0};
+	int ret;
+
+	iter_ctx.db_iter_fn = mgmt_be_oper_data_callback;
+	iter_ctx.usr_ctx = (void *)batch;
+
+	mgmt_remove_trailing_separator(xpath, '*');
+	mgmt_remove_trailing_separator(xpath, '/');
+	MGMTD_BE_CLIENT_DBG("xpath: %s", xpath);
+
+	ret = mgmt_xpath_resolve_wildcard(xpath, 0, mgmt_be_get_children,
+					  mgmt_be_iterate_oper_db,
+					  (void *)&iter_ctx, 0);
+
+	return ret;
+}
+
+/*
+ * API to process get data request and send the reply.
+ */
+static int mgmt_be_process_get_req(struct mgmt_be_client *client_ctx,
+				   uint64_t txn_id, uint64_t batch_id,
+				   Mgmtd__YangGetDataReq * get_data_req[],
+				   int num_req)
+{
+	struct mgmt_be_txn_ctx *txn;
+	struct mgmt_be_batch_ctx *batch;
+	struct mgmt_be_get_data_req *get_data = NULL;
+	int index;
+	char *root_xpath;
+
+	txn = mgmt_be_find_txn_by_id(client_ctx, txn_id, true);
+	if (!txn)
+		goto proc_get_req_failed;
+
+	batch = mgmt_be_batch_create(txn, batch_id, MGMTD_BE_TXN_PROC_GETDATA);
+	if (!batch)
+		return -1;
+
+	batch->client_ctx = client_ctx;
+	get_data = &batch->txn_req.req.get_data;
+	if (!get_data->reply)
+		get_data->reply = XCALLOC(
+				MTYPE_MGMTD_BE_GETDATA_REPLY,
+				sizeof(struct mgmt_be_get_data_reply));
+
+	MGMTD_BE_CLIENT_DBG("Received Xpaths:");
+	for (index = 0; index < num_req; index++) {
+		MGMTD_BE_CLIENT_DBG("%d: %s", index, get_data_req[index]->data->xpath);
+		mgmt_be_init_get_data_reply(get_data->reply);
+		root_xpath = get_data_req[index]->data->xpath;
+
+		if (mgmt_be_resolve_wildcard(root_xpath, batch) != NB_OK)
+			MGMTD_BE_CLIENT_DBG("not able to resolve xpath %s", root_xpath);
+	}
+
+	batch->txn_req.req.get_data.reply->last_batch = true;
+	mgmt_be_send_get_data_reply(
+		txn_id, get_data, batch, true,
+		NULL);
+
+	XFREE(MTYPE_MGMTD_BE_GETDATA_REPLY, get_data->reply);
+	return 0;
+proc_get_req_failed:
+	msg_conn_disconnect(&client_ctx->client.conn, true);
+	if (get_data && get_data->reply)
+		XFREE(MTYPE_MGMTD_BE_GETDATA_REPLY, get_data->reply);
+	return -1;
+}
 
 static int mgmt_be_client_handle_msg(struct mgmt_be_client *client_ctx,
 				     Mgmtd__BeMessage *be_msg)
@@ -768,11 +1144,12 @@ static int mgmt_be_client_handle_msg(struct mgmt_be_client *client_ctx,
 			client_ctx, (uint64_t)be_msg->cfg_apply_req->txn_id);
 		break;
 	case MGMTD__BE_MESSAGE__MESSAGE_GET_REQ:
-		MGMTD_BE_CLIENT_ERR("Got unhandled message type %u",
-				    be_msg->message_case);
-		/*
-		 * TODO: Add handling code in future.
-		 */
+		MGMTD_BE_CLIENT_DBG("Got GET_DATA_REQ txn-id: %" PRIu64,
+				    be_msg->cfg_data_req->txn_id);
+		mgmt_be_process_get_req(client_ctx,
+			(uint64_t)be_msg->get_req->txn_id,
+			(uint64_t)be_msg->get_req->batch_id,
+			be_msg->get_req->data, be_msg->get_req->n_data);
 		break;
 	/*
 	 * NOTE: The following messages are always sent from Backend
@@ -911,7 +1288,7 @@ static void mgmt_debug_client_be_set_all(uint32_t flags, bool set)
 static int mgmt_debug_be_client_config_write(struct vty *vty)
 {
 	if (DEBUG_MODE_CHECK(&mgmt_dbg_be_client, DEBUG_MODE_CONF))
-		vty_out(vty, "debug mgmt client frontend\n");
+		vty_out(vty, "debug mgmt client backend\n");
 
 	return 1;
 }
@@ -968,6 +1345,7 @@ void mgmt_be_client_lib_vty_init(void)
 	install_node(&mgmt_dbg_node);
 	install_element(ENABLE_NODE, &debug_mgmt_client_be_cmd);
 	install_element(CONFIG_NODE, &debug_mgmt_client_be_cmd);
+	mgmt_util_vty_init();
 }
 
 void mgmt_be_client_destroy(struct mgmt_be_client *client)

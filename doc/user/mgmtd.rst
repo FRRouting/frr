@@ -347,19 +347,23 @@ MGMT Show commands
 .. clicmd:: show mgmt get-config [candidate|running] XPATH
 
     This command uses the GET_CONFIG operation over the MGMT Frontend interface and
-    returns the xpaths and values of the nodes of the subtree pointed by the <xpath>.
+    returns the xpaths and values of the nodes of the subtree pointed by the <xpath>
+    from the specifed datastore. Currenlty only supported values for datastore are
+    'candidate' and 'running'.
 
-.. clicmd:: show mgmt get-data [candidate|operation|running] XPATH
+.. clicmd:: show mgmt get-data operational XPATH
 
     This command uses the GET_DATA operation over the MGMT Frontend interface and
-    returns the xpaths and values of the nodes of the subtree pointed by the <xpath>.
-    Currenlty supported values for 'candidate' and 'running' only
-    ('operational' shall be supported in future soon).
+    returns the xpaths and values of the nodes of the subtree pointed by the <xpath>
+    from a specified datastore. Currenlty only supported values for datastore is
+    'operational'. GET-DATA operation on 'running' and 'candidate' are not allowed
+    (use the 'show mgmt get-config [candidate|running]' instead).
 
-.. clicmd:: show mgmt datastore-contents [candidate|operation|running] [xpath WORD] [file WORD] json|xml
+.. clicmd:: show mgmt database-contents [candidate|running] [xpath WORD] [file WORD] json|xml
 
-    This command dumps the subtree pointed by the xpath in JSON or XML format. If filepath is
-    not present then the tree will be printed on the shell.
+    This command dumps the subtree pointed by the xpath from a specifed datastore
+    in JSON or XML format. If filepath is not present then the tree will be printed on the
+    shell. Currenlty only supported values for datastore are 'candidate' and 'running'.
 
 .. clicmd:: show mgmt commit-history
 
@@ -395,7 +399,7 @@ The following debug commands enable debugging within the management daemon:
 MGMT Client debug commands
 ==========================
 
-The following debug commands enable debugging within the management front and
+The following debug commands enable debugging within the management frontend and
 backend clients:
 
 .. clicmd:: [no] debug mgmt client backend
@@ -407,3 +411,16 @@ backend clients:
 
    Enable[/Disable] debugging messages related to frontend operations inside the
    frontend mgmtd clients.
+
+
+MGMT Common debug commands
+==========================
+
+The following debug commands enable debugging of some common operations that
+are running on the management daemon as well as all management frontend and
+backend clients:
+
+.. clicmd:: [no] debug mgmt utilities
+
+   Enable[/Disable] debugging messages related to common utility operations on the
+   mamagemnt daemon as well as all management frontend and backend clients.

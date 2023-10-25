@@ -34,8 +34,8 @@ has been converted to it, but in the future RESTCONF and NETCONF servers can
 easily be added as *front-ends* to mgmtd to support those protocols as well.
 
 
-Converting A Daemon to MGMTD
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Converting A Daemon to MGMTD Client
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 A daemon must first be transitioned to the new *northbound* interface if that
 has not already been done (see `this northbound conversion documentation
@@ -57,11 +57,13 @@ Front-End Interface:
 3. Add CLI handler file[s] to ``mgmtd/subdir.am`` (e.g., ``staticd/static_vty.c``)
 4. [if needed] Exclude (#ifndef) non-configuration CLI handlers from CLI source
    file (e.g., inside ``staticd/static_vty.c``)
+5. Redirect MGMT Frontend Client debug CLI handlers to the daemon.
 
 Back-End Interface:
 
-5. Add XPATHs mappings to a couple arrays to direct ``mgmtd`` at your daemon in
+6. Add XPATHs mappings to a couple arrays to direct ``mgmtd`` at your daemon in
    ``mgmtd/mgmt_be_adapter.c``
+7. Redirect MGMT Backend Client debug CLI handlers to the daemon.
 
 
 Add YANG and CLI into MGMTD
@@ -140,6 +142,29 @@ handlers. For example:
 
   }
 
+Redirect MGMT Frontend Debug CLI handlers to the Daemon
+-------------------------------------------------------
+
+In order to debug the MGMT frontend client library operations on the client
+daemon MGMT provides 'debug mgmt frontend' CLI that needs to notify the
+command on the new client daemon as well. To do that the daemon needs to be
+added to 'VTYSH_MGMT_FE' list in the file 'vtysh/vtysh.h' as shown below.
+
+.. code-block:: c
+
+  #define VTYSH_MGMT_FE	VTYSH_MGMT | VTYSH_XXXX
+
+And then the daemon needs to call mgmt_fe_client_lib_vty_init() from it's
+daemon-specifc VTY initializing routine as show below.
+
+.. code-block:: c
+
+    void daemon_vty_init(void)
+    {
+        ...
+
+        mgmt_fe_client_lib_vty_init();
+    }
 
 Add Back-End XPATH mappings
 ---------------------------
@@ -202,6 +227,83 @@ Below are the strings added for staticd support:
    #endif
    };
 
+The abobe example adds 'staticd' as a configuration validator for certain xpaths
+under the overall data subtree in 'running' and 'candidate' datastores.
+However, sometimes daemons may also need to provide operational data and state
+via the MGMT frontend interface. Below is an example how the zebra daemon
+can add support for retrieveing oprational data for the data subtree it
+represents under the entire data tree in the operational datastore. Please note
+that zebra here only takes responsibility of providing real-time operational
+values of the dpecified data portions,. It does not accept any responsibility
+of validating any data under these data portions, by specifying only
+'MGMT_SUBSCR_OPER_OWN' for the '.subsribed' value for the corresponding Xpath
+map entry.
+
+.. code-block:: c
+
+    static struct mgmt_be_client_xpath zebra_xpaths[] = {
+        {
+            .xpath = "/frr-zebra:zebra/*",
+            .subscribed = MGMT_SUBSCR_OPER_OWN,
+        },
+        {
+            .xpath = "/frr-vrf:lib/vrf[name='*']/frr-zebra:zebra/*",
+            .subscribed = MGMT_SUBSCR_OPER_OWN,
+        },
+    };
+
+    static struct mgmt_be_client_xpath_map
+        mgmt_client_xpaths[MGMTD_BE_CLIENT_ID_MAX] = {
+            ...
+            [MGMTD_BE_CLIENT_ID_ZEBRA] = {zebra_xpaths,
+                            array_size(zebra_xpaths)},
+            ...
+    };
+
+However a daemon can certainly support both accepting configurational
+values for a data portion (via one of the config datastsores), as well as
+providing the real-time operational value of the same data portion
+(via the 'operational' datastore). In such case it should combine both
+'MGMT_SUBSCR_VALIDATE_CFG' and 'MGMT_SUBSCR_OPER_OWN' values for the
+'.subscribed' attribute in the corresponding Xpath map entry. Below is
+a variation of the zebra Xpath mappings given above that combines both.
+
+.. code-block:: c
+
+    static struct mgmt_be_client_xpath zebra_xpaths[] = {
+        {
+            .xpath = "/frr-zebra:zebra/*",
+            .subscribed = MGMT_SUBSCR_VALIDATE_CFG | MGMT_SUBSCR_OPER_OWN,
+        },
+        {
+            .xpath = "/frr-vrf:lib/vrf[name='*']/frr-zebra:zebra/*",
+            .subscribed = MGMT_SUBSCR_OPER_OWN,
+        },
+    };
+
+Redirect MGMT Backend Debug CLI handlers to the Daemon
+------------------------------------------------------
+
+In order to debug the MGMT backend client library operations on the client
+daemon MGMT provides 'debug mgmt backend' CLI that needs to notify the
+command on the new client daemon as well. To do that the daemon needs to be
+added to 'VTYSH_MGMT_BE' list in the file 'vtysh/vtysh.h' as shown below.
+
+.. code-block:: c
+
+    #define VTYSH_MGMT_BE	VTYSH_STATICD | VTYSH_ZEBRA
+
+And then the daemon needs to call mgmt_be_client_lib_vty_init() from it's
+daemon-specifc VTY initializing routine as show below.
+
+.. code-block:: c
+
+    void daemon_vty_init(void)
+    {
+        ...
+
+        mgmt_be_client_lib_vty_init();
+    }
 
 MGMTD Internals
 ^^^^^^^^^^^^^^^

@@ -457,8 +457,11 @@ static int fe_adapter_send_get_reply(struct mgmt_fe_session_ctx *session,
 	fe_msg.message_case = MGMTD__FE_MESSAGE__MESSAGE_GET_REPLY;
 	fe_msg.get_reply = &get_reply;
 
-	MGMTD_FE_ADAPTER_DBG("Sending GET_REPLY message to MGMTD Frontend client '%s'",
-			     session->adapter->name);
+	MGMTD_FE_ADAPTER_DBG("Sending GET_DATA_REPLY message to MGMTD Frontend client '%s' (req-id:%" PRIu64 ", success: %c, #xpaths: %d, next-indx: %" PRId64 ")",
+			     session->adapter->name, get_reply.req_id,
+			     get_reply.success ? 'Y' : 'N',
+			     get_reply.data ? (int) get_reply.data->n_data : 0,
+			     get_reply.data ? get_reply.data->next_indx : -2);
 
 	/*
 	 * Cleanup the SHOW transaction associated with this session.

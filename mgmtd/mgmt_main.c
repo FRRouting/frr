@@ -207,6 +207,12 @@ static const struct frr_yang_module_info *const mgmt_yang_modules[] = {
 	&(struct frr_yang_module_info){.name = "frr-staticd",
 				       .ignore_cbs = true},
 #endif
+	&(struct frr_yang_module_info){.name = "frr-zebra",
+				       .ignore_cbs = true},
+	&(struct frr_yang_module_info){.name = "frr-zebra-route-map",
+				       .ignore_cbs = true},
+	&(struct frr_yang_module_info){.name = "frr-affinity-map",
+				       .ignore_cbs = true},
 };
 
 FRR_DAEMON_INFO(mgmtd, MGMTD, .vty_port = MGMTD_VTY_PORT,
