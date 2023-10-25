@@ -103,6 +103,7 @@ static void bgp_conditional_adv_routes(struct peer *peer, afi_t afi,
 
 	addpath_capable = bgp_addpath_encode_tx(peer, afi, safi);
 
+	SET_FLAG(subgrp->sflags, SUBGRP_STATUS_FORCE_UPDATES);
 	for (dest = bgp_table_top(table); dest; dest = bgp_route_next(dest)) {
 		dest_p = bgp_dest_get_prefix(dest);
 		assert(dest_p);
