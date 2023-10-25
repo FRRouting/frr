@@ -223,8 +223,7 @@ extern int mgmt_txn_notify_be_cfg_validate_reply(
  */
 extern int
 mgmt_txn_notify_be_cfg_apply_reply(uint64_t txn_id, bool success,
-				       uint64_t batch_ids[],
-				       size_t num_batch_ids, char *error_if_any,
+				       char *error_if_any,
 				       struct mgmt_be_client_adapter *adapter);
 
 /*

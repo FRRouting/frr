@@ -112,9 +112,8 @@ message BeCfgDataApplyReq {
 
 message BeCfgDataApplyReply {
   required uint64 txn_id = 1;
-  repeated uint64 batch_ids = 2;
-  required bool success = 3;
-  optional string error_if_any = 4;
+  required bool success = 2;
+  optional string error_if_any = 3;
 }
 
 message BeOperDataGetReq {

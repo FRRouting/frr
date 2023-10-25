@@ -2471,14 +2471,11 @@ int mgmt_txn_notify_be_cfgdata_reply(uint64_t txn_id, uint64_t batch_id,
 }
 
 int mgmt_txn_notify_be_cfg_apply_reply(uint64_t txn_id, bool success,
-				       uint64_t batch_ids[],
-				       size_t num_batch_ids, char *error_if_any,
+				       char *error_if_any,
 				       struct mgmt_be_client_adapter *adapter)
 {
 	struct mgmt_txn_ctx *txn;
-	struct mgmt_txn_be_cfg_batch *batch;
 	struct mgmt_commit_cfg_req *cmtcfg_req = NULL;
-	size_t indx;
 
 	txn = mgmt_txn_id2ctx(txn_id);
 	if (!txn || txn->type != MGMTD_TXN_TYPE_CONFIG || !txn->commit_cfg_req)
@@ -2488,9 +2485,8 @@ int mgmt_txn_notify_be_cfg_apply_reply(uint64_t txn_id, bool success,
 
 	if (!success) {
 		MGMTD_TXN_ERR("CFGDATA_APPLY_REQ sent to '%s' failed txn-id: %" PRIu64
-			      " batch ids %" PRIu64 " - %" PRIu64 " err: %s",
-			      adapter->name, txn->txn_id, batch_ids[0],
-			      batch_ids[num_batch_ids - 1],
+			      " err: %s",
+			      adapter->name, txn->txn_id,
 			      error_if_any ? error_if_any : "None");
 		mgmt_txn_send_commit_cfg_reply(
 			txn, MGMTD_INTERNAL_ERROR,
@@ -2500,25 +2496,17 @@ int mgmt_txn_notify_be_cfg_apply_reply(uint64_t txn_id, bool success,
 		return 0;
 	}
 
-	for (indx = 0; indx < num_batch_ids; indx++) {
-		batch = mgmt_txn_cfgbatch_id2ctx(txn, batch_ids[indx]);
-		if (batch->txn != txn)
-			return -1;
-		mgmt_move_txn_cfg_batch_to_next(
-			cmtcfg_req, batch,
-			&cmtcfg_req->curr_batches[adapter->id],
-			&cmtcfg_req->next_batches[adapter->id], true,
-			MGMTD_COMMIT_PHASE_TXN_DELETE);
-	}
+	mgmt_move_txn_cfg_batches(txn, cmtcfg_req,
+				  &cmtcfg_req->curr_batches[adapter->id],
+				  &cmtcfg_req->next_batches[adapter->id],
+				  true, MGMTD_COMMIT_PHASE_TXN_DELETE);
 
-	if (!mgmt_txn_batches_count(&cmtcfg_req->curr_batches[adapter->id])) {
-		/*
-		 * All configuration for the specific backend has been applied.
-		 * Send TXN-DELETE to wrap up the transaction for this backend.
-		 */
-		SET_FLAG(adapter->flags, MGMTD_BE_ADAPTER_FLAGS_CFG_SYNCED);
-		mgmt_txn_send_be_txn_delete(txn, adapter);
-	}
+	/*
+	 * All configuration for the specific backend has been applied.
+	 * Send TXN-DELETE to wrap up the transaction for this backend.
+	 */
+	SET_FLAG(adapter->flags, MGMTD_BE_ADAPTER_FLAGS_CFG_SYNCED);
+	mgmt_txn_send_be_txn_delete(txn, adapter);
 
 	mgmt_try_move_commit_to_next_phase(txn, cmtcfg_req);
 	if (mm->perf_stats_en)
