@@ -1147,6 +1147,27 @@ stream_failure:
 	return -1;
 }
 
+int zapi_label_chunk_free_notify_encode(struct stream *s, uint32_t label_start,
+					uint32_t label_size)
+{
+	stream_putl(s, label_start);
+	stream_putl(s, label_size);
+
+	return 0;
+}
+
+int zapi_label_chunk_free_notify_decode(struct stream *s, uint32_t *label,
+					uint32_t *label_size)
+{
+	STREAM_GETL(s, *label);
+	STREAM_GETL(s, *label_size);
+
+	return 0;
+
+stream_failure:
+	return -1;
+}
+
 static int zapi_nhg_encode(struct stream *s, int cmd, struct zapi_nhg *api_nhg)
 {
 	int i;

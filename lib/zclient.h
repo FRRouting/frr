@@ -146,6 +146,7 @@ typedef enum {
 	ZEBRA_LABEL_MANAGER_CONNECT_ASYNC,
 	ZEBRA_GET_LABEL_CHUNK,
 	ZEBRA_RELEASE_LABEL_CHUNK,
+	ZEBRA_LABEL_CHUNK_FREE_NOTIFY,
 	ZEBRA_FEC_REGISTER,
 	ZEBRA_FEC_UNREGISTER,
 	ZEBRA_FEC_UPDATE,
@@ -1108,6 +1109,12 @@ extern int zapi_srv6_locator_chunk_encode(struct stream *s,
 					  const struct srv6_locator_chunk *c);
 extern int zapi_srv6_locator_chunk_decode(struct stream *s,
 					  struct srv6_locator_chunk *c);
+extern int zapi_label_chunk_free_notify_encode(struct stream *s,
+					       uint32_t label_start,
+					       uint32_t label_size);
+extern int zapi_label_chunk_free_notify_decode(struct stream *s,
+					       uint32_t *label,
+					       uint32_t *label_size);
 
 extern enum zclient_send_status zebra_send_pw(struct zclient *zclient,
 					      int command, struct zapi_pw *pw);

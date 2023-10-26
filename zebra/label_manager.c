@@ -534,6 +534,24 @@ static int label_manager_release_label_chunk(struct zserv *client,
 				   client->session_id, start, end);
 }
 
+static void
+label_manager_label_chunk_free_notify(struct label_manager_chunk *lmc)
+{
+	struct zserv *client;
+	struct listnode *node;
+	struct stream *s;
+
+	for (ALL_LIST_ELEMENTS_RO(zrouter.client_list, node, client)) {
+		s = stream_new(ZEBRA_MAX_PACKET_SIZ);
+		zclient_create_header(s, ZEBRA_LABEL_CHUNK_FREE_NOTIFY,
+				      VRF_DEFAULT);
+		zapi_label_chunk_free_notify_encode(s, lmc->start,
+						    lmc->end - lmc->start + 1);
+		stream_putw_at(s, 0, stream_get_endp(s));
+		zserv_send_message(client, s);
+	}
+}
+
 /**
  * Core function, release no longer used label chunks
  *
@@ -571,6 +589,8 @@ int release_label_chunk(uint8_t proto, unsigned short instance,
 	}
 	if (lmc) {
 		list_delete_node(lbl_mgr.lc_list, node);
+		/* notify clients that label chunk is removed */
+		label_manager_label_chunk_free_notify(lmc);
 		delete_label_chunk(lmc);
 	}
 
