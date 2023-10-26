@@ -267,13 +267,6 @@ static struct test_peer_attr test_peer_attrs[] = {
 		.type = PEER_AT_GLOBAL_FLAG,
 	},
 	{
-		.cmd = "capability software-version",
-		.u.flag = PEER_FLAG_CAPABILITY_SOFT_VERSION,
-		.type = PEER_AT_GLOBAL_FLAG,
-		.o.invert_peer = true,
-		.o.use_iface_peer = true,
-	},
-	{
 		.cmd = "description",
 		.peer_cmd = "description FRR Peer",
 		.group_cmd = "description FRR Group",
