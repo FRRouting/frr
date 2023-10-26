@@ -122,6 +122,10 @@ FRR_CFG_DEFAULT_BOOL(BGP_SOFT_VERSION_CAPABILITY,
 	{ .val_bool = true, .match_profile = "datacenter", },
 	{ .val_bool = false },
 );
+FRR_CFG_DEFAULT_BOOL(BGP_ENFORCE_FIRST_AS,
+	{ .val_bool = false, .match_version = "< 9.1", },
+	{ .val_bool = true },
+);
 
 DEFINE_HOOK(bgp_inst_config_write,
 		(struct bgp *bgp, struct vty *vty),
@@ -615,6 +619,8 @@ int bgp_get_vty(struct bgp **bgp, as_t *as, const char *name,
 		if (DFLT_BGP_SOFT_VERSION_CAPABILITY)
 			SET_FLAG((*bgp)->flags,
 				 BGP_FLAG_SOFT_VERSION_CAPABILITY);
+		if (DFLT_BGP_ENFORCE_FIRST_AS)
+			SET_FLAG((*bgp)->flags, BGP_FLAG_ENFORCE_FIRST_AS);
 
 		ret = BGP_SUCCESS;
 	}
@@ -2825,6 +2831,23 @@ DEFUN(no_bgp_ebgp_requires_policy, no_bgp_ebgp_requires_policy_cmd,
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
 	UNSET_FLAG(bgp->flags, BGP_FLAG_EBGP_REQUIRES_POLICY);
+	return CMD_SUCCESS;
+}
+
+DEFPY(bgp_enforce_first_as,
+      bgp_enforce_first_as_cmd,
+      "[no] bgp enforce-first-as",
+      NO_STR
+      BGP_STR
+      "Enforce the first AS for EBGP routes\n")
+{
+	VTY_DECLVAR_CONTEXT(bgp, bgp);
+
+	if (no)
+		UNSET_FLAG(bgp->flags, BGP_FLAG_ENFORCE_FIRST_AS);
+	else
+		SET_FLAG(bgp->flags, BGP_FLAG_ENFORCE_FIRST_AS);
+
 	return CMD_SUCCESS;
 }
 
@@ -17973,8 +17996,13 @@ static void bgp_config_write_peer_global(struct vty *vty, struct bgp *bgp,
 			addr);
 
 	/* enforce-first-as */
-	if (peergroup_flag_check(peer, PEER_FLAG_ENFORCE_FIRST_AS))
-		vty_out(vty, " neighbor %s enforce-first-as\n", addr);
+	if (CHECK_FLAG(bgp->flags, BGP_FLAG_ENFORCE_FIRST_AS)) {
+		if (!peergroup_flag_check(peer, PEER_FLAG_ENFORCE_FIRST_AS))
+			vty_out(vty, " no neighbor %s enforce-first-as\n", addr);
+	} else {
+		if (peergroup_flag_check(peer, PEER_FLAG_ENFORCE_FIRST_AS))
+			vty_out(vty, " neighbor %s enforce-first-as\n", addr);
+	}
 
 	/* update-source */
 	if (peergroup_flag_check(peer, PEER_FLAG_UPDATE_SOURCE)) {
@@ -18596,6 +18624,15 @@ int bgp_config_write(struct vty *vty)
 			vty_out(vty, " %sbgp ebgp-requires-policy\n",
 				CHECK_FLAG(bgp->flags,
 					   BGP_FLAG_EBGP_REQUIRES_POLICY)
+					? ""
+					: "no ");
+
+		/* bgp enforce-first-as */
+		if (!!CHECK_FLAG(bgp->flags, BGP_FLAG_ENFORCE_FIRST_AS) !=
+		    SAVE_BGP_ENFORCE_FIRST_AS)
+			vty_out(vty, " %sbgp enforce-first-as\n",
+				CHECK_FLAG(bgp->flags,
+					   BGP_FLAG_ENFORCE_FIRST_AS)
 					? ""
 					: "no ");
 
@@ -19593,6 +19630,9 @@ void bgp_vty_init(void)
 	/* bgp ebgp-requires-policy */
 	install_element(BGP_NODE, &bgp_ebgp_requires_policy_cmd);
 	install_element(BGP_NODE, &no_bgp_ebgp_requires_policy_cmd);
+
+	/* bgp enforce-first-as */
+	install_element(BGP_NODE, &bgp_enforce_first_as_cmd);
 
 	/* bgp labeled-unicast explicit-null */
 	install_element(BGP_NODE, &bgp_lu_uses_explicit_null_cmd);

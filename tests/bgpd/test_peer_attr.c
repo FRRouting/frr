@@ -297,11 +297,6 @@ static struct test_peer_attr test_peer_attrs[] = {
 		.type = PEER_AT_GLOBAL_FLAG,
 	},
 	{
-		.cmd = "enforce-first-as",
-		.u.flag = PEER_FLAG_ENFORCE_FIRST_AS,
-		.type = PEER_AT_GLOBAL_FLAG,
-	},
-	{
 		.cmd = "local-as",
 		.peer_cmd = "local-as 1",
 		.group_cmd = "local-as 2",
