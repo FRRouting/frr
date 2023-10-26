@@ -542,6 +542,9 @@ label_manager_label_chunk_free_notify(struct label_manager_chunk *lmc)
 	struct stream *s;
 
 	for (ALL_LIST_ELEMENTS_RO(zrouter.client_list, node, client)) {
+		/* limit notifications to BGP */
+		if (client->proto != ZEBRA_ROUTE_BGP)
+			continue;
 		s = stream_new(ZEBRA_MAX_PACKET_SIZ);
 		zclient_create_header(s, ZEBRA_LABEL_CHUNK_FREE_NOTIFY,
 				      VRF_DEFAULT);

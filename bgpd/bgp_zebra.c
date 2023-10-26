@@ -3464,6 +3464,47 @@ static int bgp_zebra_process_srv6_locator_delete(ZAPI_CALLBACK_ARGS)
 	return 0;
 }
 
+static int bgp_zebra_label_chunk_free_notify(ZAPI_CALLBACK_ARGS)
+{
+	uint32_t label, label_size;
+	struct bgp *bgp;
+	struct listnode *node, *nnode;
+	afi_t afi;
+
+	if (zapi_label_chunk_free_notify_decode(zclient->ibuf, &label,
+						&label_size) < 0)
+		return -1;
+
+	for (ALL_LIST_ELEMENTS(bm->bgp, node, nnode, bgp)) {
+		for (afi = 0; afi < AFI_MAX; ++afi) {
+			if (bgp->vpn_policy[afi].tovpn_label < label)
+				continue;
+			if (bgp->vpn_policy[afi].tovpn_label >=
+			    label + label_size)
+				continue;
+			if (CHECK_FLAG(bgp->vpn_policy[afi].flags,
+				       BGP_VPN_POLICY_TOVPN_LABEL_AUTO))
+				continue;
+			if (CHECK_FLAG(bgp->vpn_policy[afi].flags,
+				       BGP_VPN_POLICY_TOVPN_LABEL_MANUAL_REG))
+				continue;
+			if (!bgp_zebra_request_label_range(bgp->vpn_policy[afi]
+								   .tovpn_label,
+							   1, false)) {
+				zlog_err("%s: %s skipping: manual label %u could not be allocated",
+					 __func__, bgp->name, label);
+				return -1;
+			}
+			SET_FLAG(bgp->vpn_policy[afi].flags,
+				 BGP_VPN_POLICY_TOVPN_LABEL_MANUAL_REG);
+			vpn_leak_postchange(BGP_VPN_POLICY_DIR_TOVPN, afi,
+					    bgp_get_default(), bgp);
+		}
+	}
+
+	return 0;
+}
+
 static zclient_handler *const bgp_handlers[] = {
 	[ZEBRA_ROUTER_ID_UPDATE] = bgp_router_id_update,
 	[ZEBRA_INTERFACE_ADDRESS_ADD] = bgp_interface_address_add,
@@ -3495,6 +3536,7 @@ static zclient_handler *const bgp_handlers[] = {
 	[ZEBRA_SRV6_LOCATOR_DELETE] = bgp_zebra_process_srv6_locator_delete,
 	[ZEBRA_SRV6_MANAGER_GET_LOCATOR_CHUNK] =
 		bgp_zebra_process_srv6_locator_chunk,
+	[ZEBRA_LABEL_CHUNK_FREE_NOTIFY] = bgp_zebra_label_chunk_free_notify,
 	[ZEBRA_TRACKER_NOTIFY] = bgp_zebra_tracker,
 	[ZEBRA_TRACKER_DEL] = bgp_zebra_tracker,
 };
