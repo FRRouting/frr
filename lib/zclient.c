@@ -3445,8 +3445,16 @@ int lm_get_label_chunk(struct zclient *zclient, uint8_t keep, uint32_t base,
 	 * response message will end here
 	 */
 	if (!STREAM_READABLE(s)) {
-		zlog_info("Unable to assign Label Chunk to %s instance %u",
-			  zebra_route_string(proto), instance);
+		if (base == MPLS_LABEL_BASE_ANY)
+			zlog_info(
+				"Unable to assign Label Chunk size %u to %s instance %u",
+				chunk_size, zebra_route_string(proto),
+				instance);
+		else
+			zlog_info(
+				"Unable to assign Label Chunk %u - %u to %s instance %u",
+				base, base + chunk_size - 1,
+				zebra_route_string(proto), instance);
 		return -1;
 	}
 
