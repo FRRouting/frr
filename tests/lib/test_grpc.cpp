@@ -92,6 +92,17 @@ static void static_startup(void)
 		grpc_module = frrmod_load("grpc:50051", modpath.c_str(),
 					  _err_print, 0);
 	}
+	if (!grpc_module) {
+		modpath = std::string(binpath) +
+			  std::string("../../../lib/.libs");
+		grpc_module = frrmod_load("grpc:50051", modpath.c_str(),
+					  _err_print, 0);
+	}
+	if (!grpc_module) {
+		modpath = std::string(binpath) + std::string("../../../lib");
+		grpc_module = frrmod_load("grpc:50051", modpath.c_str(),
+					  _err_print, 0);
+	}
 	if (!grpc_module)
 		exit(1);
 
