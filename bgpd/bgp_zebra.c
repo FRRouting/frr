@@ -4120,7 +4120,12 @@ bool bgp_zebra_request_label_range(uint32_t base, uint32_t chunk_size,
 	ret = lm_get_label_chunk(zclient_sync, 0, base, chunk_size, &start,
 				 &end);
 	if (ret < 0) {
-		zlog_warn("%s: error getting label range!", __func__);
+		if (base == MPLS_LABEL_BASE_ANY)
+			zlog_warn("%s: error getting label size %u!", __func__,
+				  chunk_size);
+		else
+			zlog_warn("%s: error getting label range %u - %u !",
+				  __func__, base, base + chunk_size - 1);
 		return false;
 	}
 
