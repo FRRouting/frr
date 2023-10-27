@@ -302,14 +302,17 @@ DEFPY(pm_packet_interval, pm_packet_interval_cmd,
       "Interval in milliseconds\n")
 {
 	struct pm_session *pm;
+	int interval_old;
 
 	pm = VTY_GET_CONTEXT(pm_session);
 
+	interval_old = pm->interval;
 	if (no)
 		pm->interval = PM_INTERVAL_DEFAULT;
 	else if (freq)
 		pm->interval = freq;
-	pm_try_run(vty, pm);
+	if (interval_old != pm->interval)
+		pm_try_run(vty, pm);
 	return CMD_SUCCESS;
 }
 
@@ -319,6 +322,7 @@ DEFPY(pm_packet_count, pm_packet_count_cmd, "[no] count [(1-65535)$pcount]",
       "Number of packets\n")
 {
 	struct pm_session *pm;
+	int count_old;
 
 	pm = VTY_GET_CONTEXT(pm_session);
 
@@ -326,11 +330,13 @@ DEFPY(pm_packet_count, pm_packet_count_cmd, "[no] count [(1-65535)$pcount]",
 		vty_out(vty, "%% Count cannot be set on icmp_echo sessions\n");
 		return CMD_WARNING_CONFIG_FAILED;
 	}
+	count_old = pm->count;
 	if (no)
 		pm->count = PM_COUNT_DEFAULT;
 	else if (pcount)
 		pm->count = pcount;
-	pm_try_run(vty, pm);
+	if (count_old != pm->count)
+		pm_try_run(vty, pm);
 	return CMD_SUCCESS;
 }
 
@@ -339,14 +345,17 @@ DEFPY(pm_packet_size, pm_packet_size_cmd,
       NO_STR "Packet size in bytes\n" "Size of packet to send\n")
 {
 	struct pm_session *pm;
+	int packet_size_old;
 
 	pm = VTY_GET_CONTEXT(pm_session);
 
+	packet_size_old = pm->packet_size;
 	if (no)
 		pm->packet_size = pm_get_default_packet_size(pm);
 	else if (psize)
 		pm->packet_size = psize;
-	pm_try_run(vty, pm);
+	if (packet_size_old != pm->packet_size)
+		pm_try_run(vty, pm);
 	return CMD_SUCCESS;
 }
 
@@ -356,14 +365,17 @@ DEFPY(pm_packet_tos, pm_packet_tos_cmd,
       "Packet TOS val in decimal format\n")
 {
 	struct pm_session *pm;
+	uint8_t tos_val_old;
 
 	pm = VTY_GET_CONTEXT(pm_session);
 
+	tos_val_old = pm->tos_val;
 	if (no)
 		pm->tos_val = PM_PACKET_TOS_DEFAULT;
 	else if (tosval)
 		pm->tos_val = tosval;
-	pm_try_run(vty, pm);
+	if (tos_val_old != pm->tos_val)
+		pm_try_run(vty, pm);
 	return CMD_SUCCESS;
 }
 
@@ -374,6 +386,7 @@ DEFPY(pm_packet_timeout, pm_packet_timeout_cmd,
       "Timeout in milliseconds\n")
 {
 	struct pm_session *pm;
+	int timeout_old;
 
 	pm = VTY_GET_CONTEXT(pm_session);
 
@@ -381,11 +394,13 @@ DEFPY(pm_packet_timeout, pm_packet_timeout_cmd,
 		vty_out(vty, "%% Timeout cannot be set on icmp_sla sessions\n");
 		return CMD_WARNING_CONFIG_FAILED;
 	}
+	timeout_old = pm->timeout;
 	if (no)
 		pm->timeout = PM_TIMEOUT_DEFAULT;
 	else if (tmo)
 		pm->timeout = tmo;
-	pm_try_run(vty, pm);
+	if (timeout_old != pm->timeout)
+		pm_try_run(vty, pm);
 	return CMD_SUCCESS;
 }
 
@@ -400,6 +415,7 @@ DEFPY(pm_packet_threshold, pm_packet_threshold_cmd,
 {
 	struct pm_session *pm;
 	int local_total;
+	uint8_t retries_threshold_old, retries_total_old;
 
 	pm = VTY_GET_CONTEXT(pm_session);
 
@@ -408,6 +424,8 @@ DEFPY(pm_packet_threshold, pm_packet_threshold_cmd,
 			"%% Packet threshold cannot be set on icmp_sla sessions\n");
 		return CMD_WARNING_CONFIG_FAILED;
 	}
+	retries_threshold_old = pm->retries_threshold;
+	retries_total_old = pm->retries_total;
 	if (no) {
 		pm->retries_threshold = PM_PACKET_RETRIES_THRESHOLD_DEFAULT;
 		pm->retries_total = PM_PACKET_RETRIES_TOTAL_DEFAULT;
@@ -426,7 +444,9 @@ DEFPY(pm_packet_threshold, pm_packet_threshold_cmd,
 		if (total)
 			pm->retries_total = total;
 	}
-	if (pm->retries_mode == PM_RETRIES_MODE_THRESHOLD)
+	if (pm->retries_mode == PM_RETRIES_MODE_THRESHOLD
+	    && (retries_threshold_old != pm->retries_threshold
+		|| retries_total_old != pm->retries_total))
 		pm_try_run(vty, pm);
 	return CMD_SUCCESS;
 }
@@ -472,6 +492,8 @@ DEFPY(pm_packet_retries, pm_packet_retries_cmd,
       "Retries in number of responses\n")
 {
 	struct pm_session *pm;
+	uint8_t retries_consecutive_up_old;
+	uint8_t retries_consecutive_down_old;
 
 	pm = VTY_GET_CONTEXT(pm_session);
 
@@ -480,6 +502,8 @@ DEFPY(pm_packet_retries, pm_packet_retries_cmd,
 			"%% Packet retries cannot be set on icmp_sla sessions\n");
 		return CMD_WARNING_CONFIG_FAILED;
 	}
+	retries_consecutive_down_old = pm->retries_consecutive_down;
+	retries_consecutive_up_old = pm->retries_consecutive_up;
 	if (no) {
 		pm->retries_consecutive_up = PM_PACKET_RETRIES_CONSECUTIVE_UP_DEFAULT;
 		pm->retries_consecutive_down = PM_PACKET_RETRIES_CONSECUTIVE_DOWN_DEFAULT;
@@ -489,7 +513,10 @@ DEFPY(pm_packet_retries, pm_packet_retries_cmd,
 		if (retriesdown)
 			pm->retries_consecutive_down = retriesdown;
 	}
-	if (pm->retries_mode == PM_RETRIES_MODE_CONSECUTIVE)
+	if ((pm->retries_mode == PM_RETRIES_MODE_CONSECUTIVE)
+	    && (retries_consecutive_up_old != pm->retries_consecutive_up
+		|| retries_consecutive_down_old
+			   != pm->retries_consecutive_down))
 		pm_try_run(vty, pm);
 	return CMD_SUCCESS;
 }
