@@ -281,11 +281,13 @@ static int pm_tracking_alternate_call(struct pm_session *pm,
 {
 	struct pm_tracking_ctx *ctx;
 	union sockunion alternate;
+	union sockunion alternate_old;
 	int ret;
 
 	ctx = pm_tracking_lookup_from_pm(pm);
 	if (!ctx)
 		return 0;
+	memcpy(&alternate_old, &ctx->alternate, sizeof(union sockunion));
 	if (alt) {
 		ret = str2sockunion(alt, &alternate);
 		if (ret != 0) {
@@ -300,6 +302,8 @@ static int pm_tracking_alternate_call(struct pm_session *pm,
 		memset(&ctx->alternate, 0,
 		       sizeof(union sockunion));
 	}
+	if (memcmp(&alternate_old, &ctx->alternate, sizeof(union sockunion)))
+		pm_try_run(vty, pm);
 	return CMD_SUCCESS;
 }
 
@@ -399,15 +403,19 @@ static int pm_tracking_gateway_call(struct pm_session *pm,
 {
 	struct pm_tracking_ctx *ctx;
 	union sockunion gateway;
+	char gateway_old[HOSTNAME_LEN];
 	struct vrf *vrf;
 	int ret;
 
 	ctx = pm_tracking_lookup_from_pm(pm);
 	if (!ctx)
 		return CMD_SUCCESS;
+	memcpy(&gateway_old, &ctx->gateway, sizeof(gateway_old));
 	if (!gw) {
 		memset(ctx->gateway, 0,
 		       sizeof(ctx->gateway));
+		if (memcmp(&gateway_old, &ctx->gateway, sizeof(gateway_old)))
+			pm_try_run(vty, pm);
 		return CMD_SUCCESS;
 	}
 	if (strlen(gw) >= sizeof(ctx->gateway)) {
@@ -449,6 +457,8 @@ static int pm_tracking_gateway_call(struct pm_session *pm,
 		memcpy(&ctx->gw, &gateway,
 		       sizeof(union sockunion));
 	}
+	if (memcmp(&gateway_old, &ctx->gw, sizeof(gateway_old)))
+		pm_try_run(vty, pm);
 	return CMD_SUCCESS;
 }
 
