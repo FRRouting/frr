@@ -36,7 +36,7 @@ clippy_scan += \
 	# end
 
 staticd_staticd_SOURCES = staticd/static_main.c
-staticd_staticd_LDADD = staticd/libstatic.a lib/libfrr.la $(LIBCAP)
+staticd_staticd_LDADD = staticd/libstatic.a lib/libfrr.la $(LIBCAP) $(LIBYANG_LIBS)
 
 nodist_staticd_staticd_SOURCES = \
 	yang/frr-bfdd.yang.c \
