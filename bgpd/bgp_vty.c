@@ -9735,6 +9735,13 @@ DEFPY (af_label_vpn_export,
 			return CMD_WARNING_CONFIG_FAILED;
 	}
 
+	if (!CHECK_FLAG(bgp->vpn_policy[afi].flags,
+			BGP_VPN_POLICY_TOVPN_LABEL_AUTO)
+	    && !CHECK_FLAG(bgp->vpn_policy[afi].flags,
+			   BGP_VPN_POLICY_TOVPN_LABEL_MANUAL_REG)
+	    && bgp->vpn_policy[afi].tovpn_label != BGP_PREVENT_VRF_2_VRF_LEAK)
+		bgp->vpn_policy[afi].tovpn_label = MPLS_LABEL_NONE;
+
 	/*
 	 * pre-change: un-export vpn routes (vpn->vrf routes unaffected)
 	 */
