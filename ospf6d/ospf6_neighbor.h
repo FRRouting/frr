@@ -150,25 +150,6 @@ struct ospf6_neighbor {
 	bool lls_present;
 };
 
-PREDECL_RBTREE_UNIQ(ospf6_if_p2xp_neighcfgs);
-
-struct ospf6_if_p2xp_neighcfg {
-	struct ospf6_if_p2xp_neighcfgs_item item;
-
-	struct ospf6_interface *ospf6_if;
-	struct in6_addr addr;
-
-	bool cfg_cost : 1;
-
-	uint32_t cost;
-	uint16_t poll_interval;
-
-	/* NULL if down */
-	struct ospf6_neighbor *active;
-
-	struct event *t_unicast_hello;
-};
-
 /* Neighbor state */
 #define OSPF6_NEIGHBOR_DOWN     1
 #define OSPF6_NEIGHBOR_ATTEMPT  2

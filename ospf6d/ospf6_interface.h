@@ -13,8 +13,6 @@
 
 DECLARE_MTYPE(OSPF6_AUTH_MANUAL_KEY);
 
-#include "ospf6_neighbor.h"
-
 /* Debug option */
 extern unsigned char conf_debug_ospf6_interface;
 #define OSPF6_DEBUG_INTERFACE_ON() (conf_debug_ospf6_interface = 1)
@@ -34,6 +32,25 @@ struct ospf6_auth_data {
 	/* Counters and Statistics */
 	uint32_t tx_drop; /* Pkt drop due to auth fail while sending */
 	uint32_t rx_drop; /* Pkt drop due to auth fail while reading */
+};
+
+PREDECL_RBTREE_UNIQ(ospf6_if_p2xp_neighcfgs);
+
+struct ospf6_if_p2xp_neighcfg {
+	struct ospf6_if_p2xp_neighcfgs_item item;
+
+	struct ospf6_interface *ospf6_if;
+	struct in6_addr addr;
+
+	bool cfg_cost : 1;
+
+	uint32_t cost;
+	uint16_t poll_interval;
+
+	/* NULL if down */
+	struct ospf6_neighbor *active;
+
+	struct event *t_unicast_hello;
 };
 
 /* Interface structure */
