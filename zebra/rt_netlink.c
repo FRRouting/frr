@@ -2412,18 +2412,20 @@ ssize_t netlink_route_multipath_msg_encode(int cmd, struct zebra_dplane_ctx *ctx
 					    p, routedesc, bytelen, nexthop,
 					    &req->n, &req->r, datalen, cmd))
 					return 0;
+
+				/*
+				 * Add encapsulation information when
+				 * installing via FPM.
+				 */
+				if (fpm) {
+					if (!netlink_route_nexthop_encap(&req->n,
+									 datalen,
+									 nexthop))
+						return 0;
+				}
+
 				nexthop_num++;
 				break;
-			}
-
-			/*
-			 * Add encapsulation information when installing via
-			 * FPM.
-			 */
-			if (fpm) {
-				if (!netlink_route_nexthop_encap(
-					    &req->n, datalen, nexthop))
-					return 0;
 			}
 		}
 
