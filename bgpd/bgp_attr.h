@@ -339,6 +339,7 @@ typedef enum {
 	   */
 	BGP_ATTR_PARSE_ERROR_NOTIFYPLS = -3,
 	BGP_ATTR_PARSE_EOR = -4,
+	BGP_ATTR_PARSE_MISSING_MANDATORY = -5,
 } bgp_attr_parse_ret_t;
 
 struct bpacket_attr_vec_arr;
