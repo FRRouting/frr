@@ -267,7 +267,7 @@ specified in the rule are also applied to the packet.
    this action,
    so this field will be ignored unless another dataplane provider is used.
 
-.. clicmd:: show pbr map [NAME] [detail|json]
+.. clicmd:: show pbr map [NAME] [detail] [json]
 
    Display pbr maps either all or by ``NAME``. If ``detail`` is set, it will
    give information about each rule's unique internal ID and some extra

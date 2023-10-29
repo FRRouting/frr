@@ -1818,7 +1818,7 @@ static void vty_json_pbr_map(json_object *j, struct vty *vty,
 
 DEFPY (show_pbr_map,
 	show_pbr_map_cmd,
-	"show pbr map [NAME$name] [detail$detail|json$json]",
+	"show pbr map [NAME$name] [detail$detail] [json$json]",
 	SHOW_STR
 	PBR_STR
 	"PBR Map\n"
