@@ -382,7 +382,11 @@ enum bgp_attr_parse_ret {
 	/* only used internally, send notify + convert to BGP_ATTR_PARSE_ERROR
 	 */
 	BGP_ATTR_PARSE_ERROR_NOTIFYPLS = -3,
+<<<<<<< HEAD
 	BGP_ATTR_PARSE_EOR = -4,
+=======
+	BGP_ATTR_PARSE_MISSING_MANDATORY = -4,
+>>>>>>> c37119df4 (bgpd: Ignore handling NLRIs if we received MP_UNREACH_NLRI)
 };
 
 struct bpacket_attr_vec_arr;

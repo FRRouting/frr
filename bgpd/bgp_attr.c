@@ -3125,15 +3125,6 @@ static int bgp_attr_check(struct peer *peer, struct attr *attr)
 		return BGP_ATTR_PARSE_WITHDRAW;
 >>>>>>> 6814f2e01 (bgpd: Treat EOR as withdrawn to avoid unwanted handling of malformed attrs)
 
-	/* "An UPDATE message that contains the MP_UNREACH_NLRI is not required
-	   to carry any other path attributes.", though if MP_REACH_NLRI or NLRI
-	   are present, it should.  Check for any other attribute being present
-	   instead.
-	 */
-	if ((!CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_MP_REACH_NLRI)) &&
-	     CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_MP_UNREACH_NLRI))))
-		return BGP_ATTR_PARSE_PROCEED;
-
 	if (!CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_ORIGIN)))
 		type = BGP_ATTR_ORIGIN;
 
@@ -3151,6 +3142,16 @@ static int bgp_attr_check(struct peer *peer, struct attr *attr)
 	if (peer->sort == BGP_PEER_IBGP
 	    && !CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_LOCAL_PREF)))
 		type = BGP_ATTR_LOCAL_PREF;
+
+	/* An UPDATE message that contains the MP_UNREACH_NLRI is not required
+	 * to carry any other path attributes. Though if MP_REACH_NLRI or NLRI
+	 * are present, it should. Check for any other attribute being present
+	 * instead.
+	 */
+	if (!CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_MP_REACH_NLRI)) &&
+	    CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_MP_UNREACH_NLRI)))
+		return type ? BGP_ATTR_PARSE_MISSING_MANDATORY
+			    : BGP_ATTR_PARSE_PROCEED;
 
 	/* If any of the well-known mandatory attributes are not present
 	 * in an UPDATE message, then "treat-as-withdraw" MUST be used.
