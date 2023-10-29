@@ -179,7 +179,7 @@ end destination.
 
    Not supported with NETNS VRF backend.
 
-.. clicmd:: show pbr map [NAME] [detail|json]
+.. clicmd:: show pbr map [NAME] [detail] [json]
 
    Display pbr maps either all or by ``NAME``. If ``detail`` is set, it will
    give information about the rules unique ID used internally and some extra
