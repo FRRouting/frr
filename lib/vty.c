@@ -343,11 +343,14 @@ int vty_json_no_pretty(struct vty *vty, struct json_object *json)
 	return vty_json_helper(vty, json, JSON_C_TO_STRING_NOSLASHESCAPE);
 }
 
-void vty_json_empty(struct vty *vty)
+void vty_json_empty(struct vty *vty, struct json_object *json)
 {
-	json_object *json = json_object_new_object();
+	json_object *jsonobj = json;
 
-	vty_json(vty, json);
+	if (!json)
+		jsonobj = json_object_new_object();
+
+	vty_json(vty, jsonobj);
 }
 
 /* Output current time to the vty. */

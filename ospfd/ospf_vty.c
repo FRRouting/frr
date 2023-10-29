@@ -5496,7 +5496,7 @@ DEFPY(show_ip_ospf_neighbor_id,
 					"%% OSPF is not enabled in vrf %s\n",
 					vrf_name);
 			else
-				vty_json_empty(vty);
+				vty_json_empty(vty, NULL);
 			return CMD_SUCCESS;
 		}
 		ret = show_ip_ospf_neighbor_id_common(
@@ -5997,7 +5997,7 @@ DEFPY(show_ip_ospf_neighbor_int,
 
 	if (!ospf || !ospf->oi_running) {
 		if (json)
-			vty_json_empty(vty);
+			vty_json_empty(vty, NULL);
 		return ret;
 	}
 
@@ -6007,7 +6007,7 @@ DEFPY(show_ip_ospf_neighbor_int,
 	ifp = if_lookup_by_name(ifname, vrf_id);
 	if (!ifp) {
 		if (json)
-			vty_json_empty(vty);
+			vty_json_empty(vty, NULL);
 		else
 			vty_out(vty, "No such interface.\n");
 		return ret;
@@ -6044,7 +6044,7 @@ DEFPY(show_ip_ospf_neighbor_int_detail,
 					"%% OSPF is not enabled in vrf %s\n",
 					vrf_name);
 			else
-				vty_json_empty(vty);
+				vty_json_empty(vty, NULL);
 			return CMD_SUCCESS;
 		}
 		return show_ip_ospf_neighbor_int_detail_common(

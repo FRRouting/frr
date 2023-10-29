@@ -78,7 +78,7 @@ static struct vrf *pim_cmd_lookup_vrf(struct vty *vty, struct cmd_token *argv[],
 
 	if (!vrf) {
 		if (uj)
-			vty_json_empty(vty);
+			vty_json_empty(vty, NULL);
 		else
 			vty_out(vty, "Specified VRF: %s does not exist\n",
 				argv[*idx]->arg);
