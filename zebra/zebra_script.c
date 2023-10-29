@@ -396,6 +396,7 @@ void lua_pushzebra_dplane_ctx(lua_State *L, const struct zebra_dplane_ctx *ctx)
 			lua_setfield(L, -2, "mtu");
 		}
 		lua_setfield(L, -2, "gre");
+		break;
 
 	case DPLANE_OP_ADDR_INSTALL:
 	case DPLANE_OP_ADDR_UNINSTALL:
