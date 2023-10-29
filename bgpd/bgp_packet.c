@@ -1951,7 +1951,12 @@ static int bgp_update_receive(struct peer *peer, bgp_size_t size)
 	/* Network Layer Reachability Information. */
 	update_len = end - stream_pnt(s);
 
-	if (update_len && attribute_len) {
+	/* If we received MP_UNREACH_NLRI attribute, but also NLRIs, then
+	 * NLRIs should be handled as a new data. Though, if we received
+	 * NLRIs without mandatory attributes, they should be ignored.
+	 */
+	if (update_len && attribute_len &&
+	    attr_parse_ret != BGP_ATTR_PARSE_MISSING_MANDATORY) {
 		/* Set NLRI portion to structure. */
 		nlris[NLRI_UPDATE].afi = AFI_IP;
 		nlris[NLRI_UPDATE].safi = SAFI_UNICAST;
