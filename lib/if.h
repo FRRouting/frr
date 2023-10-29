@@ -512,9 +512,9 @@ extern int if_cmp_name_func(const char *p1, const char *p2);
  * This is useful for vrf route-leaking.  So more than anything
  * else think before you use VRF_UNKNOWN
  */
-extern void if_update_to_new_vrf(struct interface *, vrf_id_t vrf_id);
+extern void if_update_to_new_vrf(struct interface *ifp, vrf_id_t vrf_id);
 
-extern struct interface *if_lookup_by_index(ifindex_t, vrf_id_t vrf_id);
+extern struct interface *if_lookup_by_index(ifindex_t ifindex, vrf_id_t vrf_id);
 extern struct interface *if_vrf_lookup_by_index_next(ifindex_t ifindex,
 						     vrf_id_t vrf_id);
 extern struct interface *if_lookup_address_local(const void *matchaddr,
@@ -545,7 +545,7 @@ extern int if_set_index(struct interface *ifp, ifindex_t ifindex);
 /* Delete the interface, but do not free the structure, and leave it in the
    interface list.  It is often advisable to leave the pseudo interface
    structure because there may be configuration information attached. */
-extern void if_delete_retain(struct interface *);
+extern void if_delete_retain(struct interface *ifp);
 
 /* Delete and free the interface structure: calls if_delete_retain and then
    deletes it from the interface list and frees the structure. */
@@ -563,13 +563,13 @@ extern int if_is_pointopoint(const struct interface *ifp);
 extern int if_is_multicast(const struct interface *ifp);
 extern void if_terminate(struct vrf *vrf);
 extern void if_dump_all(void);
-extern const char *if_flag_dump(unsigned long);
-extern const char *if_link_type_str(enum zebra_link_type);
+extern const char *if_flag_dump(unsigned long flags);
+extern const char *if_link_type_str(enum zebra_link_type zlt);
 
 /* Please use ifindex2ifname instead of if_indextoname where possible;
    ifindex2ifname uses internal interface info, whereas if_indextoname must
    make a system call. */
-extern const char *ifindex2ifname(ifindex_t, vrf_id_t vrf_id);
+extern const char *ifindex2ifname(ifindex_t ifindex, vrf_id_t vrf_id);
 
 /* Please use ifname2ifindex instead of if_nametoindex where possible;
    ifname2ifindex uses internal interface info, whereas if_nametoindex must
@@ -579,18 +579,20 @@ extern ifindex_t ifname2ifindex(const char *ifname, vrf_id_t vrf_id);
 /* Connected address functions. */
 extern struct connected *connected_new(void);
 extern void connected_free(struct connected **connected);
-extern struct connected *
-connected_add_by_prefix(struct interface *, struct prefix *, struct prefix *);
-extern struct connected *connected_delete_by_prefix(struct interface *,
-						    struct prefix *);
-extern struct connected *connected_lookup_prefix(struct interface *,
-						 const struct prefix *);
-extern struct connected *connected_lookup_prefix_exact(struct interface *,
-						       const struct prefix *);
-extern unsigned int connected_count_by_family(struct interface *, int family);
+extern struct connected *connected_add_by_prefix(struct interface *ifp,
+						 struct prefix *p,
+						 struct prefix *dest);
+extern struct connected *connected_delete_by_prefix(struct interface *ifp,
+						    struct prefix *p);
+extern struct connected *connected_lookup_prefix(struct interface *ifp,
+						 const struct prefix *p);
+extern struct connected *connected_lookup_prefix_exact(struct interface *ifp,
+						       const struct prefix *p);
+extern unsigned int connected_count_by_family(struct interface *ifp, int family);
 extern struct nbr_connected *nbr_connected_new(void);
-extern void nbr_connected_free(struct nbr_connected *);
-struct nbr_connected *nbr_connected_check(struct interface *, struct prefix *);
+extern void nbr_connected_free(struct nbr_connected *connected);
+struct nbr_connected *nbr_connected_check(struct interface *ifp,
+					  struct prefix *p);
 struct connected *connected_get_linklocal(struct interface *ifp);
 
 /* link parameters */
@@ -598,10 +600,10 @@ bool if_link_params_cmp(struct if_link_params *iflp1,
 			struct if_link_params *iflp2);
 void if_link_params_copy(struct if_link_params *dst,
 			 struct if_link_params *src);
-struct if_link_params *if_link_params_get(struct interface *);
+struct if_link_params *if_link_params_get(struct interface *ifp);
 struct if_link_params *if_link_params_enable(struct interface *ifp);
 struct if_link_params *if_link_params_init(struct interface *ifp);
-void if_link_params_free(struct interface *);
+void if_link_params_free(struct interface *ifp);
 
 /* Northbound. */
 struct vty;
