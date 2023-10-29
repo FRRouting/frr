@@ -42,6 +42,15 @@ static void work_queue_item_free(struct work_queue_item *item)
 	return;
 }
 
+static inline void work_queue_item_dequeue(struct work_queue *wq,
+					   struct work_queue_item *item)
+{
+	assert(wq->item_count > 0);
+
+	wq->item_count--;
+	STAILQ_REMOVE(&wq->items, item, work_queue_item, wq);
+}
+
 static void work_queue_item_remove(struct work_queue *wq,
 				   struct work_queue_item *item)
 {
@@ -131,6 +140,13 @@ static int work_queue_schedule(struct work_queue *wq, unsigned int delay)
 		return 1;
 	} else
 		return 0;
+}
+
+static inline void work_queue_item_enqueue(struct work_queue *wq,
+					   struct work_queue_item *item)
+{
+	STAILQ_INSERT_TAIL(&wq->items, item, wq);
+	wq->item_count++;
 }
 
 void work_queue_add(struct work_queue *wq, void *data)

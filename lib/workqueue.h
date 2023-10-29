@@ -117,22 +117,6 @@ work_queue_last_item(struct work_queue *wq)
 	return STAILQ_LAST(&wq->items, work_queue_item, wq);
 }
 
-static inline void work_queue_item_enqueue(struct work_queue *wq,
-					   struct work_queue_item *item)
-{
-	STAILQ_INSERT_TAIL(&wq->items, item, wq);
-	wq->item_count++;
-}
-
-static inline void work_queue_item_dequeue(struct work_queue *wq,
-					   struct work_queue_item *item)
-{
-	assert(wq->item_count > 0);
-
-	wq->item_count--;
-	STAILQ_REMOVE(&wq->items, item, work_queue_item, wq);
-}
-
 /* create a new work queue, of given name.
  * user must fill in the spec of the returned work queue before adding
  * anything to it
