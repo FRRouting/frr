@@ -1383,6 +1383,7 @@ class Router(Node):
         )
 
         self.perf_daemons = {}
+        self.valgrind_gdb_daemons = {}
 
         # If this topology is using old API and doesn't have logdir
         # specified, then attempt to generate an unique logdir.
@@ -1880,6 +1881,19 @@ class Router(Node):
             # do not since apparently presence of the pidfile impacts BGP GR
             self.cmd_status("rm -f {0}.pid {0}.vty".format(runbase))
 
+            def do_gdb():
+                return (
+                    (gdb_routers or gdb_daemons)
+                    and (
+                        not gdb_routers
+                        or self.name in gdb_routers
+                        or "all" in gdb_routers
+                    )
+                    and (
+                        not gdb_daemons or daemon in gdb_daemons or "all" in gdb_daemons
+                    )
+                )
+
             rediropt = " > {0}.out 2> {0}.err".format(daemon)
             if daemon == "snmpd":
                 binary = "/usr/sbin/snmpd"
@@ -1915,13 +1929,21 @@ class Router(Node):
                     supp_file = os.path.abspath(
                         os.path.join(this_dir, "../../../tools/valgrind.supp")
                     )
-                    cmdenv += " /usr/bin/valgrind --num-callers=50 --log-file={1}/{2}.valgrind.{0}.%p --leak-check=full --suppressions={3}".format(
-                        daemon, self.logdir, self.name, supp_file
+
+                    valgrind_logbase = f"{self.logdir}/{self.name}.valgrind.{daemon}"
+                    if do_gdb():
+                        cmdenv += " exec"
+                    cmdenv += (
+                        " /usr/bin/valgrind --num-callers=50"
+                        f" --log-file={valgrind_logbase}.%p"
+                        f" --leak-check=full --suppressions={supp_file}"
                     )
                     if valgrind_extra:
                         cmdenv += (
                             " --gen-suppressions=all --expensive-definedness-checks=yes"
                         )
+                    if do_gdb():
+                        cmdenv += " --vgdb-error=0"
                 elif daemon in strace_daemons or "all" in strace_daemons:
                     cmdenv = "strace -f -D -o {1}/{2}.strace.{0} ".format(
                         daemon, self.logdir, self.name
@@ -1941,13 +1963,8 @@ class Router(Node):
                 cmdopt += " " + extra_opts
 
             if (
-                (not gdb_use_emacs or Router.gdb_emacs_router)
-                and (gdb_routers or gdb_daemons)
-                and (
-                    not gdb_routers or self.name in gdb_routers or "all" in gdb_routers
-                )
-                and (not gdb_daemons or daemon in gdb_daemons or "all" in gdb_daemons)
-            ):
+                not gdb_use_emacs or Router.gdb_emacs_router or valgrind_memleaks
+            ) and do_gdb():
                 if Router.gdb_emacs_router is not None:
                     logger.warning(
                         "--gdb-use-emacs can only run a single router and daemon, using"
@@ -1963,19 +1980,68 @@ class Router(Node):
                     gdbcmd += " -ex 'set breakpoint pending on'"
                 for bp in gdb_breakpoints:
                     gdbcmd += " -ex 'b {}'".format(bp)
-                gdbcmd += " -ex 'run {}'".format(cmdopt)
-                self.run_in_window(gdbcmd, daemon)
 
-                logger.info(
-                    "%s: %s %s launched in gdb window", self, self.routertype, daemon
-                )
-            elif (
-                gdb_use_emacs
-                and (daemon in gdb_daemons)
-                and (not gdb_routers or self.name in gdb_routers)
-            ):
+                if not valgrind_memleaks:
+                    gdbcmd += " -ex 'run {}'".format(cmdopt)
+                    self.run_in_window(gdbcmd, daemon)
+
+                    logger.info(
+                        "%s: %s %s launched in gdb window",
+                        self,
+                        self.routertype,
+                        daemon,
+                    )
+
+                else:
+                    cmd = " ".join([cmdenv, binary, cmdopt])
+                    p = self.popen(cmd)
+                    self.valgrind_gdb_daemons[daemon] = p
+                    if p.poll() and p.returncode:
+                        self.logger.error(
+                            '%s: Failed to launch "%s" (%s) with perf using: %s',
+                            self,
+                            daemon,
+                            p.returncode,
+                            cmd,
+                        )
+                        assert False, "Faled to launch valgrind with gdb"
+                    logger.debug(
+                        "%s: %s %s started with perf", self, self.routertype, daemon
+                    )
+                    # Now read the erorr log file until we ae given launch priority
+                    timeout = Timeout(30)
+                    vpid = None
+                    for remaining in timeout:
+                        try:
+                            fname = f"{valgrind_logbase}.{p.pid}"
+                            logging.info("Checking %s for valgrind launch info", fname)
+                            o = open(fname, encoding="ascii").read()
+                        except FileNotFoundError:
+                            logging.info("%s not present yet", fname)
+                        else:
+                            m = re.search(r"target remote \| (.*vgdb) --pid=(\d+)", o)
+                            if m:
+                                vgdb_cmd = m.group(0)
+                                break
+                        time.sleep(1)
+                    else:
+                        assert False, "Faled to get launch info for valgrind with gdb"
+
+                    gdbcmd += f" -ex '{vgdb_cmd}'"
+                    gdbcmd += " -ex 'c'"
+                    self.run_in_window(gdbcmd, daemon)
+
+                    logger.info(
+                        "%s: %s %s launched in gdb window",
+                        self,
+                        self.routertype,
+                        daemon,
+                    )
+            elif gdb_use_emacs and do_gdb():
                 assert Router.gdb_emacs_router is None
                 Router.gdb_emacs_router = self
+
+                assert not valgrind_memleaks, "vagrind gdb in emacs not supported yet"
 
                 if daemon == "snmpd":
                     cmdopt += " -f "
@@ -2033,7 +2099,7 @@ class Router(Node):
                             f'(gud-gdb-run-command-fetch-lines "br {bp}" "*gud-gdb*")',
                         ]
                     )
-                # gdb run cmd
+
                 self.cmd_raises(
                     ecbin
                     + [
