@@ -144,7 +144,7 @@ def test_bgp_vpn_5549():
                 "2001:db8:1::1": {
                     "valid": True,
                     "complete": True,
-                    "igpMetric": 20,
+                    "igpMetric": 10,
                     "pathCount": 2,
                     "peer": "2001:db8:1::1",
                     "nexthops": [{"interfaceName": "pe2-eth0"}],
