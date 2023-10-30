@@ -427,6 +427,8 @@ void mgmt_msg_destroy(struct mgmt_msg_state *ms)
 	mgmt_msg_reset_writes(ms);
 	if (ms->ins)
 		stream_free(ms->ins);
+	if (ms->outs)
+		stream_free(ms->outs);
 	free(ms->idtag);
 }
 
