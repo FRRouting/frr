@@ -272,9 +272,12 @@ int bgp_flowspec_op_decode(enum bgp_flowspec_util_nlri_t type,
 			*error = -1;
 		switch (type) {
 		case BGP_FLOWSPEC_RETURN_STRING:
-			if (loop) {
-				len_written = snprintf(ptr, len_string,
-						      ", ");
+			if (op[1] == 1) {
+				len_written = snprintf(ptr, len_string, "&& ");
+				len_string -= len_written;
+				ptr += len_written;
+			} else if (loop) {
+				len_written = snprintf(ptr, len_string, "|| ");
 				len_string -= len_written;
 				ptr += len_written;
 			}
