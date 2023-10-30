@@ -559,6 +559,8 @@ Here's an example of launching ``vtysh`` on routers ``rt1`` and ``rt2``.
 
    sudo -E pytest --vtysh=rt1,rt2 all-protocol-startup
 
+.. _debug_with_gdb:
+
 Debugging with GDB
 """"""""""""""""""
 
@@ -646,6 +648,13 @@ memleak detection is enabled.
 .. code:: shell
 
    sudo -E pytest --valgrind-memleaks all-protocol-startup
+
+.. note:: GDB can be used in conjection with valgrind.
+
+   When you enable ``--valgrind-memleaks`` and you also launch various daemons
+   under GDB (debug_with_gdb_) topotest will connect the two utilities using
+   ``--vgdb-error=0`` and attaching to a ``vgdb`` process. This is very
+   useful for debugging bugs with use of uninitialized errors, et al.
 
 Collecting Performance Data using perf(1)
 """""""""""""""""""""""""""""""""""""""""
