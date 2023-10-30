@@ -1018,10 +1018,14 @@ static int path_pcep_cli_pcc_delete(struct vty *vty)
 }
 
 static int path_pcep_cli_pcc_pcc_msd(struct vty *vty, const char *msd_str,
-				     long msd)
+				     long msd, bool reset)
 {
-	pcc_msd_configured_g = true;
-	PCEP_VTYSH_INT_ARG_CHECK(msd_str, msd, pcc_msd_g, 0, 33);
+	if (reset)
+		pcc_msd_configured_g = false;
+	else {
+		pcc_msd_configured_g = true;
+		PCEP_VTYSH_INT_ARG_CHECK(msd_str, msd, pcc_msd_g, 0, 33);
+	}
 
 	return CMD_SUCCESS;
 }
@@ -2007,11 +2011,12 @@ DEFPY(pcep_cli_no_pcc,
 
 DEFPY(pcep_cli_pcc_pcc_msd,
       pcep_cli_pcc_pcc_msd_cmd,
-      "msd (1-32)",
+      "[no] msd (1-32)",
+      NO_STR
       "PCC maximum SID depth \n"
       "PCC maximum SID depth value\n")
 {
-	return path_pcep_cli_pcc_pcc_msd(vty, msd_str, msd);
+	return path_pcep_cli_pcc_pcc_msd(vty, msd_str, msd, no);
 }
 
 DEFPY(pcep_cli_pcc_pcc_peer,
