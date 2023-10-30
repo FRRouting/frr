@@ -157,10 +157,9 @@ static int vty_mgmt_unlock_running_inline(struct vty *vty)
 	return vty->mgmt_locked_running_ds ? -1 : 0;
 }
 
-void vty_mgmt_resume_response(struct vty *vty, bool success)
+void vty_mgmt_resume_response(struct vty *vty, int ret)
 {
 	uint8_t header[4] = {0, 0, 0, 0};
-	int ret = CMD_SUCCESS;
 
 	if (!vty->mgmt_req_pending_cmd) {
 		zlog_err(
@@ -168,14 +167,10 @@ void vty_mgmt_resume_response(struct vty *vty, bool success)
 		return;
 	}
 
-	if (!success)
-		ret = CMD_WARNING_CONFIG_FAILED;
-
-	MGMTD_FE_CLIENT_DBG(
-		"resuming CLI cmd after %s on vty session-id: %" PRIu64
-		" with '%s'",
-		vty->mgmt_req_pending_cmd, vty->mgmt_session_id,
-		success ? "succeeded" : "failed");
+	MGMTD_FE_CLIENT_DBG("resuming CLI cmd after %s on vty session-id: %" PRIu64
+			    " with '%s'",
+			    vty->mgmt_req_pending_cmd, vty->mgmt_session_id,
+			    ret == CMD_SUCCESS ? "success" : "failed");
 
 	vty->mgmt_req_pending_cmd = NULL;
 
@@ -3560,7 +3555,8 @@ static void vty_mgmt_ds_lock_notified(struct mgmt_fe_client *client,
 
 	if (!is_short_circuit && vty->mgmt_req_pending_cmd) {
 		assert(!strcmp(vty->mgmt_req_pending_cmd, "MESSAGE_LOCKDS_REQ"));
-		vty_mgmt_resume_response(vty, success);
+		vty_mgmt_resume_response(vty,
+					 success ? CMD_SUCCESS : CMD_WARNING);
 	}
 }
 
@@ -3592,7 +3588,8 @@ static void vty_mgmt_set_config_result_notified(
 		vty_mgmt_unlock_running_inline(vty);
 	}
 
-	vty_mgmt_resume_response(vty, success);
+	vty_mgmt_resume_response(vty, success ? CMD_SUCCESS
+					      : CMD_WARNING_CONFIG_FAILED);
 }
 
 static void vty_mgmt_commit_config_result_notified(
@@ -3620,7 +3617,8 @@ static void vty_mgmt_commit_config_result_notified(
 			vty_out(vty, "MGMTD: %s\n", errmsg_if_any);
 	}
 
-	vty_mgmt_resume_response(vty, success);
+	vty_mgmt_resume_response(vty, success ? CMD_SUCCESS
+					      : CMD_WARNING_CONFIG_FAILED);
 }
 
 static int vty_mgmt_get_data_result_notified(
@@ -3640,7 +3638,7 @@ static int vty_mgmt_get_data_result_notified(
 			 client_id, errmsg_if_any ? errmsg_if_any : "Unknown");
 		vty_out(vty, "ERROR: GET_DATA request failed, Error: %s\n",
 			errmsg_if_any ? errmsg_if_any : "Unknown");
-		vty_mgmt_resume_response(vty, success);
+		vty_mgmt_resume_response(vty, CMD_WARNING);
 		return -1;
 	}
 
@@ -3659,8 +3657,289 @@ static int vty_mgmt_get_data_result_notified(
 	}
 	if (next_key < 0) {
 		vty_out(vty, "]\n");
-		vty_mgmt_resume_response(vty, success);
+		vty_mgmt_resume_response(vty,
+					 success ? CMD_SUCCESS : CMD_WARNING);
 	}
+
+	return 0;
+}
+
+static ssize_t vty_mgmt_libyang_print(void *user_data, const void *buf,
+				      size_t count)
+{
+	struct vty *vty = user_data;
+
+	vty_out(vty, "%.*s", (int)count, (const char *)buf);
+	return count;
+}
+
+static void vty_out_yang_error(struct vty *vty, LYD_FORMAT format,
+			       struct ly_err_item *ei)
+{
+	bool have_apptag = ei->apptag && ei->apptag[0] != 0;
+	bool have_path = ei->path && ei->path[0] != 0;
+	bool have_msg = ei->msg && ei->msg[0] != 0;
+	const char *severity = NULL;
+	const char *evalid = NULL;
+	const char *ecode = NULL;
+	LY_ERR err = ei->no;
+
+	if (ei->level == LY_LLERR)
+		severity = "error";
+	else if (ei->level == LY_LLWRN)
+		severity = "warning";
+
+	switch (ei->no) {
+	case LY_SUCCESS:
+		ecode = "ok";
+		break;
+	case LY_EMEM:
+		ecode = "out of memory";
+		break;
+	case LY_ESYS:
+		ecode = "system error";
+		break;
+	case LY_EINVAL:
+		ecode = "invalid value given";
+		break;
+	case LY_EEXIST:
+		ecode = "item exists";
+		break;
+	case LY_ENOTFOUND:
+		ecode = "item not found";
+		break;
+	case LY_EINT:
+		ecode = "operation interrupted";
+		break;
+	case LY_EVALID:
+		ecode = "validation failed";
+		break;
+	case LY_EDENIED:
+		ecode = "access denied";
+		break;
+	case LY_EINCOMPLETE:
+		ecode = "incomplete";
+		break;
+	case LY_ERECOMPILE:
+		ecode = "compile error";
+		break;
+	case LY_ENOT:
+		ecode = "not";
+		break;
+	default:
+	case LY_EPLUGIN:
+	case LY_EOTHER:
+		ecode = "other";
+		break;
+	}
+
+	if (err == LY_EVALID) {
+		switch (ei->vecode) {
+		case LYVE_SUCCESS:
+			evalid = NULL;
+			break;
+		case LYVE_SYNTAX:
+			evalid = "syntax";
+			break;
+		case LYVE_SYNTAX_YANG:
+			evalid = "yang-syntax";
+			break;
+		case LYVE_SYNTAX_YIN:
+			evalid = "yin-syntax";
+			break;
+		case LYVE_REFERENCE:
+			evalid = "reference";
+			break;
+		case LYVE_XPATH:
+			evalid = "xpath";
+			break;
+		case LYVE_SEMANTICS:
+			evalid = "semantics";
+			break;
+		case LYVE_SYNTAX_XML:
+			evalid = "xml-syntax";
+			break;
+		case LYVE_SYNTAX_JSON:
+			evalid = "json-syntax";
+			break;
+		case LYVE_DATA:
+			evalid = "data";
+			break;
+		default:
+		case LYVE_OTHER:
+			evalid = "other";
+			break;
+		}
+	}
+
+	switch (format) {
+	case LYD_XML:
+		vty_out(vty,
+			"<rpc-error xmlns=\"urn:ietf:params:xml:ns:netconf:base:1.0\">");
+		vty_out(vty, "<error-type>application</error-type>");
+		if (severity)
+			vty_out(vty, "<error-severity>%s</error-severity>",
+				severity);
+		if (ecode)
+			vty_out(vty, "<error-code>%s</error-code>", ecode);
+		if (evalid)
+			vty_out(vty, "<error-validation>%s</error-validation>\n",
+				evalid);
+		if (have_path)
+			vty_out(vty, "<error-path>%s</error-path>\n", ei->path);
+		if (have_apptag)
+			vty_out(vty, "<error-app-tag>%s</error-app-tag>\n",
+				ei->apptag);
+		if (have_msg)
+			vty_out(vty, "<error-message>%s</error-message>\n",
+				ei->msg);
+
+		vty_out(vty, "</rpc-error>");
+		break;
+	case LYD_JSON:
+		vty_out(vty, "{ \"error-type\": \"application\"");
+		if (severity)
+			vty_out(vty, ", \"error-severity\": \"%s\"", severity);
+		if (ecode)
+			vty_out(vty, ", \"error-code\": \"%s\"", ecode);
+		if (evalid)
+			vty_out(vty, ", \"error-validation\": \"%s\"", evalid);
+		if (have_path)
+			vty_out(vty, ", \"error-path\": \"%s\"", ei->path);
+		if (have_apptag)
+			vty_out(vty, ", \"error-app-tag\": \"%s\"", ei->apptag);
+		if (have_msg)
+			vty_out(vty, ", \"error-message\": \"%s\"", ei->msg);
+
+		vty_out(vty, "}");
+		break;
+	case LYD_UNKNOWN:
+	case LYD_LYB:
+	default:
+		vty_out(vty, "%% error");
+		if (severity)
+			vty_out(vty, " severity: %s", severity);
+		if (evalid)
+			vty_out(vty, " invalid: %s", evalid);
+		if (have_path)
+			vty_out(vty, " path: %s", ei->path);
+		if (have_apptag)
+			vty_out(vty, " app-tag: %s", ei->apptag);
+		if (have_msg)
+			vty_out(vty, " msg: %s", ei->msg);
+		break;
+	}
+}
+
+static uint vty_out_yang_errors(struct vty *vty, LYD_FORMAT format)
+{
+	struct ly_err_item *ei = ly_err_first(ly_native_ctx);
+	uint count;
+
+	if (!ei)
+		return 0;
+
+	if (format == LYD_JSON)
+		vty_out(vty, "\"ietf-restconf:errors\": [ ");
+
+	for (count = 0; ei; count++, ei = ei->next) {
+		if (count)
+			vty_out(vty, ", ");
+		vty_out_yang_error(vty, format, ei);
+	}
+
+	if (format == LYD_JSON)
+		vty_out(vty, " ]");
+
+	ly_err_clean(ly_native_ctx, NULL);
+
+	return count;
+}
+
+
+static int vty_mgmt_get_tree_result_notified(
+	struct mgmt_fe_client *client, uintptr_t user_data, uint64_t client_id,
+	uint64_t session_id, uint64_t session_ctx, uint64_t req_id,
+	Mgmtd__DatastoreId ds_id, LYD_FORMAT result_type, void *result,
+	size_t len, int partial_error)
+{
+	struct vty *vty;
+	struct lyd_node *dnode;
+	int ret = CMD_SUCCESS;
+	LY_ERR err;
+
+	vty = (struct vty *)session_ctx;
+
+	MGMTD_FE_CLIENT_DBG("GET_TREE request %ssucceeded, client 0x%" PRIx64
+			    " req-id %" PRIu64,
+			    partial_error ? "partially " : "", client_id,
+			    req_id);
+
+	assert(result_type == LYD_LYB ||
+	       result_type == vty->mgmt_req_pending_data);
+
+	if (vty->mgmt_req_pending_data == LYD_XML && partial_error)
+		vty_out(vty,
+			"<!-- some errors occurred gathering results -->\n");
+
+	if (result_type == LYD_LYB) {
+		/*
+		 * parse binary into tree and print in the specified format
+		 */
+		result_type = vty->mgmt_req_pending_data;
+
+		err = lyd_parse_data_mem(ly_native_ctx, result, LYD_LYB, 0, 0,
+					 &dnode);
+		if (!err)
+			err = lyd_print_clb(vty_mgmt_libyang_print, vty, dnode,
+					    result_type, LYD_PRINT_WITHSIBLINGS);
+		lyd_free_all(dnode);
+
+		if (vty_out_yang_errors(vty, result_type) || err)
+			ret = CMD_WARNING;
+	} else {
+		/*
+		 * Print the in-format result
+		 */
+		assert(result_type == LYD_XML || result_type == LYD_JSON);
+		vty_out(vty, "%.*s\n", (int)len - 1, (const char *)result);
+	}
+
+	vty_mgmt_resume_response(vty, ret);
+
+	return 0;
+}
+
+static int vty_mgmt_error_notified(struct mgmt_fe_client *client,
+				   uintptr_t user_data, uint64_t client_id,
+				   uint64_t session_id, uintptr_t session_ctx,
+				   uint64_t req_id, int error,
+				   const char *errstr)
+{
+	struct vty *vty = (struct vty *)session_ctx;
+	const char *cname = mgmt_fe_client_name(client);
+
+	if (!vty->mgmt_req_pending_cmd) {
+		MGMTD_FE_CLIENT_DBG("Erorr with no pending command: %d returned for client %s 0x%" PRIx64
+				    " session-id %" PRIu64 " req-id %" PRIu64
+				    "error-str %s",
+				    error, cname, client_id, session_id, req_id,
+				    errstr);
+		vty_out(vty,
+			"%% Error %d from MGMTD for %s with no pending command: %s\n",
+			error, cname, errstr);
+		return CMD_WARNING;
+	}
+
+	MGMTD_FE_CLIENT_DBG("Erorr %d returned for client %s 0x%" PRIx64
+			    " session-id %" PRIu64 " req-id %" PRIu64
+			    "error-str %s",
+			    error, cname, client_id, session_id, req_id, errstr);
+
+	vty_out(vty, "%% %s (for %s, client %s)\n", errstr,
+		vty->mgmt_req_pending_cmd, cname);
+
+	vty_mgmt_resume_response(vty, error ? CMD_WARNING : CMD_SUCCESS);
 
 	return 0;
 }
@@ -3672,6 +3951,9 @@ static struct mgmt_fe_client_cbs mgmt_cbs = {
 	.set_config_notify = vty_mgmt_set_config_result_notified,
 	.commit_config_notify = vty_mgmt_commit_config_result_notified,
 	.get_data_notify = vty_mgmt_get_data_result_notified,
+	.get_tree_notify = vty_mgmt_get_tree_result_notified,
+	.error_notify = vty_mgmt_error_notified,
+
 };
 
 void vty_init_mgmt_fe(void)
@@ -3889,6 +4171,28 @@ int vty_mgmt_send_get_req(struct vty *vty, bool is_config,
 	}
 
 	vty->mgmt_req_pending_cmd = "MESSAGE_GETCFG_REQ";
+
+	return 0;
+}
+
+int vty_mgmt_send_get_tree_req(struct vty *vty, LYD_FORMAT result_type,
+			       const char *xpath)
+{
+	LYD_FORMAT intern_format = result_type;
+
+	vty->mgmt_req_id++;
+
+	if (mgmt_fe_send_get_tree_req(mgmt_fe_client, vty->mgmt_session_id,
+				      vty->mgmt_req_id, intern_format, xpath)) {
+		zlog_err("Failed to send GET-TREE to MGMTD session-id: %" PRIu64
+			 " req-id %" PRIu64 ".",
+			 vty->mgmt_session_id, vty->mgmt_req_id);
+		vty_out(vty, "Failed to send GET-TREE to MGMTD!\n");
+		return -1;
+	}
+
+	vty->mgmt_req_pending_cmd = "MESSAGE_GET_TREE_REQ";
+	vty->mgmt_req_pending_data = result_type;
 
 	return 0;
 }

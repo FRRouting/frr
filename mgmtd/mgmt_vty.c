@@ -218,6 +218,35 @@ DEFPY(show_mgmt_get_data, show_mgmt_get_data_cmd,
 	return CMD_SUCCESS;
 }
 
+DEFPY(show_mgmt_get_data_tree, show_mgmt_get_data_tree_cmd,
+      "show mgmt get-data-tree WORD$path [json|xml]$fmt",
+      SHOW_STR MGMTD_STR
+      "Get a data tree from the operational datastore\n"
+      "XPath expression specifying the YANG data root\n"
+      "JSON output format\n"
+      "XML output format\n")
+{
+	LYD_FORMAT format = (fmt && fmt[0] == 'x') ? LYD_XML : LYD_JSON;
+	int plen = strlen(path);
+	char *xpath = NULL;
+
+	/* get rid of extraneous trailing slash-* or single '/' unless root */
+	if (plen > 2 && ((path[plen - 2] == '/' && path[plen - 1] == '*') ||
+			 (path[plen - 2] != '/' && path[plen - 1] == '/'))) {
+		plen = path[plen - 1] == '/' ? plen - 1 : plen - 2;
+		xpath = XSTRDUP(MTYPE_TMP, path);
+		xpath[plen] = 0;
+		path = xpath;
+	}
+
+	vty_mgmt_send_get_tree_req(vty, format, path);
+
+	if (xpath)
+		XFREE(MTYPE_TMP, xpath);
+
+	return CMD_SUCCESS;
+}
+
 DEFPY(show_mgmt_dump_data,
       show_mgmt_dump_data_cmd,
       "show mgmt datastore-contents [candidate|operational|running]$dsname [xpath WORD$path] [file WORD$filepath] <json|xml>$fmt",
@@ -512,6 +541,7 @@ void mgmt_vty_init(void)
 	install_element(VIEW_NODE, &show_mgmt_ds_cmd);
 	install_element(VIEW_NODE, &show_mgmt_get_config_cmd);
 	install_element(VIEW_NODE, &show_mgmt_get_data_cmd);
+	install_element(VIEW_NODE, &show_mgmt_get_data_tree_cmd);
 	install_element(VIEW_NODE, &show_mgmt_dump_data_cmd);
 	install_element(VIEW_NODE, &show_mgmt_map_xpath_cmd);
 	install_element(VIEW_NODE, &show_mgmt_cmt_hist_cmd);

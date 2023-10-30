@@ -115,6 +115,20 @@ struct mgmt_fe_client_cbs {
 			   uintptr_t user_data, uint64_t req_id,
 			   Mgmtd__DatastoreId ds_id,
 			   Mgmtd__YangData **yang_data, size_t num_data);
+
+	/* Called when get-tree result is returned */
+	int (*get_tree_notify)(struct mgmt_fe_client *client,
+			       uintptr_t user_data, uint64_t client_id,
+			       uint64_t session_id, uint64_t session_ctx,
+			       uint64_t req_id, Mgmtd__DatastoreId ds_id,
+			       LYD_FORMAT result_type, void *result, size_t len,
+			       int partial_error);
+
+	/* Called when new native error is returned */
+	int (*error_notify)(struct mgmt_fe_client *client, uintptr_t user_data,
+			    uint64_t client_id, uint64_t session_id,
+			    uintptr_t session_ctx, uint64_t req_id, int error,
+			    const char *errstr);
 };
 
 extern struct debug mgmt_dbg_fe_client;
@@ -364,6 +378,31 @@ extern int mgmt_fe_send_regnotify_req(struct mgmt_fe_client *client,
 				      int num_reqs);
 
 /*
+ * Send GET-TREE to MGMTD daemon.
+ *
+ * client
+ *    Client object.
+ *
+ * session_id
+ *    Client session ID.
+ *
+ * req_id
+ *    Client request ID.
+ *
+ * result_type
+ *    The LYD_FORMAT of the result.
+ *
+ * xpath
+ *    the xpath to get.
+ *
+ * Returns:
+ *    0 on success, otherwise msg_conn_send_msg() return values.
+ */
+extern int mgmt_fe_send_get_tree_req(struct mgmt_fe_client *client,
+				     uint64_t session_id, uint64_t req_id,
+				     LYD_FORMAT result_type, const char *xpath);
+
+/*
  * Destroy library and cleanup everything.
  */
 extern void mgmt_fe_client_destroy(struct mgmt_fe_client *client);
@@ -378,6 +417,17 @@ extern uint mgmt_fe_client_session_count(struct mgmt_fe_client *client);
  */
 extern bool
 mgmt_fe_client_current_msg_short_circuit(struct mgmt_fe_client *client);
+
+/**
+ * Get the name of the client
+ *
+ * Args:
+ *	The client object.
+ *
+ * Return:
+ *	The name of the client.
+ */
+extern const char *mgmt_fe_client_name(struct mgmt_fe_client *client);
 
 #ifdef __cplusplus
 }

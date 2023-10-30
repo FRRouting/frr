@@ -12,6 +12,7 @@
 #include "libfrr.h"
 #include "mgmt_fe_client.h"
 #include "mgmt_msg.h"
+#include "mgmt_msg_native.h"
 #include "mgmt_pb.h"
 #include "network.h"
 #include "stream.h"
@@ -34,6 +35,7 @@ DECLARE_LIST(mgmt_sessions, struct mgmt_fe_client_session, list_linkage);
 
 DEFINE_MTYPE_STATIC(LIB, MGMTD_FE_CLIENT, "frontend client");
 DEFINE_MTYPE_STATIC(LIB, MGMTD_FE_CLIENT_NAME, "frontend client name");
+DEFINE_MTYPE_STATIC(LIB, MGMTD_FE_GET_DATA_MSG, "FE get data msg");
 DEFINE_MTYPE_STATIC(LIB, MGMTD_FE_SESSION, "frontend session");
 
 struct mgmt_fe_client {
@@ -107,6 +109,13 @@ mgmt_fe_find_session_by_session_id(struct mgmt_fe_client *client,
 	MGMTD_FE_CLIENT_DBG("Session not found using session-id %" PRIu64,
 			    session_id);
 	return NULL;
+}
+
+static int fe_client_send_native_msg(struct mgmt_fe_client *client, void *msg,
+				     size_t len, bool short_circuit_ok)
+{
+	return msg_conn_send_msg(&client->client.conn, MGMT_MSG_VERSION_NATIVE,
+				 msg, len, NULL, short_circuit_ok);
 }
 
 static int mgmt_fe_client_send_msg(struct mgmt_fe_client *client,
@@ -304,6 +313,35 @@ int mgmt_fe_send_regnotify_req(struct mgmt_fe_client *client,
 	return mgmt_fe_client_send_msg(client, &fe_msg, false);
 }
 
+/*
+ * Send get-tree request.
+ */
+int mgmt_fe_send_get_tree_req(struct mgmt_fe_client *client,
+			      uint64_t session_id, uint64_t req_id,
+			      LYD_FORMAT result_type, const char *xpath)
+{
+	struct mgmt_msg_get_tree *msg;
+	size_t xplen = strlen(xpath);
+	size_t mlen = sizeof(*msg) + xplen + 1;
+	int ret;
+
+	msg = XCALLOC(MTYPE_MGMTD_FE_GET_DATA_MSG, mlen);
+	msg->session_id = session_id;
+	msg->req_id = req_id;
+	msg->code = MGMT_MSG_CODE_GET_TREE;
+	msg->result_type = result_type;
+	strlcpy(msg->xpath, xpath, xplen + 1);
+
+	MGMTD_FE_CLIENT_DBG("Sending GET_TREE_REQ session-id %" PRIu64
+			    " req-id %" PRIu64 " xpath: %s",
+			    session_id, req_id, xpath);
+
+	ret = fe_client_send_native_msg(client, msg, mlen, false);
+	XFREE(MTYPE_MGMTD_FE_GET_DATA_MSG, msg);
+	return ret;
+}
+
+
 static int mgmt_fe_client_handle_msg(struct mgmt_fe_client *client,
 				     Mgmtd__FeMessage *fe_msg)
 {
@@ -469,6 +507,73 @@ static int mgmt_fe_client_handle_msg(struct mgmt_fe_client *client,
 	return 0;
 }
 
+/*
+ * Handle a native encoded message
+ */
+static void fe_client_handle_native_msg(struct mgmt_fe_client *client,
+					struct mgmt_msg_header *msg,
+					size_t msg_len)
+{
+	struct mgmt_fe_client_session *session;
+	struct mgmt_msg_tree_data *tree_msg;
+	struct mgmt_msg_error *err_msg;
+
+	MGMTD_FE_CLIENT_DBG("Got GET_TREE reply for session-id %" PRIu64,
+			    msg->session_id);
+
+	session = mgmt_fe_find_session_by_session_id(client, msg->session_id);
+
+	if (!session || !session->client) {
+		MGMTD_FE_CLIENT_ERR("No session for received native msg session-id %" PRIu64,
+				    msg->session_id);
+		return;
+	}
+
+	switch (msg->code) {
+	case MGMT_MSG_CODE_ERROR:
+		if (!session->client->cbs.error_notify)
+			return;
+
+		err_msg = (typeof(err_msg))msg;
+		if (!MGMT_MSG_VALIDATE_NUL_TERM(err_msg, msg_len)) {
+			MGMTD_FE_CLIENT_ERR("Corrupt error msg recv");
+			return;
+		}
+		session->client->cbs.error_notify(client, client->user_data,
+						  session->client_id,
+						  msg->session_id,
+						  session->user_ctx,
+						  msg->req_id, err_msg->error,
+						  err_msg->errstr);
+		break;
+	case MGMT_MSG_CODE_TREE_DATA:
+		if (!session->client->cbs.get_tree_notify)
+			return;
+
+		tree_msg = (typeof(tree_msg))msg;
+		if (msg_len < sizeof(*tree_msg)) {
+			MGMTD_FE_CLIENT_ERR("Corrupt tree-data msg recv");
+			return;
+		}
+		session->client->cbs.get_tree_notify(client, client->user_data,
+						     session->client_id,
+						     msg->session_id,
+						     session->user_ctx,
+						     msg->req_id,
+						     MGMTD_DS_OPERATIONAL,
+						     tree_msg->result_type,
+						     tree_msg->result,
+						     msg_len - sizeof(*tree_msg),
+						     tree_msg->partial_error);
+		break;
+	default:
+		MGMTD_FE_CLIENT_ERR("unknown native message session-id %" PRIu64
+				    " req-id %" PRIu64 " code %u",
+				    msg->session_id, msg->req_id, msg->code);
+		break;
+	}
+}
+
 static void mgmt_fe_client_process_msg(uint8_t version, uint8_t *data,
 				       size_t len, struct msg_conn *conn)
 {
@@ -478,6 +583,17 @@ static void mgmt_fe_client_process_msg(uint8_t version, uint8_t *data,
 
 	msg_client = container_of(conn, struct msg_client, conn);
 	client = container_of(msg_client, struct mgmt_fe_client, client);
+
+	if (version == MGMT_MSG_VERSION_NATIVE) {
+		struct mgmt_msg_header *msg = (typeof(msg))data;
+
+		if (len >= sizeof(*msg))
+			fe_client_handle_native_msg(client, msg, len);
+		else
+			MGMTD_FE_CLIENT_ERR("native message to FE client %s too short %zu",
+					    client->name, len);
+		return;
+	}
 
 	fe_msg = mgmtd__fe_message__unpack(NULL, len, data);
 	if (!fe_msg) {
@@ -645,6 +761,11 @@ uint mgmt_fe_client_session_count(struct mgmt_fe_client *client)
 bool mgmt_fe_client_current_msg_short_circuit(struct mgmt_fe_client *client)
 {
 	return client->client.conn.is_short_circuit;
+}
+
+const char *mgmt_fe_client_name(struct mgmt_fe_client *client)
+{
+	return client->name;
 }
 
 /*

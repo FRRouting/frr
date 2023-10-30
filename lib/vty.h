@@ -229,6 +229,7 @@ struct vty {
 	 * CLI command and we are waiting on the reply so we can respond to the
 	 * vty user. */
 	const char *mgmt_req_pending_cmd;
+	uintptr_t mgmt_req_pending_data;
 	bool mgmt_locked_candidate_ds;
 	bool mgmt_locked_running_ds;
 	/* Need to track when we file-lock in vtysh to re-lock on end/conf t
@@ -419,9 +420,11 @@ extern int vty_mgmt_send_commit_config(struct vty *vty, bool validate_only,
 extern int vty_mgmt_send_get_req(struct vty *vty, bool is_config,
 				 Mgmtd__DatastoreId datastore,
 				 const char **xpath_list, int num_req);
+extern int vty_mgmt_send_get_tree_req(struct vty *vty, LYD_FORMAT result_type,
+				      const char *xpath);
 extern int vty_mgmt_send_lockds_req(struct vty *vty, Mgmtd__DatastoreId ds_id,
 				    bool lock, bool scok);
-extern void vty_mgmt_resume_response(struct vty *vty, bool success);
+extern void vty_mgmt_resume_response(struct vty *vty, int ret);
 
 static inline bool vty_needs_implicit_commit(struct vty *vty)
 {
