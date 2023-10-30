@@ -485,6 +485,22 @@ struct nb_callbacks {
 	const void *(*lookup_entry)(struct nb_cb_lookup_entry_args *args);
 
 	/*
+	 * Operational data callback for YANG lists.
+	 *
+	 * The callback function should return the next list entry that would
+	 * follow a list entry with the keys given as a parameter. Keyless
+	 * lists don't need to implement this  callback.
+	 *
+	 * args
+	 *    Refer to the documentation comments of nb_cb_lookup_entry_args for
+	 *    details.
+	 *
+	 * Returns:
+	 *    Pointer to the list entry if found, or NULL if not found.
+	 */
+	const void *(*lookup_next)(struct nb_cb_lookup_entry_args *args);
+
+	/*
 	 * RPC and action callback.
 	 *
 	 * Both 'input' and 'output' are lists of 'yang_data' structures. The
@@ -644,6 +660,7 @@ enum nb_error {
 	NB_ERR_VALIDATION,
 	NB_ERR_RESOURCE,
 	NB_ERR_INCONSISTENCY,
+	NB_YIELD,
 };
 
 /* Default priority. */
@@ -710,6 +727,29 @@ typedef int (*nb_oper_data_cb)(const struct lysc_node *snode,
 			       struct yang_translator *translator,
 			       struct yang_data *data, void *arg);
 
+/**
+ * nb_oper_data_finish_cb() - finish a portion or all of a oper data walk.
+ * @tree - r/o copy of the tree created during this portion of the walk.
+ * @arg - finish arg passed to nb_op_iterate_yielding.
+ * @ret - NB_OK if done with walk, NB_YIELD if done with portion, otherwise an
+ *        error.
+ *
+ * If nb_op_iterate_yielding() was passed with @should_batch set then this
+ * callback will be invoked during each portion (batch) of the walk.
+ *
+ * The @tree is read-only and should not be modified or freed.
+ *
+ * If this function returns anything but NB_OK then the walk will be terminated.
+ * and this function will not be called again regardless of if @ret was
+ * `NB_YIELD` or not.
+ *
+ * Return: NB_OK to continue or complete the walk normally, otherwise an error
+ * to immediately terminate the walk.
+ */
+/* Callback function used by nb_oper_data_iter_yielding(). */
+typedef enum nb_error (*nb_oper_data_finish_cb)(const struct lyd_node *tree,
+						void *arg, enum nb_error ret);
+
 /* Iterate over direct child nodes only. */
 #define NB_OPER_DATA_ITER_NORECURSE 0x0001
 
@@ -743,6 +783,11 @@ extern int nb_callback_get_keys(const struct nb_node *nb_node,
 extern const void *nb_callback_lookup_entry(const struct nb_node *nb_node,
 					    const void *parent_list_entry,
 					    const struct yang_list_keys *keys);
+extern const void *nb_callback_lookup_node_entry(struct lyd_node *node,
+						 const void *parent_list_entry);
+extern const void *nb_callback_lookup_next(const struct nb_node *nb_node,
+					   const void *parent_list_entry,
+					   const struct yang_list_keys *keys);
 extern int nb_callback_rpc(const struct nb_node *nb_node, const char *xpath,
 			   const struct list *input, struct list *output,
 			   char *errmsg, size_t errmsg_len);
@@ -1250,8 +1295,13 @@ extern int nb_running_unlock(enum nb_client client, const void *user);
  */
 extern int nb_running_lock_check(enum nb_client client, const void *user);
 
+extern int nb_oper_data_iterate(const char *xpath,
+				struct yang_translator *translator,
+				uint32_t flags, nb_oper_data_cb cb, void *arg,
+				struct lyd_node **tree);
+
 /*
- * Iterate over operational data.
+ * Iterate over operational data -- deprecated.
  *
  * xpath
  *    Data path of the YANG data we want to iterate over.
@@ -1261,6 +1311,9 @@ extern int nb_running_lock_check(enum nb_client client, const void *user);
  *
  * flags
  *    NB_OPER_DATA_ITER_ flags to control how the iteration is performed.
+ *
+ * should_batch
+ *    Should call finish cb with partial results (i.e., creating batches)
  *
  * cb
  *    Function to call with each data node.
@@ -1274,10 +1327,42 @@ extern int nb_running_lock_check(enum nb_client client, const void *user);
  * Returns:
  *    NB_OK on success, NB_ERR otherwise.
  */
-extern int nb_oper_data_iterate(const char *xpath,
-				struct yang_translator *translator,
-				uint32_t flags, nb_oper_data_cb cb, void *arg,
-				struct lyd_node **tree);
+extern enum nb_error nb_oper_iterate_legacy(const char *xpath,
+					    struct yang_translator *translator,
+					    uint32_t flags, nb_oper_data_cb cb,
+					    void *arg, struct lyd_node **tree);
+
+/**
+ * nb_op_walk() - walk the schema building operational state.
+ * @xpath -
+ * @translator -
+ * @flags -
+ * @should_batch - should allow yielding and processing portions of the tree.
+ * @cb - callback invoked for each non-list, non-container node.
+ * @arg - arg to pass to @cb.
+ * @finish - function to call when done with portion or all of walk.
+ * @finish_arg - arg to pass to @finish.
+ *
+ * Return: walk - a cookie that can be used to cancel the walk.
+ */
+extern void *nb_oper_walk(const char *xpath, struct yang_translator *translator,
+			  uint32_t flags, bool should_batch, nb_oper_data_cb cb,
+			  void *arg, nb_oper_data_finish_cb finish,
+			  void *finish_arg);
+
+/**
+ * nb_op_iterate_yielding_cancel() - cancel the in progress walk.
+ * @walk - value returned from nb_op_iterate_yielding()
+ *
+ * Should only be called on an in-progress walk. It is invalid to cancel and
+ * already finished walk. The walks `finish` callback will not be called.
+ */
+extern void nb_oper_cancel_walk(void *walk);
+
+/**
+ * nb_op_cancel_all_walks() - cancel all in progress walks.
+ */
+extern void nb_oper_cancel_all_walks(void);
 
 /*
  * Validate if the northbound operation is valid for the given node.
@@ -1484,6 +1569,9 @@ extern void nb_init(struct event_loop *tm,
  * is exiting.
  */
 extern void nb_terminate(void);
+
+extern void nb_oper_init(struct event_loop *loop);
+extern void nb_oper_terminate(void);
 
 #ifdef __cplusplus
 }

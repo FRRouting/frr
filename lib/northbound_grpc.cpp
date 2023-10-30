@@ -427,25 +427,11 @@ static struct lyd_node *get_dnode_config(const std::string &path)
 	return dnode;
 }
 
-static int get_oper_data_cb(const struct lysc_node *snode,
-			    struct yang_translator *translator,
-			    struct yang_data *data, void *arg)
-{
-	struct lyd_node *dnode = static_cast<struct lyd_node *>(arg);
-	int ret = yang_dnode_edit(dnode, data->xpath, data->value);
-	yang_data_free(data);
-
-	return (ret == 0) ? NB_OK : NB_ERR;
-}
-
 static struct lyd_node *get_dnode_state(const std::string &path)
 {
-	struct lyd_node *dnode = yang_dnode_new(ly_native_ctx, false);
-	if (nb_oper_data_iterate(path.c_str(), NULL, 0, get_oper_data_cb, dnode)
-	    != NB_OK) {
-		yang_dnode_free(dnode);
-		return NULL;
-	}
+	struct lyd_node *dnode = NULL;
+
+	(void)nb_oper_iterate_legacy(path.c_str(), NULL, 0, NULL, NULL, &dnode);
 
 	return dnode;
 }

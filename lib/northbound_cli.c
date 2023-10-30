@@ -1437,11 +1437,9 @@ static int nb_cli_oper_data_cb(const struct lysc_node *snode,
 	}
 
 exit:
-	yang_data_free(data);
 	return NB_OK;
 
 error:
-	yang_data_free(data);
 	return NB_ERR;
 }
 
@@ -1490,9 +1488,14 @@ DEFPY (show_yang_operational_data,
 		ly_ctx = ly_native_ctx;
 
 	/* Obtain data. */
-	dnode = yang_dnode_new(ly_ctx, false);
-	ret = nb_oper_data_iterate(xpath, translator, 0, nb_cli_oper_data_cb,
-				   dnode, NULL);
+	if (translator) {
+		dnode = yang_dnode_new(ly_ctx, false);
+		ret = nb_oper_iterate_legacy(xpath, translator, 0,
+					   nb_cli_oper_data_cb, dnode, NULL);
+	} else {
+		dnode = NULL;
+		ret = nb_oper_iterate_legacy(xpath, NULL, 0, NULL, NULL, &dnode);
+	}
 	if (ret != NB_OK) {
 		if (format == LYD_JSON)
 			vty_out(vty, "{}\n");
@@ -1500,7 +1503,8 @@ DEFPY (show_yang_operational_data,
 			/* embed ly_last_errmsg() when we get newer libyang */
 			vty_out(vty, "<!-- Not found -->\n");
 		}
-		yang_dnode_free(dnode);
+		if (dnode)
+			yang_dnode_free(dnode);
 		return CMD_WARNING;
 	}
 

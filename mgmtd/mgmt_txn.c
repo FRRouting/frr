@@ -2539,7 +2539,8 @@ int mgmt_txn_notify_tree_data_reply(struct mgmt_be_client_adapter *adapter,
 						   ? data_msg->partial_error
 						   : (int)err);
 
-	get_tree->recv_clients |= (1u << id);
+	if (!data_msg->more)
+		get_tree->recv_clients |= (1u << id);
 
 	/* check if done yet */
 	if (get_tree->recv_clients != get_tree->sent_clients)

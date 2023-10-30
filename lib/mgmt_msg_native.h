@@ -77,6 +77,7 @@ struct mgmt_msg_tree_data {
 	struct mgmt_msg_header;
 	int8_t partial_error;
 	uint8_t result_type;
+	uint8_t more;
 
 	alignas(8) uint8_t result[];
 };
