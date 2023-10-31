@@ -58,7 +58,8 @@ void bnc_nexthop_free(struct bgp_nexthop_cache *bnc)
 
 struct bgp_nexthop_cache *bnc_new(struct bgp_nexthop_cache_head *tree,
 				  struct prefix *prefix, uint32_t srte_color,
-				  ifindex_t ifindex)
+				  ifindex_t ifindex, bool import_check_table,
+				  bool nexthop_check_table)
 {
 	struct bgp_nexthop_cache *bnc;
 
@@ -68,6 +69,9 @@ struct bgp_nexthop_cache *bnc_new(struct bgp_nexthop_cache_head *tree,
 	bnc->ifindex_ipv6_ll = ifindex;
 	bnc->srte_color = srte_color;
 	bnc->tree = tree;
+	bnc->import_check_table = import_check_table;
+	bnc->nexthop_check_table = nexthop_check_table;
+
 	LIST_INIT(&(bnc->paths));
 	bgp_nexthop_cache_add(tree, bnc);
 
@@ -968,7 +972,7 @@ static void bgp_show_nexthops_detail(struct vty *vty, struct bgp *bgp,
 
 static void bgp_show_nexthop(struct vty *vty, struct bgp *bgp,
 			     struct bgp_nexthop_cache *bnc, bool specific,
-			     json_object *json)
+			     bool import_check_table, json_object *json)
 {
 	char buf[PREFIX2STR_BUFFER];
 	time_t tbuf;
@@ -976,6 +980,12 @@ static void bgp_show_nexthop(struct vty *vty, struct bgp *bgp,
 	struct peer *peer;
 	json_object *json_last_update = NULL;
 	json_object *json_nexthop = NULL;
+
+	if (bnc->import_check_table && !import_check_table)
+		return;
+
+	if (bnc->nexthop_check_table && import_check_table)
+		return;
 
 	peer = (struct peer *)bnc->nht_info;
 
@@ -1103,16 +1113,14 @@ static void bgp_show_nexthops(struct vty *vty, struct bgp *bgp,
 		else
 			vty_out(vty, "Current BGP nexthop cache:\n");
 	}
-	if (import_table)
-		tree = &bgp->import_check_table;
-	else
-		tree = &bgp->nexthop_cache_table;
 
+	tree = &bgp->nexthop_cache_table;
 	if (afi == AFI_IP || afi == AFI_IP6) {
 		if (json)
 			json_afi = json_object_new_object();
 		frr_each (bgp_nexthop_cache, &(*tree)[afi], bnc) {
-			bgp_show_nexthop(vty, bgp, bnc, detail, json_afi);
+			bgp_show_nexthop(vty, bgp, bnc, detail, import_table,
+					 json_afi);
 			found = true;
 		}
 		if (found && json)
@@ -1126,7 +1134,8 @@ static void bgp_show_nexthops(struct vty *vty, struct bgp *bgp,
 		if (json && (afi == AFI_IP || afi == AFI_IP6))
 			json_afi = json_object_new_object();
 		frr_each (bgp_nexthop_cache, &(*tree)[afi], bnc)
-			bgp_show_nexthop(vty, bgp, bnc, detail, json_afi);
+			bgp_show_nexthop(vty, bgp, bnc, detail, import_table,
+					 json_afi);
 		if (json && (afi == AFI_IP || afi == AFI_IP6))
 			json_object_object_add(
 				json, (afi == AFI_IP) ? "ipv4" : "ipv6",
@@ -1162,15 +1171,15 @@ static int show_ip_bgp_nexthop_table(struct vty *vty, const char *name,
 				vty_out(vty, "nexthop address is malformed\n");
 			return CMD_WARNING;
 		}
-		tree = import_table ? &bgp->import_check_table
-				    : &bgp->nexthop_cache_table;
+		tree = &bgp->nexthop_cache_table;
 		if (json)
 			json_afi = json_object_new_object();
 		frr_each (bgp_nexthop_cache, &(*tree)[family2afi(nhop.family)],
 			  bnc) {
 			if (prefix_cmp(&bnc->prefix, &nhop))
 				continue;
-			bgp_show_nexthop(vty, bgp, bnc, true, json_afi);
+			bgp_show_nexthop(vty, bgp, bnc, true, import_table,
+					 json_afi);
 			found = true;
 		}
 		if (json)
@@ -1313,7 +1322,6 @@ void bgp_scan_init(struct bgp *bgp)
 
 	for (afi = AFI_IP; afi < AFI_MAX; afi++) {
 		bgp_nexthop_cache_init(&bgp->nexthop_cache_table[afi]);
-		bgp_nexthop_cache_init(&bgp->import_check_table[afi]);
 		bgp->connected_table[afi] = bgp_table_init(bgp, afi,
 			SAFI_UNICAST);
 	}
@@ -1333,7 +1341,6 @@ void bgp_scan_finish(struct bgp *bgp)
 	for (afi = AFI_IP; afi < AFI_MAX; afi++) {
 		/* Only the current one needs to be reset. */
 		bgp_nexthop_cache_reset(&bgp->nexthop_cache_table[afi]);
-		bgp_nexthop_cache_reset(&bgp->import_check_table[afi]);
 
 		bgp->connected_table[afi]->route_table->cleanup =
 			bgp_connected_cleanup;
