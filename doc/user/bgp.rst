@@ -527,6 +527,27 @@ Reject routes with AS_SET or AS_CONFED_SET types
 
    This command enables rejection of incoming and outgoing routes having AS_SET or AS_CONFED_SET type.
 
+Enforce first AS
+----------------
+
+.. clicmd:: bgp enforce-first-as
+
+   To configure a router to deny an update received from an external BGP (eBGP)
+   peer that does not list its autonomous system number at the beginning of
+   the `AS_PATH` in the incoming update, use the ``bgp enforce-first-as`` command
+   in router configuration mode.
+
+   In order to exclude an arbitrary neighbor from this enforcement, use the
+   command ``no neighbor NAME enforce-first-as``. And vice-versa if a global
+   enforcement is disabled, you can override this behavior per neighbor too.
+
+   Default: enabled.
+
+.. note::
+
+   If you have a peering to RS (Route-Server), most likely you MUST disable the
+   first AS enforcement.
+
 Suppress duplicate updates
 --------------------------
 
@@ -1526,7 +1547,10 @@ Configuring Peers
    Discard updates received from the specified (eBGP) peer if the AS_PATH
    attribute does not contain the PEER's ASN as the first AS_PATH segment.
 
-   Default: disabled.
+   You can enable or disable this enforcement globally too using
+   ``bgp enforce-first-as`` command.
+
+   Default: enabled.
 
 .. clicmd:: neighbor PEER extended-optional-parameters
 

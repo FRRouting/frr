@@ -1919,6 +1919,9 @@ struct peer *peer_create(union sockunion *su, const char *conf_if,
 		}
 	}
 
+	if (CHECK_FLAG(bgp->flags, BGP_FLAG_ENFORCE_FIRST_AS))
+		SET_FLAG(peer->flags, PEER_FLAG_ENFORCE_FIRST_AS);
+
 	/* auto shutdown if configured */
 	if (bgp->autoshutdown)
 		peer_flag_set(peer, PEER_FLAG_SHUTDOWN);
