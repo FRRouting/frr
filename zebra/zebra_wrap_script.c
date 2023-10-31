@@ -1240,9 +1240,7 @@ static int netlink_iptable_update_unit_2(char *buf, char *ptr,
 	if (iptable->pkt_len_min || iptable->pkt_len_max) {
 		len_written += snprintf(complement_len + len_written,
 					sizeof(complement_len) - len_written,
-				       "-m length %s --length %d",
-					iptable->filter_bm &
-					MATCH_PKT_LEN_INVERSE_SET ? "!" : "",
+				       "-m length --length %d",
 				       iptable->pkt_len_min);
 		if (iptable->pkt_len_max)
 			len_written += snprintf(complement_len + len_written,
