@@ -121,6 +121,7 @@
 #include <linux/filter.h>
 #else
 #define RT_TABLE_MAIN		0
+#define RT_TABLE_LOCAL		RT_TABLE_MAIN
 #endif /* HAVE_NETLINK */
 
 #include <netdb.h>
@@ -370,6 +371,7 @@ typedef enum {
 #define ZEBRA_IBGP_DISTANCE_DEFAULT       200
 #define ZEBRA_EBGP_DISTANCE_DEFAULT        20
 #define ZEBRA_TABLE_DISTANCE_DEFAULT       15
+#define ZEBRA_TABLEDIRECT_DISTANCE_DEFAULT 14
 #define ZEBRA_EIGRP_DISTANCE_DEFAULT       90
 #define ZEBRA_NHRP_DISTANCE_DEFAULT        10
 #define ZEBRA_LDP_DISTANCE_DEFAULT        150

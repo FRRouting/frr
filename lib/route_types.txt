@@ -86,6 +86,7 @@ ZEBRA_ROUTE_OPENFABRIC, openfabric, fabricd,  'f', 1, 1, 1,  "OpenFabric",    fa
 ZEBRA_ROUTE_VRRP,       vrrp,      vrrpd,  '-', 0, 0, 0,     "VRRP",          vrrpd
 ZEBRA_ROUTE_NHG,        zebra,     none,   '-', 0, 0, 0,     "Nexthop Group", none
 ZEBRA_ROUTE_SRTE,       srte,      none,   '-', 0, 0, 0,     "SR-TE",         none
+ZEBRA_ROUTE_TABLE_DIRECT,      table-direct,     zebra,  't', 1, 1, 1,     "Table-Direct",         zebra
 ZEBRA_ROUTE_ALL,        wildcard,  none,   '-', 0, 0, 0,     "-",             none
 
 
@@ -116,3 +117,4 @@ ZEBRA_ROUTE_BFD, "Bidirectional Fowarding Detection (BFD)"
 ZEBRA_ROUTE_VRRP, "Virtual Router Redundancy Protocol (VRRP)"
 ZEBRA_ROUTE_OPENFABRIC, "OpenFabric Routing Protocol"
 ZEBRA_ROUTE_NHG, "Zebra Nexthop Groups (NHG)"
+ZEBRA_ROUTE_TABLE_DIRECT,  "Non-main Kernel Routing Table - Direct"

@@ -1330,9 +1330,30 @@ section for the specific AF to redistribute into. Protocol availability for
 redistribution is determined by BGP AF; for example, you cannot redistribute
 OSPFv3 into ``address-family ipv4 unicast`` as OSPFv3 supports IPv6.
 
-.. clicmd:: redistribute <babel|connected|eigrp|isis|kernel|openfabric|ospf|ospf6|rip|ripng|sharp|static|table> [metric (0-4294967295)] [route-map WORD]
+.. clicmd:: redistribute <babel|connected|eigrp|isis|kernel|openfabric|ospf|ospf6|rip|ripng|sharp|static> [metric (0-4294967295)] [route-map WORD]
 
 Redistribute routes from other protocols into BGP.
+
+.. clicmd:: redistribute <table|table-direct> (1-65535)] [metric (0-4294967295)] [route-map WORD]
+
+   Redistribute routes from a routing table ID into BGP. There are two
+   techniques for redistribution:
+
+   - Standard Table Redistribution ``table (1-65535)``:
+        - Routes from the specified routing table ID are imported into the
+          default routing table using the ``ip import-table ID`` command.
+        - These routes are identified by the protocol type "T[ID]" when
+          displayed with ``show (ip|ipv6) route``.
+        - The ``redistribute table ID`` command then integrates these routes
+          into BGP.
+
+   - Direct Table Redistribution ``table-direct (1-65535)``:
+        - This method directly imports routes from the designated routing table
+          ID into BGP, omitting the step of adding to the default routing table.
+        - This method is especially relevant when the specified table ID is
+          checked against routing by appending the appropriate `ip rules`.
+
+Redistribute routes from a routing table number into BGP.
 
 .. clicmd:: redistribute vnc-direct
 
