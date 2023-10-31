@@ -974,10 +974,14 @@ static int path_pcep_cli_pcc_delete(struct vty *vty)
 }
 
 static int path_pcep_cli_pcc_pcc_msd(struct vty *vty, const char *msd_str,
-				     long msd)
+				     long msd, bool reset)
 {
-	pcc_msd_configured_g = true;
-	PCEP_VTYSH_INT_ARG_CHECK(msd_str, msd, pcc_msd_g, 0, 33);
+	if (reset)
+		pcc_msd_configured_g = false;
+	else {
+		pcc_msd_configured_g = true;
+		PCEP_VTYSH_INT_ARG_CHECK(msd_str, msd, pcc_msd_g, 0, 33);
+	}
 
 	return CMD_SUCCESS;
 }
@@ -1743,6 +1747,35 @@ DEFPY_NOSH(
 	return CMD_SUCCESS;
 }
 
+DEFPY(
+      pcep_cli_no_pcep,
+      pcep_cli_no_pcep_cmd,
+      "no pcep",
+      NO_STR
+      "PCEP configuration\n")
+{
+	/* Delete PCCs */
+	path_pcep_cli_pcc_delete(vty);
+
+	for (int i = 0; i < MAX_PCE; i++) {
+		/* Delete PCEs */
+		if (pcep_g->pce_opts_cli[i] != NULL) {
+			XFREE(MTYPE_PCEP, pcep_g->pce_opts_cli[i]);
+			pcep_g->pce_opts_cli[i] = NULL;
+			pcep_g->num_pce_opts_cli--;
+		}
+
+		/* Delete PCE-CONFIGs */
+		if (pcep_g->config_group_opts[i] != NULL) {
+			XFREE(MTYPE_PCEP, pcep_g->config_group_opts[i]);
+			pcep_g->config_group_opts[i] = NULL;
+			pcep_g->num_config_group_opts--;
+		}
+	}
+
+	return CMD_SUCCESS;
+}
+
 DEFPY_NOSH(
       pcep_cli_pcep_pce_config,
       pcep_cli_pcep_pce_config_cmd,
@@ -1928,11 +1961,12 @@ DEFPY(pcep_cli_no_pcc,
 
 DEFPY(pcep_cli_pcc_pcc_msd,
       pcep_cli_pcc_pcc_msd_cmd,
-      "msd (1-32)",
+      "[no] msd (1-32)",
+      NO_STR
       "PCC maximum SID depth \n"
       "PCC maximum SID depth value\n")
 {
-	return path_pcep_cli_pcc_pcc_msd(vty, msd_str, msd);
+	return path_pcep_cli_pcc_pcc_msd(vty, msd_str, msd, no);
 }
 
 DEFPY(pcep_cli_pcc_pcc_peer,
@@ -2008,6 +2042,7 @@ void pcep_cli_init(void)
 	install_default(PCEP_NODE);
 
 	install_element(SR_TRAFFIC_ENG_NODE, &pcep_cli_pcep_cmd);
+	install_element(SR_TRAFFIC_ENG_NODE, &pcep_cli_no_pcep_cmd);
 
 	/* PCEP configuration group related configuration commands */
 	install_element(PCEP_NODE, &pcep_cli_pcep_pce_config_cmd);
