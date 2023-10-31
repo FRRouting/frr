@@ -1747,6 +1747,35 @@ DEFPY_NOSH(
 	return CMD_SUCCESS;
 }
 
+DEFPY(
+      pcep_cli_no_pcep,
+      pcep_cli_no_pcep_cmd,
+      "no pcep",
+      NO_STR
+      "PCEP configuration\n")
+{
+	/* Delete PCCs */
+	path_pcep_cli_pcc_delete(vty);
+
+	for (int i = 0; i < MAX_PCE; i++) {
+		/* Delete PCEs */
+		if (pcep_g->pce_opts_cli[i] != NULL) {
+			XFREE(MTYPE_PCEP, pcep_g->pce_opts_cli[i]);
+			pcep_g->pce_opts_cli[i] = NULL;
+			pcep_g->num_pce_opts_cli--;
+		}
+
+		/* Delete PCE-CONFIGs */
+		if (pcep_g->config_group_opts[i] != NULL) {
+			XFREE(MTYPE_PCEP, pcep_g->config_group_opts[i]);
+			pcep_g->config_group_opts[i] = NULL;
+			pcep_g->num_config_group_opts--;
+		}
+	}
+
+	return CMD_SUCCESS;
+}
+
 DEFPY_NOSH(
       pcep_cli_pcep_pce_config,
       pcep_cli_pcep_pce_config_cmd,
@@ -2013,6 +2042,7 @@ void pcep_cli_init(void)
 	install_default(PCEP_NODE);
 
 	install_element(SR_TRAFFIC_ENG_NODE, &pcep_cli_pcep_cmd);
+	install_element(SR_TRAFFIC_ENG_NODE, &pcep_cli_no_pcep_cmd);
 
 	/* PCEP configuration group related configuration commands */
 	install_element(PCEP_NODE, &pcep_cli_pcep_pce_config_cmd);
