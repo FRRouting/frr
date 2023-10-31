@@ -460,8 +460,10 @@ static bool bgp_pbr_extract(struct bgp_pbr_match_val list[],
 			return false;
 		if (i == 0 && (list[i].compare_operator ==
 			       OPERATOR_COMPARE_EQUAL_TO)) {
-			if (range)
+			if (range) {
 				range->min_port = list[i].value;
+				range->max_port = list[i].value;
+			}
 			exact_match = true;
 		}
 		if (exact_match && i > 0)
@@ -486,6 +488,10 @@ static bool bgp_pbr_extract(struct bgp_pbr_match_val list[],
 				range->min_port = list[i].value + 1;
 		}
 	}
+
+	if (range && range->min_port && !range->max_port)
+		range->max_port = 0xffff;
+
 	return true;
 }
 
@@ -2227,9 +2233,7 @@ static void bgp_pbr_dump_entry(struct bgp_pbr_filter *bpf, bool add)
 						  sizeof(buffer),
 						  "from [%u:%u]",
 						  src_port->min_port,
-						  src_port->max_port ?
-						  src_port->max_port :
-						  src_port->min_port);
+						  src_port->max_port);
 		if (dst_port && dst_port->min_port)
 			remaining_len += snprintf(buffer +
 						  remaining_len,
@@ -2237,19 +2241,15 @@ static void bgp_pbr_dump_entry(struct bgp_pbr_filter *bpf, bool add)
 						  - remaining_len,
 						  "to [%u:%u]",
 						  dst_port->min_port,
-						  dst_port->max_port ?
-						  dst_port->max_port :
-						  dst_port->min_port);
+						  dst_port->max_port);
 	}
-	if (pkt_len && (pkt_len->min_port || pkt_len->max_port)) {
+	if (pkt_len && pkt_len->min_port) {
 		remaining_len += snprintf(buffer + remaining_len,
 					  sizeof(buffer)
 					  - remaining_len,
 					  " len [%u:%u]",
 					  pkt_len->min_port,
-					  pkt_len->max_port ?
-					  pkt_len->max_port :
-					  pkt_len->min_port);
+					  pkt_len->max_port);
 	}
 	if (bpf->tcp_flags) {
 		remaining_len += snprintf(buffer + remaining_len,
