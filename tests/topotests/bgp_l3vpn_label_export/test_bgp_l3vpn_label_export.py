@@ -29,6 +29,8 @@ from lib.common_config import kill_router_daemons, start_router_daemons, step
 
 pytestmark = [pytest.mark.bgpd]
 
+LABEL_IMPLICIT_NULL = 3
+
 
 def build_topo(tgen):
     for rtr in [1, 2]:
@@ -366,7 +368,9 @@ def test_vpn_label_export_no_auto():
     )
 
     step("Check that no label vpn export auto is OK")
-    test_func = functools.partial(check_bgp_vpn_prefix, 3, rname="r2", rd="102:1")
+    test_func = functools.partial(
+        check_bgp_vpn_prefix, LABEL_IMPLICIT_NULL, rname="r2", rd="102:1"
+    )
     _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
     assert result is None, "Unexpected BGP prefix on R2"
 
