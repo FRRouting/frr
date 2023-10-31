@@ -2,7 +2,9 @@ Transactional CLI
 -----------------
 
 This short demo shows some of the capabilities of the new transactional
-CLI: |asciicast|
+CLI:
+
+|asciicast1|
 
 ConfD + NETCONF + Cisco YDK
 ---------------------------
@@ -17,9 +19,9 @@ using Cisco’s YANG Development Kit (YDK).
 -  Script used in the demo:
    https://gist.github.com/rwestphal/defa9bd1ccf216ab082d4711ae402f95
 
-|asciicast|
+|asciicast2|
 
-.. |asciicast| image:: https://asciinema.org/a/jL0BS5HfP2kS6N1HfgsZvfZk1.png
+.. |asciicast1| image:: https://asciinema.org/a/jL0BS5HfP2kS6N1HfgsZvfZk1.png
    :target: https://asciinema.org/a/jL0BS5HfP2kS6N1HfgsZvfZk1
-.. |asciicast| image:: https://asciinema.org/a/VfMElNxsjLcdvV7484E6ChxWv.png
+.. |asciicast2| image:: https://asciinema.org/a/VfMElNxsjLcdvV7484E6ChxWv.png
    :target: https://asciinema.org/a/VfMElNxsjLcdvV7484E6ChxWv

@@ -470,7 +470,7 @@ One can live view daemon or the frr logs in separate windows using the
 
 For each capture a window is opened displaying a live summary of the captured
 packets. Additionally, the entire packet stream is captured in a pcap file in
-the tests log directory e.g.,::
+the tests log directory e.g.,
 
 When using a unified log file ``frr.log`` one substitutes ``frr`` for the
 daemon name in the ``--logd`` CLI option, e.g.,
