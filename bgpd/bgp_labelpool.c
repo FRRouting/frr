@@ -448,7 +448,7 @@ void bgp_lp_get(
 
 	if (lp_fifo_count(&lp->requests) > lp->pending_count) {
 		if (!bgp_zebra_request_label_range(MPLS_LABEL_BASE_ANY,
-						   lp->next_chunksize))
+						   lp->next_chunksize, true))
 			return;
 
 		lp->pending_count += lp->next_chunksize;
@@ -494,8 +494,18 @@ void bgp_lp_release(
 				bf_release_index(chunk->allocated_map, index);
 				chunk->nfree += 1;
 				deallocated = true;
+				break;
 			}
 			assert(deallocated);
+			if (deallocated &&
+			    chunk->nfree == chunk->last - chunk->first + 1 &&
+			    lp_fifo_count(&lp->requests) == 0) {
+				bgp_zebra_release_label_range(chunk->first,
+							      chunk->last);
+				list_delete_node(lp->chunks, node);
+				lp_chunk_free(chunk);
+				lp->next_chunksize = LP_CHUNK_SIZE_MIN;
+			}
 		}
 	}
 }
@@ -642,7 +652,11 @@ void bgp_lp_event_zebra_up(void)
 	}
 
 	/* round up */
-	chunks_needed = (labels_needed / lp->next_chunksize) + 1;
+	if (((float)labels_needed / (float)lp->next_chunksize) >
+	    (labels_needed / lp->next_chunksize))
+		chunks_needed = (labels_needed / lp->next_chunksize) + 1;
+	else
+		chunks_needed = (labels_needed / lp->next_chunksize);
 	labels_needed = chunks_needed * lp->next_chunksize;
 
 	/*
@@ -650,10 +664,10 @@ void bgp_lp_event_zebra_up(void)
 	 */
 	list_delete_all_node(lp->chunks);
 
-	if (!bgp_zebra_request_label_range(MPLS_LABEL_BASE_ANY, labels_needed))
+	if (labels_needed && !bgp_zebra_request_label_range(MPLS_LABEL_BASE_ANY,
+							    labels_needed, true))
 		return;
-
-	lp->pending_count = labels_needed;
+	lp->pending_count += labels_needed;
 
 	/*
 	 * Invalidate any existing labels and requeue them as requests

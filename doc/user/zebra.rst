@@ -783,6 +783,22 @@ presence of the entry.
    21     Static       10.125.0.2  IPv4 Explicit Null
 
 
+MPLS label chunks
+-----------------
+
+MPLS label chunks are handled in the zebra label manager service,
+which ensures a same label value or label chunk can not be used by
+multiple CP routing daemons at the same time.
+
+Label requests originate from CP routing daemons, and are resolved
+over the default MPLS range (16-1048575). There are two kind of
+requests:
+- Static label requests request an exact label value or range. For
+instance, segment routing label blocks requests originating from
+IS-IS are part of it.
+- Dynamic label requests only need a range of label values. The
+'bgp l3vpn export auto' command uses such requests.
+
 Allocated label chunks table can be dumped using the command
 
 .. clicmd:: show debugging label-table
@@ -795,6 +811,15 @@ Allocated label chunks table can be dumped using the command
    Proto isis: [1200/1300]
    Proto ospf: [20000/21000]
    Proto isis: [22000/23000]
+
+.. clicmd:: mpls label dynamic-block (16-1048575) (16-1048575)
+
+   Define a range of labels where dynamic label requests will
+   allocate label chunks from. This command guarantees that
+   static label values outside that range will not conflict
+   with the dynamic label requests. When the dynamic-block
+   range is configured, static label requests that match that
+   range are not accepted.
 
 .. _zebra-srv6:
 

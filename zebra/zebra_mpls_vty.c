@@ -22,6 +22,7 @@
 #include "zebra/zebra_rnh.h"
 #include "zebra/redistribute.h"
 #include "zebra/zebra_routemap.h"
+#include "zebra/label_manager.h"
 
 static int zebra_mpls_transit_lsp(struct vty *vty, int add_cmd,
 				  const char *inlabel_str, const char *gate_str,
@@ -270,6 +271,8 @@ static int zebra_mpls_config(struct vty *vty)
 	write += zebra_mpls_write_lsp_config(vty, zvrf);
 	write += zebra_mpls_write_fec_config(vty, zvrf);
 	write += zebra_mpls_write_label_block_config(vty, zvrf);
+	write += lm_write_label_block_config_call(vty, zvrf);
+
 	return write;
 }
 
