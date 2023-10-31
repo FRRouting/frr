@@ -662,10 +662,9 @@ void pim_upstream_update_use_rpt(struct pim_upstream *up,
 	new_use_rpt = !!PIM_UPSTREAM_FLAG_TEST_USE_RPT(up->flags);
 	if (old_use_rpt != new_use_rpt) {
 		if (PIM_DEBUG_PIM_EVENTS)
-			zlog_debug("%s switched from %s to %s",
-					up->sg_str,
-					old_use_rpt?"RPT":"SPT",
-					new_use_rpt?"RPT":"SPT");
+			zlog_debug("%s switched from %s to %s", up->sg_str,
+				   old_use_rpt ? "RPT" : "SPT",
+				   new_use_rpt ? "RPT" : "SPT");
 		if (update_mroute)
 			pim_upstream_mroute_add(up->channel_oil, __func__);
 	}
@@ -904,9 +903,15 @@ static struct pim_upstream *pim_upstream_new(struct pim_instance *pim,
 				false /*update_mroute*/);
 		pim_upstream_mroute_iif_update(up->channel_oil, __func__);
 
-		if (PIM_UPSTREAM_FLAG_TEST_SRC_NOCACHE(up->flags))
+		if (PIM_UPSTREAM_FLAG_TEST_SRC_NOCACHE(up->flags)) {
+			/*
+			 * Set the right RPF so that future changes will
+			 * be right
+			 */
+			rpf_result = pim_rpf_update(pim, up, NULL, __func__);
 			pim_upstream_keep_alive_timer_start(
 				up, pim->keep_alive_time);
+		}
 	} else if (!pim_addr_is_any(up->upstream_addr)) {
 		pim_upstream_update_use_rpt(up,
 				false /*update_mroute*/);
