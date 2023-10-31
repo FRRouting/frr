@@ -321,13 +321,14 @@ void ospf6_router_lsa_originate(struct event *thread)
 		}
 
 		/* Point-to-Point interfaces */
-		if (oi->type == OSPF_IFTYPE_POINTOPOINT) {
+		if (oi->type == OSPF_IFTYPE_POINTOPOINT
+		    || oi->type == OSPF_IFTYPE_POINTOMULTIPOINT) {
 			for (ALL_LIST_ELEMENTS_RO(oi->neighbor_list, j, on)) {
 				if (on->state != OSPF6_NEIGHBOR_FULL)
 					continue;
 
 				lsdesc->type = OSPF6_ROUTER_LSDESC_POINTTOPOINT;
-				lsdesc->metric = htons(oi->cost);
+				lsdesc->metric = htons(ospf6_neighbor_cost(on));
 				lsdesc->interface_id =
 					htonl(oi->interface->ifindex);
 				lsdesc->neighbor_interface_id =
@@ -1068,6 +1069,7 @@ void ospf6_intra_prefix_lsa_originate_stub(struct event *thread)
 
 		if (oi->state != OSPF6_INTERFACE_LOOPBACK
 		    && oi->state != OSPF6_INTERFACE_POINTTOPOINT
+		    && oi->state != OSPF6_INTERFACE_POINTTOMULTIPOINT
 		    && full_count != 0) {
 			if (IS_OSPF6_DEBUG_ORIGINATE(INTRA_PREFIX))
 				zlog_debug("  Interface %s is not stub, ignore",

@@ -83,8 +83,10 @@ clippy_scan += \
 	ospf6d/ospf6_lsa.c \
 	ospf6d/ospf6_gr_helper.c \
 	ospf6d/ospf6_gr.c \
+	ospf6d/ospf6_interface.c \
 	ospf6d/ospf6_nssa.c \
 	ospf6d/ospf6_route.c \
+	ospf6d/ospf6_neighbor.c \
 	# end
 
 nodist_ospf6d_ospf6d_SOURCES = \

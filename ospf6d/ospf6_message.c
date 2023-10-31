@@ -268,6 +268,18 @@ static struct ospf6_packet *ospf6_packet_new(size_t size)
 	return new;
 }
 
+static struct ospf6_packet *ospf6_packet_dup(struct ospf6_packet *old)
+{
+	struct ospf6_packet *new;
+
+	new = XCALLOC(MTYPE_OSPF6_PACKET, sizeof(struct ospf6_packet));
+	new->s = stream_dup(old->s);
+	new->dst = old->dst;
+	new->length = old->length;
+
+	return new;
+}
+
 static void ospf6_packet_free(struct ospf6_packet *op)
 {
 	if (op->s)
@@ -407,6 +419,25 @@ static void ospf6_hello_recv(struct in6_addr *src, struct in6_addr *dst,
 	hello = (struct ospf6_hello *)((caddr_t)oh
 				       + sizeof(struct ospf6_header));
 
+	if ((oi->state == OSPF6_INTERFACE_POINTTOPOINT
+	     || oi->state == OSPF6_INTERFACE_POINTTOMULTIPOINT)
+	    && oi->p2xp_only_cfg_neigh) {
+		/* NEVER, never, ever, do this on broadcast (or NBMA)!
+		 * DR/BDR election requires everyone to talk to everyone else
+		 * only for PtP/PtMP we can be selective in adjacencies!
+		 */
+		struct ospf6_if_p2xp_neighcfg *p2xp_cfg;
+
+		p2xp_cfg = ospf6_if_p2xp_find(oi, src);
+		if (!p2xp_cfg) {
+			if (IS_OSPF6_DEBUG_MESSAGE(oh->type, RECV_HDR))
+				zlog_debug(
+					"ignoring PtP/PtMP hello from %pI6, neighbor not configured",
+					src);
+			return;
+		}
+	}
+
 	/* HelloInterval check */
 	if (ntohs(hello->hello_interval) != oi->hello_interval) {
 		zlog_warn(
@@ -479,7 +510,7 @@ static void ospf6_hello_recv(struct in6_addr *src, struct in6_addr *dst,
 	on->hello_in++;
 
 	/* Always override neighbor's source address */
-	memcpy(&on->linklocal_addr, src, sizeof(struct in6_addr));
+	ospf6_neighbor_lladdr_set(on, src);
 
 	/* Neighbor ifindex check */
 	if (on->ifindex != (ifindex_t)ntohl(hello->interface_id)) {
@@ -2239,8 +2270,6 @@ static void ospf6_write(struct event *thread)
 void ospf6_hello_send(struct event *thread)
 {
 	struct ospf6_interface *oi;
-	struct ospf6_packet *op;
-	uint16_t length = OSPF6_HEADER_SIZE;
 
 	oi = (struct ospf6_interface *)EVENT_ARG(thread);
 
@@ -2266,6 +2295,20 @@ void ospf6_hello_send(struct event *thread)
 		return;
 	}
 
+	event_add_timer(master, ospf6_hello_send, oi, oi->hello_interval,
+			 &oi->thread_send_hello);
+
+	ospf6_hello_send_addr(oi, NULL);
+}
+
+/* used to send polls for PtP/PtMP too */
+void ospf6_hello_send_addr(struct ospf6_interface *oi,
+			   const struct in6_addr *addr)
+{
+	struct ospf6_packet *op;
+	uint16_t length = OSPF6_HEADER_SIZE;
+	bool anything = false;
+
 	op = ospf6_packet_new(oi->ifmtu);
 
 	ospf6_make_header(OSPF6_MESSAGE_TYPE_HELLO, oi, op->s);
@@ -2284,20 +2327,40 @@ void ospf6_hello_send(struct event *thread)
 	/* Set packet length. */
 	op->length = length;
 
-	op->dst = allspfrouters6;
+	if ((oi->state == OSPF6_INTERFACE_POINTTOPOINT
+	     || oi->state == OSPF6_INTERFACE_POINTTOMULTIPOINT)
+	    && !addr && oi->p2xp_no_multicast_hello) {
+		struct listnode *node;
+		struct ospf6_neighbor *on;
+		struct ospf6_packet *opdup;
 
-	ospf6_fill_hdr_checksum(oi, op);
+		for (ALL_LIST_ELEMENTS_RO(oi->neighbor_list, node, on)) {
+			if (on->state < OSPF6_NEIGHBOR_INIT)
+				/* poll-interval for these */
+				continue;
 
-	/* Add packet to the top of the interface output queue, so that they
-	 * can't get delayed by things like long queues of LS Update packets
-	 */
-	ospf6_packet_add_top(oi, op);
+			opdup = ospf6_packet_dup(op);
+			opdup->dst = on->linklocal_addr;
+			ospf6_fill_hdr_checksum(oi, opdup);
+			ospf6_packet_add_top(oi, opdup);
+			anything = true;
+		}
 
-	/* set next thread */
-	event_add_timer(master, ospf6_hello_send, oi, oi->hello_interval,
-			&oi->thread_send_hello);
+		ospf6_packet_free(op);
+	} else {
+		op->dst = addr ? *addr : allspfrouters6;
 
-	OSPF6_MESSAGE_WRITE_ON(oi);
+		/* Add packet to the top of the interface output queue, so that
+		 * they can't get delayed by things like long queues of LS
+		 * Update packets
+		 */
+		ospf6_fill_hdr_checksum(oi, op);
+		ospf6_packet_add_top(oi, op);
+		anything = true;
+	}
+
+	if (anything)
+		OSPF6_MESSAGE_WRITE_ON(oi);
 }
 
 static uint16_t ospf6_make_dbdesc(struct ospf6_neighbor *on, struct stream *s)

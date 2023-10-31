@@ -6,7 +6,10 @@
 #ifndef OSPF6_NEIGHBOR_H
 #define OSPF6_NEIGHBOR_H
 
+#include "typesafe.h"
 #include "hook.h"
+
+#include "ospf6_message.h"
 
 /* Forward declaration(s). */
 struct ospf6_area;
@@ -52,6 +55,8 @@ struct ospf6_helper_info {
 	uint32_t rejected_reason;
 };
 
+struct ospf6_if_p2xp_neighcfg;
+
 /* Neighbor structure */
 struct ospf6_neighbor {
 	/* Neighbor Router ID String */
@@ -59,6 +64,11 @@ struct ospf6_neighbor {
 
 	/* OSPFv3 Interface this neighbor belongs to */
 	struct ospf6_interface *ospf6_if;
+
+	/* P2P/P2MP config for this neighbor.
+	 * can be NULL if not explicitly configured!
+	 */
+	struct ospf6_if_p2xp_neighcfg *p2xp_cfg;
 
 	/* Neighbor state */
 	uint8_t state;
@@ -190,6 +200,14 @@ struct ospf6_neighbor *ospf6_neighbor_create(uint32_t router_id,
 					     struct ospf6_interface *oi);
 void ospf6_neighbor_delete(struct ospf6_neighbor *on);
 
+void ospf6_neighbor_lladdr_set(struct ospf6_neighbor *on,
+			       const struct in6_addr *addr);
+struct ospf6_if_p2xp_neighcfg *ospf6_if_p2xp_find(struct ospf6_interface *oi,
+						  const struct in6_addr *addr);
+void ospf6_if_p2xp_up(struct ospf6_interface *oi);
+
+uint32_t ospf6_neighbor_cost(struct ospf6_neighbor *on);
+
 /* Neighbor event */
 extern void hello_received(struct event *thread);
 extern void twoway_received(struct event *thread);
@@ -205,6 +223,8 @@ extern void ospf6_check_nbr_loading(struct ospf6_neighbor *on);
 
 extern void ospf6_neighbor_init(void);
 extern int config_write_ospf6_debug_neighbor(struct vty *vty);
+extern int config_write_ospf6_p2xp_neighbor(struct vty *vty,
+					    struct ospf6_interface *oi);
 extern void install_element_ospf6_debug_neighbor(void);
 
 DECLARE_HOOK(ospf6_neighbor_change,

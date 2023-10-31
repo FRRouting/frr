@@ -110,15 +110,18 @@ def test_wait_protocol_convergence():
 
     def expect_neighbor_full(router, neighbor):
         "Wait until OSPFv3 neighborship is full"
-        logger.info("waiting for OSPFv3 router '{}' neighborship with '{}'".format(router, neighbor))
+        logger.info(
+            "waiting for OSPFv3 router '{}' neighborship with '{}'".format(
+                router, neighbor
+            )
+        )
         test_func = partial(
             topotest.router_json_cmp,
             tgen.gears[router],
             "show ipv6 ospf6 neighbor json",
             {"neighbors": [{"neighborId": neighbor, "state": "Full"}]},
         )
-        _, result = topotest.run_and_expect(test_func, None,
-                                            count=130, wait=1)
+        _, result = topotest.run_and_expect(test_func, None, count=130, wait=1)
         assertmsg = '"{}" convergence failure'.format(router)
         assert result is None, assertmsg
 
@@ -143,6 +146,7 @@ def test_wait_protocol_convergence():
     expect_neighbor_full("r8", "10.254.254.5")
     expect_neighbor_full("r9", "10.254.254.5")
 
+
 def test_ecmp_inter_area():
     "Test whether OSPFv3 ECMP nexthops are properly updated for inter-area routes after link down"
     tgen = get_topogen()
@@ -156,22 +160,28 @@ def test_ecmp_inter_area():
 
     def expect_num_nexthops(router, expected_num_nexthops, count):
         "Wait until number of nexthops for routes matches expectation"
-        logger.info("waiting for OSPFv3 router '{}' nexthops {}".format(router, expected_num_nexthops))
+        logger.info(
+            "waiting for OSPFv3 router '{}' nexthops {}".format(
+                router, expected_num_nexthops
+            )
+        )
         test_func = partial(num_nexthops, router)
-        _, result = topotest.run_and_expect(test_func, expected_num_nexthops,
-                                            count=count, wait=3)
-        assert result == expected_num_nexthops, \
-               "'{}' wrong number of route nexthops".format(router)
+        _, result = topotest.run_and_expect(
+            test_func, expected_num_nexthops, count=count, wait=3
+        )
+        assert (
+            result == expected_num_nexthops
+        ), "'{}' wrong number of route nexthops".format(router)
 
     # Check nexthops pre link-down
-    expect_num_nexthops("r1", [1, 1, 1, 3, 3, 3, 3, 3], 4)
+    expect_num_nexthops("r1", [1, 1, 1, 3, 3, 3, 3, 3, 3, 3], 4)
 
     logger.info("triggering R2-R4 link down")
     tgen.gears["r2"].run("ip link set r2-eth1 down")
 
-    #tgen.mininet_cli()
+    # tgen.mininet_cli()
     # Check nexthops post link-down
-    expect_num_nexthops("r1", [1, 1, 1, 2, 2, 2, 2, 2], 8)
+    expect_num_nexthops("r1", [1, 1, 1, 2, 2, 2, 2, 2, 2, 2], 8)
 
 
 def teardown_module(_mod):
