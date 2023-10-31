@@ -1258,7 +1258,7 @@ Using the ``show isis ppr`` command, verify that all routers installed
 the PPR-IDs for the paths they are part of. Example:
 
 Router RT11
-'''''''''''
+^^^^^^^^^^^
 
 ::
 
