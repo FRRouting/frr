@@ -1,24 +1,5 @@
-Table of Contents
------------------
-
--  `Introduction <#introduction>`__
--  `Retrofitting process <#retrofitting-process>`__
-
-   -  `Step 1: writing a YANG module <#step1>`__
-   -  `Step 2: generate skeleton northbound callbacks <#step2>`__
-   -  `Step 3: update the frr_yang_module_info array of all relevant
-      daemons <#step3>`__
-   -  `Step 4: implement the northbound configuration
-      callbacks <#step4>`__
-   -  `Step 5: rewrite the CLI commands as dumb wrappers around the
-      northbound callbacks <#step5>`__
-   -  `Step 6: implement the ``cli_show`` callbacks <#step6>`__
-   -  `Step 7: consolidation <#step7>`__
-
--  `Final Considerations <#final-considerations>`__
-
-Introduction
-------------
+Retrofitting Configuration Commands
+-----------------------------------
 
 This page explains how to convert existing CLI configuration commands to
 the new northbound model. This documentation is meant to be the primary
@@ -88,7 +69,7 @@ possible. As we’ll see later, not all constraints can be expressed using
 the YANG language and sometimes we’ll need to resort to code-level
 validation in the northbound callbacks.
 
-   Tip: the [[YANG tools]] page details several tools and commands that
+   Tip: the :doc:`yang-tools` page details several tools and commands that
    might be useful when writing a YANG module, like validating YANG
    files, indenting YANG files, validating instance data, etc.
 
@@ -1875,7 +1856,7 @@ Final Considerations
 --------------------
 
 Testing
-^^^^^^^
+~~~~~~~
 
 Converting CLI commands to the new northbound model can be a complicated
 task for beginners, but the more commands one converts, the easier it
@@ -1888,7 +1869,7 @@ to use valgrind and static code analyzers to catch other types of
 problems like memory leaks.
 
 Amount of work
-^^^^^^^^^^^^^^
+~~~~~~~~~~~~~~
 
 The output below gives a rough estimate of the total number of
 configuration commands that need to be converted per daemon:
