@@ -215,6 +215,8 @@ static void netlink_determine_zebra_iftype(const char *kind,
 		*zif_type = ZEBRA_IF_VETH;
 	else if (strcmp(kind, "bond") == 0)
 		*zif_type = ZEBRA_IF_BOND;
+	else if (strcmp(kind, "team") == 0)
+		*zif_type = ZEBRA_IF_BOND;
 	else if (strcmp(kind, "gre") == 0)
 		*zif_type = ZEBRA_IF_GRE;
 }
