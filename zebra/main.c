@@ -145,7 +145,9 @@ static void sigint(void)
 
 	zlog_notice("Terminating on signal");
 
+	nb_oper_cancel_all_walks();
 	mgmt_be_client_destroy(mgmt_be_client);
+	mgmt_be_client = NULL;
 
 	atomic_store_explicit(&zrouter.in_shutdown, true,
 			      memory_order_relaxed);
