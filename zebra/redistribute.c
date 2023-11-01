@@ -135,10 +135,6 @@ static void zebra_redistribute(struct zserv *client, int type,
 			if (!zebra_check_addr(&rn->p))
 				continue;
 
-			if (type == ZEBRA_ROUTE_ADD && is_table_direct &&
-			    newre->vrf_id != VRF_DEFAULT)
-				continue;
-
 			zsend_redistribute_route(ZEBRA_REDISTRIBUTE_ROUTE_ADD,
 						 client, rn, newre, is_table_direct);
 		}
