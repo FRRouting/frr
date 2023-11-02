@@ -652,11 +652,7 @@ void bgp_lp_event_zebra_up(void)
 	}
 
 	/* round up */
-	if (((float)labels_needed / (float)lp->next_chunksize) >
-	    (labels_needed / lp->next_chunksize))
-		chunks_needed = (labels_needed / lp->next_chunksize) + 1;
-	else
-		chunks_needed = (labels_needed / lp->next_chunksize);
+	chunks_needed = (labels_needed + lp->next_chunksize - 1) / lp->next_chunksize;
 	labels_needed = chunks_needed * lp->next_chunksize;
 
 	/*
