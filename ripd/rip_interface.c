@@ -1118,6 +1118,8 @@ void rip_if_init(void)
 
 	/* Install interface node. */
 	if_cmd_init_default();
-	if_zapi_callbacks(rip_ifp_create, rip_ifp_up,
-			  rip_ifp_down, rip_ifp_destroy);
+	hook_register_prio(if_real, 0, rip_ifp_create);
+	hook_register_prio(if_up, 0, rip_ifp_up);
+	hook_register_prio(if_down, 0, rip_ifp_down);
+	hook_register_prio(if_unreal, 0, rip_ifp_destroy);
 }

@@ -183,8 +183,10 @@ static zclient_handler *const vrrp_handlers[] = {
 
 void vrrp_zebra_init(void)
 {
-	if_zapi_callbacks(vrrp_ifp_create, vrrp_ifp_up,
-			  vrrp_ifp_down, vrrp_ifp_destroy);
+	hook_register_prio(if_real, 0, vrrp_ifp_create);
+	hook_register_prio(if_up, 0, vrrp_ifp_up);
+	hook_register_prio(if_down, 0, vrrp_ifp_down);
+	hook_register_prio(if_unreal, 0, vrrp_ifp_destroy);
 
 	/* Socket for receiving updates from Zebra daemon */
 	zclient = zclient_new(master, &zclient_options_default, vrrp_handlers,

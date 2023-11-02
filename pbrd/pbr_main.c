@@ -158,8 +158,10 @@ int main(int argc, char **argv, char **envp)
 	access_list_init();
 	pbr_nht_init();
 	pbr_map_init();
-	if_zapi_callbacks(pbr_ifp_create, pbr_ifp_up,
-			  pbr_ifp_down, pbr_ifp_destroy);
+	hook_register_prio(if_real, 0, pbr_ifp_create);
+	hook_register_prio(if_up, 0, pbr_ifp_up);
+	hook_register_prio(if_down, 0, pbr_ifp_down);
+	hook_register_prio(if_unreal, 0, pbr_ifp_destroy);
 	pbr_zebra_init();
 	pbr_vrf_init();
 	pbr_vty_init();

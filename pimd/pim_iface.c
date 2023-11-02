@@ -1771,8 +1771,10 @@ void pim_iface_init(void)
 	hook_register_prio(if_add, 0, pim_if_new_hook);
 	hook_register_prio(if_del, 0, pim_if_delete_hook);
 
-	if_zapi_callbacks(pim_ifp_create, pim_ifp_up, pim_ifp_down,
-			  pim_ifp_destroy);
+	hook_register_prio(if_real, 0, pim_ifp_create);
+	hook_register_prio(if_up, 0, pim_ifp_up);
+	hook_register_prio(if_down, 0, pim_ifp_down);
+	hook_register_prio(if_unreal, 0, pim_ifp_destroy);
 }
 
 static void pim_if_membership_clear(struct interface *ifp)

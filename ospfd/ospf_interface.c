@@ -1562,8 +1562,10 @@ void ospf_reset_hello_timer(struct interface *ifp, struct in_addr addr,
 
 void ospf_if_init(void)
 {
-	if_zapi_callbacks(ospf_ifp_create, ospf_ifp_up,
-			  ospf_ifp_down, ospf_ifp_destroy);
+	hook_register_prio(if_real, 0, ospf_ifp_create);
+	hook_register_prio(if_up, 0, ospf_ifp_up);
+	hook_register_prio(if_down, 0, ospf_ifp_down);
+	hook_register_prio(if_unreal, 0, ospf_ifp_destroy);
 
 	/* Initialize Zebra interface data structure. */
 	hook_register_prio(if_add, 0, ospf_if_new_hook);

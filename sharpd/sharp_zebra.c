@@ -1077,8 +1077,10 @@ void sharp_zebra_init(void)
 {
 	struct zclient_options opt = {.receive_notify = true};
 
-	if_zapi_callbacks(sharp_ifp_create, sharp_ifp_up, sharp_ifp_down,
-			  sharp_ifp_destroy);
+	hook_register_prio(if_real, 0, sharp_ifp_create);
+	hook_register_prio(if_up, 0, sharp_ifp_up);
+	hook_register_prio(if_down, 0, sharp_ifp_down);
+	hook_register_prio(if_unreal, 0, sharp_ifp_destroy);
 
 	zclient = zclient_new(master, &opt, sharp_handlers,
 			      array_size(sharp_handlers));

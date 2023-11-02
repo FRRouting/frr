@@ -542,8 +542,10 @@ void static_zebra_init(void)
 {
 	struct zclient_options opt = { .receive_notify = true };
 
-	if_zapi_callbacks(static_ifp_create, static_ifp_up,
-			  static_ifp_down, static_ifp_destroy);
+	hook_register_prio(if_real, 0, static_ifp_create);
+	hook_register_prio(if_up, 0, static_ifp_up);
+	hook_register_prio(if_down, 0, static_ifp_down);
+	hook_register_prio(if_unreal, 0, static_ifp_destroy);
 
 	zclient = zclient_new(master, &opt, static_handlers,
 			      array_size(static_handlers));

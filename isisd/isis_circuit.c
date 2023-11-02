@@ -1680,6 +1680,8 @@ void isis_circuit_init(void)
 #else
 	if_cmd_init_default();
 #endif
-	if_zapi_callbacks(isis_ifp_create, isis_ifp_up,
-			  isis_ifp_down, isis_ifp_destroy);
+	hook_register_prio(if_real, 0, isis_ifp_create);
+	hook_register_prio(if_up, 0, isis_ifp_up);
+	hook_register_prio(if_down, 0, isis_ifp_down);
+	hook_register_prio(if_unreal, 0, isis_ifp_destroy);
 }
