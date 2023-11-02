@@ -91,6 +91,8 @@ struct event_loop {
 	pthread_mutex_t mtx;
 	pthread_t owner;
 
+	nfds_t last_read;
+
 	bool ready_run_loop;
 	RUSAGE_T last_getrusage;
 };

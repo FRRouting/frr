@@ -1649,6 +1649,10 @@ static inline void thread_process_io_inner_loop(struct event_loop *m,
  * Walks through file descriptor array looking for those pollfds whose .revents
  * field has something interesting. Deletes any invalid file descriptors.
  *
+ * Try to impart some impartiality to handling of io.  The event
+ * system will cycle through the fd's available for io
+ * giving each one a chance to go first.
+ *
  * @param m the thread master
  * @param num the number of active file descriptors (return value of poll())
  */
@@ -1656,10 +1660,15 @@ static void thread_process_io(struct event_loop *m, unsigned int num)
 {
 	unsigned int ready = 0;
 	struct pollfd *pfds = m->handler.copy;
+	nfds_t i, last_read = m->last_read % m->handler.copycount;
 
-	for (nfds_t i = 0; i < m->handler.copycount && ready < num; ++i) {
-	  thread_process_io_inner_loop(m, num, pfds, &i, &ready);
-	}
+	for (i = last_read; i < m->handler.copycount && ready < num; ++i)
+		thread_process_io_inner_loop(m, num, pfds, &i, &ready);
+
+	for (i = 0; i < last_read && ready < num; ++i)
+		thread_process_io_inner_loop(m, num, pfds, &i, &ready);
+
+	m->last_read++;
 }
 
 /* Add all timers that have popped to the ready list. */
