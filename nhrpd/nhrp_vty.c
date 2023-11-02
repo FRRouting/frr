@@ -885,6 +885,8 @@ static void show_ip_nhrp_shortcut(struct nhrp_shortcut *s, void *pctx)
 	struct vty *vty = ctx->vty;
 	char buf1[PREFIX_STRLEN], buf2[SU_ADDRSTRLEN];
 	struct json_object *json = NULL;
+	struct timeval *t;
+	struct timeval now;
 
 	if (!ctx->count && !ctx->json) {
 		vty_out(vty, "%-8s %-24s %-24s %s\n", "Type", "Prefix", "Via",
@@ -913,6 +915,16 @@ static void show_ip_nhrp_shortcut(struct nhrp_shortcut *s, void *pctx)
 		else
 			json_object_string_add(json, "identity", "");
 
+		json_object_int_add(json, "holdingTimeSecs", s->holding_time);
+		json_object_boolean_add(json, "routeInstalled",
+					!!s->route_installed);
+		json_object_boolean_add(json, "expiring", !!s->expiring);
+		if (s->t_timer) {
+			monotime(&now);
+			t = &s->t_timer->u.sands;
+			json_object_int_add(json, "remainingTimeSecs",
+					    t->tv_sec - now.tv_sec);
+		}
 		json_object_array_add(ctx->json, json);
 		return;
 	}
