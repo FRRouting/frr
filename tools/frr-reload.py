@@ -25,6 +25,7 @@ from collections import OrderedDict
 from ipaddress import IPv6Address, ip_network
 from pprint import pformat
 
+
 # Python 3
 def iteritems(d):
     return iter(d.items())
@@ -362,7 +363,7 @@ class Config(object):
         """
         Return the parsed context as strings for display, log etc.
         """
-        for (_, ctx) in sorted(iteritems(self.contexts)):
+        for _, ctx in sorted(iteritems(self.contexts)):
             print(str(ctx))
 
     def save_contexts(self, key, lines):
@@ -546,7 +547,6 @@ class Config(object):
         cur_ctx_lines = []
 
         for line in self.lines:
-
             if not line:
                 continue
 
@@ -647,7 +647,7 @@ def lines_to_config(ctx_keys, line, delete):
             ctx_keys = []
 
     if line:
-        for (i, ctx_key) in enumerate(ctx_keys):
+        for i, ctx_key in enumerate(ctx_keys):
             cmd.append(" " * i + ctx_key)
 
         line = line.lstrip()
@@ -725,7 +725,7 @@ def get_normalized_ipv6_line(line):
 
 
 def line_exist(lines, target_ctx_keys, target_line, exact_match=True):
-    for (ctx_keys, line) in lines:
+    for ctx_keys, line in lines:
         if ctx_keys == target_ctx_keys:
             if exact_match:
                 if line == target_line:
@@ -744,7 +744,7 @@ def bgp_delete_inst_move_line(lines_to_del):
     bgp_defult_inst = False
     bgp_vrf_inst = False
 
-    for (ctx_keys, line) in lines_to_del:
+    for ctx_keys, line in lines_to_del:
         # Find bgp default inst
         if (
             ctx_keys[0].startswith("router bgp")
@@ -757,7 +757,7 @@ def bgp_delete_inst_move_line(lines_to_del):
             bgp_vrf_inst = True
 
     if bgp_defult_inst and bgp_vrf_inst:
-        for (ctx_keys, line) in lines_to_del:
+        for ctx_keys, line in lines_to_del:
             # move bgp default inst to end
             if (
                 ctx_keys[0].startswith("router bgp")
@@ -853,7 +853,6 @@ def bgp_delete_nbr_remote_as_line(lines_to_add):
 
 
 def bgp_remove_neighbor_cfg(lines_to_del, del_nbr_dict):
-
     # This method handles deletion of bgp neighbor configs,
     # if there is neighbor to peer-group cmd is in delete list.
     # As 'no neighbor .* peer-group' deletes the neighbor,
@@ -861,7 +860,7 @@ def bgp_remove_neighbor_cfg(lines_to_del, del_nbr_dict):
     # in error.
     lines_to_del_to_del = []
 
-    for (ctx_keys, line) in lines_to_del:
+    for ctx_keys, line in lines_to_del:
         if (
             ctx_keys[0].startswith("router bgp")
             and line
@@ -876,7 +875,7 @@ def bgp_remove_neighbor_cfg(lines_to_del, del_nbr_dict):
                         if re_nb:
                             lines_to_del_to_del.append((ctx_keys, line))
 
-    for (ctx_keys, line) in lines_to_del_to_del:
+    for ctx_keys, line in lines_to_del_to_del:
         lines_to_del.remove((ctx_keys, line))
 
 
@@ -942,7 +941,7 @@ def bgp_delete_move_lines(lines_to_add, lines_to_del):
     #   "router bgp 200  no neighbor uplink1 interface remote-as internal"
     #   "router bgp 200  no neighbor underlay peer-group"
 
-    for (ctx_keys, line) in lines_to_del:
+    for ctx_keys, line in lines_to_del:
         if (
             ctx_keys[0].startswith("router bgp")
             and line
@@ -999,13 +998,13 @@ def bgp_delete_move_lines(lines_to_add, lines_to_del):
             bgp_remove_neighbor_cfg(lines_to_del, del_nbr_dict)
         return (lines_to_add, lines_to_del)
 
-    for (ctx_keys, line) in lines_to_del_to_app:
+    for ctx_keys, line in lines_to_del_to_app:
         lines_to_del.remove((ctx_keys, line))
         lines_to_del.append((ctx_keys, line))
 
     # {'router bgp 65001': {'PG': ['10.1.1.2'], 'PG1': ['10.1.1.21']},
     #  'router bgp 65001 vrf vrf1': {'PG': ['10.1.1.2'], 'PG1': ['10.1.1.21']}}
-    for (ctx_keys, line) in lines_to_del:
+    for ctx_keys, line in lines_to_del:
         if (
             ctx_keys[0].startswith("router bgp")
             and line
@@ -1023,7 +1022,7 @@ def bgp_delete_move_lines(lines_to_add, lines_to_del):
                         del_dict[ctx_keys[0]][pg_key].append(re_nbr_pg.group(1))
 
     lines_to_del_to_app = []
-    for (ctx_keys, line) in lines_to_del:
+    for ctx_keys, line in lines_to_del:
         if (
             ctx_keys[0].startswith("router bgp")
             and line
@@ -1043,10 +1042,10 @@ def bgp_delete_move_lines(lines_to_add, lines_to_del):
                     if re_pg:
                         lines_to_del_to_app.append((ctx_keys, line))
 
-    for (ctx_keys, line) in lines_to_del_to_del:
+    for ctx_keys, line in lines_to_del_to_del:
         lines_to_del.remove((ctx_keys, line))
 
-    for (ctx_keys, line) in lines_to_del_to_app:
+    for ctx_keys, line in lines_to_del_to_app:
         lines_to_del.remove((ctx_keys, line))
         lines_to_del.append((ctx_keys, line))
 
@@ -1056,7 +1055,6 @@ def bgp_delete_move_lines(lines_to_add, lines_to_del):
 
 
 def pim_delete_move_lines(lines_to_add, lines_to_del):
-
     # Under interface context, if 'no ip pim' is present
     # remove subsequent 'no ip pim <blah>' options as it
     # they are implicitly deleted by 'no ip pim'.
@@ -1064,12 +1062,12 @@ def pim_delete_move_lines(lines_to_add, lines_to_del):
     # pending list.
     pim_disable = False
 
-    for (ctx_keys, line) in lines_to_del:
+    for ctx_keys, line in lines_to_del:
         if ctx_keys[0].startswith("interface") and line and line == "ip pim":
             pim_disable = True
 
     if pim_disable:
-        for (ctx_keys, line) in lines_to_del:
+        for ctx_keys, line in lines_to_del:
             if (
                 ctx_keys[0].startswith("interface")
                 and line
@@ -1081,7 +1079,6 @@ def pim_delete_move_lines(lines_to_add, lines_to_del):
 
 
 def delete_move_lines(lines_to_add, lines_to_del):
-
     lines_to_add, lines_to_del = bgp_delete_move_lines(lines_to_add, lines_to_del)
     lines_to_add, lines_to_del = pim_delete_move_lines(lines_to_add, lines_to_del)
 
@@ -1089,13 +1086,12 @@ def delete_move_lines(lines_to_add, lines_to_del):
 
 
 def ignore_delete_re_add_lines(lines_to_add, lines_to_del):
-
     # Quite possibly the most confusing (while accurate) variable names in history
     lines_to_add_to_del = []
     lines_to_del_to_del = []
 
     index = 0
-    for (ctx_keys, line) in lines_to_del:
+    for ctx_keys, line in lines_to_del:
         deleted = False
 
         # no form of route-map description command only
@@ -1113,7 +1109,7 @@ def ignore_delete_re_add_lines(lines_to_add, lines_to_del):
         # If there is a change in the segment routing block ranges, do it
         # in-place, to avoid requesting spurious label chunks which might fail
         if line and "segment-routing global-block" in line:
-            for (add_key, add_line) in lines_to_add:
+            for add_key, add_line in lines_to_add:
                 if (
                     ctx_keys[0] == add_key[0]
                     and add_line
@@ -1124,7 +1120,6 @@ def ignore_delete_re_add_lines(lines_to_add, lines_to_del):
             continue
 
         if ctx_keys[0].startswith("router bgp") and line:
-
             if line.startswith("neighbor "):
                 # BGP changed how it displays swpX peers that are part of peer-group. Older
                 # versions of frr would display these on separate lines:
@@ -1206,7 +1201,7 @@ def ignore_delete_re_add_lines(lines_to_add, lines_to_del):
                     bfd_nbr = "neighbor %s" % nbr
                     bfd_search_string = bfd_nbr + r" bfd (\S+) (\S+) (\S+)"
 
-                    for (ctx_keys, add_line) in lines_to_add:
+                    for ctx_keys, add_line in lines_to_add:
                         if ctx_keys[0].startswith("router bgp"):
                             re_add_nbr_bfd_timers = re.search(
                                 bfd_search_string, add_line
@@ -1236,7 +1231,7 @@ def ignore_delete_re_add_lines(lines_to_add, lines_to_del):
                     dir = re_nbr_rm.group(3)
                     search = "neighbor%sroute-map(.*)%s" % (neighbor_name, dir)
                     save_line = "EMPTY"
-                    for (ctx_keys_al, add_line) in lines_to_add:
+                    for ctx_keys_al, add_line in lines_to_add:
                         if ctx_keys_al[0].startswith("router bgp"):
                             if add_line:
                                 rm_match = re.search(search, add_line)
@@ -1256,7 +1251,7 @@ def ignore_delete_re_add_lines(lines_to_add, lines_to_del):
                                         lines_to_del_to_del.append((ctx_keys_al, line))
 
                     if adjust_for_bgp_node == 1:
-                        for (ctx_keys_dl, dl_line) in lines_to_del:
+                        for ctx_keys_dl, dl_line in lines_to_del:
                             if (
                                 ctx_keys_dl[0].startswith("router bgp")
                                 and len(ctx_keys_dl) > 1
@@ -1438,7 +1433,6 @@ def ignore_delete_re_add_lines(lines_to_add, lines_to_del):
             and ctx_keys[1] == "address-family l2vpn evpn"
             and ctx_keys[2].startswith("vni")
         ):
-
             re_route_target = (
                 re.search("^route-target import (.*)$", line)
                 if line is not None
@@ -1514,18 +1508,17 @@ def ignore_delete_re_add_lines(lines_to_add, lines_to_del):
                         lines_to_del_to_del.append((ctx_keys, line))
                         lines_to_add_to_del.append((tmp_ctx_keys, line))
 
-    for (ctx_keys, line) in lines_to_del_to_del:
+    for ctx_keys, line in lines_to_del_to_del:
         try:
             lines_to_del.remove((ctx_keys, line))
         except ValueError:
             pass
 
-    for (ctx_keys, line) in lines_to_add_to_del:
+    for ctx_keys, line in lines_to_add_to_del:
         try:
             lines_to_add.remove((ctx_keys, line))
         except ValueError:
             pass
-
 
     return (lines_to_add, lines_to_del)
 
@@ -1537,8 +1530,7 @@ def ignore_unconfigurable_lines(lines_to_add, lines_to_del):
     """
     lines_to_del_to_del = []
 
-    for (ctx_keys, line) in lines_to_del:
-
+    for ctx_keys, line in lines_to_del:
         # The integrated-vtysh-config one is technically "no"able but if we did
         # so frr-reload would stop working so do not let the user shoot
         # themselves in the foot by removing this.
@@ -1559,7 +1551,7 @@ def ignore_unconfigurable_lines(lines_to_add, lines_to_del):
             log.info('"%s" cannot be removed' % (ctx_keys[-1],))
             lines_to_del_to_del.append((ctx_keys, line))
 
-    for (ctx_keys, line) in lines_to_del_to_del:
+    for ctx_keys, line in lines_to_del_to_del:
         lines_to_del.remove((ctx_keys, line))
 
     return (lines_to_add, lines_to_del)
@@ -1584,8 +1576,7 @@ def compare_context_objects(newconf, running):
 
     # Find contexts that are in newconf but not in running
     # Find contexts that are in running but not in newconf
-    for (running_ctx_keys, running_ctx) in iteritems(running.contexts):
-
+    for running_ctx_keys, running_ctx in iteritems(running.contexts):
         if running_ctx_keys in newconf.contexts:
             newconf_ctx = newconf.contexts[running_ctx_keys]
 
@@ -1606,7 +1597,6 @@ def compare_context_objects(newconf, running):
                         lines_to_del.append((running_ctx_keys, new_del_line))
 
         if running_ctx_keys not in newconf.contexts:
-
             # We check that the len is 1 here so that we only look at ('router bgp 10')
             # and not ('router bgp 10', 'address-family ipv4 unicast'). The
             # latter could cause a false delete_bgpd positive if ipv4 unicast is in
@@ -1777,14 +1767,12 @@ def compare_context_objects(newconf, running):
 
     # Find the lines within each context to add
     # Find the lines within each context to del
-    for (newconf_ctx_keys, newconf_ctx) in iteritems(newconf.contexts):
-
+    for newconf_ctx_keys, newconf_ctx in iteritems(newconf.contexts):
         if newconf_ctx_keys in running.contexts:
             running_ctx = running.contexts[newconf_ctx_keys]
 
             for line in newconf_ctx.lines:
                 if line not in running_ctx.dlines:
-
                     # candidate paths can only be added after the policy and segment list,
                     # so add them to a separate array that is going to be appended at the end
                     if (
@@ -1802,10 +1790,8 @@ def compare_context_objects(newconf, running):
                 if line not in newconf_ctx.dlines:
                     lines_to_del.append((newconf_ctx_keys, line))
 
-    for (newconf_ctx_keys, newconf_ctx) in iteritems(newconf.contexts):
-
+    for newconf_ctx_keys, newconf_ctx in iteritems(newconf.contexts):
         if newconf_ctx_keys not in running.contexts:
-
             # candidate paths can only be added after the policy and segment list,
             # so add them to a separate array that is going to be appended at the end
             if (
@@ -2040,7 +2026,6 @@ if __name__ == "__main__":
         reload_ok = False
 
     if args.test:
-
         # Create a Config object from the running config
         running = Config(vtysh)
 
@@ -2056,8 +2041,7 @@ if __name__ == "__main__":
                 print("\nLines To Delete")
                 print("===============")
 
-            for (ctx_keys, line) in lines_to_del:
-
+            for ctx_keys, line in lines_to_del:
                 if line == "!":
                     continue
 
@@ -2083,8 +2067,7 @@ if __name__ == "__main__":
                 print("\nLines To Add")
                 print("============")
 
-            for (ctx_keys, line) in lines_to_add:
-
+            for ctx_keys, line in lines_to_add:
                 if line == "!":
                     continue
 
@@ -2172,8 +2155,7 @@ if __name__ == "__main__":
             # apply to other scenarios as well where configuring FOO adds BAR
             # to the config.
             if lines_to_del and x == 0:
-                for (ctx_keys, line) in lines_to_del:
-
+                for ctx_keys, line in lines_to_del:
                     if line == "!":
                         continue
 
@@ -2203,7 +2185,6 @@ if __name__ == "__main__":
                             vtysh(["configure"] + cmd, stdouts)
 
                         except VtyshException:
-
                             # - Pull the last entry from cmd (this would be
                             #   'no ip ospf authentication message-digest 1.1.1.1' in
                             #   our example above
@@ -2231,8 +2212,7 @@ if __name__ == "__main__":
             if lines_to_add:
                 lines_to_configure = []
 
-                for (ctx_keys, line) in lines_to_add:
-
+                for ctx_keys, line in lines_to_add:
                     if line == "!":
                         continue
 
