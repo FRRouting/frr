@@ -224,7 +224,9 @@ def setup_module(module):
     logger.info("Launching BGP and ZEBRA on r1")
     router = tgen.gears["r1"]
     router.load_config(
-        TopoRouter.RD_ZEBRA, os.path.join(CWD, "{}/zebra.conf".format("r1"))
+        TopoRouter.RD_ZEBRA,
+        os.path.join(CWD, "{}/zebra.conf".format("r1")),
+        "-M wrap_script",
     )
     router.load_config(
         TopoRouter.RD_BGP, os.path.join(CWD, "{}/bgpd.conf".format("r1"))
