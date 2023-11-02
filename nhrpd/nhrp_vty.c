@@ -802,7 +802,11 @@ static void show_ip_nhrp_cache(struct nhrp_cache *c, void *pctx)
 				       nhrp_cache_type_str[c->cur.type]);
 		json_object_string_add(json, "protocol", buf[0]);
 		json_object_string_add(json, "nbma", buf[1]);
+#if CONFDATE > 20250115
+		CPP_NOTICE("remove claimed_nbma key")
+#endif
 		json_object_string_add(json, "claimed_nbma", buf[2]);
+		json_object_string_add(json, "claimedNbma", buf[2]);
 
 		if (c->used)
 			json_object_boolean_true_add(json, "used");
