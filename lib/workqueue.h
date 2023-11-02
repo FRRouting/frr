@@ -26,9 +26,7 @@ DECLARE_MTYPE(WORK_QUEUE);
 /* action value, for use by item processor and item error handlers */
 typedef enum {
 	WQ_SUCCESS = 0,
-	WQ_RETRY_NOW,     /* retry immediately */
-	WQ_RETRY_LATER,   /* retry later, cease processing work queue */
-	WQ_REQUEUE,       /* requeue item, continue processing work queue */
+	WQ_REQUEUE,	  /* requeue item, continue processing work queue */
 	WQ_QUEUE_BLOCKED, /* Queue cant be processed at this time.
 			   * Similar to WQ_RETRY_LATER, but doesn't penalise
 			   * the particular item.. */
@@ -144,6 +142,7 @@ bool work_queue_is_scheduled(struct work_queue *wq);
 /* Helpers, exported for thread.c and command.c */
 extern void work_queue_run(struct event *thread);
 
+/* Function to initialize the workqueue cli */
 extern void workqueue_cmd_init(void);
 
 #ifdef __cplusplus

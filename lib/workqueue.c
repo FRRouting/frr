@@ -281,8 +281,7 @@ void work_queue_run(struct event *thread)
 		do {
 			ret = wq->spec.workfunc(wq, item->data);
 			item->ran++;
-		} while ((ret == WQ_RETRY_NOW)
-			 && (item->ran < wq->spec.max_retries));
+		} while (item->ran < wq->spec.max_retries);
 
 		switch (ret) {
 		case WQ_QUEUE_BLOCKED: {
@@ -290,9 +289,6 @@ void work_queue_run(struct event *thread)
 			 * specific error, and retry later
 			 */
 			item->ran--;
-			goto stats;
-		}
-		case WQ_RETRY_LATER: {
 			goto stats;
 		}
 		case WQ_REQUEUE: {
@@ -312,11 +308,6 @@ void work_queue_run(struct event *thread)
 				titem = item;
 			break;
 		}
-		case WQ_RETRY_NOW:
-			/* a RETRY_NOW that gets here has exceeded max_tries, same
-			 * as ERROR
-			 */
-			fallthrough;
 		case WQ_SUCCESS:
 		default: {
 			work_queue_item_remove(wq, item);
@@ -368,8 +359,7 @@ stats:
 
 	/* Is the queue done yet? If it is, call the completion callback. */
 	if (!work_queue_empty(wq)) {
-		if (ret == WQ_RETRY_LATER ||
-		    ret == WQ_QUEUE_BLOCKED)
+		if (ret == WQ_QUEUE_BLOCKED)
 			work_queue_schedule(wq, wq->spec.retry);
 		else
 			work_queue_schedule(wq, 0);
