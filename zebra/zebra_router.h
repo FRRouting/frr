@@ -209,6 +209,8 @@ struct zebra_router {
 	bool notify_on_ack;
 	bool v6_with_v4_nexthop;
 
+	bool v6_rr_semantics;
+
 	/*
 	 * If the asic is notifying us about successful nexthop
 	 * allocation/control.  Some developers have made their

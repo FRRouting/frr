@@ -2209,7 +2209,7 @@ ssize_t netlink_route_multipath_msg_encode(int cmd, struct zebra_dplane_ctx *ctx
 	req->n.nlmsg_flags = NLM_F_CREATE | NLM_F_REQUEST;
 
 	if (((cmd == RTM_NEWROUTE) &&
-	     ((p->family == AF_INET) || v6_rr_semantics)) ||
+	     ((p->family == AF_INET) || zrouter.v6_rr_semantics)) ||
 	    force_rr)
 		req->n.nlmsg_flags |= NLM_F_REPLACE;
 
@@ -3095,8 +3095,7 @@ netlink_put_route_update_msg(struct nl_batch *bth, struct zebra_dplane_ctx *ctx)
 	} else if (dplane_ctx_get_op(ctx) == DPLANE_OP_ROUTE_INSTALL) {
 		cmd = RTM_NEWROUTE;
 	} else if (dplane_ctx_get_op(ctx) == DPLANE_OP_ROUTE_UPDATE) {
-
-		if (p->family == AF_INET || v6_rr_semantics) {
+		if (p->family == AF_INET || zrouter.v6_rr_semantics) {
 			/* Single 'replace' operation */
 
 			/*

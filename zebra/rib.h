@@ -627,8 +627,6 @@ extern void zebra_vty_init(void);
 
 extern pid_t pid;
 
-extern bool v6_rr_semantics;
-
 extern uint32_t rt_table_main_id;
 
 /* Name of hook calls */
