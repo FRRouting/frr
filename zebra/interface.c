@@ -5664,11 +5664,6 @@ void zebra_if_init(void)
 	/* Install configuration write function. */
 	if_cmd_init(if_config_write);
 	install_node(&link_params_node);
-	/*
-	 * This is *intentionally* setting this to NULL, signaling
-	 * that interface creation for zebra acts differently
-	 */
-	if_zapi_callbacks(NULL, NULL, NULL, NULL);
 
 	install_element(VIEW_NODE, &show_interface_cmd);
 	install_element(VIEW_NODE, &show_interface_vrf_all_cmd);

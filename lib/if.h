@@ -386,8 +386,27 @@ DECLARE_QOBJ_TYPE(interface);
  * can use 1000+ so they run after the daemon has initialised daemon-specific
  * interface data
  */
-DECLARE_HOOK(if_add, (struct interface * ifp), (ifp));
-DECLARE_KOOH(if_del, (struct interface * ifp), (ifp));
+DECLARE_HOOK(if_add, (struct interface *ifp), (ifp));
+DECLARE_KOOH(if_del, (struct interface *ifp), (ifp));
+
+/* called (in daemons) when ZAPI tells us the interface actually exists
+ * (ifindex != IFINDEX_INTERNAL)
+ *
+ * WARNING: these 2 hooks NEVER CALLED inside zebra!
+ */
+DECLARE_HOOK(if_real, (struct interface *ifp), (ifp));
+DECLARE_KOOH(if_unreal, (struct interface *ifp), (ifp));
+
+/* called (in daemons) on state changes on interfaces.  Whether this is admin
+ * state (= pure config) or carrier state (= hardware link plugged) depends on
+ * zebra's "link-detect" configuration.  By default, it's carrier state, so
+ * this won't happen until the interface actually has a link.
+ *
+ * WARNING: these 2 hooks NEVER CALLED inside zebra!
+ */
+DECLARE_HOOK(if_up, (struct interface *ifp), (ifp));
+DECLARE_KOOH(if_down, (struct interface *ifp), (ifp));
+
 
 #define METRIC_MAX (~0)
 
@@ -609,10 +628,6 @@ extern void if_vty_config_start(struct vty *vty, struct interface *ifp);
 extern void if_vty_config_end(struct vty *vty);
 extern void if_cmd_init(int (*config_write)(struct vty *));
 extern void if_cmd_init_default(void);
-extern void if_zapi_callbacks(int (*create)(struct interface *ifp),
-			      int (*up)(struct interface *ifp),
-			      int (*down)(struct interface *ifp),
-			      int (*destroy)(struct interface *ifp));
 
 extern void if_new_via_zapi(struct interface *ifp);
 extern void if_up_via_zapi(struct interface *ifp);

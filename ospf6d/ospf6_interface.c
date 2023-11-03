@@ -2797,8 +2797,10 @@ void ospf6_interface_init(void)
 {
 	/* Install interface node. */
 	if_cmd_init(config_write_interface);
-	if_zapi_callbacks(ospf6_ifp_create, ospf6_ifp_up, ospf6_ifp_down,
-			  ospf6_ifp_destroy);
+	hook_register_prio(if_real, 0, ospf6_ifp_create);
+	hook_register_prio(if_up, 0, ospf6_ifp_up);
+	hook_register_prio(if_down, 0, ospf6_ifp_down);
+	hook_register_prio(if_unreal, 0, ospf6_ifp_destroy);
 
 	install_element(VIEW_NODE, &show_ipv6_ospf6_interface_prefix_cmd);
 	install_element(VIEW_NODE, &show_ipv6_ospf6_interface_ifname_cmd);

@@ -42,15 +42,14 @@ RB_GENERATE(if_index_head, interface, index_entry, if_cmp_index_func);
 
 DEFINE_QOBJ_TYPE(interface);
 
-DEFINE_HOOK(if_add, (struct interface * ifp), (ifp));
-DEFINE_KOOH(if_del, (struct interface * ifp), (ifp));
+DEFINE_HOOK(if_add, (struct interface *ifp), (ifp));
+DEFINE_KOOH(if_del, (struct interface *ifp), (ifp));
 
-static struct interface_master{
-	int (*create_hook)(struct interface *ifp);
-	int (*up_hook)(struct interface *ifp);
-	int (*down_hook)(struct interface *ifp);
-	int (*destroy_hook)(struct interface *ifp);
-} ifp_master = { 0, };
+DEFINE_HOOK(if_real, (struct interface *ifp), (ifp));
+DEFINE_KOOH(if_unreal, (struct interface *ifp), (ifp));
+
+DEFINE_HOOK(if_up, (struct interface *ifp), (ifp));
+DEFINE_KOOH(if_down, (struct interface *ifp), (ifp));
 
 /* Compare interface names, returning an integer greater than, equal to, or
  * less than 0, (following the strcmp convention), according to the
@@ -180,14 +179,12 @@ static struct interface *if_new(struct vrf *vrf)
 
 void if_new_via_zapi(struct interface *ifp)
 {
-	if (ifp_master.create_hook)
-		(*ifp_master.create_hook)(ifp);
+	hook_call(if_real, ifp);
 }
 
 void if_destroy_via_zapi(struct interface *ifp)
 {
-	if (ifp_master.destroy_hook)
-		(*ifp_master.destroy_hook)(ifp);
+	hook_call(if_unreal, ifp);
 
 	ifp->oldifindex = ifp->ifindex;
 	if_set_index(ifp, IFINDEX_INTERNAL);
@@ -198,14 +195,12 @@ void if_destroy_via_zapi(struct interface *ifp)
 
 void if_up_via_zapi(struct interface *ifp)
 {
-	if (ifp_master.up_hook)
-		(*ifp_master.up_hook)(ifp);
+	hook_call(if_up, ifp);
 }
 
 void if_down_via_zapi(struct interface *ifp)
 {
-	if (ifp_master.down_hook)
-		(*ifp_master.down_hook)(ifp);
+	hook_call(if_down, ifp);
 }
 
 static struct interface *if_create_name(const char *name, struct vrf *vrf)
@@ -1475,17 +1470,6 @@ void if_cmd_init(int (*config_write)(struct vty *))
 void if_cmd_init_default(void)
 {
 	if_cmd_init(if_nb_config_write);
-}
-
-void if_zapi_callbacks(int (*create)(struct interface *ifp),
-		       int (*up)(struct interface *ifp),
-		       int (*down)(struct interface *ifp),
-		       int (*destroy)(struct interface *ifp))
-{
-	ifp_master.create_hook = create;
-	ifp_master.up_hook = up;
-	ifp_master.down_hook = down;
-	ifp_master.destroy_hook = destroy;
 }
 
 /* ------- Northbound callbacks ------- */

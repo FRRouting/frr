@@ -877,6 +877,8 @@ void ripng_if_init(void)
 
 	/* Install interface node. */
 	if_cmd_init_default();
-	if_zapi_callbacks(ripng_ifp_create, ripng_ifp_up,
-			  ripng_ifp_down, ripng_ifp_destroy);
+	hook_register_prio(if_real, 0, ripng_ifp_create);
+	hook_register_prio(if_up, 0, ripng_ifp_up);
+	hook_register_prio(if_down, 0, ripng_ifp_down);
+	hook_register_prio(if_unreal, 0, ripng_ifp_destroy);
 }

@@ -682,7 +682,10 @@ static zclient_handler *const ldp_handlers[] = {
 
 void ldp_zebra_init(struct event_loop *master)
 {
-	if_zapi_callbacks(ldp_ifp_create, ldp_ifp_up, ldp_ifp_down, ldp_ifp_destroy);
+	hook_register_prio(if_real, 0, ldp_ifp_create);
+	hook_register_prio(if_up, 0, ldp_ifp_up);
+	hook_register_prio(if_down, 0, ldp_ifp_down);
+	hook_register_prio(if_unreal, 0, ldp_ifp_destroy);
 
 	/* Set default values. */
 	zclient = zclient_new(master, &zclient_options_default, ldp_handlers,

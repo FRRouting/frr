@@ -202,8 +202,10 @@ struct list *eigrp_iflist;
 
 void eigrp_if_init(void)
 {
-	if_zapi_callbacks(eigrp_ifp_create, eigrp_ifp_up,
-			  eigrp_ifp_down, eigrp_ifp_destroy);
+	hook_register_prio(if_real, 0, eigrp_ifp_create);
+	hook_register_prio(if_up, 0, eigrp_ifp_up);
+	hook_register_prio(if_down, 0, eigrp_ifp_down);
+	hook_register_prio(if_unreal, 0, eigrp_ifp_destroy);
 	/* Initialize Zebra interface data structure. */
 	// hook_register_prio(if_add, 0, eigrp_if_new);
 	hook_register_prio(if_del, 0, eigrp_if_delete_hook);
