@@ -235,6 +235,8 @@ struct vty {
 	 * workaround
 	 */
 	bool vtysh_file_locked;
+
+	int vtysh_lines;
 };
 
 static inline void vty_push_context(struct vty *vty, int node, uint64_t id)
@@ -365,7 +367,9 @@ extern struct vty *vty_stdio(void (*atclose)(int isexit));
  * - vty_endframe() clears the buffer without printing it, and prints an
  *   extra string if the buffer was empty before (for context-end markers)
  */
+extern int vty_out_old_pager(struct vty *vty, const char *format, ...) PRINTFRR(2, 3);
 extern int vty_out(struct vty *, const char *, ...) PRINTFRR(2, 3);
+extern int vty_out_flush_vtysh_pager(struct vty *vty);
 extern void vty_frame(struct vty *, const char *, ...) PRINTFRR(2, 3);
 extern void vty_endframe(struct vty *, const char *);
 extern bool vty_set_include(struct vty *vty, const char *regexp);

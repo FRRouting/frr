@@ -25,8 +25,10 @@ extern void buffer_free(struct buffer *);
 
 /* Add the given data to the end of the buffer. */
 extern void buffer_put(struct buffer *, const void *, size_t);
+/* Add the given data to the end of the buffer, terminate with NUL. */
+extern void buffer_put_strnul(struct buffer *b, const void *p, size_t size);
 /* Add a single character to the end of the buffer. */
-extern void buffer_putc(struct buffer *, uint8_t);
+extern void buffer_putc(struct buffer *b, uint8_t c);
 /* Add a NUL-terminated string to the end of the buffer. */
 extern void buffer_putstr(struct buffer *, const char *);
 /* Add given data, inline-expanding \n to \r\n */
@@ -87,6 +89,8 @@ extern buffer_status_t buffer_flush_all(struct buffer *, int fd);
 */
 extern buffer_status_t buffer_flush_window(struct buffer *, int fd, int width,
 					   int height, int erase, int no_more);
+
+extern buffer_status_t buffer_fprintf_all(FILE *fp, struct buffer *b);
 
 #ifdef __cplusplus
 }

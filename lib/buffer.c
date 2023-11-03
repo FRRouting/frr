@@ -154,6 +154,31 @@ void buffer_put(struct buffer *b, const void *p, size_t size)
 	}
 }
 
+/* buffer_put() and terminate the buffer with '\0' */
+void buffer_put_strnul(struct buffer *b, const void *p, size_t size)
+{
+	struct buffer_data *data = b->tail;
+	const char *ptr = p;
+
+	/* We use even last one byte of data buffer. */
+	while (size) {
+		size_t chunk;
+
+		/* If there is no data buffer add it. */
+		if (data == NULL || data->cp + 1 == b->size)
+			data = buffer_add(b);
+
+		chunk = ((size <= (b->size - data->cp - 1)) ?
+				size : (b->size - data->cp - 1));
+		memcpy((data->data + data->cp), ptr, chunk);
+		size -= chunk;
+		ptr += chunk;
+		data->cp += chunk;
+		data->data[data->cp] = '\0';
+	}
+}
+
+
 /* Insert character into the buffer. */
 void buffer_putc(struct buffer *b, uint8_t c)
 {
@@ -480,4 +505,17 @@ buffer_status_t buffer_write(struct buffer *b, int fd, const void *p,
 				   size - written);
 	}
 	return b->head ? BUFFER_PENDING : BUFFER_EMPTY;
+}
+
+buffer_status_t buffer_fprintf_all(FILE *fp, struct buffer *b)
+{
+	struct buffer_data *data, *next;
+
+	for (data = b->head; data; data = next) {
+		next = data->next;
+		fprintf(fp, "%s", data->data);
+	}
+	buffer_reset(b);
+	fflush(fp);
+	return BUFFER_EMPTY;
 }
