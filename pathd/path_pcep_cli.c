@@ -458,27 +458,31 @@ static void pcep_cli_remove_pce_connection(struct pce_opts *pce_opts)
  * VTY command implementations
  */
 
-static int path_pcep_cli_debug(struct vty *vty, const char *no_str,
-			       const char *basic_str, const char *path_str,
-			       const char *message_str, const char *pceplib_str)
+static int path_pcep_cli_debug(struct vty *vty, const char *debug_type, bool set)
 {
 	uint32_t mode = DEBUG_NODE2MODE(vty->node);
-	bool no = (no_str != NULL);
 
-	DEBUG_MODE_SET(&pcep_g->dbg, mode, !no);
+	/* Global Set */
+	if (debug_type == NULL) {
+		DEBUG_MODE_SET(&pcep_g->dbg, mode, set);
+		DEBUG_FLAGS_SET(&pcep_g->dbg, PCEP_DEBUG_MODE_ALL, set);
+		return CMD_SUCCESS;
+	}
 
-	if (basic_str != NULL) {
-		DEBUG_FLAGS_SET(&pcep_g->dbg, PCEP_DEBUG_MODE_BASIC, !no);
-	}
-	if (path_str != NULL) {
-		DEBUG_FLAGS_SET(&pcep_g->dbg, PCEP_DEBUG_MODE_PATH, !no);
-	}
-	if (message_str != NULL) {
-		DEBUG_FLAGS_SET(&pcep_g->dbg, PCEP_DEBUG_MODE_PCEP, !no);
-	}
-	if (pceplib_str != NULL) {
-		DEBUG_FLAGS_SET(&pcep_g->dbg, PCEP_DEBUG_MODE_PCEPLIB, !no);
-	}
+	DEBUG_MODE_SET(&pcep_g->dbg, mode, true);
+
+	if (strcmp(debug_type, "basic") == 0)
+		DEBUG_FLAGS_SET(&pcep_g->dbg, PCEP_DEBUG_MODE_BASIC, set);
+	else if (strcmp(debug_type, "path") == 0)
+		DEBUG_FLAGS_SET(&pcep_g->dbg, PCEP_DEBUG_MODE_PATH, set);
+	else if (strcmp(debug_type, "message") == 0)
+		DEBUG_FLAGS_SET(&pcep_g->dbg, PCEP_DEBUG_MODE_PCEP, set);
+	else if (strcmp(debug_type, "pceplib") == 0)
+		DEBUG_FLAGS_SET(&pcep_g->dbg, PCEP_DEBUG_MODE_PCEPLIB, set);
+
+	/* Unset the pcep debug mode if there is no flag at least set*/
+	if (!DEBUG_FLAGS_CHECK(&pcep_g->dbg, PCEP_DEBUG_MODE_ALL))
+		DEBUG_MODE_SET(&pcep_g->dbg, mode, false);
 
 	return CMD_SUCCESS;
 }
@@ -1788,7 +1792,7 @@ DEFPY(show_debugging_pathd_pcep,
 
 DEFPY(pcep_cli_debug,
       pcep_cli_debug_cmd,
-      "[no] debug pathd pcep [basic]$basic_str [path]$path_str [message]$message_str [pceplib]$pceplib_str",
+      "[no] debug pathd pcep [<basic|path|message|pceplib>$debug_type]",
       NO_STR DEBUG_STR
       "pathd debugging\n"
       "pcep module debugging\n"
@@ -1797,8 +1801,7 @@ DEFPY(pcep_cli_debug,
       "pcep message debugging\n"
       "pceplib debugging\n")
 {
-	return path_pcep_cli_debug(vty, no, basic_str, path_str, message_str,
-				   pceplib_str);
+	return path_pcep_cli_debug(vty, debug_type, !no);
 }
 
 DEFPY(pcep_cli_show_srte_pcep_counters,
