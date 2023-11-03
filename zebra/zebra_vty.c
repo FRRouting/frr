@@ -4047,7 +4047,8 @@ DEFUN (show_zebra,
 	ttable_add_row(table, "MPLS|%s", mpls_enabled ? "On" : "Off");
 	ttable_add_row(table, "EVPN|%s", is_evpn_enabled() ? "On" : "Off");
 	ttable_add_row(table, "Kernel socket buffer size|%d", rcvbufsize);
-
+	ttable_add_row(table, "v6 Route Replace Semantics|%s",
+		       v6_rr_semantics ? "Replace" : "Delete than Add");
 
 #ifdef GNU_LINUX
 	if (!vrf_is_backend_netns())
