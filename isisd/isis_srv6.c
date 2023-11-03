@@ -183,7 +183,7 @@ void isis_srv6_interface_set(struct isis_area *area, const char *ifname)
 		isis_zebra_srv6_sid_uninstall(area, sid);
 	}
 
-	strncpy(area->srv6db.config.srv6_ifname, ifname, IF_NAMESIZE - 1);
+	strlcpy(area->srv6db.config.srv6_ifname, ifname, sizeof(area->srv6db.config.srv6_ifname));
 
 	if (!if_lookup_by_name(area->srv6db.config.srv6_ifname, VRF_DEFAULT)) {
 		sr_debug("Interface %s not yet exist in data plane, deferring SIDs installation until it's created", area->srv6db.config.srv6_ifname);
@@ -789,7 +789,7 @@ void isis_srv6_area_init(struct isis_area *area)
 				       ISIS_SRV6);
 	srv6db->config.max_end_d_msd =
 		yang_get_default_uint8("%s/msd/node-msd/max-end-d", ISIS_SRV6);
-	strncpy(srv6db->config.srv6_ifname, yang_get_default_string("%s/interface", ISIS_SRV6), IF_NAMESIZE - 1);
+	strlcpy(srv6db->config.srv6_ifname, yang_get_default_string("%s/interface", ISIS_SRV6), sizeof(srv6db->config.srv6_ifname));
 #else
 	srv6db->config.enabled = false;
 	srv6db->config.max_seg_left_msd = ISIS_DEFAULT_SRV6_MAX_SEG_LEFT_MSD;
