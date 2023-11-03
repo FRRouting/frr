@@ -77,18 +77,21 @@ def teardown_module(mod):
     tgen.stop_topology()
 
 
-def bgp_prefixes(rname, count):
+def bgp_prefixes(rname, count, count_snt=None):
     tgen = get_topogen()
+
+    if count_snt is None:
+        count_snt = count
 
     if rname == "r2":
         expected = {
             "ipv4Flowspec": {
                 "peers": {"192.0.2.1": {"pfxRcd": count, "state": "Established"}},
-                "peers": {"192.0.2.3": {"pfxSnt": count, "state": "Established"}},
+                "peers": {"192.0.2.3": {"pfxSnt": count_snt, "state": "Established"}},
             },
             "ipv6Flowspec": {
                 "peers": {"192.0.2.1": {"pfxRcd": count, "state": "Established"}},
-                "peers": {"192.0.2.3": {"pfxSnt": count, "state": "Established"}},
+                "peers": {"192.0.2.3": {"pfxSnt": count_snt, "state": "Established"}},
             },
         }
     elif rname == "r3":
@@ -281,6 +284,116 @@ router bgp 65003
     assert result is None, "Prefix list update failed - error on r2"
 
     test_func = functools.partial(bgp_prefixes, "r3", 2)
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+    assert result is None, "Prefix list update failed - error on r3"
+
+
+def test_bgp_flowspec_prefix_list_test6():
+    """
+    Apply prefix-list matching destination directly without using route-maps
+    on r3.
+
+    Only the Flowspec prefixes containing a source and a destination must be
+    accepted on r3.
+    """
+
+    tgen = get_topogen()
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    tgen.gears["r3"].vtysh_cmd(
+        """
+configure
+ip prefix-list PLIST_FLOWSPEC_4 seq 5 permit 3.3.3.3/32
+ipv6 prefix-list PLIST_FLOWSPEC_6 seq 5 permit 3::3/128
+!
+router bgp 65003
+ address-family ipv4 flowspec
+  neighbor 192.0.2.2 prefix-list PLIST_FLOWSPEC_4 in
+ exit-address-family
+ address-family ipv6 flowspec
+  neighbor 192.0.2.2 prefix-list PLIST_FLOWSPEC_6 in
+ exit-address-family
+"""
+    )
+
+    test_func = functools.partial(bgp_prefixes, "r2", 2)
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+    assert result is None, "Prefix list update failed - error on r2"
+
+    test_func = functools.partial(bgp_prefixes, "r3", 1)
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+    assert result is None, "Prefix list update failed - error on r3"
+
+
+def test_bgp_flowspec_prefix_list_test7():
+    """
+    Test prefix-list removal on r3. All flowspec prefixes must be accepted.
+    """
+
+    tgen = get_topogen()
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    tgen.gears["r3"].vtysh_cmd(
+        """
+configure
+router bgp 65003
+ address-family ipv4 flowspec
+  no neighbor 192.0.2.2 prefix-list PLIST_FLOWSPEC_4 in
+ exit-address-family
+ address-family ipv6 flowspec
+  no neighbor 192.0.2.2 prefix-list PLIST_FLOWSPEC_6 in
+ exit-address-family
+"""
+    )
+
+    test_func = functools.partial(bgp_prefixes, "r2", 2)
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+    assert result is None, "Prefix list update failed - error on r2"
+
+    test_func = functools.partial(bgp_prefixes, "r3", 2)
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+    assert result is None, "Prefix list update failed - error on r3"
+
+
+def test_bgp_flowspec_prefix_list_test8():
+    """
+    Apply prefix-list matching destination directly without using route-maps
+    on r2
+
+    Only the Flowspec prefixes containing a source and a destination must be
+    received on r3.
+    """
+
+    tgen = get_topogen()
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    tgen.gears["r2"].vtysh_cmd(
+        """
+configure
+ip prefix-list PLIST_FLOWSPEC_4 seq 5 permit 3.3.3.3/32
+ipv6 prefix-list PLIST_FLOWSPEC_6 seq 5 permit 3::3/128
+!
+router bgp 65002
+ address-family ipv4 flowspec
+  neighbor 192.0.2.3 prefix-list PLIST_FLOWSPEC_4 out
+ exit-address-family
+ address-family ipv6 flowspec
+  neighbor 192.0.2.3 prefix-list PLIST_FLOWSPEC_6 out
+ exit-address-family
+"""
+    )
+
+    test_func = functools.partial(bgp_prefixes, "r2", 2, count_snt=1)
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+    assert result is None, "Prefix list update failed - error on r2"
+
+    test_func = functools.partial(bgp_prefixes, "r3", 1)
     _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
     assert result is None, "Prefix list update failed - error on r3"
 
