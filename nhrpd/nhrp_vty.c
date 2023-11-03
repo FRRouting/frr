@@ -752,6 +752,8 @@ static void show_ip_nhrp_cache(struct nhrp_cache *c, void *pctx)
 	struct vty *vty = ctx->vty;
 	char buf[3][SU_ADDRSTRLEN];
 	struct json_object *json = NULL;
+	struct timeval *t;
+	struct timeval now;
 
 	if (ctx->afi != family2afi(sockunion_family(&c->remote_addr)))
 		return;
@@ -808,21 +810,26 @@ static void show_ip_nhrp_cache(struct nhrp_cache *c, void *pctx)
 		json_object_string_add(json, "claimed_nbma", buf[2]);
 		json_object_string_add(json, "claimedNbma", buf[2]);
 
-		if (c->used)
-			json_object_boolean_true_add(json, "used");
-		else
-			json_object_boolean_false_add(json, "used");
+		json_object_boolean_add(json, "used", !!c->used);
+		json_object_boolean_add(json, "routeInstalled",
+					!!c->route_installed);
+		json_object_boolean_add(json, "nhrpRouteInstalled",
+					!!c->nhrp_route_installed);
 
-		if (c->t_timeout)
-			json_object_boolean_true_add(json, "timeout");
-		else
-			json_object_boolean_false_add(json, "timeout");
+		json_object_boolean_add(json, "timeout", !!c->t_timeout);
+		monotime(&now);
+		if (c->t_timeout) {
+			t = &c->t_timeout->u.sands;
+			json_object_int_add(json, "timeoutRemainingTimeSecs",
+					    t->tv_sec - now.tv_sec);
+		}
 
-		if (c->t_auth)
-			json_object_boolean_true_add(json, "auth");
-		else
-			json_object_boolean_false_add(json, "auth");
-
+		json_object_boolean_add(json, "auth", !!c->t_auth);
+		if (c->t_auth) {
+			t = &c->t_auth->u.sands;
+			json_object_int_add(json, "authRemainingTimeSecs",
+					    t->tv_sec - now.tv_sec);
+		}
 		if (c->cur.peer)
 			json_object_string_add(json, "identity",
 					       c->cur.peer->vc->remote.id);
