@@ -25,6 +25,7 @@ DECLARE_MTYPE(PCEP);
 #define PCEP_DEBUG_MODE_PATH 0x02
 #define PCEP_DEBUG_MODE_PCEP 0x04
 #define PCEP_DEBUG_MODE_PCEPLIB 0x08
+#define PCEP_DEBUG_MODE_ALL 0x0F
 #define PCEP_DEBUG(fmt, ...)                                                   \
 	do {                                                                   \
 		if (DEBUG_FLAGS_CHECK(&pcep_g->dbg, PCEP_DEBUG_MODE_BASIC))    \
