@@ -1565,6 +1565,32 @@ int bgp_path_info_cmp_compatible(struct bgp *bgp, struct bgp_path_info *new,
 	return ret;
 }
 
+
+static enum prefix_list_type prefix_list_flowspec(struct prefix_list *plist,
+						  const struct prefix *p)
+{
+	struct bgp_pbr_entry_main api = {};
+	afi_t afi;
+	int ret;
+
+	afi = family2afi(p->u.prefix_flowspec.family);
+
+	/* extract match from flowspec entries */
+	ret = bgp_flowspec_match_rules_fill((uint8_t *)p->u.prefix_flowspec.ptr,
+					    p->u.prefix_flowspec.prefixlen,
+					    &api, afi);
+	if (ret < 0)
+		return PREFIX_DENY;
+	if (api.match_bitmask & PREFIX_DST_PRESENT
+	    || api.match_bitmask_iprule & PREFIX_DST_PRESENT)
+		return prefix_list_apply(plist, &api.dst_prefix);
+	else if (api.match_bitmask & PREFIX_SRC_PRESENT
+		 || api.match_bitmask_iprule & PREFIX_SRC_PRESENT)
+		return prefix_list_apply(plist, &api.src_prefix);
+
+	return PREFIX_DENY;
+}
+
 static enum filter_type bgp_input_filter(struct peer *peer,
 					 const struct prefix *p,
 					 struct attr *attr, afi_t afi,
@@ -1593,8 +1619,14 @@ static enum filter_type bgp_input_filter(struct peer *peer,
 	if (PREFIX_LIST_IN_NAME(filter)) {
 		FILTER_EXIST_WARN(PREFIX_LIST, prefix, filter);
 
-		if (prefix_list_apply(PREFIX_LIST_IN(filter), p)
-		    == PREFIX_DENY) {
+		if (p->family == AF_FLOWSPEC) {
+			if (prefix_list_flowspec(PREFIX_LIST_IN(filter), p)
+			    == PREFIX_DENY) {
+				ret = FILTER_DENY;
+				goto done;
+			}
+		} else if (prefix_list_apply(PREFIX_LIST_IN(filter), p)
+			   == PREFIX_DENY) {
 			ret = FILTER_DENY;
 			goto done;
 		}
@@ -1651,7 +1683,13 @@ static enum filter_type bgp_output_filter(struct peer *peer,
 	if (PREFIX_LIST_OUT_NAME(filter)) {
 		FILTER_EXIST_WARN(PREFIX_LIST, prefix, filter);
 
-		if (prefix_list_apply(PREFIX_LIST_OUT(filter), p)
+		if (p->family == AF_FLOWSPEC) {
+			if (prefix_list_flowspec(PREFIX_LIST_OUT(filter), p)
+			    == PREFIX_DENY) {
+				ret = FILTER_DENY;
+				goto done;
+			}
+		} else if (prefix_list_apply(PREFIX_LIST_OUT(filter), p)
 		    == PREFIX_DENY) {
 			ret = FILTER_DENY;
 			goto done;
