@@ -29,6 +29,7 @@
 #include "frr_pthread.h"
 #include "printfrr.h"
 #include "frrscript.h"
+#include "frrdistance.h"
 
 #include "zebra/zebra_router.h"
 #include "zebra/connected.h"

@@ -22,6 +22,7 @@
 #include "defaults.h"
 #include "lib/printfrr.h"
 #include "keychain.h"
+#include "frrdistance.h"
 
 #include "ospfd/ospfd.h"
 #include "ospfd/ospf_asbr.h"

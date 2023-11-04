@@ -16,6 +16,7 @@
 #include "log.h"
 #include "vrf.h"
 #include "srcdest_table.h"
+#include "frrdistance.h"
 
 #include "zebra/rib.h"
 #include "zebra/zebra_router.h"

@@ -219,6 +219,7 @@ pkginclude_HEADERS += \
 	lib/filter.h \
 	lib/flex_algo.h \
 	lib/freebsd-queue.h \
+	lib/frrdistance.h \
 	lib/frrlua.h \
 	lib/frrscript.h \
 	lib/frr_pthread.h \

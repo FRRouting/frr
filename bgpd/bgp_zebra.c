@@ -24,6 +24,7 @@
 #include "mpls.h"
 #include "vxlan.h"
 #include "pbr.h"
+#include "frrdistance.h"
 
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_route.h"
