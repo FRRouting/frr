@@ -76,10 +76,6 @@
 #include <sys/sockio.h>
 #endif /* HAVE_SYS_SOCKIO_H */
 
-#ifdef __APPLE__
-#define __APPLE_USE_RFC_3542
-#endif
-
 #ifndef HAVE_LIBCRYPT
 #ifdef HAVE_LIBCRYPTO
 #include <openssl/des.h>
@@ -280,10 +276,9 @@ struct in_pktinfo {
  * OpenBSD: network byte order, apart from older versions which are as per
  *          *BSD
  */
-#if defined(__NetBSD__)                                                        \
-	|| (defined(__FreeBSD__) && (__FreeBSD_version < 1100030))             \
-	|| (defined(__OpenBSD__) && (OpenBSD < 200311))                        \
-	|| (defined(__APPLE__))
+#if defined(__NetBSD__) ||                                                     \
+	(defined(__FreeBSD__) && (__FreeBSD_version < 1100030)) ||             \
+	(defined(__OpenBSD__) && (OpenBSD < 200311))
 #define HAVE_IP_HDRINCL_BSD_ORDER
 #endif
 

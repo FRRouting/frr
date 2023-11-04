@@ -1180,9 +1180,6 @@ m4_define([FRR_INCLUDES],
 /* Required for MAXSIG */
 #include <signal.h>
 #include <sys/socket.h>
-#ifdef __APPLE__
-# define __APPLE_USE_RFC_3542
-#endif
 #include <netinet/in.h>
 #include <sys/time.h>
 #include <time.h>
