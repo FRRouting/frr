@@ -745,6 +745,8 @@ int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 	struct bgp_path_info *bpi_ultimate;
 	struct peer *peer_new, *peer_exist;
 
+	bgp->bestpath_runs++;
+
 	*paths_eq = 0;
 
 	/* 0. Null check. */
@@ -4119,8 +4121,10 @@ static void bgp_process_internal(struct bgp *bgp, struct bgp_dest *dest,
 	}
 
 	/* already scheduled for processing? */
-	if (CHECK_FLAG(dest->flags, BGP_NODE_PROCESS_SCHEDULED))
+	if (CHECK_FLAG(dest->flags, BGP_NODE_PROCESS_SCHEDULED)) {
+		bgp->node_already_on_queue++;
 		return;
+	}
 
 	/* If the flag BGP_NODE_SELECT_DEFER is set, do not add route to
 	 * the workqueue
@@ -4129,6 +4133,7 @@ static void bgp_process_internal(struct bgp *bgp, struct bgp_dest *dest,
 		if (BGP_DEBUG(update, UPDATE_OUT))
 			zlog_debug("BGP_NODE_SELECT_DEFER set for route %p",
 				   dest);
+		bgp->node_deferred_on_queue++;
 		return;
 	}
 
@@ -13095,6 +13100,9 @@ DEFUN(show_ip_bgp_afi_safi_statistics, show_ip_bgp_afi_safi_statistics_cmd,
 		json = json_object_new_object();
 		json_object_object_add(json, get_afi_safi_str(afi, safi, true),
 				       json_afi_safi);
+		json_object_int_add(json, "bgpBestPathCalls", bgp->bestpath_runs);
+		json_object_int_add(json, "bgpNodeOnQueue", bgp->node_already_on_queue);
+		json_object_int_add(json, "bgpNodeDeferredOnQueue", bgp->node_deferred_on_queue);
 		vty_json(vty, json);
 	}
 	return ret;
