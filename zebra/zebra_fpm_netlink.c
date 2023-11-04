@@ -11,6 +11,9 @@
 
 #ifdef HAVE_NETLINK
 
+#include <linux/rtnetlink.h>
+#include <linux/neighbour.h>
+
 #include "log.h"
 #include "rib.h"
 #include "vty.h"

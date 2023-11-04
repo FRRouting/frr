@@ -6,6 +6,10 @@
 
 #include <zebra.h>
 
+#ifdef GNU_LINUX
+#include <linux/neighbour.h>
+#endif
+
 #include "hash.h"
 #include "interface.h"
 #include "jhash.h"

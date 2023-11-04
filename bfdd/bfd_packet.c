@@ -13,6 +13,10 @@
 
 #include <zebra.h>
 
+#ifdef GNU_LINUX
+#include <linux/filter.h>
+#endif
+
 #ifdef BFD_LINUX
 #include <linux/if_packet.h>
 #endif /* BFD_LINUX */

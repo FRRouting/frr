@@ -9,6 +9,9 @@
 
 #ifdef HAVE_NETLINK
 
+#include <linux/netlink.h>
+#include <linux/rtnetlink.h>
+
 #include "if.h"
 #include "prefix.h"
 #include "vrf.h"

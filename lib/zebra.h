@@ -115,11 +115,7 @@
 
 #include <net/route.h>
 
-#ifdef HAVE_NETLINK
-#include <linux/netlink.h>
-#include <linux/rtnetlink.h>
-#include <linux/filter.h>
-#else
+#ifndef HAVE_NETLINK
 #define RT_TABLE_MAIN		0
 #define RT_TABLE_LOCAL		RT_TABLE_MAIN
 #endif /* HAVE_NETLINK */

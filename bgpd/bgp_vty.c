@@ -5,6 +5,10 @@
 
 #include <zebra.h>
 
+#ifdef GNU_LINUX
+#include <linux/rtnetlink.h> //RT_TABLE_XXX
+#endif
+
 #include "command.h"
 #include "lib/json.h"
 #include "lib/sockopt.h"
