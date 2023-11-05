@@ -14,6 +14,7 @@ FRR currently supports the following protocols:
 * BGP
 * OSPFv2
 * OSPFv3
+* OSPFv4
 * RIPv1
 * RIPv2
 * RIPng
