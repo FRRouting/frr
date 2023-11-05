@@ -33,13 +33,13 @@ typedef struct in_addr pim_addr;
 #define PIM_ADDR_FUNCNAME(name) ipv4_##name
 
 union pimprefixptr {
-	prefixtype(pimprefixptr, struct prefix,      p)
-	prefixtype(pimprefixptr, struct prefix_ipv4, p4)
+	uniontype(pimprefixptr, struct prefix,      p)
+	uniontype(pimprefixptr, struct prefix_ipv4, p4)
 } TRANSPARENT_UNION;
 
 union pimprefixconstptr {
-	prefixtype(pimprefixconstptr, const struct prefix,      p)
-	prefixtype(pimprefixconstptr, const struct prefix_ipv4, p4)
+	uniontype(pimprefixconstptr, const struct prefix,      p)
+	uniontype(pimprefixconstptr, const struct prefix_ipv4, p4)
 } TRANSPARENT_UNION;
 
 #else
@@ -63,13 +63,13 @@ typedef struct in6_addr pim_addr;
 #define PIM_ADDR_FUNCNAME(name) ipv6_##name
 
 union pimprefixptr {
-	prefixtype(pimprefixptr, struct prefix,      p)
-	prefixtype(pimprefixptr, struct prefix_ipv6, p6)
+	uniontype(pimprefixptr, struct prefix,      p)
+	uniontype(pimprefixptr, struct prefix_ipv6, p6)
 } TRANSPARENT_UNION;
 
 union pimprefixconstptr {
-	prefixtype(pimprefixconstptr, const struct prefix,      p)
-	prefixtype(pimprefixconstptr, const struct prefix_ipv6, p6)
+	uniontype(pimprefixconstptr, const struct prefix,      p)
+	uniontype(pimprefixconstptr, const struct prefix_ipv6, p6)
 } TRANSPARENT_UNION;
 #endif
 

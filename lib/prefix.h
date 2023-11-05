@@ -286,23 +286,25 @@ struct prefix_sg {
 	struct in_addr grp;
 };
 
+/* clang-format off */
 union prefixptr {
-	prefixtype(prefixptr, struct prefix,      p)
-	prefixtype(prefixptr, struct prefix_ipv4, p4)
-	prefixtype(prefixptr, struct prefix_ipv6, p6)
-	prefixtype(prefixptr, struct prefix_evpn, evp)
-	prefixtype(prefixptr, struct prefix_fs,   fs)
-	prefixtype(prefixptr, struct prefix_rd,   rd)
+	uniontype(prefixptr, struct prefix,      p)
+	uniontype(prefixptr, struct prefix_ipv4, p4)
+	uniontype(prefixptr, struct prefix_ipv6, p6)
+	uniontype(prefixptr, struct prefix_evpn, evp)
+	uniontype(prefixptr, struct prefix_fs,   fs)
+	uniontype(prefixptr, struct prefix_rd,   rd)
 } TRANSPARENT_UNION;
 
 union prefixconstptr {
-	prefixtype(prefixconstptr, const struct prefix,      p)
-	prefixtype(prefixconstptr, const struct prefix_ipv4, p4)
-	prefixtype(prefixconstptr, const struct prefix_ipv6, p6)
-	prefixtype(prefixconstptr, const struct prefix_evpn, evp)
-	prefixtype(prefixconstptr, const struct prefix_fs,   fs)
-	prefixtype(prefixconstptr, const struct prefix_rd,   rd)
+	uniontype(prefixconstptr, const struct prefix,      p)
+	uniontype(prefixconstptr, const struct prefix_ipv4, p4)
+	uniontype(prefixconstptr, const struct prefix_ipv6, p6)
+	uniontype(prefixconstptr, const struct prefix_evpn, evp)
+	uniontype(prefixconstptr, const struct prefix_fs,   fs)
+	uniontype(prefixconstptr, const struct prefix_rd,   rd)
 } TRANSPARENT_UNION;
+/* clang-format on */
 
 #ifndef INET_ADDRSTRLEN
 #define INET_ADDRSTRLEN 16
