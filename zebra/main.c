@@ -59,8 +59,6 @@ int retain_mode = 0;
 
 int graceful_restart;
 
-bool v6_rr_semantics = false;
-
 /* Receive buffer size for kernel control sockets */
 #define RCVBUFSIZE_MIN 4194304
 #ifdef HAVE_NETLINK
@@ -385,7 +383,7 @@ int main(int argc, char **argv)
 			vrf_configure_backend(VRF_BACKEND_NETNS);
 			break;
 		case OPTION_V6_RR_SEMANTICS:
-			v6_rr_semantics = true;
+			zrouter.v6_rr_semantics = true;
 			break;
 		case OPTION_ASIC_OFFLOAD:
 			if (!strcmp(optarg, "notify_on_offload"))
