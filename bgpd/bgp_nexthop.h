@@ -91,9 +91,6 @@ struct bgp_nexthop_cache {
 	 * nexthop.
 	 */
 	bool is_evpn_gwip_nexthop;
-
-	bool import_check_table;
-	bool nexthop_check_table;
 };
 
 extern int bgp_nexthop_cache_compare(const struct bgp_nexthop_cache *a,
@@ -135,9 +132,8 @@ extern bool bgp_nexthop_self(struct bgp *bgp, afi_t afi, uint8_t type,
 			     struct bgp_dest *dest);
 extern struct bgp_nexthop_cache *bnc_new(struct bgp_nexthop_cache_head *tree,
 					 struct prefix *prefix,
-					 uint32_t srte_color, ifindex_t ifindex,
-					 bool import_check_table,
-					 bool nexthop_check_table);
+					 uint32_t srte_color,
+					 ifindex_t ifindex);
 extern bool bnc_existing_for_prefix(struct bgp_nexthop_cache *bnc);
 extern void bnc_free(struct bgp_nexthop_cache *bnc);
 extern struct bgp_nexthop_cache *bnc_find(struct bgp_nexthop_cache_head *tree,
