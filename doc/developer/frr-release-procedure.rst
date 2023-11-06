@@ -13,6 +13,13 @@ Stage 1 - Preparation
 
    Note: use ``tools/release_notes.py`` to help draft release notes changelog
 
+   .. code-block:: console
+
+      ./tools/release_notes.py -b dev/9.1 -t frr-9.0.1
+
+   dev/9.1 is the branch to be renamed to stable/9.1, and frr-9.0.1 in this
+   example is the latest tag from which to generate the logs.
+
 #. Checkout the existing ``dev/<version>`` branch.
 
    .. code-block:: console
