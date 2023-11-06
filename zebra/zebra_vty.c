@@ -4028,6 +4028,17 @@ static int config_write_protocol(struct vty *vty)
 	return 1;
 }
 
+static inline bool zebra_vty_v6_rr_semantics_used(void)
+{
+	if (zebra_nhg_kernel_nexthops_enabled())
+		return true;
+
+	if (zrouter.v6_rr_semantics)
+		return true;
+
+	return false;
+}
+
 DEFUN (show_zebra,
        show_zebra_cmd,
        "show zebra",
@@ -4048,7 +4059,8 @@ DEFUN (show_zebra,
 	ttable_add_row(table, "EVPN|%s", is_evpn_enabled() ? "On" : "Off");
 	ttable_add_row(table, "Kernel socket buffer size|%d", rcvbufsize);
 	ttable_add_row(table, "v6 Route Replace Semantics|%s",
-		       zrouter.v6_rr_semantics ? "Replace" : "Delete then Add");
+		       zebra_vty_v6_rr_semantics_used() ? "Replace"
+							: "Delete then Add");
 
 #ifdef GNU_LINUX
 	if (!vrf_is_backend_netns())
