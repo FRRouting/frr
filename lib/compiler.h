@@ -424,10 +424,10 @@ _Static_assert(sizeof(_uint64_t) == 8 && sizeof(_int64_t) == 8,
  * type.)
  */
 #ifndef __cplusplus
-#define prefixtype(uname, typename, fieldname) typename *fieldname;
+#define uniontype(uname, typename, fieldname) typename *fieldname;
 #define TRANSPARENT_UNION __attribute__((transparent_union))
 #else
-#define prefixtype(uname, typename, fieldname)                                 \
+#define uniontype(uname, typename, fieldname)                                  \
 	typename *fieldname;                                                   \
 	uname(typename *x)                                                     \
 	{                                                                      \
