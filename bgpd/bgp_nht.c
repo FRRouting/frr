@@ -386,6 +386,7 @@ int bgp_find_or_add_nexthop(struct bgp *bgp_route, struct bgp *bgp_nexthop,
 	bnc = bnc_find(tree, &p, srte_color, ifindex);
 	if (!bnc) {
 		bnc = bnc_new(tree, &p, srte_color, ifindex);
+		bnc->afi = afi;
 		bnc->bgp = bgp_nexthop;
 		if (BGP_DEBUG(nht, NHT))
 			zlog_debug("Allocated bnc %pFX(%d)(%u)(%s) peer %p",
@@ -1170,6 +1171,11 @@ static void register_zebra_rnh(struct bgp_nexthop_cache *bnc)
  */
 static void unregister_zebra_rnh(struct bgp_nexthop_cache *bnc)
 {
+	struct bgp_nexthop_cache *import;
+	struct bgp_nexthop_cache *nexthop;
+
+	struct bgp *bgp = bnc->bgp;
+
 	/* Check if we have already registered */
 	if (!CHECK_FLAG(bnc->flags, BGP_NEXTHOP_REGISTERED))
 		return;
@@ -1178,6 +1184,19 @@ static void unregister_zebra_rnh(struct bgp_nexthop_cache *bnc)
 		UNSET_FLAG(bnc->flags, BGP_NEXTHOP_REGISTERED);
 		return;
 	}
+
+	import = bnc_find(&bgp->import_check_table[bnc->afi], &bnc->prefix, 0,
+			  0);
+	nexthop = bnc_find(&bgp->nexthop_cache_table[bnc->afi], &bnc->prefix, 0,
+			   0);
+
+	/*
+	 * If this entry has both a import and a nexthop entry
+	 * then let's not send the unregister quite as of yet
+	 * wait until we only have 1 left
+	 */
+	if (import && nexthop)
+		return;
 
 	sendmsg_zebra_rnh(bnc, ZEBRA_NEXTHOP_UNREGISTER);
 }
