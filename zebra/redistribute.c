@@ -28,6 +28,7 @@
 #include "zebra/zapi_msg.h"
 #include "zebra/zebra_vxlan.h"
 #include "zebra/zebra_errors.h"
+#include "zebra/zebra_neigh.h"
 
 #define ZEBRA_PTM_SUPPORT
 
@@ -518,6 +519,8 @@ void zebra_interface_down_update(struct interface *ifp)
 
 		zsend_interface_update(ZEBRA_INTERFACE_DOWN, client, ifp);
 	}
+
+	zebra_neigh_del_all(ifp);
 }
 
 /* Interface information update. */
