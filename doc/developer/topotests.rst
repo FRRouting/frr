@@ -639,11 +639,14 @@ Detecting Memleaks with Valgrind
 """"""""""""""""""""""""""""""""
 
 Topotest can automatically launch all daemons with ``valgrind`` to check for
-memleaks. This is enabled by specifying 1 or 2 CLI arguments.
-``--valgrind-memleaks`` will enable general memleak detection, and
-``--valgrind-extra`` enables extra functionality including generating a
-suppression file. The suppression file ``tools/valgrind.supp`` is used when
-memleak detection is enabled.
+memleaks. This is enabled by specifying 1 to 3 CLI arguments.
+``--valgrind-memleaks`` enables memleak detection. ``--valgrind-extra`` enables
+extra functionality including generating a suppression file. The suppression
+file ``tools/valgrind.supp`` is used when memleak detection is enabled. Finally,
+``--valgrind-leak-kinds=KINDS`` can be used to modify what types of links are
+reported. This corresponds to valgrind's ``--show-link-kinds`` arg. The value is
+either ``all`` or a comma-separated list of types:
+``definite,indirect,possible,reachable``. The default is ``definite,possible``.
 
 .. code:: shell
 
