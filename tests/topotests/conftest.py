@@ -209,6 +209,12 @@ def pytest_addoption(parser):
     )
 
     parser.addoption(
+        "--valgrind-leak-kinds",
+        metavar="KIND[,KIND...]",
+        help="Comma-separated list of valgrind leak kinds or 'all'",
+    )
+
+    parser.addoption(
         "--valgrind-memleaks",
         action="store_true",
         help="Run all daemons under valgrind for memleak detection",

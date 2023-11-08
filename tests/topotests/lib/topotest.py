@@ -1806,6 +1806,7 @@ class Router(Node):
         gdb_routers = g_pytest_config.get_option_list("--gdb-routers")
         gdb_use_emacs = bool(g_pytest_config.option.gdb_use_emacs)
         valgrind_extra = bool(g_pytest_config.option.valgrind_extra)
+        valgrind_leak_kinds = g_pytest_config.option.valgrind_leak_kinds
         valgrind_memleaks = bool(g_pytest_config.option.valgrind_memleaks)
         strace_daemons = g_pytest_config.get_option_list("--strace-daemons")
 
@@ -1938,6 +1939,8 @@ class Router(Node):
                         f" --log-file={valgrind_logbase}.%p"
                         f" --leak-check=full --suppressions={supp_file}"
                     )
+                    if valgrind_leak_kinds:
+                        cmdenv += f" --show-leak-kinds={valgrind_leak_kinds}"
                     if valgrind_extra:
                         cmdenv += (
                             " --gen-suppressions=all --expensive-definedness-checks=yes"
