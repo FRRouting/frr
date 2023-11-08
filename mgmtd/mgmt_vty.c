@@ -273,7 +273,7 @@ DEFPY(show_mgmt_map_xpath,
       "Get YANG Backend Subscription\n"
       "XPath expression specifying the YANG data path\n")
 {
-	mgmt_be_xpath_subscr_info_write(vty, path);
+	mgmt_be_show_xpath_registries(vty, path);
 	return CMD_SUCCESS;
 }
 

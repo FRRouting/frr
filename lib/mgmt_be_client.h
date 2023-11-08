@@ -17,27 +17,6 @@ extern "C" {
 #include "mgmtd/mgmt_defines.h"
 
 /***************************************************************
- * Client IDs
- ***************************************************************/
-
-/*
- * Add enum value for each supported component, wrap with
- * #ifdef HAVE_COMPONENT
- */
-enum mgmt_be_client_id {
-	MGMTD_BE_CLIENT_ID_MIN = 0,
-	MGMTD_BE_CLIENT_ID_INIT = -1,
-#ifdef HAVE_STATICD
-	MGMTD_BE_CLIENT_ID_STATICD,
-#endif
-	MGMTD_BE_CLIENT_ID_MAX
-};
-
-#define FOREACH_MGMTD_BE_CLIENT_ID(id)			\
-	for ((id) = MGMTD_BE_CLIENT_ID_MIN;		\
-	     (id) < MGMTD_BE_CLIENT_ID_MAX; (id)++)
-
-/***************************************************************
  * Constants
  ***************************************************************/
 
@@ -107,29 +86,6 @@ struct mgmt_be_client_cbs {
 /***************************************************************
  * Global data exported
  ***************************************************************/
-
-extern const char *mgmt_be_client_names[MGMTD_BE_CLIENT_ID_MAX + 1];
-
-static inline const char *mgmt_be_client_id2name(enum mgmt_be_client_id id)
-{
-	if (id > MGMTD_BE_CLIENT_ID_MAX)
-		id = MGMTD_BE_CLIENT_ID_MAX;
-	return mgmt_be_client_names[id];
-}
-
-static inline enum mgmt_be_client_id
-mgmt_be_client_name2id(const char *name)
-{
-	enum mgmt_be_client_id id;
-
-	FOREACH_MGMTD_BE_CLIENT_ID (id) {
-		if (!strncmp(mgmt_be_client_names[id], name,
-			     MGMTD_CLIENT_NAME_MAX_LEN))
-			return id;
-	}
-
-	return MGMTD_BE_CLIENT_ID_MAX;
-}
 
 extern struct debug mgmt_dbg_be_client;
 

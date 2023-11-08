@@ -547,7 +547,7 @@ our $Operators	= qr{
 
 our $c90_Keywords = qr{do|for|while|if|else|return|goto|continue|switch|default|case|break}x;
 our $Iterators	= qr{
-			frr_each|frr_each_safe|frr_each_from|
+			darr_foreach_p|darr_foreach_i|frr_each|frr_each_safe|frr_each_from|
 			frr_with_mutex|frr_with_privs|
 			LIST_FOREACH|LIST_FOREACH_SAFE|
 			SLIST_FOREACH|SLIST_FOREACH_SAFE|SLIST_FOREACH_PREVPTR|
@@ -563,6 +563,7 @@ our $Iterators	= qr{
 			SUBGRP_FOREACH_PEER|SUBGRP_FOREACH_PEER_SAFE|
 			SUBGRP_FOREACH_ADJ|SUBGRP_FOREACH_ADJ_SAFE|
 			AF_FOREACH|FOREACH_AFI_SAFI|FOREACH_SAFI|
+                        FOREACH_BE_CLIENT_BITS|FOREACH_MGMTD_BE_CLIENT_ID|
 			LSDB_LOOP
 		  }x;
 
