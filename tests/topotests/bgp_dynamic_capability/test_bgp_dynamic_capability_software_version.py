@@ -68,6 +68,11 @@ def test_bgp_dynamic_capability_software_version():
                         "receivedSoftwareVersion": None,
                     },
                 },
+                "addressFamilyInfo": {
+                    "ipv4Unicast": {
+                        "acceptedPrefixCounter": 2,
+                    }
+                },
             }
         }
         return topotest.json_cmp(output, expected)
@@ -128,6 +133,11 @@ def test_bgp_dynamic_capability_software_version():
                         "advertisedSoftwareVersion": adv,
                         "receivedSoftwareVersion": rcv,
                     },
+                },
+                "addressFamilyInfo": {
+                    "ipv4Unicast": {
+                        "acceptedPrefixCounter": 2,
+                    }
                 },
                 "messageStats": {
                     "notificationsRecv": 0,
