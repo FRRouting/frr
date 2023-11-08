@@ -703,7 +703,6 @@ struct nb_transaction {
 struct nb_config {
 	struct lyd_node *dnode;
 	uint32_t version;
-	struct nb_config_cbs cfg_chgs;
 };
 
 /* Callback function used by nb_oper_data_iterate(). */
