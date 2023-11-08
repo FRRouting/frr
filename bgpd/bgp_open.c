@@ -889,8 +889,6 @@ static int bgp_capability_software_version(struct peer *peer,
 	size_t end = stream_get_getp(s) + hdr->length;
 	uint8_t len;
 
-	SET_FLAG(peer->cap, PEER_CAP_SOFT_VERSION_RCV);
-
 	len = stream_getc(s);
 	if (stream_get_getp(s) + len > end) {
 		flog_warn(
@@ -899,6 +897,8 @@ static int bgp_capability_software_version(struct peer *peer,
 			__func__, peer->host);
 		return -1;
 	}
+
+	SET_FLAG(peer->cap, PEER_CAP_SOFT_VERSION_RCV);
 
 	if (len > BGP_MAX_SOFT_VERSION) {
 		flog_warn(EC_BGP_CAPABILITY_INVALID_LENGTH,
