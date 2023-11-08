@@ -6,7 +6,7 @@
 #
 
 """
-Test if software version capability is exchanged dynamically.
+Test if ORF capability is adjusted dynamically.
 """
 
 import os
@@ -47,7 +47,7 @@ def teardown_module(mod):
     tgen.stop_topology()
 
 
-def test_bgp_dynamic_capability_software_version():
+def test_bgp_dynamic_capability_orf():
     tgen = get_topogen()
 
     if tgen.routers_have_failure():
@@ -63,10 +63,6 @@ def test_bgp_dynamic_capability_software_version():
                 "bgpState": "Established",
                 "neighborCapabilities": {
                     "dynamic": "advertisedAndReceived",
-                    "softwareVersion": {
-                        "advertisedSoftwareVersion": None,
-                        "receivedSoftwareVersion": None,
-                    },
                 },
                 "addressFamilyInfo": {
                     "ipv4Unicast": {
@@ -83,16 +79,20 @@ def test_bgp_dynamic_capability_software_version():
     _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
     assert result is None, "Can't converge"
 
-    step("Enable software version capability and check if it's exchanged dynamically")
+    step(
+        "Apply incoming prefix-list to r1 and check if we advertise only 10.10.10.20/32 from r2"
+    )
 
     # Clear message stats to check if we receive a notification or not after we
-    # change the settings fo LLGR.
+    # enable ORF capability.
     r1.vtysh_cmd("clear bgp 192.168.1.2 message-stats")
     r1.vtysh_cmd(
         """
     configure terminal
     router bgp
-      neighbor 192.168.1.2 capability software-version
+     address-family ipv4 unicast
+      neighbor 192.168.1.2 prefix-list r2 in
+      neighbor 192.168.1.2 capability orf prefix-list both
     """
     )
 
@@ -100,48 +100,36 @@ def test_bgp_dynamic_capability_software_version():
         """
     configure terminal
     router bgp
-      neighbor 192.168.1.1 capability software-version
+     address-family ipv4 unicast
+      neighbor 192.168.1.1 capability orf prefix-list both
     """
     )
 
     def _bgp_check_if_session_not_reset():
-        def _bgp_software_version():
-            try:
-                versions = output["192.168.1.2"]["neighborCapabilities"][
-                    "softwareVersion"
-                ]
-                adv = versions["advertisedSoftwareVersion"]
-                rcv = versions["receivedSoftwareVersion"]
-
-                if not adv and not rcv:
-                    return ""
-
-                pattern = "^FRRouting/\\d.+"
-                if re.search(pattern, adv) and re.search(pattern, rcv):
-                    return adv, rcv
-            except:
-                return ""
-
         output = json.loads(r1.vtysh_cmd("show bgp neighbor json"))
-        adv, rcv = _bgp_software_version()
         expected = {
             "192.168.1.2": {
                 "bgpState": "Established",
                 "neighborCapabilities": {
                     "dynamic": "advertisedAndReceived",
-                    "softwareVersion": {
-                        "advertisedSoftwareVersion": adv,
-                        "receivedSoftwareVersion": rcv,
-                    },
-                },
-                "addressFamilyInfo": {
-                    "ipv4Unicast": {
-                        "acceptedPrefixCounter": 3,
-                    }
                 },
                 "messageStats": {
                     "notificationsRecv": 0,
+                    "notificationsSent": 0,
                     "capabilityRecv": 1,
+                    "capabilitySent": 1,
+                },
+                "addressFamilyInfo": {
+                    "ipv4Unicast": {
+                        "acceptedPrefixCounter": 1,
+                        "afDependentCap": {
+                            "orfPrefixList": {
+                                "sendMode": "advertisedAndReceived",
+                                "recvMode": "advertisedAndReceived",
+                            }
+                        },
+                        "incomingUpdatePrefixFilterList": "r2",
+                    }
                 },
             }
         }
@@ -151,9 +139,38 @@ def test_bgp_dynamic_capability_software_version():
         _bgp_check_if_session_not_reset,
     )
     _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    assert result is None, "Session was reset after setting up ORF capability"
+
+    r1.vtysh_cmd(
+        """
+    configure terminal
+    ip prefix-list r2 seq 5 permit 10.10.10.20/32
+    """
+    )
+
+    def _bgp_check_if_we_send_correct_prefix():
+        output = json.loads(
+            r2.vtysh_cmd(
+                "show bgp ipv4 unicast neighbors 192.168.1.1 advertised-routes json"
+            )
+        )
+        expected = {
+            "advertisedRoutes": {
+                "10.10.10.20/32": {
+                    "valid": True,
+                },
+            },
+            "totalPrefixCounter": 1,
+        }
+        return topotest.json_cmp(output, expected)
+
+    test_func = functools.partial(
+        _bgp_check_if_we_send_correct_prefix,
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
     assert (
         result is None
-    ), "Session was reset after enabling software version capability"
+    ), "Only 10.10.10.20/32 SHOULD be advertised due to ORF filtering"
 
 
 if __name__ == "__main__":

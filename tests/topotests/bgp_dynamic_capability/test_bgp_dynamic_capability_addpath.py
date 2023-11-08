@@ -6,7 +6,7 @@
 #
 
 """
-Test if software version capability is exchanged dynamically.
+Test if Addpath capability is adjusted dynamically.
 """
 
 import os
@@ -47,7 +47,7 @@ def teardown_module(mod):
     tgen.stop_topology()
 
 
-def test_bgp_dynamic_capability_software_version():
+def test_bgp_dynamic_capability_addpath():
     tgen = get_topogen()
 
     if tgen.routers_have_failure():
@@ -63,9 +63,11 @@ def test_bgp_dynamic_capability_software_version():
                 "bgpState": "Established",
                 "neighborCapabilities": {
                     "dynamic": "advertisedAndReceived",
-                    "softwareVersion": {
-                        "advertisedSoftwareVersion": None,
-                        "receivedSoftwareVersion": None,
+                    "addPath": {
+                        "ipv4Unicast": {
+                            "txAdvertised": True,
+                            "rxAdvertisedAndReceived": True,
+                        }
                     },
                 },
                 "addressFamilyInfo": {
@@ -83,55 +85,32 @@ def test_bgp_dynamic_capability_software_version():
     _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
     assert result is None, "Can't converge"
 
-    step("Enable software version capability and check if it's exchanged dynamically")
+    step("Enable Addpath capability and check if it's exchanged dynamically")
 
     # Clear message stats to check if we receive a notification or not after we
     # change the settings fo LLGR.
     r1.vtysh_cmd("clear bgp 192.168.1.2 message-stats")
-    r1.vtysh_cmd(
-        """
-    configure terminal
-    router bgp
-      neighbor 192.168.1.2 capability software-version
-    """
-    )
-
     r2.vtysh_cmd(
         """
     configure terminal
     router bgp
-      neighbor 192.168.1.1 capability software-version
+     address-family ipv4 unicast
+      neighbor 192.168.1.1 addpath-tx-all-paths
     """
     )
 
-    def _bgp_check_if_session_not_reset():
-        def _bgp_software_version():
-            try:
-                versions = output["192.168.1.2"]["neighborCapabilities"][
-                    "softwareVersion"
-                ]
-                adv = versions["advertisedSoftwareVersion"]
-                rcv = versions["receivedSoftwareVersion"]
-
-                if not adv and not rcv:
-                    return ""
-
-                pattern = "^FRRouting/\\d.+"
-                if re.search(pattern, adv) and re.search(pattern, rcv):
-                    return adv, rcv
-            except:
-                return ""
-
+    def _bgp_check_if_addpath_rx_tx_and_session_not_reset():
         output = json.loads(r1.vtysh_cmd("show bgp neighbor json"))
-        adv, rcv = _bgp_software_version()
         expected = {
             "192.168.1.2": {
                 "bgpState": "Established",
                 "neighborCapabilities": {
                     "dynamic": "advertisedAndReceived",
-                    "softwareVersion": {
-                        "advertisedSoftwareVersion": adv,
-                        "receivedSoftwareVersion": rcv,
+                    "addPath": {
+                        "ipv4Unicast": {
+                            "txAdvertisedAndReceived": True,
+                            "rxAdvertisedAndReceived": True,
+                        }
                     },
                 },
                 "addressFamilyInfo": {
@@ -148,12 +127,52 @@ def test_bgp_dynamic_capability_software_version():
         return topotest.json_cmp(output, expected)
 
     test_func = functools.partial(
-        _bgp_check_if_session_not_reset,
+        _bgp_check_if_addpath_rx_tx_and_session_not_reset,
     )
     _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
-    assert (
-        result is None
-    ), "Session was reset after enabling software version capability"
+    assert result is None, "Session was reset after enabling Addpath capability"
+
+    step("Disable Addpath capability RX and check if it's exchanged dynamically")
+
+    # Clear message stats to check if we receive a notification or not after we
+    # change the settings fo LLGR.
+    r1.vtysh_cmd("clear bgp 192.168.1.2 message-stats")
+    r2.vtysh_cmd(
+        """
+    configure terminal
+    router bgp
+     address-family ipv4 unicast
+      neighbor 192.168.1.1 disable-addpath-rx
+    """
+    )
+
+    def _bgp_check_if_addpath_tx_and_session_not_reset():
+        output = json.loads(r1.vtysh_cmd("show bgp neighbor json"))
+        expected = {
+            "192.168.1.2": {
+                "bgpState": "Established",
+                "neighborCapabilities": {
+                    "dynamic": "advertisedAndReceived",
+                    "addPath": {
+                        "ipv4Unicast": {
+                            "txAdvertisedAndReceived": True,
+                            "rxAdvertised": True,
+                        }
+                    },
+                },
+                "messageStats": {
+                    "notificationsRecv": 0,
+                    "capabilityRecv": 1,
+                },
+            }
+        }
+        return topotest.json_cmp(output, expected)
+
+    test_func = functools.partial(
+        _bgp_check_if_addpath_tx_and_session_not_reset,
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    assert result is None, "Session was reset after disabling Addpath RX flags"
 
 
 if __name__ == "__main__":
