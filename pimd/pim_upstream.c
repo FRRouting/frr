@@ -17,6 +17,7 @@
 #include "jhash.h"
 #include "wheel.h"
 #include "network.h"
+#include "frrdistance.h"
 
 #include "pimd.h"
 #include "pim_pim.h"

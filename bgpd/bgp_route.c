@@ -28,6 +28,8 @@
 #include "lib/json.h"
 #include "lib_errors.h"
 #include "zclient.h"
+#include "frrdistance.h"
+
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_table.h"
 #include "bgpd/bgp_route.h"

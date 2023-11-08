@@ -9,6 +9,7 @@
 
 #ifdef HAVE_NETLINK
 
+#include <linux/rtnetlink.h>
 #include <linux/pkt_cls.h>
 #include <linux/pkt_sched.h>
 #include <netinet/if_ether.h>

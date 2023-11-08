@@ -14,6 +14,8 @@
 #include "log.h"
 #include "vrf.h"
 #include "bfd.h"
+#include "frrdistance.h"
+
 #include "ripd/ripd.h"
 #include "ripd/rip_debug.h"
 #include "ripd/rip_interface.h"

@@ -48,11 +48,7 @@ extern struct zebra_privs_t zserv_privs;
  * 0).  We follow this practice without questioning it, but it is a
  * bug if frr calls ROUNDUP with 0.
  */
-#ifdef __APPLE__
-#define ROUNDUP_TYPE	int
-#else
-#define ROUNDUP_TYPE	long
-#endif
+#define ROUNDUP_TYPE long
 
 /*
  * Because of these varying conventions, the only sane approach is for

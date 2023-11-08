@@ -18,6 +18,8 @@ extern "C" {
 #endif
 
 #ifdef HAVE_NETLINK
+#include <linux/netlink.h>
+
 /* Socket interface to kernel */
 struct nlsock {
 	int sock;

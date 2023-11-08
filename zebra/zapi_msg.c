@@ -24,6 +24,7 @@
 #include "lib/vrf.h"
 #include "lib/libfrr.h"
 #include "lib/lib_errors.h"
+#include "lib/frrdistance.h"
 
 #include "zebra/zebra_router.h"
 #include "zebra/rib.h"

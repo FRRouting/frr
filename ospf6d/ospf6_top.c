@@ -16,6 +16,7 @@
 #include "defaults.h"
 #include "lib/json.h"
 #include "lib_errors.h"
+#include "frrdistance.h"
 
 #include "ospf6_proto.h"
 #include "ospf6_message.h"

@@ -19,6 +19,7 @@
 #include "libfrr.h"
 #include "routing_nb.h"
 #include "northbound_cli.h"
+#include "frrdistance.h"
 
 #include "static_vrf.h"
 #include "static_vty.h"

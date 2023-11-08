@@ -8,6 +8,10 @@
 
 #include <zebra.h>
 
+#ifdef GNU_LINUX
+#include <linux/rtnetlink.h>
+#endif
+
 #include "log.h"
 #include "libfrr.h"
 #include "stream.h"

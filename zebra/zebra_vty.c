@@ -20,6 +20,7 @@
 #include "vxlan.h"
 #include "termtable.h"
 #include "affinitymap.h"
+#include "frrdistance.h"
 
 #include "zebra/zebra_router.h"
 #include "zebra/zserv.h"

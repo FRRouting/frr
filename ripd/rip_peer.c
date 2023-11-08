@@ -12,6 +12,7 @@
 #include "frrevent.h"
 #include "memory.h"
 #include "table.h"
+#include "frrdistance.h"
 
 #include "ripd/ripd.h"
 #include "ripd/rip_bfd.h"

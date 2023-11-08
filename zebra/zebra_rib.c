@@ -5,6 +5,10 @@
 
 #include <zebra.h>
 
+#ifdef GNU_LINUX
+#include <linux/rtnetlink.h>
+#endif
+
 #include "command.h"
 #include "if.h"
 #include "linklist.h"
@@ -25,6 +29,7 @@
 #include "frr_pthread.h"
 #include "printfrr.h"
 #include "frrscript.h"
+#include "frrdistance.h"
 
 #include "zebra/zebra_router.h"
 #include "zebra/connected.h"

@@ -6,6 +6,9 @@
 #include <zebra.h>
 
 #ifdef HAVE_NETLINK
+#include <linux/netlink.h>
+#include <linux/rtnetlink.h>
+#include <linux/filter.h>
 
 #include "linklist.h"
 #include "if.h"

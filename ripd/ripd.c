@@ -31,6 +31,7 @@
 #include "northbound_cli.h"
 #include "network.h"
 #include "lib/printfrr.h"
+#include "frrdistance.h"
 
 #include "ripd/ripd.h"
 #include "ripd/rip_nb.h"

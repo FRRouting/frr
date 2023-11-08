@@ -17,6 +17,8 @@
 #define _LINUX_IF_H
 #define _LINUX_IP_H
 
+#include <linux/netlink.h>
+#include <linux/rtnetlink.h>
 #include <netinet/if_ether.h>
 #include <linux/if_bridge.h>
 #include <linux/if_link.h>

@@ -76,10 +76,6 @@
 #include <sys/sockio.h>
 #endif /* HAVE_SYS_SOCKIO_H */
 
-#ifdef __APPLE__
-#define __APPLE_USE_RFC_3542
-#endif
-
 #ifndef HAVE_LIBCRYPT
 #ifdef HAVE_LIBCRYPTO
 #include <openssl/des.h>
@@ -115,11 +111,7 @@
 
 #include <net/route.h>
 
-#ifdef HAVE_NETLINK
-#include <linux/netlink.h>
-#include <linux/rtnetlink.h>
-#include <linux/filter.h>
-#else
+#ifndef HAVE_NETLINK
 #define RT_TABLE_MAIN		0
 #define RT_TABLE_LOCAL		RT_TABLE_MAIN
 #endif /* HAVE_NETLINK */
@@ -284,10 +276,9 @@ struct in_pktinfo {
  * OpenBSD: network byte order, apart from older versions which are as per
  *          *BSD
  */
-#if defined(__NetBSD__)                                                        \
-	|| (defined(__FreeBSD__) && (__FreeBSD_version < 1100030))             \
-	|| (defined(__OpenBSD__) && (OpenBSD < 200311))                        \
-	|| (defined(__APPLE__))
+#if defined(__NetBSD__) ||                                                     \
+	(defined(__FreeBSD__) && (__FreeBSD_version < 1100030)) ||             \
+	(defined(__OpenBSD__) && (OpenBSD < 200311))
 #define HAVE_IP_HDRINCL_BSD_ORDER
 #endif
 
@@ -358,28 +349,6 @@ typedef enum {
 #define FOREACH_AFI_SAFI_NSF(afi, safi)                                        \
 	for (afi = AFI_IP; afi < AFI_MAX; afi++)                               \
 		for (safi = SAFI_UNICAST; safi <= SAFI_MPLS_VPN; safi++)
-
-/* Default Administrative Distance of each protocol. */
-#define ZEBRA_KERNEL_DISTANCE_DEFAULT       0
-#define ZEBRA_CONNECT_DISTANCE_DEFAULT      0
-#define ZEBRA_STATIC_DISTANCE_DEFAULT       1
-#define ZEBRA_RIP_DISTANCE_DEFAULT        120
-#define ZEBRA_RIPNG_DISTANCE_DEFAULT      120
-#define ZEBRA_OSPF_DISTANCE_DEFAULT       110
-#define ZEBRA_OSPF6_DISTANCE_DEFAULT      110
-#define ZEBRA_ISIS_DISTANCE_DEFAULT       115
-#define ZEBRA_IBGP_DISTANCE_DEFAULT       200
-#define ZEBRA_EBGP_DISTANCE_DEFAULT        20
-#define ZEBRA_TABLE_DISTANCE_DEFAULT       15
-#define ZEBRA_TABLEDIRECT_DISTANCE_DEFAULT 14
-#define ZEBRA_EIGRP_DISTANCE_DEFAULT       90
-#define ZEBRA_NHRP_DISTANCE_DEFAULT        10
-#define ZEBRA_LDP_DISTANCE_DEFAULT        150
-#define ZEBRA_BABEL_DISTANCE_DEFAULT      100
-#define ZEBRA_SHARP_DISTANCE_DEFAULT      150
-#define ZEBRA_PBR_DISTANCE_DEFAULT        200
-#define ZEBRA_OPENFABRIC_DISTANCE_DEFAULT 115
-#define ZEBRA_MAX_DISTANCE_DEFAULT        255
 
 /* Flag manipulation macros. */
 #define CHECK_FLAG(V,F)      ((V) & (F))

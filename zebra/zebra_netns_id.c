@@ -6,6 +6,10 @@
 
 #include <zebra.h>
 
+#ifdef GNU_LINUX
+#include <linux/if_link.h>
+#endif
+
 #include "ns.h"
 #include "vrf.h"
 #include "log.h"

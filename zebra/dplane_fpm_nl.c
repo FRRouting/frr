@@ -19,6 +19,9 @@
 #include <string.h>
 
 #include "lib/zebra.h"
+
+#include <linux/rtnetlink.h>
+
 #include "lib/json.h"
 #include "lib/libfrr.h"
 #include "lib/frratomic.h"

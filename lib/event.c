@@ -55,11 +55,6 @@ static int event_timer_cmp(const struct event *a, const struct event *b)
 
 DECLARE_HEAP(event_timer_list, struct event, timeritem, event_timer_cmp);
 
-#if defined(__APPLE__)
-#include <mach/mach.h>
-#include <mach/mach_time.h>
-#endif
-
 #define AWAKEN(m)                                                              \
 	do {                                                                   \
 		const unsigned char wakebyte = 0x01;                           \

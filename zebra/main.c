@@ -5,6 +5,10 @@
 
 #include <zebra.h>
 
+#ifdef GNU_LINUX
+#include <linux/rtnetlink.h>
+#endif
+
 #include <lib/version.h>
 #include "getopt.h"
 #include "command.h"
