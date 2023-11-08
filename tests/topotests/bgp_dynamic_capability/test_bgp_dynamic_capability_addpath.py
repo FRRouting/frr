@@ -70,6 +70,11 @@ def test_bgp_dynamic_capability_addpath():
                         }
                     },
                 },
+                "addressFamilyInfo": {
+                    "ipv4Unicast": {
+                        "acceptedPrefixCounter": 3,
+                    }
+                },
             }
         }
         return topotest.json_cmp(output, expected)
@@ -107,6 +112,11 @@ def test_bgp_dynamic_capability_addpath():
                             "rxAdvertisedAndReceived": True,
                         }
                     },
+                },
+                "addressFamilyInfo": {
+                    "ipv4Unicast": {
+                        "acceptedPrefixCounter": 3,
+                    }
                 },
                 "messageStats": {
                     "notificationsRecv": 0,

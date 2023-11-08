@@ -68,6 +68,11 @@ def test_bgp_dynamic_capability_graceful_restart():
                     "gracefulRestart": "advertisedAndReceived",
                     "longLivedGracefulRestart": "advertisedAndReceived",
                 },
+                "addressFamilyInfo": {
+                    "ipv4Unicast": {
+                        "acceptedPrefixCounter": 3,
+                    }
+                },
                 "gracefulRestartInfo": {
                     "nBit": True,
                     "timers": {
@@ -115,6 +120,11 @@ def test_bgp_dynamic_capability_graceful_restart():
                     "dynamic": "advertisedAndReceived",
                     "gracefulRestart": "advertisedAndReceived",
                     "longLivedGracefulRestart": "advertisedAndReceived",
+                },
+                "addressFamilyInfo": {
+                    "ipv4Unicast": {
+                        "acceptedPrefixCounter": 3,
+                    }
                 },
                 "gracefulRestartInfo": {
                     "nBit": True,
