@@ -1706,7 +1706,7 @@ int pcep_cli_pce_config_write(struct vty *vty)
 				&pce_opts->addr.ipaddr_v4);
 		}
 		if (pce_opts->port != PCEP_DEFAULT_PORT) {
-			vty_out(vty, "    %s %d", PCEP_VTYSH_ARG_PORT,
+			vty_out(vty, " %s %d", PCEP_VTYSH_ARG_PORT,
 				pce_opts->port);
 		}
 		vty_out(vty, "%s\n", buf);
