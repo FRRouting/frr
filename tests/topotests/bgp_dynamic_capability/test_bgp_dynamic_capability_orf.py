@@ -64,6 +64,11 @@ def test_bgp_dynamic_capability_orf():
                 "neighborCapabilities": {
                     "dynamic": "advertisedAndReceived",
                 },
+                "addressFamilyInfo": {
+                    "ipv4Unicast": {
+                        "acceptedPrefixCounter": 3,
+                    }
+                },
             }
         }
         return topotest.json_cmp(output, expected)
@@ -116,6 +121,7 @@ def test_bgp_dynamic_capability_orf():
                 },
                 "addressFamilyInfo": {
                     "ipv4Unicast": {
+                        "acceptedPrefixCounter": 1,
                         "afDependentCap": {
                             "orfPrefixList": {
                                 "sendMode": "advertisedAndReceived",
