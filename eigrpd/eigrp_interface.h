@@ -24,8 +24,6 @@ extern int eigrp_if_delete_hook(struct interface *);
 
 extern bool eigrp_if_is_passive(struct eigrp_interface *ei);
 extern void eigrp_del_if_params(struct eigrp_if_params *);
-extern struct eigrp_interface *eigrp_if_new(struct eigrp *, struct interface *,
-					    struct prefix *);
 extern int eigrp_if_up(struct eigrp_interface *);
 extern void eigrp_if_stream_set(struct eigrp_interface *);
 extern void eigrp_if_set_multicast(struct eigrp_interface *);

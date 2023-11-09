@@ -139,6 +139,7 @@ struct eigrp_interface {
 
 	/*multicast group refcnts */
 	bool member_allrouters;
+	bool initialized;
 
 	/* This interface's parent eigrp instance. */
 	struct eigrp *eigrp;
