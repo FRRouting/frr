@@ -27,13 +27,12 @@
  * #ifdef HAVE_COMPONENT
  */
 enum mgmt_be_client_id {
-	MGMTD_BE_CLIENT_ID_MIN = 0,
-	MGMTD_BE_CLIENT_ID_INIT = -1,
 #ifdef HAVE_STATICD
 	MGMTD_BE_CLIENT_ID_STATICD,
 #endif
 	MGMTD_BE_CLIENT_ID_MAX
 };
+#define MGMTD_BE_CLIENT_ID_MIN	0
 
 
 enum mgmt_be_req_type {
