@@ -73,9 +73,10 @@ static inline bool bgp_install_info_to_zebra(struct bgp *bgp)
 		return false;
 
 	if (!IS_BGP_INST_KNOWN_TO_ZEBRA(bgp)) {
-		zlog_debug(
-			"%s: No zebra instance to talk to, not installing information",
-			__func__);
+		if (BGP_DEBUG(zebra, ZEBRA))
+			zlog_debug(
+				"%s: No zebra instance to talk to, not installing information",
+				__func__);
 		return false;
 	}
 
