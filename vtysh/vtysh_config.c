@@ -455,6 +455,12 @@ void vtysh_config_parse_line(void *arg, const char *line)
 		else if (strncmp(line, "debug resolver",
 				 strlen("debug resolver")) == 0)
 			config = config_get(RESOLVER_DEBUG_NODE, line);
+		else if (strncmp(line, "debug mgmt client frontend",
+				 strlen("debug mgmt client frontend")) == 0)
+			config = config_get(MGMT_FE_DEBUG_NODE, line);
+		else if (strncmp(line, "debug mgmt client backend",
+				 strlen("debug mgmt client backend")) == 0)
+			config = config_get(MGMT_BE_DEBUG_NODE, line);
 		else if (strncmp(line, "debug", strlen("debug")) == 0)
 			config = config_get(DEBUG_NODE, line);
 		else if (strncmp(line, "password", strlen("password")) == 0
