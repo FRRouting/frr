@@ -916,12 +916,6 @@ extern bool nb_candidate_needs_update(const struct nb_config *candidate);
  * xpath_base
  *    Base xpath for config.
  *
- * curr_xpath
- *    Current xpath for config.
- *
- * xpath_index
- *    Index of xpath being processed.
- *
  * err_buf
  *    Buffer to store human-readable error message in case of error.
  *
@@ -933,8 +927,8 @@ extern bool nb_candidate_needs_update(const struct nb_config *candidate);
  */
 extern void nb_candidate_edit_config_changes(
 	struct nb_config *candidate_config, struct nb_cfg_change cfg_changes[],
-	size_t num_cfg_changes, const char *xpath_base, const char *curr_xpath,
-	int xpath_index, char *err_buf, int err_bufsize, bool *error);
+	size_t num_cfg_changes, const char *xpath_base, char *err_buf,
+	int err_bufsize, bool *error);
 
 /*
  * Delete candidate configuration changes.

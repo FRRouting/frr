@@ -763,8 +763,8 @@ static bool nb_is_operation_allowed(struct nb_node *nb_node,
 
 void nb_candidate_edit_config_changes(
 	struct nb_config *candidate_config, struct nb_cfg_change cfg_changes[],
-	size_t num_cfg_changes, const char *xpath_base, const char *curr_xpath,
-	int xpath_index, char *err_buf, int err_bufsize, bool *error)
+	size_t num_cfg_changes, const char *xpath_base, char *err_buf,
+	int err_bufsize, bool *error)
 {
 	if (error)
 		*error = false;
@@ -776,25 +776,18 @@ void nb_candidate_edit_config_changes(
 	for (size_t i = 0; i < num_cfg_changes; i++) {
 		struct nb_cfg_change *change = &cfg_changes[i];
 		struct nb_node *nb_node;
+		char *change_xpath = change->xpath;
 		char xpath[XPATH_MAXLEN];
 		struct yang_data *data;
 		int ret;
 
-		/* Handle relative XPaths. */
 		memset(xpath, 0, sizeof(xpath));
-		if (xpath_index > 0 &&
-		    (xpath_base[0] == '.' || change->xpath[0] == '.'))
-			strlcpy(xpath, curr_xpath, sizeof(xpath));
-		if (xpath_base[0]) {
-			if (xpath_base[0] == '.')
-				strlcat(xpath, xpath_base + 1, sizeof(xpath));
-			else
-				strlcat(xpath, xpath_base, sizeof(xpath));
+		/* If change xpath is relative, prepend base xpath. */
+		if (change_xpath[0] == '.') {
+			strlcpy(xpath, xpath_base, sizeof(xpath));
+			change_xpath++; /* skip '.' */
 		}
-		if (change->xpath[0] == '.')
-			strlcat(xpath, change->xpath + 1, sizeof(xpath));
-		else
-			strlcpy(xpath, change->xpath, sizeof(xpath));
+		strlcat(xpath, change_xpath, sizeof(xpath));
 
 		/* Find the northbound node associated to the data path. */
 		nb_node = nb_node_find(xpath);

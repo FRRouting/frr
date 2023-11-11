@@ -3718,12 +3718,15 @@ int vty_mgmt_send_lockds_req(struct vty *vty, Mgmtd__DatastoreId ds_id,
 	return 0;
 }
 
-int vty_mgmt_send_config_data(struct vty *vty, bool implicit_commit)
+int vty_mgmt_send_config_data(struct vty *vty, const char *xpath_base,
+			      bool implicit_commit)
 {
 	Mgmtd__YangDataValue value[VTY_MAXCFGCHANGES];
 	Mgmtd__YangData cfg_data[VTY_MAXCFGCHANGES];
 	Mgmtd__YangCfgDataReq cfg_req[VTY_MAXCFGCHANGES];
 	Mgmtd__YangCfgDataReq *cfgreq[VTY_MAXCFGCHANGES] = {0};
+	char xpath[VTY_MAXCFGCHANGES][XPATH_MAXLEN];
+	char *change_xpath;
 	size_t indx;
 
 	if (vty->type == VTY_FILE) {
@@ -3759,6 +3762,9 @@ int vty_mgmt_send_config_data(struct vty *vty, bool implicit_commit)
 		}
 	}
 
+	if (xpath_base == NULL)
+		xpath_base = "";
+
 	for (indx = 0; indx < vty->num_cfg_changes; indx++) {
 		mgmt_yang_data_init(&cfg_data[indx]);
 
@@ -3771,7 +3777,17 @@ int vty_mgmt_send_config_data(struct vty *vty, bool implicit_commit)
 			cfg_data[indx].value = &value[indx];
 		}
 
-		cfg_data[indx].xpath = vty->cfg_changes[indx].xpath;
+		change_xpath = vty->cfg_changes[indx].xpath;
+
+		memset(xpath[indx], 0, sizeof(xpath[indx]));
+		/* If change xpath is relative, prepend base xpath. */
+		if (change_xpath[0] == '.') {
+			strlcpy(xpath[indx], xpath_base, sizeof(xpath[indx]));
+			change_xpath++; /* skip '.' */
+		}
+		strlcat(xpath[indx], change_xpath, sizeof(xpath[indx]));
+
+		cfg_data[indx].xpath = xpath[indx];
 
 		mgmt_yang_cfg_data_req_init(&cfg_req[indx]);
 		cfg_req[indx].data = &cfg_data[indx];

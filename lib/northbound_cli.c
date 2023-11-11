@@ -147,8 +147,7 @@ static int nb_cli_apply_changes_internal(struct vty *vty,
 
 	nb_candidate_edit_config_changes(
 		vty->candidate_config, vty->cfg_changes, vty->num_cfg_changes,
-		xpath_base, VTY_CURR_XPATH, vty->xpath_index, buf, sizeof(buf),
-		&error);
+		xpath_base, buf, sizeof(buf), &error);
 	if (error) {
 		/*
 		 * Failure to edit the candidate configuration should never
@@ -180,8 +179,26 @@ static int nb_cli_apply_changes_internal(struct vty *vty,
 	return CMD_SUCCESS;
 }
 
+static void create_xpath_base_abs(struct vty *vty, char *xpath_base_abs,
+				  size_t xpath_base_abs_size,
+				  const char *xpath_base)
+{
+	memset(xpath_base_abs, 0, xpath_base_abs_size);
+
+	if (xpath_base[0] == 0)
+		xpath_base = ".";
+
+	/* If base xpath is relative, prepend current vty xpath. */
+	if (vty->xpath_index > 0 && xpath_base[0] == '.') {
+		strlcpy(xpath_base_abs, VTY_CURR_XPATH, xpath_base_abs_size);
+		xpath_base++; /* skip '.' */
+	}
+	strlcat(xpath_base_abs, xpath_base, xpath_base_abs_size);
+}
+
 int nb_cli_apply_changes(struct vty *vty, const char *xpath_base_fmt, ...)
 {
+	char xpath_base_abs[XPATH_MAXLEN] = {};
 	char xpath_base[XPATH_MAXLEN] = {};
 	bool implicit_commit;
 	int ret;
@@ -194,6 +211,9 @@ int nb_cli_apply_changes(struct vty *vty, const char *xpath_base_fmt, ...)
 		vsnprintf(xpath_base, sizeof(xpath_base), xpath_base_fmt, ap);
 		va_end(ap);
 	}
+
+	create_xpath_base_abs(vty, xpath_base_abs, sizeof(xpath_base_abs),
+			      xpath_base);
 
 	if (vty_mgmt_should_process_cli_apply_changes(vty)) {
 		VTY_CHECK_XPATH;
@@ -202,18 +222,20 @@ int nb_cli_apply_changes(struct vty *vty, const char *xpath_base_fmt, ...)
 			return CMD_SUCCESS;
 
 		implicit_commit = vty_needs_implicit_commit(vty);
-		ret = vty_mgmt_send_config_data(vty, implicit_commit);
+		ret = vty_mgmt_send_config_data(vty, xpath_base_abs,
+						implicit_commit);
 		if (ret >= 0 && !implicit_commit)
 			vty->mgmt_num_pending_setcfg++;
 		return ret;
 	}
 
-	return nb_cli_apply_changes_internal(vty, xpath_base, false);
+	return nb_cli_apply_changes_internal(vty, xpath_base_abs, false);
 }
 
 int nb_cli_apply_changes_clear_pending(struct vty *vty,
 				       const char *xpath_base_fmt, ...)
 {
+	char xpath_base_abs[XPATH_MAXLEN] = {};
 	char xpath_base[XPATH_MAXLEN] = {};
 	bool implicit_commit;
 	int ret;
@@ -226,6 +248,9 @@ int nb_cli_apply_changes_clear_pending(struct vty *vty,
 		vsnprintf(xpath_base, sizeof(xpath_base), xpath_base_fmt, ap);
 		va_end(ap);
 	}
+
+	create_xpath_base_abs(vty, xpath_base_abs, sizeof(xpath_base_abs),
+			      xpath_base);
 
 	if (vty_mgmt_should_process_cli_apply_changes(vty)) {
 		VTY_CHECK_XPATH;
@@ -238,13 +263,14 @@ int nb_cli_apply_changes_clear_pending(struct vty *vty,
 		 * conversions to mgmtd require full proper implementations.
 		 */
 		implicit_commit = vty_needs_implicit_commit(vty);
-		ret = vty_mgmt_send_config_data(vty, implicit_commit);
+		ret = vty_mgmt_send_config_data(vty, xpath_base_abs,
+						implicit_commit);
 		if (ret >= 0 && !implicit_commit)
 			vty->mgmt_num_pending_setcfg++;
 		return ret;
 	}
 
-	return nb_cli_apply_changes_internal(vty, xpath_base, true);
+	return nb_cli_apply_changes_internal(vty, xpath_base_abs, true);
 }
 
 int nb_cli_rpc(struct vty *vty, const char *xpath, struct list *input,
