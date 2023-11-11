@@ -857,11 +857,23 @@ void log_config_write(struct vty *vty)
 	}
 }
 
+static int log_vty_fini(void)
+{
+	if (zt_file_cmdline.filename)
+		zlog_file_fini(&zt_file_cmdline);
+	if (zt_file.filename)
+		zlog_file_fini(&zt_file);
+	return 0;
+}
+
+
 static int log_vty_init(const char *progname, const char *protoname,
 			 unsigned short instance, uid_t uid, gid_t gid)
 {
 	zlog_progname = progname;
 	zlog_protoname = protoname;
+
+	hook_register(zlog_fini, log_vty_fini);
 
 	zlog_set_prefix_ec(true);
 	zlog_set_prefix_xid(true);
