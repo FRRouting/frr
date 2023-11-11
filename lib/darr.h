@@ -35,6 +35,9 @@
  * - DAs will never have capacity 0 unless they are NULL pointers.
  */
 #include <zebra.h>
+#include "memory.h"
+
+DECLARE_MTYPE(DARR);
 
 struct darr_metadata {
 	uint len;
@@ -111,7 +114,8 @@ void *__darr_resize(void *a, uint count, size_t esize);
 #define darr_free(A)                                                           \
 	do {                                                                   \
 		if ((A)) {                                                     \
-			free(_darr_meta(A));                                   \
+			void *__ptr = _darr_meta(A);                           \
+			XFREE(MTYPE_DARR, __ptr);                              \
 			(A) = NULL;                                            \
 		}                                                              \
 	} while (0)
