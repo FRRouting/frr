@@ -67,12 +67,24 @@ static void sighup(void)
 /* SIGINT handler. */
 static void sigint(void)
 {
+	struct vrf *vrf;
+
 	zlog_notice("Terminating on signal");
 
 	bfd_protocol_integration_set_shutdown(true);
+
+	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
+		if (!vrf->info)
+			continue;
+
+		rip_clean(vrf->info);
+	}
+
 	rip_vrf_terminate();
 	if_rmap_terminate();
 	rip_zclient_stop();
+
+	route_map_finish();
 	frr_fini();
 
 	exit(0);
