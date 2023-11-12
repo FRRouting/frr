@@ -601,7 +601,7 @@ bgp4v2PathAttrLookup(struct variable *v, oid name[], size_t *length,
 			family = AF_INET;
 		else
 			family = AF_INET6;
-		memset(&paddr.ip._v4_addr, 0, sizeof(paddr.ip));
+		memset(&paddr.ip, 0, sizeof(paddr.ip));
 	}
 
 	do {
