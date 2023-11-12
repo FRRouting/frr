@@ -66,11 +66,23 @@ static void sighup(void)
 /* SIGINT handler. */
 static void sigint(void)
 {
+	struct vrf *vrf;
+
 	zlog_notice("Terminating on signal");
+
+	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
+		if (!vrf->info)
+			continue;
+
+		ripng_clean(vrf->info);
+	}
 
 	ripng_vrf_terminate();
 	if_rmap_terminate();
 	ripng_zebra_stop();
+
+	route_map_finish();
+
 	frr_fini();
 	exit(0);
 }
