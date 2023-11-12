@@ -71,6 +71,8 @@ static void sigint(void)
 
 	pbr_vrf_terminate();
 
+	pbr_zebra_destroy();
+
 	frr_fini();
 
 	exit(0);
