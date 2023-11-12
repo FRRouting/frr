@@ -54,6 +54,22 @@ struct zebra_privs_t sharp_privs = {
 
 struct option longopts[] = {{0}};
 
+struct sharp_global sg;
+
+static void sharp_global_init(void)
+{
+	memset(&sg, 0, sizeof(sg));
+	sg.nhs = list_new();
+	sg.ted = NULL;
+	sg.srv6_locators = list_new();
+}
+
+static void sharp_global_destroy(void)
+{
+	list_delete(&sg.nhs);
+	list_delete(&sg.srv6_locators);
+}
+
 /* Master of threads. */
 struct event_loop *master;
 
@@ -67,6 +83,11 @@ static void sighup(void)
 static void sigint(void)
 {
 	zlog_notice("Terminating on signal");
+
+	vrf_terminate();
+	sharp_zebra_terminate();
+
+	sharp_global_destroy();
 
 	frr_fini();
 
@@ -117,16 +138,6 @@ FRR_DAEMON_INFO(sharpd, SHARP, .vty_port = SHARP_VTY_PORT,
 		.privs = &sharp_privs, .yang_modules = sharpd_yang_modules,
 		.n_yang_modules = array_size(sharpd_yang_modules),
 );
-
-struct sharp_global sg;
-
-static void sharp_global_init(void)
-{
-	memset(&sg, 0, sizeof(sg));
-	sg.nhs = list_new();
-	sg.ted = NULL;
-	sg.srv6_locators = list_new();
-}
 
 static void sharp_start_configuration(void)
 {
