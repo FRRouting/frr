@@ -379,7 +379,7 @@ DEFPY(mgmt_rollback,
 
 int config_write_mgmt_debug(struct vty *vty);
 static struct cmd_node debug_node = {
-	.name = "debug",
+	.name = "mgmt debug",
 	.node = DEBUG_NODE,
 	.prompt = "",
 	.config_write = config_write_mgmt_debug,

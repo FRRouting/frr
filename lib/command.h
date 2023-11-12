@@ -88,6 +88,8 @@ enum node_type {
 	DEBUG_VNC_NODE,		 /* Debug VNC node. */
 	RMAP_DEBUG_NODE,         /* Route-map debug node */
 	RESOLVER_DEBUG_NODE,	 /* Resolver debug node */
+	MGMT_BE_DEBUG_NODE,	 /* mgmtd backend-client debug node */
+	MGMT_FE_DEBUG_NODE,	 /* mgmtd frontend-client debug node */
 	AAA_NODE,		 /* AAA node. */
 	EXTLOG_NODE,		 /* RFC5424 & co. extended syslog */
 	KEYCHAIN_NODE,		 /* Key-chain node. */

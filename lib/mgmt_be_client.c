@@ -880,7 +880,7 @@ static void mgmt_debug_client_be_set_all(uint32_t flags, bool set)
 static int mgmt_debug_be_client_config_write(struct vty *vty)
 {
 	if (DEBUG_MODE_CHECK(&mgmt_dbg_be_client, DEBUG_MODE_CONF))
-		vty_out(vty, "debug mgmt client frontend\n");
+		vty_out(vty, "debug mgmt client backend\n");
 
 	return 1;
 }
@@ -895,8 +895,8 @@ static struct debug_callbacks mgmt_dbg_be_client_cbs = {
 	.debug_set_all = mgmt_debug_client_be_set_all};
 
 static struct cmd_node mgmt_dbg_node = {
-	.name = "mgmt backend client",
-	.node = DEBUG_NODE,
+	.name = "debug mgmt client backend",
+	.node = MGMT_BE_DEBUG_NODE,
 	.prompt = "",
 	.config_write = mgmt_debug_be_client_config_write,
 };

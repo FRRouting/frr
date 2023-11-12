@@ -580,8 +580,8 @@ static struct debug_callbacks mgmt_dbg_fe_client_cbs = {
 	.debug_set_all = mgmt_debug_client_fe_set_all};
 
 static struct cmd_node mgmt_dbg_node = {
-	.name = "mgmt client frontend",
-	.node = DEBUG_NODE,
+	.name = "debug mgmt client frontend",
+	.node = MGMT_FE_DEBUG_NODE,
 	.prompt = "",
 	.config_write = mgmt_debug_fe_client_config_write,
 };
