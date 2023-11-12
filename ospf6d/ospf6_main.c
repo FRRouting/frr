@@ -103,6 +103,7 @@ static void __attribute__((noreturn)) ospf6_exit(int status)
 		zclient_free(zclient);
 	}
 
+	ospf6_master_delete();
 	frr_fini();
 	exit(status);
 }
