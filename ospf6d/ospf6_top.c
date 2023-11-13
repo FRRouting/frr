@@ -486,6 +486,7 @@ void ospf6_delete(struct ospf6 *o)
 	struct ospf6_area *oa;
 	struct vrf *vrf;
 	struct ospf6_external_aggr_rt *aggr;
+	uint32_t i;
 
 	QOBJ_UNREG(o);
 
@@ -532,6 +533,13 @@ void ospf6_delete(struct ospf6 *o)
 		}
 	route_table_finish(o->rt_aggr_tbl);
 
+	for (i = 0; i <= ZEBRA_ROUTE_MAX; i++) {
+		if (!o->redist[i])
+			continue;
+
+		list_delete(&o->redist[i]);
+	}
+
 	XFREE(MTYPE_OSPF6_TOP, o->name);
 	XFREE(MTYPE_OSPF6_TOP, o);
 }
@@ -574,6 +582,11 @@ void ospf6_master_init(struct event_loop *master)
 	om6 = &ospf6_master;
 	om6->ospf6 = list_new();
 	om6->master = master;
+}
+
+void ospf6_master_delete(void)
+{
+	list_delete(&om6->ospf6);
 }
 
 static void ospf6_maxage_remover(struct event *thread)

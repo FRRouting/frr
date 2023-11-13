@@ -1089,3 +1089,17 @@ void sharp_zebra_init(void)
 	zclient->zebra_connected = zebra_connected;
 	zclient->zebra_buffer_write_ready = sharp_zclient_buffer_ready;
 }
+
+void sharp_zebra_terminate(void)
+{
+	struct sharp_zclient *node = sharp_clients_head;
+
+	while (node) {
+		sharp_zclient_delete(node->client->session_id);
+
+		node = sharp_clients_head;
+	}
+
+	zclient_stop(zclient);
+	zclient_free(zclient);
+}

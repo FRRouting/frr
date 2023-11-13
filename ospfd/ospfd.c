@@ -595,6 +595,7 @@ static void ospf_deferred_shutdown_finish(struct ospf *ospf)
 	/* ospfd being shut-down? If so, was this the last ospf instance? */
 	if (CHECK_FLAG(om->options, OSPF_MASTER_SHUTDOWN)
 	    && (listcount(om->ospf) == 0)) {
+		route_map_finish();
 		frr_fini();
 		exit(0);
 	}
@@ -678,6 +679,7 @@ void ospf_terminate(void)
 	/* Cleanup vrf info */
 	ospf_vrf_terminate();
 
+	route_map_finish();
 	/* Deliberately go back up, hopefully to thread scheduler, as
 	 * One or more ospf_finish()'s may have deferred shutdown to a timer
 	 * thread

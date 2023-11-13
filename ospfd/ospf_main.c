@@ -89,6 +89,7 @@ static void sigint(void)
 	zlog_notice("Terminating on signal");
 	bfd_protocol_integration_set_shutdown(true);
 	ospf_terminate();
+
 	exit(0);
 }
 

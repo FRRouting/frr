@@ -8,6 +8,7 @@
 #define __SHARP_ZEBRA_H__
 
 extern void sharp_zebra_init(void);
+extern void sharp_zebra_terminate(void);
 
 /* Add and delete extra zapi client sessions, for testing */
 int sharp_zclient_create(uint32_t session_id);

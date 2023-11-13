@@ -419,6 +419,16 @@ void pbr_zebra_init(void)
 	zclient->zebra_connected = zebra_connected;
 }
 
+void pbr_zebra_destroy(void)
+{
+	if (zclient == NULL)
+		return;
+
+	zclient_stop(zclient);
+	zclient_free(zclient);
+	zclient = NULL;
+}
+
 void pbr_send_rnh(struct nexthop *nhop, bool reg)
 {
 	uint32_t command;
