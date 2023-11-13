@@ -218,7 +218,7 @@ void fae_db_free(struct fae_db_head *table)
 		struct fae_db_node *node;
 		struct fae_db_node *tmp;
 
-		RB_FOREACH_SAFE (node, fae_db_head, table, tmp) {
+		RB_FOREACH_SAFE (node, fae_db_head, &table[algo], tmp) {
 			fae_db_node_free(node, false);
 		}
 	}
