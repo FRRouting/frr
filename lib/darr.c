@@ -9,7 +9,7 @@
 #include "darr.h"
 #include "memory.h"
 
-DEFINE_MTYPE_STATIC(LIB, DARR, "Dynamic Array");
+DEFINE_MTYPE(LIB, DARR, "Dynamic Array");
 
 static uint _msb(uint count)
 {
