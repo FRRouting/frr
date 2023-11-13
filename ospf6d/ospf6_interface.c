@@ -128,19 +128,9 @@ static uint8_t ospf6_default_iftype(struct interface *ifp)
 static uint32_t ospf6_interface_get_cost(struct ospf6_interface *oi)
 {
 	/* If all else fails, use default OSPF cost */
-	uint32_t cost = 0;
+	uint32_t cost;
 	uint32_t bw, refbw;
 	struct ospf6 *ospf6;
-
-	/* If the interface type is point-to-multipoint or the interface
-	 * is in the state Loopback, the global scope IPv6 addresses
-	 * associated with the interface (if any) are copied into the
-	 * intra-area-prefix-LSA with the PrefixOptions LA-bit set, the
-	 * PrefixLength set to 128, and the metric set to 0.
-	 */
-	if (if_is_loopback(oi->interface))
-		return cost;
-
 	/* interface speed and bw can be 0 in some platforms,
 	 * use ospf default bw. If bw is configured then it would
 	 * be used.
