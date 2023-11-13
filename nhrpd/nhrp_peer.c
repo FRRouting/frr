@@ -609,7 +609,7 @@ static void nhrp_handle_resolution_req(struct nhrp_packet_parser *pp)
 			break;
 		}
 	}
-	nhrp_packet_complete(zb, hdr);
+	nhrp_packet_complete(zb, hdr, ifp);
 	nhrp_peer_send(peer, zb);
 err:
 	nhrp_peer_unref(peer);
@@ -736,7 +736,8 @@ static void nhrp_handle_registration_request(struct nhrp_packet_parser *p)
 		}
 	}
 
-	nhrp_packet_complete(zb, hdr);
+	// auth ext was validated and copied from the request
+	nhrp_packet_complete_auth(zb, hdr, ifp, false);
 	nhrp_peer_send(p->peer, zb);
 err:
 	zbuf_free(zb);
@@ -818,7 +819,7 @@ void nhrp_peer_send_indication(struct interface *ifp, uint16_t protocol_type,
 
 	/* Payload is the packet causing indication */
 	zbuf_copy(zb, pkt, zbuf_used(pkt));
-	nhrp_packet_complete(zb, hdr);
+	nhrp_packet_complete(zb, hdr, ifp);
 	nhrp_peer_send(p, zb);
 	nhrp_peer_unref(p);
 	zbuf_free(zb);
@@ -1069,7 +1070,8 @@ static void nhrp_peer_forward(struct nhrp_peer *p,
 		nhrp_ext_complete(zb, dst);
 	}
 
-	nhrp_packet_complete(zb, hdr);
+	// XXX: auth already handled ???
+	nhrp_packet_complete_auth(zb, hdr, pp->ifp, false);
 	nhrp_peer_send(p, zb);
 	zbuf_free(zb);
 	zbuf_free(zb_copy);
@@ -1095,8 +1097,7 @@ static void nhrp_packet_debug(struct zbuf *zb, const char *dir)
 
 	reply = packet_types[hdr->type].type == PACKET_REPLY;
 	debugf(NHRP_DEBUG_COMMON, "%s %s(%d) %pSU -> %pSU", dir,
-	       (packet_types[hdr->type].name ? packet_types[hdr->type].name
-					     : "Unknown"),
+	       (packet_types[hdr->type].name ? : "Unknown"),
 	       hdr->type, reply ? &dst_proto : &src_proto,
 	       reply ? &src_proto : &dst_proto);
 }
@@ -1112,11 +1113,70 @@ static int proto2afi(uint16_t proto)
 	return AF_UNSPEC;
 }
 
-struct nhrp_route_info {
-	int local;
-	struct interface *ifp;
-	struct nhrp_vc *vc;
-};
+static int nhrp_packet_send_error(struct nhrp_packet_parser *pp,
+				  uint16_t indication_code, uint16_t offset)
+{
+	union sockunion src_proto, dst_proto;
+	struct nhrp_packet_header *hdr;
+	struct zbuf *zb;
+
+	src_proto = pp->src_proto;
+	dst_proto = pp->dst_proto;
+	if (packet_types[pp->hdr->type].type != PACKET_REPLY) {
+		src_proto = pp->dst_proto;
+		dst_proto = pp->src_proto;
+	}
+	/* Create reply */
+	zb = zbuf_alloc(1500); // XXX: hardcode -> calculation routine
+	hdr = nhrp_packet_push(zb, NHRP_PACKET_ERROR_INDICATION, &pp->src_nbma,
+			       &src_proto, &dst_proto);
+
+	hdr->u.error.code = indication_code;
+	hdr->u.error.offset = htons(offset);
+	hdr->flags = pp->hdr->flags;
+	hdr->hop_count = 0; // XXX: cisco returns 255
+
+	/* Payload is the packet causing error */
+	/* Don`t add extension according to RFC */
+	/* wireshark gives bad checksum, without exts */
+	// pp->hdr->checksum = nhrp_packet_calculate_checksum(zbuf_used(&pp->payload))
+	zbuf_put(zb, pp->hdr, sizeof(*pp->hdr));
+	zbuf_copy(zb, &pp->payload, zbuf_used(&pp->payload));
+	nhrp_packet_complete_auth(zb, hdr, pp->ifp, false);
+
+	/* nhrp_packet_debug(zb, "SEND_ERROR"); */
+	nhrp_peer_send(pp->peer, zb);
+	zbuf_free(zb);
+	return 0;
+}
+
+static bool nhrp_connection_authorized(struct nhrp_packet_parser *pp)
+{
+	struct nhrp_cisco_authentication_extension *auth_ext;
+	struct nhrp_interface *nifp = pp->ifp->info;
+	struct zbuf *auth = nifp->auth_token;
+	struct nhrp_extension_header *ext;
+	struct zbuf *extensions, pl;
+	int cmp = 0;
+
+
+	extensions = zbuf_alloc(zbuf_used(&pp->extensions));
+	zbuf_copy_peek(extensions, &pp->extensions, zbuf_used(&pp->extensions));
+	while ((ext = nhrp_ext_pull(extensions, &pl)) != NULL) {
+		switch (htons(ext->type) & ~NHRP_EXTENSION_FLAG_COMPULSORY) {
+		case NHRP_EXTENSION_AUTHENTICATION:
+			cmp = memcmp(auth->buf, pl.buf, zbuf_size(auth));
+			auth_ext = (struct nhrp_cisco_authentication_extension *)
+					   auth->buf;
+			debugf(NHRP_DEBUG_COMMON,
+			       "Processing Authentication Extension for (%s:%s|%d)",
+			       auth_ext->secret, (const char *)pl.buf, cmp);
+			break;
+		}
+	}
+	zbuf_free(extensions);
+	return cmp == 0;
+}
 
 void nhrp_peer_recv(struct nhrp_peer *p, struct zbuf *zb)
 {
@@ -1197,10 +1257,20 @@ void nhrp_peer_recv(struct nhrp_peer *p, struct zbuf *zb)
 		goto drop;
 	}
 
+	/* RFC2332 5.3.4 - Authentication is always done pairwise on an NHRP
+	 * hop-by-hop basis; i.e. regenerated at each hop. */
 	nhrp_packet_debug(zb, "Recv");
-
-	/* FIXME: Check authentication here. This extension needs to be
-	 * pre-handled. */
+	if (nifp->auth_token &&
+	    (hdr->type != NHRP_PACKET_ERROR_INDICATION ||
+	     hdr->u.error.code != NHRP_ERROR_AUTHENTICATION_FAILURE)) {
+		if (!nhrp_connection_authorized(&pp)) {
+			nhrp_packet_send_error(&pp,
+					       NHRP_ERROR_AUTHENTICATION_FAILURE,
+					       0);
+			info = "authentication failure";
+			goto drop;
+		}
+	}
 
 	/* Figure out if this is local */
 	target_addr = (packet_types[hdr->type].type == PACKET_REPLY)
