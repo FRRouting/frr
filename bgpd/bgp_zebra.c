@@ -2609,7 +2609,7 @@ static int bgp_zebra_route_notify_owner(int command, struct zclient *zclient,
 		UNSET_FLAG(dest->flags, BGP_NODE_FIB_INSTALL_PENDING);
 		SET_FLAG(dest->flags, BGP_NODE_FIB_INSTALLED);
 		if (BGP_DEBUG(zebra, ZEBRA))
-			zlog_debug("route %pRN : INSTALLED", (void *)dest);
+			zlog_debug("route %pBD : INSTALLED", dest);
 		/* Find the best route */
 		for (pi = dest->info; pi; pi = pi->next) {
 			/* Process aggregate route */
@@ -2622,7 +2622,7 @@ static int bgp_zebra_route_notify_owner(int command, struct zclient *zclient,
 			group_announce_route(bgp, afi, safi, dest, new_select);
 		else {
 			flog_err(EC_BGP_INVALID_ROUTE,
-				 "selected route %pRN not found", (void *)dest);
+				 "selected route %pBD not found", dest);
 
 			bgp_dest_unlock_node(dest);
 			return -1;
@@ -2635,13 +2635,13 @@ static int bgp_zebra_route_notify_owner(int command, struct zclient *zclient,
 		 */
 		UNSET_FLAG(dest->flags, BGP_NODE_FIB_INSTALLED);
 		if (BGP_DEBUG(zebra, ZEBRA))
-			zlog_debug("route %pRN: Removed from Fib", (void *)dest);
+			zlog_debug("route %pBD: Removed from Fib", dest);
 		break;
 	case ZAPI_ROUTE_FAIL_INSTALL:
 		new_select = NULL;
 		if (BGP_DEBUG(zebra, ZEBRA))
-			zlog_debug("route: %pRN Failed to Install into Fib",
-				   (void *)dest);
+			zlog_debug("route: %pBD Failed to Install into Fib",
+				   dest);
 		UNSET_FLAG(dest->flags, BGP_NODE_FIB_INSTALL_PENDING);
 		UNSET_FLAG(dest->flags, BGP_NODE_FIB_INSTALLED);
 		for (pi = bgp_dest_get_bgp_path_info(dest); pi; pi = pi->next) {
@@ -2654,8 +2654,8 @@ static int bgp_zebra_route_notify_owner(int command, struct zclient *zclient,
 		break;
 	case ZAPI_ROUTE_BETTER_ADMIN_WON:
 		if (BGP_DEBUG(zebra, ZEBRA))
-			zlog_debug("route: %pRN removed due to better admin won",
-				   (void *)dest);
+			zlog_debug("route: %pBD removed due to better admin won",
+				   dest);
 		new_select = NULL;
 		UNSET_FLAG(dest->flags, BGP_NODE_FIB_INSTALL_PENDING);
 		UNSET_FLAG(dest->flags, BGP_NODE_FIB_INSTALLED);
@@ -2669,8 +2669,7 @@ static int bgp_zebra_route_notify_owner(int command, struct zclient *zclient,
 		/* No action required */
 		break;
 	case ZAPI_ROUTE_REMOVE_FAIL:
-		zlog_warn("%s: Route %pRN failure to remove",
-			  __func__, (void *)dest);
+		zlog_warn("%s: Route %pBD failure to remove", __func__, dest);
 		break;
 	}
 
