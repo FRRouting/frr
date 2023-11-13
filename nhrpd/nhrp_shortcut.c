@@ -425,7 +425,7 @@ static void nhrp_shortcut_send_resolution_req(struct nhrp_shortcut *s)
 	       "Shortcut res_req: set cie ht to %u and mtu to %u. shortcut ht is %u",
 	       ntohs(cie->holding_time), ntohs(cie->mtu), s->holding_time);
 
-	nhrp_ext_request(zb, hdr, ifp);
+	nhrp_ext_request(zb, hdr);
 
 	/* Cisco NAT detection extension */
 	hdr->flags |= htons(NHRP_FLAG_RESOLUTION_NAT);
@@ -438,7 +438,7 @@ static void nhrp_shortcut_send_resolution_req(struct nhrp_shortcut *s)
 		nhrp_ext_complete(zb, ext);
 	}
 
-	nhrp_packet_complete(zb, hdr);
+	nhrp_packet_complete(zb, hdr, ifp);
 
 	nhrp_peer_send(peer, zb);
 	nhrp_peer_unref(peer);
