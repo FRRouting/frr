@@ -716,15 +716,18 @@ struct nb_config {
 	uint32_t version;
 };
 
-/* Northbound operations */
+/*
+ * Northbound operations. The semantics of operations is explained in RFC 8072,
+ * section 2.5: https://datatracker.ietf.org/doc/html/rfc8072#section-2.5.
+ */
 enum nb_operation {
-	NB_OP_CREATE_EXCL,
-	NB_OP_CREATE,
-	NB_OP_MODIFY,
-	NB_OP_DESTROY,
-	NB_OP_DELETE,
-	NB_OP_REPLACE,
-	NB_OP_MOVE,
+	NB_OP_CREATE_EXCL,	/* "create" */
+	NB_OP_CREATE,		/* "merge" - kept for backward compatibility */
+	NB_OP_MODIFY,		/* "merge" */
+	NB_OP_DESTROY,		/* "remove" */
+	NB_OP_DELETE,		/* "delete" */
+	NB_OP_REPLACE,		/* "replace" */
+	NB_OP_MOVE,		/* "move" */
 };
 
 struct nb_cfg_change {
