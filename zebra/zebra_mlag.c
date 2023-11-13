@@ -627,6 +627,8 @@ void zebra_mlag_init(void)
 
 void zebra_mlag_terminate(void)
 {
+	stream_fifo_free(zrouter.mlag_info.mlag_fifo);
+	zrouter.mlag_info.mlag_fifo = NULL;
 }
 
 
