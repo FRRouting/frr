@@ -675,7 +675,7 @@ def check_nft_counters_by_link_affinity(counters, affinities, packets, label):
                     break
 
             if not match:
-                logger.error(
+                logger.info(
                     f"Found packets with MPLS label {label} on a "
                     + f'link with none of these affinities: {",".join(affinities)}'
                 )
@@ -685,7 +685,7 @@ def check_nft_counters_by_link_affinity(counters, affinities, packets, label):
             )
 
     if tot_pkts == 0:
-        logger.error(
+        logger.info(
             f'No packets found on links with affinity for {",".join(affinities)}'
         )
         return False
