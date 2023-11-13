@@ -216,7 +216,7 @@ static void nhrp_reg_send_req(struct event *t)
 	cie->holding_time = htons(if_ad->holdtime);
 	cie->mtu = htons(if_ad->mtu);
 
-	nhrp_ext_request(zb, hdr, ifp);
+	nhrp_ext_request(zb, hdr);
 
 	/* Cisco NAT detection extension */
 	if (sockunion_family(&r->proto_addr) != AF_UNSPEC) {
@@ -240,7 +240,7 @@ static void nhrp_reg_send_req(struct event *t)
 	cie->mtu = htons(if_ad->mtu);
 	nhrp_ext_complete(zb, ext);
 
-	nhrp_packet_complete(zb, hdr);
+	nhrp_packet_complete(zb, hdr, ifp);
 	nhrp_peer_send(r->peer, zb);
 	zbuf_free(zb);
 }
