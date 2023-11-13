@@ -1154,6 +1154,11 @@ void fa_candidate_endpoint_del(struct srte_candidate *c)
 	c_result = cand_find(&f->candidates, &c_search);
 	assert(c_result);
 
+	if (c_result->candidate->lsp->segment_list) {
+		srte_segment_list_del(c_result->candidate->lsp->segment_list);
+		c_result->candidate->lsp->segment_list = NULL;
+	}
+
 	cand_del(&f->candidates, c_result);
 	XFREE(MTYPE_CANDIDATE_ENTRY, c_result);
 
