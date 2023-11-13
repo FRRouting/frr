@@ -1901,7 +1901,7 @@ def test_step9_bgp_routes():
 #  -pathd will send the same registrations it sent the previous isisd
 #   process
 #  -isisd will update pathd and the sr-te policy will be activated.
-def test_step10_restart_isisd():
+def test_step10_restart_pathd():
     logger.info("Test (step 10): restart pathd")
 
     # step(f'Restart isisd on router {router_names[0]}')
