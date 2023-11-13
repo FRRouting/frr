@@ -157,7 +157,7 @@ DEFPY(mgmt_set_config_data, mgmt_set_config_data_cmd,
 	vty->cfg_changes[0].operation = NB_OP_CREATE;
 	vty->num_cfg_changes = 1;
 
-	vty_mgmt_send_config_data(vty, false);
+	vty_mgmt_send_config_data(vty, NULL, false);
 	return CMD_SUCCESS;
 }
 
@@ -174,7 +174,7 @@ DEFPY(mgmt_delete_config_data, mgmt_delete_config_data_cmd,
 	vty->cfg_changes[0].operation = NB_OP_DESTROY;
 	vty->num_cfg_changes = 1;
 
-	vty_mgmt_send_config_data(vty, false);
+	vty_mgmt_send_config_data(vty, NULL, false);
 	return CMD_SUCCESS;
 }
 

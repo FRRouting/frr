@@ -664,8 +664,8 @@ static void mgmt_txn_process_set_cfg(struct event *thread)
 						 txn_req->req.set_cfg->cfg_changes,
 						 (size_t)txn_req->req.set_cfg
 							 ->num_cfg_changes,
-						 NULL, NULL, 0, err_buf,
-						 sizeof(err_buf), &error);
+						 NULL, err_buf, sizeof(err_buf),
+						 &error);
 		if (error) {
 			mgmt_fe_send_set_cfg_reply(txn->session_id, txn->txn_id,
 						   txn_req->req.set_cfg->ds_id,
