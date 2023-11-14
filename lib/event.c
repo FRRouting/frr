@@ -1589,11 +1589,69 @@ static int thread_process_io_helper(struct event_loop *m, struct event *thread,
 	return 1;
 }
 
+static inline void thread_process_io_inner_loop(struct event_loop *m,
+						unsigned int num,
+						struct pollfd *pfds, nfds_t *i,
+						uint32_t *ready)
+{
+	/* no event for current fd? immediately continue */
+	if (pfds[*i].revents == 0)
+		return;
+
+	*ready = *ready + 1;
+
+	/*
+	 * Unless someone has called event_cancel from another
+	 * pthread, the only thing that could have changed in
+	 * m->handler.pfds while we were asleep is the .events
+	 * field in a given pollfd. Barring event_cancel() that
+	 * value should be a superset of the values we have in our
+	 * copy, so there's no need to update it. Similarily,
+	 * barring deletion, the fd should still be a valid index
+	 * into the master's pfds.
+	 *
+	 * We are including POLLERR here to do a READ event
+	 * this is because the read should fail and the
+	 * read function should handle it appropriately
+	 */
+	if (pfds[*i].revents & (POLLIN | POLLHUP | POLLERR)) {
+		thread_process_io_helper(m, m->read[pfds[*i].fd], POLLIN,
+					 pfds[*i].revents, *i);
+	}
+	if (pfds[*i].revents & POLLOUT)
+		thread_process_io_helper(m, m->write[pfds[*i].fd], POLLOUT,
+					 pfds[*i].revents, *i);
+
+	/*
+	 * if one of our file descriptors is garbage, remove the same
+	 * from both pfds + update sizes and index
+	 */
+	if (pfds[*i].revents & POLLNVAL) {
+		memmove(m->handler.pfds + *i, m->handler.pfds + *i + 1,
+			(m->handler.pfdcount - *i - 1) * sizeof(struct pollfd));
+		m->handler.pfdcount--;
+		m->handler.pfds[m->handler.pfdcount].fd = 0;
+		m->handler.pfds[m->handler.pfdcount].events = 0;
+
+		memmove(pfds + *i, pfds + *i + 1,
+			(m->handler.copycount - *i - 1) * sizeof(struct pollfd));
+		m->handler.copycount--;
+		m->handler.copy[m->handler.copycount].fd = 0;
+		m->handler.copy[m->handler.copycount].events = 0;
+
+		*i = *i - 1;
+	}
+}
+
 /**
  * Process I/O events.
  *
  * Walks through file descriptor array looking for those pollfds whose .revents
  * field has something interesting. Deletes any invalid file descriptors.
+ *
+ * Try to impart some impartiality to handling of io.  The event
+ * system will cycle through the fd's available for io
+ * giving each one a chance to go first.
  *
  * @param m the thread master
  * @param num the number of active file descriptors (return value of poll())
@@ -1602,58 +1660,15 @@ static void thread_process_io(struct event_loop *m, unsigned int num)
 {
 	unsigned int ready = 0;
 	struct pollfd *pfds = m->handler.copy;
+	nfds_t i, last_read = m->last_read % m->handler.copycount;
 
-	for (nfds_t i = 0; i < m->handler.copycount && ready < num; ++i) {
-		/* no event for current fd? immediately continue */
-		if (pfds[i].revents == 0)
-			continue;
+	for (i = last_read; i < m->handler.copycount && ready < num; ++i)
+		thread_process_io_inner_loop(m, num, pfds, &i, &ready);
 
-		ready++;
+	for (i = 0; i < last_read && ready < num; ++i)
+		thread_process_io_inner_loop(m, num, pfds, &i, &ready);
 
-		/*
-		 * Unless someone has called event_cancel from another
-		 * pthread, the only thing that could have changed in
-		 * m->handler.pfds while we were asleep is the .events
-		 * field in a given pollfd. Barring event_cancel() that
-		 * value should be a superset of the values we have in our
-		 * copy, so there's no need to update it. Similarily,
-		 * barring deletion, the fd should still be a valid index
-		 * into the master's pfds.
-		 *
-		 * We are including POLLERR here to do a READ event
-		 * this is because the read should fail and the
-		 * read function should handle it appropriately
-		 */
-		if (pfds[i].revents & (POLLIN | POLLHUP | POLLERR)) {
-			thread_process_io_helper(m, m->read[pfds[i].fd], POLLIN,
-						 pfds[i].revents, i);
-		}
-		if (pfds[i].revents & POLLOUT)
-			thread_process_io_helper(m, m->write[pfds[i].fd],
-						 POLLOUT, pfds[i].revents, i);
-
-		/*
-		 * if one of our file descriptors is garbage, remove the same
-		 * from both pfds + update sizes and index
-		 */
-		if (pfds[i].revents & POLLNVAL) {
-			memmove(m->handler.pfds + i, m->handler.pfds + i + 1,
-				(m->handler.pfdcount - i - 1)
-					* sizeof(struct pollfd));
-			m->handler.pfdcount--;
-			m->handler.pfds[m->handler.pfdcount].fd = 0;
-			m->handler.pfds[m->handler.pfdcount].events = 0;
-
-			memmove(pfds + i, pfds + i + 1,
-				(m->handler.copycount - i - 1)
-					* sizeof(struct pollfd));
-			m->handler.copycount--;
-			m->handler.copy[m->handler.copycount].fd = 0;
-			m->handler.copy[m->handler.copycount].events = 0;
-
-			i--;
-		}
-	}
+	m->last_read++;
 }
 
 /* Add all timers that have popped to the ready list. */
