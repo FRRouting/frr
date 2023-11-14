@@ -842,6 +842,7 @@ void nb_candidate_edit_config_changes(
 		struct nb_cfg_change *change = &cfg_changes[i];
 		struct nb_node *nb_node;
 		char xpath[XPATH_MAXLEN];
+		const char *value;
 		struct yang_data *data;
 		int ret;
 
@@ -879,9 +880,10 @@ void nb_candidate_edit_config_changes(
 		}
 
 		/* If the value is not set, get the default if it exists. */
-		if (change->value == NULL)
-			change->value = yang_snode_get_default(nb_node->snode);
-		data = yang_data_new(xpath, change->value);
+		value = change->value;
+		if (value == NULL)
+			value = yang_snode_get_default(nb_node->snode);
+		data = yang_data_new(xpath, value);
 
 		/*
 		 * Ignore "not found" errors when editing the candidate
