@@ -5,6 +5,7 @@
 dev_RSTFILES = \
 	doc/developer/bgp-typecodes.rst \
 	doc/developer/bgpd.rst \
+	doc/developer/bmp.rst \
 	doc/developer/building-frr-for-alpine.rst \
 	doc/developer/building-frr-for-archlinux.rst \
 	doc/developer/building-frr-for-centos6.rst \

@@ -124,6 +124,7 @@ struct bmp {
 	 * ahead we need to make sure that refcount is decremented.  Also, on
 	 * disconnects we need to walk the queue and drop our reference.
 	 */
+	struct bmp_queue_entry *locrib_queuepos;
 	struct bmp_queue_entry *queuepos;
 	struct bmp_mirrorq *mirrorpos;
 	bool mirror_lost;
@@ -215,12 +216,14 @@ struct bmp_targets {
 	int stat_msec;
 
 	/* only supporting:
-	 * - IPv4 / unicast & multicast
-	 * - IPv6 / unicast & multicast
+	 * - IPv4 / unicast & multicast & VPN
+	 * - IPv6 / unicast & multicast & VPN
 	 * - L2VPN / EVPN
 	 */
 #define BMP_MON_PREPOLICY	(1 << 0)
 #define BMP_MON_POSTPOLICY	(1 << 1)
+#define BMP_MON_LOC_RIB (1 << 2)
+
 	uint8_t afimon[AFI_MAX][SAFI_MAX];
 	bool mirror;
 
@@ -231,6 +234,9 @@ struct bmp_targets {
 
 	struct bmp_qhash_head updhash;
 	struct bmp_qlist_head updlist;
+
+	struct bmp_qhash_head locupdhash;
+	struct bmp_qlist_head locupdlist;
 
 	uint64_t cnt_accept, cnt_aclrefused;
 

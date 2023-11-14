@@ -49,6 +49,7 @@ SEQ = 0
 
 PRE_POLICY = "pre-policy"
 POST_POLICY = "post-policy"
+LOC_RIB = "loc-rib"
 
 
 def build_topo(tgen):
@@ -120,7 +121,7 @@ def get_bmp_messages():
     return messages
 
 
-def check_for_prefixes(expected_prefixes, bmp_log_type, post_policy):
+def check_for_prefixes(expected_prefixes, bmp_log_type, policy):
     """
     Check for the presence of the given prefixes in the BMP server logs with
     the given message type and the set policy.
@@ -138,7 +139,7 @@ def check_for_prefixes(expected_prefixes, bmp_log_type, post_policy):
         if "ip_prefix" in m.keys()
         and "bmp_log_type" in m.keys()
         and m["bmp_log_type"] == bmp_log_type
-        and m["post_policy"] == post_policy
+        and m["policy"] == policy
     ]
 
     # check for prefixes
@@ -202,7 +203,7 @@ def unicast_prefixes(policy):
 
     logger.info("checking for updated prefixes")
     # check
-    test_func = partial(check_for_prefixes, prefixes, "update", policy == POST_POLICY)
+    test_func = partial(check_for_prefixes, prefixes, "update", policy)
     success, _ = topotest.run_and_expect(test_func, True, wait=0.5)
     assert success, "Checking the updated prefixes has been failed !."
 
@@ -210,7 +211,7 @@ def unicast_prefixes(policy):
     configure_prefixes(tgen, "r2", 65502, "unicast", prefixes, update=False)
     logger.info("checking for withdrawed prefxies")
     # check
-    test_func = partial(check_for_prefixes, prefixes, "withdraw", policy == POST_POLICY)
+    test_func = partial(check_for_prefixes, prefixes, "withdraw", policy)
     success, _ = topotest.run_and_expect(test_func, True, wait=0.5)
     assert success, "Checking the withdrawed prefixes has been failed !."
 
@@ -239,6 +240,8 @@ def test_bmp_bgp_unicast():
     unicast_prefixes(PRE_POLICY)
     logger.info("*** Unicast prefixes post-policy logging ***")
     unicast_prefixes(POST_POLICY)
+    logger.info("*** Unicast prefixes loc-rib logging ***")
+    unicast_prefixes(LOC_RIB)
 
 
 if __name__ == "__main__":

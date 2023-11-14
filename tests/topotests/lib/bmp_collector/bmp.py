@@ -252,6 +252,7 @@ class BMPPerPeerMessage:
 
         if peer_type == 0x03:
             msg['is_filtered'] = bool(peer_flags & IS_FILTERED)
+            msg['policy'] = 'loc-rib'
         else:
             # peer_flags = 0x0000 0000
             # ipv6, post-policy, as-path, adj-rib-out, reserverdx4
@@ -259,7 +260,7 @@ class BMPPerPeerMessage:
             is_as_path = bool(peer_flags & IS_AS_PATH)
             is_post_policy = bool(peer_flags & IS_POST_POLICY)
             is_ipv6 = bool(peer_flags & IS_IPV6)
-            msg['post_policy'] = is_post_policy
+            msg['policy'] = 'post-policy' if is_post_policy else 'pre-policy'
             msg['ipv6'] = is_ipv6
             msg['peer_ip'] = bin2str_ipaddress(peer_address, is_ipv6)
 
