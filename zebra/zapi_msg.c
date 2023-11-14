@@ -79,6 +79,7 @@ static void zserv_encode_interface(struct stream *s, struct interface *ifp)
 	stream_putl(s, zif->link_ifindex);
 	stream_putl(s, ifp->ll_type);
 	stream_putl(s, ifp->hw_addr_len);
+	stream_putl(s, zif->zif_type);
 	if (ifp->hw_addr_len)
 		stream_put(s, ifp->hw_addr, ifp->hw_addr_len);
 
