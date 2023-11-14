@@ -1034,6 +1034,23 @@ static int mgmt_txn_prepare_config(struct mgmt_txn_ctx *txn)
 		goto mgmt_txn_prepare_config_done;
 	}
 
+	/*
+	 * Validate YANG contents of the source DS and get the diff
+	 * between source and destination DS contents.
+	 */
+	char err_buf[BUFSIZ] = { 0 };
+
+	ret = nb_candidate_validate_yang(nb_config, true, err_buf,
+					 sizeof(err_buf) - 1);
+	if (ret != NB_OK) {
+		if (strncmp(err_buf, " ", strlen(err_buf)) == 0)
+			strlcpy(err_buf, "Validation failed", sizeof(err_buf));
+		(void)mgmt_txn_send_commit_cfg_reply(txn, MGMTD_INVALID_PARAM,
+						     err_buf);
+		ret = -1;
+		goto mgmt_txn_prepare_config_done;
+	}
+
 	nb_config_diff(mgmt_ds_get_nb_config(txn->commit_cfg_req->req.commit_cfg
 					     .dst_ds_ctx),
 		       nb_config, &changes);
@@ -1057,28 +1074,12 @@ static int mgmt_txn_prepare_config(struct mgmt_txn_ctx *txn)
 				      ->validate_start,
 			     NULL);
 	/*
-	 * Validate YANG contents of the source DS and get the diff
-	 * between source and destination DS contents.
-	 */
-	char err_buf[1024] = { 0 };
-	nb_ctx.client = NB_CLIENT_MGMTD_SERVER;
-	nb_ctx.user = (void *)txn;
-
-	ret = nb_candidate_validate_yang(nb_config, true, err_buf,
-					 sizeof(err_buf) - 1);
-	if (ret != NB_OK) {
-		if (strncmp(err_buf, " ", strlen(err_buf)) == 0)
-			strlcpy(err_buf, "Validation failed", sizeof(err_buf));
-		(void)mgmt_txn_send_commit_cfg_reply(txn, MGMTD_INVALID_PARAM,
-						     err_buf);
-		ret = -1;
-		goto mgmt_txn_prepare_config_done;
-	}
-	/*
 	 * Perform application level validations locally on the MGMTD
 	 * process by calling application specific validation routines
 	 * loaded onto MGMTD process using libraries.
 	 */
+	nb_ctx.client = NB_CLIENT_MGMTD_SERVER;
+	nb_ctx.user = (void *)txn;
 	ret = nb_candidate_validate_code(&nb_ctx, nb_config, &changes, err_buf,
 					 sizeof(err_buf) - 1);
 	if (ret != NB_OK) {
