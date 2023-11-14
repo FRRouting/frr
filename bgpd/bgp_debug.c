@@ -2573,16 +2573,25 @@ bool bgp_debug_update(const struct peer *peer, const struct prefix *p,
 	if (inbound) {
 		if (bgp_debug_per_peer(host, term_bgp_debug_update,
 				       BGP_DEBUG_UPDATE_IN,
-				       bgp_debug_update_in_peers))
+				       bgp_debug_update_in_peers)) {
+			if (BGP_DEBUG(update, UPDATE_PREFIX))
+				return bgp_debug_per_prefix(p,
+							    term_bgp_debug_update,
+							    BGP_DEBUG_UPDATE_PREFIX,
+							    bgp_debug_update_prefixes);
 			return true;
-	}
-
-	/* outbound */
-	else {
+		}
+	} else {
 		if (bgp_debug_per_peer(host, term_bgp_debug_update,
 				       BGP_DEBUG_UPDATE_OUT,
-				       bgp_debug_update_out_peers))
+				       bgp_debug_update_out_peers)) {
+			if (BGP_DEBUG(update, UPDATE_PREFIX))
+				return bgp_debug_per_prefix(p,
+							    term_bgp_debug_update,
+							    BGP_DEBUG_UPDATE_PREFIX,
+							    bgp_debug_update_prefixes);
 			return true;
+		}
 
 		/* Check if update debugging implicitly enabled for the group.
 		 */
@@ -2590,8 +2599,7 @@ bool bgp_debug_update(const struct peer *peer, const struct prefix *p,
 			return true;
 	}
 
-
-	if (BGP_DEBUG(update, UPDATE_PREFIX)) {
+	if (!peer && BGP_DEBUG(update, UPDATE_PREFIX)) {
 		if (bgp_debug_per_prefix(p, term_bgp_debug_update,
 					 BGP_DEBUG_UPDATE_PREFIX,
 					 bgp_debug_update_prefixes))
