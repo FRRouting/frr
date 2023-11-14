@@ -11520,6 +11520,72 @@ DEFPY (show_bgp_vrfs,
 	return CMD_SUCCESS;
 }
 
+DEFPY(show_bgp_router,
+      show_bgp_router_cmd,
+      "show bgp router [json]",
+      SHOW_STR
+      BGP_STR
+      "Overall BGP information\n"
+      JSON_STR)
+{
+	char timebuf[MONOTIME_STRLEN];
+	time_t unix_timestamp;
+	bool uj = use_json(argc, argv);
+	json_object *json = NULL;
+
+	if (uj)
+		json = json_object_new_object();
+
+	time_to_string(bm->start_time, timebuf);
+
+	if (uj) {
+		unix_timestamp = time(NULL) - (monotime(NULL) - bm->start_time);
+		json_object_int_add(json, "bgpStartedAt", unix_timestamp);
+		json_object_boolean_add(json, "bgpStartedGracefully",
+					CHECK_FLAG(bm->flags, BM_FLAG_GRACEFUL_RESTART));
+	}
+
+	if (CHECK_FLAG(bm->flags, BM_FLAG_GRACEFUL_RESTART)) {
+		if (!uj)
+			vty_out(vty, "BGP started gracefully at %s", timebuf);
+		else
+			json_object_boolean_add(json, "grComplete",
+						CHECK_FLAG(bm->flags, BM_FLAG_GR_COMPLETE));
+
+		if (CHECK_FLAG(bm->flags, BM_FLAG_GR_COMPLETE)) {
+			time_to_string(bm->gr_completion_time, timebuf);
+			if (uj) {
+				unix_timestamp = time(NULL) -
+						 (monotime(NULL) - bm->gr_completion_time);
+				json_object_int_add(json, "grCompletedAt", unix_timestamp);
+			} else
+				vty_out(vty, "Graceful restart completed at %s", timebuf);
+		} else {
+			if (!uj)
+				vty_out(vty, "Graceful restart is in progress\n");
+		}
+	} else {
+		if (!uj)
+			vty_out(vty, "BGP started at %s", timebuf);
+	}
+
+	if (uj) {
+		json_object_boolean_add(json, "bgpInMaintenanceMode",
+					(CHECK_FLAG(bm->flags, BM_FLAG_MAINTENANCE_MODE)));
+		json_object_int_add(json, "bgpInstanceCount", listcount(bm->bgp));
+
+		vty_json(vty, json);
+	} else {
+		if (CHECK_FLAG(bm->flags, BM_FLAG_MAINTENANCE_MODE))
+			vty_out(vty, "BGP is in Maintenance mode (BGP GSHUT is in effect)\n");
+
+		vty_out(vty, "Number of BGP instances (including default): %d\n",
+			listcount(bm->bgp));
+	}
+
+	return CMD_SUCCESS;
+}
+
 DEFUN (show_bgp_mac_hash,
        show_bgp_mac_hash_cmd,
        "show bgp mac hash",
@@ -21933,6 +21999,9 @@ void bgp_vty_init(void)
 
 	/* "show [ip] bgp vrfs" commands. */
 	install_element(VIEW_NODE, &show_bgp_vrfs_cmd);
+
+	/* Some overall BGP information */
+	install_element(VIEW_NODE, &show_bgp_router_cmd);
 
 	/* Community-list. */
 	community_list_vty();
