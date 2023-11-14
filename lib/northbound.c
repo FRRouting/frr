@@ -871,9 +871,14 @@ int nb_candidate_update(struct nb_config *candidate)
 int nb_candidate_validate_yang(struct nb_config *candidate, bool no_state,
 			       char *errmsg, size_t errmsg_len)
 {
-	if (lyd_validate_all(&candidate->dnode, ly_native_ctx,
-			     no_state ? LYD_VALIDATE_NO_STATE
-				      : LYD_VALIDATE_PRESENT,
+	uint32_t options = LYD_VALIDATE_MULTI_ERROR;
+
+	if (no_state)
+		SET_FLAG(options, LYD_VALIDATE_NO_STATE);
+	else
+		SET_FLAG(options, LYD_VALIDATE_PRESENT);
+
+	if (lyd_validate_all(&candidate->dnode, ly_native_ctx, options,
 			     NULL) != 0) {
 		yang_print_errors(ly_native_ctx, errmsg, errmsg_len);
 		return NB_ERR_VALIDATION;
