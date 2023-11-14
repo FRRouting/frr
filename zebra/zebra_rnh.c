@@ -1434,8 +1434,8 @@ void show_nexthop_json_helper(json_object *json_nexthop,
 							 ->seg[0]);
 			json_object_object_add(json_nexthop, "seg6", json_seg6);
 		} else {
-			json_segs = json_object_new_array();
 			if (nexthop->nh_srv6->seg6_segs) {
+				json_segs = json_object_new_array();
 				for (int seg_idx = 0;
 				     seg_idx <
 				     nexthop->nh_srv6->seg6_segs->num_segs;
