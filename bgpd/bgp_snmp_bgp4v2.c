@@ -452,6 +452,7 @@ bgp4v2PathAttrLookup(struct variable *v, oid name[], size_t *length,
 		return NULL;
 	afi = afi_iana2int(name[namelen - 1]);
 	afi_len = afi == AFI_IP ? IN_ADDR_SIZE : IN6_ADDR_SIZE;
+	assert(IS_VALID_AFI(afi));
 
 #define BGP_NLRI_ENTRY_OFFSET namelen
 
