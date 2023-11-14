@@ -1206,6 +1206,7 @@ static void rib_process(struct route_node *rn)
 	rib_dest_t *dest;
 	struct zebra_vrf *zvrf = NULL;
 	struct vrf *vrf;
+	struct route_entry *proto_re_changed = NULL;
 
 	vrf_id_t vrf_id = VRF_UNKNOWN;
 
@@ -1275,6 +1276,7 @@ static void rib_process(struct route_node *rn)
 		 * skip it.
 		 */
 		if (CHECK_FLAG(re->status, ROUTE_ENTRY_CHANGED)) {
+			proto_re_changed = re;
 			if (!nexthop_active_update(rn, re)) {
 				const struct prefix *p;
 				struct rib_table_info *info;
@@ -1360,6 +1362,8 @@ static void rib_process(struct route_node *rn)
 	 * new_selected --- RE entry that is newly SELECTED
 	 * old_fib      --- RE entry currently in kernel FIB
 	 * new_fib      --- RE entry that is newly to be in kernel FIB
+	 * proto_re_changed -- RE that is the last changed entry in the
+	 *                     list of RE's.
 	 *
 	 * new_selected will get SELECTED flag, and is going to be redistributed
 	 * the zclients. new_fib (which can be new_selected) will be installed
@@ -1412,6 +1416,22 @@ static void rib_process(struct route_node *rn)
 				UNSET_FLAG(old_selected->flags,
 					   ZEBRA_FLAG_SELECTED);
 		}
+	}
+
+	/*
+	 * If zebra has a new_selected and a proto_re_changed
+	 * entry that was not the old selected and the protocol
+	 * is different, zebra should notify the upper level
+	 * protocol that the sent down entry was not selected
+	 */
+	if (new_selected && proto_re_changed &&
+	    proto_re_changed != old_selected &&
+	    new_selected->type != proto_re_changed->type) {
+		struct rib_table_info *info = srcdest_rnode_table_info(rn);
+
+		zsend_route_notify_owner(rn, proto_re_changed,
+					 ZAPI_ROUTE_BETTER_ADMIN_WON, info->afi,
+					 info->safi);
 	}
 
 	/* Update fib according to selection results */
