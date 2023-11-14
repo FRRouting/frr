@@ -1425,11 +1425,39 @@ void show_nexthop_json_helper(json_object *json_nexthop,
 				nexthop->nh_srv6->seg6local_action));
 		json_object_object_add(json_nexthop, "seg6local",
 				       json_seg6local);
+<<<<<<< HEAD
 
 		json_seg6 = json_object_new_object();
 		json_object_string_addf(json_seg6, "segs", "%pI6",
 					&nexthop->nh_srv6->seg6_segs);
 		json_object_object_add(json_nexthop, "seg6", json_seg6);
+=======
+		if (nexthop->nh_srv6->seg6_segs &&
+		    nexthop->nh_srv6->seg6_segs->num_segs == 1) {
+			json_seg6 = json_object_new_object();
+			json_object_string_addf(json_seg6, "segs", "%pI6",
+						&nexthop->nh_srv6->seg6_segs
+							 ->seg[0]);
+			json_object_object_add(json_nexthop, "seg6", json_seg6);
+		} else {
+			if (nexthop->nh_srv6->seg6_segs) {
+				json_segs = json_object_new_array();
+				for (int seg_idx = 0;
+				     seg_idx <
+				     nexthop->nh_srv6->seg6_segs->num_segs;
+				     seg_idx++)
+					json_object_array_add(
+						json_segs,
+						json_object_new_stringf(
+							"%pI6",
+							&nexthop->nh_srv6
+								 ->seg6_segs
+								 ->seg[seg_idx]));
+				json_object_object_add(json_nexthop, "seg6",
+						       json_segs);
+			}
+		}
+>>>>>>> 531866c53 (zebra: Refactor memory allocation in zebra_rnh.c)
 	}
 }
 
