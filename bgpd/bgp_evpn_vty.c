@@ -2294,11 +2294,11 @@ static void evpn_configure_vrf_rd(struct bgp *bgp_vrf, struct prefix_rd *rd,
 	bgp_evpn_handle_vrf_rd_change(bgp_vrf, 1);
 
 	if (bgp_vrf->vrf_prd_pretty)
-		XFREE(MTYPE_BGP, bgp_vrf->vrf_prd_pretty);
+		XFREE(MTYPE_BGP_NAME, bgp_vrf->vrf_prd_pretty);
 
 	/* update RD */
 	memcpy(&bgp_vrf->vrf_prd, rd, sizeof(struct prefix_rd));
-	bgp_vrf->vrf_prd_pretty = XSTRDUP(MTYPE_BGP, rd_pretty);
+	bgp_vrf->vrf_prd_pretty = XSTRDUP(MTYPE_BGP_NAME, rd_pretty);
 	SET_FLAG(bgp_vrf->vrf_flags, BGP_VRF_RD_CFGD);
 
 	/* We have a new RD for VRF.
@@ -2321,7 +2321,7 @@ static void evpn_unconfigure_vrf_rd(struct bgp *bgp_vrf)
 	bgp_evpn_derive_auto_rd_for_vrf(bgp_vrf);
 	UNSET_FLAG(bgp_vrf->vrf_flags, BGP_VRF_RD_CFGD);
 	if (bgp_vrf->vrf_prd_pretty)
-		XFREE(MTYPE_BGP, bgp_vrf->vrf_prd_pretty);
+		XFREE(MTYPE_BGP_NAME, bgp_vrf->vrf_prd_pretty);
 	/* We have a new RD for VRF.
 	 * Advertise all type-5 routes again with the new RD
 	 */
@@ -2343,7 +2343,7 @@ static void evpn_configure_rd(struct bgp *bgp, struct bgpevpn *vpn,
 
 	/* update RD */
 	memcpy(&vpn->prd, rd, sizeof(struct prefix_rd));
-	vpn->prd_pretty = XSTRDUP(MTYPE_BGP, rd_pretty);
+	vpn->prd_pretty = XSTRDUP(MTYPE_BGP_NAME, rd_pretty);
 	SET_FLAG(vpn->flags, VNI_FLAG_RD_CFGD);
 
 	if (is_vni_live(vpn))

@@ -6097,7 +6097,7 @@ void bgp_evpn_derive_auto_rd(struct bgp *bgp, struct bgpevpn *vpn)
 	snprintfrr(buf, sizeof(buf), "%pI4:%hu", &bgp->router_id, vpn->rd_id);
 	(void)str2prefix_rd(buf, &vpn->prd);
 	if (vpn->prd_pretty)
-		XFREE(MTYPE_BGP, vpn->prd_pretty);
+		XFREE(MTYPE_BGP_NAME, vpn->prd_pretty);
 	UNSET_FLAG(vpn->flags, VNI_FLAG_RD_CFGD);
 }
 
@@ -6203,7 +6203,7 @@ void bgp_evpn_free(struct bgp *bgp, struct bgpevpn *vpn)
 	hash_release(bgp->vni_svi_hash, vpn);
 	hash_release(bgp->vnihash, vpn);
 	if (vpn->prd_pretty)
-		XFREE(MTYPE_BGP, vpn->prd_pretty);
+		XFREE(MTYPE_BGP_NAME, vpn->prd_pretty);
 	QOBJ_UNREG(vpn);
 	XFREE(MTYPE_BGP_EVPN, vpn);
 }
@@ -7080,7 +7080,7 @@ void bgp_evpn_cleanup(struct bgp *bgp)
 	}
 
 	if (bgp->vrf_prd_pretty)
-		XFREE(MTYPE_BGP, bgp->vrf_prd_pretty);
+		XFREE(MTYPE_BGP_NAME, bgp->vrf_prd_pretty);
 }
 
 /*
