@@ -676,7 +676,6 @@ static void ly_log_cb(LY_LOG_LEVEL level, const char *msg, const char *path)
 const char *yang_print_errors(struct ly_ctx *ly_ctx, char *buf, size_t buf_len)
 {
 	struct ly_err_item *ei;
-	const char *path;
 
 	ei = ly_err_first(ly_ctx);
 	if (!ei)
@@ -684,15 +683,13 @@ const char *yang_print_errors(struct ly_ctx *ly_ctx, char *buf, size_t buf_len)
 
 	strlcpy(buf, "YANG error(s):\n", buf_len);
 	for (; ei; ei = ei->next) {
-		strlcat(buf, " ", buf_len);
+		if (ei->path) {
+			strlcat(buf, " Path: ", buf_len);
+			strlcat(buf, ei->path, buf_len);
+			strlcat(buf, "\n", buf_len);
+		}
+		strlcat(buf, " Error: ", buf_len);
 		strlcat(buf, ei->msg, buf_len);
-		strlcat(buf, "\n", buf_len);
-	}
-
-	path = ly_errpath(ly_ctx);
-	if (path) {
-		strlcat(buf, " YANG path: ", buf_len);
-		strlcat(buf, path, buf_len);
 		strlcat(buf, "\n", buf_len);
 	}
 
