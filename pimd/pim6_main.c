@@ -26,6 +26,7 @@
 #include "pim_nb.h"
 #include "pim6_cmd.h"
 #include "pim6_mld.h"
+#include "pim_zlookup.h"
 
 zebra_capabilities_t _caps_p[] = {
 	ZCAP_SYS_ADMIN,
@@ -189,11 +190,20 @@ int main(int argc, char **argv, char **envp)
 
 static void pim6_terminate(void)
 {
+	struct zclient *zclient;
+
 	pim_vrf_terminate();
 	pim_router_terminate();
 
 	prefix_list_reset();
 	access_list_reset();
 
+	zclient = pim_zebra_zclient_get();
+	if (zclient) {
+		zclient_stop(zclient);
+		zclient_free(zclient);
+	}
+
+	zclient_lookup_free();
 	frr_fini();
 }
