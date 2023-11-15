@@ -104,7 +104,10 @@ static void __attribute__((noreturn)) ospf6_exit(int status)
 	}
 
 	ospf6_master_delete();
+
 	frr_fini();
+
+	keychain_terminate();
 	exit(status);
 }
 
