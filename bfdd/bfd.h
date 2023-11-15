@@ -782,6 +782,7 @@ void bfdd_cli_init(void);
  */
 void bfdd_zclient_init(struct zebra_privs_t *bfdd_priv);
 void bfdd_zclient_stop(void);
+void bfdd_zclient_terminate(void);
 void bfdd_zclient_unregister(vrf_id_t vrf_id);
 void bfdd_zclient_register(vrf_id_t vrf_id);
 void bfdd_sessions_enable_vrf(struct vrf *vrf);
