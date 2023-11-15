@@ -335,18 +335,18 @@ static void bmp_per_peer_hdr(struct stream *s, struct bgp *bgp,
 
 	/* Peer AS */
 	/* set peer ASN but for LOC-RIB INSTANCE (RFC 9069) put the local bgp
-	 * ASN if available or 0
+	 * ASN
 	 */
-	as_t asn = !is_locrib ? peer->as : bgp ? bgp->as : 0L;
+	as_t asn = !is_locrib ? peer->as : bgp->as;
 
 	stream_putl(s, asn);
 
 	/* Peer BGP ID */
 	/* set router-id but for LOC-RIB INSTANCE (RFC 9069) put the instance
-	 * router-id if available or 0
+	 * router-id
 	 */
 	struct in_addr *bgp_id =
-		!is_locrib ? &peer->remote_id : bgp ? &bgp->router_id : NULL;
+		!is_locrib ? &peer->remote_id : &bgp->router_id;
 
 	stream_put_in_addr(s, bgp_id);
 
