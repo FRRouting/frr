@@ -40,6 +40,11 @@ struct sharp_nh_tracker *sharp_nh_tracker_get(struct prefix *p)
 	return nht;
 }
 
+void sharp_nh_tracker_free(struct sharp_nh_tracker *nht)
+{
+	XFREE(MTYPE_NH_TRACKER, nht);
+}
+
 void sharp_nh_tracker_dump(struct vty *vty)
 {
 	struct listnode *node;

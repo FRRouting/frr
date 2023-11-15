@@ -60,6 +60,7 @@ static void sharp_global_init(void)
 {
 	memset(&sg, 0, sizeof(sg));
 	sg.nhs = list_new();
+	sg.nhs->del = (void (*)(void *))sharp_nh_tracker_free;
 	sg.ted = NULL;
 	sg.srv6_locators = list_new();
 }
