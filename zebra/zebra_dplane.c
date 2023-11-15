@@ -7364,6 +7364,13 @@ void zebra_dplane_shutdown(void)
 	}
 
 	/* TODO -- Clean-up provider objects */
+	dp = dplane_prov_list_first(&zdplane_info.dg_providers);
+	while (dp) {
+		dplane_prov_list_del(&zdplane_info.dg_providers, dp);
+		XFREE(MTYPE_DP_PROV, dp);
+
+		dp = dplane_prov_list_first(&zdplane_info.dg_providers);
+	}
 
 	/* TODO -- Clean queue(s), free memory */
 }
