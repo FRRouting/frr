@@ -2575,10 +2575,6 @@ const char *nb_client_name(enum nb_client client)
 
 static void nb_load_callbacks(const struct frr_yang_module_info *module)
 {
-
-	if (module->ignore_cbs)
-		return;
-
 	for (size_t i = 0; module->nodes[i].xpath; i++) {
 		struct nb_node *nb_node;
 		uint32_t priority;
