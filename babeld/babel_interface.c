@@ -695,6 +695,9 @@ interface_reset(struct interface *ifp)
            babel_ifp->cost,
            babel_ifp->ipv4 ? ", IPv4" : "");
 
+    if (babel_ifp->ipv4 != NULL)
+		free(babel_ifp->ipv4);
+
     return 1;
 }
 
