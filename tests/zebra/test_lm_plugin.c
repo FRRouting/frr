@@ -8,11 +8,18 @@
 
 #include <zebra.h>
 #include "zebra/zapi_msg.h"
+#include "zebra/zebra_router.h"
 #include "zebra/label_manager.h"
 
 /* shim out unused functions/variables to allow the lablemanager to compile*/
 DEFINE_KOOH(zserv_client_close, (struct zserv * client), (client));
 unsigned long zebra_debug_packet = 0;
+
+struct zebra_router zrouter = {
+	.multipath_num = MULTIPATH_NUM,
+	.ipv4_multicast_mode = MCAST_NO_CONFIG,
+};
+
 struct zserv *zserv_find_client_session(uint8_t proto, unsigned short instance,
 					uint32_t session_id)
 {
@@ -31,6 +38,11 @@ int zsend_assign_label_chunk_response(struct zserv *client, vrf_id_t vrf_id,
 	return 0;
 }
 
+
+int zserv_send_message(struct zserv *client, struct stream *msg)
+{
+	return 0;
+}
 
 static int test_client_connect(struct zserv *client, vrf_id_t vrf_id)
 {
