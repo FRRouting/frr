@@ -779,8 +779,6 @@ sed -i 's/ -M rpki//' %{_sysconfdir}/frr/daemons
 %{_libdir}/lib*.so
 %dir %{_includedir}/%{name}
 %{_includedir}/%{name}/*.h
-%dir %{_includedir}/%{name}/mgmtd
-%{_includedir}/%{name}/mgmtd/*.h
 %dir %{_includedir}/%{name}/ospfd
 %{_includedir}/%{name}/ospfd/*.h
 %if %{with_bfdd}

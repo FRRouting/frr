@@ -253,6 +253,7 @@ pkginclude_HEADERS += \
 	lib/memory.h \
 	lib/mgmt.pb-c.h \
 	lib/mgmt_be_client.h \
+	lib/mgmt_defines.h \
 	lib/mgmt_fe_client.h \
 	lib/mgmt_msg.h \
 	lib/mgmt_pb.h \

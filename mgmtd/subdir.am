@@ -33,11 +33,6 @@ mgmtd_libmgmtd_a_SOURCES = \
 	mgmtd/mgmt_vty.c \
 	# end
 
-mgmtdheaderdir = $(pkgincludedir)/mgmtd
-mgmtdheader_HEADERS = \
-	mgmtd/mgmt_defines.h \
-	# end
-
 noinst_HEADERS += \
 	mgmtd/mgmt.h \
 	mgmtd/mgmt_be_adapter.h \

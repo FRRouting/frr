@@ -14,7 +14,7 @@ extern "C" {
 
 #include "mgmt_pb.h"
 #include "frrevent.h"
-#include "mgmtd/mgmt_defines.h"
+#include "mgmt_defines.h"
 
 /***************************************************************
  * Macros

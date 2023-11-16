@@ -26,6 +26,8 @@
 #define MGMTD_TXN_CLEANUP_DELAY_MSEC 100
 #define MGMTD_TXN_CLEANUP_DELAY_USEC 10
 
+#define MGMTD_TXN_ID_NONE 0
+
 /*
  * The following definition enables local validation of config
  * on the MGMTD process by loading client-defined NB callbacks

@@ -12,7 +12,7 @@
 
 #include "mgmt_fe_client.h"
 #include "mgmt_msg.h"
-#include "mgmtd/mgmt_defines.h"
+#include "mgmt_defines.h"
 
 struct mgmt_fe_client_adapter;
 struct mgmt_master;

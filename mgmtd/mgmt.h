@@ -13,9 +13,9 @@
 #include "vrf.h"
 #include "defaults.h"
 #include "stream.h"
+#include "mgmt_defines.h"
 
 #include "mgmtd/mgmt_memory.h"
-#include "mgmtd/mgmt_defines.h"
 #include "mgmtd/mgmt_history.h"
 #include "mgmtd/mgmt_txn.h"
 #include "mgmtd/mgmt_ds.h"
