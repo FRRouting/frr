@@ -44,6 +44,11 @@ int zserv_send_message(struct zserv *client, struct stream *msg)
 	return 0;
 }
 
+void zebra_mpls_static_label_chunk_free_notify(uint32_t label_start,
+					       uint32_t size){
+	return;
+}
+
 static int test_client_connect(struct zserv *client, vrf_id_t vrf_id)
 {
 	return 0;
