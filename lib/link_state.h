@@ -106,6 +106,7 @@ extern int ls_node_id_same(struct ls_node_id i1, struct ls_node_id i2);
 #define LS_NODE_SR		0x0040
 #define LS_NODE_SRLB		0x0080
 #define LS_NODE_MSD		0x0100
+#define LS_NODE_SRV6		0x0200
 
 /* Link State Node structure */
 struct ls_node {
@@ -128,6 +129,14 @@ struct ls_node {
 	} srlb;
 	uint8_t algo[LIB_LS_SR_ALGO_COUNT]; /* Segment Routing Algorithms */
 	uint8_t msd;			/* Maximum Stack Depth */
+
+	uint16_t srv6_cap_flags; /* draft-ietf-idr-bgpls-srv6-ext, 3.1., flags field */
+	struct ls_srv6_msd { /* draft-ietf-idr-bgpls-srv6-ext, 3.2. */
+		uint8_t max_seg_left_msd;
+		uint8_t max_end_pop_msd;
+		uint8_t max_h_encaps_msd;
+		uint8_t max_end_d_msd;
+	} srv6_msd;
 };
 
 /* Link State flags to indicate which Attribute parameters are valid */

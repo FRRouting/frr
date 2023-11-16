@@ -797,6 +797,12 @@ static struct ls_vertex *lsp_to_vertex(struct ls_ted *ted, struct isis_lsp *lsp)
 				lnode.msd = cap->msd;
 				SET_FLAG(lnode.flags, LS_NODE_MSD);
 			}
+			if (cap->srv6_cap.is_srv6_capable) {
+				SET_FLAG(lnode.flags, LS_NODE_SRV6);
+				lnode.srv6_cap_flags = cap->srv6_cap.flags;
+				memcpy(&lnode.srv6_msd, &cap->srv6_msd,
+				       sizeof(struct isis_srv6_msd));
+			}
 		}
 	}
 

@@ -140,6 +140,12 @@ int ls_node_same(struct ls_node *n1, struct ls_node *n2)
 		if (CHECK_FLAG(n1->flags, LS_NODE_MSD) && (n1->msd != n2->msd))
 			return 0;
 	}
+	if (CHECK_FLAG(n1->flags, LS_NODE_SRV6)) {
+		if (n1->srv6_cap_flags != n2->srv6_cap_flags)
+			return 0;
+		if (memcmp(&n1->srv6_msd, &n2->srv6_msd, sizeof(n1->srv6_msd)))
+			return 0;
+	}
 
 	/* OK, n1 & n2 are equal */
 	return 1;
