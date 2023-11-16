@@ -228,6 +228,7 @@ void zebra_finalize(struct event *dummy)
 	/* Final shutdown of ns resources */
 	ns_walk_func(zebra_ns_final_shutdown, NULL, NULL);
 
+	zebra_rib_terminate();
 	zebra_router_terminate();
 
 	ns_terminate();
@@ -410,7 +411,7 @@ int main(int argc, char **argv)
 	/* Zebra related initialize. */
 	zebra_router_init(asic_offload, notify_on_ack, v6_with_v4_nexthop);
 	zserv_init();
-	rib_init();
+	zebra_rib_init();
 	zebra_if_init();
 	zebra_debug_init();
 
