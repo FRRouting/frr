@@ -7,6 +7,10 @@ build:
   tools:
     python: "3.11"
 
+python:
+  install:
+    - requirements: requirements.txt
+
 # Build documentation in the docs/ directory with Sphinx
 sphinx:
   configuration: doc/developer/conf.py
