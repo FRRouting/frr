@@ -3883,6 +3883,11 @@ Debugging
    BGP UPDATE messages transmitted and received between local and remote
    instances.
 
+.. clicmd:: debug bgp updates <in|out> [<A.B.C.D|X:X::X:X|WORD> [prefix-list WORD]]
+
+   Enable or disable debugging for BGP updates. Optionally, you can specify
+   a prefix-list to filter the updates for an arbitrary neighbor.
+
 .. clicmd:: debug bgp keepalives
 
    Enable or disable debugging for BGP keepalives. This provides information on
