@@ -2475,6 +2475,16 @@ ssize_t netlink_route_multipath_msg_encode(int cmd, struct zebra_dplane_ctx *ctx
 					    tag))
 					return 0;
 
+				/*
+				 * Add encapsulation information when installing via
+				 * FPM.
+				 */
+				if (fpm) {
+					if (!netlink_route_nexthop_encap(
+						    &req->n, datalen, nexthop))
+						return 0;
+				}
+
 				if (!setsrc && src1) {
 					if (p->family == AF_INET)
 						src.ipv4 = src1->ipv4;
@@ -2487,23 +2497,6 @@ ssize_t netlink_route_multipath_msg_encode(int cmd, struct zebra_dplane_ctx *ctx
 		}
 
 		nl_attr_nest_end(&req->n, nest);
-
-		/*
-		 * Add encapsulation information when installing via
-		 * FPM.
-		 */
-		if (fpm) {
-			for (ALL_NEXTHOPS_PTR(dplane_ctx_get_ng(ctx),
-					      nexthop)) {
-				if (CHECK_FLAG(nexthop->flags,
-					       NEXTHOP_FLAG_RECURSIVE))
-					continue;
-				if (!netlink_route_nexthop_encap(
-					    &req->n, datalen, nexthop))
-					return 0;
-			}
-		}
-
 
 		if (setsrc) {
 			if (p->family == AF_INET) {
