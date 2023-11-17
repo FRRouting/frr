@@ -755,7 +755,7 @@ DEFPY(ipv6_ospf6_p2xp_neigh_cost, ipv6_ospf6_p2xp_neigh_cost_cmd,
 	VTY_DECLVAR_CONTEXT(interface, ifp);
 	struct ospf6_interface *oi = ifp->info;
 	struct ospf6_if_p2xp_neighcfg *p2xp_cfg;
-	uint32_t prev_cost;
+	uint32_t prev_cost = 0;
 
 	if (!oi) {
 		if (no)
