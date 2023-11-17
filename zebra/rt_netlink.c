@@ -4726,77 +4726,24 @@ static ssize_t netlink_neigh_msg_encoder(struct zebra_dplane_ctx *ctx,
 					 void *buf, size_t buflen)
 {
 	ssize_t ret = 0;
+	enum dplane_op_e op;
 
-	switch (dplane_ctx_get_op(ctx)) {
-	case DPLANE_OP_NEIGH_INSTALL:
-	case DPLANE_OP_NEIGH_UPDATE:
-	case DPLANE_OP_NEIGH_DISCOVER:
-	case DPLANE_OP_NEIGH_IP_INSTALL:
+	op = dplane_ctx_get_op(ctx);
+	if (op == DPLANE_OP_NEIGH_INSTALL || op == DPLANE_OP_NEIGH_UPDATE ||
+	    op == DPLANE_OP_NEIGH_DISCOVER || op == DPLANE_OP_NEIGH_IP_INSTALL)
 		ret = netlink_neigh_update_ctx(ctx, RTM_NEWNEIGH, buf, buflen);
-		break;
-	case DPLANE_OP_NEIGH_DELETE:
-	case DPLANE_OP_NEIGH_IP_DELETE:
+	else if (op == DPLANE_OP_NEIGH_DELETE || op == DPLANE_OP_NEIGH_IP_DELETE)
 		ret = netlink_neigh_update_ctx(ctx, RTM_DELNEIGH, buf, buflen);
-		break;
-	case DPLANE_OP_VTEP_ADD:
+	else if (op == DPLANE_OP_VTEP_ADD)
 		ret = netlink_vxlan_flood_update_ctx(ctx, RTM_NEWNEIGH, buf,
 						     buflen);
-		break;
-	case DPLANE_OP_VTEP_DELETE:
+	else if (op == DPLANE_OP_VTEP_DELETE)
 		ret = netlink_vxlan_flood_update_ctx(ctx, RTM_DELNEIGH, buf,
 						     buflen);
-		break;
-	case DPLANE_OP_NEIGH_TABLE_UPDATE:
+	else if (op == DPLANE_OP_NEIGH_TABLE_UPDATE)
 		ret = netlink_neigh_table_update_ctx(ctx, buf, buflen);
-		break;
-	case DPLANE_OP_ROUTE_INSTALL:
-	case DPLANE_OP_ROUTE_UPDATE:
-	case DPLANE_OP_ROUTE_DELETE:
-	case DPLANE_OP_ROUTE_NOTIFY:
-	case DPLANE_OP_NH_INSTALL:
-	case DPLANE_OP_NH_UPDATE:
-	case DPLANE_OP_NH_DELETE:
-	case DPLANE_OP_LSP_INSTALL:
-	case DPLANE_OP_LSP_UPDATE:
-	case DPLANE_OP_LSP_DELETE:
-	case DPLANE_OP_LSP_NOTIFY:
-	case DPLANE_OP_PW_INSTALL:
-	case DPLANE_OP_PW_UNINSTALL:
-	case DPLANE_OP_SYS_ROUTE_ADD:
-	case DPLANE_OP_SYS_ROUTE_DELETE:
-	case DPLANE_OP_ADDR_INSTALL:
-	case DPLANE_OP_ADDR_UNINSTALL:
-	case DPLANE_OP_MAC_INSTALL:
-	case DPLANE_OP_MAC_DELETE:
-	case DPLANE_OP_RULE_ADD:
-	case DPLANE_OP_RULE_DELETE:
-	case DPLANE_OP_RULE_UPDATE:
-	case DPLANE_OP_BR_PORT_UPDATE:
-	case DPLANE_OP_IPTABLE_ADD:
-	case DPLANE_OP_IPTABLE_DELETE:
-	case DPLANE_OP_IPSET_ADD:
-	case DPLANE_OP_IPSET_DELETE:
-	case DPLANE_OP_IPSET_ENTRY_ADD:
-	case DPLANE_OP_IPSET_ENTRY_DELETE:
-	case DPLANE_OP_GRE_SET:
-	case DPLANE_OP_INTF_ADDR_ADD:
-	case DPLANE_OP_INTF_ADDR_DEL:
-	case DPLANE_OP_INTF_NETCONFIG:
-	case DPLANE_OP_INTF_INSTALL:
-	case DPLANE_OP_INTF_UPDATE:
-	case DPLANE_OP_INTF_DELETE:
-	case DPLANE_OP_TC_QDISC_INSTALL:
-	case DPLANE_OP_TC_QDISC_UNINSTALL:
-	case DPLANE_OP_TC_CLASS_ADD:
-	case DPLANE_OP_TC_CLASS_DELETE:
-	case DPLANE_OP_TC_CLASS_UPDATE:
-	case DPLANE_OP_TC_FILTER_ADD:
-	case DPLANE_OP_TC_FILTER_DELETE:
-	case DPLANE_OP_TC_FILTER_UPDATE:
-	case DPLANE_OP_NONE:
-	case DPLANE_OP_STARTUP_STAGE:
+	else
 		ret = -1;
-	}
 
 	return ret;
 }

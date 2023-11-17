@@ -3173,8 +3173,7 @@ void zebra_nhg_dplane_result(struct zebra_dplane_ctx *ctx)
 			"Nexthop dplane ctx %p, op %s, nexthop ID (%u), result %s",
 			ctx, dplane_op2str(op), id, dplane_res2str(status));
 
-	switch (op) {
-	case DPLANE_OP_NH_DELETE:
+	if (op == DPLANE_OP_NH_DELETE) {
 		if (status != ZEBRA_DPLANE_REQUEST_SUCCESS)
 			flog_err(
 				EC_ZEBRA_DP_DELETE_FAIL,
@@ -3182,18 +3181,15 @@ void zebra_nhg_dplane_result(struct zebra_dplane_ctx *ctx)
 				id);
 
 		/* We already free'd the data, nothing to do */
-		break;
-	case DPLANE_OP_NH_INSTALL:
-	case DPLANE_OP_NH_UPDATE:
+	} else if (op == DPLANE_OP_NH_INSTALL || op == DPLANE_OP_NH_UPDATE) {
 		nhe = zebra_nhg_lookup_id(id);
 
 		if (!nhe) {
 			if (IS_ZEBRA_DEBUG_NHG)
-				zlog_debug(
-					"%s operation preformed on Nexthop ID (%u) in the kernel, that we no longer have in our table",
-					dplane_op2str(op), id);
+				zlog_debug("%s operation performed on Nexthop ID (%u) in the kernel, that we no longer have in our table",
+					   dplane_op2str(op), id);
 
-			break;
+			return;
 		}
 
 		UNSET_FLAG(nhe->flags, NEXTHOP_GROUP_QUEUED);
@@ -3221,61 +3217,6 @@ void zebra_nhg_dplane_result(struct zebra_dplane_ctx *ctx)
 					"Failed to install Nexthop (%pNG) into the kernel",
 					nhe);
 		}
-		break;
-
-	case DPLANE_OP_ROUTE_INSTALL:
-	case DPLANE_OP_ROUTE_UPDATE:
-	case DPLANE_OP_ROUTE_DELETE:
-	case DPLANE_OP_ROUTE_NOTIFY:
-	case DPLANE_OP_LSP_INSTALL:
-	case DPLANE_OP_LSP_UPDATE:
-	case DPLANE_OP_LSP_DELETE:
-	case DPLANE_OP_LSP_NOTIFY:
-	case DPLANE_OP_PW_INSTALL:
-	case DPLANE_OP_PW_UNINSTALL:
-	case DPLANE_OP_SYS_ROUTE_ADD:
-	case DPLANE_OP_SYS_ROUTE_DELETE:
-	case DPLANE_OP_ADDR_INSTALL:
-	case DPLANE_OP_ADDR_UNINSTALL:
-	case DPLANE_OP_MAC_INSTALL:
-	case DPLANE_OP_MAC_DELETE:
-	case DPLANE_OP_NEIGH_INSTALL:
-	case DPLANE_OP_NEIGH_UPDATE:
-	case DPLANE_OP_NEIGH_DELETE:
-	case DPLANE_OP_NEIGH_IP_INSTALL:
-	case DPLANE_OP_NEIGH_IP_DELETE:
-	case DPLANE_OP_VTEP_ADD:
-	case DPLANE_OP_VTEP_DELETE:
-	case DPLANE_OP_RULE_ADD:
-	case DPLANE_OP_RULE_DELETE:
-	case DPLANE_OP_RULE_UPDATE:
-	case DPLANE_OP_NEIGH_DISCOVER:
-	case DPLANE_OP_BR_PORT_UPDATE:
-	case DPLANE_OP_NONE:
-	case DPLANE_OP_IPTABLE_ADD:
-	case DPLANE_OP_IPTABLE_DELETE:
-	case DPLANE_OP_IPSET_ADD:
-	case DPLANE_OP_IPSET_DELETE:
-	case DPLANE_OP_IPSET_ENTRY_ADD:
-	case DPLANE_OP_IPSET_ENTRY_DELETE:
-	case DPLANE_OP_NEIGH_TABLE_UPDATE:
-	case DPLANE_OP_GRE_SET:
-	case DPLANE_OP_INTF_ADDR_ADD:
-	case DPLANE_OP_INTF_ADDR_DEL:
-	case DPLANE_OP_INTF_NETCONFIG:
-	case DPLANE_OP_INTF_INSTALL:
-	case DPLANE_OP_INTF_UPDATE:
-	case DPLANE_OP_INTF_DELETE:
-	case DPLANE_OP_TC_QDISC_INSTALL:
-	case DPLANE_OP_TC_QDISC_UNINSTALL:
-	case DPLANE_OP_TC_CLASS_ADD:
-	case DPLANE_OP_TC_CLASS_DELETE:
-	case DPLANE_OP_TC_CLASS_UPDATE:
-	case DPLANE_OP_TC_FILTER_ADD:
-	case DPLANE_OP_TC_FILTER_DELETE:
-	case DPLANE_OP_TC_FILTER_UPDATE:
-	case DPLANE_OP_STARTUP_STAGE:
-		break;
 	}
 }
 
