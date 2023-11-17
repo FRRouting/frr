@@ -96,6 +96,7 @@ extern struct list *bgp_debug_zebra_prefixes;
 
 struct bgp_debug_filter {
 	char *host;
+	char *plist_name;
 	struct prefix *p;
 };
 
