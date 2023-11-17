@@ -75,6 +75,15 @@ import isis_sr_flex_algo_topo3_fae.lib.flexalgo_config as faconfig
 
 
 pytestmark = [pytest.mark.isisd, pytest.mark.bgpd, pytest.mark.pathd]
+
+affinity_map_def = """
+affinity-map red bit-position 0
+affinity-map green bit-position 1
+affinity-map blue bit-position 2
+affinity-map purple bit-position 3
+!
+"""
+
 zebra_conf_head = """\
 log file zebra.log
 !
@@ -110,11 +119,9 @@ router isis {}
  is-type level-1
  topology ipv6-unicast
  !
- affinity-map red bit-position 0
- affinity-map green bit-position 1
- affinity-map blue bit-position 2
- affinity-map purple bit-position 3
- !"""
+ mpls-te on
+ !
+"""
 
 isisd_conf_area_sr_fmt = """\
  segment-routing on
@@ -732,15 +739,23 @@ def build_topo(tgen):
                 f"interface eth-{link[1]}\n"
                 + f" ip address {faconfig.v4addr(idx, link[2])}\n"
                 + f" ipv6 address {faconfig.v6addr(idx, link[3])}\n"
-                + "!\n"
             )
+            if len(link[4]) > 0:
+                cfg += f" link-params\n"
+                cfg += f'  affinity {" ".join(link[4])}\n'
+                cfg += f" exit-link-params\n"
+            cfg += f"!\n"
         for link in (ll for ll in router_links if ll[1] == idx):
             cfg += (
                 f"interface eth-{link[0]}\n"
                 + f" ip address {faconfig.v4addr(idx, link[2])}\n"
                 + f" ipv6 address {faconfig.v6addr(idx, link[3])}\n"
-                + "!\n"
             )
+            if len(link[4]) > 0:
+                cfg += f" link-params\n"
+                cfg += f'  affinity {" ".join(link[4])}\n'
+                cfg += f" exit-link-params\n"
+            cfg += f"!\n"
         for link in (ll for ll in router_switch_links if ll[1] == idx):
             # only ipv4 for now
             sw = switch_names[link[0]]
@@ -760,13 +775,9 @@ def build_topo(tgen):
         )
         for link in (ll for ll in router_links if ll[0] == idx):
             cfg += f"interface eth-{link[1]}\n" + isisd_conf_itf
-            if len(link[4]) > 0:
-                cfg += f' isis affinity flex-algo {" ".join(link[4])}\n'
             cfg += "!\n"
         for link in (ll for ll in router_links if ll[1] == idx):
             cfg += f"interface eth-{link[0]}\n" + isisd_conf_itf
-            if len(link[4]) > 0:
-                cfg += f' isis affinity flex-algo {" ".join(link[4])}\n'
             cfg += "!\n"
         return cfg[:-2]  # drop the trailing newline
 
@@ -774,6 +785,7 @@ def build_topo(tgen):
         with open(filename, "w") as _fp:
             print("hostname %s" % router_names[idx], file=_fp)
             print(zebra_conf_head, file=_fp)
+            print(affinity_map_def, file=_fp)
             print(zebra_conf_itfs(tgen, idx), file=_fp)
             print(zebra_conf_tail, file=_fp)
         return
@@ -782,6 +794,7 @@ def build_topo(tgen):
         idx_02x = f"{idx:02x}" if idx > 0 else f"{num_routers:02x}"
         with open(filename, "w") as _fp:
             print("hostname %s" % router_names[idx], file=_fp)
+            print(affinity_map_def, file=_fp)
             print(isisd_conf_itfs(tgen, idx), file=_fp)
             print(isisd_conf_area_fmt.format(isis_area, idx_02x), file=_fp)
             for _fa, aff, part in zip(
@@ -790,6 +803,7 @@ def build_topo(tgen):
                 if not part:
                     continue
                 print(f" flex-algo {_fa}", file=_fp)
+                print(f"  dataplane sr-mpls", file=_fp)
                 if advertise_flex_algos[idx]:
                     print(f"  advertise-definition", file=_fp)
                     if aff is not None:
