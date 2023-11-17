@@ -155,6 +155,12 @@ struct cpu_event_history {
 /* Struct timeval's tv_usec one second value.  */
 #define TIMER_SECOND_MICRO 1000000L
 
+static inline unsigned long timeval_elapsed(struct timeval a, struct timeval b)
+{
+	return (((a.tv_sec - b.tv_sec) * TIMER_SECOND_MICRO)
+		+ (a.tv_usec - b.tv_usec));
+}
+
 /* Event yield time.  */
 #define EVENT_YIELD_TIME_SLOT 10 * 1000L /* 10ms */
 
