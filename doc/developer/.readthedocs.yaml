@@ -9,7 +9,7 @@ build:
 
 python:
   install:
-    - requirements: requirements.txt
+    - requirements: doc/developer/requirements.txt
 
 # Build documentation in the docs/ directory with Sphinx
 sphinx:
