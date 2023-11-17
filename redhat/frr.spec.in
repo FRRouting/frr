@@ -420,7 +420,9 @@ routing state through standard SNMP MIBs.
 %else
     --disable-pathd \
 %endif
-    --enable-snmp
+    --enable-snmp \
+    --enable-configfile-mask=0640 \
+    --enable-logfile-mask=0640
     # end
 
 make %{?_smp_mflags} MAKEINFO="makeinfo --no-split"
