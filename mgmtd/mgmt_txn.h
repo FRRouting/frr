@@ -206,8 +206,8 @@ mgmt_txn_notify_be_txn_reply(uint64_t txn_id, bool create, bool success,
  * Reply to backend adapater with config data create request.
  */
 extern int
-mgmt_txn_notify_be_cfgdata_reply(uint64_t txn_id, uint64_t batch_id,
-				     bool success, char *error_if_any,
+mgmt_txn_notify_be_cfgdata_reply(uint64_t txn_id, bool success,
+				     char *error_if_any,
 				     struct mgmt_be_client_adapter *adapter);
 
 /*

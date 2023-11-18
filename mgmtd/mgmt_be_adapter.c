@@ -379,9 +379,8 @@ mgmt_be_adapter_handle_msg(struct mgmt_be_client_adapter *adapter,
 	case MGMTD__BE_MESSAGE__MESSAGE_CFG_DATA_REPLY:
 		MGMTD_BE_ADAPTER_DBG(
 			"Got CFGDATA_REPLY from '%s' txn-id %" PRIx64
-			" batch-id %" PRIu64 " err:'%s'",
-			adapter->name, be_msg->cfg_data_reply->txn_id,
-			be_msg->cfg_data_reply->batch_id,
+			" err:'%s'", adapter->name,
+			be_msg->cfg_data_reply->txn_id,
 			be_msg->cfg_data_reply->error_if_any
 				? be_msg->cfg_data_reply->error_if_any
 				: "None");
@@ -390,7 +389,6 @@ mgmt_be_adapter_handle_msg(struct mgmt_be_client_adapter *adapter,
 		 */
 		mgmt_txn_notify_be_cfgdata_reply(
 			be_msg->cfg_data_reply->txn_id,
-			be_msg->cfg_data_reply->batch_id,
 			be_msg->cfg_data_reply->success,
 			be_msg->cfg_data_reply->error_if_any, adapter);
 		break;
@@ -461,7 +459,7 @@ int mgmt_be_send_txn_req(struct mgmt_be_client_adapter *adapter,
 }
 
 int mgmt_be_send_cfgdata_req(struct mgmt_be_client_adapter *adapter,
-			     uint64_t txn_id, uint64_t batch_id,
+			     uint64_t txn_id,
 			     Mgmtd__YangCfgDataReq **cfgdata_reqs,
 			     size_t num_reqs, bool end_of_data)
 {
@@ -469,7 +467,6 @@ int mgmt_be_send_cfgdata_req(struct mgmt_be_client_adapter *adapter,
 	Mgmtd__BeCfgDataCreateReq cfgdata_req;
 
 	mgmtd__be_cfg_data_create_req__init(&cfgdata_req);
-	cfgdata_req.batch_id = batch_id;
 	cfgdata_req.txn_id = txn_id;
 	cfgdata_req.data_req = cfgdata_reqs;
 	cfgdata_req.n_data_req = num_reqs;
@@ -481,8 +478,8 @@ int mgmt_be_send_cfgdata_req(struct mgmt_be_client_adapter *adapter,
 
 	MGMTD_BE_ADAPTER_DBG(
 		"Sending CFGDATA_CREATE_REQ to '%s' txn-id: %" PRIu64
-		" batch-id: %" PRIu64,
-		adapter->name, txn_id, batch_id);
+		" last: %s",
+		adapter->name, txn_id, end_of_data ? "yes" : "no");
 
 	return mgmt_be_adapter_send_msg(adapter, &be_msg);
 }

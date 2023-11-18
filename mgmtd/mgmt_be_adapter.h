@@ -166,9 +166,6 @@ extern int mgmt_be_send_txn_req(struct mgmt_be_client_adapter *adapter,
  * txn_id
  *    Unique transaction identifier.
  *
- * batch_id
- *    Request batch ID.
- *
  * cfgdata_reqs
  *    An array of pointer to Mgmtd__YangCfgDataReq.
  *
@@ -182,7 +179,7 @@ extern int mgmt_be_send_txn_req(struct mgmt_be_client_adapter *adapter,
  *    0 on success, -1 on failure.
  */
 extern int mgmt_be_send_cfgdata_req(struct mgmt_be_client_adapter *adapter,
-				    uint64_t txn_id, uint64_t batch_id,
+				    uint64_t txn_id,
 				    Mgmtd__YangCfgDataReq **cfgdata_reqs,
 				    size_t num_reqs, bool end_of_data);
 
