@@ -124,26 +124,12 @@ struct static_vrf *static_vrf_lookup_by_name(const char *name)
 	return NULL;
 }
 
-static int static_vrf_config_write(struct vty *vty)
-{
-	struct lyd_node *dnode;
-	int written = 0;
-
-	dnode = yang_dnode_get(running_config->dnode, "/frr-routing:routing");
-	if (dnode) {
-		nb_cli_show_dnode_cmds(vty, dnode, false);
-		written = 1;
-	}
-
-	return written;
-}
-
 void static_vrf_init(void)
 {
 	vrf_init(static_vrf_new, static_vrf_enable, static_vrf_disable,
 		 static_vrf_delete);
 
-	vrf_cmd_init(static_vrf_config_write);
+	vrf_cmd_init(NULL);
 }
 
 void static_vrf_terminate(void)
