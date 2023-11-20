@@ -231,6 +231,8 @@ void zebra_finalize(struct event *dummy)
 	zebra_rib_terminate();
 	zebra_router_terminate();
 
+	zebra_mpls_terminate();
+
 	ns_terminate();
 	frr_fini();
 	exit(0);

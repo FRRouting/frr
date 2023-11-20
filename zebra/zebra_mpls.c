@@ -4034,10 +4034,12 @@ void zebra_mpls_turned_on(void)
 	if (!mpls_enabled) {
 		mpls_processq_init();
 		mpls_enabled = true;
-	}
 
-	hook_register(zserv_client_close, zebra_mpls_cleanup_fecs_for_client);
-	hook_register(zserv_client_close, zebra_mpls_cleanup_zclient_labels);
+		hook_register(zserv_client_close,
+			      zebra_mpls_cleanup_fecs_for_client);
+		hook_register(zserv_client_close,
+			      zebra_mpls_cleanup_zclient_labels);
+	}
 }
 
 /*
@@ -4055,4 +4057,10 @@ void zebra_mpls_init(void)
 	}
 
 	zebra_mpls_turned_on();
+}
+
+void zebra_mpls_terminate(void)
+{
+	hook_unregister(zserv_client_close, zebra_mpls_cleanup_fecs_for_client);
+	hook_unregister(zserv_client_close, zebra_mpls_cleanup_zclient_labels);
 }
