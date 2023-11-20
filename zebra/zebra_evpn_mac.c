@@ -2007,6 +2007,10 @@ int zebra_evpn_mac_remote_macip_add(struct zebra_evpn *zevpn, struct zebra_vrf *
 	remote_gw = !!CHECK_FLAG(flags, ZEBRA_MACIP_TYPE_GW);
 
 	mac = zebra_evpn_mac_lookup(zevpn, macaddr);
+	if (mac) {
+		/* Refresh the timestamp */
+		mac->gr_refresh_time = monotime(NULL);
+	}
 
 	/* Ignore if the mac is already present as a gateway mac */
 	if (mac && CHECK_FLAG(mac->flags, ZEBRA_MAC_DEF_GW) &&
@@ -2035,9 +2039,6 @@ int zebra_evpn_mac_remote_macip_add(struct zebra_evpn *zevpn, struct zebra_vrf *
 			mac = zebra_evpn_mac_add(zevpn, macaddr);
 			zebra_evpn_es_mac_ref(mac, esi);
 		} else {
-			/* Refresh the timestamp */
-			mac->gr_refresh_time = monotime(NULL);
-
 			/* When host moves but changes its (MAC,IP)
 			 * binding, BGP may install a MACIP entry that
 			 * corresponds to "older" location of the host
@@ -2459,12 +2460,11 @@ void zebra_evpn_mac_gw_macip_add(struct interface *ifp, struct zebra_evpn *zevpn
 		mac = zebra_evpn_mac_lookup(zevpn, macaddr);
 		if (!mac)
 			mac = zebra_evpn_mac_add(zevpn, macaddr);
-		else
-			mac->gr_refresh_time = monotime(NULL);
 		*macp = mac;
 	} else
 		mac = *macp;
 
+	mac->gr_refresh_time = monotime(NULL);
 	/* Set "local" forwarding info. */
 	zebra_evpn_mac_clear_fwd_info(mac);
 	SET_FLAG(mac->flags, ZEBRA_MAC_LOCAL);
