@@ -322,6 +322,8 @@ DECLARE_QOBJ_TYPE(route_map);
 /* Zebra route-map set actions */
 #define IS_SET_SRC(A)                                                          \
 	(strmatch(A, "frr-zebra-route-map:src-address"))
+#define IS_SET_INITCWND(A) (strmatch(A, "frr-zebra-route-map:initcwnd"))
+#define IS_SET_INITRWND(A) (strmatch(A, "frr-zebra-route-map:initrwnd"))
 /* OSPF route-map set actions */
 #define IS_SET_METRIC_TYPE(A)                                                  \
 	(strmatch(A, "frr-ospf-route-map:metric-type"))

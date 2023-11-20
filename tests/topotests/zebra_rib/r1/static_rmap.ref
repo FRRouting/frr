@@ -4,6 +4,8 @@ route-map: static Invoked: 2 Optimization: enabled Processed Change: false
   Match clauses:
   Set clauses:
     src 192.168.215.1
+    initcwnd 30
+    initrwnd 30
   Call clause:
   Action:
     Exit routemap
