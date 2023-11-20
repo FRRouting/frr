@@ -241,6 +241,9 @@ void zebra_router_terminate(void)
 			    zebra_pbr_ipset_entry_free);
 	hash_clean_and_free(&zrouter.ipset_hash, zebra_pbr_ipset_free);
 	hash_clean_and_free(&zrouter.iptable_hash, zebra_pbr_iptable_free);
+	hash_clean_and_free(&zrouter.filter_hash, NULL);
+	hash_clean_and_free(&zrouter.qdisc_hash, NULL);
+	hash_clean_and_free(&zrouter.class_hash, NULL);
 
 #ifdef HAVE_SCRIPTING
 	zebra_script_destroy();
@@ -295,10 +298,6 @@ void zebra_router_init(bool asic_offload, bool notify_on_ack,
 	zrouter.nhgs_id =
 		hash_create_size(8, zebra_nhg_id_key, zebra_nhg_hash_id_equal,
 				 "Zebra Router Nexthop Groups ID index");
-
-	zrouter.rules_hash =
-		hash_create_size(8, zebra_pbr_rules_hash_key,
-				 zebra_pbr_rules_hash_equal, "Rules Hash");
 
 	zrouter.qdisc_hash =
 		hash_create_size(8, zebra_tc_qdisc_hash_key,
