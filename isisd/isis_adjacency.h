@@ -74,12 +74,10 @@ struct isis_adjacency {
 	struct nlpids nlpids; /* protocols spoken ... */
 	struct in_addr *ipv4_addresses;
 	unsigned int ipv4_address_count;
-	struct in_addr router_address;
 	struct in6_addr *ll_ipv6_addrs; /* Link local IPv6 neighbor address */
 	unsigned int ll_ipv6_count;
 	struct in6_addr *global_ipv6_addrs; /* Global IPv6 neighbor address */
 	unsigned int global_ipv6_count;
-	struct in6_addr router_address6;
 	uint8_t prio[ISIS_LEVELS];      /* priorityOfNeighbour for DIS */
 	int circuit_t;			/* from hello PDU hdr */
 	int level;			/* level (1 or 2) */
