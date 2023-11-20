@@ -135,7 +135,7 @@ TRACEPOINT_LOGLEVEL(frr_bgp, bmp_mirror_packet, TRACE_INFO)
 TRACEPOINT_EVENT(
 	frr_bgp,
 	bmp_eor,
-	TP_ARGS(afi_t, afi, safi_t, safi, uint8_t, flags, peer_type_flag),
+	TP_ARGS(afi_t, afi, safi_t, safi, uint8_t, flags, uint8_t, peer_type_flag),
 	TP_FIELDS(
 		ctf_integer(afi_t, afi, afi)
 		ctf_integer(safi_t, safi, safi)
