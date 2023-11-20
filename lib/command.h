@@ -82,6 +82,8 @@ enum node_type {
 	AUTH_ENABLE_NODE,	/* Authentication mode for change enable. */
 	ENABLE_NODE,		 /* Enable node. */
 	CONFIG_NODE,		 /* Config node. Default mode of config file. */
+	PREFIX_NODE, /* ip prefix-list node. */
+	PREFIX_IPV6_NODE, /* ipv6 prefix-list node. */
 	DEBUG_NODE,		 /* Debug node. */
 	VRF_DEBUG_NODE,		 /* Vrf Debug node. */
 	NORTHBOUND_DEBUG_NODE,	 /* Northbound Debug node. */
@@ -133,10 +135,8 @@ enum node_type {
 	ISIS_NODE,		 /* ISIS protocol mode */
 	ISIS_FLEX_ALGO_NODE,    /* ISIS Flex Algo mode */
 	ACCESS_NODE,		 /* Access list node. */
-	PREFIX_NODE,		 /* Prefix list node. */
 	ACCESS_IPV6_NODE,	/* Access list node. */
 	ACCESS_MAC_NODE,	 /* MAC access list node*/
-	PREFIX_IPV6_NODE,	/* Prefix list node. */
 	AS_LIST_NODE,		 /* AS list node. */
 	COMMUNITY_LIST_NODE,     /* Community list node. */
 	COMMUNITY_ALIAS_NODE, /* Community alias node. */
