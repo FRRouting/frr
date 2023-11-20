@@ -1487,30 +1487,20 @@ void ospf_zebra_import_default_route(struct ospf *ospf, bool unreg)
 			 __func__);
 }
 
-static int ospf_zebra_import_check_update(ZAPI_CALLBACK_ARGS)
+static void ospf_zebra_import_check_update(struct vrf *vrf, struct prefix *match,
+					   struct zapi_route *nhr)
 {
-	struct ospf *ospf;
-	struct zapi_route nhr;
-	struct prefix matched;
+	struct ospf *ospf = vrf->info;
 
-	ospf = ospf_lookup_by_vrf_id(vrf_id);
 	if (ospf == NULL || !IS_OSPF_ASBR(ospf))
-		return 0;
+		return;
 
-	if (!zapi_nexthop_update_decode(zclient->ibuf, &matched, &nhr)) {
-		zlog_err("%s[%u]: Failure to decode route", __func__,
-			 ospf->vrf_id);
-		return -1;
-	}
+	if (match->family != AF_INET || match->prefixlen != 0 ||
+	    nhr->type == ZEBRA_ROUTE_OSPF)
+		return;
 
-	if (matched.family != AF_INET || matched.prefixlen != 0 ||
-	    nhr.type == ZEBRA_ROUTE_OSPF)
-		return 0;
-
-	ospf->nssa_default_import_check.status = !!nhr.nexthop_num;
+	ospf->nssa_default_import_check.status = !!nhr->nexthop_num;
 	ospf_abr_nssa_type7_defaults(ospf);
-
-	return 0;
 }
 
 int ospf_distribute_list_out_set(struct ospf *ospf, int type, const char *name)
@@ -2183,7 +2173,6 @@ static zclient_handler *const ospf_handlers[] = {
 
 	[ZEBRA_REDISTRIBUTE_ROUTE_ADD] = ospf_zebra_read_route,
 	[ZEBRA_REDISTRIBUTE_ROUTE_DEL] = ospf_zebra_read_route,
-	[ZEBRA_NEXTHOP_UPDATE] = ospf_zebra_import_check_update,
 
 	[ZEBRA_OPAQUE_MESSAGE] = ospf_opaque_msg_handler,
 
@@ -2197,6 +2186,7 @@ void ospf_zebra_init(struct event_loop *master, unsigned short instance)
 			      array_size(ospf_handlers));
 	zclient_init(zclient, ZEBRA_ROUTE_OSPF, instance, &ospfd_privs);
 	zclient->zebra_connected = ospf_zebra_connected;
+	zclient->nexthop_update = ospf_zebra_import_check_update;
 
 	/* Initialize special zclient for synchronous message exchanges. */
 	struct zclient_options options = zclient_options_default;
