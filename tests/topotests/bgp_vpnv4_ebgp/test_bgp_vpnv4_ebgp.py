@@ -299,6 +299,83 @@ def test_export_route_target_with_routemap_without_export_route_target():
     assert success, "{}, vpnv4 update {} still present".format(router.name, prefix)
 
 
+def test_export_route_target_with_default_command():
+    """
+    Add back route target with 'rt vpn export' command
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+    router = tgen.gears["r1"]
+    logger.info("r1, detach route-map and re-add route target vpn export")
+    router.vtysh_cmd(
+        "configure terminal\nrouter bgp 65500 vrf vrf1\naddress-family ipv4 unicast\nrt vpn export 52:100\n"
+    )
+    prefix = "172.31.0.1/32"
+    logger.info("r1, check that exported prefix {} is added back".format(prefix))
+    test_func = partial(
+        check_show_bgp_vpn_prefix_found,
+        router,
+        "ipv4",
+        prefix,
+        "444:1",
+    )
+    success, result = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+    assert success, "{}, vpnv4 update {} still not present".format(router.name, prefix)
+
+
+def test_export_suppress_route_target_with_route_map_command():
+    """
+    Add back route target with 'rt vpn export' command
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+    router = tgen.gears["r1"]
+    logger.info("r1, add an extended comm-list to delete 52:100")
+
+    router.vtysh_cmd("configure terminal\nbgp extcommunity-list 1 permit rt 52:100\n")
+    router.vtysh_cmd(
+        "configure terminal\nroute-map rmap permit 1\nset extended-comm-list 1 delete\n"
+    )
+    prefix = "172.31.0.1/32"
+    logger.info("r1, check that exported prefix {} is removed".format(prefix))
+    test_func = partial(
+        check_show_bgp_vpn_prefix_not_found,
+        router,
+        "ipv4",
+        prefix,
+        "444:1",
+    )
+    success, result = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+    assert success, "{}, vpnv4 update {} still present".format(router.name, prefix)
+
+
+def test_export_add_route_target_to_route_map_command():
+    """
+    Add route target with route-map so that route is added back
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+    router = tgen.gears["r1"]
+    logger.info("r1, add an additional set extcommunity 52:101")
+    router.vtysh_cmd(
+        "configure terminal\nroute-map rmap permit 1\nset extcommunity rt 52:101\n"
+    )
+    prefix = "172.31.0.1/32"
+    logger.info("r1, check that exported prefix {} is added back".format(prefix))
+    test_func = partial(
+        check_show_bgp_vpn_prefix_found,
+        router,
+        "ipv4",
+        prefix,
+        "444:1",
+    )
+    success, result = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+    assert success, "{}, vpnv4 update {} still not present".format(router.name, prefix)
+
+
 def test_memory_leak():
     "Run the memory leak test and report results."
     tgen = get_topogen()
