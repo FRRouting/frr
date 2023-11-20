@@ -305,15 +305,26 @@ static void bgp_debug_list_add_entry(struct list *list, const char *host,
 
 	if (host) {
 		filter->host = XSTRDUP(MTYPE_BGP_DEBUG_STR, host);
+		filter->plist_name = NULL;
+		filter->plist_v4 = NULL;
+		filter->plist_v6 = NULL;
 		filter->p = NULL;
 	} else if (p) {
 		filter->host = NULL;
+		filter->plist_name = NULL;
+		filter->plist_v4 = NULL;
+		filter->plist_v6 = NULL;
 		filter->p = prefix_new();
 		prefix_copy(filter->p, p);
 	}
 
-	if (plist_name)
+	if (plist_name) {
 		filter->plist_name = XSTRDUP(MTYPE_BGP_DEBUG_STR, plist_name);
+		filter->plist_v4 = prefix_list_lookup(AFI_IP,
+						      filter->plist_name);
+		filter->plist_v6 = prefix_list_lookup(AFI_IP6,
+						      filter->plist_name);
+	}
 
 	listnode_add(list, filter);
 }
@@ -2560,8 +2571,8 @@ static bool bgp_debug_per_peer(char *host, const struct prefix *p,
 				struct prefix_list *plist;
 				afi_t afi = family2afi(p->family);
 
-				plist = prefix_list_lookup(afi,
-							   filter->plist_name);
+				plist = (afi == AFI_IP) ? filter->plist_v4
+							: filter->plist_v6;
 
 				if (!plist)
 					continue;
