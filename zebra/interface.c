@@ -2295,15 +2295,10 @@ void zebra_if_dplane_result(struct zebra_dplane_ctx *ctx)
 
 	ifp = if_lookup_by_index_per_ns(zns, ifindex);
 
-	switch (op) {
-	case DPLANE_OP_INTF_ADDR_ADD:
-	case DPLANE_OP_INTF_ADDR_DEL:
+	if (op == DPLANE_OP_INTF_ADDR_ADD || op == DPLANE_OP_INTF_ADDR_DEL) {
 		zebra_if_addr_update_ctx(ctx, ifp);
-		break;
-
-	case DPLANE_OP_INTF_INSTALL:
-	case DPLANE_OP_INTF_UPDATE:
-	case DPLANE_OP_INTF_DELETE:
+	} else if (op == DPLANE_OP_INTF_INSTALL ||
+		   op == DPLANE_OP_INTF_UPDATE || op == DPLANE_OP_INTF_DELETE) {
 		/*
 		 * Queued from the dplane means it is something
 		 * that we need to handle( create/delete the
@@ -2313,62 +2308,8 @@ void zebra_if_dplane_result(struct zebra_dplane_ctx *ctx)
 			zebra_if_dplane_ifp_handling(ctx);
 		else
 			zebra_if_update_ctx(ctx, ifp);
-		break;
-
-	case DPLANE_OP_INTF_NETCONFIG:
+	} else if (op == DPLANE_OP_INTF_NETCONFIG) {
 		zebra_if_netconf_update_ctx(ctx, ifp, ifindex);
-		break;
-
-	case DPLANE_OP_ROUTE_INSTALL:
-	case DPLANE_OP_ROUTE_UPDATE:
-	case DPLANE_OP_ROUTE_DELETE:
-	case DPLANE_OP_NH_DELETE:
-	case DPLANE_OP_NH_INSTALL:
-	case DPLANE_OP_NH_UPDATE:
-	case DPLANE_OP_ROUTE_NOTIFY:
-	case DPLANE_OP_LSP_INSTALL:
-	case DPLANE_OP_LSP_UPDATE:
-	case DPLANE_OP_LSP_DELETE:
-	case DPLANE_OP_LSP_NOTIFY:
-	case DPLANE_OP_PW_INSTALL:
-	case DPLANE_OP_PW_UNINSTALL:
-	case DPLANE_OP_SYS_ROUTE_ADD:
-	case DPLANE_OP_SYS_ROUTE_DELETE:
-	case DPLANE_OP_ADDR_INSTALL:
-	case DPLANE_OP_ADDR_UNINSTALL:
-	case DPLANE_OP_MAC_INSTALL:
-	case DPLANE_OP_MAC_DELETE:
-	case DPLANE_OP_NEIGH_INSTALL:
-	case DPLANE_OP_NEIGH_UPDATE:
-	case DPLANE_OP_NEIGH_DELETE:
-	case DPLANE_OP_NEIGH_IP_INSTALL:
-	case DPLANE_OP_NEIGH_IP_DELETE:
-	case DPLANE_OP_VTEP_ADD:
-	case DPLANE_OP_VTEP_DELETE:
-	case DPLANE_OP_RULE_ADD:
-	case DPLANE_OP_RULE_DELETE:
-	case DPLANE_OP_RULE_UPDATE:
-	case DPLANE_OP_NEIGH_DISCOVER:
-	case DPLANE_OP_BR_PORT_UPDATE:
-	case DPLANE_OP_NONE:
-	case DPLANE_OP_IPTABLE_ADD:
-	case DPLANE_OP_IPTABLE_DELETE:
-	case DPLANE_OP_IPSET_ADD:
-	case DPLANE_OP_IPSET_DELETE:
-	case DPLANE_OP_IPSET_ENTRY_ADD:
-	case DPLANE_OP_IPSET_ENTRY_DELETE:
-	case DPLANE_OP_NEIGH_TABLE_UPDATE:
-	case DPLANE_OP_GRE_SET:
-	case DPLANE_OP_TC_QDISC_INSTALL:
-	case DPLANE_OP_TC_QDISC_UNINSTALL:
-	case DPLANE_OP_TC_CLASS_ADD:
-	case DPLANE_OP_TC_CLASS_DELETE:
-	case DPLANE_OP_TC_CLASS_UPDATE:
-	case DPLANE_OP_TC_FILTER_ADD:
-	case DPLANE_OP_TC_FILTER_DELETE:
-	case DPLANE_OP_TC_FILTER_UPDATE:
-	case DPLANE_OP_STARTUP_STAGE:
-		break; /* should never hit here */
 	}
 }
 

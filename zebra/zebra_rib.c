@@ -2020,9 +2020,7 @@ static void rib_process_result(struct zebra_dplane_ctx *ctx)
 			UNSET_FLAG(old_re->status, ROUTE_ENTRY_QUEUED);
 	}
 
-	switch (op) {
-	case DPLANE_OP_ROUTE_INSTALL:
-	case DPLANE_OP_ROUTE_UPDATE:
+	if (op == DPLANE_OP_ROUTE_INSTALL || op == DPLANE_OP_ROUTE_UPDATE) {
 		if (status == ZEBRA_DPLANE_REQUEST_SUCCESS) {
 			if (re) {
 				UNSET_FLAG(re->status, ROUTE_ENTRY_FAILED);
@@ -2113,8 +2111,7 @@ static void rib_process_result(struct zebra_dplane_ctx *ctx)
 				  VRF_LOGNAME(vrf), dplane_ctx_get_vrf(ctx),
 				  dplane_ctx_get_table(ctx), rn);
 		}
-		break;
-	case DPLANE_OP_ROUTE_DELETE:
+	} else if (op == DPLANE_OP_ROUTE_DELETE) {
 		rt_delete = true;
 		if (re)
 			SET_FLAG(re->status, ROUTE_ENTRY_FAILED);
@@ -2153,61 +2150,6 @@ static void rib_process_result(struct zebra_dplane_ctx *ctx)
 		if ((re && RIB_SYSTEM_ROUTE(re)) ||
 		    (old_re && RIB_SYSTEM_ROUTE(old_re)))
 			zebra_rib_fixup_system(rn);
-		break;
-
-	case DPLANE_OP_NONE:
-	case DPLANE_OP_ROUTE_NOTIFY:
-	case DPLANE_OP_NH_INSTALL:
-	case DPLANE_OP_NH_UPDATE:
-	case DPLANE_OP_NH_DELETE:
-	case DPLANE_OP_LSP_INSTALL:
-	case DPLANE_OP_LSP_UPDATE:
-	case DPLANE_OP_LSP_DELETE:
-	case DPLANE_OP_LSP_NOTIFY:
-	case DPLANE_OP_PW_INSTALL:
-	case DPLANE_OP_PW_UNINSTALL:
-	case DPLANE_OP_SYS_ROUTE_ADD:
-	case DPLANE_OP_SYS_ROUTE_DELETE:
-	case DPLANE_OP_ADDR_INSTALL:
-	case DPLANE_OP_ADDR_UNINSTALL:
-	case DPLANE_OP_MAC_INSTALL:
-	case DPLANE_OP_MAC_DELETE:
-	case DPLANE_OP_NEIGH_INSTALL:
-	case DPLANE_OP_NEIGH_UPDATE:
-	case DPLANE_OP_NEIGH_DELETE:
-	case DPLANE_OP_VTEP_ADD:
-	case DPLANE_OP_VTEP_DELETE:
-	case DPLANE_OP_RULE_ADD:
-	case DPLANE_OP_RULE_DELETE:
-	case DPLANE_OP_RULE_UPDATE:
-	case DPLANE_OP_NEIGH_DISCOVER:
-	case DPLANE_OP_BR_PORT_UPDATE:
-	case DPLANE_OP_IPTABLE_ADD:
-	case DPLANE_OP_IPTABLE_DELETE:
-	case DPLANE_OP_IPSET_ADD:
-	case DPLANE_OP_IPSET_DELETE:
-	case DPLANE_OP_IPSET_ENTRY_ADD:
-	case DPLANE_OP_IPSET_ENTRY_DELETE:
-	case DPLANE_OP_NEIGH_IP_INSTALL:
-	case DPLANE_OP_NEIGH_IP_DELETE:
-	case DPLANE_OP_NEIGH_TABLE_UPDATE:
-	case DPLANE_OP_GRE_SET:
-	case DPLANE_OP_INTF_ADDR_ADD:
-	case DPLANE_OP_INTF_ADDR_DEL:
-	case DPLANE_OP_INTF_NETCONFIG:
-	case DPLANE_OP_INTF_INSTALL:
-	case DPLANE_OP_INTF_UPDATE:
-	case DPLANE_OP_INTF_DELETE:
-	case DPLANE_OP_TC_QDISC_INSTALL:
-	case DPLANE_OP_TC_QDISC_UNINSTALL:
-	case DPLANE_OP_TC_CLASS_ADD:
-	case DPLANE_OP_TC_CLASS_DELETE:
-	case DPLANE_OP_TC_CLASS_UPDATE:
-	case DPLANE_OP_TC_FILTER_ADD:
-	case DPLANE_OP_TC_FILTER_DELETE:
-	case DPLANE_OP_TC_FILTER_UPDATE:
-	case DPLANE_OP_STARTUP_STAGE:
-		break;
 	}
 
 	zebra_rib_evaluate_rn_nexthops(rn, seq, rt_delete);
