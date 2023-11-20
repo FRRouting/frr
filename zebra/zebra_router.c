@@ -246,6 +246,7 @@ void zebra_router_terminate(void)
 	zebra_script_destroy();
 #endif
 
+	zebra_vxlan_terminate();
 	/* OS-specific deinit */
 	kernel_router_terminate();
 }
