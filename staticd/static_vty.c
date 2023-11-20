@@ -1573,6 +1573,8 @@ int static_path_list_cli_cmp(const struct lyd_node *dnode1,
 	return (int)distance1 - (int)distance2;
 }
 
+#ifndef INCLUDE_MGMTD_CMDDEFS_ONLY
+
 DEFPY_YANG(debug_staticd, debug_staticd_cmd,
 	   "[no] debug static [{events$events|route$route|bfd$bfd}]",
 	   NO_STR DEBUG_STR STATICD_STR
@@ -1580,18 +1582,15 @@ DEFPY_YANG(debug_staticd, debug_staticd_cmd,
 	   "Debug route\n"
 	   "Debug bfd\n")
 {
-#ifndef INCLUDE_MGMTD_CMDDEFS_ONLY
 	/* If no specific category, change all */
 	if (strmatch(argv[argc - 1]->text, "static"))
 		static_debug_set(vty->node, !no, true, true, true);
 	else
 		static_debug_set(vty->node, !no, !!events, !!route, !!bfd);
-#endif /* ifndef INCLUDE_MGMTD_CMDDEFS_ONLY */
 
 	return CMD_SUCCESS;
 }
 
-#ifndef INCLUDE_MGMTD_CMDDEFS_ONLY
 DEFPY(staticd_show_bfd_routes, staticd_show_bfd_routes_cmd,
       "show bfd static route [json]$isjson",
       SHOW_STR
@@ -1633,6 +1632,8 @@ void static_vty_init(void)
 {
 #ifndef INCLUDE_MGMTD_CMDDEFS_ONLY
 	install_node(&debug_node);
+	install_element(ENABLE_NODE, &debug_staticd_cmd);
+	install_element(CONFIG_NODE, &debug_staticd_cmd);
 	install_element(ENABLE_NODE, &show_debugging_static_cmd);
 	install_element(ENABLE_NODE, &staticd_show_bfd_routes_cmd);
 #endif /* ifndef INCLUDE_MGMTD_CMDDEFS_ONLY */
@@ -1652,9 +1653,6 @@ void static_vty_init(void)
 	install_element(VRF_NODE, &ipv6_route_address_interface_vrf_cmd);
 	install_element(CONFIG_NODE, &ipv6_route_cmd);
 	install_element(VRF_NODE, &ipv6_route_vrf_cmd);
-
-	install_element(ENABLE_NODE, &debug_staticd_cmd);
-	install_element(CONFIG_NODE, &debug_staticd_cmd);
 
 	mgmt_be_client_lib_vty_init();
 }
