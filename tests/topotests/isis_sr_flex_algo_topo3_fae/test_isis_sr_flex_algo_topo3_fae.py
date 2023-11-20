@@ -1027,7 +1027,7 @@ step2_policies = (
     {  # rt0
         # (color, endpoint)
         (1, ip_address("10.254.0.10")): {
-            "binding-sid": 16,
+            "binding-sid": 516,
             "candidate-path": [
                 {"preference": 10, "name": "candidate-1", "flex-algo": 128},
             ],
@@ -1043,7 +1043,7 @@ step2_policies = (
     None,  # rt8
     {  # rt9
         (1, ip_address("10.254.0.1")): {
-            "binding-sid": 17,
+            "binding-sid": 517,
             "candidate-path": [
                 {"preference": 10, "name": "candidate-1", "flex-algo": 128},
             ],
@@ -1147,7 +1147,7 @@ step3_policies = (
     {  # rt0
         # (color, endpoint)
         (1, ip_address("10.254.0.10")): {
-            "binding-sid": 16,
+            "binding-sid": 516,
             "candidate-path": [
                 {"preference": 15, "name": "candidate-2", "flex-algo": 131},
             ],
@@ -1163,7 +1163,7 @@ step3_policies = (
     None,  # rt8
     {  # rt9
         (1, ip_address("10.254.0.1")): {
-            "binding-sid": 17,
+            "binding-sid": 517,
             "candidate-path": [
                 {"preference": 15, "name": "candidate-2", "flex-algo": 131},
             ],
@@ -1890,25 +1890,25 @@ def test_step10_bgp_routes():
 #    {
 #        # (color, endpoint)
 #        (1, ip_address('10.254.0.10')): {
-#            'binding-sid': 16,
+#            'binding-sid': 516,
 #            'candidate-path': [
 #                {'preference': 10, 'name': 'color-1', 'flex-algo': 128},
 #            ]
 #        },
 #        (2, ip_address('10.254.0.10')): {
-#            'binding-sid': 17,
+#            'binding-sid': 517,
 #            'candidate-path': [
 #                {'preference': 10, 'name': 'color-2', 'flex-algo': 129},
 #            ]
 #        },
 #        (3, ip_address('10.254.0.10')): {
-#            'binding-sid': 18,
+#            'binding-sid': 518,
 #            'candidate-path': [
 #                {'preference': 10, 'name': 'color-3', 'flex-algo': 130},
 #            ]
 #        },
 #        (4, ip_address('10.254.0.10')): {
-#            'binding-sid': 19,
+#            'binding-sid': 519,
 #            'candidate-path': [
 #                {'preference': 10, 'name': 'color-4', 'flex-algo': 131},
 #            ]
@@ -1982,7 +1982,7 @@ def test_step10_bgp_routes():
 #    {
 #        # (color, endpoint)
 #        (1, ip_address('10.254.0.10')): {
-#            'binding-sid': 16,
+#            'binding-sid': 516,
 #            'candidate-path': [
 #                {'preference': 10, 'name': 'candidate-1', 'flex-algo': 130},
 #            ]
@@ -2079,25 +2079,25 @@ def test_step10_bgp_routes():
 step13_rt0_policies = {
     # (color, endpoint)
     (1, ip_address(faconfig.v4addr(num_routers - 1, lo_v4_base, with_masklen=False))): {
-        "binding-sid": 16,
+        "binding-sid": 516,
         "candidate-path": [
             {"preference": 10, "name": "candidate-1", "flex-algo": 128},
         ],
     },
     (2, ip_address(faconfig.v4addr(num_routers - 1, lo_v4_base, with_masklen=False))): {
-        "binding-sid": 17,
+        "binding-sid": 517,
         "candidate-path": [
             {"preference": 10, "name": "candidate-2", "flex-algo": 129},
         ],
     },
     (3, ip_address(faconfig.v6addr(num_routers - 1, lo_v6_base, with_masklen=False))): {
-        "binding-sid": 18,
+        "binding-sid": 518,
         "candidate-path": [
             {"preference": 10, "name": "candidate-3", "flex-algo": 130},
         ],
     },
     (4, ip_address(faconfig.v6addr(num_routers - 1, lo_v6_base, with_masklen=False))): {
-        "binding-sid": 19,
+        "binding-sid": 519,
         "candidate-path": [
             {"preference": 10, "name": "candidate-4", "flex-algo": 131},
         ],
@@ -2202,13 +2202,13 @@ def test_step13_clean_up():
 step14_rt0_policies = {
     # (color, endpoint)
     (1, ip_address(faconfig.v4addr(num_routers - 1, lo_v4_base, with_masklen=False))): {
-        "binding-sid": 16,
+        "binding-sid": 516,
         "candidate-path": [
             {"preference": 10, "name": "candidate-1", "flex-algo": 128},
         ],
     },
     (2, ip_address(faconfig.v4addr(num_routers - 1, lo_v4_base, with_masklen=False))): {
-        "binding-sid": 17,
+        "binding-sid": 517,
         "candidate-path": [
             {"preference": 10, "name": "candidate-2", "flex-algo": 129},
         ],
@@ -2217,13 +2217,13 @@ step14_rt0_policies = {
 step14_rt9_policies = {
     # (color, endpoint)
     (1, ip_address(faconfig.v4addr(0, lo_v4_base, with_masklen=False))): {
-        "binding-sid": 18,
+        "binding-sid": 518,
         "candidate-path": [
             {"preference": 10, "name": "candidate-1", "flex-algo": 128},
         ],
     },
     (2, ip_address(faconfig.v4addr(0, lo_v4_base, with_masklen=False))): {
-        "binding-sid": 19,
+        "binding-sid": 519,
         "candidate-path": [
             {"preference": 10, "name": "candidate-2", "flex-algo": 129},
         ],
@@ -2256,10 +2256,10 @@ def test_step14_setup():
     cmd = faconfig.fmt_policies(step14_rt9_policies, 3)
     tgen.gears[rtr].vtysh_cmd(cmd)
 
-    set_route(0, 1, 16)  # h0-0 -> h1
-    set_route(2, 1, 17)  # h0-1 -> h1
-    set_route(1, 0, 18)  # h1 -> h0-0
-    set_route(1, 2, 19)  # h1 -> h0-1
+    set_route(0, 1, 516)  # h0-0 -> h1
+    set_route(2, 1, 517)  # h0-1 -> h1
+    set_route(1, 0, 518)  # h1 -> h0-0
+    set_route(1, 2, 519)  # h1 -> h0-1
 
 
 def test_step14_policy_active():
