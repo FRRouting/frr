@@ -1092,8 +1092,8 @@ def test_mpls_lib_step1():
 step2_label_blocks = (
     # rt0
     {
-        "binding-sid-lower": 16,
-        "binding-sid-upper": 17,
+        "binding-sid-lower": 516,
+        "binding-sid-upper": 517,
     },
     None,  # rt1
     None,  # rt2
@@ -1104,8 +1104,8 @@ step2_label_blocks = (
     None,  # rt7
     None,  # rt8
     {  # rt9
-        "binding-sid-lower": 17,
-        "binding-sid-upper": 16,
+        "binding-sid-lower": 517,
+        "binding-sid-upper": 516,
     },
 )
 
@@ -1235,8 +1235,8 @@ def test_step2_bgp_routes():
 step3_label_blocks = (
     # rt0
     {
-        "binding-sid-lower": 16,
-        "binding-sid-upper": 17,
+        "binding-sid-lower": 516,
+        "binding-sid-upper": 517,
     },
     None,  # rt1
     None,  # rt2
@@ -1247,8 +1247,8 @@ step3_label_blocks = (
     None,  # rt7
     None,  # rt8
     {  # rt9
-        "binding-sid-lower": 17,
-        "binding-sid-upper": 16,
+        "binding-sid-lower": 517,
+        "binding-sid-upper": 516,
     },
 )
 
@@ -2002,25 +2002,25 @@ def test_step10_bgp_routes():
 #    {
 #        # (color, endpoint)
 #        (1, ip_address('10.254.0.10')): {
-#            'binding-sid': 16,
+#            'binding-sid': 516,
 #            'candidate-path': [
 #                {'preference': 10, 'name': 'color-1', 'flex-algo': 128},
 #            ]
 #        },
 #        (2, ip_address('10.254.0.10')): {
-#            'binding-sid': 17,
+#            'binding-sid': 517,
 #            'candidate-path': [
 #                {'preference': 10, 'name': 'color-2', 'flex-algo': 129},
 #            ]
 #        },
 #        (3, ip_address('10.254.0.10')): {
-#            'binding-sid': 18,
+#            'binding-sid': 518,
 #            'candidate-path': [
 #                {'preference': 10, 'name': 'color-3', 'flex-algo': 130},
 #            ]
 #        },
 #        (4, ip_address('10.254.0.10')): {
-#            'binding-sid': 19,
+#            'binding-sid': 519,
 #            'candidate-path': [
 #                {'preference': 10, 'name': 'color-4', 'flex-algo': 131},
 #            ]
@@ -2093,7 +2093,7 @@ def test_step10_bgp_routes():
 #    {
 #        # (color, endpoint)
 #        (1, ip_address('10.254.0.10')): {
-#            'binding-sid': 16,
+#            'binding-sid': 516,
 #            'candidate-path': [
 #                {'preference': 10, 'name': 'candidate-1', 'flex-algo': 130},
 #            ]
@@ -2184,8 +2184,8 @@ def test_step10_bgp_routes():
 #  -Zebra will have an updated label after each change to RT9's config.
 
 step13_rt0_label_block = {
-    "binding-sid-lower": 20,
-    "binding-sid-upper": 30,
+    "binding-sid-lower": 520,
+    "binding-sid-upper": 530,
 }
 
 step13_rt0_policies = {
@@ -2391,12 +2391,12 @@ def test_step13_clean_up():
 #  - The Binding-SID selects the forwarding path.
 
 step14_rt0_label_block = {
-    "binding-sid-lower": 16,
-    "binding-sid-upper": 17,
+    "binding-sid-lower": 516,
+    "binding-sid-upper": 517,
 }
 step14_rt9_label_block = {
-    "binding-sid-lower": 18,
-    "binding-sid-upper": 19,
+    "binding-sid-lower": 518,
+    "binding-sid-upper": 519,
 }
 
 step14_rt0_policies = {
@@ -2453,10 +2453,10 @@ def test_step14_setup():
     cmd = faconfig.fmt_policies(step14_rt9_policies, 3)
     tgen.gears[rtr].vtysh_cmd(cmd)
 
-    set_route(0, 1, 16)  # h0-0 -> h1-0
-    set_route(2, 3, 17)  # h0-1 -> h1-1
-    set_route(1, 0, 18)  # h1-0 -> h0-0
-    set_route(3, 2, 19)  # h1-1 -> h0-1
+    set_route(0, 1, 516)  # h0-0 -> h1-0
+    set_route(2, 3, 517)  # h0-1 -> h1-1
+    set_route(1, 0, 518)  # h1-0 -> h0-0
+    set_route(3, 2, 519)  # h1-1 -> h0-1
 
 
 def test_step14_policy_active():
