@@ -871,7 +871,12 @@ int nb_candidate_update(struct nb_config *candidate)
 int nb_candidate_validate_yang(struct nb_config *candidate, bool no_state,
 			       char *errmsg, size_t errmsg_len)
 {
-	uint32_t options = LYD_VALIDATE_MULTI_ERROR;
+	uint32_t options = 0;
+
+#ifdef LYD_VALIDATE_MULTI_ERROR
+	/* libyang 2.1.36+ */
+	options |= LYD_VALIDATE_MULTI_ERROR;
+#endif
 
 	if (no_state)
 		SET_FLAG(options, LYD_VALIDATE_NO_STATE);
