@@ -1652,6 +1652,7 @@ static int vtysh_end(void)
 		/* Nothing to do. */
 		break;
 	default:
+		vty->vtysh_file_locked = false;
 		vty->node = ENABLE_NODE;
 		break;
 	}
@@ -2396,14 +2397,18 @@ static int vtysh_exit(struct vty *vty)
 		vty->node = cnode->parent_node;
 
 	if (vty->node == CONFIG_NODE) {
+		bool locked = vty->vtysh_file_locked;
+
 		/* resync in case one of the daemons is somewhere else */
 		vtysh_execute("end");
 		/* NOTE: a rather expensive thing to do, can we avoid it? */
 
-		if (vty->vtysh_file_locked)
+		if (locked)
 			vtysh_execute("configure terminal file-lock");
 		else
 			vtysh_execute("configure terminal");
+	} else if (vty->node == ENABLE_NODE) {
+		vty->vtysh_file_locked = false;
 	}
 
 	return CMD_SUCCESS;
