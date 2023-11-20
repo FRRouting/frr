@@ -7360,6 +7360,7 @@ static void dplane_thread_loop(struct event *event)
 void zebra_dplane_shutdown(void)
 {
 	struct zebra_dplane_provider *dp;
+	struct zebra_dplane_ctx *ctx;
 
 	if (IS_ZEBRA_DEBUG_DPLANE)
 		zlog_debug("Zebra dataplane shutdown called");
@@ -7396,6 +7397,16 @@ void zebra_dplane_shutdown(void)
 	}
 
 	/* TODO -- Clean queue(s), free memory */
+	DPLANE_LOCK();
+	{
+		ctx = dplane_ctx_list_pop(&zdplane_info.dg_update_list);
+		while (ctx) {
+			dplane_ctx_free(&ctx);
+
+			ctx = dplane_ctx_list_pop(&zdplane_info.dg_update_list);
+		}
+	}
+	DPLANE_UNLOCK();
 }
 
 /*
