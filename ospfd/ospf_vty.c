@@ -10808,38 +10808,23 @@ DEFPY (show_ip_ospf_gr_helper,
 		}
 
 		ospf = ospf_lookup_by_inst_name(inst, vrf_name);
-
-		if (ospf == NULL || !ospf->oi_running) {
-
-			if (uj)
-				vty_json(vty, json);
-			else
-				vty_out(vty,
-					"%% OSPF is not enabled in vrf %s\n",
-					vrf_name);
-
-			return CMD_SUCCESS;
-		}
-
 	} else {
 		/* Default Vrf */
 		ospf = ospf_lookup_by_vrf_id(VRF_DEFAULT);
-
-		if (ospf == NULL || !ospf->oi_running) {
-
-			if (uj)
-				vty_json(vty, json);
-			else
-				vty_out(vty,
-					"%% OSPF is not enabled in vrf default\n");
-
-			return CMD_SUCCESS;
-		}
-
-		ospf_show_gr_helper_details(vty, ospf, use_vrf, json, uj,
-					    detail);
 	}
 
+	if (ospf == NULL || !ospf->oi_running) {
+
+		if (uj)
+			vty_json(vty, json);
+		else
+			vty_out(vty,
+				"%% OSPF is not enabled in vrf %s\n", vrf_name ? vrf_name : "default");
+
+		return CMD_SUCCESS;
+	}
+
+	ospf_show_gr_helper_details(vty, ospf, use_vrf, json, uj, detail);
 	if (uj)
 		vty_json(vty, json);
 
