@@ -191,6 +191,19 @@ def teardown_module(_mod):
     tgen.stop_topology()
 
 
+def bgp_check_path_selection_exact_one(routerstr, expected):
+    tgen = get_topogen()
+    output = tgen.net[routerstr].cmd(
+        "vtysh -c 'show bgp ipv4 unicast' | grep 172.31.10.1 | wc -l"
+    )
+    if "1" not in output:
+        return "not good"
+    output = json.loads(
+        tgen.gears[routerstr].vtysh_cmd("show bgp ipv4 unicast 192.0.2.9/32 json")
+    )
+    return topotest.json_cmp(output, expected)
+
+
 def bgp_check_path_selection_ecmp_backup(router, expected):
     output = json.loads(router.vtysh_cmd("show bgp ipv4 unicast 192.0.2.9/32 json"))
     return topotest.json_cmp(output, expected)
@@ -239,6 +252,31 @@ def bgp_ipv4_route_advertised_all_paths_to_ce7():
     assert (
         result is None
     ), "ce7, failed to check that 192.0.2.9/32 has 1 best path, and 2 other routes"
+
+
+def bgp_ipv4_route_advertised_one_path_to_ce7():
+    """
+    Check that only the primary path routes is advertised to ce7
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    logger.info("ce7, check that 192.0.2.9/32 has 1 best path and 1 other routes")
+    expected = {
+        "paths": [
+            {
+                "valid": True,
+                "aspath": {"string": "64500 64511"},
+                "nexthops": [{"ip": "172.31.10.1"}],
+            },
+        ]
+    }
+    test_func = functools.partial(bgp_check_path_selection_exact_one, "ce7", expected)
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+    assert (
+        result is None
+    ), "ce7, failed to check that 192.0.2.9/32 has exactly 1 best path"
 
 
 def bgp_check_route_primary_and_backup_advertised_to_ce7():
@@ -691,6 +729,57 @@ def test_ipv4_route_advertised_all_paths_to_ce7():
         isjson=False,
     )
     bgp_ipv4_route_advertised_all_paths_to_ce7()
+
+
+def test_ipv4_route_advertised_primary_and_one_backup_paths_to_ce7():
+    """
+    Configure r1 to send only 1 path in addition to best-path
+    Check that two paths are advertised to ce7
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    logger.info("Configuring 'neighbor 172.31.10.7 addpath-tx-best-selected 1")
+    tgen.gears["r1"].vtysh_cmd(
+        "configure terminal\nrouter bgp 64500\naddress-family ipv4 unicast\nneighbor 172.31.10.7 addpath-tx-best-selected 1\n",
+        isjson=False,
+    )
+    bgp_check_route_primary_and_backup_advertised_to_ce7()
+
+
+def test_ipv4_route_advertised_primary_and_all_backup_paths_to_ce7():
+    """
+    Configure r1 to send up to 4 paths to ce7
+    Check that the three paths are advertised to ce7
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    logger.info("Configuring 'neighbor 172.31.10.7 addpath-tx-best-selected 4")
+    tgen.gears["r1"].vtysh_cmd(
+        "configure terminal\nrouter bgp 64500\naddress-family ipv4 unicast\nneighbor 172.31.10.7 addpath-tx-best-selected 4\n",
+        isjson=False,
+    )
+    bgp_ipv4_route_advertised_all_paths_to_ce7()
+
+
+def test_ipv4_route_advertised_primary_path_only_to_ce7():
+    """
+    Configure r1 to send 0 addpath-best-selected paths to ce7
+    Check that only 1 path is advertised to ce7
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    logger.info("Configuring 'neighbor 172.31.10.7 addpath-tx-best-selected 0")
+    tgen.gears["r1"].vtysh_cmd(
+        "configure terminal\nrouter bgp 64500\naddress-family ipv4 unicast\nno neighbor 172.31.10.7 addpath-tx-best-selected\n",
+        isjson=False,
+    )
+    bgp_ipv4_route_advertised_one_path_to_ce7()
 
 
 def test_memory_leak():
