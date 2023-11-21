@@ -421,11 +421,15 @@ void bgp_addpath_set_peer_type(struct peer *peer, afi_t afi, safi_t safi,
 	if (safi == SAFI_LABELED_UNICAST)
 		safi = SAFI_UNICAST;
 
-	peer->addpath_best_selected[afi][safi] = paths;
-
 	old_type = peer->addpath_type[afi][safi];
-	if (addpath_type == old_type)
-		return;
+	if (addpath_type == old_type) {
+		if (addpath_type != BGP_ADDPATH_BEST_SELECTED)
+			return;
+		if (peer->addpath_best_selected[afi][safi] == paths)
+			return;
+	}
+
+	peer->addpath_best_selected[afi][safi] = paths;
 
 	if (addpath_type == BGP_ADDPATH_NONE && peer->group &&
 	    !CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
