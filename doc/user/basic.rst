@@ -682,6 +682,11 @@ Terminal Mode Commands
    This command displays FRR's timer data for timers that will pop in
    the future.
 
+.. clicmd:: show configuration running [<json|xml> [translate WORD]] [with-defaults] DAEMON
+
+   This command displays the northbound/YANG configuration data for a
+   daemon in text/vty, json, or xml format.
+
 .. clicmd:: show yang operational-data XPATH [{format <json|xml>|translate TRANSLATOR|with-config}] DAEMON
 
    Display the YANG operational data starting from XPATH. The default
