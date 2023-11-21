@@ -45,7 +45,8 @@ struct pnc_hash_walk_data {
 	struct interface *ifp;
 };
 
-int pim_parse_nexthop_update(ZAPI_CALLBACK_ARGS);
+void pim_nexthop_update(struct vrf *vrf, struct prefix *match,
+			struct zapi_route *nhr);
 int pim_find_or_track_nexthop(struct pim_instance *pim, pim_addr addr,
 			      struct pim_upstream *up, struct rp_info *rp,
 			      struct pim_nexthop_cache *out_pnc);

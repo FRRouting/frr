@@ -2269,8 +2269,8 @@ const char *zapi_nexthop2str(const struct zapi_nexthop *znh, char *buf,
 /*
  * Decode the nexthop-tracking update message
  */
-bool zapi_nexthop_update_decode(struct stream *s, struct prefix *match,
-				struct zapi_route *nhr)
+static bool zapi_nexthop_update_decode(struct stream *s, struct prefix *match,
+				       struct zapi_route *nhr)
 {
 	uint32_t i;
 
@@ -4298,6 +4298,28 @@ stream_failure:
 	return -1;
 }
 
+static int zclient_nexthop_update(ZAPI_CALLBACK_ARGS)
+{
+	struct vrf *vrf = vrf_lookup_by_id(vrf_id);
+	struct prefix match;
+	struct zapi_route route;
+
+	if (!vrf) {
+		zlog_warn("nexthop update for unknown VRF ID %u", vrf_id);
+		return 0;
+	}
+
+	if (!zapi_nexthop_update_decode(zclient->ibuf, &match, &route)) {
+		zlog_err("failed to decode nexthop update");
+		return -1;
+	}
+
+	if (zclient->nexthop_update)
+		zclient->nexthop_update(vrf, &match, &route);
+
+	return 0;
+}
+
 static zclient_handler *const lib_handlers[] = {
 	/* fundamentals */
 	[ZEBRA_CAPABILITIES] = zclient_capability_decode,
@@ -4310,6 +4332,9 @@ static zclient_handler *const lib_handlers[] = {
 	[ZEBRA_INTERFACE_DELETE] = zclient_interface_delete,
 	[ZEBRA_INTERFACE_UP] = zclient_interface_up,
 	[ZEBRA_INTERFACE_DOWN] = zclient_interface_down,
+
+	/* NHT pre-decode */
+	[ZEBRA_NEXTHOP_UPDATE] = zclient_nexthop_update,
 
 	/* BFD */
 	[ZEBRA_BFD_DEST_REPLAY] = zclient_bfd_session_replay,

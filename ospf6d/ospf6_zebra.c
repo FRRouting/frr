@@ -147,30 +147,22 @@ void ospf6_zebra_import_default_route(struct ospf6 *ospf6, bool unreg)
 			 __func__);
 }
 
-static int ospf6_zebra_import_check_update(ZAPI_CALLBACK_ARGS)
+static void ospf6_zebra_import_check_update(struct vrf *vrf,
+					    struct prefix *matched,
+					    struct zapi_route *nhr)
 {
 	struct ospf6 *ospf6;
-	struct zapi_route nhr;
-	struct prefix matched;
 
-	ospf6 = ospf6_lookup_by_vrf_id(vrf_id);
+	ospf6 = (struct ospf6 *)vrf->info;
 	if (ospf6 == NULL || !IS_OSPF6_ASBR(ospf6))
-		return 0;
+		return;
 
-	if (!zapi_nexthop_update_decode(zclient->ibuf, &matched, &nhr)) {
-		zlog_err("%s[%u]: Failure to decode route", __func__,
-			 ospf6->vrf_id);
-		return -1;
-	}
+	if (matched->family != AF_INET6 || matched->prefixlen != 0 ||
+	    nhr->type == ZEBRA_ROUTE_OSPF6)
+		return;
 
-	if (matched.family != AF_INET6 || matched.prefixlen != 0 ||
-	    nhr.type == ZEBRA_ROUTE_OSPF6)
-		return 0;
-
-	ospf6->nssa_default_import_check.status = !!nhr.nexthop_num;
+	ospf6->nssa_default_import_check.status = !!nhr->nexthop_num;
 	ospf6_abr_nssa_type_7_defaults(ospf6);
-
-	return 0;
 }
 
 static int ospf6_zebra_if_address_update_add(ZAPI_CALLBACK_ARGS)
@@ -763,7 +755,6 @@ static zclient_handler *const ospf6_handlers[] = {
 	[ZEBRA_INTERFACE_ADDRESS_DELETE] = ospf6_zebra_if_address_update_delete,
 	[ZEBRA_REDISTRIBUTE_ROUTE_ADD] = ospf6_zebra_read_route,
 	[ZEBRA_REDISTRIBUTE_ROUTE_DEL] = ospf6_zebra_read_route,
-	[ZEBRA_NEXTHOP_UPDATE] = ospf6_zebra_import_check_update,
 };
 
 void ospf6_zebra_init(struct event_loop *master)
@@ -773,6 +764,7 @@ void ospf6_zebra_init(struct event_loop *master)
 			      array_size(ospf6_handlers));
 	zclient_init(zclient, ZEBRA_ROUTE_OSPF6, 0, &ospf6d_privs);
 	zclient->zebra_connected = ospf6_zebra_connected;
+	zclient->nexthop_update = ospf6_zebra_import_check_update;
 
 	/* Install command element for zebra node. */
 	install_element(VIEW_NODE, &show_ospf6_zebra_cmd);

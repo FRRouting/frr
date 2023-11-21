@@ -428,7 +428,6 @@ static zclient_handler *const pim_handlers[] = {
 	[ZEBRA_INTERFACE_ADDRESS_ADD] = pim_zebra_if_address_add,
 	[ZEBRA_INTERFACE_ADDRESS_DELETE] = pim_zebra_if_address_del,
 
-	[ZEBRA_NEXTHOP_UPDATE] = pim_parse_nexthop_update,
 	[ZEBRA_ROUTER_ID_UPDATE] = pim_router_id_update_zebra,
 
 #if PIM_IPV == 4
@@ -449,6 +448,7 @@ void pim_zebra_init(void)
 
 	zclient->zebra_capabilities = pim_zebra_capabilities;
 	zclient->zebra_connected = pim_zebra_connected;
+	zclient->nexthop_update = pim_nexthop_update;
 
 	zclient_init(zclient, ZEBRA_ROUTE_PIM, 0, &pimd_privs);
 	if (PIM_DEBUG_PIM_TRACE) {

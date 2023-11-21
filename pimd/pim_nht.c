@@ -723,7 +723,8 @@ static int pim_ecmp_nexthop_search(struct pim_instance *pim,
 
 /* This API is used to parse Registered address nexthop update coming from Zebra
  */
-int pim_parse_nexthop_update(ZAPI_CALLBACK_ARGS)
+void pim_nexthop_update(struct vrf *vrf, struct prefix *match,
+			struct zapi_route *nhr)
 {
 	struct nexthop *nexthop;
 	struct nexthop *nhlist_head = NULL;
@@ -732,38 +733,27 @@ int pim_parse_nexthop_update(ZAPI_CALLBACK_ARGS)
 	struct pim_rpf rpf;
 	struct pim_nexthop_cache *pnc = NULL;
 	struct interface *ifp = NULL;
-	struct vrf *vrf = vrf_lookup_by_id(vrf_id);
 	struct pim_instance *pim;
-	struct zapi_route nhr;
-	struct prefix match;
 
-	if (!vrf)
-		return 0;
 	pim = vrf->info;
 
-	if (!zapi_nexthop_update_decode(zclient->ibuf, &match, &nhr)) {
-		zlog_err("%s: Decode of nexthop update from zebra failed",
-			 __func__);
-		return 0;
-	}
-
-	rpf.rpf_addr = pim_addr_from_prefix(&match);
+	rpf.rpf_addr = pim_addr_from_prefix(match);
 	pnc = pim_nexthop_cache_find(pim, &rpf);
 	if (!pnc) {
 		if (PIM_DEBUG_PIM_NHT)
 			zlog_debug(
 				"%s: Skipping NHT update, addr %pPA is not in local cached DB.",
 				__func__, &rpf.rpf_addr);
-		return 0;
+		return;
 	}
 
 	pnc->last_update = pim_time_monotonic_usec();
 
-	if (nhr.nexthop_num) {
+	if (nhr->nexthop_num) {
 		pnc->nexthop_num = 0;
 
-		for (i = 0; i < nhr.nexthop_num; i++) {
-			nexthop = nexthop_from_zapi_nexthop(&nhr.nexthops[i]);
+		for (i = 0; i < nhr->nexthop_num; i++) {
+			nexthop = nexthop_from_zapi_nexthop(&nhr->nexthops[i]);
 			switch (nexthop->type) {
 			case NEXTHOP_TYPE_IFINDEX:
 				/*
@@ -842,11 +832,11 @@ int pim_parse_nexthop_update(ZAPI_CALLBACK_ARGS)
 #else
 				pim_addr nhaddr = nexthop->gate.ipv6;
 #endif
-				zlog_debug(
-					"%s: NHT addr %pFX(%s) %d-nhop via %pPA(%s) type %d distance:%u metric:%u ",
-					__func__, &match, pim->vrf->name, i + 1,
-					&nhaddr, ifp->name, nexthop->type,
-					nhr.distance, nhr.metric);
+				zlog_debug("%s: NHT addr %pFX(%s) %d-nhop via %pPA(%s) type %d distance:%u metric:%u ",
+					   __func__, match, pim->vrf->name,
+					   i + 1, &nhaddr, ifp->name,
+					   nexthop->type, nhr->distance,
+					   nhr->metric);
 			}
 
 			if (!ifp->info) {
@@ -887,23 +877,22 @@ int pim_parse_nexthop_update(ZAPI_CALLBACK_ARGS)
 		pnc->nexthop = nhlist_head;
 		if (pnc->nexthop_num) {
 			pnc->flags |= PIM_NEXTHOP_VALID;
-			pnc->distance = nhr.distance;
-			pnc->metric = nhr.metric;
+			pnc->distance = nhr->distance;
+			pnc->metric = nhr->metric;
 		}
 	} else {
 		pnc->flags &= ~PIM_NEXTHOP_VALID;
-		pnc->nexthop_num = nhr.nexthop_num;
+		pnc->nexthop_num = nhr->nexthop_num;
 		nexthops_free(pnc->nexthop);
 		pnc->nexthop = NULL;
 	}
 	SET_FLAG(pnc->flags, PIM_NEXTHOP_ANSWER_RECEIVED);
 
 	if (PIM_DEBUG_PIM_NHT)
-		zlog_debug(
-			"%s: NHT Update for %pFX(%s) num_nh %d num_pim_nh %d vrf:%u up %ld rp %d",
-			__func__, &match, pim->vrf->name, nhr.nexthop_num,
-			pnc->nexthop_num, vrf_id, pnc->upstream_hash->count,
-			listcount(pnc->rp_list));
+		zlog_debug("%s: NHT Update for %pFX(%s) num_nh %d num_pim_nh %d vrf:%u up %ld rp %d",
+			   __func__, match, pim->vrf->name, nhr->nexthop_num,
+			   pnc->nexthop_num, vrf->vrf_id,
+			   pnc->upstream_hash->count, listcount(pnc->rp_list));
 
 	pim_rpf_set_refresh_time(pim);
 
@@ -911,8 +900,6 @@ int pim_parse_nexthop_update(ZAPI_CALLBACK_ARGS)
 		pim_update_rp_nh(pim, pnc);
 	if (pnc->upstream_hash->count)
 		pim_update_upstream_nh(pim, pnc);
-
-	return 0;
 }
 
 int pim_ecmp_nexthop_lookup(struct pim_instance *pim,

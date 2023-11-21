@@ -897,52 +897,44 @@ void bgp_nht_interface_events(struct peer *peer)
 				bnc->ifindex_ipv6_ll, NULL);
 }
 
-void bgp_parse_nexthop_update(int command, vrf_id_t vrf_id)
+void bgp_nexthop_update(struct vrf *vrf, struct prefix *match,
+			struct zapi_route *nhr)
 {
 	struct bgp_nexthop_cache_head *tree = NULL;
 	struct bgp_nexthop_cache *bnc_nhc, *bnc_import;
 	struct bgp *bgp;
-	struct prefix match;
-	struct zapi_route nhr;
 	afi_t afi;
 
-	bgp = bgp_lookup_by_vrf_id(vrf_id);
-	if (!bgp) {
-		flog_err(
-			EC_BGP_NH_UPD,
-			"parse nexthop update: instance not found for vrf_id %u",
-			vrf_id);
+	if (!vrf->info) {
+		flog_err(EC_BGP_NH_UPD,
+			 "parse nexthop update: instance not found for vrf_id %u",
+			 vrf->vrf_id);
 		return;
 	}
 
-	if (!zapi_nexthop_update_decode(zclient->ibuf, &match, &nhr)) {
-		zlog_err("%s[%s]: Failure to decode nexthop update", __func__,
-			 bgp->name_pretty);
-		return;
-	}
-
-	afi = family2afi(match.family);
+	bgp = (struct bgp *)vrf->info;
+	afi = family2afi(match->family);
 	tree = &bgp->nexthop_cache_table[afi];
 
-	bnc_nhc = bnc_find(tree, &match, nhr.srte_color, 0);
+	bnc_nhc = bnc_find(tree, match, nhr->srte_color, 0);
 	if (!bnc_nhc) {
 		if (BGP_DEBUG(nht, NHT))
-			zlog_debug(
-				"parse nexthop update %pFX(%u)(%s): bnc info not found for nexthop cache",
-				&nhr.prefix, nhr.srte_color, bgp->name_pretty);
+			zlog_debug("parse nexthop update %pFX(%u)(%s): bnc info not found for nexthop cache",
+				   &nhr->prefix, nhr->srte_color,
+				   bgp->name_pretty);
 	} else
-		bgp_process_nexthop_update(bnc_nhc, &nhr, false);
+		bgp_process_nexthop_update(bnc_nhc, nhr, false);
 
 	tree = &bgp->import_check_table[afi];
 
-	bnc_import = bnc_find(tree, &match, nhr.srte_color, 0);
+	bnc_import = bnc_find(tree, match, nhr->srte_color, 0);
 	if (!bnc_import) {
 		if (BGP_DEBUG(nht, NHT))
-			zlog_debug(
-				"parse nexthop update %pFX(%u)(%s): bnc info not found for import check",
-				&nhr.prefix, nhr.srte_color, bgp->name_pretty);
+			zlog_debug("parse nexthop update %pFX(%u)(%s): bnc info not found for import check",
+				   &nhr->prefix, nhr->srte_color,
+				   bgp->name_pretty);
 	} else
-		bgp_process_nexthop_update(bnc_import, &nhr, true);
+		bgp_process_nexthop_update(bnc_import, nhr, true);
 
 	/*
 	 * HACK: if any BGP route is dependant on an SR-policy that doesn't
@@ -955,7 +947,7 @@ void bgp_parse_nexthop_update(int command, vrf_id_t vrf_id)
 	 * which should provide a better infrastructure to solve this issue in
 	 * a more efficient and elegant way.
 	 */
-	if (nhr.srte_color == 0 && bnc_nhc) {
+	if (nhr->srte_color == 0 && bnc_nhc) {
 		struct bgp_nexthop_cache *bnc_iter;
 
 		frr_each (bgp_nexthop_cache, &bgp->nexthop_cache_table[afi],
@@ -965,7 +957,7 @@ void bgp_parse_nexthop_update(int command, vrf_id_t vrf_id)
 			    CHECK_FLAG(bnc_iter->flags, BGP_NEXTHOP_VALID))
 				continue;
 
-			bgp_process_nexthop_update(bnc_iter, &nhr, false);
+			bgp_process_nexthop_update(bnc_iter, nhr, false);
 		}
 	}
 }

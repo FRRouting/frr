@@ -186,48 +186,40 @@ static_nexthop_is_local(vrf_id_t vrfid, struct prefix *addr, int family)
 	}
 	return false;
 }
-static int static_zebra_nexthop_update(ZAPI_CALLBACK_ARGS)
+
+static void static_zebra_nexthop_update(struct vrf *vrf, struct prefix *matched,
+					struct zapi_route *nhr)
 {
 	struct static_nht_data *nhtd, lookup;
-	struct zapi_route nhr;
-	struct prefix matched;
 	afi_t afi = AFI_IP;
 
-	if (!zapi_nexthop_update_decode(zclient->ibuf, &matched, &nhr)) {
-		zlog_err("Failure to decode nexthop update message");
-		return 1;
-	}
-
 	if (zclient->bfd_integration)
-		bfd_nht_update(&matched, &nhr);
+		bfd_nht_update(matched, nhr);
 
-	if (matched.family == AF_INET6)
+	if (matched->family == AF_INET6)
 		afi = AFI_IP6;
 
-	if (nhr.type == ZEBRA_ROUTE_CONNECT) {
-		if (static_nexthop_is_local(vrf_id, &matched,
-					    nhr.prefix.family))
-			nhr.nexthop_num = 0;
+	if (nhr->type == ZEBRA_ROUTE_CONNECT) {
+		if (static_nexthop_is_local(vrf->vrf_id, matched,
+					    nhr->prefix.family))
+			nhr->nexthop_num = 0;
 	}
 
 	memset(&lookup, 0, sizeof(lookup));
-	lookup.nh = matched;
-	lookup.nh_vrf_id = vrf_id;
-	lookup.safi = nhr.safi;
+	lookup.nh = *matched;
+	lookup.nh_vrf_id = vrf->vrf_id;
+	lookup.safi = nhr->safi;
 
 	nhtd = static_nht_hash_find(static_nht_hash, &lookup);
 
 	if (nhtd) {
-		nhtd->nh_num = nhr.nexthop_num;
+		nhtd->nh_num = nhr->nexthop_num;
 
-		static_nht_reset_start(&matched, afi, nhr.safi,
-				       nhtd->nh_vrf_id);
-		static_nht_update(NULL, &matched, nhr.nexthop_num, afi,
-				  nhr.safi, nhtd->nh_vrf_id);
+		static_nht_reset_start(matched, afi, nhr->safi, nhtd->nh_vrf_id);
+		static_nht_update(NULL, matched, nhr->nexthop_num, afi,
+				  nhr->safi, nhtd->nh_vrf_id);
 	} else
 		zlog_err("No nhtd?");
-
-	return 1;
 }
 
 static void static_zebra_capabilities(struct zclient_capabilities *cap)
@@ -535,7 +527,6 @@ static zclient_handler *const static_handlers[] = {
 	[ZEBRA_INTERFACE_ADDRESS_ADD] = interface_address_add,
 	[ZEBRA_INTERFACE_ADDRESS_DELETE] = interface_address_delete,
 	[ZEBRA_ROUTE_NOTIFY_OWNER] = route_notify_owner,
-	[ZEBRA_NEXTHOP_UPDATE] = static_zebra_nexthop_update,
 };
 
 void static_zebra_init(void)
@@ -553,6 +544,7 @@ void static_zebra_init(void)
 	zclient_init(zclient, ZEBRA_ROUTE_STATIC, 0, &static_privs);
 	zclient->zebra_capabilities = static_zebra_capabilities;
 	zclient->zebra_connected = zebra_connected;
+	zclient->nexthop_update = static_zebra_nexthop_update;
 
 	static_nht_hash_init(static_nht_hash);
 	static_bfd_initialize(zclient, master);
