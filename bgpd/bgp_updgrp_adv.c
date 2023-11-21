@@ -113,7 +113,7 @@ subgrp_announce_addpath_best_selected(struct bgp_dest *dest,
 				      peer->addpath_best_selected[afi][safi])
 				: peer->addpath_best_selected[afi][safi];
 
-		while (paths_count++ < paths_limit) {
+		while (1) {
 			struct bgp_path_info *exist = NULL;
 
 			if (path_type == 0)
