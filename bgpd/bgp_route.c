@@ -4297,11 +4297,16 @@ static void bgp_gr_start_tier2_timer_if_required(struct bgp *bgp, afi_t afi, saf
 			   bgp->name_pretty, get_afi_safi_str(afi, safi, false));
 
 	/*
-	 * If there's no multihop peer in this VRF or if the
-	 * tier2 timer has been started for this afi-safi then
+	 * If there's no multihop peer in this VRF or
+	 * if the tier2 timer has been started for this afi-safi or
+	 * if select_defer_tier2 timer was not started since it was
+	 * not required (This happens when multihop peers comeup before
+	 * directly connected peers) and if select_defer_over_tier2 was
+	 * set to true in bgp_gr_check_path_select()
 	 * there's nothing to do.
 	 */
-	if (!bgp->gr_multihop_peer_exists || bgp->gr_info[afi][safi].select_defer_tier2_required)
+	if (!bgp->gr_multihop_peer_exists || bgp->gr_info[afi][safi].select_defer_tier2_required ||
+	    bgp->gr_info[afi][safi].select_defer_over_tier2)
 		return;
 
 	for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
