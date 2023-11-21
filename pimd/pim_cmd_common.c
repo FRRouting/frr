@@ -1059,8 +1059,8 @@ void pim_show_state(struct pim_instance *pim, struct vty *vty,
 	frr_each (rb_pim_oil, &pim->channel_oil_head, c_oil) {
 		char src_str[PIM_ADDRSTRLEN];
 		char grp_str[PIM_ADDRSTRLEN];
-		char in_ifname[INTERFACE_NAMSIZ + 1];
-		char out_ifname[INTERFACE_NAMSIZ + 1];
+		char in_ifname[IFNAMSIZ + 1];
+		char out_ifname[IFNAMSIZ + 1];
 		int oif_vif_index;
 		struct interface *ifp_in;
 		bool isRpt;
@@ -3662,8 +3662,8 @@ void show_mroute(struct pim_instance *pim, struct vty *vty, pim_sgaddr *sg,
 	int first;
 	char grp_str[PIM_ADDRSTRLEN];
 	char src_str[PIM_ADDRSTRLEN];
-	char in_ifname[INTERFACE_NAMSIZ + 1];
-	char out_ifname[INTERFACE_NAMSIZ + 1];
+	char in_ifname[IFNAMSIZ + 1];
+	char out_ifname[IFNAMSIZ + 1];
 	int oif_vif_index;
 	struct interface *ifp_in;
 	char proto[100];

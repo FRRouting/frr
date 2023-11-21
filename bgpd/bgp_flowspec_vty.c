@@ -547,7 +547,7 @@ static int bgp_fs_local_install_interface(struct bgp *bgp,
 			return CMD_SUCCESS;
 		pbr_if = XCALLOC(MTYPE_TMP,
 				 sizeof(struct bgp_pbr_interface));
-		strlcpy(pbr_if->name, ifname, INTERFACE_NAMSIZ);
+		strlcpy(pbr_if->name, ifname, IFNAMSIZ);
 		RB_INSERT(bgp_pbr_interface_head, head, pbr_if);
 		*bgp_pbr_interface_any = false;
 	} else {

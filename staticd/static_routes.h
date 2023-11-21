@@ -131,7 +131,7 @@ struct static_nexthop {
 	bool nh_registered;
 	bool nh_valid;
 
-	char ifname[INTERFACE_NAMSIZ + 1];
+	char ifname[IFNAMSIZ + 1];
 
 	/* Label information */
 	struct static_nh_label snh_label;
@@ -239,7 +239,7 @@ extern void zebra_stable_node_cleanup(struct route_table *table,
  * Max string return via API static_get_nh_str in size_t
  */
 
-#define NEXTHOP_STR (INET6_ADDRSTRLEN + INTERFACE_NAMSIZ + 25)
+#define NEXTHOP_STR (INET6_ADDRSTRLEN + IFNAMSIZ + 25)
 /*
  * For the given nexthop, returns the string
  * nexthop : returns the formatted string in nexthop

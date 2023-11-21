@@ -678,7 +678,7 @@ void zebra_ptm_bfd_dst_register(ZAPI_HANDLER_ARGS)
 	uint8_t detect_mul;
 	unsigned int min_rx_timer;
 	unsigned int min_tx_timer;
-	char if_name[INTERFACE_NAMSIZ];
+	char if_name[IFNAMSIZ];
 	uint8_t len;
 	void *out_ctxt;
 	char buf[INET6_ADDRSTRLEN];
@@ -841,7 +841,7 @@ void zebra_ptm_bfd_dst_deregister(ZAPI_HANDLER_ARGS)
 	struct prefix src_p;
 	struct prefix dst_p;
 	uint8_t multi_hop;
-	char if_name[INTERFACE_NAMSIZ];
+	char if_name[IFNAMSIZ];
 	uint8_t len;
 	char buf[INET6_ADDRSTRLEN];
 	char tmp_buf[64];

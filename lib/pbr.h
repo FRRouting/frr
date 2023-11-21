@@ -138,7 +138,7 @@ struct pbr_rule {
 	struct pbr_filter filter;
 	struct pbr_action action;
 
-	char ifname[INTERFACE_NAMSIZ + 1];
+	char ifname[IFNAMSIZ + 1];
 };
 
 /* TCP flags value shared

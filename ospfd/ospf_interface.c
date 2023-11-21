@@ -932,7 +932,7 @@ struct ospf_interface *ospf_vl_new(struct ospf *ospf,
 {
 	struct ospf_interface *voi;
 	struct interface *vi;
-	char ifname[INTERFACE_NAMSIZ];
+	char ifname[IFNAMSIZ];
 	struct ospf_area *area;
 	struct in_addr area_id;
 	struct connected *co;
