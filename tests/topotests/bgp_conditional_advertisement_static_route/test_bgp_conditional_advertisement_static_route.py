@@ -54,6 +54,7 @@ def test_bgp_conditional_advertisements_static_route():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
+    r1 = tgen.gears["r1"]
     r2 = tgen.gears["r2"]
 
     def _bgp_converge():
@@ -111,6 +112,25 @@ def test_bgp_conditional_advertisements_static_route():
     )
     _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
     assert result is None, "10.10.10.2/32 is not advertised after prefix-list update"
+
+    def _bgp_check_received_routes():
+        output = json.loads(r1.vtysh_cmd("show bgp ipv4 unicast 10.10.10.1/32 json"))
+        expected = {
+            "paths": [
+                {
+                    "community": {
+                        "string": "65000:1",
+                    }
+                }
+            ]
+        }
+        return topotest.json_cmp(output, expected)
+
+    test_func = functools.partial(
+        _bgp_check_received_routes,
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    assert result is None, "10.10.10.1/32 does not have 65000:1 community attached"
 
 
 if __name__ == "__main__":
