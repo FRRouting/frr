@@ -13,9 +13,9 @@
 #include "vrf.h"
 #include "defaults.h"
 #include "stream.h"
+#include "mgmt_defines.h"
 
 #include "mgmtd/mgmt_memory.h"
-#include "mgmtd/mgmt_defines.h"
 #include "mgmtd/mgmt_history.h"
 #include "mgmtd/mgmt_txn.h"
 #include "mgmtd/mgmt_ds.h"
@@ -70,11 +70,6 @@ struct mgmt_master {
 extern struct mgmt_master *mm;
 
 /* Inline functions */
-static inline unsigned long timeval_elapsed(struct timeval a, struct timeval b)
-{
-	return (((a.tv_sec - b.tv_sec) * TIMER_SECOND_MICRO)
-		+ (a.tv_usec - b.tv_usec));
-}
 
 /*
  * Remove trailing separator from a string.

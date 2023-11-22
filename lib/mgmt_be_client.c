@@ -9,7 +9,6 @@
 #include "debug.h"
 #include "compiler.h"
 #include "libfrr.h"
-#include "mgmtd/mgmt.h"
 #include "mgmt_be_client.h"
 #include "mgmt_msg.h"
 #include "mgmt_pb.h"

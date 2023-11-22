@@ -12,7 +12,7 @@
 
 #include "mgmt_be_client.h"
 #include "mgmt_msg.h"
-#include "mgmtd/mgmt_defines.h"
+#include "mgmt_defines.h"
 #include "mgmtd/mgmt_ds.h"
 
 #define MGMTD_BE_CONN_INIT_DELAY_MSEC 50

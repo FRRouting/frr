@@ -14,7 +14,7 @@ extern "C" {
 
 #include "northbound.h"
 #include "mgmt_pb.h"
-#include "mgmtd/mgmt_defines.h"
+#include "mgmt_defines.h"
 
 /***************************************************************
  * Constants

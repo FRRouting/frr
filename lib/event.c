@@ -1848,12 +1848,6 @@ struct event *event_fetch(struct event_loop *m, struct event *fetch)
 	return fetch;
 }
 
-static unsigned long timeval_elapsed(struct timeval a, struct timeval b)
-{
-	return (((a.tv_sec - b.tv_sec) * TIMER_SECOND_MICRO)
-		+ (a.tv_usec - b.tv_usec));
-}
-
 unsigned long event_consumed_time(RUSAGE_T *now, RUSAGE_T *start,
 				  unsigned long *cputime)
 {

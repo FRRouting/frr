@@ -11,8 +11,8 @@
 
 #include "mgmt_fe_client.h"
 #include "northbound.h"
+#include "mgmt_defines.h"
 
-#include "mgmtd/mgmt_defines.h"
 #include "mgmtd/mgmt_be_adapter.h"
 #include "mgmtd/mgmt_fe_adapter.h"
 
