@@ -830,12 +830,12 @@ int ifam_read(struct ifa_msghdr *ifam)
 	struct interface *ifp = NULL;
 	union sockunion addr, mask, brd;
 	bool dest_same = false;
-	char ifname[INTERFACE_NAMSIZ];
+	char ifname[IFNAMSIZ];
 	short ifnlen = 0;
 	bool isalias = false;
 	uint32_t flags = 0;
 
-	ifname[0] = ifname[INTERFACE_NAMSIZ - 1] = '\0';
+	ifname[0] = ifname[IFNAMSIZ - 1] = '\0';
 
 	/* Allocate and read address information. */
 	ifam_read_mesg(ifam, &addr, &mask, &brd, ifname, &ifnlen);
@@ -847,7 +847,7 @@ int ifam_read(struct ifa_msghdr *ifam)
 		return -1;
 	}
 
-	if (ifnlen && strncmp(ifp->name, ifname, INTERFACE_NAMSIZ))
+	if (ifnlen && strncmp(ifp->name, ifname, IFNAMSIZ))
 		isalias = true;
 
 	/*
@@ -991,7 +991,7 @@ void rtm_read(struct rt_msghdr *rtm)
 	int flags;
 	uint32_t zebra_flags;
 	union sockunion dest, mask, gate;
-	char ifname[INTERFACE_NAMSIZ + 1];
+	char ifname[IFNAMSIZ + 1];
 	short ifnlen = 0;
 	struct nexthop nh;
 	struct prefix p;

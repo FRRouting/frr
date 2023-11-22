@@ -193,7 +193,7 @@ struct bfd_key {
 	uint16_t mhop;
 	struct in6_addr peer;
 	struct in6_addr local;
-	char ifname[INTERFACE_NAMSIZ];
+	char ifname[IFNAMSIZ];
 	char vrfname[VRF_NAMSIZ];
 } __attribute__((packed));
 

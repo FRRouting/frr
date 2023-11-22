@@ -97,7 +97,7 @@ struct pim_router {
 	struct in_addr local_vtep_ip;
 	struct pim_mlag_stats mlag_stats;
 	enum pim_mlag_flags mlag_flags;
-	char peerlink_rif[INTERFACE_NAMSIZ];
+	char peerlink_rif[IFNAMSIZ];
 	struct interface *peerlink_rif_p;
 };
 

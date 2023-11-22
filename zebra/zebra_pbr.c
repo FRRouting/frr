@@ -234,7 +234,7 @@ struct pbr_rule_unique_lookup {
 	struct zebra_pbr_rule *rule;
 	int sock;
 	uint32_t unique;
-	char ifname[INTERFACE_NAMSIZ + 1];
+	char ifname[IFNAMSIZ + 1];
 	vrf_id_t vrf_id;
 };
 
@@ -259,7 +259,7 @@ pbr_rule_lookup_unique(struct zebra_pbr_rule *zrule)
 	struct pbr_rule_unique_lookup pul;
 
 	pul.unique = zrule->rule.unique;
-	strlcpy(pul.ifname, zrule->rule.ifname, INTERFACE_NAMSIZ);
+	strlcpy(pul.ifname, zrule->rule.ifname, IFNAMSIZ);
 	pul.rule = NULL;
 	pul.vrf_id = zrule->vrf_id;
 	pul.sock = zrule->sock;

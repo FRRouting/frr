@@ -1851,7 +1851,7 @@ int zapi_pbr_rule_encode(struct stream *s, struct pbr_rule *r)
 	zapi_pbr_rule_filter_encode(s, &(r->filter));
 	zapi_pbr_rule_action_encode(s, &(r->action));
 
-	stream_put(s, r->ifname, INTERFACE_NAMSIZ);
+	stream_put(s, r->ifname, IFNAMSIZ);
 
 	/* Put length at the first point of the stream. */
 	stream_putw_at(s, 0, stream_get_endp(s));
@@ -1875,7 +1875,7 @@ bool zapi_pbr_rule_decode(struct stream *s, struct pbr_rule *r)
 	if (!zapi_pbr_rule_action_decode(s, &(r->action)))
 		goto stream_failure;
 
-	STREAM_GET(r->ifname, s, INTERFACE_NAMSIZ);
+	STREAM_GET(r->ifname, s, IFNAMSIZ);
 	return true;
 
 stream_failure:
@@ -2034,7 +2034,7 @@ bool zapi_rule_notify_decode(struct stream *s, uint32_t *seqno,
 	STREAM_GETL(s, seq);
 	STREAM_GETL(s, prio);
 	STREAM_GETL(s, uni);
-	STREAM_GET(ifname, s, INTERFACE_NAMSIZ);
+	STREAM_GET(ifname, s, IFNAMSIZ);
 
 	if (zclient_debug)
 		zlog_debug("%s: %u %u %u %s", __func__, seq, prio, uni, ifname);
@@ -2526,12 +2526,12 @@ static int zclient_vrf_delete(ZAPI_CALLBACK_ARGS)
 static int zclient_interface_add(ZAPI_CALLBACK_ARGS)
 {
 	struct interface *ifp;
-	char ifname_tmp[INTERFACE_NAMSIZ + 1] = {};
+	char ifname_tmp[IFNAMSIZ + 1] = {};
 	struct stream *s = zclient->ibuf;
 	struct vrf *vrf;
 
 	/* Read interface name. */
-	STREAM_GET(ifname_tmp, s, INTERFACE_NAMSIZ);
+	STREAM_GET(ifname_tmp, s, IFNAMSIZ);
 
 	/* Lookup/create interface by name. */
 	vrf = vrf_lookup_by_id(vrf_id);
@@ -2562,10 +2562,10 @@ stream_failure:
 struct interface *zebra_interface_state_read(struct stream *s, vrf_id_t vrf_id)
 {
 	struct interface *ifp;
-	char ifname_tmp[INTERFACE_NAMSIZ + 1] = {};
+	char ifname_tmp[IFNAMSIZ + 1] = {};
 
 	/* Read interface name. */
-	STREAM_GET(ifname_tmp, s, INTERFACE_NAMSIZ);
+	STREAM_GET(ifname_tmp, s, IFNAMSIZ);
 
 	/* Lookup this by interface index. */
 	ifp = if_lookup_by_name(ifname_tmp, vrf_id);
@@ -3055,12 +3055,12 @@ struct interface *zebra_interface_vrf_update_read(struct stream *s,
 						  vrf_id_t vrf_id,
 						  vrf_id_t *new_vrf_id)
 {
-	char ifname[INTERFACE_NAMSIZ + 1] = {};
+	char ifname[IFNAMSIZ + 1] = {};
 	struct interface *ifp;
 	vrf_id_t new_id;
 
 	/* Read interface name. */
-	STREAM_GET(ifname, s, INTERFACE_NAMSIZ);
+	STREAM_GET(ifname, s, IFNAMSIZ);
 
 	/* Lookup interface. */
 	ifp = if_lookup_by_name(ifname, vrf_id);
@@ -3946,7 +3946,7 @@ enum zclient_send_status zebra_send_pw(struct zclient *zclient, int command,
 	stream_reset(s);
 
 	zclient_create_header(s, command, VRF_DEFAULT);
-	stream_write(s, pw->ifname, INTERFACE_NAMSIZ);
+	stream_write(s, pw->ifname, IFNAMSIZ);
 	stream_putl(s, pw->ifindex);
 
 	/* Put type */
@@ -3993,7 +3993,7 @@ int zebra_read_pw_status_update(ZAPI_CALLBACK_ARGS, struct zapi_pw_status *pw)
 	s = zclient->ibuf;
 
 	/* Get data. */
-	stream_get(pw->ifname, s, INTERFACE_NAMSIZ);
+	stream_get(pw->ifname, s, IFNAMSIZ);
 	STREAM_GETL(s, pw->ifindex);
 	STREAM_GETL(s, pw->status);
 

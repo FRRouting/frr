@@ -242,7 +242,7 @@ babel_get_myid(void)
     /* We failed to get a global EUI64 from the interfaces we were given.
      Let's try to find an interface with a MAC address. */
     for(i = 1; i < 256; i++) {
-        char buf[INTERFACE_NAMSIZ], *ifname;
+        char buf[IFNAMSIZ], *ifname;
         unsigned char eui[8];
         ifname = if_indextoname(i, buf);
         if(ifname == NULL)

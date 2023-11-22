@@ -88,8 +88,6 @@ enum zebra_link_type {
    FreeBSD define value in /usr/include/net/if.h.
    #define IFNAMSIZ        16
 */
-
-#define INTERFACE_NAMSIZ      IFNAMSIZ
 #define INTERFACE_HWADDR_MAX  20
 
 typedef signed int ifindex_t;
@@ -218,7 +216,7 @@ struct interface {
 	   To delete, just set ifindex to IFINDEX_INTERNAL to indicate that the
 	   interface does not exist in the kernel.
 	 */
-	char name[INTERFACE_NAMSIZ];
+	char name[IFNAMSIZ];
 
 	/* Interface index (should be IFINDEX_INTERNAL for non-kernel or
 	   deleted interfaces).

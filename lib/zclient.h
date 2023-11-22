@@ -644,7 +644,7 @@ struct zapi_sr_policy {
 };
 
 struct zapi_pw {
-	char ifname[INTERFACE_NAMSIZ];
+	char ifname[IFNAMSIZ];
 	ifindex_t ifindex;
 	int type;
 	int af;
@@ -657,7 +657,7 @@ struct zapi_pw {
 };
 
 struct zapi_pw_status {
-	char ifname[INTERFACE_NAMSIZ];
+	char ifname[IFNAMSIZ];
 	ifindex_t ifindex;
 	uint32_t status;
 };

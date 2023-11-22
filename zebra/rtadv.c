@@ -58,7 +58,7 @@ DEFINE_MTYPE_STATIC(ZEBRA, ADV_IF, "Advertised Interface");
 
 /* adv list node */
 struct adv_if {
-	char name[INTERFACE_NAMSIZ];
+	char name[IFNAMSIZ];
 	struct adv_if_list_item list_item;
 };
 

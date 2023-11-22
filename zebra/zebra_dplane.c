@@ -391,7 +391,7 @@ struct zebra_dplane_ctx {
 	vrf_id_t zd_vrf_id;
 	uint32_t zd_table_id;
 
-	char zd_ifname[INTERFACE_NAMSIZ];
+	char zd_ifname[IFNAMSIZ];
 	ifindex_t zd_ifindex;
 
 	/* Support info for different kinds of updates */

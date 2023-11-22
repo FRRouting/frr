@@ -2346,7 +2346,7 @@ static int rule_notify_owner(ZAPI_CALLBACK_ARGS)
 	enum zapi_rule_notify_owner note;
 	struct bgp_pbr_action *bgp_pbra;
 	struct bgp_pbr_rule *bgp_pbr = NULL;
-	char ifname[INTERFACE_NAMSIZ + 1];
+	char ifname[IFNAMSIZ + 1];
 
 	if (!zapi_rule_notify_decode(zclient->ibuf, &seqno, &priority, &unique,
 				     ifname, &note))

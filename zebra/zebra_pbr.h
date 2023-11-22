@@ -46,7 +46,7 @@ struct zebra_pbr_rule {
 
 	struct pbr_rule rule;
 
-	char ifname[INTERFACE_NAMSIZ];
+	char ifname[IFNAMSIZ];
 
 	struct zebra_pbr_action action;
 

@@ -64,7 +64,7 @@ static void zserv_encode_interface(struct stream *s, struct interface *ifp)
 	/* Interface information. */
 	struct zebra_if *zif = ifp->info;
 
-	stream_put(s, ifp->name, INTERFACE_NAMSIZ);
+	stream_put(s, ifp->name, IFNAMSIZ);
 	stream_putl(s, ifp->ifindex);
 	stream_putc(s, ifp->status);
 	stream_putq(s, ifp->flags);
@@ -842,7 +842,7 @@ void zsend_rule_notify_owner(const struct zebra_dplane_ctx *ctx,
 	stream_putl(s, dplane_ctx_rule_get_seq(ctx));
 	stream_putl(s, dplane_ctx_rule_get_priority(ctx));
 	stream_putl(s, dplane_ctx_rule_get_unique(ctx));
-	stream_put(s, dplane_ctx_rule_get_ifname(ctx), INTERFACE_NAMSIZ);
+	stream_put(s, dplane_ctx_rule_get_ifname(ctx), IFNAMSIZ);
 
 	stream_putw_at(s, 0, stream_get_endp(s));
 
@@ -1036,7 +1036,7 @@ int zsend_pw_update(struct zserv *client, struct zebra_pw *pw)
 	struct stream *s = stream_new(ZEBRA_MAX_PACKET_SIZ);
 
 	zclient_create_header(s, ZEBRA_PW_STATUS_UPDATE, pw->vrf_id);
-	stream_write(s, pw->ifname, INTERFACE_NAMSIZ);
+	stream_write(s, pw->ifname, IFNAMSIZ);
 	stream_putl(s, pw->ifindex);
 	stream_putl(s, pw->status);
 
@@ -3008,7 +3008,7 @@ static void zread_srv6_manager_request(ZAPI_HANDLER_ARGS)
 static void zread_pseudowire(ZAPI_HANDLER_ARGS)
 {
 	struct stream *s;
-	char ifname[INTERFACE_NAMSIZ];
+	char ifname[IFNAMSIZ];
 	ifindex_t ifindex;
 	int type;
 	int af;
@@ -3024,8 +3024,8 @@ static void zread_pseudowire(ZAPI_HANDLER_ARGS)
 	s = msg;
 
 	/* Get data. */
-	STREAM_GET(ifname, s, INTERFACE_NAMSIZ);
-	ifname[INTERFACE_NAMSIZ - 1] = '\0';
+	STREAM_GET(ifname, s, IFNAMSIZ);
+	ifname[IFNAMSIZ - 1] = '\0';
 	STREAM_GETL(s, ifindex);
 	STREAM_GETL(s, type);
 	STREAM_GETL(s, af);

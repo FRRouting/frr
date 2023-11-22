@@ -1487,7 +1487,7 @@ void pim_if_update_assert_tracking_desired(struct interface *ifp)
  */
 void pim_if_create_pimreg(struct pim_instance *pim)
 {
-	char pimreg_name[INTERFACE_NAMSIZ];
+	char pimreg_name[IFNAMSIZ];
 
 	if (!pim->regiface) {
 		if (pim->vrf->vrf_id == VRF_DEFAULT)

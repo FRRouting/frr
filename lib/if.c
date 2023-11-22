@@ -362,8 +362,7 @@ struct interface *if_lookup_by_name(const char *name, vrf_id_t vrf_id)
 	struct vrf *vrf = vrf_lookup_by_id(vrf_id);
 	struct interface if_tmp;
 
-	if (!vrf || !name
-	    || strnlen(name, INTERFACE_NAMSIZ) == INTERFACE_NAMSIZ)
+	if (!vrf || !name || strnlen(name, IFNAMSIZ) == IFNAMSIZ)
 		return NULL;
 
 	strlcpy(if_tmp.name, name, sizeof(if_tmp.name));
@@ -374,7 +373,7 @@ struct interface *if_lookup_by_name_vrf(const char *name, struct vrf *vrf)
 {
 	struct interface if_tmp;
 
-	if (!name || strnlen(name, INTERFACE_NAMSIZ) == INTERFACE_NAMSIZ)
+	if (!name || strnlen(name, IFNAMSIZ) == IFNAMSIZ)
 		return NULL;
 
 	strlcpy(if_tmp.name, name, sizeof(if_tmp.name));
@@ -386,7 +385,7 @@ static struct interface *if_lookup_by_name_all_vrf(const char *name)
 	struct vrf *vrf;
 	struct interface *ifp;
 
-	if (!name || strnlen(name, INTERFACE_NAMSIZ) == INTERFACE_NAMSIZ)
+	if (!name || strnlen(name, IFNAMSIZ) == IFNAMSIZ)
 		return NULL;
 
 	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
