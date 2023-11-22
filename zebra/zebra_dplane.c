@@ -3550,6 +3550,7 @@ static int dplane_ctx_iptable_init(struct zebra_dplane_ctx *ctx,
 
 	ctx->zd_vrf_id = iptable->vrf_id;
 	memcpy(&ctx->u.iptable, iptable, sizeof(struct zebra_pbr_iptable));
+	ctx->u.iptable.interface_name_list = NULL;
 	if (iptable->nb_interface > 0) {
 		ctx->u.iptable.interface_name_list = list_new();
 		ctx->u.iptable.interface_name_list->del =
