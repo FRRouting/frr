@@ -370,9 +370,7 @@ void prefix_copy(union prefixptr udest, union prefixconstptr usrc)
 		dest->u.lp.id = src->u.lp.id;
 		dest->u.lp.adv_router = src->u.lp.adv_router;
 	} else if (src->family == AF_FLOWSPEC) {
-		len = src->u.prefix_flowspec.prefixlen;
-		dest->u.prefix_flowspec.prefixlen =
-			src->u.prefix_flowspec.prefixlen;
+		len = src->prefixlen;
 		dest->u.prefix_flowspec.family =
 			src->u.prefix_flowspec.family;
 		temp = XCALLOC(MTYPE_PREFIX_FLOWSPEC, len);
@@ -468,12 +466,9 @@ int prefix_same(union prefixconstptr up1, union prefixconstptr up2)
 			if (p1->u.prefix_flowspec.family !=
 			    p2->u.prefix_flowspec.family)
 				return 0;
-			if (p1->u.prefix_flowspec.prefixlen !=
-			    p2->u.prefix_flowspec.prefixlen)
-				return 0;
 			if (!memcmp((const void *)p1->u.prefix_flowspec.ptr,
 				    (const void *)p2->u.prefix_flowspec.ptr,
-				    p2->u.prefix_flowspec.prefixlen))
+				    p2->prefixlen))
 				return 1;
 		}
 		if (p1->family == AF_LINKSTATE) {
@@ -521,12 +516,10 @@ int prefix_cmp(union prefixconstptr up1, union prefixconstptr up2)
 		    p2->u.prefix_flowspec.family)
 			return 1;
 
-		if (p1->u.prefix_flowspec.prefixlen !=
-		    p2->u.prefix_flowspec.prefixlen)
-			return numcmp(p1->u.prefix_flowspec.prefixlen,
-				      p2->u.prefix_flowspec.prefixlen);
+		if (p1->prefixlen != p2->prefixlen)
+			return numcmp(p1->prefixlen, p2->prefixlen);
 
-		offset = p1->u.prefix_flowspec.prefixlen;
+		offset = p1->prefixlen;
 		while (offset--)
 			if (pp1[offset] != pp2[offset])
 				return numcmp(pp1[offset], pp2[offset]);
@@ -1454,7 +1447,7 @@ unsigned prefix_hash_key(const void *pp)
 
 	if (((struct prefix *)pp)->family == AF_FLOWSPEC) {
 		len = jhash((void *)copy.u.prefix_flowspec.ptr,
-			    copy.u.prefix_flowspec.prefixlen,
+			    copy.prefixlen,
 			    0x55aa5a5a);
 		temp = (void *)copy.u.prefix_flowspec.ptr;
 		XFREE(MTYPE_PREFIX_FLOWSPEC, temp);

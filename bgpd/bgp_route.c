@@ -1577,7 +1577,7 @@ static enum prefix_list_type prefix_list_flowspec(struct prefix_list *plist,
 
 	/* extract match from flowspec entries */
 	ret = bgp_flowspec_match_rules_fill((uint8_t *)p->u.prefix_flowspec.ptr,
-					    p->u.prefix_flowspec.prefixlen,
+					    p->prefixlen,
 					    &api, afi);
 	if (ret < 0)
 		return PREFIX_DENY;
@@ -11656,18 +11656,16 @@ static int bgp_show_table(struct vty *vty, struct bgp *bgp, afi_t afi, safi_t sa
 				bgp_fs_nlri_get_string(
 					(unsigned char *)
 						dest_p->u.prefix_flowspec.ptr,
-					dest_p->u.prefix_flowspec.prefixlen,
+					dest_p->prefixlen,
 					retstr, NLRI_STRING_FORMAT_MIN, NULL,
 					family2afi(dest_p->u
 						   .prefix_flowspec.family));
 				if (first)
 					vty_out(vty, "\"%s/%d\": ", retstr,
-						dest_p->u.prefix_flowspec
-							.prefixlen);
+						dest_p->prefixlen);
 				else
 					vty_out(vty, ",\"%s/%d\": ", retstr,
-						dest_p->u.prefix_flowspec
-							.prefixlen);
+						dest_p->prefixlen);
 			} else {
 				if (first)
 					vty_out(vty, "\"%pFX\": ", dest_p);

@@ -4343,9 +4343,9 @@ void bgp_packet_mpattr_prefix(struct stream *s, afi_t afi, safi_t safi,
 		/* not yet supported */
 		break;
 	case SAFI_FLOWSPEC:
-		stream_putc(s, p->u.prefix_flowspec.prefixlen);
+		stream_putc(s, p->prefixlen);
 		stream_put(s, (const void *)p->u.prefix_flowspec.ptr,
-			   p->u.prefix_flowspec.prefixlen);
+			   p->prefixlen);
 		break;
 
 	case SAFI_UNICAST:
@@ -4393,7 +4393,7 @@ size_t bgp_packet_mpattr_prefix_size(afi_t afi, safi_t safi,
 			assert(!"Attempting to figure size for SAFI_EVPN and !AFI_L2VPN and FRR will not have the proper values");
 		break;
 	case SAFI_FLOWSPEC:
-		size = ((struct prefix_fs *)p)->prefix.prefixlen;
+		size = ((struct prefix_fs *)p)->prefixlen;
 		break;
 	}
 

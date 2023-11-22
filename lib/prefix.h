@@ -173,7 +173,6 @@ enum bgp_linkstate_nlri_type {
 
 struct flowspec_prefix {
 	uint8_t family;
-	uint16_t prefixlen; /* length in bytes */
 	uintptr_t ptr;
 };
 

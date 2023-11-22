@@ -73,7 +73,7 @@ bool bgp_flowspec_contains_prefix(const struct prefix *pfs,
 	int type;
 	int ret = 0, error = 0;
 	uint8_t *nlri_content = (uint8_t *)pfs->u.prefix_flowspec.ptr;
-	size_t len = pfs->u.prefix_flowspec.prefixlen;
+	size_t len = pfs->prefixlen;
 	afi_t afi = family2afi(pfs->u.prefix_flowspec.family);
 	struct prefix compare;
 

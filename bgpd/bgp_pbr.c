@@ -753,7 +753,7 @@ int bgp_pbr_build_and_validate_entry(const struct prefix *p,
 
 	/* extract match from flowspec entries */
 	ret = bgp_flowspec_match_rules_fill((uint8_t *)p->u.prefix_flowspec.ptr,
-					    p->u.prefix_flowspec.prefixlen, api, afi);
+					    p->prefixlen, api, afi);
 	if (ret < 0)
 		return -1;
 	/* extract actiosn from flowspec ecom list */

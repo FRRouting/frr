@@ -2799,7 +2799,7 @@ const char *bgp_debug_rdpfxpath2str(afi_t afi, safi_t safi,
 		const struct prefix_fs *fs = pu.fs;
 
 		bgp_fs_nlri_get_string((unsigned char *)fs->prefix.ptr,
-				       fs->prefix.prefixlen,
+				       fs->prefixlen,
 				       return_string,
 				       NLRI_STRING_FORMAT_DEBUG, NULL,
 				       family2afi(fs->prefix.family));

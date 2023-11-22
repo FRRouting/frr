@@ -636,7 +636,7 @@ route_match_prefix_list_flowspec(afi_t afi, struct prefix_list *plist,
 	/* extract match from flowspec entries */
 	ret = bgp_flowspec_match_rules_fill(
 					    (uint8_t *)p->u.prefix_flowspec.ptr,
-					    p->u.prefix_flowspec.prefixlen, &api,
+					    p->prefixlen, &api,
 					    afi);
 	if (ret < 0)
 		return RMAP_NOMATCH;

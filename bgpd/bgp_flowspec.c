@@ -148,9 +148,8 @@ int bgp_nlri_parse_flowspec(struct peer *peer, struct attr *attr,
 			return BGP_NLRI_PARSE_ERROR_FLOWSPEC_BAD_FORMAT;
 		}
 		p.family = AF_FLOWSPEC;
-		p.prefixlen = 0;
 		/* Flowspec encoding is in bytes */
-		p.u.prefix_flowspec.prefixlen = psize;
+		p.prefixlen = psize;
 		p.u.prefix_flowspec.family = afi2family(afi);
 		temp = XCALLOC(MTYPE_TMP, psize);
 		memcpy(temp, pnt, psize);
@@ -164,7 +163,7 @@ int bgp_nlri_parse_flowspec(struct peer *peer, struct attr *attr,
 
 			bgp_fs_nlri_get_string((unsigned char *)
 					       p.u.prefix_flowspec.ptr,
-					       p.u.prefix_flowspec.prefixlen,
+					       p.prefixlen,
 					       return_string,
 					       NLRI_STRING_FORMAT_MIN, NULL,
 					       afi);

@@ -270,7 +270,7 @@ void route_vty_out_flowspec(struct vty *vty, const struct prefix *p,
 			path->flags);
 	bgp_fs_nlri_get_string((unsigned char *)
 			       p->u.prefix_flowspec.ptr,
-			       p->u.prefix_flowspec.prefixlen,
+			       p->prefixlen,
 			       return_string,
 			       display,
 			       json_nlri_path,
