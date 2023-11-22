@@ -275,10 +275,6 @@ struct interface {
 	/* description of the interface. */
 	char *desc;
 
-	/* Distribute list. */
-	void *distribute_in;
-	void *distribute_out;
-
 	/* Connected address list. */
 	struct if_connected_head connected[1];
 
