@@ -481,7 +481,7 @@ void ospf6_asbr_update_route_ecmp_path(struct ospf6_route *old,
 static int ospf6_ase_forward_address_check(struct ospf6 *ospf6,
 					   struct in6_addr *fwd_addr)
 {
-	struct listnode *anode, *node, *cnode;
+	struct listnode *anode, *node;
 	struct ospf6_interface *oi;
 	struct ospf6_area *oa;
 	struct interface *ifp;
@@ -494,7 +494,7 @@ static int ospf6_ase_forward_address_check(struct ospf6 *ospf6,
 				continue;
 
 			ifp = oi->interface;
-			for (ALL_LIST_ELEMENTS_RO(ifp->connected, cnode, c)) {
+			frr_each (if_connected, ifp->connected, c) {
 				if (IPV6_ADDR_SAME(&c->address->u.prefix6,
 						   fwd_addr))
 					return 0;
@@ -1407,12 +1407,11 @@ static void ospf6_external_lsa_fwd_addr_set(struct ospf6 *ospf6,
 	FOR_ALL_INTERFACES (vrf, ifp) {
 		struct ospf6_interface *oi = ifp->info;
 		struct connected *connected;
-		struct listnode *node;
 
 		if (!oi || CHECK_FLAG(oi->flag, OSPF6_INTERFACE_DISABLE))
 			continue;
 
-		FOR_ALL_INTERFACES_ADDRESSES (ifp, connected, node) {
+		frr_each (if_connected, ifp->connected, connected) {
 			if (connected->address->family != AF_INET6)
 				continue;
 			if (IN6_IS_ADDR_LINKLOCAL(&connected->address->u.prefix6))

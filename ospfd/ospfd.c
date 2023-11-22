@@ -1444,7 +1444,6 @@ static void ospf_network_run_interface(struct ospf *ospf, struct interface *ifp,
 				       struct prefix *p,
 				       struct ospf_area *given_area)
 {
-	struct listnode *cnode;
 	struct connected *co;
 
 	if (memcmp(ifp->name, "VLINK", 5) == 0)
@@ -1456,7 +1455,7 @@ static void ospf_network_run_interface(struct ospf *ospf, struct interface *ifp,
 
 	/* if interface prefix is match specified prefix,
 	   then create socket and join multicast group. */
-	for (ALL_LIST_ELEMENTS_RO(ifp->connected, cnode, co))
+	frr_each (if_connected, ifp->connected, co)
 		ospf_network_run_subnet(ospf, co, p, given_area);
 }
 

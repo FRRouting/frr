@@ -962,7 +962,7 @@ struct ospf_interface *ospf_vl_new(struct ospf *ospf,
 	UNSET_FLAG(vi->status, ZEBRA_INTERFACE_LINKDETECTION);
 	co = connected_new();
 	co->ifp = vi;
-	listnode_add(vi->connected, co);
+	if_connected_add_tail(vi->connected, co);
 
 	p = prefix_ipv4_new();
 	p->family = AF_INET;

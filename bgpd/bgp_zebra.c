@@ -146,7 +146,6 @@ static void bgp_start_interface_nbrs(struct bgp *bgp, struct interface *ifp)
 
 static void bgp_nbr_connected_add(struct bgp *bgp, struct nbr_connected *ifc)
 {
-	struct listnode *node;
 	struct connected *connected;
 	struct interface *ifp;
 	struct prefix *p;
@@ -155,7 +154,7 @@ static void bgp_nbr_connected_add(struct bgp *bgp, struct nbr_connected *ifc)
 	 * valid local address on the interface.
 	 */
 	ifp = ifc->ifp;
-	for (ALL_LIST_ELEMENTS_RO(ifp->connected, node, connected)) {
+	frr_each (if_connected, ifp->connected, connected) {
 		p = connected->address;
 		if (p->family == AF_INET6
 		    && IN6_IS_ADDR_LINKLOCAL(&p->u.prefix6))
@@ -227,7 +226,7 @@ static int bgp_ifp_up(struct interface *ifp)
 	if (!bgp)
 		return 0;
 
-	for (ALL_LIST_ELEMENTS(ifp->connected, node, nnode, c))
+	frr_each (if_connected, ifp->connected, c)
 		bgp_connected_add(bgp, c);
 
 	for (ALL_LIST_ELEMENTS(ifp->nbr_connected, node, nnode, nc))
@@ -258,7 +257,7 @@ static int bgp_ifp_down(struct interface *ifp)
 	if (!bgp)
 		return 0;
 
-	for (ALL_LIST_ELEMENTS(ifp->connected, node, nnode, c))
+	frr_each (if_connected, ifp->connected, c)
 		bgp_connected_delete(bgp, c);
 
 	for (ALL_LIST_ELEMENTS(ifp->nbr_connected, node, nnode, nc))
@@ -559,7 +558,6 @@ static int zebra_read_route(ZAPI_CALLBACK_ARGS)
 struct interface *if_lookup_by_ipv4(struct in_addr *addr, vrf_id_t vrf_id)
 {
 	struct vrf *vrf;
-	struct listnode *cnode;
 	struct interface *ifp;
 	struct connected *connected;
 	struct prefix_ipv4 p;
@@ -574,7 +572,7 @@ struct interface *if_lookup_by_ipv4(struct in_addr *addr, vrf_id_t vrf_id)
 	p.prefixlen = IPV4_MAX_BITLEN;
 
 	FOR_ALL_INTERFACES (vrf, ifp) {
-		for (ALL_LIST_ELEMENTS_RO(ifp->connected, cnode, connected)) {
+		frr_each (if_connected, ifp->connected, connected) {
 			cp = connected->address;
 
 			if (cp->family == AF_INET)
@@ -588,7 +586,6 @@ struct interface *if_lookup_by_ipv4(struct in_addr *addr, vrf_id_t vrf_id)
 struct interface *if_lookup_by_ipv4_exact(struct in_addr *addr, vrf_id_t vrf_id)
 {
 	struct vrf *vrf;
-	struct listnode *cnode;
 	struct interface *ifp;
 	struct connected *connected;
 	struct prefix *cp;
@@ -598,7 +595,7 @@ struct interface *if_lookup_by_ipv4_exact(struct in_addr *addr, vrf_id_t vrf_id)
 		return NULL;
 
 	FOR_ALL_INTERFACES (vrf, ifp) {
-		for (ALL_LIST_ELEMENTS_RO(ifp->connected, cnode, connected)) {
+		frr_each (if_connected, ifp->connected, connected) {
 			cp = connected->address;
 
 			if (cp->family == AF_INET)
@@ -613,7 +610,6 @@ struct interface *if_lookup_by_ipv6(struct in6_addr *addr, ifindex_t ifindex,
 				    vrf_id_t vrf_id)
 {
 	struct vrf *vrf;
-	struct listnode *cnode;
 	struct interface *ifp;
 	struct connected *connected;
 	struct prefix_ipv6 p;
@@ -628,7 +624,7 @@ struct interface *if_lookup_by_ipv6(struct in6_addr *addr, ifindex_t ifindex,
 	p.prefixlen = IPV6_MAX_BITLEN;
 
 	FOR_ALL_INTERFACES (vrf, ifp) {
-		for (ALL_LIST_ELEMENTS_RO(ifp->connected, cnode, connected)) {
+		frr_each (if_connected, ifp->connected, connected) {
 			cp = connected->address;
 
 			if (cp->family == AF_INET6)
@@ -649,7 +645,6 @@ struct interface *if_lookup_by_ipv6_exact(struct in6_addr *addr,
 					  ifindex_t ifindex, vrf_id_t vrf_id)
 {
 	struct vrf *vrf;
-	struct listnode *cnode;
 	struct interface *ifp;
 	struct connected *connected;
 	struct prefix *cp;
@@ -659,7 +654,7 @@ struct interface *if_lookup_by_ipv6_exact(struct in6_addr *addr,
 		return NULL;
 
 	FOR_ALL_INTERFACES (vrf, ifp) {
-		for (ALL_LIST_ELEMENTS_RO(ifp->connected, cnode, connected)) {
+		frr_each (if_connected, ifp->connected, connected) {
 			cp = connected->address;
 
 			if (cp->family == AF_INET6)
@@ -678,11 +673,10 @@ struct interface *if_lookup_by_ipv6_exact(struct in6_addr *addr,
 
 static int if_get_ipv6_global(struct interface *ifp, struct in6_addr *addr)
 {
-	struct listnode *cnode;
 	struct connected *connected;
 	struct prefix *cp;
 
-	for (ALL_LIST_ELEMENTS_RO(ifp->connected, cnode, connected)) {
+	frr_each (if_connected, ifp->connected, connected) {
 		cp = connected->address;
 
 		if (cp->family == AF_INET6)
@@ -696,11 +690,10 @@ static int if_get_ipv6_global(struct interface *ifp, struct in6_addr *addr)
 
 static bool if_get_ipv6_local(struct interface *ifp, struct in6_addr *addr)
 {
-	struct listnode *cnode;
 	struct connected *connected;
 	struct prefix *cp;
 
-	for (ALL_LIST_ELEMENTS_RO(ifp->connected, cnode, connected)) {
+	frr_each (if_connected, ifp->connected, connected) {
 		cp = connected->address;
 
 		if (cp->family == AF_INET6)
@@ -714,11 +707,10 @@ static bool if_get_ipv6_local(struct interface *ifp, struct in6_addr *addr)
 
 static int if_get_ipv4_address(struct interface *ifp, struct in_addr *addr)
 {
-	struct listnode *cnode;
 	struct connected *connected;
 	struct prefix *cp;
 
-	for (ALL_LIST_ELEMENTS_RO(ifp->connected, cnode, connected)) {
+	frr_each (if_connected, ifp->connected, connected) {
 		cp = connected->address;
 		if ((cp->family == AF_INET)
 		    && !ipv4_martian(&(cp->u.prefix4))) {

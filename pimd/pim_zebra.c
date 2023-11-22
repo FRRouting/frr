@@ -55,12 +55,11 @@ static int pim_router_id_update_zebra(ZAPI_CALLBACK_ARGS)
 static void dump_if_address(struct interface *ifp)
 {
 	struct connected *ifc;
-	struct listnode *node;
 
 	zlog_debug("%s %s: interface %s addresses:", __FILE__, __func__,
 		   ifp->name);
 
-	for (ALL_LIST_ELEMENTS_RO(ifp->connected, node, ifc)) {
+	frr_each (if_connected, ifp->connected, ifc) {
 		struct prefix *p = ifc->address;
 
 		if (p->family != AF_INET)

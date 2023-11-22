@@ -910,7 +910,7 @@ int lib_interface_zebra_ip_addrs_destroy(struct nb_cb_destroy_args *args)
 		/* This is not real address or interface is not active. */
 		if (!CHECK_FLAG(ifc->conf, ZEBRA_IFC_QUEUED)
 		    || !CHECK_FLAG(ifp->status, ZEBRA_INTERFACE_ACTIVE)) {
-			listnode_delete(ifp->connected, ifc);
+			if_connected_del(ifp->connected, ifc);
 			connected_free(&ifc);
 			return NB_ERR_VALIDATION;
 		}

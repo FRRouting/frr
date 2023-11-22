@@ -343,12 +343,11 @@ void ospf6_interface_disable(struct ospf6_interface *oi)
 static struct in6_addr *
 ospf6_interface_get_linklocal_address(struct interface *ifp)
 {
-	struct listnode *n;
 	struct connected *c;
 	struct in6_addr *l = (struct in6_addr *)NULL;
 
 	/* for each connected address */
-	for (ALL_LIST_ELEMENTS_RO(ifp->connected, n, c)) {
+	frr_each (if_connected, ifp->connected, c) {
 		/* if family not AF_INET6, ignore */
 		if (c->address->family != AF_INET6)
 			continue;
@@ -405,7 +404,6 @@ void ospf6_interface_connected_route_update(struct interface *ifp)
 {
 	struct ospf6_interface *oi;
 	struct connected *c;
-	struct listnode *node, *nnode;
 	struct in6_addr nh_addr;
 
 	oi = (struct ospf6_interface *)ifp->info;
@@ -425,7 +423,7 @@ void ospf6_interface_connected_route_update(struct interface *ifp)
 	/* update "route to advertise" interface route table */
 	ospf6_route_remove_all(oi->route_connected);
 
-	for (ALL_LIST_ELEMENTS(oi->interface->connected, node, nnode, c)) {
+	frr_each (if_connected, ifp->connected, c) {
 		if (c->address->family != AF_INET6)
 			continue;
 
@@ -1015,7 +1013,6 @@ static int ospf6_interface_show(struct vty *vty, struct interface *ifp,
 	struct ospf6_interface *oi;
 	struct connected *c;
 	struct prefix *p;
-	struct listnode *i;
 	char strbuf[PREFIX2STR_BUFFER], drouter[32], bdrouter[32];
 	uint8_t default_iftype;
 	struct timeval res, now;
@@ -1062,7 +1059,7 @@ static int ospf6_interface_show(struct vty *vty, struct interface *ifp,
 
 	if (use_json) {
 		json_arr = json_object_new_array();
-		for (ALL_LIST_ELEMENTS_RO(ifp->connected, i, c)) {
+		frr_each (if_connected, ifp->connected, c) {
 			json_addr = json_object_new_object();
 			p = c->address;
 			prefix2str(p, strbuf, sizeof(strbuf));
@@ -1094,7 +1091,7 @@ static int ospf6_interface_show(struct vty *vty, struct interface *ifp,
 	} else {
 		vty_out(vty, "  Internet Address:\n");
 
-		for (ALL_LIST_ELEMENTS_RO(ifp->connected, i, c)) {
+		frr_each (if_connected, ifp->connected, c) {
 			p = c->address;
 			prefix2str(p, strbuf, sizeof(strbuf));
 			switch (p->family) {
@@ -1331,11 +1328,10 @@ static int ospf6_interface_show(struct vty *vty, struct interface *ifp,
 /* Find the global address to be used as a forwarding address in NSSA LSA.*/
 struct in6_addr *ospf6_interface_get_global_address(struct interface *ifp)
 {
-	struct listnode *n;
 	struct connected *c;
 
 	/* for each connected address */
-	for (ALL_LIST_ELEMENTS_RO(ifp->connected, n, c)) {
+	frr_each (if_connected, ifp->connected, c) {
 		/* if family not AF_INET6, ignore */
 		if (c->address->family != AF_INET6)
 			continue;

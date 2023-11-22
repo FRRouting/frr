@@ -36,11 +36,10 @@ static void vrrp_zebra_debug_if_dump_address(struct interface *ifp,
 					     const char *func)
 {
 	struct connected *ifc;
-	struct listnode *node;
 
 	DEBUGD(&vrrp_dbg_zebra, "%s: interface %s addresses:", func, ifp->name);
 
-	for (ALL_LIST_ELEMENTS_RO(ifp->connected, node, ifc)) {
+	frr_each (if_connected, ifp->connected, ifc) {
 		struct prefix *p = ifc->address;
 
 		DEBUGD(&vrrp_dbg_zebra, "%s: interface %s address %pFX %s",

@@ -936,7 +936,6 @@ int sr_if_addr_update(struct interface *ifp)
 	struct isis_circuit *circuit;
 	struct isis_area *area;
 	struct connected *connected;
-	struct listnode *node;
 	bool need_lsp_regenerate = false;
 
 	/* Get corresponding circuit */
@@ -948,7 +947,7 @@ int sr_if_addr_update(struct interface *ifp)
 	if (!area)
 		return 0;
 
-	FOR_ALL_INTERFACES_ADDRESSES (ifp, connected, node) {
+	frr_each (if_connected, ifp->connected, connected) {
 		for (int i = 0; i < SR_ALGORITHM_COUNT; i++) {
 			pcfgs[i] = isis_sr_cfg_prefix_find(
 				area, connected->address, i);

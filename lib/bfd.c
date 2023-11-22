@@ -1282,7 +1282,6 @@ static bool bfd_source_cache_update(struct bfd_source_cache *source,
 		const struct zapi_nexthop *nh = &route->nexthops[nh_index];
 		const struct interface *interface;
 		const struct connected *connected;
-		const struct listnode *node;
 
 		interface = if_lookup_by_index(nh->ifindex, nh->vrf_id);
 		if (interface == NULL) {
@@ -1291,8 +1290,7 @@ static bool bfd_source_cache_update(struct bfd_source_cache *source,
 			continue;
 		}
 
-		for (ALL_LIST_ELEMENTS_RO(interface->connected, node,
-					  connected)) {
+		frr_each (if_connected_const, interface->connected, connected) {
 			if (source->address.family !=
 			    connected->address->family)
 				continue;

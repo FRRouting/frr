@@ -700,10 +700,9 @@ static int vrrp_bind_to_primary_connected(struct vrrp_router *r)
 	 */
 	ifp = r->family == AF_INET ? r->vr->ifp : r->mvl_ifp;
 
-	struct listnode *ln;
 	struct connected *c = NULL;
 
-	for (ALL_LIST_ELEMENTS_RO(ifp->connected, ln, c))
+	frr_each (if_connected, ifp->connected, c)
 		if (c->address->family == r->family) {
 			if (r->family == AF_INET6
 			    && IN6_IS_ADDR_LINKLOCAL(&c->address->u.prefix6))
@@ -1171,9 +1170,15 @@ static int vrrp_socket(struct vrrp_router *r)
 		       r->vr->vrid, family2str(r->family));
 
 		/* Join Rx socket to VRRP IPv4 multicast group */
-		assert(listhead(r->vr->ifp->connected));
-		struct connected *c = listhead(r->vr->ifp->connected)->data;
-		struct in_addr v4 = c->address->u.prefix4;
+		struct connected *c;
+		struct in_addr v4;
+
+		frr_each (if_connected, r->vr->ifp->connected, c)
+			if (c->address->family == AF_INET)
+				break;
+
+		assert(c);
+		v4 = c->address->u.prefix4;
 
 		ret = setsockopt_ipv4_multicast(r->sock_rx, IP_ADD_MEMBERSHIP,
 						v4, htonl(VRRP_MCASTV4_GROUP),
@@ -1703,7 +1708,6 @@ int vrrp_event(struct vrrp_router *r, int event)
  */
 static void vrrp_autoconfig_autoaddrupdate(struct vrrp_router *r)
 {
-	struct listnode *ln;
 	struct connected *c = NULL;
 	bool is_v6_ll;
 
@@ -1714,7 +1718,7 @@ static void vrrp_autoconfig_autoaddrupdate(struct vrrp_router *r)
 	       VRRP_LOGPFX VRRP_LOGPFX_VRID VRRP_LOGPFX_FAM
 	       "Setting Virtual IP list to match IPv4 addresses on %s",
 	       r->vr->vrid, family2str(r->family), r->mvl_ifp->name);
-	for (ALL_LIST_ELEMENTS_RO(r->mvl_ifp->connected, ln, c)) {
+	frr_each (if_connected, r->mvl_ifp->connected, c) {
 		is_v6_ll = (c->address->family == AF_INET6
 			    && IN6_IS_ADDR_LINKLOCAL(&c->address->u.prefix6));
 		if (c->address->family == r->family && !is_v6_ll) {

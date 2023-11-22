@@ -415,7 +415,7 @@ int zsend_interface_addresses(struct zserv *client, struct interface *ifp)
 	struct nbr_connected *nc;
 
 	/* Send interface addresses. */
-	for (ALL_LIST_ELEMENTS(ifp->connected, cnode, cnnode, c)) {
+	frr_each (if_connected, ifp->connected, c) {
 		if (!CHECK_FLAG(c->conf, ZEBRA_IFC_REAL))
 			continue;
 

@@ -404,7 +404,6 @@ static int rip_filter(int rip_distribute, struct prefix_ipv4 *p,
 static int rip_nexthop_check(struct rip *rip, struct in_addr *addr)
 {
 	struct interface *ifp;
-	struct listnode *cnode;
 	struct connected *ifc;
 	struct prefix *p;
 
@@ -412,7 +411,7 @@ static int rip_nexthop_check(struct rip *rip, struct in_addr *addr)
 	   invalid nexthop. */
 
 	FOR_ALL_INTERFACES (rip->vrf, ifp) {
-		for (ALL_LIST_ELEMENTS_RO(ifp->connected, cnode, ifc)) {
+		frr_each (if_connected, ifp->connected, ifc) {
 			p = ifc->address;
 
 			if (p->family == AF_INET
@@ -2213,8 +2212,8 @@ void rip_output_process(struct connected *ifc, struct sockaddr_in *to,
 				}
 
 			if (!suppress && rinfo->type == ZEBRA_ROUTE_CONNECT) {
-				for (ALL_LIST_ELEMENTS_RO(ifc->ifp->connected,
-							  listnode, tmp_ifc))
+				frr_each (if_connected, ifc->ifp->connected,
+					  tmp_ifc)
 					if (prefix_match((struct prefix *)p,
 							 tmp_ifc->address)) {
 						suppress = 1;
@@ -2323,8 +2322,8 @@ void rip_output_process(struct connected *ifc, struct sockaddr_in *to,
 
 			if (rinfo->metric_out != RIP_METRIC_INFINITY &&
 			    rinfo->type == ZEBRA_ROUTE_CONNECT) {
-				for (ALL_LIST_ELEMENTS_RO(ifc->ifp->connected,
-							  listnode, tmp_ifc))
+				frr_each (if_connected, ifc->ifp->connected,
+					  tmp_ifc)
 					if (prefix_match((struct prefix *)p,
 							 tmp_ifc->address)) {
 						rinfo->metric_out =
@@ -2437,7 +2436,6 @@ static void rip_update_interface(struct connected *ifc, uint8_t version,
 /* Update send to all interface and neighbor. */
 static void rip_update_process(struct rip *rip, int route_type)
 {
-	struct listnode *ifnode, *ifnnode;
 	struct connected *connected;
 	struct interface *ifp;
 	struct rip_interface *ri;
@@ -2476,8 +2474,7 @@ static void rip_update_process(struct rip *rip, int route_type)
 				   ifp->ifindex);
 
 		/* send update on each connected network */
-		for (ALL_LIST_ELEMENTS(ifp->connected, ifnode, ifnnode,
-				       connected)) {
+		frr_each (if_connected, ifp->connected, connected) {
 			if (connected->address->family == AF_INET) {
 				if (vsend & RIPv1)
 					rip_update_interface(connected, RIPv1,
@@ -2768,7 +2765,6 @@ int rip_request_send(struct sockaddr_in *to, struct interface *ifp,
 {
 	struct rte *rte;
 	struct rip_packet rip_packet;
-	struct listnode *node, *nnode;
 
 	memset(&rip_packet, 0, sizeof(rip_packet));
 
@@ -2792,7 +2788,7 @@ int rip_request_send(struct sockaddr_in *to, struct interface *ifp,
 	}
 
 	/* send request on each connected network */
-	for (ALL_LIST_ELEMENTS(ifp->connected, node, nnode, connected)) {
+	frr_each (if_connected, ifp->connected, connected) {
 		struct prefix_ipv4 *p;
 
 		p = (struct prefix_ipv4 *)connected->address;
