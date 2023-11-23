@@ -41,8 +41,12 @@ static void zclient_event(enum zclient_event, struct zclient *);
 static void zebra_interface_if_set_value(struct stream *s,
 					 struct interface *ifp);
 
-struct zclient_options zclient_options_default = {
+const struct zclient_options zclient_options_default = {
 	.synchronous = false,
+};
+
+const struct zclient_options zclient_options_sync = {
+	.synchronous = true,
 };
 
 struct sockaddr_storage zclient_addr;
@@ -53,7 +57,7 @@ static int zclient_debug;
 
 /* Allocate zclient structure. */
 struct zclient *zclient_new(struct event_loop *master,
-			    struct zclient_options *opt,
+			    const struct zclient_options *opt,
 			    zclient_handler *const *handlers, size_t n_handlers)
 {
 	struct zclient *zclient;

@@ -2135,12 +2135,8 @@ static void zclient_sync_retry(struct event *thread)
  */
 static void zclient_sync_init(void)
 {
-	struct zclient_options options = zclient_options_default;
-
-	options.synchronous = true;
-
 	/* Initialize special zclient for synchronous message exchanges. */
-	zclient_sync = zclient_new(master, &options, NULL, 0);
+	zclient_sync = zclient_new(master, &zclient_options_sync, NULL, 0);
 	zclient_sync->sock = -1;
 	zclient_sync->redist_default = ZEBRA_ROUTE_LDP;
 	zclient_sync->session_id = 1; /* Distinguish from main session */

@@ -320,9 +320,6 @@ static zclient_handler *const path_handlers[] = {
  */
 void path_zebra_init(struct event_loop *master)
 {
-	struct zclient_options options = zclient_options_default;
-	options.synchronous = true;
-
 	/* Initialize asynchronous zclient. */
 	zclient = zclient_new(master, &zclient_options_default, path_handlers,
 			      array_size(path_handlers));
@@ -330,7 +327,7 @@ void path_zebra_init(struct event_loop *master)
 	zclient->zebra_connected = path_zebra_connected;
 
 	/* Initialize special zclient for synchronous message exchanges. */
-	zclient_sync = zclient_new(master, &options, NULL, 0);
+	zclient_sync = zclient_new(master, &zclient_options_sync, NULL, 0);
 	zclient_sync->sock = -1;
 	zclient_sync->redist_default = ZEBRA_ROUTE_SRTE;
 	zclient_sync->instance = 1;

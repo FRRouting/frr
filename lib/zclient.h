@@ -834,7 +834,8 @@ struct zclient_options {
 	bool synchronous;
 };
 
-extern struct zclient_options zclient_options_default;
+extern const struct zclient_options zclient_options_default;
+extern const struct zclient_options zclient_options_sync;
 
 /* link layer representation for GRE like interfaces
  * ip_in is the underlay IP, ip_out is the tunnel dest
@@ -881,7 +882,7 @@ int zclient_neigh_ip_encode(struct stream *s, uint16_t cmd, union sockunion *in,
 extern uint32_t zclient_get_nhg_start(uint32_t proto);
 
 extern struct zclient *zclient_new(struct event_loop *m,
-				   struct zclient_options *opt,
+				   const struct zclient_options *opt,
 				   zclient_handler *const *handlers,
 				   size_t n_handlers);
 

@@ -122,10 +122,7 @@ void zclient_lookup_free(void)
 
 void zclient_lookup_new(void)
 {
-	struct zclient_options options = zclient_options_default;
-	options.synchronous = true;
-
-	zlookup = zclient_new(router->master, &options, NULL, 0);
+	zlookup = zclient_new(router->master, &zclient_options_sync, NULL, 0);
 	if (!zlookup) {
 		flog_err(EC_LIB_ZAPI_SOCKET, "%s: zclient_new() failure",
 			 __func__);
