@@ -392,7 +392,6 @@ enum zclient_send_status zclient_send_hello(struct zclient *zclient)
 		stream_putc(s, zclient->redist_default);
 		stream_putw(s, zclient->instance);
 		stream_putl(s, zclient->session_id);
-		stream_putc(s, 0); /* receive_notify - removed */
 		if (zclient->synchronous)
 			stream_putc(s, 1);
 		else
