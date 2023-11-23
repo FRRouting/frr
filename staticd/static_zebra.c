@@ -166,6 +166,7 @@ static int route_notify_owner(ZAPI_CALLBACK_ARGS)
 
 static void zebra_connected(struct zclient *zclient)
 {
+	zebra_route_notify_send(ZEBRA_ROUTE_NOTIFY_REQUEST, zclient, true);
 	zclient_send_reg_requests(zclient, VRF_DEFAULT);
 
 	static_fixup_vrf_ids(vrf_info_lookup(VRF_DEFAULT));
@@ -531,14 +532,12 @@ static zclient_handler *const static_handlers[] = {
 
 void static_zebra_init(void)
 {
-	struct zclient_options opt = { .receive_notify = true };
-
 	hook_register_prio(if_real, 0, static_ifp_create);
 	hook_register_prio(if_up, 0, static_ifp_up);
 	hook_register_prio(if_down, 0, static_ifp_down);
 	hook_register_prio(if_unreal, 0, static_ifp_destroy);
 
-	zclient = zclient_new(master, &opt, static_handlers,
+	zclient = zclient_new(master, &zclient_options_default, static_handlers,
 			      array_size(static_handlers));
 
 	zclient_init(zclient, ZEBRA_ROUTE_STATIC, 0, &static_privs);
