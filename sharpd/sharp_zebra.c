@@ -563,9 +563,15 @@ void nhg_add(uint32_t id, const struct nexthop_group *nhg,
 	}
 
 	if (api_nhg.nexthop_num == 0) {
-		zlog_debug("%s: nhg %u not sent: no valid nexthops", __func__,
-			   id);
-		is_valid = false;
+		if (sharp_nhgroup_id_is_installed(id)) {
+			zlog_debug("%s: nhg %u: no nexthops, deleting nexthop group", __func__,
+				   id);
+			zclient_nhg_send(zclient, ZEBRA_NHG_DEL, &api_nhg);
+		} else {
+			zlog_debug("%s: nhg %u not sent: no valid nexthops", __func__,
+				   id);
+			is_valid = false;
+		}
 		goto done;
 	}
 
