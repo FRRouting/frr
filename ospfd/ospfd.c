@@ -658,10 +658,6 @@ void ospf_terminate(void)
 
 	SET_FLAG(om->options, OSPF_MASTER_SHUTDOWN);
 
-	/* Skip some steps if OSPF not actually running */
-	if (listcount(om->ospf) == 0)
-		goto done;
-
 	for (ALL_LIST_ELEMENTS(om->ospf, node, nnode, ospf))
 		ospf_finish(ospf);
 
@@ -679,9 +675,11 @@ void ospf_terminate(void)
 	/* Cleanup vrf info */
 	ospf_vrf_terminate();
 
-	route_map_finish();
-
 	keychain_terminate();
+
+	ospf_opaque_term();
+	list_delete(&om->ospf);
+
 	/* Deliberately go back up, hopefully to thread scheduler, as
 	 * One or more ospf_finish()'s may have deferred shutdown to a timer
 	 * thread
@@ -691,7 +689,6 @@ void ospf_terminate(void)
 	zclient_stop(zclient_sync);
 	zclient_free(zclient_sync);
 
-done:
 	frr_fini();
 }
 
