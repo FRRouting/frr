@@ -41,8 +41,9 @@ static void zclient_event(enum zclient_event, struct zclient *);
 static void zebra_interface_if_set_value(struct stream *s,
 					 struct interface *ifp);
 
-struct zclient_options zclient_options_default = {.receive_notify = false,
-						  .synchronous = false};
+struct zclient_options zclient_options_default = {
+	.synchronous = false,
+};
 
 struct sockaddr_storage zclient_addr;
 socklen_t zclient_addr_len;
@@ -69,7 +70,6 @@ struct zclient *zclient_new(struct event_loop *master,
 	zclient->handlers = handlers;
 	zclient->n_handlers = n_handlers;
 
-	zclient->receive_notify = opt->receive_notify;
 	zclient->synchronous = opt->synchronous;
 
 	return zclient;
@@ -392,10 +392,7 @@ enum zclient_send_status zclient_send_hello(struct zclient *zclient)
 		stream_putc(s, zclient->redist_default);
 		stream_putw(s, zclient->instance);
 		stream_putl(s, zclient->session_id);
-		if (zclient->receive_notify)
-			stream_putc(s, 1);
-		else
-			stream_putc(s, 0);
+		stream_putc(s, 0); /* receive_notify - removed */
 		if (zclient->synchronous)
 			stream_putc(s, 1);
 		else

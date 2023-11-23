@@ -303,9 +303,6 @@ struct zclient {
 	/* Privileges to change socket values */
 	struct zebra_privs_t *privs;
 
-	/* Do we care about failure events for route install? */
-	bool receive_notify;
-
 	/* Is this a synchronous client? */
 	bool synchronous;
 
@@ -834,7 +831,6 @@ extern char *zclient_evpn_dump_macip_flags(uint8_t flags, char *buf,
 enum zebra_neigh_state { ZEBRA_NEIGH_INACTIVE = 0, ZEBRA_NEIGH_ACTIVE = 1 };
 
 struct zclient_options {
-	bool receive_notify;
 	bool synchronous;
 };
 
