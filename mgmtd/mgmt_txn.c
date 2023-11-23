@@ -614,9 +614,12 @@ static void mgmt_txn_process_set_cfg(struct event *thread)
 					      txn_req->req.set_cfg->dst_ds_id,
 					      txn->txn_id, txn->session_id,
 					      strerror(ret));
-				mgmt_txn_send_commit_cfg_reply(
-					txn, MGMTD_DS_LOCK_FAILED,
-					"running DS not locked for implicit commit");
+				mgmt_fe_send_set_cfg_reply(
+					txn->session_id, txn->txn_id,
+					txn_req->req.set_cfg->ds_id,
+					txn_req->req_id, MGMTD_DS_LOCK_FAILED,
+					"running DS not locked for implicit commit",
+					txn_req->req.set_cfg->implicit_commit);
 				goto mgmt_txn_process_set_cfg_done;
 			}
 
