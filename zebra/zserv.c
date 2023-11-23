@@ -1061,6 +1061,8 @@ static void zebra_show_client_detail(struct vty *vty, struct zserv *client)
 		0, client->redist_v4_del_cnt);
 	vty_out(vty, "Redist:v6   %-12u%-12u%-12u\n", client->redist_v6_add_cnt,
 		0, client->redist_v6_del_cnt);
+	vty_out(vty, "NHG         %-12u%-12u%-12u\n", client->nhg_add_cnt,
+		client->nhg_upd8_cnt, client->nhg_del_cnt);
 	vty_out(vty, "VRF         %-12u%-12u%-12u\n", client->vrfadd_cnt, 0,
 		client->vrfdel_cnt);
 	vty_out(vty, "Connected   %-12u%-12u%-12u\n", client->ifadd_cnt, 0,
