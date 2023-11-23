@@ -750,11 +750,18 @@ static void dplane_ctx_free_internal(struct zebra_dplane_ctx *ctx)
 	case DPLANE_OP_NH_INSTALL:
 	case DPLANE_OP_NH_UPDATE:
 	case DPLANE_OP_NH_DELETE: {
-		if (ctx->u.rinfo.nhe.ng.nexthop) {
+		if (!CHECK_FLAG(ctx->u.rinfo.nhe.ng.flags,
+				NEXTHOP_GROUP_TYPE_GROUP) &&
+		    ctx->u.rinfo.nhe.ng.nexthop) {
 			/* This deals with recursive nexthops too */
 			nexthops_free(ctx->u.rinfo.nhe.ng.nexthop);
 
 			ctx->u.rinfo.nhe.ng.nexthop = NULL;
+		} else if (CHECK_FLAG(ctx->u.rinfo.nhe.ng.flags,
+				      NEXTHOP_GROUP_TYPE_GROUP) &&
+			   ctx->u.rinfo.nhe.ng.group) {
+			nexthop_group_ids_free(ctx->u.rinfo.nhe.ng.group);
+			ctx->u.rinfo.nhe.ng.group = NULL;
 		}
 		break;
 	}
@@ -3427,6 +3434,10 @@ int dplane_ctx_route_init(struct zebra_dplane_ctx *ctx, enum dplane_op_e op,
 	if (!re || !rn)
 		return dplane_ctx_route_init_basic(ctx, op, NULL, NULL, NULL,
 						   AFI_UNSPEC, SAFI_UNSPEC);
+
+	/* routes attached to nexthop groups are not possible for now */
+	if (CHECK_FLAG(re->nhe->nhg.flags, NEXTHOP_GROUP_TYPE_GROUP))
+		return ret;
 
 	/*
 	 * Let's grab the data from the route_node

@@ -49,6 +49,9 @@ struct nexthop_group_hooks {
 
 static struct nexthop_group_hooks nhg_hooks;
 
+static void copy_nexthop_groups(struct nexthop_group *to,
+				struct nexthop_group_id *nhg);
+
 static inline int
 nexthop_group_cmd_compare(const struct nexthop_group_cmd *nhgc1,
 			  const struct nexthop_group_cmd *nhgc2);
@@ -78,7 +81,15 @@ uint8_t nexthop_group_nexthop_num(const struct nexthop_group *nhg)
 {
 	struct nexthop *nhop;
 	uint8_t num = 0;
+	struct nexthop_group_id *nhgid;
 
+	if (CHECK_FLAG(nhg->flags, NEXTHOP_GROUP_TYPE_GROUP)) {
+		for (nhgid = nhg->group; nhgid; nhgid = nhgid->next) {
+			if (nhgid->nhg)
+				num += nexthop_group_nexthop_num(nhgid->nhg);
+		}
+		return num;
+	}
 	for (ALL_NEXTHOPS_PTR(nhg, nhop))
 		num++;
 
@@ -101,7 +112,16 @@ uint8_t nexthop_group_active_nexthop_num(const struct nexthop_group *nhg)
 {
 	struct nexthop *nhop;
 	uint8_t num = 0;
+	struct nexthop_group_id *nhgid;
 
+	if (CHECK_FLAG(nhg->flags, NEXTHOP_GROUP_TYPE_GROUP)) {
+		for (nhgid = nhg->group; nhgid; nhgid = nhgid->next) {
+			if (nhgid->nhg)
+				num += nexthop_group_active_nexthop_num(
+					nhgid->nhg);
+		}
+		return num;
+	}
 	for (ALL_NEXTHOPS_PTR(nhg, nhop)) {
 		if (CHECK_FLAG(nhop->flags, NEXTHOP_FLAG_ACTIVE))
 			num++;
@@ -267,7 +287,11 @@ void nexthop_group_copy(struct nexthop_group *to,
 	to->nhgr = from->nhgr;
 	to->flags = from->flags;
 	/* Copy everything, including recursive info */
-	copy_nexthops(&to->nexthop, from->nexthop, NULL);
+	if (CHECK_FLAG(to->flags, NEXTHOP_GROUP_TYPE_GROUP)) {
+		to->group = NULL;
+		copy_nexthop_groups(to, from->group);
+	} else
+		copy_nexthops(&to->nexthop, from->nexthop, NULL);
 }
 
 void nexthop_group_delete(struct nexthop_group **nhg)
@@ -1684,8 +1708,8 @@ static void nexthop_group_id_insert(struct nexthop_group_id **nhg,
 	nhid->prev = nhid_tmp;
 }
 
-static void nexthop_group_id_insert_sorted(struct nexthop_group *nhg,
-					   struct nexthop_group_id *nhid)
+void nexthop_group_id_insert_sorted(struct nexthop_group *nhg,
+				    struct nexthop_group_id *nhid)
 {
 	struct nexthop_group_id *nhid_tmp, *nhid_prev = NULL;
 
@@ -1716,7 +1740,6 @@ static void nexthop_group_id_insert_sorted(struct nexthop_group *nhg,
 		nhid->next = NULL;
 	}
 }
-
 /* group ids are sorted by increasing number
  * this sorting is necessary in order to have shared nexthops
  * like it has been done on nexthop lists
@@ -1759,4 +1782,17 @@ void nexthop_group_ids_free(struct nexthop_group_id *nhid)
 		nhid_tmp_to_free->next = NULL;
 		XFREE(MTYPE_NH_GROUP_ID, nhid_tmp_to_free);
 	} while (nhid_tmp != NULL);
+}
+
+static void copy_nexthop_groups(struct nexthop_group *to,
+				struct nexthop_group_id *nhg)
+{
+	struct nexthop_group_id *nhid;
+	const struct nexthop_group_id *nhg1;
+
+	for (nhg1 = nhg; nhg1; nhg1 = nhg1->next) {
+		nhid = nexthop_group_id_allocate(to, nhg1->id_grp);
+		if (nhid)
+			nexthop_group_id_insert(&to->group, nhid);
+	}
 }

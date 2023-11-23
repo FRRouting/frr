@@ -2735,7 +2735,19 @@ zebra_rib_queue_early_evpn_route_handle(struct zebra_early_route *ere,
 	struct route_entry *re = ere->re;
 	struct ipaddr vtep_ip = {};
 	struct nexthop *tmp_nh;
+	struct nexthop_group_id *nhgid;
+	struct nhg_hash_entry *nhe_tmp;
 
+	if (CHECK_FLAG(nhg->flags, NEXTHOP_GROUP_TYPE_GROUP)) {
+		for (nhgid = nhg->group; nhgid; nhgid = nhgid->next) {
+			nhe_tmp = zebra_nhg_lookup_id(nhgid->id_grp);
+			if (nhe_tmp)
+				zebra_rib_queue_early_evpn_route_handle(ere,
+									&(nhe_tmp->nhg),
+									add);
+		}
+		return;
+	}
 	for (ALL_NEXTHOPS_PTR(nhg, tmp_nh)) {
 		if (!CHECK_FLAG(tmp_nh->flags, NEXTHOP_FLAG_EVPN))
 			continue;
@@ -4223,7 +4235,15 @@ static void _route_entry_dump_nhg(const struct route_entry *re,
 				  const struct nexthop_group *nhg)
 {
 	struct nexthop *nhop;
+	struct nexthop_group_id *nhgid;
 
+	if (CHECK_FLAG(nhg->flags, NEXTHOP_GROUP_TYPE_GROUP)) {
+		for (nhgid = nhg->group; nhgid; nhgid = nhgid->next) {
+			if (nhgid->nhg)
+				_route_entry_dump_nhg(re, straddr, nhgid->nhg);
+		}
+		return;
+	}
 	for (ALL_NEXTHOPS_PTR(nhg, nhop))
 		_route_entry_dump_nh(re, straddr, nhop);
 }

@@ -1340,13 +1340,14 @@ static void show_nexthop_group_out(struct vty *vty, struct nhg_hash_entry *nhe,
 		json_nexthop_array = json_object_new_array();
 
 
-	if (nhe->backup_info == NULL || nhe->backup_info->nhe == NULL)
-		show_nexthop_group_out_nexthop(vty, &nhe->nhg, true,
-					       json_nexthop_array);
-	else
-		show_nexthop_group_out_nexthop(vty, &nhe->nhg, false,
-					       json_nexthop_array);
-
+	if (!CHECK_FLAG(nhe->nhg.flags, NEXTHOP_GROUP_TYPE_GROUP)) {
+		if (nhe->backup_info == NULL || nhe->backup_info->nhe == NULL)
+			show_nexthop_group_out_nexthop(vty, &nhe->nhg, true,
+						       json_nexthop_array);
+		else
+			show_nexthop_group_out_nexthop(vty, &nhe->nhg, false,
+						       json_nexthop_array);
+	}
 	if (json)
 		json_object_object_add(json, "nexthops", json_nexthop_array);
 

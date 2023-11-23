@@ -186,6 +186,8 @@ extern void nexthop_group_id_add(struct nexthop_group *nhg, uint32_t nhgid);
 extern void nexthop_group_id_add_sorted(struct nexthop_group *nhg,
 					uint32_t nhgid);
 extern void nexthop_group_ids_free(struct nexthop_group_id *nhid);
+extern void nexthop_group_id_insert_sorted(struct nexthop_group *nhg,
+					   struct nexthop_group_id *nhid);
 #ifdef __cplusplus
 }
 #endif
