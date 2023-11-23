@@ -98,9 +98,7 @@ static zclient_handler *const eigrp_handlers[] = {
 
 void eigrp_zebra_init(void)
 {
-	struct zclient_options opt = {.receive_notify = false};
-
-	zclient = zclient_new(master, &opt, eigrp_handlers,
+	zclient = zclient_new(master, &zclient_options_default, eigrp_handlers,
 			      array_size(eigrp_handlers));
 
 	zclient_init(zclient, ZEBRA_ROUTE_EIGRP, 0, &eigrpd_privs);
