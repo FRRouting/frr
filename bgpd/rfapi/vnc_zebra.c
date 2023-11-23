@@ -872,7 +872,7 @@ static zclient_handler *const vnc_handlers[] = {
 void vnc_zebra_init(struct event_loop *master)
 {
 	/* Set default values. */
-	zclient_vnc = zclient_new(master, &zclient_options_default,
+	zclient_vnc = zclient_new(master, &zclient_options_auxiliary,
 				  vnc_handlers, array_size(vnc_handlers));
 	zclient_init(zclient_vnc, ZEBRA_ROUTE_VNC, 0, &bgpd_privs);
 }

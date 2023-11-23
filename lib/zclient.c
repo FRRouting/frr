@@ -43,10 +43,17 @@ static void zebra_interface_if_set_value(struct stream *s,
 
 const struct zclient_options zclient_options_default = {
 	.synchronous = false,
+	.auxiliary = false,
 };
 
 const struct zclient_options zclient_options_sync = {
 	.synchronous = true,
+	.auxiliary = true,
+};
+
+const struct zclient_options zclient_options_auxiliary = {
+	.synchronous = false,
+	.auxiliary = true,
 };
 
 struct sockaddr_storage zclient_addr;
@@ -75,6 +82,7 @@ struct zclient *zclient_new(struct event_loop *master,
 	zclient->n_handlers = n_handlers;
 
 	zclient->synchronous = opt->synchronous;
+	zclient->auxiliary = opt->auxiliary;
 
 	return zclient;
 }
@@ -4444,7 +4452,8 @@ static void zclient_read(struct event *thread)
 		zlog_debug("zclient %p command %s VRF %u", zclient,
 			   zserv_command_string(command), vrf_id);
 
-	if (command < array_size(lib_handlers) && lib_handlers[command])
+	if (!zclient->auxiliary && command < array_size(lib_handlers) &&
+	    lib_handlers[command])
 		lib_handlers[command](command, zclient, length, vrf_id);
 	if (command < zclient->n_handlers && zclient->handlers[command])
 		zclient->handlers[command](command, zclient, length, vrf_id);

@@ -306,6 +306,11 @@ struct zclient {
 	/* Is this a synchronous client? */
 	bool synchronous;
 
+	/* Auxiliary clients don't execute standard library handlers
+	 * (which otherwise would duplicate VRF/interface add/delete/etc.
+	 */
+	bool auxiliary;
+
 	/* BFD enabled with bfd_protocol_integration_init() */
 	bool bfd_integration;
 
@@ -832,10 +837,17 @@ enum zebra_neigh_state { ZEBRA_NEIGH_INACTIVE = 0, ZEBRA_NEIGH_ACTIVE = 1 };
 
 struct zclient_options {
 	bool synchronous;
+
+	/* auxiliary = don't call common lib/ handlers that manage bits.
+	 * Those should only run once, on the "main" zclient, which this is
+	 * not.  (This is also set for synchronous clients.)
+	 */
+	bool auxiliary;
 };
 
 extern const struct zclient_options zclient_options_default;
 extern const struct zclient_options zclient_options_sync;
+extern const struct zclient_options zclient_options_auxiliary;
 
 /* link layer representation for GRE like interfaces
  * ip_in is the underlay IP, ip_out is the tunnel dest
