@@ -1610,12 +1610,11 @@ static int bgp_peer_conf_if_to_su_update_v4(struct peer_connection *connection,
 	struct connected *ifc;
 	struct prefix p;
 	uint32_t addr;
-	struct listnode *node;
 
 	/* If our IPv4 address on the interface is /30 or /31, we can derive the
 	 * IPv4 address of the other end.
 	 */
-	for (ALL_LIST_ELEMENTS_RO(ifp->connected, node, ifc)) {
+	frr_each (if_connected, ifp->connected, ifc) {
 		if (ifc->address && (ifc->address->family == AF_INET)) {
 			prefix_copy(&p, CONNECTED_PREFIX(ifc));
 			if (p.prefixlen == 30) {
@@ -8278,10 +8277,9 @@ static void bgp_if_finish(struct bgp *bgp)
 		return;
 
 	FOR_ALL_INTERFACES (vrf, ifp) {
-		struct listnode *c_node, *c_nnode;
 		struct connected *c;
 
-		for (ALL_LIST_ELEMENTS(ifp->connected, c_node, c_nnode, c))
+		frr_each_safe (if_connected, ifp->connected, c)
 			bgp_connected_delete(bgp, c);
 	}
 }

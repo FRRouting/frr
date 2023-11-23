@@ -489,12 +489,11 @@ void if_flags_update(struct interface *ifp, uint64_t newflags)
    address. */
 void if_addr_wakeup(struct interface *ifp)
 {
-	struct listnode *node, *nnode;
 	struct connected *ifc;
 	struct prefix *p;
 	enum zebra_dplane_result dplane_res;
 
-	for (ALL_LIST_ELEMENTS(ifp->connected, node, nnode, ifc)) {
+	frr_each_safe (if_connected, ifp->connected, ifc) {
 		p = ifc->address;
 
 		if (CHECK_FLAG(ifc->conf, ZEBRA_IFC_CONFIGURED)
@@ -637,32 +636,24 @@ void if_add_update(struct interface *ifp)
 /* Install connected routes corresponding to an interface. */
 static void if_install_connected(struct interface *ifp)
 {
-	struct listnode *node;
-	struct listnode *next;
 	struct connected *ifc;
 
-	if (ifp->connected) {
-		for (ALL_LIST_ELEMENTS(ifp->connected, node, next, ifc)) {
-			if (CHECK_FLAG(ifc->conf, ZEBRA_IFC_REAL))
-				zebra_interface_address_add_update(ifp, ifc);
+	frr_each (if_connected, ifp->connected, ifc) {
+		if (CHECK_FLAG(ifc->conf, ZEBRA_IFC_REAL))
+			zebra_interface_address_add_update(ifp, ifc);
 
-			connected_up(ifp, ifc);
-		}
+		connected_up(ifp, ifc);
 	}
 }
 
 /* Uninstall connected routes corresponding to an interface. */
 static void if_uninstall_connected(struct interface *ifp)
 {
-	struct listnode *node;
-	struct listnode *next;
 	struct connected *ifc;
 
-	if (ifp->connected) {
-		for (ALL_LIST_ELEMENTS(ifp->connected, node, next, ifc)) {
-			zebra_interface_address_delete_update(ifp, ifc);
-			connected_down(ifp, ifc);
-		}
+	frr_each_safe (if_connected, ifp->connected, ifc) {
+		zebra_interface_address_delete_update(ifp, ifc);
+		connected_down(ifp, ifc);
 	}
 }
 
@@ -670,20 +661,15 @@ static void if_uninstall_connected(struct interface *ifp)
 /* TODO - Check why IPv4 handling here is different from install or if_down */
 static void if_delete_connected(struct interface *ifp)
 {
-	struct connected *ifc;
+	struct connected *ifc, *ifc_next;
 	struct prefix cp;
 	struct route_node *rn;
 	struct zebra_if *zebra_if;
-	struct listnode *node;
-	struct listnode *last = NULL;
 
 	zebra_if = ifp->info;
 
-	if (!ifp->connected)
-		return;
-
-	while ((node = (last ? last->next : listhead(ifp->connected)))) {
-		ifc = listgetdata(node);
+	for (ifc = if_connected_first(ifp->connected); ifc; ifc = ifc_next) {
+		ifc_next = if_connected_next(ifp->connected, ifc);
 
 		cp = *CONNECTED_PREFIX(ifc);
 		apply_mask(&cp);
@@ -732,11 +718,15 @@ static void if_delete_connected(struct interface *ifp)
 					 * (unconditionally). */
 					if (!CHECK_FLAG(ifc->conf,
 							ZEBRA_IFC_CONFIGURED)) {
-						listnode_delete(ifp->connected,
+						if (ifc == ifc_next)
+							ifc_next = if_connected_next(
+								ifp->connected,
 								ifc);
+
+						if_connected_del(ifp->connected,
+								 ifc);
 						connected_free(&ifc);
-					} else
-						last = node;
+					}
 				}
 
 			/* Free chain list and respective route node. */
@@ -751,14 +741,10 @@ static void if_delete_connected(struct interface *ifp)
 			UNSET_FLAG(ifc->conf, ZEBRA_IFC_REAL);
 			UNSET_FLAG(ifc->conf, ZEBRA_IFC_QUEUED);
 
-			if (CHECK_FLAG(ifc->conf, ZEBRA_IFC_CONFIGURED))
-				last = node;
-			else {
-				listnode_delete(ifp->connected, ifc);
+			if (!CHECK_FLAG(ifc->conf, ZEBRA_IFC_CONFIGURED)) {
+				if_connected_del(ifp->connected, ifc);
 				connected_free(&ifc);
 			}
-		} else {
-			last = node;
 		}
 	}
 }
@@ -2497,12 +2483,12 @@ static void ifs_dump_brief_vty(struct vty *vty, struct vrf *vrf)
 		}
 
 		uint32_t v6_list_size = 0;
-		for (ALL_LIST_ELEMENTS_RO(ifp->connected, node, connected)) {
+		frr_each (if_connected, ifp->connected, connected) {
 			if (CHECK_FLAG(connected->conf, ZEBRA_IFC_REAL)
 				&& (connected->address->family == AF_INET6))
 				v6_list_size++;
 		}
-		for (ALL_LIST_ELEMENTS_RO(ifp->connected, node, connected)) {
+		frr_each (if_connected, ifp->connected, connected) {
 			if (CHECK_FLAG(connected->conf, ZEBRA_IFC_REAL)
 			    && !CHECK_FLAG(connected->flags,
 					   ZEBRA_IFA_SECONDARY)
@@ -2536,7 +2522,6 @@ static void ifs_dump_brief_vty(struct vty *vty, struct vrf *vrf)
 static void ifs_dump_brief_vty_json(json_object *json, struct vrf *vrf)
 {
 	struct connected *connected;
-	struct listnode *node;
 	struct interface *ifp;
 
 	FOR_ALL_INTERFACES (vrf, ifp) {
@@ -2552,7 +2537,7 @@ static void ifs_dump_brief_vty_json(json_object *json, struct vrf *vrf)
 
 		json_addrs = json_object_new_array();
 		json_object_object_add(json_if, "addresses", json_addrs);
-		for (ALL_LIST_ELEMENTS_RO(ifp->connected, node, connected)) {
+		frr_each (if_connected, ifp->connected, connected) {
 			if (CHECK_FLAG(connected->conf, ZEBRA_IFC_REAL)
 			    && !CHECK_FLAG(connected->flags,
 					   ZEBRA_IFA_SECONDARY)
@@ -2765,7 +2750,7 @@ static void if_dump_vty(struct vty *vty, struct interface *ifp)
 			connected_dump_vty(vty, NULL, connected);
 	}
 
-	for (ALL_LIST_ELEMENTS_RO(ifp->connected, node, connected)) {
+	frr_each (if_connected, ifp->connected, connected) {
 		if (CHECK_FLAG(connected->conf, ZEBRA_IFC_REAL)
 		    && (connected->address->family == AF_INET6))
 			connected_dump_vty(vty, NULL, connected);
@@ -3142,7 +3127,7 @@ static void if_dump_vty_json(struct vty *vty, struct interface *ifp,
 			connected_dump_vty(vty, json_addrs, connected);
 	}
 
-	for (ALL_LIST_ELEMENTS_RO(ifp->connected, node, connected)) {
+	frr_each (if_connected, ifp->connected, connected) {
 		if (CHECK_FLAG(connected->conf, ZEBRA_IFC_REAL)
 		    && (connected->address->family == AF_INET6))
 			connected_dump_vty(vty, json_addrs, connected);
@@ -4886,7 +4871,7 @@ int if_ip_address_install(struct interface *ifp, struct prefix *prefix,
 			ifc->label = XSTRDUP(MTYPE_CONNECTED_LABEL, label);
 
 		/* Add to linked list. */
-		listnode_add(ifp->connected, ifc);
+		if_connected_add_tail(ifp->connected, ifc);
 	}
 
 	/* This address is configured from zebra. */
@@ -4981,7 +4966,7 @@ static int ip_address_install(struct vty *vty, struct interface *ifp,
 			ifc->label = XSTRDUP(MTYPE_CONNECTED_LABEL, label);
 
 		/* Add to linked list. */
-		listnode_add(ifp->connected, ifc);
+		if_connected_add_tail(ifp->connected, ifc);
 	}
 
 	/* This address is configured from zebra. */
@@ -5043,7 +5028,7 @@ int if_ip_address_uinstall(struct interface *ifp, struct prefix *prefix)
 	/* This is not real address or interface is not active. */
 	if (!CHECK_FLAG(ifc->conf, ZEBRA_IFC_QUEUED)
 	    || !CHECK_FLAG(ifp->status, ZEBRA_INTERFACE_ACTIVE)) {
-		listnode_delete(ifp->connected, ifc);
+		if_connected_del(ifp->connected, ifc);
 		connected_free(&ifc);
 		return CMD_WARNING_CONFIG_FAILED;
 	}
@@ -5106,7 +5091,7 @@ static int ip_address_uninstall(struct vty *vty, struct interface *ifp,
 	/* This is not real address or interface is not active. */
 	if (!CHECK_FLAG(ifc->conf, ZEBRA_IFC_QUEUED)
 	    || !CHECK_FLAG(ifp->status, ZEBRA_INTERFACE_ACTIVE)) {
-		listnode_delete(ifp->connected, ifc);
+		if_connected_del(ifp->connected, ifc);
 		connected_free(&ifc);
 		return CMD_WARNING_CONFIG_FAILED;
 	}
@@ -5244,7 +5229,7 @@ int if_ipv6_address_install(struct interface *ifp, struct prefix *prefix,
 			ifc->label = XSTRDUP(MTYPE_CONNECTED_LABEL, label);
 
 		/* Add to linked list. */
-		listnode_add(ifp->connected, ifc);
+		if_connected_add_tail(ifp->connected, ifc);
 	}
 
 	/* This address is configured from zebra. */
@@ -5317,7 +5302,7 @@ static int ipv6_address_install(struct vty *vty, struct interface *ifp,
 			ifc->label = XSTRDUP(MTYPE_CONNECTED_LABEL, label);
 
 		/* Add to linked list. */
-		listnode_add(ifp->connected, ifc);
+		if_connected_add_tail(ifp->connected, ifc);
 	}
 
 	/* This address is configured from zebra. */
@@ -5354,9 +5339,8 @@ static int ipv6_address_install(struct vty *vty, struct interface *ifp,
 int ipv6_address_configured(struct interface *ifp)
 {
 	struct connected *connected;
-	struct listnode *node;
 
-	for (ALL_LIST_ELEMENTS_RO(ifp->connected, node, connected))
+	frr_each (if_connected, ifp->connected, connected)
 		if (CHECK_FLAG(connected->conf, ZEBRA_IFC_REAL)
 		    && (connected->address->family == AF_INET6))
 			return 1;
@@ -5396,7 +5380,7 @@ static int ipv6_address_uninstall(struct vty *vty, struct interface *ifp,
 	/* This is not real address or interface is not active. */
 	if (!CHECK_FLAG(ifc->conf, ZEBRA_IFC_QUEUED)
 	    || !CHECK_FLAG(ifp->status, ZEBRA_INTERFACE_ACTIVE)) {
-		listnode_delete(ifp->connected, ifc);
+		if_connected_del(ifp->connected, ifc);
 		connected_free(&ifc);
 		return CMD_WARNING_CONFIG_FAILED;
 	}
@@ -5513,7 +5497,6 @@ static int if_config_write(struct vty *vty)
 	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name)
 		FOR_ALL_INTERFACES (vrf, ifp) {
 			struct zebra_if *if_data;
-			struct listnode *addrnode;
 			struct connected *ifc;
 			struct prefix *p;
 
@@ -5541,8 +5524,7 @@ static int if_config_write(struct vty *vty)
 					ZEBRA_INTERFACE_LINKDETECTION))
 				vty_out(vty, " no link-detect\n");
 
-			for (ALL_LIST_ELEMENTS_RO(ifp->connected, addrnode,
-						  ifc)) {
+			frr_each (if_connected, ifp->connected, ifc) {
 				if (CHECK_FLAG(ifc->conf,
 					       ZEBRA_IFC_CONFIGURED)) {
 					char buf[INET6_ADDRSTRLEN];

@@ -392,11 +392,10 @@ static void ripng_nexthop_rte(struct rte *rte, struct sockaddr_in6 *from,
 /* If ifp has same link-local address then return 1. */
 static int ripng_lladdr_check(struct interface *ifp, struct in6_addr *addr)
 {
-	struct listnode *node;
 	struct connected *connected;
 	struct prefix *p;
 
-	for (ALL_LIST_ELEMENTS_RO(ifp->connected, node, connected)) {
+	frr_each (if_connected, ifp->connected, connected) {
 		p = connected->address;
 
 		if (p->family == AF_INET6

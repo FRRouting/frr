@@ -164,8 +164,7 @@ static struct interface *if_new(struct vrf *vrf)
 
 	ifp->vrf = vrf;
 
-	ifp->connected = list_new();
-	ifp->connected->del = ifp_connected_free;
+	if_connected_init(ifp->connected);
 
 	ifp->nbr_connected = list_new();
 	ifp->nbr_connected->del = (void (*)(void *))nbr_connected_free;
@@ -243,11 +242,14 @@ void if_update_to_new_vrf(struct interface *ifp, vrf_id_t vrf_id)
 /* Delete interface structure. */
 void if_delete_retain(struct interface *ifp)
 {
+	struct connected *ifc;
+
 	hook_call(if_del, ifp);
 	QOBJ_UNREG(ifp);
 
 	/* Free connected address list */
-	list_delete_all_node(ifp->connected);
+	while ((ifc = if_connected_pop(ifp->connected)))
+		ifp_connected_free(ifc);
 
 	/* Free connected nbr address list */
 	list_delete_all_node(ifp->nbr_connected);
@@ -265,7 +267,7 @@ void if_delete(struct interface **ifp)
 
 	if_delete_retain(ptr);
 
-	list_delete(&ptr->connected);
+	if_connected_fini(ptr->connected);
 	list_delete(&ptr->nbr_connected);
 
 	if_link_params_free(ptr);
@@ -427,7 +429,6 @@ struct interface *if_lookup_address_local(const void *src, int family,
 					  vrf_id_t vrf_id)
 {
 	struct vrf *vrf = vrf_lookup_by_id(vrf_id);
-	struct listnode *cnode;
 	struct interface *ifp, *best_down = NULL;
 	struct prefix *p;
 	struct connected *c;
@@ -436,7 +437,7 @@ struct interface *if_lookup_address_local(const void *src, int family,
 		return NULL;
 
 	FOR_ALL_INTERFACES (vrf, ifp) {
-		for (ALL_LIST_ELEMENTS_RO(ifp->connected, cnode, c)) {
+		frr_each (if_connected, ifp->connected, c) {
 			p = c->address;
 
 			if (!p || p->family != family)
@@ -468,7 +469,6 @@ struct connected *if_lookup_address(const void *matchaddr, int family,
 	struct vrf *vrf = vrf_lookup_by_id(vrf_id);
 	struct prefix addr;
 	int bestlen = 0;
-	struct listnode *cnode;
 	struct interface *ifp;
 	struct connected *c;
 	struct connected *match;
@@ -487,7 +487,7 @@ struct connected *if_lookup_address(const void *matchaddr, int family,
 	match = NULL;
 
 	FOR_ALL_INTERFACES (vrf, ifp) {
-		for (ALL_LIST_ELEMENTS_RO(ifp->connected, cnode, c)) {
+		frr_each (if_connected, ifp->connected, c) {
 			if (c->address && (c->address->family == AF_INET)
 			    && prefix_match(CONNECTED_PREFIX(c), &addr)
 			    && (c->address->prefixlen > bestlen)) {
@@ -503,12 +503,11 @@ struct connected *if_lookup_address(const void *matchaddr, int family,
 struct interface *if_lookup_prefix(const struct prefix *prefix, vrf_id_t vrf_id)
 {
 	struct vrf *vrf = vrf_lookup_by_id(vrf_id);
-	struct listnode *cnode;
 	struct interface *ifp;
 	struct connected *c;
 
 	FOR_ALL_INTERFACES (vrf, ifp) {
-		for (ALL_LIST_ELEMENTS_RO(ifp->connected, cnode, c)) {
+		frr_each (if_connected, ifp->connected, c) {
 			if (prefix_cmp(c->address, prefix) == 0) {
 				return ifp;
 			}
@@ -775,10 +774,9 @@ const char *if_flag_dump(unsigned long flag)
 /* For debugging */
 static void if_dump(const struct interface *ifp)
 {
-	struct listnode *node;
-	struct connected *c __attribute__((unused));
+	const struct connected *c;
 
-	for (ALL_LIST_ELEMENTS_RO(ifp->connected, node, c))
+	frr_each (if_connected_const, ifp->connected, c)
 		zlog_info(
 			"Interface %s vrf %s(%u) index %d metric %d mtu %d mtu6 %d %s",
 			ifp->name, ifp->vrf->name, ifp->vrf->vrf_id,
@@ -905,11 +903,10 @@ static int connected_same_prefix(const struct prefix *p1,
 /* count the number of connected addresses that are in the given family */
 unsigned int connected_count_by_family(struct interface *ifp, int family)
 {
-	struct listnode *cnode;
 	struct connected *connected;
 	unsigned int cnt = 0;
 
-	for (ALL_LIST_ELEMENTS_RO(ifp->connected, cnode, connected))
+	frr_each (if_connected, ifp->connected, connected)
 		if (connected->address->family == family)
 			cnt++;
 
@@ -919,14 +916,9 @@ unsigned int connected_count_by_family(struct interface *ifp, int family)
 struct connected *connected_lookup_prefix_exact(struct interface *ifp,
 						const struct prefix *p)
 {
-	struct listnode *node;
-	struct listnode *next;
 	struct connected *ifc;
 
-	for (node = listhead(ifp->connected); node; node = next) {
-		ifc = listgetdata(node);
-		next = node->next;
-
+	frr_each (if_connected, ifp->connected, ifc) {
 		if (connected_same_prefix(ifc->address, p))
 			return ifc;
 	}
@@ -936,17 +928,12 @@ struct connected *connected_lookup_prefix_exact(struct interface *ifp,
 struct connected *connected_delete_by_prefix(struct interface *ifp,
 					     struct prefix *p)
 {
-	struct listnode *node;
-	struct listnode *next;
 	struct connected *ifc;
 
 	/* In case of same prefix come, replace it with new one. */
-	for (node = listhead(ifp->connected); node; node = next) {
-		ifc = listgetdata(node);
-		next = node->next;
-
+	frr_each_safe (if_connected, ifp->connected, ifc) {
 		if (connected_same_prefix(ifc->address, p)) {
-			listnode_delete(ifp->connected, ifc);
+			if_connected_del(ifp->connected, ifc);
 			return ifc;
 		}
 	}
@@ -958,13 +945,12 @@ struct connected *connected_delete_by_prefix(struct interface *ifp,
 struct connected *connected_lookup_prefix(struct interface *ifp,
 					  const struct prefix *addr)
 {
-	struct listnode *cnode;
 	struct connected *c;
 	struct connected *match;
 
 	match = NULL;
 
-	for (ALL_LIST_ELEMENTS_RO(ifp->connected, cnode, c)) {
+	frr_each (if_connected, ifp->connected, c) {
 		if (c->address && (c->address->family == addr->family)
 		    && prefix_match(CONNECTED_PREFIX(c), addr)
 		    && (!match
@@ -995,16 +981,15 @@ struct connected *connected_add_by_prefix(struct interface *ifp,
 	}
 
 	/* Add connected address to the interface. */
-	listnode_add(ifp->connected, ifc);
+	if_connected_add_tail(ifp->connected, ifc);
 	return ifc;
 }
 
 struct connected *connected_get_linklocal(struct interface *ifp)
 {
-	struct listnode *n;
 	struct connected *c = NULL;
 
-	for (ALL_LIST_ELEMENTS_RO(ifp->connected, n, c)) {
+	frr_each (if_connected, ifp->connected, c) {
 		if (c->address->family == AF_INET6
 		    && IN6_IS_ADDR_LINKLOCAL(&c->address->u.prefix6))
 			break;

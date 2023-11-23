@@ -21,7 +21,6 @@
 static struct in_addr mtrace_primary_address(struct interface *ifp)
 {
 	struct connected *ifc;
-	struct listnode *node;
 	struct in_addr any;
 	struct pim_interface *pim_ifp;
 
@@ -32,7 +31,7 @@ static struct in_addr mtrace_primary_address(struct interface *ifp)
 
 	any.s_addr = INADDR_ANY;
 
-	for (ALL_LIST_ELEMENTS_RO(ifp->connected, node, ifc)) {
+	frr_each (if_connected, ifp->connected, ifc) {
 		struct prefix *p = ifc->address;
 
 		if (p->family != AF_INET)

@@ -330,7 +330,6 @@ void
 kif_redistribute(const char *ifname)
 {
 	struct vrf		*vrf = vrf_lookup_by_id(VRF_DEFAULT);
-	struct listnode		*cnode;
 	struct interface	*ifp;
 	struct connected	*ifc;
 	struct kif		 kif;
@@ -343,7 +342,7 @@ kif_redistribute(const char *ifname)
 		ifp2kif(ifp, &kif);
 		main_imsg_compose_both(IMSG_IFSTATUS, &kif, sizeof(kif));
 
-		for (ALL_LIST_ELEMENTS_RO(ifp->connected, cnode, ifc)) {
+		frr_each (if_connected, ifp->connected, ifc) {
 			ifc2kaddr(ifp, ifc, &ka);
 			main_imsg_compose_ldpe(IMSG_NEWADDR, 0, &ka, sizeof(ka));
 		}
@@ -400,7 +399,6 @@ ldp_ifp_destroy(struct interface *ifp)
 static int
 ldp_interface_status_change(struct interface *ifp)
 {
-	struct listnode		*node;
 	struct connected	*ifc;
 	struct kif		 kif;
 	struct kaddr		 ka;
@@ -411,12 +409,12 @@ ldp_interface_status_change(struct interface *ifp)
 	main_imsg_compose_both(IMSG_IFSTATUS, &kif, sizeof(kif));
 
 	if (if_is_operative(ifp)) {
-		for (ALL_LIST_ELEMENTS_RO(ifp->connected, node, ifc)) {
+		frr_each (if_connected, ifp->connected, ifc) {
 			ifc2kaddr(ifp, ifc, &ka);
 			main_imsg_compose_ldpe(IMSG_NEWADDR, 0, &ka, sizeof(ka));
 		}
 	} else {
-		for (ALL_LIST_ELEMENTS_RO(ifp->connected, node, ifc)) {
+		frr_each (if_connected, ifp->connected, ifc) {
 			ifc2kaddr(ifp, ifc, &ka);
 			main_imsg_compose_ldpe(IMSG_DELADDR, 0, &ka, sizeof(ka));
 		}

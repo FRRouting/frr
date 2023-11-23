@@ -128,11 +128,10 @@ static int ripng_multicast_leave(struct interface *ifp, int sock)
 /* How many link local IPv6 address could be used on the interface ? */
 static int ripng_if_ipv6_lladdress_check(struct interface *ifp)
 {
-	struct listnode *nn;
 	struct connected *connected;
 	int count = 0;
 
-	for (ALL_LIST_ELEMENTS_RO(ifp->connected, nn, connected)) {
+	frr_each (if_connected, ifp->connected, connected) {
 		struct prefix *p;
 		p = connected->address;
 
@@ -408,14 +407,13 @@ static int ripng_enable_network_lookup_if(struct interface *ifp)
 {
 	struct ripng_interface *ri = ifp->info;
 	struct ripng *ripng = ri->ripng;
-	struct listnode *node;
 	struct connected *connected;
 	struct prefix_ipv6 address;
 
 	if (!ripng)
 		return -1;
 
-	for (ALL_LIST_ELEMENTS_RO(ifp->connected, node, connected)) {
+	frr_each (if_connected, ifp->connected, connected) {
 		struct prefix *p;
 		struct agg_node *n;
 
@@ -590,11 +588,10 @@ static void ripng_connect_set(struct interface *ifp, int set)
 {
 	struct ripng_interface *ri = ifp->info;
 	struct ripng *ripng = ri->ripng;
-	struct listnode *node, *nnode;
 	struct connected *connected;
 	struct prefix_ipv6 address;
 
-	for (ALL_LIST_ELEMENTS(ifp->connected, node, nnode, connected)) {
+	frr_each (if_connected, ifp->connected, connected) {
 		struct prefix *p;
 		p = connected->address;
 

@@ -693,7 +693,6 @@ int bgp_update_address(struct interface *ifp, const union sockunion *dst,
 {
 	struct prefix *p, *sel, d;
 	struct connected *connected;
-	struct listnode *node;
 	int common;
 
 	if (!sockunion2hostprefix(dst, &d))
@@ -702,7 +701,7 @@ int bgp_update_address(struct interface *ifp, const union sockunion *dst,
 	sel = NULL;
 	common = -1;
 
-	for (ALL_LIST_ELEMENTS_RO(ifp->connected, node, connected)) {
+	frr_each (if_connected, ifp->connected, connected) {
 		p = connected->address;
 		if (p->family != d.family)
 			continue;

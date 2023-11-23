@@ -204,6 +204,8 @@ struct if_link_params {
 #define INTERFACE_LINK_PARAMS_SIZE   sizeof(struct if_link_params)
 #define HAS_LINK_PARAMS(ifp)  ((ifp)->link_params != NULL)
 
+PREDECL_DLIST(if_connected);
+
 /* Interface structure */
 struct interface {
 	RB_ENTRY(interface) name_entry, index_entry;
@@ -273,12 +275,8 @@ struct interface {
 	/* description of the interface. */
 	char *desc;
 
-	/* Distribute list. */
-	void *distribute_in;
-	void *distribute_out;
-
 	/* Connected address list. */
-	struct list *connected;
+	struct if_connected_head connected[1];
 
 	/* Neighbor connected address list. */
 	struct list *nbr_connected;
@@ -373,9 +371,6 @@ DECLARE_QOBJ_TYPE(interface);
 	if (vrf)                                                               \
 		RB_FOREACH (ifp, if_name_head, &vrf->ifaces_by_name)
 
-#define FOR_ALL_INTERFACES_ADDRESSES(ifp, connected, node)                     \
-	for (ALL_LIST_ELEMENTS_RO(ifp->connected, node, connected))
-
 /* called from the library code whenever interfaces are created/deleted
  * note: interfaces may not be fully realized at that point; also they
  * may not exist in the system (ifindex = IFINDEX_INTERNAL)
@@ -410,6 +405,8 @@ DECLARE_KOOH(if_down, (struct interface *ifp), (ifp));
 
 /* Connected address structure. */
 struct connected {
+	struct if_connected_item item;
+
 	/* Attached interface. */
 	struct interface *ifp;
 
@@ -458,6 +455,8 @@ struct connected {
 	 */
 	uint32_t metric;
 };
+
+DECLARE_DLIST(if_connected, struct connected, item);
 
 /* Nbr Connected address structure. */
 struct nbr_connected {

@@ -489,7 +489,6 @@ static uint8_t isis_circuit_id_gen(struct isis *isis, struct interface *ifp)
 
 void isis_circuit_if_add(struct isis_circuit *circuit, struct interface *ifp)
 {
-	struct listnode *node, *nnode;
 	struct connected *conn;
 
 	if (if_is_broadcast(ifp)) {
@@ -509,20 +508,18 @@ void isis_circuit_if_add(struct isis_circuit *circuit, struct interface *ifp)
 		circuit->circ_type = CIRCUIT_T_UNKNOWN;
 	}
 
-	for (ALL_LIST_ELEMENTS(ifp->connected, node, nnode, conn))
+	frr_each (if_connected, ifp->connected, conn)
 		isis_circuit_add_addr(circuit, conn);
-
 }
 
 void isis_circuit_if_del(struct isis_circuit *circuit, struct interface *ifp)
 {
-	struct listnode *node, *nnode;
 	struct connected *conn;
 
 	assert(circuit->interface == ifp);
 
 	/* destroy addresses */
-	for (ALL_LIST_ELEMENTS(ifp->connected, node, nnode, conn))
+	frr_each_safe (if_connected, ifp->connected, conn)
 		isis_circuit_del_addr(circuit, conn);
 
 	circuit->circ_type = CIRCUIT_T_UNKNOWN;

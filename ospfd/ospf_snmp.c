@@ -1348,7 +1348,7 @@ static int ospf_snmp_if_update(struct interface *ifp)
 	ifindex = 0;
 
 	/* Lookup first IPv4 address entry. */
-	for (ALL_LIST_ELEMENTS_RO(ifp->connected, node, ifc)) {
+	frr_each (if_connected, ifp->connected, ifc) {
 		p = CONNECTED_ID(ifc);
 
 		if (p->family == AF_INET) {
@@ -1396,11 +1396,10 @@ static int ospf_snmp_if_update(struct interface *ifp)
 
 static int ospf_snmp_is_if_have_addr(struct interface *ifp)
 {
-	struct listnode *nn;
 	struct connected *ifc;
 
 	/* Is this interface having any connected IPv4 address ? */
-	for (ALL_LIST_ELEMENTS_RO(ifp->connected, nn, ifc)) {
+	frr_each (if_connected, ifp->connected, ifc) {
 		if (CONNECTED_PREFIX(ifc)->family == AF_INET)
 			return 1;
 	}

@@ -379,7 +379,7 @@ static int pim_sec_addr_update(struct interface *ifp)
 		sec_addr->flags |= PIM_SEC_ADDRF_STALE;
 	}
 
-	for (ALL_LIST_ELEMENTS_RO(ifp->connected, node, ifc)) {
+	frr_each (if_connected, ifp->connected, ifc) {
 		pim_addr addr = pim_addr_from_prefix(ifc->address);
 
 		if (pim_addr_is_any(addr))
@@ -723,13 +723,12 @@ void pim_if_addr_del(struct connected *ifc, int force_prim_as_any)
 	if (pim_ifp &&
 	    (!IPV6_ADDR_CMP(&ifc->address->u.prefix6, &pim_ifp->ll_lowest) ||
 	     !IPV6_ADDR_CMP(&ifc->address->u.prefix6, &pim_ifp->ll_highest))) {
-		struct listnode *cnode;
 		struct connected *cc;
 
 		memset(&pim_ifp->ll_lowest, 0xff, sizeof(pim_ifp->ll_lowest));
 		memset(&pim_ifp->ll_highest, 0, sizeof(pim_ifp->ll_highest));
 
-		for (ALL_LIST_ELEMENTS_RO(ifc->ifp->connected, cnode, cc)) {
+		frr_each (if_connected, ifc->ifp->connected, cc) {
 			if (!IN6_IS_ADDR_LINKLOCAL(&cc->address->u.prefix6) &&
 			    !IN6_IS_ADDR_LOOPBACK(&cc->address->u.prefix6))
 				continue;
@@ -765,8 +764,6 @@ void pim_if_addr_del(struct connected *ifc, int force_prim_as_any)
 void pim_if_addr_add_all(struct interface *ifp)
 {
 	struct connected *ifc;
-	struct listnode *node;
-	struct listnode *nextnode;
 	int v4_addrs = 0;
 	int v6_addrs = 0;
 	struct pim_interface *pim_ifp = ifp->info;
@@ -777,7 +774,7 @@ void pim_if_addr_add_all(struct interface *ifp)
 	if (!pim_ifp)
 		return;
 
-	for (ALL_LIST_ELEMENTS(ifp->connected, node, nextnode, ifc)) {
+	frr_each (if_connected, ifp->connected, ifc) {
 		struct prefix *p = ifc->address;
 
 		if (p->family != AF_INET)
@@ -813,8 +810,6 @@ void pim_if_addr_add_all(struct interface *ifp)
 void pim_if_addr_del_all(struct interface *ifp)
 {
 	struct connected *ifc;
-	struct listnode *node;
-	struct listnode *nextnode;
 	struct pim_instance *pim;
 
 	pim = ifp->vrf->info;
@@ -825,7 +820,7 @@ void pim_if_addr_del_all(struct interface *ifp)
 	if (!ifp->info)
 		return;
 
-	for (ALL_LIST_ELEMENTS(ifp->connected, node, nextnode, ifc)) {
+	frr_each_safe (if_connected, ifp->connected, ifc) {
 		struct prefix *p = ifc->address;
 
 		if (p->family != PIM_AF)
@@ -841,14 +836,12 @@ void pim_if_addr_del_all(struct interface *ifp)
 void pim_if_addr_del_all_igmp(struct interface *ifp)
 {
 	struct connected *ifc;
-	struct listnode *node;
-	struct listnode *nextnode;
 
 	/* PIM/IGMP enabled ? */
 	if (!ifp->info)
 		return;
 
-	for (ALL_LIST_ELEMENTS(ifp->connected, node, nextnode, ifc)) {
+	frr_each_safe (if_connected, ifp->connected, ifc) {
 		struct prefix *p = ifc->address;
 
 		if (p->family != AF_INET)
@@ -861,7 +854,6 @@ void pim_if_addr_del_all_igmp(struct interface *ifp)
 pim_addr pim_find_primary_addr(struct interface *ifp)
 {
 	struct connected *ifc;
-	struct listnode *node;
 	struct pim_interface *pim_ifp = ifp->info;
 
 	if (pim_ifp && !pim_addr_is_any(pim_ifp->update_source))
@@ -873,7 +865,7 @@ pim_addr pim_find_primary_addr(struct interface *ifp)
 
 	pim_addr best_addr = PIMADDR_ANY;
 
-	for (ALL_LIST_ELEMENTS_RO(ifp->connected, node, ifc)) {
+	frr_each (if_connected, ifp->connected, ifc) {
 		pim_addr addr;
 
 		if (ifc->address->family != AF_INET6)
@@ -892,7 +884,7 @@ pim_addr pim_find_primary_addr(struct interface *ifp)
 	int v6_addrs = 0;
 	struct connected *promote_ifc = NULL;
 
-	for (ALL_LIST_ELEMENTS_RO(ifp->connected, node, ifc)) {
+	frr_each (if_connected, ifp->connected, ifc) {
 		switch (ifc->address->family) {
 		case AF_INET:
 			v4_addrs++;
@@ -1523,7 +1515,6 @@ void pim_if_create_pimreg(struct pim_instance *pim)
 
 struct prefix *pim_if_connected_to_source(struct interface *ifp, pim_addr src)
 {
-	struct listnode *cnode;
 	struct connected *c;
 	struct prefix p;
 
@@ -1532,7 +1523,7 @@ struct prefix *pim_if_connected_to_source(struct interface *ifp, pim_addr src)
 
 	pim_addr_to_prefix(&p, src);
 
-	for (ALL_LIST_ELEMENTS_RO(ifp->connected, cnode, c)) {
+	frr_each (if_connected, ifp->connected, c) {
 		if (c->address->family != PIM_AF)
 			continue;
 		if (prefix_match(c->address, &p))

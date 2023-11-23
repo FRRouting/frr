@@ -310,13 +310,12 @@ void zebra_evpn_print_hash_detail(struct hash_bucket *bucket, void *data)
 int zebra_evpn_del_macip_for_intf(struct interface *ifp,
 				  struct zebra_evpn *zevpn)
 {
-	struct listnode *cnode = NULL, *cnnode = NULL;
 	struct connected *c = NULL;
 	struct ethaddr macaddr;
 
 	memcpy(&macaddr.octet, ifp->hw_addr, ETH_ALEN);
 
-	for (ALL_LIST_ELEMENTS(ifp->connected, cnode, cnnode, c)) {
+	frr_each_safe (if_connected, ifp->connected, c) {
 		struct ipaddr ip;
 
 		memset(&ip, 0, sizeof(struct ipaddr));
@@ -344,13 +343,12 @@ int zebra_evpn_del_macip_for_intf(struct interface *ifp,
 int zebra_evpn_add_macip_for_intf(struct interface *ifp,
 				  struct zebra_evpn *zevpn)
 {
-	struct listnode *cnode = NULL, *cnnode = NULL;
 	struct connected *c = NULL;
 	struct ethaddr macaddr;
 
 	memcpy(&macaddr.octet, ifp->hw_addr, ETH_ALEN);
 
-	for (ALL_LIST_ELEMENTS(ifp->connected, cnode, cnnode, c)) {
+	frr_each_safe (if_connected, ifp->connected, c) {
 		struct ipaddr ip;
 
 		if (!CHECK_FLAG(c->conf, ZEBRA_IFC_REAL))
@@ -409,13 +407,12 @@ static int ip_prefix_send_to_client(vrf_id_t vrf_id, struct prefix *p,
 int zebra_evpn_advertise_subnet(struct zebra_evpn *zevpn, struct interface *ifp,
 				int advertise)
 {
-	struct listnode *cnode = NULL, *cnnode = NULL;
 	struct connected *c = NULL;
 	struct ethaddr macaddr;
 
 	memcpy(&macaddr.octet, ifp->hw_addr, ETH_ALEN);
 
-	for (ALL_LIST_ELEMENTS(ifp->connected, cnode, cnnode, c)) {
+	frr_each (if_connected, ifp->connected, c) {
 		struct prefix p;
 
 		memcpy(&p, c->address, sizeof(struct prefix));

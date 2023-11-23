@@ -48,7 +48,7 @@ static void connected_withdraw(struct connected *ifc)
 	UNSET_FLAG(ifc->conf, ZEBRA_IFC_QUEUED);
 
 	if (!CHECK_FLAG(ifc->conf, ZEBRA_IFC_CONFIGURED)) {
-		listnode_delete(ifc->ifp->connected, ifc);
+		if_connected_del(ifc->ifp->connected, ifc);
 		connected_free(&ifc);
 	}
 }
@@ -65,7 +65,7 @@ static void connected_announce(struct interface *ifp, struct connected *ifc)
 			UNSET_FLAG(ifc->flags, ZEBRA_IFA_UNNUMBERED);
 	}
 
-	listnode_add(ifp->connected, ifc);
+	if_connected_add_tail(ifp->connected, ifc);
 
 	/* Update interface address information to protocol daemon. */
 	if (ifc->address->family == AF_INET)
@@ -84,9 +84,8 @@ struct connected *connected_check(struct interface *ifp,
 {
 	const struct prefix *p = pu.p;
 	struct connected *ifc;
-	struct listnode *node;
 
-	for (ALL_LIST_ELEMENTS_RO(ifp->connected, node, ifc))
+	frr_each (if_connected, ifp->connected, ifc)
 		if (prefix_same(ifc->address, p))
 			return ifc;
 
@@ -101,9 +100,8 @@ struct connected *connected_check_ptp(struct interface *ifp,
 	const struct prefix *p = pu.p;
 	const struct prefix *d = du.p;
 	struct connected *ifc;
-	struct listnode *node;
 
-	for (ALL_LIST_ELEMENTS_RO(ifp->connected, node, ifc)) {
+	frr_each (if_connected, ifp->connected, ifc) {
 		if (!prefix_same(ifc->address, p))
 			continue;
 		if (!CONNECTED_PEER(ifc) && !d)
@@ -192,7 +190,6 @@ void connected_up(struct interface *ifp, struct connected *ifc)
 	uint32_t metric;
 	uint32_t flags = 0;
 	uint32_t count = 0;
-	struct listnode *cnode;
 	struct connected *c;
 
 	zvrf = ifp->vrf->info;
@@ -262,7 +259,7 @@ void connected_up(struct interface *ifp, struct connected *ifc)
 	 * for all the addresses on an interface that
 	 * resolve to the same network and mask
 	 */
-	for (ALL_LIST_ELEMENTS_RO(ifp->connected, cnode, c)) {
+	frr_each (if_connected, ifp->connected, c) {
 		struct prefix cp;
 
 		prefix_copy(&cp, CONNECTED_PREFIX(c));
@@ -376,7 +373,6 @@ void connected_down(struct interface *ifp, struct connected *ifc)
 	};
 	struct zebra_vrf *zvrf;
 	uint32_t count = 0;
-	struct listnode *cnode;
 	struct connected *c;
 
 	zvrf = ifp->vrf->info;
@@ -439,7 +435,7 @@ void connected_down(struct interface *ifp, struct connected *ifc)
 	 * allow the deletion when are removing the last
 	 * one.
 	 */
-	for (ALL_LIST_ELEMENTS_RO(ifp->connected, cnode, c)) {
+	frr_each (if_connected, ifp->connected, c) {
 		struct prefix cp;
 
 		prefix_copy(&cp, CONNECTED_PREFIX(c));
@@ -616,9 +612,8 @@ void connected_delete_ipv6(struct interface *ifp,
 int connected_is_unnumbered(struct interface *ifp)
 {
 	struct connected *connected;
-	struct listnode *node;
 
-	for (ALL_LIST_ELEMENTS_RO(ifp->connected, node, connected)) {
+	frr_each (if_connected, ifp->connected, connected) {
 		if (CHECK_FLAG(connected->conf, ZEBRA_IFC_REAL)
 		    && connected->address->family == AF_INET)
 			return CHECK_FLAG(connected->flags,

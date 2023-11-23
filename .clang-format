@@ -77,7 +77,6 @@ FixNamespaceComments: false
 ForEachMacros:
   # lib: outliers:
   - 'FOR_ALL_INTERFACES'
-  - 'FOR_ALL_INTERFACES_ADDRESSES'
   # libyang outliers:
   - 'LY_FOR_KEYS'
   - 'LY_LIST_FOR'

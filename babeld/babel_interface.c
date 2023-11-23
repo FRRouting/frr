@@ -739,12 +739,11 @@ int
 is_interface_ll_address(struct interface *ifp, const unsigned char *address)
 {
     struct connected *connected;
-    struct listnode *node;
 
     if(!if_up(ifp))
         return 0;
 
-    FOR_ALL_INTERFACES_ADDRESSES(ifp, connected, node) {
+    frr_each (if_connected, ifp->connected, connected) {
 	    if (connected->address->family == AF_INET6
 		&& memcmp(&connected->address->u.prefix6, address,
 			  IPV6_MAX_BYTELEN)
