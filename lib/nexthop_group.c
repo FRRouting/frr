@@ -264,6 +264,7 @@ void nexthop_group_copy(struct nexthop_group *to,
 			const struct nexthop_group *from)
 {
 	to->nhgr = from->nhgr;
+	to->flags = from->flags;
 	/* Copy everything, including recursive info */
 	copy_nexthops(&to->nexthop, from->nexthop, NULL);
 }
@@ -667,6 +668,35 @@ DEFPY(nexthop_group_allow_recursion,
 		UNSET_FLAG(nhgc->nhg.flags, NEXTHOP_GROUP_ALLOW_RECURSION);
 	else
 		SET_FLAG(nhgc->nhg.flags, NEXTHOP_GROUP_ALLOW_RECURSION);
+	if (nhg_hooks.modify)
+		nhg_hooks.modify(nhgc, true);
+
+	return CMD_SUCCESS;
+}
+
+DEFPY(nexthop_group_protocol_controlled,
+      nexthop_group_protocol_controlled_cmd,
+      "[no] protocol-controlled",
+      NO_STR
+      "Let the protocol daemon control the Nexthop Group, instead of Zebra\n")
+{
+	VTY_DECLVAR_CONTEXT(nexthop_group_cmd, nhgc);
+
+	if (!!no ==
+	    !CHECK_FLAG(nhgc->nhg.flags, NEXTHOP_GROUP_PROTOCOL_CONTROLLED))
+		return CMD_SUCCESS;
+
+	/* if already nexthops, forbid */
+	if (listcount(nhgc->nhg_list)) {
+		vty_out(vty,
+			"%% configured next-hops can not be modified with 'protocol-controlled'\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	if (no)
+		UNSET_FLAG(nhgc->nhg.flags, NEXTHOP_GROUP_PROTOCOL_CONTROLLED);
+	else
+		SET_FLAG(nhgc->nhg.flags, NEXTHOP_GROUP_PROTOCOL_CONTROLLED);
 
 	if (nhg_hooks.modify)
 		nhg_hooks.modify(nhgc, true);
@@ -1266,6 +1296,10 @@ static int nexthop_group_write(struct vty *vty)
 		if (CHECK_FLAG(nhgc->nhg.flags, NEXTHOP_GROUP_IBGP))
 			vty_out(vty, " ibgp\n");
 
+		if (CHECK_FLAG(nhgc->nhg.flags,
+			       NEXTHOP_GROUP_PROTOCOL_CONTROLLED))
+			vty_out(vty, " protocol-controlled\n");
+
 		if (nhgc->nhg.nhgr.buckets)
 			vty_out(vty,
 				" resilient buckets %u idle-timer %u unbalanced-timer %u\n",
@@ -1471,6 +1505,7 @@ void nexthop_group_init(
 	install_default(NH_GROUP_NODE);
 	install_element(NH_GROUP_NODE, &nexthop_group_backup_cmd);
 	install_element(NH_GROUP_NODE, &no_nexthop_group_backup_cmd);
+	install_element(NH_GROUP_NODE, &nexthop_group_protocol_controlled_cmd);
 	install_element(NH_GROUP_NODE, &ecmp_nexthops_cmd);
 
 	install_element(NH_GROUP_NODE, &nexthop_group_resilience_cmd);

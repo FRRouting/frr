@@ -43,3 +43,9 @@ listing of ECMP nexthops used to forward packets.
 
    Allow a Nexthop Group to be considered as an IBGP nexthop. When used in ZEBRA,
    if `allow-recursion` is not used, some debug information is given.
+
+.. clicmd:: protocol-controlled
+
+   Allow a Nexthop Group to be completely controlled at the protocol level, by preventing
+   ZEBRA from creating a dependent NHG at ZEBRA Level. This option is useful when
+   protocol considers Nexthop Groups with multiple paths.

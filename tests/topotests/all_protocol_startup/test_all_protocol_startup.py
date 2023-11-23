@@ -685,6 +685,48 @@ def test_nexthop_groups():
 
     tgen.gears["r1"].vtysh_cmd("sharp remove routes 10.10.10.10 1")
 
+    ## protocol-controlled
+    tgen.gears["r1"].vtysh_cmd(
+        """
+        configure terminal
+        nexthop-group CONTROL
+        protocol-controlled
+        nexthop 192.168.0.200 r1-eth0
+        """
+    )
+    tgen.gears["r1"].vtysh_cmd("sharp install routes 7.7.7.7 nexthop-group CONTROL 1")
+    verify_route_nexthop_group("7.7.7.7/32")
+
+    nhg_id = route_get_nhg_id("7.7.7.7/32")
+    output = tgen.gears["r1"].vtysh_cmd("show nexthop-group rib %d" % nhg_id)
+    valid = re.search(r"Valid", output)
+    assert valid is not None, (
+        "Route 7.7.7.7/32 with Nexthop Group ID=%d is not active" % nhg_id
+    )
+    valid = re.search(r"Depends:", output)
+    assert valid is None, (
+        "Route 7.7.7.7/32 with Nexthop Group ID=%d has a dependency" % nhg_id
+    )
+
+    ## disable protocol-controlled
+    ## modifying the value switches the nexthop from nexthop to nhgroup or vice-versa
+    ## Following error can be seen: "Extended Error: Can not replace a nexthop with a nexthop group."
+    ## not supported today, as sharpd has no way to know if the nhgroup is really removed
+    ## the nhgroups are removed from a configurable timer (zebra nexthop-group keep XX)
+
+    tgen.gears["r1"].vtysh_cmd("sharp remove routes 7.7.7.7 1")
+    tgen.gears["r1"].vtysh_cmd(
+        """
+        configure terminal
+        nexthop-group CONTROL
+        no protocol-controlled
+        """
+    )
+    valid = re.search(r"configured next-hops can not be modified with ", output)
+    assert (
+        valid is not None
+    ), "nexthop-group CONTROL 'protocol-controlled' command should not be modified"
+
     ## Remove all NHG routes
 
     net["r1"].cmd('vtysh -c "sharp remove routes 2.2.2.1 1"')
@@ -696,6 +738,7 @@ def test_nexthop_groups():
     net["r1"].cmd('vtysh -c "sharp remove routes 5.5.5.1 1"')
     net["r1"].cmd('vtysh -c "sharp remove routes 6.6.6.1 4"')
     net["r1"].cmd('vtysh -c "c t" -c "no ip route 6.6.6.0/24 1.1.1.1"')
+    net["r1"].cmd('vtysh -c "sharp remove routes 7.7.7.7 1"')
 
 
 def test_rip_status():
