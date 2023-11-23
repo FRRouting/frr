@@ -81,20 +81,20 @@ def is_string(value):
 
 
 def get_exabgp_cmd(commander=None):
-    """Return the command to use for ExaBGP version < 4."""
+    """Return the command to use for ExaBGP version >= 4.2.11"""
 
     if commander is None:
         commander = Commander("exabgp", logger=logging.getLogger("exabgp"))
 
     def exacmd_version_ok(exacmd):
-        logger.debug("checking %s for exabgp < version 4", exacmd)
+        logger.debug("checking %s for exabgp version >= 4.2.11", exacmd)
         _, stdout, _ = commander.cmd_status(exacmd + " -v", warn=False)
         m = re.search(r"ExaBGP\s*:\s*((\d+)\.(\d+)(?:\.(\d+))?)", stdout)
         if not m:
             return False
         version = m.group(1)
-        if topotest.version_cmp(version, "4") >= 0:
-            logging.debug("found exabgp version >= 4 in %s will keep looking", exacmd)
+        if topotest.version_cmp(version, "4.2.11") < 0:
+            logging.debug("found exabgp version < 4.2.11 in %s will keep looking", exacmd)
             return False
         logger.info("Using ExaBGP version %s in %s", version, exacmd)
         return True
@@ -1198,7 +1198,7 @@ class TopoExaBGP(TopoHost):
         * Run ExaBGP with env file `env_file` and configuration peer*/exabgp.cfg
         """
         exacmd = self.tgen.get_exabgp_cmd()
-        assert exacmd, "Can't find a usabel ExaBGP (must be < version 4)"
+        assert exacmd, "Can't find a usable ExaBGP (must be version >= 4.2.11)"
 
         self.run("mkdir -p /etc/exabgp")
         self.run("chmod 755 /etc/exabgp")
@@ -1371,7 +1371,7 @@ def diagnose_env_linux(rundir):
         logger.info("LDPd tests will not run (missing mpls-iptunnel kernel module)")
 
     if not get_exabgp_cmd():
-        logger.warning("Failed to find exabgp < 4")
+        logger.warning("Failed to find exabgp >= 4.2.11")
 
     logger.removeHandler(fhandler)
     fhandler.close()
