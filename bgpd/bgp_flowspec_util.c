@@ -393,7 +393,7 @@ int bgp_flowspec_bitmask_decode(enum bgp_flowspec_util_nlri_t type,
 				ptr += len_written;
 			} else {
 				len_written = snprintf(ptr, len_string,
-						       "∋ ");
+						       "match ");
 				len_string -= len_written;
 				ptr += len_written;
 			}
