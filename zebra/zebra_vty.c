@@ -1164,10 +1164,68 @@ DEFPY (show_ip_nht,
 	return CMD_SUCCESS;
 }
 
+static void
+show_nexthop_group_out_nexthop(struct vty *vty, struct nexthop_group *nhg,
+			       bool display_backup_info,
+			       struct json_object *json_nexthop_array)
+{
+	struct nexthop *nexthop = NULL;
+	json_object *json_nexthops = NULL;
+
+	for (ALL_NEXTHOPS_PTR(nhg, nexthop)) {
+		if (json_nexthop_array) {
+			json_nexthops = json_object_new_object();
+			show_nexthop_json_helper(json_nexthops, nexthop, NULL);
+		} else {
+			if (!CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_RECURSIVE))
+				vty_out(vty, "          ");
+			else
+				/* Make recursive nexthops a bit more clear */
+				vty_out(vty, "       ");
+			show_route_nexthop_helper(vty, NULL, nexthop);
+		}
+
+		if (display_backup_info) {
+			if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_HAS_BACKUP)) {
+				if (json_nexthop_array)
+					json_object_int_add(json_nexthops,
+							    "backup",
+							    nexthop->backup_idx[0]);
+				else
+					vty_out(vty, " [backup %d]",
+						nexthop->backup_idx[0]);
+			}
+
+			if (!json_nexthop_array)
+				vty_out(vty, "\n");
+			else
+				json_object_array_add(json_nexthop_array,
+						      json_nexthops);
+
+			continue;
+		}
+
+		if (!json_nexthop_array) {
+			/* TODO -- print more useful backup info */
+			if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_HAS_BACKUP)) {
+				int i;
+
+				vty_out(vty, "[backup");
+				for (i = 0; i < nexthop->backup_num; i++)
+					vty_out(vty, " %d",
+						nexthop->backup_idx[i]);
+				vty_out(vty, "]");
+			}
+			vty_out(vty, "\n");
+		} else {
+			json_object_array_add(json_nexthop_array, json_nexthops);
+		}
+	}
+}
+
 static void show_nexthop_group_out(struct vty *vty, struct nhg_hash_entry *nhe,
 				   json_object *json_nhe_hdr)
 {
-	struct nexthop *nexthop = NULL;
 	struct nhg_connected *rb_node_dep = NULL;
 	struct nexthop_group *backup_nhg;
 	char up_str[MONOTIME_STRLEN];
@@ -1175,10 +1233,8 @@ static void show_nexthop_group_out(struct vty *vty, struct nhg_hash_entry *nhe,
 	json_object *json_dependants = NULL;
 	json_object *json_depends = NULL;
 	json_object *json_nexthop_array = NULL;
-	json_object *json_nexthops = NULL;
 	json_object *json = NULL;
 	json_object *json_backup_nexthop_array = NULL;
-	json_object *json_backup_nexthops = NULL;
 
 
 	uptime2str(nhe->uptime, up_str, sizeof(up_str));
@@ -1269,58 +1325,12 @@ static void show_nexthop_group_out(struct vty *vty, struct nhg_hash_entry *nhe,
 		json_nexthop_array = json_object_new_array();
 
 
-	for (ALL_NEXTHOPS(nhe->nhg, nexthop)) {
-		if (json_nexthop_array) {
-			json_nexthops = json_object_new_object();
-			show_nexthop_json_helper(json_nexthops, nexthop, NULL);
-		} else {
-			if (!CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_RECURSIVE))
-				vty_out(vty, "          ");
-			else
-				/* Make recursive nexthops a bit more clear */
-				vty_out(vty, "       ");
-			show_route_nexthop_helper(vty, NULL, nexthop);
-		}
-
-		if (nhe->backup_info == NULL || nhe->backup_info->nhe == NULL) {
-			if (CHECK_FLAG(nexthop->flags,
-				       NEXTHOP_FLAG_HAS_BACKUP)) {
-				if (json)
-					json_object_int_add(
-						json_nexthops, "backup",
-						nexthop->backup_idx[0]);
-				else
-					vty_out(vty, " [backup %d]",
-						nexthop->backup_idx[0]);
-			}
-
-			if (!json)
-				vty_out(vty, "\n");
-			else
-				json_object_array_add(json_nexthop_array,
-						      json_nexthops);
-
-			continue;
-		}
-
-		if (!json) {
-			/* TODO -- print more useful backup info */
-			if (CHECK_FLAG(nexthop->flags,
-				       NEXTHOP_FLAG_HAS_BACKUP)) {
-				int i;
-
-				vty_out(vty, "[backup");
-				for (i = 0; i < nexthop->backup_num; i++)
-					vty_out(vty, " %d",
-						nexthop->backup_idx[i]);
-				vty_out(vty, "]");
-			}
-			vty_out(vty, "\n");
-		} else {
-			json_object_array_add(json_nexthop_array,
-					      json_nexthops);
-		}
-	}
+	if (nhe->backup_info == NULL || nhe->backup_info->nhe == NULL)
+		show_nexthop_group_out_nexthop(vty, &nhe->nhg, true,
+					       json_nexthop_array);
+	else
+		show_nexthop_group_out_nexthop(vty, &nhe->nhg, false,
+					       json_nexthop_array);
 
 	if (json)
 		json_object_object_add(json, "nexthops", json_nexthop_array);
@@ -1333,28 +1343,8 @@ static void show_nexthop_group_out(struct vty *vty, struct nhg_hash_entry *nhe,
 		else
 			vty_out(vty, "     Backups:\n");
 
-		for (ALL_NEXTHOPS_PTR(backup_nhg, nexthop)) {
-			if (json_backup_nexthop_array) {
-				json_backup_nexthops = json_object_new_object();
-				show_nexthop_json_helper(json_backup_nexthops,
-							 nexthop, NULL);
-				json_object_array_add(json_backup_nexthop_array,
-						      json_backup_nexthops);
-			} else {
-
-				if (!CHECK_FLAG(nexthop->flags,
-						NEXTHOP_FLAG_RECURSIVE))
-					vty_out(vty, "          ");
-				else
-					/* Make recursive nexthops a bit more
-					 * clear
-					 */
-					vty_out(vty, "       ");
-				show_route_nexthop_helper(vty, NULL, nexthop);
-				vty_out(vty, "\n");
-			}
-		}
-
+		show_nexthop_group_out_nexthop(vty, backup_nhg, false,
+					       json_backup_nexthop_array);
 		if (json)
 			json_object_object_add(json, "backupNexthops",
 					       json_backup_nexthop_array);
