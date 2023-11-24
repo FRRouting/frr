@@ -47,9 +47,16 @@ pytestmark = [pytest.mark.bgpd]
 # remember the last sequence number of the logging messages
 SEQ = 0
 
-PRE_POLICY = "pre-policy"
-POST_POLICY = "post-policy"
+ADJ_IN_PRE_POLICY = "rib-in-pre-policy"
+ADJ_IN_POST_POLICY = "rib-in-post-policy"
+ADJ_OUT_PRE_POLICY = "rib-out-pre-policy"
+ADJ_OUT_POST_POLICY = "rib-out-post-policy"
 LOC_RIB = "loc-rib"
+
+BMP_UPDATE = "update"
+BMP_WITHDRAW = "withdraw"
+
+TEST_PREFIXES = ["172.31.0.15/32", "2111::1111/128"]
 
 UPDATE_EXPECTED_JSON = False
 DEBUG_PCAP = False
@@ -163,7 +170,7 @@ def update_expected_files(bmp_actual, expected_prefixes, bmp_log_type, policy, s
             if prefix in expected_prefixes
         }
     }
-    if bmp_log_type == "withdraw":
+    if bmp_log_type == BMP_WITHDRAW:
         for pfx in expected_prefixes:
             if "::" in pfx:
                 continue
@@ -181,7 +188,7 @@ def update_expected_files(bmp_actual, expected_prefixes, bmp_log_type, policy, s
             if prefix in expected_prefixes
         }
     }
-    if bmp_log_type == "withdraw":
+    if bmp_log_type == BMP_WITHDRAW:
         for pfx in expected_prefixes:
             if "::" not in pfx:
                 continue
@@ -206,7 +213,7 @@ def check_for_prefixes(expected_prefixes, bmp_log_type, policy, step):
 
     # create empty initial files
     # for step in $(seq 1); do
-    #     for i in "update" "withdraw"; do
+    #     for i in BMP_UPDATE BMP_WITHDRAW; do
     #         for j in "pre-policy" "post-policy" "loc-rib"; do
     #             echo '{"null": {}}'> bmp-$i-$j-step$step.json
     #         done
@@ -316,14 +323,12 @@ def _test_prefixes(policy, step=1):
     """
     tgen = get_topogen()
 
-    prefixes = ["172.31.0.15/32", "2111::1111/128"]
-
-    for type in ("update", "withdraw"):
+    for type in (BMP_UPDATE, BMP_WITHDRAW):
         update_seq()
 
         # add prefixes
         configure_prefixes(
-            tgen, "r2", 65502, "unicast", prefixes, update=(type == "update")
+            tgen, "r2", 65502, "unicast", TEST_PREFIXES, update=(type == BMP_UPDATE)
         )
 
         logger.info(f"checking for prefixes {type}")
@@ -347,7 +352,7 @@ def _test_prefixes(policy, step=1):
             assert res is None, assertmsg
 
         # check
-        test_func = partial(check_for_prefixes, prefixes, type, policy, step)
+        test_func = partial(check_for_prefixes, TEST_PREFIXES, type, policy, step)
         success, res = topotest.run_and_expect(test_func, None, count=30, wait=1)
         assert success, "Checking the updated prefixes has been failed ! %s" % res
 
@@ -388,12 +393,16 @@ def test_bmp_bgp_unicast():
     """
     Add/withdraw bgp unicast prefixes and check the bmp logs.
     """
-    logger.info("*** Unicast prefixes pre-policy logging ***")
-    _test_prefixes(PRE_POLICY)
-    logger.info("*** Unicast prefixes post-policy logging ***")
-    _test_prefixes(POST_POLICY)
+    logger.info("*** Unicast prefixes adj-rib-in pre-policy logging ***")
+    _test_prefixes(ADJ_IN_PRE_POLICY, step=1)
+    logger.info("*** Unicast prefixes adj-rib-in post-policy logging ***")
+    _test_prefixes(ADJ_IN_POST_POLICY, step=1)
     logger.info("*** Unicast prefixes loc-rib logging ***")
-    _test_prefixes(LOC_RIB)
+    _test_prefixes(LOC_RIB, step=1)
+    logger.info("*** Unicast prefixes adj-rib-out pre-policy logging ***")
+    _test_prefixes(ADJ_OUT_PRE_POLICY, step=1)
+    logger.info("*** Unicast prefixes adj-rib-out post-policy logging ***")
+    _test_prefixes(ADJ_OUT_POST_POLICY, step=1)
 
 
 def test_peer_down():

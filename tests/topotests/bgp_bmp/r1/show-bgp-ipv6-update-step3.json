@@ -1,0 +1,46 @@
+{
+  "routes": {
+    "192:168::/64": [
+      {
+        "valid": true,
+        "pathFrom": "external",
+        "prefix": "192:168::",
+        "prefixLen": 64,
+        "network": "192:168::/64",
+        "metric": 0,
+        "weight": 0,
+        "peerId": "192:168::2",
+        "path": "65502",
+        "origin": "incomplete",
+        "nexthops": [
+          {
+            "ip": "192:168::2",
+            "hostname": "r2",
+            "afi": "ipv6",
+            "scope": "global"
+          }
+        ]
+      },
+      {
+        "valid": true,
+        "pathFrom": "external",
+        "prefix": "192:168::",
+        "prefixLen": 64,
+        "network": "192:168::/64",
+        "metric": 0,
+        "weight": 0,
+        "peerId": "192:168::3",
+        "path": "65502",
+        "origin": "incomplete",
+        "nexthops": [
+          {
+            "ip": "192:168::3",
+            "hostname": "r3",
+            "afi": "ipv6",
+            "scope": "global"
+          }
+        ]
+      }
+    ]
+  }
+}
