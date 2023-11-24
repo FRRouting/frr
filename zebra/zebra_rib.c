@@ -1653,6 +1653,9 @@ static bool rib_update_nhg_from_ctx(struct nexthop_group *re_nhg,
 	bool matched_p = true;
 	struct nexthop *nexthop, *ctx_nexthop;
 
+	if (CHECK_FLAG(ctx_nhg->flags, NEXTHOP_GROUP_TYPE_GROUP))
+		return matched_p;
+
 	/* Get the first `installed` one to check against.
 	 * If the dataplane doesn't set these to be what was actually installed,
 	 * it will just be whatever was in re->nhe->nhg?

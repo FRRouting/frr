@@ -711,11 +711,18 @@ static void dplane_ctx_free_internal(struct zebra_dplane_ctx *ctx)
 	case DPLANE_OP_ROUTE_NOTIFY:
 
 		/* Free allocated nexthops */
-		if (ctx->u.rinfo.zd_ng.nexthop) {
+		if (!CHECK_FLAG(ctx->u.rinfo.zd_ng.flags,
+				NEXTHOP_GROUP_TYPE_GROUP) &&
+		    ctx->u.rinfo.zd_ng.nexthop) {
 			/* This deals with recursive nexthops too */
 			nexthops_free(ctx->u.rinfo.zd_ng.nexthop);
 
 			ctx->u.rinfo.zd_ng.nexthop = NULL;
+		} else if (CHECK_FLAG(ctx->u.rinfo.zd_ng.flags,
+				      NEXTHOP_GROUP_TYPE_GROUP) &&
+			   ctx->u.rinfo.zd_ng.group) {
+			nexthop_group_ids_free(ctx->u.rinfo.zd_ng.group);
+			ctx->u.rinfo.zd_ng.group = NULL;
 		}
 
 		/* Free backup info also (if present) */
@@ -3435,10 +3442,6 @@ int dplane_ctx_route_init(struct zebra_dplane_ctx *ctx, enum dplane_op_e op,
 		return dplane_ctx_route_init_basic(ctx, op, NULL, NULL, NULL,
 						   AFI_UNSPEC, SAFI_UNSPEC);
 
-	/* routes attached to nexthop groups are not possible for now */
-	if (CHECK_FLAG(re->nhe->nhg.flags, NEXTHOP_GROUP_TYPE_GROUP))
-		return ret;
-
 	/*
 	 * Let's grab the data from the route_node
 	 * so that we can call a helper function
@@ -3454,8 +3457,7 @@ int dplane_ctx_route_init(struct zebra_dplane_ctx *ctx, enum dplane_op_e op,
 		return ret;
 
 	/* Copy nexthops; recursive info is included too */
-	copy_nexthops(&(ctx->u.rinfo.zd_ng.nexthop),
-		      re->nhe->nhg.nexthop, NULL);
+	nexthop_group_copy(&ctx->u.rinfo.zd_ng, &re->nhe->nhg);
 	ctx->u.rinfo.zd_nhg_id = re->nhe->id;
 
 	/* Copy backup nexthop info, if present */
@@ -3463,6 +3465,9 @@ int dplane_ctx_route_init(struct zebra_dplane_ctx *ctx, enum dplane_op_e op,
 		copy_nexthops(&(ctx->u.rinfo.backup_ng.nexthop),
 			      re->nhe->backup_info->nhe->nhg.nexthop, NULL);
 	}
+
+	if (CHECK_FLAG(ctx->u.rinfo.zd_ng.flags, NEXTHOP_GROUP_TYPE_GROUP))
+		goto done;
 
 	/*
 	 * Ensure that the dplane nexthops' flags are clear and copy
@@ -3504,6 +3509,7 @@ int dplane_ctx_route_init(struct zebra_dplane_ctx *ctx, enum dplane_op_e op,
 		}
 	}
 
+done:
 	/* Don't need some info when capturing a system notification */
 	if (op == DPLANE_OP_SYS_ROUTE_ADD ||
 	    op == DPLANE_OP_SYS_ROUTE_DELETE) {
@@ -6710,8 +6716,10 @@ static void kernel_dplane_handle_result(struct zebra_dplane_ctx *ctx)
 			atomic_fetch_add_explicit(&zdplane_info.dg_route_errors,
 						  1, memory_order_relaxed);
 
-		if ((dplane_ctx_get_op(ctx) != DPLANE_OP_ROUTE_DELETE)
-		    && (res == ZEBRA_DPLANE_REQUEST_SUCCESS)) {
+		if ((dplane_ctx_get_op(ctx) != DPLANE_OP_ROUTE_DELETE) &&
+		    (res == ZEBRA_DPLANE_REQUEST_SUCCESS) &&
+		    !CHECK_FLAG(dplane_ctx_get_ng(ctx)->flags,
+				NEXTHOP_GROUP_TYPE_GROUP)) {
 			struct nexthop *nexthop;
 
 			/* Update installed nexthops to signal which have been
