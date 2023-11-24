@@ -10,14 +10,21 @@ test_bgp_bmp.py: Test BGP BMP functionalities
 
     +------+            +------+               +------+
     |      |            |      |               |      |
-    | BMP1 |------------|  R1  |---------------|  R2  |
-    |      |            |      |               |      |
-    +------+            +------+               +------+
+    | BMP1 |------------|  R1  |-------+-------|  R2  |
+    |      |            |      |       |       |      |
+    +------+            +------+       |       +------+
+                                       |
+                                       |       +------+
+                                       |       |      |
+                                       +-------|  R3  |
+                                               | ecmp |
+                                               +------+
 
-Setup two routers R1 and R2 with one link configured with IPv4 and
+Setup three routers R1 and R3 with one link configured with IPv4 and
 IPv6 addresses.
-Configure BGP in R1 and R2 to exchange prefixes from
-the latter to the first router.
+Configure BGP to exchange prefixes from R2 and R3 to R1.
+R3 is only used in the multi-path test, it announces the same as R2 to R1 to
+have the R2 prefixes be ECMP paths in R1.
 Setup a link between R1 and the BMP server, activate the BMP feature in R1
 and ensure the monitored BGP sessions logs are well present on the BMP server.
 """
@@ -42,30 +49,37 @@ from .bgpbmp import (
     bmp_check_for_prefixes,
     bmp_check_for_peer_message,
     bmp_update_seq,
+    _test_prefixes,
+    ADJ_IN_PRE_POLICY,
+    ADJ_IN_POST_POLICY,
+    LOC_RIB,
+    ADJ_OUT_PRE_POLICY,
+    ADJ_OUT_POST_POLICY,
 )
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
 
 pytestmark = [pytest.mark.bgpd]
 
-PRE_POLICY = "pre-policy"
-POST_POLICY = "post-policy"
-LOC_RIB = "loc-rib"
+TEST_PREFIXES = ["172.31.0.15/32", "2001::1111/128"]
 
-UPDATE_EXPECTED_JSON = False
 DEBUG_PCAP = False
 
 
 def build_topo(tgen):
     tgen.add_router("r1")
     tgen.add_router("r2")
+    tgen.add_router("r3ecmp")
     tgen.add_bmp_server("bmp1", ip="192.0.2.10", defaultRoute="via 192.0.2.1")
 
     switch = tgen.add_switch("s1")
     switch.add_link(tgen.gears["r1"])
     switch.add_link(tgen.gears["bmp1"])
 
-    tgen.add_link(tgen.gears["r1"], tgen.gears["r2"], "r1-eth1", "r2-eth0")
+    switch = tgen.add_switch("s2")
+    switch.add_link(tgen.gears["r1"], nodeif="r1-eth1")
+    switch.add_link(tgen.gears["r2"], nodeif="r2-eth0")
+    switch.add_link(tgen.gears["r3ecmp"], nodeif="r3ecmp-eth0")
 
 
 def setup_module(mod):
@@ -113,68 +127,6 @@ def test_bgp_convergence():
     assert result is True, "BGP is not converging"
 
 
-def _test_prefixes(policy, vrf=None, step=0):
-    """
-    Setup the BMP  monitor policy, Add and withdraw ipv4/v6 prefixes.
-    Check if the previous actions are logged in the BMP server with the right
-    message type and the right policy.
-    """
-    tgen = get_topogen()
-
-    safi = "vpn" if vrf else "unicast"
-
-    prefixes = ["172.31.0.15/32", "2001::1111/128"]
-
-    for type in ("update", "withdraw"):
-        bmp_update_seq(tgen.gears["bmp1"], os.path.join(tgen.logdir, "bmp1", "bmp.log"))
-
-        bgp_configure_prefixes(
-            tgen.gears["r2"],
-            65502,
-            "unicast",
-            prefixes,
-            vrf=vrf,
-            update=(type == "update"),
-        )
-
-        logger.info(f"checking for prefixes {type}")
-
-        for ipver in [4, 6]:
-            if UPDATE_EXPECTED_JSON:
-                continue
-            ref_file = "{}/r1/show-bgp-ipv{}-{}-step{}.json".format(
-                CWD, ipver, type, step
-            )
-            expected = json.loads(open(ref_file).read())
-
-            test_func = partial(
-                topotest.router_json_cmp,
-                tgen.gears["r1"],
-                f"show bgp ipv{ipver} {safi} json",
-                expected,
-            )
-            _, res = topotest.run_and_expect(test_func, None, count=30, wait=1)
-            assertmsg = f"r1: BGP IPv{ipver} convergence failed"
-            assert res is None, assertmsg
-
-        # check
-        test_func = partial(
-            bmp_check_for_prefixes,
-            prefixes,
-            type,
-            policy,
-            step,
-            tgen.gears["bmp1"],
-            os.path.join(tgen.logdir, "bmp1"),
-            tgen.gears["r1"],
-            f"{CWD}/bmp1",
-            UPDATE_EXPECTED_JSON,
-            LOC_RIB,
-        )
-        success, res = topotest.run_and_expect(test_func, None, count=30, wait=1)
-        assert success, "Checking the updated prefixes has failed ! %s" % res
-
-
 def test_bmp_server_logging():
     """
     Assert the logging of the bmp server.
@@ -218,22 +170,80 @@ def test_bmp_bgp_unicast():
     """
     Add/withdraw bgp unicast prefixes and check the bmp logs.
     """
-    logger.info("*** Unicast prefixes pre-policy logging ***")
-    _test_prefixes(PRE_POLICY, step=1)
-    logger.info("*** Unicast prefixes post-policy logging ***")
-    _test_prefixes(POST_POLICY, step=1)
+
+    args = [TEST_PREFIXES, "r2", "r1", "bmp1", CWD, None, None, 1]
+
+    logger.info("*** Unicast prefixes rib-in pre-policy logging ***")
+    _test_prefixes(ADJ_IN_PRE_POLICY, *args)
+    logger.info("*** Unicast prefixes rib-in post-policy logging ***")
+    _test_prefixes(ADJ_IN_POST_POLICY, *args)
     logger.info("*** Unicast prefixes loc-rib logging ***")
-    _test_prefixes(LOC_RIB, step=1)
+    _test_prefixes(LOC_RIB, *args)
+    logger.info("*** Unicast prefixes rib-out pre-policy logging ***")
+    _test_prefixes(ADJ_OUT_PRE_POLICY, *args)
+    logger.info("*** Unicast prefixes rib-out post-policy logging ***")
+    _test_prefixes(ADJ_OUT_POST_POLICY, *args)
 
 
 def test_bmp_bgp_vpn():
     # check for the prefixes in the BMP server logging file
-    logger.info("***** VPN prefixes pre-policy logging *****")
-    _test_prefixes(PRE_POLICY, vrf="vrf1", step=2)
-    logger.info("***** VPN prefixes post-policy logging *****")
-    _test_prefixes(POST_POLICY, vrf="vrf1", step=2)
+
+    args = [TEST_PREFIXES, "r2", "r1", "bmp1", CWD, "vrf1", None, 2]
+
+    logger.info("***** VPN prefixes rib-in pre-policy logging *****")
+    _test_prefixes(ADJ_IN_PRE_POLICY, *args)
+    logger.info("***** VPN prefixes rib-in post-policy logging *****")
+    _test_prefixes(ADJ_IN_POST_POLICY, *args)
     logger.info("***** VPN prefixes loc-rib logging *****")
-    _test_prefixes(LOC_RIB, vrf="vrf1", step=2)
+    _test_prefixes(LOC_RIB, *args)
+    # logger.info("***** VPN prefixes rib-out pre-policy logging *****")
+    # _test_prefixes(ADJ_OUT_PRE_POLICY, *args)
+    # logger.info("***** VPN prefixes rib-out post-policy logging *****")
+    # _test_prefixes(ADJ_OUT_POST_POLICY, *args)
+
+
+def multipath_unicast_prefixes(policy, step, vrf=None):
+    """
+    Setup the BMP  monitor policy, Add and withdraw ipv4/v6 prefixes.
+    Check if the previous actions are logged in the BMP server with the right
+    message type and the right policy.
+    Make R3 announce the prefixes, then R2 so its paths are ECMP
+    Finally, withdraw on R3 to clean up
+    """
+    tgen = get_topogen()
+
+    MULTIPATH_TEST_PREFIXES = ["1.1.1.0/31", "3.3.3.0/31"]
+
+    bgp_configure_prefixes(
+        tgen.gears["r3ecmp"],
+        65502,
+        "unicast",
+        MULTIPATH_TEST_PREFIXES,
+        vrf,
+        update=True,
+    )
+
+    _test_prefixes(
+        policy, MULTIPATH_TEST_PREFIXES, "r2", "r1", "bmp1", CWD, vrf, None, 3
+    )
+
+    bgp_configure_prefixes(
+        tgen.gears["r3ecmp"],
+        65502,
+        "unicast",
+        MULTIPATH_TEST_PREFIXES,
+        vrf,
+        update=False,
+    )
+
+
+def test_bmp_bgp_multipath():
+    """
+    Test the ECMP feature of BMP i.e. when the loc-rib installs multiple paths
+    """
+
+    logger.info("*** Multipath unicast prefixes loc-rib logging ***")
+    multipath_unicast_prefixes(LOC_RIB, step=3)
 
 
 def test_peer_down():
