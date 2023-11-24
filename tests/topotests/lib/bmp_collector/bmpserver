@@ -36,6 +36,7 @@ def main():
                     data = BMPMsg.dissect(data, log_file=LOG_FILE)
         except Exception as e:
             # XXX: do something
+            print(f"[bmp] Exception occured:  {e}")
             pass
         except KeyboardInterrupt:
             # XXX: do something

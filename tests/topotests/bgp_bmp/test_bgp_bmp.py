@@ -9,10 +9,16 @@
 test_bgp_bmp.py: Test BGP BMP functionalities
 
     +------+            +------+               +------+
-    |      |            |      |               |      |
-    | BMP1 |------------|  R1  |---------------|  R2  |
-    |      |            |      |               |      |
-    +------+            +------+               +------+
+    |      |            |      | eth1     eth0 |      |
+    | BMP1 |------------|  R1  |-------+-------|  R2  |
+    |      |            |      |       |       |      |
+    +------+            +------+       |       +------+
+                                       |
+                                       |        +------+
+                                       |  eth0  |      |
+                                       +--------|  R3  |
+                                                |      |
+                                                +------+
 
 Setup two routers R1 and R2 with one link configured with IPv4 and
 IPv6 addresses.
@@ -47,21 +53,30 @@ pytestmark = [pytest.mark.bgpd]
 # remember the last sequence number of the logging messages
 SEQ = 0
 
-PRE_POLICY = "pre-policy"
-POST_POLICY = "post-policy"
+ADJ_IN_PRE_POLICY = "rib-in pre-policy"
+ADJ_IN_POST_POLICY = "rib-in post-policy"
+ADJ_OUT_PRE_POLICY = "rib-out pre-policy"
+ADJ_OUT_POST_POLICY = "rib-out post-policy"
 LOC_RIB = "loc-rib"
+
+BMP_UPDATE = "update"
+BMP_WITHDRAW = "withdraw"
 
 
 def build_topo(tgen):
     tgen.add_router("r1")
     tgen.add_router("r2")
+    tgen.add_router("r3")
     tgen.add_bmp_server("bmp1", ip="192.0.2.10", defaultRoute="via 192.0.2.1")
 
     switch = tgen.add_switch("s1")
     switch.add_link(tgen.gears["r1"])
     switch.add_link(tgen.gears["bmp1"])
 
-    tgen.add_link(tgen.gears["r1"], tgen.gears["r2"], "r1-eth1", "r2-eth0")
+    switch = tgen.add_switch("s2")
+    switch.add_link(tgen.gears["r1"], nodeif="r1-eth1")
+    switch.add_link(tgen.gears["r2"], nodeif="r2-eth0")
+    switch.add_link(tgen.gears["r3"], nodeif="r3-eth0")
 
 
 def setup_module(mod):
@@ -211,17 +226,55 @@ def unicast_prefixes(policy):
 
     logger.info("checking for updated prefixes")
     # check
-    test_func = partial(check_for_prefixes, prefixes, "update", policy)
+    test_func = partial(check_for_prefixes, prefixes, BMP_UPDATE, policy)
     success, _ = topotest.run_and_expect(test_func, True, wait=0.5)
     assert success, "Checking the updated prefixes has been failed !."
 
     # withdraw prefixes
     configure_prefixes(tgen, "r2", 65502, "unicast", prefixes, update=False)
-    logger.info("checking for withdrawed prefxies")
+    logger.info("checking for withdrawn prefixes")
     # check
-    test_func = partial(check_for_prefixes, prefixes, "withdraw", policy)
+    test_func = partial(check_for_prefixes, prefixes, BMP_WITHDRAW, policy)
     success, _ = topotest.run_and_expect(test_func, True, wait=0.5)
-    assert success, "Checking the withdrawed prefixes has been failed !."
+    assert success, "Checking the withdrawn prefixes has been failed !."
+
+
+def multipath_unicast_prefixes(policy):
+    """
+    Setup the BMP  monitor policy, Add and withdraw ipv4/v6 prefixes.
+    Check if the previous actions are logged in the BMP server with the right
+    message type and the right policy.
+
+    For multipath we just check if we receive an update multiple times.
+    We can't check for the peer address because RFC9069 does not include it in Local-RIB Peer Type.
+    """
+    tgen = get_topogen()
+    set_bmp_policy(tgen, "r1", 65501, "bmp1", "unicast", policy)
+
+    prefixes = ["172.31.0.15/32", "2111::1111/128"]
+
+    def check_prefixes(node, asn, bmp_log_type):
+        past_participle = "updated" if bmp_log_type == BMP_UPDATE else "withdrawn"
+
+        configure_prefixes(
+            tgen, node, asn, "unicast", prefixes, update=(bmp_log_type == BMP_UPDATE)
+        )
+        logger.info(f"checking for {past_participle} prefixes")
+
+        # check
+        test_func = partial(check_for_prefixes, prefixes, bmp_log_type, policy)
+        success, _ = topotest.run_and_expect(test_func, True, wait=0.5)
+
+        logger.debug(f"Full BMP Logs: \n{get_bmp_messages()}")
+        assert success, f"Checking the {past_participle} prefixes has been failed !."
+
+    # add prefixes
+    check_prefixes("r2", 65502, BMP_UPDATE)
+    check_prefixes("r3", 65502, BMP_UPDATE)
+
+    # withdraw prefixes
+    check_prefixes("r2", 65502, BMP_WITHDRAW)
+    check_prefixes("r3", 65502, BMP_WITHDRAW)
 
 
 def vpn_prefixes(policy):
@@ -235,7 +288,7 @@ def vpn_prefixes(policy):
 
     prefixes = ["172.31.10.1/32", "2001::2222/128"]
 
-    if policy == PRE_POLICY:
+    if policy == ADJ_IN_PRE_POLICY:
         # labels are not yet supported in adj-RIB-in. Do not test for the moment
         labels = None
     else:
@@ -281,24 +334,38 @@ def test_bmp_server_logging():
     assert success, "The BMP server is not logging"
 
 
+def test_bmp_bgp_multipath():
+    """
+    Add/withdraw bgp unicast prefixes on two peers and check the bmp logs.
+    """
+
+    logger.info("*** Multipath unicast prefixes loc-rib logging ***")
+    multipath_unicast_prefixes(LOC_RIB)
+
+
 def test_bmp_bgp_unicast():
     """
     Add/withdraw bgp unicast prefixes and check the bmp logs.
     """
-    logger.info("*** Unicast prefixes pre-policy logging ***")
-    unicast_prefixes(PRE_POLICY)
-    logger.info("*** Unicast prefixes post-policy logging ***")
-    unicast_prefixes(POST_POLICY)
+
+    logger.info("*** Unicast prefixes adj-rib-in pre-policy logging ***")
+    unicast_prefixes(ADJ_IN_PRE_POLICY)
+    logger.info("*** Unicast prefixes adj-rib-in post-policy logging ***")
+    unicast_prefixes(ADJ_IN_POST_POLICY)
     logger.info("*** Unicast prefixes loc-rib logging ***")
     unicast_prefixes(LOC_RIB)
+    logger.info("*** Unicast prefixes adj-rib-out pre-policy logging ***")
+    unicast_prefixes(ADJ_OUT_PRE_POLICY)
+    logger.info("*** Unicast prefixes adj-rib-out post-policy logging ***")
+    unicast_prefixes(ADJ_OUT_POST_POLICY)
 
 
 def test_bmp_bgp_vpn():
     # check for the prefixes in the BMP server logging file
     logger.info("***** VPN prefixes pre-policy logging *****")
-    vpn_prefixes(PRE_POLICY)
+    vpn_prefixes(ADJ_IN_PRE_POLICY)
     logger.info("***** VPN prefixes post-policy logging *****")
-    vpn_prefixes(POST_POLICY)
+    vpn_prefixes(ADJ_IN_POST_POLICY)
     logger.info("***** VPN prefixes loc-rib logging *****")
     vpn_prefixes(LOC_RIB)
 
