@@ -525,6 +525,16 @@ static void show_nexthop_detail_group_helper(struct vty *vty,
 					     struct nexthop_group *nhg)
 {
 	struct nexthop *nexthop;
+	struct nexthop_group_id *nhgid;
+
+	if (CHECK_FLAG(nhg->flags, NEXTHOP_GROUP_TYPE_GROUP)) {
+		for (nhgid = nhg->group; nhgid; nhgid = nhgid->next) {
+			if (nhgid->nhg)
+				show_nexthop_detail_group_helper(vty, re,
+								 nhgid->nhg);
+		}
+		return;
+	}
 
 	for (ALL_NEXTHOPS_PTR(nhg, nexthop)) {
 		/* Use helper to format each nexthop */
@@ -638,7 +648,17 @@ static void show_route_nexthop_group_helper(struct vty *vty,
 {
 	const struct nexthop *nexthop;
 	bool star_p = false;
+	struct nexthop_group_id *nhgid;
 
+	if (CHECK_FLAG(nhg->flags, NEXTHOP_GROUP_TYPE_GROUP)) {
+		for (nhgid = nhg->group; nhgid; nhgid = nhgid->next) {
+			if (nhgid->nhg)
+				show_route_nexthop_group_helper(vty, re,
+								nhgid->nhg,
+								is_fib, len);
+		}
+		return;
+	}
 	for (ALL_NEXTHOPS_PTR(nhg, nexthop)) {
 		if (is_fib)
 			star_p = CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB);
@@ -660,7 +680,16 @@ static void show_nexthop_group_json_helper(json_object *json_nexthops,
 {
 	const struct nexthop *nexthop;
 	json_object *json_nexthop = NULL;
+	struct nexthop_group_id *nhgid;
 
+	if (CHECK_FLAG(nhg->flags, NEXTHOP_GROUP_TYPE_GROUP)) {
+		for (nhgid = nhg->group; nhgid; nhgid = nhgid->next) {
+			if (nhgid->nhg)
+				show_nexthop_group_json_helper(json_nexthops,
+							       nhgid->nhg, re);
+		}
+		return;
+	}
 	for (ALL_NEXTHOPS_PTR(nhg, nexthop)) {
 		json_nexthop = json_object_new_object();
 		show_nexthop_json_helper(json_nexthop, nexthop, re);
@@ -669,11 +698,37 @@ static void show_nexthop_group_json_helper(json_object *json_nexthops,
 	}
 }
 
+static void show_route_nexthop_group_helper_specific(
+	struct vty *vty, struct route_entry *re, const struct nexthop_group *nhg,
+	bool *first_p, bool is_fib, bool nhg_from_backup, int len, char *up_str)
+{
+	struct nexthop_group_id *nhgid;
+	const struct nexthop *nexthop;
+
+	if (CHECK_FLAG(nhg->flags, NEXTHOP_GROUP_TYPE_GROUP)) {
+		for (nhgid = nhg->group; nhgid; nhgid = nhgid->next) {
+			if (nhgid->nhg)
+				show_route_nexthop_group_helper_specific(vty, re,
+									 nhgid->nhg,
+									 first_p,
+									 is_fib,
+									 nhg_from_backup,
+									 len,
+									 up_str);
+		}
+		return;
+	}
+	/* Nexthop information. */
+	for (ALL_NEXTHOPS_PTR(nhg, nexthop))
+		show_route_nexthop_helper_specific(vty, re, nexthop, first_p,
+						   is_fib, nhg_from_backup, len,
+						   up_str);
+}
+
 static void vty_show_ip_route(struct vty *vty, struct route_node *rn,
 			      struct route_entry *re, json_object *json,
 			      bool is_fib, bool show_ng)
 {
-	struct nexthop *nexthop;
 	int len = 0;
 	char buf[SRCDEST2STR_BUFFER];
 	json_object *json_nexthops = NULL;
@@ -826,11 +881,9 @@ static void vty_show_ip_route(struct vty *vty, struct route_node *rn,
 	if (show_ng)
 		len += vty_out(vty, " (%u)", re->nhe_id);
 
-	/* Nexthop information. */
-	for (ALL_NEXTHOPS_PTR(nhg, nexthop))
-		show_route_nexthop_helper_specific(vty, re, nexthop, &first_p,
-						   is_fib, nhg_from_backup, len,
-						   up_str);
+	/* Nexthop Group information. */
+	show_route_nexthop_group_helper_specific(vty, re, nhg, &first_p, is_fib,
+						 nhg_from_backup, len, up_str);
 
 	/* If we only had backup nexthops, we're done */
 	if (nhg_from_backup)
@@ -1265,12 +1318,25 @@ show_nexthop_group_out_nexthop(struct vty *vty, struct nexthop_group *nhg,
 			       struct json_object *json_nexthop_array)
 {
 	struct nexthop *nexthop = NULL;
+	struct nexthop_group_id *group = NULL;
 
-
-	for (ALL_NEXTHOPS_PTR(nhg, nexthop)) {
-		show_nexthop_group_out_nexthop_specific(vty, json_nexthop_array,
-							display_backup_info,
-							nexthop);
+	if (CHECK_FLAG(nhg->flags, NEXTHOP_GROUP_TYPE_GROUP)) {
+		for (group = nhg->group; group; group = group->next) {
+			if (!group->nhg)
+				continue;
+			for (ALL_NEXTHOPS_PTR(group->nhg, nexthop)) {
+				show_nexthop_group_out_nexthop_specific(
+					vty, json_nexthop_array,
+					display_backup_info, nexthop);
+			}
+		}
+	} else {
+		for (ALL_NEXTHOPS_PTR(nhg, nexthop)) {
+			show_nexthop_group_out_nexthop_specific(vty,
+								json_nexthop_array,
+								display_backup_info,
+								nexthop);
+		}
 	}
 }
 
