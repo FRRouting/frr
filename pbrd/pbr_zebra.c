@@ -222,6 +222,8 @@ static int rule_notify_owner(ZAPI_CALLBACK_ARGS)
 static void zebra_connected(struct zclient *zclient)
 {
 	DEBUGD(&pbr_dbg_zebra, "%s: Registering for fun and profit", __func__);
+
+	zebra_route_notify_send(ZEBRA_ROUTE_NOTIFY_REQUEST, zclient, true);
 	zclient_send_reg_requests(zclient, VRF_DEFAULT);
 }
 
@@ -401,9 +403,7 @@ static zclient_handler *const pbr_handlers[] = {
 
 void pbr_zebra_init(void)
 {
-	struct zclient_options opt = { .receive_notify = true };
-
-	zclient = zclient_new(master, &opt, pbr_handlers,
+	zclient = zclient_new(master, &zclient_options_default, pbr_handlers,
 			      array_size(pbr_handlers));
 
 	zclient_init(zclient, ZEBRA_ROUTE_PBR, 0, &pbr_privs);

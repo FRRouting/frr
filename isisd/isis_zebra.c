@@ -1395,9 +1395,7 @@ void isis_zebra_init(struct event_loop *master, int instance)
 	zclient->zebra_connected = isis_zebra_connected;
 
 	/* Initialize special zclient for synchronous message exchanges. */
-	struct zclient_options options = zclient_options_default;
-	options.synchronous = true;
-	zclient_sync = zclient_new(master, &options, NULL, 0);
+	zclient_sync = zclient_new(master, &zclient_options_sync, NULL, 0);
 	zclient_sync->sock = -1;
 	zclient_sync->redist_default = ZEBRA_ROUTE_ISIS;
 	zclient_sync->instance = instance;

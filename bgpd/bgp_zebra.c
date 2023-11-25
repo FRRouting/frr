@@ -3422,9 +3422,6 @@ static void bgp_zebra_capabilities(struct zclient_capabilities *cap)
 
 void bgp_zebra_init(struct event_loop *master, unsigned short instance)
 {
-	struct zclient_options options = zclient_options_default;
-
-	options.synchronous = true;
 	zclient_num_connects = 0;
 
 	hook_register_prio(if_real, 0, bgp_ifp_create);
@@ -3442,7 +3439,7 @@ void bgp_zebra_init(struct event_loop *master, unsigned short instance)
 	zclient->instance = instance;
 
 	/* Initialize special zclient for synchronous message exchanges. */
-	zclient_sync = zclient_new(master, &options, NULL, 0);
+	zclient_sync = zclient_new(master, &zclient_options_sync, NULL, 0);
 	zclient_sync->sock = -1;
 	zclient_sync->redist_default = ZEBRA_ROUTE_BGP;
 	zclient_sync->instance = instance;

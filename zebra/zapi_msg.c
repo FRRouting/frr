@@ -2376,17 +2376,13 @@ static void zread_hello(ZAPI_HANDLER_ARGS)
 	/* type of protocol (lib/zebra.h) */
 	uint8_t proto;
 	unsigned short instance;
-	uint8_t notify;
 	uint8_t synchronous;
 	uint32_t session_id;
 
 	STREAM_GETC(msg, proto);
 	STREAM_GETW(msg, instance);
 	STREAM_GETL(msg, session_id);
-	STREAM_GETC(msg, notify);
 	STREAM_GETC(msg, synchronous);
-	if (notify)
-		client->notify_owner = true;
 
 	if (synchronous)
 		client->synchronous = true;

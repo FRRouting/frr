@@ -303,11 +303,13 @@ struct zclient {
 	/* Privileges to change socket values */
 	struct zebra_privs_t *privs;
 
-	/* Do we care about failure events for route install? */
-	bool receive_notify;
-
 	/* Is this a synchronous client? */
 	bool synchronous;
+
+	/* Auxiliary clients don't execute standard library handlers
+	 * (which otherwise would duplicate VRF/interface add/delete/etc.
+	 */
+	bool auxiliary;
 
 	/* BFD enabled with bfd_protocol_integration_init() */
 	bool bfd_integration;
@@ -834,11 +836,18 @@ extern char *zclient_evpn_dump_macip_flags(uint8_t flags, char *buf,
 enum zebra_neigh_state { ZEBRA_NEIGH_INACTIVE = 0, ZEBRA_NEIGH_ACTIVE = 1 };
 
 struct zclient_options {
-	bool receive_notify;
 	bool synchronous;
+
+	/* auxiliary = don't call common lib/ handlers that manage bits.
+	 * Those should only run once, on the "main" zclient, which this is
+	 * not.  (This is also set for synchronous clients.)
+	 */
+	bool auxiliary;
 };
 
-extern struct zclient_options zclient_options_default;
+extern const struct zclient_options zclient_options_default;
+extern const struct zclient_options zclient_options_sync;
+extern const struct zclient_options zclient_options_auxiliary;
 
 /* link layer representation for GRE like interfaces
  * ip_in is the underlay IP, ip_out is the tunnel dest
@@ -885,7 +894,7 @@ int zclient_neigh_ip_encode(struct stream *s, uint16_t cmd, union sockunion *in,
 extern uint32_t zclient_get_nhg_start(uint32_t proto);
 
 extern struct zclient *zclient_new(struct event_loop *m,
-				   struct zclient_options *opt,
+				   const struct zclient_options *opt,
 				   zclient_handler *const *handlers,
 				   size_t n_handlers);
 
