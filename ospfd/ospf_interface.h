@@ -300,7 +300,6 @@ extern int ospf_if_up(struct ospf_interface *oi);
 extern int ospf_if_down(struct ospf_interface *oi);
 
 extern int ospf_if_is_up(struct ospf_interface *oi);
-extern struct ospf_interface *ospf_if_exists(struct ospf_interface *oi);
 extern struct ospf_interface *ospf_if_lookup_by_lsa_pos(struct ospf_area *area,
 							int lsa_pos);
 extern struct ospf_interface *
