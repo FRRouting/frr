@@ -521,12 +521,29 @@ static void uptime2str(time_t uptime, char *buf, size_t bufsize)
 	frrtime_to_interval(cur, buf, bufsize);
 }
 
+static void show_nexthop_detail_group_helper(struct vty *vty,
+					     struct route_entry *re,
+					     struct nexthop_group *nhg)
+{
+	struct nexthop *nexthop;
+
+	for (ALL_NEXTHOPS_PTR(nhg, nexthop)) {
+		/* Use helper to format each nexthop */
+		show_nexthop_detail_helper(vty, re, nexthop,
+					   false /*not backup*/);
+		vty_out(vty, "\n");
+
+		/* Include backup(s), if present */
+		if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_HAS_BACKUP))
+			show_nh_backup_helper(vty, re, nexthop);
+	}
+}
+
 /* New RIB.  Detailed information for IPv4 route. */
 static void vty_show_ip_route_detail(struct vty *vty, struct route_node *rn,
 				     int mcast, bool use_fib, bool show_ng)
 {
 	struct route_entry *re;
-	struct nexthop *nexthop;
 	char buf[SRCDEST2STR_BUFFER];
 	struct zebra_vrf *zvrf;
 	rib_dest_t *dest;
@@ -588,19 +605,68 @@ static void vty_show_ip_route_detail(struct vty *vty, struct route_node *rn,
 					re->nhe_installed_id);
 		}
 
-		for (ALL_NEXTHOPS(re->nhe->nhg, nexthop)) {
-			/* Use helper to format each nexthop */
-			show_nexthop_detail_helper(vty, re, nexthop,
-						   false /*not backup*/);
-			vty_out(vty, "\n");
-
-			/* Include backup(s), if present */
-			if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_HAS_BACKUP))
-				show_nh_backup_helper(vty, re, nexthop);
-		}
+		show_nexthop_detail_group_helper(vty, re, &re->nhe->nhg);
 		zebra_show_ip_route_opaque(vty, re, NULL);
 
 		vty_out(vty, "\n");
+	}
+}
+
+static void show_route_nexthop_helper_specific(
+	struct vty *vty, struct route_entry *re, const struct nexthop *nexthop,
+	bool *first_p, bool is_fib, bool nhg_from_backup, int len, char *up_str)
+{
+	if (*first_p) {
+		*first_p = false;
+	} else if (nhg_from_backup) {
+		vty_out(vty, "  b%c%*c",
+			re_status_output_char(re, nexthop, is_fib),
+			len - 3 + (2 * nexthop_level(nexthop)), ' ');
+	} else {
+		vty_out(vty, "  %c%*c",
+			re_status_output_char(re, nexthop, is_fib),
+			len - 3 + (2 * nexthop_level(nexthop)), ' ');
+	}
+
+	show_route_nexthop_helper(vty, re, nexthop);
+	vty_out(vty, ", %s\n", up_str);
+}
+
+static void show_route_nexthop_group_helper(struct vty *vty,
+					    struct route_entry *re,
+					    const struct nexthop_group *nhg,
+					    bool is_fib, int len)
+{
+	const struct nexthop *nexthop;
+	bool star_p = false;
+
+	for (ALL_NEXTHOPS_PTR(nhg, nexthop)) {
+		if (is_fib)
+			star_p = CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB);
+
+		/* TODO -- it'd be nice to be able to include
+		 * the entire list of backups, *and* include the
+		 * real installation state.
+		 */
+		vty_out(vty, "  b%c %*c", (star_p ? '*' : ' '),
+			len - 3 + (2 * nexthop_level(nexthop)), ' ');
+		show_route_nexthop_helper(vty, re, nexthop);
+		vty_out(vty, "\n");
+	}
+}
+
+static void show_nexthop_group_json_helper(json_object *json_nexthops,
+					   const struct nexthop_group *nhg,
+					   struct route_entry *re)
+{
+	const struct nexthop *nexthop;
+	json_object *json_nexthop = NULL;
+
+	for (ALL_NEXTHOPS_PTR(nhg, nexthop)) {
+		json_nexthop = json_object_new_object();
+		show_nexthop_json_helper(json_nexthop, nexthop, re);
+
+		json_object_array_add(json_nexthops, json_nexthop);
 	}
 }
 
@@ -608,11 +674,10 @@ static void vty_show_ip_route(struct vty *vty, struct route_node *rn,
 			      struct route_entry *re, json_object *json,
 			      bool is_fib, bool show_ng)
 {
-	const struct nexthop *nexthop;
+	struct nexthop *nexthop;
 	int len = 0;
 	char buf[SRCDEST2STR_BUFFER];
 	json_object *json_nexthops = NULL;
-	json_object *json_nexthop = NULL;
 	json_object *json_route = NULL;
 	const rib_dest_t *dest = rib_dest_from_rnode(rn);
 	const struct nexthop_group *nhg;
@@ -701,14 +766,7 @@ static void vty_show_ip_route(struct vty *vty, struct route_node *rn,
 
 		json_object_string_add(json_route, "uptime", up_str);
 
-		for (ALL_NEXTHOPS_PTR(nhg, nexthop)) {
-			json_nexthop = json_object_new_object();
-			show_nexthop_json_helper(json_nexthop,
-						 nexthop, re);
-
-			json_object_array_add(json_nexthops,
-					      json_nexthop);
-		}
+		show_nexthop_group_json_helper(json_nexthops, nhg, re);
 
 		json_object_object_add(json_route, "nexthops", json_nexthops);
 
@@ -721,14 +779,7 @@ static void vty_show_ip_route(struct vty *vty, struct route_node *rn,
 		if (nhg && nhg->nexthop) {
 			json_nexthops = json_object_new_array();
 
-			for (ALL_NEXTHOPS_PTR(nhg, nexthop)) {
-				json_nexthop = json_object_new_object();
-
-				show_nexthop_json_helper(json_nexthop,
-							 nexthop, re);
-				json_object_array_add(json_nexthops,
-						      json_nexthop);
-			}
+			show_nexthop_group_json_helper(json_nexthops, nhg, re);
 
 			json_object_object_add(json_route, "backupNexthops",
 					       json_nexthops);
@@ -777,22 +828,10 @@ static void vty_show_ip_route(struct vty *vty, struct route_node *rn,
 		len += vty_out(vty, " (%u)", re->nhe_id);
 
 	/* Nexthop information. */
-	for (ALL_NEXTHOPS_PTR(nhg, nexthop)) {
-		if (first_p) {
-			first_p = false;
-		} else if (nhg_from_backup) {
-			vty_out(vty, "  b%c%*c",
-				re_status_output_char(re, nexthop, is_fib),
-				len - 3 + (2 * nexthop_level(nexthop)), ' ');
-		} else {
-			vty_out(vty, "  %c%*c",
-				re_status_output_char(re, nexthop, is_fib),
-				len - 3 + (2 * nexthop_level(nexthop)), ' ');
-		}
-
-		show_route_nexthop_helper(vty, re, nexthop);
-		vty_out(vty, ", %s\n", up_str);
-	}
+	for (ALL_NEXTHOPS_PTR(nhg, nexthop))
+		show_route_nexthop_helper_specific(vty, re, nexthop, &first_p,
+						   is_fib, nhg_from_backup, len,
+						   up_str);
 
 	/* If we only had backup nexthops, we're done */
 	if (nhg_from_backup)
@@ -808,23 +847,7 @@ static void vty_show_ip_route(struct vty *vty, struct route_node *rn,
 		return;
 
 	/* Print backup info */
-	for (ALL_NEXTHOPS_PTR(nhg, nexthop)) {
-		bool star_p = false;
-
-		if (is_fib)
-			star_p = CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB);
-
-		/* TODO -- it'd be nice to be able to include
-		 * the entire list of backups, *and* include the
-		 * real installation state.
-		 */
-		vty_out(vty, "  b%c %*c",
-			(star_p ? '*' : ' '),
-			len - 3 + (2 * nexthop_level(nexthop)),	' ');
-		show_route_nexthop_helper(vty, re, nexthop);
-		vty_out(vty, "\n");
-	}
-
+	show_route_nexthop_group_helper(vty, re, nhg, is_fib, len);
 }
 
 static void vty_show_ip_route_detail_json(struct vty *vty,
