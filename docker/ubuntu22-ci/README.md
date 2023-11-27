@@ -11,43 +11,43 @@ docker build -t frr-ubuntu22:latest -f docker/ubuntu-ci/Dockerfile .
 # Running Full Topotest
 
 ```
-docker run --init -it --privileged --name frr -v /lib/modules:/lib/modules frr-ubuntu22:latest bash -c 'cd ~/frr/tests/topotests ; sudo pytest -nauto --dist=loadfile'
+docker run --init -it --privileged --name frr-ubuntu22 -v /lib/modules:/lib/modules frr-ubuntu22:latest bash -c 'cd ~/frr/tests/topotests ; sudo pytest -nauto --dist=loadfile'
 ```
 
 # Extract results from the above run into `run-results` dir and analyze
 
 ```
-tests/topotest/analyze.py -C frr -Ar run-results
+tests/topotests/analyze.py -C frr-ubuntu22 -Ar run-results
 ```
 
 # Running
 
 ```
-docker run -d --init --privileged --name frr --mount type=bind,source=/lib/modules,target=/lib/modules frr-ubuntu22:latest
+docker run -d --init --privileged --name frr-ubuntu22 --mount type=bind,source=/lib/modules,target=/lib/modules frr-ubuntu22:latest
 ```
 
 # make check
 
 ```
-docker exec frr bash -c 'cd ~/frr ; make check'
+docker exec frr-ubuntu22 bash -c 'cd ~/frr ; make check'
 ```
 
 # interactive bash
 
 ```
-docker exec -it frr bash
+docker exec -it frr-ubuntu22 bash
 ```
 
 # topotest -- when Host O/S is Ubuntu only
 
 ```
-docker exec frr bash -c 'cd ~/frr/tests/topotests/ospf-topo1 ; sudo pytest test_ospf_topo1.py'
+docker exec frr-ubuntu22 bash -c 'cd ~/frr/tests/topotests/ospf_topo1 ; sudo pytest test_ospf_topo1.py'
 ```
 
 # stop & remove container
 
 ```
-docker stop frr ; docker rm frr
+docker stop frr-ubuntu22 ; docker rm frr-ubuntu22
 ```
 
 # remove image
