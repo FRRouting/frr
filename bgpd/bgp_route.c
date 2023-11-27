@@ -14879,6 +14879,8 @@ static int peer_adj_routes(struct vty *vty, struct peer *peer, afi_t afi,
 	json_object *json = NULL;
 	json_object *json_ar = NULL;
 	bool use_json = CHECK_FLAG(show_flags, BGP_SHOW_OPT_JSON);
+	bool first = true;
+	struct update_subgroup *subgrp;
 
 	/* Init BGP headers here so they're only displayed once
 	 * even if 'table' is 2-tier (MPLS_VPN, ENCAP, EVPN).
@@ -14947,6 +14949,28 @@ static int peer_adj_routes(struct vty *vty, struct peer *peer, afi_t afi,
 	else
 		table = bgp->rib[afi][safi];
 
+	subgrp = peer_subgroup(peer, afi, safi);
+	if (use_json) {
+		if (type == bgp_show_adj_route_advertised || type == bgp_show_adj_route_received) {
+			if (header1) {
+				int version = table ? table->version : 0;
+				vty_out(vty, "\"bgpTableVersion\":%d", version);
+				vty_out(vty, ",\"bgpLocalRouterId\":\"%pI4\"", &bgp->router_id);
+				vty_out(vty, ",\"defaultLocPrf\":%u", bgp->default_local_pref);
+				vty_out(vty, ",\"localAS\":%u", bgp->as);
+				if (type == bgp_show_adj_route_advertised && subgrp &&
+				    CHECK_FLAG(subgrp->sflags, SUBGRP_STATUS_DEFAULT_ORIGINATE))
+					vty_out(vty, ",\"bgpOriginatingDefaultNetwork\":\"%s\"",
+						(afi == AFI_IP) ? "0.0.0.0/0" : "::/0");
+			}
+
+			if (type == bgp_show_adj_route_advertised)
+				vty_out(vty, ",\"advertisedRoutes\": ");
+			if (type == bgp_show_adj_route_received)
+				vty_out(vty, ",\"receivedRoutes\": ");
+		}
+	}
+
 	if ((safi == SAFI_MPLS_VPN) || (safi == SAFI_ENCAP)
 	    || (safi == SAFI_EVPN)) {
 
@@ -14965,6 +14989,7 @@ static int peer_adj_routes(struct vty *vty, struct peer *peer, afi_t afi,
 				json_routes = json_object_new_object();
 
 			const struct prefix_rd *prd;
+
 			prd = (const struct prefix_rd *)bgp_dest_get_prefix(
 				dest);
 
@@ -14978,34 +15003,56 @@ static int peer_adj_routes(struct vty *vty, struct peer *peer, afi_t afi,
 				       &filtered_count_per_rd);
 
 			/* Don't include an empty RD in the output! */
-			if (json_routes && (output_count_per_rd > 0))
-				json_object_object_add(json_ar, rd_str,
-						       json_routes);
+			if (json_routes && (output_count_per_rd > 0) && use_json) {
+				if (type == bgp_show_adj_route_advertised ||
+				    type == bgp_show_adj_route_received) {
+					if (first) {
+						vty_out(vty, "\"%s\":", rd_str);
+						first = false;
+					} else {
+						vty_out(vty, ",\"%s\":", rd_str);
+					}
+					vty_json_no_pretty(vty, json_routes);
+				} else {
+					json_object_object_add(json_ar, rd_str, json_routes);
+				}
+			}
 
 			output_count += output_count_per_rd;
 			filtered_count += filtered_count_per_rd;
 		}
-	} else
+	} else {
 		show_adj_route(vty, peer, table, afi, safi, type, rmap_name,
 			       json, json_ar, show_flags, &header1, &header2,
 			       rd_str, match, &output_count, &filtered_count);
 
-	if (use_json) {
-		if (type == bgp_show_adj_route_advertised)
-			json_object_object_add(json, "advertisedRoutes",
-					       json_ar);
-		else
-			json_object_object_add(json, "receivedRoutes", json_ar);
-		json_object_int_add(json, "totalPrefixCounter", output_count);
-		json_object_int_add(json, "filteredPrefixCounter",
-				    filtered_count);
+		if (use_json) {
+			if (type == bgp_show_adj_route_advertised ||
+			    type == bgp_show_adj_route_received) {
+				vty_json_no_pretty(vty, json_ar);
+			}
+		}
+	}
 
-                /*
-                 * This is an extremely expensive operation at scale
-                 * and non-pretty reduces memory footprint significantly.
-                 */
-                vty_json_no_pretty(vty, json);
-        } else if (output_count > 0) {
+	if (use_json) {
+		if (type == bgp_show_adj_route_advertised || type == bgp_show_adj_route_received) {
+			vty_out(vty, ",\"totalPrefixCounter\":%lu", output_count);
+			vty_out(vty, ",\"filteredPrefixCounter\":%lu", filtered_count);
+			json_object_free(json);
+		} else {
+			/* for bgp_show_adj_route_filtered & bgp_show_adj_route_bestpath type */
+			json_object_object_add(json, "receivedRoutes", json_ar);
+			json_object_int_add(json, "totalPrefixCounter", output_count);
+			json_object_int_add(json, "filteredPrefixCounter", filtered_count);
+		}
+
+		/*
+		 * This is an extremely expensive operation at scale
+		 * and non-pretty reduces memory footprint significantly.
+		 */
+		if ((type != bgp_show_adj_route_advertised) && (type != bgp_show_adj_route_received))
+			vty_json_no_pretty(vty, json);
+	} else if (output_count > 0) {
 		if (!match && filtered_count > 0)
 			vty_out(vty,
 				"\nTotal number of prefixes %ld (%ld filtered)\n",
@@ -15108,6 +15155,7 @@ DEFPY(show_ip_bgp_instance_neighbor_advertised_route,
 	uint16_t show_flags = 0;
 	struct listnode *node;
 	struct bgp *abgp;
+	int ret;
 
 	if (detail || prefix_str)
 		SET_FLAG(show_flags, BGP_SHOW_OPT_ROUTES_DETAIL);
@@ -15149,9 +15197,22 @@ DEFPY(show_ip_bgp_instance_neighbor_advertised_route,
 	else if (argv_find(argv, argc, "filtered-routes", &idx))
 		type = bgp_show_adj_route_filtered;
 
-	if (!all)
-		return peer_adj_routes(vty, peer, afi, safi, type, route_map,
-				       prefix_str ? prefix : NULL, show_flags);
+	if (!all) {
+		if (uj)
+			if (type == bgp_show_adj_route_advertised ||
+			    type == bgp_show_adj_route_received)
+				vty_out(vty, "{\n");
+
+		ret = peer_adj_routes(vty, peer, afi, safi, type, route_map,
+				      prefix_str ? prefix : NULL, show_flags);
+		if (uj)
+			if (type == bgp_show_adj_route_advertised ||
+			    type == bgp_show_adj_route_received)
+				vty_out(vty, "}\n");
+
+		return ret;
+	}
+
 	if (uj)
 		vty_out(vty, "{\n");
 
