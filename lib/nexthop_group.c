@@ -81,7 +81,8 @@ uint8_t nexthop_group_nexthop_num(const struct nexthop_group *nhg)
 	return num;
 }
 
-uint8_t nexthop_group_nexthop_num_no_recurse(const struct nexthop_group *nhg)
+static uint8_t
+nexthop_group_nexthop_num_no_recurse(const struct nexthop_group *nhg)
 {
 	struct nexthop *nhop;
 	uint8_t num = 0;
