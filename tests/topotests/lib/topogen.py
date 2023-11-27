@@ -1209,6 +1209,10 @@ class TopoExaBGP(TopoHost):
         self.run("chmod 644 /etc/exabgp/*")
         self.run("chmod a+x /etc/exabgp/*.py")
         self.run("chown -R exabgp:exabgp /etc/exabgp")
+        self.run("[ -p /var/run/exabgp.in ] || mkfifo /var/run/exabgp.in")
+        self.run("[ -p /var/run/exabgp.out ] || mkfifo /var/run/exabgp.out")
+        self.run("chown exabgp:exabgp /var/run/exabgp.{in,out}")
+        self.run("chmod 600 /var/run/exabgp.{in,out}")
 
         log_dir = os.path.join(self.logdir, self.name)
         self.run("chmod 777 {}".format(log_dir))
