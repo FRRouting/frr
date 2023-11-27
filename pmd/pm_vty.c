@@ -296,7 +296,7 @@ DEFPY(pm_remove_session, pm_remove_session_cmd,
 }
 
 DEFPY(pm_packet_interval, pm_packet_interval_cmd,
-      "[no] interval [(1-65535)$freq]",
+      "[no] interval [(1-65535000)$freq]",
       NO_STR
       "Interval between each emission\n"
       "Interval in milliseconds\n")
