@@ -427,10 +427,12 @@ void ospf_delete_opaque_functab(uint8_t lsa_type, uint8_t opaque_type)
 				if (functab->oipt != NULL)
 					free_opaque_info_per_type(functab->oipt,
 								  true);
-				/* Dequeue listnode entry from the list. */
+				/* Dequeue listnode entry from the function table
+				 * list coreesponding to the opaque LSA type.
+				 * Note that the list deletion callback frees
+				 * the functab entry memory.
+				 */
 				listnode_delete(funclist, functab);
-
-				XFREE(MTYPE_OSPF_OPAQUE_FUNCTAB, functab);
 				break;
 			}
 		}
@@ -614,6 +616,17 @@ static void free_opaque_info_per_type(struct opaque_info_per_type *oipt,
 		}
 		listnode_delete(l, oipt);
 	}
+
+	/*
+	 * Delete the function table corresponding to the LSA type and opaque type
+	 * as well. The pointer to the opaque per-type information structure in
+	 * the function table structure be set to NULL to avoid recursion during
+	 * deletion.
+	 */
+	if (oipt->functab) {
+		oipt->functab->oipt = NULL;
+		ospf_delete_opaque_functab(oipt->lsa_type, oipt->opaque_type);
+	}
 	XFREE(MTYPE_OPAQUE_INFO_PER_TYPE, oipt);
 	return;
 }
@@ -744,6 +757,44 @@ int ospf_opaque_is_owned(struct ospf_lsa *lsa)
 	struct opaque_info_per_type *oipt = lookup_opaque_info_by_type(lsa);
 
 	return (oipt != NULL && lookup_opaque_info_by_id(oipt, lsa) != NULL);
+}
+
+/*
+ * Cleanup Link-Local LSAs assocaited with an interface that is being deleted.
+ * Since these LSAs are stored in the area link state database (LSDB) as opposed
+ * to a separate per-interface, they must be deleted from the area database.
+ * Since their flooding scope is solely the deleted OSPF interface, there is no
+ * need to attempt to flush them from the routing domain. For link local LSAs
+ * originated via the OSPF server API, LSA deletion before interface deletion
+ * is required so that the callback can access the OSPF interface address.
+ */
+void ospf_opaque_type9_lsa_if_cleanup(struct ospf_interface *oi)
+{
+	struct route_node *rn;
+	struct ospf_lsdb *lsdb;
+	struct ospf_lsa *lsa;
+
+	lsdb = oi->area->lsdb;
+	LSDB_LOOP (OPAQUE_LINK_LSDB(oi->area), rn, lsa)
+		/*
+		 * While the LSA shouldn't be referenced on any LSA
+		 * lists since the flooding scoped is confined to the
+		 * interface being deleted, clear the pointer to the
+		 * deleted interface for safety's sake after it is
+		 * removed from the area LSDB.
+		 */
+		if (lsa->oi == oi) {
+			if (IS_DEBUG_OSPF_EVENT)
+				zlog_debug("Delete Type-9 Opaque-LSA on interface delete: [opaque-type=%u, opaque-id=%x]",
+					   GET_OPAQUE_TYPE(
+						   ntohl(lsa->data->id.s_addr)),
+					   GET_OPAQUE_ID(ntohl(
+						   lsa->data->id.s_addr)));
+			ospf_lsa_lock(lsa);
+			ospf_lsdb_delete(lsdb, lsa);
+			lsa->oi = NULL;
+			ospf_lsa_unlock(&lsa);
+		}
 }
 
 /*------------------------------------------------------------------------*
