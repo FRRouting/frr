@@ -260,7 +260,7 @@ static void show_nh_backup_helper(struct vty *vty,
 	/* Double-check that there _is_ a backup */
 	if (!CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_HAS_BACKUP) ||
 	    re->nhe->backup_info == NULL || re->nhe->backup_info->nhe == NULL ||
-	    re->nhe->backup_info->nhe->nhg.nexthop == NULL)
+	    nexthop_group_nexthop_num(&re->nhe->backup_info->nhe->nhg) == 0)
 		return;
 
 	/* Locate the backup nexthop(s) */
@@ -848,7 +848,7 @@ static void vty_show_ip_route(struct vty *vty, struct route_node *rn,
 	 * and there are no installed primary nexthops, see if there are any
 	 * backup nexthops and start with those.
 	 */
-	if (is_fib && nhg->nexthop == NULL) {
+	if (is_fib && nexthop_group_nexthop_num(nhg) == 0) {
 		nhg = rib_get_fib_backup_nhg(re);
 		nhg_from_backup = true;
 	}
