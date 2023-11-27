@@ -4175,6 +4175,16 @@ static void _route_entry_dump_nh(const struct route_entry *re,
 
 }
 
+static void _route_entry_dump_nhg(const struct route_entry *re,
+				  const char *straddr,
+				  const struct nexthop_group *nhg)
+{
+	struct nexthop *nhop;
+
+	for (ALL_NEXTHOPS_PTR(nhg, nhop))
+		_route_entry_dump_nh(re, straddr, nhop);
+}
+
 /* This function dumps the contents of a given RE entry into
  * standard debug log. Calling function name and IP prefix in
  * question are passed as 1st and 2nd arguments.
@@ -4189,7 +4199,6 @@ void _route_entry_dump(const char *func, union prefixconstptr pp,
 	char srcaddr[PREFIX_STRLEN];
 	char flags_buf[128];
 	char status_buf[128];
-	struct nexthop *nexthop;
 	struct vrf *vrf = vrf_lookup_by_id(re->vrf_id);
 	struct nexthop_group *nhg;
 
@@ -4215,15 +4224,13 @@ void _route_entry_dump(const char *func, union prefixconstptr pp,
 		   nexthop_group_active_nexthop_num(&(re->nhe->nhg)));
 
 	/* Dump nexthops */
-	for (ALL_NEXTHOPS(re->nhe->nhg, nexthop))
-		_route_entry_dump_nh(re, straddr, nexthop);
+	_route_entry_dump_nhg(re, straddr, &re->nhe->nhg);
 
 	if (zebra_nhg_get_backup_nhg(re->nhe)) {
 		zlog_debug("%s: backup nexthops:", straddr);
 
 		nhg = zebra_nhg_get_backup_nhg(re->nhe);
-		for (ALL_NEXTHOPS_PTR(nhg, nexthop))
-			_route_entry_dump_nh(re, straddr, nexthop);
+		_route_entry_dump_nhg(re, straddr, nhg);
 	}
 
 	zlog_debug("%s: dump complete", straddr);
