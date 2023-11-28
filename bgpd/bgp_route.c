@@ -2758,15 +2758,15 @@ void bgp_best_selection(struct bgp *bgp, struct bgp_dest *dest,
 			/* reap REMOVED routes, if needs be
 			 * selected route must stay for a while longer though
 			 */
-			if (CHECK_FLAG(pi->flags, BGP_PATH_REMOVED)
-			    && (pi != old_select))
-				bgp_path_info_reap(dest, pi);
-
 			if (debug)
 				zlog_debug(
 					"%s: %pBD(%s) pi from %s in holddown",
 					__func__, dest, bgp->name_pretty,
 					pi->peer->host);
+
+			if (CHECK_FLAG(pi->flags, BGP_PATH_REMOVED) &&
+			    (pi != old_select))
+				bgp_path_info_reap(dest, pi);
 
 			continue;
 		}
