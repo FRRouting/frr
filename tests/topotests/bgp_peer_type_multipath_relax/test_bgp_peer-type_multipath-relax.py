@@ -62,6 +62,19 @@ from lib.topolog import logger
 pytestmark = [pytest.mark.bgpd, pytest.mark.staticd]
 
 
+# Prefixes used in the test
+prefix1 = "203.0.113.0/30"
+prefix2 = "203.0.113.4/30"
+prefix3 = "203.0.113.8/30"
+# Next hops used for iBGP/confed routes
+resolved_nh1 = "198.51.100.1"
+resolved_nh2 = "198.51.100.2"
+# BGP route used for recursive resolution
+bgp_resolving_prefix = "198.51.100.0/24"
+# Next hop that will require non-connected recursive resolution
+ebgp_resolved_nh = "198.51.100.10"
+
+
 def build_topo(tgen):
     "Build function"
 
@@ -125,36 +138,26 @@ def teardown_module(mod):
     tgen.stop_topology()
 
 
-def test_bgp_peer_type_multipath_relax():
+def exabgp_cmd(peer, cmd):
+    pipe = open("/run/exabgp_{}.in".format(peer), "w")
+    with pipe:
+        pipe.write(cmd)
+        pipe.close()
+
+
+def test_bgp_peer_type_multipath_relax_test1():
     tgen = get_topogen()
 
     # Don't run this test if we have any failure.
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    def exabgp_cmd(peer, cmd):
-        pipe = open("/run/exabgp_{}.in".format(peer), "w")
-        with pipe:
-            pipe.write(cmd)
-            pipe.close()
-
-    # Prefixes used in the test
-    prefix1 = "203.0.113.0/30"
-    prefix2 = "203.0.113.4/30"
-    prefix3 = "203.0.113.8/30"
-    # Next hops used for iBGP/confed routes
-    resolved_nh1 = "198.51.100.1"
-    resolved_nh2 = "198.51.100.2"
-    # BGP route used for recursive resolution
-    bgp_resolving_prefix = "198.51.100.0/24"
-    # Next hop that will require non-connected recursive resolution
-    ebgp_resolved_nh = "198.51.100.10"
+    r1 = tgen.gears["r1"]
 
     # Send a non-connected route to resolve others
     exabgp_cmd(
         "peer3", "announce route {} next-hop self\n".format(bgp_resolving_prefix)
     )
-    router = tgen.gears["r1"]
 
     # It seems that if you write to the exabgp socket too quickly in
     #  succession, requests get lost. So verify prefix1 now instead of
@@ -177,13 +180,23 @@ def test_bgp_peer_type_multipath_relax():
     expected = json.loads(open(reffile).read())
     test_func = functools.partial(
         topotest.router_json_cmp,
-        router,
+        r1,
         "show ip bgp {} json".format(prefix1),
         expected,
     )
     _, res = topotest.run_and_expect(test_func, None, count=10, wait=1)
     assertMsg = "Mixed-type multipath not found"
     assert res is None, assertMsg
+
+
+def test_bgp_peer_type_multipath_relax_test2():
+    tgen = get_topogen()
+
+    # Don't run this test if we have any failure.
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r1 = tgen.gears["r1"]
 
     logger.info("Create and verify eBGP and iBGP+confed multipaths")
     exabgp_cmd(
@@ -203,37 +216,65 @@ def test_bgp_peer_type_multipath_relax():
     reffile = os.path.join(CWD, "r1/multipath.json")
     expected = json.loads(open(reffile).read())
     test_func = functools.partial(
-        topotest.router_json_cmp, router, "show ip bgp json", expected
+        topotest.router_json_cmp, r1, "show ip bgp json", expected
     )
     _, res = topotest.run_and_expect(test_func, None, count=10, wait=1)
     assertMsg = "Not all expected multipaths found"
     assert res is None, assertMsg
 
+
+def test_bgp_peer_type_multipath_relax_test3():
+    tgen = get_topogen()
+
+    # Don't run this test if we have any failure.
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r1 = tgen.gears["r1"]
+
     logger.info("Toggle peer-type multipath-relax and verify the changes")
-    router.vtysh_cmd(
+    r1.vtysh_cmd(
         "conf\n router bgp 64510\n no bgp bestpath peer-type multipath-relax\n"
     )
     # This file verifies "multipath" is not set
     reffile = os.path.join(CWD, "r1/not-multipath.json")
     expected = json.loads(open(reffile).read())
     test_func = functools.partial(
-        topotest.router_json_cmp, router, "show ip bgp json", expected
+        topotest.router_json_cmp, r1, "show ip bgp json", expected
     )
     _, res = topotest.run_and_expect(test_func, None, count=10, wait=1)
     assertMsg = "Disabling peer-type multipath-relax did not take effect"
     assert res is None, assertMsg
 
-    router.vtysh_cmd(
-        "conf\n router bgp 64510\n bgp bestpath peer-type multipath-relax\n"
-    )
+
+def test_bgp_peer_type_multipath_relax_test4():
+    tgen = get_topogen()
+
+    # Don't run this test if we have any failure.
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r1 = tgen.gears["r1"]
+
+    r1.vtysh_cmd("conf\n router bgp 64510\n bgp bestpath peer-type multipath-relax\n")
     reffile = os.path.join(CWD, "r1/multipath.json")
     expected = json.loads(open(reffile).read())
     test_func = functools.partial(
-        topotest.router_json_cmp, router, "show ip bgp json", expected
+        topotest.router_json_cmp, r1, "show ip bgp json", expected
     )
     _, res = topotest.run_and_expect(test_func, None, count=10, wait=1)
     assertMsg = "Reenabling peer-type multipath-relax did not take effect"
     assert res is None, assertMsg
+
+
+def test_bgp_peer_type_multipath_relax_test5():
+    tgen = get_topogen()
+
+    # Don't run this test if we have any failure.
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r1 = tgen.gears["r1"]
 
     logger.info("Check recursive resolution of eBGP next hops is not affected")
     # eBGP next hop resolution rejects recursively resolved next hops by
@@ -245,13 +286,23 @@ def test_bgp_peer_type_multipath_relax():
     expected = json.loads(open(reffile).read())
     test_func = functools.partial(
         topotest.router_json_cmp,
-        router,
+        r1,
         "show ip bgp {} json".format(prefix3),
         expected,
     )
     _, res = topotest.run_and_expect(test_func, None, count=10, wait=1)
     assertMsg = "Recursive eBGP next hop not as expected for {}".format(prefix3)
     assert res is None, assertMsg
+
+
+def test_bgp_peer_type_multipath_relax_test6():
+    tgen = get_topogen()
+
+    # Don't run this test if we have any failure.
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r1 = tgen.gears["r1"]
 
     exabgp_cmd(
         "peer4", "announce route {} next-hop {}\n".format(prefix1, ebgp_resolved_nh)
@@ -260,7 +311,7 @@ def test_bgp_peer_type_multipath_relax():
     expected = json.loads(open(reffile).read())
     test_func = functools.partial(
         topotest.router_json_cmp,
-        router,
+        r1,
         "show ip bgp {} json".format(prefix1),
         expected,
     )
@@ -268,14 +319,24 @@ def test_bgp_peer_type_multipath_relax():
     assertMsg = "Recursive eBGP next hop not as expected for {}".format(prefix1)
     assert res is None, assertMsg
 
+
+def test_bgp_peer_type_multipath_relax_test7():
+    tgen = get_topogen()
+
+    # Don't run this test if we have any failure.
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r1 = tgen.gears["r1"]
+
     # When other config allows recursively resolved eBGP next hops,
     # such next hops in all-eBGP multipaths should be valid
-    router.vtysh_cmd("conf\n router bgp 64510\n neighbor 10.0.4.2 ebgp-multihop\n")
+    r1.vtysh_cmd("conf\n router bgp 64510\n neighbor 10.0.4.2 ebgp-multihop\n")
     reffile = os.path.join(CWD, "r1/prefix3-recursive.json")
     expected = json.loads(open(reffile).read())
     test_func = functools.partial(
         topotest.router_json_cmp,
-        router,
+        r1,
         "show ip bgp {} json".format(prefix3),
         expected,
     )
@@ -287,13 +348,23 @@ def test_bgp_peer_type_multipath_relax():
     expected = json.loads(open(reffile).read())
     test_func = functools.partial(
         topotest.router_json_cmp,
-        router,
+        r1,
         "show ip bgp {} json".format(prefix1),
         expected,
     )
     _, res = topotest.run_and_expect(test_func, None, count=10, wait=1)
     assertMsg = "Recursive eBGP next hop not as expected for {}".format(prefix1)
     assert res is None, assertMsg
+
+
+def test_bgp_peer_type_multipath_relax_test8():
+    tgen = get_topogen()
+
+    # Don't run this test if we have any failure.
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r1 = tgen.gears["r1"]
 
     logger.info("Check mixed-type multipath next hop recursive resolution in FIB")
     # There are now two eBGP-learned routes with a recursively resolved next;
@@ -305,13 +376,23 @@ def test_bgp_peer_type_multipath_relax():
     expected = json.loads(open(reffile).read())
     test_func = functools.partial(
         topotest.router_json_cmp,
-        router,
+        r1,
         "show ip route {} json".format(prefix3),
         expected,
     )
     _, res = topotest.run_and_expect(test_func, None, count=10, wait=1)
     assertMsg = "FIB next hops mismatch for all-eBGP multipath"
     assert res is None, assertMsg
+
+
+def test_bgp_peer_type_multipath_relax_test9():
+    tgen = get_topogen()
+
+    # Don't run this test if we have any failure.
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r1 = tgen.gears["r1"]
 
     # check confed-external enables recursively resolved next hops by itself
     exabgp_cmd(
@@ -324,13 +405,23 @@ def test_bgp_peer_type_multipath_relax():
     expected = json.loads(open(reffile).read())
     test_func = functools.partial(
         topotest.router_json_cmp,
-        router,
+        r1,
         "show ip route {} json".format(prefix1),
         expected,
     )
     _, res = topotest.run_and_expect(test_func, None, count=10, wait=1)
     assertMsg = "FIB next hops mismatch for eBGP+confed-external multipath"
     assert res is None, assertMsg
+
+
+def test_bgp_peer_type_multipath_relax_test10():
+    tgen = get_topogen()
+
+    # Don't run this test if we have any failure.
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r1 = tgen.gears["r1"]
 
     # check iBGP by itself
     exabgp_cmd(
@@ -349,7 +440,7 @@ def test_bgp_peer_type_multipath_relax():
     expected = json.loads(open(reffile).read())
     test_func = functools.partial(
         topotest.router_json_cmp,
-        router,
+        r1,
         "show ip route {} json".format(prefix1),
         expected,
     )
