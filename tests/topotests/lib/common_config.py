@@ -14,6 +14,7 @@ import socket
 import subprocess
 import sys
 import traceback
+import configparser
 from collections import OrderedDict
 from copy import deepcopy
 from datetime import datetime, timedelta
@@ -21,12 +22,6 @@ from functools import wraps
 from re import search as re_search
 from time import sleep
 
-try:
-    # Imports from python2
-    import ConfigParser as configparser
-except ImportError:
-    # Imports from python3
-    import configparser
 
 from lib.micronet import comm_error
 from lib.topogen import TopoRouter, get_topogen
