@@ -3060,11 +3060,11 @@ address-family:
       access-list acl2 permit 192.0.3.0/24
       route-map rmap permit 10
        match address acl1
-       set extcommunity ty 65001:10
+       set extcommunity rt 65001:10
       !
       route-map rmap permit 20
        match address acl1
-       set extcommunity ty 65001:20
+       set extcommunity rt 65001:20
       !
       router bgp 65001 vrf vrf1
        !
