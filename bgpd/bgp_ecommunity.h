@@ -341,6 +341,7 @@ extern struct ecommunity *ecommunity_str2com(const char *, int, int);
 extern struct ecommunity *ecommunity_str2com_ipv6(const char *str, int type,
 						  int keyword_included);
 extern char *ecommunity_ecom2str(struct ecommunity *, int, int);
+extern bool ecommunity_has_route_target(struct ecommunity *ecom);
 extern void ecommunity_strfree(char **s);
 extern bool ecommunity_include(struct ecommunity *e1, struct ecommunity *e2);
 extern bool ecommunity_match(const struct ecommunity *,

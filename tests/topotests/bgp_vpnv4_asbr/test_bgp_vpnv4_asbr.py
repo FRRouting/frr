@@ -48,6 +48,10 @@ sys.path.append(os.path.join(CWD, "../"))
 # pylint: disable=C0413
 # Import topogen and topotest helpers
 from lib import topotest
+from lib.bgpcheck import (
+    check_show_bgp_vpn_prefix_found,
+    check_show_bgp_vpn_prefix_not_found,
+)
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
 from lib.checkping import check_ping
@@ -257,62 +261,6 @@ def mpls_table_check_entry(router, out_label, out_nexthop):
     return "{}, show mpls table, entry matching in_label {} out_label {} out_nexthop {} not found".format(
         router.name, in_label, out_label, out_nexthop
     )
-
-
-def check_show_bgp_vpn_prefix_found(
-    router, ipversion, prefix, rd, label=None, nexthop=None
-):
-    """
-    Check if a given vpn prefix is present in the BGP RIB
-    * 'router': the router to check BGP VPN RIB
-    * 'ipversion': The ip version to check: ipv4 or ipv6
-    * 'prefix': the IP prefix to check
-    * 'rd': the route distinguisher to check
-    * 'label: the label to check
-    """
-    output = json.loads(
-        router.vtysh_cmd("show bgp {} vpn {} json".format(ipversion, prefix))
-    )
-    if label:
-        if nexthop:
-            expected = {
-                rd: {
-                    "prefix": prefix,
-                    "paths": [{"remoteLabel": label, "nexthops": [{"ip": nexthop}]}],
-                }
-            }
-        else:
-            expected = {rd: {"prefix": prefix, "paths": [{"remoteLabel": label}]}}
-    else:
-        if nexthop:
-            expected = {
-                rd: {"prefix": prefix, "paths": [{"nexthops": [{"ip": nexthop}]}]}
-            }
-        else:
-            expected = {rd: {"prefix": prefix}}
-    return topotest.json_cmp(output, expected)
-
-
-def check_show_bgp_vpn_prefix_not_found(router, ipversion, prefix, rd, label=None):
-    """
-    Check if a given vpn prefix is not present in the BGP RIB
-    * 'router': the router to check BGP VPN RIB
-    * 'ipversion': The ip version to check: ipv4 or ipv6
-    * 'prefix': the IP prefix to check
-    * 'rd': the route distinguisher to check
-    * 'label: the label to check
-    """
-    output = json.loads(
-        router.vtysh_cmd("show bgp {} vpn {} json".format(ipversion, prefix))
-    )
-    if label:
-        expected = {rd: {"prefix": prefix, "paths": [{"remoteLabel": label}]}}
-    else:
-        expected = {rd: {"prefix": prefix}}
-    ret = topotest.json_cmp(output, expected)
-    if ret is None:
-        return "not good"
-    return None
 
 
 def check_show_mpls_table_entry_label_not_found(router, inlabel):

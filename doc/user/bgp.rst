@@ -3048,7 +3048,33 @@ address-family:
 
    Specifies the route-target list to be attached to a route (export) or the
    route-target list to match against (import) when exporting/importing between
-   the current unicast VRF and VPN.
+   the current unicast VRF and VPN. The `rt vpn export RTLIST` command is not
+   mandatory and can be replaced or completed by the `set extcommunity rt`
+   command in the route-map attached with the `route-map vpn export`. The below
+   configuration illustrates how the route target is selected based on the
+   prefixes, and not solely on vrf criterium:
+
+   .. code-block:: frr
+
+      access-list acl1 permit 192.0.2.0/24
+      access-list acl2 permit 192.0.3.0/24
+      route-map rmap permit 10
+       match address acl1
+       set extcommunity ty 65001:10
+      !
+      route-map rmap permit 20
+       match address acl1
+       set extcommunity ty 65001:20
+      !
+      router bgp 65001 vrf vrf1
+       !
+       address-family ipv4 unicast
+        rd vpn export 65001:1
+        import vpn
+        export vpn
+        rt vpn import 65001:1
+        route-map vpn export rmap
+
 
    The RTLIST is a space-separated list of route-targets, which are BGP
    extended community values as described in
