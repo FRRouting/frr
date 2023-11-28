@@ -882,6 +882,41 @@ def test_nexthop_groups():
 
     net["r1"].cmd('vtysh -c "sharp remove routes 10.10.10.10 1"')
 
+    ## child-group configration
+    net["r1"].cmd(
+        'vtysh -c "configure terminal" \
+        -c "nexthop-group GROUP1" \
+        -c "child-group ECMP1" \
+        -c "child-group ECMP2" \
+        -c "exit" \
+        -c "nexthop-group ECMP1" \
+        -c "nexthop 192.168.0.202 r1-eth0" \
+        -c "exit" \
+        -c "nexthop-group ECMP2" \
+        -c "nexthop 192.168.0.205 r1-eth0"'
+    )
+    sleep(1)
+    net["r1"].cmd('vtysh -c "sharp install routes 8.8.8.8 nexthop-group GROUP1 1\n"')
+    verify_route_nexthop_group("8.8.8.8/32", ecmp=2)
+
+    net["r1"].cmd(
+        'vtysh -c "configure terminal" \
+        -c "nexthop-group GROUP1" \
+        -c "no child-group ECMP2\n"'
+    )
+    sleep(1)
+    verify_route_nexthop_group("8.8.8.8/32", ecmp=1)
+    net["r1"].cmd(
+        'vtysh -c "configure terminal" \
+        -c "nexthop-group ECMP3" \
+        -c "nexthop 192.168.0.207 r1-eth0" \
+        -c "nexthop-group GROUP1" \
+        -c "child-group ECMP3" \
+        -c "child-group ECMP2"'
+    )
+    sleep(1)
+    verify_route_nexthop_group("8.8.8.8/32", ecmp=3)
+
     ## Remove all NHG routes
 
     net["r1"].cmd('vtysh -c "sharp remove routes 2.2.2.1 1"')
@@ -893,6 +928,7 @@ def test_nexthop_groups():
     net["r1"].cmd('vtysh -c "sharp remove routes 5.5.5.1 1"')
     net["r1"].cmd('vtysh -c "sharp remove routes 6.6.6.1 4"')
     net["r1"].cmd('vtysh -c "sharp remove routes 9.9.9.9 1"')
+    net["r1"].cmd('vtysh -c "sharp remove routes 8.8.8.8 1"')
     net["r1"].cmd('vtysh -c "c t" -c "no ip route 6.6.6.0/24 1.1.1.1"')
 
 
