@@ -3357,6 +3357,23 @@ static void mpls_lsp_uninstall_all_type(struct hash_bucket *bucket, void *ctxt)
 	mpls_lsp_uninstall_all(lsp_table, lsp, args->type);
 }
 
+static void mpls_ftn_uninstall_nhg(struct route_entry *re,
+				   struct nexthop_group *nhg,
+				   enum lsp_types_t lsp_type, bool *update)
+{
+	struct nexthop *nexthop;
+
+	for (nexthop = nhg->nexthop; nexthop; nexthop = nexthop->next) {
+		if (nexthop->nh_label_type != lsp_type)
+			continue;
+
+		nexthop_del_labels(nexthop);
+		SET_FLAG(re->status, ROUTE_ENTRY_CHANGED);
+		SET_FLAG(re->status, ROUTE_ENTRY_LABELS_CHANGED);
+		*update = true;
+	}
+}
+
 /*
  * Uninstall all FEC-To-NHLFE (FTN) bindings of the given address-family and
  * LSP type.
@@ -3367,7 +3384,6 @@ static void mpls_ftn_uninstall_all(struct zebra_vrf *zvrf,
 	struct route_table *table;
 	struct route_node *rn;
 	struct route_entry *re;
-	struct nexthop *nexthop;
 	struct nexthop_group *nhg;
 	bool update;
 
@@ -3385,34 +3401,13 @@ static void mpls_ftn_uninstall_all(struct zebra_vrf *zvrf,
 			new_nhe = zebra_nhe_copy(re->nhe, 0);
 
 			nhg = &new_nhe->nhg;
-			for (nexthop = nhg->nexthop; nexthop;
-			     nexthop = nexthop->next) {
-				if (nexthop->nh_label_type != lsp_type)
-					continue;
-
-				nexthop_del_labels(nexthop);
-				SET_FLAG(re->status, ROUTE_ENTRY_CHANGED);
-				SET_FLAG(re->status,
-					 ROUTE_ENTRY_LABELS_CHANGED);
-				update = true;
-			}
+			mpls_ftn_uninstall_nhg(re, nhg, lsp_type, &update);
 
 			/* Check for backup info and update that also */
 			nhg = zebra_nhg_get_backup_nhg(new_nhe);
-			if (nhg != NULL) {
-				for (nexthop = nhg->nexthop; nexthop;
-				     nexthop = nexthop->next) {
-					if (nexthop->nh_label_type != lsp_type)
-						continue;
-
-					nexthop_del_labels(nexthop);
-					SET_FLAG(re->status,
-						 ROUTE_ENTRY_CHANGED);
-					SET_FLAG(re->status,
-						 ROUTE_ENTRY_LABELS_CHANGED);
-					update = true;
-				}
-			}
+			if (nhg != NULL)
+				mpls_ftn_uninstall_nhg(re, nhg, lsp_type,
+						       &update);
 
 			if (CHECK_FLAG(re->status, ROUTE_ENTRY_LABELS_CHANGED))
 				mpls_zebra_nhe_update(re, afi, new_nhe);
