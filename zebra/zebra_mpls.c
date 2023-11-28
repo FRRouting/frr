@@ -3362,7 +3362,16 @@ static void mpls_ftn_uninstall_nhg(struct route_entry *re,
 				   enum lsp_types_t lsp_type, bool *update)
 {
 	struct nexthop *nexthop;
+	struct nexthop_group_id *nhgid;
 
+	if (CHECK_FLAG(nhg->flags, NEXTHOP_GROUP_TYPE_GROUP)) {
+		for (nhgid = nhg->group; nhgid; nhgid = nhgid->next) {
+			if (nhgid->nhg)
+				mpls_ftn_uninstall_nhg(re, nhgid->nhg, lsp_type,
+						       update);
+		}
+		return;
+	}
 	for (nexthop = nhg->nexthop; nexthop; nexthop = nexthop->next) {
 		if (nexthop->nh_label_type != lsp_type)
 			continue;
