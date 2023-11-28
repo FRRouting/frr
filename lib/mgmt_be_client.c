@@ -112,7 +112,11 @@ struct mgmt_be_client {
 #define FOREACH_BE_TXN_IN_LIST(client_ctx, txn)                                \
 	frr_each_safe (mgmt_be_txns, &(client_ctx)->txn_head, (txn))
 
-struct debug mgmt_dbg_be_client = {0, "Management backend client operations"};
+struct debug mgmt_dbg_be_client = {
+	.desc = "Management backend client operations"
+};
+
+struct mgmt_be_client *mgmt_be_client;
 
 static int mgmt_be_client_send_msg(struct mgmt_be_client *client_ctx,
 				   Mgmtd__BeMessage *be_msg)
@@ -820,22 +824,26 @@ static int mgmt_be_client_notify_disconenct(struct msg_conn *conn)
  * Debug Flags
  */
 
+static void mgmt_debug_client_be_set(uint32_t flags, bool set)
+{
+	DEBUG_FLAGS_SET(&mgmt_dbg_be_client, flags, set);
+
+	if (!mgmt_be_client)
+		return;
+
+	mgmt_be_client->client.conn.debug =
+		DEBUG_MODE_CHECK(&mgmt_dbg_be_client, DEBUG_MODE_ALL);
+}
+
 DEFPY(debug_mgmt_client_be, debug_mgmt_client_be_cmd,
       "[no] debug mgmt client backend",
       NO_STR DEBUG_STR MGMTD_STR
       "client\n"
       "backend\n")
 {
-	uint32_t mode = DEBUG_NODE2MODE(vty->node);
-
-	DEBUG_MODE_SET(&mgmt_dbg_be_client, mode, !no);
+	mgmt_debug_client_be_set(DEBUG_NODE2MODE(vty->node), !no);
 
 	return CMD_SUCCESS;
-}
-
-static void mgmt_debug_client_be_set_all(uint32_t flags, bool set)
-{
-	DEBUG_FLAGS_SET(&mgmt_dbg_be_client, flags, set);
 }
 
 static int mgmt_debug_be_client_config_write(struct vty *vty)
@@ -853,7 +861,8 @@ void mgmt_debug_be_client_show_debug(struct vty *vty)
 }
 
 static struct debug_callbacks mgmt_dbg_be_client_cbs = {
-	.debug_set_all = mgmt_debug_client_be_set_all};
+	.debug_set_all = mgmt_debug_client_be_set
+};
 
 static struct cmd_node mgmt_dbg_node = {
 	.name = "debug mgmt client backend",
@@ -867,8 +876,13 @@ struct mgmt_be_client *mgmt_be_client_create(const char *client_name,
 					     uintptr_t user_data,
 					     struct event_loop *event_loop)
 {
-	struct mgmt_be_client *client =
-		XCALLOC(MTYPE_MGMTD_BE_CLIENT, sizeof(*client));
+	struct mgmt_be_client *client;
+
+	if (mgmt_be_client)
+		return NULL;
+
+	client = XCALLOC(MTYPE_MGMTD_BE_CLIENT, sizeof(*client));
+	mgmt_be_client = client;
 
 	/* Only call after frr_init() */
 	assert(running_config);
@@ -902,6 +916,8 @@ void mgmt_be_client_lib_vty_init(void)
 
 void mgmt_be_client_destroy(struct mgmt_be_client *client)
 {
+	assert(client == mgmt_be_client);
+
 	MGMTD_BE_CLIENT_DBG("Destroying MGMTD Backend Client '%s'",
 			    client->name);
 
@@ -912,4 +928,6 @@ void mgmt_be_client_destroy(struct mgmt_be_client *client)
 
 	XFREE(MTYPE_MGMTD_BE_CLIENT_NAME, client->name);
 	XFREE(MTYPE_MGMTD_BE_CLIENT, client);
+
+	mgmt_be_client = NULL;
 }
