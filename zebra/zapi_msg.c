@@ -515,7 +515,16 @@ static int zsend_redistribute_route_nhg(const struct nexthop_group *nhg,
 	struct nexthop *nexthop;
 	struct zapi_nexthop *api_nh;
 	int count = 0;
+	struct nexthop_group_id *nhgid;
 
+	if (CHECK_FLAG(nhg->flags, NEXTHOP_GROUP_TYPE_GROUP)) {
+		for (nhgid = nhg->group; nhgid; nhgid = nhgid->next) {
+			if (nhgid->nhg)
+				count += zsend_redistribute_route_nhg(nhgid->nhg,
+								      api);
+		}
+		return count;
+	}
 	for (nexthop = nhg->nexthop; nexthop; nexthop = nexthop->next) {
 		if (!CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE))
 			continue;
