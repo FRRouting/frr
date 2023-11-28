@@ -1047,20 +1047,17 @@ static int vty_show_route_map(struct vty *vty, const char *name, bool use_json)
 {
 	struct route_map *map;
 	json_object *json = NULL;
-	json_object *json_proto = NULL;
 
-	if (use_json) {
+	if (use_json)
 		json = json_object_new_object();
-		json_proto = json_object_new_object();
-		json_object_object_add(json, frr_protonameinst, json_proto);
-	} else
+	else
 		vty_out(vty, "%s:\n", frr_protonameinst);
 
 	if (name) {
 		map = route_map_lookup_by_name(name);
 
 		if (map) {
-			vty_show_route_map_entry(vty, map, json_proto);
+			vty_show_route_map_entry(vty, map, json);
 		} else if (!use_json) {
 			vty_out(vty, "%s: 'route-map %s' not found\n",
 				frr_protonameinst, name);
@@ -1076,7 +1073,7 @@ static int vty_show_route_map(struct vty *vty, const char *name, bool use_json)
 		list_sort(maplist, sort_route_map);
 
 		for (ALL_LIST_ELEMENTS_RO(maplist, ln, map))
-			vty_show_route_map_entry(vty, map, json_proto);
+			vty_show_route_map_entry(vty, map, json);
 
 		list_delete(&maplist);
 	}
@@ -3141,13 +3138,13 @@ DEFPY (rmap_clear_counters,
 
 }
 
-DEFUN (rmap_show_name,
-       rmap_show_name_cmd,
-       "show route-map [WORD] [json]",
-       SHOW_STR
-       "route-map information\n"
-       "route-map name\n"
-       JSON_STR)
+DEFUN_NOSH (rmap_show_name,
+            rmap_show_name_cmd,
+            "show route-map [WORD] [json]",
+            SHOW_STR
+            "route-map information\n"
+            "route-map name\n"
+            JSON_STR)
 {
 	bool uj = use_json(argc, argv);
 	int idx = 0;

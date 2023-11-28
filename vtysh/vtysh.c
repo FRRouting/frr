@@ -3280,6 +3280,63 @@ DEFUN (vtysh_show_running_config,
 	return vtysh_write_terminal(self, vty, argc, argv);
 }
 
+static void show_route_map_send(const char *route_map, bool json)
+{
+	unsigned int i;
+	bool first = true;
+	char command_line[128];
+
+	snprintf(command_line, sizeof(command_line), "show route-map ");
+	if (route_map)
+		strlcat(command_line, route_map, sizeof(command_line));
+	if (json)
+		strlcat(command_line, " json", sizeof(command_line));
+
+	if (json)
+		vty_out(vty, "{");
+
+	for (i = 0; i < array_size(vtysh_client); i++) {
+		const struct vtysh_client *client = &vtysh_client[i];
+		bool is_connected = true;
+
+		if (!CHECK_FLAG(client->flag, VTYSH_RMAP))
+			continue;
+
+		for (; client; client = client->next)
+			if (client->fd < 0)
+				is_connected = false;
+
+		if (!is_connected)
+			continue;
+
+		if (json && !first)
+			vty_out(vty, ",");
+		else
+			first = false;
+
+		if (json)
+			vty_out(vty, "\"%s\":", vtysh_client[i].name);
+
+		vtysh_client_execute_name(vtysh_client[i].name, command_line);
+	}
+
+	if (json)
+		vty_out(vty, "}\n");
+}
+
+DEFPY (show_route_map,
+       show_route_map_cmd,
+       "show route-map [WORD]$route_map [json]$json",
+       SHOW_STR
+       "route-map information\n"
+       "route-map name\n"
+       JSON_STR)
+{
+	show_route_map_send(route_map, !!json);
+
+	return CMD_SUCCESS;
+}
+
 DEFUN (vtysh_integrated_config,
        vtysh_integrated_config_cmd,
        "service integrated-vtysh-config",
@@ -4907,6 +4964,8 @@ void vtysh_init_vty(void)
 	install_element(ENABLE_NODE, &vtysh_show_running_config_cmd);
 	install_element(ENABLE_NODE, &vtysh_copy_running_config_cmd);
 	install_element(ENABLE_NODE, &vtysh_copy_to_running_cmd);
+
+	install_element(ENABLE_NODE, &show_route_map_cmd);
 
 	/* "write terminal" command. */
 	install_element(ENABLE_NODE, &vtysh_write_terminal_cmd);
