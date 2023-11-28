@@ -102,14 +102,14 @@ def get_exabgp_cmd(commander=None):
     exacmd = commander.get_exec_path("exabgp")
     if exacmd and exacmd_version_ok(exacmd):
         return exacmd
-    py2_path = commander.get_exec_path("python2")
-    if py2_path:
-        exacmd = py2_path + " -m exabgp"
+    py3_path = commander.get_exec_path("python3")
+    if py3_path:
+        exacmd = py3_path + " -m exabgp"
         if exacmd_version_ok(exacmd):
             return exacmd
-        py2_path = commander.get_exec_path("python")
-    if py2_path:
-        exacmd = py2_path + " -m exabgp"
+    py3_path = commander.get_exec_path("python")
+    if py3_path:
+        exacmd = py3_path + " -m exabgp"
         if exacmd_version_ok(exacmd):
             return exacmd
     return None
