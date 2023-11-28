@@ -859,6 +859,11 @@ void bfdd_zclient_stop(void)
 	pc_free_all();
 }
 
+void bfdd_zclient_terminate(void)
+{
+	zclient_free(zclient);
+}
+
 
 /*
  * Client handling.

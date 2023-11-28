@@ -1236,7 +1236,7 @@ void bgp_fsm_change_status(struct peer_connection *connection,
 	/* Transition into Clearing or Deleted must /always/ clear all routes..
 	 * (and must do so before actually changing into Deleted..
 	 */
-	if (status >= Clearing) {
+	if (status >= Clearing && peer != bgp->peer_self) {
 		bgp_clear_route_all(peer);
 
 		/* If no route was queued for the clear-node processing,

@@ -6860,6 +6860,31 @@ static int kernel_dplane_process_func(struct zebra_dplane_provider *prov)
 	return 0;
 }
 
+static int kernel_dplane_shutdown_func(struct zebra_dplane_provider *prov,
+				       bool early)
+{
+	struct zebra_dplane_ctx *ctx;
+
+	if (early)
+		return 1;
+
+	ctx = dplane_provider_dequeue_in_ctx(prov);
+	while (ctx) {
+		dplane_ctx_free(&ctx);
+
+		ctx = dplane_provider_dequeue_in_ctx(prov);
+	}
+
+	ctx = dplane_provider_dequeue_out_ctx(prov);
+	while (ctx) {
+		dplane_ctx_free(&ctx);
+
+		ctx = dplane_provider_dequeue_out_ctx(prov);
+	}
+
+	return 1;
+}
+
 #ifdef DPLANE_TEST_PROVIDER
 
 /*
@@ -6932,12 +6957,10 @@ static void dplane_provider_init(void)
 {
 	int ret;
 
-	ret = dplane_provider_register("Kernel",
-				       DPLANE_PRIO_KERNEL,
+	ret = dplane_provider_register("Kernel", DPLANE_PRIO_KERNEL,
 				       DPLANE_PROV_FLAGS_DEFAULT, NULL,
 				       kernel_dplane_process_func,
-				       NULL,
-				       NULL, NULL);
+				       kernel_dplane_shutdown_func, NULL, NULL);
 
 	if (ret != AOK)
 		zlog_err("Unable to register kernel dplane provider: %d",
@@ -7338,6 +7361,7 @@ static void dplane_thread_loop(struct event *event)
 void zebra_dplane_shutdown(void)
 {
 	struct zebra_dplane_provider *dp;
+	struct zebra_dplane_ctx *ctx;
 
 	if (IS_ZEBRA_DEBUG_DPLANE)
 		zlog_debug("Zebra dataplane shutdown called");
@@ -7365,8 +7389,25 @@ void zebra_dplane_shutdown(void)
 	}
 
 	/* TODO -- Clean-up provider objects */
+	dp = dplane_prov_list_first(&zdplane_info.dg_providers);
+	while (dp) {
+		dplane_prov_list_del(&zdplane_info.dg_providers, dp);
+		XFREE(MTYPE_DP_PROV, dp);
+
+		dp = dplane_prov_list_first(&zdplane_info.dg_providers);
+	}
 
 	/* TODO -- Clean queue(s), free memory */
+	DPLANE_LOCK();
+	{
+		ctx = dplane_ctx_list_pop(&zdplane_info.dg_update_list);
+		while (ctx) {
+			dplane_ctx_free(&ctx);
+
+			ctx = dplane_ctx_list_pop(&zdplane_info.dg_update_list);
+		}
+	}
+	DPLANE_UNLOCK();
 }
 
 /*

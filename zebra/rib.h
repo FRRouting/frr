@@ -414,7 +414,8 @@ extern void rib_update_table(struct route_table *table,
 extern void rib_sweep_route(struct event *t);
 extern void rib_sweep_table(struct route_table *table);
 extern void rib_close_table(struct route_table *table);
-extern void rib_init(void);
+extern void zebra_rib_init(void);
+extern void zebra_rib_terminate(void);
 extern unsigned long rib_score_proto(uint8_t proto, unsigned short instance);
 extern unsigned long rib_score_proto_table(uint8_t proto,
 					   unsigned short instance,

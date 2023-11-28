@@ -680,6 +680,8 @@ void ospf_terminate(void)
 	ospf_vrf_terminate();
 
 	route_map_finish();
+
+	keychain_terminate();
 	/* Deliberately go back up, hopefully to thread scheduler, as
 	 * One or more ospf_finish()'s may have deferred shutdown to a timer
 	 * thread

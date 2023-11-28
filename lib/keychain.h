@@ -82,6 +82,7 @@ struct key {
 DECLARE_QOBJ_TYPE(key);
 
 extern void keychain_init(void);
+extern void keychain_terminate(void);
 extern struct keychain *keychain_lookup(const char *);
 extern struct key *key_lookup_for_accept(const struct keychain *, uint32_t);
 extern struct key *key_match_for_accept(const struct keychain *, const char *);

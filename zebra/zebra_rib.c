@@ -4926,7 +4926,7 @@ static void check_route_info(void)
 }
 
 /* Routing information base initialize. */
-void rib_init(void)
+void zebra_rib_init(void)
 {
 	check_route_info();
 
@@ -4936,6 +4936,20 @@ void rib_init(void)
 	pthread_mutex_init(&dplane_mutex, NULL);
 	dplane_ctx_q_init(&rib_dplane_q);
 	zebra_dplane_init(rib_dplane_results);
+}
+
+void zebra_rib_terminate(void)
+{
+	struct zebra_dplane_ctx *ctx;
+
+	EVENT_OFF(t_dplane);
+
+	ctx = dplane_ctx_dequeue(&rib_dplane_q);
+	while (ctx) {
+		dplane_ctx_fini(&ctx);
+
+		ctx = dplane_ctx_dequeue(&rib_dplane_q);
+	}
 }
 
 /*

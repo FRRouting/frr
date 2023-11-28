@@ -1187,6 +1187,20 @@ static const struct cmd_variable_handler keychain_var_handlers[] = {
 	{.completions = NULL}
 };
 
+void keychain_terminate(void)
+{
+	struct keychain *keychain;
+
+	while (listcount(keychain_list)) {
+		keychain = listgetdata(listhead(keychain_list));
+
+		listnode_delete(keychain_list, keychain);
+		keychain_delete(keychain);
+	}
+
+	list_delete(&keychain_list);
+}
+
 void keychain_init(void)
 {
 	keychain_list = list_new();

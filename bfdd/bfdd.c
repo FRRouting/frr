@@ -75,6 +75,8 @@ static void sigterm_handler(void)
 
 	bfd_vrf_terminate();
 
+	bfdd_zclient_terminate();
+
 	/* Terminate and free() FRR related memory. */
 	frr_fini();
 

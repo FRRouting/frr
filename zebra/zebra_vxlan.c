@@ -82,7 +82,7 @@ static int zl3vni_nh_uninstall(struct zebra_l3vni *zl3vni,
 			       struct zebra_neigh *n);
 static struct zebra_neigh *svd_nh_add(const struct ipaddr *vtep_ip,
 				      const struct ethaddr *rmac);
-static int svd_nh_del(struct zebra_neigh *n);
+static void svd_nh_del(struct zebra_neigh *n);
 static int svd_nh_install(struct zebra_l3vni *zl3vni, struct zebra_neigh *n);
 static int svd_nh_uninstall(struct zebra_l3vni *zl3vni, struct zebra_neigh *n);
 
@@ -1590,16 +1590,23 @@ static struct zebra_neigh *svd_nh_add(const struct ipaddr *ip,
 /*
  * Del Single VXlan Device neighbor entry.
  */
-static int svd_nh_del(struct zebra_neigh *n)
+static void svd_nh_del(struct zebra_neigh *n)
 {
 	if (n->refcnt > 0)
-		return -1;
+		return;
 
 	hash_release(svd_nh_table, n);
 	XFREE(MTYPE_L3NEIGH, n);
-
-	return 0;
 }
+
+static void svd_nh_del_terminate(void *ptr)
+{
+	struct zebra_neigh *n = ptr;
+
+	n->refcnt = 0;
+	svd_nh_del(n);
+}
+
 
 /*
  * Common code to install remote nh as neigh into the kernel.
@@ -5811,6 +5818,11 @@ void zebra_vxlan_init(void)
 
 	zrouter.evpn_vrf = NULL;
 	zebra_evpn_mh_init();
+}
+
+void zebra_vxlan_terminate(void)
+{
+	hash_clean_and_free(&svd_nh_table, svd_nh_del_terminate);
 }
 
 /* free l3vni table */

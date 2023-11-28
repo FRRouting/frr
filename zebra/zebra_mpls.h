@@ -400,9 +400,10 @@ void zebra_mpls_init_tables(struct zebra_vrf *zvrf);
 void zebra_mpls_turned_on(void);
 
 /*
- * Global MPLS initialization.
+ * Global MPLS initialization/termination.
  */
 void zebra_mpls_init(void);
+void zebra_mpls_terminate(void);
 
 /*
  * MPLS VTY.

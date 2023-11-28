@@ -42,11 +42,6 @@ struct zebra_ns *zebra_ns_lookup(ns_id_t ns_id)
 	return (info == NULL) ? dzns : info;
 }
 
-static struct zebra_ns *zebra_ns_alloc(void)
-{
-	return XCALLOC(MTYPE_ZEBRA_NS, sizeof(struct zebra_ns));
-}
-
 static int zebra_ns_new(struct ns *ns)
 {
 	struct zebra_ns *zns;
@@ -57,7 +52,7 @@ static int zebra_ns_new(struct ns *ns)
 	if (IS_ZEBRA_DEBUG_EVENT)
 		zlog_info("ZNS %s with id %u (created)", ns->name, ns->ns_id);
 
-	zns = zebra_ns_alloc();
+	zns = XCALLOC(MTYPE_ZEBRA_NS, sizeof(struct zebra_ns));
 	ns->info = zns;
 	zns->ns = ns;
 	zns->ns_id = ns->ns_id;
@@ -193,6 +188,8 @@ int zebra_ns_final_shutdown(struct ns *ns,
 		return 0;
 
 	kernel_terminate(zns, true);
+
+	zebra_ns_delete(ns);
 
 	return NS_WALK_CONTINUE;
 }

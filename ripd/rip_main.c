@@ -85,6 +85,8 @@ static void sigint(void)
 	rip_zclient_stop();
 
 	route_map_finish();
+
+	keychain_terminate();
 	frr_fini();
 
 	exit(0);
