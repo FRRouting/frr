@@ -4,46 +4,37 @@
 BMP
 ***
 
-RFC 7854
-========
+RFC 7854: BMP Adj-RIB-In
+========================
 Missing features (non exhaustive):
-  - Per-Peer Header
-
-    - Peer Type Flag
-    - Peer Distingsher
-
-  - Peer Up
-
+  - Peer Down
     - Reason codes (according to TODO comments in code)
 
-Peer Type Flag and Peer Distinguisher can be implemented easily using RFC 9069's base code.
-
-RFC 9069
-========
+RFC 9069: BMP Local-RIB
+=======================
 Everything that isn't listed here is implemented and should be working.
 Missing features (should be exhaustive):
 
-- Per-Peer Header
-
-  - Timestamp
-
-    - set to 0
-    - value is now saved `struct bgp_path_info -> locrib_uptime`
-    - needs testing
-
-- Peer Up/Down
-
-  - VRF/Table Name TLV
-
-    - code for TLV exists
-    - need better RFC understanding
-
 - Peer Down Only
-
   - Reason code (bc not supported in RFC 7854 either)
 
-- Statistics Report
+RFC8671: BMP Adj-RIB-Out
+========================
+Adj-RIB-Out pre-policy uses tricks to work because we soft-reconfiguration outbound does not exist.
+So what we do is we call the BGP function (subgroup_announce_check) which decides whether to announce or not to peers,
+while ignoring the outbound policy + some conditions specific to Adj-RIB-Out Post-policy.
+This allows us to guess whether the route would've been in Adj-RIB-Out Pre-policy or not. However, we cannot compute
+all pre-policy stats as a consequence.
 
-  - Stat Type = 8: (64-bit Gauge) Number of routes in Loc-RIB.
-  - Stat Type = 10: Number of routes in per-AFI/SAFI Loc-RIB. The value is
-    structured as: 2-byte AFI, 1-byte SAFI, followed by a 64-bit Gauge.
+Everything that isn't listed here is implemented and should be working.
+
+- Per-Peer Header
+    - Timestamp: not recorded, set to 0
+
+- Stats
+    - adj-rib-out pre-policy counters (cannot be done since adj-rib-out pre-policy is not saved)
+
+ECMP Support
+============
+The RX Add-Path ID is exported for Adj-RIB-In Pre/Post-policy and Local-RIB.
+The TX Add-Path ID is exported for Adj-RIB-Out Pre/Post-policy.
