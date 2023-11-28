@@ -509,13 +509,48 @@ int zsend_interface_update(int cmd, struct zserv *client, struct interface *ifp)
 	return zserv_send_message(client, s);
 }
 
+static int zsend_redistribute_route_nhg(const struct nexthop_group *nhg,
+					struct zapi_route *api)
+{
+	struct nexthop *nexthop;
+	struct zapi_nexthop *api_nh;
+	int count = 0;
+
+	for (nexthop = nhg->nexthop; nexthop; nexthop = nexthop->next) {
+		if (!CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE))
+			continue;
+
+		api_nh = &(api->nexthops[count]);
+		api_nh->vrf_id = nexthop->vrf_id;
+		api_nh->type = nexthop->type;
+		api_nh->weight = nexthop->weight;
+		switch (nexthop->type) {
+		case NEXTHOP_TYPE_BLACKHOLE:
+			api_nh->bh_type = nexthop->bh_type;
+			break;
+		case NEXTHOP_TYPE_IPV4:
+		case NEXTHOP_TYPE_IPV4_IFINDEX:
+			api_nh->gate.ipv4 = nexthop->gate.ipv4;
+			api_nh->ifindex = nexthop->ifindex;
+			break;
+		case NEXTHOP_TYPE_IFINDEX:
+			api_nh->ifindex = nexthop->ifindex;
+			break;
+		case NEXTHOP_TYPE_IPV6:
+		case NEXTHOP_TYPE_IPV6_IFINDEX:
+			api_nh->gate.ipv6 = nexthop->gate.ipv6;
+			api_nh->ifindex = nexthop->ifindex;
+		}
+		count++;
+	}
+	return count;
+}
+
 int zsend_redistribute_route(int cmd, struct zserv *client,
 			     const struct route_node *rn,
 			     const struct route_entry *re, bool is_table_direct)
 {
 	struct zapi_route api;
-	struct zapi_nexthop *api_nh;
-	struct nexthop *nexthop;
 	const struct prefix *p, *src_p;
 	uint8_t count = 0;
 	afi_t afi;
@@ -561,34 +596,7 @@ int zsend_redistribute_route(int cmd, struct zserv *client,
 		memcpy(&api.src_prefix, src_p, sizeof(api.src_prefix));
 	}
 
-	for (nexthop = re->nhe->nhg.nexthop;
-	     nexthop; nexthop = nexthop->next) {
-		if (!CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE))
-			continue;
-
-		api_nh = &api.nexthops[count];
-		api_nh->vrf_id = nexthop->vrf_id;
-		api_nh->type = nexthop->type;
-		api_nh->weight = nexthop->weight;
-		switch (nexthop->type) {
-		case NEXTHOP_TYPE_BLACKHOLE:
-			api_nh->bh_type = nexthop->bh_type;
-			break;
-		case NEXTHOP_TYPE_IPV4:
-		case NEXTHOP_TYPE_IPV4_IFINDEX:
-			api_nh->gate.ipv4 = nexthop->gate.ipv4;
-			api_nh->ifindex = nexthop->ifindex;
-			break;
-		case NEXTHOP_TYPE_IFINDEX:
-			api_nh->ifindex = nexthop->ifindex;
-			break;
-		case NEXTHOP_TYPE_IPV6:
-		case NEXTHOP_TYPE_IPV6_IFINDEX:
-			api_nh->gate.ipv6 = nexthop->gate.ipv6;
-			api_nh->ifindex = nexthop->ifindex;
-		}
-		count++;
-	}
+	count = zsend_redistribute_route_nhg(&re->nhe->nhg, &api);
 
 	/* Nexthops. */
 	if (count) {
