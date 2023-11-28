@@ -1459,8 +1459,6 @@ zebra Terminal Mode Commands
 
 .. clicmd:: show ip prefix-list [NAME]
 
-.. clicmd:: show route-map [NAME]
-
 .. clicmd:: show ip protocol
 
 .. clicmd:: show ip forward
