@@ -475,6 +475,9 @@ Configuration Commands
 
    Specify the maximum SID depth in a PCC definition.
 
+.. clicmd:: no msd [(1-32)]
+
+   Default the maximum SID depth to 4.
 
 .. clicmd:: peer WORD [precedence (1-255)]
 

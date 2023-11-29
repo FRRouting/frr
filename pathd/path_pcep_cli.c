@@ -1026,7 +1026,7 @@ static int path_pcep_cli_pcc_pcc_msd(struct vty *vty, const char *msd_str,
 {
 	if (reset)
 		pcc_msd_configured_g = false;
-	else {
+	else if (msd_str) {
 		pcc_msd_configured_g = true;
 		PCEP_VTYSH_INT_ARG_CHECK(msd_str, msd, pcc_msd_g, 0, 33);
 	}
@@ -1706,7 +1706,7 @@ int pcep_cli_pce_config_write(struct vty *vty)
 				&pce_opts->addr.ipaddr_v4);
 		}
 		if (pce_opts->port != PCEP_DEFAULT_PORT) {
-			vty_out(vty, "    %s %d", PCEP_VTYSH_ARG_PORT,
+			vty_out(vty, " %s %d", PCEP_VTYSH_ARG_PORT,
 				pce_opts->port);
 		}
 		vty_out(vty, "%s\n", buf);
@@ -2043,12 +2043,22 @@ DEFPY(pcep_cli_no_pcc,
 
 DEFPY(pcep_cli_pcc_pcc_msd,
       pcep_cli_pcc_pcc_msd_cmd,
-      "[no] msd (1-32)",
+      "msd (1-32)",
       NO_STR
       "PCC maximum SID depth \n"
       "PCC maximum SID depth value\n")
 {
-	return path_pcep_cli_pcc_pcc_msd(vty, msd_str, msd, no);
+	return path_pcep_cli_pcc_pcc_msd(vty, msd_str, msd, false);
+}
+
+DEFPY(no_pcep_cli_pcc_pcc_msd,
+      no_pcep_cli_pcc_pcc_msd_cmd,
+      "no msd [(1-32)]",
+      NO_STR
+      "PCC maximum SID depth \n"
+      "PCC maximum SID depth value\n")
+{
+	return path_pcep_cli_pcc_pcc_msd(vty, msd_str, msd, true);
 }
 
 DEFPY(pcep_cli_pcc_pcc_peer,
@@ -2153,6 +2163,7 @@ void pcep_cli_init(void)
 	install_element(PCEP_NODE, &pcep_cli_no_pcc_cmd);
 	install_element(PCEP_PCC_NODE, &pcep_cli_pcc_pcc_peer_cmd);
 	install_element(PCEP_PCC_NODE, &pcep_cli_pcc_pcc_msd_cmd);
+	install_element(PCEP_PCC_NODE, &no_pcep_cli_pcc_pcc_msd_cmd);
 
 	/* Top commands */
 	install_element(CONFIG_NODE, &pcep_cli_debug_cmd);
