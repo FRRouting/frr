@@ -593,6 +593,11 @@ static void sid_register(struct bgp *bgp, const struct in6_addr *sid,
 	listnode_add(bgp->srv6_functions, func);
 }
 
+void srv6_function_free(struct bgp_srv6_function *func)
+{
+	XFREE(MTYPE_BGP_SRV6_FUNCTION, func);
+}
+
 void sid_unregister(struct bgp *bgp, const struct in6_addr *sid)
 {
 	struct listnode *node, *nnode;
@@ -601,7 +606,7 @@ void sid_unregister(struct bgp *bgp, const struct in6_addr *sid)
 	for (ALL_LIST_ELEMENTS(bgp->srv6_functions, node, nnode, func))
 		if (sid_same(&func->sid, sid)) {
 			listnode_delete(bgp->srv6_functions, func);
-			XFREE(MTYPE_BGP_SRV6_FUNCTION, func);
+			srv6_function_free(func);
 		}
 }
 

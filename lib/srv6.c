@@ -108,7 +108,7 @@ const char *seg6local_context2str(char *str, size_t size,
 	}
 }
 
-static void srv6_locator_chunk_list_free(void *data)
+void srv6_locator_chunk_list_free(void *data)
 {
 	struct srv6_locator_chunk *chunk = data;
 

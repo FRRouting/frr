@@ -3308,7 +3308,7 @@ static int bgp_zebra_process_srv6_locator_delete(ZAPI_CALLBACK_ARGS)
 		if (prefix_match((struct prefix *)&loc.prefix,
 				 (struct prefix *)&tmp_prefi)) {
 			listnode_delete(bgp->srv6_functions, func);
-			XFREE(MTYPE_BGP_SRV6_FUNCTION, func);
+			srv6_function_free(func);
 		}
 	}
 
