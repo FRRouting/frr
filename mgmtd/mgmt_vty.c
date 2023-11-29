@@ -462,6 +462,24 @@ static void mgmt_config_read_in(struct event *event)
 	}
 }
 
+static int mgmtd_config_write(struct vty *vty)
+{
+	struct lyd_node *root;
+
+	LY_LIST_FOR (running_config->dnode, root) {
+		nb_cli_show_dnode_cmds(vty, root, false);
+	}
+
+	return 1;
+}
+
+static struct cmd_node mgmtd_node = {
+	.name = "mgmtd",
+	.node = MGMTD_NODE,
+	.prompt = "",
+	.config_write = mgmtd_config_write,
+};
+
 void mgmt_vty_init(void)
 {
 	/*
@@ -479,6 +497,7 @@ void mgmt_vty_init(void)
 			&mgmt_daemon_info->read_in);
 
 	install_node(&debug_node);
+	install_node(&mgmtd_node);
 
 	install_element(VIEW_NODE, &show_mgmt_be_adapter_cmd);
 	install_element(VIEW_NODE, &show_mgmt_be_xpath_reg_cmd);
