@@ -859,6 +859,23 @@ DEFPY (ipv6_ospf6_p2xp_neigh_poll_interval,
 	return CMD_SUCCESS;
 }
 
+/* build state value */
+static void ospf6_neighbor_state_message(struct ospf6_neighbor *on,
+					 char *nstate, size_t nstate_len)
+{
+	/* Neighbor State */
+	if (on->ospf6_if->type == OSPF_IFTYPE_POINTOPOINT)
+		snprintf(nstate, nstate_len, "PointToPoint");
+	else {
+		if (on->router_id == on->drouter)
+			snprintf(nstate, nstate_len, "DR");
+		else if (on->router_id == on->bdrouter)
+			snprintf(nstate, nstate_len, "BR");
+		else
+			snprintf(nstate, nstate_len, "DROther");
+	}
+}
+
 /* show neighbor structure */
 static void ospf6_neighbor_show(struct vty *vty, struct ospf6_neighbor *on,
 				json_object *json_array, bool use_json)
@@ -903,6 +920,7 @@ static void ospf6_neighbor_show(struct vty *vty, struct ospf6_neighbor *on,
 		else
 			snprintf(nstate, sizeof(nstate), "DROther");
 	}
+	ospf6_neighbor_state_message(on, nstate, sizeof(nstate));
 
 	/* Duration */
 	monotime_since(&on->last_changed, &res);
