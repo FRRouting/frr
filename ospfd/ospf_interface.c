@@ -339,6 +339,8 @@ void ospf_if_free(struct ospf_interface *oi)
 
 	assert(oi->state == ISM_Down);
 
+	ospf_opaque_type9_lsa_if_cleanup(oi);
+
 	ospf_opaque_type9_lsa_term(oi);
 
 	QOBJ_UNREG(oi);
@@ -378,26 +380,6 @@ void ospf_if_free(struct ospf_interface *oi)
 int ospf_if_is_up(struct ospf_interface *oi)
 {
 	return if_is_up(oi->ifp);
-}
-
-struct ospf_interface *ospf_if_exists(struct ospf_interface *oic)
-{
-	struct listnode *node;
-	struct ospf *ospf;
-	struct ospf_interface *oi;
-
-	if (!oic)
-		return NULL;
-
-	ospf = oic->ospf;
-	if (ospf == NULL)
-		return NULL;
-
-	for (ALL_LIST_ELEMENTS_RO(ospf->oiflist, node, oi))
-		if (oi == oic)
-			return oi;
-
-	return NULL;
 }
 
 /* Lookup OSPF interface by router LSA posistion */
