@@ -42,16 +42,19 @@ uint32_t zebra_tc_qdisc_hash_key(const void *arg);
 bool zebra_tc_qdisc_hash_equal(const void *arg1, const void *arg2);
 void zebra_tc_qdisc_install(struct zebra_tc_qdisc *qdisc);
 void zebra_tc_qdisc_uninstall(struct zebra_tc_qdisc *qdisc);
+void zebra_tc_qdisc_free(struct zebra_tc_qdisc *qdisc);
 
 uint32_t zebra_tc_class_hash_key(const void *arg);
 bool zebra_tc_class_hash_equal(const void *arg1, const void *arg2);
 void zebra_tc_class_add(struct zebra_tc_class *class);
 void zebra_tc_class_delete(struct zebra_tc_class *class);
+void zebra_tc_class_free(struct zebra_tc_class *class);
 
 const char *tc_filter_kind2str(uint32_t type);
 enum tc_qdisc_kind tc_filter_str2kind(const char *type);
 void zebra_tc_filter_add(struct zebra_tc_filter *filter);
 void zebra_tc_filter_delete(struct zebra_tc_filter *filter);
+void zebra_tc_filter_free(struct zebra_tc_filter *filter);
 
 void zebra_tc_filters_free(void *arg);
 uint32_t zebra_tc_filter_hash_key(const void *arg);

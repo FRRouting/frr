@@ -132,13 +132,18 @@ static void *tc_qdisc_alloc_intern(void *arg)
 	return new;
 }
 
+void zebra_tc_qdisc_free(struct zebra_tc_qdisc *qdisc)
+{
+	XFREE(MTYPE_TC_QDISC, qdisc);
+}
+
 static struct zebra_tc_qdisc *tc_qdisc_free(struct zebra_tc_qdisc *hash_data,
 					    bool free_data)
 {
 	hash_release(zrouter.qdisc_hash, hash_data);
 
 	if (free_data) {
-		XFREE(MTYPE_TC_QDISC, hash_data);
+		zebra_tc_qdisc_free(hash_data);
 		return NULL;
 	}
 
@@ -178,7 +183,7 @@ void zebra_tc_qdisc_install(struct zebra_tc_qdisc *qdisc)
 			new = hash_get(zrouter.qdisc_hash, qdisc,
 				       tc_qdisc_alloc_intern);
 			(void)dplane_tc_qdisc_install(new);
-			XFREE(MTYPE_TC_QDISC, old);
+			zebra_tc_qdisc_free(old);
 		}
 	} else {
 		new = hash_get(zrouter.qdisc_hash, qdisc,
@@ -243,13 +248,18 @@ static void *tc_class_alloc_intern(void *arg)
 	return new;
 }
 
+void zebra_tc_class_free(struct zebra_tc_class *class)
+{
+	XFREE(MTYPE_TC_CLASS, class);
+}
+
 static struct zebra_tc_class *tc_class_free(struct zebra_tc_class *hash_data,
 					    bool free_data)
 {
 	hash_release(zrouter.class_hash, hash_data);
 
 	if (free_data) {
-		XFREE(MTYPE_TC_CLASS, hash_data);
+		zebra_tc_class_free(hash_data);
 		return NULL;
 	}
 
@@ -353,13 +363,18 @@ bool zebra_tc_filter_hash_equal(const void *arg1, const void *arg2)
 	return true;
 }
 
+void zebra_tc_filter_free(struct zebra_tc_filter *filter)
+{
+	XFREE(MTYPE_TC_FILTER, filter);
+}
+
 static struct zebra_tc_filter *tc_filter_free(struct zebra_tc_filter *hash_data,
 					      bool free_data)
 {
 	hash_release(zrouter.filter_hash, hash_data);
 
 	if (free_data) {
-		XFREE(MTYPE_TC_FILTER, hash_data);
+		zebra_tc_filter_free(hash_data);
 		return NULL;
 	}
 
