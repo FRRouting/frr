@@ -4060,10 +4060,14 @@ void bgp_free(struct bgp *bgp)
 	bgp_srv6_cleanup(bgp);
 	bgp_confederation_id_unset(bgp);
 
+	for (int i = 0; i < bgp->confed_peers_cnt; i++)
+		XFREE(MTYPE_BGP_NAME, bgp->confed_peers[i].as_pretty);
+
 	XFREE(MTYPE_BGP_NAME, bgp->as_pretty);
 	XFREE(MTYPE_BGP_NAME, bgp->name);
 	XFREE(MTYPE_BGP_NAME, bgp->name_pretty);
 	XFREE(MTYPE_BGP_NAME, bgp->snmp_stats);
+	XFREE(MTYPE_BGP_CONFED_LIST, bgp->confed_peers);
 
 	XFREE(MTYPE_BGP, bgp);
 }
