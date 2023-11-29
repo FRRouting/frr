@@ -873,7 +873,7 @@ static void ospf6_neighbor_show(struct vty *vty, struct ospf6_neighbor *on,
 	char router_id[16];
 	char duration[64];
 	struct timeval res;
-	char nstate[16];
+	char nstate[17];
 	char deadtime[64];
 	long h, m, s;
 	json_object *json_route;
