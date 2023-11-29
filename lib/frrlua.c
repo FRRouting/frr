@@ -259,12 +259,12 @@ void *lua_tosockunion(lua_State *L, int idx)
 	return su;
 }
 
-void lua_pushintegerp(lua_State *L, const long long *num)
+void lua_pushintegerp(lua_State *L, const int *num)
 {
 	lua_pushinteger(L, *num);
 }
 
-void lua_decode_integerp(lua_State *L, int idx, long long *num)
+void lua_decode_integerp(lua_State *L, int idx, int *num)
 {
 	int isnum;
 	*num = lua_tonumberx(L, idx, &isnum);
@@ -274,7 +274,7 @@ void lua_decode_integerp(lua_State *L, int idx, long long *num)
 
 void *lua_tointegerp(lua_State *L, int idx)
 {
-	long long *num = XCALLOC(MTYPE_SCRIPT_RES, sizeof(long long));
+	int *num = XCALLOC(MTYPE_SCRIPT_RES, sizeof(int));
 
 	lua_decode_integerp(L, idx, num);
 	return num;
@@ -332,6 +332,28 @@ void lua_pushnexthop_group(lua_State *L, const struct nexthop_group *ng)
 	}
 }
 
+void lua_pushlonglongp(lua_State *L, const long long *num)
+{
+	/* lua library function; this can take a long long */
+	lua_pushinteger(L, *num);
+}
+
+void lua_decode_longlongp(lua_State *L, int idx, long long *num)
+{
+	int isnum;
+	*num = lua_tonumberx(L, idx, &isnum);
+	lua_pop(L, 1);
+	assert(isnum);
+}
+
+void *lua_tolonglongp(lua_State *L, int idx)
+{
+	long long *num = XCALLOC(MTYPE_SCRIPT_RES, sizeof(long long));
+
+	lua_decode_longlongp(L, idx, num);
+	return num;
+}
+
 void lua_decode_stringp(lua_State *L, int idx, char *str)
 {
 	strlcpy(str, lua_tostring(L, idx), strlen(str) + 1);
@@ -343,21 +365,6 @@ void *lua_tostringp(lua_State *L, int idx)
 	char *string = XSTRDUP(MTYPE_SCRIPT_RES, lua_tostring(L, idx));
 
 	return string;
-}
-
-/*
- * Decoder for const values, since we cannot modify them.
- */
-void lua_decode_noop(lua_State *L, int idx, const void *ptr)
-{
-}
-
-
-/*
- * Noop decoder for int.
- */
-void lua_decode_integer_noop(lua_State *L, int idx, int i)
-{
 }
 
 /*

@@ -25,6 +25,8 @@ DEFINE_MTYPE_STATIC(LIB, SCRIPT, "Scripting");
 
 struct frrscript_names_head frrscript_names_hash;
 
+void _lua_decode_noop(lua_State *L, ...) {}
+
 /*
  * Wrapper for frrscript_names_add
  * Use this to register hook calls when a daemon starts up
