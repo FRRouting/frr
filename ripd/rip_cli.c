@@ -73,7 +73,7 @@ void cli_show_router_rip(struct vty *vty, const struct lyd_node *dnode,
 {
 	const char *vrf_name;
 
-	vrf_name = yang_dnode_get_string(dnode, "./vrf");
+	vrf_name = yang_dnode_get_string(dnode, "vrf");
 
 	vty_out(vty, "!\n");
 	vty_out(vty, "router rip");
@@ -255,11 +255,11 @@ void cli_show_rip_distance_source(struct vty *vty, const struct lyd_node *dnode,
 				  bool show_defaults)
 {
 	vty_out(vty, " distance %s %s",
-		yang_dnode_get_string(dnode, "./distance"),
-		yang_dnode_get_string(dnode, "./prefix"));
-	if (yang_dnode_exists(dnode, "./access-list"))
+		yang_dnode_get_string(dnode, "distance"),
+		yang_dnode_get_string(dnode, "prefix"));
+	if (yang_dnode_exists(dnode, "access-list"))
 		vty_out(vty, " %s",
-			yang_dnode_get_string(dnode, "./access-list"));
+			yang_dnode_get_string(dnode, "access-list"));
 	vty_out(vty, "\n");
 }
 
@@ -362,12 +362,12 @@ void cli_show_rip_offset_list(struct vty *vty, const struct lyd_node *dnode,
 {
 	const char *interface;
 
-	interface = yang_dnode_get_string(dnode, "./interface");
+	interface = yang_dnode_get_string(dnode, "interface");
 
 	vty_out(vty, " offset-list %s %s %s",
-		yang_dnode_get_string(dnode, "./access-list"),
-		yang_dnode_get_string(dnode, "./direction"),
-		yang_dnode_get_string(dnode, "./metric"));
+		yang_dnode_get_string(dnode, "access-list"),
+		yang_dnode_get_string(dnode, "direction"),
+		yang_dnode_get_string(dnode, "metric"));
 	if (!strmatch(interface, "*"))
 		vty_out(vty, " %s", interface);
 	vty_out(vty, "\n");
@@ -475,13 +475,13 @@ void cli_show_rip_redistribute(struct vty *vty, const struct lyd_node *dnode,
 			       bool show_defaults)
 {
 	vty_out(vty, " redistribute %s",
-		yang_dnode_get_string(dnode, "./protocol"));
-	if (yang_dnode_exists(dnode, "./metric"))
+		yang_dnode_get_string(dnode, "protocol"));
+	if (yang_dnode_exists(dnode, "metric"))
 		vty_out(vty, " metric %s",
-			yang_dnode_get_string(dnode, "./metric"));
-	if (yang_dnode_exists(dnode, "./route-map"))
+			yang_dnode_get_string(dnode, "metric"));
+	if (yang_dnode_exists(dnode, "route-map"))
 		vty_out(vty, " route-map %s",
-			yang_dnode_get_string(dnode, "./route-map"));
+			yang_dnode_get_string(dnode, "route-map"));
 	vty_out(vty, "\n");
 }
 
@@ -550,9 +550,9 @@ void cli_show_rip_timers(struct vty *vty, const struct lyd_node *dnode,
 			 bool show_defaults)
 {
 	vty_out(vty, " timers basic %s %s %s\n",
-		yang_dnode_get_string(dnode, "./update-interval"),
-		yang_dnode_get_string(dnode, "./holddown-interval"),
-		yang_dnode_get_string(dnode, "./flush-interval"));
+		yang_dnode_get_string(dnode, "update-interval"),
+		yang_dnode_get_string(dnode, "holddown-interval"),
+		yang_dnode_get_string(dnode, "flush-interval"));
 }
 
 /*
@@ -591,7 +591,7 @@ void cli_show_rip_version(struct vty *vty, const struct lyd_node *dnode,
 	 * We have only one "version" command and three possible combinations of
 	 * send/receive values.
 	 */
-	switch (yang_dnode_get_enum(dnode, "./receive")) {
+	switch (yang_dnode_get_enum(dnode, "receive")) {
 	case RI_RIP_VERSION_1:
 		vty_out(vty, " version 1\n");
 		break;
@@ -912,7 +912,7 @@ void cli_show_ip_rip_authentication_scheme(struct vty *vty,
 					   const struct lyd_node *dnode,
 					   bool show_defaults)
 {
-	switch (yang_dnode_get_enum(dnode, "./mode")) {
+	switch (yang_dnode_get_enum(dnode, "mode")) {
 	case RIP_NO_AUTH:
 		vty_out(vty, " no ip rip authentication mode\n");
 		break;
@@ -922,8 +922,8 @@ void cli_show_ip_rip_authentication_scheme(struct vty *vty,
 	case RIP_AUTH_MD5:
 		vty_out(vty, " ip rip authentication mode md5");
 		if (show_defaults
-		    || !yang_dnode_is_default(dnode, "./md5-auth-length")) {
-			if (yang_dnode_get_enum(dnode, "./md5-auth-length")
+		    || !yang_dnode_is_default(dnode, "md5-auth-length")) {
+			if (yang_dnode_get_enum(dnode, "md5-auth-length")
 			    == RIP_AUTH_MD5_SIZE)
 				vty_out(vty, " auth-length rfc");
 			else

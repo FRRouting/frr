@@ -68,7 +68,7 @@ const char *pim_cli_get_vrf_name(struct vty *vty)
 		return NULL;
 	}
 
-	return yang_dnode_get_string(vrf_node, "./name");
+	return yang_dnode_get_string(vrf_node, "name");
 }
 
 int pim_process_join_prune_cmd(struct vty *vty, const char *jpi_str)

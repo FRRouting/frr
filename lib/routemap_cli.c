@@ -90,8 +90,8 @@ DEFPY_YANG(
 int route_map_instance_cmp(const struct lyd_node *dnode1,
 			   const struct lyd_node *dnode2)
 {
-	uint16_t seq1 = yang_dnode_get_uint16(dnode1, "./sequence");
-	uint16_t seq2 = yang_dnode_get_uint16(dnode2, "./sequence");
+	uint16_t seq1 = yang_dnode_get_uint16(dnode1, "sequence");
+	uint16_t seq2 = yang_dnode_get_uint16(dnode2, "sequence");
 
 	return seq1 - seq2;
 }
@@ -100,8 +100,8 @@ void route_map_instance_show(struct vty *vty, const struct lyd_node *dnode,
 			     bool show_defaults)
 {
 	const char *name = yang_dnode_get_string(dnode, "../name");
-	const char *action = yang_dnode_get_string(dnode, "./action");
-	const char *sequence = yang_dnode_get_string(dnode, "./sequence");
+	const char *action = yang_dnode_get_string(dnode, "action");
+	const char *sequence = yang_dnode_get_string(dnode, "sequence");
 
 	vty_out(vty, "route-map %s %s %s\n", name, action, sequence);
 
@@ -526,7 +526,7 @@ DEFPY_YANG(
 void route_map_condition_show(struct vty *vty, const struct lyd_node *dnode,
 			      bool show_defaults)
 {
-	const char *condition = yang_dnode_get_string(dnode, "./condition");
+	const char *condition = yang_dnode_get_string(dnode, "condition");
 	const struct lyd_node *ln;
 	const char *acl;
 
@@ -1050,7 +1050,7 @@ DEFUN_YANG (no_set_srte_color,
 void route_map_action_show(struct vty *vty, const struct lyd_node *dnode,
 			   bool show_defaults)
 {
-	const char *action = yang_dnode_get_string(dnode, "./action");
+	const char *action = yang_dnode_get_string(dnode, "action");
 	const struct lyd_node *ln;
 	const char *acl;
 
@@ -1102,7 +1102,7 @@ void route_map_action_show(struct vty *vty, const struct lyd_node *dnode,
 					      "./rmap-set-action/max-metric"));
 	} else if (IS_SET_TAG(action)) {
 		vty_out(vty, " set tag %s\n",
-			yang_dnode_get_string(dnode, "./rmap-set-action/tag"));
+			yang_dnode_get_string(dnode, "rmap-set-action/tag"));
 	} else if (IS_SET_SR_TE_COLOR(action)) {
 		vty_out(vty, " set sr-te color %s\n",
 			yang_dnode_get_string(dnode,
@@ -1196,7 +1196,7 @@ void route_map_action_show(struct vty *vty, const struct lyd_node *dnode,
 		vty_out(vty, " set large-comm-list %s delete\n", acl);
 	} else if (IS_SET_EXTCOMM_LIST_DEL(action)) {
 		acl = NULL;
-		ln = yang_dnode_get(dnode, "./rmap-set-action/frr-bgp-route-map:comm-list-name");
+		ln = yang_dnode_get(dnode, "rmap-set-action/frr-bgp-route-map:comm-list-name");
 
 		if (ln)
 			acl = yang_dnode_get_string(ln, NULL);

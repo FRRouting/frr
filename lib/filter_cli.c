@@ -1004,8 +1004,8 @@ ALIAS(
 int access_list_cmp(const struct lyd_node *dnode1,
 		    const struct lyd_node *dnode2)
 {
-	uint32_t seq1 = yang_dnode_get_uint32(dnode1, "./sequence");
-	uint32_t seq2 = yang_dnode_get_uint32(dnode2, "./sequence");
+	uint32_t seq1 = yang_dnode_get_uint32(dnode1, "sequence");
+	uint32_t seq2 = yang_dnode_get_uint32(dnode2, "sequence");
 
 	return seq1 - seq2;
 }
@@ -1022,23 +1022,23 @@ void access_list_show(struct vty *vty, const struct lyd_node *dnode,
 	struct in_addr addr, mask;
 	char macstr[PREFIX2STR_BUFFER];
 
-	is_any = yang_dnode_exists(dnode, "./any");
+	is_any = yang_dnode_exists(dnode, "any");
 	switch (type) {
 	case YALT_IPV4:
 		if (is_any)
 			break;
 
-		if (yang_dnode_exists(dnode, "./host")
-		    || yang_dnode_exists(dnode, "./network/address")
-		    || yang_dnode_exists(dnode, "./source-any")) {
+		if (yang_dnode_exists(dnode, "host")
+		    || yang_dnode_exists(dnode, "network/address")
+		    || yang_dnode_exists(dnode, "source-any")) {
 			cisco_style = true;
-			if (yang_dnode_exists(dnode, "./destination-host")
+			if (yang_dnode_exists(dnode, "destination-host")
 			    || yang_dnode_exists(
 				    dnode, "./destination-network/address")
-			    || yang_dnode_exists(dnode, "./destination-any"))
+			    || yang_dnode_exists(dnode, "destination-any"))
 				cisco_extended = true;
 		} else {
-			yang_dnode_get_prefix(&p, dnode, "./ipv4-prefix");
+			yang_dnode_get_prefix(&p, dnode, "ipv4-prefix");
 			is_exact = yang_dnode_get_bool(dnode,
 						       "./ipv4-exact-match");
 		}
@@ -1048,39 +1048,39 @@ void access_list_show(struct vty *vty, const struct lyd_node *dnode,
 		if (is_any)
 			break;
 
-		yang_dnode_get_prefix(&p, dnode, "./ipv6-prefix");
-		is_exact = yang_dnode_get_bool(dnode, "./ipv6-exact-match");
+		yang_dnode_get_prefix(&p, dnode, "ipv6-prefix");
+		is_exact = yang_dnode_get_bool(dnode, "ipv6-exact-match");
 		break;
 	case YALT_MAC: /* mac */
 		vty_out(vty, "mac ");
 		if (is_any)
 			break;
 
-		yang_dnode_get_prefix(&p, dnode, "./mac");
+		yang_dnode_get_prefix(&p, dnode, "mac");
 		break;
 	}
 
 	vty_out(vty, "access-list %s seq %s %s",
 		yang_dnode_get_string(dnode, "../name"),
-		yang_dnode_get_string(dnode, "./sequence"),
-		yang_dnode_get_string(dnode, "./action"));
+		yang_dnode_get_string(dnode, "sequence"),
+		yang_dnode_get_string(dnode, "action"));
 
 	/* Handle Cisco style access lists. */
 	if (cisco_style) {
 		if (cisco_extended)
 			vty_out(vty, " ip");
 
-		if (yang_dnode_exists(dnode, "./network")) {
-			yang_dnode_get_ipv4(&addr, dnode, "./network/address");
-			yang_dnode_get_ipv4(&mask, dnode, "./network/mask");
+		if (yang_dnode_exists(dnode, "network")) {
+			yang_dnode_get_ipv4(&addr, dnode, "network/address");
+			yang_dnode_get_ipv4(&mask, dnode, "network/mask");
 			vty_out(vty, " %pI4 %pI4", &addr, &mask);
-		} else if (yang_dnode_exists(dnode, "./host")) {
+		} else if (yang_dnode_exists(dnode, "host")) {
 			if (cisco_extended)
 				vty_out(vty, " host");
 
 			vty_out(vty, " %s",
-				yang_dnode_get_string(dnode, "./host"));
-		} else if (yang_dnode_exists(dnode, "./source-any"))
+				yang_dnode_get_string(dnode, "host"));
+		} else if (yang_dnode_exists(dnode, "source-any"))
 			vty_out(vty, " any");
 
 		/* Not extended, exit earlier. */
@@ -1090,17 +1090,17 @@ void access_list_show(struct vty *vty, const struct lyd_node *dnode,
 		}
 
 		/* Handle destination address. */
-		if (yang_dnode_exists(dnode, "./destination-network")) {
+		if (yang_dnode_exists(dnode, "destination-network")) {
 			yang_dnode_get_ipv4(&addr, dnode,
 					    "./destination-network/address");
 			yang_dnode_get_ipv4(&mask, dnode,
 					    "./destination-network/mask");
 			vty_out(vty, " %pI4 %pI4", &addr, &mask);
-		} else if (yang_dnode_exists(dnode, "./destination-host"))
+		} else if (yang_dnode_exists(dnode, "destination-host"))
 			vty_out(vty, " host %s",
 				yang_dnode_get_string(dnode,
 						      "./destination-host"));
-		else if (yang_dnode_exists(dnode, "./destination-any"))
+		else if (yang_dnode_exists(dnode, "destination-any"))
 			vty_out(vty, " any");
 
 		vty_out(vty, "\n");
@@ -1644,8 +1644,8 @@ ALIAS(
 int prefix_list_cmp(const struct lyd_node *dnode1,
 		    const struct lyd_node *dnode2)
 {
-	uint32_t seq1 = yang_dnode_get_uint32(dnode1, "./sequence");
-	uint32_t seq2 = yang_dnode_get_uint32(dnode2, "./sequence");
+	uint32_t seq1 = yang_dnode_get_uint32(dnode1, "sequence");
+	uint32_t seq2 = yang_dnode_get_uint32(dnode2, "sequence");
 
 	return seq1 - seq2;
 }
@@ -1658,11 +1658,11 @@ void prefix_list_show(struct vty *vty, const struct lyd_node *dnode,
 	bool is_any;
 	struct prefix p;
 
-	is_any = yang_dnode_exists(dnode, "./any");
+	is_any = yang_dnode_exists(dnode, "any");
 	switch (type) {
 	case YPLT_IPV4:
 		if (!is_any)
-			yang_dnode_get_prefix(&p, dnode, "./ipv4-prefix");
+			yang_dnode_get_prefix(&p, dnode, "ipv4-prefix");
 		if (yang_dnode_exists(dnode,
 				      "./ipv4-prefix-length-greater-or-equal"))
 			ge_str = yang_dnode_get_string(
@@ -1692,8 +1692,8 @@ void prefix_list_show(struct vty *vty, const struct lyd_node *dnode,
 
 	vty_out(vty, "prefix-list %s seq %s %s",
 		yang_dnode_get_string(dnode, "../name"),
-		yang_dnode_get_string(dnode, "./sequence"),
-		yang_dnode_get_string(dnode, "./action"));
+		yang_dnode_get_string(dnode, "sequence"),
+		yang_dnode_get_string(dnode, "action"));
 
 	if (is_any) {
 		vty_out(vty, " any\n");

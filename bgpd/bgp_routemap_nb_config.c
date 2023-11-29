@@ -1135,14 +1135,14 @@ lib_route_map_entry_match_condition_rmap_match_condition_comm_list_finish(
 
 	/* Add configuration. */
 	rhc = nb_running_get_entry(args->dnode, NULL, true);
-	value = yang_dnode_get_string(args->dnode, "./comm-list-name");
+	value = yang_dnode_get_string(args->dnode, "comm-list-name");
 
-	if (yang_dnode_exists(args->dnode, "./comm-list-name-exact-match"))
+	if (yang_dnode_exists(args->dnode, "comm-list-name-exact-match"))
 		exact_match = yang_dnode_get_bool(
 			args->dnode, "./comm-list-name-exact-match");
 
-	if (yang_dnode_exists(args->dnode, "./comm-list-name-any"))
-		any = yang_dnode_get_bool(args->dnode, "./comm-list-name-any");
+	if (yang_dnode_exists(args->dnode, "comm-list-name-any"))
+		any = yang_dnode_get_bool(args->dnode, "comm-list-name-any");
 
 	if (exact_match) {
 		argstr = XMALLOC(MTYPE_ROUTE_MAP_COMPILED,
@@ -2745,8 +2745,8 @@ void lib_route_map_entry_set_action_rmap_set_action_aggregator_finish(
 
 	/* Add configuration. */
 	rhc = nb_running_get_entry(args->dnode, NULL, true);
-	asn = yang_dnode_get_string(args->dnode, "./aggregator-asn");
-	addr = yang_dnode_get_string(args->dnode, "./aggregator-address");
+	asn = yang_dnode_get_string(args->dnode, "aggregator-asn");
+	addr = yang_dnode_get_string(args->dnode, "aggregator-address");
 
 	argstr = XMALLOC(MTYPE_ROUTE_MAP_COMPILED,
 			 strlen(asn) + strlen(addr) + 2);
@@ -2929,7 +2929,7 @@ lib_route_map_entry_set_action_rmap_set_action_extcommunity_lb_finish(
 
 	/* Add configuration. */
 	rhc = nb_running_get_entry(args->dnode, NULL, true);
-	lb_type = yang_dnode_get_enum(args->dnode, "./lb-type");
+	lb_type = yang_dnode_get_enum(args->dnode, "lb-type");
 
 	/* Set destroy information. */
 	rhc->rhc_shook = generic_set_delete;
@@ -2938,7 +2938,7 @@ lib_route_map_entry_set_action_rmap_set_action_extcommunity_lb_finish(
 
 	switch (lb_type) {
 	case EXPLICIT_BANDWIDTH:
-		bandwidth = yang_dnode_get_uint16(args->dnode, "./bandwidth");
+		bandwidth = yang_dnode_get_uint16(args->dnode, "bandwidth");
 		snprintf(str, sizeof(str), "%d", bandwidth);
 		break;
 	case CUMULATIVE_BANDWIDTH:
@@ -2948,7 +2948,7 @@ lib_route_map_entry_set_action_rmap_set_action_extcommunity_lb_finish(
 		snprintf(str, sizeof(str), "%s", "num-multipaths");
 	}
 
-	if (yang_dnode_get_bool(args->dnode, "./two-octet-as-specific"))
+	if (yang_dnode_get_bool(args->dnode, "two-octet-as-specific"))
 		strlcat(str, " non-transitive", sizeof(str));
 
 	ret = generic_set_add(rhc->rhc_rmi, "extcommunity bandwidth", str,

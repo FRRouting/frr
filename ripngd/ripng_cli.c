@@ -73,7 +73,7 @@ void cli_show_router_ripng(struct vty *vty, const struct lyd_node *dnode,
 {
 	const char *vrf_name;
 
-	vrf_name = yang_dnode_get_string(dnode, "./vrf");
+	vrf_name = yang_dnode_get_string(dnode, "vrf");
 
 	vty_out(vty, "!\n");
 	vty_out(vty, "router ripng");
@@ -267,12 +267,12 @@ void cli_show_ripng_offset_list(struct vty *vty, const struct lyd_node *dnode,
 {
 	const char *interface;
 
-	interface = yang_dnode_get_string(dnode, "./interface");
+	interface = yang_dnode_get_string(dnode, "interface");
 
 	vty_out(vty, " offset-list %s %s %s",
-		yang_dnode_get_string(dnode, "./access-list"),
-		yang_dnode_get_string(dnode, "./direction"),
-		yang_dnode_get_string(dnode, "./metric"));
+		yang_dnode_get_string(dnode, "access-list"),
+		yang_dnode_get_string(dnode, "direction"),
+		yang_dnode_get_string(dnode, "metric"));
 	if (!strmatch(interface, "*"))
 		vty_out(vty, " %s", interface);
 	vty_out(vty, "\n");
@@ -335,13 +335,13 @@ void cli_show_ripng_redistribute(struct vty *vty, const struct lyd_node *dnode,
 				 bool show_defaults)
 {
 	vty_out(vty, " redistribute %s",
-		yang_dnode_get_string(dnode, "./protocol"));
-	if (yang_dnode_exists(dnode, "./metric"))
+		yang_dnode_get_string(dnode, "protocol"));
+	if (yang_dnode_exists(dnode, "metric"))
 		vty_out(vty, " metric %s",
-			yang_dnode_get_string(dnode, "./metric"));
-	if (yang_dnode_exists(dnode, "./route-map"))
+			yang_dnode_get_string(dnode, "metric"));
+	if (yang_dnode_exists(dnode, "route-map"))
 		vty_out(vty, " route-map %s",
-			yang_dnode_get_string(dnode, "./route-map"));
+			yang_dnode_get_string(dnode, "route-map"));
 	vty_out(vty, "\n");
 }
 
@@ -435,9 +435,9 @@ void cli_show_ripng_timers(struct vty *vty, const struct lyd_node *dnode,
 			   bool show_defaults)
 {
 	vty_out(vty, " timers basic %s %s %s\n",
-		yang_dnode_get_string(dnode, "./update-interval"),
-		yang_dnode_get_string(dnode, "./holddown-interval"),
-		yang_dnode_get_string(dnode, "./flush-interval"));
+		yang_dnode_get_string(dnode, "update-interval"),
+		yang_dnode_get_string(dnode, "holddown-interval"),
+		yang_dnode_get_string(dnode, "flush-interval"));
 }
 
 /*

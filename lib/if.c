@@ -1319,14 +1319,14 @@ static void cli_show_interface(struct vty *vty, const struct lyd_node *dnode,
 		char ifname[XPATH_MAXLEN];
 		char vrfname[XPATH_MAXLEN];
 
-		netns_ifname_split(yang_dnode_get_string(dnode, "./name"),
+		netns_ifname_split(yang_dnode_get_string(dnode, "name"),
 				   ifname, vrfname);
 
 		vty_out(vty, "interface %s", ifname);
 		if (!strmatch(vrfname, VRF_DEFAULT_NAME))
 			vty_out(vty, " vrf %s", vrfname);
 	} else {
-		const char *ifname = yang_dnode_get_string(dnode, "./name");
+		const char *ifname = yang_dnode_get_string(dnode, "name");
 
 		vty_out(vty, "interface %s", ifname);
 	}
@@ -1466,7 +1466,7 @@ static int lib_interface_create(struct nb_cb_create_args *args)
 	const char *ifname;
 	struct interface *ifp;
 
-	ifname = yang_dnode_get_string(args->dnode, "./name");
+	ifname = yang_dnode_get_string(args->dnode, "name");
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:

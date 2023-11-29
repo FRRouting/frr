@@ -91,11 +91,11 @@ void static_next_hop_bfd_monitor_enable(struct static_nexthop *sn,
 	struct vrf *vrf = NULL;
 
 	use_interface = false;
-	use_source = yang_dnode_exists(dnode, "./source");
-	use_profile = yang_dnode_exists(dnode, "./profile");
+	use_source = yang_dnode_exists(dnode, "source");
+	use_profile = yang_dnode_exists(dnode, "profile");
 	onlink = yang_dnode_exists(dnode, "../onlink") &&
 		 yang_dnode_get_bool(dnode, "../onlink");
-	mhop = yang_dnode_get_bool(dnode, "./multi-hop");
+	mhop = yang_dnode_get_bool(dnode, "multi-hop");
 	vrf = vrf_lookup_by_name(yang_dnode_get_string(dnode, "../vrf"));
 
 	family = static_next_hop_type_to_family(sn);
@@ -112,7 +112,7 @@ void static_next_hop_bfd_monitor_enable(struct static_nexthop *sn,
 
 	/* Configure the session. */
 	if (use_source)
-		yang_dnode_get_ip(&source, dnode, "./source");
+		yang_dnode_get_ip(&source, dnode, "source");
 
 	if (onlink || mhop == false)
 		bfd_sess_set_auto_source(sn->bsp, false);
