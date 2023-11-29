@@ -866,6 +866,21 @@ static void ospf6_neighbor_state_message(struct ospf6_neighbor *on,
 	}
 }
 
+/* build nbrState value */
+static void ospf6_neighbor_nstate_message(struct ospf6_neighbor *on,
+					  char *nstate, size_t nstate_len)
+{
+	char state[16];
+
+	memset(state, 0, sizeof(state));
+	memset(nstate, 0, nstate_len);
+
+	ospf6_neighbor_state_message(on, state, sizeof(state));
+
+	snprintf(nstate, nstate_len, "%s/%s", state,
+		 ospf6_neighbor_state_str[on->state]);
+}
+
 /* show neighbor structure */
 static void ospf6_neighbor_show(struct vty *vty, struct ospf6_neighbor *on,
 				json_object *json_array, bool use_json)
@@ -1003,12 +1018,15 @@ static void ospf6_neighbor_show_detail(struct vty *vty,
 	json_object *json_neighbor;
 	json_object *json_array;
 	char db_desc_str[20];
+	char nstate[25];
+	long time_store;
 
 	inet_ntop(AF_INET6, &on->linklocal_addr, linklocal_addr,
 		  sizeof(linklocal_addr));
 	inet_ntop(AF_INET, &on->drouter, drouter, sizeof(drouter));
 	inet_ntop(AF_INET, &on->bdrouter, bdrouter, sizeof(bdrouter));
 
+	ospf6_neighbor_nstate_message(on, nstate, sizeof(nstate));
 	monotime(&now);
 	timersub(&now, &on->last_changed, &res);
 	timerstring(&res, duration, sizeof(duration));
@@ -1027,8 +1045,28 @@ static void ospf6_neighbor_show_detail(struct vty *vty,
 				       "%pI6", on->ospf6_if->linklocal_addr);
 		json_object_string_add(json_neighbor, "linkLocalAddress",
 				       linklocal_addr);
+#if CONFDATE > 20241129
+		CPP_NOTICE(
+			"Remove %s() JSON keys: neighborState", __func__)
+#endif
 		json_object_string_add(json_neighbor, "neighborState",
 				       ospf6_neighbor_state_str[on->state]);
+		json_object_int_add(json_neighbor, "nbrPriority", on->priority);
+		json_object_string_add(json_neighbor, "nbrState", nstate);
+		json_object_string_add(json_neighbor, "Role",
+				       ospf6_neighbor_state_str[on->state]);
+		if (on->inactivity_timer) {
+			time_store =
+				monotime_until(&on->inactivity_timer->u.sands,
+					       NULL)
+				/ 1000LL;
+			json_object_int_add(json_neighbor,
+					    "routerDeadIntervalTimerDueMsec",
+					    time_store);
+		} else
+			json_object_string_add(json_neighbor,
+					       "routerDeadIntervalTimerDueMsec",
+					       "inactive");
 		json_object_string_add(json_neighbor, "neighborStateDuration",
 				       duration);
 		json_object_string_add(json_neighbor, "neighborDRouter",
