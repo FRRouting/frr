@@ -241,9 +241,9 @@ void zebra_router_terminate(void)
 			    zebra_pbr_ipset_entry_free);
 	hash_clean_and_free(&zrouter.ipset_hash, zebra_pbr_ipset_free);
 	hash_clean_and_free(&zrouter.iptable_hash, zebra_pbr_iptable_free);
-	hash_clean_and_free(&zrouter.filter_hash, NULL);
-	hash_clean_and_free(&zrouter.qdisc_hash, NULL);
-	hash_clean_and_free(&zrouter.class_hash, NULL);
+	hash_clean_and_free(&zrouter.filter_hash, (void (*)(void *)) zebra_tc_filter_free);
+	hash_clean_and_free(&zrouter.qdisc_hash, (void (*)(void *)) zebra_tc_qdisc_free);
+	hash_clean_and_free(&zrouter.class_hash, (void (*)(void *)) zebra_tc_class_free);
 
 #ifdef HAVE_SCRIPTING
 	zebra_script_destroy();
