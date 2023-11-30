@@ -213,6 +213,45 @@ def test_static_route_monitoring_convergence():
     expect_static_bfd_output("r6", "bfd-static")
 
 
+def test_static_route_monitoring_wrong_source():
+    "Test that static monitoring fails if setting a wrong source."
+
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    logger.info("test route wrong ")
+
+    tgen.gears["r3"].vtysh_cmd(
+        """
+configure
+ipv6 route 2001:db8:5::/64 2001:db8:4::3 bfd multi-hop source 2001:db8:4::2 profile slow-tx
+"""
+    )
+
+    expect_route_missing("r3", "ipv6", "2001:db8:5::/64")
+
+
+def test_static_route_monitoring_unset_source():
+    "Test that static monitoring fails if setting a wrong source."
+
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    logger.info("test route wrong ")
+
+    tgen.gears["r3"].vtysh_cmd(
+        """
+configure
+ipv6 route 2001:db8:5::/64 2001:db8:4::3 bfd multi-hop profile slow-tx
+"""
+    )
+
+    expect_static_bfd_output("r3", "bfd-static")
+    expect_static_bfd_output("r6", "bfd-static")
+
+
 def test_expect_static_rib_removal():
     "Test that route got removed from RIB (staticd and bgpd)."
 
