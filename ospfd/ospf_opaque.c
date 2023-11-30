@@ -427,12 +427,9 @@ void ospf_delete_opaque_functab(uint8_t lsa_type, uint8_t opaque_type)
 				if (functab->oipt != NULL)
 					free_opaque_info_per_type(functab->oipt,
 								  true);
-				/* Dequeue listnode entry from the function table
-				 * list coreesponding to the opaque LSA type.
-				 * Note that the list deletion callback frees
-				 * the functab entry memory.
-				 */
+				/* Dequeue listnode entry from the list. */
 				listnode_delete(funclist, functab);
+				ospf_opaque_del_functab(functab);
 				break;
 			}
 		}
