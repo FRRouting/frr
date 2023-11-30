@@ -10,6 +10,7 @@
 #include <zebra.h>
 #include <arpa/inet.h>
 #include <netinet/in.h>
+#include "zebra_srte.h"
 
 #include "qobj.h"
 #include "prefix.h"
@@ -45,7 +46,6 @@ DECLARE_HOOK(srv6_manager_release_chunk,
 	      const char *locator_name,
 	      vrf_id_t vrf_id),
 	     (client, locator_name, vrf_id));
-
 
 extern void zebra_srv6_locator_add(struct srv6_locator *locator);
 extern void zebra_srv6_locator_delete(struct srv6_locator *locator);
