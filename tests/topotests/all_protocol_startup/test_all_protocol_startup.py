@@ -466,6 +466,22 @@ def verify_nexthop_group(nhg_id, recursive=False, ecmp=0):
         )
 
 
+def verify_nexthop_group_on_system(nhg_id, present):
+    # Verify nhgid presence on the system
+    net = get_topogen().net
+    output = net["r1"].cmd("ip nexthop show id %s" % nhg_id)
+    match = re.search(r"id %s" % nhg_id, output)
+    if present:
+        assert match is not None, (
+            "Nexthop Group ID=%d should be present on the system, but is not" % nhg_id
+        )
+    else:
+        assert match is None, (
+            "Nexthop Group ID=%d should not be present on the system, but is not"
+            % nhg_id
+        )
+
+
 def verify_route_nexthop_group(route_str, recursive=False, ecmp=0):
     # Verify route and that zebra created NHGs for and they are valid/installed
     nhg_id = route_get_nhg_id(route_str)
@@ -612,6 +628,22 @@ def test_nexthop_groups():
         "Route 6.6.6.1/32 with Nexthop Group ID=%d has wrong number of resolved nexthops"
         % nhg_id
     )
+
+    ## nexthop suppression
+
+    net["r1"].cmd(
+        'vtysh -c "c t" -c "nexthop-group suppress" -c "nexthop 192.168.0.165 r1-eth0"'
+    )
+    net["r1"].cmd('vtysh -c "sharp install routes 7.7.7.1 nexthop-group suppress 1"')
+    verify_route_nexthop_group("7.7.7.1/32")
+    nhg_id = route_get_nhg_id("7.7.7.1/32")
+    verify_nexthop_group_on_system(nhg_id, True)
+    net["r1"].cmd('vtysh -c "sharp remove routes 7.7.7.1 1"')
+    net["r1"].cmd(
+        'vtysh -c "c t" -c "nexthop-group suppress" -c "no nexthop 192.168.0.165 r1-eth0"'
+    )
+    net["r1"].cmd('vtysh -c "c t" -c "no nexthop-group suppress"')
+    verify_nexthop_group_on_system(nhg_id, False)
 
     ## Remove all NHG routes
 

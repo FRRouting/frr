@@ -1719,7 +1719,8 @@ void zebra_nhg_decrement_ref(struct nhg_hash_entry *nhe)
 
 	nhe->refcnt--;
 
-	if (!zebra_router_in_shutdown() && nhe->refcnt <= 0 &&
+	if (!PROTO_OWNED(nhe) && !zebra_router_in_shutdown() &&
+	    nhe->refcnt <= 0 &&
 	    CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_INSTALLED) &&
 	    !CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_KEEP_AROUND)) {
 		nhe->refcnt = 1;
