@@ -255,6 +255,58 @@ struct opaque_info_per_type; /* Forward declaration. */
 static void free_opaque_info_per_type(struct opaque_info_per_type *oipt,
 				      bool cleanup_owner);
 
+/*
+ * Opaque-LSA control information per opaque-type.
+ * Single Opaque-Type may have multiple instances; each of them will be
+ * identified by their opaque-id.
+ */
+struct opaque_info_per_type {
+	uint8_t lsa_type;
+	uint8_t opaque_type;
+
+	enum { PROC_NORMAL, PROC_SUSPEND } status;
+
+	/*
+	 * Thread for (re-)origination scheduling for this opaque-type.
+	 *
+	 * Initial origination of Opaque-LSAs is controlled by generic
+	 * Opaque-LSA handling module so that same opaque-type entries are
+	 * called all at once when certain conditions are met.
+	 * However, there might be cases that some Opaque-LSA clients need
+	 * to (re-)originate their own Opaque-LSAs out-of-sync with others.
+	 * This thread is prepared for that specific purpose.
+	 */
+	struct event *t_opaque_lsa_self;
+
+	/*
+	 * Backpointer to an "owner" which is LSA-type dependent.
+	 *   type-9:  struct ospf_interface
+	 *   type-10: struct ospf_area
+	 *   type-11: struct ospf
+	 */
+	void *owner;
+
+	/* Collection of callback functions for this opaque-type. */
+	struct ospf_opaque_functab *functab;
+
+	/* List of Opaque-LSA control information per opaque-id. */
+	struct list *id_list;
+};
+
+/* Opaque-LSA control information per opaque-id. */
+struct opaque_info_per_id {
+	uint32_t opaque_id;
+
+	/* Thread for refresh/flush scheduling for this opaque-type/id. */
+	struct event *t_opaque_lsa_self;
+
+	/* Backpointer to Opaque-LSA control information per opaque-type. */
+	struct opaque_info_per_type *opqctl_type;
+
+	/* Here comes an actual Opaque-LSA entry for this opaque-type/id. */
+	struct ospf_lsa *lsa;
+};
+
 struct ospf_opaque_functab {
 	uint8_t opaque_type;
 	struct opaque_info_per_type *oipt;
@@ -422,17 +474,26 @@ void ospf_delete_opaque_functab(uint8_t lsa_type, uint8_t opaque_type)
 	if ((funclist = ospf_get_opaque_funclist(lsa_type)) != NULL)
 		for (ALL_LIST_ELEMENTS(funclist, node, nnode, functab)) {
 			if (functab->opaque_type == opaque_type) {
-				/* Cleanup internal control information, if it
-				 * still remains. */
-				if (functab->oipt != NULL)
+				/*
+				 * If it exists, delete the opaque information
+				 * per opaque type corresponding to the function
+				 * table. Null the back pointer to the function
+				 * table to break the indirect deletion
+				 * recursion.
+				 */
+				if (functab->oipt != NULL) {
+					functab->oipt->functab = NULL;
 					free_opaque_info_per_type(functab->oipt,
 								  true);
-				/* Dequeue listnode entry from the function table
-				 * list coreesponding to the opaque LSA type.
-				 * Note that the list deletion callback frees
-				 * the functab entry memory.
+				}
+
+				/*
+				 * Remove the listnode entry from the function
+				 * table list corresponding to the opaque LSA
+				 * type and free the function table entry.
 				 */
 				listnode_delete(funclist, functab);
+				XFREE(MTYPE_OSPF_OPAQUE_FUNCTAB, functab);
 				break;
 			}
 		}
@@ -459,59 +520,6 @@ ospf_opaque_functab_lookup(struct ospf_lsa *lsa)
 /*------------------------------------------------------------------------*
  * Following are management functions for self-originated LSA entries.
  *------------------------------------------------------------------------*/
-
-/*
- * Opaque-LSA control information per opaque-type.
- * Single Opaque-Type may have multiple instances; each of them will be
- * identified by their opaque-id.
- */
-struct opaque_info_per_type {
-	uint8_t lsa_type;
-	uint8_t opaque_type;
-
-	enum { PROC_NORMAL, PROC_SUSPEND } status;
-
-	/*
-	 * Thread for (re-)origination scheduling for this opaque-type.
-	 *
-	 * Initial origination of Opaque-LSAs is controlled by generic
-	 * Opaque-LSA handling module so that same opaque-type entries are
-	 * called all at once when certain conditions are met.
-	 * However, there might be cases that some Opaque-LSA clients need
-	 * to (re-)originate their own Opaque-LSAs out-of-sync with others.
-	 * This thread is prepared for that specific purpose.
-	 */
-	struct event *t_opaque_lsa_self;
-
-	/*
-	 * Backpointer to an "owner" which is LSA-type dependent.
-	 *   type-9:  struct ospf_interface
-	 *   type-10: struct ospf_area
-	 *   type-11: struct ospf
-	 */
-	void *owner;
-
-	/* Collection of callback functions for this opaque-type. */
-	struct ospf_opaque_functab *functab;
-
-	/* List of Opaque-LSA control information per opaque-id. */
-	struct list *id_list;
-};
-
-/* Opaque-LSA control information per opaque-id. */
-struct opaque_info_per_id {
-	uint32_t opaque_id;
-
-	/* Thread for refresh/flush scheduling for this opaque-type/id. */
-	struct event *t_opaque_lsa_self;
-
-	/* Backpointer to Opaque-LSA control information per opaque-type. */
-	struct opaque_info_per_type *opqctl_type;
-
-	/* Here comes an actual Opaque-LSA entry for this opaque-type/id. */
-	struct ospf_lsa *lsa;
-};
-
 static struct opaque_info_per_type *
 register_opaque_info_per_type(struct ospf_opaque_functab *functab,
 			      struct ospf_lsa *new);
