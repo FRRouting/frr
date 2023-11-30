@@ -680,6 +680,28 @@ during the config_timing test.
 To specify different arguments for ``perf record``, one can use the
 ``--perf-options`` this will replace the ``-g`` used by default.
 
+Running Daemons under RR Debug (``rr record``)
+""""""""""""""""""""""""""""""""""""""""""""""
+
+Topotest can automatically launch any daemon under ``rr(1)`` to collect
+execution state. The daemon is run in the foreground with ``rr record``.
+
+The execution state will be saved in the router specific directory
+(in a `rr` subdir that rr creates) under the test's run directoy.
+
+Here's an example of collecting ``rr`` execution state from ``mgmtd`` on router
+``r1`` during the ``config_timing`` test.
+
+.. code:: console
+
+   $ sudo -E pytest --rr-routers=r1 --rr-daemons=mgmtd config_timing
+   ...
+   $ find /tmp/topotests/ -name '*perf.data*'
+   /tmp/topotests/config_timing.test_config_timing/r1/perf.data
+
+To specify additional arguments for ``rr record``, one can use the
+``--rr-options``.
+
 .. _topotests_docker:
 
 Running Tests with Docker
