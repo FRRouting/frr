@@ -89,6 +89,13 @@ module frr-pathd {
           type rt-types:mpls-label;
           description "MPLS label value";
         }
+        leaf srv6-sid-value {
+          type inet:ipv6-address;
+          description "SRv6 SID value";
+        }
+        must "not(../segment/sid-value) or not(../segment/srv6-sid-value)" {
+          error-message "Only MPLS label or SRv6 SID value can be configured in the same moment.";
+        }
         container nai {
           presence "The segment has a Node or Adjacency Identifier";
           leaf type {
