@@ -3736,6 +3736,9 @@ static void bgp_process_main_one(struct bgp *bgp, struct bgp_dest *dest,
 	 * set
 	 */
 	if (old_select || new_select) {
+		if (old_select)
+			bgp_path_info_lock(old_select);
+
 		hook_call(bgp_route_update, bgp, afi, safi, dest, old_select,
 			  new_select);
 	}
@@ -3928,6 +3931,7 @@ out:
 			old_select->peer->stat_loc_rib_count[afi][safi]--;
 
 		hook_call(bgp_process_main_one_end, bgp, old_select);
+		bgp_path_info_unlock(old_select);
 	}
 
 	if (new_select && new_select->peer)
@@ -3948,7 +3952,6 @@ out:
 	}
 	bgp_mpath_diff_clear(&mpath_diff);
 	bgp_mpath_diff_fini(&mpath_diff);
-	return;
 }
 
 /* Process the routes with the flag BGP_NODE_SELECT_DEFER set */
