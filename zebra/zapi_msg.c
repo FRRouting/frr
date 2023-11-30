@@ -2671,12 +2671,12 @@ static void zread_sr_policy_set(ZAPI_HANDLER_ARGS)
 				   __func__);
 		return;
 	}
+
 	zt = &zp.segment_list;
-	if (zt->label_num < 1) {
+	if (!(zt->label_num > 0 || zt->srv6_segs.num_segs > 0)) {
 		if (IS_ZEBRA_DEBUG_RECV)
-			zlog_debug(
-				"%s: SR-TE tunnel must contain at least one label",
-				__func__);
+			zlog_debug("%s: SR-TE tunnel must contain at least one label or SRv6 SID",
+				   __func__);
 		return;
 	}
 
