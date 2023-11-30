@@ -149,4 +149,8 @@ mgmt_fe_get_session_commit_stats(uint64_t session_id);
 extern void mgmt_fe_adapter_status_write(struct vty *vty, bool detail);
 extern void mgmt_fe_adapter_perf_measurement(struct vty *vty, bool config);
 extern void mgmt_fe_adapter_reset_perf_stats(struct vty *vty);
+
+/* Toggle debug on or off for connected clients. */
+extern void mgmt_fe_adapter_toggle_client_debug(bool set);
+
 #endif /* _FRR_MGMTD_FE_ADAPTER_H_ */

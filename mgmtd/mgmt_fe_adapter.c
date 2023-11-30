@@ -246,6 +246,14 @@ mgmt_session_id2ctx(uint64_t session_id)
 	return session;
 }
 
+void mgmt_fe_adapter_toggle_client_debug(bool set)
+{
+	struct mgmt_fe_client_adapter *adapter;
+
+	FOREACH_ADAPTER_IN_LIST (adapter)
+		adapter->conn->debug = set;
+}
+
 static struct mgmt_fe_session_ctx *
 mgmt_fe_create_session(struct mgmt_fe_client_adapter *adapter,
 			   uint64_t client_id)
@@ -1131,6 +1139,9 @@ struct msg_conn *mgmt_fe_create_adapter(int conn_fd, union sockunion *from)
 			mgmt_fe_adapter_process_msg, MGMTD_FE_MAX_NUM_MSG_PROC,
 			MGMTD_FE_MAX_NUM_MSG_WRITE, MGMTD_FE_MSG_MAX_LEN,
 			adapter, "FE-adapter");
+
+		adapter->conn->debug = DEBUG_MODE_CHECK(&mgmt_debug_fe,
+							DEBUG_MODE_ALL);
 
 		adapter->setcfg_stats.min_tm = ULONG_MAX;
 		adapter->cmt_stats.min_tm = ULONG_MAX;

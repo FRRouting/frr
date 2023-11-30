@@ -668,6 +668,8 @@ struct msg_conn *mgmt_be_create_adapter(int conn_fd, union sockunion *from)
 		MGMTD_BE_MAX_NUM_MSG_WRITE, MGMTD_BE_MSG_MAX_LEN, adapter,
 		"BE-adapter");
 
+	adapter->conn->debug = DEBUG_MODE_CHECK(&mgmt_debug_be, DEBUG_MODE_ALL);
+
 	MGMTD_BE_ADAPTER_DBG("Added new MGMTD Backend adapter '%s'",
 			     adapter->name);
 
@@ -677,14 +679,21 @@ struct msg_conn *mgmt_be_create_adapter(int conn_fd, union sockunion *from)
 struct mgmt_be_client_adapter *
 mgmt_be_get_adapter_by_id(enum mgmt_be_client_id id)
 {
-	return (id < MGMTD_BE_CLIENT_ID_MAX ? mgmt_be_adapters_by_id[id]
-					       : NULL);
+	return (id < MGMTD_BE_CLIENT_ID_MAX ? mgmt_be_adapters_by_id[id] : NULL);
 }
 
 struct mgmt_be_client_adapter *
 mgmt_be_get_adapter_by_name(const char *name)
 {
 	return mgmt_be_find_adapter_by_name(name);
+}
+
+void mgmt_be_adapter_toggle_client_debug(bool set)
+{
+	struct mgmt_be_client_adapter *adapter;
+
+	FOREACH_ADAPTER_IN_LIST (adapter)
+		adapter->conn->debug = set;
 }
 
 /*

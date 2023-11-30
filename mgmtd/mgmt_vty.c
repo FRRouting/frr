@@ -438,12 +438,18 @@ DEFPY(debug_mgmt, debug_mgmt_cmd,
 {
 	uint32_t mode = DEBUG_NODE2MODE(vty->node);
 
-	if (be)
+	if (be) {
 		DEBUG_MODE_SET(&mgmt_debug_be, mode, !no);
+		mgmt_be_adapter_toggle_client_debug(
+			DEBUG_MODE_CHECK(&mgmt_debug_be, DEBUG_MODE_ALL));
+	}
 	if (ds)
 		DEBUG_MODE_SET(&mgmt_debug_ds, mode, !no);
-	if (fe)
+	if (fe) {
 		DEBUG_MODE_SET(&mgmt_debug_fe, mode, !no);
+		mgmt_fe_adapter_toggle_client_debug(
+			DEBUG_MODE_CHECK(&mgmt_debug_fe, DEBUG_MODE_ALL));
+	}
 	if (txn)
 		DEBUG_MODE_SET(&mgmt_debug_txn, mode, !no);
 
