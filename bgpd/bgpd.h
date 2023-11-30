@@ -2739,6 +2739,9 @@ extern bool bgp_path_attribute_discard(struct peer *peer, char *buf,
 				       size_t size);
 extern bool bgp_path_attribute_treat_as_withdraw(struct peer *peer, char *buf,
 						 size_t size);
+
+extern void srv6_function_free(struct bgp_srv6_function *func);
+
 #ifdef _FRR_ATTRIBUTE_PRINTFRR
 /* clang-format off */
 #pragma FRR printfrr_ext "%pBP" (struct peer *)
