@@ -1910,8 +1910,15 @@ static struct nexthop *nexthop_set_resolved(afi_t afi,
 	if (num_labels)
 		nexthop_add_labels(resolved_hop, label_type, num_labels,
 				   labels);
-
-	if (nexthop->nh_srv6) {
+	if (policy) {
+		if (!sid_zero_ipv6(&policy->segment_list.srv6_segs.segs[0])) {
+			nexthop_add_srv6_seg6(resolved_hop,
+					      &policy->segment_list.srv6_segs
+						       .segs[0],
+					      policy->segment_list.srv6_segs
+						      .num_segs);
+		}
+	} else if (nexthop->nh_srv6) {
 		if (nexthop->nh_srv6->seg6local_action !=
 		    ZEBRA_SEG6_LOCAL_ACTION_UNSPEC)
 			nexthop_add_srv6_seg6local(resolved_hop,
