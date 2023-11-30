@@ -309,6 +309,39 @@ static int is_vni_present_in_irt_vnis(struct list *vnis, struct bgpevpn *vpn)
 	return 0;
 }
 
+/* Flag if the route is injectable into EVPN.
+ * This would be following category:
+ * Non-imported route,
+ * Non-EVPN imported route,
+ * Non Aggregate suppressed route.
+ */
+bool is_route_injectable_into_evpn(struct bgp_path_info *pi)
+{
+	struct bgp_path_info *parent_pi;
+	struct bgp_table *table;
+	struct bgp_dest *dest;
+
+	/* do not import aggr suppressed routes */
+	if (bgp_path_suppressed(pi))
+		return false;
+
+	if (pi->sub_type != BGP_ROUTE_IMPORTED || !pi->extra ||
+	    !pi->extra || !pi->extra->parent)
+		return true;
+
+        parent_pi = (struct bgp_path_info *)pi->extra->parent;
+        dest = parent_pi->net;
+        if (!dest)
+		return true;
+        table = bgp_dest_table(dest);
+        if (table &&
+            table->afi == AFI_L2VPN &&
+            table->safi == SAFI_EVPN)
+                return false;
+
+        return true;
+}
+
 /*
  * Compare Route Targets.
  */
@@ -1624,6 +1657,9 @@ static int update_evpn_type5_route(struct bgp *bgp_vrf, struct prefix_evpn *evp,
 			vrf_id_to_name(bgp_vrf->vrf_id), evp, &attr.rmac,
 			&attr.nexthop);
 
+	frrtrace(4, frr_bgp, evpn_advertise_type5, bgp_vrf->vrf_id, evp,
+		 &attr.rmac, attr.nexthop);
+
 	attr.mp_nexthop_len = BGP_ATTR_NHLEN_IPV4;
 
 	if (src_afi == AFI_IP6 &&
@@ -2257,6 +2293,8 @@ static int delete_evpn_type5_route(struct bgp *bgp_vrf, struct prefix_evpn *evp)
 					   &bgp_vrf->vrf_prd, NULL);
 	if (!dest)
 		return 0;
+
+	frrtrace(2, frr_bgp, evpn_withdraw_type5, bgp_vrf->vrf_id, evp);
 
 	delete_evpn_route_entry(bgp_evpn, afi, safi, dest, &pi);
 	if (pi)

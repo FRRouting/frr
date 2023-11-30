@@ -157,6 +157,46 @@ def parse_frr_bgp_evpn_mh_local_es_evi_del_zrecv(event):
 
     parse_event(event, field_parsers)
 
+def parse_frr_bgp_evpn_mh_es_evi_vtep_add(event):
+    """
+    bgp evpn remote ead evi remote vtep add; raw format -
+    ctf_array(unsigned char, esi, esi, sizeof(esi_t))
+    """
+    field_parsers = {"esi": print_esi,
+                     "vtep": print_net_ipv4_addr}
+
+    parse_event(event, field_parsers)
+
+def parse_frr_bgp_evpn_mh_es_evi_vtep_del(event):
+    """
+    bgp evpn remote ead evi remote vtep del; raw format -
+    ctf_array(unsigned char, esi, esi, sizeof(esi_t))
+    """
+    field_parsers = {"esi": print_esi,
+                     "vtep": print_net_ipv4_addr}
+
+    parse_event(event, field_parsers)
+
+def parse_frr_bgp_evpn_mh_local_ead_es_evi_route_upd(event):
+    """
+    bgp evpn local ead evi vtep; raw format -
+    ctf_array(unsigned char, esi, esi, sizeof(esi_t))
+    """
+    field_parsers = {"esi": print_esi,
+                     "vtep": print_net_ipv4_addr}
+
+    parse_event(event, field_parsers)
+
+def parse_frr_bgp_evpn_mh_local_ead_es_evi_route_del(event):
+    """
+    bgp evpn local ead evi vtep del; raw format -
+    ctf_array(unsigned char, esi, esi, sizeof(esi_t))
+    """
+    field_parsers = {"esi": print_esi,
+                     "vtep": print_net_ipv4_addr}
+
+    parse_event(event, field_parsers)
+
 def parse_frr_bgp_evpn_local_vni_add_zrecv(event):
     """
     bgp evpn local-vni parser; raw format -
@@ -205,6 +245,24 @@ def parse_frr_bgp_evpn_local_macip_del_zrecv(event):
 
     parse_event(event, field_parsers)
 
+def parse_frr_bgp_evpn_advertise_type5(event):
+    """
+    local originated type-5 route
+    """
+    field_parsers = {"ip": print_ip_addr,
+                     "rmac": print_mac,
+                     "vtep": print_net_ipv4_addr}
+
+    parse_event(event, field_parsers)
+
+def parse_frr_bgp_evpn_withdraw_type5(event):
+    """
+    local originated type-5 route withdraw
+    """
+    field_parsers = {"ip": print_ip_addr}
+
+    parse_event(event, field_parsers)
+
 ############################ evpn parsers - end *#############################
 
 def main():
@@ -225,6 +283,14 @@ def main():
                      parse_frr_bgp_evpn_mh_local_es_evi_add_zrecv,
                      "frr_bgp:evpn_mh_local_es_evi_del_zrecv":
                      parse_frr_bgp_evpn_mh_local_es_evi_del_zrecv,
+                     "frr_bgp:evpn_mh_es_evi_vtep_add":
+                     parse_frr_bgp_evpn_mh_es_evi_vtep_add,
+                     "frr_bgp:evpn_mh_es_evi_vtep_del":
+                     parse_frr_bgp_evpn_mh_es_evi_vtep_del,
+                     "frr_bgp:evpn_mh_local_ead_es_evi_route_upd":
+                     parse_frr_bgp_evpn_mh_local_ead_es_evi_route_upd,
+                     "frr_bgp:evpn_mh_local_ead_es_evi_route_del":
+                     parse_frr_bgp_evpn_mh_local_ead_es_evi_route_del,
                      "frr_bgp:evpn_local_vni_add_zrecv":
                      parse_frr_bgp_evpn_local_vni_add_zrecv,
                      "frr_bgp:evpn_local_l3vni_add_zrecv":
@@ -233,6 +299,10 @@ def main():
                      parse_frr_bgp_evpn_local_macip_add_zrecv,
                      "frr_bgp:evpn_local_macip_del_zrecv":
                      parse_frr_bgp_evpn_local_macip_del_zrecv,
+                     "frr_bgp:evpn_advertise_type5":
+                     parse_frr_bgp_evpn_advertise_type5,
+                     "frr_bgp:evpn_withdraw_type5":
+                     parse_frr_bgp_evpn_withdraw_type5,
 }
 
     # get the trace path from the first command line argument
