@@ -252,6 +252,7 @@ int snprintf_seg6_segs(char *str,
 extern struct srv6_locator *srv6_locator_alloc(const char *name);
 extern struct srv6_locator_chunk *srv6_locator_chunk_alloc(void);
 extern void srv6_locator_free(struct srv6_locator *locator);
+extern void srv6_locator_chunk_list_free(void *data);
 extern void srv6_locator_chunk_free(struct srv6_locator_chunk **chunk);
 json_object *srv6_locator_chunk_json(const struct srv6_locator_chunk *chunk);
 json_object *srv6_locator_json(const struct srv6_locator *loc);
