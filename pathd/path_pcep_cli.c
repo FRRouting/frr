@@ -2044,7 +2044,6 @@ DEFPY(pcep_cli_no_pcc,
 DEFPY(pcep_cli_pcc_pcc_msd,
       pcep_cli_pcc_pcc_msd_cmd,
       "msd (1-32)",
-      NO_STR
       "PCC maximum SID depth \n"
       "PCC maximum SID depth value\n")
 {
