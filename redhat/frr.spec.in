@@ -793,7 +793,36 @@ sed -i 's/ -M rpki//' %{_sysconfdir}/frr/daemons
 
 %changelog
 
-* Fri Sep 01 2023 Martin Winter <mwinter@opensourcerouting.org> - %{version}
+* Fri Dec 01 2023 Martin Winter <mwinter@opensourcerouting.org> - %{version}
+
+* Fri Dec 01 2023 Donatas Abraitis <donatas@opensourcerouting.org> - 8.5.4
+- bgpd
+-    Check mandatory attributes more carefully for the UPDATE message
+-    Do not suppress conditional advertisement updates if triggered
+-    Fix crash in SNMP BGP4V2-MIB bgpv2PeerErrorsTable()
+-    Handle MP_UNREACH_NLRI malformed packets with session reset
+-    Ignore handling NLRIs if we received the MP_UNREACH_NLRI attribute
+-    Initialise timebuf arrays to zeros for dampening reuse timer
+-    Initialise buffer in bgp_notify_admin_message() before using it
+-    Make sure dampening is enabled for the specified AFI/SAFI
+-    Use proper AFI when dumping information for dampening stuff
+-    Treat EOR as withdrawn to avoid unwanted handling of malformed attrs
+- eigrpd
+-    Use the correct memory pool on interface deletion
+- vtysh
+-    Fix show route map JSON output
+- ospfd
+-    Fix infinite loop when listing OSPF interfaces
+- pbrd
+-    Fix show pbr map detail json output
+- zebra
+-    Add encap type when building packet for FPM
+-    Display ptmStatus order in interface JSON
+-    Fix connected route deletion when multiple entry exists
+-    Fix FPM multipath encap addition
+-    Fix link update for veth interfaces
+-    Fix zebra crash when replacing nhe during shutdown
+-    Prevent null pointer dereference
 
 * Fri Sep 01 2023 Jafar Al-Gharaibeh <jafar@atcorp.com> - 8.5.3
 - bgpd
