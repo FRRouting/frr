@@ -799,7 +799,68 @@ sed -i 's/ -M rpki//' %{_sysconfdir}/frr/daemons
 
 %changelog
 
-* Fri Sep 01 2023 Martin Winter <mwinter@opensourcerouting.org> - %{version}
+* Fri Dec 01 2023 Martin Winter <mwinter@opensourcerouting.org> - %{version}
+
+* Fri Dec 01 2023 Donatas Abraitis <donatas@opensourcerouting.org> - 9.0.2
+- bgpd
+-    Fix aggregate-address summary-only suppressed export to EVPN
+-    Allow using attribute number 255 for path attr discard/withdraw cmds
+-    Check mandatory attributes more carefully for the UPDATE message
+-    Do not suppress conditional advertisement updates if triggered
+-    Fix Extended community memory leak
+-    Fix the no set as-path prepend command
+-    Fix heap-use-after-free for bgp_best_selection()
+-    Fix crash in SNMP BGP4V2-MIB bgpv2PeerErrorsTable()
+-    Fix clear bgp ipv6 unicast ... command
+-    Flush attributes only if we don't have to announce a conditional route (avoid use-after-free)
+-    Free memory for SRv6 functions and locator chunks
+-    Handle MP_UNREACH_NLRI malformed packets with session reset
+-    Ignore handling NLRIs if we received the MP_UNREACH_NLRI attribute
+-    Initialise timebuf arrays to zeros for dampening reuse timer
+-    Initialise buffer in bgp_notify_admin_message() before using it
+-    LTTng add EVPN route trace events
+-    Make sure dampening is enabled for the specified AFI/SAFI
+-    Use proper AFI when dumping information for dampening stuff
+-    Treat the AS4-PATH attribute as withdrawn if malformed
+-    Treat PMSI tunnel attribute as withdrawn if malformed
+-    Treat EOR as withdrawn to avoid unwanted handling of malformed attrs
+- eigrpd
+-    Use the correct memory pool on interface deletion
+- mgmtd
+-    Change mgmtd_vty_port to 2623
+-    Fix crash on show mgmtd datastore-contents
+- ospf6d
+-    Fix setting of the forwarding address in as-external LSAs
+-    Set loopback interface cost to 0
+- ospfd
+-    Fixing infinite loop when listing OSPF interfaces
+- pathd
+-    Add no msd command
+-    Add no pcep command
+- pbrd
+-    Fix show pbr map detail json command
+-    Free memory in pbr_map_delete()
+- pim6d
+-    Fix valgrind issues
+- pimd
+-    Fix missing pimreg interface
+- tools
+-    Fix the frr-reload interface description command
+-    Fix the frr-reload route-map description command
+-    Make --quiet actually suppress output
+- vtysh
+-    Fix entering configuration node in file-lock mode
+-    Fix configure terminal argument descriptions
+-    Fix working in file-lock mode
+-    Fix show route map json output
+- zebra
+-    Add encap type when building packet for FPM
+-    Display ptmStatus order in interface JSON
+-    Fix connected route deletion when multiple entry exists
+-    Fix FPM multipath encap addition
+-    Fix link update for veth interfaces
+-    Fix zebra crash when replacing nhe during shutdown
+-    Prevent null pointer dereference
 
 * Fri Sep 01 2023 Jafar Al-Gharaibeh <jafar@atcorp.com> - 9.0.1
 - bgpd
