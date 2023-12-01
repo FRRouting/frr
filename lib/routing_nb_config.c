@@ -44,7 +44,7 @@ int routing_control_plane_protocols_control_plane_protocol_create(
 		 * find the vrf and store the pointer.
 		 */
 		if (nb_node_has_dependency(args->dnode->schema->priv)) {
-			vrfname = yang_dnode_get_string(args->dnode, "./vrf");
+			vrfname = yang_dnode_get_string(args->dnode, "vrf");
 			vrf = vrf_lookup_by_name(vrfname);
 			assert(vrf);
 			nb_running_set_entry(args->dnode, vrf);
@@ -76,7 +76,7 @@ static void vrf_to_control_plane_protocol(const struct lyd_node *dnode,
 {
 	const char *vrf;
 
-	vrf = yang_dnode_get_string(dnode, "./name");
+	vrf = yang_dnode_get_string(dnode, "name");
 
 	snprintf(xpath, XPATH_MAXLEN, FRR_ROUTING_KEY_XPATH_VRF, vrf);
 }
@@ -86,7 +86,7 @@ static void control_plane_protocol_to_vrf(const struct lyd_node *dnode,
 {
 	const char *vrf;
 
-	vrf = yang_dnode_get_string(dnode, "./vrf");
+	vrf = yang_dnode_get_string(dnode, "vrf");
 
 	snprintf(xpath, XPATH_MAXLEN, FRR_VRF_KEY_XPATH, vrf);
 }

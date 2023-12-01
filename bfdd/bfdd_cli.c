@@ -219,24 +219,24 @@ static void _bfd_cli_show_peer(struct vty *vty, const struct lyd_node *dnode,
 			       bool show_defaults __attribute__((__unused__)),
 			       bool mhop)
 {
-	const char *vrf = yang_dnode_get_string(dnode, "./vrf");
+	const char *vrf = yang_dnode_get_string(dnode, "vrf");
 
 	vty_out(vty, " peer %s",
-		yang_dnode_get_string(dnode, "./dest-addr"));
+		yang_dnode_get_string(dnode, "dest-addr"));
 
 	if (mhop)
 		vty_out(vty, " multihop");
 
-	if (yang_dnode_exists(dnode, "./source-addr"))
+	if (yang_dnode_exists(dnode, "source-addr"))
 		vty_out(vty, " local-address %s",
-			yang_dnode_get_string(dnode, "./source-addr"));
+			yang_dnode_get_string(dnode, "source-addr"));
 
 	if (strcmp(vrf, VRF_DEFAULT_NAME))
 		vty_out(vty, " vrf %s", vrf);
 
 	if (!mhop) {
 		const char *ifname =
-			yang_dnode_get_string(dnode, "./interface");
+			yang_dnode_get_string(dnode, "interface");
 		if (strcmp(ifname, "*"))
 			vty_out(vty, " interface %s", ifname);
 	}
@@ -567,7 +567,7 @@ DEFPY_YANG(no_bfd_profile, no_bfd_profile_cmd,
 void bfd_cli_show_profile(struct vty *vty, const struct lyd_node *dnode,
 			  bool show_defaults)
 {
-	vty_out(vty, " profile %s\n", yang_dnode_get_string(dnode, "./name"));
+	vty_out(vty, " profile %s\n", yang_dnode_get_string(dnode, "name"));
 }
 
 ALIAS_YANG(bfd_peer_mult, bfd_profile_mult_cmd,

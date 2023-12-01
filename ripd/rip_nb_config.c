@@ -35,7 +35,7 @@ int ripd_instance_create(struct nb_cb_create_args *args)
 	const char *vrf_name;
 	int socket;
 
-	vrf_name = yang_dnode_get_string(args->dnode, "./vrf");
+	vrf_name = yang_dnode_get_string(args->dnode, "vrf");
 	vrf = vrf_lookup_by_name(vrf_name);
 
 	/*
@@ -189,7 +189,7 @@ int ripd_instance_distance_source_create(struct nb_cb_create_args *args)
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	yang_dnode_get_ipv4p(&prefix, args->dnode, "./prefix");
+	yang_dnode_get_ipv4p(&prefix, args->dnode, "prefix");
 	apply_mask_ipv4(&prefix);
 
 	/* Get RIP distance node. */
@@ -395,7 +395,7 @@ int ripd_instance_offset_list_create(struct nb_cb_create_args *args)
 		return NB_OK;
 
 	rip = nb_running_get_entry(args->dnode, NULL, true);
-	ifname = yang_dnode_get_string(args->dnode, "./interface");
+	ifname = yang_dnode_get_string(args->dnode, "interface");
 
 	offset = rip_offset_list_new(rip, ifname);
 	nb_running_set_entry(args->dnode, offset);
@@ -411,7 +411,7 @@ int ripd_instance_offset_list_destroy(struct nb_cb_destroy_args *args)
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	direct = yang_dnode_get_enum(args->dnode, "./direction");
+	direct = yang_dnode_get_enum(args->dnode, "direction");
 
 	offset = nb_running_unset_entry(args->dnode);
 	if (offset->direct[direct].alist_name) {
@@ -560,7 +560,7 @@ int ripd_instance_redistribute_create(struct nb_cb_create_args *args)
 		return NB_OK;
 
 	rip = nb_running_get_entry(args->dnode, NULL, true);
-	type = yang_dnode_get_enum(args->dnode, "./protocol");
+	type = yang_dnode_get_enum(args->dnode, "protocol");
 
 	rip->redist[type].enabled = true;
 
@@ -576,7 +576,7 @@ int ripd_instance_redistribute_destroy(struct nb_cb_destroy_args *args)
 		return NB_OK;
 
 	rip = nb_running_get_entry(args->dnode, NULL, true);
-	type = yang_dnode_get_enum(args->dnode, "./protocol");
+	type = yang_dnode_get_enum(args->dnode, "protocol");
 
 	rip->redist[type].enabled = false;
 	if (rip->redist[type].route_map.name) {
@@ -600,7 +600,7 @@ void ripd_instance_redistribute_apply_finish(
 	int type;
 
 	rip = nb_running_get_entry(args->dnode, NULL, true);
-	type = yang_dnode_get_enum(args->dnode, "./protocol");
+	type = yang_dnode_get_enum(args->dnode, "protocol");
 
 	if (rip->enabled)
 		rip_redistribute_conf_update(rip, type);
@@ -1123,12 +1123,12 @@ int lib_interface_rip_bfd_create(struct nb_cb_create_args *args)
 
 	ifp = nb_running_get_entry(args->dnode, NULL, true);
 	ri = ifp->info;
-	ri->bfd.enabled = yang_dnode_get_bool(args->dnode, "./enable");
+	ri->bfd.enabled = yang_dnode_get_bool(args->dnode, "enable");
 	XFREE(MTYPE_RIP_BFD_PROFILE, ri->bfd.profile);
-	if (yang_dnode_exists(args->dnode, "./profile"))
+	if (yang_dnode_exists(args->dnode, "profile"))
 		ri->bfd.profile = XSTRDUP(
 			MTYPE_RIP_BFD_PROFILE,
-			yang_dnode_get_string(args->dnode, "./profile"));
+			yang_dnode_get_string(args->dnode, "profile"));
 
 	rip_bfd_interface_update(ri);
 

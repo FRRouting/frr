@@ -98,7 +98,7 @@ static int lib_route_map_create(struct nb_cb_create_args *args)
 		/* NOTHING */
 		break;
 	case NB_EV_APPLY:
-		rm_name = yang_dnode_get_string(args->dnode, "./name");
+		rm_name = yang_dnode_get_string(args->dnode, "name");
 		rm = route_map_get(rm_name);
 		nb_running_set_entry(args->dnode, rm);
 		break;
@@ -167,8 +167,8 @@ static int lib_route_map_entry_create(struct nb_cb_create_args *args)
 		/* NOTHING */
 		break;
 	case NB_EV_APPLY:
-		sequence = yang_dnode_get_uint16(args->dnode, "./sequence");
-		action = yang_dnode_get_enum(args->dnode, "./action") == 0
+		sequence = yang_dnode_get_uint16(args->dnode, "sequence");
+		action = yang_dnode_get_enum(args->dnode, "action") == 0
 				 ? RMAP_PERMIT
 				 : RMAP_DENY;
 		rm = nb_running_get_entry(args->dnode, NULL, true);

@@ -914,7 +914,7 @@ static int lib_vrf_create(struct nb_cb_create_args *args)
 	const char *vrfname;
 	struct vrf *vrfp;
 
-	vrfname = yang_dnode_get_string(args->dnode, "./name");
+	vrfname = yang_dnode_get_string(args->dnode, "name");
 
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;

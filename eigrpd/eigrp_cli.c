@@ -69,8 +69,8 @@ DEFPY_YANG(
 void eigrp_cli_show_header(struct vty *vty, const struct lyd_node *dnode,
 			   bool show_defaults)
 {
-	const char *asn = yang_dnode_get_string(dnode, "./asn");
-	const char *vrf = yang_dnode_get_string(dnode, "./vrf");
+	const char *asn = yang_dnode_get_string(dnode, "asn");
+	const char *vrf = yang_dnode_get_string(dnode, "vrf");
 
 	vty_out(vty, "router eigrp %s", asn);
 	if (strcmp(vrf, VRF_DEFAULT_NAME))
@@ -323,18 +323,18 @@ void eigrp_cli_show_metrics(struct vty *vty, const struct lyd_node *dnode,
 {
 	const char *k1, *k2, *k3, *k4, *k5, *k6;
 
-	k1 = yang_dnode_exists(dnode, "./K1") ?
-		yang_dnode_get_string(dnode, "./K1") : "0";
-	k2 = yang_dnode_exists(dnode, "./K2") ?
-		yang_dnode_get_string(dnode, "./K2") : "0";
-	k3 = yang_dnode_exists(dnode, "./K3") ?
-		yang_dnode_get_string(dnode, "./K3") : "0";
-	k4 = yang_dnode_exists(dnode, "./K4") ?
-		yang_dnode_get_string(dnode, "./K4") : "0";
-	k5 = yang_dnode_exists(dnode, "./K5") ?
-		yang_dnode_get_string(dnode, "./K5") : "0";
-	k6 = yang_dnode_exists(dnode, "./K6") ?
-		yang_dnode_get_string(dnode, "./K6") : "0";
+	k1 = yang_dnode_exists(dnode, "K1") ?
+		yang_dnode_get_string(dnode, "K1") : "0";
+	k2 = yang_dnode_exists(dnode, "K2") ?
+		yang_dnode_get_string(dnode, "K2") : "0";
+	k3 = yang_dnode_exists(dnode, "K3") ?
+		yang_dnode_get_string(dnode, "K3") : "0";
+	k4 = yang_dnode_exists(dnode, "K4") ?
+		yang_dnode_get_string(dnode, "K4") : "0";
+	k5 = yang_dnode_exists(dnode, "K5") ?
+		yang_dnode_get_string(dnode, "K5") : "0";
+	k6 = yang_dnode_exists(dnode, "K6") ?
+		yang_dnode_get_string(dnode, "K6") : "0";
 
 	vty_out(vty, " metric weights %s %s %s %s %s",
 		k1, k2, k3, k4, k5);
@@ -456,19 +456,19 @@ DEFPY_YANG(
 void eigrp_cli_show_redistribute(struct vty *vty, const struct lyd_node *dnode,
 				 bool show_defaults)
 {
-	const char *proto = yang_dnode_get_string(dnode, "./protocol");
+	const char *proto = yang_dnode_get_string(dnode, "protocol");
 	const char *bw, *delay, *load, *mtu, *rlbt;
 
-	bw = yang_dnode_exists(dnode, "./metrics/bandwidth") ?
-		yang_dnode_get_string(dnode, "./metrics/bandwidth") : NULL;
-	delay = yang_dnode_exists(dnode, "./metrics/delay") ?
-		yang_dnode_get_string(dnode, "./metrics/delay") : NULL;
-	rlbt = yang_dnode_exists(dnode, "./metrics/reliability") ?
-		yang_dnode_get_string(dnode, "./metrics/reliability") : NULL;
-	load = yang_dnode_exists(dnode, "./metrics/load") ?
-		yang_dnode_get_string(dnode, "./metrics/load") : NULL;
-	mtu = yang_dnode_exists(dnode, "./metrics/mtu") ?
-		yang_dnode_get_string(dnode, "./metrics/mtu") : NULL;
+	bw = yang_dnode_exists(dnode, "metrics/bandwidth") ?
+		yang_dnode_get_string(dnode, "metrics/bandwidth") : NULL;
+	delay = yang_dnode_exists(dnode, "metrics/delay") ?
+		yang_dnode_get_string(dnode, "metrics/delay") : NULL;
+	rlbt = yang_dnode_exists(dnode, "metrics/reliability") ?
+		yang_dnode_get_string(dnode, "metrics/reliability") : NULL;
+	load = yang_dnode_exists(dnode, "metrics/load") ?
+		yang_dnode_get_string(dnode, "metrics/load") : NULL;
+	mtu = yang_dnode_exists(dnode, "metrics/mtu") ?
+		yang_dnode_get_string(dnode, "metrics/mtu") : NULL;
 
 	vty_out(vty, " redistribute %s", proto);
 	if (bw || rlbt || delay || load || mtu)
@@ -693,7 +693,7 @@ void eigrp_cli_show_summarize_address(struct vty *vty,
 {
 	const struct lyd_node *instance =
 		yang_dnode_get_parent(dnode, "instance");
-	uint16_t asn = yang_dnode_get_uint16(instance, "./asn");
+	uint16_t asn = yang_dnode_get_uint16(instance, "asn");
 	const char *summarize_address = yang_dnode_get_string(dnode, NULL);
 
 	vty_out(vty, " ip summary-address eigrp %d %s\n", asn,
@@ -759,7 +759,7 @@ void eigrp_cli_show_authentication(struct vty *vty,
 {
 	const struct lyd_node *instance =
 		yang_dnode_get_parent(dnode, "instance");
-	uint16_t asn = yang_dnode_get_uint16(instance, "./asn");
+	uint16_t asn = yang_dnode_get_uint16(instance, "asn");
 	const char *crypt = yang_dnode_get_string(dnode, NULL);
 
 	vty_out(vty, " ip authentication mode eigrp %d %s\n", asn, crypt);
@@ -819,7 +819,7 @@ void eigrp_cli_show_keychain(struct vty *vty, const struct lyd_node *dnode,
 {
 	const struct lyd_node *instance =
 		yang_dnode_get_parent(dnode, "instance");
-	uint16_t asn = yang_dnode_get_uint16(instance, "./asn");
+	uint16_t asn = yang_dnode_get_uint16(instance, "asn");
 	const char *keychain = yang_dnode_get_string(dnode, NULL);
 
 	vty_out(vty, " ip authentication key-chain eigrp %d %s\n", asn,

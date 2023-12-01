@@ -93,8 +93,8 @@ void cli_show_affinity_map(struct vty *vty, const struct lyd_node *dnode,
 			   bool show_defaults __attribute__((__unused__)))
 {
 	vty_out(vty, "affinity-map %s bit-position %u\n",
-		yang_dnode_get_string(dnode, "./name"),
-		yang_dnode_get_uint16(dnode, "./value"));
+		yang_dnode_get_string(dnode, "name"),
+		yang_dnode_get_uint16(dnode, "value"));
 }
 
 /* Initialization of affinity map vector. */
