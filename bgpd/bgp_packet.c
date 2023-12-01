@@ -2872,6 +2872,295 @@ static int bgp_route_refresh_receive(struct peer_connection *connection,
 	return BGP_PACKET_NOOP;
 }
 
+<<<<<<< HEAD
+=======
+static void bgp_dynamic_capability_addpath(uint8_t *pnt, int action,
+					   struct capability_header *hdr,
+					   struct peer *peer)
+{
+	uint8_t *data = pnt + 3;
+	uint8_t *end = data + hdr->length;
+	size_t len = end - data;
+	afi_t afi;
+	safi_t safi;
+
+	if (action == CAPABILITY_ACTION_SET) {
+		if (len % CAPABILITY_CODE_ADDPATH_LEN) {
+			flog_warn(EC_BGP_CAPABILITY_INVALID_LENGTH,
+				  "Add Path: Received invalid length %zu, non-multiple of 4",
+				  len);
+			return;
+		}
+
+		SET_FLAG(peer->cap, PEER_CAP_ADDPATH_RCV);
+
+		while (data + CAPABILITY_CODE_ADDPATH_LEN <= end) {
+			afi_t afi;
+			safi_t safi;
+			iana_afi_t pkt_afi;
+			iana_safi_t pkt_safi;
+			struct bgp_addpath_capability bac;
+
+			memcpy(&bac, data, sizeof(bac));
+			pkt_afi = ntohs(bac.afi);
+			pkt_safi = safi_int2iana(bac.safi);
+
+			if (bgp_debug_neighbor_events(peer))
+				zlog_debug("%s OPEN has %s capability for afi/safi: %s/%s%s%s",
+					   peer->host,
+					   lookup_msg(capcode_str, hdr->code,
+						      NULL),
+					   iana_afi2str(pkt_afi),
+					   iana_safi2str(pkt_safi),
+					   (bac.flags & BGP_ADDPATH_RX)
+						   ? ", receive"
+						   : "",
+					   (bac.flags & BGP_ADDPATH_TX)
+						   ? ", transmit"
+						   : "");
+
+			if (bgp_map_afi_safi_iana2int(pkt_afi, pkt_safi, &afi,
+						      &safi)) {
+				if (bgp_debug_neighbor_events(peer))
+					zlog_debug("%s Addr-family %s/%s(afi/safi) not supported. Ignore the Addpath Attribute for this AFI/SAFI",
+						   peer->host,
+						   iana_afi2str(pkt_afi),
+						   iana_safi2str(pkt_safi));
+				continue;
+			} else if (!peer->afc[afi][safi]) {
+				if (bgp_debug_neighbor_events(peer))
+					zlog_debug("%s Addr-family %s/%s(afi/safi) not enabled. Ignore the AddPath capability for this AFI/SAFI",
+						   peer->host,
+						   iana_afi2str(pkt_afi),
+						   iana_safi2str(pkt_safi));
+				continue;
+			}
+
+			if (CHECK_FLAG(bac.flags, BGP_ADDPATH_RX))
+				SET_FLAG(peer->af_cap[afi][safi],
+					 PEER_CAP_ADDPATH_AF_RX_RCV);
+			else
+				UNSET_FLAG(peer->af_cap[afi][safi],
+					   PEER_CAP_ADDPATH_AF_RX_RCV);
+
+			if (CHECK_FLAG(bac.flags, BGP_ADDPATH_TX))
+				SET_FLAG(peer->af_cap[afi][safi],
+					 PEER_CAP_ADDPATH_AF_TX_RCV);
+			else
+				UNSET_FLAG(peer->af_cap[afi][safi],
+					   PEER_CAP_ADDPATH_AF_TX_RCV);
+
+			data += CAPABILITY_CODE_ADDPATH_LEN;
+		}
+	} else {
+		FOREACH_AFI_SAFI (afi, safi) {
+			UNSET_FLAG(peer->af_cap[afi][safi],
+				   PEER_CAP_ADDPATH_AF_RX_RCV);
+			UNSET_FLAG(peer->af_cap[afi][safi],
+				   PEER_CAP_ADDPATH_AF_TX_RCV);
+		}
+
+		UNSET_FLAG(peer->cap, PEER_CAP_ADDPATH_RCV);
+	}
+}
+
+static void bgp_dynamic_capability_orf(uint8_t *pnt, int action,
+				       struct capability_header *hdr,
+				       struct peer *peer)
+{
+	uint8_t *data = pnt + 3;
+	uint8_t *end = data + hdr->length;
+	size_t len = end - data;
+
+	struct capability_mp_data mpc;
+	uint8_t num;
+	iana_afi_t pkt_afi;
+	afi_t afi;
+	iana_safi_t pkt_safi;
+	safi_t safi;
+	uint8_t type;
+	uint8_t mode;
+	uint16_t sm_cap = PEER_CAP_ORF_PREFIX_SM_RCV;
+	uint16_t rm_cap = PEER_CAP_ORF_PREFIX_RM_RCV;
+	int i;
+
+	if (data + CAPABILITY_CODE_ORF_LEN > end) {
+		flog_warn(EC_BGP_CAPABILITY_INVALID_LENGTH,
+			  "ORF: Received invalid length %zu, less than %d", len,
+			  CAPABILITY_CODE_ORF_LEN);
+		return;
+	}
+
+	/* ORF Entry header */
+	memcpy(&mpc, data, sizeof(mpc));
+	data += sizeof(mpc);
+	num = *data++;
+	pkt_afi = ntohs(mpc.afi);
+	pkt_safi = mpc.safi;
+
+	/* Convert AFI, SAFI to internal values, check. */
+	if (bgp_map_afi_safi_iana2int(pkt_afi, pkt_safi, &afi, &safi)) {
+		zlog_info("%pBP Addr-family %d/%d not supported. Ignoring the ORF capability",
+			  peer, pkt_afi, pkt_safi);
+		return;
+	}
+
+	/* validate number field */
+	if (CAPABILITY_CODE_ORF_LEN + (num * 2) > hdr->length) {
+		zlog_info("%pBP ORF Capability entry length error, Cap length %u, num %u",
+			  peer, hdr->length, num);
+		return;
+	}
+
+	if (action == CAPABILITY_ACTION_UNSET) {
+		UNSET_FLAG(peer->af_cap[afi][safi], sm_cap);
+		UNSET_FLAG(peer->af_cap[afi][safi], rm_cap);
+		return;
+	}
+
+	for (i = 0; i < num; i++) {
+		if (data + 1 > end) {
+			flog_err(EC_BGP_CAPABILITY_INVALID_LENGTH,
+				 "%pBP ORF Capability entry length (type) error, Cap length %u, num %u",
+				 peer, hdr->length, num);
+			return;
+		}
+		type = *data++;
+
+		if (data + 1 > end) {
+			flog_err(EC_BGP_CAPABILITY_INVALID_LENGTH,
+				 "%pBP ORF Capability entry length (mode) error, Cap length %u, num %u",
+				 peer, hdr->length, num);
+			return;
+		}
+		mode = *data++;
+
+		/* ORF Mode error check */
+		switch (mode) {
+		case ORF_MODE_BOTH:
+		case ORF_MODE_SEND:
+		case ORF_MODE_RECEIVE:
+			break;
+		default:
+			if (bgp_debug_neighbor_events(peer))
+				zlog_debug("%pBP Addr-family %d/%d has ORF type/mode %d/%d not supported",
+					   peer, afi, safi, type, mode);
+			continue;
+		}
+
+		if (!((afi == AFI_IP && safi == SAFI_UNICAST) ||
+		      (afi == AFI_IP && safi == SAFI_MULTICAST) ||
+		      (afi == AFI_IP6 && safi == SAFI_UNICAST))) {
+			if (bgp_debug_neighbor_events(peer))
+				zlog_debug("%pBP Addr-family %d/%d unsupported AFI/SAFI received",
+					   peer, afi, safi);
+			continue;
+		}
+
+		if (bgp_debug_neighbor_events(peer))
+			zlog_debug("%pBP OPEN has %s ORF capability as %s for afi/safi: %s/%s",
+				   peer, lookup_msg(orf_type_str, type, NULL),
+				   lookup_msg(orf_mode_str, mode, NULL),
+				   iana_afi2str(pkt_afi),
+				   iana_safi2str(pkt_safi));
+
+		switch (mode) {
+		case ORF_MODE_BOTH:
+			SET_FLAG(peer->af_cap[afi][safi], sm_cap);
+			SET_FLAG(peer->af_cap[afi][safi], rm_cap);
+			break;
+		case ORF_MODE_SEND:
+			SET_FLAG(peer->af_cap[afi][safi], sm_cap);
+			UNSET_FLAG(peer->af_cap[afi][safi], rm_cap);
+			break;
+		case ORF_MODE_RECEIVE:
+			SET_FLAG(peer->af_cap[afi][safi], rm_cap);
+			UNSET_FLAG(peer->af_cap[afi][safi], sm_cap);
+			break;
+		}
+	}
+}
+
+static void bgp_dynamic_capability_fqdn(uint8_t *pnt, int action,
+					struct capability_header *hdr,
+					struct peer *peer)
+{
+	uint8_t *data = pnt + 3;
+	uint8_t *end = data + hdr->length;
+	char str[BGP_MAX_HOSTNAME + 1] = {};
+	uint8_t len;
+
+	if (action == CAPABILITY_ACTION_SET) {
+		/* hostname */
+		if (data + 1 > end) {
+			zlog_err("%pBP: Received invalid FQDN capability (host name length)",
+				 peer);
+			return;
+		}
+
+		len = *data;
+		if (data + len > end) {
+			zlog_err("%pBP: Received invalid FQDN capability length (host name) %d",
+				 peer, hdr->length);
+			return;
+		}
+		data++;
+
+		if (len > BGP_MAX_HOSTNAME) {
+			memcpy(&str, data, BGP_MAX_HOSTNAME);
+			str[BGP_MAX_HOSTNAME] = '\0';
+		} else if (len) {
+			memcpy(&str, data, len);
+			str[len] = '\0';
+		}
+		data += len;
+
+		if (len) {
+			XFREE(MTYPE_BGP_PEER_HOST, peer->hostname);
+			XFREE(MTYPE_BGP_PEER_HOST, peer->domainname);
+
+			peer->hostname = XSTRDUP(MTYPE_BGP_PEER_HOST, str);
+		}
+
+		if (data + 1 > end) {
+			zlog_err("%pBP: Received invalid FQDN capability (domain name length)",
+				 peer);
+			return;
+		}
+
+		/* domainname */
+		len = *data;
+		if (data + len > end) {
+			zlog_err("%pBP: Received invalid FQDN capability length (domain name) %d",
+				 peer, len);
+			return;
+		}
+		data++;
+
+		if (len > BGP_MAX_HOSTNAME) {
+			memcpy(&str, data, BGP_MAX_HOSTNAME);
+			str[BGP_MAX_HOSTNAME] = '\0';
+		} else if (len) {
+			memcpy(&str, data, len);
+			str[len] = '\0';
+		}
+		data += len;
+
+		if (len) {
+			XFREE(MTYPE_BGP_PEER_HOST, peer->domainname);
+
+			peer->domainname = XSTRDUP(MTYPE_BGP_PEER_HOST, str);
+		}
+
+		SET_FLAG(peer->cap, PEER_CAP_HOSTNAME_RCV);
+	} else {
+		UNSET_FLAG(peer->cap, PEER_CAP_HOSTNAME_RCV);
+		XFREE(MTYPE_BGP_PEER_HOST, peer->hostname);
+		XFREE(MTYPE_BGP_PEER_HOST, peer->domainname);
+	}
+}
+
+>>>>>>> 61ff7dddf (bgpd: Do not null-terminate the domainname when receiving FQDN capability)
 static void bgp_dynamic_capability_llgr(uint8_t *pnt, int action,
 					struct capability_header *hdr,
 					struct peer *peer)
