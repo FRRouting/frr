@@ -3339,8 +3339,6 @@ static void bgp_dynamic_capability_fqdn(uint8_t *pnt, int action,
 		data += len;
 
 		if (len) {
-			str[len] = '\0';
-
 			XFREE(MTYPE_BGP_PEER_HOST, peer->domainname);
 
 			peer->domainname = XSTRDUP(MTYPE_BGP_PEER_HOST, str);
