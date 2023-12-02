@@ -70,10 +70,10 @@ static struct nexthop *nexthop_group_tail(const struct nexthop_group *nhg)
 	return nexthop;
 }
 
-uint8_t nexthop_group_nexthop_num(const struct nexthop_group *nhg)
+uint32_t nexthop_group_nexthop_num(const struct nexthop_group *nhg)
 {
 	struct nexthop *nhop;
-	uint8_t num = 0;
+	uint32_t num = 0;
 
 	for (ALL_NEXTHOPS_PTR(nhg, nhop))
 		num++;
@@ -81,10 +81,10 @@ uint8_t nexthop_group_nexthop_num(const struct nexthop_group *nhg)
 	return num;
 }
 
-uint8_t nexthop_group_nexthop_num_no_recurse(const struct nexthop_group *nhg)
+uint32_t nexthop_group_nexthop_num_no_recurse(const struct nexthop_group *nhg)
 {
 	struct nexthop *nhop;
-	uint8_t num = 0;
+	uint32_t num = 0;
 
 	for (nhop = nhg->nexthop; nhop; nhop = nhop->next)
 		num++;
@@ -92,10 +92,10 @@ uint8_t nexthop_group_nexthop_num_no_recurse(const struct nexthop_group *nhg)
 	return num;
 }
 
-uint8_t nexthop_group_active_nexthop_num(const struct nexthop_group *nhg)
+uint32_t nexthop_group_active_nexthop_num(const struct nexthop_group *nhg)
 {
 	struct nexthop *nhop;
-	uint8_t num = 0;
+	uint32_t num = 0;
 
 	for (ALL_NEXTHOPS_PTR(nhg, nhop)) {
 		if (CHECK_FLAG(nhop->flags, NEXTHOP_FLAG_ACTIVE))
@@ -105,11 +105,11 @@ uint8_t nexthop_group_active_nexthop_num(const struct nexthop_group *nhg)
 	return num;
 }
 
-uint8_t
+uint32_t
 nexthop_group_active_nexthop_num_no_recurse(const struct nexthop_group *nhg)
 {
 	struct nexthop *nhop;
-	uint8_t num = 0;
+	uint32_t num = 0;
 
 	for (nhop = nhg->nexthop; nhop; nhop = nhop->next) {
 		if (CHECK_FLAG(nhop->flags, NEXTHOP_FLAG_ACTIVE))
@@ -200,7 +200,7 @@ static struct nexthop *nhg_nh_find(const struct nexthop_group *nhg,
 static bool
 nexthop_group_equal_common(const struct nexthop_group *nhg1,
 			   const struct nexthop_group *nhg2,
-			   uint8_t (*nexthop_group_nexthop_num_func)(
+			   uint32_t (*nexthop_group_nexthop_num_func)(
 				   const struct nexthop_group *nhg))
 {
 	if (nhg1 && !nhg2)
