@@ -3905,6 +3905,15 @@ int zapi_sr_policy_encode(struct stream *s, int cmd, struct zapi_sr_policy *zp)
 	stream_putl(s, zt->metric);
 	stream_putc(s, zt->distance);
 
+	stream_putw(s, zt->nexthop_resolved_num);
+
+	for (i = 0; i < zt->nexthop_resolved_num; i++) {
+		znh = &zt->nexthop_resolved[i];
+
+		if (zapi_nexthop_encode(s, znh, 0, 0) < 0)
+			return -1;
+	}
+
 	/* Put length at the first point of the stream. */
 	stream_putw_at(s, 0, stream_get_endp(s));
 
