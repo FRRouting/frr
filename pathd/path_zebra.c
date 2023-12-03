@@ -68,6 +68,11 @@ struct path_nht_data {
 	uint8_t distance;
 };
 
+static void
+path_zebra_add_sr_policy_internal(struct srte_policy *policy,
+				  struct srte_segment_list *segment_list,
+				  struct path_nht_data *nhtd);
+
 static int path_nht_data_cmp(const struct path_nht_data *nhtd1,
 			     const struct path_nht_data *nhtd2)
 {
@@ -241,7 +246,8 @@ static void path_zebra_add_srv6_policy_internal(struct srte_policy *policy)
 	SET_FLAG(segment_list->flags, F_SEGMENT_LIST_NHT_REGISTERED);
 
 	if (nhtd->nh_num) {
-		path_zebra_add_sr_policy(candidate->policy, segment_list);
+		path_zebra_add_sr_policy_internal(candidate->policy,
+						  segment_list, nhtd);
 		return;
 	}
 	path_zebra_delete_sr_policy(candidate->policy);
@@ -285,7 +291,8 @@ static void path_zebra_connected(struct zclient *zclient)
 		if (path_zebra_segment_list_srv6(segment_list))
 			path_zebra_add_srv6_policy_internal(policy);
 		else
-			path_zebra_add_sr_policy(policy, segment_list);
+			path_zebra_add_sr_policy_internal(policy, segment_list,
+							  NULL);
 	}
 }
 
@@ -405,10 +412,14 @@ void path_nht_removed(struct srte_candidate *candidate)
  */
 static void
 path_zebra_add_sr_policy_internal(struct srte_policy *policy,
-				  struct srte_segment_list *segment_list)
+				  struct srte_segment_list *segment_list,
+				  struct path_nht_data *nhtd)
 {
 	struct zapi_sr_policy zp = {};
 	struct srte_segment_entry *segment;
+	struct zapi_nexthop *znh;
+	struct nexthop *nexthop;
+	int num = 0;
 
 	zp.color = policy->color;
 	zp.endpoint = policy->endpoint;
@@ -435,6 +446,16 @@ path_zebra_add_sr_policy_internal(struct srte_policy *policy,
 	}
 	policy->status = SRTE_POLICY_STATUS_GOING_UP;
 
+	if (nhtd && nhtd->nexthop) {
+		zp.segment_list.distance = nhtd->distance;
+		zp.segment_list.metric = nhtd->metric;
+		for (ALL_NEXTHOPS_PTR(nhtd, nexthop)) {
+			znh = &zp.segment_list.nexthop_resolved[num++];
+			zapi_nexthop_from_nexthop(znh, nexthop);
+		}
+		zp.segment_list.nexthop_resolved_num = nhtd->nh_num;
+	}
+
 	(void)zebra_send_sr_policy(zclient, ZEBRA_SR_POLICY_SET, &zp);
 }
 
@@ -450,7 +471,7 @@ void path_zebra_add_sr_policy(struct srte_policy *policy,
 	if (path_zebra_segment_list_srv6(segment_list))
 		path_zebra_add_srv6_policy_internal(policy);
 	else
-		path_zebra_add_sr_policy_internal(policy, segment_list);
+		path_zebra_add_sr_policy_internal(policy, segment_list, NULL);
 }
 
 /**
@@ -566,6 +587,96 @@ static void path_zebra_label_manager_connect(struct event *event)
 	}
 }
 
+static void path_nht_srv6_update(struct prefix *nh, struct path_nht_data *nhtd)
+{
+	struct srte_policy *policy;
+	struct prefix sid_srv6 = {};
+	struct srte_candidate *candidate;
+	struct srte_segment_list *segment_list;
+
+	RB_FOREACH (policy, srte_policy_head, &srte_policies) {
+		if (policy->endpoint.ipa_type != AF_INET6)
+			continue;
+
+		candidate = policy->best_candidate;
+		if (!candidate)
+			continue;
+		if (!candidate->lsp)
+			continue;
+		segment_list = candidate->lsp->segment_list;
+		if (!segment_list)
+			continue;
+
+		/* srv6 segment lists are registered */
+		if (!CHECK_FLAG(segment_list->flags,
+				F_SEGMENT_LIST_NHT_REGISTERED))
+			continue;
+
+		if (!path_zebra_nht_get_srv6_prefix(segment_list, &sid_srv6))
+			continue;
+		if (!IPV6_ADDR_SAME(&sid_srv6.u.prefix6, &nh->u.prefix6))
+			continue;
+		if (nhtd->nh_num)
+			path_zebra_add_sr_policy_internal(policy, segment_list,
+							  nhtd);
+		else
+			path_zebra_delete_sr_policy(policy);
+	}
+}
+
+static bool path_zebra_srv6_nexthop_info_update(struct path_nht_data *nhtd,
+						struct zapi_route *nhr)
+{
+	struct nexthop *nexthop;
+	struct nexthop *nhlist_head = NULL;
+	struct nexthop *nhlist_tail = NULL;
+	struct nexthop *oldnh;
+	bool nh_changed = false;
+	int i;
+
+	if (nhtd && nhr)
+		nhtd->nh_num = nhr->nexthop_num;
+
+	if (!nhr->nexthop_num) {
+		nhtd->nh_num = nhr->nexthop_num;
+		if (nhtd->nexthop)
+			nexthop_free(nhtd->nexthop);
+		nhtd->nexthop = NULL;
+		return true;
+	}
+
+	if (nhtd->distance != nhr->distance || nhtd->metric != nhr->metric) {
+		nhtd->distance = nhr->distance;
+		nhtd->metric = nhr->metric;
+		nh_changed = true;
+	}
+
+	for (i = 0; i < nhr->nexthop_num; i++) {
+		nexthop = nexthop_from_zapi_nexthop(&nhr->nexthops[i]);
+
+		if (nhlist_tail) {
+			nhlist_tail->next = nexthop;
+			nhlist_tail = nexthop;
+		} else {
+			nhlist_tail = nexthop;
+			nhlist_head = nexthop;
+		}
+
+		for (oldnh = nhtd->nexthop; oldnh; oldnh = oldnh->next)
+			if (nexthop_same(oldnh, nexthop))
+				break;
+
+		if (!oldnh)
+			nh_changed = true;
+	}
+	if (nhtd->nexthop)
+		nexthop_free(nhtd->nexthop);
+	nhtd->nexthop = nhlist_head;
+	nhr->nexthop_num = nhr->nexthop_num;
+
+	return nh_changed;
+}
+
 static void path_zebra_nexthop_update(struct vrf *vrf, struct prefix *match,
 				      struct zapi_route *nhr)
 {
@@ -582,6 +693,8 @@ static void path_zebra_nexthop_update(struct vrf *vrf, struct prefix *match,
 
 	if (!nhtd)
 		zlog_err("Unable to find next-hop data for the given route.");
+	else if (path_zebra_srv6_nexthop_info_update(nhtd, nhr))
+		path_nht_srv6_update(&nhr->prefix, nhtd);
 }
 
 static int path_zebra_opaque_msg_handler(ZAPI_CALLBACK_ARGS)
