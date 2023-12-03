@@ -2,7 +2,7 @@ name: Add rebase label if the branch is > 50 commits behind
 
 on:
   pull_request_target:
-    types: [synchronize, opened, reopened, labeled, unlabeled]
+    types: [opened]
 
 jobs:
   behind:
