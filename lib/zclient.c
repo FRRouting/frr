@@ -3855,6 +3855,8 @@ enum zclient_send_status zebra_send_sr_policy(struct zclient *zclient, int cmd,
 int zapi_sr_policy_encode(struct stream *s, int cmd, struct zapi_sr_policy *zp)
 {
 	struct zapi_srte_tunnel *zt = &zp->segment_list;
+	struct zapi_nexthop *znh;
+	int i;
 
 	stream_reset(s);
 
@@ -3891,6 +3893,18 @@ int zapi_sr_policy_encode(struct stream *s, int cmd, struct zapi_sr_policy *zp)
 		stream_put(s, &zt->srv6_segs.segs[0],
 			   zt->srv6_segs.num_segs * sizeof(struct in6_addr));
 
+	stream_putw(s, zt->nexthop_resolved_num);
+
+	for (i = 0; i < zt->nexthop_resolved_num; i++) {
+		znh = &zt->nexthop_resolved[i];
+
+		if (zapi_nexthop_encode(s, znh, 0, 0) < 0)
+			return -1;
+	}
+
+	stream_putl(s, zt->metric);
+	stream_putc(s, zt->distance);
+
 	/* Put length at the first point of the stream. */
 	stream_putw_at(s, 0, stream_get_endp(s));
 
@@ -3899,9 +3913,11 @@ int zapi_sr_policy_encode(struct stream *s, int cmd, struct zapi_sr_policy *zp)
 
 int zapi_sr_policy_decode(struct stream *s, struct zapi_sr_policy *zp)
 {
-	memset(zp, 0, sizeof(*zp));
-
 	struct zapi_srte_tunnel *zt = &zp->segment_list;
+	struct zapi_nexthop *znh;
+	int i;
+
+	memset(zp, 0, sizeof(*zp));
 
 	STREAM_GETL(s, zp->color);
 	STREAM_GET_IPADDR(s, &zp->endpoint);
@@ -3933,6 +3949,24 @@ int zapi_sr_policy_decode(struct stream *s, struct zapi_sr_policy *zp)
 	if (zt->srv6_segs.num_segs)
 		STREAM_GET(&zt->srv6_segs.segs[0], s,
 			   zt->srv6_segs.num_segs * sizeof(struct in6_addr));
+
+	STREAM_GETW(s, zt->nexthop_resolved_num);
+	if (zt->nexthop_resolved_num > MULTIPATH_NUM) {
+		flog_err(EC_LIB_ZAPI_ENCODE,
+			 "%s: invalid number of nexthops (%u)", __func__,
+			 zt->nexthop_resolved_num);
+		return -1;
+	}
+
+	for (i = 0; i < zt->nexthop_resolved_num; i++) {
+		znh = &zt->nexthop_resolved[i];
+
+		if (zapi_nexthop_decode(s, znh, 0, 0) != 0)
+			return -1;
+	}
+
+	STREAM_GETL(s, zt->metric);
+	STREAM_GETC(s, zt->distance);
 
 	return 0;
 
