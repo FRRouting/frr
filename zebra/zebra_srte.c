@@ -208,6 +208,14 @@ static void zebra_sr_policy_notify_update(struct zebra_sr_policy *policy)
 	}
 }
 
+static void zebra_sr_policy_srv6_activate(struct zebra_sr_policy *policy)
+{
+	policy->status = ZEBRA_SR_POLICY_UP;
+	zsend_sr_policy_notify_status(policy->color, &policy->endpoint,
+				      policy->name, ZEBRA_SR_POLICY_UP);
+	zebra_sr_policy_notify_update(policy);
+}
+
 static void zebra_sr_policy_activate(struct zebra_sr_policy *policy,
 				     struct zebra_lsp *lsp)
 {
@@ -223,21 +231,29 @@ static void zebra_sr_policy_update(struct zebra_sr_policy *policy,
 				   struct zebra_lsp *lsp,
 				   struct zapi_srte_tunnel *old_tunnel)
 {
-	bool bsid_changed;
-	bool segment_list_changed;
+	bool bsid_mpls_changed;
+	bool segment_list_mpls_changed, segment_list_srv6_changed;
 
 	policy->lsp = lsp;
 
-	bsid_changed =
-		policy->segment_list.local_label != old_tunnel->local_label;
-	segment_list_changed =
-		policy->segment_list.label_num != old_tunnel->label_num
-		|| memcmp(policy->segment_list.labels, old_tunnel->labels,
-			  sizeof(mpls_label_t)
-				  * policy->segment_list.label_num);
+	bsid_mpls_changed = policy->segment_list.local_label !=
+			    old_tunnel->local_label;
+
+	segment_list_mpls_changed =
+		policy->segment_list.label_num != old_tunnel->label_num ||
+		memcmp(policy->segment_list.labels, old_tunnel->labels,
+		       sizeof(mpls_label_t) * policy->segment_list.label_num);
+
+	segment_list_srv6_changed =
+		policy->segment_list.srv6_segs.num_segs !=
+			old_tunnel->srv6_segs.num_segs ||
+		memcmp(policy->segment_list.srv6_segs.segs,
+		       old_tunnel->srv6_segs.segs,
+		       sizeof(struct in6_addr) *
+			       policy->segment_list.srv6_segs.num_segs);
 
 	/* Re-install label stack if necessary. */
-	if (bsid_changed || segment_list_changed) {
+	if (bsid_mpls_changed || segment_list_mpls_changed) {
 		zebra_sr_policy_bsid_uninstall(policy, old_tunnel->local_label);
 		(void)zebra_sr_policy_bsid_install(policy);
 	}
@@ -246,7 +262,7 @@ static void zebra_sr_policy_update(struct zebra_sr_policy *policy,
 				      policy->name, ZEBRA_SR_POLICY_UP);
 
 	/* Handle segment-list update. */
-	if (segment_list_changed)
+	if (segment_list_mpls_changed || segment_list_srv6_changed)
 		zebra_sr_policy_notify_update(policy);
 }
 
@@ -254,8 +270,11 @@ static void zebra_sr_policy_deactivate(struct zebra_sr_policy *policy)
 {
 	policy->status = ZEBRA_SR_POLICY_DOWN;
 	policy->lsp = NULL;
-	zebra_sr_policy_bsid_uninstall(policy,
-				       policy->segment_list.local_label);
+
+	if (policy->segment_list.local_label)
+		zebra_sr_policy_bsid_uninstall(policy,
+					       policy->segment_list.local_label);
+
 	zsend_sr_policy_notify_status(policy->color, &policy->endpoint,
 				      policy->name, ZEBRA_SR_POLICY_DOWN);
 	zebra_sr_policy_notify_update(policy);
@@ -280,9 +299,10 @@ int zebra_sr_policy_validate(struct zebra_sr_policy *policy,
 	}
 
 	/* First label was resolved successfully. */
-	if (policy->status == ZEBRA_SR_POLICY_DOWN)
+	if (policy->status == ZEBRA_SR_POLICY_DOWN) {
 		zebra_sr_policy_activate(policy, lsp);
-	else
+		zebra_sr_policy_srv6_activate(policy);
+	} else
 		zebra_sr_policy_update(policy, lsp, &old_tunnel);
 
 	return 0;
