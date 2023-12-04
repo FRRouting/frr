@@ -1045,7 +1045,7 @@ void fa_candidate_endpoint_add(struct srte_candidate *candidate)
 		 */
 		fae_add(&_faehash, f);
 		cand_init(&f->candidates);
-		f->sid_list.type = ZEBRA_LSP_NONE;
+		f->sid_list.type = ZEBRA_SR_LSP_NONE;
 
 		/*
 		 * register endpoint with igp
@@ -1104,7 +1104,7 @@ void fa_candidate_endpoint_add(struct srte_candidate *candidate)
 	 * if we have a sid-list result from igp already,
 	 * copy it to this candidate
 	 */
-	if (f->sid_list.type != ZEBRA_LSP_NONE && f->sid_list.label_num != 0) {
+	if (f->sid_list.type != ZEBRA_SR_LSP_NONE && f->sid_list.label_num != 0) {
 
 		_fae_seglist_to_candidate(f, candidate);
 

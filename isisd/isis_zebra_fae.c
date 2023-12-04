@@ -96,7 +96,7 @@ int isis_zebra_fae_update_send(
 	query.algorithm = algorithm;
 	answer.sid_format = 0;
 
-	answer.sid_list.type = ZEBRA_LSP_ISIS_SR;
+	answer.sid_list.type = ZEBRA_SR_LSP_SRTE;
 	answer.sid_list.local_label = sr ? sr->label : 0;
 
 	if (rinfo == NULL || !sr->present || list_isempty(rinfo->nexthops)
