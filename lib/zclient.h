@@ -637,9 +637,14 @@ struct zapi_labels {
 
 struct zapi_srte_tunnel {
 	enum lsp_types_t type;
+
+	/* MPLS-TE */
 	mpls_label_t local_label;
 	uint8_t label_num;
 	mpls_label_t labels[MPLS_MAX_LABELS];
+
+	/* SRv6-TE */
+	struct seg6_segs srv6_segs;
 };
 
 struct zapi_sr_policy {
