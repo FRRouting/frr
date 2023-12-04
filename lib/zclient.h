@@ -636,7 +636,7 @@ struct zapi_labels {
 };
 
 struct zapi_srte_tunnel {
-	enum lsp_types_t type;
+	enum sr_types type;
 
 	/* MPLS-TE */
 	mpls_label_t local_label;

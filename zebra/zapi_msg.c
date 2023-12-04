@@ -2680,7 +2680,7 @@ static void zread_sr_policy_set(ZAPI_HANDLER_ARGS)
 		return;
 	}
 
-	if (!mpls_enabled)
+	if (!mpls_enabled && zt->type != ZEBRA_SR_SRV6_SRTE)
 		return;
 
 	policy = zebra_sr_policy_find(zp.color, &zp.endpoint);

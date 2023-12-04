@@ -1872,7 +1872,7 @@ static struct nexthop *nexthop_set_resolved(afi_t afi,
 		for (; label_num < policy->segment_list.label_num; label_num++)
 			labels[num_labels++] =
 				policy->segment_list.labels[label_num];
-		label_type = policy->segment_list.type;
+		label_type = lsp_type_from_sr_type(policy->segment_list.type);
 	} else if (newhop->nh_label) {
 		for (i = 0; i < newhop->nh_label->num_labels; i++) {
 			/* Be a bit picky about overrunning the local array */
