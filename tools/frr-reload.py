@@ -36,7 +36,9 @@ log = logging.getLogger(__name__)
 
 
 class VtyshException(Exception):
-    pass
+    def __init__(self, *args, **kwargs):
+        super(VtyshException, self).__init__(*args)
+        self.stderr = kwargs.get("stderr", None)
 
 
 class Vtysh(object):
@@ -146,7 +148,8 @@ class Vtysh(object):
                 sys.stderr.flush()
             raise VtyshException(
                 "vtysh (exec file) exited with status %d:\n%s"
-                % (child.returncode, combined)
+                % (child.returncode, combined),
+                stderr=err,
             )
         # Success: stdout is the CLI session, stderr is vtysh warnings
         # (reconnect). Piping would otherwise drop both.
@@ -2842,6 +2845,93 @@ def delete_line_with_vtysh(vtysh, ctx_keys, line):
             return True
 
 
+def get_failed_line_nums(stderr):
+    """
+    Extract the line numbers vtysh -f reported as failed from its stderr.
+
+    Example stderr:
+      line 7: % Unknown command[4]: ...
+      line 11: Failure to communicate[13] to bgpd, line: ...
+    """
+    failed_line_nums = set()
+    for line in (stderr or "").split("\n"):
+        match = re.match(r"^line (\d+):", line)
+        if match:
+            failed_line_nums.add(int(match.group(1)))
+    return failed_line_nums
+
+
+def exec_delete_lines(vtysh, rundir, entries):
+    """
+    Apply line deletes as one "vtysh -f" file instead of one "vtysh -c" call
+    per line, keeping the original order. Each delete is followed by a "!"
+    line.
+
+    On failure, only the entries whose file lines vtysh reported as failed are
+    retried through delete_line_with_vtysh(), which trims trailing words until
+    a "picky" no is accepted. If vtysh failed without naming a line (e.g. the
+    commit at the end of the file was rejected and rolled back), every entry
+    is retried that way.
+
+    Returns True on success, False if any line could not be removed.
+    """
+    entries = [(ctx_keys, line) for ctx_keys, line in entries if line != "!"]
+    if not entries:
+        return True
+
+    random_string = "".join(
+        random.SystemRandom().choice(string.ascii_uppercase + string.digits)
+        for _ in range(6)
+    )
+    filename = rundir + "/reload-del-%s.txt" % random_string
+
+    # (first line, last line) of each entry in the file, 1-based
+    entry_lines = []
+    file_lines = []
+    for ctx_keys, line in entries:
+        cmd = lines_to_config(ctx_keys, line, True)
+        entry_lines.append((len(file_lines) + 1, len(file_lines) + len(cmd)))
+        file_lines.extend(cmd)
+        file_lines.append("!")
+
+    log.info("%s content\n%s" % (filename, pformat(file_lines)))
+
+    # Flush log before vtysh.exec_file() so content is preserved if crash occurs
+    for handler in log.handlers:
+        handler.flush()
+
+    with open(filename, "w") as fh:
+        for line in file_lines:
+            fh.write(line + "\n")
+
+    try:
+        vtysh.exec_file(filename)
+        return True
+    except VtyshException as e:
+        failed_line_nums = get_failed_line_nums(e.stderr)
+        log.info("Failed to execute deletion script due to\n%s" % (e,))
+    finally:
+        try:
+            os.unlink(filename)
+        except OSError:
+            pass
+
+    if failed_line_nums:
+        retry = [
+            entry
+            for entry, (first, last) in zip(entries, entry_lines)
+            if any(first <= num <= last for num in failed_line_nums)
+        ]
+    else:
+        retry = entries
+
+    exec_success = True
+    for ctx_keys, line in retry:
+        if not delete_line_with_vtysh(vtysh, ctx_keys, line):
+            exec_success = False
+    return exec_success
+
+
 if __name__ == "__main__":
     # Command line options
     parser = argparse.ArgumentParser(
@@ -3277,14 +3367,12 @@ if __name__ == "__main__":
                             if not delete_line_with_vtysh(vtysh, ctx_keys, line):
                                 reload_ok = False
 
-                # Apply the remaining (non-batched) deletes per line.
-                # This includes "router bgp ... vrf NAME", which
-                # delete_move_lines() pushes to the end of lines_to_del.
-                for ctx_keys, line in lines_to_del:
-                    if line == "!":
-                        continue
-                    if not delete_line_with_vtysh(vtysh, ctx_keys, line):
-                        reload_ok = False
+                # Apply the remaining deletes as one ordered vtysh -f file,
+                # retrying only the lines vtysh rejected per line (see
+                # exec_delete_lines). This includes "router bgp ... vrf NAME",
+                # which delete_move_lines() pushes to the end of lines_to_del.
+                if not exec_delete_lines(vtysh, args.rundir, lines_to_del):
+                    reload_ok = False
 
                 # "no vrf NAME" last, as its own vtysh -f file. A refused
                 # "no vrf" is one transaction and must not roll back the
