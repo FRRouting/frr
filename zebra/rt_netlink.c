@@ -2624,7 +2624,7 @@ static bool _netlink_nexthop_build_group(struct nlmsghdr *n, size_t req_size,
 
 			if (IS_ZEBRA_DEBUG_KERNEL) {
 				if (i == 0)
-					snprintf(buf, sizeof(buf1), "group %u",
+					snprintf(buf, sizeof(buf), "group %u",
 						 grp[i].id);
 				else {
 					snprintf(buf1, sizeof(buf1), "/%u",

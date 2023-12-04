@@ -1973,6 +1973,8 @@ static void zread_nhg_del(ZAPI_HANDLER_ARGS)
 		zsend_nhg_notify(api_nhg.proto, client->instance,
 				 client->session_id, api_nhg.id,
 				 ZAPI_NHG_REMOVE_FAIL);
+	/* Stats */
+	client->nhg_del_cnt++;
 }
 
 static void zread_nhg_add(ZAPI_HANDLER_ARGS)
@@ -1981,7 +1983,7 @@ static void zread_nhg_add(ZAPI_HANDLER_ARGS)
 	struct zapi_nhg api_nhg = {};
 	struct nexthop_group *nhg = NULL;
 	struct nhg_backup_info *bnhg = NULL;
-	struct nhg_hash_entry *nhe;
+	struct nhg_hash_entry *nhe, *nhe_tmp;
 
 	s = msg;
 	if (zapi_nhg_decode(s, hdr->command, &api_nhg) < 0) {
@@ -2039,6 +2041,12 @@ static void zread_nhg_add(ZAPI_HANDLER_ARGS)
 	nexthop_group_delete(&nhg);
 	zebra_nhg_backup_free(&bnhg);
 
+	/* Stats */
+	nhe_tmp = zebra_nhg_lookup_id(api_nhg.id);
+	if (nhe_tmp)
+		client->nhg_upd8_cnt++;
+	else
+		client->nhg_add_cnt++;
 }
 
 static void zread_route_add(ZAPI_HANDLER_ARGS)
