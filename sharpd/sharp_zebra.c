@@ -563,6 +563,15 @@ void nhg_add(uint32_t id, const struct nexthop_group *nhg,
 	}
 
 	if (api_nhg.nexthop_num == 0) {
+<<<<<<< HEAD
+=======
+		if (sharp_nhgroup_id_is_installed(id)) {
+			zlog_debug("%s: nhg %u: no nexthops, deleting nexthop group", __func__,
+				   id);
+			zclient_nhg_send(zclient, ZEBRA_NHG_DEL, &api_nhg);
+			return;
+		}
+>>>>>>> 82c1d82d7 (sharpd: fix deleting nhid when suppressing nexthop from nh group)
 		zlog_debug("%s: nhg %u not sent: no valid nexthops", __func__,
 			   id);
 		is_valid = false;
