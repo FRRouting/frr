@@ -567,11 +567,11 @@ void nhg_add(uint32_t id, const struct nexthop_group *nhg,
 			zlog_debug("%s: nhg %u: no nexthops, deleting nexthop group", __func__,
 				   id);
 			zclient_nhg_send(zclient, ZEBRA_NHG_DEL, &api_nhg);
-		} else {
-			zlog_debug("%s: nhg %u not sent: no valid nexthops", __func__,
-				   id);
-			is_valid = false;
+			return;
 		}
+		zlog_debug("%s: nhg %u not sent: no valid nexthops", __func__,
+			   id);
+		is_valid = false;
 		goto done;
 	}
 
