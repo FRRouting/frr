@@ -325,11 +325,11 @@ int zebra_sr_policy_bsid_install(struct zebra_sr_policy *policy)
 			out_labels = zt->labels;
 		}
 
-		if (mpls_lsp_install(
-			    policy->zvrf, zt->type, zt->local_label,
-			    num_out_labels, out_labels, nhlfe->nexthop->type,
-			    &nhlfe->nexthop->gate, nhlfe->nexthop->ifindex)
-		    < 0)
+		if (mpls_lsp_install(policy->zvrf,
+				     lsp_type_from_sr_type(zt->type),
+				     zt->local_label, num_out_labels, out_labels,
+				     nhlfe->nexthop->type, &nhlfe->nexthop->gate,
+				     nhlfe->nexthop->ifindex) < 0)
 			return -1;
 	}
 
@@ -341,7 +341,8 @@ void zebra_sr_policy_bsid_uninstall(struct zebra_sr_policy *policy,
 {
 	struct zapi_srte_tunnel *zt = &policy->segment_list;
 
-	mpls_lsp_uninstall_all_vrf(policy->zvrf, zt->type, old_bsid);
+	mpls_lsp_uninstall_all_vrf(policy->zvrf,
+				   lsp_type_from_sr_type(zt->type), old_bsid);
 }
 
 int zebra_sr_policy_label_update(mpls_label_t label,
