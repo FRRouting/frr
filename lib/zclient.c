@@ -3878,6 +3878,19 @@ int zapi_sr_policy_encode(struct stream *s, int cmd, struct zapi_sr_policy *zp)
 	for (int i = 0; i < zt->label_num; i++)
 		stream_putl(s, zt->labels[i]);
 
+	/* Encode SRv6-TE */
+	if (zt->srv6_segs.num_segs > SRV6_MAX_SEGS) {
+		flog_err(EC_LIB_ZAPI_ENCODE,
+			 "%s: can't encode %zu SRv6 SIDS (maximum is %u)",
+			 __func__, zt->srv6_segs.num_segs, SRV6_MAX_SEGS);
+		return -1;
+	}
+
+	stream_putw(s, zt->srv6_segs.num_segs);
+	if (zt->srv6_segs.num_segs)
+		stream_put(s, &zt->srv6_segs.segs[0],
+			   zt->srv6_segs.num_segs * sizeof(struct in6_addr));
+
 	/* Put length at the first point of the stream. */
 	stream_putw_at(s, 0, stream_get_endp(s));
 
@@ -3907,6 +3920,19 @@ int zapi_sr_policy_decode(struct stream *s, struct zapi_sr_policy *zp)
 	}
 	for (int i = 0; i < zt->label_num; i++)
 		STREAM_GETL(s, zt->labels[i]);
+
+	/* Decode SRv6-TE */
+	STREAM_GETW(s, zt->srv6_segs.num_segs);
+
+	if (zt->srv6_segs.num_segs > SRV6_MAX_SEGS) {
+		flog_err(EC_LIB_ZAPI_ENCODE,
+			 "%s: can't encode %zu SRv6 SIDS (maximum is %u)",
+			 __func__, zt->srv6_segs.num_segs, SRV6_MAX_SEGS);
+		return -1;
+	}
+	if (zt->srv6_segs.num_segs)
+		STREAM_GET(&zt->srv6_segs.segs[0], s,
+			   zt->srv6_segs.num_segs * sizeof(struct in6_addr));
 
 	return 0;
 
