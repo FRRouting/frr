@@ -513,10 +513,14 @@ static bool rnh_check_re_nexthops(const struct route_entry *re,
 		goto done;
 	}
 
-	/* Some special checks if registration asked for them. */
+	/*
+	 * Some special checks if registration asked for them.
+	 * LOCAL routes are by their definition not CONNECTED
+	 * and as such should not be considered here
+	 */
 	if (CHECK_FLAG(rnh->flags, ZEBRA_NHT_CONNECTED)) {
-		if ((re->type == ZEBRA_ROUTE_CONNECT)
-		    || (re->type == ZEBRA_ROUTE_STATIC))
+		if ((re->type == ZEBRA_ROUTE_CONNECT) ||
+		    (re->type == ZEBRA_ROUTE_STATIC))
 			ret = true;
 		if (re->type == ZEBRA_ROUTE_NHRP) {
 

@@ -1,8 +1,10 @@
 O   10.0.3.0/24 [110/10] is directly connected, r3-eth0, weight 1, XX:XX:XX
 C>* 10.0.3.0/24 is directly connected, r3-eth0, XX:XX:XX
+L>* 10.0.3.3/32 is directly connected, r3-eth0, XX:XX:XX
 O>* 10.0.4.0/24 [110/20] via 10.0.30.1, r3-eth1, weight 1, XX:XX:XX
 O   10.0.30.0/24 [110/10] is directly connected, r3-eth1, weight 1, XX:XX:XX
 C>* 10.0.30.0/24 is directly connected, r3-eth1, XX:XX:XX
+L>* 10.0.30.3/32 is directly connected, r3-eth1, XX:XX:XX
 O>* 10.0.40.0/24 [110/20] via 10.0.30.1, r3-eth1, weight 1, XX:XX:XX
 
 

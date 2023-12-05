@@ -710,9 +710,10 @@ int zebra_add_import_table_entry(struct zebra_vrf *zvrf, struct route_node *rn,
 		if (CHECK_FLAG(same->status, ROUTE_ENTRY_REMOVED))
 			continue;
 
-		if (same->type == re->type && same->instance == re->instance
-		    && same->table == re->table
-		    && same->type != ZEBRA_ROUTE_CONNECT)
+		if (same->type == re->type && same->instance == re->instance &&
+		    same->table == re->table &&
+		    (same->type != ZEBRA_ROUTE_CONNECT &&
+		     same->type != ZEBRA_ROUTE_LOCAL))
 			break;
 	}
 

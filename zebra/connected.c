@@ -180,7 +180,7 @@ static void connected_update(struct interface *ifp, struct connected *ifc)
 void connected_up(struct interface *ifp, struct connected *ifc)
 {
 	afi_t afi;
-	struct prefix p;
+	struct prefix p, plocal;
 	struct nexthop nh = {
 		.type = NEXTHOP_TYPE_IFINDEX,
 		.ifindex = ifp->ifindex,
@@ -191,6 +191,7 @@ void connected_up(struct interface *ifp, struct connected *ifc)
 	uint32_t flags = 0;
 	uint32_t count = 0;
 	struct connected *c;
+	bool install_local = true;
 
 	zvrf = ifp->vrf->info;
 	if (!zvrf) {
@@ -207,6 +208,7 @@ void connected_up(struct interface *ifp, struct connected *ifc)
 	UNSET_FLAG(ifc->conf, ZEBRA_IFC_DOWN);
 
 	prefix_copy(&p, CONNECTED_PREFIX(ifc));
+	prefix_copy(&plocal, ifc->address);
 
 	/* Apply mask to the network. */
 	apply_mask(&p);
@@ -221,6 +223,8 @@ void connected_up(struct interface *ifp, struct connected *ifc)
 		 */
 		if (prefix_ipv4_any((struct prefix_ipv4 *)&p))
 			return;
+
+		plocal.prefixlen = IPV4_MAX_BITLEN;
 		break;
 	case AFI_IP6:
 #ifndef GNU_LINUX
@@ -228,6 +232,11 @@ void connected_up(struct interface *ifp, struct connected *ifc)
 		if (IN6_IS_ADDR_UNSPECIFIED(&p.u.prefix6))
 			return;
 #endif
+
+		if (IN6_IS_ADDR_LINKLOCAL(&plocal.u.prefix6))
+			install_local = false;
+
+		plocal.prefixlen = IPV6_MAX_BITLEN;
 		break;
 	case AFI_UNSPEC:
 	case AFI_L2VPN:
@@ -280,6 +289,15 @@ void connected_up(struct interface *ifp, struct connected *ifc)
 	rib_add(afi, SAFI_MULTICAST, zvrf->vrf->vrf_id, ZEBRA_ROUTE_CONNECT, 0,
 		flags, &p, NULL, &nh, 0, zvrf->table_id, metric, 0, 0, 0,
 		false);
+
+	if (install_local) {
+		rib_add(afi, SAFI_UNICAST, zvrf->vrf->vrf_id, ZEBRA_ROUTE_LOCAL,
+			0, flags, &plocal, NULL, &nh, 0, zvrf->table_id, 0, 0,
+			0, 0, false);
+		rib_add(afi, SAFI_MULTICAST, zvrf->vrf->vrf_id,
+			ZEBRA_ROUTE_LOCAL, 0, flags, &plocal, NULL, &nh, 0,
+			zvrf->table_id, 0, 0, 0, 0, false);
+	}
 
 	/* Schedule LSP forwarding entries for processing, if appropriate. */
 	if (zvrf->vrf->vrf_id == VRF_DEFAULT) {
@@ -365,7 +383,7 @@ void connected_add_ipv4(struct interface *ifp, int flags,
 void connected_down(struct interface *ifp, struct connected *ifc)
 {
 	afi_t afi;
-	struct prefix p;
+	struct prefix p, plocal;
 	struct nexthop nh = {
 		.type = NEXTHOP_TYPE_IFINDEX,
 		.ifindex = ifp->ifindex,
@@ -374,6 +392,7 @@ void connected_down(struct interface *ifp, struct connected *ifc)
 	struct zebra_vrf *zvrf;
 	uint32_t count = 0;
 	struct connected *c;
+	bool remove_local = true;
 
 	zvrf = ifp->vrf->info;
 	if (!zvrf) {
@@ -399,6 +418,7 @@ void connected_down(struct interface *ifp, struct connected *ifc)
 	}
 
 	prefix_copy(&p, CONNECTED_PREFIX(ifc));
+	prefix_copy(&plocal, ifc->address);
 
 	/* Apply mask to the network. */
 	apply_mask(&p);
@@ -413,10 +433,18 @@ void connected_down(struct interface *ifp, struct connected *ifc)
 		 */
 		if (prefix_ipv4_any((struct prefix_ipv4 *)&p))
 			return;
+
+		plocal.prefixlen = IPV4_MAX_BITLEN;
 		break;
 	case AFI_IP6:
 		if (IN6_IS_ADDR_UNSPECIFIED(&p.u.prefix6))
 			return;
+
+		plocal.prefixlen = IPV6_MAX_BITLEN;
+
+		if (IN6_IS_ADDR_LINKLOCAL(&plocal.u.prefix6))
+			remove_local = false;
+
 		break;
 	case AFI_UNSPEC:
 	case AFI_L2VPN:
@@ -458,6 +486,16 @@ void connected_down(struct interface *ifp, struct connected *ifc)
 
 	rib_delete(afi, SAFI_MULTICAST, zvrf->vrf->vrf_id, ZEBRA_ROUTE_CONNECT,
 		   0, 0, &p, NULL, &nh, 0, zvrf->table_id, 0, 0, false);
+
+	if (remove_local) {
+		rib_delete(afi, SAFI_UNICAST, zvrf->vrf->vrf_id,
+			   ZEBRA_ROUTE_LOCAL, 0, 0, &plocal, NULL, &nh, 0,
+			   zvrf->table_id, 0, 0, false);
+
+		rib_delete(afi, SAFI_MULTICAST, zvrf->vrf->vrf_id,
+			   ZEBRA_ROUTE_LOCAL, 0, 0, &plocal, NULL, &nh, 0,
+			   zvrf->table_id, 0, 0, false);
+	}
 
 	/* Schedule LSP forwarding entries for processing, if appropriate. */
 	if (zvrf->vrf->vrf_id == VRF_DEFAULT) {

@@ -327,7 +327,7 @@ void zread_client_capabilities(ZAPI_HANDLER_ARGS)
 		return;
 
 	/* GR only for dynamic clients */
-	if (client->proto <= ZEBRA_ROUTE_CONNECT) {
+	if (client->proto <= ZEBRA_ROUTE_LOCAL) {
 		LOG_GR("%s: GR capabilities for client %s not supported",
 		       __func__, zebra_route_string(client->proto));
 		return;

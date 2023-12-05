@@ -25,7 +25,8 @@ extern "C" {
 #define RKERNEL_ROUTE(type) ((type) == ZEBRA_ROUTE_KERNEL)
 
 #define RSYSTEM_ROUTE(type)                                                    \
-	((RKERNEL_ROUTE(type)) || (type) == ZEBRA_ROUTE_CONNECT)
+	((RKERNEL_ROUTE(type)) || (type) == ZEBRA_ROUTE_CONNECT ||             \
+	 (type) == ZEBRA_ROUTE_LOCAL)
 
 #ifndef HAVE_NETLINK
 /*
