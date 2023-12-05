@@ -169,7 +169,8 @@ static void sharp_nhgroup_delete_cb(const char *name)
 	if (!snhg)
 		return;
 
-	nhg_del(snhg->id);
+	if (sharp_nhgroup_id_is_installed(snhg->id))
+		nhg_del(snhg->id);
 	sharp_nhg_rb_del(&nhg_head, snhg);
 	XFREE(MTYPE_NHG, snhg);
 }
