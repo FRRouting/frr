@@ -703,7 +703,7 @@ void lspid_print(uint8_t *lsp_id, char *dest, size_t dest_len, char dynhost,
 	else if (!memcmp(isis->sysid, lsp_id, ISIS_SYS_ID_LEN) && dynhost)
 		snprintf(id, sizeof(id), "%.14s", cmd_hostname_get());
 	else
-		snprintf(id, sizeof(id), "%pSY", lsp_id);
+		snprintfrr(id, sizeof(id), "%pSY", lsp_id);
 
 	if (frag)
 		snprintf(dest, dest_len, "%s.%02x-%02x", id,
