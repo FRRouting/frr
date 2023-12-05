@@ -943,6 +943,7 @@ static int nhg_notify_owner(ZAPI_CALLBACK_ARGS)
 		zlog_debug("Failed install of nhg %u", id);
 		break;
 	case ZAPI_NHG_REMOVED:
+		sharp_nhgroup_id_set_installed(id, false);
 		zlog_debug("Removed nhg %u", id);
 		break;
 	case ZAPI_NHG_REMOVE_FAIL:
