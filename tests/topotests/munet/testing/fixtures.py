@@ -95,7 +95,7 @@ def _push_log_handler(desc, logpath):
     logging.debug("conftest: adding %s logging at %s", desc, logpath)
     root_logger = logging.getLogger()
     handler = logging.FileHandler(logpath, mode="w")
-    fmt = logging.Formatter("%(asctime)s %(levelname)5s: %(message)s")
+    fmt = logging.Formatter("%(asctime)s %(levelname)5s: %(name)s: %(message)s")
     handler.setFormatter(fmt)
     root_logger.addHandler(handler)
     return handler

@@ -20,6 +20,8 @@ import socket
 import subprocess
 import time
 
+from pathlib import Path
+
 from . import cli
 from .base import BaseMunet
 from .base import Bridge
@@ -38,6 +40,7 @@ from .config import config_to_dict_with_key
 from .config import find_matching_net_config
 from .config import find_with_kv
 from .config import merge_kind_config
+from .watchlog import WatchLog
 
 
 class L3ContainerNotRunningError(MunetError):
@@ -455,13 +458,14 @@ class NodeMixin:
 
             bps = self.unet.cfgopt.getoption("--gdb-breakpoints", "").split(",")
             for bp in bps:
-                gdbcmd += f" '-ex=b {bp}'"
+                if bp:
+                    gdbcmd += f" '-ex=b {bp}'"
 
-            cmds = self.config.get("gdb-run-cmd", [])
+            cmds = self.config.get("gdb-run-cmds", [])
             for cmd in cmds:
                 gdbcmd += f" '-ex={cmd}'"
 
-            self.run_in_window(gdbcmd)
+            self.run_in_window(gdbcmd, ns_only=True)
         elif should_gdb and use_emacs:
             gdbcmd = gdbcmd.replace("gdb ", "gdb -i=mi ")
             ecbin = self.get_exec_path("emacsclient")
@@ -664,6 +668,7 @@ class L3NodeMixin(NodeMixin):
         self.phycount = 0
         self.phy_odrivers = {}
         self.tapmacs = {}
+        self.watched_logs = {}
 
         self.intf_tc_count = 0
 
@@ -722,6 +727,26 @@ ff02::2\tip6-allrouters
             )
         if hasattr(self, "bind_mount"):
             self.bind_mount(hosts_file, "/etc/hosts")
+
+    def add_watch_log(self, path, watchfor_re=None):
+        """Add a WatchLog to this nodes watched logs.
+
+        Args:
+            path: If relative is relative to the nodes ``rundir``
+            watchfor_re: Regular expression to watch the log for and raise an exception
+                         if found.
+
+        Return:
+            The watching task if request or None otherwise.
+        """
+        path = Path(path)
+        if not path.is_absolute():
+            path = self.rundir.joinpath(path)
+
+        wl = WatchLog(path)
+        self.watched_logs[wl.path] = wl
+        task = wl.raise_if_match_task(watchfor_re) if watchfor_re else None
+        return task
 
     async def console(
         self,
@@ -938,8 +963,32 @@ ff02::2\tip6-allrouters
         if hname in self.host_intfs:
             return
         self.host_intfs[hname] = lname
-        self.unet.rootcmd.cmd_nostatus(f"ip link set {hname} down ")
-        self.unet.rootcmd.cmd_raises(f"ip link set {hname} netns {self.pid}")
+
+        # See if this interace is missing and needs to be fixed
+        rc, o, _ = self.unet.rootcmd.cmd_status("ip -o link show")
+        m = re.search(rf"\d+:\s+(\S+):.*altname {re.escape(hname)}\W", o)
+        if m:
+            # need to rename
+            dname = m.group(1)
+            self.logger.info("Fixing misnamed %s to %s", dname, hname)
+            self.unet.rootcmd.cmd_status(
+                f"ip link property del dev {dname} altname {hname}"
+            )
+            self.unet.rootcmd.cmd_status(f"ip link set {dname} name {hname}")
+
+        rc, o, _ = self.unet.rootcmd.cmd_status("ip -o link show")
+        m = re.search(rf"\d+:\s+{re.escape(hname)}:.*", o)
+        if m:
+            self.unet.rootcmd.cmd_nostatus(f"ip link set {hname} down ")
+            self.unet.rootcmd.cmd_raises(f"ip link set {hname} netns {self.pid}")
+        # Wait for interface to show up in namespace
+        for retry in range(0, 10):
+            rc, o, _ = self.cmd_status(f"ip -o link show {hname}")
+            if not rc:
+                if re.search(rf"\d+: {re.escape(hname)}:.*", o):
+                    break
+            if retry > 0:
+                await asyncio.sleep(1)
         self.cmd_raises(f"ip link set {hname} name {lname}")
         if mtu:
             self.cmd_raises(f"ip link set {lname} mtu {mtu}")
@@ -949,7 +998,12 @@ ff02::2\tip6-allrouters
         lname = self.host_intfs[hname]
         self.cmd_raises(f"ip link set {lname} down")
         self.cmd_raises(f"ip link set {lname} name {hname}")
-        self.cmd_raises(f"ip link set {hname} netns 1")
+        self.cmd_status(f"ip link set netns 1 dev {hname}")
+        # The above is failing sometimes and not sure why
+        # logging.error(
+        #     "XXX after setns %s",
+        #     self.unet.rootcmd.cmd_nostatus(f"ip link show {hname}"),
+        # )
         del self.host_intfs[hname]
 
     async def add_phy_intf(self, devaddr, lname):
@@ -1019,12 +1073,13 @@ ff02::2\tip6-allrouters
                     "Physical PCI device %s already bound to vfio-pci", devaddr
                 )
                 return
+
             self.logger.info(
                 "Unbinding physical PCI device %s from driver %s", devaddr, driver
             )
             self.phy_odrivers[devaddr] = driver
             self.unet.rootcmd.cmd_raises(
-                f"echo {devaddr} > /sys/bus/pci/drivers/{driver}/unbind"
+                f"echo {devaddr} | timeout 10 tee /sys/bus/pci/drivers/{driver}/unbind"
             )
 
         # Add the device vendor and device id to vfio-pci in case it's the first time
@@ -1035,7 +1090,14 @@ ff02::2\tip6-allrouters
             f"echo {vendor} {devid} > /sys/bus/pci/drivers/vfio-pci/new_id", warn=False
         )
 
-        if not self.unet.rootcmd.path_exists(f"/sys/bus/pci/driver/vfio-pci/{devaddr}"):
+        for retry in range(0, 10):
+            if self.unet.rootcmd.path_exists(
+                f"/sys/bus/pci/drivers/vfio-pci/{devaddr}"
+            ):
+                break
+            if retry > 0:
+                await asyncio.sleep(1)
+
             # Bind to vfio-pci if wasn't added with new_id
             self.logger.info("Binding physical PCI device %s to vfio-pci", devaddr)
             ec, _, _ = self.unet.rootcmd.cmd_status(
@@ -1066,7 +1128,7 @@ ff02::2\tip6-allrouters
             "Unbinding physical PCI device %s from driver vfio-pci", devaddr
         )
         self.unet.rootcmd.cmd_status(
-            f"echo {devaddr} > /sys/bus/pci/drivers/vfio-pci/unbind"
+            f"echo {devaddr} | timeout 10 tee /sys/bus/pci/drivers/vfio-pci/unbind"
         )
 
         self.logger.info("Binding physical PCI device %s to driver %s", devaddr, driver)
@@ -1085,12 +1147,12 @@ ff02::2\tip6-allrouters
         for hname in list(self.host_intfs):
             await self.rem_host_intf(hname)
 
-        # remove any hostintf interfaces
-        for devaddr in list(self.phy_intfs):
-            await self.rem_phy_intf(devaddr)
-
         # delete the LinuxNamespace/InterfaceMixin
         await super()._async_delete()
+
+        # remove any hostintf interfaces, needs to come after normal exits
+        for devaddr in list(self.phy_intfs):
+            await self.rem_phy_intf(devaddr)
 
 
 class L3NamespaceNode(L3NodeMixin, LinuxNamespace):
@@ -1123,6 +1185,7 @@ class L3ContainerNode(L3NodeMixin, LinuxNamespace):
         assert self.container_image
 
         self.cmd_p = None
+        self.cmd_pid = None
         self.__base_cmd = []
         self.__base_cmd_pty = []
 
@@ -1393,7 +1456,13 @@ class L3ContainerNode(L3NodeMixin, LinuxNamespace):
             start_new_session=True,  # keeps main tty signals away from podman
         )
 
-        self.logger.debug("%s: async_popen => %s", self, self.cmd_p.pid)
+        # If our process is actually the child of an nsenter fetch its pid.
+        if self.nsenter_fork:
+            self.cmd_pid = await self.get_proc_child_pid(self.cmd_p)
+
+        self.logger.debug(
+            "%s: async_popen => %s (%s)", self, self.cmd_p.pid, self.cmd_pid
+        )
 
         self.pytest_hook_run_cmd(stdout, stderr)
 
@@ -1542,6 +1611,7 @@ class L3QemuVM(L3NodeMixin, LinuxNamespace):
         """Create a Container Node."""
         self.cont_exec_paths = {}
         self.launch_p = None
+        self.launch_pid = None
         self.qemu_config = config["qemu"]
         self.extra_mounts = []
         assert self.qemu_config
@@ -1968,8 +2038,9 @@ class L3QemuVM(L3NodeMixin, LinuxNamespace):
                     con.cmd_raises(f"ip -6 route add default via {switch.ip6_address}")
         con.cmd_raises("ip link set lo up")
 
-        if self.unet.cfgopt.getoption("--coverage"):
-            con.cmd_raises("mount -t debugfs none /sys/kernel/debug")
+        # This is already mounted now
+        # if self.unet.cfgopt.getoption("--coverage"):
+        #     con.cmd_raises("mount -t debugfs none /sys/kernel/debug")
 
     async def gather_coverage_data(self):
         con = self.conrepl
@@ -2261,17 +2332,19 @@ class L3QemuVM(L3NodeMixin, LinuxNamespace):
 
         stdout = open(os.path.join(self.rundir, "qemu.out"), "wb")
         stderr = open(os.path.join(self.rundir, "qemu.err"), "wb")
-        self.launch_p = await self.async_popen(
+        self.launch_p = await self.async_popen_nsonly(
             args,
             stdin=subprocess.DEVNULL,
             stdout=stdout,
             stderr=stderr,
             pass_fds=pass_fds,
-            # We don't need this here b/c we are only ever running qemu and that's all
-            # we need to kill for cleanup
-            # XXX reconcile this
-            start_new_session=True,  # allows us to signal all children to exit
+            # Don't want Keybaord interrupt etc to pass to child.
+            # start_new_session=True,
+            preexec_fn=os.setsid,
         )
+
+        if self.nsenter_fork:
+            self.launch_pid = await self.get_proc_child_pid(self.launch_p)
 
         self.pytest_hook_run_cmd(stdout, stderr)
 
@@ -2279,7 +2352,9 @@ class L3QemuVM(L3NodeMixin, LinuxNamespace):
         for fd in pass_fds:
             os.close(fd)
 
-        self.logger.debug("%s: async_popen => %s", self, self.launch_p.pid)
+        self.logger.debug(
+            "%s: popen => %s (%s)", self, self.launch_p.pid, self.launch_pid
+        )
 
         confiles = ["_console"]
         if use_cmdcon:
@@ -2307,10 +2382,10 @@ class L3QemuVM(L3NodeMixin, LinuxNamespace):
         # the monitor output has super annoying ANSI escapes in it
 
         output = self.monrepl.cmd_nostatus("info status")
-        self.logger.info("VM status: %s", output)
+        self.logger.debug("VM status: %s", output)
 
         output = self.monrepl.cmd_nostatus("info kvm")
-        self.logger.info("KVM status: %s", output)
+        self.logger.debug("KVM status: %s", output)
 
         #
         # Set thread affinity
@@ -2348,11 +2423,6 @@ class L3QemuVM(L3NodeMixin, LinuxNamespace):
                 "%s: node launch (qemu) cmd wait() canceled: %s", future, error
             )
 
-    async def cleanup_qemu(self):
-        """Launch qemu."""
-        if self.launch_p:
-            await self.async_cleanup_proc(self.launch_p)
-
     async def async_cleanup_cmd(self):
         """Run the configured cleanup commands for this node."""
         self.cleanup_called = True
@@ -2372,7 +2442,7 @@ class L3QemuVM(L3NodeMixin, LinuxNamespace):
 
         # Need to cleanup early b/c it is running on the VM
         if self.cmd_p:
-            await self.async_cleanup_proc(self.cmd_p)
+            await self.async_cleanup_proc(self.cmd_p, self.cmd_pid)
             self.cmd_p = None
 
         try:
@@ -2388,9 +2458,9 @@ class L3QemuVM(L3NodeMixin, LinuxNamespace):
             if not self.launch_p:
                 self.logger.warning("async_delete: qemu is not running")
             else:
-                await self.cleanup_qemu()
+                await self.async_cleanup_proc(self.launch_p, self.launch_pid)
         except Exception as error:
-            self.logger.warning("%s: failued to cleanup qemu process: %s", self, error)
+            self.logger.warning("%s: failed to cleanup qemu process: %s", self, error)
 
         await super()._async_delete()
 
@@ -2814,6 +2884,8 @@ ff02::2\tip6-allrouters
             logging.debug("Launching nodes")
             await asyncio.gather(*[x.launch() for x in launch_nodes])
 
+        logging.debug("Launched nodes -- Queueing Waits")
+
         # Watch for launched processes to exit
         for node in launch_nodes:
             task = asyncio.create_task(
@@ -2822,16 +2894,22 @@ ff02::2\tip6-allrouters
             task.add_done_callback(node.launch_completed)
             tasks.append(task)
 
+        logging.debug("Wait complete queued, running cmd")
+
         if run_nodes:
             # would like a info when verbose here.
             logging.debug("Running `cmd` on nodes")
             await asyncio.gather(*[x.run_cmd() for x in run_nodes])
+
+        logging.debug("Ran cmds -- Queueing Waits")
 
         # Watch for run_cmd processes to exit
         for node in run_nodes:
             task = asyncio.create_task(node.cmd_p.wait(), name=f"Node-{node.name}-cmd")
             task.add_done_callback(node.cmd_completed)
             tasks.append(task)
+
+        logging.debug("Wait complete queued, waiting for ready")
 
         # Wait for nodes to be ready
         if ready_nodes:
@@ -2852,6 +2930,8 @@ ff02::2\tip6-allrouters
                     nr.cancel()
                 raise asyncio.TimeoutError()
             logging.debug("All nodes ready")
+
+        logging.debug("All done returning tasks: %s", tasks)
 
         return tasks
 
