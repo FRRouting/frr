@@ -575,40 +575,12 @@ static struct ospf *ospf_lookup_by_name(const char *vrf_name)
 	return NULL;
 }
 
-/* Handle the second half of deferred shutdown. This is called either
- * from the deferred-shutdown timer thread, or directly through
- * ospf_deferred_shutdown_check.
- *
- * Function is to cleanup G-R state, if required then call ospf_finish_final
- * to complete shutdown of this ospf instance. Possibly exit if the
- * whole process is being shutdown and this was the last OSPF instance.
- */
-static void ospf_deferred_shutdown_finish(struct ospf *ospf)
-{
-	ospf->stub_router_shutdown_time = OSPF_STUB_ROUTER_UNCONFIGURED;
-	EVENT_OFF(ospf->t_deferred_shutdown);
-
-	ospf_finish_final(ospf);
-
-	/* *ospf is now invalid */
-
-	/* ospfd being shut-down? If so, was this the last ospf instance? */
-	if (CHECK_FLAG(om->options, OSPF_MASTER_SHUTDOWN)
-	    && (listcount(om->ospf) == 0)) {
-		route_map_finish();
-		frr_fini();
-		exit(0);
-	}
-
-	return;
-}
-
-/* Timer thread for G-R */
+/* Timer thread for deferred shutdown */
 static void ospf_deferred_shutdown_timer(struct event *t)
 {
 	struct ospf *ospf = EVENT_ARG(t);
 
-	ospf_deferred_shutdown_finish(ospf);
+	ospf_finish_final(ospf);
 }
 
 /* Check whether deferred-shutdown must be scheduled, otherwise call
@@ -635,15 +607,12 @@ static void ospf_deferred_shutdown_check(struct ospf *ospf)
 				ospf_router_lsa_update_area(area);
 		}
 		timeout = ospf->stub_router_shutdown_time;
+		OSPF_TIMER_ON(ospf->t_deferred_shutdown,
+			      ospf_deferred_shutdown_timer, timeout);
 	} else {
 		/* No timer needed */
-		ospf_deferred_shutdown_finish(ospf);
-		return;
+		ospf_finish_final(ospf);
 	}
-
-	OSPF_TIMER_ON(ospf->t_deferred_shutdown, ospf_deferred_shutdown_timer,
-		      timeout);
-	return;
 }
 
 /* Shut down the entire process */
@@ -657,10 +626,6 @@ void ospf_terminate(void)
 		return;
 
 	SET_FLAG(om->options, OSPF_MASTER_SHUTDOWN);
-
-	/* Skip some steps if OSPF not actually running */
-	if (listcount(om->ospf) == 0)
-		goto done;
 
 	for (ALL_LIST_ELEMENTS(om->ospf, node, nnode, ospf))
 		ospf_finish(ospf);
@@ -679,9 +644,11 @@ void ospf_terminate(void)
 	/* Cleanup vrf info */
 	ospf_vrf_terminate();
 
-	route_map_finish();
-
 	keychain_terminate();
+
+	ospf_opaque_term();
+	list_delete(&om->ospf);
+
 	/* Deliberately go back up, hopefully to thread scheduler, as
 	 * One or more ospf_finish()'s may have deferred shutdown to a timer
 	 * thread
@@ -691,20 +658,17 @@ void ospf_terminate(void)
 	zclient_stop(zclient_sync);
 	zclient_free(zclient_sync);
 
-done:
 	frr_fini();
 }
 
 void ospf_finish(struct ospf *ospf)
 {
-	/* let deferred shutdown decide */
-	ospf_deferred_shutdown_check(ospf);
-
-	/* if ospf_deferred_shutdown returns, then ospf_finish_final is
-	 * deferred to expiry of G-S timer thread. Return back up, hopefully
-	 * to thread scheduler.
-	 */
-	return;
+	if (CHECK_FLAG(om->options, OSPF_MASTER_SHUTDOWN))
+		ospf_finish_final(ospf);
+	else {
+		/* let deferred shutdown decide */
+		ospf_deferred_shutdown_check(ospf);
+	}
 }
 
 /* Final cleanup of ospf instance */
@@ -904,6 +868,7 @@ static void ospf_finish_final(struct ospf *ospf)
 	EVENT_OFF(ospf->t_ase_calc);
 	EVENT_OFF(ospf->t_maxage);
 	EVENT_OFF(ospf->t_maxage_walker);
+	EVENT_OFF(ospf->t_deferred_shutdown);
 	EVENT_OFF(ospf->t_abr_task);
 	EVENT_OFF(ospf->t_abr_fr);
 	EVENT_OFF(ospf->t_asbr_check);
