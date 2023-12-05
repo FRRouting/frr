@@ -68,6 +68,7 @@ DEFINE_HOOK(rib_update, (struct route_node * rn, const char *reason),
 	    (rn, reason));
 DEFINE_HOOK(rib_shutdown, (struct route_node * rn), (rn));
 
+static bool zebra_rib_queue_early_update_nhe(struct nexthop_group *nhg);
 
 /*
  * Meta Q's specific names
@@ -465,6 +466,17 @@ int rib_handle_nhg_replace(struct nhg_hash_entry *old_entry,
 	if (IS_ZEBRA_DEBUG_RIB_DETAILED || IS_ZEBRA_DEBUG_NHG_DETAIL)
 		zlog_debug("%s: replacing routes nhe (%u) OLD %p NEW %p",
 			   __func__, new_entry->id, new_entry, old_entry);
+
+	/* update dependent nhes if nhe is a group
+	 * failure means a dependent nhe could not be resolved
+	 * cancel the route change operation
+	 */
+	if (!zebra_rib_queue_early_update_nhe(&new_entry->nhg)) {
+		flog_err(EC_ZEBRA_NHG_MISSING_DEPENDENCIES,
+			 "Zebra failed to find the dependencies for nexthop hash entry for id=%u",
+			 new_entry->id);
+		return ret;
+	}
 
 	/* We have to do them ALL */
 	RB_FOREACH (zrt, zebra_router_table_head, &zrouter.tables) {
@@ -2694,6 +2706,28 @@ static void early_route_memory_free(struct zebra_early_route *ere)
 	XFREE(MTYPE_WQ_WRAPPER, ere);
 }
 
+static bool zebra_rib_queue_early_update_nhe(struct nexthop_group *nhg)
+{
+	struct nexthop_group_id *nhgid;
+	struct nhg_hash_entry *nhe_tmp;
+	bool ret;
+
+	if (CHECK_FLAG(nhg->flags, NEXTHOP_GROUP_TYPE_GROUP)) {
+		for (nhgid = nhg->group; nhgid; nhgid = nhgid->next) {
+			nhe_tmp = zebra_nhg_lookup_id(nhgid->id_grp);
+			if (nhe_tmp) {
+				nhgid->nhg = &nhe_tmp->nhg;
+				ret = zebra_rib_queue_early_update_nhe(
+					&(nhe_tmp->nhg));
+				if (!ret)
+					return false;
+			} else
+				return false;
+		}
+	}
+	return true;
+}
+
 static void
 zebra_rib_queue_early_evpn_route_handle(struct zebra_early_route *ere,
 					struct nexthop_group *nhg, bool add)
@@ -2781,6 +2815,17 @@ static void process_subq_early_route_add(struct zebra_early_route *ere)
 			return;
 		}
 		zebra_rib_queue_early_evpn_route_handle(ere, &nhe->nhg, true);
+	}
+	/* update dependent nhes if nhe is a group
+	 * failure means a dependent nhe could not be resolved
+	 * cancel the route add operation then
+	 */
+	if (!zebra_rib_queue_early_update_nhe(&nhe->nhg)) {
+		flog_err(EC_ZEBRA_NHG_MISSING_DEPENDENCIES,
+			 "Zebra failed to find the dependencies for nexthop hash entry for id=%u in a route entry %pFX",
+			 re->nhe_id, &ere->p);
+		early_route_memory_free(ere);
+		return;
 	}
 
 	/*

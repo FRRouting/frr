@@ -788,6 +788,15 @@ static struct log_ref ferr_zebra_err[] = {
 			"Wait for Zebra to reattempt update.",
 	},
 	{
+		.code = EC_ZEBRA_NHG_MISSING_DEPENDENCIES,
+		.title =
+			"Zebra failed to update protocol nhg dependencies of a group nhg",
+		.description =
+			"Zebra made an attempt to update internal nhg dependencies, but failed.",
+		.suggestion =
+			"Ensure that the protocol nexthop group has been sent in correct order.",
+	},
+	{
 		.code = END_FERR,
 	}
 };

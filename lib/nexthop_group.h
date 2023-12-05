@@ -24,6 +24,7 @@ struct nhg_resilience {
 
 struct nexthop_group_id {
 	uint32_t id_grp;
+	struct nexthop_group *nhg;
 	struct nexthop_group_id *next;
 	struct nexthop_group_id *prev;
 };
