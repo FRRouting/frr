@@ -1383,6 +1383,7 @@ class Router(Node):
         )
 
         self.perf_daemons = {}
+        self.rr_daemons = {}
         self.valgrind_gdb_daemons = {}
 
         # If this topology is using old API and doesn't have logdir
@@ -1805,6 +1806,9 @@ class Router(Node):
         gdb_daemons = g_pytest_config.get_option_list("--gdb-daemons")
         gdb_routers = g_pytest_config.get_option_list("--gdb-routers")
         gdb_use_emacs = bool(g_pytest_config.option.gdb_use_emacs)
+        rr_daemons = g_pytest_config.get_option_list("--rr-daemons")
+        rr_routers = g_pytest_config.get_option_list("--rr-routers")
+        rr_options = g_pytest_config.get_option("--rr-options", "")
         valgrind_extra = bool(g_pytest_config.option.valgrind_extra)
         valgrind_leak_kinds = g_pytest_config.option.valgrind_leak_kinds
         valgrind_memleaks = bool(g_pytest_config.option.valgrind_memleaks)
@@ -1882,17 +1886,13 @@ class Router(Node):
             # do not since apparently presence of the pidfile impacts BGP GR
             self.cmd_status("rm -f {0}.pid {0}.vty".format(runbase))
 
-            def do_gdb():
+            def do_gdb_or_rr(gdb):
+                routers = gdb_routers if gdb else rr_routers
+                daemons = gdb_daemons if gdb else rr_daemons
                 return (
-                    (gdb_routers or gdb_daemons)
-                    and (
-                        not gdb_routers
-                        or self.name in gdb_routers
-                        or "all" in gdb_routers
-                    )
-                    and (
-                        not gdb_daemons or daemon in gdb_daemons or "all" in gdb_daemons
-                    )
+                    (routers or daemons)
+                    and (not routers or self.name in routers or "all" in routers)
+                    and (not daemons or daemon in daemons or "all" in daemons)
                 )
 
             rediropt = " > {0}.out 2> {0}.err".format(daemon)
@@ -1932,7 +1932,7 @@ class Router(Node):
                     )
 
                     valgrind_logbase = f"{self.logdir}/{self.name}.valgrind.{daemon}"
-                    if do_gdb():
+                    if do_gdb_or_rr(True):
                         cmdenv += " exec"
                     cmdenv += (
                         " /usr/bin/valgrind --num-callers=50"
@@ -1945,7 +1945,7 @@ class Router(Node):
                         cmdenv += (
                             " --gen-suppressions=all --expensive-definedness-checks=yes"
                         )
-                    if do_gdb():
+                    if do_gdb_or_rr(True):
                         cmdenv += " --vgdb-error=0"
                 elif daemon in strace_daemons or "all" in strace_daemons:
                     cmdenv = "strace -f -D -o {1}/{2}.strace.{0} ".format(
@@ -1965,9 +1965,12 @@ class Router(Node):
             if extra_opts:
                 cmdopt += " " + extra_opts
 
+            if do_gdb_or_rr(True) and do_gdb_or_rr(False):
+                logger.warning("cant' use gdb and rr at same time")
+
             if (
                 not gdb_use_emacs or Router.gdb_emacs_router or valgrind_memleaks
-            ) and do_gdb():
+            ) and do_gdb_or_rr(True):
                 if Router.gdb_emacs_router is not None:
                     logger.warning(
                         "--gdb-use-emacs can only run a single router and daemon, using"
@@ -2040,7 +2043,7 @@ class Router(Node):
                         self.routertype,
                         daemon,
                     )
-            elif gdb_use_emacs and do_gdb():
+            elif gdb_use_emacs and do_gdb_or_rr(True):
                 assert Router.gdb_emacs_router is None
                 Router.gdb_emacs_router = self
 
@@ -2134,6 +2137,29 @@ class Router(Node):
                 else:
                     logger.debug(
                         "%s: %s %s started with perf", self, self.routertype, daemon
+                    )
+            elif do_gdb_or_rr(False):
+                cmdopt += rediropt
+                cmd = " ".join(
+                    [
+                        "rr record -o {} {} --".format(self.rundir / "rr", rr_options),
+                        binary,
+                        cmdopt,
+                    ]
+                )
+                p = self.popen(cmd)
+                self.rr_daemons[daemon] = p
+                if p.poll() and p.returncode:
+                    self.logger.error(
+                        '%s: Failed to launch "%s" (%s) with rr using: %s',
+                        self,
+                        daemon,
+                        p.returncode,
+                        cmd,
+                    )
+                else:
+                    logger.debug(
+                        "%s: %s %s started with rr", self, self.routertype, daemon
                     )
             else:
                 if daemon != "snmpd" and daemon != "snmptrapd":

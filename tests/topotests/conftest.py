@@ -173,6 +173,24 @@ def pytest_addoption(parser):
         help="Options to pass to `perf record`.",
     )
 
+    parser.addoption(
+        "--rr-daemons",
+        metavar="DAEMON[,DAEMON...]",
+        help="Comma-separated list of daemons to run `rr` on, or 'all'",
+    )
+
+    parser.addoption(
+        "--rr-routers",
+        metavar="ROUTER[,ROUTER...]",
+        help="Comma-separated list of routers to run `rr` on, or 'all'",
+    )
+
+    parser.addoption(
+        "--rr-options",
+        metavar="OPTS",
+        help="Options to pass to `rr record`.",
+    )
+
     rundir_help = "directory for running in and log files"
     parser.addini("rundir", rundir_help, default="/tmp/topotests")
     parser.addoption("--rundir", metavar="DIR", help=rundir_help)
