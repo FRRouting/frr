@@ -440,6 +440,7 @@ static void ospf_spf_remove_branch(struct vertex_parent *vertex_parent,
 	 * be done anyway.
 	 */
 	listnode_delete(child->parents, vertex_parent);
+	vertex_parent_free(vertex_parent);
 
 	/*
 	 * Are there actually more parents left? If not, then delete the child!
