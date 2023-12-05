@@ -3628,7 +3628,7 @@ static bool bgp_evpn_route_matches_macvrf_soo(struct bgp_path_info *pi,
 	struct ecommunity *macvrf_soo;
 	bool ret = false;
 
-	if (!bgp_evpn->evpn_info)
+	if (!bgp_evpn || !bgp_evpn->evpn_info)
 		return false;
 
 	/* We only stamp the mac-vrf soo on routes from our local L2VNI.
