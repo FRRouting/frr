@@ -567,11 +567,11 @@ void nhg_add(uint32_t id, const struct nexthop_group *nhg,
 			zlog_debug("%s: nhg %u: no nexthops, deleting nexthop group", __func__,
 				   id);
 			zclient_nhg_send(zclient, ZEBRA_NHG_DEL, &api_nhg);
-		} else {
-			zlog_debug("%s: nhg %u not sent: no valid nexthops", __func__,
-				   id);
-			is_valid = false;
+			return;
 		}
+		zlog_debug("%s: nhg %u not sent: no valid nexthops", __func__,
+			   id);
+		is_valid = false;
 		goto done;
 	}
 
@@ -934,6 +934,7 @@ static int nhg_notify_owner(ZAPI_CALLBACK_ARGS)
 		zlog_debug("Failed install of nhg %u", id);
 		break;
 	case ZAPI_NHG_REMOVED:
+		sharp_nhgroup_id_set_installed(id, false);
 		zlog_debug("Removed nhg %u", id);
 		break;
 	case ZAPI_NHG_REMOVE_FAIL:
