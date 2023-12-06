@@ -1260,6 +1260,8 @@ void nexthop_group_disable_vrf(struct vrf *vrf)
 			nexthop_free(nh);
 
 			list_delete_node(nhgc->nhg_list, node);
+
+			nhgl_delete(nhh);
 		}
 	}
 }
