@@ -1423,6 +1423,9 @@ int netlink_interface_addr_dplane(struct nlmsghdr *h, ns_id_t ns_id,
 	if (kernel_flags & IFA_F_SECONDARY)
 		dplane_ctx_intf_set_secondary(ctx);
 
+	if (kernel_flags & IFA_F_NOPREFIXROUTE)
+		dplane_ctx_intf_set_noprefixroute(ctx);
+
 	/* Label */
 	if (tb[IFA_LABEL]) {
 		label = (char *)RTA_DATA(tb[IFA_LABEL]);
