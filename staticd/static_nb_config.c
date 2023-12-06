@@ -18,6 +18,7 @@
 #include "static_vrf.h"
 #include "static_routes.h"
 #include "static_nb.h"
+#include "static_zebra.h"
 
 
 static int static_path_list_create(struct nb_cb_create_args *args)
@@ -960,6 +961,17 @@ int route_next_hop_bfd_source_destroy(struct nb_cb_destroy_args *args)
 
 	sn = nb_running_get_entry(args->dnode, NULL, true);
 	static_next_hop_bfd_auto_source(sn);
+
+	/* NHT information are needed by BFD to automatically find the source
+	 *
+	 * Force zebra to resend the information to BFD by unregistering and
+	 * registering again NHT. The (...)/frr-nexthops/nexthop northbound
+	 * apply_finish function will trigger a call to static_install_nexthop()
+	 * that does a call to static_zebra_nht_register(nh, true);
+	 * static_zebra_nht_register(sn, false);
+	 */
+	static_zebra_nht_register(sn, false);
+
 	return NB_OK;
 }
 
