@@ -1667,8 +1667,7 @@ static void vty_json_pbrms(json_object *j, struct vty *vty,
 	json_object_int_add(jpbrm, "sequenceNumber", pbrms->seqno);
 	json_object_int_add(jpbrm, "ruleNumber", pbrms->ruleno);
 	json_object_boolean_add(jpbrm, "vrfUnchanged", pbrms->vrf_unchanged);
-	json_object_boolean_add(jpbrm, "installed",
-				pbr_nht_get_installed(nhg_name));
+	json_object_boolean_add(jpbrm, "installed", pbrms->installed);
 	json_object_string_add(jpbrm, "installedReason",
 			       pbrms->reason ? rbuf : "Valid");
 
