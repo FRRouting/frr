@@ -430,6 +430,7 @@ extern int rib_queue_nhg_ctx_add(struct nhg_ctx *ctx);
 
 /* Enqueue incoming nhg from proto daemon for processing */
 extern int rib_queue_nhe_add(struct nhg_hash_entry *nhe);
+extern int rib_queue_nhe_del(struct nhg_hash_entry *nhe);
 
 /* Enqueue evpn route for processing */
 int zebra_rib_queue_evpn_route_add(vrf_id_t vrf_id, const struct ethaddr *rmac,
