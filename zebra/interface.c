@@ -1311,6 +1311,9 @@ static void zebra_if_addr_update_ctx(struct zebra_dplane_ctx *ctx,
 	if (dplane_ctx_intf_is_secondary(ctx))
 		SET_FLAG(flags, ZEBRA_IFA_SECONDARY);
 
+	if (dplane_ctx_intf_is_noprefixroute(ctx))
+		SET_FLAG(flags, ZEBRA_IFA_NOPREFIXROUTE);
+
 	/* Label? */
 	if (dplane_ctx_intf_has_label(ctx))
 		label = dplane_ctx_get_intf_label(ctx);
@@ -1621,6 +1624,12 @@ static void connected_dump_vty(struct vty *vty, json_object *json,
 			CHECK_FLAG(connected->flags, ZEBRA_IFA_SECONDARY));
 	else if (CHECK_FLAG(connected->flags, ZEBRA_IFA_SECONDARY))
 		vty_out(vty, " secondary");
+
+	if (json)
+		json_object_boolean_add(json_addr, "noPrefixRoute",
+					CHECK_FLAG(connected->flags, ZEBRA_IFA_NOPREFIXROUTE));
+	else if (CHECK_FLAG(connected->flags, ZEBRA_IFA_NOPREFIXROUTE))
+		vty_out(vty, " noprefixroute");
 
 	if (json)
 		json_object_boolean_add(
