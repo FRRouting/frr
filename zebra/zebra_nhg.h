@@ -330,10 +330,8 @@ zebra_nhg_rib_find_nhe(struct nhg_hash_entry *rt_nhe, afi_t rt_afi);
  *
  * Returns allocated NHE on success, otherwise NULL.
  */
-struct nhg_hash_entry *zebra_nhg_proto_add(uint32_t id, int type,
-					   uint16_t instance, uint32_t session,
-					   struct nexthop_group *nhg,
-					   afi_t afi);
+struct nhg_hash_entry *zebra_nhg_proto_add(struct nhg_hash_entry *nhe,
+					   struct nexthop_group *nhg, afi_t afi);
 
 /*
  * Del NHE.
