@@ -1963,7 +1963,7 @@ void kernel_init(struct zebra_ns *zns)
 
 	rt_netlink_init();
 
-	ge_netlink_init();
+	ge_netlink_init(zns);
 }
 
 /* Helper to clean up an nlsock */
