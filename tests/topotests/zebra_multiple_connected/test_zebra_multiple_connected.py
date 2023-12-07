@@ -144,6 +144,23 @@ def test_zebra_system_recursion():
     assert result is None, "Kernel route is missing from zebra"
 
 
+def test_zebra_noprefix_connected():
+    "Test that a noprefixroute created does not create a connected route"
+
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    router = tgen.gears["r1"]
+    router.run("ip addr add 192.168.44.1/24 dev r1-eth1 noprefixroute")
+    expected = "% Network not in table"
+    test_func = partial(
+        topotest.router_output_cmp, router, "show ip route 192.168.44.0/24", expected
+    )
+    result, diff = topotest.run_and_expect(test_func, "", count=20, wait=1)
+    assert result, "Connected Route should not have been added"
+
+
 if __name__ == "__main__":
     args = ["-s"] + sys.argv[1:]
     sys.exit(pytest.main(args))
