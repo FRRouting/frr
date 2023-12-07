@@ -230,6 +230,7 @@ struct dplane_intf_info {
 #define DPLANE_INTF_BROADCAST   (1 << 2)
 #define DPLANE_INTF_HAS_DEST    DPLANE_INTF_CONNECTED
 #define DPLANE_INTF_HAS_LABEL   (1 << 4)
+#define DPLANE_INTF_NOPREFIXROUTE (1 << 5)
 
 	/* Interface address/prefix */
 	struct prefix prefix;
@@ -2541,6 +2542,13 @@ bool dplane_ctx_intf_is_connected(const struct zebra_dplane_ctx *ctx)
 	return (ctx->u.intf.flags & DPLANE_INTF_CONNECTED);
 }
 
+bool dplane_ctx_intf_is_noprefixroute(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return (ctx->u.intf.flags & DPLANE_INTF_NOPREFIXROUTE);
+}
+
 bool dplane_ctx_intf_is_secondary(const struct zebra_dplane_ctx *ctx)
 {
 	DPLANE_CTX_VALID(ctx);
@@ -2567,6 +2575,13 @@ void dplane_ctx_intf_set_secondary(struct zebra_dplane_ctx *ctx)
 	DPLANE_CTX_VALID(ctx);
 
 	ctx->u.intf.flags |= DPLANE_INTF_SECONDARY;
+}
+
+void dplane_ctx_intf_set_noprefixroute(struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	ctx->u.intf.flags |= DPLANE_INTF_NOPREFIXROUTE;
 }
 
 void dplane_ctx_intf_set_broadcast(struct zebra_dplane_ctx *ctx)
