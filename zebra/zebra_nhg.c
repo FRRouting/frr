@@ -3590,16 +3590,22 @@ bool zebra_nhg_proto_nexthops_only(void)
 }
 
 /* Add NHE from upper level proto */
-struct nhg_hash_entry *zebra_nhg_proto_add(uint32_t id, int type,
-					   uint16_t instance, uint32_t session,
-					   struct nexthop_group *nhg, afi_t afi)
+struct nhg_hash_entry *zebra_nhg_proto_add(struct nhg_hash_entry *nhe, struct nexthop_group *nhg,
+					   afi_t afi)
 {
 	struct nhg_hash_entry lookup;
 	struct nhg_hash_entry *new, *old;
 	struct nhg_connected *rb_node_dep = NULL;
 	struct nexthop *newhop;
 	bool replace = false;
-	int ret = 0;
+	int ret = 0, type;
+	uint32_t id, session;
+	uint16_t instance;
+
+	id = nhe->id;
+	type = nhe->type;
+	session = nhe->zapi_session;
+	instance = nhe->zapi_instance;
 
 	if (!nhg->nexthop) {
 		if (IS_ZEBRA_DEBUG_NHG)
