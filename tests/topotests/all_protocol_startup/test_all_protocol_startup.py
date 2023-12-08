@@ -397,7 +397,7 @@ def route_get_nhg_id(route_str):
     return nhg_id
 
 
-def verify_nexthop_group(nhg_id, recursive=False, ecmp=0):
+def verify_nexthop_group(nhg_id, recursive=False, ecmp=0, recursive_count=None):
     net = get_topogen().net
     count = 0
     valid = None
@@ -417,7 +417,9 @@ def verify_nexthop_group(nhg_id, recursive=False, ecmp=0):
             sleep(1)
             continue
 
-        if ecmp or recursive:
+        if recursive_count and recursive:
+            recursive_count = recursive_count - 1
+        if ecmp or (recursive and not recursive_count):
             ecmpcount = re.search(r"Depends:.*\n", output)
             if ecmpcount is None:
                 found = False
@@ -433,14 +435,13 @@ def verify_nexthop_group(nhg_id, recursive=False, ecmp=0):
                     sleep(1)
                     continue
             else:
-                # If recursive, we need to look at its resolved group
                 if len(depends) != 1:
                     found = False
                     sleep(1)
                     continue
 
                 resolved_id = int(depends[0])
-                verify_nexthop_group(resolved_id, False)
+                verify_nexthop_group(resolved_id, recursive=recursive)
         else:
             installed = re.search(r"Installed", output)
             if installed is None:
@@ -450,7 +451,7 @@ def verify_nexthop_group(nhg_id, recursive=False, ecmp=0):
         found = True
 
     assert valid is not None, "Nexthop Group ID=%d not marked Valid" % nhg_id
-    if ecmp or recursive:
+    if ecmp or (recursive and not recursive_count):
         assert ecmpcount is not None, "Nexthop Group ID=%d has no depends" % nhg_id
         if ecmp:
             assert len(depends) == ecmp, (
@@ -466,10 +467,10 @@ def verify_nexthop_group(nhg_id, recursive=False, ecmp=0):
         )
 
 
-def verify_route_nexthop_group(route_str, recursive=False, ecmp=0):
+def verify_route_nexthop_group(route_str, recursive=False, ecmp=0, recursive_count=None):
     # Verify route and that zebra created NHGs for and they are valid/installed
     nhg_id = route_get_nhg_id(route_str)
-    verify_nexthop_group(nhg_id, recursive, ecmp)
+    verify_nexthop_group(nhg_id, recursive, ecmp, recursive_count)
 
 
 def test_nexthop_groups():
@@ -515,7 +516,7 @@ def test_nexthop_groups():
         'vtysh -c "sharp install routes 3.3.3.1 nexthop-group basic-recursive 1"'
     )
 
-    verify_route_nexthop_group("3.3.3.1/32", True)
+    verify_route_nexthop_group("3.3.3.1/32", True, recursive_count=3)
 
     ## Duplicate
 
@@ -610,6 +611,38 @@ def test_nexthop_groups():
     # Should find 3, itself is inactive
     assert len(dups) == 4, (
         "Route 6.6.6.1/32 with Nexthop Group ID=%d has wrong number of resolved nexthops"
+        % nhg_id
+    )
+
+    ## nexthop-group ALLOWRECURSION
+    ## create a static route, and use that static route to resolve the nexthop-group
+    tgen = get_topogen()
+    tgen.gears["r1"].vtysh_cmd(
+        """
+        configure terminal
+        nexthop-group ALLOWRECURSION
+        allow-recursion
+        nexthop 192.0.2.200
+        """
+    )
+    tgen.gears["r1"].vtysh_cmd(
+        "sharp install routes 9.9.9.9 nexthop-group ALLOWRECURSION 1"
+    )
+    nhg_id = route_get_nhg_id("9.9.9.9/32")
+    verify_nexthop_group(nhg_id, recursive=True, ecmp=0, recursive_count=2)
+
+    tgen.gears["r1"].vtysh_cmd("sharp remove routes 9.9.9.9 1")
+    tgen.gears["r1"].vtysh_cmd(
+        """
+        configure terminal
+        nexthop-group ALLOWRECURSION
+        no allow-recursion
+        """
+    )
+    output = tgen.gears["r1"].vtysh_cmd("show nexthop-group rib %d" % nhg_id)
+    found = re.search(r"Time to Deletion", output)
+    assert found is not None, (
+        "Route 9.9.9.9/32 with Nexthop Group ID=%d is not scheduled for removal"
         % nhg_id
     )
 
@@ -1409,7 +1442,7 @@ def test_nexthop_groups_with_route_maps():
 
     # Create a lib nexthop-group
     net["r1"].cmd(
-        'vtysh -c "c t" -c "nexthop-group test" -c "nexthop 1.1.1.1" -c "nexthop 1.1.1.2"'
+        'vtysh -c "c t" -c "nexthop-group test" -c "no allow-recursion" -c "nexthop 1.1.1.1" -c "nexthop 1.1.1.2"'
     )
 
     ## Route-Map Proto Source
