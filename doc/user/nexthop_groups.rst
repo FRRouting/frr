@@ -27,3 +27,9 @@ listing of ECMP nexthops used to forward packets.
    will be automatically re-assigned.  This cli command must be the first
    command entered currently.  Additionally this command only works with linux 5.19
    kernels or newer.
+
+.. clicmd:: allow-recursion
+
+   By default, a nexthop group is only marked as active when its nexthop is
+   directly connected. The ``allow-recursion`` option allows zebra to resolve the
+   nexthop using other types of routes.
