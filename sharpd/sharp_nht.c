@@ -126,6 +126,11 @@ static void sharp_nhgroup_modify_cb(const struct nexthop_group_cmd *nhgc)
 	if (!nhgc->nhg.nexthop)
 		return;
 
+	if (CHECK_FLAG(nhgc->nhg.flags, NEXTHOP_GROUP_RESET_NHG)) {
+		/* nexthops must be removed before being re-added */
+		nhg_del(snhg->id);
+	}
+
 	if (nhgc->backup_list_name[0])
 		bnhgc = nhgc_find(nhgc->backup_list_name);
 
