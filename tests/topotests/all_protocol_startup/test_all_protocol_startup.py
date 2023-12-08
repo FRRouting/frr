@@ -397,7 +397,7 @@ def route_get_nhg_id(route_str):
     return nhg_id
 
 
-def verify_nexthop_group(nhg_id, recursive=False, ecmp=0):
+def verify_nexthop_group(nhg_id, recursive=False, ecmp=0, recursive_again=False):
     net = get_topogen().net
     count = 0
     valid = None
@@ -440,7 +440,7 @@ def verify_nexthop_group(nhg_id, recursive=False, ecmp=0):
                     continue
 
                 resolved_id = int(depends[0])
-                verify_nexthop_group(resolved_id, False)
+                verify_nexthop_group(resolved_id, recursive=recursive_again)
         else:
             installed = re.search(r"Installed", output)
             if installed is None:
@@ -610,6 +610,38 @@ def test_nexthop_groups():
     # Should find 3, itself is inactive
     assert len(dups) == 4, (
         "Route 6.6.6.1/32 with Nexthop Group ID=%d has wrong number of resolved nexthops"
+        % nhg_id
+    )
+
+    ## nexthop-group ALLOWRECURSION
+    ## create a static route, and use that static route to resolve the nexthop-group
+    tgen = get_topogen()
+    tgen.gears["r1"].vtysh_cmd(
+        """
+        configure terminal
+        nexthop-group ALLOWRECURSION
+        allow-recursion
+        nexthop 192.0.2.200
+        """
+    )
+    tgen.gears["r1"].vtysh_cmd(
+        "sharp install routes 9.9.9.9 nexthop-group ALLOWRECURSION 1"
+    )
+    nhg_id = route_get_nhg_id("9.9.9.9/32")
+    verify_nexthop_group(nhg_id, recursive=True, ecmp=0, recursive_again=True)
+
+    tgen.gears["r1"].vtysh_cmd("sharp remove routes 9.9.9.9 1")
+    tgen.gears["r1"].vtysh_cmd(
+        """
+        configure terminal
+        nexthop-group ALLOWRECURSION
+        no allow-recursion
+        """
+    )
+    output = tgen.gears["r1"].vtysh_cmd("show nexthop-group rib %d" % nhg_id)
+    found = re.search(r"Time to Deletion", output)
+    assert found is not None, (
+        "Route 9.9.9.9/32 with Nexthop Group ID=%d is not scheduled for removal"
         % nhg_id
     )
 
