@@ -34,6 +34,10 @@ struct nexthop_group {
 	struct nexthop *nexthop;
 
 	struct nhg_resilience nhgr;
+
+	/* nexthop group flags */
+#define NEXTHOP_GROUP_ALLOW_RECURSION (1 << 1)
+	uint8_t flags;
 };
 
 struct nexthop_group *nexthop_group_new(void);
@@ -113,14 +117,14 @@ DECLARE_QOBJ_TYPE(nexthop_group_cmd);
  * del_nexthop - A nexthop is deleted from the NHG
  * destroy - The NHG is deleted
  */
-void nexthop_group_init(
-	void (*create)(const char *name),
-	void (*modify)(const struct nexthop_group_cmd *nhgc),
-	void (*add_nexthop)(const struct nexthop_group_cmd *nhgc,
-			    const struct nexthop *nhop),
-	void (*del_nexthop)(const struct nexthop_group_cmd *nhgc,
-			    const struct nexthop *nhop),
-	void (*destroy)(const char *name));
+void nexthop_group_init(void (*create)(const char *name),
+			void (*modify)(const struct nexthop_group_cmd *nhgc,
+				       bool reset),
+			void (*add_nexthop)(const struct nexthop_group_cmd *nhgc,
+					    const struct nexthop *nhop),
+			void (*del_nexthop)(const struct nexthop_group_cmd *nhgc,
+					    const struct nexthop *nhop),
+			void (*destroy)(const char *name));
 
 void nexthop_group_enable_vrf(struct vrf *vrf);
 void nexthop_group_disable_vrf(struct vrf *vrf);
