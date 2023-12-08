@@ -1699,14 +1699,14 @@ static int updgrp_policy_update_walkcb(struct update_group *updgrp, void *arg)
 				 */
 				UNSET_FLAG(subgrp->sflags,
 					   SUBGRP_STATUS_DEFAULT_ORIGINATE);
-				subgroup_default_originate(subgrp, 0);
+				subgroup_default_originate(subgrp, false);
 			} else {
 				/*
 				 * This is a explicit withdraw, since the
 				 * routemap is not present in routemap lib. need
-				 * to pass 1 for withdraw arg.
+				 * to pass `true` for withdraw arg.
 				 */
-				subgroup_default_originate(subgrp, 1);
+				subgroup_default_originate(subgrp, true);
 			}
 		}
 		update_subgroup_set_needs_refresh(subgrp, 0);
@@ -2102,7 +2102,7 @@ update_group_default_originate_route_map_walkcb(struct update_group *updgrp,
 			 */
 			UNSET_FLAG(subgrp->sflags,
 				   SUBGRP_STATUS_DEFAULT_ORIGINATE);
-			subgroup_default_originate(subgrp, 0);
+			subgroup_default_originate(subgrp, false);
 		}
 	}
 

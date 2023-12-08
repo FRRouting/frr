@@ -5164,7 +5164,7 @@ void bgp_withdraw(struct peer *peer, const struct prefix *p,
 }
 
 void bgp_default_originate(struct peer *peer, afi_t afi, safi_t safi,
-			   int withdraw)
+			   bool withdraw)
 {
 	struct update_subgroup *subgrp;
 	subgrp = peer_subgroup(peer, afi, safi);
