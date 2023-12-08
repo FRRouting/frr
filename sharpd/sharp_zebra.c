@@ -539,6 +539,7 @@ void nhg_add(uint32_t id, const struct nexthop_group *nhg,
 
 	api_nhg.id = id;
 
+	api_nhg.flags = nhg->flags;
 	api_nhg.resilience = nhg->nhgr;
 
 	for (ALL_NEXTHOPS_PTR(nhg, nh)) {
@@ -549,10 +550,11 @@ void nhg_add(uint32_t id, const struct nexthop_group *nhg,
 			break;
 		}
 
-		/* Unresolved nexthops will lead to failure - only send
-		 * nexthops that zebra will consider valid.
+		/* Unresolved nexthops will lead to failure, unless
+		 * ALLOW_RECURSION flag is set
 		 */
-		if (nh->ifindex == 0)
+		if (nh->ifindex == 0 &&
+		    !CHECK_FLAG(nhg->flags, NEXTHOP_GROUP_ALLOW_RECURSION))
 			continue;
 
 		api_nh = &api_nhg.nexthops[api_nhg.nexthop_num];

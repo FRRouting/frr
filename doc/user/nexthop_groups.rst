@@ -27,3 +27,9 @@ listing of ECMP nexthops used to forward packets.
    will be automatically re-assigned.  This cli command must be the first
    command entered currently.  Additionally this command only works with linux 5.19
    kernels or newer.
+
+.. clicmd:: allow-recursion
+
+   Allow a next-hop to be resolved at zebra level. Instead of beig considered valid,
+   the next-hop is checked against route reachability at zebra level. This permits
+   sending an incomplete next-hop to zebra, whereas it was not authorised before.
