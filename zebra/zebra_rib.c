@@ -186,6 +186,7 @@ struct wq_nhg_wrapper {
 		struct nhg_ctx *ctx;
 		struct nhg_hash_entry *nhe;
 	} u;
+	bool deletion;
 };
 
 #define WQ_NHG_WRAPPER_TYPE_CTX  0x01
@@ -2531,7 +2532,7 @@ static void process_subq_evpn(struct listnode *lnode)
 static void process_subq_nhg(struct listnode *lnode)
 {
 	struct nhg_ctx *ctx;
-	struct nhg_hash_entry *nhe, *newnhe;
+	struct nhg_hash_entry *nhe, *newnhe, *oldnhe;
 	struct wq_nhg_wrapper *w;
 	uint8_t qindex = META_QUEUE_NHG;
 
@@ -2563,15 +2564,33 @@ static void process_subq_nhg(struct listnode *lnode)
 				   subqueue2str(qindex));
 
 		/* Process incoming nhg update, probably from a proto daemon */
-		newnhe = zebra_nhg_proto_add(nhe->id, nhe->type,
-					     nhe->zapi_instance,
-					     nhe->zapi_session, &nhe->nhg, 0);
+		if (w->deletion) {
+			/*
+			 * Delete the received nhg id
+			 */
+			oldnhe = zebra_nhg_proto_del(nhe->id, nhe->type);
+			if (oldnhe) {
+				zsend_nhg_notify(nhe->type, nhe->zapi_instance,
+						 nhe->zapi_session, nhe->id,
+						 ZAPI_NHG_REMOVED);
+				zebra_nhg_decrement_ref(oldnhe);
+			} else
+				zsend_nhg_notify(nhe->type, nhe->zapi_instance,
+						 nhe->zapi_session, nhe->id,
+						 ZAPI_NHG_REMOVE_FAIL);
 
-		/* Report error to daemon via ZAPI */
-		if (newnhe == NULL)
-			zsend_nhg_notify(nhe->type, nhe->zapi_instance,
-					 nhe->zapi_session, nhe->id,
-					 ZAPI_NHG_FAIL_INSTALL);
+		} else {
+			newnhe = zebra_nhg_proto_add(nhe->id, nhe->type,
+						     nhe->zapi_instance,
+						     nhe->zapi_session,
+						     &nhe->nhg, 0);
+
+			/* Report error to daemon via ZAPI */
+			if (newnhe == NULL)
+				zsend_nhg_notify(nhe->type, nhe->zapi_instance,
+						 nhe->zapi_session, nhe->id,
+						 ZAPI_NHG_FAIL_INSTALL);
+		}
 
 		/* Free temp nhe - we own that memory. */
 		zebra_nhg_free(nhe);
@@ -3339,7 +3358,8 @@ static int rib_meta_queue_nhg_ctx_add(struct meta_queue *mq, void *data)
 	return 0;
 }
 
-static int rib_meta_queue_nhg_add(struct meta_queue *mq, void *data)
+static int rib_meta_queue_nhg_process(struct meta_queue *mq, void *data,
+				      bool deletion)
 {
 	struct nhg_hash_entry *nhe = NULL;
 	uint8_t qindex = META_QUEUE_NHG;
@@ -3354,6 +3374,7 @@ static int rib_meta_queue_nhg_add(struct meta_queue *mq, void *data)
 
 	w->type = WQ_NHG_WRAPPER_TYPE_NHG;
 	w->u.nhe = nhe;
+	w->deletion = deletion;
 
 	listnode_add(mq->subq[qindex], w);
 	mq->size++;
@@ -3363,6 +3384,16 @@ static int rib_meta_queue_nhg_add(struct meta_queue *mq, void *data)
 			   subqueue2str(qindex));
 
 	return 0;
+}
+
+static int rib_meta_queue_nhg_add(struct meta_queue *mq, void *data)
+{
+	return rib_meta_queue_nhg_process(mq, data, false);
+}
+
+static int rib_meta_queue_nhg_del(struct meta_queue *mq, void *data)
+{
+	return rib_meta_queue_nhg_process(mq, data, true);
 }
 
 static int rib_meta_queue_evpn_add(struct meta_queue *mq, void *data)
@@ -3470,6 +3501,17 @@ int rib_queue_nhe_add(struct nhg_hash_entry *nhe)
 		return -1;
 
 	return mq_add_handler(nhe, rib_meta_queue_nhg_add);
+}
+
+/*
+ * Enqueue incoming nhg from proto daemon for processing
+ */
+int rib_queue_nhe_del(struct nhg_hash_entry *nhe)
+{
+	if (nhe == NULL)
+		return -1;
+
+	return mq_add_handler(nhe, rib_meta_queue_nhg_del);
 }
 
 /*

@@ -1959,20 +1959,19 @@ static void zread_nhg_del(ZAPI_HANDLER_ARGS)
 		return;
 	}
 
-	/*
-	 * Delete the received nhg id
-	 */
-	nhe = zebra_nhg_proto_del(api_nhg.id, api_nhg.proto);
+	/* Create a temporary nhe */
+	nhe = zebra_nhg_alloc();
+	nhe->id = api_nhg.id;
+	nhe->type = api_nhg.proto;
+	nhe->zapi_instance = client->instance;
+	nhe->zapi_session = client->session_id;
 
-	if (nhe) {
-		zebra_nhg_decrement_ref(nhe);
-		zsend_nhg_notify(api_nhg.proto, client->instance,
-				 client->session_id, api_nhg.id,
-				 ZAPI_NHG_REMOVED);
-	} else
-		zsend_nhg_notify(api_nhg.proto, client->instance,
-				 client->session_id, api_nhg.id,
-				 ZAPI_NHG_REMOVE_FAIL);
+	/* Sanity check - Empty nexthop and group */
+	nhe->nhg.nexthop = NULL;
+
+	/* Enqueue to workqueue for processing */
+	rib_queue_nhe_del(nhe);
+
 	/* Stats */
 	client->nhg_del_cnt++;
 }
