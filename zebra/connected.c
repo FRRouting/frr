@@ -213,6 +213,12 @@ void connected_up(struct interface *ifp, struct connected *ifc)
 	/* Apply mask to the network. */
 	apply_mask(&p);
 
+	/* If connected and local routes are identical, no need to
+	 * install the local route.
+	 */
+	if (prefix_same(&p, &plocal))
+		install_local = false;
+
 	afi = family2afi(p.family);
 
 	switch (afi) {
