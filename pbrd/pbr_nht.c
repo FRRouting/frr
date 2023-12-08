@@ -216,7 +216,7 @@ void pbr_nhgroup_add_cb(const char *name)
 	pbr_map_check_nh_group_change(name);
 }
 
-void pbr_nhgroup_modify_cb(const struct nexthop_group_cmd *nhgc)
+void pbr_nhgroup_modify_cb(const struct nexthop_group_cmd *nhgc, bool reset)
 {
 }
 

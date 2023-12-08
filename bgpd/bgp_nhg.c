@@ -26,7 +26,7 @@ static void bgp_nhg_add_cb(const char *name)
 {
 }
 
-static void bgp_nhg_modify_cb(const struct nexthop_group_cmd *nhgc)
+static void bgp_nhg_modify_cb(const struct nexthop_group_cmd *nhgc, bool reset)
 {
 }
 

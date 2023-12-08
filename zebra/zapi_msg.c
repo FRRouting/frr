@@ -1895,6 +1895,8 @@ static int zapi_nhg_decode(struct stream *s, int cmd, struct zapi_nhg *api_nhg)
 	STREAM_GETL(s, api_nhg->resilience.idle_timer);
 	STREAM_GETL(s, api_nhg->resilience.unbalanced_timer);
 
+	STREAM_GETC(s, api_nhg->flags);
+
 	/* Nexthops */
 	STREAM_GETW(s, api_nhg->nexthop_num);
 
@@ -2013,6 +2015,7 @@ static void zread_nhg_add(ZAPI_HANDLER_ARGS)
 	nhe = zebra_nhg_alloc();
 	nhe->id = api_nhg.id;
 	nhe->type = api_nhg.proto;
+	nhe->nhg.flags = api_nhg.flags;
 	nhe->zapi_instance = client->instance;
 	nhe->zapi_session = client->session_id;
 
