@@ -539,6 +539,7 @@ void nhg_add(uint32_t id, const struct nexthop_group *nhg,
 
 	api_nhg.id = id;
 
+	api_nhg.flags = nhg->flags;
 	api_nhg.resilience = nhg->nhgr;
 
 	for (ALL_NEXTHOPS_PTR(nhg, nh)) {
