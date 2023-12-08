@@ -425,6 +425,58 @@ def route_get_nhg_id(route_str):
         return nhg_id
 
 
+def verify_nexthop_group_inactive(nhg_id):
+    net = get_topogen().net
+    inactive = None
+    uninstalled = None
+    found = False
+    count = 0
+
+    while not found and count < 10:
+        count += 1
+        # Verify NHG is invalid/not installed
+        output = net["r1"].cmd('vtysh -c "show nexthop-group rib {}"'.format(nhg_id))
+        inactive = re.search(r"inactive", output)
+        if inactive is None:
+            sleep(1)
+            continue
+        uninstalled = not re.search(r"Installed", output)
+        if uninstalled is None:
+            sleep(1)
+            continue
+        found = True
+
+    assert inactive is not None, "Nexthop Group ID={} not marked inactive".format(
+        nhg_id
+    )
+    assert uninstalled is not None, "Nexthop Group ID={} marked Installed".format(
+        nhg_id
+    )
+
+
+def verify_nexthop_group_inactive_nexthop(nexthop, client="sharp"):
+    net = get_topogen().net
+    if client:
+        cmd_str = 'vtysh -c "show nexthop-group rib {} json"'.format(client)
+    else:
+        cmd_str = 'vtysh -c "show nexthop-group rib json"'.format(client)
+
+    output = net["r1"].cmd(cmd_str)
+    joutput = json.loads(output)
+
+    for nhgid in joutput:
+        n = joutput[nhgid]
+        if "nexthops" not in n:
+            continue
+        if "ip" not in n["nexthops"][0].keys():
+            continue
+        if n["nexthops"][0]["ip"] == nexthop:
+            if "active" in n["nexthops"][0].keys() and n["nexthops"][0]["active"]:
+                assert 0, "nexthop-group {} marked active, expected inactive".format(
+                    nhgid
+                )
+
+
 def verify_nexthop_group(nhg_id, recursive=False, ecmp=0):
     net = get_topogen().net
     count = 0
@@ -650,6 +702,46 @@ def test_nexthop_groups():
         nhg_id
     )
 
+    ## nexthop-group TESTALLOWRECURSION
+    ## create a static route, and use that static route to resolve the nexthop-group
+    tgen = get_topogen()
+    net["r1"].cmd(
+        'vtysh -c "configure terminal" \
+        -c "nexthop-group TESTALLOWRECURSION" \
+        -c "nexthop 192.0.2.200"'
+    )
+    # the TESTALLOWRECURSION nexthop-group should be inactive
+    # check that the sharp nexthop-group for 9.9.9.9 is inactive.
+    verify_nexthop_group_inactive_nexthop("192.0.2.200")
+
+    net["r1"].cmd(
+        'vtysh -c "configure terminal" \
+        -c "nexthop-group TESTALLOWRECURSION" \
+        -c "allow-recursion"'
+    )
+
+    net["r1"].cmd(
+        'vtysh -c "sharp install routes 9.9.9.9 nexthop-group TESTALLOWRECURSION 1"'
+    )
+
+    nhg_id = route_get_nhg_id("9.9.9.9/32")
+
+    verify_nexthop_group(nhg_id)
+
+    net["r1"].cmd(
+        'vtysh -c "configure terminal" \
+        -c "nexthop-group TESTALLOWRECURSION" \
+        -c "no allow-recursion"'
+    )
+    nhg_id_local = route_get_nhg_id("9.9.9.9/32")
+    assert (
+        nhg_id == nhg_id_local
+    ), "r1, after disabling recursion, NHG ID changed for 9.9.9.9/32, old {}, new {}".format(
+        nhg_id, nhg_id_local
+    )
+
+    verify_nexthop_group_inactive(nhg_id)
+
     ## Remove all NHG routes
 
     net["r1"].cmd('vtysh -c "sharp remove routes 2.2.2.1 1"')
@@ -660,6 +752,7 @@ def test_nexthop_groups():
     net["r1"].cmd('vtysh -c "sharp remove routes 4.4.4.2 1"')
     net["r1"].cmd('vtysh -c "sharp remove routes 5.5.5.1 1"')
     net["r1"].cmd('vtysh -c "sharp remove routes 6.6.6.1 4"')
+    net["r1"].cmd('vtysh -c "sharp remove routes 9.9.9.9 1"')
     net["r1"].cmd('vtysh -c "c t" -c "no ip route 6.6.6.0/24 1.1.1.1"')
 
 
