@@ -26,6 +26,8 @@ PREDECL_RBTREE_UNIQ(bgp_nexthop_cache);
 
 /* BGP nexthop cache value structure. */
 struct bgp_nexthop_cache {
+	afi_t afi;
+
 	/* The ifindex of the outgoing interface *if* it's a v6 LL */
 	ifindex_t ifindex_ipv6_ll;
 
