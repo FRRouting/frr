@@ -45,6 +45,7 @@ RUN apt update && apt upgrade -y && \
     apt-get install -y \
         curl \
         gdb \
+        kmod \
         iproute2 \
         iputils-ping \
         liblua5.3-dev \
