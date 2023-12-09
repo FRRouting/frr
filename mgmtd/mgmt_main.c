@@ -189,12 +189,33 @@ static void mgmt_vrf_terminate(void)
 extern const struct frr_yang_module_info frr_staticd_info;
 #endif
 
+
+/*
+ * These are stub info structs that are used to load the modules used by backend
+ * clients into mgmtd. The modules are used by libyang in order to support
+ * parsing binary data returns from the backend.
+ */
+const struct frr_yang_module_info zebra_info = {
+	.name = "frr-zebra",
+	.ignore_cbs = true,
+	.nodes = { { .xpath = NULL } },
+};
+
+const struct frr_yang_module_info affinity_map_info = {
+	.name = "frr-affinity-map",
+	.ignore_cbs = true,
+	.nodes = { { .xpath = NULL } },
+};
+
+const struct frr_yang_module_info zebra_route_map_info = {
+	.name = "frr-zebra-route-map",
+	.ignore_cbs = true,
+	.nodes = { { .xpath = NULL } },
+};
+
 /*
  * List of YANG modules to be loaded in the process context of
  * MGMTd.
- *
- * NOTE: In future this will also include the YANG modules of
- * all individual Backend clients.
  */
 static const struct frr_yang_module_info *const mgmt_yang_modules[] = {
 	&frr_filter_info,
@@ -202,21 +223,15 @@ static const struct frr_yang_module_info *const mgmt_yang_modules[] = {
 	&frr_route_map_info,
 	&frr_routing_info,
 	&frr_vrf_info,
-/*
- * YANG module info supported by backend clients get added here.
- * NOTE: Always set .ignore_cbs true for to avoid validating
- * backend configuration northbound callbacks during loading.
- */
-	&(struct frr_yang_module_info){ .name = "frr-zebra",
-					.ignore_cbs = true },
+
 	/*
-	 * TO support LYD_LYB parsing we have to include all the modules that
-	 * backend clients include.
+	 * YANG module info used by backend clients get added here.
 	 */
-	&(struct frr_yang_module_info){ .name = "frr-affinity-map",
-		.ignore_cbs = true },
-	&(struct frr_yang_module_info){ .name = "frr-zebra-route-map",
-		.ignore_cbs = true },
+
+	&zebra_info,
+	&affinity_map_info,
+	&zebra_route_map_info,
+
 #ifdef HAVE_STATICD
 	&frr_staticd_info,
 #endif

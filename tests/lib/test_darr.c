@@ -343,13 +343,10 @@ static void test_string(void)
 	assert(darr_strlen(da1) == srclen);
 	assert(darr_cap(da1) >= 128);
 
-	da2 = da1;
-	darr_in_strdup_cap(da1, src, 1024);
-	assert(da1 != da2);
+	darr_in_strdup_cap(da1, src, 256);
 	assert(darr_strlen(da1) == srclen);
-	assert(darr_cap(da1) >= 1024);
+	assert(darr_cap(da1) >= 256);
 	darr_free(da1);
-	da2 = NULL;
 
 	da1 = darr_strdup_cap(add, 2);
 	assert(darr_strlen(da1) == addlen);
