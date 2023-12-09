@@ -7595,7 +7595,6 @@ bool bgp_aggregate_route(struct bgp *bgp, const struct prefix *p, afi_t afi,
 	 */
 	aggregate->count = 0;
 	aggregate->incomplete_origin_count = 0;
-	aggregate->incomplete_origin_count = 0;
 	aggregate->egp_origin_count = 0;
 
 	/* ORIGIN attribute: If at least one route among routes that are
