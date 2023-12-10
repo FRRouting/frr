@@ -1493,6 +1493,9 @@ struct peer *peer_new(struct bgp *bgp)
 
 	SET_FLAG(peer->sflags, PEER_STATUS_CAPABILITY_OPEN);
 
+	if (CHECK_FLAG(bgp->flags, BGP_FLAG_ENFORCE_FIRST_AS))
+		SET_FLAG(peer->flags, PEER_FLAG_ENFORCE_FIRST_AS);
+
 	/* Initialize per peer bgp GR FSM */
 	bgp_peer_gr_init(peer);
 
@@ -1919,9 +1922,6 @@ struct peer *peer_create(union sockunion *su, const char *conf_if,
 			peer_af_create(peer, afi, safi);
 		}
 	}
-
-	if (CHECK_FLAG(bgp->flags, BGP_FLAG_ENFORCE_FIRST_AS))
-		SET_FLAG(peer->flags, PEER_FLAG_ENFORCE_FIRST_AS);
 
 	/* auto shutdown if configured */
 	if (bgp->autoshutdown)
