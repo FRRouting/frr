@@ -330,7 +330,7 @@ static char *_dump_re_status(const struct route_entry *re, char *buf,
 			: "",
 		CHECK_FLAG(re->status, ROUTE_ENTRY_QUEUED) ? "Queued " : "",
 		CHECK_FLAG(re->status, ROUTE_ENTRY_ROUTE_REPLACING)
-			? "Replacing"
+			? "Replacing "
 			: "",
 		CHECK_FLAG(re->status, ROUTE_ENTRY_INSTALLED) ? "Installed "
 							      : "",
