@@ -105,6 +105,8 @@ struct label_manager {
 };
 
 void label_manager_init(void);
+void label_manager_terminate(void);
+
 struct label_manager_chunk *
 assign_label_chunk(uint8_t proto, unsigned short instance, uint32_t session_id,
 		   uint8_t keep, uint32_t size, uint32_t base);

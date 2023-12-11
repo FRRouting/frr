@@ -302,6 +302,11 @@ void label_manager_init(void)
 	install_element(CONFIG_NODE, &mpls_label_dynamic_block_cmd);
 }
 
+void label_manager_terminate(void)
+{
+	list_delete(&lbl_mgr.lc_list);
+}
+
 /* alloc and fill a label chunk */
 struct label_manager_chunk *
 create_label_chunk(uint8_t proto, unsigned short instance, uint32_t session_id,
