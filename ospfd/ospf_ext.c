@@ -1734,8 +1734,12 @@ static uint16_t show_vty_ext_link_adj_sid(struct vty *vty,
 					  struct tlv_header *tlvh)
 {
 	struct ext_subtlv_adj_sid *top = (struct ext_subtlv_adj_sid *)tlvh;
+	uint8_t tlv_size;
 
-	check_tlv_size(EXT_SUBTLV_ADJ_SID_SIZE, "Adjacency SID");
+	tlv_size = CHECK_FLAG(top->flags, EXT_SUBTLV_LINK_ADJ_SID_VFLG)
+			      ? SID_LABEL_SIZE(EXT_SUBTLV_ADJ_SID_SIZE)
+			      : SID_INDEX_SIZE(EXT_SUBTLV_ADJ_SID_SIZE);
+	check_tlv_size(tlv_size, "Adjacency SID");
 
 	vty_out(vty,
 		"  Adj-SID Sub-TLV: Length %u\n\tFlags: 0x%x\n\tMT-ID:0x%x\n\tWeight: 0x%x\n\t%s: %u\n",
@@ -1755,8 +1759,12 @@ static uint16_t show_vty_ext_link_lan_adj_sid(struct vty *vty,
 {
 	struct ext_subtlv_lan_adj_sid *top =
 		(struct ext_subtlv_lan_adj_sid *)tlvh;
+	uint8_t tlv_size;
 
-	check_tlv_size(EXT_SUBTLV_LAN_ADJ_SID_SIZE, "Lan-Adjacency SID");
+	tlv_size = CHECK_FLAG(top->flags, EXT_SUBTLV_LINK_ADJ_SID_VFLG)
+			      ? SID_LABEL_SIZE(EXT_SUBTLV_LAN_ADJ_SID_SIZE)
+			      : SID_INDEX_SIZE(EXT_SUBTLV_LAN_ADJ_SID_SIZE);
+	check_tlv_size(tlv_size, "LAN-Adjacency SID");
 
 	vty_out(vty,
 		"  LAN-Adj-SID Sub-TLV: Length %u\n\tFlags: 0x%x\n\tMT-ID:0x%x\n\tWeight: 0x%x\n\tNeighbor ID: %pI4\n\t%s: %u\n",
@@ -1867,8 +1875,12 @@ static uint16_t show_vty_ext_pref_pref_sid(struct vty *vty,
 {
 	struct ext_subtlv_prefix_sid *top =
 		(struct ext_subtlv_prefix_sid *)tlvh;
+	uint8_t tlv_size;
 
-	check_tlv_size(EXT_SUBTLV_PREFIX_SID_SIZE, "Prefix SID");
+	tlv_size = CHECK_FLAG(top->flags, EXT_SUBTLV_PREFIX_SID_VFLG)
+			      ? SID_LABEL_SIZE(EXT_SUBTLV_PREFIX_SID_SIZE)
+			      : SID_INDEX_SIZE(EXT_SUBTLV_PREFIX_SID_SIZE);
+	check_tlv_size(tlv_size, "Prefix SID");
 
 	vty_out(vty,
 		"  Prefix SID Sub-TLV: Length %u\n\tAlgorithm: %u\n\tFlags: 0x%x\n\tMT-ID:0x%x\n\t%s: %u\n",
