@@ -37,7 +37,7 @@
 #include "bgpd/bgp_zebra.h"
 #include "bgpd/bgp_addpath.h"
 #include "bgpd/bgp_label.h"
-#include "bgpd/bgp_nht.h"
+#include "bgpd/bgp_nhg.h"
 #include "bgpd/bgp_mpath.h"
 #include "bgpd/bgp_trace.h"
 
@@ -3005,8 +3005,8 @@ static struct bgp_evpn_es_vrf *bgp_evpn_es_vrf_create(struct bgp_evpn_es *es,
 	listnode_add(es->es_vrf_list, &es_vrf->es_listnode);
 
 	/* setup the L3 NHG id for the ES */
-	es_vrf->nhg_id = bgp_l3nhg_id_alloc();
-	es_vrf->v6_nhg_id = bgp_l3nhg_id_alloc();
+	es_vrf->nhg_id = bgp_nhg_id_alloc();
+	es_vrf->v6_nhg_id = bgp_nhg_id_alloc();
 
 	if (BGP_DEBUG(evpn_mh, EVPN_MH_ES))
 		zlog_debug("es %s vrf %u nhg %u v6_nhg %d create", es->esi_str,
@@ -3034,10 +3034,10 @@ static void bgp_evpn_es_vrf_delete(struct bgp_evpn_es_vrf *es_vrf)
 	/* Remove the NHG resources */
 	bgp_evpn_l3nhg_deactivate(es_vrf);
 	if (es_vrf->nhg_id)
-		bgp_l3nhg_id_free(es_vrf->nhg_id);
+		bgp_nhg_id_free(es_vrf->nhg_id);
 	es_vrf->nhg_id = 0;
 	if (es_vrf->v6_nhg_id)
-		bgp_l3nhg_id_free(es_vrf->v6_nhg_id);
+		bgp_nhg_id_free(es_vrf->v6_nhg_id);
 	es_vrf->v6_nhg_id = 0;
 
 	/* remove from the ES's VRF list */
