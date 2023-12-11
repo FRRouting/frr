@@ -992,6 +992,8 @@ int netlink_route_change_read_unicast_internal(struct nlmsghdr *h,
 						 re, ng, startup, ctx);
 			if (ng)
 				nexthop_group_delete(&ng);
+			if (ctx)
+				zebra_rib_route_entry_free(re);
 		} else {
 			/*
 			 * I really don't see how this is possible

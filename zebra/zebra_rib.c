@@ -4159,6 +4159,12 @@ struct route_entry *zebra_rib_route_entry_new(vrf_id_t vrf_id, int type,
 
 	return re;
 }
+
+void zebra_rib_route_entry_free(struct route_entry *re)
+{
+	XFREE(MTYPE_RE, re);
+}
+
 /*
  * Internal route-add implementation; there are a couple of different public
  * signatures. Callers in this path are responsible for the memory they
