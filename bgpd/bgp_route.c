@@ -75,6 +75,7 @@
 #include "bgpd/bgp_flowspec.h"
 #include "bgpd/bgp_flowspec_util.h"
 #include "bgpd/bgp_pbr.h"
+#include "bgpd/bgp_nhg.h"
 
 #include "bgpd/bgp_route_clippy.c"
 
@@ -3460,8 +3461,10 @@ static void bgp_process_main_one(struct bgp *bgp, struct bgp_dest *dest,
 	}
 
 	/* TODO BMP insert rib update hook */
-	if (old_select)
+	if (old_select) {
 		bgp_path_info_unset_flag(dest, old_select, BGP_PATH_SELECTED);
+		bgp_nhg_path_unlink(old_select);
+	}
 	if (new_select) {
 		if (debug)
 			zlog_debug("%s: setting SELECTED flag", __func__);
