@@ -307,6 +307,70 @@ static void bgp_nhg_remove_nexthops(struct bgp_nhg_cache *nhg)
 		bgp_nhg_free(nhg);
 }
 
+/* This function unlinks the BGP nexthop group cache of BGP paths in some cases:
+ * - when a BGP NHG is resolved over a default route
+ * - if the passed resolved_prefix is the prefix of the path (case recursive loop)
+ *
+ * Without BGP NHG, those checks are done in ZEBRA, function nexthop_active(),
+ * leading to not installing the route:
+ * - if resolve-via-default is unconfigured
+ * - if a recursive loop happens for non host route
+ *
+ * With BGP NHG, those checks are done in BGP in this function,
+ * the routes will not use the BGP nexthop-groups, and will use the old ZEBRA code check,
+ * if the prefix paths meet the unlink conditions explained previously.
+ *
+ * in: nhg, the bgp nexthop group cache entry
+ * in: resolved_prefix, the resolved prefix of the nexthop: NULL if default route.
+ * out: return true if the nexthop group has no more paths and is freed, false otherwise
+ */
+static bool bgp_nhg_detach_paths_resolved_over_prefix(struct bgp_nhg_cache *nhg,
+						      struct prefix *resolved_prefix)
+{
+	struct bgp_path_info *path, *safe;
+	const struct prefix *p;
+	bool is_default_path;
+	struct bgp_table *table;
+
+	if (!resolved_prefix)
+		return false;
+
+	is_default_path = is_default_prefix(resolved_prefix);
+
+	LIST_FOREACH_SAFE (path, &(nhg->paths), nhg_cache_thread, safe) {
+		if (path->bgp_nhg != nhg)
+			continue;
+		p = bgp_dest_get_prefix(path->net);
+		if (is_default_path) {
+			/* disallow routes which resolve over default route
+			 */
+			if (BGP_DEBUG(nexthop_group, NEXTHOP_GROUP_DETAIL))
+				zlog_debug("        :%s: %pFX Resolved against default route",
+					   __func__, p);
+		} else if (prefix_same(resolved_prefix, p) && !is_host_route(p)) {
+			/* disallow non host routes with resolve over themselves
+			 */
+			if (BGP_DEBUG(nexthop_group, NEXTHOP_GROUP_DETAIL))
+				zlog_debug("        %s: %pFX, Matched against ourself and prefix length is not max bit length",
+					   __func__, p);
+		} else
+			continue;
+		/* nhg = pi->nhg is detached,
+		 * nhg will not be suppressed when bgp_nhg_path_unlink() is called
+		 */
+		bgp_nhg_path_unlink_internal(path, false);
+		/* path should still be active */
+		table = bgp_dest_get_bgp_table_info(path->net);
+		if (table->bgp)
+			bgp_zebra_route_install(path->net, path, table->bgp, true, NULL, false);
+	}
+	if (LIST_EMPTY(&(nhg->paths))) {
+		bgp_nhg_free(nhg);
+		return true;
+	}
+	return false;
+}
+
 void bgp_nhg_refresh_by_nexthop(struct bgp_nexthop_cache *bnc)
 {
 	struct bgp_nhg_cache *nhg;
@@ -356,6 +420,9 @@ void bgp_nhg_refresh_by_nexthop(struct bgp_nexthop_cache *bnc)
 				bgp_nhg_remove_nexthops(nhg);
 				continue;
 			}
+
+			if (bgp_nhg_detach_paths_resolved_over_prefix(nhg, &bnc->resolved_prefix))
+				continue;
 
 			if (BGP_DEBUG(nexthop_group, NEXTHOP_GROUP))
 				zlog_debug("NHG %u, VRF %u : nexthop %pFX SRTE %u has changed.",
