@@ -11,6 +11,7 @@
 #include <bgpd/bgpd.h>
 #include <bgpd/bgp_debug.h>
 #include <bgpd/bgp_nhg.h>
+#include <bgpd/bgp_nexthop.h>
 #include <bgpd/bgp_zebra.h>
 
 extern struct zclient *zclient;
@@ -291,4 +292,75 @@ void bgp_nhg_id_set_removed(uint32_t id)
 		zlog_debug("NHG %u: ID is uninstalled", nhg->id);
 	UNSET_FLAG(nhg->state, BGP_NHG_STATE_INSTALLED);
 	SET_FLAG(nhg->state, BGP_NHG_STATE_REMOVED);
+}
+
+static void bgp_nhg_remove_nexthops(struct bgp_nhg_cache *nhg)
+{
+	struct bgp_path_info *path, *safe;
+
+	LIST_FOREACH_SAFE (path, &(nhg->paths), nhg_cache_thread, safe) {
+		LIST_REMOVE(path, nhg_cache_thread);
+		path->bgp_nhg = NULL;
+		nhg->path_count--;
+	}
+	if (LIST_EMPTY(&(nhg->paths)))
+		bgp_nhg_free(nhg);
+}
+
+void bgp_nhg_refresh_by_nexthop(struct bgp_nexthop_cache *bnc)
+{
+	struct bgp_nhg_cache *nhg;
+	int i;
+	struct zapi_nexthop *zapi_nh;
+	uint32_t srte_color = bnc->srte_color;
+	struct prefix *p = &bnc->prefix;
+	vrf_id_t vrf_id = bnc->bgp->vrf_id;
+	bool found;
+
+	frr_each_safe (bgp_nhg_cache, &nhg_cache_table, nhg) {
+		found = false;
+		if (CHECK_FLAG(nhg->state, BGP_NHG_STATE_REMOVED))
+			continue;
+		if (!CHECK_FLAG(nhg->flags, BGP_NHG_FLAG_ALLOW_RECURSION))
+			continue;
+		if ((srte_color && !CHECK_FLAG(nhg->flags, BGP_NHG_FLAG_SRTE_PRESENCE)) ||
+		    (!srte_color && CHECK_FLAG(nhg->flags, BGP_NHG_FLAG_SRTE_PRESENCE)))
+			continue;
+		for (i = 0; i < nhg->nexthop_num; i++) {
+			zapi_nh = &nhg->nexthops[i];
+			if (zapi_nh->type == NEXTHOP_TYPE_IFINDEX ||
+			    zapi_nh->type == NEXTHOP_TYPE_BLACKHOLE)
+				continue;
+			if (srte_color && zapi_nh->srte_color != srte_color)
+				continue;
+			if (p->family == AF_INET &&
+			    (zapi_nh->type == NEXTHOP_TYPE_IPV4 ||
+			     zapi_nh->type == NEXTHOP_TYPE_IPV4_IFINDEX) &&
+			    IPV4_ADDR_SAME(&zapi_nh->gate.ipv4, &p->u.prefix4)) {
+				found = true;
+				break;
+			}
+			if (p->family == AF_INET6 &&
+			    (zapi_nh->type == NEXTHOP_TYPE_IPV6 ||
+			     zapi_nh->type == NEXTHOP_TYPE_IPV6_IFINDEX) &&
+			    IPV6_ADDR_SAME(&zapi_nh->gate.ipv6, &p->u.prefix6)) {
+				found = true;
+				break;
+			}
+		}
+		if (found) {
+			if (!CHECK_FLAG(bnc->flags, BGP_NEXTHOP_VALID)) {
+				if (BGP_DEBUG(nexthop_group, NEXTHOP_GROUP))
+					zlog_debug("NHG %u, VRF %u : nexthop %pFX SRTE %u is invalid.",
+						   nhg->id, vrf_id, p, srte_color);
+				bgp_nhg_remove_nexthops(nhg);
+				continue;
+			}
+
+			if (BGP_DEBUG(nexthop_group, NEXTHOP_GROUP))
+				zlog_debug("NHG %u, VRF %u : nexthop %pFX SRTE %u has changed.",
+					   nhg->id, vrf_id, p, srte_color);
+			bgp_nhg_add_or_update_nhg(nhg);
+		}
+	}
 }

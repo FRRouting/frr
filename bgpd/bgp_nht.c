@@ -49,6 +49,28 @@ static int bgp_isvalid_nexthop(struct bgp_nexthop_cache *bnc)
 		    && bnc->nexthop_num > 0));
 }
 
+/**
+ * evaluate_nexthops - if a nexthop change occurs at ZEBRA level,
+ * the NHG must be refreshed.
+ * ARGUMENTS:
+ *   struct bgp_nexthop_cache *bnc -- the nexthop structure.
+ * RETURNS:
+ *   void.
+ */
+static void evaluate_nexthops(struct bgp_nexthop_cache *bnc)
+{
+	if (!CHECK_FLAG(bnc->change_flags, BGP_NEXTHOP_CHANGED))
+		return;
+
+	if (BGP_DEBUG(nht, NHT))
+		zlog_debug("%s: nexthop change detected for bnc %pFX(%d)(%u)(%s), refreshing NHGs",
+			   __func__, &bnc->prefix, bnc->ifindex_ipv6_ll, bnc->srte_color,
+			   bnc->bgp->name_pretty);
+
+	if (bgp_option_check(BGP_OPT_NHG))
+		bgp_nhg_refresh_by_nexthop(bnc);
+}
+
 static int bgp_isvalid_nexthop_for_ebgp(struct bgp_nexthop_cache *bnc,
 					struct bgp_path_info *path)
 {
@@ -753,6 +775,7 @@ static void bgp_process_nexthop_update(struct bgp_nexthop_cache *bnc,
 		bnc->nexthop = NULL;
 	}
 
+	evaluate_nexthops(bnc);
 	evaluate_paths(bnc);
 }
 
