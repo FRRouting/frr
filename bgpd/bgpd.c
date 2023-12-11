@@ -410,6 +410,9 @@ void bgp_router_id_static_set(struct bgp *bgp, struct in_addr id)
 void bm_wait_for_fib_set(bool set)
 {
 	bool send_msg = false;
+	struct bgp *bgp;
+	struct peer *peer;
+	struct listnode *next, *node;
 
 	if (bm->wait_for_fib == set)
 		return;
@@ -428,12 +431,31 @@ void bm_wait_for_fib_set(bool set)
 	if (send_msg && zclient)
 		zebra_route_notify_send(ZEBRA_ROUTE_NOTIFY_REQUEST,
 					zclient, set);
+
+	/*
+	 * If this is configed at a time when peers are already set
+	 * FRR needs to reset the connection(s) as that some installs
+	 * may have already happened in some shape fashion or form
+	 * let's just start over
+	 */
+	for (ALL_LIST_ELEMENTS_RO(bm->bgp, next, bgp)) {
+		for (ALL_LIST_ELEMENTS_RO(bgp->peer, node, peer)) {
+			if (!BGP_IS_VALID_STATE_FOR_NOTIF(peer->status))
+				continue;
+
+			peer->last_reset = PEER_DOWN_SUPPRESS_FIB_PENDING;
+			bgp_notify_send(peer, BGP_NOTIFY_CEASE,
+					BGP_NOTIFY_CEASE_CONFIG_CHANGE);
+		}
+	}
 }
 
 /* Set the suppress fib pending for the bgp configuration */
 void bgp_suppress_fib_pending_set(struct bgp *bgp, bool set)
 {
 	bool send_msg = false;
+	struct peer *peer;
+	struct listnode *node;
 
 	if (bgp->inst_type == BGP_INSTANCE_TYPE_VIEW)
 		return;
@@ -464,6 +486,21 @@ void bgp_suppress_fib_pending_set(struct bgp *bgp, bool set)
 		if (zclient)
 			zebra_route_notify_send(ZEBRA_ROUTE_NOTIFY_REQUEST,
 					zclient, set);
+	}
+
+	/*
+	 * If this is configed at a time when peers are already set
+	 * FRR needs to reset the connection as that some installs
+	 * may have already happened in some shape fashion or form
+	 * let's just start over
+	 */
+	for (ALL_LIST_ELEMENTS_RO(bgp->peer, node, peer)) {
+		if (!BGP_IS_VALID_STATE_FOR_NOTIF(peer->status))
+			continue;
+
+		peer->last_reset = PEER_DOWN_SUPPRESS_FIB_PENDING;
+		bgp_notify_send(peer, BGP_NOTIFY_CEASE,
+				BGP_NOTIFY_CEASE_CONFIG_CHANGE);
 	}
 }
 
