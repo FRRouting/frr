@@ -26,6 +26,7 @@
 #include "bgpd/bgp_debug.h"
 #include "bgpd/bgp_errors.h"
 #include "bgpd/bgp_nht.h"
+#include "bgpd/bgp_nhg.h"
 #include "bgpd/bgp_fsm.h"
 #include "bgpd/bgp_zebra.h"
 #include "bgpd/bgp_flowspec_util.h"
@@ -46,6 +47,28 @@ static int bgp_isvalid_nexthop(struct bgp_nexthop_cache *bnc)
 	return (bgp_zebra_num_connects() == 0
 		|| (bnc && CHECK_FLAG(bnc->flags, BGP_NEXTHOP_VALID)
 		    && bnc->nexthop_num > 0));
+}
+
+/**
+ * evaluate_nexthops - if an IGP event occurs, the NHG must be
+ * refreshed.
+ * ARGUMENTS:
+ *   struct bgp_nexthop_cache *bnc -- the nexthop structure.
+ * RETURNS:
+ *   void.
+ */
+static void evaluate_nexthops(struct bgp_nexthop_cache *bnc)
+{
+	if (!CHECK_FLAG(bnc->change_flags, BGP_NEXTHOP_CHANGED))
+		return;
+
+	if (BGP_DEBUG(nht, NHT))
+		zlog_debug("%s: IGP change detected for bnc %pFX(%d)(%u)(%s), refreshing NHGs",
+			   __func__, &bnc->prefix, bnc->ifindex_ipv6_ll,
+			   bnc->srte_color, bnc->bgp->name_pretty);
+
+	if (bgp_option_check(BGP_OPT_NHG))
+		bgp_nhg_refresh_by_nexthop(bnc);
 }
 
 static int bgp_isvalid_nexthop_for_ebgp(struct bgp_nexthop_cache *bnc,
@@ -168,6 +191,7 @@ void bgp_unlink_nexthop(struct bgp_path_info *path)
 
 	bgp_mplsvpn_path_nh_label_unlink(path);
 	bgp_mplsvpn_path_nh_label_bind_unlink(path);
+	bgp_nhg_path_unlink(path);
 
 	if (!bnc)
 		return;
@@ -746,6 +770,7 @@ static void bgp_process_nexthop_update(struct bgp_nexthop_cache *bnc,
 		bnc->nexthop = NULL;
 	}
 
+	evaluate_nexthops(bnc);
 	evaluate_paths(bnc);
 }
 
