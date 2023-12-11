@@ -326,6 +326,68 @@ static void bgp_nhg_remove_nexthop(struct bgp_nhg_cache *nhg)
 		bgp_nhg_free(nhg);
 }
 
+/* Called whenever a BGP NHG is resolved over :
+ * - a default route
+ * - a prefix which is the prefix itself
+ * Without BGP NHG, in zebra, nexthop_active() detects the resolution changes,
+ * looks at the resolved prefix, and compares with the prefix of the route
+ * to install. If a match happens, the route will not be installed, to avoid
+ * recursive loop.
+ * With BGP NHG, the prefixes of the routes to install need to be parsed, and
+ * compared to the resolved prefix. If a path matches, it will be installed
+ * to zebra without the nexthop group identifier: the zebra code will handle
+ * the recursive loop case.
+ * in: nhg, the bgp nexthop group cache entry
+ * in: resolved_prefix, the resolved prefix of the nexthop: NULL if default route.
+ * out: return true if the nexthop group has no more paths and is freed, false otherwise
+ */
+static bool
+bgp_nhg_detach_paths_resolved_over_prefix(struct bgp_nhg_cache *nhg,
+					  struct prefix *resolved_prefix)
+{
+	struct bgp_path_info *path, *safe;
+	const struct prefix *p;
+
+	LIST_FOREACH_SAFE (path, &(nhg->paths), nhg_cache_thread, safe) {
+		if (path->bgp_nhg != nhg)
+			continue;
+		p = bgp_dest_get_prefix(path->net);
+		if (resolved_prefix) {
+			if (!prefix_same(resolved_prefix, p))
+				continue;
+			if (is_host_route(p))
+				continue;
+			/* disallow non host routes with resolve over themselves
+			 */
+			if (BGP_DEBUG(nexthop_group, NEXTHOP_GROUP_DETAIL))
+				zlog_debug("        %s: %pFX, Matched against ourself and prefix length is not max bit length",
+					   __func__, p);
+		} else {
+			/* disallow routes which resolve over default route
+			 */
+			if (BGP_DEBUG(nexthop_group, NEXTHOP_GROUP_DETAIL))
+				zlog_debug("        :%s: %pFX Resolved against default route",
+					   __func__, p);
+		}
+		/* nhg = pi->nhg is detached,
+		 * nhg will not be suppressed when bgp_nhg_path_unlink() is called
+		 */
+		bgp_nhg_path_unlink_internal(path, false);
+		/* path should still be active */
+		if (bgp_dest_get_bgp_table_info(path->net)->bgp)
+			bgp_zebra_route_install(path->net, path,
+						bgp_dest_get_bgp_table_info(
+							path->net)
+							->bgp,
+						true, NULL, false);
+	}
+	if (LIST_EMPTY(&(nhg->paths))) {
+		bgp_nhg_free(nhg);
+		return true;
+	}
+	return false;
+}
+
 void bgp_nhg_refresh_by_nexthop(struct bgp_nexthop_cache *bnc)
 {
 	struct bgp_nhg_cache *nhg;
@@ -379,8 +441,15 @@ void bgp_nhg_refresh_by_nexthop(struct bgp_nexthop_cache *bnc)
 				continue;
 			}
 
+			if (is_default_prefix(&bnc->resolved_prefix) &&
+			    bgp_nhg_detach_paths_resolved_over_prefix(nhg, NULL))
+				continue;
+			else if (bgp_nhg_detach_paths_resolved_over_prefix(
+					 nhg, &bnc->resolved_prefix))
+				continue;
+
 			if (BGP_DEBUG(nexthop_group, NEXTHOP_GROUP))
-				zlog_debug("NHG %u, VRF %u : IGP change detected with NH %pFX SRTE %u",
+				zlog_debug("NHG %u, VRF %u : Nexthop change detected with NH %pFX SRTE %u",
 					   nhg->id, vrf_id, p, srte_color);
 			bgp_nhg_add_or_update_nhg(nhg);
 		}

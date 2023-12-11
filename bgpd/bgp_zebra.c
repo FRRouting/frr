@@ -1550,6 +1550,28 @@ void bgp_zebra_announce_parse_nexthop(struct bgp_path_info *info,
 			bgp_nhg_path_unlink(info);
 			return;
 		}
+		if (!p_mpinfo[i] || !p_mpinfo[i]->nexthop)
+			continue;
+
+		if (is_default_prefix(&p_mpinfo[i]->nexthop->resolved_prefix)) {
+			/* disallow routes which resolve over default route
+			 */
+			if (BGP_DEBUG(nexthop_group, NEXTHOP_GROUP_DETAIL))
+				zlog_debug("        :%s: %pFX Resolved against default route",
+					   __func__, p);
+			bgp_nhg_path_unlink(info);
+			return;
+		} else if (prefix_same(p,
+				       &p_mpinfo[i]->nexthop->resolved_prefix) &&
+			   !is_host_route(p)) {
+			/* disallow non host routes which resolve over themselves
+			 */
+			if (BGP_DEBUG(nexthop_group, NEXTHOP_GROUP_DETAIL))
+				zlog_debug("        %s: %pFX, Matched against ourself and prefix length is not max bit length",
+					   __func__, p);
+			bgp_nhg_path_unlink(info);
+			return;
+		}
 	}
 
 	nhg.nexthop_num = *valid_nh_count;
