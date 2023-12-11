@@ -9482,14 +9482,12 @@ void route_vty_out_tmp(struct vty *vty, struct bgp_dest *dest,
 		       const struct prefix *p, struct attr *attr, safi_t safi,
 		       bool use_json, json_object *json_ar, bool wide)
 {
-	json_object *json_status = NULL;
 	json_object *json_net = NULL;
 	int len;
 	char buff[BUFSIZ];
 
 	/* Route status display. */
 	if (use_json) {
-		json_status = json_object_new_object();
 		json_net = json_object_new_object();
 	} else {
 		vty_out(vty, " *");
@@ -9556,11 +9554,6 @@ void route_vty_out_tmp(struct vty *vty, struct bgp_dest *dest,
 						       attr->aspath->str);
 
 			/* Print origin */
-#if CONFDATE > 20231208
-CPP_NOTICE("Drop `bgpOriginCodes` from JSON outputs")
-#endif
-			json_object_string_add(json_net, "bgpOriginCode",
-					       bgp_origin_str[attr->origin]);
 			json_object_string_add(
 				json_net, "origin",
 				bgp_origin_long_str[attr->origin]);
@@ -9616,20 +9609,11 @@ CPP_NOTICE("Drop `bgpOriginCodes` from JSON outputs")
 	if (use_json) {
 		struct bgp_path_info *bpi = bgp_dest_get_bgp_path_info(dest);
 
-#if CONFDATE > 20231208
-CPP_NOTICE("Drop `bgpStatusCodes` from JSON outputs")
-#endif
-		json_object_boolean_true_add(json_status, "*");
-		json_object_boolean_true_add(json_status, ">");
 		json_object_boolean_true_add(json_net, "valid");
 		json_object_boolean_true_add(json_net, "best");
 
-		if (bpi && CHECK_FLAG(bpi->flags, BGP_PATH_MULTIPATH)) {
-			json_object_boolean_true_add(json_status, "=");
+		if (bpi && CHECK_FLAG(bpi->flags, BGP_PATH_MULTIPATH))
 			json_object_boolean_true_add(json_net, "multipath");
-		}
-		json_object_object_add(json_net, "appliedStatusSymbols",
-				       json_status);
 		json_object_object_addf(json_ar, json_net, "%pFX", p);
 	} else
 		vty_out(vty, "\n");
@@ -13942,9 +13926,7 @@ DEFUN (show_bgp_l2vpn_evpn_route_prefix,
 
 static void show_adj_route_header(struct vty *vty, struct peer *peer,
 				  struct bgp_table *table, int *header1,
-				  int *header2, json_object *json,
-				  json_object *json_scode,
-				  json_object *json_ocode, bool wide,
+				  int *header2, json_object *json, bool wide,
 				  bool detail)
 {
 	uint64_t version = table ? table->version : 0;
@@ -13960,10 +13942,6 @@ static void show_adj_route_header(struct vty *vty, struct peer *peer,
 					    peer->change_local_as
 						    ? peer->change_local_as
 						    : peer->local_as);
-			json_object_object_add(json, "bgpStatusCodes",
-					       json_scode);
-			json_object_object_add(json, "bgpOriginCodes",
-					       json_ocode);
 		} else {
 			vty_out(vty,
 				"BGP table version is %" PRIu64
@@ -14000,7 +13978,6 @@ static void
 show_adj_route(struct vty *vty, struct peer *peer, struct bgp_table *table,
 	       afi_t afi, safi_t safi, enum bgp_show_adj_route_type type,
 	       const char *rmap_name, json_object *json, json_object *json_ar,
-	       json_object *json_scode, json_object *json_ocode,
 	       uint16_t show_flags, int *header1, int *header2, char *rd_str,
 	       const struct prefix *match, unsigned long *output_count,
 	       unsigned long *filtered_count)
@@ -14095,8 +14072,7 @@ show_adj_route(struct vty *vty, struct peer *peer, struct bgp_table *table,
 
 		if (ret != RMAP_DENY) {
 			show_adj_route_header(vty, peer, table, header1,
-					      header2, json, json_scode,
-					      json_ocode, wide, detail);
+					      header2, json, wide, detail);
 
 			if (use_json)
 				json_net = json_object_new_object();
@@ -14133,10 +14109,6 @@ show_adj_route(struct vty *vty, struct peer *peer, struct bgp_table *table,
 					    peer->change_local_as
 						    ? peer->change_local_as
 						    : peer->local_as);
-			json_object_object_add(json, "bgpStatusCodes",
-					       json_scode);
-			json_object_object_add(json, "bgpOriginCodes",
-					       json_ocode);
 			json_object_string_add(
 				json, "bgpOriginatingDefaultNetwork",
 				(afi == AFI_IP) ? "0.0.0.0/0" : "::/0");
@@ -14176,8 +14148,8 @@ show_adj_route(struct vty *vty, struct peer *peer, struct bgp_table *table,
 				if (ain->peer != peer)
 					continue;
 				show_adj_route_header(vty, peer, table, header1,
-						      header2, json, json_scode,
-						      json_ocode, wide, detail);
+						      header2, json, wide,
+						      detail);
 
 				if ((safi == SAFI_MPLS_VPN)
 				    || (safi == SAFI_ENCAP)
@@ -14261,10 +14233,10 @@ show_adj_route(struct vty *vty, struct peer *peer, struct bgp_table *table,
 					if (paf->peer != peer || !adj->attr)
 						continue;
 
-					show_adj_route_header(
-						vty, peer, table, header1,
-						header2, json, json_scode,
-						json_ocode, wide, detail);
+					show_adj_route_header(vty, peer, table,
+							      header1, header2,
+							      json, wide,
+							      detail);
 
 					const struct prefix *rn_p =
 						bgp_dest_get_prefix(dest);
@@ -14328,8 +14300,7 @@ show_adj_route(struct vty *vty, struct peer *peer, struct bgp_table *table,
 			struct bgp_path_info *pi;
 
 			show_adj_route_header(vty, peer, table, header1,
-					      header2, json, json_scode,
-					      json_ocode, wide, detail);
+					      header2, json, wide, detail);
 
 			const struct prefix *rn_p = bgp_dest_get_prefix(dest);
 
@@ -14372,8 +14343,6 @@ static int peer_adj_routes(struct vty *vty, struct peer *peer, afi_t afi,
 	struct bgp *bgp;
 	struct bgp_table *table;
 	json_object *json = NULL;
-	json_object *json_scode = NULL;
-	json_object *json_ocode = NULL;
 	json_object *json_ar = NULL;
 	bool use_json = CHECK_FLAG(show_flags, BGP_SHOW_OPT_JSON);
 
@@ -14402,28 +14371,6 @@ static int peer_adj_routes(struct vty *vty, struct peer *peer, afi_t afi,
 	if (use_json) {
 		json = json_object_new_object();
 		json_ar = json_object_new_object();
-		json_scode = json_object_new_object();
-		json_ocode = json_object_new_object();
-#if CONFDATE > 20231208
-CPP_NOTICE("Drop `bgpStatusCodes` from JSON outputs")
-#endif
-		json_object_string_add(json_scode, "suppressed", "s");
-		json_object_string_add(json_scode, "damped", "d");
-		json_object_string_add(json_scode, "history", "h");
-		json_object_string_add(json_scode, "valid", "*");
-		json_object_string_add(json_scode, "best", ">");
-		json_object_string_add(json_scode, "multipath", "=");
-		json_object_string_add(json_scode, "internal", "i");
-		json_object_string_add(json_scode, "ribFailure", "r");
-		json_object_string_add(json_scode, "stale", "S");
-		json_object_string_add(json_scode, "removed", "R");
-
-#if CONFDATE > 20231208
-CPP_NOTICE("Drop `bgpOriginCodes` from JSON outputs")
-#endif
-		json_object_string_add(json_ocode, "igp", "i");
-		json_object_string_add(json_ocode, "egp", "e");
-		json_object_string_add(json_ocode, "incomplete", "?");
 	}
 
 	if (!peer || !peer->afc[afi][safi]) {
@@ -14434,8 +14381,6 @@ CPP_NOTICE("Drop `bgpOriginCodes` from JSON outputs")
 			vty_out(vty, "%s\n", json_object_to_json_string(json));
 			json_object_free(json);
 			json_object_free(json_ar);
-			json_object_free(json_scode);
-			json_object_free(json_ocode);
 		} else
 			vty_out(vty, "%% No such neighbor or address family\n");
 
@@ -14453,8 +14398,6 @@ CPP_NOTICE("Drop `bgpOriginCodes` from JSON outputs")
 			vty_out(vty, "%s\n", json_object_to_json_string(json));
 			json_object_free(json);
 			json_object_free(json_ar);
-			json_object_free(json_scode);
-			json_object_free(json_ocode);
 		} else
 			vty_out(vty,
 				"%% Inbound soft reconfiguration not enabled\n");
@@ -14494,11 +14437,11 @@ CPP_NOTICE("Drop `bgpOriginCodes` from JSON outputs")
 			prefix_rd2str(prd, rd_str, sizeof(rd_str),
 				      bgp->asnotation);
 
-			show_adj_route(
-				vty, peer, table, afi, safi, type, rmap_name,
-				json, json_routes, json_scode, json_ocode,
-				show_flags, &header1, &header2, rd_str, match,
-				&output_count_per_rd, &filtered_count_per_rd);
+			show_adj_route(vty, peer, table, afi, safi, type,
+				       rmap_name, json, json_routes, show_flags,
+				       &header1, &header2, rd_str, match,
+				       &output_count_per_rd,
+				       &filtered_count_per_rd);
 
 			/* Don't include an empty RD in the output! */
 			if (json_routes && (output_count_per_rd > 0))
@@ -14510,9 +14453,8 @@ CPP_NOTICE("Drop `bgpOriginCodes` from JSON outputs")
 		}
 	} else
 		show_adj_route(vty, peer, table, afi, safi, type, rmap_name,
-			       json, json_ar, json_scode, json_ocode,
-			       show_flags, &header1, &header2, rd_str, match,
-			       &output_count, &filtered_count);
+			       json, json_ar, show_flags, &header1, &header2,
+			       rd_str, match, &output_count, &filtered_count);
 
 	if (use_json) {
 		if (type == bgp_show_adj_route_advertised)
@@ -14523,16 +14465,6 @@ CPP_NOTICE("Drop `bgpOriginCodes` from JSON outputs")
 		json_object_int_add(json, "totalPrefixCounter", output_count);
 		json_object_int_add(json, "filteredPrefixCounter",
 				    filtered_count);
-
-		/*
-		 * These fields only give up ownership to `json` when `header1`
-		 * is used (set to zero). See code in `show_adj_route` and
-		 * `show_adj_route_header`.
-		 */
-		if (header1 == 1) {
-			json_object_free(json_scode);
-			json_object_free(json_ocode);
-		}
 
                 /*
                  * This is an extremely expensive operation at scale
