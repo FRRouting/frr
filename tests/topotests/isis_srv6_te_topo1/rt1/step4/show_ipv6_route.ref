@@ -1,0 +1,37 @@
+{
+    "fc00:0:6b::/48": [
+        {
+            "prefix": "fc00:0:6b::/48",
+            "prefixLen": 48,
+            "protocol": "static",
+            "distance": 1,
+            "metric": 0,
+            "installed": true,
+            "nexthops": [
+                {
+                    "flags": 133,
+                    "ip": "fc00:0:6::",
+                    "afi": "ipv6",
+                    "active": true,
+                    "recursive": true,
+                    "weight": 1,
+                    "srteColor": 1
+                },
+                {
+                    "flags": 3,
+                    "fib": true,
+                    "afi": "ipv6",
+                    "active": true,
+                    "weight": 1
+                },
+                {
+                    "flags": 3,
+                    "fib": true,
+                    "afi": "ipv6",
+                    "active": true,
+                    "weight": 1
+                }
+            ]
+        }
+    ]
+}
