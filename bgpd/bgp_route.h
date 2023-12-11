@@ -17,6 +17,7 @@
 
 struct bgp_nexthop_cache;
 struct bgp_route_evpn;
+struct bgp_nhg_cache;
 
 enum bgp_show_type {
 	bgp_show_type_normal,

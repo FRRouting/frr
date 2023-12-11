@@ -1292,11 +1292,13 @@ static int bgp_nhg_notify_owner(ZAPI_CALLBACK_ARGS)
 	return 0;
 }
 
-static void bgp_zebra_announce_parse_nexthop(
-	struct bgp_path_info *info, const struct prefix *p, struct bgp *bgp,
-	struct zapi_route *api, unsigned int *valid_nh_count, afi_t afi,
-	safi_t safi, uint32_t *nhg_id, uint32_t *metric, route_tag_t *tag,
-	bool *allow_recursion)
+void bgp_zebra_announce_parse_nexthop(struct bgp_path_info *info,
+				      const struct prefix *p, struct bgp *bgp,
+				      struct zapi_route *api,
+				      unsigned int *valid_nh_count, afi_t afi,
+				      safi_t safi, uint32_t *nhg_id,
+				      uint32_t *metric, route_tag_t *tag,
+				      bool *allow_recursion)
 {
 	struct zapi_nexthop *api_nh;
 	int nh_family;
@@ -1314,6 +1316,10 @@ static void bgp_zebra_announce_parse_nexthop(
 	uint32_t ttl = 0;
 	uint32_t bos = 0;
 	uint32_t exp = 0;
+	struct bgp_nhg_cache nhg = { 0 }, *p_nhg;
+	unsigned int i = 0;
+	bool is_evpn = false;
+	struct bgp_path_info *p_mpinfo[MULTIPATH_NUM] = { 0 };
 
 	/* Determine if we're doing weighted ECMP or not */
 	do_wt_ecmp = bgp_path_info_mpath_chkwtd(bgp, info);
@@ -1335,7 +1341,6 @@ static void bgp_zebra_announce_parse_nexthop(
 
 	for (; mpinfo; mpinfo = bgp_path_info_mpath_next(mpinfo)) {
 		uint64_t nh_weight;
-		bool is_evpn;
 		bool is_parent_evpn;
 
 		if (*valid_nh_count >= multipath_num)
@@ -1507,8 +1512,81 @@ static void bgp_zebra_announce_parse_nexthop(
 			SET_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_SEG6);
 		}
 
+		p_mpinfo[*valid_nh_count] = mpinfo;
 		(*valid_nh_count)++;
 	}
+
+	if (!nhg_id)
+		return;
+	if (!bgp_option_check(BGP_OPT_NHG) ||
+	    info->sub_type == BGP_ROUTE_AGGREGATE || do_wt_ecmp || is_evpn ||
+	    (*valid_nh_count) != 1) {
+		bgp_nhg_path_unlink(info);
+		return;
+	}
+	for (i = 0; i < *valid_nh_count; i++) {
+		/* disallow nexthop interfaces from NHG (eg: mplsvpn routes)
+		 * or blackhole routes
+		 */
+		if (api->nexthops[i].type == NEXTHOP_TYPE_IFINDEX ||
+		    api->nexthops[i].type == NEXTHOP_TYPE_BLACKHOLE) {
+			bgp_nhg_path_unlink(info);
+			return;
+		}
+		/* disallow IPv4 Mapped IPv6 addresses
+		 * it is not possible to attach IPv6 routes to IPv4 nexthops
+		 */
+		if (api->nexthops[i].type == NEXTHOP_TYPE_IPV6 &&
+		    IS_MAPPED_IPV6(&api->nexthops[i].gate.ipv6)) {
+			bgp_nhg_path_unlink(info);
+			return;
+		}
+		/* disallow routes which resolve over blackhole routes
+		 */
+		if (p_mpinfo[i] && p_mpinfo[i]->nexthop &&
+		    p_mpinfo[i]->nexthop->nexthop &&
+		    p_mpinfo[i]->nexthop->nexthop->type ==
+			    NEXTHOP_TYPE_BLACKHOLE) {
+			bgp_nhg_path_unlink(info);
+			return;
+		}
+	}
+
+	nhg.nexthop_num = *valid_nh_count;
+	if (*allow_recursion ||
+	    CHECK_FLAG(api->flags, ZEBRA_FLAG_ALLOW_RECURSION))
+		SET_FLAG(nhg.flags, BGP_NHG_FLAG_ALLOW_RECURSION);
+	if (CHECK_FLAG(api->flags, ZEBRA_FLAG_IBGP))
+		SET_FLAG(nhg.flags, BGP_NHG_FLAG_IBGP);
+	if (CHECK_FLAG(api->message, ZAPI_MESSAGE_SRTE))
+		SET_FLAG(nhg.flags, BGP_NHG_FLAG_SRTE_PRESENCE);
+
+	for (i = 0; i < *valid_nh_count; i++)
+		memcpy(&nhg.nexthops[i], &api->nexthops[i],
+		       sizeof(struct zapi_nexthop));
+	p_nhg = bgp_nhg_cache_find(&nhg_cache_table, &nhg);
+	if (!p_nhg)
+		p_nhg = bgp_nhg_new(nhg.flags, nhg.nexthop_num, nhg.nexthops);
+	if (p_nhg == info->bgp_nhg) {
+		/* no changed */
+		*nhg_id = p_nhg->id;
+		zapi_route_set_nhg_id(api, nhg_id);
+		return;
+	}
+	bgp_nhg_path_unlink(info);
+
+	/* updates NHG info list reference */
+	LIST_INSERT_HEAD(&(p_nhg->paths), info, nhg_cache_thread);
+	info->bgp_nhg = p_nhg;
+	p_nhg->path_count++;
+	p_nhg->last_update = monotime(NULL);
+
+	if (BGP_DEBUG(nexthop_group, NEXTHOP_GROUP_DETAIL))
+		zlog_debug("NHG %u, BGP %s: apply to prefix %pFX", p_nhg->id,
+			   bgp->name_pretty, p);
+
+	*nhg_id = info->bgp_nhg->id;
+	zapi_route_set_nhg_id(api, nhg_id);
 }
 
 void bgp_debug_zebra_nh_buffer(struct zapi_nexthop *api_nh, char *nexthop_buf,
@@ -1700,6 +1778,14 @@ bgp_zebra_announce_actual(struct bgp_dest *dest, struct bgp_path_info *info,
 	if (distance) {
 		SET_FLAG(api.message, ZAPI_MESSAGE_DISTANCE);
 		api.distance = distance;
+	}
+
+	if (nhg_id && info->bgp_nhg &&
+	    !CHECK_FLAG(info->bgp_nhg->state, BGP_NHG_STATE_INSTALLED)) {
+		if (BGP_DEBUG(nexthop_group, NEXTHOP_GROUP_DETAIL))
+			zlog_debug("NHG %u, BGP %s: ID not installed, postpone prefix %pFX install",
+				   info->bgp_nhg->id, bgp->name_pretty, p);
+		return ZCLIENT_SEND_SUCCESS;
 	}
 
 	if (bgp_debug_zebra(p)) {

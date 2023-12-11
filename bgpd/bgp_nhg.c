@@ -231,7 +231,7 @@ struct bgp_nhg_cache *bgp_nhg_new(uint32_t flags, uint16_t nexthop_num,
 	return nhg;
 }
 
-static __attribute__((unused)) void bgp_nhg_free(struct bgp_nhg_cache *nhg)
+static void bgp_nhg_free(struct bgp_nhg_cache *nhg)
 {
 	struct zapi_nhg api_nhg = {};
 
@@ -245,6 +245,29 @@ static __attribute__((unused)) void bgp_nhg_free(struct bgp_nhg_cache *nhg)
 
 	bgp_nhg_cache_del(&nhg_cache_table, nhg);
 	XFREE(MTYPE_BGP_NHG_CACHE, nhg);
+}
+
+static void bgp_nhg_path_unlink_internal(struct bgp_path_info *pi, bool free_nhg)
+{
+	struct bgp_nhg_cache *nhg;
+
+	if (!pi)
+		return;
+
+	nhg = pi->bgp_nhg;
+
+	if (nhg) {
+		LIST_REMOVE(pi, nhg_cache_thread);
+		nhg->path_count--;
+		pi->bgp_nhg = NULL;
+		if (LIST_EMPTY(&(nhg->paths)) && free_nhg)
+			bgp_nhg_free(nhg);
+	}
+}
+
+void bgp_nhg_path_unlink(struct bgp_path_info *pi)
+{
+	return bgp_nhg_path_unlink_internal(pi, true);
 }
 
 /* called when ZEBRA notified the BGP NHG id is installed */
