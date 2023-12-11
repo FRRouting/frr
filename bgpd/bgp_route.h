@@ -17,6 +17,7 @@
 
 struct bgp_nexthop_cache;
 struct bgp_route_evpn;
+struct bgp_nhg_cache;
 
 enum bgp_show_type {
 	bgp_show_type_normal,
@@ -367,6 +368,12 @@ struct bgp_path_info {
 		struct bgp_mplsvpn_label_nh blnc;
 		struct bgp_mplsvpn_nh_label_bind bmnc;
 	} mplsvpn;
+
+	/* Back pointer to the BGP nhg structure */
+	struct bgp_nhg_cache *bgp_nhg;
+
+	/* For nexthop group cache linked list */
+	LIST_ENTRY(bgp_path_info) nhg_cache_thread;
 };
 
 /* Structure used in BGP path selection */

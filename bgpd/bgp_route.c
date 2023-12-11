@@ -75,6 +75,7 @@
 #include "bgpd/bgp_flowspec.h"
 #include "bgpd/bgp_flowspec_util.h"
 #include "bgpd/bgp_pbr.h"
+#include "bgpd/bgp_nhg.h"
 
 #include "bgpd/bgp_route_clippy.c"
 
@@ -3619,6 +3620,7 @@ static void bgp_process_main_one(struct bgp *bgp, struct bgp_dest *dest,
 	struct bgp_path_info *old_select;
 	struct bgp_path_info_pair old_and_new;
 	int debug = 0;
+	struct bgp_path_info *pi, *nextpi;
 
 	/*
 	 * For default bgp instance, which is deleted i.e. marked hidden
@@ -3788,6 +3790,13 @@ static void bgp_process_main_one(struct bgp *bgp, struct bgp_dest *dest,
 					 BGP_PATH_ATTR_CHANGED);
 		UNSET_FLAG(new_select->flags, BGP_PATH_MULTIPATH_CHG);
 		UNSET_FLAG(new_select->flags, BGP_PATH_LINK_BW_CHG);
+	}
+
+	for (pi = bgp_dest_get_bgp_path_info(dest); (pi != NULL) && (nextpi = pi->next, 1);
+	     pi = nextpi) {
+		if (!CHECK_FLAG(pi->flags, BGP_PATH_SELECTED) &&
+		    !CHECK_FLAG(pi->flags, BGP_PATH_MULTIPATH))
+			bgp_nhg_path_unlink(pi);
 	}
 
 	/* call bmp hook for loc-rib route update / withdraw after flags were

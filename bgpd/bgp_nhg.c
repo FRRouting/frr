@@ -219,17 +219,64 @@ struct bgp_nhg_cache *bgp_nhg_new(uint32_t flags, uint16_t nexthop_num, struct z
 	return nhg;
 }
 
+static void bgp_nhg_free(struct bgp_nhg_cache *nhg)
+{
+	struct zapi_nhg api_nhg = {};
+
+	api_nhg.id = nhg->id;
+
+	if (api_nhg.id)
+		zclient_nhg_send(zclient, ZEBRA_NHG_DEL, &api_nhg);
+
+	if (BGP_DEBUG(nexthop_group, NEXTHOP_GROUP))
+		bgp_nhg_debug(nhg, "removal");
+
+	bgp_nhg_cache_del(&nhg_cache_table, nhg);
+	XFREE(MTYPE_BGP_NHG_CACHE, nhg);
+}
+
+static void bgp_nhg_path_unlink_internal(struct bgp_path_info *pi, bool free_nhg)
+{
+	struct bgp_nhg_cache *nhg;
+
+	if (!pi)
+		return;
+
+	nhg = pi->bgp_nhg;
+
+	if (!nhg)
+		return;
+
+	LIST_REMOVE(pi, nhg_cache_thread);
+	nhg->path_count--;
+	pi->bgp_nhg = NULL;
+	if (LIST_EMPTY(&(nhg->paths)) && free_nhg)
+		bgp_nhg_free(nhg);
+}
+
+void bgp_nhg_path_unlink(struct bgp_path_info *pi)
+{
+	return bgp_nhg_path_unlink_internal(pi, true);
+}
+
 /* called when ZEBRA notified the BGP NHG id is installed */
 void bgp_nhg_id_set_installed(uint32_t id)
 {
 	static struct bgp_nhg_cache *nhg;
+	struct bgp_path_info *path;
+	struct bgp_table *table;
 
 	nhg = bgp_nhg_find_per_id(id);
 	if (nhg == NULL)
 		return;
 	SET_FLAG(nhg->state, BGP_NHG_STATE_INSTALLED);
 	if (BGP_DEBUG(nexthop_group, NEXTHOP_GROUP))
-		zlog_debug("NHG %u: ID is installed", nhg->id);
+		zlog_debug("NHG %u: ID is installed, update dependent routes", nhg->id);
+	LIST_FOREACH (path, &(nhg->paths), nhg_cache_thread) {
+		table = bgp_dest_table(path->net);
+		if (table)
+			bgp_zebra_route_install(path->net, path, table->bgp, true, NULL, false);
+	}
 }
 
 /* called when ZEBRA notified the BGP NHG id is removed */

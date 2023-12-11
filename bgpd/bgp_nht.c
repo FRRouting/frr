@@ -26,6 +26,7 @@
 #include "bgpd/bgp_debug.h"
 #include "bgpd/bgp_errors.h"
 #include "bgpd/bgp_nht.h"
+#include "bgpd/bgp_nhg.h"
 #include "bgpd/bgp_fsm.h"
 #include "bgpd/bgp_zebra.h"
 #include "bgpd/bgp_flowspec_util.h"
@@ -168,6 +169,7 @@ void bgp_unlink_nexthop(struct bgp_path_info *path)
 
 	bgp_mplsvpn_path_nh_label_unlink(path);
 	bgp_mplsvpn_path_nh_label_bind_unlink(path);
+	bgp_nhg_path_unlink(path);
 
 	if (!bnc)
 		return;
