@@ -154,6 +154,7 @@ class Topogen(object):
         self.peern = 1
         self.cfg_gen = 0
         self.exabgp_cmd = None
+        self.qppb_nodes = []
         self._init_topo(topodef)
 
         logger.info("loading topology: {}".format(self.modname))

@@ -9,9 +9,6 @@ noinst_PROGRAMS += bgpd/bgp_btoa
 
 vtysh_daemons += bgpd
 
-if QPPB
-module_LTLIBRARIES += bgpd/bgpd_qppb.la
-endif
 if SNMP
 module_LTLIBRARIES += bgpd/bgpd_snmp.la
 endif
@@ -208,10 +205,6 @@ bgpd_bgpd_rpki_la_LIBADD = $(RTRLIB_LIBS)
 bgpd_bgpd_bmp_la_SOURCES = bgpd/bgp_bmp.c
 bgpd_bgpd_bmp_la_LIBADD = lib/libfrrcares.la
 bgpd_bgpd_bmp_la_LDFLAGS = $(MODULE_LDFLAGS)
-
-bgpd_bgpd_qppb_la_SOURCES = bgpd/bgp_qppb_private.c
-bgpd_bgpd_qppb_la_LIBADD = lib/libfrrcares.la
-bgpd_bgpd_qppb_la_LDFLAGS = $(MODULE_LDFLAGS) -lbpf
 
 clippy_scan += \
 	bgpd/bgp_bmp.c \

@@ -103,6 +103,9 @@ struct route_entry {
 	/* Metric */
 	uint32_t metric;
 
+	/* DSCP */
+	uint32_t dscp;
+
 	/* MTU */
 	uint32_t mtu;
 	uint32_t nexthop_mtu;

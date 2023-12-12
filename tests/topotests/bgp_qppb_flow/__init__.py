@@ -88,7 +88,7 @@ def load_qppb_plugin(tgen, rnode, mode=XdpMode.SKB, debug_on=DEV_DEBUG):
     """
     debug_flags = DEBUG_BPF | DEBUG_PREPROCESSOR | DEBUG_SOURCE | DEBUG_BTF
     debug = debug_flags if debug_on else 0
-    src_file = CWD + "/bgp_xdp_qppb.c"
+    src_file = CWD + "/zebra_xdp_qppb.c"
     bpf_flags = [
         '-DMODE_STR="{}"'.format(mode),
         "-D{}".format(mode.value),
@@ -109,13 +109,6 @@ def load_qppb_plugin(tgen, rnode, mode=XdpMode.SKB, debug_on=DEV_DEBUG):
         rnode.bpf = b
     except Exception as e:
         pytest.skip("Failed to configure XDP environment -- \n" + str(e))
-
-    qppb_module = "-M vyos_qppb"
-    logger.info(
-        "Restart {}, XDP hooks loading...\nPlugin :: {}".format(rnode.name, qppb_module)
-    )
-    kill_router_daemons(tgen, rnode.name, ["bgpd"])
-    start_router_daemons(tgen, rnode.name, ["bgpd"], {"bgpd": qppb_module})
 
 
 def tc_bpf_filter(rnode, ifid):

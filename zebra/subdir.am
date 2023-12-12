@@ -18,6 +18,9 @@ endif
 if LINUX
 module_LTLIBRARIES += zebra/zebra_cumulus_mlag.la
 endif
+if QPPB
+module_LTLIBRARIES += zebra/zebra_qppb.la
+endif
 
 #if FPM_LISTENER
 sbin_PROGRAMS += zebra/fpm_listener
@@ -203,6 +206,10 @@ noinst_HEADERS += \
 	zebra/dpdk/zebra_dplane_dpdk.h \
 	zebra/dpdk/zebra_dplane_dpdk_private.h \
 	# end
+
+zebra_zebra_qppb_la_SOURCES = zebra/zebra_qppb_private.c
+zebra_zebra_qppb_la_LIBADD = lib/libfrrcares.la
+zebra_zebra_qppb_la_LDFLAGS = $(MODULE_LDFLAGS) -lbpf
 
 zebra_zebra_irdp_la_SOURCES = \
 	zebra/irdp_interface.c \

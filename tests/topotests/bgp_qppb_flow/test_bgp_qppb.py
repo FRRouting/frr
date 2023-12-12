@@ -160,6 +160,27 @@ def setup_module(mod):
     global topo
     topo = tgen.json_topo
 
+    r1 = tgen.gears["r1"]
+    r4 = tgen.gears["r4"]
+    # Initializing BPF objects
+    # -----------------------------------------------------------------------
+    # NOTE: we need to switch mnt namespace to instantiate BPF mappings
+    # XXX: python3.12 introduces os.setns, for now use libc directly
+    ns = "/proc/%d/ns/mnt" % r1.net.pid
+    nsfd = os.open(ns, os.O_RDONLY)
+
+    libc = ctypes.CDLL("libc.so.6", use_errno=True)
+    libc.setns(nsfd, 0)
+
+    tgen.qppb_nodes.append("r1")
+    r1.cmd_raises(
+        """
+        mkdir -p /sys/fs/bpf
+        mount -t bpf bpf /sys/fs/bpf
+    """
+    )
+    load_qppb_plugin(tgen, r1)
+
     start_topology(tgen)
     build_config_from_json(tgen, topo)
     if tgen.routers_have_failure():
@@ -173,9 +194,6 @@ def setup_module(mod):
 
     # Extra setup steps
     # -----------------------------------------------------------------------
-    r4 = tgen.gears["r4"]
-    r1 = tgen.gears["r1"]
-
     debug_rmap_dict = {"r1": {"raw_config": ["end", "debug route-map"]}}
     debug_config_dict = {
         "r1": {"debug": {"log_file": "debug.log", "enable": ["bgpd", "zebra"]}}
@@ -196,23 +214,6 @@ def setup_module(mod):
     lo_ip_add = "ip address add dev lo 10.6{0}.0.1/32"
     [r4.cmd_raises(lo_ip_add.format(n)) for n in range(1, 7)]
 
-    # Initializing BPF objects
-    # -----------------------------------------------------------------------
-    # NOTE: we need to switch mnt namespace to instantiate BPF mappings
-    # XXX: python3.12 introduces os.setns, for now use libc directly
-    ns = "/proc/%d/ns/mnt" % r1.net.pid
-    nsfd = os.open(ns, os.O_RDONLY)
-
-    libc = ctypes.CDLL("libc.so.6", use_errno=True)
-    libc.setns(nsfd, 0)
-
-    r1.cmd_raises(
-        """
-        mkdir -p /sys/fs/bpf
-        mount -t bpf bpf /sys/fs/bpf
-    """
-    )
-    load_qppb_plugin(tgen, r1)
 
 
 # Test Cases

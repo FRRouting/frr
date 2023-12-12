@@ -2209,18 +2209,15 @@ class Router(Node):
             while "mgmtd" in daemons_list:
                 daemons_list.remove("mgmtd")
 
-        # XXX: handle plugins properly - per daemon
-        bgpd_plugins = plugins.get("bgpd") if plugins else None
-        if "bgpd" in daemons_list and bgpd_plugins:
-            start_daemon("bgpd", bgpd_plugins)
-            while "bgpd" in daemons_list:
-                daemons_list.remove("bgpd")
-
         # Start Zebra after mgmtd
+        zebra_plugins = ""
+        if tgen and self.name in tgen.qppb_nodes:
+            zebra_plugins = "-M zebra_qppb"
         if "zebra" in daemons_list:
-            start_daemon("zebra", "-s 90000000")
+            start_daemon("zebra", "-s 90000000 " + zebra_plugins)
             while "zebra" in daemons_list:
                 daemons_list.remove("zebra")
+
 
         # Start staticd next if required
         if "staticd" in daemons_list:
