@@ -51,7 +51,8 @@ struct debug mgmt_dbg_fe_client = {
 	.desc = "Management frontend client operations"
 };
 
-struct mgmt_fe_client *mgmt_fe_client;
+/* NOTE: only one client per proc for now. */
+static struct mgmt_fe_client *__fe_client;
 
 static inline const char *dsid2name(Mgmtd__DatastoreId id)
 {
@@ -550,11 +551,11 @@ static void mgmt_debug_client_fe_set(uint32_t mode, bool set)
 {
 	DEBUG_FLAGS_SET(&mgmt_dbg_fe_client, mode, set);
 
-	if (!mgmt_fe_client)
+	if (!__fe_client)
 		return;
 
-	mgmt_fe_client->client.conn.debug =
-		DEBUG_MODE_CHECK(&mgmt_dbg_fe_client, DEBUG_MODE_ALL);
+	__fe_client->client.conn.debug = DEBUG_MODE_CHECK(&mgmt_dbg_fe_client,
+							  DEBUG_MODE_ALL);
 }
 
 DEFPY(debug_mgmt_client_fe, debug_mgmt_client_fe_cmd,
@@ -603,11 +604,11 @@ struct mgmt_fe_client *mgmt_fe_client_create(const char *client_name,
 {
 	struct mgmt_fe_client *client;
 
-	if (mgmt_fe_client)
+	if (__fe_client)
 		return NULL;
 
 	client = XCALLOC(MTYPE_MGMTD_FE_CLIENT, sizeof(*client));
-	mgmt_fe_client = client;
+	__fe_client = client;
 
 	client->name = XSTRDUP(MTYPE_MGMTD_FE_CLIENT_NAME, client_name);
 	client->user_data = user_data;
@@ -704,7 +705,7 @@ void mgmt_fe_client_destroy(struct mgmt_fe_client *client)
 {
 	struct mgmt_fe_client_session *session;
 
-	assert(client == mgmt_fe_client);
+	assert(client == __fe_client);
 
 	MGMTD_FE_CLIENT_DBG("Destroying MGMTD Frontend Client '%s'",
 			    client->name);
@@ -717,5 +718,5 @@ void mgmt_fe_client_destroy(struct mgmt_fe_client *client)
 	XFREE(MTYPE_MGMTD_FE_CLIENT_NAME, client->name);
 	XFREE(MTYPE_MGMTD_FE_CLIENT, client);
 
-	mgmt_fe_client = NULL;
+	__fe_client = NULL;
 }
