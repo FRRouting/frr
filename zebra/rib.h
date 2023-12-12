@@ -352,6 +352,8 @@ extern void _route_entry_dump(const char *func, union prefixconstptr pp,
 			      union prefixconstptr src_pp,
 			      const struct route_entry *re);
 
+void zebra_rib_route_entry_free(struct route_entry *re);
+
 struct route_entry *
 zebra_rib_route_entry_new(vrf_id_t vrf_id, int type, uint8_t instance,
 			  uint32_t flags, uint32_t nhe_id, uint32_t table_id,
