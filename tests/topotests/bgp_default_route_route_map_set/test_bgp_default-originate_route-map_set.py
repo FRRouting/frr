@@ -26,12 +26,13 @@ pytestmark = [pytest.mark.bgpd]
 
 
 def build_topo(tgen):
-    for routern in range(1, 3):
+    for routern in range(1, 4):
         tgen.add_router("r{}".format(routern))
 
     switch = tgen.add_switch("s1")
     switch.add_link(tgen.gears["r1"])
     switch.add_link(tgen.gears["r2"])
+    switch.add_link(tgen.gears["r3"])
 
 
 def setup_module(mod):
@@ -62,14 +63,17 @@ def test_bgp_default_originate_route_map():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    router = tgen.gears["r2"]
+    r2 = tgen.gears["r2"]
+    r3 = tgen.gears["r3"]
 
-    def _bgp_converge(router):
+    def _bgp_converge(router, pfxCount):
         output = json.loads(router.vtysh_cmd("show ip bgp neighbor 192.168.255.1 json"))
         expected = {
             "192.168.255.1": {
                 "bgpState": "Established",
-                "addressFamilyInfo": {"ipv4Unicast": {"acceptedPrefixCounter": 1}},
+                "addressFamilyInfo": {
+                    "ipv4Unicast": {"acceptedPrefixCounter": pfxCount}
+                },
             }
         }
         return topotest.json_cmp(output, expected)
@@ -77,21 +81,25 @@ def test_bgp_default_originate_route_map():
     def _bgp_default_route_has_metric(router):
         output = json.loads(router.vtysh_cmd("show ip bgp 0.0.0.0/0 json"))
         expected = {
-            "paths": [{"aspath": {"string": "65000 65000 65000 65000"}, "metric": 123}]
+            "paths": [{"aspath": {"string": "65001 65001 65001 65001"}, "metric": 123}]
         }
         return topotest.json_cmp(output, expected)
 
-    test_func = functools.partial(_bgp_converge, router)
-    success, result = topotest.run_and_expect(test_func, None, count=30, wait=0.5)
+    test_func = functools.partial(_bgp_converge, r2, 1)
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    assert result is None, "Failed to see bgp convergence in r2"
 
-    assert result is None, 'Failed to see bgp convergence in "{}"'.format(router)
+    test_func = functools.partial(_bgp_default_route_has_metric, r2)
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    assert result is None, "Failed to see applied metric for default route in r2"
 
-    test_func = functools.partial(_bgp_default_route_has_metric, router)
-    success, result = topotest.run_and_expect(test_func, None, count=30, wait=0.5)
+    test_func = functools.partial(_bgp_converge, r3, 2)
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    assert result is None, "Failed to see bgp convergence in r3"
 
-    assert (
-        result is None
-    ), 'Failed to see applied metric for default route in "{}"'.format(router)
+    test_func = functools.partial(_bgp_default_route_has_metric, r3)
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    assert result is None, "Failed to see applied metric for default route in r3"
 
 
 if __name__ == "__main__":

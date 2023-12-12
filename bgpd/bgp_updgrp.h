@@ -428,7 +428,7 @@ extern void subgroup_announce_route(struct update_subgroup *subgrp);
 extern void subgroup_announce_all(struct update_subgroup *subgrp);
 
 extern void subgroup_default_originate(struct update_subgroup *subgrp,
-				       int withdraw);
+				       bool withdraw);
 extern void group_announce_route(struct bgp *bgp, afi_t afi, safi_t safi,
 				 struct bgp_dest *dest,
 				 struct bgp_path_info *pi);

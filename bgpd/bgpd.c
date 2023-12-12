@@ -5655,7 +5655,7 @@ int peer_default_originate_set(struct peer *peer, afi_t afi, safi_t safi,
 		if (peer_established(peer->connection) &&
 		    peer->afc_nego[afi][safi]) {
 			update_group_adjust_peer(peer_af_find(peer, afi, safi));
-			bgp_default_originate(peer, afi, safi, 0);
+			bgp_default_originate(peer, afi, safi, false);
 			bgp_announce_route(peer, afi, safi, false);
 		}
 
@@ -5698,7 +5698,7 @@ int peer_default_originate_set(struct peer *peer, afi_t afi, safi_t safi,
 		    member->afc_nego[afi][safi]) {
 			update_group_adjust_peer(
 				peer_af_find(member, afi, safi));
-			bgp_default_originate(member, afi, safi, 0);
+			bgp_default_originate(member, afi, safi, false);
 			bgp_announce_route(member, afi, safi, false);
 		}
 	}
@@ -5743,7 +5743,7 @@ int peer_default_originate_unset(struct peer *peer, afi_t afi, safi_t safi)
 		if (peer_established(peer->connection) &&
 		    peer->afc_nego[afi][safi]) {
 			update_group_adjust_peer(peer_af_find(peer, afi, safi));
-			bgp_default_originate(peer, afi, safi, 1);
+			bgp_default_originate(peer, afi, safi, true);
 			bgp_announce_route(peer, afi, safi, false);
 		}
 
@@ -5782,7 +5782,7 @@ int peer_default_originate_unset(struct peer *peer, afi_t afi, safi_t safi)
 		if (peer_established(member->connection) &&
 		    member->afc_nego[afi][safi]) {
 			update_group_adjust_peer(peer_af_find(member, afi, safi));
-			bgp_default_originate(member, afi, safi, 1);
+			bgp_default_originate(member, afi, safi, true);
 			bgp_announce_route(member, afi, safi, false);
 		}
 	}
