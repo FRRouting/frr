@@ -11659,8 +11659,9 @@ static int bgp_show_summary(struct vty *vty, struct bgp *bgp, int afi, int safi,
 						: bgp->name);
 			} else {
 				vty_out(vty,
-					"BGP router identifier %pI4, local AS number %s vrf-id %d",
+					"BGP router identifier %pI4, local AS number %s %s vrf-id %d",
 					&bgp->router_id, bgp->as_pretty,
+					bgp->name_pretty,
 					bgp->vrf_id == VRF_UNKNOWN
 						? -1
 						: (int)bgp->vrf_id);
