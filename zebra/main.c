@@ -228,6 +228,17 @@ void zebra_finalize(struct event *dummy)
 
 	zebra_router_terminate();
 
+<<<<<<< HEAD
+=======
+	zebra_mpls_terminate();
+
+	zebra_pw_terminate();
+
+	zebra_srv6_terminate();
+
+	label_manager_terminate();
+
+>>>>>>> 9393d3669 (zebra: On shutdown, free up srv6 list data)
 	ns_terminate();
 	frr_fini();
 	exit(0);

@@ -52,6 +52,7 @@ void zebra_notify_srv6_locator_add(struct srv6_locator *locator);
 void zebra_notify_srv6_locator_delete(struct srv6_locator *locator);
 
 extern void zebra_srv6_init(void);
+extern void zebra_srv6_terminate(void);
 extern struct zebra_srv6 *zebra_srv6_get_default(void);
 extern bool zebra_srv6_is_enable(void);
 
