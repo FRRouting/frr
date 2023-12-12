@@ -53,7 +53,7 @@ struct option longopts[] = { { 0 } };
 /* Master of threads. */
 struct event_loop *master;
 
-struct mgmt_be_client *mgmt_be_client;
+static struct mgmt_be_client *mgmt_be_client;
 
 static struct frr_daemon_info staticd_di;
 

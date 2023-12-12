@@ -116,7 +116,8 @@ struct debug mgmt_dbg_be_client = {
 	.desc = "Management backend client operations"
 };
 
-struct mgmt_be_client *mgmt_be_client;
+/* NOTE: only one client per proc for now. */
+static struct mgmt_be_client *__be_client;
 
 static int mgmt_be_client_send_msg(struct mgmt_be_client *client_ctx,
 				   Mgmtd__BeMessage *be_msg)
@@ -828,11 +829,11 @@ static void mgmt_debug_client_be_set(uint32_t flags, bool set)
 {
 	DEBUG_FLAGS_SET(&mgmt_dbg_be_client, flags, set);
 
-	if (!mgmt_be_client)
+	if (!__be_client)
 		return;
 
-	mgmt_be_client->client.conn.debug =
-		DEBUG_MODE_CHECK(&mgmt_dbg_be_client, DEBUG_MODE_ALL);
+	__be_client->client.conn.debug = DEBUG_MODE_CHECK(&mgmt_dbg_be_client,
+							  DEBUG_MODE_ALL);
 }
 
 DEFPY(debug_mgmt_client_be, debug_mgmt_client_be_cmd,
@@ -878,11 +879,11 @@ struct mgmt_be_client *mgmt_be_client_create(const char *client_name,
 {
 	struct mgmt_be_client *client;
 
-	if (mgmt_be_client)
+	if (__be_client)
 		return NULL;
 
 	client = XCALLOC(MTYPE_MGMTD_BE_CLIENT, sizeof(*client));
-	mgmt_be_client = client;
+	__be_client = client;
 
 	/* Only call after frr_init() */
 	assert(running_config);
@@ -916,7 +917,7 @@ void mgmt_be_client_lib_vty_init(void)
 
 void mgmt_be_client_destroy(struct mgmt_be_client *client)
 {
-	assert(client == mgmt_be_client);
+	assert(client == __be_client);
 
 	MGMTD_BE_CLIENT_DBG("Destroying MGMTD Backend Client '%s'",
 			    client->name);
@@ -929,5 +930,5 @@ void mgmt_be_client_destroy(struct mgmt_be_client *client)
 	XFREE(MTYPE_MGMTD_BE_CLIENT_NAME, client->name);
 	XFREE(MTYPE_MGMTD_BE_CLIENT, client);
 
-	mgmt_be_client = NULL;
+	__be_client = NULL;
 }
