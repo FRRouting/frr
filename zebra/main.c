@@ -234,6 +234,10 @@ void zebra_finalize(struct event *dummy)
 
 	zebra_mpls_terminate();
 
+	zebra_pw_terminate();
+
+	label_manager_terminate();
+
 	ns_terminate();
 	frr_fini();
 	exit(0);

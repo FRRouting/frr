@@ -377,15 +377,18 @@ static int zebra_pw_client_close(struct zserv *client)
 	return 0;
 }
 
-void zebra_pw_init(struct zebra_vrf *zvrf)
+static void zebra_pw_init(void)
 {
-	RB_INIT(zebra_pw_head, &zvrf->pseudowires);
-	RB_INIT(zebra_static_pw_head, &zvrf->static_pseudowires);
-
 	hook_register(zserv_client_close, zebra_pw_client_close);
 }
 
-void zebra_pw_exit(struct zebra_vrf *zvrf)
+void zebra_pw_init_vrf(struct zebra_vrf *zvrf)
+{
+	RB_INIT(zebra_pw_head, &zvrf->pseudowires);
+	RB_INIT(zebra_static_pw_head, &zvrf->static_pseudowires);
+}
+
+void zebra_pw_exit_vrf(struct zebra_vrf *zvrf)
 {
 	struct zebra_pw *pw;
 
@@ -394,6 +397,11 @@ void zebra_pw_exit(struct zebra_vrf *zvrf)
 
 		zebra_pw_del(zvrf, pw);
 	}
+}
+
+void zebra_pw_terminate(void)
+{
+	hook_unregister(zserv_client_close, zebra_pw_client_close);
 }
 
 DEFUN_NOSH (pseudowire_if,
@@ -837,4 +845,6 @@ void zebra_pw_vty_init(void)
 
 	install_element(VIEW_NODE, &show_pseudowires_cmd);
 	install_element(VIEW_NODE, &show_pseudowires_detail_cmd);
+
+	zebra_pw_init();
 }
