@@ -448,11 +448,10 @@ static unsigned int updgrp_hash_key_make(const void *p)
 	 * STATEMENT STAYS UP TO DATE
 	 */
 	if (bgp_debug_neighbor_events(peer)) {
-		zlog_debug(
-			"%pBP Update Group Hash: sort: %d UpdGrpFlags: %ju UpdGrpAFFlags: %ju",
-			peer, peer->sort,
-			(intmax_t)CHECK_FLAG(peer->flags, PEER_UPDGRP_FLAGS),
-			(intmax_t)CHECK_FLAG(flags, PEER_UPDGRP_AF_FLAGS));
+		zlog_debug("%pBP Update Group Hash: sort: %d sub_sort: %d UpdGrpFlags: %ju UpdGrpAFFlags: %ju",
+			   peer, peer->sort, peer->sub_sort,
+			   (intmax_t)CHECK_FLAG(peer->flags, PEER_UPDGRP_FLAGS),
+			   (intmax_t)CHECK_FLAG(flags, PEER_UPDGRP_AF_FLAGS));
 		zlog_debug(
 			"%pBP Update Group Hash: addpath: %u UpdGrpCapFlag: %u UpdGrpCapAFFlag: %u route_adv: %u change local as: %u, as_path_loop_detection: %d",
 			peer, (uint32_t)peer->addpath_type[afi][safi],
