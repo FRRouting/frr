@@ -33,6 +33,7 @@
 extern struct zebra_privs_t zserv_privs;
 
 static uint32_t interfaces_configured_for_ra_from_bgp;
+#define RTADV_ADATA_SIZE 1024
 
 #if defined(HAVE_RTADV)
 
@@ -187,8 +188,9 @@ static void rtadv_send_packet(int sock, struct interface *ifp,
 	struct cmsghdr *cmsgptr;
 	struct in6_pktinfo *pkt;
 	struct sockaddr_in6 addr;
-	static void *adata = NULL;
 	unsigned char buf[RTADV_MSG_SIZE];
+	char adata[RTADV_ADATA_SIZE];
+
 	struct nd_router_advert *rtadv;
 	int ret;
 	int len = 0;
@@ -198,22 +200,6 @@ static void rtadv_send_packet(int sock, struct interface *ifp,
 				    0,    0,    0, 0, 0, 0, 0, 1};
 	struct listnode *node;
 	uint16_t pkt_RouterLifetime;
-
-	/*
-	 * Allocate control message bufffer.  This is dynamic because
-	 * CMSG_SPACE is not guaranteed not to call a function.  Note that
-	 * the size will be different on different architectures due to
-	 * differing alignment rules.
-	 */
-	if (adata == NULL) {
-		/* XXX Free on shutdown. */
-		adata = calloc(1, CMSG_SPACE(sizeof(struct in6_pktinfo)));
-
-		if (adata == NULL) {
-			zlog_debug("%s: can't malloc control data", __func__);
-			exit(-1);
-		}
-	}
 
 	/* Logging of packet. */
 	if (IS_ZEBRA_DEBUG_PACKET)
@@ -3068,4 +3054,14 @@ bool rtadv_compiled_in(void)
 uint32_t rtadv_get_interfaces_configured_from_bgp(void)
 {
 	return interfaces_configured_for_ra_from_bgp;
+}
+
+void rtadv_init(void)
+{
+	if (CMSG_SPACE(sizeof(struct in6_pktinfo)) > RTADV_ADATA_SIZE) {
+		zlog_debug("%s: RTADV_ADATA_SIZE choosen will not work on this platform, please use a larger size",
+			   __func__);
+
+		exit(-1);
+	}
 }
