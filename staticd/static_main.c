@@ -53,7 +53,7 @@ struct option longopts[] = { { 0 } };
 /* Master of threads. */
 struct event_loop *master;
 
-struct mgmt_be_client *mgmt_be_client;
+struct mgmt_be_client *static_mgmt_be_client;
 
 static struct frr_daemon_info staticd_di;
 
@@ -71,7 +71,7 @@ static void sigint(void)
 	/* Disable BFD events to avoid wasting processing. */
 	bfd_protocol_integration_set_shutdown(true);
 
-	mgmt_be_client_destroy(mgmt_be_client);
+	mgmt_be_client_destroy(static_mgmt_be_client);
 
 	static_vrf_terminate();
 
@@ -161,7 +161,8 @@ int main(int argc, char **argv, char **envp)
 	static_vty_init();
 
 	/* Initialize MGMT backend functionalities */
-	mgmt_be_client = mgmt_be_client_create("staticd", NULL, 0, master);
+	static_mgmt_be_client = mgmt_be_client_create("staticd", NULL, 0,
+						      master);
 
 	hook_register(routing_conf_event,
 		      routing_control_plane_protocols_name_validate);
