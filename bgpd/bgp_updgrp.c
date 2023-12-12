@@ -343,6 +343,7 @@ static unsigned int updgrp_hash_key_make(const void *p)
 	key = 0;
 
 	key = jhash_1word(peer->sort, key); /* EBGP or IBGP */
+	key = jhash_1word(peer->sub_sort, key); /* OAD */
 	key = jhash_1word((peer->flags & PEER_UPDGRP_FLAGS), key);
 	key = jhash_1word((flags & PEER_UPDGRP_AF_FLAGS), key);
 	key = jhash_1word((uint32_t)peer->addpath_type[afi][safi], key);
