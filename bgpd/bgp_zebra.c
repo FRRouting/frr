@@ -1212,6 +1212,238 @@ static bool bgp_zebra_use_nhop_weighted(struct bgp *bgp, struct attr *attr,
 	return true;
 }
 
+static void bgp_zebra_announce_parse_nexthop(
+	struct bgp_path_info *info, const struct prefix *p, struct bgp *bgp,
+	struct zapi_route *api, unsigned int *valid_nh_count, afi_t afi,
+	safi_t safi, uint32_t *nhg_id, uint32_t *metric, route_tag_t *tag,
+	bool *allow_recursion)
+{
+	struct zapi_nexthop *api_nh;
+	int nh_family;
+	struct bgp_path_info *mpinfo;
+	struct bgp *bgp_orig;
+	struct attr local_attr;
+	struct bgp_path_info local_info;
+	struct bgp_path_info *mpinfo_cp = &local_info;
+	mpls_label_t *labels;
+	uint32_t num_labels = 0;
+	mpls_label_t nh_label;
+	int nh_othervrf = 0;
+	bool nh_updated = false;
+	bool do_wt_ecmp;
+	uint32_t ttl = 0;
+	uint32_t bos = 0;
+	uint32_t exp = 0;
+
+	/* Determine if we're doing weighted ECMP or not */
+	do_wt_ecmp = bgp_path_info_mpath_chkwtd(bgp, info);
+
+	/*
+	 * vrf leaking support (will have only one nexthop)
+	 */
+	if (info->extra && info->extra->vrfleak &&
+	    info->extra->vrfleak->bgp_orig)
+		nh_othervrf = 1;
+
+	/* EVPN MAC-IP routes are installed with a L3 NHG id */
+	if (nhg_id && bgp_evpn_path_es_use_nhg(bgp, info, nhg_id)) {
+		mpinfo = NULL;
+		api->nhgid = *nhg_id;
+		if (*nhg_id)
+			SET_FLAG(api->message, ZAPI_MESSAGE_NHG);
+	} else {
+		mpinfo = info;
+	}
+
+	for (; mpinfo; mpinfo = bgp_path_info_mpath_next(mpinfo)) {
+		labels = NULL;
+		num_labels = 0;
+		uint32_t nh_weight;
+		bool is_evpn;
+		bool is_parent_evpn;
+
+		if (*valid_nh_count >= multipath_num)
+			break;
+
+		*mpinfo_cp = *mpinfo;
+		nh_weight = 0;
+
+		/* Get nexthop address-family */
+		if (p->family == AF_INET &&
+		    !BGP_ATTR_MP_NEXTHOP_LEN_IP6(mpinfo_cp->attr))
+			nh_family = AF_INET;
+		else if (p->family == AF_INET6 ||
+			 (p->family == AF_INET &&
+			  BGP_ATTR_MP_NEXTHOP_LEN_IP6(mpinfo_cp->attr)))
+			nh_family = AF_INET6;
+		else
+			continue;
+
+		/* If processing for weighted ECMP, determine the next hop's
+		 * weight. Based on user setting, we may skip the next hop
+		 * in some situations.
+		 */
+		if (do_wt_ecmp) {
+			if (!bgp_zebra_use_nhop_weighted(bgp, mpinfo->attr,
+							 &nh_weight))
+				continue;
+		}
+		if (CHECK_FLAG(info->flags, BGP_PATH_SELECTED))
+			api_nh = &api->nexthops[*valid_nh_count];
+		else
+			api_nh = &api->backup_nexthops[*valid_nh_count];
+
+		if (CHECK_FLAG(info->attr->flag,
+			       ATTR_FLAG_BIT(BGP_ATTR_SRTE_COLOR)))
+			api_nh->srte_color = bgp_attr_get_color(info->attr);
+
+		if (bgp_debug_zebra(&api->prefix)) {
+			if (mpinfo->extra) {
+				zlog_debug("%s: p=%pFX, bgp_is_valid_label: %d",
+					   __func__, p,
+					   bgp_is_valid_label(
+						   &mpinfo->extra->label[0]));
+			} else {
+				zlog_debug(
+					"%s: p=%pFX, extra is NULL, no label",
+					__func__, p);
+			}
+		}
+
+		if (bgp->table_map[afi][safi].name) {
+			/* Copy info and attributes, so the route-map
+			   apply doesn't modify the BGP route info. */
+			local_attr = *mpinfo->attr;
+			mpinfo_cp->attr = &local_attr;
+			if (!bgp_table_map_apply(bgp->table_map[afi][safi].map,
+						 p, mpinfo_cp))
+				continue;
+
+			/* metric/tag is only allowed to be
+			 * overridden on 1st nexthop */
+			if (mpinfo == info) {
+				if (metric)
+					*metric = mpinfo_cp->attr->med;
+				if (tag)
+					*tag = mpinfo_cp->attr->tag;
+			}
+		}
+
+		BGP_ORIGINAL_UPDATE(bgp_orig, mpinfo, bgp);
+
+		is_parent_evpn = is_route_parent_evpn(mpinfo);
+
+		if (nh_family == AF_INET) {
+			nh_updated = update_ipv4nh_for_route_install(
+				nh_othervrf, bgp_orig,
+				&mpinfo_cp->attr->nexthop, mpinfo_cp->attr,
+				is_parent_evpn, api_nh);
+		} else {
+			ifindex_t ifindex = IFINDEX_INTERNAL;
+			struct in6_addr *nexthop;
+
+			nexthop = bgp_path_info_to_ipv6_nexthop(mpinfo_cp,
+								&ifindex);
+
+			if (!nexthop)
+				nh_updated = update_ipv4nh_for_route_install(
+					nh_othervrf, bgp_orig,
+					&mpinfo_cp->attr->nexthop,
+					mpinfo_cp->attr, is_parent_evpn,
+					api_nh);
+			else
+				nh_updated = update_ipv6nh_for_route_install(
+					nh_othervrf, bgp_orig, nexthop, ifindex,
+					mpinfo, info, is_parent_evpn, api_nh);
+		}
+
+		is_evpn = !!CHECK_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_EVPN);
+
+		/* Did we get proper nexthop info to update zebra? */
+		if (!nh_updated)
+			continue;
+
+		/* Allow recursion if it is a multipath group with both
+		 * eBGP and iBGP paths.
+		 */
+		if (allow_recursion && !*allow_recursion &&
+		    CHECK_FLAG(bgp->flags, BGP_FLAG_PEERTYPE_MULTIPATH_RELAX) &&
+		    (mpinfo->peer->sort == BGP_PEER_IBGP ||
+		     mpinfo->peer->sort == BGP_PEER_CONFED))
+			*allow_recursion = true;
+
+		if (mpinfo->extra) {
+			labels = mpinfo->extra->label;
+			num_labels = mpinfo->extra->num_labels;
+		}
+
+		if (labels && (num_labels > 0) &&
+		    (is_evpn || bgp_is_valid_label(&labels[0]))) {
+			enum lsp_types_t nh_label_type = ZEBRA_LSP_NONE;
+
+			if (is_evpn) {
+				nh_label = *bgp_evpn_path_info_labels_get_l3vni(
+					labels, num_labels);
+				nh_label_type = ZEBRA_LSP_EVPN;
+			} else {
+				mpls_lse_decode(labels[0], &nh_label, &ttl,
+						&exp, &bos);
+			}
+
+			SET_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_LABEL);
+			api_nh->label_num = 1;
+			api_nh->label_type = nh_label_type;
+			api_nh->labels[0] = nh_label;
+		}
+
+		if (is_evpn
+		    && mpinfo->attr->evpn_overlay.type
+			       != OVERLAY_INDEX_GATEWAY_IP)
+			memcpy(&api_nh->rmac, &(mpinfo->attr->rmac),
+			       sizeof(struct ethaddr));
+
+		api_nh->weight = nh_weight;
+
+		if (((mpinfo->attr->srv6_l3vpn &&
+		      !sid_zero_ipv6(&mpinfo->attr->srv6_l3vpn->sid)) ||
+		     (mpinfo->attr->srv6_vpn &&
+		      !sid_zero_ipv6(&mpinfo->attr->srv6_vpn->sid))) &&
+		    !is_evpn && bgp_is_valid_label(&labels[0])) {
+			struct in6_addr *sid_tmp =
+				mpinfo->attr->srv6_l3vpn
+					? (&mpinfo->attr->srv6_l3vpn->sid)
+					: (&mpinfo->attr->srv6_vpn->sid);
+
+			memcpy(&api_nh->seg6_segs[0], sid_tmp,
+			       sizeof(api_nh->seg6_segs[0]));
+
+			if (mpinfo->attr->srv6_l3vpn &&
+			    mpinfo->attr->srv6_l3vpn->transposition_len != 0) {
+				mpls_lse_decode(labels[0], &nh_label, &ttl,
+						&exp, &bos);
+
+				if (nh_label < MPLS_LABEL_UNRESERVED_MIN) {
+					if (bgp_debug_zebra(&api->prefix))
+						zlog_debug(
+							"skip invalid SRv6 routes: transposition scheme is used, but label is too small");
+					continue;
+				}
+
+				transpose_sid(&api_nh->seg6_segs[0], nh_label,
+					      mpinfo->attr->srv6_l3vpn
+						      ->transposition_offset,
+					      mpinfo->attr->srv6_l3vpn
+						      ->transposition_len);
+			}
+
+			api_nh->seg_num = 1;
+			SET_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_SEG6);
+		}
+
+		(*valid_nh_count)++;
+	}
+}
+
 static void bgp_debug_zebra_nh(struct zapi_route *api)
 {
 	int i;
@@ -1282,31 +1514,15 @@ void bgp_zebra_announce(struct bgp_dest *dest, const struct prefix *p,
 			safi_t safi)
 {
 	struct zapi_route api = { 0 };
-	struct zapi_nexthop *api_nh;
-	int nh_family;
 	unsigned int valid_nh_count = 0;
 	bool allow_recursion = false;
 	uint8_t distance;
 	struct peer *peer;
-	struct bgp_path_info *mpinfo;
-	struct bgp *bgp_orig;
 	uint32_t metric;
-	struct attr local_attr;
-	struct bgp_path_info local_info;
-	struct bgp_path_info *mpinfo_cp = &local_info;
 	route_tag_t tag;
-	mpls_label_t *labels;
-	uint32_t num_labels = 0;
-	mpls_label_t nh_label;
-	int nh_othervrf = 0;
-	bool nh_updated = false;
-	bool do_wt_ecmp;
-	uint32_t nhg_id = 0;
 	bool is_add;
-	uint32_t ttl = 0;
-	uint32_t bos = 0;
-	uint32_t exp = 0;
-	int recursion_flag = 0;
+	uint32_t nhg_id = 0;
+	uint32_t recursion_flag = 0;
 
 	/*
 	 * BGP is installing this route and bgp has been configured
@@ -1330,13 +1546,6 @@ void bgp_zebra_announce(struct bgp_dest *dest, const struct prefix *p,
 				     safi, true);
 		return;
 	}
-
-	/*
-	 * vrf leaking support (will have only one nexthop)
-	 */
-	if (info->extra && info->extra->vrfleak &&
-	    info->extra->vrfleak->bgp_orig)
-		nh_othervrf = 1;
 
 	/* Make Zebra API structure. */
 	api.vrf_id = bgp->vrf_id;
@@ -1383,201 +1592,9 @@ void bgp_zebra_announce(struct bgp_dest *dest, const struct prefix *p,
 	/* Metric is currently based on the best-path only */
 	metric = info->attr->med;
 
-	/* Determine if we're doing weighted ECMP or not */
-	do_wt_ecmp = bgp_path_info_mpath_chkwtd(bgp, info);
-
-	/* EVPN MAC-IP routes are installed with a L3 NHG id */
-	if (bgp_evpn_path_es_use_nhg(bgp, info, &nhg_id)) {
-		mpinfo = NULL;
-		api.nhgid = nhg_id;
-		if (nhg_id)
-			SET_FLAG(api.message, ZAPI_MESSAGE_NHG);
-	} else {
-		mpinfo = info;
-	}
-
-	for (; mpinfo; mpinfo = bgp_path_info_mpath_next(mpinfo)) {
-		labels = NULL;
-		num_labels = 0;
-		uint32_t nh_weight;
-		bool is_evpn;
-		bool is_parent_evpn;
-
-		if (valid_nh_count >= multipath_num)
-			break;
-
-		*mpinfo_cp = *mpinfo;
-		nh_weight = 0;
-
-		/* Get nexthop address-family */
-		if (p->family == AF_INET &&
-		    !BGP_ATTR_MP_NEXTHOP_LEN_IP6(mpinfo_cp->attr))
-			nh_family = AF_INET;
-		else if (p->family == AF_INET6 ||
-			 (p->family == AF_INET &&
-			  BGP_ATTR_MP_NEXTHOP_LEN_IP6(mpinfo_cp->attr)))
-			nh_family = AF_INET6;
-		else
-			continue;
-
-		/* If processing for weighted ECMP, determine the next hop's
-		 * weight. Based on user setting, we may skip the next hop
-		 * in some situations.
-		 */
-		if (do_wt_ecmp) {
-			if (!bgp_zebra_use_nhop_weighted(bgp, mpinfo->attr,
-							 &nh_weight))
-				continue;
-		}
-		api_nh = &api.nexthops[valid_nh_count];
-
-		if (CHECK_FLAG(info->attr->flag,
-			       ATTR_FLAG_BIT(BGP_ATTR_SRTE_COLOR)))
-			api_nh->srte_color = bgp_attr_get_color(info->attr);
-
-		if (bgp_debug_zebra(&api.prefix)) {
-			if (mpinfo->extra) {
-				zlog_debug("%s: p=%pFX, bgp_is_valid_label: %d",
-					   __func__, p,
-					   bgp_is_valid_label(
-						   &mpinfo->extra->label[0]));
-			} else {
-				zlog_debug(
-					"%s: p=%pFX, extra is NULL, no label",
-					__func__, p);
-			}
-		}
-
-		if (bgp->table_map[afi][safi].name) {
-			/* Copy info and attributes, so the route-map
-			   apply doesn't modify the BGP route info. */
-			local_attr = *mpinfo->attr;
-			mpinfo_cp->attr = &local_attr;
-			if (!bgp_table_map_apply(bgp->table_map[afi][safi].map,
-						 p, mpinfo_cp))
-				continue;
-
-			/* metric/tag is only allowed to be
-			 * overridden on 1st nexthop */
-			if (mpinfo == info) {
-				metric = mpinfo_cp->attr->med;
-				tag = mpinfo_cp->attr->tag;
-			}
-		}
-
-		BGP_ORIGINAL_UPDATE(bgp_orig, mpinfo, bgp);
-
-		is_parent_evpn = is_route_parent_evpn(mpinfo);
-
-		if (nh_family == AF_INET) {
-			nh_updated = update_ipv4nh_for_route_install(
-				nh_othervrf, bgp_orig,
-				&mpinfo_cp->attr->nexthop, mpinfo_cp->attr,
-				is_parent_evpn, api_nh);
-		} else {
-			ifindex_t ifindex = IFINDEX_INTERNAL;
-			struct in6_addr *nexthop;
-
-			nexthop = bgp_path_info_to_ipv6_nexthop(mpinfo_cp,
-								&ifindex);
-
-			if (!nexthop)
-				nh_updated = update_ipv4nh_for_route_install(
-					nh_othervrf, bgp_orig,
-					&mpinfo_cp->attr->nexthop,
-					mpinfo_cp->attr, is_parent_evpn,
-					api_nh);
-			else
-				nh_updated = update_ipv6nh_for_route_install(
-					nh_othervrf, bgp_orig, nexthop, ifindex,
-					mpinfo, info, is_parent_evpn, api_nh);
-		}
-
-		is_evpn = !!CHECK_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_EVPN);
-
-		/* Did we get proper nexthop info to update zebra? */
-		if (!nh_updated)
-			continue;
-
-		/* Allow recursion if it is a multipath group with both
-		 * eBGP and iBGP paths.
-		 */
-		if (!allow_recursion
-		    && CHECK_FLAG(bgp->flags, BGP_FLAG_PEERTYPE_MULTIPATH_RELAX)
-		    && (mpinfo->peer->sort == BGP_PEER_IBGP
-			|| mpinfo->peer->sort == BGP_PEER_CONFED))
-			allow_recursion = true;
-
-		if (mpinfo->extra) {
-			labels = mpinfo->extra->label;
-			num_labels = mpinfo->extra->num_labels;
-		}
-
-		if (labels && (num_labels > 0) &&
-		    (is_evpn || bgp_is_valid_label(&labels[0]))) {
-			enum lsp_types_t nh_label_type = ZEBRA_LSP_NONE;
-
-			if (is_evpn) {
-				nh_label = *bgp_evpn_path_info_labels_get_l3vni(
-					labels, num_labels);
-				nh_label_type = ZEBRA_LSP_EVPN;
-			} else {
-				mpls_lse_decode(labels[0], &nh_label, &ttl,
-						&exp, &bos);
-			}
-
-			SET_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_LABEL);
-			api_nh->label_num = 1;
-			api_nh->label_type = nh_label_type;
-			api_nh->labels[0] = nh_label;
-		}
-
-		if (is_evpn
-		    && mpinfo->attr->evpn_overlay.type
-			       != OVERLAY_INDEX_GATEWAY_IP)
-			memcpy(&api_nh->rmac, &(mpinfo->attr->rmac),
-			       sizeof(struct ethaddr));
-
-		api_nh->weight = nh_weight;
-
-		if (((mpinfo->attr->srv6_l3vpn &&
-		      !sid_zero_ipv6(&mpinfo->attr->srv6_l3vpn->sid)) ||
-		     (mpinfo->attr->srv6_vpn &&
-		      !sid_zero_ipv6(&mpinfo->attr->srv6_vpn->sid))) &&
-		    !is_evpn && bgp_is_valid_label(&labels[0])) {
-			struct in6_addr *sid_tmp =
-				mpinfo->attr->srv6_l3vpn
-					? (&mpinfo->attr->srv6_l3vpn->sid)
-					: (&mpinfo->attr->srv6_vpn->sid);
-
-			memcpy(&api_nh->seg6_segs[0], sid_tmp,
-			       sizeof(api_nh->seg6_segs[0]));
-
-			if (mpinfo->attr->srv6_l3vpn &&
-			    mpinfo->attr->srv6_l3vpn->transposition_len != 0) {
-				mpls_lse_decode(labels[0], &nh_label, &ttl,
-						&exp, &bos);
-
-				if (nh_label < MPLS_LABEL_UNRESERVED_MIN) {
-					if (bgp_debug_zebra(&api.prefix))
-						zlog_debug(
-							"skip invalid SRv6 routes: transposition scheme is used, but label is too small");
-					continue;
-				}
-
-				transpose_sid(&api_nh->seg6_segs[0], nh_label,
-					      mpinfo->attr->srv6_l3vpn
-						      ->transposition_offset,
-					      mpinfo->attr->srv6_l3vpn
-						      ->transposition_len);
-			}
-
-			api_nh->seg_num = 1;
-			SET_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_SEG6);
-		}
-
-		valid_nh_count++;
-	}
+	bgp_zebra_announce_parse_nexthop(info, p, bgp, &api, &valid_nh_count,
+					 afi, safi, &nhg_id, &metric, &tag,
+					 &allow_recursion);
 
 	is_add = (valid_nh_count || nhg_id) ? true : false;
 
