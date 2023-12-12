@@ -47,7 +47,7 @@
 #include "bgpd/bgp_errors.h"
 #include "bgpd/bgp_script.h"
 #include "bgpd/bgp_evpn_mh.h"
-#include "bgpd/bgp_nht.h"
+#include "bgpd/bgp_nhg.h"
 #include "bgpd/bgp_routemap_nb.h"
 #include "bgpd/bgp_community_alias.h"
 
@@ -199,7 +199,7 @@ static __attribute__((__noreturn__)) void bgp_exit(int status)
 		bgp_delete(bgp_default);
 
 	bgp_evpn_mh_finish();
-	bgp_l3nhg_finish();
+	bgp_nhg_finish();
 
 	/* reverse bgp_dump_init */
 	bgp_dump_finish();

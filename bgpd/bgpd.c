@@ -63,6 +63,7 @@
 #include "bgpd/bgp_vty.h"
 #include "bgpd/bgp_mpath.h"
 #include "bgpd/bgp_nht.h"
+#include "bgpd/bgp_nhg.h"
 #include "bgpd/bgp_updgrp.h"
 #include "bgpd/bgp_bfd.h"
 #include "bgpd/bgp_memory.h"
@@ -8264,7 +8265,7 @@ void bgp_master_init(struct event_loop *master, const int buffer_size,
 	/* mpls label dynamic allocation pool */
 	bgp_lp_init(bm->master, &bm->labelpool);
 
-	bgp_l3nhg_init();
+	bgp_nhg_init();
 	bgp_evpn_mh_init();
 	QOBJ_REG(bm, bgp_master);
 }

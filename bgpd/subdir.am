@@ -77,6 +77,7 @@ bgpd_libbgp_a_SOURCES = \
 	bgpd/bgp_zebra.c \
 	bgpd/bgpd.c \
 	bgpd/bgp_trace.c \
+	bgpd/bgp_nhg.c \
 	# end
 
 if ENABLE_BGP_VNC
@@ -160,6 +161,7 @@ noinst_HEADERS += \
 	bgpd/bgp_zebra.h \
 	bgpd/bgpd.h \
 	bgpd/bgp_trace.h \
+	bgpd/bgp_nhg.h \
 	\
 	bgpd/rfapi/bgp_rfapi_cfg.h \
 	bgpd/rfapi/rfapi_import.h \
