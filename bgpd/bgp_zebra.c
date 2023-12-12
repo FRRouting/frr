@@ -1212,6 +1212,71 @@ static bool bgp_zebra_use_nhop_weighted(struct bgp *bgp, struct attr *attr,
 	return true;
 }
 
+static void bgp_debug_zebra_nh(struct zapi_route *api)
+{
+	int i;
+	int nh_family;
+	char nh_buf[INET6_ADDRSTRLEN];
+	char eth_buf[ETHER_ADDR_STRLEN + 7] = { '\0' };
+	char buf1[ETHER_ADDR_STRLEN];
+	char label_buf[20];
+	char sid_buf[20];
+	char segs_buf[256];
+	struct zapi_nexthop *api_nh;
+	int count;
+
+	count = api->nexthop_num;
+	for (i = 0; i < count; i++) {
+		api_nh = &api->nexthops[i];
+		switch (api_nh->type) {
+		case NEXTHOP_TYPE_IFINDEX:
+			nh_buf[0] = '\0';
+			break;
+		case NEXTHOP_TYPE_IPV4:
+		case NEXTHOP_TYPE_IPV4_IFINDEX:
+			nh_family = AF_INET;
+			inet_ntop(nh_family, &api_nh->gate, nh_buf,
+				  sizeof(nh_buf));
+			break;
+		case NEXTHOP_TYPE_IPV6:
+		case NEXTHOP_TYPE_IPV6_IFINDEX:
+			nh_family = AF_INET6;
+			inet_ntop(nh_family, &api_nh->gate, nh_buf,
+				  sizeof(nh_buf));
+			break;
+		case NEXTHOP_TYPE_BLACKHOLE:
+			strlcpy(nh_buf, "blackhole", sizeof(nh_buf));
+			break;
+		default:
+			/* Note: add new nexthop case */
+			assert(0);
+			break;
+		}
+
+		label_buf[0] = '\0';
+		eth_buf[0] = '\0';
+		segs_buf[0] = '\0';
+		if (CHECK_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_LABEL) &&
+		    !CHECK_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_EVPN))
+			snprintf(label_buf, sizeof(label_buf), "label %u",
+				 api_nh->labels[0]);
+		if (CHECK_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_SEG6) &&
+		    !CHECK_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_EVPN)) {
+			inet_ntop(AF_INET6, &api_nh->seg6_segs[0], sid_buf,
+				  sizeof(sid_buf));
+			snprintf(segs_buf, sizeof(segs_buf), "segs %s", sid_buf);
+		}
+		if (CHECK_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_EVPN) &&
+		    !is_zero_mac(&api_nh->rmac))
+			snprintf(eth_buf, sizeof(eth_buf), " RMAC %s",
+				 prefix_mac2str(&api_nh->rmac, buf1,
+						sizeof(buf1)));
+		zlog_debug("  nhop [%d]: %s if %u VRF %u wt %u %s %s %s", i + 1,
+			   nh_buf, api_nh->ifindex, api_nh->vrf_id,
+			   api_nh->weight, label_buf, segs_buf, eth_buf);
+	}
+}
+
 void bgp_zebra_announce(struct bgp_dest *dest, const struct prefix *p,
 			struct bgp_path_info *info, struct bgp *bgp, afi_t afi,
 			safi_t safi)
@@ -1241,6 +1306,7 @@ void bgp_zebra_announce(struct bgp_dest *dest, const struct prefix *p,
 	uint32_t ttl = 0;
 	uint32_t bos = 0;
 	uint32_t exp = 0;
+	int recursion_flag = 0;
 
 	/*
 	 * BGP is installing this route and bgp has been configured
@@ -1571,75 +1637,12 @@ void bgp_zebra_announce(struct bgp_dest *dest, const struct prefix *p,
 	}
 
 	if (bgp_debug_zebra(p)) {
-		char nh_buf[INET6_ADDRSTRLEN];
-		char eth_buf[ETHER_ADDR_STRLEN + 7] = {'\0'};
-		char buf1[ETHER_ADDR_STRLEN];
-		char label_buf[20];
-		char sid_buf[20];
-		char segs_buf[256];
-		int i;
-
 		zlog_debug(
 			"Tx route %s VRF %u %pFX metric %u tag %" ROUTE_TAG_PRI
 			" count %d nhg %d",
 			is_add ? "add" : "delete", bgp->vrf_id, &api.prefix,
 			api.metric, api.tag, api.nexthop_num, nhg_id);
-		for (i = 0; i < api.nexthop_num; i++) {
-			api_nh = &api.nexthops[i];
-
-			switch (api_nh->type) {
-			case NEXTHOP_TYPE_IFINDEX:
-				nh_buf[0] = '\0';
-				break;
-			case NEXTHOP_TYPE_IPV4:
-			case NEXTHOP_TYPE_IPV4_IFINDEX:
-				nh_family = AF_INET;
-				inet_ntop(nh_family, &api_nh->gate, nh_buf,
-					  sizeof(nh_buf));
-				break;
-			case NEXTHOP_TYPE_IPV6:
-			case NEXTHOP_TYPE_IPV6_IFINDEX:
-				nh_family = AF_INET6;
-				inet_ntop(nh_family, &api_nh->gate, nh_buf,
-					  sizeof(nh_buf));
-				break;
-			case NEXTHOP_TYPE_BLACKHOLE:
-				strlcpy(nh_buf, "blackhole", sizeof(nh_buf));
-				break;
-			default:
-				/* Note: add new nexthop case */
-				assert(0);
-				break;
-			}
-
-			label_buf[0] = '\0';
-			eth_buf[0] = '\0';
-			segs_buf[0] = '\0';
-			if (CHECK_FLAG(api_nh->flags,
-				       ZAPI_NEXTHOP_FLAG_LABEL) &&
-			    !CHECK_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_EVPN))
-				snprintf(label_buf, sizeof(label_buf),
-					"label %u", api_nh->labels[0]);
-			if (CHECK_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_SEG6) &&
-			    !CHECK_FLAG(api_nh->flags,
-					ZAPI_NEXTHOP_FLAG_EVPN)) {
-				inet_ntop(AF_INET6, &api_nh->seg6_segs[0],
-					  sid_buf, sizeof(sid_buf));
-				snprintf(segs_buf, sizeof(segs_buf), "segs %s",
-					 sid_buf);
-			}
-			if (CHECK_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_EVPN) &&
-			    !is_zero_mac(&api_nh->rmac))
-				snprintf(eth_buf, sizeof(eth_buf), " RMAC %s",
-					 prefix_mac2str(&api_nh->rmac,
-							buf1, sizeof(buf1)));
-			zlog_debug("  nhop [%d]: %s if %u VRF %u wt %u %s %s %s",
-				   i + 1, nh_buf, api_nh->ifindex,
-				   api_nh->vrf_id, api_nh->weight,
-				   label_buf, segs_buf, eth_buf);
-		}
-
-		int recursion_flag = 0;
+		bgp_debug_zebra_nh(&api);
 
 		if (CHECK_FLAG(api.flags, ZEBRA_FLAG_ALLOW_RECURSION))
 			recursion_flag = 1;
