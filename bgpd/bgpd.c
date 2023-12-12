@@ -1543,6 +1543,7 @@ void peer_xfer_config(struct peer *peer_dst, struct peer *peer_src)
 	/* copy tcp_mss value */
 	peer_dst->tcp_mss = peer_src->tcp_mss;
 	(void)peer_sort(peer_dst);
+	peer_dst->sub_sort = peer_src->sub_sort;
 	peer_dst->rmap_type = peer_src->rmap_type;
 	peer_dst->local_role = peer_src->local_role;
 
