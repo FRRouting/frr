@@ -1248,9 +1248,7 @@ static void bgp_zebra_announce_parse_nexthop(
 	/* EVPN MAC-IP routes are installed with a L3 NHG id */
 	if (nhg_id && bgp_evpn_path_es_use_nhg(bgp, info, nhg_id)) {
 		mpinfo = NULL;
-		api->nhgid = *nhg_id;
-		if (*nhg_id)
-			SET_FLAG(api->message, ZAPI_MESSAGE_NHG);
+		zapi_route_set_nhg_id(api, nhg_id);
 	} else {
 		mpinfo = info;
 	}
