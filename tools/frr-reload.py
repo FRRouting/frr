@@ -1072,8 +1072,13 @@ def ignore_delete_re_add_lines(lines_to_add, lines_to_del):
     lines_to_add_to_del = []
     lines_to_del_to_del = []
 
+<<<<<<< HEAD
     index = 0
     for (ctx_keys, line) in lines_to_del:
+=======
+    index = -1
+    for ctx_keys, line in lines_to_del:
+>>>>>>> 8a5c6e438 (tools: fix frr-reload multiple no description cmds)
         deleted = False
 
         # no form of route-map description command only
