@@ -440,12 +440,11 @@ void bm_wait_for_fib_set(bool set)
 	 */
 	for (ALL_LIST_ELEMENTS_RO(bm->bgp, next, bgp)) {
 		for (ALL_LIST_ELEMENTS_RO(bgp->peer, node, peer)) {
-			if (!BGP_IS_VALID_STATE_FOR_NOTIF(
-				    peer->connection->status))
+			if (!BGP_IS_VALID_STATE_FOR_NOTIF(peer->status))
 				continue;
 
 			peer->last_reset = PEER_DOWN_SUPPRESS_FIB_PENDING;
-			bgp_notify_send(peer->connection, BGP_NOTIFY_CEASE,
+			bgp_notify_send(peer, BGP_NOTIFY_CEASE,
 					BGP_NOTIFY_CEASE_CONFIG_CHANGE);
 		}
 	}
@@ -496,11 +495,11 @@ void bgp_suppress_fib_pending_set(struct bgp *bgp, bool set)
 	 * let's just start over
 	 */
 	for (ALL_LIST_ELEMENTS_RO(bgp->peer, node, peer)) {
-		if (!BGP_IS_VALID_STATE_FOR_NOTIF(peer->connection->status))
+		if (!BGP_IS_VALID_STATE_FOR_NOTIF(peer->status))
 			continue;
 
 		peer->last_reset = PEER_DOWN_SUPPRESS_FIB_PENDING;
-		bgp_notify_send(peer->connection, BGP_NOTIFY_CEASE,
+		bgp_notify_send(peer, BGP_NOTIFY_CEASE,
 				BGP_NOTIFY_CEASE_CONFIG_CHANGE);
 	}
 }
