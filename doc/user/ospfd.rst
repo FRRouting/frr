@@ -853,7 +853,7 @@ Graceful Restart
    affects the restarting router.
    By default 'strict-lsa-checking' is enabled"
 
-.. clicmd:: graceful-restart helper supported-grace-time
+.. clicmd:: graceful-restart helper supported-grace-time (10-1800)
 
 
    Supports as HELPER for configured grace period.
