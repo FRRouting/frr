@@ -1072,7 +1072,7 @@ def ignore_delete_re_add_lines(lines_to_add, lines_to_del):
     lines_to_add_to_del = []
     lines_to_del_to_del = []
 
-    index = 0
+    index = -1
     for (ctx_keys, line) in lines_to_del:
         deleted = False
 
