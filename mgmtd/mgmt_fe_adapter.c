@@ -1089,7 +1089,7 @@ static int fe_adapter_send_tree_data(struct mgmt_fe_session_ctx *session,
 
 	darr_append_n(buf, offsetof(typeof(*msg), result));
 	msg = (typeof(msg))buf;
-	msg->session_id = session->session_id;
+	msg->refer_id = session->session_id;
 	msg->req_id = req_id;
 	msg->code = MGMT_MSG_CODE_TREE_DATA;
 	msg->partial_error = partial_error;
@@ -1200,10 +1200,10 @@ static void fe_adapter_handle_native_msg(struct mgmt_fe_client_adapter *adapter,
 {
 	struct mgmt_fe_session_ctx *session;
 
-	session = mgmt_session_id2ctx(msg->session_id);
+	session = mgmt_session_id2ctx(msg->refer_id);
 	if (!session) {
 		MGMTD_FE_ADAPTER_ERR("adapter %s: recv msg unknown session-id %" PRIu64,
-				     adapter->name, msg->session_id);
+				     adapter->name, msg->refer_id);
 		return;
 	}
 	assert(session->adapter == adapter);
@@ -1216,7 +1216,7 @@ static void fe_adapter_handle_native_msg(struct mgmt_fe_client_adapter *adapter,
 		MGMTD_FE_ADAPTER_ERR("unknown native message session-id %" PRIu64
 				     " req-id %" PRIu64
 				     " code %u to FE adapter %s",
-				     msg->session_id, msg->req_id, msg->code,
+				     msg->refer_id, msg->req_id, msg->code,
 				     adapter->name);
 		break;
 	}

@@ -287,14 +287,6 @@ mgmt_be_adapter_cleanup_old_conn(struct mgmt_be_client_adapter *adapter)
 	}
 }
 
-static int be_adapter_send_native_msg(struct mgmt_be_client_adapter *adapter,
-				      void *msg, size_t len,
-				      bool short_circuit_ok)
-{
-	return msg_conn_send_msg(adapter->conn, MGMT_MSG_VERSION_NATIVE, msg,
-				 len, NULL, short_circuit_ok);
-}
-
 static int mgmt_be_adapter_send_msg(struct mgmt_be_client_adapter *adapter,
 				    Mgmtd__BeMessage *be_msg)
 {
@@ -504,14 +496,14 @@ int mgmt_be_send_cfgapply_req(struct mgmt_be_client_adapter *adapter,
 	return mgmt_be_adapter_send_msg(adapter, &be_msg);
 }
 
-int mgmt_be_send_native(enum mgmt_be_client_id id, void *msg, size_t len)
+int mgmt_be_send_native(enum mgmt_be_client_id id, void *msg)
 {
 	struct mgmt_be_client_adapter *adapter = mgmt_be_get_adapter_by_id(id);
 
 	if (!adapter)
 		return -1;
 
-	return be_adapter_send_native_msg(adapter, msg, len, false);
+	return mgmt_msg_native_send_msg(adapter->conn, msg, false);
 }
 
 /*
@@ -530,10 +522,10 @@ static void be_adapter_handle_native_msg(struct mgmt_be_client_adapter *adapter,
 	case MGMT_MSG_CODE_ERROR:
 		error_msg = (typeof(error_msg))msg;
 		MGMTD_BE_ADAPTER_DBG("Got ERROR from '%s' txn-id %" PRIx64,
-				     adapter->name, msg->txn_id);
+				     adapter->name, msg->refer_id);
 
 		/* Forward the reply to the txn module */
-		mgmt_txn_notify_error(adapter, msg->txn_id, msg->req_id,
+		mgmt_txn_notify_error(adapter, msg->refer_id, msg->req_id,
 				      error_msg->error, error_msg->errstr);
 
 		break;
@@ -541,7 +533,7 @@ static void be_adapter_handle_native_msg(struct mgmt_be_client_adapter *adapter,
 		/* tree data from a backend client */
 		tree_msg = (typeof(tree_msg))msg;
 		MGMTD_BE_ADAPTER_DBG("Got TREE_DATA from '%s' txn-id %" PRIx64,
-				     adapter->name, msg->txn_id);
+				     adapter->name, msg->refer_id);
 
 		/* Forward the reply to the txn module */
 		mgmt_txn_notify_tree_data_reply(adapter, tree_msg, msg_len);
@@ -550,7 +542,7 @@ static void be_adapter_handle_native_msg(struct mgmt_be_client_adapter *adapter,
 		MGMTD_BE_ADAPTER_ERR("unknown native message txn-id %" PRIu64
 				     " req-id %" PRIu64
 				     " code %u from BE client for adapter %s",
-				     msg->txn_id, msg->req_id, msg->code,
+				     msg->refer_id, msg->req_id, msg->code,
 				     adapter->name);
 		break;
 	}

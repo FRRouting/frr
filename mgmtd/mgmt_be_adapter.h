@@ -220,12 +220,12 @@ extern void mgmt_be_xpath_register_write(struct vty *vty);
  *
  * Args:
  *	adapter: the client to send the message to.
- *	msg: the message data.
- *	len: the length of the message data.
+ *	msg: a native message from mgmt_msg_native_alloc_msg()
+ *
  * Return:
- *	Any return value from msg_conn_send_msg.
+ *	Any return value from msg_conn_send_msg().
  */
-extern int mgmt_be_send_native(enum mgmt_be_client_id id, void *data, size_t len);
+extern int mgmt_be_send_native(enum mgmt_be_client_id id, void *msg);
 
 /**
  * Lookup the clients which are subscribed to a given `xpath`

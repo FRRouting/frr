@@ -35,7 +35,6 @@ DECLARE_LIST(mgmt_sessions, struct mgmt_fe_client_session, list_linkage);
 
 DEFINE_MTYPE_STATIC(LIB, MGMTD_FE_CLIENT, "frontend client");
 DEFINE_MTYPE_STATIC(LIB, MGMTD_FE_CLIENT_NAME, "frontend client name");
-DEFINE_MTYPE_STATIC(LIB, MGMTD_FE_GET_DATA_MSG, "FE get data msg");
 DEFINE_MTYPE_STATIC(LIB, MGMTD_FE_SESSION, "frontend session");
 
 struct mgmt_fe_client {
@@ -109,13 +108,6 @@ mgmt_fe_find_session_by_session_id(struct mgmt_fe_client *client,
 	MGMTD_FE_CLIENT_DBG("Session not found using session-id %" PRIu64,
 			    session_id);
 	return NULL;
-}
-
-static int fe_client_send_native_msg(struct mgmt_fe_client *client, void *msg,
-				     size_t len, bool short_circuit_ok)
-{
-	return msg_conn_send_msg(&client->client.conn, MGMT_MSG_VERSION_NATIVE,
-				 msg, len, NULL, short_circuit_ok);
 }
 
 static int mgmt_fe_client_send_msg(struct mgmt_fe_client *client,
@@ -322,11 +314,11 @@ int mgmt_fe_send_get_tree_req(struct mgmt_fe_client *client,
 {
 	struct mgmt_msg_get_tree *msg;
 	size_t xplen = strlen(xpath);
-	size_t mlen = sizeof(*msg) + xplen + 1;
 	int ret;
 
-	msg = XCALLOC(MTYPE_MGMTD_FE_GET_DATA_MSG, mlen);
-	msg->session_id = session_id;
+	msg = mgmt_msg_native_alloc_msg(struct mgmt_msg_get_tree, xplen + 1,
+					MTYPE_MSG_NATIVE_GET_TREE);
+	msg->refer_id = session_id;
 	msg->req_id = req_id;
 	msg->code = MGMT_MSG_CODE_GET_TREE;
 	msg->result_type = result_type;
@@ -336,8 +328,8 @@ int mgmt_fe_send_get_tree_req(struct mgmt_fe_client *client,
 			    " req-id %" PRIu64 " xpath: %s",
 			    session_id, req_id, xpath);
 
-	ret = fe_client_send_native_msg(client, msg, mlen, false);
-	XFREE(MTYPE_MGMTD_FE_GET_DATA_MSG, msg);
+	ret = mgmt_msg_native_send_msg(&client->client.conn, msg, false);
+	mgmt_msg_native_free_msg(msg);
 	return ret;
 }
 
@@ -519,13 +511,13 @@ static void fe_client_handle_native_msg(struct mgmt_fe_client *client,
 	struct mgmt_msg_error *err_msg;
 
 	MGMTD_FE_CLIENT_DBG("Got GET_TREE reply for session-id %" PRIu64,
-			    msg->session_id);
+			    msg->refer_id);
 
-	session = mgmt_fe_find_session_by_session_id(client, msg->session_id);
+	session = mgmt_fe_find_session_by_session_id(client, msg->refer_id);
 
 	if (!session || !session->client) {
 		MGMTD_FE_CLIENT_ERR("No session for received native msg session-id %" PRIu64,
-				    msg->session_id);
+				    msg->refer_id);
 		return;
 	}
 
@@ -541,7 +533,7 @@ static void fe_client_handle_native_msg(struct mgmt_fe_client *client,
 		}
 		session->client->cbs.error_notify(client, client->user_data,
 						  session->client_id,
-						  msg->session_id,
+						  msg->refer_id,
 						  session->user_ctx,
 						  msg->req_id, err_msg->error,
 						  err_msg->errstr);
@@ -557,7 +549,7 @@ static void fe_client_handle_native_msg(struct mgmt_fe_client *client,
 		}
 		session->client->cbs.get_tree_notify(client, client->user_data,
 						     session->client_id,
-						     msg->session_id,
+						     msg->refer_id,
 						     session->user_ctx,
 						     msg->req_id,
 						     MGMTD_DS_OPERATIONAL,
@@ -569,7 +561,7 @@ static void fe_client_handle_native_msg(struct mgmt_fe_client *client,
 	default:
 		MGMTD_FE_CLIENT_ERR("unknown native message session-id %" PRIu64
 				    " req-id %" PRIu64 " code %u",
-				    msg->session_id, msg->req_id, msg->code);
+				    msg->refer_id, msg->req_id, msg->code);
 		break;
 	}
 }

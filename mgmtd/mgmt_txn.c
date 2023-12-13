@@ -2367,7 +2367,7 @@ int mgmt_txn_send_get_tree_oper(uint64_t txn_id, uint64_t req_id,
 	struct mgmt_txn_req *txn_req;
 	struct txn_req_get_tree *get_tree;
 	enum mgmt_be_client_id id;
-	size_t mlen = sizeof(*msg) + strlen(xpath) + 1;
+	ssize_t slen = strlen(xpath);
 	int ret;
 
 	txn = mgmt_txn_id2ctx(txn_id);
@@ -2380,17 +2380,18 @@ int mgmt_txn_send_get_tree_oper(uint64_t txn_id, uint64_t req_id,
 	get_tree->result_type = result_type;
 	get_tree->xpath = XSTRDUP(MTYPE_MGMTD_XPATH, xpath);
 
-	msg = XCALLOC(MTYPE_MSG_NATIVE_MSG, mlen);
-	msg->txn_id = txn_id;
+	msg = mgmt_msg_native_alloc_msg(struct mgmt_msg_get_tree, slen + 1,
+					MTYPE_MSG_NATIVE_GET_TREE);
+	msg->refer_id = txn_id;
 	msg->req_id = req_id;
 	msg->code = MGMT_MSG_CODE_GET_TREE;
 	/* Always operate with the binary format in the backend */
 	msg->result_type = LYD_LYB;
-	strlcpy(msg->xpath, xpath, mlen - sizeof(*msg));
+	strlcpy(msg->xpath, xpath, slen + 1);
 
 	assert(clients);
 	FOREACH_BE_CLIENT_BITS (id, clients) {
-		ret = mgmt_be_send_native(id, msg, mlen);
+		ret = mgmt_be_send_native(id, msg);
 		if (ret) {
 			MGMTD_TXN_ERR("Could not send get-tree message to backend client %s",
 				      mgmt_be_client_id2name(id));
@@ -2404,7 +2405,7 @@ int mgmt_txn_send_get_tree_oper(uint64_t txn_id, uint64_t req_id,
 		get_tree->sent_clients |= (1u << id);
 	}
 
-	XFREE(MTYPE_MSG_NATIVE_MSG, msg);
+	mgmt_msg_native_free_msg(msg);
 
 	/* Start timeout timer - pulled out of register event code so we can
 	 * pass a different arg
@@ -2479,7 +2480,7 @@ int mgmt_txn_notify_tree_data_reply(struct mgmt_be_client_adapter *adapter,
 				    struct mgmt_msg_tree_data *data_msg,
 				    size_t msg_len)
 {
-	uint64_t txn_id = data_msg->txn_id;
+	uint64_t txn_id = data_msg->refer_id;
 	uint64_t req_id = data_msg->req_id;
 
 	enum mgmt_be_client_id id = adapter->id;

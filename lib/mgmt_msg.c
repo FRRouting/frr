@@ -348,7 +348,7 @@ int mgmt_msg_send_msg(struct mgmt_msg_state *ms, uint8_t version, void *msg,
 		MGMT_MSG_DBG(
 			dbgtag,
 			"Sending native msg sess/txn-id %"PRIu64" req-id %"PRIu64" code %u",
-			native_msg->session_id, native_msg->req_id, native_msg->code);
+			native_msg->refer_id, native_msg->req_id, native_msg->code);
 
 	}
 
