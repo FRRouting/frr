@@ -22,6 +22,8 @@ test_ospf_unset_suppress_fa()
 
 import os
 import sys
+import json
+from functools import partial
 import re
 import pytest
 
@@ -33,6 +35,7 @@ sys.path.append(os.path.join(CWD, "../"))
 # Import topogen and topotest helpers
 from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
+from lib.topolog import logger
 
 # Required to instantiate the topology builder class.
 
@@ -75,6 +78,7 @@ def setup_module(mod):
             TopoRouter.RD_OSPF, os.path.join(CWD, "{}/ospfd.conf".format(rname))
         )
 
+    logger.info("Module Setup")
     tgen.start_router()
 
 
@@ -93,7 +97,17 @@ def test_converge_protocols():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    topotest.sleep(10, "Waiting for OSPF convergence")
+    router = tgen.gears["r1"]
+    json_file = "{}/r1/neighbor.json".format(CWD)
+    expected = json.loads(open(json_file).read())
+
+    test_func = partial(
+        topotest.router_json_cmp, router, "show ip ospf neighbor json", expected
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    assert result is None, "r1 has not converged"
+
+    logger.info("Converged Protocol")
 
 
 def ospf_configure_suppress_fa(router_name, area):
@@ -114,58 +128,55 @@ def ospf_unconfigure_suppress_fa(router_name, area):
     router.vtysh_cmd("conf t\nrouter ospf\narea {} nssa\nexit\n".format(area))
 
 
-def ospf_get_lsa_type5(router_name):
-    "Return a dict with link state id as key and forwarding addresses as value"
-
-    result = dict()
-    tgen = get_topogen()
-    router = tgen.gears[router_name]
-    cmd = "show ip ospf database external\n"
-    output = topotest.normalize_text(router.vtysh_cmd(cmd))
-    for line in output.splitlines():
-        re0 = re.match(r"\s+Link State ID: (\S+) \(External Network Number\)", line)
-        if re0:
-            lsa = re0.group(1)
-        re1 = re.match(r"\s+Forward Address: (\S+)", line)
-        if re1:
-            result[lsa] = re1.group(1)
-    return result
-
-
-@pytest.fixture(scope="module", name="original")
 def test_ospf_set_suppress_fa():
     "Test OSPF area [x] nssa suppress-fa"
 
-    # Get current forwarding address for each LSA type-5 in r1
-    initial = ospf_get_lsa_type5("r1")
+    logger.info("Testing Turning on/off suppress-fa")
+    tgen = get_topogen()
 
+    # Get current forwarding address for each LSA type-5 in r1
+    logger.info("Get Initial State")
+    router = tgen.gears["r1"]
+    json_file = "{}/r1/initial.json".format(CWD)
+    expected_initial = json.loads(open(json_file).read())
+
+    test_func_initial = partial(
+        topotest.router_json_cmp,
+        router,
+        "show ip ospf data external json",
+        expected_initial,
+    )
+    _, result = topotest.run_and_expect(test_func_initial, None, count=30, wait=1)
+    assert result is None, "Unable to get expected initial states"
+
+    logger.info("Configure suppress-fa")
     # Configure suppres-fa in r2 area 1
     ospf_configure_suppress_fa("r2", "1")
-    topotest.sleep(10, "Waiting for OSPF convergence")
 
-    # Check forwarding address on r1 for all statics is 0.0.0.0
-    assertmsg = "Forwarding address is not 0.0.0.0 after enabling OSPF suppress-fa"
-    suppress = ospf_get_lsa_type5("r1")
-    for prefix in suppress:
-        assert suppress[prefix] == "0.0.0.0", assertmsg
+    logger.info("Ensure that OSPF has converged on new values")
+    json_file = "{}/r1/post.json".format(CWD)
+    expected_post = json.loads(open(json_file).read())
 
-    # Return the original forwarding addresses so we can compare them
-    # in the test_ospf_unset_supress_fa
-    return initial
+    test_func_post = partial(
+        topotest.router_json_cmp,
+        router,
+        "show ip ospf data external json",
+        expected_post,
+    )
 
+    _, result = topotest.run_and_expect(test_func_post, None, count=30, wait=1)
+    assert result is None, "Unable to get expected state after turning on suppress-fa"
 
-def test_ospf_unset_supress_fa(original):
-    "Test OSPF no area [x] nssa suppress-fa"
+    logger.info("Test OSPF no area [x] nssa suppress-fa")
 
     # Remove suppress-fa in r2 area 1
     ospf_unconfigure_suppress_fa("r2", "1")
-    topotest.sleep(10, "Waiting for OSPF convergence")
 
-    # Check forwarding address is the original value on r1 for all statics
-    assertmsg = "Forwarding address is not correct after removing OSPF suppress-fa"
-    restore = ospf_get_lsa_type5("r1")
-    for prefix in restore:
-        assert restore[prefix] == original[prefix], assertmsg
+    logger.info("Has OSPF returned to original values")
+    _, result = topotest.run_and_expect(test_func_post, None, count=30, wait=1)
+    assert (
+        result is None
+    ), "Unable to return to original state after turning off suppress-fa"
 
 
 if __name__ == "__main__":
