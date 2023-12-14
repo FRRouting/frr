@@ -1431,7 +1431,7 @@ static void fpm_process_queue(struct event *t)
 
 	/* Re-schedule if we ran out of buffer space */
 	if (no_bufs) {
-		event_add_timer(fnc->fthread->master, fpm_process_queue, fnc, 0,
+		event_add_event(fnc->fthread->master, fpm_process_queue, fnc, 0,
 				&fnc->t_dequeue);
 		event_add_timer(fnc->fthread->master, fpm_process_wedged, fnc,
 				DPLANE_FPM_NL_WEDGIE_TIME, &fnc->t_wedged);
@@ -1640,7 +1640,7 @@ static int fpm_nl_process(struct zebra_dplane_provider *prov)
 	if (atomic_load_explicit(&fnc->counters.ctxqueue_len,
 				 memory_order_relaxed)
 	    > 0)
-		event_add_timer(fnc->fthread->master, fpm_process_queue, fnc, 0,
+		event_add_event(fnc->fthread->master, fpm_process_queue, fnc, 0,
 				&fnc->t_dequeue);
 
 	/* Ensure dataplane thread is rescheduled if we hit the work limit */
