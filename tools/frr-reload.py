@@ -2161,7 +2161,7 @@ if __name__ == "__main__":
                             #   'no ip ospf authentication message-digest 1.1.1.1' in
                             #   our example above
                             # - Split that last entry by whitespace and drop the last word
-                            log.info("Failed to execute %s", " ".join(cmd))
+                            log.error("Failed to execute %s", " ".join(cmd))
                             last_arg = cmd[-1].split(" ")
 
                             if len(last_arg) <= 2:
