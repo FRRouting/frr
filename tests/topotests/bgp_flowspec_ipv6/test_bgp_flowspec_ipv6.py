@@ -98,10 +98,6 @@ from lib.topolog import logger
 from lib.lutil import lUtil
 from lib.lutil import luCommand
 
-# Required to instantiate the topology builder class.
-from mininet.topo import Topo
-
-total_ebgp_peers = 1
 
 #####################################################
 ##
@@ -286,18 +282,6 @@ ipv6 route 3003::/112 2002::2
 """
     )
 
-    msg = "Check Ping from R2(1001::2) to R3(2002::2)"
-    logger.info(msg)
-    test_func = functools.partial(check_ping6, "r2", "2002::2", "1001::2", 1000)
-    _, result = topotest.run_and_expect(test_func, True, count=10, wait=0.5)
-    assert result, "{} NOK".format(msg)
-
-    msg = "Check Ping from R2(1001::2) to R3(3003::3)"
-    logger.info(msg)
-    test_func = functools.partial(check_ping6, "r2", "3003::3", "1001::2", 1000)
-    _, result = topotest.run_and_expect(test_func, True, count=10, wait=0.5)
-    assert result, "{} NOK".format(msg)
-
     # Starting Peer1 with ExaBGP
     logger.info("Launching exaBGP on peer1")
     peer_list = tgen.exabgp_peers()
@@ -329,8 +313,24 @@ def show_bgp_flowspec_summary(router, afi, peer):
     return status == "established"
 
 
+def test_ping_r2_r3():
+    tgen = get_topogen()
+
+    msg = "Check Ping from R2(1001::2) to R3(2002::2)"
+    logger.info(msg)
+    test_func = functools.partial(check_ping6, "r2", "2002::2", "1001::2", 1000)
+    _, result = topotest.run_and_expect(test_func, True, count=10, wait=0.5)
+    assert result, "{} NOK".format(msg)
+
+    msg = "Check Ping from R2(1001::2) to R3(3003::3)"
+    logger.info(msg)
+    test_func = functools.partial(check_ping6, "r2", "3003::3", "1001::2", 1000)
+    _, result = topotest.run_and_expect(test_func, True, count=10, wait=0.5)
+    assert result, "{} NOK".format(msg)
+
+
 def test_bgp_convergence():
-    "Test for BGP topology convergence"
+    "Test for BGP topology convergence with peer1"
     tgen = get_topogen()
 
     test_func = functools.partial(
@@ -341,7 +341,9 @@ def test_bgp_convergence():
     assert res, assertmsg
 
 
-def test_bgp_flowspec():
+def test_bgp_flowspec_step1():
+    "Check traffic from r2 to r3 with redirect VRF - standard ping"
+
     tgen = get_topogen()
 
     # Skip if previous fatal error condition is raised
@@ -363,6 +365,20 @@ def test_bgp_flowspec():
             "Check Ping from  R2(1001::1) to R3(2002::2) after FS redirect VRF OK"
         )
 
+
+def test_bgp_flowspec_step2():
+    "Check traffic from r2 to r3 with IP redirect - standard ping"
+
+    tgen = get_topogen()
+
+    # Skip if previous fatal error condition is raised
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    attacker = tgen.gears["r2"]
+    victim = tgen.gears["r3"]
+    router = tgen.gears["r1"]
+
     logger.info("Check Ping from  R2(1001::1) to R3(3003::3) after FS redirect IP")
     output = attacker.run("ping6 3003::3 -f -c 1000")
     logger.info(output)
@@ -373,6 +389,20 @@ def test_bgp_flowspec():
         logger.info(
             "Check Ping from  R2(1001::1) to R3(3003::3) after FS redirect IP OK"
         )
+
+
+def test_bgp_flowspec_step3():
+    "Check traffic from r2 to r3 with redirect VRF - ping of 300 bytes"
+
+    tgen = get_topogen()
+
+    # Skip if previous fatal error condition is raised
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    attacker = tgen.gears["r2"]
+    victim = tgen.gears["r3"]
+    router = tgen.gears["r1"]
 
     logger.info(
         "Check Ping > 200 Bytes from  R2(1001::1) to R3(3003::3) after FS redirect VRF"
@@ -389,9 +419,7 @@ def test_bgp_flowspec():
 
     logger.info("Check BGP FS entry for 2002::2 with redirect VRF")
 
-    output = router.vtysh_cmd(
-        "show bgp ipv6 flowspec 2002::2", isjson=False, daemon="bgpd"
-    )
+    output = router.vtysh_cmd("show bgp ipv6 flowspec 2002::2")
     logger.info(output)
     if "FS:redirect VRF RT:33::2:0" not in output:
         assertmsg = "traffic to 2002::2 should have been detected as FS entry. NOK"
@@ -400,9 +428,7 @@ def test_bgp_flowspec():
         logger.info("Check BGP FS entry for 2002::2 with redirect VRF OK")
 
     logger.info("Check BGP FS entry for 3003::3 with redirect IP")
-    output = router.vtysh_cmd(
-        "show bgp ipv6 flowspec 3003::3", isjson=False, daemon="bgpd"
-    )
+    output = router.vtysh_cmd("show bgp ipv6 flowspec 3003::3")
     logger.info(output)
     if (
         "NH 50::2" not in output
@@ -415,16 +441,27 @@ def test_bgp_flowspec():
         logger.info("Check BGP FS entry for 3003::3 with redirect IP OK")
 
     logger.info("Dump Routing information injected")
-    output = router.vtysh_cmd("show ipv6 route table 256", isjson=False, daemon="zebra")
+    output = router.vtysh_cmd("show ipv6 route table 256")
     logger.info(output)
-    output = router.vtysh_cmd("show ipv6 route table 257", isjson=False, daemon="zebra")
+    output = router.vtysh_cmd("show ipv6 route table 257")
     logger.info(output)
 
     logger.info("Dump PBR information injected")
-    output = router.vtysh_cmd("show pbr ipset", isjson=False, daemon="zebra")
+    output = router.vtysh_cmd("show pbr ipset")
     logger.info(output)
-    output = router.vtysh_cmd("show pbr iptable", isjson=False, daemon="zebra")
+    output = router.vtysh_cmd("show pbr iptable")
     logger.info(output)
+
+
+def test_bgp_flowspec_step4():
+    "Start peer2 and check bgp convergence on r1"
+
+    tgen = get_topogen()
+
+    # Skip if previous fatal error condition is raised
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
     peer2 = tgen.gears["peer2"]
     peer_dir = os.path.join(CWD, "peer2")
     env_file = os.path.join(CWD, "exabgp.env")
@@ -439,10 +476,22 @@ def test_bgp_flowspec():
     assertmsg = "BGP r1 network did not converge"
     assert res, assertmsg
 
+
+def test_bgp_flowspec_step5():
+    "Check traffic from r2 to r3 - standard ping"
+
+    tgen = get_topogen()
+
+    # Skip if previous fatal error condition is raised
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    attacker = tgen.gears["r2"]
+    victim = tgen.gears["r3"]
+    router = tgen.gears["r1"]
+
     logger.info("Check BGP FS entry for ICMP Ping from 1001::2 to 3003::3 is dropped")
-    output = router.vtysh_cmd(
-        "show bgp ipv6 flowspec 3003::3", isjson=False, daemon="bgpd"
-    )
+    output = router.cmd("vtysh -c 'show bgp ipv6 flowspec 3003::3'")
     output = topotest.flowspec_get(output, pattern="FS:rate 0.000000")
     if output:
         logger.info(output)
@@ -453,22 +502,19 @@ def test_bgp_flowspec():
             "Check BGP FS entry for ICMP Ping from 1001::10 to 3003::3 is dropped. NOK"
         )
         assert 0, assertmsg
+
     logger.info(
         "Check BGP FS entry for ICMP Ping from 1001::10 to 3003::3 is dropped. OK"
     )
     attacker.run("ping6 -c 10 3003::3 -I 1001::10")
     logger.info("Check Zebra PBR entry {0} counter".format(output))
-    outputtable = router.vtysh_cmd(
-        "show pbr iptable {0}".format(output), isjson=False, daemon="zebra"
-    )
+    outputtable = router.vtysh_cmd("show pbr iptable {0}".format(output))
     if outputtable:
         logger.info(outputtable)
     if outputtable == None or "pkts 10" not in outputtable:
         assertmsg = "Check Zebra PBR IPtable entry {0} counter".format(output)
         assert 0, assertmsg
-    outputtable = router.vtysh_cmd(
-        "show pbr ipset {0}".format(output), isjson=False, daemon="zebra"
-    )
+    outputtable = router.vtysh_cmd("show pbr ipset {0}".format(output))
     if outputtable:
         logger.info(outputtable)
     if outputtable == None or "pkts 10" not in outputtable:
@@ -479,9 +525,7 @@ def test_bgp_flowspec():
     logger.info(
         "Check BGP FS entry for ICMP Echo Reply from 1001::11 to 3003::3 with redirect IP"
     )
-    output = router.vtysh_cmd(
-        "show bgp ipv6 flowspec 3003::3", isjson=False, daemon="bgpd"
-    )
+    output = router.vtysh_cmd("show bgp ipv6 flowspec 3003::3")
     output = topotest.flowspec_get(output, pattern="ICMP Type = 129")
     if output:
         logger.info(output)
@@ -489,6 +533,7 @@ def test_bgp_flowspec():
     if output == None:
         assertmsg = "Check BGP FS entry for ICMP Echo Reply from 1001::11 to 3003::3 with redirect IP. NOK"
         assert 0, assertmsg
+
     logger.info(
         "Check BGP FS entry for ICMP Echo Reply from 1001::11 to 3003::3 with redirect IP. OK"
     )
@@ -498,9 +543,7 @@ def test_bgp_flowspec():
             output
         )
     )
-    outputtable = router.vtysh_cmd(
-        "show pbr iptable {0}".format(output), isjson=False, daemon="zebra"
-    )
+    outputtable = router.vtysh_cmd("show pbr iptable {0}".format(output))
     if outputtable:
         logger.info(outputtable)
     if outputtable == None or "pkts 10" not in outputtable:
@@ -508,9 +551,7 @@ def test_bgp_flowspec():
             output
         )
         assert 0, assertmsg
-    outputtable = router.vtysh_cmd(
-        "show pbr ipset {0}".format(output), isjson=False, daemon="zebra"
-    )
+    outputtable = router.vtysh_cmd("show pbr ipset {0}".format(output))
     if outputtable:
         logger.info(outputtable)
     if outputtable == None or "pkts 10" not in outputtable:
@@ -524,12 +565,24 @@ def test_bgp_flowspec():
         )
     )
 
+
+def test_bgp_flowspec_step6():
+    "Check traffic from r2 to r3 with IP redirect - ping DSCP value of 36"
+
+    tgen = get_topogen()
+
+    # Skip if previous fatal error condition is raised
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    attacker = tgen.gears["r2"]
+    victim = tgen.gears["r3"]
+    router = tgen.gears["r1"]
+
     logger.info(
         "Check BGP FS entry for traffic DSCP 36 from 1001::2 to 2002::2 with redirect IP"
     )
-    output = router.vtysh_cmd(
-        "show bgp ipv6 flowspec 2002::2", isjson=False, daemon="bgpd"
-    )
+    output = router.vtysh_cmd("show bgp ipv6 flowspec 2002::2")
     output = topotest.flowspec_get(output, pattern="DSCP field = 36")
     if output:
         logger.info(output)
@@ -546,9 +599,7 @@ def test_bgp_flowspec():
             output
         )
     )
-    outputtable = router.vtysh_cmd(
-        "show pbr iptable {0}".format(output), isjson=False, daemon="zebra"
-    )
+    outputtable = router.vtysh_cmd("show pbr iptable {0}".format(output))
     if outputtable:
         logger.info(outputtable)
     if outputtable == None or "pkts 10" not in outputtable:
@@ -556,9 +607,7 @@ def test_bgp_flowspec():
             output
         )
         assert 0, assertmsg
-    outputtable = router.vtysh_cmd(
-        "show pbr ipset {0}".format(output), isjson=False, daemon="zebra"
-    )
+    outputtable = router.vtysh_cmd("show pbr ipset {0}".format(output))
     if outputtable:
         logger.info(outputtable)
     if outputtable == None or "pkts 10" not in outputtable:
@@ -600,12 +649,24 @@ def test_bgp_flowspec():
     #       assert 0, assertmsg
     #   logger.info( 'Check Zebra PBR entry {0} for Fragment traffic from 1001::2 to 3003::4 counter. OK'.format(output))
 
+
+def test_bgp_flowspec_step7():
+    "Check traffic from r2 to r3 with IP redirect - TCP traffic"
+
+    tgen = get_topogen()
+
+    # Skip if previous fatal error condition is raised
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    attacker = tgen.gears["r2"]
+    victim = tgen.gears["r3"]
+    router = tgen.gears["r1"]
+
     logger.info(
         "Check BGP FS entry for traffic TCP Flags from 1001::2 to 6001::232 with redirect IP"
     )
-    output = router.vtysh_cmd(
-        "show bgp ipv6 flowspec 6::232", isjson=False, daemon="bgpd"
-    )
+    output = router.vtysh_cmd("show bgp ipv6 flowspec 6::232")
     output = topotest.flowspec_get(output, pattern="TCP Flags")
     if output:
         logger.info(output)
@@ -625,9 +686,7 @@ def test_bgp_flowspec():
             output
         )
     )
-    outputtable = router.vtysh_cmd(
-        "show pbr iptable {0}".format(output), isjson=False, daemon="zebra"
-    )
+    outputtable = router.vtysh_cmd("show pbr iptable {0}".format(output))
     if outputtable:
         logger.info(outputtable)
     if outputtable == None or "pkts" not in outputtable:
@@ -635,9 +694,7 @@ def test_bgp_flowspec():
             output
         )
         assert 0, assertmsg
-    outputtable = router.vtysh_cmd(
-        "show pbr ipset {0}".format(output), isjson=False, daemon="zebra"
-    )
+    outputtable = router.vtysh_cmd("show pbr ipset {0}".format(output))
     if outputtable:
         logger.info(outputtable)
     if outputtable == None or "pkts" not in outputtable:
@@ -645,6 +702,7 @@ def test_bgp_flowspec():
             output
         )
         assert 0, assertmsg
+
     logger.info(
         "Check Zebra PBR entry {0} for TCP Flags traffic from 1001::2 to 6001::232 counter. OK".format(
             output
@@ -675,9 +733,9 @@ def test_bgp_flowspec():
         logger.info("Check Ping from  R2(1001::10) to R3(3003::3) after FS discard OK")
 
     logger.info("Dump PBR information injected")
-    output = router.vtysh_cmd("show pbr ipset", isjson=False, daemon="zebra")
+    output = router.vtysh_cmd("show pbr ipset")
     logger.info(output)
-    output = router.vtysh_cmd("show pbr iptable", isjson=False, daemon="zebra")
+    output = router.vtysh_cmd("show pbr iptable")
     logger.info(output)
 
 
