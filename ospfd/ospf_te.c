@@ -980,8 +980,8 @@ static void ospf_mpls_te_nsm_change(struct ospf_neighbor *nbr, int old_state)
 	struct ospf_interface *oi = nbr->oi;
 	struct mpls_te_link *lp;
 
-	/* Process Neighbor only when its state is NSM Full */
-	if (nbr->state != NSM_Full)
+	/* Process Link only when neighbor old or new state is NSM Full */
+	if (nbr->state != NSM_Full && old_state != NSM_Full)
 		return;
 
 	/* Get interface information for Traffic Engineering */
@@ -1839,6 +1839,7 @@ static void ospf_te_delete_subnet(struct ls_ted *ted, struct in_addr addr)
 	p.family = AF_INET;
 	p.prefixlen = IPV4_MAX_BITLEN;
 	p.u.prefix4 = addr;
+	ote_debug("  |- Delete Subnet info. for Prefix %pFX", &p);
 	subnet = ls_find_subnet(ted, &p);
 
 	/* Remove subnet if found */
@@ -1851,8 +1852,7 @@ static void ospf_te_delete_subnet(struct ls_ted *ted, struct in_addr addr)
 
 /**
  * Parse Router LSA. This function will create or update corresponding Vertex,
- * Edge and Subnet. It also remove Edge and Subnet if they are marked as Orphan
- * once Router LSA is parsed.
+ * Edge and Subnet.
  *
  * @param ted	Link State Traffic Engineering Database
  * @param lsa	OSPF Link State Advertisement
@@ -1864,9 +1864,6 @@ static int ospf_te_parse_router_lsa(struct ls_ted *ted, struct ospf_lsa *lsa)
 	struct router_lsa *rl;
 	enum ls_node_type type;
 	struct ls_vertex *vertex;
-	struct ls_edge *edge;
-	struct ls_subnet *subnet;
-	struct listnode *node;
 	int len, links;
 
 	/* Sanity Check */
@@ -1909,13 +1906,6 @@ static int ospf_te_parse_router_lsa(struct ls_ted *ted, struct ospf_lsa *lsa)
 		vertex->status = SYNC;
 	}
 
-	/* Mark outgoing Edge and Subnet as ORPHAN to detect deletion */
-	for (ALL_LIST_ELEMENTS_RO(vertex->outgoing_edges, node, edge))
-		edge->status = ORPHAN;
-
-	for (ALL_LIST_ELEMENTS_RO(vertex->prefixes, node, subnet))
-		subnet->status = ORPHAN;
-
 	/* Then, process Link Information */
 	len = lsa->size - OSPF_LSA_HEADER_SIZE - OSPF_ROUTER_LSA_MIN_SIZE;
 	links = ntohs(rl->links);
@@ -1948,11 +1938,6 @@ static int ospf_te_parse_router_lsa(struct ls_ted *ted, struct ospf_lsa *lsa)
 			break;
 		}
 	}
-	/* Clean remaining Orphan Edges or Subnets */
-	if (OspfMplsTE.export)
-		ls_vertex_clean(ted, vertex, zclient);
-	else
-		ls_vertex_clean(ted, vertex, NULL);
 
 	return 0;
 }
@@ -2405,7 +2390,10 @@ static int ospf_te_delete_te(struct ls_ted *ted, struct ospf_lsa *lsa)
 	ote_debug("  |- Delete TE info. for Edge %pI4",
 		  &edge->attributes->standard.local);
 
-	/* Remove Link State Attributes TE information */
+	/* First remove the associated Subnet */
+	ospf_te_delete_subnet(ted, attr->standard.local);
+
+	/* Then ,remove Link State Attributes TE information */
 	memset(&attr->standard, 0, sizeof(struct ls_standard));
 	attr->flags &= 0x0FFFF;
 	memset(&attr->extended, 0, sizeof(struct ls_extended));
@@ -2420,7 +2408,6 @@ static int ospf_te_delete_te(struct ls_ted *ted, struct ospf_lsa *lsa)
 		edge->status = SYNC;
 	} else {
 		/* Remove completely the Edge if Segment Routing is not set */
-		ospf_te_delete_subnet(ted, attr->standard.local);
 		edge->status = DELETE;
 		ospf_te_export(LS_MSG_TYPE_ATTRIBUTES, edge);
 		ls_edge_del_all(ted, edge);
