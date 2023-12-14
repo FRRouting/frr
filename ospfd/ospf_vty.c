@@ -8301,7 +8301,7 @@ DEFUN_HIDDEN (ospf_dead_interval,
 
 DEFUN (ip_ospf_dead_interval_minimal,
        ip_ospf_dead_interval_minimal_addr_cmd,
-       "ip ospf dead-interval minimal hello-multiplier (1-10) [A.B.C.D]",
+       "ip ospf dead-interval minimal hello-multiplier (2-20) [A.B.C.D]",
        "IP Information\n"
        "OSPF interface commands\n"
        "Interval time after which a neighbor is declared down\n"
@@ -8322,7 +8322,7 @@ DEFUN (ip_ospf_dead_interval_minimal,
 
 DEFUN (no_ip_ospf_dead_interval,
        no_ip_ospf_dead_interval_cmd,
-       "no ip ospf dead-interval [<(1-65535)|minimal hello-multiplier (1-10)> [A.B.C.D]]",
+       "no ip ospf dead-interval [<(1-65535)|minimal hello-multiplier (2-20)> [A.B.C.D]]",
        NO_STR
        "IP Information\n"
        "OSPF interface commands\n"
@@ -8389,7 +8389,7 @@ DEFUN (no_ip_ospf_dead_interval,
 
 DEFUN_HIDDEN (no_ospf_dead_interval,
               no_ospf_dead_interval_cmd,
-              "no ospf dead-interval [<(1-65535)|minimal hello-multiplier (1-10)> [A.B.C.D]]",
+              "no ospf dead-interval [<(1-65535)|minimal hello-multiplier (2-20)> [A.B.C.D]]",
               NO_STR
               "OSPF interface commands\n"
               "Interval time after which a neighbor is declared down\n"
