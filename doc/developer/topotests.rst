@@ -230,8 +230,8 @@ the number of the test we are interested in along with ``--errmsg`` option.
     ~/frr/tests/topotests# ./analyze.py -Ar run-save -T0 --errmsg
     bgp_multiview_topo1/test_bgp_multiview_topo1.py::test_bgp_converge: AssertionError: BGP did not converge:
 
-      IPv4 Unicast Summary (VIEW 1):
-      BGP router identifier 172.30.1.1, local AS number 100 vrf-id -1
+      IPv4 Unicast Summary:
+      BGP router identifier 172.30.1.1, local AS number 100 VIEW 1 vrf-id -1
       BGP table version 1
       RIB entries 1, using 184 bytes of memory
       Peers 3, using 2169 KiB of memory
@@ -266,8 +266,8 @@ select the first failed test case.
     >           assert False, "BGP did not converge:\n%s" % bgpStatus
     E           AssertionError: BGP did not converge:
     E
-    E             IPv4 Unicast Summary (VIEW 1):
-    E             BGP router identifier 172.30.1.1, local AS number 100 vrf-id -1
+    E             IPv4 Unicast Summary:
+    E             BGP router identifier 172.30.1.1, local AS number 100 VIEW 1 vrf-id -1
                   [...]
     E             Neighbor        V         AS   MsgRcvd   MsgSent   TblVer  InQ OutQ  Up/Down State/PfxRcd   PfxSnt Desc
     E             172.16.1.1      4      65001         0         0        0    0    0    never      Connect        0 N/A
