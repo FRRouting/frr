@@ -75,8 +75,8 @@ struct bgp_adj_out {
 	/* Advertisement information.  */
 	struct bgp_advertise *adv;
 
-	/* Attribute hash */
-	uint32_t attr_hash;
+	/* Withdraw */
+	bool is_withdraw;
 };
 
 RB_HEAD(bgp_adj_out_rb, bgp_adj_out);

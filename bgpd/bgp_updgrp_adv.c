@@ -508,7 +508,7 @@ void bgp_adj_out_set_subgroup(struct bgp_dest *dest,
 	struct peer *adv_peer;
 	struct peer_af *paf;
 	struct bgp *bgp;
-	uint32_t attr_hash = attrhash_key_make(attr);
+	bool no_dedup = false;
 
 	peer = SUBGRP_PEER(subgrp);
 	afi = SUBGRP_AFI(subgrp);
@@ -533,6 +533,7 @@ void bgp_adj_out_set_subgroup(struct bgp_dest *dest,
 						&path->tx_addpath));
 		if (!adj)
 			return;
+		no_dedup = true;
 
 		subgrp->pscount++;
 	}
@@ -543,9 +544,14 @@ void bgp_adj_out_set_subgroup(struct bgp_dest *dest,
 	 * the route wasn't changed actually.
 	 * Do not suppress BGP UPDATES for route-refresh.
 	 */
-	if (CHECK_FLAG(bgp->flags, BGP_FLAG_SUPPRESS_DUPLICATES)
-	    && !CHECK_FLAG(subgrp->sflags, SUBGRP_STATUS_FORCE_UPDATES)
-	    && adj->attr_hash == attr_hash) {
+	if (CHECK_FLAG(bgp->flags, BGP_FLAG_SUPPRESS_DUPLICATES) &&
+	    !CHECK_FLAG(subgrp->sflags, SUBGRP_STATUS_FORCE_UPDATES)
+	    /* When the adj entry for dedup check was not there, dedup should not happen */
+	    && !no_dedup
+	    /* Is not withdraw */
+	    && !adj->is_withdraw
+	    /* Still have to compare the original attr to make sure nothing has changed */
+	    && adj->attr && attr && attrhash_cmp(adj->attr, attr)) {
 		if (BGP_DEBUG(update, UPDATE_OUT)) {
 			char attr_str[BUFSIZ] = {0};
 
@@ -586,7 +592,7 @@ void bgp_adj_out_set_subgroup(struct bgp_dest *dest,
 
 	adv->baa = bgp_advertise_attr_intern(subgrp->hash, attr);
 	adv->adj = adj;
-	adj->attr_hash = attr_hash;
+	adj->is_withdraw = false;
 
 	/* Add new advertisement to advertisement attribute list. */
 	bgp_advertise_add(adv->baa, adv);
@@ -657,6 +663,7 @@ void bgp_adj_out_unset_subgroup(struct bgp_dest *dest,
 			adv = adj->adv;
 			adv->dest = dest;
 			adv->adj = adj;
+			adj->is_withdraw = true;
 
 			/* Note if we need to trigger a packet write */
 			trigger_write =
