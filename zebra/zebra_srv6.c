@@ -216,9 +216,10 @@ void zebra_notify_srv6_locator_delete(struct srv6_locator *locator)
 	}
 }
 
+struct zebra_srv6 srv6;
+
 struct zebra_srv6 *zebra_srv6_get_default(void)
 {
-	static struct zebra_srv6 srv6;
 	static bool first_execution = true;
 
 	if (first_execution) {
@@ -406,6 +407,23 @@ int release_daemon_srv6_locator_chunks(struct zserv *client)
 			   __func__, count);
 
 	return count;
+}
+
+void zebra_srv6_terminate(void)
+{
+	struct srv6_locator *locator;
+
+	if (!srv6.locators)
+		return;
+
+	while (listcount(srv6.locators)) {
+		locator = listnode_head(srv6.locators);
+
+		listnode_delete(srv6.locators, locator);
+		srv6_locator_free(locator);
+	}
+
+	list_delete(&srv6.locators);
 }
 
 void zebra_srv6_init(void)

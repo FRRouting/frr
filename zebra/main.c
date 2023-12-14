@@ -236,6 +236,8 @@ void zebra_finalize(struct event *dummy)
 
 	zebra_pw_terminate();
 
+	zebra_srv6_terminate();
+
 	label_manager_terminate();
 
 	ns_terminate();
@@ -430,6 +432,8 @@ int main(int argc, char **argv)
 	zebra_vty_init();
 	access_list_init();
 	prefix_list_init();
+
+	rtadv_init();
 	rtadv_cmd_init();
 /* PTM socket */
 #ifdef ZEBRA_PTM_SUPPORT
