@@ -8,14 +8,12 @@ Topotests is a suite of topology tests for FRR built on top of micronet.
 Installation and Setup
 ----------------------
 
-Topotests run under python3. Additionally, for ExaBGP (which is used
-in some of the BGP tests) an older python2 version (and the python2
-version of ``pip``) must be installed.
+Topotests run under python3.
 
 Tested with Ubuntu 20.04,Ubuntu 18.04, and Debian 11.
 
-Instructions are the same for all setups (i.e. ExaBGP is only used for
-BGP tests).
+Instructions are the same for all setups. However, ExaBGP is only used for
+BGP tests.
 
 Tshark is only required if you enable any packet captures on test runs.
 
@@ -39,8 +37,7 @@ Installing Topotest Requirements
    python3 -m pip install 'pytest-xdist>=2.3.0'
    python3 -m pip install 'scapy>=2.4.5'
    python3 -m pip install xmltodict
-   # Use python2 pip to install older ExaBGP
-   python2 -m pip install 'exabgp<4.0.0'
+   python3 -m pip install git+https://github.com/Exa-Networks/exabgp@0659057837cd6c6351579e9f0fa47e9fb7de7311
    useradd -d /var/run/exabgp/ -s /bin/false exabgp
 
    # To enable the gRPC topotest install:

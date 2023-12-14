@@ -15,7 +15,7 @@ Installing Dependencies
       pkg-config libpam0g-dev libjson-c-dev bison flex \
       libc-ares-dev python3-dev python3-sphinx \
       install-info build-essential libsnmp-dev perl \
-      libcap-dev python2 libelf-dev libunwind-dev \
+      libcap-dev libelf-dev libunwind-dev \
       libyang2 libyang2-dev
 
 .. include:: building-libunwind-note.rst
@@ -28,18 +28,6 @@ installed explicitly. Ensure that your system has a symlink named
 
    sudo ln -s /usr/bin/python3 /usr/bin/python
    python --version
-
-In addition, ``pip`` for python2 must be installed if you wish to run
-the FRR topotests. That version of ``pip`` is not available from the
-ubuntu apt repositories; in order to install it:
-
-.. code-block:: shell
-
-   curl https://bootstrap.pypa.io/pip/2.7/get-pip.py --output get-pip.py
-   sudo python2 ./get-pip.py
-
-   # And verify the installation
-   pip2 --version
 
 
 Protobuf

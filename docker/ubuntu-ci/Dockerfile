@@ -52,7 +52,7 @@ RUN apt update && apt upgrade -y && \
         libssl-dev \
         lua5.3 \
         net-tools \
-        python2 \
+        python3 \
         python3-pip \
         snmp \
         snmp-mibs-downloader \
@@ -67,9 +67,6 @@ RUN apt update && apt upgrade -y && \
     wget https://raw.githubusercontent.com/FRRouting/frr-mibs/main/iana/IANA-IPPM-METRICS-REGISTRY-MIB -O /usr/share/snmp/mibs/iana/IANA-IPPM-METRICS-REGISTRY-MIB && \
     wget https://raw.githubusercontent.com/FRRouting/frr-mibs/main/ietf/SNMPv2-PDU -O /usr/share/snmp/mibs/ietf/SNMPv2-PDU && \
     wget https://raw.githubusercontent.com/FRRouting/frr-mibs/main/ietf/IPATM-IPMC-MIB -O /usr/share/snmp/mibs/ietf/IPATM-IPMC-MIB && \
-    curl https://bootstrap.pypa.io/pip/2.7/get-pip.py --output /tmp/get-pip.py && \
-    python2 /tmp/get-pip.py && \
-    rm -f  /tmp/get-pip.py && \
     python3 -m pip install wheel && \
     python3 -m pip install pytest && \
     python3 -m pip install pytest-sugar && \
@@ -77,7 +74,7 @@ RUN apt update && apt upgrade -y && \
     python3 -m pip install "scapy>=2.4.2" && \
     python3 -m pip install xmltodict && \
     python3 -m pip install grpcio grpcio-tools && \
-    python2 -m pip install 'exabgp<4.0.0'
+    python3 -m pip install git+https://github.com/Exa-Networks/exabgp@0659057837cd6c6351579e9f0fa47e9fb7de7311
 
 RUN groupadd -r -g 92 frr && \
       groupadd -r -g 85 frrvty && \
