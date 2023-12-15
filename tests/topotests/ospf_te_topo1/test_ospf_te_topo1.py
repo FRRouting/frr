@@ -18,22 +18,22 @@ test_ospf_te_topo1.py: Test the FRR OSPF with Traffic Engineering.
          | 10.0.225.1 |
          |            |
          +------------+
-      r1-eth0|    |r1-eth1
+         eth0|    |eth1
              |    |
   10.0.0.0/24|    |10.0.1.0/24
              |    |
-      r2-eth0|    |r2-eth1
+         eth0|    |eth1
          +------------+                  +------------+
          |            |                  |            |
-         |     R2     |r2-eth2    r3-eth0|     R3     |
+         |     R2     |eth2          eth0|     R3     |
          | 10.0.255.2 +------------------+ 10.0.255.3 |
          |            |     10.0.3.0/24  |            |
          +------------+                  +------+-----+
-         r2-eth3|                        r3-eth1|
+            eth3|                           eth1|
                 |                               |
      10.0.4.0/24|                    10.0.5.0/24|
                 |                               |
-         r4-eth0|                               V
+            eth0|                               V
          +------------+                   ASBR 10.0.255.5
          |            |
          |     R4     |
@@ -70,30 +70,24 @@ def build_topo(tgen):
     "Build function"
 
     # Create 4 routers
-    for routern in range(1, 5):
-        tgen.add_router("r{}".format(routern))
+    r1 = tgen.add_router("r1")
+    r2 = tgen.add_router("r2")
+    r3 = tgen.add_router("r3")
+    r4 = tgen.add_router("r4")
 
     # Interconect router 1 and 2 with 2 links
-    switch = tgen.add_switch("s1")
-    switch.add_link(tgen.gears["r1"])
-    switch.add_link(tgen.gears["r2"])
-    switch = tgen.add_switch("s2")
-    switch.add_link(tgen.gears["r1"])
-    switch.add_link(tgen.gears["r2"])
+    tgen.add_link(r1, r2, ifname1="eth0", ifname2="eth0")
+    tgen.add_link(r1, r2, ifname1="eth1", ifname2="eth1")
 
     # Interconect router 3 and 2
-    switch = tgen.add_switch("s3")
-    switch.add_link(tgen.gears["r3"])
-    switch.add_link(tgen.gears["r2"])
+    tgen.add_link(r2, r3, ifname1="eth2", ifname2="eth0")
 
     # Interconect router 4 and 2
-    switch = tgen.add_switch("s4")
-    switch.add_link(tgen.gears["r4"])
-    switch.add_link(tgen.gears["r2"])
+    tgen.add_link(r2, r4, ifname1="eth3", ifname2="eth0")
 
     # Interconnect router 3 with next AS
-    switch = tgen.add_switch("s5")
-    switch.add_link(tgen.gears["r3"])
+    s1 = tgen.add_switch("s1")
+    tgen.add_link(r3, s1, ifname1="eth1", ifname2="eth0")
 
 
 def setup_module(mod):
@@ -174,8 +168,7 @@ def test_step2():
 
     tgen = setup_testcase("Step2: Shutdown interface between r1 & r2")
 
-    tgen.net["r1"].cmd('vtysh -c "conf t" -c "interface r1-eth1" -c "shutdown"')
-    tgen.net["r2"].cmd('vtysh -c "conf t" -c "interface r2-eth1" -c "shutdown"')
+    tgen.net["r1"].cmd('vtysh -c "conf t" -c "interface eth1" -c "shutdown"')
 
     for rname in ["r1", "r2", "r3", "r4"]:
         compare_ted_json_output(tgen, rname, "ted_step2.json")
@@ -227,28 +220,27 @@ def test_step5():
 
     tgen = setup_testcase("Step5: Re-enable interface between r1 & r2")
 
-    tgen.net["r1"].cmd('vtysh -c "conf t" -c "interface r1-eth1" -c "no shutdown"')
-    tgen.net["r2"].cmd('vtysh -c "conf t" -c "interface r2-eth1" -c "no shutdown"')
+    tgen.net["r1"].cmd('vtysh -c "conf t" -c "interface eth1" -c "no shutdown"')
 
     for rname in ["r1", "r2", "r3", "r4"]:
         compare_ted_json_output(tgen, rname, "ted_step5.json")
 
 
 def test_step6():
-    "Step6: Set delay and jitter for interface r4-eth0 on r4, remove use-bw \
-    for interface r2-eth3 on r2 and verify that corresponding Edges are \
+    "Step6: Set delay and jitter for interface eth0 on r4, remove use-bw \
+    for interface eth3 on r2 and verify that corresponding Edges are \
     updated in the TED on all routers"
 
     tgen = setup_testcase("Step6: Modify link parameters on r2 & r4")
 
     tgen.net["r2"].cmd(
-        'vtysh -c "conf t" -c "interface r2-eth3" -c "link-params" -c "no use-bw"'
+        'vtysh -c "conf t" -c "interface eth3" -c "link-params" -c "no use-bw"'
     )
     tgen.net["r4"].cmd(
-        'vtysh -c "conf t" -c "interface r4-eth0" -c "link-params" -c "delay 20000"'
+        'vtysh -c "conf t" -c "interface eth0" -c "link-params" -c "delay 20000"'
     )
     tgen.net["r4"].cmd(
-        'vtysh -c "conf t" -c "interface r4-eth0" -c "link-params" -c "delay-variation 10000"'
+        'vtysh -c "conf t" -c "interface eth0" -c "link-params" -c "delay-variation 10000"'
     )
 
     for rname in ["r1", "r2", "r3", "r4"]:
