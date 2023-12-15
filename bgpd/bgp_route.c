@@ -2162,9 +2162,7 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 	 * configured for default-originate */
 	if (CHECK_FLAG(peer->af_flags[afi][safi],
 		       PEER_FLAG_DEFAULT_ORIGINATE)) {
-		if (p->family == AF_INET && p->u.prefix4.s_addr == INADDR_ANY)
-			return false;
-		else if (p->family == AF_INET6 && p->prefixlen == 0)
+		if ((p->family == AF_INET || p->family == AF_INET6) && p->prefixlen == 0)
 			return false;
 	}
 
