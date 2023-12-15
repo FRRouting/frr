@@ -12278,12 +12278,10 @@ static void bgp_show_summary_afi_safi(struct vty *vty, struct bgp *bgp, int afi,
 									 safi,
 									 true));
 					} else {
-						vty_out(vty,
-							"\n%s Summary (%s):\n",
+						vty_out(vty, "\n%s Summary:\n",
 							get_afi_safi_str(afi,
 									 safi,
-									 false),
-							bgp->name_pretty);
+									 false));
 					}
 				}
 				bgp_show_summary(vty, bgp, afi, safi, fpeer,

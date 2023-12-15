@@ -494,8 +494,8 @@ Require policy on EBGP
 
       exit1# show bgp summary
 
-      IPv4 Unicast Summary (VRF default):
-      BGP router identifier 10.10.10.1, local AS number 65001 vrf-id 0
+      IPv4 Unicast Summary:
+      BGP router identifier 10.10.10.1, local AS number 65001 VRF default vrf-id 0
       BGP table version 4
       RIB entries 7, using 1344 bytes of memory
       Peers 2, using 43 KiB of memory
@@ -1922,8 +1922,8 @@ Configuring Peers
 
    .. code-block:: frr
 
-      IPv4 Unicast Summary (VRF default):
-      BGP router identifier 10.0.0.6, local AS number 65001 vrf-id 0
+      IPv4 Unicast Summary:
+      BGP router identifier 10.0.0.6, local AS number 65001 VRF default vrf-id 0
       BGP table version 12
       RIB entries 23, using 4600 bytes of memory
       Peers 3, using 2174 KiB of memory
@@ -4157,8 +4157,8 @@ structure is extended with :clicmd:`show bgp [afi] [safi]`.
 
       exit1# show ip bgp summary wide
 
-      IPv4 Unicast Summary (VRF default):
-      BGP router identifier 192.168.100.1, local AS number 65534 vrf-id 0
+      IPv4 Unicast Summary:
+      BGP router identifier 192.168.100.1, local AS number 65534 VRF default vrf-id 0
       BGP table version 3
       RIB entries 5, using 920 bytes of memory
       Peers 1, using 27 KiB of memory
