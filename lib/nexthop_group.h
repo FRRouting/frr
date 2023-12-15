@@ -37,6 +37,7 @@ struct nexthop_group {
 
 	/* nexthop group flags */
 #define NEXTHOP_GROUP_ALLOW_RECURSION (1 << 1)
+#define NEXTHOP_GROUP_IBGP	      (1 << 2)
 	uint8_t flags;
 };
 

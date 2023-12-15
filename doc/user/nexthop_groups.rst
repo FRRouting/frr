@@ -38,3 +38,8 @@ listing of ECMP nexthops used to forward packets.
 
    Allow a Nexthop Group to be configured in ZEBRA, even if the nexthop has neither
    an interface configured and no `allow-recursion` set.
+
+.. clicmd:: ibgp
+
+   Allow a Nexthop Group to be considered as an IBGP nexthop. When used in ZEBRA,
+   if `allow-recursion` is not used, some debug information is given.
