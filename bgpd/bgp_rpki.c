@@ -733,7 +733,9 @@ static void print_prefix_table_by_asn(struct vty *vty, as_t as,
 	arg.asnotation = bgp_get_asnotation(bgp_lookup_by_vrf_id(VRF_DEFAULT));
 
 	if (!group) {
-		if (!json)
+		if (json)
+			vty_json(vty, json);
+		else
 			vty_out(vty, "Cannot find a connected group.\n");
 		return;
 	}
@@ -786,7 +788,9 @@ static void print_prefix_table(struct vty *vty, json_object *json)
 	arg.asnotation = bgp_get_asnotation(bgp_lookup_by_vrf_id(VRF_DEFAULT));
 
 	if (!group) {
-		if (!json)
+		if (json)
+			vty_json(vty, json);
+		else
 			vty_out(vty, "Cannot find a connected group.\n");
 		return;
 	}
@@ -1326,14 +1330,16 @@ DEFPY (show_rpki_prefix_table,
 {
 	struct json_object *json = NULL;
 
+	if (uj)
+		json = json_object_new_object();
+
 	if (!is_synchronized()) {
-		if (!uj)
+		if (uj)
+			vty_json(vty, json);
+		else
 			vty_out(vty, "No connection to RPKI cache server.\n");
 		return CMD_WARNING;
 	}
-
-	if (uj)
-		json = json_object_new_object();
 
 	print_prefix_table(vty, json);
 	return CMD_SUCCESS;
@@ -1350,14 +1356,16 @@ DEFPY (show_rpki_as_number,
 {
 	struct json_object *json = NULL;
 
+	if (uj)
+		json = json_object_new_object();
+
 	if (!is_synchronized()) {
-		if (!uj)
+		if (uj)
+			vty_json(vty, json);
+		else
 			vty_out(vty, "No Connection to RPKI cache server.\n");
 		return CMD_WARNING;
 	}
-
-	if (uj)
-		json = json_object_new_object();
 
 	print_prefix_table_by_asn(vty, by_asn, json);
 	return CMD_SUCCESS;
@@ -1378,8 +1386,13 @@ DEFPY (show_rpki_prefix,
 	json_object *json_records = NULL;
 	enum asnotation_mode asnotation;
 
+	if (uj)
+		json = json_object_new_object();
+
 	if (!is_synchronized()) {
-		if (!uj)
+		if (uj)
+			vty_json(vty, json);
+		else
 			vty_out(vty, "No Connection to RPKI cache server.\n");
 		return CMD_WARNING;
 	}
@@ -1392,7 +1405,9 @@ DEFPY (show_rpki_prefix,
 	memcpy(addr_str, prefix_str, addr_len);
 
 	if (lrtr_ip_str_to_addr(addr_str, &addr) != 0) {
-		if (!json)
+		if (json)
+			vty_json(vty, json);
+		else
 			vty_out(vty, "Invalid IP prefix\n");
 		return CMD_WARNING;
 	}
@@ -1404,13 +1419,13 @@ DEFPY (show_rpki_prefix,
 	if (pfx_table_validate_r(rtr_config->pfx_table, &matches, &match_count,
 				 asn, &addr, prefix->prefixlen,
 				 &result) != PFX_SUCCESS) {
-		if (!json)
+		if (json)
+			vty_json(vty, json);
+		else
 			vty_out(vty, "Prefix lookup failed\n");
 		return CMD_WARNING;
 	}
 
-	if (uj)
-		json = json_object_new_object();
 
 	if (!json) {
 		vty_out(vty, "%-40s %s  %s\n", "Prefix", "Prefix Length",
