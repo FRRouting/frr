@@ -2519,8 +2519,9 @@ done_with_match:
 			zlog_debug(
 				"        %s: Route Type %s has not turned on recursion %pRN failed to match",
 				__func__, zebra_route_string(type), rn);
-			if (type == ZEBRA_ROUTE_BGP
-			    && !CHECK_FLAG(flags, ZEBRA_FLAG_IBGP))
+			if ((type == ZEBRA_ROUTE_BGP ||
+			     type == ZEBRA_ROUTE_SHARP) &&
+			    !CHECK_FLAG(flags, ZEBRA_FLAG_IBGP))
 				zlog_debug(
 					"        EBGP: see \"disable-ebgp-connected-route-check\" or \"disable-connected-check\"");
 		}
@@ -3408,6 +3409,10 @@ struct nhg_hash_entry *zebra_nhg_proto_add(struct nhg_hash_entry *nhe,
 		if (CHECK_FLAG(nhg->flags, NEXTHOP_GROUP_ALLOW_RECURSION))
 			/* Tell zebra that the route may be recursively resolved */
 			api_message = ZEBRA_FLAG_ALLOW_RECURSION;
+
+		if (CHECK_FLAG(nhg->flags, NEXTHOP_GROUP_IBGP))
+			/* Tell zebra that the prefix originates from an IBGP peer */
+			SET_FLAG(api_message, ZEBRA_FLAG_IBGP);
 
 		if (nexthop_active(newhop, nhe, NULL, type, api_message, NULL,
 				   newhop->vrf_id))

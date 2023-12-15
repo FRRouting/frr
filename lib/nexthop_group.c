@@ -673,6 +673,28 @@ DEFPY(nexthop_group_allow_recursion,
 	return CMD_SUCCESS;
 }
 
+DEFPY(nexthop_group_ibgp,
+      nexthop_group_ibgp_cmd,
+      "[no] ibgp",
+      NO_STR
+      "Declare the prefix to install from an IBGP peer\n")
+{
+	VTY_DECLVAR_CONTEXT(nexthop_group_cmd, nhgc);
+
+	if (!!no == !CHECK_FLAG(nhgc->nhg.flags, NEXTHOP_GROUP_IBGP))
+		return CMD_SUCCESS;
+
+	if (no)
+		UNSET_FLAG(nhgc->nhg.flags, NEXTHOP_GROUP_IBGP);
+	else
+		SET_FLAG(nhgc->nhg.flags, NEXTHOP_GROUP_IBGP);
+
+	if (nhg_hooks.modify)
+		nhg_hooks.modify(nhgc, true);
+
+	return CMD_SUCCESS;
+}
+
 DEFPY(no_nexthop_group_backup, no_nexthop_group_backup_cmd,
       "no backup-group [WORD$name]",
       NO_STR
@@ -1199,6 +1221,9 @@ static int nexthop_group_write(struct vty *vty)
 		if (CHECK_FLAG(nhgc->nhg.flags, NEXTHOP_GROUP_ALLOW_RECURSION))
 			vty_out(vty, " allow-recursion\n");
 
+		if (CHECK_FLAG(nhgc->nhg.flags, NEXTHOP_GROUP_IBGP))
+			vty_out(vty, " ibgp\n");
+
 		if (nhgc->nhg.nhgr.buckets)
 			vty_out(vty,
 				" resilient buckets %u idle-timer %u unbalanced-timer %u\n",
@@ -1409,6 +1434,7 @@ void nexthop_group_init(
 	install_element(NH_GROUP_NODE, &nexthop_group_resilience_cmd);
 	install_element(NH_GROUP_NODE, &no_nexthop_group_resilience_cmd);
 	install_element(NH_GROUP_NODE, &nexthop_group_allow_recursion_cmd);
+	install_element(NH_GROUP_NODE, &nexthop_group_ibgp_cmd);
 
 	memset(&nhg_hooks, 0, sizeof(nhg_hooks));
 
