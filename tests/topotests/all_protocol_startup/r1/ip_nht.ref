@@ -53,6 +53,9 @@ VRF default:
 6.6.6.4
  unresolved
  Client list: pbr(fd XX)
+172.31.0.200
+ unresolved
+ Client list: pbr(fd XX) sharp(fd XX)
 192.0.2.200
  resolved via static
  via 192.168.0.208, r1-eth0 (vrf default), weight 1
