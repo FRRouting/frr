@@ -105,6 +105,7 @@ def setup_module(module):
         net["r%s" % i].loadConf("nhrpd", "%s/r%s/nhrpd.conf" % (thisDir, i))
         net["r%s" % i].loadConf("babeld", "%s/r%s/babeld.conf" % (thisDir, i))
         net["r%s" % i].loadConf("pbrd", "%s/r%s/pbrd.conf" % (thisDir, i))
+        net["r%s" % i].loadConf("pathd", "%s/r%s/pathd.conf" % (thisDir, i))
         tgen.gears["r%s" % i].start()
 
     # For debugging after starting FRR daemons, uncomment the next line
@@ -644,6 +645,45 @@ def test_nexthop_groups():
         "Route 9.9.9.9/32 with Nexthop Group ID=%d is not scheduled for removal"
         % nhg_id
     )
+
+    # Create colored static route
+    ## create a colored static route, and expect that the nexthop is steered by pathd
+    tgen.gears["r1"].vtysh_cmd(
+        """
+        configure terminal
+        nexthop-group TESTSRTE
+        allow-recursion
+        nexthop 172.31.0.200 color 1
+        """
+    )
+    tgen.gears["r1"].vtysh_cmd(
+        "sharp install routes 10.10.10.10 nexthop-group TESTSRTE 1"
+    )
+    tgen.gears["r1"].vtysh_cmd("sharp watch nexthop 172.31.0.200 color 1")
+    nhg_id = route_get_nhg_id("10.10.10.10/32")
+    verify_nexthop_group(nhg_id, recursive=True, ecmp=0, recursive_again=True)
+
+    output = tgen.gears["r1"].vtysh_cmd("show nexthop-group rib %d json" % nhg_id)
+    joutput = json.loads(output)
+
+    # Use the json output and collect the nhg id from it
+    jnexthops = joutput[str(nhg_id)]["nexthops"]
+    for jnexthop in jnexthops:
+        if "recursive" in jnexthop.keys():
+            assert jnexthop["srteColor"] == 1, "nexthop-group is not colored"
+            assert (
+                jnexthop["ip"] == "172.31.0.200"
+            ), "nexthop-group 172.31.0.200 address not found"
+        if "labels" in jnexthop.keys():
+            assert (
+                jnexthop["ip"] == "192.168.0.209"
+            ), "nexthop-group recursive nexthop is not 192.168.0.209"
+            assert jnexthop["labels"] == [
+                400,
+                600,
+            ], "nexthop-group recursive label is not 400/600"
+
+    tgen.gears["r1"].vtysh_cmd("sharp remove routes 10.10.10.10 1")
 
     ## Remove all NHG routes
 

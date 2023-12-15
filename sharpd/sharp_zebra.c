@@ -542,6 +542,7 @@ void nhg_add(uint32_t id, const struct nexthop_group *nhg,
 	api_nhg.id = id;
 
 	api_nhg.flags = nhg->flags;
+	api_nhg.message = nhg->message;
 	api_nhg.resilience = nhg->nhgr;
 
 	for (ALL_NEXTHOPS_PTR(nhg, nh)) {
@@ -682,15 +683,59 @@ static void sharp_nexthop_update(struct vrf *vrf, struct prefix *matched,
 				 struct zapi_route *nhr)
 {
 	struct sharp_nh_tracker *nht;
+	struct nexthop_group_cmd *nhgc;
+	struct nexthop_group *nhg;
+	struct nexthop *nexthop;
+	uint32_t nhg_id;
 
 	zlog_debug("Received update for %pFX actual match: %pFX metric: %u",
 		   matched, &nhr->prefix, nhr->metric);
 
 	nht = sharp_nh_tracker_get(matched);
-	nht->nhop_num = nhr->nexthop_num;
-	nht->updates++;
+
+	if ((nht->color && nhr->srte_color == nht->color) || (!nht->color)) {
+		nht->nhop_num = nhr->nexthop_num;
+		nht->updates++;
+	}
 
 	sharp_debug_nexthops(nhr);
+
+	if (nht->color) {
+		/* check any nhg with same match, color */
+		RB_FOREACH (nhgc, nhgc_entry_head, &nhgc_entries) {
+			nhg_id = sharp_nhgroup_get_id(nhgc->name);
+			if (!nhg_id)
+				continue;
+
+			nhg = &nhgc->nhg;
+			if (!CHECK_FLAG(nhg->message,
+					NEXTHOP_GROUP_MESSAGE_SRTE))
+				continue;
+
+			nexthop = nhg->nexthop;
+			while (nexthop) {
+				if (nexthop->srte_color != nht->color) {
+					nexthop = nexthop->next;
+					continue;
+				}
+				if (matched->family == AF_INET &&
+				    (nexthop->type == NEXTHOP_TYPE_IPV4_IFINDEX ||
+				     nexthop->type == NEXTHOP_TYPE_IPV4) &&
+				    IPV4_ADDR_SAME(&matched->u.prefix4,
+						   &nexthop->gate.ipv4)) {
+					nhg_add(nhg_id, nhg, NULL);
+				} else if (matched->family == AF_INET6 &&
+					   (nexthop->type ==
+						    NEXTHOP_TYPE_IPV6_IFINDEX ||
+					    nexthop->type == NEXTHOP_TYPE_IPV6) &&
+					   IPV6_ADDR_SAME(&matched->u.prefix6,
+							  &nexthop->gate.ipv6)) {
+					nhg_add(nhg_id, nhg, NULL);
+				}
+				nexthop = nexthop->next;
+			}
+		}
+	}
 }
 
 static int sharp_redistribute_route(ZAPI_CALLBACK_ARGS)

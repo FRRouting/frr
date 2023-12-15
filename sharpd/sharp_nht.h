@@ -15,6 +15,8 @@ struct sharp_nh_tracker {
 	uint32_t nhop_num;
 
 	uint32_t updates;
+
+	uint32_t color;
 };
 
 extern struct sharp_nh_tracker *sharp_nh_tracker_get(struct prefix *p);
