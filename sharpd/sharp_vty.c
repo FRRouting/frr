@@ -82,7 +82,7 @@ DEFPY(watch_redistribute, watch_redistribute_cmd,
 }
 
 DEFPY(watch_nexthop_v6, watch_nexthop_v6_cmd,
-      "sharp watch [vrf NAME$vrf_name] <nexthop$n X:X::X:X$nhop|import$import X:X::X:X/M$inhop>  [connected$connected]",
+      "sharp watch [vrf NAME$vrf_name] <nexthop$n X:X::X:X$nhop|import$import X:X::X:X/M$inhop>  [connected$connected] [color (1-4294967295)]",
       "Sharp routing Protocol\n"
       "Watch for changes\n"
       "The vrf we would like to watch if non-default\n"
@@ -91,11 +91,14 @@ DEFPY(watch_nexthop_v6, watch_nexthop_v6_cmd,
       "The v6 nexthop to signal for watching\n"
       "Watch for import check changes\n"
       "The v6 prefix to signal for watching\n"
-      "Should the route be connected\n")
+      "Should the route be connected\n"
+      SRTE_STR
+      SRTE_COLOR_STR)
 {
 	struct vrf *vrf;
 	struct prefix p;
 	bool type_import;
+	struct sharp_nh_tracker *nht;
 
 	if (!vrf_name)
 		vrf_name = VRF_DEFAULT_NAME;
@@ -118,7 +121,10 @@ DEFPY(watch_nexthop_v6, watch_nexthop_v6_cmd,
 		prefix_copy(&p, inhop);
 	}
 
-	sharp_nh_tracker_get(&p);
+	nht = sharp_nh_tracker_get(&p);
+	if (color)
+		nht->color = color;
+
 	sharp_zebra_nexthop_watch(&p, vrf->vrf_id, type_import,
 				  true, !!connected);
 
@@ -126,7 +132,7 @@ DEFPY(watch_nexthop_v6, watch_nexthop_v6_cmd,
 }
 
 DEFPY(watch_nexthop_v4, watch_nexthop_v4_cmd,
-      "sharp watch [vrf NAME$vrf_name] <nexthop$n A.B.C.D$nhop|import$import A.B.C.D/M$inhop> [connected$connected]",
+      "sharp watch [vrf NAME$vrf_name] <nexthop$n A.B.C.D$nhop|import$import A.B.C.D/M$inhop> [connected$connected] [color (1-4294967295)]",
       "Sharp routing Protocol\n"
       "Watch for changes\n"
       "The vrf we would like to watch if non-default\n"
@@ -135,11 +141,14 @@ DEFPY(watch_nexthop_v4, watch_nexthop_v4_cmd,
       "The v4 address to signal for watching\n"
       "Watch for import check changes\n"
       "The v4 prefix for import check to watch\n"
-      "Should the route be connected\n")
+      "Should the route be connected\n"
+      SRTE_STR
+      SRTE_COLOR_STR)
 {
 	struct vrf *vrf;
 	struct prefix p;
 	bool type_import;
+	struct sharp_nh_tracker *nht;
 
 	if (!vrf_name)
 		vrf_name = VRF_DEFAULT_NAME;
@@ -163,7 +172,9 @@ DEFPY(watch_nexthop_v4, watch_nexthop_v4_cmd,
 		prefix_copy(&p, inhop);
 	}
 
-	sharp_nh_tracker_get(&p);
+	nht = sharp_nh_tracker_get(&p);
+	if (color)
+		nht->color = color;
 	sharp_zebra_nexthop_watch(&p, vrf->vrf_id, type_import,
 				  true, !!connected);
 

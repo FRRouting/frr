@@ -490,6 +490,9 @@ struct zapi_nhg {
 
 	/* nexthop group flags */
 	uint8_t flags;
+	/* nexthop group message : definition from nexthop_group.h */
+#define ZAPI_NEXTHOP_MESSAGE_SRTE NEXTHOP_GROUP_MESSAGE_SRTE
+	uint8_t message;
 };
 
 /*
