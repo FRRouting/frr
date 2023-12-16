@@ -10,6 +10,7 @@
 #include "memory.h"
 
 DEFINE_MTYPE(LIB, DARR, "Dynamic Array");
+DEFINE_MTYPE(LIB, DARR_STR, "Dynamic Array String");
 
 static uint _msb(uint count)
 {
@@ -90,28 +91,34 @@ char *__darr_in_sprintf(char **sp, bool concat, const char *fmt, ...)
 }
 
 
-void *__darr_resize(void *a, uint count, size_t esize)
+void *__darr_resize(void *a, uint count, size_t esize, struct memtype *mtype)
 {
 	uint ncount = darr_next_count(count, esize);
 	size_t osz = (a == NULL) ? 0 : darr_size(darr_cap(a), esize);
 	size_t sz = darr_size(ncount, esize);
-	struct darr_metadata *dm = XREALLOC(MTYPE_DARR,
-					    a ? _darr_meta(a) : NULL, sz);
+	struct darr_metadata *dm;
 
-	if (sz > osz)
-		memset((char *)dm + osz, 0, sz - osz);
+	if (a) {
+		dm = XREALLOC(_darr_meta(a)->mtype, _darr_meta(a), sz);
+		if (sz > osz)
+			memset((char *)dm + osz, 0, sz - osz);
+	} else {
+		dm = XCALLOC(mtype, sz);
+		dm->mtype = mtype;
+	}
 	dm->cap = ncount;
 	return (void *)(dm + 1);
 }
 
 
-void *__darr_insert_n(void *a, uint at, uint count, size_t esize, bool zero)
+void *__darr_insert_n(void *a, uint at, uint count, size_t esize, bool zero,
+		      struct memtype *mtype)
 {
 	struct darr_metadata *dm;
 	uint olen, nlen;
 
 	if (!a)
-		a = __darr_resize(NULL, at + count, esize);
+		a = __darr_resize(NULL, at + count, esize, mtype);
 	dm = (struct darr_metadata *)a - 1;
 	olen = dm->len;
 
@@ -126,7 +133,7 @@ void *__darr_insert_n(void *a, uint at, uint count, size_t esize, bool zero)
 		nlen = olen + count;
 
 	if (nlen > dm->cap) {
-		a = __darr_resize(a, nlen, esize);
+		a = __darr_resize(a, nlen, esize, mtype);
 		dm = (struct darr_metadata *)a - 1;
 	}
 
