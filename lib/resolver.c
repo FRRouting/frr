@@ -335,3 +335,8 @@ void resolver_init(struct event_loop *tm)
 	install_element(CONFIG_NODE, &debug_resolver_cmd);
 	install_element(ENABLE_NODE, &debug_resolver_cmd);
 }
+
+void resolver_terminate(void)
+{
+	ares_destroy(state.channel);
+}
