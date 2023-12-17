@@ -2884,6 +2884,12 @@ static int bmp_route_update(struct bgp *bgp, afi_t afi, safi_t safi,
 	return 0;
 }
 
+static int bgp_bmp_early_fini(void)
+{
+	resolver_terminate();
+
+	return 0;
+}
 
 static int bgp_bmp_module_init(void)
 {
@@ -2896,6 +2902,7 @@ static int bgp_bmp_module_init(void)
 	hook_register(bgp_inst_delete, bmp_bgp_del);
 	hook_register(frr_late_init, bgp_bmp_init);
 	hook_register(bgp_route_update, bmp_route_update);
+	hook_register(frr_early_fini, bgp_bmp_early_fini);
 	return 0;
 }
 

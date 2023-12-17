@@ -92,6 +92,8 @@ static void nhrp_request_stop(void)
 	nhrp_vc_terminate();
 
 	debugf(NHRP_DEBUG_COMMON, "Done.");
+
+	resolver_terminate();
 	frr_fini();
 
 	exit(0);
