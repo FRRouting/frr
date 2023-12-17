@@ -680,6 +680,17 @@ static int bgp_capability_addpath(struct peer *peer,
 		iana_safi_t pkt_safi = stream_getc(s);
 		uint8_t send_receive = stream_getc(s);
 
+		/* If any other value (other than 1-3) is received, then
+		 * the capability SHOULD be treated as not understood
+		 * and ignored.
+		 */
+		if (!send_receive || send_receive > 3) {
+			flog_warn(EC_BGP_CAPABILITY_INVALID_DATA,
+				  "Add Path: Received invalid send/receive value %u in Add Path capability",
+				  send_receive);
+			continue;
+		}
+
 		if (bgp_debug_neighbor_events(peer))
 			zlog_debug("%s OPEN has %s capability for afi/safi: %s/%s%s%s",
 				   peer->host,
