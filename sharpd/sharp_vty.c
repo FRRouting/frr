@@ -1437,6 +1437,17 @@ DEFPY (tc_filter_rate,
 	return CMD_SUCCESS;
 }
 
+DEFPY(sharp_nhgroup_force_nh_config, sharp_nhgroup_force_nh_config_cmd,
+      "[no] force-nexthop-config",
+      NO_STR
+      "Force the nexthop configuration to ZEBRA, even if nexthop is not valid\n")
+{
+	VTY_DECLVAR_CONTEXT(nexthop_group_cmd, nhgc);
+
+	sharp_nhgroup_force_nhg_config(nhgc, !no);
+	return CMD_SUCCESS;
+}
+
 void sharp_vty_init(void)
 {
 	install_element(ENABLE_NODE, &install_routes_data_dump_cmd);
@@ -1476,5 +1487,6 @@ void sharp_vty_init(void)
 
 	install_element(ENABLE_NODE, &tc_filter_rate_cmd);
 
+	install_element(NH_GROUP_NODE, &sharp_nhgroup_force_nh_config_cmd);
 	return;
 }

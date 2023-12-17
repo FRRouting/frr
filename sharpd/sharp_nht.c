@@ -66,6 +66,7 @@ struct sharp_nhg {
 	char name[NHG_NAME_LEN];
 
 	bool installed;
+	bool force_nhg_config;
 };
 
 static uint32_t nhg_id;
@@ -135,7 +136,8 @@ static void sharp_nhgroup_modify_cb(const struct nexthop_group_cmd *nhgc,
 	if (nhgc->backup_list_name[0])
 		bnhgc = nhgc_find(nhgc->backup_list_name);
 
-	nhg_add(snhg->id, &nhgc->nhg, (bnhgc ? &bnhgc->nhg : NULL));
+	nhg_add(snhg->id, &nhgc->nhg, (bnhgc ? &bnhgc->nhg : NULL),
+		snhg->force_nhg_config);
 }
 
 static void sharp_nhgroup_add_nexthop_cb(const struct nexthop_group_cmd *nhgc,
@@ -151,7 +153,8 @@ static void sharp_nhgroup_add_nexthop_cb(const struct nexthop_group_cmd *nhgc,
 	if (nhgc->backup_list_name[0])
 		bnhgc = nhgc_find(nhgc->backup_list_name);
 
-	nhg_add(snhg->id, &nhgc->nhg, (bnhgc ? &bnhgc->nhg : NULL));
+	nhg_add(snhg->id, &nhgc->nhg, (bnhgc ? &bnhgc->nhg : NULL),
+		snhg->force_nhg_config);
 }
 
 static void sharp_nhgroup_del_nexthop_cb(const struct nexthop_group_cmd *nhgc,
@@ -167,7 +170,8 @@ static void sharp_nhgroup_del_nexthop_cb(const struct nexthop_group_cmd *nhgc,
 	if (nhgc->backup_list_name[0])
 		bnhgc = nhgc_find(nhgc->backup_list_name);
 
-	nhg_add(snhg->id, &nhgc->nhg, (bnhgc ? &bnhgc->nhg : NULL));
+	nhg_add(snhg->id, &nhgc->nhg, (bnhgc ? &bnhgc->nhg : NULL),
+		snhg->force_nhg_config);
 }
 
 static void sharp_nhgroup_delete_cb(const char *name)
@@ -184,6 +188,21 @@ static void sharp_nhgroup_delete_cb(const char *name)
 		nhg_del(snhg->id);
 	sharp_nhg_rb_del(&nhg_head, snhg);
 	XFREE(MTYPE_NHG, snhg);
+}
+
+static int sharp_nhgroup_write_config(struct vty *vty,
+				      const struct nexthop_group_cmd *nhgc)
+{
+	struct sharp_nhg *snhg;
+	struct sharp_nhg lookup;
+
+	strlcpy(lookup.name, nhgc->name, sizeof(lookup.name));
+	snhg = sharp_nhg_rb_find(&nhg_head, &lookup);
+	if (!snhg)
+		return 0;
+	if (snhg->force_nhg_config)
+		vty_out(vty, " force-nexthop-config\n");
+	return 1;
 }
 
 uint32_t sharp_nhgroup_get_id(const char *name)
@@ -225,6 +244,33 @@ bool sharp_nhgroup_id_is_installed(uint32_t id)
 	return snhg->installed;
 }
 
+bool sharp_nhgroup_id_is_forced(uint32_t id)
+{
+	struct sharp_nhg *snhg;
+
+	snhg = sharp_nhgroup_find_id(id);
+	if (!snhg) {
+		zlog_debug("%s: nhg %u not found", __func__, id);
+		return false;
+	}
+	return snhg->force_nhg_config;
+}
+
+void sharp_nhgroup_force_nhg_config(struct nexthop_group_cmd *nhgc, bool force)
+{
+	struct sharp_nhg *snhg;
+	struct sharp_nhg lookup;
+
+	strlcpy(lookup.name, nhgc->name, sizeof(lookup.name));
+	snhg = sharp_nhg_rb_find(&nhg_head, &lookup);
+	if (!snhg)
+		return;
+	if (force == snhg->force_nhg_config)
+		return;
+	snhg->force_nhg_config = force;
+	sharp_nhgroup_modify_cb(nhgc, true);
+}
+
 void sharp_nhgroup_init(void)
 {
 	sharp_nhg_rb_init(&nhg_head);
@@ -233,5 +279,5 @@ void sharp_nhgroup_init(void)
 	nexthop_group_init(sharp_nhgroup_add_cb, sharp_nhgroup_modify_cb,
 			   sharp_nhgroup_add_nexthop_cb,
 			   sharp_nhgroup_del_nexthop_cb,
-			   sharp_nhgroup_delete_cb);
+			   sharp_nhgroup_delete_cb, sharp_nhgroup_write_config);
 }
