@@ -33,3 +33,8 @@ listing of ECMP nexthops used to forward packets.
    Allow a next-hop to be resolved at zebra level. Instead of beig considered valid,
    the next-hop is checked against route reachability at zebra level. This permits
    sending an incomplete next-hop to zebra, whereas it was not authorised before.
+
+.. clicmd:: force-nexthop-config
+
+   Allow a Nexthop Group to be configured in ZEBRA, even if the nexthop has neither
+   an interface configured and no `allow-recursion` set.

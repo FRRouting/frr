@@ -25,6 +25,9 @@ extern void sharp_nh_tracker_dump(struct vty *vty);
 extern uint32_t sharp_nhgroup_get_id(const char *name);
 extern void sharp_nhgroup_id_set_installed(uint32_t id, bool installed);
 extern bool sharp_nhgroup_id_is_installed(uint32_t id);
+extern bool sharp_nhgroup_id_is_forced(uint32_t id);
+extern void sharp_nhgroup_force_nhg_config(struct nexthop_group_cmd *nhgc,
+					   bool force);
 
 extern void sharp_nhgroup_init(void);
 #endif

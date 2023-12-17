@@ -41,6 +41,8 @@ struct nexthop_group_hooks {
 	void (*del_nexthop)(const struct nexthop_group_cmd *nhg,
 			    const struct nexthop *nhop);
 	void (*delete)(const char *name);
+	int (*write_config)(struct vty *vty,
+			    const struct nexthop_group_cmd *nhg);
 };
 
 static struct nexthop_group_hooks nhg_hooks;
@@ -1213,6 +1215,9 @@ static int nexthop_group_write(struct vty *vty)
 			nexthop_group_write_nexthop_internal(vty, nh);
 		}
 
+		if (nhg_hooks.write_config)
+			nhg_hooks.write_config(vty, nhgc);
+
 		vty_out(vty, "exit\n");
 		vty_out(vty, "!\n");
 	}
@@ -1377,14 +1382,16 @@ static const struct cmd_variable_handler nhg_name_handlers[] = {
 	{.tokenname = "NHGNAME", .completions = nhg_name_autocomplete},
 	{.completions = NULL}};
 
-void nexthop_group_init(void (*new)(const char *name),
-			void (*modify)(const struct nexthop_group_cmd *nhgc,
-				       bool reset),
-			void (*add_nexthop)(const struct nexthop_group_cmd *nhg,
-					    const struct nexthop *nhop),
-			void (*del_nexthop)(const struct nexthop_group_cmd *nhg,
-					    const struct nexthop *nhop),
-			void (*delete)(const char *name))
+void nexthop_group_init(
+	void (*new)(const char *name),
+	void (*modify)(const struct nexthop_group_cmd *nhgc, bool reset),
+	void (*add_nexthop)(const struct nexthop_group_cmd *nhg,
+			    const struct nexthop *nhop),
+	void (*del_nexthop)(const struct nexthop_group_cmd *nhg,
+			    const struct nexthop *nhop),
+	void (*delete)(const char *name),
+	int (*write_config)(struct vty *vty,
+			    const struct nexthop_group_cmd *nhgc))
 {
 	RB_INIT(nhgc_entry_head, &nhgc_entries);
 
@@ -1415,4 +1422,6 @@ void nexthop_group_init(void (*new)(const char *name),
 		nhg_hooks.del_nexthop = del_nexthop;
 	if (delete)
 		nhg_hooks.delete = delete;
+	if (write_config)
+		nhg_hooks.write_config = write_config;
 }
