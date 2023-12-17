@@ -250,8 +250,10 @@ static bool route_add(const struct prefix *p, vrf_id_t vrf_id, uint8_t instance,
 	SET_FLAG(api.message, ZAPI_MESSAGE_NEXTHOP);
 
 	/* Only send via ID if nhgroup has been successfully installed */
-	if (nhgid && sharp_nhgroup_id_is_installed(nhgid)) {
-		zapi_route_set_nhg_id(&api, &nhgid);
+	if (nhgid && (sharp_nhgroup_id_is_installed(nhgid) ||
+		      sharp_nhgroup_id_is_forced(nhgid))) {
+		SET_FLAG(api.message, ZAPI_MESSAGE_NHG);
+		api.nhgid = nhgid;
 	} else {
 		for (ALL_NEXTHOPS_PTR(nhg, nh)) {
 			/* Check if we set a VNI label */
@@ -530,7 +532,7 @@ void vrf_label_add(vrf_id_t vrf_id, afi_t afi, mpls_label_t label)
 }
 
 void nhg_add(uint32_t id, const struct nexthop_group *nhg,
-	     const struct nexthop_group *backup_nhg)
+	     const struct nexthop_group *backup_nhg, bool force_nhg_config)
 {
 	struct zapi_nhg api_nhg = {};
 	struct zapi_nexthop *api_nh;
@@ -554,7 +556,8 @@ void nhg_add(uint32_t id, const struct nexthop_group *nhg,
 		 * ALLOW_RECURSION flag is set
 		 */
 		if (nh->ifindex == 0 &&
-		    !CHECK_FLAG(nhg->flags, NEXTHOP_GROUP_ALLOW_RECURSION))
+		    !CHECK_FLAG(nhg->flags, NEXTHOP_GROUP_ALLOW_RECURSION) &&
+		    !force_nhg_config)
 			continue;
 
 		api_nh = &api_nhg.nexthops[api_nhg.nexthop_num];

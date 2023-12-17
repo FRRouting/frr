@@ -55,7 +55,7 @@ static void bgp_nhg_zebra_init(void)
 	bgp_nhg_start = zclient_get_nhg_start(ZEBRA_ROUTE_BGP);
 	nexthop_group_init(bgp_nhg_add_cb, bgp_nhg_modify_cb,
 			   bgp_nhg_add_nexthop_cb, bgp_nhg_del_nexthop_cb,
-			   bgp_nhg_del_cb);
+			   bgp_nhg_del_cb, NULL);
 }
 
 void bgp_nhg_init(void)
