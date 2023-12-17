@@ -665,7 +665,7 @@ static int bgp_capability_addpath(struct peer *peer,
 	SET_FLAG(peer->cap, PEER_CAP_ADDPATH_RCV);
 
 	/* Verify length is a multiple of 4 */
-	if (hdr->length % 4) {
+	if (hdr->length % CAPABILITY_CODE_ADDPATH_LEN) {
 		flog_warn(
 			EC_BGP_CAPABILITY_INVALID_LENGTH,
 			"Add Path: Received invalid length %d, non-multiple of 4",
@@ -673,7 +673,7 @@ static int bgp_capability_addpath(struct peer *peer,
 		return -1;
 	}
 
-	while (stream_get_getp(s) + 4 <= end) {
+	while (stream_get_getp(s) + CAPABILITY_CODE_ADDPATH_LEN <= end) {
 		afi_t afi;
 		safi_t safi;
 		iana_afi_t pkt_afi = stream_getw(s);
