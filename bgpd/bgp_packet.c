@@ -3097,6 +3097,17 @@ static void bgp_dynamic_capability_addpath(uint8_t *pnt, int action,
 			pkt_afi = ntohs(bac.afi);
 			pkt_safi = safi_int2iana(bac.safi);
 
+			/* If any other value (other than 1-3) is received,
+			 * then the capability SHOULD be treated as not
+			 * understood and ignored.
+			 */
+			if (!bac.flags || bac.flags > 3) {
+				flog_warn(EC_BGP_CAPABILITY_INVALID_LENGTH,
+					  "Add Path: Received invalid send/receive value %u in Add Path capability",
+					  bac.flags);
+				goto ignore;
+			}
+
 			if (bgp_debug_neighbor_events(peer))
 				zlog_debug("%s OPEN has %s capability for afi/safi: %s/%s%s%s",
 					   peer->host,
@@ -3118,14 +3129,14 @@ static void bgp_dynamic_capability_addpath(uint8_t *pnt, int action,
 						   peer->host,
 						   iana_afi2str(pkt_afi),
 						   iana_safi2str(pkt_safi));
-				continue;
+				goto ignore;
 			} else if (!peer->afc[afi][safi]) {
 				if (bgp_debug_neighbor_events(peer))
 					zlog_debug("%s Addr-family %s/%s(afi/safi) not enabled. Ignore the AddPath capability for this AFI/SAFI",
 						   peer->host,
 						   iana_afi2str(pkt_afi),
 						   iana_safi2str(pkt_safi));
-				continue;
+				goto ignore;
 			}
 
 			if (CHECK_FLAG(bac.flags, BGP_ADDPATH_RX))
@@ -3142,6 +3153,7 @@ static void bgp_dynamic_capability_addpath(uint8_t *pnt, int action,
 				UNSET_FLAG(peer->af_cap[afi][safi],
 					   PEER_CAP_ADDPATH_AF_TX_RCV);
 
+ignore:
 			data += CAPABILITY_CODE_ADDPATH_LEN;
 		}
 	} else {
