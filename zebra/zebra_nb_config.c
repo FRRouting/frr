@@ -29,6 +29,7 @@
 #include "zebra/zebra_routemap.h"
 #include "zebra/zebra_rnh.h"
 #include "zebra/table_manager.h"
+#include "zebra/zebra_defaults.h"
 
 /*
  * XPath: /frr-zebra:zebra/mcast-rpf-lookup
@@ -1266,7 +1267,7 @@ int lib_interface_zebra_mpls_destroy(struct nb_cb_destroy_args *args)
 	ifp = nb_running_get_entry(args->dnode, NULL, true);
 	zif = ifp->info;
 
-	zif->mpls_config = IF_ZEBRA_DATA_UNSPEC;
+	zif->mpls_config = DFLT_ZEBRA_MPLS;
 
 	/* keep the state as it is */
 

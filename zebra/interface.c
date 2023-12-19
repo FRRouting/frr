@@ -36,6 +36,8 @@
 #include "zebra/zebra_vxlan.h"
 #include "zebra/zebra_errors.h"
 #include "zebra/zebra_evpn_mh.h"
+#include "zebra/zebra_cli.h"
+#include "zebra/zebra_defaults.h"
 
 DEFINE_MTYPE_STATIC(ZEBRA, ZINFO, "Zebra Interface Information");
 
@@ -121,7 +123,8 @@ static int if_zebra_new_hook(struct interface *ifp)
 	zebra_if->ifp = ifp;
 
 	zebra_if->multicast = IF_ZEBRA_DATA_UNSPEC;
-	zebra_if->mpls_config = IF_ZEBRA_DATA_UNSPEC;
+	zebra_if->mpls_config = DFLT_ZEBRA_MPLS;
+
 	zebra_if->shutdown = IF_ZEBRA_DATA_UNSPEC;
 
 	zebra_if->link_nsid = NS_UNKNOWN;

@@ -202,6 +202,7 @@ noinst_HEADERS += \
 	zebra/zserv.h \
 	zebra/dpdk/zebra_dplane_dpdk.h \
 	zebra/dpdk/zebra_dplane_dpdk_private.h \
+	zebra/zebra_defaults.h \
 	# end
 
 zebra_zebra_irdp_la_SOURCES = \
