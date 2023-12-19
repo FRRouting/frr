@@ -3024,6 +3024,13 @@ static void if_dump_vty_json(struct vty *vty, struct interface *ifp,
 		json_object_string_add(json_if, "OsDescription",
 				       zebra_if->desc);
 
+	if (zebra_if->mpls_config == IF_ZEBRA_DATA_UNSPEC)
+		json_object_string_add(json_if, "mplsConfig", "unspecified");
+	else if (zebra_if->mpls_config == IF_ZEBRA_DATA_ON)
+		json_object_string_add(json_if, "mplsConfig", "mplsEnabled");
+	else if (zebra_if->mpls_config == IF_ZEBRA_DATA_OFF)
+		json_object_string_add(json_if, "mplsConfig", "mplsDisabled");
+
 	json_object_boolean_add(json_if, "mplsEnabled", zebra_if->mpls);
 	json_object_boolean_add(json_if, "linkDown", zebra_if->linkdown);
 	json_object_boolean_add(json_if, "linkDownV6", zebra_if->linkdownv6);
