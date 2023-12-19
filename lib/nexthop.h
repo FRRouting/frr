@@ -260,7 +260,7 @@ int nexthop_str2backups(const char *str, int *num_backups,
 
 void nexthop_json_helper(json_object *json_nexthop,
 			 const struct nexthop *nexthop, bool display_vrfid,
-			 uint8_t rn_family);
+			 uint8_t rn_family, bool brief);
 void nexthop_vty_helper(struct vty *vty, const struct nexthop *nexthop,
 			bool display_vrfid, uint8_t rn_family);
 
