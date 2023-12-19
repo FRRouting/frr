@@ -1120,6 +1120,10 @@ DEFPY (no_rpki,
 {
 	rpki_delete_all_cache_nodes();
 	stop();
+	polling_period = POLLING_PERIOD_DEFAULT;
+	expire_interval = EXPIRE_INTERVAL_DEFAULT;
+	retry_interval = RETRY_INTERVAL_DEFAULT;
+
 	return CMD_SUCCESS;
 }
 
