@@ -33,6 +33,7 @@
 #include "zebra/zebra_routemap.h"
 #include "zebra/zebra_vrf_clippy.c"
 #include "zebra/table_manager.h"
+#include "zebra/zebra_defaults.h"
 
 static void zebra_vrf_table_create(struct zebra_vrf *zvrf, afi_t afi,
 				   safi_t safi);
