@@ -226,6 +226,7 @@ class RTRConnHandler(socketserver.BaseRequestHandler):
     def handle_reset(self):
         dbg(">Reset")
         self.session_id += 1
+        self.server.db.set_serial(0)
         self.send_cacheresponse()
 
         for asn, ipnet, maxlen in self.server.db.get_announcements4(self.serial):
