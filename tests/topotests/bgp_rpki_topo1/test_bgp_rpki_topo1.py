@@ -85,14 +85,6 @@ def test_show_bgp_rpki_prefixes():
         return topotest.json_cmp(output, expected)
 
     rname = "r2"
-    tgen.gears[rname].vtysh_cmd(
-        """
-configure
-rpki
- rpki cache 192.0.2.1 15432 preference 1
-exit
-"""
-    )
 
     step("Check RPKI prefix table")
 
