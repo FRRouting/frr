@@ -1247,6 +1247,7 @@ DEFPY(rpki_cache, rpki_cache_cmd,
 	int return_value;
 	struct listnode *cache_node;
 	struct cache *current_cache;
+	bool init = !!list_isempty(cache_list);
 
 	for (ALL_LIST_ELEMENTS_RO(cache_list, cache_node, current_cache)) {
 		if (current_cache->preference == preference) {
@@ -1278,6 +1279,9 @@ DEFPY(rpki_cache, rpki_cache_cmd,
 		vty_out(vty, "Could not create new rpki cache\n");
 		return CMD_WARNING;
 	}
+
+	if (init)
+		start();
 
 	return CMD_SUCCESS;
 }
