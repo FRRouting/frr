@@ -11,13 +11,10 @@
 
 #include "zebra_cli.h"
 #include "zebra/zebra_cli_clippy.c"
+#include "interface.h"
+#include "zebra/zebra_defaults.h"
 
 #define EVPN_MH_VTY_STR "Multihoming\n"
-
-FRR_CFG_DEFAULT_BOOL(ZEBRA_IP_NHT_RESOLVE_VIA_DEFAULT,
-	{ .val_bool = true, .match_profile = "traditional", },
-	{ .val_bool = false },
-);
 
 #if HAVE_BFDD == 0
 DEFPY_YANG (zebra_ptm_enable,
@@ -139,9 +136,10 @@ static void lib_interface_zebra_mpls_cli_write(struct vty *vty,
 {
 	bool mpls = yang_dnode_get_bool(dnode, NULL);
 
-	if (mpls)
+	if (mpls && ((SAVE_ZEBRA_MPLS != IF_ZEBRA_DATA_ON) || show_defaults))
 		vty_out(vty, " mpls enable\n");
-	else
+	else if (mpls == false &&
+		 ((SAVE_ZEBRA_MPLS != IF_ZEBRA_DATA_OFF) || show_defaults))
 		vty_out(vty, " mpls disable\n");
 }
 
