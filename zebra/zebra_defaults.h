@@ -22,7 +22,7 @@ FRR_CFG_DEFAULT_BOOL(ZEBRA_IP_NHT_RESOLVE_VIA_DEFAULT,
 		     );
 
 FRR_CFG_DEFAULT_UINT8_T(ZEBRA_MPLS,
-			{ .val_uint8_t = IF_ZEBRA_DATA_UNSPEC },
+			{ .val_uint8_t = IF_ZEBRA_DATA_AUTO },
 			);
 
 #ifdef __cplusplus
