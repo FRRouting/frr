@@ -667,7 +667,7 @@ static int pm_nht_update_walkcb(struct hash_bucket *backet, void *arg)
 		return HASHWALK_CONTINUE;
 	orig = PM_CHECK_FLAG(pm->flags, PM_SESS_FLAG_NH_VALID);
 	new = !!pnc->nh_num;
-	if (orig != new)
+	if (orig != new || pm->ifindex_out != pnc->idx)
 		reinstall = true;
 	if (reinstall) {
 		if (new) {
