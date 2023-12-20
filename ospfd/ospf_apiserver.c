@@ -2092,7 +2092,7 @@ void ospf_apiserver_flush_opaque_lsa(struct ospf_apiserver *apiserv,
 					lsa, (void *)&param, 0);
 		break;
 	case OSPF_OPAQUE_AS_LSA:
-		LSDB_LOOP (OPAQUE_LINK_LSDB(ospf), rn, lsa)
+		LSDB_LOOP (OPAQUE_AS_LSDB(ospf), rn, lsa)
 			apiserver_flush_opaque_type_callback(lsa,
 							     (void *)&param, 0);
 		break;

@@ -257,7 +257,7 @@ static void free_opaque_info_per_type(struct opaque_info_per_type *oipt,
 
 struct ospf_opaque_functab {
 	uint8_t opaque_type;
-	struct opaque_info_per_type *oipt;
+	uint32_t ref_count;
 
 	int (*new_if_hook)(struct interface *ifp);
 	int (*del_if_hook)(struct interface *ifp);
@@ -280,15 +280,37 @@ static struct list *ospf_opaque_type9_funclist;
 static struct list *ospf_opaque_type10_funclist;
 static struct list *ospf_opaque_type11_funclist;
 
+static void ospf_opaque_functab_ref(struct ospf_opaque_functab *functab)
+{
+	functab->ref_count++;
+}
+
+static void ospf_opaque_functab_deref(struct ospf_opaque_functab *functab)
+{
+	assert(functab->ref_count);
+	functab->ref_count--;
+	if (functab->ref_count == 0)
+		XFREE(MTYPE_OSPF_OPAQUE_FUNCTAB, functab);
+}
+
 static void ospf_opaque_del_functab(void *val)
 {
-	XFREE(MTYPE_OSPF_OPAQUE_FUNCTAB, val);
+	struct ospf_opaque_functab *functab = (struct ospf_opaque_functab *)val;
+
+	if (IS_DEBUG_OSPF_EVENT)
+		zlog_debug("%s: Opaque LSA functab list deletion callback type %u (%p)",
+			   __func__, functab->opaque_type, functab);
+
+	ospf_opaque_functab_deref(functab);
 	return;
 }
 
 static void ospf_opaque_funclist_init(void)
 {
 	struct list *funclist;
+
+	if (IS_DEBUG_OSPF_EVENT)
+		zlog_debug("%s: Function list initialize", __func__);
 
 	funclist = ospf_opaque_wildcard_funclist = list_new();
 	funclist->del = ospf_opaque_del_functab;
@@ -307,6 +329,9 @@ static void ospf_opaque_funclist_init(void)
 static void ospf_opaque_funclist_term(void)
 {
 	struct list *funclist;
+
+	if (IS_DEBUG_OSPF_EVENT)
+		zlog_debug("%s: Function list terminate", __func__);
 
 	funclist = ospf_opaque_wildcard_funclist;
 	list_delete(&funclist);
@@ -383,18 +408,24 @@ int ospf_register_opaque_functab(
 
 	for (ALL_LIST_ELEMENTS(funclist, node, nnode, functab))
 		if (functab->opaque_type == opaque_type) {
-			flog_warn(
-				EC_OSPF_LSA,
-				"%s: Duplicated entry?: lsa_type(%u), opaque_type(%u)",
-				__func__, lsa_type, opaque_type);
-			return -1;
+			if (IS_DEBUG_OSPF_EVENT)
+				zlog_debug("%s: Opaque LSA functab found type %u, (%p)",
+					   __func__, functab->opaque_type,
+					   functab);
+			break;
 		}
 
-	new = XCALLOC(MTYPE_OSPF_OPAQUE_FUNCTAB,
-		      sizeof(struct ospf_opaque_functab));
+	if (functab == NULL)
+		new = XCALLOC(MTYPE_OSPF_OPAQUE_FUNCTAB,
+			      sizeof(struct ospf_opaque_functab));
+	else {
+		if (IS_DEBUG_OSPF_EVENT)
+			zlog_debug("%s: Re-register Opaque LSA type %u, opaque type %u, (%p)",
+				   __func__, lsa_type, opaque_type, functab);
+		return 0;
+	}
 
 	new->opaque_type = opaque_type;
-	new->oipt = NULL;
 	new->new_if_hook = new_if_hook;
 	new->del_if_hook = del_if_hook;
 	new->ism_change_hook = ism_change_hook;
@@ -408,7 +439,12 @@ int ospf_register_opaque_functab(
 	new->new_lsa_hook = new_lsa_hook;
 	new->del_lsa_hook = del_lsa_hook;
 
+	if (IS_DEBUG_OSPF_EVENT)
+		zlog_debug("%s: Register Opaque LSA type %u, opaque type %u, (%p)",
+			   __func__, lsa_type, opaque_type, new);
+
 	listnode_add(funclist, new);
+	ospf_opaque_functab_ref(new);
 
 	return 0;
 }
@@ -422,17 +458,18 @@ void ospf_delete_opaque_functab(uint8_t lsa_type, uint8_t opaque_type)
 	if ((funclist = ospf_get_opaque_funclist(lsa_type)) != NULL)
 		for (ALL_LIST_ELEMENTS(funclist, node, nnode, functab)) {
 			if (functab->opaque_type == opaque_type) {
-				/* Cleanup internal control information, if it
-				 * still remains. */
-				if (functab->oipt != NULL)
-					free_opaque_info_per_type(functab->oipt,
-								  true);
+				if (IS_DEBUG_OSPF_EVENT)
+					zlog_debug("%s: Delete Opaque functab LSA type %u, opaque type %u, (%p)",
+						   __func__, lsa_type,
+						   opaque_type, functab);
+
 				/* Dequeue listnode entry from the function table
 				 * list coreesponding to the opaque LSA type.
 				 * Note that the list deletion callback frees
 				 * the functab entry memory.
 				 */
 				listnode_delete(funclist, functab);
+				ospf_opaque_functab_deref(functab);
 				break;
 			}
 		}
@@ -567,9 +604,14 @@ register_opaque_info_per_type(struct ospf_opaque_functab *functab,
 	oipt->opaque_type = GET_OPAQUE_TYPE(ntohl(new->data->id.s_addr));
 	oipt->status = PROC_NORMAL;
 	oipt->functab = functab;
-	functab->oipt = oipt;
+	ospf_opaque_functab_ref(functab);
 	oipt->id_list = list_new();
 	oipt->id_list->del = free_opaque_info_per_id;
+
+	if (IS_DEBUG_OSPF_EVENT)
+		zlog_debug("%s: Register Opaque info-per-type LSA type %u, opaque type %u, (%p), Functab (%p)",
+			   __func__, oipt->lsa_type, oipt->opaque_type, oipt,
+			   oipt->functab);
 
 out:
 	return oipt;
@@ -617,16 +659,14 @@ static void free_opaque_info_per_type(struct opaque_info_per_type *oipt,
 		listnode_delete(l, oipt);
 	}
 
-	/*
-	 * Delete the function table corresponding to the LSA type and opaque type
-	 * as well. The pointer to the opaque per-type information structure in
-	 * the function table structure be set to NULL to avoid recursion during
-	 * deletion.
-	 */
-	if (oipt->functab) {
-		oipt->functab->oipt = NULL;
-		ospf_delete_opaque_functab(oipt->lsa_type, oipt->opaque_type);
-	}
+	if (oipt->functab)
+		ospf_opaque_functab_deref(oipt->functab);
+
+	if (IS_DEBUG_OSPF_EVENT)
+		zlog_debug("%s: Free Opaque info-per-type LSA type %u, opaque type %u, (%p), Functab (%p)",
+			   __func__, oipt->lsa_type, oipt->opaque_type, oipt,
+			   oipt->functab);
+
 	XFREE(MTYPE_OPAQUE_INFO_PER_TYPE, oipt);
 	return;
 }
@@ -780,8 +820,9 @@ void ospf_opaque_type9_lsa_if_cleanup(struct ospf_interface *oi)
 		 * While the LSA shouldn't be referenced on any LSA
 		 * lists since the flooding scoped is confined to the
 		 * interface being deleted, clear the pointer to the
-		 * deleted interface for safety's sake after it is
-		 * removed from the area LSDB.
+		 * deleted interface to avoid references and set the
+		 * age to MAXAGE to avoid flush processing when the LSA
+		 * is removed from the interface opaque info list.
 		 */
 		if (lsa->oi == oi) {
 			if (IS_DEBUG_OSPF_EVENT)
@@ -790,10 +831,10 @@ void ospf_opaque_type9_lsa_if_cleanup(struct ospf_interface *oi)
 						   ntohl(lsa->data->id.s_addr)),
 					   GET_OPAQUE_ID(ntohl(
 						   lsa->data->id.s_addr)));
-			ospf_lsa_lock(lsa);
 			ospf_lsdb_delete(lsdb, lsa);
+			lsa->data->ls_age = htons(OSPF_LSA_MAXAGE);
 			lsa->oi = NULL;
-			ospf_lsa_unlock(&lsa);
+			ospf_lsa_discard(lsa);
 		}
 }
 
