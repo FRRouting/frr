@@ -1,0 +1,16 @@
+VRF Name: Test
+============ OSPF network routing table ============
+N    1.1.1.1/32            [0] area: 0.0.0.0
+                           directly attached to Test
+N    2.2.2.2/32            [40] area: 0.0.0.0
+                           via 3.3.3.3, r1-eth2
+N    3.3.3.3/32            [20] area: 0.0.0.0
+                           via 3.3.3.3, r1-eth2
+
+============ OSPF router routing table =============
+R    2.2.2.2               [40] area: 0.0.0.0, ASBR
+                           via 3.3.3.3, r1-eth2
+R    3.3.3.3               [20] area: 0.0.0.0, ASBR
+                           via 3.3.3.3, r1-eth2
+
+============ OSPF external routing table ===========
