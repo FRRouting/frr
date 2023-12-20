@@ -534,6 +534,7 @@ DEFPY(pm_session_shutdown, pm_session_shutdown_cmd,
 			return CMD_SUCCESS;
 
 		PM_UNSET_FLAG(pm->flags, PM_SESS_FLAG_SHUTDOWN);
+		pm_set_sess_state(pm, PM_INIT);
 		pm_try_run(vty, pm);
 	} else {
 		if (PM_CHECK_FLAG(pm->flags, PM_SESS_FLAG_SHUTDOWN))
@@ -548,6 +549,7 @@ DEFPY(pm_session_shutdown, pm_session_shutdown_cmd,
 		PM_SET_FLAG(pm->flags, PM_SESS_FLAG_SHUTDOWN);
 
 		pm_echo_stop(pm, errormsg, sizeof(errormsg), false);
+		pm_set_sess_state(pm, PM_ADM_DOWN);
 	}
 	return CMD_SUCCESS;
 }
