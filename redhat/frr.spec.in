@@ -180,6 +180,7 @@ BuildRequires:  flex
 BuildRequires:  gcc
 BuildRequires:  json-c-devel
 BuildRequires:  libcap-devel
+BuildRequires:  protobuf-c-devel
 BuildRequires:  make
 BuildRequires:  ncurses-devel
 BuildRequires:  readline-devel
@@ -998,7 +999,7 @@ sed -i 's/ -M rpki//' %{_sysconfdir}/frr/daemons
 -    Fix route deletion during zebra shutdown
 -    The dplane_fpm_nl return path leaks memory
 
-* Thu Oct 09 2023 Donatas Abraitis <donatas@opensourcerouting.org> - 9.1
+* Mon Oct 09 2023 Donatas Abraitis <donatas@opensourcerouting.org> - 9.1
 - Major highlights:
 -   OSPFv2 HMAC-SHA Cryptographic Authentication
 -   BGP MAC-VRF Site-Of-Origin support
