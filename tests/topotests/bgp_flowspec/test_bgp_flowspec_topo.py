@@ -51,7 +51,6 @@ sys.path.append(os.path.join(CWD, "../"))
 from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
-from lib.common_config import generate_support_bundle
 
 # Required to instantiate the topology builder class.
 
@@ -140,10 +139,7 @@ def test_bgp_convergence():
     )
     _, res = topotest.run_and_expect(test_func, None, count=210, wait=1)
     assertmsg = "BGP router network did not converge"
-    if res is not None:
-        generate_support_bundle()
-        assert res is None, assertmsg
-    generate_support_bundle()
+    assert res is None, assertmsg
 
 
 def test_bgp_flowspec():
