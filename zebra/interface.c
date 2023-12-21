@@ -2762,8 +2762,7 @@ static void if_dump_vty(struct vty *vty, struct interface *ifp)
 	}
 
 	frr_each (if_connected, ifp->connected, connected) {
-		if (CHECK_FLAG(connected->conf, ZEBRA_IFC_REAL)
-		    && (connected->address->family == AF_INET6))
+		if (connected->address->family == AF_INET6)
 			connected_dump_vty(vty, NULL, connected);
 	}
 
@@ -3139,8 +3138,7 @@ static void if_dump_vty_json(struct vty *vty, struct interface *ifp,
 	}
 
 	frr_each (if_connected, ifp->connected, connected) {
-		if (CHECK_FLAG(connected->conf, ZEBRA_IFC_REAL)
-		    && (connected->address->family == AF_INET6))
+		if (connected->address->family == AF_INET6)
 			connected_dump_vty(vty, json_addrs, connected);
 	}
 
