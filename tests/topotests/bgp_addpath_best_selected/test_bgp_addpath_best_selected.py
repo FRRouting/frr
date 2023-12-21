@@ -111,6 +111,9 @@ def test_bgp_addpath_best_selected():
     _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
     assert result is None, "Can't converge initially"
 
+    r2.vtysh_cmd("clear bgp ipv4 192.168.1.1 soft out")
+    r2.vtysh_cmd("clear bgp ipv4 192.168.7.7 soft out")
+
     def check_bgp_advertised_routes_to_r1():
         output = json.loads(
             r2.vtysh_cmd(
