@@ -105,6 +105,8 @@ struct rpki_vrf {
 	QOBJ_FIELDS;
 };
 
+static struct rpki_vrf *find_rpki_vrf(const char *vrfname);
+static int bgp_rpki_vrf_update(struct vrf *vrf, bool enabled);
 static int bgp_rpki_write_debug(struct vty *vty, bool running);
 static int start(struct rpki_vrf *rpki_vrf);
 static void stop(struct rpki_vrf *rpki_vrf);
@@ -265,6 +267,24 @@ static struct rtr_socket *create_rtr_socket(struct tr_socket *tr_socket)
 		XMALLOC(MTYPE_BGP_RPKI_CACHE, sizeof(struct rtr_socket));
 	rtr_socket->tr_socket = tr_socket;
 	return rtr_socket;
+}
+
+static int bgp_rpki_vrf_update(struct vrf *vrf, bool enabled)
+{
+	struct rpki_vrf *rpki;
+
+	if (vrf->vrf_id == VRF_DEFAULT)
+		rpki = find_rpki_vrf(NULL);
+	else
+		rpki = find_rpki_vrf(vrf->name);
+	if (!rpki)
+		return 0;
+
+	if (enabled)
+		start(rpki);
+	else
+		stop(rpki);
+	return 1;
 }
 
 static struct rpki_vrf *find_rpki_vrf(const char *vrfname)
@@ -711,6 +731,7 @@ static int bgp_rpki_module_init(void)
 	hook_register(frr_late_init, bgp_rpki_init);
 	hook_register(frr_early_fini, bgp_rpki_fini);
 	hook_register(bgp_hook_config_write_debug, &bgp_rpki_write_debug);
+	hook_register(bgp_hook_vrf_update, &bgp_rpki_vrf_update);
 
 	return 0;
 }
@@ -735,6 +756,7 @@ static void sync_expired(struct event *thread)
 static int start(struct rpki_vrf *rpki_vrf)
 {
 	struct list *cache_list = NULL;
+	struct vrf *vrf;
 	int ret;
 
 	rpki_vrf->rtr_is_stopping = false;
@@ -748,6 +770,16 @@ static int start(struct rpki_vrf *rpki_vrf)
 			"No caches were found in config. Prefix validation is off.");
 		return ERROR;
 	}
+
+	if (rpki_vrf->vrfname)
+		vrf = vrf_lookup_by_name(rpki_vrf->vrfname);
+	else
+		vrf = vrf_lookup_by_id(VRF_DEFAULT);
+	if (!vrf || !CHECK_FLAG(vrf->status, VRF_ACTIVE)) {
+		RPKI_DEBUG("VRF %s not present or disabled", rpki_vrf->vrfname);
+		return ERROR;
+	}
+
 	RPKI_DEBUG("Init rtr_mgr.");
 	int groups_len = listcount(cache_list);
 	struct rtr_mgr_group *groups = get_groups(rpki_vrf->cache_list);
