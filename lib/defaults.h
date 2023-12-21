@@ -38,6 +38,7 @@ struct frr_default_entry {
 	long val_long;
 	unsigned long val_ulong;
 	float val_float;
+	uint8_t val_uint8_t;
 };
 
 /* one struct frr_default exists for each malleable default value */
@@ -62,6 +63,7 @@ struct frr_default {
 	long *dflt_long;
 	unsigned long *dflt_ulong;
 	float *dflt_float;
+	uint8_t *dflt_uint8_t;
 
 	/* variable to use when comparing for config save */
 	bool *save_bool;
@@ -69,6 +71,7 @@ struct frr_default {
 	long *save_long;
 	unsigned long *save_ulong;
 	float *save_float;
+	uint8_t *save_uint8_t;
 
 	struct frr_default_entry entries[];
 };
@@ -113,6 +116,8 @@ struct frr_default {
 	_FRR_CFG_DEFAULT(float, float, varname, ## __VA_ARGS__)
 #define FRR_CFG_DEFAULT_STR(varname, ...) \
 	_FRR_CFG_DEFAULT(const char *, str, varname, ## __VA_ARGS__)
+#define FRR_CFG_DEFAULT_UINT8_T(varname, ...)                                  \
+	_FRR_CFG_DEFAULT(uint8_t, uint8_t, varname, ##__VA_ARGS__)
 
 
 /* daemons don't need to call any of these, libfrr handles that */
