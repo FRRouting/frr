@@ -200,6 +200,10 @@ Debugging
 Displaying RPKI
 ---------------
 
+.. clicmd:: show rpki configuration [json]
+
+   Display RPKI configuration state including timers values.
+
 .. clicmd:: show rpki prefix <A.B.C.D/M|X:X::X:X/M> [(1-4294967295)] [json]
 
    Display validated prefixes received from the cache servers filtered
