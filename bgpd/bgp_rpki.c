@@ -63,7 +63,12 @@ static struct event *t_rpki_sync;
 #define RPKI_OUTPUT_STRING "Control rpki specific settings\n"
 
 struct cache {
-	enum { TCP, SSH } type;
+	enum {
+		TCP,
+#if defined(FOUND_SSH)
+		SSH
+#endif
+	} type;
 	struct tr_socket *tr_socket;
 	union {
 		struct tr_tcp_config *tcp_config;
