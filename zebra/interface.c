@@ -1054,6 +1054,8 @@ void if_up(struct interface *ifp, bool install_connected)
 	event_add_timer(zrouter.master, if_zebra_speed_update, ifp, 0,
 			&zif->speed_update);
 	event_ignore_late_timer(zif->speed_update);
+
+	if_addr_wakeup(ifp);
 }
 
 /* Interface goes down.  We have to manage different behavior of based
