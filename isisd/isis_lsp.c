@@ -2341,6 +2341,56 @@ static int lsp_handle_adj_state_change(struct isis_adjacency *adj)
 }
 
 /*
+ * Iterate over all SRv6 locator TLVs
+ */
+int isis_lsp_iterate_srv6_locator(struct isis_lsp *lsp, uint16_t mtid,
+				  lsp_ip_reach_iter_cb cb, void *arg)
+{
+	bool pseudo_lsp = LSP_PSEUDO_ID(lsp->hdr.lsp_id);
+	struct isis_lsp *frag;
+	struct listnode *node;
+
+	if (lsp->hdr.seqno == 0 || lsp->hdr.rem_lifetime == 0)
+		return LSP_ITER_CONTINUE;
+
+	/* Parse LSP */
+	if (lsp->tlvs) {
+		if (!pseudo_lsp) {
+			struct isis_item_list *srv6_locator_reachs;
+			struct isis_srv6_locator_tlv *r;
+
+			srv6_locator_reachs =
+				isis_lookup_mt_items(&lsp->tlvs->srv6_locator,
+						     mtid);
+
+			for (r = srv6_locator_reachs
+					 ? (struct isis_srv6_locator_tlv *)
+						   srv6_locator_reachs->head
+					 : NULL;
+			     r; r = r->next) {
+				if ((*cb)((struct prefix *)&r->prefix,
+					  r->metric, false /* ignore */,
+					  r->subtlvs, arg) == LSP_ITER_STOP)
+					return LSP_ITER_STOP;
+			}
+		}
+	}
+
+	/* Parse LSP fragments if it is not a fragment itself */
+	if (!LSP_FRAGMENT(lsp->hdr.lsp_id))
+		for (ALL_LIST_ELEMENTS_RO(lsp->lspu.frags, node, frag)) {
+			if (!frag->tlvs)
+				continue;
+
+			if (isis_lsp_iterate_srv6_locator(frag, mtid, cb,
+							  arg) == LSP_ITER_STOP)
+				return LSP_ITER_STOP;
+		}
+
+	return LSP_ITER_CONTINUE;
+}
+
+/*
  * Iterate over all IP reachability TLVs in a LSP (all fragments) of the given
  * address-family and MT-ID.
  */
