@@ -26,7 +26,7 @@ from munet.base import Commander, proc_error
 from munet.cleanup import cleanup_current, cleanup_previous
 from munet.config import ConfigOptionsProxy
 from munet.testing.util import pause_test
-
+from lib.common_config import generate_support_bundle
 from lib import topolog, topotest
 
 try:
@@ -598,6 +598,10 @@ def pytest_runtest_setup(item):
     module = item.parent.module
     script_dir = os.path.abspath(os.path.dirname(module.__file__))
     os.environ["PYTEST_TOPOTEST_SCRIPTDIR"] = script_dir
+
+
+def pytest_exception_interact(node, call, report):
+    generate_support_bundle()
 
 
 def pytest_runtest_makereport(item, call):

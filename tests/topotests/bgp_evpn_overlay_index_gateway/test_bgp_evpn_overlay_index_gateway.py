@@ -58,7 +58,6 @@ from lib.common_config import (
     step,
     write_test_header,
     write_test_footer,
-    generate_support_bundle,
 )
 
 # Required to instantiate the topology builder class.
@@ -277,8 +276,6 @@ def test_evpn_gateway_ip_basic_topo(request):
 
     result, assertmsg = evpn_gateway_ip_show_op_check("base")
 
-    if result is not None:
-        generate_support_bundle()
     assert result is None, assertmsg
 
     write_test_footer(tc_name)
@@ -319,8 +316,6 @@ def test_evpn_gateway_ip_flap_rt5(request):
     )
 
     result, assertmsg = evpn_gateway_ip_show_op_check("no_rt5")
-    if result is not None:
-        generate_support_bundle()
     assert result is None, assertmsg
 
     step("Advertise type-5 routes again")
@@ -339,8 +334,6 @@ def test_evpn_gateway_ip_flap_rt5(request):
     )
 
     result, assertmsg = evpn_gateway_ip_show_op_check("base")
-    if result is not None:
-        generate_support_bundle()
 
     assert result is None, assertmsg
 
@@ -371,8 +364,6 @@ def test_evpn_gateway_ip_flap_rt2(request):
     pe1.cmd_raises("ip link set dev vxlan100 down")
 
     result, assertmsg = evpn_gateway_ip_show_op_check("no_rt2")
-    if result is not None:
-        generate_support_bundle()
     assert result is None, assertmsg
 
     step("Bring up VxLAN interface at PE1 and advertise type-2 routes again")
@@ -380,8 +371,6 @@ def test_evpn_gateway_ip_flap_rt2(request):
     pe1.cmd_raises("ip link set dev vxlan100 up")
 
     result, assertmsg = evpn_gateway_ip_show_op_check("base")
-    if result is not None:
-        generate_support_bundle()
     assert result is None, assertmsg
 
     write_test_footer(tc_name)

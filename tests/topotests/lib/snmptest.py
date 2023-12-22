@@ -112,7 +112,7 @@ class SnmpTester(object):
         notif = re.sub(":", "", notif)
         notif = re.sub('"([0-9]{2}) ([0-9]{2}) "', r"\1\2", notif)
         notif = re.sub('"([0-9]{2}) "', r"\1", notif)
-        elems = re.findall("([0-9,\.]+) = ([0-9,\.]+)", notif)
+        elems = re.findall(r"([0-9,\.]+) = ([0-9,\.]+)", notif)
 
         # remove common part
         elems = elems[1:]
@@ -222,7 +222,7 @@ class SnmpTester(object):
         # don't consider additional application messages
         notifs = [elem for index, elem in enumerate(notifs_first) if index % 2 != 0]
 
-        oid_v4 = "1\.3\.6\.1\.2\.1\.15"
+        oid_v4 = r"1\.3\.6\.1\.2\.1\.15"
         for one_notif in notifs:
             is_ipv4_notif = re.search(oid_v4, one_notif)
             if is_ipv4_notif != None:
@@ -241,7 +241,7 @@ class SnmpTester(object):
         # don't consider additional application messages
         notifs = [elem for index, elem in enumerate(results) if index % 2 != 0]
 
-        oid_v6 = "1\.3\.6\.1\.3\.5\.1"
+        oid_v6 = r"1\.3\.6\.1\.3\.5\.1"
         for one_notif in notifs:
             is_ipv6_notif = re.search(oid_v6, one_notif)
             if is_ipv6_notif != None:
