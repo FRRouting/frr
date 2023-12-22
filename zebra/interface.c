@@ -5344,19 +5344,6 @@ static int ipv6_address_install(struct vty *vty, struct interface *ifp,
 	return CMD_SUCCESS;
 }
 
-/* Return true if an ipv6 address is configured on ifp */
-int ipv6_address_configured(struct interface *ifp)
-{
-	struct connected *connected;
-
-	frr_each (if_connected, ifp->connected, connected)
-		if (CHECK_FLAG(connected->conf, ZEBRA_IFC_REAL)
-		    && (connected->address->family == AF_INET6))
-			return 1;
-
-	return 0;
-}
-
 static int ipv6_address_uninstall(struct vty *vty, struct interface *ifp,
 				  const char *addr_str, const char *peer_str,
 				  const char *label)
