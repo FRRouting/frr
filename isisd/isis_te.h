@@ -103,6 +103,7 @@ struct isis_te_args {
 	struct ls_ted *ted;
 	struct ls_vertex *vertex;
 	bool export;
+	bool srv6_locator;
 };
 
 enum lsp_event { LSP_UNKNOWN, LSP_ADD, LSP_UPD, LSP_DEL, LSP_INC, LSP_TICK };
