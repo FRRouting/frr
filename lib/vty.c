@@ -157,6 +157,19 @@ static int vty_mgmt_unlock_running_inline(struct vty *vty)
 	return vty->mgmt_locked_running_ds ? -1 : 0;
 }
 
+/* Color data */
+struct color_data {
+	const char *tag;
+	const char *color;
+};
+
+/* Mapping between tags and colors */
+const struct color_data vty_tag_color[] = {{VT_WARN, VT100_ORANGE},
+					   {VT_ERR, VT100_RED},
+					   {VT_GOOD, VT100_GREEN},
+					   {VT_END, VT100_RESET},
+					   {0}};
+
 void vty_mgmt_resume_response(struct vty *vty, bool success)
 {
 	uint8_t header[4] = {0, 0, 0, 0};
@@ -243,6 +256,26 @@ bool vty_set_include(struct vty *vty, const char *regexp)
 	return ret;
 }
 
+/* Replace color tag to VT100 color */
+char *vty_color_filtered(struct vty *vty, char *input)
+{
+	char *color_filtered = NULL;
+	char *tmp_color_filtered = XSTRDUP(MTYPE_TMP, input);
+
+	static struct color_data nt = {0};
+	const struct color_data *pnt;
+
+	for (pnt = vty_tag_color; memcmp(pnt, &nt, sizeof(struct color_data));
+	     pnt++) {
+		color_filtered = frrstr_replace(tmp_color_filtered, pnt->tag,
+						vty->color ? pnt->color : "");
+		XFREE(MTYPE_TMP, tmp_color_filtered);
+		tmp_color_filtered = color_filtered;
+	}
+
+	return color_filtered;
+}
+
 /* VTY standard output function. */
 int vty_out(struct vty *vty, const char *format, ...)
 {
@@ -251,6 +284,7 @@ int vty_out(struct vty *vty, const char *format, ...)
 	char buf[1024];
 	char *p = NULL;
 	char *filtered;
+	char *color_filtered = NULL;
 	/* format string may contain %m, keep errno intact for printfrr */
 	int saved_errno = errno;
 
@@ -320,30 +354,40 @@ int vty_out(struct vty *vty, const char *format, ...)
 	if (!filtered)
 		goto done;
 
+	/* Replace tag => color */
+	if (vty->type != VTY_SHELL_SERV)
+		color_filtered = vty_color_filtered(vty, filtered);
+
 	switch (vty->type) {
 	case VTY_TERM:
 		/* print with crlf replacement */
-		buffer_put_crlf(vty->obuf, (uint8_t *)filtered,
-				strlen(filtered));
+		buffer_put_crlf(vty->obuf, (uint8_t *)color_filtered,
+				strlen(color_filtered));
 		break;
 	case VTY_SHELL:
 		if (vty->of) {
-			fprintf(vty->of, "%s", filtered);
+			fprintf(vty->of, "%s", color_filtered);
 			fflush(vty->of);
 		} else if (vty->of_saved) {
-			fprintf(vty->of_saved, "%s", filtered);
+			fprintf(vty->of_saved, "%s", color_filtered);
 			fflush(vty->of_saved);
 		}
 		break;
 	case VTY_SHELL_SERV:
+		/* print without crlf replacement */
+		buffer_put(vty->obuf, (uint8_t *)filtered, strlen(filtered));
+		break;
 	case VTY_FILE:
 	default:
 		/* print without crlf replacement */
-		buffer_put(vty->obuf, (uint8_t *)filtered, strlen(filtered));
+		buffer_put(vty->obuf, (uint8_t *)color_filtered,
+			   strlen(color_filtered));
 		break;
 	}
 
 done:
+	if (color_filtered)
+		XFREE(MTYPE_TMP, color_filtered);
 
 	if (vty->filter && filtered)
 		XFREE(MTYPE_TMP, filtered);
@@ -1674,6 +1718,7 @@ struct vty *vty_new(void)
 	new->buf = XCALLOC(MTYPE_VTY, VTY_BUFSIZ);
 	new->max = VTY_BUFSIZ;
 	new->pass_fd = -1;
+	new->color = false;
 
 	if (mgmt_fe_client) {
 		if (!mgmt_client_id_next)

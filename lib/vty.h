@@ -84,6 +84,9 @@ struct vty {
 	/* Failure count */
 	int fail;
 
+	/* use color for output */
+	bool color;
+
 	/* Output filer regex */
 	bool filter;
 	regex_t include;
@@ -237,6 +240,19 @@ struct vty {
 	bool vtysh_file_locked;
 };
 
+/* Color tags */
+#define VT_WARN "\vWARN"
+#define VT_ERR "\vERR"
+#define VT_GOOD "\vGOOD"
+#define VT_END "\vEND"
+
+/* VT100 colors */
+#define VT100_ORANGE "\x1b[93m"
+#define VT100_RED "\x1b[31m"
+#define VT100_GREEN "\x1b[32m"
+#define VT100_YELLOW "\x1b[33m"
+#define VT100_RESET "\x1b[0m"
+
 static inline void vty_push_context(struct vty *vty, int node, uint64_t id)
 {
 	vty->node = node;
@@ -369,6 +385,7 @@ extern int vty_out(struct vty *, const char *, ...) PRINTFRR(2, 3);
 extern void vty_frame(struct vty *, const char *, ...) PRINTFRR(2, 3);
 extern void vty_endframe(struct vty *, const char *);
 extern bool vty_set_include(struct vty *vty, const char *regexp);
+extern char *vty_color_filtered(struct vty *vty, char *input);
 /* returns CMD_SUCCESS so you can do a one-line "return vty_json(...)"
  * NULL check and json_object_free() is included.
  *
