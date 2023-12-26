@@ -317,30 +317,16 @@ extern unsigned int yang_snode_num_keys(const struct lysc_node *snode);
  *    libyang data node to be processed.
  *
  * xpath
- *    Pointer to previously allocated buffer.
+ *    Pointer to previously allocated buffer or NULL.
  *
  * xpath_len
- *    Size of the xpath buffer.
+ *    Size of the xpath buffer if xpath non-NULL.
+ *
+ * If xpath is NULL, the returned string (if non-NULL) needs to be free()d by
+ * the caller.
  */
-extern void yang_dnode_get_path(const struct lyd_node *dnode, char *xpath,
+extern char *yang_dnode_get_path(const struct lyd_node *dnode, char *xpath,
 				size_t xpath_len);
-
-/*
- * Return the schema name of the given libyang data node.
- *
- * dnode
- *    libyang data node.
- *
- * xpath_fmt
- *    Optional XPath expression (absolute or relative) to specify a different
- *    data node to operate on in the same data tree.
- *
- * Returns:
- *    Schema name of the libyang data node.
- */
-extern const char *yang_dnode_get_schema_name(const struct lyd_node *dnode,
-					      const char *xpath_fmt, ...)
-	PRINTFRR(2, 3);
 
 /*
  * Find a libyang data node by its YANG data path.
@@ -729,6 +715,9 @@ bool yang_is_last_level_dnode(const struct lyd_node *dnode);
 /* Create a YANG predicate string based on the keys */
 extern int yang_get_key_preds(char *s, const struct lysc_node *snode,
 			      struct yang_list_keys *keys, ssize_t space);
+
+/* Get YANG keys from an existing dnode */
+extern int yang_get_node_keys(struct lyd_node *node, struct yang_list_keys *keys);
 
 /* Create a new list lyd_node using `yang_list_keys` */
 extern LY_ERR yang_lyd_new_list(struct lyd_node_inner *parent,

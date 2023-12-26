@@ -364,33 +364,10 @@ unsigned int yang_snode_num_keys(const struct lysc_node *snode)
 	return count;
 }
 
-void yang_dnode_get_path(const struct lyd_node *dnode, char *xpath,
-			 size_t xpath_len)
+char *yang_dnode_get_path(const struct lyd_node *dnode, char *xpath,
+			  size_t xpath_len)
 {
-	lyd_path(dnode, LYD_PATH_STD, xpath, xpath_len);
-}
-
-const char *yang_dnode_get_schema_name(const struct lyd_node *dnode,
-				       const char *xpath_fmt, ...)
-{
-	if (xpath_fmt) {
-		va_list ap;
-		char xpath[XPATH_MAXLEN];
-
-		va_start(ap, xpath_fmt);
-		vsnprintf(xpath, sizeof(xpath), xpath_fmt, ap);
-		va_end(ap);
-
-		dnode = yang_dnode_get(dnode, xpath);
-		if (!dnode) {
-			flog_err(EC_LIB_YANG_DNODE_NOT_FOUND,
-				 "%s: couldn't find %s", __func__, xpath);
-			zlog_backtrace(LOG_ERR);
-			abort();
-		}
-	}
-
-	return dnode->schema->name;
+	return lyd_path(dnode, LYD_PATH_STD, xpath, xpath_len);
 }
 
 struct lyd_node *yang_dnode_get(const struct lyd_node *dnode, const char *xpath)
@@ -970,6 +947,23 @@ int yang_get_key_preds(char *s, const struct lysc_node *snode,
 
 	assert(i == keys->num);
 	return i;
+}
+
+int yang_get_node_keys(struct lyd_node *node, struct yang_list_keys *keys)
+{
+	struct lyd_node *child = lyd_child(node);
+
+	keys->num = 0;
+	for (; child && lysc_is_key(child->schema); child = child->next) {
+		const char *value = lyd_get_value(child);
+
+		if (!value)
+			return NB_ERR;
+		strlcpy(keys->key[keys->num], value,
+			sizeof(keys->key[keys->num]));
+		keys->num++;
+	}
+	return NB_OK;
 }
 
 LY_ERR yang_lyd_new_list(struct lyd_node_inner *parent,
