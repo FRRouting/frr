@@ -51,12 +51,16 @@ def setup_module(mod):
 
     tgen.start_router()
 
-    r1_path = os.path.join(CWD, "r1")
-
     global rtrd_process
 
-    tgen.gears["r1"].cmd("chmod u+x {}/rtrd.py".format(r1_path))
-    rtrd_process = tgen.gears["r1"].popen("python3 {}/rtrd.py".format(r1_path))
+    rname = "r1"
+
+    rtr_path = os.path.join(CWD, rname)
+    log_dir = os.path.join(tgen.logdir, rname)
+    log_file = os.path.join(log_dir, "rtrd.log")
+
+    tgen.gears[rname].cmd("chmod u+x {}/rtrd.py".format(rtr_path))
+    rtrd_process = tgen.gears[rname].popen("{}/rtrd.py {}".format(rtr_path, log_file))
 
 
 def teardown_module(mod):
