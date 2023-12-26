@@ -19,6 +19,7 @@ VRPS_FILE = os.path.join(sys.path[0], "vrps.csv")
 
 def dbg(m: str):
     print(m)
+    sys.stdout.flush()
 
 
 class RTRDatabase(object):
@@ -316,4 +317,11 @@ def main():
 
 
 if __name__ == "__main__":
+    if len(sys.argv) > 1:
+        f = open(sys.argv[1], "w")
+        sys.__stdout__ = f
+        sys.stdout = f
+        sys.__stderr__ = f
+        sys.stderr = f
+
     main()
