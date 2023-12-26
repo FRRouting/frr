@@ -112,6 +112,11 @@ def test_show_bgp_rpki_prefixes():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
+    for rname in ["r1", "r3"]:
+        logger.info("{}: checking if rtrd is running".format(rname))
+        if rtrd_process.poll() is not None:
+            pytest.skip(tgen.errors)
+
     rname = "r2"
 
     step("Check RPKI prefix table")
@@ -149,6 +154,11 @@ def test_show_bgp_rpki_prefixes_no_rpki_cache():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
+    for rname in ["r1", "r3"]:
+        logger.info("{}: checking if rtrd is running".format(rname))
+        if rtrd_process.poll() is not None:
+            pytest.skip(tgen.errors)
+
     def _show_rpki_no_connection(rname):
         output = json.loads(
             tgen.gears[rname].vtysh_cmd("show rpki cache-connection json")
@@ -179,6 +189,11 @@ def test_show_bgp_rpki_prefixes_reconnect():
 
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
+
+    for rname in ["r1", "r3"]:
+        logger.info("{}: checking if rtrd is running".format(rname))
+        if rtrd_process.poll() is not None:
+            pytest.skip(tgen.errors)
 
     step("Restore RPKI server configuration")
 
@@ -223,6 +238,11 @@ def test_show_bgp_rpki_route_map():
 
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
+
+    for rname in ["r1", "r3"]:
+        logger.info("{}: checking if rtrd is running".format(rname))
+        if rtrd_process.poll() is not None:
+            pytest.skip(tgen.errors)
 
     step("Apply RPKI valid route-map on neighbor")
 

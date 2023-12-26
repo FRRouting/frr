@@ -273,6 +273,9 @@ class RTRConnHandler(socketserver.BaseRequestHandler):
 
     def handle_error(self, buf: bytes):
         dbg(f">Error: {str(buf)}")
+        self.server.shutdown()
+        self.server.stopped = True
+        raise ConnectionError("Received an RPKI error packet from FRR. Exiting")
 
     def handle(self):
         while True:
