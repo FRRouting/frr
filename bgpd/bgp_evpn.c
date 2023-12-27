@@ -3067,11 +3067,22 @@ static int install_evpn_route_entry_in_vrf(struct bgp *bgp_vrf,
 	/* Process for route leaking. */
 	vpn_leak_from_vrf_update(bgp_get_default(), bgp_vrf, pi);
 
-	if (bgp_debug_zebra(NULL))
-		zlog_debug("... %s pi dest %p (l %d) pi %p (l %d, f 0x%x)",
-			   new_pi ? "new" : "update", dest,
+	if (bgp_debug_zebra(NULL)) {
+		struct ipaddr nhip = {};
+
+		if (pi->net->rn->p.family == AF_INET6) {
+			SET_IPADDR_V6(&nhip);
+			IPV6_ADDR_COPY(&nhip.ipaddr_v6, &pi->attr->mp_nexthop_global);
+		} else {
+			SET_IPADDR_V4(&nhip);
+			IPV4_ADDR_COPY(&nhip.ipaddr_v4, &pi->attr->nexthop);
+		}
+		zlog_debug("... %s pi %s dest %p (l %d) pi %p (l %d, f 0x%x) nh %pIA",
+			   new_pi ? "new" : "update",
+			   bgp_vrf->name_pretty, dest,
 			   bgp_dest_get_lock_count(dest), pi, pi->lock,
-			   pi->flags);
+			   pi->flags, &nhip);
+	}
 
 	bgp_dest_unlock_node(dest);
 
@@ -3380,10 +3391,22 @@ static int uninstall_evpn_route_entry_in_vrf(struct bgp *bgp_vrf,
 		return 0;
 	}
 
-	if (bgp_debug_zebra(NULL))
-		zlog_debug("... delete dest %p (l %d) pi %p (l %d, f 0x%x)",
-			   dest, bgp_dest_get_lock_count(dest), pi, pi->lock,
-			   pi->flags);
+	if (bgp_debug_zebra(NULL)) {
+		struct ipaddr nhip = {};
+
+		if (pi->net->rn->p.family == AF_INET6) {
+			SET_IPADDR_V6(&nhip);
+			IPV6_ADDR_COPY(&nhip.ipaddr_v6, &pi->attr->mp_nexthop_global);
+		} else {
+			SET_IPADDR_V4(&nhip);
+			IPV4_ADDR_COPY(&nhip.ipaddr_v4, &pi->attr->nexthop);
+		}
+
+		zlog_debug("... delete pi %s dest %p (l %d) pi %p (l %d, f 0x%x) nh %pIA",
+			   bgp_vrf->name_pretty, dest,
+			   bgp_dest_get_lock_count(dest), pi, pi->lock,
+			   pi->flags, &nhip);
+	}
 
 	/* Process for route leaking. */
 	vpn_leak_from_vrf_withdraw(bgp_get_default(), bgp_vrf, pi);
