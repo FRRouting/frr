@@ -197,6 +197,11 @@ module frr-pathd {
           description
             "BSID of the SR Policy.";
         }
+        leaf srv6-binding-sid {
+          type inet:ipv6-address;
+          description
+            "SRv6 BSID of the SR policy.";
+        }
         leaf is-operational {
           type boolean;
           config false;
