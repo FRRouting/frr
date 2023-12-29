@@ -70,6 +70,26 @@ struct zebra_router_table *zebra_router_find_zrt(struct zebra_vrf *zvrf,
 	return zrt;
 }
 
+struct zebra_router_table *zebra_router_find_next_zrt(struct zebra_vrf *zvrf,
+						      uint32_t tableid,
+						      afi_t afi, safi_t safi)
+{
+	struct zebra_router_table finder;
+	struct zebra_router_table *zrt;
+
+	memset(&finder, 0, sizeof(finder));
+	finder.afi = afi;
+	finder.safi = safi;
+	finder.tableid = tableid;
+	finder.ns_id = zvrf->zns->ns_id;
+	zrt = RB_NFIND(zebra_router_table_head, &zrouter.tables, &finder);
+	if (zrt->afi == afi && zrt->safi == safi && zrt->tableid == tableid &&
+	    zrt->ns_id == finder.ns_id)
+		zrt = RB_NEXT(zebra_router_table_head, zrt);
+
+	return zrt;
+}
+
 struct route_table *zebra_router_find_table(struct zebra_vrf *zvrf,
 					    uint32_t tableid, afi_t afi,
 					    safi_t safi)

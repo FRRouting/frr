@@ -6,6 +6,7 @@
 
 #include <zebra.h>
 
+#include "darr.h"
 #include "log.h"
 #include "lib_errors.h"
 #include "yang.h"
@@ -363,33 +364,10 @@ unsigned int yang_snode_num_keys(const struct lysc_node *snode)
 	return count;
 }
 
-void yang_dnode_get_path(const struct lyd_node *dnode, char *xpath,
-			 size_t xpath_len)
+char *yang_dnode_get_path(const struct lyd_node *dnode, char *xpath,
+			  size_t xpath_len)
 {
-	lyd_path(dnode, LYD_PATH_STD, xpath, xpath_len);
-}
-
-const char *yang_dnode_get_schema_name(const struct lyd_node *dnode,
-				       const char *xpath_fmt, ...)
-{
-	if (xpath_fmt) {
-		va_list ap;
-		char xpath[XPATH_MAXLEN];
-
-		va_start(ap, xpath_fmt);
-		vsnprintf(xpath, sizeof(xpath), xpath_fmt, ap);
-		va_end(ap);
-
-		dnode = yang_dnode_get(dnode, xpath);
-		if (!dnode) {
-			flog_err(EC_LIB_YANG_DNODE_NOT_FOUND,
-				 "%s: couldn't find %s", __func__, xpath);
-			zlog_backtrace(LOG_ERR);
-			abort();
-		}
-	}
-
-	return dnode->schema->name;
+	return lyd_path(dnode, LYD_PATH_STD, xpath, xpath_len);
 }
 
 struct lyd_node *yang_dnode_get(const struct lyd_node *dnode, const char *xpath)
@@ -673,6 +651,37 @@ static void ly_log_cb(LY_LOG_LEVEL level, const char *msg, const char *path)
 		zlog(priority, "libyang: %s", msg);
 }
 
+static ssize_t yang_print_darr(void *arg, const void *buf, size_t count)
+{
+	uint8_t *dst = darr_append_n(*(uint8_t **)arg, count);
+
+	memcpy(dst, buf, count);
+	return count;
+}
+
+LY_ERR yang_print_tree_append(uint8_t **darr, const struct lyd_node *root,
+			      LYD_FORMAT format, uint32_t options)
+{
+	LY_ERR err;
+
+	err = lyd_print_clb(yang_print_darr, darr, root, format, options);
+	if (err)
+		zlog_err("Failed to save yang tree: %s", ly_last_errmsg());
+	else if (format != LYD_LYB)
+		*darr_append(*darr) = 0;
+	return err;
+}
+
+uint8_t *yang_print_tree(const struct lyd_node *root, LYD_FORMAT format,
+			 uint32_t options)
+{
+	uint8_t *darr = NULL;
+
+	if (yang_print_tree_append(&darr, root, format, options))
+		return NULL;
+	return darr;
+}
+
 const char *yang_print_errors(struct ly_ctx *ly_ctx, char *buf, size_t buf_len)
 {
 	struct ly_err_item *ei;
@@ -713,6 +722,7 @@ struct ly_ctx *yang_ctx_new_setup(bool embedded_modules, bool explicit_compile)
 {
 	struct ly_ctx *ctx = NULL;
 	const char *yang_models_path = YANG_MODELS_PATH;
+	uint options;
 	LY_ERR err;
 
 	if (access(yang_models_path, R_OK | X_OK)) {
@@ -726,7 +736,7 @@ struct ly_ctx *yang_ctx_new_setup(bool embedded_modules, bool explicit_compile)
 				     YANG_MODELS_PATH);
 	}
 
-	uint options = LY_CTX_NO_YANGLIBRARY | LY_CTX_DISABLE_SEARCHDIR_CWD;
+	options = LY_CTX_NO_YANGLIBRARY | LY_CTX_DISABLE_SEARCHDIR_CWD;
 	if (explicit_compile)
 		options |= LY_CTX_EXPLICIT_COMPILE;
 	err = ly_ctx_new(yang_models_path, options, &ctx);
@@ -916,4 +926,96 @@ uint32_t yang_get_list_elements_count(const struct lyd_node *node)
 		node = node->next;
 	} while (node);
 	return count;
+}
+
+int yang_get_key_preds(char *s, const struct lysc_node *snode,
+		       struct yang_list_keys *keys, ssize_t space)
+{
+	const struct lysc_node_leaf *skey;
+	ssize_t len2, len = 0;
+	ssize_t i = 0;
+
+	LY_FOR_KEYS (snode, skey) {
+		assert(i < keys->num);
+		len2 = snprintf(s + len, space - len, "[%s='%s']", skey->name,
+				keys->key[i]);
+		if (len2 > space - len)
+			len = space;
+		else
+			len += len2;
+		i++;
+	}
+
+	assert(i == keys->num);
+	return i;
+}
+
+int yang_get_node_keys(struct lyd_node *node, struct yang_list_keys *keys)
+{
+	struct lyd_node *child = lyd_child(node);
+
+	keys->num = 0;
+	for (; child && lysc_is_key(child->schema); child = child->next) {
+		const char *value = lyd_get_value(child);
+
+		if (!value)
+			return NB_ERR;
+		strlcpy(keys->key[keys->num], value,
+			sizeof(keys->key[keys->num]));
+		keys->num++;
+	}
+	return NB_OK;
+}
+
+LY_ERR yang_lyd_new_list(struct lyd_node_inner *parent,
+			 const struct lysc_node *snode,
+			 const struct yang_list_keys *list_keys,
+			 struct lyd_node_inner **node)
+{
+	struct lyd_node *pnode = &parent->node;
+	struct lyd_node **nodepp = (struct lyd_node **)node;
+	const char(*keys)[LIST_MAXKEYLEN] = list_keys->key;
+
+	/*
+	 * When
+	 * https://github.com/CESNET/libyang/commit/2c1e327c7c2dd3ba12d466a4ebcf62c1c44116c4
+	 * is released in libyang we should add a configure.ac check for the
+	 * lyd_new_list3 function and use it here.
+	 */
+	switch (list_keys->num) {
+	case 0:
+		return lyd_new_list(pnode, snode->module, snode->name, false,
+				    nodepp);
+	case 1:
+		return lyd_new_list(pnode, snode->module, snode->name, false,
+				    nodepp, keys[0]);
+	case 2:
+		return lyd_new_list(pnode, snode->module, snode->name, false,
+				    nodepp, keys[0], keys[1]);
+	case 3:
+		return lyd_new_list(pnode, snode->module, snode->name, false,
+				    nodepp, keys[0], keys[1], keys[2]);
+	case 4:
+		return lyd_new_list(pnode, snode->module, snode->name, false,
+				    nodepp, keys[0], keys[1], keys[2], keys[3]);
+	case 5:
+		return lyd_new_list(pnode, snode->module, snode->name, false,
+				    nodepp, keys[0], keys[1], keys[2], keys[3],
+				    keys[4]);
+	case 6:
+		return lyd_new_list(pnode, snode->module, snode->name, false,
+				    nodepp, keys[0], keys[1], keys[2], keys[3],
+				    keys[4], keys[5]);
+	case 7:
+		return lyd_new_list(pnode, snode->module, snode->name, false,
+				    nodepp, keys[0], keys[1], keys[2], keys[3],
+				    keys[4], keys[5], keys[6]);
+	case 8:
+		return lyd_new_list(pnode, snode->module, snode->name, false,
+				    nodepp, keys[0], keys[1], keys[2], keys[3],
+				    keys[4], keys[5], keys[6], keys[7]);
+	}
+	_Static_assert(LIST_MAXKEYS == 8, "max key mismatch in switch unroll");
+	/*NOTREACHED*/
+	return LY_EINVAL;
 }

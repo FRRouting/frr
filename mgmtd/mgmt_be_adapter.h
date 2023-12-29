@@ -30,6 +30,7 @@ enum mgmt_be_client_id {
 #ifdef HAVE_STATICD
 	MGMTD_BE_CLIENT_ID_STATICD,
 #endif
+	MGMTD_BE_CLIENT_ID_ZEBRA,
 	MGMTD_BE_CLIENT_ID_MAX
 };
 #define MGMTD_BE_CLIENT_ID_MIN	0
@@ -149,6 +150,9 @@ mgmt_be_get_adapter_by_name(const char *name);
 extern struct mgmt_be_client_adapter *
 mgmt_be_get_adapter_by_id(enum mgmt_be_client_id id);
 
+/* Get the client name given a client ID */
+extern const char *mgmt_be_client_id2name(enum mgmt_be_client_id id);
+
 /* Toggle debug on or off for connected clients. */
 extern void mgmt_be_adapter_toggle_client_debug(bool set);
 
@@ -210,6 +214,19 @@ extern void mgmt_be_adapter_status_write(struct vty *vty);
  * Dump xpath registry for each backend client to vty.
  */
 extern void mgmt_be_xpath_register_write(struct vty *vty);
+
+
+/**
+ * Send a native message to a backend client
+ *
+ * Args:
+ *	adapter: the client to send the message to.
+ *	msg: a native message from mgmt_msg_native_alloc_msg()
+ *
+ * Return:
+ *	Any return value from msg_conn_send_msg().
+ */
+extern int mgmt_be_send_native(enum mgmt_be_client_id id, void *msg);
 
 /**
  * Lookup the clients which are subscribed to a given `xpath`

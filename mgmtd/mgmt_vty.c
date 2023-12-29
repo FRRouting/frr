@@ -199,22 +199,32 @@ DEFPY(show_mgmt_get_config, show_mgmt_get_config_cmd,
 }
 
 DEFPY(show_mgmt_get_data, show_mgmt_get_data_cmd,
-      "show mgmt get-data [candidate|operational|running]$dsname WORD$path",
-      SHOW_STR MGMTD_STR
-      "Get data from a specific datastore\n"
-      "Candidate datastore\n"
-      "Operational datastore (default)\n"
-      "Running datastore\n"
-      "XPath expression specifying the YANG data path\n")
+      "show mgmt get-data WORD$path [json|xml]$fmt",
+      SHOW_STR
+      MGMTD_STR
+      "Get a data from the operational datastore\n"
+      "XPath expression specifying the YANG data root\n"
+      "JSON output format\n"
+      "XML output format\n")
 {
-	const char *xpath_list[VTY_MAXCFGCHANGES] = {0};
-	Mgmtd__DatastoreId datastore = MGMTD_DS_OPERATIONAL;
+	LYD_FORMAT format = (fmt && fmt[0] == 'x') ? LYD_XML : LYD_JSON;
+	int plen = strlen(path);
+	char *xpath = NULL;
 
-	if (dsname)
-		datastore = mgmt_ds_name2id(dsname);
+	/* get rid of extraneous trailing slash-* or single '/' unless root */
+	if (plen > 2 && ((path[plen - 2] == '/' && path[plen - 1] == '*') ||
+			 (path[plen - 2] != '/' && path[plen - 1] == '/'))) {
+		plen = path[plen - 1] == '/' ? plen - 1 : plen - 2;
+		xpath = XSTRDUP(MTYPE_TMP, path);
+		xpath[plen] = 0;
+		path = xpath;
+	}
 
-	xpath_list[0] = path;
-	vty_mgmt_send_get_req(vty, false, datastore, xpath_list, 1);
+	vty_mgmt_send_get_tree_req(vty, format, path);
+
+	if (xpath)
+		XFREE(MTYPE_TMP, xpath);
+
 	return CMD_SUCCESS;
 }
 

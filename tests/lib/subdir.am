@@ -162,6 +162,7 @@ tests_lib_test_darr_CFLAGS = $(TESTS_CFLAGS)
 tests_lib_test_darr_CPPFLAGS = $(TESTS_CPPFLAGS)
 tests_lib_test_darr_LDADD = $(ALL_TESTS_LDADD)
 tests_lib_test_darr_SOURCES = tests/lib/test_darr.c
+EXTRA_DIST += tests/lib/test_darr.py
 
 
 check_PROGRAMS += tests/lib/test_graph

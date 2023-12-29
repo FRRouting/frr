@@ -40,6 +40,8 @@ def tgen(request):
         router.net.add_loop("lo-red")
         router.net.attach_iface_to_l3vrf("lo-red", "red")
         router.net.attach_iface_to_l3vrf(rname + "-eth1", "red")
+        #
+        # router.load_frr_config("frr.conf")
         # and select daemons to run
         router.load_config(TopoRouter.RD_ZEBRA, "zebra.conf")
         router.load_config(TopoRouter.RD_MGMTD)
@@ -181,10 +183,11 @@ def guts(tgen, vrf, use_cli):
 
     r1 = tgen.routers()["r1"]
 
-    step("add via gateway", reset=True)
-    do_config(r1, 1, True, False, vrf=vrf, use_cli=use_cli)
-    step("remove via gateway")
-    do_config(r1, 1, False, False, vrf=vrf, use_cli=use_cli)
+    count = 10
+    step(f"add {count} via gateway", reset=True)
+    do_config(r1, count, True, False, vrf=vrf, use_cli=use_cli)
+    step(f"remove {count} via gateway")
+    do_config(r1, count, False, False, vrf=vrf, use_cli=use_cli)
 
     via = f"lo-{vrf}" if vrf else "lo"
     step("add via loopback")

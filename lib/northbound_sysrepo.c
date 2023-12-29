@@ -118,6 +118,9 @@ static int yang_data_frr2sr(struct yang_data *frr_data, sr_val_t *sr_data)
 		sr_data->type = SR_INT64_T;
 		sr_data->data.int64_val = yang_str2int64(frr_data->value);
 		break;
+	case LY_TYPE_LEAFREF:
+		sr_val_set_str_data(sr_data, SR_STRING_T, frr_data->value);
+		break;
 	case LY_TYPE_STRING:
 		sr_val_set_str_data(sr_data, SR_STRING_T, frr_data->value);
 		break;
@@ -137,6 +140,11 @@ static int yang_data_frr2sr(struct yang_data *frr_data, sr_val_t *sr_data)
 		sr_data->type = SR_UINT64_T;
 		sr_data->data.uint64_val = yang_str2uint64(frr_data->value);
 		break;
+	case LY_TYPE_UNION:
+		/* No way to deal with this using un-typed yang_data object */
+		sr_val_set_str_data(sr_data, SR_STRING_T, frr_data->value);
+		break;
+	case LY_TYPE_UNKNOWN:
 	default:
 		return -1;
 	}
@@ -340,32 +348,13 @@ static int frr_sr_config_change_cb(sr_session_ctx_t *session, uint32_t sub_id,
 		return frr_sr_config_change_cb_apply(session, module_name);
 	case SR_EV_ABORT:
 		return frr_sr_config_change_cb_abort(session, module_name);
+	case SR_EV_RPC:
+	case SR_EV_UPDATE:
 	default:
 		flog_err(EC_LIB_LIBSYSREPO, "%s: unexpected sysrepo event: %u",
 			 __func__, sr_ev);
 		return SR_ERR_INTERNAL;
 	}
-}
-
-static int frr_sr_state_data_iter_cb(const struct lysc_node *snode,
-				     struct yang_translator *translator,
-				     struct yang_data *data, void *arg)
-{
-	struct lyd_node *dnode = arg;
-	LY_ERR ly_errno;
-
-	ly_errno = 0;
-	ly_errno = lyd_new_path(NULL, ly_native_ctx, data->xpath, data->value,
-				0, &dnode);
-	if (ly_errno) {
-		flog_warn(EC_LIB_LIBYANG, "%s: lyd_new_path() failed",
-			  __func__);
-		yang_data_free(data);
-		return NB_ERR;
-	}
-
-	yang_data_free(data);
-	return NB_OK;
 }
 
 /* Callback for state retrieval. */
@@ -374,12 +363,10 @@ static int frr_sr_state_cb(sr_session_ctx_t *session, uint32_t sub_id,
 			   const char *request_xpath, uint32_t request_id,
 			   struct lyd_node **parent, void *private_ctx)
 {
-	struct lyd_node *dnode;
+	struct lyd_node *dnode = NULL;
 
 	dnode = *parent;
-	if (nb_oper_data_iterate(request_xpath, NULL, 0,
-				 frr_sr_state_data_iter_cb, dnode)
-	    != NB_OK) {
+	if (nb_oper_iterate_legacy(request_xpath, NULL, 0, NULL, NULL, &dnode)) {
 		flog_warn(EC_LIB_NB_OPERATIONAL_DATA,
 			  "%s: failed to obtain operational data [xpath %s]",
 			  __func__, xpath);

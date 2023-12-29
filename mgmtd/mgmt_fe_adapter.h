@@ -138,6 +138,52 @@ extern int mgmt_fe_send_get_reply(uint64_t session_id, uint64_t txn_id,
 				  Mgmtd__YangDataReply *data_resp,
 				  const char *error_if_any);
 
+/**
+ * Send get-tree data reply back to client.
+ *
+ * This also cleans up and frees the transaction.
+ *
+ * Args:
+ *	session_id: the session.
+ *	txn_id: the txn_id this data pertains to
+ *	req_id: the req id for the get_tree message
+ *	result_type: the format of the result data.
+ *	tree: the results.
+ *	partial_error: if there were errors while gather results.
+ *	short_circuit_ok: True if OK to short-circuit the call.
+ *
+ * Return:
+ *	the return value from the underlying send function.
+ *
+ */
+extern int mgmt_fe_adapter_send_tree_data(uint64_t session_id, uint64_t txn_id,
+					  uint64_t req_id,
+					  LYD_FORMAT result_type,
+					  const struct lyd_node *tree,
+					  int partial_error,
+					  bool short_circuit_ok);
+
+/**
+ * Send an error back to the FE client using native messaging.
+ *
+ * This also cleans up and frees the transaction.
+ *
+ * Args:
+ *	txn_id: the txn_id this error pertains to.
+ *	short_circuit_ok: True if OK to short-circuit the call.
+ *	error: An integer error value.
+ *	errfmt: An error format string (i.e., printfrr)
+ *      ...: args for use by the `errfmt` format string.
+ *
+ * Return:
+ *	the return value from the underlying send function.
+ *
+ */
+extern int mgmt_fe_adapter_txn_error(uint64_t txn_id, uint64_t req_id,
+				     bool short_circuit_ok, int16_t error,
+				     const char *errstr);
+
+
 /* Fetch frontend client session set-config stats */
 extern struct mgmt_setcfg_stats *
 mgmt_fe_get_session_setcfg_stats(uint64_t session_id);

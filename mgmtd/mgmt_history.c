@@ -261,7 +261,9 @@ failed_unlock:
 
 void mgmt_history_rollback_complete(bool success)
 {
-	vty_mgmt_resume_response(rollback_vty, success);
+	vty_mgmt_resume_response(rollback_vty,
+				 success ? CMD_SUCCESS
+					 : CMD_WARNING_CONFIG_FAILED);
 	rollback_vty = NULL;
 }
 

@@ -317,30 +317,16 @@ extern unsigned int yang_snode_num_keys(const struct lysc_node *snode);
  *    libyang data node to be processed.
  *
  * xpath
- *    Pointer to previously allocated buffer.
+ *    Pointer to previously allocated buffer or NULL.
  *
  * xpath_len
- *    Size of the xpath buffer.
+ *    Size of the xpath buffer if xpath non-NULL.
+ *
+ * If xpath is NULL, the returned string (if non-NULL) needs to be free()d by
+ * the caller.
  */
-extern void yang_dnode_get_path(const struct lyd_node *dnode, char *xpath,
+extern char *yang_dnode_get_path(const struct lyd_node *dnode, char *xpath,
 				size_t xpath_len);
-
-/*
- * Return the schema name of the given libyang data node.
- *
- * dnode
- *    libyang data node.
- *
- * xpath_fmt
- *    Optional XPath expression (absolute or relative) to specify a different
- *    data node to operate on in the same data tree.
- *
- * Returns:
- *    Schema name of the libyang data node.
- */
-extern const char *yang_dnode_get_schema_name(const struct lyd_node *dnode,
-					      const char *xpath_fmt, ...)
-	PRINTFRR(2, 3);
 
 /*
  * Find a libyang data node by its YANG data path.
@@ -600,6 +586,39 @@ extern struct ly_ctx *yang_ctx_new_setup(bool embedded_modules,
  */
 extern void yang_debugging_set(bool enable);
 
+
+/*
+ * "Print" the yang tree in `root` into dynamic sized array.
+ *
+ * Args:
+ *	root: root of the subtree to "print" along with siblings.
+ *	format: LYD_FORMAT of output (see lyd_print_mem)
+ *	options: printing options (see lyd_print_mem)
+ *
+ * Return:
+ *	A darr dynamic array with the "printed" output or NULL on failure.
+ */
+extern uint8_t *yang_print_tree(const struct lyd_node *root, LYD_FORMAT format,
+				uint32_t options);
+
+/*
+ * "Print" the yang tree in `root` into an existing dynamic sized array.
+ *
+ * This function does not initialize or free the dynamic array, the array can
+ * already existing data, the tree will be appended to this data.
+ *
+ * Args:
+ *	darr: existing `uint8_t *`, dynamic array.
+ *	root: root of the subtree to "print" along with siblings.
+ *	format: LYD_FORMAT of output (see lyd_print_mem)
+ *	options: printing options (see lyd_print_mem)
+ *
+ * Return:
+ *	LY_ERR from underlying calls.
+ */
+extern LY_ERR yang_print_tree_append(uint8_t **darr, const struct lyd_node *root,
+				     LYD_FORMAT format, uint32_t options);
+
 /*
  * Print libyang error messages into the provided buffer.
  *
@@ -693,6 +712,18 @@ bool yang_is_last_list_dnode(const struct lyd_node *dnode);
 /* API to check if the given node is last node in the data tree level */
 bool yang_is_last_level_dnode(const struct lyd_node *dnode);
 
+/* Create a YANG predicate string based on the keys */
+extern int yang_get_key_preds(char *s, const struct lysc_node *snode,
+			      struct yang_list_keys *keys, ssize_t space);
+
+/* Get YANG keys from an existing dnode */
+extern int yang_get_node_keys(struct lyd_node *node, struct yang_list_keys *keys);
+
+/* Create a new list lyd_node using `yang_list_keys` */
+extern LY_ERR yang_lyd_new_list(struct lyd_node_inner *parent,
+				const struct lysc_node *snode,
+				const struct yang_list_keys *keys,
+				struct lyd_node_inner **node);
 #ifdef __cplusplus
 }
 #endif

@@ -987,6 +987,19 @@ static const void *lib_vrf_lookup_entry(struct nb_cb_lookup_entry_args *args)
 	return vrf;
 }
 
+static const void *lib_vrf_lookup_next(struct nb_cb_lookup_entry_args *args)
+{
+	const char *vrfname = args->keys->key[0];
+	struct vrf vrfkey, *vrf;
+
+	strlcpy(vrfkey.name, vrfname, sizeof(vrfkey.name));
+	vrf = RB_FIND(vrf_name_head, &vrfs_by_name, &vrfkey);
+	if (!strcmp(vrf->name, vrfname))
+		vrf = RB_NEXT(vrf_name_head, vrf);
+
+	return vrf;
+}
+
 /*
  * XPath: /frr-vrf:lib/vrf/id
  */
@@ -1024,6 +1037,7 @@ const struct frr_yang_module_info frr_vrf_info = {
 				.get_next = lib_vrf_get_next,
 				.get_keys = lib_vrf_get_keys,
 				.lookup_entry = lib_vrf_lookup_entry,
+				.lookup_next = lib_vrf_lookup_next,
 			},
 			.priority = NB_DFLT_PRIORITY - 2,
 		},

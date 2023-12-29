@@ -15,6 +15,7 @@
 #include "network.h"
 #include "libfrr.h"
 #include "mgmt_msg.h"
+#include "mgmt_msg_native.h"
 #include "mgmt_pb.h"
 #include "mgmtd/mgmt.h"
 #include "mgmtd/mgmt_memory.h"
@@ -34,6 +35,7 @@
 /* ---------- */
 
 const char *mgmt_be_client_names[MGMTD_BE_CLIENT_ID_MAX + 1] = {
+	[MGMTD_BE_CLIENT_ID_ZEBRA] = "zebra",
 #ifdef HAVE_STATICD
 	[MGMTD_BE_CLIENT_ID_STATICD] = "staticd",
 #endif
@@ -72,7 +74,16 @@ static const char *const *be_client_xpaths[MGMTD_BE_CLIENT_ID_MAX] = {
 #endif
 };
 
-static const char *const *be_client_oper_xpaths[MGMTD_BE_CLIENT_ID_MAX] = {};
+static const char *const zebra_oper_xpaths[] = {
+	"/frr-interface:lib/interface",
+	"/frr-vrf:lib/vrf/frr-zebra:zebra",
+	"/frr-zebra:zebra",
+	NULL,
+};
+
+static const char *const *be_client_oper_xpaths[MGMTD_BE_CLIENT_ID_MAX] = {
+	[MGMTD_BE_CLIENT_ID_ZEBRA] = zebra_oper_xpaths,
+};
 
 /*
  * We would like to have a better ADT than one with O(n) comparisons
@@ -102,8 +113,7 @@ mgmt_be_adapter_sched_init_event(struct mgmt_be_client_adapter *adapter);
 static bool be_is_client_interested(const char *xpath,
 				    enum mgmt_be_client_id id, bool config);
 
-
-static const char *mgmt_be_client_id2name(enum mgmt_be_client_id id)
+const char *mgmt_be_client_id2name(enum mgmt_be_client_id id)
 {
 	if (id > MGMTD_BE_CLIENT_ID_MAX)
 		return "invalid client id";
@@ -287,7 +297,6 @@ mgmt_be_adapter_cleanup_old_conn(struct mgmt_be_client_adapter *adapter)
 	}
 }
 
-
 static int mgmt_be_adapter_send_msg(struct mgmt_be_client_adapter *adapter,
 				    Mgmtd__BeMessage *be_msg)
 {
@@ -410,17 +419,11 @@ mgmt_be_adapter_handle_msg(struct mgmt_be_client_adapter *adapter,
 			be_msg->cfg_apply_reply->success,
 			be_msg->cfg_apply_reply->error_if_any, adapter);
 		break;
-	case MGMTD__BE_MESSAGE__MESSAGE_GET_REPLY:
-		/*
-		 * TODO: Add handling code in future.
-		 */
-		break;
 	/*
 	 * NOTE: The following messages are always sent from MGMTD to
 	 * Backend clients only and/or need not be handled on MGMTd.
 	 */
 	case MGMTD__BE_MESSAGE__MESSAGE_SUBSCR_REPLY:
-	case MGMTD__BE_MESSAGE__MESSAGE_GET_REQ:
 	case MGMTD__BE_MESSAGE__MESSAGE_TXN_REQ:
 	case MGMTD__BE_MESSAGE__MESSAGE_CFG_DATA_REQ:
 	case MGMTD__BE_MESSAGE__MESSAGE_CFG_APPLY_REQ:
@@ -503,12 +506,77 @@ int mgmt_be_send_cfgapply_req(struct mgmt_be_client_adapter *adapter,
 	return mgmt_be_adapter_send_msg(adapter, &be_msg);
 }
 
+int mgmt_be_send_native(enum mgmt_be_client_id id, void *msg)
+{
+	struct mgmt_be_client_adapter *adapter = mgmt_be_get_adapter_by_id(id);
+
+	if (!adapter)
+		return -1;
+
+	return mgmt_msg_native_send_msg(adapter->conn, msg, false);
+}
+
+/*
+ * Handle a native encoded message
+ */
+static void be_adapter_handle_native_msg(struct mgmt_be_client_adapter *adapter,
+					 struct mgmt_msg_header *msg,
+					 size_t msg_len)
+{
+	struct mgmt_msg_tree_data *tree_msg;
+	struct mgmt_msg_error *error_msg;
+
+	/* get the transaction */
+
+	switch (msg->code) {
+	case MGMT_MSG_CODE_ERROR:
+		error_msg = (typeof(error_msg))msg;
+		MGMTD_BE_ADAPTER_DBG("Got ERROR from '%s' txn-id %" PRIx64,
+				     adapter->name, msg->refer_id);
+
+		/* Forward the reply to the txn module */
+		mgmt_txn_notify_error(adapter, msg->refer_id, msg->req_id,
+				      error_msg->error, error_msg->errstr);
+
+		break;
+	case MGMT_MSG_CODE_TREE_DATA:
+		/* tree data from a backend client */
+		tree_msg = (typeof(tree_msg))msg;
+		MGMTD_BE_ADAPTER_DBG("Got TREE_DATA from '%s' txn-id %" PRIx64,
+				     adapter->name, msg->refer_id);
+
+		/* Forward the reply to the txn module */
+		mgmt_txn_notify_tree_data_reply(adapter, tree_msg, msg_len);
+		break;
+	default:
+		MGMTD_BE_ADAPTER_ERR("unknown native message txn-id %" PRIu64
+				     " req-id %" PRIu64
+				     " code %u from BE client for adapter %s",
+				     msg->refer_id, msg->req_id, msg->code,
+				     adapter->name);
+		break;
+	}
+}
+
+
 static void mgmt_be_adapter_process_msg(uint8_t version, uint8_t *data,
 					size_t len, struct msg_conn *conn)
 {
 	struct mgmt_be_client_adapter *adapter = conn->user;
-	Mgmtd__BeMessage *be_msg = mgmtd__be_message__unpack(NULL, len, data);
+	Mgmtd__BeMessage *be_msg;
 
+	if (version == MGMT_MSG_VERSION_NATIVE) {
+		struct mgmt_msg_header *msg = (typeof(msg))data;
+
+		if (len >= sizeof(*msg))
+			be_adapter_handle_native_msg(adapter, msg, len);
+		else
+			MGMTD_BE_ADAPTER_ERR("native message to adapter %s too short %zu",
+					     adapter->name, len);
+		return;
+	}
+
+	be_msg = mgmtd__be_message__unpack(NULL, len, data);
 	if (!be_msg) {
 		MGMTD_BE_ADAPTER_DBG(
 			"Failed to decode %zu bytes for adapter: %s", len,
@@ -662,11 +730,13 @@ struct msg_conn *mgmt_be_create_adapter(int conn_fd, union sockunion *from)
 	mgmt_be_adapters_add_tail(&mgmt_be_adapters, adapter);
 	RB_INIT(nb_config_cbs, &adapter->cfg_chgs);
 
-	adapter->conn = msg_server_conn_create(
-		mgmt_loop, conn_fd, mgmt_be_adapter_notify_disconnect,
-		mgmt_be_adapter_process_msg, MGMTD_BE_MAX_NUM_MSG_PROC,
-		MGMTD_BE_MAX_NUM_MSG_WRITE, MGMTD_BE_MSG_MAX_LEN, adapter,
-		"BE-adapter");
+	adapter->conn = msg_server_conn_create(mgmt_loop, conn_fd,
+					       mgmt_be_adapter_notify_disconnect,
+					       mgmt_be_adapter_process_msg,
+					       MGMTD_BE_MAX_NUM_MSG_PROC,
+					       MGMTD_BE_MAX_NUM_MSG_WRITE,
+					       MGMTD_BE_MSG_MAX_LEN, adapter,
+					       "BE-adapter");
 
 	adapter->conn->debug = DEBUG_MODE_CHECK(&mgmt_debug_be, DEBUG_MODE_ALL);
 

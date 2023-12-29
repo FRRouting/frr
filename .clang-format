@@ -80,6 +80,8 @@ ForEachMacros:
   # libyang outliers:
   - 'LY_FOR_KEYS'
   - 'LY_LIST_FOR'
+  - 'LYD_LIST_FOR_INST'
+  - 'LYD_LIST_FOR_INST_SAFE'
   - 'LY_TREE_FOR'
   - 'LY_TREE_DFS_BEGIN'
   - 'LYD_TREE_DFS_BEGIN'

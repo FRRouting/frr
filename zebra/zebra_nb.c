@@ -434,6 +434,7 @@ const struct frr_yang_module_info frr_zebra_info = {
 				.get_next = lib_vrf_zebra_ribs_rib_get_next,
 				.get_keys = lib_vrf_zebra_ribs_rib_get_keys,
 				.lookup_entry = lib_vrf_zebra_ribs_rib_lookup_entry,
+				.lookup_next = lib_vrf_zebra_ribs_rib_lookup_next,
 			}
 		},
 		{
@@ -454,6 +455,7 @@ const struct frr_yang_module_info frr_zebra_info = {
 				.get_next = lib_vrf_zebra_ribs_rib_route_get_next,
 				.get_keys = lib_vrf_zebra_ribs_rib_route_get_keys,
 				.lookup_entry = lib_vrf_zebra_ribs_rib_route_lookup_entry,
+				.lookup_next = lib_vrf_zebra_ribs_rib_route_lookup_next,
 			}
 		},
 		{

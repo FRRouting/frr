@@ -249,3 +249,24 @@ const char *frrstr_skip_over_char(const char *s, int skipc)
 	}
 	return NULL;
 }
+
+/*
+ * Advance backward in string until reaching the char `toc`
+ * if beginning of string is reached w/o finding char return NULL
+ *
+ * /foo/bar'baz/booz'/foo
+ */
+const char *frrstr_back_to_char(const char *s, int toc)
+{
+	const char *next = s;
+	const char *prev = NULL;
+
+	if (s[0] == 0)
+		return NULL;
+	if (!strpbrk(s, "'\"\\"))
+		return strrchr(s, toc);
+	while ((next = frrstr_skip_over_char(next, toc)))
+		prev = next - 1;
+	return prev;
+}
+

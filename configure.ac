@@ -379,6 +379,7 @@ else
 fi
 AC_C_FLAG([-Wno-unused-parameter])
 AC_C_FLAG([-Wno-missing-field-initializers])
+AC_C_FLAG([-Wno-microsoft-anon-tag])
 
 AC_C_FLAG([-Wc++-compat], [], [CXX_COMPAT_CFLAGS="-Wc++-compat"])
 AC_SUBST([CXX_COMPAT_CFLAGS])
