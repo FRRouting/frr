@@ -307,6 +307,9 @@ Configuration Commands
 
    Specify the policy SID.
 
+.. clicmd:: srv6-binding-sid X:X::X:X
+
+   Specify the policy SRv6 SID
 
 .. clicmd:: candidate-path preference PREFERENCE name NAME explicit segment-list SEGMENT-LIST-NAME
 
