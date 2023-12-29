@@ -913,6 +913,7 @@ void nexthop_copy_no_recurse(struct nexthop *copy,
 	if (nexthop->nh_srv6) {
 		if (nexthop->nh_srv6->seg6local_action ==
 			    ZEBRA_SEG6_LOCAL_ACTION_END_B6_ENCAP &&
+		    nexthop->nh_srv6->seg6_segs &&
 		    nexthop->nh_srv6->seg6_segs->num_segs > 1)
 			nexthop_add_srv6_seg6local(copy,
 						   nexthop->nh_srv6
