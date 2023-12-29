@@ -405,6 +405,75 @@ void path_nht_removed(struct srte_candidate *candidate)
 }
 
 /**
+ * Send SRv6 SID to ZEBRA for installation or deletion.
+ *
+ * @param cmd		ZEBRA_ROUTE_ADD or ZEBRA_ROUTE_DELETE
+ * @param sid		SRv6 BSID to install or delete
+ * @param prefixlen	Prefix length
+ * @param oif		Outgoing interface
+ * @param action	SID action
+ * @param context	SID context
+ */
+void path_zebra_send_bsid(const struct in6_addr *bsid, ifindex_t oif,
+			  enum seg6local_action_t action,
+			  struct in6_addr *srv6_segs, int num_segs)
+{
+	struct prefix_ipv6 p = {};
+	struct zapi_route api = {};
+	struct zapi_nexthop *znh;
+	uint16_t prefixlen = IPV6_MAX_BITLEN;
+	char opaque[1024];
+
+	if (prefixlen > IPV6_MAX_BITLEN) {
+		flog_warn(EC_LIB_DEVELOPMENT, "%s: wrong prefixlen %u",
+			  __func__, prefixlen);
+		return;
+	}
+
+	opaque[0] = '\0';
+	p.family = AF_INET6;
+	p.prefixlen = prefixlen;
+	memcpy(&p.prefix, bsid, IPV6_MAX_BYTELEN);
+
+	api.vrf_id = VRF_DEFAULT;
+	api.type = ZEBRA_ROUTE_SRTE;
+	api.distance = 50;
+
+	api.safi = SAFI_UNICAST;
+	memcpy(&api.prefix, &p, sizeof(p));
+
+	if (num_segs == 0)
+		return (void)zclient_route_send(ZEBRA_ROUTE_DELETE, zclient,
+						&api);
+
+	SET_FLAG(api.flags, ZEBRA_FLAG_ALLOW_RECURSION);
+	SET_FLAG(api.message, ZAPI_MESSAGE_NEXTHOP);
+	SET_FLAG(api.message, ZAPI_MESSAGE_DISTANCE);
+
+	if (strlen(opaque)) {
+		SET_FLAG(api.message, ZAPI_MESSAGE_OPAQUE);
+		api.opaque.length = strlen(opaque) + 1;
+		assert(api.opaque.length <= ZAPI_MESSAGE_OPAQUE_LENGTH);
+		memcpy(api.opaque.data, opaque, api.opaque.length);
+	}
+
+	znh = &api.nexthops[0];
+
+	memset(znh, 0, sizeof(*znh));
+
+	znh->type = NEXTHOP_TYPE_IFINDEX;
+	znh->ifindex = oif;
+	SET_FLAG(znh->flags, ZAPI_NEXTHOP_FLAG_SEG6LOCAL);
+	znh->seg6local_action = action;
+	znh->seg_num = num_segs;
+	memcpy(znh->seg6_segs, srv6_segs, sizeof(struct in6_addr) * num_segs);
+	memcpy(&znh->seg6local_ctx.nh6, bsid, sizeof(struct in6_addr));
+	api.nexthop_num = 1;
+
+	zclient_route_send(ZEBRA_ROUTE_ADD, zclient, &api);
+}
+
+/**
  * Adds a segment routing policy to Zebra.
  *
  * @param policy The policy to add
@@ -416,8 +485,8 @@ path_zebra_add_sr_policy_internal(struct srte_policy *policy,
 				  struct path_nht_data *nhtd)
 {
 	struct zapi_sr_policy zp = {};
-	struct srte_segment_entry *segment;
-	struct zapi_nexthop *znh;
+	struct srte_segment_entry *segment = NULL;
+	struct zapi_nexthop *znh = NULL;
 	struct nexthop *nexthop;
 	int num = 0;
 
@@ -455,6 +524,14 @@ path_zebra_add_sr_policy_internal(struct srte_policy *policy,
 		}
 		zp.segment_list.nexthop_resolved_num = nhtd->nh_num;
 	}
+	if (znh && !sid_zero_ipv6(&policy->srv6_binding_sid) && segment_list &&
+	    zp.segment_list.nexthop_resolved_num)
+		(void)path_zebra_send_bsid(&policy->srv6_binding_sid,
+					   znh->ifindex,
+					   ZEBRA_SEG6_LOCAL_ACTION_END_B6_ENCAP,
+					   &zp.segment_list.srv6_segs.segs[0],
+					   zp.segment_list.srv6_segs.num_segs);
+
 
 	(void)zebra_send_sr_policy(zclient, ZEBRA_SR_POLICY_SET, &zp);
 }
