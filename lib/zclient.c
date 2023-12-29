@@ -1070,7 +1070,8 @@ int zapi_nexthop_encode(struct stream *s, const struct zapi_nexthop *api_nh,
 			     sizeof(struct seg6local_context));
 	}
 
-	if (CHECK_FLAG(nh_flags, ZAPI_NEXTHOP_FLAG_SEG6)) {
+	if (CHECK_FLAG(nh_flags, ZAPI_NEXTHOP_FLAG_SEG6) ||
+	    api_nh->seg6local_action == ZEBRA_SEG6_LOCAL_ACTION_END_B6_ENCAP) {
 		stream_putc(s, api_nh->seg_num);
 		stream_put(s, &api_nh->seg6_segs[0],
 			   api_nh->seg_num * sizeof(struct in6_addr));
@@ -1450,7 +1451,8 @@ int zapi_nexthop_decode(struct stream *s, struct zapi_nexthop *api_nh,
 			   sizeof(struct seg6local_context));
 	}
 
-	if (CHECK_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_SEG6)) {
+	if (CHECK_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_SEG6) ||
+	    api_nh->seg6local_action == ZEBRA_SEG6_LOCAL_ACTION_END_B6_ENCAP) {
 		STREAM_GETC(s, api_nh->seg_num);
 		if (api_nh->seg_num > SRV6_MAX_SIDS) {
 			flog_err(EC_LIB_ZAPI_ENCODE,
@@ -2200,7 +2202,7 @@ struct nexthop *nexthop_from_zapi_nexthop(const struct zapi_nexthop *znh)
 
 	if (znh->seg6local_action != ZEBRA_SEG6_LOCAL_ACTION_UNSPEC)
 		nexthop_add_srv6_seg6local(n, znh->seg6local_action,
-					   &znh->seg6local_ctx);
+					   &znh->seg6local_ctx, NULL, 0);
 
 	if (znh->seg_num && !sid_zero_ipv6(znh->seg6_segs))
 		nexthop_add_srv6_seg6(n, &znh->seg6_segs[0], znh->seg_num);
@@ -2256,16 +2258,32 @@ int zapi_nexthop_from_nexthop(struct zapi_nexthop *znh,
 
 	if (nh->nh_srv6) {
 		if (nh->nh_srv6->seg6local_action !=
-		    ZEBRA_SEG6_LOCAL_ACTION_UNSPEC) {
+			    ZEBRA_SEG6_LOCAL_ACTION_UNSPEC &&
+		    nh->nh_srv6->seg6local_action !=
+			    ZEBRA_SEG6_LOCAL_ACTION_END_B6_ENCAP) {
 			SET_FLAG(znh->flags, ZAPI_NEXTHOP_FLAG_SEG6LOCAL);
 			znh->seg6local_action = nh->nh_srv6->seg6local_action;
 			memcpy(&znh->seg6local_ctx,
 			       &nh->nh_srv6->seg6local_ctx,
 			       sizeof(struct seg6local_context));
-		}
-
-		if (nh->nh_srv6->seg6_segs && nh->nh_srv6->seg6_segs->num_segs &&
-		    !sid_zero(nh->nh_srv6->seg6_segs)) {
+		} else if (nh->nh_srv6->seg6local_action ==
+				   ZEBRA_SEG6_LOCAL_ACTION_END_B6_ENCAP &&
+			   nh->nh_srv6->seg6_segs &&
+			   nh->nh_srv6->seg6_segs->num_segs > 0) {
+			SET_FLAG(znh->flags, ZAPI_NEXTHOP_FLAG_SEG6LOCAL);
+			znh->seg6local_action = nh->nh_srv6->seg6local_action;
+			memcpy(&znh->seg6local_ctx, &nh->nh_srv6->seg6local_ctx,
+			       sizeof(struct seg6local_context));
+			znh->seg_num = nh->nh_srv6->seg6_segs->num_segs;
+			for (i = 0; i < nh->nh_srv6->seg6_segs->num_segs; i++)
+				memcpy(&znh->seg6_segs[i],
+				       &nh->nh_srv6->seg6_segs->seg[i],
+				       sizeof(struct in6_addr));
+		} else if ((nh->nh_srv6->seg6local_action ==
+			    ZEBRA_SEG6_LOCAL_ACTION_UNSPEC) &&
+			   nh->nh_srv6->seg6_segs &&
+			   nh->nh_srv6->seg6_segs->num_segs &&
+			   !sid_zero(nh->nh_srv6->seg6_segs)) {
 			SET_FLAG(znh->flags, ZAPI_NEXTHOP_FLAG_SEG6);
 			znh->seg_num = nh->nh_srv6->seg6_segs->num_segs;
 			for (i = 0; i < nh->nh_srv6->seg6_segs->num_segs; i++)

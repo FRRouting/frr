@@ -1868,10 +1868,18 @@ static bool zapi_read_nexthops(struct zserv *client, struct prefix *p,
 					   __func__,
 					   seg6local_action2str(
 						   api_nh->seg6local_action));
-
-			nexthop_add_srv6_seg6local(nexthop,
-						   api_nh->seg6local_action,
-						   &api_nh->seg6local_ctx);
+			if (api_nh->seg6local_action ==
+			    ZEBRA_SEG6_LOCAL_ACTION_END_B6_ENCAP)
+				nexthop_add_srv6_seg6local(nexthop,
+							   api_nh->seg6local_action,
+							   &api_nh->seg6local_ctx,
+							   &api_nh->seg6_segs[0],
+							   api_nh->seg_num);
+			else
+				nexthop_add_srv6_seg6local(nexthop,
+							   api_nh->seg6local_action,
+							   &api_nh->seg6local_ctx,
+							   NULL, 0);
 		}
 
 		if (CHECK_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_SEG6)
