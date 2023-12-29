@@ -350,6 +350,9 @@ struct srte_policy {
 	/* Binding SID */
 	mpls_label_t binding_sid;
 
+	/* SRv6 Binding SID */
+	struct in6_addr srv6_binding_sid;
+
 	/* The Protocol-Origin. */
 	enum srte_protocol_origin protocol_origin;
 
@@ -412,6 +415,8 @@ struct srte_policy *srte_policy_find(uint32_t color, struct ipaddr *endpoint);
 int srte_policy_update_ted_sid(void);
 void srte_policy_update_binding_sid(struct srte_policy *policy,
 				    uint32_t binding_sid);
+void srte_policy_update_srv6_binding_sid(struct srte_policy *policy,
+					 struct in6_addr *srv6_binding_sid);
 void srte_apply_changes(void);
 void srte_clean_zebra(void);
 void srte_policy_apply_changes(struct srte_policy *policy);

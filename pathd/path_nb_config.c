@@ -397,6 +397,47 @@ int pathd_srte_policy_binding_sid_destroy(struct nb_cb_destroy_args *args)
 }
 
 /*
+ * XPath: /frr-pathd:pathd/srte/policy/srv6-binding-sid
+ */
+int pathd_srte_policy_srv6_binding_sid_modify(struct nb_cb_modify_args *args)
+{
+	struct srte_policy *policy;
+	struct in6_addr srv6_binding_sid;
+
+	yang_dnode_get_ipv6(&srv6_binding_sid, args->dnode, NULL);
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+		break;
+	case NB_EV_PREPARE:
+		break;
+	case NB_EV_ABORT:
+		break;
+	case NB_EV_APPLY:
+		policy = nb_running_get_entry(args->dnode, NULL, true);
+		srte_policy_update_srv6_binding_sid(policy, &srv6_binding_sid);
+		SET_FLAG(policy->flags, F_POLICY_MODIFIED);
+		break;
+	}
+
+	return NB_OK;
+}
+
+int pathd_srte_policy_srv6_binding_sid_destroy(struct nb_cb_destroy_args *args)
+{
+	struct srte_policy *policy;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	policy = nb_running_get_entry(args->dnode, NULL, true);
+	srte_policy_update_srv6_binding_sid(policy, NULL);
+	SET_FLAG(policy->flags, F_POLICY_MODIFIED);
+
+	return NB_OK;
+}
+
+/*
  * XPath: /frr-pathd:pathd/srte/policy/candidate-path
  */
 int pathd_srte_policy_candidate_path_create(struct nb_cb_create_args *args)

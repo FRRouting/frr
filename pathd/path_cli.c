@@ -114,9 +114,13 @@ DEFPY(show_srte_policy,
 
 	RB_FOREACH (policy, srte_policy_head, &srte_policies) {
 		char endpoint[ENDPOINT_STR_LENGTH];
-		char binding_sid[16] = "-";
+		char binding_sid[ENDPOINT_STR_LENGTH] = "-";
+		struct in6_addr ipv6_zero = {};
 
 		ipaddr2str(&policy->endpoint, endpoint, sizeof(endpoint));
+		if (!IPV6_ADDR_SAME(&policy->srv6_binding_sid, &ipv6_zero))
+			sid2str(&policy->srv6_binding_sid, binding_sid,
+				ENDPOINT_STR_LENGTH);
 		if (policy->binding_sid != MPLS_LABEL_NONE)
 			snprintf(binding_sid, sizeof(binding_sid), "%u",
 				 policy->binding_sid);
@@ -161,13 +165,15 @@ DEFPY(show_srte_policy_detail,
 	RB_FOREACH (policy, srte_policy_head, &srte_policies) {
 		struct srte_candidate *candidate;
 		char endpoint[ENDPOINT_STR_LENGTH];
-		char binding_sid[16] = "-";
+		char binding_sid[ENDPOINT_STR_LENGTH] = "-";
 		char *segment_list_info;
 		static char undefined_info[] = "(undefined)";
 		static char created_by_pce_info[] = "(created by PCE)";
 
 
 		ipaddr2str(&policy->endpoint, endpoint, sizeof(endpoint));
+		if (!sid_zero_ipv6(&policy->srv6_binding_sid))
+			sid2str(&policy->srv6_binding_sid, binding_sid, 128);
 		if (policy->binding_sid != MPLS_LABEL_NONE)
 			snprintf(binding_sid, sizeof(binding_sid), "%u",
 				 policy->binding_sid);
@@ -747,6 +753,32 @@ void cli_show_srte_policy_binding_sid(struct vty *vty,
 				      bool show_defaults)
 {
 	vty_out(vty, "   binding-sid %s\n", yang_dnode_get_string(dnode, NULL));
+}
+
+/*
+ * XPath: /frr-pathd:pathd/srte/policy/srv6-binding-sid
+ */
+DEFPY(srte_policy_srv6_binding_sid, srte_policy_srv6_binding_sid_cmd,
+      "[no] srv6-binding-sid X:X::X:X$ipv6address",
+      NO_STR "Segment Routing Policy SRv6-Binding-SID\n"
+	     "SR Policy SRv6-Binding-SID ipv6-address\n")
+{
+	if (!no)
+		nb_cli_enqueue_change(vty, "./srv6-binding-sid", NB_OP_CREATE,
+				      ipv6address_str);
+	else
+		nb_cli_enqueue_change(vty, "./srv6-binding-sid", NB_OP_DESTROY,
+				      NULL);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+void cli_show_srte_policy_srv6_binding_sid(struct vty *vty,
+					   const struct lyd_node *dnode,
+					   bool show_defaults)
+{
+	vty_out(vty, "   srv6-binding-sid %s\n",
+		yang_dnode_get_string(dnode, NULL));
 }
 
 /*
@@ -1365,6 +1397,7 @@ void path_cli_init(void)
 	install_element(SR_TRAFFIC_ENG_NODE, &srte_no_segment_list_cmd);
 	install_element(SR_SEGMENT_LIST_NODE,
 			&srte_segment_list_segment_cmd);
+
 	install_element(SR_SEGMENT_LIST_NODE,
 			&srte_segment_list_no_segment_cmd);
 	install_element(SR_TRAFFIC_ENG_NODE, &srte_policy_cmd);
@@ -1373,6 +1406,7 @@ void path_cli_init(void)
 	install_element(SR_POLICY_NODE, &srte_policy_no_name_cmd);
 	install_element(SR_POLICY_NODE, &srte_policy_binding_sid_cmd);
 	install_element(SR_POLICY_NODE, &srte_policy_no_binding_sid_cmd);
+	install_element(SR_POLICY_NODE, &srte_policy_srv6_binding_sid_cmd);
 	install_element(SR_POLICY_NODE, &srte_policy_candidate_exp_cmd);
 	install_element(SR_POLICY_NODE, &srte_policy_candidate_dyn_cmd);
 	install_element(SR_POLICY_NODE, &srte_policy_no_candidate_cmd);
