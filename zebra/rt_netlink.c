@@ -94,6 +94,12 @@ struct gw_family_t {
 	union g_addr gate;
 };
 
+struct buf_req {
+	struct nlmsghdr n;
+	struct nhmsg nhm;
+	char buf[];
+};
+
 static const char ipv4_ll_buf[16] = "169.254.0.1";
 static struct in_addr ipv4_ll;
 
@@ -2936,6 +2942,54 @@ static bool _netlink_nexthop_build_group(struct nlmsghdr *n, size_t req_size, ui
 	return true;
 }
 
+static ssize_t fill_srh_end_b6_encaps(char *buffer, size_t buflen, struct seg6_seg_stack *segs)
+{
+	struct ipv6_sr_hdr *srh;
+	size_t srhlen;
+	int i;
+
+	if (!segs || segs->num_segs > SRV6_MAX_SEGS) {
+		/* Exceeding maximum supported SIDs */
+		return -1;
+	}
+
+	srhlen = SRH_BASE_HEADER_LENGTH + SRH_SEGMENT_LENGTH * segs->num_segs;
+
+	if (buflen < srhlen)
+		return -1;
+
+	memset(buffer, 0, buflen);
+
+	srh = (struct ipv6_sr_hdr *)buffer;
+	srh->hdrlen = (srhlen >> 3) - 1;
+	srh->type = 4;
+	srh->segments_left = segs->num_segs - 1;
+	srh->first_segment = segs->num_segs - 1;
+
+	for (i = 0; i < segs->num_segs; i++) {
+		memcpy(&srh->segments[segs->num_segs - i - 1], &segs->seg[i],
+		       sizeof(struct in6_addr));
+	}
+
+	return srhlen;
+}
+
+static int netlink_nexthop_msg_encode_end_b6_encaps(struct buf_req *req, const struct nexthop *nh,
+						    size_t buflen)
+{
+	int srh_len;
+	char srh_buf[4096];
+
+	if (!nl_attr_put32(&req->n, buflen, SEG6_LOCAL_ACTION, SEG6_LOCAL_ACTION_END_B6_ENCAP))
+		return 0;
+	srh_len = fill_srh_end_b6_encaps(srh_buf, sizeof(srh_buf), nh->nh_srv6->seg6_segs);
+	if (srh_len < 0)
+		return 0;
+	if (!nl_attr_put(&req->n, buflen, SEG6_LOCAL_SRH, srh_buf, srh_len))
+		return 0;
+	return 1;
+}
+
 /**
  * Next hop packet encoding helper function.
  *
@@ -3248,6 +3302,12 @@ ssize_t netlink_nexthop_msg_encode(uint16_t cmd,
 							    ctx6->table))
 							return 0;
 						break;
+					case ZEBRA_SEG6_LOCAL_ACTION_END_B6_ENCAP:
+						netlink_nexthop_msg_encode_end_b6_encaps((struct buf_req
+												  *)
+												 req,
+											 nh, buflen);
+						break;
 					default:
 						zlog_err("%s: unsupport seg6local behaviour action=%u",
 							 __func__, action);
@@ -3261,9 +3321,9 @@ ssize_t netlink_nexthop_msg_encode(uint16_t cmd,
 					nl_attr_nest_end(&req->n, nest);
 				}
 
-				if (nh->nh_srv6->seg6_segs &&
-				    nh->nh_srv6->seg6_segs->num_segs &&
-				    !sid_zero(nh->nh_srv6->seg6_segs)) {
+				if (nh->nh_srv6->seg6_segs && nh->nh_srv6->seg6_segs->num_segs &&
+				    !sid_zero(nh->nh_srv6->seg6_segs) &&
+				    nh->nh_srv6->seg6local_action == ZEBRA_SEG6_LOCAL_ACTION_UNSPEC) {
 					char tun_buf[4096];
 					ssize_t tun_len;
 
