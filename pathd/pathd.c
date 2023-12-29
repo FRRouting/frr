@@ -22,6 +22,7 @@
 #include "pathd/path_triggered.h"
 #include "pathd/path_tsrte.h"
 #include "pathd/path_flex_algo.h"
+#include "srv6.h"
 
 #define HOOK_DELAY 3
 
@@ -506,6 +507,30 @@ void srte_policy_update_binding_sid(struct srte_policy *policy,
 	if (policy->best_candidate)
 		path_zebra_add_sr_policy(
 			policy, policy->best_candidate->lsp->segment_list);
+}
+
+/**
+ * Update a policy SRv6 binding SID.
+ *
+ * @param policy The policy for which the SID should be updated
+ * @param srv6_binding_sid The new binding SID for the given policy
+ */
+void srte_policy_update_srv6_binding_sid(struct srte_policy *policy,
+					 struct in6_addr *srv6_binding_sid)
+{
+	struct in6_addr srv6_binding_sid_zero = {};
+
+
+	if (srv6_binding_sid)
+		IPV6_ADDR_COPY(&policy->srv6_binding_sid, srv6_binding_sid);
+	else
+		IPV6_ADDR_COPY(&policy->srv6_binding_sid,
+			       &srv6_binding_sid_zero);
+
+	/* Reinstall the Binding-SID if necessary. */
+	if (policy->best_candidate)
+		path_zebra_add_sr_policy(policy, policy->best_candidate->lsp
+							 ->segment_list);
 }
 
 /**
