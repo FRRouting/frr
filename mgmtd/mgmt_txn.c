@@ -426,7 +426,6 @@ static void mgmt_txn_req_free(struct mgmt_txn_req **txn_req)
 {
 	int indx;
 	struct mgmt_txn_reqs_head *req_list = NULL;
-	struct mgmt_txn_reqs_head *pending_list = NULL;
 	enum mgmt_be_client_id id;
 	struct mgmt_be_client_adapter *adapter;
 	struct mgmt_commit_cfg_req *ccreq;
@@ -527,13 +526,7 @@ static void mgmt_txn_req_free(struct mgmt_txn_req **txn_req)
 		break;
 	}
 
-	if ((*txn_req)->pending_be_proc && pending_list) {
-		mgmt_txn_reqs_del(pending_list, *txn_req);
-		MGMTD_TXN_DBG("Removed req-id: %" PRIu64
-			      " from pending-list (left:%zu)",
-			      (*txn_req)->req_id,
-			      mgmt_txn_reqs_count(pending_list));
-	} else if (req_list) {
+	if (req_list) {
 		mgmt_txn_reqs_del(req_list, *txn_req);
 		MGMTD_TXN_DBG("Removed req-id: %" PRIu64
 			      " from request-list (left:%zu)",
