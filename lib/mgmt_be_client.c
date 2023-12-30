@@ -1060,7 +1060,7 @@ struct mgmt_be_client *mgmt_be_client_create(const char *client_name,
 			mgmt_be_client_notify_conenct,
 			mgmt_be_client_notify_disconenct,
 			mgmt_be_client_process_msg, MGMTD_BE_MAX_NUM_MSG_PROC,
-			MGMTD_BE_MAX_NUM_MSG_WRITE, MGMTD_BE_MSG_MAX_LEN, false,
+			MGMTD_BE_MAX_NUM_MSG_WRITE, MGMTD_BE_MAX_MSG_LEN, false,
 			"BE-client", MGMTD_DBG_BE_CLIENT_CHECK());
 
 	MGMTD_BE_CLIENT_DBG("Initialized client '%s'", client_name);

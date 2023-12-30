@@ -735,7 +735,7 @@ struct msg_conn *mgmt_be_create_adapter(int conn_fd, union sockunion *from)
 					       mgmt_be_adapter_process_msg,
 					       MGMTD_BE_MAX_NUM_MSG_PROC,
 					       MGMTD_BE_MAX_NUM_MSG_WRITE,
-					       MGMTD_BE_MSG_MAX_LEN, adapter,
+					       MGMTD_BE_MAX_MSG_LEN, adapter,
 					       "BE-adapter");
 
 	adapter->conn->debug = DEBUG_MODE_CHECK(&mgmt_debug_be, DEBUG_MODE_ALL);
