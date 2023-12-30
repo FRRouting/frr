@@ -2250,7 +2250,7 @@ int nb_oper_data_iterate(const char *xpath, struct yang_translator *translator,
 			  __func__, xpath);
 		return ret;
 	}
-
+	assert(dnode);
 
 	/*
 	 * Create a linked list to sort the data nodes starting from the root.
@@ -2331,17 +2331,15 @@ int nb_oper_data_iterate(const char *xpath, struct yang_translator *translator,
 					     flags, cb, arg, dnode);
 
 	list_delete(&list_dnodes);
-	if (dnode) {
-		while (lyd_parent(dnode))
-			dnode = lyd_parent(dnode);
+	while (lyd_parent(dnode))
+		dnode = lyd_parent(dnode);
 
-		if (tree && ret == NB_OK)
-			*tree = dnode;
-		else {
-			lyd_free_all(dnode);
-			if (tree)
-				*tree = NULL;
-		}
+	if (tree && ret == NB_OK)
+		*tree = dnode;
+	else {
+		lyd_free_all(dnode);
+		if (tree)
+			*tree = NULL;
 	}
 
 	return ret;
