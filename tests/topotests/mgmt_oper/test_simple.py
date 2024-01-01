@@ -46,6 +46,23 @@ def test_oper_simple(tgen):
         pytest.skip(tgen.errors)
 
     query_results = [
+        (
+            # Non-key query with key specific selection
+            '/frr-interface:lib/interface[name="r1-eth0"]/vrf',
+            "simple-results/result-intf-eth0-vrf.json",
+        ),
+        # Test machines will have different sets of interfaces so the test results will
+        # vary and need to be generated dynamically before this test is re-enabled
+        # (
+        #     # Key query on generic list
+        #     "/frr-interface:lib/interface/name",
+        #     "simple-results/result-intf-name.json",
+        # ),
+        (
+            # Key query with key specific selection
+            '/frr-interface:lib/interface[name="r1-eth0"]/name',
+            "simple-results/result-intf-eth0-name.json",
+        ),
         ("/frr-vrf:lib", "simple-results/result-lib.json"),
         ("/frr-vrf:lib/vrf", "simple-results/result-lib-vrf-nokey.json"),
         (

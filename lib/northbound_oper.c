@@ -499,7 +499,11 @@ static enum nb_error nb_op_ys_init_node_infos(struct nb_op_yield_state *ys)
 			ret = NB_ERR_NOT_FOUND;
 		return ret;
 	}
-	assert(CHECK_FLAG(node->schema->nodetype, LYS_CONTAINER | LYS_LIST));
+	while (node &&
+	       !CHECK_FLAG(node->schema->nodetype, LYS_CONTAINER | LYS_LIST))
+		node = &node->parent->node;
+	if (!node)
+		return NB_ERR_NOT_FOUND;
 
 	inner = (struct lyd_node_inner *)node;
 	for (len = 1; inner->parent; len++)
@@ -1237,9 +1241,18 @@ static enum nb_error __walk(struct nb_op_yield_state *ys, bool is_resume)
 			 * `route-entry` element for a query
 			 * `.../route-entry/metric` where the list element had
 			 * no metric value.
+			 *
+			 * However, if the user query is for a key of a list
+			 * element, then when we reach that list element it will
+			 * have no non-key children, check for this condition
+			 * and do not reap if true.
 			 */
 			if (!list_start && ni->inner &&
 			    !lyd_child_no_keys(&ni->inner->node) &&
+			    /* not the top element with a key match */
+			    !((darr_ilen(ys->node_infos) ==
+			       darr_ilen(ys->schema_path) - 1) &&
+			      lysc_is_key((*darr_last(ys->schema_path)))) &&
 			    /* is this at or below the base? */
 			    darr_ilen(ys->node_infos) <= ys->query_base_level)
 				lyd_free_tree(&ni->inner->node);
@@ -1674,7 +1687,6 @@ static enum nb_error nb_op_walk_start(struct nb_op_yield_state *ys)
 	 * Get the node_info path (stack) corresponding to the uniquely
 	 * resolvable data nodes from the beginning of the xpath query.
 	 */
-	// I think this moves
 	ret = nb_op_ys_init_node_infos(ys);
 	if (ret != NB_OK)
 		return ret;
