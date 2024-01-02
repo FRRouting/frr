@@ -838,6 +838,35 @@ FRR's cli or frr.conf or zebra.conf. This section shows how
 to configure SRv6 on FRR. Of course SRv6 can be used as standalone,
 and this section also helps that case.
 
+.. clicmd:: show segment-routing srv6 manager [json]
+
+   This command dumps the SRv6 information configured on zebra, including
+   the encapsulation parameters (e.g., the IPv6 source address used for
+   the encapsulated packets).
+
+   Example::
+
+      router# sh segment-routing srv6 manager
+      Parameters:
+      Encapsulation:
+         Source Address:
+            Configured: fc00:0:1::1
+
+
+   To get the same information in json format, you can use the ``json`` keyword::
+
+      rose-srv6# sh segment-routing srv6 manager json
+      {
+        "parameters":{
+          "encapsulation":{
+            "sourceAddress":{
+              "configured":"fc00:0:1::1"
+            }
+          }
+        }
+      }
+
+
 .. clicmd:: show segment-routing srv6 locator [json]
 
    This command dump SRv6-locator configured on zebra.  SRv6-locator is used
@@ -997,6 +1026,14 @@ and this section also helps that case.
        behavior usid
       !
    ...
+
+.. clicmd:: encapsulation
+
+   Configure parameters for SRv6 encapsulation.
+
+.. clicmd:: source-address X:X::X:X
+
+   Configure the source address of the outer encapsulating IPv6 header.
 
 .. _multicast-rib-commands:
 

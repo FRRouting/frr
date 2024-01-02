@@ -38,6 +38,7 @@
 #include "zebra/tc_netlink.h"
 #include "zebra/netconf_netlink.h"
 #include "zebra/zebra_errors.h"
+#include "zebra/ge_netlink.h"
 
 #ifndef SO_RCVBUFFORCE
 #define SO_RCVBUFFORCE  (33)
@@ -309,7 +310,7 @@ static const char *group2str(uint32_t group)
 /* Make socket for Linux netlink interface. */
 static int netlink_socket(struct nlsock *nl, unsigned long groups,
 			  uint32_t ext_groups[], uint8_t ext_group_size,
-			  ns_id_t ns_id)
+			  ns_id_t ns_id, int nl_family)
 {
 	int ret;
 	struct sockaddr_nl snl;
@@ -317,7 +318,7 @@ static int netlink_socket(struct nlsock *nl, unsigned long groups,
 	int namelen;
 
 	frr_with_privs(&zserv_privs) {
-		sock = ns_socket(AF_NETLINK, SOCK_RAW, NETLINK_ROUTE, ns_id);
+		sock = ns_socket(AF_NETLINK, SOCK_RAW, nl_family, ns_id);
 		if (sock < 0) {
 			zlog_err("Can't open %s socket: %s", nl->name,
 				 safe_strerror(errno));
@@ -1227,6 +1228,33 @@ int netlink_talk(int (*filter)(struct nlmsghdr *, ns_id_t, int startup),
 	return netlink_talk_info(filter, n, &dp_info, startup);
 }
 
+/*
+ * Synchronous version of netlink_talk_info. Converts args to suit the
+ * common version, which is suitable for both sync and async use.
+ */
+int ge_netlink_talk(int (*filter)(struct nlmsghdr *, ns_id_t, int startup),
+		    struct nlmsghdr *n, struct zebra_ns *zns, bool startup)
+{
+	struct zebra_dplane_info dp_info;
+
+	if (zns->ge_netlink_cmd.sock < 0)
+		return -1;
+
+	/* Increment sequence number before capturing snapshot of ns socket
+	 * info.
+	 */
+	zns->ge_netlink_cmd.seq = zebra_router_get_next_sequence();
+
+	/* Capture info in intermediate info struct */
+	dp_info.ns_id = zns->ns_id;
+
+	dp_info.is_cmd = true;
+	dp_info.sock = zns->ge_netlink_cmd.sock;
+	dp_info.seq = zns->ge_netlink_cmd.seq;
+
+	return netlink_talk_info(filter, n, &dp_info, startup);
+}
+
 /* Issue request message to kernel via netlink socket. GET messages
  * are issued through this interface.
  */
@@ -1620,6 +1648,9 @@ static enum netlink_msg_status nl_put_msg(struct nl_batch *bth,
 	case DPLANE_OP_TC_FILTER_DELETE:
 	case DPLANE_OP_TC_FILTER_UPDATE:
 		return netlink_put_tc_filter_update_msg(bth, ctx);
+
+	case DPLANE_OP_SRV6_ENCAP_SRCADDR_SET:
+		return netlink_put_sr_tunsrc_set_msg(bth, ctx);
 	}
 
 	return FRR_NETLINK_ERROR;
@@ -1756,8 +1787,8 @@ void kernel_init(struct zebra_ns *zns)
 	snprintf(zns->netlink.name, sizeof(zns->netlink.name),
 		 "netlink-listen (NS %u)", zns->ns_id);
 	zns->netlink.sock = -1;
-	if (netlink_socket(&zns->netlink, groups, &ext_groups, 1, zns->ns_id) <
-	    0) {
+	if (netlink_socket(&zns->netlink, groups, &ext_groups, 1, zns->ns_id,
+			   NETLINK_ROUTE) < 0) {
 		zlog_err("Failure to create %s socket",
 			 zns->netlink.name);
 		exit(-1);
@@ -1768,7 +1799,8 @@ void kernel_init(struct zebra_ns *zns)
 	snprintf(zns->netlink_cmd.name, sizeof(zns->netlink_cmd.name),
 		 "netlink-cmd (NS %u)", zns->ns_id);
 	zns->netlink_cmd.sock = -1;
-	if (netlink_socket(&zns->netlink_cmd, 0, 0, 0, zns->ns_id) < 0) {
+	if (netlink_socket(&zns->netlink_cmd, 0, 0, 0, zns->ns_id,
+			   NETLINK_ROUTE) < 0) {
 		zlog_err("Failure to create %s socket",
 			 zns->netlink_cmd.name);
 		exit(-1);
@@ -1781,7 +1813,8 @@ void kernel_init(struct zebra_ns *zns)
 		 sizeof(zns->netlink_dplane_out.name), "netlink-dp (NS %u)",
 		 zns->ns_id);
 	zns->netlink_dplane_out.sock = -1;
-	if (netlink_socket(&zns->netlink_dplane_out, 0, 0, 0, zns->ns_id) < 0) {
+	if (netlink_socket(&zns->netlink_dplane_out, 0, 0, 0, zns->ns_id,
+			   NETLINK_ROUTE) < 0) {
 		zlog_err("Failure to create %s socket",
 			 zns->netlink_dplane_out.name);
 		exit(-1);
@@ -1795,13 +1828,26 @@ void kernel_init(struct zebra_ns *zns)
 		 zns->ns_id);
 	zns->netlink_dplane_in.sock = -1;
 	if (netlink_socket(&zns->netlink_dplane_in, dplane_groups, 0, 0,
-			   zns->ns_id) < 0) {
+			   zns->ns_id, NETLINK_ROUTE) < 0) {
 		zlog_err("Failure to create %s socket",
 			 zns->netlink_dplane_in.name);
 		exit(-1);
 	}
 
 	kernel_netlink_nlsock_insert(&zns->netlink_dplane_in);
+
+	/* Generic Netlink socket. */
+	snprintf(zns->ge_netlink_cmd.name, sizeof(zns->ge_netlink_cmd.name),
+		 "generic-netlink-cmd (NS %u)", zns->ns_id);
+	zns->ge_netlink_cmd.sock = -1;
+	if (netlink_socket(&zns->ge_netlink_cmd, 0, 0, 0, zns->ns_id,
+			   NETLINK_GENERIC) < 0) {
+		zlog_warn("Failure to create %s socket",
+			  zns->ge_netlink_cmd.name);
+	}
+
+	if (zns->ge_netlink_cmd.sock >= 0)
+		kernel_netlink_nlsock_insert(&zns->ge_netlink_cmd);
 
 	/*
 	 * SOL_NETLINK is not available on all platforms yet
@@ -1841,6 +1887,15 @@ void kernel_init(struct zebra_ns *zns)
 		zlog_notice("Registration for extended dp ACK failed : %d %s",
 			    errno, safe_strerror(errno));
 
+	if (zns->ge_netlink_cmd.sock >= 0) {
+		one = 1;
+		ret = setsockopt(zns->ge_netlink_cmd.sock, SOL_NETLINK,
+				 NETLINK_EXT_ACK, &one, sizeof(one));
+		if (ret < 0)
+			zlog_err("Registration for extended generic netlink cmd ACK failed : %d %s",
+				 errno, safe_strerror(errno));
+	}
+
 	/*
 	 * Trim off the payload of the original netlink message in the
 	 * acknowledgment. This option is available since Linux 4.2, so if
@@ -1873,12 +1928,22 @@ void kernel_init(struct zebra_ns *zns)
 			 zns->netlink_dplane_in.name, safe_strerror(errno),
 			 errno);
 
+	if (zns->ge_netlink_cmd.sock >= 0) {
+		if (fcntl(zns->ge_netlink_cmd.sock, F_SETFL, O_NONBLOCK) < 0)
+			zlog_err("Can't set %s socket error: %s(%d)",
+				 zns->ge_netlink_cmd.name, safe_strerror(errno),
+				 errno);
+	}
+
 	/* Set receive buffer size if it's set from command line */
 	if (rcvbufsize) {
 		netlink_recvbuf(&zns->netlink, rcvbufsize);
 		netlink_recvbuf(&zns->netlink_cmd, rcvbufsize);
 		netlink_recvbuf(&zns->netlink_dplane_out, rcvbufsize);
 		netlink_recvbuf(&zns->netlink_dplane_in, rcvbufsize);
+
+		if (zns->ge_netlink_cmd.sock >= 0)
+			netlink_recvbuf(&zns->ge_netlink_cmd, rcvbufsize);
 	}
 
 	/* Set filter for inbound sockets, to exclude events we've generated
@@ -1897,6 +1962,8 @@ void kernel_init(struct zebra_ns *zns)
 		       &zns->t_netlink);
 
 	rt_netlink_init();
+
+	ge_netlink_init(zns);
 }
 
 /* Helper to clean up an nlsock */
@@ -1920,6 +1987,8 @@ void kernel_terminate(struct zebra_ns *zns, bool complete)
 	kernel_nlsock_fini(&zns->netlink_cmd);
 
 	kernel_nlsock_fini(&zns->netlink_dplane_in);
+
+	kernel_nlsock_fini(&zns->ge_netlink_cmd);
 
 	/* During zebra shutdown, we need to leave the dataplane socket
 	 * around until all work is done.

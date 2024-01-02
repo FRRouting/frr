@@ -61,6 +61,52 @@ static struct cmd_node srv6_loc_node = {
 	.prompt = "%s(config-srv6-locator)# "
 };
 
+static struct cmd_node srv6_encap_node = {
+	.name = "srv6-encap",
+	.node = SRV6_ENCAP_NODE,
+	.parent_node = SRV6_NODE,
+	.prompt = "%s(config-srv6-encap)# "
+};
+
+DEFPY (show_srv6_manager,
+       show_srv6_manager_cmd,
+       "show segment-routing srv6 manager [json]",
+       SHOW_STR
+       "Segment Routing\n"
+       "Segment Routing SRv6\n"
+       "Verify SRv6 Manager\n"
+       JSON_STR)
+{
+	const bool uj = use_json(argc, argv);
+	struct zebra_srv6 *srv6 = zebra_srv6_get_default();
+	json_object *json = NULL;
+	json_object *json_parameters = NULL;
+	json_object *json_encapsulation = NULL;
+	json_object *json_source_address = NULL;
+
+	if (uj) {
+		json = json_object_new_object();
+		json_parameters = json_object_new_object();
+		json_object_object_add(json, "parameters", json_parameters);
+		json_encapsulation = json_object_new_object();
+		json_object_object_add(json_parameters, "encapsulation",
+				       json_encapsulation);
+		json_source_address = json_object_new_object();
+		json_object_object_add(json_encapsulation, "sourceAddress",
+				       json_source_address);
+		json_object_string_addf(json_source_address, "configured",
+					"%pI6", &srv6->encap_src_addr);
+		vty_json(vty, json);
+	} else {
+		vty_out(vty, "Parameters:\n");
+		vty_out(vty, "  Encapsulation:\n");
+		vty_out(vty, "    Source Address:\n");
+		vty_out(vty, "      Configured: %pI6\n", &srv6->encap_src_addr);
+	}
+
+	return CMD_SUCCESS;
+}
+
 DEFUN (show_srv6_locator,
        show_srv6_locator_cmd,
        "show segment-routing srv6 locator [json]",
@@ -391,6 +437,38 @@ DEFPY (locator_behavior,
 	return CMD_SUCCESS;
 }
 
+DEFUN_NOSH (srv6_encap,
+            srv6_encap_cmd,
+            "encapsulation",
+            "Segment Routing SRv6 encapsulation\n")
+{
+	vty->node = SRV6_ENCAP_NODE;
+	return CMD_SUCCESS;
+}
+
+DEFPY (srv6_src_addr,
+       srv6_src_addr_cmd,
+       "source-address X:X::X:X$encap_src_addr",
+       "Segment Routing SRv6 source address\n"
+       "Specify source address for SRv6 encapsulation\n")
+{
+	zebra_srv6_encap_src_addr_set(&encap_src_addr);
+	dplane_srv6_encap_srcaddr_set(&encap_src_addr, NS_DEFAULT);
+	return CMD_SUCCESS;
+}
+
+DEFPY (no_srv6_src_addr,
+       no_srv6_src_addr_cmd,
+       "no source-address [X:X::X:X$encap_src_addr]",
+       NO_STR
+       "Segment Routing SRv6 source address\n"
+       "Specify source address for SRv6 encapsulation\n")
+{
+	zebra_srv6_encap_src_addr_unset();
+	dplane_srv6_encap_srcaddr_set(&in6addr_any, NS_DEFAULT);
+	return CMD_SUCCESS;
+}
+
 static int zebra_sr_config(struct vty *vty)
 {
 	struct zebra_srv6 *srv6 = zebra_srv6_get_default();
@@ -402,6 +480,11 @@ static int zebra_sr_config(struct vty *vty)
 	if (zebra_srv6_is_enable()) {
 		vty_out(vty, "segment-routing\n");
 		vty_out(vty, " srv6\n");
+		if (!IPV6_ADDR_SAME(&srv6->encap_src_addr, &in6addr_any)) {
+			vty_out(vty, "  encapsulation\n");
+			vty_out(vty, "   source-address %pI6\n",
+				&srv6->encap_src_addr);
+		}
 		vty_out(vty, "  locators\n");
 		for (ALL_LIST_ELEMENTS_RO(srv6->locators, node, locator)) {
 			inet_ntop(AF_INET6, &locator->prefix.prefix,
@@ -444,24 +527,30 @@ void zebra_srv6_vty_init(void)
 	install_node(&srv6_node);
 	install_node(&srv6_locs_node);
 	install_node(&srv6_loc_node);
+	install_node(&srv6_encap_node);
 	install_default(SEGMENT_ROUTING_NODE);
 	install_default(SRV6_NODE);
 	install_default(SRV6_LOCS_NODE);
 	install_default(SRV6_LOC_NODE);
+	install_default(SRV6_ENCAP_NODE);
 
 	/* Command for change node */
 	install_element(CONFIG_NODE, &segment_routing_cmd);
 	install_element(SEGMENT_ROUTING_NODE, &srv6_cmd);
 	install_element(SEGMENT_ROUTING_NODE, &no_srv6_cmd);
 	install_element(SRV6_NODE, &srv6_locators_cmd);
+	install_element(SRV6_NODE, &srv6_encap_cmd);
 	install_element(SRV6_LOCS_NODE, &srv6_locator_cmd);
 	install_element(SRV6_LOCS_NODE, &no_srv6_locator_cmd);
 
 	/* Command for configuration */
 	install_element(SRV6_LOC_NODE, &locator_prefix_cmd);
 	install_element(SRV6_LOC_NODE, &locator_behavior_cmd);
+	install_element(SRV6_ENCAP_NODE, &srv6_src_addr_cmd);
+	install_element(SRV6_ENCAP_NODE, &no_srv6_src_addr_cmd);
 
 	/* Command for operation */
 	install_element(VIEW_NODE, &show_srv6_locator_cmd);
 	install_element(VIEW_NODE, &show_srv6_locator_detail_cmd);
+	install_element(VIEW_NODE, &show_srv6_manager_cmd);
 }

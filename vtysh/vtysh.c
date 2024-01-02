@@ -1335,6 +1335,13 @@ static struct cmd_node srv6_loc_node = {
 	.prompt = "%s(config-srv6-locator)# ",
 };
 
+static struct cmd_node srv6_encap_node = {
+	.name = "srv6-encap",
+	.node = SRV6_ENCAP_NODE,
+	.parent_node = SRV6_NODE,
+	.prompt = "%s(config-srv6-encap)# "
+};
+
 #ifdef HAVE_PBRD
 static struct cmd_node pbr_map_node = {
 	.name = "pbr-map",
@@ -1689,6 +1696,14 @@ DEFUNSH(VTYSH_ZEBRA, srv6_locator, srv6_locator_cmd,
 	"Specify locator-name\n")
 {
 	vty->node = SRV6_LOC_NODE;
+	return CMD_SUCCESS;
+}
+
+DEFUNSH(VTYSH_ZEBRA, srv6_encap, srv6_encap_cmd,
+	"encapsulation",
+	"Segment Routing SRv6 encapsulation\n")
+{
+	vty->node = SRV6_ENCAP_NODE;
 	return CMD_SUCCESS;
 }
 
@@ -2504,6 +2519,14 @@ DEFUNSH(VTYSH_ZEBRA, exit_srv6_loc_config, exit_srv6_loc_config_cmd, "exit",
 {
 	if (vty->node == SRV6_LOC_NODE)
 		vty->node = SRV6_LOCS_NODE;
+	return CMD_SUCCESS;
+}
+
+DEFUNSH(VTYSH_ZEBRA, exit_srv6_encap, exit_srv6_encap_cmd, "exit",
+	"Exit from SRv6-encapsulation configuration mode\n")
+{
+	if (vty->node == SRV6_ENCAP_NODE)
+		vty->node = SRV6_NODE;
 	return CMD_SUCCESS;
 }
 
@@ -5090,6 +5113,7 @@ void vtysh_init_vty(void)
 	install_element(SRV6_NODE, &srv6_locators_cmd);
 	install_element(SRV6_NODE, &exit_srv6_config_cmd);
 	install_element(SRV6_NODE, &vtysh_end_all_cmd);
+	install_element(SRV6_NODE, &srv6_encap_cmd);
 
 	install_node(&srv6_locs_node);
 	install_element(SRV6_LOCS_NODE, &srv6_locator_cmd);
@@ -5099,6 +5123,10 @@ void vtysh_init_vty(void)
 	install_node(&srv6_loc_node);
 	install_element(SRV6_LOC_NODE, &exit_srv6_loc_config_cmd);
 	install_element(SRV6_LOC_NODE, &vtysh_end_all_cmd);
+
+	install_node(&srv6_encap_node);
+	install_element(SRV6_ENCAP_NODE, &exit_srv6_encap_cmd);
+	install_element(SRV6_ENCAP_NODE, &vtysh_end_all_cmd);
 
 	install_element(ENABLE_NODE, &vtysh_show_running_config_cmd);
 	install_element(ENABLE_NODE, &vtysh_copy_running_config_cmd);

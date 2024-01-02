@@ -98,6 +98,9 @@ extern int netlink_talk_filter(struct nlmsghdr *h, ns_id_t ns, int startup);
 extern int netlink_talk(int (*filter)(struct nlmsghdr *, ns_id_t, int startup),
 			struct nlmsghdr *n, struct nlsock *nl,
 			struct zebra_ns *zns, bool startup);
+extern int
+ge_netlink_talk(int (*filter)(struct nlmsghdr *, ns_id_t, int startup),
+		struct nlmsghdr *n, struct zebra_ns *zns, bool startup);
 extern int netlink_request(struct nlsock *nl, void *req);
 
 enum netlink_msg_status {

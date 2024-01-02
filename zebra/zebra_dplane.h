@@ -18,6 +18,7 @@
 #include "zebra/zserv.h"
 #include "zebra/zebra_mpls.h"
 #include "zebra/zebra_nhg.h"
+#include "zebra/ge_netlink.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -198,6 +199,9 @@ enum dplane_op_e {
 
 	/* Startup Control */
 	DPLANE_OP_STARTUP_STAGE,
+
+	/* Source address for SRv6 encapsulation */
+	DPLANE_OP_SRV6_ENCAP_SRCADDR_SET,
 };
 
 /*
@@ -664,6 +668,8 @@ bool dplane_ctx_intf_is_broadcast(const struct zebra_dplane_ctx *ctx);
 void dplane_ctx_intf_set_broadcast(struct zebra_dplane_ctx *ctx);
 const struct prefix *dplane_ctx_get_intf_addr(
 	const struct zebra_dplane_ctx *ctx);
+const struct in6_addr *
+dplane_ctx_get_srv6_encap_srcaddr(const struct zebra_dplane_ctx *ctx);
 void dplane_ctx_set_intf_addr(struct zebra_dplane_ctx *ctx,
 			      const struct prefix *p);
 bool dplane_ctx_intf_has_dest(const struct zebra_dplane_ctx *ctx);
@@ -991,6 +997,13 @@ enum zebra_dplane_result dplane_neigh_table_update(const struct interface *ifp,
 enum zebra_dplane_result
 dplane_gre_set(struct interface *ifp, struct interface *ifp_link,
 	       unsigned int mtu, const struct zebra_l2info_gre *gre_info);
+
+/*
+ * Enqueue an SRv6 encap source address set
+ */
+enum zebra_dplane_result
+dplane_srv6_encap_srcaddr_set(const struct in6_addr *addr, ns_id_t ns_id);
+
 
 /* Forward ref of zebra_pbr_rule */
 struct zebra_pbr_rule;
