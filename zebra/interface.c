@@ -1054,6 +1054,8 @@ void if_up(struct interface *ifp, bool install_connected)
 	event_add_timer(zrouter.master, if_zebra_speed_update, ifp, 0,
 			&zif->speed_update);
 	event_ignore_late_timer(zif->speed_update);
+
+	if_addr_wakeup(ifp);
 }
 
 /* Interface goes down.  We have to manage different behavior of based
@@ -2498,28 +2500,21 @@ static void ifs_dump_brief_vty(struct vty *vty, struct vrf *vrf)
 				v6_list_size++;
 		}
 		frr_each (if_connected, ifp->connected, connected) {
-			if (CHECK_FLAG(connected->conf, ZEBRA_IFC_REAL)
-			    && !CHECK_FLAG(connected->flags,
-					   ZEBRA_IFA_SECONDARY)
-			    && (connected->address->family == AF_INET6)) {
+			if (!CHECK_FLAG(connected->flags, ZEBRA_IFA_SECONDARY) &&
+			    (connected->address->family == AF_INET6)) {
 				p = connected->address;
-				/* Don't print link local pfx */
-				if (!IN6_IS_ADDR_LINKLOCAL(&p->u.prefix6)) {
-					if (first_pfx_printed) {
-						/* padding to prepare row only
-						 * for ip addr */
-						vty_out(vty, "%-40s", "");
-						if (v6_list_size > 1)
-							vty_out(vty, "+ ");
-						vty_out(vty, "%pFX\n", p);
-					} else {
-						if (v6_list_size > 1)
-							vty_out(vty, "+ ");
-						vty_out(vty, "%pFX\n", p);
-					}
-					first_pfx_printed = true;
-					break;
+				if (first_pfx_printed) {
+					vty_out(vty, "%-40s", "");
+					if (v6_list_size > 1)
+						vty_out(vty, "+ ");
+					vty_out(vty, "%pFX\n", p);
+				} else {
+					if (v6_list_size > 1)
+						vty_out(vty, "+ ");
+					vty_out(vty, "%pFX\n", p);
 				}
+				first_pfx_printed = true;
+				break;
 			}
 		}
 		if (!first_pfx_printed)
@@ -2547,12 +2542,7 @@ static void ifs_dump_brief_vty_json(json_object *json, struct vrf *vrf)
 		json_addrs = json_object_new_array();
 		json_object_object_add(json_if, "addresses", json_addrs);
 		frr_each (if_connected, ifp->connected, connected) {
-			if (CHECK_FLAG(connected->conf, ZEBRA_IFC_REAL)
-			    && !CHECK_FLAG(connected->flags,
-					   ZEBRA_IFA_SECONDARY)
-			    && !(connected->address->family == AF_INET6
-				 && IN6_IS_ADDR_LINKLOCAL(
-					 &connected->address->u.prefix6))) {
+			if (!CHECK_FLAG(connected->flags, ZEBRA_IFA_SECONDARY)) {
 				char buf[PREFIX2STR_BUFFER];
 
 				json_array_string_add(
@@ -2760,8 +2750,7 @@ static void if_dump_vty(struct vty *vty, struct interface *ifp)
 	}
 
 	frr_each (if_connected, ifp->connected, connected) {
-		if (CHECK_FLAG(connected->conf, ZEBRA_IFC_REAL)
-		    && (connected->address->family == AF_INET6))
+		if (connected->address->family == AF_INET6)
 			connected_dump_vty(vty, NULL, connected);
 	}
 
@@ -3137,8 +3126,7 @@ static void if_dump_vty_json(struct vty *vty, struct interface *ifp,
 	}
 
 	frr_each (if_connected, ifp->connected, connected) {
-		if (CHECK_FLAG(connected->conf, ZEBRA_IFC_REAL)
-		    && (connected->address->family == AF_INET6))
+		if (connected->address->family == AF_INET6)
 			connected_dump_vty(vty, json_addrs, connected);
 	}
 
