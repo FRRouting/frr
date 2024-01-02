@@ -426,7 +426,6 @@ static void mgmt_txn_req_free(struct mgmt_txn_req **txn_req)
 {
 	int indx;
 	struct mgmt_txn_reqs_head *req_list = NULL;
-	struct mgmt_txn_reqs_head *pending_list = NULL;
 	enum mgmt_be_client_id id;
 	struct mgmt_be_client_adapter *adapter;
 	struct mgmt_commit_cfg_req *ccreq;
@@ -527,13 +526,7 @@ static void mgmt_txn_req_free(struct mgmt_txn_req **txn_req)
 		break;
 	}
 
-	if ((*txn_req)->pending_be_proc && pending_list) {
-		mgmt_txn_reqs_del(pending_list, *txn_req);
-		MGMTD_TXN_DBG("Removed req-id: %" PRIu64
-			      " from pending-list (left:%zu)",
-			      (*txn_req)->req_id,
-			      mgmt_txn_reqs_count(pending_list));
-	} else if (req_list) {
+	if (req_list) {
 		mgmt_txn_reqs_del(req_list, *txn_req);
 		MGMTD_TXN_DBG("Removed req-id: %" PRIu64
 			      " from request-list (left:%zu)",
@@ -1274,6 +1267,7 @@ static int txn_get_tree_data_done(struct mgmt_txn_ctx *txn,
 				  struct mgmt_txn_req *txn_req)
 {
 	struct txn_req_get_tree *get_tree = txn_req->req.get_tree;
+	uint64_t req_id = txn_req->req_id;
 	int ret = 0;
 
 	/* cancel timer and send reply onward */
@@ -1291,11 +1285,9 @@ static int txn_get_tree_data_done(struct mgmt_txn_ctx *txn,
 	if (ret) {
 		MGMTD_TXN_ERR("Error saving the results of GETTREE for txn-id %" PRIu64
 			      " req_id %" PRIu64 " to requested type %u",
-			      txn->txn_id, txn_req->req_id,
-			      get_tree->result_type);
+			      txn->txn_id, req_id, get_tree->result_type);
 
-		(void)mgmt_fe_adapter_txn_error(txn->txn_id, txn_req->req_id,
-						false, ret,
+		(void)mgmt_fe_adapter_txn_error(txn->txn_id, req_id, false, ret,
 						"Error converting results of GETTREE");
 	}
 

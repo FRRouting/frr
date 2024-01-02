@@ -1344,7 +1344,7 @@ struct msg_conn *mgmt_fe_create_adapter(int conn_fd, union sockunion *from)
 		adapter->conn = msg_server_conn_create(
 			mgmt_loop, conn_fd, mgmt_fe_adapter_notify_disconnect,
 			mgmt_fe_adapter_process_msg, MGMTD_FE_MAX_NUM_MSG_PROC,
-			MGMTD_FE_MAX_NUM_MSG_WRITE, MGMTD_FE_MSG_MAX_LEN,
+			MGMTD_FE_MAX_NUM_MSG_WRITE, MGMTD_FE_MAX_MSG_LEN,
 			adapter, "FE-adapter");
 
 		adapter->conn->debug = DEBUG_MODE_CHECK(&mgmt_debug_fe,

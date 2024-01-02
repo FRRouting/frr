@@ -729,7 +729,7 @@ struct mgmt_fe_client *mgmt_fe_client_create(const char *client_name,
 			mgmt_fe_client_notify_connect,
 			mgmt_fe_client_notify_disconnect,
 			mgmt_fe_client_process_msg, MGMTD_FE_MAX_NUM_MSG_PROC,
-			MGMTD_FE_MAX_NUM_MSG_WRITE, MGMTD_FE_MSG_MAX_LEN, true,
+			MGMTD_FE_MAX_NUM_MSG_WRITE, MGMTD_FE_MAX_MSG_LEN, true,
 			"FE-client", MGMTD_DBG_FE_CLIENT_CHECK());
 
 	MGMTD_FE_CLIENT_DBG("Initialized client '%s'", client_name);

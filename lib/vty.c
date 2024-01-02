@@ -3657,8 +3657,7 @@ static int vty_mgmt_get_data_result_notified(
 	}
 	if (next_key < 0) {
 		vty_out(vty, "]\n");
-		vty_mgmt_resume_response(vty,
-					 success ? CMD_SUCCESS : CMD_WARNING);
+		vty_mgmt_resume_response(vty, CMD_SUCCESS);
 	}
 
 	return 0;

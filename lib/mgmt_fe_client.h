@@ -25,22 +25,11 @@ extern "C" {
  * connections.
  */
 
-#define MGMTD_FE_CLIENT_ERROR_STRING_MAX_LEN 32
-
-#define MGMTD_FE_DEFAULT_CONN_RETRY_INTVL_SEC 5
-
 #define MGMTD_FE_MSG_PROC_DELAY_USEC 10
-#define MGMTD_FE_MAX_NUM_MSG_PROC 500
 
-#define MGMTD_FE_MSG_WRITE_DELAY_MSEC 1
+#define MGMTD_FE_MAX_NUM_MSG_PROC  500
 #define MGMTD_FE_MAX_NUM_MSG_WRITE 100
-
-#define GMGD_FE_MAX_NUM_REQ_ITEMS 64
-
-#define MGMTD_FE_MSG_MAX_LEN 9000
-
-#define MGMTD_SOCKET_FE_SEND_BUF_SIZE 65535
-#define MGMTD_SOCKET_FE_RECV_BUF_SIZE MGMTD_SOCKET_FE_SEND_BUF_SIZE
+#define MGMTD_FE_MAX_MSG_LEN	   (64 * 1024)
 
 /***************************************************************
  * Data-structures

@@ -20,25 +20,12 @@ extern "C" {
  * Constants
  ***************************************************************/
 
-#define MGMTD_BE_CLIENT_ERROR_STRING_MAX_LEN 32
-
-#define MGMTD_BE_DEFAULT_CONN_RETRY_INTVL_SEC 5
-
-#define MGMTD_BE_MSG_PROC_DELAY_USEC 10
-#define MGMTD_BE_MAX_NUM_MSG_PROC 500
-
-#define MGMTD_BE_MSG_WRITE_DELAY_MSEC 1
+#define MGMTD_BE_MAX_NUM_MSG_PROC  500
 #define MGMTD_BE_MAX_NUM_MSG_WRITE 1000
+#define MGMTD_BE_MAX_MSG_LEN	   (64 * 1024)
 
-#define GMGD_BE_MAX_NUM_REQ_ITEMS 64
-
-#define MGMTD_BE_MSG_MAX_LEN 16384
-
-#define MGMTD_SOCKET_BE_SEND_BUF_SIZE 65535
-#define MGMTD_SOCKET_BE_RECV_BUF_SIZE MGMTD_SOCKET_BE_SEND_BUF_SIZE
-
-#define MGMTD_MAX_CFG_CHANGES_IN_BATCH				\
-	((10 * MGMTD_BE_MSG_MAX_LEN) /				\
+#define MGMTD_MAX_CFG_CHANGES_IN_BATCH                                         \
+	((10 * MGMTD_BE_MAX_MSG_LEN) /                                         \
 	 (MGMTD_MAX_XPATH_LEN + MGMTD_MAX_YANG_VALUE_LEN))
 
 /*
@@ -47,11 +34,11 @@ extern "C" {
  * that gets added to sent message
  */
 #define MGMTD_BE_CFGDATA_PACKING_EFFICIENCY 0.8
-#define MGMTD_BE_CFGDATA_MAX_MSG_LEN                                        \
-	(MGMTD_BE_MSG_MAX_LEN * MGMTD_BE_CFGDATA_PACKING_EFFICIENCY)
+#define MGMTD_BE_CFGDATA_MAX_MSG_LEN                                           \
+	(MGMTD_BE_MAX_MSG_LEN * MGMTD_BE_CFGDATA_PACKING_EFFICIENCY)
 
-#define MGMTD_BE_MAX_BATCH_IDS_IN_REQ                                       \
-	(MGMTD_BE_MSG_MAX_LEN - 128) / sizeof(uint64_t)
+#define MGMTD_BE_MAX_BATCH_IDS_IN_REQ                                          \
+	(MGMTD_BE_MAX_MSG_LEN - 128) / sizeof(uint64_t)
 
 #define MGMTD_BE_CONTAINER_NODE_VAL "<<container>>"
 
