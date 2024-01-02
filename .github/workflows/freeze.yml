@@ -1,4 +1,4 @@
-name: Warn before merging if a "freeze" label exists
+name: Warn before merging if a "freeze" or "do not merge" label exists
 
 on:
   pull_request_target:
@@ -6,12 +6,12 @@ on:
 
 jobs:
   freeze_warning:
-    if: ${{ contains(github.event.*.labels.*.name, 'freeze') }}
-    name: Warn before merging if a "freeze" label exists
+    if: ${{ contains(github.event.*.labels.*.name, 'freeze') || contains(github.event.*.labels.*.name, 'do not merge') }}
+    name: Warn before merging if a "freeze" or "do not merge" label exists
     runs-on: ubuntu-latest
     steps:
       - name: Check for "freeze" label
         run: |
-          echo "Pull request is labeled as 'freeze'"
+          echo "Pull request is labeled as 'freeze' or 'do not merge'"
           echo "This workflow fails so that the pull request cannot be merged."
           exit 1
