@@ -860,7 +860,7 @@ DEFPY(srte_candidate_no_affinity_filter, srte_candidate_no_affinity_filter_cmd,
 
 DEFPY(srte_candidate_metric,
       srte_candidate_metric_cmd,
-      "metric [bound$bound] <igp|te|hc|abc|lmll|cigp|cte|pigp|pte|phc|msd|pd|pdv|pl|ppd|ppdv|ppl|nap|nlp|dc|bnc>$type METRIC$value [required$required]",
+      "metric [bound$bound] <igp|te|hc|abc|lmll|cigp|cte|pigp|pte|phc|msd|pd|pdv|pl|ppd|ppdv|ppl|nap|nlp|dc|bnc>$type METRIC$value [required$required] [computed$computed]",
       "Define a metric constraint\n"
       "If the metric is bounded\n"
       "IGP metric\n"
@@ -885,7 +885,8 @@ DEFPY(srte_candidate_metric,
       "Domain Count metric\n"
       "Border Node Count metric\n"
       "Metric value\n"
-      "Required constraint\n")
+      "Required constraint\n"
+      "Force the PCE to provide the computed path metric\n")
 {
 	char xpath[XPATH_CANDIDATE_MAXLEN];
 	snprintf(xpath, sizeof(xpath), "./constraints/metrics[type='%s']/value",
@@ -899,12 +900,16 @@ DEFPY(srte_candidate_metric,
 	         "./constraints/metrics[type='%s']/required", type);
 	nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY,
 			      required ? "true" : "false");
+	snprintf(xpath, sizeof(xpath),
+		 "./constraints/metrics[type='%s']/is-computed", type);
+	nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY,
+			      computed ? "true" : "false");
 	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFPY(srte_candidate_no_metric,
       srte_candidate_no_metric_cmd,
-      "no metric [bound] <igp|te|hc|abc|lmll|cigp|cte|pigp|pte|phc|msd|pd|pdv|pl|ppd|ppdv|ppl|nap|nlp|dc|bnc>$type [METRIC$value] [required$required]",
+      "no metric [bound] <igp|te|hc|abc|lmll|cigp|cte|pigp|pte|phc|msd|pd|pdv|pl|ppd|ppdv|ppl|nap|nlp|dc|bnc>$type [METRIC$value] [required$required] [computed$computed]",
       NO_STR
       "Remove a metric constraint\n"
       "If the metric is bounded\n"
@@ -930,7 +935,8 @@ DEFPY(srte_candidate_no_metric,
       "Domain Count metric\n"
       "Border Node Count metric\n"
       "Metric value\n"
-      "Required constraint\n")
+      "Required constraint\n"
+      "Force the PCE to provide the computed path metric\n")
 {
 	char xpath[XPATH_CANDIDATE_MAXLEN];
 	snprintf(xpath, sizeof(xpath), "./constraints/metrics[type='%s']",
@@ -1164,7 +1170,8 @@ static void config_write_float(struct vty *vty, float value)
 
 static void config_write_metric(struct vty *vty,
 				enum srte_candidate_metric_type type,
-				float value, bool required, bool is_bound)
+				float value, bool required, bool is_bound,
+				bool is_computed)
 {
 	const char *name = metric_type_name(type);
 	if (name == NULL)
@@ -1173,6 +1180,7 @@ static void config_write_metric(struct vty *vty,
 	        metric_type_name(type));
 	config_write_float(vty, value);
 	vty_out(vty, required ? " required" : "");
+	vty_out(vty, is_computed ? " computed" : "");
 	vty_out(vty, "\n");
 }
 
@@ -1180,7 +1188,7 @@ static int config_write_metric_cb(const struct lyd_node *dnode, void *arg)
 {
 	struct vty *vty = arg;
 	enum srte_candidate_metric_type type;
-	bool required, is_bound = false;
+	bool required, is_bound = false, is_computed = false;
 	float value;
 
 	type = yang_dnode_get_enum(dnode, "type");
@@ -1188,8 +1196,10 @@ static int config_write_metric_cb(const struct lyd_node *dnode, void *arg)
 	required = yang_dnode_get_bool(dnode, "required");
 	if (yang_dnode_exists(dnode, "is-bound"))
 		is_bound = yang_dnode_get_bool(dnode, "is-bound");
+	if (yang_dnode_exists(dnode, "is-computed"))
+		is_computed = yang_dnode_get_bool(dnode, "is-computed");
 
-	config_write_metric(vty, type, value, required, is_bound);
+	config_write_metric(vty, type, value, required, is_bound, is_computed);
 	return YANG_ITER_CONTINUE;
 }
 
