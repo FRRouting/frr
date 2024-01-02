@@ -327,7 +327,7 @@ Configuration Commands
    Delete or specify a bandwidth constraint for a dynamic candidate path.
 
 
-.. clicmd:: metric [bound] METRIC VALUE [required]
+.. clicmd:: metric [bound] METRIC VALUE [required] [computed]
 
    Delete or specify a metric constraint for a dynamic candidate path.
 
