@@ -16,27 +16,19 @@ Installing Dependencies
       libc-ares-dev python3-dev python3-sphinx \
       install-info build-essential libsnmp-dev perl \
       libcap-dev libelf-dev libunwind-dev \
+      protobuf-c-compiler libprotobuf-c-dev \
       libyang2 libyang2-dev
 
 .. include:: building-libunwind-note.rst
 
-Note that Ubuntu >= 20 no longer installs python 2.x, so it must be
-installed explicitly. Ensure that your system has a symlink named
-``/usr/bin/python`` pointing at ``/usr/bin/python3``.
-
-.. code-block:: shell
-
-   sudo ln -s /usr/bin/python3 /usr/bin/python
-   python --version
-
-
-Protobuf
-^^^^^^^^
-This is optional
+GRPC
+^^^^
+If GRPC is enabled using ``--enable-grpc`` the following packages should be
+installed.
 
 .. code-block:: console
 
-   sudo apt-get install protobuf-c-compiler libprotobuf-c-dev
+   sudo apt-get install libgrpc++-dev protobuf-compiler-grpc \
 
 
 Config Rollbacks

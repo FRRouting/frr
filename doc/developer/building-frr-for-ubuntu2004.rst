@@ -15,22 +15,33 @@ Installing Dependencies
       pkg-config libpam0g-dev libjson-c-dev bison flex \
       libc-ares-dev python3-dev python3-sphinx \
       install-info build-essential libsnmp-dev perl \
+      protobuf-c-compiler libprotobuf-c-dev \
       libcap-dev libelf-dev libunwind-dev
 
 .. include:: building-libunwind-note.rst
 
-Note that Ubuntu 20 no longer installs python 2.x, so it must be
-installed explicitly. Ensure that your system has a symlink named
-``/usr/bin/python`` pointing at ``/usr/bin/python3``.
-
 .. include:: building-libyang.rst
 
-Protobuf
-^^^^^^^^
+GRPC
+^^^^
+If GRPC is enabled using ``--enable-grpc`` the following packages should be
+installed.
 
 .. code-block:: console
 
-   sudo apt-get install protobuf-c-compiler libprotobuf-c-dev
+   sudo apt-get install libgrpc++-dev protobuf-compiler-grpc \
+
+
+Config Rollbacks
+^^^^^^^^^^^^^^^^
+
+If config rollbacks are enabled using ``--enable-config-rollbacks``
+the sqlite3 developer package also should be installed.
+
+.. code-block:: console
+
+   sudo apt install libsqlite3-dev
+
 
 ZeroMQ
 ^^^^^^

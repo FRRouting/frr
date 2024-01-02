@@ -41,6 +41,12 @@ RUN apt update && apt upgrade -y && \
         cmake \
         libpcre2-dev \
     && \
+    # GRPC extra build requirements
+    apt-get install -y \
+        libgrpc-dev \
+        libgrpc++-dev \
+        protobuf-compiler-grpc \
+    && \
     # Runtime/triage/testing requirements
     apt-get install -y \
         curl \
@@ -91,7 +97,7 @@ USER frr:frr
 RUN cd && pwd && ls -al && \
     git clone https://github.com/CESNET/libyang.git && \
     cd libyang && \
-    git checkout v2.1.80 && \
+    git checkout v2.1.128 && \
     mkdir build; cd build && \
     cmake -DCMAKE_INSTALL_PREFIX:PATH=/usr \
           -DCMAKE_BUILD_TYPE:String="Release" .. && \
@@ -112,6 +118,7 @@ RUN cd ~/frr && \
        --enable-user=frr \
        --enable-group=frr \
        --enable-config-rollbacks \
+       --enable-grpc \
        --enable-vty-group=frrvty \
        --enable-snmp=agentx \
        --enable-scripting \
