@@ -4777,9 +4777,10 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 						       BGP_PATH_VALID);
 			} else {
 				if (BGP_DEBUG(nht, NHT)) {
-					zlog_debug("%s(%pI4): NH unresolved",
+					zlog_debug("%s(%pI4): NH unresolved for existing %pFX pi %p flags 0x%x",
 						   __func__,
-						   (in_addr_t *)&attr_new->nexthop);
+						   (in_addr_t *)&attr_new->nexthop,
+						   p, pi, pi->flags);
 				}
 				bgp_path_info_unset_flag(dest, pi,
 							 BGP_PATH_VALID);
@@ -4824,10 +4825,23 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 		 * updating
 		 * the attributes for the route in the VNI(s).
 		 */
-		if (safi == SAFI_EVPN &&
-		    (!same_attr || force_evpn_import) &&
-		    CHECK_FLAG(pi->flags, BGP_PATH_VALID))
-			bgp_evpn_import_route(bgp, afi, safi, p, pi);
+		if (safi == SAFI_EVPN) {
+			if ((!same_attr || force_evpn_import) &&
+			    CHECK_FLAG(pi->flags, BGP_PATH_VALID))
+				bgp_evpn_import_route(bgp, afi, safi, p, pi);
+
+			/* If existing path is marked invalid then unimport the
+			 * path from EVPN prefix. This will ensure EVPN route
+			 * has only valid paths and path refcount maintained in
+			 * EVPN nexthop is decremented appropriately.
+			 */
+			else if (!CHECK_FLAG(pi->flags, BGP_PATH_VALID)) {
+				if (BGP_DEBUG(nht, NHT))
+					zlog_debug("%s unimport EVPN %pFX as pi %p is not VALID",
+						   __func__, p, pi);
+				bgp_evpn_unimport_route(bgp, afi, safi, p, pi);
+			}
+		}
 
 		/* Process change. */
 		bgp_aggregate_increment(bgp, p, pi, afi, safi);
