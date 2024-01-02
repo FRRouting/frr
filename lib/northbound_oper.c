@@ -726,9 +726,13 @@ static bool __is_yielding_node(const struct lysc_node *snode)
 
 static const struct lysc_node *__sib_next(bool yn, const struct lysc_node *sib)
 {
-	for (; sib; sib = sib->next)
+	for (; sib; sib = sib->next) {
+		/* Always skip keys. */
+		if (lysc_is_key(sib))
+			continue;
 		if (yn == __is_yielding_node(sib))
 			return sib;
+	}
 	return NULL;
 }
 
@@ -793,8 +797,7 @@ static const struct lysc_node *nb_op_sib_next(struct nb_op_yield_state *ys,
  * siblings then yielding ones. There should be no more than 1 yielding sibling.
  */
 static const struct lysc_node *nb_op_sib_first(struct nb_op_yield_state *ys,
-					       const struct lysc_node *parent,
-					       bool skip_keys)
+					       const struct lysc_node *parent)
 {
 	const struct lysc_node *sib = lysc_node_child(parent);
 	const struct lysc_node *first_sib;
@@ -811,9 +814,9 @@ static const struct lysc_node *nb_op_sib_first(struct nb_op_yield_state *ys,
 	if (darr_lasti(ys->node_infos) < ys->query_base_level)
 		return ys->schema_path[darr_lasti(ys->node_infos) + 1];
 
-	if (skip_keys)
-		while (sib && lysc_is_key(sib))
-			sib = sib->next;
+	/* We always skip keys. */
+	while (sib && lysc_is_key(sib))
+		sib = sib->next;
 	if (!sib)
 		return NULL;
 
@@ -897,7 +900,7 @@ static enum nb_error __walk(struct nb_op_yield_state *ys, bool is_resume)
 		 * When adding root level walks, the sibling list are the root
 		 * level nodes of all modules
 		 */
-		sib = nb_op_sib_first(ys, walk_stem_tip, true);
+		sib = nb_op_sib_first(ys, walk_stem_tip);
 		if (!sib)
 			return NB_ERR_NOT_FOUND;
 	}
@@ -1036,7 +1039,7 @@ static enum nb_error __walk(struct nb_op_yield_state *ys, bool is_resume)
 			darr_in_strdup(ys->xpath, xpath_child);
 			ni->xpath_len = darr_strlen(ys->xpath);
 
-			sib = nb_op_sib_first(ys, sib, false);
+			sib = nb_op_sib_first(ys, sib);
 			continue;
 		case LYS_LIST:
 
@@ -1396,7 +1399,7 @@ static enum nb_error __walk(struct nb_op_yield_state *ys, bool is_resume)
 			ni->nents += 1;
 
 			/* Skip over the key children, they've been created. */
-			sib = nb_op_sib_first(ys, sib, true);
+			sib = nb_op_sib_first(ys, sib);
 			continue;
 
 		case LYS_CHOICE:
