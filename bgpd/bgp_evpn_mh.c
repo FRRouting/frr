@@ -4457,13 +4457,13 @@ static void bgp_evpn_nh_zebra_update_send(struct bgp_evpn_nh *nh, bool add)
 
 	stream_putw_at(s, 0, stream_get_endp(s));
 
-	if (BGP_DEBUG(evpn_mh, EVPN_MH_ES)) {
+	if (BGP_DEBUG(evpn_mh, EVPN_MH_ES) || bgp_debug_zebra(NULL)) {
 		if (add)
-			zlog_debug("evpn vrf %s nh %s rmac %pEA add to zebra",
+			zlog_debug("evpn %s nh %s rmac %pEA add to zebra",
 				   nh->bgp_vrf->name_pretty, nh->nh_str,
 				   &nh->rmac);
-		else if (BGP_DEBUG(evpn_mh, EVPN_MH_ES))
-			zlog_debug("evpn vrf %s nh %s del to zebra",
+		else
+			zlog_debug("evpn %s nh %s del to zebra",
 				   nh->bgp_vrf->name_pretty, nh->nh_str);
 	}
 
@@ -4646,7 +4646,7 @@ static void bgp_evpn_nh_update_ref_pi(struct bgp_evpn_nh *nh)
 			continue;
 
 		if (BGP_DEBUG(evpn_mh, EVPN_MH_ES))
-			zlog_debug("evpn vrf %s nh %s ref_pi update",
+			zlog_debug("evpn %s nh %s ref_pi update",
 				   nh->bgp_vrf->name_pretty, nh->nh_str);
 		nh->ref_pi = pi;
 		/* If we have a new pi copy rmac from it and update
@@ -4724,11 +4724,12 @@ static void bgp_evpn_path_nh_unlink(struct bgp_path_evpn_nh_info *nh_info)
 
 	pi = nh_info->pi;
 	if (BGP_DEBUG(evpn_mh, EVPN_MH_RT))
-		zlog_debug("path %s unlinked from nh %s %s",
+		zlog_debug("path %s unlinked from %s nh %s pathcount %u",
 			   pi->net ? prefix2str(&pi->net->rn->p, prefix_buf,
 						sizeof(prefix_buf))
 				   : "",
-			   nh->bgp_vrf->name_pretty, nh->nh_str);
+			   nh->bgp_vrf->name_pretty, nh->nh_str,
+			   listcount(nh->pi_list));
 
 	list_delete_node(nh->pi_list, &nh_info->nh_listnode);
 
@@ -4759,7 +4760,7 @@ static void bgp_evpn_path_nh_link(struct bgp *bgp_vrf, struct bgp_path_info *pi)
 
 	if (!bgp_vrf->evpn_nh_table) {
 		if (BGP_DEBUG(evpn_mh, EVPN_MH_RT))
-			zlog_debug("path %pFX linked to vrf %s failed",
+			zlog_debug("path %pFX linked to %s failed",
 				   &pi->net->rn->p, bgp_vrf->name_pretty);
 		return;
 	}
@@ -4807,8 +4808,9 @@ static void bgp_evpn_path_nh_link(struct bgp *bgp_vrf, struct bgp_path_info *pi)
 	bgp_evpn_path_nh_unlink(nh_info);
 
 	if (BGP_DEBUG(evpn_mh, EVPN_MH_RT))
-		zlog_debug("path %pFX linked to nh %s %s", &pi->net->rn->p,
-			   nh->bgp_vrf->name_pretty, nh->nh_str);
+		zlog_debug("path %pFX linked to %s nh %s pathcount %u",
+			   &pi->net->rn->p, nh->bgp_vrf->name_pretty,
+			   nh->nh_str, listcount(nh->pi_list));
 
 	/* link mac-ip path to the new nh */
 	nh_info->nh = nh;

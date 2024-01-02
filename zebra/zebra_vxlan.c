@@ -2265,14 +2265,13 @@ static int zl3vni_send_add_to_client(struct zebra_l3vni *zl3vni)
 	stream_putw_at(s, 0, stream_get_endp(s));
 
 	if (IS_ZEBRA_DEBUG_VXLAN)
-		zlog_debug(
-			"Send L3_VNI_ADD %u VRF %s RMAC %pEA VRR %pEA local-ip %pI4 filter %s to %s",
-			zl3vni->vni, vrf_id_to_name(zl3vni_vrf_id(zl3vni)),
-			&svi_rmac, &vrr_rmac, &zl3vni->local_vtep_ip,
-			CHECK_FLAG(zl3vni->filter, PREFIX_ROUTES_ONLY)
-				? "prefix-routes-only"
-				: "none",
-			zebra_route_string(client->proto));
+		zlog_debug("Send L3VNI ADD %u VRF %s RMAC %pEA VRR %pEA local-ip %pI4 filter %s to %s",
+			   zl3vni->vni, vrf_id_to_name(zl3vni_vrf_id(zl3vni)),
+			   &svi_rmac, &vrr_rmac, &zl3vni->local_vtep_ip,
+			   CHECK_FLAG(zl3vni->filter, PREFIX_ROUTES_ONLY)
+				   ? "prefix-routes-only"
+				   : "none",
+			   zebra_route_string(client->proto));
 
 	client->l3vniadd_cnt++;
 	return zserv_send_message(client, s);
@@ -2300,7 +2299,7 @@ static int zl3vni_send_del_to_client(struct zebra_l3vni *zl3vni)
 	stream_putw_at(s, 0, stream_get_endp(s));
 
 	if (IS_ZEBRA_DEBUG_VXLAN)
-		zlog_debug("Send L3_VNI_DEL %u VRF %s to %s", zl3vni->vni,
+		zlog_debug("Send L3VNI DEL %u VRF %s to %s", zl3vni->vni,
 			   vrf_id_to_name(zl3vni_vrf_id(zl3vni)),
 			   zebra_route_string(client->proto));
 
