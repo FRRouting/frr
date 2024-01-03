@@ -13,6 +13,9 @@
 #include <bgpd/bgp_nhg.h>
 #include <bgpd/bgp_nexthop.h>
 #include <bgpd/bgp_zebra.h>
+#include <bgpd/bgp_vty.h>
+
+#include "bgpd/bgp_nhg_clippy.c"
 
 extern struct zclient *zclient;
 
@@ -266,6 +269,18 @@ static void bgp_nhg_group_init(void)
 	bgp_nhg_cache_init(&nhg_cache_table);
 }
 
+/* return the first nexthop-vrf available, VRF_DEFAULT otherwise */
+static vrf_id_t bgp_nhg_get_vrfid(struct bgp_nhg_cache *nhg)
+{
+	vrf_id_t vrf_id = VRF_DEFAULT;
+	int i = 0;
+
+	for (i = 0; i < nhg->nexthop_num; i++)
+		return nhg->nexthops[i].vrf_id;
+
+	return vrf_id;
+}
+
 void bgp_nhg_id_set_installed(uint32_t id, bool install)
 {
 	static struct bgp_nhg_cache *nhg;
@@ -382,4 +397,178 @@ void bgp_nhg_refresh_by_nexthop(struct bgp_nexthop_cache *bnc)
 			bgp_nhg_add_or_update_nhg(nhg);
 		}
 	}
+}
+
+static void show_bgp_nhg_id_helper(struct vty *vty, struct bgp_nhg_cache *nhg,
+				   json_object *json, bool detail)
+{
+	struct nexthop *nexthop;
+	json_object *json_entry;
+	json_object *json_array = NULL;
+	json_object *paths = NULL;
+	json_object *json_path = NULL;
+	int i;
+	bool first;
+	struct bgp_path_info *path;
+
+	if (!nhg) {
+		if (json)
+			json_object_string_add(json, "error", "notFound");
+		return;
+	}
+
+	if (json) {
+		json_object_int_add(json, "nhgId", nhg->id);
+		json_object_int_add(json, "pathCount", nhg->path_count);
+		json_object_int_add(json, "flagAllowRecursion",
+				    CHECK_FLAG(nhg->flags,
+					       BGP_NHG_FLAG_ALLOW_RECURSION));
+		json_object_boolean_add(json, "flagAllowRecursion",
+					CHECK_FLAG(nhg->flags,
+						   BGP_NHG_FLAG_ALLOW_RECURSION));
+		json_object_boolean_add(json, "flagInternalBgp",
+					CHECK_FLAG(nhg->flags,
+						   BGP_NHG_FLAG_IBGP));
+		json_object_boolean_add(json, "flagSrtePresence",
+					CHECK_FLAG(nhg->flags,
+						   BGP_NHG_FLAG_SRTE_PRESENCE));
+		json_object_boolean_add(json, "stateInstalled",
+					CHECK_FLAG(nhg->state,
+						   BGP_NHG_STATE_INSTALLED));
+		json_object_boolean_add(json, "stateRemoved",
+					CHECK_FLAG(nhg->state,
+						   BGP_NHG_STATE_REMOVED));
+	} else {
+		vty_out(vty, "ID: %u", nhg->id);
+		if (nhg->path_count)
+			vty_out(vty, ", #paths %u", nhg->path_count);
+		vty_out(vty, "\n");
+		vty_out(vty, "  Flags: 0x%04x", nhg->flags);
+		first = true;
+		if (CHECK_FLAG(nhg->flags, BGP_NHG_FLAG_ALLOW_RECURSION)) {
+			vty_out(vty, " (allowRecursion");
+			first = false;
+		}
+		if (CHECK_FLAG(nhg->flags, BGP_NHG_FLAG_IBGP)) {
+			vty_out(vty, "%sinternalBgp", first ? " (" : ", ");
+			first = false;
+		}
+		if (CHECK_FLAG(nhg->flags, BGP_NHG_FLAG_SRTE_PRESENCE))
+			vty_out(vty, "%sSrtePresence", first ? " (" : ", ");
+		if (nhg->flags)
+			vty_out(vty, ")");
+		vty_out(vty, "\n");
+
+		vty_out(vty, "  State: 0x%04x", nhg->state);
+		first = true;
+		if (CHECK_FLAG(nhg->state, BGP_NHG_STATE_INSTALLED)) {
+			vty_out(vty, " (Installed");
+			first = false;
+		}
+		if (CHECK_FLAG(nhg->state, BGP_NHG_STATE_REMOVED)) {
+			vty_out(vty, "%sRemoved", first ? " (" : ", ");
+			first = false;
+		}
+		if (nhg->state)
+			vty_out(vty, ")");
+		vty_out(vty, "\n");
+	}
+
+	if (nhg->nexthop_num && json)
+		json_array = json_object_new_array();
+
+	for (i = 0; i < nhg->nexthop_num; i++) {
+		nexthop = nexthop_from_zapi_nexthop(&nhg->nexthops[i]);
+		if (json) {
+			json_entry = json_object_new_object();
+			nexthop_json_helper(json_entry, nexthop, true);
+			json_object_string_add(json_entry, "vrf",
+					       vrf_id_to_name(nexthop->vrf_id));
+			json_object_array_add(json_array, json_entry);
+		} else {
+			if (!CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_RECURSIVE))
+				vty_out(vty, "          ");
+			else
+				/* Make recursive nexthops a bit more clear */
+				vty_out(vty, "       ");
+			nexthop_vty_helper(vty, nexthop, true);
+			vty_out(vty, "\n");
+		}
+		nexthops_free(nexthop);
+	}
+	if (json)
+		json_object_object_add(json, "nexthops", json_array);
+
+	if (detail) {
+		if (json)
+			paths = json_object_new_array();
+		else
+			vty_out(vty, "  Paths:\n");
+		LIST_FOREACH (path, &(nhg->paths), nhg_cache_thread) {
+			if (json)
+				json_path = json_object_new_object();
+			bgp_path_info_display(path, vty, json_path);
+			if (json)
+				json_object_array_add(paths, json_path);
+		}
+		if (json)
+			json_object_object_add(json, "paths", paths);
+	}
+}
+
+DEFPY(show_ip_bgp_nhg, show_ip_bgp_nhg_cmd,
+      "show [ip] bgp [vrf <NAME$vrf_name|all$vrf_all>] nexthop-group [<(0-4294967295)>$id] [detail$detail] [json$uj]",
+      SHOW_STR IP_STR BGP_STR VRF_FULL_CMD_HELP_STR
+      "BGP nexthop-group table\n"
+      "Nexthop Group ID\n"
+      "Show detailed information\n" JSON_STR)
+{
+	json_object *json = NULL;
+	json_object *json_list = NULL;
+	struct vrf *vrf = NULL;
+	static struct bgp_nhg_cache *nhg;
+
+	if (id) {
+		nhg = bgp_nhg_find_per_id(id);
+		if (uj)
+			json = json_object_new_object();
+		show_bgp_nhg_id_helper(vty, nhg, json, !!detail);
+		if (json)
+			vty_json(vty, json);
+		return CMD_SUCCESS;
+	}
+
+	if (vrf_is_backend_netns() && (vrf_name || vrf_all)) {
+		if (uj)
+			vty_json(vty, json);
+		else
+			vty_out(vty,
+				"VRF subcommand does not make any sense in netns based vrf's\n");
+		return CMD_WARNING;
+	}
+	if (vrf_name)
+		vrf = vrf_lookup_by_name(vrf_name);
+
+	if (uj)
+		json_list = json_object_new_array();
+
+
+	frr_each_safe (bgp_nhg_cache, &nhg_cache_table, nhg) {
+		if (json_list)
+			json = json_object_new_object();
+		if (vrf && vrf->vrf_id != bgp_nhg_get_vrfid(nhg))
+			continue;
+		show_bgp_nhg_id_helper(vty, nhg, json, !!detail);
+		if (json_list)
+			json_object_array_add(json_list, json);
+	}
+	if (json_list)
+		vty_json(vty, json_list);
+	return CMD_SUCCESS;
+}
+
+
+void bgp_nhg_vty_init(void)
+{
+	install_element(VIEW_NODE, &show_ip_bgp_nhg_cmd);
 }
