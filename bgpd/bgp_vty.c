@@ -134,6 +134,9 @@ FRR_CFG_DEFAULT_BOOL(BGP_ENFORCE_FIRST_AS,
 	{ .val_bool = false, .match_version = "< 9.1", },
 	{ .val_bool = true },
 );
+FRR_CFG_DEFAULT_BOOL(BGP_NEXTHOP_GROUP,
+	{ .val_bool = true },
+);
 
 DEFINE_HOOK(bgp_inst_config_write,
 		(struct bgp *bgp, struct vty *vty),
@@ -2013,6 +2016,12 @@ DEFPY (no_bgp_send_extra_data,
 		SET_FLAG(bm->flags, BM_FLAG_SEND_EXTRA_DATA_TO_ZEBRA);
 
 	return CMD_SUCCESS;
+}
+
+void bgp_nhg_configure_default(void)
+{
+	if (DFLT_BGP_NEXTHOP_GROUP)
+		bgp_option_set(BGP_OPT_NHG);
 }
 
 DEFPY(bgp_nhg, bgp_nhg_cmd, "[no$no] bgp nexthop-group",
@@ -18974,8 +18983,10 @@ int bgp_config_write(struct vty *vty)
 	if (bgp_option_check(BGP_OPT_NO_FIB))
 		vty_out(vty, "bgp no-rib\n");
 
-	if (bgp_option_check(BGP_OPT_NHG))
+	if (bgp_option_check(BGP_OPT_NHG) && !DFLT_BGP_NEXTHOP_GROUP)
 		vty_out(vty, "bgp nexthop-group\n");
+	else if (!bgp_option_check(BGP_OPT_NHG) && DFLT_BGP_NEXTHOP_GROUP)
+		vty_out(vty, "no bgp nexthop-group\n");
 
 	if (CHECK_FLAG(bm->flags, BM_FLAG_SEND_EXTRA_DATA_TO_ZEBRA))
 		vty_out(vty, "bgp send-extra-data zebra\n");
