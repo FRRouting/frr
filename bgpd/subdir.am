@@ -217,6 +217,7 @@ clippy_scan += \
 	bgpd/bgp_vty.c \
         bgpd/bgp_nexthop.c \
 	bgpd/bgp_snmp.c \
+	bgpd/bgp_nhg.c \
 	# end
 
 nodist_bgpd_bgpd_SOURCES = \
