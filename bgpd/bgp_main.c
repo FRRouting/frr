@@ -514,6 +514,7 @@ int main(int argc, char **argv)
 		bgp_option_set(BGP_OPT_NO_FIB);
 	if (no_zebra_flag)
 		bgp_option_set(BGP_OPT_NO_ZEBRA);
+	bgp_nhg_configure_default();
 	bgp_error_init();
 	/* Initializations. */
 	bgp_vrf_init();
