@@ -2851,6 +2851,7 @@ static void bgp_evpn_l3nhg_zebra_add_v4_or_v6(struct bgp_evpn_es_vrf *es_vrf,
 	if (!api_nhg.nexthop_num)
 		return;
 
+	api_nhg.vrf_id = VRF_DEFAULT;
 	zclient_nhg_send(zclient, ZEBRA_NHG_ADD, &api_nhg);
 }
 
@@ -2895,6 +2896,7 @@ static void bgp_evpn_l3nhg_zebra_del_v4_or_v6(struct bgp_evpn_es_vrf *es_vrf,
 	frrtrace(4, frr_bgp, evpn_mh_nhg_zsend, false, v4_nhg, api_nhg.id,
 		 es_vrf);
 
+	api_nhg.vrf_id = VRF_DEFAULT;
 	zclient_nhg_send(zclient, ZEBRA_NHG_DEL, &api_nhg);
 }
 

@@ -1164,7 +1164,7 @@ static int zapi_nhg_encode(struct stream *s, int cmd, struct zapi_nhg *api_nhg)
 	}
 
 	stream_reset(s);
-	zclient_create_header(s, cmd, VRF_DEFAULT);
+	zclient_create_header(s, cmd, api_nhg->vrf_id);
 
 	stream_putw(s, api_nhg->proto);
 	stream_putl(s, api_nhg->id);

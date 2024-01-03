@@ -3423,6 +3423,7 @@ struct nhg_hash_entry *zebra_nhg_proto_add(uint32_t id, int type,
 	lookup.nhg.nhgr = nhg->nhgr;
 	lookup.id = id;
 	lookup.type = type;
+	lookup.vrf_id = nhe->vrf_id;
 
 	old = zebra_nhg_lookup_id(id);
 

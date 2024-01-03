@@ -486,6 +486,8 @@ struct zapi_nhg {
 
 	uint16_t backup_nexthop_num;
 	struct zapi_nexthop backup_nexthops[MULTIPATH_NUM];
+
+	uint32_t vrf_id;
 };
 
 /*

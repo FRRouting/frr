@@ -1962,6 +1962,7 @@ static void zread_nhg_del(ZAPI_HANDLER_ARGS)
 	/* Create a temporary nhe */
 	nhe = zebra_nhg_alloc();
 	nhe->id = api_nhg.id;
+	nhe->vrf_id = zvrf_id(zvrf);
 	nhe->type = api_nhg.proto;
 	nhe->zapi_instance = client->instance;
 	nhe->zapi_session = client->session_id;
@@ -2165,6 +2166,7 @@ static void zread_route_add(ZAPI_HANDLER_ARGS)
 	 */
 	if (!re->nhe_id) {
 		zebra_nhe_init(&nhe, afi, ng->nexthop);
+		nhe.vrf_id = re->vrf_id;
 		nhe.nhg.nexthop = ng->nexthop;
 		nhe.backup_info = bnhg;
 		n = zebra_nhe_copy(&nhe, 0);

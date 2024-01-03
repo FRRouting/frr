@@ -539,6 +539,7 @@ void nhg_add(uint32_t id, const struct nexthop_group *nhg,
 	bool is_valid = true;
 
 	api_nhg.id = id;
+	api_nhg.vrf_id = VRF_DEFAULT;
 
 	api_nhg.resilience = nhg->nhgr;
 

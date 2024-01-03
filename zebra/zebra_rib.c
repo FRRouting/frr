@@ -4373,6 +4373,7 @@ int rib_add_multipath(afi_t afi, safi_t safi, struct prefix *p,
 	else if (re->nhe_id > 0)
 		nhe.id = re->nhe_id;
 
+	nhe.vrf_id = re->vrf_id;
 	n = zebra_nhe_copy(&nhe, 0);
 	ret = rib_add_multipath_nhe(afi, safi, p, src_p, re, n, startup);
 
