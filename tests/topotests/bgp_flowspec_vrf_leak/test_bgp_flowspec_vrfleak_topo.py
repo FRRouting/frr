@@ -378,9 +378,9 @@ def test_bgp_flowspec():
 
     topotest.sleep(10, "starting BGP peering with peer2")
 
-    logger.info("Check BGP FS entry for ICMP Ping from 1.1.1.2 to 3.3.3.3 is dropped")
+    logger.info("Check BGP FS entry for ICMP Ping from 1.1.1.2 to 2.2.2.2 is dropped")
     output = router.vtysh_cmd(
-        "show bgp ipv4 flowspec 3.3.3.3", isjson=False, daemon="bgpd"
+        "show bgp ipv4 flowspec 2.2.2.2", isjson=False, daemon="bgpd"
     )
     output = topotest.flowspec_get(output, pattern="FS:rate 0.000000")
     if output:
@@ -388,13 +388,13 @@ def test_bgp_flowspec():
         output = topotest.flowspec_get_iptable(output)
     if output == None:
         assertmsg = (
-            "Check BGP FS entry for ICMP Ping from 1.1.1.2 to 3.3.3.3 is dropped. NOK"
+            "Check BGP FS entry for ICMP Ping from 1.1.1.2 to 2.2.2.2 is dropped. NOK"
         )
         assert 0, assertmsg
     logger.info(
-        "Check BGP FS entry for ICMP Ping from 1.1.1.2 to 3.3.3.3 is dropped. OK"
+        "Check BGP FS entry for ICMP Ping from 1.1.1.2 to 2.2.2.2 is dropped. OK"
     )
-    attacker.run("ping -c 10 3.3.3.3")
+    attacker.run("ping -c 10 2.2.2.2")
     logger.info("Check Zebra PBR entry {0} counter".format(output))
     outputtable = router.vtysh_cmd(
         "show pbr iptable {0}".format(output), isjson=False, daemon="zebra"
