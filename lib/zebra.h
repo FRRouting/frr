@@ -42,7 +42,6 @@
 #ifdef HAVE_SYS_KSYM_H
 #include <sys/ksym.h>
 #endif /* HAVE_SYS_KSYM_H */
-#include <syslog.h>
 #include <sys/time.h>
 #include <time.h>
 #include <sys/utsname.h>
