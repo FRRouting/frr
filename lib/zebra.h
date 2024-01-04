@@ -118,7 +118,6 @@
 #include <netinet6/in.h>
 #endif /* HAVE_NETINET6_IN_H */
 
-
 #ifdef HAVE_NETINET6_IP6_H
 #include <netinet6/ip6.h>
 #endif /* HAVE_NETINET6_IP6_H */
@@ -231,12 +230,6 @@ struct in_pktinfo {
 
 /* default zebra TCP port for zclient */
 #define ZEBRA_PORT			2600
-
-/*
- * The compiler.h header is used for anyone using the CPP_NOTICE
- * since this is universally needed, let's add it to zebra.h
- */
-#include "compiler.h"
 
 /* Zebra route's types are defined in route_types.h */
 #include "lib/route_types.h"
