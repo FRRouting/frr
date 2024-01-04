@@ -7,6 +7,7 @@
  */
 #include <zebra.h>
 
+#include <pwd.h>
 #include <grp.h>
 
 #ifdef HAVE_LCAPS

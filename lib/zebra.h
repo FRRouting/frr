@@ -20,7 +20,6 @@
 #include <errno.h>
 #include <signal.h>
 #include <string.h>
-#include <pwd.h>
 #ifdef HAVE_STROPTS_H
 #include <stropts.h>
 #endif /* HAVE_STROPTS_H */
