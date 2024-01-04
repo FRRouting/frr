@@ -44,11 +44,6 @@
 #include "bgpd/rfapi/rfapi_encap_tlv.h"
 #include "bgpd/rfapi/vnc_debug.h"
 
-#ifdef HAVE_GLIBC_BACKTRACE
-/* for backtrace and friends */
-#include <execinfo.h>
-#endif /* HAVE_GLIBC_BACKTRACE */
-
 #undef DEBUG_MONITOR_MOVE_SHORTER
 #undef DEBUG_RETURNED_NHL
 #undef DEBUG_ROUTE_COUNTERS
@@ -76,32 +71,6 @@ struct rfapi_withdraw {
 	 */
 	int lockoffset;
 };
-
-/*
- * DEBUG FUNCTION
- * It's evil and fiendish. It's compiler-dependent.
- * ? Might need LDFLAGS -rdynamic to produce all function names
- */
-void rfapiDebugBacktrace(void)
-{
-#ifdef HAVE_GLIBC_BACKTRACE
-#define RFAPI_DEBUG_BACKTRACE_NENTRIES	200
-	void *buf[RFAPI_DEBUG_BACKTRACE_NENTRIES];
-	char **syms;
-	size_t i;
-	size_t size;
-
-	size = backtrace(buf, RFAPI_DEBUG_BACKTRACE_NENTRIES);
-	syms = backtrace_symbols(buf, size);
-
-	for (i = 0; i < size && i < RFAPI_DEBUG_BACKTRACE_NENTRIES; ++i) {
-		vnc_zlog_debug_verbose("backtrace[%2zu]: %s", i, syms[i]);
-	}
-
-	free(syms);
-#else
-#endif
-}
 
 /*
  * DEBUG FUNCTION
@@ -1709,7 +1678,7 @@ struct rfapi_next_hop_entry *rfapiRouteNode2NextHopList(
 
 #ifdef DEBUG_RETURNED_NHL
 	vnc_zlog_debug_verbose("%s: called with node pfx=%rRN", __func__, rn);
-	rfapiDebugBacktrace();
+	zlog_backtrace(LOG_INFO);
 #endif
 
 	rfapiQprefix2Rprefix(p, &rprefix);

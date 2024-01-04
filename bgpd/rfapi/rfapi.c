@@ -46,11 +46,6 @@
 #include "bgpd/rfapi/rfapi_encap_tlv.h"
 #include "bgpd/rfapi/vnc_debug.h"
 
-#ifdef HAVE_GLIBC_BACKTRACE
-/* for backtrace and friends */
-#include <execinfo.h>
-#endif /* HAVE_GLIBC_BACKTRACE */
-
 #define DEBUG_CLEANUP 0
 
 struct ethaddr rfapi_ethaddr0 = {{0}};
@@ -2091,24 +2086,7 @@ int rfapi_close(void *handle)
 	vnc_zlog_debug_verbose("%s: rfd=%p", __func__, rfd);
 
 #ifdef RFAPI_WHO_IS_CALLING_ME
-#ifdef HAVE_GLIBC_BACKTRACE
-#define RFAPI_DEBUG_BACKTRACE_NENTRIES 5
-	{
-		void *buf[RFAPI_DEBUG_BACKTRACE_NENTRIES];
-		char **syms;
-		int i;
-		size_t size;
-
-		size = backtrace(buf, RFAPI_DEBUG_BACKTRACE_NENTRIES);
-		syms = backtrace_symbols(buf, size);
-		for (i = 0; i < size && i < RFAPI_DEBUG_BACKTRACE_NENTRIES;
-		     ++i) {
-			vnc_zlog_debug_verbose("backtrace[%2d]: %s", i,
-					       syms[i]);
-		}
-		free(syms);
-	}
-#endif
+	zlog_backtrace(LOG_INFO);
 #endif
 
 	bgp = rfd->bgp;
