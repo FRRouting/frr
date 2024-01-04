@@ -44,7 +44,6 @@
 #endif /* HAVE_SYS_KSYM_H */
 #include <sys/time.h>
 #include <time.h>
-#include <sys/utsname.h>
 #include <limits.h>
 #include <inttypes.h>
 #include <stdbool.h>
