@@ -90,8 +90,6 @@
 #include <net/if_var.h>
 #endif /* HAVE_NET_IF_VAR_H */
 
-#include <net/route.h>
-
 #ifndef HAVE_NETLINK
 #define RT_TABLE_MAIN		0
 #define RT_TABLE_LOCAL		RT_TABLE_MAIN
