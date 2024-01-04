@@ -463,24 +463,24 @@ def test_bgp_flowspec():
     )
 
     logger.info(
-        "Check BGP FS entry for traffic DSCP 36 from 1.1.1.2 to 2.2.2.2 with redirect IP"
+        "Check BGP FS entry for traffic DSCP 36 from 1.1.1.2 to 3.3.3.5 with redirect IP"
     )
     output = router.vtysh_cmd(
-        "show bgp ipv4 flowspec 2.2.2.2", isjson=False, daemon="bgpd"
+        "show bgp ipv4 flowspec 3.3.3.5", isjson=False, daemon="bgpd"
     )
     output = topotest.flowspec_get(output, pattern="DSCP field = 36")
     if output:
         logger.info(output)
         output = topotest.flowspec_get_iptable(output)
     if output == None:
-        assertmsg = "Check BGP FS entry for traffic DSCP 36 from 1.1.1.2 to 2.2.2.2 with redirect IP. NOK"
+        assertmsg = "Check BGP FS entry for traffic DSCP 36 from 1.1.1.2 to 3.3.3.5 with redirect IP. NOK"
         assert 0, assertmsg
     logger.info(
-        "Check BGP FS entry for traffic DSCP 36 from 1.1.1.2 to 2.2.2.2 with redirect IP. OK"
+        "Check BGP FS entry for traffic DSCP 36 from 1.1.1.2 to 3.3.3.5 with redirect IP. OK"
     )
-    attacker.run("ping -c 10 2.2.2.2 -Q 0x90")
+    attacker.run("ping -c 10 3.3.3.5 -Q 0x90")
     logger.info(
-        "Check Zebra PBR entry {0} for DSCP traffic from 1.1.1.2 to 2.2.2.2 counter".format(
+        "Check Zebra PBR entry {0} for DSCP traffic from 1.1.1.2 to 3.3.3.5 counter".format(
             output
         )
     )
@@ -490,7 +490,7 @@ def test_bgp_flowspec():
     if outputtable:
         logger.info(outputtable)
     if outputtable == None or "pkts 10" not in outputtable:
-        assertmsg = "Check Zebra PBR entry {0} for DSCP traffic from 1.1.1.2 to 2.2.2.2 counter: IPTable. NOK".format(
+        assertmsg = "Check Zebra PBR entry {0} for DSCP traffic from 1.1.1.2 to 3.3.3.5 counter: IPTable. NOK".format(
             output
         )
         assert 0, assertmsg
@@ -500,12 +500,12 @@ def test_bgp_flowspec():
     if outputtable:
         logger.info(outputtable)
     if outputtable == None or "pkts 10" not in outputtable:
-        assertmsg = "Check Zebra PBR entry {0} for DSCP traffic from 1.1.1.2 to 2.2.2.2 counter: IPSet. NOK".format(
+        assertmsg = "Check Zebra PBR entry {0} for DSCP traffic from 1.1.1.2 to 3.3.3.5 counter: IPSet. NOK".format(
             output
         )
         assert 0, assertmsg
     logger.info(
-        "Check Zebra PBR entry {0} for DSCP traffic from 1.1.1.2 to 2.2.2.2 counter. OK".format(
+        "Check Zebra PBR entry {0} for DSCP traffic from 1.1.1.2 to 3.3.3.5 counter. OK".format(
             output
         )
     )
