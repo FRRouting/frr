@@ -11,6 +11,7 @@ Copyright 2011, 2012 by Matthieu Boutier and Juliusz Chroboczek
 #include <sys/time.h>
 #include <sys/param.h>
 #include <time.h>
+#include <fcntl.h>
 
 #include "babeld.h"
 

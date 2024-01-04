@@ -5,6 +5,7 @@
 
 #include "zebra.h"
 
+#include <fcntl.h>
 #include <errno.h>
 #include <linux/if_packet.h>
 #include <sys/ioctl.h>

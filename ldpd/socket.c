@@ -9,6 +9,7 @@
  */
 
 #include <zebra.h>
+#include <fcntl.h>
 
 #include "ldpd.h"
 #include "ldpe.h"

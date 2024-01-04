@@ -5,6 +5,7 @@
 
 #include "zebra.h"
 #include <sys/stat.h>
+#include <fcntl.h>
 
 #ifdef HAVE_GLIBC_BACKTRACE
 #include <execinfo.h>

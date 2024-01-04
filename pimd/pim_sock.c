@@ -5,6 +5,7 @@
  */
 
 #include <zebra.h>
+#include <fcntl.h>
 
 #include <sys/types.h>
 #include <sys/socket.h>

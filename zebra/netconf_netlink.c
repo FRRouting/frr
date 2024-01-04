@@ -6,6 +6,7 @@
  *                     Donald Sharp
  */
 #include <zebra.h>
+#include <fcntl.h>
 
 #ifdef HAVE_NETLINK /* Netlink OSes only */
 

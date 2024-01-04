@@ -11,6 +11,8 @@
  */
 
 #include <zebra.h>
+
+#include <fcntl.h>
 #include <sys/stat.h>
 
 #include <sys/un.h>

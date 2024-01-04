@@ -4,6 +4,7 @@
  */
 
 #include <zebra.h>
+#include <fcntl.h>
 
 #ifdef HAVE_NETLINK
 #include <linux/netlink.h>

@@ -4,6 +4,7 @@
  */
 
 #include <zebra.h>
+#include <fcntl.h>
 
 #include "zebra.h"
 #include "stream.h"

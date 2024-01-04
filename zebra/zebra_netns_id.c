@@ -6,6 +6,7 @@
 
 #include <zebra.h>
 #include <sys/stat.h>
+#include <fcntl.h>
 
 #ifdef GNU_LINUX
 #include <linux/if_link.h>
