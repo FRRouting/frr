@@ -5947,8 +5947,7 @@ dplane_srv6_encap_srcaddr_set(const struct in6_addr *addr, ns_id_t ns_id)
 		atomic_fetch_add_explicit(&zdplane_info
 						   .dg_srv6_encap_srcaddr_set_errors,
 					  1, memory_order_relaxed);
-		if (ctx)
-			dplane_ctx_free(&ctx);
+		dplane_ctx_free(&ctx);
 	}
 	return result;
 }
