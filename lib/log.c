@@ -8,6 +8,10 @@
 
 #include <zebra.h>
 
+#ifdef HAVE_GLIBC_BACKTRACE
+#include <execinfo.h>
+#endif /* HAVE_GLIBC_BACKTRACE */
+
 #include "zclient.h"
 #include "log.h"
 #include "memory.h"

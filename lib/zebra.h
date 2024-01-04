@@ -156,10 +156,6 @@
 #define UINT32_MAX	(4294967295U)
 #endif
 
-#ifdef HAVE_GLIBC_BACKTRACE
-#include <execinfo.h>
-#endif /* HAVE_GLIBC_BACKTRACE */
-
 /* Local includes: */
 #if !defined(__GNUC__)
 #define __attribute__(x)

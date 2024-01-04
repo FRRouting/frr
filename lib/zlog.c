@@ -5,6 +5,10 @@
 
 #include "zebra.h"
 
+#ifdef HAVE_GLIBC_BACKTRACE
+#include <execinfo.h>
+#endif /* HAVE_GLIBC_BACKTRACE */
+
 #include <unistd.h>
 #include <sys/time.h>
 #include <sys/mman.h>
