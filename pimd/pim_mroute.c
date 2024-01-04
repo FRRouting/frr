@@ -5,6 +5,8 @@
  */
 
 #include <zebra.h>
+#include <netinet/icmp6.h>
+
 #include "log.h"
 #include "privs.h"
 #include "if.h"

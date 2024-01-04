@@ -13,6 +13,7 @@
  */
 
 #include <zebra.h>
+#include <netinet/icmp6.h>
 #include <netinet/ip6.h>
 
 #include "lib/memory.h"

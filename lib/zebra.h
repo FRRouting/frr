@@ -134,8 +134,6 @@
 #include <netinet6/ip6.h>
 #endif /* HAVE_NETINET6_IP6_H */
 
-#include <netinet/icmp6.h>
-
 #ifdef HAVE_NETINET6_ND6_H
 #include <netinet6/nd6.h>
 #endif /* HAVE_NETINET6_ND6_H */
