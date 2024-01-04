@@ -140,22 +140,6 @@
 #include <netinet6/nd6.h>
 #endif /* HAVE_NETINET6_ND6_H */
 
-/* Some systems do not define UINT32_MAX, etc.. from inttypes.h
- * e.g. this makes life easier for FBSD 4.11 users.
- */
-#ifndef INT16_MAX
-#define INT16_MAX	(32767)
-#endif
-#ifndef INT32_MAX
-#define INT32_MAX	(2147483647)
-#endif
-#ifndef UINT16_MAX
-#define UINT16_MAX	(65535U)
-#endif
-#ifndef UINT32_MAX
-#define UINT32_MAX	(4294967295U)
-#endif
-
 /* Local includes: */
 #if !defined(__GNUC__)
 #define __attribute__(x)
