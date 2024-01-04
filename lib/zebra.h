@@ -45,7 +45,6 @@
 #include <syslog.h>
 #include <sys/time.h>
 #include <time.h>
-#include <sys/uio.h>
 #include <sys/utsname.h>
 #include <limits.h>
 #include <inttypes.h>
