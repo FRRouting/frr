@@ -7,6 +7,8 @@
  */
 #include <zebra.h>
 
+#include <grp.h>
+
 #ifdef HAVE_LCAPS
 #include <sys/capability.h>
 #include <sys/prctl.h>
