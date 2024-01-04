@@ -13,6 +13,11 @@
 #include <zebra.h>
 #include <json-c/json_object.h>
 
+#ifdef CRYPTO_OPENSSL
+#include <openssl/evp.h>
+#include <openssl/hmac.h>
+#endif
+
 #ifdef CRYPTO_INTERNAL
 #include "md5.h"
 #endif
