@@ -47,7 +47,6 @@
 #include <time.h>
 #include <sys/uio.h>
 #include <sys/utsname.h>
-#include <sys/resource.h>
 #include <limits.h>
 #include <inttypes.h>
 #include <stdbool.h>
