@@ -729,61 +729,11 @@ bool bgp_subgrp_multiaccess_check_v4(struct in_addr nexthop,
 	return false;
 }
 
-static void bgp_show_bgp_path_info_flags(uint32_t flags, json_object *json)
-{
-	json_object *json_flags = NULL;
-
-	if (!json)
-		return;
-
-	json_flags = json_object_new_object();
-	json_object_boolean_add(json_flags, "igpChanged",
-				CHECK_FLAG(flags, BGP_PATH_IGP_CHANGED));
-	json_object_boolean_add(json_flags, "damped",
-				CHECK_FLAG(flags, BGP_PATH_DAMPED));
-	json_object_boolean_add(json_flags, "history",
-				CHECK_FLAG(flags, BGP_PATH_HISTORY));
-	json_object_boolean_add(json_flags, "bestpath",
-				CHECK_FLAG(flags, BGP_PATH_SELECTED));
-	json_object_boolean_add(json_flags, "valid",
-				CHECK_FLAG(flags, BGP_PATH_VALID));
-	json_object_boolean_add(json_flags, "attrChanged",
-				CHECK_FLAG(flags, BGP_PATH_ATTR_CHANGED));
-	json_object_boolean_add(json_flags, "deterministicMedCheck",
-				CHECK_FLAG(flags, BGP_PATH_DMED_CHECK));
-	json_object_boolean_add(json_flags, "deterministicMedSelected",
-				CHECK_FLAG(flags, BGP_PATH_DMED_SELECTED));
-	json_object_boolean_add(json_flags, "stale",
-				CHECK_FLAG(flags, BGP_PATH_STALE));
-	json_object_boolean_add(json_flags, "removed",
-				CHECK_FLAG(flags, BGP_PATH_REMOVED));
-	json_object_boolean_add(json_flags, "counted",
-				CHECK_FLAG(flags, BGP_PATH_COUNTED));
-	json_object_boolean_add(json_flags, "multipath",
-				CHECK_FLAG(flags, BGP_PATH_MULTIPATH));
-	json_object_boolean_add(json_flags, "multipathChanged",
-				CHECK_FLAG(flags, BGP_PATH_MULTIPATH_CHG));
-	json_object_boolean_add(json_flags, "ribAttributeChanged",
-				CHECK_FLAG(flags, BGP_PATH_RIB_ATTR_CHG));
-	json_object_boolean_add(json_flags, "nexthopSelf",
-				CHECK_FLAG(flags, BGP_PATH_ANNC_NH_SELF));
-	json_object_boolean_add(json_flags, "linkBandwidthChanged",
-				CHECK_FLAG(flags, BGP_PATH_LINK_BW_CHG));
-	json_object_boolean_add(json_flags, "acceptOwn",
-				CHECK_FLAG(flags, BGP_PATH_ACCEPT_OWN));
-	json_object_object_add(json, "flags", json_flags);
-}
-
 static void bgp_show_nexthop_paths(struct vty *vty, struct bgp *bgp,
 				   struct bgp_nexthop_cache *bnc,
 				   json_object *json)
 {
-	struct bgp_dest *dest;
 	struct bgp_path_info *path;
-	afi_t afi;
-	safi_t safi;
-	struct bgp_table *table;
-	struct bgp *bgp_path;
 	json_object *paths = NULL;
 	json_object *json_path = NULL;
 
@@ -792,44 +742,11 @@ static void bgp_show_nexthop_paths(struct vty *vty, struct bgp *bgp,
 	else
 		vty_out(vty, "  Paths:\n");
 	LIST_FOREACH (path, &(bnc->paths), nh_thread) {
-		dest = path->net;
-		assert(dest && bgp_dest_table(dest));
-		afi = family2afi(bgp_dest_get_prefix(dest)->family);
-		table = bgp_dest_table(dest);
-		safi = table->safi;
-		bgp_path = table->bgp;
-
-
-		if (json) {
+		if (json)
 			json_path = json_object_new_object();
-			json_object_string_add(json_path, "afi", afi2str(afi));
-			json_object_string_add(json_path, "safi",
-					       safi2str(safi));
-			json_object_string_addf(json_path, "prefix", "%pBD",
-						dest);
-			if (dest->pdest)
-				json_object_string_addf(
-					json_path, "rd",
-					BGP_RD_AS_FORMAT(bgp->asnotation),
-					(struct prefix_rd *)bgp_dest_get_prefix(
-						dest->pdest));
-			json_object_string_add(
-				json_path, "vrf",
-				vrf_id_to_name(bgp_path->vrf_id));
-			bgp_show_bgp_path_info_flags(path->flags, json_path);
+		bgp_path_info_display(path, vty, json_path);
+		if (json)
 			json_object_array_add(paths, json_path);
-			continue;
-		}
-		if (dest->pdest) {
-			vty_out(vty, "    %d/%d %pBD RD ", afi, safi, dest);
-			vty_out(vty, BGP_RD_AS_FORMAT(bgp->asnotation),
-				(struct prefix_rd *)bgp_dest_get_prefix(
-					dest->pdest));
-			vty_out(vty, " %s flags 0x%x\n", bgp_path->name_pretty,
-				path->flags);
-		} else
-			vty_out(vty, "    %d/%d %pBD %s flags 0x%x\n",
-				afi, safi, dest, bgp_path->name_pretty, path->flags);
 	}
 	if (json)
 		json_object_object_add(json, "paths", paths);
