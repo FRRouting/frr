@@ -63,11 +63,6 @@
 /* misc include group */
 #include <stdarg.h>
 
-#ifdef HAVE_LCAPS
-#include <sys/capability.h>
-#include <sys/prctl.h>
-#endif /* HAVE_LCAPS */
-
 /* network include group */
 
 #include <sys/socket.h>
