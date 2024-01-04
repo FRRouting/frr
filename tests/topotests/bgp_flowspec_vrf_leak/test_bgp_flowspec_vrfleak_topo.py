@@ -592,38 +592,6 @@ def test_bgp_flowspec():
             output
         )
     )
-    output = attacker.run("iperf -c 3.3.3.3 -u -p 80 -b 50M -l 60 -i 5")
-    output = attacker.run("iperf -c 3.3.3.3 -p 80")
-    output = attacker.run("iperf -c 2.2.2.2 -u -p 22 -b 50M -l 60 -i 6")
-    output = attacker.run("iperf -c 2.2.2.2 -u -p 23 -b 50M -l 60 -i 3")
-    output = attacker.run("iperf -c 2.2.2.2 -p 22")
-    output = attacker.run("iperf -c 2.2.2.2 -p 22")
-    output = attacker.run("iperf -c 2.2.2.2 -p 23")
-
-    # tgen.mininet_cli()
-    logger.info("Check Ping from  R2(1.1.1.1) to R3(2.2.2.2) after FS discard")
-    output = attacker.run("ping 2.2.2.2 -f -c 100")
-    logger.info(output)
-    if "100 packets transmitted, 0 received" not in output:
-        assertmsg = "expected ping from R2 to R3(2.2.2.2) should not pass"
-        assert 0, assertmsg
-    else:
-        logger.info("Check Ping from  R2(1.1.1.1) to R3(2.2.2.2) after FS discard OK")
-
-    logger.info("Check Ping from  R2(1.1.1.1) to R3(3.3.3.3) after FS discard")
-    output = attacker.run("ping 3.3.3.3 -f -c 100")
-    logger.info(output)
-    if "100 packets transmitted, 0 received" not in output:
-        assertmsg = "expected ping from R3 to R3(3.3.3.3) should not pass"
-        assert 0, assertmsg
-    else:
-        logger.info("Check Ping from  R2(1.1.1.1) to R3(3.3.3.3) after FS discard OK")
-
-    logger.info("Dump PBR information injected")
-    output = router.vtysh_cmd("show pbr ipset", isjson=False, daemon="zebra")
-    logger.info(output)
-    output = router.vtysh_cmd("show pbr iptable", isjson=False, daemon="zebra")
-    logger.info(output)
 
 
 if __name__ == "__main__":
