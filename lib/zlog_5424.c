@@ -14,6 +14,8 @@
 
 #include "zebra.h"
 
+#include "frrsendmmsg.h"
+
 #include "zlog_5424.h"
 
 #include <sys/un.h>
