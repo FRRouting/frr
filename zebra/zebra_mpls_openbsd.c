@@ -4,6 +4,7 @@
  */
 
 #include <zebra.h>
+#include <sys/ioctl.h>
 
 #ifdef OPEN_BSD
 

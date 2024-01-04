@@ -6,6 +6,7 @@
 
 #include <zebra.h>
 #include <netinet/icmp6.h>
+#include <sys/ioctl.h>
 
 #include "log.h"
 #include "privs.h"

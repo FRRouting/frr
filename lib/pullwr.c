@@ -6,6 +6,8 @@
 
 #include "zebra.h"
 
+#include <sys/ioctl.h>
+
 #include "pullwr.h"
 #include "memory.h"
 #include "monotime.h"
