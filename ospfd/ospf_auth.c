@@ -5,6 +5,7 @@
  */
 
 #include <zebra.h>
+#include <sys/stat.h>
 
 #ifdef CRYPTO_OPENSSL
 #include <openssl/evp.h>

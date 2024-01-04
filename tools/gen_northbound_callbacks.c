@@ -7,6 +7,7 @@
 #define REALLY_NEED_PLAIN_GETOPT 1
 
 #include <zebra.h>
+#include <sys/stat.h>
 
 #include <unistd.h>
 

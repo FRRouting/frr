@@ -4,6 +4,7 @@
  */
 
 #include <zebra.h>
+#include <sys/stat.h>
 
 #include "log.h"
 #include "stream.h"

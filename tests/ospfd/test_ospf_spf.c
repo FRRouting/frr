@@ -1,4 +1,5 @@
 #include <zebra.h>
+#include <sys/stat.h>
 
 #include "getopt.h"
 #include "frrevent.h"
