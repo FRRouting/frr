@@ -210,13 +210,19 @@ This section will describe the internal functioning of ``mgmtd``, for now a
 couple diagrams are included to aide in source code perusal.
 
 
-The client side of a CLI change
+The client side of a CLI configuration change
 
 .. figure:: ../figures/cli-change-client.svg
    :align: center
 
 
-The server (mgmtd) side of a CLI change
+The server (mgmtd) side of a CLI configuration change
 
 .. figure:: ../figures/cli-change-mgmtd.svg
+   :align: center
+
+
+The client and server sides of oper-state query
+
+.. figure:: ../figures/cli-oper-state.svg
    :align: center
