@@ -1043,9 +1043,6 @@ extern struct connected *zebra_interface_address_read(int, struct stream *,
 						      vrf_id_t);
 extern struct nbr_connected *
 zebra_interface_nbr_address_read(int, struct stream *, vrf_id_t);
-extern struct interface *zebra_interface_vrf_update_read(struct stream *s,
-							 vrf_id_t vrf_id,
-							 vrf_id_t *new_vrf_id);
 extern int zebra_router_id_update_read(struct stream *s, struct prefix *rid);
 
 extern struct interface *zebra_interface_link_params_read(struct stream *s,

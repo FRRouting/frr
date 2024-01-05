@@ -3059,36 +3059,6 @@ stream_failure:
 	return NULL;
 }
 
-struct interface *zebra_interface_vrf_update_read(struct stream *s,
-						  vrf_id_t vrf_id,
-						  vrf_id_t *new_vrf_id)
-{
-	char ifname[IFNAMSIZ + 1] = {};
-	struct interface *ifp;
-	vrf_id_t new_id;
-
-	/* Read interface name. */
-	STREAM_GET(ifname, s, IFNAMSIZ);
-
-	/* Lookup interface. */
-	ifp = if_lookup_by_name(ifname, vrf_id);
-	if (ifp == NULL) {
-		flog_err(EC_LIB_ZAPI_ENCODE,
-			 "INTERFACE_VRF_UPDATE: Cannot find IF %s in VRF %d",
-			 ifname, vrf_id);
-		return NULL;
-	}
-
-	/* Fetch new VRF Id. */
-	STREAM_GETL(s, new_id);
-
-	*new_vrf_id = new_id;
-	return ifp;
-
-stream_failure:
-	return NULL;
-}
-
 /* filter unwanted messages until the expected one arrives */
 static int zclient_read_sync_response(struct zclient *zclient,
 				      uint16_t expected_cmd)
