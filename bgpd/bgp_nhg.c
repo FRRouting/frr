@@ -923,8 +923,13 @@ static void show_bgp_nhg_id_helper_detail(struct vty *vty, struct bgp_nhg_cache 
 	else
 		vty_out(vty, "  Paths:\n");
 
-	LIST_FOREACH (path, &(nhg->paths), nhg_cache_thread)
-		show_bgp_nhg_path_helper(vty, paths, path);
+	if (CHECK_FLAG(nhg->flags, BGP_NHG_FLAG_TYPE_PARENT)) {
+		LIST_FOREACH (path, &(nhg->paths), nhg_cache_thread)
+			show_bgp_nhg_path_helper(vty, paths, path);
+	} else {
+		LIST_FOREACH (path, &(nhg->paths), nhg_nexthop_cache_thread)
+			show_bgp_nhg_path_helper(vty, paths, path);
+	}
 
 	if (json)
 		json_object_object_add(json, "paths", paths);
@@ -938,6 +943,7 @@ static void show_bgp_nhg_id_helper(struct vty *vty, struct bgp_nhg_cache *nhg, j
 	json_object *json_array = NULL;
 	int i;
 	bool first;
+	struct bgp_nhg_connected *rb_node_dep = NULL;
 
 	if (json) {
 		json_object_int_add(json, "nhgId", nhg->id);
@@ -950,6 +956,8 @@ static void show_bgp_nhg_id_helper(struct vty *vty, struct bgp_nhg_cache *nhg, j
 					CHECK_FLAG(nhg->flags, BGP_NHG_FLAG_IBGP));
 		json_object_boolean_add(json, "flagSrtePresence",
 					CHECK_FLAG(nhg->flags, BGP_NHG_FLAG_SRTE_PRESENCE));
+		json_object_boolean_add(json, "flagTypeParent",
+					CHECK_FLAG(nhg->flags, BGP_NHG_FLAG_TYPE_PARENT));
 		json_object_boolean_add(json, "stateInstalled",
 					CHECK_FLAG(nhg->state, BGP_NHG_STATE_INSTALLED));
 		json_object_boolean_add(json, "stateRemoved",
@@ -969,8 +977,12 @@ static void show_bgp_nhg_id_helper(struct vty *vty, struct bgp_nhg_cache *nhg, j
 			vty_out(vty, "%sinternalBgp", first ? " (" : ", ");
 			first = false;
 		}
-		if (CHECK_FLAG(nhg->flags, BGP_NHG_FLAG_SRTE_PRESENCE))
+		if (CHECK_FLAG(nhg->flags, BGP_NHG_FLAG_SRTE_PRESENCE)) {
 			vty_out(vty, "%sSrtePresence", first ? " (" : ", ");
+			first = false;
+		}
+		if (CHECK_FLAG(nhg->flags, BGP_NHG_FLAG_TYPE_PARENT))
+			vty_out(vty, "%sTypeParent", first ? " (" : ", ");
 		if (nhg->flags)
 			vty_out(vty, ")");
 		vty_out(vty, "\n");
@@ -985,9 +997,43 @@ static void show_bgp_nhg_id_helper(struct vty *vty, struct bgp_nhg_cache *nhg, j
 			vty_out(vty, "%sRemoved", first ? " (" : ", ");
 			first = false;
 		}
+		if (CHECK_FLAG(nhg->state, BGP_NHG_STATE_UPDATED)) {
+			vty_out(vty, "%sUpdated", first ? " (" : ", ");
+			first = false;
+		}
 		if (nhg->state)
 			vty_out(vty, ")");
 		vty_out(vty, "\n");
+	}
+
+	if (CHECK_FLAG(nhg->flags, BGP_NHG_FLAG_TYPE_PARENT)) {
+		if (bgp_nhg_childs_count(nhg)) {
+			if (json) {
+				json_object_int_add(json, "childListCount",
+						    bgp_nhg_childs_count(nhg));
+				json_array = json_object_new_array();
+			} else {
+				vty_out(vty, "          child list count %u\n",
+					bgp_nhg_childs_count(nhg));
+				vty_out(vty, "          child(s)");
+			}
+			frr_each_safe (bgp_nhg_connected_tree, &nhg->nhg_childs, rb_node_dep) {
+				if (json) {
+					json_entry = json_object_new_object();
+					json_object_int_add(json_entry, "Id", rb_node_dep->nhg->id);
+					json_object_array_add(json_array, json_entry);
+				} else {
+					vty_out(vty, " %u", rb_node_dep->nhg->id);
+				}
+			}
+			if (json_array)
+				json_object_object_add(json, "childList", json_array);
+			else
+				vty_out(vty, "\n");
+		}
+		if (detail)
+			show_bgp_nhg_id_helper_detail(vty, nhg, json);
+		return;
 	}
 
 	if (nhg->nexthops.nexthop_num && json)
@@ -1013,6 +1059,29 @@ static void show_bgp_nhg_id_helper(struct vty *vty, struct bgp_nhg_cache *nhg, j
 	}
 	if (json_array)
 		json_object_object_add(json, "nexthops", json_array);
+
+	if (bgp_nhg_parents_count(nhg)) {
+		if (json) {
+			json_object_int_add(json, "parentListCount", bgp_nhg_parents_count(nhg));
+			json_array = json_object_new_array();
+		} else {
+			vty_out(vty, "          parent list count %u\n", bgp_nhg_parents_count(nhg));
+			vty_out(vty, "          parent(s)");
+		}
+		frr_each_safe (bgp_nhg_connected_tree, &nhg->nhg_parents, rb_node_dep) {
+			if (json) {
+				json_entry = json_object_new_object();
+				json_object_int_add(json_entry, "Id", rb_node_dep->nhg->id);
+				json_object_array_add(json_array, json_entry);
+			} else {
+				vty_out(vty, " %u", rb_node_dep->nhg->id);
+			}
+		}
+		if (json_array)
+			json_object_object_add(json, "parentList", json_array);
+		else
+			vty_out(vty, "\n");
+	}
 
 	if (detail)
 		show_bgp_nhg_id_helper_detail(vty, nhg, json);
