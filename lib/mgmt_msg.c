@@ -682,7 +682,7 @@ static int msg_client_connect_short_circuit(struct msg_client *client)
 	struct msg_server *server;
 	const char *dbgtag =
 		client->conn.debug ? client->conn.mstate.idtag : NULL;
-	union sockunion su = {0};
+	union sockunion su = {};
 	int sockets[2];
 
 	frr_each (msg_server_list, &msg_servers, server)
