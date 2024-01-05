@@ -4,6 +4,7 @@
  */
 
 #include <zebra.h>
+#include <string.h>
 
 #include "vector.h"
 #include "memory.h"
