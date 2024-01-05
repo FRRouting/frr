@@ -9,11 +9,16 @@ from time import sleep
 from lib.topogen import get_topogen
 
 
-def route_get_nhg_id(route_str, rname):
+def route_get_nhg_id(route_str, rname, vrf_name=None):
     net = get_topogen().net
-    output = net[rname].cmd(
-        'vtysh -c "show ip route {} nexthop-group"'.format(route_str)
-    )
+    if vrf_name:
+        output = net[rname].cmd(
+            'vtysh -c "show ip route vrf {} {} nexthop-group"'.format(vrf_name, route_str)
+        )
+    else:
+        output = net[rname].cmd(
+            'vtysh -c "show ip route {} nexthop-group"'.format(route_str)
+        )
     match = re.search(r"Nexthop Group ID: (\d+)", output)
     assert match is not None, "Nexthop Group ID not found for sharpd route {}".format(
         route_str
