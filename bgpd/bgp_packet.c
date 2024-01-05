@@ -3349,7 +3349,7 @@ static void bgp_dynamic_capability_fqdn(uint8_t *pnt, int action,
 			memcpy(&str, data, len);
 			str[len] = '\0';
 		}
-		data += len;
+		/* data += len;  In case new code is ever added */
 
 		if (len) {
 			XFREE(MTYPE_BGP_PEER_HOST, peer->domainname);
