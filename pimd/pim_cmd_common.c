@@ -6,6 +6,7 @@
  */
 
 #include <zebra.h>
+#include <sys/ioctl.h>
 
 #include "lib/json.h"
 #include "command.h"

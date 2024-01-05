@@ -227,6 +227,7 @@ pkginclude_HEADERS += \
 	lib/frr_pthread.h \
 	lib/frratomic.h \
 	lib/frrcu.h \
+	lib/frrsendmmsg.h \
 	lib/frrstr.h \
 	lib/graph.h \
 	lib/hash.h \

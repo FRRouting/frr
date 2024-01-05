@@ -6,6 +6,7 @@
  */
 
 #include <zebra.h>
+#include <netinet/icmp6.h>
 
 #include "memory.h"
 #include "sockopt.h"

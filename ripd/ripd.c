@@ -6,6 +6,11 @@
 
 #include <zebra.h>
 
+#ifdef CRYPTO_OPENSSL
+#include <openssl/evp.h>
+#include <openssl/hmac.h>
+#endif
+
 #include "vrf.h"
 #include "if.h"
 #include "command.h"

@@ -4,6 +4,12 @@
  */
 
 #include "zebra.h"
+
+#ifdef CRYPTO_OPENSSL
+#include <openssl/evp.h>
+#include <openssl/hmac.h>
+#endif
+
 #include "config.h"
 #include "memory.h"
 #include "ospf6d.h"

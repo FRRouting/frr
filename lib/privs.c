@@ -6,6 +6,14 @@
  * Copyright (c) 2005, 2011, Oracle and/or its affiliates. All rights reserved.
  */
 #include <zebra.h>
+
+#include <grp.h>
+
+#ifdef HAVE_LCAPS
+#include <sys/capability.h>
+#include <sys/prctl.h>
+#endif /* HAVE_LCAPS */
+
 #include "log.h"
 #include "privs.h"
 #include "memory.h"

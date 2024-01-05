@@ -5,6 +5,8 @@
 
 #include <zebra.h>
 
+#include <grp.h>
+
 #include <sys/un.h>
 #include <setjmp.h>
 #include <sys/wait.h>

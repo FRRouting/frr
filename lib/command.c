@@ -10,6 +10,7 @@
  */
 
 #include <zebra.h>
+#include <sys/utsname.h>
 #include <lib/version.h>
 
 #include "command.h"
