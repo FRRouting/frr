@@ -22,6 +22,9 @@ extern void static_zebra_stop(void);
 extern void static_zebra_vrf_register(struct vrf *vrf);
 extern void static_zebra_vrf_unregister(struct vrf *vrf);
 
+extern struct interface *static_zebra_get_interface(const struct prefix *p,
+						    vrf_id_t vrf_id);
+
 #ifdef __cplusplus
 }
 #endif
