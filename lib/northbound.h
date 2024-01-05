@@ -1295,11 +1295,6 @@ extern int nb_running_unlock(enum nb_client client, const void *user);
  */
 extern int nb_running_lock_check(enum nb_client client, const void *user);
 
-extern int nb_oper_data_iterate(const char *xpath,
-				struct yang_translator *translator,
-				uint32_t flags, nb_oper_data_cb cb, void *arg,
-				struct lyd_node **tree);
-
 /*
  * Iterate over operational data -- deprecated.
  *
@@ -1333,7 +1328,7 @@ extern enum nb_error nb_oper_iterate_legacy(const char *xpath,
 					    void *arg, struct lyd_node **tree);
 
 /**
- * nb_op_walk() - walk the schema building operational state.
+ * nb_oper_walk() - walk the schema building operational state.
  * @xpath -
  * @translator -
  * @flags -
@@ -1351,7 +1346,7 @@ extern void *nb_oper_walk(const char *xpath, struct yang_translator *translator,
 			  void *finish_arg);
 
 /**
- * nb_op_iterate_yielding_cancel() - cancel the in progress walk.
+ * nb_oper_cancel_walk() - cancel the in progress walk.
  * @walk - value returned from nb_op_iterate_yielding()
  *
  * Should only be called on an in-progress walk. It is invalid to cancel and
