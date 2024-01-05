@@ -602,6 +602,30 @@ def is_linux():
     return False
 
 
+def iproute2_is_json_capable():
+    """
+    Checks if the iproute2 version installed on the system is capable of
+    handling JSON outputss
+
+    Returns True if capability can be detected, returns False otherwise.
+    """
+    if is_linux():
+        try:
+            subp = subprocess.Popen(
+                ["ip", "-json", "route", "show"],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                stdin=subprocess.PIPE,
+            )
+            iproute2_err = subp.communicate()[1].splitlines()[0].split()[0]
+
+            if iproute2_err != "Error:":
+                return True
+        except Exception:
+            pass
+    return False
+
+
 def iproute2_is_vrf_capable():
     """
     Checks if the iproute2 version installed on the system is capable of
