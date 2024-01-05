@@ -37,7 +37,6 @@
 #endif /* HAVE_SYS_KSYM_H */
 #include <sys/time.h>
 #include <time.h>
-#include <limits.h>
 #include <inttypes.h>
 #ifdef HAVE_SYS_ENDIAN_H
 #include <sys/endian.h>
