@@ -436,7 +436,6 @@ bgp4v2PathAttrLookup(struct variable *v, oid name[], size_t *length,
 	struct bgp_path_info *path, *min;
 	struct bgp_dest *dest;
 	union sockunion su;
-	unsigned int len;
 	struct ipaddr paddr = {};
 	size_t namelen = v ? v->namelen : BGP4V2_NLRI_ENTRY_OFFSET;
 	sa_family_t family;
@@ -544,11 +543,9 @@ bgp4v2PathAttrLookup(struct variable *v, oid name[], size_t *length,
 	/* Set OID offset for prefix type */
 	offset = name + namelen;
 	offsetlen = *length - namelen;
-	len = offsetlen;
 
 	if (offsetlen == 0) {
 		dest = bgp_table_top(bgp->rib[afi][SAFI_UNICAST]);
-		safi = SAFI_UNICAST;
 	} else {
 
 		/* bgp4V2NlriAfi  is already get  */
@@ -595,11 +592,6 @@ bgp4v2PathAttrLookup(struct variable *v, oid name[], size_t *length,
 		return NULL;
 
 	if (offsetlen > 0) {
-		len = offsetlen;
-		if (len > afi_len)
-			len = afi_len;
-
-
 		/* get bgp4V2PeerRemoteAddrType */
 		peer_addr_type = *offset;
 		if (peer_addr_type == IANA_AFI_IPV4)
