@@ -17,7 +17,6 @@
 #include <stdlib.h>
 #include <stddef.h>
 #include <ctype.h>
-#include <errno.h>
 #ifdef HAVE_STROPTS_H
 #include <stropts.h>
 #endif /* HAVE_STROPTS_H */
