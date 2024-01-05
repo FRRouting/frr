@@ -41,7 +41,6 @@
 #include <time.h>
 #include <limits.h>
 #include <inttypes.h>
-#include <stdbool.h>
 #ifdef HAVE_SYS_ENDIAN_H
 #include <sys/endian.h>
 #endif
