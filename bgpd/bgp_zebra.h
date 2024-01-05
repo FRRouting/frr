@@ -132,6 +132,11 @@ extern void bgp_zebra_announce_parse_nexthop(
 	struct zapi_route *api, unsigned int *valid_nh_count, afi_t afi,
 	safi_t safi, uint32_t *nhg_id, uint32_t *metric, route_tag_t *tag,
 	bool *allow_recursion);
+extern int bgp_zebra_announce_parse_nexthop_unit(
+	struct bgp_path_info *info, struct bgp_path_info *mpinfo,
+	const struct prefix *p, struct bgp *bgp, struct zapi_nexthop *api_nh,
+	afi_t afi, safi_t safi, int nh_othervrf, bool *allow_recursion,
+	bool do_wt_ecmp, uint32_t *metric, route_tag_t *tag);
 extern void bgp_debug_zebra_nh(struct zapi_nexthop api_nexthop[], int count);
 extern void bgp_debug_zebra_nh_buffer(struct zapi_nexthop *api_nh,
 				      char *nexthop_buf, size_t len);

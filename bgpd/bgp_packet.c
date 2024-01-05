@@ -50,6 +50,7 @@
 #include "bgpd/bgp_keepalives.h"
 #include "bgpd/bgp_flowspec.h"
 #include "bgpd/bgp_trace.h"
+#include "bgpd/bgp_nhg.h"
 
 DEFINE_HOOK(bgp_packet_dump,
 		(struct peer *peer, uint8_t type, bgp_size_t size,
@@ -2256,7 +2257,7 @@ static int bgp_update_receive(struct peer_connection *connection,
 	bgp_size_t attribute_len;
 	bgp_size_t update_len;
 	bgp_size_t withdraw_len;
-	bool restart = false;
+	bool restart = false, withdraw = false;
 
 	enum NLRI_TYPES {
 		NLRI_UPDATE,
@@ -2457,6 +2458,7 @@ static int bgp_update_receive(struct peer_connection *connection,
 		case NLRI_MP_WITHDRAW:
 			nlri_ret = bgp_nlri_parse(peer, NLRI_ATTR_ARG,
 						  &nlris[i], 1);
+			withdraw = true;
 			break;
 		default:
 			nlri_ret = BGP_NLRI_PARSE_ERROR;
@@ -2476,6 +2478,8 @@ static int bgp_update_receive(struct peer_connection *connection,
 			return BGP_Stop;
 		}
 	}
+	if (withdraw && bgp_option_check(BGP_OPT_NHG))
+		bgp_nhg_clear_nhg_nexthop();
 
 	/* EoR checks
 	 *
@@ -3818,7 +3822,7 @@ static int bgp_capability_msg_parse(struct peer *peer, uint8_t *pnt,
 				peer->afc_nego[afi][safi] = 0;
 
 				if (peer_active_nego(peer))
-					bgp_clear_route(peer, afi, safi);
+					bgp_clear_route(peer, afi, safi, false);
 				else
 					return BGP_Stop;
 			}
