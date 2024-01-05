@@ -332,6 +332,14 @@ void redistribute_delete(const struct route_node *rn,
 
 		/* Send a delete for the 'old' re to any subscribed client. */
 		if (zebra_redistribute_check(rn, old_re, client)) {
+			/*
+			 * SA is complaining that old_re could be false
+			 * SA is wrong because old_re is checked for NULL
+			 * in zebra_redistribute_check and false is
+			 * returned in that case.  Let's just make SA
+			 * happy.
+			 */
+			assert(old_re);
 			is_table_direct = zebra_redistribute_is_table_direct(old_re);
 			zsend_redistribute_route(ZEBRA_REDISTRIBUTE_ROUTE_DEL,
 						 client, rn, old_re,
