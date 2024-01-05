@@ -44,6 +44,7 @@ struct bgp_nhg_cache {
 	uint16_t flags;
 #define BGP_NHG_STATE_INSTALLED (1 << 0)
 #define BGP_NHG_STATE_REMOVED	(1 << 1)
+#define BGP_NHG_STATE_UPDATED	(1 << 2)
 	uint16_t state;
 
 	/* other parameters are route attributes and are not
@@ -97,15 +98,20 @@ extern struct bgp_nhg_cache *bgp_nhg_find(struct bgp *bgp, struct bgp_dest *dest
 					  safi_t safi);
 extern void bgp_nhg_path_unlink(struct bgp_path_info *pi);
 extern void bgp_nhg_path_nexthop_unlink(struct bgp_path_info *pi, bool force);
+extern void bgp_nhg_parent_link(struct bgp_nhg_cache *nhg_childs[],
+				int nexthop_num,
+				struct bgp_nhg_cache *nhg_parent);
 
 extern struct bgp_nhg_cache *bgp_nhg_new(uint32_t flags, uint16_t num,
 					 struct zapi_nexthop api_nh[],
 					 uint32_t api_group[]);
+extern void bgp_nhg_free(struct bgp_nhg_cache *nhg);
 extern void bgp_nhg_id_set_installed(uint32_t id, bool install);
 extern void bgp_nhg_id_set_removed(uint32_t id);
 extern void bgp_nhg_refresh_by_nexthop(struct bgp_nexthop_cache *bnc);
 void bgp_nhg_vty_init(void);
 void bgp_nhg_debug_parent(uint32_t child_ids[], int count, char *group_buf,
 			  size_t len);
+void bgp_nhg_parent_sort(uint32_t child_ids[], uint16_t nhg_num);
 
 #endif /* _BGP_NHG_H */

@@ -1316,10 +1316,12 @@ void bgp_zebra_announce_parse_nexthop(struct bgp_path_info *info,
 	uint32_t ttl = 0;
 	uint32_t bos = 0;
 	uint32_t exp = 0;
-	struct bgp_nhg_cache nhg = { 0 }, *p_nhg;
+	struct bgp_nhg_cache nhg = { 0 }, nhg_parent = { 0 };
+	struct bgp_nhg_cache *p_nhg_childs[MULTIPATH_NUM], *p_nhg_parent;
 	unsigned int i = 0;
-	bool is_evpn = false;
+	bool is_evpn = false, creation = true;
 	struct bgp_path_info *p_mpinfo[MULTIPATH_NUM] = { 0 };
+	char nexthop_buf[1024];
 
 	/* Determine if we're doing weighted ECMP or not */
 	do_wt_ecmp = bgp_path_info_mpath_chkwtd(bgp, info);
@@ -1519,9 +1521,9 @@ void bgp_zebra_announce_parse_nexthop(struct bgp_path_info *info,
 	if (!nhg_id)
 		return;
 	if (!bgp_option_check(BGP_OPT_NHG) ||
-	    info->sub_type == BGP_ROUTE_AGGREGATE || do_wt_ecmp || is_evpn ||
-	    (*valid_nh_count) != 1) {
-		bgp_nhg_path_unlink(info);
+	    info->sub_type == BGP_ROUTE_AGGREGATE || do_wt_ecmp || is_evpn) {
+		for (i = 0; i < *valid_nh_count; i++)
+			bgp_nhg_path_unlink(p_mpinfo[i]);
 		return;
 	}
 	for (i = 0; i < *valid_nh_count; i++) {
@@ -1530,7 +1532,8 @@ void bgp_zebra_announce_parse_nexthop(struct bgp_path_info *info,
 		 */
 		if (api->nexthops[i].type == NEXTHOP_TYPE_IFINDEX ||
 		    api->nexthops[i].type == NEXTHOP_TYPE_BLACKHOLE) {
-			bgp_nhg_path_unlink(info);
+			for (i = 0; i < *valid_nh_count; i++)
+				bgp_nhg_path_unlink(p_mpinfo[i]);
 			return;
 		}
 		/* disallow IPv4 Mapped IPv6 addresses
@@ -1538,7 +1541,8 @@ void bgp_zebra_announce_parse_nexthop(struct bgp_path_info *info,
 		 */
 		if (api->nexthops[i].type == NEXTHOP_TYPE_IPV6 &&
 		    IS_MAPPED_IPV6(&api->nexthops[i].gate.ipv6)) {
-			bgp_nhg_path_unlink(info);
+			for (i = 0; i < *valid_nh_count; i++)
+				bgp_nhg_path_unlink(p_mpinfo[i]);
 			return;
 		}
 		/* disallow routes which resolve over blackhole routes
@@ -1547,7 +1551,8 @@ void bgp_zebra_announce_parse_nexthop(struct bgp_path_info *info,
 		    p_mpinfo[i]->nexthop->nexthop &&
 		    p_mpinfo[i]->nexthop->nexthop->type ==
 			    NEXTHOP_TYPE_BLACKHOLE) {
-			bgp_nhg_path_unlink(info);
+			for (i = 0; i < *valid_nh_count; i++)
+				bgp_nhg_path_unlink(p_mpinfo[i]);
 			return;
 		}
 		if (!p_mpinfo[i] || !p_mpinfo[i]->nexthop)
@@ -1559,7 +1564,8 @@ void bgp_zebra_announce_parse_nexthop(struct bgp_path_info *info,
 			if (BGP_DEBUG(nexthop_group, NEXTHOP_GROUP_DETAIL))
 				zlog_debug("        :%s: %pFX Resolved against default route",
 					   __func__, p);
-			bgp_nhg_path_unlink(info);
+			for (i = 0; i < *valid_nh_count; i++)
+				bgp_nhg_path_unlink(p_mpinfo[i]);
 			return;
 		} else if (prefix_same(p,
 				       &p_mpinfo[i]->nexthop->resolved_prefix) &&
@@ -1569,47 +1575,145 @@ void bgp_zebra_announce_parse_nexthop(struct bgp_path_info *info,
 			if (BGP_DEBUG(nexthop_group, NEXTHOP_GROUP_DETAIL))
 				zlog_debug("        %s: %pFX, Matched against ourself and prefix length is not max bit length",
 					   __func__, p);
-			bgp_nhg_path_unlink(info);
+			for (i = 0; i < *valid_nh_count; i++)
+				bgp_nhg_path_unlink(p_mpinfo[i]);
 			return;
 		}
 	}
 
-	nhg.nexthops.nexthop_num = *valid_nh_count;
+	nhg.nexthops.nexthop_num = 1;
+	SET_FLAG(nhg_parent.flags, BGP_NHG_FLAG_TYPE_PARENT);
 	if (*allow_recursion ||
-	    CHECK_FLAG(api->flags, ZEBRA_FLAG_ALLOW_RECURSION))
+	    CHECK_FLAG(api->flags, ZEBRA_FLAG_ALLOW_RECURSION)) {
 		SET_FLAG(nhg.flags, BGP_NHG_FLAG_ALLOW_RECURSION);
-	if (CHECK_FLAG(api->flags, ZEBRA_FLAG_IBGP))
-		SET_FLAG(nhg.flags, BGP_NHG_FLAG_IBGP);
-	if (CHECK_FLAG(api->message, ZAPI_MESSAGE_SRTE))
-		SET_FLAG(nhg.flags, BGP_NHG_FLAG_SRTE_PRESENCE);
-
-	for (i = 0; i < *valid_nh_count; i++)
-		memcpy(&nhg.nexthops.nexthops[i], &api->nexthops[i],
-		       sizeof(struct zapi_nexthop));
-	p_nhg = bgp_nhg_cache_find(&nhg_cache_table, &nhg);
-	if (!p_nhg)
-		p_nhg = bgp_nhg_new(nhg.flags, nhg.nexthops.nexthop_num,
-				    nhg.nexthops.nexthops, NULL);
-	if (p_nhg == info->bgp_nhg) {
-		/* no changed */
-		*nhg_id = p_nhg->id;
-		zapi_route_set_nhg_id(api, nhg_id);
-		return;
+		SET_FLAG(nhg_parent.flags, BGP_NHG_FLAG_ALLOW_RECURSION);
 	}
-	bgp_nhg_path_unlink(info);
+	if (CHECK_FLAG(api->flags, ZEBRA_FLAG_IBGP)) {
+		SET_FLAG(nhg.flags, BGP_NHG_FLAG_IBGP);
+		SET_FLAG(nhg_parent.flags, BGP_NHG_FLAG_IBGP);
+	}
+	if (CHECK_FLAG(api->message, ZAPI_MESSAGE_SRTE)) {
+		SET_FLAG(nhg.flags, BGP_NHG_FLAG_SRTE_PRESENCE);
+		SET_FLAG(nhg_parent.flags, BGP_NHG_FLAG_SRTE_PRESENCE);
+	}
+	for (i = 0; i < *valid_nh_count; i++) {
+		creation = false;
+		memset(&nhg.nexthops.nexthops[0], 0,
+		       sizeof(struct zapi_nexthop));
+		memcpy(&nhg.nexthops.nexthops[0], &api->nexthops[i],
+		       sizeof(struct zapi_nexthop));
+		p_nhg_childs[i] = bgp_nhg_cache_find(&nhg_cache_table, &nhg);
+		if (!p_nhg_childs[i]) {
+			p_nhg_childs[i] = bgp_nhg_new(nhg.flags, 1,
+						      nhg.nexthops.nexthops,
+						      NULL);
+			creation = true;
+		}
+		if (p_mpinfo[i]->bgp_nhg_nexthop != p_nhg_childs[i]) {
+			bgp_debug_zebra_nh_buffer(&p_nhg_childs[i]
+							   ->nexthops.nexthops[0],
+						  nexthop_buf,
+						  sizeof(nexthop_buf));
+			if (p_mpinfo[i]->bgp_nhg_nexthop) {
+				if (BGP_DEBUG(nexthop_group,
+					      NEXTHOP_GROUP_DETAIL))
+					zlog_debug("parse_nexthop: %pFX (peer %s), replacing old nexthop %u with %u (%s)",
+						   p,
+						   PEER_HOSTNAME(
+							   p_mpinfo[i]->peer),
+						   p_mpinfo[i]
+							   ->bgp_nhg_nexthop->id,
+						   p_nhg_childs[i]->id,
+						   nexthop_buf);
+				LIST_REMOVE(p_mpinfo[i],
+					    nhg_nexthop_cache_thread);
+				p_mpinfo[i]->bgp_nhg_nexthop->path_count--;
+				if (LIST_EMPTY(&(
+					    p_mpinfo[i]->bgp_nhg_nexthop->paths)))
+					bgp_nhg_free(
+						p_mpinfo[i]->bgp_nhg_nexthop);
+			} else {
+				if (BGP_DEBUG(nexthop_group,
+					      NEXTHOP_GROUP_DETAIL)) {
+					zlog_debug("parse_nexthop: %pFX (peer %s), attaching %snexthop %u (%s)",
+						   p,
+						   PEER_HOSTNAME(
+							   p_mpinfo[i]->peer),
+						   creation ? "new " : "",
+						   p_nhg_childs[i]->id,
+						   nexthop_buf);
+				}
+			}
+			/* updates NHG nexthop info list reference */
+			p_mpinfo[i]->bgp_nhg_nexthop = p_nhg_childs[i];
+			LIST_INSERT_HEAD(&(p_nhg_childs[i]->paths), p_mpinfo[i],
+					 nhg_nexthop_cache_thread);
+			p_nhg_childs[i]->path_count++;
+		}
+		p_nhg_childs[i]->last_update = monotime(NULL);
 
-	/* updates NHG info list reference */
-	LIST_INSERT_HEAD(&(p_nhg->paths), info, nhg_cache_thread);
-	info->bgp_nhg = p_nhg;
-	p_nhg->path_count++;
-	p_nhg->last_update = monotime(NULL);
+		/* host p_nhg in a nhg group */
+		nhg_parent.childs.child_num++;
+		nhg_parent.childs.childs[i] = p_nhg_childs[i]->id;
+	}
+	/* unlink parent nhg from p_mpinfo[i], except for info */
+	for (i = 0; i < *valid_nh_count; i++) {
+		if (info != p_mpinfo[i] && p_mpinfo[i]->bgp_nhg &&
+		    p_mpinfo[i]->bgp_nhg != info->bgp_nhg) {
+			LIST_REMOVE(p_mpinfo[i], nhg_cache_thread);
+			p_mpinfo[i]->bgp_nhg->path_count--;
+			if (LIST_EMPTY(&(p_mpinfo[i]->bgp_nhg->paths)))
+				bgp_nhg_free(p_mpinfo[i]->bgp_nhg);
+			p_mpinfo[i]->bgp_nhg = NULL;
+		}
+	}
 
-	if (BGP_DEBUG(nexthop_group, NEXTHOP_GROUP_DETAIL))
-		zlog_debug("NHG %u, BGP %s: apply to prefix %pFX", p_nhg->id,
-			   bgp->name_pretty, p);
 
-	*nhg_id = info->bgp_nhg->id;
+	/* sort to always use the same parent nhg */
+	bgp_nhg_parent_sort(nhg_parent.childs.childs,
+			    nhg_parent.childs.child_num);
+
+	creation = false;
+	p_nhg_parent = bgp_nhg_cache_find(&nhg_cache_table, &nhg_parent);
+	if (!p_nhg_parent) {
+		p_nhg_parent = bgp_nhg_new(nhg_parent.flags,
+					   nhg_parent.childs.child_num, NULL,
+					   nhg_parent.childs.childs);
+		creation = true;
+	}
+
+	if (p_nhg_parent != info->bgp_nhg) {
+		if (BGP_DEBUG(nexthop_group, NEXTHOP_GROUP_DETAIL))
+			bgp_nhg_debug_parent(p_nhg_parent->childs.childs,
+					     nhg_parent.childs.child_num,
+					     nexthop_buf, sizeof(nexthop_buf));
+		if (info->bgp_nhg) {
+			if (BGP_DEBUG(nexthop_group, NEXTHOP_GROUP_DETAIL))
+				zlog_debug("parse_nexthop: %pFX, replacing old NHG %u with %u (%s)",
+					   p, info->bgp_nhg->id,
+					   p_nhg_parent->id, nexthop_buf);
+			LIST_REMOVE(info, nhg_cache_thread);
+			info->bgp_nhg->path_count--;
+			if (LIST_EMPTY(&(info->bgp_nhg->paths)))
+				bgp_nhg_free(info->bgp_nhg);
+		} else {
+			if (BGP_DEBUG(nexthop_group, NEXTHOP_GROUP_DETAIL)) {
+				zlog_debug("parse_nexthop: %pFX, attaching %sNHG %u (%s)",
+					   p, creation ? "new " : "",
+					   p_nhg_parent->id, nexthop_buf);
+			}
+		}
+		LIST_INSERT_HEAD(&(p_nhg_parent->paths), info, nhg_cache_thread);
+		info->bgp_nhg = p_nhg_parent;
+		p_nhg_parent->path_count++;
+	}
+	p_nhg_parent->last_update = monotime(NULL);
+
+	*nhg_id = p_nhg_parent->id;
 	zapi_route_set_nhg_id(api, nhg_id);
+	if (creation)
+		bgp_nhg_parent_link(p_nhg_childs, nhg_parent.childs.child_num,
+				    p_nhg_parent);
 }
 
 void bgp_debug_zebra_nh_buffer(struct zapi_nexthop *api_nh, char *nexthop_buf,
