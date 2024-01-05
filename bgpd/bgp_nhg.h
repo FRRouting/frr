@@ -44,6 +44,7 @@ struct bgp_nhg_cache {
 	uint16_t flags;
 #define BGP_NHG_STATE_INSTALLED (1 << 0)
 #define BGP_NHG_STATE_REMOVED	(1 << 1)
+#define BGP_NHG_STATE_UPDATED	(1 << 2)
 	uint16_t state;
 
 	/* other parameters are route attributes and are not

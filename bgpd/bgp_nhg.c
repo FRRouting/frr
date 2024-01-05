@@ -570,8 +570,10 @@ static void bgp_nhg_detach_child_from_parent(struct bgp_nhg_cache *nhg,
 			   nexthop_buf, nhg->childs.child_num + 1, nhg->childs.child_num);
 	}
 
-	if (nhg->childs.child_num)
+	if (nhg->childs.child_num) {
+		SET_FLAG(nhg->state, BGP_NHG_STATE_UPDATED);
 		bgp_nhg_add_or_update_nhg(nhg);
+	}
 }
 
 static void bgp_nhg_connected_del(struct bgp_nhg_cache *nhg)
@@ -700,6 +702,12 @@ void bgp_nhg_id_set_installed(uint32_t id)
 
 	if (!CHECK_FLAG(nhg->flags, BGP_NHG_FLAG_TYPE_PARENT))
 		return;
+
+	/* only update routes if it is a parent nhg */
+	if (CHECK_FLAG(nhg->state, BGP_NHG_STATE_UPDATED)) {
+		UNSET_FLAG(nhg->state, BGP_NHG_STATE_UPDATED);
+		return;
+	}
 
 	if (BGP_DEBUG(nexthop_group, NEXTHOP_GROUP))
 		zlog_debug("NHG %u: ID is installed, update dependent routes", nhg->id);
@@ -832,12 +840,13 @@ static bool bgp_nhg_detach_paths_resolved_over_prefix(struct bgp_nhg_cache *nhg,
 
 void bgp_nhg_refresh_by_nexthop(struct bgp_nexthop_cache *bnc)
 {
-	struct bgp_nhg_cache *nhg;
+	struct bgp_nhg_cache *nhg, *parent_nhg;
 	int i;
 	struct zapi_nexthop *zapi_nh;
 	uint32_t srte_color = bnc->srte_color;
 	struct prefix *p = &bnc->prefix;
 	vrf_id_t vrf_id = bnc->bgp->vrf_id;
+	struct bgp_nhg_connected *rb_node_dep = NULL;
 	bool found;
 
 	frr_each_safe (bgp_nhg_cache, &nhg_cache_table, nhg) {
@@ -886,6 +895,10 @@ void bgp_nhg_refresh_by_nexthop(struct bgp_nexthop_cache *bnc)
 			if (BGP_DEBUG(nexthop_group, NEXTHOP_GROUP))
 				zlog_debug("NHG %u, VRF %u : nexthop %pFX SRTE %u has changed.",
 					   nhg->id, vrf_id, p, srte_color);
+			frr_each_safe (bgp_nhg_connected_tree, &nhg->nhg_parents, rb_node_dep) {
+				parent_nhg = rb_node_dep->nhg;
+				SET_FLAG(parent_nhg->state, BGP_NHG_STATE_UPDATED);
+			}
 			bgp_nhg_add_or_update_nhg(nhg);
 		}
 	}
