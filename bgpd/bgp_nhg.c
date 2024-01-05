@@ -292,6 +292,43 @@ static struct bgp_nhg_cache *bgp_nhg_find_per_id(uint32_t id)
 	return bgp_nhg_parent_cache_find(&nhg_parent_cache_table, &nhg_tmp);
 }
 
+/* compare parent child list and return true if same */
+static bool bgp_nhg_parent_cache_compare_childs(const struct bgp_nhg_cache *a,
+						const struct bgp_nhg_cache *b)
+{
+	int i;
+
+	if (a->childs.child_num != b->childs.child_num)
+		return false;
+
+	for (i = 0; i < a->childs.child_num; i++) {
+		if (a->childs.childs[i] != b->childs.childs[i])
+			return false;
+	}
+	return true;
+}
+
+struct bgp_nhg_cache *bgp_nhg_parent_find_per_child(struct bgp_path_info *p_mpinfo[],
+						    uint32_t *valid_nh_count,
+						    struct bgp_nhg_cache *lookup)
+{
+	struct bgp_nhg_cache *nhg;
+	unsigned int i;
+
+	/* look in current pi->bgp_nhg in priority */
+	for (i = 0; i < *valid_nh_count; i++) {
+		if (p_mpinfo[i] && p_mpinfo[i]->bgp_nhg &&
+		    bgp_nhg_parent_cache_compare_childs(lookup, p_mpinfo[i]->bgp_nhg))
+			return p_mpinfo[i]->bgp_nhg;
+	}
+	/* get first matching nhg */
+	frr_each_safe (bgp_nhg_parent_cache, &nhg_parent_cache_table, nhg) {
+		if (bgp_nhg_parent_cache_compare_childs(lookup, nhg))
+			return nhg;
+	}
+	return NULL;
+}
+
 int bgp_nhg_parent_cache_compare(const struct bgp_nhg_cache *a, const struct bgp_nhg_cache *b)
 {
 	if (a->id != b->id)
@@ -482,6 +519,63 @@ struct bgp_nhg_cache *bgp_nhg_new(uint32_t flags, uint16_t num, struct zapi_next
 	return nhg;
 }
 
+/* Called when a child nexthop-group must be detached from parent:
+ * The child is detached from the parent. The parent is marked as updated
+ * if the number of childs is not 0.
+ */
+static void bgp_nhg_detach_child_from_parent(struct bgp_nhg_cache *nhg,
+					     struct bgp_nhg_cache *nhg_child)
+{
+	int i, j;
+	struct bgp_path_info *path, *safe;
+	char nexthop_buf[BGP_NEXTHOP_BUFFER_SIZE];
+
+	if (BGP_DEBUG(nexthop_group, NEXTHOP_GROUP)) {
+		bgp_debug_zebra_nh_buffer(&nhg_child->nexthops.nexthops[0], nexthop_buf,
+					  sizeof(nexthop_buf));
+		zlog_debug("NHG %u: detaching ID %u nexthop (%s)", nhg->id, nhg_child->id,
+			   nexthop_buf);
+	}
+
+	for (i = 0; i < nhg->childs.child_num; i++) {
+		if (nhg->childs.childs[i] == nhg_child->id)
+			break;
+	}
+	assert(i != nhg->childs.child_num);
+
+	if (i < nhg->childs.child_num - 1) {
+		for (j = i + 1; j < nhg->childs.child_num; j++)
+			nhg->childs.childs[j - 1] = nhg->childs.childs[j];
+	}
+	nhg->childs.childs[nhg->childs.child_num - 1] = 0;
+	nhg->childs.child_num--;
+
+	LIST_FOREACH_SAFE (path, &(nhg->paths), nhg_cache_thread, safe) {
+		if (!path->bgp_nhg_nexthop) {
+			LIST_REMOVE(path, nhg_cache_thread);
+			path->bgp_nhg = NULL;
+			nhg->path_count--;
+		}
+	}
+
+	/* remove it from original nhg */
+	bgp_nhg_parents_del(nhg_child, nhg);
+	bgp_nhg_childs_del(nhg, nhg_child);
+
+	/* sort to always send ordered information to zebra */
+	bgp_nhg_parent_sort(nhg->childs.childs, nhg->childs.child_num);
+
+	if (BGP_DEBUG(nexthop_group, NEXTHOP_GROUP)) {
+		zlog_debug("NHG %u: detached ID %u nexthop (%s) (%u -> %u)", nhg->id, nhg_child->id,
+			   nexthop_buf, nhg->childs.child_num + 1, nhg->childs.child_num);
+	}
+
+	if (nhg->childs.child_num) {
+		SET_FLAG(nhg->state, BGP_NHG_STATE_UPDATED);
+		bgp_nhg_add_or_update_nhg(nhg);
+	}
+}
+
 static void bgp_nhg_connected_del(struct bgp_nhg_cache *nhg)
 {
 	struct bgp_nhg_connected *rb_node_dep = NULL;
@@ -497,7 +591,7 @@ static void bgp_nhg_connected_del(struct bgp_nhg_cache *nhg)
 	}
 }
 
-static void bgp_nhg_free(struct bgp_nhg_cache *nhg)
+void bgp_nhg_free(struct bgp_nhg_cache *nhg)
 {
 	struct zapi_nhg api_nhg = {};
 
@@ -516,6 +610,22 @@ static void bgp_nhg_free(struct bgp_nhg_cache *nhg)
 	else
 		bgp_nhg_cache_del(&nhg_cache_table, nhg);
 	XFREE(MTYPE_BGP_NHG_CACHE, nhg);
+}
+
+/* Used to sync the BGP NHG Parent hash table with the BGP NHG hash table. After a
+ * child group is removed, some BGP NHG group may be empty. This function detects it
+ * and frees it
+ */
+static void bgp_nhg_parent_unused_clean(void)
+{
+	struct bgp_nhg_cache *nhg;
+
+	frr_each_safe (bgp_nhg_parent_cache, &nhg_parent_cache_table, nhg) {
+		if (nhg->childs.child_num)
+			continue;
+		if (LIST_EMPTY(&(nhg->paths)))
+			bgp_nhg_free(nhg);
+	}
 }
 
 void bgp_nhg_path_nexthop_unlink(struct bgp_path_info *pi, bool force)
@@ -559,17 +669,47 @@ void bgp_nhg_path_unlink(struct bgp_path_info *pi)
 	return bgp_nhg_path_unlink_internal(pi, true);
 }
 
+void bgp_nhg_parent_link(struct bgp_nhg_cache *nhg_childs[], int nexthop_num,
+			 struct bgp_nhg_cache *nhg_parent)
+{
+	int i;
+
+	/* updates NHG dependencies */
+	for (i = 0; i < nexthop_num; i++) {
+		bgp_nhg_connected_tree_add_nhg(&nhg_parent->nhg_childs, nhg_childs[i]);
+		bgp_nhg_connected_tree_add_nhg(&nhg_childs[i]->nhg_parents, nhg_parent);
+	}
+}
+
 /* called when ZEBRA notified the BGP NHG id is installed */
 void bgp_nhg_id_set_installed(uint32_t id)
 {
 	static struct bgp_nhg_cache *nhg;
 	struct bgp_path_info *path;
 	struct bgp_table *table;
+	struct bgp_nhg_connected *rb_node_dep = NULL;
 
 	nhg = bgp_nhg_find_per_id(id);
 	if (nhg == NULL)
 		return;
 	SET_FLAG(nhg->state, BGP_NHG_STATE_INSTALLED);
+
+	if (BGP_DEBUG(nexthop_group, NEXTHOP_GROUP))
+		zlog_debug("NHG %u: ID is installed, update dependent NHGs", nhg->id);
+
+	frr_each_safe (bgp_nhg_connected_tree, &nhg->nhg_parents, rb_node_dep) {
+		bgp_nhg_add_or_update_nhg(rb_node_dep->nhg);
+	}
+
+	if (!CHECK_FLAG(nhg->flags, BGP_NHG_FLAG_TYPE_PARENT))
+		return;
+
+	/* only update routes if it is a parent nhg */
+	if (CHECK_FLAG(nhg->state, BGP_NHG_STATE_UPDATED)) {
+		UNSET_FLAG(nhg->state, BGP_NHG_STATE_UPDATED);
+		return;
+	}
+
 	if (BGP_DEBUG(nexthop_group, NEXTHOP_GROUP))
 		zlog_debug("NHG %u: ID is installed, update dependent routes", nhg->id);
 	LIST_FOREACH (path, &(nhg->paths), nhg_cache_thread) {
@@ -583,24 +723,38 @@ void bgp_nhg_id_set_installed(uint32_t id)
 void bgp_nhg_id_set_removed(uint32_t id)
 {
 	static struct bgp_nhg_cache *nhg;
+	struct bgp_nhg_connected *rb_node_dep = NULL;
 
 	nhg = bgp_nhg_find_per_id(id);
 	if (nhg == NULL)
 		return;
 	if (BGP_DEBUG(nexthop_group, NEXTHOP_GROUP))
-		zlog_debug("NHG %u: ID is uninstalled", nhg->id);
+		zlog_debug("NHG %u: ID is uninstalled, update dependent NHGs", nhg->id);
 	UNSET_FLAG(nhg->state, BGP_NHG_STATE_INSTALLED);
 	SET_FLAG(nhg->state, BGP_NHG_STATE_REMOVED);
+	frr_each_safe (bgp_nhg_connected_tree, &nhg->nhg_parents, rb_node_dep)
+		bgp_nhg_add_or_update_nhg(rb_node_dep->nhg);
 }
 
 static void bgp_nhg_remove_nexthops(struct bgp_nhg_cache *nhg)
 {
+	struct bgp_nhg_connected *rb_node_dep = NULL;
+	struct bgp_nhg_cache *parent_nhg;
 	struct bgp_path_info *path, *safe;
 
-	LIST_FOREACH_SAFE (path, &(nhg->paths), nhg_cache_thread, safe) {
-		LIST_REMOVE(path, nhg_cache_thread);
-		path->bgp_nhg = NULL;
-		nhg->path_count--;
+	frr_each_safe (bgp_nhg_connected_tree, &nhg->nhg_parents, rb_node_dep) {
+		parent_nhg = rb_node_dep->nhg;
+		LIST_FOREACH_SAFE (path, &(parent_nhg->paths), nhg_cache_thread, safe) {
+			if (path->bgp_nhg_nexthop == nhg) {
+				LIST_REMOVE(path, nhg_cache_thread);
+				path->bgp_nhg = NULL;
+				parent_nhg->path_count--;
+				LIST_REMOVE(path, nhg_nexthop_cache_thread);
+				path->bgp_nhg_nexthop = NULL;
+				nhg->path_count--;
+			}
+		}
+		bgp_nhg_detach_child_from_parent(parent_nhg, nhg);
 	}
 	if (LIST_EMPTY(&(nhg->paths)))
 		bgp_nhg_free(nhg);
@@ -621,10 +775,12 @@ static void bgp_nhg_remove_nexthops(struct bgp_nhg_cache *nhg)
  *
  * in: nhg, the bgp nexthop group cache entry
  * in: resolved_prefix, the resolved prefix of the nexthop: NULL if default route.
+ * in: child, the child nexthop-group of the path
  * out: return true if the nexthop group has no more paths and is freed, false otherwise
  */
-static bool bgp_nhg_detach_paths_resolved_over_prefix(struct bgp_nhg_cache *nhg,
-						      struct prefix *resolved_prefix)
+static void bgp_nhg_detach_paths_resolved_over_prefix_internal(struct bgp_nhg_cache *nhg,
+							       struct prefix *resolved_prefix,
+							       struct bgp_nhg_cache *child)
 {
 	struct bgp_path_info *path, *safe;
 	const struct prefix *p;
@@ -632,12 +788,12 @@ static bool bgp_nhg_detach_paths_resolved_over_prefix(struct bgp_nhg_cache *nhg,
 	struct bgp_table *table;
 
 	if (!resolved_prefix)
-		return false;
+		return;
 
 	is_default_path = is_default_prefix(resolved_prefix);
 
 	LIST_FOREACH_SAFE (path, &(nhg->paths), nhg_cache_thread, safe) {
-		if (path->bgp_nhg != nhg)
+		if (path->bgp_nhg_nexthop != child)
 			continue;
 		p = bgp_dest_get_prefix(path->net);
 		if (is_default_path) {
@@ -657,11 +813,24 @@ static bool bgp_nhg_detach_paths_resolved_over_prefix(struct bgp_nhg_cache *nhg,
 		/* nhg = pi->nhg is detached,
 		 * nhg will not be suppressed when bgp_nhg_path_unlink() is called
 		 */
+		bgp_nhg_path_nexthop_unlink(path, false);
 		bgp_nhg_path_unlink_internal(path, false);
 		/* path should still be active */
 		table = bgp_dest_get_bgp_table_info(path->net);
 		if (table->bgp)
 			bgp_zebra_route_install(path->net, path, table->bgp, true, NULL, false);
+	}
+}
+
+static bool bgp_nhg_detach_paths_resolved_over_prefix(struct bgp_nhg_cache *nhg,
+						      struct prefix *resolved_prefix)
+{
+	struct bgp_nhg_connected *rb_node_dep = NULL;
+	struct bgp_nhg_cache *parent_nhg;
+
+	frr_each_safe (bgp_nhg_connected_tree, &nhg->nhg_parents, rb_node_dep) {
+		parent_nhg = rb_node_dep->nhg;
+		bgp_nhg_detach_paths_resolved_over_prefix_internal(parent_nhg, resolved_prefix, nhg);
 	}
 	if (LIST_EMPTY(&(nhg->paths))) {
 		bgp_nhg_free(nhg);
@@ -729,6 +898,7 @@ void bgp_nhg_refresh_by_nexthop(struct bgp_nexthop_cache *bnc)
 			bgp_nhg_add_or_update_nhg(nhg);
 		}
 	}
+	bgp_nhg_parent_unused_clean();
 }
 
 static void show_bgp_nhg_path_helper(struct vty *vty, json_object *paths, struct bgp_path_info *path)
@@ -918,4 +1088,15 @@ DEFPY(show_ip_bgp_nhg, show_ip_bgp_nhg_cmd,
 void bgp_nhg_vty_init(void)
 {
 	install_element(VIEW_NODE, &show_ip_bgp_nhg_cmd);
+}
+
+static int bgp_nhg_parent_compare(const void *a, const void *b)
+{
+	uint32_t *num1 = (uint32_t *)a, *num2 = (uint32_t *)b;
+
+	return *num1 - *num2;
+}
+void bgp_nhg_parent_sort(uint32_t grp[], uint16_t nhg_num)
+{
+	qsort(grp, nhg_num, sizeof(uint32_t), &bgp_nhg_parent_compare);
 }
