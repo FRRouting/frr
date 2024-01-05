@@ -378,6 +378,8 @@ isis_spftree_new(struct isis_area *area, struct lspdb_head *lspdb,
 
 static void _isis_spftree_del(struct isis_spftree *spftree)
 {
+	void *info, *backup_info;
+
 	hash_clean_and_free(&spftree->prefix_sids, NULL);
 	isis_zebra_rlfa_unregister_all(spftree);
 	isis_rlfa_list_clear(spftree);
@@ -391,10 +393,12 @@ static void _isis_spftree_del(struct isis_spftree *spftree)
 	list_delete(&spftree->sadj_list);
 	isis_vertex_queue_free(&spftree->tents);
 	isis_vertex_queue_free(&spftree->paths);
-	isis_route_table_info_free(spftree->route_table->info);
-	isis_route_table_info_free(spftree->route_table_backup->info);
+	info =  spftree->route_table->info;
+	backup_info = spftree->route_table_backup->info;
 	route_table_finish(spftree->route_table);
 	route_table_finish(spftree->route_table_backup);
+	isis_route_table_info_free(info);
+	isis_route_table_info_free(backup_info);
 }
 
 void isis_spftree_del(struct isis_spftree *spftree)
