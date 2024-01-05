@@ -4,6 +4,8 @@
  */
 
 #include <zebra.h>
+
+#include <signal.h>
 #include <sigevent.h>
 #include <log.h>
 #include <memory.h>

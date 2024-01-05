@@ -6,6 +6,8 @@
 /* #define DEBUG */
 
 #include <zebra.h>
+
+#include <signal.h>
 #include <sys/resource.h>
 
 #include "frrevent.h"

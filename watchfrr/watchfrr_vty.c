@@ -6,6 +6,8 @@
  */
 
 #include <zebra.h>
+
+#include <signal.h>
 #include <sys/wait.h>
 
 #include "memory.h"

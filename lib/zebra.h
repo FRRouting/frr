@@ -18,7 +18,6 @@
 #include <stddef.h>
 #include <ctype.h>
 #include <errno.h>
-#include <signal.h>
 #include <string.h>
 #ifdef HAVE_STROPTS_H
 #include <stropts.h>
