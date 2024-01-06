@@ -6,6 +6,7 @@
 
 #include <zebra.h>
 
+#include "darr.h"
 #include "libfrr.h"
 #include "log.h"
 #include "lib_errors.h"
@@ -167,6 +168,26 @@ struct nb_node *nb_node_find(const char *path)
 
 	return snode->priv;
 }
+
+struct nb_node **nb_nodes_find(const char *xpath)
+{
+	struct lysc_node **snodes = NULL;
+	struct nb_node **nb_nodes = NULL;
+	bool simple;
+	LY_ERR err;
+	uint i;
+
+	err = yang_resolve_snode_xpath(ly_native_ctx, xpath, &snodes, &simple);
+	if (err)
+		return NULL;
+
+	darr_ensure_i(nb_nodes, darr_lasti(snodes));
+	darr_foreach_i (snodes, i)
+		nb_nodes[i] = snodes[i]->priv;
+	darr_free(snodes);
+	return nb_nodes;
+}
+
 
 void nb_node_set_dependency_cbs(const char *dependency_xpath,
 				const char *dependant_xpath,

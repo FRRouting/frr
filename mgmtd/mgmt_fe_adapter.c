@@ -1132,14 +1132,21 @@ done:
 }
 
 /**
- * Handle a get-tree message from the client.
+ * fe_adapter_handle_get_tree() - Handle a get-tree message from a FE client.
+ * @session: the client session.
+ * @msg_raw: the message data.
+ * @msg_len: the length of the message data.
  */
 static void fe_adapter_handle_get_tree(struct mgmt_fe_session_ctx *session,
-				       void *data, size_t len)
+				       void *__msg, size_t msg_len)
 {
-	struct mgmt_msg_get_tree *msg = data;
+	struct mgmt_msg_get_tree *msg = __msg;
+	struct lysc_node **snodes = NULL;
+	char *xpath_resolved = NULL;
 	uint64_t req_id = msg->req_id;
 	uint64_t clients;
+	bool simple_xpath;
+	LY_ERR err;
 	int ret;
 
 	MGMTD_FE_ADAPTER_DBG("Received get-tree request from client %s for session-id %" PRIu64
@@ -1147,13 +1154,31 @@ static void fe_adapter_handle_get_tree(struct mgmt_fe_session_ctx *session,
 			     session->adapter->name, session->session_id,
 			     msg->req_id);
 
+	if (!MGMT_MSG_VALIDATE_NUL_TERM(msg, msg_len)) {
+		fe_adapter_send_error(session, req_id, false, -EINVAL,
+				      "Invalid message rcvd from session-id: %" PRIu64,
+				      session->session_id);
+		goto done;
+	}
+
 	if (session->txn_id != MGMTD_TXN_ID_NONE) {
 		fe_adapter_send_error(session, req_id, false, -EINPROGRESS,
 				      "Transaction in progress txn-id: %" PRIu64
 				      " for session-id: %" PRIu64,
 				      session->txn_id, session->session_id);
-		return;
+		goto done;
 	}
+
+
+	err = yang_resolve_snode_xpath(ly_native_ctx, msg->xpath, &snodes,
+				       &simple_xpath);
+	if (err) {
+		fe_adapter_send_error(session, req_id, false, -EINPROGRESS,
+				      "XPath doesn't resolve for session-id: %" PRIu64,
+				      session->session_id);
+		goto done;
+	}
+	darr_free(snodes);
 
 	clients = mgmt_be_interested_clients(msg->xpath, false);
 	if (!clients) {
@@ -1164,7 +1189,7 @@ static void fe_adapter_handle_get_tree(struct mgmt_fe_session_ctx *session,
 
 		fe_adapter_send_tree_data(session, req_id, false,
 					  msg->result_type, NULL, 0);
-		return;
+		goto done;
 	}
 
 	/* Start a SHOW Transaction */
@@ -1173,7 +1198,7 @@ static void fe_adapter_handle_get_tree(struct mgmt_fe_session_ctx *session,
 	if (session->txn_id == MGMTD_SESSION_ID_NONE) {
 		fe_adapter_send_error(session, req_id, false, -EINPROGRESS,
 				      "failed to create a 'show' txn");
-		return;
+		goto done;
 	}
 
 	MGMTD_FE_ADAPTER_DBG("Created new show txn-id: %" PRIu64
@@ -1182,13 +1207,17 @@ static void fe_adapter_handle_get_tree(struct mgmt_fe_session_ctx *session,
 
 	/* Create a GET-TREE request under the transaction */
 	ret = mgmt_txn_send_get_tree_oper(session->txn_id, req_id, clients,
-					  msg->result_type, msg->xpath);
+					  msg->result_type, simple_xpath,
+					  msg->xpath);
 	if (ret) {
 		/* destroy the just created txn */
 		mgmt_destroy_txn(&session->txn_id);
 		fe_adapter_send_error(session, req_id, false, -EINPROGRESS,
 				      "failed to create a 'show' txn");
 	}
+done:
+	darr_free(snodes);
+	darr_free(xpath_resolved);
 }
 
 /**

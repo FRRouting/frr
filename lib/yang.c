@@ -251,6 +251,38 @@ void yang_snode_get_path(const struct lysc_node *snode,
 	}
 }
 
+LY_ERR yang_resolve_snode_xpath(struct ly_ctx *ly_ctx, const char *xpath,
+				struct lysc_node ***snodes, bool *simple)
+{
+	struct lysc_node *snode;
+	struct ly_set *set;
+	LY_ERR err;
+
+	/* lys_find_path will not resolve complex xpaths */
+	snode = (struct lysc_node *)lys_find_path(ly_ctx, NULL, xpath, 0);
+	if (snode) {
+		*darr_append(*snodes) = snode;
+		*simple = true;
+		return LY_SUCCESS;
+	}
+
+	/* Try again to catch complex query cases */
+	err = lys_find_xpath(ly_native_ctx, NULL, xpath, 0, &set);
+	if (err)
+		return err;
+	if (!set->count) {
+		ly_set_free(set, NULL);
+		return LY_ENOTFOUND;
+	}
+
+	*simple = false;
+	darr_ensure_i(*snodes, set->count - 1);
+	memcpy(*snodes, set->snodes, set->count * sizeof(set->snodes[0]));
+	ly_set_free(set, NULL);
+	return LY_SUCCESS;
+}
+
+
 struct lysc_node *yang_find_snode(struct ly_ctx *ly_ctx, const char *xpath,
 				  uint32_t options)
 {
@@ -1018,4 +1050,77 @@ LY_ERR yang_lyd_new_list(struct lyd_node_inner *parent,
 	_Static_assert(LIST_MAXKEYS == 8, "max key mismatch in switch unroll");
 	/*NOTREACHED*/
 	return LY_EINVAL;
+}
+
+
+int yang_trim_tree(struct lyd_node *root, const char *xpath)
+{
+	enum nb_error ret = NB_OK;
+	LY_ERR err;
+#if 0
+	err = lyd_trim_xpath(&root, xpath, NULL);
+	if (err) {
+		flog_err_sys(EC_LIB_LIBYANG,
+			     "cannot obtain specific result for xpath \"%s\"",
+			     xpath);
+		return NB_ERR;
+	}
+	return NB_OK;
+#else
+	struct lyd_node *node;
+	struct lyd_node **remove = NULL;
+	struct ly_set *set = NULL;
+	uint32_t i;
+
+	err = lyd_find_xpath3(NULL, root, xpath, NULL, &set);
+	if (err) {
+		flog_err_sys(EC_LIB_LIBYANG,
+			     "cannot obtain specific result for xpath \"%s\"",
+			     xpath);
+		ret = NB_ERR;
+		goto done;
+	}
+	/*
+	 * Mark keepers and sweep deleting non-keepers.
+	 *
+	 * NOTE: We assume the data-nodes have NULL priv pointers and use that
+	 * for our mark.
+	 */
+
+	/* Mark */
+	for (i = 0; i < set->count; i++) {
+		for (node = set->dnodes[i]; node; node = &node->parent->node) {
+			if (node->priv)
+				break;
+			if (node == set->dnodes[i])
+				node->priv = (void *)2;
+			else
+				node->priv = (void *)1;
+		}
+	}
+
+	darr_ensure_cap(remove, 128);
+	LYD_TREE_DFS_BEGIN (root, node) {
+		/*
+		 * If this is a direct matching node then include it's subtree
+		 * which won't be marked and would otherwise be removed.
+		 */
+		if (node->priv == (void *)2)
+			LYD_TREE_DFS_continue = 1;
+		else if (!node->priv) {
+			LYD_TREE_DFS_continue = 1;
+			*darr_append(remove) = node;
+		}
+		LYD_TREE_DFS_END(root, node);
+	}
+	darr_foreach_i (remove, i)
+		lyd_free_tree(remove[i]);
+	darr_free(remove);
+
+done:
+	if (set)
+		ly_set_free(set, NULL);
+
+	return ret;
+#endif
 }

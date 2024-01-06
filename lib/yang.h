@@ -724,6 +724,35 @@ extern LY_ERR yang_lyd_new_list(struct lyd_node_inner *parent,
 				const struct lysc_node *snode,
 				const struct yang_list_keys *keys,
 				struct lyd_node_inner **node);
+/**
+ * yang_resolve_snodes() - Resolve an XPath to matching schema nodes.
+ * @ly_ctx: libyang context to operate on.
+ * @xpath: the path or XPath to resolve.
+ * @snodes: [OUT] pointer for resulting dynamic array (darr) of schema node
+ *          pointers.
+ * @simple: [OUT] indicates if @xpath was resolvable simply or not. Non-simple
+ *          means that the @xpath is not a simple path and utilizes XPath 1.0
+ *          functionality beyond simple key predicates.
+ *
+ * This function can be used to find the schema node (or nodes) that correspond
+ * to a given @xpath. If the @xpath includes non-key predicates (e.g., using
+ * functions) then @simple will be set to false, and @snodes may contain more
+ * than a single schema node.
+ *
+ * Return: a libyang error or LY_SUCCESS.
+ */
+extern LY_ERR yang_resolve_snode_xpath(struct ly_ctx *ly_ctx, const char *xpath,
+				       struct lysc_node ***snodes, bool *simple);
+
+/**
+ * yang_trim_tree() - trim the data tree to the given xpath
+ * @root: the data tree
+ * @xpath: the xpath to trim @root to.
+ *
+ * Return: enum nb_error..
+ */
+extern int yang_trim_tree(struct lyd_node *root, const char *xpath);
+
 #ifdef __cplusplus
 }
 #endif

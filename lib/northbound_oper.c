@@ -72,6 +72,7 @@ struct nb_op_node_info {
  * @schema_path: the schema nodes for each node in the query string.
  # @query_tokstr: the query string tokenized with NUL bytes.
  * @query_tokens: the string pointers to each query token (node).
+ * @non_specific_predicate: tracks if a query_token is non-specific predicate.
  * @walk_root_level: The topmost specific node, +1 is where we start walking.
  * @walk_start_level: @walk_root_level + 1.
  * @query_base_level: the level the query string stops at and full walks
@@ -85,6 +86,7 @@ struct nb_op_yield_state {
 	const struct lysc_node **schema_path;
 	char *query_tokstr;
 	char **query_tokens;
+	uint8_t *non_specific_predicate;
 	int walk_root_level;
 	int walk_start_level;
 	int query_base_level;
@@ -158,6 +160,7 @@ static inline void nb_op_free_yield_state(struct nb_op_yield_state *ys,
 		if (!nofree_tree && ys_root_node(ys))
 			lyd_free_all(ys_root_node(ys));
 		darr_free(ys->query_tokens);
+		darr_free(ys->non_specific_predicate);
 		darr_free(ys->query_tokstr);
 		darr_free(ys->schema_path);
 		darr_free(ys->node_infos);
@@ -1142,18 +1145,23 @@ static enum nb_error __walk(struct nb_op_yield_state *ys, bool is_resume)
 			is_specific_node = false;
 			if (list_start &&
 			    at_clevel <= darr_lasti(ys->query_tokens) &&
+			    !ys->non_specific_predicate[at_clevel] &&
 			    nb_op_schema_path_has_predicate(ys, at_clevel)) {
 				err = lyd_new_path(&pni->inner->node, NULL,
 						   ys->query_tokens[at_clevel],
 						   NULL, 0, &node);
 				if (!err)
-					/* predicate resolved to specific node */
 					is_specific_node = true;
+				else if (err == LY_EVALID)
+					ys->non_specific_predicate[at_clevel] = true;
 				else {
-					flog_warn(EC_LIB_NB_OPERATIONAL_DATA,
-						  "%s: unable to create node for specific query string: %s",
+					flog_err(EC_LIB_NB_OPERATIONAL_DATA,
+						  "%s: unable to create node for specific query string: %s: %s",
 						  __func__,
-						  ys->query_tokens[at_clevel]);
+						  ys->query_tokens[at_clevel],
+						  yang_ly_strerrcode(err));
+					ret = NB_ERR;
+					goto done;
 				}
 			}
 
@@ -1570,6 +1578,7 @@ static enum nb_error nb_op_yield(struct nb_op_yield_state *ys)
 static enum nb_error nb_op_ys_init_schema_path(struct nb_op_yield_state *ys,
 					       struct nb_node **last)
 {
+	struct nb_node **nb_nodes = NULL;
 	const struct lysc_node *sn;
 	struct nb_node *nblast;
 	char *s, *s2;
@@ -1587,6 +1596,11 @@ static enum nb_error nb_op_ys_init_schema_path(struct nb_op_yield_state *ys,
 	 * string over each schema trunk in the set.
 	 */
 	nblast = nb_node_find(ys->xpath);
+	if (!nblast) {
+		nb_nodes = nb_nodes_find(ys->xpath);
+		nblast = darr_len(nb_nodes) ? nb_nodes[0] : NULL;
+		darr_free(nb_nodes);
+	}
 	if (!nblast) {
 		flog_warn(EC_LIB_YANG_UNKNOWN_DATA_PATH,
 			  "%s: unknown data path: %s", __func__, ys->xpath);
@@ -1614,6 +1628,7 @@ static enum nb_error nb_op_ys_init_schema_path(struct nb_op_yield_state *ys,
 	/* create our arrays */
 	darr_append_n(ys->schema_path, count);
 	darr_append_n(ys->query_tokens, count);
+	darr_append_nz(ys->non_specific_predicate, count);
 	for (sn = nblast->snode; sn; sn = sn->parent)
 		ys->schema_path[--count] = sn;
 
@@ -1675,6 +1690,7 @@ error:
 	darr_free(ys->query_tokstr);
 	darr_free(ys->schema_path);
 	darr_free(ys->query_tokens);
+	darr_free(ys->non_specific_predicate);
 	return NB_ERR;
 }
 

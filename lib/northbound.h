@@ -813,6 +813,14 @@ void nb_nodes_delete(void);
  */
 extern struct nb_node *nb_node_find(const char *xpath);
 
+/**
+ * nb_nodes_find() - find the NB nodes corresponding to complex xpath.
+ * @xpath: XPath to search for (with or without predicates).
+ *
+ * Return: a dynamic array (darr) of `struct nb_node *`s.
+ */
+extern struct nb_node **nb_nodes_find(const char *xpath);
+
 extern void nb_node_set_dependency_cbs(const char *dependency_xpath,
 				       const char *dependant_xpath,
 				       struct nb_dependency_callbacks *cbs);
