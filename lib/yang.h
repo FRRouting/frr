@@ -719,11 +719,6 @@ extern int yang_get_key_preds(char *s, const struct lysc_node *snode,
 /* Get YANG keys from an existing dnode */
 extern int yang_get_node_keys(struct lyd_node *node, struct yang_list_keys *keys);
 
-/* Create a new list lyd_node using `yang_list_keys` */
-extern LY_ERR yang_lyd_new_list(struct lyd_node_inner *parent,
-				const struct lysc_node *snode,
-				const struct yang_list_keys *keys,
-				struct lyd_node_inner **node);
 /**
  * yang_resolve_snodes() - Resolve an XPath to matching schema nodes.
  * @ly_ctx: libyang context to operate on.
@@ -744,14 +739,16 @@ extern LY_ERR yang_lyd_new_list(struct lyd_node_inner *parent,
 extern LY_ERR yang_resolve_snode_xpath(struct ly_ctx *ly_ctx, const char *xpath,
 				       struct lysc_node ***snodes, bool *simple);
 
-/**
- * yang_trim_tree() - trim the data tree to the given xpath
- * @root: the data tree
- * @xpath: the xpath to trim @root to.
- *
- * Return: enum nb_error..
+/*
+ * Libyang future functions
  */
-extern int yang_trim_tree(struct lyd_node *root, const char *xpath);
+extern const char *yang_ly_strerrcode(LY_ERR err);
+extern const char *yang_ly_strvecode(LY_VECODE vecode);
+extern LY_ERR yang_lyd_new_list(struct lyd_node_inner *parent,
+				const struct lysc_node *snode,
+				const struct yang_list_keys *keys,
+				struct lyd_node **nodes);
+extern LY_ERR yang_lyd_trim_xpath(struct lyd_node **rootp, const char *xpath);
 
 #ifdef __cplusplus
 }

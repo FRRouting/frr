@@ -1278,8 +1278,9 @@ static int txn_get_tree_data_done(struct mgmt_txn_ctx *txn,
 		/*
 		 * We have a complex query so Filter results by the xpath query.
 		 */
-		ret = yang_trim_tree(get_tree->client_results,
-				     txn_req->req.get_tree->xpath);
+		if (yang_lyd_trim_xpath(&get_tree->client_results,
+					txn_req->req.get_tree->xpath))
+			ret = NB_ERR;
 	}
 
 	if (ret == NB_OK)

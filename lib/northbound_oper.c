@@ -1409,11 +1409,8 @@ static enum nb_error __walk(struct nb_op_yield_state *ys, bool is_resume)
 			 */
 
 			if (!node) {
-				/* NOTE: can also use lyd_new_list2 here when available */
 				err = yang_lyd_new_list(ni[-1].inner, sib,
-							&ni->keys,
-							(struct lyd_node_inner *
-								 *)&node);
+							&ni->keys, &node);
 				if (err) {
 					darr_pop(ys->node_infos);
 					ret = NB_ERR_RESOURCE;
