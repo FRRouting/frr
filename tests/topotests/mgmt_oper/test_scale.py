@@ -11,7 +11,7 @@
 """
 Test static route functionality
 """
-import logging
+import re
 import time
 
 import pytest
@@ -63,5 +63,11 @@ def test_oper_simple(tgen):
     check_kernel_32(r1, "20.0.0.0", count, vrf, 1000)
 
     step(f"All {count} routes installed in kernel, continuing")
-    output = r1.cmd_raises("vtysh -c 'show mgmt get-data /frr-vrf:lib'")
-    step("Got output: output")
+    # output = r1.cmd_raises("vtysh -c 'show mgmt get-data /frr-vrf:lib'")
+    # step(f"Got output: {output[0:1024]}")
+
+    query = '/frr-vrf:lib/vrf/frr-zebra:zebra/ribs/rib/route[contains(prefix,"20.0.0.12")]/prefix'
+    output = r1.cmd_raises(f"vtysh -c 'show mgmt get-data {query}'")
+    matches = re.findall(r'"prefix":', output)
+    # 20.0.0.12 + 20.0.0.12{0,1,2,3,4,5,6,7,8,9}
+    assert len(matches) == 11

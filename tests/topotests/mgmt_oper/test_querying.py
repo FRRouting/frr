@@ -51,6 +51,16 @@ def test_oper_simple(tgen):
         pytest.skip(tgen.errors)
 
     query_results = [
+        # Non-key specific query with function filtering selector
+        '/frr-interface:lib/interface[contains(name,"eth")]/vrf',
+        # Non-key specific query with child value filtering selector
+        '/frr-interface:lib/interface[vrf="red"]/vrf',
+        '/frr-interface:lib/interface[./vrf="red"]/vrf',
+        # Container query with function filtering selector
+        '/frr-interface:lib/interface[contains(name,"eth")]/state',
+        # Multi list elemenet with function filtering selector
+        '/frr-interface:lib/interface[contains(name,"eth")]',
+        #
         # Specific list entry after non-specific lists
         '/frr-vrf:lib/vrf[name="default"]/frr-zebra:zebra/ribs/'
         'rib[afi-safi-name="frr-routing:ipv4-unicast"][table-id="254"]/'
