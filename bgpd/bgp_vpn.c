@@ -30,7 +30,6 @@ int show_adj_route_vpn(struct vty *vty, struct peer *peer,
 	int rd_header;
 	int header = 1;
 	json_object *json = NULL;
-	json_object *json_ocode = NULL;
 	json_object *json_adv = NULL;
 	json_object *json_routes = NULL;
 	char rd_str[BUFSIZ];
@@ -46,13 +45,8 @@ int show_adj_route_vpn(struct vty *vty, struct peer *peer,
 	}
 
 	if (use_json) {
-		json_ocode = json_object_new_object();
 		json = json_object_new_object();
 		json_adv = json_object_new_object();
-
-		json_object_string_add(json_ocode, "igp", "i");
-		json_object_string_add(json_ocode, "egp", "e");
-		json_object_string_add(json_ocode, "incomplete", "?");
 	}
 
 	for (dest = bgp_table_top(bgp->rib[afi][safi]); dest;
