@@ -2111,17 +2111,6 @@ DEFUN (config_terminal_length,
 	return CMD_SUCCESS;
 }
 
-DEFUN (config_terminal_no_length,
-       config_terminal_no_length_cmd,
-       "terminal no length",
-       "Set terminal line parameters\n"
-       NO_STR
-       "Set number of lines on a screen\n")
-{
-	vty->lines = -1;
-	return CMD_SUCCESS;
-}
-
 DEFUN (service_terminal_length,
        service_terminal_length_cmd,
        "service terminal-length (0-512)",
@@ -2522,7 +2511,6 @@ void cmd_init(int terminal)
 		install_element(VIEW_NODE, &config_help_cmd);
 		install_element(VIEW_NODE, &config_enable_cmd);
 		install_element(VIEW_NODE, &config_terminal_length_cmd);
-		install_element(VIEW_NODE, &config_terminal_no_length_cmd);
 		install_element(VIEW_NODE, &show_commandtree_cmd);
 		install_element(VIEW_NODE, &echo_cmd);
 		install_element(VIEW_NODE, &autocomplete_cmd);

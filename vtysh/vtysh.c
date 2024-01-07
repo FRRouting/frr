@@ -3767,8 +3767,7 @@ DEFUN (vtysh_terminal_length,
 	free(vtysh_pager_name);
 	vtysh_pager_name = NULL;
 
-	if (!strcmp(argv[0]->text, "no") || !strcmp(argv[1]->text, "no")) {
-		/* "terminal no length" = use VTYSH_PAGER */
+	if (!strcmp(argv[0]->text, "no")) {
 		vtysh_pager_envdef(true);
 		return CMD_SUCCESS;
 	}
@@ -3783,13 +3782,6 @@ DEFUN (vtysh_terminal_length,
 
 	return CMD_SUCCESS;
 }
-
-ALIAS_DEPRECATED(vtysh_terminal_length,
-       vtysh_terminal_no_length_cmd,
-       "terminal no length",
-       "Set terminal line parameters\n"
-       NO_STR
-       "Set number of lines on a screen\n")
 
 DEFUN (vtysh_show_daemons,
        vtysh_show_daemons_cmd,
@@ -5151,7 +5143,6 @@ void vtysh_init_vty(void)
 	install_element(CONFIG_NODE, &vtysh_terminal_paginate_cmd);
 	install_element(VIEW_NODE, &vtysh_terminal_paginate_cmd);
 	install_element(VIEW_NODE, &vtysh_terminal_length_cmd);
-	install_element(VIEW_NODE, &vtysh_terminal_no_length_cmd);
 	install_element(VIEW_NODE, &vtysh_show_daemons_cmd);
 
 	install_element(VIEW_NODE, &vtysh_terminal_monitor_cmd);
