@@ -1105,7 +1105,7 @@ static int fe_adapter_send_tree_data(struct mgmt_fe_session_ctx *session,
 				      LYD_PRINT_WITHSIBLINGS));
 	/* buf may have been reallocated and moved */
 	msg = (typeof(msg))buf;
-
+	(void)msg; /* suppress clang-SA unused warning on safety code */
 
 	if (ret != LY_SUCCESS) {
 		MGMTD_FE_ADAPTER_ERR("Error building get-tree result for client %s session-id %" PRIu64

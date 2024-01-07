@@ -807,6 +807,13 @@ static const struct lysc_node *nb_op_sib_first(struct nb_op_yield_state *ys,
 	const struct lysc_node *first_sib;
 
 	/*
+	 * NOTE: when we want to handle root level walks we will need to use
+	 * lys_getnext() to walk root level of each module and
+	 * ly_ctx_get_module_iter() to walk the modules.
+	 */
+	assert(darr_len(ys->node_infos) > 0);
+
+	/*
 	 * The top of the node stack points at @parent.
 	 *
 	 * If the schema path (original query) is longer than our current node
@@ -814,7 +821,7 @@ static const struct lysc_node *nb_op_sib_first(struct nb_op_yield_state *ys,
 	 * base of the user query, return the next schema node from the query
 	 * string (schema_path).
 	 */
-	assert(darr_last(ys->node_infos)->schema == parent);
+	assert(darr_last(ys->node_infos) != NULL && darr_last(ys->node_infos)->schema == parent);
 	if (darr_lasti(ys->node_infos) < ys->query_base_level)
 		return ys->schema_path[darr_lasti(ys->node_infos) + 1];
 
@@ -1010,10 +1017,14 @@ static enum nb_error __walk(struct nb_op_yield_state *ys, bool is_resume)
 			 * should be kept.
 			 */
 			ret = nb_op_iter_leaf(ys, nn, xpath_child);
+			if (ret != NB_OK)
+				goto done;
 			sib = nb_op_sib_next(ys, sib);
 			continue;
 		case LYS_LEAFLIST:
 			ret = nb_op_iter_leaflist(ys, nn, xpath_child);
+			if (ret != NB_OK)
+				goto done;
 			sib = nb_op_sib_next(ys, sib);
 			continue;
 		case LYS_CONTAINER:
