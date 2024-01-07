@@ -1148,6 +1148,31 @@ DEFUN (debug_bgp_update,
 	return CMD_SUCCESS;
 }
 
+DEFPY (debug_bgp_update_detail,
+       debug_bgp_update_detail_cmd,
+       "[no] debug bgp updates detail",
+       NO_STR
+       DEBUG_STR
+       BGP_STR
+       "BGP updates\n"
+       "Show detailed information about updates\n")
+{
+	if (vty->node == CONFIG_NODE) {
+		if (no)
+			DEBUG_OFF(update, UPDATE_DETAIL);
+		else
+			DEBUG_ON(update, UPDATE_DETAIL);
+	} else {
+		if (no)
+			TERM_DEBUG_OFF(update, UPDATE_DETAIL);
+		else
+			TERM_DEBUG_ON(update, UPDATE_DETAIL);
+		vty_out(vty, "BGP updates detail debugging is on\n");
+	}
+
+	return CMD_SUCCESS;
+}
+
 DEFUN (debug_bgp_update_direct,
        debug_bgp_update_direct_cmd,
        "debug bgp updates <in|out>",
@@ -2304,6 +2329,11 @@ static int bgp_config_write_debug(struct vty *vty)
 						   bgp_debug_update_out_peers);
 	}
 
+	if (CONF_BGP_DEBUG(update, UPDATE_DETAIL)) {
+		vty_out(vty, "debug bgp updates detail\n");
+		write++;
+	}
+
 	if (CONF_BGP_DEBUG(zebra, ZEBRA)) {
 		if (!bgp_debug_zebra_prefixes
 		    || list_isempty(bgp_debug_zebra_prefixes)) {
@@ -2409,6 +2439,8 @@ void bgp_debug_init(void)
 	install_element(CONFIG_NODE, &debug_bgp_keepalive_cmd);
 	install_element(ENABLE_NODE, &debug_bgp_update_cmd);
 	install_element(CONFIG_NODE, &debug_bgp_update_cmd);
+	install_element(ENABLE_NODE, &debug_bgp_update_detail_cmd);
+	install_element(CONFIG_NODE, &debug_bgp_update_detail_cmd);
 	install_element(ENABLE_NODE, &debug_bgp_zebra_cmd);
 	install_element(CONFIG_NODE, &debug_bgp_zebra_cmd);
 	install_element(ENABLE_NODE, &debug_bgp_update_groups_cmd);
