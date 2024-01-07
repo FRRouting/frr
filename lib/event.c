@@ -211,7 +211,7 @@ static void cpu_record_print(struct vty *vty, uint8_t filter)
 				"Active   Runtime(ms)   Invoked Avg uSec Max uSecs");
 			vty_out(vty, " Avg uSec Max uSecs");
 			vty_out(vty,
-				"  CPU_Warn Wall_Warn Starv_Warn Type   Thread\n");
+				"  CPU_Warn Wall_Warn Starv_Warn   Type  Event\n");
 
 			if (cpu_records_count(m->cpu_records)) {
 				struct cpu_event_history *rec;
@@ -227,13 +227,13 @@ static void cpu_record_print(struct vty *vty, uint8_t filter)
 	}
 
 	vty_out(vty, "\n");
-	vty_out(vty, "Total thread statistics\n");
+	vty_out(vty, "Total Event statistics\n");
 	vty_out(vty, "-------------------------\n");
 	vty_out(vty, "%30s %18s %18s\n", "",
 		"CPU (user+system):", "Real (wall-clock):");
 	vty_out(vty, "Active   Runtime(ms)   Invoked Avg uSec Max uSecs");
-	vty_out(vty, " Avg uSec Max uSecs  CPU_Warn Wall_Warn");
-	vty_out(vty, "  Type  Thread\n");
+	vty_out(vty, " Avg uSec Max uSecs  CPU_Warn Wall_Warn Starv_Warn");
+	vty_out(vty, "   Type  Event\n");
 
 	if (tmp.total_calls > 0)
 		vty_out_cpu_event_history(vty, &tmp);
