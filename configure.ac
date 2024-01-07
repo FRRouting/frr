@@ -1954,12 +1954,8 @@ dnl ---------------
 dnl libyang
 dnl ---------------
 PKG_CHECK_MODULES([LIBYANG], [libyang >= 2.1.128], , [
-  AC_MSG_WARN([Recommended libyang version is >= 2.1.128.])
-])
-
-PKG_CHECK_MODULES([LIBYANG], [libyang >= 2.0.0], , [
-  AC_MSG_ERROR([libyang (>= 2.0.0) was not found on your system.])
-])
+AC_MSG_ERROR([m4_normalize([libyang >= 2.1.128 is required, and was not found on your system.
+Pleaes consult doc/developer/building-libyang.rst for instructions on installing or building libyang.])])])
 ac_cflags_save="$CFLAGS"
 CFLAGS="$CFLAGS $LIBYANG_CFLAGS"
 AC_CHECK_MEMBER([struct lyd_node.priv], [], [

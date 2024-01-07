@@ -16,10 +16,11 @@ Installing Dependencies
       libc-ares-dev python3-dev python3-sphinx \
       install-info build-essential libsnmp-dev perl \
       libcap-dev libelf-dev libunwind-dev \
-      protobuf-c-compiler libprotobuf-c-dev \
-      libyang2 libyang2-dev
+      protobuf-c-compiler libprotobuf-c-dev
 
 .. include:: building-libunwind-note.rst
+
+.. include:: building-libyang.rst
 
 GRPC
 ^^^^
