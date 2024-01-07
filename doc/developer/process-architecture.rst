@@ -247,7 +247,7 @@ output for :clicmd:`show event cpu`:
 
    frr# show event cpu
 
-   Thread statistics for bgpd:
+   Event statistics for bgpd:
 
    Showing statistics for pthread main
    ------------------------------------
