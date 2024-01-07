@@ -2942,35 +2942,38 @@ static int show_one_daemon(struct vty *vty, struct cmd_token **argv, int argc,
 	return ret;
 }
 
-DEFUN (vtysh_show_thread_timer,
-       vtysh_show_thread_timer_cmd,
-       "show thread timers",
+#if CONFDATE > 20240707
+	CPP_NOTICE("Remove `show thread ...` commands")
+#endif
+DEFUN (vtysh_show_event_timer,
+       vtysh_show_event_timer_cmd,
+       "show event timers",
        SHOW_STR
-       "Thread information\n"
+       "Event information\n"
        "Show all timers and how long they have in the system\n")
 {
-	return show_per_daemon(vty, argv, argc, "Thread timers for %s:\n");
+	return show_per_daemon(vty, argv, argc, "Event timers for %s:\n");
 }
 
-DEFUN (vtysh_show_poll,
-       vtysh_show_poll_cmd,
-       "show thread poll",
+DEFUN (vtysh_show_event_poll,
+       vtysh_show_event_poll_cmd,
+       "show event poll",
        SHOW_STR
-       "Thread information\n"
-       "Thread Poll Information\n")
+       "Event information\n"
+       "Event Poll Information\n")
 {
-	return show_per_daemon(vty, argv, argc, "Thread statistics for %s:\n");
+	return show_per_daemon(vty, argv, argc, "Event statistics for %s:\n");
 }
 
-DEFUN (vtysh_show_thread,
-       vtysh_show_thread_cmd,
-       "show thread cpu [FILTER]",
+DEFUN (vtysh_show_event,
+       vtysh_show_event_cpu_cmd,
+       "show event cpu [FILTER]",
        SHOW_STR
-       "Thread information\n"
-       "Thread CPU usage\n"
+       "Event information\n"
+       "Event CPU usage\n"
        "Display filter (rwtexb)\n")
 {
-	return show_per_daemon(vty, argv, argc, "Thread statistics for %s:\n");
+	return show_per_daemon(vty, argv, argc, "Event statistics for %s:\n");
 }
 
 DEFUN (vtysh_show_work_queues,
@@ -5201,9 +5204,9 @@ void vtysh_init_vty(void)
 	install_element(VIEW_NODE, &vtysh_show_modules_cmd);
 	install_element(VIEW_NODE, &vtysh_show_work_queues_cmd);
 	install_element(VIEW_NODE, &vtysh_show_work_queues_daemon_cmd);
-	install_element(VIEW_NODE, &vtysh_show_thread_cmd);
-	install_element(VIEW_NODE, &vtysh_show_poll_cmd);
-	install_element(VIEW_NODE, &vtysh_show_thread_timer_cmd);
+	install_element(VIEW_NODE, &vtysh_show_event_cpu_cmd);
+	install_element(VIEW_NODE, &vtysh_show_event_poll_cmd);
+	install_element(VIEW_NODE, &vtysh_show_event_timer_cmd);
 
 	/* Logging */
 	install_element(VIEW_NODE, &vtysh_show_logging_cmd);

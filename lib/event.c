@@ -302,13 +302,16 @@ static uint8_t parse_filter(const char *filterstr)
 	return filter;
 }
 
-DEFUN_NOSH (show_thread_cpu,
-	    show_thread_cpu_cmd,
-	    "show thread cpu [FILTER]",
-	    SHOW_STR
-	    "Thread information\n"
-	    "Thread CPU usage\n"
-	    "Display filter (rwtex)\n")
+#if CONFDATE > 20240707
+	CPP_NOTICE("Remove `show thread ...` commands")
+#endif
+DEFUN_NOSH (show_event_cpu,
+            show_event_cpu_cmd,
+            "show event cpu [FILTER]",
+            SHOW_STR
+            "Event information\n"
+            "Event CPU usage\n"
+            "Display filter (rwtexb)\n")
 {
 	uint8_t filter = (uint8_t)-1U;
 	int idx = 0;
@@ -326,6 +329,14 @@ DEFUN_NOSH (show_thread_cpu,
 	cpu_record_print(vty, filter);
 	return CMD_SUCCESS;
 }
+
+ALIAS(show_event_cpu,
+      show_thread_cpu_cmd,
+      "show thread cpu [FILTER]",
+      SHOW_STR
+      "Thread information\n"
+      "Thread CPU usage\n"
+      "Display filter (rwtex)\n")
 
 DEFPY (service_cputime_stats,
        service_cputime_stats_cmd,
@@ -368,7 +379,7 @@ DEFPY (service_walltime_warning,
 	return CMD_SUCCESS;
 }
 
-static void show_thread_poll_helper(struct vty *vty, struct event_loop *m)
+static void show_event_poll_helper(struct vty *vty, struct event_loop *m)
 {
 	const char *name = m->name ? m->name : "main";
 	char underline[strlen(name) + 1];
@@ -409,24 +420,30 @@ static void show_thread_poll_helper(struct vty *vty, struct event_loop *m)
 	}
 }
 
-DEFUN_NOSH (show_thread_poll,
-	    show_thread_poll_cmd,
-	    "show thread poll",
-	    SHOW_STR
-	    "Thread information\n"
-	    "Show poll FD's and information\n")
+DEFUN_NOSH (show_event_poll,
+            show_event_poll_cmd,
+            "show event poll",
+            SHOW_STR
+            "Event information\n"
+            "Event Poll Information\n")
 {
 	struct listnode *node;
 	struct event_loop *m;
 
 	frr_with_mutex (&masters_mtx) {
 		for (ALL_LIST_ELEMENTS_RO(masters, node, m))
-			show_thread_poll_helper(vty, m);
+			show_event_poll_helper(vty, m);
 	}
 
 	return CMD_SUCCESS;
 }
 
+ALIAS(show_event_poll,
+      show_thread_poll_cmd,
+      "show thread poll",
+      SHOW_STR
+      "Thread information\n"
+      "Show poll FD's and information\n")
 
 DEFUN (clear_thread_cpu,
        clear_thread_cpu_cmd,
@@ -453,7 +470,7 @@ DEFUN (clear_thread_cpu,
 	return CMD_SUCCESS;
 }
 
-static void show_thread_timers_helper(struct vty *vty, struct event_loop *m)
+static void show_event_timers_helper(struct vty *vty, struct event_loop *m)
 {
 	const char *name = m->name ? m->name : "main";
 	char underline[strlen(name) + 1];
@@ -470,28 +487,37 @@ static void show_thread_timers_helper(struct vty *vty, struct event_loop *m)
 	}
 }
 
-DEFPY_NOSH (show_thread_timers,
-	    show_thread_timers_cmd,
-	    "show thread timers",
-	    SHOW_STR
-	    "Thread information\n"
-	    "Show all timers and how long they have in the system\n")
+DEFPY_NOSH (show_event_timers,
+            show_event_timers_cmd,
+            "show event timers",
+            SHOW_STR
+            "Event information\n"
+            "Show all timers and how long they have in the system\n")
 {
 	struct listnode *node;
 	struct event_loop *m;
 
 	frr_with_mutex (&masters_mtx) {
 		for (ALL_LIST_ELEMENTS_RO(masters, node, m))
-			show_thread_timers_helper(vty, m);
+			show_event_timers_helper(vty, m);
 	}
 
 	return CMD_SUCCESS;
 }
 
+ALIAS(show_event_timers,
+      show_thread_timers_cmd,
+      "show thread timers",
+      SHOW_STR
+      "Thread information\n"
+      "Show all timers and how long they have in the system\n")
+
 void event_cmd_init(void)
 {
 	install_element(VIEW_NODE, &show_thread_cpu_cmd);
+	install_element(VIEW_NODE, &show_event_cpu_cmd);
 	install_element(VIEW_NODE, &show_thread_poll_cmd);
+	install_element(VIEW_NODE, &show_event_poll_cmd);
 	install_element(ENABLE_NODE, &clear_thread_cpu_cmd);
 
 	install_element(CONFIG_NODE, &service_cputime_stats_cmd);
@@ -499,6 +525,7 @@ void event_cmd_init(void)
 	install_element(CONFIG_NODE, &service_walltime_warning_cmd);
 
 	install_element(VIEW_NODE, &show_thread_timers_cmd);
+	install_element(VIEW_NODE, &show_event_timers_cmd);
 }
 /* CLI end ------------------------------------------------------------------ */
 
