@@ -36,6 +36,8 @@ static void lptest_init(void);
 static void lptest_finish(void);
 #endif
 
+static void bgp_sync_label_manager(struct event *e);
+
 /*
  * Remember where pool data are kept
  */
@@ -455,6 +457,9 @@ void bgp_lp_get(
 		if ((lp->next_chunksize << 1) <= LP_CHUNK_SIZE_MAX)
 			lp->next_chunksize <<= 1;
 	}
+
+	event_add_timer(bm->master, bgp_sync_label_manager, NULL, 1,
+			&bm->t_bgp_sync_label_manager);
 }
 
 void bgp_lp_release(
@@ -557,6 +562,10 @@ static void bgp_sync_label_manager(struct event *e)
 				zlog_debug("%s: out of labels, await more",
 					   __func__);
 			}
+
+			lp_fifo_add_tail(&lp->requests, lf);
+			event_add_timer(bm->master, bgp_sync_label_manager,
+					NULL, 1, &bm->t_bgp_sync_label_manager);
 			break;
 		}
 
@@ -582,9 +591,6 @@ static void bgp_sync_label_manager(struct event *e)
 finishedrequest:
 		XFREE(MTYPE_BGP_LABEL_FIFO, lf);
 	}
-
-	event_add_timer(bm->master, bgp_sync_label_manager, NULL, 1,
-			&bm->t_bgp_sync_label_manager);
 }
 
 void bgp_lp_event_chunk(uint32_t first, uint32_t last)
