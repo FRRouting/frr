@@ -16,14 +16,20 @@
 |        |          |        |          |        +          |        |
 |  ce7   +----------+  r1    +----------+  r3    +----------+  r5    +----------------+
 |        |          |        |          |  rr    +    +-----+        |  +--+-+--+ +--+++--+
-+--------+          ++--+----+          +--------+\  /      +--------+  |       | |       |
-                     |  |                          \/                   |  ce9  | |  ce10 |
-                     |  |                          /\                   |unicast| |  vpn  |
-+--------+           |  |               +--------+/  \      +--------+  +---+---+ +---+---+
-|        |           |  |               |        +    +-----+        +----------------+
-|  ce8   +-----------+  +---------------+  r4    +----------+  r6    +------+
-|        |                              |        |          |        |
-+--------+                              +--------+          +--------+
++--------+          +++-+----+          +--------+\  /      +--------+  |       | |       |
+                     || |                          \/                   |  ce9  | |  ce10 |
+                     || |                          /\                   |unicast| |  vpn  |
++--------+           || |               +--------+/  \      +--------+  +---+-+-+ +---+-+-+
+|        |           || |               |        +    +-----+        +----------------+ |
+|  ce8   +-----------+| +---------------+  r4    +----------+  r6    +------+ |         |
+|        |            |                 |        |          |        |        |         |
++--------+            |                 +--------+          +--------+        |         |
+                      |                                                       |         |
+                      |                 +--------+          +--------+        |         |
+                      |                 |        |          |        +--------+         |
+                      +-----------------+   r7   +----------+  r8    +------------------+
+                                        |        |          |        |
+                                        +--------+          +--------+
 """
 
 import os
@@ -76,6 +82,8 @@ def build_topo(tgen):
     tgen.add_router("r4")
     tgen.add_router("r5")
     tgen.add_router("r6")
+    tgen.add_router("r7")
+    tgen.add_router("r8")
 
     # switch
     switch = tgen.add_switch("s1")
@@ -126,6 +134,22 @@ def build_topo(tgen):
     switch.add_link(tgen.gears["ce8"])
     switch.add_link(tgen.gears["r1"])
 
+    switch = tgen.add_switch("s15")
+    switch.add_link(tgen.gears["r7"])
+    switch.add_link(tgen.gears["r1"])
+
+    switch = tgen.add_switch("s16")
+    switch.add_link(tgen.gears["r7"])
+    switch.add_link(tgen.gears["r8"])
+
+    switch = tgen.add_switch("s17")
+    switch.add_link(tgen.gears["r8"])
+    switch.add_link(tgen.gears["ce9"])
+
+    switch = tgen.add_switch("s18")
+    switch.add_link(tgen.gears["r8"])
+    switch.add_link(tgen.gears["ce10"])
+
 
 def _populate_iface():
     tgen = get_topogen()
@@ -157,13 +181,16 @@ def _populate_iface():
     output = tgen.net["r6"].cmd("ip link add vrf1 type vrf table 101")
     output = tgen.net["r6"].cmd("ip link set dev vrf1 up")
     output = tgen.net["r6"].cmd("ip link set dev r6-eth3 master vrf1")
+    output = tgen.net["r8"].cmd("ip link add vrf1 type vrf table 101")
+    output = tgen.net["r8"].cmd("ip link set dev vrf1 up")
+    output = tgen.net["r8"].cmd("ip link set dev r8-eth2 master vrf1")
 
     cmds_list = [
         "modprobe mpls_router",
         "echo 100000 > /proc/sys/net/mpls/platform_labels",
     ]
 
-    for name in ("r1", "r3", "r4", "r5", "r6"):
+    for name in ("r1", "r3", "r4", "r5", "r6", "r7", "r8"):
         for cmd in cmds_list:
             logger.info("input: " + cmd)
             output = tgen.net[name].cmd(cmd)
@@ -182,9 +209,13 @@ def setup_module(mod):
         router.load_config(
             TopoRouter.RD_ZEBRA, os.path.join(CWD, "{}/zebra.conf".format(rname))
         )
-        if rname in ("r1", "r3", "r4", "r5", "r6"):
+        if rname in ("r1", "r3", "r4", "r5", "r6", "r7", "r8"):
             router.load_config(
                 TopoRouter.RD_ISIS, os.path.join(CWD, "{}/isisd.conf".format(rname))
+            )
+        if rname in ("r1", "r3", "r5", "r6", "r8", "ce7", "ce8", "ce9", "ce10"):
+            router.load_config(
+                TopoRouter.RD_BFD, os.path.join(CWD, "{}/bfdd.conf".format(rname))
             )
         if rname in ("r1", "r3", "r5", "r6", "r8", "ce7", "ce8", "ce9", "ce10"):
             router.load_config(
@@ -1198,102 +1229,210 @@ def test_bgp_ipv4_r5_router_restored():
     tgen.gears["r1"].vtysh_cmd(f"show bgp nexthop-group detail")
 
 
-def test_bgp_ipv4_addpath_configured():
-    """
-    R6 lo metric is set to default
-    R1 addpath is configured
-    Change the r6 metric value
-    Check that the BGP route to 192.0.2.9/32 route uses zebra nexthops
-    """
+def check_ipv4_prefix_with_multiple_nexthops(
+    prefix, r5_path=True, r6_path=True, r8_path=False
+):
     tgen = get_topogen()
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    step("On r3, configure addpath")
-    tgen.gears["r3"].vtysh_cmd(
-        """
-        configure terminal\n
-        router bgp 64500\n
-        address-family ipv4 unicast\n
-        neighbor rr addpath-tx-all-paths\n
-        """,
-        isjson=False,
+    step(
+        f"Check that {prefix} unicast entry is installed with paths for r5 {r5_path}, r6 {r6_path}, r8 {r8_path}"
     )
 
-    step("On r6, change the IS-IS metric to default for lo interface")
-    tgen.gears["r6"].vtysh_cmd(
-        """
-        configure terminal\n
-        interface lo\n
-        no isis metric\n
-        """,
-        isjson=False,
-    )
+    r5_nh = [
+        {
+            "ip": "192.0.2.5",
+            "active": True,
+            "recursive": True,
+        },
+        {
+            "ip": "172.31.0.3",
+            "interfaceName": "r1-eth1",
+            "active": True,
+            "labels": [
+                16055,
+            ],
+        },
+        {
+            "ip": "172.31.2.4",
+            "interfaceName": "r1-eth2",
+            "active": True,
+            "labels": [
+                16055,
+            ],
+        },
+    ]
 
-    step("Check that 192.0.2.9/32 unicast entry is installed with both endpoints")
+    r6_nh = [
+        {
+            "ip": "192.0.2.6",
+            "active": True,
+            "recursive": True,
+        },
+        {
+            "ip": "172.31.0.3",
+            "interfaceName": "r1-eth1",
+            "active": True,
+            "labels": [
+                16006,
+            ],
+        },
+        {
+            "ip": "172.31.2.4",
+            "interfaceName": "r1-eth2",
+            "active": True,
+            "labels": [
+                16006,
+            ],
+        },
+    ]
+
+    r8_nh = [
+        {
+            "ip": "192.0.2.8",
+            "active": True,
+            "recursive": True,
+        },
+        {
+            "ip": "172.31.8.7",
+            "interfaceName": "r1-eth4",
+            "active": True,
+            "labels": [
+                16008,
+            ],
+        },
+    ]
+
     expected = {
-        "192.0.2.9/32": [
+        prefix: [
             {
-                "prefix": "192.0.2.9/32",
+                "prefix": prefix,
                 "protocol": "bgp",
                 "metric": 0,
                 "table": 254,
-                "nexthops": [
-                    {
-                        "ip": "192.0.2.5",
-                        "active": True,
-                        "recursive": True,
-                    },
-                    {
-                        "ip": "172.31.0.3",
-                        "interfaceName": "r1-eth1",
-                        "active": True,
-                        "labels": [
-                            16055,
-                        ],
-                    },
-                    {
-                        "ip": "172.31.2.4",
-                        "interfaceName": "r1-eth2",
-                        "active": True,
-                        "labels": [
-                            16055,
-                        ],
-                    },
-                    {
-                        "ip": "192.0.2.6",
-                        "active": True,
-                        "recursive": True,
-                    },
-                    {
-                        "ip": "172.31.0.3",
-                        "interfaceName": "r1-eth1",
-                        "active": True,
-                        "labels": [
-                            16006,
-                        ],
-                    },
-                    {
-                        "ip": "172.31.2.4",
-                        "interfaceName": "r1-eth2",
-                        "active": True,
-                        "labels": [
-                            16006,
-                        ],
-                    },
-                ],
+                "nexthops": [],
             }
         ]
     }
+    if r5_path:
+        for nh in r5_nh:
+            expected[prefix][0]["nexthops"].append(nh)
+    if r6_path:
+        for nh in r6_nh:
+            expected[prefix][0]["nexthops"].append(nh)
+    if r8_path:
+        for nh in r8_nh:
+            expected[prefix][0]["nexthops"].append(nh)
 
     test_func = functools.partial(
-        ip_check_path_selection, tgen.gears["r1"], "192.0.2.9/32", expected
+        ip_check_path_selection,
+        tgen.gears["r1"],
+        prefix,
+        expected,
+        ignore_duplicate_nh=True,
     )
     _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
-    assert result is None, "Failed to check that 192.0.2.9/32 uses the IGP label 16055"
+    assert (
+        result is None
+    ), f"Failed to check that {prefix} unicast entry is installed with paths for r5 {r5_path}, r6 {r6_path}, r8 {r8_path}"
 
-    step("Check that 192.0.2.9/32 unicast entry uses a BGP NHG")
-    route_check_nhg_id_is_protocol("192.0.2.9/32", "r1", protocol="bgp")
+
+def check_ipv4_prefix_with_multiple_nexthops_linux(
+    prefix, nhg_id, r5_path=True, r6_path=True, r8_path=False
+):
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    step(
+        f"Check that {prefix} unicast entry is installed with paths for r5 {r5_path}, r6 {r6_path}, r8 {r8_path} with NHID {nhg_id} on Linux"
+    )
+
+    r5_nh = [
+        {
+            "encap": "mpls",
+            "dst": "16055",
+            "gateway": "172.31.0.3",
+            "dev": "r1-eth1",
+        },
+        {
+            "encap": "mpls",
+            "dst": "16055",
+            "gateway": "172.31.2.4",
+            "dev": "r1-eth2",
+        },
+    ]
+
+    r6_nh = [
+        {
+            "encap": "mpls",
+            "dst": "16006",
+            "gateway": "172.31.0.3",
+            "dev": "r1-eth1",
+        },
+        {
+            "encap": "mpls",
+            "dst": "16006",
+            "gateway": "172.31.2.4",
+            "dev": "r1-eth2",
+        },
+    ]
+
+    r8_nh = [
+        {
+            "encap": "mpls",
+            "dst": "16008",
+            "gateway": "172.31.8.7",
+            "dev": "r1-eth4",
+        }
+    ]
+
+    expected_r8_nh_only = [
+        {
+            "dst": prefix,
+            "protocol": "bgp",
+            "metric": 20,
+            "encap": "mpls",
+            "dst": "16008",
+            "gateway": "172.31.8.7",
+            "dev": "r1-eth4",
+        }
+    ]
+    expected = [
+        {
+            "dst": prefix,
+            "protocol": "bgp",
+            "metric": 20,
+            "nexthops": [],
+        }
+    ]
+
+    # only one path
+    if r8_path and not r5_path and not r6_path:
+        expected = expected_r8_nh_only
+    else:
+        if r5_path:
+            for nh in r5_nh:
+                expected[0]["nexthops"].append(nh)
+        if r6_path:
+            for nh in r6_nh:
+                expected[0]["nexthops"].append(nh)
+        if r8_path:
+            for nh in r8_nh:
+                expected[0]["nexthops"].append(nh)
+
+    test_func = functools.partial(
+        iproute2_check_path_selection,
+        tgen.routers()["r1"],
+        prefix,
+        expected,
+        nhg_id=nhg_id,
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+    assert (
+        result is None
+    ), f"Failed to check that {prefix} unicast entry is installed with paths for r5 {r5_path}, r6 {r6_path}, r8 {r8_path} on Linux with BGP ID"
 
 
 def test_memory_leak():
