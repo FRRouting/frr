@@ -87,7 +87,7 @@ are given by integer macros in :file:`frrevent.h` and are:
 
 ``EVENT_EXECUTE``
    Just before a task is run its type is changed to this. This is used to show
-   ``X`` as the type in the output of :clicmd:`show thread cpu`.
+   ``X`` as the type in the output of :clicmd:`show event cpu`.
 
 The programmer never has to work with these types explicitly. Each type of task
 is created and queued via special-purpose functions (actually macros, but
@@ -238,16 +238,16 @@ proceeding.
 
 In addition, the existing commands to show statistics and other information for
 tasks within the event driven model have been expanded to handle multiple
-pthreads; running :clicmd:`show thread cpu` will display the usual event
+pthreads; running :clicmd:`show event cpu` will display the usual event
 breakdown, but it will do so for each pthread running in the program. For
 example, :ref:`bgpd` runs a dedicated I/O pthread and shows the following
-output for :clicmd:`show thread cpu`:
+output for :clicmd:`show event cpu`:
 
 ::
 
-   frr# show thread cpu
+   frr# show event cpu
 
-   Thread statistics for bgpd:
+   Event statistics for bgpd:
 
    Showing statistics for pthread main
    ------------------------------------

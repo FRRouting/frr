@@ -673,20 +673,20 @@ Terminal Mode Commands
 
 .. _common-show-commands:
 
-.. clicmd:: show thread cpu [r|w|t|e|x]
+.. clicmd:: show event cpu [r|w|t|e|x]
 
    This command displays system run statistics for all the different event
    types. If no options is specified all different run types are displayed
    together.  Additionally you can ask to look at (r)ead, (w)rite, (t)imer,
    (e)vent and e(x)ecute thread event types.
 
-.. clicmd:: show thread poll
+.. clicmd:: show event poll
 
    This command displays FRR's poll data.  It allows a glimpse into how
    we are setting each individual fd for the poll command at that point
    in time.
 
-.. clicmd:: show thread timers
+.. clicmd:: show event timers
 
    This command displays FRR's timer data for timers that will pop in
    the future.

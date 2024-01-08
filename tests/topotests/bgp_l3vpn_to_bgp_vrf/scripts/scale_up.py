@@ -226,7 +226,7 @@ else:
             ave_b = float(delta_b) / float(num)
             luCommand(
                 rtr,
-                'vtysh -c "show thread cpu"',
+                'vtysh -c "show event cpu"',
                 ".",
                 "pass",
                 "BGPd heap: {0} {1} --> {2} {3} ({4} {1}/vpn route)".format(
@@ -239,7 +239,7 @@ else:
             )
             luCommand(
                 rtr,
-                'vtysh -c "show thread cpu"',
+                'vtysh -c "show event cpu"',
                 ".",
                 "pass",
                 "Zebra heap: {0} {1} --> {2} {3} ({4} {1}/vpn route)".format(
