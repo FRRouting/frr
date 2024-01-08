@@ -277,8 +277,6 @@ static __attribute__((__noreturn__)) void bgp_exit(int status)
 
 static int bgp_vrf_new(struct vrf *vrf)
 {
-	zlog_info("BGP VRF CREATE %s", vrf->name);
-
 	if (BGP_DEBUG(zebra, ZEBRA))
 		zlog_debug("VRF Created: %s(%u)", vrf->name, vrf->vrf_id);
 
@@ -287,7 +285,6 @@ static int bgp_vrf_new(struct vrf *vrf)
 
 static int bgp_vrf_delete(struct vrf *vrf)
 {
-	zlog_info("BGP VRF DELETE %s", vrf->name);
 	if (BGP_DEBUG(zebra, ZEBRA))
 		zlog_debug("VRF Deletion: %s(%u)", vrf->name, vrf->vrf_id);
 
@@ -298,8 +295,6 @@ static int bgp_vrf_enable(struct vrf *vrf)
 {
 	struct bgp *bgp;
 	vrf_id_t old_vrf_id;
-
-	zlog_info("BGP VRF ENABLE %s", vrf->name);
 
 	if (BGP_DEBUG(zebra, ZEBRA))
 		zlog_debug("VRF enable add %s id %u", vrf->name, vrf->vrf_id);
@@ -333,8 +328,6 @@ static int bgp_vrf_enable(struct vrf *vrf)
 static int bgp_vrf_disable(struct vrf *vrf)
 {
 	struct bgp *bgp;
-
-	zlog_info("BGP VRF DISABLE %s", vrf->name);
 
 	if (vrf->vrf_id == VRF_DEFAULT)
 		return 0;
