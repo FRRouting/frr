@@ -23,7 +23,7 @@ try:
 except ImportError:
     dd_json_cmp = None
 
-pytestmark = [pytest.mark.staticd]
+pytestmark = [pytest.mark.staticd, pytest.mark.mgmtd]
 
 
 @pytest.fixture(scope="module")

@@ -14,8 +14,7 @@ import pytest
 from lib.topogen import Topogen, TopoRouter
 from util import _test_staticd_late_start
 
-# pytestmark = [pytest.mark.staticd, pytest.mark.mgmtd]
-pytestmark = [pytest.mark.staticd]
+pytestmark = [pytest.mark.staticd, pytest.mark.mgmtd]
 
 
 @pytest.fixture(scope="module")
