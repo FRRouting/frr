@@ -285,10 +285,11 @@ static int group_announce_route_walkcb(struct update_group *updgrp, void *arg)
 					}
 
 					if (!adj)
-						bgp_adj_out_updated(
-							subgrp, ctx->dest, NULL,
-							0, NULL, false, true,
-							__func__);
+						bgp_adj_out_updated(subgrp,
+								    ctx->dest,
+								    NULL, 0,
+								    NULL, false,
+								    true);
 				}
 			}
 		}
@@ -537,8 +538,7 @@ bgp_advertise_clean_subgroup(struct update_subgroup *subgrp,
 /* call the bgp_adj_out_updated hook for bmp rib-out monitoring */
 void bgp_adj_out_updated(struct update_subgroup *subgrp, struct bgp_dest *dest,
 			 struct bgp_path_info *path, uint32_t addpath_tx,
-			 struct attr *attr, bool post_policy, bool withdraw,
-			 const char *caller)
+			 struct attr *attr, bool post_policy, bool withdraw)
 {
 	if (path && !withdraw && CHECK_FLAG(path->flags, BGP_PATH_REMOVED)) {
 		/* path is removed, enforcing withdraw state */
@@ -682,7 +682,7 @@ bool bgp_adj_out_set_subgroup(struct bgp_dest *dest,
 	subgrp->version = MAX(subgrp->version, dest->version);
 
 	bgp_adj_out_updated(subgrp, dest, path, adj->addpath_tx_id, attr, true,
-			    false, __func__);
+			    false);
 	return true;
 }
 
@@ -736,7 +736,7 @@ void bgp_adj_out_unset_subgroup(struct bgp_dest *dest,
 
 			bgp_adj_out_updated(subgrp, dest, NULL,
 					    adj->addpath_tx_id, NULL, true,
-					    withdraw, __func__);
+					    withdraw);
 		} else {
 			/* Free allocated information.  */
 			adj_free(adj);
@@ -1024,7 +1024,7 @@ void subgroup_default_originate(struct update_subgroup *subgrp, bool withdraw)
 	dest = bgp_safi_node_lookup(bgp->rib[afi][safi_rib], safi_rib, &p,
 				    NULL);
 
-	// TODO BMP hook call for rib-out pre-policy
+	// TODO add missing BMP hook call for default-originate in rib-out pre-policy
 
 	if (withdraw) {
 		/* Withdraw the default route advertised using default
