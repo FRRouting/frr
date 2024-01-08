@@ -30,7 +30,7 @@ GRPCP_OSPFD = 50055
 GRPCP_PIMD = 50056
 
 pytestmark = [
-    # pytest.mark.mgmtd -- Need a new non-protocol marker
+    pytest.mark.mgmtd,
     # pytest.mark.bfdd,
     # pytest.mark.isisd,
     # pytest.mark.ospfd,

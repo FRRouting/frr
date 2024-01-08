@@ -12,7 +12,7 @@ Test mgmtd regressions
 import pytest
 from lib.topogen import Topogen
 
-pytestmark = [pytest.mark.staticd]
+pytestmark = [pytest.mark.staticd, pytest.mark.mgmtd]
 
 
 @pytest.fixture(scope="module")
