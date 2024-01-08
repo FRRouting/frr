@@ -90,7 +90,7 @@ There are two options that apply to the BGP instance as a whole:
 
    BMP Route Monitoring is not affected by this option.
 
-.. clicmd:: bmp startup-delay delay(0-4294967294)
+.. clicmd:: bmp startup-delay delay (0-4294967294)
 
    This sets the delay (in milliseconds) after module startup
    for BMP sessions to become active.

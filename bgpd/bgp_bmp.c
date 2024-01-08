@@ -76,7 +76,6 @@ static struct timeval bmp_startup_time = {0};
 /* compute the time in millis since the bmp_startup_time recorded */
 static uint32_t bmp_time_since_startup(struct timeval *delay)
 {
-
 	if (bmp_startup_time.tv_sec == 0 && bmp_startup_time.tv_usec == 0) {
 		zlog_info("bmp [%s]: Startup time not recorded", __func__);
 		return 0;
@@ -91,7 +90,6 @@ static uint32_t bmp_time_since_startup(struct timeval *delay)
 static const char *bmp_state_str(enum BMP_State state)
 {
 	switch (state) {
-
 	case BMP_StartupIdle:
 		return "Startup-Wait";
 	case BMP_PeerUp:
@@ -209,7 +207,7 @@ struct bmp_lbpi_h_head bmp_lbpi;
 static struct bmp_bpi_lock *bmp_lock_bpi(struct bgp *bgp,
 					 struct bgp_path_info *bpi)
 {
-	if (!bpi && !bpi)
+	if (!bgp || !bpi)
 		return NULL;
 
 	BMP_LBPI_LOOKUP_BPI(head, prev, hash_lookup, bpi, bgp);
@@ -249,8 +247,7 @@ static struct bmp_bpi_lock *bmp_lock_bpi(struct bgp *bgp,
 static struct bmp_bpi_lock *bmp_unlock_bpi(struct bgp *bgp,
 					   struct bgp_path_info *bpi)
 {
-
-	if (!bpi)
+	if (!bgp || !bpi)
 		return NULL;
 
 	BMP_LBPI_LOOKUP_BPI(head, prev, hash_lookup, bpi, bgp);
@@ -264,7 +261,6 @@ static struct bmp_bpi_lock *bmp_unlock_bpi(struct bgp *bgp,
 
 	/* if bpi is not used by bmp anymore */
 	if (hash_lookup->lock <= 0) {
-
 		struct bgp_path_info *tmp_bpi = hash_lookup->locked;
 		struct bgp_dest *tmp_dest = hash_lookup->dest;
 		struct bgp *tmp_bgp = hash_lookup->bgp;
@@ -496,20 +492,15 @@ static inline int bmp_get_peer_distinguisher(struct bgp *bgp, afi_t afi,
 	if (afi == AFI_UNSPEC) {
 		{ /* scope lock iter variables */
 			afi_t afi_rd_lookup;
-			safi_t _;
 
-			FOREACH_AFI_SAFI (afi_rd_lookup, _) {
-
+			for (afi_rd_lookup = AFI_IP; afi_rd_lookup < AFI_MAX; afi_rd_lookup++) {
 				if (CHECK_FLAG(bgp->vpn_policy[afi_rd_lookup]
 						       .flags,
 					       BGP_VPN_POLICY_TOVPN_RD_SET)) {
 					afi = afi_rd_lookup;
-					/* stop FOREACH_AFI_SAFI macro */
-					afi_rd_lookup = AFI_MAX;
+					/* we found an AFI with a RD set */
+					break;
 				}
-
-				/* break safi sub-loop to go over next afi */
-				break;
 			}
 		}
 
@@ -733,9 +724,9 @@ static struct stream *bmp_peerstate(struct peer *peer, bool down)
 
 		/* Local Address (16 bytes) */
 		if (!peer->su_local || is_locrib)
-			stream_put(s, 0, 16);
+			stream_put(s, 0, IPV6_MAX_BYTELEN);
 		else if (peer->su_local->sa.sa_family == AF_INET6)
-			stream_put(s, &peer->su_local->sin6.sin6_addr, 16);
+			stream_put(s, &peer->su_local->sin6.sin6_addr, IPV6_MAX_BYTELEN);
 		else if (peer->su_local->sa.sa_family == AF_INET) {
 			stream_putl(s, 0);
 			stream_putl(s, 0);
@@ -859,7 +850,6 @@ static int bmp_send_peerup(struct bmp *bmp)
 
 static int bmp_send_peerup_vrf(struct bmp *bmp)
 {
-
 	struct bmp_bgp *bmpbgp = bmp->targets->bmpbgp;
 
 	/* send unconditionally because state may have been set before the
@@ -871,7 +861,7 @@ static int bmp_send_peerup_vrf(struct bmp *bmp)
 	struct stream *s = bmp_peerstate(bmpbgp->bgp->peer_self, bmpbgp->vrf_up == vrf_state_down);
 
 	if (!s) {
-		zlog_warn("bmp: peer state message error");
+		zlog_warn("bmp: vrf peer state failed, skipping message.");
 		return 1;
 	}
 
@@ -899,7 +889,6 @@ static void bmp_send_all(struct bmp_bgp *bmpbgp, struct stream *s)
 
 static void bmp_send_all_safe(struct bmp_bgp *bmpbgp, struct stream *s)
 {
-
 	if (!s || !bmpbgp)
 		return;
 
@@ -1463,7 +1452,6 @@ static int bmp_monitor_rib_out_pre_updgrp_walkcb(struct update_group *updgrp,
 			continue;
 
 		SUBGRP_FOREACH_PEER (subgrp, paf) {
-
 			addpath_tx_id =
 				!bpi ? 0
 					  : bgp_addpath_id_for_peer(
@@ -1527,8 +1515,6 @@ struct rib_out_post_updgrp_walkctx {
 static int bmp_monitor_rib_out_post_updgrp_walkcb(struct update_group *updgrp,
 						  void *hidden_ctx)
 {
-
-
 	struct rib_out_post_updgrp_walkctx *ctx =
 		(struct rib_out_post_updgrp_walkctx *)hidden_ctx;
 
@@ -1540,7 +1526,6 @@ static int bmp_monitor_rib_out_post_updgrp_walkcb(struct update_group *updgrp,
 	struct bgp_path_info *bpi = ctx->bpi;
 
 	UPDGRP_FOREACH_SUBGRP (updgrp, subgrp) {
-
 		addpath_tx_id = !bpi ? 0
 					  : bgp_addpath_id_for_peer(
 						    SUBGRP_PEER(subgrp),
@@ -1593,7 +1578,6 @@ static inline bool bmp_monitor_rib_out_post_walk(
 	update_group_af_walk(bmp->targets->bgp, afi, safi,
 			     bmp_monitor_rib_out_post_updgrp_walkcb,
 			     (void *)&walkctx);
-
 
 	return written;
 }
@@ -2460,8 +2444,9 @@ static int bmp_process_ribinpost(struct bgp *bgp, afi_t afi, safi_t safi,
 			}
 		}
 
-		// if bmp_process_one returns NULL
-		// we don't have anything to do next
+		/* if bmp_process_one returns NULL
+		 * we don't have anything to do next
+		 */
 		if (!new_head)
 			continue;
 
@@ -2843,23 +2828,8 @@ static int bmp_bgp_del(struct bgp *bgp)
 
 static void bmp_bgp_peer_vrf(struct bmp_bgp_peer *bbpeer, struct bgp *bgp)
 {
-
 	struct peer *peer = bgp->peer_self;
-	uint16_t send_holdtime;
-	as_t local_as;
-
-	if (CHECK_FLAG(peer->flags, PEER_FLAG_TIMER))
-		send_holdtime = peer->holdtime;
-	else
-		send_holdtime = peer->bgp->default_holdtime;
-
-	/* local-as Change */
-	if (peer->change_local_as)
-		local_as = peer->change_local_as;
-	else
-		local_as = peer->local_as;
-
-	struct stream *s = bgp_open_make(peer, send_holdtime, local_as);
+	struct stream *s = bgp_open_make(peer);
 	size_t open_len = stream_get_endp(s);
 
 	bbpeer->open_rx_len = open_len;
@@ -2868,6 +2838,8 @@ static void bmp_bgp_peer_vrf(struct bmp_bgp_peer *bbpeer, struct bgp *bgp)
 
 	bbpeer->open_tx_len = open_len;
 	bbpeer->open_tx = bbpeer->open_rx;
+
+	stream_free(s);
 }
 
 /* update the vrf status of the bmpbgp struct for vrf peer up/down
@@ -2878,7 +2850,6 @@ static void bmp_bgp_peer_vrf(struct bmp_bgp_peer *bbpeer, struct bgp *bgp)
  */
 bool bmp_bgp_update_vrf_status(struct bmp_bgp *bmpbgp, enum bmp_vrf_state force)
 {
-
 	if (!bmpbgp || !bmpbgp->bgp)
 		return false;
 

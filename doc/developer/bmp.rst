@@ -20,7 +20,7 @@ Missing features (should be exhaustive):
 
 RFC8671: BMP Adj-RIB-Out
 ========================
-Adj-RIB-Out pre-policy uses tricks to work because we soft-reconfiguration outbound does not exist.
+Adj-RIB-Out pre-policy monitoring uses tricks to work because soft-reconfiguration outbound does not exist.
 So what we do is we call the BGP function (subgroup_announce_check) which decides whether to announce or not to peers,
 while ignoring the outbound policy + some conditions specific to Adj-RIB-Out Post-policy.
 This allows us to guess whether the route would've been in Adj-RIB-Out Pre-policy or not. However, we cannot compute

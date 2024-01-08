@@ -644,11 +644,28 @@ void bgp_keepalive_send(struct peer *peer)
 	bgp_writes_on(peer->connection);
 }
 
-struct stream *bgp_open_make(struct peer *peer, uint16_t send_holdtime,
-				    as_t local_as)
+uint16_t bgp_peer_get_send_holdtime(struct peer *peer)
 {
+	if (CHECK_FLAG(peer->flags, PEER_FLAG_TIMER))
+		return peer->holdtime;
+	else
+		return peer->bgp->default_holdtime;
+}
 
+uint16_t bgp_peer_get_local_as(struct peer *peer)
+{
+	if (peer->change_local_as)
+		return peer->change_local_as;
+	else
+		return peer->local_as;
+}
+
+struct stream *bgp_open_make(struct peer *peer)
+{
 	struct stream *s = stream_new(BGP_STANDARD_MESSAGE_MAX_PACKET_SIZE);
+
+	uint16_t send_holdtime = bgp_peer_get_send_holdtime(peer);
+	as_t local_as = bgp_peer_get_local_as(peer);
 
 	/* Make open packet. */
 	bgp_packet_set_marker(s, BGP_MSG_OPEN);
@@ -689,29 +706,17 @@ struct stream *bgp_open_make(struct peer *peer, uint16_t send_holdtime,
  */
 void bgp_open_send(struct peer_connection *connection)
 {
-	struct stream *s;
-	uint16_t send_holdtime;
-	as_t local_as;
 	struct peer *peer = connection->peer;
+	struct stream *s = bgp_open_make(peer);
 
-	if (CHECK_FLAG(peer->flags, PEER_FLAG_TIMER))
-		send_holdtime = peer->holdtime;
-	else
-		send_holdtime = peer->bgp->default_holdtime;
+	if (bgp_debug_neighbor_events(peer)) {
+		uint16_t local_as = bgp_peer_get_local_as(peer);
+		uint16_t send_holdtime = bgp_peer_get_send_holdtime(peer);
 
-	/* local-as Change */
-	if (peer->change_local_as)
-		local_as = peer->change_local_as;
-	else
-		local_as = peer->local_as;
-
-	s = bgp_open_make(peer, send_holdtime, local_as);
-
-	if (bgp_debug_neighbor_events(peer))
-		zlog_debug(
-			"%s sending OPEN, version %d, my as %u, holdtime %d, id %pI4",
-			peer->host, BGP_VERSION_4, local_as, send_holdtime,
-			&peer->local_id);
+		zlog_debug("%s sending OPEN, version %d, my as %u, holdtime %d, id %pI4",
+			   peer->host, BGP_VERSION_4, local_as, send_holdtime,
+			   &peer->local_id);
+	}
 
 	/* Dump packet if debug option is set. */
 	/* bgp_packet_dump (s); */

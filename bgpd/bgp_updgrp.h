@@ -454,7 +454,7 @@ extern void bgp_adj_out_updated(struct update_subgroup *subgrp,
 				struct bgp_dest *dest,
 				struct bgp_path_info *path, uint32_t addpath_tx,
 				struct attr *attr, bool post_policy,
-				bool withdraw, const char *caller);
+				bool withdraw);
 extern void bgp_adj_out_unset_subgroup(struct bgp_dest *dest,
 				       struct update_subgroup *subgrp,
 				       char withdraw, uint32_t addpath_tx_id);
