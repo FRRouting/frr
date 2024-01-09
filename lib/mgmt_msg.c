@@ -207,7 +207,7 @@ bool mgmt_msg_procbufs(struct mgmt_msg_state *ms,
 }
 
 /**
- * Write data from a onto the socket, using streams that have been queued for
+ * Write data onto the socket, using streams that have been queued for
  * sending by mgmt_msg_send_msg. This function should be reschedulable.
  *
  * Args:

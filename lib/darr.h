@@ -77,6 +77,7 @@
  */
 
 #include <zebra.h>
+#include <limits.h>
 #include "memory.h"
 
 DECLARE_MTYPE(DARR);
@@ -249,6 +250,10 @@ void *__darr_resize(void *a, uint count, size_t esize, struct memtype *mt);
  * pointers into the previous memory block are no longer valid. The `A` value
  * is guaranteed not to change if there is sufficient capacity in the array.
  *
+ * The exception to the no-change rule is if @C is passed as 0, it will be
+ * considered 1 so that an array is always allocated if currently NULL,
+ * i.e., @A will never be NULL after a call to darr_ensure_cap_mt()
+ *
  * Args:
  *	A: (IN/OUT) the dynamic array, can be NULL.
  *	C: Total capacity to guarantee.
@@ -259,8 +264,9 @@ void *__darr_resize(void *a, uint count, size_t esize, struct memtype *mt);
 #define darr_ensure_cap_mt(A, C, MT)                                           \
 	({                                                                     \
 		/* Cast to avoid warning when C == 0 */                        \
-		if ((ssize_t)darr_cap(A) < (ssize_t)(C))                       \
-			_darr_resize_mt((A), (C), MT);                         \
+		uint _c = (C) > 0 ? (C) : 1;                                   \
+		if ((size_t)darr_cap(A) < _c)                                  \
+			_darr_resize_mt((A), _c, MT);                          \
 		(A);                                                           \
 	})
 #define darr_ensure_cap(A, C) darr_ensure_cap_mt(A, C, MTYPE_DARR)
@@ -285,11 +291,14 @@ void *__darr_resize(void *a, uint count, size_t esize, struct memtype *mt);
  */
 #define darr_ensure_i_mt(A, I, MT)                                             \
 	({                                                                     \
-		if ((int)(I) > darr_maxi(A))                                   \
-			_darr_resize_mt((A), (I) + 1, MT);                     \
-		if ((I) + 1 > _darr_len(A))                                    \
-			_darr_len(A) = (I) + 1;                                \
-		&(A)[I];                                                       \
+		assert((int)(I) >= 0 && (int)(I) <= INT_MAX);                  \
+		int _i = (int)(I);                                             \
+		if (_i > darr_maxi(A))                                         \
+			_darr_resize_mt((A), _i + 1, MT);                      \
+		assert((A) != NULL);                                           \
+		if ((uint)_i + 1 > _darr_len(A))                               \
+			_darr_len(A) = _i + 1;                                 \
+		&(A)[_i];                                                      \
 	})
 #define darr_ensure_i(A, I) darr_ensure_i_mt(A, I, MTYPE_DARR)
 

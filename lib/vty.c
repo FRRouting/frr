@@ -3688,88 +3688,9 @@ static void vty_out_yang_error(struct vty *vty, LYD_FORMAT format,
 	else if (ei->level == LY_LLWRN)
 		severity = "warning";
 
-	switch (ei->no) {
-	case LY_SUCCESS:
-		ecode = "ok";
-		break;
-	case LY_EMEM:
-		ecode = "out of memory";
-		break;
-	case LY_ESYS:
-		ecode = "system error";
-		break;
-	case LY_EINVAL:
-		ecode = "invalid value given";
-		break;
-	case LY_EEXIST:
-		ecode = "item exists";
-		break;
-	case LY_ENOTFOUND:
-		ecode = "item not found";
-		break;
-	case LY_EINT:
-		ecode = "operation interrupted";
-		break;
-	case LY_EVALID:
-		ecode = "validation failed";
-		break;
-	case LY_EDENIED:
-		ecode = "access denied";
-		break;
-	case LY_EINCOMPLETE:
-		ecode = "incomplete";
-		break;
-	case LY_ERECOMPILE:
-		ecode = "compile error";
-		break;
-	case LY_ENOT:
-		ecode = "not";
-		break;
-	default:
-	case LY_EPLUGIN:
-	case LY_EOTHER:
-		ecode = "other";
-		break;
-	}
-
-	if (err == LY_EVALID) {
-		switch (ei->vecode) {
-		case LYVE_SUCCESS:
-			evalid = NULL;
-			break;
-		case LYVE_SYNTAX:
-			evalid = "syntax";
-			break;
-		case LYVE_SYNTAX_YANG:
-			evalid = "yang-syntax";
-			break;
-		case LYVE_SYNTAX_YIN:
-			evalid = "yin-syntax";
-			break;
-		case LYVE_REFERENCE:
-			evalid = "reference";
-			break;
-		case LYVE_XPATH:
-			evalid = "xpath";
-			break;
-		case LYVE_SEMANTICS:
-			evalid = "semantics";
-			break;
-		case LYVE_SYNTAX_XML:
-			evalid = "xml-syntax";
-			break;
-		case LYVE_SYNTAX_JSON:
-			evalid = "json-syntax";
-			break;
-		case LYVE_DATA:
-			evalid = "data";
-			break;
-		default:
-		case LYVE_OTHER:
-			evalid = "other";
-			break;
-		}
-	}
+	ecode = yang_ly_strerrcode(err);
+	if (err == LY_EVALID && ei->vecode != LYVE_SUCCESS)
+		evalid = yang_ly_strvecode(ei->vecode);
 
 	switch (format) {
 	case LYD_XML:

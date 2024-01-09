@@ -251,6 +251,38 @@ void yang_snode_get_path(const struct lysc_node *snode,
 	}
 }
 
+LY_ERR yang_resolve_snode_xpath(struct ly_ctx *ly_ctx, const char *xpath,
+				struct lysc_node ***snodes, bool *simple)
+{
+	struct lysc_node *snode;
+	struct ly_set *set;
+	LY_ERR err;
+
+	/* lys_find_path will not resolve complex xpaths */
+	snode = (struct lysc_node *)lys_find_path(ly_ctx, NULL, xpath, 0);
+	if (snode) {
+		*darr_append(*snodes) = snode;
+		*simple = true;
+		return LY_SUCCESS;
+	}
+
+	/* Try again to catch complex query cases */
+	err = lys_find_xpath(ly_native_ctx, NULL, xpath, 0, &set);
+	if (err)
+		return err;
+	if (!set->count) {
+		ly_set_free(set, NULL);
+		return LY_ENOTFOUND;
+	}
+
+	*simple = false;
+	darr_ensure_i(*snodes, set->count - 1);
+	memcpy(*snodes, set->snodes, set->count * sizeof(set->snodes[0]));
+	ly_set_free(set, NULL);
+	return LY_SUCCESS;
+}
+
+
 struct lysc_node *yang_find_snode(struct ly_ctx *ly_ctx, const char *xpath,
 				  uint32_t options)
 {
@@ -967,55 +999,232 @@ int yang_get_node_keys(struct lyd_node *node, struct yang_list_keys *keys)
 	return NB_OK;
 }
 
+/*
+ * ------------------------
+ * Libyang Future Functions
+ * ------------------------
+ *
+ * All these functions are implemented in libyang versions (perhaps unreleased)
+ * beyond what we require currently so we must supply the functionality.
+ */
+
+/*
+ * Safe to remove after libyang v2.1.xxx is required (.144 has a bug so
+ * something > .144) https://github.com/CESNET/libyang/issues/2149
+ */
 LY_ERR yang_lyd_new_list(struct lyd_node_inner *parent,
 			 const struct lysc_node *snode,
 			 const struct yang_list_keys *list_keys,
-			 struct lyd_node_inner **node)
+			 struct lyd_node **node)
 {
+#if defined(HAVE_LYD_NEW_LIST3) && 0
+	LY_ERR err;
+	const char *keys[LIST_MAXKEYS];
+
+	assert(list_keys->num <= LIST_MAXKEYS);
+	for (int i = 0; i < list_keys->num; i++)
+		keys[i] = list_keys->key[i];
+
+	err = lyd_new_list3(&parent->node, snode->module, snode->name, keys,
+			    NULL, 0, node);
+	return err;
+#else
 	struct lyd_node *pnode = &parent->node;
-	struct lyd_node **nodepp = (struct lyd_node **)node;
 	const char(*keys)[LIST_MAXKEYLEN] = list_keys->key;
 
-	/*
-	 * When
-	 * https://github.com/CESNET/libyang/commit/2c1e327c7c2dd3ba12d466a4ebcf62c1c44116c4
-	 * is released in libyang we should add a configure.ac check for the
-	 * lyd_new_list3 function and use it here.
-	 */
+	assert(list_keys->num <= 8);
 	switch (list_keys->num) {
 	case 0:
 		return lyd_new_list(pnode, snode->module, snode->name, false,
-				    nodepp);
+				    node);
 	case 1:
 		return lyd_new_list(pnode, snode->module, snode->name, false,
-				    nodepp, keys[0]);
+				    node, keys[0]);
 	case 2:
 		return lyd_new_list(pnode, snode->module, snode->name, false,
-				    nodepp, keys[0], keys[1]);
+				    node, keys[0], keys[1]);
 	case 3:
 		return lyd_new_list(pnode, snode->module, snode->name, false,
-				    nodepp, keys[0], keys[1], keys[2]);
+				    node, keys[0], keys[1], keys[2]);
 	case 4:
 		return lyd_new_list(pnode, snode->module, snode->name, false,
-				    nodepp, keys[0], keys[1], keys[2], keys[3]);
+				    node, keys[0], keys[1], keys[2], keys[3]);
 	case 5:
 		return lyd_new_list(pnode, snode->module, snode->name, false,
-				    nodepp, keys[0], keys[1], keys[2], keys[3],
+				    node, keys[0], keys[1], keys[2], keys[3],
 				    keys[4]);
 	case 6:
 		return lyd_new_list(pnode, snode->module, snode->name, false,
-				    nodepp, keys[0], keys[1], keys[2], keys[3],
+				    node, keys[0], keys[1], keys[2], keys[3],
 				    keys[4], keys[5]);
 	case 7:
 		return lyd_new_list(pnode, snode->module, snode->name, false,
-				    nodepp, keys[0], keys[1], keys[2], keys[3],
+				    node, keys[0], keys[1], keys[2], keys[3],
 				    keys[4], keys[5], keys[6]);
 	case 8:
 		return lyd_new_list(pnode, snode->module, snode->name, false,
-				    nodepp, keys[0], keys[1], keys[2], keys[3],
+				    node, keys[0], keys[1], keys[2], keys[3],
 				    keys[4], keys[5], keys[6], keys[7]);
 	}
 	_Static_assert(LIST_MAXKEYS == 8, "max key mismatch in switch unroll");
 	/*NOTREACHED*/
 	return LY_EINVAL;
+#endif
+}
+
+
+/*
+ * Safe to remove after libyang v2.1.144 is required
+ */
+LY_ERR yang_lyd_trim_xpath(struct lyd_node **root, const char *xpath)
+{
+	LY_ERR err;
+#ifdef HAVE_LYD_TRIM_XPATH
+	err = lyd_trim_xpath(root, xpath, NULL);
+	if (err) {
+		flog_err_sys(EC_LIB_LIBYANG,
+			     "cannot obtain specific result for xpath \"%s\": %s",
+			     xpath, yang_ly_strerrcode(err));
+		return err;
+	}
+	return LY_SUCCESS;
+#else
+	struct lyd_node *node;
+	struct lyd_node **remove = NULL;
+	struct ly_set *set = NULL;
+	uint32_t i;
+
+	*root = lyd_first_sibling(*root);
+
+	err = lyd_find_xpath3(NULL, *root, xpath, NULL, &set);
+	if (err) {
+		flog_err_sys(EC_LIB_LIBYANG,
+			     "cannot obtain specific result for xpath \"%s\": %s",
+			     xpath, yang_ly_strerrcode(err));
+		return err;
+	}
+	/*
+	 * Mark keepers and sweep deleting non-keepers.
+	 *
+	 * NOTE: We assume the data-nodes have NULL priv pointers and use that
+	 * for our mark.
+	 */
+
+	/* Mark */
+	for (i = 0; i < set->count; i++) {
+		for (node = set->dnodes[i]; node; node = &node->parent->node) {
+			if (node->priv)
+				break;
+			if (node == set->dnodes[i])
+				node->priv = (void *)2;
+			else
+				node->priv = (void *)1;
+		}
+	}
+
+	darr_ensure_cap(remove, 128);
+	LYD_TREE_DFS_BEGIN (*root, node) {
+		/*
+		 * If this is a direct matching node then include it's subtree
+		 * which won't be marked and would otherwise be removed.
+		 */
+		if (node->priv == (void *)2)
+			LYD_TREE_DFS_continue = 1;
+		else if (!node->priv) {
+			*darr_append(remove) = node;
+			LYD_TREE_DFS_continue = 1;
+		}
+		LYD_TREE_DFS_END(*root, node);
+	}
+	darr_foreach_i (remove, i) {
+		if (remove[i] == *root)
+			*root = (*root)->next;
+		lyd_free_tree(remove[i]);
+	}
+	darr_free(remove);
+
+	if (set)
+		ly_set_free(set, NULL);
+
+	return LY_SUCCESS;
+#endif
+}
+
+/*
+ * Safe to remove after libyang v2.1.128 is required
+ */
+const char *yang_ly_strerrcode(LY_ERR err)
+{
+#ifdef HAVE_LY_STRERRCODE
+	return ly_strerrcode(err);
+#else
+	switch (err) {
+	case LY_SUCCESS:
+		return "ok";
+	case LY_EMEM:
+		return "out of memory";
+	case LY_ESYS:
+		return "system error";
+	case LY_EINVAL:
+		return "invalid value given";
+	case LY_EEXIST:
+		return "item exists";
+	case LY_ENOTFOUND:
+		return "item not found";
+	case LY_EINT:
+		return "operation interrupted";
+	case LY_EVALID:
+		return "validation failed";
+	case LY_EDENIED:
+		return "access denied";
+	case LY_EINCOMPLETE:
+		return "incomplete";
+	case LY_ERECOMPILE:
+		return "compile error";
+	case LY_ENOT:
+		return "not";
+	case LY_EPLUGIN:
+	case LY_EOTHER:
+		return "other";
+	default:
+		return "unknown";
+	}
+#endif
+}
+
+/*
+ * Safe to remove after libyang v2.1.128 is required
+ */
+const char *yang_ly_strvecode(LY_VECODE vecode)
+{
+#ifdef HAVE_LY_STRVECODE
+	return ly_strvecode(vecode);
+#else
+	switch (vecode) {
+	case LYVE_SUCCESS:
+		return "";
+	case LYVE_SYNTAX:
+		return "syntax";
+	case LYVE_SYNTAX_YANG:
+		return "yang-syntax";
+	case LYVE_SYNTAX_YIN:
+		return "yin-syntax";
+	case LYVE_REFERENCE:
+		return "reference";
+	case LYVE_XPATH:
+		return "xpath";
+	case LYVE_SEMANTICS:
+		return "semantics";
+	case LYVE_SYNTAX_XML:
+		return "xml-syntax";
+	case LYVE_SYNTAX_JSON:
+		return "json-syntax";
+	case LYVE_DATA:
+		return "data";
+	case LYVE_OTHER:
+		return "other";
+	default:
+		return "unknown";
+	}
+#endif
 }

@@ -719,11 +719,37 @@ extern int yang_get_key_preds(char *s, const struct lysc_node *snode,
 /* Get YANG keys from an existing dnode */
 extern int yang_get_node_keys(struct lyd_node *node, struct yang_list_keys *keys);
 
-/* Create a new list lyd_node using `yang_list_keys` */
+/**
+ * yang_resolve_snodes() - Resolve an XPath to matching schema nodes.
+ * @ly_ctx: libyang context to operate on.
+ * @xpath: the path or XPath to resolve.
+ * @snodes: [OUT] pointer for resulting dynamic array (darr) of schema node
+ *          pointers.
+ * @simple: [OUT] indicates if @xpath was resolvable simply or not. Non-simple
+ *          means that the @xpath is not a simple path and utilizes XPath 1.0
+ *          functionality beyond simple key predicates.
+ *
+ * This function can be used to find the schema node (or nodes) that correspond
+ * to a given @xpath. If the @xpath includes non-key predicates (e.g., using
+ * functions) then @simple will be set to false, and @snodes may contain more
+ * than a single schema node.
+ *
+ * Return: a libyang error or LY_SUCCESS.
+ */
+extern LY_ERR yang_resolve_snode_xpath(struct ly_ctx *ly_ctx, const char *xpath,
+				       struct lysc_node ***snodes, bool *simple);
+
+/*
+ * Libyang future functions
+ */
+extern const char *yang_ly_strerrcode(LY_ERR err);
+extern const char *yang_ly_strvecode(LY_VECODE vecode);
 extern LY_ERR yang_lyd_new_list(struct lyd_node_inner *parent,
 				const struct lysc_node *snode,
 				const struct yang_list_keys *keys,
-				struct lyd_node_inner **node);
+				struct lyd_node **nodes);
+extern LY_ERR yang_lyd_trim_xpath(struct lyd_node **rootp, const char *xpath);
+
 #ifdef __cplusplus
 }
 #endif
