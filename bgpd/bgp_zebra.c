@@ -1212,58 +1212,31 @@ static bool bgp_zebra_use_nhop_weighted(struct bgp *bgp, struct attr *attr,
 	return true;
 }
 
-void bgp_zebra_announce(struct bgp_dest *dest, const struct prefix *p,
-			struct bgp_path_info *info, struct bgp *bgp, afi_t afi,
-			safi_t safi)
+static void bgp_zebra_announce_parse_nexthop(
+	struct bgp_path_info *info, const struct prefix *p, struct bgp *bgp,
+	struct zapi_route *api, unsigned int *valid_nh_count, afi_t afi,
+	safi_t safi, uint32_t *nhg_id, uint32_t *metric, route_tag_t *tag,
+	bool *allow_recursion)
 {
-	struct zapi_route api = { 0 };
 	struct zapi_nexthop *api_nh;
 	int nh_family;
-	unsigned int valid_nh_count = 0;
-	bool allow_recursion = false;
-	uint8_t distance;
-	struct peer *peer;
 	struct bgp_path_info *mpinfo;
 	struct bgp *bgp_orig;
-	uint32_t metric;
 	struct attr local_attr;
 	struct bgp_path_info local_info;
 	struct bgp_path_info *mpinfo_cp = &local_info;
-	route_tag_t tag;
 	mpls_label_t *labels;
 	uint32_t num_labels = 0;
 	mpls_label_t nh_label;
 	int nh_othervrf = 0;
 	bool nh_updated = false;
 	bool do_wt_ecmp;
-	uint32_t nhg_id = 0;
-	bool is_add;
 	uint32_t ttl = 0;
 	uint32_t bos = 0;
 	uint32_t exp = 0;
 
-	/*
-	 * BGP is installing this route and bgp has been configured
-	 * to suppress announcements until the route has been installed
-	 * let's set the fact that we expect this route to be installed
-	 */
-	if (BGP_SUPPRESS_FIB_ENABLED(bgp))
-		SET_FLAG(dest->flags, BGP_NODE_FIB_INSTALL_PENDING);
-
-	/* Don't try to install if we're not connected to Zebra or Zebra doesn't
-	 * know of this instance.
-	 */
-	if (!bgp_install_info_to_zebra(bgp))
-		return;
-
-	if (bgp->main_zebra_update_hold)
-		return;
-
-	if (safi == SAFI_FLOWSPEC) {
-		bgp_pbr_update_entry(bgp, bgp_dest_get_prefix(dest), info, afi,
-				     safi, true);
-		return;
-	}
+	/* Determine if we're doing weighted ECMP or not */
+	do_wt_ecmp = bgp_path_info_mpath_chkwtd(bgp, info);
 
 	/*
 	 * vrf leaking support (will have only one nexthop)
@@ -1272,60 +1245,10 @@ void bgp_zebra_announce(struct bgp_dest *dest, const struct prefix *p,
 	    info->extra->vrfleak->bgp_orig)
 		nh_othervrf = 1;
 
-	/* Make Zebra API structure. */
-	api.vrf_id = bgp->vrf_id;
-	api.type = ZEBRA_ROUTE_BGP;
-	api.safi = safi;
-	api.prefix = *p;
-	SET_FLAG(api.message, ZAPI_MESSAGE_NEXTHOP);
-
-	peer = info->peer;
-
-	if (info->type == ZEBRA_ROUTE_BGP
-	    && info->sub_type == BGP_ROUTE_IMPORTED) {
-
-		/* Obtain peer from parent */
-		if (info->extra && info->extra->vrfleak &&
-		    info->extra->vrfleak->parent)
-			peer = ((struct bgp_path_info *)(info->extra->vrfleak
-								 ->parent))
-				       ->peer;
-	}
-
-	tag = info->attr->tag;
-
-	if (peer->sort == BGP_PEER_IBGP || peer->sort == BGP_PEER_CONFED
-	    || info->sub_type == BGP_ROUTE_AGGREGATE) {
-		SET_FLAG(api.flags, ZEBRA_FLAG_IBGP);
-		SET_FLAG(api.flags, ZEBRA_FLAG_ALLOW_RECURSION);
-	}
-
-	if ((peer->sort == BGP_PEER_EBGP && peer->ttl != BGP_DEFAULT_TTL)
-	    || CHECK_FLAG(peer->flags, PEER_FLAG_DISABLE_CONNECTED_CHECK)
-	    || CHECK_FLAG(bgp->flags, BGP_FLAG_DISABLE_NH_CONNECTED_CHK))
-
-		allow_recursion = true;
-
-	if (info->attr->rmap_table_id) {
-		SET_FLAG(api.message, ZAPI_MESSAGE_TABLEID);
-		api.tableid = info->attr->rmap_table_id;
-	}
-
-	if (CHECK_FLAG(info->attr->flag, ATTR_FLAG_BIT(BGP_ATTR_SRTE_COLOR)))
-		SET_FLAG(api.message, ZAPI_MESSAGE_SRTE);
-
-	/* Metric is currently based on the best-path only */
-	metric = info->attr->med;
-
-	/* Determine if we're doing weighted ECMP or not */
-	do_wt_ecmp = bgp_path_info_mpath_chkwtd(bgp, info);
-
 	/* EVPN MAC-IP routes are installed with a L3 NHG id */
-	if (bgp_evpn_path_es_use_nhg(bgp, info, &nhg_id)) {
+	if (nhg_id && bgp_evpn_path_es_use_nhg(bgp, info, nhg_id)) {
 		mpinfo = NULL;
-		api.nhgid = nhg_id;
-		if (nhg_id)
-			SET_FLAG(api.message, ZAPI_MESSAGE_NHG);
+		zapi_route_set_nhg_id(api, nhg_id);
 	} else {
 		mpinfo = info;
 	}
@@ -1337,7 +1260,7 @@ void bgp_zebra_announce(struct bgp_dest *dest, const struct prefix *p,
 		bool is_evpn;
 		bool is_parent_evpn;
 
-		if (valid_nh_count >= multipath_num)
+		if (*valid_nh_count >= multipath_num)
 			break;
 
 		*mpinfo_cp = *mpinfo;
@@ -1363,13 +1286,16 @@ void bgp_zebra_announce(struct bgp_dest *dest, const struct prefix *p,
 							 &nh_weight))
 				continue;
 		}
-		api_nh = &api.nexthops[valid_nh_count];
+		if (CHECK_FLAG(info->flags, BGP_PATH_SELECTED))
+			api_nh = &api->nexthops[*valid_nh_count];
+		else
+			api_nh = &api->backup_nexthops[*valid_nh_count];
 
 		if (CHECK_FLAG(info->attr->flag,
 			       ATTR_FLAG_BIT(BGP_ATTR_SRTE_COLOR)))
 			api_nh->srte_color = bgp_attr_get_color(info->attr);
 
-		if (bgp_debug_zebra(&api.prefix)) {
+		if (bgp_debug_zebra(&api->prefix)) {
 			if (mpinfo->extra) {
 				zlog_debug("%s: p=%pFX, bgp_is_valid_label: %d",
 					   __func__, p,
@@ -1394,8 +1320,10 @@ void bgp_zebra_announce(struct bgp_dest *dest, const struct prefix *p,
 			/* metric/tag is only allowed to be
 			 * overridden on 1st nexthop */
 			if (mpinfo == info) {
-				metric = mpinfo_cp->attr->med;
-				tag = mpinfo_cp->attr->tag;
+				if (metric)
+					*metric = mpinfo_cp->attr->med;
+				if (tag)
+					*tag = mpinfo_cp->attr->tag;
 			}
 		}
 
@@ -1436,11 +1364,11 @@ void bgp_zebra_announce(struct bgp_dest *dest, const struct prefix *p,
 		/* Allow recursion if it is a multipath group with both
 		 * eBGP and iBGP paths.
 		 */
-		if (!allow_recursion
-		    && CHECK_FLAG(bgp->flags, BGP_FLAG_PEERTYPE_MULTIPATH_RELAX)
-		    && (mpinfo->peer->sort == BGP_PEER_IBGP
-			|| mpinfo->peer->sort == BGP_PEER_CONFED))
-			allow_recursion = true;
+		if (allow_recursion && !*allow_recursion &&
+		    CHECK_FLAG(bgp->flags, BGP_FLAG_PEERTYPE_MULTIPATH_RELAX) &&
+		    (mpinfo->peer->sort == BGP_PEER_IBGP ||
+		     mpinfo->peer->sort == BGP_PEER_CONFED))
+			*allow_recursion = true;
 
 		if (mpinfo->extra) {
 			labels = mpinfo->extra->label;
@@ -1493,7 +1421,7 @@ void bgp_zebra_announce(struct bgp_dest *dest, const struct prefix *p,
 						&exp, &bos);
 
 				if (nh_label < MPLS_LABEL_UNRESERVED_MIN) {
-					if (bgp_debug_zebra(&api.prefix))
+					if (bgp_debug_zebra(&api->prefix))
 						zlog_debug(
 							"skip invalid SRv6 routes: transposition scheme is used, but label is too small");
 					continue;
@@ -1510,8 +1438,161 @@ void bgp_zebra_announce(struct bgp_dest *dest, const struct prefix *p,
 			SET_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_SEG6);
 		}
 
-		valid_nh_count++;
+		(*valid_nh_count)++;
 	}
+}
+
+static void bgp_debug_zebra_nh(struct zapi_route *api)
+{
+	int i;
+	int nh_family;
+	char nh_buf[INET6_ADDRSTRLEN];
+	char eth_buf[ETHER_ADDR_STRLEN + 7] = { '\0' };
+	char buf1[ETHER_ADDR_STRLEN];
+	char label_buf[20];
+	char sid_buf[20];
+	char segs_buf[256];
+	struct zapi_nexthop *api_nh;
+	int count;
+
+	count = api->nexthop_num;
+	for (i = 0; i < count; i++) {
+		api_nh = &api->nexthops[i];
+		switch (api_nh->type) {
+		case NEXTHOP_TYPE_IFINDEX:
+			nh_buf[0] = '\0';
+			break;
+		case NEXTHOP_TYPE_IPV4:
+		case NEXTHOP_TYPE_IPV4_IFINDEX:
+			nh_family = AF_INET;
+			inet_ntop(nh_family, &api_nh->gate, nh_buf,
+				  sizeof(nh_buf));
+			break;
+		case NEXTHOP_TYPE_IPV6:
+		case NEXTHOP_TYPE_IPV6_IFINDEX:
+			nh_family = AF_INET6;
+			inet_ntop(nh_family, &api_nh->gate, nh_buf,
+				  sizeof(nh_buf));
+			break;
+		case NEXTHOP_TYPE_BLACKHOLE:
+			strlcpy(nh_buf, "blackhole", sizeof(nh_buf));
+			break;
+		default:
+			/* Note: add new nexthop case */
+			assert(0);
+			break;
+		}
+
+		label_buf[0] = '\0';
+		eth_buf[0] = '\0';
+		segs_buf[0] = '\0';
+		if (CHECK_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_LABEL) &&
+		    !CHECK_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_EVPN))
+			snprintf(label_buf, sizeof(label_buf), "label %u",
+				 api_nh->labels[0]);
+		if (CHECK_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_SEG6) &&
+		    !CHECK_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_EVPN)) {
+			inet_ntop(AF_INET6, &api_nh->seg6_segs[0], sid_buf,
+				  sizeof(sid_buf));
+			snprintf(segs_buf, sizeof(segs_buf), "segs %s", sid_buf);
+		}
+		if (CHECK_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_EVPN) &&
+		    !is_zero_mac(&api_nh->rmac))
+			snprintf(eth_buf, sizeof(eth_buf), " RMAC %s",
+				 prefix_mac2str(&api_nh->rmac, buf1,
+						sizeof(buf1)));
+		zlog_debug("  nhop [%d]: %s if %u VRF %u wt %u %s %s %s", i + 1,
+			   nh_buf, api_nh->ifindex, api_nh->vrf_id,
+			   api_nh->weight, label_buf, segs_buf, eth_buf);
+	}
+}
+
+void bgp_zebra_announce(struct bgp_dest *dest, const struct prefix *p,
+			struct bgp_path_info *info, struct bgp *bgp, afi_t afi,
+			safi_t safi)
+{
+	struct zapi_route api = { 0 };
+	unsigned int valid_nh_count = 0;
+	bool allow_recursion = false;
+	uint8_t distance;
+	struct peer *peer;
+	uint32_t metric;
+	route_tag_t tag;
+	bool is_add;
+	uint32_t nhg_id = 0;
+	uint32_t recursion_flag = 0;
+
+	/*
+	 * BGP is installing this route and bgp has been configured
+	 * to suppress announcements until the route has been installed
+	 * let's set the fact that we expect this route to be installed
+	 */
+	if (BGP_SUPPRESS_FIB_ENABLED(bgp))
+		SET_FLAG(dest->flags, BGP_NODE_FIB_INSTALL_PENDING);
+
+	/* Don't try to install if we're not connected to Zebra or Zebra doesn't
+	 * know of this instance.
+	 */
+	if (!bgp_install_info_to_zebra(bgp))
+		return;
+
+	if (bgp->main_zebra_update_hold)
+		return;
+
+	if (safi == SAFI_FLOWSPEC) {
+		bgp_pbr_update_entry(bgp, bgp_dest_get_prefix(dest), info, afi,
+				     safi, true);
+		return;
+	}
+
+	/* Make Zebra API structure. */
+	api.vrf_id = bgp->vrf_id;
+	api.type = ZEBRA_ROUTE_BGP;
+	api.safi = safi;
+	api.prefix = *p;
+	SET_FLAG(api.message, ZAPI_MESSAGE_NEXTHOP);
+
+	peer = info->peer;
+
+	if (info->type == ZEBRA_ROUTE_BGP
+	    && info->sub_type == BGP_ROUTE_IMPORTED) {
+
+		/* Obtain peer from parent */
+		if (info->extra && info->extra->vrfleak &&
+		    info->extra->vrfleak->parent)
+			peer = ((struct bgp_path_info *)(info->extra->vrfleak
+								 ->parent))
+				       ->peer;
+	}
+
+	tag = info->attr->tag;
+
+	if (peer->sort == BGP_PEER_IBGP || peer->sort == BGP_PEER_CONFED
+	    || info->sub_type == BGP_ROUTE_AGGREGATE) {
+		SET_FLAG(api.flags, ZEBRA_FLAG_IBGP);
+		SET_FLAG(api.flags, ZEBRA_FLAG_ALLOW_RECURSION);
+	}
+
+	if ((peer->sort == BGP_PEER_EBGP && peer->ttl != BGP_DEFAULT_TTL)
+	    || CHECK_FLAG(peer->flags, PEER_FLAG_DISABLE_CONNECTED_CHECK)
+	    || CHECK_FLAG(bgp->flags, BGP_FLAG_DISABLE_NH_CONNECTED_CHK))
+
+		allow_recursion = true;
+
+	if (info->attr->rmap_table_id) {
+		SET_FLAG(api.message, ZAPI_MESSAGE_TABLEID);
+		api.tableid = info->attr->rmap_table_id;
+	}
+
+	if (CHECK_FLAG(info->attr->flag, ATTR_FLAG_BIT(BGP_ATTR_SRTE_COLOR)))
+		SET_FLAG(api.message, ZAPI_MESSAGE_SRTE);
+
+	/* Metric is currently based on the best-path only */
+	metric = info->attr->med;
+
+	bgp_zebra_announce_parse_nexthop(info, p, bgp, &api, &valid_nh_count,
+					 afi, safi, &nhg_id, &metric, &tag,
+					 &allow_recursion);
 
 	is_add = (valid_nh_count || nhg_id) ? true : false;
 
@@ -1571,75 +1652,12 @@ void bgp_zebra_announce(struct bgp_dest *dest, const struct prefix *p,
 	}
 
 	if (bgp_debug_zebra(p)) {
-		char nh_buf[INET6_ADDRSTRLEN];
-		char eth_buf[ETHER_ADDR_STRLEN + 7] = {'\0'};
-		char buf1[ETHER_ADDR_STRLEN];
-		char label_buf[20];
-		char sid_buf[20];
-		char segs_buf[256];
-		int i;
-
 		zlog_debug(
 			"Tx route %s VRF %u %pFX metric %u tag %" ROUTE_TAG_PRI
 			" count %d nhg %d",
 			is_add ? "add" : "delete", bgp->vrf_id, &api.prefix,
 			api.metric, api.tag, api.nexthop_num, nhg_id);
-		for (i = 0; i < api.nexthop_num; i++) {
-			api_nh = &api.nexthops[i];
-
-			switch (api_nh->type) {
-			case NEXTHOP_TYPE_IFINDEX:
-				nh_buf[0] = '\0';
-				break;
-			case NEXTHOP_TYPE_IPV4:
-			case NEXTHOP_TYPE_IPV4_IFINDEX:
-				nh_family = AF_INET;
-				inet_ntop(nh_family, &api_nh->gate, nh_buf,
-					  sizeof(nh_buf));
-				break;
-			case NEXTHOP_TYPE_IPV6:
-			case NEXTHOP_TYPE_IPV6_IFINDEX:
-				nh_family = AF_INET6;
-				inet_ntop(nh_family, &api_nh->gate, nh_buf,
-					  sizeof(nh_buf));
-				break;
-			case NEXTHOP_TYPE_BLACKHOLE:
-				strlcpy(nh_buf, "blackhole", sizeof(nh_buf));
-				break;
-			default:
-				/* Note: add new nexthop case */
-				assert(0);
-				break;
-			}
-
-			label_buf[0] = '\0';
-			eth_buf[0] = '\0';
-			segs_buf[0] = '\0';
-			if (CHECK_FLAG(api_nh->flags,
-				       ZAPI_NEXTHOP_FLAG_LABEL) &&
-			    !CHECK_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_EVPN))
-				snprintf(label_buf, sizeof(label_buf),
-					"label %u", api_nh->labels[0]);
-			if (CHECK_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_SEG6) &&
-			    !CHECK_FLAG(api_nh->flags,
-					ZAPI_NEXTHOP_FLAG_EVPN)) {
-				inet_ntop(AF_INET6, &api_nh->seg6_segs[0],
-					  sid_buf, sizeof(sid_buf));
-				snprintf(segs_buf, sizeof(segs_buf), "segs %s",
-					 sid_buf);
-			}
-			if (CHECK_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_EVPN) &&
-			    !is_zero_mac(&api_nh->rmac))
-				snprintf(eth_buf, sizeof(eth_buf), " RMAC %s",
-					 prefix_mac2str(&api_nh->rmac,
-							buf1, sizeof(buf1)));
-			zlog_debug("  nhop [%d]: %s if %u VRF %u wt %u %s %s %s",
-				   i + 1, nh_buf, api_nh->ifindex,
-				   api_nh->vrf_id, api_nh->weight,
-				   label_buf, segs_buf, eth_buf);
-		}
-
-		int recursion_flag = 0;
+		bgp_debug_zebra_nh(&api);
 
 		if (CHECK_FLAG(api.flags, ZEBRA_FLAG_ALLOW_RECURSION))
 			recursion_flag = 1;

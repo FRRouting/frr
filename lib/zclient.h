@@ -1166,6 +1166,15 @@ static inline void zapi_route_set_blackhole(struct zapi_route *api,
 	SET_FLAG(api->message, ZAPI_MESSAGE_NEXTHOP);
 };
 
+static inline void zapi_route_set_nhg_id(struct zapi_route *api,
+					 uint32_t *nhg_id)
+{
+	api->nexthop_num = 0;
+	api->nhgid = *nhg_id;
+	if (api->nhgid)
+		SET_FLAG(api->message, ZAPI_MESSAGE_NHG);
+};
+
 extern enum zclient_send_status
 zclient_send_mlag_register(struct zclient *client, uint32_t bit_map);
 extern enum zclient_send_status
