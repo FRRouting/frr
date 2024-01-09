@@ -315,7 +315,7 @@ int static_pm_dest_replay(ZAPI_CALLBACK_ARGS)
 	struct static_route_info *si;
 	int afi;
 
-	zlog_debug("Zebra: PM Dest replay request");
+	zlog_debug("%s: PM Dest replay request", __func__);
 
 	/* Send the client registration */
 	pm_client_sendmsg(zclient, ZEBRA_PM_CLIENT_REGISTER, vrf_id);
