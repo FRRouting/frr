@@ -741,7 +741,7 @@ DEFPY(ipv6_ospf6_p2xp_neigh, ipv6_ospf6_p2xp_neigh_cmd,
 		return CMD_SUCCESS;
 	}
 
-	p2xp_cfg = ospf6_if_p2xp_get(oi, &neighbor);
+	(void)ospf6_if_p2xp_get(oi, &neighbor);
 	return CMD_SUCCESS;
 }
 
