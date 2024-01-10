@@ -850,7 +850,8 @@ DEFPY(show_pmd_session,
       SHOW_STR
       "Path Monitoring\n"
       VRF_CMD_HELP_STR
-      SESSION_STR SESSION_IPV4_STR SESSION_IPV6_STR SESSION_FQDN_STR
+      "Pm Session\n"
+      SESSION_IPV4_STR SESSION_IPV6_STR SESSION_FQDN_STR
       "Operational\n"
       JSON_STR)
 {
