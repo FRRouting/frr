@@ -106,17 +106,19 @@ void test_create_subgroup_counter()
 {
 	uint16_t counter_id = 1;
 	char counter_name[] = "my counter";
+	char counter_name_json[] = "myCounter";
 	struct counters_subgroup *subgroup =
 		create_counters_subgroup("subgroup", 1, 2);
 
-	CU_ASSERT_FALSE(
-		create_subgroup_counter(NULL, counter_id, counter_name));
+	CU_ASSERT_FALSE(create_subgroup_counter(NULL, counter_id, counter_name,
+						counter_name_json));
 	CU_ASSERT_FALSE(create_subgroup_counter(subgroup, counter_id + 1,
 						counter_name));
-	CU_ASSERT_FALSE(create_subgroup_counter(subgroup, counter_id, NULL));
+	CU_ASSERT_FALSE(
+		create_subgroup_counter(subgroup, counter_id, NULL, NULL));
 	CU_ASSERT_EQUAL(subgroup->num_counters, 0);
-	CU_ASSERT_TRUE(
-		create_subgroup_counter(subgroup, counter_id, counter_name));
+	CU_ASSERT_TRUE(create_subgroup_counter(subgroup, counter_id,
+					       counter_name, counter_name_json));
 	CU_ASSERT_EQUAL(subgroup->num_counters, 1);
 
 	delete_counters_subgroup(subgroup);
@@ -146,7 +148,7 @@ void test_reset_group_counters()
 	struct counters_group *group = create_counters_group("group", 10);
 	struct counters_subgroup *subgroup =
 		create_counters_subgroup("subgroup", subgroup_id, 10);
-	create_subgroup_counter(subgroup, counter_id, "counter");
+	create_subgroup_counter(subgroup, counter_id, "counter", "counter");
 	add_counters_subgroup(group, subgroup);
 
 	struct counter *counter = subgroup->counters[counter_id];
@@ -164,7 +166,7 @@ void test_reset_subgroup_counters()
 	uint16_t counter_id = 1;
 	struct counters_subgroup *subgroup =
 		create_counters_subgroup("subgroup", 1, 10);
-	create_subgroup_counter(subgroup, counter_id, "counter");
+	create_subgroup_counter(subgroup, counter_id, "counter", "counter");
 
 	struct counter *counter = subgroup->counters[counter_id];
 	counter->counter_value = 100;
@@ -183,7 +185,7 @@ void test_increment_counter()
 	struct counters_group *group = create_counters_group("group", 10);
 	struct counters_subgroup *subgroup =
 		create_counters_subgroup("subgroup", subgroup_id, 10);
-	create_subgroup_counter(subgroup, counter_id, "counter");
+	create_subgroup_counter(subgroup, counter_id, "counter", "counter");
 	add_counters_subgroup(group, subgroup);
 
 	struct counter *counter = subgroup->counters[counter_id];
@@ -205,7 +207,7 @@ void test_increment_subgroup_counter()
 	uint32_t counter_value = 100;
 	struct counters_subgroup *subgroup =
 		create_counters_subgroup("subgroup", 1, 10);
-	create_subgroup_counter(subgroup, counter_id, "counter");
+	create_subgroup_counter(subgroup, counter_id, "counter", "counter");
 
 	struct counter *counter = subgroup->counters[counter_id];
 	counter->counter_value = counter_value;
@@ -225,7 +227,7 @@ void test_dump_counters_group_to_log()
 	struct counters_group *group = create_counters_group("group", 10);
 	struct counters_subgroup *subgroup =
 		create_counters_subgroup("subgroup", subgroup_id, 10);
-	create_subgroup_counter(subgroup, counter_id, "counter");
+	create_subgroup_counter(subgroup, counter_id, "counter", "counter");
 	add_counters_subgroup(group, subgroup);
 
 	CU_ASSERT_FALSE(dump_counters_group_to_log(NULL));
@@ -240,7 +242,7 @@ void test_dump_counters_subgroup_to_log()
 	uint16_t counter_id = 1;
 	struct counters_subgroup *subgroup =
 		create_counters_subgroup("subgroup", subgroup_id, 10);
-	create_subgroup_counter(subgroup, counter_id, "counter");
+	create_subgroup_counter(subgroup, counter_id, "counter", "counter");
 
 	CU_ASSERT_FALSE(dump_counters_subgroup_to_log(NULL));
 	CU_ASSERT_TRUE(dump_counters_subgroup_to_log(subgroup));
