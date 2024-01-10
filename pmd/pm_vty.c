@@ -846,11 +846,11 @@ DEFPY(show_pmd_sessions,
 
 DEFPY(show_pmd_session,
       show_pmd_session_cmd,
-      "show pm [vrf <NAME>] session <A.B.C.D|X:X::X:X|NAME>$peer [operational] [json]",
+      "show pm [vrf <NAME>] sessions <A.B.C.D|X:X::X:X|NAME>$peer [operational] [json]",
       SHOW_STR
       "Path Monitoring\n"
       VRF_CMD_HELP_STR
-      "Pm Session\n"
+      "Pm Sessions\n"
       SESSION_IPV4_STR SESSION_IPV6_STR SESSION_FQDN_STR
       "Operational\n"
       JSON_STR)
