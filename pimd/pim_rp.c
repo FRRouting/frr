@@ -248,7 +248,7 @@ struct rp_info *pim_rp_find_match_group(struct pim_instance *pim,
 	}
 
 	rp_info = rn->info;
-	if (PIM_DEBUG_PIM_TRACE) {
+	if (PIM_DEBUG_PIM_TRACE_DETAIL) {
 		if (best)
 			zlog_debug(
 				"Lookedup(%pFX): prefix_list match %s, rn %p found: %pFX",

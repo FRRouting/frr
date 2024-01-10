@@ -32,7 +32,7 @@ static pim_addr pim_rpf_find_rpf_addr(struct pim_upstream *up);
 void pim_rpf_set_refresh_time(struct pim_instance *pim)
 {
 	pim->last_route_change_time = pim_time_monotonic_usec();
-	if (PIM_DEBUG_PIM_TRACE)
+	if (PIM_DEBUG_PIM_TRACE_DETAIL)
 		zlog_debug("%s: vrf(%s) New last route change time: %" PRId64,
 			   __func__, pim->vrf->name,
 			   pim->last_route_change_time);
