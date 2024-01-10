@@ -6,6 +6,12 @@
 
 #include <zebra.h>
 
+#include <net/if.h>
+
+#ifdef GNU_LINUX
+#include <linux/if.h>
+#endif /* GNU_LINUX */
+
 #include "linklist.h"
 #include "vector.h"
 #include "lib_errors.h"
