@@ -47,6 +47,7 @@ void zebra_stable_node_cleanup(struct route_table *table,
 			frr_each_safe(static_nexthop_list, &pn->nexthop_list,
 				       nh) {
 				static_nexthop_list_del(&pn->nexthop_list, nh);
+				static_next_hop_pm_destroy(nh);
 				XFREE(MTYPE_STATIC_NEXTHOP, nh);
 			}
 			static_path_list_del(&si->path_list, pn);
@@ -68,6 +69,7 @@ void zebra_stable_node_cleanup(struct route_table *table,
 					frr_each_safe(static_nexthop_list,
 						      &src_pn->nexthop_list,
 						      nh) {
+						static_next_hop_pm_destroy(nh);
 						static_nexthop_list_del(
 							&src_pn->nexthop_list,
 							nh);
