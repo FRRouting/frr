@@ -1,4 +1,7 @@
 noinst_HEADERS += \
+	include/linux/compiler_types.h \
+	include/linux/libc-compat.h \
+	include/linux/if.h \
 	include/linux/if_addr.h \
 	include/linux/if_bridge.h \
 	include/linux/if_link.h \
