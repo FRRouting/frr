@@ -534,7 +534,7 @@ retrieved via PCEP a random number based name is generated.
    Display PCC information.
 
 
-.. clicmd:: show sr-te pcep session [NAME]
+.. clicmd:: show sr-te pcep session [NAME] [json]
 
    Display the information of a PCEP session, if not name is specified all the
    sessions will be displayed.

@@ -43,6 +43,8 @@
 #define DEFAULT_TIMER_SESSION_TIMEOUT_INTERVAL 30
 #define DEFAULT_DELEGATION_TIMEOUT_INTERVAL 10
 
+#define BUFFER_PCC_PCE_SIZE 1024
+
 /* CLI Function declarations */
 static int pcep_cli_debug_config_write(struct vty *vty);
 static int pcep_cli_debug_set_all(uint32_t flags, bool set);
@@ -73,6 +75,9 @@ static void print_pcep_capabilities(char *buf, size_t buf_len,
 				    pcep_configuration *config);
 static void print_pcep_session(struct vty *vty, struct pce_opts *pce_opts,
 			       struct pcep_pcc_info *pcc_info);
+static void print_pcep_session_json(struct vty *vty, struct pce_opts *pce_opts,
+				    struct pcep_pcc_info *pcc_info,
+				    json_object *json);
 static bool pcep_cli_pcc_has_pce(const char *pce_name);
 static void pcep_cli_add_pce_connection(struct pce_opts *pce_opts);
 static void pcep_cli_remove_pce_connection(struct pce_opts *pce_opts);
@@ -1187,10 +1192,188 @@ static void print_pcep_capabilities(char *buf, size_t buf_len,
 }
 
 /* Internal util function to print a pcep session */
+static void print_pcep_session_json(struct vty *vty, struct pce_opts *pce_opts,
+				    struct pcep_pcc_info *pcc_info,
+				    json_object *json)
+{
+	char buf[BUFFER_PCC_PCE_SIZE] = {};
+	int index = 0;
+	pcep_session *session;
+	struct pcep_config_group_opts *config_opts;
+	struct counters_group *group;
+
+	/* PCE IP */
+	if (IS_IPADDR_V4(&pce_opts->addr))
+		json_object_string_addf(json, "pceAddress", "%pI4",
+					&pce_opts->addr.ipaddr_v4);
+	else if (IS_IPADDR_V6(&pce_opts->addr))
+		json_object_string_addf(json, "pceAddress", "%pI6",
+					&pce_opts->addr.ipaddr_v6);
+	json_object_int_add(json, "pcePort", pce_opts->port);
+
+	/* PCC IP */
+	if (IS_IPADDR_V4(&pcc_info->pcc_addr))
+		json_object_string_addf(json, "pccAddress", "%pI4",
+					&pcc_info->pcc_addr.ipaddr_v4);
+	else if (IS_IPADDR_V6(&pcc_info->pcc_addr))
+		json_object_string_addf(json, "pccAddress", "%pI6",
+					&pcc_info->pcc_addr.ipaddr_v6);
+
+	json_object_int_add(json, "pccPort", pcc_info->pcc_port);
+	json_object_int_add(json, "pccMsd", pcc_info->msd);
+
+	if (pcc_info->status == PCEP_PCC_OPERATING)
+		json_object_string_add(json, "sessionStatus", "UP");
+	else
+		json_object_string_add(json, "sessionStatus",
+				       pcc_status_name(pcc_info->status));
+
+	json_object_boolean_add(json, "bestMultiPce",
+				pcc_info->is_best_multi_pce);
+	json_object_int_add(json, "precedence",
+			    pcc_info->precedence > 0 ? pcc_info->precedence
+						     : DEFAULT_PCE_PRECEDENCE);
+	json_object_string_add(json, "confidence",
+			       pcc_info->previous_best ? "low" : "normal");
+
+	/* PCEPlib pcep session values, get a thread safe copy of the counters
+	 */
+	session = pcep_ctrl_get_pcep_session(pcep_g->fpt, pcc_info->pcc_id);
+
+	/* Config Options values */
+	config_opts = &pce_opts->config_opts;
+	json_object_int_add(json, "keepaliveConfig",
+			    config_opts->keep_alive_seconds);
+	json_object_int_add(json, "deadTimerConfig",
+			    config_opts->dead_timer_seconds);
+	json_object_int_add(json, "pccPcepRequestTimerConfig",
+			    config_opts->pcep_request_time_seconds);
+	json_object_int_add(json, "sessionTimeoutIntervalSec",
+			    config_opts->session_timeout_inteval_seconds);
+	json_object_int_add(json, "delegationTimeout",
+			    config_opts->delegation_timeout_seconds);
+	json_object_boolean_add(json, "tcpMd5Authentication",
+				(strlen(config_opts->tcp_md5_auth) > 0));
+	if (strlen(config_opts->tcp_md5_auth) > 0)
+		json_object_string_add(json, "tcpMd5AuthenticationString",
+				       config_opts->tcp_md5_auth);
+	json_object_boolean_add(json, "draft07", !!config_opts->draft07);
+	json_object_boolean_add(json, "draft16AndRfc8408",
+				!config_opts->draft07);
+
+	json_object_int_add(json, "nextPcRequestId", pcc_info->next_reqid);
+	/* original identifier used by the PCC for LSP instantiation */
+	json_object_int_add(json, "nextPLspId", pcc_info->next_plspid);
+
+	if (session != NULL) {
+		json_object_int_add(json, "sessionKeepalivePceNegotiatedSec",
+				    session->pcc_config
+					    .keep_alive_pce_negotiated_timer_seconds);
+		json_object_int_add(json, "sessionDeadTimerPceNegotiatedSec",
+				    session->pcc_config
+					    .dead_timer_pce_negotiated_seconds);
+		if (pcc_info->status == PCEP_PCC_SYNCHRONIZING ||
+		    pcc_info->status == PCEP_PCC_OPERATING) {
+			time_t current_time = time(NULL);
+			struct tm lt = { 0 };
+			/* Just for the timezone */
+			localtime_r(&current_time, &lt);
+			gmtime_r(&session->time_connected, &lt);
+			json_object_int_add(json, "sessionConnectionDurationSec",
+					    (uint32_t)(current_time -
+						       session->time_connected));
+			json_object_string_addf(json,
+						"sessionConnectionStartTimeUTC",
+						"%d-%02d-%02d %02d:%02d:%02d",
+						lt.tm_year + 1900, lt.tm_mon + 1,
+						lt.tm_mday, lt.tm_hour,
+						lt.tm_min, lt.tm_sec);
+		}
+
+		/* PCC capabilities */
+		buf[0] = '\0';
+
+		if (config_opts->pce_initiated)
+			index += csnprintfrr(buf, sizeof(buf), "%s",
+					     PCEP_CLI_CAP_PCC_PCE_INITIATED);
+		else
+			index += csnprintfrr(buf, sizeof(buf), "%s",
+					     PCEP_CLI_CAP_PCC_INITIATED);
+		print_pcep_capabilities(buf, sizeof(buf) - index,
+					&session->pcc_config);
+		json_object_string_add(json, "pccCapabilities", buf);
+
+		/* PCE capabilities */
+		buf[0] = '\0';
+		print_pcep_capabilities(buf, sizeof(buf), &session->pce_config);
+		if (buf[0] != '\0')
+			json_object_string_add(json, "pceCapabilities", buf);
+		XFREE(MTYPE_PCEP, session);
+	} else {
+		json_object_string_add(json, "warningSession",
+				       "Detailed session information not available.");
+	}
+
+	/* Message Counters, get a thread safe copy of the counters */
+	group = pcep_ctrl_get_counters(pcep_g->fpt, pcc_info->pcc_id);
+
+	if (group != NULL) {
+		struct counters_subgroup *rx_msgs =
+			find_subgroup(group, COUNTER_SUBGROUP_ID_RX_MSG);
+		struct counters_subgroup *tx_msgs =
+			find_subgroup(group, COUNTER_SUBGROUP_ID_TX_MSG);
+		json_object *json_counter;
+		struct counter *tx_counter, *rx_counter;
+
+		if (rx_msgs != NULL) {
+			json_counter = json_object_new_object();
+			for (int i = 0; i < rx_msgs->max_counters; i++) {
+				rx_counter = rx_msgs->counters[i];
+
+				if (rx_counter &&
+				    rx_counter->counter_name_json[0] != '\0')
+					json_object_int_add(
+						json_counter,
+						rx_counter->counter_name_json,
+						rx_counter->counter_value);
+			}
+			json_object_int_add(json_counter, "total",
+					    subgroup_counters_total(rx_msgs));
+			json_object_object_add(json, "messageStatisticsReceived",
+					       json_counter);
+		}
+		if (tx_msgs != NULL) {
+			json_counter = json_object_new_object();
+			for (int i = 0; i < tx_msgs->max_counters; i++) {
+				tx_counter = tx_msgs->counters[i];
+
+				if (tx_counter &&
+				    tx_counter->counter_name_json[0] != '\0')
+					json_object_int_add(
+						json_counter,
+						tx_counter->counter_name_json,
+						tx_counter->counter_value);
+			}
+			json_object_int_add(json_counter, "total",
+					    subgroup_counters_total(tx_msgs));
+			json_object_object_add(json, "messageStatisticsSent",
+					       json_counter);
+		}
+		pcep_lib_free_counters(group);
+	} else {
+		json_object_string_add(json, "messageStatisticsWarning",
+				       "Counters not available.");
+	}
+
+	XFREE(MTYPE_PCEP, pcc_info);
+}
+
+/* Internal util function to print a pcep session */
 static void print_pcep_session(struct vty *vty, struct pce_opts *pce_opts,
 			       struct pcep_pcc_info *pcc_info)
 {
 	char buf[1024];
+
 	buf[0] = '\0';
 
 	vty_out(vty, "\nPCE %s\n", pce_opts->pce_name);
@@ -1241,6 +1424,7 @@ static void print_pcep_session(struct vty *vty, struct pce_opts *pce_opts,
 
 	/* Config Options values */
 	struct pcep_config_group_opts *config_opts = &pce_opts->config_opts;
+
 	if (session != NULL) {
 		vty_out(vty, " Timer: KeepAlive config %d, pce-negotiated %d\n",
 			config_opts->keep_alive_seconds,
@@ -1356,34 +1540,66 @@ static void print_pcep_session(struct vty *vty, struct pce_opts *pce_opts,
 }
 
 static int path_pcep_cli_show_srte_pcep_session(struct vty *vty,
-						const char *pcc_peer)
+						const char *pcc_peer, bool uj)
 {
 	struct pce_opts_cli *pce_opts_cli;
 	struct pcep_pcc_info *pcc_info;
+	json_object *json = NULL;
+
+	if (uj)
+		json = json_object_new_object();
 
 	/* Only show 1 PCEP session */
 	if (pcc_peer != NULL) {
+		if (json)
+			json_object_string_add(json, "pceName", pcc_peer);
 		pce_opts_cli = pcep_cli_find_pce(pcc_peer);
 		if (pce_opts_cli == NULL) {
-			vty_out(vty, "%% PCE [%s] does not exist.\n", pcc_peer);
+			if (json) {
+				json_object_string_addf(json, "warning",
+							"PCE [%s] does not exist.",
+							pcc_peer);
+				vty_json(vty, json);
+			} else
+				vty_out(vty, "%% PCE [%s] does not exist.\n",
+					pcc_peer);
 			return CMD_WARNING;
 		}
 
 		if (!pcep_cli_pcc_has_pce(pcc_peer)) {
-			vty_out(vty, "%% PCC is not connected to PCE [%s].\n",
-				pcc_peer);
+			if (json) {
+				json_object_string_addf(json, "warning",
+							"PCC is not connected to PCE [%s].",
+							pcc_peer);
+				vty_json(vty, json);
+			} else
+				vty_out(vty,
+					"%% PCC is not connected to PCE [%s].\n",
+					pcc_peer);
 			return CMD_WARNING;
 		}
 
 		pcc_info = pcep_ctrl_get_pcc_info(pcep_g->fpt, pcc_peer);
 		if (pcc_info == NULL) {
-			vty_out(vty,
-				"%% Cannot retrieve PCEP session info for PCE [%s]\n",
-				pcc_peer);
+			if (json) {
+				json_object_string_addf(json, "warning",
+							"Cannot retrieve PCEP session info for PCE [%s].",
+							pcc_peer);
+				vty_json(vty, json);
+			} else
+				vty_out(vty,
+					"%% Cannot retrieve PCEP session info for PCE [%s]\n",
+					pcc_peer);
 			return CMD_WARNING;
 		}
 
-		print_pcep_session(vty, &pce_opts_cli->pce_opts, pcc_info);
+		if (json) {
+			print_pcep_session_json(vty, &pce_opts_cli->pce_opts,
+						pcc_info, json);
+			vty_json(vty, json);
+		} else
+			print_pcep_session(vty, &pce_opts_cli->pce_opts,
+					   pcc_info);
 
 		return CMD_SUCCESS;
 	}
@@ -1392,29 +1608,56 @@ static int path_pcep_cli_show_srte_pcep_session(struct vty *vty,
 	struct pce_opts *pce_opts;
 	int num_pcep_sessions_conf = 0;
 	int num_pcep_sessions_conn = 0;
+	json_object *json_array = NULL, *json_entry = NULL;
+
+	if (json)
+		json_array = json_object_new_array();
 	for (int i = 0; i < MAX_PCC; i++) {
 		pce_opts = pce_connections_g.connections[i];
 		if (pce_opts == NULL) {
 			continue;
 		}
 
+		if (json) {
+			json_entry = json_object_new_object();
+			json_object_string_add(json_entry, "pceName",
+					       pce_opts->pce_name);
+		}
 		pcc_info =
 			pcep_ctrl_get_pcc_info(pcep_g->fpt, pce_opts->pce_name);
 		if (pcc_info == NULL) {
-			vty_out(vty,
-				"%% Cannot retrieve PCEP session info for PCE [%s]\n",
-				pce_opts->pce_name);
+			if (json_entry) {
+				json_object_string_addf(json_entry, "warning",
+							"Cannot retrieve PCEP session info for PCE [%s].",
+							pce_opts->pce_name);
+				json_object_array_add(json_array, json_entry);
+			} else
+				vty_out(vty,
+					"%% Cannot retrieve PCEP session info for PCE [%s]\n",
+					pce_opts->pce_name);
 			continue;
 		}
 
 		num_pcep_sessions_conn +=
 			pcc_info->status == PCEP_PCC_OPERATING ? 1 : 0;
 		num_pcep_sessions_conf++;
-		print_pcep_session(vty, pce_opts, pcc_info);
+		if (json_entry) {
+			print_pcep_session_json(vty, pce_opts, pcc_info,
+						json_entry);
+			json_object_array_add(json_array, json_entry);
+		} else
+			print_pcep_session(vty, pce_opts, pcc_info);
 	}
-
-	vty_out(vty, "PCEP Sessions => Configured %d ; Connected %d\n",
-		num_pcep_sessions_conf, num_pcep_sessions_conn);
+	if (json) {
+		json_object_object_add(json, "pcepSessions", json_array);
+		json_object_int_add(json, "pcepSessionsConfigured",
+				    num_pcep_sessions_conf);
+		json_object_int_add(json, "pcepSessionsConnected",
+				    num_pcep_sessions_conn);
+		vty_json(vty, json);
+	} else
+		vty_out(vty, "PCEP Sessions => Configured %d ; Connected %d\n",
+			num_pcep_sessions_conf, num_pcep_sessions_conn);
 
 	return CMD_SUCCESS;
 }
@@ -2091,14 +2334,27 @@ DEFPY(pcep_cli_show_srte_pcc,
 
 DEFPY(pcep_cli_show_srte_pcep_session,
       pcep_cli_show_srte_pcep_session_cmd,
-      "show sr-te pcep session [WORD]$pce",
+      "show sr-te pcep session WORD$pce [json$uj]",
       SHOW_STR
       "SR-TE info\n"
       "PCEP info\n"
       "Show PCEP Session information\n"
-      "PCE name\n")
+      "PCE name\n"
+      JSON_STR)
 {
-	return path_pcep_cli_show_srte_pcep_session(vty, pce);
+	return path_pcep_cli_show_srte_pcep_session(vty, pce, !!uj);
+}
+
+DEFPY(pcep_cli_show_srte_pcep_sessions,
+      pcep_cli_show_srte_pcep_sessions_cmd,
+      "show sr-te pcep session [json$uj]",
+      SHOW_STR
+      "SR-TE info\n"
+      "PCEP info\n"
+      "Show PCEP Session information\n"
+      JSON_STR)
+{
+	return path_pcep_cli_show_srte_pcep_session(vty, NULL, !!uj);
 }
 
 DEFPY(pcep_cli_clear_srte_pcep_session,
@@ -2172,5 +2428,6 @@ void pcep_cli_init(void)
 	install_element(ENABLE_NODE, &pcep_cli_show_srte_pcep_pce_config_cmd);
 	install_element(ENABLE_NODE, &pcep_cli_show_srte_pcep_pce_cmd);
 	install_element(ENABLE_NODE, &pcep_cli_show_srte_pcep_session_cmd);
+	install_element(ENABLE_NODE, &pcep_cli_show_srte_pcep_sessions_cmd);
 	install_element(ENABLE_NODE, &pcep_cli_clear_srte_pcep_session_cmd);
 }
