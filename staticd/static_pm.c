@@ -108,7 +108,7 @@ static void *static_pm_choose_src_ip(struct interface *ifp,
 				     union g_addr *addr)
 {
 	struct connected *ifc;
-	static void *src_ip = NULL;
+	void *src_ip = NULL;
 
 	if (!ifp)
 		return NULL;
