@@ -480,7 +480,7 @@ static enum nb_error nb_op_ys_init_node_infos(struct nb_op_yield_state *ys)
 {
 	struct nb_op_node_info *ni;
 	struct lyd_node_inner *inner;
-	struct lyd_node *node;
+	struct lyd_node *node = NULL;
 	enum nb_error ret;
 	uint i, len;
 	char *tmp;
@@ -550,6 +550,8 @@ static enum nb_error nb_op_ys_init_node_infos(struct nb_op_yield_state *ys)
 	darr_foreach_i (ys->node_infos, i) {
 		ret = nb_op_ys_finalize_node_info(ys, i);
 		if (ret != NB_OK) {
+			if (ys->node_infos[0].inner)
+				lyd_free_all(&ys->node_infos[0].inner->node);
 			darr_free(ys->node_infos);
 			return ret;
 		}

@@ -92,18 +92,18 @@ def test_oper_simple(tgen):
             'rib[afi-safi-name="frr-routing:ipv4-unicast"][table-id="254"]/route',
             "simple-results/result-ribs-rib-route-nokey.json",
         ),
+        (
+            '/frr-vrf:lib/vrf[name="default"]/frr-zebra:zebra/ribs/'
+            'rib[afi-safi-name="frr-routing:ipv4-unicast"][table-id="254"]/'
+            'route[prefix="1.1.1.0/24"]',
+            "simple-results/result-ribs-rib-route-prefix.json",
+        ),
         # Missing entry
         (
             '/frr-vrf:lib/vrf[name="default"]/frr-zebra:zebra/ribs/'
             'rib[afi-safi-name="frr-routing:ipv4-unicast"][table-id="254"]/'
             'route[prefix="1.1.0.0/24"]',
             "simple-results/result-empty.json",
-        ),
-        (
-            '/frr-vrf:lib/vrf[name="default"]/frr-zebra:zebra/ribs/'
-            'rib[afi-safi-name="frr-routing:ipv4-unicast"][table-id="254"]/'
-            'route[prefix="1.1.1.0/24"]',
-            "simple-results/result-ribs-rib-route-prefix.json",
         ),
         # Leaf reference
         (
