@@ -2661,8 +2661,12 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 
 	/* If this is an iBGP, send Origin Validation State (OVS)
 	 * extended community (rfc8097).
+	 * draft-uttaro-idr-bgp-oad states:
+	 *   For example, the Origin Validation State Extended Community,
+	 *   defined as non-transitive in [RFC8097], can be advertised to
+	 *   peers in the same OAD.
 	 */
-	if (peer->sort == BGP_PEER_IBGP) {
+	if (peer->sort == BGP_PEER_IBGP || peer->sub_sort == BGP_PEER_EBGP_OAD) {
 		enum rpki_states rpki_state = RPKI_NOT_BEING_USED;
 
 		rpki_state = hook_call(bgp_rpki_prefix_status, peer, attr, p);
