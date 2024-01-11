@@ -109,8 +109,7 @@ struct mgmt_commit_cfg_req {
 	uint8_t rollback : 1;
 
 	/* Track commit phases */
-	enum mgmt_commit_phase curr_phase;
-	enum mgmt_commit_phase next_phase;
+	enum mgmt_commit_phase phase;
 
 	enum mgmt_commit_phase be_phase[MGMTD_BE_CLIENT_ID_MAX];
 
@@ -261,15 +260,12 @@ static int mgmt_txn_send_commit_cfg_reply(struct mgmt_txn_ctx *txn,
 					  enum mgmt_result result,
 					  const char *error_if_any);
 
-static inline const char *mgmt_txn_commit_phase_str(struct mgmt_txn_ctx *txn,
-						    bool curr)
+static inline const char *mgmt_txn_commit_phase_str(struct mgmt_txn_ctx *txn)
 {
 	if (!txn->commit_cfg_req)
 		return "None";
 
-	return (mgmt_commit_phase2str(
-		curr ? txn->commit_cfg_req->req.commit_cfg.curr_phase
-		     : txn->commit_cfg_req->req.commit_cfg.next_phase));
+	return mgmt_commit_phase2str(txn->commit_cfg_req->req.commit_cfg.phase);
 }
 
 static void mgmt_txn_lock(struct mgmt_txn_ctx *txn, const char *file, int line);
@@ -390,7 +386,7 @@ static struct mgmt_txn_req *mgmt_txn_req_alloc(struct mgmt_txn_ctx *txn,
 				&txn_req->req.commit_cfg.batches[id]);
 		}
 
-		txn_req->req.commit_cfg.curr_phase = MGMTD_COMMIT_PHASE_PREPARE_CFG;
+		txn_req->req.commit_cfg.phase = MGMTD_COMMIT_PHASE_PREPARE_CFG;
 		break;
 	case MGMTD_TXN_PROC_GETCFG:
 		txn_req->req.get_data =
@@ -465,8 +461,8 @@ static void mgmt_txn_req_free(struct mgmt_txn_req **txn_req)
 			      (*txn_req)->req_id, (*txn_req)->txn->txn_id);
 
 		ccreq = &(*txn_req)->req.commit_cfg;
-		cleanup = (ccreq->curr_phase >= MGMTD_COMMIT_PHASE_TXN_CREATE &&
-			   ccreq->curr_phase < MGMTD_COMMIT_PHASE_TXN_DELETE);
+		cleanup = (ccreq->phase >= MGMTD_COMMIT_PHASE_TXN_CREATE &&
+			   ccreq->phase < MGMTD_COMMIT_PHASE_TXN_DELETE);
 
 		FOREACH_MGMTD_BE_CLIENT_ID (id) {
 			/*
@@ -795,16 +791,15 @@ mgmt_try_move_commit_to_next_phase(struct mgmt_txn_ctx *txn,
 {
 	enum mgmt_be_client_id id;
 
-	MGMTD_TXN_DBG("txn-id: %" PRIu64 ", Phase(current:'%s' next:'%s')",
-		      txn->txn_id, mgmt_txn_commit_phase_str(txn, true),
-		      mgmt_txn_commit_phase_str(txn, false));
+	MGMTD_TXN_DBG("txn-id: %" PRIu64 ", Phase '%s'",
+		      txn->txn_id, mgmt_txn_commit_phase_str(txn));
 
 	/*
 	 * Check if all clients has moved to next phase or not.
 	 */
 	FOREACH_MGMTD_BE_CLIENT_ID (id) {
 		if (IS_IDBIT_SET(cmtcfg_req->clients, id) &&
-		    cmtcfg_req->be_phase[id] == cmtcfg_req->curr_phase) {
+		    cmtcfg_req->be_phase[id] == cmtcfg_req->phase) {
 			/*
 			 * There's atleast once client who hasn't moved to
 			 * next phase.
@@ -817,16 +812,14 @@ mgmt_try_move_commit_to_next_phase(struct mgmt_txn_ctx *txn,
 		}
 	}
 
-	MGMTD_TXN_DBG("Move entire txn-id: %" PRIu64 " from '%s' to '%s'",
-		      txn->txn_id, mgmt_txn_commit_phase_str(txn, true),
-		      mgmt_txn_commit_phase_str(txn, false));
-
 	/*
 	 * If we are here, it means all the clients has moved to next phase.
 	 * So we can move the whole commit to next phase.
 	 */
-	cmtcfg_req->curr_phase = cmtcfg_req->next_phase;
-	cmtcfg_req->next_phase++;
+	cmtcfg_req->phase++;
+
+	MGMTD_TXN_DBG("Move entire txn-id: %" PRIu64 " to phase '%s'",
+		      txn->txn_id, mgmt_txn_commit_phase_str(txn));
 
 	mgmt_txn_register_event(txn, MGMTD_TXN_PROC_COMMITCFG);
 
@@ -962,7 +955,6 @@ static int mgmt_txn_create_config_batches(struct mgmt_txn_req *txn_req,
 				MGMTD_COMMIT_PHASE_TXN_CREATE;
 	}
 
-	cmtcfg_req->next_phase = MGMTD_COMMIT_PHASE_TXN_CREATE;
 	return 0;
 }
 
@@ -1118,7 +1110,7 @@ mgmt_txn_prep_config_validation_done:
 	}
 
 	/* Move to the Transaction Create Phase */
-	txn->commit_cfg_req->req.commit_cfg.curr_phase =
+	txn->commit_cfg_req->req.commit_cfg.phase =
 		MGMTD_COMMIT_PHASE_TXN_CREATE;
 	mgmt_txn_register_event(txn, MGMTD_TXN_PROC_COMMITCFG);
 
@@ -1156,19 +1148,15 @@ static int mgmt_txn_send_be_txn_create(struct mgmt_txn_ctx *txn)
 		}
 	}
 
-	txn->commit_cfg_req->req.commit_cfg.next_phase =
-		MGMTD_COMMIT_PHASE_SEND_CFG;
-
 	/*
 	 * Dont move the commit to next phase yet. Wait for the TXN_REPLY to
 	 * come back.
 	 */
 
 	MGMTD_TXN_DBG("txn-id: %" PRIu64 " session-id: %" PRIu64
-		      " Phase(Current:'%s', Next: '%s')",
+		      " Phase '%s'",
 		      txn->txn_id, txn->session_id,
-		      mgmt_txn_commit_phase_str(txn, true),
-		      mgmt_txn_commit_phase_str(txn, false));
+		      mgmt_txn_commit_phase_str(txn));
 
 	return 0;
 }
@@ -1190,7 +1178,6 @@ static int mgmt_txn_send_be_cfg_data(struct mgmt_txn_ctx *txn,
 	num_batches = mgmt_txn_batches_count(&cmtcfg_req->batches[adapter->id]);
 	FOREACH_TXN_CFG_BATCH_IN_LIST (&cmtcfg_req->batches[adapter->id],
 				       batch) {
-		assert(cmtcfg_req->next_phase == MGMTD_COMMIT_PHASE_SEND_CFG);
 
 		cfg_req.cfgdata_reqs = batch->cfg_datap;
 		cfg_req.num_reqs = batch->num_cfg_data;
@@ -1375,9 +1362,6 @@ static int mgmt_txn_send_be_cfg_apply(struct mgmt_txn_ctx *txn)
 		}
 	}
 
-	txn->commit_cfg_req->req.commit_cfg.next_phase =
-		MGMTD_COMMIT_PHASE_TXN_DELETE;
-
 	/*
 	 * Dont move the commit to next phase yet. Wait for all VALIDATE_REPLIES
 	 * to come back.
@@ -1395,14 +1379,13 @@ static void mgmt_txn_process_commit_cfg(struct event *thread)
 	assert(txn);
 
 	MGMTD_TXN_DBG("Processing COMMIT_CONFIG for txn-id: %" PRIu64
-		      " session-id: %" PRIu64 " Phase(Current:'%s', Next: '%s')",
+		      " session-id: %" PRIu64 " Phase '%s'",
 		      txn->txn_id, txn->session_id,
-		      mgmt_txn_commit_phase_str(txn, true),
-		      mgmt_txn_commit_phase_str(txn, false));
+		      mgmt_txn_commit_phase_str(txn));
 
 	assert(txn->commit_cfg_req);
 	cmtcfg_req = &txn->commit_cfg_req->req.commit_cfg;
-	switch (cmtcfg_req->curr_phase) {
+	switch (cmtcfg_req->phase) {
 	case MGMTD_COMMIT_PHASE_PREPARE_CFG:
 		mgmt_txn_prepare_config(txn);
 		break;
@@ -1424,12 +1407,10 @@ static void mgmt_txn_process_commit_cfg(struct event *thread)
 			 * Backend by now.
 			 */
 #ifndef MGMTD_LOCAL_VALIDATIONS_ENABLED
-		assert(cmtcfg_req->next_phase == MGMTD_COMMIT_PHASE_APPLY_CFG);
 		MGMTD_TXN_DBG("txn-id: %" PRIu64 " session-id: %" PRIu64
 			      " trigger sending CFG_VALIDATE_REQ to all backend clients",
 			      txn->txn_id, txn->session_id);
 #else  /* ifndef MGMTD_LOCAL_VALIDATIONS_ENABLED */
-		assert(cmtcfg_req->next_phase == MGMTD_COMMIT_PHASE_APPLY_CFG);
 		MGMTD_TXN_DBG("txn-id: %" PRIu64 " session-id: %" PRIu64
 			      " trigger sending CFG_APPLY_REQ to all backend clients",
 			      txn->txn_id, txn->session_id);
@@ -1465,10 +1446,9 @@ static void mgmt_txn_process_commit_cfg(struct event *thread)
 	}
 
 	MGMTD_TXN_DBG("txn-id:%" PRIu64 " session-id: %" PRIu64
-		      " phase updated to (current:'%s', next: '%s')",
+		      " phase updated to '%s'",
 		      txn->txn_id, txn->session_id,
-		      mgmt_txn_commit_phase_str(txn, true),
-		      mgmt_txn_commit_phase_str(txn, false));
+		      mgmt_txn_commit_phase_str(txn));
 }
 
 static void mgmt_init_get_data_reply(struct mgmt_get_data_reply *get_reply)
@@ -2227,7 +2207,7 @@ int mgmt_txn_notify_be_txn_reply(uint64_t txn_id, bool create, bool success,
 			 * Done with TXN_CREATE. Move the backend client to
 			 * next phase.
 			 */
-			assert(cmtcfg_req->curr_phase ==
+			assert(cmtcfg_req->phase ==
 			       MGMTD_COMMIT_PHASE_TXN_CREATE);
 
 			/*
