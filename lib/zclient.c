@@ -104,6 +104,11 @@ void zclient_free(struct zclient *zclient)
 	XFREE(MTYPE_ZCLIENT, zclient);
 }
 
+static void redist_free_instance(void *data)
+{
+	XFREE(MTYPE_REDIST_INST, data);
+}
+
 unsigned short *redist_check_instance(struct redist_proto *red,
 				      unsigned short instance)
 {
@@ -126,8 +131,10 @@ void redist_add_instance(struct redist_proto *red, unsigned short instance)
 
 	red->enabled = 1;
 
-	if (!red->instances)
+	if (!red->instances) {
 		red->instances = list_new();
+		red->instances->del = redist_free_instance;
+	}
 
 	in = XMALLOC(MTYPE_REDIST_INST, sizeof(unsigned short));
 	*in = instance;
@@ -143,7 +150,7 @@ void redist_del_instance(struct redist_proto *red, unsigned short instance)
 		return;
 
 	listnode_delete(red->instances, id);
-	XFREE(MTYPE_REDIST_INST, id);
+	red->instances->del(id);
 	if (!red->instances->count) {
 		red->enabled = 0;
 		list_delete(&red->instances);
@@ -152,14 +159,10 @@ void redist_del_instance(struct redist_proto *red, unsigned short instance)
 
 void redist_del_all_instances(struct redist_proto *red)
 {
-	struct listnode *ln, *nn;
-	unsigned short *id;
-
 	if (!red->instances)
 		return;
 
-	for (ALL_LIST_ELEMENTS(red->instances, ln, nn, id))
-		redist_del_instance(red, *id);
+	list_delete(&red->instances);
 }
 
 /* Stop zebra client services. */
