@@ -1580,7 +1580,7 @@ static int static_path_list_cli_cmp(const struct lyd_node *dnode1,
 
 const struct frr_yang_module_info frr_staticd_info = {
 	.name = "frr-staticd",
-	.ignore_cbs = true,
+	.ignore_cfg_cbs = true,
 	.nodes = {
 		{
 			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-staticd:staticd",

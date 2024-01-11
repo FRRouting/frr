@@ -89,7 +89,7 @@ An here is the addition to the modules array in ``mgmtd/mgmt_main.c``:
            ...
    #ifdef HAVE_STATICD
            &(struct frr_yang_module_info){.name = "frr-staticd",
-				         .ignore_cbs = true},
+				         .ignore_cfg_cbs = true},
    #endif
    }
 

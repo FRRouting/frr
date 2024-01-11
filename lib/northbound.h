@@ -613,8 +613,8 @@ struct nb_node {
 #define F_NB_NODE_CONFIG_ONLY 0x01
 /* The YANG list doesn't contain key leafs. */
 #define F_NB_NODE_KEYLESS_LIST 0x02
-/* Ignore callbacks for this node */
-#define F_NB_NODE_IGNORE_CBS 0x04
+/* Ignore config callbacks for this node */
+#define F_NB_NODE_IGNORE_CFG_CBS 0x04
 
 /*
  * HACK: old gcc versions (< 5.x) have a bug that prevents C99 flexible arrays
@@ -628,10 +628,11 @@ struct frr_yang_module_info {
 	const char *name;
 
 	/*
-	 * Ignore callbacks for this module. Set this to true to
-	 * load module without any callbacks.
+	 * Ignore configuration callbacks for this module. Set this to true to
+	 * load module with only CLI-related callbacks. This is useful for
+	 * modules loaded in mgmtd.
 	 */
-	bool ignore_cbs;
+	bool ignore_cfg_cbs;
 
 	/* Northbound callbacks. */
 	const struct {
