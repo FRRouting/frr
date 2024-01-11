@@ -1913,6 +1913,11 @@ Configuring Peers
    outputs. It's easier to troubleshoot if you have a number of BGP peers
    and a number of routes to check.
 
+.. clicmd:: bgp default hostname-capability
+
+   This command enables hostname capability advertisement by default
+   for all the neighbors. This is enabled by default.
+
 .. clicmd:: bgp default software-version-capability
 
    This command enables software version capability advertisement by default

@@ -126,6 +126,7 @@ FRR_CFG_DEFAULT_BOOL(BGP_SOFT_VERSION_CAPABILITY,
 	{ .val_bool = true, .match_profile = "datacenter", },
 	{ .val_bool = false },
 );
+FRR_CFG_DEFAULT_BOOL(BGP_HOSTNAME_CAPABILITY, { .val_bool = true }, );
 FRR_CFG_DEFAULT_BOOL(BGP_ENFORCE_FIRST_AS,
 	{ .val_bool = false, .match_version = "< 9.1", },
 	{ .val_bool = true },
@@ -623,6 +624,8 @@ int bgp_get_vty(struct bgp **bgp, as_t *as, const char *name,
 		if (DFLT_BGP_SOFT_VERSION_CAPABILITY)
 			SET_FLAG((*bgp)->flags,
 				 BGP_FLAG_SOFT_VERSION_CAPABILITY);
+		if (DFLT_BGP_HOSTNAME_CAPABILITY)
+			SET_FLAG((*bgp)->flags, BGP_FLAG_HOSTNAME_CAPABILITY);
 		if (DFLT_BGP_ENFORCE_FIRST_AS)
 			SET_FLAG((*bgp)->flags, BGP_FLAG_ENFORCE_FIRST_AS);
 
@@ -4283,6 +4286,24 @@ DEFPY (bgp_default_software_version_capability,
 		UNSET_FLAG(bgp->flags, BGP_FLAG_SOFT_VERSION_CAPABILITY);
 	else
 		SET_FLAG(bgp->flags, BGP_FLAG_SOFT_VERSION_CAPABILITY);
+
+	return CMD_SUCCESS;
+}
+
+DEFPY (bgp_default_hostname_capability,
+       bgp_default_hostname_capability_cmd,
+       "[no] bgp default hostname-capability",
+       NO_STR
+       BGP_STR
+       "Configure BGP defaults\n"
+       "Advertise hostname capability for all neighbors\n")
+{
+	VTY_DECLVAR_CONTEXT(bgp, bgp);
+
+	if (no)
+		UNSET_FLAG(bgp->flags, BGP_FLAG_HOSTNAME_CAPABILITY);
+	else
+		SET_FLAG(bgp->flags, BGP_FLAG_HOSTNAME_CAPABILITY);
 
 	return CMD_SUCCESS;
 }
@@ -18829,6 +18850,14 @@ int bgp_config_write(struct vty *vty)
 					? ""
 					: "no ");
 
+		if (!!CHECK_FLAG(bgp->flags, BGP_FLAG_HOSTNAME_CAPABILITY) !=
+		    SAVE_BGP_HOSTNAME_CAPABILITY)
+			vty_out(vty, " %sbgp default hostname-capability\n",
+				CHECK_FLAG(bgp->flags,
+					   BGP_FLAG_HOSTNAME_CAPABILITY)
+					? ""
+					: "no ");
+
 		/* BGP default subgroup-pkt-queue-max. */
 		if (bgp->default_subgroup_pkt_queue_max
 		    != BGP_DEFAULT_SUBGROUP_PKT_QUEUE_MAX)
@@ -19876,6 +19905,9 @@ void bgp_vty_init(void)
 
 	/* bgp default software-version-capability */
 	install_element(BGP_NODE, &bgp_default_software_version_capability_cmd);
+
+	/* bgp default hostname-capability */
+	install_element(BGP_NODE, &bgp_default_hostname_capability_cmd);
 
 	/* "bgp default subgroup-pkt-queue-max" commands. */
 	install_element(BGP_NODE, &bgp_default_subgroup_pkt_queue_max_cmd);
