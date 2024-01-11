@@ -4520,6 +4520,24 @@ static void zclient_event(enum zclient_event event, struct zclient *zclient)
 	}
 }
 
+enum zclient_send_status zclient_interface_set_arp(struct zclient *client,
+						   struct interface *ifp,
+						   bool arp_enable)
+{
+	struct stream *s;
+
+	s = client->obuf;
+	stream_reset(s);
+
+	zclient_create_header(s, ZEBRA_INTERFACE_SET_ARP, ifp->vrf->vrf_id);
+
+	stream_putl(s, ifp->ifindex);
+	stream_putc(s, arp_enable);
+
+	stream_putw_at(s, 0, stream_get_endp(s));
+	return zclient_send_message(client);
+}
+
 enum zclient_send_status zclient_interface_set_master(struct zclient *client,
 						      struct interface *master,
 						      struct interface *slave)

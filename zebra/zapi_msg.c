@@ -3124,6 +3124,28 @@ stream_failure:
 }
 
 
+static void zread_interface_set_arp(ZAPI_HANDLER_ARGS)
+{
+	struct stream *s = msg;
+	struct interface *ifp;
+	bool arp_enable;
+	vrf_id_t vrf_id = zvrf->vrf->vrf_id;
+	int ifindex;
+
+	STREAM_GETL(s, ifindex);
+	STREAM_GETC(s, arp_enable);
+	ifp = if_lookup_by_index(ifindex, vrf_id);
+
+	if (!ifp)
+		return;
+
+	if_arp(ifp, arp_enable);
+
+stream_failure:
+	return;
+}
+
+
 static void zread_vrf_label(ZAPI_HANDLER_ARGS)
 {
 	struct interface *ifp;
@@ -3905,6 +3927,7 @@ void (*const zserv_handlers[])(ZAPI_HANDLER_ARGS) = {
 	[ZEBRA_REMOTE_MACIP_DEL] = zebra_vxlan_remote_macip_del,
 	[ZEBRA_DUPLICATE_ADDR_DETECTION] = zebra_vxlan_dup_addr_detection,
 	[ZEBRA_INTERFACE_SET_MASTER] = zread_interface_set_master,
+	[ZEBRA_INTERFACE_SET_ARP] = zread_interface_set_arp,
 	[ZEBRA_PW_ADD] = zread_pseudowire,
 	[ZEBRA_PW_DELETE] = zread_pseudowire,
 	[ZEBRA_PW_SET] = zread_pseudowire,
