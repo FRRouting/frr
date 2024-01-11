@@ -5,6 +5,7 @@
  */
 
 #include <zebra.h>
+#include <sys/stat.h>
 #include <fcntl.h>
 #include <log.h>
 #include "lib/version.h"

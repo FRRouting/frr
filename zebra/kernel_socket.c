@@ -5,6 +5,8 @@
 
 #include <zebra.h>
 
+#include <net/route.h>
+
 #ifndef HAVE_NETLINK
 
 #include <net/if_types.h>

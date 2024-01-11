@@ -4,6 +4,7 @@
  */
 
 #include <zebra.h>
+#include <fcntl.h>
 
 #ifdef SNMP_AGENTX
 #include <net-snmp/net-snmp-config.h>

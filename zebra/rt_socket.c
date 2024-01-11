@@ -6,6 +6,8 @@
 
 #include <zebra.h>
 
+#include <net/route.h>
+
 #ifndef HAVE_NETLINK
 
 #ifdef __OpenBSD__

@@ -6,6 +6,8 @@
 
 #include <zebra.h>
 
+#include <net/route.h>
+
 #if !defined(GNU_LINUX) && !defined(OPEN_BSD)
 
 #include "if.h"

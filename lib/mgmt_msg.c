@@ -7,6 +7,8 @@
  * Copyright (c) 2023, LabN Consulting, L.L.C.
  */
 #include <zebra.h>
+#include <sys/stat.h>
+
 #include "debug.h"
 #include "network.h"
 #include "sockopt.h"

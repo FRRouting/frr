@@ -7,6 +7,7 @@
  */
 
 #include <zebra.h>
+#include <sys/stat.h>
 
 #include "frrevent.h"
 #include "vty.h"

@@ -7,6 +7,7 @@
  */
 
 #include <zebra.h>
+#include <fcntl.h>
 
 #include "qobj.h"
 #include "vty.h"

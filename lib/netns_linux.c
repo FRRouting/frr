@@ -5,6 +5,7 @@
  */
 
 #include <zebra.h>
+#include <fcntl.h>
 
 #ifdef HAVE_NETNS
 #undef _GNU_SOURCE

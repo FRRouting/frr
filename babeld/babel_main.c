@@ -5,6 +5,8 @@ Copyright 2011 by Matthieu Boutier and Juliusz Chroboczek
 
 /* include zebra library */
 #include <zebra.h>
+#include <fcntl.h>
+
 #include "getopt.h"
 #include "if.h"
 #include "log.h"

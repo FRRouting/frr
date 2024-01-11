@@ -5,6 +5,7 @@
  */
 
 #include <zebra.h>
+#include <sys/stat.h>
 
 #include <lib/version.h>
 #include "getopt.h"

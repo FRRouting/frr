@@ -13,6 +13,7 @@
 #include "if.h"
 #include <sys/un.h>
 #ifdef __OpenBSD__
+#include <net/route.h>
 #include <netmpls/mpls.h>
 #endif
 

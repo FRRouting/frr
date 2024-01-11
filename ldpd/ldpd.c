@@ -9,6 +9,9 @@
  */
 
 #include <zebra.h>
+
+#include <signal.h>
+#include <fcntl.h>
 #include <sys/wait.h>
 
 #include "ldpd.h"

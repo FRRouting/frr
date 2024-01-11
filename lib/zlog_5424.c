@@ -13,6 +13,7 @@
  */
 
 #include "zebra.h"
+#include <fcntl.h>
 
 #include "frrsendmmsg.h"
 

@@ -17,16 +17,9 @@
 #include <stdlib.h>
 #include <stddef.h>
 #include <ctype.h>
-#include <errno.h>
-#include <fcntl.h>
-#include <signal.h>
-#include <string.h>
-#include <pwd.h>
 #ifdef HAVE_STROPTS_H
 #include <stropts.h>
 #endif /* HAVE_STROPTS_H */
-#include <sys/select.h>
-#include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/param.h>
 #ifdef HAVE_SYS_SYSCTL_H
@@ -44,9 +37,7 @@
 #endif /* HAVE_SYS_KSYM_H */
 #include <sys/time.h>
 #include <time.h>
-#include <limits.h>
 #include <inttypes.h>
-#include <stdbool.h>
 #ifdef HAVE_SYS_ENDIAN_H
 #include <sys/endian.h>
 #endif
@@ -92,8 +83,6 @@
 #include <net/if_var.h>
 #endif /* HAVE_NET_IF_VAR_H */
 
-#include <net/route.h>
-
 #ifndef HAVE_NETLINK
 #define RT_TABLE_MAIN		0
 #define RT_TABLE_LOCAL		RT_TABLE_MAIN
@@ -121,7 +110,6 @@
 #ifdef HAVE_NETINET6_IN_H
 #include <netinet6/in.h>
 #endif /* HAVE_NETINET6_IN_H */
-
 
 #ifdef HAVE_NETINET6_IP6_H
 #include <netinet6/ip6.h>
@@ -235,12 +223,6 @@ struct in_pktinfo {
 
 /* default zebra TCP port for zclient */
 #define ZEBRA_PORT			2600
-
-/*
- * The compiler.h header is used for anyone using the CPP_NOTICE
- * since this is universally needed, let's add it to zebra.h
- */
-#include "compiler.h"
 
 /* Zebra route's types are defined in route_types.h */
 #include "lib/route_types.h"

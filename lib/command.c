@@ -11,6 +11,9 @@
 
 #include <zebra.h>
 #include <sys/utsname.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+
 #include <lib/version.h>
 
 #include "command.h"

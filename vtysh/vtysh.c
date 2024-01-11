@@ -5,6 +5,7 @@
 
 #include <zebra.h>
 
+#include <pwd.h>
 #include <grp.h>
 
 #include <sys/un.h>
