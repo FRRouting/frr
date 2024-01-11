@@ -182,6 +182,27 @@ def test_protocols_convergence():
         assertmsg = '"{}" JSON output mismatches'.format(router.name)
         assert result is None, assertmsg
 
+    # check that the NOARP flag is removed from rX-gre0 interfaces
+    for rname, router in router_list.items():
+        if rname == "r3":
+            continue
+
+        expected = {
+            "{}-gre0".format(rname): {
+                "flags": "<UP,RUNNING>",
+            }
+        }
+        test_func = partial(
+            topotest.router_json_cmp,
+            router,
+            "show interface {}-gre0 json".format(rname),
+            expected,
+        )
+        _, result = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+
+        assertmsg = '"{}-gre0 interface flags incorrect'.format(router.name)
+        assert result is None, assertmsg
+
     for rname, router in router_list.items():
         if rname == "r3":
             continue
