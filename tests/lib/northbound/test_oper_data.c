@@ -200,6 +200,25 @@ static struct yang_data *frr_test_module_vrfs_vrf_routes_route_active_get_elem(
 	return NULL;
 }
 
+
+/*
+ * XPath: /frr-test-module:frr-test-module/c1value
+ */
+static struct yang_data *
+frr_test_module_c1value_get_elem(struct nb_cb_get_elem_args *args)
+{
+	return yang_data_new_uint8(args->xpath, 21);
+}
+
+/*
+ * XPath: /frr-test-module:frr-test-module/c2cont/c2value
+ */
+static struct yang_data *
+frr_test_module_c2cont_c2value_get_elem(struct nb_cb_get_elem_args *args)
+{
+	return yang_data_new_uint32(args->xpath, 0xAB010203);
+}
+
 /* clang-format off */
 const struct frr_yang_module_info frr_test_module_info = {
 	.name = "frr-test-module",
@@ -242,6 +261,14 @@ const struct frr_yang_module_info frr_test_module_info = {
 		{
 			.xpath = "/frr-test-module:frr-test-module/vrfs/vrf/routes/route/active",
 			.cbs.get_elem = frr_test_module_vrfs_vrf_routes_route_active_get_elem,
+		},
+		{
+			.xpath = "/frr-test-module:frr-test-module/c1value",
+			.cbs.get_elem = frr_test_module_c1value_get_elem,
+		},
+		{
+			.xpath = "/frr-test-module:frr-test-module/c2cont/c2value",
+			.cbs.get_elem = frr_test_module_c2cont_c2value_get_elem,
 		},
 		{
 			.xpath = NULL,
