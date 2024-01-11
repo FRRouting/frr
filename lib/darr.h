@@ -291,7 +291,7 @@ void *__darr_resize(void *a, uint count, size_t esize, struct memtype *mt);
  */
 #define darr_ensure_i_mt(A, I, MT)                                             \
 	({                                                                     \
-		assert((int)(I) >= 0 && (int)(I) <= INT_MAX);                  \
+		assert((int)(I) >= 0 && (uint)(I) <= INT_MAX);                 \
 		int _i = (int)(I);                                             \
 		if (_i > darr_maxi(A))                                         \
 			_darr_resize_mt((A), _i + 1, MT);                      \
