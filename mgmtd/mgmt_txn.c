@@ -192,7 +192,6 @@ struct mgmt_txn_req {
 		struct mgmt_commit_cfg_req commit_cfg;
 	} req;
 
-	bool pending_be_proc;
 	struct mgmt_txn_reqs_item list_linkage;
 };
 
@@ -367,7 +366,6 @@ static struct mgmt_txn_req *mgmt_txn_req_alloc(struct mgmt_txn_ctx *txn,
 	txn_req->txn = txn;
 	txn_req->req_id = req_id;
 	txn_req->req_event = req_event;
-	txn_req->pending_be_proc = false;
 
 	switch (txn_req->req_event) {
 	case MGMTD_TXN_PROC_SETCFG:
@@ -534,7 +532,6 @@ static void mgmt_txn_req_free(struct mgmt_txn_req **txn_req)
 			      (*txn_req)->req_id, mgmt_txn_reqs_count(req_list));
 	}
 
-	(*txn_req)->pending_be_proc = false;
 	MGMTD_TXN_UNLOCK(&(*txn_req)->txn);
 	XFREE(MTYPE_MGMTD_TXN_REQ, (*txn_req));
 	*txn_req = NULL;
