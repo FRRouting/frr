@@ -189,7 +189,7 @@ def test_protocols_convergence():
 
         expected = {
             "{}-gre0".format(rname): {
-                "flags": "<UP,RUNNING>",
+                "flags": "<UP,LOWER_UP,RUNNING>",
             }
         }
         test_func = partial(
