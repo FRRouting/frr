@@ -613,6 +613,8 @@ int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 	struct attr *newattr, *existattr;
 	enum bgp_peer_sort new_sort;
 	enum bgp_peer_sort exist_sort;
+	enum bgp_peer_sub_sort new_sub_sort;
+	enum bgp_peer_sub_sort exist_sub_sort;
 	uint32_t new_pref;
 	uint32_t exist_pref;
 	uint32_t new_med;
@@ -1147,26 +1149,34 @@ int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 	/* 7. Peer type check. */
 	new_sort = peer_new->sort;
 	exist_sort = peer_exist->sort;
+	new_sub_sort = peer_new->sub_sort;
+	exist_sub_sort = peer_exist->sub_sort;
 
-	if (new_sort == BGP_PEER_EBGP
-	    && (exist_sort == BGP_PEER_IBGP || exist_sort == BGP_PEER_CONFED)) {
+	if (new_sort == BGP_PEER_EBGP &&
+	    (exist_sort == BGP_PEER_IBGP || exist_sort == BGP_PEER_CONFED ||
+	     exist_sub_sort == BGP_PEER_EBGP_OAD)) {
 		*reason = bgp_path_selection_peer;
 		if (debug)
-			zlog_debug(
-				"%s: %s wins over %s due to eBGP peer > iBGP peer",
-				pfx_buf, new_buf, exist_buf);
+			zlog_debug("%s: %s wins over %s due to eBGP peer > %s peer",
+				   pfx_buf, new_buf, exist_buf,
+				   (exist_sub_sort == BGP_PEER_EBGP_OAD)
+					   ? "eBGP-OAD"
+					   : "iBGP");
 		if (!CHECK_FLAG(bgp->flags, BGP_FLAG_PEERTYPE_MULTIPATH_RELAX))
 			return 1;
 		peer_sort_ret = 1;
 	}
 
-	if (exist_sort == BGP_PEER_EBGP
-	    && (new_sort == BGP_PEER_IBGP || new_sort == BGP_PEER_CONFED)) {
+	if (exist_sort == BGP_PEER_EBGP &&
+	    (new_sort == BGP_PEER_IBGP || new_sort == BGP_PEER_CONFED ||
+	     new_sub_sort == BGP_PEER_EBGP_OAD)) {
 		*reason = bgp_path_selection_peer;
 		if (debug)
-			zlog_debug(
-				"%s: %s loses to %s due to iBGP peer < eBGP peer",
-				pfx_buf, new_buf, exist_buf);
+			zlog_debug("%s: %s loses to %s due to %s peer < eBGP peer",
+				   pfx_buf, new_buf, exist_buf,
+				   (exist_sub_sort == BGP_PEER_EBGP_OAD)
+					   ? "eBGP-OAD"
+					   : "iBGP");
 		if (!CHECK_FLAG(bgp->flags, BGP_FLAG_PEERTYPE_MULTIPATH_RELAX))
 			return 0;
 		peer_sort_ret = 0;
@@ -2651,8 +2661,12 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 
 	/* If this is an iBGP, send Origin Validation State (OVS)
 	 * extended community (rfc8097).
+	 * draft-uttaro-idr-bgp-oad states:
+	 *   For example, the Origin Validation State Extended Community,
+	 *   defined as non-transitive in [RFC8097], can be advertised to
+	 *   peers in the same OAD.
 	 */
-	if (peer->sort == BGP_PEER_IBGP) {
+	if (peer->sort == BGP_PEER_IBGP || peer->sub_sort == BGP_PEER_EBGP_OAD) {
 		enum rpki_states rpki_state = RPKI_NOT_BEING_USED;
 
 		rpki_state = hook_call(bgp_rpki_prefix_status, peer, attr, p);
@@ -10674,9 +10688,17 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 			} else {
 				if (json_paths)
 					json_object_string_add(
-						json_peer, "type", "external");
+						json_peer, "type",
+						(path->peer->sub_sort ==
+						 BGP_PEER_EBGP_OAD)
+							? "external (oad)"
+							: "external");
 				else
-					vty_out(vty, ", external");
+					vty_out(vty, ", %s",
+						(path->peer->sub_sort ==
+						 BGP_PEER_EBGP_OAD)
+							? "external (oad)"
+							: "external");
 			}
 		}
 	} else if (path->sub_type == BGP_ROUTE_AGGREGATE) {

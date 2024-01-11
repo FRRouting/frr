@@ -31,7 +31,7 @@ pytestmark = [pytest.mark.bgpd]
 
 
 def setup_module(mod):
-    topodef = {"s1": ("r1", "r2"), "s2": ("r2", "r3")}
+    topodef = {"s1": ("r1", "r2", "r4"), "s2": ("r2", "r3"), "s3": ("r4", "r5")}
     tgen = Topogen(topodef, mod.__name__)
     tgen.start_topology()
 
@@ -64,7 +64,21 @@ def test_bgp_dynamic_capability_role():
                     "aspath": {"string": "65002 65003"},
                     "metric": 123,
                     "locPrf": 123,
-                }
+                    "peer": {
+                        "hostname": "r2",
+                        "type": "external (oad)",
+                    },
+                },
+                {
+                    "aspath": {"string": "65004 65005"},
+                    "metric": 123,
+                    "locPrf": 123,
+                    "bestpath": {"selectionReason": "Peer Type"},
+                    "peer": {
+                        "hostname": "r4",
+                        "type": "external",
+                    },
+                },
             ]
         }
         return topotest.json_cmp(output, expected)
