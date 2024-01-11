@@ -850,10 +850,9 @@ static int mgmt_txn_create_config_batches(struct mgmt_txn_req *txn_req,
 	enum mgmt_be_client_id id;
 	struct mgmt_be_client_adapter *adapter;
 	struct mgmt_commit_cfg_req *cmtcfg_req;
-	bool found_validator;
 	int num_chgs = 0;
 	int xpath_len, value_len;
-	uint64_t clients;
+	uint64_t clients, chg_clients;
 
 	cmtcfg_req = &txn_req->req.commit_cfg;
 
@@ -881,11 +880,8 @@ static int mgmt_txn_create_config_batches(struct mgmt_txn_req *txn_req,
 			      value ? value : "NIL");
 
 		clients = mgmt_be_interested_clients(xpath, true);
-		cmtcfg_req->clients |= clients;
-		if (clients)
-			found_validator = true;
-		else
-			found_validator = false;
+
+		chg_clients = 0;
 
 		xpath_len = strlen(xpath) + 1;
 		value_len = strlen(value) + 1;
@@ -893,6 +889,8 @@ static int mgmt_txn_create_config_batches(struct mgmt_txn_req *txn_req,
 			adapter = mgmt_be_get_adapter_by_id(id);
 			if (!adapter)
 				continue;
+
+			chg_clients |= (1ull << id);
 
 			batch = cmtcfg_req->last_be_cfg_batch[id];
 			if (!batch ||
@@ -940,12 +938,14 @@ static int mgmt_txn_create_config_batches(struct mgmt_txn_req *txn_req,
 			num_chgs++;
 		}
 
-		if (!found_validator) {
+		if (!chg_clients) {
 			snprintf(err_buf, sizeof(err_buf),
 				 "No validator module found for XPATH: '%s",
 				 xpath);
 			MGMTD_TXN_ERR("***** %s", err_buf);
 		}
+
+		cmtcfg_req->clients |= chg_clients;
 
 		free(xpath);
 	}
