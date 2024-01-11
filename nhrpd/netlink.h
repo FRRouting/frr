@@ -11,7 +11,6 @@
 extern int netlink_nflog_group;
 extern int netlink_mcast_nflog_group;
 
-int netlink_configure_arp(unsigned int ifindex, int pf);
 void netlink_update_binding(struct interface *ifp, union sockunion *proto,
 			    union sockunion *nbma);
 void netlink_set_nflog_group(int nlgroup);
