@@ -14,8 +14,7 @@ DEB packages are available as CI artifacts `here
 
 .. warning::
 
-   ``libyang`` version 2.0.0 or newer is required to build FRR, version 2.1.128
-   or newer is recommended.
+   ``libyang`` version 2.1.128 or newer is required to build FRR.
 
 .. note::
 
