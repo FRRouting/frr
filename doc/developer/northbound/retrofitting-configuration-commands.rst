@@ -1005,7 +1005,7 @@ configuration. Here’s the declaration of this structure (taken from the
 
            /*
             * Operation to apply (either NB_OP_CREATE, NB_OP_MODIFY or
-            * NB_OP_DELETE).
+            * NB_OP_DESTROY).
             */
            enum nb_operation operation;
 
@@ -1205,7 +1205,7 @@ This example shows how to create a list entry:
                    },
                    {
                            .xpath = "./access-list",
-                           .operation = acl ? NB_OP_MODIFY : NB_OP_DELETE,
+                           .operation = acl ? NB_OP_MODIFY : NB_OP_DESTROY,
                            .value = acl,
                    },
            };
@@ -1242,7 +1242,7 @@ When deleting a list entry, all non-key leaves can be ignored:
            struct cli_config_change changes[] = {
                    {
                            .xpath = ".",
-                           .operation = NB_OP_DELETE,
+                           .operation = NB_OP_DESTROY,
                    },
            };
 

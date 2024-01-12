@@ -31,62 +31,62 @@ static struct nb_callback_info {
 	char arguments[128];
 } nb_callbacks[] = {
 	{
-		.operation = NB_OP_CREATE,
+		.operation = NB_CB_CREATE,
 		.return_type = "int ",
 		.return_value = "NB_OK",
 		.arguments = "struct nb_cb_create_args *args",
 	},
 	{
-		.operation = NB_OP_MODIFY,
+		.operation = NB_CB_MODIFY,
 		.return_type = "int ",
 		.return_value = "NB_OK",
 		.arguments = "struct nb_cb_modify_args *args",
 	},
 	{
-		.operation = NB_OP_DESTROY,
+		.operation = NB_CB_DESTROY,
 		.return_type = "int ",
 		.return_value = "NB_OK",
 		.arguments = "struct nb_cb_destroy_args *args",
 	},
 	{
-		.operation = NB_OP_MOVE,
+		.operation = NB_CB_MOVE,
 		.return_type = "int ",
 		.return_value = "NB_OK",
 		.arguments = "struct nb_cb_move_args *args",
 	},
 	{
-		.operation = NB_OP_APPLY_FINISH,
+		.operation = NB_CB_APPLY_FINISH,
 		.optional = true,
 		.return_type = "void ",
 		.return_value = "",
 		.arguments = "struct nb_cb_apply_finish_args *args",
 	},
 	{
-		.operation = NB_OP_GET_ELEM,
+		.operation = NB_CB_GET_ELEM,
 		.return_type = "struct yang_data *",
 		.return_value = "NULL",
 		.arguments = "struct nb_cb_get_elem_args *args",
 	},
 	{
-		.operation = NB_OP_GET_NEXT,
+		.operation = NB_CB_GET_NEXT,
 		.return_type = "const void *",
 		.return_value = "NULL",
 		.arguments = "struct nb_cb_get_next_args *args",
 	},
 	{
-		.operation = NB_OP_GET_KEYS,
+		.operation = NB_CB_GET_KEYS,
 		.return_type = "int ",
 		.return_value = "NB_OK",
 		.arguments = "struct nb_cb_get_keys_args *args",
 	},
 	{
-		.operation = NB_OP_LOOKUP_ENTRY,
+		.operation = NB_CB_LOOKUP_ENTRY,
 		.return_type = "const void *",
 		.return_value = "NULL",
 		.arguments = "struct nb_cb_lookup_entry_args *args",
 	},
 	{
-		.operation = NB_OP_RPC,
+		.operation = NB_CB_RPC,
 		.return_type = "int ",
 		.return_value = "NB_OK",
 		.arguments = "struct nb_cb_rpc_args *args",
@@ -107,7 +107,7 @@ static void replace_hyphens_by_underscores(char *str)
 }
 
 static void generate_callback_name(const struct lysc_node *snode,
-				   enum nb_operation operation, char *buffer,
+				   enum nb_cb_operation operation, char *buffer,
 				   size_t size)
 {
 	struct list *snodes;
@@ -129,7 +129,7 @@ static void generate_callback_name(const struct lysc_node *snode,
 		strlcat(buffer, snode->name, size);
 		strlcat(buffer, "_", size);
 	}
-	strlcat(buffer, nb_operation_name(operation), size);
+	strlcat(buffer, nb_cb_operation_name(operation), size);
 	list_delete(&snodes);
 
 	replace_hyphens_by_underscores(buffer);
@@ -160,7 +160,7 @@ static int generate_prototypes(const struct lysc_node *snode, void *arg)
 		char cb_name[BUFSIZ];
 
 		if (cb->optional
-		    || !nb_operation_is_valid(cb->operation, snode))
+		    || !nb_cb_operation_is_valid(cb->operation, snode))
 			continue;
 
 		generate_callback_name(snode, cb->operation, cb_name,
@@ -178,10 +178,10 @@ static void generate_callback(const struct nb_callback_info *ncinfo,
 	       ncinfo->return_type, cb_name, ncinfo->arguments);
 
 	switch (ncinfo->operation) {
-	case NB_OP_CREATE:
-	case NB_OP_MODIFY:
-	case NB_OP_DESTROY:
-	case NB_OP_MOVE:
+	case NB_CB_CREATE:
+	case NB_CB_MODIFY:
+	case NB_CB_DESTROY:
+	case NB_CB_MOVE:
 		printf("\tswitch (args->event) {\n"
 		       "\tcase NB_EV_VALIDATE:\n"
 		       "\tcase NB_EV_PREPARE:\n"
@@ -222,7 +222,7 @@ static int generate_callbacks(const struct lysc_node *snode, void *arg)
 		char cb_name[BUFSIZ];
 
 		if (cb->optional
-		    || !nb_operation_is_valid(cb->operation, snode))
+		    || !nb_cb_operation_is_valid(cb->operation, snode))
 			continue;
 
 		if (first) {
@@ -267,7 +267,7 @@ static int generate_nb_nodes(const struct lysc_node *snode, void *arg)
 		char cb_name[BUFSIZ];
 
 		if (cb->optional
-		    || !nb_operation_is_valid(cb->operation, snode))
+		    || !nb_cb_operation_is_valid(cb->operation, snode))
 			continue;
 
 		if (first) {
@@ -285,7 +285,8 @@ static int generate_nb_nodes(const struct lysc_node *snode, void *arg)
 
 		generate_callback_name(snode, cb->operation, cb_name,
 				       sizeof(cb_name));
-		printf("\t\t\t\t.%s = %s,\n", nb_operation_name(cb->operation),
+		printf("\t\t\t\t.%s = %s,\n",
+		       nb_cb_operation_name(cb->operation),
 		       cb_name);
 	}
 

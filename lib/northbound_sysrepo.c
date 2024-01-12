@@ -186,12 +186,12 @@ static int frr_sr_process_change(struct nb_config *candidate,
 	/* Map operation values. */
 	switch (sr_op) {
 	case SR_OP_CREATED:
+		nb_op = NB_OP_CREATE;
+		break;
 	case SR_OP_MODIFIED:
-		if (nb_operation_is_valid(NB_OP_CREATE, nb_node->snode))
-			nb_op = NB_OP_CREATE;
-		else if (nb_operation_is_valid(NB_OP_MODIFY, nb_node->snode)) {
+		if (nb_is_operation_allowed(nb_node, NB_OP_MODIFY))
 			nb_op = NB_OP_MODIFY;
-		} else
+		else
 			/* Ignore list keys modifications. */
 			return NB_OK;
 		break;
@@ -201,7 +201,7 @@ static int frr_sr_process_change(struct nb_config *candidate,
 		 * notified about the removal of all of its leafs, even the ones
 		 * that are non-optional. We need to ignore these notifications.
 		 */
-		if (!nb_operation_is_valid(NB_OP_DESTROY, nb_node->snode))
+		if (!nb_is_operation_allowed(nb_node, NB_OP_DESTROY))
 			return NB_OK;
 
 		nb_op = NB_OP_DESTROY;
@@ -221,7 +221,7 @@ static int frr_sr_process_change(struct nb_config *candidate,
 
 	ret = nb_candidate_edit(candidate, nb_node, nb_op, xpath, NULL, data);
 	yang_data_free(data);
-	if (ret != NB_OK && ret != NB_ERR_NOT_FOUND) {
+	if (ret != NB_OK) {
 		flog_warn(
 			EC_LIB_NB_CANDIDATE_EDIT_ERROR,
 			"%s: failed to edit candidate configuration: operation [%s] xpath [%s]",

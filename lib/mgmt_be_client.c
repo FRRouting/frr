@@ -565,11 +565,26 @@ static int mgmt_be_update_setcfg_in_batch(struct mgmt_be_client *client_ctx,
 	for (index = 0; index < num_req; index++) {
 		cfg_chg = &txn_req->req.set_cfg.cfg_changes[index];
 
-		if (cfg_req[index]->req_type
-		    == MGMTD__CFG_DATA_REQ_TYPE__DELETE_DATA)
+		/*
+		 * Treat all operations as destroy or modify, because we don't
+		 * need additional existence checks on the backend. Everything
+		 * is already checked by mgmtd.
+		 */
+		switch (cfg_req[index]->req_type) {
+		case MGMTD__CFG_DATA_REQ_TYPE__DELETE_DATA:
+		case MGMTD__CFG_DATA_REQ_TYPE__REMOVE_DATA:
 			cfg_chg->operation = NB_OP_DESTROY;
-		else
-			cfg_chg->operation = NB_OP_CREATE;
+			break;
+		case MGMTD__CFG_DATA_REQ_TYPE__SET_DATA:
+		case MGMTD__CFG_DATA_REQ_TYPE__CREATE_DATA:
+		case MGMTD__CFG_DATA_REQ_TYPE__REPLACE_DATA:
+			cfg_chg->operation = NB_OP_MODIFY;
+			break;
+		case MGMTD__CFG_DATA_REQ_TYPE__REQ_TYPE_NONE:
+		case _MGMTD__CFG_DATA_REQ_TYPE_IS_INT_SIZE:
+		default:
+			continue;
+		}
 
 		strlcpy(cfg_chg->xpath, cfg_req[index]->data->xpath,
 			sizeof(cfg_chg->xpath));

@@ -32,7 +32,7 @@ extern struct nb_config *vty_shared_candidate_config;
  *    XPath (absolute or relative) of the configuration option being edited.
  *
  * operation
- *    Operation to apply (either NB_OP_CREATE, NB_OP_MODIFY or NB_OP_DELETE).
+ *    Operation to apply (either NB_OP_CREATE, NB_OP_MODIFY or NB_OP_DESTROY).
  *
  * value
  *    New value of the configuration option. Should be NULL for typeless YANG

@@ -909,9 +909,14 @@ static int mgmt_txn_create_config_batches(struct mgmt_txn_req *txn_req,
 			batch->cfg_datap[batch->num_cfg_data] =
 				&batch->cfg_data[batch->num_cfg_data];
 
-			if (chg->cb.operation == NB_OP_DESTROY)
+			/*
+			 * On the backend, we don't really care if it's CREATE
+			 * or MODIFY, because the existence was already checked
+			 * on the frontend. Therefore we use SET for both.
+			 */
+			if (chg->cb.operation == NB_CB_DESTROY)
 				batch->cfg_data[batch->num_cfg_data].req_type =
-					MGMTD__CFG_DATA_REQ_TYPE__DELETE_DATA;
+					MGMTD__CFG_DATA_REQ_TYPE__REMOVE_DATA;
 			else
 				batch->cfg_data[batch->num_cfg_data].req_type =
 					MGMTD__CFG_DATA_REQ_TYPE__SET_DATA;
@@ -2026,6 +2031,7 @@ int mgmt_txn_send_set_config_req(uint64_t txn_id, uint64_t req_id,
 	size_t indx;
 	uint16_t *num_chgs;
 	struct nb_cfg_change *cfg_chg;
+	struct nb_node *node;
 
 	txn = mgmt_txn_id2ctx(txn_id);
 	if (!txn)
@@ -2044,20 +2050,36 @@ int mgmt_txn_send_set_config_req(uint64_t txn_id, uint64_t req_id,
 	for (indx = 0; indx < num_req; indx++) {
 		cfg_chg = &txn_req->req.set_cfg->cfg_changes[*num_chgs];
 
-		if (cfg_req[indx]->req_type ==
-		    MGMTD__CFG_DATA_REQ_TYPE__DELETE_DATA)
+		switch (cfg_req[indx]->req_type) {
+		case MGMTD__CFG_DATA_REQ_TYPE__DELETE_DATA:
+			cfg_chg->operation = NB_OP_DELETE;
+			break;
+		case MGMTD__CFG_DATA_REQ_TYPE__REMOVE_DATA:
 			cfg_chg->operation = NB_OP_DESTROY;
-		else if (cfg_req[indx]->req_type ==
-			 MGMTD__CFG_DATA_REQ_TYPE__SET_DATA)
-			cfg_chg->operation =
-				mgmt_ds_find_data_node_by_xpath(ds_ctx,
-								cfg_req[indx]
-									->data
-									->xpath)
-					? NB_OP_MODIFY
-					: NB_OP_CREATE;
-		else
+			break;
+		case MGMTD__CFG_DATA_REQ_TYPE__SET_DATA:
+			/*
+			 * For backward compatibility, we need to allow creating
+			 * *new* list keys with SET_DATA operation. NB_OP_MODIFY
+			 * is not allowed for keys, so use NB_OP_CREATE_EXCL.
+			 */
+			node = nb_node_find(cfg_req[indx]->data->xpath);
+			if (node && lysc_is_key(node->snode))
+				cfg_chg->operation = NB_OP_CREATE_EXCL;
+			else
+				cfg_chg->operation = NB_OP_MODIFY;
+			break;
+		case MGMTD__CFG_DATA_REQ_TYPE__CREATE_DATA:
+			cfg_chg->operation = NB_OP_CREATE_EXCL;
+			break;
+		case MGMTD__CFG_DATA_REQ_TYPE__REPLACE_DATA:
+			cfg_chg->operation = NB_OP_REPLACE;
+			break;
+		case MGMTD__CFG_DATA_REQ_TYPE__REQ_TYPE_NONE:
+		case _MGMTD__CFG_DATA_REQ_TYPE_IS_INT_SIZE:
+		default:
 			continue;
+		}
 
 		MGMTD_TXN_DBG("XPath: '%s', Value: '%s'",
 			      cfg_req[indx]->data->xpath,
