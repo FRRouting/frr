@@ -22,8 +22,7 @@ interface information from *zebra* in order to function. Therefore *zebra* must
 be running before invoking *isisd*. Also, if *zebra* is restarted then *isisd*
 must be too.
 
-Like other daemons, *isisd* configuration is done in :abbr:`ISIS` specific
-configuration file :file:`isisd.conf`.
+.. include:: config-include.rst
 
 .. _isis-router:
 

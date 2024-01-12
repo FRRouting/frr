@@ -27,6 +27,8 @@ This document will focus on the later implementation: *bfdd*.
 Starting BFD
 ============
 
+.. include:: config-include.rst
+
 *bfdd* default configuration file is :file:`bfdd.conf`. *bfdd* searches
 the current directory first then |INSTALL_PREFIX_ETC|/bfdd.conf. All of
 *bfdd*'s command must be configured in :file:`bfdd.conf`.

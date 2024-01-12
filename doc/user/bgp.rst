@@ -14,10 +14,7 @@ interdomain routing protocol. BGP-4 is described in :rfc:`1771` and updated by
 Starting BGP
 ============
 
-The default configuration file of *bgpd* is :file:`bgpd.conf`. *bgpd* searches
-the current directory first, followed by |INSTALL_PREFIX_ETC|/bgpd.conf. All of
-*bgpd*'s commands must be configured in :file:`bgpd.conf` when the integrated
-config is not being used.
+.. include:: config-include.rst
 
 *bgpd* specific invocation options are described below. Common options may also
 be specified (:ref:`common-invocation-options`).

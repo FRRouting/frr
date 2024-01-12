@@ -13,11 +13,7 @@ labs.
 Starting SHARP
 ==============
 
-Default configuration file for *sharpd* is :file:`sharpd.conf`.  The typical
-location of :file:`sharpd.conf` is |INSTALL_PREFIX_ETC|/sharpd.conf.
-
-If the user is using integrated config, then :file:`sharpd.conf` need not be
-present and the :file:`frr.conf` is read instead.
+.. include:: config-include.rst
 
 .. program:: sharpd
 

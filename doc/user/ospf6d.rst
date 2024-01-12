@@ -9,8 +9,13 @@ described in :rfc:`2740`.
 
 .. _ospf6-router:
 
-OSPF6 router
-============
+Configuring OSPF6
+*****************
+
+.. include:: config-include.rst
+
+Configuration Commands
+======================
 
 .. clicmd:: router ospf6 [vrf NAME]
 

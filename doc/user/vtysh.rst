@@ -131,14 +131,14 @@ could be made SGID (set group ID) to the |INSTALL_VTY_GROUP| group.
   at all.
 
 
-.. _integrated-configuration-mode:
+.. _integrated-configuration-file:
 
-Integrated configuration mode
+Integrated configuration file
 =============================
 
-Integrated configuration mode uses a single configuration file,
-:file:`frr.conf`, for all daemons. This replaces the individual files like
-:file:`zebra.conf` or :file:`bgpd.conf`.
+FRR uses a single configuration file, :file:`frr.conf`, for all daemons. This
+replaces the individual files like :file:`zebra.conf` or :file:`bgpd.conf` used
+in previous versions of the software.
 
 :file:`frr.conf` is located in |INSTALL_PREFIX_ETC|. All daemons check for the
 existence of this file at startup, and if it exists will not load their

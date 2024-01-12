@@ -15,11 +15,7 @@ the default Linux kernel dataplane provider.
 Starting PBR
 ============
 
-Default configuration file for *pbrd* is :file:`pbrd.conf`.  The typical
-location of :file:`pbrd.conf` is |INSTALL_PREFIX_ETC|/pbrd.conf.
-
-If FRR is using integrated config, then :file:`pbrd.conf` need not be
-present and the :file:`frr.conf` is read instead.
+.. include:: config-include.rst
 
 .. program:: pbrd
 

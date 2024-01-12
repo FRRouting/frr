@@ -15,12 +15,11 @@ do S,G mrouting.
 Starting and Stopping pim6d
 ===========================
 
-The default configuration file name of *pim6d*'s is :file:`pim6d.conf`. When
-invoked *pim6d* searches directory |INSTALL_PREFIX_ETC|. If
-:file:`pim6d.conf` is not there then next search current directory.
+.. include:: config-include.rst
 
-*pim6d* requires zebra for proper operation. Additionally *pim6d* depends on
-routing properly setup and working in the network that it is working on.
+If starting daemons by hand then please note, *pim6d* requires zebra for proper
+operation. Additionally *pim6d* depends on routing properly setup and working in
+the network that it is working on.
 
 ::
 

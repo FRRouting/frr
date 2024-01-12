@@ -26,8 +26,7 @@ The *zebra* daemon must be running before *babeld* is
 invoked. Also, if *zebra* is restarted then *babeld*
 must be too.
 
-Configuration of *babeld* is done in its configuration file
-:file:`babeld.conf`.
+.. include:: config-include.rst
 
 .. _babel-configuration:
 

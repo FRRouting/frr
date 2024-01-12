@@ -24,20 +24,16 @@ known topology.
 Starting and Stopping eigrpd
 ============================
 
-The default configuration file name of *eigrpd*'s is :file:`eigrpd.conf`. When
-invocation *eigrpd* searches directory |INSTALL_PREFIX_ETC|. If
-:file:`eigrpd.conf` is not there next search current directory. If an
-integrated config is specified configuration is written into :file:`frr.conf`.
+.. include:: config-include.rst
 
-The EIGRP protocol requires interface information maintained by *zebra* daemon.
-So running *zebra* is mandatory to run *eigrpd*. Thus minimum sequence for
-running EIGRP is:
+If starting daemons by hand then please note, the EIGRP protocol requires
+interface information maintained by *zebra* daemon. So running *zebra* is
+mandatory to run *eigrpd*. Thus minimum sequence for running EIGRP is:
 
 ::
 
   # zebra -d
   # eigrpd -d
-
 
 Please note that *zebra* must be invoked before *eigrpd*.
 
