@@ -517,7 +517,8 @@ static enum nb_error nb_op_ys_init_node_infos(struct nb_op_yield_state *ys)
 	if (node &&
 	    !CHECK_FLAG(node->schema->nodetype, LYS_CONTAINER | LYS_LIST))
 		node = &node->parent->node;
-	assert(CHECK_FLAG(node->schema->nodetype, LYS_CONTAINER | LYS_LIST));
+	assert(!node ||
+	       CHECK_FLAG(node->schema->nodetype, LYS_CONTAINER | LYS_LIST));
 	if (!node)
 		return NB_ERR_NOT_FOUND;
 
