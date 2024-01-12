@@ -197,19 +197,19 @@ extern const struct frr_yang_module_info frr_staticd_info;
  */
 const struct frr_yang_module_info zebra_info = {
 	.name = "frr-zebra",
-	.ignore_cbs = true,
+	.ignore_cfg_cbs = true,
 	.nodes = { { .xpath = NULL } },
 };
 
 const struct frr_yang_module_info affinity_map_info = {
 	.name = "frr-affinity-map",
-	.ignore_cbs = true,
+	.ignore_cfg_cbs = true,
 	.nodes = { { .xpath = NULL } },
 };
 
 const struct frr_yang_module_info zebra_route_map_info = {
 	.name = "frr-zebra-route-map",
-	.ignore_cbs = true,
+	.ignore_cfg_cbs = true,
 	.nodes = { { .xpath = NULL } },
 };
 

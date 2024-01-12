@@ -125,8 +125,8 @@ static int nb_node_new_cb(const struct lysc_node *snode, void *arg)
 	assert(snode->priv == NULL);
 	((struct lysc_node *)snode)->priv = nb_node;
 
-	if (module && module->ignore_cbs)
-		SET_FLAG(nb_node->flags, F_NB_NODE_IGNORE_CBS);
+	if (module && module->ignore_cfg_cbs)
+		SET_FLAG(nb_node->flags, F_NB_NODE_IGNORE_CFG_CBS);
 
 	return YANG_ITER_CONTINUE;
 }
@@ -250,7 +250,7 @@ static unsigned int nb_node_validate_cbs(const struct nb_node *nb_node)
 {
 	unsigned int error = 0;
 
-	if (CHECK_FLAG(nb_node->flags, F_NB_NODE_IGNORE_CBS))
+	if (CHECK_FLAG(nb_node->flags, F_NB_NODE_IGNORE_CFG_CBS))
 		return error;
 
 	error += nb_node_validate_cb(nb_node, NB_OP_CREATE,
@@ -1171,7 +1171,7 @@ static int nb_callback_create(struct nb_context *context,
 	bool unexpected_error = false;
 	int ret;
 
-	assert(!CHECK_FLAG(nb_node->flags, F_NB_NODE_IGNORE_CBS));
+	assert(!CHECK_FLAG(nb_node->flags, F_NB_NODE_IGNORE_CFG_CBS));
 
 	nb_log_config_callback(event, NB_OP_CREATE, dnode);
 
@@ -1222,7 +1222,7 @@ static int nb_callback_modify(struct nb_context *context,
 	bool unexpected_error = false;
 	int ret;
 
-	assert(!CHECK_FLAG(nb_node->flags, F_NB_NODE_IGNORE_CBS));
+	assert(!CHECK_FLAG(nb_node->flags, F_NB_NODE_IGNORE_CFG_CBS));
 
 	nb_log_config_callback(event, NB_OP_MODIFY, dnode);
 
@@ -1273,7 +1273,7 @@ static int nb_callback_destroy(struct nb_context *context,
 	bool unexpected_error = false;
 	int ret;
 
-	assert(!CHECK_FLAG(nb_node->flags, F_NB_NODE_IGNORE_CBS));
+	assert(!CHECK_FLAG(nb_node->flags, F_NB_NODE_IGNORE_CFG_CBS));
 
 	nb_log_config_callback(event, NB_OP_DESTROY, dnode);
 
@@ -1318,7 +1318,7 @@ static int nb_callback_move(struct nb_context *context,
 	bool unexpected_error = false;
 	int ret;
 
-	assert(!CHECK_FLAG(nb_node->flags, F_NB_NODE_IGNORE_CBS));
+	assert(!CHECK_FLAG(nb_node->flags, F_NB_NODE_IGNORE_CFG_CBS));
 
 	nb_log_config_callback(event, NB_OP_MOVE, dnode);
 
@@ -1363,7 +1363,7 @@ static int nb_callback_pre_validate(struct nb_context *context,
 	bool unexpected_error = false;
 	int ret;
 
-	if (CHECK_FLAG(nb_node->flags, F_NB_NODE_IGNORE_CBS))
+	if (CHECK_FLAG(nb_node->flags, F_NB_NODE_IGNORE_CFG_CBS))
 		return 0;
 
 	nb_log_config_callback(NB_EV_VALIDATE, NB_OP_PRE_VALIDATE, dnode);
@@ -1397,7 +1397,7 @@ static void nb_callback_apply_finish(struct nb_context *context,
 {
 	struct nb_cb_apply_finish_args args = {};
 
-	if (CHECK_FLAG(nb_node->flags, F_NB_NODE_IGNORE_CBS))
+	if (CHECK_FLAG(nb_node->flags, F_NB_NODE_IGNORE_CFG_CBS))
 		return;
 
 	nb_log_config_callback(NB_EV_APPLY, NB_OP_APPLY_FINISH, dnode);
@@ -1415,7 +1415,7 @@ struct yang_data *nb_callback_get_elem(const struct nb_node *nb_node,
 {
 	struct nb_cb_get_elem_args args = {};
 
-	if (CHECK_FLAG(nb_node->flags, F_NB_NODE_IGNORE_CBS))
+	if (CHECK_FLAG(nb_node->flags, F_NB_NODE_IGNORE_CFG_CBS))
 		return NULL;
 
 	DEBUGD(&nb_dbg_cbs_state,
@@ -1433,7 +1433,7 @@ const void *nb_callback_get_next(const struct nb_node *nb_node,
 {
 	struct nb_cb_get_next_args args = {};
 
-	if (CHECK_FLAG(nb_node->flags, F_NB_NODE_IGNORE_CBS))
+	if (CHECK_FLAG(nb_node->flags, F_NB_NODE_IGNORE_CFG_CBS))
 		return NULL;
 
 	DEBUGD(&nb_dbg_cbs_state,
@@ -1450,7 +1450,7 @@ int nb_callback_get_keys(const struct nb_node *nb_node, const void *list_entry,
 {
 	struct nb_cb_get_keys_args args = {};
 
-	if (CHECK_FLAG(nb_node->flags, F_NB_NODE_IGNORE_CBS))
+	if (CHECK_FLAG(nb_node->flags, F_NB_NODE_IGNORE_CFG_CBS))
 		return 0;
 
 	DEBUGD(&nb_dbg_cbs_state,
@@ -1468,7 +1468,7 @@ const void *nb_callback_lookup_entry(const struct nb_node *nb_node,
 {
 	struct nb_cb_lookup_entry_args args = {};
 
-	if (CHECK_FLAG(nb_node->flags, F_NB_NODE_IGNORE_CBS))
+	if (CHECK_FLAG(nb_node->flags, F_NB_NODE_IGNORE_CFG_CBS))
 		return NULL;
 
 	DEBUGD(&nb_dbg_cbs_state,
@@ -1487,7 +1487,7 @@ const void *nb_callback_lookup_node_entry(struct lyd_node *node,
 	struct nb_cb_lookup_entry_args args = {};
 	const struct nb_node *nb_node = node->schema->priv;
 
-	if (CHECK_FLAG(nb_node->flags, F_NB_NODE_IGNORE_CBS))
+	if (CHECK_FLAG(nb_node->flags, F_NB_NODE_IGNORE_CFG_CBS))
 		return NULL;
 
 	if (yang_get_node_keys(node, &keys)) {
@@ -1512,7 +1512,7 @@ const void *nb_callback_lookup_next(const struct nb_node *nb_node,
 {
 	struct nb_cb_lookup_entry_args args = {};
 
-	if (CHECK_FLAG(nb_node->flags, F_NB_NODE_IGNORE_CBS))
+	if (CHECK_FLAG(nb_node->flags, F_NB_NODE_IGNORE_CFG_CBS))
 		return NULL;
 
 	DEBUGD(&nb_dbg_cbs_state,
@@ -1530,7 +1530,7 @@ int nb_callback_rpc(const struct nb_node *nb_node, const char *xpath,
 {
 	struct nb_cb_rpc_args args = {};
 
-	if (CHECK_FLAG(nb_node->flags, F_NB_NODE_IGNORE_CBS))
+	if (CHECK_FLAG(nb_node->flags, F_NB_NODE_IGNORE_CFG_CBS))
 		return 0;
 
 	DEBUGD(&nb_dbg_cbs_rpc, "northbound RPC: %s", xpath);
@@ -1559,7 +1559,7 @@ static int nb_callback_configuration(struct nb_context *context,
 	union nb_resource *resource;
 	int ret = NB_ERR;
 
-	if (CHECK_FLAG(nb_node->flags, F_NB_NODE_IGNORE_CBS))
+	if (CHECK_FLAG(nb_node->flags, F_NB_NODE_IGNORE_CFG_CBS))
 		return NB_OK;
 
 	if (event == NB_EV_VALIDATE)
