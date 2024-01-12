@@ -1087,7 +1087,7 @@ static int fe_adapter_send_tree_data(struct mgmt_fe_session_ctx *session,
 	uint8_t *buf = NULL;
 	int ret = 0;
 
-	darr_append_n(buf, offsetof(typeof(*msg), result));
+	darr_append_n(buf, sizeof(*msg));
 	msg = (typeof(msg))buf;
 	msg->refer_id = session->session_id;
 	msg->req_id = req_id;
