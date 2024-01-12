@@ -96,8 +96,8 @@ static int pim_zebra_if_address_add(ZAPI_CALLBACK_ARGS)
 	p = c->address;
 
 	if (PIM_DEBUG_ZEBRA) {
-		zlog_debug("%s: %s(%u) connected IP address %pFX flags %u %s",
-			   __func__, c->ifp->name, vrf_id, p, c->flags,
+		zlog_debug("%s: %s(%s) connected IP address %pFX flags %u %s",
+			   __func__, c->ifp->name, VRF_LOGNAME(pim_ifp->pim->vrf), p, c->flags,
 			   CHECK_FLAG(c->flags, ZEBRA_IFA_SECONDARY)
 				   ? "secondary"
 				   : "primary");
@@ -182,8 +182,8 @@ static int pim_zebra_if_address_del(ZAPI_CALLBACK_ARGS)
 
 	if (PIM_DEBUG_ZEBRA) {
 		zlog_debug(
-			"%s: %s(%u) disconnected IP address %pFX flags %u %s",
-			__func__, c->ifp->name, vrf_id, p, c->flags,
+			"%s: %s(%s) disconnected IP address %pFX flags %u %s",
+			__func__, c->ifp->name, VRF_LOGNAME(vrf), p, c->flags,
 			CHECK_FLAG(c->flags, ZEBRA_IFA_SECONDARY)
 				? "secondary"
 				: "primary");
@@ -325,7 +325,7 @@ static int pim_zebra_vxlan_sg_proc(ZAPI_CALLBACK_ARGS)
 	stream_get(&sg.grp, s, prefixlen);
 
 	if (PIM_DEBUG_ZEBRA)
-		zlog_debug("%u:recv SG %s %pSG", vrf_id,
+		zlog_debug("%s:recv SG %s %pSG", VRF_LOGNAME(pim->vrf),
 			   (cmd == ZEBRA_VXLAN_SG_ADD) ? "add" : "del", &sg);
 
 	if (cmd == ZEBRA_VXLAN_SG_ADD)
