@@ -185,84 +185,78 @@ size_t pim_msg_get_jp_group_size(struct list *sources)
 	size += sizeof(pim_encoded_source) * sources->count;
 
 	js = listgetdata(listhead(sources));
-	if (js && pim_addr_is_any(js->up->sg.src) && js->is_join) {
-		struct pim_upstream *child, *up;
-		struct listnode *up_node;
+	if (!js || !pim_addr_is_any(js->up->sg.src) || !js->is_join)
+		return size;
 
-		up = js->up;
-		if (PIM_DEBUG_PIM_PACKETS)
-			zlog_debug(
-				"%s: Considering (%s) children for (S,G,rpt) prune",
-				__func__, up->sg_str);
+	struct pim_upstream *child, *up;
+	struct listnode *up_node;
 
-		for (ALL_LIST_ELEMENTS_RO(up->sources, up_node, child)) {
-			/*
-			 * PIM VXLAN is weird
-			 * It auto creates the S,G and populates a bunch
-			 * of flags that make it look like a SPT prune should
-			 * be sent.  But this regularly scheduled join
-			 * for the *,G in the VXLAN setup can happen at
-			 * scheduled times *before* the null register
-			 * is received by the RP to cause it to initiate
-			 * the S,G joins toward the source.  Let's just
-			 * assume that if this is a SRC VXLAN ORIG route
-			 * and no actual ifchannels( joins ) have been
-			 * created then do not send the embedded prune
-			 * Why you may ask?  Well if the prune is S,G
-			 * RPT Prune is received *before* the join
-			 * from the RP( if it flows to this routers
-			 * upstream interface ) then we'll just wisely
-			 * create a mroute with an empty oil on
-			 * the upstream intermediate router preventing
-			 * packets from flowing to the RP
+	up = js->up;
+	if (PIM_DEBUG_PIM_PACKETS)
+		zlog_debug("%s: Considering (%s) children for (S,G,rpt) prune",
+			   __func__, up->sg_str);
+
+	for (ALL_LIST_ELEMENTS_RO(up->sources, up_node, child)) {
+		/*
+		 * PIM VXLAN is weird
+		 * It auto creates the S,G and populates a bunch
+		 * of flags that make it look like a SPT prune should
+		 * be sent.  But this regularly scheduled join
+		 * for the *,G in the VXLAN setup can happen at
+		 * scheduled times *before* the null register
+		 * is received by the RP to cause it to initiate
+		 * the S,G joins toward the source.  Let's just
+		 * assume that if this is a SRC VXLAN ORIG route
+		 * and no actual ifchannels( joins ) have been
+		 * created then do not send the embedded prune
+		 * Why you may ask?  Well if the prune is S,G
+		 * RPT Prune is received *before* the join
+		 * from the RP( if it flows to this routers
+		 * upstream interface ) then we'll just wisely
+		 * create a mroute with an empty oil on
+		 * the upstream intermediate router preventing
+		 * packets from flowing to the RP
+		 */
+		if (PIM_UPSTREAM_FLAG_TEST_SRC_VXLAN_ORIG(child->flags) &&
+		    listcount(child->ifchannels) == 0) {
+			if (PIM_DEBUG_PIM_PACKETS)
+				zlog_debug("%s: %s Vxlan originated S,G route with no ifchannels, not adding prune to compound message",
+					   __func__, child->sg_str);
+		} else if (!PIM_UPSTREAM_FLAG_TEST_USE_RPT(child->flags)) {
+			/* If we are using SPT and the SPT and RPT IIFs
+			 * are different we can prune the source off
+			 * of the RPT.
+			 * If RPF_interface(S) is not resolved hold
+			 * decision to prune as SPT may end up on the
+			 * same IIF as RPF_interface(RP).
 			 */
-			if (PIM_UPSTREAM_FLAG_TEST_SRC_VXLAN_ORIG(child->flags) &&
-			    listcount(child->ifchannels) == 0) {
-				if (PIM_DEBUG_PIM_PACKETS)
-					zlog_debug("%s: %s Vxlan originated S,G route with no ifchannels, not adding prune to compound message",
-						   __func__, child->sg_str);
-			} else if (!PIM_UPSTREAM_FLAG_TEST_USE_RPT(child->flags)) {
-				/* If we are using SPT and the SPT and RPT IIFs
-				 * are different we can prune the source off
-				 * of the RPT.
-				 * If RPF_interface(S) is not resolved hold
-				 * decision to prune as SPT may end up on the
-				 * same IIF as RPF_interface(RP).
-				 */
-				if (child->rpf.source_nexthop.interface &&
-					!pim_rpf_is_same(&up->rpf,
-						&child->rpf)) {
-					size += sizeof(pim_encoded_source);
-					PIM_UPSTREAM_FLAG_SET_SEND_SG_RPT_PRUNE(
-						child->flags);
-					if (PIM_DEBUG_PIM_PACKETS)
-						zlog_debug(
-							"%s: SPT Bit and RPF'(%s) != RPF'(S,G): Add Prune (%s,rpt) to compound message",
-							__func__, up->sg_str,
-							child->sg_str);
-				} else if (PIM_DEBUG_PIM_PACKETS)
-					zlog_debug(
-						"%s: SPT Bit and RPF'(%s) == RPF'(S,G): Not adding Prune for (%s,rpt)",
-						__func__, up->sg_str,
-						child->sg_str);
-			} else if (pim_upstream_empty_inherited_olist(child)) {
-				/* S is supposed to be forwarded along the RPT
-				 * but it's inherited OIL is empty. So just
-				 * prune it off.
-				 */
+			if (child->rpf.source_nexthop.interface &&
+			    !pim_rpf_is_same(&up->rpf, &child->rpf)) {
 				size += sizeof(pim_encoded_source);
 				PIM_UPSTREAM_FLAG_SET_SEND_SG_RPT_PRUNE(
-						child->flags);
+					child->flags);
 				if (PIM_DEBUG_PIM_PACKETS)
-					zlog_debug(
-						"%s: inherited_olist(%s,rpt) is NULL, Add Prune to compound message",
-						__func__, child->sg_str);
+					zlog_debug("%s: SPT Bit and RPF'(%s) != RPF'(S,G): Add Prune (%s,rpt) to compound message",
+						   __func__, up->sg_str,
+						   child->sg_str);
 			} else if (PIM_DEBUG_PIM_PACKETS)
-				zlog_debug(
-					"%s: Do not add Prune %s to compound message %s",
-					__func__, child->sg_str, up->sg_str);
-		}
+				zlog_debug("%s: SPT Bit and RPF'(%s) == RPF'(S,G): Not adding Prune for (%s,rpt)",
+					   __func__, up->sg_str, child->sg_str);
+		} else if (pim_upstream_empty_inherited_olist(child)) {
+			/* S is supposed to be forwarded along the RPT
+			 * but it's inherited OIL is empty. So just
+			 * prune it off.
+			 */
+			size += sizeof(pim_encoded_source);
+			PIM_UPSTREAM_FLAG_SET_SEND_SG_RPT_PRUNE(child->flags);
+			if (PIM_DEBUG_PIM_PACKETS)
+				zlog_debug("%s: inherited_olist(%s,rpt) is NULL, Add Prune to compound message",
+					   __func__, child->sg_str);
+		} else if (PIM_DEBUG_PIM_PACKETS)
+			zlog_debug("%s: Do not add Prune %s to compound message %s",
+				   __func__, child->sg_str, up->sg_str);
 	}
+
 	return size;
 }
 
