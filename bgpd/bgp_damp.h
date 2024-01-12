@@ -65,7 +65,6 @@ struct bgp_damp_config {
 	/* Non-configurable parameters but fixed at implementation time.
 	 * To change this values, init_bgp_damp() should be modified.
 	 */
-	time_t tmax; /* Max time previous instability retained */
 	unsigned int reuse_list_size;  /* Number of reuse lists */
 	unsigned int reuse_index_size; /* Size of reuse index array */
 
