@@ -251,13 +251,14 @@ DEFPY(show_mgmt_get_config, show_mgmt_get_config_cmd,
 }
 
 DEFPY(show_mgmt_get_data, show_mgmt_get_data_cmd,
-      "show mgmt get-data WORD$path [with-config|only-config]$content [json|xml]$fmt",
+      "show mgmt get-data WORD$path [with-config|only-config]$content [exact]$exact [json|xml]$fmt",
       SHOW_STR
       MGMTD_STR
       "Get a data from the operational datastore\n"
       "XPath expression specifying the YANG data root\n"
       "Include \"config true\" data\n"
       "Get only \"config true\" data\n"
+      "Get exact node instead of the whole data tree\n"
       "JSON output format\n"
       "XML output format\n")
 {
@@ -268,6 +269,9 @@ DEFPY(show_mgmt_get_data, show_mgmt_get_data_cmd,
 
 	if (content && content[0] == 'w')
 		flags |= GET_DATA_FLAG_STATE;
+
+	if (exact)
+		flags |= GET_DATA_FLAG_EXACT;
 
 	/* get rid of extraneous trailing slash-* or single '/' unless root */
 	if (plen > 2 && ((path[plen - 2] == '/' && path[plen - 1] == '*') ||

@@ -236,6 +236,7 @@ _Static_assert(sizeof(struct mgmt_msg_tree_data) ==
 /* Flags for get-data request */
 #define GET_DATA_FLAG_STATE	0x01	/* get only "config false" data */
 #define GET_DATA_FLAG_CONFIG	0x02	/* get only "config true" data */
+#define GET_DATA_FLAG_EXACT	0x04	/* get exact data node instead of the full tree */
 
 /**
  * struct mgmt_msg_get_data - frontend get-data request.
