@@ -253,6 +253,9 @@ int main(int argc, char **argv)
 	/* VRF commands initialization. */
 	vrf_cmd_init(NULL);
 
+	/* Interface commands initialization. */
+	if_cmd_init(NULL);
+
 	/* MGMTD related initialization.  */
 	mgmt_init();
 
