@@ -15,6 +15,7 @@ extern "C" {
 #include "mgmt_pb.h"
 #include "frrevent.h"
 #include "mgmt_defines.h"
+#include "mgmt_msg_native.h"
 
 /***************************************************************
  * Macros
@@ -381,6 +382,9 @@ extern int mgmt_fe_send_regnotify_req(struct mgmt_fe_client *client,
  * result_type
  *    The LYD_FORMAT of the result.
  *
+ * flags
+ *    Flags to control the behavior of the request.
+ *
  * xpath
  *    the xpath to get.
  *
@@ -389,7 +393,8 @@ extern int mgmt_fe_send_regnotify_req(struct mgmt_fe_client *client,
  */
 extern int mgmt_fe_send_get_data_req(struct mgmt_fe_client *client,
 				     uint64_t session_id, uint64_t req_id,
-				     LYD_FORMAT result_type, const char *xpath);
+				     LYD_FORMAT result_type, uint8_t flags,
+				     const char *xpath);
 
 /*
  * Destroy library and cleanup everything.

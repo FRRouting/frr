@@ -308,9 +308,9 @@ int mgmt_fe_send_regnotify_req(struct mgmt_fe_client *client,
 /*
  * Send get-data request.
  */
-int mgmt_fe_send_get_data_req(struct mgmt_fe_client *client,
-			      uint64_t session_id, uint64_t req_id,
-			      LYD_FORMAT result_type, const char *xpath)
+int mgmt_fe_send_get_data_req(struct mgmt_fe_client *client, uint64_t session_id,
+			      uint64_t req_id, LYD_FORMAT result_type,
+			      uint8_t flags, const char *xpath)
 {
 	struct mgmt_msg_get_data *msg;
 	size_t xplen = strlen(xpath);
@@ -322,6 +322,7 @@ int mgmt_fe_send_get_data_req(struct mgmt_fe_client *client,
 	msg->req_id = req_id;
 	msg->code = MGMT_MSG_CODE_GET_DATA;
 	msg->result_type = result_type;
+	msg->flags = flags;
 	strlcpy(msg->xpath, xpath, xplen + 1);
 
 	MGMTD_FE_CLIENT_DBG("Sending GET_DATA_REQ session-id %" PRIu64

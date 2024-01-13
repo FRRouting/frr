@@ -2364,7 +2364,8 @@ int mgmt_txn_send_get_req(uint64_t txn_id, uint64_t req_id,
  */
 int mgmt_txn_send_get_tree_oper(uint64_t txn_id, uint64_t req_id,
 				uint64_t clients, LYD_FORMAT result_type,
-				bool simple_xpath, const char *xpath)
+				uint8_t flags, bool simple_xpath,
+				const char *xpath)
 {
 	struct mgmt_msg_get_tree *msg;
 	struct mgmt_txn_ctx *txn;
@@ -2384,6 +2385,57 @@ int mgmt_txn_send_get_tree_oper(uint64_t txn_id, uint64_t req_id,
 	get_tree->result_type = result_type;
 	get_tree->simple_xpath = simple_xpath;
 	get_tree->xpath = XSTRDUP(MTYPE_MGMTD_XPATH, xpath);
+
+	if (CHECK_FLAG(flags, GET_DATA_FLAG_CONFIG)) {
+		struct mgmt_ds_ctx *ds =
+			mgmt_ds_get_ctx_by_id(mm, MGMTD_DS_RUNNING);
+		struct nb_config *config = mgmt_ds_get_nb_config(ds);
+
+		if (config) {
+			struct ly_set *set = NULL;
+			LY_ERR err;
+
+			err = lyd_find_xpath(config->dnode, xpath, &set);
+			if (err) {
+				get_tree->partial_error = err;
+				goto state;
+			}
+
+			/*
+			 * If there's a single result, duplicate the returned
+			 * node. If there are multiple results, duplicate the
+			 * whole config and mark simple_xpath as false so the
+			 * result is trimmed later in txn_get_tree_data_done.
+			 */
+			if (set->count == 1) {
+				err = lyd_dup_single(set->dnodes[0], NULL,
+						     LYD_DUP_WITH_PARENTS |
+							     LYD_DUP_WITH_FLAGS |
+							     LYD_DUP_RECURSIVE,
+						     &get_tree->client_results);
+				if (!err)
+					while (get_tree->client_results->parent)
+						get_tree->client_results = lyd_parent(
+							get_tree->client_results);
+			} else if (set->count > 1) {
+				err = lyd_dup_siblings(config->dnode, NULL,
+						       LYD_DUP_RECURSIVE |
+							       LYD_DUP_WITH_FLAGS,
+						       &get_tree->client_results);
+				if (!err)
+					get_tree->simple_xpath = false;
+			}
+
+			if (err)
+				get_tree->partial_error = err;
+
+			ly_set_free(set, NULL);
+		}
+	}
+state:
+	/* If we are only getting config, we are done */
+	if (!CHECK_FLAG(flags, GET_DATA_FLAG_STATE) || !clients)
+		return txn_get_tree_data_done(txn, txn_req);
 
 	msg = mgmt_msg_native_alloc_msg(struct mgmt_msg_get_tree, slen + 1,
 					MTYPE_MSG_NATIVE_GET_TREE);

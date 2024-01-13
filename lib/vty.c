@@ -4106,14 +4106,15 @@ int vty_mgmt_send_get_req(struct vty *vty, bool is_config,
 }
 
 int vty_mgmt_send_get_data_req(struct vty *vty, LYD_FORMAT result_type,
-			       const char *xpath)
+			       uint8_t flags, const char *xpath)
 {
 	LYD_FORMAT intern_format = result_type;
 
 	vty->mgmt_req_id++;
 
 	if (mgmt_fe_send_get_data_req(mgmt_fe_client, vty->mgmt_session_id,
-				      vty->mgmt_req_id, intern_format, xpath)) {
+				      vty->mgmt_req_id, intern_format, flags,
+				      xpath)) {
 		zlog_err("Failed to send GET-DATA to MGMTD session-id: %" PRIu64
 			 " req-id %" PRIu64 ".",
 			 vty->mgmt_session_id, vty->mgmt_req_id);

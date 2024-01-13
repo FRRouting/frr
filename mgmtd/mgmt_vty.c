@@ -251,17 +251,23 @@ DEFPY(show_mgmt_get_config, show_mgmt_get_config_cmd,
 }
 
 DEFPY(show_mgmt_get_data, show_mgmt_get_data_cmd,
-      "show mgmt get-data WORD$path [json|xml]$fmt",
+      "show mgmt get-data WORD$path [with-config|only-config]$content [json|xml]$fmt",
       SHOW_STR
       MGMTD_STR
       "Get a data from the operational datastore\n"
       "XPath expression specifying the YANG data root\n"
+      "Include \"config true\" data\n"
+      "Get only \"config true\" data\n"
       "JSON output format\n"
       "XML output format\n")
 {
 	LYD_FORMAT format = (fmt && fmt[0] == 'x') ? LYD_XML : LYD_JSON;
 	int plen = strlen(path);
 	char *xpath = NULL;
+	uint8_t flags = content ? GET_DATA_FLAG_CONFIG : GET_DATA_FLAG_STATE;
+
+	if (content && content[0] == 'w')
+		flags |= GET_DATA_FLAG_STATE;
 
 	/* get rid of extraneous trailing slash-* or single '/' unless root */
 	if (plen > 2 && ((path[plen - 2] == '/' && path[plen - 1] == '*') ||
@@ -272,7 +278,7 @@ DEFPY(show_mgmt_get_data, show_mgmt_get_data_cmd,
 		path = xpath;
 	}
 
-	vty_mgmt_send_get_data_req(vty, format, path);
+	vty_mgmt_send_get_data_req(vty, format, flags, path);
 
 	if (xpath)
 		XFREE(MTYPE_TMP, xpath);

@@ -233,16 +233,22 @@ _Static_assert(sizeof(struct mgmt_msg_tree_data) ==
 		       offsetof(struct mgmt_msg_tree_data, result),
 	       "Size mismatch");
 
+/* Flags for get-data request */
+#define GET_DATA_FLAG_STATE	0x01	/* get only "config false" data */
+#define GET_DATA_FLAG_CONFIG	0x02	/* get only "config true" data */
+
 /**
  * struct mgmt_msg_get_data - frontend get-data request.
  *
  * @result_type: ``LYD_FORMAT`` for the returned result.
+ * @flags: combination of ``GET_DATA_FLAG_*`` flags.
  * @xpath: the query for the data to return.
  */
 struct mgmt_msg_get_data {
 	struct mgmt_msg_header;
 	uint8_t result_type;
-	uint8_t resv2[7];
+	uint8_t flags;
+	uint8_t resv2[6];
 
 	alignas(8) char xpath[];
 };

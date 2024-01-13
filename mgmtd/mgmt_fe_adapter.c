@@ -1181,7 +1181,7 @@ static void fe_adapter_handle_get_data(struct mgmt_fe_session_ctx *session,
 	darr_free(snodes);
 
 	clients = mgmt_be_interested_clients(msg->xpath, false);
-	if (!clients) {
+	if (!clients && !CHECK_FLAG(msg->flags, GET_DATA_FLAG_CONFIG)) {
 		MGMTD_FE_ADAPTER_DBG("No backends provide xpath: %s for txn-id: %" PRIu64
 				     " session-id: %" PRIu64,
 				     msg->xpath, session->txn_id,
@@ -1207,8 +1207,8 @@ static void fe_adapter_handle_get_data(struct mgmt_fe_session_ctx *session,
 
 	/* Create a GET-TREE request under the transaction */
 	ret = mgmt_txn_send_get_tree_oper(session->txn_id, req_id, clients,
-					  msg->result_type, simple_xpath,
-					  msg->xpath);
+					  msg->result_type, msg->flags,
+					  simple_xpath, msg->xpath);
 	if (ret) {
 		/* destroy the just created txn */
 		mgmt_destroy_txn(&session->txn_id);
