@@ -515,8 +515,18 @@ static enum nb_error nb_op_ys_init_node_infos(struct nb_op_yield_state *ys)
 
 	/* Move up to the container if on a leaf currently. */
 	if (node &&
-	    !CHECK_FLAG(node->schema->nodetype, LYS_CONTAINER | LYS_LIST))
+	    !CHECK_FLAG(node->schema->nodetype, LYS_CONTAINER | LYS_LIST)) {
+		struct lyd_node *leaf = node;
+
 		node = &node->parent->node;
+
+		/*
+		 * If the leaf is not a key, delete it, because it has a wrong
+		 *  empty value.
+		 */
+		if (!lysc_is_key(leaf->schema))
+			lyd_free_tree(leaf);
+	}
 	assert(!node ||
 	       CHECK_FLAG(node->schema->nodetype, LYS_CONTAINER | LYS_LIST));
 	if (!node)
