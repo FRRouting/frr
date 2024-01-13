@@ -8,6 +8,7 @@
 
 #include <zebra.h>
 #include "lib/version.h"
+#include "affinitymap.h"
 #include "routemap.h"
 #include "filter.h"
 #include "libfrr.h"
@@ -141,20 +142,17 @@ static struct frr_signal_t mgmt_signals[] = {
 extern const struct frr_yang_module_info frr_staticd_info;
 #endif
 
-
 /*
  * These are stub info structs that are used to load the modules used by backend
  * clients into mgmtd. The modules are used by libyang in order to support
  * parsing binary data returns from the backend.
+ *
+ * These are only needed if `cli_show` commands are not defined for the module.
+ * When `cli_show` callbacks are defined then the non-stub frr_yang_module_info
+ * that contains pointers to them should be included here instead.
  */
 const struct frr_yang_module_info zebra_info = {
 	.name = "frr-zebra",
-	.ignore_cfg_cbs = true,
-	.nodes = { { .xpath = NULL } },
-};
-
-const struct frr_yang_module_info affinity_map_info = {
-	.name = "frr-affinity-map",
 	.ignore_cfg_cbs = true,
 	.nodes = { { .xpath = NULL } },
 };
@@ -170,6 +168,7 @@ const struct frr_yang_module_info zebra_route_map_info = {
  * MGMTd.
  */
 static const struct frr_yang_module_info *const mgmt_yang_modules[] = {
+	&frr_affinity_map_cli_info,
 	&frr_filter_info,
 	&frr_interface_info,
 	&frr_route_map_info,
@@ -181,7 +180,6 @@ static const struct frr_yang_module_info *const mgmt_yang_modules[] = {
 	 */
 
 	&zebra_info,
-	&affinity_map_info,
 	&zebra_route_map_info,
 
 #ifdef HAVE_STATICD
@@ -252,9 +250,6 @@ int main(int argc, char **argv)
 
 	/* VRF commands initialization. */
 	vrf_cmd_init(NULL);
-
-	/* Interface commands initialization. */
-	if_cmd_init(NULL);
 
 	/* MGMTD related initialization.  */
 	mgmt_init();

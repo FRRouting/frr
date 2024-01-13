@@ -40,7 +40,8 @@ static bool isis_affinity_map_check_use(const char *affmap_name)
 	return false;
 }
 
-static void isis_affinity_map_update(const char *affmap_name, uint16_t old_pos,
+static void isis_affinity_map_update(const struct lyd_node *dnode,
+				     const char *affmap_name, uint16_t old_pos,
 				     uint16_t new_pos)
 {
 	struct isis *isis = isis_lookup_by_vrfid(VRF_DEFAULT);
@@ -88,8 +89,6 @@ static void isis_affinity_map_update(const char *affmap_name, uint16_t old_pos,
 
 void isis_affinity_map_init(void)
 {
-	affinity_map_init();
-
 	affinity_map_set_check_use_hook(isis_affinity_map_check_use);
 	affinity_map_set_update_hook(isis_affinity_map_update);
 }

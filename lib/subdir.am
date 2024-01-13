@@ -9,7 +9,6 @@ lib_libfrr_la_LIBADD = $(LIBCAP) $(UNWIND_LIBS) $(LIBYANG_LIBS) $(LUA_LIB) $(UST
 lib_libfrr_la_SOURCES = \
 	lib/admin_group.c \
 	lib/affinitymap.c \
-	lib/affinitymap_cli.c \
 	lib/affinitymap_northbound.c \
 	lib/agg_table.c \
 	lib/atomlist.c \

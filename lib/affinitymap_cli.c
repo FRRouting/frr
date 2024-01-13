@@ -30,13 +30,19 @@
 #include "lib/affinitymap.h"
 #include "lib/affinitymap_cli_clippy.c"
 
-/* Route map node structure. */
-static int affinity_map_config_write(struct vty *vty);
-static struct cmd_node affinitymap_node = {
-	.name = "affinity-map",
-	.node = AFFMAP_NODE,
-	.prompt = "",
-	.config_write = affinity_map_config_write,
+/* clang-format off */
+const struct frr_yang_module_info frr_affinity_map_cli_info = {
+	.name = "frr-affinity-map",
+	.ignore_cfg_cbs = true,
+	.nodes = {
+		{
+			.xpath = "/frr-affinity-map:lib/affinity-maps/affinity-map",
+			.cbs.cli_show = cli_show_affinity_map,
+		},
+		{
+			.xpath = NULL,
+		},
+	}
 };
 
 /* max value is EXT_ADMIN_GROUP_MAX_POSITIONS - 1 */
@@ -75,20 +81,6 @@ DEFPY_YANG_NOSH(no_affinity_map, no_affinity_map_cmd,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-static int affinity_map_config_write(struct vty *vty)
-{
-	const struct lyd_node *dnode;
-	int written = 0;
-
-	dnode = yang_dnode_get(running_config->dnode, "/frr-affinity-map:lib");
-	if (dnode) {
-		nb_cli_show_dnode_cmds(vty, dnode, false);
-		written = 1;
-	}
-
-	return written;
-}
-
 void cli_show_affinity_map(struct vty *vty, const struct lyd_node *dnode,
 			   bool show_defaults __attribute__((__unused__)))
 {
@@ -101,7 +93,6 @@ void cli_show_affinity_map(struct vty *vty, const struct lyd_node *dnode,
 void affinity_map_init(void)
 {
 	/* CLI commands. */
-	install_node(&affinitymap_node);
 	install_element(CONFIG_NODE, &affinity_map_cmd);
 	install_element(CONFIG_NODE, &no_affinity_map_cmd);
 }

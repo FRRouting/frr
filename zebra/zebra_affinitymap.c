@@ -50,7 +50,8 @@ static bool zebra_affinity_map_check_use(const char *affmap_name)
 	return false;
 }
 
-static bool zebra_affinity_map_check_update(const char *affmap_name,
+static bool zebra_affinity_map_check_update(const struct lyd_node *dnode,
+					    const char *affmap_name,
 					    uint16_t new_pos)
 {
 	char xpath[XPATH_MAXLEN];
@@ -69,25 +70,26 @@ static bool zebra_affinity_map_check_update(const char *affmap_name,
 			snprintf(xpath, sizeof(xpath),
 				 "/frr-interface:lib/interface[name='%s']",
 				 ifp->name);
-			if (!yang_dnode_exists(running_config->dnode, xpath))
+			if (!yang_dnode_exists(dnode, xpath))
 				continue;
 			snprintf(
 				xpath, sizeof(xpath),
 				"/frr-interface:lib/interface[name='%s']/frr-zebra:zebra/link-params/affinities[affinity='%s']",
 				ifp->name, affmap_name);
-			if (!yang_dnode_exists(running_config->dnode, xpath))
+			if (!yang_dnode_exists(dnode, xpath))
 				continue;
-			if (yang_dnode_get_enum(
-				    running_config->dnode,
-				    "/frr-interface:lib/interface[name='%s']/frr-zebra:zebra/link-params/affinity-mode",
-				    ifp->name) == AFFINITY_MODE_STANDARD)
+			if (yang_dnode_get_enum(dnode,
+						"/frr-interface:lib/interface[name='%s']/frr-zebra:zebra/link-params/affinity-mode",
+						ifp->name) ==
+			    AFFINITY_MODE_STANDARD)
 				return false;
 		}
 	}
 	return true;
 }
 
-static void zebra_affinity_map_update(const char *affmap_name, uint16_t old_pos,
+static void zebra_affinity_map_update(const struct lyd_node *dnode,
+				      const char *affmap_name, uint16_t old_pos,
 				      uint16_t new_pos)
 {
 	struct if_link_params *iflp;
@@ -101,16 +103,16 @@ static void zebra_affinity_map_update(const char *affmap_name, uint16_t old_pos,
 			snprintf(xpath, sizeof(xpath),
 				 "/frr-interface:lib/interface[name='%s']",
 				 ifp->name);
-			if (!yang_dnode_exists(running_config->dnode, xpath))
+			if (!yang_dnode_exists(dnode, xpath))
 				continue;
 			snprintf(
 				xpath, sizeof(xpath),
 				"/frr-interface:lib/interface[name='%s']/frr-zebra:zebra/link-params/affinities[affinity='%s']",
 				ifp->name, affmap_name);
-			if (!yang_dnode_exists(running_config->dnode, xpath))
+			if (!yang_dnode_exists(dnode, xpath))
 				continue;
 			aff_mode = yang_dnode_get_enum(
-				running_config->dnode,
+				dnode,
 				"/frr-interface:lib/interface[name='%s']/frr-zebra:zebra/link-params/affinity-mode",
 				ifp->name);
 			iflp = if_link_params_get(ifp);
@@ -136,8 +138,6 @@ static void zebra_affinity_map_update(const char *affmap_name, uint16_t old_pos,
 
 void zebra_affinity_map_init(void)
 {
-	affinity_map_init();
-
 	affinity_map_set_check_use_hook(zebra_affinity_map_check_use);
 	affinity_map_set_check_update_hook(zebra_affinity_map_check_update);
 	affinity_map_set_update_hook(zebra_affinity_map_update);

@@ -61,3 +61,8 @@ nodist_mgmtd_mgmtd_SOURCES += \
 	# end
 nodist_mgmtd_libmgmt_be_nb_la_SOURCES += staticd/static_vty.c
 endif
+
+# Unconditionally YANG support
+
+nodist_mgmtd_mgmtd_SOURCES += yang/frr-affinity-map.yang.c
+mgmtd_libmgmtd_a_SOURCES += lib/affinitymap_cli.c

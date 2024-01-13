@@ -58,6 +58,15 @@ struct mgmt_be_xpath_map {
  * Each client gets their own map, but also union all the strings into the
  * above map as well.
  */
+
+
+static const char *const zebra_config_xpaths[] = {
+	"/frr-affinity-map:lib/affinity-maps/affinity-map",
+	"/frr-interface:lib",
+	"/frr-vrf:lib",
+	NULL,
+};
+
 #if HAVE_STATICD
 static const char *const staticd_config_xpaths[] = {
 	"/frr-vrf:lib",
@@ -68,6 +77,7 @@ static const char *const staticd_config_xpaths[] = {
 #endif
 
 static const char *const *be_client_config_xpaths[MGMTD_BE_CLIENT_ID_MAX] = {
+	[MGMTD_BE_CLIENT_ID_ZEBRA] = zebra_config_xpaths,
 #ifdef HAVE_STATICD
 	[MGMTD_BE_CLIENT_ID_STATICD] = staticd_config_xpaths,
 #endif

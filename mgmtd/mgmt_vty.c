@@ -8,6 +8,7 @@
 
 #include <zebra.h>
 
+#include "affinitymap.h"
 #include "command.h"
 #include "json.h"
 #include "network.h"
@@ -566,6 +567,8 @@ void mgmt_vty_init(void)
 	 * backend components that are moved to new MGMTD infra
 	 * here one by one.
 	 */
+	affinity_map_init();
+	if_cmd_init(NULL);
 #if HAVE_STATICD
 	extern void static_vty_init(void);
 	static_vty_init();

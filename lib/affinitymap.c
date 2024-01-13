@@ -128,15 +128,18 @@ bool affinity_map_check_use_hook(const char *affmap_name)
 	return false;
 }
 
-bool affinity_map_check_update_hook(const char *affmap_name, uint16_t new_pos)
+bool affinity_map_check_update_hook(const struct lyd_node *dnode,
+				    const char *affmap_name, uint16_t new_pos)
 {
 	if (affinity_map_master.check_update_hook)
-		return (*affinity_map_master.check_update_hook)(affmap_name,
+		return (*affinity_map_master.check_update_hook)(dnode,
+								affmap_name,
 								new_pos);
 	return true;
 }
 
-void affinity_map_update_hook(const char *affmap_name, uint16_t new_pos)
+void affinity_map_update_hook(const struct lyd_node *dnode,
+			      const char *affmap_name, uint16_t new_pos)
 {
 	struct affinity_map *map;
 
@@ -149,8 +152,8 @@ void affinity_map_update_hook(const char *affmap_name, uint16_t new_pos)
 		/* Affinity-map creation */
 		return;
 
-	(*affinity_map_master.update_hook)(affmap_name, map->bit_position,
-					   new_pos);
+	(*affinity_map_master.update_hook)(dnode, affmap_name,
+					   map->bit_position, new_pos);
 }
 
 
@@ -159,13 +162,15 @@ void affinity_map_set_check_use_hook(bool (*func)(const char *affmap_name))
 	affinity_map_master.check_use_hook = func;
 }
 
-void affinity_map_set_check_update_hook(bool (*func)(const char *affmap_name,
+void affinity_map_set_check_update_hook(bool (*func)(const struct lyd_node *dnode,
+						     const char *affmap_name,
 						     uint16_t new_pos))
 {
 	affinity_map_master.check_update_hook = func;
 }
 
-void affinity_map_set_update_hook(void (*func)(const char *affmap_name,
+void affinity_map_set_update_hook(void (*func)(const struct lyd_node *dnode,
+					       const char *affmap_name,
 					       uint16_t old_pos,
 					       uint16_t new_pos))
 {
