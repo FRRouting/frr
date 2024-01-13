@@ -4105,23 +4105,23 @@ int vty_mgmt_send_get_req(struct vty *vty, bool is_config,
 	return 0;
 }
 
-int vty_mgmt_send_get_tree_req(struct vty *vty, LYD_FORMAT result_type,
+int vty_mgmt_send_get_data_req(struct vty *vty, LYD_FORMAT result_type,
 			       const char *xpath)
 {
 	LYD_FORMAT intern_format = result_type;
 
 	vty->mgmt_req_id++;
 
-	if (mgmt_fe_send_get_tree_req(mgmt_fe_client, vty->mgmt_session_id,
+	if (mgmt_fe_send_get_data_req(mgmt_fe_client, vty->mgmt_session_id,
 				      vty->mgmt_req_id, intern_format, xpath)) {
-		zlog_err("Failed to send GET-TREE to MGMTD session-id: %" PRIu64
+		zlog_err("Failed to send GET-DATA to MGMTD session-id: %" PRIu64
 			 " req-id %" PRIu64 ".",
 			 vty->mgmt_session_id, vty->mgmt_req_id);
-		vty_out(vty, "Failed to send GET-TREE to MGMTD!\n");
+		vty_out(vty, "Failed to send GET-DATA to MGMTD!\n");
 		return -1;
 	}
 
-	vty->mgmt_req_pending_cmd = "MESSAGE_GET_TREE_REQ";
+	vty->mgmt_req_pending_cmd = "MESSAGE_GET_DATA_REQ";
 	vty->mgmt_req_pending_data = result_type;
 
 	return 0;

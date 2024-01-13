@@ -306,25 +306,25 @@ int mgmt_fe_send_regnotify_req(struct mgmt_fe_client *client,
 }
 
 /*
- * Send get-tree request.
+ * Send get-data request.
  */
-int mgmt_fe_send_get_tree_req(struct mgmt_fe_client *client,
+int mgmt_fe_send_get_data_req(struct mgmt_fe_client *client,
 			      uint64_t session_id, uint64_t req_id,
 			      LYD_FORMAT result_type, const char *xpath)
 {
-	struct mgmt_msg_get_tree *msg;
+	struct mgmt_msg_get_data *msg;
 	size_t xplen = strlen(xpath);
 	int ret;
 
-	msg = mgmt_msg_native_alloc_msg(struct mgmt_msg_get_tree, xplen + 1,
-					MTYPE_MSG_NATIVE_GET_TREE);
+	msg = mgmt_msg_native_alloc_msg(struct mgmt_msg_get_data, xplen + 1,
+					MTYPE_MSG_NATIVE_GET_DATA);
 	msg->refer_id = session_id;
 	msg->req_id = req_id;
-	msg->code = MGMT_MSG_CODE_GET_TREE;
+	msg->code = MGMT_MSG_CODE_GET_DATA;
 	msg->result_type = result_type;
 	strlcpy(msg->xpath, xpath, xplen + 1);
 
-	MGMTD_FE_CLIENT_DBG("Sending GET_TREE_REQ session-id %" PRIu64
+	MGMTD_FE_CLIENT_DBG("Sending GET_DATA_REQ session-id %" PRIu64
 			    " req-id %" PRIu64 " xpath: %s",
 			    session_id, req_id, xpath);
 

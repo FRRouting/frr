@@ -272,7 +272,7 @@ DEFPY(show_mgmt_get_data, show_mgmt_get_data_cmd,
 		path = xpath;
 	}
 
-	vty_mgmt_send_get_tree_req(vty, format, path);
+	vty_mgmt_send_get_data_req(vty, format, path);
 
 	if (xpath)
 		XFREE(MTYPE_TMP, xpath);
