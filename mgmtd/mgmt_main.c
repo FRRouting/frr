@@ -25,7 +25,6 @@ static const struct option longopts[] = {
 	{0}};
 
 static void mgmt_exit(int);
-static void mgmt_vrf_terminate(void);
 
 /* privileges */
 static zebra_capabilities_t _caps_p[] = {ZCAP_BIND, ZCAP_NET_RAW,
@@ -114,8 +113,6 @@ static __attribute__((__noreturn__)) void mgmt_exit(int status)
 	/* stop pthreads (if any) */
 	frr_pthread_stop_all();
 
-	mgmt_vrf_terminate();
-
 	frr_fini();
 	exit(status);
 }
@@ -138,52 +135,6 @@ static struct frr_signal_t mgmt_signals[] = {
 		.handler = &sigint,
 	},
 };
-
-static int mgmt_vrf_new(struct vrf *vrf)
-{
-	zlog_debug("VRF Created: %s(%u)", vrf->name, vrf->vrf_id);
-
-	return 0;
-}
-
-static int mgmt_vrf_delete(struct vrf *vrf)
-{
-	zlog_debug("VRF Deletion: %s(%u)", vrf->name, vrf->vrf_id);
-
-	return 0;
-}
-
-static int mgmt_vrf_enable(struct vrf *vrf)
-{
-	zlog_debug("VRF Enable: %s(%u)", vrf->name, vrf->vrf_id);
-
-	return 0;
-}
-
-static int mgmt_vrf_disable(struct vrf *vrf)
-{
-	zlog_debug("VRF Disable: %s(%u)", vrf->name, vrf->vrf_id);
-
-	/* Note: This is a callback, the VRF will be deleted by the caller. */
-	return 0;
-}
-
-static int mgmt_vrf_config_write(struct vty *vty)
-{
-	return 0;
-}
-
-static void mgmt_vrf_init(void)
-{
-	vrf_init(mgmt_vrf_new, mgmt_vrf_enable, mgmt_vrf_disable,
-		 mgmt_vrf_delete);
-	vrf_cmd_init(mgmt_vrf_config_write);
-}
-
-static void mgmt_vrf_terminate(void)
-{
-	vrf_terminate();
-}
 
 #ifdef HAVE_STATICD
 extern const struct frr_yang_module_info frr_staticd_info;
@@ -295,8 +246,8 @@ int main(int argc, char **argv)
 	/* MGMTD master init. */
 	mgmt_master_init(frr_init(), buffer_size);
 
-	/* VRF Initializations. */
-	mgmt_vrf_init();
+	/* VRF commands initialization. */
+	vrf_cmd_init(NULL);
 
 	/* MGMTD related initialization.  */
 	mgmt_init();
