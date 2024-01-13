@@ -1,0 +1,14 @@
+{
+  "frr-interface:lib": {
+    "interface": [
+      {
+        "name": "r1-eth0",
+        "description": "r1-eth0-desc"
+      },
+      {
+        "name": "r1-eth1",
+        "description": "r1-eth1-desc"
+      }
+    ]
+  }
+}

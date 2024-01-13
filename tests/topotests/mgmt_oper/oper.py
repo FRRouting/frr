@@ -66,7 +66,7 @@ def do_oper_test(tgen, query_results):
     r1 = tgen.gears["r1"].net
 
     qcmd = (
-        r"vtysh -c 'show mgmt get-data {}' "
+        r"vtysh -c 'show mgmt get-data {} {}' "
         r"""| sed -e 's/"phy-address": ".*"/"phy-address": "rubout"/'"""
         r"""| sed -e 's/"uptime": ".*"/"uptime": "rubout"/'"""
         r"""| sed -e 's/"vrf": "[0-9]*"/"vrf": "rubout"/'"""
@@ -81,7 +81,7 @@ def do_oper_test(tgen, query_results):
         if doreset:
             doreset = False
         expected = open(qr[1], encoding="ascii").read()
-        output = r1.cmd_nostatus(qcmd.format(qr[0]))
+        output = r1.cmd_nostatus(qcmd.format(qr[0], qr[2] if len(qr) > 2 else ""))
 
         try:
             ojson = json.loads(output)
