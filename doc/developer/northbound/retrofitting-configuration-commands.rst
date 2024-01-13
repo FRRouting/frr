@@ -1,3 +1,6 @@
+
+.. _nb-retrofit:
+
 Retrofitting Configuration Commands
 -----------------------------------
 
