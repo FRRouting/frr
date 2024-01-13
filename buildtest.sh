@@ -37,9 +37,10 @@ trap errfunc ERR
 
 COMMITREF="$1"
 COMMITISH="`git rev-list --max-count=1 ${COMMITREF:-HEAD}`"
-TEMP="`mktemp -t -d frrbuild.XXXXXX`"
+TEMP="`mktemp -d -t frrbuild.XXXXXX`"
 BASE="`pwd`"
 CONFIGS="$2"
+MAKE="${MAKE:-make}"
 
 echo using temporary directory: $TEMP
 echo git commit used:
@@ -59,7 +60,7 @@ echo -e "\n\n\n\n\033[33;1mmaking dist tarball\033[m"
 mkdir build_dist
 cd build_dist
 ../source/configure
-make distdir=sdist dist-gzip
+${MAKE} distdir=sdist dist-gzip
 cd ..
 tar zxvf build_dist/sdist.tar.gz
 
@@ -79,9 +80,9 @@ for cfg in ${CONFIGS:-$defconfigs}; do
 	mkdir "$bdir"
 	cd "$bdir"
 	../sdist/configure $args
-	make -j5
-	make check
-	make DESTDIR="$TEMP/inst_$cfg" install
+	${MAKE} -j5
+	${MAKE} check
+	${MAKE} DESTDIR="$TEMP/inst_$cfg" install
 	cd ..
 done
 
