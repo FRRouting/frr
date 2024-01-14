@@ -50,7 +50,8 @@ Besides the common invocation options (:ref:`common-invocation-options`), the
    When *Zebra* starts with this option, the VRF backend is based on Linux
    network namespaces. That implies that all network namespaces discovered by
    ZEBRA will create an associated VRF. The other daemons will operate on the VRF
-   VRF defined by *Zebra*, as usual.
+   VRF defined by *Zebra*, as usual. If this option is specified when running
+   *Zebra*, one must also specify the same option for *mgmtd*.
 
    .. seealso:: :ref:`zebra-vrf`
 
