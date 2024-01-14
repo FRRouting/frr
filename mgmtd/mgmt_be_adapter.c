@@ -59,7 +59,7 @@ struct mgmt_be_xpath_map {
  * above map as well.
  */
 #if HAVE_STATICD
-static const char *const staticd_xpaths[] = {
+static const char *const staticd_config_xpaths[] = {
 	"/frr-vrf:lib",
 	"/frr-interface:lib",
 	"/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-staticd:staticd",
@@ -67,10 +67,9 @@ static const char *const staticd_xpaths[] = {
 };
 #endif
 
-static const char *const *be_client_xpaths[MGMTD_BE_CLIENT_ID_MAX] = {
-
+static const char *const *be_client_config_xpaths[MGMTD_BE_CLIENT_ID_MAX] = {
 #ifdef HAVE_STATICD
-	[MGMTD_BE_CLIENT_ID_STATICD] = staticd_xpaths,
+	[MGMTD_BE_CLIENT_ID_STATICD] = staticd_config_xpaths,
 #endif
 };
 
@@ -190,7 +189,7 @@ static void mgmt_be_xpath_map_init(void)
 
 	FOREACH_MGMTD_BE_CLIENT_ID (id) {
 		/* Initialize the common config init map */
-		for (init = be_client_xpaths[id]; init && *init; init++) {
+		for (init = be_client_config_xpaths[id]; init && *init; init++) {
 			MGMTD_BE_ADAPTER_DBG(" - CFG XPATH: '%s'", *init);
 			mgmt_register_client_xpath(id, *init, true);
 		}
@@ -843,7 +842,8 @@ static bool be_is_client_interested(const char *xpath,
 	MGMTD_BE_ADAPTER_DBG("Checking client: %s for xpath: '%s'",
 			     mgmt_be_client_id2name(id), xpath);
 
-	xpaths = config ? be_client_xpaths[id] : be_client_oper_xpaths[id];
+	xpaths = config ? be_client_config_xpaths[id]
+			: be_client_oper_xpaths[id];
 	if (xpaths) {
 		for (; *xpaths; xpaths++) {
 			if (mgmt_be_xpath_prefix(*xpaths, xpath)) {
