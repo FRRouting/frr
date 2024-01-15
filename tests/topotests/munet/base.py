@@ -1234,8 +1234,14 @@ class Commander:  # pylint: disable=R0904
         else:
             # This is the command to execute to be inside the namespace.
             # We are getting into trouble with quoting.
-            # Why aren't we passing in MUNET_RUNDIR?
-            cmd = f"/usr/bin/env MUNET_NODENAME={self.name} {cmd}"
+            envvars = f"MUNET_NODENAME={self.name} NODENAME={self.name}"
+            if hasattr(self, "rundir"):
+                envvars += f" RUNDIR={self.rundir}"
+            if self.unet.config_dirname:
+                envvars += f" CONFIGDIR={self.unet.config_dirname}"
+            elif "CONFIGDIR" in os.environ:
+                envvars += f" CONFIGDIR={os.environ['CONFIGDIR']}"
+            cmd = f"/usr/bin/env {envvars} {cmd}"
             # We need sudo b/c we are executing as the user inside the window system.
             sudo_path = get_exec_path_host(["sudo"])
             nscmd = (
@@ -1931,18 +1937,19 @@ class LinuxNamespace(Commander, InterfaceMixin):
             assert unet is None
             self.uflags = uflags
             #
-            # Open file descriptors for current namespaces for later resotration.
+            # Open file descriptors for current namespaces for later restoration.
             #
             try:
+                # pidfd_open is actually present in 5.4, is this 5.8 check for another
+                # aspect of what the pidfd_open code is relying on, something in the
+                # namespace code? If not we can simply check for os.pidfd_open() being
+                # present as our compat module linux.py runtime patches it in if
+                # supported by the kernel.
                 kversion = [int(x) for x in platform.release().split("-")[0].split(".")]
                 kvok = kversion[0] > 5 or (kversion[0] == 5 and kversion[1] >= 8)
             except ValueError:
                 kvok = False
-            if (
-                not kvok
-                or sys.version_info[0] < 3
-                or (sys.version_info[0] == 3 and sys.version_info[1] < 9)
-            ):
+            if not kvok:
                 # get list of namespace file descriptors before we unshare
                 self.p_ns_fds = []
                 self.p_ns_fnames = []

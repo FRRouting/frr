@@ -132,8 +132,17 @@ def pidfd_open(pid, flags=0):
     return fd
 
 
+# Runtime patch if kernel supports the call.
 if not hasattr(os, "pidfd_open"):
-    os.pidfd_open = pidfd_open
+    try:
+        import platform
+
+        kversion = [int(x) for x in platform.release().split("-")[0].split(".")]
+        kvok = kversion[0] > 5 or (kversion[0] == 5 and kversion[1] >= 4)
+    except ValueError:
+        kvok = False
+    if kvok:
+        os.pidfd_open = pidfd_open
 
 
 def setns(fd, nstype):  # noqa: D402
