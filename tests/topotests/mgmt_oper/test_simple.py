@@ -112,6 +112,31 @@ def test_oper_simple(tgen):
             'route[prefix="1.1.1.0/24"]/route-entry[protocol="connected"]/metric',
             "simple-results/result-singleton-metric.json",
         ),
+        (
+            '/frr-interface:lib/interface[name="r1-eth0"]',
+            "simple-results/result-intf-eth0-with-config.json",
+            "with-config",
+        ),
+        (
+            '/frr-interface:lib/interface[name="r1-eth0"]',
+            "simple-results/result-intf-eth0-only-config.json",
+            "only-config",
+        ),
+        (
+            "/frr-interface:lib/interface/description",
+            "simple-results/result-intf-description.json",
+            "with-config",
+        ),
+        (
+            '/frr-interface:lib/interface[name="r1-eth0"]',
+            "simple-results/result-intf-eth0-exact.json",
+            "exact",
+        ),
+        (
+            '/frr-interface:lib/interface[name="r1-eth0"]/description',
+            "simple-results/result-intf-eth0-description-exact.json",
+            "with-config exact",
+        ),
         # Interface state
         (
             '/frr-interface:lib/interface[name="r1-eth0"]/state',

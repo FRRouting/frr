@@ -1132,15 +1132,15 @@ done:
 }
 
 /**
- * fe_adapter_handle_get_tree() - Handle a get-tree message from a FE client.
+ * fe_adapter_handle_get_data() - Handle a get-tree message from a FE client.
  * @session: the client session.
  * @msg_raw: the message data.
  * @msg_len: the length of the message data.
  */
-static void fe_adapter_handle_get_tree(struct mgmt_fe_session_ctx *session,
+static void fe_adapter_handle_get_data(struct mgmt_fe_session_ctx *session,
 				       void *__msg, size_t msg_len)
 {
-	struct mgmt_msg_get_tree *msg = __msg;
+	struct mgmt_msg_get_data *msg = __msg;
 	struct lysc_node **snodes = NULL;
 	char *xpath_resolved = NULL;
 	uint64_t req_id = msg->req_id;
@@ -1149,7 +1149,7 @@ static void fe_adapter_handle_get_tree(struct mgmt_fe_session_ctx *session,
 	LY_ERR err;
 	int ret;
 
-	MGMTD_FE_ADAPTER_DBG("Received get-tree request from client %s for session-id %" PRIu64
+	MGMTD_FE_ADAPTER_DBG("Received get-data request from client %s for session-id %" PRIu64
 			     " req-id %" PRIu64,
 			     session->adapter->name, session->session_id,
 			     msg->req_id);
@@ -1181,7 +1181,7 @@ static void fe_adapter_handle_get_tree(struct mgmt_fe_session_ctx *session,
 	darr_free(snodes);
 
 	clients = mgmt_be_interested_clients(msg->xpath, false);
-	if (!clients) {
+	if (!clients && !CHECK_FLAG(msg->flags, GET_DATA_FLAG_CONFIG)) {
 		MGMTD_FE_ADAPTER_DBG("No backends provide xpath: %s for txn-id: %" PRIu64
 				     " session-id: %" PRIu64,
 				     msg->xpath, session->txn_id,
@@ -1207,8 +1207,8 @@ static void fe_adapter_handle_get_tree(struct mgmt_fe_session_ctx *session,
 
 	/* Create a GET-TREE request under the transaction */
 	ret = mgmt_txn_send_get_tree_oper(session->txn_id, req_id, clients,
-					  msg->result_type, simple_xpath,
-					  msg->xpath);
+					  msg->result_type, msg->flags,
+					  simple_xpath, msg->xpath);
 	if (ret) {
 		/* destroy the just created txn */
 		mgmt_destroy_txn(&session->txn_id);
@@ -1238,8 +1238,8 @@ static void fe_adapter_handle_native_msg(struct mgmt_fe_client_adapter *adapter,
 	assert(session->adapter == adapter);
 
 	switch (msg->code) {
-	case MGMT_MSG_CODE_GET_TREE:
-		fe_adapter_handle_get_tree(session, msg, msg_len);
+	case MGMT_MSG_CODE_GET_DATA:
+		fe_adapter_handle_get_data(session, msg, msg_len);
 		break;
 	default:
 		MGMTD_FE_ADAPTER_ERR("unknown native message session-id %" PRIu64

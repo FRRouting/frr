@@ -87,6 +87,7 @@ def setup_module(mod):
         router.net.set_intf_netns(rname + "-eth0", ns, up=True)
         router.net.set_intf_netns(rname + "-eth1", ns, up=True)
 
+        router.load_config(TopoRouter.RD_MGMTD, None, "--vrfwnetns")
         router.load_config(
             TopoRouter.RD_ZEBRA,
             os.path.join(CWD, "{}/zebra.conf".format(rname)),

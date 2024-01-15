@@ -22,6 +22,7 @@ static const struct option longopts[] = {
 	{"skip_runas", no_argument, NULL, 'S'},
 	{"no_zebra", no_argument, NULL, 'Z'},
 	{"socket_size", required_argument, NULL, 's'},
+	{"vrfwnetns", no_argument, NULL, 'n'},
 	{0}};
 
 static void mgmt_exit(int);
@@ -237,6 +238,9 @@ int main(int argc, char **argv)
 		case 's':
 			buffer_size = atoi(optarg);
 			break;
+		case 'n':
+			vrf_configure_backend(VRF_BACKEND_NETNS);
+			break;
 		default:
 			frr_help_exit(1);
 			break;
@@ -248,6 +252,9 @@ int main(int argc, char **argv)
 
 	/* VRF commands initialization. */
 	vrf_cmd_init(NULL);
+
+	/* Interface commands initialization. */
+	if_cmd_init(NULL);
 
 	/* MGMTD related initialization.  */
 	mgmt_init();

@@ -142,6 +142,7 @@ DECLARE_MTYPE(MSG_NATIVE_MSG);
 DECLARE_MTYPE(MSG_NATIVE_ERROR);
 DECLARE_MTYPE(MSG_NATIVE_GET_TREE);
 DECLARE_MTYPE(MSG_NATIVE_TREE_DATA);
+DECLARE_MTYPE(MSG_NATIVE_GET_DATA);
 
 /*
  * Native message codes
@@ -149,6 +150,7 @@ DECLARE_MTYPE(MSG_NATIVE_TREE_DATA);
 #define MGMT_MSG_CODE_ERROR	0
 #define MGMT_MSG_CODE_GET_TREE	1
 #define MGMT_MSG_CODE_TREE_DATA 2
+#define MGMT_MSG_CODE_GET_DATA	3
 
 /**
  * struct mgmt_msg_header - Header common to all native messages.
@@ -193,7 +195,7 @@ _Static_assert(sizeof(struct mgmt_msg_error) ==
 	       "Size mismatch");
 
 /**
- * struct mgmt_msg_get_tree - Message carrying xpath query request.
+ * struct mgmt_msg_get_tree - backend oper data request.
  *
  * @result_type: ``LYD_FORMAT`` for the returned result.
  * @xpath: the query for the data to return.
@@ -229,6 +231,30 @@ struct mgmt_msg_tree_data {
 };
 _Static_assert(sizeof(struct mgmt_msg_tree_data) ==
 		       offsetof(struct mgmt_msg_tree_data, result),
+	       "Size mismatch");
+
+/* Flags for get-data request */
+#define GET_DATA_FLAG_STATE	0x01	/* get only "config false" data */
+#define GET_DATA_FLAG_CONFIG	0x02	/* get only "config true" data */
+#define GET_DATA_FLAG_EXACT	0x04	/* get exact data node instead of the full tree */
+
+/**
+ * struct mgmt_msg_get_data - frontend get-data request.
+ *
+ * @result_type: ``LYD_FORMAT`` for the returned result.
+ * @flags: combination of ``GET_DATA_FLAG_*`` flags.
+ * @xpath: the query for the data to return.
+ */
+struct mgmt_msg_get_data {
+	struct mgmt_msg_header;
+	uint8_t result_type;
+	uint8_t flags;
+	uint8_t resv2[6];
+
+	alignas(8) char xpath[];
+};
+_Static_assert(sizeof(struct mgmt_msg_get_data) ==
+		       offsetof(struct mgmt_msg_get_data, xpath),
 	       "Size mismatch");
 
 #define MGMT_MSG_VALIDATE_NUL_TERM(msgp, len)                                  \

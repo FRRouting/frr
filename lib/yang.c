@@ -1089,7 +1089,7 @@ LY_ERR yang_lyd_trim_xpath(struct lyd_node **root, const char *xpath)
 	}
 	return LY_SUCCESS;
 #else
-	struct lyd_node *node;
+	struct lyd_node *node, *sib;
 	struct lyd_node **remove = NULL;
 	struct ly_set *set = NULL;
 	uint32_t i;
@@ -1123,18 +1123,21 @@ LY_ERR yang_lyd_trim_xpath(struct lyd_node **root, const char *xpath)
 	}
 
 	darr_ensure_cap(remove, 128);
-	LYD_TREE_DFS_BEGIN (*root, node) {
-		/*
-		 * If this is a direct matching node then include it's subtree
-		 * which won't be marked and would otherwise be removed.
-		 */
-		if (node->priv == (void *)2)
-			LYD_TREE_DFS_continue = 1;
-		else if (!node->priv) {
-			*darr_append(remove) = node;
-			LYD_TREE_DFS_continue = 1;
+	LY_LIST_FOR(*root, sib) {
+		LYD_TREE_DFS_BEGIN (sib, node) {
+			/*
+			 * If this is a direct matching node then include its
+			 * subtree which won't be marked and would otherwise
+			 * be removed.
+			 */
+			if (node->priv == (void *)2)
+				LYD_TREE_DFS_continue = 1;
+			else if (!node->priv) {
+				*darr_append(remove) = node;
+				LYD_TREE_DFS_continue = 1;
+			}
+			LYD_TREE_DFS_END(sib, node);
 		}
-		LYD_TREE_DFS_END(*root, node);
 	}
 	darr_foreach_i (remove, i) {
 		if (remove[i] == *root)

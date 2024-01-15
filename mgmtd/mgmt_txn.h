@@ -203,6 +203,7 @@ extern int mgmt_txn_send_get_req(uint64_t txn_id, uint64_t req_id,
  *	req_id: FE client request identifier.
  *	clients: Bitmask of clients to send get-tree to.
  *	result_type: LYD_FORMAT result format.
+ *	flags: option flags for the request.
  *	simple_xpath: true if xpath is simple (only key predicates).
  *	xpath: The xpath to get the tree from.
  *
@@ -211,7 +212,8 @@ extern int mgmt_txn_send_get_req(uint64_t txn_id, uint64_t req_id,
  */
 extern int mgmt_txn_send_get_tree_oper(uint64_t txn_id, uint64_t req_id,
 				       uint64_t clients, LYD_FORMAT result_type,
-				       bool simple_xpath, const char *xpath);
+				       uint8_t flags, bool simple_xpath,
+				       const char *xpath);
 
 /*
  * Notifiy backend adapter on connection.
