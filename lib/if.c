@@ -1677,7 +1677,7 @@ lib_interface_state_mtu_get_elem(struct nb_cb_get_elem_args *args)
 {
 	const struct interface *ifp = args->list_entry;
 
-	return yang_data_new_uint16(args->xpath, ifp->mtu);
+	return yang_data_new_uint32(args->xpath, ifp->mtu);
 }
 
 /*
