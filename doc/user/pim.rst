@@ -23,12 +23,11 @@ network for optimizing forwarding of overlay BUM traffic.
 Starting and Stopping pimd
 ==========================
 
-The default configuration file name of *pimd*'s is :file:`pimd.conf`. When
-invoked *pimd* searches directory |INSTALL_PREFIX_ETC|. If
-:file:`pimd.conf` is not there then next search current directory.
+.. include:: config-include.rst
 
-*pimd* requires zebra for proper operation. Additionally *pimd* depends on
-routing properly setup and working in the network that it is working on.
+If starting daemons by hand then please note, *pimd* requires zebra for proper
+operation. Additionally *pimd* depends on routing properly setup and working in
+the network that it is working on.
 
 ::
 

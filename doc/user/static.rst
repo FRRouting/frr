@@ -12,20 +12,12 @@ of static routes.
 Starting STATIC
 ===============
 
-Default configuration file for *staticd* is :file:`staticd.conf`.  The typical
-location of :file:`staticd.conf` is |INSTALL_PREFIX_ETC|/staticd.conf.
-
-If the user is using integrated config, then :file:`staticd.conf` need not be
-present and the :file:`frr.conf` is read instead.
-
-If the user has not fully upgraded to using the staticd.conf and still has
-a non-integrated config with zebra.conf holding the static routes, *staticd*
-will read in the :file:`zebrad.conf` as a backup.
-
 .. program:: staticd
 
 :abbr:`STATIC` supports all the common FRR daemon start options which are
 documented elsewhere.
+
+.. include:: config-include.rst
 
 .. _static-route-commands:
 

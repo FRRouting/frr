@@ -32,8 +32,7 @@ Configuring OSPF
 Therefore *zebra* must be running before invoking *ospfd*. Also, if *zebra* is
 restarted then *ospfd* must be too.
 
-Like other daemons, *ospfd* configuration is done in :abbr:`OSPF` specific
-configuration file :file:`ospfd.conf` when the integrated config is not used.
+.. include:: config-include.rst
 
 .. _ospf-multi-instance:
 

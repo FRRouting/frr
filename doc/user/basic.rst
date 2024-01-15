@@ -11,45 +11,22 @@ The following sections discuss commands common to all the routing daemons.
 Config Commands
 ===============
 
-
-
-
-
-In a config file, you can write the debugging options, a vty's password,
+In the config file, you can write the debugging options, a vty's password,
 routing daemon configurations, a log file name, and so forth. This information
 forms the initial command set for a routing beast as it is starting.
 
-Config files are generally found in |INSTALL_PREFIX_ETC|.
+.. _config-file:
 
-Config Methods
---------------
+Integrated Config File
+----------------------
 
-There are two ways of configuring FRR.
+FRR uses a single configuration file located in |INSTALL_PREFIX_ETC|/frr.conf.
+When FRR is started using an init script or ``systemd``, ``vtysh`` is invoked to
+read the config file and send the appropriate portions to only the daemons
+interested in them. Running configuration updates are persisted back to this
+single file using ``vtysh`` as well.
 
-Traditionally each of the daemons had its own config file. The daemon name plus
-``.conf`` was the default config file name. For example, zebra's default config
-file was :file:`zebra.conf`. This method is deprecated.
-
-Because of the amount of config files this creates, and the tendency of one
-daemon to rely on others for certain functionality, most deployments now use
-"integrated" configuration. In this setup all configuration goes into a single
-file, typically :file:`/etc/frr/frr.conf`. When starting up FRR using an init
-script or systemd, ``vtysh`` is invoked to read the config file and send the
-appropriate portions to only the daemons interested in them. Running
-configuration updates are persisted back to this single file using ``vtysh``.
-This is the recommended method. To use this method, add the following line to
-:file:`/etc/frr/vtysh.conf`:
-
-.. code-block:: frr
-
-   service integrated-vtysh-config
-
-If you installed from source or used a package, this is probably already
-present.
-
-If desired, you can specify a config file using the :option:`-f` or
-:option:`--config_file` options when starting a daemon.
-
+.. include:: prior-config-files.rst
 
 .. _basic-config-commands:
 

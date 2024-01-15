@@ -12,6 +12,8 @@ reincarnation of the RIP protocol.
 Invoking ripngd
 ===============
 
+.. include:: config-include.rst
+
 There are no `ripngd` specific invocation options. Common options can be
 specified (:ref:`common-invocation-options`).
 
