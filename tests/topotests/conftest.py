@@ -17,6 +17,7 @@ from pathlib import Path
 
 import lib.fixtures
 import pytest
+from lib.common_config import generate_support_bundle
 from lib.micronet_compat import Mininet
 from lib.topogen import diagnose_env, get_topogen
 from lib.topolog import get_test_logdir, logger
@@ -26,7 +27,7 @@ from munet.base import Commander, proc_error
 from munet.cleanup import cleanup_current, cleanup_previous
 from munet.config import ConfigOptionsProxy
 from munet.testing.util import pause_test
-from lib.common_config import generate_support_bundle
+
 from lib import topolog, topotest
 
 try:
@@ -598,6 +599,7 @@ def pytest_runtest_setup(item):
     module = item.parent.module
     script_dir = os.path.abspath(os.path.dirname(module.__file__))
     os.environ["PYTEST_TOPOTEST_SCRIPTDIR"] = script_dir
+    os.environ["CONFIGDIR"] = script_dir
 
 
 def pytest_exception_interact(node, call, report):
