@@ -33,6 +33,7 @@
 #include "bgpd/bgp_aspath.h"
 #include "bgpd/bgp_route.h"
 #include "bgpd/bgp_rpki.h"
+#include "bgpd/bgp_debug.h"
 #include "northbound_cli.h"
 
 #include "lib/network.h"
@@ -56,14 +57,19 @@ DEFINE_MTYPE_STATIC(BGPD, BGP_RPKI_REVALIDATE, "BGP RPKI Revalidation");
 static struct event *t_rpki_sync;
 
 #define RPKI_DEBUG(...)                                                        \
-	if (rpki_debug) {                                                      \
+	if (rpki_debug_conf || rpki_debug_term) {                              \
 		zlog_debug("RPKI: " __VA_ARGS__);                              \
 	}
 
 #define RPKI_OUTPUT_STRING "Control rpki specific settings\n"
 
 struct cache {
-	enum { TCP, SSH } type;
+	enum {
+		TCP,
+#if defined(FOUND_SSH)
+		SSH
+#endif
+	} type;
 	struct tr_socket *tr_socket;
 	union {
 		struct tr_tcp_config *tcp_config;
@@ -83,6 +89,7 @@ struct rpki_for_each_record_arg {
 	enum asnotation_mode asnotation;
 };
 
+static int bgp_rpki_write_debug(struct vty *vty, bool running);
 static int start(void);
 static void stop(void);
 static int reset(bool force);
@@ -124,7 +131,7 @@ static bool rtr_is_running;
 static bool rtr_is_stopping;
 static bool rtr_is_synced;
 static _Atomic int rtr_update_overflow;
-static bool rpki_debug;
+static bool rpki_debug_conf, rpki_debug_term;
 static unsigned int polling_period;
 static unsigned int expire_interval;
 static unsigned int retry_interval;
@@ -593,7 +600,8 @@ err:
 
 static int bgp_rpki_init(struct event_loop *master)
 {
-	rpki_debug = false;
+	rpki_debug_conf = false;
+	rpki_debug_term = false;
 	rtr_is_running = false;
 	rtr_is_stopping = false;
 	rtr_is_synced = false;
@@ -627,6 +635,7 @@ static int bgp_rpki_module_init(void)
 	hook_register(bgp_rpki_prefix_status, rpki_validate_prefix);
 	hook_register(frr_late_init, bgp_rpki_init);
 	hook_register(frr_early_fini, bgp_rpki_fini);
+	hook_register(bgp_hook_config_write_debug, &bgp_rpki_write_debug);
 
 	return 0;
 }
@@ -733,7 +742,10 @@ static void print_prefix_table_by_asn(struct vty *vty, as_t as,
 	arg.asnotation = bgp_get_asnotation(bgp_lookup_by_vrf_id(VRF_DEFAULT));
 
 	if (!group) {
-		if (!json)
+		if (json) {
+			json_object_string_add(json, "error", "Cannot find a connected group.");
+			vty_json(vty, json);
+		} else
 			vty_out(vty, "Cannot find a connected group.\n");
 		return;
 	}
@@ -786,7 +798,10 @@ static void print_prefix_table(struct vty *vty, json_object *json)
 	arg.asnotation = bgp_get_asnotation(bgp_lookup_by_vrf_id(VRF_DEFAULT));
 
 	if (!group) {
-		if (!json)
+		if (json) {
+			json_object_string_add(json, "error", "Cannot find a connected group.");
+			vty_json(vty, json);
+		} else
 			vty_out(vty, "Cannot find a connected group.\n");
 		return;
 	}
@@ -1036,13 +1051,30 @@ static void free_cache(struct cache *cache)
 	XFREE(MTYPE_BGP_RPKI_CACHE, cache);
 }
 
+static int bgp_rpki_write_debug(struct vty *vty, bool running)
+{
+	if (rpki_debug_conf && running) {
+		vty_out(vty, "debug rpki\n");
+		return 1;
+	}
+	if ((rpki_debug_conf || rpki_debug_term) && !running) {
+		vty_out(vty, "  BGP RPKI debugging is on\n");
+		return 1;
+	}
+	return 0;
+}
+
 static int config_write(struct vty *vty)
 {
 	struct listnode *cache_node;
 	struct cache *cache;
 
-	if (rpki_debug)
-		vty_out(vty, "debug rpki\n");
+	if (list_isempty(cache_list) &&
+	    polling_period == POLLING_PERIOD_DEFAULT &&
+	    retry_interval == RETRY_INTERVAL_DEFAULT &&
+	    expire_interval == EXPIRE_INTERVAL_DEFAULT)
+		/* do not display the default config values */
+		return 0;
 
 	vty_out(vty, "!\n");
 	vty_out(vty, "rpki\n");
@@ -1077,7 +1109,7 @@ static int config_write(struct vty *vty)
 				ssh_config->client_privkey_path,
 				ssh_config->server_hostkey_path != NULL
 					? ssh_config->server_hostkey_path
-					: " ");
+					: "");
 			if (ssh_config->bindaddr)
 				vty_out(vty, "source %s ",
 					ssh_config->bindaddr);
@@ -1111,6 +1143,10 @@ DEFPY (no_rpki,
 {
 	rpki_delete_all_cache_nodes();
 	stop();
+	polling_period = POLLING_PERIOD_DEFAULT;
+	expire_interval = EXPIRE_INTERVAL_DEFAULT;
+	retry_interval = RETRY_INTERVAL_DEFAULT;
+
 	return CMD_SUCCESS;
 }
 
@@ -1238,6 +1274,7 @@ DEFPY(rpki_cache, rpki_cache_cmd,
 	int return_value;
 	struct listnode *cache_node;
 	struct cache *current_cache;
+	bool init = !!list_isempty(cache_list);
 
 	for (ALL_LIST_ELEMENTS_RO(cache_list, cache_node, current_cache)) {
 		if (current_cache->preference == preference) {
@@ -1269,6 +1306,9 @@ DEFPY(rpki_cache, rpki_cache_cmd,
 		vty_out(vty, "Could not create new rpki cache\n");
 		return CMD_WARNING;
 	}
+
+	if (init)
+		start();
 
 	return CMD_SUCCESS;
 }
@@ -1326,14 +1366,17 @@ DEFPY (show_rpki_prefix_table,
 {
 	struct json_object *json = NULL;
 
+	if (uj)
+		json = json_object_new_object();
+
 	if (!is_synchronized()) {
-		if (!uj)
+		if (json) {
+			json_object_string_add(json, "error", "No Connection to RPKI cache server.");
+			vty_json(vty, json);
+		} else
 			vty_out(vty, "No connection to RPKI cache server.\n");
 		return CMD_WARNING;
 	}
-
-	if (uj)
-		json = json_object_new_object();
 
 	print_prefix_table(vty, json);
 	return CMD_SUCCESS;
@@ -1350,14 +1393,17 @@ DEFPY (show_rpki_as_number,
 {
 	struct json_object *json = NULL;
 
+	if (uj)
+		json = json_object_new_object();
+
 	if (!is_synchronized()) {
-		if (!uj)
+		if (json) {
+			json_object_string_add(json, "error", "No Connection to RPKI cache server.");
+			vty_json(vty, json);
+		} else
 			vty_out(vty, "No Connection to RPKI cache server.\n");
 		return CMD_WARNING;
 	}
-
-	if (uj)
-		json = json_object_new_object();
 
 	print_prefix_table_by_asn(vty, by_asn, json);
 	return CMD_SUCCESS;
@@ -1378,8 +1424,14 @@ DEFPY (show_rpki_prefix,
 	json_object *json_records = NULL;
 	enum asnotation_mode asnotation;
 
+	if (uj)
+		json = json_object_new_object();
+
 	if (!is_synchronized()) {
-		if (!uj)
+		if (json) {
+			json_object_string_add(json, "error", "No Connection to RPKI cache server.");
+			vty_json(vty, json);
+		} else
 			vty_out(vty, "No Connection to RPKI cache server.\n");
 		return CMD_WARNING;
 	}
@@ -1392,7 +1444,10 @@ DEFPY (show_rpki_prefix,
 	memcpy(addr_str, prefix_str, addr_len);
 
 	if (lrtr_ip_str_to_addr(addr_str, &addr) != 0) {
-		if (!json)
+		if (json) {
+			json_object_string_add(json, "error", "Invalid IP prefix.");
+			vty_json(vty, json);
+		} else
 			vty_out(vty, "Invalid IP prefix\n");
 		return CMD_WARNING;
 	}
@@ -1404,13 +1459,14 @@ DEFPY (show_rpki_prefix,
 	if (pfx_table_validate_r(rtr_config->pfx_table, &matches, &match_count,
 				 asn, &addr, prefix->prefixlen,
 				 &result) != PFX_SUCCESS) {
-		if (!json)
+		if (json) {
+			json_object_string_add(json, "error", "Prefix lookup failed.");
+			vty_json(vty, json);
+		} else
 			vty_out(vty, "Prefix lookup failed\n");
 		return CMD_WARNING;
 	}
 
-	if (uj)
-		json = json_object_new_object();
 
 	if (!json) {
 		vty_out(vty, "%-40s %s  %s\n", "Prefix", "Prefix Length",
@@ -1549,20 +1605,22 @@ DEFPY (show_rpki_cache_connection,
 		json = json_object_new_object();
 
 	if (!is_synchronized()) {
-		if (!json)
-			vty_out(vty, "No connection to RPKI cache server.\n");
-		else
+		if (json) {
+			json_object_string_add(json, "error", "No connection to RPKI cache server.");
 			vty_json(vty, json);
+		} else
+			vty_out(vty, "No connection to RPKI cache server.\n");
 
 		return CMD_SUCCESS;
 	}
 
 	group = get_connected_group();
 	if (!group) {
-		if (!json)
-			vty_out(vty, "Cannot find a connected group.\n");
-		else
+		if (json) {
+			json_object_string_add(json, "error", "Cannot find a connected group.");
 			vty_json(vty, json);
+		} else
+			vty_out(vty, "Cannot find a connected group.\n");
 
 		return CMD_SUCCESS;
 	}
@@ -1656,6 +1714,48 @@ DEFPY (show_rpki_cache_connection,
 	return CMD_SUCCESS;
 }
 
+DEFPY(show_rpki_configuration, show_rpki_configuration_cmd,
+      "show rpki configuration [json$uj]",
+      SHOW_STR RPKI_OUTPUT_STRING
+      "Show RPKI configuration\n"
+      JSON_STR)
+{
+	struct json_object *json = NULL;
+
+	if (uj) {
+		json = json_object_new_object();
+		json_object_boolean_add(json, "enabled",
+					!!listcount(cache_list));
+		json_object_int_add(json, "serversCount", listcount(cache_list));
+		json_object_int_add(json, "pollingPeriodSeconds",
+				    polling_period);
+		json_object_int_add(json, "retryIntervalSeconds",
+				    retry_interval);
+		json_object_int_add(json, "expireIntervalSeconds",
+				    expire_interval);
+
+		vty_json(vty, json);
+
+		return CMD_SUCCESS;
+	}
+
+	vty_out(vty, "rpki is %s",
+		listcount(cache_list) ? "Enabled" : "Disabled");
+
+	if (list_isempty(cache_list)) {
+		vty_out(vty, "\n");
+		return CMD_SUCCESS;
+	}
+
+	vty_out(vty, " (%d cache servers configured)", listcount(cache_list));
+	vty_out(vty, "\n");
+	vty_out(vty, "\tpolling period %d\n", polling_period);
+	vty_out(vty, "\tretry interval %d\n", retry_interval);
+	vty_out(vty, "\texpire interval %d\n", expire_interval);
+
+	return CMD_SUCCESS;
+}
+
 static int config_on_exit(struct vty *vty)
 {
 	reset(false);
@@ -1677,7 +1777,10 @@ DEFUN (debug_rpki,
        DEBUG_STR
        "Enable debugging for rpki\n")
 {
-	rpki_debug = true;
+	if (vty->node == CONFIG_NODE)
+		rpki_debug_conf = true;
+	else
+		rpki_debug_term = true;
 	return CMD_SUCCESS;
 }
 
@@ -1688,7 +1791,10 @@ DEFUN (no_debug_rpki,
        DEBUG_STR
        "Disable debugging for rpki\n")
 {
-	rpki_debug = false;
+	if (vty->node == CONFIG_NODE)
+		rpki_debug_conf = false;
+	else
+		rpki_debug_term = false;
 	return CMD_SUCCESS;
 }
 
@@ -1769,6 +1875,7 @@ static void install_cli_commands(void)
 	install_element(VIEW_NODE, &show_rpki_cache_server_cmd);
 	install_element(VIEW_NODE, &show_rpki_prefix_cmd);
 	install_element(VIEW_NODE, &show_rpki_as_number_cmd);
+	install_element(VIEW_NODE, &show_rpki_configuration_cmd);
 
 	/* Install debug commands */
 	install_element(CONFIG_NODE, &debug_rpki_cmd);
