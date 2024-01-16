@@ -49,4 +49,4 @@ nodist_bfdd_bfdd_SOURCES = \
 	# end
 
 bfdd_bfdd_SOURCES = bfdd/bfdd.c
-bfdd_bfdd_LDADD = bfdd/libbfd.a lib/libfrr.la
+bfdd_bfdd_LDADD = bfdd/libbfd.a lib/libfrr.la $(LIBYANG_LIBS)
