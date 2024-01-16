@@ -622,8 +622,6 @@ static int bgp_capability_llgr(struct peer *peer,
 /* Unlike other capability parsing routines, this one returns 0 on error */
 static as_t bgp_capability_as4(struct peer *peer, struct capability_header *hdr)
 {
-	SET_FLAG(peer->cap, PEER_CAP_AS4_RCV);
-
 	if (hdr->length != CAPABILITY_CODE_AS4_LEN) {
 		flog_err(EC_BGP_PKT_OPEN,
 			 "%s AS4 capability has incorrect data length %d",
@@ -632,6 +630,8 @@ static as_t bgp_capability_as4(struct peer *peer, struct capability_header *hdr)
 	}
 
 	as_t as4 = stream_getl(BGP_INPUT(peer));
+
+	SET_FLAG(peer->cap, PEER_CAP_AS4_RCV);
 
 	if (BGP_DEBUG(as4, AS4))
 		zlog_debug(
