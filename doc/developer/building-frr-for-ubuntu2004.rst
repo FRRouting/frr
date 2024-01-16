@@ -29,7 +29,7 @@ installed.
 
 .. code-block:: console
 
-   sudo apt-get install libgrpc++-dev protobuf-compiler-grpc \
+   sudo apt-get install libgrpc++-dev protobuf-compiler-grpc
 
 
 Config Rollbacks
