@@ -626,7 +626,7 @@ static as_t bgp_capability_as4(struct peer *peer, struct capability_header *hdr)
 		flog_err(EC_BGP_PKT_OPEN,
 			 "%s AS4 capability has incorrect data length %d",
 			 peer->host, hdr->length);
-		return 0;
+		return -1;
 	}
 
 	as_t as4 = stream_getl(BGP_INPUT(peer));
