@@ -662,8 +662,6 @@ static int bgp_capability_addpath(struct peer *peer,
 	struct stream *s = BGP_INPUT(peer);
 	size_t end = stream_get_getp(s) + hdr->length;
 
-	SET_FLAG(peer->cap, PEER_CAP_ADDPATH_RCV);
-
 	/* Verify length is a multiple of 4 */
 	if (hdr->length % CAPABILITY_CODE_ADDPATH_LEN) {
 		flog_warn(
@@ -672,6 +670,8 @@ static int bgp_capability_addpath(struct peer *peer,
 			hdr->length);
 		return -1;
 	}
+
+	SET_FLAG(peer->cap, PEER_CAP_ADDPATH_RCV);
 
 	while (stream_get_getp(s) + CAPABILITY_CODE_ADDPATH_LEN <= end) {
 		afi_t afi;
