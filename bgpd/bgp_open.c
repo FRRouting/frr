@@ -887,13 +887,15 @@ static int bgp_capability_hostname(struct peer *peer,
 
 static int bgp_capability_role(struct peer *peer, struct capability_header *hdr)
 {
-	SET_FLAG(peer->cap, PEER_CAP_ROLE_RCV);
 	if (hdr->length != CAPABILITY_CODE_ROLE_LEN) {
 		flog_warn(EC_BGP_CAPABILITY_INVALID_LENGTH,
 			  "Role: Received invalid length %d", hdr->length);
 		return -1;
 	}
+
 	uint8_t role = stream_getc(BGP_INPUT(peer));
+
+	SET_FLAG(peer->cap, PEER_CAP_ROLE_RCV);
 
 	peer->remote_role = role;
 	return 0;
