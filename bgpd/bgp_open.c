@@ -818,8 +818,6 @@ static int bgp_capability_hostname(struct peer *peer,
 	size_t end = stream_get_getp(s) + hdr->length;
 	uint8_t len;
 
-	SET_FLAG(peer->cap, PEER_CAP_HOSTNAME_RCV);
-
 	len = stream_getc(s);
 	if (stream_get_getp(s) + len > end) {
 		flog_warn(
@@ -876,6 +874,8 @@ static int bgp_capability_hostname(struct peer *peer,
 
 		peer->domainname = XSTRDUP(MTYPE_BGP_PEER_HOST, str);
 	}
+
+	SET_FLAG(peer->cap, PEER_CAP_HOSTNAME_RCV);
 
 	if (bgp_debug_neighbor_events(peer)) {
 		zlog_debug("%s received hostname %s, domainname %s", peer->host,
