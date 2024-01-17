@@ -11,3 +11,4 @@
 /grammar_sandbox
 /clippy
 /defun_lex.c
+vtysh_daemons.h

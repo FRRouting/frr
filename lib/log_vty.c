@@ -15,6 +15,7 @@
 #include "lib/lib_errors.h"
 #include "lib/printfrr.h"
 #include "lib/systemd.h"
+#include "lib/vtysh_daemons.h"
 
 #include "lib/log_vty_clippy.c"
 
@@ -456,6 +457,70 @@ DEFUN (clear_log_cmdline,
 	log_cmdline_stdout_lvl = ZLOG_DISABLED;
 	log_stdout_apply_level();
 
+	return CMD_SUCCESS;
+}
+
+/* Per-daemon log file config */
+DEFUN (config_log_dmn_file,
+       config_log_dmn_file_cmd,
+       "log daemon " DAEMONS_LIST " file FILENAME [<emergencies|alerts|critical|errors|warnings|notifications|informational|debugging>$levelarg]",
+       "Logging control\n"
+       "Specific daemon\n"
+       DAEMONS_STR
+       "Logging to file\n"
+       "Logging filename\n"
+       LOG_LEVEL_DESC)
+{
+	int level = log_default_lvl;
+	int idx = 0;
+	const char *d_str;
+	const char *filename;
+	const char *levelarg = NULL;
+
+	d_str = argv[2]->text;
+
+	/* Ignore if not for this daemon */
+	if (!strmatch(d_str, frr_get_progname()))
+		return CMD_SUCCESS;
+
+	if (argv_find(argv, argc, "file", &idx))
+		filename = argv[idx + 1]->arg;
+	else
+		return CMD_SUCCESS;
+
+	if (argc > 5)
+		levelarg = argv[5]->text;
+
+	if (levelarg) {
+		level = log_level_match(levelarg);
+		if (level == ZLOG_DISABLED)
+			return CMD_ERR_NO_MATCH;
+	}
+	return set_log_file(&zt_file, vty, filename, level);
+}
+
+/* Per-daemon no log file */
+DEFUN (no_config_log_dmn_file,
+       no_config_log_dmn_file_cmd,
+       "no log daemon " DAEMONS_LIST " file [FILENAME [LEVEL]]",
+       NO_STR
+       "Logging control\n"
+       "Specific daemon\n"
+       DAEMONS_STR
+       "Cancel logging to file\n"
+       "Logging file name\n"
+       "Logging level\n")
+{
+	const char *d_str;
+
+	d_str = argv[3]->text;
+
+	/* Ignore if not for this daemon */
+	if (!strmatch(d_str, frr_get_progname()))
+		return CMD_SUCCESS;
+
+	zt_file.prio_min = ZLOG_DISABLED;
+	zlog_file_set_other(&zt_file);
 	return CMD_SUCCESS;
 }
 
@@ -904,6 +969,8 @@ void log_cmd_init(void)
 	install_element(CONFIG_NODE, &config_log_monitor_cmd);
 	install_element(CONFIG_NODE, &no_config_log_monitor_cmd);
 	install_element(CONFIG_NODE, &config_log_file_cmd);
+	install_element(CONFIG_NODE, &config_log_dmn_file_cmd);
+	install_element(CONFIG_NODE, &no_config_log_dmn_file_cmd);
 	install_element(CONFIG_NODE, &no_config_log_file_cmd);
 	install_element(CONFIG_NODE, &config_log_syslog_cmd);
 	install_element(CONFIG_NODE, &no_config_log_syslog_cmd);
