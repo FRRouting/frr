@@ -345,13 +345,6 @@ const struct frr_yang_module_info frr_zebra_info = {
 			}
 		},
 		{
-			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/bandwidth",
-			.cbs = {
-				.modify = lib_interface_zebra_bandwidth_modify,
-				.destroy = lib_interface_zebra_bandwidth_destroy,
-			}
-		},
-		{
 			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/link-params/legacy-admin-group",
 			.cbs = {
 				.modify = lib_interface_zebra_legacy_admin_group_modify,

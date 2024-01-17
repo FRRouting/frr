@@ -3868,51 +3868,22 @@ int if_no_shutdown(struct interface *ifp)
 	return 0;
 }
 
-DEFUN (bandwidth_if,
+DEFPY_YANG (bandwidth_if,
        bandwidth_if_cmd,
-       "bandwidth (1-100000)",
-       "Set bandwidth informational parameter\n"
-       "Bandwidth in megabits\n")
-{
-	int idx_number = 1;
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	unsigned int bandwidth;
-
-	bandwidth = strtol(argv[idx_number]->arg, NULL, 10);
-
-	/* bandwidth range is <1-100000> */
-	if (bandwidth < 1 || bandwidth > 100000) {
-		vty_out(vty, "Bandwidth is invalid\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	ifp->bandwidth = bandwidth;
-
-	/* force protocols to recalculate routes due to cost change */
-	if (if_is_operative(ifp))
-		zebra_interface_up_update(ifp);
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_bandwidth_if,
-       no_bandwidth_if_cmd,
-       "no bandwidth [(1-100000)]",
+       "[no] bandwidth ![(1-100000)]$bw",
        NO_STR
        "Set bandwidth informational parameter\n"
        "Bandwidth in megabits\n")
 {
-	VTY_DECLVAR_CONTEXT(interface, ifp);
+	if (!no)
+		nb_cli_enqueue_change(vty, "./frr-zebra:zebra/bandwidth",
+				      NB_OP_CREATE, bw_str);
+	else
+		nb_cli_enqueue_change(vty, "./frr-zebra:zebra/bandwidth",
+				      NB_OP_DESTROY, NULL);
 
-	ifp->bandwidth = 0;
-
-	/* force protocols to recalculate routes due to cost change */
-	if (if_is_operative(ifp))
-		zebra_interface_up_update(ifp);
-
-	return CMD_SUCCESS;
+	return nb_cli_apply_changes(vty, NULL);
 }
-
 
 struct cmd_node link_params_node = {
 	.name = "link-params",
@@ -5515,7 +5486,6 @@ void zebra_if_init(void)
 	install_element(INTERFACE_NODE, &linkdetect_cmd);
 	install_element(INTERFACE_NODE, &shutdown_if_cmd);
 	install_element(INTERFACE_NODE, &bandwidth_if_cmd);
-	install_element(INTERFACE_NODE, &no_bandwidth_if_cmd);
 	install_element(INTERFACE_NODE, &ip_address_cmd);
 	install_element(INTERFACE_NODE, &no_ip_address_cmd);
 	install_element(INTERFACE_NODE, &ip_address_peer_cmd);

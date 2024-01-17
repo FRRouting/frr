@@ -1993,6 +1993,7 @@ module frr-zebra {
         type uint32 {
           range "1..100000";
         }
+        units "megabits/sec";
         description
           "Link bandwidth informational parameter, in megabits.";
       }

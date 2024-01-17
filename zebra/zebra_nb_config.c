@@ -1140,7 +1140,7 @@ int lib_interface_zebra_bandwidth_modify(struct nb_cb_modify_args *args)
 	uint32_t bandwidth;
 
 	ifp = nb_running_get_entry(args->dnode, NULL, true);
-	bandwidth = yang_dnode_get_uint32(args->dnode, "bandwidth");
+	bandwidth = yang_dnode_get_uint32(args->dnode, NULL);
 
 	ifp->bandwidth = bandwidth;
 
