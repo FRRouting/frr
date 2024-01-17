@@ -21,7 +21,6 @@ import subprocess
 import sys
 import tempfile
 import time as time_mod
-
 from collections import defaultdict
 from pathlib import Path
 from typing import Union
@@ -29,10 +28,8 @@ from typing import Union
 from . import config as munet_config
 from . import linux
 
-
 try:
     import pexpect
-
     from pexpect.fdpexpect import fdspawn
     from pexpect.popen_spawn import PopenSpawn
 
@@ -1237,7 +1234,7 @@ class Commander:  # pylint: disable=R0904
             envvars = f"MUNET_NODENAME={self.name} NODENAME={self.name}"
             if hasattr(self, "rundir"):
                 envvars += f" RUNDIR={self.rundir}"
-            if self.unet.config_dirname:
+            if hasattr(self.unet, "config_dirname") and self.unet.config_dirname:
                 envvars += f" CONFIGDIR={self.unet.config_dirname}"
             elif "CONFIGDIR" in os.environ:
                 envvars += f" CONFIGDIR={os.environ['CONFIGDIR']}"
