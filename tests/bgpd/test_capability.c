@@ -617,6 +617,7 @@ static struct test_segment misc_segments[] =
 			},
 			2,
 			SHOULD_ERR,
+			-1,
 		},
 		{
 			"dyn-empty",

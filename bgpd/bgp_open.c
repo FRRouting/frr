@@ -622,16 +622,16 @@ static int bgp_capability_llgr(struct peer *peer,
 /* Unlike other capability parsing routines, this one returns 0 on error */
 static as_t bgp_capability_as4(struct peer *peer, struct capability_header *hdr)
 {
-	SET_FLAG(peer->cap, PEER_CAP_AS4_RCV);
-
 	if (hdr->length != CAPABILITY_CODE_AS4_LEN) {
 		flog_err(EC_BGP_PKT_OPEN,
 			 "%s AS4 capability has incorrect data length %d",
 			 peer->host, hdr->length);
-		return 0;
+		return -1;
 	}
 
 	as_t as4 = stream_getl(BGP_INPUT(peer));
+
+	SET_FLAG(peer->cap, PEER_CAP_AS4_RCV);
 
 	if (BGP_DEBUG(as4, AS4))
 		zlog_debug(
@@ -662,8 +662,6 @@ static int bgp_capability_addpath(struct peer *peer,
 	struct stream *s = BGP_INPUT(peer);
 	size_t end = stream_get_getp(s) + hdr->length;
 
-	SET_FLAG(peer->cap, PEER_CAP_ADDPATH_RCV);
-
 	/* Verify length is a multiple of 4 */
 	if (hdr->length % CAPABILITY_CODE_ADDPATH_LEN) {
 		flog_warn(
@@ -672,6 +670,8 @@ static int bgp_capability_addpath(struct peer *peer,
 			hdr->length);
 		return -1;
 	}
+
+	SET_FLAG(peer->cap, PEER_CAP_ADDPATH_RCV);
 
 	while (stream_get_getp(s) + CAPABILITY_CODE_ADDPATH_LEN <= end) {
 		afi_t afi;
@@ -818,8 +818,6 @@ static int bgp_capability_hostname(struct peer *peer,
 	size_t end = stream_get_getp(s) + hdr->length;
 	uint8_t len;
 
-	SET_FLAG(peer->cap, PEER_CAP_HOSTNAME_RCV);
-
 	len = stream_getc(s);
 	if (stream_get_getp(s) + len > end) {
 		flog_warn(
@@ -877,6 +875,8 @@ static int bgp_capability_hostname(struct peer *peer,
 		peer->domainname = XSTRDUP(MTYPE_BGP_PEER_HOST, str);
 	}
 
+	SET_FLAG(peer->cap, PEER_CAP_HOSTNAME_RCV);
+
 	if (bgp_debug_neighbor_events(peer)) {
 		zlog_debug("%s received hostname %s, domainname %s", peer->host,
 			   peer->hostname, peer->domainname);
@@ -887,13 +887,15 @@ static int bgp_capability_hostname(struct peer *peer,
 
 static int bgp_capability_role(struct peer *peer, struct capability_header *hdr)
 {
-	SET_FLAG(peer->cap, PEER_CAP_ROLE_RCV);
 	if (hdr->length != CAPABILITY_CODE_ROLE_LEN) {
 		flog_warn(EC_BGP_CAPABILITY_INVALID_LENGTH,
 			  "Role: Received invalid length %d", hdr->length);
 		return -1;
 	}
+
 	uint8_t role = stream_getc(BGP_INPUT(peer));
+
+	SET_FLAG(peer->cap, PEER_CAP_ROLE_RCV);
 
 	peer->remote_role = role;
 	return 0;
