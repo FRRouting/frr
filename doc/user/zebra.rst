@@ -178,7 +178,7 @@ Standard Commands
    work on non-linux systems at all. 'enable' and 'disable' will respectively turn
    on and off mpls on the given interface.
 
-.. clicmd:: multicast
+.. clicmd:: multicast <enable|disable>
 
 
    Enable or disable multicast flag for the interface.

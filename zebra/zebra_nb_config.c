@@ -999,10 +999,14 @@ int lib_interface_zebra_multicast_modify(struct nb_cb_modify_args *args)
 		return NB_OK;
 
 	struct interface *ifp;
+	bool multicast = yang_dnode_get_bool(args->dnode, NULL);
 
 	ifp = nb_running_get_entry(args->dnode, NULL, true);
 
-	if_multicast_set(ifp);
+	if (multicast)
+		if_multicast_set(ifp);
+	else
+		if_multicast_unset(ifp);
 
 	return NB_OK;
 }
@@ -1013,10 +1017,12 @@ int lib_interface_zebra_multicast_destroy(struct nb_cb_destroy_args *args)
 		return NB_OK;
 
 	struct interface *ifp;
+	struct zebra_if *zif;
 
 	ifp = nb_running_get_entry(args->dnode, NULL, true);
+	zif = ifp->info;
 
-	if_multicast_unset(ifp);
+	zif->multicast = IF_ZEBRA_DATA_UNSPEC;
 
 	return NB_OK;
 }

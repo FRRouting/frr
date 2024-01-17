@@ -3683,6 +3683,24 @@ void if_arp(struct interface *ifp, bool enable)
 	if_refresh(ifp);
 }
 
+DEFPY_YANG (multicast_new,
+       multicast_new_cmd,
+       "[no] multicast <enable$on|disable$off>",
+       NO_STR
+       "Control multicast flag on interface\n"
+       "Set multicast flag on interface\n"
+       "Unset multicast flag on interface\n")
+{
+	if (!no)
+		nb_cli_enqueue_change(vty, "./frr-zebra:zebra/multicast",
+				      NB_OP_CREATE, on ? "true" : "false");
+	else
+		nb_cli_enqueue_change(vty, "./frr-zebra:zebra/multicast",
+				      NB_OP_DESTROY, NULL);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
 int if_multicast_set(struct interface *ifp)
 {
 	struct zebra_if *if_data;
@@ -3701,27 +3719,15 @@ int if_multicast_set(struct interface *ifp)
 	return 0;
 }
 
-DEFUN (multicast,
+DEFUN_HIDDEN (multicast,
        multicast_cmd,
        "multicast",
        "Set multicast flag to interface\n")
 {
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	int ret;
-	struct zebra_if *if_data;
+	nb_cli_enqueue_change(vty, "./frr-zebra:zebra/multicast",
+			      NB_OP_CREATE, "true");
 
-	if (CHECK_FLAG(ifp->status, ZEBRA_INTERFACE_ACTIVE)) {
-		ret = if_set_flags(ifp, IFF_MULTICAST);
-		if (ret < 0) {
-			vty_out(vty, "Can't set multicast flag\n");
-			return CMD_WARNING_CONFIG_FAILED;
-		}
-		if_refresh(ifp);
-	}
-	if_data = ifp->info;
-	if_data->multicast = IF_ZEBRA_DATA_ON;
-
-	return CMD_SUCCESS;
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFPY (mpls,
@@ -3760,28 +3766,16 @@ int if_multicast_unset(struct interface *ifp)
 	return 0;
 }
 
-DEFUN (no_multicast,
+DEFUN_HIDDEN (no_multicast,
        no_multicast_cmd,
        "no multicast",
        NO_STR
        "Unset multicast flag to interface\n")
 {
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	int ret;
-	struct zebra_if *if_data;
+	nb_cli_enqueue_change(vty, "./frr-zebra:zebra/multicast",
+			      NB_OP_CREATE, "false");
 
-	if (CHECK_FLAG(ifp->status, ZEBRA_INTERFACE_ACTIVE)) {
-		ret = if_unset_flags(ifp, IFF_MULTICAST);
-		if (ret < 0) {
-			vty_out(vty, "Can't unset multicast flag\n");
-			return CMD_WARNING_CONFIG_FAILED;
-		}
-		if_refresh(ifp);
-	}
-	if_data = ifp->info;
-	if_data->multicast = IF_ZEBRA_DATA_OFF;
-
-	return CMD_SUCCESS;
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 int if_linkdetect(struct interface *ifp, bool detect)
@@ -5531,12 +5525,10 @@ static int if_config_write(struct vty *vty)
 			}
 
 			if (if_data) {
-				if (if_data->multicast != IF_ZEBRA_DATA_UNSPEC)
-					vty_out(vty, " %smulticast\n",
-						if_data->multicast ==
-								IF_ZEBRA_DATA_ON
-							? ""
-							: "no ");
+				if (if_data->multicast == IF_ZEBRA_DATA_ON)
+					vty_out(vty, " multicast enable\n");
+				else if (if_data->multicast == IF_ZEBRA_DATA_OFF)
+					vty_out(vty, " multicast disable\n");
 
 				if (if_data->mpls_config == IF_ZEBRA_DATA_ON)
 					vty_out(vty, " mpls enable\n");
@@ -5572,6 +5564,7 @@ void zebra_if_init(void)
 
 	install_element(ENABLE_NODE, &show_interface_desc_cmd);
 	install_element(ENABLE_NODE, &show_interface_desc_vrf_all_cmd);
+	install_element(INTERFACE_NODE, &multicast_new_cmd);
 	install_element(INTERFACE_NODE, &multicast_cmd);
 	install_element(INTERFACE_NODE, &no_multicast_cmd);
 	install_element(INTERFACE_NODE, &mpls_cmd);
