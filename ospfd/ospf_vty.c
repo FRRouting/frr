@@ -3702,9 +3702,8 @@ static void show_ip_ospf_interface_sub(struct vty *vty, struct ospf *ospf,
 					       ospf_area_desc_string(oi->area));
 
 			if (OSPF_IF_PARAM(oi, mtu_ignore))
-				json_object_boolean_true_add(
-					json_interface_sub,
-					"mtuMismatchDetect");
+				json_object_boolean_false_add(json_interface_sub,
+							      "mtuMismatchDetect");
 
 			json_object_string_addf(json_interface_sub, "routerId",
 						"%pI4", &ospf->router_id);
