@@ -1039,23 +1039,7 @@ int lib_interface_zebra_link_detect_modify(struct nb_cb_modify_args *args)
 	bool link_detect;
 
 	ifp = nb_running_get_entry(args->dnode, NULL, true);
-	link_detect = yang_dnode_get_bool(args->dnode, "link-detect");
-
-	if_linkdetect(ifp, link_detect);
-
-	return NB_OK;
-}
-
-int lib_interface_zebra_link_detect_destroy(struct nb_cb_destroy_args *args)
-{
-	if (args->event != NB_EV_APPLY)
-		return NB_OK;
-
-	struct interface *ifp;
-	bool link_detect;
-
-	ifp = nb_running_get_entry(args->dnode, NULL, true);
-	link_detect = yang_dnode_get_bool(args->dnode, "link-detect");
+	link_detect = yang_dnode_get_bool(args->dnode, NULL);
 
 	if_linkdetect(ifp, link_detect);
 

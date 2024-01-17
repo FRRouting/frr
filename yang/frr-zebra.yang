@@ -1972,6 +1972,7 @@ module frr-zebra {
 
       leaf link-detect {
         type boolean;
+        default "true";
         description
           "Link-detection for the interface.";
       }

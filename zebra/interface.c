@@ -3801,28 +3801,16 @@ int if_linkdetect(struct interface *ifp, bool detect)
 	return 0;
 }
 
-DEFUN(linkdetect, linkdetect_cmd, "link-detect",
+DEFPY_YANG (linkdetect,
+      linkdetect_cmd,
+      "[no] link-detect",
+      NO_STR
       "Enable link detection on interface\n")
 {
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-
-	if_linkdetect(ifp, true);
-
-	return CMD_SUCCESS;
-}
-
-
-DEFUN (no_linkdetect,
-       no_linkdetect_cmd,
-       "no link-detect",
-       NO_STR
-       "Disable link detection on interface\n")
-{
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-
-	if_linkdetect(ifp, false);
-
-	return CMD_SUCCESS;
+	nb_cli_enqueue_change(vty, "./frr-zebra:zebra/link-detect",
+			      NB_OP_CREATE, no ? "false" : "true");
+	
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 int if_shutdown(struct interface *ifp)
@@ -5569,7 +5557,6 @@ void zebra_if_init(void)
 	install_element(INTERFACE_NODE, &no_multicast_cmd);
 	install_element(INTERFACE_NODE, &mpls_cmd);
 	install_element(INTERFACE_NODE, &linkdetect_cmd);
-	install_element(INTERFACE_NODE, &no_linkdetect_cmd);
 	install_element(INTERFACE_NODE, &shutdown_if_cmd);
 	install_element(INTERFACE_NODE, &no_shutdown_if_cmd);
 	install_element(INTERFACE_NODE, &bandwidth_if_cmd);
