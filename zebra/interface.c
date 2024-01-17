@@ -136,7 +136,7 @@ static int if_zebra_new_hook(struct interface *ifp)
 
 	zebra_if->multicast = IF_ZEBRA_DATA_UNSPEC;
 	zebra_if->mpls_config = IF_ZEBRA_DATA_UNSPEC;
-	zebra_if->shutdown = IF_ZEBRA_DATA_OFF;
+	zebra_if->shutdown = IF_ZEBRA_DATA_UNSPEC;
 
 	zebra_if->link_nsid = NS_UNKNOWN;
 
@@ -3832,29 +3832,16 @@ int if_shutdown(struct interface *ifp)
 	return 0;
 }
 
-DEFUN (shutdown_if,
+DEFPY_YANG (shutdown_if,
        shutdown_if_cmd,
-       "shutdown",
+       "[no] shutdown",
+       NO_STR
        "Shutdown the selected interface\n")
 {
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	int ret;
-	struct zebra_if *if_data;
+	nb_cli_enqueue_change(vty, "./frr-zebra:zebra/enabled",
+			      NB_OP_CREATE, no ? "true" : "false");
 
-	if (ifp->ifindex != IFINDEX_INTERNAL) {
-		/* send RA lifetime of 0 before stopping. rfc4861/6.2.5 */
-		rtadv_stop_ra(ifp);
-		ret = if_unset_flags(ifp, IFF_UP);
-		if (ret < 0) {
-			vty_out(vty, "Can't shutdown interface\n");
-			return CMD_WARNING_CONFIG_FAILED;
-		}
-		if_refresh(ifp);
-	}
-	if_data = ifp->info;
-	if_data->shutdown = IF_ZEBRA_DATA_ON;
-
-	return CMD_SUCCESS;
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 int if_no_shutdown(struct interface *ifp)
@@ -3879,37 +3866,6 @@ int if_no_shutdown(struct interface *ifp)
 	if_data->shutdown = IF_ZEBRA_DATA_OFF;
 
 	return 0;
-}
-
-DEFUN (no_shutdown_if,
-       no_shutdown_if_cmd,
-       "no shutdown",
-       NO_STR
-       "Shutdown the selected interface\n")
-{
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	int ret;
-	struct zebra_if *if_data;
-
-	if (ifp->ifindex != IFINDEX_INTERNAL) {
-		ret = if_set_flags(ifp, IFF_UP | IFF_RUNNING);
-		if (ret < 0) {
-			vty_out(vty, "Can't up interface\n");
-			return CMD_WARNING_CONFIG_FAILED;
-		}
-		if_refresh(ifp);
-
-		/* Some addresses (in particular, IPv6 addresses on Linux) get
-		 * removed when the interface goes down. They need to be
-		 * readded.
-		 */
-		if_addr_wakeup(ifp);
-	}
-
-	if_data = ifp->info;
-	if_data->shutdown = IF_ZEBRA_DATA_OFF;
-
-	return CMD_SUCCESS;
 }
 
 DEFUN (bandwidth_if,
@@ -5558,7 +5514,6 @@ void zebra_if_init(void)
 	install_element(INTERFACE_NODE, &mpls_cmd);
 	install_element(INTERFACE_NODE, &linkdetect_cmd);
 	install_element(INTERFACE_NODE, &shutdown_if_cmd);
-	install_element(INTERFACE_NODE, &no_shutdown_if_cmd);
 	install_element(INTERFACE_NODE, &bandwidth_if_cmd);
 	install_element(INTERFACE_NODE, &no_bandwidth_if_cmd);
 	install_element(INTERFACE_NODE, &ip_address_cmd);

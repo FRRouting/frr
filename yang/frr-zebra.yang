@@ -1977,7 +1977,7 @@ module frr-zebra {
           "Link-detection for the interface.";
       }
 
-      leaf shutdown {
+      leaf enabled {
         type boolean;
         description
           "Interface admin status.";

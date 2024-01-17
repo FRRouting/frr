@@ -91,8 +91,8 @@ int lib_interface_zebra_ip_addrs_ip4_peer_destroy(
 int lib_interface_zebra_multicast_modify(struct nb_cb_modify_args *args);
 int lib_interface_zebra_multicast_destroy(struct nb_cb_destroy_args *args);
 int lib_interface_zebra_link_detect_modify(struct nb_cb_modify_args *args);
-int lib_interface_zebra_shutdown_modify(struct nb_cb_modify_args *args);
-int lib_interface_zebra_shutdown_destroy(struct nb_cb_destroy_args *args);
+int lib_interface_zebra_enabled_modify(struct nb_cb_modify_args *args);
+int lib_interface_zebra_enabled_destroy(struct nb_cb_destroy_args *args);
 int lib_interface_zebra_bandwidth_modify(struct nb_cb_modify_args *args);
 int lib_interface_zebra_bandwidth_destroy(struct nb_cb_destroy_args *args);
 int lib_interface_zebra_mpls_modify(struct nb_cb_modify_args *args);

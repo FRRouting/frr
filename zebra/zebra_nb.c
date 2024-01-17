@@ -324,10 +324,10 @@ const struct frr_yang_module_info frr_zebra_info = {
 			}
 		},
 		{
-			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/shutdown",
+			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/enabled",
 			.cbs = {
-				.modify = lib_interface_zebra_shutdown_modify,
-				.destroy = lib_interface_zebra_shutdown_destroy,
+				.modify = lib_interface_zebra_enabled_modify,
+				.destroy = lib_interface_zebra_enabled_destroy,
 			}
 		},
 		{

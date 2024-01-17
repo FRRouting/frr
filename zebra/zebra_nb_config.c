@@ -1047,32 +1047,39 @@ int lib_interface_zebra_link_detect_modify(struct nb_cb_modify_args *args)
 }
 
 /*
- * XPath: /frr-interface:lib/interface/frr-zebra:zebra/shutdown
+ * XPath: /frr-interface:lib/interface/frr-zebra:zebra/enabled
  */
-int lib_interface_zebra_shutdown_modify(struct nb_cb_modify_args *args)
+int lib_interface_zebra_enabled_modify(struct nb_cb_modify_args *args)
 {
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
 	struct interface *ifp;
+	bool enabled;
 
 	ifp = nb_running_get_entry(args->dnode, NULL, true);
+	enabled = yang_dnode_get_bool(args->dnode, NULL);
 
-	if_shutdown(ifp);
+	if (enabled)
+		if_no_shutdown(ifp);
+	else
+		if_shutdown(ifp);
 
 	return NB_OK;
 }
 
-int lib_interface_zebra_shutdown_destroy(struct nb_cb_destroy_args *args)
+int lib_interface_zebra_enabled_destroy(struct nb_cb_destroy_args *args)
 {
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
 	struct interface *ifp;
+	struct zebra_if *zif;
 
 	ifp = nb_running_get_entry(args->dnode, NULL, true);
+	zif = ifp->info;
 
-	if_no_shutdown(ifp);
+	zif->shutdown = IF_ZEBRA_DATA_UNSPEC;
 
 	return NB_OK;
 }
