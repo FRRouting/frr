@@ -2011,7 +2011,7 @@ module frr-zebra {
           case affinity {
             container affinities {
               leaf-list affinity {
-                type string;
+                type frr-affinity-map:affinity-map-ref;
                 max-elements "256";
                 description
                   "Array of Attribute Names";

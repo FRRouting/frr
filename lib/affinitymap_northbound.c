@@ -47,11 +47,6 @@ static int lib_affinity_map_destroy(struct nb_cb_destroy_args *args)
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
-		if (!affinity_map_check_use_hook(name))
-			break;
-		snprintf(args->errmsg, args->errmsg_len,
-			 "affinity-map %s is used", name);
-		return NB_ERR_VALIDATION;
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
 		break;

@@ -26,30 +26,6 @@
 #include "zebra/redistribute.h"
 #include "zebra/zebra_affinitymap.h"
 
-static bool zebra_affinity_map_check_use(const char *affmap_name)
-{
-	char xpath[XPATH_MAXLEN];
-	struct interface *ifp;
-	struct vrf *vrf;
-
-	RB_FOREACH (vrf, vrf_id_head, &vrfs_by_id) {
-		FOR_ALL_INTERFACES (vrf, ifp) {
-			snprintf(xpath, sizeof(xpath),
-				 "/frr-interface:lib/interface[name='%s']",
-				 ifp->name);
-			if (!yang_dnode_exists(running_config->dnode, xpath))
-				continue;
-			snprintf(
-				xpath, sizeof(xpath),
-				"/frr-interface:lib/interface[name='%s']/frr-zebra:zebra/link-params/affinities[affinity='%s']",
-				ifp->name, affmap_name);
-			if (yang_dnode_exists(running_config->dnode, xpath))
-				return true;
-		}
-	}
-	return false;
-}
-
 static bool zebra_affinity_map_check_update(const char *affmap_name,
 					    uint16_t new_pos)
 {
@@ -138,7 +114,6 @@ void zebra_affinity_map_init(void)
 {
 	affinity_map_init();
 
-	affinity_map_set_check_use_hook(zebra_affinity_map_check_use);
 	affinity_map_set_check_update_hook(zebra_affinity_map_check_update);
 	affinity_map_set_update_hook(zebra_affinity_map_update);
 }
