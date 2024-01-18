@@ -259,10 +259,12 @@ RPKI Configuration Example
    !
    router bgp 65001
     bgp router-id 198.51.100.223
-    network 192.0.2.0/24
     neighbor 203.0.113.1 remote-as 65002
-    neighbor 203.0.113.1 route-map rpki in
     neighbor 203.0.113.1 update-source 198.51.100.223
+    address-family ipv4
+     network 192.0.2.0/24
+     neighbor 203.0.113.1 route-map rpki in
+    exit-address-family
    !
     address-family ipv6
      neighbor 203.0.113.1 activate
