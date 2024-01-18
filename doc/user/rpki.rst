@@ -166,7 +166,7 @@ Validating BGP Updates
     .. code-block:: frr
 
        ! Allow for invalid routes in route selection process
-       route bgp 60001
+       route bgp 65001
        !
        ! Set local preference of invalid prefixes to 10
        route-map rpki permit 10
@@ -252,21 +252,21 @@ RPKI Configuration Example
     rpki polling_period 1000
     rpki timeout 10
      ! SSH Example:
-     rpki cache example.com source 141.22.28.223 22 rtr-ssh ./ssh_key/id_rsa ./ssh_key/id_rsa.pub preference 1
+     rpki cache example.com source 198.51.100.223 22 rtr-ssh ./ssh_key/id_rsa ./ssh_key/id_rsa.pub preference 1
      ! TCP Example:
      rpki cache rpki-validator.realmv6.org 8282 preference 2
      exit
    !
-   router bgp 60001
-    bgp router-id 141.22.28.223
-    network 192.168.0.0/16
-    neighbor 123.123.123.0 remote-as 60002
-    neighbor 123.123.123.0 route-map rpki in
-    neighbor 123.123.123.0 update-source 141.22.28.223
+   router bgp 65001
+    bgp router-id 198.51.100.223
+    network 192.0.2.0/24
+    neighbor 203.0.113.1 remote-as 65002
+    neighbor 203.0.113.1 route-map rpki in
+    neighbor 203.0.113.1 update-source 198.51.100.223
    !
     address-family ipv6
-     neighbor 123.123.123.0 activate
-     neighbor 123.123.123.0 route-map rpki in
+     neighbor 203.0.113.1 activate
+     neighbor 203.0.113.1 route-map rpki in
     exit-address-family
    !
    route-map rpki permit 10
