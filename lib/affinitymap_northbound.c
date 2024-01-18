@@ -73,13 +73,6 @@ static int lib_affinity_map_value_modify(struct nb_cb_modify_args *args)
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
-		if (!affinity_map_check_update_hook(name, pos)) {
-			snprintf(
-				args->errmsg, args->errmsg_len,
-				"affinity-map new bit-position > 31 but is used with standard admin-groups");
-			return NB_ERR_VALIDATION;
-		}
-		break;
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
 		break;

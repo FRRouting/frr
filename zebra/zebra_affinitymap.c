@@ -26,43 +26,6 @@
 #include "zebra/redistribute.h"
 #include "zebra/zebra_affinitymap.h"
 
-static bool zebra_affinity_map_check_update(const char *affmap_name,
-					    uint16_t new_pos)
-{
-	char xpath[XPATH_MAXLEN];
-	struct interface *ifp;
-	struct vrf *vrf;
-
-	/* check whether the affinity-map new bit position is upper than 31
-	 * but is used on an interface on which affinity-mode is standard.
-	 * Return false if the change is not possible.
-	 */
-	if (new_pos < 32)
-		return true;
-
-	RB_FOREACH (vrf, vrf_id_head, &vrfs_by_id) {
-		FOR_ALL_INTERFACES (vrf, ifp) {
-			snprintf(xpath, sizeof(xpath),
-				 "/frr-interface:lib/interface[name='%s']",
-				 ifp->name);
-			if (!yang_dnode_exists(running_config->dnode, xpath))
-				continue;
-			snprintf(
-				xpath, sizeof(xpath),
-				"/frr-interface:lib/interface[name='%s']/frr-zebra:zebra/link-params/affinities[affinity='%s']",
-				ifp->name, affmap_name);
-			if (!yang_dnode_exists(running_config->dnode, xpath))
-				continue;
-			if (yang_dnode_get_enum(
-				    running_config->dnode,
-				    "/frr-interface:lib/interface[name='%s']/frr-zebra:zebra/link-params/affinity-mode",
-				    ifp->name) == AFFINITY_MODE_STANDARD)
-				return false;
-		}
-	}
-	return true;
-}
-
 static void zebra_affinity_map_update(const char *affmap_name, uint16_t old_pos,
 				      uint16_t new_pos)
 {
@@ -114,6 +77,5 @@ void zebra_affinity_map_init(void)
 {
 	affinity_map_init();
 
-	affinity_map_set_check_update_hook(zebra_affinity_map_check_update);
 	affinity_map_set_update_hook(zebra_affinity_map_update);
 }
