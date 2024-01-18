@@ -152,6 +152,20 @@ Basic Config Commands
    deprecated ``log trap`` command) will be used. The ``no`` form of the command
    disables logging to a file.
 
+.. clicmd:: log daemon DAEMON file [FILENAME [LEVEL]]
+
+   Configure file logging for a single FRR daemon. If you want to log
+   into a file, please specify ``filename`` as in this example:
+
+   ::
+
+      log daemon bgpd file /var/log/frr/bgpd.log informational
+
+   If the optional second argument specifying the logging level is not present,
+   the default logging level (typically debugging, but can be changed using the
+   deprecated ``log trap`` command) will be used. The ``no`` form of the command
+   disables logging to a file for a single FRR daemon.
+
 .. clicmd:: log syslog [LEVEL]
 
    Enable logging output to syslog. If the optional second argument specifying
