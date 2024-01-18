@@ -1031,6 +1031,11 @@ extern void nb_candidate_edit_config_changes(struct nb_config *candidate_config,
 					     bool in_backend, char *err_buf,
 					     int err_bufsize, bool *error);
 
+
+extern void nb_config_diff_add_change(struct nb_config_cbs *changes,
+				      enum nb_cb_operation operation,
+				      uint32_t *seq,
+				      const struct lyd_node *dnode);
 /*
  * Delete candidate configuration changes.
  *

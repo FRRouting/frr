@@ -417,10 +417,9 @@ static inline int nb_config_cb_compare(const struct nb_config_cb *a,
 }
 RB_GENERATE(nb_config_cbs, nb_config_cb, entry, nb_config_cb_compare);
 
-static void nb_config_diff_add_change(struct nb_config_cbs *changes,
-				      enum nb_cb_operation operation,
-				      uint32_t *seq,
-				      const struct lyd_node *dnode)
+void nb_config_diff_add_change(struct nb_config_cbs *changes,
+			       enum nb_cb_operation operation, uint32_t *seq,
+			       const struct lyd_node *dnode)
 {
 	struct nb_config_change *change;
 
@@ -699,9 +698,10 @@ int nb_candidate_edit(struct nb_config *candidate, const struct nb_node *nb_node
 		      bool in_backend, const struct yang_data *previous,
 		      const struct yang_data *data)
 {
-	struct lyd_node *dnode, *dep_dnode, *old_dnode, *parent;
+	struct lyd_node *dnode, *dep_dnode, *old_dnode;
 	char xpath_edit[XPATH_MAXLEN];
 	char dep_xpath[XPATH_MAXLEN];
+	struct lyd_node *parent = NULL;
 	uint32_t options = 0;
 	LY_ERR err;
 
@@ -876,10 +876,17 @@ void nb_candidate_edit_config_changes(struct nb_config *candidate_config,
 		/* Find the northbound node associated to the data path. */
 		nb_node = nb_node_find(xpath);
 		if (!nb_node) {
-			flog_warn(EC_LIB_YANG_UNKNOWN_DATA_PATH,
-				  "%s: unknown data path: %s", __func__, xpath);
-			if (error)
-				*error = true;
+			if (in_backend)
+				DEBUGD(&nb_dbg_cbs_config,
+				       "%s: ignoring non-handled path: %s",
+				       __func__, xpath);
+			else {
+				flog_warn(EC_LIB_YANG_UNKNOWN_DATA_PATH,
+					  "%s: unknown data path: %s", __func__,
+					  xpath);
+				if (error)
+					*error = true;
+			}
 			continue;
 		}
 		/* Find if the node to be edited is not a key node */

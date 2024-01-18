@@ -157,8 +157,8 @@ extern const char *mgmt_be_client_id2name(enum mgmt_be_client_id id);
 extern void mgmt_be_adapter_toggle_client_debug(bool set);
 
 /* Fetch backend adapter config. */
-extern int mgmt_be_get_adapter_config(struct mgmt_be_client_adapter *adapter,
-				      struct nb_config_cbs **cfg_chgs);
+extern void mgmt_be_get_adapter_config(struct mgmt_be_client_adapter *adapter,
+				       struct nb_config_cbs **changes);
 
 /* Create/destroy a transaction. */
 extern int mgmt_be_send_txn_req(struct mgmt_be_client_adapter *adapter,

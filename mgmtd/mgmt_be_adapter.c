@@ -598,20 +598,6 @@ struct mgmt_be_get_adapter_config_params {
 };
 
 /*
- * Callback to store the change a node in the datastore if it should be sync'd
- * to the adapter (i.e., if the adapter is subscribed to it).
- */
-static void mgmt_be_iter_and_get_cfg(const char *xpath, struct lyd_node *node,
-				     struct nb_node *nb_node, void *ctx)
-{
-	struct mgmt_be_get_adapter_config_params *parms = ctx;
-	struct mgmt_be_client_adapter *adapter = parms->adapter;
-
-	if (be_is_client_interested(xpath, adapter->id, true))
-		nb_config_diff_created(node, &parms->seq, parms->cfg_chgs);
-}
-
-/*
  * Initialize a BE client over a new connection
  */
 static void mgmt_be_adapter_conn_init(struct event *thread)
@@ -769,32 +755,32 @@ void mgmt_be_adapter_toggle_client_debug(bool set)
  * Get a full set of changes for all the config that an adapter is subscribed to
  * receive.
  */
-int mgmt_be_get_adapter_config(struct mgmt_be_client_adapter *adapter,
-			       struct nb_config_cbs **cfg_chgs)
+void mgmt_be_get_adapter_config(struct mgmt_be_client_adapter *adapter,
+			       struct nb_config_cbs **changes)
 {
-	struct mgmt_be_get_adapter_config_params parms;
-	struct nb_config *cfg_root = mgmt_ds_get_nb_config(mm->running_ds);
+	const struct lyd_node *root, *dnode;
+	uint32_t seq = 0;
+	char *xpath;
 
-	assert(cfg_chgs);
+	/* We can't be in the middle of sending other chgs when here. */
+	assert(RB_EMPTY(nb_config_cbs, &adapter->cfg_chgs));
 
-	/*
-	 * TODO: we should consider making this an assertable condition and
-	 * guaranteeing it be true when this function is called. B/c what is
-	 * going to happen if there are some changes being sent, and we don't
-	 * gather a new snapshot, what new changes that came after the previous
-	 * snapshot will then be lost?
-	 */
-	if (RB_EMPTY(nb_config_cbs, &adapter->cfg_chgs)) {
-		parms.adapter = adapter;
-		parms.cfg_chgs = &adapter->cfg_chgs;
-		parms.seq = 0;
+	*changes = &adapter->cfg_chgs;
+	LY_LIST_FOR (running_config->dnode, root) {
+		LYD_TREE_DFS_BEGIN (root, dnode) {
+			if (lysc_is_key(dnode->schema))
+				goto walk_cont;
 
-		mgmt_ds_iter_data(MGMTD_DS_RUNNING, cfg_root, "",
-				  mgmt_be_iter_and_get_cfg, (void *)&parms);
+			xpath = lyd_path(dnode, LYD_PATH_STD, NULL, 0);
+			if (be_is_client_interested(xpath, adapter->id, true))
+				nb_config_diff_add_change(*changes, NB_CB_CREATE, &seq, dnode);
+			else
+				LYD_TREE_DFS_continue = 1; /* skip any subtree */
+			free(xpath);
+		walk_cont:
+			LYD_TREE_DFS_END(root, dnode);
+		}
 	}
-
-	*cfg_chgs = &adapter->cfg_chgs;
-	return 0;
 }
 
 uint64_t mgmt_be_interested_clients(const char *xpath, bool config)
