@@ -950,6 +950,9 @@ extern bool nb_is_operation_allowed(struct nb_node *nb_node,
  * xpath
  *    XPath of the configuration node being edited.
  *
+ * in_backend
+ *    Specify whether the changes are being applied in the backend or not.
+ *
  * previous
  *    Previous value of the configuration node. Should be used only when the
  *    operation is NB_OP_MOVE, otherwise this parameter is ignored.
@@ -964,7 +967,7 @@ extern bool nb_is_operation_allowed(struct nb_node *nb_node,
 extern int nb_candidate_edit(struct nb_config *candidate,
 			     const struct nb_node *nb_node,
 			     enum nb_operation operation, const char *xpath,
-			     const struct yang_data *previous,
+			     bool in_backend, const struct yang_data *previous,
 			     const struct yang_data *data);
 
 /*
@@ -1009,6 +1012,9 @@ extern bool nb_candidate_needs_update(const struct nb_config *candidate);
  * xpath_base
  *    Base xpath for config.
  *
+ * in_backend
+ *    Specify whether the changes are being applied in the backend or not.
+ *
  * err_buf
  *    Buffer to store human-readable error message in case of error.
  *
@@ -1018,10 +1024,12 @@ extern bool nb_candidate_needs_update(const struct nb_config *candidate);
  * error
  *    TRUE on error, FALSE on success
  */
-extern void nb_candidate_edit_config_changes(
-	struct nb_config *candidate_config, struct nb_cfg_change cfg_changes[],
-	size_t num_cfg_changes, const char *xpath_base, char *err_buf,
-	int err_bufsize, bool *error);
+extern void nb_candidate_edit_config_changes(struct nb_config *candidate_config,
+					     struct nb_cfg_change cfg_changes[],
+					     size_t num_cfg_changes,
+					     const char *xpath_base,
+					     bool in_backend, char *err_buf,
+					     int err_bufsize, bool *error);
 
 /*
  * Delete candidate configuration changes.

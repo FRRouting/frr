@@ -146,9 +146,9 @@ static int nb_cli_apply_changes_internal(struct vty *vty,
 
 	VTY_CHECK_XPATH;
 
-	nb_candidate_edit_config_changes(
-		vty->candidate_config, vty->cfg_changes, vty->num_cfg_changes,
-		xpath_base, buf, sizeof(buf), &error);
+	nb_candidate_edit_config_changes(vty->candidate_config, vty->cfg_changes,
+					 vty->num_cfg_changes, xpath_base,
+					 false, buf, sizeof(buf), &error);
 	if (error) {
 		/*
 		 * Failure to edit the candidate configuration should never

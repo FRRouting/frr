@@ -694,10 +694,9 @@ static int dnode_create(struct nb_config *candidate, const char *xpath,
 	return NB_OK;
 }
 
-int nb_candidate_edit(struct nb_config *candidate,
-		      const struct nb_node *nb_node,
+int nb_candidate_edit(struct nb_config *candidate, const struct nb_node *nb_node,
 		      enum nb_operation operation, const char *xpath,
-		      const struct yang_data *previous,
+		      bool in_backend, const struct yang_data *previous,
 		      const struct yang_data *data)
 {
 	struct lyd_node *dnode, *dep_dnode, *old_dnode, *parent;
@@ -706,8 +705,13 @@ int nb_candidate_edit(struct nb_config *candidate,
 	uint32_t options = 0;
 	LY_ERR err;
 
-	/* Use special notation for leaf-lists (RFC 6020, section 9.13.5). */
-	if (nb_node->snode->nodetype == LYS_LEAFLIST)
+	/*
+	 * Use special notation for leaf-lists (RFC 6020, section 9.13.5).
+	 * if we are in a backend client this notation was already applied
+	 * by mgmtd before sending to us.
+	 */
+	if (!in_backend && nb_node->snode->nodetype == LYS_LEAFLIST &&
+	    (operation == NB_OP_DESTROY || operation == NB_OP_DELETE))
 		snprintf(xpath_edit, sizeof(xpath_edit), "%s[.='%s']", xpath,
 			 data->value);
 	else
@@ -838,10 +842,12 @@ bool nb_is_operation_allowed(struct nb_node *nb_node, enum nb_operation oper)
 	return true;
 }
 
-void nb_candidate_edit_config_changes(
-	struct nb_config *candidate_config, struct nb_cfg_change cfg_changes[],
-	size_t num_cfg_changes, const char *xpath_base, char *err_buf,
-	int err_bufsize, bool *error)
+void nb_candidate_edit_config_changes(struct nb_config *candidate_config,
+				      struct nb_cfg_change cfg_changes[],
+				      size_t num_cfg_changes,
+				      const char *xpath_base, bool in_backend,
+				      char *err_buf, int err_bufsize,
+				      bool *error)
 {
 	if (error)
 		*error = false;
@@ -895,7 +901,8 @@ void nb_candidate_edit_config_changes(
 		 * configuration.
 		 */
 		ret = nb_candidate_edit(candidate_config, nb_node,
-					change->operation, xpath, NULL, data);
+					change->operation, xpath, in_backend,
+					NULL, data);
 		yang_data_free(data);
 		if (ret != NB_OK) {
 			flog_warn(

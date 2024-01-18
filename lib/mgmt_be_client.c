@@ -449,7 +449,7 @@ static int mgmt_be_txn_cfg_prepare(struct mgmt_be_txn_ctx *txn)
 				client_ctx->candidate_config,
 				txn_req->req.set_cfg.cfg_changes,
 				(size_t)txn_req->req.set_cfg.num_cfg_changes,
-				NULL, err_buf, sizeof(err_buf), &error);
+				NULL, true, err_buf, sizeof(err_buf), &error);
 			if (error) {
 				err_buf[sizeof(err_buf) - 1] = 0;
 				MGMTD_BE_CLIENT_ERR(
