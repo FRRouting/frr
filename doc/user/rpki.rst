@@ -252,7 +252,7 @@ RPKI Configuration Example
     rpki polling_period 1000
     rpki timeout 10
      ! SSH Example:
-     rpki cache example.com source 198.51.100.223 22 rtr-ssh ./ssh_key/id_rsa ./ssh_key/id_rsa.pub preference 1
+     rpki cache example.com source 198.51.100.223 22 rtr-ssh ./ssh_key/id_rsa preference 1
      ! TCP Example:
      rpki cache rpki-validator.realmv6.org 8282 preference 2
      exit
