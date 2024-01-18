@@ -68,6 +68,7 @@ module frr-affinity-map {
         "Affinity Mapping Table";
       list affinity-map {
         key "name";
+        unique "value";
         description
           "Affinity Mapping configuration";
         leaf name {

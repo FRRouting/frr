@@ -63,7 +63,6 @@ extern const struct frr_yang_module_info frr_affinity_map_info;
 void affinity_map_set(const char *name, int pos);
 void affinity_map_unset(const char *name);
 struct affinity_map *affinity_map_get(const char *name);
-char *affinity_map_name_get(const int pos);
 
 bool affinity_map_check_update_hook(const char *affmap_name, uint16_t new_pos);
 void affinity_map_update_hook(const char *affmap_name, uint16_t new_pos);

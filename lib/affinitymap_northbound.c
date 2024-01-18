@@ -63,7 +63,6 @@ static int lib_affinity_map_destroy(struct nb_cb_destroy_args *args)
 static int lib_affinity_map_value_modify(struct nb_cb_modify_args *args)
 {
 	const char *name;
-	char *map_name;
 	uint16_t pos;
 
 	name = yang_dnode_get_string(
@@ -74,13 +73,6 @@ static int lib_affinity_map_value_modify(struct nb_cb_modify_args *args)
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
-		map_name = affinity_map_name_get(pos);
-		if (map_name &&
-		    strncmp(map_name, name, AFFINITY_NAME_SIZE) != 0) {
-			snprintf(args->errmsg, args->errmsg_len,
-				 "bit-position is used by %s.", map_name);
-			return NB_ERR_VALIDATION;
-		}
 		if (!affinity_map_check_update_hook(name, pos)) {
 			snprintf(
 				args->errmsg, args->errmsg_len,

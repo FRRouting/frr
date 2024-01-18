@@ -106,21 +106,6 @@ struct affinity_map *affinity_map_get(const char *name)
 	return NULL;
 }
 
-
-char *affinity_map_name_get(int pos)
-{
-	struct listnode *node;
-	struct affinity_map *map;
-
-	if (!affinity_map_master.maps)
-		return NULL;
-
-	for (ALL_LIST_ELEMENTS_RO(affinity_map_master.maps, node, map))
-		if (map->bit_position == pos)
-			return map->name;
-	return NULL;
-}
-
 bool affinity_map_check_update_hook(const char *affmap_name, uint16_t new_pos)
 {
 	if (affinity_map_master.check_update_hook)
