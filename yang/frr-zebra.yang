@@ -1935,19 +1935,23 @@ module frr-zebra {
     description
       "Extends interface model with Zebra-related parameters.";
     container zebra {
-      list ip-addrs {
-        key "address-family ip-prefix";
+      list ipv4-addrs {
+        key "ip prefix-length";
         description
-          "IP prefixes for an interface.";
-        uses frr-rt:address-family {
+          "The list of configured IPv4 addresses on the interface.";
+
+        leaf ip {
+          type inet:ipv4-address-no-zone;
           description
-            "Address family of the RIB.";
+            "The IPv4 address on the interface.";
         }
 
-        leaf ip-prefix {
-          type inet:ip-prefix;
+        leaf prefix-length {
+          type uint8 {
+            range "0..32";
+          }
           description
-            "IP address prefix.";
+            "The length of the subnet prefix.";
         }
 
         leaf label {
@@ -1955,12 +1959,57 @@ module frr-zebra {
           description
             "Optional string label for the address.";
         }
+      }
 
-        leaf ip4-peer {
-          when "derived-from-or-self(../address-family, 'frr-rt:ipv4')";
-          type inet:ipv4-prefix;
+      list ipv4-p2p-addrs {
+        key "ip peer-ip peer-prefix-length";
+        description
+          "The list of configured peer-to-peer IPv4 addresses on the interface.";
+
+        leaf ip {
+          type inet:ipv4-address-no-zone;
           description
-            "Peer prefix, for peer-to-peer interfaces.";
+            "The IPv4 address on the interface.";
+        }
+
+        leaf peer-ip {
+          type inet:ipv4-address-no-zone;
+          description
+            "Peer address.";
+        }
+
+        leaf peer-prefix-length {
+          type uint8 {
+            range "0..32";
+          }
+          description
+            "The length of the peer subnet prefix.";
+        }
+
+        leaf label {
+          type string;
+          description
+            "Optional string label for the address.";
+        }
+      }
+
+      list ipv6-addrs {
+        key "ip prefix-length";
+        description
+          "The list of configured IPv6 addresses on the interface.";
+
+        leaf ip {
+          type inet:ipv6-address-no-zone;
+          description
+            "The IPv6 address on the interface.";
+        }
+
+        leaf prefix-length {
+          type uint8 {
+            range "0..128";
+          }
+          description
+            "The length of the subnet prefix.";
         }
       }
 

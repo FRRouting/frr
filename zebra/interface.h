@@ -307,11 +307,14 @@ extern void cli_show_affinity(struct vty *vty, const struct lyd_node *dnode,
  */
 extern int zebra_if_set_protodown(struct interface *ifp, bool down,
 				  enum protodown_reasons new_reason);
-extern int if_ip_address_install(struct interface *ifp, struct prefix *prefix,
-				 const char *label, struct prefix *pp);
-extern int if_ipv6_address_install(struct interface *ifp, struct prefix *prefix,
-				   const char *label);
-extern int if_ip_address_uinstall(struct interface *ifp, struct prefix *prefix);
+extern void if_ip_address_install(struct interface *ifp, struct prefix *prefix,
+				  const char *label, struct prefix *pp);
+extern void if_ip_address_uninstall(struct interface *ifp,
+				    struct prefix *prefix, struct prefix *pp);
+extern void if_ipv6_address_install(struct interface *ifp,
+				    struct prefix *prefix);
+extern void if_ipv6_address_uninstall(struct interface *ifp,
+				      struct prefix *prefix);
 extern int if_shutdown(struct interface *ifp);
 extern int if_no_shutdown(struct interface *ifp);
 extern void if_arp(struct interface *ifp, bool enable);

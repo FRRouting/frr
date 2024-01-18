@@ -80,14 +80,18 @@ int zebra_debugs_debug_dplane_detail_modify(struct nb_cb_modify_args *args);
 int zebra_debugs_debug_dplane_detail_destroy(struct nb_cb_destroy_args *args);
 int zebra_debugs_debug_mlag_modify(struct nb_cb_modify_args *args);
 int zebra_debugs_debug_mlag_destroy(struct nb_cb_destroy_args *args);
-int lib_interface_zebra_ip_addrs_create(struct nb_cb_create_args *args);
-int lib_interface_zebra_ip_addrs_destroy(struct nb_cb_destroy_args *args);
-int lib_interface_zebra_ip_addrs_label_modify(struct nb_cb_modify_args *args);
-int lib_interface_zebra_ip_addrs_label_destroy(struct nb_cb_destroy_args *args);
-int lib_interface_zebra_ip_addrs_ip4_peer_modify(
+int lib_interface_zebra_ipv4_addrs_create(struct nb_cb_create_args *args);
+int lib_interface_zebra_ipv4_addrs_destroy(struct nb_cb_destroy_args *args);
+int lib_interface_zebra_ipv4_addrs_label_modify(struct nb_cb_modify_args *args);
+int lib_interface_zebra_ipv4_addrs_label_destroy(struct nb_cb_destroy_args *args);
+int lib_interface_zebra_ipv4_p2p_addrs_create(struct nb_cb_create_args *args);
+int lib_interface_zebra_ipv4_p2p_addrs_destroy(struct nb_cb_destroy_args *args);
+int lib_interface_zebra_ipv4_p2p_addrs_label_modify(
 	struct nb_cb_modify_args *args);
-int lib_interface_zebra_ip_addrs_ip4_peer_destroy(
+int lib_interface_zebra_ipv4_p2p_addrs_label_destroy(
 	struct nb_cb_destroy_args *args);
+int lib_interface_zebra_ipv6_addrs_create(struct nb_cb_create_args *args);
+int lib_interface_zebra_ipv6_addrs_destroy(struct nb_cb_destroy_args *args);
 int lib_interface_zebra_multicast_modify(struct nb_cb_modify_args *args);
 int lib_interface_zebra_multicast_destroy(struct nb_cb_destroy_args *args);
 int lib_interface_zebra_link_detect_modify(struct nb_cb_modify_args *args);

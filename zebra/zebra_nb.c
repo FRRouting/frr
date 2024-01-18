@@ -290,24 +290,38 @@ const struct frr_yang_module_info frr_zebra_info = {
 			}
 		},
 		{
-			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/ip-addrs",
+			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/ipv4-addrs",
 			.cbs = {
-				.create = lib_interface_zebra_ip_addrs_create,
-				.destroy = lib_interface_zebra_ip_addrs_destroy,
+				.create = lib_interface_zebra_ipv4_addrs_create,
+				.destroy = lib_interface_zebra_ipv4_addrs_destroy,
 			}
 		},
 		{
-			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/ip-addrs/label",
+			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/ipv4-addrs/label",
 			.cbs = {
-				.modify = lib_interface_zebra_ip_addrs_label_modify,
-				.destroy = lib_interface_zebra_ip_addrs_label_destroy,
+				.modify = lib_interface_zebra_ipv4_addrs_label_modify,
+				.destroy = lib_interface_zebra_ipv4_addrs_label_destroy,
 			}
 		},
 		{
-			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/ip-addrs/ip4-peer",
+			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/ipv4-p2p-addrs",
 			.cbs = {
-				.modify = lib_interface_zebra_ip_addrs_ip4_peer_modify,
-				.destroy = lib_interface_zebra_ip_addrs_ip4_peer_destroy,
+				.create = lib_interface_zebra_ipv4_p2p_addrs_create,
+				.destroy = lib_interface_zebra_ipv4_p2p_addrs_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/ipv4-p2p-addrs/label",
+			.cbs = {
+				.modify = lib_interface_zebra_ipv4_p2p_addrs_label_modify,
+				.destroy = lib_interface_zebra_ipv4_p2p_addrs_label_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/ipv6-addrs",
+			.cbs = {
+				.create = lib_interface_zebra_ipv6_addrs_create,
+				.destroy = lib_interface_zebra_ipv6_addrs_destroy,
 			}
 		},
 		{

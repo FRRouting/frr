@@ -4732,37 +4732,27 @@ void cli_show_affinity(struct vty *vty, const struct lyd_node *dnode,
 	vty_out(vty, "\n");
 }
 
-int if_ip_address_install(struct interface *ifp, struct prefix *prefix,
-			  const char *label, struct prefix *pp)
+void if_ip_address_install(struct interface *ifp, struct prefix *prefix,
+			   const char *label, struct prefix *pp)
 {
 	struct zebra_if *if_data;
-	struct prefix_ipv4 lp;
-	struct prefix_ipv4 *p;
 	struct connected *ifc;
-	enum zebra_dplane_result dplane_res;
 
 	if_data = ifp->info;
 
-	lp.family = prefix->family;
-	lp.prefix = prefix->u.prefix4;
-	lp.prefixlen = prefix->prefixlen;
-	apply_mask_ipv4(&lp);
-
-	ifc = connected_check_ptp(ifp, &lp, pp ? pp : NULL);
+	ifc = connected_check_ptp(ifp, prefix, pp);
 	if (!ifc) {
 		ifc = connected_new();
 		ifc->ifp = ifp;
 
 		/* Address. */
-		p = prefix_ipv4_new();
-		*p = lp;
-		ifc->address = (struct prefix *)p;
+		ifc->address = prefix_new();
+		prefix_copy(ifc->address, prefix);
 
 		if (pp) {
 			SET_FLAG(ifc->flags, ZEBRA_IFA_PEER);
-			p = prefix_ipv4_new();
-			*p = *(struct prefix_ipv4 *)pp;
-			ifc->destination = (struct prefix *)p;
+			ifc->destination = prefix_new();
+			prefix_copy(ifc->destination, pp);
 		}
 
 		/* Label. */
@@ -4787,13 +4777,7 @@ int if_ip_address_install(struct interface *ifp, struct prefix *prefix,
 			if_refresh(ifp);
 		}
 
-		dplane_res = dplane_intf_addr_set(ifp, ifc);
-		if (dplane_res == ZEBRA_DPLANE_REQUEST_FAILURE) {
-			zlog_debug(
-				"dplane can't set interface IP address: %s.",
-				dplane_res2str(dplane_res));
-			return NB_ERR;
-		}
+		dplane_intf_addr_set(ifp, ifc);
 
 		SET_FLAG(ifc->conf, ZEBRA_IFC_QUEUED);
 		/* The address will be advertised to zebra clients when the
@@ -4801,189 +4785,15 @@ int if_ip_address_install(struct interface *ifp, struct prefix *prefix,
 		 * from the kernel has been received.
 		 * It will also be added to the subnet chain list, then. */
 	}
-
-	return 0;
 }
 
-static int ip_address_install(struct vty *vty, struct interface *ifp,
-			      const char *addr_str, const char *peer_str,
-			      const char *label)
+void if_ip_address_uninstall(struct interface *ifp, struct prefix *prefix,
+			     struct prefix *pp)
 {
-	struct zebra_if *if_data;
-	struct prefix_ipv4 lp, pp;
 	struct connected *ifc;
-	struct prefix_ipv4 *p;
-	int ret;
-	enum zebra_dplane_result dplane_res;
 
-	if_data = ifp->info;
-
-	ret = str2prefix_ipv4(addr_str, &lp);
-	if (ret <= 0) {
-		vty_out(vty, "%% Malformed address \n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	if (ipv4_martian(&lp.prefix)) {
-		vty_out(vty, "%% Invalid address\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	if (peer_str) {
-		if (lp.prefixlen != IPV4_MAX_BITLEN) {
-			vty_out(vty,
-				"%% Local prefix length for P-t-P address must be /32\n");
-			return CMD_WARNING_CONFIG_FAILED;
-		}
-
-		ret = str2prefix_ipv4(peer_str, &pp);
-		if (ret <= 0) {
-			vty_out(vty, "%% Malformed peer address\n");
-			return CMD_WARNING_CONFIG_FAILED;
-		}
-	}
-
-	ifc = connected_check_ptp(ifp, &lp, peer_str ? &pp : NULL);
-	if (!ifc) {
-		ifc = connected_new();
-		ifc->ifp = ifp;
-
-		/* Address. */
-		p = prefix_ipv4_new();
-		*p = lp;
-		ifc->address = (struct prefix *)p;
-
-		if (peer_str) {
-			SET_FLAG(ifc->flags, ZEBRA_IFA_PEER);
-			p = prefix_ipv4_new();
-			*p = pp;
-			ifc->destination = (struct prefix *)p;
-		}
-
-		/* Label. */
-		if (label)
-			ifc->label = XSTRDUP(MTYPE_CONNECTED_LABEL, label);
-
-		/* Add to linked list. */
-		if_connected_add_tail(ifp->connected, ifc);
-	}
-
-	/* This address is configured from zebra. */
-	if (!CHECK_FLAG(ifc->conf, ZEBRA_IFC_CONFIGURED))
-		SET_FLAG(ifc->conf, ZEBRA_IFC_CONFIGURED);
-
-	/* In case of this route need to install kernel. */
-	if (!CHECK_FLAG(ifc->conf, ZEBRA_IFC_QUEUED) &&
-	    CHECK_FLAG(ifp->status, ZEBRA_INTERFACE_ACTIVE) &&
-	    !(if_data && if_data->shutdown == IF_ZEBRA_DATA_ON)) {
-		/* Some system need to up the interface to set IP address. */
-		if (!if_is_up(ifp)) {
-			if_set_flags(ifp, IFF_UP | IFF_RUNNING);
-			if_refresh(ifp);
-		}
-
-		dplane_res = dplane_intf_addr_set(ifp, ifc);
-		if (dplane_res == ZEBRA_DPLANE_REQUEST_FAILURE) {
-			vty_out(vty, "%% Can't set interface IP address: %s.\n",
-				dplane_res2str(dplane_res));
-			return CMD_WARNING_CONFIG_FAILED;
-		}
-
-		SET_FLAG(ifc->conf, ZEBRA_IFC_QUEUED);
-		/* The address will be advertised to zebra clients when the
-		 * notification
-		 * from the kernel has been received.
-		 * It will also be added to the subnet chain list, then. */
-	}
-
-	return CMD_SUCCESS;
-}
-
-int if_ip_address_uinstall(struct interface *ifp, struct prefix *prefix)
-{
-	struct connected *ifc = NULL;
-	enum zebra_dplane_result dplane_res;
-
-	if (prefix->family == AF_INET) {
-		/* Check current interface address. */
-		ifc = connected_check_ptp(ifp, prefix, NULL);
-		if (!ifc) {
-			zlog_debug("interface %s Can't find address",
-				   ifp->name);
-			return -1;
-		}
-
-	} else if (prefix->family == AF_INET6) {
-		/* Check current interface address. */
-		ifc = connected_check(ifp, prefix);
-	}
-
-	if (!ifc) {
-		zlog_debug("interface %s Can't find address", ifp->name);
-		return -1;
-	}
-	UNSET_FLAG(ifc->conf, ZEBRA_IFC_CONFIGURED);
-
-	/* This is not real address or interface is not active. */
-	if (!CHECK_FLAG(ifc->conf, ZEBRA_IFC_QUEUED)
-	    || !CHECK_FLAG(ifp->status, ZEBRA_INTERFACE_ACTIVE)) {
-		if_connected_del(ifp->connected, ifc);
-		connected_free(&ifc);
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	/* This is real route. */
-	dplane_res = dplane_intf_addr_unset(ifp, ifc);
-	if (dplane_res == ZEBRA_DPLANE_REQUEST_FAILURE) {
-		zlog_debug("Can't unset interface IP address: %s.",
-			   dplane_res2str(dplane_res));
-		return -1;
-	}
-	UNSET_FLAG(ifc->conf, ZEBRA_IFC_QUEUED);
-
-	return 0;
-}
-
-static int ip_address_uninstall(struct vty *vty, struct interface *ifp,
-				const char *addr_str, const char *peer_str,
-				const char *label)
-{
-	struct prefix_ipv4 lp, pp;
-	struct connected *ifc;
-	int ret;
-	enum zebra_dplane_result dplane_res;
-
-	/* Convert to prefix structure. */
-	ret = str2prefix_ipv4(addr_str, &lp);
-	if (ret <= 0) {
-		vty_out(vty, "%% Malformed address \n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	if (peer_str) {
-		if (lp.prefixlen != IPV4_MAX_BITLEN) {
-			vty_out(vty,
-				"%% Local prefix length for P-t-P address must be /32\n");
-			return CMD_WARNING_CONFIG_FAILED;
-		}
-
-		ret = str2prefix_ipv4(peer_str, &pp);
-		if (ret <= 0) {
-			vty_out(vty, "%% Malformed peer address\n");
-			return CMD_WARNING_CONFIG_FAILED;
-		}
-	}
-
-	/* Check current interface address. */
-	ifc = connected_check_ptp(ifp, &lp, peer_str ? &pp : NULL);
-	if (!ifc) {
-		vty_out(vty, "%% Can't find address\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	/* This is not configured address. */
-	if (!CHECK_FLAG(ifc->conf, ZEBRA_IFC_CONFIGURED))
-		return CMD_WARNING_CONFIG_FAILED;
+	ifc = connected_check_ptp(ifp, prefix, pp);
+	assert(ifc);
 
 	UNSET_FLAG(ifc->conf, ZEBRA_IFC_CONFIGURED);
 
@@ -4992,140 +4802,131 @@ static int ip_address_uninstall(struct vty *vty, struct interface *ifp,
 	    || !CHECK_FLAG(ifp->status, ZEBRA_INTERFACE_ACTIVE)) {
 		if_connected_del(ifp->connected, ifc);
 		connected_free(&ifc);
-		return CMD_WARNING_CONFIG_FAILED;
+		return;
 	}
 
 	/* This is real route. */
-	dplane_res = dplane_intf_addr_unset(ifp, ifc);
-	if (dplane_res == ZEBRA_DPLANE_REQUEST_FAILURE) {
-		vty_out(vty, "%% Can't unset interface IP address: %s.\n",
-			dplane_res2str(dplane_res));
-		return CMD_WARNING_CONFIG_FAILED;
-	}
+	dplane_intf_addr_unset(ifp, ifc);
+
 	UNSET_FLAG(ifc->conf, ZEBRA_IFC_QUEUED);
-	/* we will receive a kernel notification about this route being removed.
-	 * this will trigger its removal from the connected list. */
-	return CMD_SUCCESS;
 }
 
-DEFUN (ip_address,
+#ifdef HAVE_NETLINK
+DEFPY_YANG (ip_address,
        ip_address_cmd,
-       "ip address A.B.C.D/M",
-       "Interface Internet Protocol config commands\n"
-       "Set the IP address of an interface\n"
-       "IP address (e.g. 10.0.0.1/8)\n")
-{
-	int idx_ipv4_prefixlen = 2;
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	return ip_address_install(vty, ifp, argv[idx_ipv4_prefixlen]->arg, NULL,
-				  NULL);
-}
-
-DEFUN (no_ip_address,
-       no_ip_address_cmd,
-       "no ip address A.B.C.D/M",
+       "[no] ip address A.B.C.D/M [label LINE$label]",
        NO_STR
        "Interface Internet Protocol config commands\n"
        "Set the IP address of an interface\n"
-       "IP Address (e.g. 10.0.0.1/8)\n")
+       "IP address (e.g. 10.0.0.1/8)\n"
+       "Label of this address\n"
+       "Label\n")
+#else
+DEFPY_YANG (ip_address,
+       ip_address_cmd,
+       "[no] ip address A.B.C.D/M",
+       NO_STR
+       "Interface Internet Protocol config commands\n"
+       "Set the IP address of an interface\n"
+       "IP address (e.g. 10.0.0.1/8)\n")
+#endif
 {
-	int idx_ipv4_prefixlen = 3;
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	return ip_address_uninstall(vty, ifp, argv[idx_ipv4_prefixlen]->arg,
-				    NULL, NULL);
+	char ip[INET_ADDRSTRLEN + 3];
+	char *mask;
+
+	if (no) {
+		nb_cli_enqueue_change(vty, ".", NB_OP_DESTROY, NULL);
+	} else {
+		nb_cli_enqueue_change(vty, ".", NB_OP_CREATE, NULL);
+#ifdef HAVE_NETLINK
+		if (label)
+			nb_cli_enqueue_change(vty, "./label", NB_OP_MODIFY,
+					      label);
+		else
+			nb_cli_enqueue_change(vty, "./label", NB_OP_DESTROY,
+					      NULL);
+#endif
+	}
+
+	strlcpy(ip, address_str, sizeof(ip));
+
+	mask = strchr(ip, '/');
+	*mask = 0;
+	mask++;
+
+	return nb_cli_apply_changes(vty,
+				    "./frr-zebra:zebra/ipv4-addrs[ip='%s'][prefix-length='%s']",
+				    ip, mask);
 }
 
-DEFUN(ip_address_peer,
+#ifdef HAVE_NETLINK
+DEFPY_YANG (ip_address_peer,
       ip_address_peer_cmd,
-      "ip address A.B.C.D peer A.B.C.D/M",
+      "[no] ip address A.B.C.D peer A.B.C.D/M [label LINE$label]",
+      NO_STR
       "Interface Internet Protocol config commands\n"
       "Set the IP address of an interface\n"
       "Local IP (e.g. 10.0.0.1) for P-t-P address\n"
       "Specify P-t-P address\n"
-      "Peer IP address (e.g. 10.0.0.1/8)\n")
-{
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	return ip_address_install(vty, ifp, argv[2]->arg, argv[4]->arg, NULL);
-}
-
-DEFUN(no_ip_address_peer,
-      no_ip_address_peer_cmd,
-      "no ip address A.B.C.D peer A.B.C.D/M",
+      "Peer IP address (e.g. 10.0.0.1/8)\n"
+      "Label of this address\n"
+      "Label\n")
+#else
+DEFPY_YANG (ip_address_peer,
+      ip_address_peer_cmd,
+      "[no] ip address A.B.C.D peer A.B.C.D/M",
       NO_STR
       "Interface Internet Protocol config commands\n"
       "Set the IP address of an interface\n"
       "Local IP (e.g. 10.0.0.1) for P-t-P address\n"
       "Specify P-t-P address\n"
       "Peer IP address (e.g. 10.0.0.1/8)\n")
+#endif
 {
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	return ip_address_uninstall(vty, ifp, argv[3]->arg, argv[5]->arg, NULL);
-}
+	char peer_ip[INET_ADDRSTRLEN + 3];
+	char *peer_mask;
 
+	if (no) {
+		nb_cli_enqueue_change(vty, ".", NB_OP_DESTROY, NULL);
+	} else {
+		nb_cli_enqueue_change(vty, ".", NB_OP_CREATE, NULL);
 #ifdef HAVE_NETLINK
-DEFUN (ip_address_label,
-       ip_address_label_cmd,
-       "ip address A.B.C.D/M label LINE",
-       "Interface Internet Protocol config commands\n"
-       "Set the IP address of an interface\n"
-       "IP address (e.g. 10.0.0.1/8)\n"
-       "Label of this address\n"
-       "Label\n")
-{
-	int idx_ipv4_prefixlen = 2;
-	int idx_line = 4;
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	return ip_address_install(vty, ifp, argv[idx_ipv4_prefixlen]->arg, NULL,
-				  argv[idx_line]->arg);
+		if (label)
+			nb_cli_enqueue_change(vty, "./label", NB_OP_MODIFY,
+					      label);
+		else
+			nb_cli_enqueue_change(vty, "./label", NB_OP_DESTROY,
+					      NULL);
+#endif
+	}
+
+	strlcpy(peer_ip, peer_str, sizeof(peer_ip));
+
+	peer_mask = strchr(peer_ip, '/');
+	*peer_mask = 0;
+	peer_mask++;
+
+	return nb_cli_apply_changes(
+		vty,
+		"./frr-zebra:zebra/ipv4-p2p-addrs[ip='%s'][peer-ip='%s'][peer-prefix-length='%s']",
+		address_str, peer_ip, peer_mask);
 }
 
-DEFUN (no_ip_address_label,
-       no_ip_address_label_cmd,
-       "no ip address A.B.C.D/M label LINE",
-       NO_STR
-       "Interface Internet Protocol config commands\n"
-       "Set the IP address of an interface\n"
-       "IP address (e.g. 10.0.0.1/8)\n"
-       "Label of this address\n"
-       "Label\n")
-{
-	int idx_ipv4_prefixlen = 3;
-	int idx_line = 5;
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	return ip_address_uninstall(vty, ifp, argv[idx_ipv4_prefixlen]->arg,
-				    NULL, argv[idx_line]->arg);
-}
-#endif /* HAVE_NETLINK */
-
-int if_ipv6_address_install(struct interface *ifp, struct prefix *prefix,
-			    const char *label)
+void if_ipv6_address_install(struct interface *ifp, struct prefix *prefix)
 {
 	struct zebra_if *if_data;
-	struct prefix_ipv6 cp;
 	struct connected *ifc;
-	struct prefix_ipv6 *p;
-	enum zebra_dplane_result dplane_res;
 
 	if_data = ifp->info;
 
-	cp.family = prefix->family;
-	cp.prefixlen = prefix->prefixlen;
-	cp.prefix = prefix->u.prefix6;
-	apply_mask_ipv6(&cp);
-
-	ifc = connected_check(ifp, (struct prefix *)&cp);
+	ifc = connected_check(ifp, prefix);
 	if (!ifc) {
 		ifc = connected_new();
 		ifc->ifp = ifp;
 
 		/* Address. */
-		p = prefix_ipv6_new();
-		*p = cp;
-		ifc->address = (struct prefix *)p;
-
-		/* Label. */
-		if (label)
-			ifc->label = XSTRDUP(MTYPE_CONNECTED_LABEL, label);
+		ifc->address = prefix_new();
+		prefix_copy(ifc->address, prefix);
 
 		/* Add to linked list. */
 		if_connected_add_tail(ifp->connected, ifc);
@@ -5145,121 +4946,21 @@ int if_ipv6_address_install(struct interface *ifp, struct prefix *prefix,
 			if_refresh(ifp);
 		}
 
-		dplane_res = dplane_intf_addr_set(ifp, ifc);
-		if (dplane_res == ZEBRA_DPLANE_REQUEST_FAILURE) {
-			zlog_debug(
-				"dplane can't set interface IP address: %s.",
-				dplane_res2str(dplane_res));
-			return NB_ERR;
-		}
+		dplane_intf_addr_set(ifp, ifc);
 
 		SET_FLAG(ifc->conf, ZEBRA_IFC_QUEUED);
 		/* The address will be advertised to zebra clients when the
 		 * notification
 		 * from the kernel has been received. */
 	}
-
-	return 0;
 }
 
-static int ipv6_address_install(struct vty *vty, struct interface *ifp,
-				const char *addr_str, const char *peer_str,
-				const char *label)
+void if_ipv6_address_uninstall(struct interface *ifp, struct prefix *prefix)
 {
-	struct zebra_if *if_data;
-	struct prefix_ipv6 cp;
 	struct connected *ifc;
-	struct prefix_ipv6 *p;
-	int ret;
-	enum zebra_dplane_result dplane_res;
 
-	if_data = ifp->info;
-
-	ret = str2prefix_ipv6(addr_str, &cp);
-	if (ret <= 0) {
-		vty_out(vty, "%% Malformed address \n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	if (ipv6_martian(&cp.prefix)) {
-		vty_out(vty, "%% Invalid address\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	ifc = connected_check(ifp, (struct prefix *)&cp);
-	if (!ifc) {
-		ifc = connected_new();
-		ifc->ifp = ifp;
-
-		/* Address. */
-		p = prefix_ipv6_new();
-		*p = cp;
-		ifc->address = (struct prefix *)p;
-
-		/* Label. */
-		if (label)
-			ifc->label = XSTRDUP(MTYPE_CONNECTED_LABEL, label);
-
-		/* Add to linked list. */
-		if_connected_add_tail(ifp->connected, ifc);
-	}
-
-	/* This address is configured from zebra. */
-	if (!CHECK_FLAG(ifc->conf, ZEBRA_IFC_CONFIGURED))
-		SET_FLAG(ifc->conf, ZEBRA_IFC_CONFIGURED);
-
-	/* In case of this route need to install kernel. */
-	if (!CHECK_FLAG(ifc->conf, ZEBRA_IFC_QUEUED) &&
-	    CHECK_FLAG(ifp->status, ZEBRA_INTERFACE_ACTIVE) &&
-	    !(if_data && if_data->shutdown == IF_ZEBRA_DATA_ON)) {
-		/* Some system need to up the interface to set IP address. */
-		if (!if_is_up(ifp)) {
-			if_set_flags(ifp, IFF_UP | IFF_RUNNING);
-			if_refresh(ifp);
-		}
-
-		dplane_res = dplane_intf_addr_set(ifp, ifc);
-		if (dplane_res == ZEBRA_DPLANE_REQUEST_FAILURE) {
-			vty_out(vty, "%% Can't set interface IP address: %s.\n",
-				dplane_res2str(dplane_res));
-			return CMD_WARNING_CONFIG_FAILED;
-		}
-
-		SET_FLAG(ifc->conf, ZEBRA_IFC_QUEUED);
-		/* The address will be advertised to zebra clients when the
-		 * notification
-		 * from the kernel has been received. */
-	}
-
-	return CMD_SUCCESS;
-}
-
-static int ipv6_address_uninstall(struct vty *vty, struct interface *ifp,
-				  const char *addr_str, const char *peer_str,
-				  const char *label)
-{
-	struct prefix_ipv6 cp;
-	struct connected *ifc;
-	int ret;
-	enum zebra_dplane_result dplane_res;
-
-	/* Convert to prefix structure. */
-	ret = str2prefix_ipv6(addr_str, &cp);
-	if (ret <= 0) {
-		vty_out(vty, "%% Malformed address \n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	/* Check current interface address. */
-	ifc = connected_check(ifp, (struct prefix *)&cp);
-	if (!ifc) {
-		vty_out(vty, "%% Can't find address\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	/* This is not configured address. */
-	if (!CHECK_FLAG(ifc->conf, ZEBRA_IFC_CONFIGURED))
-		return CMD_WARNING_CONFIG_FAILED;
+	ifc = connected_check(ifp, prefix);
+	assert(ifc);
 
 	UNSET_FLAG(ifc->conf, ZEBRA_IFC_CONFIGURED);
 
@@ -5268,48 +4969,40 @@ static int ipv6_address_uninstall(struct vty *vty, struct interface *ifp,
 	    || !CHECK_FLAG(ifp->status, ZEBRA_INTERFACE_ACTIVE)) {
 		if_connected_del(ifp->connected, ifc);
 		connected_free(&ifc);
-		return CMD_WARNING_CONFIG_FAILED;
+		return;
 	}
 
 	/* This is real route. */
-	dplane_res = dplane_intf_addr_unset(ifp, ifc);
-	if (dplane_res == ZEBRA_DPLANE_REQUEST_FAILURE) {
-		vty_out(vty, "%% Can't unset interface IP address: %s.\n",
-			dplane_res2str(dplane_res));
-		return CMD_WARNING_CONFIG_FAILED;
-	}
+	dplane_intf_addr_unset(ifp, ifc);
 
 	UNSET_FLAG(ifc->conf, ZEBRA_IFC_QUEUED);
-	/* This information will be propagated to the zclients when the
-	 * kernel notification is received. */
-	return CMD_SUCCESS;
 }
 
-DEFUN (ipv6_address,
+DEFPY_YANG (ipv6_address,
        ipv6_address_cmd,
-       "ipv6 address X:X::X:X/M",
-       "Interface IPv6 config commands\n"
-       "Set the IP address of an interface\n"
-       "IPv6 address (e.g. 3ffe:506::1/48)\n")
-{
-	int idx_ipv6_prefixlen = 2;
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	return ipv6_address_install(vty, ifp, argv[idx_ipv6_prefixlen]->arg,
-				    NULL, NULL);
-}
-
-DEFUN (no_ipv6_address,
-       no_ipv6_address_cmd,
-       "no ipv6 address X:X::X:X/M",
+       "[no] ipv6 address X:X::X:X/M",
        NO_STR
        "Interface IPv6 config commands\n"
        "Set the IP address of an interface\n"
        "IPv6 address (e.g. 3ffe:506::1/48)\n")
 {
-	int idx_ipv6_prefixlen = 3;
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	return ipv6_address_uninstall(vty, ifp, argv[idx_ipv6_prefixlen]->arg,
-				      NULL, NULL);
+	char ip[INET6_ADDRSTRLEN + 4];
+	char *mask;
+
+	if (no)
+		nb_cli_enqueue_change(vty, ".", NB_OP_DESTROY, NULL);
+	else
+		nb_cli_enqueue_change(vty, ".", NB_OP_CREATE, NULL);
+
+	strlcpy(ip, address_str, sizeof(ip));
+
+	mask = strchr(ip, '/');
+	*mask = 0;
+	mask++;
+
+	return nb_cli_apply_changes(vty,
+				    "./frr-zebra:zebra/ipv6-addrs[ip='%s'][prefix-length='%s']",
+				    ip, mask);
 }
 
 static int link_params_config_write(struct vty *vty, struct interface *ifp)
@@ -5487,15 +5180,8 @@ void zebra_if_init(void)
 	install_element(INTERFACE_NODE, &shutdown_if_cmd);
 	install_element(INTERFACE_NODE, &bandwidth_if_cmd);
 	install_element(INTERFACE_NODE, &ip_address_cmd);
-	install_element(INTERFACE_NODE, &no_ip_address_cmd);
 	install_element(INTERFACE_NODE, &ip_address_peer_cmd);
-	install_element(INTERFACE_NODE, &no_ip_address_peer_cmd);
 	install_element(INTERFACE_NODE, &ipv6_address_cmd);
-	install_element(INTERFACE_NODE, &no_ipv6_address_cmd);
-#ifdef HAVE_NETLINK
-	install_element(INTERFACE_NODE, &ip_address_label_cmd);
-	install_element(INTERFACE_NODE, &no_ip_address_label_cmd);
-#endif /* HAVE_NETLINK */
 	install_element(INTERFACE_NODE, &link_params_cmd);
 	install_default(LINK_PARAMS_NODE);
 	install_element(LINK_PARAMS_NODE, &link_params_enable_cmd);

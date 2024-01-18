@@ -823,28 +823,26 @@ int zebra_debugs_debug_mlag_destroy(struct nb_cb_destroy_args *args)
 }
 
 /*
- * XPath: /frr-interface:lib/interface/frr-zebra:zebra/ip-addrs
+ * XPath: /frr-interface:lib/interface/frr-zebra:zebra/ipv4-addrs
  */
-int lib_interface_zebra_ip_addrs_create(struct nb_cb_create_args *args)
+int lib_interface_zebra_ipv4_addrs_create(struct nb_cb_create_args *args)
 {
 	struct interface *ifp;
-	struct prefix prefix;
+	struct prefix p;
+	const char *label = NULL;
 
-	// addr_family = yang_dnode_get_enum(dnode, "address-family");
-	yang_dnode_get_prefix(&prefix, args->dnode, "ip-prefix");
-	apply_mask(&prefix);
+	p.family = AF_INET;
+	yang_dnode_get_ipv4(&p.u.prefix4, args->dnode, "ip");
+	p.prefixlen = yang_dnode_get_uint8(args->dnode, "prefix-length");
+
+	if (yang_dnode_exists(args->dnode, "label"))
+		label = yang_dnode_get_string(args->dnode, "label");
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
-		if (prefix.family == AF_INET
-		    && ipv4_martian(&prefix.u.prefix4)) {
+		if (ipv4_martian(&p.u.prefix4)) {
 			snprintfrr(args->errmsg, args->errmsg_len,
-				   "invalid address %pFX", &prefix);
-			return NB_ERR_VALIDATION;
-		} else if (prefix.family == AF_INET6
-			   && ipv6_martian(&prefix.u.prefix6)) {
-			snprintfrr(args->errmsg, args->errmsg_len,
-				   "invalid address %pFX", &prefix);
+				   "invalid address %pFX", &p);
 			return NB_ERR_VALIDATION;
 		}
 		break;
@@ -853,65 +851,105 @@ int lib_interface_zebra_ip_addrs_create(struct nb_cb_create_args *args)
 		break;
 	case NB_EV_APPLY:
 		ifp = nb_running_get_entry(args->dnode, NULL, true);
-		if (prefix.family == AF_INET)
-			if_ip_address_install(ifp, &prefix, NULL, NULL);
-		else if (prefix.family == AF_INET6)
-			if_ipv6_address_install(ifp, &prefix, NULL);
+		if_ip_address_install(ifp, &p, label, NULL);
 
+		/* set something for checking on label modify */
+		nb_running_set_entry(args->dnode, (void *)0x1);
 		break;
 	}
 
 	return NB_OK;
 }
 
-int lib_interface_zebra_ip_addrs_destroy(struct nb_cb_destroy_args *args)
+int lib_interface_zebra_ipv4_addrs_destroy(struct nb_cb_destroy_args *args)
 {
 	struct interface *ifp;
-	struct prefix prefix;
-	struct connected *ifc;
+	struct prefix p;
 
-	yang_dnode_get_prefix(&prefix, args->dnode, "ip-prefix");
-	apply_mask(&prefix);
+	p.family = AF_INET;
+	yang_dnode_get_ipv4(&p.u.prefix4, args->dnode, "ip");
+	p.prefixlen = yang_dnode_get_uint8(args->dnode, "prefix-length");
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	case NB_EV_APPLY:
+		nb_running_unset_entry(args->dnode);
+
 		ifp = nb_running_get_entry(args->dnode, NULL, false);
-		if (!ifp)
-			return NB_OK;
+		if_ip_address_uninstall(ifp, &p, NULL);
+		break;
+	}
 
-		if (prefix.family == AF_INET) {
-			/* Check current interface address. */
-			ifc = connected_check_ptp(ifp, &prefix, NULL);
-			if (!ifc) {
-				snprintf(args->errmsg, args->errmsg_len,
-					 "interface %s Can't find address\n",
-					 ifp->name);
-				return NB_ERR_VALIDATION;
-			}
-		} else if (prefix.family == AF_INET6) {
-			/* Check current interface address. */
-			ifc = connected_check(ifp, &prefix);
-			if (!ifc) {
-				snprintf(args->errmsg, args->errmsg_len,
-					 "interface can't find address %s",
-					 ifp->name);
-				return NB_ERR_VALIDATION;
-			}
-		} else
-			return NB_ERR_VALIDATION;
+	return NB_OK;
+}
 
-		/* This is not configured address. */
-		if (!CHECK_FLAG(ifc->conf, ZEBRA_IFC_CONFIGURED)) {
+/*
+ * XPath: /frr-interface:lib/interface/frr-zebra:zebra/ipv4-addrs/label
+ */
+int lib_interface_zebra_ipv4_addrs_label_modify(struct nb_cb_modify_args *args)
+{
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+		if (nb_running_get_entry_non_rec(lyd_parent(args->dnode), NULL,
+						 false)) {
 			snprintf(args->errmsg, args->errmsg_len,
-				 "interface %s not configured", ifp->name);
+				 "Changing label is not allowed");
 			return NB_ERR_VALIDATION;
 		}
+		break;
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+	case NB_EV_APPLY:
+		break;
+	}
 
-		/* This is not real address or interface is not active. */
-		if (!CHECK_FLAG(ifc->conf, ZEBRA_IFC_QUEUED)
-		    || !CHECK_FLAG(ifp->status, ZEBRA_INTERFACE_ACTIVE)) {
-			if_connected_del(ifp->connected, ifc);
-			connected_free(&ifc);
+	return NB_OK;
+}
+
+int lib_interface_zebra_ipv4_addrs_label_destroy(struct nb_cb_destroy_args *args)
+{
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+		snprintf(args->errmsg, args->errmsg_len,
+			 "Removing label is not allowed");
+		return NB_ERR_VALIDATION;
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+	case NB_EV_APPLY:
+		break;
+	}
+
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-interface:lib/interface/frr-zebra:zebra/ipv4-p2p-addrs
+ */
+int lib_interface_zebra_ipv4_p2p_addrs_create(struct nb_cb_create_args *args)
+{
+	struct interface *ifp;
+	struct prefix p, pp;
+	const char *label = NULL;
+
+	p.family = AF_INET;
+	yang_dnode_get_ipv4(&p.u.prefix4, args->dnode, "ip");
+	p.prefixlen = 32;
+
+	pp.family = AF_INET;
+	yang_dnode_get_ipv4(&pp.u.prefix4, args->dnode, "peer-ip");
+	pp.prefixlen = yang_dnode_get_uint8(args->dnode, "peer-prefix-length");
+
+	if (yang_dnode_exists(args->dnode, "label"))
+		label = yang_dnode_get_string(args->dnode, "label");
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+		if (ipv4_martian(&p.u.prefix4)) {
+			snprintfrr(args->errmsg, args->errmsg_len,
+				   "invalid address %pFX", &p);
 			return NB_ERR_VALIDATION;
 		}
 		break;
@@ -920,7 +958,39 @@ int lib_interface_zebra_ip_addrs_destroy(struct nb_cb_destroy_args *args)
 		break;
 	case NB_EV_APPLY:
 		ifp = nb_running_get_entry(args->dnode, NULL, true);
-		if_ip_address_uinstall(ifp, &prefix);
+		if_ip_address_install(ifp, &p, label, &pp);
+
+		/* set something for checking on label modify */
+		nb_running_set_entry(args->dnode, (void *)0x1);
+		break;
+	}
+
+	return NB_OK;
+}
+
+int lib_interface_zebra_ipv4_p2p_addrs_destroy(struct nb_cb_destroy_args *args)
+{
+	struct interface *ifp;
+	struct prefix p, pp;
+
+	p.family = AF_INET;
+	yang_dnode_get_ipv4(&p.u.prefix4, args->dnode, "ip");
+	p.prefixlen = 32;
+
+	pp.family = AF_INET;
+	yang_dnode_get_ipv4(&pp.u.prefix4, args->dnode, "peer-ip");
+	pp.prefixlen = yang_dnode_get_uint8(args->dnode, "peer-prefix-length");
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	case NB_EV_APPLY:
+		nb_running_unset_entry(args->dnode);
+
+		ifp = nb_running_get_entry(args->dnode, NULL, false);
+		if_ip_address_uninstall(ifp, &p, &pp);
 		break;
 	}
 
@@ -928,62 +998,94 @@ int lib_interface_zebra_ip_addrs_destroy(struct nb_cb_destroy_args *args)
 }
 
 /*
- * XPath: /frr-interface:lib/interface/frr-zebra:zebra/ip-addrs/label
+ * XPath: /frr-interface:lib/interface/frr-zebra:zebra/ipv4-p2p-addrs/label
  */
-int lib_interface_zebra_ip_addrs_label_modify(struct nb_cb_modify_args *args)
+int lib_interface_zebra_ipv4_p2p_addrs_label_modify(struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
 	case NB_EV_VALIDATE:
+		if (nb_running_get_entry_non_rec(lyd_parent(args->dnode), NULL,
+						 false)) {
+			snprintf(args->errmsg, args->errmsg_len,
+				 "Changing label is not allowed");
+			return NB_ERR_VALIDATION;
+		}
+		break;
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
 		break;
 	}
 
 	return NB_OK;
 }
 
-int lib_interface_zebra_ip_addrs_label_destroy(struct nb_cb_destroy_args *args)
-{
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
-
-	return NB_OK;
-}
-
-/*
- * XPath: /frr-interface:lib/interface/frr-zebra:zebra/ip-addrs/ip4-peer
- */
-int lib_interface_zebra_ip_addrs_ip4_peer_modify(struct nb_cb_modify_args *args)
-{
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
-
-	return NB_OK;
-}
-
-int lib_interface_zebra_ip_addrs_ip4_peer_destroy(
+int lib_interface_zebra_ipv4_p2p_addrs_label_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
 	case NB_EV_VALIDATE:
+		snprintf(args->errmsg, args->errmsg_len,
+			 "Removing label is not allowed");
+		return NB_ERR_VALIDATION;
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		break;
+	}
+
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-interface:lib/interface/frr-zebra:zebra/ipv6-addrs
+ */
+int lib_interface_zebra_ipv6_addrs_create(struct nb_cb_create_args *args)
+{
+	struct interface *ifp;
+	struct prefix p;
+
+	p.family = AF_INET6;
+	yang_dnode_get_ipv6(&p.u.prefix6, args->dnode, "ip");
+	p.prefixlen = yang_dnode_get_uint8(args->dnode, "prefix-length");
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+		if (ipv6_martian(&p.u.prefix6)) {
+			snprintfrr(args->errmsg, args->errmsg_len,
+				   "invalid address %pFX", &p);
+			return NB_ERR_VALIDATION;
+		}
+		break;
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	case NB_EV_APPLY:
+		ifp = nb_running_get_entry(args->dnode, NULL, true);
+		if_ipv6_address_install(ifp, &p);
+		break;
+	}
+
+	return NB_OK;
+}
+
+int lib_interface_zebra_ipv6_addrs_destroy(struct nb_cb_destroy_args *args)
+{
+	struct interface *ifp;
+	struct prefix p;
+
+	p.family = AF_INET6;
+	yang_dnode_get_ipv6(&p.u.prefix6, args->dnode, "ip");
+	p.prefixlen = yang_dnode_get_uint8(args->dnode, "prefix-length");
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	case NB_EV_APPLY:
+		ifp = nb_running_get_entry(args->dnode, NULL, false);
+		if_ipv6_address_uninstall(ifp, &p);
 		break;
 	}
 
