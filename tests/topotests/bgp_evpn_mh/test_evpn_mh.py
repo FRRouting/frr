@@ -264,7 +264,7 @@ def config_bridge(node):
     node.run("ip link set dev bridge type bridge mcast_snooping 0")
     node.run("ip link set dev bridge type bridge vlan_stats_enabled 1")
     node.run("ip link set dev bridge up")
-    node.run("/sbin/bridge vlan add vid 1000 dev bridge")
+    node.run("/sbin/bridge vlan add vid 1000 dev bridge self")
 
 
 def config_vxlan(node, node_ip):
