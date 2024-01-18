@@ -85,11 +85,6 @@ static int lib_affinity_map_value_modify(struct nb_cb_modify_args *args)
 	return NB_OK;
 }
 
-static int lib_affinity_map_value_destroy(struct nb_cb_destroy_args *args)
-{
-	return NB_OK;
-}
-
 /* clang-format off */
 const struct frr_yang_module_info frr_affinity_map_info = {
 	.name = "frr-affinity-map",
@@ -106,7 +101,6 @@ const struct frr_yang_module_info frr_affinity_map_info = {
 			.xpath = "/frr-affinity-map:lib/affinity-maps/affinity-map/value",
 			.cbs = {
 				.modify = lib_affinity_map_value_modify,
-				.destroy = lib_affinity_map_value_destroy,
 			}
 		},
 		{
