@@ -12,7 +12,7 @@ MGMTD Development
 =================
 
 Overview
-^^^^^^^^
+--------
 
 ``mgmtd`` (Management Daemon) is a new centralized management daemon for FRR.
 
@@ -33,9 +33,55 @@ each daemon. ``mgmtd`` currently provides the CLI interface for each daemon that
 has been converted to it, but in the future RESTCONF and NETCONF servers can
 easily be added as *front-ends* to mgmtd to support those protocols as well.
 
+Conversion Status
+^^^^^^^^^^^^^^^^^
+
+Fully Converted To MGMTD
+""""""""""""""""""""""""
+
+- lib/distribute
+- lib/filter
+- lib/if_rmap
+- lib/routemap
+- ripd
+- staticd
+- zebra (* - partial)
+
+Converted To Northbound
+"""""""""""""""""""""""
+- bfdd
+- lib/affinitymap
+- lib/if
+- pathd
+- pbrd
+- pimd
+- ripngd
+
+Converted To Northbound With Issues
+"""""""""""""""""""""""""""""""""""
+- eigrp
+- isisd
+
+Unconverted
+"""""""""""
+- babel
+- bgpd
+- ldpd
+- lib/event
+- lib/keychain
+- lib/log_vty
+- lib/nexthop_group
+- lib/zlog_5424_cli
+- nhrpd
+- ospfd
+- ospf6d
+- pceplib
+- qdb
+- sharpd
+- vrrpd
 
 Converting A Daemon to MGMTD
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+----------------------------
 
 A daemon must first be transitioned to the new :ref:`northbound` interface if that
 has not already been done (see :ref:`nb-retrofit` for how to do this). Once this
@@ -43,7 +89,7 @@ is done a few simple steps are all that is required move the daemon over to
 ``mgmtd`` control.
 
 Overview of Changes
--------------------
+^^^^^^^^^^^^^^^^^^^
 
 Adding support for a *northbound* converted daemon involves very little work. It
 requires enabling *frontend* (CLI and YANG) and *backend* (YANG) support.
@@ -51,31 +97,78 @@ requires enabling *frontend* (CLI and YANG) and *backend* (YANG) support.
 
 Front-End Interface:
 
-1. Add YANG module file to ``mgmtd/subdir.am`` (e.g., ``yang/frr-staticd.yang.c``).
-2. Add CLI handler file[s] to ``mgmtd/subdir.am`` (e.g., ``staticd/static_vty.c``).
-3. [if needed] Exclude (#ifndef) non-configuration CLI handlers from CLI source
-   file (e.g., inside ``staticd/static_vty.c``).
-4. [otherwise] Remove CLI handler file from SOURCES in daemon (e.g in :file:`staticd/subdir.am`)
-5. Add YANG module description into array defined in ``mgmtd/mgmt_main.c`` (see :ref:`mgmtd-config-write`).
-6. Initialize the CLI handlers inside :code:`mgmt_vty_init` in :file:`mgmtd/mgmt_vty.c`.
-7. Direct ``vtysh`` to send CLI commands to ``mgmtd`` by modifying
+#. Add YANG module file to ``mgmtd/subdir.am`` (e.g., ``yang/frr-staticd.yang.c``).
+
+#. Add CLI handler file[s] to ``mgmtd/subdir.am``. The `subdir.am` variable to
+   use is indicated in the next 2 steps.
+
+   #. [if needed] Exclude (:code:`#ifndef`) non-configuration CLI handlers from
+      CLI source file (e.g., inside :file:`staticd/static_vty.c`) and add the
+      file to :code:`nodist_mgmtd_libmgmt_be_nb_la_SOURCES` in
+      :file:`mgmtd/subdir.am`.
+
+   #. [otherwise] Remove CLI handler file from _SOURCES variable in the daemon
+      :file:`subdir.am` file (e.g in :file:`staticd/subdir.am`) and add to
+      :code:`mgmtd_libmgmtd_a_SOURCES` in :file:`mgmtd/subdir.am`.
+
+#. In order to have mgmtd try and load existing per-daemon config files, add
+   the daemon to the :code:`mgmt_daemons` array in :file:`lib/vty.c`. With the
+   official release of the mgmtd code FRR is no longer supporting per daemon log
+   files but it will take a while before all of the topotest is converted.
+
+#. In the daemon's :code:`struct frr_daemon_info` (i.e., inside it's
+   :code:`FRR_DAEMON_INFO()`) set the `.flags` bit `FRR_NO_SPLIT_CONFIG`. This
+   will keep the daemon from trying to read it's per-daemon config file as mgmtd
+   will now be doing this.
+
+#. Add the daemon's YANG module description[s] into the array
+   :code:`mgmt_yang_modules` defined in :file:`mgmtd/mgmt_main.c` (see
+   :ref:`mgmtd-config-write`). Make sure that all YANG modules that the daemon
+   uses are present in the mgmtd list. To find this list look in the daemon's
+   equivalent yang module array variable.
+
+#. Initialize the CLI handlers inside :code:`mgmt_vty_init` in :file:`mgmtd/mgmt_vty.c`.
+
+#. Direct ``vtysh`` to send CLI commands to ``mgmtd`` by modifying
    ``vtysh/vtysh.h``. At the top of this file each daemon has a bit
    ``#define``'d (e.g., ``#define VTYSH_STATICD 0x08000``) below this there are
    groupings, replace all the uses of the daemons bit with ``VTYSH_MGMTD``
    instead so that the CLI commands get properly routed to ``mgmtd`` rather than
    the daemon now.
 
+ #. Remove initialization (and installation) of library CLI routines. These will
+    correspond with the VTYSH removals from the last step i.e.,:
+
+    - change access_list_init() to access_list_init_new(false) and remove from
+      VTYSH_ACL_CONFIG (leave in VTYSH_ACL_SHOW).
+    - remove if_cmd_init_default() => remove from VTYSH_INTERFACE_SUBSET
+    - remove if_cmd_init() => remove from VTYSH_INTERFACE_SUBSET
+    - change route_map_init() to route_map_init_new(false) and remove from
+      VTYSH_ROUTE_MAP_CONFIG (leave in VTYSH_ROUTE_MAP_SHOW).
+    - remove vrf_cmd_init(NULL)  => remove from VTYSH_INTERFACE_SUBSET
+    ...
+
 Back-End Interface:
 
-8. In ``mgmtd/mgmt_be_adapter.c`` add xpath prefix mappings to a one or both
+#. In the daemon's main file initialize the BE client library. You add a global
+   `struct mgmt_be_client *mgmt_be_client` near the daemons `event_loop *master`
+   variable. Then where the daemon used to initialize it's CLI/VTY code replace
+   that with the client initialization by calling `mgmt_be_client_create`.
+   Likewise in the daemon's sigint cleanup code, operational walks should be
+   canceled with a call to `nb_oper_cancel_all_walks`, and then the BE client
+   should be destroyed with a call to `mgmt_be_client_destroy` and to be safe
+   NULL out the global `mgmt_be_client` variable.
+
+#. In ``mgmtd/mgmt_be_adapter.c`` add xpath prefix mappings to a one or both
    mapping arrays (``be_client_config_xpaths`` and ``be_client_oper_xpaths``) to
    direct ``mgmtd`` to send config and oper-state requests to your daemon. NOTE:
    make sure to include library supported xpaths prefixes as well (e.g.,
-   "/frr-interface:lib").
-
+   "/frr-interface:lib"). A good way to figure these paths out are to look in
+   each of the YANG modules that the daemon uses and include each of their paths
+   in the array.
 
 Add YANG and CLI into MGMTD
----------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 As an example here is the addition made to ``mgmtd/subdir.am`` for adding
 ``staticd`` support.
@@ -108,7 +201,7 @@ An here is the addition to the modules array in ``mgmtd/mgmt_main.c``:
 
 
 CLI Config and Show Handlers
-----------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The daemon's CLI handlers for configuration (which having been converted to the
 :ref:`northbound` now simply generate YANG changes) will be linked directly into
@@ -157,7 +250,7 @@ are present in a single file (e.g. a ``xxx_vty.c`` or ``xxx_cli.c`` file) then
 .. _mgmtd-config-write:
 
 CLI Config Write Handlers (:code:`cli_show`)
---------------------------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 To support writing out the CLI configuration file the northbound API defines a
 2 callbacks (:code:`cli_show` and :code:`cli_show_end`). Pointers to these
@@ -172,10 +265,10 @@ the *backend* config and oper-state callbacks (e.g., :code:`create`,
 
 So you will need to define 2 :code:`struct frr_yang_module_info` arrays.
 
-1. The existing array remains in the same place in the daemon, but with all the
+#. The existing array remains in the same place in the daemon, but with all the
    :code:`cli_show` handlers removed.
 
-2. The removed :code:`cli_show` handlers should be added to a new
+#. The removed :code:`cli_show` handlers should be added to a new
    :code:`struct frr_yang_module_info` array. This second array should be
    included in the same file that includes that actual function pointed to by
    the the :code:`cli_show` callbacks (i.e., the file is compiled into
@@ -184,8 +277,44 @@ So you will need to define 2 :code:`struct frr_yang_module_info` arrays.
    This new :code:`struct frr_yang_module_info` array is the one to be included
    in mgmtd in `mgmt_yang_modules` inside ``mgmtd/mgmt_main.c``.
 
+Back-End Client Connection
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+In order for your daemon to communicate with mgmtd you need to initialize the
+backend client library. You normally do this where you used to initialize your
+CLI/VTY code.
+
+.. code-block:: c
+
+    ...
+    struct event_loop *master;
+
+    static struct mgmt_be_client *mgmt_be_client;
+    ...
+
+    int main(int argc, char **argv)
+    {
+        ...
+        rip_init();
+	rip_if_init();
+	mgmt_be_client = mgmt_be_client_create("ripd", NULL, 0, master);
+
+Likewise the client should be cleaned up in the daemon cleanup routine.
+
+.. code-block:: c
+
+    /* SIGINT handler. */
+    static void sigint(void)
+    {
+            zlog_notice("Terminating on signal");
+            ...
+            nb_oper_cancel_all_walks();
+            mgmt_be_client_destroy(mgmt_be_client);
+            mgmt_be_client = NULL;
+
+
 Back-End XPATH mappings
------------------------
+^^^^^^^^^^^^^^^^^^^^^^^
 
 In order for ``mgmtd`` to direct configuration to your daemon you need to add
 some XPATH mappings to ``mgmtd/mgmt_be_adapter.c``. These XPATHs determine which
@@ -228,9 +357,8 @@ not conditionalized b/c it should always be present):
             [MGMTD_BE_CLIENT_ID_ZEBRA] = zebra_oper_xpaths,
     };
 
-
 MGMTD Internals
-^^^^^^^^^^^^^^^
+---------------
 
 This section will describe the internal functioning of ``mgmtd``, for now a
 couple diagrams are included to aide in source code perusal.
