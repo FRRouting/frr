@@ -4021,125 +4021,73 @@ DEFPY_YANG (link_params_metric,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFUN (link_params_maxbw,
+DEFPY_YANG (link_params_maxbw,
        link_params_maxbw_cmd,
        "max-bw BANDWIDTH",
        "Maximum bandwidth that can be used\n"
        "Bytes/second (IEEE floating point format)\n")
 {
-	int idx_bandwidth = 1;
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	struct if_link_params *iflp = if_link_params_get(ifp);
-
+	char value[YANG_VALUE_MAXLEN];
 	float bw;
 
-	if (sscanf(argv[idx_bandwidth]->arg, "%g", &bw) != 1) {
-		vty_out(vty, "link_params_maxbw: fscanf: %s\n",
-			safe_strerror(errno));
+	if (sscanf(bandwidth, "%g", &bw) != 1) {
+		vty_out(vty, "Invalid bandwidth value\n");
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	/* Check that Maximum bandwidth is not lower than other bandwidth
-	 * parameters */
-	if (iflp && ((bw <= iflp->max_rsv_bw) || (bw <= iflp->unrsv_bw[0]) ||
-		     (bw <= iflp->unrsv_bw[1]) || (bw <= iflp->unrsv_bw[2]) ||
-		     (bw <= iflp->unrsv_bw[3]) || (bw <= iflp->unrsv_bw[4]) ||
-		     (bw <= iflp->unrsv_bw[5]) || (bw <= iflp->unrsv_bw[6]) ||
-		     (bw <= iflp->unrsv_bw[7]) || (bw <= iflp->ava_bw) ||
-		     (bw <= iflp->res_bw) || (bw <= iflp->use_bw))) {
-		vty_out(vty,
-			"Maximum Bandwidth could not be lower than others bandwidth\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
+	snprintf(value, sizeof(value), "%a", bw);
 
-	if (!iflp)
-		iflp = if_link_params_enable(ifp);
+	nb_cli_enqueue_change(vty, "./max-bandwidth", NB_OP_MODIFY, value);
 
-	/* Update Maximum Bandwidth if needed */
-	link_param_cmd_set_float(ifp, &iflp->max_bw, LP_MAX_BW, bw);
-
-	return CMD_SUCCESS;
+	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFUN (link_params_max_rsv_bw,
+DEFPY_YANG (link_params_max_rsv_bw,
        link_params_max_rsv_bw_cmd,
        "max-rsv-bw BANDWIDTH",
        "Maximum bandwidth that may be reserved\n"
        "Bytes/second (IEEE floating point format)\n")
 {
-	int idx_bandwidth = 1;
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	struct if_link_params *iflp = if_link_params_get(ifp);
+	char value[YANG_VALUE_MAXLEN];
 	float bw;
 
-	if (sscanf(argv[idx_bandwidth]->arg, "%g", &bw) != 1) {
-		vty_out(vty, "link_params_max_rsv_bw: fscanf: %s\n",
-			safe_strerror(errno));
+	if (sscanf(bandwidth, "%g", &bw) != 1) {
+		vty_out(vty, "Invalid bandwidth value\n");
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	/* Check that bandwidth is not greater than maximum bandwidth parameter
-	 */
-	if (iflp && bw > iflp->max_bw) {
-		vty_out(vty,
-			"Maximum Reservable Bandwidth could not be greater than Maximum Bandwidth (%g)\n",
-			iflp->max_bw);
-		return CMD_WARNING_CONFIG_FAILED;
-	}
+	snprintf(value, sizeof(value), "%a", bw);
 
-	if (!iflp)
-		iflp = if_link_params_enable(ifp);
+	nb_cli_enqueue_change(vty, "./max-reservable-bandwidth", NB_OP_MODIFY,
+			      value);
 
-	/* Update Maximum Reservable Bandwidth if needed */
-	link_param_cmd_set_float(ifp, &iflp->max_rsv_bw, LP_MAX_RSV_BW, bw);
-
-	return CMD_SUCCESS;
+	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFUN (link_params_unrsv_bw,
+DEFPY_YANG (link_params_unrsv_bw,
        link_params_unrsv_bw_cmd,
-       "unrsv-bw (0-7) BANDWIDTH",
+       "unrsv-bw (0-7)$priority BANDWIDTH",
        "Unreserved bandwidth at each priority level\n"
        "Priority\n"
        "Bytes/second (IEEE floating point format)\n")
 {
-	int idx_number = 1;
-	int idx_bandwidth = 2;
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	struct if_link_params *iflp = if_link_params_get(ifp);
-	int priority;
+	char xpath[XPATH_MAXLEN];
+	char value[YANG_VALUE_MAXLEN];
 	float bw;
 
-	/* We don't have to consider about range check here. */
-	if (sscanf(argv[idx_number]->arg, "%d", &priority) != 1) {
-		vty_out(vty, "link_params_unrsv_bw: fscanf: %s\n",
-			safe_strerror(errno));
+	if (sscanf(bandwidth, "%g", &bw) != 1) {
+		vty_out(vty, "Invalid bandwidth value\n");
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	if (sscanf(argv[idx_bandwidth]->arg, "%g", &bw) != 1) {
-		vty_out(vty, "link_params_unrsv_bw: fscanf: %s\n",
-			safe_strerror(errno));
-		return CMD_WARNING_CONFIG_FAILED;
-	}
+	snprintf(xpath, sizeof(xpath),
+		 "./unreserved-bandwidths/unreserved-bandwidth[priority='%s']/unreserved-bandwidth",
+		 priority_str);
+	snprintf(value, sizeof(value), "%a", bw);
 
-	/* Check that bandwidth is not greater than maximum bandwidth parameter
-	 */
-	if (iflp && bw > iflp->max_bw) {
-		vty_out(vty,
-			"UnReserved Bandwidth could not be greater than Maximum Bandwidth (%g)\n",
-			iflp->max_bw);
-		return CMD_WARNING_CONFIG_FAILED;
-	}
+	nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, value);
 
-	if (!iflp)
-		iflp = if_link_params_enable(ifp);
-
-	/* Update Unreserved Bandwidth if needed */
-	link_param_cmd_set_float(ifp, &iflp->unrsv_bw[priority], LP_UNRSV_BW,
-				 bw);
-
-	return CMD_SUCCESS;
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFPY_YANG(link_params_admin_grp, link_params_admin_grp_cmd,
@@ -4449,151 +4397,88 @@ DEFUN (no_link_params_pkt_loss,
 	return CMD_SUCCESS;
 }
 
-DEFUN (link_params_res_bw,
+DEFPY_YANG (link_params_res_bw,
        link_params_res_bw_cmd,
-       "res-bw BANDWIDTH",
+       "[no] res-bw ![BANDWIDTH]",
+       NO_STR
        "Unidirectional Residual Bandwidth\n"
        "Bytes/second (IEEE floating point format)\n")
 {
-	int idx_bandwidth = 1;
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	struct if_link_params *iflp = if_link_params_get(ifp);
+	char value[YANG_VALUE_MAXLEN];
 	float bw;
 
-	if (sscanf(argv[idx_bandwidth]->arg, "%g", &bw) != 1) {
-		vty_out(vty, "link_params_res_bw: fscanf: %s\n",
-			safe_strerror(errno));
-		return CMD_WARNING_CONFIG_FAILED;
+	if (!no) {
+		if (sscanf(bandwidth, "%g", &bw) != 1) {
+			vty_out(vty, "Invalid bandwidth value\n");
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+
+		snprintf(value, sizeof(value), "%a", bw);
+
+		nb_cli_enqueue_change(vty, "./residual-bandwidth", NB_OP_MODIFY,
+				      value);
+	} else {
+		nb_cli_enqueue_change(vty, "./residual-bandwidth",
+				      NB_OP_DESTROY, NULL);
 	}
 
-	/* Check that bandwidth is not greater than maximum bandwidth parameter
-	 */
-	if (iflp && bw > iflp->max_bw) {
-		vty_out(vty,
-			"Residual Bandwidth could not be greater than Maximum Bandwidth (%g)\n",
-			iflp->max_bw);
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	if (!iflp)
-		iflp = if_link_params_enable(ifp);
-
-	/* Update Residual Bandwidth if needed */
-	link_param_cmd_set_float(ifp, &iflp->res_bw, LP_RES_BW, bw);
-
-	return CMD_SUCCESS;
+	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFUN (no_link_params_res_bw,
-       no_link_params_res_bw_cmd,
-       "no res-bw",
-       NO_STR
-       "Disable Unidirectional Residual Bandwidth on this interface\n")
-{
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-
-	/* Unset Residual Bandwidth */
-	link_param_cmd_unset(ifp, LP_RES_BW);
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (link_params_ava_bw,
+DEFPY_YANG (link_params_ava_bw,
        link_params_ava_bw_cmd,
-       "ava-bw BANDWIDTH",
+       "[no] ava-bw ![BANDWIDTH]",
+       NO_STR
        "Unidirectional Available Bandwidth\n"
        "Bytes/second (IEEE floating point format)\n")
 {
-	int idx_bandwidth = 1;
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	struct if_link_params *iflp = if_link_params_get(ifp);
+	char value[YANG_VALUE_MAXLEN];
 	float bw;
 
-	if (sscanf(argv[idx_bandwidth]->arg, "%g", &bw) != 1) {
-		vty_out(vty, "link_params_ava_bw: fscanf: %s\n",
-			safe_strerror(errno));
-		return CMD_WARNING_CONFIG_FAILED;
+	if (!no) {
+		if (sscanf(bandwidth, "%g", &bw) != 1) {
+			vty_out(vty, "Invalid bandwidth value\n");
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+
+		snprintf(value, sizeof(value), "%a", bw);
+
+		nb_cli_enqueue_change(vty, "./available-bandwidth",
+				      NB_OP_MODIFY, value);
+	} else {
+		nb_cli_enqueue_change(vty, "./available-bandwidth",
+				      NB_OP_DESTROY, NULL);
 	}
 
-	/* Check that bandwidth is not greater than maximum bandwidth parameter
-	 */
-	if (iflp && bw > iflp->max_bw) {
-		vty_out(vty,
-			"Available Bandwidth could not be greater than Maximum Bandwidth (%g)\n",
-			iflp->max_bw);
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	if (!iflp)
-		iflp = if_link_params_enable(ifp);
-
-	/* Update Residual Bandwidth if needed */
-	link_param_cmd_set_float(ifp, &iflp->ava_bw, LP_AVA_BW, bw);
-
-	return CMD_SUCCESS;
+	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFUN (no_link_params_ava_bw,
-       no_link_params_ava_bw_cmd,
-       "no ava-bw",
-       NO_STR
-       "Disable Unidirectional Available Bandwidth on this interface\n")
-{
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-
-	/* Unset Available Bandwidth */
-	link_param_cmd_unset(ifp, LP_AVA_BW);
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (link_params_use_bw,
+DEFPY_YANG (link_params_use_bw,
        link_params_use_bw_cmd,
-       "use-bw BANDWIDTH",
+       "[no] use-bw ![BANDWIDTH]",
+       NO_STR
        "Unidirectional Utilised Bandwidth\n"
        "Bytes/second (IEEE floating point format)\n")
 {
-	int idx_bandwidth = 1;
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	struct if_link_params *iflp = if_link_params_get(ifp);
+	char value[YANG_VALUE_MAXLEN];
 	float bw;
 
-	if (sscanf(argv[idx_bandwidth]->arg, "%g", &bw) != 1) {
-		vty_out(vty, "link_params_use_bw: fscanf: %s\n",
-			safe_strerror(errno));
-		return CMD_WARNING_CONFIG_FAILED;
+	if (!no) {
+		if (sscanf(bandwidth, "%g", &bw) != 1) {
+			vty_out(vty, "Invalid bandwidth value\n");
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+
+		snprintf(value, sizeof(value), "%a", bw);
+
+		nb_cli_enqueue_change(vty, "./utilized-bandwidth", NB_OP_MODIFY,
+				      value);
+	} else {
+		nb_cli_enqueue_change(vty, "./utilized-bandwidth",
+				      NB_OP_DESTROY, NULL);
 	}
 
-	/* Check that bandwidth is not greater than maximum bandwidth parameter
-	 */
-	if (iflp && bw > iflp->max_bw) {
-		vty_out(vty,
-			"Utilised Bandwidth could not be greater than Maximum Bandwidth (%g)\n",
-			iflp->max_bw);
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	if (!iflp)
-		iflp = if_link_params_enable(ifp);
-
-	/* Update Utilized Bandwidth if needed */
-	link_param_cmd_set_float(ifp, &iflp->use_bw, LP_USE_BW, bw);
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_link_params_use_bw,
-       no_link_params_use_bw_cmd,
-       "no use-bw",
-       NO_STR
-       "Disable Unidirectional Utilised Bandwidth on this interface\n")
-{
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-
-	/* Unset Utilised Bandwidth */
-	link_param_cmd_unset(ifp, LP_USE_BW);
-
-	return CMD_SUCCESS;
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 static int ag_change(struct vty *vty, int argc, struct cmd_token **argv,
@@ -5167,11 +5052,8 @@ void zebra_if_init(void)
 	install_element(LINK_PARAMS_NODE, &link_params_pkt_loss_cmd);
 	install_element(LINK_PARAMS_NODE, &no_link_params_pkt_loss_cmd);
 	install_element(LINK_PARAMS_NODE, &link_params_ava_bw_cmd);
-	install_element(LINK_PARAMS_NODE, &no_link_params_ava_bw_cmd);
 	install_element(LINK_PARAMS_NODE, &link_params_res_bw_cmd);
-	install_element(LINK_PARAMS_NODE, &no_link_params_res_bw_cmd);
 	install_element(LINK_PARAMS_NODE, &link_params_use_bw_cmd);
-	install_element(LINK_PARAMS_NODE, &no_link_params_use_bw_cmd);
 	install_element(LINK_PARAMS_NODE, &link_params_affinity_cmd);
 	install_element(LINK_PARAMS_NODE, &link_params_affinity_mode_cmd);
 	install_element(LINK_PARAMS_NODE, &no_link_params_affinity_mode_cmd);

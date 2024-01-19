@@ -2055,6 +2055,54 @@ module frr-zebra {
           description
             "Link metric for MPLS-TE purpose.";
         }
+        leaf max-bandwidth {
+          type rt-types:bandwidth-ieee-float32;
+          description
+            "Maximum bandwidth.";
+        }
+        leaf max-reservable-bandwidth {
+          type rt-types:bandwidth-ieee-float32;
+          description
+            "Maximum reservable bandwidth.";
+        }
+        container unreserved-bandwidths {
+          description
+            "All unreserved bandwidths.";
+          list unreserved-bandwidth {
+            key "priority";
+            leaf priority {
+              type uint8 {
+                range "0 .. 7";
+              }
+              description
+                "Priority from 0 to 7.";
+            }
+            leaf unreserved-bandwidth {
+              type rt-types:bandwidth-ieee-float32;
+              mandatory true;
+              description
+                "Unreserved bandwidth.";
+            }
+            description
+              "List of unreserved bandwidths for different
+                priorities.";
+          }
+        }
+        leaf residual-bandwidth {
+          type rt-types:bandwidth-ieee-float32;
+          description
+            "Unidirectional residual bandwidth.";
+        }
+        leaf available-bandwidth {
+          type rt-types:bandwidth-ieee-float32;
+          description
+            "Unidirectional available bandwidth.";
+        }
+        leaf utilized-bandwidth {
+          type rt-types:bandwidth-ieee-float32;
+          description
+            "Unidirectional utilized bandwidth.";
+        }
         choice admin-group-mode {
           description "Admin-group mode";
           case legacy {

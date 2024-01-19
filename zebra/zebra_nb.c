@@ -373,6 +373,54 @@ const struct frr_yang_module_info frr_zebra_info = {
 			}
 		},
 		{
+			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/link-params/max-bandwidth",
+			.cbs = {
+				.modify = lib_interface_zebra_link_params_max_bandwidth_modify,
+				.destroy = lib_interface_zebra_link_params_max_bandwidth_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/link-params/max-reservable-bandwidth",
+			.cbs = {
+				.modify = lib_interface_zebra_link_params_max_reservable_bandwidth_modify,
+				.destroy = lib_interface_zebra_link_params_max_reservable_bandwidth_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/link-params/unreserved-bandwidths/unreserved-bandwidth",
+			.cbs = {
+				.create = lib_interface_zebra_link_params_unreserved_bandwidths_unreserved_bandwidth_create,
+				.destroy = lib_interface_zebra_link_params_unreserved_bandwidths_unreserved_bandwidth_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/link-params/unreserved-bandwidths/unreserved-bandwidth/unreserved-bandwidth",
+			.cbs = {
+				.modify = lib_interface_zebra_link_params_unreserved_bandwidths_unreserved_bandwidth_unreserved_bandwidth_modify,
+			}
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/link-params/residual-bandwidth",
+			.cbs = {
+				.modify = lib_interface_zebra_link_params_residual_bandwidth_modify,
+				.destroy = lib_interface_zebra_link_params_residual_bandwidth_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/link-params/available-bandwidth",
+			.cbs = {
+				.modify = lib_interface_zebra_link_params_available_bandwidth_modify,
+				.destroy = lib_interface_zebra_link_params_available_bandwidth_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/link-params/utilized-bandwidth",
+			.cbs = {
+				.modify = lib_interface_zebra_link_params_utilized_bandwidth_modify,
+				.destroy = lib_interface_zebra_link_params_utilized_bandwidth_destroy,
+			}
+		},
+		{
 			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/link-params/legacy-admin-group",
 			.cbs = {
 				.modify = lib_interface_zebra_legacy_admin_group_modify,

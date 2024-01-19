@@ -106,6 +106,32 @@ int lib_interface_zebra_link_params_destroy(struct nb_cb_destroy_args *args);
 int lib_interface_zebra_link_params_metric_modify(struct nb_cb_modify_args *args);
 int lib_interface_zebra_link_params_metric_destroy(
 	struct nb_cb_destroy_args *args);
+int lib_interface_zebra_link_params_max_bandwidth_modify(
+	struct nb_cb_modify_args *args);
+int lib_interface_zebra_link_params_max_bandwidth_destroy(
+	struct nb_cb_destroy_args *args);
+int lib_interface_zebra_link_params_max_reservable_bandwidth_modify(
+	struct nb_cb_modify_args *args);
+int lib_interface_zebra_link_params_max_reservable_bandwidth_destroy(
+	struct nb_cb_destroy_args *args);
+int lib_interface_zebra_link_params_unreserved_bandwidths_unreserved_bandwidth_create(
+	struct nb_cb_create_args *args);
+int lib_interface_zebra_link_params_unreserved_bandwidths_unreserved_bandwidth_destroy(
+	struct nb_cb_destroy_args *args);
+int lib_interface_zebra_link_params_unreserved_bandwidths_unreserved_bandwidth_unreserved_bandwidth_modify(
+	struct nb_cb_modify_args *args);
+int lib_interface_zebra_link_params_residual_bandwidth_modify(
+	struct nb_cb_modify_args *args);
+int lib_interface_zebra_link_params_residual_bandwidth_destroy(
+	struct nb_cb_destroy_args *args);
+int lib_interface_zebra_link_params_available_bandwidth_modify(
+	struct nb_cb_modify_args *args);
+int lib_interface_zebra_link_params_available_bandwidth_destroy(
+	struct nb_cb_destroy_args *args);
+int lib_interface_zebra_link_params_utilized_bandwidth_modify(
+	struct nb_cb_modify_args *args);
+int lib_interface_zebra_link_params_utilized_bandwidth_destroy(
+	struct nb_cb_destroy_args *args);
 int lib_interface_zebra_legacy_admin_group_modify(
 	struct nb_cb_modify_args *args);
 int lib_interface_zebra_legacy_admin_group_destroy(

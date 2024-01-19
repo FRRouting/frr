@@ -1046,6 +1046,17 @@ struct yang_data *yang_data_new_date_and_time(const char *xpath, time_t time)
 	return yang_data_new(xpath, timebuf);
 }
 
+float yang_dnode_get_bandwidth_ieee_float32(const struct lyd_node *dnode,
+					    const char *xpath_fmt, ...)
+{
+	const char *canon = YANG_DNODE_XPATH_GET_CANON(dnode, xpath_fmt);
+	float value;
+
+	assert(sscanf(canon, "%a", &value) == 1);
+
+	return value;
+}
+
 const char *yang_nexthop_type2str(uint32_t ntype)
 {
 	switch (ntype) {

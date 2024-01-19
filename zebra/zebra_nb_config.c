@@ -1340,6 +1340,333 @@ int lib_interface_zebra_link_params_metric_destroy(struct nb_cb_destroy_args *ar
 }
 
 /*
+ * XPath: /frr-interface:lib/interface/frr-zebra:zebra/link-params/max-bandwidth
+ */
+int lib_interface_zebra_link_params_max_bandwidth_modify(
+	struct nb_cb_modify_args *args)
+{
+	struct interface *ifp;
+	struct if_link_params *iflp;
+	float max_bw, res_bw, ava_bw, use_bw;
+
+	max_bw = yang_dnode_get_bandwidth_ieee_float32(args->dnode, NULL);
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+		if (yang_dnode_exists(args->dnode, "../residual-bandwidth")) {
+			res_bw = yang_dnode_get_bandwidth_ieee_float32(
+				args->dnode, "../residual-bandwidth");
+			if (max_bw < res_bw) {
+				snprintfrr(args->errmsg, args->errmsg_len,
+					   "max-bandwidth %f is less than residual-bandwidth %f",
+					   max_bw, res_bw);
+				return NB_ERR_VALIDATION;
+			}
+		}
+		if (yang_dnode_exists(args->dnode, "../available-bandwidth")) {
+			ava_bw = yang_dnode_get_bandwidth_ieee_float32(
+				args->dnode, "../available-bandwidth");
+			if (max_bw < ava_bw) {
+				snprintfrr(args->errmsg, args->errmsg_len,
+					   "max-bandwidth %f is less than available-bandwidth %f",
+					   max_bw, ava_bw);
+				return NB_ERR_VALIDATION;
+			}
+		}
+		if (yang_dnode_exists(args->dnode, "../utilized-bandwidth")) {
+			use_bw = yang_dnode_get_bandwidth_ieee_float32(
+				args->dnode, "../utilized-bandwidth");
+			if (max_bw < use_bw) {
+				snprintfrr(args->errmsg, args->errmsg_len,
+					   "max-bandwidth %f is less than utilized-bandwidth %f",
+					   max_bw, use_bw);
+				return NB_ERR_VALIDATION;
+			}
+		}
+		break;
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	case NB_EV_APPLY:
+		ifp = nb_running_get_entry(args->dnode, NULL, true);
+		iflp = if_link_params_get(ifp);
+		link_param_cmd_set_float(ifp, &iflp->max_bw, LP_MAX_BW, max_bw);
+		break;
+	}
+
+	return NB_OK;
+}
+
+int lib_interface_zebra_link_params_max_bandwidth_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	if (args->event == NB_EV_VALIDATE) {
+		snprintfrr(args->errmsg, args->errmsg_len,
+			   "Removing max-bandwidth is not allowed");
+		return NB_ERR_VALIDATION;
+	}
+
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-interface:lib/interface/frr-zebra:zebra/link-params/max-reservable-bandwidth
+ */
+int lib_interface_zebra_link_params_max_reservable_bandwidth_modify(
+	struct nb_cb_modify_args *args)
+{
+	struct interface *ifp;
+	struct if_link_params *iflp;
+	float max_rsv_bw;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	max_rsv_bw = yang_dnode_get_bandwidth_ieee_float32(args->dnode, NULL);
+
+	ifp = nb_running_get_entry(args->dnode, NULL, true);
+	iflp = if_link_params_get(ifp);
+	link_param_cmd_set_float(ifp, &iflp->max_rsv_bw, LP_MAX_RSV_BW,
+				 max_rsv_bw);
+
+	return NB_OK;
+}
+
+int lib_interface_zebra_link_params_max_reservable_bandwidth_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	if (args->event == NB_EV_VALIDATE) {
+		snprintfrr(args->errmsg, args->errmsg_len,
+			   "Removing max-reservable-bandwidth is not allowed");
+		return NB_ERR_VALIDATION;
+	}
+
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-interface:lib/interface/frr-zebra:zebra/link-params/unreserved-bandwidths/unreserved-bandwidth
+ */
+int lib_interface_zebra_link_params_unreserved_bandwidths_unreserved_bandwidth_create(
+	struct nb_cb_create_args *args)
+{
+	struct interface *ifp;
+	struct if_link_params *iflp;
+	uint8_t priority;
+	float unrsv_bw;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	priority = yang_dnode_get_uint8(args->dnode, "priority");
+	unrsv_bw = yang_dnode_get_bandwidth_ieee_float32(args->dnode,
+							 "unreserved-bandwidth");
+
+	ifp = nb_running_get_entry(args->dnode, NULL, true);
+	iflp = if_link_params_get(ifp);
+	link_param_cmd_set_float(ifp, &iflp->unrsv_bw[priority], LP_UNRSV_BW,
+				 unrsv_bw);
+
+	return NB_OK;
+}
+
+int lib_interface_zebra_link_params_unreserved_bandwidths_unreserved_bandwidth_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	if (args->event == NB_EV_VALIDATE) {
+		snprintfrr(args->errmsg, args->errmsg_len,
+			   "Removing unreserved-bandwidth is not allowed");
+		return NB_ERR_VALIDATION;
+	}
+
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-interface:lib/interface/frr-zebra:zebra/link-params/unreserved-bandwidths/unreserved-bandwidth/unreserved-bandwidth
+ */
+int lib_interface_zebra_link_params_unreserved_bandwidths_unreserved_bandwidth_unreserved_bandwidth_modify(
+	struct nb_cb_modify_args *args)
+{
+	struct interface *ifp;
+	struct if_link_params *iflp;
+	uint8_t priority;
+	float unrsv_bw;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	priority = yang_dnode_get_uint8(args->dnode, "../priority");
+	unrsv_bw = yang_dnode_get_bandwidth_ieee_float32(args->dnode, NULL);
+
+	ifp = nb_running_get_entry(args->dnode, NULL, true);
+	iflp = if_link_params_get(ifp);
+	link_param_cmd_set_float(ifp, &iflp->unrsv_bw[priority], LP_UNRSV_BW,
+				 unrsv_bw);
+
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-interface:lib/interface/frr-zebra:zebra/link-params/residual-bandwidth
+ */
+int lib_interface_zebra_link_params_residual_bandwidth_modify(
+	struct nb_cb_modify_args *args)
+{
+	struct interface *ifp;
+	struct if_link_params *iflp;
+	float max_bw, res_bw;
+
+	res_bw = yang_dnode_get_bandwidth_ieee_float32(args->dnode, NULL);
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+		if (yang_dnode_exists(args->dnode, "../max-bandwidth")) {
+			max_bw =
+				yang_dnode_get_bandwidth_ieee_float32(args->dnode,
+								      "../max-bandwidth");
+			if (max_bw < res_bw) {
+				snprintfrr(args->errmsg, args->errmsg_len,
+					   "max-bandwidth %f is less than residual-bandwidth %f",
+					   max_bw, res_bw);
+				return NB_ERR_VALIDATION;
+			}
+		}
+		break;
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	case NB_EV_APPLY:
+		ifp = nb_running_get_entry(args->dnode, NULL, true);
+		iflp = if_link_params_get(ifp);
+		link_param_cmd_set_float(ifp, &iflp->res_bw, LP_RES_BW, res_bw);
+		break;
+	}
+
+	return NB_OK;
+}
+
+int lib_interface_zebra_link_params_residual_bandwidth_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	struct interface *ifp;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	ifp = nb_running_get_entry(args->dnode, NULL, true);
+	link_param_cmd_unset(ifp, LP_RES_BW);
+
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-interface:lib/interface/frr-zebra:zebra/link-params/available-bandwidth
+ */
+int lib_interface_zebra_link_params_available_bandwidth_modify(
+	struct nb_cb_modify_args *args)
+{
+	struct interface *ifp;
+	struct if_link_params *iflp;
+	float max_bw, ava_bw;
+
+	ava_bw = yang_dnode_get_bandwidth_ieee_float32(args->dnode, NULL);
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+		if (yang_dnode_exists(args->dnode, "../max-bandwidth")) {
+			max_bw =
+				yang_dnode_get_bandwidth_ieee_float32(args->dnode,
+								      "../max-bandwidth");
+			if (max_bw < ava_bw) {
+				snprintfrr(args->errmsg, args->errmsg_len,
+					   "max-bandwidth %f is less than available-bandwidth %f",
+					   max_bw, ava_bw);
+				return NB_ERR_VALIDATION;
+			}
+		}
+		break;
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	case NB_EV_APPLY:
+		ifp = nb_running_get_entry(args->dnode, NULL, true);
+		iflp = if_link_params_get(ifp);
+		link_param_cmd_set_float(ifp, &iflp->ava_bw, LP_AVA_BW, ava_bw);
+		break;
+	}
+
+	return NB_OK;
+}
+
+int lib_interface_zebra_link_params_available_bandwidth_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	struct interface *ifp;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	ifp = nb_running_get_entry(args->dnode, NULL, true);
+	link_param_cmd_unset(ifp, LP_AVA_BW);
+
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-interface:lib/interface/frr-zebra:zebra/link-params/utilized-bandwidth
+ */
+int lib_interface_zebra_link_params_utilized_bandwidth_modify(
+	struct nb_cb_modify_args *args)
+{
+	struct interface *ifp;
+	struct if_link_params *iflp;
+	float max_bw, use_bw;
+
+	use_bw = yang_dnode_get_bandwidth_ieee_float32(args->dnode, NULL);
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+		if (yang_dnode_exists(args->dnode, "../max-bandwidth")) {
+			max_bw =
+				yang_dnode_get_bandwidth_ieee_float32(args->dnode,
+								      "../max-bandwidth");
+			if (max_bw < use_bw) {
+				snprintfrr(args->errmsg, args->errmsg_len,
+					   "max-bandwidth %f is less than utilized-bandwidth %f",
+					   max_bw, use_bw);
+				return NB_ERR_VALIDATION;
+			}
+		}
+		break;
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	case NB_EV_APPLY:
+		ifp = nb_running_get_entry(args->dnode, NULL, true);
+		iflp = if_link_params_get(ifp);
+		link_param_cmd_set_float(ifp, &iflp->use_bw, LP_USE_BW, use_bw);
+		break;
+	}
+
+	return NB_OK;
+}
+
+int lib_interface_zebra_link_params_utilized_bandwidth_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	struct interface *ifp;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	ifp = nb_running_get_entry(args->dnode, NULL, true);
+	link_param_cmd_unset(ifp, LP_USE_BW);
+
+	return NB_OK;
+}
+
+/*
  * XPath:
  * /frr-interface:lib/interface/frr-zebra:zebra/link-params/legacy-admin-group
  */
