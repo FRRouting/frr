@@ -30,37 +30,22 @@ static void zebra_affinity_map_update(const char *affmap_name, uint16_t old_pos,
 				      uint16_t new_pos)
 {
 	struct if_link_params *iflp;
-	enum affinity_mode aff_mode;
-	char xpath[XPATH_MAXLEN];
 	struct interface *ifp;
 	struct vrf *vrf;
 
 	RB_FOREACH (vrf, vrf_id_head, &vrfs_by_id) {
 		FOR_ALL_INTERFACES (vrf, ifp) {
-			snprintf(xpath, sizeof(xpath),
-				 "/frr-interface:lib/interface[name='%s']",
-				 ifp->name);
-			if (!yang_dnode_exists(running_config->dnode, xpath))
-				continue;
-			snprintf(
-				xpath, sizeof(xpath),
-				"/frr-interface:lib/interface[name='%s']/frr-zebra:zebra/link-params/affinities[affinity='%s']",
-				ifp->name, affmap_name);
-			if (!yang_dnode_exists(running_config->dnode, xpath))
-				continue;
-			aff_mode = yang_dnode_get_enum(
-				running_config->dnode,
-				"/frr-interface:lib/interface[name='%s']/frr-zebra:zebra/link-params/affinity-mode",
-				ifp->name);
 			iflp = if_link_params_get(ifp);
-			if (aff_mode == AFFINITY_MODE_EXTENDED ||
-			    aff_mode == AFFINITY_MODE_BOTH) {
+			if (!iflp)
+				continue;
+			if (IS_PARAM_SET(iflp, LP_EXTEND_ADM_GRP) &&
+			    admin_group_get(&iflp->ext_admin_grp, old_pos)) {
 				admin_group_unset(&iflp->ext_admin_grp,
 						  old_pos);
 				admin_group_set(&iflp->ext_admin_grp, new_pos);
 			}
-			if (aff_mode == AFFINITY_MODE_STANDARD ||
-			    aff_mode == AFFINITY_MODE_BOTH) {
+			if (IS_PARAM_SET(iflp, LP_ADM_GRP) &&
+			    (iflp->admin_grp & (1 << old_pos))) {
 				iflp->admin_grp &= ~(1 << old_pos);
 				if (new_pos < 32)
 					iflp->admin_grp |= 1 << new_pos;
