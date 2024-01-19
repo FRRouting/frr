@@ -468,6 +468,39 @@ const struct frr_yang_module_info frr_zebra_info = {
 			}
 		},
 		{
+			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/link-params/delay",
+			.cbs = {
+				.modify = lib_interface_zebra_link_params_delay_modify,
+				.destroy = lib_interface_zebra_link_params_delay_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/link-params/min-max-delay",
+			.cbs = {
+				.create = lib_interface_zebra_link_params_min_max_delay_create,
+				.destroy = lib_interface_zebra_link_params_min_max_delay_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/link-params/min-max-delay/delay-min",
+			.cbs = {
+				.modify = lib_interface_zebra_link_params_min_max_delay_delay_min_modify,
+			}
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/link-params/min-max-delay/delay-max",
+			.cbs = {
+				.modify = lib_interface_zebra_link_params_min_max_delay_delay_max_modify,
+			}
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/link-params/delay-variation",
+			.cbs = {
+				.modify = lib_interface_zebra_link_params_delay_variation_modify,
+				.destroy = lib_interface_zebra_link_params_delay_variation_destroy,
+			}
+		},
+		{
 			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/state/up-count",
 			.cbs = {
 				.get_elem = lib_interface_zebra_state_up_count_get_elem,

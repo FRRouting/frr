@@ -147,6 +147,21 @@ int lib_interface_zebra_link_params_neighbor_remote_as_modify(
 	struct nb_cb_modify_args *args);
 int lib_interface_zebra_link_params_neighbor_ipv4_remote_id_modify(
 	struct nb_cb_modify_args *args);
+int lib_interface_zebra_link_params_delay_modify(struct nb_cb_modify_args *args);
+int lib_interface_zebra_link_params_delay_destroy(
+	struct nb_cb_destroy_args *args);
+int lib_interface_zebra_link_params_min_max_delay_create(
+	struct nb_cb_create_args *args);
+int lib_interface_zebra_link_params_min_max_delay_destroy(
+	struct nb_cb_destroy_args *args);
+int lib_interface_zebra_link_params_min_max_delay_delay_min_modify(
+	struct nb_cb_modify_args *args);
+int lib_interface_zebra_link_params_min_max_delay_delay_max_modify(
+	struct nb_cb_modify_args *args);
+int lib_interface_zebra_link_params_delay_variation_modify(
+	struct nb_cb_modify_args *args);
+int lib_interface_zebra_link_params_delay_variation_destroy(
+	struct nb_cb_destroy_args *args);
 struct yang_data *
 lib_interface_zebra_state_up_count_get_elem(struct nb_cb_get_elem_args *args);
 struct yang_data *

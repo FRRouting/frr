@@ -4155,9 +4155,10 @@ DEFPY_YANG (link_params_inter_as,
 
 /* RFC7471: OSPF Traffic Engineering (TE) Metric extensions &
  * draft-ietf-isis-metric-extensions-07.txt */
-DEFUN (link_params_delay,
+DEFPY_YANG (link_params_delay,
        link_params_delay_cmd,
-       "delay (0-16777215) [min (0-16777215) max (0-16777215)]",
+       "[no] delay ![(0-16777215)$delay [min (0-16777215)$min max (0-16777215)$max]]",
+       NO_STR
        "Unidirectional Average Link Delay\n"
        "Average delay in micro-second as decimal (0...16777215)\n"
        "Minimum delay\n"
@@ -4165,149 +4166,43 @@ DEFUN (link_params_delay,
        "Maximum delay\n"
        "Maximum delay in micro-second as decimal (0...16777215)\n")
 {
-	/* Get and Check new delay values */
-	uint32_t delay = 0, low = 0, high = 0;
-	delay = strtoul(argv[1]->arg, NULL, 10);
-	if (argc == 6) {
-		low = strtoul(argv[3]->arg, NULL, 10);
-		high = strtoul(argv[5]->arg, NULL, 10);
-	}
-
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	struct if_link_params *iflp = if_link_params_get(ifp);
-	uint8_t update = 0;
-
-	if (argc == 2) {
-		/*
-		 * Check new delay value against old Min and Max delays if set
-		 *
-		 * RFC 7471 Section 4.2.7:
-		 *    It is possible for min delay and max delay to be
-		 *    the same value.
-		 *
-		 * Therefore, it is also allowed that the average
-		 * delay be equal to the min delay or max delay.
-		 */
-		if (iflp && IS_PARAM_SET(iflp, LP_MM_DELAY) &&
-		    (delay < iflp->min_delay || delay > iflp->max_delay)) {
-			vty_out(vty,
-				"Average delay should be in range Min (%d) - Max (%d) delay\n",
-				iflp->min_delay, iflp->max_delay);
-			return CMD_WARNING_CONFIG_FAILED;
-		}
-
-		if (!iflp)
-			iflp = if_link_params_enable(ifp);
-
-		/* Update delay if value is not set or change */
-		if (IS_PARAM_UNSET(iflp, LP_DELAY) || iflp->av_delay != delay) {
-			iflp->av_delay = delay;
-			SET_PARAM(iflp, LP_DELAY);
-			update = 1;
-		}
-		/* Unset Min and Max delays if already set */
-		if (IS_PARAM_SET(iflp, LP_MM_DELAY)) {
-			iflp->min_delay = 0;
-			iflp->max_delay = 0;
-			UNSET_PARAM(iflp, LP_MM_DELAY);
-			update = 1;
+	if (!no) {
+		nb_cli_enqueue_change(vty, "./delay", NB_OP_MODIFY, delay_str);
+		if (min_str && max_str) {
+			nb_cli_enqueue_change(vty, "./min-max-delay",
+					      NB_OP_CREATE, NULL);
+			nb_cli_enqueue_change(vty, "./min-max-delay/delay-min",
+					      NB_OP_MODIFY, min_str);
+			nb_cli_enqueue_change(vty, "./min-max-delay/delay-max",
+					      NB_OP_MODIFY, max_str);
+		} else {
+			nb_cli_enqueue_change(vty, "./min-max-delay",
+					      NB_OP_DESTROY, NULL);
 		}
 	} else {
-		/*
-		 * Check new delays value coherency. See above note
-		 * regarding average delay equal to min/max allowed
-		 */
-		if (delay < low || delay > high) {
-			vty_out(vty,
-				"Average delay should be in range Min (%d) - Max (%d) delay\n",
-				low, high);
-			return CMD_WARNING_CONFIG_FAILED;
-		}
-
-		if (!iflp)
-			iflp = if_link_params_enable(ifp);
-
-		/* Update Delays if needed */
-		if (IS_PARAM_UNSET(iflp, LP_DELAY)
-		    || IS_PARAM_UNSET(iflp, LP_MM_DELAY)
-		    || iflp->av_delay != delay || iflp->min_delay != low
-		    || iflp->max_delay != high) {
-			iflp->av_delay = delay;
-			SET_PARAM(iflp, LP_DELAY);
-			iflp->min_delay = low;
-			iflp->max_delay = high;
-			SET_PARAM(iflp, LP_MM_DELAY);
-			update = 1;
-		}
+		nb_cli_enqueue_change(vty, "./delay", NB_OP_DESTROY, NULL);
+		nb_cli_enqueue_change(vty, "./min-max-delay", NB_OP_DESTROY,
+				      NULL);
 	}
 
-	/* force protocols to update LINK STATE due to parameters change */
-	if (update == 1 && if_is_operative(ifp))
-		zebra_interface_parameters_update(ifp);
-
-	return CMD_SUCCESS;
+	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFUN (no_link_params_delay,
-       no_link_params_delay_cmd,
-       "no delay",
-       NO_STR
-       "Disable Unidirectional Average, Min & Max Link Delay on this interface\n")
-{
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	struct if_link_params *iflp = if_link_params_get(ifp);
-
-	if (!iflp)
-		return CMD_SUCCESS;
-
-	/* Unset Delays */
-	iflp->av_delay = 0;
-	UNSET_PARAM(iflp, LP_DELAY);
-	iflp->min_delay = 0;
-	iflp->max_delay = 0;
-	UNSET_PARAM(iflp, LP_MM_DELAY);
-
-	/* force protocols to update LINK STATE due to parameters change */
-	if (if_is_operative(ifp))
-		zebra_interface_parameters_update(ifp);
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (link_params_delay_var,
+DEFPY_YANG (link_params_delay_var,
        link_params_delay_var_cmd,
-       "delay-variation (0-16777215)",
+       "[no] delay-variation ![(0-16777215)$delay_var]",
+       NO_STR
        "Unidirectional Link Delay Variation\n"
        "delay variation in micro-second as decimal (0...16777215)\n")
 {
-	int idx_number = 1;
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	struct if_link_params *iflp = if_link_params_get(ifp);
-	uint32_t value;
+	if (!no)
+		nb_cli_enqueue_change(vty, "./delay-variation", NB_OP_MODIFY,
+				      delay_var_str);
+	else
+		nb_cli_enqueue_change(vty, "./delay-variation", NB_OP_DESTROY,
+				      NULL);
 
-	value = strtoul(argv[idx_number]->arg, NULL, 10);
-
-	if (!iflp)
-		iflp = if_link_params_enable(ifp);
-
-	/* Update Delay Variation if needed */
-	link_param_cmd_set_uint32(ifp, &iflp->delay_var, LP_DELAY_VAR, value);
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_link_params_delay_var,
-       no_link_params_delay_var_cmd,
-       "no delay-variation",
-       NO_STR
-       "Disable Unidirectional Delay Variation on this interface\n")
-{
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-
-	/* Unset Delay Variation */
-	link_param_cmd_unset(ifp, LP_DELAY_VAR);
-
-	return CMD_SUCCESS;
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFUN (link_params_pkt_loss,
@@ -5001,9 +4896,7 @@ void zebra_if_init(void)
 	install_element(LINK_PARAMS_NODE, &no_link_params_admin_grp_cmd);
 	install_element(LINK_PARAMS_NODE, &link_params_inter_as_cmd);
 	install_element(LINK_PARAMS_NODE, &link_params_delay_cmd);
-	install_element(LINK_PARAMS_NODE, &no_link_params_delay_cmd);
 	install_element(LINK_PARAMS_NODE, &link_params_delay_var_cmd);
-	install_element(LINK_PARAMS_NODE, &no_link_params_delay_var_cmd);
 	install_element(LINK_PARAMS_NODE, &link_params_pkt_loss_cmd);
 	install_element(LINK_PARAMS_NODE, &no_link_params_pkt_loss_cmd);
 	install_element(LINK_PARAMS_NODE, &link_params_ava_bw_cmd);

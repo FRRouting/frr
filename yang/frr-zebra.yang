@@ -2165,6 +2165,47 @@ module frr-zebra {
               "IPv4 Remote ASBR ID (RFC 5316 & RFC 5392)";
           }
         }
+        leaf delay {
+          type uint32 {
+            range "0..16777215";
+          }
+          description
+            "Average Unidirectional Link Delay";
+        }
+        container min-max-delay {
+          description
+            "Min/Max Unidirectional Link Delay";
+          presence "Activates min/max delay.";
+          leaf delay-min {
+            type uint32 {
+              range "0..16777215";
+            }
+            must '. <= ../../delay' {
+              error-message "Min delay must be less than or equal to delay";
+            }
+            mandatory true;
+            description
+              "Min Delay";
+          }
+          leaf delay-max {
+            type uint32 {
+              range "0..16777215";
+            }
+            must '. >= ../../delay' {
+              error-message "Max delay must be greater than or equal to delay";
+            }
+            mandatory true;
+            description
+              "Max Delay";
+          }
+        }
+        leaf delay-variation {
+          type uint32 {
+            range "0..16777215";
+          }
+          description
+            "Unidirectional Delay Variation";
+        }
         // TODO -- other link-params options
         // for (experimental/partial TE use in IGP extensions)
       }

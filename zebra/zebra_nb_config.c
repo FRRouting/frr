@@ -1980,6 +1980,187 @@ int lib_interface_zebra_link_params_neighbor_ipv4_remote_id_modify(
 }
 
 /*
+ * XPath: /frr-interface:lib/interface/frr-zebra:zebra/link-params/delay
+ */
+int lib_interface_zebra_link_params_delay_modify(struct nb_cb_modify_args *args)
+{
+	struct interface *ifp;
+	struct if_link_params *iflp;
+	uint32_t delay;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	delay = yang_dnode_get_uint32(args->dnode, NULL);
+
+	ifp = nb_running_get_entry(args->dnode, NULL, true);
+	iflp = if_link_params_get(ifp);
+
+	link_param_cmd_set_uint32(ifp, &iflp->av_delay, LP_DELAY, delay);
+
+	return NB_OK;
+}
+
+int lib_interface_zebra_link_params_delay_destroy(struct nb_cb_destroy_args *args)
+{
+	struct interface *ifp;
+	struct if_link_params *iflp;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	ifp = nb_running_get_entry(args->dnode, NULL, true);
+	iflp = if_link_params_get(ifp);
+
+	iflp->av_delay = 0;
+	link_param_cmd_unset(ifp, LP_DELAY);
+
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-interface:lib/interface/frr-zebra:zebra/link-params/min-max-delay
+ */
+int lib_interface_zebra_link_params_min_max_delay_create(
+	struct nb_cb_create_args *args)
+{
+	struct interface *ifp;
+	struct if_link_params *iflp;
+	uint32_t delay_min, delay_max;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	delay_min = yang_dnode_get_uint32(args->dnode, "delay-min");
+	delay_max = yang_dnode_get_uint32(args->dnode, "delay-max");
+
+	ifp = nb_running_get_entry(args->dnode, NULL, true);
+	iflp = if_link_params_get(ifp);
+
+	iflp->min_delay = delay_min;
+	iflp->max_delay = delay_max;
+	SET_PARAM(iflp, LP_MM_DELAY);
+
+	if (if_is_operative(ifp))
+		zebra_interface_parameters_update(ifp);
+
+	return NB_OK;
+}
+
+int lib_interface_zebra_link_params_min_max_delay_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	struct interface *ifp;
+	struct if_link_params *iflp;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	ifp = nb_running_get_entry(args->dnode, NULL, true);
+	iflp = if_link_params_get(ifp);
+
+	iflp->min_delay = 0;
+	iflp->max_delay = 0;
+	UNSET_PARAM(iflp, LP_MM_DELAY);
+
+	if (if_is_operative(ifp))
+		zebra_interface_parameters_update(ifp);
+
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-interface:lib/interface/frr-zebra:zebra/link-params/min-max-delay/delay-min
+ */
+int lib_interface_zebra_link_params_min_max_delay_delay_min_modify(
+	struct nb_cb_modify_args *args)
+{
+	struct interface *ifp;
+	struct if_link_params *iflp;
+	uint32_t delay_min;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	delay_min = yang_dnode_get_uint32(args->dnode, NULL);
+
+	ifp = nb_running_get_entry(args->dnode, NULL, true);
+	iflp = if_link_params_get(ifp);
+
+	iflp->min_delay = delay_min;
+
+	if (if_is_operative(ifp))
+		zebra_interface_parameters_update(ifp);
+
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-interface:lib/interface/frr-zebra:zebra/link-params/min-max-delay/delay-max
+ */
+int lib_interface_zebra_link_params_min_max_delay_delay_max_modify(
+	struct nb_cb_modify_args *args)
+{
+	struct interface *ifp;
+	struct if_link_params *iflp;
+	uint32_t delay_max;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	delay_max = yang_dnode_get_uint32(args->dnode, NULL);
+
+	ifp = nb_running_get_entry(args->dnode, NULL, true);
+	iflp = if_link_params_get(ifp);
+
+	iflp->max_delay = delay_max;
+
+	if (if_is_operative(ifp))
+		zebra_interface_parameters_update(ifp);
+
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-interface:lib/interface/frr-zebra:zebra/link-params/delay-variation
+ */
+int lib_interface_zebra_link_params_delay_variation_modify(
+	struct nb_cb_modify_args *args)
+{
+	struct interface *ifp;
+	struct if_link_params *iflp;
+	uint32_t delay_var;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	delay_var = yang_dnode_get_uint32(args->dnode, NULL);
+
+	ifp = nb_running_get_entry(args->dnode, NULL, true);
+	iflp = if_link_params_get(ifp);
+
+	link_param_cmd_set_uint32(ifp, &iflp->delay_var, LP_DELAY_VAR,
+				  delay_var);
+
+	return NB_OK;
+}
+
+int lib_interface_zebra_link_params_delay_variation_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	struct interface *ifp;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	ifp = nb_running_get_entry(args->dnode, NULL, true);
+
+	link_param_cmd_unset(ifp, LP_DELAY_VAR);
+
+	return NB_OK;
+}
+
+/*
  * XPath: /frr-vrf:lib/vrf/frr-zebra:zebra/l3vni-id
  */
 int lib_vrf_zebra_l3vni_id_modify(struct nb_cb_modify_args *args)
