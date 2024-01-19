@@ -1615,7 +1615,6 @@ struct cmd_node link_params_node = {
 	.node = LINK_PARAMS_NODE,
 	.parent_node = INTERFACE_NODE,
 	.prompt = "%s(config-link-params)# ",
-	.no_xpath = true,
 };
 
 #ifdef HAVE_BGPD
@@ -3012,6 +3011,14 @@ DEFUNSH(VTYSH_ZEBRA, vtysh_link_params, vtysh_link_params_cmd, "link-params",
 	LINK_PARAMS_STR)
 {
 	vty->node = LINK_PARAMS_NODE;
+	return CMD_SUCCESS;
+}
+
+DEFUNSH_HIDDEN(VTYSH_ZEBRA, no_link_params_enable, no_link_params_enable_cmd,
+	"no enable", NO_STR "Disable link parameters on this interface\n")
+{
+	if (vty->node == LINK_PARAMS_NODE)
+		vty->node = INTERFACE_NODE;
 	return CMD_SUCCESS;
 }
 
@@ -5064,6 +5071,7 @@ void vtysh_init_vty(void)
 
 	install_node(&link_params_node);
 	install_element(INTERFACE_NODE, &vtysh_link_params_cmd);
+	install_element(LINK_PARAMS_NODE, &no_link_params_enable_cmd);
 	install_element(LINK_PARAMS_NODE, &exit_link_params_cmd);
 	install_element(LINK_PARAMS_NODE, &vtysh_end_all_cmd);
 	install_element(LINK_PARAMS_NODE, &vtysh_exit_link_params_cmd);

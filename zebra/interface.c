@@ -3809,7 +3809,7 @@ DEFPY_YANG (linkdetect,
 {
 	nb_cli_enqueue_change(vty, "./frr-zebra:zebra/link-detect",
 			      NB_OP_CREATE, no ? "false" : "true");
-	
+
 	return nb_cli_apply_changes(vty, NULL);
 }
 
@@ -3890,7 +3890,6 @@ struct cmd_node link_params_node = {
 	.node = LINK_PARAMS_NODE,
 	.parent_node = INTERFACE_NODE,
 	.prompt = "%s(config-link-params)# ",
-	.no_xpath = true,
 };
 
 static void link_param_cmd_set_uint32(struct interface *ifp, uint32_t *field,
@@ -3936,15 +3935,23 @@ static void link_param_cmd_unset(struct interface *ifp, uint32_t type)
 		zebra_interface_parameters_update(ifp);
 }
 
-DEFUN_NOSH (link_params,
+DEFUN_YANG_NOSH (link_params,
        link_params_cmd,
        "link-params",
        LINK_PARAMS_STR)
 {
-	/* vty->qobj_index stays the same @ interface pointer */
-	vty->node = LINK_PARAMS_NODE;
+	int ret;
 
-	return CMD_SUCCESS;
+	nb_cli_enqueue_change(vty, "./frr-zebra:zebra/link-params", NB_OP_CREATE, NULL);
+
+	ret = nb_cli_apply_changes(vty, NULL);
+	if (ret == CMD_SUCCESS) {
+		char xpath[XPATH_MAXLEN];
+		snprintf(xpath, sizeof(xpath), "%s/frr-zebra:zebra/link-params", VTY_CURR_XPATH);
+		VTY_PUSH_XPATH(LINK_PARAMS_NODE, xpath);
+	}
+
+	return ret;
 }
 
 DEFUN_NOSH (exit_link_params,
@@ -3952,70 +3959,49 @@ DEFUN_NOSH (exit_link_params,
        "exit-link-params",
        "Exit from Link Params configuration mode\n")
 {
-	if (vty->node == LINK_PARAMS_NODE)
-		vty->node = INTERFACE_NODE;
+	cmd_exit(vty);
 	return CMD_SUCCESS;
 }
 
+DEFUN_YANG (no_link_params,
+       no_link_params_cmd,
+       "no link-params",
+       NO_STR
+       LINK_PARAMS_STR)
+{
+	nb_cli_enqueue_change(vty, "./frr-zebra:zebra/link-params", NB_OP_DESTROY, NULL);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
 /* Specific Traffic Engineering parameters commands */
-DEFUN (link_params_enable,
+DEFUN_HIDDEN (link_params_enable,
        link_params_enable_cmd,
        "enable",
        "Activate link parameters on this interface\n")
 {
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-
-	/* This command could be issue at startup, when activate MPLS TE */
-	/* on a new interface or after a ON / OFF / ON toggle */
-	/* In all case, TE parameters are reset to their default factory */
-	if (IS_ZEBRA_DEBUG_EVENT || IS_ZEBRA_DEBUG_MPLS)
-		zlog_debug(
-			"Link-params: enable TE link parameters on interface %s",
-			ifp->name);
-
-	if (!if_link_params_get(ifp))
-		if_link_params_enable(ifp);
-
-	/* force protocols to update LINK STATE due to parameters change */
-	if (if_is_operative(ifp))
-		zebra_interface_parameters_update(ifp);
+	vty_out(vty, "This command is deprecated. Link parameters are activated when \"link-params\" node is entered.\n");
 
 	return CMD_SUCCESS;
 }
 
-DEFUN (no_link_params_enable,
+DEFUN_NOSH (no_link_params_enable,
        no_link_params_enable_cmd,
        "no enable",
        NO_STR
        "Disable link parameters on this interface\n")
 {
-	char xpath[XPATH_MAXLEN];
 	int ret;
-	VTY_DECLVAR_CONTEXT(interface, ifp);
 
-	if (IS_ZEBRA_DEBUG_EVENT || IS_ZEBRA_DEBUG_MPLS)
-		zlog_debug("MPLS-TE: disable TE link parameters on interface %s",
-			   ifp->name);
+	vty_out(vty, "This command is deprecated. To disable link parameters use \"no link-params\" in the interface node.\n");
 
-	if_link_params_free(ifp);
-
-	snprintf(
-		xpath, sizeof(xpath),
-		"/frr-interface:lib/interface[name='%s']/frr-zebra:zebra/link-params/affinities",
-		ifp->name);
-	if (yang_dnode_exists(running_config->dnode, xpath))
-		nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+	nb_cli_enqueue_change(vty, ".", NB_OP_DESTROY, NULL);
 
 	ret = nb_cli_apply_changes(vty, NULL);
+	if (ret == CMD_SUCCESS)
+		cmd_exit(vty);
 
-	if (ret != CMD_SUCCESS)
-		return ret;
-
-	/* force protocols to update LINK STATE due to parameters change */
-	if (if_is_operative(ifp))
-		zebra_interface_parameters_update(ifp);
-
-	return CMD_SUCCESS;
+	return ret;
 }
 
 /* STANDARD TE metrics */
@@ -4199,7 +4185,7 @@ DEFPY_YANG(link_params_admin_grp, link_params_admin_grp_cmd,
 	snprintf(value_str, sizeof(value_str), "%ld", value);
 
 	nb_cli_enqueue_change(
-		vty, "./frr-zebra:zebra/link-params/legacy-admin-group",
+		vty, "./legacy-admin-group",
 		NB_OP_MODIFY, value_str);
 
 	return nb_cli_apply_changes(vty, NULL);
@@ -4210,7 +4196,7 @@ DEFPY_YANG(no_link_params_admin_grp, no_link_params_admin_grp_cmd,
 	   NO_STR "Disable Administrative group membership on this interface\n")
 {
 	nb_cli_enqueue_change(
-		vty, "./frr-zebra:zebra/link-params/legacy-admin-group",
+		vty, "./legacy-admin-group",
 		NB_OP_DESTROY, NULL);
 
 	return nb_cli_apply_changes(vty, NULL);
@@ -4655,7 +4641,7 @@ DEFPY_YANG(link_params_affinity, link_params_affinity_cmd,
 	   "Affinity names\n")
 {
 	return ag_change(vty, argc, argv,
-			 "./frr-zebra:zebra/link-params/affinities/affinity",
+			 "./affinities/affinity",
 			 no, no ? 2 : 1);
 }
 
@@ -4671,7 +4657,7 @@ DEFPY_YANG(link_params_affinity_mode, link_params_affinity_mode_cmd,
 	   "Extended Admin-Group only RFC7308 (default)\n"
 	   "Standard and extended Admin-Group format\n")
 {
-	const char *xpath = "./frr-zebra:zebra/link-params/affinity-mode";
+	const char *xpath = "./affinity-mode";
 
 	nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, affmode);
 
@@ -4686,7 +4672,7 @@ DEFPY_YANG(no_link_params_affinity_mode, no_link_params_affinity_mode_cmd,
 	   "Extended Admin-Group only RFC7308 (default)\n"
 	   "Standard and extended Admin-Group format\n")
 {
-	const char *xpath = "./frr-zebra:zebra/link-params/affinity-mode";
+	const char *xpath = "./affinity-mode";
 
 	nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, "extended");
 
@@ -5017,7 +5003,6 @@ static int link_params_config_write(struct vty *vty, struct interface *ifp)
 	struct if_link_params *iflp = ifp->link_params;
 
 	vty_out(vty, " link-params\n");
-	vty_out(vty, "  enable\n");
 	if (IS_PARAM_SET(iflp, LP_TE_METRIC) && iflp->te_metric != ifp->metric)
 		vty_out(vty, "  metric %u\n", iflp->te_metric);
 	if (IS_PARAM_SET(iflp, LP_MAX_BW) && iflp->max_bw != iflp->default_bw)
@@ -5183,6 +5168,7 @@ void zebra_if_init(void)
 	install_element(INTERFACE_NODE, &ip_address_peer_cmd);
 	install_element(INTERFACE_NODE, &ipv6_address_cmd);
 	install_element(INTERFACE_NODE, &link_params_cmd);
+	install_element(INTERFACE_NODE, &no_link_params_cmd);
 	install_default(LINK_PARAMS_NODE);
 	install_element(LINK_PARAMS_NODE, &link_params_enable_cmd);
 	install_element(LINK_PARAMS_NODE, &no_link_params_enable_cmd);

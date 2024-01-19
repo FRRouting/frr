@@ -2047,6 +2047,7 @@ module frr-zebra {
           "Link bandwidth informational parameter, in megabits.";
       }
       container link-params {
+        presence "Activates link parameters on this interface.";
         description
           "link-params for Traffic-Engineering (TE) use in IGP extensions.";
         choice admin-group-mode {

@@ -1272,6 +1272,39 @@ int lib_interface_zebra_bandwidth_destroy(struct nb_cb_destroy_args *args)
 }
 
 /*
+ * XPath: /frr-interface:lib/interface/frr-zebra:zebra/link-params
+ */
+int lib_interface_zebra_link_params_create(struct nb_cb_create_args *args)
+{
+	struct interface *ifp;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	ifp = nb_running_get_entry(args->dnode, NULL, true);
+	if_link_params_enable(ifp);
+	if (if_is_operative(ifp))
+		zebra_interface_parameters_update(ifp);
+
+	return NB_OK;
+}
+
+int lib_interface_zebra_link_params_destroy(struct nb_cb_destroy_args *args)
+{
+	struct interface *ifp;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	ifp = nb_running_get_entry(args->dnode, NULL, true);
+	if_link_params_free(ifp);
+	if (if_is_operative(ifp))
+		zebra_interface_parameters_update(ifp);
+
+	return NB_OK;
+}
+
+/*
  * XPath:
  * /frr-interface:lib/interface/frr-zebra:zebra/link-params/legacy-admin-group
  */
@@ -1282,13 +1315,7 @@ int lib_interface_zebra_legacy_admin_group_modify(
 	struct if_link_params *iflp;
 	uint32_t admin_group_value;
 
-	ifp = nb_running_get_entry(args->dnode, NULL, true);
 	admin_group_value = yang_dnode_get_uint32(args->dnode, ".");
-
-	if (!ifp)
-		return NB_ERR_RESOURCE;
-
-	iflp = if_link_params_get(ifp);
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
@@ -1296,8 +1323,8 @@ int lib_interface_zebra_legacy_admin_group_modify(
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
-		if (!iflp)
-			iflp = if_link_params_enable(ifp);
+		ifp = nb_running_get_entry(args->dnode, NULL, true);
+		iflp = if_link_params_get(ifp);
 
 		iflp->admin_grp = admin_group_value;
 		SET_PARAM(iflp, LP_ADM_GRP);
@@ -1318,21 +1345,14 @@ int lib_interface_zebra_legacy_admin_group_destroy(
 	struct interface *ifp;
 	struct if_link_params *iflp;
 
-	ifp = nb_running_get_entry(args->dnode, NULL, true);
-
-	if (!ifp)
-		return NB_ERR_RESOURCE;
-
-	iflp = if_link_params_get(ifp);
-
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
-		if (!iflp)
-			iflp = if_link_params_enable(ifp);
+		ifp = nb_running_get_entry(args->dnode, NULL, true);
+		iflp = if_link_params_get(ifp);
 
 		iflp->admin_grp = 0;
 		UNSET_PARAM(iflp, LP_ADM_GRP);
@@ -1356,16 +1376,8 @@ int lib_interface_zebra_affinity_create(struct nb_cb_create_args *args)
 	struct affinity_map *affmap;
 	enum affinity_mode affinity_mode;
 
-
-	ifp = nb_running_get_entry(args->dnode, NULL, true);
 	affname = yang_dnode_get_string(args->dnode, ".");
 	affinity_mode = yang_dnode_get_enum(args->dnode, "../../affinity-mode");
-
-	if (!ifp)
-		return NB_ERR_RESOURCE;
-
-	affmap = affinity_map_get(affname);
-	iflp = if_link_params_get(ifp);
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
@@ -1373,8 +1385,9 @@ int lib_interface_zebra_affinity_create(struct nb_cb_create_args *args)
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
-		if (!iflp)
-			iflp = if_link_params_enable(ifp);
+		ifp = nb_running_get_entry(args->dnode, NULL, true);
+		iflp = if_link_params_get(ifp);
+		affmap = affinity_map_get(affname);
 
 		if (affmap->bit_position < 32 &&
 		    (affinity_mode == AFFINITY_MODE_STANDARD ||
@@ -1404,15 +1417,8 @@ int lib_interface_zebra_affinity_destroy(struct nb_cb_destroy_args *args)
 	struct affinity_map *affmap;
 	enum affinity_mode affinity_mode;
 
-	ifp = nb_running_get_entry(args->dnode, NULL, true);
 	affname = yang_dnode_get_string(args->dnode, ".");
 	affinity_mode = yang_dnode_get_enum(args->dnode, "../../affinity-mode");
-
-	if (!ifp)
-		return NB_ERR_RESOURCE;
-
-	affmap = affinity_map_get(affname);
-	iflp = if_link_params_get(ifp);
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
@@ -1420,8 +1426,10 @@ int lib_interface_zebra_affinity_destroy(struct nb_cb_destroy_args *args)
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
-		if (!iflp)
-			return NB_OK;
+		ifp = nb_running_get_entry(args->dnode, NULL, true);
+		iflp = if_link_params_get(ifp);
+		affmap = affinity_map_get(affname);
+
 		if (affmap->bit_position < 32 &&
 		    (affinity_mode == AFFINITY_MODE_STANDARD ||
 		     affinity_mode == AFFINITY_MODE_BOTH)) {
@@ -1454,14 +1462,7 @@ int lib_interface_zebra_affinity_mode_modify(struct nb_cb_modify_args *args)
 	struct if_link_params *iflp;
 	enum affinity_mode affinity_mode;
 
-
-	ifp = nb_running_get_entry(args->dnode, NULL, true);
 	affinity_mode = yang_dnode_get_enum(args->dnode, ".");
-
-	if (!ifp)
-		return NB_ERR_RESOURCE;
-
-	iflp = if_link_params_get(ifp);
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
@@ -1469,8 +1470,9 @@ int lib_interface_zebra_affinity_mode_modify(struct nb_cb_modify_args *args)
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
-		if (!iflp)
-			iflp = if_link_params_enable(ifp);
+		ifp = nb_running_get_entry(args->dnode, NULL, true);
+		iflp = if_link_params_get(ifp);
+
 		if (affinity_mode == AFFINITY_MODE_STANDARD) {
 			if (!IS_PARAM_SET(iflp, LP_ADM_GRP) &&
 			    IS_PARAM_SET(iflp, LP_EXTEND_ADM_GRP)) {
