@@ -8,6 +8,7 @@
 #include <zebra.h>
 
 #include "if.h"
+#include "if_rmap.h"
 #include "vrf.h"
 #include "log.h"
 #include "prefix.h"
@@ -1257,8 +1258,19 @@ DEFPY_YANG(no_rip_distribute_list_prefix,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
+/* RIP node structure. */
+static struct cmd_node rip_node = {
+	.name = "rip",
+	.node = RIP_NODE,
+	.parent_node = CONFIG_NODE,
+	.prompt = "%s(config-router)# ",
+	// .config_write = config_write_rip,
+};
+
 void rip_cli_init(void)
 {
+	install_node(&rip_node);
+
 	install_element(CONFIG_NODE, &router_rip_cmd);
 	install_element(CONFIG_NODE, &no_router_rip_cmd);
 
@@ -1289,6 +1301,7 @@ void rip_cli_init(void)
 	install_element(RIP_NODE, &no_rip_version_cmd);
 	install_element(RIP_NODE, &rip_bfd_default_profile_cmd);
 	install_element(RIP_NODE, &no_rip_bfd_default_profile_cmd);
+	install_default(RIP_NODE);
 
 	install_element(INTERFACE_NODE, &ip_rip_split_horizon_cmd);
 	install_element(INTERFACE_NODE, &ip_rip_v2_broadcast_cmd);
@@ -1308,4 +1321,128 @@ void rip_cli_init(void)
 	install_element(INTERFACE_NODE, &no_ip_rip_bfd_profile_cmd);
 
 	install_element(ENABLE_NODE, &clear_ip_rip_cmd);
+
+	if_rmap_init(RIP_NODE);
 }
+/* clang-format off */
+const struct frr_yang_module_info frr_ripd_cli_info = {
+	.name = "frr-ripd",
+	.ignore_cfg_cbs = true,
+	.nodes = {
+		{
+			.xpath = "/frr-ripd:ripd/instance",
+			.cbs.cli_show = cli_show_router_rip,
+		},
+		{
+			.xpath = "/frr-ripd:ripd/instance/allow-ecmp",
+			.cbs.cli_show = cli_show_rip_allow_ecmp,
+		},
+		{
+			.xpath = "/frr-ripd:ripd/instance/default-information-originate",
+			.cbs.cli_show = cli_show_rip_default_information_originate,
+		},
+		{
+			.xpath = "/frr-ripd:ripd/instance/default-metric",
+			.cbs.cli_show = cli_show_rip_default_metric,
+		},
+		{
+			.xpath = "/frr-ripd:ripd/instance/distance/default",
+			.cbs.cli_show = cli_show_rip_distance,
+		},
+		{
+			.xpath = "/frr-ripd:ripd/instance/distance/source",
+			.cbs.cli_show = cli_show_rip_distance_source,
+		},
+		{
+			.xpath = "/frr-ripd:ripd/instance/explicit-neighbor",
+			.cbs.cli_show = cli_show_rip_neighbor,
+		},
+		{
+			.xpath = "/frr-ripd:ripd/instance/network",
+			.cbs.cli_show = cli_show_rip_network_prefix,
+		},
+		{
+			.xpath = "/frr-ripd:ripd/instance/interface",
+			.cbs.cli_show = cli_show_rip_network_interface,
+		},
+		{
+			.xpath = "/frr-ripd:ripd/instance/offset-list",
+			.cbs.cli_show = cli_show_rip_offset_list,
+		},
+		{
+			.xpath = "/frr-ripd:ripd/instance/passive-default",
+			.cbs.cli_show = cli_show_rip_passive_default,
+		},
+		{
+			.xpath = "/frr-ripd:ripd/instance/passive-interface",
+			.cbs.cli_show = cli_show_rip_passive_interface,
+		},
+		{
+			.xpath = "/frr-ripd:ripd/instance/non-passive-interface",
+			.cbs.cli_show = cli_show_rip_non_passive_interface,
+		},
+		{
+			.xpath = "/frr-ripd:ripd/instance/redistribute",
+			.cbs.cli_show = cli_show_rip_redistribute,
+		},
+		{
+			.xpath = "/frr-ripd:ripd/instance/if-route-maps/if-route-map",
+			.cbs.cli_show = cli_show_if_route_map,
+		},
+		{
+			.xpath = "/frr-ripd:ripd/instance/static-route",
+			.cbs.cli_show = cli_show_rip_route,
+		},
+		{
+			.xpath = "/frr-ripd:ripd/instance/timers",
+			.cbs.cli_show = cli_show_rip_timers,
+		},
+		{
+			.xpath = "/frr-ripd:ripd/instance/version",
+			.cbs.cli_show = cli_show_rip_version,
+		},
+		{
+			.xpath = "/frr-ripd:ripd/instance/default-bfd-profile",
+			.cbs.cli_show = cli_show_ripd_instance_default_bfd_profile,
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/frr-ripd:rip/split-horizon",
+			.cbs.cli_show = cli_show_ip_rip_split_horizon,
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/frr-ripd:rip/v2-broadcast",
+			.cbs.cli_show = cli_show_ip_rip_v2_broadcast,
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/frr-ripd:rip/version-receive",
+			.cbs.cli_show = cli_show_ip_rip_receive_version,
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/frr-ripd:rip/version-send",
+			.cbs.cli_show = cli_show_ip_rip_send_version,
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/frr-ripd:rip/authentication-scheme",
+			.cbs.cli_show = cli_show_ip_rip_authentication_scheme,
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/frr-ripd:rip/authentication-password",
+			.cbs.cli_show = cli_show_ip_rip_authentication_string,
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/frr-ripd:rip/authentication-key-chain",
+			.cbs.cli_show = cli_show_ip_rip_authentication_key_chain,
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/frr-ripd:rip/bfd-monitoring/enable",
+			.cbs.cli_show = cli_show_ip_rip_bfd_enable,
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/frr-ripd:rip/bfd-monitoring/profile",
+			.cbs.cli_show = cli_show_ip_rip_bfd_profile,
+		},
+		{
+			.xpath = NULL,
+		},
+	}
+};

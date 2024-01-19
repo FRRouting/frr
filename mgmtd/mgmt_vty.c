@@ -21,6 +21,8 @@
 #include "mgmtd/mgmt_history.h"
 
 #include "mgmtd/mgmt_vty_clippy.c"
+#include "ripd/ripd.h"
+#include "staticd/static_vty.h"
 
 extern struct frr_daemon_info *mgmt_daemon_info;
 
@@ -573,8 +575,10 @@ void mgmt_vty_init(void)
 	 * backend components that are moved to new MGMTD infra
 	 * here one by one.
 	 */
+#if HAVE_RIPD
+	rip_cli_init();
+#endif
 #if HAVE_STATICD
-	extern void static_vty_init(void);
 	static_vty_init();
 #endif
 

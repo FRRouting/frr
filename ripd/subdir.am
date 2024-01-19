@@ -14,7 +14,6 @@ endif
 
 ripd_ripd_SOURCES = \
 	ripd/rip_bfd.c \
-	ripd/rip_cli.c \
 	ripd/rip_debug.c \
 	ripd/rip_errors.c \
 	ripd/rip_interface.c \

@@ -1109,7 +1109,6 @@ void rip_if_init(void)
 	hook_register_prio(if_del, 0, rip_interface_delete_hook);
 
 	/* Install interface node. */
-	if_cmd_init_default();
 	hook_register_prio(if_real, 0, rip_ifp_create);
 	hook_register_prio(if_up, 0, rip_ifp_up);
 	hook_register_prio(if_down, 0, rip_ifp_down);

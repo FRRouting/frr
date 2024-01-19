@@ -209,7 +209,7 @@ class CommandEntry:
             if v6_cmd:
                 return {"VTYSH_RIPNGD"}
             else:
-                return {"VTYSH_RIPD"}
+                return {"VTYSH_MGMTD"}
 
         return {}
 

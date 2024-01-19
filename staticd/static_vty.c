@@ -1578,7 +1578,7 @@ static int static_path_list_cli_cmp(const struct lyd_node *dnode1,
 	return (int)distance1 - (int)distance2;
 }
 
-const struct frr_yang_module_info frr_staticd_info = {
+const struct frr_yang_module_info frr_staticd_cli_info = {
 	.name = "frr-staticd",
 	.ignore_cfg_cbs = true,
 	.nodes = {
@@ -1714,5 +1714,7 @@ void static_vty_init(void)
 	install_element(CONFIG_NODE, &ipv6_route_cmd);
 	install_element(VRF_NODE, &ipv6_route_vrf_cmd);
 
+#ifndef INCLUDE_MGMTD_CMDDEFS_ONLY
 	mgmt_be_client_lib_vty_init();
+#endif
 }

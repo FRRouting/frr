@@ -10,6 +10,7 @@
 #include "northbound.h"
 
 extern const struct frr_yang_module_info frr_ripd_info;
+extern const struct frr_yang_module_info frr_ripd_cli_info;
 
 /* Mandatory callbacks. */
 int ripd_instance_create(struct nb_cb_create_args *args);

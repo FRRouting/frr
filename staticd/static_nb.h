@@ -11,6 +11,7 @@ extern "C" {
 #endif
 
 extern const struct frr_yang_module_info frr_staticd_info;
+extern const struct frr_yang_module_info frr_staticd_cli_info;
 
 /* Mandatory callbacks. */
 int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_create(
