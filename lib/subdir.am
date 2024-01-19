@@ -540,11 +540,21 @@ EXTRA_DIST += \
 BUILT_SOURCES += \
 	lib/gitversion.h \
 	lib/route_types.h \
+	lib/vtysh_daemons.h \
 	# end
 
 ## force route_types.h
 $(lib_clippy_OBJECTS): lib/route_types.h
 $(lib_libfrr_la_OBJECTS): lib/route_types.h
+
+# force lib_daemons.h
+$(lib_libfrr_la_OBJECTS): lib/vtysh_daemons.h
+
+CLEANFILES += lib/vtysh_daemons.h
+lib/vtysh_daemons.h:
+	@$(MKDIR_P) lib
+	$(PERL) $(top_srcdir)/vtysh/daemons.pl $(vtysh_daemons) > lib/vtysh_daemons.h
+
 
 AM_YFLAGS = -d -Dapi.prefix=@BISON_OPENBRACE@cmd_yy@BISON_CLOSEBRACE@ @BISON_VERBOSE@
 

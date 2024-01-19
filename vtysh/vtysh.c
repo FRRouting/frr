@@ -31,7 +31,7 @@
 #include "network.h"
 #include "filter.h"
 #include "vtysh/vtysh.h"
-#include "vtysh/vtysh_daemons.h"
+#include "lib/vtysh_daemons.h"
 #include "log.h"
 #include "vrf.h"
 #include "libfrr.h"
