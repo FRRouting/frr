@@ -4738,8 +4738,8 @@ DEFPY_YANG(link_params_affinity, link_params_affinity_cmd,
 DEFPY_YANG(link_params_affinity_mode, link_params_affinity_mode_cmd,
 	   "affinity-mode <standard|extended|both>$affmode",
 	   "Interface affinity mode\n"
-	   "Standard Admin-Group only RFC3630,5305,5329 (default)\n"
-	   "Extended Admin-Group only RFC7308\n"
+	   "Standard Admin-Group only RFC3630,5305,5329\n"
+	   "Extended Admin-Group only RFC7308 (default)\n"
 	   "Standard and extended Admin-Group format\n")
 {
 	const char *xpath = "./frr-zebra:zebra/link-params/affinity-mode";
@@ -4753,13 +4753,13 @@ DEFPY_YANG(no_link_params_affinity_mode, no_link_params_affinity_mode_cmd,
 	   "no affinity-mode [<standard|extended|both>]",
 	   NO_STR
 	   "Interface affinity mode\n"
-	   "Standard Admin-Group only RFC3630,5305,5329 (default)\n"
-	   "Extended Admin-Group only RFC7308\n"
+	   "Standard Admin-Group only RFC3630,5305,5329\n"
+	   "Extended Admin-Group only RFC7308 (default)\n"
 	   "Standard and extended Admin-Group format\n")
 {
 	const char *xpath = "./frr-zebra:zebra/link-params/affinity-mode";
 
-	nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, "standard");
+	nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, "extended");
 
 	return nb_cli_apply_changes(vty, NULL);
 }
@@ -4788,6 +4788,8 @@ void cli_show_affinity_mode(struct vty *vty, const struct lyd_node *dnode,
 		vty_out(vty, "  affinity-mode standard\n");
 	else if (affinity_mode == AFFINITY_MODE_BOTH)
 		vty_out(vty, "  affinity-mode both\n");
+	else if (affinity_mode == AFFINITY_MODE_EXTENDED && show_defaults)
+		vty_out(vty, "  affinity-mode extended\n");
 }
 
 void cli_show_affinity(struct vty *vty, const struct lyd_node *dnode,
