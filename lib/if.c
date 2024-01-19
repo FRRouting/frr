@@ -1135,7 +1135,7 @@ struct if_link_params *if_link_params_enable(struct interface *ifp)
 		iflp->unrsv_bw[i] = iflp->default_bw;
 
 	/* Update Link parameters status */
-	iflp->lp_status = LP_MAX_BW | LP_MAX_RSV_BW | LP_UNRSV_BW | LP_EXTEND_ADM_GRP;
+	iflp->lp_status = LP_MAX_BW | LP_MAX_RSV_BW | LP_UNRSV_BW;
 
 	/* Set TE metric equal to standard metric only if it is set */
 	if (ifp->metric != 0) {
