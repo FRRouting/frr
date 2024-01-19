@@ -1270,20 +1270,6 @@ int lib_interface_zebra_affinity_create(struct nb_cb_create_args *args)
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
-		if (!affmap) {
-			snprintf(args->errmsg, args->errmsg_len,
-				 "affinity-map %s not found.", affname);
-			return NB_ERR_VALIDATION;
-		}
-		if (affinity_mode == AFFINITY_MODE_STANDARD &&
-		    affmap->bit_position > 31) {
-			snprintf(
-				args->errmsg, args->errmsg_len,
-				"affinity %s bit-position %d is not compatible with affinity-mode standard (bit-position > 31).",
-				affname, affmap->bit_position);
-			return NB_ERR_VALIDATION;
-		}
-		break;
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
 		break;
@@ -1331,12 +1317,6 @@ int lib_interface_zebra_affinity_destroy(struct nb_cb_destroy_args *args)
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
-		if (!affmap) {
-			snprintf(args->errmsg, args->errmsg_len,
-				 "affinity-map %s not found.", affname);
-			return NB_ERR_VALIDATION;
-		}
-		break;
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
 		break;
@@ -1386,14 +1366,6 @@ int lib_interface_zebra_affinity_mode_modify(struct nb_cb_modify_args *args)
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
-		if (affinity_mode == AFFINITY_MODE_STANDARD &&
-		    admin_group_nb_words(&iflp->ext_admin_grp) > 1) {
-			snprintf(
-				args->errmsg, args->errmsg_len,
-				"affinity-mode standard cannot be set when a bit-position > 31 is set.");
-			return NB_ERR_VALIDATION;
-		}
-		break;
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
 		break;

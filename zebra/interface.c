@@ -4256,22 +4256,9 @@ DEFPY_YANG(link_params_admin_grp, link_params_admin_grp_cmd,
 	   "Administrative group membership\n"
 	   "32-bit Hexadecimal value (e.g. 0xa1)\n")
 {
-	char xpath[XPATH_MAXLEN];
 	int idx_bitpattern = 1;
 	unsigned long value;
 	char value_str[11];
-
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-
-	snprintf(
-		xpath, sizeof(xpath),
-		"/frr-interface:lib/interface[name='%s']/frr-zebra:zebra/link-params/affinities",
-		ifp->name);
-	if (yang_dnode_exists(running_config->dnode, xpath)) {
-		vty_out(vty,
-			"cannot use the admin-grp command when affinity is set\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
 
 	if (sscanf(argv[idx_bitpattern]->arg, "0x%lx", &value) != 1) {
 		vty_out(vty, "link_params_admin_grp: fscanf: %s\n",
@@ -4738,19 +4725,6 @@ DEFPY_YANG(link_params_affinity, link_params_affinity_cmd,
 	   "Interface affinities\n"
 	   "Affinity names\n")
 {
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	char xpath[XPATH_MAXLEN];
-
-	snprintf(
-		xpath, sizeof(xpath),
-		"/frr-interface:lib/interface[name='%s']/frr-zebra:zebra/link-params/legacy-admin-group",
-		ifp->name);
-	if (yang_dnode_exists(running_config->dnode, xpath)) {
-		vty_out(vty,
-			"cannot use the affinity command when admin-grp is set\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
 	return ag_change(vty, argc, argv,
 			 "./frr-zebra:zebra/link-params/affinities/affinity",
 			 no, no ? 2 : 1);
@@ -4764,8 +4738,8 @@ DEFPY_YANG(link_params_affinity, link_params_affinity_cmd,
 DEFPY_YANG(link_params_affinity_mode, link_params_affinity_mode_cmd,
 	   "affinity-mode <standard|extended|both>$affmode",
 	   "Interface affinity mode\n"
-	   "Standard Admin-Group only RFC3630,5305,5329 (default)\n"
-	   "Extended Admin-Group only RFC7308\n"
+	   "Standard Admin-Group only RFC3630,5305,5329\n"
+	   "Extended Admin-Group only RFC7308 (default)\n"
 	   "Standard and extended Admin-Group format\n")
 {
 	const char *xpath = "./frr-zebra:zebra/link-params/affinity-mode";
@@ -4779,13 +4753,13 @@ DEFPY_YANG(no_link_params_affinity_mode, no_link_params_affinity_mode_cmd,
 	   "no affinity-mode [<standard|extended|both>]",
 	   NO_STR
 	   "Interface affinity mode\n"
-	   "Standard Admin-Group only RFC3630,5305,5329 (default)\n"
-	   "Extended Admin-Group only RFC7308\n"
+	   "Standard Admin-Group only RFC3630,5305,5329\n"
+	   "Extended Admin-Group only RFC7308 (default)\n"
 	   "Standard and extended Admin-Group format\n")
 {
 	const char *xpath = "./frr-zebra:zebra/link-params/affinity-mode";
 
-	nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, "standard");
+	nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, "extended");
 
 	return nb_cli_apply_changes(vty, NULL);
 }
@@ -4801,11 +4775,8 @@ static int ag_iter_cb(const struct lyd_node *dnode, void *arg)
 void cli_show_legacy_admin_group(struct vty *vty, const struct lyd_node *dnode,
 				 bool show_defaults)
 {
-	if (!yang_dnode_exists(dnode, "legacy-admin-group"))
-		return;
-
-	vty_out(vty, "  admin-group 0x%x\n",
-		yang_dnode_get_uint32(dnode, "legacy-admin-group"));
+	vty_out(vty, "  admin-grp 0x%x\n",
+		yang_dnode_get_uint32(dnode, NULL));
 }
 
 void cli_show_affinity_mode(struct vty *vty, const struct lyd_node *dnode,
@@ -4817,6 +4788,8 @@ void cli_show_affinity_mode(struct vty *vty, const struct lyd_node *dnode,
 		vty_out(vty, "  affinity-mode standard\n");
 	else if (affinity_mode == AFFINITY_MODE_BOTH)
 		vty_out(vty, "  affinity-mode both\n");
+	else if (affinity_mode == AFFINITY_MODE_EXTENDED && show_defaults)
+		vty_out(vty, "  affinity-mode extended\n");
 }
 
 void cli_show_affinity(struct vty *vty, const struct lyd_node *dnode,

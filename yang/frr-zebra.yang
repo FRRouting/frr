@@ -2011,8 +2011,11 @@ module frr-zebra {
           case affinity {
             container affinities {
               leaf-list affinity {
-                type string;
+                type frr-affinity-map:affinity-map-ref;
                 max-elements "256";
+                must '../../affinity-mode != "standard" or /frr-affinity-map:lib/frr-affinity-map:affinity-maps/frr-affinity-map:affinity-map[frr-affinity-map:name=current()]/frr-affinity-map:value < 32' {
+                  error-message "Affinity bit-position must be less than 32 when used with standard affinity mode";
+                }
                 description
                   "Array of Attribute Names";
               }

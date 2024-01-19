@@ -53,12 +53,22 @@ module frr-affinity-map {
       "Initial revision";
   }
 
+  typedef affinity-map-ref {
+    type leafref {
+      path "/frr-affinity-map:lib/frr-affinity-map:affinity-maps/frr-affinity-map:affinity-map/frr-affinity-map:name";
+      require-instance true;
+    }
+    description
+      "Reference to an affinity map";
+  }
+
   container lib {
     container affinity-maps {
       description
         "Affinity Mapping Table";
       list affinity-map {
         key "name";
+        unique "value";
         description
           "Affinity Mapping configuration";
         leaf name {
@@ -69,6 +79,7 @@ module frr-affinity-map {
             "Affinity Name";
         }
         leaf value {
+          mandatory true;
           type uint16 {
             range "0..1023";
           }
