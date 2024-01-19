@@ -176,12 +176,11 @@ int nhrp_neighbor_operation(ZAPI_CALLBACK_ARGS)
 		return 0;
 	debugf(NHRP_DEBUG_KERNEL,
 	       "Netlink: %s %pSU dev %s lladdr %pSU nud 0x%x cache used %u type %u",
-	       (cmd == ZEBRA_NHRP_NEIGH_GET)
-	       ? "who-has"
-	       : (cmd == ZEBRA_NHRP_NEIGH_ADDED) ? "new-neigh"
-	       : "del-neigh",
+	       (cmd == ZEBRA_NEIGH_GET)	    ? "who-has"
+	       : (cmd == ZEBRA_NEIGH_ADDED) ? "new-neigh"
+					    : "del-neigh",
 	       &addr, ifp->name, &lladdr, ndm_state, c->used, c->cur.type);
-	if (cmd == ZEBRA_NHRP_NEIGH_GET) {
+	if (cmd == ZEBRA_NEIGH_GET) {
 		if (c->cur.type >= NHRP_CACHE_CACHED) {
 			nhrp_cache_set_used(c, 1);
 			debugf(NHRP_DEBUG_KERNEL,
@@ -194,8 +193,8 @@ int nhrp_neighbor_operation(ZAPI_CALLBACK_ARGS)
 			netlink_update_binding(ifp, &addr, &lladdr);
 		}
 	} else {
-		state = (cmd == ZEBRA_NHRP_NEIGH_ADDED) ? ndm_state
-			: ZEBRA_NEIGH_STATE_FAILED;
+		state = (cmd == ZEBRA_NEIGH_ADDED) ? ndm_state
+						   : ZEBRA_NEIGH_STATE_FAILED;
 		nhrp_cache_set_used(c, state == ZEBRA_NEIGH_STATE_REACHABLE);
 	}
 	return 0;

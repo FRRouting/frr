@@ -85,8 +85,9 @@ static void nhrp_zebra_register_neigh(vrf_id_t vrf_id, afi_t afi, bool reg)
 	s = zclient->obuf;
 	stream_reset(s);
 
-	zclient_create_header(s, reg ? ZEBRA_NHRP_NEIGH_REGISTER :
-			      ZEBRA_NHRP_NEIGH_UNREGISTER,
+	zclient_create_header(s,
+			      reg ? ZEBRA_NEIGH_REGISTER
+				  : ZEBRA_NEIGH_UNREGISTER,
 			      vrf_id);
 	stream_putw(s, afi);
 	stream_putw_at(s, 0, stream_get_endp(s));
@@ -377,9 +378,9 @@ static zclient_handler *const nhrp_handlers[] = {
 	[ZEBRA_INTERFACE_ADDRESS_DELETE] = nhrp_interface_address_delete,
 	[ZEBRA_REDISTRIBUTE_ROUTE_ADD] = nhrp_route_read,
 	[ZEBRA_REDISTRIBUTE_ROUTE_DEL] = nhrp_route_read,
-	[ZEBRA_NHRP_NEIGH_ADDED] = nhrp_neighbor_operation,
-	[ZEBRA_NHRP_NEIGH_REMOVED] = nhrp_neighbor_operation,
-	[ZEBRA_NHRP_NEIGH_GET] = nhrp_neighbor_operation,
+	[ZEBRA_NEIGH_ADDED] = nhrp_neighbor_operation,
+	[ZEBRA_NEIGH_REMOVED] = nhrp_neighbor_operation,
+	[ZEBRA_NEIGH_GET] = nhrp_neighbor_operation,
 	[ZEBRA_GRE_UPDATE] = nhrp_gre_update,
 };
 
