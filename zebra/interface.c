@@ -4131,70 +4131,26 @@ DEFPY_YANG(no_link_params_admin_grp, no_link_params_admin_grp_cmd,
 }
 
 /* RFC5392 & RFC5316: INTER-AS */
-DEFUN (link_params_inter_as,
+DEFPY_YANG (link_params_inter_as,
        link_params_inter_as_cmd,
-       "neighbor A.B.C.D as (1-4294967295)",
+       "[no] neighbor ![A.B.C.D$ip as (1-4294967295)$as]",
+       NO_STR
        "Configure remote ASBR information (Neighbor IP address and AS number)\n"
        "Remote IP address in dot decimal A.B.C.D\n"
        "Remote AS number\n"
        "AS number in the range <1-4294967295>\n")
 {
-	int idx_ipv4 = 1;
-	int idx_number = 3;
-
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	struct if_link_params *iflp = if_link_params_get(ifp);
-	struct in_addr addr;
-	uint32_t as;
-
-	if (!inet_aton(argv[idx_ipv4]->arg, &addr)) {
-		vty_out(vty, "Please specify Router-Addr by A.B.C.D\n");
-		return CMD_WARNING_CONFIG_FAILED;
+	if (!no) {
+		nb_cli_enqueue_change(vty, "./neighbor", NB_OP_CREATE, NULL);
+		nb_cli_enqueue_change(vty, "./neighbor/remote-as", NB_OP_MODIFY,
+				      as_str);
+		nb_cli_enqueue_change(vty, "./neighbor/ipv4-remote-id",
+				      NB_OP_MODIFY, ip_str);
+	} else {
+		nb_cli_enqueue_change(vty, "./neighbor", NB_OP_DESTROY, NULL);
 	}
 
-	if (!iflp)
-		iflp = if_link_params_enable(ifp);
-
-	as = strtoul(argv[idx_number]->arg, NULL, 10);
-
-	/* Update Remote IP and Remote AS fields if needed */
-	if (IS_PARAM_UNSET(iflp, LP_RMT_AS) || iflp->rmt_as != as
-	    || iflp->rmt_ip.s_addr != addr.s_addr) {
-
-		iflp->rmt_as = as;
-		iflp->rmt_ip.s_addr = addr.s_addr;
-		SET_PARAM(iflp, LP_RMT_AS);
-
-		/* force protocols to update LINK STATE due to parameters change
-		 */
-		if (if_is_operative(ifp))
-			zebra_interface_parameters_update(ifp);
-	}
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_link_params_inter_as,
-       no_link_params_inter_as_cmd,
-       "no neighbor",
-       NO_STR
-       "Remove Neighbor IP address and AS number for Inter-AS TE\n")
-{
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	struct if_link_params *iflp = if_link_params_get(ifp);
-
-	if (!iflp)
-		return CMD_SUCCESS;
-
-	/* Reset Remote IP and AS neighbor */
-	iflp->rmt_as = 0;
-	iflp->rmt_ip.s_addr = 0;
-	UNSET_PARAM(iflp, LP_RMT_AS);
-
-	/* force protocols to update LINK STATE due to parameters change */
-	if (if_is_operative(ifp))
-		zebra_interface_parameters_update(ifp);
-
-	return CMD_SUCCESS;
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 /* RFC7471: OSPF Traffic Engineering (TE) Metric extensions &
@@ -5044,7 +5000,6 @@ void zebra_if_init(void)
 	install_element(LINK_PARAMS_NODE, &link_params_admin_grp_cmd);
 	install_element(LINK_PARAMS_NODE, &no_link_params_admin_grp_cmd);
 	install_element(LINK_PARAMS_NODE, &link_params_inter_as_cmd);
-	install_element(LINK_PARAMS_NODE, &no_link_params_inter_as_cmd);
 	install_element(LINK_PARAMS_NODE, &link_params_delay_cmd);
 	install_element(LINK_PARAMS_NODE, &no_link_params_delay_cmd);
 	install_element(LINK_PARAMS_NODE, &link_params_delay_var_cmd);

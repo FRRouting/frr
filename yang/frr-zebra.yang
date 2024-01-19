@@ -2149,6 +2149,22 @@ module frr-zebra {
             }
           }
         }
+        container neighbor {
+          description "Remote ASBR information (RFC 5316 & RFC 5392)";
+          presence "Activates neighbor information on this interface.";
+          leaf remote-as {
+            type inet:as-number;
+            mandatory true;
+            description
+              "Remote AS Number (RFC 5316 & RFC 5392)";
+          }
+          leaf ipv4-remote-id {
+            type inet:ipv4-address;
+            mandatory true;
+            description
+              "IPv4 Remote ASBR ID (RFC 5316 & RFC 5392)";
+          }
+        }
         // TODO -- other link-params options
         // for (experimental/partial TE use in IGP extensions)
       }

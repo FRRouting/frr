@@ -449,6 +449,25 @@ const struct frr_yang_module_info frr_zebra_info = {
 			},
 		},
 		{
+			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/link-params/neighbor",
+			.cbs = {
+				.create = lib_interface_zebra_link_params_neighbor_create,
+				.destroy = lib_interface_zebra_link_params_neighbor_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/link-params/neighbor/remote-as",
+			.cbs = {
+				.modify = lib_interface_zebra_link_params_neighbor_remote_as_modify,
+			}
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/link-params/neighbor/ipv4-remote-id",
+			.cbs = {
+				.modify = lib_interface_zebra_link_params_neighbor_ipv4_remote_id_modify,
+			}
+		},
+		{
 			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/state/up-count",
 			.cbs = {
 				.get_elem = lib_interface_zebra_state_up_count_get_elem,

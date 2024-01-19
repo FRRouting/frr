@@ -1877,6 +1877,109 @@ int lib_interface_zebra_affinity_mode_modify(struct nb_cb_modify_args *args)
 }
 
 /*
+ * XPath: /frr-interface:lib/interface/frr-zebra:zebra/link-params/neighbor
+ */
+int lib_interface_zebra_link_params_neighbor_create(struct nb_cb_create_args *args)
+{
+	struct interface *ifp;
+	struct if_link_params *iflp;
+	struct in_addr ip;
+	uint32_t as;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	as = yang_dnode_get_uint32(args->dnode, "remote-as");
+	yang_dnode_get_ipv4(&ip, args->dnode, "ipv4-remote-id");
+
+	ifp = nb_running_get_entry(args->dnode, NULL, true);
+	iflp = if_link_params_get(ifp);
+
+	iflp->rmt_as = as;
+	iflp->rmt_ip = ip;
+	SET_PARAM(iflp, LP_RMT_AS);
+
+	if (if_is_operative(ifp))
+		zebra_interface_parameters_update(ifp);
+
+	return NB_OK;
+}
+
+int lib_interface_zebra_link_params_neighbor_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	struct interface *ifp;
+	struct if_link_params *iflp;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	ifp = nb_running_get_entry(args->dnode, NULL, true);
+	iflp = if_link_params_get(ifp);
+
+	iflp->rmt_as = 0;
+	iflp->rmt_ip.s_addr = 0;
+	UNSET_PARAM(iflp, LP_RMT_AS);
+
+	if (if_is_operative(ifp))
+		zebra_interface_parameters_update(ifp);
+
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-interface:lib/interface/frr-zebra:zebra/link-params/neighbor/remote-as
+ */
+int lib_interface_zebra_link_params_neighbor_remote_as_modify(
+	struct nb_cb_modify_args *args)
+{
+	struct interface *ifp;
+	struct if_link_params *iflp;
+	uint32_t as;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	as = yang_dnode_get_uint32(args->dnode, NULL);
+
+	ifp = nb_running_get_entry(args->dnode, NULL, true);
+	iflp = if_link_params_get(ifp);
+
+	iflp->rmt_as = as;
+
+	if (if_is_operative(ifp))
+		zebra_interface_parameters_update(ifp);
+
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-interface:lib/interface/frr-zebra:zebra/link-params/neighbor/ipv4-remote-id
+ */
+int lib_interface_zebra_link_params_neighbor_ipv4_remote_id_modify(
+	struct nb_cb_modify_args *args)
+{
+	struct interface *ifp;
+	struct if_link_params *iflp;
+	struct in_addr ip;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	yang_dnode_get_ipv4(&ip, args->dnode, NULL);
+
+	ifp = nb_running_get_entry(args->dnode, NULL, true);
+	iflp = if_link_params_get(ifp);
+
+	iflp->rmt_ip = ip;
+
+	if (if_is_operative(ifp))
+		zebra_interface_parameters_update(ifp);
+
+	return NB_OK;
+}
+
+/*
  * XPath: /frr-vrf:lib/vrf/frr-zebra:zebra/l3vni-id
  */
 int lib_vrf_zebra_l3vni_id_modify(struct nb_cb_modify_args *args)
