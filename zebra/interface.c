@@ -4256,22 +4256,9 @@ DEFPY_YANG(link_params_admin_grp, link_params_admin_grp_cmd,
 	   "Administrative group membership\n"
 	   "32-bit Hexadecimal value (e.g. 0xa1)\n")
 {
-	char xpath[XPATH_MAXLEN];
 	int idx_bitpattern = 1;
 	unsigned long value;
 	char value_str[11];
-
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-
-	snprintf(
-		xpath, sizeof(xpath),
-		"/frr-interface:lib/interface[name='%s']/frr-zebra:zebra/link-params/affinities",
-		ifp->name);
-	if (yang_dnode_exists(running_config->dnode, xpath)) {
-		vty_out(vty,
-			"cannot use the admin-grp command when affinity is set\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
 
 	if (sscanf(argv[idx_bitpattern]->arg, "0x%lx", &value) != 1) {
 		vty_out(vty, "link_params_admin_grp: fscanf: %s\n",
@@ -4738,19 +4725,6 @@ DEFPY_YANG(link_params_affinity, link_params_affinity_cmd,
 	   "Interface affinities\n"
 	   "Affinity names\n")
 {
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	char xpath[XPATH_MAXLEN];
-
-	snprintf(
-		xpath, sizeof(xpath),
-		"/frr-interface:lib/interface[name='%s']/frr-zebra:zebra/link-params/legacy-admin-group",
-		ifp->name);
-	if (yang_dnode_exists(running_config->dnode, xpath)) {
-		vty_out(vty,
-			"cannot use the affinity command when admin-grp is set\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
 	return ag_change(vty, argc, argv,
 			 "./frr-zebra:zebra/link-params/affinities/affinity",
 			 no, no ? 2 : 1);
