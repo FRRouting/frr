@@ -3730,7 +3730,7 @@ DEFUN_HIDDEN (multicast,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFPY (mpls,
+DEFPY_YANG (mpls,
        mpls_cmd,
        "[no] mpls <enable$on|disable$off>",
        NO_STR
