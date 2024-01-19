@@ -4801,11 +4801,8 @@ static int ag_iter_cb(const struct lyd_node *dnode, void *arg)
 void cli_show_legacy_admin_group(struct vty *vty, const struct lyd_node *dnode,
 				 bool show_defaults)
 {
-	if (!yang_dnode_exists(dnode, "legacy-admin-group"))
-		return;
-
-	vty_out(vty, "  admin-group 0x%x\n",
-		yang_dnode_get_uint32(dnode, "legacy-admin-group"));
+	vty_out(vty, "  admin-grp 0x%x\n",
+		yang_dnode_get_uint32(dnode, NULL));
 }
 
 void cli_show_affinity_mode(struct vty *vty, const struct lyd_node *dnode,
