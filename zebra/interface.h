@@ -323,6 +323,12 @@ extern int if_multicast_unset(struct interface *ifp);
 extern int if_linkdetect(struct interface *ifp, bool detect);
 extern void if_addr_wakeup(struct interface *ifp);
 
+void link_param_cmd_set_uint32(struct interface *ifp, uint32_t *field,
+			       uint32_t type, uint32_t value);
+void link_param_cmd_set_float(struct interface *ifp, float *field,
+			      uint32_t type, float value);
+void link_param_cmd_unset(struct interface *ifp, uint32_t type);
+
 /* Nexthop group connected functions */
 extern void if_nhg_dependents_add(struct interface *ifp,
 				  struct nhg_hash_entry *nhe);

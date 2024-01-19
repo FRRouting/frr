@@ -1305,6 +1305,41 @@ int lib_interface_zebra_link_params_destroy(struct nb_cb_destroy_args *args)
 }
 
 /*
+ * XPath: /frr-interface:lib/interface/frr-zebra:zebra/link-params/metric
+ */
+int lib_interface_zebra_link_params_metric_modify(struct nb_cb_modify_args *args)
+{
+	struct interface *ifp;
+	struct if_link_params *iflp;
+	uint32_t metric;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	ifp = nb_running_get_entry(args->dnode, NULL, true);
+	iflp = if_link_params_get(ifp);
+	metric = yang_dnode_get_uint32(args->dnode, NULL);
+
+	link_param_cmd_set_uint32(ifp, &iflp->te_metric, LP_TE_METRIC, metric);
+
+	return NB_OK;
+}
+
+int lib_interface_zebra_link_params_metric_destroy(struct nb_cb_destroy_args *args)
+{
+	struct interface *ifp;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	ifp = nb_running_get_entry(args->dnode, NULL, true);
+
+	link_param_cmd_unset(ifp, LP_TE_METRIC);
+
+	return NB_OK;
+}
+
+/*
  * XPath:
  * /frr-interface:lib/interface/frr-zebra:zebra/link-params/legacy-admin-group
  */

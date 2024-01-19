@@ -3892,8 +3892,8 @@ struct cmd_node link_params_node = {
 	.prompt = "%s(config-link-params)# ",
 };
 
-static void link_param_cmd_set_uint32(struct interface *ifp, uint32_t *field,
-				      uint32_t type, uint32_t value)
+void link_param_cmd_set_uint32(struct interface *ifp, uint32_t *field,
+			       uint32_t type, uint32_t value)
 {
 	/* Update field as needed */
 	if (IS_PARAM_UNSET(ifp->link_params, type) || *field != value) {
@@ -3906,8 +3906,9 @@ static void link_param_cmd_set_uint32(struct interface *ifp, uint32_t *field,
 			zebra_interface_parameters_update(ifp);
 	}
 }
-static void link_param_cmd_set_float(struct interface *ifp, float *field,
-				     uint32_t type, float value)
+
+void link_param_cmd_set_float(struct interface *ifp, float *field,
+			      uint32_t type, float value)
 {
 
 	/* Update field as needed */
@@ -3922,7 +3923,7 @@ static void link_param_cmd_set_float(struct interface *ifp, float *field,
 	}
 }
 
-static void link_param_cmd_unset(struct interface *ifp, uint32_t type)
+void link_param_cmd_unset(struct interface *ifp, uint32_t type)
 {
 	if (ifp->link_params == NULL)
 		return;
@@ -4005,40 +4006,19 @@ DEFUN_NOSH (no_link_params_enable,
 }
 
 /* STANDARD TE metrics */
-DEFUN (link_params_metric,
+DEFPY_YANG (link_params_metric,
        link_params_metric_cmd,
-       "metric (0-4294967295)",
+       "[no] metric ![(0-4294967295)]$metric",
+       NO_STR
        "Link metric for MPLS-TE purpose\n"
        "Metric value in decimal\n")
 {
-	int idx_number = 1;
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	struct if_link_params *iflp = if_link_params_get(ifp);
-	uint32_t metric;
+	if (!no)
+		nb_cli_enqueue_change(vty, "./metric", NB_OP_MODIFY, metric_str);
+	else
+		nb_cli_enqueue_change(vty, "./metric", NB_OP_DESTROY, NULL);
 
-	metric = strtoul(argv[idx_number]->arg, NULL, 10);
-
-	if (!iflp)
-		iflp = if_link_params_enable(ifp);
-
-	/* Update TE metric if needed */
-	link_param_cmd_set_uint32(ifp, &iflp->te_metric, LP_TE_METRIC, metric);
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_link_params_metric,
-       no_link_params_metric_cmd,
-       "no metric",
-       NO_STR
-       "Disable Link Metric on this interface\n")
-{
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-
-	/* Unset TE Metric */
-	link_param_cmd_unset(ifp, LP_TE_METRIC);
-
-	return CMD_SUCCESS;
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFUN (link_params_maxbw,
@@ -5173,7 +5153,6 @@ void zebra_if_init(void)
 	install_element(LINK_PARAMS_NODE, &link_params_enable_cmd);
 	install_element(LINK_PARAMS_NODE, &no_link_params_enable_cmd);
 	install_element(LINK_PARAMS_NODE, &link_params_metric_cmd);
-	install_element(LINK_PARAMS_NODE, &no_link_params_metric_cmd);
 	install_element(LINK_PARAMS_NODE, &link_params_maxbw_cmd);
 	install_element(LINK_PARAMS_NODE, &link_params_max_rsv_bw_cmd);
 	install_element(LINK_PARAMS_NODE, &link_params_unrsv_bw_cmd);

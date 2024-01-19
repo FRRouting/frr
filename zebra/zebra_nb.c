@@ -366,6 +366,13 @@ const struct frr_yang_module_info frr_zebra_info = {
 			}
 		},
 		{
+			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/link-params/metric",
+			.cbs = {
+				.modify = lib_interface_zebra_link_params_metric_modify,
+				.destroy = lib_interface_zebra_link_params_metric_destroy,
+			}
+		},
+		{
 			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/link-params/legacy-admin-group",
 			.cbs = {
 				.modify = lib_interface_zebra_legacy_admin_group_modify,

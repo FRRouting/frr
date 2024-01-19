@@ -2050,6 +2050,11 @@ module frr-zebra {
         presence "Activates link parameters on this interface.";
         description
           "link-params for Traffic-Engineering (TE) use in IGP extensions.";
+        leaf metric {
+          type uint32;
+          description
+            "Link metric for MPLS-TE purpose.";
+        }
         choice admin-group-mode {
           description "Admin-group mode";
           case legacy {
