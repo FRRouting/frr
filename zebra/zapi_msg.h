@@ -93,7 +93,7 @@ extern int zsend_sr_policy_notify_status(uint32_t color,
 					 int status);
 extern void zsend_neighbor_notify(int cmd, struct interface *ifp,
 				  struct ipaddr *ipaddr, int ndm_state,
-				  union sockunion *link_layer_ipv4);
+				  union sockunion *link_layer_ipv4, int ip_len);
 
 extern int zsend_client_close_notify(struct zserv *client,
 				     struct zserv *closed_client);

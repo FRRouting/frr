@@ -75,25 +75,6 @@ static void nhrp_route_update_zebra(const struct prefix *p,
 	}
 }
 
-static void nhrp_zebra_register_neigh(vrf_id_t vrf_id, afi_t afi, bool reg)
-{
-	struct stream *s;
-
-	if (!zclient || zclient->sock < 0)
-		return;
-
-	s = zclient->obuf;
-	stream_reset(s);
-
-	zclient_create_header(s,
-			      reg ? ZEBRA_NEIGH_REGISTER
-				  : ZEBRA_NEIGH_UNREGISTER,
-			      vrf_id);
-	stream_putw(s, afi);
-	stream_putw_at(s, 0, stream_get_endp(s));
-	zclient_send_message(zclient);
-}
-
 void nhrp_route_update_nhrp(const struct prefix *p, struct interface *ifp)
 {
 	struct route_node *rn;
@@ -369,8 +350,8 @@ static void nhrp_zebra_connected(struct zclient *zclient)
 				ZEBRA_ROUTE_ALL, 0, VRF_DEFAULT);
 	zebra_redistribute_send(ZEBRA_REDISTRIBUTE_ADD, zclient, AFI_IP6,
 				ZEBRA_ROUTE_ALL, 0, VRF_DEFAULT);
-	nhrp_zebra_register_neigh(VRF_DEFAULT, AFI_IP, true);
-	nhrp_zebra_register_neigh(VRF_DEFAULT, AFI_IP6, true);
+	zclient_register_neigh(zclient, VRF_DEFAULT, AFI_IP, true);
+	zclient_register_neigh(zclient, VRF_DEFAULT, AFI_IP6, true);
 }
 
 static zclient_handler *const nhrp_handlers[] = {
@@ -457,10 +438,11 @@ void nhrp_send_zebra_nbr(union sockunion *in,
 		return;
 	s = zclient->obuf;
 	stream_reset(s);
-	zclient_neigh_ip_encode(s, out ? ZEBRA_NEIGH_IP_ADD :
-				ZEBRA_NEIGH_IP_DEL, in, out,
-				ifp, out ? ZEBRA_NEIGH_STATE_REACHABLE
-				: ZEBRA_NEIGH_STATE_FAILED);
+	zclient_neigh_ip_encode(s, out ? ZEBRA_NEIGH_IP_ADD : ZEBRA_NEIGH_IP_DEL,
+				in, out, ifp,
+				out ? ZEBRA_NEIGH_STATE_REACHABLE
+				    : ZEBRA_NEIGH_STATE_FAILED,
+				0);
 	stream_putw_at(s, 0, stream_get_endp(s));
 	zclient_send_message(zclient);
 }
@@ -472,8 +454,8 @@ int nhrp_send_zebra_gre_request(struct interface *ifp)
 
 void nhrp_zebra_terminate(void)
 {
-	nhrp_zebra_register_neigh(VRF_DEFAULT, AFI_IP, false);
-	nhrp_zebra_register_neigh(VRF_DEFAULT, AFI_IP6, false);
+	zclient_register_neigh(zclient, VRF_DEFAULT, AFI_IP, false);
+	zclient_register_neigh(zclient, VRF_DEFAULT, AFI_IP6, false);
 	zclient_stop(zclient);
 	zclient_free(zclient);
 

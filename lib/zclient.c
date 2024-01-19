@@ -4709,7 +4709,7 @@ static int zclient_neigh_ip_read_entry(struct stream *s, struct ipaddr *add)
 
 int zclient_neigh_ip_encode(struct stream *s, uint16_t cmd, union sockunion *in,
 			    union sockunion *out, struct interface *ifp,
-			    int ndm_state)
+			    int ndm_state, int ip_len)
 {
 	int ret = 0;
 
@@ -4722,6 +4722,7 @@ int zclient_neigh_ip_encode(struct stream *s, uint16_t cmd, union sockunion *in,
 			     sockunion_get_addrlen(out));
 	} else
 		stream_putc(s, AF_UNSPEC);
+	stream_putl(s, ip_len);
 	stream_putl(s, ifp->ifindex);
 	if (out)
 		stream_putl(s, ndm_state);
@@ -4739,6 +4740,7 @@ int zclient_neigh_ip_decode(struct stream *s, struct zapi_neigh_ip *api)
 		return -1;
 	zclient_neigh_ip_read_entry(s, &api->ip_out);
 
+	STREAM_GETL(s, api->ip_len);
 	STREAM_GETL(s, api->index);
 	STREAM_GETL(s, api->ndm_state);
 	return 0;
@@ -4884,4 +4886,24 @@ enum zclient_send_status zclient_opaque_drop_notify(struct zclient *zclient,
 				   zclient->instance, zclient->session_id);
 
 	return zclient_send_message(zclient);
+}
+
+void zclient_register_neigh(struct zclient *zclient, vrf_id_t vrf_id, afi_t afi,
+			    bool reg)
+{
+	struct stream *s;
+
+	if (!zclient || zclient->sock < 0)
+		return;
+
+	s = zclient->obuf;
+	stream_reset(s);
+
+	zclient_create_header(s,
+			      reg ? ZEBRA_NEIGH_REGISTER
+				  : ZEBRA_NEIGH_UNREGISTER,
+			      vrf_id);
+	stream_putw(s, afi);
+	stream_putw_at(s, 0, stream_get_endp(s));
+	zclient_send_message(zclient);
 }

@@ -968,8 +968,9 @@ void zsend_ipset_entry_notify_owner(const struct zebra_dplane_ctx *ctx,
 	zserv_send_message(client, s);
 }
 
-void zsend_neighbor_notify(int cmd, struct interface *ifp, struct ipaddr *ipaddr,
-			   int ndm_state, union sockunion *link_layer_ipv4)
+void zsend_neighbor_notify(int cmd, struct interface *ifp,
+			   struct ipaddr *ipaddr, int ndm_state,
+			   union sockunion *link_layer_ipv4, int ip_len)
 {
 	struct stream *s;
 	struct listnode *node, *nnode;
@@ -992,7 +993,7 @@ void zsend_neighbor_notify(int cmd, struct interface *ifp, struct ipaddr *ipaddr
 
 		s = stream_new(ZEBRA_MAX_PACKET_SIZ);
 		zclient_neigh_ip_encode(s, cmd, &ip, link_layer_ipv4, ifp,
-					ndm_state);
+					ndm_state, ip_len);
 		stream_putw_at(s, 0, stream_get_endp(s));
 		zserv_send_message(client, s);
 	}

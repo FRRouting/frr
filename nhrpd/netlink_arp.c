@@ -154,6 +154,10 @@ int nhrp_neighbor_operation(ZAPI_CALLBACK_ARGS)
 	struct zapi_neigh_ip api = {};
 
 	zclient_neigh_ip_decode(zclient->ibuf, &api);
+
+	if (api.ip_len != IPV4_MAX_BYTELEN && api.ip_len != 0)
+		return 0;
+
 	if (api.ip_in.ipa_type == AF_UNSPEC)
 		return 0;
 	sockunion_family(&addr) = api.ip_in.ipa_type;
