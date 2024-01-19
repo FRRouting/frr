@@ -989,6 +989,41 @@ static int sharp_zebra_process_srv6_locator_chunk(ZAPI_CALLBACK_ARGS)
 	return 0;
 }
 
+static int sharp_zebra_process_neigh(ZAPI_CALLBACK_ARGS)
+{
+	union sockunion addr = {}, lladdr = {};
+	struct zapi_neigh_ip api = {};
+	struct interface *ifp;
+
+	zlog_debug("Received a neighbor event");
+	zclient_neigh_ip_decode(zclient->ibuf, &api);
+
+	if (api.ip_in.ipa_type == AF_UNSPEC)
+		return 0;
+
+	sockunion_family(&addr) = api.ip_in.ipa_type;
+	memcpy((uint8_t *)sockunion_get_addr(&addr), &api.ip_in.ip.addr,
+	       family2addrsize(api.ip_in.ipa_type));
+
+	sockunion_family(&lladdr) = api.ip_out.ipa_type;
+	if (api.ip_out.ipa_type != AF_UNSPEC)
+		memcpy((uint8_t *)sockunion_get_addr(&lladdr),
+		       &api.ip_out.ip.addr,
+		       family2addrsize(api.ip_out.ipa_type));
+	ifp = if_lookup_by_index(api.index, vrf_id);
+	if (!ifp) {
+		zlog_debug("Failed to lookup interface for neighbor entry: %u for %u",
+			   api.index, vrf_id);
+		return 0;
+	}
+
+	zlog_debug("Received: %s %pSU dev %s lladr %pSU",
+		   (cmd = ZEBRA_NEIGH_ADDED) ? "NEW" : "DEL", &addr, ifp->name,
+		   &lladdr);
+
+	return 0;
+}
+
 int sharp_zebra_send_interface_protodown(struct interface *ifp, bool down)
 {
 	zlog_debug("Sending zebra to set %s protodown %s", ifp->name,
@@ -1059,6 +1094,12 @@ int sharp_zebra_send_tc_filter_rate(struct interface *ifp,
 	return 0;
 }
 
+void sharp_zebra_register_neigh(vrf_id_t vrf_id, afi_t afi, bool reg)
+{
+	zclient_register_neigh(zclient, vrf_id, afi, reg);
+}
+
+
 static zclient_handler *const sharp_handlers[] = {
 	[ZEBRA_INTERFACE_ADDRESS_ADD] = interface_address_add,
 	[ZEBRA_INTERFACE_ADDRESS_DELETE] = interface_address_delete,
@@ -1070,6 +1111,8 @@ static zclient_handler *const sharp_handlers[] = {
 	[ZEBRA_OPAQUE_NOTIFY] = sharp_opq_notify_handler,
 	[ZEBRA_SRV6_MANAGER_GET_LOCATOR_CHUNK] =
 		sharp_zebra_process_srv6_locator_chunk,
+	[ZEBRA_NEIGH_ADDED] = sharp_zebra_process_neigh,
+	[ZEBRA_NEIGH_REMOVED] = sharp_zebra_process_neigh,
 };
 
 void sharp_zebra_init(void)
