@@ -380,9 +380,9 @@ module frr-ripd {
       }
 
       leaf default-bfd-profile {
+        type frr-bfdd:profile-ref;
         description
           "Use this BFD profile for all peers by default.";
-        type frr-bfdd:profile-ref;
       }
 
       /*
@@ -691,12 +691,13 @@ module frr-ripd {
       container bfd-monitoring {
         presence
           "Present if BFD is configured for RIP peers in this interface.";
+        description "Configure BFD use in RIPD";
 
         leaf enable {
           type boolean;
+          default false;
           description
             "Enable/disable BFD monitoring.";
-          default false;
         }
 
         leaf profile {
