@@ -2206,6 +2206,14 @@ module frr-zebra {
           description
             "Unidirectional Delay Variation";
         }
+        leaf packet-loss {
+          type decimal64 {
+            fraction-digits 6;
+            range "0..50.331642";
+          }
+          description
+            "Unidirectional Link Packet Loss";
+        }
         // TODO -- other link-params options
         // for (experimental/partial TE use in IGP extensions)
       }

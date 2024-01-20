@@ -2877,8 +2877,8 @@ static void if_dump_vty(struct vty *vty, struct interface *ifp)
 				"    Link Delay Variation %u (micro-sec.)\n",
 				iflp->delay_var);
 		if (IS_PARAM_SET(iflp, LP_PKT_LOSS))
-			vty_out(vty, "    Link Packet Loss %g (in %%)\n",
-				iflp->pkt_loss);
+			vty_out(vty, "    Link Packet Loss %f (in %%)\n",
+				(double)iflp->pkt_loss * LOSS_PRECISION);
 		if (IS_PARAM_SET(iflp, LP_AVA_BW))
 			vty_out(vty, "    Available Bandwidth %g (Byte/s)\n",
 				iflp->ava_bw);
@@ -3278,7 +3278,8 @@ static void if_dump_vty_json(struct vty *vty, struct interface *ifp,
 					    iflp->delay_var);
 		if (IS_PARAM_SET(iflp, LP_PKT_LOSS))
 			json_object_double_add(json_te, "linkPacketLoss",
-					       iflp->pkt_loss);
+					       (double)iflp->pkt_loss *
+						       LOSS_PRECISION);
 		if (IS_PARAM_SET(iflp, LP_AVA_BW))
 			json_object_double_add(json_te, "availableBandwidth",
 					       iflp->ava_bw);
@@ -4205,47 +4206,20 @@ DEFPY_YANG (link_params_delay_var,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFUN (link_params_pkt_loss,
-       link_params_pkt_loss_cmd,
-       "packet-loss PERCENTAGE",
-       "Unidirectional Link Packet Loss\n"
-       "percentage of total traffic by 0.000003% step and less than 50.331642%\n")
+DEFPY_YANG(
+	link_params_pkt_loss, link_params_pkt_loss_cmd,
+	"[no] packet-loss ![PERCENTAGE]",
+	NO_STR
+	"Unidirectional Link Packet Loss\n"
+	"percentage of total traffic by 0.000003% step and less than 50.331642%\n")
 {
-	int idx_percentage = 1;
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	struct if_link_params *iflp = if_link_params_get(ifp);
-	float fval;
+	if (!no)
+		nb_cli_enqueue_change(vty, "./packet-loss", NB_OP_MODIFY,
+				      percentage);
+	else
+		nb_cli_enqueue_change(vty, "./packet-loss", NB_OP_DESTROY, NULL);
 
-	if (sscanf(argv[idx_percentage]->arg, "%g", &fval) != 1) {
-		vty_out(vty, "link_params_pkt_loss: fscanf: %s\n",
-			safe_strerror(errno));
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	if (fval > MAX_PKT_LOSS)
-		fval = MAX_PKT_LOSS;
-
-	if (!iflp)
-		iflp = if_link_params_enable(ifp);
-
-	/* Update Packet Loss if needed */
-	link_param_cmd_set_float(ifp, &iflp->pkt_loss, LP_PKT_LOSS, fval);
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_link_params_pkt_loss,
-       no_link_params_pkt_loss_cmd,
-       "no packet-loss",
-       NO_STR
-       "Disable Unidirectional Link Packet Loss on this interface\n")
-{
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-
-	/* Unset Packet Loss */
-	link_param_cmd_unset(ifp, LP_PKT_LOSS);
-
-	return CMD_SUCCESS;
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFPY_YANG (link_params_res_bw,
@@ -4752,7 +4726,8 @@ static int link_params_config_write(struct vty *vty, struct interface *ifp)
 	if (IS_PARAM_SET(iflp, LP_DELAY_VAR))
 		vty_out(vty, "  delay-variation %u\n", iflp->delay_var);
 	if (IS_PARAM_SET(iflp, LP_PKT_LOSS))
-		vty_out(vty, "  packet-loss %g\n", iflp->pkt_loss);
+		vty_out(vty, "  packet-loss %f\n",
+			(double)iflp->pkt_loss * LOSS_PRECISION);
 	if (IS_PARAM_SET(iflp, LP_AVA_BW))
 		vty_out(vty, "  ava-bw %g\n", iflp->ava_bw);
 	if (IS_PARAM_SET(iflp, LP_RES_BW))
@@ -4898,7 +4873,6 @@ void zebra_if_init(void)
 	install_element(LINK_PARAMS_NODE, &link_params_delay_cmd);
 	install_element(LINK_PARAMS_NODE, &link_params_delay_var_cmd);
 	install_element(LINK_PARAMS_NODE, &link_params_pkt_loss_cmd);
-	install_element(LINK_PARAMS_NODE, &no_link_params_pkt_loss_cmd);
 	install_element(LINK_PARAMS_NODE, &link_params_ava_bw_cmd);
 	install_element(LINK_PARAMS_NODE, &link_params_res_bw_cmd);
 	install_element(LINK_PARAMS_NODE, &link_params_use_bw_cmd);

@@ -501,6 +501,13 @@ const struct frr_yang_module_info frr_zebra_info = {
 			}
 		},
 		{
+			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/link-params/packet-loss",
+			.cbs = {
+				.modify = lib_interface_zebra_link_params_packet_loss_modify,
+				.destroy = lib_interface_zebra_link_params_packet_loss_destroy,
+			}
+		},
+		{
 			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/state/up-count",
 			.cbs = {
 				.get_elem = lib_interface_zebra_state_up_count_get_elem,
