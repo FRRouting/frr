@@ -1082,11 +1082,10 @@ void zebra_nhg_check_valid(struct nhg_hash_entry *nhe)
 	frr_each(nhg_connected_tree, &nhe->nhg_depends, rb_node_dep) {
 		if (CHECK_FLAG(rb_node_dep->nhe->flags, NEXTHOP_GROUP_VALID)) {
 			valid = true;
-			goto done;
+			break;
 		}
 	}
 
-done:
 	if (valid)
 		zebra_nhg_set_valid(nhe);
 	else
