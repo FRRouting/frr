@@ -143,7 +143,7 @@ struct nhg_hash_entry {
 /*
  * Track FPM installation status..
  */
-#define NEXTHOP_GROUP_FPM (1 << 6)
+#define NEXTHOP_GROUP_FPM (1 << 7)
 };
 
 /* Upper 4 bits of the NHG are reserved for indicating the NHG type */
