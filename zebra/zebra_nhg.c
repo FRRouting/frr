@@ -690,12 +690,6 @@ static bool zebra_nhe_find(struct nhg_hash_entry **nhe, /* return value */
 	struct nhg_hash_entry *newnhe, *backup_nhe;
 	struct nexthop *nh = NULL;
 
-	if (IS_ZEBRA_DEBUG_NHG_DETAIL)
-		zlog_debug(
-			"%s: id %u, lookup %p, vrf %d, type %d, depends %p%s",
-			__func__, lookup->id, lookup, lookup->vrf_id,
-			lookup->type, nhg_depends,
-			(from_dplane ? " (from dplane)" : ""));
 
 	if (lookup->id)
 		(*nhe) = zebra_nhg_lookup_id(lookup->id);
@@ -703,7 +697,10 @@ static bool zebra_nhe_find(struct nhg_hash_entry **nhe, /* return value */
 		(*nhe) = hash_lookup(zrouter.nhgs, lookup);
 
 	if (IS_ZEBRA_DEBUG_NHG_DETAIL)
-		zlog_debug("%s: lookup => %p (%pNG)", __func__, *nhe, *nhe);
+		zlog_debug("%s: id %u, lookup %p, vrf %d, type %d, depends %p%s => Found %p(%pNG)",
+			   __func__, lookup->id, lookup, lookup->vrf_id,
+			   lookup->type, nhg_depends,
+			   (from_dplane ? " (from dplane)" : ""), *nhe, *nhe);
 
 	/* If we found an existing object, we're done */
 	if (*nhe)
@@ -1537,13 +1534,11 @@ zebra_nhg_rib_find_nhe(struct nhg_hash_entry *rt_nhe, afi_t rt_afi)
 		return NULL;
 	}
 
-	if (IS_ZEBRA_DEBUG_NHG_DETAIL)
-		zlog_debug("%s: rt_nhe %p (%pNG)", __func__, rt_nhe, rt_nhe);
-
 	zebra_nhe_find(&nhe, rt_nhe, NULL, rt_afi, false);
 
 	if (IS_ZEBRA_DEBUG_NHG_DETAIL)
-		zlog_debug("%s: => nhe %p (%pNG)", __func__, nhe, nhe);
+		zlog_debug("%s: rt_nhe %p(%pNG) => nhe %p(%pNG)", __func__,
+			   rt_nhe, rt_nhe, nhe, nhe);
 
 	return nhe;
 }
