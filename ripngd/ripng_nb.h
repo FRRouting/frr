@@ -7,6 +7,8 @@
 #ifndef _FRR_RIPNG_NB_H_
 #define _FRR_RIPNG_NB_H_
 
+#include "northbound.h"
+
 extern const struct frr_yang_module_info frr_ripngd_info;
 
 /* Mandatory callbacks. */
@@ -30,6 +32,8 @@ int ripngd_instance_offset_list_access_list_modify(
 int ripngd_instance_offset_list_metric_modify(struct nb_cb_modify_args *args);
 int ripngd_instance_passive_interface_create(struct nb_cb_create_args *args);
 int ripngd_instance_passive_interface_destroy(struct nb_cb_destroy_args *args);
+int ripngd_instance_distribute_list_create(struct nb_cb_create_args *args);
+int ripngd_instance_distribute_list_destroy(struct nb_cb_destroy_args *args);
 int ripngd_instance_redistribute_create(struct nb_cb_create_args *args);
 int ripngd_instance_redistribute_destroy(struct nb_cb_destroy_args *args);
 int ripngd_instance_redistribute_route_map_modify(
