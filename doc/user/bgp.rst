@@ -1604,7 +1604,10 @@ Configuring Peers
 
    Configure an unnumbered BGP peer. ``PEER`` should be an interface name. The
    session will be established via IPv6 link locals. Use ``internal`` for iBGP
-   and ``external`` for eBGP sessions, or specify an ASN if you wish.
+   and ``external`` for eBGP sessions, or specify an ASN if you wish.  Finally
+   this connection type is meant for point to point connections.  If you are
+   on an ethernet segment and attempt to use this with more than one bgp
+   neighbor, only one neighbor will come up, due to how this feature works.
 
 .. clicmd:: neighbor PEER next-hop-self [force]
 
