@@ -10,6 +10,9 @@ module frr-filter {
   import ietf-yang-types {
     prefix yang;
   }
+  import frr-interface {
+    prefix frr-interface;
+  }
 
   organization "FRRouting";
   contact
@@ -79,6 +82,65 @@ module frr-filter {
     description "Access list return action on match";
   }
 
+  typedef access-list-ref {
+    type leafref {
+      path "/frr-filter:lib/frr-filter:access-list/frr-filter:name";
+      require-instance false;
+    }
+    description "IPv4 or IPv6 access list reference";
+  }
+
+  typedef prefix-list-ref {
+    type leafref {
+      path "/frr-filter:lib/frr-filter:prefix-list/frr-filter:name";
+      require-instance false;
+    }
+    description "IPv4 or IPv6 prefix list reference";
+  }
+
+  /*
+   * Grouping.
+   */
+  grouping distribute-list-group {
+    description "Distribute list grouping";
+    list distribute-list {
+      key "interface";
+      description "Distribute list configuration";
+
+      leaf interface {
+        type union {
+          type frr-interface:interface-ref;
+          type empty;
+        }
+        description
+          "Interface to attach list to or empty for global.";
+      }
+
+      container in {
+        description "Inbound filter list";
+        leaf access-list {
+          type access-list-ref;
+          description "inbound access list";
+        }
+        leaf prefix-list {
+          type prefix-list-ref;
+          description "inbound prefix list";
+        }
+      }
+      container out {
+        description "Outbound filter list";
+        leaf access-list {
+          type access-list-ref;
+          description "outbound access list";
+        }
+        leaf prefix-list {
+          type prefix-list-ref;
+          description "outbound prefix list";
+        }
+      }
+    }
+  }
+
   /*
    * Configuration data.
    */
@@ -91,12 +153,12 @@ module frr-filter {
       leaf type {
         type enumeration {
           enum ipv4 {
-            value 0;
-            description "Internet Protocol address version 4";
-          }
-          enum ipv6 {
-            value 1;
-            description "Internet Protocol address version 6";
+              value 0;
+              description "Internet Protocol address version 4";
+            }
+            enum ipv6 {
+              value 1;
+              description "Internet Protocol address version 6";
           }
           enum mac {
             value 2;
