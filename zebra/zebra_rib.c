@@ -2874,11 +2874,10 @@ static void process_subq_early_route_add(struct zebra_early_route *ere)
 	SET_FLAG(re->status, ROUTE_ENTRY_CHANGED);
 	rib_addnode(rn, re, 1);
 
+	dest = rib_dest_from_rnode(rn);
 	/* Free implicit route.*/
 	if (same) {
-		rib_dest_t *dest = rn->info;
-
-		if (same == dest->selected_fib)
+		if (dest && same == dest->selected_fib)
 			SET_FLAG(same->status, ROUTE_ENTRY_ROUTE_REPLACING);
 		rib_delnode(rn, same);
 	}
@@ -2886,7 +2885,6 @@ static void process_subq_early_route_add(struct zebra_early_route *ere)
 	/* See if we can remove some RE entries that are queued for
 	 * removal, but won't be considered in rib processing.
 	 */
-	dest = rib_dest_from_rnode(rn);
 	RNODE_FOREACH_RE_SAFE (rn, re, same) {
 		if (CHECK_FLAG(re->status, ROUTE_ENTRY_REMOVED)) {
 			/* If the route was used earlier, must retain it. */
