@@ -802,7 +802,7 @@ IS-IS are part of it.
 
 Allocated label chunks table can be dumped using the command
 
-.. clicmd:: show debugging label-table
+.. clicmd:: show debugging label-table [json]
 
 ::
 
