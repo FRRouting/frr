@@ -3271,9 +3271,6 @@ static int config_write_rip(struct vty *vty)
 
 		nb_cli_show_dnode_cmds(vty, dnode, false);
 
-		/* Distribute configuration. */
-		config_write_distribute(vty, rip->distribute_ctx);
-
 		vty_out(vty, "exit\n");
 
 		write = 1;

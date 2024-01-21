@@ -16,6 +16,9 @@ module frr-ripd {
   import frr-bfdd {
     prefix frr-bfdd;
   }
+  import frr-filter {
+    prefix frr-filter;
+  }
   import frr-interface {
     prefix frr-interface;
   }
@@ -258,6 +261,9 @@ module frr-ripd {
           "A list of interfaces where the sending of RIP packets
            is enabled.";
       }
+
+      uses frr-filter:distribute-list-group;
+
       list redistribute {
         key "protocol";
         description
