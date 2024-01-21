@@ -72,25 +72,13 @@ static uint32_t nhg_get_next_id(void)
 	while (1) {
 		id_counter++;
 
-		if (IS_ZEBRA_DEBUG_NHG_DETAIL)
-			zlog_debug("%s: ID %u checking", __func__, id_counter);
-
 		if (id_counter == ZEBRA_NHG_PROTO_LOWER) {
-			if (IS_ZEBRA_DEBUG_NHG_DETAIL)
-				zlog_debug("%s: ID counter wrapped", __func__);
-
 			id_counter = 0;
 			continue;
 		}
 
-		if (zebra_nhg_lookup_id(id_counter)) {
-			if (IS_ZEBRA_DEBUG_NHG_DETAIL)
-				zlog_debug("%s: ID already exists", __func__);
-
-			continue;
-		}
-
-		break;
+		if (!zebra_nhg_lookup_id(id_counter))
+			break;
 	}
 
 	return id_counter;
