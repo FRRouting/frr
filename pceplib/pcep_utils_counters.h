@@ -55,18 +55,18 @@ extern "C" {
  * *events_subgroup = create_counters_subgroup("events counters", 4);
  *
  * Use message_id: PCEP_TYPE_OPEN=1
- * create_subgroup_counter(rx_subgroup, 1, "Message Open");
- * create_subgroup_counter(rx_subgroup, 2, "Message KeepAlive");
- * create_subgroup_counter(rx_subgroup, 3, "Message PcReq");
+ * create_subgroup_counter(rx_subgroup, 1, "Message Open", "messageOpen");
+ * create_subgroup_counter(rx_subgroup, 2, "Message KeepAlive", "messageKeepAlive");
+ * create_subgroup_counter(rx_subgroup, 3, "Message PcReq", "messagePcReq");
  *
- * create_subgroup_counter(tx_subgroup, 1, "Message Open");
- * create_subgroup_counter(tx_subgroup, 2, "Message KeepAlive");
- * create_subgroup_counter(tx_subgroup, 3, "Message PcReq");
+ * create_subgroup_counter(tx_subgroup, 1, "Message Open", "messageOpen");
+ * create_subgroup_counter(tx_subgroup, 2, "Message KeepAlive", "messageKeepAlive");
+ * create_subgroup_counter(tx_subgroup, 3, "Message PcReq", "messagePcReq");
  *
- * create_subgroup_counter(events_subgroup, 1, "PCC Connect");
- * create_subgroup_counter(events_subgroup, 2, "PCE Connect");
- * create_subgroup_counter(events_subgroup, 3, "PCC Disconnect");
- * create_subgroup_counter(events_subgroup, 4, "PCE Disconnect");
+ * create_subgroup_counter(events_subgroup, 1, "PCC Connect", "PCConnect");
+ * create_subgroup_counter(events_subgroup, 2, "PCE Connect", "PCEConnect");
+ * create_subgroup_counter(events_subgroup, 3, "PCC Disconnect", "PCCDisconnect");
+ * create_subgroup_counter(events_subgroup, 4, "PCE Disconnect", "PCEDisconnect");
  *
  * struct counters_group *cntrs_group = create_counters_group("PCEP Counters",
  * 3); add_counters_subgroup(cntrs_group, rx_subgroup);
@@ -81,6 +81,7 @@ extern "C" {
 struct counter {
 	uint16_t counter_id;
 	char counter_name[MAX_COUNTER_STR_LENGTH];
+	char counter_name_json[MAX_COUNTER_STR_LENGTH];
 	uint32_t counter_value;
 };
 
@@ -142,13 +143,15 @@ clone_counters_subgroup(struct counters_subgroup *subgroup,
 			const char *subgroup_name, uint16_t subgroup_id);
 
 /*
- * Create a counter in a subgroup with the given counter_id and counter_name.
+ * Create a counter in a subgroup with the given counter_id and counter_name
+ * and counter_name_json.
  * The counter_id is 0-based.
  * Return true on success or false if subgroup is NULL, counter_id >=
  * MAX_COUNTERS, or if counter_name is NULL.
  */
 bool create_subgroup_counter(struct counters_subgroup *subgroup,
-			     uint32_t counter_id, const char *counter_name);
+			     uint32_t counter_id, const char *counter_name,
+			     const char *couter_name_json);
 
 /*
  * Delete the counters_group and recursively delete all subgroups and their
