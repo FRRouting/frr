@@ -122,8 +122,9 @@ def test_bgp_check_fqdn():
     step("Wait to converge")
     test_func = functools.partial(bgp_converge, r1)
     _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
-    assert result is None, "Can't converge with dont-capability-negotiate"
+    assert result is None, "Can't converge with all capabilities"
 
+    step("Make sure FQDN capability is set")
     test_func = functools.partial(_bgp_check_fqdn, "r2")
     _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
     assert result is None, "FQDN capability enabled, but r1 can't see it"
@@ -150,6 +151,48 @@ def test_bgp_check_fqdn():
     _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
     assert result is None, "FQDN capability disabled, but we still have a hostname"
 
+    step("Re-enable sending any capability from r2")
+    r2.vtysh_cmd(
+        """
+    configure terminal
+        router bgp 65002
+            address-family ipv4 unicast
+                 no neighbor 192.168.1.1 dont-capability-negotiate
+    end
+    clear bgp 192.168.1.1
+    """
+    )
+    step("Wait to converge")
+    tgen = get_topogen()
+    test_func = functools.partial(bgp_converge, r1)
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+    assert result is None, "Can't converge with all capabilities re enabled"
+
+    step("Make sure FQDN capability is r2")
+    test_func = functools.partial(_bgp_check_fqdn, "r2")
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+    assert result is None, "FQDN capability enabled, but r1 can't see it"
+
+    step("Disable sending fqdn capability")
+    r2.vtysh_cmd(
+        """
+    configure terminal
+        router bgp 65002
+            no neighbor 192.168.1.1 capability fqdn
+    end
+    clear bgp 192.168.1.1
+    """
+    )
+    step("Wait to converge")
+    tgen = get_topogen()
+    test_func = functools.partial(bgp_converge, r1)
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+    assert result is None, "Can't converge with no capability fqdn"
+
+    step("Make sure FQDN capability is reset")
+    test_func = functools.partial(_bgp_check_fqdn)
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+    assert result is None, "FQDN capability disabled, but we still have a hostname"
 
 if __name__ == "__main__":
     args = ["-s"] + sys.argv[1:]
