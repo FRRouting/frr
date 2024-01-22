@@ -22,6 +22,9 @@ module frr-eigrpd {
   import frr-route-types {
     prefix frr-route-types;
   }
+  import frr-filter {
+    prefix frr-filter;
+  }
 
   organization "FRRouting";
   contact
@@ -223,6 +226,8 @@ module frr-eigrpd {
         description "Specific EIGRP neighbor";
         type inet:ipv4-address;
       }
+
+      uses frr-filter:distribute-list-group;
 
       list redistribute {
         description "Redistribute routes learned from other routing protocols";
