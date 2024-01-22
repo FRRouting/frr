@@ -2420,6 +2420,24 @@ int lib_interface_zebra_evpn_mh_df_preference_modify(
 }
 
 /*
+ * XPath: /frr-interface:lib/interface/frr-zebra:zebra/evpn-mh/bypass
+ */
+int lib_interface_zebra_evpn_mh_bypass_modify(struct nb_cb_modify_args *args)
+{
+	struct interface *ifp;
+	bool bypass;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	ifp = nb_running_get_entry(args->dnode, NULL, true);
+	bypass = yang_dnode_get_bool(args->dnode, NULL);
+	zebra_evpn_es_bypass_cfg_update(ifp->info, bypass);
+
+	return NB_OK;
+}
+
+/*
  * XPath: /frr-vrf:lib/vrf/frr-zebra:zebra/l3vni-id
  */
 int lib_vrf_zebra_l3vni_id_modify(struct nb_cb_modify_args *args)

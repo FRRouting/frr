@@ -2808,7 +2808,7 @@ void zebra_evpn_es_bypass_update(struct zebra_evpn_es *es,
 		zebra_evpn_es_br_port_dplane_update(es, __func__);
 }
 
-static void zebra_evpn_es_bypass_cfg_update(struct zebra_if *zif, bool bypass)
+void zebra_evpn_es_bypass_cfg_update(struct zebra_if *zif, bool bypass)
 {
 	bool old_bypass = !!(zif->es_info.flags & ZIF_CFG_ES_FLAG_BYPASS);
 
@@ -3331,6 +3331,9 @@ int zebra_evpn_mh_if_write(struct vty *vty, struct interface *ifp)
 	if (zif->flags & ZIF_FLAG_EVPN_MH_UPLINK)
 		vty_out(vty, " evpn mh uplink\n");
 
+	if (zif->es_info.flags & ZIF_CFG_ES_FLAG_BYPASS)
+		vty_out(vty, " evpn mh bypass\n");
+
 	return 0;
 }
 
@@ -3345,22 +3348,13 @@ DEFPY_HIDDEN(zebra_evpn_es_bypass, zebra_evpn_es_bypass_cmd,
 	     "[no] evpn mh bypass",
 	     NO_STR "EVPN\n" EVPN_MH_VTY_STR "set bypass mode\n")
 {
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	struct zebra_if *zif;
-
-	zif = ifp->info;
-
-	if (no) {
-		zebra_evpn_es_bypass_cfg_update(zif, false);
-	} else {
-		if (!zebra_evpn_is_if_es_capable(zif)) {
-			vty_out(vty,
-				"%% DF bypass cannot be associated with this interface type\n");
-			return CMD_WARNING;
-		}
-		zebra_evpn_es_bypass_cfg_update(zif, true);
-	}
-	return CMD_SUCCESS;
+	if (!no)
+		nb_cli_enqueue_change(vty, "./frr-zebra:zebra/evpn-mh/bypass",
+				      NB_OP_MODIFY, "true");
+	else
+		nb_cli_enqueue_change(vty, "./frr-zebra:zebra/evpn-mh/bypass",
+				      NB_OP_DESTROY, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 /* CLI for configuring DF preference part for an ES */

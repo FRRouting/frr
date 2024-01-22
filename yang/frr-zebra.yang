@@ -2251,6 +2251,12 @@ module frr-zebra {
           description
             "Preference value used for DF election.";
         }
+        leaf bypass {
+          type boolean;
+          default "false";
+          description
+            "Bypass mode.";
+        }
       }
       container state {
         config false;
