@@ -2438,6 +2438,24 @@ int lib_interface_zebra_evpn_mh_bypass_modify(struct nb_cb_modify_args *args)
 }
 
 /*
+ * XPath: /frr-interface:lib/interface/frr-zebra:zebra/evpn-mh/uplink
+ */
+int lib_interface_zebra_evpn_mh_uplink_modify(struct nb_cb_modify_args *args)
+{
+	struct interface *ifp;
+	bool uplink;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	ifp = nb_running_get_entry(args->dnode, NULL, true);
+	uplink = yang_dnode_get_bool(args->dnode, NULL);
+	zebra_evpn_mh_uplink_cfg_update(ifp->info, uplink);
+
+	return NB_OK;
+}
+
+/*
  * XPath: /frr-vrf:lib/vrf/frr-zebra:zebra/l3vni-id
  */
 int lib_vrf_zebra_l3vni_id_modify(struct nb_cb_modify_args *args)

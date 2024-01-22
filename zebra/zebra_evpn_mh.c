@@ -56,7 +56,6 @@ static void zebra_evpn_local_es_del(struct zebra_evpn_es **esp);
 static void zebra_evpn_local_es_update(struct zebra_if *zif);
 static bool zebra_evpn_es_br_port_dplane_update(struct zebra_evpn_es *es,
 						const char *caller);
-static void zebra_evpn_mh_uplink_cfg_update(struct zebra_if *zif, bool set);
 static void zebra_evpn_mh_update_protodown_es(struct zebra_evpn_es *es,
 					      bool resync_dplane);
 static void zebra_evpn_mh_clear_protodown_es(struct zebra_evpn_es *es);
@@ -3434,16 +3433,21 @@ DEFPY_YANG (zebra_evpn_es_id,
 }
 
 /* CLI for tagging an interface as an uplink */
-DEFPY(zebra_evpn_mh_uplink, zebra_evpn_mh_uplink_cmd, "[no] evpn mh uplink",
-      NO_STR "EVPN\n" EVPN_MH_VTY_STR "uplink to the VxLAN core\n")
+DEFPY_YANG (zebra_evpn_mh_uplink,
+      zebra_evpn_mh_uplink_cmd,
+      "[no] evpn mh uplink",
+      NO_STR
+      "EVPN\n"
+      EVPN_MH_VTY_STR
+      "Uplink to the VxLAN core\n")
 {
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	struct zebra_if *zif;
-
-	zif = ifp->info;
-	zebra_evpn_mh_uplink_cfg_update(zif, no ? false : true);
-
-	return CMD_SUCCESS;
+	if (!no)
+		nb_cli_enqueue_change(vty, "./frr-zebra:zebra/evpn-mh/uplink",
+				      NB_OP_MODIFY, "true");
+	else
+		nb_cli_enqueue_change(vty, "./frr-zebra:zebra/evpn-mh/uplink",
+				      NB_OP_DESTROY, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 void zebra_evpn_mh_json(json_object *json)
@@ -3780,7 +3784,7 @@ static void zebra_evpn_mh_uplink_oper_flags_update(struct zebra_if *zif,
 	}
 }
 
-static void zebra_evpn_mh_uplink_cfg_update(struct zebra_if *zif, bool set)
+void zebra_evpn_mh_uplink_cfg_update(struct zebra_if *zif, bool set)
 {
 	bool old_protodown = zebra_evpn_mh_is_all_uplinks_down();
 	bool new_protodown;

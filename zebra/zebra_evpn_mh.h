@@ -390,6 +390,7 @@ void zebra_evpn_es_type0_esi_update(struct zebra_if *zif, esi_t *esi);
 
 void zebra_evpn_es_df_pref_update(struct zebra_if *zif, uint16_t df_pref);
 void zebra_evpn_es_bypass_cfg_update(struct zebra_if *zif, bool bypass);
+void zebra_evpn_mh_uplink_cfg_update(struct zebra_if *zif, bool set);
 
 void zebra_evpn_mh_if_init(struct zebra_if *zif);
 

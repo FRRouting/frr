@@ -2257,6 +2257,12 @@ module frr-zebra {
           description
             "Bypass mode.";
         }
+        leaf uplink {
+          type boolean;
+          default "false";
+          description
+            "Uplink to the VxLAN core.";
+        }
       }
       container state {
         config false;
