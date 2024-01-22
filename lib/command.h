@@ -178,6 +178,7 @@ enum node_type {
 	ISIS_SRV6_NODE,    /* ISIS SRv6 node */
 	ISIS_SRV6_NODE_MSD_NODE,    /* ISIS SRv6 Node MSDs node */
 	MGMTD_NODE,		 /* MGMTD node. */
+	RPKI_VRF_NODE,  /* RPKI node for VRF */
 	NODE_TYPE_MAX, /* maximum */
 };
 /* clang-format on */

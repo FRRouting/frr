@@ -51,9 +51,15 @@
 #include "bgpd/bgp_routemap_nb.h"
 #include "bgpd/bgp_community_alias.h"
 
+DEFINE_HOOK(bgp_hook_config_write_vrf, (struct vty *vty, struct vrf *vrf),
+	    (vty, vrf));
+
 #ifdef ENABLE_BGP_VNC
 #include "bgpd/rfapi/rfapi_backend.h"
 #endif
+
+DEFINE_HOOK(bgp_hook_vrf_update, (struct vrf *vrf, bool enabled),
+	    (vrf, enabled));
 
 /* bgpd options, we use GNU getopt library. */
 static const struct option longopts[] = {
@@ -287,6 +293,7 @@ static int bgp_vrf_enable(struct vrf *vrf)
 
 		bgp_handle_socket(bgp, vrf, old_vrf_id, true);
 		bgp_instance_up(bgp);
+		hook_call(bgp_hook_vrf_update, vrf, true);
 		vpn_leak_zebra_vrf_label_update(bgp, AFI_IP);
 		vpn_leak_zebra_vrf_label_update(bgp, AFI_IP6);
 		vpn_leak_zebra_vrf_sid_update(bgp, AFI_IP);
@@ -333,15 +340,36 @@ static int bgp_vrf_disable(struct vrf *vrf)
 		 * "down". */
 		bgp_instance_down(bgp);
 		bgp_vrf_unlink(bgp, vrf);
+		hook_call(bgp_hook_vrf_update, vrf, false);
 	}
 
 	/* Note: This is a callback, the VRF will be deleted by the caller. */
 	return 0;
 }
 
+static int bgp_vrf_config_write(struct vty *vty)
+{
+	struct vrf *vrf;
+
+	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
+		if (vrf->vrf_id == VRF_DEFAULT) {
+			vty_out(vty, "!\n");
+			continue;
+		}
+		vty_out(vty, "vrf %s\n", vrf->name);
+
+		hook_call(bgp_hook_config_write_vrf, vty, vrf);
+
+		vty_out(vty, "exit-vrf\n!\n");
+	}
+
+	return 0;
+}
+
 static void bgp_vrf_init(void)
 {
 	vrf_init(bgp_vrf_new, bgp_vrf_enable, bgp_vrf_disable, bgp_vrf_delete);
+	vrf_cmd_init(bgp_vrf_config_write);
 }
 
 static void bgp_vrf_terminate(void)

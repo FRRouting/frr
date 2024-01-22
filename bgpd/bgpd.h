@@ -34,6 +34,9 @@
 
 #include "lib/bfd.h"
 
+DECLARE_HOOK(bgp_hook_config_write_vrf, (struct vty *vty, struct vrf *vrf),
+	     (vty, vrf));
+
 #define BGP_MAX_HOSTNAME 64	/* Linux max, is larger than most other sys */
 #define BGP_PEER_MAX_HASH_SIZE 16384
 
@@ -839,6 +842,8 @@ DECLARE_HOOK(bgp_inst_config_write,
 		(bgp, vty));
 DECLARE_HOOK(bgp_snmp_traps_config_write, (struct vty *vty), (vty));
 DECLARE_HOOK(bgp_config_end, (struct bgp *bgp), (bgp));
+DECLARE_HOOK(bgp_hook_vrf_update, (struct vrf *vrf, bool enabled),
+	     (vrf, enabled));
 
 /* Thread callback information */
 struct afi_safi_info {
