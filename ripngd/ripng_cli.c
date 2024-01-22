@@ -533,7 +533,8 @@ DEFUN (ripng_ipv6_distribute_list,
 	if (argv[argc - 1]->type == VARIABLE_TKN)
 		ifname = argv[argc - 1]->arg;
 
-	return distribute_list_parser(prefix, false, argv[3 + prefix]->text,
+	return distribute_list_parser(NULL, prefix, false,
+				      argv[3 + prefix]->text,
 				      argv[2 + prefix]->arg, ifname);
 }
 
@@ -555,7 +556,7 @@ DEFUN (ripng_no_ipv6_distribute_list,
 	if (argv[argc - 1]->type == VARIABLE_TKN)
 		ifname = argv[argc - 1]->arg;
 
-	return distribute_list_no_parser(vty, prefix, false,
+	return distribute_list_no_parser(NULL, vty, prefix, false,
 					 argv[4 + prefix]->text,
 					 argv[3 + prefix]->arg, ifname);
 }

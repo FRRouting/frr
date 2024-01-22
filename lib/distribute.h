@@ -70,9 +70,11 @@ extern enum filter_type distribute_apply_in(struct interface *,
 extern enum filter_type distribute_apply_out(struct interface *,
 					     struct prefix *);
 
-extern int distribute_list_parser(bool prefix, bool v4, const char *dir,
-				  const char *list, const char *ifname);
-extern int distribute_list_no_parser(struct vty *vty, bool prefix, bool v4,
+extern int distribute_list_parser(struct distribute_ctx *ctx, bool prefix,
+				  bool v4, const char *dir, const char *list,
+				  const char *ifname);
+extern int distribute_list_no_parser(struct distribute_ctx *ctx,
+				     struct vty *vty, bool prefix, bool v4,
 				     const char *dir, const char *list,
 				     const char *ifname);
 
