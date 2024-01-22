@@ -1897,8 +1897,9 @@ uint16_t bgp_open_capability(struct stream *s, struct peer *peer,
 		stream_putc(s, CAPABILITY_CODE_DYNAMIC_LEN);
 	}
 
-	/* Hostname capability */
-	if (cmd_hostname_get()) {
+	/* FQDN capability */
+	if (CHECK_FLAG(peer->flags, PEER_FLAG_CAPABILITY_FQDN)
+	    && cmd_hostname_get()) {
 		SET_FLAG(peer->cap, PEER_CAP_HOSTNAME_ADV);
 		stream_putc(s, BGP_OPEN_OPT_CAP);
 		rcapp = stream_get_endp(s); /* Ptr to length placeholder */

@@ -5735,6 +5735,30 @@ DEFUN (no_neighbor_dont_capability_negotiate,
 				   PEER_FLAG_DONT_CAPABILITY);
 }
 
+/* neighbor capability fqdn */
+DEFPY (neighbor_capability_fqdn,
+       neighbor_capability_fqdn_cmd,
+       "[no$no] neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor capability fqdn",
+       NO_STR
+       NEIGHBOR_STR
+       NEIGHBOR_ADDR_STR2
+       "Advertise capability to the peer\n"
+       "Advertise fqdn capability to the peer\n")
+{
+	struct peer *peer;
+
+	peer = peer_and_group_lookup_vty(vty, neighbor);
+	if (!peer)
+		return CMD_WARNING_CONFIG_FAILED;
+
+	if (no)
+		return peer_flag_unset_vty(vty, neighbor,
+					  PEER_FLAG_CAPABILITY_FQDN);
+	else
+		return peer_flag_set_vty(vty, neighbor,
+					PEER_FLAG_CAPABILITY_FQDN);
+}
+
 /* neighbor capability extended next hop encoding */
 DEFUN (neighbor_capability_enhe,
        neighbor_capability_enhe_cmd,
@@ -18189,6 +18213,12 @@ static void bgp_config_write_peer_global(struct vty *vty, struct bgp *bgp,
 	if (peergroup_flag_check(peer, PEER_FLAG_DONT_CAPABILITY))
 		vty_out(vty, " neighbor %s dont-capability-negotiate\n", addr);
 
+	/* capability fqdn */
+	if (peergroup_flag_check(peer, PEER_FLAG_CAPABILITY_FQDN))
+		vty_out(vty,
+			" no neighbor %s capability fqdn\n",
+			addr);
+
 	/* override-capability */
 	if (peergroup_flag_check(peer, PEER_FLAG_OVERRIDE_CAPABILITY))
 		vty_out(vty, " neighbor %s override-capability\n", addr);
@@ -20524,6 +20554,9 @@ void bgp_vty_init(void)
 	/* "neighbor dont-capability-negotiate" commands. */
 	install_element(BGP_NODE, &neighbor_dont_capability_negotiate_cmd);
 	install_element(BGP_NODE, &no_neighbor_dont_capability_negotiate_cmd);
+
+	/* "neighbor capability fqdn" command. */
+	install_element(BGP_NODE, &neighbor_capability_fqdn_cmd);
 
 	/* "neighbor ebgp-multihop" commands. */
 	install_element(BGP_NODE, &neighbor_ebgp_multihop_cmd);
