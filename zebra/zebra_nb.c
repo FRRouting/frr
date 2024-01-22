@@ -529,6 +529,12 @@ const struct frr_yang_module_info frr_zebra_info = {
 			}
 		},
 		{
+			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/evpn-mh/df-preference",
+			.cbs = {
+				.modify = lib_interface_zebra_evpn_mh_df_preference_modify,
+			}
+		},
+		{
 			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/state/up-count",
 			.cbs = {
 				.get_elem = lib_interface_zebra_state_up_count_get_elem,

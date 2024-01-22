@@ -148,6 +148,8 @@ static int if_zebra_new_hook(struct interface *ifp)
 
 	rtadv_if_init(zebra_if);
 
+	zebra_evpn_mh_if_init(zebra_if);
+
 	memset(&zebra_if->neigh_mac[0], 0, 6);
 
 	/* Initialize installed address chains tree. */

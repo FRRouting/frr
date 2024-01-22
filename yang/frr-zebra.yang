@@ -2245,6 +2245,12 @@ module frr-zebra {
             }
           }
         }
+        leaf df-preference {
+          type uint16;
+          default "32767";
+          description
+            "Preference value used for DF election.";
+        }
       }
       container state {
         config false;

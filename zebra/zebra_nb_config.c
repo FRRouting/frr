@@ -2401,6 +2401,25 @@ int lib_interface_zebra_evpn_mh_type_3_local_discriminator_destroy(
 }
 
 /*
+ * XPath: /frr-interface:lib/interface/frr-zebra:zebra/evpn-mh/df-preference
+ */
+int lib_interface_zebra_evpn_mh_df_preference_modify(
+	struct nb_cb_modify_args *args)
+{
+	struct interface *ifp;
+	uint16_t df_pref;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	ifp = nb_running_get_entry(args->dnode, NULL, true);
+	df_pref = yang_dnode_get_uint16(args->dnode, NULL);
+	zebra_evpn_es_df_pref_update(ifp->info, df_pref);
+
+	return NB_OK;
+}
+
+/*
  * XPath: /frr-vrf:lib/vrf/frr-zebra:zebra/l3vni-id
  */
 int lib_vrf_zebra_l3vni_id_modify(struct nb_cb_modify_args *args)

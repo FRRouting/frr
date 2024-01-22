@@ -388,4 +388,8 @@ void zebra_evpn_es_sys_mac_update(struct zebra_if *zif, struct ethaddr *sysmac);
 void zebra_evpn_es_lid_update(struct zebra_if *zif, uint32_t lid);
 void zebra_evpn_es_type0_esi_update(struct zebra_if *zif, esi_t *esi);
 
+void zebra_evpn_es_df_pref_update(struct zebra_if *zif, uint16_t df_pref);
+
+void zebra_evpn_mh_if_init(struct zebra_if *zif);
+
 #endif /* _ZEBRA_EVPN_MH_H */

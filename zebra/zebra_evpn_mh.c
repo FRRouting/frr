@@ -2251,8 +2251,7 @@ static void zebra_evpn_es_local_info_set(struct zebra_evpn_es *es,
 
 	/* attach es to interface */
 	zif->es_info.es = es;
-	es->df_pref = zif->es_info.df_pref ? zif->es_info.df_pref
-					   : EVPN_MH_DF_PREF_DEFAULT;
+	es->df_pref = zif->es_info.df_pref;
 
 	/* attach interface to es */
 	es->zif = zif;
@@ -2706,10 +2705,9 @@ void zebra_evpn_es_cleanup(void)
 	}
 }
 
-static void zebra_evpn_es_df_pref_update(struct zebra_if *zif, uint16_t df_pref)
+void zebra_evpn_es_df_pref_update(struct zebra_if *zif, uint16_t df_pref)
 {
 	struct zebra_evpn_es *es;
-	uint16_t tmp_pref;
 
 	if (zif->es_info.df_pref == df_pref)
 		return;
@@ -2720,13 +2718,10 @@ static void zebra_evpn_es_df_pref_update(struct zebra_if *zif, uint16_t df_pref)
 	if (!es)
 		return;
 
-	tmp_pref = zif->es_info.df_pref ? zif->es_info.df_pref
-					: EVPN_MH_DF_PREF_DEFAULT;
-
-	if (es->df_pref == tmp_pref)
+	if (es->df_pref == zif->es_info.df_pref)
 		return;
 
-	es->df_pref = tmp_pref;
+	es->df_pref = zif->es_info.df_pref;
 	/* run df election */
 	zebra_evpn_es_run_df_election(es, __func__);
 	/* notify bgp */
@@ -3330,13 +3325,18 @@ int zebra_evpn_mh_if_write(struct vty *vty, struct interface *ifp)
 		vty_out(vty, " evpn mh es-id %s\n",
 				esi_to_str(&zif->es_info.esi, esi_buf, sizeof(esi_buf)));
 
-	if (zif->es_info.df_pref)
+	if (zif->es_info.df_pref != EVPN_MH_DF_PREF_DEFAULT)
 		vty_out(vty, " evpn mh es-df-pref %u\n", zif->es_info.df_pref);
 
 	if (zif->flags & ZIF_FLAG_EVPN_MH_UPLINK)
 		vty_out(vty, " evpn mh uplink\n");
 
 	return 0;
+}
+
+void zebra_evpn_mh_if_init(struct zebra_if *zif)
+{
+	zif->es_info.df_pref = EVPN_MH_DF_PREF_DEFAULT;
 }
 
 #include "zebra/zebra_evpn_mh_clippy.c"
@@ -3364,28 +3364,24 @@ DEFPY_HIDDEN(zebra_evpn_es_bypass, zebra_evpn_es_bypass_cmd,
 }
 
 /* CLI for configuring DF preference part for an ES */
-DEFPY(zebra_evpn_es_pref, zebra_evpn_es_pref_cmd,
-      "[no$no] evpn mh es-df-pref [(1-65535)$df_pref]",
-      NO_STR "EVPN\n" EVPN_MH_VTY_STR
-	     "preference value used for DF election\n"
-	     "pref\n")
+DEFPY_YANG (zebra_evpn_es_pref,
+      zebra_evpn_es_pref_cmd,
+      "[no$no] evpn mh es-df-pref ![(1-65535)$df_pref]",
+      NO_STR
+      "EVPN\n"
+      EVPN_MH_VTY_STR
+      "Preference value used for DF election\n"
+      "Preference\n")
 {
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	struct zebra_if *zif;
-
-	zif = ifp->info;
-
-	if (no) {
-		zebra_evpn_es_df_pref_update(zif, 0);
-	} else {
-		if (!zebra_evpn_is_if_es_capable(zif)) {
-			vty_out(vty,
-				"%% DF preference cannot be associated with this interface type\n");
-			return CMD_WARNING;
-		}
-		zebra_evpn_es_df_pref_update(zif, df_pref);
-	}
-	return CMD_SUCCESS;
+	if (!no)
+		nb_cli_enqueue_change(vty,
+				      "./frr-zebra:zebra/evpn-mh/df-preference",
+				      NB_OP_MODIFY, df_pref_str);
+	else
+		nb_cli_enqueue_change(vty,
+				      "./frr-zebra:zebra/evpn-mh/df-preference",
+				      NB_OP_DESTROY, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 /* CLI for setting up sysmac part of ESI on an access port */
