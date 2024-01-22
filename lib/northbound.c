@@ -157,12 +157,21 @@ void nb_nodes_delete(void)
 struct nb_node *nb_node_find(const char *path)
 {
 	const struct lysc_node *snode;
+	uint32_t llopts;
 
 	/*
 	 * Use libyang to find the schema node associated to the path and get
-	 * the northbound node from there (snode private pointer).
+	 * the northbound node from there (snode private pointer). We need to
+	 * disable logging temporarily to avoid libyang from logging an error
+	 * message when the node is not found.
 	 */
+	llopts = ly_log_options(LY_LOSTORE);
+	llopts &= ~LY_LOLOG;
+	ly_temp_log_options(&llopts);
+
 	snode = yang_find_snode(ly_native_ctx, path, 0);
+
+	ly_temp_log_options(NULL);
 	if (!snode)
 		return NULL;
 
@@ -408,10 +417,9 @@ static inline int nb_config_cb_compare(const struct nb_config_cb *a,
 }
 RB_GENERATE(nb_config_cbs, nb_config_cb, entry, nb_config_cb_compare);
 
-static void nb_config_diff_add_change(struct nb_config_cbs *changes,
-				      enum nb_cb_operation operation,
-				      uint32_t *seq,
-				      const struct lyd_node *dnode)
+void nb_config_diff_add_change(struct nb_config_cbs *changes,
+			       enum nb_cb_operation operation, uint32_t *seq,
+			       const struct lyd_node *dnode)
 {
 	struct nb_config_change *change;
 
@@ -685,20 +693,25 @@ static int dnode_create(struct nb_config *candidate, const char *xpath,
 	return NB_OK;
 }
 
-int nb_candidate_edit(struct nb_config *candidate,
-		      const struct nb_node *nb_node,
+int nb_candidate_edit(struct nb_config *candidate, const struct nb_node *nb_node,
 		      enum nb_operation operation, const char *xpath,
-		      const struct yang_data *previous,
+		      bool in_backend, const struct yang_data *previous,
 		      const struct yang_data *data)
 {
-	struct lyd_node *dnode, *dep_dnode, *old_dnode, *parent;
+	struct lyd_node *dnode, *dep_dnode, *old_dnode;
 	char xpath_edit[XPATH_MAXLEN];
 	char dep_xpath[XPATH_MAXLEN];
+	struct lyd_node *parent = NULL;
 	uint32_t options = 0;
 	LY_ERR err;
 
-	/* Use special notation for leaf-lists (RFC 6020, section 9.13.5). */
-	if (nb_node->snode->nodetype == LYS_LEAFLIST)
+	/*
+	 * Use special notation for leaf-lists (RFC 6020, section 9.13.5).
+	 * if we are in a backend client this notation was already applied
+	 * by mgmtd before sending to us.
+	 */
+	if (!in_backend && nb_node->snode->nodetype == LYS_LEAFLIST &&
+	    (operation == NB_OP_DESTROY || operation == NB_OP_DELETE))
 		snprintf(xpath_edit, sizeof(xpath_edit), "%s[.='%s']", xpath,
 			 data->value);
 	else
@@ -829,10 +842,12 @@ bool nb_is_operation_allowed(struct nb_node *nb_node, enum nb_operation oper)
 	return true;
 }
 
-void nb_candidate_edit_config_changes(
-	struct nb_config *candidate_config, struct nb_cfg_change cfg_changes[],
-	size_t num_cfg_changes, const char *xpath_base, char *err_buf,
-	int err_bufsize, bool *error)
+void nb_candidate_edit_config_changes(struct nb_config *candidate_config,
+				      struct nb_cfg_change cfg_changes[],
+				      size_t num_cfg_changes,
+				      const char *xpath_base, bool in_backend,
+				      char *err_buf, int err_bufsize,
+				      bool *error)
 {
 	if (error)
 		*error = false;
@@ -861,10 +876,17 @@ void nb_candidate_edit_config_changes(
 		/* Find the northbound node associated to the data path. */
 		nb_node = nb_node_find(xpath);
 		if (!nb_node) {
-			flog_warn(EC_LIB_YANG_UNKNOWN_DATA_PATH,
-				  "%s: unknown data path: %s", __func__, xpath);
-			if (error)
-				*error = true;
+			if (in_backend)
+				DEBUGD(&nb_dbg_cbs_config,
+				       "%s: ignoring non-handled path: %s",
+				       __func__, xpath);
+			else {
+				flog_warn(EC_LIB_YANG_UNKNOWN_DATA_PATH,
+					  "%s: unknown data path: %s", __func__,
+					  xpath);
+				if (error)
+					*error = true;
+			}
 			continue;
 		}
 		/* Find if the node to be edited is not a key node */
@@ -886,7 +908,8 @@ void nb_candidate_edit_config_changes(
 		 * configuration.
 		 */
 		ret = nb_candidate_edit(candidate_config, nb_node,
-					change->operation, xpath, NULL, data);
+					change->operation, xpath, in_backend,
+					NULL, data);
 		yang_data_free(data);
 		if (ret != NB_OK) {
 			flog_warn(
