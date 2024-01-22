@@ -696,9 +696,8 @@ DEFPY (babel_set_smoothing_half_life,
 
 DEFUN (babel_distribute_list,
        babel_distribute_list_cmd,
-       "distribute-list [prefix] ACCESSLIST4_NAME <in|out> [WORD]",
+       "distribute-list ACCESSLIST4_NAME <in|out> [WORD]",
        "Filter networks in routing updates\n"
-       "Specify a prefix\n"
        "Access-list name\n"
        "Filter incoming routing updates\n"
        "Filter outgoing routing updates\n"
@@ -715,12 +714,21 @@ DEFUN (babel_distribute_list,
 				      argv[1 + prefix]->arg, ifname);
 }
 
+ALIAS (babel_distribute_list,
+       babel_distribute_list_prefix_cmd,
+       "distribute-list prefix PREFIXLIST4_NAME <in|out> [WORD]",
+       "Filter networks in routing updates\n"
+       "Specify a prefix list\n"
+       "Prefix-list name\n"
+       "Filter incoming routing updates\n"
+       "Filter outgoing routing updates\n"
+       "Interface name\n")
+
 DEFUN (babel_no_distribute_list,
        babel_no_distribute_list_cmd,
-       "no distribute-list [prefix] ACCESSLIST4_NAME <in|out> [WORD]",
+       "no distribute-list ACCESSLIST4_NAME <in|out> [WORD]",
        NO_STR
        "Filter networks in routing updates\n"
-       "Specify a prefix\n"
        "Access-list name\n"
        "Filter incoming routing updates\n"
        "Filter outgoing routing updates\n"
@@ -738,12 +746,22 @@ DEFUN (babel_no_distribute_list,
 					 argv[2 + prefix]->arg, ifname);
 }
 
+ALIAS (babel_no_distribute_list,
+       babel_no_distribute_list_prefix_cmd,
+       "no distribute-list prefix PREFIXLIST4_NAME <in|out> [WORD]",
+       NO_STR
+       "Filter networks in routing updates\n"
+       "Specify a prefix list\n"
+       "Prefix-list name\n"
+       "Filter incoming routing updates\n"
+       "Filter outgoing routing updates\n"
+       "Interface name\n")
+
 DEFUN (babel_ipv6_distribute_list,
        babel_ipv6_distribute_list_cmd,
-       "ipv6 distribute-list [prefix] ACCESSLIST6_NAME <in|out> [WORD]",
+       "ipv6 distribute-list ACCESSLIST6_NAME <in|out> [WORD]",
        "IPv6\n"
        "Filter networks in routing updates\n"
-       "Specify a prefix\n"
        "Access-list name\n"
        "Filter incoming routing updates\n"
        "Filter outgoing routing updates\n"
@@ -760,13 +778,23 @@ DEFUN (babel_ipv6_distribute_list,
 				      argv[2 + prefix]->arg, ifname);
 }
 
+ALIAS (babel_ipv6_distribute_list,
+       babel_ipv6_distribute_list_prefix_cmd,
+       "ipv6 distribute-list prefix PREFIXLIST6_NAME <in|out> [WORD]",
+       "IPv6\n"
+       "Filter networks in routing updates\n"
+       "Specify a prefix list\n"
+       "Prefix-list name\n"
+       "Filter incoming routing updates\n"
+       "Filter outgoing routing updates\n"
+       "Interface name\n")
+
 DEFUN (babel_no_ipv6_distribute_list,
        babel_no_ipv6_distribute_list_cmd,
-       "no ipv6 distribute-list [prefix] ACCESSLIST6_NAME <in|out> [WORD]",
+       "no ipv6 distribute-list ACCESSLIST6_NAME <in|out> [WORD]",
        NO_STR
        "IPv6\n"
        "Filter networks in routing updates\n"
-       "Specify a prefix\n"
        "Access-list name\n"
        "Filter incoming routing updates\n"
        "Filter outgoing routing updates\n"
@@ -783,6 +811,18 @@ DEFUN (babel_no_ipv6_distribute_list,
 					 argv[4 + prefix]->text,
 					 argv[3 + prefix]->arg, ifname);
 }
+
+ALIAS (babel_no_ipv6_distribute_list,
+       babel_no_ipv6_distribute_list_prefix_cmd,
+       "no ipv6 distribute-list prefix PREFIXLIST6_NAME <in|out> [WORD]",
+       NO_STR
+       "IPv6\n"
+       "Filter networks in routing updates\n"
+       "Specify a prefix list\n"
+       "Prefix-list name\n"
+       "Filter incoming routing updates\n"
+       "Filter outgoing routing updates\n"
+       "Interface name\n")
 
 void
 babeld_quagga_init(void)
@@ -801,9 +841,13 @@ babeld_quagga_init(void)
     install_element(BABEL_NODE, &babel_set_smoothing_half_life_cmd);
 
     install_element(BABEL_NODE, &babel_distribute_list_cmd);
+    install_element(BABEL_NODE, &babel_distribute_list_prefix_cmd);
     install_element(BABEL_NODE, &babel_no_distribute_list_cmd);
+    install_element(BABEL_NODE, &babel_no_distribute_list_prefix_cmd);
     install_element(BABEL_NODE, &babel_ipv6_distribute_list_cmd);
+    install_element(BABEL_NODE, &babel_ipv6_distribute_list_prefix_cmd);
     install_element(BABEL_NODE, &babel_no_ipv6_distribute_list_cmd);
+    install_element(BABEL_NODE, &babel_no_ipv6_distribute_list_prefix_cmd);
 
     vrf_cmd_init(NULL);
 
