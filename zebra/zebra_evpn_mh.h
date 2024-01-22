@@ -382,4 +382,10 @@ extern void zebra_evpn_proc_remote_nh(ZAPI_HANDLER_ARGS);
 extern struct zebra_evpn_es_evi *
 zebra_evpn_es_evi_find(struct zebra_evpn_es *es, struct zebra_evpn *zevpn);
 
+void zebra_build_type3_esi(uint32_t lid, struct ethaddr *mac, esi_t *esi);
+
+void zebra_evpn_es_sys_mac_update(struct zebra_if *zif, struct ethaddr *sysmac);
+void zebra_evpn_es_lid_update(struct zebra_if *zif, uint32_t lid);
+void zebra_evpn_es_type0_esi_update(struct zebra_if *zif, esi_t *esi);
+
 #endif /* _ZEBRA_EVPN_MH_H */

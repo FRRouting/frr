@@ -23,6 +23,7 @@
 #include "zebra/debug.h"
 #include "zebra/zebra_vxlan_private.h"
 #include "zebra/zebra_vxlan.h"
+#include "zebra/zebra_evpn_mh.h"
 
 /*
  * XPath: /frr-zebra:zebra/mcast-rpf-lookup
@@ -2196,6 +2197,205 @@ int lib_interface_zebra_link_params_packet_loss_destroy(
 	ifp = nb_running_get_entry(args->dnode, NULL, true);
 
 	link_param_cmd_unset(ifp, LP_PKT_LOSS);
+
+	return NB_OK;
+}
+
+static bool evpn_mh_dnode_to_esi(const struct lyd_node *dnode, esi_t *esi)
+{
+	if (yang_dnode_exists(dnode, "type-0/esi")) {
+		str_to_esi(yang_dnode_get_string(dnode, "type-0/esi"), esi);
+	} else if (yang_dnode_exists(dnode, "type-3/system-mac") &&
+		   yang_dnode_exists(dnode, "type-3/local-discriminator")) {
+		struct ethaddr mac;
+		uint32_t lid;
+
+		yang_dnode_get_mac(&mac, dnode, "type-3/system-mac");
+		lid = yang_dnode_get_uint32(dnode, "type-3/local-discriminator");
+
+		zebra_build_type3_esi(lid, &mac, esi);
+	} else {
+		return false;
+	}
+
+	return true;
+}
+
+struct esi_cmp_iter_arg {
+	struct lyd_node *dnode;
+	esi_t esi;
+	bool exists;
+};
+
+static int esi_cmp_iter_cb(const struct lyd_node *dnode, void *arg)
+{
+	struct esi_cmp_iter_arg *iter = arg;
+	esi_t esi;
+
+	if (dnode == iter->dnode)
+		return YANG_ITER_CONTINUE;
+
+	if (!evpn_mh_dnode_to_esi(dnode, &esi))
+		return YANG_ITER_CONTINUE;
+
+	if (!memcmp(&esi, &iter->esi, ESI_BYTES)) {
+		iter->exists = true;
+		return YANG_ITER_STOP;
+	}
+
+	return YANG_ITER_CONTINUE;
+}
+
+/* evpn-mh should be passed to this function */
+static bool esi_unique(struct lyd_node *dnode)
+{
+	struct esi_cmp_iter_arg iter;
+
+	iter.dnode = dnode;
+	evpn_mh_dnode_to_esi(dnode, &iter.esi);
+	iter.exists = false;
+
+	yang_dnode_iterate(esi_cmp_iter_cb, &iter, dnode,
+			   "/frr-interface:lib/interface/frr-zebra:zebra/evpn-mh");
+
+	if (iter.exists)
+		return false;
+
+	return true;
+}
+
+/*
+ * XPath: /frr-interface:lib/interface/frr-zebra:zebra/evpn-mh/type-0/esi
+ */
+int lib_interface_zebra_evpn_mh_type_0_esi_modify(struct nb_cb_modify_args *args)
+{
+	struct interface *ifp;
+	esi_t esi;
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+		if (!esi_unique(lyd_parent(lyd_parent(args->dnode)))) {
+			snprintfrr(args->errmsg, args->errmsg_len,
+				   "ESI already exists on a different interface");
+			return NB_ERR_VALIDATION;
+		}
+		break;
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	case NB_EV_APPLY:
+		ifp = nb_running_get_entry(args->dnode, NULL, true);
+		str_to_esi(yang_dnode_get_string(args->dnode, NULL), &esi);
+		zebra_evpn_es_type0_esi_update(ifp->info, &esi);
+		break;
+	}
+
+	return NB_OK;
+}
+
+int lib_interface_zebra_evpn_mh_type_0_esi_destroy(struct nb_cb_destroy_args *args)
+{
+	struct interface *ifp;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	ifp = nb_running_get_entry(args->dnode, NULL, true);
+	zebra_evpn_es_type0_esi_update(ifp->info, NULL);
+
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-interface:lib/interface/frr-zebra:zebra/evpn-mh/type-3/system-mac
+ */
+int lib_interface_zebra_evpn_mh_type_3_system_mac_modify(
+	struct nb_cb_modify_args *args)
+{
+	struct interface *ifp;
+	struct ethaddr mac;
+
+	yang_dnode_get_mac(&mac, args->dnode, NULL);
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+		if (is_zero_mac(&mac)) {
+			snprintfrr(args->errmsg, args->errmsg_len,
+				   "MAC cannot be all-zeroes");
+			return NB_ERR_VALIDATION;
+		}
+		if (!esi_unique(lyd_parent(lyd_parent(args->dnode)))) {
+			snprintfrr(args->errmsg, args->errmsg_len,
+				   "ESI already exists on a different interface");
+			return NB_ERR_VALIDATION;
+		}
+		break;
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	case NB_EV_APPLY:
+		ifp = nb_running_get_entry(args->dnode, NULL, true);
+		zebra_evpn_es_sys_mac_update(ifp->info, &mac);
+		break;
+	}
+
+	return NB_OK;
+}
+
+int lib_interface_zebra_evpn_mh_type_3_system_mac_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	struct interface *ifp;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	ifp = nb_running_get_entry(args->dnode, NULL, true);
+	zebra_evpn_es_sys_mac_update(ifp->info, NULL);
+
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-interface:lib/interface/frr-zebra:zebra/evpn-mh/type-3/local-discriminator
+ */
+int lib_interface_zebra_evpn_mh_type_3_local_discriminator_modify(
+	struct nb_cb_modify_args *args)
+{
+	struct interface *ifp;
+	uint32_t lid;
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+		if (!esi_unique(lyd_parent(lyd_parent(args->dnode)))) {
+			snprintfrr(args->errmsg, args->errmsg_len,
+				   "ESI already exists on a different interface");
+			return NB_ERR_VALIDATION;
+		}
+		break;
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	case NB_EV_APPLY:
+		ifp = nb_running_get_entry(args->dnode, NULL, true);
+		lid = yang_dnode_get_uint32(args->dnode, NULL);
+		zebra_evpn_es_lid_update(ifp->info, lid);
+		break;
+	}
+
+	return NB_OK;
+}
+
+int lib_interface_zebra_evpn_mh_type_3_local_discriminator_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	struct interface *ifp;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	ifp = nb_running_get_entry(args->dnode, NULL, true);
+	zebra_evpn_es_lid_update(ifp->info, 0);
 
 	return NB_OK;
 }

@@ -166,6 +166,17 @@ int lib_interface_zebra_link_params_packet_loss_modify(
 	struct nb_cb_modify_args *args);
 int lib_interface_zebra_link_params_packet_loss_destroy(
 	struct nb_cb_destroy_args *args);
+int lib_interface_zebra_evpn_mh_type_0_esi_modify(struct nb_cb_modify_args *args);
+int lib_interface_zebra_evpn_mh_type_0_esi_destroy(
+	struct nb_cb_destroy_args *args);
+int lib_interface_zebra_evpn_mh_type_3_system_mac_modify(
+	struct nb_cb_modify_args *args);
+int lib_interface_zebra_evpn_mh_type_3_system_mac_destroy(
+	struct nb_cb_destroy_args *args);
+int lib_interface_zebra_evpn_mh_type_3_local_discriminator_modify(
+	struct nb_cb_modify_args *args);
+int lib_interface_zebra_evpn_mh_type_3_local_discriminator_destroy(
+	struct nb_cb_destroy_args *args);
 struct yang_data *
 lib_interface_zebra_state_up_count_get_elem(struct nb_cb_get_elem_args *args);
 struct yang_data *

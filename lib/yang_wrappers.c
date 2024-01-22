@@ -1019,6 +1019,13 @@ void yang_str2mac(const char *value, struct ethaddr *mac)
 	(void)prefix_str2mac(value, mac);
 }
 
+void yang_dnode_get_mac(struct ethaddr *mac, const struct lyd_node *dnode,
+			const char *xpath_fmt, ...)
+{
+	const char *canon = YANG_DNODE_XPATH_GET_CANON(dnode, xpath_fmt);
+	(void)prefix_str2mac(canon, mac);
+}
+
 struct yang_data *yang_data_new_date_and_time(const char *xpath, time_t time)
 {
 	struct tm tm;

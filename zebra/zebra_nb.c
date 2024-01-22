@@ -508,6 +508,27 @@ const struct frr_yang_module_info frr_zebra_info = {
 			}
 		},
 		{
+			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/evpn-mh/type-0/esi",
+			.cbs = {
+				.modify = lib_interface_zebra_evpn_mh_type_0_esi_modify,
+				.destroy = lib_interface_zebra_evpn_mh_type_0_esi_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/evpn-mh/type-3/system-mac",
+			.cbs = {
+				.modify = lib_interface_zebra_evpn_mh_type_3_system_mac_modify,
+				.destroy = lib_interface_zebra_evpn_mh_type_3_system_mac_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/evpn-mh/type-3/local-discriminator",
+			.cbs = {
+				.modify = lib_interface_zebra_evpn_mh_type_3_local_discriminator_modify,
+				.destroy = lib_interface_zebra_evpn_mh_type_3_local_discriminator_destroy,
+			}
+		},
+		{
 			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/state/up-count",
 			.cbs = {
 				.get_elem = lib_interface_zebra_state_up_count_get_elem,

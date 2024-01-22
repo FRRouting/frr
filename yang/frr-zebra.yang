@@ -2217,6 +2217,35 @@ module frr-zebra {
         // TODO -- other link-params options
         // for (experimental/partial TE use in IGP extensions)
       }
+      container evpn-mh {
+        description "EVPN multihoming configuration";
+        choice esi-choice {
+          description "ESI type";
+          container type-0 {
+            leaf esi {
+              type yang:hex-string {
+                length "29";
+              }
+              description
+                "10-octet ESI.";
+              }
+          }
+          container type-3 {
+            leaf system-mac {
+              type yang:mac-address;
+              description
+                "System MAC address.";
+            }
+            leaf local-discriminator {
+              type uint32 {
+                range "1..16777215";
+              }
+              description
+                "Local discriminator.";
+            }
+          }
+        }
+      }
       container state {
         config false;
         description
