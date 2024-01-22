@@ -13,6 +13,9 @@ module frr-ripngd {
   import frr-if-rmap {
     prefix frr-if-rmap;
   }
+  import frr-filter {
+    prefix frr-filter;
+  }
   import frr-interface {
     prefix frr-interface;
   }
@@ -63,6 +66,7 @@ module frr-ripngd {
     description
       "Changed interface references to use
       frr-interface:interface-ref typedef";
+    reference "FRRouting";
   }
   revision 2018-11-27 {
     description
@@ -72,6 +76,7 @@ module frr-ripngd {
   }
 
   container ripngd {
+    description "ripng routing instance data";
     /*
      * Routing instance configuration.
      */
@@ -169,15 +174,18 @@ module frr-ripngd {
           "A list of interfaces where the sending of RIPng packets
            is disabled.";
       }
+
+      uses frr-filter:distribute-list-group;
+
       list redistribute {
         key "protocol";
         description
           "Redistributes routes learned from other routing protocols.";
         leaf protocol {
           type frr-route-types:frr-route-types-v6;
+          must '. != "ripng"';
           description
             "Routing protocol.";
-          must '. != "ripng"';
         }
         leaf route-map {
           type frr-route-map:route-map-ref;
@@ -330,6 +338,7 @@ module frr-ripngd {
    * Per-interface configuration data
    */
   augment "/frr-interface:lib/frr-interface:interface" {
+    description "RIPng interface augmentation.";
     container ripng {
       description
         "RIPng interface parameters.";

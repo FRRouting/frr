@@ -369,6 +369,22 @@ int ripngd_instance_passive_interface_destroy(struct nb_cb_destroy_args *args)
 }
 
 /*
+ * XPath: /frr-ripng:ripng/instance/distribute-list
+ */
+int ripngd_instance_distribute_list_create(struct nb_cb_create_args *args)
+{
+	struct ripng *ripng;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	ripng = nb_running_get_entry(args->dnode, NULL, true);
+	group_distribute_list_create_helper(args, ripng->distribute_ctx);
+
+	return NB_OK;
+}
+
+/*
  * XPath: /frr-ripngd:ripngd/instance/redistribute
  */
 int ripngd_instance_redistribute_create(struct nb_cb_create_args *args)

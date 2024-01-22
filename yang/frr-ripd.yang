@@ -16,6 +16,9 @@ module frr-ripd {
   import frr-bfdd {
     prefix frr-bfdd;
   }
+  import frr-filter {
+    prefix frr-filter;
+  }
   import frr-interface {
     prefix frr-interface;
   }
@@ -258,6 +261,9 @@ module frr-ripd {
           "A list of interfaces where the sending of RIP packets
            is enabled.";
       }
+
+      uses frr-filter:distribute-list-group;
+
       list redistribute {
         key "protocol";
         description
@@ -380,9 +386,9 @@ module frr-ripd {
       }
 
       leaf default-bfd-profile {
+        type frr-bfdd:profile-ref;
         description
           "Use this BFD profile for all peers by default.";
-        type frr-bfdd:profile-ref;
       }
 
       /*
@@ -691,12 +697,13 @@ module frr-ripd {
       container bfd-monitoring {
         presence
           "Present if BFD is configured for RIP peers in this interface.";
+        description "Configure BFD use in RIPD";
 
         leaf enable {
           type boolean;
+          default false;
           description
             "Enable/disable BFD monitoring.";
-          default false;
         }
 
         leaf profile {

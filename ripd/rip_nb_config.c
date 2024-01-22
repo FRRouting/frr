@@ -548,6 +548,23 @@ int ripd_instance_non_passive_interface_destroy(struct nb_cb_destroy_args *args)
 	return rip_passive_nondefault_unset(rip, ifname);
 }
 
+
+/*
+ * XPath: /frr-ripd:ripd/instance/distribute-list
+ */
+int ripd_instance_distribute_list_create(struct nb_cb_create_args *args)
+{
+	struct rip *rip;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	rip = nb_running_get_entry(args->dnode, NULL, true);
+	group_distribute_list_create_helper(args, rip->distribute_ctx);
+
+	return NB_OK;
+}
+
 /*
  * XPath: /frr-ripd:ripd/instance/redistribute
  */

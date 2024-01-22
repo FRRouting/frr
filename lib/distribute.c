@@ -244,11 +244,13 @@ static enum distribute_type distribute_direction(const char *dir, bool v4)
 	__builtin_unreachable();
 }
 
-int distribute_list_parser(bool prefix, bool v4, const char *dir,
-			   const char *list, const char *ifname)
+int distribute_list_parser(struct distribute_ctx *ctx, bool prefix, bool v4,
+			   const char *dir, const char *list, const char *ifname)
 {
 	enum distribute_type type = distribute_direction(dir, v4);
-	struct distribute_ctx *ctx = listnode_head(dist_ctx_list);
+
+	if (!ctx)
+		ctx = listnode_head(dist_ctx_list);
 
 	void (*distfn)(struct distribute_ctx *, const char *,
 		       enum distribute_type, const char *) =
@@ -259,13 +261,16 @@ int distribute_list_parser(bool prefix, bool v4, const char *dir,
 	return CMD_SUCCESS;
 }
 
-int distribute_list_no_parser(struct vty *vty, bool prefix, bool v4,
-			      const char *dir, const char *list,
-			      const char *ifname)
+
+int distribute_list_no_parser(struct distribute_ctx *ctx, struct vty *vty,
+			      bool prefix, bool v4, const char *dir,
+			      const char *list, const char *ifname)
 {
 	enum distribute_type type = distribute_direction(dir, v4);
-	struct distribute_ctx *ctx = listnode_head(dist_ctx_list);
 	int ret;
+
+	if (!ctx)
+		ctx = listnode_head(dist_ctx_list);
 
 	int (*distfn)(struct distribute_ctx *, const char *,
 		      enum distribute_type, const char *) =
@@ -274,7 +279,8 @@ int distribute_list_no_parser(struct vty *vty, bool prefix, bool v4,
 
 	ret = distfn(ctx, ifname, type, list);
 	if (!ret) {
-		vty_out(vty, "distribute list doesn't exist\n");
+		if (vty)
+			vty_out(vty, "distribute list doesn't exist\n");
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
@@ -442,6 +448,125 @@ int config_write_distribute(struct vty *vty,
 		}
 	return write;
 }
+
+/* ---------- */
+/* Northbound */
+/* ---------- */
+
+int group_distribute_list_create_helper(
+	struct nb_cb_create_args *args, struct distribute_ctx *ctx)
+{
+	nb_running_set_entry(args->dnode, ctx);
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-ripd:ripd/instance/distribute-lists/distribute-list/{in,out}/{access,prefix}-list
+ */
+
+int group_distribute_list_destroy(struct nb_cb_destroy_args *args)
+{
+	nb_running_unset_entry(args->dnode);
+	return NB_OK;
+}
+
+static int distribute_list_leaf_update(const struct lyd_node *dnode,
+				       int ip_version, bool no)
+{
+	struct distribute_ctx *ctx;
+	struct lyd_node *dir_node = lyd_parent(dnode);
+	struct lyd_node_inner *list_node = dir_node->parent;
+	struct lyd_node *intf_key = list_node->child;
+	bool ipv4 = ip_version == 4 ? true : false;
+	bool prefix;
+
+	ctx = nb_running_get_entry_non_rec(&list_node->node, NULL, false);
+
+	prefix = dnode->schema->name[0] == 'p' ? true : false;
+	if (no)
+		distribute_list_no_parser(ctx, NULL, prefix, ipv4,
+					  dir_node->schema->name,
+					  lyd_get_value(dnode),
+					  lyd_get_value(intf_key));
+	else
+		distribute_list_parser(ctx, prefix, ipv4,
+				       dir_node->schema->name,
+				       lyd_get_value(dnode),
+				       lyd_get_value(intf_key));
+	return NB_OK;
+}
+
+static int distribute_list_leaf_modify(struct nb_cb_modify_args *args,
+				       int ip_version)
+{
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+	return distribute_list_leaf_update(args->dnode, ip_version, false);
+}
+
+static int distribute_list_leaf_destroy(struct nb_cb_destroy_args *args,
+					int ip_version)
+{
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+	return distribute_list_leaf_update(args->dnode, ip_version, true);
+}
+
+int group_distribute_list_ipv4_modify(struct nb_cb_modify_args *args)
+{
+	return distribute_list_leaf_modify(args, 4);
+}
+int group_distribute_list_ipv4_destroy(struct nb_cb_destroy_args *args)
+{
+	return distribute_list_leaf_destroy(args, 4);
+}
+int group_distribute_list_ipv6_modify(struct nb_cb_modify_args *args)
+{
+	return distribute_list_leaf_modify(args, 6);
+}
+int group_distribute_list_ipv6_destroy(struct nb_cb_destroy_args *args)
+{
+	return distribute_list_leaf_destroy(args, 6);
+}
+
+static int distribute_list_leaf_cli_show(struct vty *vty,
+					 const struct lyd_node *dnode,
+					 int ip_version)
+{
+	struct lyd_node *dir_node = lyd_parent(dnode);
+	struct lyd_node_inner *list_node = dir_node->parent;
+	struct lyd_node *intf_key = list_node->child;
+	bool ipv6 = ip_version == 6 ? true : false;
+	bool prefix;
+
+	prefix = dnode->schema->name[0] == 'p' ? true : false;
+	vty_out(vty,
+		" %sdistribute-list %s%s %s %s\n",
+		ipv6 ? "ipv6 " : "",
+		prefix ? "prefix " : "",
+		lyd_get_value(dnode),
+		dir_node->schema->name,
+		lyd_get_value(intf_key));
+
+	return NB_OK;
+}
+
+void group_distribute_list_ipv4_cli_show(struct vty *vty,
+					 const struct lyd_node *dnode,
+					 bool show_defaults)
+{
+	distribute_list_leaf_cli_show(vty, dnode, 4);
+}
+void group_distribute_list_ipv6_cli_show(struct vty *vty,
+					 const struct lyd_node *dnode,
+					 bool show_defaults)
+{
+	distribute_list_leaf_cli_show(vty, dnode, 6);
+}
+
+/* ------------- */
+/* Setup/Cleanup */
+/* ------------- */
 
 void distribute_list_delete(struct distribute_ctx **ctx)
 {

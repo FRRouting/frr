@@ -1128,46 +1128,59 @@ DEFPY_YANG (clear_ip_rip,
 	return ret;
 }
 
-DEFUN (rip_distribute_list,
-       rip_distribute_list_cmd,
-       "distribute-list [prefix] ACCESSLIST4_NAME <in|out> [WORD]",
-       "Filter networks in routing updates\n"
-       "Specify a prefix\n"
-       "Access-list name\n"
-       "Filter incoming routing updates\n"
-       "Filter outgoing routing updates\n"
-       "Interface name\n")
+DEFPY_YANG(
+	rip_distribute_list, rip_distribute_list_cmd,
+	"distribute-list [prefix]$prefix ACCESSLIST4_NAME$name <in|out>$dir [WORD$ifname]",
+	"Filter networks in routing updates\n"
+	"Specify a prefix list\n"
+	"access-list or prefix-list name\n"
+	"Filter incoming routing updates\n"
+	"Filter outgoing routing updates\n"
+	"Interface name\n")
 {
-	const char *ifname = NULL;
-	int prefix = (argv[1]->type == WORD_TKN) ? 1 : 0;
+	char xpath[XPATH_MAXLEN];
 
-	if (argv[argc - 1]->type == VARIABLE_TKN)
-		ifname = argv[argc - 1]->arg;
-
-	return distribute_list_parser(prefix, true, argv[2 + prefix]->text,
-				      argv[1 + prefix]->arg, ifname);
+	snprintf(xpath, sizeof(xpath),
+		 "./distribute-list[interface='%s']/%s/%s-list",
+		 ifname ? ifname : "", dir, prefix ? "prefix" : "access");
+	/* nb_cli_enqueue_change(vty, ".", NB_OP_CREATE, NULL); */
+	nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, name);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFUN (rip_no_distribute_list,
-       rip_no_distribute_list_cmd,
-       "no distribute-list [prefix] ACCESSLIST4_NAME <in|out> [WORD]",
-       NO_STR
-       "Filter networks in routing updates\n"
-       "Specify a prefix\n"
-       "Access-list name\n"
-       "Filter incoming routing updates\n"
-       "Filter outgoing routing updates\n"
-       "Interface name\n")
+DEFPY_YANG(no_rip_distribute_list,
+	   no_rip_distribute_list_cmd,
+	   "no distribute-list [prefix]$prefix [ACCESSLIST4_NAME$name] <in|out>$dir [WORD$ifname]",
+	   NO_STR
+	   "Filter networks in routing updates\n"
+	   "Specify a prefix list\n"
+	   "access-list or prefix-list name\n"
+	   "Filter incoming routing updates\n"
+	   "Filter outgoing routing updates\n"
+	   "Interface name\n")
 {
-	const char *ifname = NULL;
-	int prefix = (argv[2]->type == WORD_TKN) ? 1 : 0;
+	const struct lyd_node *value_node;
+	char xpath[XPATH_MAXLEN];
 
-	if (argv[argc - 1]->type == VARIABLE_TKN)
-		ifname = argv[argc - 1]->arg;
-
-	return distribute_list_no_parser(vty, prefix, true,
-					 argv[3 + prefix]->text,
-					 argv[2 + prefix]->arg, ifname);
+	snprintf(xpath, sizeof(xpath),
+		 "./distribute-list[interface='%s']/%s/%s-list",
+		 ifname ? ifname : "", dir, prefix ? "prefix" : "access");
+	/*
+	 * See if the user has specified specific list so check it exists.
+	 *
+	 * NOTE: Other FRR CLI commands do not do this sort of verification and
+	 * there may be an official decision not to.
+	 */
+	if (name) {
+		value_node = yang_dnode_getf(vty->candidate_config->dnode, "%s/%s",
+					     VTY_CURR_XPATH, xpath);
+		if (!value_node || strcmp(name, lyd_get_value(value_node))) {
+			vty_out(vty, "distribute list doesn't exist\n");
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+	}
+	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 void rip_cli_init(void)
@@ -1176,7 +1189,7 @@ void rip_cli_init(void)
 	install_element(CONFIG_NODE, &no_router_rip_cmd);
 
 	install_element(RIP_NODE, &rip_distribute_list_cmd);
-	install_element(RIP_NODE, &rip_no_distribute_list_cmd);
+	install_element(RIP_NODE, &no_rip_distribute_list_cmd);
 
 	install_element(RIP_NODE, &rip_allow_ecmp_cmd);
 	install_element(RIP_NODE, &no_rip_allow_ecmp_cmd);

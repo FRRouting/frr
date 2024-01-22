@@ -6,11 +6,12 @@
 
 #include <zebra.h>
 
-#include "northbound.h"
+#include "distribute.h"
+#include "if_rmap.h"
 #include "libfrr.h"
+#include "northbound.h"
 
 #include "ripngd/ripng_nb.h"
-#include "lib/if_rmap.h"
 
 /* clang-format off */
 const struct frr_yang_module_info frr_ripngd_info = {
@@ -91,6 +92,45 @@ const struct frr_yang_module_info frr_ripngd_info = {
 				.create = ripngd_instance_passive_interface_create,
 				.destroy = ripngd_instance_passive_interface_destroy,
 			},
+		},
+		{
+			.xpath = "/frr-ripngd:ripngd/instance/distribute-list",
+			.cbs = {
+				.create = ripngd_instance_distribute_list_create,
+				.destroy = group_distribute_list_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-ripngd:ripngd/instance/distribute-list/in/access-list",
+			.cbs = {
+				.modify = group_distribute_list_ipv6_modify,
+				.destroy = group_distribute_list_ipv6_destroy,
+				.cli_show = group_distribute_list_ipv6_cli_show,
+			}
+		},
+		{
+			.xpath = "/frr-ripngd:ripngd/instance/distribute-list/out/access-list",
+			.cbs = {
+				.modify = group_distribute_list_ipv6_modify,
+				.destroy = group_distribute_list_ipv6_destroy,
+				.cli_show = group_distribute_list_ipv6_cli_show,
+			}
+		},
+		{
+			.xpath = "/frr-ripngd:ripngd/instance/distribute-list/in/prefix-list",
+			.cbs = {
+				.modify = group_distribute_list_ipv6_modify,
+				.destroy = group_distribute_list_ipv6_destroy,
+				.cli_show = group_distribute_list_ipv6_cli_show,
+			}
+		},
+		{
+			.xpath = "/frr-ripngd:ripngd/instance/distribute-list/out/prefix-list",
+			.cbs = {
+				.modify = group_distribute_list_ipv6_modify,
+				.destroy = group_distribute_list_ipv6_destroy,
+				.cli_show = group_distribute_list_ipv6_cli_show,
+			}
 		},
 		{
 			.xpath = "/frr-ripngd:ripngd/instance/redistribute",

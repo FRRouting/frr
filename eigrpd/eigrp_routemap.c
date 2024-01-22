@@ -1123,7 +1123,7 @@ DEFUN (eigrp_distribute_list,
 	if (argv[argc - 1]->type == VARIABLE_TKN)
 		ifname = argv[argc - 1]->arg;
 
-	return distribute_list_parser(prefix, true, argv[2 + prefix]->text,
+	return distribute_list_parser(NULL, prefix, true, argv[2 + prefix]->text,
 				      argv[1 + prefix]->arg, ifname);
 }
 
@@ -1144,14 +1144,14 @@ DEFUN (eigrp_no_distribute_list,
 	if (argv[argc - 1]->type == VARIABLE_TKN)
 		ifname = argv[argc - 1]->arg;
 
-	return distribute_list_no_parser(vty, prefix, true,
+	return distribute_list_no_parser(NULL, vty, prefix, true,
 					 argv[3 + prefix]->text,
 					 argv[2 + prefix]->arg, ifname);
 }
 
 
 /* Route-map init */
-void eigrp_route_map_init()
+void eigrp_route_map_init(void)
 {
 	route_map_init();
 	route_map_init_vty();

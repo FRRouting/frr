@@ -7,6 +7,8 @@
 #ifndef _FRR_RIP_NB_H_
 #define _FRR_RIP_NB_H_
 
+#include "northbound.h"
+
 extern const struct frr_yang_module_info frr_ripd_info;
 
 /* Mandatory callbacks. */
@@ -45,6 +47,8 @@ int ripd_instance_passive_interface_destroy(struct nb_cb_destroy_args *args);
 int ripd_instance_non_passive_interface_create(struct nb_cb_create_args *args);
 int ripd_instance_non_passive_interface_destroy(
 	struct nb_cb_destroy_args *args);
+int ripd_instance_distribute_list_create(struct nb_cb_create_args *args);
+int ripd_instance_distribute_list_destroy(struct nb_cb_destroy_args *args);
 int ripd_instance_redistribute_create(struct nb_cb_create_args *args);
 int ripd_instance_redistribute_destroy(struct nb_cb_destroy_args *args);
 int ripd_instance_redistribute_route_map_modify(struct nb_cb_modify_args *args);
