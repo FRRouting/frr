@@ -11634,7 +11634,7 @@ static int bgp_show_table(struct vty *vty, struct bgp *bgp, afi_t afi, safi_t sa
 						total_count);
 			} else
 				vty_out(vty,
-					"\nDisplayed  %ld routes and %ld total paths\n",
+					"\nDisplayed %ld routes and %ld total paths\n",
 					output_count, total_count);
 		}
 	}
@@ -11685,7 +11685,7 @@ int bgp_show_table_rd(struct vty *vty, struct bgp *bgp, afi_t afi, safi_t safi,
 				total_cum);
 		else
 			vty_out(vty,
-				"\nDisplayed  %ld routes and %ld total paths\n",
+				"\nDisplayed %ld routes and %ld total paths\n",
 				output_cum, total_cum);
 	} else {
 		if (use_json && output_cum == 0 && json_header_depth == 0)
