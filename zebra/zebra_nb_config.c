@@ -2870,6 +2870,144 @@ int lib_interface_zebra_ipv6_router_advertisements_default_router_preference_mod
 }
 
 /*
+ * XPath: /frr-interface:lib/interface/frr-zebra:zebra/ipv6-router-advertisements/prefix-list/prefix
+ */
+int lib_interface_zebra_ipv6_router_advertisements_prefix_list_prefix_create(
+	struct nb_cb_create_args *args)
+{
+	struct interface *ifp;
+	struct rtadv_prefix rp, *prefix;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	ifp = nb_running_get_entry(args->dnode, NULL, true);
+
+	yang_dnode_get_ipv6p(&rp.prefix, args->dnode, "prefix-spec");
+	rp.AdvOnLinkFlag = !!yang_dnode_get_bool(args->dnode, "on-link-flag");
+	rp.AdvAutonomousFlag = !!yang_dnode_get_bool(args->dnode,
+						     "autonomous-flag");
+	rp.AdvRouterAddressFlag = !!yang_dnode_get_bool(args->dnode,
+							"router-address-flag");
+	rp.AdvValidLifetime = yang_dnode_get_uint32(args->dnode,
+						    "valid-lifetime");
+	rp.AdvPreferredLifetime = yang_dnode_get_uint32(args->dnode,
+							"preferred-lifetime");
+
+	prefix = rtadv_add_prefix_manual(ifp->info, &rp);
+	nb_running_set_entry(args->dnode, prefix);
+
+	return NB_OK;
+}
+
+int lib_interface_zebra_ipv6_router_advertisements_prefix_list_prefix_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	struct interface *ifp;
+	struct rtadv_prefix *prefix;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	prefix = nb_running_unset_entry(args->dnode);
+	ifp = nb_running_get_entry(args->dnode, NULL, true);
+
+	rtadv_delete_prefix_manual(ifp->info, prefix);
+
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-interface:lib/interface/frr-zebra:zebra/ipv6-router-advertisements/prefix-list/prefix/valid-lifetime
+ */
+int lib_interface_zebra_ipv6_router_advertisements_prefix_list_prefix_valid_lifetime_modify(
+	struct nb_cb_modify_args *args)
+{
+	struct rtadv_prefix *prefix;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	prefix = nb_running_get_entry(args->dnode, NULL, true);
+
+	prefix->AdvValidLifetime = yang_dnode_get_uint32(args->dnode, NULL);
+
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-interface:lib/interface/frr-zebra:zebra/ipv6-router-advertisements/prefix-list/prefix/on-link-flag
+ */
+int lib_interface_zebra_ipv6_router_advertisements_prefix_list_prefix_on_link_flag_modify(
+	struct nb_cb_modify_args *args)
+{
+	struct rtadv_prefix *prefix;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	prefix = nb_running_get_entry(args->dnode, NULL, true);
+
+	prefix->AdvOnLinkFlag = !!yang_dnode_get_bool(args->dnode, NULL);
+
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-interface:lib/interface/frr-zebra:zebra/ipv6-router-advertisements/prefix-list/prefix/preferred-lifetime
+ */
+int lib_interface_zebra_ipv6_router_advertisements_prefix_list_prefix_preferred_lifetime_modify(
+	struct nb_cb_modify_args *args)
+{
+	struct rtadv_prefix *prefix;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	prefix = nb_running_get_entry(args->dnode, NULL, true);
+
+	prefix->AdvPreferredLifetime = yang_dnode_get_uint32(args->dnode, NULL);
+
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-interface:lib/interface/frr-zebra:zebra/ipv6-router-advertisements/prefix-list/prefix/autonomous-flag
+ */
+int lib_interface_zebra_ipv6_router_advertisements_prefix_list_prefix_autonomous_flag_modify(
+	struct nb_cb_modify_args *args)
+{
+	struct rtadv_prefix *prefix;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	prefix = nb_running_get_entry(args->dnode, NULL, true);
+
+	prefix->AdvAutonomousFlag = !!yang_dnode_get_bool(args->dnode, NULL);
+
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-interface:lib/interface/frr-zebra:zebra/ipv6-router-advertisements/prefix-list/prefix/router-address-flag
+ */
+int lib_interface_zebra_ipv6_router_advertisements_prefix_list_prefix_router_address_flag_modify(
+	struct nb_cb_modify_args *args)
+{
+	struct rtadv_prefix *prefix;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	prefix = nb_running_get_entry(args->dnode, NULL, true);
+
+	prefix->AdvRouterAddressFlag = !!yang_dnode_get_bool(args->dnode, NULL);
+
+	return NB_OK;
+}
+
+/*
  * XPath: /frr-vrf:lib/vrf/frr-zebra:zebra/l3vni-id
  */
 int lib_vrf_zebra_l3vni_id_modify(struct nb_cb_modify_args *args)

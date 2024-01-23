@@ -219,6 +219,20 @@ int lib_interface_zebra_ipv6_router_advertisements_home_agent_lifetime_destroy(
 	struct nb_cb_destroy_args *args);
 int lib_interface_zebra_ipv6_router_advertisements_default_router_preference_modify(
 	struct nb_cb_modify_args *args);
+int lib_interface_zebra_ipv6_router_advertisements_prefix_list_prefix_create(
+	struct nb_cb_create_args *args);
+int lib_interface_zebra_ipv6_router_advertisements_prefix_list_prefix_destroy(
+	struct nb_cb_destroy_args *args);
+int lib_interface_zebra_ipv6_router_advertisements_prefix_list_prefix_valid_lifetime_modify(
+	struct nb_cb_modify_args *args);
+int lib_interface_zebra_ipv6_router_advertisements_prefix_list_prefix_on_link_flag_modify(
+	struct nb_cb_modify_args *args);
+int lib_interface_zebra_ipv6_router_advertisements_prefix_list_prefix_preferred_lifetime_modify(
+	struct nb_cb_modify_args *args);
+int lib_interface_zebra_ipv6_router_advertisements_prefix_list_prefix_autonomous_flag_modify(
+	struct nb_cb_modify_args *args);
+int lib_interface_zebra_ipv6_router_advertisements_prefix_list_prefix_router_address_flag_modify(
+	struct nb_cb_modify_args *args);
 struct yang_data *
 lib_interface_zebra_state_up_count_get_elem(struct nb_cb_get_elem_args *args);
 struct yang_data *

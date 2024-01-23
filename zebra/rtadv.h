@@ -385,6 +385,13 @@ extern void rtadv_if_fini(struct zebra_if *zif);
 extern void rtadv_add_prefix(struct zebra_if *zif, const struct prefix_ipv6 *p);
 extern void rtadv_delete_prefix(struct zebra_if *zif, const struct prefix *p);
 
+/* returns created prefix */
+struct rtadv_prefix *rtadv_add_prefix_manual(struct zebra_if *zif,
+					     struct rtadv_prefix *rp);
+/* rprefix must be the one returned by rtadv_add_prefix_manual */
+void rtadv_delete_prefix_manual(struct zebra_if *zif,
+				struct rtadv_prefix *rprefix);
+
 void ipv6_nd_suppress_ra_set(struct interface *ifp,
 			     enum ipv6_nd_suppress_ra_status status);
 void ipv6_nd_interval_set(struct interface *ifp, uint32_t interval);

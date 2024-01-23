@@ -641,6 +641,43 @@ const struct frr_yang_module_info frr_zebra_info = {
 			}
 		},
 		{
+			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/ipv6-router-advertisements/prefix-list/prefix",
+			.cbs = {
+				.create = lib_interface_zebra_ipv6_router_advertisements_prefix_list_prefix_create,
+				.destroy = lib_interface_zebra_ipv6_router_advertisements_prefix_list_prefix_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/ipv6-router-advertisements/prefix-list/prefix/valid-lifetime",
+			.cbs = {
+				.modify = lib_interface_zebra_ipv6_router_advertisements_prefix_list_prefix_valid_lifetime_modify,
+			}
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/ipv6-router-advertisements/prefix-list/prefix/on-link-flag",
+			.cbs = {
+				.modify = lib_interface_zebra_ipv6_router_advertisements_prefix_list_prefix_on_link_flag_modify,
+			}
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/ipv6-router-advertisements/prefix-list/prefix/preferred-lifetime",
+			.cbs = {
+				.modify = lib_interface_zebra_ipv6_router_advertisements_prefix_list_prefix_preferred_lifetime_modify,
+			}
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/ipv6-router-advertisements/prefix-list/prefix/autonomous-flag",
+			.cbs = {
+				.modify = lib_interface_zebra_ipv6_router_advertisements_prefix_list_prefix_autonomous_flag_modify,
+			}
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/ipv6-router-advertisements/prefix-list/prefix/router-address-flag",
+			.cbs = {
+				.modify = lib_interface_zebra_ipv6_router_advertisements_prefix_list_prefix_router_address_flag_modify,
+			}
+		},
+		{
 			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/state/up-count",
 			.cbs = {
 				.get_elem = lib_interface_zebra_state_up_count_get_elem,

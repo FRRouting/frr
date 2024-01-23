@@ -2494,6 +2494,119 @@ module frr-zebra {
             "RFC 4191: Default Router Preferences and More-Specific
                        Routes";
         }
+        container prefix-list {
+          description
+            "Support for prefixes to be placed in Prefix
+            Information options in Router Advertisement messages
+            sent from the interface.
+
+            Prefixes that are advertised by default but do not
+            have their entries in the child 'prefix' list are
+            advertised with the default values of all parameters.
+
+            The link-local prefix SHOULD NOT be included in the
+            list of advertised prefixes.";
+          reference
+            "RFC 4861: Neighbor Discovery for IP version 6 (IPv6)
+                       - AdvPrefixList";
+          list prefix {
+            key "prefix-spec";
+            description
+              "Support for an advertised prefix entry.";
+            leaf prefix-spec {
+              type inet:ipv6-prefix;
+              description
+                "IPv6 address prefix.";
+            }
+            // FRR doesn't support 'no-advertise'. Keeping the code
+            // here for future reference.
+            /*
+            choice control-adv-prefixes {
+              default "advertise";
+              description
+                "Either (1) the prefix is explicitly removed from the
+                set of advertised prefixes or (2) the parameters with
+                which the prefix is advertised are specified (default
+                case).";
+              leaf no-advertise {
+                type empty;
+                description
+                  "The prefix will not be advertised.
+
+                  This can be used for removing the prefix from
+                  the default set of advertised prefixes.";
+              }
+              case advertise {
+            */
+                leaf valid-lifetime {
+                  type uint32;
+                  units "seconds";
+                  default "2592000";
+                  description
+                    "The value to be placed in the Valid Lifetime
+                    in the Prefix Information option.  The
+                    designated value of all 1's (0xffffffff)
+                      represents infinity.";
+                  reference
+                    "RFC 4861: Neighbor Discovery for IP version 6
+                              (IPv6) - AdvValidLifetime";
+                }
+                leaf on-link-flag {
+                  type boolean;
+                  default "true";
+                  description
+                    "The value to be placed in the on-link flag
+                    ('L-bit') field in the Prefix Information
+                    option.";
+                  reference
+                    "RFC 4861: Neighbor Discovery for IP version 6
+                              (IPv6) - AdvOnLinkFlag";
+                }
+                leaf preferred-lifetime {
+                  type uint32;
+                  units "seconds";
+                  must ". <= ../valid-lifetime" {
+                    description
+                      "This value MUST NOT be greater than
+                      valid-lifetime.";
+                  }
+                  default "604800";
+                  description
+                    "The value to be placed in the Preferred
+                    Lifetime in the Prefix Information option.
+                    The designated value of all 1's (0xffffffff)
+                    represents infinity.";
+                  reference
+                    "RFC 4861: Neighbor Discovery for IP version 6
+                              (IPv6) - AdvPreferredLifetime";
+                }
+                leaf autonomous-flag {
+                  type boolean;
+                  default "true";
+                  description
+                    "The value to be placed in the Autonomous Flag
+                    field in the Prefix Information option.";
+                  reference
+                    "RFC 4861: Neighbor Discovery for IP version 6
+                              (IPv6) - AdvAutonomousFlag";
+                }
+                leaf router-address-flag {
+                  type boolean;
+                  default "false";
+                  description
+                    "The value to be placed in the Router Address
+                    flag field in the Prefix Information option.";
+                  reference
+                    "RFC 6275: Mobility Support in IPv6";
+                }
+            /*
+              }
+            }
+            */
+            // This is closing brackets for `case advertise` and
+            // `choice control-adv-prefixes`.
+          }
+        }
       }
       container state {
         config false;

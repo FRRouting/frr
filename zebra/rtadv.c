@@ -1135,7 +1135,8 @@ static void rtadv_prefix_set_defaults(struct rtadv_prefix *rp)
 	rp->AdvValidLifetime = RTADV_VALID_LIFETIME;
 }
 
-static void rtadv_prefix_set(struct zebra_if *zif, struct rtadv_prefix *rp)
+static struct rtadv_prefix *rtadv_prefix_set(struct zebra_if *zif,
+					     struct rtadv_prefix *rp)
 {
 	struct rtadv_prefix *rprefix;
 
@@ -1168,13 +1169,16 @@ static void rtadv_prefix_set(struct zebra_if *zif, struct rtadv_prefix *rp)
 			rtadv_prefix_set_defaults(rprefix);
 		}
 	}
+
+	return rprefix;
 }
 
-static int rtadv_prefix_reset(struct zebra_if *zif, struct rtadv_prefix *rp)
+static void rtadv_prefix_reset(struct zebra_if *zif, struct rtadv_prefix *rp,
+			       struct rtadv_prefix *rprefix)
 {
-	struct rtadv_prefix *rprefix;
+	if (!rprefix)
+		rprefix = rtadv_prefixes_find(zif->rtadv.prefixes, rp);
 
-	rprefix = rtadv_prefixes_find(zif->rtadv.prefixes, rp);
 	if (rprefix != NULL) {
 
 		/*
@@ -1188,20 +1192,35 @@ static int rtadv_prefix_reset(struct zebra_if *zif, struct rtadv_prefix *rp)
 			if (rprefix->AdvPrefixCreate == PREFIX_SRC_BOTH) {
 				rprefix->AdvPrefixCreate = PREFIX_SRC_AUTO;
 				rtadv_prefix_set_defaults(rprefix);
-				return 1;
+				return;
 			}
 		} else if (rp->AdvPrefixCreate == PREFIX_SRC_AUTO) {
 			if (rprefix->AdvPrefixCreate == PREFIX_SRC_BOTH) {
 				rprefix->AdvPrefixCreate = PREFIX_SRC_MANUAL;
-				return 1;
+				return;
 			}
 		}
 
 		rtadv_prefixes_del(zif->rtadv.prefixes, rprefix);
 		rtadv_prefix_free(rprefix);
-		return 1;
-	} else
-		return 0;
+	}
+}
+
+struct rtadv_prefix *rtadv_add_prefix_manual(struct zebra_if *zif,
+					     struct rtadv_prefix *rp)
+{
+	rp->AdvPrefixCreate = PREFIX_SRC_MANUAL;
+	return rtadv_prefix_set(zif, rp);
+}
+
+void rtadv_delete_prefix_manual(struct zebra_if *zif,
+				struct rtadv_prefix *rprefix)
+{
+	struct rtadv_prefix rp;
+
+	rp.AdvPrefixCreate = PREFIX_SRC_MANUAL;
+
+	rtadv_prefix_reset(zif, &rp, rprefix);
 }
 
 /* Add IPv6 prefixes learned from the kernel to the RA prefix list */
@@ -1223,7 +1242,7 @@ void rtadv_delete_prefix(struct zebra_if *zif, const struct prefix *p)
 	rp.prefix = *((struct prefix_ipv6 *)p);
 	apply_mask_ipv6(&rp.prefix);
 	rp.AdvPrefixCreate = PREFIX_SRC_AUTO;
-	rtadv_prefix_reset(zif, &rp);
+	rtadv_prefix_reset(zif, &rp, NULL);
 }
 
 static void rtadv_start_interface_events(struct zebra_vrf *zvrf,
@@ -1445,7 +1464,7 @@ void rtadv_stop_ra_all(void)
 
 			frr_each_safe (rtadv_prefixes, zif->rtadv.prefixes,
 				       rprefix)
-				rtadv_prefix_reset(zif, rprefix);
+				rtadv_prefix_reset(zif, rprefix, rprefix);
 
 			rtadv_stop_ra(ifp);
 		}
@@ -1794,9 +1813,10 @@ DEFPY_YANG (ipv6_nd_other_config_flag,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFUN (ipv6_nd_prefix,
+DEFPY_YANG (ipv6_nd_prefix,
        ipv6_nd_prefix_cmd,
-       "ipv6 nd prefix X:X::X:X/M [<(0-4294967295)|infinite> <(0-4294967295)|infinite>] [<router-address|off-link [no-autoconfig]|no-autoconfig [off-link]>]",
+       "[no] ipv6 nd prefix X:X::X:X/M$prefix [<(0-4294967295)|infinite>$valid <(0-4294967295)|infinite>$preferred] [{router-address$routeraddr|off-link$offlink|no-autoconfig$noautoconf}]",
+       NO_STR
        "Interface IPv6 config commands\n"
        "Neighbor discovery\n"
        "Prefix information\n"
@@ -1807,116 +1827,53 @@ DEFUN (ipv6_nd_prefix,
        "Infinite preferred lifetime\n"
        "Set Router Address flag\n"
        "Do not use prefix for onlink determination\n"
-       "Do not use prefix for autoconfiguration\n"
-       "Do not use prefix for autoconfiguration\n"
-       "Do not use prefix for onlink determination\n")
+       "Do not use prefix for autoconfiguration\n")
 {
-	/* prelude */
-	char *prefix = argv[3]->arg;
-	int lifetimes = (argc > 4) && (argv[4]->type == RANGE_TKN
-				       || strmatch(argv[4]->text, "infinite"));
-	int routeropts = lifetimes ? argc > 6 : argc > 4;
-
-	int idx_routeropts = routeropts ? (lifetimes ? 6 : 4) : 0;
-
-	char *lifetime = NULL, *preflifetime = NULL;
-	int routeraddr = 0, offlink = 0, noautoconf = 0;
-	if (lifetimes) {
-		lifetime = argv[4]->type == RANGE_TKN ? argv[4]->arg
-						      : argv[4]->text;
-		preflifetime = argv[5]->type == RANGE_TKN ? argv[5]->arg
-							  : argv[5]->text;
-	}
-	if (routeropts) {
-		routeraddr =
-			strmatch(argv[idx_routeropts]->text, "router-address");
-		if (!routeraddr) {
-			offlink = (argc > idx_routeropts + 1
-				   || strmatch(argv[idx_routeropts]->text,
-					       "off-link"));
-			noautoconf = (argc > idx_routeropts + 1
-				      || strmatch(argv[idx_routeropts]->text,
-						  "no-autoconfig"));
+	if (!no) {
+		nb_cli_enqueue_change(vty, ".", NB_OP_CREATE, NULL);
+		if (valid) {
+			if (strmatch(valid, "infinite"))
+				valid = "4294967295";
+			nb_cli_enqueue_change(vty, "./valid-lifetime",
+					      NB_OP_MODIFY, valid);
+		} else {
+			nb_cli_enqueue_change(vty, "./valid-lifetime",
+					      NB_OP_DESTROY, NULL);
 		}
-	}
-
-	/* business */
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	struct zebra_if *zebra_if = ifp->info;
-	int ret;
-	struct rtadv_prefix rp;
-
-	ret = str2prefix_ipv6(prefix, &rp.prefix);
-	if (!ret) {
-		vty_out(vty, "Malformed IPv6 prefix\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-	apply_mask_ipv6(&rp.prefix); /* RFC4861 4.6.2 */
-	rp.AdvOnLinkFlag = !offlink;
-	rp.AdvAutonomousFlag = !noautoconf;
-	rp.AdvRouterAddressFlag = routeraddr;
-	rp.AdvValidLifetime = RTADV_VALID_LIFETIME;
-	rp.AdvPreferredLifetime = RTADV_PREFERRED_LIFETIME;
-	rp.AdvPrefixCreate = PREFIX_SRC_MANUAL;
-
-	if (lifetimes) {
-		rp.AdvValidLifetime = strmatch(lifetime, "infinite")
-					      ? UINT32_MAX
-					      : strtoll(lifetime, NULL, 10);
-		rp.AdvPreferredLifetime =
-			strmatch(preflifetime, "infinite")
-				? UINT32_MAX
-				: strtoll(preflifetime, NULL, 10);
-		if (rp.AdvPreferredLifetime > rp.AdvValidLifetime) {
-			vty_out(vty, "Invalid preferred lifetime\n");
-			return CMD_WARNING_CONFIG_FAILED;
+		if (preferred) {
+			if (strmatch(preferred, "infinite"))
+				preferred = "4294967295";
+			nb_cli_enqueue_change(vty, "./preferred-lifetime",
+					      NB_OP_MODIFY, preferred);
+		} else {
+			nb_cli_enqueue_change(vty, "./preferred-lifetime",
+					      NB_OP_DESTROY, NULL);
 		}
+		if (routeraddr)
+			nb_cli_enqueue_change(vty, "./router-address-flag",
+					      NB_OP_MODIFY, "true");
+		else
+			nb_cli_enqueue_change(vty, "./router-address-flag",
+					      NB_OP_DESTROY, NULL);
+		if (offlink)
+			nb_cli_enqueue_change(vty, "./on-link-flag",
+					      NB_OP_MODIFY, "false");
+		else
+			nb_cli_enqueue_change(vty, "./on-link-flag",
+					      NB_OP_DESTROY, NULL);
+		if (noautoconf)
+			nb_cli_enqueue_change(vty, "./autonomous-flag",
+					      NB_OP_MODIFY, "false");
+		else
+			nb_cli_enqueue_change(vty, "./autonomous-flag",
+					      NB_OP_DESTROY, NULL);
+	} else {
+		nb_cli_enqueue_change(vty, ".", NB_OP_DESTROY, NULL);
 	}
-
-	rtadv_prefix_set(zebra_if, &rp);
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_ipv6_nd_prefix,
-       no_ipv6_nd_prefix_cmd,
-       "no ipv6 nd prefix X:X::X:X/M [<(0-4294967295)|infinite> <(0-4294967295)|infinite>] [<router-address|off-link [no-autoconfig]|no-autoconfig [off-link]>]",
-        NO_STR
-       "Interface IPv6 config commands\n"
-       "Neighbor discovery\n"
-       "Prefix information\n"
-       "IPv6 prefix\n"
-       "Valid lifetime in seconds\n"
-       "Infinite valid lifetime\n"
-       "Preferred lifetime in seconds\n"
-       "Infinite preferred lifetime\n"
-       "Set Router Address flag\n"
-       "Do not use prefix for onlink determination\n"
-       "Do not use prefix for autoconfiguration\n"
-       "Do not use prefix for autoconfiguration\n"
-       "Do not use prefix for onlink determination\n")
-{
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	struct zebra_if *zebra_if = ifp->info;
-	int ret;
-	struct rtadv_prefix rp;
-	char *prefix = argv[4]->arg;
-
-	ret = str2prefix_ipv6(prefix, &rp.prefix);
-	if (!ret) {
-		vty_out(vty, "Malformed IPv6 prefix\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-	apply_mask_ipv6(&rp.prefix); /* RFC4861 4.6.2 */
-	rp.AdvPrefixCreate = PREFIX_SRC_MANUAL;
-
-	ret = rtadv_prefix_reset(zebra_if, &rp);
-	if (!ret) {
-		vty_out(vty, "Non-existant IPv6 prefix\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	return CMD_SUCCESS;
+	return nb_cli_apply_changes(
+		vty,
+		"./frr-zebra:zebra/ipv6-router-advertisements/prefix-list/prefix[prefix-spec='%s']",
+		prefix_str);
 }
 
 DEFPY_YANG (ipv6_nd_router_preference,
@@ -2626,7 +2583,6 @@ void rtadv_cmd_init(void)
 	install_element(INTERFACE_NODE, &ipv6_nd_homeagent_lifetime_cmd);
 	install_element(INTERFACE_NODE, &ipv6_nd_adv_interval_config_option_cmd);
 	install_element(INTERFACE_NODE, &ipv6_nd_prefix_cmd);
-	install_element(INTERFACE_NODE, &no_ipv6_nd_prefix_cmd);
 	install_element(INTERFACE_NODE, &ipv6_nd_router_preference_cmd);
 	install_element(INTERFACE_NODE, &ipv6_nd_mtu_cmd);
 	install_element(INTERFACE_NODE, &ipv6_nd_rdnss_cmd);
