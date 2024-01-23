@@ -1769,6 +1769,9 @@ DEFPY (rpki_expire_interval,
 	else
 		rpki_vrf = VTY_GET_CONTEXT(rpki_vrf);
 
+	if (!rpki_vrf)
+		return CMD_WARNING_CONFIG_FAILED;
+
 	if ((unsigned int)tmp >= rpki_vrf->polling_period) {
 		rpki_vrf->expire_interval = tmp;
 		return CMD_SUCCESS;
