@@ -648,6 +648,20 @@ const struct frr_yang_module_info frr_zebra_info = {
 			}
 		},
 		{
+			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/ipv6-router-advertisements/dnssl/dnssl-domain",
+			.cbs = {
+				.create = lib_interface_zebra_ipv6_router_advertisements_dnssl_dnssl_domain_create,
+				.destroy = lib_interface_zebra_ipv6_router_advertisements_dnssl_dnssl_domain_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/ipv6-router-advertisements/dnssl/dnssl-domain/lifetime",
+			.cbs = {
+				.modify = lib_interface_zebra_ipv6_router_advertisements_dnssl_dnssl_domain_lifetime_modify,
+				.destroy = lib_interface_zebra_ipv6_router_advertisements_dnssl_dnssl_domain_lifetime_destroy,
+			}
+		},
+		{
 			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/ipv6-router-advertisements/prefix-list/prefix/valid-lifetime",
 			.cbs = {
 				.modify = lib_interface_zebra_ipv6_router_advertisements_prefix_list_prefix_valid_lifetime_modify,

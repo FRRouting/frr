@@ -1956,54 +1956,22 @@ static void rtadv_dnssl_free(struct rtadv_dnssl *dnssl)
 	XFREE(MTYPE_RTADV_DNSSL, dnssl);
 }
 
-static struct rtadv_dnssl *rtadv_dnssl_lookup(struct list *list,
-					      struct rtadv_dnssl *dnssl)
-{
-	struct listnode *node;
-	struct rtadv_dnssl *p;
-
-	for (ALL_LIST_ELEMENTS_RO(list, node, p))
-		if (!strcasecmp(p->name, dnssl->name))
-			return p;
-	return NULL;
-}
-
-static struct rtadv_dnssl *rtadv_dnssl_get(struct list *list,
-					   struct rtadv_dnssl *dnssl)
+struct rtadv_dnssl *rtadv_dnssl_set(struct zebra_if *zif,
+				    struct rtadv_dnssl *dnssl)
 {
 	struct rtadv_dnssl *p;
-
-	p = rtadv_dnssl_lookup(list, dnssl);
-	if (p)
-		return p;
 
 	p = rtadv_dnssl_new();
 	memcpy(p, dnssl, sizeof(struct rtadv_dnssl));
-	listnode_add(list, p);
+	listnode_add(zif->rtadv.AdvDNSSLList, p);
 
 	return p;
 }
 
-static void rtadv_dnssl_set(struct zebra_if *zif, struct rtadv_dnssl *dnssl)
+void rtadv_dnssl_reset(struct zebra_if *zif, struct rtadv_dnssl *p)
 {
-	struct rtadv_dnssl *p;
-
-	p = rtadv_dnssl_get(zif->rtadv.AdvDNSSLList, dnssl);
-	memcpy(p, dnssl, sizeof(struct rtadv_dnssl));
-}
-
-static int rtadv_dnssl_reset(struct zebra_if *zif, struct rtadv_dnssl *dnssl)
-{
-	struct rtadv_dnssl *p;
-
-	p = rtadv_dnssl_lookup(zif->rtadv.AdvDNSSLList, dnssl);
-	if (p) {
-		listnode_delete(zif->rtadv.AdvDNSSLList, p);
-		rtadv_dnssl_free(p);
-		return 1;
-	}
-
-	return 0;
+	listnode_delete(zif->rtadv.AdvDNSSLList, p);
+	rtadv_dnssl_free(p);
 }
 
 /*
@@ -2014,7 +1982,7 @@ static int rtadv_dnssl_reset(struct zebra_if *zif, struct rtadv_dnssl *dnssl)
  * Returns the number of octets written to out or -1 if in does not constitute
  * a valid domain name.
  */
-static int rtadv_dnssl_encode(uint8_t *out, const char *in)
+int rtadv_dnssl_encode(uint8_t *out, const char *in)
 {
 	const char *label_start, *label_end;
 	size_t outp;
@@ -2076,9 +2044,10 @@ DEFPY_YANG (ipv6_nd_rdnss,
 		addr_str);
 }
 
-DEFUN(ipv6_nd_dnssl,
+DEFPY_YANG (ipv6_nd_dnssl,
       ipv6_nd_dnssl_cmd,
-      "ipv6 nd dnssl SUFFIX [<(0-4294967295)|infinite>]",
+      "[no] ipv6 nd dnssl SUFFIX [<(0-4294967295)|infinite>]$lifetime",
+      NO_STR
       "Interface IPv6 config commands\n"
       "Neighbor discovery\n"
       "DNS search list information\n"
@@ -2086,13 +2055,10 @@ DEFUN(ipv6_nd_dnssl,
       "Valid lifetime in seconds\n"
       "Infinite valid lifetime\n")
 {
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	struct zebra_if *zif = ifp->info;
-	struct rtadv_dnssl dnssl = {};
+	struct rtadv_dnssl dnssl;
 	size_t len;
-	int ret;
 
-	len = strlcpy(dnssl.name, argv[3]->arg, sizeof(dnssl.name));
+	len = strlcpy(dnssl.name, suffix, sizeof(dnssl.name));
 	if (len == 0 || len >= sizeof(dnssl.name)) {
 		vty_out(vty, "Malformed DNS search domain\n");
 		return CMD_WARNING_CONFIG_FAILED;
@@ -2105,57 +2071,25 @@ DEFUN(ipv6_nd_dnssl,
 		dnssl.name[len - 1] = '\0';
 		len--;
 	}
-	if (argc > 4) {
-		char *lifetime = argv[4]->type == RANGE_TKN ? argv[4]->arg
-							    : argv[4]->text;
-		dnssl.lifetime = strmatch(lifetime, "infinite")
-					 ? UINT32_MAX
-					 : strtoll(lifetime, NULL, 10);
-		dnssl.lifetime_set = 1;
-	}
 
-	ret = rtadv_dnssl_encode(dnssl.encoded_name, dnssl.name);
-	if (ret < 0) {
-		vty_out(vty, "Malformed DNS search domain\n");
-		return CMD_WARNING_CONFIG_FAILED;
+	if (!no) {
+		nb_cli_enqueue_change(vty, ".", NB_OP_CREATE, NULL);
+		if (lifetime) {
+			if (strmatch(lifetime, "infinite"))
+				lifetime = "4294967295";
+			nb_cli_enqueue_change(vty, "./lifetime", NB_OP_MODIFY,
+					      lifetime);
+		} else {
+			nb_cli_enqueue_change(vty, "./lifetime", NB_OP_DESTROY,
+					      NULL);
+		}
+	} else {
+		nb_cli_enqueue_change(vty, ".", NB_OP_DESTROY, NULL);
 	}
-	dnssl.encoded_len = ret;
-	rtadv_dnssl_set(zif, &dnssl);
-
-	return CMD_SUCCESS;
-}
-
-DEFUN(no_ipv6_nd_dnssl,
-      no_ipv6_nd_dnssl_cmd,
-      "no ipv6 nd dnssl SUFFIX [<(0-4294967295)|infinite>]",
-      NO_STR
-      "Interface IPv6 config commands\n"
-      "Neighbor discovery\n"
-      "DNS search list information\n"
-      "Domain name suffix\n"
-      "Valid lifetime in seconds\n"
-      "Infinite valid lifetime\n")
-{
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	struct zebra_if *zif = ifp->info;
-	struct rtadv_dnssl dnssl = {};
-	size_t len;
-
-	len = strlcpy(dnssl.name, argv[4]->arg, sizeof(dnssl.name));
-	if (len == 0 || len >= sizeof(dnssl.name)) {
-		vty_out(vty, "Malformed DNS search domain\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-	if (dnssl.name[len - 1] == '.') {
-		dnssl.name[len - 1] = '\0';
-		len--;
-	}
-	if (rtadv_dnssl_reset(zif, &dnssl) != 1) {
-		vty_out(vty, "Non-existant DNS search domain\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	return CMD_SUCCESS;
+	return nb_cli_apply_changes(
+		vty,
+		"./frr-zebra:zebra/ipv6-router-advertisements/dnssl/dnssl-domain[domain='%s']",
+		dnssl.name);
 }
 
 
@@ -2526,7 +2460,6 @@ void rtadv_cmd_init(void)
 	install_element(INTERFACE_NODE, &ipv6_nd_mtu_cmd);
 	install_element(INTERFACE_NODE, &ipv6_nd_rdnss_cmd);
 	install_element(INTERFACE_NODE, &ipv6_nd_dnssl_cmd);
-	install_element(INTERFACE_NODE, &no_ipv6_nd_dnssl_cmd);
 }
 
 static int if_join_all_router(int sock, struct interface *ifp)

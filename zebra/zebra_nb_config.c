@@ -3087,6 +3087,97 @@ int lib_interface_zebra_ipv6_router_advertisements_rdnss_rdnss_address_lifetime_
 }
 
 /*
+ * XPath: /frr-interface:lib/interface/frr-zebra:zebra/ipv6-router-advertisements/dnssl/dnssl-domain
+ */
+int lib_interface_zebra_ipv6_router_advertisements_dnssl_dnssl_domain_create(
+	struct nb_cb_create_args *args)
+{
+	struct interface *ifp;
+	struct rtadv_dnssl dnssl, *p;
+	int ret;
+
+	strlcpy(dnssl.name, yang_dnode_get_string(args->dnode, "domain"),
+		sizeof(dnssl.name));
+	ret = rtadv_dnssl_encode(dnssl.encoded_name, dnssl.name);
+
+	if (args->event == NB_EV_VALIDATE) {
+		if (ret < 0) {
+			snprintfrr(args->errmsg, args->errmsg_len,
+				   "Malformed DNS search domain");
+			return NB_ERR_VALIDATION;
+		}
+	}
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	ifp = nb_running_get_entry(args->dnode, NULL, true);
+
+	if (yang_dnode_exists(args->dnode, "lifetime")) {
+		dnssl.lifetime = yang_dnode_get_uint32(args->dnode, "lifetime");
+		dnssl.lifetime_set = 1;
+	} else {
+		dnssl.lifetime_set = 0;
+	}
+
+	p = rtadv_dnssl_set(ifp->info, &dnssl);
+	nb_running_set_entry(args->dnode, p);
+
+	return NB_OK;
+}
+
+int lib_interface_zebra_ipv6_router_advertisements_dnssl_dnssl_domain_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	struct interface *ifp;
+	struct rtadv_dnssl *p;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	p = nb_running_unset_entry(args->dnode);
+	ifp = nb_running_get_entry(args->dnode, NULL, true);
+
+	rtadv_dnssl_reset(ifp->info, p);
+
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-interface:lib/interface/frr-zebra:zebra/ipv6-router-advertisements/dnssl/dnssl-domain/lifetime
+ */
+int lib_interface_zebra_ipv6_router_advertisements_dnssl_dnssl_domain_lifetime_modify(
+	struct nb_cb_modify_args *args)
+{
+	struct rtadv_dnssl *p;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	p = nb_running_get_entry(args->dnode, NULL, true);
+
+	p->lifetime = yang_dnode_get_uint32(args->dnode, NULL);
+	p->lifetime_set = 1;
+
+	return NB_OK;
+}
+
+int lib_interface_zebra_ipv6_router_advertisements_dnssl_dnssl_domain_lifetime_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	struct rtadv_dnssl *p;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	p = nb_running_get_entry(args->dnode, NULL, true);
+
+	p->lifetime_set = 0;
+
+	return NB_OK;
+}
+
+/*
  * XPath: /frr-vrf:lib/vrf/frr-zebra:zebra/l3vni-id
  */
 int lib_vrf_zebra_l3vni_id_modify(struct nb_cb_modify_args *args)

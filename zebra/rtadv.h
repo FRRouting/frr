@@ -398,6 +398,13 @@ struct rtadv_rdnss *rtadv_rdnss_set(struct zebra_if *zif,
 /* p must be the one returned by rtadv_rdnss_set */
 void rtadv_rdnss_reset(struct zebra_if *zif, struct rtadv_rdnss *p);
 
+/* returns created domain */
+struct rtadv_dnssl *rtadv_dnssl_set(struct zebra_if *zif,
+				    struct rtadv_dnssl *dnssl);
+/* p must be the one returned by rtadv_dnssl_set */
+void rtadv_dnssl_reset(struct zebra_if *zif, struct rtadv_dnssl *p);
+int rtadv_dnssl_encode(uint8_t *out, const char *in);
+
 void ipv6_nd_suppress_ra_set(struct interface *ifp,
 			     enum ipv6_nd_suppress_ra_status status);
 void ipv6_nd_interval_set(struct interface *ifp, uint32_t interval);

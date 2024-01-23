@@ -2634,6 +2634,32 @@ module frr-zebra {
             }
           }
         }
+        container dnssl {
+          description
+            "A list of domain names that are placed in DNS Search List (DNSSL)
+            options in Router Advertisement messages sent from the interface.";
+          reference
+            "RFC 8106: IPv6 Router Advertisement Options for DNS
+                       Configuration";
+          list dnssl-domain {
+            key "domain";
+            description
+              "Domain name for the search list.";
+            leaf domain {
+              type inet:domain-name;
+              description
+                "Domain name for the search list.";
+            }
+            leaf lifetime {
+              type uint32;
+              units "seconds";
+              description
+                "The value that is placed in the Lifetime field in the
+                DNSSL option.  The designated value of all 1's
+                (0xffffffff) represents infinity.";
+            }
+          }
+        }
       }
       container state {
         config false;
