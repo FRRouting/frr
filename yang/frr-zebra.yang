@@ -2321,6 +2321,17 @@ module frr-zebra {
              RFC 6275: Mobility Support in IPv6";
         }
         */
+        leaf managed-flag {
+          type boolean;
+          default "false";
+          description
+            "The value to be placed in the 'Managed address
+            configuration' flag field in the Router
+            Advertisement.";
+          reference
+            "RFC 4861: Neighbor Discovery for IP version 6 (IPv6)
+                       - AdvManagedFlag";
+        }
         leaf reachable-time {
           type uint32 {
             range "0..3600000";

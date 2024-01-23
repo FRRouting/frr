@@ -1817,35 +1817,23 @@ DEFUN (no_ipv6_nd_homeagent_lifetime,
 	return CMD_SUCCESS;
 }
 
-DEFUN (ipv6_nd_managed_config_flag,
+DEFPY_YANG (ipv6_nd_managed_config_flag,
        ipv6_nd_managed_config_flag_cmd,
-       "ipv6 nd managed-config-flag",
-       "Interface IPv6 config commands\n"
-       "Neighbor discovery\n"
-       "Managed address configuration flag\n")
-{
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	struct zebra_if *zif = ifp->info;
-
-	zif->rtadv.AdvManagedFlag = 1;
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_ipv6_nd_managed_config_flag,
-       no_ipv6_nd_managed_config_flag_cmd,
-       "no ipv6 nd managed-config-flag",
+       "[no] ipv6 nd managed-config-flag",
        NO_STR
        "Interface IPv6 config commands\n"
        "Neighbor discovery\n"
        "Managed address configuration flag\n")
 {
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	struct zebra_if *zif = ifp->info;
-
-	zif->rtadv.AdvManagedFlag = 0;
-
-	return CMD_SUCCESS;
+	if (!no)
+		nb_cli_enqueue_change(vty,
+				      "./frr-zebra:zebra/ipv6-router-advertisements/managed-flag",
+				      NB_OP_MODIFY, "true");
+	else
+		nb_cli_enqueue_change(vty,
+				      "./frr-zebra:zebra/ipv6-router-advertisements/managed-flag",
+				      NB_OP_DESTROY, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFUN (ipv6_nd_homeagent_config_flag,
@@ -2806,7 +2794,6 @@ void rtadv_cmd_init(void)
 	install_element(INTERFACE_NODE, &ipv6_nd_ra_lifetime_cmd);
 	install_element(INTERFACE_NODE, &ipv6_nd_reachable_time_cmd);
 	install_element(INTERFACE_NODE, &ipv6_nd_managed_config_flag_cmd);
-	install_element(INTERFACE_NODE, &no_ipv6_nd_managed_config_flag_cmd);
 	install_element(INTERFACE_NODE, &ipv6_nd_other_config_flag_cmd);
 	install_element(INTERFACE_NODE, &no_ipv6_nd_other_config_flag_cmd);
 	install_element(INTERFACE_NODE, &ipv6_nd_homeagent_config_flag_cmd);
