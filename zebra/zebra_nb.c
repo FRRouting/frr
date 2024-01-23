@@ -583,6 +583,12 @@ const struct frr_yang_module_info frr_zebra_info = {
 			}
 		},
 		{
+			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/ipv6-router-advertisements/retrans-timer",
+			.cbs = {
+				.modify = lib_interface_zebra_ipv6_router_advertisements_retrans_timer_modify,
+			}
+		},
+		{
 			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/ipv6-router-advertisements/default-lifetime",
 			.cbs = {
 				.modify = lib_interface_zebra_ipv6_router_advertisements_default_lifetime_modify,

@@ -1618,49 +1618,24 @@ DEFPY (no_ipv6_nd_ra_hop_limit,
 	return CMD_SUCCESS;
 }
 
-DEFPY (ipv6_nd_ra_retrans_interval,
+DEFPY_YANG (ipv6_nd_ra_retrans_interval,
        ipv6_nd_ra_retrans_interval_cmd,
-       "ipv6 nd ra-retrans-interval (0-4294967295)$interval",
-       "Interface IPv6 config commands\n"
-       "Neighbor discovery\n"
-       "Advertisement Retransmit Interval\n"
-       "Advertisement Retransmit Interval in msec\n")
-{
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	struct zebra_if *zif = ifp->info;
-
-	if (if_is_loopback(ifp)) {
-		vty_out(vty,
-			"Cannot configure IPv6 Router Advertisements on loopback interface\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	zif->rtadv.AdvRetransTimer = interval;
-
-	return CMD_SUCCESS;
-}
-
-DEFPY (no_ipv6_nd_ra_retrans_interval,
-       no_ipv6_nd_ra_retrans_interval_cmd,
-       "no ipv6 nd ra-retrans-interval [(0-4294967295)]",
+       "[no] ipv6 nd ra-retrans-interval ![(0-4294967295)$interval]",
        NO_STR
        "Interface IPv6 config commands\n"
        "Neighbor discovery\n"
        "Advertisement Retransmit Interval\n"
        "Advertisement Retransmit Interval in msec\n")
 {
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	struct zebra_if *zif = ifp->info;
-
-	if (if_is_loopback(ifp)) {
-		vty_out(vty,
-			"Cannot remove IPv6 Router Advertisements on loopback interface\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	zif->rtadv.AdvRetransTimer = 0;
-
-	return CMD_SUCCESS;
+	if (!no)
+		nb_cli_enqueue_change(vty,
+				      "./frr-zebra:zebra/ipv6-router-advertisements/retrans-timer",
+				      NB_OP_MODIFY, interval_str);
+	else
+		nb_cli_enqueue_change(vty,
+				      "./frr-zebra:zebra/ipv6-router-advertisements/retrans-timer",
+				      NB_OP_DESTROY, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFPY_YANG (ipv6_nd_suppress_ra,
@@ -2764,7 +2739,6 @@ void rtadv_cmd_init(void)
 	install_element(INTERFACE_NODE, &ipv6_nd_ra_fast_retrans_cmd);
 	install_element(INTERFACE_NODE, &no_ipv6_nd_ra_fast_retrans_cmd);
 	install_element(INTERFACE_NODE, &ipv6_nd_ra_retrans_interval_cmd);
-	install_element(INTERFACE_NODE, &no_ipv6_nd_ra_retrans_interval_cmd);
 	install_element(INTERFACE_NODE, &ipv6_nd_ra_hop_limit_cmd);
 	install_element(INTERFACE_NODE, &no_ipv6_nd_ra_hop_limit_cmd);
 	install_element(INTERFACE_NODE, &ipv6_nd_suppress_ra_cmd);
