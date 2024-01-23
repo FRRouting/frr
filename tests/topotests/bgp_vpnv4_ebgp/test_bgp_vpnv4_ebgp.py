@@ -228,7 +228,12 @@ def test_export_route_target_empty():
     router = tgen.gears["r1"]
     logger.info("r1, Remove 'rt vpn export 52:100' command")
     router.vtysh_cmd(
-        "configure terminal\nrouter bgp 65500 vrf vrf1\naddress-family ipv4 unicast\nno rt vpn export 52:100\n"
+        """
+configure terminal
+router bgp 65500 vrf vrf1
+ address-family ipv4 unicast
+  no rt vpn export 52:100
+"""
     )
 
     prefix = "172.31.0.1/32"
@@ -254,10 +259,15 @@ def test_export_route_target_with_routemap_with_export_route_target():
     router = tgen.gears["r1"]
     logger.info("r1, configuring route target with route-map with export route target")
     router.vtysh_cmd(
-        "configure terminal\nrouter bgp 65500 vrf vrf1\naddress-family ipv4 unicast\nroute-map vpn export rmap\n"
-    )
-    router.vtysh_cmd(
-        "configure terminal\nroute-map rmap permit 1\nset extcommunity rt 52:100\n"
+        """
+configure terminal
+router bgp 65500 vrf vrf1
+ address-family ipv4 unicast
+  route-map vpn export RMAP
+!
+route-map RMAP permit 1
+ set extcommunity rt 52:100
+"""
     )
 
     prefix = "172.31.0.1/32"
@@ -283,7 +293,11 @@ def test_export_route_target_with_routemap_without_export_route_target():
     router = tgen.gears["r1"]
     logger.info("r1, removing 'set extcommunity rt 52:100.")
     router.vtysh_cmd(
-        "configure terminal\nroute-map rmap permit 1\nno set extcommunity rt\n"
+        """
+configure terminal
+route-map RMAP permit 1
+ no set extcommunity rt
+"""
     )
 
     prefix = "172.31.0.1/32"
@@ -309,7 +323,12 @@ def test_export_route_target_with_default_command():
     router = tgen.gears["r1"]
     logger.info("r1, detach route-map and re-add route target vpn export")
     router.vtysh_cmd(
-        "configure terminal\nrouter bgp 65500 vrf vrf1\naddress-family ipv4 unicast\nrt vpn export 52:100\n"
+        """
+configure terminal
+router bgp 65500 vrf vrf1
+ address-family ipv4 unicast
+  rt vpn export 52:100
+"""
     )
     prefix = "172.31.0.1/32"
     logger.info("r1, check that exported prefix {} is added back".format(prefix))
@@ -334,9 +353,14 @@ def test_export_suppress_route_target_with_route_map_command():
     router = tgen.gears["r1"]
     logger.info("r1, add an extended comm-list to delete 52:100")
 
-    router.vtysh_cmd("configure terminal\nbgp extcommunity-list 1 permit rt 52:100\n")
     router.vtysh_cmd(
-        "configure terminal\nroute-map rmap permit 1\nset extended-comm-list 1 delete\n"
+        """
+configure terminal
+bgp extcommunity-list 1 permit rt 52:100
+!
+route-map RMAP permit 1
+ set extended-comm-list 1 delete
+"""
     )
     prefix = "172.31.0.1/32"
     logger.info("r1, check that exported prefix {} is removed".format(prefix))
@@ -361,7 +385,11 @@ def test_export_add_route_target_to_route_map_command():
     router = tgen.gears["r1"]
     logger.info("r1, add an additional set extcommunity 52:101")
     router.vtysh_cmd(
-        "configure terminal\nroute-map rmap permit 1\nset extcommunity rt 52:101\n"
+        """
+configure terminal
+route-map RMAP permit 1
+ set extcommunity rt 52:101
+"""
     )
     prefix = "172.31.0.1/32"
     logger.info("r1, check that exported prefix {} is added back".format(prefix))
