@@ -1919,37 +1919,9 @@ DEFUN (no_ipv6_nd_prefix,
 	return CMD_SUCCESS;
 }
 
-DEFUN (ipv6_nd_router_preference,
+DEFPY_YANG (ipv6_nd_router_preference,
        ipv6_nd_router_preference_cmd,
-       "ipv6 nd router-preference <high|medium|low>",
-       "Interface IPv6 config commands\n"
-       "Neighbor discovery\n"
-       "Default router preference\n"
-       "High default router preference\n"
-       "Medium default router preference (default)\n"
-       "Low default router preference\n")
-{
-	int idx_high_medium_low = 3;
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	struct zebra_if *zif = ifp->info;
-	int i = 0;
-
-	while (0 != rtadv_pref_strs[i]) {
-		if (strncmp(argv[idx_high_medium_low]->arg, rtadv_pref_strs[i],
-			    1)
-		    == 0) {
-			zif->rtadv.DefaultPreference = i;
-			return CMD_SUCCESS;
-		}
-		i++;
-	}
-
-	return CMD_ERR_NO_MATCH;
-}
-
-DEFUN (no_ipv6_nd_router_preference,
-       no_ipv6_nd_router_preference_cmd,
-       "no ipv6 nd router-preference [<high|medium|low>]",
+       "[no] ipv6 nd router-preference ![<high|medium|low>$pref]",
        NO_STR
        "Interface IPv6 config commands\n"
        "Neighbor discovery\n"
@@ -1958,13 +1930,15 @@ DEFUN (no_ipv6_nd_router_preference,
        "Medium default router preference (default)\n"
        "Low default router preference\n")
 {
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	struct zebra_if *zif = ifp->info;
-
-	zif->rtadv.DefaultPreference =
-		RTADV_PREF_MEDIUM; /* Default per RFC4191. */
-
-	return CMD_SUCCESS;
+	if (!no)
+		nb_cli_enqueue_change(vty,
+				      "./frr-zebra:zebra/ipv6-router-advertisements/default-router-preference",
+				      NB_OP_MODIFY, pref);
+	else
+		nb_cli_enqueue_change(vty,
+				      "./frr-zebra:zebra/ipv6-router-advertisements/default-router-preference",
+				      NB_OP_DESTROY, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFPY_YANG (ipv6_nd_mtu,
@@ -2654,7 +2628,6 @@ void rtadv_cmd_init(void)
 	install_element(INTERFACE_NODE, &ipv6_nd_prefix_cmd);
 	install_element(INTERFACE_NODE, &no_ipv6_nd_prefix_cmd);
 	install_element(INTERFACE_NODE, &ipv6_nd_router_preference_cmd);
-	install_element(INTERFACE_NODE, &no_ipv6_nd_router_preference_cmd);
 	install_element(INTERFACE_NODE, &ipv6_nd_mtu_cmd);
 	install_element(INTERFACE_NODE, &ipv6_nd_rdnss_cmd);
 	install_element(INTERFACE_NODE, &no_ipv6_nd_rdnss_cmd);

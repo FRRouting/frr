@@ -217,6 +217,8 @@ int lib_interface_zebra_ipv6_router_advertisements_home_agent_lifetime_modify(
 	struct nb_cb_modify_args *args);
 int lib_interface_zebra_ipv6_router_advertisements_home_agent_lifetime_destroy(
 	struct nb_cb_destroy_args *args);
+int lib_interface_zebra_ipv6_router_advertisements_default_router_preference_modify(
+	struct nb_cb_modify_args *args);
 struct yang_data *
 lib_interface_zebra_state_up_count_get_elem(struct nb_cb_get_elem_args *args);
 struct yang_data *
