@@ -1827,6 +1827,9 @@ DEFUN (no_rpki_expire_interval,
 	else
 		rpki_vrf = VTY_GET_CONTEXT(rpki_vrf);
 
+	if (!rpki_vrf)
+		return CMD_WARNING_CONFIG_FAILED;
+
 	rpki_vrf->expire_interval = rpki_vrf->polling_period * 2;
 	return CMD_SUCCESS;
 }
