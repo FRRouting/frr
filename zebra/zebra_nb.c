@@ -565,6 +565,12 @@ const struct frr_yang_module_info frr_zebra_info = {
 			}
 		},
 		{
+			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/ipv6-router-advertisements/other-config-flag",
+			.cbs = {
+				.modify = lib_interface_zebra_ipv6_router_advertisements_other_config_flag_modify,
+			}
+		},
+		{
 			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/ipv6-router-advertisements/reachable-time",
 			.cbs = {
 				.modify = lib_interface_zebra_ipv6_router_advertisements_reachable_time_modify,
