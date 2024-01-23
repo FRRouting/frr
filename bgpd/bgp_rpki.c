@@ -1779,6 +1779,9 @@ DEFUN (no_rpki_polling_period,
 	else
 		rpki_vrf = VTY_GET_CONTEXT(rpki_vrf);
 
+	if (!rpki_vrf)
+		return CMD_WARNING_CONFIG_FAILED;
+
 	rpki_vrf->polling_period = POLLING_PERIOD_DEFAULT;
 	return CMD_SUCCESS;
 }
