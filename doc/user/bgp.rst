@@ -3786,7 +3786,7 @@ When default route is present in R2'2 BGP table, 10.139.224.0/20 and 192.0.2.1/3
    *> 192.0.2.1/32     10.10.10.1               0             0 1 i
    *> 192.0.2.5/32     10.10.10.1               0             0 1 i
 
-   Displayed  4 routes and 4 total paths
+   Displayed 4 routes and 4 total paths
    Router2# show ip bgp neighbors 10.10.20.3
 
    !--- Output suppressed.
@@ -3834,7 +3834,7 @@ When default route is not present in R2'2 BGP table, 10.139.224.0/20 and 192.0.2
    *> 192.0.2.1/32     10.10.10.1               0             0 1 i
    *> 192.0.2.5/32     10.10.10.1               0             0 1 i
 
-   Displayed  3 routes and 3 total paths
+   Displayed 3 routes and 3 total paths
 
    Router2# show ip bgp neighbors 10.10.20.3
 
@@ -4455,7 +4455,7 @@ incoming/outgoing directions.
          Origin incomplete, metric 0, weight 32768, valid, sourced, bestpath-from-AS Local, best (First path received)
          Last update: Wed May  8 12:54:41 2023
 
-   Displayed  2 routes and 2 total paths
+   Displayed 2 routes and 2 total paths
 
 .. code-block:: frr
 
@@ -4480,7 +4480,7 @@ incoming/outgoing directions.
          Origin incomplete, metric 0, weight 32768, valid, sourced, bestpath-from-AS Local, best (First path received)
          Last update: Wed May  8 12:45:01 2023
 
-   Displayed  2 routes and 2 total paths
+   Displayed 2 routes and 2 total paths
 
    Instance vrf3:
 
@@ -4505,7 +4505,7 @@ incoming/outgoing directions.
          Extended Community: RT:65000:1009 ET:8 Rmac:00:02:00:00:00:58
          Last update: Fri May  8 02:41:55 2023
 
-   Displayed  2 routes and 2 total paths
+   Displayed 2 routes and 2 total paths
 
 
 .. code-block:: frr
@@ -4533,7 +4533,7 @@ incoming/outgoing directions.
          Extended Community: RT:65000:1009 ET:8 Rmac:00:02:00:00:00:58
          Last update: Fri May  8 02:23:55 2023
 
-   Displayed  2 routes and 2 total paths
+   Displayed 2 routes and 2 total paths
 
 .. _bgp-display-routes-by-community:
 
