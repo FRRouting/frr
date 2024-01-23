@@ -2509,6 +2509,10 @@ DEFPY (rpki_reset_config_mode,
 		rpki_vrf = VTY_GET_CONTEXT_SUB(rpki_vrf);
 	else
 		rpki_vrf = VTY_GET_CONTEXT(rpki_vrf);
+
+	if (!rpki_vrf)
+		return CMD_WARNING_CONFIG_FAILED;
+
 	return reset(true, rpki_vrf) == SUCCESS ? CMD_SUCCESS : CMD_WARNING;
 }
 
