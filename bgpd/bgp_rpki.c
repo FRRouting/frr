@@ -25,6 +25,7 @@
 #include "memory.h"
 #include "frrevent.h"
 #include "filter.h"
+#include "lib_errors.h"
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_table.h"
 #include "bgp_advertise.h"
@@ -1276,7 +1277,7 @@ static int rpki_create_socket(void *_cache)
 {
 	struct timeval prev_snd_tmout, prev_rcv_tmout, timeout;
 	struct cache *cache = (struct cache *)_cache;
-	struct rpki_vrf *rpki_vrf = cache->rpki_vrf;
+	struct rpki_vrf *rpki_vrf;
 	struct tr_tcp_config *tcp_config;
 	struct addrinfo *res = NULL;
 	struct addrinfo hints = {};
@@ -1293,6 +1294,8 @@ static int rpki_create_socket(void *_cache)
 
 	if (!cache)
 		return -1;
+
+	rpki_vrf = cache->rpki_vrf;
 
 	if (rpki_vrf->vrfname == NULL)
 		vrf = vrf_lookup_by_id(VRF_DEFAULT);
@@ -1330,43 +1333,69 @@ static int rpki_create_socket(void *_cache)
 	frr_with_privs (&bgpd_privs) {
 		ret = vrf_getaddrinfo(host, port, &hints, &res, vrf->vrf_id);
 	}
-	if (ret != 0)
+	if (ret != 0) {
+		flog_err_sys(EC_LIB_SOCKET, "getaddrinfo: %s",
+			     gai_strerror(ret));
 		return -1;
+	}
 
 	frr_with_privs (&bgpd_privs) {
 		socket = vrf_socket(res->ai_family, res->ai_socktype,
 				    res->ai_protocol, vrf->vrf_id, NULL);
 	}
-	if (socket < 0)
+	if (socket < 0) {
+		freeaddrinfo(res);
 		return -1;
+	}
 
 	pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, &cancel_state);
 	timeout.tv_sec = 30;
 	timeout.tv_usec = 0;
 
 	optlen = sizeof(prev_rcv_tmout);
-	getsockopt(socket, SOL_SOCKET, SO_RCVTIMEO, &prev_rcv_tmout, &optlen);
-	getsockopt(socket, SOL_SOCKET, SO_SNDTIMEO, &prev_snd_tmout, &optlen);
+	ret = getsockopt(socket, SOL_SOCKET, SO_RCVTIMEO, &prev_rcv_tmout,
+			 &optlen);
+	if (ret < 0)
+		zlog_warn("%s: failed to getsockopt SO_RCVTIMEO for socket %d",
+			  __func__, socket);
+	ret = getsockopt(socket, SOL_SOCKET, SO_SNDTIMEO, &prev_snd_tmout,
+			 &optlen);
+	if (ret < 0)
+		zlog_warn("%s: failed to getsockopt SO_SNDTIMEO for socket %d",
+			  __func__, socket);
+	ret = setsockopt(socket, SOL_SOCKET, SO_RCVTIMEO, &timeout,
+			 sizeof(timeout));
+	if (ret < 0)
+		zlog_warn("%s: failed to setsockopt SO_RCVTIMEO for socket %d",
+			  __func__, socket);
 
-	setsockopt(socket, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout));
-	setsockopt(socket, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof(timeout));
+	ret = setsockopt(socket, SOL_SOCKET, SO_SNDTIMEO, &timeout,
+			 sizeof(timeout));
+	if (ret < 0)
+		zlog_warn("%s: failed to setsockopt SO_SNDTIMEO for socket %d",
+			  __func__, socket);
 
 	if (connect(socket, res->ai_addr, res->ai_addrlen) == -1) {
-		if (res)
-			freeaddrinfo(res);
+		freeaddrinfo(res);
 		close(socket);
 		pthread_setcancelstate(cancel_state, NULL);
 		return -1;
 	}
 
-	if (res)
-		freeaddrinfo(res);
+	freeaddrinfo(res);
 	pthread_setcancelstate(cancel_state, NULL);
 
-	setsockopt(socket, SOL_SOCKET, SO_RCVTIMEO, &prev_rcv_tmout,
-		   sizeof(prev_rcv_tmout));
-	setsockopt(socket, SOL_SOCKET, SO_SNDTIMEO, &prev_snd_tmout,
-		   sizeof(prev_snd_tmout));
+	ret = setsockopt(socket, SOL_SOCKET, SO_RCVTIMEO, &prev_rcv_tmout,
+			 sizeof(prev_rcv_tmout));
+	if (ret < 0)
+		zlog_warn("%s: failed to setsockopt SO_RCVTIMEO for socket %d",
+			  __func__, socket);
+
+	ret = setsockopt(socket, SOL_SOCKET, SO_SNDTIMEO, &prev_snd_tmout,
+			 sizeof(prev_snd_tmout));
+	if (ret < 0)
+		zlog_warn("%s: failed to setsockopt SO_SNDTIMEO for socket %d",
+			  __func__, socket);
 
 	return socket;
 }
@@ -1621,11 +1650,15 @@ DEFUN_NOSH (rpki,
 {
 	struct rpki_vrf *rpki_vrf;
 	char *vrfname = NULL;
+	struct vrf *vrf;
 
 	if (vty->node == CONFIG_NODE)
 		vty->node = RPKI_NODE;
 	else {
-		struct vrf *vrf = VTY_GET_CONTEXT(vrf);
+		vrf = VTY_GET_CONTEXT(vrf);
+
+		if (!vrf)
+			return CMD_WARNING;
 
 		vty->node = RPKI_VRF_NODE;
 		if (vrf->vrf_id != VRF_DEFAULT)
@@ -1732,6 +1765,9 @@ DEFPY (rpki_polling_period,
 	else
 		rpki_vrf = VTY_GET_CONTEXT(rpki_vrf);
 
+	if (!rpki_vrf)
+		return CMD_WARNING_CONFIG_FAILED;
+
 	rpki_vrf->polling_period = pp;
 	return CMD_SUCCESS;
 }
@@ -1751,6 +1787,9 @@ DEFUN (no_rpki_polling_period,
 	else
 		rpki_vrf = VTY_GET_CONTEXT(rpki_vrf);
 
+	if (!rpki_vrf)
+		return CMD_WARNING_CONFIG_FAILED;
+
 	rpki_vrf->polling_period = POLLING_PERIOD_DEFAULT;
 	return CMD_SUCCESS;
 }
@@ -1768,6 +1807,9 @@ DEFPY (rpki_expire_interval,
 		rpki_vrf = VTY_GET_CONTEXT_SUB(rpki_vrf);
 	else
 		rpki_vrf = VTY_GET_CONTEXT(rpki_vrf);
+
+	if (!rpki_vrf)
+		return CMD_WARNING_CONFIG_FAILED;
 
 	if ((unsigned int)tmp >= rpki_vrf->polling_period) {
 		rpki_vrf->expire_interval = tmp;
@@ -1793,6 +1835,9 @@ DEFUN (no_rpki_expire_interval,
 	else
 		rpki_vrf = VTY_GET_CONTEXT(rpki_vrf);
 
+	if (!rpki_vrf)
+		return CMD_WARNING_CONFIG_FAILED;
+
 	rpki_vrf->expire_interval = rpki_vrf->polling_period * 2;
 	return CMD_SUCCESS;
 }
@@ -1810,6 +1855,9 @@ DEFPY (rpki_retry_interval,
 		rpki_vrf = VTY_GET_CONTEXT_SUB(rpki_vrf);
 	else
 		rpki_vrf = VTY_GET_CONTEXT(rpki_vrf);
+
+	if (!rpki_vrf)
+		return CMD_WARNING_CONFIG_FAILED;
 
 	rpki_vrf->retry_interval = tmp;
 	return CMD_SUCCESS;
@@ -1829,6 +1877,9 @@ DEFUN (no_rpki_retry_interval,
 		rpki_vrf = VTY_GET_CONTEXT_SUB(rpki_vrf);
 	else
 		rpki_vrf = VTY_GET_CONTEXT(rpki_vrf);
+
+	if (!rpki_vrf)
+		return CMD_WARNING_CONFIG_FAILED;
 
 	rpki_vrf->retry_interval = RETRY_INTERVAL_DEFAULT;
 	return CMD_SUCCESS;
@@ -1860,6 +1911,9 @@ DEFPY(rpki_cache, rpki_cache_cmd,
 		rpki_vrf = VTY_GET_CONTEXT_SUB(rpki_vrf);
 	else
 		rpki_vrf = VTY_GET_CONTEXT(rpki_vrf);
+
+	if (!rpki_vrf)
+		return CMD_WARNING_CONFIG_FAILED;
 
 	if (!rpki_vrf || !rpki_vrf->cache_list)
 		return CMD_WARNING;
@@ -1929,6 +1983,9 @@ DEFPY (no_rpki_cache,
 		rpki_vrf = VTY_GET_CONTEXT_SUB(rpki_vrf);
 	else
 		rpki_vrf = VTY_GET_CONTEXT(rpki_vrf);
+
+	if (!rpki_vrf)
+		return CMD_WARNING_CONFIG_FAILED;
 
 	cache_list = rpki_vrf->cache_list;
 	cache_p = find_cache(preference, cache_list);
@@ -2422,6 +2479,10 @@ static int config_on_exit(struct vty *vty)
 		rpki_vrf = VTY_GET_CONTEXT_SUB(rpki_vrf);
 	else
 		rpki_vrf = VTY_GET_CONTEXT(rpki_vrf);
+
+	if (!rpki_vrf)
+		return CMD_WARNING_CONFIG_FAILED;
+
 	reset(false, rpki_vrf);
 	return 1;
 }
@@ -2454,6 +2515,10 @@ DEFPY (rpki_reset_config_mode,
 		rpki_vrf = VTY_GET_CONTEXT_SUB(rpki_vrf);
 	else
 		rpki_vrf = VTY_GET_CONTEXT(rpki_vrf);
+
+	if (!rpki_vrf)
+		return CMD_WARNING_CONFIG_FAILED;
+
 	return reset(true, rpki_vrf) == SUCCESS ? CMD_SUCCESS : CMD_WARNING;
 }
 
