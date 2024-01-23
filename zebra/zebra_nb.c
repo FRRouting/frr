@@ -589,6 +589,13 @@ const struct frr_yang_module_info frr_zebra_info = {
 			}
 		},
 		{
+			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/ipv6-router-advertisements/cur-hop-limit",
+			.cbs = {
+				.modify = lib_interface_zebra_ipv6_router_advertisements_cur_hop_limit_modify,
+				.destroy = lib_interface_zebra_ipv6_router_advertisements_cur_hop_limit_destroy,
+			}
+		},
+		{
 			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/ipv6-router-advertisements/default-lifetime",
 			.cbs = {
 				.modify = lib_interface_zebra_ipv6_router_advertisements_default_lifetime_modify,

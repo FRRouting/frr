@@ -2379,6 +2379,25 @@ module frr-zebra {
             "RFC 4861: Neighbor Discovery for IP version 6 (IPv6)
                        - AdvRetransTimer";
         }
+        leaf cur-hop-limit {
+          type uint8;
+          description
+            "The value to be placed in the Cur Hop Limit field in
+            the Router Advertisement messages sent by the router.
+            A value of zero means unspecified (by this router).
+
+            If this parameter is not configured, the device SHOULD
+            use the IANA-specified value for the default IPv4
+            Time to Live (TTL) parameter that was in effect at the
+            time of implementation.";
+          reference
+            "RFC 3232: Assigned Numbers: RFC 1700 is Replaced by
+                       an On-line Database
+             RFC 4861: Neighbor Discovery for IP version 6 (IPv6)
+                       - AdvCurHopLimit
+             IANA: IP Parameters
+                   (https://www.iana.org/assignments/ip-parameters)";
+        }
         leaf default-lifetime {
           type uint16 {
             range "0..9000";

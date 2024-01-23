@@ -2619,6 +2619,45 @@ int lib_interface_zebra_ipv6_router_advertisements_retrans_timer_modify(
 }
 
 /*
+ * XPath: /frr-interface:lib/interface/frr-zebra:zebra/ipv6-router-advertisements/cur-hop-limit
+ */
+int lib_interface_zebra_ipv6_router_advertisements_cur_hop_limit_modify(
+	struct nb_cb_modify_args *args)
+{
+	struct interface *ifp;
+	struct zebra_if *zif;
+	uint8_t limit;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	ifp = nb_running_get_entry(args->dnode, NULL, true);
+	zif = ifp->info;
+	limit = yang_dnode_get_uint8(args->dnode, NULL);
+
+	zif->rtadv.AdvCurHopLimit = limit;
+
+	return NB_OK;
+}
+
+int lib_interface_zebra_ipv6_router_advertisements_cur_hop_limit_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	struct interface *ifp;
+	struct zebra_if *zif;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	ifp = nb_running_get_entry(args->dnode, NULL, true);
+	zif = ifp->info;
+
+	zif->rtadv.AdvCurHopLimit = RTADV_DEFAULT_HOPLIMIT;
+
+	return NB_OK;
+}
+
+/*
  * XPath: /frr-interface:lib/interface/frr-zebra:zebra/ipv6-router-advertisements/default-lifetime
  */
 int lib_interface_zebra_ipv6_router_advertisements_default_lifetime_modify(

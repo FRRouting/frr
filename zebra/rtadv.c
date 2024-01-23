@@ -1573,49 +1573,24 @@ DEFUN (no_ipv6_nd_ra_fast_retrans,
 	return CMD_SUCCESS;
 }
 
-DEFPY (ipv6_nd_ra_hop_limit,
+DEFPY_YANG (ipv6_nd_ra_hop_limit,
        ipv6_nd_ra_hop_limit_cmd,
-       "ipv6 nd ra-hop-limit (0-255)$hopcount",
+       "[no] ipv6 nd ra-hop-limit ![(0-255)$hopcount]",
+       NO_STR
        "Interface IPv6 config commands\n"
        "Neighbor discovery\n"
        "Advertisement Hop Limit\n"
        "Advertisement Hop Limit in hops (default:64)\n")
 {
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	struct zebra_if *zif = ifp->info;
-
-	if (if_is_loopback(ifp)) {
-		vty_out(vty,
-			"Cannot configure IPv6 Router Advertisements on this interface\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	zif->rtadv.AdvCurHopLimit = hopcount;
-
-	return CMD_SUCCESS;
-}
-
-DEFPY (no_ipv6_nd_ra_hop_limit,
-       no_ipv6_nd_ra_hop_limit_cmd,
-       "no ipv6 nd ra-hop-limit [(0-255)]",
-       NO_STR
-       "Interface IPv6 config commands\n"
-       "Neighbor discovery\n"
-       "Advertisement Hop Limit\n"
-       "Advertisement Hop Limit in hops\n")
-{
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	struct zebra_if *zif = ifp->info;
-
-	if (if_is_loopback(ifp)) {
-		vty_out(vty,
-			"Cannot configure IPv6 Router Advertisements on this interface\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	zif->rtadv.AdvCurHopLimit = RTADV_DEFAULT_HOPLIMIT;
-
-	return CMD_SUCCESS;
+	if (!no)
+		nb_cli_enqueue_change(vty,
+				      "./frr-zebra:zebra/ipv6-router-advertisements/cur-hop-limit",
+				      NB_OP_MODIFY, hopcount_str);
+	else
+		nb_cli_enqueue_change(vty,
+				      "./frr-zebra:zebra/ipv6-router-advertisements/cur-hop-limit",
+				      NB_OP_DESTROY, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFPY_YANG (ipv6_nd_ra_retrans_interval,
@@ -2740,7 +2715,6 @@ void rtadv_cmd_init(void)
 	install_element(INTERFACE_NODE, &no_ipv6_nd_ra_fast_retrans_cmd);
 	install_element(INTERFACE_NODE, &ipv6_nd_ra_retrans_interval_cmd);
 	install_element(INTERFACE_NODE, &ipv6_nd_ra_hop_limit_cmd);
-	install_element(INTERFACE_NODE, &no_ipv6_nd_ra_hop_limit_cmd);
 	install_element(INTERFACE_NODE, &ipv6_nd_suppress_ra_cmd);
 	install_element(INTERFACE_NODE, &ipv6_nd_ra_interval_cmd);
 	install_element(INTERFACE_NODE, &ipv6_nd_ra_lifetime_cmd);
