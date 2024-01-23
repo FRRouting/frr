@@ -1970,9 +1970,12 @@ DEFPY (no_rpki_cache,
 	else
 		rpki_vrf = VTY_GET_CONTEXT(rpki_vrf);
 
+	if (!rpki_vrf)
+		return CMD_WARNING;
+
 	cache_list = rpki_vrf->cache_list;
 	cache_p = find_cache(preference, cache_list);
-	if (!rpki_vrf || !cache_p) {
+	if (!cache_p) {
 		vty_out(vty, "Could not find cache with preference %ld\n",
 			preference);
 		return CMD_WARNING;
