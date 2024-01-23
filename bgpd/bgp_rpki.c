@@ -1621,11 +1621,15 @@ DEFUN_NOSH (rpki,
 {
 	struct rpki_vrf *rpki_vrf;
 	char *vrfname = NULL;
+	struct vrf *vrf;
 
 	if (vty->node == CONFIG_NODE)
 		vty->node = RPKI_NODE;
 	else {
-		struct vrf *vrf = VTY_GET_CONTEXT(vrf);
+		vrf = VTY_GET_CONTEXT(vrf);
+
+		if (!vrf)
+			return CMD_WARNING;
 
 		vty->node = RPKI_VRF_NODE;
 		if (vrf->vrf_id != VRF_DEFAULT)
@@ -1732,6 +1736,9 @@ DEFPY (rpki_polling_period,
 	else
 		rpki_vrf = VTY_GET_CONTEXT(rpki_vrf);
 
+	if (!rpki_vrf)
+		return CMD_WARNING_CONFIG_FAILED;
+
 	rpki_vrf->polling_period = pp;
 	return CMD_SUCCESS;
 }
@@ -1751,6 +1758,9 @@ DEFUN (no_rpki_polling_period,
 	else
 		rpki_vrf = VTY_GET_CONTEXT(rpki_vrf);
 
+	if (!rpki_vrf)
+		return CMD_WARNING_CONFIG_FAILED;
+
 	rpki_vrf->polling_period = POLLING_PERIOD_DEFAULT;
 	return CMD_SUCCESS;
 }
@@ -1768,6 +1778,9 @@ DEFPY (rpki_expire_interval,
 		rpki_vrf = VTY_GET_CONTEXT_SUB(rpki_vrf);
 	else
 		rpki_vrf = VTY_GET_CONTEXT(rpki_vrf);
+
+	if (!rpki_vrf)
+		return CMD_WARNING_CONFIG_FAILED;
 
 	if ((unsigned int)tmp >= rpki_vrf->polling_period) {
 		rpki_vrf->expire_interval = tmp;
@@ -1793,6 +1806,9 @@ DEFUN (no_rpki_expire_interval,
 	else
 		rpki_vrf = VTY_GET_CONTEXT(rpki_vrf);
 
+	if (!rpki_vrf)
+		return CMD_WARNING_CONFIG_FAILED;
+
 	rpki_vrf->expire_interval = rpki_vrf->polling_period * 2;
 	return CMD_SUCCESS;
 }
@@ -1810,6 +1826,9 @@ DEFPY (rpki_retry_interval,
 		rpki_vrf = VTY_GET_CONTEXT_SUB(rpki_vrf);
 	else
 		rpki_vrf = VTY_GET_CONTEXT(rpki_vrf);
+
+	if (!rpki_vrf)
+		return CMD_WARNING_CONFIG_FAILED;
 
 	rpki_vrf->retry_interval = tmp;
 	return CMD_SUCCESS;
@@ -1829,6 +1848,9 @@ DEFUN (no_rpki_retry_interval,
 		rpki_vrf = VTY_GET_CONTEXT_SUB(rpki_vrf);
 	else
 		rpki_vrf = VTY_GET_CONTEXT(rpki_vrf);
+
+	if (!rpki_vrf)
+		return CMD_WARNING_CONFIG_FAILED;
 
 	rpki_vrf->retry_interval = RETRY_INTERVAL_DEFAULT;
 	return CMD_SUCCESS;
@@ -1860,6 +1882,9 @@ DEFPY(rpki_cache, rpki_cache_cmd,
 		rpki_vrf = VTY_GET_CONTEXT_SUB(rpki_vrf);
 	else
 		rpki_vrf = VTY_GET_CONTEXT(rpki_vrf);
+
+	if (!rpki_vrf)
+		return CMD_WARNING_CONFIG_FAILED;
 
 	if (!rpki_vrf || !rpki_vrf->cache_list)
 		return CMD_WARNING;
@@ -1929,6 +1954,9 @@ DEFPY (no_rpki_cache,
 		rpki_vrf = VTY_GET_CONTEXT_SUB(rpki_vrf);
 	else
 		rpki_vrf = VTY_GET_CONTEXT(rpki_vrf);
+
+	if (!rpki_vrf)
+		return CMD_WARNING_CONFIG_FAILED;
 
 	cache_list = rpki_vrf->cache_list;
 	cache_p = find_cache(preference, cache_list);
@@ -2422,6 +2450,10 @@ static int config_on_exit(struct vty *vty)
 		rpki_vrf = VTY_GET_CONTEXT_SUB(rpki_vrf);
 	else
 		rpki_vrf = VTY_GET_CONTEXT(rpki_vrf);
+
+	if (!rpki_vrf)
+		return CMD_WARNING_CONFIG_FAILED;
+
 	reset(false, rpki_vrf);
 	return 1;
 }
@@ -2454,6 +2486,10 @@ DEFPY (rpki_reset_config_mode,
 		rpki_vrf = VTY_GET_CONTEXT_SUB(rpki_vrf);
 	else
 		rpki_vrf = VTY_GET_CONTEXT(rpki_vrf);
+
+	if (!rpki_vrf)
+		return CMD_WARNING_CONFIG_FAILED;
+
 	return reset(true, rpki_vrf) == SUCCESS ? CMD_SUCCESS : CMD_WARNING;
 }
 
