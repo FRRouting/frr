@@ -181,6 +181,8 @@ int lib_interface_zebra_evpn_mh_df_preference_modify(
 	struct nb_cb_modify_args *args);
 int lib_interface_zebra_evpn_mh_bypass_modify(struct nb_cb_modify_args *args);
 int lib_interface_zebra_evpn_mh_uplink_modify(struct nb_cb_modify_args *args);
+int lib_interface_zebra_ipv6_router_advertisements_send_advertisements_modify(
+	struct nb_cb_modify_args *args);
 struct yang_data *
 lib_interface_zebra_state_up_count_get_elem(struct nb_cb_get_elem_args *args);
 struct yang_data *

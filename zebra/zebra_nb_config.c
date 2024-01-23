@@ -2456,6 +2456,36 @@ int lib_interface_zebra_evpn_mh_uplink_modify(struct nb_cb_modify_args *args)
 }
 
 /*
+ * XPath: /frr-interface:lib/interface/frr-zebra:zebra/ipv6-router-advertisements/send-advertisements
+ */
+int lib_interface_zebra_ipv6_router_advertisements_send_advertisements_modify(
+	struct nb_cb_modify_args *args)
+{
+	struct interface *ifp;
+	struct zebra_if *zif;
+	bool send_adv;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	ifp = nb_running_get_entry(args->dnode, NULL, true);
+	zif = ifp->info;
+
+	send_adv = yang_dnode_get_bool(args->dnode, NULL);
+
+	if (send_adv) {
+		ipv6_nd_suppress_ra_set(ifp, RA_ENABLE);
+		SET_FLAG(zif->rtadv.ra_configured, VTY_RA_CONFIGURED);
+	} else {
+		if (!CHECK_FLAG(zif->rtadv.ra_configured, BGP_RA_CONFIGURED))
+			ipv6_nd_suppress_ra_set(ifp, RA_SUPPRESS);
+		UNSET_FLAG(zif->rtadv.ra_configured, VTY_RA_CONFIGURED);
+	}
+
+	return NB_OK;
+}
+
+/*
  * XPath: /frr-vrf:lib/vrf/frr-zebra:zebra/l3vni-id
  */
 int lib_vrf_zebra_l3vni_id_modify(struct nb_cb_modify_args *args)

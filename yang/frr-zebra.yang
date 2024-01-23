@@ -2264,6 +2264,21 @@ module frr-zebra {
             "Uplink to the VxLAN core.";
         }
       }
+      container ipv6-router-advertisements {
+        description
+          "Support for IPv6 Router Advertisements.";
+        leaf send-advertisements {
+          type boolean;
+          default "false";
+          description
+            "A flag indicating whether or not the router sends
+            periodic Router Advertisements and responds to
+            Router Solicitations.";
+          reference
+            "RFC 4861: Neighbor Discovery for IP version 6 (IPv6)
+                       - AdvSendAdvertisements";
+        }
+      }
       container state {
         config false;
         description

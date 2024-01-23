@@ -385,6 +385,9 @@ extern void rtadv_if_fini(struct zebra_if *zif);
 extern void rtadv_add_prefix(struct zebra_if *zif, const struct prefix_ipv6 *p);
 extern void rtadv_delete_prefix(struct zebra_if *zif, const struct prefix *p);
 
+void ipv6_nd_suppress_ra_set(struct interface *ifp,
+			     enum ipv6_nd_suppress_ra_status status);
+
 #else /* !HAVE_RTADV */
 struct rtadv {
 	/* empty structs aren't valid ISO C */

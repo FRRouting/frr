@@ -21,6 +21,7 @@
 #include "vrf.h"
 #include "ns.h"
 #include "lib_errors.h"
+#include "northbound_cli.h"
 
 #include "zebra/interface.h"
 #include "zebra/rtadv.h"
@@ -1248,8 +1249,8 @@ static void rtadv_start_interface_events(struct zebra_vrf *zvrf,
 		rtadv_event(zvrf, RTADV_START, 0);
 }
 
-static void ipv6_nd_suppress_ra_set(struct interface *ifp,
-				    enum ipv6_nd_suppress_ra_status status)
+void ipv6_nd_suppress_ra_set(struct interface *ifp,
+			     enum ipv6_nd_suppress_ra_status status)
 {
 	struct zebra_if *zif;
 	struct zebra_vrf *zvrf;
@@ -1632,49 +1633,23 @@ DEFPY (no_ipv6_nd_ra_retrans_interval,
 	return CMD_SUCCESS;
 }
 
-DEFUN (ipv6_nd_suppress_ra,
+DEFPY_YANG (ipv6_nd_suppress_ra,
        ipv6_nd_suppress_ra_cmd,
-       "ipv6 nd suppress-ra",
-       "Interface IPv6 config commands\n"
-       "Neighbor discovery\n"
-       "Suppress Router Advertisement\n")
-{
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	struct zebra_if *zif = ifp->info;
-
-	if (if_is_loopback(ifp)) {
-		vty_out(vty,
-			"Cannot configure IPv6 Router Advertisements on this  interface\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	if (!CHECK_FLAG(zif->rtadv.ra_configured, BGP_RA_CONFIGURED))
-		ipv6_nd_suppress_ra_set(ifp, RA_SUPPRESS);
-
-	UNSET_FLAG(zif->rtadv.ra_configured, VTY_RA_CONFIGURED);
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_ipv6_nd_suppress_ra,
-       no_ipv6_nd_suppress_ra_cmd,
-       "no ipv6 nd suppress-ra",
+       "[no] ipv6 nd suppress-ra",
        NO_STR
        "Interface IPv6 config commands\n"
        "Neighbor discovery\n"
        "Suppress Router Advertisement\n")
 {
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	struct zebra_if *zif = ifp->info;
-
-	if (if_is_loopback(ifp)) {
-		vty_out(vty,
-			"Cannot configure IPv6 Router Advertisements on this interface\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	ipv6_nd_suppress_ra_set(ifp, RA_ENABLE);
-	SET_FLAG(zif->rtadv.ra_configured, VTY_RA_CONFIGURED);
-	return CMD_SUCCESS;
+	if (no)
+		nb_cli_enqueue_change(vty,
+				      "./frr-zebra:zebra/ipv6-router-advertisements/send-advertisements",
+				      NB_OP_MODIFY, "true");
+	else
+		nb_cli_enqueue_change(vty,
+				      "./frr-zebra:zebra/ipv6-router-advertisements/send-advertisements",
+				      NB_OP_DESTROY, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFUN (ipv6_nd_ra_interval_msec,
@@ -2928,7 +2903,6 @@ void rtadv_cmd_init(void)
 	install_element(INTERFACE_NODE, &ipv6_nd_ra_hop_limit_cmd);
 	install_element(INTERFACE_NODE, &no_ipv6_nd_ra_hop_limit_cmd);
 	install_element(INTERFACE_NODE, &ipv6_nd_suppress_ra_cmd);
-	install_element(INTERFACE_NODE, &no_ipv6_nd_suppress_ra_cmd);
 	install_element(INTERFACE_NODE, &ipv6_nd_ra_interval_cmd);
 	install_element(INTERFACE_NODE, &ipv6_nd_ra_interval_msec_cmd);
 	install_element(INTERFACE_NODE, &no_ipv6_nd_ra_interval_cmd);
