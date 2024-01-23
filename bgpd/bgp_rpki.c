@@ -1851,6 +1851,9 @@ DEFPY (rpki_retry_interval,
 	else
 		rpki_vrf = VTY_GET_CONTEXT(rpki_vrf);
 
+	if (!rpki_vrf)
+		return CMD_WARNING_CONFIG_FAILED;
+
 	rpki_vrf->retry_interval = tmp;
 	return CMD_SUCCESS;
 }
