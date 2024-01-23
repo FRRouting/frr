@@ -1330,8 +1330,10 @@ static int rpki_create_socket(void *_cache)
 	frr_with_privs (&bgpd_privs) {
 		ret = vrf_getaddrinfo(host, port, &hints, &res, vrf->vrf_id);
 	}
-	if (ret != 0)
+	if (ret != 0) {
+		freeaddrinfo(res);
 		return -1;
+	}
 
 	frr_with_privs (&bgpd_privs) {
 		socket = vrf_socket(res->ai_family, res->ai_socktype,
