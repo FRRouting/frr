@@ -2416,7 +2416,7 @@ DEFPY(show_rpki_configuration, show_rpki_configuration_cmd,
 	if (!rpki_vrf) {
 		if (uj)
 			vty_json(vty, json);
-		return CMD_SUCCESS;
+		return CMD_WARNING_CONFIG_FAILED;
 	}
 
 	if (uj) {
