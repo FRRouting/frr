@@ -216,11 +216,11 @@ typedef enum {
 	ZEBRA_NEIGH_DISCOVER,
 	ZEBRA_ROUTE_NOTIFY_REQUEST,
 	ZEBRA_CLIENT_CLOSE_NOTIFY,
-	ZEBRA_NHRP_NEIGH_ADDED,
-	ZEBRA_NHRP_NEIGH_REMOVED,
-	ZEBRA_NHRP_NEIGH_GET,
-	ZEBRA_NHRP_NEIGH_REGISTER,
-	ZEBRA_NHRP_NEIGH_UNREGISTER,
+	ZEBRA_NEIGH_ADDED,
+	ZEBRA_NEIGH_REMOVED,
+	ZEBRA_NEIGH_GET,
+	ZEBRA_NEIGH_REGISTER,
+	ZEBRA_NEIGH_UNREGISTER,
 	ZEBRA_NEIGH_IP_ADD,
 	ZEBRA_NEIGH_IP_DEL,
 	ZEBRA_CONFIGURE_ARP,
@@ -867,6 +867,7 @@ extern const struct zclient_options zclient_options_auxiliary;
 
 struct zapi_neigh_ip {
 	int cmd;
+	int ip_len;
 	struct ipaddr ip_in;
 	struct ipaddr ip_out;
 	ifindex_t index;
@@ -875,7 +876,7 @@ struct zapi_neigh_ip {
 int zclient_neigh_ip_decode(struct stream *s, struct zapi_neigh_ip *api);
 int zclient_neigh_ip_encode(struct stream *s, uint16_t cmd, union sockunion *in,
 			    union sockunion *out, struct interface *ifp,
-			    int ndm_state);
+			    int ndm_state, int ip_len);
 
 /*
  * We reserve the top 4 bits for l2-NHG, everything else
@@ -1321,6 +1322,9 @@ enum zapi_opaque_registry {
  * Returns 0 for success or -1 on an I/O error.
  */
 extern enum zclient_send_status zclient_send_hello(struct zclient *client);
+
+extern void zclient_register_neigh(struct zclient *zclient, vrf_id_t vrf_id,
+				   afi_t afi, bool reg);
 
 extern enum zclient_send_status
 zclient_send_neigh_discovery_req(struct zclient *zclient,

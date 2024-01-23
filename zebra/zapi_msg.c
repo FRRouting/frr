@@ -968,9 +968,9 @@ void zsend_ipset_entry_notify_owner(const struct zebra_dplane_ctx *ctx,
 	zserv_send_message(client, s);
 }
 
-void zsend_nhrp_neighbor_notify(int cmd, struct interface *ifp,
-				struct ipaddr *ipaddr, int ndm_state,
-				union sockunion *link_layer_ipv4)
+void zsend_neighbor_notify(int cmd, struct interface *ifp,
+			   struct ipaddr *ipaddr, int ndm_state,
+			   union sockunion *link_layer_ipv4, int ip_len)
 {
 	struct stream *s;
 	struct listnode *node, *nnode;
@@ -987,13 +987,13 @@ void zsend_nhrp_neighbor_notify(int cmd, struct interface *ifp,
 	       family2addrsize(sockunion_family(&ip)));
 
 	for (ALL_LIST_ELEMENTS(zrouter.client_list, node, nnode, client)) {
-		if (!vrf_bitmap_check(&client->nhrp_neighinfo[afi],
+		if (!vrf_bitmap_check(&client->neighinfo[afi],
 				      ifp->vrf->vrf_id))
 			continue;
 
 		s = stream_new(ZEBRA_MAX_PACKET_SIZ);
 		zclient_neigh_ip_encode(s, cmd, &ip, link_layer_ipv4, ifp,
-					ndm_state);
+					ndm_state, ip_len);
 		stream_putw_at(s, 0, stream_get_endp(s));
 		zserv_send_message(client, s);
 	}
@@ -2431,7 +2431,7 @@ static void zread_vrf_unregister(ZAPI_HANDLER_ARGS)
 					 zvrf_id(zvrf));
 		vrf_bitmap_unset(&client->redist_default[afi], zvrf_id(zvrf));
 		vrf_bitmap_unset(&client->ridinfo[afi], zvrf_id(zvrf));
-		vrf_bitmap_unset(&client->nhrp_neighinfo[afi], zvrf_id(zvrf));
+		vrf_bitmap_unset(&client->neighinfo[afi], zvrf_id(zvrf));
 	}
 }
 
@@ -3563,7 +3563,7 @@ static inline void zebra_neigh_register(ZAPI_HANDLER_ARGS)
 			afi);
 		goto stream_failure;
 	}
-	vrf_bitmap_set(&client->nhrp_neighinfo[afi], zvrf_id(zvrf));
+	vrf_bitmap_set(&client->neighinfo[afi], zvrf_id(zvrf));
 stream_failure:
 	return;
 }
@@ -3579,7 +3579,7 @@ static inline void zebra_neigh_unregister(ZAPI_HANDLER_ARGS)
 			afi);
 		goto stream_failure;
 	}
-	vrf_bitmap_unset(&client->nhrp_neighinfo[afi], zvrf_id(zvrf));
+	vrf_bitmap_unset(&client->neighinfo[afi], zvrf_id(zvrf));
 stream_failure:
 	return;
 }
@@ -3936,8 +3936,8 @@ void (*const zserv_handlers[])(ZAPI_HANDLER_ARGS) = {
 	[ZEBRA_EVPN_REMOTE_NH_DEL] = zebra_evpn_proc_remote_nh,
 	[ZEBRA_NEIGH_IP_ADD] = zebra_neigh_ip_add,
 	[ZEBRA_NEIGH_IP_DEL] = zebra_neigh_ip_del,
-	[ZEBRA_NHRP_NEIGH_REGISTER] = zebra_neigh_register,
-	[ZEBRA_NHRP_NEIGH_UNREGISTER] = zebra_neigh_unregister,
+	[ZEBRA_NEIGH_REGISTER] = zebra_neigh_register,
+	[ZEBRA_NEIGH_UNREGISTER] = zebra_neigh_unregister,
 	[ZEBRA_CONFIGURE_ARP] = zebra_configure_arp,
 	[ZEBRA_GRE_GET] = zebra_gre_get,
 	[ZEBRA_GRE_SOURCE_SET] = zebra_gre_source_set,
