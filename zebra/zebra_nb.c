@@ -571,6 +571,12 @@ const struct frr_yang_module_info frr_zebra_info = {
 			}
 		},
 		{
+			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/ipv6-router-advertisements/home-agent-flag",
+			.cbs = {
+				.modify = lib_interface_zebra_ipv6_router_advertisements_home_agent_flag_modify,
+			}
+		},
+		{
 			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/ipv6-router-advertisements/link-mtu",
 			.cbs = {
 				.modify = lib_interface_zebra_ipv6_router_advertisements_link_mtu_modify,

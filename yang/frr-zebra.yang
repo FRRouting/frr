@@ -2342,6 +2342,15 @@ module frr-zebra {
             "RFC 4861: Neighbor Discovery for IP version 6 (IPv6)
                        - AdvOtherConfigFlag";
         }
+        leaf home-agent-flag {
+          type boolean;
+          default "false";
+          description
+            "The value to be placed in the 'Home Agent'
+            flag field in the Router Advertisement.";
+          reference
+            "RFC 6275: Mobility Support in IPv6";
+        }
         leaf link-mtu {
           type uint32;
           default "0";

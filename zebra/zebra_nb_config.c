@@ -2552,6 +2552,29 @@ int lib_interface_zebra_ipv6_router_advertisements_other_config_flag_modify(
 }
 
 /*
+ * XPath: /frr-interface:lib/interface/frr-zebra:zebra/ipv6-router-advertisements/home-agent-flag
+ */
+int lib_interface_zebra_ipv6_router_advertisements_home_agent_flag_modify(
+	struct nb_cb_modify_args *args)
+{
+	struct interface *ifp;
+	struct zebra_if *zif;
+	bool home_agent_flag;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	ifp = nb_running_get_entry(args->dnode, NULL, true);
+	zif = ifp->info;
+
+	home_agent_flag = yang_dnode_get_bool(args->dnode, NULL);
+
+	zif->rtadv.AdvHomeAgentFlag = !!home_agent_flag;
+
+	return NB_OK;
+}
+
+/*
  * XPath: /frr-interface:lib/interface/frr-zebra:zebra/ipv6-router-advertisements/link-mtu
  */
 int lib_interface_zebra_ipv6_router_advertisements_link_mtu_modify(

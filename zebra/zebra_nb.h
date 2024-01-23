@@ -189,6 +189,8 @@ int lib_interface_zebra_ipv6_router_advertisements_managed_flag_modify(
 	struct nb_cb_modify_args *args);
 int lib_interface_zebra_ipv6_router_advertisements_other_config_flag_modify(
 	struct nb_cb_modify_args *args);
+int lib_interface_zebra_ipv6_router_advertisements_home_agent_flag_modify(
+	struct nb_cb_modify_args *args);
 int lib_interface_zebra_ipv6_router_advertisements_link_mtu_modify(
 	struct nb_cb_modify_args *args);
 int lib_interface_zebra_ipv6_router_advertisements_reachable_time_modify(
