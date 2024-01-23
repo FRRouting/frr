@@ -1353,11 +1353,27 @@ static int rpki_create_socket(void *_cache)
 	timeout.tv_usec = 0;
 
 	optlen = sizeof(prev_rcv_tmout);
-	getsockopt(socket, SOL_SOCKET, SO_RCVTIMEO, &prev_rcv_tmout, &optlen);
-	getsockopt(socket, SOL_SOCKET, SO_SNDTIMEO, &prev_snd_tmout, &optlen);
+	ret = getsockopt(socket, SOL_SOCKET, SO_RCVTIMEO, &prev_rcv_tmout,
+			 &optlen);
+	if (ret < 0)
+		zlog_warn("%s: failed to getsockopt SO_RCVTIMEO for socket %d",
+			  __func__, socket);
+	ret = getsockopt(socket, SOL_SOCKET, SO_SNDTIMEO, &prev_snd_tmout,
+			 &optlen);
+	if (ret < 0)
+		zlog_warn("%s: failed to getsockopt SO_SNDTIMEO for socket %d",
+			  __func__, socket);
+	ret = setsockopt(socket, SOL_SOCKET, SO_RCVTIMEO, &timeout,
+			 sizeof(timeout));
+	if (ret < 0)
+		zlog_warn("%s: failed to setsockopt SO_RCVTIMEO for socket %d",
+			  __func__, socket);
 
-	setsockopt(socket, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout));
-	setsockopt(socket, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof(timeout));
+	ret = setsockopt(socket, SOL_SOCKET, SO_SNDTIMEO, &timeout,
+			 sizeof(timeout));
+	if (ret < 0)
+		zlog_warn("%s: failed to setsockopt SO_SNDTIMEO for socket %d",
+			  __func__, socket);
 
 	if (connect(socket, res->ai_addr, res->ai_addrlen) == -1) {
 		freeaddrinfo(res);
@@ -1369,10 +1385,17 @@ static int rpki_create_socket(void *_cache)
 	freeaddrinfo(res);
 	pthread_setcancelstate(cancel_state, NULL);
 
-	setsockopt(socket, SOL_SOCKET, SO_RCVTIMEO, &prev_rcv_tmout,
-		   sizeof(prev_rcv_tmout));
-	setsockopt(socket, SOL_SOCKET, SO_SNDTIMEO, &prev_snd_tmout,
-		   sizeof(prev_snd_tmout));
+	ret = setsockopt(socket, SOL_SOCKET, SO_RCVTIMEO, &prev_rcv_tmout,
+			 sizeof(prev_rcv_tmout));
+	if (ret < 0)
+		zlog_warn("%s: failed to setsockopt SO_RCVTIMEO for socket %d",
+			  __func__, socket);
+
+	ret = setsockopt(socket, SOL_SOCKET, SO_SNDTIMEO, &prev_snd_tmout,
+			 sizeof(prev_snd_tmout));
+	if (ret < 0)
+		zlog_warn("%s: failed to setsockopt SO_SNDTIMEO for socket %d",
+			  __func__, socket);
 
 	return socket;
 }
