@@ -2090,34 +2090,24 @@ DEFUN (no_ipv6_nd_router_preference,
 	return CMD_SUCCESS;
 }
 
-DEFUN (ipv6_nd_mtu,
+DEFPY_YANG (ipv6_nd_mtu,
        ipv6_nd_mtu_cmd,
-       "ipv6 nd mtu (1-65535)",
-       "Interface IPv6 config commands\n"
-       "Neighbor discovery\n"
-       "Advertised MTU\n"
-       "MTU in bytes\n")
-{
-	int idx_number = 3;
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	struct zebra_if *zif = ifp->info;
-	zif->rtadv.AdvLinkMTU = strtoul(argv[idx_number]->arg, NULL, 10);
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_ipv6_nd_mtu,
-       no_ipv6_nd_mtu_cmd,
-       "no ipv6 nd mtu [(1-65535)]",
+       "[no] ipv6 nd mtu ![(1-65535)]",
        NO_STR
        "Interface IPv6 config commands\n"
        "Neighbor discovery\n"
        "Advertised MTU\n"
        "MTU in bytes\n")
 {
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	struct zebra_if *zif = ifp->info;
-	zif->rtadv.AdvLinkMTU = 0;
-	return CMD_SUCCESS;
+	if (!no)
+		nb_cli_enqueue_change(vty,
+				      "./frr-zebra:zebra/ipv6-router-advertisements/link-mtu",
+				      NB_OP_MODIFY, mtu_str);
+	else
+		nb_cli_enqueue_change(vty,
+				      "./frr-zebra:zebra/ipv6-router-advertisements/link-mtu",
+				      NB_OP_DESTROY, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 static struct rtadv_rdnss *rtadv_rdnss_new(void)
@@ -2798,7 +2788,6 @@ void rtadv_cmd_init(void)
 	install_element(INTERFACE_NODE, &ipv6_nd_router_preference_cmd);
 	install_element(INTERFACE_NODE, &no_ipv6_nd_router_preference_cmd);
 	install_element(INTERFACE_NODE, &ipv6_nd_mtu_cmd);
-	install_element(INTERFACE_NODE, &no_ipv6_nd_mtu_cmd);
 	install_element(INTERFACE_NODE, &ipv6_nd_rdnss_cmd);
 	install_element(INTERFACE_NODE, &no_ipv6_nd_rdnss_cmd);
 	install_element(INTERFACE_NODE, &ipv6_nd_dnssl_cmd);

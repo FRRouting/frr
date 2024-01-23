@@ -2342,6 +2342,17 @@ module frr-zebra {
             "RFC 4861: Neighbor Discovery for IP version 6 (IPv6)
                        - AdvOtherConfigFlag";
         }
+        leaf link-mtu {
+          type uint32;
+          default "0";
+          description
+            "The value to be placed in MTU options sent by the
+            router.  A value of zero indicates that no MTU options
+            are sent.";
+          reference
+            "RFC 4861: Neighbor Discovery for IP version 6 (IPv6)
+                       - AdvLinkMTU";
+        }
         leaf reachable-time {
           type uint32 {
             range "0..3600000";
