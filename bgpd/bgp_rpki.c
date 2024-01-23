@@ -1276,7 +1276,7 @@ static int rpki_create_socket(void *_cache)
 {
 	struct timeval prev_snd_tmout, prev_rcv_tmout, timeout;
 	struct cache *cache = (struct cache *)_cache;
-	struct rpki_vrf *rpki_vrf = cache->rpki_vrf;
+	struct rpki_vrf *rpki_vrf;
 	struct tr_tcp_config *tcp_config;
 	struct addrinfo *res = NULL;
 	struct addrinfo hints = {};
@@ -1293,6 +1293,8 @@ static int rpki_create_socket(void *_cache)
 
 	if (!cache)
 		return -1;
+
+	rpki_vrf = cache->rpki_vrf;
 
 	if (rpki_vrf->vrfname == NULL)
 		vrf = vrf_lookup_by_id(VRF_DEFAULT);
