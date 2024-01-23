@@ -1224,7 +1224,7 @@ void bgp_capability_send(struct peer *peer, afi_t afi, safi_t safi,
 	if (!peer_established(peer->connection))
 		return;
 
-	if (!CHECK_FLAG(peer->cap, PEER_CAP_DYNAMIC_RCV) &&
+	if (!CHECK_FLAG(peer->cap, PEER_CAP_DYNAMIC_RCV) ||
 	    !CHECK_FLAG(peer->cap, PEER_CAP_DYNAMIC_ADV))
 		return;
 
