@@ -2321,6 +2321,20 @@ module frr-zebra {
              RFC 6275: Mobility Support in IPv6";
         }
         */
+        leaf reachable-time {
+          type uint32 {
+            range "0..3600000";
+          }
+          units "milliseconds";
+          default "0";
+          description
+            "The value to be placed in the Reachable Time field in
+            the Router Advertisement messages sent by the router.
+            A value of zero means unspecified (by this router).";
+          reference
+            "RFC 4861: Neighbor Discovery for IP version 6 (IPv6)
+                       - AdvReachableTime";
+        }
         leaf default-lifetime {
           type uint16 {
             range "0..9000";

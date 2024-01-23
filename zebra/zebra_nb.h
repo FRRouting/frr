@@ -185,6 +185,8 @@ int lib_interface_zebra_ipv6_router_advertisements_send_advertisements_modify(
 	struct nb_cb_modify_args *args);
 int lib_interface_zebra_ipv6_router_advertisements_max_rtr_adv_interval_modify(
 	struct nb_cb_modify_args *args);
+int lib_interface_zebra_ipv6_router_advertisements_reachable_time_modify(
+	struct nb_cb_modify_args *args);
 int lib_interface_zebra_ipv6_router_advertisements_default_lifetime_modify(
 	struct nb_cb_modify_args *args);
 int lib_interface_zebra_ipv6_router_advertisements_default_lifetime_destroy(

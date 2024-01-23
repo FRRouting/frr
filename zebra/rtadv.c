@@ -1732,36 +1732,24 @@ DEFPY_YANG (ipv6_nd_ra_lifetime,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFUN (ipv6_nd_reachable_time,
+DEFPY_YANG (ipv6_nd_reachable_time,
        ipv6_nd_reachable_time_cmd,
-       "ipv6 nd reachable-time (1-3600000)",
-       "Interface IPv6 config commands\n"
-       "Neighbor discovery\n"
-       "Reachable time\n"
-       "Reachable time in milliseconds\n")
-{
-	int idx_number = 3;
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	struct zebra_if *zif = ifp->info;
-	zif->rtadv.AdvReachableTime = strtoul(argv[idx_number]->arg, NULL, 10);
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_ipv6_nd_reachable_time,
-       no_ipv6_nd_reachable_time_cmd,
-       "no ipv6 nd reachable-time [(1-3600000)]",
+       "[no] ipv6 nd reachable-time ![(1-3600000)$msec]",
        NO_STR
        "Interface IPv6 config commands\n"
        "Neighbor discovery\n"
        "Reachable time\n"
        "Reachable time in milliseconds\n")
 {
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	struct zebra_if *zif = ifp->info;
-
-	zif->rtadv.AdvReachableTime = 0;
-
-	return CMD_SUCCESS;
+	if (!no)
+		nb_cli_enqueue_change(vty,
+				      "./frr-zebra:zebra/ipv6-router-advertisements/reachable-time",
+				      NB_OP_MODIFY, msec_str);
+	else
+		nb_cli_enqueue_change(vty,
+				      "./frr-zebra:zebra/ipv6-router-advertisements/reachable-time",
+				      NB_OP_DESTROY, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFUN (ipv6_nd_homeagent_preference,
@@ -2817,7 +2805,6 @@ void rtadv_cmd_init(void)
 	install_element(INTERFACE_NODE, &ipv6_nd_ra_interval_cmd);
 	install_element(INTERFACE_NODE, &ipv6_nd_ra_lifetime_cmd);
 	install_element(INTERFACE_NODE, &ipv6_nd_reachable_time_cmd);
-	install_element(INTERFACE_NODE, &no_ipv6_nd_reachable_time_cmd);
 	install_element(INTERFACE_NODE, &ipv6_nd_managed_config_flag_cmd);
 	install_element(INTERFACE_NODE, &no_ipv6_nd_managed_config_flag_cmd);
 	install_element(INTERFACE_NODE, &ipv6_nd_other_config_flag_cmd);

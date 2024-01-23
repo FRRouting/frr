@@ -2506,6 +2506,28 @@ int lib_interface_zebra_ipv6_router_advertisements_max_rtr_adv_interval_modify(
 }
 
 /*
+ * XPath: /frr-interface:lib/interface/frr-zebra:zebra/ipv6-router-advertisements/reachable-time
+ */
+int lib_interface_zebra_ipv6_router_advertisements_reachable_time_modify(
+	struct nb_cb_modify_args *args)
+{
+	struct interface *ifp;
+	struct zebra_if *zif;
+	uint32_t time;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	ifp = nb_running_get_entry(args->dnode, NULL, true);
+	zif = ifp->info;
+	time = yang_dnode_get_uint32(args->dnode, NULL);
+
+	zif->rtadv.AdvReachableTime = time;
+
+	return NB_OK;
+}
+
+/*
  * XPath: /frr-interface:lib/interface/frr-zebra:zebra/ipv6-router-advertisements/default-lifetime
  */
 int lib_interface_zebra_ipv6_router_advertisements_default_lifetime_modify(
