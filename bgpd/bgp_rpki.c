@@ -2462,6 +2462,10 @@ static int config_on_exit(struct vty *vty)
 		rpki_vrf = VTY_GET_CONTEXT_SUB(rpki_vrf);
 	else
 		rpki_vrf = VTY_GET_CONTEXT(rpki_vrf);
+
+	if (!rpki_vrf)
+		return CMD_WARNING_CONFIG_FAILED;
+
 	reset(false, rpki_vrf);
 	return 1;
 }
