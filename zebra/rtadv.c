@@ -1530,47 +1530,23 @@ DEFPY(show_ipv6_nd_ra_if, show_ipv6_nd_ra_if_cmd,
 	return CMD_SUCCESS;
 }
 
-DEFUN (ipv6_nd_ra_fast_retrans,
+DEFPY_YANG (ipv6_nd_ra_fast_retrans,
 	ipv6_nd_ra_fast_retrans_cmd,
-	"ipv6 nd ra-fast-retrans",
-	"Interface IPv6 config commands\n"
-	"Neighbor discovery\n"
-	"Fast retransmit of RA packets\n")
-{
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	struct zebra_if *zif = ifp->info;
-
-	if (if_is_loopback(ifp)) {
-		vty_out(vty,
-			"Cannot configure IPv6 Router Advertisements on this  interface\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	zif->rtadv.UseFastRexmit = true;
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_ipv6_nd_ra_fast_retrans,
-	no_ipv6_nd_ra_fast_retrans_cmd,
-	"no ipv6 nd ra-fast-retrans",
+	"[no] ipv6 nd ra-fast-retrans",
 	NO_STR
 	"Interface IPv6 config commands\n"
 	"Neighbor discovery\n"
 	"Fast retransmit of RA packets\n")
 {
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	struct zebra_if *zif = ifp->info;
-
-	if (if_is_loopback(ifp)) {
-		vty_out(vty,
-			"Cannot configure IPv6 Router Advertisements on this  interface\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	zif->rtadv.UseFastRexmit = false;
-
-	return CMD_SUCCESS;
+	if (no)
+		nb_cli_enqueue_change(vty,
+				      "./frr-zebra:zebra/ipv6-router-advertisements/fast-retransmit",
+				      NB_OP_MODIFY, "false");
+	else
+		nb_cli_enqueue_change(vty,
+				      "./frr-zebra:zebra/ipv6-router-advertisements/fast-retransmit",
+				      NB_OP_DESTROY, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFPY_YANG (ipv6_nd_ra_hop_limit,
@@ -2712,7 +2688,6 @@ void rtadv_cmd_init(void)
 	install_element(VIEW_NODE, &show_ipv6_nd_ra_if_cmd);
 
 	install_element(INTERFACE_NODE, &ipv6_nd_ra_fast_retrans_cmd);
-	install_element(INTERFACE_NODE, &no_ipv6_nd_ra_fast_retrans_cmd);
 	install_element(INTERFACE_NODE, &ipv6_nd_ra_retrans_interval_cmd);
 	install_element(INTERFACE_NODE, &ipv6_nd_ra_hop_limit_cmd);
 	install_element(INTERFACE_NODE, &ipv6_nd_suppress_ra_cmd);

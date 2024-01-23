@@ -2423,6 +2423,14 @@ module frr-zebra {
             "RFC 4861: Neighbor Discovery for IP version 6 (IPv6)
                        - AdvDefaultLifetime";
         }
+        leaf fast-retransmit {
+          type boolean;
+          default "true";
+          description
+            "Allow sending unsolicited multicast Router Advertisements
+            more frequently than once every 3 seconds as required by
+            RFC 4861.";
+        }
       }
       container state {
         config false;
