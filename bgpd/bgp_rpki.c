@@ -1331,7 +1331,8 @@ static int rpki_create_socket(void *_cache)
 		ret = vrf_getaddrinfo(host, port, &hints, &res, vrf->vrf_id);
 	}
 	if (ret != 0) {
-		freeaddrinfo(res);
+		if (res)
+			freeaddrinfo(res);
 		return -1;
 	}
 
@@ -1339,8 +1340,11 @@ static int rpki_create_socket(void *_cache)
 		socket = vrf_socket(res->ai_family, res->ai_socktype,
 				    res->ai_protocol, vrf->vrf_id, NULL);
 	}
-	if (socket < 0)
+	if (socket < 0) {
+		if (res)
+			freeaddrinfo(res);
 		return -1;
+	}
 
 	pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, &cancel_state);
 	timeout.tv_sec = 30;
