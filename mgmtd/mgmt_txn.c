@@ -1481,8 +1481,6 @@ static void mgmt_reset_get_data_reply(struct mgmt_get_data_reply *get_reply)
 			get_reply->reply_xpathp[indx] = 0;
 		}
 		if (get_reply->reply_data[indx].xpath) {
-			zlog_debug("%s free xpath %p", __func__,
-				   get_reply->reply_data[indx].xpath);
 			free(get_reply->reply_data[indx].xpath);
 			get_reply->reply_data[indx].xpath = 0;
 		}
