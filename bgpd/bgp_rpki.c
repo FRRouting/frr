@@ -1652,6 +1652,9 @@ DEFUN_NOSH (rpki,
 	else {
 		struct vrf *vrf = VTY_GET_CONTEXT(vrf);
 
+		if (!vrf)
+			return CMD_WARNING_CONFIG_FAILED;
+
 		vty->node = RPKI_VRF_NODE;
 		if (vrf->vrf_id != VRF_DEFAULT)
 			vrfname = vrf->name;
