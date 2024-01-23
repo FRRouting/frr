@@ -2278,6 +2278,74 @@ module frr-zebra {
             "RFC 4861: Neighbor Discovery for IP version 6 (IPv6)
                        - AdvSendAdvertisements";
         }
+        leaf max-rtr-adv-interval {
+          type uint32 {
+            range "70..1800000";
+          }
+          units "milliseconds";
+          default "600000";
+          description
+            "The maximum time allowed between sending unsolicited
+            multicast Router Advertisements from the interface.";
+          reference
+            "RFC 4861: Neighbor Discovery for IP version 6 (IPv6)
+                       - MaxRtrAdvInterval
+             RFC 6275: Mobility Support in IPv6";
+        }
+        // Setting this value is not yet supported by the actual code.
+        /*
+        leaf min-rtr-adv-interval {
+          type uint32 {
+            range "30..1350000";
+          }
+          units "milliseconds";
+          must ". <= 0.75 * ../max-rtr-adv-interval" {
+            description
+              "The value MUST NOT be greater than 75% of
+              'max-rtr-adv-interval'.";
+          }
+          description
+            "The minimum time allowed between sending unsolicited
+            multicast Router Advertisements from the interface.
+
+            The default value to be used operationally if this
+            leaf is not configured is determined as follows:
+
+            - if max-rtr-adv-interval >= 9 seconds, the default
+              value is 0.33 * max-rtr-adv-interval;
+
+            - otherwise, it is 0.75 * max-rtr-adv-interval.";
+          reference
+            "RFC 4861: Neighbor Discovery for IP version 6 (IPv6)
+                       - MaxRtrAdvInterval
+             RFC 6275: Mobility Support in IPv6";
+        }
+        */
+        leaf default-lifetime {
+          type uint16 {
+            range "0..9000";
+          }
+          units "seconds";
+          must ". = 0 or . * 1000 >= ../max-rtr-adv-interval" {
+            description
+              "The value MUST NOT be less than max-rtr-adv-interval.";
+          }
+          description
+            "The value to be placed in the Router Lifetime field of
+            Router Advertisements sent from the interface, in
+            seconds.  It MUST be either zero or between
+            max-rtr-adv-interval and 9000 seconds.  A value of zero
+            indicates that the router is not to be used as a
+            default router.  These limits may be overridden by
+            specific documents that describe how IPv6 operates over
+            different link layers.
+
+            If this parameter is not configured, the device SHOULD
+            use a value of 3 * max-rtr-adv-interval.";
+          reference
+            "RFC 4861: Neighbor Discovery for IP version 6 (IPv6)
+                       - AdvDefaultLifetime";
+        }
       }
       container state {
         config false;

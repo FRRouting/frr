@@ -1298,6 +1298,36 @@ void ipv6_nd_suppress_ra_set(struct interface *ifp,
 	}
 }
 
+void ipv6_nd_interval_set(struct interface *ifp, uint32_t interval)
+{
+	struct zebra_if *zif = ifp->info;
+	struct zebra_vrf *zvrf = rtadv_interface_get_zvrf(ifp);
+	struct adv_if *adv_if;
+
+	if (zif->rtadv.MaxRtrAdvInterval % 1000) {
+		adv_if = adv_msec_if_del(zvrf, ifp->name);
+		if (adv_if != NULL)
+			adv_if_free(adv_if);
+	}
+
+	if (interval % 1000)
+		(void)adv_msec_if_add(zvrf, ifp->name);
+
+	zif->rtadv.MaxRtrAdvInterval = interval;
+	zif->rtadv.MinRtrAdvInterval = 0.33 * interval;
+
+	if (interval != RTADV_MAX_RTR_ADV_INTERVAL) {
+		SET_FLAG(zif->rtadv.ra_configured, VTY_RA_INTERVAL_CONFIGURED);
+		zif->rtadv.AdvIntervalTimer = 0;
+	} else {
+		if (CHECK_FLAG(zif->rtadv.ra_configured, BGP_RA_CONFIGURED))
+			zif->rtadv.MaxRtrAdvInterval = 10000;
+
+		UNSET_FLAG(zif->rtadv.ra_configured, VTY_RA_INTERVAL_CONFIGURED);
+		zif->rtadv.AdvIntervalTimer = zif->rtadv.MaxRtrAdvInterval;
+	}
+}
+
 /*
  * Handle client (BGP) message to enable or disable IPv6 RA on an interface.
  * Note that while the client could request RA on an interface on which the
@@ -1652,173 +1682,54 @@ DEFPY_YANG (ipv6_nd_suppress_ra,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFUN (ipv6_nd_ra_interval_msec,
-       ipv6_nd_ra_interval_msec_cmd,
-       "ipv6 nd ra-interval msec (70-1800000)",
-       "Interface IPv6 config commands\n"
-       "Neighbor discovery\n"
-       "Router Advertisement interval\n"
-       "Router Advertisement interval in milliseconds\n"
-       "Router Advertisement interval in milliseconds\n")
-{
-	int idx_number = 4;
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	unsigned interval;
-	struct zebra_if *zif = ifp->info;
-	struct zebra_vrf *zvrf;
-	struct adv_if *adv_if;
-
-	zvrf = rtadv_interface_get_zvrf(ifp);
-
-	interval = strtoul(argv[idx_number]->arg, NULL, 10);
-	if ((zif->rtadv.AdvDefaultLifetime != -1
-	     && interval > (unsigned)zif->rtadv.AdvDefaultLifetime * 1000)) {
-		vty_out(vty,
-			"This ra-interval would conflict with configured ra-lifetime!\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	if (zif->rtadv.MaxRtrAdvInterval % 1000) {
-		adv_if = adv_msec_if_del(zvrf, ifp->name);
-		if (adv_if != NULL)
-			adv_if_free(adv_if);
-	}
-
-	if (interval % 1000)
-		(void)adv_msec_if_add(zvrf, ifp->name);
-
-	SET_FLAG(zif->rtadv.ra_configured, VTY_RA_INTERVAL_CONFIGURED);
-	zif->rtadv.MaxRtrAdvInterval = interval;
-	zif->rtadv.MinRtrAdvInterval = 0.33 * interval;
-	zif->rtadv.AdvIntervalTimer = 0;
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (ipv6_nd_ra_interval,
+DEFPY_YANG (ipv6_nd_ra_interval,
        ipv6_nd_ra_interval_cmd,
-       "ipv6 nd ra-interval (1-1800)",
-       "Interface IPv6 config commands\n"
-       "Neighbor discovery\n"
-       "Router Advertisement interval\n"
-       "Router Advertisement interval in seconds\n")
-{
-	int idx_number = 3;
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	unsigned interval;
-	struct zebra_if *zif = ifp->info;
-	struct zebra_vrf *zvrf;
-	struct adv_if *adv_if;
-
-	zvrf = rtadv_interface_get_zvrf(ifp);
-
-	interval = strtoul(argv[idx_number]->arg, NULL, 10);
-	if ((zif->rtadv.AdvDefaultLifetime != -1
-	     && interval > (unsigned)zif->rtadv.AdvDefaultLifetime)) {
-		vty_out(vty,
-			"This ra-interval would conflict with configured ra-lifetime!\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	if (zif->rtadv.MaxRtrAdvInterval % 1000) {
-		adv_if = adv_msec_if_del(zvrf, ifp->name);
-		if (adv_if != NULL)
-			adv_if_free(adv_if);
-	}
-
-	/* convert to milliseconds */
-	interval = interval * 1000;
-
-	SET_FLAG(zif->rtadv.ra_configured, VTY_RA_INTERVAL_CONFIGURED);
-	zif->rtadv.MaxRtrAdvInterval = interval;
-	zif->rtadv.MinRtrAdvInterval = 0.33 * interval;
-	zif->rtadv.AdvIntervalTimer = 0;
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_ipv6_nd_ra_interval,
-       no_ipv6_nd_ra_interval_cmd,
-       "no ipv6 nd ra-interval [<(1-1800)|msec (1-1800000)>]",
+       "[no] ipv6 nd ra-interval ![<(1-1800)$sec|msec (70-1800000)$msec>]",
        NO_STR
        "Interface IPv6 config commands\n"
        "Neighbor discovery\n"
        "Router Advertisement interval\n"
        "Router Advertisement interval in seconds\n"
-       "Specify millisecond router advertisement interval\n"
+       "Router Advertisement interval in milliseconds\n"
        "Router Advertisement interval in milliseconds\n")
 {
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	struct zebra_if *zif = ifp->info;
-	struct zebra_vrf *zvrf = NULL;
-	struct adv_if *adv_if;
+	char value[YANG_VALUE_MAXLEN];
 
-	zvrf = rtadv_interface_get_zvrf(ifp);
+	if (!no) {
+		if (sec)
+			snprintf(value, sizeof(value), "%lu", sec * 1000);
+		else
+			snprintf(value, sizeof(value), "%lu", msec);
 
-	if (zif->rtadv.MaxRtrAdvInterval % 1000) {
-		adv_if = adv_msec_if_del(zvrf, ifp->name);
-		if (adv_if != NULL)
-			adv_if_free(adv_if);
+		nb_cli_enqueue_change(vty,
+				      "./frr-zebra:zebra/ipv6-router-advertisements/max-rtr-adv-interval",
+				      NB_OP_MODIFY, value);
+	} else {
+		nb_cli_enqueue_change(vty,
+				      "./frr-zebra:zebra/ipv6-router-advertisements/max-rtr-adv-interval",
+				      NB_OP_DESTROY, NULL);
 	}
-
-	UNSET_FLAG(zif->rtadv.ra_configured, VTY_RA_INTERVAL_CONFIGURED);
-
-	if (CHECK_FLAG(zif->rtadv.ra_configured, BGP_RA_CONFIGURED))
-		zif->rtadv.MaxRtrAdvInterval = 10000;
-	else
-		zif->rtadv.MaxRtrAdvInterval = RTADV_MAX_RTR_ADV_INTERVAL;
-
-	zif->rtadv.AdvIntervalTimer = zif->rtadv.MaxRtrAdvInterval;
-	zif->rtadv.MinRtrAdvInterval = RTADV_MIN_RTR_ADV_INTERVAL;
-
-	return CMD_SUCCESS;
+	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFUN (ipv6_nd_ra_lifetime,
+DEFPY_YANG (ipv6_nd_ra_lifetime,
        ipv6_nd_ra_lifetime_cmd,
-       "ipv6 nd ra-lifetime (0-9000)",
-       "Interface IPv6 config commands\n"
-       "Neighbor discovery\n"
-       "Router lifetime\n"
-       "Router lifetime in seconds (0 stands for a non-default gw)\n")
-{
-	int idx_number = 3;
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	struct zebra_if *zif = ifp->info;
-	int lifetime;
-
-	lifetime = strtoul(argv[idx_number]->arg, NULL, 10);
-
-	/* The value to be placed in the Router Lifetime field
-	 * of Router Advertisements sent from the interface,
-	 * in seconds.  MUST be either zero or between
-	 * MaxRtrAdvInterval and 9000 seconds. -- RFC4861, 6.2.1 */
-	if ((lifetime != 0 && lifetime * 1000 < zif->rtadv.MaxRtrAdvInterval)) {
-		vty_out(vty,
-			"This ra-lifetime would conflict with configured ra-interval\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	zif->rtadv.AdvDefaultLifetime = lifetime;
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_ipv6_nd_ra_lifetime,
-       no_ipv6_nd_ra_lifetime_cmd,
-       "no ipv6 nd ra-lifetime [(0-9000)]",
+       "[no] ipv6 nd ra-lifetime ![(0-9000)$lifetime]",
        NO_STR
        "Interface IPv6 config commands\n"
        "Neighbor discovery\n"
        "Router lifetime\n"
        "Router lifetime in seconds (0 stands for a non-default gw)\n")
 {
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	struct zebra_if *zif = ifp->info;
-
-	zif->rtadv.AdvDefaultLifetime = -1;
-
-	return CMD_SUCCESS;
+	if (!no)
+		nb_cli_enqueue_change(vty,
+				      "./frr-zebra:zebra/ipv6-router-advertisements/default-lifetime",
+				      NB_OP_MODIFY, lifetime_str);
+	else
+		nb_cli_enqueue_change(vty,
+				      "./frr-zebra:zebra/ipv6-router-advertisements/default-lifetime",
+				      NB_OP_DESTROY, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFUN (ipv6_nd_reachable_time,
@@ -2904,10 +2815,7 @@ void rtadv_cmd_init(void)
 	install_element(INTERFACE_NODE, &no_ipv6_nd_ra_hop_limit_cmd);
 	install_element(INTERFACE_NODE, &ipv6_nd_suppress_ra_cmd);
 	install_element(INTERFACE_NODE, &ipv6_nd_ra_interval_cmd);
-	install_element(INTERFACE_NODE, &ipv6_nd_ra_interval_msec_cmd);
-	install_element(INTERFACE_NODE, &no_ipv6_nd_ra_interval_cmd);
 	install_element(INTERFACE_NODE, &ipv6_nd_ra_lifetime_cmd);
-	install_element(INTERFACE_NODE, &no_ipv6_nd_ra_lifetime_cmd);
 	install_element(INTERFACE_NODE, &ipv6_nd_reachable_time_cmd);
 	install_element(INTERFACE_NODE, &no_ipv6_nd_reachable_time_cmd);
 	install_element(INTERFACE_NODE, &ipv6_nd_managed_config_flag_cmd);

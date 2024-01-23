@@ -387,6 +387,7 @@ extern void rtadv_delete_prefix(struct zebra_if *zif, const struct prefix *p);
 
 void ipv6_nd_suppress_ra_set(struct interface *ifp,
 			     enum ipv6_nd_suppress_ra_status status);
+void ipv6_nd_interval_set(struct interface *ifp, uint32_t interval);
 
 #else /* !HAVE_RTADV */
 struct rtadv {
