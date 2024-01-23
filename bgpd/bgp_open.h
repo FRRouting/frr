@@ -53,6 +53,7 @@ struct graceful_restart_af {
 #define CAPABILITY_CODE_ENHE            5 /* Extended Next Hop Encoding */
 #define CAPABILITY_CODE_EXT_MESSAGE     6 /* Extended Message Support */
 #define CAPABILITY_CODE_ROLE            9 /* Role Capability */
+#define CAPABILITY_CODE_PATHS_LIMIT    76 /* Paths Limit Capability */
 
 /* Capability Length */
 #define CAPABILITY_CODE_MP_LEN          4
@@ -61,6 +62,7 @@ struct graceful_restart_af {
 #define CAPABILITY_CODE_RESTART_LEN     2 /* Receiving only case */
 #define CAPABILITY_CODE_AS4_LEN         4
 #define CAPABILITY_CODE_ADDPATH_LEN     4
+#define CAPABILITY_CODE_PATHS_LIMIT_LEN 5
 #define CAPABILITY_CODE_ENHE_LEN        6 /* NRLI AFI = 2, SAFI = 2, Nexthop AFI = 2 */
 #define CAPABILITY_CODE_MIN_FQDN_LEN    2
 #define CAPABILITY_CODE_ENHANCED_LEN    0

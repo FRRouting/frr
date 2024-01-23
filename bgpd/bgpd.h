@@ -1140,6 +1140,11 @@ struct llgr_info {
 	uint8_t flags;
 };
 
+struct addpath_paths_limit {
+	uint16_t send;
+	uint16_t receive;
+};
+
 struct peer_connection {
 	struct peer *peer;
 
@@ -1333,6 +1338,8 @@ struct peer {
 #define PEER_CAP_ROLE_RCV		    (1ULL << 26) /* role received */
 #define PEER_CAP_SOFT_VERSION_ADV	    (1ULL << 27)
 #define PEER_CAP_SOFT_VERSION_RCV	    (1ULL << 28)
+#define PEER_CAP_PATHS_LIMIT_ADV (1U << 29)
+#define PEER_CAP_PATHS_LIMIT_RCV (1U << 30)
 
 	/* Capability flags (reset in bgp_stop) */
 	uint32_t af_cap[AFI_MAX][SAFI_MAX];
@@ -1351,6 +1358,8 @@ struct peer {
 #define PEER_CAP_ENHE_AF_NEGO               (1U << 14) /* Extended nexthop afi/safi negotiated */
 #define PEER_CAP_LLGR_AF_ADV                (1U << 15)
 #define PEER_CAP_LLGR_AF_RCV                (1U << 16)
+#define PEER_CAP_PATHS_LIMIT_AF_ADV         (1U << 17)
+#define PEER_CAP_PATHS_LIMIT_AF_RCV         (1U << 18)
 
 	/* Global configuration flags. */
 	/*
@@ -1528,6 +1537,7 @@ struct peer {
 #define PEER_FLAG_DISABLE_ADDPATH_RX (1ULL << 27)
 #define PEER_FLAG_SOO (1ULL << 28)
 #define PEER_FLAG_SEND_EXT_COMMUNITY_RPKI (1ULL << 29)
+#define PEER_FLAG_ADDPATH_RX_PATHS_LIMIT (1ULL << 30)
 #define PEER_FLAG_ACCEPT_OWN (1ULL << 63)
 
 	enum bgp_addpath_strat addpath_type[AFI_MAX][SAFI_MAX];
@@ -1844,6 +1854,9 @@ struct peer {
 
 	/* Add-Path Best selected paths number to advertise */
 	uint8_t addpath_best_selected[AFI_MAX][SAFI_MAX];
+
+	/* Add-Path Paths-Limit */
+	struct addpath_paths_limit addpath_paths_limit[AFI_MAX][SAFI_MAX];
 
 	QOBJ_FIELDS;
 };

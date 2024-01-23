@@ -260,6 +260,8 @@ static struct peer *peer_xfer_conn(struct peer *from_peer)
 		peer->afc_recv[afi][safi] = from_peer->afc_recv[afi][safi];
 		peer->orf_plist[afi][safi] = from_peer->orf_plist[afi][safi];
 		peer->llgr[afi][safi] = from_peer->llgr[afi][safi];
+		peer->addpath_paths_limit[afi][safi] =
+			from_peer->addpath_paths_limit[afi][safi];
 	}
 
 	if (bgp_getsockname(peer) < 0) {

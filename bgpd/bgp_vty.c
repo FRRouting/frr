@@ -9198,6 +9198,63 @@ DEFPY(
 	return CMD_SUCCESS;
 }
 
+DEFPY (neighbor_addpath_paths_limit,
+       neighbor_addpath_paths_limit_cmd,
+       "neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor addpath-rx-paths-limit (1-65535)$paths_limit",
+       NEIGHBOR_STR
+       NEIGHBOR_ADDR_STR2
+       "Paths Limit for Addpath to receive from the peer\n"
+       "Maximum number of paths\n")
+{
+	struct peer *peer;
+	afi_t afi = bgp_node_afi(vty);
+	safi_t safi = bgp_node_safi(vty);
+	int ret;
+
+	peer = peer_and_group_lookup_vty(vty, neighbor);
+	if (!peer)
+		return CMD_WARNING_CONFIG_FAILED;
+
+	ret = peer_af_flag_set_vty(vty, neighbor, afi, safi,
+				   PEER_FLAG_ADDPATH_RX_PATHS_LIMIT);
+
+	peer->addpath_paths_limit[afi][safi].send = paths_limit;
+
+	bgp_capability_send(peer, afi, safi, CAPABILITY_CODE_PATHS_LIMIT,
+			    CAPABILITY_ACTION_SET);
+
+	return ret;
+}
+
+DEFPY (no_neighbor_addpath_paths_limit,
+       no_neighbor_addpath_paths_limit_cmd,
+       "no neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor addpath-rx-paths-limit [(1-65535)]",
+       NO_STR
+       NEIGHBOR_STR
+       NEIGHBOR_ADDR_STR2
+       "Paths Limit for Addpath to receive from the peer\n"
+       "Maximum number of paths\n")
+{
+	struct peer *peer;
+	afi_t afi = bgp_node_afi(vty);
+	safi_t safi = bgp_node_safi(vty);
+	int ret;
+
+	peer = peer_and_group_lookup_vty(vty, neighbor);
+	if (!peer)
+		return CMD_WARNING_CONFIG_FAILED;
+
+	ret = peer_af_flag_unset_vty(vty, neighbor, afi, safi,
+				     PEER_FLAG_ADDPATH_RX_PATHS_LIMIT);
+
+	peer->addpath_paths_limit[afi][safi].send = 0;
+
+	bgp_capability_send(peer, afi, safi, CAPABILITY_CODE_PATHS_LIMIT,
+			    CAPABILITY_ACTION_UNSET);
+
+	return ret;
+}
+
 DEFPY(
 	no_neighbor_aspath_loop_detection,
 	no_neighbor_aspath_loop_detection_cmd,
@@ -14146,6 +14203,86 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 						       json_add);
 			}
 
+			/* Paths-Limit */
+			if (CHECK_FLAG(p->cap, PEER_CAP_PATHS_LIMIT_RCV) ||
+			    CHECK_FLAG(p->cap, PEER_CAP_PATHS_LIMIT_ADV)) {
+				json_object *json_add = NULL;
+				const char *print_store;
+
+				json_add = json_object_new_object();
+
+				FOREACH_AFI_SAFI (afi, safi) {
+					json_object *json_sub = NULL;
+
+					json_sub = json_object_new_object();
+					print_store = get_afi_safi_str(afi, safi,
+								       true);
+
+					if (CHECK_FLAG(p->af_cap[afi][safi],
+						       PEER_CAP_PATHS_LIMIT_AF_ADV) ||
+					    CHECK_FLAG(p->af_cap[afi][safi],
+						       PEER_CAP_PATHS_LIMIT_AF_RCV)) {
+						if (CHECK_FLAG(p->af_cap[afi][safi],
+							       PEER_CAP_PATHS_LIMIT_AF_ADV) &&
+						    CHECK_FLAG(p->af_cap[afi][safi],
+							       PEER_CAP_PATHS_LIMIT_AF_RCV)) {
+							json_object_boolean_true_add(
+								json_sub,
+								"advertisedAndReceived");
+							json_object_int_add(
+								json_sub,
+								"advertisedPathsLimit",
+								p->addpath_paths_limit
+									[afi][safi]
+										.send);
+							json_object_int_add(
+								json_sub,
+								"receivedPathsLimit",
+								p->addpath_paths_limit
+									[afi][safi]
+										.receive);
+						} else if (CHECK_FLAG(p->af_cap[afi]
+									       [safi],
+								      PEER_CAP_PATHS_LIMIT_AF_ADV)) {
+							json_object_boolean_true_add(
+								json_sub,
+								"advertised");
+							json_object_int_add(
+								json_sub,
+								"advertisedPathsLimit",
+								p->addpath_paths_limit
+									[afi][safi]
+										.send);
+						} else if (CHECK_FLAG(p->af_cap[afi]
+									       [safi],
+								      PEER_CAP_PATHS_LIMIT_AF_RCV)) {
+							json_object_boolean_true_add(
+								json_sub,
+								"received");
+							json_object_int_add(
+								json_sub,
+								"receivedPathsLimit",
+								p->addpath_paths_limit
+									[afi][safi]
+										.receive);
+						}
+					}
+
+					if (CHECK_FLAG(p->af_cap[afi][safi],
+						       PEER_CAP_PATHS_LIMIT_AF_ADV) ||
+					    CHECK_FLAG(p->af_cap[afi][safi],
+						       PEER_CAP_PATHS_LIMIT_AF_RCV))
+						json_object_object_add(json_add,
+								       print_store,
+								       json_sub);
+					else
+						json_object_free(json_sub);
+				}
+
+				json_object_object_add(json_cap, "pathsLimit",
+						       json_add);
+			}
+
 			/* Dynamic */
 			if (CHECK_FLAG(p->cap, PEER_CAP_DYNAMIC_RCV) ||
 			    CHECK_FLAG(p->cap, PEER_CAP_DYNAMIC_ADV)) {
@@ -14593,6 +14730,47 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 									PEER_CAP_ADDPATH_AF_RX_ADV)
 									? " and "
 									: "");
+
+						vty_out(vty, "\n");
+					}
+				}
+			}
+
+			/* Paths-Limit */
+			if (CHECK_FLAG(p->cap, PEER_CAP_PATHS_LIMIT_RCV) ||
+			    CHECK_FLAG(p->cap, PEER_CAP_PATHS_LIMIT_ADV)) {
+				vty_out(vty, "    Paths-Limit:\n");
+
+				FOREACH_AFI_SAFI (afi, safi) {
+					if (CHECK_FLAG(p->af_cap[afi][safi],
+						       PEER_CAP_PATHS_LIMIT_AF_ADV) ||
+					    CHECK_FLAG(p->af_cap[afi][safi],
+						       PEER_CAP_PATHS_LIMIT_AF_RCV)) {
+						vty_out(vty, "      %s: ",
+							get_afi_safi_str(afi,
+									 safi,
+									 false));
+
+						if (CHECK_FLAG(p->af_cap[afi][safi],
+							       PEER_CAP_PATHS_LIMIT_AF_ADV))
+							vty_out(vty,
+								"advertised (%u)",
+								p->addpath_paths_limit
+									[afi][safi]
+										.send);
+
+						if (CHECK_FLAG(p->af_cap[afi][safi],
+							       PEER_CAP_PATHS_LIMIT_AF_RCV))
+							vty_out(vty,
+								"%sreceived (%u)",
+								CHECK_FLAG(p->af_cap[afi]
+										    [safi],
+									   PEER_CAP_PATHS_LIMIT_AF_ADV)
+									? " and "
+									: "",
+								p->addpath_paths_limit
+									[afi][safi]
+										.receive);
 
 						vty_out(vty, "\n");
 					}
@@ -18383,6 +18561,11 @@ static void bgp_config_write_peer_af(struct vty *vty, struct bgp *bgp,
 	if (CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_DISABLE_ADDPATH_RX))
 		vty_out(vty, "  neighbor %s disable-addpath-rx\n", addr);
 
+	if (CHECK_FLAG(peer->af_flags[afi][safi],
+		       PEER_FLAG_ADDPATH_RX_PATHS_LIMIT))
+		vty_out(vty, "  neighbor %s addpath-rx-paths-limit %u\n", addr,
+			peer->addpath_paths_limit[afi][safi].send);
+
 	/* ORF capability.  */
 	if (peergroup_af_flag_check(peer, afi, safi, PEER_FLAG_ORF_PREFIX_SM)
 	    || peergroup_af_flag_check(peer, afi, safi,
@@ -20543,6 +20726,26 @@ void bgp_vty_init(void)
 			&neighbor_addpath_tx_bestpath_per_as_cmd);
 	install_element(BGP_VPNV6_NODE,
 			&no_neighbor_addpath_tx_bestpath_per_as_cmd);
+
+	/* "neighbor addpath-rx-paths-limit" commands.*/
+	install_element(BGP_NODE, &neighbor_addpath_paths_limit_cmd);
+	install_element(BGP_NODE, &no_neighbor_addpath_paths_limit_cmd);
+	install_element(BGP_IPV4_NODE, &neighbor_addpath_paths_limit_cmd);
+	install_element(BGP_IPV4_NODE, &no_neighbor_addpath_paths_limit_cmd);
+	install_element(BGP_IPV4M_NODE, &neighbor_addpath_paths_limit_cmd);
+	install_element(BGP_IPV4M_NODE, &no_neighbor_addpath_paths_limit_cmd);
+	install_element(BGP_IPV4L_NODE, &neighbor_addpath_paths_limit_cmd);
+	install_element(BGP_IPV4L_NODE, &no_neighbor_addpath_paths_limit_cmd);
+	install_element(BGP_IPV6_NODE, &neighbor_addpath_paths_limit_cmd);
+	install_element(BGP_IPV6_NODE, &no_neighbor_addpath_paths_limit_cmd);
+	install_element(BGP_IPV6M_NODE, &neighbor_addpath_paths_limit_cmd);
+	install_element(BGP_IPV6M_NODE, &no_neighbor_addpath_paths_limit_cmd);
+	install_element(BGP_IPV6L_NODE, &neighbor_addpath_paths_limit_cmd);
+	install_element(BGP_IPV6L_NODE, &no_neighbor_addpath_paths_limit_cmd);
+	install_element(BGP_VPNV4_NODE, &neighbor_addpath_paths_limit_cmd);
+	install_element(BGP_VPNV4_NODE, &no_neighbor_addpath_paths_limit_cmd);
+	install_element(BGP_VPNV6_NODE, &neighbor_addpath_paths_limit_cmd);
+	install_element(BGP_VPNV6_NODE, &no_neighbor_addpath_paths_limit_cmd);
 
 	/* "neighbor sender-as-path-loop-detection" commands. */
 	install_element(BGP_NODE, &neighbor_aspath_loop_detection_cmd);

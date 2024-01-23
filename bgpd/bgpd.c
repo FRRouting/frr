@@ -1527,6 +1527,8 @@ struct peer *peer_new(struct bgp *bgp)
 			 PEER_FLAG_SEND_LARGE_COMMUNITY);
 		peer->addpath_type[afi][safi] = BGP_ADDPATH_NONE;
 		peer->addpath_best_selected[afi][safi] = 0;
+		peer->addpath_paths_limit[afi][safi].receive = 0;
+		peer->addpath_paths_limit[afi][safi].send = 0;
 		peer->soo[afi][safi] = NULL;
 	}
 
@@ -1620,6 +1622,8 @@ void peer_xfer_config(struct peer *peer_dst, struct peer *peer_src)
 		peer_dst->weight[afi][safi] = peer_src->weight[afi][safi];
 		peer_dst->addpath_type[afi][safi] =
 			peer_src->addpath_type[afi][safi];
+		peer_dst->addpath_paths_limit[afi][safi] =
+			peer_src->addpath_paths_limit[afi][safi];
 	}
 
 	for (afidx = BGP_AF_START; afidx < BGP_AF_MAX; afidx++) {
@@ -4614,6 +4618,7 @@ static const struct peer_flag_action peer_af_flag_action_list[] = {
 	{PEER_FLAG_SOO, 0, peer_change_reset},
 	{PEER_FLAG_ACCEPT_OWN, 0, peer_change_reset},
 	{PEER_FLAG_SEND_EXT_COMMUNITY_RPKI, 1, peer_change_reset_out},
+	{PEER_FLAG_ADDPATH_RX_PATHS_LIMIT, 0, peer_change_none},
 	{0, 0, 0}};
 
 /* Proper action set. */

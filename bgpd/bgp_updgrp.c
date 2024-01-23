@@ -145,6 +145,8 @@ static void conf_copy(struct peer *dst, struct peer *src, afi_t afi,
 	dst->addpath_type[afi][safi] = src->addpath_type[afi][safi];
 	dst->addpath_best_selected[afi][safi] =
 		src->addpath_best_selected[afi][safi];
+	dst->addpath_paths_limit[afi][safi] =
+		src->addpath_paths_limit[afi][safi];
 	dst->local_as = src->local_as;
 	dst->change_local_as = src->change_local_as;
 	dst->shared_network = src->shared_network;
@@ -348,6 +350,8 @@ static unsigned int updgrp_hash_key_make(const void *p)
 	key = jhash_1word((flags & PEER_UPDGRP_AF_FLAGS), key);
 	key = jhash_1word((uint32_t)peer->addpath_type[afi][safi], key);
 	key = jhash_1word(peer->addpath_best_selected[afi][safi], key);
+	key = jhash_1word(peer->addpath_paths_limit[afi][safi].receive, key);
+	key = jhash_1word(peer->addpath_paths_limit[afi][safi].send, key);
 	key = jhash_1word((peer->cap & PEER_UPDGRP_CAP_FLAGS), key);
 	key = jhash_1word((peer->af_cap[afi][safi] & PEER_UPDGRP_AF_CAP_FLAGS),
 			  key);
@@ -461,6 +465,9 @@ static unsigned int updgrp_hash_key_make(const void *p)
 				      PEER_UPDGRP_AF_CAP_FLAGS),
 			   peer->v_routeadv, peer->change_local_as,
 			   peer->as_path_loop_detection);
+		zlog_debug("%pBP Update Group Hash: addpath paths-limit: (send %u, receive %u)",
+			   peer, peer->addpath_paths_limit[afi][safi].send,
+			   peer->addpath_paths_limit[afi][safi].receive);
 		zlog_debug(
 			"%pBP Update Group Hash: max packet size: %u pmax_out: %u Peer Group: %s rmap out: %s",
 			peer, peer->max_packet_size, peer->pmax_out[afi][safi],
