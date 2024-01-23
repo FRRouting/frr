@@ -25,6 +25,7 @@
 #include "memory.h"
 #include "frrevent.h"
 #include "filter.h"
+#include "lib_errors.h"
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_table.h"
 #include "bgp_advertise.h"
@@ -1332,8 +1333,11 @@ static int rpki_create_socket(void *_cache)
 	frr_with_privs (&bgpd_privs) {
 		ret = vrf_getaddrinfo(host, port, &hints, &res, vrf->vrf_id);
 	}
-	if (ret != 0)
+	if (ret != 0) {
+		flog_err_sys(EC_LIB_SOCKET, "getaddrinfo: %s",
+			     gai_strerror(ret));
 		return -1;
+	}
 
 	frr_with_privs (&bgpd_privs) {
 		socket = vrf_socket(res->ai_family, res->ai_socktype,
@@ -1354,15 +1358,13 @@ static int rpki_create_socket(void *_cache)
 	setsockopt(socket, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof(timeout));
 
 	if (connect(socket, res->ai_addr, res->ai_addrlen) == -1) {
-		if (res)
-			freeaddrinfo(res);
+		freeaddrinfo(res);
 		close(socket);
 		pthread_setcancelstate(cancel_state, NULL);
 		return -1;
 	}
 
-	if (res)
-		freeaddrinfo(res);
+	freeaddrinfo(res);
 	pthread_setcancelstate(cancel_state, NULL);
 
 	setsockopt(socket, SOL_SOCKET, SO_RCVTIMEO, &prev_rcv_tmout,
