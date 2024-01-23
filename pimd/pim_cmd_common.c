@@ -525,7 +525,9 @@ int pim_process_rp_cmd(struct vty *vty, const char *rp_str,
 		       const char *group_str)
 {
 	const char *vrfname;
-	char rp_group_xpath[XPATH_MAXLEN];
+	char group_xpath[XPATH_MAXLEN];
+	char rp_xpath[XPATH_MAXLEN];
+	int printed;
 	int result = 0;
 	struct prefix group;
 	pim_addr rp_addr;
@@ -570,12 +572,18 @@ int pim_process_rp_cmd(struct vty *vty, const char *rp_str,
 	if (vrfname == NULL)
 		return CMD_WARNING_CONFIG_FAILED;
 
-	snprintf(rp_group_xpath, sizeof(rp_group_xpath),
-		 FRR_PIM_STATIC_RP_XPATH, "frr-pim:pimd", "pim", vrfname,
-		 FRR_PIM_AF_XPATH_VAL, rp_str);
-	strlcat(rp_group_xpath, "/group-list", sizeof(rp_group_xpath));
+	snprintf(rp_xpath, sizeof(rp_xpath), FRR_PIM_STATIC_RP_XPATH,
+		 "frr-pim:pimd", "pim", vrfname, FRR_PIM_AF_XPATH_VAL, rp_str);
+	printed = snprintf(group_xpath, sizeof(group_xpath),
+			   "%s/group-list[.='%s']", rp_xpath, group_str);
 
-	nb_cli_enqueue_change(vty, rp_group_xpath, NB_OP_CREATE, group_str);
+	if (printed >= (int)(sizeof(group_xpath))) {
+		vty_out(vty, "Xpath too long (%d > %u)", printed + 1,
+			XPATH_MAXLEN);
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	nb_cli_enqueue_change(vty, group_xpath, NB_OP_CREATE, NULL);
 
 	return nb_cli_apply_changes(vty, NULL);
 }
@@ -583,7 +591,6 @@ int pim_process_rp_cmd(struct vty *vty, const char *rp_str,
 int pim_process_no_rp_cmd(struct vty *vty, const char *rp_str,
 			  const char *group_str)
 {
-	char group_list_xpath[XPATH_MAXLEN];
 	char group_xpath[XPATH_MAXLEN];
 	char rp_xpath[XPATH_MAXLEN];
 	int printed;
@@ -596,18 +603,8 @@ int pim_process_no_rp_cmd(struct vty *vty, const char *rp_str,
 
 	snprintf(rp_xpath, sizeof(rp_xpath), FRR_PIM_STATIC_RP_XPATH,
 		 "frr-pim:pimd", "pim", vrfname, FRR_PIM_AF_XPATH_VAL, rp_str);
-
-	printed = snprintf(group_list_xpath, sizeof(group_list_xpath),
-			   "%s/group-list", rp_xpath);
-
-	if (printed >= (int)(sizeof(group_list_xpath))) {
-		vty_out(vty, "Xpath too long (%d > %u)", printed + 1,
-			XPATH_MAXLEN);
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	printed = snprintf(group_xpath, sizeof(group_xpath), "%s[.='%s']",
-			   group_list_xpath, group_str);
+	printed = snprintf(group_xpath, sizeof(group_xpath),
+			   "%s/group-list[.='%s']", rp_xpath, group_str);
 
 	if (printed >= (int)(sizeof(group_xpath))) {
 		vty_out(vty, "Xpath too long (%d > %u)", printed + 1,
@@ -624,8 +621,7 @@ int pim_process_no_rp_cmd(struct vty *vty, const char *rp_str,
 	if (yang_is_last_list_dnode(group_dnode))
 		nb_cli_enqueue_change(vty, rp_xpath, NB_OP_DESTROY, NULL);
 	else
-		nb_cli_enqueue_change(vty, group_list_xpath, NB_OP_DESTROY,
-				      group_str);
+		nb_cli_enqueue_change(vty, group_xpath, NB_OP_DESTROY, NULL);
 
 	return nb_cli_apply_changes(vty, NULL);
 }
@@ -3407,6 +3403,8 @@ int pim_process_ssmpingd_cmd(struct vty *vty, enum nb_operation operation,
 {
 	const char *vrfname;
 	char ssmpingd_ip_xpath[XPATH_MAXLEN];
+	char ssmpingd_src_ip_xpath[XPATH_MAXLEN];
+	int printed;
 
 	vrfname = pim_cli_get_vrf_name(vty);
 	if (vrfname == NULL)
@@ -3415,10 +3413,16 @@ int pim_process_ssmpingd_cmd(struct vty *vty, enum nb_operation operation,
 	snprintf(ssmpingd_ip_xpath, sizeof(ssmpingd_ip_xpath),
 		 FRR_PIM_VRF_XPATH, "frr-pim:pimd", "pim", vrfname,
 		 FRR_PIM_AF_XPATH_VAL);
-	strlcat(ssmpingd_ip_xpath, "/ssm-pingd-source-ip",
-		sizeof(ssmpingd_ip_xpath));
+	printed = snprintf(ssmpingd_src_ip_xpath, sizeof(ssmpingd_src_ip_xpath),
+			   "%s/ssm-pingd-source-ip[.='%s']", ssmpingd_ip_xpath,
+			   src_str);
+	if (printed >= (int)sizeof(ssmpingd_src_ip_xpath)) {
+		vty_out(vty, "Xpath too long (%d > %u)", printed + 1,
+			XPATH_MAXLEN);
+		return CMD_WARNING_CONFIG_FAILED;
+	}
 
-	nb_cli_enqueue_change(vty, ssmpingd_ip_xpath, operation, src_str);
+	nb_cli_enqueue_change(vty, ssmpingd_src_ip_xpath, operation, NULL);
 
 	return nb_cli_apply_changes(vty, NULL);
 }

@@ -300,8 +300,12 @@ DEFPY_YANG(net, net_cmd, "[no] net WORD",
       "A Network Entity Title for this process (OSI only)\n"
       "XX.XXXX. ... .XXX.XX  Network entity title (NET)\n")
 {
-	nb_cli_enqueue_change(vty, "./area-address",
-			      no ? NB_OP_DESTROY : NB_OP_CREATE, net);
+	char xpath[XPATH_MAXLEN];
+
+	snprintf(xpath, XPATH_MAXLEN, "./area-address[.='%s']", net);
+
+	nb_cli_enqueue_change(vty, xpath, no ? NB_OP_DESTROY : NB_OP_CREATE,
+			      NULL);
 
 	return nb_cli_apply_changes(vty, NULL);
 }
@@ -3054,12 +3058,16 @@ void cli_show_ip_isis_circ_type(struct vty *vty, const struct lyd_node *dnode,
 }
 
 static int ag_change(struct vty *vty, int argc, struct cmd_token **argv,
-		     const char *xpath, bool no, int start_idx)
+		     const char *xpath_base, bool no, int start_idx)
 {
-	for (int i = start_idx; i < argc; i++)
+	char xpath[XPATH_MAXLEN];
+
+	for (int i = start_idx; i < argc; i++) {
+		snprintf(xpath, XPATH_MAXLEN, "%s[.='%s']", xpath_base,
+			 argv[i]->arg);
 		nb_cli_enqueue_change(vty, xpath,
-				      no ? NB_OP_DESTROY : NB_OP_CREATE,
-				      argv[i]->arg);
+				      no ? NB_OP_DESTROY : NB_OP_CREATE, NULL);
+	}
 	return nb_cli_apply_changes(vty, NULL);
 }
 
@@ -3302,31 +3310,27 @@ DEFPY(isis_lfa_exclude_interface, isis_lfa_exclude_interface_cmd,
       "Exclude an interface from computation\n"
       "Interface name\n")
 {
+	char xpath[XPATH_MAXLEN];
+
 	if (!level || strmatch(level, "level-1")) {
-		if (no) {
-			nb_cli_enqueue_change(
-				vty,
-				"./frr-isisd:isis/fast-reroute/level-1/lfa/exclude-interface",
-				NB_OP_DESTROY, ifname);
-		} else {
-			nb_cli_enqueue_change(
-				vty,
-				"./frr-isisd:isis/fast-reroute/level-1/lfa/exclude-interface",
-				NB_OP_CREATE, ifname);
-		}
+		snprintf(xpath, sizeof(xpath),
+			 "./frr-isisd:isis/fast-reroute/level-1/lfa/exclude-interface[.='%s']",
+			 ifname);
+
+		if (no)
+			nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+		else
+			nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
 	}
 	if (!level || strmatch(level, "level-2")) {
-		if (no) {
-			nb_cli_enqueue_change(
-				vty,
-				"./frr-isisd:isis/fast-reroute/level-2/lfa/exclude-interface",
-				NB_OP_DESTROY, ifname);
-		} else {
-			nb_cli_enqueue_change(
-				vty,
-				"./frr-isisd:isis/fast-reroute/level-2/lfa/exclude-interface",
-				NB_OP_CREATE, ifname);
-		}
+		snprintf(xpath, sizeof(xpath),
+			 "./frr-isisd:isis/fast-reroute/level-2/lfa/exclude-interface[.='%s']",
+			 ifname);
+
+		if (no)
+			nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+		else
+			nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
 	}
 
 	return nb_cli_apply_changes(vty, NULL);

@@ -950,9 +950,6 @@ extern bool nb_is_operation_allowed(struct nb_node *nb_node,
  * xpath
  *    XPath of the configuration node being edited.
  *
- * in_backend
- *    Specify whether the changes are being applied in the backend or not.
- *
  * previous
  *    Previous value of the configuration node. Should be used only when the
  *    operation is NB_OP_MOVE, otherwise this parameter is ignored.
@@ -967,7 +964,7 @@ extern bool nb_is_operation_allowed(struct nb_node *nb_node,
 extern int nb_candidate_edit(struct nb_config *candidate,
 			     const struct nb_node *nb_node,
 			     enum nb_operation operation, const char *xpath,
-			     bool in_backend, const struct yang_data *previous,
+			     const struct yang_data *previous,
 			     const struct yang_data *data);
 
 /*

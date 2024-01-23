@@ -695,27 +695,14 @@ static int dnode_create(struct nb_config *candidate, const char *xpath,
 
 int nb_candidate_edit(struct nb_config *candidate, const struct nb_node *nb_node,
 		      enum nb_operation operation, const char *xpath,
-		      bool in_backend, const struct yang_data *previous,
+		      const struct yang_data *previous,
 		      const struct yang_data *data)
 {
 	struct lyd_node *dnode, *dep_dnode, *old_dnode;
-	char xpath_edit[XPATH_MAXLEN];
 	char dep_xpath[XPATH_MAXLEN];
 	struct lyd_node *parent = NULL;
 	uint32_t options = 0;
 	LY_ERR err;
-
-	/*
-	 * Use special notation for leaf-lists (RFC 6020, section 9.13.5).
-	 * if we are in a backend client this notation was already applied
-	 * by mgmtd before sending to us.
-	 */
-	if (!in_backend && nb_node->snode->nodetype == LYS_LEAFLIST &&
-	    (operation == NB_OP_DESTROY || operation == NB_OP_DELETE))
-		snprintf(xpath_edit, sizeof(xpath_edit), "%s[.='%s']", xpath,
-			 data->value);
-	else
-		strlcpy(xpath_edit, xpath, sizeof(xpath_edit));
 
 	switch (operation) {
 	case NB_OP_CREATE:
@@ -723,7 +710,7 @@ int nb_candidate_edit(struct nb_config *candidate, const struct nb_node *nb_node
 		options = LYD_NEW_PATH_UPDATE;
 		fallthrough;
 	case NB_OP_CREATE_EXCL:
-		err = dnode_create(candidate, xpath_edit, data->value, options,
+		err = dnode_create(candidate, xpath, data->value, options,
 				   &dnode);
 		if (err) {
 			return err;
@@ -750,7 +737,7 @@ int nb_candidate_edit(struct nb_config *candidate, const struct nb_node *nb_node
 		break;
 	case NB_OP_DESTROY:
 	case NB_OP_DELETE:
-		dnode = yang_dnode_get(candidate->dnode, xpath_edit);
+		dnode = yang_dnode_get(candidate->dnode, xpath);
 		if (!dnode) {
 			if (operation == NB_OP_DELETE)
 				return NB_ERR;
@@ -768,12 +755,12 @@ int nb_candidate_edit(struct nb_config *candidate, const struct nb_node *nb_node
 		lyd_free_tree(dnode);
 		break;
 	case NB_OP_REPLACE:
-		old_dnode = yang_dnode_get(candidate->dnode, xpath_edit);
+		old_dnode = yang_dnode_get(candidate->dnode, xpath);
 		if (old_dnode) {
 			parent = lyd_parent(old_dnode);
 			lyd_unlink_tree(old_dnode);
 		}
-		err = dnode_create(candidate, xpath_edit, data->value, options,
+		err = dnode_create(candidate, xpath, data->value, options,
 				   &dnode);
 		if (!err && dnode && !old_dnode) {
 			/* create dependency if the node didn't exist */
@@ -908,8 +895,7 @@ void nb_candidate_edit_config_changes(struct nb_config *candidate_config,
 		 * configuration.
 		 */
 		ret = nb_candidate_edit(candidate_config, nb_node,
-					change->operation, xpath, in_backend,
-					NULL, data);
+					change->operation, xpath, NULL, data);
 		yang_data_free(data);
 		if (ret != NB_OK) {
 			flog_warn(

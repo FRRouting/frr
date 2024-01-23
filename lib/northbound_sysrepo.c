@@ -219,7 +219,7 @@ static int frr_sr_process_change(struct nb_config *candidate,
 	sr_val_to_buff(sr_data, value_str, sizeof(value_str));
 	data = yang_data_new(xpath, value_str);
 
-	ret = nb_candidate_edit(candidate, nb_node, nb_op, xpath, false, NULL, data);
+	ret = nb_candidate_edit(candidate, nb_node, nb_op, xpath, NULL, data);
 	yang_data_free(data);
 	if (ret != NB_OK) {
 		flog_warn(

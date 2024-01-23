@@ -4701,12 +4701,16 @@ DEFUN (no_link_params_use_bw,
 }
 
 static int ag_change(struct vty *vty, int argc, struct cmd_token **argv,
-		     const char *xpath, bool no, int start_idx)
+		     const char *xpath_base, bool no, int start_idx)
 {
-	for (int i = start_idx; i < argc; i++)
+	char xpath[XPATH_MAXLEN];
+
+	for (int i = start_idx; i < argc; i++) {
+		snprintf(xpath, XPATH_MAXLEN, "%s[.='%s']", xpath_base,
+			 argv[i]->arg);
 		nb_cli_enqueue_change(vty, xpath,
-				      no ? NB_OP_DESTROY : NB_OP_CREATE,
-				      argv[i]->arg);
+				      no ? NB_OP_DESTROY : NB_OP_CREATE, NULL);
+	}
 	return nb_cli_apply_changes(vty, NULL);
 }
 
