@@ -522,6 +522,7 @@ lib_route_map_entry_match_condition_rmap_match_condition_probability_destroy(
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		break;
 	case NB_EV_APPLY:
 		return lib_route_map_entry_match_destroy(args);
 	}
