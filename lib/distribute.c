@@ -17,8 +17,6 @@ DEFINE_MTYPE_STATIC(LIB, DISTRIBUTE, "Distribute list");
 DEFINE_MTYPE_STATIC(LIB, DISTRIBUTE_IFNAME, "Dist-list ifname");
 DEFINE_MTYPE_STATIC(LIB, DISTRIBUTE_NAME, "Dist-list name");
 
-static struct list *dist_ctx_list;
-
 static struct distribute *distribute_new(void)
 {
 	return XCALLOC(MTYPE_DISTRIBUTE, sizeof(struct distribute));
@@ -249,9 +247,6 @@ int distribute_list_parser(struct distribute_ctx *ctx, bool prefix, bool v4,
 {
 	enum distribute_type type = distribute_direction(dir, v4);
 
-	if (!ctx)
-		ctx = listnode_head(dist_ctx_list);
-
 	void (*distfn)(struct distribute_ctx *, const char *,
 		       enum distribute_type, const char *) =
 		prefix ? &distribute_list_prefix_set : &distribute_list_set;
@@ -268,9 +263,6 @@ int distribute_list_no_parser(struct distribute_ctx *ctx, struct vty *vty,
 {
 	enum distribute_type type = distribute_direction(dir, v4);
 	int ret;
-
-	if (!ctx)
-		ctx = listnode_head(dist_ctx_list);
 
 	int (*distfn)(struct distribute_ctx *, const char *,
 		      enum distribute_type, const char *) =
@@ -573,12 +565,6 @@ void distribute_list_delete(struct distribute_ctx **ctx)
 	hash_clean_and_free(&(*ctx)->disthash,
 			    (void (*)(void *))distribute_free);
 
-	if (dist_ctx_list) {
-		listnode_delete(dist_ctx_list, *ctx);
-		if (list_isempty(dist_ctx_list))
-			list_delete(&dist_ctx_list);
-	}
-
 	XFREE(MTYPE_DISTRIBUTE_CTX, (*ctx));
 }
 
@@ -589,11 +575,9 @@ struct distribute_ctx *distribute_list_ctx_create(struct vrf *vrf)
 
 	ctx = XCALLOC(MTYPE_DISTRIBUTE_CTX, sizeof(struct distribute_ctx));
 	ctx->vrf = vrf;
-	ctx->disthash = hash_create(
-		distribute_hash_make,
-		(bool (*)(const void *, const void *))distribute_cmp, NULL);
-	if (!dist_ctx_list)
-		dist_ctx_list = list_new();
-	listnode_add(dist_ctx_list, ctx);
+	ctx->disthash =
+		hash_create(distribute_hash_make,
+			    (bool (*)(const void *, const void *))distribute_cmp,
+			    NULL);
 	return ctx;
 }

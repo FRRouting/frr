@@ -1632,12 +1632,26 @@ static void plist_autocomplete(vector comps, struct cmd_token *token)
 	plist_autocomplete_afi(AFI_IP6, comps, token);
 }
 
+static void plist4_autocomplete(vector comps, struct cmd_token *token)
+{
+	plist_autocomplete_afi(AFI_IP, comps, token);
+}
+
+static void plist6_autocomplete(vector comps, struct cmd_token *token)
+{
+	plist_autocomplete_afi(AFI_IP6, comps, token);
+}
+
 static const struct cmd_variable_handler plist_var_handlers[] = {
 	{/* "prefix-list WORD" */
 	 .varname = "prefix_list",
 	 .completions = plist_autocomplete},
 	{.tokenname = "PREFIXLIST_NAME",
 	 .completions = plist_autocomplete},
+	{.tokenname = "PREFIXLIST4_NAME",
+	 .completions = plist4_autocomplete},
+	{.tokenname = "PREFIXLIST6_NAME",
+	 .completions = plist6_autocomplete},
 	{.completions = NULL}};
 
 

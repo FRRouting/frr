@@ -402,6 +402,117 @@ void eigrp_cli_show_neighbor(struct vty *vty, const struct lyd_node *dnode,
 }
 
 /*
+ * XPath: /frr-eigrpd:eigrpd/instance/distribute-list
+ */
+DEFPY_YANG (eigrp_distribute_list,
+       eigrp_distribute_list_cmd,
+       "distribute-list ACCESSLIST4_NAME$name <in|out>$dir [WORD$ifname]",
+       "Filter networks in routing updates\n"
+       "Access-list name\n"
+       "Filter incoming routing updates\n"
+       "Filter outgoing routing updates\n"
+       "Interface name\n")
+{
+	char xpath[XPATH_MAXLEN];
+
+	snprintf(xpath, sizeof(xpath),
+		 "./distribute-list[interface='%s']/%s/access-list",
+		 ifname ? ifname : "", dir);
+	/* nb_cli_enqueue_change(vty, ".", NB_OP_CREATE, NULL); */
+	nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, name);
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG (eigrp_distribute_list_prefix,
+       eigrp_distribute_list_prefix_cmd,
+       "distribute-list prefix PREFIXLIST4_NAME$name <in|out>$dir [WORD$ifname]",
+       "Filter networks in routing updates\n"
+       "Specify a prefix list\n"
+       "Prefix-list name\n"
+       "Filter incoming routing updates\n"
+       "Filter outgoing routing updates\n"
+       "Interface name\n")
+{
+	char xpath[XPATH_MAXLEN];
+
+	snprintf(xpath, sizeof(xpath),
+		 "./distribute-list[interface='%s']/%s/prefix-list",
+		 ifname ? ifname : "", dir);
+	/* nb_cli_enqueue_change(vty, ".", NB_OP_CREATE, NULL); */
+	nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, name);
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG (eigrp_no_distribute_list,
+       eigrp_no_distribute_list_cmd,
+       "no distribute-list [ACCESSLIST4_NAME$name] <in|out>$dir [WORD$ifname]",
+       NO_STR
+       "Filter networks in routing updates\n"
+       "Access-list name\n"
+       "Filter incoming routing updates\n"
+       "Filter outgoing routing updates\n"
+       "Interface name\n")
+{
+	const struct lyd_node *value_node;
+	char xpath[XPATH_MAXLEN];
+
+	snprintf(xpath, sizeof(xpath),
+		 "./distribute-list[interface='%s']/%s/access-list",
+		 ifname ? ifname : "", dir);
+	/*
+	 * See if the user has specified specific list so check it exists.
+	 *
+	 * NOTE: Other FRR CLI commands do not do this sort of verification and
+	 * there may be an official decision not to.
+	 */
+	if (name) {
+		value_node = yang_dnode_getf(vty->candidate_config->dnode, "%s/%s",
+					     VTY_CURR_XPATH, xpath);
+		if (!value_node || strcmp(name, lyd_get_value(value_node))) {
+			vty_out(vty, "distribute list doesn't exist\n");
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+	}
+	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG (eigrp_no_distribute_list_prefix,
+       eigrp_no_distribute_list_prefix_cmd,
+       "no distribute-list prefix [PREFIXLIST4_NAME$name] <in|out>$dir [WORD$ifname]",
+       NO_STR
+       "Filter networks in routing updates\n"
+       "Specify a prefix list\n"
+       "Prefix-list name\n"
+       "Filter incoming routing updates\n"
+       "Filter outgoing routing updates\n"
+       "Interface name\n")
+{
+	const struct lyd_node *value_node;
+	char xpath[XPATH_MAXLEN];
+
+	snprintf(xpath, sizeof(xpath),
+		 "./distribute-list[interface='%s']/%s/prefix-list",
+		 ifname ? ifname : "", dir);
+	/*
+	 * See if the user has specified specific list so check it exists.
+	 *
+	 * NOTE: Other FRR CLI commands do not do this sort of verification and
+	 * there may be an official decision not to.
+	 */
+	if (name) {
+		value_node = yang_dnode_getf(vty->candidate_config->dnode, "%s/%s",
+					     VTY_CURR_XPATH, xpath);
+		if (!value_node || strcmp(name, lyd_get_value(value_node))) {
+			vty_out(vty, "distribute list doesn't exist\n");
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+	}
+	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+/*
  * XPath: /frr-eigrpd:eigrpd/instance/redistribute
  * XPath: /frr-eigrpd:eigrpd/instance/redistribute/route-map
  * XPath: /frr-eigrpd:eigrpd/instance/redistribute/metrics/bandwidth
@@ -875,6 +986,10 @@ eigrp_cli_init(void)
 	install_element(EIGRP_NODE, &no_eigrp_metric_weights_cmd);
 	install_element(EIGRP_NODE, &eigrp_network_cmd);
 	install_element(EIGRP_NODE, &eigrp_neighbor_cmd);
+	install_element(EIGRP_NODE, &eigrp_distribute_list_cmd);
+	install_element(EIGRP_NODE, &eigrp_distribute_list_prefix_cmd);
+	install_element(EIGRP_NODE, &eigrp_no_distribute_list_cmd);
+	install_element(EIGRP_NODE, &eigrp_no_distribute_list_prefix_cmd);
 	install_element(EIGRP_NODE, &eigrp_redistribute_source_metric_cmd);
 
 	vrf_cmd_init(NULL);
