@@ -1698,36 +1698,24 @@ DEFPY_YANG (ipv6_nd_homeagent_preference,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFUN (ipv6_nd_homeagent_lifetime,
+DEFPY_YANG (ipv6_nd_homeagent_lifetime,
        ipv6_nd_homeagent_lifetime_cmd,
-       "ipv6 nd home-agent-lifetime (0-65520)",
-       "Interface IPv6 config commands\n"
-       "Neighbor discovery\n"
-       "Home Agent lifetime\n"
-       "Home Agent lifetime in seconds (0 to track ra-lifetime)\n")
-{
-	int idx_number = 3;
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	struct zebra_if *zif = ifp->info;
-	zif->rtadv.HomeAgentLifetime = strtoul(argv[idx_number]->arg, NULL, 10);
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_ipv6_nd_homeagent_lifetime,
-       no_ipv6_nd_homeagent_lifetime_cmd,
-       "no ipv6 nd home-agent-lifetime [(0-65520)]",
+       "[no] ipv6 nd home-agent-lifetime ![(1-65520)$lifetime]",
        NO_STR
        "Interface IPv6 config commands\n"
        "Neighbor discovery\n"
        "Home Agent lifetime\n"
-       "Home Agent lifetime in seconds (0 to track ra-lifetime)\n")
+       "Home Agent lifetime in seconds\n")
 {
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	struct zebra_if *zif = ifp->info;
-
-	zif->rtadv.HomeAgentLifetime = -1;
-
-	return CMD_SUCCESS;
+	if (!no)
+		nb_cli_enqueue_change(vty,
+				      "./frr-zebra:zebra/ipv6-router-advertisements/home-agent-lifetime",
+				      NB_OP_MODIFY, lifetime_str);
+	else
+		nb_cli_enqueue_change(vty,
+				      "./frr-zebra:zebra/ipv6-router-advertisements/home-agent-lifetime",
+				      NB_OP_DESTROY, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFPY_YANG (ipv6_nd_managed_config_flag,
@@ -2662,7 +2650,6 @@ void rtadv_cmd_init(void)
 	install_element(INTERFACE_NODE, &ipv6_nd_homeagent_config_flag_cmd);
 	install_element(INTERFACE_NODE, &ipv6_nd_homeagent_preference_cmd);
 	install_element(INTERFACE_NODE, &ipv6_nd_homeagent_lifetime_cmd);
-	install_element(INTERFACE_NODE, &no_ipv6_nd_homeagent_lifetime_cmd);
 	install_element(INTERFACE_NODE, &ipv6_nd_adv_interval_config_option_cmd);
 	install_element(INTERFACE_NODE, &ipv6_nd_prefix_cmd);
 	install_element(INTERFACE_NODE, &no_ipv6_nd_prefix_cmd);

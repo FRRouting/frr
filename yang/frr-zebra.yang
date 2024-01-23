@@ -2458,6 +2458,15 @@ module frr-zebra {
           reference
             "RFC 6275: Mobility Support in IPv6";
         }
+        leaf home-agent-lifetime {
+          type uint16;
+          description
+            "The value to be placed in the Home Agent Lifetime
+            field in the Router Advertisement messages sent by the
+            router.";
+          reference
+            "RFC 6275: Mobility Support in IPv6";
+        }
       }
       container state {
         config false;

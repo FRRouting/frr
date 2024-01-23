@@ -2807,6 +2807,46 @@ int lib_interface_zebra_ipv6_router_advertisements_home_agent_preference_destroy
 }
 
 /*
+ * XPath: /frr-interface:lib/interface/frr-zebra:zebra/ipv6-router-advertisements/home-agent-lifetime
+ */
+int lib_interface_zebra_ipv6_router_advertisements_home_agent_lifetime_modify(
+	struct nb_cb_modify_args *args)
+{
+	struct interface *ifp;
+	struct zebra_if *zif;
+	uint16_t lifetime;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	ifp = nb_running_get_entry(args->dnode, NULL, true);
+	zif = ifp->info;
+
+	lifetime = yang_dnode_get_uint16(args->dnode, NULL);
+
+	zif->rtadv.HomeAgentLifetime = lifetime;
+
+	return NB_OK;
+}
+
+int lib_interface_zebra_ipv6_router_advertisements_home_agent_lifetime_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	struct interface *ifp;
+	struct zebra_if *zif;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	ifp = nb_running_get_entry(args->dnode, NULL, true);
+	zif = ifp->info;
+
+	zif->rtadv.HomeAgentLifetime = -1;
+
+	return NB_OK;
+}
+
+/*
  * XPath: /frr-vrf:lib/vrf/frr-zebra:zebra/l3vni-id
  */
 int lib_vrf_zebra_l3vni_id_modify(struct nb_cb_modify_args *args)
