@@ -1928,55 +1928,22 @@ static void rtadv_rdnss_free(struct rtadv_rdnss *rdnss)
 	XFREE(MTYPE_RTADV_RDNSS, rdnss);
 }
 
-static struct rtadv_rdnss *rtadv_rdnss_lookup(struct list *list,
-					      struct rtadv_rdnss *rdnss)
-{
-	struct listnode *node;
-	struct rtadv_rdnss *p;
-
-	for (ALL_LIST_ELEMENTS_RO(list, node, p))
-		if (IPV6_ADDR_SAME(&p->addr, &rdnss->addr))
-			return p;
-	return NULL;
-}
-
-static struct rtadv_rdnss *rtadv_rdnss_get(struct list *list,
-					   struct rtadv_rdnss *rdnss)
+struct rtadv_rdnss *rtadv_rdnss_set(struct zebra_if *zif,
+				    struct rtadv_rdnss *rdnss)
 {
 	struct rtadv_rdnss *p;
-
-	p = rtadv_rdnss_lookup(list, rdnss);
-	if (p)
-		return p;
 
 	p = rtadv_rdnss_new();
 	memcpy(p, rdnss, sizeof(struct rtadv_rdnss));
-	listnode_add(list, p);
+	listnode_add(zif->rtadv.AdvRDNSSList, p);
 
 	return p;
 }
 
-static void rtadv_rdnss_set(struct zebra_if *zif, struct rtadv_rdnss *rdnss)
+void rtadv_rdnss_reset(struct zebra_if *zif, struct rtadv_rdnss *p)
 {
-	struct rtadv_rdnss *p;
-
-	p = rtadv_rdnss_get(zif->rtadv.AdvRDNSSList, rdnss);
-	p->lifetime = rdnss->lifetime;
-	p->lifetime_set = rdnss->lifetime_set;
-}
-
-static int rtadv_rdnss_reset(struct zebra_if *zif, struct rtadv_rdnss *rdnss)
-{
-	struct rtadv_rdnss *p;
-
-	p = rtadv_rdnss_lookup(zif->rtadv.AdvRDNSSList, rdnss);
-	if (p) {
-		listnode_delete(zif->rtadv.AdvRDNSSList, p);
-		rtadv_rdnss_free(p);
-		return 1;
-	}
-
-	return 0;
+	listnode_delete(zif->rtadv.AdvRDNSSList, p);
+	rtadv_rdnss_free(p);
 }
 
 static struct rtadv_dnssl *rtadv_dnssl_new(void)
@@ -2078,41 +2045,9 @@ static int rtadv_dnssl_encode(uint8_t *out, const char *in)
 	return outp;
 }
 
-DEFUN(ipv6_nd_rdnss,
+DEFPY_YANG (ipv6_nd_rdnss,
       ipv6_nd_rdnss_cmd,
-      "ipv6 nd rdnss X:X::X:X [<(0-4294967295)|infinite>]",
-      "Interface IPv6 config commands\n"
-      "Neighbor discovery\n"
-      "Recursive DNS server information\n"
-      "IPv6 address\n"
-      "Valid lifetime in seconds\n"
-      "Infinite valid lifetime\n")
-{
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	struct zebra_if *zif = ifp->info;
-	struct rtadv_rdnss rdnss = {};
-
-	if (inet_pton(AF_INET6, argv[3]->arg, &rdnss.addr) != 1) {
-		vty_out(vty, "Malformed IPv6 address\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-	if (argc > 4) {
-		char *lifetime = argv[4]->type == RANGE_TKN ? argv[4]->arg
-							    : argv[4]->text;
-		rdnss.lifetime = strmatch(lifetime, "infinite")
-					 ? UINT32_MAX
-					 : strtoll(lifetime, NULL, 10);
-		rdnss.lifetime_set = 1;
-	}
-
-	rtadv_rdnss_set(zif, &rdnss);
-
-	return CMD_SUCCESS;
-}
-
-DEFUN(no_ipv6_nd_rdnss,
-      no_ipv6_nd_rdnss_cmd,
-      "no ipv6 nd rdnss X:X::X:X [<(0-4294967295)|infinite>]",
+      "[no] ipv6 nd rdnss X:X::X:X$addr [<(0-4294967295)|infinite>]$lifetime",
       NO_STR
       "Interface IPv6 config commands\n"
       "Neighbor discovery\n"
@@ -2121,20 +2056,24 @@ DEFUN(no_ipv6_nd_rdnss,
       "Valid lifetime in seconds\n"
       "Infinite valid lifetime\n")
 {
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	struct zebra_if *zif = ifp->info;
-	struct rtadv_rdnss rdnss = {};
-
-	if (inet_pton(AF_INET6, argv[4]->arg, &rdnss.addr) != 1) {
-		vty_out(vty, "Malformed IPv6 address\n");
-		return CMD_WARNING_CONFIG_FAILED;
+	if (!no) {
+		nb_cli_enqueue_change(vty, ".", NB_OP_CREATE, NULL);
+		if (lifetime) {
+			if (strmatch(lifetime, "infinite"))
+				lifetime = "4294967295";
+			nb_cli_enqueue_change(vty, "./lifetime", NB_OP_MODIFY,
+					      lifetime);
+		} else {
+			nb_cli_enqueue_change(vty, "./lifetime", NB_OP_DESTROY,
+					      NULL);
+		}
+	} else {
+		nb_cli_enqueue_change(vty, ".", NB_OP_DESTROY, NULL);
 	}
-	if (rtadv_rdnss_reset(zif, &rdnss) != 1) {
-		vty_out(vty, "Non-existant RDNSS address\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	return CMD_SUCCESS;
+	return nb_cli_apply_changes(
+		vty,
+		"./frr-zebra:zebra/ipv6-router-advertisements/rdnss/rdnss-address[address='%s']",
+		addr_str);
 }
 
 DEFUN(ipv6_nd_dnssl,
@@ -2586,7 +2525,6 @@ void rtadv_cmd_init(void)
 	install_element(INTERFACE_NODE, &ipv6_nd_router_preference_cmd);
 	install_element(INTERFACE_NODE, &ipv6_nd_mtu_cmd);
 	install_element(INTERFACE_NODE, &ipv6_nd_rdnss_cmd);
-	install_element(INTERFACE_NODE, &no_ipv6_nd_rdnss_cmd);
 	install_element(INTERFACE_NODE, &ipv6_nd_dnssl_cmd);
 	install_element(INTERFACE_NODE, &no_ipv6_nd_dnssl_cmd);
 }

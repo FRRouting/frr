@@ -2607,6 +2607,33 @@ module frr-zebra {
             // `choice control-adv-prefixes`.
           }
         }
+        container rdnss {
+          description
+            "A list of recursive DNS server addresses that are placed
+            in Recursive DNS Server (RDNSS) options in Router
+            Advertisement messages sent from the interface.";
+          reference
+            "RFC 8106: IPv6 Router Advertisement Options for DNS
+                       Configuration";
+          list rdnss-address {
+            key "address";
+            description
+              "Recursive DNS server address.";
+            leaf address {
+              type inet:ipv6-address;
+              description
+                "IPv6 address of a recursive DNS server.";
+            }
+            leaf lifetime {
+              type uint32;
+              units "seconds";
+              description
+                "The value that is placed in the Lifetime field in the
+                RDNSS option.  The designated value of all 1's
+                (0xffffffff) represents infinity.";
+            }
+          }
+        }
       }
       container state {
         config false;

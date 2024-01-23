@@ -392,6 +392,12 @@ struct rtadv_prefix *rtadv_add_prefix_manual(struct zebra_if *zif,
 void rtadv_delete_prefix_manual(struct zebra_if *zif,
 				struct rtadv_prefix *rprefix);
 
+/* returns created address */
+struct rtadv_rdnss *rtadv_rdnss_set(struct zebra_if *zif,
+				    struct rtadv_rdnss *rdnss);
+/* p must be the one returned by rtadv_rdnss_set */
+void rtadv_rdnss_reset(struct zebra_if *zif, struct rtadv_rdnss *p);
+
 void ipv6_nd_suppress_ra_set(struct interface *ifp,
 			     enum ipv6_nd_suppress_ra_status status);
 void ipv6_nd_interval_set(struct interface *ifp, uint32_t interval);

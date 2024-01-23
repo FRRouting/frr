@@ -3008,6 +3008,85 @@ int lib_interface_zebra_ipv6_router_advertisements_prefix_list_prefix_router_add
 }
 
 /*
+ * XPath: /frr-interface:lib/interface/frr-zebra:zebra/ipv6-router-advertisements/rdnss/rdnss-address
+ */
+int lib_interface_zebra_ipv6_router_advertisements_rdnss_rdnss_address_create(
+	struct nb_cb_create_args *args)
+{
+	struct interface *ifp;
+	struct rtadv_rdnss rdnss, *p;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	ifp = nb_running_get_entry(args->dnode, NULL, true);
+
+	yang_dnode_get_ipv6(&rdnss.addr, args->dnode, "address");
+	if (yang_dnode_exists(args->dnode, "lifetime")) {
+		rdnss.lifetime = yang_dnode_get_uint32(args->dnode, "lifetime");
+		rdnss.lifetime_set = 1;
+	} else {
+		rdnss.lifetime_set = 0;
+	}
+
+	p = rtadv_rdnss_set(ifp->info, &rdnss);
+	nb_running_set_entry(args->dnode, p);
+
+	return NB_OK;
+}
+
+int lib_interface_zebra_ipv6_router_advertisements_rdnss_rdnss_address_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	struct interface *ifp;
+	struct rtadv_rdnss *p;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	p = nb_running_unset_entry(args->dnode);
+	ifp = nb_running_get_entry(args->dnode, NULL, true);
+
+	rtadv_rdnss_reset(ifp->info, p);
+
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-interface:lib/interface/frr-zebra:zebra/ipv6-router-advertisements/rdnss/rdnss-address/lifetime
+ */
+int lib_interface_zebra_ipv6_router_advertisements_rdnss_rdnss_address_lifetime_modify(
+	struct nb_cb_modify_args *args)
+{
+	struct rtadv_rdnss *p;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	p = nb_running_get_entry(args->dnode, NULL, true);
+
+	p->lifetime = yang_dnode_get_uint32(args->dnode, NULL);
+	p->lifetime_set = 1;
+
+	return NB_OK;
+}
+
+int lib_interface_zebra_ipv6_router_advertisements_rdnss_rdnss_address_lifetime_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	struct rtadv_rdnss *p;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	p = nb_running_get_entry(args->dnode, NULL, true);
+
+	p->lifetime_set = 0;
+
+	return NB_OK;
+}
+
+/*
  * XPath: /frr-vrf:lib/vrf/frr-zebra:zebra/l3vni-id
  */
 int lib_vrf_zebra_l3vni_id_modify(struct nb_cb_modify_args *args)
