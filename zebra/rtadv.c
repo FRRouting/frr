@@ -1678,37 +1678,24 @@ DEFPY_YANG (ipv6_nd_reachable_time,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFUN (ipv6_nd_homeagent_preference,
+DEFPY_YANG (ipv6_nd_homeagent_preference,
        ipv6_nd_homeagent_preference_cmd,
-       "ipv6 nd home-agent-preference (0-65535)",
-       "Interface IPv6 config commands\n"
-       "Neighbor discovery\n"
-       "Home Agent preference\n"
-       "preference value (default is 0, least preferred)\n")
-{
-	int idx_number = 3;
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	struct zebra_if *zif = ifp->info;
-	zif->rtadv.HomeAgentPreference =
-		strtoul(argv[idx_number]->arg, NULL, 10);
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_ipv6_nd_homeagent_preference,
-       no_ipv6_nd_homeagent_preference_cmd,
-       "no ipv6 nd home-agent-preference [(0-65535)]",
+       "[no] ipv6 nd home-agent-preference ![(0-65535)$pref]",
        NO_STR
        "Interface IPv6 config commands\n"
        "Neighbor discovery\n"
        "Home Agent preference\n"
        "preference value (default is 0, least preferred)\n")
 {
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	struct zebra_if *zif = ifp->info;
-
-	zif->rtadv.HomeAgentPreference = 0;
-
-	return CMD_SUCCESS;
+	if (!no)
+		nb_cli_enqueue_change(vty,
+				      "./frr-zebra:zebra/ipv6-router-advertisements/home-agent-preference",
+				      NB_OP_MODIFY, pref_str);
+	else
+		nb_cli_enqueue_change(vty,
+				      "./frr-zebra:zebra/ipv6-router-advertisements/home-agent-preference",
+				      NB_OP_DESTROY, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFUN (ipv6_nd_homeagent_lifetime,
@@ -2674,7 +2661,6 @@ void rtadv_cmd_init(void)
 	install_element(INTERFACE_NODE, &ipv6_nd_other_config_flag_cmd);
 	install_element(INTERFACE_NODE, &ipv6_nd_homeagent_config_flag_cmd);
 	install_element(INTERFACE_NODE, &ipv6_nd_homeagent_preference_cmd);
-	install_element(INTERFACE_NODE, &no_ipv6_nd_homeagent_preference_cmd);
 	install_element(INTERFACE_NODE, &ipv6_nd_homeagent_lifetime_cmd);
 	install_element(INTERFACE_NODE, &no_ipv6_nd_homeagent_lifetime_cmd);
 	install_element(INTERFACE_NODE, &ipv6_nd_adv_interval_config_option_cmd);
