@@ -2440,6 +2440,15 @@ module frr-zebra {
             more frequently than once every 3 seconds as required by
             RFC 4861.";
         }
+        leaf advertisement-interval-option {
+          type boolean;
+          default "false";
+          description
+            "Enable sending the Advertisement Interval Option in
+            Router Advertisements.";
+          reference
+            "RFC 6275: Mobility Support in IPv6";
+        }
       }
       container state {
         config false;

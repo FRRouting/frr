@@ -1781,35 +1781,23 @@ DEFPY_YANG (ipv6_nd_homeagent_config_flag,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFUN (ipv6_nd_adv_interval_config_option,
+DEFPY_YANG (ipv6_nd_adv_interval_config_option,
        ipv6_nd_adv_interval_config_option_cmd,
-       "ipv6 nd adv-interval-option",
-       "Interface IPv6 config commands\n"
-       "Neighbor discovery\n"
-       "Advertisement Interval Option\n")
-{
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	struct zebra_if *zif = ifp->info;
-
-	zif->rtadv.AdvIntervalOption = 1;
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_ipv6_nd_adv_interval_config_option,
-       no_ipv6_nd_adv_interval_config_option_cmd,
-       "no ipv6 nd adv-interval-option",
+       "[no] ipv6 nd adv-interval-option",
        NO_STR
        "Interface IPv6 config commands\n"
        "Neighbor discovery\n"
        "Advertisement Interval Option\n")
 {
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	struct zebra_if *zif = ifp->info;
-
-	zif->rtadv.AdvIntervalOption = 0;
-
-	return CMD_SUCCESS;
+	if (!no)
+		nb_cli_enqueue_change(vty,
+				      "./frr-zebra:zebra/ipv6-router-advertisements/advertisement-interval-option",
+				      NB_OP_MODIFY, "true");
+	else
+		nb_cli_enqueue_change(vty,
+				      "./frr-zebra:zebra/ipv6-router-advertisements/advertisement-interval-option",
+				      NB_OP_DESTROY, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFPY_YANG (ipv6_nd_other_config_flag,
@@ -2689,10 +2677,7 @@ void rtadv_cmd_init(void)
 	install_element(INTERFACE_NODE, &no_ipv6_nd_homeagent_preference_cmd);
 	install_element(INTERFACE_NODE, &ipv6_nd_homeagent_lifetime_cmd);
 	install_element(INTERFACE_NODE, &no_ipv6_nd_homeagent_lifetime_cmd);
-	install_element(INTERFACE_NODE,
-			&ipv6_nd_adv_interval_config_option_cmd);
-	install_element(INTERFACE_NODE,
-			&no_ipv6_nd_adv_interval_config_option_cmd);
+	install_element(INTERFACE_NODE, &ipv6_nd_adv_interval_config_option_cmd);
 	install_element(INTERFACE_NODE, &ipv6_nd_prefix_cmd);
 	install_element(INTERFACE_NODE, &no_ipv6_nd_prefix_cmd);
 	install_element(INTERFACE_NODE, &ipv6_nd_router_preference_cmd);
