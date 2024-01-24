@@ -56,7 +56,7 @@ char frr_protoname[256] = "NONE";
 char frr_protonameinst[256] = "NONE";
 
 char config_default[512];
-char frr_zclientpath[256];
+char frr_zclientpath[512];
 static char pidfile_default[1024];
 #ifdef HAVE_SQLITE3
 static char dbfile_default[512];
@@ -343,8 +343,7 @@ void frr_preinit(struct frr_daemon_info *daemon, int argc, char **argv)
 		 frr_sysconfdir, di->name);
 	snprintf(pidfile_default, sizeof(pidfile_default), "%s/%s.pid",
 		 frr_runstatedir, di->name);
-	snprintf(frr_zclientpath, sizeof(frr_zclientpath),
-		 ZEBRA_SERV_PATH, "", "");
+	snprintf(frr_zclientpath, sizeof(frr_zclientpath), ZAPI_SOCK_NAME);
 #ifdef HAVE_SQLITE3
 	snprintf(dbfile_default, sizeof(dbfile_default), "%s/%s.db",
 		 frr_dbdir, di->name);
@@ -496,13 +495,13 @@ static int frr_opt(int opt)
 		}
 		di->pathspace = optarg;
 
-		if (!di->zpathspace)
-			snprintf(frr_zclientpath, sizeof(frr_zclientpath),
-				 ZEBRA_SERV_PATH, "/", di->pathspace);
 		snprintf(frr_runstatedir, sizeof(frr_runstatedir),
 			 FRR_RUNSTATE_PATH "/%s", di->pathspace);
 		snprintf(pidfile_default, sizeof(pidfile_default), "%s/%s.pid",
 			 frr_runstatedir, di->name);
+		if (!di->zpathspace)
+			snprintf(frr_zclientpath, sizeof(frr_zclientpath),
+				 ZAPI_SOCK_NAME);
 		break;
 	case 'o':
 		vrf_set_default_name(optarg);

@@ -22,6 +22,8 @@
 extern "C" {
 #endif
 
+#define ZAPI_SOCK_NAME "%s/zserv.api", frr_runstatedir
+
 /* The following options disable specific command line options that
  * are not applicable for a particular daemon.
  */
@@ -169,7 +171,7 @@ DECLARE_KOOH(frr_fini, (), ());
 extern void frr_fini(void);
 
 extern char config_default[512];
-extern char frr_zclientpath[256];
+extern char frr_zclientpath[512];
 extern const char frr_sysconfdir[];
 extern char frr_runstatedir[256];
 extern const char frr_moduledir[];

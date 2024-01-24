@@ -2737,7 +2737,6 @@ AC_DEFINE_UNQUOTED([YANG_MODELS_PATH], ["$CFG_YANGMODELS"], [path to YANG data m
 AC_DEFINE_UNQUOTED([WATCHFRR_SH_PATH], ["${CFG_SBIN%/}/watchfrr.sh"], [path to watchfrr.sh])
 
 AC_DEFINE_UNQUOTED([LDPD_SOCKET], ["$CFG_STATE%s%s/ldpd.sock"], [ldpd control socket])
-AC_DEFINE_UNQUOTED([ZEBRA_SERV_PATH], ["$CFG_STATE%s%s/zserv.api"], [zebra api socket])
 AC_DEFINE_UNQUOTED([OSPFD_GR_STATE], ["$CFG_STATE%s/ospfd-gr.json"], [ospfd GR state information])
 AC_DEFINE_UNQUOTED([OSPF6D_GR_STATE], ["$CFG_STATE/ospf6d-gr.json"], [ospf6d GR state information])
 AC_DEFINE_UNQUOTED([ISISD_RESTART], ["$CFG_STATE%s/isid-restart.json"], [isisd restart information])
