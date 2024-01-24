@@ -10,9 +10,16 @@
 #include "libfrr.h"
 #include "zebra_nb.h"
 
+#if HAVE_BFDD == 0
+const char *features[] = { "ptm-bfd", NULL };
+#endif
+
 /* clang-format off */
 const struct frr_yang_module_info frr_zebra_info = {
 	.name = "frr-zebra",
+#if HAVE_BFDD == 0
+	.features = features,
+#endif
 	.nodes = {
 		{
 			.xpath = "/frr-zebra:zebra/mcast-rpf-lookup",
@@ -79,6 +86,14 @@ const struct frr_yang_module_info frr_zebra_info = {
 				.modify = zebra_dplane_queue_limit_modify,
 			}
 		},
+#if HAVE_BFDD == 0
+		{
+			.xpath = "/frr-zebra:zebra/ptm-enable",
+			.cbs = {
+				.modify = zebra_ptm_enable_modify,
+			}
+		},
+#endif
 		{
 			.xpath = "/frr-zebra:zebra/debugs/debug-events",
 			.cbs = {
@@ -705,6 +720,14 @@ const struct frr_yang_module_info frr_zebra_info = {
 				.destroy = lib_interface_zebra_ipv6_router_advertisements_rdnss_rdnss_address_lifetime_destroy,
 			}
 		},
+#if HAVE_BFDD == 0
+		{
+			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/ptm-enable",
+			.cbs = {
+				.modify = lib_interface_zebra_ptm_enable_modify,
+			}
+		},
+#endif
 		{
 			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/state/up-count",
 			.cbs = {

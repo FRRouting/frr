@@ -24,6 +24,7 @@
 #include "zebra/zebra_vxlan_private.h"
 #include "zebra/zebra_vxlan.h"
 #include "zebra/zebra_evpn_mh.h"
+#include "zebra/zebra_ptm.h"
 
 /*
  * XPath: /frr-zebra:zebra/mcast-rpf-lookup
@@ -264,6 +265,28 @@ int zebra_dplane_queue_limit_modify(struct nb_cb_modify_args *args)
 
 	return NB_OK;
 }
+
+#if HAVE_BFDD == 0
+/*
+ * XPath: /frr-zebra:zebra/ptm-enable
+ */
+int zebra_ptm_enable_modify(struct nb_cb_modify_args *args)
+{
+	bool ptm;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	ptm = yang_dnode_get_bool(args->dnode, NULL);
+
+	if (ptm)
+		zebra_global_ptm_enable();
+	else
+		zebra_global_ptm_disable();
+
+	return NB_OK;
+}
+#endif
 
 /*
  * XPath: /frr-zebra:zebra/debugs/debug-events
@@ -3176,6 +3199,30 @@ int lib_interface_zebra_ipv6_router_advertisements_dnssl_dnssl_domain_lifetime_d
 
 	return NB_OK;
 }
+
+#if HAVE_BFDD == 0
+/*
+ * XPath: /frr-interface:lib/interface/frr-zebra:zebra/ptm-enable
+ */
+int lib_interface_zebra_ptm_enable_modify(struct nb_cb_modify_args *args)
+{
+	struct interface *ifp;
+	bool ptm;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	ifp = nb_running_get_entry(args->dnode, NULL, true);
+
+	ptm = yang_dnode_get_bool(args->dnode, NULL);
+	if (ptm)
+		zebra_if_ptm_enable(ifp);
+	else
+		zebra_if_ptm_disable(ifp);
+
+	return NB_OK;
+}
+#endif
 
 /*
  * XPath: /frr-vrf:lib/vrf/frr-zebra:zebra/l3vni-id

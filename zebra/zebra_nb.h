@@ -44,6 +44,9 @@ int zebra_import_kernel_table_route_map_destroy(
 int zebra_allow_external_route_update_create(struct nb_cb_create_args *args);
 int zebra_allow_external_route_update_destroy(struct nb_cb_destroy_args *args);
 int zebra_dplane_queue_limit_modify(struct nb_cb_modify_args *args);
+#if HAVE_BFDD == 0
+int zebra_ptm_enable_modify(struct nb_cb_modify_args *args);
+#endif
 int zebra_debugs_debug_events_modify(struct nb_cb_modify_args *args);
 int zebra_debugs_debug_events_destroy(struct nb_cb_destroy_args *args);
 int zebra_debugs_debug_zapi_send_modify(struct nb_cb_modify_args *args);
@@ -249,6 +252,9 @@ int lib_interface_zebra_ipv6_router_advertisements_dnssl_dnssl_domain_lifetime_m
 	struct nb_cb_modify_args *args);
 int lib_interface_zebra_ipv6_router_advertisements_dnssl_dnssl_domain_lifetime_destroy(
 	struct nb_cb_destroy_args *args);
+#if HAVE_BFDD == 0
+int lib_interface_zebra_ptm_enable_modify(struct nb_cb_modify_args *args);
+#endif
 struct yang_data *
 lib_interface_zebra_state_up_count_get_elem(struct nb_cb_get_elem_args *args);
 struct yang_data *

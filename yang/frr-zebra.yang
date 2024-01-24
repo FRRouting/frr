@@ -81,6 +81,11 @@ module frr-zebra {
       "Initial revision.";
   }
 
+  feature ptm-bfd {
+    description
+      "Using an external PTM daemon that implements BFD.";
+  }
+
   typedef unix-timestamp {
     type uint32;
     units "seconds";
@@ -2661,6 +2666,13 @@ module frr-zebra {
           }
         }
       }
+      leaf ptm-enable {
+        if-feature ptm-bfd;
+        type boolean;
+        default "true";
+        description
+          "Enable PTM on the interface.";
+      }
       container state {
         config false;
         description
@@ -2829,6 +2841,13 @@ module frr-zebra {
       default "200";
       description
         "Limit on the number of updates queued to the dataplane subsystem.";
+    }
+    leaf ptm-enable {
+      if-feature ptm-bfd;
+      type boolean;
+      default "false";
+      description
+        "Enable PTM globally.";
     }
     /*
      * Debug options

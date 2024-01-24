@@ -143,6 +143,9 @@ static struct frr_signal_t mgmt_signals[] = {
 extern const struct frr_yang_module_info frr_staticd_cli_info;
 #endif
 
+#if HAVE_BFDD == 0
+const char *zebra_features[] = { "ptm-bfd", NULL };
+#endif
 
 /*
  * These are stub info structs that are used to load the modules used by backend
@@ -151,6 +154,9 @@ extern const struct frr_yang_module_info frr_staticd_cli_info;
  */
 const struct frr_yang_module_info zebra_info = {
 	.name = "frr-zebra",
+#if HAVE_BFDD == 0
+	.features = zebra_features,
+#endif
 	.ignore_cfg_cbs = true,
 	.nodes = { { .xpath = NULL } },
 };

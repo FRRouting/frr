@@ -61,6 +61,13 @@ void zebra_ptm_connect(struct event *t);
 void zebra_ptm_write(struct vty *vty);
 int zebra_ptm_get_enable_state(void);
 
+#if HAVE_BFDD == 0
+void zebra_global_ptm_enable(void);
+void zebra_global_ptm_disable(void);
+void zebra_if_ptm_enable(struct interface *ifp);
+void zebra_if_ptm_disable(struct interface *ifp);
+#endif
+
 /* ZAPI message handlers */
 void zebra_ptm_bfd_dst_register(ZAPI_HANDLER_ARGS);
 void zebra_ptm_bfd_dst_deregister(ZAPI_HANDLER_ARGS);

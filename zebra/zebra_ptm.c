@@ -20,6 +20,7 @@
 #include "vrf.h"
 #include "vty.h"
 #include "lib_errors.h"
+#include "northbound_cli.h"
 
 #include "zebra/debug.h"
 #include "zebra/interface.h"
@@ -240,10 +241,7 @@ void zebra_ptm_connect(struct event *t)
 	}
 }
 
-DEFUN (zebra_ptm_enable,
-       zebra_ptm_enable_cmd,
-       "ptm-enable",
-       "Enable neighbor check with specified topology\n")
+void zebra_global_ptm_enable(void)
 {
 	struct vrf *vrf;
 	struct interface *ifp;
@@ -266,27 +264,37 @@ DEFUN (zebra_ptm_enable,
 			}
 
 	zebra_ptm_connect(NULL);
-
-	return CMD_SUCCESS;
 }
 
-DEFUN (no_zebra_ptm_enable,
+void zebra_global_ptm_disable(void)
+{
+	ptm_cb.ptm_enable = ZEBRA_IF_PTM_ENABLE_OFF;
+	zebra_ptm_reset_status(1);
+}
+
+DEFUN_YANG (zebra_ptm_enable,
+       zebra_ptm_enable_cmd,
+       "ptm-enable",
+       "Enable neighbor check with specified topology\n")
+{
+	nb_cli_enqueue_change(vty, "/frr-zebra:zebra/ptm-enable", NB_OP_MODIFY,
+			      "true");
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFUN_YANG (no_zebra_ptm_enable,
        no_zebra_ptm_enable_cmd,
        "no ptm-enable",
        NO_STR
        "Enable neighbor check with specified topology\n")
 {
-	ptm_cb.ptm_enable = ZEBRA_IF_PTM_ENABLE_OFF;
-	zebra_ptm_reset_status(1);
-	return CMD_SUCCESS;
+	nb_cli_enqueue_change(vty, "/frr-zebra:zebra/ptm-enable", NB_OP_MODIFY,
+			      "false");
+	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFUN (zebra_ptm_enable_if,
-       zebra_ptm_enable_if_cmd,
-       "ptm-enable",
-       "Enable neighbor check with specified topology\n")
+void zebra_if_ptm_enable(struct interface *ifp)
 {
-	VTY_DECLVAR_CONTEXT(interface, ifp);
 	struct zebra_if *if_data;
 	int old_ptm_enable;
 	int send_linkdown = 0;
@@ -295,7 +303,7 @@ DEFUN (zebra_ptm_enable_if,
 	if_data->ptm_enable = ZEBRA_IF_PTM_ENABLE_UNSPEC;
 
 	if (ifp->ifindex == IFINDEX_INTERNAL) {
-		return CMD_SUCCESS;
+		return;
 	}
 
 	old_ptm_enable = ifp->ptm_enable;
@@ -312,19 +320,12 @@ DEFUN (zebra_ptm_enable_if,
 			if_down(ifp);
 		}
 	}
-
-	return CMD_SUCCESS;
 }
 
-DEFUN (no_zebra_ptm_enable_if,
-       no_zebra_ptm_enable_if_cmd,
-       "no ptm-enable",
-       NO_STR
-       "Enable neighbor check with specified topology\n")
+void zebra_if_ptm_disable(struct interface *ifp)
 {
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	int send_linkup = 0;
 	struct zebra_if *if_data;
+	int send_linkup = 0;
 
 	if ((ifp->ifindex != IFINDEX_INTERNAL) && (ifp->ptm_enable)) {
 		if (!if_is_operative(ifp))
@@ -341,10 +342,28 @@ DEFUN (no_zebra_ptm_enable_if,
 
 	if_data = ifp->info;
 	if_data->ptm_enable = ZEBRA_IF_PTM_ENABLE_OFF;
-
-	return CMD_SUCCESS;
 }
 
+DEFUN_YANG (zebra_ptm_enable_if,
+       zebra_ptm_enable_if_cmd,
+       "ptm-enable",
+       "Enable neighbor check with specified topology\n")
+{
+	nb_cli_enqueue_change(vty, "./frr-zebra:zebra/ptm-enable", NB_OP_MODIFY,
+			      "true");
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFUN_YANG (no_zebra_ptm_enable_if,
+       no_zebra_ptm_enable_if_cmd,
+       "no ptm-enable",
+       NO_STR
+       "Enable neighbor check with specified topology\n")
+{
+	nb_cli_enqueue_change(vty, "./frr-zebra:zebra/ptm-enable", NB_OP_MODIFY,
+			      "false");
+	return nb_cli_apply_changes(vty, NULL);
+}
 
 void zebra_ptm_write(struct vty *vty)
 {
