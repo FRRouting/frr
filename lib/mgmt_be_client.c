@@ -19,6 +19,7 @@
 #include "northbound.h"
 #include "stream.h"
 #include "sockopt.h"
+#include "northbound_cli.h"
 
 #include "lib/mgmt_be_client_clippy.c"
 
@@ -1068,7 +1069,7 @@ struct mgmt_be_client *mgmt_be_client_create(const char *client_name,
 
 	client->name = XSTRDUP(MTYPE_MGMTD_BE_CLIENT_NAME, client_name);
 	client->running_config = running_config;
-	client->candidate_config = nb_config_new(NULL);
+	client->candidate_config = vty_shared_candidate_config;
 	if (cbs)
 		client->cbs = *cbs;
 	mgmt_be_txns_init(&client->txn_head);
@@ -1107,7 +1108,6 @@ void mgmt_be_client_destroy(struct mgmt_be_client *client)
 	msg_client_cleanup(&client->client);
 	mgmt_be_cleanup_all_txns(client);
 	mgmt_be_txns_fini(&client->txn_head);
-	nb_config_free(client->candidate_config);
 
 	XFREE(MTYPE_MGMTD_BE_CLIENT_NAME, client->name);
 	XFREE(MTYPE_MGMTD_BE_CLIENT, client);
