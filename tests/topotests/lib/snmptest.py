@@ -213,14 +213,15 @@ class SnmpTester(object):
         return False
 
     def get_notif_bgp4(self, output_file):
+        notifs = []
         notif_list = []
         whitecleanfile = re.sub("\t", " ", output_file)
         results = whitecleanfile.strip().split("\n")
 
-        # don't consider SNMP additional messages
-        notifs_first = [elem for elem in results if not ("SNMP" in elem)]
-        # don't consider additional application messages
-        notifs = [elem for index, elem in enumerate(notifs_first) if index % 2 != 0]
+        # don't consider additional SNMP or application messages
+        for result in results:
+            if re.search(r"(\.([0-9]+))+\s", result):
+                notifs.append(result)
 
         oid_v4 = r"1\.3\.6\.1\.2\.1\.15"
         for one_notif in notifs:
@@ -232,14 +233,15 @@ class SnmpTester(object):
         return notif_list
 
     def get_notif_bgp4v2(self, output_file):
+        notifs = []
         notif_list = []
         whitecleanfile = re.sub("\t", " ", output_file)
         results = whitecleanfile.strip().split("\n")
 
-        # don't consider SNMP additional messages
-        notifs_first = [elem for elem in results if not ("SNMP" in elem)]
-        # don't consider additional application messages
-        notifs = [elem for index, elem in enumerate(results) if index % 2 != 0]
+        # don't consider additional SNMP or application messages
+        for result in results:
+            if re.search(r"(\.([0-9]+))+\s", result):
+                notifs.append(result)
 
         oid_v6 = r"1\.3\.6\.1\.3\.5\.1"
         for one_notif in notifs:
