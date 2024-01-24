@@ -364,8 +364,7 @@ int main(int argc, char **argv, char **env)
 
 	strlcpy(sysconfdir, frr_sysconfdir, sizeof(sysconfdir));
 
-	frr_init_vtydir();
-	strlcpy(vtydir, frr_vtydir, sizeof(vtydir));
+	strlcpy(vtydir, frr_runstatedir, sizeof(vtydir));
 
 	/* Option handling. */
 	while (1) {

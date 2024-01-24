@@ -45,7 +45,7 @@ DEFINE_KOOH(frr_early_fini, (), ());
 DEFINE_KOOH(frr_fini, (), ());
 
 const char frr_sysconfdir[] = SYSCONFDIR;
-char frr_vtydir[256];
+char frr_runstatedir[256] = FRR_RUNSTATE_PATH;
 #ifdef HAVE_SQLITE3
 const char frr_dbdir[] = DAEMON_DB_DIR;
 #endif
@@ -310,11 +310,6 @@ bool frr_zclient_addr(struct sockaddr_storage *sa, socklen_t *sa_len,
 
 static struct frr_daemon_info *di = NULL;
 
-void frr_init_vtydir(void)
-{
-	snprintf(frr_vtydir, sizeof(frr_vtydir), DAEMON_VTY_DIR, "", "");
-}
-
 void frr_preinit(struct frr_daemon_info *daemon, int argc, char **argv)
 {
 	di = daemon;
@@ -344,11 +339,10 @@ void frr_preinit(struct frr_daemon_info *daemon, int argc, char **argv)
 	if (di->flags & FRR_DETACH_LATER)
 		nodetach_daemon = true;
 
-	frr_init_vtydir();
 	snprintf(config_default, sizeof(config_default), "%s/%s.conf",
 		 frr_sysconfdir, di->name);
 	snprintf(pidfile_default, sizeof(pidfile_default), "%s/%s.pid",
-		 frr_vtydir, di->name);
+		 frr_runstatedir, di->name);
 	snprintf(frr_zclientpath, sizeof(frr_zclientpath),
 		 ZEBRA_SERV_PATH, "", "");
 #ifdef HAVE_SQLITE3
@@ -505,10 +499,10 @@ static int frr_opt(int opt)
 		if (!di->zpathspace)
 			snprintf(frr_zclientpath, sizeof(frr_zclientpath),
 				 ZEBRA_SERV_PATH, "/", di->pathspace);
-		snprintf(frr_vtydir, sizeof(frr_vtydir), DAEMON_VTY_DIR, "/",
-			 di->pathspace);
+		snprintf(frr_runstatedir, sizeof(frr_runstatedir),
+			 FRR_RUNSTATE_PATH "/%s", di->pathspace);
 		snprintf(pidfile_default, sizeof(pidfile_default), "%s/%s.pid",
-			 frr_vtydir, di->name);
+			 frr_runstatedir, di->name);
 		break;
 	case 'o':
 		vrf_set_default_name(optarg);
@@ -729,7 +723,7 @@ struct event_loop *frr_init(void)
 	snprintf(config_default, sizeof(config_default), "%s%s%s%s.conf",
 		 frr_sysconfdir, p_pathspace, di->name, p_instance);
 	snprintf(pidfile_default, sizeof(pidfile_default), "%s/%s%s.pid",
-		 frr_vtydir, di->name, p_instance);
+		 frr_runstatedir, di->name, p_instance);
 #ifdef HAVE_SQLITE3
 	snprintf(dbfile_default, sizeof(dbfile_default), "%s/%s%s%s.db",
 		 frr_dbdir, p_pathspace, di->name, p_instance);
@@ -762,7 +756,7 @@ struct event_loop *frr_init(void)
 	/* don't mkdir these as root... */
 	if (!(di->flags & FRR_NO_PRIVSEP)) {
 		if (!di->pid_file || !di->vty_path)
-			frr_mkdir(frr_vtydir, false);
+			frr_mkdir(frr_runstatedir, false);
 		if (di->pid_file)
 			frr_mkdir(di->pid_file, true);
 		if (di->vty_path)
@@ -1049,7 +1043,7 @@ void frr_vty_serv_start(void)
 		const char *dir;
 		char defvtydir[256];
 
-		snprintf(defvtydir, sizeof(defvtydir), "%s", frr_vtydir);
+		snprintf(defvtydir, sizeof(defvtydir), "%s", frr_runstatedir);
 
 		dir = di->vty_sock_path ? di->vty_sock_path : defvtydir;
 

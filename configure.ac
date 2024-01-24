@@ -2732,6 +2732,7 @@ AC_SUBST([CFG_YANGMODELS])
 AC_DEFINE_UNQUOTED([VTYSH_BIN_PATH], ["$vtysh_bin"], [path to vtysh binary])
 AC_DEFINE_UNQUOTED([MODULE_PATH], ["$CFG_MODULE"], [path to modules])
 AC_DEFINE_UNQUOTED([SCRIPT_PATH], ["$CFG_SCRIPT"], [path to scripts])
+AC_DEFINE_UNQUOTED([FRR_RUNSTATE_PATH], ["$CFG_STATE"], [/run/frr equivalent])
 AC_DEFINE_UNQUOTED([YANG_MODELS_PATH], ["$CFG_YANGMODELS"], [path to YANG data models])
 AC_DEFINE_UNQUOTED([WATCHFRR_SH_PATH], ["${CFG_SBIN%/}/watchfrr.sh"], [path to watchfrr.sh])
 
@@ -2744,7 +2745,6 @@ AC_DEFINE_UNQUOTED([MGMTD_BE_SERVER_PATH], ["$CFG_STATE/mgmtd_be.sock"], [mgmtd 
 AC_DEFINE_UNQUOTED([OSPF6D_GR_STATE], ["$CFG_STATE/ospf6d-gr.json"], [ospf6d GR state information])
 AC_DEFINE_UNQUOTED([ISISD_RESTART], ["$CFG_STATE%s/isid-restart.json"], [isisd restart information])
 AC_DEFINE_UNQUOTED([OSPF6_AUTH_SEQ_NUM_FILE], ["$CFG_STATE/ospf6d-at-seq-no.dat"], [ospf6d AT Sequence number information])
-AC_DEFINE_UNQUOTED([DAEMON_VTY_DIR], ["$CFG_STATE%s%s"], [daemon vty directory])
 AC_DEFINE_UNQUOTED([DAEMON_DB_DIR], ["$CFG_STATE"], [daemon database directory])
 
 dnl various features

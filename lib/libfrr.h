@@ -130,7 +130,6 @@ struct frr_daemon_info {
 			  .version = FRR_VERSION, );                           \
 	MACRO_REQUIRE_SEMICOLON() /* end */
 
-extern void frr_init_vtydir(void);
 extern void frr_preinit(struct frr_daemon_info *daemon, int argc, char **argv);
 extern void frr_opt_add(const char *optstr, const struct option *longopts,
 			const char *helpstr);
@@ -172,7 +171,7 @@ extern void frr_fini(void);
 extern char config_default[512];
 extern char frr_zclientpath[256];
 extern const char frr_sysconfdir[];
-extern char frr_vtydir[256];
+extern char frr_runstatedir[256];
 extern const char frr_moduledir[];
 extern const char frr_scriptdir[];
 

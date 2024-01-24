@@ -171,8 +171,8 @@ main(int argc, char **argv)
 	  }
     }
 
-    snprintf(state_file, sizeof(state_file), "%s/%s",
-	     frr_vtydir, "babel-state");
+    snprintf(state_file, sizeof(state_file), "%s/%s", frr_runstatedir,
+	     "babel-state");
 
     /* create the threads handler */
     master = frr_init ();
