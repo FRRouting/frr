@@ -2683,34 +2683,16 @@ AC_DEFINE_UNQUOTED([OSPF6_AUTH_SEQ_NUM_FILE], ["$frr_statedir/ospf6d-at-seq-no.d
 AC_DEFINE_UNQUOTED([DAEMON_VTY_DIR], ["$frr_statedir%s%s"], [daemon vty directory])
 AC_DEFINE_UNQUOTED([DAEMON_DB_DIR], ["$frr_statedir"], [daemon database directory])
 
-dnl autoconf does this, but it does it too late...
-test "$prefix" = "NONE" && prefix=$ac_default_prefix
-test "$exec_prefix" = "NONE" && exec_prefix='${prefix}'
-
 dnl get the full path, recursing through variables...
-vtysh_bin="$bindir/vtysh"
-for I in 1 2 3 4 5 6 7 8 9 10; do
-	eval vtysh_bin="\"$vtysh_bin\""
-done
-AC_DEFINE_UNQUOTED([VTYSH_BIN_PATH], ["$vtysh_bin"], [path to vtysh binary])
+AX_RECURSIVE_EVAL([$bindir/vtysh],  [vtysh_bin])
+AX_RECURSIVE_EVAL([$sysconfdir],    [CFG_SYSCONF])
+AX_RECURSIVE_EVAL([$sbindir],       [CFG_SBIN])
+AX_RECURSIVE_EVAL([$bindir],        [CFG_BIN])
+AX_RECURSIVE_EVAL([$frr_statedir],  [CFG_STATE])
+AX_RECURSIVE_EVAL([$moduledir],     [CFG_MODULE])
+AX_RECURSIVE_EVAL([$yangmodelsdir], [CFG_YANGMODELS])
+AX_RECURSIVE_EVAL([$scriptdir],     [CFG_SCRIPT])
 AC_SUBST([vtysh_bin])
-
-CFG_SYSCONF="$sysconfdir"
-CFG_SBIN="$sbindir"
-CFG_BIN="$bindir"
-CFG_STATE="$frr_statedir"
-CFG_MODULE="$moduledir"
-CFG_YANGMODELS="$yangmodelsdir"
-CFG_SCRIPT="$scriptdir"
-for I in 1 2 3 4 5 6 7 8 9 10; do
-	eval CFG_SYSCONF="\"$CFG_SYSCONF\""
-	eval CFG_SBIN="\"$CFG_SBIN\""
-	eval CFG_BIN="\"$CFG_BIN\""
-	eval CFG_STATE="\"$CFG_STATE\""
-	eval CFG_MODULE="\"$CFG_MODULE\""
-	eval CFG_YANGMODELS="\"$CFG_YANGMODELS\""
-	eval CFG_SCRIPT="\"$CFG_SCRIPT\""
-done
 AC_SUBST([CFG_SYSCONF])
 AC_SUBST([CFG_SBIN])
 AC_SUBST([CFG_BIN])
@@ -2718,6 +2700,7 @@ AC_SUBST([CFG_STATE])
 AC_SUBST([CFG_MODULE])
 AC_SUBST([CFG_SCRIPT])
 AC_SUBST([CFG_YANGMODELS])
+AC_DEFINE_UNQUOTED([VTYSH_BIN_PATH], ["$vtysh_bin"], [path to vtysh binary])
 AC_DEFINE_UNQUOTED([MODULE_PATH], ["$CFG_MODULE"], [path to modules])
 AC_DEFINE_UNQUOTED([SCRIPT_PATH], ["$CFG_SCRIPT"], [path to scripts])
 AC_DEFINE_UNQUOTED([YANG_MODELS_PATH], ["$CFG_YANGMODELS"], [path to YANG data models])
