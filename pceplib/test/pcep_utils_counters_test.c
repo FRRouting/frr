@@ -113,7 +113,7 @@ void test_create_subgroup_counter()
 	CU_ASSERT_FALSE(create_subgroup_counter(NULL, counter_id, counter_name,
 						counter_name_json));
 	CU_ASSERT_FALSE(create_subgroup_counter(subgroup, counter_id + 1,
-						counter_name));
+						counter_name, counter_name_json));
 	CU_ASSERT_FALSE(
 		create_subgroup_counter(subgroup, counter_id, NULL, NULL));
 	CU_ASSERT_EQUAL(subgroup->num_counters, 0);
