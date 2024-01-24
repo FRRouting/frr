@@ -2303,7 +2303,7 @@ DEFUNSH(VTYSH_AFFMAP, no_affinity_map, vtysh_no_affinity_map_cmd,
 	return CMD_SUCCESS;
 }
 
-DEFUNSH(VTYSH_RMAP, vtysh_route_map, vtysh_route_map_cmd,
+DEFUNSH(VTYSH_RMAP_CONFIG, vtysh_route_map, vtysh_route_map_cmd,
 	"route-map RMAP_NAME <deny|permit> (1-65535)",
 	"Create route-map or enter route-map command mode\n"
 	"Route map tag\n"
@@ -2572,13 +2572,13 @@ DEFUNSH(VTYSH_RIPNGD, vtysh_quit_ripngd, vtysh_quit_ripngd_cmd, "quit",
 }
 #endif /* HAVE_RIPNGD */
 
-DEFUNSH(VTYSH_RMAP, vtysh_exit_rmap, vtysh_exit_rmap_cmd, "exit",
+DEFUNSH(VTYSH_RMAP_CONFIG, vtysh_exit_rmap, vtysh_exit_rmap_cmd, "exit",
 	"Exit current mode and down to previous mode\n")
 {
 	return vtysh_exit(vty);
 }
 
-DEFUNSH(VTYSH_RMAP, vtysh_quit_rmap, vtysh_quit_rmap_cmd, "quit",
+DEFUNSH(VTYSH_RMAP_CONFIG, vtysh_quit_rmap, vtysh_quit_rmap_cmd, "quit",
 	"Exit current mode and down to previous mode\n")
 {
 	return vtysh_exit_rmap(self, vty, argc, argv);
@@ -3455,7 +3455,7 @@ static void show_route_map_send(const char *route_map, bool json)
 		const struct vtysh_client *client = &vtysh_client[i];
 		bool is_connected = true;
 
-		if (!CHECK_FLAG(client->flag, VTYSH_RMAP))
+		if (!CHECK_FLAG(client->flag, VTYSH_RMAP_SHOW))
 			continue;
 
 		for (; client; client = client->next)

@@ -1550,3 +1550,45 @@ const struct frr_yang_module_info frr_route_map_info = {
 		},
 	}
 };
+
+const struct frr_yang_module_info frr_route_map_cli_info = {
+	.name = "frr-route-map",
+	.ignore_cfg_cbs = true,
+	.nodes = {
+		{
+			.xpath = "/frr-route-map:lib/route-map/optimization-disabled",
+			.cbs.cli_show = route_map_optimization_disabled_show,
+		},
+		{
+			.xpath = "/frr-route-map:lib/route-map/entry",
+			.cbs = {
+				.cli_cmp = route_map_instance_cmp,
+				.cli_show = route_map_instance_show,
+				.cli_show_end = route_map_instance_show_end,
+			}
+		},
+		{
+			.xpath = "/frr-route-map:lib/route-map/entry/description",
+			.cbs.cli_show = route_map_description_show,
+		},
+		{
+			.xpath = "/frr-route-map:lib/route-map/entry/call",
+			.cbs.cli_show = route_map_call_show,
+		},
+		{
+			.xpath = "/frr-route-map:lib/route-map/entry/exit-policy",
+			.cbs.cli_show = route_map_exit_policy_show,
+		},
+		{
+			.xpath = "/frr-route-map:lib/route-map/entry/match-condition",
+			.cbs.cli_show = route_map_condition_show,
+		},
+		{
+			.xpath = "/frr-route-map:lib/route-map/entry/set-action",
+			.cbs.cli_show = route_map_action_show,
+		},
+		{
+			.xpath = NULL,
+		},
+	}
+};

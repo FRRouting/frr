@@ -12,6 +12,7 @@
 #include "json.h"
 #include "network.h"
 #include "northbound_cli.h"
+#include "routemap.h"
 
 #include "mgmtd/mgmt.h"
 #include "mgmtd/mgmt_be_adapter.h"
@@ -560,6 +561,11 @@ static struct cmd_node mgmtd_node = {
 
 void mgmt_vty_init(void)
 {
+	/*
+	 * Library based CLI handlers
+	 */
+	route_map_cli_init();
+
 	/*
 	 * Initialize command handling from VTYSH connection.
 	 * Call command initialization routines defined by
