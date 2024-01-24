@@ -712,6 +712,7 @@ struct mgmt_fe_client *mgmt_fe_client_create(const char *client_name,
 					     struct event_loop *event_loop)
 {
 	struct mgmt_fe_client *client;
+	char server_path[MAXPATHLEN];
 
 	if (__fe_client)
 		return NULL;
@@ -726,7 +727,9 @@ struct mgmt_fe_client *mgmt_fe_client_create(const char *client_name,
 
 	mgmt_sessions_init(&client->sessions);
 
-	msg_client_init(&client->client, event_loop, MGMTD_FE_SERVER_PATH,
+	snprintf(server_path, sizeof(server_path), MGMTD_FE_SOCK_NAME);
+
+	msg_client_init(&client->client, event_loop, server_path,
 			mgmt_fe_client_notify_connect,
 			mgmt_fe_client_notify_disconnect,
 			mgmt_fe_client_process_msg, MGMTD_FE_MAX_NUM_MSG_PROC,
