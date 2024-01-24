@@ -84,7 +84,7 @@ static struct zlog_targets_head zlog_targets;
 /* Global setting for buffered vs immediate output. The default is
  * per-pthread buffering.
  */
-static bool default_immediate;
+static bool zlog_default_immediate;
 
 /* cf. zlog.h for additional comments on this struct.
  *
@@ -445,7 +445,7 @@ static void vzlog_tls(struct zlog_tls *zlog_tls, const struct xref_logmsg *xref,
 	struct zlog_msg *msg;
 	char *buf;
 	bool ignoremsg = true;
-	bool immediate = default_immediate;
+	bool immediate = zlog_default_immediate;
 
 	/* avoid further processing cost if no target wants this message */
 	rcu_read_lock();
@@ -966,7 +966,12 @@ struct zlog_target *zlog_target_replace(struct zlog_target *oldzt,
  */
 void zlog_set_immediate(bool set_p)
 {
-	default_immediate = set_p;
+	zlog_default_immediate = set_p;
+}
+
+bool zlog_get_immediate_mode(void)
+{
+	return zlog_default_immediate;
 }
 
 /* common init */
