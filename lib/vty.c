@@ -126,6 +126,7 @@ bool vty_log_commands;
 static bool vty_log_commands_perm;
 
 char const *const mgmt_daemons[] = {
+	"zebra",
 #ifdef HAVE_RIPD
 	"ripd",
 #endif
@@ -2264,19 +2265,6 @@ bool mgmt_vty_read_configs(void)
 
 	snprintf(path, sizeof(path), "%s/mgmtd.conf", frr_sysconfdir);
 	confp = vty_open_config(path, config_default);
-	if (!confp) {
-		char *orig;
-
-		snprintf(path, sizeof(path), "%s/zebra.conf", frr_sysconfdir);
-		orig = XSTRDUP(MTYPE_TMP, host_config_get());
-
-		zlog_info("mgmtd: trying backup config file: %s", path);
-		confp = vty_open_config(path, config_default);
-
-		host_config_set(path);
-		XFREE(MTYPE_TMP, orig);
-	}
-
 	if (confp) {
 		zlog_info("mgmtd: reading config file: %s", path);
 

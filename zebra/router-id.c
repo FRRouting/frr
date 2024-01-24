@@ -23,16 +23,12 @@
 #include "table.h"
 #include "rib.h"
 #include "vrf.h"
-#include "northbound_cli.h"
 
 #include "zebra/zebra_router.h"
 #include "zebra/zapi_msg.h"
 #include "zebra/zebra_vrf.h"
 #include "zebra/router-id.h"
 #include "zebra/redistribute.h"
-#include "zebra/zebra_nb.h"
-
-#include "router-id_clippy.c"
 
 static struct connected *router_id_find_node(struct list *l,
 					     struct connected *ifc)
@@ -245,181 +241,6 @@ void router_id_del_address(struct connected *ifc)
 		zsend_router_id_update(client, afi, &after, zvrf_id(zvrf));
 }
 
-DEFPY_YANG (ip_router_id,
-       ip_router_id_cmd,
-       "ip router-id A.B.C.D$id vrf NAME",
-       IP_STR
-       "Manually set the router-id\n"
-       "IP address to use for router-id\n"
-       VRF_CMD_HELP_STR)
-{
-	nb_cli_enqueue_change(vty, "./frr-zebra:zebra/router-id", NB_OP_MODIFY,
-			      id_str);
-	return nb_cli_apply_changes(vty, "/frr-vrf:lib/vrf[name='%s']", vrf);
-}
-
-ALIAS_YANG (ip_router_id,
-       router_id_cmd,
-       "router-id A.B.C.D$id vrf NAME",
-       "Manually set the router-id\n"
-       "IP address to use for router-id\n"
-       VRF_CMD_HELP_STR);
-
-DEFPY_YANG (ipv6_router_id,
-       ipv6_router_id_cmd,
-       "ipv6 router-id X:X::X:X$id vrf NAME",
-       IPV6_STR
-       "Manually set the router-id\n"
-       "IPv6 address to use for router-id\n"
-       VRF_CMD_HELP_STR)
-{
-	nb_cli_enqueue_change(vty, "./frr-zebra:zebra/ipv6-router-id",
-			      NB_OP_MODIFY, id_str);
-	return nb_cli_apply_changes(vty, "/frr-vrf:lib/vrf[name='%s']", vrf);
-}
-
-
-DEFPY_YANG (ip_router_id_in_vrf,
-       ip_router_id_in_vrf_cmd,
-       "ip router-id A.B.C.D$id",
-       IP_STR
-       "Manually set the router-id\n"
-       "IP address to use for router-id\n")
-{
-	nb_cli_enqueue_change(vty, "./frr-zebra:zebra/router-id", NB_OP_MODIFY,
-			      id_str);
-
-	if (vty->node == CONFIG_NODE)
-		return nb_cli_apply_changes(vty, "/frr-vrf:lib/vrf[name='%s']",
-					    VRF_DEFAULT_NAME);
-
-	return nb_cli_apply_changes(vty, NULL);
-}
-
-ALIAS_YANG (ip_router_id_in_vrf,
-       router_id_in_vrf_cmd,
-       "router-id A.B.C.D$id",
-       "Manually set the router-id\n"
-       "IP address to use for router-id\n");
-
-void lib_vrf_zebra_router_id_cli_write(struct vty *vty,
-				       const struct lyd_node *dnode,
-				       bool show_defaults)
-{
-	const char *id = yang_dnode_get_string(dnode, NULL);
-
-	zebra_vrf_indent_cli_write(vty, dnode);
-
-	vty_out(vty, "ip router-id %s\n", id);
-}
-
-DEFPY_YANG (ipv6_router_id_in_vrf,
-       ipv6_router_id_in_vrf_cmd,
-       "ipv6 router-id X:X::X:X$id",
-       IP6_STR
-       "Manually set the IPv6 router-id\n"
-       "IPV6 address to use for router-id\n")
-{
-	nb_cli_enqueue_change(vty, "./frr-zebra:zebra/ipv6-router-id",
-			      NB_OP_MODIFY, id_str);
-
-	if (vty->node == CONFIG_NODE)
-		return nb_cli_apply_changes(vty, "/frr-vrf:lib/vrf[name='%s']",
-					    VRF_DEFAULT_NAME);
-
-	return nb_cli_apply_changes(vty, NULL);
-}
-
-void lib_vrf_zebra_ipv6_router_id_cli_write(struct vty *vty,
-					    const struct lyd_node *dnode,
-					    bool show_defaults)
-{
-	const char *id = yang_dnode_get_string(dnode, NULL);
-
-	zebra_vrf_indent_cli_write(vty, dnode);
-
-	vty_out(vty, "ipv6 router-id %s\n", id);
-}
-
-DEFPY_YANG (no_ip_router_id,
-       no_ip_router_id_cmd,
-       "no ip router-id A.B.C.D vrf NAME",
-       NO_STR
-       IP_STR
-       "Remove the manually configured router-id\n"
-       "IP address to use for router-id\n"
-       VRF_CMD_HELP_STR)
-{
-	nb_cli_enqueue_change(vty, "./frr-zebra:zebra/router-id", NB_OP_DESTROY,
-			      NULL);
-	return nb_cli_apply_changes(vty, "/frr-vrf:lib/vrf[name='%s']", vrf);
-}
-
-ALIAS_YANG (no_ip_router_id,
-       no_router_id_cmd,
-       "no router-id A.B.C.D vrf NAME",
-       NO_STR
-       "Remove the manually configured router-id\n"
-       "IP address to use for router-id\n"
-       VRF_CMD_HELP_STR);
-
-DEFPY_YANG (no_ipv6_router_id,
-       no_ipv6_router_id_cmd,
-       "no ipv6 router-id X:X::X:X vrf NAME",
-       NO_STR
-       IPV6_STR
-       "Remove the manually configured IPv6 router-id\n"
-       "IPv6 address to use for router-id\n"
-       VRF_CMD_HELP_STR)
-{
-	nb_cli_enqueue_change(vty, "./frr-zebra:zebra/ipv6-router-id",
-			      NB_OP_DESTROY, NULL);
-	return nb_cli_apply_changes(vty, "/frr-vrf:lib/vrf[name='%s']", vrf);
-}
-
-DEFPY_YANG (no_ip_router_id_in_vrf,
-       no_ip_router_id_in_vrf_cmd,
-       "no ip router-id [A.B.C.D]",
-       NO_STR
-       IP_STR
-       "Remove the manually configured router-id\n"
-       "IP address to use for router-id\n")
-{
-	nb_cli_enqueue_change(vty, "./frr-zebra:zebra/router-id", NB_OP_DESTROY,
-			      NULL);
-
-	if (vty->node == CONFIG_NODE)
-		return nb_cli_apply_changes(vty, "/frr-vrf:lib/vrf[name='%s']",
-					    VRF_DEFAULT_NAME);
-
-	return nb_cli_apply_changes(vty, NULL);
-}
-
-ALIAS_YANG (no_ip_router_id_in_vrf,
-       no_router_id_in_vrf_cmd,
-       "no router-id [A.B.C.D]",
-       NO_STR
-       "Remove the manually configured router-id\n"
-       "IP address to use for router-id\n");
-
-DEFPY_YANG (no_ipv6_router_id_in_vrf,
-       no_ipv6_router_id_in_vrf_cmd,
-       "no ipv6 router-id [X:X::X:X]",
-       NO_STR
-       IP6_STR
-       "Remove the manually configured IPv6 router-id\n"
-       "IPv6 address to use for router-id\n")
-{
-	nb_cli_enqueue_change(vty, "./frr-zebra:zebra/ipv6-router-id",
-			      NB_OP_DESTROY, NULL);
-
-	if (vty->node == CONFIG_NODE)
-		return nb_cli_apply_changes(vty, "/frr-vrf:lib/vrf[name='%s']",
-					    VRF_DEFAULT_NAME);
-
-	return nb_cli_apply_changes(vty, NULL);
-}
-
 DEFUN (show_ip_router_id,
        show_ip_router_id_cmd,
        "show [ip|ipv6] router-id [vrf NAME]",
@@ -486,24 +307,6 @@ static int router_id_v6_cmp(void *a, void *b)
 
 void router_id_cmd_init(void)
 {
-	install_element(CONFIG_NODE, &ip_router_id_cmd);
-	install_element(CONFIG_NODE, &router_id_cmd);
-	install_element(CONFIG_NODE, &ipv6_router_id_cmd);
-	install_element(CONFIG_NODE, &no_ip_router_id_cmd);
-	install_element(CONFIG_NODE, &no_router_id_cmd);
-	install_element(CONFIG_NODE, &ip_router_id_in_vrf_cmd);
-	install_element(VRF_NODE, &ip_router_id_in_vrf_cmd);
-	install_element(CONFIG_NODE, &router_id_in_vrf_cmd);
-	install_element(VRF_NODE, &router_id_in_vrf_cmd);
-	install_element(CONFIG_NODE, &ipv6_router_id_in_vrf_cmd);
-	install_element(VRF_NODE, &ipv6_router_id_in_vrf_cmd);
-	install_element(CONFIG_NODE, &no_ipv6_router_id_cmd);
-	install_element(CONFIG_NODE, &no_ip_router_id_in_vrf_cmd);
-	install_element(VRF_NODE, &no_ip_router_id_in_vrf_cmd);
-	install_element(CONFIG_NODE, &no_router_id_in_vrf_cmd);
-	install_element(VRF_NODE, &no_router_id_in_vrf_cmd);
-	install_element(CONFIG_NODE, &no_ipv6_router_id_in_vrf_cmd);
-	install_element(VRF_NODE, &no_ipv6_router_id_in_vrf_cmd);
 	install_element(VIEW_NODE, &show_ip_router_id_cmd);
 }
 

@@ -118,7 +118,6 @@ clippy_scan += \
 	zebra/debug.c \
 	zebra/interface.c \
 	zebra/rtadv.c \
-	zebra/zebra_evpn_mh.c \
 	zebra/zebra_mlag_vty.c \
 	zebra/zebra_routemap.c \
 	zebra/zebra_vty.c \
@@ -126,7 +125,7 @@ clippy_scan += \
 	zebra/zebra_vrf.c \
 	zebra/dpdk/zebra_dplane_dpdk_vty.c \
 	zebra/label_manager.c \
-	zebra/router-id.c \
+	zebra/zebra_cli.c \
 	# end
 
 noinst_HEADERS += \

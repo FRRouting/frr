@@ -20,7 +20,6 @@
 #include "vrf.h"
 #include "vty.h"
 #include "lib_errors.h"
-#include "northbound_cli.h"
 
 #include "zebra/debug.h"
 #include "zebra/interface.h"
@@ -29,7 +28,6 @@
 #include "zebra/zebra_ptm_redistribute.h"
 #include "zebra/zebra_router.h"
 #include "zebra_vrf.h"
-#include "zebra_nb.h"
 
 /*
  * Choose the BFD implementation that we'll use.
@@ -88,7 +86,6 @@ struct zebra_ptm_cb ptm_cb;
 
 static int zebra_ptm_socket_init(void);
 void zebra_ptm_sock_read(struct event *thread);
-static void zebra_ptm_install_commands(void);
 static int zebra_ptm_handle_msg_cb(void *arg, void *in_ctxt);
 void zebra_bfd_peer_replay_req(void);
 void zebra_ptm_send_status_req(void);
@@ -117,7 +114,6 @@ void zebra_ptm_init(void)
 	}
 
 	ptm_cb.pid = getpid();
-	zebra_ptm_install_commands();
 
 	snprintf(buf, sizeof(buf), "%s", FRR_PTM_NAME);
 	ptm_hdl = ptm_lib_register(buf, NULL, zebra_ptm_handle_msg_cb,
@@ -273,38 +269,6 @@ void zebra_global_ptm_disable(void)
 	zebra_ptm_reset_status(1);
 }
 
-DEFUN_YANG (zebra_ptm_enable,
-       zebra_ptm_enable_cmd,
-       "ptm-enable",
-       "Enable neighbor check with specified topology\n")
-{
-	nb_cli_enqueue_change(vty, "/frr-zebra:zebra/ptm-enable", NB_OP_MODIFY,
-			      "true");
-	return nb_cli_apply_changes(vty, NULL);
-}
-
-DEFUN_YANG (no_zebra_ptm_enable,
-       no_zebra_ptm_enable_cmd,
-       "no ptm-enable",
-       NO_STR
-       "Enable neighbor check with specified topology\n")
-{
-	nb_cli_enqueue_change(vty, "/frr-zebra:zebra/ptm-enable", NB_OP_MODIFY,
-			      "false");
-	return nb_cli_apply_changes(vty, NULL);
-}
-
-void zebra_ptm_enable_cli_write(struct vty *vty, const struct lyd_node *dnode,
-				bool show_defaults)
-{
-	bool enable = yang_dnode_get_bool(dnode, NULL);
-
-	if (enable)
-		vty_out(vty, "ptm-enable\n");
-	else if (show_defaults)
-		vty_out(vty, "no ptm-enable\n");
-}
-
 void zebra_if_ptm_enable(struct interface *ifp)
 {
 	struct zebra_if *if_data;
@@ -356,49 +320,6 @@ void zebra_if_ptm_disable(struct interface *ifp)
 	if_data->ptm_enable = ZEBRA_IF_PTM_ENABLE_OFF;
 }
 
-DEFUN_YANG (zebra_ptm_enable_if,
-       zebra_ptm_enable_if_cmd,
-       "ptm-enable",
-       "Enable neighbor check with specified topology\n")
-{
-	nb_cli_enqueue_change(vty, "./frr-zebra:zebra/ptm-enable", NB_OP_MODIFY,
-			      "true");
-	return nb_cli_apply_changes(vty, NULL);
-}
-
-DEFUN_YANG (no_zebra_ptm_enable_if,
-       no_zebra_ptm_enable_if_cmd,
-       "no ptm-enable",
-       NO_STR
-       "Enable neighbor check with specified topology\n")
-{
-	nb_cli_enqueue_change(vty, "./frr-zebra:zebra/ptm-enable", NB_OP_MODIFY,
-			      "false");
-	return nb_cli_apply_changes(vty, NULL);
-}
-
-void lib_interface_zebra_ptm_enable_cli_write(struct vty *vty,
-					      const struct lyd_node *dnode,
-					      bool show_defaults)
-{
-	bool enable = yang_dnode_get_bool(dnode, NULL);
-
-	if (!enable)
-		vty_out(vty, " no ptm-enable\n");
-	else if (show_defaults)
-		vty_out(vty, " ptm-enable\n");
-}
-
-void zebra_ptm_write(struct vty *vty)
-{
-	struct lyd_node *dnode;
-
-	dnode = yang_dnode_get(running_config->dnode,
-			       "/frr-zebra:zebra/ptm-enable");
-	if (dnode)
-		nb_cli_show_dnode_cmds(vty, dnode, false);
-}
-
 static int zebra_ptm_socket_init(void)
 {
 	int ret;
@@ -437,14 +358,6 @@ static int zebra_ptm_socket_init(void)
 	}
 	ptm_cb.ptm_sock = sock;
 	return sock;
-}
-
-static void zebra_ptm_install_commands(void)
-{
-	install_element(CONFIG_NODE, &zebra_ptm_enable_cmd);
-	install_element(CONFIG_NODE, &no_zebra_ptm_enable_cmd);
-	install_element(INTERFACE_NODE, &zebra_ptm_enable_if_cmd);
-	install_element(INTERFACE_NODE, &no_zebra_ptm_enable_if_cmd);
 }
 
 /* BFD session goes down, send message to the protocols. */
@@ -1568,11 +1481,6 @@ int zebra_ptm_get_enable_state(void)
 void zebra_ptm_show_status(struct vty *vty __attribute__((__unused__)),
 			   json_object *json __attribute__((__unused__)),
 			   struct interface *ifp __attribute__((__unused__)))
-{
-	/* NOTHING */
-}
-
-void zebra_ptm_write(struct vty *vty __attribute__((__unused__)))
 {
 	/* NOTHING */
 }

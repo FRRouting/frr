@@ -18,6 +18,7 @@
 #include "ripngd/ripng_nb.h"
 #include "routing_nb.h"
 #include "affinitymap.h"
+#include "zebra/zebra_cli.h"
 
 /* mgmt options, we use GNU getopt library. */
 static const struct option longopts[] = {
@@ -143,32 +144,11 @@ static struct frr_signal_t mgmt_signals[] = {
 extern const struct frr_yang_module_info frr_staticd_cli_info;
 #endif
 
-#if HAVE_BFDD == 0 || defined(HAVE_RTADV)
-const char *zebra_features[] = {
-#if HAVE_BFDD == 0
-	"ptm-bfd",
-#endif
-#if defined(HAVE_RTADV)
-	"ipv6-router-advertisements",
-#endif
-	NULL
-};
-#endif
-
 /*
  * These are stub info structs that are used to load the modules used by backend
  * clients into mgmtd. The modules are used by libyang in order to support
  * parsing binary data returns from the backend.
  */
-const struct frr_yang_module_info zebra_info = {
-	.name = "frr-zebra",
-#if HAVE_BFDD == 0 || defined(HAVE_RTADV)
-	.features = zebra_features,
-#endif
-	.ignore_cfg_cbs = true,
-	.nodes = { { .xpath = NULL } },
-};
-
 const struct frr_yang_module_info zebra_route_map_info = {
 	.name = "frr-zebra-route-map",
 	.ignore_cfg_cbs = true,
@@ -191,7 +171,7 @@ static const struct frr_yang_module_info *const mgmt_yang_modules[] = {
 	 * YANG module info used by backend clients get added here.
 	 */
 
-	&zebra_info,
+	&frr_zebra_cli_info,
 	&zebra_route_map_info,
 
 #ifdef HAVE_RIPD

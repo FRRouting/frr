@@ -291,6 +291,10 @@ struct cmd_node {
 #define DEFPY_YANG(funcname, cmdname, cmdstr, helpstr)                         \
 	DEFPY_ATTR(funcname, cmdname, cmdstr, helpstr, CMD_ATTR_YANG)
 
+#define DEFPY_YANG_HIDDEN(funcname, cmdname, cmdstr, helpstr)                  \
+	DEFPY_ATTR(funcname, cmdname, cmdstr, helpstr,                         \
+		   CMD_ATTR_YANG | CMD_ATTR_HIDDEN)
+
 #define DEFPY_YANG_NOSH(funcname, cmdname, cmdstr, helpstr)                    \
 	DEFPY_ATTR(funcname, cmdname, cmdstr, helpstr,                         \
 		   CMD_ATTR_YANG | CMD_ATTR_NOSH)
@@ -314,6 +318,10 @@ struct cmd_node {
 /* DEFUN_NOSH for commands that vtysh should ignore */
 #define DEFUN_NOSH(funcname, cmdname, cmdstr, helpstr)                         \
 	DEFUN_ATTR(funcname, cmdname, cmdstr, helpstr, CMD_ATTR_NOSH)
+
+#define DEFUN_YANG_HIDDEN(funcname, cmdname, cmdstr, helpstr)                  \
+	DEFUN_ATTR(funcname, cmdname, cmdstr, helpstr,                         \
+		   CMD_ATTR_YANG | CMD_ATTR_HIDDEN)
 
 #define DEFUN_YANG_NOSH(funcname, cmdname, cmdstr, helpstr)                    \
 	DEFUN_ATTR(funcname, cmdname, cmdstr, helpstr,                         \

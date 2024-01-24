@@ -99,7 +99,6 @@ const struct frr_yang_module_info frr_zebra_info = {
 			.xpath = "/frr-zebra:zebra/ptm-enable",
 			.cbs = {
 				.modify = zebra_ptm_enable_modify,
-				.cli_show = zebra_ptm_enable_cli_write,
 			}
 		},
 #endif
@@ -107,7 +106,6 @@ const struct frr_yang_module_info frr_zebra_info = {
 			.xpath = "/frr-zebra:zebra/route-map-delay",
 			.cbs = {
 				.modify = zebra_route_map_delay_modify,
-				.cli_show = zebra_route_map_delay_cli_write,
 			}
 		},
 		{
@@ -324,7 +322,6 @@ const struct frr_yang_module_info frr_zebra_info = {
 			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/ipv4-addrs",
 			.cbs = {
 				.create = lib_interface_zebra_ipv4_addrs_create,
-				.cli_show = lib_interface_zebra_ipv4_addrs_cli_write,
 				.destroy = lib_interface_zebra_ipv4_addrs_destroy,
 			}
 		},
@@ -339,7 +336,6 @@ const struct frr_yang_module_info frr_zebra_info = {
 			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/ipv4-p2p-addrs",
 			.cbs = {
 				.create = lib_interface_zebra_ipv4_p2p_addrs_create,
-				.cli_show = lib_interface_zebra_ipv4_p2p_addrs_cli_write,
 				.destroy = lib_interface_zebra_ipv4_p2p_addrs_destroy,
 			}
 		},
@@ -354,7 +350,6 @@ const struct frr_yang_module_info frr_zebra_info = {
 			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/ipv6-addrs",
 			.cbs = {
 				.create = lib_interface_zebra_ipv6_addrs_create,
-				.cli_show = lib_interface_zebra_ipv6_addrs_cli_write,
 				.destroy = lib_interface_zebra_ipv6_addrs_destroy,
 			}
 		},
@@ -362,7 +357,6 @@ const struct frr_yang_module_info frr_zebra_info = {
 			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/multicast",
 			.cbs = {
 				.modify = lib_interface_zebra_multicast_modify,
-				.cli_show = lib_interface_zebra_multicast_cli_write,
 				.destroy = lib_interface_zebra_multicast_destroy,
 			}
 		},
@@ -370,14 +364,12 @@ const struct frr_yang_module_info frr_zebra_info = {
 			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/link-detect",
 			.cbs = {
 				.modify = lib_interface_zebra_link_detect_modify,
-				.cli_show = lib_interface_zebra_link_detect_cli_write,
 			}
 		},
 		{
 			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/enabled",
 			.cbs = {
 				.modify = lib_interface_zebra_enabled_modify,
-				.cli_show = lib_interface_zebra_enabled_cli_write,
 				.destroy = lib_interface_zebra_enabled_destroy,
 			}
 		},
@@ -385,7 +377,6 @@ const struct frr_yang_module_info frr_zebra_info = {
 			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/bandwidth",
 			.cbs = {
 				.modify = lib_interface_zebra_bandwidth_modify,
-				.cli_show = lib_interface_zebra_bandwidth_cli_write,
 				.destroy = lib_interface_zebra_bandwidth_destroy,
 			}
 		},
@@ -393,7 +384,6 @@ const struct frr_yang_module_info frr_zebra_info = {
 			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/mpls",
 			.cbs = {
 				.modify = lib_interface_zebra_mpls_modify,
-				.cli_show = lib_interface_zebra_mpls_cli_write,
 				.destroy = lib_interface_zebra_mpls_destroy,
 			}
 		},
@@ -402,15 +392,12 @@ const struct frr_yang_module_info frr_zebra_info = {
 			.cbs = {
 				.create = lib_interface_zebra_link_params_create,
 				.destroy = lib_interface_zebra_link_params_destroy,
-				.cli_show = lib_interface_zebra_link_params_cli_write,
-				.cli_show_end = lib_interface_zebra_link_params_cli_write_end,
 			}
 		},
 		{
 			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/link-params/metric",
 			.cbs = {
 				.modify = lib_interface_zebra_link_params_metric_modify,
-				.cli_show = lib_interface_zebra_link_params_metric_cli_write,
 				.destroy = lib_interface_zebra_link_params_metric_destroy,
 			}
 		},
@@ -418,7 +405,6 @@ const struct frr_yang_module_info frr_zebra_info = {
 			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/link-params/max-bandwidth",
 			.cbs = {
 				.modify = lib_interface_zebra_link_params_max_bandwidth_modify,
-				.cli_show = lib_interface_zebra_link_params_max_bandwidth_cli_write,
 				.destroy = lib_interface_zebra_link_params_max_bandwidth_destroy,
 			}
 		},
@@ -426,7 +412,6 @@ const struct frr_yang_module_info frr_zebra_info = {
 			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/link-params/max-reservable-bandwidth",
 			.cbs = {
 				.modify = lib_interface_zebra_link_params_max_reservable_bandwidth_modify,
-				.cli_show = lib_interface_zebra_link_params_max_reservable_bandwidth_cli_write,
 				.destroy = lib_interface_zebra_link_params_max_reservable_bandwidth_destroy,
 			}
 		},
@@ -434,7 +419,6 @@ const struct frr_yang_module_info frr_zebra_info = {
 			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/link-params/unreserved-bandwidths/unreserved-bandwidth",
 			.cbs = {
 				.create = lib_interface_zebra_link_params_unreserved_bandwidths_unreserved_bandwidth_create,
-				.cli_show = lib_interface_zebra_link_params_unreserved_bandwidths_unreserved_bandwidth_cli_write,
 				.destroy = lib_interface_zebra_link_params_unreserved_bandwidths_unreserved_bandwidth_destroy,
 			}
 		},
@@ -448,7 +432,6 @@ const struct frr_yang_module_info frr_zebra_info = {
 			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/link-params/residual-bandwidth",
 			.cbs = {
 				.modify = lib_interface_zebra_link_params_residual_bandwidth_modify,
-				.cli_show = lib_interface_zebra_link_params_residual_bandwidth_cli_write,
 				.destroy = lib_interface_zebra_link_params_residual_bandwidth_destroy,
 			}
 		},
@@ -456,7 +439,6 @@ const struct frr_yang_module_info frr_zebra_info = {
 			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/link-params/available-bandwidth",
 			.cbs = {
 				.modify = lib_interface_zebra_link_params_available_bandwidth_modify,
-				.cli_show = lib_interface_zebra_link_params_available_bandwidth_cli_write,
 				.destroy = lib_interface_zebra_link_params_available_bandwidth_destroy,
 			}
 		},
@@ -464,7 +446,6 @@ const struct frr_yang_module_info frr_zebra_info = {
 			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/link-params/utilized-bandwidth",
 			.cbs = {
 				.modify = lib_interface_zebra_link_params_utilized_bandwidth_modify,
-				.cli_show = lib_interface_zebra_link_params_utilized_bandwidth_cli_write,
 				.destroy = lib_interface_zebra_link_params_utilized_bandwidth_destroy,
 			}
 		},
@@ -473,13 +454,11 @@ const struct frr_yang_module_info frr_zebra_info = {
 			.cbs = {
 				.modify = lib_interface_zebra_legacy_admin_group_modify,
 				.destroy = lib_interface_zebra_legacy_admin_group_destroy,
-				.cli_show = cli_show_legacy_admin_group,
 			},
 		},
 		{
 			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/link-params/affinities",
 			.cbs = {
-				.cli_show = cli_show_affinity,
 			},
 		},
 		{
@@ -493,14 +472,12 @@ const struct frr_yang_module_info frr_zebra_info = {
 			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/link-params/affinity-mode",
 			.cbs = {
 				.modify = lib_interface_zebra_affinity_mode_modify,
-				.cli_show = cli_show_affinity_mode,
 			},
 		},
 		{
 			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/link-params/neighbor",
 			.cbs = {
 				.create = lib_interface_zebra_link_params_neighbor_create,
-				.cli_show = lib_interface_zebra_link_params_neighbor_cli_write,
 				.destroy = lib_interface_zebra_link_params_neighbor_destroy,
 			}
 		},
@@ -520,7 +497,6 @@ const struct frr_yang_module_info frr_zebra_info = {
 			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/link-params/delay",
 			.cbs = {
 				.modify = lib_interface_zebra_link_params_delay_modify,
-				.cli_show = lib_interface_zebra_link_params_delay_cli_write,
 				.destroy = lib_interface_zebra_link_params_delay_destroy,
 			}
 		},
@@ -547,7 +523,6 @@ const struct frr_yang_module_info frr_zebra_info = {
 			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/link-params/delay-variation",
 			.cbs = {
 				.modify = lib_interface_zebra_link_params_delay_variation_modify,
-				.cli_show = lib_interface_zebra_link_params_delay_variation_cli_write,
 				.destroy = lib_interface_zebra_link_params_delay_variation_destroy,
 			}
 		},
@@ -555,7 +530,6 @@ const struct frr_yang_module_info frr_zebra_info = {
 			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/link-params/packet-loss",
 			.cbs = {
 				.modify = lib_interface_zebra_link_params_packet_loss_modify,
-				.cli_show = lib_interface_zebra_link_params_packet_loss_cli_write,
 				.destroy = lib_interface_zebra_link_params_packet_loss_destroy,
 			}
 		},
@@ -563,7 +537,6 @@ const struct frr_yang_module_info frr_zebra_info = {
 			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/evpn-mh/type-0/esi",
 			.cbs = {
 				.modify = lib_interface_zebra_evpn_mh_type_0_esi_modify,
-				.cli_show = lib_interface_zebra_evpn_mh_type_0_esi_cli_write,
 				.destroy = lib_interface_zebra_evpn_mh_type_0_esi_destroy,
 			}
 		},
@@ -571,7 +544,6 @@ const struct frr_yang_module_info frr_zebra_info = {
 			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/evpn-mh/type-3/system-mac",
 			.cbs = {
 				.modify = lib_interface_zebra_evpn_mh_type_3_system_mac_modify,
-				.cli_show = lib_interface_zebra_evpn_mh_type_3_system_mac_cli_write,
 				.destroy = lib_interface_zebra_evpn_mh_type_3_system_mac_destroy,
 			}
 		},
@@ -579,7 +551,6 @@ const struct frr_yang_module_info frr_zebra_info = {
 			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/evpn-mh/type-3/local-discriminator",
 			.cbs = {
 				.modify = lib_interface_zebra_evpn_mh_type_3_local_discriminator_modify,
-				.cli_show = lib_interface_zebra_evpn_mh_type_3_local_discriminator_cli_write,
 				.destroy = lib_interface_zebra_evpn_mh_type_3_local_discriminator_destroy,
 			}
 		},
@@ -587,21 +558,18 @@ const struct frr_yang_module_info frr_zebra_info = {
 			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/evpn-mh/df-preference",
 			.cbs = {
 				.modify = lib_interface_zebra_evpn_mh_df_preference_modify,
-				.cli_show = lib_interface_zebra_evpn_mh_df_preference_cli_write,
 			}
 		},
 		{
 			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/evpn-mh/bypass",
 			.cbs = {
 				.modify = lib_interface_zebra_evpn_mh_bypass_modify,
-				.cli_show = lib_interface_zebra_evpn_mh_bypass_cli_write,
 			}
 		},
 		{
 			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/evpn-mh/uplink",
 			.cbs = {
 				.modify = lib_interface_zebra_evpn_mh_uplink_modify,
-				.cli_show = lib_interface_zebra_evpn_mh_uplink_cli_write,
 			}
 		},
 #if defined(HAVE_RTADV)
@@ -609,63 +577,54 @@ const struct frr_yang_module_info frr_zebra_info = {
 			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/ipv6-router-advertisements/send-advertisements",
 			.cbs = {
 				.modify = lib_interface_zebra_ipv6_router_advertisements_send_advertisements_modify,
-				.cli_show = lib_interface_zebra_ipv6_router_advertisements_send_advertisements_cli_write,
 			}
 		},
 		{
 			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/ipv6-router-advertisements/max-rtr-adv-interval",
 			.cbs = {
 				.modify = lib_interface_zebra_ipv6_router_advertisements_max_rtr_adv_interval_modify,
-				.cli_show = lib_interface_zebra_ipv6_router_advertisements_max_rtr_adv_interval_cli_write,
 			}
 		},
 		{
 			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/ipv6-router-advertisements/managed-flag",
 			.cbs = {
 				.modify = lib_interface_zebra_ipv6_router_advertisements_managed_flag_modify,
-				.cli_show = lib_interface_zebra_ipv6_router_advertisements_managed_flag_cli_write,
 			}
 		},
 		{
 			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/ipv6-router-advertisements/other-config-flag",
 			.cbs = {
 				.modify = lib_interface_zebra_ipv6_router_advertisements_other_config_flag_modify,
-				.cli_show = lib_interface_zebra_ipv6_router_advertisements_other_config_flag_cli_write,
 			}
 		},
 		{
 			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/ipv6-router-advertisements/home-agent-flag",
 			.cbs = {
 				.modify = lib_interface_zebra_ipv6_router_advertisements_home_agent_flag_modify,
-				.cli_show = lib_interface_zebra_ipv6_router_advertisements_home_agent_flag_cli_write,
 			}
 		},
 		{
 			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/ipv6-router-advertisements/link-mtu",
 			.cbs = {
 				.modify = lib_interface_zebra_ipv6_router_advertisements_link_mtu_modify,
-				.cli_show = lib_interface_zebra_ipv6_router_advertisements_link_mtu_cli_write,
 			}
 		},
 		{
 			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/ipv6-router-advertisements/reachable-time",
 			.cbs = {
 				.modify = lib_interface_zebra_ipv6_router_advertisements_reachable_time_modify,
-				.cli_show = lib_interface_zebra_ipv6_router_advertisements_reachable_time_cli_write,
 			}
 		},
 		{
 			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/ipv6-router-advertisements/retrans-timer",
 			.cbs = {
 				.modify = lib_interface_zebra_ipv6_router_advertisements_retrans_timer_modify,
-				.cli_show = lib_interface_zebra_ipv6_router_advertisements_retrans_timer_cli_write,
 			}
 		},
 		{
 			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/ipv6-router-advertisements/cur-hop-limit",
 			.cbs = {
 				.modify = lib_interface_zebra_ipv6_router_advertisements_cur_hop_limit_modify,
-				.cli_show = lib_interface_zebra_ipv6_router_advertisements_cur_hop_limit_cli_write,
 				.destroy = lib_interface_zebra_ipv6_router_advertisements_cur_hop_limit_destroy,
 			}
 		},
@@ -673,7 +632,6 @@ const struct frr_yang_module_info frr_zebra_info = {
 			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/ipv6-router-advertisements/default-lifetime",
 			.cbs = {
 				.modify = lib_interface_zebra_ipv6_router_advertisements_default_lifetime_modify,
-				.cli_show = lib_interface_zebra_ipv6_router_advertisements_default_lifetime_cli_write,
 				.destroy = lib_interface_zebra_ipv6_router_advertisements_default_lifetime_destroy,
 			}
 		},
@@ -681,21 +639,18 @@ const struct frr_yang_module_info frr_zebra_info = {
 			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/ipv6-router-advertisements/fast-retransmit",
 			.cbs = {
 				.modify = lib_interface_zebra_ipv6_router_advertisements_fast_retransmit_modify,
-				.cli_show = lib_interface_zebra_ipv6_router_advertisements_fast_retransmit_cli_write,
 			}
 		},
 		{
 			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/ipv6-router-advertisements/advertisement-interval-option",
 			.cbs = {
 				.modify = lib_interface_zebra_ipv6_router_advertisements_advertisement_interval_option_modify,
-				.cli_show = lib_interface_zebra_ipv6_router_advertisements_advertisement_interval_option_cli_write,
 			}
 		},
 		{
 			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/ipv6-router-advertisements/home-agent-preference",
 			.cbs = {
 				.modify = lib_interface_zebra_ipv6_router_advertisements_home_agent_preference_modify,
-				.cli_show = lib_interface_zebra_ipv6_router_advertisements_home_agent_preference_cli_write,
 				.destroy = lib_interface_zebra_ipv6_router_advertisements_home_agent_preference_destroy,
 			}
 		},
@@ -703,7 +658,6 @@ const struct frr_yang_module_info frr_zebra_info = {
 			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/ipv6-router-advertisements/home-agent-lifetime",
 			.cbs = {
 				.modify = lib_interface_zebra_ipv6_router_advertisements_home_agent_lifetime_modify,
-				.cli_show = lib_interface_zebra_ipv6_router_advertisements_home_agent_lifetime_cli_write,
 				.destroy = lib_interface_zebra_ipv6_router_advertisements_home_agent_lifetime_destroy,
 			}
 		},
@@ -711,14 +665,12 @@ const struct frr_yang_module_info frr_zebra_info = {
 			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/ipv6-router-advertisements/default-router-preference",
 			.cbs = {
 				.modify = lib_interface_zebra_ipv6_router_advertisements_default_router_preference_modify,
-				.cli_show = lib_interface_zebra_ipv6_router_advertisements_default_router_preference_cli_write,
 			}
 		},
 		{
 			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/ipv6-router-advertisements/prefix-list/prefix",
 			.cbs = {
 				.create = lib_interface_zebra_ipv6_router_advertisements_prefix_list_prefix_create,
-				.cli_show = lib_interface_zebra_ipv6_router_advertisements_prefix_list_prefix_cli_write,
 				.destroy = lib_interface_zebra_ipv6_router_advertisements_prefix_list_prefix_destroy,
 			}
 		},
@@ -726,7 +678,6 @@ const struct frr_yang_module_info frr_zebra_info = {
 			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/ipv6-router-advertisements/dnssl/dnssl-domain",
 			.cbs = {
 				.create = lib_interface_zebra_ipv6_router_advertisements_dnssl_dnssl_domain_create,
-				.cli_show = lib_interface_zebra_ipv6_router_advertisements_dnssl_dnssl_domain_cli_write,
 				.destroy = lib_interface_zebra_ipv6_router_advertisements_dnssl_dnssl_domain_destroy,
 			}
 		},
@@ -771,7 +722,6 @@ const struct frr_yang_module_info frr_zebra_info = {
 			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/ipv6-router-advertisements/rdnss/rdnss-address",
 			.cbs = {
 				.create = lib_interface_zebra_ipv6_router_advertisements_rdnss_rdnss_address_create,
-				.cli_show = lib_interface_zebra_ipv6_router_advertisements_rdnss_rdnss_address_cli_write,
 				.destroy = lib_interface_zebra_ipv6_router_advertisements_rdnss_rdnss_address_destroy,
 			}
 		},
@@ -788,7 +738,6 @@ const struct frr_yang_module_info frr_zebra_info = {
 			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/ptm-enable",
 			.cbs = {
 				.modify = lib_interface_zebra_ptm_enable_modify,
-				.cli_show = lib_interface_zebra_ptm_enable_cli_write,
 			}
 		},
 #endif
@@ -845,7 +794,6 @@ const struct frr_yang_module_info frr_zebra_info = {
 			.cbs = {
 				.modify = lib_vrf_zebra_router_id_modify,
 				.destroy = lib_vrf_zebra_router_id_destroy,
-				.cli_show = lib_vrf_zebra_router_id_cli_write,
 			}
 		},
 		{
@@ -853,7 +801,6 @@ const struct frr_yang_module_info frr_zebra_info = {
 			.cbs = {
 				.modify = lib_vrf_zebra_ipv6_router_id_modify,
 				.destroy = lib_vrf_zebra_ipv6_router_id_destroy,
-				.cli_show = lib_vrf_zebra_ipv6_router_id_cli_write,
 			}
 		},
 		{
@@ -861,7 +808,6 @@ const struct frr_yang_module_info frr_zebra_info = {
 			.cbs = {
 				.create = lib_vrf_zebra_filter_protocol_create,
 				.destroy = lib_vrf_zebra_filter_protocol_destroy,
-				.cli_show = lib_vrf_zebra_filter_protocol_cli_write,
 			}
 		},
 		{
@@ -875,7 +821,6 @@ const struct frr_yang_module_info frr_zebra_info = {
 			.cbs = {
 				.create = lib_vrf_zebra_filter_nht_create,
 				.destroy = lib_vrf_zebra_filter_nht_destroy,
-				.cli_show = lib_vrf_zebra_filter_nht_cli_write,
 			}
 		},
 		{
@@ -889,7 +834,6 @@ const struct frr_yang_module_info frr_zebra_info = {
 			.cbs = {
 				.modify = lib_vrf_zebra_resolve_via_default_modify,
 				.destroy = lib_vrf_zebra_resolve_via_default_destroy,
-				.cli_show = lib_vrf_zebra_resolve_via_default_cli_write,
 			}
 		},
 		{
@@ -897,7 +841,6 @@ const struct frr_yang_module_info frr_zebra_info = {
 			.cbs = {
 				.modify = lib_vrf_zebra_ipv6_resolve_via_default_modify,
 				.destroy = lib_vrf_zebra_ipv6_resolve_via_default_destroy,
-				.cli_show = lib_vrf_zebra_ipv6_resolve_via_default_cli_write,
 			}
 		},
 		{
@@ -905,7 +848,6 @@ const struct frr_yang_module_info frr_zebra_info = {
 			.cbs = {
 				.create = lib_vrf_zebra_netns_table_range_create,
 				.destroy = lib_vrf_zebra_netns_table_range_destroy,
-				.cli_show = lib_vrf_zebra_netns_table_range_cli_write,
 			}
 		},
 		{
@@ -1181,7 +1123,6 @@ const struct frr_yang_module_info frr_zebra_info = {
 			.cbs = {
 				.modify = lib_vrf_zebra_l3vni_id_modify,
 				.destroy = lib_vrf_zebra_l3vni_id_destroy,
-				.cli_show = lib_vrf_zebra_l3vni_id_cli_write,
 			}
 		},
 		{

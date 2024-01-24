@@ -17,7 +17,6 @@
 #include "srcdest_table.h"
 #include "vrf.h"
 #include "vty.h"
-#include "northbound_cli.h"
 
 #include "zebra/zebra_router.h"
 #include "zebra/rtadv.h"
@@ -34,7 +33,6 @@
 #include "zebra/zebra_routemap.h"
 #include "zebra/zebra_vrf_clippy.c"
 #include "zebra/table_manager.h"
-#include "zebra/zebra_nb.h"
 
 static void zebra_vrf_table_create(struct zebra_vrf *zvrf, afi_t afi,
 				   safi_t safi);
@@ -452,53 +450,6 @@ struct route_table *zebra_vrf_table(afi_t afi, safi_t safi, vrf_id_t vrf_id)
 	return zvrf->table[afi][safi];
 }
 
-void zebra_vrf_indent_cli_write(struct vty *vty, const struct lyd_node *dnode)
-{
-	const struct lyd_node *vrf = yang_dnode_get_parent(dnode, "vrf");
-
-	if (vrf && strcmp(yang_dnode_get_string(vrf, "name"), VRF_DEFAULT_NAME))
-		vty_out(vty, " ");
-}
-
-static int vrf_config_write_single(const struct lyd_node *dnode, void *arg)
-{
-	nb_cli_show_dnode_cmds(arg, dnode, false);
-
-	return YANG_ITER_CONTINUE;
-}
-
-static int vrf_config_write(struct vty *vty)
-{
-	const struct lyd_node *dnode;
-
-	yang_dnode_iterate(vrf_config_write_single, vty, running_config->dnode,
-			   "/frr-vrf:lib/vrf");
-	dnode = yang_dnode_get(running_config->dnode, "/frr-zebra:zebra");
-	if (dnode)
-		nb_cli_show_dnode_cmds(vty, dnode, false);
-
-	return 1;
-}
-
-DEFPY (vrf_netns,
-       vrf_netns_cmd,
-       "netns NAME$netns_name",
-       "Attach VRF to a Namespace\n"
-       "The file name in " NS_RUN_DIR ", or a full pathname\n")
-{
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_vrf_netns,
-       no_vrf_netns_cmd,
-       "no netns [NAME]",
-       NO_STR
-       "Detach VRF from a Namespace\n"
-       "The file name in " NS_RUN_DIR ", or a full pathname\n")
-{
-	return CMD_SUCCESS;
-}
-
 /* if ns_id is different and not VRF_UNKNOWN,
  * then update vrf identifier, and enable VRF
  */
@@ -597,12 +548,4 @@ void zebra_vrf_init(void)
 		 zebra_vrf_delete);
 
 	hook_register(zserv_client_close, release_daemon_table_chunks);
-
-	vrf_cmd_init(vrf_config_write);
-
-	if (vrf_is_backend_netns() && ns_have_netns()) {
-		/* Install NS commands. */
-		install_element(VRF_NODE, &vrf_netns_cmd);
-		install_element(VRF_NODE, &no_vrf_netns_cmd);
-	}
 }

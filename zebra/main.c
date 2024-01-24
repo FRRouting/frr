@@ -442,7 +442,7 @@ int main(int argc, char **argv)
 	zebra_vty_init();
 	mgmt_be_client = mgmt_be_client_create("zebra", NULL, 0,
 					       zrouter.master);
-	access_list_init();
+	access_list_init_new(true);
 	prefix_list_init();
 
 	rtadv_init();

@@ -1164,23 +1164,6 @@ DEFPY (show_ip_nht,
 	return CMD_SUCCESS;
 }
 
-DEFUN (ip_nht_default_route,
-       ip_nht_default_route_cmd,
-       "ip nht resolve-via-default",
-       IP_STR
-       "Filter Next Hop tracking route resolution\n"
-       "Resolve via default route\n")
-{
-	nb_cli_enqueue_change(vty, "./frr-zebra:zebra/resolve-via-default",
-			      NB_OP_MODIFY, "true");
-
-	if (vty->node == CONFIG_NODE)
-		return nb_cli_apply_changes(vty, "/frr-vrf:lib/vrf[name='%s']",
-					    VRF_DEFAULT_NAME);
-
-	return nb_cli_apply_changes(vty, NULL);
-}
-
 static void show_nexthop_group_out(struct vty *vty, struct nhg_hash_entry *nhe,
 				   json_object *json_nhe_hdr)
 {
@@ -1677,88 +1660,6 @@ DEFPY_HIDDEN(backup_nexthop_recursive_use_enable,
 {
 	zebra_nhg_set_recursive_use_backups(!no);
 	return CMD_SUCCESS;
-}
-
-DEFUN (no_ip_nht_default_route,
-       no_ip_nht_default_route_cmd,
-       "no ip nht resolve-via-default",
-       NO_STR
-       IP_STR
-       "Filter Next Hop tracking route resolution\n"
-       "Resolve via default route\n")
-{
-	nb_cli_enqueue_change(vty, "./frr-zebra:zebra/resolve-via-default",
-			      NB_OP_MODIFY, "false");
-
-	if (vty->node == CONFIG_NODE)
-		return nb_cli_apply_changes(vty, "/frr-vrf:lib/vrf[name='%s']",
-					    VRF_DEFAULT_NAME);
-
-	return nb_cli_apply_changes(vty, NULL);
-}
-
-void lib_vrf_zebra_resolve_via_default_cli_write(struct vty *vty,
-						 const struct lyd_node *dnode,
-						 bool show_defaults)
-{
-	bool resolve_via_default = yang_dnode_get_bool(dnode, NULL);
-
-	if (resolve_via_default != SAVE_ZEBRA_IP_NHT_RESOLVE_VIA_DEFAULT ||
-	    show_defaults) {
-		zebra_vrf_indent_cli_write(vty, dnode);
-
-		vty_out(vty, "%sip nht resolve-via-default\n",
-			resolve_via_default ? "" : "no ");
-	}
-}
-
-DEFUN (ipv6_nht_default_route,
-       ipv6_nht_default_route_cmd,
-       "ipv6 nht resolve-via-default",
-       IP6_STR
-       "Filter Next Hop tracking route resolution\n"
-       "Resolve via default route\n")
-{
-	nb_cli_enqueue_change(vty, "./frr-zebra:zebra/ipv6-resolve-via-default",
-			      NB_OP_MODIFY, "true");
-
-	if (vty->node == CONFIG_NODE)
-		return nb_cli_apply_changes(vty, "/frr-vrf:lib/vrf[name='%s']",
-					    VRF_DEFAULT_NAME);
-
-	return nb_cli_apply_changes(vty, NULL);
-}
-
-DEFUN (no_ipv6_nht_default_route,
-       no_ipv6_nht_default_route_cmd,
-       "no ipv6 nht resolve-via-default",
-       NO_STR
-       IP6_STR
-       "Filter Next Hop tracking route resolution\n"
-       "Resolve via default route\n")
-{
-	nb_cli_enqueue_change(vty, "./frr-zebra:zebra/ipv6-resolve-via-default",
-			      NB_OP_MODIFY, "false");
-
-	if (vty->node == CONFIG_NODE)
-		return nb_cli_apply_changes(vty, "/frr-vrf:lib/vrf[name='%s']",
-					    VRF_DEFAULT_NAME);
-
-	return nb_cli_apply_changes(vty, NULL);
-}
-
-void lib_vrf_zebra_ipv6_resolve_via_default_cli_write(
-	struct vty *vty, const struct lyd_node *dnode, bool show_defaults)
-{
-	bool resolve_via_default = yang_dnode_get_bool(dnode, NULL);
-
-	if (resolve_via_default != SAVE_ZEBRA_IP_NHT_RESOLVE_VIA_DEFAULT ||
-	    show_defaults) {
-		zebra_vrf_indent_cli_write(vty, dnode);
-
-		vty_out(vty, "%sipv6 nht resolve-via-default\n",
-			resolve_via_default ? "" : "no ");
-	}
 }
 
 DEFPY_HIDDEN(rnh_hide_backups, rnh_hide_backups_cmd,
@@ -2742,69 +2643,6 @@ DEFPY(evpn_mh_redirect_off, evpn_mh_redirect_off_cmd,
 	redirect_off = no ? false : true;
 
 	return zebra_evpn_mh_redirect_off(vty, redirect_off);
-}
-
-DEFPY_YANG (vni_mapping,
-       vni_mapping_cmd,
-       "vni " CMD_VNI_RANGE "[prefix-routes-only$filter]",
-       "VNI corresponding to tenant VRF\n"
-       "VNI-ID\n"
-       "prefix-routes-only\n")
-{
-	nb_cli_enqueue_change(vty, "./frr-zebra:zebra/l3vni-id", NB_OP_MODIFY,
-			      vni_str);
-
-	if (filter)
-		nb_cli_enqueue_change(vty, "./frr-zebra:zebra/prefix-only",
-				      NB_OP_MODIFY, "true");
-	else
-		nb_cli_enqueue_change(vty, "./frr-zebra:zebra/prefix-only",
-				      NB_OP_DESTROY, NULL);
-
-	if (vty->node == CONFIG_NODE)
-		return nb_cli_apply_changes(vty, "/frr-vrf:lib/vrf[name='%s']",
-					    VRF_DEFAULT_NAME);
-
-	return nb_cli_apply_changes(vty, NULL);
-}
-
-DEFPY_YANG (no_vni_mapping,
-       no_vni_mapping_cmd,
-       "no vni [" CMD_VNI_RANGE "[prefix-routes-only$filter]]",
-       NO_STR
-       "VNI corresponding to tenant VRF\n"
-       "VNI-ID\n"
-       "prefix-routes-only\n")
-{
-	nb_cli_enqueue_change(vty, "./frr-zebra:zebra/l3vni-id", NB_OP_DESTROY,
-			      NULL);
-
-	if (filter)
-		nb_cli_enqueue_change(vty, "./frr-zebra:zebra/prefix-only",
-				      NB_OP_DESTROY, NULL);
-
-	if (vty->node == CONFIG_NODE)
-		return nb_cli_apply_changes(vty, "/frr-vrf:lib/vrf[name='%s']",
-					    VRF_DEFAULT_NAME);
-
-	return nb_cli_apply_changes(vty, NULL);
-}
-
-void lib_vrf_zebra_l3vni_id_cli_write(struct vty *vty,
-				      const struct lyd_node *dnode,
-				      bool show_defaults)
-{
-	vni_t vni = yang_dnode_get_uint32(dnode, NULL);
-	bool prefix_only = yang_dnode_get_bool(dnode, "../prefix-only");
-
-	zebra_vrf_indent_cli_write(vty, dnode);
-
-	vty_out(vty, "vni %u", vni);
-
-	if (prefix_only)
-		vty_out(vty, " prefix-routes-only");
-
-	vty_out(vty, "\n");
 }
 
 /* show vrf */
@@ -3911,8 +3749,6 @@ DEFPY (zebra_nexthop_group_keep,
 
 static int config_write_protocol(struct vty *vty)
 {
-	zebra_ptm_write(vty);
-
 	if (zrouter.allow_delete)
 		vty_out(vty, "allow-external-route-update\n");
 
@@ -4440,47 +4276,6 @@ DEFPY (no_zebra_protodown_bit,
 
 #endif /* HAVE_NETLINK */
 
-DEFPY_YANG (ip_table_range, ip_table_range_cmd,
-      "[no] ip table range ![(1-4294967295)$start (1-4294967295)$end]",
-      NO_STR IP_STR
-      "table configuration\n"
-      "Configure table range\n"
-      "Start Routing Table\n"
-      "End Routing Table\n")
-{
-	if (!no) {
-		nb_cli_enqueue_change(vty, "./frr-zebra:zebra/netns/table-range",
-				      NB_OP_CREATE, NULL);
-		nb_cli_enqueue_change(vty,
-				      "./frr-zebra:zebra/netns/table-range/start",
-				      NB_OP_MODIFY, start_str);
-		nb_cli_enqueue_change(vty,
-				      "./frr-zebra:zebra/netns/table-range/end",
-				      NB_OP_MODIFY, end_str);
-	} else {
-		nb_cli_enqueue_change(vty, "./frr-zebra:zebra/netns/table-range",
-				      NB_OP_DESTROY, NULL);
-	}
-
-	if (vty->node == CONFIG_NODE)
-		return nb_cli_apply_changes(vty, "/frr-vrf:lib/vrf[name='%s']",
-					    VRF_DEFAULT_NAME);
-
-	return nb_cli_apply_changes(vty, NULL);
-}
-
-void lib_vrf_zebra_netns_table_range_cli_write(struct vty *vty,
-					       const struct lyd_node *dnode,
-					       bool show_defaults)
-{
-	uint32_t start = yang_dnode_get_uint32(dnode, "start");
-	uint32_t end = yang_dnode_get_uint32(dnode, "end");
-
-	zebra_vrf_indent_cli_write(vty, dnode);
-
-	vty_out(vty, "ip table range %u %u\n", start, end);
-}
-
 #ifdef HAVE_SCRIPTING
 
 DEFUN(zebra_on_rib_process_script, zebra_on_rib_process_script_cmd,
@@ -4592,14 +4387,6 @@ void zebra_vty_init(void)
 	install_element(VIEW_NODE, &show_ip_rpf_addr_cmd);
 	install_element(VIEW_NODE, &show_ipv6_rpf_addr_cmd);
 
-	install_element(CONFIG_NODE, &ip_nht_default_route_cmd);
-	install_element(CONFIG_NODE, &no_ip_nht_default_route_cmd);
-	install_element(CONFIG_NODE, &ipv6_nht_default_route_cmd);
-	install_element(CONFIG_NODE, &no_ipv6_nht_default_route_cmd);
-	install_element(VRF_NODE, &ip_nht_default_route_cmd);
-	install_element(VRF_NODE, &no_ip_nht_default_route_cmd);
-	install_element(VRF_NODE, &ipv6_nht_default_route_cmd);
-	install_element(VRF_NODE, &no_ipv6_nht_default_route_cmd);
 	install_element(CONFIG_NODE, &rnh_hide_backups_cmd);
 
 	install_element(VIEW_NODE, &show_frr_cmd);
@@ -4651,18 +4438,11 @@ void zebra_vty_init(void)
 	install_element(CONFIG_NODE, &evpn_mh_neigh_holdtime_cmd);
 	install_element(CONFIG_NODE, &evpn_mh_startup_delay_cmd);
 	install_element(CONFIG_NODE, &evpn_mh_redirect_off_cmd);
-	install_element(CONFIG_NODE, &vni_mapping_cmd);
-	install_element(CONFIG_NODE, &no_vni_mapping_cmd);
-	install_element(VRF_NODE, &vni_mapping_cmd);
-	install_element(VRF_NODE, &no_vni_mapping_cmd);
 
 	install_element(VIEW_NODE, &show_dataplane_cmd);
 	install_element(VIEW_NODE, &show_dataplane_providers_cmd);
 	install_element(CONFIG_NODE, &zebra_dplane_queue_limit_cmd);
 	install_element(CONFIG_NODE, &no_zebra_dplane_queue_limit_cmd);
-
-	install_element(CONFIG_NODE, &ip_table_range_cmd);
-	install_element(VRF_NODE, &ip_table_range_cmd);
 
 #ifdef HAVE_NETLINK
 	install_element(CONFIG_NODE, &zebra_kernel_netlink_batch_tx_buf_cmd);

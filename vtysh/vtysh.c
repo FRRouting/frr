@@ -3007,22 +3007,22 @@ DEFUN (vtysh_show_work_queues_daemon,
 	return show_one_daemon(vty, argv, argc - 1, argv[argc - 1]->text);
 }
 
-DEFUNSH(VTYSH_ZEBRA, vtysh_link_params, vtysh_link_params_cmd, "link-params",
+DEFUNSH(VTYSH_MGMTD, vtysh_link_params, vtysh_link_params_cmd, "link-params",
 	LINK_PARAMS_STR)
 {
 	vty->node = LINK_PARAMS_NODE;
 	return CMD_SUCCESS;
 }
 
-DEFUNSH_HIDDEN(VTYSH_ZEBRA, no_link_params_enable, no_link_params_enable_cmd,
-	"no enable", NO_STR "Disable link parameters on this interface\n")
+DEFUNSH_HIDDEN(VTYSH_MGMTD, no_link_params_enable, no_link_params_enable_cmd,
+	       "no enable", NO_STR "Disable link parameters on this interface\n")
 {
 	if (vty->node == LINK_PARAMS_NODE)
 		vty->node = INTERFACE_NODE;
 	return CMD_SUCCESS;
 }
 
-DEFUNSH(VTYSH_ZEBRA, exit_link_params, exit_link_params_cmd, "exit-link-params",
+DEFUNSH(VTYSH_MGMTD, exit_link_params, exit_link_params_cmd, "exit-link-params",
 	"Exit from Link Params configuration node\n")
 {
 	if (vty->node == LINK_PARAMS_NODE)
@@ -3030,7 +3030,7 @@ DEFUNSH(VTYSH_ZEBRA, exit_link_params, exit_link_params_cmd, "exit-link-params",
 	return CMD_SUCCESS;
 }
 
-DEFUNSH(VTYSH_ZEBRA, vtysh_exit_link_params, vtysh_exit_link_params_cmd, "exit",
+DEFUNSH(VTYSH_MGMTD, vtysh_exit_link_params, vtysh_exit_link_params_cmd, "exit",
 	"Exit current mode and down to previous mode\n")
 {
 	if (vty->node == LINK_PARAMS_NODE)
@@ -3038,7 +3038,7 @@ DEFUNSH(VTYSH_ZEBRA, vtysh_exit_link_params, vtysh_exit_link_params_cmd, "exit",
 	return CMD_SUCCESS;
 }
 
-DEFUNSH(VTYSH_ZEBRA, vtysh_quit_link_params, vtysh_quit_link_params_cmd, "quit",
+DEFUNSH(VTYSH_MGMTD, vtysh_quit_link_params, vtysh_quit_link_params_cmd, "quit",
 	"Exit current mode and down to previous mode\n")
 {
 	return vtysh_exit_link_params(self, vty, argc, argv);

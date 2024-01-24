@@ -19,8 +19,6 @@
 #include "zebra_nhg.h"
 #include "zebra_nb.h"
 
-#define EVPN_MH_VTY_STR "Multihoming\n"
-
 /* Ethernet Segment entry -
  * - Local and remote ESs are maintained in a global RB tree,
  * zmh_info->es_rb_tree using ESI as key
@@ -337,7 +335,6 @@ extern bool zebra_evpn_es_mac_ref_entry(struct zebra_mac *mac,
 					struct zebra_evpn_es *es);
 extern bool zebra_evpn_es_mac_ref(struct zebra_mac *mac, const esi_t *esi);
 extern struct zebra_evpn_es *zebra_evpn_es_find(const esi_t *esi);
-extern void zebra_evpn_interface_init(void);
 extern void zebra_evpn_acc_vl_show(struct vty *vty, bool uj);
 extern void zebra_evpn_acc_vl_show_detail(struct vty *vty, bool uj);
 extern void zebra_evpn_if_es_print(struct vty *vty, json_object *json,

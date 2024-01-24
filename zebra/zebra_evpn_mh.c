@@ -20,7 +20,6 @@
 #include "table.h"
 #include "vlan.h"
 #include "vxlan.h"
-#include "northbound_cli.h"
 
 #include "zebra/zebra_router.h"
 #include "zebra/debug.h"
@@ -3305,175 +3304,6 @@ void zebra_evpn_mh_if_init(struct zebra_if *zif)
 	zif->es_info.df_pref = EVPN_MH_DF_PREF_DEFAULT;
 }
 
-#include "zebra/zebra_evpn_mh_clippy.c"
-/* CLI for setting an ES in bypass mode */
-DEFPY_HIDDEN(zebra_evpn_es_bypass, zebra_evpn_es_bypass_cmd,
-	     "[no] evpn mh bypass",
-	     NO_STR "EVPN\n" EVPN_MH_VTY_STR "set bypass mode\n")
-{
-	if (!no)
-		nb_cli_enqueue_change(vty, "./frr-zebra:zebra/evpn-mh/bypass",
-				      NB_OP_MODIFY, "true");
-	else
-		nb_cli_enqueue_change(vty, "./frr-zebra:zebra/evpn-mh/bypass",
-				      NB_OP_DESTROY, NULL);
-	return nb_cli_apply_changes(vty, NULL);
-}
-
-void lib_interface_zebra_evpn_mh_bypass_cli_write(struct vty *vty,
-						  const struct lyd_node *dnode,
-						  bool show_defaults)
-{
-	bool bypass = yang_dnode_get_bool(dnode, NULL);
-
-	if (bypass)
-		vty_out(vty, " evpn mh bypass\n");
-	else if (show_defaults)
-		vty_out(vty, " no evpn mh bypass\n");
-}
-
-/* CLI for configuring DF preference part for an ES */
-DEFPY_YANG (zebra_evpn_es_pref,
-      zebra_evpn_es_pref_cmd,
-      "[no$no] evpn mh es-df-pref ![(1-65535)$df_pref]",
-      NO_STR
-      "EVPN\n"
-      EVPN_MH_VTY_STR
-      "Preference value used for DF election\n"
-      "Preference\n")
-{
-	if (!no)
-		nb_cli_enqueue_change(vty,
-				      "./frr-zebra:zebra/evpn-mh/df-preference",
-				      NB_OP_MODIFY, df_pref_str);
-	else
-		nb_cli_enqueue_change(vty,
-				      "./frr-zebra:zebra/evpn-mh/df-preference",
-				      NB_OP_DESTROY, NULL);
-	return nb_cli_apply_changes(vty, NULL);
-}
-
-void lib_interface_zebra_evpn_mh_df_preference_cli_write(
-	struct vty *vty, const struct lyd_node *dnode, bool show_defaults)
-{
-	uint16_t df_pref = yang_dnode_get_uint16(dnode, NULL);
-
-	vty_out(vty, " evpn mh es-df-pref %u\n", df_pref);
-}
-
-/* CLI for setting up sysmac part of ESI on an access port */
-DEFPY_YANG (zebra_evpn_es_sys_mac,
-      zebra_evpn_es_sys_mac_cmd,
-      "[no$no] evpn mh es-sys-mac ![X:X:X:X:X:X$mac]",
-      NO_STR
-      "EVPN\n"
-      EVPN_MH_VTY_STR
-      "Ethernet segment system MAC\n"
-      MAC_STR
-)
-{
-	if (!no)
-		nb_cli_enqueue_change(vty,
-				      "./frr-zebra:zebra/evpn-mh/type-3/system-mac",
-				      NB_OP_MODIFY, mac_str);
-	else
-		nb_cli_enqueue_change(vty,
-				      "./frr-zebra:zebra/evpn-mh/type-3/system-mac",
-				      NB_OP_DESTROY, NULL);
-	return nb_cli_apply_changes(vty, NULL);
-}
-
-void lib_interface_zebra_evpn_mh_type_3_system_mac_cli_write(
-	struct vty *vty, const struct lyd_node *dnode, bool show_defaults)
-{
-	char buf[ETHER_ADDR_STRLEN];
-	struct ethaddr mac;
-
-	yang_dnode_get_mac(&mac, dnode, NULL);
-
-	vty_out(vty, " evpn mh es-sys-mac %s\n",
-		prefix_mac2str(&mac, buf, sizeof(buf)));
-}
-
-/* CLI for setting up local-ID part of ESI on an access port */
-DEFPY_YANG (zebra_evpn_es_id,
-      zebra_evpn_es_id_cmd,
-      "[no$no] evpn mh es-id ![(1-16777215)$es_lid | NAME$esi_str]",
-      NO_STR
-      "EVPN\n"
-      EVPN_MH_VTY_STR
-      "Ethernet segment identifier\n"
-      "local discriminator\n"
-      "10-byte ID - 00:AA:BB:CC:DD:EE:FF:GG:HH:II\n"
-)
-{
-	if (no) {
-		/* We don't know which one is configured, so detroy both types. */
-		nb_cli_enqueue_change(vty,
-				      "./frr-zebra:zebra/evpn-mh/type-0/esi",
-				      NB_OP_DESTROY, NULL);
-		nb_cli_enqueue_change(vty,
-				      "./frr-zebra:zebra/evpn-mh/type-3/local-discriminator",
-				      NB_OP_DESTROY, NULL);
-	} else {
-		if (esi_str)
-			nb_cli_enqueue_change(vty,
-					      "./frr-zebra:zebra/evpn-mh/type-0/esi",
-					      NB_OP_MODIFY, esi_str);
-		else
-			nb_cli_enqueue_change(vty,
-					      "./frr-zebra:zebra/evpn-mh/type-3/local-discriminator",
-					      NB_OP_MODIFY, es_lid_str);
-	}
-	return nb_cli_apply_changes(vty, NULL);
-}
-
-void lib_interface_zebra_evpn_mh_type_0_esi_cli_write(
-	struct vty *vty, const struct lyd_node *dnode, bool show_defaults)
-{
-	const char *esi_str = yang_dnode_get_string(dnode, NULL);
-
-	vty_out(vty, " evpn mh es-id %s\n", esi_str);
-}
-
-void lib_interface_zebra_evpn_mh_type_3_local_discriminator_cli_write(
-	struct vty *vty, const struct lyd_node *dnode, bool show_defaults)
-{
-	uint32_t es_lid = yang_dnode_get_uint32(dnode, NULL);
-
-	vty_out(vty, " evpn mh es-id %u\n", es_lid);
-}
-
-/* CLI for tagging an interface as an uplink */
-DEFPY_YANG (zebra_evpn_mh_uplink,
-      zebra_evpn_mh_uplink_cmd,
-      "[no] evpn mh uplink",
-      NO_STR
-      "EVPN\n"
-      EVPN_MH_VTY_STR
-      "Uplink to the VxLAN core\n")
-{
-	if (!no)
-		nb_cli_enqueue_change(vty, "./frr-zebra:zebra/evpn-mh/uplink",
-				      NB_OP_MODIFY, "true");
-	else
-		nb_cli_enqueue_change(vty, "./frr-zebra:zebra/evpn-mh/uplink",
-				      NB_OP_DESTROY, NULL);
-	return nb_cli_apply_changes(vty, NULL);
-}
-
-void lib_interface_zebra_evpn_mh_uplink_cli_write(struct vty *vty,
-						  const struct lyd_node *dnode,
-						  bool show_defaults)
-{
-	bool uplink = yang_dnode_get_bool(dnode, NULL);
-
-	if (uplink)
-		vty_out(vty, " evpn mh uplink\n");
-	else if (show_defaults)
-		vty_out(vty, " no evpn mh uplink\n");
-}
-
 void zebra_evpn_mh_json(json_object *json)
 {
 	json_object *json_array;
@@ -4029,15 +3859,6 @@ int zebra_evpn_mh_redirect_off(struct vty *vty, bool redirect_off)
 		zmh_info->flags &= ~ZEBRA_EVPN_MH_REDIRECT_OFF;
 
 	return 0;
-}
-
-void zebra_evpn_interface_init(void)
-{
-	install_element(INTERFACE_NODE, &zebra_evpn_es_id_cmd);
-	install_element(INTERFACE_NODE, &zebra_evpn_es_sys_mac_cmd);
-	install_element(INTERFACE_NODE, &zebra_evpn_es_pref_cmd);
-	install_element(INTERFACE_NODE, &zebra_evpn_es_bypass_cmd);
-	install_element(INTERFACE_NODE, &zebra_evpn_mh_uplink_cmd);
 }
 
 void zebra_evpn_mh_init(void)

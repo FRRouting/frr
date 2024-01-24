@@ -260,9 +260,6 @@ extern void zebra_vrf_init(void);
 extern void zebra_rtable_node_cleanup(struct route_table *table,
 				      struct route_node *node);
 
-extern void zebra_vrf_indent_cli_write(struct vty *vty,
-				       const struct lyd_node *dnode);
-
 #ifdef __cplusplus
 }
 #endif
