@@ -350,7 +350,7 @@ int main(int argc, char *argv[])
 	module = yang_module_find(argv[0]);
 	if (!module)
 		/* Non-native FRR module (e.g. modules from unit tests). */
-		module = yang_module_load(argv[0]);
+		module = yang_module_load(argv[0], NULL);
 
 	yang_init_loading_complete();
 

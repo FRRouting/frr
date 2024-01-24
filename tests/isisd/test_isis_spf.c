@@ -540,7 +540,7 @@ int main(int argc, char **argv)
 		zlog_aux_init("NONE: ", ZLOG_DISABLED);
 
 	/* IS-IS inits. */
-	yang_module_load("frr-isisd");
+	yang_module_load("frr-isisd", NULL);
 	SET_FLAG(im->options, F_ISIS_UNIT_TEST);
 	debug_spf_events |= DEBUG_SPF_EVENTS;
 	debug_lfa |= DEBUG_LFA;

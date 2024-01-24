@@ -112,10 +112,16 @@ extern struct yang_modules yang_modules;
  * module_name
  *    Name of the YANG module.
  *
+ * features
+ *    NULL-terminated array of feature names to enable.
+ *    If NULL, all features are disabled.
+ *    To enable all features, use ["*", NULL].
+ *
  * Returns:
  *    Pointer to newly created YANG module.
  */
-extern struct yang_module *yang_module_load(const char *module_name);
+extern struct yang_module *yang_module_load(const char *module_name,
+					    const char **features);
 
 /*
  * Load all FRR native YANG models.

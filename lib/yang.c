@@ -100,13 +100,14 @@ RB_GENERATE(yang_modules, yang_module, entry, yang_module_compare)
 
 struct yang_modules yang_modules = RB_INITIALIZER(&yang_modules);
 
-struct yang_module *yang_module_load(const char *module_name)
+struct yang_module *yang_module_load(const char *module_name,
+				     const char **features)
 {
 	struct yang_module *module;
 	const struct lys_module *module_info;
 
-	module_info =
-		ly_ctx_load_module(ly_native_ctx, module_name, NULL, NULL);
+	module_info = ly_ctx_load_module(ly_native_ctx, module_name, NULL,
+					 features);
 	if (!module_info) {
 		flog_err(EC_LIB_YANG_MODULE_LOAD,
 			 "%s: failed to load data model: %s", __func__,
@@ -130,8 +131,10 @@ struct yang_module *yang_module_load(const char *module_name)
 
 void yang_module_load_all(void)
 {
+	static const char * const all_features[] = { "*", NULL };
+
 	for (size_t i = 0; i < array_size(frr_native_modules); i++)
-		yang_module_load(frr_native_modules[i]);
+		yang_module_load(frr_native_modules[i], (const char **)all_features);
 }
 
 struct yang_module *yang_module_find(const char *module_name)
