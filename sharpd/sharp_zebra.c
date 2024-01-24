@@ -1018,7 +1018,7 @@ static int sharp_zebra_process_neigh(ZAPI_CALLBACK_ARGS)
 	}
 
 	zlog_debug("Received: %s %pSU dev %s lladr %pSU",
-		   (cmd = ZEBRA_NEIGH_ADDED) ? "NEW" : "DEL", &addr, ifp->name,
+		   (cmd == ZEBRA_NEIGH_ADDED) ? "NEW" : "DEL", &addr, ifp->name,
 		   &lladdr);
 
 	return 0;
