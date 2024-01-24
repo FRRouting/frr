@@ -1785,3 +1785,35 @@ const struct frr_yang_module_info frr_filter_info = {
 		},
 	}
 };
+
+const struct frr_yang_module_info frr_filter_cli_info = {
+	.name = "frr-filter",
+	.ignore_cfg_cbs = true,
+	.nodes = {
+		{
+			.xpath = "/frr-filter:lib/access-list/remark",
+			.cbs.cli_show = access_list_remark_show,
+		},
+		{
+			.xpath = "/frr-filter:lib/access-list/entry",
+			.cbs = {
+				.cli_cmp = access_list_cmp,
+				.cli_show = access_list_show,
+			}
+		},
+		{
+			.xpath = "/frr-filter:lib/prefix-list/remark",
+			.cbs.cli_show = prefix_list_remark_show,
+		},
+		{
+			.xpath = "/frr-filter:lib/prefix-list/entry",
+			.cbs = {
+				.cli_cmp = prefix_list_cmp,
+				.cli_show = prefix_list_show,
+			}
+		},
+		{
+			.xpath = NULL,
+		},
+	}
+};

@@ -564,6 +564,7 @@ void mgmt_vty_init(void)
 	/*
 	 * Library based CLI handlers
 	 */
+	filter_cli_init();
 	route_map_cli_init();
 
 	/*

@@ -885,7 +885,7 @@ static void access_list_init_ipv6(void)
 	install_element(ENABLE_NODE, &show_ipv6_access_list_name_cmd);
 }
 
-void access_list_init(void)
+void access_list_init_new(bool in_backend)
 {
 	cmd_variable_handler_register(access_list_handlers);
 
@@ -893,7 +893,15 @@ void access_list_init(void)
 	access_list_init_ipv6();
 	access_list_init_mac();
 
-	filter_cli_init();
+	if (!in_backend) {
+		/* we do not want to handle config commands in the backend */
+		filter_cli_init();
+	}
+}
+
+void access_list_init(void)
+{
+	access_list_init_new(false);
 }
 
 void access_list_reset(void)
