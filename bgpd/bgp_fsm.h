@@ -143,10 +143,11 @@ extern void bgp_adjust_routeadv(struct peer *);
 DECLARE_HOOK(peer_backward_transition, (struct peer *peer), (peer));
 DECLARE_HOOK(peer_established, (struct peer *peer), (peer));
 
-int bgp_gr_update_all(struct bgp *bgp, int global_gr_cmd);
-int bgp_neighbor_graceful_restart(struct peer *peer, int peer_gr_cmd);
-unsigned int bgp_peer_gr_action(struct peer *peer,
-		int old_peer_state, int new_peer_state);
+int bgp_gr_update_all(struct bgp *bgp, enum global_gr_command global_gr_cmd);
+int bgp_neighbor_graceful_restart(struct peer *peer,
+				  enum peer_gr_command peer_gr_cmd);
+unsigned int bgp_peer_gr_action(struct peer *peer, enum peer_mode old_peer_state,
+				enum peer_mode new_peer_state);
 void bgp_peer_move_to_gr_mode(struct peer *peer, int new_state);
 unsigned int bgp_peer_gr_helper_enable(struct peer *peer);
 unsigned int bgp_peer_gr_enable(struct peer *peer);
