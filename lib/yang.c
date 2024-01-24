@@ -628,7 +628,8 @@ struct lyd_node *yang_dnode_dup(const struct lyd_node *dnode)
 {
 	struct lyd_node *dup = NULL;
 	LY_ERR err;
-	err = lyd_dup_siblings(dnode, NULL, LYD_DUP_RECURSIVE, &dup);
+	err = lyd_dup_siblings(dnode, NULL,
+			       LYD_DUP_RECURSIVE | LYD_DUP_WITH_FLAGS, &dup);
 	assert(!err);
 	return dup;
 }
