@@ -1320,7 +1320,7 @@ static int rpki_create_socket(void *_cache)
 	else {
 		ssh_config = cache->tr_config.ssh_config;
 		host = ssh_config->host;
-		snprintf(s_port, sizeof(s_port), "%hu", ssh_config->port);
+		snprintf(s_port, sizeof(s_port), "%u", ssh_config->port);
 		port = s_port;
 
 		hints.ai_flags |= AI_NUMERICHOST;
