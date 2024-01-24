@@ -273,8 +273,13 @@ DEFPY_YANG (rip_neighbor,
        "Specify a neighbor router\n"
        "Neighbor address\n")
 {
-	nb_cli_enqueue_change(vty, "./explicit-neighbor",
-			      no ? NB_OP_DESTROY : NB_OP_CREATE, neighbor_str);
+	char xpath[XPATH_MAXLEN];
+
+	snprintf(xpath, sizeof(xpath), "./explicit-neighbor[.='%s']",
+		 neighbor_str);
+
+	nb_cli_enqueue_change(vty, xpath, no ? NB_OP_DESTROY : NB_OP_CREATE,
+			      NULL);
 
 	return nb_cli_apply_changes(vty, NULL);
 }
@@ -295,8 +300,12 @@ DEFPY_YANG (rip_network_prefix,
        "Enable routing on an IP network\n"
        "IP prefix <network>/<length>, e.g., 35.0.0.0/8\n")
 {
-	nb_cli_enqueue_change(vty, "./network",
-			      no ? NB_OP_DESTROY : NB_OP_CREATE, network_str);
+	char xpath[XPATH_MAXLEN];
+
+	snprintf(xpath, sizeof(xpath), "./network[.='%s']", network_str);
+
+	nb_cli_enqueue_change(vty, xpath, no ? NB_OP_DESTROY : NB_OP_CREATE,
+			      NULL);
 
 	return nb_cli_apply_changes(vty, NULL);
 }
@@ -317,8 +326,12 @@ DEFPY_YANG (rip_network_if,
        "Enable routing on an IP network\n"
        "Interface name\n")
 {
-	nb_cli_enqueue_change(vty, "./interface",
-			      no ? NB_OP_DESTROY : NB_OP_CREATE, network);
+	char xpath[XPATH_MAXLEN];
+
+	snprintf(xpath, sizeof(xpath), "./interface[.='%s']", network);
+
+	nb_cli_enqueue_change(vty, xpath, no ? NB_OP_DESTROY : NB_OP_CREATE,
+			      NULL);
 
 	return nb_cli_apply_changes(vty, NULL);
 }
@@ -412,16 +425,20 @@ DEFPY_YANG (rip_passive_interface,
 	bool passive_default =
 		yang_dnode_get_bool(vty->candidate_config->dnode, "%s%s",
 				    VTY_CURR_XPATH, "/passive-default");
+	char xpath[XPATH_MAXLEN];
+	enum nb_operation op;
 
 	if (passive_default) {
-		nb_cli_enqueue_change(vty, "./non-passive-interface",
-				      no ? NB_OP_CREATE : NB_OP_DESTROY,
-				      ifname);
+		snprintf(xpath, sizeof(xpath),
+			 "./non-passive-interface[.='%s']", ifname);
+		op = no ? NB_OP_CREATE : NB_OP_DESTROY;
 	} else {
-		nb_cli_enqueue_change(vty, "./passive-interface",
-				      no ? NB_OP_DESTROY : NB_OP_CREATE,
-				      ifname);
+		snprintf(xpath, sizeof(xpath), "./passive-interface[.='%s']",
+			 ifname);
+		op = no ? NB_OP_DESTROY : NB_OP_CREATE;
 	}
+
+	nb_cli_enqueue_change(vty, xpath, op, NULL);
 
 	return nb_cli_apply_changes(vty, NULL);
 }
@@ -495,8 +512,12 @@ DEFPY_YANG (rip_route,
        "RIP static route configuration\n"
        "IP prefix <network>/<length>\n")
 {
-	nb_cli_enqueue_change(vty, "./static-route",
-			      no ? NB_OP_DESTROY : NB_OP_CREATE, route_str);
+	char xpath[XPATH_MAXLEN];
+
+	snprintf(xpath, sizeof(xpath), "./static-route[.='%s']", route_str);
+
+	nb_cli_enqueue_change(vty, xpath, no ? NB_OP_DESTROY : NB_OP_CREATE,
+			      NULL);
 
 	return nb_cli_apply_changes(vty, NULL);
 }

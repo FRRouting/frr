@@ -199,8 +199,12 @@ DEFPY_YANG (ripng_network_prefix,
        "RIPng enable on specified interface or network.\n"
        "IPv6 network\n")
 {
-	nb_cli_enqueue_change(vty, "./network",
-			      no ? NB_OP_DESTROY : NB_OP_CREATE, network_str);
+	char xpath[XPATH_MAXLEN];
+
+	snprintf(xpath, sizeof(xpath), "./network[.='%s']", network_str);
+
+	nb_cli_enqueue_change(vty, xpath, no ? NB_OP_DESTROY : NB_OP_CREATE,
+			      NULL);
 
 	return nb_cli_apply_changes(vty, NULL);
 }
@@ -222,8 +226,12 @@ DEFPY_YANG (ripng_network_if,
        "RIPng enable on specified interface or network.\n"
        "Interface name\n")
 {
-	nb_cli_enqueue_change(vty, "./interface",
-			      no ? NB_OP_DESTROY : NB_OP_CREATE, network);
+	char xpath[XPATH_MAXLEN];
+
+	snprintf(xpath, sizeof(xpath), "./interface[.='%s']", network);
+
+	nb_cli_enqueue_change(vty, xpath, no ? NB_OP_DESTROY : NB_OP_CREATE,
+			      NULL);
 
 	return nb_cli_apply_changes(vty, NULL);
 }
@@ -288,8 +296,12 @@ DEFPY_YANG (ripng_passive_interface,
        "Suppress routing updates on an interface\n"
        "Interface name\n")
 {
-	nb_cli_enqueue_change(vty, "./passive-interface",
-			      no ? NB_OP_DESTROY : NB_OP_CREATE, ifname);
+	char xpath[XPATH_MAXLEN];
+
+	snprintf(xpath, sizeof(xpath), "./passive-interface[.='%s']", ifname);
+
+	nb_cli_enqueue_change(vty, xpath, no ? NB_OP_DESTROY : NB_OP_CREATE,
+			      ifname);
 
 	return nb_cli_apply_changes(vty, NULL);
 }
@@ -355,8 +367,12 @@ DEFPY_YANG (ripng_route,
        "Static route setup\n"
        "Set static RIPng route announcement\n")
 {
-	nb_cli_enqueue_change(vty, "./static-route",
-			      no ? NB_OP_DESTROY : NB_OP_CREATE, route_str);
+	char xpath[XPATH_MAXLEN];
+
+	snprintf(xpath, sizeof(xpath), "./static-route[.='%s']", route_str);
+
+	nb_cli_enqueue_change(vty, xpath, no ? NB_OP_DESTROY : NB_OP_CREATE,
+			      NULL);
 
 	return nb_cli_apply_changes(vty, NULL);
 }
@@ -377,9 +393,13 @@ DEFPY_YANG (ripng_aggregate_address,
        "Set aggregate RIPng route announcement\n"
        "Aggregate network\n")
 {
-	nb_cli_enqueue_change(vty, "./aggregate-address",
-			      no ? NB_OP_DESTROY : NB_OP_CREATE,
-			      aggregate_address_str);
+	char xpath[XPATH_MAXLEN];
+
+	snprintf(xpath, sizeof(xpath), "./aggregate-address[.='%s']",
+		 aggregate_address_str);
+
+	nb_cli_enqueue_change(vty, xpath, no ? NB_OP_DESTROY : NB_OP_CREATE,
+			      NULL);
 
 	return nb_cli_apply_changes(vty, NULL);
 }

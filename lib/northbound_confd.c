@@ -256,7 +256,7 @@ frr_confd_cdb_diff_iter(confd_hkeypath_t *kp, enum cdb_iter_op cdb_op,
 	/* Edit the candidate configuration. */
 	data = yang_data_new(xpath, value_str);
 	ret = nb_candidate_edit(iter_args->candidate, nb_node, nb_op, xpath,
-				false, NULL, data);
+				NULL, data);
 	yang_data_free(data);
 	if (ret != NB_OK) {
 		flog_warn(

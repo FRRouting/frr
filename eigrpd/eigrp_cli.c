@@ -131,12 +131,14 @@ DEFPY_YANG(
 	"Suppress routing updates on an interface\n"
 	"Interface to suppress on\n")
 {
+	char xpath[XPATH_MAXLEN];
+
+	snprintf(xpath, sizeof(xpath), "./passive-interface[.='%s']", ifname);
+
 	if (no)
-		nb_cli_enqueue_change(vty, "./passive-interface",
-				      NB_OP_DESTROY, ifname);
+		nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
 	else
-		nb_cli_enqueue_change(vty, "./passive-interface",
-				      NB_OP_CREATE, ifname);
+		nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
 
 	return nb_cli_apply_changes(vty, NULL);
 }
@@ -354,12 +356,14 @@ DEFPY_YANG(
 	"Enable routing on an IP network\n"
 	"EIGRP network prefix\n")
 {
+	char xpath[XPATH_MAXLEN];
+
+	snprintf(xpath, sizeof(xpath), "./network[.='%s']", prefix_str);
+
 	if (no)
-		nb_cli_enqueue_change(vty, "./network", NB_OP_DESTROY,
-				      prefix_str);
+		nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
 	else
-		nb_cli_enqueue_change(vty, "./network", NB_OP_CREATE,
-				      prefix_str);
+		nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
 
 	return nb_cli_apply_changes(vty, NULL);
 }
@@ -383,12 +387,14 @@ DEFPY_YANG(
 	"Specify a neighbor router\n"
 	"Neighbor address\n")
 {
+	char xpath[XPATH_MAXLEN];
+
+	snprintf(xpath, sizeof(xpath), "./neighbor[.='%s']", addr_str);
+
 	if (no)
-		nb_cli_enqueue_change(vty, "./neighbor", NB_OP_DESTROY,
-				      addr_str);
+		nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
 	else
-		nb_cli_enqueue_change(vty, "./neighbor", NB_OP_CREATE,
-				      addr_str);
+		nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
 
 	return nb_cli_apply_changes(vty, NULL);
 }
@@ -769,8 +775,9 @@ DEFPY_YANG(
 		 as_str);
 	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
 
-	snprintf(xpath_auth, sizeof(xpath_auth), "%s/summarize-addresses", xpath);
-	nb_cli_enqueue_change(vty, xpath_auth, NB_OP_CREATE, prefix_str);
+	snprintf(xpath_auth, sizeof(xpath_auth),
+		 "%s/summarize-addresses[.='%s']", xpath, prefix_str);
+	nb_cli_enqueue_change(vty, xpath_auth, NB_OP_CREATE, NULL);
 
 	return nb_cli_apply_changes(vty, NULL);
 }
@@ -792,8 +799,9 @@ DEFPY_YANG(
 		 as_str);
 	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
 
-	snprintf(xpath_auth, sizeof(xpath_auth), "%s/summarize-addresses", xpath);
-	nb_cli_enqueue_change(vty, xpath_auth, NB_OP_DESTROY, prefix_str);
+	snprintf(xpath_auth, sizeof(xpath_auth),
+		 "%s/summarize-addresses[.='%s']", xpath, prefix_str);
+	nb_cli_enqueue_change(vty, xpath_auth, NB_OP_DESTROY, NULL);
 
 	return nb_cli_apply_changes(vty, NULL);
 }
