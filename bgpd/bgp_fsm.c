@@ -2735,7 +2735,7 @@ int bgp_gr_lookup_n_update_all_peer(struct bgp *bgp,
 	return BGP_GR_SUCCESS;
 }
 
-int bgp_gr_update_all(struct bgp *bgp, int global_gr_cmd)
+int bgp_gr_update_all(struct bgp *bgp, enum global_gr_command global_gr_cmd)
 {
 	enum global_mode global_new_state = GLOBAL_INVALID;
 	enum global_mode global_old_state = GLOBAL_INVALID;
@@ -2889,7 +2889,8 @@ enum peer_mode bgp_peer_gr_mode_get(struct peer *peer)
 	return peer->peer_gr_present_state;
 }
 
-int bgp_neighbor_graceful_restart(struct peer *peer, int peer_gr_cmd)
+int bgp_neighbor_graceful_restart(struct peer *peer,
+				  enum peer_gr_command peer_gr_cmd)
 {
 	enum peer_mode peer_new_state = PEER_INVALID;
 	enum peer_mode peer_old_state = PEER_INVALID;
@@ -2948,8 +2949,8 @@ int bgp_neighbor_graceful_restart(struct peer *peer, int peer_gr_cmd)
 	return result;
 }
 
-unsigned int bgp_peer_gr_action(struct peer *peer, int old_peer_state,
-				int new_peer_state)
+unsigned int bgp_peer_gr_action(struct peer *peer, enum peer_mode old_peer_state,
+				enum peer_mode new_peer_state)
 {
 	if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
 		zlog_debug(
@@ -2957,7 +2958,7 @@ unsigned int bgp_peer_gr_action(struct peer *peer, int old_peer_state,
 			__func__, print_peer_gr_mode(old_peer_state),
 			print_peer_gr_mode(new_peer_state));
 
-	int bgp_gr_global_mode = GLOBAL_INVALID;
+	enum global_mode bgp_gr_global_mode = GLOBAL_INVALID;
 	unsigned int ret = BGP_GR_FAILURE;
 
 	if (old_peer_state == new_peer_state) {
@@ -2989,10 +2990,10 @@ unsigned int bgp_peer_gr_action(struct peer *peer, int old_peer_state,
 
 		BGP_PEER_GR_GLOBAL_INHERIT_UNSET(peer);
 
-		if (new_peer_state == bgp_gr_global_mode) {
-			/*This is incremental updates i.e no tear down
-			 *of the existing session
-			 *as the peer is already working in the same mode.
+		if ((int)new_peer_state == (int)bgp_gr_global_mode) {
+			/* This is incremental updates i.e no tear down
+			 * of the existing session
+			 * as the peer is already working in the same mode.
 			 */
 			ret = BGP_GR_SUCCESS;
 		} else {
@@ -3019,8 +3020,7 @@ unsigned int bgp_peer_gr_action(struct peer *peer, int old_peer_state,
 
 		BGP_PEER_GR_GLOBAL_INHERIT_SET(peer);
 
-		if (old_peer_state == bgp_gr_global_mode) {
-
+		if ((int)old_peer_state == (int)bgp_gr_global_mode) {
 			/* This is incremental updates
 			 *i.e no tear down of the existing session
 			 *as the peer is already working in the same mode.
