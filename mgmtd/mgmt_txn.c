@@ -925,7 +925,6 @@ static int mgmt_txn_create_config_batches(struct mgmt_txn_req *txn_req,
 				MGMTD__YANG_DATA_VALUE__VALUE_ENCODED_STR_VAL;
 			batch->value[batch->num_cfg_data].encoded_str_val =
 				value;
-			value = NULL;
 
 			MGMTD_TXN_DBG(" -- %s, batch item:%d", adapter->name,
 				      (int)batch->num_cfg_data);
