@@ -37,14 +37,13 @@
 #include "zebra/zebra_vxlan.h"
 #include "zebra/zebra_errors.h"
 #include "zebra/zebra_evpn_mh.h"
+#include "zebra/zebra_nb.h"
 
 DEFINE_MTYPE_STATIC(ZEBRA, ZINFO, "Zebra Interface Information");
 
 #define ZEBRA_PTM_SUPPORT
 
 DEFINE_HOOK(zebra_if_extra_info, (struct vty * vty, struct interface *ifp),
-	    (vty, ifp));
-DEFINE_HOOK(zebra_if_config_wr, (struct vty * vty, struct interface *ifp),
 	    (vty, ifp));
 
 DEFINE_MTYPE(ZEBRA, ZIF_DESC, "Intf desc");
@@ -3704,6 +3703,18 @@ DEFPY_YANG (multicast_new,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
+void lib_interface_zebra_multicast_cli_write(struct vty *vty,
+					     const struct lyd_node *dnode,
+					     bool show_defaults)
+{
+	bool multicast = yang_dnode_get_bool(dnode, NULL);
+
+	if (multicast)
+		vty_out(vty, " multicast enable\n");
+	else
+		vty_out(vty, " multicast disable\n");
+}
+
 int if_multicast_set(struct interface *ifp)
 {
 	struct zebra_if *if_data;
@@ -3749,6 +3760,18 @@ DEFPY_YANG (mpls,
 				      NB_OP_DESTROY, NULL);
 
 	return nb_cli_apply_changes(vty, NULL);
+}
+
+void lib_interface_zebra_mpls_cli_write(struct vty *vty,
+					const struct lyd_node *dnode,
+					bool show_defaults)
+{
+	bool mpls = yang_dnode_get_bool(dnode, NULL);
+
+	if (mpls)
+		vty_out(vty, " mpls enable\n");
+	else
+		vty_out(vty, " mpls disable\n");
 }
 
 int if_multicast_unset(struct interface *ifp)
@@ -3816,6 +3839,18 @@ DEFPY_YANG (linkdetect,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
+void lib_interface_zebra_link_detect_cli_write(struct vty *vty,
+					       const struct lyd_node *dnode,
+					       bool show_defaults)
+{
+	bool link_detect = yang_dnode_get_bool(dnode, NULL);
+
+	if (!link_detect)
+		vty_out(vty, " no link-detect\n");
+	else if (show_defaults)
+		vty_out(vty, " link-detect\n");
+}
+
 int if_shutdown(struct interface *ifp)
 {
 	struct zebra_if *if_data;
@@ -3845,6 +3880,18 @@ DEFPY_YANG (shutdown_if,
 			      NB_OP_CREATE, no ? "true" : "false");
 
 	return nb_cli_apply_changes(vty, NULL);
+}
+
+void lib_interface_zebra_enabled_cli_write(struct vty *vty,
+					   const struct lyd_node *dnode,
+					   bool show_defaults)
+{
+	bool enabled = yang_dnode_get_bool(dnode, NULL);
+
+	if (!enabled)
+		vty_out(vty, " shutdown\n");
+	else if (show_defaults)
+		vty_out(vty, " no shutdown\n");
 }
 
 int if_no_shutdown(struct interface *ifp)
@@ -3886,6 +3933,15 @@ DEFPY_YANG (bandwidth_if,
 				      NB_OP_DESTROY, NULL);
 
 	return nb_cli_apply_changes(vty, NULL);
+}
+
+void lib_interface_zebra_bandwidth_cli_write(struct vty *vty,
+					     const struct lyd_node *dnode,
+					     bool show_defaults)
+{
+	uint32_t bandwidth = yang_dnode_get_uint32(dnode, NULL);
+
+	vty_out(vty, " bandwidth %u\n", bandwidth);
 }
 
 struct cmd_node link_params_node = {
@@ -3967,6 +4023,19 @@ DEFUN_NOSH (exit_link_params,
 	return CMD_SUCCESS;
 }
 
+void lib_interface_zebra_link_params_cli_write(struct vty *vty,
+					       const struct lyd_node *dnode,
+					       bool show_defaults)
+{
+	vty_out(vty, " link-params\n");
+}
+
+void lib_interface_zebra_link_params_cli_write_end(struct vty *vty,
+						   const struct lyd_node *dnode)
+{
+	vty_out(vty, " exit-link-params\n");
+}
+
 DEFUN_YANG (no_link_params,
        no_link_params_cmd,
        "no link-params",
@@ -4024,6 +4093,14 @@ DEFPY_YANG (link_params_metric,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
+void lib_interface_zebra_link_params_metric_cli_write(
+	struct vty *vty, const struct lyd_node *dnode, bool show_defaults)
+{
+	uint32_t metric = yang_dnode_get_uint32(dnode, NULL);
+
+	vty_out(vty, "  metric %u\n", metric);
+}
+
 DEFPY_YANG (link_params_maxbw,
        link_params_maxbw_cmd,
        "max-bw BANDWIDTH",
@@ -4043,6 +4120,14 @@ DEFPY_YANG (link_params_maxbw,
 	nb_cli_enqueue_change(vty, "./max-bandwidth", NB_OP_MODIFY, value);
 
 	return nb_cli_apply_changes(vty, NULL);
+}
+
+void lib_interface_zebra_link_params_max_bandwidth_cli_write(
+	struct vty *vty, const struct lyd_node *dnode, bool show_defaults)
+{
+	float max_bandwidth = yang_dnode_get_bandwidth_ieee_float32(dnode, NULL);
+
+	vty_out(vty, "  max-bw %g\n", max_bandwidth);
 }
 
 DEFPY_YANG (link_params_max_rsv_bw,
@@ -4065,6 +4150,15 @@ DEFPY_YANG (link_params_max_rsv_bw,
 			      value);
 
 	return nb_cli_apply_changes(vty, NULL);
+}
+
+void lib_interface_zebra_link_params_max_reservable_bandwidth_cli_write(
+	struct vty *vty, const struct lyd_node *dnode, bool show_defaults)
+{
+	float max_reservable_bandwidth =
+		yang_dnode_get_bandwidth_ieee_float32(dnode, NULL);
+
+	vty_out(vty, "  max-rsv-bw %g\n", max_reservable_bandwidth);
 }
 
 DEFPY_YANG (link_params_unrsv_bw,
@@ -4091,6 +4185,17 @@ DEFPY_YANG (link_params_unrsv_bw,
 	nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, value);
 
 	return nb_cli_apply_changes(vty, NULL);
+}
+
+void lib_interface_zebra_link_params_unreserved_bandwidths_unreserved_bandwidth_cli_write(
+	struct vty *vty, const struct lyd_node *dnode, bool show_defaults)
+{
+	uint8_t priority = yang_dnode_get_uint8(dnode, "priority");
+	float unreserved_bandwidth =
+		yang_dnode_get_bandwidth_ieee_float32(dnode,
+						      "unreserved-bandwidth");
+
+	vty_out(vty, "  unrsv-bw %u %g\n", priority, unreserved_bandwidth);
 }
 
 DEFPY_YANG(link_params_admin_grp, link_params_admin_grp_cmd,
@@ -4156,6 +4261,16 @@ DEFPY_YANG (link_params_inter_as,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
+void lib_interface_zebra_link_params_neighbor_cli_write(
+	struct vty *vty, const struct lyd_node *dnode, bool show_defaults)
+{
+	uint32_t remote_as = yang_dnode_get_uint32(dnode, "remote-as");
+	const char *ipv4_remote_id = yang_dnode_get_string(dnode,
+							   "ipv4-remote-id");
+
+	vty_out(vty, "  neighbor %s as %u\n", ipv4_remote_id, remote_as);
+}
+
 /* RFC7471: OSPF Traffic Engineering (TE) Metric extensions &
  * draft-ietf-isis-metric-extensions-07.txt */
 DEFPY_YANG (link_params_delay,
@@ -4191,6 +4306,27 @@ DEFPY_YANG (link_params_delay,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
+void lib_interface_zebra_link_params_delay_cli_write(
+	struct vty *vty, const struct lyd_node *dnode, bool show_defaults)
+{
+	uint32_t delay = yang_dnode_get_uint32(dnode, NULL);
+
+	vty_out(vty, "  delay %u", delay);
+
+	if (yang_dnode_exists(dnode, "../min-max-delay")) {
+		uint32_t delay_min =
+			yang_dnode_get_uint32(dnode,
+					      "../min-max-delay/delay-min");
+		uint32_t delay_max =
+			yang_dnode_get_uint32(dnode,
+					      "../min-max-delay/delay-max");
+
+		vty_out(vty, " min %u max %u", delay_min, delay_max);
+	}
+
+	vty_out(vty, "\n");
+}
+
 DEFPY_YANG (link_params_delay_var,
        link_params_delay_var_cmd,
        "[no] delay-variation ![(0-16777215)$delay_var]",
@@ -4208,6 +4344,14 @@ DEFPY_YANG (link_params_delay_var,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
+void lib_interface_zebra_link_params_delay_variation_cli_write(
+	struct vty *vty, const struct lyd_node *dnode, bool show_defaults)
+{
+	uint32_t delay_variation = yang_dnode_get_uint32(dnode, NULL);
+
+	vty_out(vty, "  delay-variation %u\n", delay_variation);
+}
+
 DEFPY_YANG(
 	link_params_pkt_loss, link_params_pkt_loss_cmd,
 	"[no] packet-loss ![PERCENTAGE]",
@@ -4222,6 +4366,14 @@ DEFPY_YANG(
 		nb_cli_enqueue_change(vty, "./packet-loss", NB_OP_DESTROY, NULL);
 
 	return nb_cli_apply_changes(vty, NULL);
+}
+
+void lib_interface_zebra_link_params_packet_loss_cli_write(
+	struct vty *vty, const struct lyd_node *dnode, bool show_defaults)
+{
+	double packet_loss = yang_dnode_get_dec64(dnode, NULL);
+
+	vty_out(vty, "  packet-loss %lf\n", packet_loss);
 }
 
 DEFPY_YANG (link_params_res_bw,
@@ -4252,6 +4404,15 @@ DEFPY_YANG (link_params_res_bw,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
+void lib_interface_zebra_link_params_residual_bandwidth_cli_write(
+	struct vty *vty, const struct lyd_node *dnode, bool show_defaults)
+{
+	float residual_bandwidth = yang_dnode_get_bandwidth_ieee_float32(dnode,
+									 NULL);
+
+	vty_out(vty, "  res-bw %g\n", residual_bandwidth);
+}
+
 DEFPY_YANG (link_params_ava_bw,
        link_params_ava_bw_cmd,
        "[no] ava-bw ![BANDWIDTH]",
@@ -4280,6 +4441,15 @@ DEFPY_YANG (link_params_ava_bw,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
+void lib_interface_zebra_link_params_available_bandwidth_cli_write(
+	struct vty *vty, const struct lyd_node *dnode, bool show_defaults)
+{
+	float available_bandwidth = yang_dnode_get_bandwidth_ieee_float32(dnode,
+									  NULL);
+
+	vty_out(vty, "  ava-bw %g\n", available_bandwidth);
+}
+
 DEFPY_YANG (link_params_use_bw,
        link_params_use_bw_cmd,
        "[no] use-bw ![BANDWIDTH]",
@@ -4306,6 +4476,15 @@ DEFPY_YANG (link_params_use_bw,
 	}
 
 	return nb_cli_apply_changes(vty, NULL);
+}
+
+void lib_interface_zebra_link_params_utilized_bandwidth_cli_write(
+	struct vty *vty, const struct lyd_node *dnode, bool show_defaults)
+{
+	float utilized_bandwidth = yang_dnode_get_bandwidth_ieee_float32(dnode,
+									 NULL);
+
+	vty_out(vty, "  use-bw %g\n", utilized_bandwidth);
 }
 
 static int ag_change(struct vty *vty, int argc, struct cmd_token **argv,
@@ -4537,6 +4716,23 @@ DEFPY_YANG (ip_address,
 				    ip, mask);
 }
 
+void lib_interface_zebra_ipv4_addrs_cli_write(struct vty *vty,
+					      const struct lyd_node *dnode,
+					      bool show_defaults)
+{
+	const char *ip = yang_dnode_get_string(dnode, "ip");
+	uint8_t prefix_length = yang_dnode_get_uint8(dnode, "prefix-length");
+
+	vty_out(vty, " ip address %s/%u", ip, prefix_length);
+
+	if (yang_dnode_exists(dnode, "label")) {
+		const char *label = yang_dnode_get_string(dnode, "label");
+		vty_out(vty, " label %s", label);
+	}
+
+	vty_out(vty, "\n");
+}
+
 #ifdef HAVE_NETLINK
 DEFPY_YANG (ip_address_peer,
       ip_address_peer_cmd,
@@ -4588,6 +4784,26 @@ DEFPY_YANG (ip_address_peer,
 		vty,
 		"./frr-zebra:zebra/ipv4-p2p-addrs[ip='%s'][peer-ip='%s'][peer-prefix-length='%s']",
 		address_str, peer_ip, peer_mask);
+}
+
+void lib_interface_zebra_ipv4_p2p_addrs_cli_write(struct vty *vty,
+						  const struct lyd_node *dnode,
+						  bool show_defaults)
+{
+	const char *ip = yang_dnode_get_string(dnode, "ip");
+	const char *peer_ip = yang_dnode_get_string(dnode, "peer-ip");
+	uint8_t peer_prefix_length = yang_dnode_get_uint8(dnode,
+							  "peer-prefix-length");
+
+	vty_out(vty, " ip address %s peer %s/%u", ip, peer_ip,
+		peer_prefix_length);
+
+	if (yang_dnode_exists(dnode, "label")) {
+		const char *label = yang_dnode_get_string(dnode, "label");
+		vty_out(vty, " label %s", label);
+	}
+
+	vty_out(vty, "\n");
 }
 
 void if_ipv6_address_install(struct interface *ifp, struct prefix *prefix)
@@ -4683,153 +4899,14 @@ DEFPY_YANG (ipv6_address,
 				    ip, mask);
 }
 
-static int link_params_config_write(struct vty *vty, struct interface *ifp)
+void lib_interface_zebra_ipv6_addrs_cli_write(struct vty *vty,
+					      const struct lyd_node *dnode,
+					      bool show_defaults)
 {
-	const struct lyd_node *dnode;
-	char xpath[XPATH_MAXLEN];
-	int i;
+	const char *ip = yang_dnode_get_string(dnode, "ip");
+	uint8_t prefix_length = yang_dnode_get_uint8(dnode, "prefix-length");
 
-	if ((ifp == NULL) || !HAS_LINK_PARAMS(ifp))
-		return -1;
-
-	struct if_link_params *iflp = ifp->link_params;
-
-	vty_out(vty, " link-params\n");
-	if (IS_PARAM_SET(iflp, LP_TE_METRIC) && iflp->te_metric != ifp->metric)
-		vty_out(vty, "  metric %u\n", iflp->te_metric);
-	if (IS_PARAM_SET(iflp, LP_MAX_BW) && iflp->max_bw != iflp->default_bw)
-		vty_out(vty, "  max-bw %g\n", iflp->max_bw);
-	if (IS_PARAM_SET(iflp, LP_MAX_RSV_BW)
-	    && iflp->max_rsv_bw != iflp->default_bw)
-		vty_out(vty, "  max-rsv-bw %g\n", iflp->max_rsv_bw);
-	if (IS_PARAM_SET(iflp, LP_UNRSV_BW)) {
-		for (i = 0; i < 8; i++)
-			if (iflp->unrsv_bw[i] != iflp->default_bw)
-				vty_out(vty, "  unrsv-bw %d %g\n", i,
-					iflp->unrsv_bw[i]);
-	}
-
-	snprintf(
-		xpath, sizeof(xpath),
-		"/frr-interface:lib/interface[name='%s']/frr-zebra:zebra/link-params",
-		ifp->name);
-	dnode = yang_dnode_get(running_config->dnode, xpath);
-	if (dnode)
-		nb_cli_show_dnode_cmds(vty, dnode, false);
-
-	if (IS_PARAM_SET(iflp, LP_DELAY)) {
-		vty_out(vty, "  delay %u", iflp->av_delay);
-		if (IS_PARAM_SET(iflp, LP_MM_DELAY)) {
-			vty_out(vty, " min %u", iflp->min_delay);
-			vty_out(vty, " max %u", iflp->max_delay);
-		}
-		vty_out(vty, "\n");
-	}
-	if (IS_PARAM_SET(iflp, LP_DELAY_VAR))
-		vty_out(vty, "  delay-variation %u\n", iflp->delay_var);
-	if (IS_PARAM_SET(iflp, LP_PKT_LOSS))
-		vty_out(vty, "  packet-loss %f\n",
-			(double)iflp->pkt_loss * LOSS_PRECISION);
-	if (IS_PARAM_SET(iflp, LP_AVA_BW))
-		vty_out(vty, "  ava-bw %g\n", iflp->ava_bw);
-	if (IS_PARAM_SET(iflp, LP_RES_BW))
-		vty_out(vty, "  res-bw %g\n", iflp->res_bw);
-	if (IS_PARAM_SET(iflp, LP_USE_BW))
-		vty_out(vty, "  use-bw %g\n", iflp->use_bw);
-	if (IS_PARAM_SET(iflp, LP_RMT_AS))
-		vty_out(vty, "  neighbor %pI4 as %u\n", &iflp->rmt_ip,
-			iflp->rmt_as);
-
-	vty_out(vty, " exit-link-params\n");
-	return 0;
-}
-
-static int if_config_write(struct vty *vty)
-{
-	struct vrf *vrf;
-	struct interface *ifp;
-
-	zebra_ptm_write(vty);
-
-	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name)
-		FOR_ALL_INTERFACES (vrf, ifp) {
-			struct zebra_if *if_data;
-			struct connected *ifc;
-			struct prefix *p;
-
-			if_data = ifp->info;
-
-			if_vty_config_start(vty, ifp);
-
-			if (if_data) {
-				if (if_data->shutdown == IF_ZEBRA_DATA_ON)
-					vty_out(vty, " shutdown\n");
-
-				zebra_ptm_if_write(vty, if_data);
-			}
-
-			if (ifp->desc)
-				vty_out(vty, " description %s\n", ifp->desc);
-
-			/* Assign bandwidth here to avoid unnecessary interface
-			   flap
-			   while processing config script */
-			if (ifp->bandwidth != 0)
-				vty_out(vty, " bandwidth %u\n", ifp->bandwidth);
-
-			if (!CHECK_FLAG(ifp->status,
-					ZEBRA_INTERFACE_LINKDETECTION))
-				vty_out(vty, " no link-detect\n");
-
-			frr_each (if_connected, ifp->connected, ifc) {
-				if (CHECK_FLAG(ifc->conf,
-					       ZEBRA_IFC_CONFIGURED)) {
-					char buf[INET6_ADDRSTRLEN];
-					p = ifc->address;
-					vty_out(vty, " ip%s address %s",
-						p->family == AF_INET ? ""
-								     : "v6",
-						inet_ntop(p->family,
-							  &p->u.prefix, buf,
-							  sizeof(buf)));
-					if (CONNECTED_PEER(ifc)) {
-						p = ifc->destination;
-						vty_out(vty, " peer %s",
-							inet_ntop(p->family,
-								  &p->u.prefix,
-								  buf,
-								  sizeof(buf)));
-					}
-					vty_out(vty, "/%d", p->prefixlen);
-
-					if (ifc->label)
-						vty_out(vty, " label %s",
-							ifc->label);
-
-					vty_out(vty, "\n");
-				}
-			}
-
-			if (if_data) {
-				if (if_data->multicast == IF_ZEBRA_DATA_ON)
-					vty_out(vty, " multicast enable\n");
-				else if (if_data->multicast == IF_ZEBRA_DATA_OFF)
-					vty_out(vty, " multicast disable\n");
-
-				if (if_data->mpls_config == IF_ZEBRA_DATA_ON)
-					vty_out(vty, " mpls enable\n");
-				else if (if_data->mpls_config ==
-					 IF_ZEBRA_DATA_OFF)
-					vty_out(vty, " mpls disable\n");
-			}
-
-			hook_call(zebra_if_config_wr, vty, ifp);
-			zebra_evpn_mh_if_write(vty, ifp);
-			link_params_config_write(vty, ifp);
-
-			if_vty_config_end(vty);
-		}
-	return 0;
+	vty_out(vty, " ipv6 address %s/%u\n", ip, prefix_length);
 }
 
 /* Allocate and initialize interface vector. */
@@ -4840,7 +4917,7 @@ void zebra_if_init(void)
 	hook_register_prio(if_del, 0, if_zebra_delete_hook);
 
 	/* Install configuration write function. */
-	if_cmd_init(if_config_write);
+	if_cmd_init_default();
 	install_node(&link_params_node);
 
 	install_element(VIEW_NODE, &show_interface_cmd);

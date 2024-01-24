@@ -46,6 +46,8 @@ int zebra_allow_external_route_update_destroy(struct nb_cb_destroy_args *args);
 int zebra_dplane_queue_limit_modify(struct nb_cb_modify_args *args);
 #if HAVE_BFDD == 0
 int zebra_ptm_enable_modify(struct nb_cb_modify_args *args);
+void zebra_ptm_enable_cli_write(struct vty *vty, const struct lyd_node *dnode,
+				bool show_defaults);
 #endif
 int zebra_debugs_debug_events_modify(struct nb_cb_modify_args *args);
 int zebra_debugs_debug_events_destroy(struct nb_cb_destroy_args *args);
@@ -84,178 +86,319 @@ int zebra_debugs_debug_dplane_detail_destroy(struct nb_cb_destroy_args *args);
 int zebra_debugs_debug_mlag_modify(struct nb_cb_modify_args *args);
 int zebra_debugs_debug_mlag_destroy(struct nb_cb_destroy_args *args);
 int lib_interface_zebra_ipv4_addrs_create(struct nb_cb_create_args *args);
+void lib_interface_zebra_ipv4_addrs_cli_write(struct vty *vty,
+					      const struct lyd_node *dnode,
+					      bool show_defaults);
 int lib_interface_zebra_ipv4_addrs_destroy(struct nb_cb_destroy_args *args);
 int lib_interface_zebra_ipv4_addrs_label_modify(struct nb_cb_modify_args *args);
+void lib_interface_zebra_ipv4_addrs_label_cli_write(struct vty *vty,
+						    const struct lyd_node *dnode,
+						    bool show_defaults);
 int lib_interface_zebra_ipv4_addrs_label_destroy(struct nb_cb_destroy_args *args);
 int lib_interface_zebra_ipv4_p2p_addrs_create(struct nb_cb_create_args *args);
+void lib_interface_zebra_ipv4_p2p_addrs_cli_write(struct vty *vty,
+						  const struct lyd_node *dnode,
+						  bool show_defaults);
 int lib_interface_zebra_ipv4_p2p_addrs_destroy(struct nb_cb_destroy_args *args);
 int lib_interface_zebra_ipv4_p2p_addrs_label_modify(
 	struct nb_cb_modify_args *args);
+void lib_interface_zebra_ipv4_p2p_addrs_label_cli_write(
+	struct vty *vty, const struct lyd_node *dnode, bool show_defaults);
 int lib_interface_zebra_ipv4_p2p_addrs_label_destroy(
 	struct nb_cb_destroy_args *args);
 int lib_interface_zebra_ipv6_addrs_create(struct nb_cb_create_args *args);
+void lib_interface_zebra_ipv6_addrs_cli_write(struct vty *vty,
+					      const struct lyd_node *dnode,
+					      bool show_defaults);
 int lib_interface_zebra_ipv6_addrs_destroy(struct nb_cb_destroy_args *args);
 int lib_interface_zebra_multicast_modify(struct nb_cb_modify_args *args);
+void lib_interface_zebra_multicast_cli_write(struct vty *vty,
+					     const struct lyd_node *dnode,
+					     bool show_defaults);
 int lib_interface_zebra_multicast_destroy(struct nb_cb_destroy_args *args);
 int lib_interface_zebra_link_detect_modify(struct nb_cb_modify_args *args);
+void lib_interface_zebra_link_detect_cli_write(struct vty *vty,
+					       const struct lyd_node *dnode,
+					       bool show_defaults);
 int lib_interface_zebra_enabled_modify(struct nb_cb_modify_args *args);
+void lib_interface_zebra_enabled_cli_write(struct vty *vty,
+					   const struct lyd_node *dnode,
+					   bool show_defaults);
 int lib_interface_zebra_enabled_destroy(struct nb_cb_destroy_args *args);
 int lib_interface_zebra_bandwidth_modify(struct nb_cb_modify_args *args);
 int lib_interface_zebra_bandwidth_destroy(struct nb_cb_destroy_args *args);
+void lib_interface_zebra_bandwidth_cli_write(struct vty *vty,
+					     const struct lyd_node *dnode,
+					     bool show_defaults);
 int lib_interface_zebra_mpls_modify(struct nb_cb_modify_args *args);
+void lib_interface_zebra_mpls_cli_write(struct vty *vty,
+					const struct lyd_node *dnode,
+					bool show_defaults);
 int lib_interface_zebra_mpls_destroy(struct nb_cb_destroy_args *args);
 int lib_interface_zebra_link_params_create(struct nb_cb_create_args *args);
+void lib_interface_zebra_link_params_cli_write(struct vty *vty,
+					       const struct lyd_node *dnode,
+					       bool show_defaults);
+void lib_interface_zebra_link_params_cli_write_end(struct vty *vty,
+						   const struct lyd_node *dnode);
 int lib_interface_zebra_link_params_destroy(struct nb_cb_destroy_args *args);
 int lib_interface_zebra_link_params_metric_modify(struct nb_cb_modify_args *args);
+void lib_interface_zebra_link_params_metric_cli_write(
+	struct vty *vty, const struct lyd_node *dnode, bool show_defaults);
 int lib_interface_zebra_link_params_metric_destroy(
 	struct nb_cb_destroy_args *args);
 int lib_interface_zebra_link_params_max_bandwidth_modify(
 	struct nb_cb_modify_args *args);
+void lib_interface_zebra_link_params_max_bandwidth_cli_write(
+	struct vty *vty, const struct lyd_node *dnode, bool show_defaults);
 int lib_interface_zebra_link_params_max_bandwidth_destroy(
 	struct nb_cb_destroy_args *args);
 int lib_interface_zebra_link_params_max_reservable_bandwidth_modify(
 	struct nb_cb_modify_args *args);
+void lib_interface_zebra_link_params_max_reservable_bandwidth_cli_write(
+	struct vty *vty, const struct lyd_node *dnode, bool show_defaults);
 int lib_interface_zebra_link_params_max_reservable_bandwidth_destroy(
 	struct nb_cb_destroy_args *args);
 int lib_interface_zebra_link_params_unreserved_bandwidths_unreserved_bandwidth_create(
 	struct nb_cb_create_args *args);
+void lib_interface_zebra_link_params_unreserved_bandwidths_unreserved_bandwidth_cli_write(
+	struct vty *vty, const struct lyd_node *dnode, bool show_defaults);
 int lib_interface_zebra_link_params_unreserved_bandwidths_unreserved_bandwidth_destroy(
 	struct nb_cb_destroy_args *args);
 int lib_interface_zebra_link_params_unreserved_bandwidths_unreserved_bandwidth_unreserved_bandwidth_modify(
 	struct nb_cb_modify_args *args);
+void lib_interface_zebra_link_params_unreserved_bandwidths_unreserved_bandwidth_unreserved_bandwidth_cli_write(
+	struct vty *vty, const struct lyd_node *dnode, bool show_defaults);
 int lib_interface_zebra_link_params_residual_bandwidth_modify(
 	struct nb_cb_modify_args *args);
+void lib_interface_zebra_link_params_residual_bandwidth_cli_write(
+	struct vty *vty, const struct lyd_node *dnode, bool show_defaults);
 int lib_interface_zebra_link_params_residual_bandwidth_destroy(
 	struct nb_cb_destroy_args *args);
 int lib_interface_zebra_link_params_available_bandwidth_modify(
 	struct nb_cb_modify_args *args);
+void lib_interface_zebra_link_params_available_bandwidth_cli_write(
+	struct vty *vty, const struct lyd_node *dnode, bool show_defaults);
 int lib_interface_zebra_link_params_available_bandwidth_destroy(
 	struct nb_cb_destroy_args *args);
 int lib_interface_zebra_link_params_utilized_bandwidth_modify(
 	struct nb_cb_modify_args *args);
+void lib_interface_zebra_link_params_utilized_bandwidth_cli_write(
+	struct vty *vty, const struct lyd_node *dnode, bool show_defaults);
 int lib_interface_zebra_link_params_utilized_bandwidth_destroy(
 	struct nb_cb_destroy_args *args);
 int lib_interface_zebra_legacy_admin_group_modify(
 	struct nb_cb_modify_args *args);
+void lib_interface_zebra_link_params_legacy_admin_group_cli_write(
+	struct vty *vty, const struct lyd_node *dnode, bool show_defaults);
 int lib_interface_zebra_legacy_admin_group_destroy(
 	struct nb_cb_destroy_args *args);
 int lib_interface_zebra_affinity_create(struct nb_cb_create_args *args);
+void lib_interface_zebra_link_params_affinities_affinity_cli_write(
+	struct vty *vty, const struct lyd_node *dnode, bool show_defaults);
 int lib_interface_zebra_affinity_destroy(struct nb_cb_destroy_args *args);
 int lib_interface_zebra_affinity_mode_modify(struct nb_cb_modify_args *args);
+void lib_interface_zebra_link_params_affinity_mode_cli_write(
+	struct vty *vty, const struct lyd_node *dnode, bool show_defaults);
 int lib_interface_zebra_link_params_neighbor_create(
 	struct nb_cb_create_args *args);
+void lib_interface_zebra_link_params_neighbor_cli_write(
+	struct vty *vty, const struct lyd_node *dnode, bool show_defaults);
 int lib_interface_zebra_link_params_neighbor_destroy(
 	struct nb_cb_destroy_args *args);
 int lib_interface_zebra_link_params_neighbor_remote_as_modify(
 	struct nb_cb_modify_args *args);
+void lib_interface_zebra_link_params_neighbor_remote_as_cli_write(
+	struct vty *vty, const struct lyd_node *dnode, bool show_defaults);
 int lib_interface_zebra_link_params_neighbor_ipv4_remote_id_modify(
 	struct nb_cb_modify_args *args);
+void lib_interface_zebra_link_params_neighbor_ipv4_remote_id_cli_write(
+	struct vty *vty, const struct lyd_node *dnode, bool show_defaults);
 int lib_interface_zebra_link_params_delay_modify(struct nb_cb_modify_args *args);
+void lib_interface_zebra_link_params_delay_cli_write(
+	struct vty *vty, const struct lyd_node *dnode, bool show_defaults);
 int lib_interface_zebra_link_params_delay_destroy(
 	struct nb_cb_destroy_args *args);
 int lib_interface_zebra_link_params_min_max_delay_create(
 	struct nb_cb_create_args *args);
+void lib_interface_zebra_link_params_min_max_delay_cli_write(
+	struct vty *vty, const struct lyd_node *dnode, bool show_defaults);
 int lib_interface_zebra_link_params_min_max_delay_destroy(
 	struct nb_cb_destroy_args *args);
 int lib_interface_zebra_link_params_min_max_delay_delay_min_modify(
 	struct nb_cb_modify_args *args);
+void lib_interface_zebra_link_params_min_max_delay_delay_min_cli_write(
+	struct vty *vty, const struct lyd_node *dnode, bool show_defaults);
 int lib_interface_zebra_link_params_min_max_delay_delay_max_modify(
 	struct nb_cb_modify_args *args);
+void lib_interface_zebra_link_params_min_max_delay_delay_max_cli_write(
+	struct vty *vty, const struct lyd_node *dnode, bool show_defaults);
 int lib_interface_zebra_link_params_delay_variation_modify(
 	struct nb_cb_modify_args *args);
+void lib_interface_zebra_link_params_delay_variation_cli_write(
+	struct vty *vty, const struct lyd_node *dnode, bool show_defaults);
 int lib_interface_zebra_link_params_delay_variation_destroy(
 	struct nb_cb_destroy_args *args);
 int lib_interface_zebra_link_params_packet_loss_modify(
 	struct nb_cb_modify_args *args);
+void lib_interface_zebra_link_params_packet_loss_cli_write(
+	struct vty *vty, const struct lyd_node *dnode, bool show_defaults);
 int lib_interface_zebra_link_params_packet_loss_destroy(
 	struct nb_cb_destroy_args *args);
 int lib_interface_zebra_evpn_mh_type_0_esi_modify(struct nb_cb_modify_args *args);
+void lib_interface_zebra_evpn_mh_type_0_esi_cli_write(
+	struct vty *vty, const struct lyd_node *dnode, bool show_defaults);
 int lib_interface_zebra_evpn_mh_type_0_esi_destroy(
 	struct nb_cb_destroy_args *args);
 int lib_interface_zebra_evpn_mh_type_3_system_mac_modify(
 	struct nb_cb_modify_args *args);
+void lib_interface_zebra_evpn_mh_type_3_system_mac_cli_write(
+	struct vty *vty, const struct lyd_node *dnode, bool show_defaults);
 int lib_interface_zebra_evpn_mh_type_3_system_mac_destroy(
 	struct nb_cb_destroy_args *args);
 int lib_interface_zebra_evpn_mh_type_3_local_discriminator_modify(
 	struct nb_cb_modify_args *args);
+void lib_interface_zebra_evpn_mh_type_3_local_discriminator_cli_write(
+	struct vty *vty, const struct lyd_node *dnode, bool show_defaults);
 int lib_interface_zebra_evpn_mh_type_3_local_discriminator_destroy(
 	struct nb_cb_destroy_args *args);
 int lib_interface_zebra_evpn_mh_df_preference_modify(
 	struct nb_cb_modify_args *args);
+void lib_interface_zebra_evpn_mh_df_preference_cli_write(
+	struct vty *vty, const struct lyd_node *dnode, bool show_defaults);
 int lib_interface_zebra_evpn_mh_bypass_modify(struct nb_cb_modify_args *args);
+void lib_interface_zebra_evpn_mh_bypass_cli_write(struct vty *vty,
+						  const struct lyd_node *dnode,
+						  bool show_defaults);
 int lib_interface_zebra_evpn_mh_uplink_modify(struct nb_cb_modify_args *args);
+void lib_interface_zebra_evpn_mh_uplink_cli_write(struct vty *vty,
+						  const struct lyd_node *dnode,
+						  bool show_defaults);
 #if defined(HAVE_RTADV)
 int lib_interface_zebra_ipv6_router_advertisements_send_advertisements_modify(
 	struct nb_cb_modify_args *args);
+void lib_interface_zebra_ipv6_router_advertisements_send_advertisements_cli_write(
+	struct vty *vty, const struct lyd_node *dnode, bool show_defaults);
 int lib_interface_zebra_ipv6_router_advertisements_max_rtr_adv_interval_modify(
 	struct nb_cb_modify_args *args);
+void lib_interface_zebra_ipv6_router_advertisements_max_rtr_adv_interval_cli_write(
+	struct vty *vty, const struct lyd_node *dnode, bool show_defaults);
 int lib_interface_zebra_ipv6_router_advertisements_managed_flag_modify(
 	struct nb_cb_modify_args *args);
+void lib_interface_zebra_ipv6_router_advertisements_managed_flag_cli_write(
+	struct vty *vty, const struct lyd_node *dnode, bool show_defaults);
 int lib_interface_zebra_ipv6_router_advertisements_other_config_flag_modify(
 	struct nb_cb_modify_args *args);
+void lib_interface_zebra_ipv6_router_advertisements_other_config_flag_cli_write(
+	struct vty *vty, const struct lyd_node *dnode, bool show_defaults);
 int lib_interface_zebra_ipv6_router_advertisements_home_agent_flag_modify(
 	struct nb_cb_modify_args *args);
+void lib_interface_zebra_ipv6_router_advertisements_home_agent_flag_cli_write(
+	struct vty *vty, const struct lyd_node *dnode, bool show_defaults);
 int lib_interface_zebra_ipv6_router_advertisements_link_mtu_modify(
 	struct nb_cb_modify_args *args);
+void lib_interface_zebra_ipv6_router_advertisements_link_mtu_cli_write(
+	struct vty *vty, const struct lyd_node *dnode, bool show_defaults);
 int lib_interface_zebra_ipv6_router_advertisements_reachable_time_modify(
 	struct nb_cb_modify_args *args);
+void lib_interface_zebra_ipv6_router_advertisements_reachable_time_cli_write(
+	struct vty *vty, const struct lyd_node *dnode, bool show_defaults);
 int lib_interface_zebra_ipv6_router_advertisements_retrans_timer_modify(
 	struct nb_cb_modify_args *args);
+void lib_interface_zebra_ipv6_router_advertisements_retrans_timer_cli_write(
+	struct vty *vty, const struct lyd_node *dnode, bool show_defaults);
 int lib_interface_zebra_ipv6_router_advertisements_cur_hop_limit_modify(
 	struct nb_cb_modify_args *args);
+void lib_interface_zebra_ipv6_router_advertisements_cur_hop_limit_cli_write(
+	struct vty *vty, const struct lyd_node *dnode, bool show_defaults);
 int lib_interface_zebra_ipv6_router_advertisements_cur_hop_limit_destroy(
 	struct nb_cb_destroy_args *args);
 int lib_interface_zebra_ipv6_router_advertisements_default_lifetime_modify(
 	struct nb_cb_modify_args *args);
+void lib_interface_zebra_ipv6_router_advertisements_default_lifetime_cli_write(
+	struct vty *vty, const struct lyd_node *dnode, bool show_defaults);
 int lib_interface_zebra_ipv6_router_advertisements_default_lifetime_destroy(
 	struct nb_cb_destroy_args *args);
 int lib_interface_zebra_ipv6_router_advertisements_fast_retransmit_modify(
 	struct nb_cb_modify_args *args);
+void lib_interface_zebra_ipv6_router_advertisements_fast_retransmit_cli_write(
+	struct vty *vty, const struct lyd_node *dnode, bool show_defaults);
 int lib_interface_zebra_ipv6_router_advertisements_advertisement_interval_option_modify(
 	struct nb_cb_modify_args *args);
+void lib_interface_zebra_ipv6_router_advertisements_advertisement_interval_option_cli_write(
+	struct vty *vty, const struct lyd_node *dnode, bool show_defaults);
 int lib_interface_zebra_ipv6_router_advertisements_home_agent_preference_modify(
 	struct nb_cb_modify_args *args);
+void lib_interface_zebra_ipv6_router_advertisements_home_agent_preference_cli_write(
+	struct vty *vty, const struct lyd_node *dnode, bool show_defaults);
 int lib_interface_zebra_ipv6_router_advertisements_home_agent_preference_destroy(
 	struct nb_cb_destroy_args *args);
 int lib_interface_zebra_ipv6_router_advertisements_home_agent_lifetime_modify(
 	struct nb_cb_modify_args *args);
+void lib_interface_zebra_ipv6_router_advertisements_home_agent_lifetime_cli_write(
+	struct vty *vty, const struct lyd_node *dnode, bool show_defaults);
 int lib_interface_zebra_ipv6_router_advertisements_home_agent_lifetime_destroy(
 	struct nb_cb_destroy_args *args);
 int lib_interface_zebra_ipv6_router_advertisements_default_router_preference_modify(
 	struct nb_cb_modify_args *args);
+void lib_interface_zebra_ipv6_router_advertisements_default_router_preference_cli_write(
+	struct vty *vty, const struct lyd_node *dnode, bool show_defaults);
 int lib_interface_zebra_ipv6_router_advertisements_prefix_list_prefix_create(
 	struct nb_cb_create_args *args);
+void lib_interface_zebra_ipv6_router_advertisements_prefix_list_prefix_cli_write(
+	struct vty *vty, const struct lyd_node *dnode, bool show_defaults);
 int lib_interface_zebra_ipv6_router_advertisements_prefix_list_prefix_destroy(
 	struct nb_cb_destroy_args *args);
 int lib_interface_zebra_ipv6_router_advertisements_prefix_list_prefix_valid_lifetime_modify(
 	struct nb_cb_modify_args *args);
+void lib_interface_zebra_ipv6_router_advertisements_prefix_list_prefix_valid_lifetime_cli_write(
+	struct vty *vty, const struct lyd_node *dnode, bool show_defaults);
 int lib_interface_zebra_ipv6_router_advertisements_prefix_list_prefix_on_link_flag_modify(
 	struct nb_cb_modify_args *args);
+void lib_interface_zebra_ipv6_router_advertisements_prefix_list_prefix_on_link_flag_cli_write(
+	struct vty *vty, const struct lyd_node *dnode, bool show_defaults);
 int lib_interface_zebra_ipv6_router_advertisements_prefix_list_prefix_preferred_lifetime_modify(
 	struct nb_cb_modify_args *args);
+void lib_interface_zebra_ipv6_router_advertisements_prefix_list_prefix_preferred_lifetime_cli_write(
+	struct vty *vty, const struct lyd_node *dnode, bool show_defaults);
 int lib_interface_zebra_ipv6_router_advertisements_prefix_list_prefix_autonomous_flag_modify(
 	struct nb_cb_modify_args *args);
+void lib_interface_zebra_ipv6_router_advertisements_prefix_list_prefix_autonomous_flag_cli_write(
+	struct vty *vty, const struct lyd_node *dnode, bool show_defaults);
 int lib_interface_zebra_ipv6_router_advertisements_prefix_list_prefix_router_address_flag_modify(
 	struct nb_cb_modify_args *args);
+void lib_interface_zebra_ipv6_router_advertisements_prefix_list_prefix_router_address_flag_cli_write(
+	struct vty *vty, const struct lyd_node *dnode, bool show_defaults);
 int lib_interface_zebra_ipv6_router_advertisements_rdnss_rdnss_address_create(
 	struct nb_cb_create_args *args);
+void lib_interface_zebra_ipv6_router_advertisements_rdnss_rdnss_address_cli_write(
+	struct vty *vty, const struct lyd_node *dnode, bool show_defaults);
 int lib_interface_zebra_ipv6_router_advertisements_rdnss_rdnss_address_destroy(
 	struct nb_cb_destroy_args *args);
 int lib_interface_zebra_ipv6_router_advertisements_rdnss_rdnss_address_lifetime_modify(
 	struct nb_cb_modify_args *args);
+void lib_interface_zebra_ipv6_router_advertisements_rdnss_rdnss_address_lifetime_cli_write(
+	struct vty *vty, const struct lyd_node *dnode, bool show_defaults);
 int lib_interface_zebra_ipv6_router_advertisements_rdnss_rdnss_address_lifetime_destroy(
 	struct nb_cb_destroy_args *args);
 int lib_interface_zebra_ipv6_router_advertisements_dnssl_dnssl_domain_create(
 	struct nb_cb_create_args *args);
+void lib_interface_zebra_ipv6_router_advertisements_dnssl_dnssl_domain_cli_write(
+	struct vty *vty, const struct lyd_node *dnode, bool show_defaults);
 int lib_interface_zebra_ipv6_router_advertisements_dnssl_dnssl_domain_destroy(
 	struct nb_cb_destroy_args *args);
 int lib_interface_zebra_ipv6_router_advertisements_dnssl_dnssl_domain_lifetime_modify(
 	struct nb_cb_modify_args *args);
+void lib_interface_zebra_ipv6_router_advertisements_dnssl_dnssl_domain_lifetime_cli_write(
+	struct vty *vty, const struct lyd_node *dnode, bool show_defaults);
 int lib_interface_zebra_ipv6_router_advertisements_dnssl_dnssl_domain_lifetime_destroy(
 	struct nb_cb_destroy_args *args);
 #endif /* defined(HAVE_RTADV) */
 #if HAVE_BFDD == 0
 int lib_interface_zebra_ptm_enable_modify(struct nb_cb_modify_args *args);
+void lib_interface_zebra_ptm_enable_cli_write(struct vty *vty,
+					      const struct lyd_node *dnode,
+					      bool show_defaults);
 #endif
 struct yang_data *
 lib_interface_zebra_state_up_count_get_elem(struct nb_cb_get_elem_args *args);

@@ -51,6 +51,7 @@
 #include "zebra/zebra_script.h"
 #include "zebra/rtadv.h"
 #include "zebra/zebra_neigh.h"
+#include "zebra/zebra_ptm.h"
 
 /* context to manage dumps in multiple tables or vrfs */
 struct route_show_ctx {
@@ -3971,6 +3972,8 @@ DEFPY (zebra_nexthop_group_keep,
 
 static int config_write_protocol(struct vty *vty)
 {
+	zebra_ptm_write(vty);
+
 	if (zrouter.allow_delete)
 		vty_out(vty, "allow-external-route-update\n");
 

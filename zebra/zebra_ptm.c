@@ -29,6 +29,7 @@
 #include "zebra/zebra_ptm_redistribute.h"
 #include "zebra/zebra_router.h"
 #include "zebra_vrf.h"
+#include "zebra_nb.h"
 
 /*
  * Choose the BFD implementation that we'll use.
@@ -293,6 +294,17 @@ DEFUN_YANG (no_zebra_ptm_enable,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
+void zebra_ptm_enable_cli_write(struct vty *vty, const struct lyd_node *dnode,
+				bool show_defaults)
+{
+	bool enable = yang_dnode_get_bool(dnode, NULL);
+
+	if (enable)
+		vty_out(vty, "ptm-enable\n");
+	else if (show_defaults)
+		vty_out(vty, "no ptm-enable\n");
+}
+
 void zebra_if_ptm_enable(struct interface *ifp)
 {
 	struct zebra_if *if_data;
@@ -365,12 +377,26 @@ DEFUN_YANG (no_zebra_ptm_enable_if,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
+void lib_interface_zebra_ptm_enable_cli_write(struct vty *vty,
+					      const struct lyd_node *dnode,
+					      bool show_defaults)
+{
+	bool enable = yang_dnode_get_bool(dnode, NULL);
+
+	if (!enable)
+		vty_out(vty, " no ptm-enable\n");
+	else if (show_defaults)
+		vty_out(vty, " ptm-enable\n");
+}
+
 void zebra_ptm_write(struct vty *vty)
 {
-	if (ptm_cb.ptm_enable)
-		vty_out(vty, "ptm-enable\n");
+	struct lyd_node *dnode;
 
-	return;
+	dnode = yang_dnode_get(running_config->dnode,
+			       "/frr-zebra:zebra/ptm-enable");
+	if (dnode)
+		nb_cli_show_dnode_cmds(vty, dnode, false);
 }
 
 static int zebra_ptm_socket_init(void)
@@ -1184,12 +1210,6 @@ void zebra_ptm_if_set_ptm_state(struct interface *ifp,
 		ifp->ptm_enable = zebra_ifp->ptm_enable;
 }
 
-void zebra_ptm_if_write(struct vty *vty, struct zebra_if *zebra_ifp)
-{
-	if (zebra_ifp->ptm_enable == ZEBRA_IF_PTM_ENABLE_OFF)
-		vty_out(vty, " no ptm-enable\n");
-}
-
 #else /* HAVE_BFDD */
 
 /*
@@ -1557,11 +1577,6 @@ void zebra_ptm_write(struct vty *vty __attribute__((__unused__)))
 	/* NOTHING */
 }
 
-void zebra_ptm_if_write(struct vty *vty __attribute__((__unused__)),
-			struct zebra_if *zifp __attribute__((__unused__)))
-{
-	/* NOTHING */
-}
 void zebra_ptm_if_set_ptm_state(struct interface *i __attribute__((__unused__)),
 				struct zebra_if *zi __attribute__((__unused__)))
 {

@@ -17,6 +17,7 @@
 #include "zebra_vxlan.h"
 #include "zebra_vxlan_private.h"
 #include "zebra_nhg.h"
+#include "zebra_nb.h"
 
 #define EVPN_MH_VTY_STR "Multihoming\n"
 
@@ -337,7 +338,6 @@ extern bool zebra_evpn_es_mac_ref_entry(struct zebra_mac *mac,
 extern bool zebra_evpn_es_mac_ref(struct zebra_mac *mac, const esi_t *esi);
 extern struct zebra_evpn_es *zebra_evpn_es_find(const esi_t *esi);
 extern void zebra_evpn_interface_init(void);
-extern int zebra_evpn_mh_if_write(struct vty *vty, struct interface *ifp);
 extern void zebra_evpn_acc_vl_show(struct vty *vty, bool uj);
 extern void zebra_evpn_acc_vl_show_detail(struct vty *vty, bool uj);
 extern void zebra_evpn_if_es_print(struct vty *vty, json_object *json,

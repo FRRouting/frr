@@ -694,7 +694,6 @@ DEFUN (ip_irdp_debug_disable,
 
 void irdp_if_init(void)
 {
-	hook_register(zebra_if_config_wr, irdp_config_write);
 	hook_register(if_del, irdp_if_delete);
 
 	install_element(INTERFACE_NODE, &ip_irdp_broadcast_cmd);

@@ -3300,42 +3300,6 @@ void zebra_evpn_es_show_esi(struct vty *vty, bool uj, esi_t *esi)
 		vty_json(vty, json);
 }
 
-int zebra_evpn_mh_if_write(struct vty *vty, struct interface *ifp)
-{
-	struct zebra_if *zif = ifp->info;
-	char buf[ETHER_ADDR_STRLEN];
-	bool type_3_esi = false;
-	char esi_buf[ESI_STR_LEN];
-
-	if (zif->es_info.lid) {
-		vty_out(vty, " evpn mh es-id %u\n", zif->es_info.lid);
-		type_3_esi = true;
-	}
-
-	if (!is_zero_mac(&zif->es_info.sysmac)) {
-		vty_out(vty, " evpn mh es-sys-mac %s\n",
-				prefix_mac2str(&zif->es_info.sysmac,
-					buf, sizeof(buf)));
-		type_3_esi = true;
-	}
-
-	if (!type_3_esi
-	    && memcmp(&zif->es_info.esi, zero_esi, sizeof(*zero_esi)))
-		vty_out(vty, " evpn mh es-id %s\n",
-				esi_to_str(&zif->es_info.esi, esi_buf, sizeof(esi_buf)));
-
-	if (zif->es_info.df_pref != EVPN_MH_DF_PREF_DEFAULT)
-		vty_out(vty, " evpn mh es-df-pref %u\n", zif->es_info.df_pref);
-
-	if (zif->flags & ZIF_FLAG_EVPN_MH_UPLINK)
-		vty_out(vty, " evpn mh uplink\n");
-
-	if (zif->es_info.flags & ZIF_CFG_ES_FLAG_BYPASS)
-		vty_out(vty, " evpn mh bypass\n");
-
-	return 0;
-}
-
 void zebra_evpn_mh_if_init(struct zebra_if *zif)
 {
 	zif->es_info.df_pref = EVPN_MH_DF_PREF_DEFAULT;
@@ -3354,6 +3318,18 @@ DEFPY_HIDDEN(zebra_evpn_es_bypass, zebra_evpn_es_bypass_cmd,
 		nb_cli_enqueue_change(vty, "./frr-zebra:zebra/evpn-mh/bypass",
 				      NB_OP_DESTROY, NULL);
 	return nb_cli_apply_changes(vty, NULL);
+}
+
+void lib_interface_zebra_evpn_mh_bypass_cli_write(struct vty *vty,
+						  const struct lyd_node *dnode,
+						  bool show_defaults)
+{
+	bool bypass = yang_dnode_get_bool(dnode, NULL);
+
+	if (bypass)
+		vty_out(vty, " evpn mh bypass\n");
+	else if (show_defaults)
+		vty_out(vty, " no evpn mh bypass\n");
 }
 
 /* CLI for configuring DF preference part for an ES */
@@ -3377,6 +3353,14 @@ DEFPY_YANG (zebra_evpn_es_pref,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
+void lib_interface_zebra_evpn_mh_df_preference_cli_write(
+	struct vty *vty, const struct lyd_node *dnode, bool show_defaults)
+{
+	uint16_t df_pref = yang_dnode_get_uint16(dnode, NULL);
+
+	vty_out(vty, " evpn mh es-df-pref %u\n", df_pref);
+}
+
 /* CLI for setting up sysmac part of ESI on an access port */
 DEFPY_YANG (zebra_evpn_es_sys_mac,
       zebra_evpn_es_sys_mac_cmd,
@@ -3397,6 +3381,18 @@ DEFPY_YANG (zebra_evpn_es_sys_mac,
 				      "./frr-zebra:zebra/evpn-mh/type-3/system-mac",
 				      NB_OP_DESTROY, NULL);
 	return nb_cli_apply_changes(vty, NULL);
+}
+
+void lib_interface_zebra_evpn_mh_type_3_system_mac_cli_write(
+	struct vty *vty, const struct lyd_node *dnode, bool show_defaults)
+{
+	char buf[ETHER_ADDR_STRLEN];
+	struct ethaddr mac;
+
+	yang_dnode_get_mac(&mac, dnode, NULL);
+
+	vty_out(vty, " evpn mh es-sys-mac %s\n",
+		prefix_mac2str(&mac, buf, sizeof(buf)));
 }
 
 /* CLI for setting up local-ID part of ESI on an access port */
@@ -3432,6 +3428,22 @@ DEFPY_YANG (zebra_evpn_es_id,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
+void lib_interface_zebra_evpn_mh_type_0_esi_cli_write(
+	struct vty *vty, const struct lyd_node *dnode, bool show_defaults)
+{
+	const char *esi_str = yang_dnode_get_string(dnode, NULL);
+
+	vty_out(vty, " evpn mh es-id %s\n", esi_str);
+}
+
+void lib_interface_zebra_evpn_mh_type_3_local_discriminator_cli_write(
+	struct vty *vty, const struct lyd_node *dnode, bool show_defaults)
+{
+	uint32_t es_lid = yang_dnode_get_uint32(dnode, NULL);
+
+	vty_out(vty, " evpn mh es-id %u\n", es_lid);
+}
+
 /* CLI for tagging an interface as an uplink */
 DEFPY_YANG (zebra_evpn_mh_uplink,
       zebra_evpn_mh_uplink_cmd,
@@ -3448,6 +3460,18 @@ DEFPY_YANG (zebra_evpn_mh_uplink,
 		nb_cli_enqueue_change(vty, "./frr-zebra:zebra/evpn-mh/uplink",
 				      NB_OP_DESTROY, NULL);
 	return nb_cli_apply_changes(vty, NULL);
+}
+
+void lib_interface_zebra_evpn_mh_uplink_cli_write(struct vty *vty,
+						  const struct lyd_node *dnode,
+						  bool show_defaults)
+{
+	bool uplink = yang_dnode_get_bool(dnode, NULL);
+
+	if (uplink)
+		vty_out(vty, " evpn mh uplink\n");
+	else if (show_defaults)
+		vty_out(vty, " no evpn mh uplink\n");
 }
 
 void zebra_evpn_mh_json(json_object *json)

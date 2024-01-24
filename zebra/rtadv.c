@@ -31,6 +31,7 @@
 #include "zebra/zebra_vrf.h"
 #include "zebra/zebra_errors.h"
 #include "zebra/zebra_router.h"
+#include "zebra/zebra_nb.h"
 
 extern struct zebra_privs_t zserv_privs;
 
@@ -1568,6 +1569,17 @@ DEFPY_YANG (ipv6_nd_ra_fast_retrans,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
+void lib_interface_zebra_ipv6_router_advertisements_fast_retransmit_cli_write(
+	struct vty *vty, const struct lyd_node *dnode, bool show_defaults)
+{
+	bool fast_retransmit = yang_dnode_get_bool(dnode, NULL);
+
+	if (!fast_retransmit)
+		vty_out(vty, " no ipv6 nd ra-fast-retrans\n");
+	else if (show_defaults)
+		vty_out(vty, " ipv6 nd ra-fast-retrans\n");
+}
+
 DEFPY_YANG (ipv6_nd_ra_hop_limit,
        ipv6_nd_ra_hop_limit_cmd,
        "[no] ipv6 nd ra-hop-limit ![(0-255)$hopcount]",
@@ -1586,6 +1598,14 @@ DEFPY_YANG (ipv6_nd_ra_hop_limit,
 				      "./frr-zebra:zebra/ipv6-router-advertisements/cur-hop-limit",
 				      NB_OP_DESTROY, NULL);
 	return nb_cli_apply_changes(vty, NULL);
+}
+
+void lib_interface_zebra_ipv6_router_advertisements_cur_hop_limit_cli_write(
+	struct vty *vty, const struct lyd_node *dnode, bool show_defaults)
+{
+	uint8_t hop_limit = yang_dnode_get_uint8(dnode, NULL);
+
+	vty_out(vty, " ipv6 nd ra-hop-limit %u\n", hop_limit);
 }
 
 DEFPY_YANG (ipv6_nd_ra_retrans_interval,
@@ -1608,6 +1628,14 @@ DEFPY_YANG (ipv6_nd_ra_retrans_interval,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
+void lib_interface_zebra_ipv6_router_advertisements_retrans_timer_cli_write(
+	struct vty *vty, const struct lyd_node *dnode, bool show_defaults)
+{
+	uint32_t retrans_timer = yang_dnode_get_uint32(dnode, NULL);
+
+	vty_out(vty, " ipv6 nd ra-retrans-interval %u\n", retrans_timer);
+}
+
 DEFPY_YANG (ipv6_nd_suppress_ra,
        ipv6_nd_suppress_ra_cmd,
        "[no] ipv6 nd suppress-ra",
@@ -1625,6 +1653,17 @@ DEFPY_YANG (ipv6_nd_suppress_ra,
 				      "./frr-zebra:zebra/ipv6-router-advertisements/send-advertisements",
 				      NB_OP_DESTROY, NULL);
 	return nb_cli_apply_changes(vty, NULL);
+}
+
+void lib_interface_zebra_ipv6_router_advertisements_send_advertisements_cli_write(
+	struct vty *vty, const struct lyd_node *dnode, bool show_defaults)
+{
+	bool send_advertisements = yang_dnode_get_bool(dnode, NULL);
+
+	if (send_advertisements)
+		vty_out(vty, " no ipv6 nd suppress-ra\n");
+	else if (show_defaults)
+		vty_out(vty, " ipv6 nd suppress-ra\n");
 }
 
 DEFPY_YANG (ipv6_nd_ra_interval,
@@ -1657,6 +1696,19 @@ DEFPY_YANG (ipv6_nd_ra_interval,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
+void lib_interface_zebra_ipv6_router_advertisements_max_rtr_adv_interval_cli_write(
+	struct vty *vty, const struct lyd_node *dnode, bool show_defaults)
+{
+	uint32_t max_rtr_adv_interval = yang_dnode_get_uint32(dnode, NULL);
+
+	if (max_rtr_adv_interval % 1000)
+		vty_out(vty, " ipv6 nd ra-interval msec %u\n",
+			max_rtr_adv_interval);
+	else
+		vty_out(vty, " ipv6 nd ra-interval %u\n",
+			max_rtr_adv_interval / 1000);
+}
+
 DEFPY_YANG (ipv6_nd_ra_lifetime,
        ipv6_nd_ra_lifetime_cmd,
        "[no] ipv6 nd ra-lifetime ![(0-9000)$lifetime]",
@@ -1675,6 +1727,14 @@ DEFPY_YANG (ipv6_nd_ra_lifetime,
 				      "./frr-zebra:zebra/ipv6-router-advertisements/default-lifetime",
 				      NB_OP_DESTROY, NULL);
 	return nb_cli_apply_changes(vty, NULL);
+}
+
+void lib_interface_zebra_ipv6_router_advertisements_default_lifetime_cli_write(
+	struct vty *vty, const struct lyd_node *dnode, bool show_defaults)
+{
+	uint16_t default_lifetime = yang_dnode_get_uint16(dnode, NULL);
+
+	vty_out(vty, " ipv6 nd ra-lifetime %u\n", default_lifetime);
 }
 
 DEFPY_YANG (ipv6_nd_reachable_time,
@@ -1697,6 +1757,14 @@ DEFPY_YANG (ipv6_nd_reachable_time,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
+void lib_interface_zebra_ipv6_router_advertisements_reachable_time_cli_write(
+	struct vty *vty, const struct lyd_node *dnode, bool show_defaults)
+{
+	uint32_t reachable_time = yang_dnode_get_uint32(dnode, NULL);
+
+	vty_out(vty, " ipv6 nd reachable-time %u\n", reachable_time);
+}
+
 DEFPY_YANG (ipv6_nd_homeagent_preference,
        ipv6_nd_homeagent_preference_cmd,
        "[no] ipv6 nd home-agent-preference ![(0-65535)$pref]",
@@ -1715,6 +1783,15 @@ DEFPY_YANG (ipv6_nd_homeagent_preference,
 				      "./frr-zebra:zebra/ipv6-router-advertisements/home-agent-preference",
 				      NB_OP_DESTROY, NULL);
 	return nb_cli_apply_changes(vty, NULL);
+}
+
+void lib_interface_zebra_ipv6_router_advertisements_home_agent_preference_cli_write(
+	struct vty *vty, const struct lyd_node *dnode, bool show_defaults)
+{
+	uint16_t home_agent_preference = yang_dnode_get_uint16(dnode, NULL);
+
+	vty_out(vty, " ipv6 nd home-agent-preference %u\n",
+		home_agent_preference);
 }
 
 DEFPY_YANG (ipv6_nd_homeagent_lifetime,
@@ -1737,6 +1814,14 @@ DEFPY_YANG (ipv6_nd_homeagent_lifetime,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
+void lib_interface_zebra_ipv6_router_advertisements_home_agent_lifetime_cli_write(
+	struct vty *vty, const struct lyd_node *dnode, bool show_defaults)
+{
+	uint16_t home_agent_lifetime = yang_dnode_get_uint16(dnode, NULL);
+
+	vty_out(vty, " ipv6 nd home-agent-lifetime %u\n", home_agent_lifetime);
+}
+
 DEFPY_YANG (ipv6_nd_managed_config_flag,
        ipv6_nd_managed_config_flag_cmd,
        "[no] ipv6 nd managed-config-flag",
@@ -1754,6 +1839,17 @@ DEFPY_YANG (ipv6_nd_managed_config_flag,
 				      "./frr-zebra:zebra/ipv6-router-advertisements/managed-flag",
 				      NB_OP_DESTROY, NULL);
 	return nb_cli_apply_changes(vty, NULL);
+}
+
+void lib_interface_zebra_ipv6_router_advertisements_managed_flag_cli_write(
+	struct vty *vty, const struct lyd_node *dnode, bool show_defaults)
+{
+	bool managed_flag = yang_dnode_get_bool(dnode, NULL);
+
+	if (managed_flag)
+		vty_out(vty, " ipv6 nd managed-config-flag\n");
+	else if (show_defaults)
+		vty_out(vty, " no ipv6 nd managed-config-flag\n");
 }
 
 DEFPY_YANG (ipv6_nd_homeagent_config_flag,
@@ -1775,6 +1871,17 @@ DEFPY_YANG (ipv6_nd_homeagent_config_flag,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
+void lib_interface_zebra_ipv6_router_advertisements_home_agent_flag_cli_write(
+	struct vty *vty, const struct lyd_node *dnode, bool show_defaults)
+{
+	bool home_agent_flag = yang_dnode_get_bool(dnode, NULL);
+
+	if (home_agent_flag)
+		vty_out(vty, " ipv6 nd home-agent-config-flag\n");
+	else if (show_defaults)
+		vty_out(vty, " no ipv6 nd home-agent-config-flag\n");
+}
+
 DEFPY_YANG (ipv6_nd_adv_interval_config_option,
        ipv6_nd_adv_interval_config_option_cmd,
        "[no] ipv6 nd adv-interval-option",
@@ -1794,6 +1901,17 @@ DEFPY_YANG (ipv6_nd_adv_interval_config_option,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
+void lib_interface_zebra_ipv6_router_advertisements_advertisement_interval_option_cli_write(
+	struct vty *vty, const struct lyd_node *dnode, bool show_defaults)
+{
+	bool advertisement_interval_option = yang_dnode_get_bool(dnode, NULL);
+
+	if (advertisement_interval_option)
+		vty_out(vty, " ipv6 nd adv-interval-option\n");
+	else if (show_defaults)
+		vty_out(vty, " no ipv6 nd adv-interval-option\n");
+}
+
 DEFPY_YANG (ipv6_nd_other_config_flag,
        ipv6_nd_other_config_flag_cmd,
        "[no] ipv6 nd other-config-flag",
@@ -1811,6 +1929,17 @@ DEFPY_YANG (ipv6_nd_other_config_flag,
 				      "./frr-zebra:zebra/ipv6-router-advertisements/other-config-flag",
 				      NB_OP_DESTROY, NULL);
 	return nb_cli_apply_changes(vty, NULL);
+}
+
+void lib_interface_zebra_ipv6_router_advertisements_other_config_flag_cli_write(
+	struct vty *vty, const struct lyd_node *dnode, bool show_defaults)
+{
+	bool other_config_flag = yang_dnode_get_bool(dnode, NULL);
+
+	if (other_config_flag)
+		vty_out(vty, " ipv6 nd other-config-flag\n");
+	else if (show_defaults)
+		vty_out(vty, " no ipv6 nd other-config-flag\n");
 }
 
 DEFPY_YANG (ipv6_nd_prefix,
@@ -1876,6 +2005,47 @@ DEFPY_YANG (ipv6_nd_prefix,
 		prefix_str);
 }
 
+void lib_interface_zebra_ipv6_router_advertisements_prefix_list_prefix_cli_write(
+	struct vty *vty, const struct lyd_node *dnode, bool show_defaults)
+{
+	const char *prefix = yang_dnode_get_string(dnode, "prefix-spec");
+	struct lyd_node *valid = yang_dnode_get(dnode, "valid-lifetime");
+	struct lyd_node *preferred = yang_dnode_get(dnode, "preferred-lifetime");
+	bool router_address_flag = yang_dnode_get_bool(dnode,
+						       "router-address-flag");
+	bool on_link_flag = yang_dnode_get_bool(dnode, "on-link-flag");
+	bool autonomous_flag = yang_dnode_get_bool(dnode, "autonomous-flag");
+
+	vty_out(vty, " ipv6 nd prefix %s", prefix);
+
+	if (!yang_dnode_is_default(valid, NULL) ||
+	    !yang_dnode_is_default(preferred, NULL) || show_defaults) {
+		uint32_t valid_lifetime = yang_dnode_get_uint32(valid, NULL);
+		uint32_t preferred_lifetime = yang_dnode_get_uint32(preferred,
+								    NULL);
+
+		if (valid_lifetime == UINT32_MAX)
+			vty_out(vty, " infinite");
+		else
+			vty_out(vty, " %u", valid_lifetime);
+		if (preferred_lifetime == UINT32_MAX)
+			vty_out(vty, " infinite");
+		else
+			vty_out(vty, " %u", preferred_lifetime);
+	}
+
+	if (!on_link_flag)
+		vty_out(vty, " off-link");
+
+	if (!autonomous_flag)
+		vty_out(vty, " no-autoconfig");
+
+	if (router_address_flag)
+		vty_out(vty, " router-address");
+
+	vty_out(vty, "\n");
+}
+
 DEFPY_YANG (ipv6_nd_router_preference,
        ipv6_nd_router_preference_cmd,
        "[no] ipv6 nd router-preference ![<high|medium|low>$pref]",
@@ -1898,6 +2068,16 @@ DEFPY_YANG (ipv6_nd_router_preference,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
+void lib_interface_zebra_ipv6_router_advertisements_default_router_preference_cli_write(
+	struct vty *vty, const struct lyd_node *dnode, bool show_defaults)
+{
+	const char *default_router_preference = yang_dnode_get_string(dnode,
+								      NULL);
+
+	vty_out(vty, " ipv6 nd router-preference %s\n",
+		default_router_preference);
+}
+
 DEFPY_YANG (ipv6_nd_mtu,
        ipv6_nd_mtu_cmd,
        "[no] ipv6 nd mtu ![(1-65535)]",
@@ -1916,6 +2096,14 @@ DEFPY_YANG (ipv6_nd_mtu,
 				      "./frr-zebra:zebra/ipv6-router-advertisements/link-mtu",
 				      NB_OP_DESTROY, NULL);
 	return nb_cli_apply_changes(vty, NULL);
+}
+
+void lib_interface_zebra_ipv6_router_advertisements_link_mtu_cli_write(
+	struct vty *vty, const struct lyd_node *dnode, bool show_defaults)
+{
+	uint16_t link_mtu = yang_dnode_get_uint32(dnode, NULL);
+
+	vty_out(vty, " ipv6 nd mtu %u\n", link_mtu);
 }
 
 static struct rtadv_rdnss *rtadv_rdnss_new(void)
@@ -2044,6 +2232,25 @@ DEFPY_YANG (ipv6_nd_rdnss,
 		addr_str);
 }
 
+void lib_interface_zebra_ipv6_router_advertisements_rdnss_rdnss_address_cli_write(
+	struct vty *vty, const struct lyd_node *dnode, bool show_defaults)
+{
+	const char *address = yang_dnode_get_string(dnode, "address");
+
+	vty_out(vty, " ipv6 nd rdnss %s", address);
+
+	if (yang_dnode_exists(dnode, "lifetime")) {
+		uint32_t lifetime = yang_dnode_get_uint32(dnode, "lifetime");
+
+		if (lifetime == UINT32_MAX)
+			vty_out(vty, " infinite");
+		else
+			vty_out(vty, " %u", lifetime);
+	}
+
+	vty_out(vty, "\n");
+}
+
 DEFPY_YANG (ipv6_nd_dnssl,
       ipv6_nd_dnssl_cmd,
       "[no] ipv6 nd dnssl SUFFIX [<(0-4294967295)|infinite>]$lifetime",
@@ -2092,6 +2299,24 @@ DEFPY_YANG (ipv6_nd_dnssl,
 		dnssl.name);
 }
 
+void lib_interface_zebra_ipv6_router_advertisements_dnssl_dnssl_domain_cli_write(
+	struct vty *vty, const struct lyd_node *dnode, bool show_defaults)
+{
+	const char *domain = yang_dnode_get_string(dnode, "domain");
+
+	vty_out(vty, " ipv6 nd dnssl %s", domain);
+
+	if (yang_dnode_exists(dnode, "lifetime")) {
+		uint32_t lifetime = yang_dnode_get_uint32(dnode, "lifetime");
+
+		if (lifetime == UINT32_MAX)
+			vty_out(vty, " infinite");
+		else
+			vty_out(vty, " %u", lifetime);
+	}
+
+	vty_out(vty, "\n");
+}
 
 /* Dump interface ND information to vty. */
 static int nd_dump_vty(struct vty *vty, struct interface *ifp)
@@ -2162,136 +2387,6 @@ static int nd_dump_vty(struct vty *vty, struct interface *ifp)
 	}
 	return 0;
 }
-
-
-/* Write configuration about router advertisement. */
-static int rtadv_config_write(struct vty *vty, struct interface *ifp)
-{
-	struct zebra_if *zif;
-	struct listnode *node;
-	struct rtadv_prefix *rprefix;
-	struct rtadv_rdnss *rdnss;
-	struct rtadv_dnssl *dnssl;
-	int interval;
-
-	zif = ifp->info;
-
-	if (!if_is_loopback(ifp)) {
-		if (zif->rtadv.AdvSendAdvertisements
-		    && CHECK_FLAG(zif->rtadv.ra_configured, VTY_RA_CONFIGURED))
-			vty_out(vty, " no ipv6 nd suppress-ra\n");
-	}
-
-	interval = zif->rtadv.MaxRtrAdvInterval;
-	if (CHECK_FLAG(zif->rtadv.ra_configured, VTY_RA_INTERVAL_CONFIGURED)) {
-		if (interval % 1000)
-			vty_out(vty, " ipv6 nd ra-interval msec %d\n",
-				interval);
-		else if (interval != RTADV_MAX_RTR_ADV_INTERVAL)
-			vty_out(vty, " ipv6 nd ra-interval %d\n",
-				interval / 1000);
-	}
-
-	if (zif->rtadv.AdvIntervalOption)
-		vty_out(vty, " ipv6 nd adv-interval-option\n");
-
-	if (!zif->rtadv.UseFastRexmit)
-		vty_out(vty, " no ipv6 nd ra-fast-retrans\n");
-
-	if (zif->rtadv.AdvRetransTimer != 0)
-		vty_out(vty, " ipv6 nd ra-retrans-interval %u\n",
-			zif->rtadv.AdvRetransTimer);
-
-	if (zif->rtadv.AdvCurHopLimit != RTADV_DEFAULT_HOPLIMIT)
-		vty_out(vty, " ipv6 nd ra-hop-limit %d\n",
-			zif->rtadv.AdvCurHopLimit);
-
-	if (zif->rtadv.AdvDefaultLifetime != -1)
-		vty_out(vty, " ipv6 nd ra-lifetime %d\n",
-			zif->rtadv.AdvDefaultLifetime);
-
-	if (zif->rtadv.HomeAgentPreference)
-		vty_out(vty, " ipv6 nd home-agent-preference %u\n",
-			zif->rtadv.HomeAgentPreference);
-
-	if (zif->rtadv.HomeAgentLifetime != -1)
-		vty_out(vty, " ipv6 nd home-agent-lifetime %u\n",
-			zif->rtadv.HomeAgentLifetime);
-
-	if (zif->rtadv.AdvHomeAgentFlag)
-		vty_out(vty, " ipv6 nd home-agent-config-flag\n");
-
-	if (zif->rtadv.AdvReachableTime)
-		vty_out(vty, " ipv6 nd reachable-time %d\n",
-			zif->rtadv.AdvReachableTime);
-
-	if (zif->rtadv.AdvManagedFlag)
-		vty_out(vty, " ipv6 nd managed-config-flag\n");
-
-	if (zif->rtadv.AdvOtherConfigFlag)
-		vty_out(vty, " ipv6 nd other-config-flag\n");
-
-	if (zif->rtadv.DefaultPreference != RTADV_PREF_MEDIUM)
-		vty_out(vty, " ipv6 nd router-preference %s\n",
-			rtadv_pref_strs[zif->rtadv.DefaultPreference]);
-
-	if (zif->rtadv.AdvLinkMTU)
-		vty_out(vty, " ipv6 nd mtu %d\n", zif->rtadv.AdvLinkMTU);
-
-	frr_each (rtadv_prefixes, zif->rtadv.prefixes, rprefix) {
-		if ((rprefix->AdvPrefixCreate == PREFIX_SRC_MANUAL)
-		    || (rprefix->AdvPrefixCreate == PREFIX_SRC_BOTH)) {
-			vty_out(vty, " ipv6 nd prefix %pFX", &rprefix->prefix);
-			if ((rprefix->AdvValidLifetime != RTADV_VALID_LIFETIME)
-			    || (rprefix->AdvPreferredLifetime
-				!= RTADV_PREFERRED_LIFETIME)) {
-				if (rprefix->AdvValidLifetime == UINT32_MAX)
-					vty_out(vty, " infinite");
-				else
-					vty_out(vty, " %u",
-						rprefix->AdvValidLifetime);
-				if (rprefix->AdvPreferredLifetime == UINT32_MAX)
-					vty_out(vty, " infinite");
-				else
-					vty_out(vty, " %u",
-						rprefix->AdvPreferredLifetime);
-			}
-			if (!rprefix->AdvOnLinkFlag)
-				vty_out(vty, " off-link");
-			if (!rprefix->AdvAutonomousFlag)
-				vty_out(vty, " no-autoconfig");
-			if (rprefix->AdvRouterAddressFlag)
-				vty_out(vty, " router-address");
-			vty_out(vty, "\n");
-		}
-	}
-
-	for (ALL_LIST_ELEMENTS_RO(zif->rtadv.AdvRDNSSList, node, rdnss)) {
-		char buf[INET6_ADDRSTRLEN];
-
-		vty_out(vty, " ipv6 nd rdnss %s",
-			inet_ntop(AF_INET6, &rdnss->addr, buf, sizeof(buf)));
-		if (rdnss->lifetime_set) {
-			if (rdnss->lifetime == UINT32_MAX)
-				vty_out(vty, " infinite");
-			else
-				vty_out(vty, " %u", rdnss->lifetime);
-		}
-		vty_out(vty, "\n");
-	}
-	for (ALL_LIST_ELEMENTS_RO(zif->rtadv.AdvDNSSLList, node, dnssl)) {
-		vty_out(vty, " ipv6 nd dnssl %s", dnssl->name);
-		if (dnssl->lifetime_set) {
-			if (dnssl->lifetime == UINT32_MAX)
-				vty_out(vty, " infinite");
-			else
-				vty_out(vty, " %u", dnssl->lifetime);
-		}
-		vty_out(vty, "\n");
-	}
-	return 0;
-}
-
 
 static void rtadv_event(struct zebra_vrf *zvrf, enum rtadv_event event, int val)
 {
@@ -2438,7 +2533,6 @@ void rtadv_cmd_init(void)
 	interfaces_configured_for_ra_from_bgp = 0;
 
 	hook_register(zebra_if_extra_info, nd_dump_vty);
-	hook_register(zebra_if_config_wr, rtadv_config_write);
 
 	install_element(VIEW_NODE, &show_ipv6_nd_ra_if_cmd);
 
