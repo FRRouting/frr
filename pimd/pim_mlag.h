@@ -22,9 +22,9 @@ extern void pim_instance_mlag_init(struct pim_instance *pim);
 extern void pim_instance_mlag_terminate(struct pim_instance *pim);
 extern void pim_if_configure_mlag_dualactive(struct pim_interface *pim_ifp);
 extern void pim_if_unconfigure_mlag_dualactive(struct pim_interface *pim_ifp);
-extern int pim_zebra_mlag_process_up(ZAPI_CALLBACK_ARGS);
-extern int pim_zebra_mlag_process_down(ZAPI_CALLBACK_ARGS);
-extern int pim_zebra_mlag_handle_msg(ZAPI_CALLBACK_ARGS);
+extern void pim_zebra_mlag_process_up(ZAPI_CALLBACK_ARGS);
+extern void pim_zebra_mlag_process_down(ZAPI_CALLBACK_ARGS);
+extern void pim_zebra_mlag_handle_msg(ZAPI_CALLBACK_ARGS);
 
 /* pm_zpthread.c */
 extern int pim_mlag_signal_zpthread(void);

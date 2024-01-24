@@ -42,13 +42,11 @@ struct zclient *zclient;
 
 
 /* Router-id update message from zebra. */
-static int pim_router_id_update_zebra(ZAPI_CALLBACK_ARGS)
+static void pim_router_id_update_zebra(ZAPI_CALLBACK_ARGS)
 {
 	struct prefix router_id;
 
 	zebra_router_id_update_read(zclient->ibuf, &router_id);
-
-	return 0;
 }
 
 #ifdef PIM_DEBUG_IFADDR_DUMP
@@ -74,7 +72,7 @@ static void dump_if_address(struct interface *ifp)
 }
 #endif
 
-static int pim_zebra_if_address_add(ZAPI_CALLBACK_ARGS)
+static void pim_zebra_if_address_add(ZAPI_CALLBACK_ARGS)
 {
 	struct connected *c;
 	struct prefix *p;
@@ -90,7 +88,7 @@ static int pim_zebra_if_address_add(ZAPI_CALLBACK_ARGS)
 	*/
 	c = zebra_interface_address_read(cmd, zclient->ibuf, vrf_id);
 	if (!c)
-		return 0;
+		return;
 
 	pim_ifp = c->ifp->info;
 	p = c->address;
@@ -128,7 +126,7 @@ static int pim_zebra_if_address_add(ZAPI_CALLBACK_ARGS)
 	}
 #else /* PIM_IPV != 4 */
 	if (p->family != PIM_AF)
-		return 0;
+		return;
 #endif
 
 	pim_if_addr_add(c);
@@ -140,7 +138,7 @@ static int pim_zebra_if_address_add(ZAPI_CALLBACK_ARGS)
 			if (PIM_DEBUG_ZEBRA)
 				zlog_debug("%s: Unable to find pim instance",
 					   __func__);
-			return 0;
+			return;
 		}
 
 		pim_ifp->pim = pim;
@@ -159,17 +157,16 @@ static int pim_zebra_if_address_add(ZAPI_CALLBACK_ARGS)
 	}
 
 	pim_cand_addrs_changed();
-	return 0;
 }
 
-static int pim_zebra_if_address_del(ZAPI_CALLBACK_ARGS)
+static void pim_zebra_if_address_del(ZAPI_CALLBACK_ARGS)
 {
 	struct connected *c;
 	struct prefix *p;
 	struct vrf *vrf = vrf_lookup_by_id(vrf_id);
 
 	if (!vrf)
-		return 0;
+		return;
 
 	/*
 	  zebra api notifies address adds/dels events by using the same call
@@ -181,7 +178,7 @@ static int pim_zebra_if_address_del(ZAPI_CALLBACK_ARGS)
 	*/
 	c = zebra_interface_address_read(cmd, zclient->ibuf, vrf_id);
 	if (!c)
-		return 0;
+		return;
 
 	p = c->address;
 
@@ -209,7 +206,6 @@ static int pim_zebra_if_address_del(ZAPI_CALLBACK_ARGS)
 	connected_free(&c);
 
 	pim_cand_addrs_changed();
-	return 0;
 }
 
 void pim_zebra_update_all_interfaces(struct pim_instance *pim)
@@ -313,8 +309,7 @@ void pim_zebra_upstream_rpf_changed(struct pim_instance *pim,
 	pim_upstream_update_join_desired(pim, up);
 }
 
-__attribute__((unused))
-static int pim_zebra_vxlan_sg_proc(ZAPI_CALLBACK_ARGS)
+__attribute__((unused)) static void pim_zebra_vxlan_sg_proc(ZAPI_CALLBACK_ARGS)
 {
 	struct stream *s;
 	struct pim_instance *pim;
@@ -323,7 +318,7 @@ static int pim_zebra_vxlan_sg_proc(ZAPI_CALLBACK_ARGS)
 
 	pim = pim_get_pim_instance(vrf_id);
 	if (!pim)
-		return 0;
+		return;
 
 	s = zclient->ibuf;
 
@@ -339,8 +334,6 @@ static int pim_zebra_vxlan_sg_proc(ZAPI_CALLBACK_ARGS)
 		pim_vxlan_sg_add(pim, &sg);
 	else
 		pim_vxlan_sg_del(pim, &sg);
-
-	return 0;
 }
 
 __attribute__((unused))

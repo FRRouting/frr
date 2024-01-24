@@ -504,7 +504,7 @@ static void rip_apply_address_add(struct connected *ifc)
 				     0);
 }
 
-int rip_interface_address_add(ZAPI_CALLBACK_ARGS)
+void rip_interface_address_add(ZAPI_CALLBACK_ARGS)
 {
 	struct connected *ifc;
 	struct prefix *p;
@@ -513,7 +513,7 @@ int rip_interface_address_add(ZAPI_CALLBACK_ARGS)
 					   zclient->ibuf, vrf_id);
 
 	if (ifc == NULL)
-		return 0;
+		return;
 
 	p = ifc->address;
 
@@ -527,8 +527,6 @@ int rip_interface_address_add(ZAPI_CALLBACK_ARGS)
 
 		hook_call(rip_ifaddr_add, ifc);
 	}
-
-	return 0;
 }
 
 static void rip_apply_address_del(struct connected *ifc)
@@ -556,7 +554,7 @@ static void rip_apply_address_del(struct connected *ifc)
 				&address, ifc->ifp->ifindex);
 }
 
-int rip_interface_address_delete(ZAPI_CALLBACK_ARGS)
+void rip_interface_address_delete(ZAPI_CALLBACK_ARGS)
 {
 	struct connected *ifc;
 	struct prefix *p;
@@ -579,8 +577,6 @@ int rip_interface_address_delete(ZAPI_CALLBACK_ARGS)
 
 		connected_free(&ifc);
 	}
-
-	return 0;
 }
 
 /* Check interface is enabled by network statement. */

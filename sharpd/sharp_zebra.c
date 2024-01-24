@@ -43,7 +43,7 @@ struct sharp_zclient {
 /* Head of test zclient list */
 static struct sharp_zclient *sharp_clients_head;
 
-static int sharp_opaque_handler(ZAPI_CALLBACK_ARGS);
+static void sharp_opaque_handler(ZAPI_CALLBACK_ARGS);
 
 /* Utility to add a test zclient struct to the list */
 static void add_zclient(struct zclient *client)
@@ -71,24 +71,21 @@ static int sharp_ifp_destroy(struct interface *ifp)
 	return 0;
 }
 
-static int interface_address_add(ZAPI_CALLBACK_ARGS)
+static void interface_address_add(ZAPI_CALLBACK_ARGS)
 {
 	zebra_interface_address_read(cmd, zclient->ibuf, vrf_id);
-
-	return 0;
 }
 
-static int interface_address_delete(ZAPI_CALLBACK_ARGS)
+static void interface_address_delete(ZAPI_CALLBACK_ARGS)
 {
 	struct connected *c;
 
 	c = zebra_interface_address_read(cmd, zclient->ibuf, vrf_id);
 
 	if (!c)
-		return 0;
+		return;
 
 	connected_free(&c);
-	return 0;
 }
 
 static int sharp_ifp_up(struct interface *ifp)
@@ -464,7 +461,7 @@ static void sharp_zclient_buffer_ready(void)
 	}
 }
 
-static int route_notify_owner(ZAPI_CALLBACK_ARGS)
+static void route_notify_owner(ZAPI_CALLBACK_ARGS)
 {
 	struct timeval r;
 	struct prefix p;
@@ -473,7 +470,7 @@ static int route_notify_owner(ZAPI_CALLBACK_ARGS)
 
 	if (!zapi_route_notify_decode(zclient->ibuf, &p, &table, &note, NULL,
 				      NULL))
-		return -1;
+		return;
 
 	switch (note) {
 	case ZAPI_ROUTE_INSTALLED:
@@ -506,7 +503,6 @@ static int route_notify_owner(ZAPI_CALLBACK_ARGS)
 		zlog_debug("Route removal Failure");
 		break;
 	}
-	return 0;
 }
 
 static void zebra_connected(struct zclient *zclient)
@@ -688,7 +684,7 @@ static void sharp_nexthop_update(struct vrf *vrf, struct prefix *matched,
 	sharp_debug_nexthops(nhr);
 }
 
-static int sharp_redistribute_route(ZAPI_CALLBACK_ARGS)
+static void sharp_redistribute_route(ZAPI_CALLBACK_ARGS)
 {
 	struct zapi_route api;
 
@@ -700,8 +696,6 @@ static int sharp_redistribute_route(ZAPI_CALLBACK_ARGS)
 		   zebra_route_string(api.type));
 
 	sharp_debug_nexthops(&api);
-
-	return 0;
 }
 
 void sharp_redistribute_vrf(struct vrf *vrf, int type, bool turn_on)
@@ -774,7 +768,7 @@ static const char *const type2txt[] = {"Generic", "Vertex", "Edge", "Subnet"};
 static const char *const status2txt[] = {"Unknown", "New",  "Update",
 					 "Delete",  "Sync", "Orphan"};
 /* Handler for opaque messages */
-static int sharp_opaque_handler(ZAPI_CALLBACK_ARGS)
+static void sharp_opaque_handler(ZAPI_CALLBACK_ARGS)
 {
 	struct stream *s;
 	struct zapi_opaque_msg info;
@@ -783,7 +777,7 @@ static int sharp_opaque_handler(ZAPI_CALLBACK_ARGS)
 	s = zclient->ibuf;
 
 	if (zclient_opaque_decode(s, &info) != 0)
-		return -1;
+		return;
 
 	zlog_debug("%s: [%u] received opaque type %u", __func__,
 		   zclient->session_id, info.type);
@@ -800,12 +794,10 @@ static int sharp_opaque_handler(ZAPI_CALLBACK_ARGS)
 				"%s: Error to convert Stream into Link State",
 				__func__);
 	}
-
-	return 0;
 }
 
 /* Handler for opaque notification messages */
-static int sharp_opq_notify_handler(ZAPI_CALLBACK_ARGS)
+static void sharp_opq_notify_handler(ZAPI_CALLBACK_ARGS)
 {
 	struct stream *s;
 	struct zapi_opaque_notif_info info;
@@ -813,17 +805,15 @@ static int sharp_opq_notify_handler(ZAPI_CALLBACK_ARGS)
 	s = zclient->ibuf;
 
 	if (zclient_opaque_notif_decode(s, &info) != 0)
-		return -1;
+		return;
 
 	if (info.reg)
 		zlog_debug("%s: received opaque notification REG, type %u => %d/%d/%d",
 			   __func__, info.msg_type, info.proto, info.instance,
 			   info.session_id);
 	else
-		zlog_debug("%s: received opaque notification UNREG, type %u",
-			   __func__, info.msg_type);
-
-	return 0;
+		zlog_debug("%s: received opaque notification UNREG, type %u", __func__,
+			   info.msg_type);
 }
 
 /*
@@ -917,13 +907,13 @@ void sharp_zebra_send_arp(const struct interface *ifp, const struct prefix *p)
 	zclient_send_neigh_discovery_req(zclient, ifp, p);
 }
 
-static int nhg_notify_owner(ZAPI_CALLBACK_ARGS)
+static void nhg_notify_owner(ZAPI_CALLBACK_ARGS)
 {
 	enum zapi_nhg_notify_owner note;
 	uint32_t id;
 
 	if (!zapi_nhg_notify_decode(zclient->ibuf, &id, &note))
-		return -1;
+		return;
 
 	switch (note) {
 	case ZAPI_NHG_INSTALLED:
@@ -941,8 +931,6 @@ static int nhg_notify_owner(ZAPI_CALLBACK_ARGS)
 		zlog_debug("Failed removal of nhg %u", id);
 		break;
 	}
-
-	return 0;
 }
 
 int sharp_zebra_srv6_manager_get_locator_chunk(const char *locator_name)
@@ -955,7 +943,7 @@ int sharp_zebra_srv6_manager_release_locator_chunk(const char *locator_name)
 	return srv6_manager_release_locator_chunk(zclient, locator_name);
 }
 
-static int sharp_zebra_process_srv6_locator_chunk(ZAPI_CALLBACK_ARGS)
+static void sharp_zebra_process_srv6_locator_chunk(ZAPI_CALLBACK_ARGS)
 {
 	struct stream *s = NULL;
 	struct srv6_locator_chunk s6c = {};
@@ -978,19 +966,18 @@ static int sharp_zebra_process_srv6_locator_chunk(ZAPI_CALLBACK_ARGS)
 
 		for (ALL_LIST_ELEMENTS_RO(loc->chunks, chunk_node, c))
 			if (!prefix_cmp(c, &s6c.prefix))
-				return 0;
+				return;
 
 		chunk = prefix_ipv6_new();
 		*chunk = s6c.prefix;
 		listnode_add(loc->chunks, chunk);
-		return 0;
+		return;
 	}
 
 	zlog_err("%s: can't get locator_chunk!!", __func__);
-	return 0;
 }
 
-static int sharp_zebra_process_neigh(ZAPI_CALLBACK_ARGS)
+static void sharp_zebra_process_neigh(ZAPI_CALLBACK_ARGS)
 {
 	union sockunion addr = {}, lladdr = {};
 	struct zapi_neigh_ip api = {};
@@ -1000,7 +987,7 @@ static int sharp_zebra_process_neigh(ZAPI_CALLBACK_ARGS)
 	zclient_neigh_ip_decode(zclient->ibuf, &api);
 
 	if (api.ip_in.ipa_type == AF_UNSPEC)
-		return 0;
+		return;
 
 	sockunion_family(&addr) = api.ip_in.ipa_type;
 	memcpy((uint8_t *)sockunion_get_addr(&addr), &api.ip_in.ip.addr,
@@ -1015,14 +1002,11 @@ static int sharp_zebra_process_neigh(ZAPI_CALLBACK_ARGS)
 	if (!ifp) {
 		zlog_debug("Failed to lookup interface for neighbor entry: %u for %u",
 			   api.index, vrf_id);
-		return 0;
+		return;
 	}
 
 	zlog_debug("Received: %s %pSU dev %s lladr %pSU",
-		   (cmd == ZEBRA_NEIGH_ADDED) ? "NEW" : "DEL", &addr, ifp->name,
-		   &lladdr);
-
-	return 0;
+		   (cmd == ZEBRA_NEIGH_ADDED) ? "NEW" : "DEL", &addr, ifp->name, &lladdr);
 }
 
 int sharp_zebra_send_interface_protodown(struct interface *ifp, bool down)

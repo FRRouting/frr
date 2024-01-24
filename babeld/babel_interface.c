@@ -88,8 +88,7 @@ babel_ifp_destroy(struct interface *ifp)
     return 0;
 }
 
-int
-babel_interface_address_add (ZAPI_CALLBACK_ARGS)
+void babel_interface_address_add(ZAPI_CALLBACK_ARGS)
 {
     babel_interface_nfo *babel_ifp;
     struct connected *ifc;
@@ -101,7 +100,7 @@ babel_interface_address_add (ZAPI_CALLBACK_ARGS)
                                         zclient->ibuf, vrf_id);
 
     if (ifc == NULL)
-        return 0;
+	    return;
 
     prefix = ifc->address;
 
@@ -121,12 +120,9 @@ babel_interface_address_add (ZAPI_CALLBACK_ARGS)
 
     send_request(ifc->ifp, NULL, 0);
     send_update(ifc->ifp, 0, NULL, 0);
-
-    return 0;
 }
 
-int
-babel_interface_address_delete (ZAPI_CALLBACK_ARGS)
+void babel_interface_address_delete(ZAPI_CALLBACK_ARGS)
 {
     babel_interface_nfo *babel_ifp;
     struct connected *ifc;
@@ -138,7 +134,7 @@ babel_interface_address_delete (ZAPI_CALLBACK_ARGS)
                                         zclient->ibuf, vrf_id);
 
     if (ifc == NULL)
-        return 0;
+	    return;
 
     prefix = ifc->address;
 
@@ -158,7 +154,6 @@ babel_interface_address_delete (ZAPI_CALLBACK_ARGS)
     send_update(ifc->ifp, 0, NULL, 0);
 
     connected_free(&ifc);
-    return 0;
 }
 
 /* Lookup function. */

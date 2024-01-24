@@ -313,17 +313,17 @@ static void vnc_redistribute_withdraw(struct bgp *bgp, afi_t afi, uint8_t type)
  *
  * Assumes 1 nexthop
  */
-static int vnc_zebra_read_route(ZAPI_CALLBACK_ARGS)
+static void vnc_zebra_read_route(ZAPI_CALLBACK_ARGS)
 {
 	struct zapi_route api;
 	int add;
 
 	if (zapi_route_decode(zclient->ibuf, &api) < 0)
-		return -1;
+		return;
 
 	/* we completely ignore srcdest routes for now. */
 	if (CHECK_FLAG(api.message, ZAPI_MESSAGE_SRCPFX))
-		return 0;
+		return;
 
 	add = (cmd == ZEBRA_REDISTRIBUTE_ROUTE_ADD);
 	if (add)
@@ -332,12 +332,8 @@ static int vnc_zebra_read_route(ZAPI_CALLBACK_ARGS)
 		vnc_redistribute_delete(&api.prefix, api.type);
 
 	if (BGP_DEBUG(zebra, ZEBRA))
-		vnc_zlog_debug_verbose(
-			"%s: Zebra rcvd: route delete %s %pFX metric %u",
-			__func__, zebra_route_string(api.type), &api.prefix,
-			api.metric);
-
-	return 0;
+		vnc_zlog_debug_verbose("%s: Zebra rcvd: route delete %s %pFX metric %u", __func__,
+				       zebra_route_string(api.type), &api.prefix, api.metric);
 }
 
 /***********************************************************************

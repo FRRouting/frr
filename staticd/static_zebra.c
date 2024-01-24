@@ -89,24 +89,21 @@ static int static_ifp_destroy(struct interface *ifp)
 	return 0;
 }
 
-static int interface_address_add(ZAPI_CALLBACK_ARGS)
+static void interface_address_add(ZAPI_CALLBACK_ARGS)
 {
 	zebra_interface_address_read(cmd, zclient->ibuf, vrf_id);
-
-	return 0;
 }
 
-static int interface_address_delete(ZAPI_CALLBACK_ARGS)
+static void interface_address_delete(ZAPI_CALLBACK_ARGS)
 {
 	struct connected *c;
 
 	c = zebra_interface_address_read(cmd, zclient->ibuf, vrf_id);
 
 	if (!c)
-		return 0;
+		return;
 
 	connected_free(&c);
-	return 0;
 }
 
 static int static_ifp_up(struct interface *ifp)
@@ -123,7 +120,7 @@ static int static_ifp_down(struct interface *ifp)
 	return 0;
 }
 
-static int route_notify_owner(ZAPI_CALLBACK_ARGS)
+static void route_notify_owner(ZAPI_CALLBACK_ARGS)
 {
 	struct prefix p;
 	enum zapi_route_notify_owner note;
@@ -132,7 +129,7 @@ static int route_notify_owner(ZAPI_CALLBACK_ARGS)
 
 	if (!zapi_route_notify_decode(zclient->ibuf, &p, &table_id, &note, NULL,
 				      &safi))
-		return -1;
+		return;
 
 	switch (note) {
 	case ZAPI_ROUTE_FAIL_INSTALL:
@@ -158,8 +155,6 @@ static int route_notify_owner(ZAPI_CALLBACK_ARGS)
 			  __func__, &p, table_id);
 		break;
 	}
-
-	return 0;
 }
 
 static void zebra_connected(struct zclient *zclient)

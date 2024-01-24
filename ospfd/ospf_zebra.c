@@ -53,7 +53,7 @@ struct zclient *zclient_sync;
 extern struct event_loop *master;
 
 /* Router-id update message from zebra. */
-static int ospf_router_id_update_zebra(ZAPI_CALLBACK_ARGS)
+static void ospf_router_id_update_zebra(ZAPI_CALLBACK_ARGS)
 {
 	struct ospf *ospf = NULL;
 	struct prefix router_id;
@@ -75,10 +75,9 @@ static int ospf_router_id_update_zebra(ZAPI_CALLBACK_ARGS)
 				__func__, ospf_vrf_id_to_name(vrf_id), vrf_id,
 				&router_id);
 	}
-	return 0;
 }
 
-static int ospf_interface_address_add(ZAPI_CALLBACK_ARGS)
+static void ospf_interface_address_add(ZAPI_CALLBACK_ARGS)
 {
 	struct connected *c;
 	struct ospf *ospf = NULL;
@@ -87,7 +86,7 @@ static int ospf_interface_address_add(ZAPI_CALLBACK_ARGS)
 	c = zebra_interface_address_read(cmd, zclient->ibuf, vrf_id);
 
 	if (c == NULL)
-		return 0;
+		return;
 
 	if (IS_DEBUG_OSPF(zebra, ZEBRA_INTERFACE))
 		zlog_debug("Zebra: interface %s address add %pFX vrf %s id %u",
@@ -96,16 +95,14 @@ static int ospf_interface_address_add(ZAPI_CALLBACK_ARGS)
 
 	ospf = ospf_lookup_by_vrf_id(vrf_id);
 	if (!ospf)
-		return 0;
+		return;
 
 	ospf_if_update(ospf, c->ifp);
 
 	ospf_if_interface(c->ifp);
-
-	return 0;
 }
 
-static int ospf_interface_address_delete(ZAPI_CALLBACK_ARGS)
+static void ospf_interface_address_delete(ZAPI_CALLBACK_ARGS)
 {
 	struct connected *c;
 	struct interface *ifp;
@@ -116,7 +113,7 @@ static int ospf_interface_address_delete(ZAPI_CALLBACK_ARGS)
 	c = zebra_interface_address_read(cmd, zclient->ibuf, vrf_id);
 
 	if (c == NULL)
-		return 0;
+		return;
 
 	if (IS_DEBUG_OSPF(zebra, ZEBRA_INTERFACE))
 		zlog_debug("Zebra: interface %s address delete %pFX vrf %s id %u",
@@ -130,7 +127,7 @@ static int ospf_interface_address_delete(ZAPI_CALLBACK_ARGS)
 	rn = route_node_lookup(IF_OIFS(ifp), &p);
 	if (!rn) {
 		connected_free(&c);
-		return 0;
+		return;
 	}
 
 	assert(rn->info);
@@ -143,11 +140,9 @@ static int ospf_interface_address_delete(ZAPI_CALLBACK_ARGS)
 	ospf_if_interface(c->ifp);
 
 	connected_free(&c);
-
-	return 0;
 }
 
-static int ospf_interface_link_params(ZAPI_CALLBACK_ARGS)
+static void ospf_interface_link_params(ZAPI_CALLBACK_ARGS)
 {
 	struct interface *ifp;
 	bool changed = false;
@@ -155,12 +150,10 @@ static int ospf_interface_link_params(ZAPI_CALLBACK_ARGS)
 	ifp = zebra_interface_link_params_read(zclient->ibuf, vrf_id, &changed);
 
 	if (ifp == NULL || !changed)
-		return 0;
+		return;
 
 	/* Update TE TLV */
 	ospf_mpls_te_update_if(ifp);
-
-	return 0;
 }
 
 /* Nexthop, ifindex, distance and metric information. */
@@ -1255,7 +1248,7 @@ int ospf_zebra_gr_disable(struct ospf *ospf)
 }
 
 /* Zebra route add and delete treatment. */
-static int ospf_zebra_read_route(ZAPI_CALLBACK_ARGS)
+static void ospf_zebra_read_route(ZAPI_CALLBACK_ARGS)
 {
 	struct zapi_route api;
 	struct prefix_ipv4 p;
@@ -1269,10 +1262,10 @@ static int ospf_zebra_read_route(ZAPI_CALLBACK_ARGS)
 
 	ospf = ospf_lookup_by_vrf_id(vrf_id);
 	if (ospf == NULL)
-		return 0;
+		return;
 
 	if (zapi_route_decode(zclient->ibuf, &api) < 0)
-		return -1;
+		return;
 
 	ifindex = api.nexthops[0].ifindex;
 	nexthop = api.nexthops[0].gate.ipv4;
@@ -1280,7 +1273,7 @@ static int ospf_zebra_read_route(ZAPI_CALLBACK_ARGS)
 
 	memcpy(&p, &api.prefix, sizeof(p));
 	if (IPV4_NET127(ntohl(p.prefix.s_addr)))
-		return 0;
+		return;
 
 	pgen.family = p.family;
 	pgen.prefixlen = p.prefixlen;
@@ -1331,7 +1324,7 @@ static int ospf_zebra_read_route(ZAPI_CALLBACK_ARGS)
 					    api.metric);
 		if (ei == NULL) {
 			/* Nothing has changed, so nothing to do; return */
-			return 0;
+			return;
 		}
 		if (ospf->router_id.s_addr != INADDR_ANY) {
 			if (is_default_prefix4(&p))
@@ -1350,7 +1343,7 @@ static int ospf_zebra_read_route(ZAPI_CALLBACK_ARGS)
 					 */
 					if (!ospf_redistribute_check(ospf, ei,
 								     NULL))
-						return 0;
+						return;
 
 					if (IS_DEBUG_OSPF(lsa, EXTNL_LSA_AGGR))
 						zlog_debug("%s: Send Aggreate LSA (%pI4/%d)(%s)",
@@ -1373,7 +1366,7 @@ static int ospf_zebra_read_route(ZAPI_CALLBACK_ARGS)
 					if (prefix_same(
 						    (struct prefix *)&aggr->p,
 						    (struct prefix *)&ei->p))
-						return 0;
+						return;
 
 					lsa = ospf_external_info_find_lsa(
 						ospf, &ei->p);
@@ -1386,7 +1379,7 @@ static int ospf_zebra_read_route(ZAPI_CALLBACK_ARGS)
 
 						if (mask.s_addr
 						    != al->mask.s_addr)
-							return 0;
+							return;
 
 						ospf_external_lsa_flush(
 							ospf, ei->type, &ei->p,
@@ -1405,7 +1398,7 @@ static int ospf_zebra_read_route(ZAPI_CALLBACK_ARGS)
 						 */
 						if (!ospf_redistribute_check(
 							    ospf, ei, NULL))
-							return 0;
+							return;
 
 						ospf_external_lsa_originate(
 							ospf, ei);
@@ -1438,7 +1431,7 @@ static int ospf_zebra_read_route(ZAPI_CALLBACK_ARGS)
 
 		ei = ospf_external_info_lookup(ospf, rt_type, api.instance, &p);
 		if (ei == NULL)
-			return 0;
+			return;
 
 		/*
 		 * Check if default-information originate i
@@ -1465,8 +1458,6 @@ static int ospf_zebra_read_route(ZAPI_CALLBACK_ARGS)
 							ifindex /*, nexthop */);
 		}
 	}
-
-	return 0;
 }
 
 void ospf_zebra_import_default_route(struct ospf *ospf, bool unreg)
@@ -2142,19 +2133,18 @@ static void ospf_zebra_connected(struct zclient *zclient)
 /*
  * opaque messages between processes
  */
-static int ospf_opaque_msg_handler(ZAPI_CALLBACK_ARGS)
+static void ospf_opaque_msg_handler(ZAPI_CALLBACK_ARGS)
 {
 	struct stream *s;
 	struct zapi_opaque_msg info;
 	struct ldp_igp_sync_if_state state;
 	struct ldp_igp_sync_announce announce;
 	struct zapi_opaque_reg_info dst;
-	int ret = 0;
 
 	s = zclient->ibuf;
 
 	if (zclient_opaque_decode(s, &info) != 0)
-		return -1;
+		return;
 
 	switch (info.type) {
 	case LINK_STATE_SYNC:
@@ -2162,37 +2152,32 @@ static int ospf_opaque_msg_handler(ZAPI_CALLBACK_ARGS)
 		dst.instance = info.src_instance;
 		dst.session_id = info.src_session_id;
 		dst.type = LINK_STATE_SYNC;
-		ret = ospf_te_sync_ted(dst);
+		ospf_te_sync_ted(dst);
 		break;
 	case LDP_IGP_SYNC_IF_STATE_UPDATE:
 		STREAM_GET(&state, s, sizeof(state));
-		ret = ospf_ldp_sync_state_update(state);
+		ospf_ldp_sync_state_update(state);
 		break;
 	case LDP_IGP_SYNC_ANNOUNCE_UPDATE:
 		STREAM_GET(&announce, s, sizeof(announce));
-		ret = ospf_ldp_sync_announce_update(announce);
+		ospf_ldp_sync_announce_update(announce);
 		break;
 	default:
 		break;
 	}
 
 stream_failure:
-
-	return ret;
+	return;
 }
 
-static int ospf_zebra_client_close_notify(ZAPI_CALLBACK_ARGS)
+static void ospf_zebra_client_close_notify(ZAPI_CALLBACK_ARGS)
 {
-	int ret = 0;
-
 	struct zapi_client_close_info info;
 
 	if (zapi_client_close_notify_decode(zclient->ibuf, &info) < 0)
-		return -1;
+		return;
 
 	ospf_ldp_sync_handle_client_close(&info);
-
-	return ret;
 }
 
 static zclient_handler *const ospf_handlers[] = {

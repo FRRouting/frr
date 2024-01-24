@@ -2536,7 +2536,7 @@ stream_failure:
  * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  */
 
-static int zclient_vrf_add(ZAPI_CALLBACK_ARGS)
+static void zclient_vrf_add(ZAPI_CALLBACK_ARGS)
 {
 	struct vrf *vrf;
 	char vrfname_tmp[VRF_NAMSIZ + 1] = {};
@@ -2547,25 +2547,24 @@ static int zclient_vrf_add(ZAPI_CALLBACK_ARGS)
 	STREAM_GET(vrfname_tmp, zclient->ibuf, VRF_NAMSIZ);
 
 	if (strlen(vrfname_tmp) == 0)
-		goto stream_failure;
+		return;
 
 	/* Lookup/create vrf by name, then vrf_id. */
 	vrf = vrf_get(vrf_id, vrfname_tmp);
 
 	/* If there's already a VRF with this name, don't create vrf */
 	if (!vrf)
-		return 0;
+		return;
 
 	vrf->data.l.table_id = data.l.table_id;
 	memcpy(vrf->data.l.netns_name, data.l.netns_name, NS_NAMSIZ);
 	vrf_enable(vrf);
 
-	return 0;
 stream_failure:
-	return -1;
+	return;
 }
 
-static int zclient_vrf_delete(ZAPI_CALLBACK_ARGS)
+static void zclient_vrf_delete(ZAPI_CALLBACK_ARGS)
 {
 	struct vrf *vrf;
 
@@ -2578,13 +2577,12 @@ static int zclient_vrf_delete(ZAPI_CALLBACK_ARGS)
 	 * no point in attempting to delete it.
 	 */
 	if (!vrf)
-		return 0;
+		return;
 
 	vrf_delete(vrf);
-	return 0;
 }
 
-static int zclient_interface_add(ZAPI_CALLBACK_ARGS)
+static void zclient_interface_add(ZAPI_CALLBACK_ARGS)
 {
 	struct interface *ifp;
 	char ifname_tmp[IFNAMSIZ + 1] = {};
@@ -2600,7 +2598,7 @@ static int zclient_interface_add(ZAPI_CALLBACK_ARGS)
 		zlog_debug(
 			"Rx'd interface add from Zebra, but VRF %u does not exist",
 			vrf_id);
-		return -1;
+		return;
 	}
 
 	ifp = if_get_by_name(ifname_tmp, vrf_id, vrf->name);
@@ -2609,9 +2607,8 @@ static int zclient_interface_add(ZAPI_CALLBACK_ARGS)
 
 	if_new_via_zapi(ifp);
 
-	return 0;
 stream_failure:
-	return -1;
+	return;
 }
 
 /*
@@ -2644,7 +2641,7 @@ stream_failure:
 	return NULL;
 }
 
-static int zclient_interface_delete(ZAPI_CALLBACK_ARGS)
+static void zclient_interface_delete(ZAPI_CALLBACK_ARGS)
 {
 	struct interface *ifp;
 	struct stream *s = zclient->ibuf;
@@ -2652,13 +2649,12 @@ static int zclient_interface_delete(ZAPI_CALLBACK_ARGS)
 	ifp = zebra_interface_state_read(s, vrf_id);
 
 	if (ifp == NULL)
-		return 0;
+		return;
 
 	if_destroy_via_zapi(ifp);
-	return 0;
 }
 
-static int zclient_interface_up(ZAPI_CALLBACK_ARGS)
+static void zclient_interface_up(ZAPI_CALLBACK_ARGS)
 {
 	struct interface *ifp;
 	struct stream *s = zclient->ibuf;
@@ -2666,13 +2662,12 @@ static int zclient_interface_up(ZAPI_CALLBACK_ARGS)
 	ifp = zebra_interface_state_read(s, vrf_id);
 
 	if (!ifp)
-		return 0;
+		return;
 
 	if_up_via_zapi(ifp);
-	return 0;
 }
 
-static int zclient_interface_down(ZAPI_CALLBACK_ARGS)
+static void zclient_interface_down(ZAPI_CALLBACK_ARGS)
 {
 	struct interface *ifp;
 	struct stream *s = zclient->ibuf;
@@ -2680,13 +2675,12 @@ static int zclient_interface_down(ZAPI_CALLBACK_ARGS)
 	ifp = zebra_interface_state_read(s, vrf_id);
 
 	if (!ifp)
-		return 0;
+		return;
 
 	if_down_via_zapi(ifp);
-	return 0;
 }
 
-static int zclient_handle_error(ZAPI_CALLBACK_ARGS)
+static void zclient_handle_error(ZAPI_CALLBACK_ARGS)
 {
 	enum zebra_error_types error;
 	struct stream *s = zclient->ibuf;
@@ -2695,7 +2689,6 @@ static int zclient_handle_error(ZAPI_CALLBACK_ARGS)
 
 	if (zclient->handle_error)
 		(*zclient->handle_error)(error);
-	return 0;
 }
 
 static int link_params_set_value(struct stream *s, struct interface *ifp)
@@ -4160,7 +4153,7 @@ enum zclient_send_status zebra_send_pw(struct zclient *zclient, int command,
 /*
  * Receive PW status update from Zebra and send it to LDE process.
  */
-int zebra_read_pw_status_update(ZAPI_CALLBACK_ARGS, struct zapi_pw_status *pw)
+void zebra_read_pw_status_update(ZAPI_CALLBACK_ARGS, struct zapi_pw_status *pw)
 {
 	struct stream *s;
 
@@ -4172,12 +4165,11 @@ int zebra_read_pw_status_update(ZAPI_CALLBACK_ARGS, struct zapi_pw_status *pw)
 	STREAM_GETL(s, pw->ifindex);
 	STREAM_GETL(s, pw->status);
 
-	return 0;
 stream_failure:
-	return -1;
+	return;
 }
 
-static int zclient_capability_decode(ZAPI_CALLBACK_ARGS)
+static void zclient_capability_decode(ZAPI_CALLBACK_ARGS)
 {
 	struct zclient_capabilities cap;
 	struct stream *s = zclient->ibuf;
@@ -4190,7 +4182,7 @@ static int zclient_capability_decode(ZAPI_CALLBACK_ARGS)
 		flog_err(EC_LIB_ZAPI_ENCODE,
 			 "%s: Garbage VRF backend type: %d", __func__,
 			 vrf_backend);
-		goto stream_failure;
+		return;
 	}
 
 
@@ -4205,7 +4197,7 @@ static int zclient_capability_decode(ZAPI_CALLBACK_ARGS)
 		(*zclient->zebra_capabilities)(&cap);
 
 stream_failure:
-	return 0;
+	return;
 }
 
 enum zclient_send_status zclient_send_mlag_register(struct zclient *client,
@@ -4473,7 +4465,7 @@ stream_failure:
 	return -1;
 }
 
-static int zclient_nexthop_update(ZAPI_CALLBACK_ARGS)
+static void zclient_nexthop_update(ZAPI_CALLBACK_ARGS)
 {
 	struct vrf *vrf = vrf_lookup_by_id(vrf_id);
 	struct prefix match;
@@ -4481,18 +4473,16 @@ static int zclient_nexthop_update(ZAPI_CALLBACK_ARGS)
 
 	if (!vrf) {
 		zlog_warn("nexthop update for unknown VRF ID %u", vrf_id);
-		return 0;
+		return;
 	}
 
 	if (!zapi_nexthop_update_decode(zclient->ibuf, &match, &route)) {
 		zlog_err("failed to decode nexthop update");
-		return -1;
+		return;
 	}
 
 	if (zclient->nexthop_update)
 		zclient->nexthop_update(vrf, &match, &route);
-
-	return 0;
 }
 
 static zclient_handler *const lib_handlers[] = {

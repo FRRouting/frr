@@ -370,14 +370,14 @@ void nhrp_interface_update_mtu(struct interface *ifp, afi_t afi);
 void nhrp_interface_update_nbma(struct interface *ifp,
 				struct nhrp_gre_info *gre_info);
 
-int nhrp_interface_add(ZAPI_CALLBACK_ARGS);
-int nhrp_interface_delete(ZAPI_CALLBACK_ARGS);
-int nhrp_interface_up(ZAPI_CALLBACK_ARGS);
-int nhrp_interface_down(ZAPI_CALLBACK_ARGS);
-int nhrp_interface_address_add(ZAPI_CALLBACK_ARGS);
-int nhrp_interface_address_delete(ZAPI_CALLBACK_ARGS);
-int nhrp_neighbor_operation(ZAPI_CALLBACK_ARGS);
-int nhrp_gre_update(ZAPI_CALLBACK_ARGS);
+void nhrp_interface_add(ZAPI_CALLBACK_ARGS);
+void nhrp_interface_delete(ZAPI_CALLBACK_ARGS);
+void nhrp_interface_up(ZAPI_CALLBACK_ARGS);
+void nhrp_interface_down(ZAPI_CALLBACK_ARGS);
+void nhrp_interface_address_add(ZAPI_CALLBACK_ARGS);
+void nhrp_interface_address_delete(ZAPI_CALLBACK_ARGS);
+void nhrp_neighbor_operation(ZAPI_CALLBACK_ARGS);
+void nhrp_gre_update(ZAPI_CALLBACK_ARGS);
 
 void nhrp_interface_notify_add(struct interface *ifp, struct notifier_block *n,
 			       notifier_fn_t fn);
@@ -416,7 +416,7 @@ void nhrp_route_update_nhrp(const struct prefix *p, struct interface *ifp);
 void nhrp_route_announce(int add, enum nhrp_cache_type type,
 			 const struct prefix *p, struct interface *ifp,
 			 const union sockunion *nexthop, uint32_t mtu);
-int nhrp_route_read(ZAPI_CALLBACK_ARGS);
+void nhrp_route_read(ZAPI_CALLBACK_ARGS);
 int nhrp_route_get_nexthop(const union sockunion *addr, struct prefix *p,
 			   union sockunion *via, struct interface **ifp);
 enum nhrp_route_type nhrp_route_address(struct interface *in_ifp,

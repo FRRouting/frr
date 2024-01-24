@@ -775,18 +775,17 @@ static void pim_mlag_process_mroute_del(struct mlag_mroute_del msg)
 	pim_mlag_up_peer_del(&msg);
 }
 
-int pim_zebra_mlag_handle_msg(int cmd, struct zclient *zclient,
-			      uint16_t zapi_length, vrf_id_t vrf_id)
+void pim_zebra_mlag_handle_msg(ZAPI_CALLBACK_ARGS)
 {
 	struct stream *s = zclient->ibuf;
 	struct mlag_msg mlag_msg;
 	char buf[80];
 	int rc = 0;
-	size_t length;
+	size_t llength;
 
-	rc = mlag_lib_decode_mlag_hdr(s, &mlag_msg, &length);
+	rc = mlag_lib_decode_mlag_hdr(s, &mlag_msg, &llength);
 	if (rc)
-		return (rc);
+		return;
 
 	if (PIM_DEBUG_MLAG)
 		zlog_debug("%s: Received msg type: %s length: %d, bulk_cnt: %d",
@@ -801,7 +800,7 @@ int pim_zebra_mlag_handle_msg(int cmd, struct zclient *zclient,
 
 		rc = mlag_lib_decode_mlag_status(s, &msg);
 		if (rc)
-			return (rc);
+			return;
 		pim_mlag_process_mlagd_state_change(msg);
 	} break;
 	case MLAG_PEER_FRR_STATUS: {
@@ -809,7 +808,7 @@ int pim_zebra_mlag_handle_msg(int cmd, struct zclient *zclient,
 
 		rc = mlag_lib_decode_frr_status(s, &msg);
 		if (rc)
-			return (rc);
+			return;
 		pim_mlag_process_peer_frr_state_change(msg);
 	} break;
 	case MLAG_VXLAN_UPDATE: {
@@ -817,23 +816,23 @@ int pim_zebra_mlag_handle_msg(int cmd, struct zclient *zclient,
 
 		rc = mlag_lib_decode_vxlan_update(s, &msg);
 		if (rc)
-			return rc;
+			return;
 		pim_mlag_process_vxlan_update(&msg);
 	} break;
 	case MLAG_MROUTE_ADD: {
 		struct mlag_mroute_add msg;
 
-		rc = mlag_lib_decode_mroute_add(s, &msg, &length);
+		rc = mlag_lib_decode_mroute_add(s, &msg, &llength);
 		if (rc)
-			return (rc);
+			return;
 		pim_mlag_process_mroute_add(msg);
 	} break;
 	case MLAG_MROUTE_DEL: {
 		struct mlag_mroute_del msg;
 
-		rc = mlag_lib_decode_mroute_del(s, &msg, &length);
+		rc = mlag_lib_decode_mroute_del(s, &msg, &llength);
 		if (rc)
-			return (rc);
+			return;
 		pim_mlag_process_mroute_del(msg);
 	} break;
 	case MLAG_MROUTE_ADD_BULK: {
@@ -841,9 +840,9 @@ int pim_zebra_mlag_handle_msg(int cmd, struct zclient *zclient,
 		int i;
 
 		for (i = 0; i < mlag_msg.msg_cnt; i++) {
-			rc = mlag_lib_decode_mroute_add(s, &msg, &length);
+			rc = mlag_lib_decode_mroute_add(s, &msg, &llength);
 			if (rc)
-				return (rc);
+				return;
 			pim_mlag_process_mroute_add(msg);
 		}
 	} break;
@@ -852,9 +851,9 @@ int pim_zebra_mlag_handle_msg(int cmd, struct zclient *zclient,
 		int i;
 
 		for (i = 0; i < mlag_msg.msg_cnt; i++) {
-			rc = mlag_lib_decode_mroute_del(s, &msg, &length);
+			rc = mlag_lib_decode_mroute_del(s, &msg, &llength);
 			if (rc)
-				return (rc);
+				return;
 			pim_mlag_process_mroute_del(msg);
 		}
 	} break;
@@ -865,12 +864,11 @@ int pim_zebra_mlag_handle_msg(int cmd, struct zclient *zclient,
 	case MLAG_PIM_CFG_DUMP:
 		break;
 	}
-	return 0;
 }
 
 /****************End of PIM Mesasge processing handler********************/
 
-int pim_zebra_mlag_process_up(ZAPI_CALLBACK_ARGS)
+void pim_zebra_mlag_process_up(ZAPI_CALLBACK_ARGS)
 {
 	if (PIM_DEBUG_MLAG)
 		zlog_debug("%s: Received Process-Up from Mlag", __func__);
@@ -881,7 +879,6 @@ int pim_zebra_mlag_process_up(ZAPI_CALLBACK_ARGS)
 	 */
 	router->connected_to_mlag = true;
 	router->mlag_flags |= PIM_MLAGF_LOCAL_CONN_UP;
-	return 0;
 }
 
 static void pim_mlag_param_reset(void)
@@ -898,7 +895,7 @@ static void pim_mlag_param_reset(void)
 	router->peerlink_rif[0] = '\0';
 }
 
-int pim_zebra_mlag_process_down(ZAPI_CALLBACK_ARGS)
+void pim_zebra_mlag_process_down(ZAPI_CALLBACK_ARGS)
 {
 	if (PIM_DEBUG_MLAG)
 		zlog_debug("%s: Received Process-Down from Mlag", __func__);
@@ -918,7 +915,6 @@ int pim_zebra_mlag_process_down(ZAPI_CALLBACK_ARGS)
 	pim_mlag_up_peer_del_all();
 	/* notify the vxlan component */
 	pim_mlag_vxlan_state_update();
-	return 0;
 }
 
 static void pim_mlag_register_handler(struct event *thread)

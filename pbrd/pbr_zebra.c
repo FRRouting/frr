@@ -81,34 +81,30 @@ int pbr_ifp_destroy(struct interface *ifp)
 	return 0;
 }
 
-static int interface_address_add(ZAPI_CALLBACK_ARGS)
+static void interface_address_add(ZAPI_CALLBACK_ARGS)
 {
 	struct connected *c;
 	char buf[PREFIX_STRLEN];
 
 	c = zebra_interface_address_read(cmd, zclient->ibuf, vrf_id);
 
-	DEBUGD(&pbr_dbg_zebra, "%s: %s added %s", __func__,
-	       c ? c->ifp->name : "Unknown",
+	DEBUGD(&pbr_dbg_zebra, "%s: %s added %s", __func__, c ? c->ifp->name : "Unknown",
 	       c ? prefix2str(c->address, buf, sizeof(buf)) : "Unknown");
-
-	return 0;
 }
 
-static int interface_address_delete(ZAPI_CALLBACK_ARGS)
+static void interface_address_delete(ZAPI_CALLBACK_ARGS)
 {
 	struct connected *c;
 
 	c = zebra_interface_address_read(cmd, zclient->ibuf, vrf_id);
 
 	if (!c)
-		return 0;
+		return;
 
 	DEBUGD(&pbr_dbg_zebra, "%s: %s deleted %pFX", __func__, c->ifp->name,
 	       c->address);
 
 	connected_free(&c);
-	return 0;
 }
 
 int pbr_ifp_up(struct interface *ifp)
@@ -129,7 +125,7 @@ int pbr_ifp_down(struct interface *ifp)
 	return 0;
 }
 
-static int route_notify_owner(ZAPI_CALLBACK_ARGS)
+static void route_notify_owner(ZAPI_CALLBACK_ARGS)
 {
 	struct prefix p;
 	enum zapi_route_notify_owner note;
@@ -137,7 +133,7 @@ static int route_notify_owner(ZAPI_CALLBACK_ARGS)
 
 	if (!zapi_route_notify_decode(zclient->ibuf, &p, &table_id, &note,
 				      NULL, NULL))
-		return -1;
+		return;
 
 	switch (note) {
 	case ZAPI_ROUTE_FAIL_INSTALL:
@@ -168,11 +164,9 @@ static int route_notify_owner(ZAPI_CALLBACK_ARGS)
 		       &p, table_id);
 		break;
 	}
-
-	return 0;
 }
 
-static int rule_notify_owner(ZAPI_CALLBACK_ARGS)
+static void rule_notify_owner(ZAPI_CALLBACK_ARGS)
 {
 	uint32_t seqno, priority, unique;
 	enum zapi_rule_notify_owner note;
@@ -183,7 +177,7 @@ static int rule_notify_owner(ZAPI_CALLBACK_ARGS)
 
 	if (!zapi_rule_notify_decode(zclient->ibuf, &seqno, &priority, &unique,
 				     ifname, &note))
-		return -1;
+		return;
 
 	pmi = NULL;
 	pbrms = pbrms_lookup_unique(unique, ifname, &pmi);
@@ -191,7 +185,7 @@ static int rule_notify_owner(ZAPI_CALLBACK_ARGS)
 		DEBUGD(&pbr_dbg_zebra,
 		       "%s: Failure to lookup pbrms based upon %u", __func__,
 		       unique);
-		return 0;
+		return;
 	}
 
 	installed = 1 << pmi->install_bit;
@@ -215,8 +209,6 @@ static int rule_notify_owner(ZAPI_CALLBACK_ARGS)
 	       zapi_rule_notify_owner2str(note), pbrms->installed);
 
 	pbr_map_final_interface_deletion(pbrms->parent, pmi);
-
-	return 0;
 }
 
 static void zebra_connected(struct zclient *zclient)
