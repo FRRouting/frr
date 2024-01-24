@@ -20,6 +20,77 @@ AC_CONFIG_SRCDIR([lib/zebra.h])
 AC_CONFIG_MACRO_DIR([m4])
 AC_CONFIG_AUX_DIR([m4/ac])
 
+dnl ------------------------------
+dnl system paths
+dnl ------------------------------
+dnl Versions of FRR (or Quagga, or Zebra) before ca. 9.2 used sysconfdir and
+dnl localstatedir as-is, without appending /frr.  The /frr was expected to be
+dnl given on ./configure invocations.
+dnl
+dnl This does not match standard behavior by other packages and makes FRR
+dnl specific packaging changes necessary to add these options.  localstatedir
+dnl was also misused to include the /run part (it normally is only /var),
+dnl leaving no path configuration option that references /var itself.  This
+dnl is because runstatedir did not exist in ancient autoconf.
+dnl
+dnl The path options have been changed to expect plain / system prefix
+dnl directories.  As a temporary workaround to not break packaging, eventual
+dnl /frr suffixes are stripped and a warning is printed.
+
+path_warn_banner=false
+
+AC_MSG_CHECKING([whether --sysconfdir option is FRR-specific])
+case "$sysconfdir" in
+  */frr)
+    AC_MSG_RESULT([yes, ends in /frr - removing suffix])
+    AC_MSG_WARN([Please remove /frr suffix from --sysconfdir="${sysconfdir}" (it should be /etc in 99% of cases)])
+    sysconfdir="${sysconfdir%/frr}"
+    path_warn_banner=true
+    ;;
+  *)
+    AC_MSG_RESULT([no, as expected])
+    ;;
+esac
+
+frr_sysconfdir="\${sysconfdir}/frr"
+
+AC_MSG_CHECKING([whether --localstatedir option is FRR-specific])
+case "$localstatedir" in
+  */run/frr)
+    AC_MSG_RESULT([yes, ends in /run/frr - removing suffix])
+    AC_MSG_WARN([Please remove /run/frr suffix from --localstatedir=${localstatedir} (it should be /var in 99% of cases)])
+    localstatedir="${localstatedir%/run/frr}"
+    path_warn_banner=true
+    ;;
+  */frr)
+    AC_MSG_RESULT([yes, ends in /frr - removing suffix])
+    AC_MSG_WARN([The --localstatedir=${localstatedir} option seems to include /frr but not /run, this is unexpected.  Please check for consistency.)])
+    localstatedir="${localstatedir%/frr}"
+    path_warn_banner=true
+    ;;
+  *)
+    AC_MSG_RESULT([no, as expected])
+    ;;
+esac
+
+dnl runstatedir is either ${localstatedir}/run or plain /run
+dnl the change of localstatedir above may impact this
+dnl
+dnl note runstatedir was never used with /frr as the other two above, so does
+dnl not need the same cleanup hack
+: "${runstatedir:=\${localstatedir\}/run}"
+frr_runstatedir="\${runstatedir}/frr"
+
+if $path_warn_banner; then
+  AC_MSG_WARN([^])
+  AC_MSG_WARN([^])
+  AC_MSG_WARN([^ warnings regarding system path configuration were printed above])
+  AC_MSG_WARN([^ paths have been adjusted by temporary workarounds])
+  AC_MSG_WARN([^ please fix your ./configure invocation (remove /frr) so it will work without the workarounds])
+  AC_MSG_WARN([^])
+  AC_MSG_WARN([^])
+fi
+
 dnl -----------------------------------
 dnl Get hostname and other information.
 dnl -----------------------------------
@@ -130,10 +201,10 @@ AC_ARG_WITH([moduledir], [AS_HELP_STRING([--with-moduledir=DIR], [module directo
 ])
 AC_SUBST([moduledir], [$moduledir])
 
-AC_ARG_WITH([scriptdir], [AS_HELP_STRING([--with-scriptdir=DIR], [script directory (${sysconfdir}/scripts)])], [
+AC_ARG_WITH([scriptdir], [AS_HELP_STRING([--with-scriptdir=DIR], [script directory (${sysconfdir}/frr/scripts)])], [
 	scriptdir="$withval"
 ], [
-	scriptdir="\${sysconfdir}/scripts"
+	scriptdir="\${frr_sysconfdir}/scripts"
 ])
 AC_SUBST([scriptdir], [$scriptdir])
 
@@ -2641,57 +2712,15 @@ else
 fi
 AC_SUBST([CONFDATE])
 
-dnl ------------------------------
-dnl set paths for state directory
-dnl ------------------------------
-AC_MSG_CHECKING([directory to use for state file])
-if test "$prefix" = "NONE"; then
-  frr_statedir_prefix="";
-else
-  frr_statedir_prefix=${prefix}
-fi
-if test "$localstatedir" = '${prefix}/var'; then
-  for FRR_STATE_DIR in ${frr_statedir_prefix}/var/run dnl
-			${frr_statedir_prefix}/var/adm dnl
-			${frr_statedir_prefix}/etc dnl
-			/var/run	dnl
-                        /var/adm	dnl
-                        /etc		dnl
-                        /dev/null;
-  do
-    test -d $FRR_STATE_DIR && break
-  done
-  frr_statedir=$FRR_STATE_DIR
-else
-  frr_statedir=${localstatedir}
-fi
-if test "$frr_statedir" = "/dev/null"; then
-    AC_MSG_ERROR([STATE DIRECTORY NOT FOUND! FIX OR SPECIFY --localstatedir!])
-fi
-AC_MSG_RESULT([${frr_statedir}])
-AC_SUBST([frr_statedir])
-
-AC_DEFINE_UNQUOTED([LDPD_SOCKET], ["$frr_statedir%s%s/ldpd.sock"], [ldpd control socket])
-AC_DEFINE_UNQUOTED([ZEBRA_SERV_PATH], ["$frr_statedir%s%s/zserv.api"], [zebra api socket])
-AC_DEFINE_UNQUOTED([BFDD_CONTROL_SOCKET], ["$frr_statedir%s%s/bfdd.sock"], [bfdd control socket])
-AC_DEFINE_UNQUOTED([OSPFD_GR_STATE], ["$frr_statedir%s/ospfd-gr.json"], [ospfd GR state information])
-AC_DEFINE_UNQUOTED([MGMTD_FE_SERVER_PATH], ["$frr_statedir/mgmtd_fe.sock"], [mgmtd frontend server socket])
-AC_DEFINE_UNQUOTED([MGMTD_BE_SERVER_PATH], ["$frr_statedir/mgmtd_be.sock"], [mgmtd backend server socket])
-AC_DEFINE_UNQUOTED([OSPF6D_GR_STATE], ["$frr_statedir/ospf6d-gr.json"], [ospf6d GR state information])
-AC_DEFINE_UNQUOTED([ISISD_RESTART], ["$frr_statedir%s/isid-restart.json"], [isisd restart information])
-AC_DEFINE_UNQUOTED([OSPF6_AUTH_SEQ_NUM_FILE], ["$frr_statedir/ospf6d-at-seq-no.dat"], [ospf6d AT Sequence number information])
-AC_DEFINE_UNQUOTED([DAEMON_VTY_DIR], ["$frr_statedir%s%s"], [daemon vty directory])
-AC_DEFINE_UNQUOTED([DAEMON_DB_DIR], ["$frr_statedir"], [daemon database directory])
-
 dnl get the full path, recursing through variables...
-AX_RECURSIVE_EVAL([$bindir/vtysh],  [vtysh_bin])
-AX_RECURSIVE_EVAL([$sysconfdir],    [CFG_SYSCONF])
-AX_RECURSIVE_EVAL([$sbindir],       [CFG_SBIN])
-AX_RECURSIVE_EVAL([$bindir],        [CFG_BIN])
-AX_RECURSIVE_EVAL([$frr_statedir],  [CFG_STATE])
-AX_RECURSIVE_EVAL([$moduledir],     [CFG_MODULE])
-AX_RECURSIVE_EVAL([$yangmodelsdir], [CFG_YANGMODELS])
-AX_RECURSIVE_EVAL([$scriptdir],     [CFG_SCRIPT])
+AX_RECURSIVE_EVAL([$bindir/vtysh],    [vtysh_bin])
+AX_RECURSIVE_EVAL([$frr_sysconfdir],  [CFG_SYSCONF])
+AX_RECURSIVE_EVAL([$sbindir],         [CFG_SBIN])
+AX_RECURSIVE_EVAL([$bindir],          [CFG_BIN])
+AX_RECURSIVE_EVAL([$frr_runstatedir], [CFG_STATE])
+AX_RECURSIVE_EVAL([$moduledir],       [CFG_MODULE])
+AX_RECURSIVE_EVAL([$yangmodelsdir],   [CFG_YANGMODELS])
+AX_RECURSIVE_EVAL([$scriptdir],       [CFG_SCRIPT])
 AC_SUBST([vtysh_bin])
 AC_SUBST([CFG_SYSCONF])
 AC_SUBST([CFG_SBIN])
@@ -2705,6 +2734,18 @@ AC_DEFINE_UNQUOTED([MODULE_PATH], ["$CFG_MODULE"], [path to modules])
 AC_DEFINE_UNQUOTED([SCRIPT_PATH], ["$CFG_SCRIPT"], [path to scripts])
 AC_DEFINE_UNQUOTED([YANG_MODELS_PATH], ["$CFG_YANGMODELS"], [path to YANG data models])
 AC_DEFINE_UNQUOTED([WATCHFRR_SH_PATH], ["${CFG_SBIN%/}/watchfrr.sh"], [path to watchfrr.sh])
+
+AC_DEFINE_UNQUOTED([LDPD_SOCKET], ["$CFG_STATE%s%s/ldpd.sock"], [ldpd control socket])
+AC_DEFINE_UNQUOTED([ZEBRA_SERV_PATH], ["$CFG_STATE%s%s/zserv.api"], [zebra api socket])
+AC_DEFINE_UNQUOTED([BFDD_CONTROL_SOCKET], ["$CFG_STATE%s%s/bfdd.sock"], [bfdd control socket])
+AC_DEFINE_UNQUOTED([OSPFD_GR_STATE], ["$CFG_STATE%s/ospfd-gr.json"], [ospfd GR state information])
+AC_DEFINE_UNQUOTED([MGMTD_FE_SERVER_PATH], ["$CFG_STATE/mgmtd_fe.sock"], [mgmtd frontend server socket])
+AC_DEFINE_UNQUOTED([MGMTD_BE_SERVER_PATH], ["$CFG_STATE/mgmtd_be.sock"], [mgmtd backend server socket])
+AC_DEFINE_UNQUOTED([OSPF6D_GR_STATE], ["$CFG_STATE/ospf6d-gr.json"], [ospf6d GR state information])
+AC_DEFINE_UNQUOTED([ISISD_RESTART], ["$CFG_STATE%s/isid-restart.json"], [isisd restart information])
+AC_DEFINE_UNQUOTED([OSPF6_AUTH_SEQ_NUM_FILE], ["$CFG_STATE/ospf6d-at-seq-no.dat"], [ospf6d AT Sequence number information])
+AC_DEFINE_UNQUOTED([DAEMON_VTY_DIR], ["$CFG_STATE%s%s"], [daemon vty directory])
+AC_DEFINE_UNQUOTED([DAEMON_DB_DIR], ["$CFG_STATE"], [daemon database directory])
 
 dnl various features
 AM_CONDITIONAL([SUPPORT_REALMS], [test "$enable_realms" = "yes"])
@@ -2820,7 +2861,7 @@ fi
     FRR_ALL_CCLS_FLAGS="$(echo ${LIBYANG_CFLAGS} ${LUA_INCLUDE} ${SQLITE3_CFLAGS} | sed -e 's/  */ /g')"
     FRR_ALL_CCLS_CFLAGS="$(echo ${CFLAGS} ${WERROR} ${AC_CFLAGS} ${SAN_FLAGS} | sed -e 's/  */ /g')"
     ac_frr_confdate="${CONFDATE}"
-    ac_frr_sysconfdir="${sysconfdir}/"
+    ac_frr_sysconfdir="${frr_sysconfdir}/"
     ])
 ])
 
@@ -2863,8 +2904,8 @@ compiler                : ${CC}
 compiler flags          : ${CFLAGS} ${WERROR} ${AC_CFLAGS} ${SAN_FLAGS}
 make                    : ${MAKE-make}
 linker flags            : ${LDFLAGS} ${SAN_FLAGS} ${LIBS} ${LIBCAP} ${LIBREADLINE} ${LIBM}
-state file directory    : ${frr_statedir}
-config file directory   : `eval echo \`echo ${sysconfdir}\``
+state file directory    : ${CFG_STATE}
+config file directory   : ${CFG_SYSCONF}
 module directory        : ${CFG_MODULE}
 script directory        : ${CFG_SCRIPT}
 user to run as          : ${enable_user}
@@ -2887,4 +2928,12 @@ if test "$enable_doc" != "no" -a "$frr_py_mod_sphinx" = "false"; then
 fi
 if test "$frr_py_mod_pytest" = "false"; then
   AC_MSG_WARN([pytest is missing, unit tests cannot be performed])
+fi
+
+if $path_warn_banner; then
+  AC_MSG_WARN([^])
+  AC_MSG_WARN([^])
+  AC_MSG_WARN([^ warnings regarding system path configuration were printed at the very top of output])
+  AC_MSG_WARN([^ paths have been adjusted by temporary workarounds])
+  AC_MSG_WARN([^ please fix your ./configure invocation (remove /frr) so it will work without the workarounds])
 fi

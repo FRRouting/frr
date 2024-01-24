@@ -16,7 +16,7 @@ fi
 
 name="bgpd"
 rcvar=$name
-required_files="@sysconfdir@/${name}.conf"
+required_files="@CFG_SYSCONF@/${name}.conf"
 command="@prefix@/sbin/${name}"
 command_args="-d"
 
