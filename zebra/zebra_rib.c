@@ -2693,6 +2693,7 @@ static void early_route_memory_free(struct zebra_early_route *ere)
 	if (ere->re_nhe)
 		zebra_nhg_free(ere->re_nhe);
 
+	zapi_re_opaque_free(ere->re->opaque);
 	XFREE(MTYPE_RE, ere->re);
 	XFREE(MTYPE_WQ_WRAPPER, ere);
 }
