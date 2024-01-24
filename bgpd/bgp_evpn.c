@@ -315,17 +315,12 @@ static int is_vni_present_in_irt_vnis(struct list *vnis, struct bgpevpn *vpn)
  * This would be following category:
  * Non-imported route,
  * Non-EVPN imported route,
- * Non Aggregate suppressed route.
  */
-bool is_route_injectable_into_evpn(struct bgp_path_info *pi)
+bool is_route_injectable_into_evpn_non_supp(struct bgp_path_info *pi)
 {
 	struct bgp_path_info *parent_pi;
 	struct bgp_table *table;
 	struct bgp_dest *dest;
-
-	/* do not import aggr suppressed routes */
-	if (bgp_path_suppressed(pi))
-		return false;
 
 	if (pi->sub_type != BGP_ROUTE_IMPORTED || !pi->extra ||
 	    !pi->extra->vrfleak || !pi->extra->vrfleak->parent)
@@ -342,6 +337,21 @@ bool is_route_injectable_into_evpn(struct bgp_path_info *pi)
                 return false;
 
         return true;
+}
+
+/* Flag if the route is injectable into EVPN.
+ * This would be following category:
+ * Non-imported route,
+ * Non-EVPN imported route,
+ * Non Aggregate suppressed route.
+ */
+bool is_route_injectable_into_evpn(struct bgp_path_info *pi)
+{
+	/* do not import aggr suppressed routes */
+	if (bgp_path_suppressed(pi))
+		return false;
+
+	return is_route_injectable_into_evpn_non_supp(pi);
 }
 
 /*
@@ -7710,4 +7720,65 @@ bool bgp_evpn_mpath_has_dvni(const struct bgp *bgp_vrf,
 	}
 
 	return false;
+}
+
+/* Upon aggregate set trigger unimport suppressed routes
+ * from EVPN
+ */
+void bgp_aggr_supp_withdraw_from_evpn(struct bgp *bgp, afi_t afi, safi_t safi)
+{
+	struct bgp_dest *agg_dest, *dest, *top;
+	const struct prefix *aggr_p;
+	struct bgp_aggregate *bgp_aggregate;
+	struct bgp_table *table;
+	struct bgp_path_info *pi;
+
+	if (!bgp_get_evpn() && !advertise_type5_routes(bgp, afi))
+		return;
+
+	/* Aggregate-address table walk. */
+	table = bgp->rib[afi][safi];
+	for (agg_dest = bgp_table_top(bgp->aggregate[afi][safi]); agg_dest;
+	     agg_dest = bgp_route_next(agg_dest)) {
+		bgp_aggregate = bgp_dest_get_bgp_aggregate_info(agg_dest);
+
+		if (bgp_aggregate == NULL)
+			continue;
+
+		aggr_p = bgp_dest_get_prefix(agg_dest);
+
+		/* Look all nodes below the aggregate prefix in
+		 * global AFI/SAFI table (IPv4/IPv6).
+		 * Trigger withdrawal (this will be Type-5 routes only)
+		 * from EVPN Global table.
+		 */
+		top = bgp_node_get(table, aggr_p);
+		for (dest = bgp_node_get(table, aggr_p); dest;
+		     dest = bgp_route_next_until(dest, top)) {
+			const struct prefix *dest_p = bgp_dest_get_prefix(dest);
+
+			if (dest_p->prefixlen <= aggr_p->prefixlen)
+				continue;
+
+			for (pi = bgp_dest_get_bgp_path_info(dest); pi;
+			     pi = pi->next) {
+				if (pi->sub_type == BGP_ROUTE_AGGREGATE)
+					continue;
+
+				/* Only Suppressed route remove from EVPN */
+				if (!bgp_path_suppressed(pi))
+					continue;
+
+				if (BGP_DEBUG(zebra, ZEBRA))
+					zlog_debug("%s aggregated %pFX remove suppressed route %pFX",
+						   __func__, aggr_p, dest_p);
+
+				if (!is_route_injectable_into_evpn_non_supp(pi))
+					continue;
+
+				bgp_evpn_withdraw_type5_route(bgp, dest_p, afi,
+							      safi);
+			}
+		}
+	}
 }
