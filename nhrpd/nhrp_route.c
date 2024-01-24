@@ -452,6 +452,12 @@ int nhrp_send_zebra_gre_request(struct interface *ifp)
 	return zclient_send_zebra_gre_request(zclient, ifp);
 }
 
+void nhrp_interface_update_arp(struct interface *ifp, bool arp_enable)
+{
+	zclient_interface_set_arp(zclient, ifp, arp_enable);
+}
+
+
 void nhrp_zebra_terminate(void)
 {
 	zclient_register_neigh(zclient, VRF_DEFAULT, AFI_IP, false);

@@ -362,6 +362,7 @@ int sock_open_unix(const char *path);
 
 void nhrp_interface_init(void);
 void nhrp_interface_update(struct interface *ifp);
+void nhrp_interface_update_arp(struct interface *ifp, bool arp_enable);
 void nhrp_interface_update_mtu(struct interface *ifp, afi_t afi);
 void nhrp_interface_update_nbma(struct interface *ifp,
 				struct nhrp_gre_info *gre_info);

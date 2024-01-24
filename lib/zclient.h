@@ -98,6 +98,7 @@ typedef enum {
 	ZEBRA_INTERFACE_UP,
 	ZEBRA_INTERFACE_DOWN,
 	ZEBRA_INTERFACE_SET_MASTER,
+	ZEBRA_INTERFACE_SET_ARP,
 	ZEBRA_INTERFACE_SET_PROTODOWN,
 	ZEBRA_ROUTE_ADD,
 	ZEBRA_ROUTE_DELETE,
@@ -1036,6 +1037,9 @@ extern int zclient_read_header(struct stream *s, int sock, uint16_t *size,
  */
 extern bool zapi_parse_header(struct stream *zmsg, struct zmsghdr *hdr);
 
+extern enum zclient_send_status zclient_interface_set_arp(struct zclient *client,
+							  struct interface *ifp,
+							  bool arp_enable);
 extern enum zclient_send_status
 zclient_interface_set_master(struct zclient *client, struct interface *master,
 			     struct interface *slave);
