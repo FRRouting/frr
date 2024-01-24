@@ -143,8 +143,16 @@ static struct frr_signal_t mgmt_signals[] = {
 extern const struct frr_yang_module_info frr_staticd_cli_info;
 #endif
 
+#if HAVE_BFDD == 0 || defined(HAVE_RTADV)
+const char *zebra_features[] = {
 #if HAVE_BFDD == 0
-const char *zebra_features[] = { "ptm-bfd", NULL };
+	"ptm-bfd",
+#endif
+#if defined(HAVE_RTADV)
+	"ipv6-router-advertisements",
+#endif
+	NULL
+};
 #endif
 
 /*
@@ -154,7 +162,7 @@ const char *zebra_features[] = { "ptm-bfd", NULL };
  */
 const struct frr_yang_module_info zebra_info = {
 	.name = "frr-zebra",
-#if HAVE_BFDD == 0
+#if HAVE_BFDD == 0 || defined(HAVE_RTADV)
 	.features = zebra_features,
 #endif
 	.ignore_cfg_cbs = true,

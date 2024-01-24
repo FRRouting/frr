@@ -10,14 +10,22 @@
 #include "libfrr.h"
 #include "zebra_nb.h"
 
+#if HAVE_BFDD == 0 || defined(HAVE_RTADV)
+const char *features[] = {
 #if HAVE_BFDD == 0
-const char *features[] = { "ptm-bfd", NULL };
+	"ptm-bfd",
+#endif
+#if defined(HAVE_RTADV)
+	"ipv6-router-advertisements",
+#endif
+	NULL
+};
 #endif
 
 /* clang-format off */
 const struct frr_yang_module_info frr_zebra_info = {
 	.name = "frr-zebra",
-#if HAVE_BFDD == 0
+#if HAVE_BFDD == 0 || defined(HAVE_RTADV)
 	.features = features,
 #endif
 	.nodes = {
@@ -561,6 +569,7 @@ const struct frr_yang_module_info frr_zebra_info = {
 				.modify = lib_interface_zebra_evpn_mh_uplink_modify,
 			}
 		},
+#if defined(HAVE_RTADV)
 		{
 			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/ipv6-router-advertisements/send-advertisements",
 			.cbs = {
@@ -720,6 +729,7 @@ const struct frr_yang_module_info frr_zebra_info = {
 				.destroy = lib_interface_zebra_ipv6_router_advertisements_rdnss_rdnss_address_lifetime_destroy,
 			}
 		},
+#endif /* defined(HAVE_RTADV) */
 #if HAVE_BFDD == 0
 		{
 			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/ptm-enable",

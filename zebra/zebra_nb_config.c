@@ -2478,6 +2478,7 @@ int lib_interface_zebra_evpn_mh_uplink_modify(struct nb_cb_modify_args *args)
 	return NB_OK;
 }
 
+#if defined(HAVE_RTADV)
 /*
  * XPath: /frr-interface:lib/interface/frr-zebra:zebra/ipv6-router-advertisements/send-advertisements
  */
@@ -3199,6 +3200,7 @@ int lib_interface_zebra_ipv6_router_advertisements_dnssl_dnssl_domain_lifetime_d
 
 	return NB_OK;
 }
+#endif /* defined(HAVE_RTADV) */
 
 #if HAVE_BFDD == 0
 /*

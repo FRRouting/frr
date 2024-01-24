@@ -81,6 +81,11 @@ module frr-zebra {
       "Initial revision.";
   }
 
+  feature ipv6-router-advertisements {
+    description
+      "Support for IPv6 Router Advertisements.";
+  }
+
   feature ptm-bfd {
     description
       "Using an external PTM daemon that implements BFD.";
@@ -2270,6 +2275,7 @@ module frr-zebra {
         }
       }
       container ipv6-router-advertisements {
+        if-feature "ipv6-router-advertisements";
         description
           "Support for IPv6 Router Advertisements.";
         leaf send-advertisements {
