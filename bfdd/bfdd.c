@@ -335,8 +335,6 @@ int main(int argc, char *argv[])
 		    "      --bfdctl       Specify bfdd control socket\n"
 		    "      --dplaneaddr   Specify BFD data plane address\n");
 
-	snprintf(ctl_path, sizeof(ctl_path), BFDD_CONTROL_SOCKET,
-		 "", "");
 	while (true) {
 		opt = frr_getopt(argc, argv, NULL);
 		if (opt == EOF)
@@ -357,9 +355,8 @@ int main(int argc, char *argv[])
 		}
 	}
 
-	if (bfdd_di.pathspace && !ctlsockused)
-		snprintf(ctl_path, sizeof(ctl_path), BFDD_CONTROL_SOCKET,
-			 "/", bfdd_di.pathspace);
+	if (!ctlsockused)
+		snprintf(ctl_path, sizeof(ctl_path), BFDD_SOCK_NAME);
 
 	/* Initialize FRR infrastructure. */
 	master = frr_init();
