@@ -17,7 +17,7 @@
 #include "ripd/rip_nb.h"
 #include "ripngd/ripng_nb.h"
 #include "routing_nb.h"
-
+#include "affinitymap.h"
 
 /* mgmt options, we use GNU getopt library. */
 static const struct option longopts[] = {
@@ -169,12 +169,6 @@ const struct frr_yang_module_info zebra_info = {
 	.nodes = { { .xpath = NULL } },
 };
 
-const struct frr_yang_module_info affinity_map_info = {
-	.name = "frr-affinity-map",
-	.ignore_cfg_cbs = true,
-	.nodes = { { .xpath = NULL } },
-};
-
 const struct frr_yang_module_info zebra_route_map_info = {
 	.name = "frr-zebra-route-map",
 	.ignore_cfg_cbs = true,
@@ -191,13 +185,13 @@ static const struct frr_yang_module_info *const mgmt_yang_modules[] = {
 	&frr_route_map_cli_info,
 	&frr_routing_info,
 	&frr_vrf_info,
+	&frr_affinity_map_cli_info,
 
 	/*
 	 * YANG module info used by backend clients get added here.
 	 */
 
 	&zebra_info,
-	&affinity_map_info,
 	&zebra_route_map_info,
 
 #ifdef HAVE_RIPD

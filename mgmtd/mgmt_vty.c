@@ -8,6 +8,7 @@
 
 #include <zebra.h>
 
+#include "affinitymap.h"
 #include "command.h"
 #include "filter.h"
 #include "json.h"
@@ -570,6 +571,7 @@ void mgmt_vty_init(void)
 	 */
 	filter_cli_init();
 	route_map_cli_init();
+	affinity_map_init();
 
 	/*
 	 * Initialize command handling from VTYSH connection.
