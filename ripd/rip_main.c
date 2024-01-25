@@ -133,18 +133,23 @@ static const struct frr_yang_module_info *const ripd_yang_modules[] = {
 	&frr_vrf_info,
 };
 
-FRR_DAEMON_INFO(ripd, RIP, .vty_port = RIP_VTY_PORT,
+/* clang-format off */
+FRR_DAEMON_INFO(ripd, RIP,
+	.vty_port = RIP_VTY_PORT,
+	.proghelp = "Implementation of the RIP routing protocol.",
 
-		.proghelp = "Implementation of the RIP routing protocol.",
+	.signals = ripd_signals,
+	.n_signals = array_size(ripd_signals),
 
-		.signals = ripd_signals, .n_signals = array_size(ripd_signals),
+	.privs = &ripd_privs,
 
-		.privs = &ripd_privs, .yang_modules = ripd_yang_modules,
-		.n_yang_modules = array_size(ripd_yang_modules),
+	.yang_modules = ripd_yang_modules,
+	.n_yang_modules = array_size(ripd_yang_modules),
 
-		/* mgmtd will load the per-daemon config file now */
-		.flags = FRR_NO_SPLIT_CONFIG,
+	/* mgmtd will load the per-daemon config file now */
+	.flags = FRR_NO_SPLIT_CONFIG,
 );
+/* clang-format on */
 
 #define DEPRECATED_OPTIONS ""
 

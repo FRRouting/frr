@@ -126,18 +126,20 @@ static const struct frr_yang_module_info *const babeld_yang_modules[] = {
 	&frr_vrf_info,
 };
 
+/* clang-format off */
 FRR_DAEMON_INFO(babeld, BABELD,
-		.vty_port = BABEL_VTY_PORT,
-		.proghelp = "Implementation of the BABEL routing protocol.",
+	.vty_port = BABEL_VTY_PORT,
+	.proghelp = "Implementation of the BABEL routing protocol.",
 
-		.signals = babel_signals,
-		.n_signals = array_size(babel_signals),
+	.signals = babel_signals,
+	.n_signals = array_size(babel_signals),
 
-		.privs = &babeld_privs,
+	.privs = &babeld_privs,
 
-		.yang_modules = babeld_yang_modules,
-		.n_yang_modules = array_size(babeld_yang_modules),
+	.yang_modules = babeld_yang_modules,
+	.n_yang_modules = array_size(babeld_yang_modules),
 );
+/* clang-format on */
 
 int
 main(int argc, char **argv)

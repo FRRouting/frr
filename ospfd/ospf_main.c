@@ -126,15 +126,20 @@ static const struct frr_yang_module_info *const ospfd_yang_modules[] = {
 	&frr_ospf_route_map_info,
 };
 
-FRR_DAEMON_INFO(ospfd, OSPF, .vty_port = OSPF_VTY_PORT,
+/* clang-format off */
+FRR_DAEMON_INFO(ospfd, OSPF,
+	.vty_port = OSPF_VTY_PORT,
+	.proghelp = "Implementation of the OSPFv2 routing protocol.",
 
-		.proghelp = "Implementation of the OSPFv2 routing protocol.",
+	.signals = ospf_signals,
+	.n_signals = array_size(ospf_signals),
 
-		.signals = ospf_signals, .n_signals = array_size(ospf_signals),
+	.privs = &ospfd_privs,
 
-		.privs = &ospfd_privs, .yang_modules = ospfd_yang_modules,
-		.n_yang_modules = array_size(ospfd_yang_modules),
+	.yang_modules = ospfd_yang_modules,
+	.n_yang_modules = array_size(ospfd_yang_modules),
 );
+/* clang-format on */
 
 /** Max wait time for config to load before accepting hellos */
 #define OSPF_PRE_CONFIG_MAX_WAIT_SECONDS 600

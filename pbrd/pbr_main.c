@@ -111,18 +111,20 @@ static const struct frr_yang_module_info *const pbrd_yang_modules[] = {
 	&frr_vrf_info,
 };
 
-FRR_DAEMON_INFO(pbrd, PBR, .vty_port = PBR_VTY_PORT,
+/* clang-format off */
+FRR_DAEMON_INFO(pbrd, PBR,
+	.vty_port = PBR_VTY_PORT,
+	.proghelp = "Implementation of PBR.",
 
-		.proghelp = "Implementation of PBR.",
+	.signals = pbr_signals,
+	.n_signals = array_size(pbr_signals),
 
-		.signals = pbr_signals,
-		.n_signals = array_size(pbr_signals),
+	.privs = &pbr_privs,
 
-		.privs = &pbr_privs,
-
-		.yang_modules = pbrd_yang_modules,
-		.n_yang_modules = array_size(pbrd_yang_modules),
+	.yang_modules = pbrd_yang_modules,
+	.n_yang_modules = array_size(pbrd_yang_modules),
 );
+/* clang-format on */
 
 int main(int argc, char **argv, char **envp)
 {

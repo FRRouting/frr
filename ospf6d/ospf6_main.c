@@ -166,16 +166,20 @@ static const struct frr_yang_module_info *const ospf6d_yang_modules[] = {
 	&frr_ospf6_route_map_info,
 };
 
-FRR_DAEMON_INFO(ospf6d, OSPF6, .vty_port = OSPF6_VTY_PORT,
+/* clang-format off */
+FRR_DAEMON_INFO(ospf6d, OSPF6,
+	.vty_port = OSPF6_VTY_PORT,
+	.proghelp = "Implementation of the OSPFv3 routing protocol.",
 
-		.proghelp = "Implementation of the OSPFv3 routing protocol.",
+	.signals = ospf6_signals,
+	.n_signals = array_size(ospf6_signals),
 
-		.signals = ospf6_signals,
-		.n_signals = array_size(ospf6_signals),
+	.privs = &ospf6d_privs,
 
-		.privs = &ospf6d_privs, .yang_modules = ospf6d_yang_modules,
-		.n_yang_modules = array_size(ospf6d_yang_modules),
+	.yang_modules = ospf6d_yang_modules,
+	.n_yang_modules = array_size(ospf6d_yang_modules),
 );
+/* clang-format on */
 
 /* Max wait time for config to load before accepting hellos */
 #define OSPF6_PRE_CONFIG_MAX_WAIT_SECONDS 600

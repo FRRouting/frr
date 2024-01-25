@@ -197,6 +197,7 @@ static const struct frr_yang_module_info *const ldpd_yang_modules[] = {
 	&frr_vrf_info,
 };
 
+/* clang-format off */
 FRR_DAEMON_INFO(ldpd, LDP,
 	.vty_port = LDP_VTY_PORT,
 
@@ -210,6 +211,7 @@ FRR_DAEMON_INFO(ldpd, LDP,
 	.yang_modules = ldpd_yang_modules,
 	.n_yang_modules = array_size(ldpd_yang_modules),
 );
+/* clang-format on */
 
 static void ldp_config_fork_apply(struct event *t)
 {

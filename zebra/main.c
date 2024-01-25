@@ -289,19 +289,23 @@ static const struct frr_yang_module_info *const zebra_yang_modules[] = {
 };
 /* clang-format on */
 
-FRR_DAEMON_INFO(
-	zebra, ZEBRA, .vty_port = ZEBRA_VTY_PORT, .flags = FRR_NO_ZCLIENT,
-
+/* clang-format off */
+FRR_DAEMON_INFO(zebra, ZEBRA,
+	.vty_port = ZEBRA_VTY_PORT,
 	.proghelp =
 		"Daemon which manages kernel routing table management and\nredistribution between different routing protocols.",
 
-	.signals = zebra_signals, .n_signals = array_size(zebra_signals),
+	.flags = FRR_NO_ZCLIENT,
+
+	.signals = zebra_signals,
+	.n_signals = array_size(zebra_signals),
 
 	.privs = &zserv_privs,
 
 	.yang_modules = zebra_yang_modules,
 	.n_yang_modules = array_size(zebra_yang_modules),
 );
+/* clang-format on */
 
 /* Main startup routine. */
 int main(int argc, char **argv)

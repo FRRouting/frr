@@ -212,24 +212,30 @@ static void isis_config_end(void)
 	isis_config_finish(t_isis_cfg);
 }
 
+/* clang-format off */
+FRR_DAEMON_INFO(
 #ifdef FABRICD
-FRR_DAEMON_INFO(fabricd, OPEN_FABRIC, .vty_port = FABRICD_VTY_PORT,
+		fabricd, OPEN_FABRIC,
 
-		.proghelp = "Implementation of the OpenFabric routing protocol.",
+	.vty_port = FABRICD_VTY_PORT,
+	.proghelp = "Implementation of the OpenFabric routing protocol.",
 #else
-FRR_DAEMON_INFO(isisd, ISIS, .vty_port = ISISD_VTY_PORT,
+		isisd, ISIS,
 
-		.proghelp = "Implementation of the IS-IS routing protocol.",
+	.vty_port = ISISD_VTY_PORT,
+	.proghelp = "Implementation of the IS-IS routing protocol.",
 #endif
-		.copyright =
-			"Copyright (c) 2001-2002 Sampo Saaristo, Ofer Wald and Hannes Gredler",
+	.copyright = "Copyright (c) 2001-2002 Sampo Saaristo, Ofer Wald and Hannes Gredler",
 
-		.signals = isisd_signals,
-		.n_signals = array_size(isisd_signals),
+	.signals = isisd_signals,
+	.n_signals = array_size(isisd_signals),
 
-		.privs = &isisd_privs, .yang_modules = isisd_yang_modules,
-		.n_yang_modules = array_size(isisd_yang_modules),
+	.privs = &isisd_privs,
+
+	.yang_modules = isisd_yang_modules,
+	.n_yang_modules = array_size(isisd_yang_modules),
 );
+/* clang-format on */
 
 /*
  * Main routine of isisd. Parse arguments and handle IS-IS state machine.

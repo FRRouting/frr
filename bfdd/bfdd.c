@@ -117,13 +117,20 @@ static const struct frr_yang_module_info *const bfdd_yang_modules[] = {
 	&frr_vrf_info,
 };
 
-FRR_DAEMON_INFO(bfdd, BFD, .vty_port = 2617,
-		.proghelp = "Implementation of the BFD protocol.",
-		.signals = bfd_signals, .n_signals = array_size(bfd_signals),
-		.privs = &bglobal.bfdd_privs,
-		.yang_modules = bfdd_yang_modules,
-		.n_yang_modules = array_size(bfdd_yang_modules),
+/* clang-format off */
+FRR_DAEMON_INFO(bfdd, BFD,
+	.vty_port = 2617,
+	.proghelp = "Implementation of the BFD protocol.",
+
+	.signals = bfd_signals,
+	.n_signals = array_size(bfd_signals),
+
+	.privs = &bglobal.bfdd_privs,
+
+	.yang_modules = bfdd_yang_modules,
+	.n_yang_modules = array_size(bfdd_yang_modules),
 );
+/* clang-format on */
 
 #define OPTION_CTLSOCK 1001
 #define OPTION_DPLANEADDR 2000

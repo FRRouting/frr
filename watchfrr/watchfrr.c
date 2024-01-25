@@ -1352,19 +1352,20 @@ static struct frr_signal_t watchfrr_signals[] = {
 	},
 };
 
+/* clang-format off */
 FRR_DAEMON_INFO(watchfrr, WATCHFRR,
-		.flags = FRR_NO_PRIVSEP | FRR_NO_TCPVTY | FRR_LIMITED_CLI
-			 | FRR_NO_CFG_PID_DRY | FRR_NO_ZCLIENT
-			 | FRR_DETACH_LATER,
+	.flags = FRR_NO_PRIVSEP | FRR_NO_TCPVTY | FRR_LIMITED_CLI
+		 | FRR_NO_CFG_PID_DRY | FRR_NO_ZCLIENT | FRR_DETACH_LATER,
 
-		.printhelp = printhelp,
-		.copyright = "Copyright 2004 Andrew J. Schorr",
+	.printhelp = printhelp,
+	.copyright = "Copyright 2004 Andrew J. Schorr",
 
-		.signals = watchfrr_signals,
-		.n_signals = array_size(watchfrr_signals),
+	.signals = watchfrr_signals,
+	.n_signals = array_size(watchfrr_signals),
 
-		.privs = &watchfrr_privs,
+	.privs = &watchfrr_privs,
 );
+/* clang-format on */
 
 #define DEPRECATED_OPTIONS "aAezR:"
 
