@@ -1524,9 +1524,8 @@ static void bgp_debug_zebra_nh(struct zapi_route *api)
 	}
 }
 
-void bgp_zebra_announce(struct bgp_dest *dest, const struct prefix *p,
-			struct bgp_path_info *info, struct bgp *bgp, afi_t afi,
-			safi_t safi)
+void bgp_zebra_announce(struct bgp_dest *dest, struct bgp_path_info *info,
+			struct bgp *bgp)
 {
 	struct bgp_path_info *bpi_ultimate;
 	struct zapi_route api = { 0 };
@@ -1539,6 +1538,8 @@ void bgp_zebra_announce(struct bgp_dest *dest, const struct prefix *p,
 	bool is_add;
 	uint32_t nhg_id = 0;
 	uint32_t recursion_flag = 0;
+	struct bgp_table *table = bgp_dest_table(dest);
+	const struct prefix *p = bgp_dest_get_prefix(dest);
 
 	/*
 	 * BGP is installing this route and bgp has been configured
@@ -1557,16 +1558,16 @@ void bgp_zebra_announce(struct bgp_dest *dest, const struct prefix *p,
 	if (bgp->main_zebra_update_hold)
 		return;
 
-	if (safi == SAFI_FLOWSPEC) {
-		bgp_pbr_update_entry(bgp, bgp_dest_get_prefix(dest), info, afi,
-				     safi, true);
+	if (table->safi == SAFI_FLOWSPEC) {
+		bgp_pbr_update_entry(bgp, p, info, table->afi, table->safi,
+				     true);
 		return;
 	}
 
 	/* Make Zebra API structure. */
 	api.vrf_id = bgp->vrf_id;
 	api.type = ZEBRA_ROUTE_BGP;
-	api.safi = safi;
+	api.safi = table->safi;
 	api.prefix = *p;
 	SET_FLAG(api.message, ZAPI_MESSAGE_NEXTHOP);
 
@@ -1603,8 +1604,8 @@ void bgp_zebra_announce(struct bgp_dest *dest, const struct prefix *p,
 	metric = info->attr->med;
 
 	bgp_zebra_announce_parse_nexthop(info, p, bgp, &api, &valid_nh_count,
-					 afi, safi, &nhg_id, &metric, &tag,
-					 &allow_recursion);
+					 table->afi, table->safi, &nhg_id,
+					 &metric, &tag, &allow_recursion);
 
 	is_add = (valid_nh_count || nhg_id) ? true : false;
 
@@ -1657,7 +1658,7 @@ void bgp_zebra_announce(struct bgp_dest *dest, const struct prefix *p,
 		api.tag = tag;
 	}
 
-	distance = bgp_distance_apply(p, info, afi, safi, bgp);
+	distance = bgp_distance_apply(p, info, table->afi, table->safi, bgp);
 	if (distance) {
 		SET_FLAG(api.message, ZAPI_MESSAGE_DISTANCE);
 		api.distance = distance;
@@ -1706,9 +1707,7 @@ void bgp_zebra_announce_table(struct bgp *bgp, afi_t afi, safi_t safi)
 			     && (pi->sub_type == BGP_ROUTE_NORMAL
 				 || pi->sub_type == BGP_ROUTE_IMPORTED)))
 
-				bgp_zebra_announce(dest,
-						   bgp_dest_get_prefix(dest),
-						   pi, bgp, afi, safi);
+				bgp_zebra_announce(dest, pi, bgp);
 }
 
 /* Announce routes of any bgp subtype of a table to zebra */
@@ -1730,16 +1729,16 @@ void bgp_zebra_announce_table_all_subtypes(struct bgp *bgp, afi_t afi,
 		for (pi = bgp_dest_get_bgp_path_info(dest); pi; pi = pi->next)
 			if (CHECK_FLAG(pi->flags, BGP_PATH_SELECTED) &&
 			    pi->type == ZEBRA_ROUTE_BGP)
-				bgp_zebra_announce(dest,
-						   bgp_dest_get_prefix(dest),
-						   pi, bgp, afi, safi);
+				bgp_zebra_announce(dest, pi, bgp);
 }
 
-void bgp_zebra_withdraw(const struct prefix *p, struct bgp_path_info *info,
-			struct bgp *bgp, afi_t afi, safi_t safi)
+void bgp_zebra_withdraw(struct bgp_dest *dest, struct bgp_path_info *info,
+			struct bgp *bgp)
 {
 	struct zapi_route api;
 	struct peer *peer;
+	struct bgp_table *table = bgp_dest_table(dest);
+	const struct prefix *p = bgp_dest_get_prefix(dest);
 
 	/*
 	 * If we are withdrawing the route, we don't need to have this
@@ -1753,16 +1752,17 @@ void bgp_zebra_withdraw(const struct prefix *p, struct bgp_path_info *info,
 	if (!bgp_install_info_to_zebra(bgp))
 		return;
 
-	if (safi == SAFI_FLOWSPEC) {
+	if (table->safi == SAFI_FLOWSPEC) {
 		peer = info->peer;
-		bgp_pbr_update_entry(peer->bgp, p, info, afi, safi, false);
+		bgp_pbr_update_entry(peer->bgp, p, info, table->afi,
+				     table->safi, false);
 		return;
 	}
 
 	memset(&api, 0, sizeof(api));
 	api.vrf_id = bgp->vrf_id;
 	api.type = ZEBRA_ROUTE_BGP;
-	api.safi = safi;
+	api.safi = table->safi;
 	api.prefix = *p;
 
 	if (info->attr->rmap_table_id) {
@@ -1795,8 +1795,7 @@ void bgp_zebra_withdraw_table_all_subtypes(struct bgp *bgp, afi_t afi, safi_t sa
 		for (pi = bgp_dest_get_bgp_path_info(dest); pi; pi = pi->next) {
 			if (CHECK_FLAG(pi->flags, BGP_PATH_SELECTED)
 			    && (pi->type == ZEBRA_ROUTE_BGP))
-				bgp_zebra_withdraw(bgp_dest_get_prefix(dest),
-						   pi, bgp, afi, safi);
+				bgp_zebra_withdraw(dest, pi, bgp);
 		}
 	}
 }
