@@ -2138,6 +2138,7 @@ int mgmt_txn_notify_be_adapter_conn(struct mgmt_be_client_adapter *adapter,
 		if (!txn) {
 			MGMTD_TXN_ERR("Failed to create CONFIG Transaction for downloading CONFIGs for client '%s'",
 				      adapter->name);
+			nb_config_diff_del_changes(adapter_cfgs);
 			return -1;
 		}
 
