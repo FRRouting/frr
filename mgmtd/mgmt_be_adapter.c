@@ -608,27 +608,16 @@ static void mgmt_be_adapter_conn_init(struct event *thread)
 	assert(adapter && adapter->conn->fd >= 0);
 
 	/*
-	 * Check first if the current session can run a CONFIG
-	 * transaction or not. Reschedule if a CONFIG transaction
-	 * from another session is already in progress.
-	 */
-	if (mgmt_config_txn_in_progress() != MGMTD_SESSION_ID_NONE) {
-		zlog_err("XXX txn in progress, retry init");
-		mgmt_be_adapter_sched_init_event(adapter);
-		return;
-	}
-
-	/*
 	 * Notify TXN module to create a CONFIG transaction and
 	 * download the CONFIGs identified for this new client.
 	 * If the TXN module fails to initiate the CONFIG transaction
-	 * disconnect from the client forcing a reconnect later.
-	 * That should also take care of destroying the adapter.
+	 * retry a bit later. It only fails if there's an existing config
+	 * transaction in progress.
 	 */
 	if (mgmt_txn_notify_be_adapter_conn(adapter, true) != 0) {
-		zlog_err("XXX notify be adapter conn fail");
-		msg_conn_disconnect(adapter->conn, false);
-		adapter = NULL;
+		zlog_err("XXX txn in progress, retry init");
+		mgmt_be_adapter_sched_init_event(adapter);
+		return;
 	}
 }
 

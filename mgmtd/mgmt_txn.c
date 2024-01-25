@@ -1723,15 +1723,9 @@ static struct mgmt_txn_ctx *mgmt_txn_create_new(uint64_t session_id,
 {
 	struct mgmt_txn_ctx *txn = NULL;
 
-	/*
-	 * For 'CONFIG' transaction check if one is already created
-	 * or not. TODO: figure out what code counts on this and fix it.
-	 */
-	if (type == MGMTD_TXN_TYPE_CONFIG && mgmt_txn_mm->cfg_txn) {
-		if (mgmt_config_txn_in_progress() == session_id)
-			txn = mgmt_txn_mm->cfg_txn;
-		goto mgmt_create_txn_done;
-	}
+	/* Do not allow multiple config transactions */
+	if (type == MGMTD_TXN_TYPE_CONFIG && mgmt_config_txn_in_progress())
+		return NULL;
 
 	txn = mgmt_fe_find_txn_by_session_id(mgmt_txn_mm, session_id, type);
 	if (!txn) {
@@ -1761,7 +1755,6 @@ static struct mgmt_txn_ctx *mgmt_txn_create_new(uint64_t session_id,
 		MGMTD_TXN_LOCK(txn);
 	}
 
-mgmt_create_txn_done:
 	return txn;
 }
 
@@ -1949,12 +1942,12 @@ void mgmt_txn_destroy(void)
 	mgmt_txn_hash_destroy();
 }
 
-uint64_t mgmt_config_txn_in_progress(void)
+bool mgmt_config_txn_in_progress(void)
 {
 	if (mgmt_txn_mm && mgmt_txn_mm->cfg_txn)
-		return mgmt_txn_mm->cfg_txn->session_id;
+		return true;
 
-	return MGMTD_SESSION_ID_NONE;
+	return false;
 }
 
 uint64_t mgmt_create_txn(uint64_t session_id, enum mgmt_txn_type type)

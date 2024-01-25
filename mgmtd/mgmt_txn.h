@@ -71,12 +71,12 @@ extern int mgmt_txn_init(struct mgmt_master *cm, struct event_loop *tm);
 extern void mgmt_txn_destroy(void);
 
 /*
- * Check if transaction is in progress.
+ * Check if configuration transaction is in progress.
  *
  * Returns:
- *    session ID if in-progress, MGMTD_SESSION_ID_NONE otherwise.
+ *    true if in-progress, false otherwise.
  */
-extern uint64_t mgmt_config_txn_in_progress(void);
+extern bool mgmt_config_txn_in_progress(void);
 
 /**
  * Get the session ID associated with the given ``txn-id``.
