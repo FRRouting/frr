@@ -87,6 +87,7 @@ struct frr_daemon_info {
 	const char *vty_path;
 	const char *module_path;
 	const char *script_path;
+	char **state_paths;
 
 	const char *pathspace;
 	bool zpathspace;
@@ -161,6 +162,10 @@ extern void frr_vty_serv_stop(void);
 
 extern bool frr_zclient_addr(struct sockaddr_storage *sa, socklen_t *sa_len,
 			     const char *path);
+
+struct json_object;
+extern struct json_object *frr_daemon_state_load(void);
+extern void frr_daemon_state_save(struct json_object **statep);
 
 /* these two are before the protocol daemon does its own shutdown
  * it's named this way being the counterpart to frr_late_init */
