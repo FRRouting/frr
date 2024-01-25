@@ -105,10 +105,8 @@ void test_pcep_tlv_create_speaker_entity_id()
 	double_linked_list *list = dll_initialize();
 	tlv = pcep_tlv_create_speaker_entity_id(list);
 	CU_ASSERT_PTR_NULL(tlv);
-	if (tlv != NULL) {
+	if (tlv != NULL)
 		pceplib_free(PCEPLIB_INFRA, tlv);
-		tlv = NULL;
-	}
 
 	uint32_t *speaker_entity =
 		pceplib_malloc(PCEPLIB_MESSAGES, sizeof(uint32_t));
@@ -179,28 +177,22 @@ void test_pcep_tlv_create_path_setup_type_capability()
 	double_linked_list *pst_list = dll_initialize();
 	tlv = pcep_tlv_create_path_setup_type_capability(pst_list, NULL);
 	CU_ASSERT_PTR_NULL(tlv);
-	if (tlv != NULL) {
+	if (tlv != NULL)
 		pcep_obj_free_tlv(&tlv->header);
-		tlv = NULL;
-	}
 
 	/* Should still return NULL if pst_list is NULL */
 	double_linked_list *sub_tlv_list = dll_initialize();
 	tlv = pcep_tlv_create_path_setup_type_capability(NULL, sub_tlv_list);
 	CU_ASSERT_PTR_NULL(tlv);
-	if (tlv != NULL) {
+	if (tlv != NULL)
 		pcep_obj_free_tlv(&tlv->header);
-		tlv = NULL;
-	}
 
 	/* Should still return NULL if pst_list is empty */
 	tlv = pcep_tlv_create_path_setup_type_capability(pst_list,
 							 sub_tlv_list);
 	CU_ASSERT_PTR_NULL(tlv);
-	if (tlv != NULL) {
+	if (tlv != NULL)
 		pcep_obj_free_tlv(&tlv->header);
-		tlv = NULL;
-	}
 
 	/* Test only populating the pst list */
 	uint8_t *pst1 = pceplib_malloc(PCEPLIB_MESSAGES, 1);
