@@ -276,6 +276,7 @@ extern void zlog_tls_buffer_fini(void);
 
 /* Enable or disable 'immediate' output - default is to buffer messages. */
 extern void zlog_set_immediate(bool set_p);
+bool zlog_get_immediate_mode(void);
 
 extern const char *zlog_priority_str(int priority);
 

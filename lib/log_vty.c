@@ -902,6 +902,8 @@ void log_config_write(struct vty *vty)
 		vty_out(vty, "no log error-category\n");
 	if (!zlog_get_prefix_xid())
 		vty_out(vty, "no log unique-id\n");
+	if (zlog_get_immediate_mode())
+		vty_out(vty, "log immediate-mode\n");
 
 	if (logmsgs_with_persist_bt) {
 		struct xrefdata *xrd;
