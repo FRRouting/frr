@@ -430,17 +430,7 @@ static struct ospf6 *ospf6_create(const char *name)
 	/* Make ospf protocol socket. */
 	ospf6_serv_sock(o);
 
-	/* If sequence number is stored in persistent storage, read it.
-	 */
-	if (ospf6_auth_nvm_file_exist() == OSPF6_AUTH_FILE_EXIST) {
-		ospf6_auth_seqno_nvm_read(o);
-		o->seqnum_h = o->seqnum_h + 1;
-		ospf6_auth_seqno_nvm_update(o);
-	} else {
-		o->seqnum_l = o->seqnum_h = 0;
-		ospf6_auth_seqno_nvm_update(o);
-	}
-
+	ospf6_auth_init(o);
 	return o;
 }
 

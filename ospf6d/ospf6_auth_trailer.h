@@ -48,9 +48,9 @@ enum ospf6_auth_err {
 	OSPF6_AUTH_VALIDATE_SUCCESS = 0,
 	OSPF6_AUTH_VALIDATE_FAILURE,
 	OSPF6_AUTH_PROCESS_NORMAL,
-	OSPF6_AUTH_FILE_EXIST,
-	OSPF6_AUTH_FILE_DO_NOT_EXIST
 };
+
+void ospf6_auth_init(struct ospf6 *o);
 
 void ospf6_auth_hdr_dump_send(struct ospf6_header *ospfh, uint16_t length);
 void ospf6_auth_hdr_dump_recv(struct ospf6_header *ospfh, uint16_t length,
@@ -73,8 +73,5 @@ void ospf6_auth_digest_send(struct in6_addr *src, struct ospf6_interface *oi,
 void install_element_ospf6_debug_auth(void);
 int config_write_ospf6_debug_auth(struct vty *vty);
 void install_element_ospf6_clear_intf_auth(void);
-enum ospf6_auth_err ospf6_auth_nvm_file_exist(void);
-void ospf6_auth_seqno_nvm_update(struct ospf6 *ospf6);
-void ospf6_auth_seqno_nvm_delete(struct ospf6 *ospf6);
-void ospf6_auth_seqno_nvm_read(struct ospf6 *ospf6);
+
 #endif /* __OSPF6_AUTH_TRAILER_H__ */
