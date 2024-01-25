@@ -44,7 +44,7 @@ void pcep_object_error_types_test_teardown(void)
 {
 }
 
-void test_get_error_type_str()
+void test_get_error_type_str(void)
 {
 	const char *error_type_str;
 	int i = 0;
@@ -57,7 +57,7 @@ void test_get_error_type_str()
 	CU_ASSERT_PTR_NULL(get_error_type_str(MAX_ERROR_TYPE));
 }
 
-void test_get_error_value_str()
+void test_get_error_value_str(void)
 {
 	const char *error_value_str;
 	int i = 0, j = 0;
