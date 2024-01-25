@@ -555,21 +555,6 @@ static void ospf_gr_grace_period_expired(struct event *thread)
 	ospf_gr_restart_exit(ospf, "grace period has expired");
 }
 
-/*
- * Returns the path of the file (non-volatile memory) that contains GR status
- * information.
- */
-static char *ospf_gr_nvm_filepath(struct ospf *ospf)
-{
-	static char filepath[MAXPATHLEN];
-	char instance[16] = "";
-
-	if (ospf->instance)
-		snprintf(instance, sizeof(instance), "-%d", ospf->instance);
-	snprintf(filepath, sizeof(filepath), OSPFD_GR_STATE, instance);
-	return filepath;
-}
-
 /* Send extra Grace-LSA out the interface (unplanned outages only). */
 void ospf_gr_iface_send_grace_lsa(struct event *thread)
 {
@@ -591,18 +576,14 @@ void ospf_gr_iface_send_grace_lsa(struct event *thread)
  */
 static void ospf_gr_nvm_update(struct ospf *ospf, bool prepare)
 {
-	char *filepath;
 	const char *inst_name;
 	json_object *json;
 	json_object *json_instances;
 	json_object *json_instance;
 
-	filepath = ospf_gr_nvm_filepath(ospf);
 	inst_name = ospf_get_name(ospf);
 
-	json = json_object_from_file(filepath);
-	if (json == NULL)
-		json = json_object_new_object();
+	json = frr_daemon_state_load();
 
 	json_object_object_get_ex(json, "instances", &json_instances);
 	if (!json_instances) {
@@ -630,8 +611,7 @@ static void ospf_gr_nvm_update(struct ospf *ospf, bool prepare)
 		json_object_int_add(json_instance, "timestamp",
 				    time(NULL) + ospf->gr_info.grace_period);
 
-	json_object_to_file_ext(filepath, json, JSON_C_TO_STRING_PRETTY);
-	json_object_free(json);
+	frr_daemon_state_save(&json);
 }
 
 /*
@@ -640,17 +620,13 @@ static void ospf_gr_nvm_update(struct ospf *ospf, bool prepare)
  */
 void ospf_gr_nvm_delete(struct ospf *ospf)
 {
-	char *filepath;
 	const char *inst_name;
 	json_object *json;
 	json_object *json_instances;
 
-	filepath = ospf_gr_nvm_filepath(ospf);
 	inst_name = ospf_get_name(ospf);
 
-	json = json_object_from_file(filepath);
-	if (json == NULL)
-		json = json_object_new_object();
+	json = frr_daemon_state_load();
 
 	json_object_object_get_ex(json, "instances", &json_instances);
 	if (!json_instances) {
@@ -660,8 +636,7 @@ void ospf_gr_nvm_delete(struct ospf *ospf)
 
 	json_object_object_del(json_instances, inst_name);
 
-	json_object_to_file_ext(filepath, json, JSON_C_TO_STRING_PRETTY);
-	json_object_free(json);
+	frr_daemon_state_save(&json);
 }
 
 /*
@@ -670,7 +645,6 @@ void ospf_gr_nvm_delete(struct ospf *ospf)
  */
 void ospf_gr_nvm_read(struct ospf *ospf)
 {
-	char *filepath;
 	const char *inst_name;
 	json_object *json;
 	json_object *json_instances;
@@ -679,12 +653,9 @@ void ospf_gr_nvm_read(struct ospf *ospf)
 	json_object *json_grace_period;
 	time_t timestamp = 0;
 
-	filepath = ospf_gr_nvm_filepath(ospf);
 	inst_name = ospf_get_name(ospf);
 
-	json = json_object_from_file(filepath);
-	if (json == NULL)
-		json = json_object_new_object();
+	json = frr_daemon_state_load();
 
 	json_object_object_get_ex(json, "instances", &json_instances);
 	if (!json_instances) {
@@ -730,8 +701,7 @@ void ospf_gr_nvm_read(struct ospf *ospf)
 
 	json_object_object_del(json_instances, inst_name);
 
-	json_object_to_file_ext(filepath, json, JSON_C_TO_STRING_PRETTY);
-	json_object_free(json);
+	frr_daemon_state_save(&json);
 }
 
 void ospf_gr_unplanned_start_interface(struct ospf_interface *oi)

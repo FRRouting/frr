@@ -45,6 +45,16 @@
 #include "ospfd/ospf_ldp_sync.h"
 #include "ospfd/ospf_routemap_nb.h"
 
+#define OSPFD_STATE_NAME	 "%s/ospfd.json", frr_libstatedir
+#define OSPFD_INST_STATE_NAME(i) "%s/ospfd-%d.json", frr_runstatedir, i
+
+/* this one includes the path... because the instance number was in the path
+ * before :( ... which totally didn't have a mkdir anywhere.
+ */
+#define OSPFD_COMPAT_STATE_NAME "%s/ospfd-gr.json", frr_libstatedir
+#define OSPFD_COMPAT_INST_STATE_NAME(i)                                        \
+	"%s-%d/ospfd-gr.json", frr_runstatedir, i
+
 /* ospfd privileges */
 zebra_capabilities_t _caps_p[] = {ZCAP_NET_RAW, ZCAP_BIND, ZCAP_NET_ADMIN,
 				  ZCAP_SYS_ADMIN};
@@ -126,6 +136,15 @@ static const struct frr_yang_module_info *const ospfd_yang_modules[] = {
 	&frr_ospf_route_map_info,
 };
 
+/* actual paths filled in main() */
+static char state_path[512];
+static char state_compat_path[512];
+static char *state_paths[] = {
+	state_path,
+	state_compat_path,
+	NULL,
+};
+
 /* clang-format off */
 FRR_DAEMON_INFO(ospfd, OSPF,
 	.vty_port = OSPF_VTY_PORT,
@@ -138,6 +157,8 @@ FRR_DAEMON_INFO(ospfd, OSPF,
 
 	.yang_modules = ospfd_yang_modules,
 	.n_yang_modules = array_size(ospfd_yang_modules),
+
+	.state_paths = state_paths,
 );
 /* clang-format on */
 
@@ -211,6 +232,17 @@ int main(int argc, char **argv)
 		errno = EPERM;
 		perror(ospfd_di.progname);
 		exit(1);
+	}
+
+	if (ospf_instance) {
+		snprintf(state_path, sizeof(state_path),
+			 OSPFD_INST_STATE_NAME(ospf_instance));
+		snprintf(state_compat_path, sizeof(state_compat_path),
+			 OSPFD_COMPAT_INST_STATE_NAME(ospf_instance));
+	} else {
+		snprintf(state_path, sizeof(state_path), OSPFD_STATE_NAME);
+		snprintf(state_compat_path, sizeof(state_compat_path),
+			 OSPFD_COMPAT_STATE_NAME);
 	}
 
 	/* OSPF master init. */
