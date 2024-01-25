@@ -719,6 +719,7 @@ class TopoRouter(TopoGear):
         "/etc/frr",
         "/etc/snmp",
         "/var/run/frr",
+        "/var/lib/frr",
         "/var/log",
     ]
 

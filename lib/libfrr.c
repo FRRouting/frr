@@ -46,6 +46,7 @@ DEFINE_KOOH(frr_fini, (), ());
 
 const char frr_sysconfdir[] = SYSCONFDIR;
 char frr_runstatedir[256] = FRR_RUNSTATE_PATH;
+char frr_libstatedir[256] = FRR_LIBSTATE_PATH;
 #ifdef HAVE_SQLITE3
 const char frr_dbdir[] = DAEMON_DB_DIR;
 #endif
@@ -497,6 +498,8 @@ static int frr_opt(int opt)
 
 		snprintf(frr_runstatedir, sizeof(frr_runstatedir),
 			 FRR_RUNSTATE_PATH "/%s", di->pathspace);
+		snprintf(frr_libstatedir, sizeof(frr_libstatedir),
+			 FRR_LIBSTATE_PATH "/%s", di->pathspace);
 		snprintf(pidfile_default, sizeof(pidfile_default), "%s/%s.pid",
 			 frr_runstatedir, di->name);
 		if (!di->zpathspace)
@@ -754,6 +757,7 @@ struct event_loop *frr_init(void)
 
 	/* don't mkdir these as root... */
 	if (!(di->flags & FRR_NO_PRIVSEP)) {
+		frr_mkdir(frr_libstatedir, false);
 		if (!di->pid_file || !di->vty_path)
 			frr_mkdir(frr_runstatedir, false);
 		if (di->pid_file)

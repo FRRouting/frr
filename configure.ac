@@ -91,6 +91,8 @@ if $path_warn_banner; then
   AC_MSG_WARN([^])
 fi
 
+frr_libstatedir="\${localstatedir}/lib/frr"
+
 dnl -----------------------------------
 dnl Get hostname and other information.
 dnl -----------------------------------
@@ -2718,6 +2720,7 @@ AX_RECURSIVE_EVAL([$frr_sysconfdir],  [CFG_SYSCONF])
 AX_RECURSIVE_EVAL([$sbindir],         [CFG_SBIN])
 AX_RECURSIVE_EVAL([$bindir],          [CFG_BIN])
 AX_RECURSIVE_EVAL([$frr_runstatedir], [CFG_STATE])
+AX_RECURSIVE_EVAL([$frr_libstatedir], [CFG_LIBSTATE])
 AX_RECURSIVE_EVAL([$moduledir],       [CFG_MODULE])
 AX_RECURSIVE_EVAL([$yangmodelsdir],   [CFG_YANGMODELS])
 AX_RECURSIVE_EVAL([$scriptdir],       [CFG_SCRIPT])
@@ -2726,6 +2729,7 @@ AC_SUBST([CFG_SYSCONF])
 AC_SUBST([CFG_SBIN])
 AC_SUBST([CFG_BIN])
 AC_SUBST([CFG_STATE])
+dnl AC_SUBST([CFG_LIBSTATE]) -- not currently used
 AC_SUBST([CFG_MODULE])
 AC_SUBST([CFG_SCRIPT])
 AC_SUBST([CFG_YANGMODELS])
@@ -2733,6 +2737,7 @@ AC_DEFINE_UNQUOTED([VTYSH_BIN_PATH], ["$vtysh_bin"], [path to vtysh binary])
 AC_DEFINE_UNQUOTED([MODULE_PATH], ["$CFG_MODULE"], [path to modules])
 AC_DEFINE_UNQUOTED([SCRIPT_PATH], ["$CFG_SCRIPT"], [path to scripts])
 AC_DEFINE_UNQUOTED([FRR_RUNSTATE_PATH], ["$CFG_STATE"], [/run/frr equivalent])
+AC_DEFINE_UNQUOTED([FRR_LIBSTATE_PATH], ["$CFG_LIBSTATE"], [/var/lib/frr equivalent])
 AC_DEFINE_UNQUOTED([YANG_MODELS_PATH], ["$CFG_YANGMODELS"], [path to YANG data models])
 AC_DEFINE_UNQUOTED([WATCHFRR_SH_PATH], ["${CFG_SBIN%/}/watchfrr.sh"], [path to watchfrr.sh])
 

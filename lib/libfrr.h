@@ -174,6 +174,7 @@ extern char config_default[512];
 extern char frr_zclientpath[512];
 extern const char frr_sysconfdir[];
 extern char frr_runstatedir[256];
+extern char frr_libstatedir[256];
 extern const char frr_moduledir[];
 extern const char frr_scriptdir[];
 

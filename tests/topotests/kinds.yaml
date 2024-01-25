@@ -12,6 +12,7 @@ kinds:
       - "./%NAME%:/etc/frr"
       - "%RUNDIR%/var.log.frr:/var/log/frr"
       - "%RUNDIR%/var.run.frr:/var/run/frr"
+      - "%RUNDIR%/var.lib.frr:/var/lib/frr"
     cap-add:
       - SYS_ADMIN
       - AUDIT_WRITE
