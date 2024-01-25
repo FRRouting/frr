@@ -1300,39 +1300,39 @@ struct peer {
 	uint8_t afc_recv[AFI_MAX][SAFI_MAX];
 
 	/* Capability flags (reset in bgp_stop) */
-	uint32_t cap;
-#define PEER_CAP_REFRESH_ADV                (1U << 0) /* refresh advertised */
-#define PEER_CAP_REFRESH_RCV                (1U << 2) /* refresh rfc received */
-#define PEER_CAP_DYNAMIC_ADV                (1U << 3) /* dynamic advertised */
-#define PEER_CAP_DYNAMIC_RCV                (1U << 4) /* dynamic received */
-#define PEER_CAP_RESTART_ADV                (1U << 5) /* restart advertised */
-#define PEER_CAP_RESTART_RCV                (1U << 6) /* restart received */
-#define PEER_CAP_AS4_ADV                    (1U << 7) /* as4 advertised */
-#define PEER_CAP_AS4_RCV                    (1U << 8) /* as4 received */
+	uint64_t cap;
+#define PEER_CAP_REFRESH_ADV (1ULL << 0) /* refresh advertised */
+#define PEER_CAP_REFRESH_RCV (1ULL << 2) /* refresh rfc received */
+#define PEER_CAP_DYNAMIC_ADV (1ULL << 3) /* dynamic advertised */
+#define PEER_CAP_DYNAMIC_RCV (1ULL << 4) /* dynamic received */
+#define PEER_CAP_RESTART_ADV (1ULL << 5) /* restart advertised */
+#define PEER_CAP_RESTART_RCV (1ULL << 6) /* restart received */
+#define PEER_CAP_AS4_ADV     (1ULL << 7) /* as4 advertised */
+#define PEER_CAP_AS4_RCV     (1ULL << 8) /* as4 received */
 /* sent graceful-restart restart (R) bit */
-#define PEER_CAP_GRACEFUL_RESTART_R_BIT_ADV (1U << 9)
+#define PEER_CAP_GRACEFUL_RESTART_R_BIT_ADV (1ULL << 9)
 /* received graceful-restart restart (R) bit */
-#define PEER_CAP_GRACEFUL_RESTART_R_BIT_RCV (1U << 10)
-#define PEER_CAP_ADDPATH_ADV                (1U << 11) /* addpath advertised */
-#define PEER_CAP_ADDPATH_RCV                (1U << 12) /* addpath received */
-#define PEER_CAP_ENHE_ADV                   (1U << 13) /* Extended nexthop advertised */
-#define PEER_CAP_ENHE_RCV                   (1U << 14) /* Extended nexthop received */
-#define PEER_CAP_HOSTNAME_ADV               (1U << 15) /* hostname advertised */
-#define PEER_CAP_HOSTNAME_RCV               (1U << 16) /* hostname received */
-#define PEER_CAP_ENHANCED_RR_ADV (1U << 17) /* enhanced rr advertised */
-#define PEER_CAP_ENHANCED_RR_RCV (1U << 18) /* enhanced rr received */
-#define PEER_CAP_EXTENDED_MESSAGE_ADV (1U << 19)
-#define PEER_CAP_EXTENDED_MESSAGE_RCV (1U << 20)
-#define PEER_CAP_LLGR_ADV (1U << 21)
-#define PEER_CAP_LLGR_RCV (1U << 22)
+#define PEER_CAP_GRACEFUL_RESTART_R_BIT_RCV (1ULL << 10)
+#define PEER_CAP_ADDPATH_ADV		    (1ULL << 11) /* addpath advertised */
+#define PEER_CAP_ADDPATH_RCV		    (1ULL << 12) /* addpath received */
+#define PEER_CAP_ENHE_ADV		    (1ULL << 13) /* Extended nexthop advertised */
+#define PEER_CAP_ENHE_RCV		    (1ULL << 14) /* Extended nexthop received */
+#define PEER_CAP_HOSTNAME_ADV		    (1ULL << 15) /* hostname advertised */
+#define PEER_CAP_HOSTNAME_RCV		    (1ULL << 16) /* hostname received */
+#define PEER_CAP_ENHANCED_RR_ADV	    (1ULL << 17) /* enhanced rr advertised */
+#define PEER_CAP_ENHANCED_RR_RCV	    (1ULL << 18) /* enhanced rr received */
+#define PEER_CAP_EXTENDED_MESSAGE_ADV	    (1ULL << 19)
+#define PEER_CAP_EXTENDED_MESSAGE_RCV	    (1ULL << 20)
+#define PEER_CAP_LLGR_ADV		    (1ULL << 21)
+#define PEER_CAP_LLGR_RCV		    (1ULL << 22)
 /* sent graceful-restart notification (N) bit */
-#define PEER_CAP_GRACEFUL_RESTART_N_BIT_ADV (1U << 23)
+#define PEER_CAP_GRACEFUL_RESTART_N_BIT_ADV (1ULL << 23)
 /* received graceful-restart notification (N) bit */
-#define PEER_CAP_GRACEFUL_RESTART_N_BIT_RCV (1U << 24)
-#define PEER_CAP_ROLE_ADV                   (1U << 25) /* role advertised */
-#define PEER_CAP_ROLE_RCV                   (1U << 26) /* role received */
-#define PEER_CAP_SOFT_VERSION_ADV (1U << 27)
-#define PEER_CAP_SOFT_VERSION_RCV (1U << 28)
+#define PEER_CAP_GRACEFUL_RESTART_N_BIT_RCV (1ULL << 24)
+#define PEER_CAP_ROLE_ADV		    (1ULL << 25) /* role advertised */
+#define PEER_CAP_ROLE_RCV		    (1ULL << 26) /* role received */
+#define PEER_CAP_SOFT_VERSION_ADV	    (1ULL << 27)
+#define PEER_CAP_SOFT_VERSION_RCV	    (1ULL << 28)
 
 	/* Capability flags (reset in bgp_stop) */
 	uint32_t af_cap[AFI_MAX][SAFI_MAX];

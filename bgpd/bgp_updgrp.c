@@ -453,14 +453,14 @@ static unsigned int updgrp_hash_key_make(const void *p)
 			   peer, peer->sort, peer->sub_sort,
 			   (intmax_t)CHECK_FLAG(peer->flags, PEER_UPDGRP_FLAGS),
 			   (intmax_t)CHECK_FLAG(flags, PEER_UPDGRP_AF_FLAGS));
-		zlog_debug(
-			"%pBP Update Group Hash: addpath: %u UpdGrpCapFlag: %u UpdGrpCapAFFlag: %u route_adv: %u change local as: %u, as_path_loop_detection: %d",
-			peer, (uint32_t)peer->addpath_type[afi][safi],
-			CHECK_FLAG(peer->cap, PEER_UPDGRP_CAP_FLAGS),
-			CHECK_FLAG(peer->af_cap[afi][safi],
-				   PEER_UPDGRP_AF_CAP_FLAGS),
-			peer->v_routeadv, peer->change_local_as,
-			peer->as_path_loop_detection);
+		zlog_debug("%pBP Update Group Hash: addpath: %u UpdGrpCapFlag: %ju UpdGrpCapAFFlag: %u route_adv: %u change local as: %u, as_path_loop_detection: %d",
+			   peer, (uint32_t)peer->addpath_type[afi][safi],
+			   (intmax_t)CHECK_FLAG(peer->cap,
+						PEER_UPDGRP_CAP_FLAGS),
+			   CHECK_FLAG(peer->af_cap[afi][safi],
+				      PEER_UPDGRP_AF_CAP_FLAGS),
+			   peer->v_routeadv, peer->change_local_as,
+			   peer->as_path_loop_detection);
 		zlog_debug(
 			"%pBP Update Group Hash: max packet size: %u pmax_out: %u Peer Group: %s rmap out: %s",
 			peer, peer->max_packet_size, peer->pmax_out[afi][safi],
