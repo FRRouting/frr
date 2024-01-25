@@ -398,10 +398,8 @@ void test_pcep_msg_create_update()
 	/* Should return NULL if obj_list is empty */
 	message = pcep_msg_create_update(obj_list);
 	CU_ASSERT_PTR_NULL(message);
-	if (message != NULL) {
+	if (message != NULL)
 		pcep_msg_free_message(message);
-		message = NULL;
-	}
 
 	struct pcep_object_srp *srp = pcep_obj_create_srp(false, 100, NULL);
 	struct pcep_object_lsp *lsp =
@@ -417,10 +415,9 @@ void test_pcep_msg_create_update()
 	CU_ASSERT_PTR_NULL(message);
 
 	dll_append(obj_list, ero);
-	if (message != NULL) {
+	if (message != NULL)
 		pcep_msg_free_message(message);
-		message = NULL;
-	}
+
 	message = pcep_msg_create_update(obj_list);
 	CU_ASSERT_PTR_NOT_NULL(message);
 	pcep_encode_message(message, versioning);
@@ -450,10 +447,8 @@ void test_pcep_msg_create_initiate()
 	/* Should return NULL if obj_list is empty */
 	struct pcep_message *message = pcep_msg_create_initiate(NULL);
 	CU_ASSERT_PTR_NULL(message);
-	if (message != NULL) {
+	if (message != NULL)
 		pcep_msg_free_message(message);
-		message = NULL;
-	}
 
 	struct pcep_object_srp *srp = pcep_obj_create_srp(false, 100, NULL);
 	struct pcep_object_lsp *lsp =
@@ -466,10 +461,8 @@ void test_pcep_msg_create_initiate()
 	dll_append(obj_list, srp);
 	message = pcep_msg_create_initiate(obj_list);
 	CU_ASSERT_PTR_NULL(message);
-	if (message != NULL) {
+	if (message != NULL)
 		pcep_msg_free_message(message);
-		message = NULL;
-	}
 
 	dll_append(obj_list, lsp);
 	dll_append(obj_list, ero);
