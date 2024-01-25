@@ -318,7 +318,7 @@ static int mgmt_be_send_subscr_reply(struct mgmt_be_client_adapter *adapter,
 	be_msg.message_case = MGMTD__BE_MESSAGE__MESSAGE_SUBSCR_REPLY;
 	be_msg.subscr_reply = &reply;
 
-	MGMTD_FE_CLIENT_DBG("Sending SUBSCR_REPLY client: %s sucess: %u",
+	MGMTD_BE_CLIENT_DBG("Sending SUBSCR_REPLY client: %s sucess: %u",
 			    adapter->name, success);
 
 	return mgmt_be_adapter_send_msg(adapter, &be_msg);
