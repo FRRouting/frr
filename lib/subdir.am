@@ -131,6 +131,7 @@ lib_libfrr_la_SOURCES = \
 	lib/zlog_5424.c \
 	lib/zlog_5424_cli.c \
 	lib/zlog_live.c \
+	lib/zlog_recirculate.c \
 	lib/zlog_targets.c \
 	lib/printf/printf-pos.c \
 	lib/printf/vfprintf.c \
@@ -329,6 +330,7 @@ pkginclude_HEADERS += \
 	lib/zlog.h \
 	lib/zlog_5424.h \
 	lib/zlog_live.h \
+	lib/zlog_recirculate.h \
 	lib/zlog_targets.h \
 	lib/pbr.h \
 	lib/tc.h \
