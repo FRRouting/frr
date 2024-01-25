@@ -32,7 +32,6 @@ enum mgmt_txn_event {
 	MGMTD_TXN_PROC_GETTREE,
 	MGMTD_TXN_COMMITCFG_TIMEOUT,
 	MGMTD_TXN_GETTREE_TIMEOUT,
-	MGMTD_TXN_CLEANUP
 };
 
 PREDECL_LIST(mgmt_txn_reqs);
@@ -281,6 +280,8 @@ static struct mgmt_master *mgmt_txn_mm;
 static void mgmt_txn_register_event(struct mgmt_txn_ctx *txn,
 				    enum mgmt_txn_event event);
 
+static void mgmt_txn_cleanup_txn(struct mgmt_txn_ctx **txn);
+
 static struct mgmt_txn_be_cfg_batch *
 mgmt_txn_cfg_batch_alloc(struct mgmt_txn_ctx *txn, enum mgmt_be_client_id id,
 			 struct mgmt_be_client_adapter *be_adapter)
@@ -409,7 +410,6 @@ static struct mgmt_txn_req *mgmt_txn_req_alloc(struct mgmt_txn_ctx *txn,
 		break;
 	case MGMTD_TXN_COMMITCFG_TIMEOUT:
 	case MGMTD_TXN_GETTREE_TIMEOUT:
-	case MGMTD_TXN_CLEANUP:
 		break;
 	}
 
@@ -518,7 +518,6 @@ static void mgmt_txn_req_free(struct mgmt_txn_req **txn_req)
 		break;
 	case MGMTD_TXN_COMMITCFG_TIMEOUT:
 	case MGMTD_TXN_GETTREE_TIMEOUT:
-	case MGMTD_TXN_CLEANUP:
 		break;
 	}
 
@@ -781,7 +780,7 @@ static int mgmt_txn_send_commit_cfg_reply(struct mgmt_txn_ctx *txn,
 	 * we need to cleanup by itself.
 	 */
 	if (!txn->session_id)
-		mgmt_txn_register_event(txn, MGMTD_TXN_CLEANUP);
+		mgmt_txn_cleanup_txn(&txn);
 
 	return 0;
 }
@@ -1455,11 +1454,6 @@ static void mgmt_txn_process_commit_cfg(struct event *thread)
 	case MGMTD_COMMIT_PHASE_MAX:
 		break;
 	}
-
-	MGMTD_TXN_DBG("txn-id:%" PRIu64 " session-id: %" PRIu64
-		      " phase updated to '%s'",
-		      txn->txn_id, txn->session_id,
-		      mgmt_txn_commit_phase_str(txn));
 }
 
 static void mgmt_init_get_data_reply(struct mgmt_get_data_reply *get_reply)
@@ -1539,7 +1533,6 @@ static void mgmt_txn_send_getcfg_reply_data(struct mgmt_txn_req *txn_req,
 	case MGMTD_TXN_PROC_GETTREE:
 	case MGMTD_TXN_GETTREE_TIMEOUT:
 	case MGMTD_TXN_COMMITCFG_TIMEOUT:
-	case MGMTD_TXN_CLEANUP:
 		MGMTD_TXN_ERR("Invalid Txn-Req-Event %u", txn_req->req_event);
 		break;
 	}
@@ -1898,16 +1891,6 @@ static void mgmt_txn_cleanup_all_txns(void)
 		mgmt_txn_cleanup_txn(&txn);
 }
 
-static void mgmt_txn_cleanup(struct event *thread)
-{
-	struct mgmt_txn_ctx *txn;
-
-	txn = (struct mgmt_txn_ctx *)EVENT_ARG(thread);
-	assert(txn);
-
-	mgmt_txn_cleanup_txn(&txn);
-}
-
 static void mgmt_txn_register_event(struct mgmt_txn_ctx *txn,
 				    enum mgmt_txn_event event)
 {
@@ -1938,11 +1921,6 @@ static void mgmt_txn_register_event(struct mgmt_txn_ctx *txn,
 		event_add_timer(mgmt_txn_tm, txn_get_tree_timeout, txn,
 				MGMTD_TXN_GET_TREE_MAX_DELAY_SEC,
 				&txn->get_tree_timeout);
-		break;
-	case MGMTD_TXN_CLEANUP:
-		tv.tv_usec = MGMTD_TXN_CLEANUP_DELAY_USEC;
-		event_add_timer_tv(mgmt_txn_tm, mgmt_txn_cleanup, txn, &tv,
-				   &txn->clnup);
 		break;
 	case MGMTD_TXN_PROC_GETTREE:
 		assert(!"code bug do not register this event");
@@ -2528,7 +2506,6 @@ int mgmt_txn_notify_error(struct mgmt_be_client_adapter *adapter,
 	case MGMTD_TXN_PROC_GETCFG:
 	case MGMTD_TXN_COMMITCFG_TIMEOUT:
 	case MGMTD_TXN_GETTREE_TIMEOUT:
-	case MGMTD_TXN_CLEANUP:
 	default:
 		assert(!"non-native req event in native erorr path");
 		return -1;
