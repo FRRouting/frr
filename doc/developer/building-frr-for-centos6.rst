@@ -161,10 +161,8 @@ an example.)
     ./configure \
         --bindir=/usr/bin \
         --sbindir=/usr/lib/frr \
-        --sysconfdir=/etc/frr \
         --libdir=/usr/lib/frr \
         --libexecdir=/usr/lib/frr \
-        --localstatedir=/var/run/frr \
         --with-moduledir=/usr/lib/frr/modules \
         --disable-pimd \
         --enable-snmp=agentx \

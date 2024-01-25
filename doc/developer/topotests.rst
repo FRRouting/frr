@@ -113,9 +113,9 @@ If you prefer to manually build FRR, then use the following suggested config:
 
    ./configure \
        --prefix=/usr \
-       --localstatedir=/var/run/frr \
+       --sysconfdir=/etc \
+       --localstatedir=/var \
        --sbindir=/usr/lib/frr \
-       --sysconfdir=/etc/frr \
        --enable-vtysh \
        --enable-pimd \
        --enable-pim6d \
@@ -383,8 +383,9 @@ for ``master`` branch:
    ./bootstrap.sh
    ./configure \
        --enable-address-sanitizer \
-       --prefix=/usr/lib/frr --sysconfdir=/etc/frr \
-       --localstatedir=/var/run/frr \
+       --prefix=/usr/lib/frr \
+       --sysconfdir=/etc \
+       --localstatedir=/var \
        --sbindir=/usr/lib/frr --bindir=/usr/lib/frr \
        --with-moduledir=/usr/lib/frr/modules \
        --enable-multipath=0 --enable-rtadv \

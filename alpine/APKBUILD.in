@@ -28,9 +28,7 @@ source="$pkgname-$pkgver.tar.gz"
 builddir="$srcdir"/$pkgname-$pkgver
 
 _sbindir=/usr/lib/frr
-_sysconfdir=/etc/frr
 _libdir=/usr/lib
-_localstatedir=/var/run/frr
 _user=frr
 
 build() {
@@ -38,10 +36,10 @@ build() {
 
 	./configure \
 		--prefix=/usr \
+		--sysconfdir=/etc \
+		--localstatedir=/var \
 		--sbindir=$_sbindir \
-		--sysconfdir=$_sysconfdir \
 		--libdir=$_libdir \
-		--localstatedir=$_localstatedir \
 		--enable-rpki \
 		--enable-vtysh \
 		--enable-multipath=64 \

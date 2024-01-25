@@ -42,8 +42,9 @@
 %define     zeb_docs    %{zeb_src}/doc
 %define     frr_tools   %{zeb_src}/tools
 
-# defines for configure
-%define     rundir  %{_localstatedir}/run/%{name}
+%if 0%{!?_runstatedir:1}
+%define _runstatedir %{_localstatedir}/run
+%endif
 
 ############################################################################
 
@@ -317,8 +318,8 @@ routing state through standard SNMP MIBs.
 
 %configure \
     --sbindir=%{_sbindir} \
-    --sysconfdir=%{configdir} \
-    --localstatedir=%{rundir} \
+    --sysconfdir=%{_sysconfdir} \
+    --localstatedir=%{_localstatedir} \
     --disable-static \
     --disable-werror \
     --enable-irdp \
@@ -471,7 +472,7 @@ install %{zeb_src}/tools/etc/frr/daemons %{buildroot}%{_sysconfdir}/frr
 install %{zeb_src}/tools/etc/frr/frr.conf %{buildroot}%{_sysconfdir}/frr/frr.conf.template
 install -m644 %{zeb_rh_src}/frr.pam %{buildroot}%{_sysconfdir}/pam.d/frr
 install -m644 %{zeb_src}/tools/etc/logrotate.d/frr %{buildroot}%{_sysconfdir}/logrotate.d/frr
-install -d -m750 %{buildroot}%{rundir}
+install -d -m750 %{buildroot}%{_runstatedir}/frr
 
 %if 0%{?rhel} > 7 || 0%{?fedora} > 29
 # avoid `ERROR: ambiguous python shebang in` errors
@@ -495,7 +496,7 @@ rm -f %{buildroot}%{_sbindir}/ospfclient.py
     getent passwd %{frr_user} >/dev/null || \
     useradd -r -u %{frr_uid} -g %{frr_user} \
         -s /sbin/nologin -c "FRRouting suite" \
-        -d %{rundir} %{frr_user}
+        -d %{_runstatedir}/frr %{frr_user}
 
     %if 0%{?vty_group:1}
         usermod -a -G %{vty_group} %{frr_user}
@@ -655,11 +656,11 @@ fi
 %if 0%{?frr_user:1}
     %dir %attr(751,%{frr_user},%{frr_user}) %{configdir}
     %dir %attr(755,%{frr_user},%{frr_user}) %{_localstatedir}/log/frr
-    %dir %attr(751,%{frr_user},%{frr_user}) %{rundir}
+    %dir %attr(751,%{frr_user},%{frr_user}) %{_runstatedir}/frr
 %else
     %dir %attr(750,root,root) %{configdir}
     %dir %attr(755,root,root) %{_localstatedir}/log/frr
-    %dir %attr(750,root,root) %{rundir}
+    %dir %attr(750,root,root) %{_runstatedir}/frr
 %endif
 %{_infodir}/frr.info.gz
 %{_mandir}/man*/*

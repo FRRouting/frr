@@ -57,9 +57,9 @@ an example.)
     cd frr
     ./bootstrap.sh
     ./configure \
-        --localstatedir=/var/run/frr \
+        --sysconfdir=/etc \
+        --localstatedir=/var \
         --sbindir=/usr/lib/frr \
-        --sysconfdir=/etc/frr \
         --enable-multipath=64 \
         --enable-user=frr \
         --enable-group=frr \
@@ -118,9 +118,9 @@ Troubleshooting
 
 The local state directory must exist and have the correct permissions
 applied for the frrouting daemons to start. In the above ./configure
-example the local state directory is set to /var/run/frr
-(--localstatedir=/var/run/frr) Debian considers /var/run/frr to be
-temporary and this is removed after a reboot.
+example the local state directory is set to ``/var`` such that ``/var/run/frr``
+is used. Debian considers ``/var/run/frr`` to be temporary and this is removed
+after a reboot.
 
 When using a different local state directory you need to create the new
 directory and change the ownership to the frr user, for example:
