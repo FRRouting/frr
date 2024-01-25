@@ -1017,7 +1017,8 @@ enum peer_gr_command {
 	NO_PEER_HELPER_CMD
 };
 
-typedef unsigned int  (*bgp_peer_gr_action_ptr)(struct peer *, int, int);
+typedef unsigned int (*bgp_peer_gr_action_ptr)(struct peer *, enum peer_mode,
+					       enum peer_mode);
 
 struct bgp_peer_gr {
 	enum peer_mode next_state;
