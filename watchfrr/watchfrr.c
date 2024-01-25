@@ -32,6 +32,8 @@
 #include "watchfrr.h"
 #include "watchfrr_errors.h"
 
+#include "lib/config_paths.h"
+
 #ifndef MIN
 #define MIN(X,Y) (((X) <= (Y)) ? (X) : (Y))
 #endif

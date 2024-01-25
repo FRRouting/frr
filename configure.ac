@@ -2715,31 +2715,26 @@ fi
 AC_SUBST([CONFDATE])
 
 dnl get the full path, recursing through variables...
-AX_RECURSIVE_EVAL([$bindir/vtysh],    [vtysh_bin])
-AX_RECURSIVE_EVAL([$frr_sysconfdir],  [CFG_SYSCONF])
-AX_RECURSIVE_EVAL([$sbindir],         [CFG_SBIN])
-AX_RECURSIVE_EVAL([$bindir],          [CFG_BIN])
-AX_RECURSIVE_EVAL([$frr_runstatedir], [CFG_STATE])
-AX_RECURSIVE_EVAL([$frr_libstatedir], [CFG_LIBSTATE])
-AX_RECURSIVE_EVAL([$moduledir],       [CFG_MODULE])
-AX_RECURSIVE_EVAL([$yangmodelsdir],   [CFG_YANGMODELS])
-AX_RECURSIVE_EVAL([$scriptdir],       [CFG_SCRIPT])
-AC_SUBST([vtysh_bin])
-AC_SUBST([CFG_SYSCONF])
-AC_SUBST([CFG_SBIN])
-AC_SUBST([CFG_BIN])
-AC_SUBST([CFG_STATE])
-dnl AC_SUBST([CFG_LIBSTATE]) -- not currently used
-AC_SUBST([CFG_MODULE])
-AC_SUBST([CFG_SCRIPT])
-AC_SUBST([CFG_YANGMODELS])
-AC_DEFINE_UNQUOTED([VTYSH_BIN_PATH], ["$vtysh_bin"], [path to vtysh binary])
-AC_DEFINE_UNQUOTED([MODULE_PATH], ["$CFG_MODULE"], [path to modules])
-AC_DEFINE_UNQUOTED([SCRIPT_PATH], ["$CFG_SCRIPT"], [path to scripts])
-AC_DEFINE_UNQUOTED([FRR_RUNSTATE_PATH], ["$CFG_STATE"], [/run/frr equivalent])
-AC_DEFINE_UNQUOTED([FRR_LIBSTATE_PATH], ["$CFG_LIBSTATE"], [/var/lib/frr equivalent])
-AC_DEFINE_UNQUOTED([YANG_MODELS_PATH], ["$CFG_YANGMODELS"], [path to YANG data models])
-AC_DEFINE_UNQUOTED([WATCHFRR_SH_PATH], ["${CFG_SBIN%/}/watchfrr.sh"], [path to watchfrr.sh])
+AC_DEFUN([AX_SUBST_EXPANDED], [
+  AX_RECURSIVE_EVAL([[$]$1], [e_$1])
+  AC_SUBST([e_$1])
+])
+
+AX_SUBST_EXPANDED([bindir])
+AX_SUBST_EXPANDED([sbindir])
+AX_SUBST_EXPANDED([frr_sysconfdir])
+AX_SUBST_EXPANDED([frr_runstatedir])
+AX_SUBST_EXPANDED([frr_libstatedir])
+AX_SUBST_EXPANDED([moduledir])
+AX_SUBST_EXPANDED([yangmodelsdir])
+AX_SUBST_EXPANDED([scriptdir])
+
+dnl strip duplicate trailing slashes if necessary
+dnl note this uses e_bindir / e_sbindir created above
+watchfrr_sh="\${e_sbindir%/}/watchfrr.sh"
+AX_SUBST_EXPANDED([watchfrr_sh])
+vtysh_bin="\${e_bindir%/}/vtysh"
+AX_SUBST_EXPANDED([vtysh_bin])
 
 dnl various features
 AM_CONDITIONAL([SUPPORT_REALMS], [test "$enable_realms" = "yes"])
@@ -2811,6 +2806,7 @@ AC_CONFIG_FILES([
 	  alpine/APKBUILD
 	  snapcraft/snapcraft.yaml
 	  lib/version.h
+	  lib/config_paths.h
 	  tests/lib/cli/test_cli.refout pkgsrc/mgmtd.sh
 	  pkgsrc/bgpd.sh pkgsrc/ospf6d.sh pkgsrc/ospfd.sh
 	  pkgsrc/ripd.sh pkgsrc/ripngd.sh pkgsrc/zebra.sh
@@ -2898,10 +2894,10 @@ compiler                : ${CC}
 compiler flags          : ${CFLAGS} ${WERROR} ${AC_CFLAGS} ${SAN_FLAGS}
 make                    : ${MAKE-make}
 linker flags            : ${LDFLAGS} ${SAN_FLAGS} ${LIBS} ${LIBCAP} ${LIBREADLINE} ${LIBM}
-state file directory    : ${CFG_STATE}
-config file directory   : ${CFG_SYSCONF}
-module directory        : ${CFG_MODULE}
-script directory        : ${CFG_SCRIPT}
+state file directory    : ${e_frr_runstatedir}
+config file directory   : ${e_sysconfdir}
+module directory        : ${e_moduledir}
+script directory        : ${e_scriptdir}
 user to run as          : ${enable_user}
 group to run as         : ${enable_group}
 group for vty sockets   : ${enable_vty_group}

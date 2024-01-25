@@ -37,6 +37,8 @@
 #include "frrscript.h"
 #include "systemd.h"
 
+#include "lib/config_paths.h"
+
 DEFINE_HOOK(frr_early_init, (struct event_loop * tm), (tm));
 DEFINE_HOOK(frr_late_init, (struct event_loop * tm), (tm));
 DEFINE_HOOK(frr_config_pre, (struct event_loop * tm), (tm));

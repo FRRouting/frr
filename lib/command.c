@@ -43,6 +43,8 @@
 
 #include "frrscript.h"
 
+#include "lib/config_paths.h"
+
 DEFINE_MTYPE_STATIC(LIB, HOST, "Host config");
 DEFINE_MTYPE(LIB, COMPLETION, "Completion item");
 

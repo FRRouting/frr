@@ -37,7 +37,7 @@ self="`dirname $0`"
 if [ -r "$self/frrcommon.sh" ]; then
 	. "$self/frrcommon.sh"
 else
-	. "@CFG_SBIN@/frrcommon.sh"
+	. "@e_sbindir@/frrcommon.sh"
 fi
 
 case "$1" in
