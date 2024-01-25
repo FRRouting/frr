@@ -78,7 +78,7 @@
 #include "bgpd/bgp_evpn_private.h"
 #include "bgpd/bgp_evpn_mh.h"
 #include "bgpd/bgp_mac.h"
-#include "bgp_trace.h"
+#include "bgpd/bgp_trace.h"
 
 DEFINE_MTYPE_STATIC(BGPD, PEER_TX_SHUTDOWN_MSG, "Peer shutdown message (TX)");
 DEFINE_QOBJ_TYPE(bgp_master);
@@ -9015,11 +9015,16 @@ static int peer_unshut_after_cfg(struct bgp *bgp)
 	all_peers_are_admin_down = (all_peers_are_admin_down ||
 				    CHECK_FLAG(bgp->flags, BGP_FLAG_SHUTDOWN));
 
+	enum global_mode global_gr_mode = bgp_global_gr_mode_get(bgp);
+
 	if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
-		zlog_debug("GR %s: All peers in %s are ADMIN down %d. BGP in GR %d, GR mode %d, gr is %sconfigured at nbr",
+		zlog_debug("GR %s: All peers in %s are ADMIN down %d. BGP in GR %d, GR mode %s, gr is %sconfigured at nbr",
 			   __func__, bgp->name_pretty, all_peers_are_admin_down,
-			   bgp_in_graceful_restart(), bgp_global_gr_mode_get(bgp),
+			   bgp_in_graceful_restart(), print_global_gr_mode(global_gr_mode),
 			   (gr_cfgd_at_nbr) ? "" : "not ");
+
+	frrtrace(5, frr_bgp, gr_bgp_state, bgp->name_pretty, all_peers_are_admin_down,
+		 bgp_in_graceful_restart(), global_gr_mode, gr_cfgd_at_nbr);
 
 	/*
 	 * If BGP is not in GR
@@ -9027,8 +9032,7 @@ static int peer_unshut_after_cfg(struct bgp *bgp)
 	 * If this VRF doesn't have GR configured at global and neighbor level
 	 * then return
 	 */
-	if (!bgp_in_graceful_restart() ||
-	    (bgp_global_gr_mode_get(bgp) != GLOBAL_GR && !gr_cfgd_at_nbr))
+	if (!bgp_in_graceful_restart() || (global_gr_mode != GLOBAL_GR && !gr_cfgd_at_nbr))
 		return 0;
 
 	/*
