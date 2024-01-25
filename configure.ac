@@ -2741,8 +2741,6 @@ AC_DEFINE_UNQUOTED([FRR_LIBSTATE_PATH], ["$CFG_LIBSTATE"], [/var/lib/frr equival
 AC_DEFINE_UNQUOTED([YANG_MODELS_PATH], ["$CFG_YANGMODELS"], [path to YANG data models])
 AC_DEFINE_UNQUOTED([WATCHFRR_SH_PATH], ["${CFG_SBIN%/}/watchfrr.sh"], [path to watchfrr.sh])
 
-AC_DEFINE_UNQUOTED([DAEMON_DB_DIR], ["$CFG_STATE"], [daemon database directory])
-
 dnl various features
 AM_CONDITIONAL([SUPPORT_REALMS], [test "$enable_realms" = "yes"])
 AM_CONDITIONAL([ENABLE_BGP_VNC], [test "$enable_bgp_vnc" != "no"])

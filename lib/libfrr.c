@@ -47,9 +47,6 @@ DEFINE_KOOH(frr_fini, (), ());
 const char frr_sysconfdir[] = SYSCONFDIR;
 char frr_runstatedir[256] = FRR_RUNSTATE_PATH;
 char frr_libstatedir[256] = FRR_LIBSTATE_PATH;
-#ifdef HAVE_SQLITE3
-const char frr_dbdir[] = DAEMON_DB_DIR;
-#endif
 const char frr_moduledir[] = MODULE_PATH;
 const char frr_scriptdir[] = SCRIPT_PATH;
 
@@ -347,7 +344,7 @@ void frr_preinit(struct frr_daemon_info *daemon, int argc, char **argv)
 	snprintf(frr_zclientpath, sizeof(frr_zclientpath), ZAPI_SOCK_NAME);
 #ifdef HAVE_SQLITE3
 	snprintf(dbfile_default, sizeof(dbfile_default), "%s/%s.db",
-		 frr_dbdir, di->name);
+		 frr_libstatedir, di->name);
 #endif
 
 	strlcpy(frr_protoname, di->logname, sizeof(frr_protoname));
@@ -728,7 +725,7 @@ struct event_loop *frr_init(void)
 		 frr_runstatedir, di->name, p_instance);
 #ifdef HAVE_SQLITE3
 	snprintf(dbfile_default, sizeof(dbfile_default), "%s/%s%s%s.db",
-		 frr_dbdir, p_pathspace, di->name, p_instance);
+		 frr_libstatedir, p_pathspace, di->name, p_instance);
 #endif
 
 	zprivs_preinit(di->privs);

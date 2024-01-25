@@ -29,8 +29,8 @@
 
 #define MGMTD_MAX_COMMIT_LIST 10
 
-#define MGMTD_COMMIT_FILE_PATH DAEMON_DB_DIR "/commit-%s.json"
-#define MGMTD_COMMIT_INDEX_FILE_NAME DAEMON_DB_DIR "/commit-index.dat"
+#define MGMTD_COMMIT_FILE_PATH(id)   "%s/commit-%s.json", frr_libstatedir, id
+#define MGMTD_COMMIT_INDEX_FILE_PATH "%s/commit-index.dat", frr_libstatedir
 
 extern struct nb_config *running_config;
 
