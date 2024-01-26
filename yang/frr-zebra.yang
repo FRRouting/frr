@@ -2743,6 +2743,21 @@ module frr-zebra {
     container zebra {
       description
         "Zebra's vrf specific configuration and operational model.";
+
+      leaf router-id {
+        type yang:dotted-quad;
+        description
+          "A 32-bit number in the form of a dotted quad that is used by
+           some routing protocols identifying a router.";
+      }
+
+      leaf ipv6-router-id {
+        type inet:ipv6-address-no-zone;
+        description
+          "A 128-bit number in the form of an IPv6 address that is used by
+           some routing protocols identifying a router.";
+      }
+
       uses ribs;
 
       uses vrf-vni-mapping;

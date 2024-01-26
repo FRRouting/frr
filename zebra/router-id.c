@@ -23,12 +23,15 @@
 #include "table.h"
 #include "rib.h"
 #include "vrf.h"
+#include "northbound_cli.h"
 
 #include "zebra/zebra_router.h"
 #include "zebra/zapi_msg.h"
 #include "zebra/zebra_vrf.h"
 #include "zebra/router-id.h"
 #include "zebra/redistribute.h"
+
+#include "router-id_clippy.c"
 
 static struct connected *router_id_find_node(struct list *l,
 					     struct connected *ifc)
@@ -109,7 +112,7 @@ int router_id_get(afi_t afi, struct prefix *p, struct zebra_vrf *zvrf)
 	assert(!"Reached end of function we should never hit");
 }
 
-static int router_id_set(afi_t afi, struct prefix *p, struct zebra_vrf *zvrf)
+int router_id_set(afi_t afi, struct prefix *p, struct zebra_vrf *zvrf)
 {
 	struct prefix after, before;
 	struct listnode *node;
@@ -256,194 +259,121 @@ void router_id_write(struct vty *vty, struct zebra_vrf *zvrf)
 	}
 	if (!router_id_v6_is_any(&zvrf->rid6_user_assigned)) {
 		vty_out(vty, "%sipv6 router-id %pI6\n", space,
-			&zvrf->rid_user_assigned.u.prefix6);
+			&zvrf->rid6_user_assigned.u.prefix6);
 	}
 }
 
-DEFUN (ip_router_id,
+DEFPY_YANG (ip_router_id,
        ip_router_id_cmd,
-       "ip router-id A.B.C.D vrf NAME",
+       "ip router-id A.B.C.D$id vrf NAME",
        IP_STR
        "Manually set the router-id\n"
        "IP address to use for router-id\n"
        VRF_CMD_HELP_STR)
 {
-	int idx = 0;
-	struct prefix rid;
-	vrf_id_t vrf_id;
-	struct zebra_vrf *zvrf;
-
-	argv_find(argv, argc, "A.B.C.D", &idx);
-
-	if (!inet_pton(AF_INET, argv[idx]->arg, &rid.u.prefix4))
-		return CMD_WARNING_CONFIG_FAILED;
-
-	rid.prefixlen = IPV4_MAX_BITLEN;
-	rid.family = AF_INET;
-
-	argv_find(argv, argc, "NAME", &idx);
-	VRF_GET_ID(vrf_id, argv[idx]->arg, false);
-
-	zvrf = zebra_vrf_lookup_by_id(vrf_id);
-	router_id_set(AFI_IP, &rid, zvrf);
-
-	return CMD_SUCCESS;
+	nb_cli_enqueue_change(vty, "./frr-zebra:zebra/router-id", NB_OP_MODIFY,
+			      id_str);
+	return nb_cli_apply_changes(vty, "/frr-vrf:lib/vrf[name='%s']", vrf);
 }
 
-ALIAS (ip_router_id,
+ALIAS_YANG (ip_router_id,
        router_id_cmd,
-       "router-id A.B.C.D vrf NAME",
+       "router-id A.B.C.D$id vrf NAME",
        "Manually set the router-id\n"
        "IP address to use for router-id\n"
        VRF_CMD_HELP_STR);
 
-DEFUN (ipv6_router_id,
+DEFPY_YANG (ipv6_router_id,
        ipv6_router_id_cmd,
-       "ipv6 router-id X:X::X:X vrf NAME",
+       "ipv6 router-id X:X::X:X$id vrf NAME",
        IPV6_STR
        "Manually set the router-id\n"
        "IPv6 address to use for router-id\n"
        VRF_CMD_HELP_STR)
 {
-	int idx = 0;
-	struct prefix rid;
-	vrf_id_t vrf_id;
-	struct zebra_vrf *zvrf;
-
-	argv_find(argv, argc, "X:X::X:X", &idx);
-
-	if (!inet_pton(AF_INET6, argv[idx]->arg, &rid.u.prefix6))
-		return CMD_WARNING_CONFIG_FAILED;
-
-	rid.prefixlen = IPV6_MAX_BITLEN;
-	rid.family = AF_INET6;
-
-	argv_find(argv, argc, "NAME", &idx);
-	VRF_GET_ID(vrf_id, argv[idx]->arg, false);
-
-	zvrf = zebra_vrf_lookup_by_id(vrf_id);
-	router_id_set(AFI_IP6, &rid, zvrf);
-
-	return CMD_SUCCESS;
+	nb_cli_enqueue_change(vty, "./frr-zebra:zebra/ipv6-router-id",
+			      NB_OP_MODIFY, id_str);
+	return nb_cli_apply_changes(vty, "/frr-vrf:lib/vrf[name='%s']", vrf);
 }
 
 
-DEFUN (ip_router_id_in_vrf,
+DEFPY_YANG (ip_router_id_in_vrf,
        ip_router_id_in_vrf_cmd,
-       "ip router-id A.B.C.D",
+       "ip router-id A.B.C.D$id",
        IP_STR
        "Manually set the router-id\n"
        "IP address to use for router-id\n")
 {
-	ZEBRA_DECLVAR_CONTEXT_VRF(vrf, zvrf);
-	int idx = 0;
-	struct prefix rid;
+	nb_cli_enqueue_change(vty, "./frr-zebra:zebra/router-id", NB_OP_MODIFY,
+			      id_str);
 
-	argv_find(argv, argc, "A.B.C.D", &idx);
+	if (vty->node == CONFIG_NODE)
+		return nb_cli_apply_changes(vty, "/frr-vrf:lib/vrf[name='%s']",
+					    VRF_DEFAULT_NAME);
 
-	if (!inet_pton(AF_INET, argv[idx]->arg, &rid.u.prefix4))
-		return CMD_WARNING_CONFIG_FAILED;
-
-	rid.prefixlen = IPV4_MAX_BITLEN;
-	rid.family = AF_INET;
-
-	router_id_set(AFI_IP, &rid, zvrf);
-
-	return CMD_SUCCESS;
+	return nb_cli_apply_changes(vty, NULL);
 }
 
-ALIAS (ip_router_id_in_vrf,
+ALIAS_YANG (ip_router_id_in_vrf,
        router_id_in_vrf_cmd,
-       "router-id A.B.C.D",
+       "router-id A.B.C.D$id",
        "Manually set the router-id\n"
        "IP address to use for router-id\n");
 
-DEFUN (ipv6_router_id_in_vrf,
+DEFPY_YANG (ipv6_router_id_in_vrf,
        ipv6_router_id_in_vrf_cmd,
-       "ipv6 router-id X:X::X:X",
+       "ipv6 router-id X:X::X:X$id",
        IP6_STR
        "Manually set the IPv6 router-id\n"
        "IPV6 address to use for router-id\n")
 {
-	ZEBRA_DECLVAR_CONTEXT_VRF(vrf, zvrf);
-	int idx = 0;
-	struct prefix rid;
+	nb_cli_enqueue_change(vty, "./frr-zebra:zebra/ipv6-router-id",
+			      NB_OP_MODIFY, id_str);
 
-	argv_find(argv, argc, "X:X::X:X", &idx);
+	if (vty->node == CONFIG_NODE)
+		return nb_cli_apply_changes(vty, "/frr-vrf:lib/vrf[name='%s']",
+					    VRF_DEFAULT_NAME);
 
-	if (!inet_pton(AF_INET6, argv[idx]->arg, &rid.u.prefix6))
-		return CMD_WARNING_CONFIG_FAILED;
-
-	rid.prefixlen = IPV6_MAX_BITLEN;
-	rid.family = AF_INET6;
-
-	router_id_set(AFI_IP6, &rid, zvrf);
-
-	return CMD_SUCCESS;
+	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFUN (no_ip_router_id,
+DEFPY_YANG (no_ip_router_id,
        no_ip_router_id_cmd,
-       "no ip router-id [A.B.C.D vrf NAME]",
+       "no ip router-id A.B.C.D vrf NAME",
        NO_STR
        IP_STR
        "Remove the manually configured router-id\n"
        "IP address to use for router-id\n"
        VRF_CMD_HELP_STR)
 {
-	int idx = 0;
-	struct prefix rid;
-	vrf_id_t vrf_id = VRF_DEFAULT;
-	struct zebra_vrf *zvrf;
-
-	rid.u.prefix4.s_addr = 0;
-	rid.prefixlen = 0;
-	rid.family = AF_INET;
-
-	if (argv_find(argv, argc, "NAME", &idx))
-		VRF_GET_ID(vrf_id, argv[idx]->arg, false);
-
-	zvrf = zebra_vrf_lookup_by_id(vrf_id);
-	router_id_set(AFI_IP, &rid, zvrf);
-
-	return CMD_SUCCESS;
+	nb_cli_enqueue_change(vty, "./frr-zebra:zebra/router-id", NB_OP_DESTROY,
+			      NULL);
+	return nb_cli_apply_changes(vty, "/frr-vrf:lib/vrf[name='%s']", vrf);
 }
 
-ALIAS (no_ip_router_id,
+ALIAS_YANG (no_ip_router_id,
        no_router_id_cmd,
-       "no router-id [A.B.C.D vrf NAME]",
+       "no router-id A.B.C.D vrf NAME",
        NO_STR
        "Remove the manually configured router-id\n"
        "IP address to use for router-id\n"
        VRF_CMD_HELP_STR);
 
-DEFUN (no_ipv6_router_id,
+DEFPY_YANG (no_ipv6_router_id,
        no_ipv6_router_id_cmd,
-       "no ipv6 router-id [X:X::X:X vrf NAME]",
+       "no ipv6 router-id X:X::X:X vrf NAME",
        NO_STR
        IPV6_STR
        "Remove the manually configured IPv6 router-id\n"
        "IPv6 address to use for router-id\n"
        VRF_CMD_HELP_STR)
 {
-	int idx = 0;
-	struct prefix rid;
-	vrf_id_t vrf_id = VRF_DEFAULT;
-	struct zebra_vrf *zvrf;
-
-	memset(&rid, 0, sizeof(rid));
-	rid.family = AF_INET;
-
-	if (argv_find(argv, argc, "NAME", &idx))
-		VRF_GET_ID(vrf_id, argv[idx]->arg, false);
-
-	zvrf = zebra_vrf_lookup_by_id(vrf_id);
-	router_id_set(AFI_IP6, &rid, zvrf);
-
-	return CMD_SUCCESS;
+	nb_cli_enqueue_change(vty, "./frr-zebra:zebra/ipv6-router-id",
+			      NB_OP_DESTROY, NULL);
+	return nb_cli_apply_changes(vty, "/frr-vrf:lib/vrf[name='%s']", vrf);
 }
 
-DEFUN (no_ip_router_id_in_vrf,
+DEFPY_YANG (no_ip_router_id_in_vrf,
        no_ip_router_id_in_vrf_cmd,
        "no ip router-id [A.B.C.D]",
        NO_STR
@@ -451,27 +381,24 @@ DEFUN (no_ip_router_id_in_vrf,
        "Remove the manually configured router-id\n"
        "IP address to use for router-id\n")
 {
-	ZEBRA_DECLVAR_CONTEXT_VRF(vrf, zvrf);
+	nb_cli_enqueue_change(vty, "./frr-zebra:zebra/router-id", NB_OP_DESTROY,
+			      NULL);
 
-	struct prefix rid;
+	if (vty->node == CONFIG_NODE)
+		return nb_cli_apply_changes(vty, "/frr-vrf:lib/vrf[name='%s']",
+					    VRF_DEFAULT_NAME);
 
-	rid.u.prefix4.s_addr = 0;
-	rid.prefixlen = 0;
-	rid.family = AF_INET;
-
-	router_id_set(AFI_IP, &rid, zvrf);
-
-	return CMD_SUCCESS;
+	return nb_cli_apply_changes(vty, NULL);
 }
 
-ALIAS (no_ip_router_id_in_vrf,
+ALIAS_YANG (no_ip_router_id_in_vrf,
        no_router_id_in_vrf_cmd,
        "no router-id [A.B.C.D]",
        NO_STR
        "Remove the manually configured router-id\n"
        "IP address to use for router-id\n");
 
-DEFUN (no_ipv6_router_id_in_vrf,
+DEFPY_YANG (no_ipv6_router_id_in_vrf,
        no_ipv6_router_id_in_vrf_cmd,
        "no ipv6 router-id [X:X::X:X]",
        NO_STR
@@ -479,16 +406,14 @@ DEFUN (no_ipv6_router_id_in_vrf,
        "Remove the manually configured IPv6 router-id\n"
        "IPv6 address to use for router-id\n")
 {
-	ZEBRA_DECLVAR_CONTEXT_VRF(vrf, zvrf);
+	nb_cli_enqueue_change(vty, "./frr-zebra:zebra/ipv6-router-id",
+			      NB_OP_DESTROY, NULL);
 
-	struct prefix rid;
+	if (vty->node == CONFIG_NODE)
+		return nb_cli_apply_changes(vty, "/frr-vrf:lib/vrf[name='%s']",
+					    VRF_DEFAULT_NAME);
 
-	memset(&rid, 0, sizeof(rid));
-	rid.family = AF_INET;
-
-	router_id_set(AFI_IP6, &rid, zvrf);
-
-	return CMD_SUCCESS;
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFUN (show_ip_router_id,

@@ -416,6 +416,10 @@ struct yang_data *lib_interface_zebra_state_remote_vtep_get_elem(
 	struct nb_cb_get_elem_args *args);
 struct yang_data *lib_interface_zebra_state_mcast_group_get_elem(
 	struct nb_cb_get_elem_args *args);
+int lib_vrf_zebra_router_id_modify(struct nb_cb_modify_args *args);
+int lib_vrf_zebra_router_id_destroy(struct nb_cb_destroy_args *args);
+int lib_vrf_zebra_ipv6_router_id_modify(struct nb_cb_modify_args *args);
+int lib_vrf_zebra_ipv6_router_id_destroy(struct nb_cb_destroy_args *args);
 const void *lib_vrf_zebra_ribs_rib_get_next(struct nb_cb_get_next_args *args);
 int lib_vrf_zebra_ribs_rib_get_keys(struct nb_cb_get_keys_args *args);
 const void *

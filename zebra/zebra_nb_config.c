@@ -25,6 +25,7 @@
 #include "zebra/zebra_vxlan.h"
 #include "zebra/zebra_evpn_mh.h"
 #include "zebra/zebra_ptm.h"
+#include "zebra/router-id.h"
 
 /*
  * XPath: /frr-zebra:zebra/mcast-rpf-lookup
@@ -3225,6 +3226,82 @@ int lib_interface_zebra_ptm_enable_modify(struct nb_cb_modify_args *args)
 	return NB_OK;
 }
 #endif
+
+/*
+ * XPath: /frr-vrf:lib/vrf/frr-zebra:zebra/router-id
+ */
+int lib_vrf_zebra_router_id_modify(struct nb_cb_modify_args *args)
+{
+	struct vrf *vrf;
+	struct prefix p;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	vrf = nb_running_get_entry(args->dnode, NULL, true);
+
+	yang_dnode_get_ipv4p(&p, args->dnode, NULL);
+
+	router_id_set(AFI_IP, &p, vrf->info);
+
+	return NB_OK;
+}
+
+int lib_vrf_zebra_router_id_destroy(struct nb_cb_destroy_args *args)
+{
+	struct vrf *vrf;
+	struct prefix p;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	vrf = nb_running_get_entry(args->dnode, NULL, true);
+
+	memset(&p, 0, sizeof(p));
+	p.family = AF_INET;
+
+	router_id_set(AFI_IP, &p, vrf->info);
+
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-vrf:lib/vrf/frr-zebra:zebra/ipv6-router-id
+ */
+int lib_vrf_zebra_ipv6_router_id_modify(struct nb_cb_modify_args *args)
+{
+	struct vrf *vrf;
+	struct prefix p;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	vrf = nb_running_get_entry(args->dnode, NULL, true);
+
+	yang_dnode_get_ipv6p(&p, args->dnode, NULL);
+
+	router_id_set(AFI_IP6, &p, vrf->info);
+
+	return NB_OK;
+}
+
+int lib_vrf_zebra_ipv6_router_id_destroy(struct nb_cb_destroy_args *args)
+{
+	struct vrf *vrf;
+	struct prefix p;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	vrf = nb_running_get_entry(args->dnode, NULL, true);
+
+	memset(&p, 0, sizeof(p));
+	p.family = AF_INET6;
+
+	router_id_set(AFI_IP6, &p, vrf->info);
+
+	return NB_OK;
+}
 
 /*
  * XPath: /frr-vrf:lib/vrf/frr-zebra:zebra/l3vni-id

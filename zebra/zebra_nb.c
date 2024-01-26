@@ -834,6 +834,20 @@ const struct frr_yang_module_info frr_zebra_info = {
 			}
 		},
 		{
+			.xpath = "/frr-vrf:lib/vrf/frr-zebra:zebra/router-id",
+			.cbs = {
+				.modify = lib_vrf_zebra_router_id_modify,
+				.destroy = lib_vrf_zebra_router_id_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-vrf:lib/vrf/frr-zebra:zebra/ipv6-router-id",
+			.cbs = {
+				.modify = lib_vrf_zebra_ipv6_router_id_modify,
+				.destroy = lib_vrf_zebra_ipv6_router_id_destroy,
+			}
+		},
+		{
 			.xpath = "/frr-vrf:lib/vrf/frr-zebra:zebra/ribs/rib",
 			.cbs = {
 				.get_next = lib_vrf_zebra_ribs_rib_get_next,
