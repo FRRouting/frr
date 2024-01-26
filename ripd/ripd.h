@@ -526,7 +526,6 @@ extern int offset_list_cmp(struct rip_offset_list *o1,
 
 extern void rip_vrf_init(void);
 extern void rip_vrf_terminate(void);
-extern void rip_cli_init(void);
 
 extern struct zebra_privs_t ripd_privs;
 extern struct rip_instance_head rip_instances;

@@ -240,4 +240,6 @@ void cli_show_ip_rip_bfd_profile(struct vty *vty, const struct lyd_node *dnode,
 extern void ripd_notif_send_auth_type_failure(const char *ifname);
 extern void ripd_notif_send_auth_failure(const char *ifname);
 
+extern void rip_cli_init(void);
+
 #endif /* _FRR_RIP_NB_H_ */

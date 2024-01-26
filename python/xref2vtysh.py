@@ -206,10 +206,7 @@ class CommandEntry:
                 }
 
         if defun_file == "lib/if_rmap.c":
-            if v6_cmd:
-                return {"VTYSH_RIPNGD"}
-            else:
-                return {"VTYSH_MGMTD"}
+            return {"VTYSH_MGMTD"}
 
         return {}
 

@@ -36,8 +36,11 @@
 
 const char *mgmt_be_client_names[MGMTD_BE_CLIENT_ID_MAX + 1] = {
 	[MGMTD_BE_CLIENT_ID_ZEBRA] = "zebra",
-#ifdef HAVE_STATICD
+#ifdef HAVE_RIPD
 	[MGMTD_BE_CLIENT_ID_RIPD] = "ripd",
+#endif
+#ifdef HAVE_RIPNGD
+	[MGMTD_BE_CLIENT_ID_RIPNGD] = "ripngd",
 #endif
 #ifdef HAVE_STATICD
 	[MGMTD_BE_CLIENT_ID_STATICD] = "staticd",
@@ -77,6 +80,21 @@ static const char *const ripd_oper_xpaths[] = {
 };
 #endif
 
+#if HAVE_RIPNGD
+static const char *const ripngd_config_xpaths[] = {
+	"/frr-filter:lib",
+	"/frr-interface:lib/interface",
+	"/frr-ripngd:ripngd",
+	"/frr-route-map:lib",
+	"/frr-vrf:lib",
+	NULL,
+};
+static const char *const ripngd_oper_xpaths[] = {
+	"/frr-ripd:ripd",
+	NULL,
+};
+#endif
+
 #if HAVE_STATICD
 static const char *const staticd_config_xpaths[] = {
 	"/frr-vrf:lib",
@@ -89,6 +107,9 @@ static const char *const staticd_config_xpaths[] = {
 static const char *const *be_client_config_xpaths[MGMTD_BE_CLIENT_ID_MAX] = {
 #ifdef HAVE_RIPD
 	[MGMTD_BE_CLIENT_ID_RIPD] = ripd_config_xpaths,
+#endif
+#ifdef HAVE_RIPNGD
+	[MGMTD_BE_CLIENT_ID_RIPNGD] = ripngd_config_xpaths,
 #endif
 #ifdef HAVE_STATICD
 	[MGMTD_BE_CLIENT_ID_STATICD] = staticd_config_xpaths,
@@ -105,6 +126,9 @@ static const char *const zebra_oper_xpaths[] = {
 static const char *const *be_client_oper_xpaths[MGMTD_BE_CLIENT_ID_MAX] = {
 #ifdef HAVE_RIPD
 	[MGMTD_BE_CLIENT_ID_RIPD] = ripd_oper_xpaths,
+#endif
+#ifdef HAVE_RIPNGD
+	[MGMTD_BE_CLIENT_ID_RIPNGD] = ripngd_oper_xpaths,
 #endif
 	[MGMTD_BE_CLIENT_ID_ZEBRA] = zebra_oper_xpaths,
 };

@@ -9,6 +9,7 @@
 #include <zebra.h>
 
 #include "command.h"
+#include "filter.h"
 #include "json.h"
 #include "network.h"
 #include "northbound_cli.h"
@@ -21,7 +22,8 @@
 #include "mgmtd/mgmt_history.h"
 
 #include "mgmtd/mgmt_vty_clippy.c"
-#include "ripd/ripd.h"
+#include "ripd/rip_nb.h"
+#include "ripngd/ripng_nb.h"
 #include "staticd/static_vty.h"
 
 extern struct frr_daemon_info *mgmt_daemon_info;
@@ -577,6 +579,9 @@ void mgmt_vty_init(void)
 	 */
 #if HAVE_RIPD
 	rip_cli_init();
+#endif
+#if HAVE_RIPNGD
+	ripng_cli_init();
 #endif
 #if HAVE_STATICD
 	static_vty_init();

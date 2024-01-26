@@ -8,6 +8,7 @@
 #include <zebra.h>
 
 #include "if.h"
+#include "if_rmap.h"
 #include "vrf.h"
 #include "log.h"
 #include "prefix.h"
@@ -648,8 +649,20 @@ DEFPY_YANG(no_ripng_ipv6_distribute_list_prefix,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
+/* RIPng node structure. */
+static struct cmd_node cmd_ripng_node = {
+	.name = "ripng",
+	.node = RIPNG_NODE,
+	.parent_node = CONFIG_NODE,
+	.prompt = "%s(config-router)# ",
+};
+
 void ripng_cli_init(void)
 {
+	/* Install RIPNG_NODE. */
+	install_node(&cmd_ripng_node);
+	install_default(RIPNG_NODE);
+
 	install_element(CONFIG_NODE, &router_ripng_cmd);
 	install_element(CONFIG_NODE, &no_router_ripng_cmd);
 
@@ -676,4 +689,91 @@ void ripng_cli_init(void)
 	install_element(INTERFACE_NODE, &ipv6_ripng_split_horizon_cmd);
 
 	install_element(ENABLE_NODE, &clear_ipv6_rip_cmd);
+
+	if_rmap_init(RIPNG_NODE);
 }
+
+/* clang-format off */
+const struct frr_yang_module_info frr_ripngd_cli_info = {
+	.name = "frr-ripngd",
+	.ignore_cfg_cbs = true,
+	.nodes = {
+		{
+			.xpath = "/frr-ripngd:ripngd/instance",
+			.cbs.cli_show = cli_show_router_ripng,
+		},
+		{
+			.xpath = "/frr-ripngd:ripngd/instance/allow-ecmp",
+			.cbs.cli_show = cli_show_ripng_allow_ecmp,
+		},
+		{
+			.xpath = "/frr-ripngd:ripngd/instance/default-information-originate",
+			.cbs.cli_show = cli_show_ripng_default_information_originate,
+		},
+		{
+			.xpath = "/frr-ripngd:ripngd/instance/default-metric",
+			.cbs.cli_show = cli_show_ripng_default_metric,
+		},
+		{
+			.xpath = "/frr-ripngd:ripngd/instance/network",
+			.cbs.cli_show = cli_show_ripng_network_prefix,
+		},
+		{
+			.xpath = "/frr-ripngd:ripngd/instance/interface",
+			.cbs.cli_show = cli_show_ripng_network_interface,
+		},
+		{
+			.xpath = "/frr-ripngd:ripngd/instance/offset-list",
+			.cbs.cli_show = cli_show_ripng_offset_list,
+		},
+		{
+			.xpath = "/frr-ripngd:ripngd/instance/passive-interface",
+			.cbs.cli_show = cli_show_ripng_passive_interface,
+		},
+		{
+			.xpath = "/frr-ripngd:ripngd/instance/distribute-list/in/access-list",
+			.cbs.cli_show = group_distribute_list_ipv6_cli_show,
+		},
+		{
+			.xpath = "/frr-ripngd:ripngd/instance/distribute-list/out/access-list",
+			.cbs.cli_show = group_distribute_list_ipv6_cli_show,
+		},
+		{
+			.xpath = "/frr-ripngd:ripngd/instance/distribute-list/in/prefix-list",
+			.cbs.cli_show = group_distribute_list_ipv6_cli_show,
+		},
+		{
+			.xpath = "/frr-ripngd:ripngd/instance/distribute-list/out/prefix-list",
+			.cbs.cli_show = group_distribute_list_ipv6_cli_show,
+		},
+		{
+			.xpath = "/frr-ripngd:ripngd/instance/redistribute",
+			.cbs.cli_show = cli_show_ripng_redistribute,
+		},
+		{
+			.xpath = "/frr-ripngd:ripngd/instance/if-route-maps/if-route-map",
+			.cbs.cli_show = cli_show_if_route_map,
+		},
+		{
+			.xpath = "/frr-ripngd:ripngd/instance/static-route",
+			.cbs.cli_show = cli_show_ripng_route,
+		},
+		{
+			.xpath = "/frr-ripngd:ripngd/instance/aggregate-address",
+			.cbs.cli_show = cli_show_ripng_aggregate_address,
+		},
+		{
+			.xpath = "/frr-ripngd:ripngd/instance/timers",
+			.cbs.cli_show = cli_show_ripng_timers,
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/frr-ripngd:ripng/split-horizon",
+			.cbs = {
+				.cli_show = cli_show_ipv6_ripng_split_horizon,
+			},
+		},
+		{
+			.xpath = NULL,
+		},
+	}
+};

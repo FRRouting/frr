@@ -22,6 +22,7 @@
 #include "if_rmap.h"
 #include "libfrr.h"
 #include "routemap.h"
+#include "mgmt_be_client.h"
 
 #include "ripngd/ripngd.h"
 #include "ripngd/ripng_nb.h"
@@ -52,6 +53,8 @@ struct zebra_privs_t ripngd_privs = {
 /* Master of threads. */
 struct event_loop *master;
 
+struct mgmt_be_client *mgmt_be_client;
+
 static struct frr_daemon_info ripngd_di;
 
 /* SIGHUP handler. */
@@ -69,6 +72,10 @@ static void sigint(void)
 	struct vrf *vrf;
 
 	zlog_notice("Terminating on signal");
+
+	nb_oper_cancel_all_walks();
+	mgmt_be_client_destroy(mgmt_be_client);
+	mgmt_be_client = NULL;
 
 	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
 		if (!vrf->info)
@@ -131,6 +138,9 @@ FRR_DAEMON_INFO(ripngd, RIPNG, .vty_port = RIPNG_VTY_PORT,
 
 		.yang_modules = ripngd_yang_modules,
 		.n_yang_modules = array_size(ripngd_yang_modules),
+
+		/* mgmtd will load the per-daemon config file now */
+		.flags = FRR_NO_SPLIT_CONFIG,
 );
 
 #define DEPRECATED_OPTIONS ""
@@ -172,7 +182,9 @@ int main(int argc, char **argv)
 
 	/* RIPngd inits. */
 	ripng_init();
-	ripng_cli_init();
+
+	mgmt_be_client = mgmt_be_client_create("ripngd", NULL, 0, master);
+
 	zebra_init(master);
 
 	frr_config_fork();

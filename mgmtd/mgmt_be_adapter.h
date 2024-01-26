@@ -17,7 +17,7 @@
 
 #define MGMTD_BE_CONN_INIT_DELAY_MSEC 50
 
-#define MGMTD_FIND_ADAPTER_BY_INDEX(adapter_index)                             \
+#define MGMTD_FIND_ADAPTER_BY_INDEX(adapter_index)	\
 	mgmt_adaptr_ref[adapter_index]
 
 /**
@@ -29,6 +29,9 @@
 enum mgmt_be_client_id {
 #ifdef HAVE_RIPD
 	MGMTD_BE_CLIENT_ID_RIPD,
+#endif
+#ifdef HAVE_RIPNGD
+	MGMTD_BE_CLIENT_ID_RIPNGD,
 #endif
 #ifdef HAVE_STATICD
 	MGMTD_BE_CLIENT_ID_STATICD,
