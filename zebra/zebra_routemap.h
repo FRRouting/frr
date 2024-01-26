@@ -39,6 +39,10 @@ extern int ip_protocol_rm_add(struct zebra_vrf *zvrf, const char *rmap,
 			      int rtype, afi_t afi, safi_t safi);
 extern int ip_protocol_rm_del(struct zebra_vrf *zvrf, const char *rmap,
 			      int rtype, afi_t afi, safi_t safi);
+extern int ip_nht_rm_add(struct zebra_vrf *zvrf, const char *rmap, int rtype,
+			 int afi);
+extern int ip_nht_rm_del(struct zebra_vrf *zvrf, const char *rmap, int rtype,
+			 int afi);
 
 extern void zebra_routemap_vrf_delete(struct zebra_vrf *zvrf);
 

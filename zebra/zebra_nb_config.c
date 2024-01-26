@@ -3405,6 +3405,114 @@ int lib_vrf_zebra_filter_protocol_route_map_modify(struct nb_cb_modify_args *arg
 }
 
 /*
+ * XPath: /frr-vrf:lib/vrf/frr-zebra:zebra/filter-nht
+ */
+int lib_vrf_zebra_filter_nht_create(struct nb_cb_create_args *args)
+{
+	struct vrf *vrf;
+	const char *afi_safi = yang_dnode_get_string(args->dnode, "afi-safi");
+	const char *proto = yang_dnode_get_string(args->dnode, "protocol");
+	const char *rmap = yang_dnode_get_string(args->dnode, "route-map");
+	afi_t afi;
+	safi_t safi;
+	int rtype;
+
+	yang_afi_safi_identity2value(afi_safi, &afi, &safi);
+
+	if (strcasecmp(proto, "any") == 0)
+		rtype = ZEBRA_ROUTE_MAX;
+	else
+		rtype = proto_name2num(proto);
+
+	if (args->event == NB_EV_VALIDATE) {
+		if (rtype < 0) {
+			snprintfrr(args->errmsg, args->errmsg_len,
+				   "invalid protocol name \"%s\"", proto);
+			return NB_ERR_VALIDATION;
+		}
+		if (safi != SAFI_UNICAST) {
+			snprintfrr(args->errmsg, args->errmsg_len,
+				   "only SAFI unicast is supported");
+			return NB_ERR_VALIDATION;
+		}
+	}
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	vrf = nb_running_get_entry(args->dnode, NULL, true);
+
+	ip_nht_rm_add(vrf->info, rmap, rtype, afi);
+
+	return NB_OK;
+}
+
+int lib_vrf_zebra_filter_nht_destroy(struct nb_cb_destroy_args *args)
+{
+	struct vrf *vrf;
+	const char *afi_safi = yang_dnode_get_string(args->dnode, "afi-safi");
+	const char *proto = yang_dnode_get_string(args->dnode, "protocol");
+	const char *rmap = yang_dnode_get_string(args->dnode, "route-map");
+	afi_t afi;
+	safi_t safi;
+	int rtype;
+
+	yang_afi_safi_identity2value(afi_safi, &afi, &safi);
+
+	if (strcasecmp(proto, "any") == 0)
+		rtype = ZEBRA_ROUTE_MAX;
+	else
+		rtype = proto_name2num(proto);
+
+	/* deleting an existing entry, it can't be invalid */
+	assert(rtype >= 0);
+	assert(safi == SAFI_UNICAST);
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	vrf = nb_running_get_entry(args->dnode, NULL, true);
+
+	ip_nht_rm_del(vrf->info, rmap, rtype, afi);
+
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-vrf:lib/vrf/frr-zebra:zebra/filter-nht/route-map
+ */
+int lib_vrf_zebra_filter_nht_route_map_modify(struct nb_cb_modify_args *args)
+{
+	struct vrf *vrf;
+	const char *afi_safi = yang_dnode_get_string(args->dnode, "../afi-safi");
+	const char *proto = yang_dnode_get_string(args->dnode, "../protocol");
+	const char *rmap = yang_dnode_get_string(args->dnode, NULL);
+	afi_t afi;
+	safi_t safi;
+	int rtype;
+
+	yang_afi_safi_identity2value(afi_safi, &afi, &safi);
+
+	if (strcasecmp(proto, "any") == 0)
+		rtype = ZEBRA_ROUTE_MAX;
+	else
+		rtype = proto_name2num(proto);
+
+	/* editing an existing entry, it can't be invalid */
+	assert(rtype >= 0);
+	assert(safi == SAFI_UNICAST);
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	vrf = nb_running_get_entry(args->dnode, NULL, true);
+
+	ip_nht_rm_add(vrf->info, rmap, rtype, afi);
+
+	return NB_OK;
+}
+
+/*
  * XPath: /frr-vrf:lib/vrf/frr-zebra:zebra/l3vni-id
  */
 int lib_vrf_zebra_l3vni_id_modify(struct nb_cb_modify_args *args)
