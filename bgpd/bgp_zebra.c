@@ -1524,8 +1524,9 @@ static void bgp_debug_zebra_nh(struct zapi_route *api)
 	}
 }
 
-void bgp_zebra_announce(struct bgp_dest *dest, struct bgp_path_info *info,
-			struct bgp *bgp)
+static enum zclient_send_status
+bgp_zebra_announce_actual(struct bgp_dest *dest, struct bgp_path_info *info,
+			  struct bgp *bgp)
 {
 	struct bgp_path_info *bpi_ultimate;
 	struct zapi_route api = { 0 };
@@ -1541,27 +1542,10 @@ void bgp_zebra_announce(struct bgp_dest *dest, struct bgp_path_info *info,
 	struct bgp_table *table = bgp_dest_table(dest);
 	const struct prefix *p = bgp_dest_get_prefix(dest);
 
-	/*
-	 * BGP is installing this route and bgp has been configured
-	 * to suppress announcements until the route has been installed
-	 * let's set the fact that we expect this route to be installed
-	 */
-	if (BGP_SUPPRESS_FIB_ENABLED(bgp))
-		SET_FLAG(dest->flags, BGP_NODE_FIB_INSTALL_PENDING);
-
-	/* Don't try to install if we're not connected to Zebra or Zebra doesn't
-	 * know of this instance.
-	 */
-	if (!bgp_install_info_to_zebra(bgp))
-		return;
-
-	if (bgp->main_zebra_update_hold)
-		return;
-
 	if (table->safi == SAFI_FLOWSPEC) {
 		bgp_pbr_update_entry(bgp, p, info, table->afi, table->safi,
 				     true);
-		return;
+		return ZCLIENT_SEND_SUCCESS;
 	}
 
 	/* Make Zebra API structure. */
@@ -1678,9 +1662,10 @@ void bgp_zebra_announce(struct bgp_dest *dest, struct bgp_path_info *info,
 		zlog_debug("%s: %pFX: announcing to zebra (recursion %sset)",
 			   __func__, p, (recursion_flag ? "" : "NOT "));
 	}
-	zclient_route_send(is_add ? ZEBRA_ROUTE_ADD : ZEBRA_ROUTE_DELETE,
-			   zclient, &api);
+	return zclient_route_send(is_add ? ZEBRA_ROUTE_ADD : ZEBRA_ROUTE_DELETE,
+				  zclient, &api);
 }
+
 
 /* Announce all routes of a table to zebra */
 void bgp_zebra_announce_table(struct bgp *bgp, afi_t afi, safi_t safi)
@@ -1707,7 +1692,7 @@ void bgp_zebra_announce_table(struct bgp *bgp, afi_t afi, safi_t safi)
 			     && (pi->sub_type == BGP_ROUTE_NORMAL
 				 || pi->sub_type == BGP_ROUTE_IMPORTED)))
 
-				bgp_zebra_announce(dest, pi, bgp);
+				bgp_zebra_route_install(dest, pi, bgp, true);
 }
 
 /* Announce routes of any bgp subtype of a table to zebra */
@@ -1729,34 +1714,23 @@ void bgp_zebra_announce_table_all_subtypes(struct bgp *bgp, afi_t afi,
 		for (pi = bgp_dest_get_bgp_path_info(dest); pi; pi = pi->next)
 			if (CHECK_FLAG(pi->flags, BGP_PATH_SELECTED) &&
 			    pi->type == ZEBRA_ROUTE_BGP)
-				bgp_zebra_announce(dest, pi, bgp);
+				bgp_zebra_route_install(dest, pi, bgp, true);
 }
 
-void bgp_zebra_withdraw(struct bgp_dest *dest, struct bgp_path_info *info,
-			struct bgp *bgp)
+enum zclient_send_status bgp_zebra_withdraw_actual(struct bgp_dest *dest,
+						   struct bgp_path_info *info,
+						   struct bgp *bgp)
 {
 	struct zapi_route api;
 	struct peer *peer;
 	struct bgp_table *table = bgp_dest_table(dest);
 	const struct prefix *p = bgp_dest_get_prefix(dest);
 
-	/*
-	 * If we are withdrawing the route, we don't need to have this
-	 * flag set.  So unset it.
-	 */
-	UNSET_FLAG(info->net->flags, BGP_NODE_FIB_INSTALL_PENDING);
-
-	/* Don't try to install if we're not connected to Zebra or Zebra doesn't
-	 * know of this instance.
-	 */
-	if (!bgp_install_info_to_zebra(bgp))
-		return;
-
 	if (table->safi == SAFI_FLOWSPEC) {
 		peer = info->peer;
 		bgp_pbr_update_entry(peer->bgp, p, info, table->afi,
 				     table->safi, false);
-		return;
+		return ZCLIENT_SEND_SUCCESS;
 	}
 
 	memset(&api, 0, sizeof(api));
@@ -1774,7 +1748,169 @@ void bgp_zebra_withdraw(struct bgp_dest *dest, struct bgp_path_info *info,
 		zlog_debug("Tx route delete VRF %u %pFX", bgp->vrf_id,
 			   &api.prefix);
 
-	zclient_route_send(ZEBRA_ROUTE_DELETE, zclient, &api);
+	return zclient_route_send(ZEBRA_ROUTE_DELETE, zclient, &api);
+}
+
+/*
+ * Walk the new Fifo list one by one and invoke bgp_zebra_announce/withdraw
+ * to install/withdraw the routes to zebra.
+ *
+ * If status = ZCLIENT_SEND_SUCCESS (Buffer empt)y i.e. Zebra is free to
+ * receive more incoming data, then pick the next item on the list and
+ * continue processing.
+ *
+ * If status = ZCLIENT_SEND_BUFFERED (Buffer pending) i.e. Zebra is busy,
+ * break and bail out of the function because once at some point when zebra
+ * is free, a callback is triggered which inturn call this same function and
+ * continue processing items on list.
+ */
+#define ZEBRA_ANNOUNCEMENTS_LIMIT 1000
+static void bgp_handle_route_announcements_to_zebra(struct event *e)
+{
+	uint32_t count = 0;
+	struct bgp_dest *dest = NULL;
+	struct bgp_table *table = NULL;
+	enum zclient_send_status status = ZCLIENT_SEND_SUCCESS;
+	bool install;
+
+	while (count < ZEBRA_ANNOUNCEMENTS_LIMIT) {
+		dest = zebra_announce_pop(&bm->zebra_announce_head);
+
+		if (!dest)
+			break;
+
+		table = bgp_dest_table(dest);
+		install = CHECK_FLAG(dest->flags, BGP_NODE_SCHEDULE_FOR_INSTALL);
+
+		if (BGP_DEBUG(zebra, ZEBRA))
+			zlog_debug("BGP %s route %pBD(%s) with dest %p and flags 0x%x to zebra",
+				   install ? "announcing" : "withdrawing", dest,
+				   table->bgp->name_pretty, dest, dest->flags);
+
+		if (install) {
+			status = bgp_zebra_announce_actual(dest, dest->za_bgp_pi,
+							   table->bgp);
+			UNSET_FLAG(dest->flags, BGP_NODE_SCHEDULE_FOR_INSTALL);
+		} else {
+			status = bgp_zebra_withdraw_actual(dest, dest->za_bgp_pi,
+							   table->bgp);
+			UNSET_FLAG(dest->flags, BGP_NODE_SCHEDULE_FOR_DELETE);
+		}
+
+		bgp_path_info_unlock(dest->za_bgp_pi);
+		dest->za_bgp_pi = NULL;
+		bgp_dest_unlock_node(dest);
+
+		if (status == ZCLIENT_SEND_BUFFERED)
+			break;
+
+		count++;
+	}
+
+	if (status != ZCLIENT_SEND_BUFFERED &&
+	    zebra_announce_count(&bm->zebra_announce_head))
+		event_add_event(bm->master,
+				bgp_handle_route_announcements_to_zebra, NULL,
+				0, &bm->t_bgp_zebra_route);
+}
+
+/*
+ * Callback function invoked when zclient_flush_data() receives a BUFFER_EMPTY
+ * i.e. zebra is free to receive more incoming data.
+ */
+static void bgp_zebra_buffer_write_ready(void)
+{
+	bgp_handle_route_announcements_to_zebra(NULL);
+}
+
+/*
+ * BGP is now keeping a list of dests with the dest having a pointer
+ * to the bgp_path_info that it will be working on.
+ * Here is the sequence of events that should happen:
+ *
+ *  Current State      New State       Action
+ *  -------------      ---------       ------
+ *      ----           Install         Place dest on list, save pi, mark
+ *                                     as going to be installed
+ *      ----           Withdrawal      Place dest on list, save pi, mark
+ *                                     as going to be deleted
+ *
+ *    Install          Install         Leave dest on list, release old pi,
+ *                                     save new pi, mark as going to be
+ *                                     Installed
+ *    Install          Withdrawal      Leave dest on list, release old pi,
+ *                                     save new pi, mark as going to be
+ *                                     withdrawan, remove install flag
+ *
+ *    Withdrawal       Install         Special case, send withdrawal immediately
+ *                                     Leave dest on list, release old pi,
+ *                                     save new pi, mark as going to be
+ *                                     installed.  <see note about evpn
+ *                                     in bgp_route.c in bgp_process_main_one>
+ *    Withdrawal       Withdrawal      Leave dest on list, release old pi,
+ *                                     save new pi, mark as going to be
+ *                                     withdrawn.
+ */
+void bgp_zebra_route_install(struct bgp_dest *dest, struct bgp_path_info *info,
+			     struct bgp *bgp, bool install)
+{
+	/*
+	 * BGP is installing this route and bgp has been configured
+	 * to suppress announcements until the route has been installed
+	 * let's set the fact that we expect this route to be installed
+	 */
+	if (install) {
+		if (BGP_SUPPRESS_FIB_ENABLED(bgp))
+			SET_FLAG(dest->flags, BGP_NODE_FIB_INSTALL_PENDING);
+
+		if (bgp->main_zebra_update_hold)
+			return;
+	} else {
+		UNSET_FLAG(dest->flags, BGP_NODE_FIB_INSTALL_PENDING);
+	}
+
+	/*
+	 * Don't try to install if we're not connected to Zebra or Zebra doesn't
+	 * know of this instance.
+	 */
+	if (!bgp_install_info_to_zebra(bgp))
+		return;
+
+	if (!CHECK_FLAG(dest->flags, BGP_NODE_SCHEDULE_FOR_INSTALL) &&
+	    !CHECK_FLAG(dest->flags, BGP_NODE_SCHEDULE_FOR_DELETE)) {
+		zebra_announce_add_tail(&bm->zebra_announce_head, dest);
+		/*
+		 * If neither flag is set and za_bgp_pi is not set then it is a bug
+		 */
+		assert(!dest->za_bgp_pi);
+		bgp_path_info_lock(info);
+		bgp_dest_lock_node(dest);
+		dest->za_bgp_pi = info;
+	} else if (CHECK_FLAG(dest->flags, BGP_NODE_SCHEDULE_FOR_INSTALL)) {
+		assert(dest->za_bgp_pi);
+		bgp_path_info_unlock(dest->za_bgp_pi);
+		bgp_path_info_lock(info);
+		dest->za_bgp_pi = info;
+	} else if (CHECK_FLAG(dest->flags, BGP_NODE_SCHEDULE_FOR_DELETE)) {
+		assert(dest->za_bgp_pi);
+		if (install)
+			bgp_zebra_withdraw_actual(dest, dest->za_bgp_pi, bgp);
+
+		bgp_path_info_unlock(dest->za_bgp_pi);
+		bgp_path_info_lock(info);
+		dest->za_bgp_pi = info;
+	}
+
+	if (install) {
+		UNSET_FLAG(dest->flags, BGP_NODE_SCHEDULE_FOR_DELETE);
+		SET_FLAG(dest->flags, BGP_NODE_SCHEDULE_FOR_INSTALL);
+	} else {
+		UNSET_FLAG(dest->flags, BGP_NODE_SCHEDULE_FOR_INSTALL);
+		SET_FLAG(dest->flags, BGP_NODE_SCHEDULE_FOR_DELETE);
+	}
+
+	event_add_event(bm->master, bgp_handle_route_announcements_to_zebra,
+			NULL, 0, &bm->t_bgp_zebra_route);
 }
 
 /* Withdraw all entries in a BGP instances RIB table from Zebra */
@@ -1795,7 +1931,7 @@ void bgp_zebra_withdraw_table_all_subtypes(struct bgp *bgp, afi_t afi, safi_t sa
 		for (pi = bgp_dest_get_bgp_path_info(dest); pi; pi = pi->next) {
 			if (CHECK_FLAG(pi->flags, BGP_PATH_SELECTED)
 			    && (pi->type == ZEBRA_ROUTE_BGP))
-				bgp_zebra_withdraw(dest, pi, bgp);
+				bgp_zebra_route_install(dest, pi, bgp, false);
 		}
 	}
 }
@@ -3470,6 +3606,7 @@ void bgp_zebra_init(struct event_loop *master, unsigned short instance)
 	zclient = zclient_new(master, &zclient_options_default, bgp_handlers,
 			      array_size(bgp_handlers));
 	zclient_init(zclient, ZEBRA_ROUTE_BGP, 0, &bgpd_privs);
+	zclient->zebra_buffer_write_ready = bgp_zebra_buffer_write_ready;
 	zclient->zebra_connected = bgp_zebra_connected;
 	zclient->zebra_capabilities = bgp_zebra_capabilities;
 	zclient->nexthop_update = bgp_nexthop_update;
