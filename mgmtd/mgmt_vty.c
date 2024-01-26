@@ -258,11 +258,15 @@ DEFPY(show_mgmt_get_config, show_mgmt_get_config_cmd,
 }
 
 DEFPY(show_mgmt_get_data, show_mgmt_get_data_cmd,
-      "show mgmt get-data WORD$path [with-config|only-config]$content [exact]$exact [with-defaults <trim|all-tag|all>$wd] [json|xml]$fmt",
+      "show mgmt get-data WORD$path [datastore <candidate|running|operational>$ds] [with-config|only-config]$content [exact]$exact [with-defaults <trim|all-tag|all>$wd] [json|xml]$fmt",
       SHOW_STR
       MGMTD_STR
       "Get a data from the operational datastore\n"
       "XPath expression specifying the YANG data root\n"
+      "Specify datastore to get data from (operational by default)\n"
+      "Candidate datastore\n"
+      "Running datastore\n"
+      "Operational datastore\n"
       "Include \"config true\" data\n"
       "Get only \"config true\" data\n"
       "Get exact node instead of the whole data tree\n"
@@ -278,6 +282,7 @@ DEFPY(show_mgmt_get_data, show_mgmt_get_data_cmd,
 	char *xpath = NULL;
 	uint8_t flags = content ? GET_DATA_FLAG_CONFIG : GET_DATA_FLAG_STATE;
 	uint8_t defaults = GET_DATA_DEFAULTS_EXPLICIT;
+	uint8_t datastore = MGMT_MSG_DATASTORE_OPERATIONAL;
 
 	if (content && content[0] == 'w')
 		flags |= GET_DATA_FLAG_STATE;
@@ -294,6 +299,13 @@ DEFPY(show_mgmt_get_data, show_mgmt_get_data_cmd,
 			defaults = GET_DATA_DEFAULTS_ALL;
 	}
 
+	if (ds) {
+		if (ds[0] == 'c')
+			datastore = MGMT_MSG_DATASTORE_CANDIDATE;
+		else if (ds[0] == 'r')
+			datastore = MGMT_MSG_DATASTORE_RUNNING;
+	}
+
 	/* get rid of extraneous trailing slash-* or single '/' unless root */
 	if (plen > 2 && ((path[plen - 2] == '/' && path[plen - 1] == '*') ||
 			 (path[plen - 2] != '/' && path[plen - 1] == '/'))) {
@@ -303,7 +315,8 @@ DEFPY(show_mgmt_get_data, show_mgmt_get_data_cmd,
 		path = xpath;
 	}
 
-	vty_mgmt_send_get_data_req(vty, format, flags, defaults, path);
+	vty_mgmt_send_get_data_req(vty, datastore, format, flags, defaults,
+				   path);
 
 	if (xpath)
 		XFREE(MTYPE_TMP, xpath);

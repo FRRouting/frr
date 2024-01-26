@@ -1145,6 +1145,7 @@ static void fe_adapter_handle_get_data(struct mgmt_fe_session_ctx *session,
 	struct lysc_node **snodes = NULL;
 	char *xpath_resolved = NULL;
 	uint64_t req_id = msg->req_id;
+	Mgmtd__DatastoreId ds_id;
 	uint64_t clients;
 	uint32_t wd_options;
 	bool simple_xpath;
@@ -1191,6 +1192,24 @@ static void fe_adapter_handle_get_data(struct mgmt_fe_session_ctx *session,
 		goto done;
 	}
 
+	switch (msg->datastore) {
+	case MGMT_MSG_DATASTORE_CANDIDATE:
+		ds_id = MGMTD_DS_CANDIDATE;
+		break;
+	case MGMT_MSG_DATASTORE_RUNNING:
+		ds_id = MGMTD_DS_RUNNING;
+		break;
+	case MGMT_MSG_DATASTORE_OPERATIONAL:
+		ds_id = MGMTD_DS_OPERATIONAL;
+		break;
+	default:
+		fe_adapter_send_error(session, req_id, false, -EINVAL,
+				      "Unsupported datastore %" PRIu8
+				      " requested from session-id: %" PRIu64,
+				      msg->datastore, session->session_id);
+		goto done;
+	}
+
 	err = yang_resolve_snode_xpath(ly_native_ctx, msg->xpath, &snodes,
 				       &simple_xpath);
 	if (err) {
@@ -1228,7 +1247,7 @@ static void fe_adapter_handle_get_data(struct mgmt_fe_session_ctx *session,
 
 	/* Create a GET-TREE request under the transaction */
 	ret = mgmt_txn_send_get_tree_oper(session->txn_id, req_id, clients,
-					  msg->result_type, msg->flags,
+					  ds_id, msg->result_type, msg->flags,
 					  wd_options, simple_xpath, msg->xpath);
 	if (ret) {
 		/* destroy the just created txn */

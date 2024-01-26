@@ -154,6 +154,14 @@ DECLARE_MTYPE(MSG_NATIVE_NOTIFY);
 #define MGMT_MSG_CODE_GET_DATA	3
 #define MGMT_MSG_CODE_NOTIFY	4
 
+/*
+ * Datastores
+ */
+#define MGMT_MSG_DATASTORE_STARTUP     0
+#define MGMT_MSG_DATASTORE_CANDIDATE   1
+#define MGMT_MSG_DATASTORE_RUNNING     2
+#define MGMT_MSG_DATASTORE_OPERATIONAL 3
+
 /**
  * struct mgmt_msg_header - Header common to all native messages.
  *
@@ -262,7 +270,8 @@ struct mgmt_msg_get_data {
 	uint8_t result_type;
 	uint8_t flags;
 	uint8_t defaults;
-	uint8_t resv2[6];
+	uint8_t datastore;
+	uint8_t resv2[4];
 
 	alignas(8) char xpath[];
 };

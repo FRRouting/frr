@@ -384,6 +384,9 @@ extern int mgmt_fe_send_regnotify_req(struct mgmt_fe_client *client,
  * req_id
  *    Client request ID.
  *
+ * datastore
+ *    Datastore for getting data.
+ *
  * result_type
  *    The LYD_FORMAT of the result.
  *
@@ -401,8 +404,9 @@ extern int mgmt_fe_send_regnotify_req(struct mgmt_fe_client *client,
  */
 extern int mgmt_fe_send_get_data_req(struct mgmt_fe_client *client,
 				     uint64_t session_id, uint64_t req_id,
-				     LYD_FORMAT result_type, uint8_t flags,
-				     uint8_t defaults, const char *xpath);
+				     uint8_t datastore, LYD_FORMAT result_type,
+				     uint8_t flags, uint8_t defaults,
+				     const char *xpath);
 
 /*
  * Destroy library and cleanup everything.

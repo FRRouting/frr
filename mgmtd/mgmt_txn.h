@@ -202,6 +202,7 @@ extern int mgmt_txn_send_get_req(uint64_t txn_id, uint64_t req_id,
  *	txn_id: Transaction identifier.
  *	req_id: FE client request identifier.
  *	clients: Bitmask of clients to send get-tree to.
+ *	ds_id: datastore ID.
  *	result_type: LYD_FORMAT result format.
  *	flags: option flags for the request.
  *	wd_options: LYD_PRINT_WD_* flags for the result.
@@ -212,9 +213,11 @@ extern int mgmt_txn_send_get_req(uint64_t txn_id, uint64_t req_id,
  *	0 on success.
  */
 extern int mgmt_txn_send_get_tree_oper(uint64_t txn_id, uint64_t req_id,
-				       uint64_t clients, LYD_FORMAT result_type,
-				       uint8_t flags, uint32_t wd_options,
-				       bool simple_xpath, const char *xpath);
+				       uint64_t clients,
+				       Mgmtd__DatastoreId ds_id,
+				       LYD_FORMAT result_type, uint8_t flags,
+				       uint32_t wd_options, bool simple_xpath,
+				       const char *xpath);
 
 /*
  * Notifiy backend adapter on connection.
