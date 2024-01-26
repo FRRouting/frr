@@ -413,7 +413,7 @@ void rfapi_vty_out_vncinfo(struct vty *vty, const struct prefix *p,
 		XFREE(MTYPE_ECOMMUNITY_STR, s);
 	}
 
-	if (bpi->extra != NULL && bpi->attr->num_labels) {
+	if (bpi->attr->num_labels) {
 		if (bpi->attr->label_tbl[0] == BGP_PREVENT_VRF_2_VRF_LEAK)
 			vty_out(vty, " label=VRF2VRF");
 		else
@@ -1052,7 +1052,7 @@ static int rfapiPrintRemoteRegBi(struct bgp *bgp, void *stream,
 		snprintf(buf_un, sizeof(buf_un), "%s",
 			 inet_ntop(pfx_vn.family, &pfx_vn.u.prefix, buf_ntop,
 				   sizeof(buf_ntop)));
-		if (bpi->extra && bpi->attr->num_labels) {
+		if (bpi->attr->num_labels) {
 			uint32_t l = decode_label(&bpi->attr->label_tbl[0]);
 			snprintf(buf_vn, sizeof(buf_vn), "Label: %d", l);
 		} else /* should never happen */
@@ -1161,8 +1161,7 @@ static int rfapiPrintRemoteRegBi(struct bgp *bgp, void *stream,
 			}
 		}
 	}
-	if (tun_type != BGP_ENCAP_TYPE_MPLS && bpi->extra &&
-	    bpi->attr->num_labels) {
+	if (tun_type != BGP_ENCAP_TYPE_MPLS && bpi->attr->num_labels) {
 		uint32_t l = decode_label(&bpi->attr->label_tbl[0]);
 
 		if (!MPLS_LABEL_IS_NULL(l)) {

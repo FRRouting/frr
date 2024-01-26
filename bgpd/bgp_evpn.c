@@ -1582,7 +1582,6 @@ static int update_evpn_type5_route_entry(struct bgp *bgp_evpn,
 		SET_FLAG(pi->flags, BGP_PATH_VALID);
 
 		/* Type-5 routes advertise the L3-VNI */
-		bgp_path_info_extra_get(pi);
 		vni2label(bgp_vrf->l3vni, &label);
 		memcpy(&pi->attr->label_tbl, &label, sizeof(label));
 		pi->attr->num_labels = 1;
@@ -2893,12 +2892,11 @@ bgp_create_evpn_bgp_path_info(struct bgp_path_info *parent_pi,
 				sizeof(struct bgp_path_info_extra_vrfleak));
 	pi->extra->vrfleak->parent = bgp_path_info_lock(parent_pi);
 	bgp_dest_lock_node((struct bgp_dest *)parent_pi->net);
-	if (parent_pi->extra) {
-		memcpy(&pi->attr->label_tbl, &parent_pi->attr->label_tbl,
-		       sizeof(pi->attr->label_tbl));
-		pi->attr->num_labels = parent_pi->attr->num_labels;
+	memcpy(&pi->attr->label_tbl, &parent_pi->attr->label_tbl,
+		   sizeof(pi->attr->label_tbl));
+	pi->attr->num_labels = parent_pi->attr->num_labels;
+	if (parent_pi->extra)
 		pi->extra->igpmetric = parent_pi->extra->igpmetric;
-	}
 
 	bgp_path_info_add(dest, pi);
 
@@ -7675,9 +7673,6 @@ mpls_label_t *bgp_evpn_path_info_labels_get_l3vni(mpls_label_t *labels,
  */
 vni_t bgp_evpn_path_info_get_l3vni(const struct bgp_path_info *pi)
 {
-	if (!pi->extra)
-		return 0;
-
 	return label2vni(bgp_evpn_path_info_labels_get_l3vni(
 		pi->attr->label_tbl, pi->attr->num_labels));
 }

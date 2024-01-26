@@ -812,7 +812,7 @@ struct bpacket *subgroup_update_packet(struct update_subgroup *subgrp)
 					path);
 				label_pnt = &label;
 				num_labels = 1;
-			} else if (path && path->extra) {
+			} else if (path) {
 				label_pnt = &path->attr->label_tbl[0];
 				num_labels = path->attr->num_labels;
 			}

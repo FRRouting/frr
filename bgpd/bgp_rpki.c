@@ -663,7 +663,7 @@ static void revalidate_bgp_node(struct bgp_dest *bgp_dest, afi_t afi,
 		mpls_label_t *label = NULL;
 		uint32_t num_labels = 0;
 
-		if (path && path->extra) {
+		if (path) {
 			label = path->attr->label_tbl;
 			num_labels = path->attr->num_labels;
 		}

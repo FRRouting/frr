@@ -957,21 +957,6 @@ void transpose_sid(struct in6_addr *sid, uint32_t label, uint8_t offset,
 	}
 }
 
-static bool labels_same(struct bgp_path_info *bpi, mpls_label_t *label,
-			uint32_t n)
-{
-	if (!bpi->extra) {
-		if (!n)
-			return true;
-		else
-			return false;
-	}
-
-	return bgp_labels_same((const mpls_label_t *)bpi->attr->label_tbl,
-			       bpi->attr->num_labels,
-			       (const mpls_label_t *)label, n);
-}
-
 /*
  * make encoded route labels match specified encoded label set
  */
@@ -1120,7 +1105,9 @@ leak_update(struct bgp *to_bgp, struct bgp_dest *bn,
 	}
 
 	if (bpi) {
-		bool labelssame = labels_same(bpi, label, num_labels);
+		bool labelssame = bgp_labels_same((const mpls_label_t *)bpi->attr->label_tbl,
+			       bpi->attr->num_labels,
+			       (const mpls_label_t *)label, num_labels);
 
 		if (CHECK_FLAG(source_bpi->flags, BGP_PATH_REMOVED)
 		    && CHECK_FLAG(bpi->flags, BGP_PATH_REMOVED)) {
@@ -2314,7 +2301,7 @@ static void vpn_leak_to_vrf_update_onevrf(struct bgp *to_bgp,   /* to */
 		}
 
 		/* copy labels */
-		if (!origin_local && path_vpn->extra
+		if (!origin_local
 		    && path_vpn->attr->num_labels) {
 			num_labels = path_vpn->attr->num_labels;
 			if (num_labels > BGP_MAX_LABELS)
@@ -4092,7 +4079,7 @@ bool bgp_mplsvpn_path_uses_valid_mpls_label(struct bgp_path_info *pi)
 		/* prefix_sid attribute */
 		return false;
 
-	if (!pi->extra || !pi->attr->num_labels ||
+	if (!pi->attr->num_labels ||
 	    !bgp_is_valid_label(&pi->attr->label_tbl[0]))
 		/* invalid MPLS label */
 		return false;

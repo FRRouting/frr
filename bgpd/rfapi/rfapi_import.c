@@ -4166,7 +4166,7 @@ static void rfapiBgpTableFilteredImport(struct bgp *bgp,
 						       BGP_PATH_REMOVED))
 						continue;
 
-					if (bpi->extra && bpi->attr->num_labels)
+					if (bpi->attr->num_labels)
 						label = decode_label(
 							&bpi->attr->label_tbl[0]);
 					(*rfapiBgpInfoFilteredImportFunction(
