@@ -704,10 +704,11 @@ static int sharp_redistribute_route(ZAPI_CALLBACK_ARGS)
 	return 0;
 }
 
-void sharp_redistribute_vrf(struct vrf *vrf, int type)
+void sharp_redistribute_vrf(struct vrf *vrf, int type, bool turn_on)
 {
-	zebra_redistribute_send(ZEBRA_REDISTRIBUTE_ADD, zclient, AFI_IP, type,
-				0, vrf->vrf_id);
+	zebra_redistribute_send(turn_on ? ZEBRA_REDISTRIBUTE_ADD
+					: ZEBRA_REDISTRIBUTE_DELETE,
+				zclient, AFI_IP, type, 0, vrf->vrf_id);
 }
 
 static zclient_handler *const sharp_opaque_handlers[] = {

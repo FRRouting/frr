@@ -54,7 +54,8 @@ DEFPY(watch_neighbor, watch_neighbor_cmd,
 
 
 DEFPY(watch_redistribute, watch_redistribute_cmd,
-      "sharp watch [vrf NAME$vrf_name] redistribute " FRR_REDIST_STR_SHARPD,
+      "[no] sharp watch [vrf NAME$vrf_name] redistribute " FRR_REDIST_STR_SHARPD,
+      NO_STR
       "Sharp routing Protocol\n"
       "Watch for changes\n"
       "The vrf we would like to watch if non-default\n"
@@ -75,7 +76,7 @@ DEFPY(watch_redistribute, watch_redistribute_cmd,
 	}
 
 	source = proto_redistnum(AFI_IP, argv[argc-1]->text);
-	sharp_redistribute_vrf(vrf, source);
+	sharp_redistribute_vrf(vrf, source, !no);
 
 	return CMD_SUCCESS;
 }
