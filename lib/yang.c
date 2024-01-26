@@ -508,6 +508,30 @@ void yang_dnode_iterate(yang_dnode_iter_cb cb, void *arg,
 	ly_set_free(set, NULL);
 }
 
+uint32_t yang_dnode_count(const struct lyd_node *dnode, const char *xpath_fmt,
+			  ...)
+{
+	va_list ap;
+	char xpath[XPATH_MAXLEN];
+	struct ly_set *set;
+	uint32_t count;
+
+	va_start(ap, xpath_fmt);
+	vsnprintf(xpath, sizeof(xpath), xpath_fmt, ap);
+	va_end(ap);
+
+	if (lyd_find_xpath(dnode, xpath, &set)) {
+		assert(0);
+		return 0;
+	}
+
+	count = set->count;
+
+	ly_set_free(set, NULL);
+
+	return count;
+}
+
 bool yang_dnode_is_default(const struct lyd_node *dnode, const char *xpath)
 {
 	const struct lysc_node *snode;

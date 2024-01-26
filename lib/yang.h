@@ -421,6 +421,21 @@ void yang_dnode_iterate(yang_dnode_iter_cb cb, void *arg,
 			...) PRINTFRR(4, 5);
 
 /*
+ * Count the number of data nodes that satisfy an XPath query.
+ *
+ * dnode
+ *    Base libyang data node to operate on.
+ *
+ * xpath_fmt
+ *    XPath expression (absolute or relative).
+ *
+ * ...
+ *    any parameters for xpath_fmt.
+ */
+uint32_t yang_dnode_count(const struct lyd_node *dnode, const char *xpath_fmt,
+			  ...) PRINTFRR(2, 3);
+
+/*
  * Check if the libyang data node contains a default value. Non-presence
  * containers are assumed to always contain a default value.
  *
