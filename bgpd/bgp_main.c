@@ -182,6 +182,7 @@ static __attribute__((__noreturn__)) void bgp_exit(int status)
 {
 	struct bgp *bgp, *bgp_default, *bgp_evpn;
 	struct listnode *node, *nnode;
+	struct bgp_dest *dest;
 
 	/* it only makes sense for this to be called on a clean exit */
 	assert(status == 0);
@@ -203,6 +204,13 @@ static __attribute__((__noreturn__)) void bgp_exit(int status)
 		bgp_delete(bgp_evpn);
 	if (bgp_default)
 		bgp_delete(bgp_default);
+
+	while (zebra_announce_count(&bm->zebra_announce_head)) {
+		dest = zebra_announce_pop(&bm->zebra_announce_head);
+		bgp_path_info_unlock(dest->za_bgp_pi);
+		bgp_dest_unlock_node(dest);
+	}
+	zebra_announce_fini(&bm->zebra_announce_head);
 
 	bgp_evpn_mh_finish();
 	bgp_nhg_finish();
