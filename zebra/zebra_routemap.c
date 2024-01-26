@@ -284,8 +284,8 @@ static const struct route_map_rule_cmd route_match_interface_cmd = {
 	route_match_interface_free
 };
 
-static int ip_protocol_rm_add(struct zebra_vrf *zvrf, const char *rmap,
-			      int rtype, afi_t afi, safi_t safi)
+int ip_protocol_rm_add(struct zebra_vrf *zvrf, const char *rmap, int rtype,
+		       afi_t afi, safi_t safi)
 {
 	struct route_table *table;
 
@@ -317,8 +317,8 @@ static int ip_protocol_rm_add(struct zebra_vrf *zvrf, const char *rmap,
 	return CMD_SUCCESS;
 }
 
-static int ip_protocol_rm_del(struct zebra_vrf *zvrf, const char *rmap,
-			      int rtype, afi_t afi, safi_t safi)
+int ip_protocol_rm_del(struct zebra_vrf *zvrf, const char *rmap, int rtype,
+		       afi_t afi, safi_t safi)
 {
 	struct route_table *table;
 
@@ -677,28 +677,21 @@ DEFPY_YANG (ip_protocol,
        "Specify route-map\n"
        "Route map name\n")
 {
-	int ret, rtype;
+	nb_cli_enqueue_change(vty, ".", NB_OP_CREATE, NULL);
+	nb_cli_enqueue_change(vty, "./route-map", NB_OP_MODIFY, rmap);
 
-	assert(proto);
-	assert(rmap);
+	if (vty->node == CONFIG_NODE)
+		return nb_cli_apply_changes(
+			vty,
+			"/frr-vrf:lib/vrf[name='%s']/frr-zebra:zebra/filter-protocol[afi-safi='%s'][protocol='%s']",
+			VRF_DEFAULT_NAME,
+			yang_afi_safi_value2identity(AFI_IP, SAFI_UNICAST),
+			proto);
 
-	ZEBRA_DECLVAR_CONTEXT_VRF(vrf, zvrf);
-
-	if (!zvrf)
-		return CMD_WARNING;
-
-	if (strcasecmp(proto, "any") == 0)
-		rtype = ZEBRA_ROUTE_MAX;
-	else
-		rtype = proto_name2num(proto);
-	if (rtype < 0) {
-		vty_out(vty, "invalid protocol name \"%s\"\n", proto);
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	ret = ip_protocol_rm_add(zvrf, rmap, rtype, AFI_IP, SAFI_UNICAST);
-
-	return ret;
+	return nb_cli_apply_changes(
+		vty,
+		"./frr-zebra:zebra/filter-protocol[afi-safi='%s'][protocol='%s']",
+		yang_afi_safi_value2identity(AFI_IP, SAFI_UNICAST), proto);
 }
 
 DEFPY_YANG (no_ip_protocol,
@@ -712,27 +705,20 @@ DEFPY_YANG (no_ip_protocol,
        "Specify route-map\n"
        "Route map name\n")
 {
-	int ret, rtype;
+	nb_cli_enqueue_change(vty, ".", NB_OP_DESTROY, NULL);
 
-	assert(proto);
+	if (vty->node == CONFIG_NODE)
+		return nb_cli_apply_changes(
+			vty,
+			"/frr-vrf:lib/vrf[name='%s']/frr-zebra:zebra/filter-protocol[afi-safi='%s'][protocol='%s']",
+			VRF_DEFAULT_NAME,
+			yang_afi_safi_value2identity(AFI_IP, SAFI_UNICAST),
+			proto);
 
-	ZEBRA_DECLVAR_CONTEXT_VRF(vrf, zvrf);
-
-	if (!zvrf)
-		return CMD_WARNING;
-
-	if (strcasecmp(proto, "any") == 0)
-		rtype = ZEBRA_ROUTE_MAX;
-	else
-		rtype = proto_name2num(proto);
-	if (rtype < 0) {
-		vty_out(vty, "invalid protocol name \"%s\"\n", proto);
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	ret = ip_protocol_rm_del(zvrf, rmap, rtype, AFI_IP, SAFI_UNICAST);
-
-	return ret;
+	return nb_cli_apply_changes(
+		vty,
+		"./frr-zebra:zebra/filter-protocol[afi-safi='%s'][protocol='%s']",
+		yang_afi_safi_value2identity(AFI_IP, SAFI_UNICAST), proto);
 }
 
 DEFPY_YANG (show_ip_protocol,
@@ -758,28 +744,21 @@ DEFPY_YANG (ipv6_protocol,
        "Specify route-map\n"
        "Route map name\n")
 {
-	int ret, rtype;
+	nb_cli_enqueue_change(vty, ".", NB_OP_CREATE, NULL);
+	nb_cli_enqueue_change(vty, "./route-map", NB_OP_MODIFY, rmap);
 
-	assert(rmap);
-	assert(proto);
+	if (vty->node == CONFIG_NODE)
+		return nb_cli_apply_changes(
+			vty,
+			"/frr-vrf:lib/vrf[name='%s']/frr-zebra:zebra/filter-protocol[afi-safi='%s'][protocol='%s']",
+			VRF_DEFAULT_NAME,
+			yang_afi_safi_value2identity(AFI_IP6, SAFI_UNICAST),
+			proto);
 
-	ZEBRA_DECLVAR_CONTEXT_VRF(vrf, zvrf);
-
-	if (!zvrf)
-		return CMD_WARNING;
-
-	if (strcasecmp(proto, "any") == 0)
-		rtype = ZEBRA_ROUTE_MAX;
-	else
-		rtype = proto_name2num(proto);
-	if (rtype < 0) {
-		vty_out(vty, "invalid protocol name \"%s\"\n", proto);
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	ret = ip_protocol_rm_add(zvrf, rmap, rtype, AFI_IP6, SAFI_UNICAST);
-
-	return ret;
+	return nb_cli_apply_changes(
+		vty,
+		"./frr-zebra:zebra/filter-protocol[afi-safi='%s'][protocol='%s']",
+		yang_afi_safi_value2identity(AFI_IP6, SAFI_UNICAST), proto);
 }
 
 DEFPY_YANG (no_ipv6_protocol,
@@ -793,27 +772,20 @@ DEFPY_YANG (no_ipv6_protocol,
        "Specify route-map\n"
        "Route map name\n")
 {
-	int ret, rtype;
+	nb_cli_enqueue_change(vty, ".", NB_OP_DESTROY, NULL);
 
-	assert(proto);
+	if (vty->node == CONFIG_NODE)
+		return nb_cli_apply_changes(
+			vty,
+			"/frr-vrf:lib/vrf[name='%s']/frr-zebra:zebra/filter-protocol[afi-safi='%s'][protocol='%s']",
+			VRF_DEFAULT_NAME,
+			yang_afi_safi_value2identity(AFI_IP6, SAFI_UNICAST),
+			proto);
 
-	ZEBRA_DECLVAR_CONTEXT_VRF(vrf, zvrf);
-
-	if (!zvrf)
-		return CMD_WARNING;
-
-	if (strcasecmp(proto, "any") == 0)
-		rtype = ZEBRA_ROUTE_MAX;
-	else
-		rtype = proto_name2num(proto);
-	if (rtype < 0) {
-		vty_out(vty, "invalid protocol name \"%s\"\n", proto);
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	ret = ip_protocol_rm_del(zvrf, rmap, rtype, AFI_IP6, SAFI_UNICAST);
-
-	return ret;
+	return nb_cli_apply_changes(
+		vty,
+		"./frr-zebra:zebra/filter-protocol[afi-safi='%s'][protocol='%s']",
+		yang_afi_safi_value2identity(AFI_IP6, SAFI_UNICAST), proto);
 }
 
 DEFPY_YANG (show_ipv6_protocol,

@@ -420,6 +420,10 @@ int lib_vrf_zebra_router_id_modify(struct nb_cb_modify_args *args);
 int lib_vrf_zebra_router_id_destroy(struct nb_cb_destroy_args *args);
 int lib_vrf_zebra_ipv6_router_id_modify(struct nb_cb_modify_args *args);
 int lib_vrf_zebra_ipv6_router_id_destroy(struct nb_cb_destroy_args *args);
+int lib_vrf_zebra_filter_protocol_create(struct nb_cb_create_args *args);
+int lib_vrf_zebra_filter_protocol_destroy(struct nb_cb_destroy_args *args);
+int lib_vrf_zebra_filter_protocol_route_map_modify(
+	struct nb_cb_modify_args *args);
 const void *lib_vrf_zebra_ribs_rib_get_next(struct nb_cb_get_next_args *args);
 int lib_vrf_zebra_ribs_rib_get_keys(struct nb_cb_get_keys_args *args);
 const void *

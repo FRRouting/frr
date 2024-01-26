@@ -26,6 +26,7 @@
 #include "zebra/zebra_evpn_mh.h"
 #include "zebra/zebra_ptm.h"
 #include "zebra/router-id.h"
+#include "zebra/zebra_routemap.h"
 
 /*
  * XPath: /frr-zebra:zebra/mcast-rpf-lookup
@@ -3299,6 +3300,106 @@ int lib_vrf_zebra_ipv6_router_id_destroy(struct nb_cb_destroy_args *args)
 	p.family = AF_INET6;
 
 	router_id_set(AFI_IP6, &p, vrf->info);
+
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-vrf:lib/vrf/frr-zebra:zebra/filter-protocol
+ */
+int lib_vrf_zebra_filter_protocol_create(struct nb_cb_create_args *args)
+{
+	struct vrf *vrf;
+	const char *afi_safi = yang_dnode_get_string(args->dnode, "afi-safi");
+	const char *proto = yang_dnode_get_string(args->dnode, "protocol");
+	const char *rmap = yang_dnode_get_string(args->dnode, "route-map");
+	afi_t afi;
+	safi_t safi;
+	int rtype;
+
+	yang_afi_safi_identity2value(afi_safi, &afi, &safi);
+
+	if (strcasecmp(proto, "any") == 0)
+		rtype = ZEBRA_ROUTE_MAX;
+	else
+		rtype = proto_name2num(proto);
+
+	if (args->event == NB_EV_VALIDATE)
+		if (rtype < 0) {
+			snprintfrr(args->errmsg, args->errmsg_len,
+				   "invalid protocol name \"%s\"", proto);
+			return NB_ERR_VALIDATION;
+		}
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	vrf = nb_running_get_entry(args->dnode, NULL, true);
+
+	ip_protocol_rm_add(vrf->info, rmap, rtype, afi, safi);
+
+	return NB_OK;
+}
+
+int lib_vrf_zebra_filter_protocol_destroy(struct nb_cb_destroy_args *args)
+{
+	struct vrf *vrf;
+	const char *afi_safi = yang_dnode_get_string(args->dnode, "afi-safi");
+	const char *proto = yang_dnode_get_string(args->dnode, "protocol");
+	const char *rmap = yang_dnode_get_string(args->dnode, "route-map");
+	afi_t afi;
+	safi_t safi;
+	int rtype;
+
+	yang_afi_safi_identity2value(afi_safi, &afi, &safi);
+
+	if (strcasecmp(proto, "any") == 0)
+		rtype = ZEBRA_ROUTE_MAX;
+	else
+		rtype = proto_name2num(proto);
+
+	/* deleting an existing entry, it can't be invalid */
+	assert(rtype >= 0);
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	vrf = nb_running_get_entry(args->dnode, NULL, true);
+
+	ip_protocol_rm_del(vrf->info, rmap, rtype, afi, safi);
+
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-vrf:lib/vrf/frr-zebra:zebra/filter-protocol/route-map
+ */
+int lib_vrf_zebra_filter_protocol_route_map_modify(struct nb_cb_modify_args *args)
+{
+	struct vrf *vrf;
+	const char *afi_safi = yang_dnode_get_string(args->dnode, "../afi-safi");
+	const char *proto = yang_dnode_get_string(args->dnode, "../protocol");
+	const char *rmap = yang_dnode_get_string(args->dnode, NULL);
+	afi_t afi;
+	safi_t safi;
+	int rtype;
+
+	yang_afi_safi_identity2value(afi_safi, &afi, &safi);
+
+	if (strcasecmp(proto, "any") == 0)
+		rtype = ZEBRA_ROUTE_MAX;
+	else
+		rtype = proto_name2num(proto);
+
+	/* editing an existing entry, it can't be invalid */
+	assert(rtype >= 0);
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	vrf = nb_running_get_entry(args->dnode, NULL, true);
+
+	ip_protocol_rm_add(vrf->info, rmap, rtype, afi, safi);
 
 	return NB_OK;
 }

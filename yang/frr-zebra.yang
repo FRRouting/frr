@@ -2758,6 +2758,31 @@ module frr-zebra {
            some routing protocols identifying a router.";
       }
 
+      list filter-protocol {
+        key "afi-safi protocol";
+        description
+          "Filter routing info exchanged between zebra and protocol.";
+        leaf afi-safi {
+          type identityref {
+            base frr-rt:afi-safi-type;
+          }
+          description
+            "AFI-SAFI type.";
+        }
+        leaf protocol {
+          // This should be identityref to frr-rt:control-plane-protocol someday
+          type string;
+          description
+            "The protocol to filter.";
+        }
+        leaf route-map {
+          type frr-route-map:route-map-ref;
+          mandatory true;
+          description
+            "A route-map to filter routes.";
+        }
+      }
+
       uses ribs;
 
       uses vrf-vni-mapping;

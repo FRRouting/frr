@@ -848,6 +848,19 @@ const struct frr_yang_module_info frr_zebra_info = {
 			}
 		},
 		{
+			.xpath = "/frr-vrf:lib/vrf/frr-zebra:zebra/filter-protocol",
+			.cbs = {
+				.create = lib_vrf_zebra_filter_protocol_create,
+				.destroy = lib_vrf_zebra_filter_protocol_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-vrf:lib/vrf/frr-zebra:zebra/filter-protocol/route-map",
+			.cbs = {
+				.modify = lib_vrf_zebra_filter_protocol_route_map_modify,
+			}
+		},
+		{
 			.xpath = "/frr-vrf:lib/vrf/frr-zebra:zebra/ribs/rib",
 			.cbs = {
 				.get_next = lib_vrf_zebra_ribs_rib_get_next,
