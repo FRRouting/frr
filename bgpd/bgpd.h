@@ -184,6 +184,7 @@ struct bgp_master {
 
 	struct event *t_bgp_sync_label_manager;
 	struct event *t_bgp_start_label_manager;
+	struct event *t_bgp_zebra_route;
 
 	/* To preserve ordering of installations into zebra across all Vrfs */
 	struct zebra_announce_head zebra_announce_head;

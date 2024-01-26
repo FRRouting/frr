@@ -282,6 +282,7 @@ static void zclient_flush_data(struct event *thread)
 				zclient->sock, &zclient->t_write);
 		break;
 	case BUFFER_EMPTY:
+		/* Currently only Sharpd and Bgpd has callbacks defined */
 		if (zclient->zebra_buffer_write_ready)
 			(*zclient->zebra_buffer_write_ready)();
 		break;
