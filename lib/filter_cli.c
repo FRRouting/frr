@@ -69,51 +69,58 @@ static int64_t acl_get_seq(struct vty *vty, const char *xpath, bool is_remove)
 	return seq;
 }
 
-static int acl_remove_if_empty(struct vty *vty, const char *iptype,
-			       const char *name)
+/**
+ * Remove main data structure filter list if there are no more entries or
+ * remark. This fixes compatibility with old CLI and tests.
+ */
+static int filter_remove_check_empty(struct vty *vty, const char *ftype,
+				     const char *iptype, const char *name,
+				     uint32_t del_seq, bool del_remark)
 {
+	const struct lyd_node *remark_dnode = NULL;
+	const struct lyd_node *entry_dnode = NULL;
 	char xpath[XPATH_MAXLEN];
+	uint32_t count;
 
+	/* Count existing entries */
+	count = yang_dnode_count(vty->candidate_config->dnode,
+				 "/frr-filter:lib/%s-list[type='%s'][name='%s']/entry",
+				 ftype, iptype, name);
+
+	/* Check entry-to-delete actually exists */
+	if (del_seq) {
+		snprintf(xpath, sizeof(xpath),
+			 "/frr-filter:lib/%s-list[type='%s'][name='%s']/entry[sequence='%u']",
+			 ftype, iptype, name, del_seq);
+		entry_dnode = yang_dnode_get(vty->candidate_config->dnode,
+					     xpath);
+
+		/* If exists, delete and don't count it, we need only remaining entries */
+		if (entry_dnode) {
+			nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+			count--;
+		}
+	}
+
+	/* Delete the remark, or check whether it exists if we're keeping it */
 	snprintf(xpath, sizeof(xpath),
-		 "/frr-filter:lib/access-list[type='%s'][name='%s']/remark",
+		 "/frr-filter:lib/%s-list[type='%s'][name='%s']/remark", ftype,
 		 iptype, name);
-	/* List is not empty if there is a remark, check that: */
-	if (yang_dnode_exists(vty->candidate_config->dnode, xpath))
-		return CMD_SUCCESS;
+	if (del_remark)
+		nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+	else
+		remark_dnode = yang_dnode_get(vty->candidate_config->dnode,
+					      xpath);
 
-	/* Check if we have any entries: */
-	snprintf(xpath, sizeof(xpath),
-		 "/frr-filter:lib/access-list[type='%s'][name='%s']", iptype,
-		 name);
-	/*
-	 * NOTE: if the list is empty it will return the first sequence
-	 * number: 5.
-	 */
-	if (acl_get_seq(vty, xpath, true) != 5)
-		return CMD_SUCCESS;
+	/* If there are no entries left and no remark, delete the whole list */
+	if (count == 0 && !remark_dnode) {
+		snprintf(xpath, sizeof(xpath),
+			 "/frr-filter:lib/%s-list[type='%s'][name='%s']", ftype,
+			 iptype, name);
+		nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+	}
 
-	/* Nobody is using this list, lets remove it. */
-	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
 	return nb_cli_apply_changes(vty, NULL);
-}
-
-static int acl_remove(struct vty *vty, const char *iptype, const char *name,
-		      int64_t sseq)
-{
-	char xpath[XPATH_MAXLEN];
-	int rv;
-
-	snprintfrr(
-		xpath, sizeof(xpath),
-		"/frr-filter:lib/access-list[type='%s'][name='%s']/entry[sequence='%" PRId64 "']",
-		iptype, name, sseq);
-	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
-
-	rv = nb_cli_apply_changes(vty, NULL);
-	if (rv == CMD_SUCCESS)
-		return acl_remove_if_empty(vty, iptype, name);
-
-	return rv;
 }
 
 /*
@@ -213,7 +220,8 @@ DEFPY_YANG(
 
 	/* If the user provided sequence number, then just go for it. */
 	if (seq_str != NULL)
-		return acl_remove(vty, "ipv4", name, seq);
+		return filter_remove_check_empty(vty, "access", "ipv4", name,
+						 seq, false);
 
 	/* Otherwise, to keep compatibility, we need to figure it out. */
 	ada.ada_type = "ipv4";
@@ -237,7 +245,8 @@ DEFPY_YANG(
 	else
 		return CMD_WARNING_CONFIG_FAILED;
 
-	return acl_remove(vty, "ipv4", name, sseq);
+	return filter_remove_check_empty(vty, "access", "ipv4", name, sseq,
+					 false);
 }
 
 DEFPY_YANG(
@@ -384,7 +393,8 @@ DEFPY_YANG(
 
 	/* If the user provided sequence number, then just go for it. */
 	if (seq_str != NULL)
-		return acl_remove(vty, "ipv4", name, seq);
+		return filter_remove_check_empty(vty, "access", "ipv4", name,
+						 seq, false);
 
 	/* Otherwise, to keep compatibility, we need to figure it out. */
 	ada.ada_type = "ipv4";
@@ -429,7 +439,8 @@ DEFPY_YANG(
 	else
 		return CMD_WARNING_CONFIG_FAILED;
 
-	return acl_remove(vty, "ipv4", name, sseq);
+	return filter_remove_check_empty(vty, "access", "ipv4", name, sseq,
+					 false);
 }
 
 /*
@@ -525,7 +536,8 @@ DEFPY_YANG(
 
 	/* If the user provided sequence number, then just go for it. */
 	if (seq_str != NULL)
-		return acl_remove(vty, "ipv4", name, seq);
+		return filter_remove_check_empty(vty, "access", "ipv4", name,
+						 seq, false);
 
 	/* Otherwise, to keep compatibility, we need to figure it out. */
 	ada.ada_type = "ipv4";
@@ -549,7 +561,8 @@ DEFPY_YANG(
 	else
 		return CMD_WARNING_CONFIG_FAILED;
 
-	return acl_remove(vty, "ipv4", name, sseq);
+	return filter_remove_check_empty(vty, "access", "ipv4", name, sseq,
+					 false);
 }
 
 DEFPY_YANG(
@@ -600,19 +613,7 @@ DEFPY_YANG(
 	ACCESS_LIST_ZEBRA_STR
 	ACCESS_LIST_REMARK_STR)
 {
-	char xpath[XPATH_MAXLEN];
-	int rv;
-
-	snprintf(xpath, sizeof(xpath),
-		 "/frr-filter:lib/access-list[type='ipv4'][name='%s']/remark",
-		 name);
-	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
-
-	rv = nb_cli_apply_changes(vty, NULL);
-	if (rv == CMD_SUCCESS)
-		return acl_remove_if_empty(vty, "ipv4", name);
-
-	return rv;
+	return filter_remove_check_empty(vty, "access", "ipv4", name, 0, true);
 }
 
 ALIAS(
@@ -716,7 +717,8 @@ DEFPY_YANG(
 
 	/* If the user provided sequence number, then just go for it. */
 	if (seq_str != NULL)
-		return acl_remove(vty, "ipv6", name, seq);
+		return filter_remove_check_empty(vty, "access", "ipv6", name,
+						 seq, false);
 
 	/* Otherwise, to keep compatibility, we need to figure it out. */
 	ada.ada_type = "ipv6";
@@ -740,7 +742,8 @@ DEFPY_YANG(
 	else
 		return CMD_WARNING_CONFIG_FAILED;
 
-	return acl_remove(vty, "ipv6", name, sseq);
+	return filter_remove_check_empty(vty, "access", "ipv6", name, sseq,
+					 false);
 }
 
 DEFPY_YANG(
@@ -794,19 +797,7 @@ DEFPY_YANG(
 	ACCESS_LIST_ZEBRA_STR
 	ACCESS_LIST_REMARK_STR)
 {
-	char xpath[XPATH_MAXLEN];
-	int rv;
-
-	snprintf(xpath, sizeof(xpath),
-		 "/frr-filter:lib/access-list[type='ipv6'][name='%s']/remark",
-		 name);
-	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
-
-	rv = nb_cli_apply_changes(vty, NULL);
-	if (rv == CMD_SUCCESS)
-		return acl_remove_if_empty(vty, "ipv6", name);
-
-	return rv;
+	return filter_remove_check_empty(vty, "access", "ipv6", name, 0, true);
 }
 
 ALIAS(
@@ -902,7 +893,8 @@ DEFPY_YANG(
 
 	/* If the user provided sequence number, then just go for it. */
 	if (seq_str != NULL)
-		return acl_remove(vty, "mac", name, seq);
+		return filter_remove_check_empty(vty, "access", "mac", name,
+						 seq, false);
 
 	/* Otherwise, to keep compatibility, we need to figure it out. */
 	ada.ada_type = "mac";
@@ -922,7 +914,8 @@ DEFPY_YANG(
 	else
 		return CMD_WARNING_CONFIG_FAILED;
 
-	return acl_remove(vty, "mac", name, sseq);
+	return filter_remove_check_empty(vty, "access", "mac", name, sseq,
+					 false);
 }
 
 DEFPY_YANG(
@@ -976,19 +969,7 @@ DEFPY_YANG(
 	ACCESS_LIST_ZEBRA_STR
 	ACCESS_LIST_REMARK_STR)
 {
-	char xpath[XPATH_MAXLEN];
-	int rv;
-
-	snprintf(xpath, sizeof(xpath),
-		 "/frr-filter:lib/access-list[type='mac'][name='%s']/remark",
-		 name);
-	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
-
-	rv = nb_cli_apply_changes(vty, NULL);
-	if (rv == CMD_SUCCESS)
-		return acl_remove_if_empty(vty, "mac", name);
-
-	return rv;
+	return filter_remove_check_empty(vty, "access", "mac", name, 0, true);
 }
 
 ALIAS(
@@ -1149,62 +1130,17 @@ void access_list_remark_show(struct vty *vty, const struct lyd_node *dnode,
  * Prefix lists.
  */
 
-/**
- * Remove main data structure prefix list if there are no more entries or
- * remark. This fixes compatibility with old CLI and tests.
- */
-static int plist_remove_if_empty(struct vty *vty, const char *iptype,
-				 const char *name)
-{
-	char xpath[XPATH_MAXLEN];
-
-	snprintf(xpath, sizeof(xpath),
-		 "/frr-filter:lib/prefix-list[type='%s'][name='%s']/remark",
-		 iptype, name);
-	/* List is not empty if there is a remark, check that: */
-	if (yang_dnode_exists(vty->candidate_config->dnode, xpath))
-		return CMD_SUCCESS;
-
-	/* Check if we have any entries: */
-	snprintf(xpath, sizeof(xpath),
-		 "/frr-filter:lib/prefix-list[type='%s'][name='%s']", iptype,
-		 name);
-	/*
-	 * NOTE: if the list is empty it will return the first sequence
-	 * number: 5.
-	 */
-	if (acl_get_seq(vty, xpath, true) != 5)
-		return CMD_SUCCESS;
-
-	/* Nobody is using this list, lets remove it. */
-	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
-	return nb_cli_apply_changes(vty, NULL);
-}
-
 static int plist_remove(struct vty *vty, const char *iptype, const char *name,
-			const char *seq, const char *action,
+			uint32_t seq, const char *action,
 			union prefixconstptr prefix, int ge, int le)
 {
 	int64_t sseq;
 	struct plist_dup_args pda = {};
-	char xpath[XPATH_MAXLEN];
-	char xpath_entry[XPATH_MAXLEN + 32];
-	int rv;
 
 	/* If the user provided sequence number, then just go for it. */
-	if (seq != NULL) {
-		snprintf(
-			xpath, sizeof(xpath),
-			"/frr-filter:lib/prefix-list[type='%s'][name='%s']/entry[sequence='%s']",
-			iptype, name, seq);
-		nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
-
-		rv = nb_cli_apply_changes(vty, NULL);
-		if (rv == CMD_SUCCESS)
-			return plist_remove_if_empty(vty, iptype, name);
-
-		return rv;
-	}
+	if (seq != 0)
+		return filter_remove_check_empty(vty, "prefix", iptype, name,
+						 seq, false);
 
 	/* Otherwise, to keep compatibility, we need to figure it out. */
 	pda.pda_type = iptype;
@@ -1224,17 +1160,8 @@ static int plist_remove(struct vty *vty, const char *iptype, const char *name,
 	else
 		return CMD_WARNING_CONFIG_FAILED;
 
-	snprintfrr(
-		xpath_entry, sizeof(xpath_entry),
-		"/frr-filter:lib/prefix-list[type='%s'][name='%s']/entry[sequence='%" PRId64 "']",
-		iptype, name, sseq);
-	nb_cli_enqueue_change(vty, xpath_entry, NB_OP_DESTROY, NULL);
-
-	rv = nb_cli_apply_changes(vty, NULL);
-	if (rv == CMD_SUCCESS)
-		return plist_remove_if_empty(vty, iptype, name);
-
-	return rv;
+	return filter_remove_check_empty(vty, "prefix", iptype, name, sseq,
+					 false);
 }
 
 DEFPY_YANG(
@@ -1347,7 +1274,7 @@ DEFPY_YANG(
 	"Maximum prefix length to be matched\n"
 	"Maximum prefix length\n")
 {
-	return plist_remove(vty, "ipv4", name, seq_str, action,
+	return plist_remove(vty, "ipv4", name, seq, action,
 			    prefix_str ? prefix : NULL, ge, le);
 }
 
@@ -1360,7 +1287,7 @@ DEFPY_YANG(
 	PREFIX_LIST_NAME_STR
 	ACCESS_LIST_SEQ_STR)
 {
-	return plist_remove(vty, "ipv4", name, seq_str, NULL, NULL, 0, 0);
+	return plist_remove(vty, "ipv4", name, seq, NULL, NULL, 0, 0);
 }
 
 DEFPY_YANG(
@@ -1414,19 +1341,7 @@ DEFPY_YANG(
 	PREFIX_LIST_NAME_STR
 	ACCESS_LIST_REMARK_STR)
 {
-	char xpath[XPATH_MAXLEN];
-	int rv;
-
-	snprintf(xpath, sizeof(xpath),
-		 "/frr-filter:lib/prefix-list[type='ipv4'][name='%s']/remark",
-		 name);
-	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
-
-	rv = nb_cli_apply_changes(vty, NULL);
-	if (rv == CMD_SUCCESS)
-		return plist_remove_if_empty(vty, "ipv4", name);
-
-	return rv;
+	return filter_remove_check_empty(vty, "prefix", "ipv4", name, 0, true);
 }
 
 ALIAS(
@@ -1549,7 +1464,7 @@ DEFPY_YANG(
 	"Minimum prefix length to be matched\n"
 	"Minimum prefix length\n")
 {
-	return plist_remove(vty, "ipv6", name, seq_str, action,
+	return plist_remove(vty, "ipv6", name, seq, action,
 			    prefix_str ? prefix : NULL, ge, le);
 }
 
@@ -1562,7 +1477,7 @@ DEFPY_YANG(
 	PREFIX_LIST_NAME_STR
 	ACCESS_LIST_SEQ_STR)
 {
-	return plist_remove(vty, "ipv6", name, seq_str, NULL, NULL, 0, 0);
+	return plist_remove(vty, "ipv6", name, seq, NULL, NULL, 0, 0);
 }
 
 DEFPY_YANG(
@@ -1616,19 +1531,7 @@ DEFPY_YANG(
 	PREFIX_LIST_NAME_STR
 	ACCESS_LIST_REMARK_STR)
 {
-	char xpath[XPATH_MAXLEN];
-	int rv;
-
-	snprintf(xpath, sizeof(xpath),
-		 "/frr-filter:lib/prefix-list[type='ipv6'][name='%s']/remark",
-		 name);
-	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
-
-	rv = nb_cli_apply_changes(vty, NULL);
-	if (rv == CMD_SUCCESS)
-		return plist_remove_if_empty(vty, "ipv6", name);
-
-	return rv;
+	return filter_remove_check_empty(vty, "prefix", "ipv6", name, 0, true);
 }
 
 ALIAS(
