@@ -229,6 +229,9 @@ static const char *ospf_opaque_type_name(uint8_t opaque_type)
 	case OPAQUE_TYPE_EXTENDED_LINK_LSA:
 		name = "Extended Link Opaque LSA";
 		break;
+	case OPAQUE_TYPE_EXTENDED_INTER_AREA_ASBR_LSA:
+		name = "Extended Inter-Area ASBR Opaque LSA";
+		break;
 	default:
 		if (OPAQUE_TYPE_RANGE_UNASSIGNED(opaque_type))
 			name = "Unassigned";
@@ -1395,6 +1398,11 @@ void ospf_opaque_lsa_originate_schedule(struct ospf_interface *oi, int *delay0)
 	struct listnode *node, *nnode;
 	struct opaque_info_per_type *oipt;
 	int delay = 0;
+
+	if (IS_DEBUG_OSPF_EVENT)
+		zlog_debug(
+			"ospf_opaque_lsa_originate_schedule: Called for '%s'",
+			oi->ifp->name);
 
 	if ((top = oi_to_top(oi)) == NULL || (area = oi->area) == NULL) {
 		if (IS_DEBUG_OSPF_EVENT)

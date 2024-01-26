@@ -34,6 +34,10 @@ struct admin_group {
 	bitfield_t bitmap;
 };
 
+#define FOREACH_ADMIN_GROUP_BITS(admngrp, bitpos)			\
+	bf_for_each_set_bit((admngrp)->bitmap, (bitpos), 		\
+			    EXT_ADMIN_GROUP_MAX_POSITIONS)
+
 char *admin_group_string(char *out, size_t sz, int indent,
 			 const struct admin_group *ag);
 char *admin_group_standard_print(char *out, int indent, uint32_t bitmap);

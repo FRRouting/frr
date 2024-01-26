@@ -54,6 +54,9 @@ struct flex_algo *flex_algo_alloc(struct flex_algos *flex_algos,
 
 	fa = XCALLOC(MTYPE_FLEX_ALGO, sizeof(struct flex_algo));
 	fa->algorithm = algorithm;
+	fa->metric_type = MT_DEFAULT;
+	fa->calc_type = CALC_TYPE_DEFAULT;
+	fa->priority = FLEX_ALGO_PRIO_DEFAULT;
 	if (flex_algos->allocator)
 		fa->data = flex_algos->allocator(arg);
 	admin_group_init(&fa->admin_group_exclude_any);
@@ -155,17 +158,8 @@ bool flex_algo_id_valid(uint16_t algorithm)
 char *flex_algo_metric_type_print(char *type_str, size_t sz,
 				  enum flex_algo_metric_type metric_type)
 {
-	switch (metric_type) {
-	case MT_IGP:
-		snprintf(type_str, sz, "igp");
-		break;
-	case MT_MIN_UNI_LINK_DELAY:
-		snprintf(type_str, sz, "delay");
-		break;
-	case MT_TE_DEFAULT:
-		snprintf(type_str, sz, "te");
-		break;
-	}
+	snprintf(type_str, sz, "%s",
+		 flex_algo_metric_type2str(metric_type));
 	return type_str;
 }
 

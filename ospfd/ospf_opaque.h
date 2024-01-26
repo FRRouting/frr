@@ -47,7 +47,8 @@
 #define OPAQUE_TYPE_INTER_AS_LSA                       6
 #define OPAQUE_TYPE_EXTENDED_PREFIX_LSA                7
 #define OPAQUE_TYPE_EXTENDED_LINK_LSA                  8
-#define OPAQUE_TYPE_MAX                                8
+#define OPAQUE_TYPE_EXTENDED_INTER_AREA_ASBR_LSA 11
+#define OPAQUE_TYPE_MAX 11
 
 /* Following types are proposed in internet-draft documents. */
 #define OPAQUE_TYPE_8021_QOSPF				129
@@ -78,6 +79,16 @@ struct tlv_header {
 	uint16_t length; /* Length of Value portion only, in bytes */
 };
 
+PREDECL_LIST(tlv_list);
+struct tlv {
+	struct tlv_list_item linkage;
+	struct tlv_header hdr;
+	/* Body follows */
+	uint8_t body[0];
+};
+DECLARE_LIST(tlv_list, struct tlv, linkage);
+#define FOREACH_TLV_IN_LIST(list, tlv) frr_each_safe (tlv_list, list, tlv)
+
 #define TLV_HDR_SIZE	(sizeof(struct tlv_header))
 
 #define TLV_BODY_SIZE(tlvh) (ROUNDUP(ntohs((tlvh)->length), sizeof(uint32_t)))
@@ -98,6 +109,16 @@ struct tlv_header {
 #define TLV_TYPE(tlvh)	tlvh.header.type
 #define TLV_LEN(tlvh)	tlvh.header.length
 #define TLV_HDR(tlvh)	tlvh.header
+
+static inline void tlvh_get_json_values(struct tlv_header *tlvh,
+					json_object *json, const char *type)
+{
+	if (json) {
+		json_object_string_add(json, "name", type);
+		json_object_int_add(json, "type", ntohs(tlvh->type));
+		json_object_int_add(json, "length", ntohs(tlvh->length));
+	}
+}
 
 /* Following declaration concerns the Opaque LSA management */
 enum lsa_opcode { REORIGINATE_THIS_LSA, REFRESH_THIS_LSA, FLUSH_THIS_LSA };

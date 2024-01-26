@@ -1,0 +1,79 @@
+{
+  "routerId": "4.4.4.4",
+  "areaLocalOpaqueLsa": {
+    "areas": {
+      "0.0.0.0": [
+        {
+          "options": "*|O|-|-|-|-|E|-",
+          "lsaType": "Area-Local Opaque-LSA",
+          "linkStateId": "7.0.0.1",
+          "advertisingRouter": "4.4.4.4",
+          "length": 56,
+          "opaqueType": "Extended Prefix Opaque LSA",
+          "opaqueId": 1,
+          "opaqueDataLength": 24,
+          "opaqueDataLengthValid": true,
+          "tlvs": [
+            {
+              "name": "Extended Prefix TLV",
+              "type": 1,
+              "length": 32,
+              "prefixAddress": "4.4.4.4",
+              "prefixLength": 32,
+              "routeType": 1,
+              "addressFamily": 0,
+              "subTLVs": [
+                {
+                  "name": "Flex-Algo Prefix Metric (FAPM) SubTLV",
+                   "type": 3,
+                   "length": 8,
+                   "algotithmId": 128,
+                   "flags": 0,
+                   "metric": 10
+                },
+                {
+                  "name": "Flex-Algo Prefix Metric (FAPM) SubTLV",
+                   "type": 3,
+                   "algotithmId": 129
+                } 
+              ]
+            } 
+          ]
+        },
+        {
+          "options": "*|O|-|-|-|-|E|-",
+          "lsaType": "Area-Local Opaque-LSA",
+          "linkStateId": "11.0.0.0",
+          "advertisingRouter": "4.4.4.4",
+          "length": 52,
+          "opaqueType": "Extended Inter-Area ASBR Opaque LSA",
+          "opaqueId": 0,
+          "opaqueDataLength": 20,
+          "opaqueDataLengthValid": true,
+          "tlvs": [{
+              "name": "Extended Inter-Area ASBR TLV",
+              "type": 1,
+              "length": 28,
+              "asbrRouterId": "4.4.4.4",
+              "subTLVs": [
+                {
+                  "name": "Flex-Algo ASBR Metric (FAAM) SubTLV",
+                   "type": 1,
+                   "length": 8,
+                   "algorithmId": 128,
+                   "metric": 10 
+                },
+                {
+                  "name": "Flex-Algo ASBR Metric (FAAM) SubTLV",
+                   "type": 1,
+                   "length": 8,
+                   "algorithmId": 129
+                } 
+              ]
+            } 
+          ]
+        }
+      ]
+    }
+  }
+}

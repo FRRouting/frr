@@ -68,7 +68,6 @@ struct ri_sr_tlv_sr_algorithm {
 	struct tlv_header header;
 #define SR_ALGORITHM_SPF         0
 #define SR_ALGORITHM_STRICT_SPF  1
-#define SR_ALGORITHM_UNSET       255
 #define ALGORITHM_COUNT          4
 	/* Only 4 algorithms supported in this code */
 	uint8_t value[ALGORITHM_COUNT];
@@ -229,7 +228,7 @@ struct ospf_sr_db {
 	/* Local SR info announced in Router Info LSA */
 
 	/* Algorithms supported by the node */
-	uint8_t algo[ALGORITHM_COUNT];
+	uint8_t algo[SR_ALGORITHM_COUNT];
 	/*
 	 * Segment Routing Global Block i.e. label range
 	 * Only one range supported in this code
@@ -252,7 +251,7 @@ struct sr_node {
 	/* 24-bit Opaque-ID field value according to RFC 7684 specification */
 	uint32_t instance;
 
-	uint8_t algo[ALGORITHM_COUNT]; /* Algorithms supported by the node */
+	uint8_t algo[SR_ALGORITHM_COUNT]; /* Algorithms supported by the node */
 	struct sr_block srgb;          /* Segment Routing Global Block */
 	struct sr_block srlb;          /* Segment Routing Local Block */
 	uint8_t msd;                   /* Maximum SID Depth */

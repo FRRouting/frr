@@ -73,7 +73,7 @@ void cli_show_affinity_map(struct vty *vty, const struct lyd_node *dnode,
 			   bool show_defaults);
 
 void affinity_map_init(void);
-
+void affinity_map_set_nb_bypass(bool bypass);
 
 #ifdef __cplusplus
 }
