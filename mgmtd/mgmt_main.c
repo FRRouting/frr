@@ -14,6 +14,7 @@
 #include "frr_pthread.h"
 #include "mgmtd/mgmt.h"
 #include "mgmtd/mgmt_ds.h"
+#include "ripd/rip_nb.h"
 #include "routing_nb.h"
 
 
@@ -138,7 +139,7 @@ static struct frr_signal_t mgmt_signals[] = {
 };
 
 #ifdef HAVE_STATICD
-extern const struct frr_yang_module_info frr_staticd_info;
+extern const struct frr_yang_module_info frr_staticd_cli_info;
 #endif
 
 
@@ -170,9 +171,9 @@ const struct frr_yang_module_info zebra_route_map_info = {
  * MGMTd.
  */
 static const struct frr_yang_module_info *const mgmt_yang_modules[] = {
-	&frr_filter_info,
+	&frr_filter_cli_info,
 	&frr_interface_info,
-	&frr_route_map_info,
+	&frr_route_map_cli_info,
 	&frr_routing_info,
 	&frr_vrf_info,
 
@@ -184,8 +185,11 @@ static const struct frr_yang_module_info *const mgmt_yang_modules[] = {
 	&affinity_map_info,
 	&zebra_route_map_info,
 
+#ifdef HAVE_RIPD
+	&frr_ripd_cli_info,
+#endif
 #ifdef HAVE_STATICD
-	&frr_staticd_info,
+	&frr_staticd_cli_info,
 #endif
 };
 

@@ -12,6 +12,7 @@
 #include "json.h"
 #include "network.h"
 #include "northbound_cli.h"
+#include "routemap.h"
 
 #include "mgmtd/mgmt.h"
 #include "mgmtd/mgmt_be_adapter.h"
@@ -20,6 +21,8 @@
 #include "mgmtd/mgmt_history.h"
 
 #include "mgmtd/mgmt_vty_clippy.c"
+#include "ripd/ripd.h"
+#include "staticd/static_vty.h"
 
 extern struct frr_daemon_info *mgmt_daemon_info;
 
@@ -561,13 +564,21 @@ static struct cmd_node mgmtd_node = {
 void mgmt_vty_init(void)
 {
 	/*
+	 * Library based CLI handlers
+	 */
+	filter_cli_init();
+	route_map_cli_init();
+
+	/*
 	 * Initialize command handling from VTYSH connection.
 	 * Call command initialization routines defined by
 	 * backend components that are moved to new MGMTD infra
 	 * here one by one.
 	 */
+#if HAVE_RIPD
+	rip_cli_init();
+#endif
 #if HAVE_STATICD
-	extern void static_vty_init(void);
 	static_vty_init();
 #endif
 

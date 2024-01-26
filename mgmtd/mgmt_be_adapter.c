@@ -37,6 +37,9 @@
 const char *mgmt_be_client_names[MGMTD_BE_CLIENT_ID_MAX + 1] = {
 	[MGMTD_BE_CLIENT_ID_ZEBRA] = "zebra",
 #ifdef HAVE_STATICD
+	[MGMTD_BE_CLIENT_ID_RIPD] = "ripd",
+#endif
+#ifdef HAVE_STATICD
 	[MGMTD_BE_CLIENT_ID_STATICD] = "staticd",
 #endif
 	[MGMTD_BE_CLIENT_ID_MAX] = "Unknown/Invalid",
@@ -58,6 +61,22 @@ struct mgmt_be_xpath_map {
  * Each client gets their own map, but also union all the strings into the
  * above map as well.
  */
+
+#if HAVE_RIPD
+static const char *const ripd_config_xpaths[] = {
+	"/frr-filter:lib",
+	"/frr-interface:lib/interface",
+	"/frr-ripd:ripd",
+	"/frr-route-map:lib",
+	"/frr-vrf:lib",
+	NULL,
+};
+static const char *const ripd_oper_xpaths[] = {
+	"/frr-ripd:ripd",
+	NULL,
+};
+#endif
+
 #if HAVE_STATICD
 static const char *const staticd_config_xpaths[] = {
 	"/frr-vrf:lib",
@@ -68,6 +87,9 @@ static const char *const staticd_config_xpaths[] = {
 #endif
 
 static const char *const *be_client_config_xpaths[MGMTD_BE_CLIENT_ID_MAX] = {
+#ifdef HAVE_RIPD
+	[MGMTD_BE_CLIENT_ID_RIPD] = ripd_config_xpaths,
+#endif
 #ifdef HAVE_STATICD
 	[MGMTD_BE_CLIENT_ID_STATICD] = staticd_config_xpaths,
 #endif
@@ -81,6 +103,9 @@ static const char *const zebra_oper_xpaths[] = {
 };
 
 static const char *const *be_client_oper_xpaths[MGMTD_BE_CLIENT_ID_MAX] = {
+#ifdef HAVE_RIPD
+	[MGMTD_BE_CLIENT_ID_RIPD] = ripd_oper_xpaths,
+#endif
 	[MGMTD_BE_CLIENT_ID_ZEBRA] = zebra_oper_xpaths,
 };
 
@@ -318,7 +343,7 @@ static int mgmt_be_send_subscr_reply(struct mgmt_be_client_adapter *adapter,
 	be_msg.message_case = MGMTD__BE_MESSAGE__MESSAGE_SUBSCR_REPLY;
 	be_msg.subscr_reply = &reply;
 
-	MGMTD_FE_CLIENT_DBG("Sending SUBSCR_REPLY client: %s sucess: %u",
+	MGMTD_BE_CLIENT_DBG("Sending SUBSCR_REPLY client: %s sucess: %u",
 			    adapter->name, success);
 
 	return mgmt_be_adapter_send_msg(adapter, &be_msg);
@@ -608,27 +633,16 @@ static void mgmt_be_adapter_conn_init(struct event *thread)
 	assert(adapter && adapter->conn->fd >= 0);
 
 	/*
-	 * Check first if the current session can run a CONFIG
-	 * transaction or not. Reschedule if a CONFIG transaction
-	 * from another session is already in progress.
-	 */
-	if (mgmt_config_txn_in_progress() != MGMTD_SESSION_ID_NONE) {
-		zlog_err("XXX txn in progress, retry init");
-		mgmt_be_adapter_sched_init_event(adapter);
-		return;
-	}
-
-	/*
 	 * Notify TXN module to create a CONFIG transaction and
 	 * download the CONFIGs identified for this new client.
 	 * If the TXN module fails to initiate the CONFIG transaction
-	 * disconnect from the client forcing a reconnect later.
-	 * That should also take care of destroying the adapter.
+	 * retry a bit later. It only fails if there's an existing config
+	 * transaction in progress.
 	 */
 	if (mgmt_txn_notify_be_adapter_conn(adapter, true) != 0) {
-		zlog_err("XXX notify be adapter conn fail");
-		msg_conn_disconnect(adapter->conn, false);
-		adapter = NULL;
+		zlog_err("XXX txn in progress, retry init");
+		mgmt_be_adapter_sched_init_event(adapter);
+		return;
 	}
 }
 

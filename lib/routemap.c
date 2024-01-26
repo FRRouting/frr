@@ -3409,7 +3409,7 @@ DEFUN_HIDDEN(show_route_map_pfx_tbl, show_route_map_pfx_tbl_cmd,
 }
 
 /* Initialization of route map vector. */
-void route_map_init(void)
+void route_map_init_new(bool in_backend)
 {
 	int i;
 
@@ -3424,7 +3424,10 @@ void route_map_init(void)
 
 	UNSET_FLAG(rmap_debug, DEBUG_ROUTEMAP);
 
-	route_map_cli_init();
+	if (!in_backend) {
+		/* we do not want to handle config commands in the backend */
+		route_map_cli_init();
+	}
 
 	/* Install route map top node. */
 	install_node(&rmap_debug_node);
@@ -3443,4 +3446,9 @@ void route_map_init(void)
 	install_element(ENABLE_NODE, &no_debug_rmap_cmd);
 
 	install_element(ENABLE_NODE, &show_route_map_pfx_tbl_cmd);
+}
+
+void route_map_init(void)
+{
+	route_map_init_new(false);
 }

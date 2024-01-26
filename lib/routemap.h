@@ -401,6 +401,7 @@ enum ecommunity_lb_type {
 
 /* Prototypes. */
 extern void route_map_init(void);
+extern void route_map_init_new(bool in_backend);
 
 /*
  * This should only be called on shutdown
@@ -1024,6 +1025,7 @@ routemap_hook_context_insert(struct route_map_index *rmi);
 void routemap_hook_context_free(struct routemap_hook_context *rhc);
 
 extern const struct frr_yang_module_info frr_route_map_info;
+extern const struct frr_yang_module_info frr_route_map_cli_info;
 
 /* routemap_cli.c */
 extern int route_map_instance_cmp(const struct lyd_node *dnode1,

@@ -124,6 +124,9 @@ bool vty_log_commands;
 static bool vty_log_commands_perm;
 
 char const *const mgmt_daemons[] = {
+#ifdef HAVE_RIPD
+	"ripd",
+#endif
 #ifdef HAVE_STATICD
 	"staticd",
 #endif
