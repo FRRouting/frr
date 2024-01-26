@@ -451,9 +451,12 @@ int bgp_nlri_parse_label(struct peer *peer, struct attr *attr,
 		}
 
 		if (attr) {
+			attr->num_labels = 1;
+			attr->label_tbl[0] = label;
+			bgp_set_valid_label(&attr->label_tbl[0]);
 			bgp_update(peer, &p, addpath_id, attr, packet->afi,
 				   safi, ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL,
-				   NULL, &label, 1, 0, NULL);
+				   NULL, 0, NULL);
 		} else {
 			bgp_withdraw(peer, &p, addpath_id, packet->afi,
 				     SAFI_UNICAST, ZEBRA_ROUTE_BGP,

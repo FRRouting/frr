@@ -140,8 +140,6 @@ static void bgp_process_mac_rescan_table(struct bgp *bgp, struct peer *peer,
 			const struct prefix *p = bgp_dest_get_prefix(dest);
 			struct prefix_evpn *pevpn = (struct prefix_evpn *)dest;
 			struct prefix_rd prd;
-			uint32_t num_labels = 0;
-			mpls_label_t *label_pnt = NULL;
 			struct bgp_route_evpn *evpn;
 
 			if (pevpn->family == AF_EVPN
@@ -169,10 +167,6 @@ static void bgp_process_mac_rescan_table(struct bgp *bgp, struct peer *peer,
 			    && !dest_affected)
 				continue;
 
-			num_labels = pi->attr->num_labels;
-			if (num_labels)
-				label_pnt = &pi->attr->label_tbl[0];
-
 			prd.family = AF_UNSPEC;
 			prd.prefixlen = 64;
 			memcpy(&prd.val, pdest_p->u.val, 8);
@@ -183,7 +177,7 @@ static void bgp_process_mac_rescan_table(struct bgp *bgp, struct peer *peer,
 
 					bgp_debug_rdpfxpath2str(
 						AFI_L2VPN, SAFI_EVPN, &prd,
-						p, label_pnt, num_labels,
+						p, &pi->attr->label_tbl[0], pi->attr->num_labels,
 						pi->addpath_rx_id ? 1 : 0,
 						pi->addpath_rx_id, NULL,
 						pfx_buf, sizeof(pfx_buf));
@@ -198,8 +192,8 @@ static void bgp_process_mac_rescan_table(struct bgp *bgp, struct peer *peer,
 			       sizeof(evpn));
 			bgp_update(peer, p, pi->addpath_rx_id, pi->attr,
 				   AFI_L2VPN, SAFI_EVPN, ZEBRA_ROUTE_BGP,
-				   BGP_ROUTE_NORMAL, &prd, label_pnt,
-				   num_labels, 1, evpn);
+				   BGP_ROUTE_NORMAL, &prd,
+				   1, evpn);
 		}
 	}
 }
