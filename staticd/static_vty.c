@@ -1696,8 +1696,7 @@ void static_vty_init(void)
 	install_element(CONFIG_NODE, &debug_staticd_cmd);
 	install_element(ENABLE_NODE, &show_debugging_static_cmd);
 	install_element(ENABLE_NODE, &staticd_show_bfd_routes_cmd);
-#endif /* ifndef INCLUDE_MGMTD_CMDDEFS_ONLY */
-
+#else /* else INCLUDE_MGMTD_CMDDEFS_ONLY */
 	install_element(CONFIG_NODE, &ip_mroute_dist_cmd);
 
 	install_element(CONFIG_NODE, &ip_route_blackhole_cmd);
@@ -1713,6 +1712,7 @@ void static_vty_init(void)
 	install_element(VRF_NODE, &ipv6_route_address_interface_vrf_cmd);
 	install_element(CONFIG_NODE, &ipv6_route_cmd);
 	install_element(VRF_NODE, &ipv6_route_vrf_cmd);
+#endif /* ifndef INCLUDE_MGMTD_CMDDEFS_ONLY */
 
 #ifndef INCLUDE_MGMTD_CMDDEFS_ONLY
 	mgmt_be_client_lib_vty_init();
