@@ -74,6 +74,15 @@ mgmtd_libmgmt_be_nb_la_SOURCES += \
 	# end
 endif
 
+if RIPNGD
+nodist_mgmtd_mgmtd_SOURCES += \
+	yang/frr-ripngd.yang.c \
+	# end
+mgmtd_libmgmt_be_nb_la_SOURCES += \
+	ripngd/ripng_cli.c \
+	# end
+endif
+
 if STATICD
 nodist_mgmtd_mgmtd_SOURCES += \
 	yang/frr-staticd.yang.c \

@@ -873,7 +873,6 @@ void ripng_if_init(void)
 	hook_register_prio(if_del, 0, ripng_if_delete_hook);
 
 	/* Install interface node. */
-	if_cmd_init_default();
 	hook_register_prio(if_real, 0, ripng_ifp_create);
 	hook_register_prio(if_up, 0, ripng_ifp_up);
 	hook_register_prio(if_down, 0, ripng_ifp_down);

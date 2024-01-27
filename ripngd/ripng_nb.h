@@ -10,6 +10,7 @@
 #include "northbound.h"
 
 extern const struct frr_yang_module_info frr_ripngd_info;
+extern const struct frr_yang_module_info frr_ripngd_cli_info;
 
 /* Mandatory callbacks. */
 int ripngd_instance_create(struct nb_cb_create_args *args);
@@ -137,5 +138,7 @@ void cli_show_ripng_timers(struct vty *vty, const struct lyd_node *dnode,
 void cli_show_ipv6_ripng_split_horizon(struct vty *vty,
 				       const struct lyd_node *dnode,
 				       bool show_defaults);
+
+extern void ripng_cli_init(void);
 
 #endif /* _FRR_RIPNG_NB_H_ */

@@ -15,6 +15,7 @@
 #include "mgmtd/mgmt.h"
 #include "mgmtd/mgmt_ds.h"
 #include "ripd/rip_nb.h"
+#include "ripngd/ripng_nb.h"
 #include "routing_nb.h"
 
 
@@ -187,6 +188,9 @@ static const struct frr_yang_module_info *const mgmt_yang_modules[] = {
 
 #ifdef HAVE_RIPD
 	&frr_ripd_cli_info,
+#endif
+#ifdef HAVE_RIPNGD
+	&frr_ripngd_cli_info,
 #endif
 #ifdef HAVE_STATICD
 	&frr_staticd_cli_info,

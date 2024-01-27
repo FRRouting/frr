@@ -23,6 +23,7 @@
 #include "lib_errors.h"
 #include "northbound_cli.h"
 #include "network.h"
+#include "mgmt_be_client.h"
 
 #include "ripngd/ripngd.h"
 #include "ripngd/ripng_route.h"
@@ -2267,43 +2268,6 @@ void ripng_ecmp_disable(struct ripng *ripng)
 		}
 }
 
-/* RIPng configuration write function. */
-static int ripng_config_write(struct vty *vty)
-{
-	struct ripng *ripng;
-	int write = 0;
-
-	RB_FOREACH(ripng, ripng_instance_head, &ripng_instances) {
-		char xpath[XPATH_MAXLEN];
-		struct lyd_node *dnode;
-
-		snprintf(xpath, sizeof(xpath),
-			 "/frr-ripngd:ripngd/instance[vrf='%s']",
-			 ripng->vrf_name);
-
-		dnode = yang_dnode_get(running_config->dnode, xpath);
-		assert(dnode);
-
-		nb_cli_show_dnode_cmds(vty, dnode, false);
-
-		vty_out(vty, "exit\n");
-
-		write = 1;
-	}
-
-	return write;
-}
-
-static int ripng_config_write(struct vty *vty);
-/* RIPng node structure. */
-static struct cmd_node cmd_ripng_node = {
-	.name = "ripng",
-	.node = RIPNG_NODE,
-	.parent_node = CONFIG_NODE,
-	.prompt = "%s(config-router)# ",
-	.config_write = ripng_config_write,
-};
-
 static void ripng_distribute_update(struct distribute_ctx *ctx,
 				    struct distribute *dist)
 {
@@ -2671,8 +2635,6 @@ void ripng_vrf_init(void)
 {
 	vrf_init(ripng_vrf_new, ripng_vrf_enable, ripng_vrf_disable,
 		 ripng_vrf_delete);
-
-	vrf_cmd_init(NULL);
 }
 
 void ripng_vrf_terminate(void)
@@ -2683,20 +2645,18 @@ void ripng_vrf_terminate(void)
 /* Initialize ripng structure and set commands. */
 void ripng_init(void)
 {
-	/* Install RIPNG_NODE. */
-	install_node(&cmd_ripng_node);
-
 	/* Install ripng commands. */
 	install_element(VIEW_NODE, &show_ipv6_ripng_cmd);
 	install_element(VIEW_NODE, &show_ipv6_ripng_status_cmd);
 
-	install_default(RIPNG_NODE);
-
 	ripng_if_init();
 	ripng_debug_init();
 
+	/* Enable mgmt be debug */
+	mgmt_be_client_lib_vty_init();
+
 	/* Access list install. */
-	access_list_init();
+	access_list_init_new(true);
 	access_list_add_hook(ripng_distribute_update_all_wrapper);
 	access_list_delete_hook(ripng_distribute_update_all_wrapper);
 
@@ -2710,6 +2670,4 @@ void ripng_init(void)
 
 	route_map_add_hook(ripng_routemap_update);
 	route_map_delete_hook(ripng_routemap_update);
-
-	if_rmap_init(RIPNG_NODE);
 }

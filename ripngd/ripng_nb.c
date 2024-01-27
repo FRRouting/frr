@@ -20,7 +20,6 @@ const struct frr_yang_module_info frr_ripngd_info = {
 		{
 			.xpath = "/frr-ripngd:ripngd/instance",
 			.cbs = {
-				.cli_show = cli_show_router_ripng,
 				.create = ripngd_instance_create,
 				.destroy = ripngd_instance_destroy,
 				.get_keys = ripngd_instance_get_keys,
@@ -31,28 +30,24 @@ const struct frr_yang_module_info frr_ripngd_info = {
 		{
 			.xpath = "/frr-ripngd:ripngd/instance/allow-ecmp",
 			.cbs = {
-				.cli_show = cli_show_ripng_allow_ecmp,
 				.modify = ripngd_instance_allow_ecmp_modify,
 			},
 		},
 		{
 			.xpath = "/frr-ripngd:ripngd/instance/default-information-originate",
 			.cbs = {
-				.cli_show = cli_show_ripng_default_information_originate,
 				.modify = ripngd_instance_default_information_originate_modify,
 			},
 		},
 		{
 			.xpath = "/frr-ripngd:ripngd/instance/default-metric",
 			.cbs = {
-				.cli_show = cli_show_ripng_default_metric,
 				.modify = ripngd_instance_default_metric_modify,
 			},
 		},
 		{
 			.xpath = "/frr-ripngd:ripngd/instance/network",
 			.cbs = {
-				.cli_show = cli_show_ripng_network_prefix,
 				.create = ripngd_instance_network_create,
 				.destroy = ripngd_instance_network_destroy,
 			},
@@ -60,7 +55,6 @@ const struct frr_yang_module_info frr_ripngd_info = {
 		{
 			.xpath = "/frr-ripngd:ripngd/instance/interface",
 			.cbs = {
-				.cli_show = cli_show_ripng_network_interface,
 				.create = ripngd_instance_interface_create,
 				.destroy = ripngd_instance_interface_destroy,
 			},
@@ -68,7 +62,6 @@ const struct frr_yang_module_info frr_ripngd_info = {
 		{
 			.xpath = "/frr-ripngd:ripngd/instance/offset-list",
 			.cbs = {
-				.cli_show = cli_show_ripng_offset_list,
 				.create = ripngd_instance_offset_list_create,
 				.destroy = ripngd_instance_offset_list_destroy,
 			},
@@ -88,7 +81,6 @@ const struct frr_yang_module_info frr_ripngd_info = {
 		{
 			.xpath = "/frr-ripngd:ripngd/instance/passive-interface",
 			.cbs = {
-				.cli_show = cli_show_ripng_passive_interface,
 				.create = ripngd_instance_passive_interface_create,
 				.destroy = ripngd_instance_passive_interface_destroy,
 			},
@@ -105,7 +97,6 @@ const struct frr_yang_module_info frr_ripngd_info = {
 			.cbs = {
 				.modify = group_distribute_list_ipv6_modify,
 				.destroy = group_distribute_list_ipv6_destroy,
-				.cli_show = group_distribute_list_ipv6_cli_show,
 			}
 		},
 		{
@@ -113,7 +104,6 @@ const struct frr_yang_module_info frr_ripngd_info = {
 			.cbs = {
 				.modify = group_distribute_list_ipv6_modify,
 				.destroy = group_distribute_list_ipv6_destroy,
-				.cli_show = group_distribute_list_ipv6_cli_show,
 			}
 		},
 		{
@@ -121,7 +111,6 @@ const struct frr_yang_module_info frr_ripngd_info = {
 			.cbs = {
 				.modify = group_distribute_list_ipv6_modify,
 				.destroy = group_distribute_list_ipv6_destroy,
-				.cli_show = group_distribute_list_ipv6_cli_show,
 			}
 		},
 		{
@@ -129,14 +118,12 @@ const struct frr_yang_module_info frr_ripngd_info = {
 			.cbs = {
 				.modify = group_distribute_list_ipv6_modify,
 				.destroy = group_distribute_list_ipv6_destroy,
-				.cli_show = group_distribute_list_ipv6_cli_show,
 			}
 		},
 		{
 			.xpath = "/frr-ripngd:ripngd/instance/redistribute",
 			.cbs = {
 				.apply_finish = ripngd_instance_redistribute_apply_finish,
-				.cli_show = cli_show_ripng_redistribute,
 				.create = ripngd_instance_redistribute_create,
 				.destroy = ripngd_instance_redistribute_destroy,
 			},
@@ -160,7 +147,6 @@ const struct frr_yang_module_info frr_ripngd_info = {
 			.cbs = {
 				.create = ripngd_instance_if_route_maps_if_route_map_create,
 				.destroy = ripngd_instance_if_route_maps_if_route_map_destroy,
-				.cli_show = cli_show_if_route_map,
 			}
 		},
 		{
@@ -180,7 +166,6 @@ const struct frr_yang_module_info frr_ripngd_info = {
 		{
 			.xpath = "/frr-ripngd:ripngd/instance/static-route",
 			.cbs = {
-				.cli_show = cli_show_ripng_route,
 				.create = ripngd_instance_static_route_create,
 				.destroy = ripngd_instance_static_route_destroy,
 			},
@@ -188,7 +173,6 @@ const struct frr_yang_module_info frr_ripngd_info = {
 		{
 			.xpath = "/frr-ripngd:ripngd/instance/aggregate-address",
 			.cbs = {
-				.cli_show = cli_show_ripng_aggregate_address,
 				.create = ripngd_instance_aggregate_address_create,
 				.destroy = ripngd_instance_aggregate_address_destroy,
 			},
@@ -197,7 +181,6 @@ const struct frr_yang_module_info frr_ripngd_info = {
 			.xpath = "/frr-ripngd:ripngd/instance/timers",
 			.cbs = {
 				.apply_finish = ripngd_instance_timers_apply_finish,
-				.cli_show = cli_show_ripng_timers,
 			},
 		},
 		{
@@ -291,7 +274,6 @@ const struct frr_yang_module_info frr_ripngd_info = {
 		{
 			.xpath = "/frr-interface:lib/interface/frr-ripngd:ripng/split-horizon",
 			.cbs = {
-				.cli_show = cli_show_ipv6_ripng_split_horizon,
 				.modify = lib_interface_ripng_split_horizon_modify,
 			},
 		},

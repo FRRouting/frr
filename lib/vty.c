@@ -127,6 +127,9 @@ char const *const mgmt_daemons[] = {
 #ifdef HAVE_RIPD
 	"ripd",
 #endif
+#ifdef HAVE_RIPNGD
+	"ripngd",
+#endif
 #ifdef HAVE_STATICD
 	"staticd",
 #endif
