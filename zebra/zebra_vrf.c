@@ -536,20 +536,7 @@ DEFPY (vrf_netns,
        "Attach VRF to a Namespace\n"
        "The file name in " NS_RUN_DIR ", or a full pathname\n")
 {
-	char *pathname = ns_netns_pathname(vty, netns_name);
-	int ret;
-
-	VTY_DECLVAR_CONTEXT(vrf, vrf);
-
-	if (!pathname)
-		return CMD_WARNING_CONFIG_FAILED;
-
-	frr_with_privs(&zserv_privs) {
-		ret = zebra_vrf_netns_handler_create(
-			vty, vrf, pathname, NS_UNKNOWN, NS_UNKNOWN, NS_UNKNOWN);
-	}
-
-	return ret;
+	return CMD_SUCCESS;
 }
 
 DEFUN (no_vrf_netns,
@@ -559,29 +546,6 @@ DEFUN (no_vrf_netns,
        "Detach VRF from a Namespace\n"
        "The file name in " NS_RUN_DIR ", or a full pathname\n")
 {
-	struct ns *ns = NULL;
-
-	VTY_DECLVAR_CONTEXT(vrf, vrf);
-
-	if (!vrf_is_backend_netns()) {
-		vty_out(vty, "VRF backend is not Netns. Aborting\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-	if (!vrf->ns_ctxt) {
-		vty_out(vty, "VRF %s(%u) is not configured with NetNS\n",
-			vrf->name, vrf->vrf_id);
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	ns = (struct ns *)vrf->ns_ctxt;
-
-	ns->vrf_ctxt = NULL;
-	vrf_disable(vrf);
-	/* vrf ID from VRF is necessary for Zebra
-	 * so that propagate to other clients is done
-	 */
-	ns_delete(ns);
-	vrf->ns_ctxt = NULL;
 	return CMD_SUCCESS;
 }
 
