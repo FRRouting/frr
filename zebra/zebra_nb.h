@@ -50,6 +50,9 @@ void zebra_ptm_enable_cli_write(struct vty *vty, const struct lyd_node *dnode,
 				bool show_defaults);
 #endif
 int zebra_route_map_delay_modify(struct nb_cb_modify_args *args);
+void zebra_route_map_delay_cli_write(struct vty *vty,
+				     const struct lyd_node *dnode,
+				     bool show_defaults);
 int zebra_debugs_debug_events_modify(struct nb_cb_modify_args *args);
 int zebra_debugs_debug_events_destroy(struct nb_cb_destroy_args *args);
 int zebra_debugs_debug_zapi_send_modify(struct nb_cb_modify_args *args);
@@ -419,22 +422,42 @@ struct yang_data *lib_interface_zebra_state_mcast_group_get_elem(
 	struct nb_cb_get_elem_args *args);
 int lib_vrf_zebra_router_id_modify(struct nb_cb_modify_args *args);
 int lib_vrf_zebra_router_id_destroy(struct nb_cb_destroy_args *args);
+void lib_vrf_zebra_router_id_cli_write(struct vty *vty,
+				       const struct lyd_node *dnode,
+				       bool show_defaults);
 int lib_vrf_zebra_ipv6_router_id_modify(struct nb_cb_modify_args *args);
 int lib_vrf_zebra_ipv6_router_id_destroy(struct nb_cb_destroy_args *args);
+void lib_vrf_zebra_ipv6_router_id_cli_write(struct vty *vty,
+					    const struct lyd_node *dnode,
+					    bool show_defaults);
 int lib_vrf_zebra_filter_protocol_create(struct nb_cb_create_args *args);
 int lib_vrf_zebra_filter_protocol_destroy(struct nb_cb_destroy_args *args);
+void lib_vrf_zebra_filter_protocol_cli_write(struct vty *vty,
+					     const struct lyd_node *dnode,
+					     bool show_defaults);
 int lib_vrf_zebra_filter_protocol_route_map_modify(
 	struct nb_cb_modify_args *args);
 int lib_vrf_zebra_filter_nht_create(struct nb_cb_create_args *args);
 int lib_vrf_zebra_filter_nht_destroy(struct nb_cb_destroy_args *args);
+void lib_vrf_zebra_filter_nht_cli_write(struct vty *vty,
+					const struct lyd_node *dnode,
+					bool show_defaults);
 int lib_vrf_zebra_filter_nht_route_map_modify(struct nb_cb_modify_args *args);
 int lib_vrf_zebra_resolve_via_default_modify(struct nb_cb_modify_args *args);
 int lib_vrf_zebra_resolve_via_default_destroy(struct nb_cb_destroy_args *args);
+void lib_vrf_zebra_resolve_via_default_cli_write(struct vty *vty,
+						 const struct lyd_node *dnode,
+						 bool show_defaults);
 int lib_vrf_zebra_ipv6_resolve_via_default_modify(struct nb_cb_modify_args *args);
 int lib_vrf_zebra_ipv6_resolve_via_default_destroy(
 	struct nb_cb_destroy_args *args);
+void lib_vrf_zebra_ipv6_resolve_via_default_cli_write(
+	struct vty *vty, const struct lyd_node *dnode, bool show_defaults);
 int lib_vrf_zebra_netns_table_range_create(struct nb_cb_create_args *args);
 int lib_vrf_zebra_netns_table_range_destroy(struct nb_cb_destroy_args *args);
+void lib_vrf_zebra_netns_table_range_cli_write(struct vty *vty,
+					       const struct lyd_node *dnode,
+					       bool show_defaults);
 int lib_vrf_zebra_netns_table_range_start_modify(struct nb_cb_modify_args *args);
 int lib_vrf_zebra_netns_table_range_end_modify(struct nb_cb_modify_args *args);
 const void *lib_vrf_zebra_ribs_rib_get_next(struct nb_cb_get_next_args *args);
@@ -610,6 +633,9 @@ lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_nexthop_weight_get_elem(
 	struct nb_cb_get_elem_args *args);
 int lib_vrf_zebra_l3vni_id_modify(struct nb_cb_modify_args *args);
 int lib_vrf_zebra_l3vni_id_destroy(struct nb_cb_destroy_args *args);
+void lib_vrf_zebra_l3vni_id_cli_write(struct vty *vty,
+				      const struct lyd_node *dnode,
+				      bool show_defaults);
 int lib_vrf_zebra_prefix_only_modify(struct nb_cb_modify_args *args);
 
 #ifdef __cplusplus

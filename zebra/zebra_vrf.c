@@ -17,6 +17,7 @@
 #include "srcdest_table.h"
 #include "vrf.h"
 #include "vty.h"
+#include "northbound_cli.h"
 
 #include "zebra/zebra_router.h"
 #include "zebra/rtadv.h"
@@ -33,6 +34,7 @@
 #include "zebra/zebra_routemap.h"
 #include "zebra/zebra_vrf_clippy.c"
 #include "zebra/table_manager.h"
+#include "zebra/zebra_nb.h"
 
 static void zebra_vrf_table_create(struct zebra_vrf *zvrf, afi_t afi,
 				   safi_t safi);
@@ -450,84 +452,32 @@ struct route_table *zebra_vrf_table(afi_t afi, safi_t safi, vrf_id_t vrf_id)
 	return zvrf->table[afi][safi];
 }
 
+void zebra_vrf_indent_cli_write(struct vty *vty, const struct lyd_node *dnode)
+{
+	const struct lyd_node *vrf = yang_dnode_get_parent(dnode, "vrf");
+
+	if (vrf && strcmp(yang_dnode_get_string(vrf, "name"), VRF_DEFAULT_NAME))
+		vty_out(vty, " ");
+}
+
+static int vrf_config_write_single(const struct lyd_node *dnode, void *arg)
+{
+	nb_cli_show_dnode_cmds(arg, dnode, false);
+
+	return YANG_ITER_CONTINUE;
+}
+
 static int vrf_config_write(struct vty *vty)
 {
-	struct vrf *vrf;
-	struct zebra_vrf *zvrf;
+	const struct lyd_node *dnode;
 
-	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
-		zvrf = vrf->info;
+	yang_dnode_iterate(vrf_config_write_single, vty, running_config->dnode,
+			   "/frr-vrf:lib/vrf");
+	dnode = yang_dnode_get(running_config->dnode, "/frr-zebra:zebra");
+	if (dnode)
+		nb_cli_show_dnode_cmds(vty, dnode, false);
 
-		if (!zvrf)
-			continue;
-
-		if (zvrf_id(zvrf) == VRF_DEFAULT) {
-			if (zvrf->l3vni)
-				vty_out(vty, "vni %u%s\n", zvrf->l3vni,
-					is_l3vni_for_prefix_routes_only(
-						zvrf->l3vni)
-						? " prefix-routes-only"
-						: "");
-
-			if (zvrf->zebra_rnh_ip_default_route !=
-			    SAVE_ZEBRA_IP_NHT_RESOLVE_VIA_DEFAULT)
-				vty_out(vty, "%sip nht resolve-via-default\n",
-					zvrf->zebra_rnh_ip_default_route
-						? ""
-						: "no ");
-
-			if (zvrf->zebra_rnh_ipv6_default_route !=
-			    SAVE_ZEBRA_IP_NHT_RESOLVE_VIA_DEFAULT)
-				vty_out(vty, "%sipv6 nht resolve-via-default\n",
-					zvrf->zebra_rnh_ipv6_default_route
-						? ""
-						: "no ");
-
-			if (zvrf->tbl_mgr
-			    && (zvrf->tbl_mgr->start || zvrf->tbl_mgr->end))
-				vty_out(vty, "ip table range %u %u\n",
-					zvrf->tbl_mgr->start,
-					zvrf->tbl_mgr->end);
-		} else {
-			vty_frame(vty, "vrf %s\n", zvrf_name(zvrf));
-			if (zvrf->l3vni)
-				vty_out(vty, " vni %u%s\n", zvrf->l3vni,
-					is_l3vni_for_prefix_routes_only(
-						zvrf->l3vni)
-						? " prefix-routes-only"
-						: "");
-			zebra_ns_config_write(vty, (struct ns *)vrf->ns_ctxt);
-			if (zvrf->zebra_rnh_ip_default_route !=
-			    SAVE_ZEBRA_IP_NHT_RESOLVE_VIA_DEFAULT)
-				vty_out(vty, " %sip nht resolve-via-default\n",
-					zvrf->zebra_rnh_ip_default_route
-						? ""
-						: "no ");
-
-			if (zvrf->zebra_rnh_ipv6_default_route !=
-			    SAVE_ZEBRA_IP_NHT_RESOLVE_VIA_DEFAULT)
-				vty_out(vty, " %sipv6 nht resolve-via-default\n",
-					zvrf->zebra_rnh_ipv6_default_route
-						? ""
-						: "no ");
-
-			if (zvrf->tbl_mgr && vrf_is_backend_netns()
-			    && (zvrf->tbl_mgr->start || zvrf->tbl_mgr->end))
-				vty_out(vty, " ip table range %u %u\n",
-					zvrf->tbl_mgr->start,
-					zvrf->tbl_mgr->end);
-		}
-
-
-		zebra_routemap_config_write_protocol(vty, zvrf);
-		router_id_write(vty, zvrf);
-
-		if (zvrf_id(zvrf) != VRF_DEFAULT)
-			vty_endframe(vty, "exit-vrf\n!\n");
-		else
-			vty_out(vty, "!\n");
-	}
-	return 0;
+	return 1;
 }
 
 DEFPY (vrf_netns,

@@ -107,6 +107,7 @@ const struct frr_yang_module_info frr_zebra_info = {
 			.xpath = "/frr-zebra:zebra/route-map-delay",
 			.cbs = {
 				.modify = zebra_route_map_delay_modify,
+				.cli_show = zebra_route_map_delay_cli_write,
 			}
 		},
 		{
@@ -844,6 +845,7 @@ const struct frr_yang_module_info frr_zebra_info = {
 			.cbs = {
 				.modify = lib_vrf_zebra_router_id_modify,
 				.destroy = lib_vrf_zebra_router_id_destroy,
+				.cli_show = lib_vrf_zebra_router_id_cli_write,
 			}
 		},
 		{
@@ -851,6 +853,7 @@ const struct frr_yang_module_info frr_zebra_info = {
 			.cbs = {
 				.modify = lib_vrf_zebra_ipv6_router_id_modify,
 				.destroy = lib_vrf_zebra_ipv6_router_id_destroy,
+				.cli_show = lib_vrf_zebra_ipv6_router_id_cli_write,
 			}
 		},
 		{
@@ -858,6 +861,7 @@ const struct frr_yang_module_info frr_zebra_info = {
 			.cbs = {
 				.create = lib_vrf_zebra_filter_protocol_create,
 				.destroy = lib_vrf_zebra_filter_protocol_destroy,
+				.cli_show = lib_vrf_zebra_filter_protocol_cli_write,
 			}
 		},
 		{
@@ -871,6 +875,7 @@ const struct frr_yang_module_info frr_zebra_info = {
 			.cbs = {
 				.create = lib_vrf_zebra_filter_nht_create,
 				.destroy = lib_vrf_zebra_filter_nht_destroy,
+				.cli_show = lib_vrf_zebra_filter_nht_cli_write,
 			}
 		},
 		{
@@ -884,6 +889,7 @@ const struct frr_yang_module_info frr_zebra_info = {
 			.cbs = {
 				.modify = lib_vrf_zebra_resolve_via_default_modify,
 				.destroy = lib_vrf_zebra_resolve_via_default_destroy,
+				.cli_show = lib_vrf_zebra_resolve_via_default_cli_write,
 			}
 		},
 		{
@@ -891,6 +897,7 @@ const struct frr_yang_module_info frr_zebra_info = {
 			.cbs = {
 				.modify = lib_vrf_zebra_ipv6_resolve_via_default_modify,
 				.destroy = lib_vrf_zebra_ipv6_resolve_via_default_destroy,
+				.cli_show = lib_vrf_zebra_ipv6_resolve_via_default_cli_write,
 			}
 		},
 		{
@@ -898,6 +905,7 @@ const struct frr_yang_module_info frr_zebra_info = {
 			.cbs = {
 				.create = lib_vrf_zebra_netns_table_range_create,
 				.destroy = lib_vrf_zebra_netns_table_range_destroy,
+				.cli_show = lib_vrf_zebra_netns_table_range_cli_write,
 			}
 		},
 		{
@@ -1173,6 +1181,7 @@ const struct frr_yang_module_info frr_zebra_info = {
 			.cbs = {
 				.modify = lib_vrf_zebra_l3vni_id_modify,
 				.destroy = lib_vrf_zebra_l3vni_id_destroy,
+				.cli_show = lib_vrf_zebra_l3vni_id_cli_write,
 			}
 		},
 		{

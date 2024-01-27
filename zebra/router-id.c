@@ -30,6 +30,7 @@
 #include "zebra/zebra_vrf.h"
 #include "zebra/router-id.h"
 #include "zebra/redistribute.h"
+#include "zebra/zebra_nb.h"
 
 #include "router-id_clippy.c"
 
@@ -244,25 +245,6 @@ void router_id_del_address(struct connected *ifc)
 		zsend_router_id_update(client, afi, &after, zvrf_id(zvrf));
 }
 
-void router_id_write(struct vty *vty, struct zebra_vrf *zvrf)
-{
-	char space[2];
-
-	memset(space, 0, sizeof(space));
-
-	if (zvrf_id(zvrf) != VRF_DEFAULT)
-		snprintf(space, sizeof(space), "%s", " ");
-
-	if (zvrf->rid_user_assigned.u.prefix4.s_addr != INADDR_ANY) {
-		vty_out(vty, "%sip router-id %pI4\n", space,
-			&zvrf->rid_user_assigned.u.prefix4);
-	}
-	if (!router_id_v6_is_any(&zvrf->rid6_user_assigned)) {
-		vty_out(vty, "%sipv6 router-id %pI6\n", space,
-			&zvrf->rid6_user_assigned.u.prefix6);
-	}
-}
-
 DEFPY_YANG (ip_router_id,
        ip_router_id_cmd,
        "ip router-id A.B.C.D$id vrf NAME",
@@ -320,6 +302,17 @@ ALIAS_YANG (ip_router_id_in_vrf,
        "Manually set the router-id\n"
        "IP address to use for router-id\n");
 
+void lib_vrf_zebra_router_id_cli_write(struct vty *vty,
+				       const struct lyd_node *dnode,
+				       bool show_defaults)
+{
+	const char *id = yang_dnode_get_string(dnode, NULL);
+
+	zebra_vrf_indent_cli_write(vty, dnode);
+
+	vty_out(vty, "ip router-id %s\n", id);
+}
+
 DEFPY_YANG (ipv6_router_id_in_vrf,
        ipv6_router_id_in_vrf_cmd,
        "ipv6 router-id X:X::X:X$id",
@@ -335,6 +328,17 @@ DEFPY_YANG (ipv6_router_id_in_vrf,
 					    VRF_DEFAULT_NAME);
 
 	return nb_cli_apply_changes(vty, NULL);
+}
+
+void lib_vrf_zebra_ipv6_router_id_cli_write(struct vty *vty,
+					    const struct lyd_node *dnode,
+					    bool show_defaults)
+{
+	const char *id = yang_dnode_get_string(dnode, NULL);
+
+	zebra_vrf_indent_cli_write(vty, dnode);
+
+	vty_out(vty, "ipv6 router-id %s\n", id);
 }
 
 DEFPY_YANG (no_ip_router_id,

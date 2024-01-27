@@ -1697,6 +1697,21 @@ DEFUN (no_ip_nht_default_route,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
+void lib_vrf_zebra_resolve_via_default_cli_write(struct vty *vty,
+						 const struct lyd_node *dnode,
+						 bool show_defaults)
+{
+	bool resolve_via_default = yang_dnode_get_bool(dnode, NULL);
+
+	if (resolve_via_default != SAVE_ZEBRA_IP_NHT_RESOLVE_VIA_DEFAULT ||
+	    show_defaults) {
+		zebra_vrf_indent_cli_write(vty, dnode);
+
+		vty_out(vty, "%sip nht resolve-via-default\n",
+			resolve_via_default ? "" : "no ");
+	}
+}
+
 DEFUN (ipv6_nht_default_route,
        ipv6_nht_default_route_cmd,
        "ipv6 nht resolve-via-default",
@@ -1730,6 +1745,20 @@ DEFUN (no_ipv6_nht_default_route,
 					    VRF_DEFAULT_NAME);
 
 	return nb_cli_apply_changes(vty, NULL);
+}
+
+void lib_vrf_zebra_ipv6_resolve_via_default_cli_write(
+	struct vty *vty, const struct lyd_node *dnode, bool show_defaults)
+{
+	bool resolve_via_default = yang_dnode_get_bool(dnode, NULL);
+
+	if (resolve_via_default != SAVE_ZEBRA_IP_NHT_RESOLVE_VIA_DEFAULT ||
+	    show_defaults) {
+		zebra_vrf_indent_cli_write(vty, dnode);
+
+		vty_out(vty, "%sipv6 nht resolve-via-default\n",
+			resolve_via_default ? "" : "no ");
+	}
 }
 
 DEFPY_HIDDEN(rnh_hide_backups, rnh_hide_backups_cmd,
@@ -2759,6 +2788,23 @@ DEFPY_YANG (no_vni_mapping,
 					    VRF_DEFAULT_NAME);
 
 	return nb_cli_apply_changes(vty, NULL);
+}
+
+void lib_vrf_zebra_l3vni_id_cli_write(struct vty *vty,
+				      const struct lyd_node *dnode,
+				      bool show_defaults)
+{
+	vni_t vni = yang_dnode_get_uint32(dnode, NULL);
+	bool prefix_only = yang_dnode_get_bool(dnode, "../prefix-only");
+
+	zebra_vrf_indent_cli_write(vty, dnode);
+
+	vty_out(vty, "vni %u", vni);
+
+	if (prefix_only)
+		vty_out(vty, " prefix-routes-only");
+
+	vty_out(vty, "\n");
 }
 
 /* show vrf */
@@ -4421,6 +4467,18 @@ DEFPY_YANG (ip_table_range, ip_table_range_cmd,
 					    VRF_DEFAULT_NAME);
 
 	return nb_cli_apply_changes(vty, NULL);
+}
+
+void lib_vrf_zebra_netns_table_range_cli_write(struct vty *vty,
+					       const struct lyd_node *dnode,
+					       bool show_defaults)
+{
+	uint32_t start = yang_dnode_get_uint32(dnode, "start");
+	uint32_t end = yang_dnode_get_uint32(dnode, "end");
+
+	zebra_vrf_indent_cli_write(vty, dnode);
+
+	vty_out(vty, "ip table range %u %u\n", start, end);
 }
 
 #ifdef HAVE_SCRIPTING

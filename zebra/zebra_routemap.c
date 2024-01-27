@@ -24,6 +24,8 @@
 #include "zebra/debug.h"
 #include "zebra/zebra_rnh.h"
 #include "zebra/zebra_routemap.h"
+#include "zebra/zebra_vrf.h"
+#include "zebra/zebra_nb.h"
 
 #include "zebra/zebra_routemap_clippy.c"
 
@@ -659,6 +661,15 @@ DEFPY_YANG (no_zebra_route_map_timer,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
+void zebra_route_map_delay_cli_write(struct vty *vty,
+				     const struct lyd_node *dnode,
+				     bool show_defaults)
+{
+	uint32_t delay = yang_dnode_get_uint32(dnode, NULL);
+
+	vty_out(vty, "zebra route-map delay-timer %u\n", delay);
+}
+
 DEFPY_YANG (ip_protocol,
        ip_protocol_cmd,
        "ip protocol " FRR_IP_PROTOCOL_MAP_STR_ZEBRA
@@ -791,6 +802,29 @@ DEFPY_YANG (show_ipv6_protocol,
 	int ret = show_proto_rm(vty, AFI_IP6, vrf_all, vrf_name);
 
 	return ret;
+}
+
+void lib_vrf_zebra_filter_protocol_cli_write(struct vty *vty,
+					     const struct lyd_node *dnode,
+					     bool show_defaults)
+{
+	const char *afi_safi = yang_dnode_get_string(dnode, "afi-safi");
+	const char *proto = yang_dnode_get_string(dnode, "protocol");
+	const char *rmap = yang_dnode_get_string(dnode, "route-map");
+	afi_t afi;
+	safi_t safi;
+
+	yang_afi_safi_identity2value(afi_safi, &afi, &safi);
+
+	if (safi != SAFI_UNICAST)
+		return;
+
+	zebra_vrf_indent_cli_write(vty, dnode);
+
+	if (afi == AFI_IP)
+		vty_out(vty, "ip protocol %s route-map %s\n", proto, rmap);
+	else
+		vty_out(vty, "ipv6 protocol %s route-map %s\n", proto, rmap);
 }
 
 DEFPY_YANG (ip_protocol_nht_rmap,
@@ -937,6 +971,29 @@ DEFPY_YANG (show_ipv6_protocol_nht,
 	ret = show_nht_rm(vty, AFI_IP6, vrf_all, vrf_name, uj);
 
 	return ret;
+}
+
+void lib_vrf_zebra_filter_nht_cli_write(struct vty *vty,
+					const struct lyd_node *dnode,
+					bool show_defaults)
+{
+	const char *afi_safi = yang_dnode_get_string(dnode, "afi-safi");
+	const char *proto = yang_dnode_get_string(dnode, "protocol");
+	const char *rmap = yang_dnode_get_string(dnode, "route-map");
+	afi_t afi;
+	safi_t safi;
+
+	yang_afi_safi_identity2value(afi_safi, &afi, &safi);
+
+	if (safi != SAFI_UNICAST)
+		return;
+
+	zebra_vrf_indent_cli_write(vty, dnode);
+
+	if (afi == AFI_IP)
+		vty_out(vty, "ip nht %s route-map %s\n", proto, rmap);
+	else
+		vty_out(vty, "ipv6 nht %s route-map %s\n", proto, rmap);
 }
 
 /*XXXXXXXXXXXXXXXXXXXXXXXXXXXX*/
@@ -1836,62 +1893,6 @@ void zebra_routemap_vrf_delete(struct zebra_vrf *zvrf)
 				      NHT_RM_NAME(zvrf, afi, type));
 		}
 	}
-}
-
-/* ip protocol configuration write function */
-void zebra_routemap_config_write_protocol(struct vty *vty,
-					  struct zebra_vrf *zvrf)
-{
-	int i;
-	char space[2];
-
-	memset(space, 0, sizeof(space));
-
-	if (zvrf_id(zvrf) != VRF_DEFAULT)
-		snprintf(space, sizeof(space), "%s", " ");
-
-	for (i = 0; i < ZEBRA_ROUTE_MAX; i++) {
-		if (PROTO_RM_NAME(zvrf, AFI_IP, i))
-			vty_out(vty, "%sip protocol %s route-map %s\n", space,
-				zebra_route_string(i),
-				PROTO_RM_NAME(zvrf, AFI_IP, i));
-
-		if (PROTO_RM_NAME(zvrf, AFI_IP6, i))
-			vty_out(vty, "%sipv6 protocol %s route-map %s\n", space,
-				zebra_route_string(i),
-				PROTO_RM_NAME(zvrf, AFI_IP6, i));
-
-		if (NHT_RM_NAME(zvrf, AFI_IP, i))
-			vty_out(vty, "%sip nht %s route-map %s\n", space,
-				zebra_route_string(i),
-				NHT_RM_NAME(zvrf, AFI_IP, i));
-
-		if (NHT_RM_NAME(zvrf, AFI_IP6, i))
-			vty_out(vty, "%sipv6 nht %s route-map %s\n", space,
-				zebra_route_string(i),
-				NHT_RM_NAME(zvrf, AFI_IP6, i));
-	}
-
-	if (PROTO_RM_NAME(zvrf, AFI_IP, ZEBRA_ROUTE_MAX))
-		vty_out(vty, "%sip protocol %s route-map %s\n", space, "any",
-			PROTO_RM_NAME(zvrf, AFI_IP, ZEBRA_ROUTE_MAX));
-
-	if (PROTO_RM_NAME(zvrf, AFI_IP6, ZEBRA_ROUTE_MAX))
-		vty_out(vty, "%sipv6 protocol %s route-map %s\n", space, "any",
-			PROTO_RM_NAME(zvrf, AFI_IP6, ZEBRA_ROUTE_MAX));
-
-	if (NHT_RM_NAME(zvrf, AFI_IP, ZEBRA_ROUTE_MAX))
-		vty_out(vty, "%sip nht %s route-map %s\n", space, "any",
-			NHT_RM_NAME(zvrf, AFI_IP, ZEBRA_ROUTE_MAX));
-
-	if (NHT_RM_NAME(zvrf, AFI_IP6, ZEBRA_ROUTE_MAX))
-		vty_out(vty, "%sipv6 nht %s route-map %s\n", space, "any",
-			NHT_RM_NAME(zvrf, AFI_IP6, ZEBRA_ROUTE_MAX));
-
-	if (zvrf_id(zvrf) == VRF_DEFAULT
-	    && zebra_rmap_update_timer != ZEBRA_RMAP_DEFAULT_UPDATE_TIMER)
-		vty_out(vty, "zebra route-map delay-timer %d\n",
-			zebra_rmap_update_timer);
 }
 
 void zebra_route_map_init(void)
