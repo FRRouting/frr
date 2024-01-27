@@ -1171,18 +1171,14 @@ DEFUN (ip_nht_default_route,
        "Filter Next Hop tracking route resolution\n"
        "Resolve via default route\n")
 {
-	ZEBRA_DECLVAR_CONTEXT_VRF(vrf, zvrf);
+	nb_cli_enqueue_change(vty, "./frr-zebra:zebra/resolve-via-default",
+			      NB_OP_MODIFY, "true");
 
-	if (!zvrf)
-		return CMD_WARNING;
+	if (vty->node == CONFIG_NODE)
+		return nb_cli_apply_changes(vty, "/frr-vrf:lib/vrf[name='%s']",
+					    VRF_DEFAULT_NAME);
 
-	if (zvrf->zebra_rnh_ip_default_route)
-		return CMD_SUCCESS;
-
-	zvrf->zebra_rnh_ip_default_route = true;
-
-	zebra_evaluate_rnh(zvrf, AFI_IP, 0, NULL, SAFI_UNICAST);
-	return CMD_SUCCESS;
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 static void show_nexthop_group_out(struct vty *vty, struct nhg_hash_entry *nhe,
@@ -1691,17 +1687,14 @@ DEFUN (no_ip_nht_default_route,
        "Filter Next Hop tracking route resolution\n"
        "Resolve via default route\n")
 {
-	ZEBRA_DECLVAR_CONTEXT_VRF(vrf, zvrf);
+	nb_cli_enqueue_change(vty, "./frr-zebra:zebra/resolve-via-default",
+			      NB_OP_MODIFY, "false");
 
-	if (!zvrf)
-		return CMD_WARNING;
+	if (vty->node == CONFIG_NODE)
+		return nb_cli_apply_changes(vty, "/frr-vrf:lib/vrf[name='%s']",
+					    VRF_DEFAULT_NAME);
 
-	if (!zvrf->zebra_rnh_ip_default_route)
-		return CMD_SUCCESS;
-
-	zvrf->zebra_rnh_ip_default_route = false;
-	zebra_evaluate_rnh(zvrf, AFI_IP, 0, NULL, SAFI_UNICAST);
-	return CMD_SUCCESS;
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFUN (ipv6_nht_default_route,
@@ -1711,17 +1704,14 @@ DEFUN (ipv6_nht_default_route,
        "Filter Next Hop tracking route resolution\n"
        "Resolve via default route\n")
 {
-	ZEBRA_DECLVAR_CONTEXT_VRF(vrf, zvrf);
+	nb_cli_enqueue_change(vty, "./frr-zebra:zebra/ipv6-resolve-via-default",
+			      NB_OP_MODIFY, "true");
 
-	if (!zvrf)
-		return CMD_WARNING;
+	if (vty->node == CONFIG_NODE)
+		return nb_cli_apply_changes(vty, "/frr-vrf:lib/vrf[name='%s']",
+					    VRF_DEFAULT_NAME);
 
-	if (zvrf->zebra_rnh_ipv6_default_route)
-		return CMD_SUCCESS;
-
-	zvrf->zebra_rnh_ipv6_default_route = true;
-	zebra_evaluate_rnh(zvrf, AFI_IP6, 0, NULL, SAFI_UNICAST);
-	return CMD_SUCCESS;
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFUN (no_ipv6_nht_default_route,
@@ -1732,17 +1722,14 @@ DEFUN (no_ipv6_nht_default_route,
        "Filter Next Hop tracking route resolution\n"
        "Resolve via default route\n")
 {
-	ZEBRA_DECLVAR_CONTEXT_VRF(vrf, zvrf);
+	nb_cli_enqueue_change(vty, "./frr-zebra:zebra/ipv6-resolve-via-default",
+			      NB_OP_MODIFY, "false");
 
-	if (!zvrf)
-		return CMD_WARNING;
+	if (vty->node == CONFIG_NODE)
+		return nb_cli_apply_changes(vty, "/frr-vrf:lib/vrf[name='%s']",
+					    VRF_DEFAULT_NAME);
 
-	if (!zvrf->zebra_rnh_ipv6_default_route)
-		return CMD_SUCCESS;
-
-	zvrf->zebra_rnh_ipv6_default_route = false;
-	zebra_evaluate_rnh(zvrf, AFI_IP6, 0, NULL, SAFI_UNICAST);
-	return CMD_SUCCESS;
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFPY_HIDDEN(rnh_hide_backups, rnh_hide_backups_cmd,

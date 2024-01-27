@@ -2808,6 +2808,22 @@ module frr-zebra {
         }
       }
 
+      leaf resolve-via-default {
+        type boolean;
+        description
+          "Resolve IPv4 nexthops via the default route. This is true by default
+           for traditional profile and false by default for datacenter profile.
+           Removing the leaf sets it back to the default value for the profile.";
+      }
+
+      leaf ipv6-resolve-via-default {
+        type boolean;
+        description
+          "Resolve IPv4 nexthops via the default route. This is true by default
+           for traditional profile and false by default for datacenter profile.
+           Removing the leaf sets it back to the default value for the profile.";
+      }
+
       uses ribs;
 
       uses vrf-vni-mapping;

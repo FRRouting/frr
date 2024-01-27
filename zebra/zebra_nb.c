@@ -880,6 +880,20 @@ const struct frr_yang_module_info frr_zebra_info = {
 			}
 		},
 		{
+			.xpath = "/frr-vrf:lib/vrf/frr-zebra:zebra/resolve-via-default",
+			.cbs = {
+				.modify = lib_vrf_zebra_resolve_via_default_modify,
+				.destroy = lib_vrf_zebra_resolve_via_default_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-vrf:lib/vrf/frr-zebra:zebra/ipv6-resolve-via-default",
+			.cbs = {
+				.modify = lib_vrf_zebra_ipv6_resolve_via_default_modify,
+				.destroy = lib_vrf_zebra_ipv6_resolve_via_default_destroy,
+			}
+		},
+		{
 			.xpath = "/frr-vrf:lib/vrf/frr-zebra:zebra/ribs/rib",
 			.cbs = {
 				.get_next = lib_vrf_zebra_ribs_rib_get_next,

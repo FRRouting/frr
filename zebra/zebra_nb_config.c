@@ -27,6 +27,7 @@
 #include "zebra/zebra_ptm.h"
 #include "zebra/router-id.h"
 #include "zebra/zebra_routemap.h"
+#include "zebra/zebra_rnh.h"
 
 /*
  * XPath: /frr-zebra:zebra/mcast-rpf-lookup
@@ -3523,6 +3524,108 @@ int lib_vrf_zebra_filter_nht_route_map_modify(struct nb_cb_modify_args *args)
 	vrf = nb_running_get_entry(args->dnode, NULL, true);
 
 	ip_nht_rm_add(vrf->info, rmap, rtype, afi);
+
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-vrf:lib/vrf/frr-zebra:zebra/resolve-via-default
+ */
+int lib_vrf_zebra_resolve_via_default_modify(struct nb_cb_modify_args *args)
+{
+	struct vrf *vrf;
+	struct zebra_vrf *zvrf;
+	bool resolve_via_default;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	vrf = nb_running_get_entry(args->dnode, NULL, true);
+	zvrf = vrf->info;
+
+	resolve_via_default = yang_dnode_get_bool(args->dnode, NULL);
+
+	if (zvrf->zebra_rnh_ip_default_route == resolve_via_default)
+		return NB_OK;
+
+	zvrf->zebra_rnh_ip_default_route = resolve_via_default;
+
+	zebra_evaluate_rnh(zvrf, AFI_IP, 0, NULL, SAFI_UNICAST);
+
+	return NB_OK;
+}
+
+int lib_vrf_zebra_resolve_via_default_destroy(struct nb_cb_destroy_args *args)
+{
+	struct vrf *vrf;
+	struct zebra_vrf *zvrf;
+	bool resolve_via_default;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	vrf = nb_running_get_entry(args->dnode, NULL, true);
+	zvrf = vrf->info;
+
+	resolve_via_default = DFLT_ZEBRA_IP_NHT_RESOLVE_VIA_DEFAULT;
+
+	if (zvrf->zebra_rnh_ip_default_route == resolve_via_default)
+		return NB_OK;
+
+	zvrf->zebra_rnh_ip_default_route = resolve_via_default;
+
+	zebra_evaluate_rnh(zvrf, AFI_IP, 0, NULL, SAFI_UNICAST);
+
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-vrf:lib/vrf/frr-zebra:zebra/ipv6-resolve-via-default
+ */
+int lib_vrf_zebra_ipv6_resolve_via_default_modify(struct nb_cb_modify_args *args)
+{
+	struct vrf *vrf;
+	struct zebra_vrf *zvrf;
+	bool resolve_via_default;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	vrf = nb_running_get_entry(args->dnode, NULL, true);
+	zvrf = vrf->info;
+
+	resolve_via_default = yang_dnode_get_bool(args->dnode, NULL);
+
+	if (zvrf->zebra_rnh_ipv6_default_route == resolve_via_default)
+		return NB_OK;
+
+	zvrf->zebra_rnh_ipv6_default_route = resolve_via_default;
+
+	zebra_evaluate_rnh(zvrf, AFI_IP6, 0, NULL, SAFI_UNICAST);
+
+	return NB_OK;
+}
+
+int lib_vrf_zebra_ipv6_resolve_via_default_destroy(struct nb_cb_destroy_args *args)
+{
+	struct vrf *vrf;
+	struct zebra_vrf *zvrf;
+	bool resolve_via_default;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	vrf = nb_running_get_entry(args->dnode, NULL, true);
+	zvrf = vrf->info;
+
+	resolve_via_default = DFLT_ZEBRA_IP_NHT_RESOLVE_VIA_DEFAULT;
+
+	if (zvrf->zebra_rnh_ipv6_default_route == resolve_via_default)
+		return NB_OK;
+
+	zvrf->zebra_rnh_ipv6_default_route = resolve_via_default;
+
+	zebra_evaluate_rnh(zvrf, AFI_IP6, 0, NULL, SAFI_UNICAST);
 
 	return NB_OK;
 }
