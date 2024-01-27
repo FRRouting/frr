@@ -70,18 +70,21 @@ Configuration modes
 ~~~~~~~~~~~~~~~~~~~
 
 When using the transactional CLI (``--tcli``), FRR supports three
-different forms of the ``configure`` command: \* ``configure terminal``:
-in this mode, a single candidate configuration is shared by all users.
-This means that one user might delete a configuration object that’s
-being edited by another user, in which case the CLI will detect and
-report the problem. If one user issues the ``commit`` command, all
-changes done by all users are committed. \* ``configure private``: users
-have a private candidate configuration that is edited separately from
-the other users. The ``commit`` command commits only the changes done by
-the user. \* ``configure exclusive``: similar to ``configure private``,
-but also locks the running configuration to prevent other users from
-changing it. The configuration lock is released when the user exits the
-configuration mode.
+different forms of the ``configure`` command:
+
+* ``configure terminal``: in this mode, a single candidate configuration is
+  shared by all users. This means that one user might delete a configuration
+  object that’s being edited by another user, in which case the CLI will detect
+  and report the problem. If one user issues the ``commit`` command, all changes
+  done by all users are committed.
+
+* ``configure private``: users have a private candidate configuration that is
+  edited separately from the other users. The ``commit`` command commits only
+  the changes done by the user.
+
+* ``configure exclusive``: similar to ``configure private``, but also locks the
+  running configuration to prevent other users from changing it. The
+  configuration lock is released when the user exits the configuration mode.
 
 When using ``configure terminal`` or ``configure private``, the
 candidate configuration being edited might become outdated if another
@@ -112,12 +115,14 @@ Check if the candidate configuration is valid or not.
 Commit the changes done in the candidate configuration into the running
 configuration.
 
-Options: \* ``force``: commit even if the candidate configuration is
-outdated. It’s usually a better option to use the ``update`` command
-instead. \* ``comment LINE...``: assign a comment to the configuration
-transaction. This comment is displayed when viewing the recorded
-transactions in the output of the ``show configuration transaction``
-command.
+Options:
+
+* ``force``: commit even if the candidate configuration is outdated. It’s
+  usually a better option to use the ``update`` command instead.
+
+* ``comment LINE...``: assign a comment to the configuration transaction. This
+  comment is displayed when viewing the recorded transactions in the output of
+  the ``show configuration transaction`` command.
 
 ``discard``
 '''''''''''
@@ -140,10 +145,13 @@ respectively. It’s also possible to load a configuration from a previous
 transaction by specifying the desired transaction ID
 (``(1-4294967296)``).
 
-Options: \* ``translate WORD``: translate the JSON/XML configuration
-file using the YANG module translator. \* ``replace``: replace the
-candidate by the loaded configuration. The default is to merge the
-loaded configuration into the candidate configuration.
+Options:
+
+* ``translate WORD``: translate the JSON/XML configuration file using the YANG
+  module translator.
+
+* ``replace``: replace the candidate by the loaded configuration. The default is
+  to merge the loaded configuration into the candidate configuration.
 
 ``rollback configuration (1-4294967296)``
 '''''''''''''''''''''''''''''''''''''''''
@@ -156,39 +164,42 @@ identified by its transaction ID (``(1-4294967296)``).
 
 Show the candidate configuration.
 
-Options: \* ``json``: show the configuration in the JSON format. \*
-``xml``: show the configuration in the XML format. \*
-``translate WORD``: translate the JSON/XML output using the YANG module
-translator. \* ``with-defaults``: show default values that are hidden by
-default. \* ``changes``: show only the changes done in the candidate
-configuration.
+Options:
+
+* ``json``: show the configuration in the JSON format.
+* ``xml``: show the configuration in the XML format.
+* ``translate WORD``: translate the JSON/XML output using the YANG module translator.
+* ``with-defaults``: show default values that are hidden by default.
+* ``changes``: show only the changes done in the candidate configuration.
 
 ``show configuration compare <candidate|running|transaction (1-4294967296)> <candidate|running|transaction (1-4294967296)> [<json|xml> [translate WORD]]``
 ''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 
 Show the difference between two different configurations.
 
-Options: \* ``json``: show the configuration differences in the JSON
-format. \* ``xml``: show the configuration differences in the XML
-format. \* ``translate WORD``: translate the JSON/XML output using the
-YANG module translator.
+Options:
+
+* ``json``: show the configuration differences in the JSON format.
+* ``xml``: show the configuration differences in the XML format.
+* ``translate WORD``: translate the JSON/XML output using the YANG module translator.
 
 ``show configuration running [<json|xml> [translate WORD]] [with-defaults]``
 ''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 
 Show the running configuration.
 
-Options: \* ``json``: show the configuration in the JSON format. \*
-``xml``: show the configuration in the XML format. \*
-``translate WORD``: translate the JSON/XML output using the YANG module
-translator. \* ``with-defaults``: show default values that are hidden by
-default.
+Options:
 
-   NOTE: ``show configuration running`` shows only the running
-   configuration as known by the northbound layer. Configuration
-   commands not converted to the new northbound model will not be
-   displayed. To show the full running configuration, the legacy
-   ``show running-config`` command must be used.
+* ``json``: show the configuration in the JSON format.
+* ``xml``: show the configuration in the XML format.
+* ``translate WORD``: translate the JSON/XML output using the YANG module translator.
+* ``with-defaults``: show default values that are hidden by default.
+
+NOTE: ``show configuration running`` shows only the running
+configuration as known by the northbound layer. Configuration
+commands not converted to the new northbound model will not be
+displayed. To show the full running configuration, the legacy
+``show running-config`` command must be used.
 
 ``show configuration transaction [(1-4294967296) [<json|xml> [translate WORD]] [changes]]``
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
@@ -199,12 +210,13 @@ configuration associated to the previously committed transaction.
 When a transaction ID is not given, show all recorded transactions in
 the rollback log.
 
-Options: \* ``json``: show the configuration in the JSON format. \*
-``xml``: show the configuration in the XML format. \*
-``translate WORD``: translate the JSON/XML output using the YANG module
-translator. \* ``with-defaults``: show default values that are hidden by
-default. \* ``changes``: show changes compared to the previous
-transaction.
+Options:
+
+* ``json``: show the configuration in the JSON format.
+* ``xml``: show the configuration in the XML format.
+* ``translate WORD``: translate the JSON/XML output using the YANG module translator.
+* ``with-defaults``: show default values that are hidden by default.
+* ``changes``: show changes compared to the previous transaction.
 
 ``show yang module [module-translator WORD] [WORD <summary|tree|yang|yin>]``
 ''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
@@ -212,11 +224,14 @@ transaction.
 When a YANG module is not given, show all loaded YANG modules.
 Otherwise, show detailed information about the given module.
 
-Options: \* ``module-translator WORD``: change the context to modules
-loaded by the specified YANG module translator. \* ``summary``: display
-summary information about the module. \* ``tree``: display module in the
-tree (RFC 8340) format. \* ``yang``: display module in the YANG format.
-\* ``yin``: display module in the YIN format.
+Options:
+
+* ``module-translator WORD``: change the context to modules loaded by the
+  specified YANG module translator.
+* ``summary``: display summary information about the module.
+* ``tree``: display module in the tree (RFC 8340) format.
+* ``yang``: display module in the YANG format.
+* ``yin``: display module in the YIN format.
 
 ``show yang module-translator``
 '''''''''''''''''''''''''''''''
