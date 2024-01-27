@@ -2824,6 +2824,31 @@ module frr-zebra {
            Removing the leaf sets it back to the default value for the profile.";
       }
 
+      container netns {
+        description
+          "Configuration for netns VRF backend.";
+        container table-range {
+          presence "Activates table-range configuration.";
+          description
+            "The range of tables to use for this netns.";
+          leaf start {
+            type uint32;
+            mandatory true;
+            description
+              "The first table to use.";
+          }
+          leaf end {
+            type uint32;
+            mandatory true;
+            must ". >= ../start" {
+              error-message "End table must be greater than or equal to start table";
+            }
+            description
+              "The last table to use.";
+          }
+        }
+      }
+
       uses ribs;
 
       uses vrf-vni-mapping;

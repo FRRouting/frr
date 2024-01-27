@@ -4394,29 +4394,33 @@ DEFPY (no_zebra_protodown_bit,
 
 #endif /* HAVE_NETLINK */
 
-DEFUN(ip_table_range, ip_table_range_cmd,
-      "[no] ip table range (1-4294967295) (1-4294967295)",
+DEFPY_YANG (ip_table_range, ip_table_range_cmd,
+      "[no] ip table range ![(1-4294967295)$start (1-4294967295)$end]",
       NO_STR IP_STR
       "table configuration\n"
       "Configure table range\n"
       "Start Routing Table\n"
       "End Routing Table\n")
 {
-	ZEBRA_DECLVAR_CONTEXT_VRF(vrf, zvrf);
-
-	if (!zvrf)
-		return CMD_WARNING;
-
-	if (zvrf_id(zvrf) != VRF_DEFAULT && !vrf_is_backend_netns()) {
-		vty_out(vty,
-			"VRF subcommand does not make any sense in l3mdev based vrf's\n");
-		return CMD_WARNING;
+	if (!no) {
+		nb_cli_enqueue_change(vty, "./frr-zebra:zebra/netns/table-range",
+				      NB_OP_CREATE, NULL);
+		nb_cli_enqueue_change(vty,
+				      "./frr-zebra:zebra/netns/table-range/start",
+				      NB_OP_MODIFY, start_str);
+		nb_cli_enqueue_change(vty,
+				      "./frr-zebra:zebra/netns/table-range/end",
+				      NB_OP_MODIFY, end_str);
+	} else {
+		nb_cli_enqueue_change(vty, "./frr-zebra:zebra/netns/table-range",
+				      NB_OP_DESTROY, NULL);
 	}
 
-	if (strmatch(argv[0]->text, "no"))
-		return table_manager_range(vty, false, zvrf, NULL, NULL);
+	if (vty->node == CONFIG_NODE)
+		return nb_cli_apply_changes(vty, "/frr-vrf:lib/vrf[name='%s']",
+					    VRF_DEFAULT_NAME);
 
-	return table_manager_range(vty, true, zvrf, argv[3]->arg, argv[4]->arg);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 #ifdef HAVE_SCRIPTING

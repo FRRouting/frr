@@ -894,6 +894,25 @@ const struct frr_yang_module_info frr_zebra_info = {
 			}
 		},
 		{
+			.xpath = "/frr-vrf:lib/vrf/frr-zebra:zebra/netns/table-range",
+			.cbs = {
+				.create = lib_vrf_zebra_netns_table_range_create,
+				.destroy = lib_vrf_zebra_netns_table_range_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-vrf:lib/vrf/frr-zebra:zebra/netns/table-range/start",
+			.cbs = {
+				.modify = lib_vrf_zebra_netns_table_range_start_modify,
+			}
+		},
+		{
+			.xpath = "/frr-vrf:lib/vrf/frr-zebra:zebra/netns/table-range/end",
+			.cbs = {
+				.modify = lib_vrf_zebra_netns_table_range_end_modify,
+			}
+		},
+		{
 			.xpath = "/frr-vrf:lib/vrf/frr-zebra:zebra/ribs/rib",
 			.cbs = {
 				.get_next = lib_vrf_zebra_ribs_rib_get_next,

@@ -28,6 +28,7 @@
 #include "zebra/router-id.h"
 #include "zebra/zebra_routemap.h"
 #include "zebra/zebra_rnh.h"
+#include "zebra/table_manager.h"
 
 /*
  * XPath: /frr-zebra:zebra/mcast-rpf-lookup
@@ -3626,6 +3627,125 @@ int lib_vrf_zebra_ipv6_resolve_via_default_destroy(struct nb_cb_destroy_args *ar
 	zvrf->zebra_rnh_ipv6_default_route = resolve_via_default;
 
 	zebra_evaluate_rnh(zvrf, AFI_IP6, 0, NULL, SAFI_UNICAST);
+
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-vrf:lib/vrf/frr-zebra:zebra/netns/table-range
+ */
+static int table_range_validate(uint32_t start, uint32_t end, char *errmsg,
+				size_t errmsg_len)
+{
+#if defined(GNU_LINUX)
+	if ((start >= RT_TABLE_ID_COMPAT && start <= RT_TABLE_ID_LOCAL) ||
+	    (end >= RT_TABLE_ID_COMPAT && end <= RT_TABLE_ID_LOCAL)) {
+		snprintfrr(errmsg, errmsg_len,
+			   "Values forbidden in range [%u;%u]",
+			   RT_TABLE_ID_COMPAT, RT_TABLE_ID_LOCAL);
+		return NB_ERR_VALIDATION;
+	}
+	if (start < RT_TABLE_ID_COMPAT && end > RT_TABLE_ID_LOCAL) {
+		snprintfrr(errmsg, errmsg_len,
+			   "Range overlaps range [%u;%u] forbidden",
+			   RT_TABLE_ID_COMPAT, RT_TABLE_ID_LOCAL);
+		return NB_ERR_VALIDATION;
+	}
+#endif
+	return NB_OK;
+}
+
+int lib_vrf_zebra_netns_table_range_create(struct nb_cb_create_args *args)
+{
+	struct vrf *vrf;
+	uint32_t start, end;
+	const char *vrf_name;
+
+	start = yang_dnode_get_uint32(args->dnode, "start");
+	end = yang_dnode_get_uint32(args->dnode, "end");
+
+	if (args->event == NB_EV_VALIDATE) {
+		vrf_name = yang_dnode_get_string(args->dnode, "../../../name");
+		if (!vrf_is_backend_netns() &&
+		    strcmp(vrf_name, VRF_DEFAULT_NAME)) {
+			snprintfrr(args->errmsg, args->errmsg_len,
+				   "Configuration is not available in non-default VRFs when using VRF-lite backend.");
+			return NB_ERR_VALIDATION;
+		}
+		return table_range_validate(start, end, args->errmsg,
+					    args->errmsg_len);
+	}
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	vrf = nb_running_get_entry(args->dnode, NULL, true);
+
+	table_manager_range(true, vrf->info, start, end);
+
+	return NB_OK;
+}
+
+int lib_vrf_zebra_netns_table_range_destroy(struct nb_cb_destroy_args *args)
+{
+	struct vrf *vrf;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	vrf = nb_running_get_entry(args->dnode, NULL, true);
+
+	table_manager_range(false, vrf->info, 0, 0);
+
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-vrf:lib/vrf/frr-zebra:zebra/netns/table-range/start
+ */
+int lib_vrf_zebra_netns_table_range_start_modify(struct nb_cb_modify_args *args)
+{
+	struct vrf *vrf;
+	uint32_t start, end;
+
+	start = yang_dnode_get_uint32(args->dnode, NULL);
+	end = yang_dnode_get_uint32(args->dnode, "../end");
+
+	if (args->event == NB_EV_VALIDATE)
+		return table_range_validate(start, end, args->errmsg,
+					    args->errmsg_len);
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	vrf = nb_running_get_entry(args->dnode, NULL, true);
+
+	table_manager_range(true, vrf->info, start, end);
+
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-vrf:lib/vrf/frr-zebra:zebra/netns/table-range/end
+ */
+int lib_vrf_zebra_netns_table_range_end_modify(struct nb_cb_modify_args *args)
+{
+	struct vrf *vrf;
+	uint32_t start, end;
+
+	start = yang_dnode_get_uint32(args->dnode, "../start");
+	end = yang_dnode_get_uint32(args->dnode, NULL);
+
+	if (args->event == NB_EV_VALIDATE)
+		return table_range_validate(start, end, args->errmsg,
+					    args->errmsg_len);
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	vrf = nb_running_get_entry(args->dnode, NULL, true);
+
+	table_manager_range(true, vrf->info, start, end);
 
 	return NB_OK;
 }
