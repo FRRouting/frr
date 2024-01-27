@@ -11,11 +11,11 @@ Northbound API
    transactional-cli
    retrofitting-configuration-commands
    operational-data-rpcs-and-notifications
-   plugins-sysrepo
    advanced-topics
    yang-tools
    yang-module-translator
    demos
    links
+   plugins-sysrepo
    ppr-basic-test-topology
    ppr-mpls-basic-test-topology

@@ -1,25 +1,10 @@
-Table of Contents
------------------
+Transactional CLI
+=================
 
--  `Introduction <#introduction>`__
--  `Configuration modes <#config-modes>`__
--  `New commands <#retrofitting-process>`__
-
-   -  `commit check <#cmd1>`__
-   -  `commit <#cmd2>`__
-   -  `discard <#cmd3>`__
-   -  `configuration database max-transactions <#cmd4>`__
-   -  `configuration load <#cmd5>`__
-   -  `rollback configuration <#cmd6>`__
-   -  `show configuration candidate <#cmd7>`__
-   -  `show configuration compare <#cmd8>`__
-   -  `show configuration running <#cmd9>`__
-   -  `show configuration transaction <#cmd10>`__
-   -  `show yang module <#cmd11>`__
-   -  `show yang module-translator <#cmd12>`__
-   -  `update <#cmd13>`__
-   -  `yang module-translator load <#cmd14>`__
-   -  `yang module-translator unload <#cmd15>`__
+.. contents:: Table of contents
+    :local:
+    :backlinks: entry
+    :depth: 1
 
 Introduction
 ~~~~~~~~~~~~

@@ -1,11 +1,10 @@
-Table of Contents
------------------
+YANG Module Translation
+=======================
 
--  `Introduction <#introduction>`__
--  `Deviation Modules <#deviation-modules>`__
--  `Translation Tables <#translation-tables>`__
--  `CLI Demonstration <#cli-demonstration>`__
--  `Implementation Details <#implementation-details>`__
+.. contents:: Table of contents
+    :local:
+    :backlinks: entry
+    :depth: 1
 
 Introduction
 ------------

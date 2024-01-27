@@ -2,16 +2,21 @@
 .. _nb-retrofit:
 
 Retrofitting Configuration Commands
------------------------------------
+===================================
+
+.. contents:: Table of contents
+    :local:
+    :backlinks: entry
+    :depth: 2
+
+Retrofitting process
+--------------------
 
 This page explains how to convert existing CLI configuration commands to
 the new northbound model. This documentation is meant to be the primary
 reference for developers working on the northbound retrofitting process.
 We’ll show several examples taken from the ripd northbound conversion to
 illustrate some concepts described herein.
-
-Retrofitting process
---------------------
 
 Step 1: writing a YANG module
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

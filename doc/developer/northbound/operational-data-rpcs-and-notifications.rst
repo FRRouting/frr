@@ -1,3 +1,11 @@
+Operational Data, RPCs and Notifications
+========================================
+
+.. contents:: Table of contents
+    :local:
+    :backlinks: entry
+    :depth: 1
+
 Operational data
 ~~~~~~~~~~~~~~~~
 

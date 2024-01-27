@@ -1,3 +1,11 @@
+Advanced Topics
+===============
+
+.. contents:: Table of contents
+    :local:
+    :backlinks: entry
+    :depth: 1
+
 Auto-generated CLI commands
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 

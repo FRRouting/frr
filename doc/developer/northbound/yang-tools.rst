@@ -1,5 +1,5 @@
 Yang Tools
-~~~~~~~~~~
+==========
 
 Here's some information about various tools for working with yang
 models.
