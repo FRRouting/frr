@@ -3533,70 +3533,33 @@ int lib_vrf_zebra_filter_nht_route_map_modify(struct nb_cb_modify_args *args)
 int lib_vrf_zebra_l3vni_id_modify(struct nb_cb_modify_args *args)
 {
 	struct vrf *vrf;
-	struct zebra_vrf *zvrf;
 	vni_t vni = 0;
-	struct zebra_l3vni *zl3vni = NULL;
-	char err[ERR_STR_SZ];
 	bool pfx_only = false;
-	const struct lyd_node *pn_dnode;
-	const char *vrfname;
+	uint32_t count;
+
+	vni = yang_dnode_get_uint32(args->dnode, NULL);
 
 	switch (args->event) {
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
 		return NB_OK;
 	case NB_EV_VALIDATE:
-		vni = yang_dnode_get_uint32(args->dnode, NULL);
-		/* Get vrf info from parent node, reject configuration
-		 * if zebra vrf already mapped to different vni id.
-		 */
-		pn_dnode = yang_dnode_get_parent(args->dnode, "vrf");
-		vrfname = yang_dnode_get_string(pn_dnode, "name");
-		zvrf = zebra_vrf_lookup_by_name(vrfname);
-		if (!zvrf) {
-			snprintf(args->errmsg, args->errmsg_len,
-				 "zebra vrf info not found for vrf:%s.",
-				 vrfname);
+		count = yang_dnode_count(args->dnode,
+					 "/frr-vrf:lib/vrf/frr-zebra:zebra[l3vni-id='%u']",
+					 vni);
+		if (count > 1) {
+			snprintfrr(args->errmsg, args->errmsg_len,
+				   "vni %u is already mapped to another vrf",
+				   vni);
 			return NB_ERR_VALIDATION;
 		}
-		if (zvrf->l3vni && zvrf->l3vni != vni) {
-			snprintf(
-				args->errmsg, args->errmsg_len,
-				"vni %u cannot be configured as vni %u is already configured under the vrf",
-				vni, zvrf->l3vni);
-			return NB_ERR_VALIDATION;
-		}
-
-		/* Check if this VNI is already present in the system */
-		zl3vni = zl3vni_lookup(vni);
-		if (zl3vni) {
-			snprintf(args->errmsg, args->errmsg_len,
-				 "VNI %u is already configured as L3-VNI", vni);
-			return NB_ERR_VALIDATION;
-		}
-
 		break;
 	case NB_EV_APPLY:
-
 		vrf = nb_running_get_entry(args->dnode, NULL, true);
-		zvrf = zebra_vrf_lookup_by_name(vrf->name);
-		vni = yang_dnode_get_uint32(args->dnode, NULL);
-		/* Note: This covers lib_vrf_zebra_prefix_only_modify() config
-		 * along with l3vni config
-		 */
 		pfx_only = yang_dnode_get_bool(args->dnode, "../prefix-only");
 
-		if (zebra_vxlan_process_vrf_vni_cmd(zvrf, vni, err, ERR_STR_SZ,
-						    pfx_only ? 1 : 0, 1)
-		    != 0) {
-			if (IS_ZEBRA_DEBUG_VXLAN)
-				snprintf(
-					args->errmsg, args->errmsg_len,
-					"vrf vni %u mapping failed with error: %s",
-					vni, err);
-			return NB_ERR;
-		}
-
+		zebra_vxlan_process_vrf_vni_cmd(vrf->info, vni,
+						pfx_only ? 1 : 0, 1);
 		break;
 	}
 
@@ -3606,10 +3569,7 @@ int lib_vrf_zebra_l3vni_id_modify(struct nb_cb_modify_args *args)
 int lib_vrf_zebra_l3vni_id_destroy(struct nb_cb_destroy_args *args)
 {
 	struct vrf *vrf;
-	struct zebra_vrf *zvrf;
 	vni_t vni = 0;
-	char err[ERR_STR_SZ];
-	uint8_t filter = 0;
 
 	switch (args->event) {
 	case NB_EV_PREPARE:
@@ -3618,32 +3578,9 @@ int lib_vrf_zebra_l3vni_id_destroy(struct nb_cb_destroy_args *args)
 		return NB_OK;
 	case NB_EV_APPLY:
 		vrf = nb_running_get_entry(args->dnode, NULL, true);
-		zvrf = zebra_vrf_lookup_by_name(vrf->name);
 		vni = yang_dnode_get_uint32(args->dnode, NULL);
 
-		if (!zl3vni_lookup(vni))
-			return NB_OK;
-
-		if (zvrf->l3vni != vni) {
-			snprintf(args->errmsg, args->errmsg_len,
-				 "vrf %s has different vni %u mapped",
-				 vrf->name, zvrf->l3vni);
-			return NB_ERR;
-		}
-
-		if (is_l3vni_for_prefix_routes_only(zvrf->l3vni))
-			filter = 1;
-
-		if (zebra_vxlan_process_vrf_vni_cmd(zvrf, vni, err, ERR_STR_SZ,
-						    filter, 0)
-		    != 0) {
-			if (IS_ZEBRA_DEBUG_VXLAN)
-				zlog_debug(
-					"vrf vni %u unmapping failed with error: %s",
-					vni, err);
-			return NB_ERR;
-		}
-
+		zebra_vxlan_process_vrf_vni_cmd(vrf->info, vni, 0, 0);
 		break;
 	}
 

@@ -5174,9 +5174,8 @@ void zebra_vxlan_macvlan_up(struct interface *ifp)
 	}
 }
 
-int zebra_vxlan_process_vrf_vni_cmd(struct zebra_vrf *zvrf, vni_t vni,
-				    char *err, int err_str_sz, int filter,
-				    int add)
+void zebra_vxlan_process_vrf_vni_cmd(struct zebra_vrf *zvrf, vni_t vni,
+				     int filter, int add)
 {
 	struct zebra_l3vni *zl3vni = NULL;
 	struct zebra_vrf *zvrf_evpn = NULL;
@@ -5188,21 +5187,6 @@ int zebra_vxlan_process_vrf_vni_cmd(struct zebra_vrf *zvrf, vni_t vni,
 			   add ? "ADD" : "DEL");
 
 	if (add) {
-		/* check if the vni is already present under zvrf */
-		if (zvrf->l3vni) {
-			snprintf(err, err_str_sz,
-				 "VNI is already configured under the vrf");
-			return -1;
-		}
-
-		/* check if this VNI is already present in the system */
-		zl3vni = zl3vni_lookup(vni);
-		if (zl3vni) {
-			snprintf(err, err_str_sz,
-				 "VNI is already configured as L3-VNI");
-			return -1;
-		}
-
 		/* Remove L2VNI if present */
 		zebra_vxlan_handle_vni_transition(zvrf, vni, add);
 
@@ -5248,23 +5232,7 @@ int zebra_vxlan_process_vrf_vni_cmd(struct zebra_vrf *zvrf, vni_t vni,
 
 	} else {
 		zl3vni = zl3vni_lookup(vni);
-		if (!zl3vni) {
-			snprintf(err, err_str_sz, "VNI doesn't exist");
-			return -1;
-		}
-
-		if (zvrf->l3vni != vni) {
-			snprintf(err, err_str_sz,
-					"VNI %d doesn't exist in VRF: %s",
-					vni, zvrf->vrf->name);
-			return -1;
-		}
-
-		if (filter && !CHECK_FLAG(zl3vni->filter, PREFIX_ROUTES_ONLY)) {
-			snprintf(err, ERR_STR_SZ,
-				 "prefix-routes-only is not set for the vni");
-			return -1;
-		}
+		assert(zl3vni);
 
 		zebra_vxlan_process_l3vni_oper_down(zl3vni);
 
@@ -5282,7 +5250,6 @@ int zebra_vxlan_process_vrf_vni_cmd(struct zebra_vrf *zvrf, vni_t vni,
 		/* Add L2VNI for this VNI */
 		zebra_vxlan_handle_vni_transition(zvrf, vni, add);
 	}
-	return 0;
 }
 
 int zebra_vxlan_vrf_enable(struct zebra_vrf *zvrf)

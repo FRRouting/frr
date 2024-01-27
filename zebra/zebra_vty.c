@@ -2728,142 +2728,48 @@ DEFPY(evpn_mh_redirect_off, evpn_mh_redirect_off_cmd,
 	return zebra_evpn_mh_redirect_off(vty, redirect_off);
 }
 
-DEFUN (default_vrf_vni_mapping,
-       default_vrf_vni_mapping_cmd,
-       "vni " CMD_VNI_RANGE "[prefix-routes-only]",
-       "VNI corresponding to the DEFAULT VRF\n"
-       "VNI-ID\n"
-       "Prefix routes only \n")
-{
-	char xpath[XPATH_MAXLEN];
-	int filter = 0;
-
-	if (argc == 3)
-		filter = 1;
-
-	snprintf(xpath, sizeof(xpath), FRR_VRF_KEY_XPATH "/frr-zebra:zebra",
-		 VRF_DEFAULT_NAME);
-	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
-
-	snprintf(xpath, sizeof(xpath),
-		 FRR_VRF_KEY_XPATH "/frr-zebra:zebra/l3vni-id",
-		 VRF_DEFAULT_NAME);
-	nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, argv[1]->arg);
-
-	if (filter) {
-		snprintf(xpath, sizeof(xpath),
-			 FRR_VRF_KEY_XPATH "/frr-zebra:zebra/prefix-only",
-			 VRF_DEFAULT_NAME);
-		nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, "true");
-	}
-
-	return nb_cli_apply_changes(vty, NULL);
-}
-
-DEFUN (no_default_vrf_vni_mapping,
-       no_default_vrf_vni_mapping_cmd,
-       "no vni " CMD_VNI_RANGE "[prefix-routes-only]",
-       NO_STR
-       "VNI corresponding to DEFAULT VRF\n"
-       "VNI-ID\n"
-       "Prefix routes only \n")
-{
-	char xpath[XPATH_MAXLEN];
-	int filter = 0;
-	vni_t vni = strtoul(argv[2]->arg, NULL, 10);
-	struct zebra_vrf *zvrf = NULL;
-
-	zvrf = zebra_vrf_lookup_by_id(VRF_DEFAULT);
-
-	if (argc == 4)
-		filter = 1;
-
-	if (zvrf->l3vni != vni) {
-		vty_out(vty, "VNI %d doesn't exist in VRF: %s \n", vni,
-			zvrf->vrf->name);
-		return CMD_WARNING;
-	}
-
-	snprintf(xpath, sizeof(xpath),
-		 FRR_VRF_KEY_XPATH "/frr-zebra:zebra/l3vni-id",
-		 VRF_DEFAULT_NAME);
-	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, argv[2]->arg);
-
-	if (filter) {
-		snprintf(xpath, sizeof(xpath),
-			 FRR_VRF_KEY_XPATH "/frr-zebra:zebra/prefix-only",
-			 VRF_DEFAULT_NAME);
-		nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, "true");
-	}
-
-	snprintf(xpath, sizeof(xpath), FRR_VRF_KEY_XPATH "/frr-zebra:zebra",
-		 VRF_DEFAULT_NAME);
-	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
-
-	return nb_cli_apply_changes(vty, NULL);
-}
-
-DEFUN (vrf_vni_mapping,
-       vrf_vni_mapping_cmd,
-       "vni " CMD_VNI_RANGE "[prefix-routes-only]",
+DEFPY_YANG (vni_mapping,
+       vni_mapping_cmd,
+       "vni " CMD_VNI_RANGE "[prefix-routes-only$filter]",
        "VNI corresponding to tenant VRF\n"
        "VNI-ID\n"
        "prefix-routes-only\n")
 {
-	int filter = 0;
-
-	ZEBRA_DECLVAR_CONTEXT_VRF(vrf, zvrf);
-
-	assert(vrf);
-	assert(zvrf);
-
-	if (argc == 3)
-		filter = 1;
-
-	nb_cli_enqueue_change(vty, "./frr-zebra:zebra", NB_OP_CREATE, NULL);
 	nb_cli_enqueue_change(vty, "./frr-zebra:zebra/l3vni-id", NB_OP_MODIFY,
-			      argv[1]->arg);
+			      vni_str);
 
 	if (filter)
 		nb_cli_enqueue_change(vty, "./frr-zebra:zebra/prefix-only",
 				      NB_OP_MODIFY, "true");
+	else
+		nb_cli_enqueue_change(vty, "./frr-zebra:zebra/prefix-only",
+				      NB_OP_DESTROY, NULL);
+
+	if (vty->node == CONFIG_NODE)
+		return nb_cli_apply_changes(vty, "/frr-vrf:lib/vrf[name='%s']",
+					    VRF_DEFAULT_NAME);
 
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFUN (no_vrf_vni_mapping,
-       no_vrf_vni_mapping_cmd,
-       "no vni " CMD_VNI_RANGE "[prefix-routes-only]",
+DEFPY_YANG (no_vni_mapping,
+       no_vni_mapping_cmd,
+       "no vni [" CMD_VNI_RANGE "[prefix-routes-only$filter]]",
        NO_STR
        "VNI corresponding to tenant VRF\n"
        "VNI-ID\n"
        "prefix-routes-only\n")
 {
-	int filter = 0;
-
-	ZEBRA_DECLVAR_CONTEXT_VRF(vrf, zvrf);
-	vni_t vni = strtoul(argv[2]->arg, NULL, 10);
-
-	assert(vrf);
-	assert(zvrf);
-
-	if (argc == 4)
-		filter = 1;
-
-	if (zvrf->l3vni != vni) {
-		vty_out(vty, "VNI %d doesn't exist in VRF: %s \n", vni,
-			zvrf->vrf->name);
-		return CMD_WARNING;
-	}
-
 	nb_cli_enqueue_change(vty, "./frr-zebra:zebra/l3vni-id", NB_OP_DESTROY,
-			      argv[2]->arg);
+			      NULL);
 
 	if (filter)
 		nb_cli_enqueue_change(vty, "./frr-zebra:zebra/prefix-only",
-				      NB_OP_DESTROY, "true");
+				      NB_OP_DESTROY, NULL);
 
-	nb_cli_enqueue_change(vty, "./frr-zebra:zebra", NB_OP_DESTROY, NULL);
+	if (vty->node == CONFIG_NODE)
+		return nb_cli_apply_changes(vty, "/frr-vrf:lib/vrf[name='%s']",
+					    VRF_DEFAULT_NAME);
 
 	return nb_cli_apply_changes(vty, NULL);
 }
@@ -4696,10 +4602,10 @@ void zebra_vty_init(void)
 	install_element(CONFIG_NODE, &evpn_mh_neigh_holdtime_cmd);
 	install_element(CONFIG_NODE, &evpn_mh_startup_delay_cmd);
 	install_element(CONFIG_NODE, &evpn_mh_redirect_off_cmd);
-	install_element(CONFIG_NODE, &default_vrf_vni_mapping_cmd);
-	install_element(CONFIG_NODE, &no_default_vrf_vni_mapping_cmd);
-	install_element(VRF_NODE, &vrf_vni_mapping_cmd);
-	install_element(VRF_NODE, &no_vrf_vni_mapping_cmd);
+	install_element(CONFIG_NODE, &vni_mapping_cmd);
+	install_element(CONFIG_NODE, &no_vni_mapping_cmd);
+	install_element(VRF_NODE, &vni_mapping_cmd);
+	install_element(VRF_NODE, &no_vni_mapping_cmd);
 
 	install_element(VIEW_NODE, &show_dataplane_cmd);
 	install_element(VIEW_NODE, &show_dataplane_providers_cmd);
