@@ -2920,6 +2920,15 @@ module frr-zebra {
       description
         "Enable PTM globally.";
     }
+    leaf route-map-delay {
+      type uint32 {
+        range "0..600";
+      }
+      units "seconds";
+      default "5";
+      description
+        "Time to wait before route-map updates are processed.";
+    }
     /*
      * Debug options
      */

@@ -291,6 +291,21 @@ int zebra_ptm_enable_modify(struct nb_cb_modify_args *args)
 #endif
 
 /*
+ * XPath: /frr-zebra:zebra/route-map-delay
+ */
+int zebra_route_map_delay_modify(struct nb_cb_modify_args *args)
+{
+	uint32_t delay = yang_dnode_get_uint32(args->dnode, NULL);
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	zebra_route_map_set_delay_timer(delay);
+
+	return NB_OK;
+}
+
+/*
  * XPath: /frr-zebra:zebra/debugs/debug-events
  */
 int zebra_debugs_debug_events_modify(struct nb_cb_modify_args *args)

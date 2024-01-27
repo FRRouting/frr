@@ -49,6 +49,7 @@ int zebra_ptm_enable_modify(struct nb_cb_modify_args *args);
 void zebra_ptm_enable_cli_write(struct vty *vty, const struct lyd_node *dnode,
 				bool show_defaults);
 #endif
+int zebra_route_map_delay_modify(struct nb_cb_modify_args *args);
 int zebra_debugs_debug_events_modify(struct nb_cb_modify_args *args);
 int zebra_debugs_debug_events_destroy(struct nb_cb_destroy_args *args);
 int zebra_debugs_debug_zapi_send_modify(struct nb_cb_modify_args *args);

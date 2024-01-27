@@ -36,8 +36,6 @@ struct zebra_rmap_obj {
 	struct route_entry *re;
 };
 
-static void zebra_route_map_set_delay_timer(uint32_t value);
-
 /* 'match tag TAG'
  * Match function return 1 if match is success else return 0
  */
@@ -634,24 +632,20 @@ DEFPY_YANG(
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFUN_YANG (zebra_route_map_timer,
+DEFPY_YANG (zebra_route_map_timer,
        zebra_route_map_timer_cmd,
-       "zebra route-map delay-timer (0-600)",
+       "zebra route-map delay-timer (0-600)$delay",
        ZEBRA_STR
        "Set route-map parameters\n"
        "Time to wait before route-map updates are processed\n"
        "0 means route-map changes are run immediately instead of delaying\n")
 {
-	int idx_number = 3;
-	uint32_t rmap_delay_timer;
-
-	rmap_delay_timer = strtoul(argv[idx_number]->arg, NULL, 10);
-	zebra_route_map_set_delay_timer(rmap_delay_timer);
-
-	return (CMD_SUCCESS);
+	nb_cli_enqueue_change(vty, "/frr-zebra:zebra/route-map-delay",
+			      NB_OP_MODIFY, delay_str);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFUN_YANG (no_zebra_route_map_timer,
+DEFPY_YANG (no_zebra_route_map_timer,
        no_zebra_route_map_timer_cmd,
        "no zebra route-map delay-timer [(0-600)]",
        NO_STR
@@ -660,9 +654,9 @@ DEFUN_YANG (no_zebra_route_map_timer,
        "Reset delay-timer to default value, 30 secs\n"
        "0 means route-map changes are run immediately instead of delaying\n")
 {
-	zebra_route_map_set_delay_timer(ZEBRA_RMAP_DEFAULT_UPDATE_TIMER);
-
-	return (CMD_SUCCESS);
+	nb_cli_enqueue_change(vty, "/frr-zebra:zebra/route-map-delay",
+			      NB_OP_DESTROY, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFPY_YANG (ip_protocol,
@@ -1677,7 +1671,7 @@ static void zebra_route_map_update_timer(struct event *thread)
 	 */
 }
 
-static void zebra_route_map_set_delay_timer(uint32_t value)
+void zebra_route_map_set_delay_timer(uint32_t value)
 {
 	zebra_rmap_update_timer = value;
 	if (!value && zebra_t_rmap_update) {

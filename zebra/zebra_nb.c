@@ -104,6 +104,12 @@ const struct frr_yang_module_info frr_zebra_info = {
 		},
 #endif
 		{
+			.xpath = "/frr-zebra:zebra/route-map-delay",
+			.cbs = {
+				.modify = zebra_route_map_delay_modify,
+			}
+		},
+		{
 			.xpath = "/frr-zebra:zebra/debugs/debug-events",
 			.cbs = {
 				.modify = zebra_debugs_debug_events_modify,
