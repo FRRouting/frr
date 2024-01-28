@@ -267,14 +267,8 @@ void table_manager_disable(struct zebra_vrf *zvrf)
 void table_manager_range(bool add, struct zebra_vrf *zvrf, uint32_t start,
 			 uint32_t end)
 {
-	if (add) {
-		if (zvrf->tbl_mgr &&
-		    ((zvrf->tbl_mgr->start && zvrf->tbl_mgr->start != start) ||
-		     (zvrf->tbl_mgr->end && zvrf->tbl_mgr->end != end)))
-			zlog_info(
-				"%% New range will be taken into account at restart");
-
+	if (add)
 		table_range_add(zvrf, start, end);
-	} else
+	else
 		table_range_add(zvrf, 0, 0);
 }

@@ -630,6 +630,7 @@ struct frr_yang_module_info {
 
 	/*
 	 * The NULL-terminated list of supported features.
+	 * Features are defined with "feature" statements in the YANG model.
 	 * Use ["*", NULL] to enable all features.
 	 * Use NULL to disable all features.
 	 */

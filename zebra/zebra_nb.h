@@ -107,6 +107,8 @@ int lib_interface_zebra_mpls_modify(struct nb_cb_modify_args *args);
 int lib_interface_zebra_mpls_destroy(struct nb_cb_destroy_args *args);
 int lib_interface_zebra_link_params_create(struct nb_cb_create_args *args);
 int lib_interface_zebra_link_params_destroy(struct nb_cb_destroy_args *args);
+void lib_interface_zebra_link_params_apply_finish(
+	struct nb_cb_apply_finish_args *args);
 int lib_interface_zebra_link_params_metric_modify(struct nb_cb_modify_args *args);
 int lib_interface_zebra_link_params_metric_destroy(
 	struct nb_cb_destroy_args *args);
@@ -283,10 +285,13 @@ int lib_vrf_zebra_ipv6_router_id_modify(struct nb_cb_modify_args *args);
 int lib_vrf_zebra_ipv6_router_id_destroy(struct nb_cb_destroy_args *args);
 int lib_vrf_zebra_filter_protocol_create(struct nb_cb_create_args *args);
 int lib_vrf_zebra_filter_protocol_destroy(struct nb_cb_destroy_args *args);
+void lib_vrf_zebra_filter_protocol_apply_finish(
+	struct nb_cb_apply_finish_args *args);
 int lib_vrf_zebra_filter_protocol_route_map_modify(
 	struct nb_cb_modify_args *args);
 int lib_vrf_zebra_filter_nht_create(struct nb_cb_create_args *args);
 int lib_vrf_zebra_filter_nht_destroy(struct nb_cb_destroy_args *args);
+void lib_vrf_zebra_filter_nht_apply_finish(struct nb_cb_apply_finish_args *args);
 int lib_vrf_zebra_filter_nht_route_map_modify(struct nb_cb_modify_args *args);
 int lib_vrf_zebra_resolve_via_default_modify(struct nb_cb_modify_args *args);
 int lib_vrf_zebra_resolve_via_default_destroy(struct nb_cb_destroy_args *args);

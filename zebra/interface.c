@@ -3792,27 +3792,16 @@ void link_param_cmd_set_uint32(struct interface *ifp, uint32_t *field,
 	if (IS_PARAM_UNSET(ifp->link_params, type) || *field != value) {
 		*field = value;
 		SET_PARAM(ifp->link_params, type);
-
-		/* force protocols to update LINK STATE due to parameters change
-		 */
-		if (if_is_operative(ifp))
-			zebra_interface_parameters_update(ifp);
 	}
 }
 
 void link_param_cmd_set_float(struct interface *ifp, float *field,
 			      uint32_t type, float value)
 {
-
 	/* Update field as needed */
 	if (IS_PARAM_UNSET(ifp->link_params, type) || *field != value) {
 		*field = value;
 		SET_PARAM(ifp->link_params, type);
-
-		/* force protocols to update LINK STATE due to parameters change
-		 */
-		if (if_is_operative(ifp))
-			zebra_interface_parameters_update(ifp);
 	}
 }
 
@@ -3823,10 +3812,6 @@ void link_param_cmd_unset(struct interface *ifp, uint32_t type)
 
 	/* Unset field */
 	UNSET_PARAM(ifp->link_params, type);
-
-	/* force protocols to update LINK STATE due to parameters change */
-	if (if_is_operative(ifp))
-		zebra_interface_parameters_update(ifp);
 }
 
 void if_ip_address_install(struct interface *ifp, struct prefix *prefix,

@@ -2212,7 +2212,10 @@ DEFPY_YANG (vrf_netns,
        "Attach VRF to a Namespace\n"
        "The file name in " NS_RUN_DIR ", or a full pathname\n")
 {
-	return CMD_SUCCESS;
+	vty_out(vty, "%% This command doesn't do anything.\n");
+	vty_out(vty,
+		"%% VRF is linked to a netns automatically based on its name.\n");
+	return CMD_WARNING;
 }
 
 DEFPY_YANG (ip_table_range, ip_table_range_cmd,
@@ -2224,6 +2227,41 @@ DEFPY_YANG (ip_table_range, ip_table_range_cmd,
       "End Routing Table\n")
 {
 	if (!no) {
+		const struct lyd_node *start_node;
+		const struct lyd_node *end_node;
+
+		if (vty->node == CONFIG_NODE) {
+			start_node =
+				yang_dnode_getf(vty->candidate_config->dnode,
+						"/frr-vrf:lib/vrf[name='%s']/frr-zebra:zebra/netns/table-range/start",
+						VRF_DEFAULT_NAME);
+			end_node =
+				yang_dnode_getf(vty->candidate_config->dnode,
+						"/frr-vrf:lib/vrf[name='%s']/frr-zebra:zebra/netns/table-range/end",
+						VRF_DEFAULT_NAME);
+		} else {
+			start_node =
+				yang_dnode_getf(vty->candidate_config->dnode,
+						"%s/frr-zebra:zebra/netns/table-range/start",
+						VTY_CURR_XPATH);
+			end_node =
+				yang_dnode_getf(vty->candidate_config->dnode,
+						"%s/frr-zebra:zebra/netns/table-range/end",
+						VTY_CURR_XPATH);
+		}
+
+		if (start_node && end_node) {
+			if (yang_dnode_get_uint32(start_node, NULL) !=
+				    (uint32_t)start ||
+			    yang_dnode_get_uint32(end_node, NULL) !=
+				    (uint32_t)end) {
+				vty_out(vty,
+					"%% New range will be taken into account at restart.\n");
+				vty_out(vty,
+					"%% Don't forget to save your configuration.\n");
+			}
+		}
+
 		nb_cli_enqueue_change(vty, "./frr-zebra:zebra/netns/table-range",
 				      NB_OP_CREATE, NULL);
 		nb_cli_enqueue_change(vty,
@@ -2546,7 +2584,6 @@ DEFPY_YANG(
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-#if HAVE_BFDD == 0 || defined(HAVE_RTADV)
 const char *features[] = {
 #if HAVE_BFDD == 0
 	"ptm-bfd",
@@ -2556,15 +2593,12 @@ const char *features[] = {
 #endif
 	NULL
 };
-#endif
 
 /* clang-format off */
 const struct frr_yang_module_info frr_zebra_cli_info = {
 	.name = "frr-zebra",
 	.ignore_cfg_cbs = true,
-#if HAVE_BFDD == 0 || defined(HAVE_RTADV)
 	.features = features,
-#endif
 	.nodes = {
 #if HAVE_BFDD == 0
 		{

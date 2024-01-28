@@ -10,7 +10,6 @@
 #include "libfrr.h"
 #include "zebra_nb.h"
 
-#if HAVE_BFDD == 0 || defined(HAVE_RTADV)
 const char *features[] = {
 #if HAVE_BFDD == 0
 	"ptm-bfd",
@@ -20,14 +19,11 @@ const char *features[] = {
 #endif
 	NULL
 };
-#endif
 
 /* clang-format off */
 const struct frr_yang_module_info frr_zebra_info = {
 	.name = "frr-zebra",
-#if HAVE_BFDD == 0 || defined(HAVE_RTADV)
 	.features = features,
-#endif
 	.nodes = {
 		{
 			.xpath = "/frr-zebra:zebra/mcast-rpf-lookup",
@@ -392,6 +388,7 @@ const struct frr_yang_module_info frr_zebra_info = {
 			.cbs = {
 				.create = lib_interface_zebra_link_params_create,
 				.destroy = lib_interface_zebra_link_params_destroy,
+				.apply_finish = lib_interface_zebra_link_params_apply_finish,
 			}
 		},
 		{
@@ -808,6 +805,7 @@ const struct frr_yang_module_info frr_zebra_info = {
 			.cbs = {
 				.create = lib_vrf_zebra_filter_protocol_create,
 				.destroy = lib_vrf_zebra_filter_protocol_destroy,
+				.apply_finish = lib_vrf_zebra_filter_protocol_apply_finish,
 			}
 		},
 		{
@@ -821,6 +819,7 @@ const struct frr_yang_module_info frr_zebra_info = {
 			.cbs = {
 				.create = lib_vrf_zebra_filter_nht_create,
 				.destroy = lib_vrf_zebra_filter_nht_destroy,
+				.apply_finish = lib_vrf_zebra_filter_nht_apply_finish,
 			}
 		},
 		{

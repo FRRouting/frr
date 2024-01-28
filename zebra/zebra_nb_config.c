@@ -1326,8 +1326,11 @@ int lib_interface_zebra_link_params_create(struct nb_cb_create_args *args)
 
 	ifp = nb_running_get_entry(args->dnode, NULL, true);
 	if_link_params_enable(ifp);
-	if (if_is_operative(ifp))
-		zebra_interface_parameters_update(ifp);
+
+	/*
+	 * The interface is updated in the apply_finish callback after all
+	 * parameters are set in the corresponding callbacks.
+	 */
 
 	return NB_OK;
 }
@@ -1345,6 +1348,16 @@ int lib_interface_zebra_link_params_destroy(struct nb_cb_destroy_args *args)
 		zebra_interface_parameters_update(ifp);
 
 	return NB_OK;
+}
+
+void lib_interface_zebra_link_params_apply_finish(
+	struct nb_cb_apply_finish_args *args)
+{
+	struct interface *ifp;
+
+	ifp = nb_running_get_entry(args->dnode, NULL, true);
+	if (if_is_operative(ifp))
+		zebra_interface_parameters_update(ifp);
 }
 
 /*
@@ -1736,9 +1749,6 @@ int lib_interface_zebra_legacy_admin_group_modify(
 
 		admin_group_clear(&iflp->ext_admin_grp);
 		UNSET_PARAM(iflp, LP_EXTEND_ADM_GRP);
-
-		if (if_is_operative(ifp))
-			zebra_interface_parameters_update(ifp);
 		break;
 	}
 	return NB_OK;
@@ -1761,9 +1771,6 @@ int lib_interface_zebra_legacy_admin_group_destroy(
 
 		iflp->admin_grp = 0;
 		UNSET_PARAM(iflp, LP_ADM_GRP);
-
-		if (if_is_operative(ifp))
-			zebra_interface_parameters_update(ifp);
 		break;
 	}
 	return NB_OK;
@@ -1806,9 +1813,6 @@ int lib_interface_zebra_affinity_create(struct nb_cb_create_args *args)
 					affmap->bit_position);
 			SET_PARAM(iflp, LP_EXTEND_ADM_GRP);
 		}
-
-		if (if_is_operative(ifp))
-			zebra_interface_parameters_update(ifp);
 		break;
 	}
 	return NB_OK;
@@ -1849,9 +1853,6 @@ int lib_interface_zebra_affinity_destroy(struct nb_cb_destroy_args *args)
 			if (admin_group_zero(&iflp->ext_admin_grp))
 				UNSET_PARAM(iflp, LP_EXTEND_ADM_GRP);
 		}
-
-		if (if_is_operative(ifp))
-			zebra_interface_parameters_update(ifp);
 		break;
 	}
 	return NB_OK;
@@ -1911,9 +1912,6 @@ int lib_interface_zebra_affinity_mode_modify(struct nb_cb_modify_args *args)
 				SET_PARAM(iflp, LP_ADM_GRP);
 			}
 		}
-
-		if (if_is_operative(ifp))
-			zebra_interface_parameters_update(ifp);
 		break;
 	}
 	return NB_OK;
@@ -1942,9 +1940,6 @@ int lib_interface_zebra_link_params_neighbor_create(struct nb_cb_create_args *ar
 	iflp->rmt_ip = ip;
 	SET_PARAM(iflp, LP_RMT_AS);
 
-	if (if_is_operative(ifp))
-		zebra_interface_parameters_update(ifp);
-
 	return NB_OK;
 }
 
@@ -1963,9 +1958,6 @@ int lib_interface_zebra_link_params_neighbor_destroy(
 	iflp->rmt_as = 0;
 	iflp->rmt_ip.s_addr = 0;
 	UNSET_PARAM(iflp, LP_RMT_AS);
-
-	if (if_is_operative(ifp))
-		zebra_interface_parameters_update(ifp);
 
 	return NB_OK;
 }
@@ -1990,9 +1982,6 @@ int lib_interface_zebra_link_params_neighbor_remote_as_modify(
 
 	iflp->rmt_as = as;
 
-	if (if_is_operative(ifp))
-		zebra_interface_parameters_update(ifp);
-
 	return NB_OK;
 }
 
@@ -2015,9 +2004,6 @@ int lib_interface_zebra_link_params_neighbor_ipv4_remote_id_modify(
 	iflp = if_link_params_get(ifp);
 
 	iflp->rmt_ip = ip;
-
-	if (if_is_operative(ifp))
-		zebra_interface_parameters_update(ifp);
 
 	return NB_OK;
 }
@@ -2084,9 +2070,6 @@ int lib_interface_zebra_link_params_min_max_delay_create(
 	iflp->max_delay = delay_max;
 	SET_PARAM(iflp, LP_MM_DELAY);
 
-	if (if_is_operative(ifp))
-		zebra_interface_parameters_update(ifp);
-
 	return NB_OK;
 }
 
@@ -2105,9 +2088,6 @@ int lib_interface_zebra_link_params_min_max_delay_destroy(
 	iflp->min_delay = 0;
 	iflp->max_delay = 0;
 	UNSET_PARAM(iflp, LP_MM_DELAY);
-
-	if (if_is_operative(ifp))
-		zebra_interface_parameters_update(ifp);
 
 	return NB_OK;
 }
@@ -2132,9 +2112,6 @@ int lib_interface_zebra_link_params_min_max_delay_delay_min_modify(
 
 	iflp->min_delay = delay_min;
 
-	if (if_is_operative(ifp))
-		zebra_interface_parameters_update(ifp);
-
 	return NB_OK;
 }
 
@@ -2157,9 +2134,6 @@ int lib_interface_zebra_link_params_min_max_delay_delay_max_modify(
 	iflp = if_link_params_get(ifp);
 
 	iflp->max_delay = delay_max;
-
-	if (if_is_operative(ifp))
-		zebra_interface_parameters_update(ifp);
 
 	return NB_OK;
 }
@@ -2566,7 +2540,7 @@ int lib_interface_zebra_ipv6_router_advertisements_managed_flag_modify(
 
 	managed_flag = yang_dnode_get_bool(args->dnode, NULL);
 
-	zif->rtadv.AdvManagedFlag = !!managed_flag;
+	zif->rtadv.AdvManagedFlag = managed_flag;
 
 	return NB_OK;
 }
@@ -2589,7 +2563,7 @@ int lib_interface_zebra_ipv6_router_advertisements_other_config_flag_modify(
 
 	other_config_flag = yang_dnode_get_bool(args->dnode, NULL);
 
-	zif->rtadv.AdvOtherConfigFlag = !!other_config_flag;
+	zif->rtadv.AdvOtherConfigFlag = other_config_flag;
 
 	return NB_OK;
 }
@@ -2612,7 +2586,7 @@ int lib_interface_zebra_ipv6_router_advertisements_home_agent_flag_modify(
 
 	home_agent_flag = yang_dnode_get_bool(args->dnode, NULL);
 
-	zif->rtadv.AdvHomeAgentFlag = !!home_agent_flag;
+	zif->rtadv.AdvHomeAgentFlag = home_agent_flag;
 
 	return NB_OK;
 }
@@ -2804,7 +2778,7 @@ int lib_interface_zebra_ipv6_router_advertisements_advertisement_interval_option
 
 	option = yang_dnode_get_bool(args->dnode, NULL);
 
-	zif->rtadv.AdvIntervalOption = !!option;
+	zif->rtadv.AdvIntervalOption = option;
 
 	return NB_OK;
 }
@@ -2927,11 +2901,11 @@ int lib_interface_zebra_ipv6_router_advertisements_prefix_list_prefix_create(
 	ifp = nb_running_get_entry(args->dnode, NULL, true);
 
 	yang_dnode_get_ipv6p(&rp.prefix, args->dnode, "prefix-spec");
-	rp.AdvOnLinkFlag = !!yang_dnode_get_bool(args->dnode, "on-link-flag");
-	rp.AdvAutonomousFlag = !!yang_dnode_get_bool(args->dnode,
-						     "autonomous-flag");
-	rp.AdvRouterAddressFlag = !!yang_dnode_get_bool(args->dnode,
-							"router-address-flag");
+	rp.AdvOnLinkFlag = yang_dnode_get_bool(args->dnode, "on-link-flag");
+	rp.AdvAutonomousFlag = yang_dnode_get_bool(args->dnode,
+						   "autonomous-flag");
+	rp.AdvRouterAddressFlag = yang_dnode_get_bool(args->dnode,
+						      "router-address-flag");
 	rp.AdvValidLifetime = yang_dnode_get_uint32(args->dnode,
 						    "valid-lifetime");
 	rp.AdvPreferredLifetime = yang_dnode_get_uint32(args->dnode,
@@ -2991,7 +2965,7 @@ int lib_interface_zebra_ipv6_router_advertisements_prefix_list_prefix_on_link_fl
 
 	prefix = nb_running_get_entry(args->dnode, NULL, true);
 
-	prefix->AdvOnLinkFlag = !!yang_dnode_get_bool(args->dnode, NULL);
+	prefix->AdvOnLinkFlag = yang_dnode_get_bool(args->dnode, NULL);
 
 	return NB_OK;
 }
@@ -3027,7 +3001,7 @@ int lib_interface_zebra_ipv6_router_advertisements_prefix_list_prefix_autonomous
 
 	prefix = nb_running_get_entry(args->dnode, NULL, true);
 
-	prefix->AdvAutonomousFlag = !!yang_dnode_get_bool(args->dnode, NULL);
+	prefix->AdvAutonomousFlag = yang_dnode_get_bool(args->dnode, NULL);
 
 	return NB_OK;
 }
@@ -3045,7 +3019,7 @@ int lib_interface_zebra_ipv6_router_advertisements_prefix_list_prefix_router_add
 
 	prefix = nb_running_get_entry(args->dnode, NULL, true);
 
-	prefix->AdvRouterAddressFlag = !!yang_dnode_get_bool(args->dnode, NULL);
+	prefix->AdvRouterAddressFlag = yang_dnode_get_bool(args->dnode, NULL);
 
 	return NB_OK;
 }
@@ -3326,15 +3300,8 @@ int lib_vrf_zebra_ipv6_router_id_destroy(struct nb_cb_destroy_args *args)
  */
 int lib_vrf_zebra_filter_protocol_create(struct nb_cb_create_args *args)
 {
-	struct vrf *vrf;
-	const char *afi_safi = yang_dnode_get_string(args->dnode, "afi-safi");
 	const char *proto = yang_dnode_get_string(args->dnode, "protocol");
-	const char *rmap = yang_dnode_get_string(args->dnode, "route-map");
-	afi_t afi;
-	safi_t safi;
 	int rtype;
-
-	yang_afi_safi_identity2value(afi_safi, &afi, &safi);
 
 	if (strcasecmp(proto, "any") == 0)
 		rtype = ZEBRA_ROUTE_MAX;
@@ -3348,12 +3315,7 @@ int lib_vrf_zebra_filter_protocol_create(struct nb_cb_create_args *args)
 			return NB_ERR_VALIDATION;
 		}
 
-	if (args->event != NB_EV_APPLY)
-		return NB_OK;
-
-	vrf = nb_running_get_entry(args->dnode, NULL, true);
-
-	ip_protocol_rm_add(vrf->info, rmap, rtype, afi, safi);
+	/* the creation finishes in the apply_finish callback */
 
 	return NB_OK;
 }
@@ -3388,15 +3350,13 @@ int lib_vrf_zebra_filter_protocol_destroy(struct nb_cb_destroy_args *args)
 	return NB_OK;
 }
 
-/*
- * XPath: /frr-vrf:lib/vrf/frr-zebra:zebra/filter-protocol/route-map
- */
-int lib_vrf_zebra_filter_protocol_route_map_modify(struct nb_cb_modify_args *args)
+void lib_vrf_zebra_filter_protocol_apply_finish(
+	struct nb_cb_apply_finish_args *args)
 {
 	struct vrf *vrf;
-	const char *afi_safi = yang_dnode_get_string(args->dnode, "../afi-safi");
-	const char *proto = yang_dnode_get_string(args->dnode, "../protocol");
-	const char *rmap = yang_dnode_get_string(args->dnode, NULL);
+	const char *afi_safi = yang_dnode_get_string(args->dnode, "afi-safi");
+	const char *proto = yang_dnode_get_string(args->dnode, "protocol");
+	const char *rmap = yang_dnode_get_string(args->dnode, "route-map");
 	afi_t afi;
 	safi_t safi;
 	int rtype;
@@ -3408,16 +3368,20 @@ int lib_vrf_zebra_filter_protocol_route_map_modify(struct nb_cb_modify_args *arg
 	else
 		rtype = proto_name2num(proto);
 
-	/* editing an existing entry, it can't be invalid */
+	/* finishing apply for a validated entry, it can't be invalid */
 	assert(rtype >= 0);
-
-	if (args->event != NB_EV_APPLY)
-		return NB_OK;
 
 	vrf = nb_running_get_entry(args->dnode, NULL, true);
 
 	ip_protocol_rm_add(vrf->info, rmap, rtype, afi, safi);
+}
 
+/*
+ * XPath: /frr-vrf:lib/vrf/frr-zebra:zebra/filter-protocol/route-map
+ */
+int lib_vrf_zebra_filter_protocol_route_map_modify(struct nb_cb_modify_args *args)
+{
+	/* the update is done in the apply_finish callback */
 	return NB_OK;
 }
 
@@ -3426,10 +3390,8 @@ int lib_vrf_zebra_filter_protocol_route_map_modify(struct nb_cb_modify_args *arg
  */
 int lib_vrf_zebra_filter_nht_create(struct nb_cb_create_args *args)
 {
-	struct vrf *vrf;
 	const char *afi_safi = yang_dnode_get_string(args->dnode, "afi-safi");
 	const char *proto = yang_dnode_get_string(args->dnode, "protocol");
-	const char *rmap = yang_dnode_get_string(args->dnode, "route-map");
 	afi_t afi;
 	safi_t safi;
 	int rtype;
@@ -3454,12 +3416,7 @@ int lib_vrf_zebra_filter_nht_create(struct nb_cb_create_args *args)
 		}
 	}
 
-	if (args->event != NB_EV_APPLY)
-		return NB_OK;
-
-	vrf = nb_running_get_entry(args->dnode, NULL, true);
-
-	ip_nht_rm_add(vrf->info, rmap, rtype, afi);
+	/* the creation finishes in the apply_finish callback */
 
 	return NB_OK;
 }
@@ -3495,15 +3452,12 @@ int lib_vrf_zebra_filter_nht_destroy(struct nb_cb_destroy_args *args)
 	return NB_OK;
 }
 
-/*
- * XPath: /frr-vrf:lib/vrf/frr-zebra:zebra/filter-nht/route-map
- */
-int lib_vrf_zebra_filter_nht_route_map_modify(struct nb_cb_modify_args *args)
+void lib_vrf_zebra_filter_nht_apply_finish(struct nb_cb_apply_finish_args *args)
 {
 	struct vrf *vrf;
-	const char *afi_safi = yang_dnode_get_string(args->dnode, "../afi-safi");
-	const char *proto = yang_dnode_get_string(args->dnode, "../protocol");
-	const char *rmap = yang_dnode_get_string(args->dnode, NULL);
+	const char *afi_safi = yang_dnode_get_string(args->dnode, "afi-safi");
+	const char *proto = yang_dnode_get_string(args->dnode, "protocol");
+	const char *rmap = yang_dnode_get_string(args->dnode, "route-map");
 	afi_t afi;
 	safi_t safi;
 	int rtype;
@@ -3515,17 +3469,21 @@ int lib_vrf_zebra_filter_nht_route_map_modify(struct nb_cb_modify_args *args)
 	else
 		rtype = proto_name2num(proto);
 
-	/* editing an existing entry, it can't be invalid */
+	/* finishing apply for an existing entry, it can't be invalid */
 	assert(rtype >= 0);
 	assert(safi == SAFI_UNICAST);
-
-	if (args->event != NB_EV_APPLY)
-		return NB_OK;
 
 	vrf = nb_running_get_entry(args->dnode, NULL, true);
 
 	ip_nht_rm_add(vrf->info, rmap, rtype, afi);
+}
 
+/*
+ * XPath: /frr-vrf:lib/vrf/frr-zebra:zebra/filter-nht/route-map
+ */
+int lib_vrf_zebra_filter_nht_route_map_modify(struct nb_cb_modify_args *args)
+{
+	/* the update is done in the apply_finish callback */
 	return NB_OK;
 }
 
