@@ -299,6 +299,8 @@ static void vtysh_unflock_config(void)
 
 void suid_on(void)
 {
+	int prev_errno = errno;
+
 	if (elevuid != realuid && seteuid(elevuid)) {
 		perror("seteuid(on)");
 		exit(1);
@@ -307,10 +309,14 @@ void suid_on(void)
 		perror("setegid(on)");
 		exit(1);
 	}
+
+	errno = prev_errno;
 }
 
 void suid_off(void)
 {
+	int prev_errno = errno;
+
 	if (elevuid != realuid && seteuid(realuid)) {
 		perror("seteuid(off)");
 		exit(1);
@@ -319,6 +325,8 @@ void suid_off(void)
 		perror("setegid(off)");
 		exit(1);
 	}
+
+	errno = prev_errno;
 }
 
 /* VTY shell main routine. */
@@ -495,13 +503,19 @@ int main(int argc, char **argv, char **env)
 
 	vty_init_vtysh();
 
-	if (!user_mode) {
-		/* Read vtysh configuration file before connecting to daemons.
-		 * (file may not be readable to calling user in SUID mode) */
-		suid_on();
-		vtysh_apply_config(vtysh_config, dryrun, false);
-		suid_off();
-	}
+	/* Read vtysh configuration file before connecting to daemons.
+	 * (file may not be readable to calling user in SUID mode)
+	 *
+	 * This MUST happen before allowing the user to do anything, because
+	 * it may contain additional restrictions.  Currently there is only
+	 * the "anti-PAM" "username WORD nopassword" setting (which relaxes
+	 * rather than restricts things), but the principle still applies.
+	 */
+	suid_on();
+	FILE *vtysh_conf_fp = fopen(vtysh_config, "r");
+	suid_off();
+	vtysh_apply_config(vtysh_conf_fp, vtysh_config, dryrun, false);
+
 	/* Error code library system */
 	log_ref_init();
 	lib_error_init();
@@ -517,10 +531,15 @@ int main(int argc, char **argv, char **env)
 
 	/* Start execution only if not in dry-run mode */
 	if (dryrun && !cmd) {
-		if (inputfile) {
-			ret = vtysh_apply_config(inputfile, dryrun, false);
+		if (inputfile && !strcmp(inputfile, "-")) {
+			ret = vtysh_apply_config(stdin, "<stdin>", dryrun,
+						 false);
 		} else {
-			ret = vtysh_apply_config(frr_config, dryrun, false);
+			if (!inputfile)
+				inputfile = frr_config;
+
+			ret = vtysh_apply_config(fopen(inputfile, "r"),
+						 inputfile, dryrun, false);
 		}
 
 		exit(ret);
@@ -602,10 +621,16 @@ int main(int argc, char **argv, char **env)
 	if (boot_flag)
 		inputfile = frr_config;
 
-	if (inputfile || boot_flag) {
-		vtysh_flock_config(inputfile);
-		ret = vtysh_apply_config(inputfile, dryrun, !no_fork);
-		vtysh_unflock_config();
+	if (inputfile) {
+		if (strcmp(inputfile, "-")) {
+			vtysh_flock_config(inputfile);
+			ret = vtysh_apply_config(fopen(inputfile, "r"),
+						 inputfile, dryrun, !no_fork);
+			vtysh_unflock_config();
+		} else {
+			ret = vtysh_apply_config(stdin, "<stdin>", dryrun,
+						 !no_fork);
+		}
 
 		if (no_error)
 			ret = 0;

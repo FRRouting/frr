@@ -640,19 +640,10 @@ static int vtysh_read_file(FILE *confp, bool dry_run)
 /*
  * Read configuration file and send it to all connected daemons
  */
-static int vtysh_read_config(const char *config_file_path, bool dry_run)
+static int vtysh_read_config(FILE *confp, bool dry_run)
 {
-	FILE *confp = NULL;
 	bool save;
 	int ret;
-
-	confp = fopen(config_file_path, "r");
-	if (confp == NULL) {
-		fprintf(stderr,
-			"%% Can't open configuration file %s due to '%s'.\n",
-			config_file_path, safe_strerror(errno));
-		return CMD_ERR_NO_FILE;
-	}
 
 	save = vtysh_add_timestamp;
 	vtysh_add_timestamp = false;
@@ -665,7 +656,118 @@ static int vtysh_read_config(const char *config_file_path, bool dry_run)
 	return ret;
 }
 
-int vtysh_apply_config(const char *config_file_path, bool dry_run, bool do_fork)
+static int vtysh_forked_feed(FILE *config, const char *error_filename,
+			     FILE *feeds[], pid_t script_pid)
+{
+	int status;
+	int keep_status = 0;
+	pid_t child;
+
+	while (!feof(config)) {
+		char buf[16 * 1024];
+		size_t nread = fread(buf, 1, sizeof(buf), config);
+
+		if (ferror(config)) {
+			fprintf(stderr, "error reading config file (%s): %m\n",
+				error_filename);
+			keep_status = 1;
+			break;
+		}
+
+		for (unsigned int i = 0; i < array_size(vtysh_client); i++) {
+			size_t nwr;
+
+			if (!feeds[i])
+				continue;
+
+			nwr = fwrite(buf, 1, nread, feeds[i]);
+			if (nwr != nread) {
+				fclose(feeds[i]);
+				feeds[i] = NULL;
+			}
+		}
+	}
+
+	for (unsigned int i = 0; i < array_size(vtysh_client); i++)
+		if (feeds[i]) {
+			fclose(feeds[i]);
+			feeds[i] = NULL;
+		}
+
+	fprintf(stdout,
+		"Waiting for children to finish applying config...\n");
+	while ((child = wait(&status)) > 0) {
+		if (!WEXITSTATUS(status))
+			continue;
+
+		if (child == script_pid) {
+			fprintf(stderr, "%% script %s exited with status %d\n",
+				vtysh_wrap_script, WEXITSTATUS(status));
+			keep_status = WEXITSTATUS(status);
+			continue;
+		}
+		if (!keep_status)
+			keep_status = WEXITSTATUS(status);
+	}
+
+	/*
+	 * This will return the first status received
+	 * that failed( if that happens ).  This is
+	 * good enough for the moment
+	 */
+	return keep_status;
+}
+
+int vtysh_wrap_handle(FILE **config, pid_t *script_pid, bool save)
+{
+	int pipefds[2];
+	int fd_and_idx, other_fd_and_idx;
+
+	if (!vtysh_wrap_script)
+		return 0;
+
+	fd_and_idx = save ? 0 : 1;
+	other_fd_and_idx = save ? 1 : 0;
+
+	if (pipe(pipefds)) {
+		perror("pipe");
+		return CMD_ERR_NO_FILE;
+	}
+
+	*script_pid = fork();
+
+	if (*script_pid == -1) {
+		perror("fork");
+		return CMD_ERR_NO_FILE;
+	}
+
+	if (*script_pid == 0) {
+		/* save: pipe[1] to 1 (stdout), load: pipe[0] to 0 (stdin) */
+		dup2(pipefds[fd_and_idx], fd_and_idx);
+		close(pipefds[0]);
+		close(pipefds[1]);
+
+		if (fileno(*config) != other_fd_and_idx) {
+			dup2(fileno(*config), other_fd_and_idx);
+			fclose(*config);
+		}
+
+		execl(vtysh_wrap_script, vtysh_wrap_script,
+		      save ? "save" : "load", NULL);
+		fprintf(stderr, "%% Can't execute script %s: %m\n",
+			vtysh_wrap_script);
+		exit(1);
+	}
+
+	close(pipefds[fd_and_idx]);
+	fclose(*config);
+
+	*config = fdopen(pipefds[other_fd_and_idx], save ? "w" : "r");
+	return 0;
+}
+
+int vtysh_apply_config(FILE *config, const char *error_filename, bool dry_run,
+		       bool do_fork)
 {
 	/*
 	 * We need to apply the whole config file to all daemons. Instead of
@@ -673,13 +775,39 @@ int vtysh_apply_config(const char *config_file_path, bool dry_run, bool do_fork)
 	 * child handle one daemon.
 	 */
 	pid_t fork_pid = getpid();
-	int status = 0;
+	pid_t script_pid = -1;
 	int ret;
-	int my_client_type;
+	int my_client_type = 0;
 	char my_client[64];
 
+	if (!config && errno == ENOENT && vtysh_wrap_script)
+		config = fopen("/dev/null", "r");
+
+	if (!config) {
+		fprintf(stderr,
+			"%% Can't open configuration file %s due to '%m'.\n",
+			error_filename);
+		return CMD_ERR_NO_FILE;
+	}
+
+	ret = vtysh_wrap_handle(&config, &script_pid, false);
+	if (ret)
+		return ret;
+
 	if (do_fork) {
+		FILE *feeds[array_size(vtysh_client)] = {};
+		int fds[2];
+
 		for (unsigned int i = 0; i < array_size(vtysh_client); i++) {
+			fds[0] = fds[1] = -1;
+
+			if (socketpair(AF_UNIX, SOCK_STREAM, 0, fds)) {
+				fprintf(stderr,
+					"error opening socket for forked child: %m\n");
+				continue;
+			}
+			feeds[i] = fdopen(fds[0], "w");
+
 			/* Store name of client this fork will handle */
 			strlcpy(my_client, vtysh_client[i].name,
 				sizeof(my_client));
@@ -689,26 +817,24 @@ int vtysh_apply_config(const char *config_file_path, bool dry_run, bool do_fork)
 			/* If child, break */
 			if (fork_pid == 0)
 				break;
+			close(fds[1]);
 		}
 
 		/* parent, wait for children */
-		if (fork_pid != 0) {
-			int keep_status = 0;
+		if (fork_pid != 0)
+			return vtysh_forked_feed(config, error_filename, feeds,
+						 script_pid);
+		/* don't try to check on wrapper in forked children */
+		script_pid = -1;
 
-			fprintf(stdout,
-				"Waiting for children to finish applying config...\n");
-			while (wait(&status) > 0) {
-				if (!keep_status && WEXITSTATUS(status))
-					keep_status = WEXITSTATUS(status);
+		/* parent duplicates & feeds config */
+		for (unsigned int i = 0; i < array_size(vtysh_client); i++)
+			if (feeds[i]) {
+				fclose(feeds[i]);
+				feeds[i] = NULL;
 			}
 
-			/*
-			 * This will return the first status received
-			 * that failed( if that happens ).  This is
-			 * good enough for the moment
-			 */
-			return keep_status;
-		}
+		config = fdopen(fds[1], "r");
 
 		/*
 		 * children, grow up to be cowboys
@@ -742,17 +868,29 @@ int vtysh_apply_config(const char *config_file_path, bool dry_run, bool do_fork)
 			my_client);
 	}
 
-	ret = vtysh_read_config(config_file_path, dry_run);
+	ret = vtysh_read_config(config, dry_run);
+
+	if (script_pid != -1) {
+		int script_status;
+
+		if (waitpid(script_pid, &script_status, 0) <= 0)
+			perror("waitpid(wrapper script)");
+		else if (WEXITSTATUS(script_status)) {
+			fprintf(stderr, "%% script %s exited with status %d\n",
+				vtysh_wrap_script, WEXITSTATUS(script_status));
+			ret = WEXITSTATUS(script_status);
+		}
+	}
 
 	if (ret) {
 		if (do_fork)
 			fprintf(stderr,
 				"[%d|%s] Configuration file[%s] processing failure: %d\n",
-				getpid(), my_client, frr_config, ret);
+				getpid(), my_client, error_filename, ret);
 		else
 			fprintf(stderr,
 				"Configuration file[%s] processing failure: %d\n",
-				frr_config, ret);
+				error_filename, ret);
 	} else if (do_fork) {
 		fprintf(stderr, "[%d|%s] done\n", getpid(), my_client);
 		exit(0);

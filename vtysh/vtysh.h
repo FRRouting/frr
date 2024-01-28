@@ -92,6 +92,8 @@ enum vtysh_write_integrated {
 
 extern enum vtysh_write_integrated vtysh_write_integrated;
 
+extern char *vtysh_wrap_script;
+
 extern char frr_config[];
 extern char vtydir[];
 extern bool vtysh_loop_exited;
@@ -117,7 +119,9 @@ void config_add_line(struct list *, const char *);
 
 int vtysh_mark_file(const char *filename);
 
-int vtysh_apply_config(const char *config_file_path, bool dry_run, bool fork);
+int vtysh_wrap_handle(FILE **config, pid_t *script_pid, bool save);
+int vtysh_apply_config(FILE *config, const char *error_filename, bool dry_run,
+		       bool fork);
 int vtysh_write_config_integrated(void);
 
 void vtysh_config_parse_line(void *, const char *);
