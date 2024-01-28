@@ -4520,12 +4520,12 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 		hook_call(bgp_process, bgp, afi, safi, dest, peer, true);
 
 		/* Same attribute comes in. */
-		if (!CHECK_FLAG(pi->flags, BGP_PATH_REMOVED)
-		    && same_attr
-		    && (!has_valid_label
-			|| memcmp(&(bgp_path_info_extra_get(pi))->label, label,
-				  num_labels * sizeof(mpls_label_t))
-				   == 0)) {
+		if (!CHECK_FLAG(pi->flags, BGP_PATH_REMOVED) && same_attr &&
+		    (!has_valid_label ||
+		     (bgp_path_info_extra_get(pi) &&
+		      bgp_labels_same((const mpls_label_t *)pi->extra->label,
+				      pi->extra->num_labels, label,
+				      num_labels)))) {
 			if (CHECK_FLAG(bgp->af_flags[afi][safi],
 				       BGP_CONFIG_DAMPENING)
 			    && peer->sort == BGP_PEER_EBGP
@@ -4710,7 +4710,9 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 		/* Update MPLS label */
 		if (has_valid_label) {
 			extra = bgp_path_info_extra_get(pi);
-			if (extra->label != label) {
+			if (!bgp_labels_same((const mpls_label_t *)extra->label,
+					     extra->num_labels, label,
+					     num_labels)) {
 				memcpy(&extra->label, label,
 				       num_labels * sizeof(mpls_label_t));
 				extra->num_labels = num_labels;
@@ -4909,7 +4911,8 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 	/* Update MPLS label */
 	if (has_valid_label) {
 		extra = bgp_path_info_extra_get(new);
-		if (extra->label != label) {
+		if (!bgp_labels_same((const mpls_label_t *)extra->label,
+				     extra->num_labels, label, num_labels)) {
 			memcpy(&extra->label, label,
 			       num_labels * sizeof(mpls_label_t));
 			extra->num_labels = num_labels;
