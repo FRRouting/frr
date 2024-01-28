@@ -1086,7 +1086,6 @@ static int fe_adapter_send_tree_data(struct mgmt_fe_session_ctx *session,
 
 {
 	struct mgmt_msg_tree_data *msg;
-	struct lyd_node *empty = NULL;
 	uint8_t **darrp = NULL;
 	int ret = 0;
 
@@ -1097,11 +1096,6 @@ static int fe_adapter_send_tree_data(struct mgmt_fe_session_ctx *session,
 	msg->code = MGMT_MSG_CODE_TREE_DATA;
 	msg->partial_error = partial_error;
 	msg->result_type = result_type;
-
-	if (!tree) {
-		empty = yang_dnode_new(ly_native_ctx, false);
-		tree = empty;
-	}
 
 	darrp = mgmt_msg_native_get_darrp(msg);
 	ret = yang_print_tree_append(darrp, tree, result_type,
@@ -1125,8 +1119,6 @@ static int fe_adapter_send_tree_data(struct mgmt_fe_session_ctx *session,
 					 mgmt_msg_native_get_msg_len(msg),
 					 short_circuit_ok);
 done:
-	if (empty)
-		yang_dnode_free(empty);
 	mgmt_msg_native_free_msg(msg);
 
 	return ret;
