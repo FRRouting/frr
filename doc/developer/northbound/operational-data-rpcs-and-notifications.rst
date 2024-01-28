@@ -1,3 +1,11 @@
+Operational Data, RPCs and Notifications
+========================================
+
+.. contents:: Table of contents
+    :local:
+    :backlinks: entry
+    :depth: 1
+
 Operational data
 ~~~~~~~~~~~~~~~~
 
@@ -330,10 +338,12 @@ CLI can take too long, potentially long enough to the point of
 triggering some protocol timeouts and bringing sessions down.
 
 To avoid this kind of problem, northbound clients are encouraged to do
-one of the following: \* Create a separate pthread for handling requests
-to fetch operational data. \* Iterate over YANG lists and leaf-lists
-asynchronously, returning a maximum number of elements per time instead
-of returning all elements in one shot.
+one of the following:
+
+* Create a separate pthread for handling requests to fetch operational data.
+
+* Iterate over YANG lists and leaf-lists asynchronously, returning a maximum
+  number of elements per time instead of returning all elements in one shot.
 
 In order to handle both cases correctly, the ``get_next`` callbacks need
 to use locks to prevent the YANG lists from being modified while they

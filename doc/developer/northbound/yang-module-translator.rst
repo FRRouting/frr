@@ -1,11 +1,10 @@
-Table of Contents
------------------
+YANG Module Translation
+=======================
 
--  `Introduction <#introduction>`__
--  `Deviation Modules <#deviation-modules>`__
--  `Translation Tables <#translation-tables>`__
--  `CLI Demonstration <#cli-demonstration>`__
--  `Implementation Details <#implementation-details>`__
+.. contents:: Table of contents
+    :local:
+    :backlinks: entry
+    :depth: 1
 
 Introduction
 ------------
@@ -421,15 +420,20 @@ this shortcoming and make it possible to create more powerful YANG
 module translators.
 
 YANG module translators can be evaluated based on the following metrics:
-\* Translation potential: is it possible to make complex translations,
-taking several variables into account? \* Complexity: measure of how
-easy or hard it is to write a module translator. \* Speed: measure of
-how fast the translation can be achieved. Translation speed is of
-fundamental importance, especially for operational data. \* Robustness:
-can the translator be checked for inconsistencies at load time? A module
-translator based on scripts wouldn’t fare well on this metric. \*
-Round-trip conversions: can the translated data be translated back to
-the original format without information loss?
+
+* Translation potential: is it possible to make complex translations, taking
+  several variables into account?
+
+* Complexity: measure of how easy or hard it is to write a module translator.
+
+* Speed: measure of how fast the translation can be achieved. Translation speed
+  is of fundamental importance, especially for operational data.
+
+* Robustness: can the translator be checked for inconsistencies at load time? A
+  module translator based on scripts wouldn’t fare well on this metric.
+
+* Round-trip conversions: can the translated data be translated back to the
+  original format without information loss?
 
 CLI Demonstration
 -----------------

@@ -1,3 +1,6 @@
+Architecture
+============
+
 Introduction
 ------------
 
@@ -42,30 +45,34 @@ and
 `CoAP <https://www.ietf.org/archive/id/draft-vanderstok-core-comi-11.txt>`__.
 
 In addition to being management-protocol independent, some other
-advantages of using YANG in FRR are listed below: \* Have a formal
-contract between FRR and application developers (management clients). A
-management client that has access to the FRR YANG models knows about all
-existing configuration options available for use. This information can
-be used to auto-generate user-friendly interfaces like Web-UIs, custom
-CLIs and even code bindings for several different programming languages.
-Using `PyangBind <https://github.com/robshakir/pyangbind>`__, for
-example, it’s possible to generate Python class hierarchies from YANG
-models and use these classes to instantiate objects that mirror the
-structure of the YANG modules and can be serialized/deserialized using
-different encoding formats. \* Support different encoding formats for
-instance data. Currently only JSON and XML are supported, but
-`GPB <https://developers.google.com/protocol-buffers/>`__ and
-`CBOR <http://cbor.io/>`__ are other viable options in the long term.
-Additional encoding formats can be implemented in the *libyang* library
-for optimal performance, or externally by translating data to/from one
-of the supported formats (with a performance penalty). \* Have a formal
-mechanism to introduce backward-incompatible changes based on `semantic
-versioning <http://www.openconfig.net/docs/semver/>`__ (not part of the
-YANG standard, which allows backward-compatible module updates only). \*
-Provide seamless support to the industry-standard NETCONF/RESTCONF
-protocols as alternative management APIs. If FRR configuration/state
-data is modeled using YANG, supporting YANG-based protocols like NETCONF
-and RESTCONF is much easier.
+advantages of using YANG in FRR are listed below:
+
+* Have a formal contract between FRR and application developers (management
+  clients). A management client that has access to the FRR YANG models knows
+  about all existing configuration options available for use. This information
+  can be used to auto-generate user-friendly interfaces like Web-UIs, custom
+  CLIs and even code bindings for several different programming languages. Using
+  `PyangBind <https://github.com/robshakir/pyangbind>`__, for example, it’s
+  possible to generate Python class hierarchies from YANG models and use these
+  classes to instantiate objects that mirror the structure of the YANG modules
+  and can be serialized/deserialized using different encoding formats.
+
+* Support different encoding formats for instance data. Currently only JSON and
+  XML are supported, but `GPB
+  <https://developers.google.com/protocol-buffers/>`__ and `CBOR
+  <http://cbor.io/>`__ are other viable options in the long term. Additional
+  encoding formats can be implemented in the *libyang* library for optimal
+  performance, or externally by translating data to/from one of the supported
+  formats (with a performance penalty).
+
+* Have a formal mechanism to introduce backward-incompatible changes based on
+  `semantic versioning <http://www.openconfig.net/docs/semver/>`__ (not part of
+  the YANG standard, which allows backward-compatible module updates only).
+
+* Provide seamless support to the industry-standard NETCONF/RESTCONF protocols
+  as alternative management APIs. If FRR configuration/state data is modeled
+  using YANG, supporting YANG-based protocols like NETCONF and RESTCONF is much
+  easier.
 
 As important as shifting to a model-driven management paradigm, the new
 northbound architecture also introduces the concept of configuration

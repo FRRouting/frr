@@ -2,16 +2,21 @@
 .. _nb-retrofit:
 
 Retrofitting Configuration Commands
------------------------------------
+===================================
+
+.. contents:: Table of contents
+    :local:
+    :backlinks: entry
+    :depth: 2
+
+Retrofitting process
+--------------------
 
 This page explains how to convert existing CLI configuration commands to
 the new northbound model. This documentation is meant to be the primary
 reference for developers working on the northbound retrofitting process.
 We’ll show several examples taken from the ripd northbound conversion to
 illustrate some concepts described herein.
-
-Retrofitting process
---------------------
 
 Step 1: writing a YANG module
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -33,34 +38,41 @@ possible to facilitate the process of writing module translators using
 the [[YANG module translator]]. As an example, the frr-ripd YANG module
 incorporated several parts of the IETF RIP YANG module. The repositories
 below contain big collections of YANG models that might be used as a
-reference: \* https://github.com/YangModels/yang \*
-https://github.com/openconfig/public
+reference:
+
+* https://github.com/YangModels/yang
+
+* https://github.com/openconfig/public
 
 When writing a YANG module, it’s highly recommended to follow the
 guidelines from `RFC 6087 <https://tools.ietf.org/html/rfc6087>`__. In
 general, most commands should be modeled fairly easy. Here are a few
-guidelines specific to authors of FRR YANG models: \* Use
-presence-containers or lists to model commands that change the CLI node
-(e.g. ``router rip``, ``interface eth0``). This way, if the
-presence-container or list entry is removed, all configuration options
-below them are removed automatically (exactly like the CLI behaves when
-a configuration object is removed using a *no* command). This
-recommendation is orthogonal to the `YANG authoring guidelines for
-OpenConfig
-models <https://github.com/openconfig/public/blob/master/doc/openconfig_style_guide.md>`__
-where the use of presence containers is discouraged. OpenConfig YANG
-models however were not designed to replicate the behavior of legacy CLI
-commands. \* When using YANG lists, be careful to identify what should
-be the key leaves. In the ``offset-list WORD <in|out> (0-16) IFNAME``
-command, for example, both the direction (``<in|out>``) and the
-interface name should be the keys of the list. This can be only known by
-analyzing the data structures used to store the commands. \* For
-clarity, use non-presence containers to group leaves that are associated
-to the same configuration command (as we’ll see later, this also
-facilitate the process of writing ``cli_show`` callbacks). \* YANG
-leaves of type *enumeration* should define explicitly the value of each
-*enum* option based on the value used in the FRR source code. \* Default
-values should be taken from the source code whenever they exist.
+guidelines specific to authors of FRR YANG models:
+
+* Use presence-containers or lists to model commands that change the CLI node
+  (e.g. ``router rip``, ``interface eth0``). This way, if the presence-container
+  or list entry is removed, all configuration options below them are removed
+  automatically (exactly like the CLI behaves when a configuration object is
+  removed using a *no* command). This recommendation is orthogonal to the `YANG
+  authoring guidelines for OpenConfig models
+  <https://github.com/openconfig/public/blob/master/doc/openconfig_style_guide.md>`__
+  where the use of presence containers is discouraged. OpenConfig YANG models
+  however were not designed to replicate the behavior of legacy CLI commands.
+
+* When using YANG lists, be careful to identify what should be the key leaves.
+  In the ``offset-list WORD <in|out> (0-16) IFNAME`` command, for example, both
+  the direction (``<in|out>``) and the interface name should be the keys of the
+  list. This can be only known by analyzing the data structures used to store
+  the commands.
+
+* For clarity, use non-presence containers to group leaves that are associated
+  to the same configuration command (as we’ll see later, this also facilitate
+  the process of writing ``cli_show`` callbacks).
+
+* YANG leaves of type *enumeration* should define explicitly the value of each
+  *enum* option based on the value used in the FRR source code.
+
+* Default values should be taken from the source code whenever they exist.
 
 Some commands are more difficult to model and demand the use of more
 advanced YANG constructs like *choice*, *when* and *must* statements.
@@ -729,15 +741,17 @@ Configuration options are edited individually
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Several CLI commands edit multiple configuration options at the same
-time. Some examples taken from ripd: \*
-``timers basic (5-2147483647) (5-2147483647) (5-2147483647)`` -
-*/frr-ripd:ripd/instance/timers/flush-interval* -
-*/frr-ripd:ripd/instance/timers/holddown-interval* -
-*/frr-ripd:ripd/instance/timers/update-interval* \*
-``distance (1-255) A.B.C.D/M [WORD]`` -
-*/frr-ripd:ripd/instance/distance/source/prefix* -
-*/frr-ripd:ripd/instance/distance/source/distance* -
-*/frr-ripd:ripd/instance/distance/source/access-list*
+time. Some examples taken from ripd:
+
+* ``timers basic (5-2147483647) (5-2147483647) (5-2147483647)``
+  * */frr-ripd:ripd/instance/timers/flush-interval*
+  * */frr-ripd:ripd/instance/timers/holddown-interval*
+  * */frr-ripd:ripd/instance/timers/update-interval*
+
+* ``distance (1-255) A.B.C.D/M [WORD]``
+  * */frr-ripd:ripd/instance/distance/source/prefix*
+  * */frr-ripd:ripd/instance/distance/source/distance*
+  * */frr-ripd:ripd/instance/distance/source/access-list*
 
 In the new northbound model, there’s one or more separate callbacks for
 each configuration option. This usually has implications when converting
@@ -1037,16 +1051,23 @@ changing the candidate configuration.
    the northbound callbacks are not involved).
 
 Other important details to keep in mind while rewriting the CLI
-commands: \* ``nb_cli_cfg_change()`` returns CLI errors codes
-(e.g. ``CMD_SUCCESS``, ``CMD_WARNING``), so the return value of this
-function can be used as the return value of CLI commands. \* Calls to
-``VTY_PUSH_CONTEXT`` and ``VTY_PUSH_CONTEXT_SUB`` should be converted to
-calls to ``VTY_PUSH_XPATH``. Similarly, the following macros aren’t
-necessary anymore and can be removed: ``VTY_DECLVAR_CONTEXT``,
-``VTY_DECLVAR_CONTEXT_SUB``, ``VTY_GET_CONTEXT`` and
-``VTY_CHECK_CONTEXT``. The ``nb_cli_cfg_change()`` functions uses the
-``VTY_CHECK_XPATH`` macro to check if the data node being edited still
-exists before doing anything else.
+commands:
+
+* ``nb_cli_cfg_change()`` returns CLI errors codes (e.g. ``CMD_SUCCESS``,
+  ``CMD_WARNING``), so the return value of this function can be used as the
+  return value of CLI commands.
+
+* Calls to ``VTY_PUSH_CONTEXT`` and ``VTY_PUSH_CONTEXT_SUB`` should be converted
+  to calls to ``VTY_PUSH_XPATH``. Similarly, the following macros aren’t
+  necessary anymore and can be removed:
+
+  * ``VTY_DECLVAR_CONTEXT``
+  * ``VTY_DECLVAR_CONTEXT_SUB``
+  * ``VTY_GET_CONTEXT``
+  * ``VTY_CHECK_CONTEXT``.
+
+  The ``nb_cli_cfg_change()`` functions uses the ``VTY_CHECK_XPATH`` macro to
+  check if the data node being edited still exists before doing anything else.
 
 The examples below provide additional details about how the conversion
 should be done.
@@ -1788,10 +1809,13 @@ Implementation of the ``cli_show`` callback:
    }
 
 This is the most complex ``cli_show`` callback we have in ripd. Its
-complexity comes from the following: \* The
-``ip rip authentication mode ...`` command changes two YANG leaves at
-the same time. \* Part of the command should be hidden when the
-``show_defaults`` parameter is set to false.
+complexity comes from the following:
+
+* The ``ip rip authentication mode ...`` command changes two YANG leaves at the
+  same time.
+
+* Part of the command should be hidden when the ``show_defaults`` parameter is
+  set to false.
 
 This is the behavior we want to implement:
 
@@ -1841,19 +1865,27 @@ As mentioned in the fourth step, the northbound retrofitting process can
 happen gradually over time, since both “old” and “new” commands can
 coexist without problems. Once all commands from a given daemon were
 converted, we can proceed to the consolidation step, which consists of
-the following: \* Remove the vty configuration lock, which is enabled by
-default in all daemons. Now multiple users should be able to edit the
-configuration concurrently, using either shared or private candidate
-configurations. \* Reference commit:
-`57dccdb1 <https://github.com/opensourcerouting/frr/commit/57dccdb18b799556214dcfb8943e248c0bf1f6a6>`__.
-\* Stop using the qobj infrastructure to keep track of configuration
-objects. This is not necessary anymore, the northbound uses a similar
-mechanism to keep track of YANG data nodes in the candidate
-configuration. \* Reference commit:
-`4e6d63ce <https://github.com/opensourcerouting/frr/commit/4e6d63cebd988af650c1c29d0f2e5a251c8d2e7a>`__.
-\* Make the daemon SIGHUP handler re-read the configuration file (and
-ensure it’s not doing anything other than that). \* Reference commit:
-`5e57edb4 <https://github.com/opensourcerouting/frr/commit/5e57edb4b71ff03f9a22d9ec1412c3c5167f90cf>`__.
+the following:
+
+* Remove the vty configuration lock, which is enabled by default in all daemons.
+  Now multiple users should be able to edit the configuration concurrently,
+  using either shared or private candidate configurations.
+
+* Reference commit: `57dccdb1
+  <https://github.com/opensourcerouting/frr/commit/57dccdb18b799556214dcfb8943e248c0bf1f6a6>`__.
+
+* Stop using the qobj infrastructure to keep track of configuration objects.
+  This is not necessary anymore, the northbound uses a similar mechanism to keep
+  track of YANG data nodes in the candidate configuration.
+
+* Reference commit: `4e6d63ce
+  <https://github.com/opensourcerouting/frr/commit/4e6d63cebd988af650c1c29d0f2e5a251c8d2e7a>`__.
+
+* Make the daemon SIGHUP handler re-read the configuration file (and ensure it’s
+  not doing anything other than that).
+
+* Reference commit: `5e57edb4
+  <https://github.com/opensourcerouting/frr/commit/5e57edb4b71ff03f9a22d9ec1412c3c5167f90cf>`__.
 
 Final Considerations
 --------------------

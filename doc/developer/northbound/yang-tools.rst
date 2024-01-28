@@ -1,5 +1,5 @@
 Yang Tools
-~~~~~~~~~~
+==========
 
 Here's some information about various tools for working with yang
 models.
@@ -83,17 +83,19 @@ Indent a YANG file:
        --keep-comments -f yang --yang-canonical \
        module.yang -o module.yang
 
-Generate skeleton instance data: \* XML:
+Generate skeleton instance data:
 
-.. code:: sh
+* XML:
+
+   .. code:: sh
 
    $ pyang -p <yang-search-path> \
        -f sample-xml-skeleton --sample-xml-skeleton-defaults \
        module.yang [augmented-module1.yang ...] -o module.xml
 
--  JSON:
+*  JSON:
 
-.. code:: sh
+   .. code:: sh
 
    $ pyang -p <yang-search-path> \
        -f jsonxsl module.yang -o module.xsl

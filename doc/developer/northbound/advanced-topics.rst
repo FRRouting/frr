@@ -1,3 +1,11 @@
+Advanced Topics
+===============
+
+.. contents:: Table of contents
+    :local:
+    :backlinks: entry
+    :depth: 1
+
 Auto-generated CLI commands
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -34,13 +42,16 @@ CLI on a separate program
 
 The flexible design of the northbound architecture opens the door to
 move the CLI to a separate program in the long-term future. Some
-advantages of doing so would be: \* Treat the CLI as just another
-northbound client, instead of having CLI commands embedded in the
-binaries of all FRR daemons. \* Improved robustness: bugs in CLI
-commands (e.g. null-pointer dereferences) or in the CLI code itself
-wouldn’t affect the FRR daemons. \* Foster innovation by allowing other
-CLI programs to be implemented, possibly using higher level programming
-languages.
+advantages of doing so would be:
+
+* Treat the CLI as just another northbound client, instead of having CLI
+  commands embedded in the binaries of all FRR daemons.
+
+* Improved robustness: bugs in CLI commands (e.g. null-pointer dereferences) or
+  in the CLI code itself wouldn’t affect the FRR daemons.
+
+* Foster innovation by allowing other CLI programs to be implemented, possibly
+  using higher level programming languages.
 
 The problem, however, is that the northbound retrofitting process will
 convert only the CLI configuration commands and EXEC commands in a first
@@ -232,40 +243,42 @@ vtysh support
 As explained in the [[Transactional CLI]] page, all commands introduced
 by the transactional CLI are not yet available in *vtysh*. This needs to
 be addressed in the short term future. Some challenges for doing that
-work include: \* How to display configurations (running, candidates and
-rollbacks) in a more clever way? The implementation of the
-``show running-config`` command in *vtysh* is not something that should
-be followed as an example. A better idea would be to fetch the desired
-configuration from all daemons (encoded in JSON for example), merge them
-all into a single ``lyd_node`` variable and then display the combined
-configurations from this variable (the configuration merges would
-transparently take care of combining the shared configuration objects).
-In order to be able to manipulate the JSON configurations, *vtysh* will
-need to load the YANG modules from all daemons at startup (this might
-have a minimal impact on startup time). The only issue with this
-approach is that the ``cli_show()`` callbacks from all daemons are
-embedded in their binaries and thus not accessible externally. It might
-be necessary to compile these callbacks on a separate shared library so
-that they are accessible to *vtysh* too. Other than that, displaying the
-combined configurations in the JSON/XML formats should be
-straightforward. \* With the current design, transaction IDs are
-per-daemon and not global across all FRR daemons. This means that the
-same transaction ID can represent different transactions on different
-daemons. Given this observation, how to implement the
-``rollback configuration`` command in *vtysh*? The easy solution would
-be to add a ``daemon WORD`` argument to specify the context of the
-rollback, but per-daemon rollbacks would certainly be confusing and
-convoluted to end users. A better idea would be to attack the root of
-the problem: change configuration transactions to be global instead of
-being per-daemon. This involves a bigger change in the northbound
-architecture, and would have implications on how transactions are stored
-in the SQL database (daemon-specific and shared configuration objects
-would need to have their own tables or columns). \* Loading
-configuration files in the JSON or XML formats will be tricky, as
-*vtysh* will need to know which sections of the configuration should be
-sent to which daemons. *vtysh* will either need to fetch the YANG
-modules implemented by all daemons at runtime or obtain this information
-at compile-time somehow.
+work include:
+
+* How to display configurations (running, candidates and rollbacks) in a more
+  clever way? The implementation of the ``show running-config`` command in
+  *vtysh* is not something that should be followed as an example. A better idea
+  would be to fetch the desired configuration from all daemons (encoded in JSON
+  for example), merge them all into a single ``lyd_node`` variable and then
+  display the combined configurations from this variable (the configuration
+  merges would transparently take care of combining the shared configuration
+  objects). In order to be able to manipulate the JSON configurations, *vtysh*
+  will need to load the YANG modules from all daemons at startup (this might
+  have a minimal impact on startup time). The only issue with this approach is
+  that the ``cli_show()`` callbacks from all daemons are embedded in their
+  binaries and thus not accessible externally. It might be necessary to compile
+  these callbacks on a separate shared library so that they are accessible to
+  *vtysh* too. Other than that, displaying the combined configurations in the
+  JSON/XML formats should be straightforward.
+
+* With the current design, transaction IDs are per-daemon and not global across
+  all FRR daemons. This means that the same transaction ID can represent
+  different transactions on different daemons. Given this observation, how to
+  implement the ``rollback configuration`` command in *vtysh*? The easy solution
+  would be to add a ``daemon WORD`` argument to specify the context of the
+  rollback, but per-daemon rollbacks would certainly be confusing and convoluted
+  to end users. A better idea would be to attack the root of the problem: change
+  configuration transactions to be global instead of being per-daemon. This
+  involves a bigger change in the northbound architecture, and would have
+  implications on how transactions are stored in the SQL database
+  (daemon-specific and shared configuration objects would need to have their own
+  tables or columns).
+
+* Loading configuration files in the JSON or XML formats will be tricky, as
+  *vtysh* will need to know which sections of the configuration should be sent
+  to which daemons. *vtysh* will either need to fetch the YANG modules
+  implemented by all daemons at runtime or obtain this information at
+  compile-time somehow.
 
 Detecting type mismatches at compile-time
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

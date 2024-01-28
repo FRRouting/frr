@@ -1,15 +1,10 @@
-Table of Contents
-~~~~~~~~~~~~~~~~~
+IS-IS PPR Basic
+===============
 
--  `Software <#software>`__
--  `Topology <#topology>`__
--  `Configuration <#configuration>`__
-
-   -  `CLI <#configuration-cli>`__
-   -  `YANG <#configuration-yang>`__
-
--  `Verification - Control Plane <#verification-cplane>`__
--  `Verification - Forwarding Plane <#verification-fplane>`__
+.. contents:: Table of contents
+    :local:
+    :backlinks: entry
+    :depth: 2
 
 Software
 ~~~~~~~~
