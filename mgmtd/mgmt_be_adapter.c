@@ -90,7 +90,7 @@ static const char *const ripngd_config_xpaths[] = {
 	NULL,
 };
 static const char *const ripngd_oper_xpaths[] = {
-	"/frr-ripd:ripd",
+	"/frr-ripngd:ripngd",
 	NULL,
 };
 #endif

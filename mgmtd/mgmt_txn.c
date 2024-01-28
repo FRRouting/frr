@@ -2441,6 +2441,10 @@ state:
 
 	mgmt_msg_native_free_msg(msg);
 
+	/* Return if we didn't send any messages to backends */
+	if (!get_tree->sent_clients)
+		return txn_get_tree_data_done(txn, txn_req);
+
 	/* Start timeout timer - pulled out of register event code so we can
 	 * pass a different arg
 	 */
