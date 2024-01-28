@@ -1309,6 +1309,8 @@ extern void mgmt_fe_adapter_unlock(struct mgmt_fe_client_adapter **adapter)
  */
 void mgmt_fe_adapter_init(struct event_loop *tm)
 {
+	char server_path[MAXPATHLEN];
+
 	assert(!mgmt_loop);
 	mgmt_loop = tm;
 
@@ -1319,9 +1321,10 @@ void mgmt_fe_adapter_init(struct event_loop *tm)
 		hash_create(mgmt_fe_session_hash_key, mgmt_fe_session_hash_cmp,
 			    "MGMT Frontend Sessions");
 
-	if (msg_server_init(&mgmt_fe_server, MGMTD_FE_SERVER_PATH, tm,
-			    mgmt_fe_create_adapter, "frontend",
-			    &mgmt_debug_fe)) {
+	snprintf(server_path, sizeof(server_path), MGMTD_FE_SOCK_NAME);
+
+	if (msg_server_init(&mgmt_fe_server, server_path, tm,
+			    mgmt_fe_create_adapter, "frontend", &mgmt_debug_fe)) {
 		zlog_err("cannot initialize frontend server");
 		exit(1);
 	}

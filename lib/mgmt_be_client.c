@@ -1055,6 +1055,7 @@ struct mgmt_be_client *mgmt_be_client_create(const char *client_name,
 					     struct event_loop *event_loop)
 {
 	struct mgmt_be_client *client;
+	char server_path[MAXPATHLEN];
 
 	if (__be_client)
 		return NULL;
@@ -1071,7 +1072,10 @@ struct mgmt_be_client *mgmt_be_client_create(const char *client_name,
 	if (cbs)
 		client->cbs = *cbs;
 	mgmt_be_txns_init(&client->txn_head);
-	msg_client_init(&client->client, event_loop, MGMTD_BE_SERVER_PATH,
+
+	snprintf(server_path, sizeof(server_path), MGMTD_BE_SOCK_NAME);
+
+	msg_client_init(&client->client, event_loop, server_path,
 			mgmt_be_client_notify_conenct,
 			mgmt_be_client_notify_disconenct,
 			mgmt_be_client_process_msg, MGMTD_BE_MAX_NUM_MSG_PROC,

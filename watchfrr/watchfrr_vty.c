@@ -18,6 +18,8 @@
 
 #include "watchfrr.h"
 
+#include "lib/config_paths.h"
+
 pid_t integrated_write_pid;
 static int integrated_result_fd;
 

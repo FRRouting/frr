@@ -14,8 +14,8 @@ obtained by running ``./configure -h``. The options shown below are examples.
        --sbindir=\${prefix}/lib/frr \
        --libdir=\${prefix}/lib/frr \
        --libexecdir=\${prefix}/lib/frr \
-       --localstatedir=/var/run/frr \
-       --sysconfdir=/etc/frr \
+       --sysconfdir=/etc \
+       --localstatedir=/var \
        --with-moduledir=\${prefix}/lib/frr/modules \
        --enable-configfile-mask=0640 \
        --enable-logfile-mask=0640 \

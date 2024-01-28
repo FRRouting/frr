@@ -110,9 +110,9 @@ RUN cd ~/frr && \
     ./bootstrap.sh && \
     ./configure \
        --prefix=/usr \
-       --localstatedir=/var/run/frr \
+       --sysconfdir=/etc \
+       --localstatedir=/var \
        --sbindir=/usr/lib/frr \
-       --sysconfdir=/etc/frr \
        --enable-sharpd \
        --enable-multipath=64 \
        --enable-user=frr \

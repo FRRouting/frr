@@ -197,17 +197,23 @@ static const struct frr_yang_module_info *const mgmt_yang_modules[] = {
 #endif
 };
 
-FRR_DAEMON_INFO(mgmtd, MGMTD, .vty_port = MGMTD_VTY_PORT,
+/* clang-format off */
+FRR_DAEMON_INFO(mgmtd, MGMTD,
+	.vty_port = MGMTD_VTY_PORT,
+	.proghelp = "FRR Management Daemon.",
 
-		.proghelp = "FRR Management Daemon.",
+	.signals = mgmt_signals,
+	.n_signals = array_size(mgmt_signals),
 
-		.signals = mgmt_signals, .n_signals = array_size(mgmt_signals),
+	.privs = &mgmt_privs,
 
-		.privs = &mgmt_privs, .yang_modules = mgmt_yang_modules,
-		.n_yang_modules = array_size(mgmt_yang_modules),
+	.yang_modules = mgmt_yang_modules,
+	.n_yang_modules = array_size(mgmt_yang_modules),
 
-		/* avoid libfrr trying to read our config file for us */
-		.flags = FRR_MANUAL_VTY_START);
+	/* avoid libfrr trying to read our config file for us */
+	.flags = FRR_MANUAL_VTY_START,
+);
+/* clang-format on */
 
 #define DEPRECATED_OPTIONS ""
 

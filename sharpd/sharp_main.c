@@ -129,16 +129,20 @@ static const struct frr_yang_module_info *const sharpd_yang_modules[] = {
 	&frr_vrf_info,
 };
 
-FRR_DAEMON_INFO(sharpd, SHARP, .vty_port = SHARP_VTY_PORT,
+/* clang-format off */
+FRR_DAEMON_INFO(sharpd, SHARP,
+	.vty_port = SHARP_VTY_PORT,
+	.proghelp = "Implementation of a Sharp of routes daemon.",
 
-		.proghelp = "Implementation of a Sharp of routes daemon.",
+	.signals = sharp_signals,
+	.n_signals = array_size(sharp_signals),
 
-		.signals = sharp_signals,
-		.n_signals = array_size(sharp_signals),
+	.privs = &sharp_privs,
 
-		.privs = &sharp_privs, .yang_modules = sharpd_yang_modules,
-		.n_yang_modules = array_size(sharpd_yang_modules),
+	.yang_modules = sharpd_yang_modules,
+	.n_yang_modules = array_size(sharpd_yang_modules),
 );
+/* clang-format on */
 
 static void sharp_start_configuration(void)
 {

@@ -43,6 +43,8 @@
 
 #include "frrscript.h"
 
+#include "lib/config_paths.h"
+
 DEFINE_MTYPE_STATIC(LIB, HOST, "Host config");
 DEFINE_MTYPE(LIB, COMPLETION, "Completion item");
 
@@ -1633,6 +1635,10 @@ static int vty_write_config(struct vty *vty)
 	return CMD_SUCCESS;
 }
 
+/* cross-reference frr_daemon_state_save in libfrr.c
+ * the code there is similar but not identical (state files always use the same
+ * name for the new write, and don't keep a backup of previous state.)
+ */
 static int file_write_config(struct vty *vty)
 {
 	int fd, dirfd;

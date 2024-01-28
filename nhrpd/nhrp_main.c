@@ -120,15 +120,20 @@ static const struct frr_yang_module_info *const nhrpd_yang_modules[] = {
 	&frr_vrf_info,
 };
 
-FRR_DAEMON_INFO(nhrpd, NHRP, .vty_port = NHRP_VTY_PORT,
+/* clang-format off */
+FRR_DAEMON_INFO(nhrpd, NHRP,
+	.vty_port = NHRP_VTY_PORT,
+	.proghelp = "Implementation of the NHRP routing protocol.",
 
-		.proghelp = "Implementation of the NHRP routing protocol.",
+	.signals = sighandlers,
+	.n_signals = array_size(sighandlers),
 
-		.signals = sighandlers, .n_signals = array_size(sighandlers),
+	.privs = &nhrpd_privs,
 
-		.privs = &nhrpd_privs, .yang_modules = nhrpd_yang_modules,
-		.n_yang_modules = array_size(nhrpd_yang_modules),
+	.yang_modules = nhrpd_yang_modules,
+	.n_yang_modules = array_size(nhrpd_yang_modules),
 );
+/* clang-format on */
 
 int main(int argc, char **argv)
 {

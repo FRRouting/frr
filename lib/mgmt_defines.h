@@ -11,6 +11,9 @@
 
 #include "yang.h"
 
+#define MGMTD_FE_SOCK_NAME "%s/mgmtd_fe.sock", frr_runstatedir
+#define MGMTD_BE_SOCK_NAME "%s/mgmtd_be.sock", frr_runstatedir
+
 #define MGMTD_CLIENT_NAME_MAX_LEN 32
 
 #define MGMTD_MAX_XPATH_LEN XPATH_MAXLEN

@@ -381,10 +381,10 @@ parts:
             - --enable-vrrpd
             - --enable-configfile-mask=0640
             - --enable-logfile-mask=0640
-            - --localstatedir=/var/run
+            - --sysconfdir=/etc
+            - --localstatedir=/var
             - --sbindir=/sbin
             - --bindir=/bin
-            - --sysconfdir=/etc/frr
             - --with-pkg-extra-version=@PACKAGE_EXTRAVERSION@
     frr-defaults:
         plugin: dump

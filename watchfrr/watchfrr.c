@@ -32,6 +32,8 @@
 #include "watchfrr.h"
 #include "watchfrr_errors.h"
 
+#include "lib/config_paths.h"
+
 #ifndef MIN
 #define MIN(X,Y) (((X) <= (Y)) ? (X) : (Y))
 #endif
@@ -120,7 +122,7 @@ static struct global_state {
 	int numdown; /* # of daemons that are not UP or UNRESPONSIVE */
 } gs = {
 	.phase = PHASE_INIT,
-	.vtydir = frr_vtydir,
+	.vtydir = frr_runstatedir,
 	.period = 1000 * DEFAULT_PERIOD,
 	.timeout = DEFAULT_TIMEOUT,
 	.restart_timeout = DEFAULT_RESTART_TIMEOUT,
@@ -297,11 +299,11 @@ Otherwise, the interval is doubled (but capped at the -M value).\n\n",
 		passing command-line arguments with embedded spaces.\n\
 -v, --version	Print program version\n\
 -h, --help	Display this help and exit\n",
-		frr_vtydir, DEFAULT_LOGLEVEL, LOG_EMERG, LOG_DEBUG, LOG_DEBUG,
-		DEFAULT_MIN_RESTART, DEFAULT_MAX_RESTART,
+		frr_runstatedir, DEFAULT_LOGLEVEL, LOG_EMERG, LOG_DEBUG,
+		LOG_DEBUG, DEFAULT_MIN_RESTART, DEFAULT_MAX_RESTART,
 		DEFAULT_OPERATIONAL_TIMEOUT, DEFAULT_PERIOD, DEFAULT_TIMEOUT,
 		DEFAULT_RESTART_TIMEOUT, DEFAULT_RESTART_CMD, DEFAULT_START_CMD,
-		DEFAULT_STOP_CMD, frr_vtydir);
+		DEFAULT_STOP_CMD, frr_runstatedir);
 }
 
 static pid_t run_background(char *shell_cmd)
@@ -728,7 +730,7 @@ static void daemon_send_ready(int exitcode)
 
 	frr_detach();
 
-	snprintf(started, sizeof(started), "%s/%s", frr_vtydir,
+	snprintf(started, sizeof(started), "%s/%s", frr_runstatedir,
 		 "watchfrr.started");
 	fp = fopen(started, "w");
 	if (fp)
@@ -1352,19 +1354,20 @@ static struct frr_signal_t watchfrr_signals[] = {
 	},
 };
 
+/* clang-format off */
 FRR_DAEMON_INFO(watchfrr, WATCHFRR,
-		.flags = FRR_NO_PRIVSEP | FRR_NO_TCPVTY | FRR_LIMITED_CLI
-			 | FRR_NO_CFG_PID_DRY | FRR_NO_ZCLIENT
-			 | FRR_DETACH_LATER,
+	.flags = FRR_NO_PRIVSEP | FRR_NO_TCPVTY | FRR_LIMITED_CLI
+		 | FRR_NO_CFG_PID_DRY | FRR_NO_ZCLIENT | FRR_DETACH_LATER,
 
-		.printhelp = printhelp,
-		.copyright = "Copyright 2004 Andrew J. Schorr",
+	.printhelp = printhelp,
+	.copyright = "Copyright 2004 Andrew J. Schorr",
 
-		.signals = watchfrr_signals,
-		.n_signals = array_size(watchfrr_signals),
+	.signals = watchfrr_signals,
+	.n_signals = array_size(watchfrr_signals),
 
-		.privs = &watchfrr_privs,
+	.privs = &watchfrr_privs,
 );
+/* clang-format on */
 
 #define DEPRECATED_OPTIONS "aAezR:"
 

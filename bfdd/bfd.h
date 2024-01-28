@@ -32,6 +32,8 @@ DECLARE_MGROUP(BFDD);
 DECLARE_MTYPE(BFDD_CONTROL);
 DECLARE_MTYPE(BFDD_NOTIFICATION);
 
+#define BFDD_SOCK_NAME "%s/bfdd.sock", frr_runstatedir
+
 /* bfd Authentication Type. */
 #define BFD_AUTH_NULL 0
 #define BFD_AUTH_SIMPLE 1

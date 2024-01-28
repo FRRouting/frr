@@ -55,6 +55,16 @@
 #define ISISD_VTY_PORT       2608
 #define FABRICD_VTY_PORT     2618
 
+#define FABRICD_STATE_NAME "%s/fabricd.json", frr_libstatedir
+#define ISISD_STATE_NAME   "%s/isisd.json", frr_libstatedir
+
+/* The typo was there before.  Do not fix it!  The point is to load mis-saved
+ * state files from older versions.
+ *
+ * Also fabricd was using the same file.  Sigh.
+ */
+#define ISISD_COMPAT_STATE_NAME "%s/isid-restart.json", frr_runstatedir
+
 /* isisd privileges */
 zebra_capabilities_t _caps_p[] = {ZCAP_NET_RAW, ZCAP_BIND, ZCAP_SYS_ADMIN};
 
@@ -212,24 +222,41 @@ static void isis_config_end(void)
 	isis_config_finish(t_isis_cfg);
 }
 
+/* actual paths filled in main() */
+static char state_path[512];
+static char state_compat_path[512];
+static char *state_paths[] = {
+	state_path,
+	state_compat_path,
+	NULL,
+};
+
+/* clang-format off */
+FRR_DAEMON_INFO(
 #ifdef FABRICD
-FRR_DAEMON_INFO(fabricd, OPEN_FABRIC, .vty_port = FABRICD_VTY_PORT,
+		fabricd, OPEN_FABRIC,
 
-		.proghelp = "Implementation of the OpenFabric routing protocol.",
+	.vty_port = FABRICD_VTY_PORT,
+	.proghelp = "Implementation of the OpenFabric routing protocol.",
 #else
-FRR_DAEMON_INFO(isisd, ISIS, .vty_port = ISISD_VTY_PORT,
+		isisd, ISIS,
 
-		.proghelp = "Implementation of the IS-IS routing protocol.",
+	.vty_port = ISISD_VTY_PORT,
+	.proghelp = "Implementation of the IS-IS routing protocol.",
 #endif
-		.copyright =
-			"Copyright (c) 2001-2002 Sampo Saaristo, Ofer Wald and Hannes Gredler",
+	.copyright = "Copyright (c) 2001-2002 Sampo Saaristo, Ofer Wald and Hannes Gredler",
 
-		.signals = isisd_signals,
-		.n_signals = array_size(isisd_signals),
+	.signals = isisd_signals,
+	.n_signals = array_size(isisd_signals),
 
-		.privs = &isisd_privs, .yang_modules = isisd_yang_modules,
-		.n_yang_modules = array_size(isisd_yang_modules),
+	.privs = &isisd_privs,
+
+	.yang_modules = isisd_yang_modules,
+	.n_yang_modules = array_size(isisd_yang_modules),
+
+	.state_paths = state_paths,
 );
+/* clang-format on */
 
 /*
  * Main routine of isisd. Parse arguments and handle IS-IS state machine.
@@ -268,6 +295,14 @@ int main(int argc, char **argv, char **envp)
 			frr_help_exit(1);
 		}
 	}
+
+#ifdef FABRICD
+	snprintf(state_path, sizeof(state_path), FABRICD_STATE_NAME);
+#else
+	snprintf(state_path, sizeof(state_path), ISISD_STATE_NAME);
+#endif
+	snprintf(state_compat_path, sizeof(state_compat_path),
+		 ISISD_COMPAT_STATE_NAME);
 
 	/* thread master */
 	isis_master_init(frr_init());

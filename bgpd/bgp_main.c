@@ -385,15 +385,20 @@ static const struct frr_yang_module_info *const bgpd_yang_modules[] = {
 	&frr_bgp_route_map_info,
 };
 
-FRR_DAEMON_INFO(bgpd, BGP, .vty_port = BGP_VTY_PORT,
+/* clang-format off */
+FRR_DAEMON_INFO(bgpd, BGP,
+	.vty_port = BGP_VTY_PORT,
+	.proghelp = "Implementation of the BGP routing protocol.",
 
-		.proghelp = "Implementation of the BGP routing protocol.",
+	.signals = bgp_signals,
+	.n_signals = array_size(bgp_signals),
 
-		.signals = bgp_signals, .n_signals = array_size(bgp_signals),
+	.privs = &bgpd_privs,
 
-		.privs = &bgpd_privs, .yang_modules = bgpd_yang_modules,
-		.n_yang_modules = array_size(bgpd_yang_modules),
+	.yang_modules = bgpd_yang_modules,
+	.n_yang_modules = array_size(bgpd_yang_modules),
 );
+/* clang-format on */
 
 #define DEPRECATED_OPTIONS ""
 

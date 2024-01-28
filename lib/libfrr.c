@@ -37,6 +37,8 @@
 #include "frrscript.h"
 #include "systemd.h"
 
+#include "lib/config_paths.h"
+
 DEFINE_HOOK(frr_early_init, (struct event_loop * tm), (tm));
 DEFINE_HOOK(frr_late_init, (struct event_loop * tm), (tm));
 DEFINE_HOOK(frr_config_pre, (struct event_loop * tm), (tm));
@@ -45,10 +47,8 @@ DEFINE_KOOH(frr_early_fini, (), ());
 DEFINE_KOOH(frr_fini, (), ());
 
 const char frr_sysconfdir[] = SYSCONFDIR;
-char frr_vtydir[256];
-#ifdef HAVE_SQLITE3
-const char frr_dbdir[] = DAEMON_DB_DIR;
-#endif
+char frr_runstatedir[256] = FRR_RUNSTATE_PATH;
+char frr_libstatedir[256] = FRR_LIBSTATE_PATH;
 const char frr_moduledir[] = MODULE_PATH;
 const char frr_scriptdir[] = SCRIPT_PATH;
 
@@ -56,7 +56,7 @@ char frr_protoname[256] = "NONE";
 char frr_protonameinst[256] = "NONE";
 
 char config_default[512];
-char frr_zclientpath[256];
+char frr_zclientpath[512];
 static char pidfile_default[1024];
 #ifdef HAVE_SQLITE3
 static char dbfile_default[512];
@@ -310,11 +310,6 @@ bool frr_zclient_addr(struct sockaddr_storage *sa, socklen_t *sa_len,
 
 static struct frr_daemon_info *di = NULL;
 
-void frr_init_vtydir(void)
-{
-	snprintf(frr_vtydir, sizeof(frr_vtydir), DAEMON_VTY_DIR, "", "");
-}
-
 void frr_preinit(struct frr_daemon_info *daemon, int argc, char **argv)
 {
 	di = daemon;
@@ -344,16 +339,14 @@ void frr_preinit(struct frr_daemon_info *daemon, int argc, char **argv)
 	if (di->flags & FRR_DETACH_LATER)
 		nodetach_daemon = true;
 
-	frr_init_vtydir();
 	snprintf(config_default, sizeof(config_default), "%s/%s.conf",
 		 frr_sysconfdir, di->name);
 	snprintf(pidfile_default, sizeof(pidfile_default), "%s/%s.pid",
-		 frr_vtydir, di->name);
-	snprintf(frr_zclientpath, sizeof(frr_zclientpath),
-		 ZEBRA_SERV_PATH, "", "");
+		 frr_runstatedir, di->name);
+	snprintf(frr_zclientpath, sizeof(frr_zclientpath), ZAPI_SOCK_NAME);
 #ifdef HAVE_SQLITE3
 	snprintf(dbfile_default, sizeof(dbfile_default), "%s/%s.db",
-		 frr_dbdir, di->name);
+		 frr_libstatedir, di->name);
 #endif
 
 	strlcpy(frr_protoname, di->logname, sizeof(frr_protoname));
@@ -502,13 +495,15 @@ static int frr_opt(int opt)
 		}
 		di->pathspace = optarg;
 
+		snprintf(frr_runstatedir, sizeof(frr_runstatedir),
+			 FRR_RUNSTATE_PATH "/%s", di->pathspace);
+		snprintf(frr_libstatedir, sizeof(frr_libstatedir),
+			 FRR_LIBSTATE_PATH "/%s", di->pathspace);
+		snprintf(pidfile_default, sizeof(pidfile_default), "%s/%s.pid",
+			 frr_runstatedir, di->name);
 		if (!di->zpathspace)
 			snprintf(frr_zclientpath, sizeof(frr_zclientpath),
-				 ZEBRA_SERV_PATH, "/", di->pathspace);
-		snprintf(frr_vtydir, sizeof(frr_vtydir), DAEMON_VTY_DIR, "/",
-			 di->pathspace);
-		snprintf(pidfile_default, sizeof(pidfile_default), "%s/%s.pid",
-			 frr_vtydir, di->name);
+				 ZAPI_SOCK_NAME);
 		break;
 	case 'o':
 		vrf_set_default_name(optarg);
@@ -729,10 +724,10 @@ struct event_loop *frr_init(void)
 	snprintf(config_default, sizeof(config_default), "%s%s%s%s.conf",
 		 frr_sysconfdir, p_pathspace, di->name, p_instance);
 	snprintf(pidfile_default, sizeof(pidfile_default), "%s/%s%s.pid",
-		 frr_vtydir, di->name, p_instance);
+		 frr_runstatedir, di->name, p_instance);
 #ifdef HAVE_SQLITE3
 	snprintf(dbfile_default, sizeof(dbfile_default), "%s/%s%s%s.db",
-		 frr_dbdir, p_pathspace, di->name, p_instance);
+		 frr_libstatedir, p_pathspace, di->name, p_instance);
 #endif
 
 	zprivs_preinit(di->privs);
@@ -761,8 +756,9 @@ struct event_loop *frr_init(void)
 
 	/* don't mkdir these as root... */
 	if (!(di->flags & FRR_NO_PRIVSEP)) {
+		frr_mkdir(frr_libstatedir, false);
 		if (!di->pid_file || !di->vty_path)
-			frr_mkdir(frr_vtydir, false);
+			frr_mkdir(frr_runstatedir, false);
 		if (di->pid_file)
 			frr_mkdir(di->pid_file, true);
 		if (di->vty_path)
@@ -1049,7 +1045,7 @@ void frr_vty_serv_start(void)
 		const char *dir;
 		char defvtydir[256];
 
-		snprintf(defvtydir, sizeof(defvtydir), "%s", frr_vtydir);
+		snprintf(defvtydir, sizeof(defvtydir), "%s", frr_runstatedir);
 
 		dir = di->vty_sock_path ? di->vty_sock_path : defvtydir;
 
@@ -1273,6 +1269,161 @@ void frr_fini(void)
 		log_memstats(fp, di->name);
 		fclose(fp);
 	}
+}
+
+struct json_object *frr_daemon_state_load(void)
+{
+	struct json_object *state;
+	char **state_path;
+
+	assertf(di->state_paths,
+		"CODE BUG: daemon trying to load state, but no state path in frr_daemon_info");
+
+	for (state_path = di->state_paths; *state_path; state_path++) {
+		state = json_object_from_file(*state_path);
+		if (state)
+			return state;
+	}
+
+	return json_object_new_object();
+}
+
+/* cross-reference file_write_config() in command.c
+ * the code there is similar but not identical (configs use a unique temporary
+ * name for writing and keep a backup of the previous config.)
+ */
+void frr_daemon_state_save(struct json_object **statep)
+{
+	struct json_object *state = *statep;
+	char *state_path, *slash, *temp_name, **other;
+	size_t name_len, json_len;
+	const char *json_str;
+	int dirfd, fd;
+
+	assertf(di->state_paths,
+		"CODE BUG: daemon trying to save state, but no state path in frr_daemon_info");
+
+	state_path = di->state_paths[0];
+	json_str = json_object_to_json_string_ext(state,
+						  JSON_C_TO_STRING_PRETTY);
+	json_len = strlen(json_str);
+
+	/* To correctly fsync() and ensure we have either consistent old state
+	 * or consistent new state but no fs-damage garbage inbetween, we need
+	 * to work with a directory fd.  If we need that anyway we might as
+	 * well use the dirfd with openat() & co in fd-relative operations.
+	 */
+
+	slash = strrchr(state_path, '/');
+	if (slash) {
+		char *state_dir;
+
+		state_dir = XSTRDUP(MTYPE_TMP, state_path);
+		state_dir[slash - state_path] = '\0';
+		dirfd = open(state_dir, O_DIRECTORY | O_RDONLY);
+		XFREE(MTYPE_TMP, state_dir);
+
+		if (dirfd < 0) {
+			zlog_err("failed to open directory %pSQq for saving daemon state: %m",
+				 state_dir);
+			return;
+		}
+
+		/* skip to file name */
+		slash++;
+	} else {
+		dirfd = open(".", O_DIRECTORY | O_RDONLY);
+		if (dirfd < 0) {
+			zlog_err(
+				"failed to open current directory for saving daemon state: %m");
+			return;
+		}
+
+		/* file name = path */
+		slash = state_path;
+	}
+
+	/* unlike saving configs, a temporary unique filename is unhelpful
+	 * here as it might litter files on limited write-heavy storage
+	 * (think switch with small NOR flash for frequently written data.)
+	 *
+	 * => always use filename with .sav suffix, worst case it litters one
+	 * file.
+	 */
+	name_len = strlen(slash);
+	temp_name = XMALLOC(MTYPE_TMP, name_len + 5);
+	memcpy(temp_name, slash, name_len);
+	memcpy(temp_name + name_len, ".sav", 5);
+
+	/* state file is always 0600, it's by and for FRR itself only */
+	fd = openat(dirfd, temp_name, O_WRONLY | O_CREAT | O_TRUNC, 0600);
+	if (fd < 0) {
+		zlog_err("failed to open temporary daemon state save file for %pSQq: %m",
+			 state_path);
+		goto out_closedir_free;
+	}
+
+	while (json_len) {
+		ssize_t nwr = write(fd, json_str, json_len);
+
+		if (nwr <= 0) {
+			zlog_err("failed to write temporary daemon state to %pSQq: %m",
+				 state_path);
+
+			close(fd);
+			unlinkat(dirfd, temp_name, 0);
+			goto out_closedir_free;
+		}
+
+		json_str += nwr;
+		json_len -= nwr;
+	}
+
+	/* fsync is theoretically implicit in close(), but... */
+	if (fsync(fd) < 0)
+		zlog_warn("fsync for daemon state %pSQq failed: %m", state_path);
+	close(fd);
+
+	/* this is the *actual* fsync that ensures we're consistent.  The
+	 * file fsync only syncs the inode, but not the directory entry
+	 * referring to it.
+	 */
+	if (fsync(dirfd) < 0)
+		zlog_warn("directory fsync for daemon state %pSQq failed: %m",
+			  state_path);
+
+	/* atomic, hopefully. */
+	if (renameat(dirfd, temp_name, dirfd, slash) < 0) {
+		zlog_err("renaming daemon state %pSQq to %pSQq failed: %m",
+			 temp_name, state_path);
+		/* no unlink here, give the user a chance to investigate */
+		goto out_closedir_free;
+	}
+
+	/* and the rename needs to be synced too */
+	if (fsync(dirfd) < 0)
+		zlog_warn("directory fsync for daemon state %pSQq failed after rename: %m",
+			  state_path);
+
+	/* daemon may specify other deprecated paths to load from; since we
+	 * just saved successfully we should delete those.
+	 */
+	for (other = di->state_paths + 1; *other; other++) {
+		if (unlink(*other) == 0)
+			continue;
+		if (errno == ENOENT || errno == ENOTDIR)
+			continue;
+
+		zlog_warn("failed to remove deprecated daemon state file %pSQq: %m",
+			  *other);
+	}
+
+out_closedir_free:
+	XFREE(MTYPE_TMP, temp_name);
+	close(dirfd);
+
+	json_object_free(state);
+	*statep = NULL;
 }
 
 #ifdef INTERP

@@ -22,6 +22,8 @@
 extern "C" {
 #endif
 
+#define ZAPI_SOCK_NAME "%s/zserv.api", frr_runstatedir
+
 /* The following options disable specific command line options that
  * are not applicable for a particular daemon.
  */
@@ -85,6 +87,7 @@ struct frr_daemon_info {
 	const char *vty_path;
 	const char *module_path;
 	const char *script_path;
+	char **state_paths;
 
 	const char *pathspace;
 	bool zpathspace;
@@ -130,7 +133,6 @@ struct frr_daemon_info {
 			  .version = FRR_VERSION, );                           \
 	MACRO_REQUIRE_SEMICOLON() /* end */
 
-extern void frr_init_vtydir(void);
 extern void frr_preinit(struct frr_daemon_info *daemon, int argc, char **argv);
 extern void frr_opt_add(const char *optstr, const struct option *longopts,
 			const char *helpstr);
@@ -161,6 +163,10 @@ extern void frr_vty_serv_stop(void);
 extern bool frr_zclient_addr(struct sockaddr_storage *sa, socklen_t *sa_len,
 			     const char *path);
 
+struct json_object;
+extern struct json_object *frr_daemon_state_load(void);
+extern void frr_daemon_state_save(struct json_object **statep);
+
 /* these two are before the protocol daemon does its own shutdown
  * it's named this way being the counterpart to frr_late_init */
 DECLARE_KOOH(frr_early_fini, (), ());
@@ -170,9 +176,10 @@ DECLARE_KOOH(frr_fini, (), ());
 extern void frr_fini(void);
 
 extern char config_default[512];
-extern char frr_zclientpath[256];
+extern char frr_zclientpath[512];
 extern const char frr_sysconfdir[];
-extern char frr_vtydir[256];
+extern char frr_runstatedir[256];
+extern char frr_libstatedir[256];
 extern const char frr_moduledir[];
 extern const char frr_scriptdir[];
 

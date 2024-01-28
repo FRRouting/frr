@@ -14,18 +14,18 @@
 # not perform any action.  Note there is an "exit 1" if the main config
 # file does not exist.
 #
-# This script should be installed in  @CFG_SBIN@/frrcommon.sh
+# This script should be installed in  @e_sbindir@/frrcommon.sh
 
 # FRR_PATHSPACE is passed in from watchfrr
 suffix="${FRR_PATHSPACE:+/${FRR_PATHSPACE}}"
 nsopt="${FRR_PATHSPACE:+-N ${FRR_PATHSPACE}}"
 
 PATH=/bin:/usr/bin:/sbin:/usr/sbin
-D_PATH="@CFG_SBIN@" # /usr/lib/frr
-C_PATH="@CFG_SYSCONF@${suffix}" # /etc/frr
-V_PATH="@CFG_STATE@${suffix}" # /var/run/frr
-B_PATH="@CFG_BIN@"
-VTYSH="@vtysh_bin@" # /usr/bin/vtysh
+D_PATH="@e_sbindir@" # /usr/lib/frr
+C_PATH="@e_frr_sysconfdir@${suffix}" # /etc/frr
+V_PATH="@e_frr_runstatedir@${suffix}" # /var/run/frr
+B_PATH="@e_bindir@"
+VTYSH="@e_vtysh_bin@" # /usr/bin/vtysh
 FRR_USER="@enable_user@" # frr
 FRR_GROUP="@enable_group@" # frr
 FRR_VTY_GROUP="@enable_vty_group@" # frrvty

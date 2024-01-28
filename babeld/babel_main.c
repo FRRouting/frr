@@ -58,7 +58,6 @@ unsigned char protocol_group[16]; /* babel's link-local multicast address */
 int protocol_port;                /* babel's port */
 int protocol_socket = -1;         /* socket: communicate with others babeld */
 
-static const char babel_config_default[] = SYSCONFDIR BABEL_DEFAULT_CONFIG;
 static char *babel_vty_addr = NULL;
 static int babel_vty_port = BABEL_VTY_PORT;
 
@@ -126,18 +125,20 @@ static const struct frr_yang_module_info *const babeld_yang_modules[] = {
 	&frr_vrf_info,
 };
 
+/* clang-format off */
 FRR_DAEMON_INFO(babeld, BABELD,
-		.vty_port = BABEL_VTY_PORT,
-		.proghelp = "Implementation of the BABEL routing protocol.",
+	.vty_port = BABEL_VTY_PORT,
+	.proghelp = "Implementation of the BABEL routing protocol.",
 
-		.signals = babel_signals,
-		.n_signals = array_size(babel_signals),
+	.signals = babel_signals,
+	.n_signals = array_size(babel_signals),
 
-		.privs = &babeld_privs,
+	.privs = &babeld_privs,
 
-		.yang_modules = babeld_yang_modules,
-		.n_yang_modules = array_size(babeld_yang_modules),
+	.yang_modules = babeld_yang_modules,
+	.n_yang_modules = array_size(babeld_yang_modules),
 );
+/* clang-format on */
 
 int
 main(int argc, char **argv)
@@ -171,8 +172,8 @@ main(int argc, char **argv)
 	  }
     }
 
-    snprintf(state_file, sizeof(state_file), "%s/%s",
-	     frr_vtydir, "babel-state");
+    snprintf(state_file, sizeof(state_file), "%s/%s", frr_runstatedir,
+	     "babel-state");
 
     /* create the threads handler */
     master = frr_init ();
@@ -366,7 +367,7 @@ show_babel_main_configuration (struct vty *vty)
             "id                      = %s\n"
             "kernel_metric           = %d\n",
             state_file,
-            babeld_di.config_file ? babeld_di.config_file : babel_config_default,
+            babeld_di.config_file,
             format_address(protocol_group),
             protocol_port,
             babel_vty_addr ? babel_vty_addr : "None",

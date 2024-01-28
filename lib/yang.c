@@ -13,6 +13,8 @@
 #include "yang_translator.h"
 #include "northbound.h"
 
+#include "lib/config_paths.h"
+
 DEFINE_MTYPE_STATIC(LIB, YANG_MODULE, "YANG module");
 DEFINE_MTYPE_STATIC(LIB, YANG_DATA, "YANG data structure");
 

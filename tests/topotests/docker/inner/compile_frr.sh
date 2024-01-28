@@ -64,9 +64,9 @@ if [ ! -e Makefile ]; then
 		--enable-dev-build \
 		--with-moduledir=/usr/lib/frr/modules \
 		--prefix=/usr \
-		--localstatedir=/var/run/frr \
+		--sysconfdir=/etc \
+		--localstatedir=/var \
 		--sbindir=/usr/lib/frr \
-		--sysconfdir=/etc/frr \
 		--enable-multipath=0 \
 		--enable-fpm \
 		--enable-sharpd \

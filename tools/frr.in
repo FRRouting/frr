@@ -14,11 +14,11 @@
 #
 
 PATH=/bin:/usr/bin:/sbin:/usr/sbin
-D_PATH="@CFG_SBIN@" # /usr/lib/frr
-C_PATH="@CFG_SYSCONF@" # /etc/frr
-V_PATH="@CFG_STATE@" # /var/run/frr
-B_PATH="@CFG_BIN@"
-VTYSH="@vtysh_bin@" # /usr/bin/vtysh
+D_PATH="@e_sbindir@" # /usr/lib/frr
+C_PATH="@e_frr_sysconfdir@" # /etc/frr
+V_PATH="@e_frr_runstatedir@" # /var/run/frr
+B_PATH="@e_bindir@"
+VTYSH="@e_vtysh_bin@" # /usr/bin/vtysh
 FRR_USER="@enable_user@" # frr
 FRR_GROUP="@enable_group@" # frr
 FRR_VTY_GROUP="@enable_vty_group@" # frrvty

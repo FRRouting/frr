@@ -97,15 +97,20 @@ static const struct frr_yang_module_info *pathd_yang_modules[] = {
 
 #define PATH_VTY_PORT 2621
 
-FRR_DAEMON_INFO(pathd, PATH, .vty_port = PATH_VTY_PORT,
+/* clang-format off */
+FRR_DAEMON_INFO(pathd, PATH,
+	.vty_port = PATH_VTY_PORT,
+	.proghelp = "Implementation of PATH.",
 
-		.proghelp = "Implementation of PATH.",
+	.signals = path_signals,
+	.n_signals = array_size(path_signals),
 
-		.signals = path_signals, .n_signals = array_size(path_signals),
+	.privs = &pathd_privs,
 
-		.privs = &pathd_privs, .yang_modules = pathd_yang_modules,
-		.n_yang_modules = array_size(pathd_yang_modules),
+	.yang_modules = pathd_yang_modules,
+	.n_yang_modules = array_size(pathd_yang_modules),
 );
+/* clang-format on */
 
 int main(int argc, char **argv, char **envp)
 {

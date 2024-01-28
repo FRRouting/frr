@@ -1,3 +1,4 @@
+/config_paths.h
 /version.c
 /version.h
 /gitversion.h

@@ -119,17 +119,22 @@ static const struct frr_yang_module_info *const staticd_yang_modules[] = {
  * NOTE: .flags == FRR_NO_SPLIT_CONFIG to avoid reading split config, mgmtd will
  * do this for us now
  */
-FRR_DAEMON_INFO(staticd, STATIC, .vty_port = STATIC_VTY_PORT,
+/* clang-format off */
+FRR_DAEMON_INFO(staticd, STATIC,
+	.vty_port = STATIC_VTY_PORT,
+	.proghelp = "Implementation of STATIC.",
 
-		.proghelp = "Implementation of STATIC.",
+	.signals = static_signals,
+	.n_signals = array_size(static_signals),
 
-		.signals = static_signals,
-		.n_signals = array_size(static_signals),
+	.privs = &static_privs,
 
-		.privs = &static_privs, .yang_modules = staticd_yang_modules,
-		.n_yang_modules = array_size(staticd_yang_modules),
+	.yang_modules = staticd_yang_modules,
+	.n_yang_modules = array_size(staticd_yang_modules),
 
-		.flags = FRR_NO_SPLIT_CONFIG);
+	.flags = FRR_NO_SPLIT_CONFIG,
+);
+/* clang-format on */
 
 int main(int argc, char **argv, char **envp)
 {

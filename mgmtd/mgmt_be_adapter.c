@@ -706,15 +706,18 @@ extern void mgmt_be_adapter_unlock(struct mgmt_be_client_adapter **adapter)
  */
 void mgmt_be_adapter_init(struct event_loop *tm)
 {
+	char server_path[MAXPATHLEN];
+
 	assert(!mgmt_loop);
 	mgmt_loop = tm;
 
 	mgmt_be_adapters_init(&mgmt_be_adapters);
 	mgmt_be_xpath_map_init();
 
-	if (msg_server_init(&mgmt_be_server, MGMTD_BE_SERVER_PATH, tm,
-			    mgmt_be_create_adapter, "backend",
-			    &mgmt_debug_be)) {
+	snprintf(server_path, sizeof(server_path), MGMTD_BE_SOCK_NAME);
+
+	if (msg_server_init(&mgmt_be_server, server_path, tm,
+			    mgmt_be_create_adapter, "backend", &mgmt_debug_be)) {
 		zlog_err("cannot initialize backend server");
 		exit(1);
 	}
