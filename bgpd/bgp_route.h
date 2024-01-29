@@ -369,6 +369,8 @@ struct bgp_static {
 	/* Import check status.  */
 	uint8_t valid;
 
+	uint16_t encap_tunneltype;
+
 	/* IGP metric. */
 	uint32_t igpmetric;
 
@@ -394,7 +396,6 @@ struct bgp_static {
 	/* EVPN */
 	esi_t *eth_s_id;
 	struct ethaddr *router_mac;
-	uint16_t encap_tunneltype;
 	struct prefix gatewayIp;
 };
 
