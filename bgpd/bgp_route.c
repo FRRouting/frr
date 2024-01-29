@@ -6341,13 +6341,8 @@ void bgp_static_update(struct bgp *bgp, const struct prefix *p,
 	int vnc_implicit_withdraw = 0;
 	mpls_label_t label = MPLS_INVALID_LABEL;
 #endif
-	uint32_t num_labels = 0;
 
 	assert(bgp_static);
-
-	if ((safi == SAFI_MPLS_VPN || safi == SAFI_ENCAP || safi == SAFI_EVPN) &&
-	    bgp_static->label != MPLS_INVALID_LABEL)
-		num_labels = 1;
 
 	dest = bgp_afi_node_get(bgp->rib[afi][safi], afi, safi, p,
 				&bgp_static->prd);
@@ -6402,6 +6397,12 @@ void bgp_static_update(struct bgp *bgp, const struct prefix *p,
 		if (bgp_static->router_mac) {
 			bgp_add_routermac_ecom(&attr, bgp_static->router_mac);
 		}
+	}
+
+	if ((safi == SAFI_MPLS_VPN || safi == SAFI_ENCAP || safi == SAFI_EVPN) &&
+	    bgp_static->label != MPLS_INVALID_LABEL) {
+		attr.label_tbl[0] = bgp_static->label;
+		attr.num_labels = 1;
 	}
 
 	/* Apply route-map. */
@@ -6538,10 +6539,6 @@ void bgp_static_update(struct bgp *bgp, const struct prefix *p,
 
 	if (safi == SAFI_MPLS_VPN || safi == SAFI_ENCAP || safi == SAFI_EVPN) {
 		SET_FLAG(new->flags, BGP_PATH_VALID);
-		if (num_labels) {
-			new->attr->label_tbl[0] = bgp_static->label;
-			new->attr->num_labels = num_labels;
-		}
 #ifdef ENABLE_BGP_VNC
 		label = decode_label(&bgp_static->label);
 #endif
