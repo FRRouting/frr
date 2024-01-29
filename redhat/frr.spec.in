@@ -322,7 +322,6 @@ routing state through standard SNMP MIBs.
     --localstatedir=%{_localstatedir} \
     --disable-static \
     --disable-werror \
-    --enable-irdp \
 %if %{with_multipath}
     --enable-multipath=%{with_multipath} \
 %endif
@@ -717,7 +716,6 @@ fi
 %endif
 %{_libdir}/frr/modules/zebra_cumulus_mlag.so
 %{_libdir}/frr/modules/dplane_fpm_nl.so
-%{_libdir}/frr/modules/zebra_irdp.so
 %{_libdir}/frr/modules/bgpd_bmp.so
 %{_libdir}/libfrr_pb.so*
 %{_libdir}/libfrrfpm_pb.so*

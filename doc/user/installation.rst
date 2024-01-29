@@ -234,10 +234,9 @@ options from the list below.
    assigned to the realm. See the tc man page.  This option is currently not
    compatible with the usage of nexthop groups in the linux kernel itself.
 
-.. option:: --disable-irdp
+.. option:: --enable-irdp
 
-   Disable IRDP server support.  This is enabled by default if we have
-   both `struct in_pktinfo` and `struct icmphdr` available to us.
+   Enable IRDP server support. This is deprecated.
 
 .. option:: --disable-rtadv
 
