@@ -238,10 +238,3 @@ int zebra_ns_init(void)
 
 	return 0;
 }
-
-int zebra_ns_config_write(struct vty *vty, struct ns *ns)
-{
-	if (ns && ns->name != NULL)
-		vty_out(vty, " netns %s\n", ns->name);
-	return 0;
-}

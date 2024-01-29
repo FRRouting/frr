@@ -956,6 +956,25 @@ static int lib_vrf_destroy(struct nb_cb_destroy_args *args)
 	return NB_OK;
 }
 
+static void lib_vrf_cli_write(struct vty *vty, const struct lyd_node *dnode,
+			      bool show_defaults)
+{
+	const char *name = yang_dnode_get_string(dnode, "name");
+
+	if (strcmp(name, VRF_DEFAULT_NAME)) {
+		vty_out(vty, "!\n");
+		vty_out(vty, "vrf %s\n", name);
+	}
+}
+
+static void lib_vrf_cli_write_end(struct vty *vty, const struct lyd_node *dnode)
+{
+	const char *name = yang_dnode_get_string(dnode, "name");
+
+	if (strcmp(name, VRF_DEFAULT_NAME))
+		vty_out(vty, "exit-vrf\n");
+}
+
 static const void *lib_vrf_get_next(struct nb_cb_get_next_args *args)
 {
 	struct vrf *vrfp = (struct vrf *)args->list_entry;
@@ -1035,6 +1054,8 @@ const struct frr_yang_module_info frr_vrf_info = {
 			.cbs = {
 				.create = lib_vrf_create,
 				.destroy = lib_vrf_destroy,
+				.cli_show = lib_vrf_cli_write,
+				.cli_show_end = lib_vrf_cli_write_end,
 				.get_next = lib_vrf_get_next,
 				.get_keys = lib_vrf_get_keys,
 				.lookup_entry = lib_vrf_lookup_entry,

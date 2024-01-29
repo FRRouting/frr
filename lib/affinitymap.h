@@ -58,6 +58,7 @@ struct affinity_maps {
 DECLARE_QOBJ_TYPE(affinity_maps);
 
 extern const struct frr_yang_module_info frr_affinity_map_info;
+extern const struct frr_yang_module_info frr_affinity_map_cli_info;
 
 void affinity_map_set(const char *name, int pos);
 void affinity_map_unset(const char *name);
@@ -68,9 +69,6 @@ void affinity_map_update_hook(const char *affmap_name, uint16_t new_pos);
 void affinity_map_set_update_hook(void (*func)(const char *affmap_name,
 					       uint16_t old_pos,
 					       uint16_t new_pos));
-
-void cli_show_affinity_map(struct vty *vty, const struct lyd_node *dnode,
-			   bool show_defaults);
 
 void affinity_map_init(void);
 

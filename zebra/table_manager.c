@@ -24,21 +24,6 @@
 #include "zebra/table_manager.h"
 #include "zebra/zebra_errors.h"
 
-/* routing table identifiers
- *
- */
-#if !defined(GNU_LINUX)
-/* BSD systems
- */
-#else
-/* Linux Systems
- */
-#define RT_TABLE_ID_LOCAL                  255
-#define RT_TABLE_ID_MAIN                   254
-#define RT_TABLE_ID_DEFAULT                253
-#define RT_TABLE_ID_COMPAT                 252
-#define RT_TABLE_ID_UNSPEC                 0
-#endif /* !def(GNU_LINUX) */
 #define RT_TABLE_ID_UNRESERVED_MIN         1
 #define RT_TABLE_ID_UNRESERVED_MAX         0xffffffff
 
@@ -279,52 +264,11 @@ void table_manager_disable(struct zebra_vrf *zvrf)
 	zvrf->tbl_mgr = NULL;
 }
 
-int table_manager_range(struct vty *vty, bool add, struct zebra_vrf *zvrf,
-			const char *start_table_str, const char *end_table_str)
+void table_manager_range(bool add, struct zebra_vrf *zvrf, uint32_t start,
+			 uint32_t end)
 {
-	uint32_t start;
-	uint32_t end;
-
-	if (add) {
-		if (!start_table_str || !end_table_str) {
-			vty_out(vty, "%% Labels not specified\n");
-			return CMD_WARNING_CONFIG_FAILED;
-		}
-		start = atoi(start_table_str);
-		end = atoi(end_table_str);
-		if (end < start) {
-			vty_out(vty, "%% End table is less than Start table\n");
-			return CMD_WARNING_CONFIG_FAILED;
-		}
-
-#if !defined(GNU_LINUX)
-/* BSD systems
- */
-#else
-		/* Linux Systems
-		 */
-		if ((start >= RT_TABLE_ID_COMPAT && start <= RT_TABLE_ID_LOCAL)
-		    || (end >= RT_TABLE_ID_COMPAT
-			&& end <= RT_TABLE_ID_LOCAL)) {
-			vty_out(vty, "%% Values forbidden in range [%u;%u]\n",
-				RT_TABLE_ID_COMPAT, RT_TABLE_ID_LOCAL);
-			return CMD_WARNING_CONFIG_FAILED;
-		}
-		if (start < RT_TABLE_ID_COMPAT && end > RT_TABLE_ID_LOCAL) {
-			vty_out(vty,
-				"%% Range overlaps range [%u;%u] forbidden\n",
-				RT_TABLE_ID_COMPAT, RT_TABLE_ID_LOCAL);
-			return CMD_WARNING_CONFIG_FAILED;
-		}
-#endif
-		if (zvrf->tbl_mgr
-		    && ((zvrf->tbl_mgr->start && zvrf->tbl_mgr->start != start)
-			|| (zvrf->tbl_mgr->end && zvrf->tbl_mgr->end != end))) {
-			vty_out(vty,
-				"%% New range will be taken into account at restart\n");
-		}
+	if (add)
 		table_range_add(zvrf, start, end);
-	} else
+	else
 		table_range_add(zvrf, 0, 0);
-	return CMD_SUCCESS;
 }

@@ -65,6 +65,23 @@ struct mgmt_be_xpath_map {
  * above map as well.
  */
 
+static const char *const zebra_config_xpaths[] = {
+	"/frr-affinity-map:lib",
+	"/frr-filter:lib",
+	"/frr-route-map:lib",
+	"/frr-zebra:zebra",
+	"/frr-interface:lib",
+	"/frr-vrf:lib",
+	NULL,
+};
+
+static const char *const zebra_oper_xpaths[] = {
+	"/frr-interface:lib/interface",
+	"/frr-vrf:lib/vrf/frr-zebra:zebra",
+	"/frr-zebra:zebra",
+	NULL,
+};
+
 #if HAVE_RIPD
 static const char *const ripd_config_xpaths[] = {
 	"/frr-filter:lib",
@@ -105,6 +122,7 @@ static const char *const staticd_config_xpaths[] = {
 #endif
 
 static const char *const *be_client_config_xpaths[MGMTD_BE_CLIENT_ID_MAX] = {
+	[MGMTD_BE_CLIENT_ID_ZEBRA] = zebra_config_xpaths,
 #ifdef HAVE_RIPD
 	[MGMTD_BE_CLIENT_ID_RIPD] = ripd_config_xpaths,
 #endif
@@ -114,13 +132,6 @@ static const char *const *be_client_config_xpaths[MGMTD_BE_CLIENT_ID_MAX] = {
 #ifdef HAVE_STATICD
 	[MGMTD_BE_CLIENT_ID_STATICD] = staticd_config_xpaths,
 #endif
-};
-
-static const char *const zebra_oper_xpaths[] = {
-	"/frr-interface:lib/interface",
-	"/frr-vrf:lib/vrf/frr-zebra:zebra",
-	"/frr-zebra:zebra",
-	NULL,
 };
 
 static const char *const *be_client_oper_xpaths[MGMTD_BE_CLIENT_ID_MAX] = {

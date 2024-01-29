@@ -628,6 +628,14 @@ struct frr_yang_module_info {
 	 */
 	bool ignore_cfg_cbs;
 
+	/*
+	 * The NULL-terminated list of supported features.
+	 * Features are defined with "feature" statements in the YANG model.
+	 * Use ["*", NULL] to enable all features.
+	 * Use NULL to disable all features.
+	 */
+	const char **features;
+
 	/* Northbound callbacks. */
 	const struct {
 		/* Data path of this YANG node. */

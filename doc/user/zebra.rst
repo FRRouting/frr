@@ -178,7 +178,7 @@ Standard Commands
    work on non-linux systems at all. 'enable' and 'disable' will respectively turn
    on and off mpls on the given interface.
 
-.. clicmd:: multicast
+.. clicmd:: multicast <enable|disable>
 
 
    Enable or disable multicast flag for the interface.
@@ -214,20 +214,14 @@ Link Parameters Commands
 
 .. clicmd:: link-params
 
+   Enter into the link parameters sub node. This command activates the link
+   parameters and allows to configure routing information that could be used
+   as part of Traffic Engineering on this interface. MPLS-TE must be enabled at
+   the OSPF (:ref:`ospf-traffic-engineering`) or ISIS
+   (:ref:`isis-traffic-engineering`) router level in complement to this. To
+   disable link parameters, use the ``no`` version of this command.
 
-   Enter into the link parameters sub node. At least 'enable' must be
-   set to activate the link parameters, and consequently routing
-   information that could be used as part of Traffic Engineering on
-   this interface. MPLS-TE must be enable at the OSPF
-   (:ref:`ospf-traffic-engineering`) or ISIS
-   (:ref:`isis-traffic-engineering`) router level in complement to
-   this.
-
-   Under link parameter statement, the following commands set the different TE values:
-
-.. clicmd:: enable
-
-   Enable link parameters for this interface.
+Under link parameter statement, the following commands set the different TE values:
 
 .. clicmd:: metric (0-4294967295)
 

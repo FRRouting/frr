@@ -218,8 +218,6 @@ struct zebra_if {
 
 DECLARE_HOOK(zebra_if_extra_info, (struct vty * vty, struct interface *ifp),
 	     (vty, ifp));
-DECLARE_HOOK(zebra_if_config_wr, (struct vty * vty, struct interface *ifp),
-	     (vty, ifp));
 
 #define IS_ZEBRA_IF_VRF(ifp)                                                   \
 	(((struct zebra_if *)(ifp->info))->zif_type == ZEBRA_IF_VRF)
@@ -307,11 +305,14 @@ extern void cli_show_affinity(struct vty *vty, const struct lyd_node *dnode,
  */
 extern int zebra_if_set_protodown(struct interface *ifp, bool down,
 				  enum protodown_reasons new_reason);
-extern int if_ip_address_install(struct interface *ifp, struct prefix *prefix,
-				 const char *label, struct prefix *pp);
-extern int if_ipv6_address_install(struct interface *ifp, struct prefix *prefix,
-				   const char *label);
-extern int if_ip_address_uinstall(struct interface *ifp, struct prefix *prefix);
+extern void if_ip_address_install(struct interface *ifp, struct prefix *prefix,
+				  const char *label, struct prefix *pp);
+extern void if_ip_address_uninstall(struct interface *ifp,
+				    struct prefix *prefix, struct prefix *pp);
+extern void if_ipv6_address_install(struct interface *ifp,
+				    struct prefix *prefix);
+extern void if_ipv6_address_uninstall(struct interface *ifp,
+				      struct prefix *prefix);
 extern int if_shutdown(struct interface *ifp);
 extern int if_no_shutdown(struct interface *ifp);
 extern void if_arp(struct interface *ifp, bool enable);
@@ -319,6 +320,12 @@ extern int if_multicast_set(struct interface *ifp);
 extern int if_multicast_unset(struct interface *ifp);
 extern int if_linkdetect(struct interface *ifp, bool detect);
 extern void if_addr_wakeup(struct interface *ifp);
+
+void link_param_cmd_set_uint32(struct interface *ifp, uint32_t *field,
+			       uint32_t type, uint32_t value);
+void link_param_cmd_set_float(struct interface *ifp, float *field,
+			      uint32_t type, float value);
+void link_param_cmd_unset(struct interface *ifp, uint32_t type);
 
 /* Nexthop group connected functions */
 extern void if_nhg_dependents_add(struct interface *ifp,

@@ -28,7 +28,7 @@ man8 += $(MANBUILD)/frr-zebra.8
 ## endif ZEBRA
 endif
 
-zebra_zebra_LDADD = lib/libfrr.la $(LIBCAP) $(UST_LIBS)
+zebra_zebra_LDADD = lib/libfrr.la $(LIBCAP) $(LIBYANG_LIBS) $(UST_LIBS)
 if HAVE_PROTOBUF3
 zebra_zebra_LDADD += mlag/libmlag_pb.la $(PROTOBUF_C_LIBS)
 zebra/zebra_mlag.$(OBJEXT): mlag/mlag.pb-c.h
@@ -118,7 +118,6 @@ clippy_scan += \
 	zebra/debug.c \
 	zebra/interface.c \
 	zebra/rtadv.c \
-	zebra/zebra_evpn_mh.c \
 	zebra/zebra_mlag_vty.c \
 	zebra/zebra_routemap.c \
 	zebra/zebra_vty.c \
@@ -126,6 +125,7 @@ clippy_scan += \
 	zebra/zebra_vrf.c \
 	zebra/dpdk/zebra_dplane_dpdk_vty.c \
 	zebra/label_manager.c \
+	zebra/zebra_cli.c \
 	# end
 
 noinst_HEADERS += \

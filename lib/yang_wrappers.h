@@ -195,10 +195,17 @@ extern void yang_get_default_ip(struct ipaddr *var, const char *xpath_fmt, ...)
 extern struct yang_data *yang_data_new_mac(const char *xpath,
 					   const struct ethaddr *mac);
 extern void yang_str2mac(const char *value, struct ethaddr *mac);
+extern void yang_dnode_get_mac(struct ethaddr *mac, const struct lyd_node *dnode,
+			       const char *xpath_fmt, ...) PRINTFRR(3, 4);
 
 /*data-and-time */
 extern struct yang_data *yang_data_new_date_and_time(const char *xpath,
 						     time_t time);
+
+/* rt-types:bandwidth-ieee-float32 */
+extern float yang_dnode_get_bandwidth_ieee_float32(const struct lyd_node *dnode,
+						   const char *xpath_fmt, ...)
+	PRINTFRR(2, 3);
 
 /* nexthop enum2str */
 extern const char *yang_nexthop_type2str(uint32_t ntype);

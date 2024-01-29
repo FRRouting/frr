@@ -2384,7 +2384,8 @@ void nb_init(struct event_loop *tm,
 	for (size_t i = 0; i < nmodules; i++) {
 		DEBUGD(&nb_dbg_events, "northbound: loading %s.yang",
 		       modules[i]->name);
-		*loadedp++ = yang_module_load(modules[i]->name);
+		*loadedp++ = yang_module_load(modules[i]->name,
+					      modules[i]->features);
 	}
 
 	if (explicit_compile)

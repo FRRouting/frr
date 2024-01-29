@@ -8,6 +8,7 @@
 
 #include <zebra.h>
 
+#include "affinitymap.h"
 #include "command.h"
 #include "filter.h"
 #include "json.h"
@@ -25,6 +26,7 @@
 #include "ripd/rip_nb.h"
 #include "ripngd/ripng_nb.h"
 #include "staticd/static_vty.h"
+#include "zebra/zebra_cli.h"
 
 extern struct frr_daemon_info *mgmt_daemon_info;
 
@@ -570,6 +572,7 @@ void mgmt_vty_init(void)
 	 */
 	filter_cli_init();
 	route_map_cli_init();
+	affinity_map_init();
 
 	/*
 	 * Initialize command handling from VTYSH connection.
@@ -577,6 +580,7 @@ void mgmt_vty_init(void)
 	 * backend components that are moved to new MGMTD infra
 	 * here one by one.
 	 */
+	zebra_cli_init();
 #if HAVE_RIPD
 	rip_cli_init();
 #endif
