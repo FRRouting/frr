@@ -636,6 +636,30 @@ DEFPY_YANG(
 	return nb_cli_apply_changes(vty, NULL);
 }
 
+DEFPY_YANG(
+	set_kernel_bypass, set_kernel_bypass_cmd,
+	"[no] set kernel-bypass",
+	NO_STR
+	SET_STR
+	"Prevent route from being installed in kernel\n")
+{
+	const char *xpath =
+		"./set-action[action='frr-zebra-route-map:kernel-bypass']";
+	char xpath_value[XPATH_MAXLEN];
+
+	if (no)
+		nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+	else {
+		nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+		snprintf(xpath_value, sizeof(xpath_value),
+			"%s/rmap-set-action/frr-zebra-route-map:kernel-bypass",
+			xpath);
+		nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY,
+				      NULL);
+	}
+	return nb_cli_apply_changes(vty, NULL);
+}
+
 DEFUN_YANG (zebra_route_map_timer,
        zebra_route_map_timer_cmd,
        "zebra route-map delay-timer (0-600)",
@@ -1544,6 +1568,51 @@ static const struct route_map_rule_cmd route_set_src_cmd = {
 	route_set_src_free,
 };
 
+static enum route_map_cmd_result_t
+route_set_kernel_bypass(void *rule, const struct prefix *prefix,
+				      void *object)
+{
+	struct zebra_rmap_obj *rm_data;
+
+	rm_data = (struct zebra_rmap_obj *)object;
+	SET_FLAG(rm_data->re->flags, ZEBRA_FLAG_KERNEL_BYPASS);
+	if (unlikely(IS_ZEBRA_DEBUG_KERNEL)) {
+		switch (rm_data->nexthop->type) {
+		case NEXTHOP_TYPE_IPV4_IFINDEX:
+		case NEXTHOP_TYPE_IPV4:
+			zlog_debug("zebra-route-map: set kernel-bypass flag on route, nh src: %pI4, nh gate: %pI4, re flags:0x%x",
+				&rm_data->nexthop->src.ipv4,
+				&rm_data->nexthop->gate.ipv4,
+				rm_data->re->flags
+				);
+			break;
+		case NEXTHOP_TYPE_IPV6_IFINDEX:
+		case NEXTHOP_TYPE_IPV6:
+			zlog_debug("zebra-route-map: set kernel-bypass flag on route, nh gate: %pI6, reflags:0x%x",
+				&rm_data->nexthop->gate.ipv6,
+				rm_data->re->flags);
+			break;
+		case NEXTHOP_TYPE_BLACKHOLE:
+		case NEXTHOP_TYPE_IFINDEX:
+			break;
+		}
+	}
+
+	return RMAP_OKAY;
+}
+static void *route_set_kernel_bypass_compile(const char *arg)
+{
+	return (void *) 1;
+}
+
+static void route_set_kernel_bypass_free(void *rule) {}
+
+static const struct route_map_rule_cmd route_set_kernel_bypass_cmd = {
+	"kernel-bypass",
+	route_set_kernel_bypass,
+	route_set_kernel_bypass_compile,
+	route_set_kernel_bypass_free
+};
 /* The function checks if the changed routemap specified by parameter rmap
  * matches the configured protocol routemaps in proto_rm table. If there is
  * a match then rib_update_table() to process the routes.
@@ -2038,6 +2107,7 @@ void zebra_route_map_init(void)
 
 	/* */
 	route_map_install_set(&route_set_src_cmd);
+	route_map_install_set(&route_set_kernel_bypass_cmd);
 	/* */
 	install_element(RMAP_NODE, &match_ip_nexthop_prefix_len_cmd);
 	install_element(RMAP_NODE, &no_match_ip_nexthop_prefix_len_cmd);
@@ -2053,4 +2123,6 @@ void zebra_route_map_init(void)
 	/* */
 	install_element(RMAP_NODE, &set_src_cmd);
 	install_element(RMAP_NODE, &no_set_src_cmd);
+
+	install_element(RMAP_NODE, &set_kernel_bypass_cmd);
 }

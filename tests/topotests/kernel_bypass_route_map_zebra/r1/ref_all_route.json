@@ -1,0 +1,51 @@
+[
+    {
+        "dst": "192.0.2.1",
+        "protocol": "bgp"
+    },
+    {
+        "dst": "192.0.2.2",
+        "protocol": "bgp"
+    },
+    {
+        "dst": "192.0.2.3",
+        "protocol": "bgp"
+    },
+    {
+        "dst": "192.0.2.4",
+        "protocol": "bgp"
+    },
+    {
+        "dst": "192.0.2.5",
+        "protocol": "bgp"
+    },
+    {
+        "dst": "192.0.2.6",
+        "protocol": "bgp"
+    },
+    {
+        "dst": "192.0.2.7",
+        "protocol": "bgp"
+    },
+    {
+        "dst": "192.0.2.8",
+        "protocol": "bgp"
+    },
+    {
+        "dst": "192.0.2.9",
+        "protocol": "bgp"
+    },
+    {
+        "dst": "192.0.2.10",
+        "protocol": "bgp"
+    },
+    {
+        "dst": "192.0.2.11",
+        "gateway": "192.168.0.2",
+        "protocol": "bgp"
+    },
+    {
+        "dst": "192.168.0.0/24",
+        "protocol": "kernel"
+    }
+]
