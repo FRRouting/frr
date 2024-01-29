@@ -996,14 +996,9 @@ recommendations:
    an example, there’s no need to have both ``distance (1-255) A.B.C.D/M`` and
    ``distance (1-255) A.B.C.D/M WORD`` when a single ``distance (1-255)
    A.B.C.D/M [WORD]`` would suffice.
-#. When necessary, create a separate DEFPY for ``no`` commands so that part of
-   the configuration command can be made optional for convenience. Example:
-   ``no timers basic [(5-2147483647) (5-2147483647) (5-2147483647)]``. In this
-   example, everything after ``no timers basic`` is ignored by FRR, so it makes
-   sense to accept ``no timers basic`` as a valid command. But it also makes
-   sense to accept all parameters (``no timers basic (5-2147483647)
-   (5-2147483647) (5-2147483647)``) to make it easier to remove the command
-   just by prefixing a “no” to it.
+#. When making a negative form of a command, put ``[no]`` in the positive form
+   and use ``![...]`` to mark portions of the command that should be optional
+   only in the ``no`` version.
 
 To rewrite a CLI command as a dumb wrapper around the northbound
 callbacks, use the ``nb_cli_cfg_change()`` function. This function
