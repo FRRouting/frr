@@ -1890,11 +1890,11 @@ struct bgp_nlri {
 	/* SAFI.  */
 	uint8_t safi; /* iana_safi_t */
 
-	/* Pointer to NLRI byte stream.  */
-	uint8_t *nlri;
-
 	/* Length of whole NLRI.  */
 	bgp_size_t length;
+
+	/* Pointer to NLRI byte stream.  */
+	uint8_t *nlri;
 };
 
 /* BGP versions.  */
