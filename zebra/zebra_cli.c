@@ -230,11 +230,12 @@ DEFUN_YANG_NOSH (link_params,
 
 	ret = nb_cli_apply_changes(vty, NULL);
 	if (ret == CMD_SUCCESS) {
-		char xpath[XPATH_MAXLEN];
+		char *xpath;
 
-		snprintf(xpath, sizeof(xpath), "%s/frr-zebra:zebra/link-params",
-			 VTY_CURR_XPATH);
+		xpath = asprintfrr(MTYPE_TMP, "%s/frr-zebra:zebra/link-params",
+				   VTY_CURR_XPATH);
 		VTY_PUSH_XPATH(LINK_PARAMS_NODE, xpath);
+		XFREE(MTYPE_TMP, xpath);
 	}
 
 	return ret;
