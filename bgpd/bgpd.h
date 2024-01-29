@@ -888,10 +888,10 @@ struct peer_group {
 struct bgp_notify {
 	uint8_t code;
 	uint8_t subcode;
-	char *data;
 	bgp_size_t length;
-	uint8_t *raw_data;
 	bool hard_reset;
+	char *data;
+	uint8_t *raw_data;
 };
 
 /* Next hop self address. */
