@@ -421,7 +421,8 @@ extern int vty_mgmt_send_get_req(struct vty *vty, bool is_config,
 				 Mgmtd__DatastoreId datastore,
 				 const char **xpath_list, int num_req);
 extern int vty_mgmt_send_get_data_req(struct vty *vty, LYD_FORMAT result_type,
-				      uint8_t flags, const char *xpath);
+				      uint8_t flags, uint8_t defaults,
+				      const char *xpath);
 extern int vty_mgmt_send_lockds_req(struct vty *vty, Mgmtd__DatastoreId ds_id,
 				    bool lock, bool scok);
 extern void vty_mgmt_resume_response(struct vty *vty, int ret);

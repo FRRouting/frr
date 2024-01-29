@@ -240,17 +240,28 @@ _Static_assert(sizeof(struct mgmt_msg_tree_data) ==
 #define GET_DATA_FLAG_CONFIG	0x02	/* get only "config true" data */
 #define GET_DATA_FLAG_EXACT	0x04	/* get exact data node instead of the full tree */
 
+/*
+ * Modes of reporting default values. Non-default values are always reported.
+ * These options reflect "with-defaults" modes as defined in RFC 6243.
+ */
+#define GET_DATA_DEFAULTS_EXPLICIT    0 /* "explicit" */
+#define GET_DATA_DEFAULTS_TRIM	      1 /* "trim"  */
+#define GET_DATA_DEFAULTS_ALL	      2 /* "report-all" */
+#define GET_DATA_DEFAULTS_ALL_ADD_TAG 3 /* "report-all-tagged" */
+
 /**
  * struct mgmt_msg_get_data - frontend get-data request.
  *
  * @result_type: ``LYD_FORMAT`` for the returned result.
  * @flags: combination of ``GET_DATA_FLAG_*`` flags.
+ * @defaults: one of ``GET_DATA_DEFAULTS_*`` values.
  * @xpath: the query for the data to return.
  */
 struct mgmt_msg_get_data {
 	struct mgmt_msg_header;
 	uint8_t result_type;
 	uint8_t flags;
+	uint8_t defaults;
 	uint8_t resv2[6];
 
 	alignas(8) char xpath[];

@@ -175,6 +175,7 @@ struct txn_req_get_tree {
 	uint64_t recv_clients; /* Bitmask of clients recv reply from */
 	int32_t partial_error; /* an error while gather results */
 	uint8_t result_type;   /* LYD_FORMAT for results */
+	uint8_t wd_options;    /* LYD_PRINT_WD_* flags for results */
 	uint8_t exact;	       /* if exact node is requested */
 	uint8_t simple_xpath;  /* if xpath is simple */
 	struct lyd_node *client_results; /* result tree from clients */
@@ -1282,6 +1283,7 @@ static int txn_get_tree_data_done(struct mgmt_txn_ctx *txn,
 						     txn->txn_id,
 						     txn_req->req_id,
 						     get_tree->result_type,
+						     get_tree->wd_options,
 						     result,
 						     get_tree->partial_error,
 						     false);
@@ -2340,8 +2342,8 @@ int mgmt_txn_send_get_req(uint64_t txn_id, uint64_t req_id,
  */
 int mgmt_txn_send_get_tree_oper(uint64_t txn_id, uint64_t req_id,
 				uint64_t clients, LYD_FORMAT result_type,
-				uint8_t flags, bool simple_xpath,
-				const char *xpath)
+				uint8_t flags, uint32_t wd_options,
+				bool simple_xpath, const char *xpath)
 {
 	struct mgmt_msg_get_tree *msg;
 	struct mgmt_txn_ctx *txn;
@@ -2359,6 +2361,7 @@ int mgmt_txn_send_get_tree_oper(uint64_t txn_id, uint64_t req_id,
 	txn_req = mgmt_txn_req_alloc(txn, req_id, MGMTD_TXN_PROC_GETTREE);
 	get_tree = txn_req->req.get_tree;
 	get_tree->result_type = result_type;
+	get_tree->wd_options = wd_options;
 	get_tree->exact = CHECK_FLAG(flags, GET_DATA_FLAG_EXACT);
 	get_tree->simple_xpath = simple_xpath;
 	get_tree->xpath = XSTRDUP(MTYPE_MGMTD_XPATH, xpath);
