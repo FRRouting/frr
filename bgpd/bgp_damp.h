@@ -74,8 +74,8 @@ struct bgp_damp_config {
 	unsigned int ceiling;		  /* Max value a penalty can attain */
 	unsigned int decay_rate_per_tick; /* Calculated from half-life */
 	unsigned int decay_array_size; /* Calculated using config parameters */
-	double scale_factor;
 	unsigned int reuse_scale_factor;
+	double scale_factor;
 
 	/* Decay array per-set based. */
 	double *decay_array;
@@ -86,6 +86,7 @@ struct bgp_damp_config {
 	/* Reuse list array per-set based. */
 	struct bgp_damp_info **reuse_list;
 	int reuse_offset;
+	safi_t safi;
 
 	/* All dampening information which is not on reuse list.  */
 	struct bgp_damp_info *no_reuse_list;
@@ -94,7 +95,6 @@ struct bgp_damp_config {
 	struct event *t_reuse;
 
 	afi_t afi;
-	safi_t safi;
 };
 
 #define BGP_DAMP_NONE           0
