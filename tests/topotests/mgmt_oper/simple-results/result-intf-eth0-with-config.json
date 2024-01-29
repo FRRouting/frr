@@ -20,6 +20,9 @@
 							"prefix-length": 24
 						}
 					],
+					"evpn-mh": {
+						"df-preference": 32767
+					},
 					"state": {
 						"up-count": 0,
 						"down-count": 0

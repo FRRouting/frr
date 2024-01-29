@@ -146,6 +146,27 @@ def test_oper_simple(tgen):
             '/frr-interface:lib/interface[name="r1-eth0"]/state/mtu',
             "simple-results/result-intf-state-mtu.json",
         ),
+        # with-defaults
+        (
+            '/frr-interface:lib/interface[name="r1-eth0"]/frr-zebra:zebra/evpn-mh',
+            "simple-results/result-intf-eth0-wd-explicit.json",
+            "with-config exact",
+        ),
+        (
+            '/frr-interface:lib/interface[name="r1-eth0"]/frr-zebra:zebra/evpn-mh',
+            "simple-results/result-intf-eth0-wd-trim.json",
+            "with-config exact with-defaults trim",
+        ),
+        (
+            '/frr-interface:lib/interface[name="r1-eth0"]/frr-zebra:zebra/evpn-mh',
+            "simple-results/result-intf-eth0-wd-all.json",
+            "with-config exact with-defaults all",
+        ),
+        (
+            '/frr-interface:lib/interface[name="r1-eth0"]/frr-zebra:zebra/evpn-mh',
+            "simple-results/result-intf-eth0-wd-all-tag.json",
+            "with-config exact with-defaults all-tag",
+        ),
     ]
 
     r1 = tgen.gears["r1"].net
