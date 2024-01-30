@@ -3120,7 +3120,7 @@ DEFUN (vtysh_show_error_code,
 }
 
 /* Northbound. */
-DEFUN_HIDDEN (show_config_running,
+DEFUN (show_config_running,
        show_config_running_cmd,
        "show configuration running\
           [<json|xml> [translate WORD]]\
