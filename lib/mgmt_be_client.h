@@ -60,14 +60,29 @@ struct mgmt_be_client_txn_ctx {
  * Callbacks:
  *	client_connect_notify: called when connection is made/lost to mgmtd.
  *	txn_notify: called when a txn has been created
+ *	notify_cbs: callbacks for notifications.
+ *	nnotify_cbs: number of notification callbacks.
+ *
  */
 struct mgmt_be_client_cbs {
 	void (*client_connect_notify)(struct mgmt_be_client *client,
 				      uintptr_t usr_data, bool connected);
-
+	void (*subscr_done)(struct mgmt_be_client *client, uintptr_t usr_data,
+			    bool success);
 	void (*txn_notify)(struct mgmt_be_client *client, uintptr_t usr_data,
 			   struct mgmt_be_client_txn_ctx *txn_ctx,
 			   bool destroyed);
+
+	struct mgmt_be_client_notification_cb *notify_cbs;
+	uint nnotify_cbs;
+};
+
+struct mgmt_be_client_notification_cb {
+	const char *xpath; /* the notification */
+	uint8_t format;	   /* currently only LYD_JSON supported */
+	void (*callback)(struct mgmt_be_client *client, uintptr_t usr_data,
+			 struct mgmt_be_client_notification_cb *this,
+			 const char *notif_data);
 };
 
 /***************************************************************
@@ -124,7 +139,7 @@ extern void mgmt_debug_be_client_show_debug(struct vty *vty);
  *    The client object.
  *
  * reg_yang_xpaths
- *    Yang xpath(s) that needs to be [un]-subscribed from/to
+ *    Yang xpath(s) that needs to be subscribed to
  *
  * num_xpaths
  *    Number of xpaths
@@ -132,9 +147,9 @@ extern void mgmt_debug_be_client_show_debug(struct vty *vty);
  * Returns:
  *    MGMTD_SUCCESS on success, MGMTD_* otherwise.
  */
-extern int mgmt_be_send_subscr_req(struct mgmt_be_client *client,
-				   bool subscr_xpaths, int num_xpaths,
-				   char **reg_xpaths);
+extern int mgmt_be_send_subscr_req(struct mgmt_be_client *client_ctx,
+				   int n_config_xpaths, char **config_xpaths,
+				   int n_oper_xpaths, char **oper_xpaths);
 
 /**
  * mgmt_be_notification_send() - send a YANG notification to FE clients.
