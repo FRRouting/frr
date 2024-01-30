@@ -33,6 +33,7 @@ Installing Topotest Requirements
        tshark \
        valgrind
    python3 -m pip install wheel
+   python3 -m pip install protobuf
    python3 -m pip install 'pytest>=6.2.4'
    python3 -m pip install 'pytest-xdist>=2.3.0'
    python3 -m pip install 'scapy>=2.4.5'
