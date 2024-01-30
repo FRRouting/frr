@@ -888,10 +888,10 @@ struct peer_group {
 struct bgp_notify {
 	uint8_t code;
 	uint8_t subcode;
-	char *data;
 	bgp_size_t length;
-	uint8_t *raw_data;
 	bool hard_reset;
+	char *data;
+	uint8_t *raw_data;
 };
 
 /* Next hop self address. */
@@ -1890,11 +1890,11 @@ struct bgp_nlri {
 	/* SAFI.  */
 	uint8_t safi; /* iana_safi_t */
 
-	/* Pointer to NLRI byte stream.  */
-	uint8_t *nlri;
-
 	/* Length of whole NLRI.  */
 	bgp_size_t length;
+
+	/* Pointer to NLRI byte stream.  */
+	uint8_t *nlri;
 };
 
 /* BGP versions.  */

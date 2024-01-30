@@ -162,6 +162,45 @@ struct attr {
 	/* Path origin attribute */
 	uint8_t origin;
 
+	/* ES info */
+	uint8_t es_flags;
+	/* Path is not "locally-active" on the advertising VTEP. This is
+	 * translated into an ARP-ND ECOM.
+	 */
+#define ATTR_ES_PROXY_ADVERT (1 << 0)
+	/* Destination ES is present locally. This flag is set on local
+	 * paths and sync paths
+	 */
+#define ATTR_ES_IS_LOCAL (1 << 1)
+	/* There are one or more non-best paths from ES peers. Note that
+	 * this flag is only set on the local MAC-IP paths in the VNI
+	 * route table (not set in the global routing table). And only
+	 * non-proxy advertisements from an ES peer can result in this
+	 * flag being set.
+	 */
+#define ATTR_ES_PEER_ACTIVE (1 << 2)
+	/* There are one or more non-best proxy paths from ES peers */
+#define ATTR_ES_PEER_PROXY (1 << 3)
+	/* An ES peer has router bit set - only applicable if
+	 * ATTR_ES_PEER_ACTIVE is set
+	 */
+#define ATTR_ES_PEER_ROUTER (1 << 4)
+
+	/* These two flags are only set on L3 routes installed in a
+	 * VRF as a result of EVPN MAC-IP route
+	 * XXX - while splitting up per-family attrs these need to be
+	 * classified as non-EVPN
+	 */
+#define ATTR_ES_L3_NHG_USE    (1 << 5)
+#define ATTR_ES_L3_NHG_ACTIVE (1 << 6)
+#define ATTR_ES_L3_NHG	      (ATTR_ES_L3_NHG_USE | ATTR_ES_L3_NHG_ACTIVE)
+
+	/* NA router flag (R-bit) support in EVPN */
+	uint8_t router_flag;
+
+	/* Distance as applied by Route map */
+	uint8_t distance;
+
 	/* PMSI tunnel type (RFC 6514). */
 	enum pta_type pmsi_tnl_type;
 
@@ -217,42 +256,6 @@ struct attr {
 	/* Flag for default gateway extended community in EVPN */
 	uint8_t default_gw;
 
-	/* NA router flag (R-bit) support in EVPN */
-	uint8_t router_flag;
-
-	/* ES info */
-	uint8_t es_flags;
-	/* Path is not "locally-active" on the advertising VTEP. This is
-	 * translated into an ARP-ND ECOM.
-	 */
-#define ATTR_ES_PROXY_ADVERT (1 << 0)
-	/* Destination ES is present locally. This flag is set on local
-	 * paths and sync paths
-	 */
-#define ATTR_ES_IS_LOCAL (1 << 1)
-	/* There are one or more non-best paths from ES peers. Note that
-	 * this flag is only set on the local MAC-IP paths in the VNI
-	 * route table (not set in the global routing table). And only
-	 * non-proxy advertisements from an ES peer can result in this
-	 * flag being set.
-	 */
-#define ATTR_ES_PEER_ACTIVE (1 << 2)
-	/* There are one or more non-best proxy paths from ES peers */
-#define ATTR_ES_PEER_PROXY (1 << 3)
-	/* An ES peer has router bit set - only applicable if
-	 * ATTR_ES_PEER_ACTIVE is set
-	 */
-#define ATTR_ES_PEER_ROUTER (1 << 4)
-
-	/* These two flags are only set on L3 routes installed in a
-	 * VRF as a result of EVPN MAC-IP route
-	 * XXX - while splitting up per-family attrs these need to be
-	 * classified as non-EVPN
-	 */
-#define ATTR_ES_L3_NHG_USE (1 << 5)
-#define ATTR_ES_L3_NHG_ACTIVE (1 << 6)
-#define ATTR_ES_L3_NHG (ATTR_ES_L3_NHG_USE | ATTR_ES_L3_NHG_ACTIVE)
-
 	/* route tag */
 	route_tag_t tag;
 
@@ -262,13 +265,16 @@ struct attr {
 	/* MPLS label */
 	mpls_label_t label;
 
+	/* EVPN DF preference for DF election on local ESs */
+	uint16_t df_pref;
+	uint8_t df_alg;
+
 	/* SRv6 VPN SID */
 	struct bgp_attr_srv6_vpn *srv6_vpn;
 
 	/* SRv6 L3VPN SID */
 	struct bgp_attr_srv6_l3vpn *srv6_l3vpn;
 
-	uint16_t encap_tunneltype;		     /* grr */
 	struct bgp_attr_encap_subtlv *encap_subtlvs; /* rfc5512 */
 
 #ifdef ENABLE_BGP_VNC
@@ -290,8 +296,7 @@ struct attr {
 	/* EVPN local router-mac */
 	struct ethaddr rmac;
 
-	/* Distance as applied by Route map */
-	uint8_t distance;
+	uint16_t encap_tunneltype;
 
 	/* rmap set table */
 	uint32_t rmap_table_id;
@@ -304,10 +309,6 @@ struct attr {
 
 	/* SR-TE Color */
 	uint32_t srte_color;
-
-	/* EVPN DF preference and algorithm for DF election on local ESs */
-	uint16_t df_pref;
-	uint8_t df_alg;
 
 	/* Nexthop type */
 	enum nexthop_types_t nh_type;

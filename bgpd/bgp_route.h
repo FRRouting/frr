@@ -369,6 +369,8 @@ struct bgp_static {
 	/* Import check status.  */
 	uint8_t valid;
 
+	uint16_t encap_tunneltype;
+
 	/* IGP metric. */
 	uint32_t igpmetric;
 
@@ -394,7 +396,6 @@ struct bgp_static {
 	/* EVPN */
 	esi_t *eth_s_id;
 	struct ethaddr *router_mac;
-	uint16_t encap_tunneltype;
 	struct prefix gatewayIp;
 };
 
@@ -415,6 +416,17 @@ struct bgp_aggregate {
 	/* AS set generation. */
 	uint8_t as_set;
 
+	/* Optional modify flag to override ORIGIN */
+	uint8_t origin;
+
+	/** Are there MED mismatches? */
+	bool med_mismatched;
+	/* MED matching state. */
+	/** Did we get the first MED value? */
+	bool med_initialized;
+	/** Match only equal MED. */
+	bool match_med;
+
 	/* Route-map for aggregated route. */
 	struct {
 		char *name;
@@ -429,9 +441,6 @@ struct bgp_aggregate {
 
 	/* Count of routes of origin type egp under this aggregate. */
 	unsigned long egp_origin_count;
-
-	/* Optional modify flag to override ORIGIN */
-	uint8_t origin;
 
 	/* Hash containing the communities of all the
 	 * routes under this aggregate.
@@ -468,13 +477,6 @@ struct bgp_aggregate {
 	/* SAFI configuration. */
 	safi_t safi;
 
-	/** Match only equal MED. */
-	bool match_med;
-	/* MED matching state. */
-	/** Did we get the first MED value? */
-	bool med_initialized;
-	/** Are there MED mismatches? */
-	bool med_mismatched;
 	/** MED value found in current group. */
 	uint32_t med_matched_value;
 
