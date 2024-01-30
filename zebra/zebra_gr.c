@@ -368,7 +368,16 @@ void zread_client_capabilities(ZAPI_HANDLER_ARGS)
 		/* Update other parameters */
 		if (!info->gr_enable) {
 			client->gr_instance_count++;
-			client->restart_time = monotime(NULL);
+
+			if (!zrouter.gr_stale_cleaup_time_recorded) {
+				/*
+				 * Record the time at which GR started.
+				 * This timestamp will be later used to
+				 * cleanup stale routes and EVPN entries.
+				 */
+				client->restart_time = monotime(NULL);
+				zrouter.gr_stale_cleaup_time_recorded = true;
+			}
 
 			LOG_GR("%s: Cient %s vrf %s(%u) GR enabled count %d",
 			       __func__, zebra_route_string(client->proto),
@@ -441,13 +450,6 @@ void zread_client_capabilities(ZAPI_HANDLER_ARGS)
 				 api.safi);
 
 			info->af_enabled[api.afi] = true;
-
-			/*
-			 * Record the time at which GR started.
-			 * This timestamp will be later used to
-			 * cleanup stale routes and EVPN entries.
-			 */
-			client->restart_time = monotime(NULL);
 		}
 		break;
 	}

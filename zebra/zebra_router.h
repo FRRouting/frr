@@ -210,6 +210,7 @@ struct zebra_router {
 	struct zebra_vrf *evpn_vrf;
 
 	struct zebra_architectural_values zav;
+	bool gr_stale_cleaup_time_recorded;
 
 	/*
 	 * zebra start time and time of sweeping RIB of old routes
