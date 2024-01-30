@@ -1558,47 +1558,49 @@ static int update_evpn_type5_route_entry(struct bgp *bgp_evpn,
 	mpls_label_t label = MPLS_INVALID_LABEL;
 	struct bgp_path_info *local_pi = NULL;
 	struct bgp_path_info *tmp_pi = NULL;
+	struct attr local_attr;
 
 	*route_changed = 0;
 
 	/* See if this is an update of an existing route, or a new add. */
 	local_pi = bgp_evpn_route_get_local_path(bgp_evpn, dest);
 
+	local_attr = *attr;
+	/* Type-5 routes advertise the L3-VNI */
+	vni2label(bgp_vrf->l3vni, &label);
+	local_attr.label_tbl[0] = label;
+	assert(label);
+	local_attr.num_labels = 1;
+
 	/*
 	 * create a new route entry if one doesn't exist.
 	 * Otherwise see if route attr has changed
 	 */
 	if (!local_pi) {
-
 		/* route has changed as this is the first entry */
 		*route_changed = 1;
 
 		/* Add (or update) attribute to hash. */
-		attr_new = bgp_attr_intern(attr);
+		attr_new = bgp_attr_intern(&local_attr);
 
 		/* create the route info from attribute */
 		pi = info_make(ZEBRA_ROUTE_BGP, BGP_ROUTE_STATIC, 0,
 			       bgp_evpn->peer_self, attr_new, dest);
 		SET_FLAG(pi->flags, BGP_PATH_VALID);
 
-		/* Type-5 routes advertise the L3-VNI */
-		vni2label(bgp_vrf->l3vni, &label);
-		memcpy(&pi->attr->label_tbl, &label, sizeof(label));
-		pi->attr->num_labels = 1;
-
 		/* add the route entry to route node*/
 		bgp_path_info_add(dest, pi);
 	} else {
 
 		tmp_pi = local_pi;
-		if (!attrhash_cmp(tmp_pi->attr, attr)) {
+		if (!attrhash_cmp(tmp_pi->attr, &local_attr)) {
 
 			/* attribute changed */
 			*route_changed = 1;
 
 			/* The attribute has changed. */
 			/* Add (or update) attribute to hash. */
-			attr_new = bgp_attr_intern(attr);
+			attr_new = bgp_attr_intern(&local_attr);
 			bgp_path_info_set_flag(dest, tmp_pi,
 					       BGP_PATH_ATTR_CHANGED);
 
@@ -1912,9 +1914,27 @@ static int update_evpn_route_entry(struct bgp *bgp, struct bgpevpn *vpn,
 	if (seq && !CHECK_FLAG(flags, ZEBRA_MACIP_TYPE_GW))
 		add_mac_mobility_to_attr(seq, attr);
 
-	if (!local_pi) {
-		local_attr = *attr;
+	local_attr = *attr;
+	/*
+	 * The attributes have changed, type-2 routes needs to
+	 * be advertised with right labels.
+	 */
+	vni2label(vpn->vni, &label[0]);
+	if (evp->prefix.route_type == BGP_EVPN_MAC_IP_ROUTE
+	    && CHECK_FLAG(vpn->flags,
+			  VNI_FLAG_USE_TWO_LABELS)) {
+		vni_t l3vni;
 
+		l3vni = bgpevpn_get_l3vni(vpn);
+		if (l3vni) {
+			vni2label(l3vni, &label[1]);
+			num_labels++;
+		}
+	}
+	memcpy(&local_attr.label_tbl, label, sizeof(label));
+	local_attr.num_labels = num_labels;
+
+	if (!local_pi) {
 		/* Extract MAC mobility sequence number, if any. */
 		local_attr.mm_seqnum =
 			bgp_attr_mac_mobility_seqnum(&local_attr, &sticky);
@@ -1928,27 +1948,6 @@ static int update_evpn_route_entry(struct bgp *bgp, struct bgpevpn *vpn,
 				   bgp->peer_self, attr_new, dest);
 		SET_FLAG(tmp_pi->flags, BGP_PATH_VALID);
 		bgp_path_info_extra_get(tmp_pi);
-
-		/* The VNI goes into the 'label' field of the route */
-		vni2label(vpn->vni, &label[0]);
-
-		/* Type-2 routes may carry a second VNI - the L3-VNI.
-		 * Only attach second label if we are advertising two labels for
-		 * type-2 routes.
-		 */
-		if (evp->prefix.route_type == BGP_EVPN_MAC_IP_ROUTE
-		    && CHECK_FLAG(vpn->flags, VNI_FLAG_USE_TWO_LABELS)) {
-			vni_t l3vni;
-
-			l3vni = bgpevpn_get_l3vni(vpn);
-			if (l3vni) {
-				vni2label(l3vni, &label[1]);
-				num_labels++;
-			}
-		}
-
-		memcpy(&tmp_pi->attr->label_tbl, label, sizeof(label));
-		tmp_pi->attr->num_labels = num_labels;
 
 		if (evp->prefix.route_type == BGP_EVPN_MAC_IP_ROUTE) {
 			if (mac)
@@ -1964,29 +1963,10 @@ static int update_evpn_route_entry(struct bgp *bgp, struct bgpevpn *vpn,
 		bgp_path_info_add(dest, tmp_pi);
 	} else {
 		tmp_pi = local_pi;
-		if (attrhash_cmp(tmp_pi->attr, attr)
+		if (attrhash_cmp(tmp_pi->attr, &local_attr)
 		    && !CHECK_FLAG(tmp_pi->flags, BGP_PATH_REMOVED))
 			route_change = 0;
 		else {
-			/*
-			 * The attributes have changed, type-2 routes needs to
-			 * be advertised with right labels.
-			 */
-			vni2label(vpn->vni, &label[0]);
-			if (evp->prefix.route_type == BGP_EVPN_MAC_IP_ROUTE
-			    && CHECK_FLAG(vpn->flags,
-					  VNI_FLAG_USE_TWO_LABELS)) {
-				vni_t l3vni;
-
-				l3vni = bgpevpn_get_l3vni(vpn);
-				if (l3vni) {
-					vni2label(l3vni, &label[1]);
-					num_labels++;
-				}
-			}
-			memcpy(&tmp_pi->attr->label_tbl, label, sizeof(label));
-			tmp_pi->attr->num_labels = num_labels;
-
 			if (evp->prefix.route_type == BGP_EVPN_MAC_IP_ROUTE) {
 				if (mac)
 					evpn_type2_path_info_set_mac(tmp_pi,
@@ -1996,9 +1976,6 @@ static int update_evpn_route_entry(struct bgp *bgp, struct bgpevpn *vpn,
 								    *ip);
 			}
 
-			/* The attribute has changed. */
-			/* Add (or update) attribute to hash. */
-			local_attr = *attr;
 			bgp_path_info_set_flag(dest, tmp_pi,
 					       BGP_PATH_ATTR_CHANGED);
 
@@ -2007,6 +1984,8 @@ static int update_evpn_route_entry(struct bgp *bgp, struct bgpevpn *vpn,
 				&local_attr, &sticky);
 			local_attr.sticky = sticky;
 
+			/* The attribute has changed. */
+			/* Add (or update) attribute to hash. */
 			attr_new = bgp_attr_intern(&local_attr);
 
 			/* Restore route, if needed. */
@@ -2877,9 +2856,16 @@ bgp_create_evpn_bgp_path_info(struct bgp_path_info *parent_pi,
 {
 	struct attr *attr_new;
 	struct bgp_path_info *pi;
+	struct attr local_attr;
+
+	local_attr = *attr;
+
+	memcpy(&local_attr.label_tbl, &parent_pi->attr->label_tbl,
+		   sizeof(local_attr.label_tbl));
+	local_attr.num_labels = parent_pi->attr->num_labels;
 
 	/* Add (or update) attribute to hash. */
-	attr_new = bgp_attr_intern(attr);
+	attr_new = bgp_attr_intern(&local_attr);
 
 	/* Create new route with its attribute. */
 	pi = info_make(parent_pi->type, BGP_ROUTE_IMPORTED, 0, parent_pi->peer,
@@ -2892,9 +2878,6 @@ bgp_create_evpn_bgp_path_info(struct bgp_path_info *parent_pi,
 				sizeof(struct bgp_path_info_extra_vrfleak));
 	pi->extra->vrfleak->parent = bgp_path_info_lock(parent_pi);
 	bgp_dest_lock_node((struct bgp_dest *)parent_pi->net);
-	memcpy(&pi->attr->label_tbl, &parent_pi->attr->label_tbl,
-		   sizeof(pi->attr->label_tbl));
-	pi->attr->num_labels = parent_pi->attr->num_labels;
 	if (parent_pi->extra)
 		pi->extra->igpmetric = parent_pi->extra->igpmetric;
 
