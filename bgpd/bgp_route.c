@@ -1752,8 +1752,8 @@ static bool bgp_check_role_applicability(afi_t afi, safi_t safi)
 
 static int bgp_input_modifier(struct peer *peer, const struct prefix *p,
 			      struct attr *attr, afi_t afi, safi_t safi,
-			      const char *rmap_name, mpls_label_t *label,
-			      uint32_t num_labels, struct bgp_dest *dest)
+			      const char *rmap_name,
+			      struct bgp_dest *dest)
 {
 	struct bgp_filter *filter;
 	struct bgp_path_info rmap_path = { 0 };
@@ -1789,11 +1789,6 @@ static int bgp_input_modifier(struct peer *peer, const struct prefix *p,
 		rmap_path.attr = attr;
 		rmap_path.extra = &extra;
 		rmap_path.net = dest;
-
-		rmap_path.attr->num_labels = num_labels;
-		if (label && num_labels && num_labels <= BGP_MAX_LABELS)
-			memcpy(&rmap_path.attr->label_tbl, label,
-				num_labels * sizeof(mpls_label_t));
 
 		SET_FLAG(peer->rmap_type, PEER_RMAP_TYPE_IN);
 
@@ -3792,7 +3787,7 @@ static uint32_t bgp_filtered_routes_count(struct peer *peer, afi_t afi,
 			if (bgp_input_modifier(
 				    peer, rn_p, &attr, afi, safi,
 				    ROUTE_MAP_IN_NAME(&peer->filter[afi][safi]),
-				    NULL, 0, NULL)
+				    NULL)
 			    == RMAP_DENY)
 				filtered = true;
 
@@ -4404,8 +4399,8 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 	 * commands, so we need bgp_attr_flush in the error paths, until we
 	 * intern
 	 * the attr (which takes over the memory references) */
-	if (bgp_input_modifier(peer, p, &new_attr, afi, orig_safi, NULL, attr->label_tbl,
-			       attr->num_labels, dest)
+	if (bgp_input_modifier(peer, p, &new_attr, afi, orig_safi, NULL,
+			       dest)
 	    == RMAP_DENY) {
 		peer->stat_pfx_filter++;
 		reason = "route-map;";
@@ -14169,8 +14164,8 @@ show_adj_route(struct vty *vty, struct peer *peer, struct bgp_table *table,
 
 				/* Filter prefix using route-map */
 				ret = bgp_input_modifier(peer, rn_p, &attr, afi,
-							 safi, rmap_name, NULL,
-							 0, NULL);
+							 safi, rmap_name,
+							 NULL);
 
 				if (type == bgp_show_adj_route_filtered &&
 					!route_filtered && ret != RMAP_DENY) {
