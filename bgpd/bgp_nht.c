@@ -406,7 +406,7 @@ int bgp_find_or_add_nexthop(struct bgp *bgp_route, struct bgp *bgp_nexthop,
 	if (pi && is_route_parent_evpn(pi))
 		bnc->is_evpn_gwip_nexthop = true;
 
-	if (is_bgp_static_route) {
+	if (is_bgp_static_route && !CHECK_FLAG(bnc->flags, BGP_STATIC_ROUTE)) {
 		SET_FLAG(bnc->flags, BGP_STATIC_ROUTE);
 
 		/* If we're toggling the type, re-register */
@@ -903,7 +903,10 @@ void bgp_nexthop_update(struct vrf *vrf, struct prefix *match,
 {
 	struct bgp_nexthop_cache_head *tree = NULL;
 	struct bgp_nexthop_cache *bnc_nhc, *bnc_import;
-	struct bgp *bgp;
+	struct bgp *bgp, *bgp_default;
+	struct bgp_path_info *pi;
+	struct bgp_dest *dest;
+	safi_t safi;
 	afi_t afi;
 
 	if (!vrf->info) {
@@ -918,24 +921,37 @@ void bgp_nexthop_update(struct vrf *vrf, struct prefix *match,
 	tree = &bgp->nexthop_cache_table[afi];
 
 	bnc_nhc = bnc_find(tree, match, nhr->srte_color, 0);
-	if (!bnc_nhc) {
-		if (BGP_DEBUG(nht, NHT))
-			zlog_debug("parse nexthop update %pFX(%u)(%s): bnc info not found for nexthop cache",
-				   &nhr->prefix, nhr->srte_color,
-				   bgp->name_pretty);
-	} else
+	if (bnc_nhc)
 		bgp_process_nexthop_update(bnc_nhc, nhr, false);
+	else if (BGP_DEBUG(nht, NHT))
+		zlog_debug("parse nexthop update %pFX(%u)(%s): bnc info not found for nexthop cache",
+			   &nhr->prefix, nhr->srte_color,
+			   bgp->name_pretty);
 
 	tree = &bgp->import_check_table[afi];
 
 	bnc_import = bnc_find(tree, match, nhr->srte_color, 0);
-	if (!bnc_import) {
-		if (BGP_DEBUG(nht, NHT))
-			zlog_debug("parse nexthop update %pFX(%u)(%s): bnc info not found for import check",
-				   &nhr->prefix, nhr->srte_color,
-				   bgp->name_pretty);
-	} else
+	if (bnc_import) {
 		bgp_process_nexthop_update(bnc_import, nhr, true);
+
+		bgp_default = bgp_get_default();
+		safi = nhr->safi;
+		if (bgp != bgp_default && bgp->rib[afi][safi]) {
+			dest = bgp_afi_node_get(bgp->rib[afi][safi], afi, safi,
+						match, NULL);
+
+			for (pi = bgp_dest_get_bgp_path_info(dest); pi;
+			     pi = pi->next)
+				if (pi->peer == bgp->peer_self &&
+				    pi->type == ZEBRA_ROUTE_BGP &&
+				    pi->sub_type == BGP_ROUTE_STATIC)
+					vpn_leak_from_vrf_update(bgp_default,
+								 bgp, pi);
+		}
+	} else if (BGP_DEBUG(nht, NHT))
+		zlog_debug("parse nexthop update %pFX(%u)(%s): bnc info not found for import check",
+			   &nhr->prefix, nhr->srte_color,
+			   bgp->name_pretty);
 
 	/*
 	 * HACK: if any BGP route is dependant on an SR-policy that doesn't

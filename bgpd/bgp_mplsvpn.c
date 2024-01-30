@@ -1034,13 +1034,19 @@ static bool leak_update_nexthop_valid(struct bgp *to_bgp, struct bgp_dest *bn,
 	else if (bpi_ultimate->type == ZEBRA_ROUTE_BGP &&
 		 bpi_ultimate->sub_type == BGP_ROUTE_STATIC && table &&
 		 (table->safi == SAFI_UNICAST ||
-		  table->safi == SAFI_LABELED_UNICAST) &&
-		 !CHECK_FLAG(bgp_nexthop->flags, BGP_FLAG_IMPORT_CHECK)) {
-		/* if the route is defined with the "network <prefix>" command
-		 * and "no bgp network import-check" is set,
-		 * then mark the nexthop as valid.
-		 */
-		nh_valid = true;
+		  table->safi == SAFI_LABELED_UNICAST)) {
+		/* the route is defined with the "network <prefix>" command */
+
+		if (CHECK_FLAG(bgp_nexthop->flags, BGP_FLAG_IMPORT_CHECK))
+			nh_valid = bgp_find_or_add_nexthop(to_bgp, bgp_nexthop,
+							   afi, SAFI_UNICAST,
+							   bpi_ultimate, NULL,
+							   0, p);
+		else
+			/* if "no bgp network import-check" is set,
+			 * then mark the nexthop as valid.
+			 */
+			nh_valid = true;
 	} else
 		/*
 		 * TBD do we need to do anything about the
@@ -2084,6 +2090,7 @@ static void vpn_leak_to_vrf_update_onevrf(struct bgp *to_bgp,   /* to */
 	uint32_t num_labels = 0;
 	int nexthop_self_flag = 1;
 	struct bgp_path_info *bpi_ultimate = NULL;
+	struct bgp_path_info *bpi;
 	int origin_local = 0;
 	struct bgp *src_vrf;
 	struct interface *ifp;
@@ -2172,6 +2179,20 @@ static void vpn_leak_to_vrf_update_onevrf(struct bgp *to_bgp,   /* to */
 	}
 
 	community_strip_accept_own(&static_attr);
+
+	bn = bgp_afi_node_get(to_bgp->rib[afi][safi], afi, safi, p, NULL);
+
+	for (bpi = bgp_dest_get_bgp_path_info(bn); bpi; bpi = bpi->next) {
+		if (bpi->extra && bpi->extra->vrfleak &&
+		    bpi->extra->vrfleak->parent == path_vpn)
+			break;
+	}
+
+	if (bpi && leak_update_nexthop_valid(to_bgp, bn, &static_attr, afi, safi,
+					     path_vpn, bpi, src_vrf, p, debug))
+		SET_FLAG(static_attr.nh_flags, BGP_ATTR_NH_VALID);
+	else
+		UNSET_FLAG(static_attr.nh_flags, BGP_ATTR_NH_VALID);
 
 	/*
 	 * Nexthop: stash and clear
@@ -2264,8 +2285,6 @@ static void vpn_leak_to_vrf_update_onevrf(struct bgp *to_bgp,   /* to */
 
 	new_attr = bgp_attr_intern(&static_attr);
 	bgp_attr_flush(&static_attr);
-
-	bn = bgp_afi_node_get(to_bgp->rib[afi][safi], afi, safi, p, NULL);
 
 	/*
 	 * ensure labels are copied

@@ -60,6 +60,7 @@ want_r1_cust1_routes = [
     {"p": "6.0.1.0/24", "n": "99.0.0.1"},
     {"p": "6.0.2.0/24", "n": "99.0.0.1"},
     {"p": "172.16.0.0/24", "n": "0.0.0.0", "bp": True},
+    {"p": "172.16.1.1/32", "n": "0.0.0.0", "bp": True},
     {"p": "99.0.0.1/32", "n": "192.168.1.2"},
 ]
 bgpribRequireUnicastRoutes(
@@ -71,6 +72,13 @@ want_r1_cust4_routes = [
 ]
 bgpribRequireUnicastRoutes(
     "r1", "ipv4", "r1-cust4", "Customer 4 routes in r1 vrf", want_r1_cust4_routes
+)
+
+want_r1_cust5_routes = [
+    {"p": "172.16.1.1/32", "n": "0.0.0.0", "bp": True},
+]
+bgpribRequireUnicastRoutes(
+    "r1", "ipv4", "r1-cust5", "Customer 5 routes in r1 vrf", want_r1_cust5_routes
 )
 
 want_r3_cust1_routes = [
@@ -675,7 +683,7 @@ bgpribRequireUnicastRoutes(
 luCommand(
     "ce1",
     'vtysh -c "show bgp ipv4 uni"',
-    "13 routes and 13",
+    "14 routes and 14",
     "wait",
     "Local and remote routes",
     10,
@@ -697,7 +705,7 @@ bgpribRequireUnicastRoutes(
 luCommand(
     "ce2",
     'vtysh -c "show bgp ipv4 uni"',
-    "13 routes and 16",
+    "14 routes and 17",
     "wait",
     "Local and remote routes",
     10,
@@ -729,7 +737,7 @@ luCommand("r4", 'vtysh -c "show ip route vrf r4-cust2"')
 luCommand(
     "ce3",
     'vtysh -c "show bgp ipv4 uni"',
-    "13 routes and 14",
+    "14 routes and 15",
     "wait",
     "Local and remote routes",
     10,
@@ -751,7 +759,7 @@ bgpribRequireUnicastRoutes(
 luCommand(
     "ce4",
     'vtysh -c "show bgp vrf ce4-cust2 ipv4 uni"',
-    "13 routes and 15",
+    "14 routes and 16",
     "wait",
     "Local and remote routes",
     10,

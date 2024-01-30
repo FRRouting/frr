@@ -165,6 +165,8 @@ def ltemplatePreRouterStartHook():
     cmds = [
         "ip link add {0}-cust4 type vrf table 30",
         "ip link set dev {0}-cust4 up",
+        "ip link add {0}-cust5 type vrf table 40",
+        "ip link set dev {0}-cust5 up",
     ]
     rtr = "r1"
     for cmd in cmds:
