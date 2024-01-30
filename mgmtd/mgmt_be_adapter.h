@@ -27,6 +27,8 @@
  * #ifdef HAVE_COMPONENT
  */
 enum mgmt_be_client_id {
+	MGMTD_BE_CLIENT_ID_TESTC, /* always first */
+	MGMTD_BE_CLIENT_ID_ZEBRA,
 #ifdef HAVE_RIPD
 	MGMTD_BE_CLIENT_ID_RIPD,
 #endif
@@ -36,7 +38,6 @@ enum mgmt_be_client_id {
 #ifdef HAVE_STATICD
 	MGMTD_BE_CLIENT_ID_STATICD,
 #endif
-	MGMTD_BE_CLIENT_ID_ZEBRA,
 	MGMTD_BE_CLIENT_ID_MAX
 };
 #define MGMTD_BE_CLIENT_ID_MIN	0
