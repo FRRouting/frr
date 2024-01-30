@@ -701,6 +701,8 @@ AC_ARG_ENABLE([mgmtd],
   AS_HELP_STRING([--disable-mgmtd], [do not build mgmtd]))
 AC_ARG_ENABLE([mgmtd_local_validations],
   AS_HELP_STRING([--enable-mgmtd-local-validations], [dev: unimplemented local validation]))
+AC_ARG_ENABLE([mgmtd_test_be_client],
+  AS_HELP_STRING([--enable-mgmtd-test-be-client], [build test backend client]))
 AC_ARG_ENABLE([ripd],
   AS_HELP_STRING([--disable-ripd], [do not build ripd]))
 AC_ARG_ENABLE([ripngd],
@@ -1811,6 +1813,10 @@ AS_IF([test "$enable_mgmtd" != "no"], [
   ])
 ])
 
+AS_IF([test "$enable_mgmtd_test_be_client" = "yes"], [
+  AC_DEFINE([HAVE_MGMTD_TESTC], [1], [mgmtd_testc])
+])
+
 AS_IF([test "$enable_ripd" != "no"], [
   AC_DEFINE([HAVE_RIPD], [1], [ripd])
 ])
@@ -2772,6 +2778,7 @@ AM_CONDITIONAL([VTYSH], [test "$VTYSH" = "vtysh"])
 AM_CONDITIONAL([ZEBRA], [test "$enable_zebra" != "no"])
 AM_CONDITIONAL([BGPD], [test "$enable_bgpd" != "no"])
 AM_CONDITIONAL([MGMTD], [test "$enable_mgmtd" != "no"])
+AM_CONDITIONAL([MGMTD_TESTC], [test "$enable_mgmtd_test_be_client" = "yes"])
 AM_CONDITIONAL([RIPD], [test "$enable_ripd" != "no"])
 AM_CONDITIONAL([OSPFD], [test "$enable_ospfd" != "no"])
 AM_CONDITIONAL([LDPD], [test "$enable_ldpd" != "no"])
