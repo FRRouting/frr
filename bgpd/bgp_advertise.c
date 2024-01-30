@@ -169,7 +169,7 @@ void bgp_adj_in_set(struct bgp_dest *dest, struct peer *peer, struct attr *attr,
 
 	for (adj = dest->adj_in; adj; adj = adj->next) {
 		if (adj->peer == peer && adj->addpath_rx_id == addpath_id) {
-			if (adj->attr != attr) {
+			if (!attrhash_cmp(adj->attr, attr)) {
 				bgp_attr_unintern(&adj->attr);
 				adj->attr = bgp_attr_intern(attr);
 			}
