@@ -311,6 +311,90 @@ static int be_client_send_error(struct mgmt_be_client *client, uint64_t txn_id,
 	return ret;
 }
 
+void mgmt_be_send_notification(struct lyd_node *tree)
+{
+	struct mgmt_be_client *client = __be_client;
+	struct mgmt_msg_notify_data *msg = NULL;
+	LYD_FORMAT format = LYD_JSON;
+	uint8_t **darrp;
+	LY_ERR err;
+
+	assert(tree);
+
+	MGMTD_BE_CLIENT_DBG("%s: sending YANG notification: %s", __func__,
+			    tree->schema->name);
+	/*
+	 * Allocate a message and append the data to it using `format`
+	 */
+	msg = mgmt_msg_native_alloc_msg(struct mgmt_msg_notify_data, 0,
+					MTYPE_MSG_NATIVE_NOTIFY);
+	msg->code = MGMT_MSG_CODE_NOTIFY;
+	msg->result_type = format;
+
+	darrp = mgmt_msg_native_get_darrp(msg);
+	err = yang_print_tree_append(darrp, tree, format,
+				     (LYD_PRINT_SHRINK | LYD_PRINT_WD_EXPLICIT |
+				      LYD_PRINT_WITHSIBLINGS));
+	if (err) {
+		flog_err(EC_LIB_LIBYANG,
+			 "%s: error creating notification data: %s", __func__,
+			 ly_strerrcode(err));
+		goto done;
+	}
+
+	(void)be_client_send_native_msg(client, msg,
+					mgmt_msg_native_get_msg_len(msg), false);
+done:
+	mgmt_msg_native_free_msg(msg);
+	lyd_free_all(tree);
+}
+
+/*
+ * Convert old style NB notification data into new MGMTD YANG tree and send.
+ */
+static int mgmt_be_notification_send(void *arg, const char *xpath,
+				     struct list *args)
+{
+	struct lyd_node *root = NULL;
+	struct lyd_node *dnode;
+	struct yang_data *data;
+	struct listnode *ln;
+	LY_ERR err;
+
+	MGMTD_BE_CLIENT_DBG("%s: sending notification: %s", __func__, xpath);
+
+	/*
+	 * Convert yang data args list to a libyang data tree
+	 */
+	for (ALL_LIST_ELEMENTS_RO(args, ln, data)) {
+		err = lyd_new_path(root, ly_native_ctx, data->xpath,
+				   data->value, LYD_NEW_PATH_UPDATE, &dnode);
+		if (err != LY_SUCCESS) {
+lyerr:
+			flog_err(EC_LIB_LIBYANG,
+				 "%s: error creating notification data: %s",
+				 __func__, ly_strerrcode(err));
+			if (root)
+				lyd_free_all(root);
+			return 1;
+		}
+		if (!root) {
+			root = dnode;
+			while (root->parent)
+				root = lyd_parent(root);
+		}
+	}
+
+	if (!root) {
+		err = lyd_new_path(NULL, ly_native_ctx, xpath, "", 0, &root);
+		if (err)
+			goto lyerr;
+	}
+
+	mgmt_be_send_notification(root);
+	return 0;
+}
+
 static int mgmt_be_send_txn_reply(struct mgmt_be_client *client_ctx,
 				  uint64_t txn_id, bool create)
 {
@@ -824,7 +908,7 @@ static enum nb_error be_client_send_tree_data_batch(const struct lyd_node *tree,
 
 	darrp = mgmt_msg_native_get_darrp(tree_msg);
 	err = yang_print_tree_append(darrp, tree, args->result_type,
-				     (LYD_PRINT_WD_EXPLICIT |
+				     (LYD_PRINT_SHRINK | LYD_PRINT_WD_EXPLICIT |
 				      LYD_PRINT_WITHSIBLINGS));
 	if (err) {
 		ret = NB_ERR;
@@ -1082,6 +1166,10 @@ struct mgmt_be_client *mgmt_be_client_create(const char *client_name,
 			mgmt_be_client_process_msg, MGMTD_BE_MAX_NUM_MSG_PROC,
 			MGMTD_BE_MAX_NUM_MSG_WRITE, MGMTD_BE_MAX_MSG_LEN, false,
 			"BE-client", MGMTD_DBG_BE_CLIENT_CHECK());
+
+	/* Hook to receive notifications */
+	hook_register_arg(nb_notification_send, mgmt_be_notification_send,
+			  client);
 
 	MGMTD_BE_CLIENT_DBG("Initialized client '%s'", client_name);
 

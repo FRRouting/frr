@@ -622,6 +622,22 @@ extern void yang_debugging_set(bool enable);
 extern uint8_t *yang_print_tree(const struct lyd_node *root, LYD_FORMAT format,
 				uint32_t options);
 
+
+/**
+ * yang_convert_lyd_format() - convert one libyang format to darr string.
+ * @data: data to convert.
+ * @data_len: length of the data.
+ * @in_format: format of the data.
+ * @out_format: format to return.
+ * @shrink: true to avoid pretty printing.
+ *
+ * Return:
+ *	A darr based string or NULL for error.
+ */
+extern char *yang_convert_lyd_format(const uint8_t *data, size_t msg_len,
+				     LYD_FORMAT in_format,
+				     LYD_FORMAT out_format, bool shrink);
+
 /*
  * "Print" the yang tree in `root` into an existing dynamic sized array.
  *

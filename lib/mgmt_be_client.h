@@ -136,6 +136,15 @@ extern int mgmt_be_send_subscr_req(struct mgmt_be_client *client,
 				   bool subscr_xpaths, int num_xpaths,
 				   char **reg_xpaths);
 
+/**
+ * mgmt_be_notification_send() - send a YANG notification to FE clients.
+ * @tree: libyang tree for the notification. The tree will be freed by
+ *        this function.
+ *
+ */
+extern void mgmt_be_send_notification(struct lyd_node *tree);
+
+
 /*
  * Destroy backend client and cleanup everything.
  */

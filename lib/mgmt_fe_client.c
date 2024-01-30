@@ -507,19 +507,24 @@ static void fe_client_handle_native_msg(struct mgmt_fe_client *client,
 					struct mgmt_msg_header *msg,
 					size_t msg_len)
 {
-	struct mgmt_fe_client_session *session;
+	struct mgmt_fe_client_session *session = NULL;
+	struct mgmt_msg_notify_data *notify_msg;
 	struct mgmt_msg_tree_data *tree_msg;
 	struct mgmt_msg_error *err_msg;
+	char *notify_data = NULL;
 
-	MGMTD_FE_CLIENT_DBG("Got GET_TREE reply for session-id %" PRIu64,
+	MGMTD_FE_CLIENT_DBG("Got native message for session-id %" PRIu64,
 			    msg->refer_id);
 
-	session = mgmt_fe_find_session_by_session_id(client, msg->refer_id);
-
-	if (!session || !session->client) {
-		MGMTD_FE_CLIENT_ERR("No session for received native msg session-id %" PRIu64,
-				    msg->refer_id);
-		return;
+	if (msg->code != MGMT_MSG_CODE_NOTIFY) {
+		session = mgmt_fe_find_session_by_session_id(client,
+							     msg->refer_id);
+		if (!session || !session->client) {
+			MGMTD_FE_CLIENT_ERR(
+				"No session for received native msg session-id %" PRIu64,
+				msg->refer_id);
+			return;
+		}
 	}
 
 	switch (msg->code) {
@@ -558,6 +563,44 @@ static void fe_client_handle_native_msg(struct mgmt_fe_client *client,
 						     tree_msg->result,
 						     msg_len - sizeof(*tree_msg),
 						     tree_msg->partial_error);
+		break;
+	case MGMT_MSG_CODE_NOTIFY:
+		notify_msg = (typeof(notify_msg))msg;
+		if (msg_len < sizeof(*notify_msg)) {
+			MGMTD_FE_CLIENT_ERR("Corrupt notify-data msg recv");
+			return;
+		}
+
+		if (notify_msg->result_type != LYD_LYB &&
+		    !MGMT_MSG_VALIDATE_NUL_TERM(notify_msg, msg_len)) {
+			MGMTD_FE_CLIENT_ERR("Corrupt error msg recv");
+			return;
+		}
+		if (notify_msg->result_type == LYD_JSON)
+			notify_data = (char *)notify_msg->result;
+		else
+			notify_data =
+				yang_convert_lyd_format(notify_msg->result,
+							msg_len,
+							notify_msg->result_type,
+							LYD_JSON, true);
+		if (!notify_data) {
+			MGMTD_FE_CLIENT_ERR("Can't convert format %d to JSON",
+					    notify_msg->result_type);
+			return;
+		}
+		FOREACH_SESSION_IN_LIST (client, session) {
+			if (!session->client->cbs.async_notification)
+				continue;
+
+			session->client->cbs
+				.async_notification(client, client->user_data,
+						    session->client_id,
+						    session->user_ctx,
+						    notify_data);
+		}
+		if (notify_msg->result_type != LYD_JSON)
+			darr_free(notify_data);
 		break;
 	default:
 		MGMTD_FE_CLIENT_ERR("unknown native message session-id %" PRIu64

@@ -143,6 +143,7 @@ DECLARE_MTYPE(MSG_NATIVE_ERROR);
 DECLARE_MTYPE(MSG_NATIVE_GET_TREE);
 DECLARE_MTYPE(MSG_NATIVE_TREE_DATA);
 DECLARE_MTYPE(MSG_NATIVE_GET_DATA);
+DECLARE_MTYPE(MSG_NATIVE_NOTIFY);
 
 /*
  * Native message codes
@@ -151,6 +152,7 @@ DECLARE_MTYPE(MSG_NATIVE_GET_DATA);
 #define MGMT_MSG_CODE_GET_TREE	1
 #define MGMT_MSG_CODE_TREE_DATA 2
 #define MGMT_MSG_CODE_GET_DATA	3
+#define MGMT_MSG_CODE_NOTIFY	4
 
 /**
  * struct mgmt_msg_header - Header common to all native messages.
@@ -257,8 +259,29 @@ _Static_assert(sizeof(struct mgmt_msg_get_data) ==
 		       offsetof(struct mgmt_msg_get_data, xpath),
 	       "Size mismatch");
 
+/**
+ * struct mgmt_msg_notify_data - Message carrying notification data.
+ *
+ * @result_type: ``LYD_FORMAT`` for format of the @result value.
+ * @result: The tree data in @result_type format.
+ *
+ */
+struct mgmt_msg_notify_data {
+	struct mgmt_msg_header;
+	uint8_t result_type;
+	uint8_t resv2[7];
+
+	alignas(8) uint8_t result[];
+};
+_Static_assert(sizeof(struct mgmt_msg_notify_data) ==
+		       offsetof(struct mgmt_msg_notify_data, result),
+	       "Size mismatch");
+
+/*
+ * Validate that the message ends in a NUL terminating byte
+ */
 #define MGMT_MSG_VALIDATE_NUL_TERM(msgp, len)                                  \
-	((len) >= sizeof(*msg) + 1 && ((char *)msgp)[(len)-1] == 0)
+	((len) >= sizeof(*msgp) + 1 && ((char *)msgp)[(len)-1] == 0)
 
 
 /**

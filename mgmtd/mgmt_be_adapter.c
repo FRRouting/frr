@@ -582,6 +582,7 @@ static void be_adapter_handle_native_msg(struct mgmt_be_client_adapter *adapter,
 					 struct mgmt_msg_header *msg,
 					 size_t msg_len)
 {
+	struct mgmt_msg_notify_data *notify_msg;
 	struct mgmt_msg_tree_data *tree_msg;
 	struct mgmt_msg_error *error_msg;
 
@@ -606,6 +607,11 @@ static void be_adapter_handle_native_msg(struct mgmt_be_client_adapter *adapter,
 
 		/* Forward the reply to the txn module */
 		mgmt_txn_notify_tree_data_reply(adapter, tree_msg, msg_len);
+		break;
+	case MGMT_MSG_CODE_NOTIFY:
+		notify_msg = (typeof(notify_msg))msg;
+		MGMTD_BE_ADAPTER_DBG("Got NOTIFY from '%s'", adapter->name);
+		mgmt_fe_adapter_send_notify(notify_msg, msg_len);
 		break;
 	default:
 		MGMTD_BE_ADAPTER_ERR("unknown native message txn-id %" PRIu64

@@ -744,6 +744,34 @@ uint8_t *yang_print_tree(const struct lyd_node *root, LYD_FORMAT format,
 	return darr;
 }
 
+char *yang_convert_lyd_format(const uint8_t *data, size_t data_len,
+				     LYD_FORMAT in_format,
+				     LYD_FORMAT out_format, bool shrink)
+{
+	struct lyd_node *tree = NULL;
+	uint8_t *result = NULL;
+	uint32_t options = LYD_PRINT_WD_EXPLICIT | LYD_PRINT_WITHSIBLINGS;
+
+	assert(out_format != LYD_LYB);
+
+	if (!MGMT_MSG_VALIDATE_NUL_TERM(data, data_len))
+		return NULL;
+
+	if (in_format == out_format)
+		return darr_strdup((const char *)data);
+
+	if (shrink)
+		options |= LYD_PRINT_SHRINK;
+
+	/* Take a guess at the initial capacity based on input data size */
+	darr_ensure_cap(result, data_len);
+	if (yang_print_tree_append(&result, tree, out_format, options)) {
+		darr_free(result);
+		return NULL;
+	}
+	return (char *)result;
+}
+
 const char *yang_print_errors(struct ly_ctx *ly_ctx, char *buf, size_t buf_len)
 {
 	struct ly_err_item *ei;

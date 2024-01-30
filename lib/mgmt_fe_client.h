@@ -114,6 +114,11 @@ struct mgmt_fe_client_cbs {
 			       LYD_FORMAT result_type, void *result, size_t len,
 			       int partial_error);
 
+	/* Called with asynchronous notifications from backends */
+	int (*async_notification)(struct mgmt_fe_client *client,
+				  uintptr_t user_data, uint64_t client_id,
+				  uintptr_t session_ctx, const char *result);
+
 	/* Called when new native error is returned */
 	int (*error_notify)(struct mgmt_fe_client *client, uintptr_t user_data,
 			    uint64_t client_id, uint64_t session_id,
