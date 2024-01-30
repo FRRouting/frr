@@ -1,38 +1,41 @@
 # -*- coding: utf-8 eval: (blacken-mode 1) -*-
 # SPDX-License-Identifier: ISC
 #
-# Copyright (c) 2021, LabN Consulting, L.L.C.
-# Copyright (c) 2019-2020 by
-# Donatas Abraitis <donatas.abraitis@gmail.com>
+# January 23 2024, Christian Hopps <chopps@labn.net>
 #
-# noqa: E501
+# Copyright (c) 2024, LabN Consulting, L.L.C.
 #
+
 """
-Test static route functionality
+Test YANG Notifications
 """
+import json
+import logging
+import os
+
 import pytest
 from lib.topogen import Topogen
+from lib.topotest import json_cmp
 from oper import check_kernel_32
 
-pytestmark = [pytest.mark.staticd, pytest.mark.mgmtd]
+pytestmark = [pytest.mark.ripd, pytest.mark.staticd, pytest.mark.mgmtd]
+
+CWD = os.path.dirname(os.path.realpath(__file__))
 
 
 @pytest.fixture(scope="module")
 def tgen(request):
     "Setup/Teardown the environment and provide tgen argument to tests"
 
-    topodef = {"s1": ("r1",), "s2": ("r1",)}
+    topodef = {
+        "s1": ("r1", "r2"),
+    }
 
     tgen = Topogen(topodef, request.module.__name__)
     tgen.start_topology()
 
     router_list = tgen.routers()
     for rname, router in router_list.items():
-        # Setup VRF red
-        router.net.add_l3vrf("red", 10)
-        router.net.add_loop("lo-red")
-        router.net.attach_iface_to_l3vrf("lo-red", "red")
-        router.net.attach_iface_to_l3vrf(rname + "-eth1", "red")
         router.load_frr_config("frr.conf")
 
     tgen.start_router()
@@ -46,3 +49,11 @@ def test_oper_simple(tgen):
 
     r1 = tgen.gears["r1"].net
     check_kernel_32(r1, "11.11.11.11", 1, "")
+
+    fe_client_path = CWD + "/../lib/fe_client.py"
+    output = r1.cmd_raises(fe_client_path + " --listen")
+    jsout = json.loads(output)
+
+    expected = {"frr-ripd:authentication-type-failure": {"interface-name": "r1-eth0"}}
+    result = json_cmp(jsout, expected)
+    assert result is None
