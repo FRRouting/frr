@@ -116,6 +116,7 @@ DECLARE_MTYPE(BITFIELD);
 			(v).m = (v).m + 1;                                     \
 			(v).data = XREALLOC(MTYPE_BITFIELD, (v).data,          \
 					    (v).m * sizeof(word_t));           \
+			(v).data[(v).m - 1] = 0;                               \
 		}                                                              \
 	} while (0)
 
