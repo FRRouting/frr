@@ -48,10 +48,13 @@ noinst_HEADERS += \
 	zebra/zebra_cli.h \
 	# end
 
-sbin_PROGRAMS += mgmtd/mgmtd mgmtd/mgmtd_testc
+sbin_PROGRAMS += mgmtd/mgmtd
 
+if MGMTD_TESTC
+sbin_PROGRAMS += mgmtd/mgmtd_testc
 mgmtd_mgmtd_testc_SOURCES = mgmtd/mgmt_testc.c
 mgmtd_mgmtd_testc_LDADD = lib/libfrr.la
+endif
 
 mgmtd_mgmtd_SOURCES = \
 	mgmtd/mgmt_main.c \
