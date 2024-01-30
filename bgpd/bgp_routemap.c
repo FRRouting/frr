@@ -4596,6 +4596,7 @@ static void bgp_route_map_process_update(struct bgp *bgp, const char *rmap_name,
 					route_map_counter_increment(map);
 
 				aggregate->rmap.map = map;
+				aggregate->rmap.changed = true;
 
 				matched = true;
 			}
