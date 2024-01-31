@@ -27,6 +27,8 @@
  * #ifdef HAVE_COMPONENT
  */
 enum mgmt_be_client_id {
+	MGMTD_BE_CLIENT_ID_TESTC, /* always first */
+	MGMTD_BE_CLIENT_ID_ZEBRA,
 #ifdef HAVE_RIPD
 	MGMTD_BE_CLIENT_ID_RIPD,
 #endif
@@ -36,7 +38,6 @@ enum mgmt_be_client_id {
 #ifdef HAVE_STATICD
 	MGMTD_BE_CLIENT_ID_STATICD,
 #endif
-	MGMTD_BE_CLIENT_ID_ZEBRA,
 	MGMTD_BE_CLIENT_ID_MAX
 };
 #define MGMTD_BE_CLIENT_ID_MIN	0
@@ -244,6 +245,13 @@ extern int mgmt_be_send_native(enum mgmt_be_client_id id, void *msg);
  */
 extern uint64_t mgmt_be_interested_clients(const char *xpath, bool config);
 
+/**
+ * mgmt_fe_adapter_send_notify() - notify FE clients of a notification.
+ * @msg: the notify message from the backend client.
+ * @msglen: the length of the notify message.
+ */
+extern void mgmt_fe_adapter_send_notify(struct mgmt_msg_notify_data *msg,
+					size_t msglen);
 /*
  * Dump backend client information for a given xpath to vty.
  */

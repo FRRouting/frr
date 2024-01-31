@@ -1441,6 +1441,10 @@ extern bool nb_cb_operation_is_valid(enum nb_cb_operation operation,
 				     const struct lysc_node *snode);
 
 /*
+ * DEPRECATED: This call and infra should no longer be used. Instead,
+ * the mgmtd supported tree based call `nb_notification_tree_send` should be
+ * used instead
+ *
  * Send a YANG notification. This is a no-op unless the 'nb_notification_send'
  * hook was registered by a northbound plugin.
  *
@@ -1455,6 +1459,19 @@ extern bool nb_cb_operation_is_valid(enum nb_cb_operation operation,
  *    NB_OK on success, NB_ERR otherwise.
  */
 extern int nb_notification_send(const char *xpath, struct list *arguments);
+
+/*
+ * Send a YANG notification from a backend . This is a no-op unless th
+ * 'nb_notification_tree_send' hook was registered by a northbound plugin.
+ *
+ * tree
+ *    The libyang tree for the notification. The tree will be freed by
+ *    this call.
+ *
+ * Returns:
+ *    NB_OK on success, NB_ERR otherwise.
+ */
+extern int nb_notification_tree_send(struct lyd_node *tree);
 
 /*
  * Associate a user pointer to a configuration node.

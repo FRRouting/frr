@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 eval: (blacken-mode 1) -*-
 # SPDX-License-Identifier: ISC
 #

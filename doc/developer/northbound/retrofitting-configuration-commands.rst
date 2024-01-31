@@ -982,7 +982,7 @@ future.
 For libfrr commands, it’s not possible to centralize all commands in a
 single file because the *extract.pl* script from *vtysh* treats commands
 differently depending on the file in which they are defined (e.g. DEFUNs
-from *lib/routemap.c* are installed using the ``VTYSH_RMAP`` constant,
+from *lib/routemap.c* are installed using the ``VTYSH_RMAP_SHOW`` constant,
 which identifies the daemons that support route-maps). In this case, the
 CLI commands should be rewritten but maintained in the same file.
 

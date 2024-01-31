@@ -2068,6 +2068,23 @@ int nb_notification_send(const char *xpath, struct list *arguments)
 	return ret;
 }
 
+DEFINE_HOOK(nb_notification_tree_send, (struct lyd_node *tree), (tree));
+
+int nb_notification_tree_send(struct lyd_node *tree)
+{
+	int ret;
+
+	assert(tree);
+
+	DEBUGD(&nb_dbg_notif, "northbound tree notification: %s",
+	       tree->schema->name);
+
+	ret = hook_call(nb_notification_tree_send, tree);
+	lyd_free_all(tree);
+
+	return ret;
+}
+
 /* Running configuration user pointers management. */
 struct nb_config_entry {
 	char xpath[XPATH_MAXLEN];

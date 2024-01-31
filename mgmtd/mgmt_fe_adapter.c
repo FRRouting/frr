@@ -1087,11 +1087,11 @@ static int fe_adapter_send_tree_data(struct mgmt_fe_session_ctx *session,
 {
 	struct mgmt_msg_tree_data *msg;
 	struct lyd_node *empty = NULL;
-	uint8_t *buf = NULL;
+	uint8_t **darrp = NULL;
 	int ret = 0;
 
-	darr_append_n(buf, sizeof(*msg));
-	msg = (typeof(msg))buf;
+	msg = mgmt_msg_native_alloc_msg(struct mgmt_msg_tree_data, 0,
+					MTYPE_MSG_NATIVE_TREE_DATA);
 	msg->refer_id = session->session_id;
 	msg->req_id = req_id;
 	msg->code = MGMT_MSG_CODE_TREE_DATA;
@@ -1103,13 +1103,10 @@ static int fe_adapter_send_tree_data(struct mgmt_fe_session_ctx *session,
 		tree = empty;
 	}
 
-	ret = yang_print_tree_append(&buf, tree, result_type,
+	darrp = mgmt_msg_native_get_darrp(msg);
+	ret = yang_print_tree_append(darrp, tree, result_type,
 				     (LYD_PRINT_WD_EXPLICIT |
 				      LYD_PRINT_WITHSIBLINGS));
-	/* buf may have been reallocated and moved */
-	msg = (typeof(msg))buf;
-	(void)msg; /* suppress clang-SA unused warning on safety code */
-
 	if (ret != LY_SUCCESS) {
 		MGMTD_FE_ADAPTER_ERR("Error building get-tree result for client %s session-id %" PRIu64
 				     " req-id %" PRIu64
@@ -1121,15 +1118,17 @@ static int fe_adapter_send_tree_data(struct mgmt_fe_session_ctx *session,
 
 	MGMTD_FE_ADAPTER_DBG("Sending get-tree result from adapter %s to session-id %" PRIu64
 			     " req-id %" PRIu64 " scok %d result type %u len %u",
-			     session->adapter->name, session->session_id, req_id,
-			     short_circuit_ok, result_type, darr_len(buf));
+			     session->adapter->name, session->session_id,
+			     req_id, short_circuit_ok, result_type,
+			     mgmt_msg_native_get_msg_len(msg));
 
-	ret = fe_adapter_send_native_msg(session->adapter, buf, darr_len(buf),
+	ret = fe_adapter_send_native_msg(session->adapter, msg,
+					 mgmt_msg_native_get_msg_len(msg),
 					 short_circuit_ok);
 done:
 	if (empty)
 		yang_dnode_free(empty);
-	darr_free(buf);
+	mgmt_msg_native_free_msg(msg);
 
 	return ret;
 }
@@ -1284,6 +1283,23 @@ static void mgmt_fe_adapter_process_msg(uint8_t version, uint8_t *data,
 		fe_msg->message_case, adapter->name);
 	(void)mgmt_fe_adapter_handle_msg(adapter, fe_msg);
 	mgmtd__fe_message__free_unpacked(fe_msg, NULL);
+}
+
+void mgmt_fe_adapter_send_notify(struct mgmt_msg_notify_data *msg, size_t msglen)
+{
+	struct mgmt_fe_client_adapter *adapter;
+	struct mgmt_fe_session_ctx *session;
+
+	assert(msg->refer_id == 0);
+
+	FOREACH_ADAPTER_IN_LIST (adapter) {
+		FOREACH_SESSION_IN_LIST (adapter, session) {
+			msg->refer_id = session->session_id;
+			(void)fe_adapter_send_native_msg(adapter, msg, msglen,
+							 false);
+		}
+	}
+	msg->refer_id = 0;
 }
 
 void mgmt_fe_adapter_lock(struct mgmt_fe_client_adapter *adapter)

@@ -35,6 +35,7 @@
 /* ---------- */
 
 const char *mgmt_be_client_names[MGMTD_BE_CLIENT_ID_MAX + 1] = {
+	[MGMTD_BE_CLIENT_ID_TESTC] = "mgmtd-testc", /* always first */
 	[MGMTD_BE_CLIENT_ID_ZEBRA] = "zebra",
 #ifdef HAVE_RIPD
 	[MGMTD_BE_CLIENT_ID_RIPD] = "ripd",
@@ -155,6 +156,7 @@ static const char *const *be_client_oper_xpaths[MGMTD_BE_CLIENT_ID_MAX] = {
 
 static struct mgmt_be_xpath_map *be_cfg_xpath_map;
 static struct mgmt_be_xpath_map *be_oper_xpath_map;
+static struct mgmt_be_xpath_map *be_notif_xpath_map;
 
 static struct event_loop *mgmt_loop;
 static struct msg_server mgmt_be_server = {.fd = -1};
@@ -219,11 +221,16 @@ mgmt_be_find_adapter_by_name(const char *name)
 }
 
 static void mgmt_register_client_xpath(enum mgmt_be_client_id id,
-				       const char *xpath, bool config)
+				       const char *xpath, bool config, bool oper)
 {
 	struct mgmt_be_xpath_map **maps, *map;
 
-	maps = config ? &be_cfg_xpath_map : &be_oper_xpath_map;
+	if (config)
+		maps = &be_cfg_xpath_map;
+	else if (oper)
+		maps = &be_oper_xpath_map;
+	else
+		maps = &be_notif_xpath_map;
 
 	darr_foreach_p (*maps, map) {
 		if (!strcmp(xpath, map->xpath_prefix)) {
@@ -251,13 +258,13 @@ static void mgmt_be_xpath_map_init(void)
 		/* Initialize the common config init map */
 		for (init = be_client_config_xpaths[id]; init && *init; init++) {
 			MGMTD_BE_ADAPTER_DBG(" - CFG XPATH: '%s'", *init);
-			mgmt_register_client_xpath(id, *init, true);
+			mgmt_register_client_xpath(id, *init, true, false);
 		}
 
 		/* Initialize the common oper init map */
 		for (init = be_client_oper_xpaths[id]; init && *init; init++) {
 			MGMTD_BE_ADAPTER_DBG(" - OPER XPATH: '%s'", *init);
-			mgmt_register_client_xpath(id, *init, false);
+			mgmt_register_client_xpath(id, *init, false, true);
 		}
 	}
 
@@ -278,6 +285,10 @@ static void mgmt_be_xpath_map_cleanup(void)
 	darr_foreach_p (be_oper_xpath_map, map)
 		XFREE(MTYPE_MGMTD_XPATH, map->xpath_prefix);
 	darr_free(be_oper_xpath_map);
+
+	darr_foreach_p (be_notif_xpath_map, map)
+		XFREE(MTYPE_MGMTD_XPATH, map->xpath_prefix);
+	darr_free(be_notif_xpath_map);
 }
 
 
@@ -388,20 +399,20 @@ static int
 mgmt_be_adapter_handle_msg(struct mgmt_be_client_adapter *adapter,
 			      Mgmtd__BeMessage *be_msg)
 {
+	const char *xpath;
+	uint i, num;
+
 	/*
 	 * protobuf-c adds a max size enum with an internal, and changing by
 	 * version, name; cast to an int to avoid unhandled enum warnings
 	 */
 	switch ((int)be_msg->message_case) {
 	case MGMTD__BE_MESSAGE__MESSAGE_SUBSCR_REQ:
-		MGMTD_BE_ADAPTER_DBG(
-			"Got SUBSCR_REQ from '%s' to %sregister %zu xpaths",
-			be_msg->subscr_req->client_name,
-			!be_msg->subscr_req->subscribe_xpaths &&
-					be_msg->subscr_req->n_xpath_reg
-				? "de"
-				: "",
-			be_msg->subscr_req->n_xpath_reg);
+		MGMTD_BE_ADAPTER_DBG("Got SUBSCR_REQ from '%s' to register xpaths config: %zu oper: %zu notif: %zu",
+				     be_msg->subscr_req->client_name,
+				     be_msg->subscr_req->n_config_xpaths,
+				     be_msg->subscr_req->n_oper_xpaths,
+				     be_msg->subscr_req->n_notif_xpaths);
 
 		if (strlen(be_msg->subscr_req->client_name)) {
 			strlcpy(adapter->name, be_msg->subscr_req->client_name,
@@ -413,7 +424,6 @@ mgmt_be_adapter_handle_msg(struct mgmt_be_client_adapter *adapter,
 					adapter->name);
 				/* this will/should delete old */
 				msg_conn_disconnect(adapter->conn, false);
-				zlog_err("XXX different from original code");
 				break;
 			}
 			mgmt_be_adapters_by_id[adapter->id] = adapter;
@@ -423,11 +433,28 @@ mgmt_be_adapter_handle_msg(struct mgmt_be_client_adapter *adapter,
 			mgmt_be_adapter_sched_init_event(adapter);
 		}
 
-		if (be_msg->subscr_req->n_xpath_reg)
-			/* we aren't handling dynamic xpaths yet */
-			mgmt_be_send_subscr_reply(adapter, false);
-		else
-			mgmt_be_send_subscr_reply(adapter, true);
+		num = be_msg->subscr_req->n_config_xpaths;
+		for (i = 0; i < num; i++) {
+			xpath = be_msg->subscr_req->config_xpaths[i];
+			mgmt_register_client_xpath(adapter->id, xpath, true,
+						   false);
+		}
+
+		num = be_msg->subscr_req->n_oper_xpaths;
+		for (i = 0; i < num; i++) {
+			xpath = be_msg->subscr_req->oper_xpaths[i];
+			mgmt_register_client_xpath(adapter->id, xpath, false,
+						   true);
+		}
+
+		num = be_msg->subscr_req->n_notif_xpaths;
+		for (i = 0; i < num; i++) {
+			xpath = be_msg->subscr_req->notif_xpaths[i];
+			mgmt_register_client_xpath(adapter->id, xpath, false,
+						   false);
+		}
+
+		mgmt_be_send_subscr_reply(adapter, true);
 		break;
 	case MGMTD__BE_MESSAGE__MESSAGE_TXN_REPLY:
 		MGMTD_BE_ADAPTER_DBG(
@@ -575,6 +602,34 @@ int mgmt_be_send_native(enum mgmt_be_client_id id, void *msg)
 	return mgmt_msg_native_send_msg(adapter->conn, msg, false);
 }
 
+static void mgmt_be_adapter_send_notify(struct mgmt_msg_notify_data *msg,
+					size_t msglen)
+{
+	struct mgmt_be_client_adapter *adapter;
+	struct mgmt_be_xpath_map *map;
+	const char *notif;
+	uint id;
+
+	if (!darr_len(be_notif_xpath_map))
+		return;
+
+	/* "{\"modname:notification-name\": ...}" */
+	notif = (const char *)msg->result + 2;
+
+	darr_foreach_p (be_notif_xpath_map, map) {
+		if (strncmp(map->xpath_prefix, notif, strlen(map->xpath_prefix)))
+			continue;
+
+		FOREACH_BE_CLIENT_BITS (id, map->clients) {
+			adapter = mgmt_be_get_adapter_by_id(id);
+			if (!adapter)
+				continue;
+			msg_conn_send_msg(adapter->conn, MGMT_MSG_VERSION_NATIVE,
+					  msg, msglen, NULL, false);
+		}
+	}
+}
+
 /*
  * Handle a native encoded message
  */
@@ -582,6 +637,7 @@ static void be_adapter_handle_native_msg(struct mgmt_be_client_adapter *adapter,
 					 struct mgmt_msg_header *msg,
 					 size_t msg_len)
 {
+	struct mgmt_msg_notify_data *notify_msg;
 	struct mgmt_msg_tree_data *tree_msg;
 	struct mgmt_msg_error *error_msg;
 
@@ -606,6 +662,12 @@ static void be_adapter_handle_native_msg(struct mgmt_be_client_adapter *adapter,
 
 		/* Forward the reply to the txn module */
 		mgmt_txn_notify_tree_data_reply(adapter, tree_msg, msg_len);
+		break;
+	case MGMT_MSG_CODE_NOTIFY:
+		notify_msg = (typeof(notify_msg))msg;
+		MGMTD_BE_ADAPTER_DBG("Got NOTIFY from '%s'", adapter->name);
+		mgmt_be_adapter_send_notify(notify_msg, msg_len);
+		mgmt_fe_adapter_send_notify(notify_msg, msg_len);
 		break;
 	default:
 		MGMTD_BE_ADAPTER_ERR("unknown native message txn-id %" PRIu64

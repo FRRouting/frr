@@ -311,6 +311,90 @@ static int be_client_send_error(struct mgmt_be_client *client, uint64_t txn_id,
 	return ret;
 }
 
+void mgmt_be_send_notification(struct lyd_node *tree)
+{
+	struct mgmt_be_client *client = __be_client;
+	struct mgmt_msg_notify_data *msg = NULL;
+	LYD_FORMAT format = LYD_JSON;
+	uint8_t **darrp;
+	LY_ERR err;
+
+	assert(tree);
+
+	MGMTD_BE_CLIENT_DBG("%s: sending YANG notification: %s", __func__,
+			    tree->schema->name);
+	/*
+	 * Allocate a message and append the data to it using `format`
+	 */
+	msg = mgmt_msg_native_alloc_msg(struct mgmt_msg_notify_data, 0,
+					MTYPE_MSG_NATIVE_NOTIFY);
+	msg->code = MGMT_MSG_CODE_NOTIFY;
+	msg->result_type = format;
+
+	darrp = mgmt_msg_native_get_darrp(msg);
+	err = yang_print_tree_append(darrp, tree, format,
+				     (LYD_PRINT_SHRINK | LYD_PRINT_WD_EXPLICIT |
+				      LYD_PRINT_WITHSIBLINGS));
+	if (err) {
+		flog_err(EC_LIB_LIBYANG,
+			 "%s: error creating notification data: %s", __func__,
+			 ly_strerrcode(err));
+		goto done;
+	}
+
+	(void)be_client_send_native_msg(client, msg,
+					mgmt_msg_native_get_msg_len(msg), false);
+done:
+	mgmt_msg_native_free_msg(msg);
+	lyd_free_all(tree);
+}
+
+/*
+ * Convert old style NB notification data into new MGMTD YANG tree and send.
+ */
+static int mgmt_be_notification_send(void *arg, const char *xpath,
+				     struct list *args)
+{
+	struct lyd_node *root = NULL;
+	struct lyd_node *dnode;
+	struct yang_data *data;
+	struct listnode *ln;
+	LY_ERR err;
+
+	MGMTD_BE_CLIENT_DBG("%s: sending notification: %s", __func__, xpath);
+
+	/*
+	 * Convert yang data args list to a libyang data tree
+	 */
+	for (ALL_LIST_ELEMENTS_RO(args, ln, data)) {
+		err = lyd_new_path(root, ly_native_ctx, data->xpath,
+				   data->value, LYD_NEW_PATH_UPDATE, &dnode);
+		if (err != LY_SUCCESS) {
+lyerr:
+			flog_err(EC_LIB_LIBYANG,
+				 "%s: error creating notification data: %s",
+				 __func__, ly_strerrcode(err));
+			if (root)
+				lyd_free_all(root);
+			return 1;
+		}
+		if (!root) {
+			root = dnode;
+			while (root->parent)
+				root = lyd_parent(root);
+		}
+	}
+
+	if (!root) {
+		err = lyd_new_path(NULL, ly_native_ctx, xpath, "", 0, &root);
+		if (err)
+			goto lyerr;
+	}
+
+	mgmt_be_send_notification(root);
+	return 0;
+}
+
 static int mgmt_be_send_txn_reply(struct mgmt_be_client *client_ctx,
 				  uint64_t txn_id, bool create)
 {
@@ -738,6 +822,12 @@ static int mgmt_be_client_handle_msg(struct mgmt_be_client *client_ctx,
 	case MGMTD__BE_MESSAGE__MESSAGE_SUBSCR_REPLY:
 		MGMTD_BE_CLIENT_DBG("Got SUBSCR_REPLY success %u",
 				    be_msg->subscr_reply->success);
+
+		if (client_ctx->cbs.subscr_done)
+			(*client_ctx->cbs.subscr_done)(client_ctx,
+						       client_ctx->user_data,
+						       be_msg->subscr_reply
+							       ->success);
 		break;
 	case MGMTD__BE_MESSAGE__MESSAGE_TXN_REQ:
 		MGMTD_BE_CLIENT_DBG("Got TXN_REQ %s txn-id: %" PRIu64,
@@ -824,7 +914,7 @@ static enum nb_error be_client_send_tree_data_batch(const struct lyd_node *tree,
 
 	darrp = mgmt_msg_native_get_darrp(tree_msg);
 	err = yang_print_tree_append(darrp, tree, args->result_type,
-				     (LYD_PRINT_WD_EXPLICIT |
+				     (LYD_PRINT_SHRINK | LYD_PRINT_WD_EXPLICIT |
 				      LYD_PRINT_WITHSIBLINGS));
 	if (err) {
 		ret = NB_ERR;
@@ -874,6 +964,31 @@ static void be_client_handle_get_tree(struct mgmt_be_client *client,
 }
 
 /*
+ * Process the notification.
+ */
+static void be_client_handle_notify(struct mgmt_be_client *client, void *msgbuf,
+				    size_t msg_len)
+{
+	struct mgmt_msg_notify_data *notif_msg = msgbuf;
+	struct mgmt_be_client_notification_cb *cb;
+	const char *notif;
+	uint i;
+
+	MGMTD_BE_CLIENT_DBG("Received notification for client %s", client->name);
+
+	/* "{\"modname:notification-name\": ...}" */
+	notif = (const char *)notif_msg->result + 2;
+
+	for (i = 0; i < client->cbs.nnotify_cbs; i++) {
+		cb = &client->cbs.notify_cbs[i];
+		if (strncmp(cb->xpath, notif, strlen(cb->xpath)))
+			continue;
+		cb->callback(client, client->user_data, cb,
+			     (const char *)notif_msg->result);
+	}
+}
+
+/*
  * Handle a native encoded message
  *
  * We don't create transactions with native messaging.
@@ -888,12 +1003,16 @@ static void be_client_handle_native_msg(struct mgmt_be_client *client,
 	case MGMT_MSG_CODE_GET_TREE:
 		be_client_handle_get_tree(client, txn_id, msg, msg_len);
 		break;
+	case MGMT_MSG_CODE_NOTIFY:
+		be_client_handle_notify(client, msg, msg_len);
+		break;
 	default:
 		MGMTD_BE_CLIENT_ERR("unknown native message txn-id %" PRIu64
 				    " req-id %" PRIu64 " code %u to client %s",
 				    txn_id, msg->req_id, msg->code,
 				    client->name);
-		be_client_send_error(client, msg->refer_id, msg->req_id, false, -1,
+		be_client_send_error(client, msg->refer_id, msg->req_id, false,
+				     -1,
 				     "BE cilent %s recv msg unknown txn-id %" PRIu64,
 				     client->name, txn_id);
 		break;
@@ -927,38 +1046,51 @@ static void mgmt_be_client_process_msg(uint8_t version, uint8_t *data,
 				    len);
 		return;
 	}
-	MGMTD_BE_CLIENT_DBG(
-		"Decoded %zu bytes of message(msg: %u/%u) from server", len,
-		be_msg->message_case, be_msg->message_case);
+	MGMTD_BE_CLIENT_DBG("Decoded %zu bytes of message(msg: %u/%u) from server",
+			    len, be_msg->message_case, be_msg->message_case);
 	(void)mgmt_be_client_handle_msg(client_ctx, be_msg);
 	mgmtd__be_message__free_unpacked(be_msg, NULL);
 }
 
 int mgmt_be_send_subscr_req(struct mgmt_be_client *client_ctx,
-			    bool subscr_xpaths, int num_xpaths,
-			    char **reg_xpaths)
+			    int n_config_xpaths, char **config_xpaths,
+			    int n_oper_xpaths, char **oper_xpaths)
 {
 	Mgmtd__BeMessage be_msg;
 	Mgmtd__BeSubscribeReq subscr_req;
+	const char **notif_xpaths = NULL;
+	int ret;
 
 	mgmtd__be_subscribe_req__init(&subscr_req);
 	subscr_req.client_name = client_ctx->name;
-	subscr_req.n_xpath_reg = num_xpaths;
-	if (num_xpaths)
-		subscr_req.xpath_reg = reg_xpaths;
-	else
-		subscr_req.xpath_reg = NULL;
-	subscr_req.subscribe_xpaths = subscr_xpaths;
+	subscr_req.n_config_xpaths = n_config_xpaths;
+	subscr_req.config_xpaths = config_xpaths;
+	subscr_req.n_oper_xpaths = n_oper_xpaths;
+	subscr_req.oper_xpaths = oper_xpaths;
+
+	/* See if we should register for notifications */
+	subscr_req.n_notif_xpaths = client_ctx->cbs.nnotify_cbs;
+	if (client_ctx->cbs.nnotify_cbs) {
+		struct mgmt_be_client_notification_cb *cb, *ecb;
+
+		cb = client_ctx->cbs.notify_cbs;
+		ecb = cb + client_ctx->cbs.nnotify_cbs;
+		for (; cb < ecb; cb++)
+			*darr_append(notif_xpaths) = cb->xpath;
+	}
+	subscr_req.notif_xpaths = (char **)notif_xpaths;
 
 	mgmtd__be_message__init(&be_msg);
 	be_msg.message_case = MGMTD__BE_MESSAGE__MESSAGE_SUBSCR_REQ;
 	be_msg.subscr_req = &subscr_req;
 
-	MGMTD_BE_CLIENT_DBG("Sending SUBSCR_REQ name: %s subscr_xpaths: %u num_xpaths: %zu",
-			    subscr_req.client_name, subscr_req.subscribe_xpaths,
-			    subscr_req.n_xpath_reg);
+	MGMTD_BE_CLIENT_DBG("Sending SUBSCR_REQ name: %s xpaths: config %zu oper: %zu notif: %zu",
+			    subscr_req.client_name, subscr_req.n_config_xpaths,
+			    subscr_req.n_oper_xpaths, subscr_req.n_notif_xpaths);
 
-	return mgmt_be_client_send_msg(client_ctx, &be_msg);
+	ret = mgmt_be_client_send_msg(client_ctx, &be_msg);
+	darr_free(notif_xpaths);
+	return ret;
 }
 
 static int _notify_conenct_disconnect(struct msg_client *msg_client,
@@ -970,15 +1102,16 @@ static int _notify_conenct_disconnect(struct msg_client *msg_client,
 
 	if (connected) {
 		assert(msg_client->conn.fd != -1);
-		ret = mgmt_be_send_subscr_req(client, false, 0, NULL);
+		ret = mgmt_be_send_subscr_req(client, 0, NULL, 0, NULL);
 		if (ret)
 			return ret;
 	}
 
 	/* Notify BE client through registered callback (if any) */
 	if (client->cbs.client_connect_notify)
-		(void)(*client->cbs.client_connect_notify)(
-			client, client->user_data, connected);
+		(void)(*client->cbs.client_connect_notify)(client,
+							   client->user_data,
+							   connected);
 
 	/* Cleanup any in-progress TXN on disconnect */
 	if (!connected)
@@ -1016,9 +1149,8 @@ static void mgmt_debug_client_be_set(uint32_t flags, bool set)
 
 DEFPY(debug_mgmt_client_be, debug_mgmt_client_be_cmd,
       "[no] debug mgmt client backend",
-      NO_STR DEBUG_STR MGMTD_STR
-      "client\n"
-      "backend\n")
+      NO_STR DEBUG_STR MGMTD_STR "client\n"
+				 "backend\n")
 {
 	mgmt_debug_client_be_set(DEBUG_NODE2MODE(vty->node), !no);
 
@@ -1082,6 +1214,10 @@ struct mgmt_be_client *mgmt_be_client_create(const char *client_name,
 			mgmt_be_client_process_msg, MGMTD_BE_MAX_NUM_MSG_PROC,
 			MGMTD_BE_MAX_NUM_MSG_WRITE, MGMTD_BE_MAX_MSG_LEN, false,
 			"BE-client", MGMTD_DBG_BE_CLIENT_CHECK());
+
+	/* Hook to receive notifications */
+	hook_register_arg(nb_notification_send, mgmt_be_notification_send,
+			  client);
 
 	MGMTD_BE_CLIENT_DBG("Initialized client '%s'", client_name);
 
