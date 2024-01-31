@@ -176,6 +176,9 @@ static bool static_nexthop_create(struct nb_cb_create_args *args)
 		nh_vrf = yang_dnode_get_string(args->dnode, "vrf");
 		pn = nb_running_get_entry(args->dnode, NULL, true);
 
+		if (strmatch(ifname, "(null)"))
+			ifname = "";
+
 		if (!static_add_nexthop_validate(nh_vrf, nh_type, &ipaddr))
 			flog_warn(
 				EC_LIB_NB_CB_CONFIG_VALIDATE,
