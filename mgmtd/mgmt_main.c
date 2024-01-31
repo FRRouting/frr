@@ -145,6 +145,16 @@ extern const struct frr_yang_module_info frr_staticd_cli_info;
 #endif
 
 /*
+ * These are modules that are only needed by mgmtd and hence not included into
+ * the lib and backend daemons.
+ */
+const struct frr_yang_module_info ietf_netconf_with_defaults_info = {
+	.name = "ietf-netconf-with-defaults",
+	.ignore_cfg_cbs = true,
+	.nodes = { { .xpath = NULL } },
+};
+
+/*
  * These are stub info structs that are used to load the modules used by backend
  * clients into mgmtd. The modules are used by libyang in order to support
  * parsing binary data returns from the backend.
@@ -166,6 +176,9 @@ static const struct frr_yang_module_info *const mgmt_yang_modules[] = {
 	&frr_routing_info,
 	&frr_vrf_info,
 	&frr_affinity_map_cli_info,
+
+	/* mgmtd-only modules */
+	&ietf_netconf_with_defaults_info,
 
 	/*
 	 * YANG module info used by backend clients get added here.

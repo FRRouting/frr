@@ -258,14 +258,22 @@ DEFPY(show_mgmt_get_config, show_mgmt_get_config_cmd,
 }
 
 DEFPY(show_mgmt_get_data, show_mgmt_get_data_cmd,
-      "show mgmt get-data WORD$path [with-config|only-config]$content [exact]$exact [json|xml]$fmt",
+      "show mgmt get-data WORD$path [datastore <candidate|running|operational>$ds] [with-config|only-config]$content [exact]$exact [with-defaults <trim|all-tag|all>$wd] [json|xml]$fmt",
       SHOW_STR
       MGMTD_STR
       "Get a data from the operational datastore\n"
       "XPath expression specifying the YANG data root\n"
+      "Specify datastore to get data from (operational by default)\n"
+      "Candidate datastore\n"
+      "Running datastore\n"
+      "Operational datastore\n"
       "Include \"config true\" data\n"
       "Get only \"config true\" data\n"
       "Get exact node instead of the whole data tree\n"
+      "Configure 'with-defaults' mode per RFC 6243 (\"explicit\" mode by default)\n"
+      "Use \"trim\" mode\n"
+      "Use \"report-all-tagged\" mode\n"
+      "Use \"report-all\" mode\n"
       "JSON output format\n"
       "XML output format\n")
 {
@@ -273,12 +281,30 @@ DEFPY(show_mgmt_get_data, show_mgmt_get_data_cmd,
 	int plen = strlen(path);
 	char *xpath = NULL;
 	uint8_t flags = content ? GET_DATA_FLAG_CONFIG : GET_DATA_FLAG_STATE;
+	uint8_t defaults = GET_DATA_DEFAULTS_EXPLICIT;
+	uint8_t datastore = MGMT_MSG_DATASTORE_OPERATIONAL;
 
 	if (content && content[0] == 'w')
 		flags |= GET_DATA_FLAG_STATE;
 
 	if (exact)
 		flags |= GET_DATA_FLAG_EXACT;
+
+	if (wd) {
+		if (wd[0] == 't')
+			defaults = GET_DATA_DEFAULTS_TRIM;
+		else if (wd[3] == '-')
+			defaults = GET_DATA_DEFAULTS_ALL_ADD_TAG;
+		else
+			defaults = GET_DATA_DEFAULTS_ALL;
+	}
+
+	if (ds) {
+		if (ds[0] == 'c')
+			datastore = MGMT_MSG_DATASTORE_CANDIDATE;
+		else if (ds[0] == 'r')
+			datastore = MGMT_MSG_DATASTORE_RUNNING;
+	}
 
 	/* get rid of extraneous trailing slash-* or single '/' unless root */
 	if (plen > 2 && ((path[plen - 2] == '/' && path[plen - 1] == '*') ||
@@ -289,7 +315,8 @@ DEFPY(show_mgmt_get_data, show_mgmt_get_data_cmd,
 		path = xpath;
 	}
 
-	vty_mgmt_send_get_data_req(vty, format, flags, path);
+	vty_mgmt_send_get_data_req(vty, datastore, format, flags, defaults,
+				   path);
 
 	if (xpath)
 		XFREE(MTYPE_TMP, xpath);

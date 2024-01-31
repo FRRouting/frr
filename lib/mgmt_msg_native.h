@@ -154,6 +154,30 @@ DECLARE_MTYPE(MSG_NATIVE_NOTIFY);
 #define MGMT_MSG_CODE_GET_DATA	3
 #define MGMT_MSG_CODE_NOTIFY	4
 
+/*
+ * Datastores
+ */
+#define MGMT_MSG_DATASTORE_STARTUP     0
+#define MGMT_MSG_DATASTORE_CANDIDATE   1
+#define MGMT_MSG_DATASTORE_RUNNING     2
+#define MGMT_MSG_DATASTORE_OPERATIONAL 3
+
+/*
+ * Formats
+ */
+#define MGMT_MSG_FORMAT_XML    1
+#define MGMT_MSG_FORMAT_JSON   2
+#define MGMT_MSG_FORMAT_BINARY 3 /* non-standard libyang internal format */
+
+/*
+ * Now we're using LYD_FORMAT directly to avoid mapping code, but having our
+ * own definitions allows us to create such a mapping in the future if libyang
+ * makes a backwards incompatible change.
+ */
+_Static_assert(MGMT_MSG_FORMAT_XML == LYD_XML, "Format mismatch");
+_Static_assert(MGMT_MSG_FORMAT_JSON == LYD_JSON, "Format mismatch");
+_Static_assert(MGMT_MSG_FORMAT_BINARY == LYD_LYB, "Format mismatch");
+
 /**
  * struct mgmt_msg_header - Header common to all native messages.
  *
@@ -236,22 +260,34 @@ _Static_assert(sizeof(struct mgmt_msg_tree_data) ==
 	       "Size mismatch");
 
 /* Flags for get-data request */
-#define GET_DATA_FLAG_STATE	0x01	/* get only "config false" data */
-#define GET_DATA_FLAG_CONFIG	0x02	/* get only "config true" data */
+#define GET_DATA_FLAG_STATE	0x01	/* include "config false" data */
+#define GET_DATA_FLAG_CONFIG	0x02	/* include "config true" data */
 #define GET_DATA_FLAG_EXACT	0x04	/* get exact data node instead of the full tree */
+
+/*
+ * Modes of reporting default values. Non-default values are always reported.
+ * These options reflect "with-defaults" modes as defined in RFC 6243.
+ */
+#define GET_DATA_DEFAULTS_EXPLICIT    0 /* "explicit" */
+#define GET_DATA_DEFAULTS_TRIM	      1 /* "trim"  */
+#define GET_DATA_DEFAULTS_ALL	      2 /* "report-all" */
+#define GET_DATA_DEFAULTS_ALL_ADD_TAG 3 /* "report-all-tagged" */
 
 /**
  * struct mgmt_msg_get_data - frontend get-data request.
  *
  * @result_type: ``LYD_FORMAT`` for the returned result.
  * @flags: combination of ``GET_DATA_FLAG_*`` flags.
+ * @defaults: one of ``GET_DATA_DEFAULTS_*`` values.
  * @xpath: the query for the data to return.
  */
 struct mgmt_msg_get_data {
 	struct mgmt_msg_header;
 	uint8_t result_type;
 	uint8_t flags;
-	uint8_t resv2[6];
+	uint8_t defaults;
+	uint8_t datastore;
+	uint8_t resv2[4];
 
 	alignas(8) char xpath[];
 };

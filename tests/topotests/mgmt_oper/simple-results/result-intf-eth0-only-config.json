@@ -10,7 +10,10 @@
 							"ip": "1.1.1.1",
 							"prefix-length": 24
 						}
-					]
+					],
+					"evpn-mh": {
+						"df-preference": 32767
+					}
 				}
 			}
 		]

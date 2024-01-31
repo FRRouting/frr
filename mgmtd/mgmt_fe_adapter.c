@@ -1080,13 +1080,12 @@ mgmt_fe_adapter_handle_msg(struct mgmt_fe_client_adapter *adapter,
  */
 static int fe_adapter_send_tree_data(struct mgmt_fe_session_ctx *session,
 				     uint64_t req_id, bool short_circuit_ok,
-				     uint8_t result_type,
+				     uint8_t result_type, uint32_t wd_options,
 				     const struct lyd_node *tree,
 				     int partial_error)
 
 {
 	struct mgmt_msg_tree_data *msg;
-	struct lyd_node *empty = NULL;
 	uint8_t **darrp = NULL;
 	int ret = 0;
 
@@ -1098,15 +1097,9 @@ static int fe_adapter_send_tree_data(struct mgmt_fe_session_ctx *session,
 	msg->partial_error = partial_error;
 	msg->result_type = result_type;
 
-	if (!tree) {
-		empty = yang_dnode_new(ly_native_ctx, false);
-		tree = empty;
-	}
-
 	darrp = mgmt_msg_native_get_darrp(msg);
 	ret = yang_print_tree_append(darrp, tree, result_type,
-				     (LYD_PRINT_WD_EXPLICIT |
-				      LYD_PRINT_WITHSIBLINGS));
+				     (wd_options | LYD_PRINT_WITHSIBLINGS));
 	if (ret != LY_SUCCESS) {
 		MGMTD_FE_ADAPTER_ERR("Error building get-tree result for client %s session-id %" PRIu64
 				     " req-id %" PRIu64
@@ -1126,8 +1119,6 @@ static int fe_adapter_send_tree_data(struct mgmt_fe_session_ctx *session,
 					 mgmt_msg_native_get_msg_len(msg),
 					 short_circuit_ok);
 done:
-	if (empty)
-		yang_dnode_free(empty);
 	mgmt_msg_native_free_msg(msg);
 
 	return ret;
@@ -1146,7 +1137,9 @@ static void fe_adapter_handle_get_data(struct mgmt_fe_session_ctx *session,
 	struct lysc_node **snodes = NULL;
 	char *xpath_resolved = NULL;
 	uint64_t req_id = msg->req_id;
+	Mgmtd__DatastoreId ds_id;
 	uint64_t clients;
+	uint32_t wd_options;
 	bool simple_xpath;
 	LY_ERR err;
 	int ret;
@@ -1171,6 +1164,43 @@ static void fe_adapter_handle_get_data(struct mgmt_fe_session_ctx *session,
 		goto done;
 	}
 
+	switch (msg->defaults) {
+	case GET_DATA_DEFAULTS_EXPLICIT:
+		wd_options = LYD_PRINT_WD_EXPLICIT;
+		break;
+	case GET_DATA_DEFAULTS_TRIM:
+		wd_options = LYD_PRINT_WD_TRIM;
+		break;
+	case GET_DATA_DEFAULTS_ALL:
+		wd_options = LYD_PRINT_WD_ALL;
+		break;
+	case GET_DATA_DEFAULTS_ALL_ADD_TAG:
+		wd_options = LYD_PRINT_WD_IMPL_TAG;
+		break;
+	default:
+		fe_adapter_send_error(session, req_id, false, -EINVAL,
+				      "Invalid defaults value %u for session-id: %" PRIu64,
+				      msg->defaults, session->session_id);
+		goto done;
+	}
+
+	switch (msg->datastore) {
+	case MGMT_MSG_DATASTORE_CANDIDATE:
+		ds_id = MGMTD_DS_CANDIDATE;
+		break;
+	case MGMT_MSG_DATASTORE_RUNNING:
+		ds_id = MGMTD_DS_RUNNING;
+		break;
+	case MGMT_MSG_DATASTORE_OPERATIONAL:
+		ds_id = MGMTD_DS_OPERATIONAL;
+		break;
+	default:
+		fe_adapter_send_error(session, req_id, false, -EINVAL,
+				      "Unsupported datastore %" PRIu8
+				      " requested from session-id: %" PRIu64,
+				      msg->datastore, session->session_id);
+		goto done;
+	}
 
 	err = yang_resolve_snode_xpath(ly_native_ctx, msg->xpath, &snodes,
 				       &simple_xpath);
@@ -1190,7 +1220,7 @@ static void fe_adapter_handle_get_data(struct mgmt_fe_session_ctx *session,
 				     session->session_id);
 
 		fe_adapter_send_tree_data(session, req_id, false,
-					  msg->result_type, NULL, 0);
+					  msg->result_type, wd_options, NULL, 0);
 		goto done;
 	}
 
@@ -1209,8 +1239,8 @@ static void fe_adapter_handle_get_data(struct mgmt_fe_session_ctx *session,
 
 	/* Create a GET-TREE request under the transaction */
 	ret = mgmt_txn_send_get_tree_oper(session->txn_id, req_id, clients,
-					  msg->result_type, msg->flags,
-					  simple_xpath, msg->xpath);
+					  ds_id, msg->result_type, msg->flags,
+					  wd_options, simple_xpath, msg->xpath);
 	if (ret) {
 		/* destroy the just created txn */
 		mgmt_destroy_txn(&session->txn_id);
@@ -1469,6 +1499,7 @@ int mgmt_fe_send_get_reply(uint64_t session_id, uint64_t txn_id,
 
 int mgmt_fe_adapter_send_tree_data(uint64_t session_id, uint64_t txn_id,
 				   uint64_t req_id, LYD_FORMAT result_type,
+				   uint32_t wd_options,
 				   const struct lyd_node *tree,
 				   int partial_error, bool short_circuit_ok)
 {
@@ -1480,7 +1511,8 @@ int mgmt_fe_adapter_send_tree_data(uint64_t session_id, uint64_t txn_id,
 		return -1;
 
 	ret = fe_adapter_send_tree_data(session, req_id, short_circuit_ok,
-					result_type, tree, partial_error);
+					result_type, wd_options, tree,
+					partial_error);
 
 	mgmt_destroy_txn(&session->txn_id);
 

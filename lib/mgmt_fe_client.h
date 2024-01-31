@@ -384,11 +384,17 @@ extern int mgmt_fe_send_regnotify_req(struct mgmt_fe_client *client,
  * req_id
  *    Client request ID.
  *
+ * datastore
+ *    Datastore for getting data.
+ *
  * result_type
  *    The LYD_FORMAT of the result.
  *
  * flags
  *    Flags to control the behavior of the request.
+ *
+ * defaults
+ *    Options to control the reporting of default values.
  *
  * xpath
  *    the xpath to get.
@@ -398,7 +404,8 @@ extern int mgmt_fe_send_regnotify_req(struct mgmt_fe_client *client,
  */
 extern int mgmt_fe_send_get_data_req(struct mgmt_fe_client *client,
 				     uint64_t session_id, uint64_t req_id,
-				     LYD_FORMAT result_type, uint8_t flags,
+				     uint8_t datastore, LYD_FORMAT result_type,
+				     uint8_t flags, uint8_t defaults,
 				     const char *xpath);
 
 /*

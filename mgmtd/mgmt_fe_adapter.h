@@ -148,6 +148,7 @@ extern int mgmt_fe_send_get_reply(uint64_t session_id, uint64_t txn_id,
  *	txn_id: the txn_id this data pertains to
  *	req_id: the req id for the get_tree message
  *	result_type: the format of the result data.
+ *	wd_options: with-defaults options.
  *	tree: the results.
  *	partial_error: if there were errors while gather results.
  *	short_circuit_ok: True if OK to short-circuit the call.
@@ -156,12 +157,11 @@ extern int mgmt_fe_send_get_reply(uint64_t session_id, uint64_t txn_id,
  *	the return value from the underlying send function.
  *
  */
-extern int mgmt_fe_adapter_send_tree_data(uint64_t session_id, uint64_t txn_id,
-					  uint64_t req_id,
-					  LYD_FORMAT result_type,
-					  const struct lyd_node *tree,
-					  int partial_error,
-					  bool short_circuit_ok);
+extern int
+mgmt_fe_adapter_send_tree_data(uint64_t session_id, uint64_t txn_id,
+			       uint64_t req_id, LYD_FORMAT result_type,
+			       uint32_t wd_options, const struct lyd_node *tree,
+			       int partial_error, bool short_circuit_ok);
 
 /**
  * Send an error back to the FE client using native messaging.
