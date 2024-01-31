@@ -263,6 +263,10 @@ void bgp_path_info_extra_free(struct bgp_path_info_extra **extra)
 		XFREE(MTYPE_BGP_ROUTE_EXTRA_FS, e->flowspec);
 	if (e->vrfleak)
 		XFREE(MTYPE_BGP_ROUTE_EXTRA_VRFLEAK, e->vrfleak);
+#ifdef ENABLE_BGP_VNC
+	if (e->vnc)
+		XFREE(MTYPE_BGP_ROUTE_EXTRA_VNC, e->vnc);
+#endif
 
 	XFREE(MTYPE_BGP_ROUTE_EXTRA, *extra);
 }

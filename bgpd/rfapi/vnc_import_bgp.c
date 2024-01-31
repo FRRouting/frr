@@ -1696,8 +1696,8 @@ static void vnc_import_bgp_exterior_add_route_it(
 				have_usable_route = 1;
 
 				if (bpi_interior->extra) {
-					prd = &bpi_interior->extra->vnc.import
-						       .rd;
+					prd = &bpi_interior->extra->vnc->vnc
+						       .import.rd;
 					label = decode_label(
 						&bpi_interior->extra->label[0]);
 				} else
@@ -1865,8 +1865,8 @@ void vnc_import_bgp_exterior_del_route(
 				have_usable_route = 1;
 
 				if (bpi_interior->extra) {
-					prd = &bpi_interior->extra->vnc.import
-						       .rd;
+					prd = &bpi_interior->extra->vnc->vnc
+						       .import.rd;
 					label = decode_label(
 						&bpi_interior->extra->label[0]);
 				} else
@@ -2013,7 +2013,7 @@ void vnc_import_bgp_exterior_add_route_interior(
 			assert(pfx_exterior);
 
 			if (bpi_interior->extra) {
-				prd = &bpi_interior->extra->vnc.import.rd;
+				prd = &bpi_interior->extra->vnc->vnc.import.rd;
 				label = decode_label(
 					&bpi_interior->extra->label[0]);
 			} else
@@ -2126,8 +2126,8 @@ void vnc_import_bgp_exterior_add_route_interior(
 				for (bpi = par->info; bpi; bpi = bpi->next) {
 
 					if (bpi->extra) {
-						prd = &bpi->extra->vnc.import
-							       .rd;
+						prd = &bpi->extra->vnc->vnc
+							       .import.rd;
 						label = decode_label(
 							&bpi->extra->label[0]);
 					} else
@@ -2148,8 +2148,8 @@ void vnc_import_bgp_exterior_add_route_interior(
 				 * the new interior route at longer prefix.
 				 */
 				if (bpi_interior->extra) {
-					prd = &bpi_interior->extra->vnc.import
-						       .rd;
+					prd = &bpi_interior->extra->vnc->vnc
+						       .import.rd;
 					label = decode_label(
 						&bpi_interior->extra->label[0]);
 				} else
@@ -2267,7 +2267,7 @@ void vnc_import_bgp_exterior_add_route_interior(
 			 * new interior route at the longer prefix.
 			 */
 			if (bpi_interior->extra) {
-				prd = &bpi_interior->extra->vnc.import.rd;
+				prd = &bpi_interior->extra->vnc->vnc.import.rd;
 				label = decode_label(
 					&bpi_interior->extra->label[0]);
 			} else
@@ -2375,7 +2375,7 @@ void vnc_import_bgp_exterior_del_route_interior(
 		uint32_t label = 0;
 
 		if (bpi_interior->extra) {
-			prd = &bpi_interior->extra->vnc.import.rd;
+			prd = &bpi_interior->extra->vnc->vnc.import.rd;
 			label = decode_label(&bpi_interior->extra->label[0]);
 		} else
 			prd = NULL;
@@ -2452,7 +2452,7 @@ void vnc_import_bgp_exterior_del_route_interior(
 					continue;
 
 				if (bpi->extra) {
-					prd = &bpi->extra->vnc.import.rd;
+					prd = &bpi->extra->vnc->vnc.import.rd;
 					label = decode_label(
 						&bpi->extra->label[0]);
 				} else
@@ -2805,14 +2805,14 @@ void vnc_import_bgp_redist_disable(struct bgp *bgp, afi_t afi)
 
 				assert(bpi->extra);
 
-				rfd = bpi->extra->vnc.export.rfapi_handle;
+				rfd = bpi->extra->vnc->vnc.export.rfapi_handle;
 
 				vnc_zlog_debug_verbose(
-					"%s: deleting bpi=%p, bpi->peer=%p, bpi->type=%d, bpi->sub_type=%d, bpi->extra->vnc.export.rfapi_handle=%p [passing rfd=%p]",
+					"%s: deleting bpi=%p, bpi->peer=%p, bpi->type=%d, bpi->sub_type=%d, bpi->extra->vnc->vnc.export.rfapi_handle=%p [passing rfd=%p]",
 					__func__, bpi, bpi->peer, bpi->type,
 					bpi->sub_type,
-					(bpi->extra ? bpi->extra->vnc.export
-							      .rfapi_handle
+					(bpi->extra ? bpi->extra->vnc->vnc
+							      .export.rfapi_handle
 						    : NULL),
 					rfd);
 

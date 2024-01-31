@@ -354,7 +354,7 @@ struct agg_node *rfapiMonitorGetAttachNode(struct rfapi_descriptor *rfd,
 			 * If there is a cached ENCAP UN address, it's a usable
 			 * VPN route
 			 */
-			if (bpi->extra && bpi->extra->vnc.import.un_family) {
+			if (bpi->extra && bpi->extra->vnc->vnc.import.un_family) {
 				break;
 			}
 

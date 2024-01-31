@@ -193,6 +193,35 @@ struct bgp_path_info_extra_vrfleak {
 	struct prefix nexthop_orig;
 };
 
+#ifdef ENABLE_BGP_VNC
+struct bgp_path_info_extra_vnc {
+	union {
+		struct {
+			void *rfapi_handle; /* export: NVE advertising this
+					       route */
+			struct list *local_nexthops; /* optional, for static
+							routes */
+		} export;
+
+		struct {
+			struct event *timer;
+			void *hme; /* encap monitor, if this is a VPN route */
+			struct prefix_rd
+				rd; /* import: route's route-distinguisher */
+			uint8_t un_family; /* family of cached un address, 0 if
+					     unset */
+			union {
+				struct in_addr addr4;
+				struct in6_addr addr6;
+			} un; /* cached un address */
+			time_t create_time;
+			struct prefix aux_prefix; /* AFI_L2VPN: the IP addr,
+						     if family set */
+		} import;
+	} vnc;
+};
+#endif
+
 /* Ancillary information to struct bgp_path_info,
  * used for uncommonly used data (aggregation, MPLS, etc.)
  * and lazily allocated to save memory.
@@ -218,32 +247,7 @@ struct bgp_path_info_extra {
 	struct bgp_path_info_extra_evpn *evpn;
 
 #ifdef ENABLE_BGP_VNC
-	union {
-
-		struct {
-			void *rfapi_handle; /* export: NVE advertising this
-					       route */
-			struct list *local_nexthops; /* optional, for static
-							routes */
-		} export;
-
-		struct {
-			struct event *timer;
-			void *hme; /* encap monitor, if this is a VPN route */
-			struct prefix_rd
-				rd; /* import: route's route-distinguisher */
-			uint8_t un_family; /* family of cached un address, 0 if
-					     unset */
-			union {
-				struct in_addr addr4;
-				struct in6_addr addr6;
-			} un; /* cached un address */
-			time_t create_time;
-			struct prefix aux_prefix; /* AFI_L2VPN: the IP addr,
-						     if family set */
-		} import;
-
-	} vnc;
+	struct bgp_path_info_extra_vnc *vnc;
 #endif
 
 	/* For flowspec*/
