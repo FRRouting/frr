@@ -989,27 +989,23 @@ CLI commands should be rewritten but maintained in the same file.
 Since all CLI configuration commands from FRR will need to be rewritten,
 this is an excellent opportunity to rework this part of the code to make
 the commands easier to maintain and extend. These are the three main
-recommendations: 1. Always use DEFPY instead of DEFUN to improve code
-readability. 2. Always try to join multiple DEFUNs into a single DEFPY
-whenever possible. As an example, there’s no need to have both
-``distance (1-255) A.B.C.D/M`` and ``distance (1-255) A.B.C.D/M WORD``
-when a single ``distance (1-255) A.B.C.D/M [WORD]`` would suffice. 3.
-When necessary, create a separate DEFPY for ``no`` commands so that part
-of the configuration command can be made optional for convenience.
-Example:
-``no timers basic [(5-2147483647) (5-2147483647) (5-2147483647)]``. In
-this example, everything after ``no timers basic`` is ignored by FRR, so
-it makes sense to accept ``no timers basic`` as a valid command. But it
-also makes sense to accept all parameters
-(``no timers basic (5-2147483647) (5-2147483647) (5-2147483647)``) to
-make it easier to remove the command just by prefixing a “no” to it.
+recommendations:
+
+#. Always use DEFPY instead of DEFUN to improve code readability
+#. Always try to join multiple DEFUNs into a single DEFPY whenever possible. As
+   an example, there’s no need to have both ``distance (1-255) A.B.C.D/M`` and
+   ``distance (1-255) A.B.C.D/M WORD`` when a single ``distance (1-255)
+   A.B.C.D/M [WORD]`` would suffice.
+#. When making a negative form of a command, put ``[no]`` in the positive form
+   and use ``![...]`` to mark portions of the command that should be optional
+   only in the ``no`` version.
 
 To rewrite a CLI command as a dumb wrapper around the northbound
 callbacks, use the ``nb_cli_cfg_change()`` function. This function
 accepts as a parameter an array of ``cli_config_change`` structures that
 specify the changes that need to performed on the candidate
 configuration. Here’s the declaration of this structure (taken from the
-*lib/northbound_cli.h* file):
+``lib/northbound_cli.h`` file):
 
 .. code:: c
 
