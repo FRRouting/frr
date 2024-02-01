@@ -681,18 +681,6 @@ DEFUN_YANG (no_vrf,
 	const char *vrfname = argv[2]->arg;
 	char xpath_list[XPATH_MAXLEN];
 
-	struct vrf *vrfp;
-
-	vrfp = vrf_lookup_by_name(vrfname);
-
-	if (vrfp == NULL)
-		return CMD_SUCCESS;
-
-	if (CHECK_FLAG(vrfp->status, VRF_ACTIVE)) {
-		vty_out(vty, "%% Only inactive VRFs can be deleted\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
 	if (vrf_get_backend() == VRF_BACKEND_VRF_LITE) {
 		/*
 		 * Remove the VRF interface config when removing the VRF.
