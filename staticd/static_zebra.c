@@ -111,8 +111,6 @@ static int interface_address_delete(ZAPI_CALLBACK_ARGS)
 
 static int static_ifp_up(struct interface *ifp)
 {
-	/* Install any static reliant on this interface coming up */
-	static_install_intf_nh(ifp);
 	static_ifindex_update(ifp, true);
 
 	return 0;
@@ -169,7 +167,7 @@ static void zebra_connected(struct zclient *zclient)
 	zebra_route_notify_send(ZEBRA_ROUTE_NOTIFY_REQUEST, zclient, true);
 	zclient_send_reg_requests(zclient, VRF_DEFAULT);
 
-	static_fixup_vrf_ids(vrf_info_lookup(VRF_DEFAULT));
+	static_fixup_vrf_ids(vrf_lookup_by_id(VRF_DEFAULT));
 }
 
 /* API to check whether the configured nexthop address is
@@ -387,6 +385,9 @@ extern void static_zebra_route_add(struct static_path *pn, bool install)
 	struct zapi_nexthop *api_nh;
 	struct zapi_route api;
 	uint32_t nh_num = 0;
+
+	if (!si->svrf->vrf)
+		return;
 
 	p = src_pp = NULL;
 	srcdest_rnode_prefixes(rn, &p, &src_pp);

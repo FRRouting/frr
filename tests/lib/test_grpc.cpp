@@ -119,8 +119,10 @@ static void static_startup(void)
 
 	hook_register(routing_conf_event,
 		      routing_control_plane_protocols_name_validate);
-
-	routing_control_plane_protocols_register_vrf_dependency();
+	hook_register(routing_create,
+		      routing_control_plane_protocols_staticd_create);
+	hook_register(routing_destroy,
+		      routing_control_plane_protocols_staticd_destroy);
 
 	// Add a route
 	vty = vty_new();

@@ -540,6 +540,48 @@ int routing_control_plane_protocols_name_validate(
 	}
 	return NB_OK;
 }
+
+/*
+ * XPath:
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol
+ */
+int routing_control_plane_protocols_staticd_create(struct nb_cb_create_args *args)
+{
+	struct static_vrf *svrf;
+	const char *vrf;
+
+	vrf = yang_dnode_get_string(args->dnode, "vrf");
+	svrf = static_vrf_alloc(vrf);
+	nb_running_set_entry(args->dnode, svrf);
+
+	return NB_OK;
+}
+
+int routing_control_plane_protocols_staticd_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	struct static_vrf *svrf;
+	struct route_table *stable;
+	struct route_node *rn;
+	afi_t afi;
+	safi_t safi;
+
+	svrf = nb_running_unset_entry(args->dnode);
+
+	FOREACH_AFI_SAFI (afi, safi) {
+		stable = svrf->stable[afi][safi];
+		if (!stable)
+			continue;
+
+		for (rn = route_top(stable); rn; rn = route_next(rn))
+			static_del_route(rn);
+	}
+
+	static_vrf_free(svrf);
+
+	return NB_OK;
+}
+
 /*
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-staticd:staticd/route-list
@@ -547,8 +589,7 @@ int routing_control_plane_protocols_name_validate(
 int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_create(
 	struct nb_cb_create_args *args)
 {
-	struct vrf *vrf;
-	struct static_vrf *s_vrf;
+	struct static_vrf *svrf;
 	struct route_node *rn;
 	const struct lyd_node *vrf_dnode;
 	struct prefix prefix;
@@ -577,15 +618,14 @@ int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_cr
 	case NB_EV_APPLY:
 		vrf_dnode = yang_dnode_get_parent(args->dnode,
 						  "control-plane-protocol");
-		vrf = nb_running_get_entry(vrf_dnode, NULL, true);
-		s_vrf = vrf->info;
+		svrf = nb_running_get_entry(vrf_dnode, NULL, true);
 
 		yang_dnode_get_prefix(&prefix, args->dnode, "prefix");
 		afi_safi = yang_dnode_get_string(args->dnode, "afi-safi");
 		yang_afi_safi_identity2value(afi_safi, &afi, &safi);
 
-		rn = static_add_route(afi, safi, &prefix, NULL, s_vrf);
-		if (vrf->vrf_id == VRF_UNKNOWN)
+		rn = static_add_route(afi, safi, &prefix, NULL, svrf);
+		if (!svrf->vrf || svrf->vrf->vrf_id == VRF_UNKNOWN)
 			snprintf(
 				args->errmsg, args->errmsg_len,
 				"Static Route to %s not installed currently because dependent config not fully available",

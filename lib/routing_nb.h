@@ -29,6 +29,8 @@ int routing_control_plane_protocols_control_plane_protocol_destroy(
  * based on the control plane protocol
  */
 DECLARE_HOOK(routing_conf_event, (struct nb_cb_create_args *args), (args));
+DECLARE_HOOK(routing_create, (struct nb_cb_create_args *args), (args));
+DECLARE_KOOH(routing_destroy, (struct nb_cb_destroy_args *args), (args));
 
 void routing_control_plane_protocols_register_vrf_dependency(void);
 
