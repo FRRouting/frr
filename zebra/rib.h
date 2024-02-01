@@ -634,10 +634,12 @@ static inline struct nexthop_group *rib_get_fib_backup_nhg(
 }
 
 extern void zebra_gr_process_client(afi_t afi, vrf_id_t vrf_id, uint8_t proto, uint8_t instance,
-				    time_t restart_time, bool stale_client_cleanup);
+				    time_t restart_time, time_t update_pending_time,
+				    bool stale_client_cleanup);
 
 extern int rib_add_gr_run(afi_t afi, vrf_id_t vrf_id, uint8_t proto, uint8_t instance,
-			  time_t restart_time, bool stale_client_cleanup);
+			  time_t restart_time, time_t update_pending_time,
+			  bool stale_client_cleanup);
 
 extern void zebra_vty_init(void);
 extern uint32_t zebra_rib_dplane_results_count(void);
