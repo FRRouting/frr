@@ -51,7 +51,6 @@
 
 /* RIP port number. */
 #define RIP_PORT_DEFAULT               520
-#define RIP_VTY_PORT                  2602
 
 /* Default configuration file name. */
 #define RIPD_DEFAULT_CONFIG    "ripd.conf"

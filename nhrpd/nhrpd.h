@@ -16,7 +16,6 @@ DECLARE_MGROUP(NHRPD);
 
 #define NHRPD_DEFAULT_HOLDTIME	7200
 
-#define NHRP_VTY_PORT		2610
 #define NHRP_DEFAULT_CONFIG	"nhrpd.conf"
 
 extern struct event_loop *master;

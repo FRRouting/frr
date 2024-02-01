@@ -107,8 +107,6 @@ static const struct frr_yang_module_info *const vrrp_yang_modules[] = {
 	&frr_vrrpd_info,
 };
 
-#define VRRP_VTY_PORT 2619
-
 /* clang-format off */
 FRR_DAEMON_INFO(vrrpd, VRRP,
 	.vty_port = VRRP_VTY_PORT,

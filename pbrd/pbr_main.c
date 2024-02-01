@@ -103,8 +103,6 @@ struct frr_signal_t pbr_signals[] = {
 	},
 };
 
-#define PBR_VTY_PORT 2615
-
 static const struct frr_yang_module_info *const pbrd_yang_modules[] = {
 	&frr_filter_info,
 	&frr_interface_info,

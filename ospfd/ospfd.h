@@ -22,9 +22,6 @@
 
 #define OSPF_VERSION            2
 
-/* VTY port number. */
-#define OSPF_VTY_PORT          2604
-
 /* IP TTL for OSPF protocol. */
 #define OSPF_IP_TTL             1
 #define OSPF_VL_IP_TTL          100

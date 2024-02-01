@@ -31,9 +31,6 @@ extern "C" {
 
 struct zebra_vrf;
 
-/* Default port information. */
-#define ZEBRA_VTY_PORT                2601
-
 /* Default configuration filename. */
 #define DEFAULT_CONFIG_FILE "zebra.conf"
 

@@ -119,7 +119,7 @@ static const struct frr_yang_module_info *const bfdd_yang_modules[] = {
 
 /* clang-format off */
 FRR_DAEMON_INFO(bfdd, BFD,
-	.vty_port = 2617,
+	.vty_port = BFDD_VTY_PORT,
 	.proghelp = "Implementation of the BFD protocol.",
 
 	.signals = bfd_signals,
