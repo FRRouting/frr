@@ -53,7 +53,6 @@ Copyright 2011 by Matthieu Boutier and Juliusz Chroboczek
 #endif
 
 
-#define BABEL_VTY_PORT 2609
 #define BABEL_DEFAULT_CONFIG "babeld.conf"
 
 /* Values in milliseconds */

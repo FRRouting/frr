@@ -51,9 +51,6 @@
 
 /* Default configuration file name */
 #define ISISD_DEFAULT_CONFIG "isisd.conf"
-/* Default vty port */
-#define ISISD_VTY_PORT       2608
-#define FABRICD_VTY_PORT     2618
 
 #define FABRICD_STATE_NAME "%s/fabricd.json", frr_libstatedir
 #define ISISD_STATE_NAME   "%s/isisd.json", frr_libstatedir

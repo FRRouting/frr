@@ -55,6 +55,49 @@ struct log_arg {
 };
 DECLARE_DLIST(log_args, struct log_arg, itm);
 
+/* Registry of daemons' port defaults. Many of these are VTY ports; some
+ * daemons have default ports for other features such as ospfapi, or zebra's
+ * FPM.
+ */
+
+/* default zebra TCP port for zapi; this is currently disabled for security
+ * reasons.
+ */
+#define ZEBRA_TCP_PORT 2600
+
+#define ZEBRA_VTY_PORT 2601
+#define RIP_VTY_PORT 2602
+#define RIPNG_VTY_PORT 2603
+#define OSPF_VTY_PORT 2604
+#define BGP_VTY_PORT 2605
+#define OSPF6_VTY_PORT 2606
+
+/* Default API server port to accept connection request from client-side.
+ * This value could be overridden by "ospfapi" entry in "/etc/services".
+ */
+#define OSPF_API_SYNC_PORT 2607
+
+#define ISISD_VTY_PORT 2608
+#define BABEL_VTY_PORT 2609
+#define NHRP_VTY_PORT 2610
+#define PIMD_VTY_PORT 2611
+#define LDP_VTY_PORT 2612
+#define EIGRP_VTY_PORT 2613
+#define SHARP_VTY_PORT 2614
+#define PBR_VTY_PORT 2615
+#define STATIC_VTY_PORT 2616
+#define BFDD_VTY_PORT 2617
+#define FABRICD_VTY_PORT 2618
+#define VRRP_VTY_PORT 2619
+
+/* default port for FPM connections */
+#define FPM_DEFAULT_PORT 2620
+
+#define PATH_VTY_PORT 2621
+#define PIM6D_VTY_PORT 2622
+#define MGMTD_VTY_PORT 2623
+/* Registry of daemons' port defaults */
+
 enum frr_cli_mode {
 	FRR_CLI_CLASSIC = 0,
 	FRR_CLI_TRANSACTIONAL,

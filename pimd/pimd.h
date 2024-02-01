@@ -19,9 +19,6 @@
 #include "pim_memory.h"
 #include "pim_assert.h"
 
-#define PIMD_VTY_PORT       2611
-#define PIM6D_VTY_PORT      2622
-
 #define PIM_IP_PROTO_IGMP             (2)
 #define PIM_IP_PROTO_PIM              (103)
 #define PIM_IGMP_MIN_LEN              (8)

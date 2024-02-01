@@ -113,8 +113,6 @@ static const struct frr_yang_module_info *const staticd_yang_modules[] = {
 	&frr_staticd_info,
 };
 
-#define STATIC_VTY_PORT 2616
-
 /*
  * NOTE: .flags == FRR_NO_SPLIT_CONFIG to avoid reading split config, mgmtd will
  * do this for us now

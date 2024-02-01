@@ -2064,7 +2064,6 @@ struct bgp_nlri {
 #define BGP_UPTIME_LEN 25
 
 /* Default configuration settings for bgpd.  */
-#define BGP_VTY_PORT                          2605
 #define BGP_DEFAULT_CONFIG             "bgpd.conf"
 
 /* BGP Dynamic Neighbors feature */

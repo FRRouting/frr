@@ -95,8 +95,6 @@ static const struct frr_yang_module_info *pathd_yang_modules[] = {
 	&frr_pathd_info,
 };
 
-#define PATH_VTY_PORT 2621
-
 /* clang-format off */
 FRR_DAEMON_INFO(pathd, PATH,
 	.vty_port = PATH_VTY_PORT,

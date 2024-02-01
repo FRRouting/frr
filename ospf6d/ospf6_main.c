@@ -46,9 +46,6 @@
  * is excessive for just supporting a legacy compatibility file location
  */
 
-/* Default port values. */
-#define OSPF6_VTY_PORT             2606
-
 /* ospf6d privileges */
 zebra_capabilities_t _caps_p[] = {ZCAP_NET_RAW, ZCAP_BIND, ZCAP_SYS_ADMIN};
 

@@ -20,7 +20,6 @@
 #include "mgmtd/mgmt_txn.h"
 #include "mgmtd/mgmt_ds.h"
 
-#define MGMTD_VTY_PORT 2623
 #define MGMTD_SOCKET_BUF_SIZE 65535
 #define MGMTD_MAX_COMMIT_LIST 10
 

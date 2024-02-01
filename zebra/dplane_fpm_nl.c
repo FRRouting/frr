@@ -45,7 +45,6 @@
 #include "fpm/fpm.h"
 
 #define SOUTHBOUND_DEFAULT_ADDR INADDR_LOOPBACK
-#define SOUTHBOUND_DEFAULT_PORT 2620
 
 /*
  * Time in seconds that if the other end is not responding
@@ -217,7 +216,7 @@ DEFUN(fpm_set_address, fpm_set_address_cmd,
 		memset(sin, 0, sizeof(*sin));
 		sin->sin_family = AF_INET;
 		sin->sin_port =
-			port ? htons(port) : htons(SOUTHBOUND_DEFAULT_PORT);
+			port ? htons(port) : htons(FPM_DEFAULT_PORT);
 #ifdef HAVE_STRUCT_SOCKADDR_SA_LEN
 		sin->sin_len = sizeof(*sin);
 #endif /* HAVE_STRUCT_SOCKADDR_SA_LEN */
@@ -235,7 +234,7 @@ DEFUN(fpm_set_address, fpm_set_address_cmd,
 	sin6 = (struct sockaddr_in6 *)&gfnc->addr;
 	memset(sin6, 0, sizeof(*sin6));
 	sin6->sin6_family = AF_INET6;
-	sin6->sin6_port = port ? htons(port) : htons(SOUTHBOUND_DEFAULT_PORT);
+	sin6->sin6_port = port ? htons(port) : htons(FPM_DEFAULT_PORT);
 #ifdef HAVE_STRUCT_SOCKADDR_SA_LEN
 	sin6->sin6_len = sizeof(*sin6);
 #endif /* HAVE_STRUCT_SOCKADDR_SA_LEN */
@@ -402,7 +401,7 @@ static int fpm_write_config(struct vty *vty)
 		written = 1;
 		sin = (struct sockaddr_in *)&gfnc->addr;
 		vty_out(vty, "fpm address %pI4", &sin->sin_addr);
-		if (sin->sin_port != htons(SOUTHBOUND_DEFAULT_PORT))
+		if (sin->sin_port != htons(FPM_DEFAULT_PORT))
 			vty_out(vty, " port %d", ntohs(sin->sin_port));
 
 		vty_out(vty, "\n");
@@ -411,7 +410,7 @@ static int fpm_write_config(struct vty *vty)
 		written = 1;
 		sin6 = (struct sockaddr_in6 *)&gfnc->addr;
 		vty_out(vty, "fpm address %pI6", &sin6->sin6_addr);
-		if (sin6->sin6_port != htons(SOUTHBOUND_DEFAULT_PORT))
+		if (sin6->sin6_port != htons(FPM_DEFAULT_PORT))
 			vty_out(vty, " port %d", ntohs(sin6->sin6_port));
 
 		vty_out(vty, "\n");

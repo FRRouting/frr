@@ -208,7 +208,7 @@ bool frr_zclient_addr(struct sockaddr_storage *sa, socklen_t *sa_len,
 	if (!strncmp(path, ZAPI_TCP_PATHNAME, strlen(ZAPI_TCP_PATHNAME))) {
 		/* note: this functionality is disabled at bottom */
 		int af;
-		int port = ZEBRA_PORT;
+		int port = ZEBRA_TCP_PORT;
 		char *err = NULL;
 		struct sockaddr_in *sin = NULL;
 		struct sockaddr_in6 *sin6 = NULL;

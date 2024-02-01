@@ -221,9 +221,6 @@ struct in_pktinfo {
 #define IN6_ARE_ADDR_EQUAL IN6_IS_ADDR_EQUAL
 #endif /* IN6_ARE_ADDR_EQUAL */
 
-/* default zebra TCP port for zclient */
-#define ZEBRA_PORT			2600
-
 /* Zebra route's types are defined in route_types.h */
 #include "lib/route_types.h"
 

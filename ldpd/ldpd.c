@@ -104,7 +104,6 @@ void ldp_agentx_enabled(void)
 enum ldpd_process ldpd_process;
 
 #define LDP_DEFAULT_CONFIG	"ldpd.conf"
-#define LDP_VTY_PORT		2612
 
 /* Master of threads. */
 struct event_loop *master;
