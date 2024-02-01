@@ -132,12 +132,12 @@ extern struct debug mgmt_dbg_fe_client;
  * API prototypes
  ***************************************************************/
 
-#define MGMTD_FE_CLIENT_DBG(fmt, ...)                                          \
+#define debug_fe_client(fmt, ...)                                              \
 	DEBUGD(&mgmt_dbg_fe_client, "FE-CLIENT: %s: " fmt, __func__,           \
 	       ##__VA_ARGS__)
-#define MGMTD_FE_CLIENT_ERR(fmt, ...)                                          \
+#define log_err_fe_client(fmt, ...)                                            \
 	zlog_err("FE-CLIENT: %s: ERROR: " fmt, __func__, ##__VA_ARGS__)
-#define MGMTD_DBG_FE_CLIENT_CHECK()                                            \
+#define debug_check_fe_client()                                                \
 	DEBUG_MODE_CHECK(&mgmt_dbg_fe_client, DEBUG_MODE_ALL)
 
 /*
