@@ -95,12 +95,12 @@ extern struct debug mgmt_dbg_be_client;
  * API prototypes
  ***************************************************************/
 
-#define MGMTD_BE_CLIENT_DBG(fmt, ...)                                          \
+#define debug_be_client(fmt, ...)                                              \
 	DEBUGD(&mgmt_dbg_be_client, "BE-CLIENT: %s: " fmt, __func__,           \
 	       ##__VA_ARGS__)
-#define MGMTD_BE_CLIENT_ERR(fmt, ...)                                          \
+#define log_err_be_client(fmt, ...)                                            \
 	zlog_err("BE-CLIENT: %s: ERROR: " fmt, __func__, ##__VA_ARGS__)
-#define MGMTD_DBG_BE_CLIENT_CHECK()                                            \
+#define debug_check_be_client()                                                \
 	DEBUG_MODE_CHECK(&mgmt_dbg_be_client, DEBUG_MODE_ALL)
 
 /**

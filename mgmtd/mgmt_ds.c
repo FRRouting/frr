@@ -15,10 +15,9 @@
 #include "mgmtd/mgmt_txn.h"
 #include "libyang/libyang.h"
 
-#define MGMTD_DS_DBG(fmt, ...)                                                 \
+#define __dbg(fmt, ...)                                                        \
 	DEBUGD(&mgmt_debug_ds, "DS: %s: " fmt, __func__, ##__VA_ARGS__)
-#define MGMTD_DS_ERR(fmt, ...)                                                 \
-	zlog_err("%s: ERROR: " fmt, __func__, ##__VA_ARGS__)
+#define __log_err(fmt, ...) zlog_err("%s: ERROR: " fmt, __func__, ##__VA_ARGS__)
 
 struct mgmt_ds_ctx {
 	Mgmtd__DatastoreId ds_id;
@@ -81,8 +80,8 @@ static int mgmt_ds_replace_dst_with_src_ds(struct mgmt_ds_ctx *src,
 	if (!src || !dst)
 		return -1;
 
-	MGMTD_DS_DBG("Replacing %s with %s", mgmt_ds_id2name(dst->ds_id),
-		     mgmt_ds_id2name(src->ds_id));
+	__dbg("Replacing %s with %s", mgmt_ds_id2name(dst->ds_id),
+	      mgmt_ds_id2name(src->ds_id));
 
 	if (src->config_ds && dst->config_ds)
 		nb_config_replace(dst->root.cfg_root, src->root.cfg_root, true);
@@ -104,7 +103,7 @@ static int mgmt_ds_merge_src_with_dst_ds(struct mgmt_ds_ctx *src,
 	if (!src || !dst)
 		return -1;
 
-	MGMTD_DS_DBG("Merging DS %d with %d", dst->ds_id, src->ds_id);
+	__dbg("Merging DS %d with %d", dst->ds_id, src->ds_id);
 	if (src->config_ds && dst->config_ds)
 		ret = nb_config_merge(dst->root.cfg_root, src->root.cfg_root,
 				      true);
@@ -114,7 +113,7 @@ static int mgmt_ds_merge_src_with_dst_ds(struct mgmt_ds_ctx *src,
 					 src->root.dnode_root, 0);
 	}
 	if (ret != 0) {
-		MGMTD_DS_ERR("merge failed with err: %d", ret);
+		__log_err("merge failed with err: %d", ret);
 		return ret;
 	}
 
@@ -299,7 +298,7 @@ static int mgmt_walk_ds_nodes(
 
 	assert(mgmt_ds_node_iter_fn);
 
-	MGMTD_DS_DBG(" -- START: base xpath: '%s'", base_xpath);
+	__dbg(" -- START: base xpath: '%s'", base_xpath);
 
 	if (!base_dnode)
 		/*
@@ -310,9 +309,9 @@ static int mgmt_walk_ds_nodes(
 	if (!base_dnode)
 		return -1;
 
-	MGMTD_DS_DBG("           search base schema: '%s'",
-		     lysc_path(base_dnode->schema, LYSC_PATH_LOG, xpath,
-			       sizeof(xpath)));
+	__dbg("           search base schema: '%s'",
+	      lysc_path(base_dnode->schema, LYSC_PATH_LOG, xpath,
+			sizeof(xpath)));
 
 	nbnode = (struct nb_node *)base_dnode->schema->priv;
 	(*mgmt_ds_node_iter_fn)(base_xpath, base_dnode, nbnode, ctx);
@@ -335,7 +334,7 @@ static int mgmt_walk_ds_nodes(
 
 		(void)lyd_path(dnode, LYD_PATH_STD, xpath, sizeof(xpath));
 
-		MGMTD_DS_DBG(" -- Child xpath: %s", xpath);
+		__dbg(" -- Child xpath: %s", xpath);
 
 		ret = mgmt_walk_ds_nodes(root, xpath, dnode,
 					 mgmt_ds_node_iter_fn, ctx);
@@ -343,7 +342,7 @@ static int mgmt_walk_ds_nodes(
 			break;
 	}
 
-	MGMTD_DS_DBG(" -- END: base xpath: '%s'", base_xpath);
+	__dbg(" -- END: base xpath: '%s'", base_xpath);
 
 	return ret;
 }
@@ -407,8 +406,7 @@ int mgmt_ds_load_config_from_file(struct mgmt_ds_ctx *dst,
 		return -1;
 
 	if (mgmt_ds_load_cfg_from_file(file_path, &iter) != 0) {
-		MGMTD_DS_ERR("Failed to load config from the file %s",
-			     file_path);
+		__log_err("Failed to load config from the file %s", file_path);
 		return -1;
 	}
 
@@ -451,7 +449,7 @@ int mgmt_ds_iter_data(Mgmtd__DatastoreId ds_id, struct nb_config *root,
 	 * Oper-state should be kept in mind though for the prefix walk
 	 */
 
-	MGMTD_DS_DBG(" -- START DS walk for DSid: %d", ds_id);
+	__dbg(" -- START DS walk for DSid: %d", ds_id);
 
 	/* If the base_xpath is empty then crawl the sibblings */
 	if (xpath[0] == 0) {

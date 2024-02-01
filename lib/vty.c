@@ -178,10 +178,10 @@ void vty_mgmt_resume_response(struct vty *vty, int ret)
 		return;
 	}
 
-	MGMTD_FE_CLIENT_DBG("resuming CLI cmd after %s on vty session-id: %" PRIu64
-			    " with '%s'",
-			    vty->mgmt_req_pending_cmd, vty->mgmt_session_id,
-			    ret == CMD_SUCCESS ? "success" : "failed");
+	debug_fe_client("resuming CLI cmd after %s on vty session-id: %" PRIu64
+			" with '%s'",
+			vty->mgmt_req_pending_cmd, vty->mgmt_session_id,
+			ret == CMD_SUCCESS ? "success" : "failed");
 
 	vty->mgmt_req_pending_cmd = NULL;
 
@@ -2402,10 +2402,9 @@ static void vtysh_read(struct event *thread)
 				 * we get response through callback.
 				 */
 				if (vty->mgmt_req_pending_cmd) {
-					MGMTD_FE_CLIENT_DBG(
-						"postpone CLI response pending mgmtd %s on vty session-id %" PRIu64,
-						vty->mgmt_req_pending_cmd,
-						vty->mgmt_session_id);
+					debug_fe_client("postpone CLI response pending mgmtd %s on vty session-id %" PRIu64,
+							vty->mgmt_req_pending_cmd,
+							vty->mgmt_session_id);
 					return;
 				}
 
@@ -2486,14 +2485,14 @@ void vty_close(struct vty *vty)
 	 * so warn the user.
 	 */
 	if (vty->mgmt_num_pending_setcfg)
-		MGMTD_FE_CLIENT_ERR(
+		log_err_fe_client(
 			"vty closed, uncommitted config will be lost.");
 
 	/* Drop out of configure / transaction if needed. */
 	vty_config_exit(vty);
 
 	if (mgmt_fe_client && vty->mgmt_session_id) {
-		MGMTD_FE_CLIENT_DBG("closing vty session");
+		debug_fe_client("closing vty session");
 		mgmt_fe_destroy_client_session(mgmt_fe_client,
 					       vty->mgmt_client_id);
 		vty->mgmt_session_id = 0;
@@ -3473,9 +3472,8 @@ void vty_init_vtysh(void)
 static void vty_mgmt_server_connected(struct mgmt_fe_client *client,
 				      uintptr_t usr_data, bool connected)
 {
-	MGMTD_FE_CLIENT_DBG("Got %sconnected %s MGMTD Frontend Server",
-			    !connected ? "dis: " : "",
-			    !connected ? "from" : "to");
+	debug_fe_client("Got %sconnected %s MGMTD Frontend Server",
+			!connected ? "dis: " : "", !connected ? "from" : "to");
 
 	/*
 	 * We should not have any sessions for connecting or disconnecting case.
@@ -3511,8 +3509,8 @@ static void vty_mgmt_session_notify(struct mgmt_fe_client *client,
 		return;
 	}
 
-	MGMTD_FE_CLIENT_DBG("%s session for client %" PRIu64 " successfully",
-			    create ? "Created" : "Destroyed", client_id);
+	debug_fe_client("%s session for client %" PRIu64 " successfully",
+			create ? "Created" : "Destroyed", client_id);
 
 	if (create) {
 		assert(session_id != 0);
@@ -3543,8 +3541,8 @@ static void vty_mgmt_ds_lock_notified(struct mgmt_fe_client *client,
 		zlog_err("%socking for DS %u failed, Err: '%s' vty %p",
 			 lock_ds ? "L" : "Unl", ds_id, errmsg_if_any, vty);
 	else {
-		MGMTD_FE_CLIENT_DBG("%socked DS %u successfully",
-				    lock_ds ? "L" : "Unl", ds_id);
+		debug_fe_client("%socked DS %u successfully",
+				lock_ds ? "L" : "Unl", ds_id);
 		if (ds_id == MGMTD_DS_CANDIDATE)
 			vty->mgmt_locked_candidate_ds = lock_ds;
 		else
@@ -3575,9 +3573,9 @@ static void vty_mgmt_set_config_result_notified(
 		vty_out(vty, "ERROR: SET_CONFIG request failed, Error: %s\n",
 			errmsg_if_any ? errmsg_if_any : "Unknown");
 	} else {
-		MGMTD_FE_CLIENT_DBG("SET_CONFIG request for client 0x%" PRIx64
-				    " req-id %" PRIu64 " was successfull",
-				    client_id, req_id);
+		debug_fe_client("SET_CONFIG request for client 0x%" PRIx64
+				" req-id %" PRIu64 " was successfull",
+				client_id, req_id);
 	}
 
 	if (implicit_commit) {
@@ -3607,10 +3605,9 @@ static void vty_mgmt_commit_config_result_notified(
 		vty_out(vty, "ERROR: COMMIT_CONFIG request failed, Error: %s\n",
 			errmsg_if_any ? errmsg_if_any : "Unknown");
 	} else {
-		MGMTD_FE_CLIENT_DBG(
-			"COMMIT_CONFIG request for client 0x%" PRIx64
-			" req-id %" PRIu64 " was successfull",
-			client_id, req_id);
+		debug_fe_client("COMMIT_CONFIG request for client 0x%" PRIx64
+				" req-id %" PRIu64 " was successfull",
+				client_id, req_id);
 		if (errmsg_if_any)
 			vty_out(vty, "MGMTD: %s\n", errmsg_if_any);
 	}
@@ -3640,9 +3637,9 @@ static int vty_mgmt_get_data_result_notified(
 		return -1;
 	}
 
-	MGMTD_FE_CLIENT_DBG("GET_DATA request succeeded, client 0x%" PRIx64
-			    " req-id %" PRIu64,
-			    client_id, req_id);
+	debug_fe_client("GET_DATA request succeeded, client 0x%" PRIx64
+			" req-id %" PRIu64,
+			client_id, req_id);
 
 	if (req_id != mgmt_last_req_id) {
 		mgmt_last_req_id = req_id;
@@ -3788,10 +3785,9 @@ static int vty_mgmt_get_tree_result_notified(
 
 	vty = (struct vty *)session_ctx;
 
-	MGMTD_FE_CLIENT_DBG("GET_TREE request %ssucceeded, client 0x%" PRIx64
-			    " req-id %" PRIu64,
-			    partial_error ? "partially " : "", client_id,
-			    req_id);
+	debug_fe_client("GET_TREE request %ssucceeded, client 0x%" PRIx64
+			" req-id %" PRIu64,
+			partial_error ? "partially " : "", client_id, req_id);
 
 	assert(result_type == LYD_LYB ||
 	       result_type == vty->mgmt_req_pending_data);
@@ -3838,21 +3834,20 @@ static int vty_mgmt_error_notified(struct mgmt_fe_client *client,
 	const char *cname = mgmt_fe_client_name(client);
 
 	if (!vty->mgmt_req_pending_cmd) {
-		MGMTD_FE_CLIENT_DBG("Erorr with no pending command: %d returned for client %s 0x%" PRIx64
-				    " session-id %" PRIu64 " req-id %" PRIu64
-				    "error-str %s",
-				    error, cname, client_id, session_id, req_id,
-				    errstr);
+		debug_fe_client("Erorr with no pending command: %d returned for client %s 0x%" PRIx64
+				" session-id %" PRIu64 " req-id %" PRIu64
+				"error-str %s",
+				error, cname, client_id, session_id, req_id,
+				errstr);
 		vty_out(vty,
 			"%% Error %d from MGMTD for %s with no pending command: %s\n",
 			error, cname, errstr);
 		return CMD_WARNING;
 	}
 
-	MGMTD_FE_CLIENT_DBG("Erorr %d returned for client %s 0x%" PRIx64
-			    " session-id %" PRIu64 " req-id %" PRIu64
-			    "error-str %s",
-			    error, cname, client_id, session_id, req_id, errstr);
+	debug_fe_client("Erorr %d returned for client %s 0x%" PRIx64
+			" session-id %" PRIu64 " req-id %" PRIu64 "error-str %s",
+			error, cname, client_id, session_id, req_id, errstr);
 
 	vty_out(vty, "%% %s (for %s, client %s)\n", errstr,
 		vty->mgmt_req_pending_cmd, cname);
