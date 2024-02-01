@@ -297,7 +297,9 @@ void zebra_router_init(bool asic_offload, bool notify_on_ack, bool v6_with_v4_ne
 
 	zrouter.nhg_keep = ZEBRA_DEFAULT_NHG_KEEP_TIMER;
 
-	zrouter.gr_stale_cleaup_time_recorded = false;
+	zrouter.gr_stale_cleanup_time_recorded = false;
+	zrouter.gr_update_pending_time_recorded = false;
+
 	/* Initialize the red-black tree for router tables */
 	RB_INIT(zebra_router_table_head, &zrouter.tables);
 
