@@ -201,6 +201,10 @@ struct attr {
 	/* Distance as applied by Route map */
 	uint8_t distance;
 
+	/* EVPN DF preference for DF election on local ESs */
+	uint8_t df_alg;
+	uint16_t df_pref;
+
 	/* PMSI tunnel type (RFC 6514). */
 	enum pta_type pmsi_tnl_type;
 
@@ -214,6 +218,9 @@ struct attr {
 
 	/* ifIndex corresponding to mp_nexthop_local. */
 	ifindex_t nh_lla_ifindex;
+
+	/* MPLS label */
+	mpls_label_t label;
 
 	/* Extended Communities attribute. */
 	struct ecommunity *ecommunity;
@@ -261,13 +268,6 @@ struct attr {
 
 	/* Label index */
 	uint32_t label_index;
-
-	/* MPLS label */
-	mpls_label_t label;
-
-	/* EVPN DF preference for DF election on local ESs */
-	uint16_t df_pref;
-	uint8_t df_alg;
 
 	/* SRv6 VPN SID */
 	struct bgp_attr_srv6_vpn *srv6_vpn;
