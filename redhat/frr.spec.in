@@ -16,6 +16,7 @@
 %{!?with_cumulus:       %global  with_cumulus       0 }
 %{!?with_eigrpd:        %global  with_eigrpd        1 }
 %{!?with_fpm:           %global  with_fpm           1 }
+%{!?with_mgmtd_test_be_client: %global with_mgmtd_test_be_client 0 }
 %{!?with_ldpd:          %global  with_ldpd          1 }
 %{!?with_multipath:     %global  with_multipath     256 }
 %{!?with_nhrpd:         %global  with_nhrpd         1 }
@@ -322,6 +323,9 @@ routing state through standard SNMP MIBs.
     --localstatedir=%{_localstatedir} \
     --disable-static \
     --disable-werror \
+%if %{with_mgmtd_test_be_client}
+    --enable-mgmtd-test-be-client \
+%endif
 %if %{with_multipath}
     --enable-multipath=%{with_multipath} \
 %endif
@@ -669,6 +673,9 @@ fi
 %{_sbindir}/ripd
 %{_sbindir}/bgpd
 %{_sbindir}/mgmtd
+%if %{with_mgmtd_test_be_client}
+    %{_sbindir}/mgmtd_testc
+%endif
 %exclude %{_sbindir}/ssd
 %if %{with_watchfrr}
     %{_sbindir}/watchfrr
