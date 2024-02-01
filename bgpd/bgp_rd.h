@@ -41,8 +41,8 @@ struct rd_as {
 
 struct rd_ip {
 	uint16_t type;
-	struct in_addr ip;
 	uint16_t val;
+	struct in_addr ip;
 };
 
 #ifdef ENABLE_BGP_VNC
