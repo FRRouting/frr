@@ -109,6 +109,18 @@ def test_vrf_route_leak():
                 ],
             },
         ],
+        "172.16.101.0/24": [
+            {
+                "protocol": "bgp",
+                "nexthops": [
+                    {
+                        "interfaceIndex": 0,
+                        "interfaceName": "unknown",
+                        "vrf": "Unknown",
+                    },
+                ],
+            },
+        ],
     }
 
     test_func = partial(
@@ -156,6 +168,18 @@ def test_vrf_route_leak():
             {
                 "protocol": "connected",
             }
+        ],
+        "172.16.101.0/24": [
+            {
+                "protocol": "bgp",
+                "nexthops": [
+                    {
+                        "interfaceIndex": 0,
+                        "interfaceName": "unknown",
+                        "vrf": "Unknown",
+                    },
+                ],
+            },
         ],
     }
 
