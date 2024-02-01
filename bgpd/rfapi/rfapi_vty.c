@@ -519,9 +519,10 @@ void rfapiPrintBi(void *stream, struct bgp_path_info *bpi)
 	if (!bpi)
 		return;
 
-	if (CHECK_FLAG(bpi->flags, BGP_PATH_REMOVED) && bpi->extra
-	    && bpi->extra->vnc.import.timer) {
-		struct event *t = (struct event *)bpi->extra->vnc.import.timer;
+	if (CHECK_FLAG(bpi->flags, BGP_PATH_REMOVED) && bpi->extra &&
+	    bpi->extra->vnc->vnc.import.timer) {
+		struct event *t =
+			(struct event *)bpi->extra->vnc->vnc.import.timer;
 
 		r = snprintf(p, REMAIN, " [%4lu] ",
 			     event_timer_remain_second(t));
@@ -534,12 +535,12 @@ void rfapiPrintBi(void *stream, struct bgp_path_info *bpi)
 
 	if (bpi->extra) {
 		/* TBD This valid only for SAFI_MPLS_VPN, but not for encap */
-		if (decode_rd_type(bpi->extra->vnc.import.rd.val)
-		    == RD_TYPE_VNC_ETH) {
+		if (decode_rd_type(bpi->extra->vnc->vnc.import.rd.val) ==
+		    RD_TYPE_VNC_ETH) {
 			has_macaddr = 1;
-			memcpy(macaddr.octet, bpi->extra->vnc.import.rd.val + 2,
-			       6);
-			l2hid = bpi->extra->vnc.import.rd.val[1];
+			memcpy(macaddr.octet,
+			       bpi->extra->vnc->vnc.import.rd.val + 2, 6);
+			l2hid = bpi->extra->vnc->vnc.import.rd.val[1];
 		}
 	}
 
@@ -670,11 +671,11 @@ void rfapiPrintBi(void *stream, struct bgp_path_info *bpi)
 		   l2o_buf.label, l2o_buf.logical_net_id, l2o_buf.local_nve_id,
 		   HVTYNL);
 	}
-	if (bpi->extra && bpi->extra->vnc.import.aux_prefix.family) {
+	if (bpi->extra && bpi->extra->vnc->vnc.import.aux_prefix.family) {
 		const char *sp;
 
-		sp = rfapi_ntop(bpi->extra->vnc.import.aux_prefix.family,
-				&bpi->extra->vnc.import.aux_prefix.u.prefix,
+		sp = rfapi_ntop(bpi->extra->vnc->vnc.import.aux_prefix.family,
+				&bpi->extra->vnc->vnc.import.aux_prefix.u.prefix,
 				buf, BUFSIZ);
 		buf[BUFSIZ - 1] = 0;
 		if (sp) {
@@ -1097,14 +1098,14 @@ static int rfapiPrintRemoteRegBi(struct bgp *bgp, void *stream,
 		fp(out, "%-10s ", buf_lifetime);
 	}
 
-	if (CHECK_FLAG(bpi->flags, BGP_PATH_REMOVED) && bpi->extra
-	    && bpi->extra->vnc.import.timer) {
-
+	if (CHECK_FLAG(bpi->flags, BGP_PATH_REMOVED) && bpi->extra &&
+	    bpi->extra->vnc->vnc.import.timer) {
 		uint32_t remaining;
 		time_t age;
 		char buf_age[BUFSIZ];
 
-		struct event *t = (struct event *)bpi->extra->vnc.import.timer;
+		struct event *t =
+			(struct event *)bpi->extra->vnc->vnc.import.timer;
 		remaining = event_timer_remain_second(t);
 
 #ifdef RFAPI_REGISTRATIONS_REPORT_AGE
@@ -1125,11 +1126,10 @@ static int rfapiPrintRemoteRegBi(struct bgp *bgp, void *stream,
 		fp(out, "%-10s ", buf_age);
 
 	} else if (RFAPI_LOCAL_BI(bpi)) {
-
 		char buf_age[BUFSIZ];
 
-		if (bpi->extra && bpi->extra->vnc.import.create_time) {
-			rfapiFormatAge(bpi->extra->vnc.import.create_time,
+		if (bpi->extra && bpi->extra->vnc->vnc.import.create_time) {
+			rfapiFormatAge(bpi->extra->vnc->vnc.import.create_time,
 				       buf_age, BUFSIZ);
 		} else {
 			buf_age[0] = '?';
@@ -1145,13 +1145,14 @@ static int rfapiPrintRemoteRegBi(struct bgp *bgp, void *stream,
 		 * print that on the next line
 		 */
 
-		if (bpi->extra && bpi->extra->vnc.import.aux_prefix.family) {
+		if (bpi->extra && bpi->extra->vnc->vnc.import.aux_prefix.family) {
 			const char *sp;
 
-			sp = rfapi_ntop(
-				bpi->extra->vnc.import.aux_prefix.family,
-				&bpi->extra->vnc.import.aux_prefix.u.prefix,
-				buf_ntop, BUFSIZ);
+			sp = rfapi_ntop(bpi->extra->vnc->vnc.import.aux_prefix
+						.family,
+					&bpi->extra->vnc->vnc.import.aux_prefix
+						 .u.prefix,
+					buf_ntop, BUFSIZ);
 			buf_ntop[BUFSIZ - 1] = 0;
 
 			if (sp && strcmp(buf_vn, sp) != 0) {
@@ -1545,10 +1546,9 @@ void rfapiPrintAdvertisedInfo(struct vty *vty, struct rfapi_descriptor *rfd,
 	vty_out(vty, "  bd=%p%s", bd, HVTYNL);
 
 	for (bpi = bgp_dest_get_bgp_path_info(bd); bpi; bpi = bpi->next) {
-		if (bpi->peer == rfd->peer && bpi->type == type
-		    && bpi->sub_type == BGP_ROUTE_RFP && bpi->extra
-		    && bpi->extra->vnc.export.rfapi_handle == (void *)rfd) {
-
+		if (bpi->peer == rfd->peer && bpi->type == type &&
+		    bpi->sub_type == BGP_ROUTE_RFP && bpi->extra &&
+		    bpi->extra->vnc->vnc.export.rfapi_handle == (void *)rfd) {
 			rfapiPrintBi(vty, bpi);
 			printed = 1;
 		}

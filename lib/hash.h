@@ -28,11 +28,11 @@ struct hash_bucket {
 	 */
 	int len;
 
-	/* Linked list.  */
-	struct hash_bucket *next;
-
 	/* Hash key. */
 	unsigned int key;
+
+	/* Linked list.  */
+	struct hash_bucket *next;
 
 	/* Data.  */
 	void *data;

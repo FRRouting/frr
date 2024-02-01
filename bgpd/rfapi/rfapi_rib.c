@@ -663,9 +663,8 @@ static void rfapiRibBi2Ri(struct bgp_path_info *bpi, struct rfapi_info *ri,
 	/*
 	 * VN options
 	 */
-	if (bpi->extra
-	    && decode_rd_type(bpi->extra->vnc.import.rd.val)
-		       == RD_TYPE_VNC_ETH) {
+	if (bpi->extra && decode_rd_type(bpi->extra->vnc->vnc.import.rd.val) ==
+				  RD_TYPE_VNC_ETH) {
 		/* ethernet route */
 
 		struct rfapi_vn_option *vo;
@@ -678,8 +677,8 @@ static void rfapiRibBi2Ri(struct bgp_path_info *bpi, struct rfapi_info *ri,
 
 		/* copy from RD already stored in bpi, so we don't need it_node
 		 */
-		memcpy(&vo->v.l2addr.macaddr, bpi->extra->vnc.import.rd.val + 2,
-		       ETH_ALEN);
+		memcpy(&vo->v.l2addr.macaddr,
+		       bpi->extra->vnc->vnc.import.rd.val + 2, ETH_ALEN);
 
 		(void)rfapiEcommunityGetLNI(bgp_attr_get_ecommunity(bpi->attr),
 					    &vo->v.l2addr.logical_net_id);
@@ -688,7 +687,8 @@ static void rfapiRibBi2Ri(struct bgp_path_info *bpi, struct rfapi_info *ri,
 			&vo->v.l2addr.tag_id);
 
 		/* local_nve_id comes from RD */
-		vo->v.l2addr.local_nve_id = bpi->extra->vnc.import.rd.val[1];
+		vo->v.l2addr.local_nve_id =
+			bpi->extra->vnc->vnc.import.rd.val[1];
 
 		/* label comes from MP_REACH_NLRI label */
 		vo->v.l2addr.label = decode_label(&bpi->extra->label[0]);
@@ -701,8 +701,8 @@ static void rfapiRibBi2Ri(struct bgp_path_info *bpi, struct rfapi_info *ri,
 	/*
 	 * If there is an auxiliary IP address (L2 can have it), copy it
 	 */
-	if (bpi->extra && bpi->extra->vnc.import.aux_prefix.family) {
-		ri->rk.aux_prefix = bpi->extra->vnc.import.aux_prefix;
+	if (bpi->extra && bpi->extra->vnc->vnc.import.aux_prefix.family) {
+		ri->rk.aux_prefix = bpi->extra->vnc->vnc.import.aux_prefix;
 	}
 }
 
@@ -746,13 +746,13 @@ int rfapiRibPreloadBi(
 
 	memset((void *)&rk, 0, sizeof(rk));
 	rk.vn = *pfx_vn;
-	rk.rd = bpi->extra->vnc.import.rd;
+	rk.rd = bpi->extra->vnc->vnc.import.rd;
 
 	/*
 	 * If there is an auxiliary IP address (L2 can have it), copy it
 	 */
-	if (bpi->extra->vnc.import.aux_prefix.family) {
-		rk.aux_prefix = bpi->extra->vnc.import.aux_prefix;
+	if (bpi->extra->vnc->vnc.import.aux_prefix.family) {
+		rk.aux_prefix = bpi->extra->vnc->vnc.import.aux_prefix;
 	}
 
 	/*
@@ -1629,12 +1629,13 @@ void rfapiRibUpdatePendingNode(
 
 		ri = rfapi_info_new();
 		ri->rk.vn = pfx_nh;
-		ri->rk.rd = bpi->extra->vnc.import.rd;
+		ri->rk.rd = bpi->extra->vnc->vnc.import.rd;
 		/*
 		 * If there is an auxiliary IP address (L2 can have it), copy it
 		 */
-		if (bpi->extra->vnc.import.aux_prefix.family) {
-			ri->rk.aux_prefix = bpi->extra->vnc.import.aux_prefix;
+		if (bpi->extra->vnc->vnc.import.aux_prefix.family) {
+			ri->rk.aux_prefix =
+				bpi->extra->vnc->vnc.import.aux_prefix;
 		}
 
 		if (rfapiGetUnAddrOfVpnBi(bpi, &ri->un)) {
