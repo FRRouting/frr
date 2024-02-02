@@ -171,5 +171,7 @@ extern int bgp_show_summary_vty(struct vty *vty, const char *name, afi_t afi,
 				safi_t safi, const char *neighbor, int as_type,
 				as_t as, uint16_t show_flags);
 extern bool peergroup_flag_check(struct peer *peer, uint64_t flag);
+extern bool peergroup_af_flag_check(struct peer *peer, afi_t afi, safi_t safi,
+				    uint64_t flag);
 
 #endif /* _QUAGGA_BGP_VTY_H */

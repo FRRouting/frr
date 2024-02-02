@@ -6473,6 +6473,32 @@ ALIAS_HIDDEN(
 	"Send Standard Community attributes\n"
 	"Send Large Community attributes\n")
 
+DEFPY (neighbor_ecommunity_rpki,
+       neighbor_ecommunity_rpki_cmd,
+       "[no$no] neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor send-community extended rpki",
+       NO_STR
+       NEIGHBOR_STR
+       NEIGHBOR_ADDR_STR2
+       "Send Community attribute to this neighbor\n"
+       "Send Extended Community attributes\n"
+       "Send RPKI Extended Community attributes\n")
+{
+	struct peer *peer;
+	afi_t afi = bgp_node_afi(vty);
+	safi_t safi = bgp_node_safi(vty);
+
+	peer = peer_and_group_lookup_vty(vty, neighbor);
+	if (!peer)
+		return CMD_WARNING_CONFIG_FAILED;
+
+	if (no)
+		return peer_af_flag_unset_vty(vty, neighbor, afi, safi,
+					      PEER_FLAG_SEND_EXT_COMMUNITY_RPKI);
+	else
+		return peer_af_flag_set_vty(vty, neighbor, afi, safi,
+					    PEER_FLAG_SEND_EXT_COMMUNITY_RPKI);
+}
+
 /* neighbor soft-reconfig. */
 DEFUN (neighbor_soft_reconfiguration,
        neighbor_soft_reconfiguration_cmd,
@@ -17665,8 +17691,8 @@ bool peergroup_flag_check(struct peer *peer, uint64_t flag)
 	return !!CHECK_FLAG(peer->flags_override, flag);
 }
 
-static bool peergroup_af_flag_check(struct peer *peer, afi_t afi, safi_t safi,
-				    uint64_t flag)
+bool peergroup_af_flag_check(struct peer *peer, afi_t afi, safi_t safi,
+			     uint64_t flag)
 {
 	if (!peer_group_active(peer)) {
 		if (CHECK_FLAG(peer->af_flags_invert[afi][safi], flag))
@@ -18441,6 +18467,12 @@ static void bgp_config_write_peer_af(struct vty *vty, struct bgp *bgp,
 
 		if (flag_slcomm)
 			vty_out(vty, "  no neighbor %s send-community large\n",
+				addr);
+
+		if (peergroup_af_flag_check(peer, afi, safi,
+					    PEER_FLAG_SEND_EXT_COMMUNITY_RPKI))
+			vty_out(vty,
+				"  no neighbor %s send-community extended rpki\n",
 				addr);
 	}
 
@@ -20327,6 +20359,15 @@ void bgp_vty_init(void)
 	install_element(BGP_VPNV6_NODE, &neighbor_send_community_type_cmd);
 	install_element(BGP_VPNV6_NODE, &no_neighbor_send_community_cmd);
 	install_element(BGP_VPNV6_NODE, &no_neighbor_send_community_type_cmd);
+	install_element(BGP_NODE, &neighbor_ecommunity_rpki_cmd);
+	install_element(BGP_IPV4_NODE, &neighbor_ecommunity_rpki_cmd);
+	install_element(BGP_IPV4M_NODE, &neighbor_ecommunity_rpki_cmd);
+	install_element(BGP_IPV4L_NODE, &neighbor_ecommunity_rpki_cmd);
+	install_element(BGP_IPV6_NODE, &neighbor_ecommunity_rpki_cmd);
+	install_element(BGP_IPV6M_NODE, &neighbor_ecommunity_rpki_cmd);
+	install_element(BGP_IPV6L_NODE, &neighbor_ecommunity_rpki_cmd);
+	install_element(BGP_VPNV4_NODE, &neighbor_ecommunity_rpki_cmd);
+	install_element(BGP_VPNV6_NODE, &neighbor_ecommunity_rpki_cmd);
 
 	/* "neighbor route-reflector" commands.*/
 	install_element(BGP_NODE, &neighbor_route_reflector_client_hidden_cmd);
