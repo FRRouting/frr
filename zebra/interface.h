@@ -201,6 +201,9 @@ struct zebra_if {
 	ifindex_t link_ifindex;
 	struct interface *link;
 
+#define INTERFACE_SPEED_ERROR_READ    -1
+#define INTERFACE_SPEED_ERROR_UNKNOWN -2
+
 	uint8_t speed_update_count;
 	struct event *speed_update;
 
