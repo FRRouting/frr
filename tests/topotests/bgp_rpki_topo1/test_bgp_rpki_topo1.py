@@ -22,7 +22,7 @@ pytestmark = [pytest.mark.bgpd]
 
 
 def build_topo(tgen):
-    for routern in range(1, 4):
+    for routern in range(1, 5):
         tgen.add_router("r{}".format(routern))
 
     switch = tgen.add_switch("s1")
@@ -32,6 +32,10 @@ def build_topo(tgen):
     switch = tgen.add_switch("s2")
     switch.add_link(tgen.gears["r2"])
     switch.add_link(tgen.gears["r3"])
+
+    switch = tgen.add_switch("s3")
+    switch.add_link(tgen.gears["r2"])
+    switch.add_link(tgen.gears["r4"])
 
 
 def setup_module(mod):
@@ -400,6 +404,48 @@ router bgp 65002 vrf vrf10
         )
         _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
         assert result is None, "Unexpected prefixes RPKI state on {}".format(rname)
+
+
+def test_bgp_ecommunity_rpki():
+    tgen = get_topogen()
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r2 = tgen.gears["r2"]
+    r4 = tgen.gears["r4"]
+
+    # Flush all the states what was before and try sending out the prefixes
+    # with RPKI extended community.
+    r2.vtysh_cmd("clear ip bgp 192.168.4.4 soft out")
+
+    def _bgp_check_ecommunity_rpki(community=None):
+        output = json.loads(r4.vtysh_cmd("show bgp ipv4 unicast 198.51.100.0/24 json"))
+        expected = {
+            "paths": [
+                {
+                    "extendedCommunity": community,
+                }
+            ]
+        }
+        return topotest.json_cmp(output, expected)
+
+    test_func = functools.partial(_bgp_check_ecommunity_rpki, {"string": "OVS:valid"})
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    assert result is None, "Didn't receive RPKI extended community"
+
+    r2.vtysh_cmd(
+        """
+    configure terminal
+     router bgp 65002
+      address-family ipv4 unicast
+       no neighbor 192.168.4.4 send-community extended rpki
+    """
+    )
+
+    test_func = functools.partial(_bgp_check_ecommunity_rpki)
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    assert result is None, "Received RPKI extended community"
 
 
 if __name__ == "__main__":
