@@ -616,7 +616,13 @@ static int vtysh_read_file(FILE *confp, bool dry_run)
 	vty->node = CONFIG_NODE;
 
 	vtysh_execute_no_pager("enable");
-	vtysh_execute_no_pager("conf term file-lock");
+	/*
+	 * When reading the config, we need to wait until the lock is acquired.
+	 * If we ignore the failure and continue without the lock, the config
+	 * will be fully ignored.
+	 */
+	while (vtysh_execute_no_pager("conf term file-lock") == CMD_WARNING_CONFIG_FAILED)
+		usleep(100000);
 	vty->vtysh_file_locked = true;
 
 	if (!dry_run)

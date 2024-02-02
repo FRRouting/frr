@@ -711,9 +711,6 @@ mgmt_fe_session_handle_setcfg_req_msg(struct mgmt_fe_session_ctx *session,
 	}
 
 	if (session->cfg_txn_id == MGMTD_TXN_ID_NONE) {
-		/* as we have the lock no-one else should have a config txn */
-		assert(!mgmt_config_txn_in_progress());
-
 		/* Start a CONFIG Transaction (if not started already) */
 		session->cfg_txn_id = mgmt_create_txn(session->session_id,
 						      MGMTD_TXN_TYPE_CONFIG);
