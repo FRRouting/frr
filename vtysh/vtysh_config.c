@@ -623,7 +623,6 @@ static int vtysh_read_file(FILE *confp, bool dry_run)
 	 */
 	while (vtysh_execute_no_pager("conf term file-lock") == CMD_WARNING_CONFIG_FAILED)
 		usleep(100000);
-	vty->vtysh_file_locked = true;
 
 	if (!dry_run)
 		vtysh_execute_no_pager("XFRR_start_configuration");
@@ -635,7 +634,6 @@ static int vtysh_read_file(FILE *confp, bool dry_run)
 		vtysh_execute_no_pager("XFRR_end_configuration");
 
 	vtysh_execute_no_pager("end");
-	vty->vtysh_file_locked = false;
 	vtysh_execute_no_pager("disable");
 
 	vty_close(vty);
