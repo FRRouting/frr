@@ -14,6 +14,8 @@
 
 
 DEFINE_HOOK(routing_conf_event, (struct nb_cb_create_args *args), (args));
+DEFINE_HOOK(routing_create, (struct nb_cb_create_args *args), (args));
+DEFINE_KOOH(routing_destroy, (struct nb_cb_destroy_args *args), (args));
 
 /*
  * XPath: /frr-routing:routing/control-plane-protocols/control-plane-protocol
@@ -49,6 +51,7 @@ int routing_control_plane_protocols_control_plane_protocol_create(
 			assert(vrf);
 			nb_running_set_entry(args->dnode, vrf);
 		}
+		hook_call(routing_create, args);
 		break;
 	};
 
@@ -60,6 +63,8 @@ int routing_control_plane_protocols_control_plane_protocol_destroy(
 {
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
+
+	hook_call(routing_destroy, args);
 
 	/*
 	 * If dependency on VRF module is registered, then VRF
