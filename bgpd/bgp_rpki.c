@@ -1297,6 +1297,11 @@ static int rpki_create_socket(void *_cache)
 
 	rpki_vrf = cache->rpki_vrf;
 
+	if (frr_pthread_non_controlled_startup(cache->rtr_socket->thread_id,
+					       "RPKI RTRLIB socket",
+					       "rpki_create_socket") < 0)
+		return -1;
+
 	if (rpki_vrf->vrfname == NULL)
 		vrf = vrf_lookup_by_id(VRF_DEFAULT);
 	else
