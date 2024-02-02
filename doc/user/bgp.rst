@@ -1674,7 +1674,18 @@ Configuring Peers
    modifying the `net.core.optmem_max` sysctl to a larger value to
    avoid out of memory errors from the linux kernel.
 
-.. clicmd:: neighbor PEER send-community
+.. clicmd:: neighbor PEER send-community <both|all|extended|standard|large>
+
+   Send the communities to the peer.
+
+   Default: enabled.
+
+.. clicmd:: neighbor PEER send-community extended rpki
+
+   Send the extended RPKI communities to the peer. RPKI extended community
+   can be send only to iBGP and eBGP-OAD peers.
+
+   Default: enabled.
 
 .. clicmd:: neighbor PEER weight WEIGHT
 
