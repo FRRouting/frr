@@ -149,20 +149,9 @@ static struct rcu_thread *rcu_self(void)
 	return (struct rcu_thread *)pthread_getspecific(rcu_thread_key);
 }
 
-/*
- * thread management (for the non-main thread)
- */
-struct rcu_thread *rcu_thread_prepare(void)
+struct rcu_thread *rcu_thread_new(void *arg)
 {
-	struct rcu_thread *rt, *cur;
-
-	rcu_assert_read_locked();
-
-	if (!rcu_active)
-		rcu_start();
-
-	cur = rcu_self();
-	assert(cur->depth);
+	struct rcu_thread *rt, *cur = arg;
 
 	/* new thread always starts with rcu_read_lock held at depth 1, and
 	 * holding the same epoch as the parent (this makes it possible to
@@ -172,11 +161,30 @@ struct rcu_thread *rcu_thread_prepare(void)
 	rt->depth = 1;
 
 	seqlock_init(&rt->rcu);
-	seqlock_acquire(&rt->rcu, &cur->rcu);
+	if (cur)
+		seqlock_acquire(&rt->rcu, &cur->rcu);
 
 	rcu_threads_add_tail(&rcu_threads, rt);
 
 	return rt;
+}
+
+/*
+ * thread management (for the non-main thread)
+ */
+struct rcu_thread *rcu_thread_prepare(void)
+{
+	struct rcu_thread *cur;
+
+	rcu_assert_read_locked();
+
+	if (!rcu_active)
+		rcu_start();
+
+	cur = rcu_self();
+	assert(cur->depth);
+
+	return rcu_thread_new(cur);
 }
 
 void rcu_thread_start(struct rcu_thread *rt)
