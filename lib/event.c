@@ -543,6 +543,7 @@ static void initializer(void)
 	pthread_key_create(&thread_current, NULL);
 }
 
+#define STUPIDLY_LARGE_FD_SIZE 100000
 struct event_loop *event_master_create(const char *name)
 {
 	struct event_loop *rv;
@@ -568,6 +569,10 @@ struct event_loop *event_master_create(const char *name)
 		getrlimit(RLIMIT_NOFILE, &limit);
 		rv->fd_limit = (int)limit.rlim_cur;
 	}
+
+	if (rv->fd_limit > STUPIDLY_LARGE_FD_SIZE)
+		zlog_warn("FD Limit set: %u is stupidly large.  Is this what you intended?  Consider using --limit-fds",
+			  rv->fd_limit);
 
 	rv->read = XCALLOC(MTYPE_EVENT_POLL,
 			   sizeof(struct event *) * rv->fd_limit);
