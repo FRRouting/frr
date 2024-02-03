@@ -40,7 +40,8 @@ static LY_ERR yang_module_imp_clb(const char *mod_name, const char *mod_rev,
 	struct yang_module_embed *e;
 
 	if (!strcmp(mod_name, "ietf-inet-types") ||
-	    !strcmp(mod_name, "ietf-yang-types"))
+	    !strcmp(mod_name, "ietf-yang-types") ||
+	    !strcmp(mod_name, "ietf-yang-metadata"))
 		/* libyang has these built in, don't try finding them here */
 		return LY_ENOTFOUND;
 
