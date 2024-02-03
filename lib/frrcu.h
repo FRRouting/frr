@@ -40,6 +40,12 @@ extern "C" {
 /* opaque */
 struct rcu_thread;
 
+/* sets up rcu thread info
+ *
+ * return value must be passed into the thread's call to rcu_thread_start()
+ */
+extern struct rcu_thread *rcu_thread_new(void *arg);
+
 /* called before new thread creation, sets up rcu thread info for new thread
  * before it actually exits.  This ensures possible RCU references are held
  * for thread startup.
