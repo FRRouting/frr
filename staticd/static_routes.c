@@ -377,6 +377,17 @@ void static_install_nexthop(struct static_nexthop *nh)
 	}
 }
 
+void static_uninstall_nexthop(struct static_nexthop *nh)
+{
+	struct static_path *pn = nh->pn;
+
+	if (nh->nh_vrf_id == VRF_UNKNOWN)
+		return;
+
+	static_zebra_nht_register(nh, false);
+	static_uninstall_path(pn);
+}
+
 void static_delete_nexthop(struct static_nexthop *nh)
 {
 	struct static_path *pn = nh->pn;
@@ -386,17 +397,8 @@ void static_delete_nexthop(struct static_nexthop *nh)
 	/* Remove BFD session/configuration if any. */
 	bfd_sess_free(&nh->bsp);
 
-	if (nh->nh_vrf_id == VRF_UNKNOWN)
-		goto EXIT;
+	static_uninstall_nexthop(nh);
 
-	static_zebra_nht_register(nh, false);
-	/*
-	 * If we have other si nodes then route replace
-	 * else delete the route
-	 */
-	static_uninstall_path(pn);
-
-EXIT:
 	route_unlock_node(rn);
 	/* Free static route configuration. */
 	XFREE(MTYPE_STATIC_NEXTHOP, nh);
