@@ -1166,7 +1166,7 @@ static int plist_remove(struct vty *vty, const char *iptype, const char *name,
 
 DEFPY_YANG(
 	ip_prefix_list, ip_prefix_list_cmd,
-	"ip prefix-list WORD$name [seq (1-4294967295)$seq] <deny|permit>$action <any|A.B.C.D/M$prefix [{ge (0-32)$ge|le (0-32)$le}]>",
+	"ip prefix-list PREFIXLIST4_NAME$name [seq (1-4294967295)$seq] <deny|permit>$action <any|A.B.C.D/M$prefix [{ge (0-32)$ge|le (0-32)$le}]>",
 	IP_STR
 	PREFIX_LIST_STR
 	PREFIX_LIST_NAME_STR
@@ -1260,7 +1260,7 @@ DEFPY_YANG(
 
 DEFPY_YANG(
 	no_ip_prefix_list, no_ip_prefix_list_cmd,
-	"no ip prefix-list WORD$name [seq (1-4294967295)$seq] <deny|permit>$action <any|A.B.C.D/M$prefix [{ge (0-32)|le (0-32)}]>",
+	"no ip prefix-list PREFIXLIST4_NAME$name [seq (1-4294967295)$seq] <deny|permit>$action <any|A.B.C.D/M$prefix [{ge (0-32)|le (0-32)}]>",
 	NO_STR
 	IP_STR
 	PREFIX_LIST_STR
@@ -1280,7 +1280,7 @@ DEFPY_YANG(
 
 DEFPY_YANG(
 	no_ip_prefix_list_seq, no_ip_prefix_list_seq_cmd,
-	"no ip prefix-list WORD$name seq (1-4294967295)$seq",
+	"no ip prefix-list PREFIXLIST4_NAME$name seq (1-4294967295)$seq",
 	NO_STR
 	IP_STR
 	PREFIX_LIST_STR
@@ -1292,7 +1292,7 @@ DEFPY_YANG(
 
 DEFPY_YANG(
 	no_ip_prefix_list_all, no_ip_prefix_list_all_cmd,
-	"no ip prefix-list WORD$name",
+	"no ip prefix-list PREFIXLIST4_NAME$name",
 	NO_STR
 	IP_STR
 	PREFIX_LIST_STR
@@ -1309,7 +1309,7 @@ DEFPY_YANG(
 
 DEFPY_YANG(
 	ip_prefix_list_remark, ip_prefix_list_remark_cmd,
-	"ip prefix-list WORD$name description LINE...",
+	"ip prefix-list PREFIXLIST4_NAME$name description LINE...",
 	IP_STR
 	PREFIX_LIST_STR
 	PREFIX_LIST_NAME_STR
@@ -1334,7 +1334,7 @@ DEFPY_YANG(
 
 DEFPY_YANG(
 	no_ip_prefix_list_remark, no_ip_prefix_list_remark_cmd,
-	"no ip prefix-list WORD$name description",
+	"no ip prefix-list PREFIXLIST4_NAME$name description",
 	NO_STR
 	IP_STR
 	PREFIX_LIST_STR
@@ -1346,7 +1346,7 @@ DEFPY_YANG(
 
 ALIAS(
 	no_ip_prefix_list_remark, no_ip_prefix_list_remark_line_cmd,
-	"no ip prefix-list WORD$name description LINE...",
+	"no ip prefix-list PREFIXLIST4_NAME$name description LINE...",
 	NO_STR
 	IP_STR
 	PREFIX_LIST_STR
@@ -1356,7 +1356,7 @@ ALIAS(
 
 DEFPY_YANG(
 	ipv6_prefix_list, ipv6_prefix_list_cmd,
-	"ipv6 prefix-list WORD$name [seq (1-4294967295)] <deny|permit>$action <any|X:X::X:X/M$prefix [{ge (0-128)$ge|le (0-128)$le}]>",
+	"ipv6 prefix-list PREFIXLIST6_NAME$name [seq (1-4294967295)] <deny|permit>$action <any|X:X::X:X/M$prefix [{ge (0-128)$ge|le (0-128)$le}]>",
 	IPV6_STR
 	PREFIX_LIST_STR
 	PREFIX_LIST_NAME_STR
@@ -1450,7 +1450,7 @@ DEFPY_YANG(
 
 DEFPY_YANG(
 	no_ipv6_prefix_list, no_ipv6_prefix_list_cmd,
-	"no ipv6 prefix-list WORD$name [seq (1-4294967295)$seq] <deny|permit>$action <any|X:X::X:X/M$prefix [{ge (0-128)$ge|le (0-128)$le}]>",
+	"no ipv6 prefix-list PREFIXLIST6_NAME$name [seq (1-4294967295)$seq] <deny|permit>$action <any|X:X::X:X/M$prefix [{ge (0-128)$ge|le (0-128)$le}]>",
 	NO_STR
 	IPV6_STR
 	PREFIX_LIST_STR
@@ -1470,7 +1470,7 @@ DEFPY_YANG(
 
 DEFPY_YANG(
 	no_ipv6_prefix_list_seq, no_ipv6_prefix_list_seq_cmd,
-	"no ipv6 prefix-list WORD$name seq (1-4294967295)$seq",
+	"no ipv6 prefix-list PREFIXLIST6_NAME$name seq (1-4294967295)$seq",
 	NO_STR
 	IPV6_STR
 	PREFIX_LIST_STR
@@ -1482,7 +1482,7 @@ DEFPY_YANG(
 
 DEFPY_YANG(
 	no_ipv6_prefix_list_all, no_ipv6_prefix_list_all_cmd,
-	"no ipv6 prefix-list WORD$name",
+	"no ipv6 prefix-list PREFIXLIST6_NAME$name",
 	NO_STR
 	IPV6_STR
 	PREFIX_LIST_STR
@@ -1499,7 +1499,7 @@ DEFPY_YANG(
 
 DEFPY_YANG(
 	ipv6_prefix_list_remark, ipv6_prefix_list_remark_cmd,
-	"ipv6 prefix-list WORD$name description LINE...",
+	"ipv6 prefix-list PREFIXLIST6_NAME$name description LINE...",
 	IPV6_STR
 	PREFIX_LIST_STR
 	PREFIX_LIST_NAME_STR
@@ -1524,7 +1524,7 @@ DEFPY_YANG(
 
 DEFPY_YANG(
 	no_ipv6_prefix_list_remark, no_ipv6_prefix_list_remark_cmd,
-	"no ipv6 prefix-list WORD$name description",
+	"no ipv6 prefix-list PREFIXLIST6_NAME$name description",
 	NO_STR
 	IPV6_STR
 	PREFIX_LIST_STR
@@ -1536,7 +1536,7 @@ DEFPY_YANG(
 
 ALIAS(
 	no_ipv6_prefix_list_remark, no_ipv6_prefix_list_remark_line_cmd,
-	"no ipv6 prefix-list WORD$name description LINE...",
+	"no ipv6 prefix-list PREFIXLIST6_NAME$name description LINE...",
 	NO_STR
 	IPV6_STR
 	PREFIX_LIST_STR
