@@ -386,7 +386,7 @@ extern void static_zebra_route_add(struct static_path *pn, bool install)
 	struct zapi_route api;
 	uint32_t nh_num = 0;
 
-	if (!si->svrf->vrf)
+	if (!si->svrf->vrf || si->svrf->vrf->vrf_id == VRF_UNKNOWN)
 		return;
 
 	p = src_pp = NULL;
