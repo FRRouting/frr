@@ -61,6 +61,7 @@ mgmtd_mgmtd_SOURCES = \
 	# end
 nodist_mgmtd_mgmtd_SOURCES = \
 	yang/frr-zebra.yang.c \
+	yang/frr-zebra-route-map.yang.c \
 	yang/ietf/ietf-netconf-acm.yang.c \
 	yang/ietf/ietf-netconf.yang.c \
 	yang/ietf/ietf-netconf-with-defaults.yang.c \
