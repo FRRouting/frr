@@ -309,13 +309,6 @@ options from the list below.
    make these arrays at build time.  Additionally if this parameter is
    not passed in FRR will default to 16 ECMP.
 
-.. option:: --enable-shell-access
-
-   Turn on the ability of FRR to access some shell options( telnet/ssh/bash/etc. )
-   from vtysh itself.  This option is considered extremely unsecure and should only
-   be considered for usage if you really really know what you are doing.  This
-   option is deprecated and will be removed on Feb 1, 2024.
-
 .. option:: --enable-gcov
 
    Code coverage reports from gcov require adjustments to the C and LD flags.
