@@ -279,11 +279,12 @@ static int frr_sr_config_change_cb_prepare(sr_session_ctx_t *session,
 	ret = nb_candidate_commit_prepare(context, candidate, NULL,
 					  &transaction, false, false, errmsg,
 					  sizeof(errmsg));
-	if (ret != NB_OK && ret != NB_ERR_NO_CHANGES)
-		flog_warn(
-			EC_LIB_LIBSYSREPO,
-			"%s: failed to prepare configuration transaction: %s (%s)",
-			__func__, nb_err_name(ret), errmsg);
+	if (ret != NB_OK && ret != NB_ERR_NO_CHANGES) {
+		flog_warn(EC_LIB_LIBSYSREPO,
+			  "%s: failed to prepare configuration transaction: %s (%s)",
+			  __func__, nb_err_name(ret), errmsg);
+		sr_session_set_error_message(session, errmsg);
+	}
 
 	if (!transaction)
 		nb_config_free(candidate);
