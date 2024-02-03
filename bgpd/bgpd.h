@@ -1460,6 +1460,7 @@ struct peer {
 #define PEER_FLAG_AIGP (1ULL << 34)
 #define PEER_FLAG_GRACEFUL_SHUTDOWN (1ULL << 35)
 #define PEER_FLAG_CAPABILITY_SOFT_VERSION (1ULL << 36)
+#define PEER_FLAG_CAPABILITY_FQDN (1ULL << 37)  /* fqdn capability */
 
 	/*
 	 *GR-Disabled mode means unset PEER_FLAG_GRACEFUL_RESTART

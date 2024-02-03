@@ -1535,6 +1535,9 @@ struct peer *peer_new(struct bgp *bgp)
 	if (CHECK_FLAG(bgp->flags, BGP_FLAG_ENFORCE_FIRST_AS))
 		SET_FLAG(peer->flags, PEER_FLAG_ENFORCE_FIRST_AS);
 
+	SET_FLAG(peer->flags_invert, PEER_FLAG_CAPABILITY_FQDN);
+	SET_FLAG(peer->flags, PEER_FLAG_CAPABILITY_FQDN);
+
 	/* Initialize per peer bgp GR FSM */
 	bgp_peer_gr_init(peer);
 
@@ -4571,6 +4574,7 @@ static const struct peer_flag_action peer_flag_action_list[] = {
 	{PEER_FLAG_AIGP, 0, peer_change_none},
 	{PEER_FLAG_GRACEFUL_SHUTDOWN, 0, peer_change_none},
 	{PEER_FLAG_CAPABILITY_SOFT_VERSION, 0, peer_change_none},
+	{PEER_FLAG_CAPABILITY_FQDN, 0, peer_change_reset},
 	{0, 0, 0}};
 
 static const struct peer_flag_action peer_af_flag_action_list[] = {

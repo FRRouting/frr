@@ -283,6 +283,13 @@ static struct test_peer_attr test_peer_attrs[] = {
 		.type = PEER_AT_GLOBAL_FLAG,
 	},
 	{
+		.cmd = "capability fqdn",
+		.u.flag = PEER_FLAG_CAPABILITY_FQDN,
+		.type = PEER_AT_GLOBAL_FLAG,
+		.o.invert_peer = true,
+		.o.invert_group = true,
+	},
+	{
 		.cmd = "local-as",
 		.peer_cmd = "local-as 1",
 		.group_cmd = "local-as 2",
