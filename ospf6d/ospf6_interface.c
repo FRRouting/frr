@@ -2396,7 +2396,7 @@ DEFUN(no_ipv6_ospf6_mtu_ignore, no_ipv6_ospf6_mtu_ignore_cmd,
 }
 
 DEFUN(ipv6_ospf6_advertise_prefix_list, ipv6_ospf6_advertise_prefix_list_cmd,
-      "ipv6 ospf6 advertise prefix-list WORD",
+      "ipv6 ospf6 advertise prefix-list PREFIXLIST6_NAME",
       IP6_STR OSPF6_STR "Advertising options\n"
 			"Filter prefix using prefix-list\n"
 			"Prefix list name\n")
@@ -2431,7 +2431,7 @@ DEFUN(ipv6_ospf6_advertise_prefix_list, ipv6_ospf6_advertise_prefix_list_cmd,
 
 DEFUN(no_ipv6_ospf6_advertise_prefix_list,
       no_ipv6_ospf6_advertise_prefix_list_cmd,
-      "no ipv6 ospf6 advertise prefix-list [WORD]",
+      "no ipv6 ospf6 advertise prefix-list [PREFIXLIST6_NAME]",
       NO_STR IP6_STR OSPF6_STR "Advertising options\n"
 			       "Filter prefix using prefix-list\n"
 			       "Prefix list name\n")
