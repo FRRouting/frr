@@ -230,8 +230,9 @@ int main(int argc, char **argv)
 
 	frr_preinit(&mgmtd_di, argc, argv);
 	frr_opt_add(
-		"s:" DEPRECATED_OPTIONS, longopts,
-		"  -s, --socket_size  Set MGMTD peer socket send buffer size\n");
+		"s:n" DEPRECATED_OPTIONS, longopts,
+		"  -s, --socket_size  Set MGMTD peer socket send buffer size\n"
+		"  -n, --vrfwnetns    Use NetNS as VRF backend\n");
 
 	/* Command line argument treatment. */
 	while (1) {
