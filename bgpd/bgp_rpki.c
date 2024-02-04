@@ -110,6 +110,8 @@ struct rpki_vrf {
 	QOBJ_FIELDS;
 };
 
+static pthread_key_t rpki_pthread;
+
 static struct rpki_vrf *find_rpki_vrf(const char *vrfname);
 static int bgp_rpki_vrf_update(struct vrf *vrf, bool enabled);
 static int bgp_rpki_write_vrf(struct vty *vty, struct vrf *vrf);
@@ -887,6 +889,8 @@ static int bgp_rpki_fini(void)
 
 static int bgp_rpki_module_init(void)
 {
+	pthread_key_create(&rpki_pthread, NULL);
+
 	lrtr_set_alloc_functions(malloc_wrapper, realloc_wrapper, free_wrapper);
 
 	hook_register(bgp_rpki_prefix_status, rpki_validate_prefix);
@@ -1297,10 +1301,34 @@ static int rpki_create_socket(void *_cache)
 
 	rpki_vrf = cache->rpki_vrf;
 
-	if (frr_pthread_non_controlled_startup(cache->rtr_socket->thread_id,
+	/*
+	 * the rpki infrastructure can call this function
+	 * multiple times per pthread.  Why?  I have absolutely
+	 * no idea, and I am not sure I care a whole bunch.
+	 * Why does this matter?  Well when we attempt to
+	 * hook this pthread into the rcu structure multiple
+	 * times the rcu code asserts on shutdown.  Clearly
+	 * upset that you have rcu data associated with a pthread
+	 * that has not been cleaned up.  And frankly this is rightly so.
+	 *
+	 * At this point we know that this function is not
+	 * called a million bajillion times so let's just
+	 * add a bit of insurance by looking to see if
+	 * some thread specific code has been set for this
+	 * pthread.  If not, hook into the rcu code and
+	 * make things happy.
+	 *
+	 * IF YOU PUT A ZLOG_XXXX prior to the call into
+	 * frr_pthread_non_controlled_startup in this function
+	 * BGP WILL CRASH. You have been warned.
+	 */
+	if (!pthread_getspecific(rpki_pthread) &&
+	    frr_pthread_non_controlled_startup(cache->rtr_socket->thread_id,
 					       "RPKI RTRLIB socket",
 					       "rpki_create_socket") < 0)
 		return -1;
+
+	pthread_setspecific(rpki_pthread, &rpki_pthread);
 
 	if (rpki_vrf->vrfname == NULL)
 		vrf = vrf_lookup_by_id(VRF_DEFAULT);
