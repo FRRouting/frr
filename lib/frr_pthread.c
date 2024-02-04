@@ -234,6 +234,10 @@ static void *frr_pthread_attr_non_controlled_start(void *arg)
 int frr_pthread_non_controlled_startup(pthread_t thread, const char *name,
 				       const char *os_name)
 {
+	struct rcu_thread *rcu_thread = rcu_thread_new(NULL);
+
+	rcu_thread_start(rcu_thread);
+
 	struct frr_pthread_attr attr = {
 		.start = frr_pthread_attr_non_controlled_start,
 		.stop = frr_pthread_attr_default.stop,
@@ -245,7 +249,7 @@ int frr_pthread_non_controlled_startup(pthread_t thread, const char *name,
 		return -1;
 
 	fpt->thread = thread;
-	fpt->rcu_thread = rcu_thread_new(NULL);
+	fpt->rcu_thread = rcu_thread;
 	frr_pthread_inner(fpt);
 
 	return 0;
