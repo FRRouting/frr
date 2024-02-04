@@ -294,6 +294,7 @@ extern int vrf_enable(struct vrf *vrf);
 extern void vrf_delete(struct vrf *vrf);
 
 extern const struct frr_yang_module_info frr_vrf_info;
+extern const struct frr_yang_module_info frr_vrf_cli_info;
 
 #ifdef __cplusplus
 }

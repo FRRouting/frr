@@ -27,3 +27,13 @@ const struct frr_yang_module_info frr_routing_info = {
 		},
 	}
 };
+
+const struct frr_yang_module_info frr_routing_cli_info = {
+	.name = "frr-routing",
+	.ignore_cfg_cbs = true,
+	.nodes = {
+		{
+			.xpath = NULL,
+		},
+	}
+};

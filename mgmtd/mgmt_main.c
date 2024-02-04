@@ -171,10 +171,10 @@ const struct frr_yang_module_info zebra_route_map_info = {
  */
 static const struct frr_yang_module_info *const mgmt_yang_modules[] = {
 	&frr_filter_cli_info,
-	&frr_interface_info,
+	&frr_interface_cli_info,
 	&frr_route_map_cli_info,
-	&frr_routing_info,
-	&frr_vrf_info,
+	&frr_routing_cli_info,
+	&frr_vrf_cli_info,
 	&frr_affinity_map_cli_info,
 
 	/* mgmtd-only modules */

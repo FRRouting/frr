@@ -1748,6 +1748,8 @@ lib_interface_state_phy_address_get_elem(struct nb_cb_get_elem_args *args)
 }
 
 /* clang-format off */
+
+/* cli_show callbacks are kept here for daemons not yet converted to mgmtd */
 const struct frr_yang_module_info frr_interface_info = {
 	.name = "frr-interface",
 	.nodes = {
@@ -1824,6 +1826,29 @@ const struct frr_yang_module_info frr_interface_info = {
 			.cbs = {
 				.get_elem = lib_interface_state_phy_address_get_elem,
 			}
+		},
+		{
+			.xpath = NULL,
+		},
+	}
+};
+
+const struct frr_yang_module_info frr_interface_cli_info = {
+	.name = "frr-interface",
+	.ignore_cfg_cbs = true,
+	.nodes = {
+		{
+			.xpath = "/frr-interface:lib/interface",
+			.cbs = {
+				.cli_show = cli_show_interface,
+				.cli_show_end = cli_show_interface_end,
+			},
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/description",
+			.cbs = {
+				.cli_show = cli_show_interface_desc,
+			},
 		},
 		{
 			.xpath = NULL,
