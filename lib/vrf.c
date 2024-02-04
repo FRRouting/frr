@@ -1034,6 +1034,8 @@ lib_vrf_state_active_get_elem(struct nb_cb_get_elem_args *args)
 }
 
 /* clang-format off */
+
+/* cli_show callbacks are kept here for daemons not yet converted to mgmtd */
 const struct frr_yang_module_info frr_vrf_info = {
 	.name = "frr-vrf",
 	.nodes = {
@@ -1069,3 +1071,19 @@ const struct frr_yang_module_info frr_vrf_info = {
 	}
 };
 
+const struct frr_yang_module_info frr_vrf_cli_info = {
+	.name = "frr-vrf",
+	.ignore_cfg_cbs = true,
+	.nodes = {
+		{
+			.xpath = "/frr-vrf:lib/vrf",
+			.cbs = {
+				.cli_show = lib_vrf_cli_write,
+				.cli_show_end = lib_vrf_cli_write_end,
+			},
+		},
+		{
+			.xpath = NULL,
+		},
+	}
+};
