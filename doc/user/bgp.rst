@@ -3473,7 +3473,7 @@ The import filtering described in item (2) is constrained just to Type-2
 The EVPN MAC-VRF Site-of-Origin can be configured using a single CLI command
 under ``address-family l2vpn evpn`` of the EVPN underlay BGP instance.
 
-.. clicmd:: [no] mac-vrf soo <site-of-origin-string>
+.. clicmd:: mac-vrf soo <site-of-origin-string>
 
 Example configuration:
 
@@ -3619,7 +3619,7 @@ route maybe fragmented.
 The number of EVIs per-EAD route can be configured via the following
 BGP command -
 
-.. clicmd:: [no] ead-es-frag evi-limit (1-1000)
+.. clicmd:: ead-es-frag evi-limit (1-1000)
 
 Sample Configuration
 ^^^^^^^^^^^^^^^^^^^^^

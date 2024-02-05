@@ -246,7 +246,7 @@ Under link parameter statement, the following commands set the different TE valu
    as specified in RFC3630 (OSPF) or RFC5305 (ISIS). Admin-group is also known
    as Resource Class/Color in the OSPF protocol.
 
-.. clicmd:: [no] affinity AFFINITY-MAP-NAME
+.. clicmd:: affinity AFFINITY-MAP-NAME
 
    This commands configures the Traffic Engineering Admin-Group of the
    interface using the affinity-map definitions (:ref:`affinity-map`).
@@ -257,7 +257,7 @@ Under link parameter statement, the following commands set the different TE valu
    ``admin-grp`` and ``affinity`` commands provide two ways of setting
    admin-groups. They cannot be both set on the same interface.
 
-.. clicmd:: [no] affinity-mode [extended|standard|both]
+.. clicmd:: affinity-mode [extended|standard|both]
 
    This commands configures which admin-group format is set by the affinity
    command. ``extended`` Admin-Group is the default and uses the RFC7308 format.
