@@ -58,6 +58,7 @@ char *__darr_in_vsprintf(char **sp, bool concat, const char *fmt, va_list ap)
 	size_t inlen = concat ? darr_strlen(*sp) : 0;
 	size_t capcount = strlen(fmt) + MIN(inlen + 64, 128);
 	ssize_t len;
+	va_list ap_copy;
 
 	darr_ensure_cap(*sp, capcount);
 
@@ -68,7 +69,9 @@ char *__darr_in_vsprintf(char **sp, bool concat, const char *fmt, va_list ap)
 	if (darr_len(*sp) == 0)
 		*darr_append(*sp) = 0;
 again:
-	len = vsnprintf(darr_last(*sp), darr_avail(*sp), fmt, ap);
+	va_copy(ap_copy, ap);
+	len = vsnprintf(darr_last(*sp), darr_avail(*sp), fmt, ap_copy);
+	va_end(ap_copy);
 	if (len < 0)
 		darr_in_strcat(*sp, fmt);
 	else if ((size_t)len < darr_avail(*sp))
