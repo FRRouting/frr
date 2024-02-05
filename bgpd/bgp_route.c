@@ -195,8 +195,6 @@ static struct bgp_path_info_extra *bgp_path_info_extra_new(void)
 	struct bgp_path_info_extra *new;
 	new = XCALLOC(MTYPE_BGP_ROUTE_EXTRA,
 		      sizeof(struct bgp_path_info_extra));
-	new->label[0] = MPLS_INVALID_LABEL;
-	new->num_labels = 0;
 	new->flowspec = NULL;
 	return new;
 }
