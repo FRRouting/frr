@@ -232,10 +232,6 @@ struct bgp_path_info_extra {
 	/* Nexthop reachability check.  */
 	uint32_t igpmetric;
 
-	/* MPLS label(s) - VNI(s) for EVPN-VxLAN  */
-	mpls_label_t label[BGP_MAX_LABELS];
-	uint32_t num_labels;
-
 	/* timestamp of the rib installation */
 	time_t bgp_rib_uptime;
 

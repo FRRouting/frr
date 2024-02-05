@@ -399,14 +399,14 @@ int bgp_evpn_mh_route_update(struct bgp *bgp, struct bgp_evpn_es *es,
 
 		if (evp->prefix.route_type == BGP_EVPN_AD_ROUTE) {
 			bgp_path_info_extra_get(tmp_pi);
-			tmp_pi->extra->num_labels = 1;
+			tmp_pi->attr->num_labels = 1;
 			if (vpn)
-				vni2label(vpn->vni, &tmp_pi->extra->label[0]);
+				vni2label(vpn->vni, &tmp_pi->attr->label_tbl[0]);
 			else
-				tmp_pi->extra->label[0] = 0;
+				tmp_pi->attr->label_tbl[0] = 0;
 		}
 		if (tmp_pi->extra)
-			tmp_pi->extra->num_labels = 0;
+			tmp_pi->attr->num_labels = 0;
 
 		/* add the newly created path to the route-node */
 		bgp_path_info_add(dest, tmp_pi);

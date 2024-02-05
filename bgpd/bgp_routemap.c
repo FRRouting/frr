@@ -1085,9 +1085,9 @@ route_match_vni(void *rule, const struct prefix *prefix, void *object)
 		return RMAP_NOMATCH;
 
 	for (;
-	     label_cnt < BGP_MAX_LABELS && label_cnt < path->extra->num_labels;
+	     label_cnt < BGP_MAX_LABELS && label_cnt < path->attr->num_labels;
 	     label_cnt++) {
-		if (vni == label2vni(&path->extra->label[label_cnt]))
+		if (vni == label2vni(&path->attr->label_tbl[label_cnt]))
 			return RMAP_MATCH;
 	}
 

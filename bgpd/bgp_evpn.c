@@ -1584,8 +1584,8 @@ static int update_evpn_type5_route_entry(struct bgp *bgp_evpn,
 		/* Type-5 routes advertise the L3-VNI */
 		bgp_path_info_extra_get(pi);
 		vni2label(bgp_vrf->l3vni, &label);
-		memcpy(&pi->extra->label, &label, sizeof(label));
-		pi->extra->num_labels = 1;
+		memcpy(&pi->attr->label_tbl, &label, sizeof(label));
+		pi->attr->num_labels = 1;
 
 		/* add the route entry to route node*/
 		bgp_path_info_add(dest, pi);
@@ -1948,8 +1948,8 @@ static int update_evpn_route_entry(struct bgp *bgp, struct bgpevpn *vpn,
 			}
 		}
 
-		memcpy(&tmp_pi->extra->label, label, sizeof(label));
-		tmp_pi->extra->num_labels = num_labels;
+		memcpy(&tmp_pi->attr->label_tbl, label, sizeof(label));
+		tmp_pi->attr->num_labels = num_labels;
 
 		if (evp->prefix.route_type == BGP_EVPN_MAC_IP_ROUTE) {
 			if (mac)
@@ -1985,8 +1985,8 @@ static int update_evpn_route_entry(struct bgp *bgp, struct bgpevpn *vpn,
 					num_labels++;
 				}
 			}
-			memcpy(&tmp_pi->extra->label, label, sizeof(label));
-			tmp_pi->extra->num_labels = num_labels;
+			memcpy(&tmp_pi->attr->label_tbl, label, sizeof(label));
+			tmp_pi->attr->num_labels = num_labels;
 
 			if (evp->prefix.route_type == BGP_EVPN_MAC_IP_ROUTE) {
 				if (mac)
@@ -2894,9 +2894,9 @@ bgp_create_evpn_bgp_path_info(struct bgp_path_info *parent_pi,
 	pi->extra->vrfleak->parent = bgp_path_info_lock(parent_pi);
 	bgp_dest_lock_node((struct bgp_dest *)parent_pi->net);
 	if (parent_pi->extra) {
-		memcpy(&pi->extra->label, &parent_pi->extra->label,
-		       sizeof(pi->extra->label));
-		pi->extra->num_labels = parent_pi->extra->num_labels;
+		memcpy(&pi->attr->label_tbl, &parent_pi->attr->label_tbl,
+		       sizeof(pi->attr->label_tbl));
+		pi->attr->num_labels = parent_pi->attr->num_labels;
 		pi->extra->igpmetric = parent_pi->extra->igpmetric;
 	}
 
@@ -7679,7 +7679,7 @@ vni_t bgp_evpn_path_info_get_l3vni(const struct bgp_path_info *pi)
 		return 0;
 
 	return label2vni(bgp_evpn_path_info_labels_get_l3vni(
-		pi->extra->label, pi->extra->num_labels));
+		pi->attr->label_tbl, pi->attr->num_labels));
 }
 
 /*

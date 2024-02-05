@@ -967,8 +967,8 @@ static bool labels_same(struct bgp_path_info *bpi, mpls_label_t *label,
 			return false;
 	}
 
-	return bgp_labels_same((const mpls_label_t *)bpi->extra->label,
-			       bpi->extra->num_labels,
+	return bgp_labels_same((const mpls_label_t *)bpi->attr->label_tbl,
+			       bpi->attr->num_labels,
 			       (const mpls_label_t *)label, n);
 }
 
@@ -984,21 +984,19 @@ static void setlabels(struct bgp_path_info *bpi,
 	assert(num_labels <= BGP_MAX_LABELS);
 
 	if (!num_labels) {
-		if (bpi->extra)
-			bpi->extra->num_labels = 0;
+		bpi->attr->num_labels = 0;
 		return;
 	}
 
-	struct bgp_path_info_extra *extra = bgp_path_info_extra_get(bpi);
 	uint32_t i;
 
 	for (i = 0; i < num_labels; ++i) {
-		extra->label[i] = label[i];
+		bpi->attr->label_tbl[i] = label[i];
 		if (!bgp_is_valid_label(&label[i])) {
-			bgp_set_valid_label(&extra->label[i]);
+			bgp_set_valid_label(&bpi->attr->label_tbl[i]);
 		}
 	}
-	extra->num_labels = num_labels;
+	bpi->attr->num_labels = num_labels;
 }
 
 static bool leak_update_nexthop_valid(struct bgp *to_bgp, struct bgp_dest *bn,
@@ -2317,11 +2315,11 @@ static void vpn_leak_to_vrf_update_onevrf(struct bgp *to_bgp,   /* to */
 
 		/* copy labels */
 		if (!origin_local && path_vpn->extra
-		    && path_vpn->extra->num_labels) {
-			num_labels = path_vpn->extra->num_labels;
+		    && path_vpn->attr->num_labels) {
+			num_labels = path_vpn->attr->num_labels;
 			if (num_labels > BGP_MAX_LABELS)
 				num_labels = BGP_MAX_LABELS;
-			pLabels = path_vpn->extra->label;
+			pLabels = path_vpn->attr->label_tbl;
 		}
 	}
 
@@ -4094,8 +4092,8 @@ bool bgp_mplsvpn_path_uses_valid_mpls_label(struct bgp_path_info *pi)
 		/* prefix_sid attribute */
 		return false;
 
-	if (!pi->extra || !pi->extra->num_labels ||
-	    !bgp_is_valid_label(&pi->extra->label[0]))
+	if (!pi->extra || !pi->attr->num_labels ||
+	    !bgp_is_valid_label(&pi->attr->label_tbl[0]))
 		/* invalid MPLS label */
 		return false;
 	return true;
@@ -4205,11 +4203,11 @@ void bgp_mplsvpn_nh_label_bind_register_local_label(struct bgp *bgp,
 
 	tree = &bgp->mplsvpn_nh_label_bind;
 	bmnc = bgp_mplsvpn_nh_label_bind_find(
-		tree, &pi->nexthop->prefix, decode_label(&pi->extra->label[0]));
+		tree, &pi->nexthop->prefix, decode_label(&pi->attr->label_tbl[0]));
 	if (!bmnc) {
 		bmnc = bgp_mplsvpn_nh_label_bind_new(
 			tree, &pi->nexthop->prefix,
-			decode_label(&pi->extra->label[0]));
+			decode_label(&pi->attr->label_tbl[0]));
 		bmnc->bgp_vpn = bgp;
 		bmnc->allocation_in_progress = true;
 		bgp_lp_get(LP_TYPE_BGP_L3VPN_BIND, bmnc,

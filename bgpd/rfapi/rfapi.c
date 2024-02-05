@@ -1021,8 +1021,8 @@ void add_vnc_route(struct rfapi_descriptor *rfd, /* cookie, VPN UN addr, peer */
 				  sizeof(struct bgp_path_info_extra_vnc));
 	new->extra->vnc->vnc.export.rfapi_handle = (void *)rfd;
 
-	encode_label(label_val, &new->extra->label[0]);
-	new->extra->num_labels = 1;
+	encode_label(label_val, &new->attr->label_tbl[0]);
+	new->attr->num_labels = 1;
 
 	/* debug */
 
@@ -1045,7 +1045,7 @@ void add_vnc_route(struct rfapi_descriptor *rfd, /* cookie, VPN UN addr, peer */
 				bgp, prd, table, p, new);
 		bgp_dest_unlock_node(pdest);
 		encode_label(label_val, &bn->local_label);
-		new->extra->num_labels = 1;
+		new->attr->num_labels = 1;
 	}
 
 	bgp_dest_unlock_node(bn);
