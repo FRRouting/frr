@@ -4111,7 +4111,8 @@ bool bgp_mplsvpn_path_uses_valid_mpls_label(struct bgp_path_info *pi)
 		/* prefix_sid attribute */
 		return false;
 
-	if (!pi->extra || !bgp_is_valid_label(&pi->extra->label[0]))
+	if (!pi->extra || !pi->extra->num_labels ||
+	    !bgp_is_valid_label(&pi->extra->label[0]))
 		/* invalid MPLS label */
 		return false;
 	return true;
@@ -4218,14 +4219,16 @@ void bgp_mplsvpn_nh_label_bind_register_local_label(struct bgp *bgp,
 {
 	struct bgp_mplsvpn_nh_label_bind_cache *bmnc;
 	struct bgp_mplsvpn_nh_label_bind_cache_head *tree;
+	mpls_label_t label;
+
+	label = pi->extra->num_labels ? decode_label(&pi->extra->label[0])
+				      : MPLS_INVALID_LABEL;
 
 	tree = &bgp->mplsvpn_nh_label_bind;
-	bmnc = bgp_mplsvpn_nh_label_bind_find(
-		tree, &pi->nexthop->prefix, decode_label(&pi->extra->label[0]));
+	bmnc = bgp_mplsvpn_nh_label_bind_find(tree, &pi->nexthop->prefix, label);
 	if (!bmnc) {
-		bmnc = bgp_mplsvpn_nh_label_bind_new(
-			tree, &pi->nexthop->prefix,
-			decode_label(&pi->extra->label[0]));
+		bmnc = bgp_mplsvpn_nh_label_bind_new(tree, &pi->nexthop->prefix,
+						     label);
 		bmnc->bgp_vpn = bgp;
 		bmnc->allocation_in_progress = true;
 		bgp_lp_get(LP_TYPE_BGP_L3VPN_BIND, bmnc,

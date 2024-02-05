@@ -1275,25 +1275,20 @@ int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 		/* If one path has a label but the other does not, do not treat
 		 * them as equals for multipath
 		 */
-		int newl, existl;
+		bool new_label_valid, exist_label_valid;
 
-		newl = existl = 0;
+		new_label_valid = new->extra && new->extra->num_labels &&
+				    bgp_is_valid_label(&new->extra->label[0]);
+		exist_label_valid = exist->extra && exist->extra->num_labels &&
+				    bgp_is_valid_label(&exist->extra->label[0]);
 
-		if (new->extra)
-			newl = new->extra->num_labels;
-		if (exist->extra)
-			existl = exist->extra->num_labels;
-		if (((new->extra &&bgp_is_valid_label(&new->extra->label[0])) !=
-		     (exist->extra &&
-		      bgp_is_valid_label(&exist->extra->label[0]))) ||
-		    (newl != existl)) {
+		if (new_label_valid != exist_label_valid) {
 			if (debug)
 				zlog_debug(
 					"%s: %s and %s cannot be multipath, one has a label while the other does not",
 					pfx_buf, new_buf, exist_buf);
 		} else if (CHECK_FLAG(bgp->flags,
 				      BGP_FLAG_ASPATH_MULTIPATH_RELAX)) {
-
 			/*
 			 * For the two paths, all comparison steps till IGP
 			 * metric
@@ -3164,7 +3159,7 @@ static bool bgp_lu_need_null_label(struct bgp *bgp,
 	    || new_select->sub_type == BGP_ROUTE_AGGREGATE
 	    || new_select->sub_type == BGP_ROUTE_REDISTRIBUTE)
 		goto need_null_label;
-	else if (new_select->extra &&
+	else if (new_select->extra && new_select->extra->num_labels &&
 		 bgp_is_valid_label(&new_select->extra->label[0]))
 		return false;
 need_null_label:
@@ -6354,7 +6349,7 @@ void bgp_static_update(struct bgp *bgp, const struct prefix *p,
 	route_map_result_t ret;
 #ifdef ENABLE_BGP_VNC
 	int vnc_implicit_withdraw = 0;
-	mpls_label_t label = 0;
+	mpls_label_t label = MPLS_INVALID_LABEL;
 #endif
 	uint32_t num_labels = 0;
 
@@ -6506,7 +6501,7 @@ void bgp_static_update(struct bgp *bgp, const struct prefix *p,
 						bgp, p, pi);
 				}
 			} else {
-				if (pi->extra)
+				if (pi->extra && pi->extra->num_labels)
 					label = decode_label(
 						&pi->extra->label[0]);
 			}
@@ -9742,7 +9737,8 @@ void route_vty_out_tag(struct vty *vty, const struct prefix *p,
 		}
 	}
 
-	if (bgp_is_valid_label(&path->extra->label[0])) {
+	if (path->extra->num_labels &&
+	    bgp_is_valid_label(&path->extra->label[0])) {
 		label = decode_label(&path->extra->label[0]);
 		if (json) {
 			json_object_int_add(json_out, "notag", label);
