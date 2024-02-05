@@ -636,6 +636,7 @@ extern void if_down_via_zapi(struct interface *ifp);
 extern void if_destroy_via_zapi(struct interface *ifp);
 
 extern const struct frr_yang_module_info frr_interface_info;
+extern const struct frr_yang_module_info frr_interface_cli_info;
 
 #ifdef __cplusplus
 }

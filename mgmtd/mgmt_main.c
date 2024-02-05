@@ -171,10 +171,10 @@ const struct frr_yang_module_info zebra_route_map_info = {
  */
 static const struct frr_yang_module_info *const mgmt_yang_modules[] = {
 	&frr_filter_cli_info,
-	&frr_interface_info,
+	&frr_interface_cli_info,
 	&frr_route_map_cli_info,
-	&frr_routing_info,
-	&frr_vrf_info,
+	&frr_routing_cli_info,
+	&frr_vrf_cli_info,
 	&frr_affinity_map_cli_info,
 
 	/* mgmtd-only modules */
@@ -230,8 +230,9 @@ int main(int argc, char **argv)
 
 	frr_preinit(&mgmtd_di, argc, argv);
 	frr_opt_add(
-		"s:" DEPRECATED_OPTIONS, longopts,
-		"  -s, --socket_size  Set MGMTD peer socket send buffer size\n");
+		"s:n" DEPRECATED_OPTIONS, longopts,
+		"  -s, --socket_size  Set MGMTD peer socket send buffer size\n"
+		"  -n, --vrfwnetns    Use NetNS as VRF backend\n");
 
 	/* Command line argument treatment. */
 	while (1) {
