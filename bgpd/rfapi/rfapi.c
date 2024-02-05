@@ -592,7 +592,7 @@ void add_vnc_route(struct rfapi_descriptor *rfd, /* cookie, VPN UN addr, peer */
 		}
 	}
 
-	if (label)
+	if (label && *label != MPLS_INVALID_LABEL)
 		label_val = *label;
 	else
 		label_val = MPLS_LABEL_IMPLICIT_NULL;
@@ -1020,7 +1020,9 @@ void add_vnc_route(struct rfapi_descriptor *rfd, /* cookie, VPN UN addr, peer */
 	new->extra->vnc = XCALLOC(MTYPE_BGP_ROUTE_EXTRA_VNC,
 				  sizeof(struct bgp_path_info_extra_vnc));
 	new->extra->vnc->vnc.export.rfapi_handle = (void *)rfd;
+
 	encode_label(label_val, &new->extra->label[0]);
+	new->extra->num_labels = 1;
 
 	/* debug */
 
@@ -1043,6 +1045,7 @@ void add_vnc_route(struct rfapi_descriptor *rfd, /* cookie, VPN UN addr, peer */
 				bgp, prd, table, p, new);
 		bgp_dest_unlock_node(pdest);
 		encode_label(label_val, &bn->local_label);
+		new->extra->num_labels = 1;
 	}
 
 	bgp_dest_unlock_node(bn);

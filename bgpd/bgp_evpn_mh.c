@@ -405,6 +405,8 @@ int bgp_evpn_mh_route_update(struct bgp *bgp, struct bgp_evpn_es *es,
 			else
 				tmp_pi->extra->label[0] = 0;
 		}
+		if (tmp_pi->extra)
+			tmp_pi->extra->num_labels = 0;
 
 		/* add the newly created path to the route-node */
 		bgp_path_info_add(dest, tmp_pi);
