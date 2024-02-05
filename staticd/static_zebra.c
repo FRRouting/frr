@@ -164,10 +164,14 @@ static int route_notify_owner(ZAPI_CALLBACK_ARGS)
 
 static void zebra_connected(struct zclient *zclient)
 {
+	struct vrf *vrf;
+
 	zebra_route_notify_send(ZEBRA_ROUTE_NOTIFY_REQUEST, zclient, true);
 	zclient_send_reg_requests(zclient, VRF_DEFAULT);
 
-	static_fixup_vrf_ids(vrf_lookup_by_id(VRF_DEFAULT));
+	vrf = vrf_lookup_by_id(VRF_DEFAULT);
+	assert(vrf);
+	static_fixup_vrf_ids(vrf);
 }
 
 /* API to check whether the configured nexthop address is

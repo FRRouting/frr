@@ -2220,7 +2220,8 @@ int lib_interface_zebra_link_params_packet_loss_destroy(
 static bool evpn_mh_dnode_to_esi(const struct lyd_node *dnode, esi_t *esi)
 {
 	if (yang_dnode_exists(dnode, "type-0/esi")) {
-		str_to_esi(yang_dnode_get_string(dnode, "type-0/esi"), esi);
+		if (!str_to_esi(yang_dnode_get_string(dnode, "type-0/esi"), esi))
+			assert(false);
 	} else if (yang_dnode_exists(dnode, "type-3/system-mac") &&
 		   yang_dnode_exists(dnode, "type-3/local-discriminator")) {
 		struct ethaddr mac;
@@ -2301,7 +2302,8 @@ int lib_interface_zebra_evpn_mh_type_0_esi_modify(struct nb_cb_modify_args *args
 		break;
 	case NB_EV_APPLY:
 		ifp = nb_running_get_entry(args->dnode, NULL, true);
-		str_to_esi(yang_dnode_get_string(args->dnode, NULL), &esi);
+		if (!str_to_esi(yang_dnode_get_string(args->dnode, NULL), &esi))
+			assert(false);
 		zebra_evpn_es_type0_esi_update(ifp->info, &esi);
 		break;
 	}
@@ -3031,7 +3033,7 @@ int lib_interface_zebra_ipv6_router_advertisements_rdnss_rdnss_address_create(
 	struct nb_cb_create_args *args)
 {
 	struct interface *ifp;
-	struct rtadv_rdnss rdnss, *p;
+	struct rtadv_rdnss rdnss = {0}, *p;
 
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
@@ -3110,7 +3112,7 @@ int lib_interface_zebra_ipv6_router_advertisements_dnssl_dnssl_domain_create(
 	struct nb_cb_create_args *args)
 {
 	struct interface *ifp;
-	struct rtadv_dnssl dnssl, *p;
+	struct rtadv_dnssl dnssl = {0}, *p;
 	int ret;
 
 	strlcpy(dnssl.name, yang_dnode_get_string(args->dnode, "domain"),

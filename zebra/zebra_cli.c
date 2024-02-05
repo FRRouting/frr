@@ -437,13 +437,19 @@ DEFPY_YANG (link_params_admin_grp,
 	char value_str[YANG_VALUE_MAXLEN];
 
 	if (!no) {
+		assert(bitpattern);
+
 		if (bitpattern[0] != '0' || bitpattern[1] != 'x' ||
 		    strlen(bitpattern) > 10) {
 			vty_out(vty, "Invalid bitpattern value\n");
 			return CMD_WARNING_CONFIG_FAILED;
 		}
 
-		sscanf(bitpattern, "%x", &value);
+		if (sscanf(bitpattern, "%x", &value) != 1) {
+			vty_out(vty, "Invalid bitpattern value\n");
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+
 		snprintf(value_str, sizeof(value_str), "%u", value);
 
 		nb_cli_enqueue_change(vty, "./legacy-admin-group", NB_OP_MODIFY,
@@ -610,6 +616,8 @@ DEFPY_YANG (link_params_res_bw,
 	float bw;
 
 	if (!no) {
+		assert(bandwidth);
+
 		if (sscanf(bandwidth, "%g", &bw) != 1) {
 			vty_out(vty, "Invalid bandwidth value\n");
 			return CMD_WARNING_CONFIG_FAILED;
@@ -647,6 +655,8 @@ DEFPY_YANG (link_params_ava_bw,
 	float bw;
 
 	if (!no) {
+		assert(bandwidth);
+
 		if (sscanf(bandwidth, "%g", &bw) != 1) {
 			vty_out(vty, "Invalid bandwidth value\n");
 			return CMD_WARNING_CONFIG_FAILED;
@@ -684,6 +694,8 @@ DEFPY_YANG (link_params_use_bw,
 	float bw;
 
 	if (!no) {
+		assert(bandwidth);
+
 		if (sscanf(bandwidth, "%g", &bw) != 1) {
 			vty_out(vty, "Invalid bandwidth value\n");
 			return CMD_WARNING_CONFIG_FAILED;
@@ -817,6 +829,7 @@ DEFPY_YANG (ip_address,
 	strlcpy(ip, address_str, sizeof(ip));
 
 	mask = strchr(ip, '/');
+	assert(mask);
 	*mask = 0;
 	mask++;
 
@@ -886,6 +899,7 @@ DEFPY_YANG (ip_address_peer,
 	strlcpy(peer_ip, peer_str, sizeof(peer_ip));
 
 	peer_mask = strchr(peer_ip, '/');
+	assert(peer_mask);
 	*peer_mask = 0;
 	peer_mask++;
 
@@ -934,6 +948,7 @@ DEFPY_YANG (ipv6_address,
 	strlcpy(ip, address_str, sizeof(ip));
 
 	mask = strchr(ip, '/');
+	assert(mask);
 	*mask = 0;
 	mask++;
 
