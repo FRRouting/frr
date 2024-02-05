@@ -5746,17 +5746,24 @@ DEFPY (neighbor_capability_fqdn,
        "Advertise fqdn capability to the peer\n")
 {
 	struct peer *peer;
+	int ret;
 
 	peer = peer_and_group_lookup_vty(vty, neighbor);
 	if (!peer)
 		return CMD_WARNING_CONFIG_FAILED;
 
 	if (no)
-		return peer_flag_unset_vty(vty, neighbor,
+		ret = peer_flag_unset_vty(vty, neighbor,
 					  PEER_FLAG_CAPABILITY_FQDN);
 	else
-		return peer_flag_set_vty(vty, neighbor,
+		ret = peer_flag_set_vty(vty, neighbor,
 					PEER_FLAG_CAPABILITY_FQDN);
+
+	bgp_capability_send(peer, AFI_IP, SAFI_UNICAST, CAPABILITY_CODE_FQDN,
+			    no ? CAPABILITY_ACTION_UNSET
+			       : CAPABILITY_ACTION_SET);
+
+	return ret;
 }
 
 /* neighbor capability extended next hop encoding */
