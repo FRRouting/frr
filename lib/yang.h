@@ -104,6 +104,9 @@ extern struct ly_ctx *ly_native_ctx;
 /* Tree of all loaded YANG modules. */
 extern struct yang_modules yang_modules;
 
+/* yang-errors extension */
+extern struct lysc_ext_instance *yang_errors_ext;
+
 /*
  * Create a new YANG module and load it using libyang. If the YANG module is not
  * found in the YANG_MODELS_PATH directory, the program will exit with an error.
@@ -755,6 +758,20 @@ extern int yang_get_key_preds(char *s, const struct lysc_node *snode,
 
 /* Get YANG keys from an existing dnode */
 extern int yang_get_node_keys(struct lyd_node *node, struct yang_list_keys *keys);
+
+/**
+ * yang_create_error() - create a yang-error data node
+ * @errors: pointer to the errors container to add the error to
+ *          if *errors is NULL, the container is created
+ * @type: the error type
+ * @tag: the error tag
+ * @app_tag: the application-specific tag
+ * @path: the path to the node that caused the error
+ * @message: a message describing the error
+ */
+extern LY_ERR yang_create_error(struct lyd_node **errors, const char *type,
+				const char *tag, const char *app_tag,
+				const char *path, const char *message);
 
 /**
  * yang_resolve_snodes() - Resolve an XPath to matching schema nodes.

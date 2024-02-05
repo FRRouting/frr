@@ -538,6 +538,7 @@ static void fe_client_handle_native_msg(struct mgmt_fe_client *client,
 						  session->client_id,
 						  msg->refer_id,
 						  session->user_ctx, msg->req_id,
+						  err_msg->result_type,
 						  err_msg->error, errstr);
 		break;
 	case MGMT_MSG_CODE_TREE_DATA:

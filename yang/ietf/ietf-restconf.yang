@@ -1,0 +1,277 @@
+module ietf-restconf {
+  yang-version 1.1;
+  namespace "urn:ietf:params:xml:ns:yang:ietf-restconf";
+  prefix "rc";
+
+  organization
+    "IETF NETCONF (Network Configuration) Working Group";
+
+  contact
+    "WG Web:   <https://datatracker.ietf.org/wg/netconf/>
+     WG List:  <mailto:netconf@ietf.org>
+
+     Author:   Andy Bierman
+               <mailto:andy@yumaworks.com>
+
+     Author:   Martin Bjorklund
+               <mailto:mbj@tail-f.com>
+
+     Author:   Kent Watsen
+               <mailto:kwatsen@juniper.net>";
+
+  description
+    "This module contains conceptual YANG specifications
+     for basic RESTCONF media type definitions used in
+     RESTCONF protocol messages.
+
+     Note that the YANG definitions within this module do not
+     represent configuration data of any kind.
+     The 'restconf-media-type' YANG extension statement
+     provides a normative syntax for XML and JSON
+     message-encoding purposes.
+
+     Copyright (c) 2017 IETF Trust and the persons identified as
+     authors of the code.  All rights reserved.
+
+     Redistribution and use in source and binary forms, with or
+     without modification, is permitted pursuant to, and subject
+     to the license terms contained in, the Simplified BSD License
+     set forth in Section 4.c of the IETF Trust's Legal Provisions
+     Relating to IETF Documents
+     (http://trustee.ietf.org/license-info).
+
+     This version of this YANG module is part of RFC 8040; see
+     the RFC itself for full legal notices.";
+
+  revision 2017-01-26 {
+    description
+      "Initial revision.";
+    reference
+      "RFC 8040: RESTCONF Protocol.";
+  }
+
+  extension yang-data {
+    argument name {
+      yin-element true;
+    }
+    description
+      "This extension is used to specify a YANG data template that
+       represents conceptual data defined in YANG.  It is
+       intended to describe hierarchical data independent of
+       protocol context or specific message-encoding format.
+       Data definition statements within a yang-data extension
+       specify the generic syntax for the specific YANG data
+       template, whose name is the argument of the 'yang-data'
+       extension statement.
+
+       Note that this extension does not define a media type.
+       A specification using this extension MUST specify the
+       message-encoding rules, including the content media type.
+
+       The mandatory 'name' parameter value identifies the YANG
+       data template that is being defined.  It contains the
+       template name.
+
+       This extension is ignored unless it appears as a top-level
+       statement.  It MUST contain data definition statements
+       that result in exactly one container data node definition.
+       An instance of a YANG data template can thus be translated
+       into an XML instance document, whose top-level element
+       corresponds to the top-level container.
+       The module name and namespace values for the YANG module using
+       the extension statement are assigned to instance document data
+       conforming to the data definition statements within
+       this extension.
+
+       The substatements of this extension MUST follow the
+       'data-def-stmt' rule in the YANG ABNF.
+
+       The XPath document root is the extension statement itself,
+       such that the child nodes of the document root are
+       represented by the data-def-stmt substatements within
+       this extension.  This conceptual document is the context
+       for the following YANG statements:
+
+         - must-stmt
+         - when-stmt
+         - path-stmt
+         - min-elements-stmt
+         - max-elements-stmt
+         - mandatory-stmt
+         - unique-stmt
+         - ordered-by
+         - instance-identifier data type
+
+       The following data-def-stmt substatements are constrained
+       when used within a 'yang-data' extension statement.
+
+         - The list-stmt is not required to have a key-stmt defined.
+         - The if-feature-stmt is ignored if present.
+         - The config-stmt is ignored if present.
+         - The available identity values for any 'identityref'
+           leaf or leaf-list nodes are limited to the module
+           containing this extension statement and the modules
+           imported into that module.
+      ";
+  }
+
+  rc:yang-data yang-errors {
+    uses errors;
+  }
+
+  rc:yang-data yang-api {
+    uses restconf;
+  }
+
+  grouping errors {
+    description
+      "A grouping that contains a YANG container
+       representing the syntax and semantics of a
+       YANG Patch error report within a response message.";
+
+    container errors {
+      description
+        "Represents an error report returned by the server if
+         a request results in an error.";
+
+      list error {
+        description
+          "An entry containing information about one
+           specific error that occurred while processing
+           a RESTCONF request.";
+        reference
+          "RFC 6241, Section 4.3.";
+
+        leaf error-type {
+          type enumeration {
+            enum transport {
+              description
+                "The transport layer.";
+            }
+            enum rpc {
+              description
+                "The rpc or notification layer.";
+            }
+            enum protocol {
+              description
+                "The protocol operation layer.";
+            }
+            enum application {
+              description
+                "The server application layer.";
+            }
+          }
+          mandatory true;
+          description
+            "The protocol layer where the error occurred.";
+        }
+
+        leaf error-tag {
+          type string;
+          mandatory true;
+          description
+            "The enumerated error-tag.";
+        }
+
+        leaf error-app-tag {
+          type string;
+          description
+            "The application-specific error-tag.";
+        }
+
+        leaf error-path {
+          type instance-identifier;
+          description
+            "The YANG instance identifier associated
+             with the error node.";
+        }
+
+        leaf error-message {
+          type string;
+          description
+            "A message describing the error.";
+        }
+
+        anydata error-info {
+           description
+             "This anydata value MUST represent a container with
+              zero or more data nodes representing additional
+              error information.";
+        }
+      }
+    }
+  }
+
+  grouping restconf {
+    description
+      "Conceptual grouping representing the RESTCONF
+       root resource.";
+
+    container restconf {
+      description
+        "Conceptual container representing the RESTCONF
+         root resource.";
+
+      container data {
+        description
+          "Container representing the datastore resource.
+           Represents the conceptual root of all state data
+           and configuration data supported by the server.
+           The child nodes of this container can be any data
+           resources that are defined as top-level data nodes
+           from the YANG modules advertised by the server in
+           the 'ietf-yang-library' module.";
+      }
+
+      container operations {
+        description
+          "Container for all operation resources.
+
+           Each resource is represented as an empty leaf with the
+           name of the RPC operation from the YANG 'rpc' statement.
+
+           For example, the 'system-restart' RPC operation defined
+           in the 'ietf-system' module would be represented as
+           an empty leaf in the 'ietf-system' namespace.  This is
+           a conceptual leaf and will not actually be found in
+           the module:
+
+              module ietf-system {
+                leaf system-reset {
+                  type empty;
+                }
+              }
+
+           To invoke the 'system-restart' RPC operation:
+
+              POST /restconf/operations/ietf-system:system-restart
+
+           To discover the RPC operations supported by the server:
+
+              GET /restconf/operations
+
+           In XML, the YANG module namespace identifies the module:
+
+             <system-restart
+                xmlns='urn:ietf:params:xml:ns:yang:ietf-system'/>
+
+           In JSON, the YANG module name identifies the module:
+
+             { 'ietf-system:system-restart' : [null] }
+          ";
+      }
+      leaf yang-library-version {
+        type string {
+          pattern '\d{4}-\d{2}-\d{2}';
+        }
+        config false;
+        mandatory true;
+        description
+          "Identifies the revision date of the 'ietf-yang-library'
+           module that is implemented by this RESTCONF server.
+           Indicates the year, month, and day in YYYY-MM-DD
+           numeric format.";
+      }
+    }
+  }
+}

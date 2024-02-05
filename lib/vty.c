@@ -3827,8 +3827,8 @@ static int vty_mgmt_get_tree_result_notified(
 static int vty_mgmt_error_notified(struct mgmt_fe_client *client,
 				   uintptr_t user_data, uint64_t client_id,
 				   uint64_t session_id, uintptr_t session_ctx,
-				   uint64_t req_id, int error,
-				   const char *errstr)
+				   uint64_t req_id, LYD_FORMAT result_type,
+				   int error, const char *errstr)
 {
 	struct vty *vty = (struct vty *)session_ctx;
 	const char *cname = mgmt_fe_client_name(client);
@@ -3849,9 +3849,13 @@ static int vty_mgmt_error_notified(struct mgmt_fe_client *client,
 			" session-id %" PRIu64 " req-id %" PRIu64 "error-str %s",
 			error, cname, client_id, session_id, req_id, errstr);
 
-	if (error)
-		vty_out(vty, "%% %s (for %s, client %s)\n", errstr,
-			vty->mgmt_req_pending_cmd, cname);
+	if (error) {
+		if (result_type == LYD_UNKNOWN)
+			vty_out(vty, "%% %s (for %s, client %s)\n", errstr,
+				vty->mgmt_req_pending_cmd, cname);
+		else
+			vty_out(vty, "%s", errstr);
+	}
 
 	vty_mgmt_resume_response(vty, error ? CMD_WARNING : CMD_SUCCESS);
 

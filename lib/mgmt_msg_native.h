@@ -165,6 +165,7 @@ DECLARE_MTYPE(MSG_NATIVE_NOTIFY);
 /*
  * Formats
  */
+#define MGMT_MSG_FORMAT_TEXT   0
 #define MGMT_MSG_FORMAT_XML    1
 #define MGMT_MSG_FORMAT_JSON   2
 #define MGMT_MSG_FORMAT_BINARY 3 /* non-standard libyang internal format */
@@ -174,6 +175,7 @@ DECLARE_MTYPE(MSG_NATIVE_NOTIFY);
  * own definitions allows us to create such a mapping in the future if libyang
  * makes a backwards incompatible change.
  */
+_Static_assert(MGMT_MSG_FORMAT_TEXT == LYD_UNKNOWN, "Format mismatch");
 _Static_assert(MGMT_MSG_FORMAT_XML == LYD_XML, "Format mismatch");
 _Static_assert(MGMT_MSG_FORMAT_JSON == LYD_JSON, "Format mismatch");
 _Static_assert(MGMT_MSG_FORMAT_BINARY == LYD_LYB, "Format mismatch");
@@ -204,6 +206,7 @@ _Static_assert(sizeof(struct mgmt_msg_header) ==
  * struct mgmt_msg_error - Common error message.
  *
  * @error: An error value. Zero means successful reply.
+ * @result_type: ``LYD_FORMAT`` for the returned result.
  * @errst: Description of error can be 0 length.
  *
  * This common error message can be used for replies for many msg requests
@@ -212,7 +215,8 @@ _Static_assert(sizeof(struct mgmt_msg_header) ==
 struct mgmt_msg_error {
 	struct mgmt_msg_header;
 	int16_t error;
-	uint8_t resv2[6];
+	uint8_t result_type;
+	uint8_t resv2[5];
 
 	alignas(8) char errstr[];
 };
@@ -361,6 +365,27 @@ extern int vmgmt_msg_native_send_error(struct msg_conn *conn,
 extern int mgmt_msg_native_send_success(struct msg_conn *conn,
 					uint64_t sess_or_txn_id,
 					uint64_t req_id, bool short_circuit_ok);
+
+/**
+ * Send a native message JSON/XML errors to the other end of the connection.
+ *
+ * Args:
+ *	conn: the connection.
+ *	sess_or_txn_id: Session ID (to FE client) or Txn ID (from BE client)
+ *	req_id: which req_id this error is associated with.
+ *	short_circuit_ok: if short circuit sending is OK.
+ *	result_type: the format of the result data.
+ *	error: the error value.
+ *	errors: the error data.
+ *
+ * Return:
+ *	The return value of ``msg_conn_send_msg``.
+ */
+extern int mgmt_msg_native_send_errors(struct msg_conn *conn,
+				       uint64_t sess_or_txn_id, uint64_t req_id,
+				       bool short_circuit_ok,
+				       LYD_FORMAT result_type, int16_t error,
+				       struct lyd_node *errors);
 
 /**
  * mgmt_msg_native_alloc_msg() - Create a native appendable msg.

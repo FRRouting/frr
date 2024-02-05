@@ -69,3 +69,44 @@ int mgmt_msg_native_send_success(struct msg_conn *conn, uint64_t sess_or_txn_id,
 	mgmt_msg_native_free_msg(msg);
 	return ret;
 }
+
+int mgmt_msg_native_send_errors(struct msg_conn *conn, uint64_t sess_or_txn_id,
+				uint64_t req_id, bool short_circuit_ok,
+				LYD_FORMAT result_type, int16_t error,
+				struct lyd_node *errors)
+{
+	struct mgmt_msg_error *msg;
+	uint8_t **darrp = NULL;
+	int ret;
+
+	msg = mgmt_msg_native_alloc_msg(typeof(*msg), 0, MTYPE_MSG_NATIVE_ERROR);
+	msg->refer_id = sess_or_txn_id;
+	msg->req_id = req_id;
+	msg->code = MGMT_MSG_CODE_ERROR;
+	msg->error = error;
+	msg->result_type = result_type;
+
+	if (errors) {
+		darrp = mgmt_msg_native_get_darrp(msg);
+		ret = yang_print_tree_append(darrp, errors, result_type,
+					     LYD_PRINT_WITHSIBLINGS);
+		if (ret != LY_SUCCESS) {
+			zlog_debug("Failed to send error %d session-id %" PRIu64
+				   " req-id %" PRIu64 " scok %d",
+				   error, sess_or_txn_id, req_id,
+				   short_circuit_ok);
+			goto done;
+		}
+	}
+
+	if (conn->debug)
+		zlog_debug("Sending error %d session-id %" PRIu64
+			   " req-id %" PRIu64 " scok %d errstr: %s",
+			   error, sess_or_txn_id, req_id, short_circuit_ok,
+			   msg->errstr);
+
+	ret = mgmt_msg_native_send_msg(conn, msg, short_circuit_ok);
+done:
+	mgmt_msg_native_free_msg(msg);
+	return ret;
+}

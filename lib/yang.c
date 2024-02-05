@@ -91,6 +91,9 @@ static const char *const frr_native_modules[] = {
 };
 /* clang-format on */
 
+/* yang-errors extension */
+struct lysc_ext_instance *yang_errors_ext;
+
 /* Generate the yang_modules tree. */
 static inline int yang_module_compare(const struct yang_module *a,
 				      const struct yang_module *b)
@@ -114,6 +117,28 @@ struct yang_module *yang_module_load(const char *module_name,
 			 "%s: failed to load data model: %s", __func__,
 			 module_name);
 		exit(1);
+	}
+
+	/* if ietf-restconf module is loaded, fill yang-errors extension */
+	if (strmatch(module_name, "ietf-restconf")) {
+		LY_ARRAY_COUNT_TYPE i;
+
+		LY_ARRAY_FOR(module_info->compiled->exts, i)
+		{
+			if (strmatch(module_info->compiled->exts[i].argument,
+				     "yang-errors")) {
+				yang_errors_ext =
+					&module_info->compiled->exts[i];
+				break;
+			}
+		}
+
+		if (!yang_errors_ext) {
+			flog_err(EC_LIB_YANG_MODULE_LOAD,
+				 "%s: failed to find yang-errors extension in ietf-restconf",
+				 __func__);
+			exit(1);
+		}
 	}
 
 	module = XCALLOC(MTYPE_YANG_MODULE, sizeof(*module));
@@ -1056,6 +1081,66 @@ int yang_get_node_keys(struct lyd_node *node, struct yang_list_keys *keys)
 		keys->num++;
 	}
 	return NB_OK;
+}
+
+LY_ERR yang_create_error(struct lyd_node **errors, const char *type,
+			 const char *tag, const char *app_tag, const char *path,
+			 const char *message)
+{
+	LY_ERR err;
+	struct lyd_node *error;
+
+	if (!(*errors)) {
+		err = lyd_new_ext_inner(yang_errors_ext, "errors", errors);
+		if (err) {
+			zlog_err("Failed to create errors container: %s",
+				 ly_last_errmsg());
+			return err;
+		}
+		assert(errors);
+	}
+
+	err = lyd_new_list(*errors, NULL, "error", 0, &error);
+	if (err)
+		goto clean;
+
+	err = lyd_new_term(error, NULL, "error-type", type, 0, NULL);
+	if (err)
+		goto clean;
+
+	err = lyd_new_term(error, NULL, "error-tag", tag, 0, NULL);
+	if (err)
+		goto clean;
+
+	if (app_tag) {
+		err = lyd_new_term(error, NULL, "error-app-tag", app_tag, 0,
+				   NULL);
+		if (err)
+			goto clean;
+	}
+
+	if (path) {
+		err = lyd_new_term(error, NULL, "error-path", path, 0, NULL);
+		if (err)
+			goto clean;
+	}
+
+	if (message) {
+		err = lyd_new_term(error, NULL, "error-message", message, 0,
+				   NULL);
+		if (err)
+			goto clean;
+	}
+
+	return 0;
+clean:
+	if (error)
+		lyd_free_tree(error);
+
+	if (err)
+		zlog_err("Failed to create error: %s", ly_last_errmsg());
+
+	return err;
 }
 
 /*
