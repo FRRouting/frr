@@ -47,3 +47,25 @@ int vmgmt_msg_native_send_error(struct msg_conn *conn, uint64_t sess_or_txn_id,
 	mgmt_msg_native_free_msg(msg);
 	return ret;
 }
+
+int mgmt_msg_native_send_success(struct msg_conn *conn, uint64_t sess_or_txn_id,
+				 uint64_t req_id, bool short_circuit_ok)
+{
+	struct mgmt_msg_error *msg;
+	int ret;
+
+	msg = mgmt_msg_native_alloc_msg(typeof(*msg), 0, MTYPE_MSG_NATIVE_ERROR);
+	msg->refer_id = sess_or_txn_id;
+	msg->req_id = req_id;
+	msg->code = MGMT_MSG_CODE_ERROR;
+	msg->error = 0;
+
+	if (conn->debug)
+		zlog_debug("Sending success session-id %" PRIu64
+			   " req-id %" PRIu64 " scok %d",
+			   sess_or_txn_id, req_id, short_circuit_ok);
+
+	ret = mgmt_msg_native_send_msg(conn, msg, short_circuit_ok);
+	mgmt_msg_native_free_msg(msg);
+	return ret;
+}

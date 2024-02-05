@@ -510,6 +510,14 @@ static int fe_adapter_send_error(struct mgmt_fe_session_ctx *session,
 	return ret;
 }
 
+static int fe_adapter_send_success(struct mgmt_fe_session_ctx *session,
+				   uint64_t req_id, bool short_circuit_ok)
+{
+	return mgmt_msg_native_send_success(session->adapter->conn,
+					    session->session_id, req_id,
+					    short_circuit_ok);
+}
+
 
 static void mgmt_fe_session_cfg_txn_clnup(struct event *thread)
 {
@@ -1510,6 +1518,26 @@ int mgmt_fe_adapter_txn_error(uint64_t txn_id, uint64_t req_id,
 	return ret;
 }
 
+int mgmt_fe_adapter_txn_success(uint64_t txn_id, uint64_t req_id,
+				bool short_circuit_ok)
+{
+	struct mgmt_fe_session_ctx *session;
+	int ret;
+
+	session = fe_adapter_session_by_txn_id(txn_id);
+	if (!session) {
+		__log_err("failed sending success for txn-id %" PRIu64
+			  " session not found",
+			  txn_id);
+		return -ENOENT;
+	}
+
+	ret = fe_adapter_send_success(session, req_id, short_circuit_ok);
+
+	mgmt_destroy_txn(&session->txn_id);
+
+	return ret;
+}
 
 struct mgmt_setcfg_stats *mgmt_fe_get_session_setcfg_stats(uint64_t session_id)
 {

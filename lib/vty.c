@@ -3849,8 +3849,9 @@ static int vty_mgmt_error_notified(struct mgmt_fe_client *client,
 			" session-id %" PRIu64 " req-id %" PRIu64 "error-str %s",
 			error, cname, client_id, session_id, req_id, errstr);
 
-	vty_out(vty, "%% %s (for %s, client %s)\n", errstr,
-		vty->mgmt_req_pending_cmd, cname);
+	if (error)
+		vty_out(vty, "%% %s (for %s, client %s)\n", errstr,
+			vty->mgmt_req_pending_cmd, cname);
 
 	vty_mgmt_resume_response(vty, error ? CMD_WARNING : CMD_SUCCESS);
 

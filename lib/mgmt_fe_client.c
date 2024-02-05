@@ -505,6 +505,7 @@ static void fe_client_handle_native_msg(struct mgmt_fe_client *client,
 	struct mgmt_msg_tree_data *tree_msg;
 	struct mgmt_msg_error *err_msg;
 	char *notify_data = NULL;
+	char *errstr = NULL;
 
 	debug_fe_client("Got native message for session-id %" PRIu64,
 			msg->refer_id);
@@ -525,16 +526,19 @@ static void fe_client_handle_native_msg(struct mgmt_fe_client *client,
 			return;
 
 		err_msg = (typeof(err_msg))msg;
-		if (!MGMT_MSG_VALIDATE_NUL_TERM(err_msg, msg_len)) {
-			log_err_fe_client("Corrupt error msg recv");
-			return;
+		if (err_msg->error) {
+			if (!MGMT_MSG_VALIDATE_NUL_TERM(err_msg, msg_len)) {
+				log_err_fe_client("Corrupt error msg recv");
+				return;
+			}
+			errstr = err_msg->errstr;
 		}
+
 		session->client->cbs.error_notify(client, client->user_data,
 						  session->client_id,
 						  msg->refer_id,
-						  session->user_ctx,
-						  msg->req_id, err_msg->error,
-						  err_msg->errstr);
+						  session->user_ctx, msg->req_id,
+						  err_msg->error, errstr);
 		break;
 	case MGMT_MSG_CODE_TREE_DATA:
 		if (!session->client->cbs.get_tree_notify)

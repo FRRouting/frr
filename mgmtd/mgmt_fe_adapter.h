@@ -183,6 +183,22 @@ extern int mgmt_fe_adapter_txn_error(uint64_t txn_id, uint64_t req_id,
 				     bool short_circuit_ok, int16_t error,
 				     const char *errstr);
 
+/**
+ * Send a success back to the FE client using native messaging.
+ *
+ * This also cleans up and frees the transaction.
+ * 
+ * Args:
+ *     txn_id: the txn_id this success pertains to.
+ *     short_circuit_ok: True if OK to short-circuit the call.
+ *
+ * Return:
+ *    the return value from the underlying send function.
+ * 
+ */
+extern int mgmt_fe_adapter_txn_success(uint64_t txn_id, uint64_t req_id,
+				       bool short_circuit_ok);
+
 
 /* Fetch frontend client session set-config stats */
 extern struct mgmt_setcfg_stats *

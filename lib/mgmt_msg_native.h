@@ -203,7 +203,7 @@ _Static_assert(sizeof(struct mgmt_msg_header) ==
 /**
  * struct mgmt_msg_error - Common error message.
  *
- * @error: An error value.
+ * @error: An error value. Zero means successful reply.
  * @errst: Description of error can be 0 length.
  *
  * This common error message can be used for replies for many msg requests
@@ -345,6 +345,22 @@ extern int vmgmt_msg_native_send_error(struct msg_conn *conn,
 				       bool short_circuit_ok, int16_t error,
 				       const char *errfmt, va_list ap)
 	PRINTFRR(6, 0);
+
+/**
+ * Send a native message sucess to the other end of the connection.
+ *
+ * Args:
+ *	conn: the connection.
+ *	sess_or_txn_id: Session ID (to FE client) or Txn ID (from BE client)
+ *	req_id: which req_id this success is associated with.
+ *	short_circuit_ok: if short circuit sending is OK.
+ *
+ * Return:
+ *	The return value of ``msg_conn_send_msg``.
+ */
+extern int mgmt_msg_native_send_success(struct msg_conn *conn,
+					uint64_t sess_or_txn_id,
+					uint64_t req_id, bool short_circuit_ok);
 
 /**
  * mgmt_msg_native_alloc_msg() - Create a native appendable msg.
