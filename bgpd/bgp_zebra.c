@@ -1341,15 +1341,13 @@ static void bgp_zebra_announce_parse_nexthop(
 		api_nh->srte_color = bgp_attr_get_color(info->attr);
 
 		if (bgp_debug_zebra(&api->prefix)) {
-			if (mpinfo->extra) {
+			if (mpinfo->extra && mpinfo->extra->num_labels) {
 				zlog_debug("%s: p=%pFX, bgp_is_valid_label: %d",
 					   __func__, p,
 					   bgp_is_valid_label(
 						   &mpinfo->extra->label[0]));
 			} else {
-				zlog_debug(
-					"%s: p=%pFX, extra is NULL, no label",
-					__func__, p);
+				zlog_debug("%s: p=%pFX, no label", __func__, p);
 			}
 		}
 
