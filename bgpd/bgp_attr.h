@@ -220,9 +220,6 @@ struct attr {
 	/* ifIndex corresponding to mp_nexthop_local. */
 	ifindex_t nh_lla_ifindex;
 
-	/* MPLS label (VNI) */
-	mpls_label_t label;
-
 	/* Extended Communities attribute. */
 	struct ecommunity *ecommunity;
 

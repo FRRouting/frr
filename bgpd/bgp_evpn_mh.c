@@ -960,7 +960,8 @@ static int bgp_evpn_type1_route_update(struct bgp *bgp, struct bgp_evpn_es *es,
 	if (vpn) {
 		/* EAD-EVI route update */
 		/* MPLS label */
-		vni2label(vpn->vni, &(attr.label));
+		vni2label(vpn->vni, &(attr.label_tbl[0]));
+		attr.num_labels = 1;
 
 		/* Set up extended community */
 		bgp_evpn_type1_evi_route_extcomm_build(es, vpn, &attr);

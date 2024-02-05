@@ -776,9 +776,8 @@ unsigned int attrhash_key_make(const void *p)
 	     attr->aggregator_addr.s_addr);
 	MIX3(attr->weight, attr->mp_nexthop_global_in.s_addr,
 	     attr->originator_id.s_addr);
-	MIX3(attr->tag, attr->label, attr->label_index);
+	MIX3(attr->tag, attr->num_labels, attr->label_index);
 
-	MIX(attr->num_labels);
 	if (attr->num_labels)
 		key = jhash(&attr->label_tbl,
 			    attr->num_labels * sizeof(mpls_label_t), key);
@@ -926,7 +925,7 @@ static void attr_show_all_iterator(struct hash_bucket *bucket, struct vty *vty)
 		"\tflags: %" PRIu64
 		" distance: %u med: %u local_pref: %u origin: %u weight: %u label: %u sid: %pI6\n",
 		attr->flag, attr->distance, attr->med, attr->local_pref,
-		attr->origin, attr->weight, attr->label, sid);
+		attr->origin, attr->weight, attr->label_tbl[0], sid);
 }
 
 void attr_show_all(struct vty *vty)
@@ -1083,7 +1082,6 @@ struct attr *bgp_attr_default_set(struct attr *attr, struct bgp *bgp,
 	attr->weight = BGP_ATTR_DEFAULT_WEIGHT;
 	attr->tag = 0;
 	attr->label_index = BGP_INVALID_LABEL_INDEX;
-	attr->label = MPLS_INVALID_LABEL;
 	attr->flag |= ATTR_FLAG_BIT(BGP_ATTR_NEXT_HOP);
 	attr->mp_nexthop_len = IPV6_MAX_BYTELEN;
 	attr->local_pref = bgp->default_local_pref;
@@ -1143,7 +1141,6 @@ struct attr *bgp_attr_aggregate_intern(
 		bgp_attr_add_gshut_community(&attr);
 
 	attr.label_index = BGP_INVALID_LABEL_INDEX;
-	attr.label = MPLS_INVALID_LABEL;
 	attr.weight = BGP_ATTR_DEFAULT_WEIGHT;
 	attr.mp_nexthop_len = IPV6_MAX_BYTELEN;
 	if (!aggregate->as_set || atomic_aggregate)
@@ -3253,7 +3250,8 @@ bgp_attr_pmsi_tunnel(struct bgp_attr_parser_args *args)
 
 	attr->flag |= ATTR_FLAG_BIT(BGP_ATTR_PMSI_TUNNEL);
 	bgp_attr_set_pmsi_tnl_type(attr, tnl_type);
-	stream_get(&attr->label, peer->curr, BGP_LABEL_BYTES);
+	stream_get(&attr->label_tbl[0], peer->curr, BGP_LABEL_BYTES);
+	attr->num_labels = 1;
 
 	/* Forward read pointer of input stream. */
 	stream_forward_getp(peer->curr, length - attr_parse_len);
@@ -4851,12 +4849,13 @@ bgp_size_t bgp_packet_attribute(struct bgp *bgp, struct peer *peer,
 
 	/* PMSI Tunnel */
 	if (attr->flag & ATTR_FLAG_BIT(BGP_ATTR_PMSI_TUNNEL)) {
+		mpls_label_t label = attr->num_labels ? attr->label_tbl[0] : MPLS_INVALID_LABEL;
 		stream_putc(s, BGP_ATTR_FLAG_OPTIONAL | BGP_ATTR_FLAG_TRANS);
 		stream_putc(s, BGP_ATTR_PMSI_TUNNEL);
 		stream_putc(s, 9); // Length
 		stream_putc(s, 0); // Flags
 		stream_putc(s, bgp_attr_get_pmsi_tnl_type(attr));
-		stream_put(s, &(attr->label),
+		stream_put(s, &label,
 			   BGP_LABEL_BYTES); // MPLS Label / VXLAN VNI
 		stream_put_ipv4(s, attr->nexthop.s_addr);
 		// Unicast tunnel endpoint IP address

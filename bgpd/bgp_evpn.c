@@ -2147,7 +2147,8 @@ static int update_evpn_route(struct bgp *bgp, struct bgpevpn *vpn,
 			esi_to_str(esi, buf3, sizeof(buf3)));
 	}
 
-	vni2label(vpn->vni, &(attr.label));
+	vni2label(vpn->vni, &(attr.label_tbl[0]));
+	attr.num_labels = 1;
 
 	/* Include L3 VNI related RTs and RMAC for type-2 routes, if they're
 	 * IPv4 or IPv6 global addresses and we're advertising L3VNI with
@@ -2416,7 +2417,9 @@ void bgp_evpn_update_type2_route_entry(struct bgp *bgp, struct bgpevpn *vpn,
 	memcpy(&attr.esi, &local_pi->attr->esi, sizeof(esi_t));
 	bgp_evpn_get_rmac_nexthop(vpn, &evp, &attr,
 				  local_pi->extra->evpn->af_flags);
-	vni2label(vpn->vni, &(attr.label));
+	vni2label(vpn->vni, &(attr.label_tbl[0]));
+	attr.num_labels = 1;
+
 	/* Add L3 VNI RTs and RMAC for non IPv6 link-local if
 	 * using L3 VNI for type-2 routes also.
 	 */

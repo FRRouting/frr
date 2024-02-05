@@ -2243,7 +2243,6 @@ static int bgp_update_receive(struct peer_connection *connection,
 	/* Set initial values. */
 	memset(&attr, 0, sizeof(attr));
 	attr.label_index = BGP_INVALID_LABEL_INDEX;
-	attr.label = MPLS_INVALID_LABEL;
 	memset(&nlris, 0, sizeof(nlris));
 	memset(peer->rcvd_attr_str, 0, BUFSIZ);
 	peer->rcvd_attr_printed = 0;
