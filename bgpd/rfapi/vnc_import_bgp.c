@@ -414,7 +414,7 @@ static void vnc_import_bgp_add_route_mode_resolve_nve_one_bi(
 	uint32_t lifetime;
 	uint32_t *plifetime;
 	struct bgp_attr_encap_subtlv *encaptlvs;
-	uint32_t label = 0;
+	uint32_t label = MPLS_INVALID_LABEL;
 
 	struct rfapi_un_option optary[3];
 	struct rfapi_un_option *opt = NULL;
@@ -470,16 +470,17 @@ static void vnc_import_bgp_add_route_mode_resolve_nve_one_bi(
 	if (bgp_attr_get_ecommunity(bpi->attr))
 		ecommunity_merge(new_ecom, bgp_attr_get_ecommunity(bpi->attr));
 
-	if (bpi->extra)
+	if (bpi->extra && bpi->extra->num_labels)
 		label = decode_label(&bpi->extra->label[0]);
 
 	add_vnc_route(&vncHDResolveNve, bgp, SAFI_MPLS_VPN,
-		      prefix,	  /* unicast route prefix */
+		      prefix,	       /* unicast route prefix */
 		      prd, &nexthop_h, /* new nexthop */
 		      local_pref, plifetime,
 		      (struct bgp_tea_options *)encaptlvs, /* RFP options */
 		      opt, NULL, new_ecom, med, /* NULL => don't set med */
-		      (label ? &label : NULL),  /* NULL= default */
+		      ((label != MPLS_INVALID_LABEL) ? &label
+						     : NULL), /* NULL= default */
 		      ZEBRA_ROUTE_BGP_DIRECT, BGP_ROUTE_REDISTRIBUTE,
 		      RFAPI_AHR_RFPOPT_IS_VNCTLV); /* flags */
 
@@ -1678,7 +1679,7 @@ static void vnc_import_bgp_exterior_add_route_it(
 			     bpi_interior = bpi_interior->next) {
 				struct prefix_rd *prd;
 				struct attr new_attr;
-				uint32_t label = 0;
+				uint32_t label = MPLS_INVALID_LABEL;
 
 				if (!is_usable_interior_route(bpi_interior))
 					continue;
@@ -1698,8 +1699,10 @@ static void vnc_import_bgp_exterior_add_route_it(
 				if (bpi_interior->extra) {
 					prd = &bpi_interior->extra->vnc->vnc
 						       .import.rd;
-					label = decode_label(
-						&bpi_interior->extra->label[0]);
+					if (bpi_interior->extra->num_labels)
+						label = decode_label(
+							&bpi_interior->extra
+								 ->label[0]);
 				} else
 					prd = NULL;
 
@@ -1851,7 +1854,7 @@ void vnc_import_bgp_exterior_del_route(
 			for (bpi_interior = rn->info; bpi_interior;
 			     bpi_interior = bpi_interior->next) {
 				struct prefix_rd *prd;
-				uint32_t label = 0;
+				uint32_t label = MPLS_INVALID_LABEL;
 
 				if (!is_usable_interior_route(bpi_interior))
 					continue;
@@ -1867,8 +1870,10 @@ void vnc_import_bgp_exterior_del_route(
 				if (bpi_interior->extra) {
 					prd = &bpi_interior->extra->vnc->vnc
 						       .import.rd;
-					label = decode_label(
-						&bpi_interior->extra->label[0]);
+					if (bpi_interior->extra->num_labels)
+						label = decode_label(
+							&bpi_interior->extra
+								 ->label[0]);
 				} else
 					prd = NULL;
 
@@ -2007,15 +2012,16 @@ void vnc_import_bgp_exterior_add_route_interior(
 
 			struct prefix_rd *prd;
 			struct attr new_attr;
-			uint32_t label = 0;
+			uint32_t label = MPLS_INVALID_LABEL;
 
 			assert(bpi_exterior);
 			assert(pfx_exterior);
 
 			if (bpi_interior->extra) {
 				prd = &bpi_interior->extra->vnc->vnc.import.rd;
-				label = decode_label(
-					&bpi_interior->extra->label[0]);
+				if (bpi_interior->extra->num_labels)
+					label = decode_label(
+						&bpi_interior->extra->label[0]);
 			} else
 				prd = NULL;
 
@@ -2097,7 +2103,7 @@ void vnc_import_bgp_exterior_add_route_interior(
 				struct bgp_path_info *bpi;
 				struct prefix_rd *prd;
 				struct attr new_attr;
-				uint32_t label = 0;
+				uint32_t label = MPLS_INVALID_LABEL;
 
 				/* do pull-down */
 
@@ -2128,8 +2134,10 @@ void vnc_import_bgp_exterior_add_route_interior(
 					if (bpi->extra) {
 						prd = &bpi->extra->vnc->vnc
 							       .import.rd;
-						label = decode_label(
-							&bpi->extra->label[0]);
+						if (bpi->extra->num_labels)
+							label = decode_label(
+								&bpi->extra->label
+									 [0]);
 					} else
 						prd = NULL;
 
@@ -2150,8 +2158,10 @@ void vnc_import_bgp_exterior_add_route_interior(
 				if (bpi_interior->extra) {
 					prd = &bpi_interior->extra->vnc->vnc
 						       .import.rd;
-					label = decode_label(
-						&bpi_interior->extra->label[0]);
+					if (bpi_interior->extra->num_labels)
+						label = decode_label(
+							&bpi_interior->extra
+								 ->label[0]);
 				} else
 					prd = NULL;
 
@@ -2237,7 +2247,7 @@ void vnc_import_bgp_exterior_add_route_interior(
 
 			struct prefix_rd *prd;
 			struct attr new_attr;
-			uint32_t label = 0;
+			uint32_t label = MPLS_INVALID_LABEL;
 
 			/* do pull-down */
 
@@ -2268,8 +2278,9 @@ void vnc_import_bgp_exterior_add_route_interior(
 			 */
 			if (bpi_interior->extra) {
 				prd = &bpi_interior->extra->vnc->vnc.import.rd;
-				label = decode_label(
-					&bpi_interior->extra->label[0]);
+				if (bpi_interior->extra->num_labels)
+					label = decode_label(
+						&bpi_interior->extra->label[0]);
 			} else
 				prd = NULL;
 
@@ -2372,11 +2383,13 @@ void vnc_import_bgp_exterior_del_route_interior(
 				&cursor)) {
 
 		struct prefix_rd *prd;
-		uint32_t label = 0;
+		uint32_t label = MPLS_INVALID_LABEL;
 
 		if (bpi_interior->extra) {
 			prd = &bpi_interior->extra->vnc->vnc.import.rd;
-			label = decode_label(&bpi_interior->extra->label[0]);
+			if (bpi_interior->extra->num_labels)
+				label = decode_label(
+					&bpi_interior->extra->label[0]);
 		} else
 			prd = NULL;
 
@@ -2446,15 +2459,16 @@ void vnc_import_bgp_exterior_del_route_interior(
 
 				struct prefix_rd *prd;
 				struct attr new_attr;
-				uint32_t label = 0;
+				uint32_t label = MPLS_INVALID_LABEL;
 
 				if (bpi->type == ZEBRA_ROUTE_BGP_DIRECT_EXT)
 					continue;
 
 				if (bpi->extra) {
 					prd = &bpi->extra->vnc->vnc.import.rd;
-					label = decode_label(
-						&bpi->extra->label[0]);
+					if (bpi->extra->num_labels)
+						label = decode_label(
+							&bpi->extra->label[0]);
 				} else
 					prd = NULL;
 

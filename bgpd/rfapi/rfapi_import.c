@@ -456,8 +456,11 @@ static struct bgp_path_info *rfapiBgpInfoCreate(struct attr *attr,
 		new->extra->vnc->vnc.import.rd = *prd;
 		new->extra->vnc->vnc.import.create_time = monotime(NULL);
 	}
-	if (label)
+	if (label && *label != MPLS_INVALID_LABEL) {
 		encode_label(*label, &new->extra->label[0]);
+		new->extra->num_labels = 1;
+	} else
+		new->extra->num_labels = 0;
 
 	peer_lock(peer);
 
@@ -1269,7 +1272,10 @@ rfapiRouteInfo2NextHopEntry(struct rfapi_ip_prefix *rprefix,
 			bpi->extra->vnc->vnc.import.rd.val[1];
 
 		/* label comes from MP_REACH_NLRI label */
-		vo->v.l2addr.label = decode_label(&bpi->extra->label[0]);
+		vo->v.l2addr.label =
+			bpi->extra->num_labels
+				? decode_label(&bpi->extra->label[0])
+				: MPLS_INVALID_LABEL;
 
 		new->vn_options = vo;
 
@@ -4162,13 +4168,13 @@ static void rfapiBgpTableFilteredImport(struct bgp *bgp,
 
 				for (bpi = bgp_dest_get_bgp_path_info(dest2);
 				     bpi; bpi = bpi->next) {
-					uint32_t label = 0;
+					uint32_t label = MPLS_INVALID_LABEL;
 
 					if (CHECK_FLAG(bpi->flags,
 						       BGP_PATH_REMOVED))
 						continue;
 
-					if (bpi->extra)
+					if (bpi->extra && bpi->extra->num_labels)
 						label = decode_label(
 							&bpi->extra->label[0]);
 					(*rfapiBgpInfoFilteredImportFunction(
