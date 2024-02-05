@@ -48,7 +48,6 @@ struct zebra_privs_t mgmt_privs = {
 };
 
 static struct frr_daemon_info mgmtd_di;
-char backup_config_file[256];
 
 /* SIGHUP handler. */
 static void sighup(void)
@@ -212,7 +211,7 @@ FRR_DAEMON_INFO(mgmtd, MGMTD,
 	.n_yang_modules = array_size(mgmt_yang_modules),
 
 	/* avoid libfrr trying to read our config file for us */
-	.flags = FRR_MANUAL_VTY_START,
+	.flags = FRR_MANUAL_VTY_START | FRR_NO_SPLIT_CONFIG,
 );
 /* clang-format on */
 
@@ -275,11 +274,6 @@ int main(int argc, char **argv)
 	/* MGMTD related initialization.  */
 	mgmt_init();
 
-	snprintf(backup_config_file, sizeof(backup_config_file),
-		 "%s/zebra.conf", frr_sysconfdir);
-	mgmtd_di.backup_config_file = backup_config_file;
-
-	/* this will queue a read configs event */
 	frr_config_fork();
 
 	frr_run(mm->master);
