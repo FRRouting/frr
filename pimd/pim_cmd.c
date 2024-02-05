@@ -2999,7 +2999,7 @@ DEFUN (ip_pim_spt_switchover_infinity,
 
 DEFPY (ip_pim_spt_switchover_infinity_plist,
        ip_pim_spt_switchover_infinity_plist_cmd,
-       "ip pim spt-switchover infinity-and-beyond prefix-list WORD$plist",
+       "ip pim spt-switchover infinity-and-beyond prefix-list PREFIXLIST4_NAME$plist",
        IP_STR
        PIM_STR
        "SPT-Switchover\n"
@@ -3024,7 +3024,7 @@ DEFUN (no_ip_pim_spt_switchover_infinity,
 
 DEFUN (no_ip_pim_spt_switchover_infinity_plist,
        no_ip_pim_spt_switchover_infinity_plist_cmd,
-       "no ip pim spt-switchover infinity-and-beyond prefix-list WORD",
+       "no ip pim spt-switchover infinity-and-beyond prefix-list PREFIXLIST4_NAME",
        NO_STR
        IP_STR
        PIM_STR
@@ -3038,7 +3038,7 @@ DEFUN (no_ip_pim_spt_switchover_infinity_plist,
 
 DEFPY (pim_register_accept_list,
        pim_register_accept_list_cmd,
-       "[no] ip pim register-accept-list WORD$word",
+       "[no] ip pim register-accept-list PREFIXLIST4_NAME$word",
        NO_STR
        IP_STR
        PIM_STR
@@ -3283,7 +3283,7 @@ DEFPY (ip_pim_rp,
 
 DEFPY (ip_pim_rp_prefix_list,
        ip_pim_rp_prefix_list_cmd,
-       "ip pim rp A.B.C.D$rp prefix-list WORD$plist",
+       "ip pim rp A.B.C.D$rp prefix-list PREFIXLIST4_NAME$plist",
        IP_STR
        "pim multicast routing\n"
        "Rendezvous Point\n"
@@ -3311,7 +3311,7 @@ DEFPY (no_ip_pim_rp,
 
 DEFPY (no_ip_pim_rp_prefix_list,
        no_ip_pim_rp_prefix_list_cmd,
-       "no ip pim rp A.B.C.D$rp prefix-list WORD$plist",
+       "no ip pim rp A.B.C.D$rp prefix-list PREFIXLIST4_NAME$plist",
        NO_STR
        IP_STR
        "pim multicast routing\n"
@@ -3325,7 +3325,7 @@ DEFPY (no_ip_pim_rp_prefix_list,
 
 DEFUN (ip_pim_ssm_prefix_list,
        ip_pim_ssm_prefix_list_cmd,
-       "ip pim ssm prefix-list WORD",
+       "ip pim ssm prefix-list PREFIXLIST4_NAME",
        IP_STR
        "pim multicast routing\n"
        "Source Specific Multicast\n"
@@ -3376,7 +3376,7 @@ DEFUN (no_ip_pim_ssm_prefix_list,
 
 DEFUN (no_ip_pim_ssm_prefix_list_name,
        no_ip_pim_ssm_prefix_list_name_cmd,
-       "no ip pim ssm prefix-list WORD",
+       "no ip pim ssm prefix-list PREFIXLIST4_NAME",
        NO_STR
        IP_STR
        "pim multicast routing\n"

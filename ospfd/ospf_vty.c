@@ -1872,7 +1872,7 @@ DEFUN (no_ospf_area_import_list,
 
 DEFUN (ospf_area_filter_list,
        ospf_area_filter_list_cmd,
-       "area <A.B.C.D|(0-4294967295)> filter-list prefix PREFIXLIST_NAME <in|out>",
+       "area <A.B.C.D|(0-4294967295)> filter-list prefix PREFIXLIST4_NAME <in|out>",
        "OSPF area parameters\n"
        "OSPF area ID in IP address format\n"
        "OSPF area ID as a decimal value\n"
@@ -1917,7 +1917,7 @@ DEFUN (ospf_area_filter_list,
 
 DEFUN (no_ospf_area_filter_list,
        no_ospf_area_filter_list_cmd,
-       "no area <A.B.C.D|(0-4294967295)> filter-list prefix PREFIXLIST_NAME <in|out>",
+       "no area <A.B.C.D|(0-4294967295)> filter-list prefix PREFIXLIST4_NAME <in|out>",
        NO_STR
        "OSPF area parameters\n"
        "OSPF area ID in IP address format\n"

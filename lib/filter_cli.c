@@ -128,7 +128,7 @@ static int filter_remove_check_empty(struct vty *vty, const char *ftype,
  */
 DEFPY_YANG(
 	access_list_std, access_list_std_cmd,
-	"access-list WORD$name [seq (1-4294967295)$seq] <deny|permit>$action <[host] A.B.C.D$host|A.B.C.D$host A.B.C.D$mask>",
+	"access-list ACCESSLIST4_NAME$name [seq (1-4294967295)$seq] <deny|permit>$action <[host] A.B.C.D$host|A.B.C.D$host A.B.C.D$mask>",
 	ACCESS_LIST_STR
 	ACCESS_LIST_ZEBRA_STR
 	ACCESS_LIST_SEQ_STR
@@ -204,7 +204,7 @@ DEFPY_YANG(
 
 DEFPY_YANG(
 	no_access_list_std, no_access_list_std_cmd,
-	"no access-list WORD$name [seq (1-4294967295)$seq] <deny|permit>$action <[host] A.B.C.D$host|A.B.C.D$host A.B.C.D$mask>",
+	"no access-list ACCESSLIST4_NAME$name [seq (1-4294967295)$seq] <deny|permit>$action <[host] A.B.C.D$host|A.B.C.D$host A.B.C.D$mask>",
 	NO_STR
 	ACCESS_LIST_STR
 	ACCESS_LIST_ZEBRA_STR
@@ -251,7 +251,7 @@ DEFPY_YANG(
 
 DEFPY_YANG(
 	access_list_ext, access_list_ext_cmd,
-	"access-list WORD$name [seq (1-4294967295)$seq] <deny|permit>$action ip <A.B.C.D$src A.B.C.D$src_mask|host A.B.C.D$src|any> <A.B.C.D$dst A.B.C.D$dst_mask|host A.B.C.D$dst|any>",
+	"access-list ACCESSLIST4_NAME$name [seq (1-4294967295)$seq] <deny|permit>$action ip <A.B.C.D$src A.B.C.D$src_mask|host A.B.C.D$src|any> <A.B.C.D$dst A.B.C.D$dst_mask|host A.B.C.D$dst|any>",
 	ACCESS_LIST_STR
 	ACCESS_LIST_ZEBRA_STR
 	ACCESS_LIST_SEQ_STR
@@ -369,7 +369,7 @@ DEFPY_YANG(
 
 DEFPY_YANG(
 	no_access_list_ext, no_access_list_ext_cmd,
-	"no access-list WORD$name [seq (1-4294967295)$seq] <deny|permit>$action ip <A.B.C.D$src A.B.C.D$src_mask|host A.B.C.D$src|any> <A.B.C.D$dst A.B.C.D$dst_mask|host A.B.C.D$dst|any>",
+	"no access-list ACCESSLIST4_NAME$name [seq (1-4294967295)$seq] <deny|permit>$action ip <A.B.C.D$src A.B.C.D$src_mask|host A.B.C.D$src|any> <A.B.C.D$dst A.B.C.D$dst_mask|host A.B.C.D$dst|any>",
 	NO_STR
 	ACCESS_LIST_STR
 	ACCESS_LIST_ZEBRA_STR
@@ -448,7 +448,7 @@ DEFPY_YANG(
  */
 DEFPY_YANG(
 	access_list, access_list_cmd,
-	"access-list WORD$name [seq (1-4294967295)$seq] <deny|permit>$action <A.B.C.D/M$prefix [exact-match$exact]|any>",
+	"access-list ACCESSLIST4_NAME$name [seq (1-4294967295)$seq] <deny|permit>$action <A.B.C.D/M$prefix [exact-match$exact]|any>",
 	ACCESS_LIST_STR
 	ACCESS_LIST_ZEBRA_STR
 	ACCESS_LIST_SEQ_STR
@@ -521,7 +521,7 @@ DEFPY_YANG(
 
 DEFPY_YANG(
 	no_access_list, no_access_list_cmd,
-	"no access-list WORD$name [seq (1-4294967295)$seq] <deny|permit>$action <A.B.C.D/M$prefix [exact-match$exact]|any>",
+	"no access-list ACCESSLIST4_NAME$name [seq (1-4294967295)$seq] <deny|permit>$action <A.B.C.D/M$prefix [exact-match$exact]|any>",
 	NO_STR
 	ACCESS_LIST_STR
 	ACCESS_LIST_ZEBRA_STR
@@ -567,7 +567,7 @@ DEFPY_YANG(
 
 DEFPY_YANG(
 	no_access_list_all, no_access_list_all_cmd,
-	"no access-list WORD$name",
+	"no access-list ACCESSLIST4_NAME$name",
 	NO_STR
 	ACCESS_LIST_STR
 	ACCESS_LIST_ZEBRA_STR)
@@ -583,7 +583,7 @@ DEFPY_YANG(
 
 DEFPY_YANG(
 	access_list_remark, access_list_remark_cmd,
-	"access-list WORD$name remark LINE...",
+	"access-list ACCESSLIST4_NAME$name remark LINE...",
 	ACCESS_LIST_STR
 	ACCESS_LIST_ZEBRA_STR
 	ACCESS_LIST_REMARK_STR
@@ -607,7 +607,7 @@ DEFPY_YANG(
 
 DEFPY_YANG(
 	no_access_list_remark, no_access_list_remark_cmd,
-	"no access-list WORD$name remark",
+	"no access-list ACCESSLIST4_NAME$name remark",
 	NO_STR
 	ACCESS_LIST_STR
 	ACCESS_LIST_ZEBRA_STR
@@ -618,7 +618,7 @@ DEFPY_YANG(
 
 ALIAS(
 	no_access_list_remark, no_access_list_remark_line_cmd,
-	"no access-list WORD$name remark LINE...",
+	"no access-list ACCESSLIST4_NAME$name remark LINE...",
 	NO_STR
 	ACCESS_LIST_STR
 	ACCESS_LIST_ZEBRA_STR
@@ -627,7 +627,7 @@ ALIAS(
 
 DEFPY_YANG(
 	ipv6_access_list, ipv6_access_list_cmd,
-	"ipv6 access-list WORD$name [seq (1-4294967295)$seq] <deny|permit>$action <X:X::X:X/M$prefix [exact-match$exact]|any>",
+	"ipv6 access-list ACCESSLIST6_NAME$name [seq (1-4294967295)$seq] <deny|permit>$action <X:X::X:X/M$prefix [exact-match$exact]|any>",
 	IPV6_STR
 	ACCESS_LIST_STR
 	ACCESS_LIST_ZEBRA_STR
@@ -701,7 +701,7 @@ DEFPY_YANG(
 
 DEFPY_YANG(
 	no_ipv6_access_list, no_ipv6_access_list_cmd,
-	"no ipv6 access-list WORD$name [seq (1-4294967295)$seq] <deny|permit>$action <X:X::X:X/M$prefix [exact-match$exact]|any>",
+	"no ipv6 access-list ACCESSLIST6_NAME$name [seq (1-4294967295)$seq] <deny|permit>$action <X:X::X:X/M$prefix [exact-match$exact]|any>",
 	NO_STR
 	IPV6_STR
 	ACCESS_LIST_STR
@@ -748,7 +748,7 @@ DEFPY_YANG(
 
 DEFPY_YANG(
 	no_ipv6_access_list_all, no_ipv6_access_list_all_cmd,
-	"no ipv6 access-list WORD$name",
+	"no ipv6 access-list ACCESSLIST6_NAME$name",
 	NO_STR
 	IPV6_STR
 	ACCESS_LIST_STR
@@ -765,7 +765,7 @@ DEFPY_YANG(
 
 DEFPY_YANG(
 	ipv6_access_list_remark, ipv6_access_list_remark_cmd,
-	"ipv6 access-list WORD$name remark LINE...",
+	"ipv6 access-list ACCESSLIST6_NAME$name remark LINE...",
 	IPV6_STR
 	ACCESS_LIST_STR
 	ACCESS_LIST_ZEBRA_STR
@@ -790,7 +790,7 @@ DEFPY_YANG(
 
 DEFPY_YANG(
 	no_ipv6_access_list_remark, no_ipv6_access_list_remark_cmd,
-	"no ipv6 access-list WORD$name remark",
+	"no ipv6 access-list ACCESSLIST6_NAME$name remark",
 	NO_STR
 	IPV6_STR
 	ACCESS_LIST_STR
@@ -1166,7 +1166,7 @@ static int plist_remove(struct vty *vty, const char *iptype, const char *name,
 
 DEFPY_YANG(
 	ip_prefix_list, ip_prefix_list_cmd,
-	"ip prefix-list WORD$name [seq (1-4294967295)$seq] <deny|permit>$action <any|A.B.C.D/M$prefix [{ge (0-32)$ge|le (0-32)$le}]>",
+	"ip prefix-list PREFIXLIST4_NAME$name [seq (1-4294967295)$seq] <deny|permit>$action <any|A.B.C.D/M$prefix [{ge (0-32)$ge|le (0-32)$le}]>",
 	IP_STR
 	PREFIX_LIST_STR
 	PREFIX_LIST_NAME_STR
@@ -1260,7 +1260,7 @@ DEFPY_YANG(
 
 DEFPY_YANG(
 	no_ip_prefix_list, no_ip_prefix_list_cmd,
-	"no ip prefix-list WORD$name [seq (1-4294967295)$seq] <deny|permit>$action <any|A.B.C.D/M$prefix [{ge (0-32)|le (0-32)}]>",
+	"no ip prefix-list PREFIXLIST4_NAME$name [seq (1-4294967295)$seq] <deny|permit>$action <any|A.B.C.D/M$prefix [{ge (0-32)|le (0-32)}]>",
 	NO_STR
 	IP_STR
 	PREFIX_LIST_STR
@@ -1280,7 +1280,7 @@ DEFPY_YANG(
 
 DEFPY_YANG(
 	no_ip_prefix_list_seq, no_ip_prefix_list_seq_cmd,
-	"no ip prefix-list WORD$name seq (1-4294967295)$seq",
+	"no ip prefix-list PREFIXLIST4_NAME$name seq (1-4294967295)$seq",
 	NO_STR
 	IP_STR
 	PREFIX_LIST_STR
@@ -1292,7 +1292,7 @@ DEFPY_YANG(
 
 DEFPY_YANG(
 	no_ip_prefix_list_all, no_ip_prefix_list_all_cmd,
-	"no ip prefix-list WORD$name",
+	"no ip prefix-list PREFIXLIST4_NAME$name",
 	NO_STR
 	IP_STR
 	PREFIX_LIST_STR
@@ -1309,7 +1309,7 @@ DEFPY_YANG(
 
 DEFPY_YANG(
 	ip_prefix_list_remark, ip_prefix_list_remark_cmd,
-	"ip prefix-list WORD$name description LINE...",
+	"ip prefix-list PREFIXLIST4_NAME$name description LINE...",
 	IP_STR
 	PREFIX_LIST_STR
 	PREFIX_LIST_NAME_STR
@@ -1334,7 +1334,7 @@ DEFPY_YANG(
 
 DEFPY_YANG(
 	no_ip_prefix_list_remark, no_ip_prefix_list_remark_cmd,
-	"no ip prefix-list WORD$name description",
+	"no ip prefix-list PREFIXLIST4_NAME$name description",
 	NO_STR
 	IP_STR
 	PREFIX_LIST_STR
@@ -1346,7 +1346,7 @@ DEFPY_YANG(
 
 ALIAS(
 	no_ip_prefix_list_remark, no_ip_prefix_list_remark_line_cmd,
-	"no ip prefix-list WORD$name description LINE...",
+	"no ip prefix-list PREFIXLIST4_NAME$name description LINE...",
 	NO_STR
 	IP_STR
 	PREFIX_LIST_STR
@@ -1356,7 +1356,7 @@ ALIAS(
 
 DEFPY_YANG(
 	ipv6_prefix_list, ipv6_prefix_list_cmd,
-	"ipv6 prefix-list WORD$name [seq (1-4294967295)] <deny|permit>$action <any|X:X::X:X/M$prefix [{ge (0-128)$ge|le (0-128)$le}]>",
+	"ipv6 prefix-list PREFIXLIST6_NAME$name [seq (1-4294967295)] <deny|permit>$action <any|X:X::X:X/M$prefix [{ge (0-128)$ge|le (0-128)$le}]>",
 	IPV6_STR
 	PREFIX_LIST_STR
 	PREFIX_LIST_NAME_STR
@@ -1450,7 +1450,7 @@ DEFPY_YANG(
 
 DEFPY_YANG(
 	no_ipv6_prefix_list, no_ipv6_prefix_list_cmd,
-	"no ipv6 prefix-list WORD$name [seq (1-4294967295)$seq] <deny|permit>$action <any|X:X::X:X/M$prefix [{ge (0-128)$ge|le (0-128)$le}]>",
+	"no ipv6 prefix-list PREFIXLIST6_NAME$name [seq (1-4294967295)$seq] <deny|permit>$action <any|X:X::X:X/M$prefix [{ge (0-128)$ge|le (0-128)$le}]>",
 	NO_STR
 	IPV6_STR
 	PREFIX_LIST_STR
@@ -1470,7 +1470,7 @@ DEFPY_YANG(
 
 DEFPY_YANG(
 	no_ipv6_prefix_list_seq, no_ipv6_prefix_list_seq_cmd,
-	"no ipv6 prefix-list WORD$name seq (1-4294967295)$seq",
+	"no ipv6 prefix-list PREFIXLIST6_NAME$name seq (1-4294967295)$seq",
 	NO_STR
 	IPV6_STR
 	PREFIX_LIST_STR
@@ -1482,7 +1482,7 @@ DEFPY_YANG(
 
 DEFPY_YANG(
 	no_ipv6_prefix_list_all, no_ipv6_prefix_list_all_cmd,
-	"no ipv6 prefix-list WORD$name",
+	"no ipv6 prefix-list PREFIXLIST6_NAME$name",
 	NO_STR
 	IPV6_STR
 	PREFIX_LIST_STR
@@ -1499,7 +1499,7 @@ DEFPY_YANG(
 
 DEFPY_YANG(
 	ipv6_prefix_list_remark, ipv6_prefix_list_remark_cmd,
-	"ipv6 prefix-list WORD$name description LINE...",
+	"ipv6 prefix-list PREFIXLIST6_NAME$name description LINE...",
 	IPV6_STR
 	PREFIX_LIST_STR
 	PREFIX_LIST_NAME_STR
@@ -1524,7 +1524,7 @@ DEFPY_YANG(
 
 DEFPY_YANG(
 	no_ipv6_prefix_list_remark, no_ipv6_prefix_list_remark_cmd,
-	"no ipv6 prefix-list WORD$name description",
+	"no ipv6 prefix-list PREFIXLIST6_NAME$name description",
 	NO_STR
 	IPV6_STR
 	PREFIX_LIST_STR
@@ -1536,7 +1536,7 @@ DEFPY_YANG(
 
 ALIAS(
 	no_ipv6_prefix_list_remark, no_ipv6_prefix_list_remark_line_cmd,
-	"no ipv6 prefix-list WORD$name description LINE...",
+	"no ipv6 prefix-list PREFIXLIST6_NAME$name description LINE...",
 	NO_STR
 	IPV6_STR
 	PREFIX_LIST_STR
