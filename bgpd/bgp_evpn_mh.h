@@ -388,11 +388,6 @@ static inline bool bgp_evpn_attr_is_local_es(struct attr *attr)
 	return attr ? !!(attr->es_flags & ATTR_ES_IS_LOCAL) : false;
 }
 
-static inline uint32_t bgp_evpn_attr_get_df_pref(struct attr *attr)
-{
-	return (attr) ? attr->df_pref : 0;
-}
-
 static inline bool bgp_evpn_local_es_is_active(struct bgp_evpn_es *es)
 {
 	return (es->flags & BGP_EVPNES_OPER_UP)
