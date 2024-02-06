@@ -1534,7 +1534,8 @@ void bgp_capability_send(struct peer *peer, afi_t afi, safi_t safi,
 				   iana_safi2str(pkt_safi));
 		break;
 	case CAPABILITY_CODE_FQDN:
-		if (hostname) {
+		if (CHECK_FLAG(peer->flags, PEER_FLAG_CAPABILITY_FQDN) &&
+		    hostname) {
 			SET_FLAG(peer->cap, PEER_CAP_HOSTNAME_ADV);
 			stream_putc(s, action);
 			stream_putc(s, CAPABILITY_CODE_FQDN);
