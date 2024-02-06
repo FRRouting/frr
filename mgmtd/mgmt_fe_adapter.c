@@ -916,11 +916,13 @@ static int mgmt_fe_session_handle_commit_config_req_msg(
 	/*
 	 * Create COMMITConfig request under the transaction
 	 */
-	if (mgmt_txn_send_commit_config_req(
-		    session->cfg_txn_id, commcfg_req->req_id,
-		    commcfg_req->src_ds_id, src_ds_ctx, commcfg_req->dst_ds_id,
-		    dst_ds_ctx, commcfg_req->validate_only, commcfg_req->abort,
-		    false) != 0) {
+	if (mgmt_txn_send_commit_config_req(session->cfg_txn_id,
+					    commcfg_req->req_id,
+					    commcfg_req->src_ds_id, src_ds_ctx,
+					    commcfg_req->dst_ds_id, dst_ds_ctx,
+					    commcfg_req->validate_only,
+					    commcfg_req->abort, false, false,
+					    false) != 0) {
 		fe_adapter_send_commit_cfg_reply(
 			session, commcfg_req->src_ds_id, commcfg_req->dst_ds_id,
 			commcfg_req->req_id, MGMTD_INTERNAL_ERROR,
@@ -1242,6 +1244,122 @@ done:
 	darr_free(xpath_resolved);
 }
 
+static void fe_adapter_handle_edit(struct mgmt_fe_session_ctx *session,
+				   void *__msg, size_t msg_len)
+{
+	struct mgmt_msg_edit *msg = __msg;
+	Mgmtd__DatastoreId ds_id, rds_id;
+	struct mgmt_ds_ctx *ds_ctx, *rds_ctx;
+	struct lyd_node *errors = NULL;
+	bool lock, commit;
+	int ret;
+
+	if (msg->datastore != MGMT_MSG_DATASTORE_CANDIDATE) {
+		yang_create_error(&errors, "protocol", "invalid-value", NULL,
+				  NULL, "Unsupported datastore requested");
+		fe_adapter_send_errors(session, msg->req_id, false,
+				       msg->request_type, -EINVAL, errors);
+		return;
+	}
+
+	ds_id = MGMTD_DS_CANDIDATE;
+	ds_ctx = mgmt_ds_get_ctx_by_id(mm, ds_id);
+	assert(ds_ctx);
+
+	rds_id = MGMTD_DS_RUNNING;
+	rds_ctx = mgmt_ds_get_ctx_by_id(mm, rds_id);
+	assert(rds_ctx);
+
+	lock = CHECK_FLAG(msg->flags, EDIT_FLAG_IMPLICIT_LOCK);
+	commit = CHECK_FLAG(msg->flags, EDIT_FLAG_IMPLICIT_COMMIT);
+
+	if (lock) {
+		if (mgmt_ds_lock(ds_ctx, msg->refer_id)) {
+			yang_create_error(&errors, "protocol", "lock-denied",
+					  NULL, NULL,
+					  "Candidate DS is locked by another session");
+			fe_adapter_send_errors(session, msg->req_id, false,
+					       msg->request_type, -EBUSY,
+					       errors);
+			return;
+		}
+
+		if (commit) {
+			if (mgmt_ds_lock(rds_ctx, msg->refer_id)) {
+				mgmt_ds_unlock(ds_ctx);
+				yang_create_error(&errors, "protocol",
+						  "lock-denied", NULL, NULL,
+						  "Running DS is locked by another session");
+				fe_adapter_send_errors(session, msg->req_id,
+						       false, msg->request_type,
+						       -EBUSY, errors);
+				return;
+			}
+		}
+	} else {
+		if (!session->ds_locked[ds_id]) {
+			yang_create_error(&errors, "protocol",
+					  "operation-failed", NULL, NULL,
+					  "Candidate DS is not locked");
+			fe_adapter_send_errors(session, msg->req_id, false,
+					       msg->request_type, -EBUSY,
+					       errors);
+			return;
+		}
+
+		if (commit) {
+			if (!session->ds_locked[rds_id]) {
+				yang_create_error(&errors, "protocol",
+						  "operation-failed", NULL, NULL,
+						  "Running DS is not locked");
+				fe_adapter_send_errors(session, msg->req_id,
+						       false, msg->request_type,
+						       -EBUSY, errors);
+				return;
+			}
+		}
+	}
+
+	session->txn_id = mgmt_create_txn(session->session_id,
+					  MGMTD_TXN_TYPE_CONFIG);
+	if (session->txn_id == MGMTD_SESSION_ID_NONE) {
+		if (lock) {
+			mgmt_ds_unlock(ds_ctx);
+			if (commit)
+				mgmt_ds_unlock(rds_ctx);
+		}
+		yang_create_error(&errors, "protocol", "resource-denied", NULL,
+				  NULL,
+				  "Failed to create a configuration transaction");
+		fe_adapter_send_errors(session, msg->req_id, false,
+				       msg->request_type, -EBUSY, errors);
+		return;
+	}
+
+	__dbg("Created new config txn-id: %" PRIu64 " for session-id: %" PRIu64,
+	      session->txn_id, session->session_id);
+
+	ret = mgmt_txn_send_edit(session->txn_id, msg->req_id, ds_id, ds_ctx,
+				 rds_id, rds_ctx, lock, commit,
+				 msg->request_type, msg->flags, msg->operation,
+				 mgmt_msg_edit_get_xpath(msg),
+				 mgmt_msg_edit_get_value(msg));
+	if (ret) {
+		/* destroy the just created txn */
+		mgmt_destroy_txn(&session->txn_id);
+		if (lock) {
+			mgmt_ds_unlock(ds_ctx);
+			if (commit)
+				mgmt_ds_unlock(rds_ctx);
+		}
+		yang_create_error(&errors, "protocol", "resource-denied", NULL,
+				  NULL,
+				  "Failed to create a configuration transaction");
+		fe_adapter_send_errors(session, msg->req_id, false,
+				       msg->request_type, -EBUSY, errors);
+	}
+}
+
 /**
  * Handle a native encoded message from the FE client.
  */
@@ -1262,6 +1380,9 @@ static void fe_adapter_handle_native_msg(struct mgmt_fe_client_adapter *adapter,
 	switch (msg->code) {
 	case MGMT_MSG_CODE_GET_DATA:
 		fe_adapter_handle_get_data(session, msg, msg_len);
+		break;
+	case MGMT_MSG_CODE_EDIT:
+		fe_adapter_handle_edit(session, msg, msg_len);
 		break;
 	default:
 		__log_err("unknown native message session-id %" PRIu64

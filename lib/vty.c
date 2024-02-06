@@ -4125,6 +4125,28 @@ int vty_mgmt_send_get_data_req(struct vty *vty, uint8_t datastore,
 	return 0;
 }
 
+int vty_mgmt_send_edit_req(struct vty *vty, uint8_t datastore,
+			   LYD_FORMAT request_type, uint8_t flags,
+			   uint8_t operation, const char *xpath,
+			   const char *value)
+{
+	vty->mgmt_req_id++;
+
+	if (mgmt_fe_send_edit_req(mgmt_fe_client, vty->mgmt_session_id,
+				  vty->mgmt_req_id, datastore, request_type,
+				  flags, operation, xpath, value)) {
+		zlog_err("Failed to send EDIT to MGMTD session-id: %" PRIu64
+			 " req-id %" PRIu64 ".",
+			 vty->mgmt_session_id, vty->mgmt_req_id);
+		vty_out(vty, "Failed to send EDIT to MGMTD!\n");
+		return -1;
+	}
+
+	vty->mgmt_req_pending_cmd = "MESSAGE_EDIT_REQ";
+
+	return 0;
+}
+
 /* Install vty's own commands like `who' command. */
 void vty_init(struct event_loop *master_thread, bool do_command_logging)
 {

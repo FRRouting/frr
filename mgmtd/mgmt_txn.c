@@ -106,6 +106,8 @@ struct mgmt_commit_cfg_req {
 	uint8_t implicit : 1;
 	uint8_t rollback : 1;
 	uint8_t init : 1;
+	uint8_t unlock : 1;
+	uint8_t native : 1;
 
 	/* Track commit phases */
 	enum mgmt_commit_phase phase;
@@ -610,7 +612,8 @@ static void mgmt_txn_process_set_cfg(struct event *thread)
 								->dst_ds_id,
 							txn_req->req.set_cfg
 								->dst_ds_ctx,
-							false, false, true);
+							false, false, true,
+							false, false);
 
 			if (mm->perf_stats_en)
 				gettimeofday(&cmt_stats->last_start, NULL);
@@ -651,6 +654,7 @@ static int mgmt_txn_send_commit_cfg_reply(struct mgmt_txn_ctx *txn,
 					  const char *error_if_any)
 {
 	bool success, create_cmt_info_rec;
+	int ret;
 
 	if (!txn->commit_cfg_req)
 		return -1;
@@ -661,7 +665,8 @@ static int mgmt_txn_send_commit_cfg_reply(struct mgmt_txn_ctx *txn,
 	 * b/c right now that is special cased.. that special casing should be
 	 * removed; however...
 	 */
-	if (!txn->commit_cfg_req->req.commit_cfg.implicit && txn->session_id &&
+	if (!txn->commit_cfg_req->req.commit_cfg.native &&
+	    !txn->commit_cfg_req->req.commit_cfg.implicit && txn->session_id &&
 	    !txn->commit_cfg_req->req.commit_cfg.rollback &&
 	    mgmt_fe_send_commit_cfg_reply(txn->session_id, txn->txn_id,
 					  txn->commit_cfg_req->req.commit_cfg
@@ -677,7 +682,8 @@ static int mgmt_txn_send_commit_cfg_reply(struct mgmt_txn_ctx *txn,
 			  txn->txn_id, txn->session_id);
 	}
 
-	if (txn->commit_cfg_req->req.commit_cfg.implicit && txn->session_id &&
+	if (!txn->commit_cfg_req->req.commit_cfg.native &&
+	    txn->commit_cfg_req->req.commit_cfg.implicit && txn->session_id &&
 	    !txn->commit_cfg_req->req.commit_cfg.rollback &&
 	    mgmt_fe_send_set_cfg_reply(txn->session_id, txn->txn_id,
 				       txn->commit_cfg_req->req.commit_cfg
@@ -689,6 +695,24 @@ static int mgmt_txn_send_commit_cfg_reply(struct mgmt_txn_ctx *txn,
 		__log_err("Failed to send SET-CONFIG-REPLY txn-id: %" PRIu64
 			  " session-id: %" PRIu64,
 			  txn->txn_id, txn->session_id);
+	}
+
+	if (txn->commit_cfg_req->req.commit_cfg.native) {
+		if (success)
+			ret = mgmt_fe_adapter_txn_success(txn->txn_id,
+							  txn->commit_cfg_req
+								  ->req_id,
+							  false);
+		else
+			ret = mgmt_fe_adapter_txn_error(txn->txn_id,
+							txn->commit_cfg_req
+								->req_id,
+							false, -1, error_if_any);
+
+		if (ret)
+			__log_err("Failed to send NATIVE REPLY txn-id: %" PRIu64
+				  " session-id: %" PRIu64,
+				  txn->txn_id, txn->session_id);
 	}
 
 	if (success) {
@@ -756,6 +780,11 @@ static int mgmt_txn_send_commit_cfg_reply(struct mgmt_txn_ctx *txn,
 		 * This is the backend init request.
 		 * We need to unlock the running datastore.
 		 */
+		mgmt_ds_unlock(txn->commit_cfg_req->req.commit_cfg.dst_ds_ctx);
+	}
+
+	if (txn->commit_cfg_req->req.commit_cfg.unlock) {
+		mgmt_ds_unlock(txn->commit_cfg_req->req.commit_cfg.src_ds_ctx);
 		mgmt_ds_unlock(txn->commit_cfg_req->req.commit_cfg.dst_ds_ctx);
 	}
 
@@ -2048,7 +2077,7 @@ int mgmt_txn_send_commit_config_req(uint64_t txn_id, uint64_t req_id,
 				    Mgmtd__DatastoreId dst_ds_id,
 				    struct mgmt_ds_ctx *dst_ds_ctx,
 				    bool validate_only, bool abort,
-				    bool implicit)
+				    bool implicit, bool unlock, bool native)
 {
 	struct mgmt_txn_ctx *txn;
 	struct mgmt_txn_req *txn_req;
@@ -2072,6 +2101,8 @@ int mgmt_txn_send_commit_config_req(uint64_t txn_id, uint64_t req_id,
 	txn_req->req.commit_cfg.validate_only = validate_only;
 	txn_req->req.commit_cfg.abort = abort;
 	txn_req->req.commit_cfg.implicit = implicit;
+	txn_req->req.commit_cfg.unlock = unlock;
+	txn_req->req.commit_cfg.native = native;
 	txn_req->req.commit_cfg.cmt_stats =
 		mgmt_fe_get_session_commit_stats(txn->session_id);
 
@@ -2452,6 +2483,55 @@ state:
 	event_add_timer(mgmt_txn_tm, txn_get_tree_timeout, txn_req,
 			MGMTD_TXN_GET_TREE_MAX_DELAY_SEC,
 			&txn->get_tree_timeout);
+	return 0;
+}
+
+int mgmt_txn_send_edit(uint64_t txn_id, uint64_t req_id,
+		       Mgmtd__DatastoreId ds_id, struct mgmt_ds_ctx *ds_ctx,
+		       Mgmtd__DatastoreId commit_ds_id,
+		       struct mgmt_ds_ctx *commit_ds_ctx, bool unlock,
+		       bool commit, LYD_FORMAT request_type, uint8_t flags,
+		       uint8_t operation, const char *xpath, const char *value)
+{
+	struct mgmt_txn_ctx *txn;
+	struct nb_config *nb_config;
+	struct lyd_node *errors = NULL;
+	int ret;
+
+	txn = mgmt_txn_id2ctx(txn_id);
+	if (!txn)
+		return -1;
+
+	nb_config = mgmt_ds_get_nb_config(ds_ctx);
+	assert(nb_config);
+
+	ret = nb_candidate_edit_tree(nb_config, operation, request_type, xpath,
+				     value, &errors);
+	if (ret)
+		goto reply;
+
+	if (commit) {
+		ret = mgmt_txn_send_commit_config_req(txn_id, req_id, ds_id,
+						      ds_ctx, commit_ds_id,
+						      commit_ds_ctx, false,
+						      false, true, unlock, true);
+		if (ret) {
+			yang_create_error(&errors, "protocol",
+					  "resource-denied", NULL, NULL,
+					  "Failed to create a commit request");
+			goto reply;
+		}
+		return 0;
+	}
+reply:
+	if (unlock) {
+		mgmt_ds_unlock(ds_ctx);
+		if (commit)
+			mgmt_ds_unlock(commit_ds_ctx);
+	}
+
+	mgmt_fe_adapter_txn_errors(txn->txn_id, req_id, false, request_type,
+				   errors);
 	return 0;
 }
 

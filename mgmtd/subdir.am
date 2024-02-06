@@ -64,6 +64,7 @@ nodist_mgmtd_mgmtd_SOURCES = \
 	yang/ietf/ietf-netconf-acm.yang.c \
 	yang/ietf/ietf-netconf.yang.c \
 	yang/ietf/ietf-netconf-with-defaults.yang.c \
+	yang/ietf/ietf-restconf.yang.c \
 	# nothing
 mgmtd_mgmtd_CFLAGS = $(AM_CFLAGS) -I ./
 mgmtd_mgmtd_LDADD = mgmtd/libmgmtd.a lib/libfrr.la $(LIBCAP) $(LIBM) $(LIBYANG_LIBS) $(UST_LIBS)

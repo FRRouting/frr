@@ -21,6 +21,7 @@ extern "C" {
 #include "memory.h"
 #include "mgmt_msg.h"
 #include "mgmt_defines.h"
+#include "northbound.h"
 
 #include <stdalign.h>
 
@@ -144,6 +145,7 @@ DECLARE_MTYPE(MSG_NATIVE_GET_TREE);
 DECLARE_MTYPE(MSG_NATIVE_TREE_DATA);
 DECLARE_MTYPE(MSG_NATIVE_GET_DATA);
 DECLARE_MTYPE(MSG_NATIVE_NOTIFY);
+DECLARE_MTYPE(MSG_NATIVE_EDIT);
 
 /*
  * Native message codes
@@ -153,6 +155,7 @@ DECLARE_MTYPE(MSG_NATIVE_NOTIFY);
 #define MGMT_MSG_CODE_TREE_DATA 2
 #define MGMT_MSG_CODE_GET_DATA	3
 #define MGMT_MSG_CODE_NOTIFY	4
+#define MGMT_MSG_CODE_EDIT	5
 
 /*
  * Datastores
@@ -316,6 +319,50 @@ struct mgmt_msg_notify_data {
 _Static_assert(sizeof(struct mgmt_msg_notify_data) ==
 		       offsetof(struct mgmt_msg_notify_data, result),
 	       "Size mismatch");
+
+#define EDIT_FLAG_IMPLICIT_LOCK	  0x01
+#define EDIT_FLAG_IMPLICIT_COMMIT 0x02
+
+#define EDIT_OP_CREATE	0
+#define EDIT_OP_DELETE	4
+#define EDIT_OP_MERGE	2
+#define EDIT_OP_REPLACE 5
+#define EDIT_OP_REMOVE	3
+
+_Static_assert(EDIT_OP_CREATE == NB_OP_CREATE_EXCL, "Operation mismatch");
+_Static_assert(EDIT_OP_DELETE == NB_OP_DELETE, "Operation mismatch");
+_Static_assert(EDIT_OP_MERGE == NB_OP_MODIFY, "Operation mismatch");
+_Static_assert(EDIT_OP_REPLACE == NB_OP_REPLACE, "Operation mismatch");
+_Static_assert(EDIT_OP_REMOVE == NB_OP_DESTROY, "Operation mismatch");
+
+/**
+ * struct mgmt_msg_edit - frontend edit request.
+ *
+ * @request_type: ``LYD_FORMAT`` for the @data.
+ * @flags: combination of ``EDIT_FLAG_*`` flags.
+ * @datastore: the datastore to edit.
+ * @operation: one of ``EDIT_OP_*`` operations.
+ * @xpath_len: the length of the xpath.
+ * @data: the xpath and value to edit, both NULL terminated.
+ *        for CREATE operation, xpath should point to the parent node.
+ */
+struct mgmt_msg_edit {
+	struct mgmt_msg_header;
+	uint8_t request_type;
+	uint8_t flags;
+	uint8_t datastore;
+	uint8_t operation;
+
+	uint32_t xpath_len;
+
+	alignas(8) char data[];
+};
+_Static_assert(sizeof(struct mgmt_msg_edit) ==
+		       offsetof(struct mgmt_msg_edit, data),
+	       "Size mismatch");
+
+#define mgmt_msg_edit_get_xpath(msg) ((msg)->data)
+#define mgmt_msg_edit_get_value(msg) ((msg)->data + (msg)->xpath_len)
 
 /*
  * Validate that the message ends in a NUL terminating byte

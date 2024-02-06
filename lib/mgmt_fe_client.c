@@ -329,6 +329,39 @@ int mgmt_fe_send_get_data_req(struct mgmt_fe_client *client,
 	return ret;
 }
 
+int mgmt_fe_send_edit_req(struct mgmt_fe_client *client, uint64_t session_id,
+			  uint64_t req_id, uint8_t datastore,
+			  LYD_FORMAT request_type, uint8_t flags,
+			  uint8_t operation, const char *xpath,
+			  const char *value)
+{
+	struct mgmt_msg_edit *msg;
+	size_t xplen = strlen(xpath) + 1;
+	size_t vlen = value ? strlen(value) + 1 : 0;
+	int ret;
+
+	msg = mgmt_msg_native_alloc_msg(struct mgmt_msg_edit, xplen + vlen,
+					MTYPE_MSG_NATIVE_EDIT);
+	msg->refer_id = session_id;
+	msg->req_id = req_id;
+	msg->code = MGMT_MSG_CODE_EDIT;
+	msg->request_type = request_type;
+	msg->flags = flags;
+	msg->datastore = datastore;
+	msg->operation = operation;
+	msg->xpath_len = xplen;
+	strlcpy(msg->data, xpath, xplen);
+	if (value)
+		strlcpy(msg->data + xplen, value, vlen);
+
+	debug_fe_client("Sending EDIT_REQ session-id %" PRIu64
+			" req-id %" PRIu64 " xpath: %s",
+			session_id, req_id, xpath);
+
+	ret = mgmt_msg_native_send_msg(&client->client.conn, msg, false);
+	mgmt_msg_native_free_msg(msg);
+	return ret;
+}
 
 static int mgmt_fe_client_handle_msg(struct mgmt_fe_client *client,
 				     Mgmtd__FeMessage *fe_msg)

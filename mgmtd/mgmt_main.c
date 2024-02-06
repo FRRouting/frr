@@ -153,6 +153,12 @@ const struct frr_yang_module_info ietf_netconf_with_defaults_info = {
 	.nodes = { { .xpath = NULL } },
 };
 
+const struct frr_yang_module_info ietf_restconf = {
+	.name = "ietf-restconf",
+	.ignore_cfg_cbs = true,
+	.nodes = { { .xpath = NULL } },
+};
+
 /*
  * These are stub info structs that are used to load the modules used by backend
  * clients into mgmtd. The modules are used by libyang in order to support
@@ -178,6 +184,7 @@ static const struct frr_yang_module_info *const mgmt_yang_modules[] = {
 
 	/* mgmtd-only modules */
 	&ietf_netconf_with_defaults_info,
+	&ietf_restconf,
 
 	/*
 	 * YANG module info used by backend clients get added here.

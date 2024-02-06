@@ -410,6 +410,45 @@ extern int mgmt_fe_send_get_data_req(struct mgmt_fe_client *client,
 				     const char *xpath);
 
 /*
+ * Send EDIT to MGMTD daemon.
+ *
+ * client
+ *    Client object.
+ *
+ * session_id
+ *    Client session ID.
+ *
+ * req_id
+ *    Client request ID.
+ *
+ * datastore
+ *    Datastore for editing.
+ *
+ * request_type
+ *    The LYD_FORMAT of the request.
+ *
+ * flags
+ *    Flags to control the behavior of the request.
+ *
+ * operation
+ *    NB_OP_* operation to perform.
+ *
+ * xpath
+ *    the xpath to edit.
+ *
+ * value
+ *    the value of data node.
+ *
+ * Returns:
+ *    0 on success, otherwise msg_conn_send_msg() return values.
+ */
+extern int mgmt_fe_send_edit_req(struct mgmt_fe_client *client,
+				 uint64_t session_id, uint64_t req_id,
+				 uint8_t datastore, LYD_FORMAT request_type,
+				 uint8_t flags, uint8_t operation,
+				 const char *xpath, const char *value);
+
+/*
  * Destroy library and cleanup everything.
  */
 extern void mgmt_fe_client_destroy(struct mgmt_fe_client *client);

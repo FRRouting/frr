@@ -797,6 +797,217 @@ int nb_candidate_edit(struct nb_config *candidate, const struct nb_node *nb_node
 	return NB_OK;
 }
 
+static int nb_candidate_edit_tree_add(struct nb_config *candidate,
+				      enum nb_operation operation,
+				      LYD_FORMAT format, const char *xpath,
+				      const char *value,
+				      struct lyd_node **errors)
+{
+	char parent_xpath[XPATH_MAXLEN];
+	struct lyd_node *tree = NULL;
+	struct lyd_node *parent = NULL;
+	struct lyd_node *dnode = NULL;
+	struct lyd_node *existing = NULL;
+	struct lyd_node *ex_parent = NULL;
+	struct ly_in *in;
+	bool root;
+	int ret;
+	LY_ERR err = LY_SUCCESS;
+
+	ly_in_new_memory(value, &in);
+
+	strlcpy(parent_xpath, xpath, sizeof(parent_xpath));
+	root = parent_xpath[0] == 0 ||
+	       (parent_xpath[0] == '/' && parent_xpath[1] == 0);
+
+	/*
+	 * NB_OP_CREATE_EXCL already expects parent xpath.
+	 * For others - pop one level if it's not root.
+	 */
+	if (operation != NB_OP_CREATE_EXCL && !root) {
+		ret = yang_xpath_pop_node(parent_xpath);
+		if (ret) {
+			yang_create_error(errors, "application", "invalid-value",
+					  NULL, NULL, "Invalid xpath");
+			goto done;
+		}
+		root = parent_xpath[0] == 0 ||
+		       (parent_xpath[0] == '/' && parent_xpath[1] == 0);
+	}
+
+	/*
+	 * Create parent if it's not root. We're creating a new tree here to be
+	 * merged later with candidate.
+	 */
+	if (!root) {
+		err = lyd_new_path2(NULL, ly_native_ctx, parent_xpath, NULL, 0,
+				    0, 0, &tree, &parent);
+		if (err) {
+			yang_create_error(errors, "application",
+					  "operation-failed", NULL, NULL,
+					  "Cannot create new data tree");
+			goto done;
+		}
+		assert(parent);
+	}
+
+	/* parse data */
+	err = yang_lyd_parse_data(ly_native_ctx, parent, in, format,
+				  LYD_PARSE_ONLY | LYD_PARSE_STRICT |
+					  LYD_PARSE_NO_STATE,
+				  0, &dnode);
+	if (err) {
+		yang_create_error(errors, "application", "invalid-value", NULL,
+				  NULL, "Invalid data");
+		goto done;
+	}
+
+	/* set the tree if we created a top-level node */
+	if (root)
+		tree = dnode;
+
+	/* check if the node already exists in candidate */
+	if ((operation == NB_OP_CREATE_EXCL || operation == NB_OP_REPLACE) &&
+	    dnode != NULL) {
+		char path[XPATH_MAXLEN];
+
+		lyd_path(dnode, LYD_PATH_STD, path, sizeof(path));
+
+		if (root)
+			existing = candidate->dnode;
+		else
+			existing = yang_dnode_get(candidate->dnode, path);
+
+		if (existing) {
+			if (operation == NB_OP_CREATE_EXCL) {
+				yang_create_error(errors, "application",
+						  "data-exists", NULL, NULL,
+						  "Data already exists");
+				ret = NB_ERR;
+				goto done;
+			}
+
+			if (root) {
+				candidate->dnode = NULL;
+			} else {
+				/* if it's the first top-level node, update candidate */
+				if (candidate->dnode == existing)
+					candidate->dnode =
+						candidate->dnode->next;
+
+				ex_parent = lyd_parent(existing);
+				lyd_unlink_tree(existing);
+			}
+		}
+	}
+
+	err = lyd_merge_siblings(&candidate->dnode, tree,
+				 LYD_MERGE_DESTRUCT | LYD_MERGE_WITH_FLAGS);
+	if (err) {
+		/* if replace failed, restore the original node */
+		if (existing) {
+			if (root) {
+				candidate->dnode = existing;
+			} else {
+				if (ex_parent)
+					lyd_insert_child(ex_parent, existing);
+				else
+					lyd_insert_sibling(candidate->dnode,
+							   existing,
+							   &candidate->dnode);
+			}
+		}
+		yang_create_error(errors, "application", "operation-failed",
+				  NULL, NULL, "Cannot update candidate");
+		goto done;
+	} else {
+		/*
+		 * Free existing node after replace.
+		 * We're using `lyd_free_siblings` here to free the whole
+		 * tree if we replaced the root node. It won't affect other
+		 * siblings if it wasn't root, because the existing node
+		 * was unlinked from the tree.
+		 */
+		if (existing)
+			lyd_free_siblings(existing);
+
+		tree = NULL; /* LYD_MERGE_DESTRUCT deleted the tree */
+	}
+
+	ret = NB_OK;
+
+done:
+	if (err)
+		ret = NB_ERR;
+
+	if (tree)
+		lyd_free_all(tree);
+	ly_in_free(in, 0);
+
+	return ret;
+}
+
+static int nb_candidate_edit_tree_del(struct nb_config *candidate,
+				      enum nb_operation operation,
+				      const char *xpath,
+				      struct lyd_node **errors)
+{
+	struct lyd_node *dnode;
+
+	/* deleting root - remove the whole config */
+	if (xpath[0] == 0 || (xpath[0] == '/' && xpath[1] == 0)) {
+		lyd_free_all(candidate->dnode);
+		candidate->dnode = NULL;
+		return NB_OK;
+	}
+
+	dnode = yang_dnode_get(candidate->dnode, xpath);
+	if (!dnode || (dnode->flags & LYD_DEFAULT)) {
+		if (operation == NB_OP_DELETE) {
+			yang_create_error(errors, "application", "data-missing",
+					  NULL, NULL, "Data missing");
+			return NB_ERR;
+		} else
+			return NB_OK;
+	}
+
+	/* if it's the first top-level node, update candidate */
+	if (candidate->dnode == dnode)
+		candidate->dnode = candidate->dnode->next;
+
+	lyd_free_tree(dnode);
+
+	return NB_OK;
+}
+
+int nb_candidate_edit_tree(struct nb_config *candidate,
+			   enum nb_operation operation, LYD_FORMAT format,
+			   const char *xpath, const char *value,
+			   struct lyd_node **errors)
+{
+	int ret = NB_ERR;
+
+	switch (operation) {
+	case NB_OP_CREATE_EXCL:
+	case NB_OP_CREATE:
+	case NB_OP_MODIFY:
+	case NB_OP_REPLACE:
+		ret = nb_candidate_edit_tree_add(candidate, operation, format,
+						 xpath, value, errors);
+		break;
+	case NB_OP_DESTROY:
+	case NB_OP_DELETE:
+		ret = nb_candidate_edit_tree_del(candidate, operation, xpath,
+						 errors);
+		break;
+	case NB_OP_MOVE:
+		/* not supported yet */
+		break;
+	}
+
+	return ret;
+}
+
 const char *nb_operation_name(enum nb_operation operation)
 {
 	switch (operation) {
