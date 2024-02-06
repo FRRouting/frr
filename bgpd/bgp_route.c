@@ -4185,7 +4185,7 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 	int aspath_loop_count = 0;
 	struct bgp_dest *dest;
 	struct bgp *bgp;
-	struct attr new_attr;
+	struct attr new_attr = {};
 	struct attr *attr_new;
 	struct bgp_path_info *pi;
 	struct bgp_path_info *new = NULL;
@@ -4217,10 +4217,6 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 	/* Special case for BGP-LU - map LU safi to ordinary unicast safi */
 	if (orig_safi == SAFI_LABELED_UNICAST)
 		safi = SAFI_UNICAST;
-
-	memset(&new_attr, 0, sizeof(new_attr));
-	new_attr.label_index = BGP_INVALID_LABEL_INDEX;
-	new_attr.label = MPLS_INVALID_LABEL;
 
 	bgp = peer->bgp;
 	dest = bgp_afi_node_get(bgp->rib[afi][safi], afi, safi, p, prd);
