@@ -1626,10 +1626,12 @@ Configuring Peers
 
 .. clicmd:: neighbor PEER update-source <IFNAME|ADDRESS>
 
-   Specify the IPv4 source address to use for the :abbr:`BGP` session to this
-   neighbour, may be specified as either an IPv4 address directly or as an
+   Specify the IPv4 or IPv6 source address to use for the :abbr:`BGP` session to this
+   neighbour, may be specified as either an IP address directly or as an
    interface name (in which case the *zebra* daemon MUST be running in order
-   for *bgpd* to be able to retrieve interface state).
+   for *bgpd* to be able to retrieve interface state).  When there are multiple
+   addresses on the choosen IFNAME then BGP will use the address that matches
+   the most number of bits in comparison to the destination peer address.
 
    .. code-block:: frr
 
