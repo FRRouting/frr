@@ -34,7 +34,7 @@ extern void bgp_zebra_announce(struct bgp_dest *dest, const struct prefix *p,
 extern void bgp_zebra_announce_table(struct bgp *bgp, afi_t afi, safi_t safi);
 extern void bgp_zebra_withdraw(const struct prefix *p,
 			       struct bgp_path_info *path, struct bgp *bgp,
-			       safi_t safi);
+			       afi_t afi, safi_t safi);
 
 /* Announce routes of any bgp subtype of a table to zebra */
 extern void bgp_zebra_announce_table_all_subtypes(struct bgp *bgp, afi_t afi,

@@ -3520,7 +3520,8 @@ static void bgp_process_main_one(struct bgp *bgp, struct bgp_dest *dest,
 			 */
 			if (old_select &&
 			    is_route_parent_evpn(old_select))
-				bgp_zebra_withdraw(p, old_select, bgp, safi);
+				bgp_zebra_withdraw(p, old_select, bgp, afi,
+						   safi);
 
 			bgp_zebra_announce(dest, p, new_select, bgp, afi, safi);
 		} else {
@@ -3530,7 +3531,8 @@ static void bgp_process_main_one(struct bgp *bgp, struct bgp_dest *dest,
 				|| old_select->sub_type == BGP_ROUTE_AGGREGATE
 				|| old_select->sub_type == BGP_ROUTE_IMPORTED))
 
-				bgp_zebra_withdraw(p, old_select, bgp, safi);
+				bgp_zebra_withdraw(p, old_select, bgp, afi,
+						   safi);
 		}
 	}
 
@@ -4427,7 +4429,7 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 	if (pi && pi->attr->rmap_table_id != new_attr.rmap_table_id) {
 		if (CHECK_FLAG(pi->flags, BGP_PATH_SELECTED))
 			/* remove from RIB previous entry */
-			bgp_zebra_withdraw(p, pi, bgp, safi);
+			bgp_zebra_withdraw(p, pi, bgp, afi, safi);
 	}
 
 	if (peer->sort == BGP_PEER_EBGP) {
@@ -6029,7 +6031,7 @@ bool bgp_inbound_policy_exists(struct peer *peer, struct bgp_filter *filter)
 }
 
 static void bgp_cleanup_table(struct bgp *bgp, struct bgp_table *table,
-			      safi_t safi)
+			      afi_t afi, safi_t safi)
 {
 	struct bgp_dest *dest;
 	struct bgp_path_info *pi;
@@ -6053,7 +6055,8 @@ static void bgp_cleanup_table(struct bgp *bgp, struct bgp_table *table,
 				|| pi->sub_type == BGP_ROUTE_IMPORTED)) {
 
 				if (bgp_fibupd_safi(safi))
-					bgp_zebra_withdraw(p, pi, bgp, safi);
+					bgp_zebra_withdraw(p, pi, bgp, afi,
+							   safi);
 			}
 
 			dest = bgp_path_info_reap(dest, pi);
@@ -6071,7 +6074,7 @@ void bgp_cleanup_routes(struct bgp *bgp)
 	for (afi = AFI_IP; afi < AFI_MAX; ++afi) {
 		if (afi == AFI_L2VPN)
 			continue;
-		bgp_cleanup_table(bgp, bgp->rib[afi][SAFI_UNICAST],
+		bgp_cleanup_table(bgp, bgp->rib[afi][SAFI_UNICAST], afi,
 				  SAFI_UNICAST);
 		/*
 		 * VPN and ENCAP and EVPN tables are two-level (RD is top level)
@@ -6083,7 +6086,7 @@ void bgp_cleanup_routes(struct bgp *bgp)
 			     dest = bgp_route_next(dest)) {
 				table = bgp_dest_get_bgp_table_info(dest);
 				if (table != NULL) {
-					bgp_cleanup_table(bgp, table, safi);
+					bgp_cleanup_table(bgp, table, afi, safi);
 					bgp_table_finish(&table);
 					bgp_dest_set_bgp_table_info(dest, NULL);
 					dest = bgp_dest_unlock_node(dest);
@@ -6096,7 +6099,7 @@ void bgp_cleanup_routes(struct bgp *bgp)
 			     dest = bgp_route_next(dest)) {
 				table = bgp_dest_get_bgp_table_info(dest);
 				if (table != NULL) {
-					bgp_cleanup_table(bgp, table, safi);
+					bgp_cleanup_table(bgp, table, afi, safi);
 					bgp_table_finish(&table);
 					bgp_dest_set_bgp_table_info(dest, NULL);
 					dest = bgp_dest_unlock_node(dest);
@@ -6110,7 +6113,7 @@ void bgp_cleanup_routes(struct bgp *bgp)
 	     dest = bgp_route_next(dest)) {
 		table = bgp_dest_get_bgp_table_info(dest);
 		if (table != NULL) {
-			bgp_cleanup_table(bgp, table, SAFI_EVPN);
+			bgp_cleanup_table(bgp, table, afi, SAFI_EVPN);
 			bgp_table_finish(&table);
 			bgp_dest_set_bgp_table_info(dest, NULL);
 			dest = bgp_dest_unlock_node(dest);
