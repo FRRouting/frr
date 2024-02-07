@@ -276,7 +276,7 @@ def test_bgp_snmp_bgp4v2():
         pytest.skip(error_msg)
 
     rr.vtysh_cmd("clear bgp *")
-    _, result = topotest.run_and_expect(_snmptrap_ipv4, True, count=2, wait=10)
+    _, result = topotest.run_and_expect(_snmptrap_ipv4, True, count=30, wait=1)
     assertmsg = "Can't fetch SNMP trap for ipv4"
     assert result, assertmsg
 
@@ -308,8 +308,7 @@ def test_bgp_snmp_bgp4v2():
     r2.vtysh_cmd("conf\nbgp snmp traps bgp4-mibv2")
     r2.vtysh_cmd("conf\nno bgp snmp traps rfc4273")
     rr.vtysh_cmd("clear bgp *")
-    sleep(30)
-    _, result = topotest.run_and_expect(_snmptrap_ipv6, True, count=2, wait=10)
+    _, result = topotest.run_and_expect(_snmptrap_ipv6, True, count=60, wait=1)
     assertmsg = "Can't fetch SNMP trap for ipv6"
     assert result, assertmsg
 
