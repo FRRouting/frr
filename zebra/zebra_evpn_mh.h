@@ -154,7 +154,7 @@ struct zebra_evpn_es_vtep {
 
 	/* Parameters for DF election */
 	uint8_t df_alg;
-	uint32_t df_pref;
+	uint16_t df_pref;
 
 	/* XXX - maintain a backpointer to struct zebra_vtep */
 };
