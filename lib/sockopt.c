@@ -672,6 +672,9 @@ int sockopt_tcp_mss_get(int sock)
 	int tcp_maxseg = 0;
 	socklen_t tcp_maxseg_len = sizeof(tcp_maxseg);
 
+	if (sock < 0)
+		return 0;
+
 	ret = getsockopt(sock, IPPROTO_TCP, TCP_MAXSEG, &tcp_maxseg,
 			 &tcp_maxseg_len);
 	if (ret != 0) {
