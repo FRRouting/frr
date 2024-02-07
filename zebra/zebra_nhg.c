@@ -1101,11 +1101,15 @@ void zebra_nhg_check_valid(struct nhg_hash_entry *nhe)
 	bool valid = false;
 
 	/*
-	 * If I have other nhe's depending on me, then this is a
-	 * singleton nhe so set this nexthops flag as appropriate.
+	 * If I have other nhe's depending on me, or I have nothing
+	 * I am depending on then this is a
+	 * singleton nhe so set this nexthops flag as appropriate. 
 	 */
-	if (nhg_connected_tree_count(&nhe->nhg_depends))
+	if (nhg_connected_tree_count(&nhe->nhg_depends) ||
+	    nhg_connected_tree_count(&nhe->nhg_dependents) == 0) {
+		UNSET_FLAG(nhe->nhg.nexthop->flags, NEXTHOP_FLAG_FIB);
 		UNSET_FLAG(nhe->nhg.nexthop->flags, NEXTHOP_FLAG_ACTIVE);
+	}
 
 	/* If anthing else in the group is valid, the group is valid */
 	frr_each(nhg_connected_tree, &nhe->nhg_depends, rb_node_dep) {
