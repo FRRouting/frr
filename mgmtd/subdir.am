@@ -19,7 +19,6 @@ mgmtd_libmgmt_be_nb_la_SOURCES = \
 	zebra/zebra_cli.c \
 	# end
 nodist_mgmtd_libmgmt_be_nb_la_SOURCES = \
-	lib/affinitymap_cli.c \
 	# end
 mgmtd_libmgmt_be_nb_la_CFLAGS = $(AM_CFLAGS) -DINCLUDE_MGMTD_CMDDEFS_ONLY
 mgmtd_libmgmt_be_nb_la_CPPFLAGS = $(AM_CPPFLAGS) -DINCLUDE_MGMTD_CMDDEFS_ONLY
