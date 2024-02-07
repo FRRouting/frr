@@ -570,9 +570,12 @@ struct event_loop *event_master_create(const char *name)
 		rv->fd_limit = (int)limit.rlim_cur;
 	}
 
-	if (rv->fd_limit > STUPIDLY_LARGE_FD_SIZE)
-		zlog_warn("FD Limit set: %u is stupidly large.  Is this what you intended?  Consider using --limit-fds",
-			  rv->fd_limit);
+	if (rv->fd_limit > STUPIDLY_LARGE_FD_SIZE) {
+		zlog_warn("FD Limit set: %u is stupidly large.  Is this what you intended?  Consider using --limit-fds also limiting size to %u",
+			  rv->fd_limit, STUPIDLY_LARGE_FD_SIZE);
+
+		rv->fd_limit = STUPIDLY_LARGE_FD_SIZE;
+	}
 
 	rv->read = XCALLOC(MTYPE_EVENT_POLL,
 			   sizeof(struct event *) * rv->fd_limit);
