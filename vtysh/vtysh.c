@@ -1669,7 +1669,6 @@ static int vtysh_end(void)
 		/* Nothing to do. */
 		break;
 	default:
-		vty->vtysh_file_locked = false;
 		vty->node = ENABLE_NODE;
 		break;
 	}
@@ -2393,23 +2392,12 @@ DEFUNSH(VTYSH_REALLYALL, vtysh_disable, vtysh_disable_cmd, "disable",
 }
 
 DEFUNSH(VTYSH_REALLYALL, vtysh_config_terminal, vtysh_config_terminal_cmd,
-	"configure [terminal]",
-	"Configuration from vty interface\n"
-	"Configuration terminal\n")
-{
-	vty->node = CONFIG_NODE;
-	return CMD_SUCCESS;
-}
-
-DEFUNSH(VTYSH_REALLYALL, vtysh_config_terminal_file_lock,
-	vtysh_config_terminal_file_lock_cmd,
-	"configure terminal file-lock",
+	"configure [terminal [file-lock]]",
 	"Configuration from vty interface\n"
 	"Configuration terminal\n"
 	"Configuration with locked datastores\n")
 {
 	vty->node = CONFIG_NODE;
-	vty->vtysh_file_locked = true;
 	return CMD_SUCCESS;
 }
 
@@ -2423,21 +2411,6 @@ static int vtysh_exit(struct vty *vty)
 		cnode->node_exit(vty);
 	if (cnode->parent_node)
 		vty->node = cnode->parent_node;
-
-	if (vty->node == CONFIG_NODE) {
-		bool locked = vty->vtysh_file_locked;
-
-		/* resync in case one of the daemons is somewhere else */
-		vtysh_execute("end");
-		/* NOTE: a rather expensive thing to do, can we avoid it? */
-
-		if (locked)
-			vtysh_execute("configure terminal file-lock");
-		else
-			vtysh_execute("configure terminal");
-	} else if (vty->node == ENABLE_NODE) {
-		vty->vtysh_file_locked = false;
-	}
 
 	return CMD_SUCCESS;
 }
@@ -5125,7 +5098,6 @@ void vtysh_init_vty(void)
 	if (!user_mode)
 		install_element(VIEW_NODE, &vtysh_enable_cmd);
 	install_element(ENABLE_NODE, &vtysh_config_terminal_cmd);
-	install_element(ENABLE_NODE, &vtysh_config_terminal_file_lock_cmd);
 	install_element(ENABLE_NODE, &vtysh_disable_cmd);
 
 	/* "exit" command. */

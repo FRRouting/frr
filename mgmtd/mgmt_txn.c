@@ -105,6 +105,7 @@ struct mgmt_commit_cfg_req {
 	uint8_t abort : 1;
 	uint8_t implicit : 1;
 	uint8_t rollback : 1;
+	uint8_t init : 1;
 
 	/* Track commit phases */
 	enum mgmt_commit_phase phase;
@@ -748,6 +749,14 @@ static int mgmt_txn_send_commit_cfg_reply(struct mgmt_txn_ctx *txn,
 		 * can do the right thing.
 		 */
 		mgmt_history_rollback_complete(success);
+	}
+
+	if (txn->commit_cfg_req->req.commit_cfg.init) {
+		/*
+		 * This is the backend init request.
+		 * We need to unlock the running datastore.
+		 */
+		mgmt_ds_unlock(txn->commit_cfg_req->req.commit_cfg.dst_ds_ctx);
 	}
 
 	txn->commit_cfg_req->req.commit_cfg.cmt_stats = NULL;
@@ -2081,15 +2090,26 @@ int mgmt_txn_notify_be_adapter_conn(struct mgmt_be_client_adapter *adapter,
 	struct mgmt_commit_cfg_req *cmtcfg_req;
 	static struct mgmt_commit_stats dummy_stats;
 	struct nb_config_cbs *adapter_cfgs = NULL;
+	struct mgmt_ds_ctx *ds_ctx;
 
 	memset(&dummy_stats, 0, sizeof(dummy_stats));
 	if (connect) {
-		/* Get config for this single backend client */
+		ds_ctx = mgmt_ds_get_ctx_by_id(mm, MGMTD_DS_RUNNING);
+		assert(ds_ctx);
 
+		/*
+		 * Lock the running datastore to prevent any changes while we
+		 * are initializing the backend.
+		 */
+		if (mgmt_ds_lock(ds_ctx, 0) != 0)
+			return -1;
+
+		/* Get config for this single backend client */
 		mgmt_be_get_adapter_config(adapter, &adapter_cfgs);
 		if (!adapter_cfgs || RB_EMPTY(nb_config_cbs, adapter_cfgs)) {
 			SET_FLAG(adapter->flags,
 				 MGMTD_BE_ADAPTER_FLAGS_CFG_SYNCED);
+			mgmt_ds_unlock(ds_ctx);
 			return 0;
 		}
 
@@ -2101,6 +2121,7 @@ int mgmt_txn_notify_be_adapter_conn(struct mgmt_be_client_adapter *adapter,
 		if (!txn) {
 			__log_err("Failed to create CONFIG Transaction for downloading CONFIGs for client '%s'",
 				  adapter->name);
+			mgmt_ds_unlock(ds_ctx);
 			nb_config_diff_del_changes(adapter_cfgs);
 			return -1;
 		}
@@ -2114,10 +2135,11 @@ int mgmt_txn_notify_be_adapter_conn(struct mgmt_be_client_adapter *adapter,
 		txn_req = mgmt_txn_req_alloc(txn, 0, MGMTD_TXN_PROC_COMMITCFG);
 		txn_req->req.commit_cfg.src_ds_id = MGMTD_DS_NONE;
 		txn_req->req.commit_cfg.src_ds_ctx = 0;
-		txn_req->req.commit_cfg.dst_ds_id = MGMTD_DS_NONE;
-		txn_req->req.commit_cfg.dst_ds_ctx = 0;
+		txn_req->req.commit_cfg.dst_ds_id = MGMTD_DS_RUNNING;
+		txn_req->req.commit_cfg.dst_ds_ctx = ds_ctx;
 		txn_req->req.commit_cfg.validate_only = false;
 		txn_req->req.commit_cfg.abort = false;
+		txn_req->req.commit_cfg.init = true;
 		txn_req->req.commit_cfg.cmt_stats = &dummy_stats;
 		txn_req->req.commit_cfg.cfg_chgs = adapter_cfgs;
 

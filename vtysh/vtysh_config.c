@@ -616,8 +616,13 @@ static int vtysh_read_file(FILE *confp, bool dry_run)
 	vty->node = CONFIG_NODE;
 
 	vtysh_execute_no_pager("enable");
-	vtysh_execute_no_pager("conf term file-lock");
-	vty->vtysh_file_locked = true;
+	/*
+	 * When reading the config, we need to wait until the lock is acquired.
+	 * If we ignore the failure and continue without the lock, the config
+	 * will be fully ignored.
+	 */
+	while (vtysh_execute_no_pager("conf term file-lock") == CMD_WARNING_CONFIG_FAILED)
+		usleep(100000);
 
 	if (!dry_run)
 		vtysh_execute_no_pager("XFRR_start_configuration");
@@ -629,7 +634,6 @@ static int vtysh_read_file(FILE *confp, bool dry_run)
 		vtysh_execute_no_pager("XFRR_end_configuration");
 
 	vtysh_execute_no_pager("end");
-	vty->vtysh_file_locked = false;
 	vtysh_execute_no_pager("disable");
 
 	vty_close(vty);
