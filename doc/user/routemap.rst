@@ -380,13 +380,13 @@ Route Map Exit Action Command
 
 .. clicmd:: on-match next
 
-.. clicmd:: continue
-
    Proceed on to the next entry in the route-map.
 
-.. clicmd:: on-match goto N
+.. clicmd:: continue (1-65535)
 
-.. clicmd:: continue N
+   Proceed to the specified sequence in the route-map.
+
+.. clicmd:: on-match goto N
 
    Proceed processing the route-map at the first entry whose order is >= N
 
