@@ -3176,7 +3176,6 @@ void zebra_nhg_dplane_result(struct zebra_dplane_ctx *ctx)
 		UNSET_FLAG(nhe->flags, NEXTHOP_GROUP_QUEUED);
 		switch (status) {
 		case ZEBRA_DPLANE_REQUEST_SUCCESS:
-			SET_FLAG(nhe->flags, NEXTHOP_GROUP_VALID);
 			SET_FLAG(nhe->flags, NEXTHOP_GROUP_INSTALLED);
 			zebra_nhg_handle_install(nhe, true);
 
