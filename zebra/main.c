@@ -80,7 +80,6 @@ uint32_t rt_table_main_id = RT_TABLE_MAIN;
 
 #define OPTION_V6_RR_SEMANTICS 2000
 #define OPTION_ASIC_OFFLOAD    2001
-#define OPTION_V6_WITH_V4_NEXTHOP 2002
 
 /* Command line options. */
 const struct option longopts[] = {
@@ -91,7 +90,6 @@ const struct option longopts[] = {
 	{ "retain", no_argument, NULL, 'r' },
 	{ "graceful_restart", required_argument, NULL, 'K' },
 	{ "asic-offload", optional_argument, NULL, OPTION_ASIC_OFFLOAD },
-	{ "v6-with-v4-nexthops", no_argument, NULL, OPTION_V6_WITH_V4_NEXTHOP },
 #ifdef HAVE_NETLINK
 	{ "vrfwnetns", no_argument, NULL, 'n' },
 	{ "nl-bufsize", required_argument, NULL, 's' },
@@ -324,7 +322,6 @@ int main(int argc, char **argv)
 	struct sockaddr_storage dummy;
 	socklen_t dummylen;
 	bool asic_offload = false;
-	bool v6_with_v4_nexthop = false;
 	bool notify_on_ack = true;
 
 	graceful_restart = 0;
@@ -345,7 +342,6 @@ int main(int argc, char **argv)
 		    "  -r, --retain              When program terminates, retain added route by zebra.\n"
 		    "  -K, --graceful_restart    Graceful restart at the kernel level, timer in seconds for expiration\n"
 		    "  -A, --asic-offload        FRR is interacting with an asic underneath the linux kernel\n"
-		    "      --v6-with-v4-nexthops Underlying dataplane supports v6 routes with v4 nexthops"
 #ifdef HAVE_NETLINK
 		    "  -s, --nl-bufsize          Set netlink receive buffer size\n"
 		    "  -n, --vrfwnetns           Use NetNS as VRF backend\n"
@@ -425,9 +421,6 @@ int main(int argc, char **argv)
 				notify_on_ack = true;
 			asic_offload = true;
 			break;
-		case OPTION_V6_WITH_V4_NEXTHOP:
-			v6_with_v4_nexthop = true;
-			break;
 #endif /* HAVE_NETLINK */
 		default:
 			frr_help_exit(1);
@@ -437,7 +430,7 @@ int main(int argc, char **argv)
 	zrouter.master = frr_init();
 
 	/* Zebra related initialize. */
-	zebra_router_init(asic_offload, notify_on_ack, v6_with_v4_nexthop);
+	zebra_router_init(asic_offload, notify_on_ack);
 	zserv_init();
 	zebra_rib_init();
 	zebra_if_init();
