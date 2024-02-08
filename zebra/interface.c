@@ -970,6 +970,14 @@ void if_up(struct interface *ifp, bool install_connected)
 	if (install_connected)
 		if_install_connected(ifp);
 
+	/*
+	 * Interface associated NHG's have been deleted on
+	 * interface down events, now that this interface
+	 * is coming back up, let's resync the zebra -> dplane
+	 * nhg's so that they can be continued to be used.
+	 */
+	zebra_interface_nhg_reinstall(ifp);
+
 	/* Handle interface up for specific types for EVPN. Non-VxLAN interfaces
 	 * are checked to see if (remote) neighbor entries need to be installed
 	 * on them for ARP suppression.
