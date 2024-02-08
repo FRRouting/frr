@@ -24,7 +24,6 @@ struct mgmt_commit_stats {
 #endif
 	struct timeval prep_cfg_start;
 	struct timeval txn_create_start;
-	struct timeval send_cfg_start;
 	struct timeval apply_cfg_start;
 	struct timeval apply_cfg_end;
 	struct timeval txn_del_start;
