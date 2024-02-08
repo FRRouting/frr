@@ -144,6 +144,14 @@ struct nhg_hash_entry {
  * Track FPM installation status..
  */
 #define NEXTHOP_GROUP_FPM (1 << 7)
+
+/*
+ * When an interface comes up install the
+ * singleton's and schedule the NHG's that
+ * are using this nhg to be reinstalled
+ * when installation is successful.
+ */
+#define NEXTHOP_GROUP_REINSTALL (1 << 8)
 };
 
 /* Upper 4 bits of the NHG are reserved for indicating the NHG type */
