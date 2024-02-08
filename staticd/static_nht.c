@@ -18,8 +18,7 @@
 #include "static_nht.h"
 
 static void static_nht_update_path(struct static_path *pn, struct prefix *nhp,
-				   uint32_t nh_num, vrf_id_t nh_vrf_id,
-				   struct vrf *vrf)
+				   uint32_t nh_num, vrf_id_t nh_vrf_id)
 {
 	struct static_nexthop *nh;
 
@@ -49,17 +48,12 @@ static void static_nht_update_path(struct static_path *pn, struct prefix *nhp,
 
 static void static_nht_update_safi(struct prefix *sp, struct prefix *nhp,
 				   uint32_t nh_num, afi_t afi, safi_t safi,
-				   struct vrf *vrf, vrf_id_t nh_vrf_id)
+				   struct static_vrf *svrf, vrf_id_t nh_vrf_id)
 {
 	struct route_table *stable;
-	struct static_vrf *svrf;
 	struct route_node *rn;
 	struct static_path *pn;
 	struct static_route_info *si;
-
-	svrf = vrf->info;
-	if (!svrf)
-		return;
 
 	stable = static_vrf_static_table(afi, safi, svrf);
 	if (!stable)
@@ -71,7 +65,7 @@ static void static_nht_update_safi(struct prefix *sp, struct prefix *nhp,
 			si = static_route_info_from_rnode(rn);
 			frr_each(static_path_list, &si->path_list, pn) {
 				static_nht_update_path(pn, nhp, nh_num,
-						       nh_vrf_id, vrf);
+						       nh_vrf_id);
 			}
 			route_unlock_node(rn);
 		}
@@ -83,7 +77,7 @@ static void static_nht_update_safi(struct prefix *sp, struct prefix *nhp,
 		if (!si)
 			continue;
 		frr_each(static_path_list, &si->path_list, pn) {
-			static_nht_update_path(pn, nhp, nh_num, nh_vrf_id, vrf);
+			static_nht_update_path(pn, nhp, nh_num, nh_vrf_id);
 		}
 	}
 }
@@ -91,28 +85,22 @@ static void static_nht_update_safi(struct prefix *sp, struct prefix *nhp,
 void static_nht_update(struct prefix *sp, struct prefix *nhp, uint32_t nh_num,
 		       afi_t afi, safi_t safi, vrf_id_t nh_vrf_id)
 {
+	struct static_vrf *svrf;
 
-	struct vrf *vrf;
-
-	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name)
-		static_nht_update_safi(sp, nhp, nh_num, afi, safi, vrf,
+	RB_FOREACH (svrf, svrf_name_head, &svrfs)
+		static_nht_update_safi(sp, nhp, nh_num, afi, safi, svrf,
 				       nh_vrf_id);
 }
 
 static void static_nht_reset_start_safi(struct prefix *nhp, afi_t afi,
-					safi_t safi, struct vrf *vrf,
+					safi_t safi, struct static_vrf *svrf,
 					vrf_id_t nh_vrf_id)
 {
-	struct static_vrf *svrf;
 	struct route_table *stable;
 	struct static_nexthop *nh;
 	struct static_path *pn;
 	struct route_node *rn;
 	struct static_route_info *si;
-
-	svrf = vrf->info;
-	if (!svrf)
-		return;
 
 	stable = static_vrf_static_table(afi, safi, svrf);
 	if (!stable)
@@ -153,10 +141,10 @@ static void static_nht_reset_start_safi(struct prefix *nhp, afi_t afi,
 void static_nht_reset_start(struct prefix *nhp, afi_t afi, safi_t safi,
 			    vrf_id_t nh_vrf_id)
 {
-	struct vrf *vrf;
+	struct static_vrf *svrf;
 
-	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name)
-		static_nht_reset_start_safi(nhp, afi, safi, vrf, nh_vrf_id);
+	RB_FOREACH (svrf, svrf_name_head, &svrfs)
+		static_nht_reset_start_safi(nhp, afi, safi, svrf, nh_vrf_id);
 }
 
 static void static_nht_mark_state_safi(struct prefix *sp, afi_t afi,

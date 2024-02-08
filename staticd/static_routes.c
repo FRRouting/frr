@@ -87,11 +87,6 @@ void zebra_stable_node_cleanup(struct route_table *table,
 /* Install static path into rib. */
 void static_install_path(struct static_path *pn)
 {
-	struct static_nexthop *nh;
-
-	frr_each(static_nexthop_list, &pn->nexthop_list, nh)
-		static_zebra_nht_register(nh, true);
-
 	if (static_nexthop_list_count(&pn->nexthop_list))
 		static_zebra_route_add(pn, true);
 }
@@ -377,6 +372,17 @@ void static_install_nexthop(struct static_nexthop *nh)
 	}
 }
 
+void static_uninstall_nexthop(struct static_nexthop *nh)
+{
+	struct static_path *pn = nh->pn;
+
+	if (nh->nh_vrf_id == VRF_UNKNOWN)
+		return;
+
+	static_zebra_nht_register(nh, false);
+	static_uninstall_path(pn);
+}
+
 void static_delete_nexthop(struct static_nexthop *nh)
 {
 	struct static_path *pn = nh->pn;
@@ -386,17 +392,8 @@ void static_delete_nexthop(struct static_nexthop *nh)
 	/* Remove BFD session/configuration if any. */
 	bfd_sess_free(&nh->bsp);
 
-	if (nh->nh_vrf_id == VRF_UNKNOWN)
-		goto EXIT;
+	static_uninstall_nexthop(nh);
 
-	static_zebra_nht_register(nh, false);
-	/*
-	 * If we have other si nodes then route replace
-	 * else delete the route
-	 */
-	static_uninstall_path(pn);
-
-EXIT:
 	route_unlock_node(rn);
 	/* Free static route configuration. */
 	XFREE(MTYPE_STATIC_NEXTHOP, nh);
@@ -490,7 +487,6 @@ static void static_fixup_vrf(struct vrf *vrf, struct route_table *stable,
 					continue;
 
 				nh->nh_vrf_id = vrf->vrf_id;
-				nh->nh_registered = false;
 				if (nh->ifname[0]) {
 					ifp = if_lookup_by_name(nh->ifname,
 								nh->nh_vrf_id);
@@ -500,7 +496,7 @@ static void static_fixup_vrf(struct vrf *vrf, struct route_table *stable,
 						continue;
 				}
 
-				static_install_path(pn);
+				static_install_nexthop(nh);
 			}
 		}
 	}
@@ -518,8 +514,6 @@ static void static_fixup_vrf(struct vrf *vrf, struct route_table *stable,
 static void static_enable_vrf(struct route_table *stable, afi_t afi, safi_t safi)
 {
 	struct route_node *rn;
-	struct static_nexthop *nh;
-	struct interface *ifp;
 	struct static_path *pn;
 	struct static_route_info *si;
 
@@ -527,22 +521,8 @@ static void static_enable_vrf(struct route_table *stable, afi_t afi, safi_t safi
 		si = static_route_info_from_rnode(rn);
 		if (!si)
 			continue;
-		frr_each(static_path_list, &si->path_list, pn) {
-			frr_each(static_nexthop_list, &pn->nexthop_list, nh) {
-				if (nh->nh_vrf_id == VRF_UNKNOWN)
-					continue;
-				if (nh->ifname[0]) {
-					ifp = if_lookup_by_name(nh->ifname,
-								nh->nh_vrf_id);
-					if (ifp)
-						nh->ifindex = ifp->ifindex;
-					else
-						continue;
-				}
-
-				static_install_path(pn);
-			}
-		}
+		frr_each(static_path_list, &si->path_list, pn)
+			static_install_path(pn);
 	}
 }
 
@@ -604,7 +584,7 @@ static void static_cleanup_vrf(struct vrf *vrf, struct route_table *stable,
 				if (strcmp(vrf->name, nh->nh_vrfname) != 0)
 					continue;
 
-				static_uninstall_path(pn);
+				static_uninstall_nexthop(nh);
 
 				nh->nh_vrf_id = VRF_UNKNOWN;
 				nh->ifindex = IFINDEX_INTERNAL;
@@ -625,7 +605,6 @@ static void static_disable_vrf(struct route_table *stable,
 			       afi_t afi, safi_t safi)
 {
 	struct route_node *rn;
-	struct static_nexthop *nh;
 	struct static_path *pn;
 	struct static_route_info *si;
 
@@ -633,14 +612,8 @@ static void static_disable_vrf(struct route_table *stable,
 		si = static_route_info_from_rnode(rn);
 		if (!si)
 			continue;
-		frr_each(static_path_list, &si->path_list, pn) {
-			frr_each(static_nexthop_list, &pn->nexthop_list, nh) {
-				if (nh->nh_vrf_id == VRF_UNKNOWN)
-					continue;
-
-				static_uninstall_path(pn);
-			}
-		}
+		frr_each(static_path_list, &si->path_list, pn)
+			static_uninstall_path(pn);
 	}
 }
 

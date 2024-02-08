@@ -207,6 +207,7 @@ static_add_nexthop(struct static_path *pn, enum static_nh_type type,
 		   struct ipaddr *ipaddr, const char *ifname,
 		   const char *nh_vrf, uint32_t color);
 extern void static_install_nexthop(struct static_nexthop *nh);
+extern void static_uninstall_nexthop(struct static_nexthop *nh);
 
 extern void static_delete_nexthop(struct static_nexthop *nh);
 
