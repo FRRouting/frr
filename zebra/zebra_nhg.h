@@ -146,6 +146,14 @@ struct nhg_hash_entry {
 #define NEXTHOP_GROUP_FPM (1 << 7)
 
 /*
+ * When an interface comes up install the
+ * singleton's and schedule the NHG's that
+ * are using this nhg to be reinstalled
+ * when installation is successful.
+ */
+#define NEXTHOP_GROUP_REINSTALL (1 << 8)
+
+/*
  * Connected routes and kernel routes received
  * from the kernel or created by Zebra do no
  * need to be installed.  For connected, this
