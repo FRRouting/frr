@@ -2114,14 +2114,11 @@ static int bgp_open_receive(struct peer_connection *connection,
 	    || peer->afc_nego[AFI_IP6][SAFI_MULTICAST]
 	    || peer->afc_nego[AFI_IP6][SAFI_MPLS_VPN]
 	    || peer->afc_nego[AFI_IP6][SAFI_ENCAP]) {
-		if (IN6_IS_ADDR_UNSPECIFIED(&peer->nexthop.v6_global) &&
-		    !bm->v6_with_v4_nexthops) {
-			flog_err(EC_BGP_SND_FAIL,
-"%s: No local IPv6 address, and zebra does not support V6 routing with v4 nexthops, BGP routing for V6 will not work",
-				 peer->host);
-			bgp_notify_send(connection, BGP_NOTIFY_CEASE,
-					BGP_NOTIFY_SUBCODE_UNSPECIFIC);
-			return BGP_Stop;
+		if (IN6_IS_ADDR_UNSPECIFIED(&peer->nexthop.v6_global)) {
+#if defined(HAVE_CUMULUS)
+			zlog_warn("%s: No local IPv6 address, BGP routing may not work",
+				  peer->host);
+#endif
 		}
 	}
 	peer->rtt = sockopt_tcp_rtt(connection->fd);
