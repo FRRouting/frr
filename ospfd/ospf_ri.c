@@ -1723,9 +1723,11 @@ DEFUN (router_info,
 
 DEFUN (no_router_info,
        no_router_info_cmd,
-       "no router-info",
+       "no router-info [<area|as>]",
        NO_STR
-       "Disable the Router Information functionality\n")
+       "Disable the Router Information functionality\n"
+       "Disable the Router Information functionality with AS flooding scope\n"
+       "Disable the Router Information functionality with Area flooding scope\n")
 {
 
 	if (!OspfRI.enabled)
