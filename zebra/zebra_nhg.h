@@ -85,7 +85,7 @@ struct nhg_hash_entry {
 	 * nhg(1)->nhg_dependents is 3 in the tree
 	 *
 	 * nhg(2)->nhg_depends is empty
-	 * nhg(3)->nhg_dependents is 3 in the tree
+	 * nhg(2)->nhg_dependents is 3 in the tree
 	 */
 	struct nhg_connected_tree_head nhg_depends, nhg_dependents;
 
