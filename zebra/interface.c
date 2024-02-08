@@ -108,17 +108,6 @@ static void zebra_if_node_destroy(route_table_delegate_t *delegate,
 	route_node_destroy(delegate, table, node);
 }
 
-static void zebra_if_nhg_dependents_free(struct zebra_if *zebra_if)
-{
-	nhg_connected_tree_free(&zebra_if->nhg_dependents);
-}
-
-static void zebra_if_nhg_dependents_init(struct zebra_if *zebra_if)
-{
-	nhg_connected_tree_init(&zebra_if->nhg_dependents);
-}
-
-
 route_table_delegate_t zebra_if_table_delegate = {
 	.create_node = route_node_create,
 	.destroy_node = zebra_if_node_destroy};
@@ -137,7 +126,7 @@ static int if_zebra_new_hook(struct interface *ifp)
 
 	zebra_if->link_nsid = NS_UNKNOWN;
 
-	zebra_if_nhg_dependents_init(zebra_if);
+	nhg_connected_tree_init(&zebra_if->nhg_dependents);
 
 	zebra_ptm_if_init(zebra_if);
 
@@ -221,7 +210,7 @@ static int if_zebra_delete_hook(struct interface *ifp)
 		zebra_evpn_mac_ifp_del(ifp);
 
 		if_nhg_dependents_release(ifp);
-		zebra_if_nhg_dependents_free(zebra_if);
+		nhg_connected_tree_free(&zebra_if->nhg_dependents);
 
 		XFREE(MTYPE_ZIF_DESC, zebra_if->desc);
 
