@@ -1724,7 +1724,7 @@ void bgp_zebra_announce_table_all_subtypes(struct bgp *bgp, afi_t afi,
 }
 
 void bgp_zebra_withdraw(const struct prefix *p, struct bgp_path_info *info,
-			struct bgp *bgp, safi_t safi)
+			struct bgp *bgp, afi_t afi, safi_t safi)
 {
 	struct zapi_route api;
 	struct peer *peer;
@@ -1743,7 +1743,7 @@ void bgp_zebra_withdraw(const struct prefix *p, struct bgp_path_info *info,
 
 	if (safi == SAFI_FLOWSPEC) {
 		peer = info->peer;
-		bgp_pbr_update_entry(peer->bgp, p, info, AFI_IP, safi, false);
+		bgp_pbr_update_entry(peer->bgp, p, info, afi, safi, false);
 		return;
 	}
 
@@ -1784,7 +1784,7 @@ void bgp_zebra_withdraw_table_all_subtypes(struct bgp *bgp, afi_t afi, safi_t sa
 			if (CHECK_FLAG(pi->flags, BGP_PATH_SELECTED)
 			    && (pi->type == ZEBRA_ROUTE_BGP))
 				bgp_zebra_withdraw(bgp_dest_get_prefix(dest),
-						   pi, bgp, safi);
+						   pi, bgp, afi, safi);
 		}
 	}
 }
