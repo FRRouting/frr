@@ -983,18 +983,6 @@ unsigned int if_nhg_dependents_count(const struct interface *ifp)
 	return 0;
 }
 
-
-bool if_nhg_dependents_is_empty(const struct interface *ifp)
-{
-	if (ifp->info) {
-		struct zebra_if *zif = (struct zebra_if *)ifp->info;
-
-		return nhg_connected_tree_is_empty(&zif->nhg_dependents);
-	}
-
-	return false;
-}
-
 /* Interface is up. */
 void if_up(struct interface *ifp, bool install_connected)
 {
