@@ -580,6 +580,7 @@ static void ospf_sr_stop(void)
 	hash_clean(OspfSR.neighbors, (void *)sr_node_del);
 	OspfSR.self = NULL;
 	OspfSR.status = SR_OFF;
+	OspfSR.msd = 0;
 }
 
 /*
