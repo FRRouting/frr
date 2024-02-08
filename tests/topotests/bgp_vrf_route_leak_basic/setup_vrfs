@@ -3,6 +3,7 @@
 ip link add DONNA type vrf table 1001
 ip link add EVA type vrf table 1002
 
+ip link add dummy0 type dummy # vrf default
 ip link add dummy1 type dummy
 ip link add dummy2 type dummy
 ip link add dummy3 type dummy
