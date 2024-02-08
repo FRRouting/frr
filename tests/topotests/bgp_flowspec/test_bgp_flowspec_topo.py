@@ -97,7 +97,9 @@ def setup_module(module):
     logger.info("Launching BGP and ZEBRA on r1")
     router = tgen.gears["r1"]
     router.load_config(
-        TopoRouter.RD_ZEBRA, os.path.join(CWD, "{}/zebra.conf".format("r1"))
+        TopoRouter.RD_ZEBRA,
+        os.path.join(CWD, "{}/zebra.conf".format("r1")),
+        "-M wrap_script",
     )
     router.load_config(
         TopoRouter.RD_BGP, os.path.join(CWD, "{}/bgpd.conf".format("r1"))
@@ -115,6 +117,12 @@ def setup_module(module):
 def teardown_module(module):
     tgen = get_topogen()
     tgen.stop_topology()
+
+
+def check_show_command_empty(router, cmd):
+    "Test for the output of a command that should be empty"
+    dump = router.vtysh_cmd(cmd)
+    return dump == ""
 
 
 def test_bgp_convergence():
@@ -180,6 +188,57 @@ def test_bgp_flowspec():
         assert 0, assertmsg
     else:
         logger.info("Check BGP FS entry for 3::3 with redirect IP OK")
+
+
+def test_bgp_pbr():
+    tgen = get_topogen()
+
+    # Skip if previous fatal error condition is raised
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    logger.info("Check that 'show pbr ipset' and 'show pbr iptable' are populated")
+    router = tgen.gears["r1"]
+
+    test_func = functools.partial(
+        check_show_command_empty, tgen.gears["r1"], "show pbr iptable"
+    )
+    success, result = topotest.run_and_expect(test_func, False, count=10, wait=0.5)
+    assert success, "r1, 'show pbr iptable' output is not empty, not expected"
+
+    test_func = functools.partial(
+        check_show_command_empty, tgen.gears["r1"], "show pbr ipset"
+    )
+    success, result = topotest.run_and_expect(test_func, False, count=10, wait=0.5)
+    assert success, "r1, 'show pbr ipset' output is not empty, not expected"
+
+
+def test_bgp_flush():
+    tgen = get_topogen()
+
+    # Skip if previous fatal error condition is raised
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    router = tgen.gears["r1"]
+
+    logger.info("Stopping exabgp peer")
+    for _, peer in tgen.exabgp_peers().items():
+        peer.stop()
+
+    logger.info("Check that 'show pbr ipset' and 'show pbr iptable' are empty")
+
+    test_func = functools.partial(
+        check_show_command_empty, tgen.gears["r1"], "show pbr iptable"
+    )
+    success, result = topotest.run_and_expect(test_func, True, count=10, wait=0.5)
+    assert success, "r1, 'show pbr iptable' output is not empty, not expected"
+
+    test_func = functools.partial(
+        check_show_command_empty, tgen.gears["r1"], "show pbr ipset"
+    )
+    success, result = topotest.run_and_expect(test_func, True, count=10, wait=0.5)
+    assert success, "r1, 'show pbr ipset' output is not empty, not expected"
 
 
 if __name__ == "__main__":
