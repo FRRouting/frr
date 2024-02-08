@@ -309,8 +309,10 @@ static int zebra_nhg_insert_id(struct nhg_hash_entry *nhe)
 
 static void zebra_nhg_set_if(struct nhg_hash_entry *nhe, struct interface *ifp)
 {
+	struct zebra_if *zif = (struct zebra_if *)ifp->info;
+
 	nhe->ifp = ifp;
-	if_nhg_dependents_add(ifp, nhe);
+	nhg_connected_tree_add_nhe(&zif->nhg_dependents, nhe);
 }
 
 static void
@@ -1073,8 +1075,11 @@ static void zebra_nhg_release_all_deps(struct nhg_hash_entry *nhe)
 	/* Remove it from any lists it may be on */
 	zebra_nhg_depends_release(nhe);
 	zebra_nhg_dependents_release(nhe);
-	if (nhe->ifp)
-		if_nhg_dependents_del(nhe->ifp, nhe);
+	if (nhe->ifp) {
+		struct zebra_if *zif = nhe->ifp->info;
+
+		nhg_connected_tree_del_nhe(&zif->nhg_dependents, nhe);
+	}
 }
 
 static void zebra_nhg_release(struct nhg_hash_entry *nhe)

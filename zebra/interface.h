@@ -331,11 +331,6 @@ void link_param_cmd_set_float(struct interface *ifp, float *field,
 void link_param_cmd_unset(struct interface *ifp, uint32_t type);
 
 /* Nexthop group connected functions */
-extern void if_nhg_dependents_add(struct interface *ifp,
-				  struct nhg_hash_entry *nhe);
-extern void if_nhg_dependents_del(struct interface *ifp,
-				  struct nhg_hash_entry *nhe);
-extern unsigned int if_nhg_dependents_count(const struct interface *ifp);
 extern bool if_nhg_dependents_is_empty(const struct interface *ifp);
 
 extern void vrf_add_update(struct vrf *vrfp);

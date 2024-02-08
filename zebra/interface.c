@@ -954,35 +954,6 @@ static void if_down_del_nbr_connected(struct interface *ifp)
 	}
 }
 
-void if_nhg_dependents_add(struct interface *ifp, struct nhg_hash_entry *nhe)
-{
-	if (ifp->info) {
-		struct zebra_if *zif = (struct zebra_if *)ifp->info;
-
-		nhg_connected_tree_add_nhe(&zif->nhg_dependents, nhe);
-	}
-}
-
-void if_nhg_dependents_del(struct interface *ifp, struct nhg_hash_entry *nhe)
-{
-	if (ifp->info) {
-		struct zebra_if *zif = (struct zebra_if *)ifp->info;
-
-		nhg_connected_tree_del_nhe(&zif->nhg_dependents, nhe);
-	}
-}
-
-unsigned int if_nhg_dependents_count(const struct interface *ifp)
-{
-	if (ifp->info) {
-		struct zebra_if *zif = (struct zebra_if *)ifp->info;
-
-		return nhg_connected_tree_count(&zif->nhg_dependents);
-	}
-
-	return 0;
-}
-
 /* Interface is up. */
 void if_up(struct interface *ifp, bool install_connected)
 {
