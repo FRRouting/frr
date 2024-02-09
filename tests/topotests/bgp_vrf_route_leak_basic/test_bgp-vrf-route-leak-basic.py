@@ -126,11 +126,13 @@ def test_vrf_route_leak_donna():
         "172.16.101.0/24": [
             {
                 "protocol": "bgp",
+                "selected": None,
                 "nexthops": [
                     {
-                        "interfaceIndex": 0,
+                        "fib": None,
                         "interfaceName": "unknown",
                         "vrf": "Unknown",
+                        "active": None,
                     },
                 ],
             },
@@ -196,11 +198,13 @@ def test_vrf_route_leak_eva():
         "172.16.101.0/24": [
             {
                 "protocol": "bgp",
+                "selected": None,
                 "nexthops": [
                     {
-                        "interfaceIndex": 0,
+                        "fib": None,
                         "interfaceName": "unknown",
                         "vrf": "Unknown",
+                        "active": None,
                     },
                 ],
             },
@@ -381,6 +385,104 @@ interface EVA
                 ],
             },
         ],
+    }
+
+    test_func = partial(
+        topotest.router_json_cmp, r1, "show ip route vrf DONNA json", expect
+    )
+    result, diff = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+    assert result, "BGP VRF DONNA check failed:\n{}".format(diff)
+
+
+def test_vrf_route_leak_donna_add_vrf_zita():
+    logger.info("Add VRF ZITA and ensure that the route from VRF ZITA is updated")
+    tgen = get_topogen()
+    # Don't run this test if we have any failure.
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r1 = tgen.gears["r1"]
+    r1.cmd("ip link add ZITA type vrf table 1003")
+
+    # Test DONNA VRF.
+    expect = {
+        "172.16.101.0/24": [
+            {
+                "protocol": "bgp",
+                "selected": None,
+                "nexthops": [
+                    {
+                        "fib": None,
+                        "interfaceName": "ZITA",
+                        "vrf": "ZITA",
+                        "active": None,
+                    },
+                ],
+            },
+        ],
+    }
+
+    test_func = partial(
+        topotest.router_json_cmp, r1, "show ip route vrf DONNA json", expect
+    )
+    result, diff = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+    assert result, "BGP VRF DONNA check failed:\n{}".format(diff)
+
+
+def test_vrf_route_leak_donna_set_zita_up():
+    logger.info("Set VRF ZITA up and ensure that the route from VRF ZITA is updated")
+    tgen = get_topogen()
+    # Don't run this test if we have any failure.
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r1 = tgen.gears["r1"]
+    r1.vtysh_cmd(
+        """
+configure
+interface ZITA
+ no shutdown
+"""
+    )
+
+    # Test DONNA VRF.
+    expect = {
+        "172.16.101.0/24": [
+            {
+                "protocol": "bgp",
+                "selected": True,
+                "nexthops": [
+                    {
+                        "fib": True,
+                        "interfaceName": "ZITA",
+                        "vrf": "ZITA",
+                        "active": True,
+                    },
+                ],
+            },
+        ],
+    }
+
+    test_func = partial(
+        topotest.router_json_cmp, r1, "show ip route vrf DONNA json", expect
+    )
+    result, diff = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+    assert result, "BGP VRF DONNA check failed:\n{}".format(diff)
+
+
+def test_vrf_route_leak_donna_delete_vrf_zita():
+    logger.info("Delete VRF ZITA and ensure that the route from VRF ZITA is deleted")
+    tgen = get_topogen()
+    # Don't run this test if we have any failure.
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r1 = tgen.gears["r1"]
+    r1.cmd("ip link delete ZITA")
+
+    # Test DONNA VRF.
+    expect = {
+        "172.16.101.0/24": None,
     }
 
     test_func = partial(
