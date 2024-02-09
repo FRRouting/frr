@@ -1219,7 +1219,7 @@ int pim_upstream_mroute_add(struct channel_oil *c_oil, const char *name)
 	return pim_upstream_mroute_update(c_oil, name);
 }
 
-/* Look for IIF changes and update the dateplane entry only if the IIF
+/* Look for IIF changes and update the dataplane entry only if the IIF
  * has changed.
  */
 int pim_upstream_mroute_iif_update(struct channel_oil *c_oil, const char *name)
