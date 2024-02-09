@@ -214,7 +214,6 @@ def test_vrf_route_leak_eva():
     assert result, "BGP VRF EVA check failed:\n{}".format(diff)
 
 
-
 def test_vrf_route_leak_default():
     logger.info("Ensure that routes are leaked back and forth")
     tgen = get_topogen()
@@ -279,6 +278,116 @@ def test_ping():
 
     logger.info("Ping from default to DONNA")
     check_ping("r1", "10.0.0.1", True, 10, 0.5, source_addr="10.0.4.1")
+
+
+def test_vrf_route_leak_donna_after_eva_down():
+    logger.info("Ensure that route states change after EVA interface goes down")
+    tgen = get_topogen()
+    # Don't run this test if we have any failure.
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r1 = tgen.gears["r1"]
+    r1.vtysh_cmd(
+        """
+configure
+interface EVA
+ shutdown
+"""
+    )
+
+    # Test DONNA VRF.
+    expect = {
+        "10.0.1.0/24": [
+            {
+                "protocol": "bgp",
+                "selected": None,
+                "nexthops": [
+                    {
+                        "fib": None,
+                        "interfaceName": "EVA",
+                        "vrf": "EVA",
+                        "active": None,
+                    },
+                ],
+            },
+        ],
+        "10.0.3.0/24": [
+            {
+                "protocol": "bgp",
+                "selected": None,
+                "nexthops": [
+                    {
+                        "fib": None,
+                        "interfaceName": "EVA",
+                        "vrf": "EVA",
+                        "active": None,
+                    },
+                ],
+            },
+        ],
+    }
+
+    test_func = partial(
+        topotest.router_json_cmp, r1, "show ip route vrf DONNA json", expect
+    )
+    result, diff = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+    assert result, "BGP VRF DONNA check failed:\n{}".format(diff)
+
+
+def test_vrf_route_leak_donna_after_eva_up():
+    logger.info("Ensure that route states change after EVA interface goes up")
+    tgen = get_topogen()
+    # Don't run this test if we have any failure.
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r1 = tgen.gears["r1"]
+    r1.vtysh_cmd(
+        """
+configure
+interface EVA
+ no shutdown
+"""
+    )
+
+    # Test DONNA VRF.
+    expect = {
+        "10.0.1.0/24": [
+            {
+                "protocol": "bgp",
+                "selected": True,
+                "nexthops": [
+                    {
+                        "fib": True,
+                        "interfaceName": "EVA",
+                        "vrf": "EVA",
+                        "active": True,
+                    },
+                ],
+            },
+        ],
+        "10.0.3.0/24": [
+            {
+                "protocol": "bgp",
+                "selected": True,
+                "nexthops": [
+                    {
+                        "fib": True,
+                        "interfaceName": "EVA",
+                        "vrf": "EVA",
+                        "active": True,
+                    },
+                ],
+            },
+        ],
+    }
+
+    test_func = partial(
+        topotest.router_json_cmp, r1, "show ip route vrf DONNA json", expect
+    )
+    result, diff = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+    assert result, "BGP VRF DONNA check failed:\n{}".format(diff)
 
 
 def test_memory_leak():
