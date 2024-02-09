@@ -891,4 +891,11 @@ luCommand(
     "pass",
     "Redundant route 2 details",
 )
+luCommand(
+    "r1",
+    'vtysh -c "show ip route vrf r1-cust5 5.1.0.0/24"',
+    "Known via .bgp., distance 200, .* vrf r1-cust5, best",
+    "pass",
+    "Recursive route leak details",
+)
 # done
