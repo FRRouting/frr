@@ -964,13 +964,21 @@ static void be_client_handle_notify(struct mgmt_be_client *client, void *msgbuf,
 {
 	struct mgmt_msg_notify_data *notif_msg = msgbuf;
 	struct mgmt_be_client_notification_cb *cb;
-	const char *notif;
+	char notif[XPATH_MAXLEN];
+	struct lyd_node *dnode;
+	LY_ERR err;
 	uint i;
 
 	debug_be_client("Received notification for client %s", client->name);
 
-	/* "{\"modname:notification-name\": ...}" */
-	notif = (const char *)notif_msg->result + 2;
+	err = yang_parse_notification(notif_msg->result_type,
+				      (char *)notif_msg->result, &dnode);
+	if (err)
+		return;
+
+	lysc_path(dnode->schema, LYSC_PATH_DATA, notif, sizeof(notif));
+
+	lyd_free_all(dnode);
 
 	for (i = 0; i < client->cbs.nnotify_cbs; i++) {
 		cb = &client->cbs.notify_cbs[i];

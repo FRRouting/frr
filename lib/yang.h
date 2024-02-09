@@ -607,6 +607,19 @@ extern struct ly_ctx *yang_ctx_new_setup(bool embedded_modules,
  */
 extern void yang_debugging_set(bool enable);
 
+/*
+ * Parse a YANG notification.
+ *
+ * Args:
+ *	format: LYD_FORMAT of input data.
+ *	data: input data.
+ *	notif: pointer to the libyang data tree to store the parsed notification.
+ *	       If the notification is not on the top level of the yang model,
+ *	       the pointer to the notification node is still returned, but it's
+ *	       part of the full data tree with all its parents.
+ */
+extern LY_ERR yang_parse_notification(LYD_FORMAT format, const char *data,
+				      struct lyd_node **notif);
 
 /*
  * "Print" the yang tree in `root` into dynamic sized array.

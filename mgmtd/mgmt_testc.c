@@ -79,6 +79,20 @@ struct frr_signal_t __signals[] = {
 #define MGMTD_TESTC_VTY_PORT 2624
 
 /* clang-format off */
+static const struct frr_yang_module_info frr_ripd_info = {
+	.name = "frr-ripd",
+	.ignore_cfg_cbs = true,
+	.nodes = {
+		{
+			.xpath = NULL,
+		}
+	}
+};
+
+static const struct frr_yang_module_info *const mgmt_yang_modules[] = {
+	&frr_ripd_info,
+};
+
 FRR_DAEMON_INFO(mgmtd_testc, MGMTD_TESTC,
 		.proghelp = "FRR Management Daemon Test Client.",
 
@@ -87,8 +101,8 @@ FRR_DAEMON_INFO(mgmtd_testc, MGMTD_TESTC,
 
 		.privs = &__privs,
 
-		// .yang_modules = mgmt_yang_modules,
-		// .n_yang_modules = array_size(mgmt_yang_modules),
+		.yang_modules = mgmt_yang_modules,
+		.n_yang_modules = array_size(mgmt_yang_modules),
 
 		/* avoid libfrr trying to read our config file for us */
 		.flags = FRR_MANUAL_VTY_START,
