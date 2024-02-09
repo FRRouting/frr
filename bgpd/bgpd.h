@@ -1149,6 +1149,11 @@ struct peer_connection {
 
 	int fd;
 
+	/* Thread flags */
+	_Atomic uint32_t thread_flags;
+#define PEER_THREAD_WRITES_ON (1U << 0)
+#define PEER_THREAD_READS_ON  (1U << 1)
+
 	/* Packet receive and send buffer. */
 	pthread_mutex_t io_mtx;	  // guards ibuf, obuf
 	struct stream_fifo *ibuf; // packets waiting to be processed
@@ -1179,11 +1184,6 @@ struct peer_connection {
 	union sockunion su;
 #define BGP_CONNECTION_SU_UNSPEC(connection)                                   \
 	(connection->su.sa.sa_family == AF_UNSPEC)
-
-	/* Thread flags */
-	_Atomic uint32_t thread_flags;
-#define PEER_THREAD_WRITES_ON (1U << 0)
-#define PEER_THREAD_READS_ON (1U << 1)
 };
 extern struct peer_connection *bgp_peer_connection_new(struct peer *peer);
 extern void bgp_peer_connection_free(struct peer_connection **connection);
