@@ -43,19 +43,20 @@ Fully Converted To MGMTD
 - lib/filter
 - lib/if_rmap
 - lib/routemap
+- lib/affinitymap
+- lib/if
+- lib/vrf
 - ripd
+- ripngd
 - staticd
 - zebra (* - partial)
 
 Converted To Northbound
 """""""""""""""""""""""
 - bfdd
-- lib/affinitymap
-- lib/if
 - pathd
 - pbrd
 - pimd
-- ripngd
 
 Converted To Northbound With Issues
 """""""""""""""""""""""""""""""""""
