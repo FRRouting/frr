@@ -184,6 +184,11 @@ int nhrp_neighbor_operation(ZAPI_CALLBACK_ARGS)
 			       "Netlink: update binding for %pSU dev %s from c %pSU peer.vc.nbma %pSU to lladdr %pSU",
 			       &addr, ifp->name, &c->cur.remote_nbma_natoa,
 			       &c->cur.peer->vc->remote.nbma, &lladdr);
+
+			if (lladdr.sa.sa_family == AF_UNSPEC)
+				/* nothing from zebra, so use nhrp peer */
+				lladdr = c->cur.peer->vc->remote.nbma;
+
 			/* In case of shortcuts, nbma is given by lladdr, not
 			 * vc->remote.nbma.
 			 */
