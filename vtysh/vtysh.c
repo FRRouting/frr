@@ -3169,7 +3169,7 @@ DEFUNSH(VTYSH_ALL, debug_nb,
 	debug_nb_cmd,
 	"[no] debug northbound\
 	   [<\
-	    callbacks [{configuration|state|rpc}]\
+	    callbacks [{configuration|state|rpc|notify}]\
 	    |notifications\
 	    |events\
 	    |libyang\
@@ -3181,6 +3181,7 @@ DEFUNSH(VTYSH_ALL, debug_nb,
 	"Configuration\n"
 	"State\n"
 	"RPC\n"
+	"Notifications\n"
 	"Notifications\n"
 	"Events\n"
 	"libyang debugging\n")

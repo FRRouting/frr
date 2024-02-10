@@ -73,16 +73,8 @@ struct mgmt_be_client_cbs {
 			   struct mgmt_be_client_txn_ctx *txn_ctx,
 			   bool destroyed);
 
-	struct mgmt_be_client_notification_cb *notify_cbs;
-	uint nnotify_cbs;
-};
-
-struct mgmt_be_client_notification_cb {
-	const char *xpath; /* the notification */
-	uint8_t format;	   /* currently only LYD_JSON supported */
-	void (*callback)(struct mgmt_be_client *client, uintptr_t usr_data,
-			 struct mgmt_be_client_notification_cb *this,
-			 const char *notif_data);
+	const char **notif_xpaths;
+	uint nnotif_xpaths;
 };
 
 /***************************************************************

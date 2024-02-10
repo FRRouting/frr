@@ -99,6 +99,7 @@ enum nb_cb_operation {
 	NB_CB_GET_KEYS,
 	NB_CB_LOOKUP_ENTRY,
 	NB_CB_RPC,
+	NB_CB_NOTIFY,
 };
 
 union nb_resource {
@@ -284,6 +285,18 @@ struct nb_cb_rpc_args {
 
 	/* Size of errmsg. */
 	size_t errmsg_len;
+};
+
+struct nb_cb_notify_args {
+	/* XPath of the notification. */
+	const char *xpath;
+
+	/*
+	 * libyang data node representing the notification. If the notification
+	 * is not top-level, it still points to the notification node, but it's
+	 * part of the full data tree with all its parents.
+	 */
+	struct lyd_node *dnode;
 };
 
 /*
@@ -508,6 +521,17 @@ struct nb_callbacks {
 	 *    NB_OK on success, NB_ERR otherwise.
 	 */
 	int (*rpc)(struct nb_cb_rpc_args *args);
+
+	/*
+	 * Notification callback.
+	 *
+	 * The callback is called when a YANG notification is received.
+	 *
+	 * args
+	 *    Refer to the documentation comments of nb_cb_notify_args for
+	 *    details.
+	 */
+	void (*notify)(struct nb_cb_notify_args *args);
 
 	/*
 	 * Optional callback to compare the data nodes when printing
@@ -786,6 +810,7 @@ DECLARE_HOOK(nb_client_debug_set_all, (uint32_t flags, bool set), (flags, set));
 extern struct debug nb_dbg_cbs_config;
 extern struct debug nb_dbg_cbs_state;
 extern struct debug nb_dbg_cbs_rpc;
+extern struct debug nb_dbg_cbs_notify;
 extern struct debug nb_dbg_notif;
 extern struct debug nb_dbg_events;
 extern struct debug nb_dbg_libyang;
@@ -814,6 +839,8 @@ extern const void *nb_callback_lookup_next(const struct nb_node *nb_node,
 extern int nb_callback_rpc(const struct nb_node *nb_node, const char *xpath,
 			   const struct list *input, struct list *output,
 			   char *errmsg, size_t errmsg_len);
+extern void nb_callback_notify(const struct nb_node *nb_node, const char *xpath,
+			       struct lyd_node *dnode);
 
 /*
  * Create a northbound node for all YANG schema nodes.

@@ -11,14 +11,13 @@
 #include "darr.h"
 #include "libfrr.h"
 #include "mgmt_be_client.h"
+#include "northbound.h"
 
 /* ---------------- */
 /* Local Prototypes */
 /* ---------------- */
 
-static void async_notification(struct mgmt_be_client *client, uintptr_t usr_data,
-			       struct mgmt_be_client_notification_cb *this,
-			       const char *notif_data);
+static void async_notification(struct nb_cb_notify_args *args);
 
 static void sigusr1(void);
 static void sigint(void);
@@ -84,6 +83,10 @@ static const struct frr_yang_module_info frr_ripd_info = {
 	.ignore_cfg_cbs = true,
 	.nodes = {
 		{
+			.xpath = "/frr-ripd:authentication-failure",
+			.cbs.notify = async_notification,
+		},
+		{
 			.xpath = NULL,
 		}
 	}
@@ -109,7 +112,7 @@ FRR_DAEMON_INFO(mgmtd_testc, MGMTD_TESTC,
 	);
 /* clang-format on */
 
-struct mgmt_be_client_notification_cb *__notify_cbs;
+const char **__notif_xpaths;
 
 struct mgmt_be_client_cbs __client_cbs = {};
 struct event *event_timeout;
@@ -131,7 +134,7 @@ static void quit(int exit_code)
 {
 	EVENT_OFF(event_timeout);
 	frr_fini();
-	darr_free(__client_cbs.notify_cbs);
+	darr_free(__client_cbs.notif_xpaths);
 	exit(exit_code);
 }
 
@@ -147,13 +150,12 @@ static void timeout(struct event *event)
 	quit(1);
 }
 
-static void async_notification(struct mgmt_be_client *client, uintptr_t usr_data,
-			       struct mgmt_be_client_notification_cb *this,
-			       const char *notif_data)
+static void async_notification(struct nb_cb_notify_args *args)
 {
 	zlog_notice("Received YANG notification");
 
-	printf("%s\n", notif_data);
+	printf("{\"frr-ripd:authentication-failure\": {\"interface-name\": \"%s\"}}\n",
+	       yang_dnode_get_string(args->dnode, "interface-name"));
 
 	if (o_notif_count && !--o_notif_count)
 		quit(0);
@@ -205,17 +207,12 @@ int main(int argc, char **argv)
 		exit(1);
 	}
 	if (argc && f_listen) {
-		struct mgmt_be_client_notification_cb *cb;
-
 		for (i = 0; i < argc; i++) {
 			zlog_notice("Listen on xpath: %s", argv[i]);
-			cb = darr_append(__notify_cbs);
-			cb->xpath = argv[i];
-			cb->format = LYD_JSON;
-			cb->callback = async_notification;
+			darr_push(__notif_xpaths, argv[i]);
 		}
-		__client_cbs.notify_cbs = __notify_cbs;
-		__client_cbs.nnotify_cbs = darr_len(__notify_cbs);
+		__client_cbs.notif_xpaths = __notif_xpaths;
+		__client_cbs.nnotif_xpaths = darr_len(__notif_xpaths);
 	}
 
 	mgmt_be_client = mgmt_be_client_create("mgmtd-testc", &__client_cbs, 0,

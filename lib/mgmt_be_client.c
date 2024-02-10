@@ -963,11 +963,10 @@ static void be_client_handle_notify(struct mgmt_be_client *client, void *msgbuf,
 				    size_t msg_len)
 {
 	struct mgmt_msg_notify_data *notif_msg = msgbuf;
-	struct mgmt_be_client_notification_cb *cb;
+	struct nb_node *nb_node;
 	char notif[XPATH_MAXLEN];
 	struct lyd_node *dnode;
 	LY_ERR err;
-	uint i;
 
 	debug_be_client("Received notification for client %s", client->name);
 
@@ -978,15 +977,15 @@ static void be_client_handle_notify(struct mgmt_be_client *client, void *msgbuf,
 
 	lysc_path(dnode->schema, LYSC_PATH_DATA, notif, sizeof(notif));
 
-	lyd_free_all(dnode);
-
-	for (i = 0; i < client->cbs.nnotify_cbs; i++) {
-		cb = &client->cbs.notify_cbs[i];
-		if (strncmp(cb->xpath, notif, strlen(cb->xpath)))
-			continue;
-		cb->callback(client, client->user_data, cb,
-			     (const char *)notif_msg->result);
+	nb_node = nb_node_find(notif);
+	if (!nb_node || !nb_node->cbs.notify) {
+		debug_be_client("No notification callback for %s", notif);
+		goto cleanup;
 	}
+
+	nb_callback_notify(nb_node, notif, dnode);
+cleanup:
+	lyd_free_all(dnode);
 }
 
 /*
@@ -1057,8 +1056,6 @@ int mgmt_be_send_subscr_req(struct mgmt_be_client *client_ctx,
 {
 	Mgmtd__BeMessage be_msg;
 	Mgmtd__BeSubscribeReq subscr_req;
-	const char **notif_xpaths = NULL;
-	int ret;
 
 	mgmtd__be_subscribe_req__init(&subscr_req);
 	subscr_req.client_name = client_ctx->name;
@@ -1068,16 +1065,8 @@ int mgmt_be_send_subscr_req(struct mgmt_be_client *client_ctx,
 	subscr_req.oper_xpaths = oper_xpaths;
 
 	/* See if we should register for notifications */
-	subscr_req.n_notif_xpaths = client_ctx->cbs.nnotify_cbs;
-	if (client_ctx->cbs.nnotify_cbs) {
-		struct mgmt_be_client_notification_cb *cb, *ecb;
-
-		cb = client_ctx->cbs.notify_cbs;
-		ecb = cb + client_ctx->cbs.nnotify_cbs;
-		for (; cb < ecb; cb++)
-			*darr_append(notif_xpaths) = cb->xpath;
-	}
-	subscr_req.notif_xpaths = (char **)notif_xpaths;
+	subscr_req.n_notif_xpaths = client_ctx->cbs.nnotif_xpaths;
+	subscr_req.notif_xpaths = (char **)client_ctx->cbs.notif_xpaths;
 
 	mgmtd__be_message__init(&be_msg);
 	be_msg.message_case = MGMTD__BE_MESSAGE__MESSAGE_SUBSCR_REQ;
@@ -1087,9 +1076,7 @@ int mgmt_be_send_subscr_req(struct mgmt_be_client *client_ctx,
 			subscr_req.client_name, subscr_req.n_config_xpaths,
 			subscr_req.n_oper_xpaths, subscr_req.n_notif_xpaths);
 
-	ret = mgmt_be_client_send_msg(client_ctx, &be_msg);
-	darr_free(notif_xpaths);
-	return ret;
+	return mgmt_be_client_send_msg(client_ctx, &be_msg);
 }
 
 static int _notify_conenct_disconnect(struct msg_client *msg_client,
