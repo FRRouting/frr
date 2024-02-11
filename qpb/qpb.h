@@ -14,6 +14,7 @@
 #ifndef _QPB_H
 #define _QPB_H
 
+#include "nexthop.h"
 #include "prefix.h"
 
 #include "qpb/qpb.pb-c.h"
