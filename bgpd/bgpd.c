@@ -1650,6 +1650,7 @@ void peer_xfer_config(struct peer *peer_dst, struct peer *peer_src)
 			XSTRDUP(MTYPE_BGP_PEER_IFNAME, peer_src->ifname);
 	}
 	peer_dst->ttl = peer_src->ttl;
+	peer_dst->gtsm_hops = peer_src->gtsm_hops;
 }
 
 static int bgp_peer_conf_if_to_su_update_v4(struct peer_connection *connection,
