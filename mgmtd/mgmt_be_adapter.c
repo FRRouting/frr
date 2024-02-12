@@ -925,22 +925,17 @@ uint64_t mgmt_be_interested_clients(const char *xpath, bool config)
 static bool be_is_client_interested(const char *xpath,
 				    enum mgmt_be_client_id id, bool config)
 {
-	const char *const *xpaths;
+	uint64_t clients;
 
 	assert(id < MGMTD_BE_CLIENT_ID_MAX);
 
 	__dbg("Checking client: %s for xpath: '%s'", mgmt_be_client_id2name(id),
 	      xpath);
 
-	xpaths = config ? be_client_config_xpaths[id]
-			: be_client_oper_xpaths[id];
-	if (xpaths) {
-		for (; *xpaths; xpaths++) {
-			if (mgmt_be_xpath_prefix(*xpaths, xpath)) {
-				__dbg("xpath: %s: matched: %s", *xpaths, xpath);
-				return true;
-			}
-		}
+	clients = mgmt_be_interested_clients(xpath, config);
+	if (IS_IDBIT_SET(clients, id)) {
+		__dbg("client: %s: interested", mgmt_be_client_id2name(id));
+		return true;
 	}
 
 	__dbg("client: %s: not interested", mgmt_be_client_id2name(id));
