@@ -1949,6 +1949,40 @@ void pim_upstream_terminate(struct pim_instance *pim)
 		wheel_delete(pim->upstream_sg_wheel);
 	pim->upstream_sg_wheel = NULL;
 }
+bool pim_sg_is_reevaluate_oil_req(struct pim_instance *pim,
+				  struct pim_upstream *up)
+{
+	struct pim_interface *pim_ifp = NULL;
+
+	/*
+	 * Attempt to retrieve the PIM interface information if the RPF
+	 * interface is present
+	 */
+	if (up->rpf.source_nexthop.interface) {
+		pim_ifp = up->rpf.source_nexthop.interface->info;
+	} else {
+		if (PIM_DEBUG_PIM_TRACE) {
+			zlog_debug("%s: up %s RPF is not present", __func__,
+				   up->sg_str);
+		}
+	}
+
+	/*
+	 * Determine if a reevaluation of the outgoing interface list (OIL) is
+	 * required. This may be necessary in scenarios such as MSDP where the
+	 * RP role for a group changes from secondary to primary. In such cases,
+	 * SGRpt may receive a prune, resulting in an S,G entry with a NULL OIL.
+	 * The S,G upstream should then inherit the OIL from *,G, which is
+	 * particularly important for VXLAN setups.
+	 */
+	if (up->channel_oil->oil_inherited_rescan ||
+	    (pim_ifp && I_am_RP(pim_ifp->pim, up->sg.grp)) ||
+	    pim_upstream_empty_inherited_olist(up)) {
+		return true;
+	}
+
+	return false;
+}
 
 bool pim_upstream_equal(const void *arg1, const void *arg2)
 {
@@ -2082,7 +2116,7 @@ static void pim_upstream_sg_running(void *arg)
 	 * only doing this at this point in time
 	 * to get us up and working for the moment
 	 */
-	if (up->channel_oil->oil_inherited_rescan) {
+	if (pim_sg_is_reevaluate_oil_req(pim, up)) {
 		if (PIM_DEBUG_TRACE)
 			zlog_debug(
 				"%s: Handling unscanned inherited_olist for %s[%s]",
