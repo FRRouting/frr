@@ -117,6 +117,9 @@ struct ecommunity {
 	 */
 	uint8_t unit_size;
 
+	/* Disable IEEE floating-point encoding for extended community */
+	bool disable_ieee_floating;
+
 	/* Size of Extended Communities attribute.  */
 	uint32_t size;
 
@@ -125,9 +128,6 @@ struct ecommunity {
 
 	/* Human readable format string.  */
 	char *str;
-
-	/* Disable IEEE floating-point encoding for extended community */
-	bool disable_ieee_floating;
 };
 
 struct ecommunity_as {
