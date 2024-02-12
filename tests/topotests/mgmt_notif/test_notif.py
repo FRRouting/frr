@@ -92,7 +92,7 @@ def test_backend_notification(tgen):
         pytest.skip("No mgmtd_testc")
 
     output = r1.cmd_raises(
-        be_client_path + " --timeout 20 --log file:mgmt_testc.log --listen frr-ripd"
+        be_client_path + " --timeout 20 --log file:mgmt_testc.log --listen /frr-ripd"
     )
 
     jsout = json.loads(output)

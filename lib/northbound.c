@@ -284,6 +284,8 @@ static unsigned int nb_node_validate_cbs(const struct nb_node *nb_node)
 				     !!nb_node->cbs.lookup_entry, false);
 	error += nb_node_validate_cb(nb_node, NB_CB_RPC, !!nb_node->cbs.rpc,
 				     false);
+	error += nb_node_validate_cb(nb_node, NB_CB_NOTIFY,
+				     !!nb_node->cbs.notify, true);
 
 	return error;
 }
@@ -1605,6 +1607,18 @@ int nb_callback_rpc(const struct nb_node *nb_node, const char *xpath,
 	return nb_node->cbs.rpc(&args);
 }
 
+void nb_callback_notify(const struct nb_node *nb_node, const char *xpath,
+			struct lyd_node *dnode)
+{
+	struct nb_cb_notify_args args = {};
+
+	DEBUGD(&nb_dbg_cbs_notify, "northbound notify: %s", xpath);
+
+	args.xpath = xpath;
+	args.dnode = dnode;
+	nb_node->cbs.notify(&args);
+}
+
 /*
  * Call the northbound configuration callback associated to a given
  * configuration change.
@@ -1653,6 +1667,7 @@ static int nb_callback_configuration(struct nb_context *context,
 	case NB_CB_GET_KEYS:
 	case NB_CB_LOOKUP_ENTRY:
 	case NB_CB_RPC:
+	case NB_CB_NOTIFY:
 		yang_dnode_get_path(dnode, xpath, sizeof(xpath));
 		flog_err(EC_LIB_DEVELOPMENT,
 			 "%s: unknown operation (%u) [xpath %s]", __func__,
@@ -2047,6 +2062,10 @@ bool nb_cb_operation_is_valid(enum nb_cb_operation operation,
 			return false;
 		}
 		return true;
+	case NB_CB_NOTIFY:
+		if (snode->nodetype != LYS_NOTIF)
+			return false;
+		return true;
 	default:
 		return false;
 	}
@@ -2279,6 +2298,8 @@ const char *nb_cb_operation_name(enum nb_cb_operation operation)
 		return "lookup_entry";
 	case NB_CB_RPC:
 		return "rpc";
+	case NB_CB_NOTIFY:
+		return "notify";
 	}
 
 	assert(!"Reached end of function we should never hit");

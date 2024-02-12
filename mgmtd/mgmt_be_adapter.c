@@ -592,14 +592,22 @@ static void mgmt_be_adapter_send_notify(struct mgmt_msg_notify_data *msg,
 {
 	struct mgmt_be_client_adapter *adapter;
 	struct mgmt_be_xpath_map *map;
-	const char *notif;
+	char notif[XPATH_MAXLEN];
+	struct lyd_node *dnode;
+	LY_ERR err;
 	uint id;
 
 	if (!darr_len(be_notif_xpath_map))
 		return;
 
-	/* "{\"modname:notification-name\": ...}" */
-	notif = (const char *)msg->result + 2;
+	err = yang_parse_notification(msg->result_type, (char *)msg->result,
+				      &dnode);
+	if (err)
+		return;
+
+	lysc_path(dnode->schema, LYSC_PATH_DATA, notif, sizeof(notif));
+
+	lyd_free_all(dnode);
 
 	darr_foreach_p (be_notif_xpath_map, map) {
 		if (strncmp(map->xpath_prefix, notif, strlen(map->xpath_prefix)))

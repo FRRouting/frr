@@ -25,6 +25,7 @@
 struct debug nb_dbg_cbs_config = {0, "Northbound callbacks: configuration"};
 struct debug nb_dbg_cbs_state = {0, "Northbound callbacks: state"};
 struct debug nb_dbg_cbs_rpc = {0, "Northbound callbacks: RPCs"};
+struct debug nb_dbg_cbs_notify = {0, "Northbound callbacks: notifications"};
 struct debug nb_dbg_notif = {0, "Northbound notifications"};
 struct debug nb_dbg_events = {0, "Northbound events"};
 struct debug nb_dbg_libyang = {0, "libyang debugging"};
@@ -1772,13 +1773,15 @@ DEFPY (rollback_config,
 /* Debug CLI commands. */
 static struct debug *nb_debugs[] = {
 	&nb_dbg_cbs_config, &nb_dbg_cbs_state, &nb_dbg_cbs_rpc,
-	&nb_dbg_notif,      &nb_dbg_events,    &nb_dbg_libyang,
+	&nb_dbg_cbs_notify, &nb_dbg_notif,     &nb_dbg_events,
+	&nb_dbg_libyang,
 };
 
 static const char *const nb_debugs_conflines[] = {
 	"debug northbound callbacks configuration",
 	"debug northbound callbacks state",
 	"debug northbound callbacks rpc",
+	"debug northbound callbacks notify",
 	"debug northbound notifications",
 	"debug northbound events",
 	"debug northbound libyang",
@@ -1803,7 +1806,7 @@ DEFPY (debug_nb,
        debug_nb_cmd,
        "[no] debug northbound\
           [<\
-	    callbacks$cbs [{configuration$cbs_cfg|state$cbs_state|rpc$cbs_rpc}]\
+	    callbacks$cbs [{configuration$cbs_cfg|state$cbs_state|rpc$cbs_rpc|notify$cbs_notify}]\
 	    |notifications$notifications\
 	    |events$events\
 	    |libyang$libyang\
@@ -1816,13 +1819,14 @@ DEFPY (debug_nb,
        "State\n"
        "RPC\n"
        "Notifications\n"
+       "Notifications\n"
        "Events\n"
        "libyang debugging\n")
 {
 	uint32_t mode = DEBUG_NODE2MODE(vty->node);
 
 	if (cbs) {
-		bool none = (!cbs_cfg && !cbs_state && !cbs_rpc);
+		bool none = (!cbs_cfg && !cbs_state && !cbs_rpc && !cbs_notify);
 
 		if (none || cbs_cfg)
 			DEBUG_MODE_SET(&nb_dbg_cbs_config, mode, !no);
@@ -1830,6 +1834,8 @@ DEFPY (debug_nb,
 			DEBUG_MODE_SET(&nb_dbg_cbs_state, mode, !no);
 		if (none || cbs_rpc)
 			DEBUG_MODE_SET(&nb_dbg_cbs_rpc, mode, !no);
+		if (none || cbs_notify)
+			DEBUG_MODE_SET(&nb_dbg_cbs_notify, mode, !no);
 	}
 	if (notifications)
 		DEBUG_MODE_SET(&nb_dbg_notif, mode, !no);
