@@ -10,7 +10,10 @@ Installation and Setup
 
 Topotests run under python3.
 
-Tested with Ubuntu 20.04,Ubuntu 18.04, and Debian 11.
+Tested with Ubuntu 22.04,Ubuntu 20.04, and Debian 12.
+
+Python protobuf version < 4 is required b/c python protobuf >= 4 requires a
+protoc >= 3.19, and older package versions are shipped by in the above distros.
 
 Instructions are the same for all setups. However, ExaBGP is only used for
 BGP tests.
@@ -33,16 +36,16 @@ Installing Topotest Requirements
        tshark \
        valgrind
    python3 -m pip install wheel
-   python3 -m pip install protobuf
-   python3 -m pip install 'pytest>=6.2.4'
-   python3 -m pip install 'pytest-xdist>=2.3.0'
+   python3 -m pip install 'protobuf<4'
+   python3 -m pip install 'pytest>=6.2.4' 'pytest-xdist>=2.3.0'
    python3 -m pip install 'scapy>=2.4.5'
    python3 -m pip install xmltodict
    python3 -m pip install git+https://github.com/Exa-Networks/exabgp@0659057837cd6c6351579e9f0fa47e9fb7de7311
    useradd -d /var/run/exabgp/ -s /bin/false exabgp
 
    # To enable the gRPC topotest install:
-   python3 -m pip install grpcio grpcio-tools
+   # It's important to include 'protobuf<4' here to avoid incompatible grpcio-tools versions.
+   python3 -m pip install 'protobuf<4' grpcio grpcio-tools
 
 
 Enable Coredumps
