@@ -74,12 +74,10 @@ RUN apt update && apt upgrade -y && \
     wget https://raw.githubusercontent.com/FRRouting/frr-mibs/main/ietf/SNMPv2-PDU -O /usr/share/snmp/mibs/ietf/SNMPv2-PDU && \
     wget https://raw.githubusercontent.com/FRRouting/frr-mibs/main/ietf/IPATM-IPMC-MIB -O /usr/share/snmp/mibs/ietf/IPATM-IPMC-MIB && \
     python3 -m pip install wheel && \
-    python3 -m pip install pytest && \
-    python3 -m pip install pytest-sugar && \
-    python3 -m pip install pytest-xdist && \
-    python3 -m pip install "scapy>=2.4.2" && \
+    python3 -m pip install 'protobuf<4' grpcio grpcio-tools && \
+    python3 -m pip install 'pytest>=6.2.4' 'pytest-xdist>=2.3.0' && \
+    python3 -m pip install 'scapy>=2.4.5' && \
     python3 -m pip install xmltodict && \
-    python3 -m pip install grpcio grpcio-tools && \
     python3 -m pip install git+https://github.com/Exa-Networks/exabgp@0659057837cd6c6351579e9f0fa47e9fb7de7311
 
 RUN groupadd -r -g 92 frr && \
