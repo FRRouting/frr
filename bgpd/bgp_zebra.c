@@ -1511,6 +1511,7 @@ void bgp_zebra_announce(struct bgp_dest *dest, const struct prefix *p,
 			struct bgp_path_info *info, struct bgp *bgp, afi_t afi,
 			safi_t safi)
 {
+	struct bgp_path_info *bpi_ultimate;
 	struct zapi_route api = { 0 };
 	unsigned int valid_nh_count = 0;
 	bool allow_recursion = false;
@@ -1554,15 +1555,9 @@ void bgp_zebra_announce(struct bgp_dest *dest, const struct prefix *p,
 
 	peer = info->peer;
 
-	if (info->type == ZEBRA_ROUTE_BGP
-	    && info->sub_type == BGP_ROUTE_IMPORTED) {
-
-		/* Obtain peer from parent */
-		if (info->extra && info->extra->vrfleak &&
-		    info->extra->vrfleak->parent)
-			peer = ((struct bgp_path_info *)(info->extra->vrfleak
-								 ->parent))
-				       ->peer;
+	if (info->type == ZEBRA_ROUTE_BGP) {
+		bpi_ultimate = bgp_get_imported_bpi_ultimate(info);
+		peer = bpi_ultimate->peer;
 	}
 
 	tag = info->attr->tag;
