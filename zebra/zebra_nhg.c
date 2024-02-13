@@ -2398,10 +2398,13 @@ static int nexthop_active(struct nexthop *nexthop, struct nhg_hash_entry *nhe,
 							    nexthop->ifindex);
 
 			newhop = match->nhe->nhg.nexthop;
-			if (nexthop->type == NEXTHOP_TYPE_IPV4 ||
-			    nexthop->type == NEXTHOP_TYPE_IPV6)
+			if (nexthop->type == NEXTHOP_TYPE_IPV4) {
 				nexthop->ifindex = newhop->ifindex;
-			else if (nexthop->ifindex != newhop->ifindex) {
+				nexthop->type = NEXTHOP_TYPE_IPV4_IFINDEX;
+			} else if (nexthop->type == NEXTHOP_TYPE_IPV6) {
+				nexthop->ifindex = newhop->ifindex;
+				nexthop->type = NEXTHOP_TYPE_IPV6_IFINDEX;
+			} else if (nexthop->ifindex != newhop->ifindex) {
 				if (IS_ZEBRA_DEBUG_RIB_DETAILED)
 					zlog_debug(
 						"%s: %pNHv given ifindex does not match nexthops ifindex found: %pNHv",
