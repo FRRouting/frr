@@ -277,7 +277,9 @@ def _test_add_data(tgen, apibin):
                             "linkStateId": "230.0.0.2",
                             "advertisingRouter": "1.0.0.0",
                             "lsaSeqNumber": "80000001",
-                            "opaqueData": "00000202",
+                            "opaqueValues": {
+                              "opaqueData": "00000202"
+                            }
                         },
                     ],
                 }
@@ -327,7 +329,9 @@ def _test_add_data(tgen, apibin):
                             "linkStateId": "231.0.0.1",
                             "advertisingRouter": "1.0.0.0",
                             "lsaSeqNumber": "80000001",
-                            "opaqueData": "00010101",
+                            "opaqueValues": {
+                              "opaqueData": "00010101",
+                            }
                         },
                     ],
                 }
@@ -376,7 +380,9 @@ def _test_add_data(tgen, apibin):
                     "linkStateId": "232.0.0.3",
                     "advertisingRouter": "1.0.0.0",
                     "lsaSeqNumber": "80000001",
-                    "opaqueData": "deadbeaf01234567",
+                    "opaqueValues": {
+                      "opaqueData": "deadbeaf01234567",
+                    }
                 },
             ]
         }
@@ -427,7 +433,9 @@ def _test_add_data(tgen, apibin):
                     "linkStateId": "232.0.0.3",
                     "advertisingRouter": "1.0.0.0",
                     "lsaSeqNumber": "80000002",
-                    "opaqueData": "ebadf00d",
+                    "opaqueValues": {
+                      "opaqueData": "ebadf00d",
+                    }
                 },
             ]
         }
@@ -574,7 +582,7 @@ def _test_opaque_add_del(tgen, apibin):
                                 "lsaSeqNumber": "80000001",
                                 "checksum": "76bf",
                                 "length": 20,
-                                "opaqueDataLength": 0,
+                                "opaqueLength": 0,
                             },
                             {
                                 "linkStateId": "230.0.0.2",
@@ -583,7 +591,7 @@ def _test_opaque_add_del(tgen, apibin):
                                 "checksum": "8aa2",
                                 "length": 24,
                                 "opaqueId": 2,
-                                "opaqueDataLength": 4,
+                                "opaqueLength": 4,
                             },
                         ]
                     }
@@ -599,7 +607,7 @@ def _test_opaque_add_del(tgen, apibin):
                                 "lsaSeqNumber": "80000001",
                                 "checksum": "5bd8",
                                 "length": 20,
-                                "opaqueDataLength": 0,
+                                "opaqueLength": 0,
                             },
                             {
                                 "linkStateId": "231.0.0.2",
@@ -607,7 +615,7 @@ def _test_opaque_add_del(tgen, apibin):
                                 "lsaSeqNumber": "80000001",
                                 "checksum": "7690",
                                 "length": 28,
-                                "opaqueDataLength": 8,
+                                "opaqueLength": 8,
                             },
                         ],
                     },
@@ -621,7 +629,7 @@ def _test_opaque_add_del(tgen, apibin):
                         "lsaSeqNumber": "80000001",
                         "checksum": "5ed5",
                         "length": 20,
-                        "opaqueDataLength": 0,
+                        "opaqueLength": 0,
                     },
                     {
                         "linkStateId": "232.0.0.2",
@@ -629,7 +637,7 @@ def _test_opaque_add_del(tgen, apibin):
                         "lsaSeqNumber": "80000001",
                         "checksum": "d9bd",
                         "length": 24,
-                        "opaqueDataLength": 4,
+                        "opaqueLength": 4,
                     },
                 ],
             },
@@ -734,7 +742,7 @@ def _test_opaque_add_del(tgen, apibin):
                                 "lsaSeqNumber": "80000001",
                                 "checksum": "76bf",
                                 "length": 20,
-                                "opaqueDataLength": 0,
+                                "opaqueLength": 0,
                             },
                             {
                                 "linkStateId": "230.0.0.2",
@@ -744,7 +752,7 @@ def _test_opaque_add_del(tgen, apibin):
                                 "checksum": "8aa2",
                                 "length": 24,
                                 "opaqueId": 2,
-                                "opaqueDataLength": 4,
+                                "opaqueLength": 4,
                             },
                         ]
                     }
@@ -760,7 +768,7 @@ def _test_opaque_add_del(tgen, apibin):
                                 "lsaSeqNumber": "80000001",
                                 "checksum": "5bd8",
                                 "length": 20,
-                                "opaqueDataLength": 0,
+                                "opaqueLength": 0,
                             },
                             {
                                 "lsaAge": 3600,
@@ -770,7 +778,7 @@ def _test_opaque_add_del(tgen, apibin):
                                 "checksum": "4fe2",
                                 # data removed
                                 "length": 20,
-                                "opaqueDataLength": 0,
+                                "opaqueLength": 0,
                             },
                         ],
                     },
@@ -785,7 +793,7 @@ def _test_opaque_add_del(tgen, apibin):
                         "lsaSeqNumber": "80000001",
                         "checksum": "5ed5",
                         "length": 20,
-                        "opaqueDataLength": 0,
+                        "opaqueLength": 0,
                     },
                     {
                         "linkStateId": "232.0.0.2",
@@ -793,7 +801,7 @@ def _test_opaque_add_del(tgen, apibin):
                         "lsaSeqNumber": "80000001",
                         "checksum": "d9bd",
                         "length": 24,
-                        "opaqueDataLength": 4,
+                        "opaqueLength": 4,
                     },
                 ],
             },
@@ -827,7 +835,7 @@ def _test_opaque_add_del(tgen, apibin):
                                 "lsaSeqNumber": "80000001",
                                 "checksum": "76bf",
                                 "length": 20,
-                                "opaqueDataLength": 0,
+                                "opaqueLength": 0,
                             },
                             {
                                 "linkStateId": "230.0.0.2",
@@ -837,7 +845,7 @@ def _test_opaque_add_del(tgen, apibin):
                                 "checksum": "8aa2",
                                 "length": 24,
                                 "opaqueId": 2,
-                                "opaqueDataLength": 4,
+                                "opaqueLength": 4,
                             },
                         ]
                     }
@@ -854,7 +862,7 @@ def _test_opaque_add_del(tgen, apibin):
                                 "lsaSeqNumber": "80000001",
                                 "checksum": "5bd8",
                                 "length": 20,
-                                "opaqueDataLength": 0,
+                                "opaqueLength": 0,
                             },
                             {
                                 "lsaAge": 3600,
@@ -864,7 +872,7 @@ def _test_opaque_add_del(tgen, apibin):
                                 "checksum": "4fe2",
                                 # data removed
                                 "length": 20,
-                                "opaqueDataLength": 0,
+                                "opaqueLength": 0,
                             },
                         ],
                     },
@@ -879,7 +887,7 @@ def _test_opaque_add_del(tgen, apibin):
                         "lsaSeqNumber": "80000001",
                         "checksum": "5ed5",
                         "length": 20,
-                        "opaqueDataLength": 0,
+                        "opaqueLength": 0,
                     },
                     {
                         "linkStateId": "232.0.0.2",
@@ -888,7 +896,7 @@ def _test_opaque_add_del(tgen, apibin):
                         "lsaSeqNumber": "80000001",
                         "checksum": "d9bd",
                         "length": 24,
-                        "opaqueDataLength": 4,
+                        "opaqueLength": 4,
                     },
                 ],
             },
@@ -1044,7 +1052,7 @@ def _test_opaque_add_restart_add(tgen, apibin):
                             "lsaSeqNumber": "80000001",
                             "checksum": "b07a",
                             "length": 28,
-                            "opaqueDataLength": 8,
+                            "opaqueLength": 8,
                         },
                     ],
                 },
@@ -1100,7 +1108,7 @@ def _test_opaque_add_restart_add(tgen, apibin):
                             "lsaSeqNumber": "80000003",
                             "checksum": "cb27",
                             "length": 28,
-                            "opaqueDataLength": 8,
+                            "opaqueLength": 8,
                         },
                     ],
                 },
@@ -1655,7 +1663,9 @@ def _test_opaque_link_local_lsa_crash(tgen, apibin):
                             "linkStateId": "230.0.0.1",
                             "advertisingRouter": "1.0.0.0",
                             "lsaSeqNumber": "80000001",
-                            "opaqueData": "feedaceedeadbeef",
+                            "opaqueValues": {
+                              "opaqueData": "feedaceedeadbeef",
+                            }
                         },
                     ],
                 }
@@ -1684,7 +1694,9 @@ def _test_opaque_link_local_lsa_crash(tgen, apibin):
                             "linkStateId": "230.0.0.1",
                             "advertisingRouter": "1.0.0.0",
                             "lsaSeqNumber": "80000001",
-                            "opaqueData": "feedaceecafebeef",
+                            "opaqueValues": {
+                              "opaqueData": "feedaceecafebeef",
+                            }
                         },
                     ],
                 }

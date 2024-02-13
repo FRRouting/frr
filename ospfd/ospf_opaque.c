@@ -1251,12 +1251,12 @@ void ospf_opaque_config_write_debug(struct vty *vty)
 void show_opaque_info_detail(struct vty *vty, struct ospf_lsa *lsa,
 			     json_object *json)
 {
-	char buf[128], *bp;
 	struct lsa_header *lsah = lsa->data;
 	uint32_t lsid = ntohl(lsah->id.s_addr);
 	uint8_t opaque_type = GET_OPAQUE_TYPE(lsid);
 	uint32_t opaque_id = GET_OPAQUE_ID(lsid);
 	struct ospf_opaque_functab *functab;
+	json_object *jopaque = NULL;
 	int len, lenValid;
 
 	/* Switch output functionality by vty address. */
@@ -1277,17 +1277,14 @@ void show_opaque_info_detail(struct vty *vty, struct ospf_lsa *lsa,
 				ospf_opaque_type_name(opaque_type));
 			json_object_int_add(json, "opaqueId", opaque_id);
 			len = ntohs(lsah->length) - OSPF_LSA_HEADER_SIZE;
-			json_object_int_add(json, "opaqueDataLength", len);
+			json_object_int_add(json, "opaqueLength", len);
 			lenValid = VALID_OPAQUE_INFO_LEN(lsah);
-			json_object_boolean_add(json, "opaqueDataLengthValid",
+			json_object_boolean_add(json, "opaqueLengthValid",
 						lenValid);
 			if (lenValid) {
-				bp = asnprintfrr(MTYPE_TMP, buf, sizeof(buf),
-						 "%*pHXn", (int)len,
-						 (lsah + 1));
-				json_object_string_add(json, "opaqueData", buf);
-				if (bp != buf)
-					XFREE(MTYPE_TMP, bp);
+				jopaque = json_object_new_object();
+				json_object_object_add(json, "opaqueValues",
+						       jopaque);
 			}
 		}
 	} else {
@@ -1304,7 +1301,7 @@ void show_opaque_info_detail(struct vty *vty, struct ospf_lsa *lsa,
 	/* Call individual output functions. */
 	if ((functab = ospf_opaque_functab_lookup(lsa)) != NULL)
 		if (functab->show_opaque_info != NULL)
-			(*functab->show_opaque_info)(vty, json, lsa);
+			(*functab->show_opaque_info)(vty, jopaque, lsa);
 
 	return;
 }
