@@ -75,6 +75,11 @@ message AddRoute {
   required int32 metric = 8;
 
   repeated Nexthop nexthops = 9;
+
+  /* Source Address of outer encapsulating IPv6 header */
+  optional qpb.Ipv6Address srv6_encap_source_address = 10;
+  /* SRv6 SID for VPN use cases */
+  optional qpb.Ipv6Address srv6_vpn_sid = 11;
 }
 
 /* SID Format - as per RFC 8986 section #3.1 */
