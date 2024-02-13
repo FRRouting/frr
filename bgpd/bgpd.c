@@ -1513,12 +1513,16 @@ struct peer *peer_new(struct bgp *bgp)
 		SET_FLAG(peer->af_flags[afi][safi],
 			 PEER_FLAG_SEND_EXT_COMMUNITY);
 		SET_FLAG(peer->af_flags[afi][safi],
+			 PEER_FLAG_SEND_EXT_COMMUNITY_RPKI);
+		SET_FLAG(peer->af_flags[afi][safi],
 			 PEER_FLAG_SEND_LARGE_COMMUNITY);
 
 		SET_FLAG(peer->af_flags_invert[afi][safi],
 			 PEER_FLAG_SEND_COMMUNITY);
 		SET_FLAG(peer->af_flags_invert[afi][safi],
 			 PEER_FLAG_SEND_EXT_COMMUNITY);
+		SET_FLAG(peer->af_flags_invert[afi][safi],
+			 PEER_FLAG_SEND_EXT_COMMUNITY_RPKI);
 		SET_FLAG(peer->af_flags_invert[afi][safi],
 			 PEER_FLAG_SEND_LARGE_COMMUNITY);
 		peer->addpath_type[afi][safi] = BGP_ADDPATH_NONE;
@@ -4609,6 +4613,7 @@ static const struct peer_flag_action peer_af_flag_action_list[] = {
 	{PEER_FLAG_DISABLE_ADDPATH_RX, 0, peer_change_none},
 	{PEER_FLAG_SOO, 0, peer_change_reset},
 	{PEER_FLAG_ACCEPT_OWN, 0, peer_change_reset},
+	{PEER_FLAG_SEND_EXT_COMMUNITY_RPKI, 1, peer_change_reset_out},
 	{0, 0, 0}};
 
 /* Proper action set. */

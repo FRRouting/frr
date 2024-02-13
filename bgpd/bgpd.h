@@ -1527,6 +1527,7 @@ struct peer {
 #define PEER_FLAG_MAX_PREFIX_FORCE (1ULL << 26)
 #define PEER_FLAG_DISABLE_ADDPATH_RX (1ULL << 27)
 #define PEER_FLAG_SOO (1ULL << 28)
+#define PEER_FLAG_SEND_EXT_COMMUNITY_RPKI (1ULL << 29)
 #define PEER_FLAG_ACCEPT_OWN (1ULL << 63)
 
 	enum bgp_addpath_strat addpath_type[AFI_MAX][SAFI_MAX];
