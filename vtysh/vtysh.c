@@ -4208,71 +4208,6 @@ DEFUN (vtysh_traceroute6,
 	return CMD_SUCCESS;
 }
 
-#if CONFDATE > 20240201
-CPP_NOTICE("Remove HAVE_SHELL_ACCESS and it's documentation");
-#endif
-#if defined(HAVE_SHELL_ACCESS)
-DEFUN (vtysh_telnet,
-       vtysh_telnet_cmd,
-       "telnet WORD",
-       "Open a telnet connection\n"
-       "IP address or hostname of a remote system\n")
-{
-	execute_command("telnet", 1, argv[1]->arg, NULL);
-	return CMD_SUCCESS;
-}
-
-DEFUN (vtysh_telnet_port,
-       vtysh_telnet_port_cmd,
-       "telnet WORD PORT",
-       "Open a telnet connection\n"
-       "IP address or hostname of a remote system\n"
-       "TCP Port number\n")
-{
-	execute_command("telnet", 2, argv[1]->arg, argv[2]->arg);
-	return CMD_SUCCESS;
-}
-
-DEFUN (vtysh_ssh,
-       vtysh_ssh_cmd,
-       "ssh WORD",
-       "Open an ssh connection\n"
-       "[user@]host\n")
-{
-	execute_command("ssh", 1, argv[1]->arg, NULL);
-	return CMD_SUCCESS;
-}
-
-DEFUN (vtysh_start_shell,
-       vtysh_start_shell_cmd,
-       "start-shell",
-       "Start UNIX shell\n")
-{
-	execute_command("sh", 0, NULL, NULL);
-	return CMD_SUCCESS;
-}
-
-DEFUN (vtysh_start_bash,
-       vtysh_start_bash_cmd,
-       "start-shell bash",
-       "Start UNIX shell\n"
-       "Start bash\n")
-{
-	execute_command("bash", 0, NULL, NULL);
-	return CMD_SUCCESS;
-}
-
-DEFUN (vtysh_start_zsh,
-       vtysh_start_zsh_cmd,
-       "start-shell zsh",
-       "Start UNIX shell\n"
-       "Start Z shell\n")
-{
-	execute_command("zsh", 0, NULL, NULL);
-	return CMD_SUCCESS;
-}
-#endif
-
 DEFUN (config_list,
        config_list_cmd,
        "list [permutations]",
@@ -5167,16 +5102,6 @@ void vtysh_init_vty(void)
 	install_element(VIEW_NODE, &vtysh_mtrace_cmd);
 	install_element(VIEW_NODE, &vtysh_ping6_cmd);
 	install_element(VIEW_NODE, &vtysh_traceroute6_cmd);
-#if defined(HAVE_SHELL_ACCESS)
-	install_element(VIEW_NODE, &vtysh_telnet_cmd);
-	install_element(VIEW_NODE, &vtysh_telnet_port_cmd);
-	install_element(VIEW_NODE, &vtysh_ssh_cmd);
-#endif
-#if defined(HAVE_SHELL_ACCESS)
-	install_element(ENABLE_NODE, &vtysh_start_shell_cmd);
-	install_element(ENABLE_NODE, &vtysh_start_bash_cmd);
-	install_element(ENABLE_NODE, &vtysh_start_zsh_cmd);
-#endif
 
 	/* debugging */
 	install_element(VIEW_NODE, &vtysh_show_error_code_cmd);

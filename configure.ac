@@ -784,8 +784,6 @@ AC_ARG_ENABLE([configfile_mask],
   AS_HELP_STRING([--enable-configfile-mask=ARG], [set mask for config files]))
 AC_ARG_ENABLE([logfile_mask],
   AS_HELP_STRING([--enable-logfile-mask=ARG], [set mask for log files]))
-AC_ARG_ENABLE([shell_access],
-  AS_HELP_STRING([--enable-shell-access], [Allow users to access shell/telnet/ssh]))
 AC_ARG_ENABLE([realms],
   AS_HELP_STRING([--enable-realms], [enable REALMS support under Linux]))
 AC_ARG_ENABLE([rtadv],
@@ -896,10 +894,6 @@ fi
 
 AC_SUBST([DFLT_NAME])
 AC_DEFINE_UNQUOTED([DFLT_NAME], ["$DFLT_NAME"], [Name of the configuration default set])
-
-if test "$enable_shell_access" = "yes"; then
-   AC_DEFINE([HAVE_SHELL_ACCESS], [1], [Allow user to use ssh/telnet/bash, be aware this is considered insecure])
-fi
 
 #
 # Python for clippy
