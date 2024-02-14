@@ -85,7 +85,7 @@ struct nhg_hash_entry {
 	 * nhg(1)->nhg_dependents is 3 in the tree
 	 *
 	 * nhg(2)->nhg_depends is empty
-	 * nhg(3)->nhg_dependents is 3 in the tree
+	 * nhg(2)->nhg_dependents is 3 in the tree
 	 */
 	struct nhg_connected_tree_head nhg_depends, nhg_dependents;
 
@@ -144,6 +144,14 @@ struct nhg_hash_entry {
  * Track FPM installation status..
  */
 #define NEXTHOP_GROUP_FPM (1 << 7)
+
+/*
+ * When an interface comes up install the
+ * singleton's and schedule the NHG's that
+ * are using this nhg to be reinstalled
+ * when installation is successful.
+ */
+#define NEXTHOP_GROUP_REINSTALL (1 << 8)
 };
 
 /* Upper 4 bits of the NHG are reserved for indicating the NHG type */

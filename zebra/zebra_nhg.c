@@ -309,8 +309,10 @@ static int zebra_nhg_insert_id(struct nhg_hash_entry *nhe)
 
 static void zebra_nhg_set_if(struct nhg_hash_entry *nhe, struct interface *ifp)
 {
+	struct zebra_if *zif = (struct zebra_if *)ifp->info;
+
 	nhe->ifp = ifp;
-	if_nhg_dependents_add(ifp, nhe);
+	nhg_connected_tree_add_nhe(&zif->nhg_dependents, nhe);
 }
 
 static void
@@ -1031,31 +1033,25 @@ static struct nhg_ctx *nhg_ctx_init(uint32_t id, struct nexthop *nh,
 	return ctx;
 }
 
-static void zebra_nhg_set_valid(struct nhg_hash_entry *nhe)
+static void zebra_nhg_set_valid(struct nhg_hash_entry *nhe, bool valid)
 {
 	struct nhg_connected *rb_node_dep;
 
-	SET_FLAG(nhe->flags, NEXTHOP_GROUP_VALID);
+	if (valid)
+		SET_FLAG(nhe->flags, NEXTHOP_GROUP_VALID);
+	else {
+		UNSET_FLAG(nhe->flags, NEXTHOP_GROUP_VALID);
 
-	frr_each(nhg_connected_tree, &nhe->nhg_dependents, rb_node_dep)
-		zebra_nhg_set_valid(rb_node_dep->nhe);
-}
-
-static void zebra_nhg_set_invalid(struct nhg_hash_entry *nhe)
-{
-	struct nhg_connected *rb_node_dep;
-
-	UNSET_FLAG(nhe->flags, NEXTHOP_GROUP_VALID);
-
-	/* If we're in shutdown, this interface event needs to clean
-	 * up installed NHGs, so don't clear that flag directly.
-	 */
-	if (!zebra_router_in_shutdown())
-		UNSET_FLAG(nhe->flags, NEXTHOP_GROUP_INSTALLED);
+		/* If we're in shutdown, this interface event needs to clean
+		 * up installed NHGs, so don't clear that flag directly.
+		 */
+		if (!zebra_router_in_shutdown())
+			UNSET_FLAG(nhe->flags, NEXTHOP_GROUP_INSTALLED);
+	}
 
 	/* Update validity of nexthops depending on it */
 	frr_each(nhg_connected_tree, &nhe->nhg_dependents, rb_node_dep)
-		zebra_nhg_check_valid(rb_node_dep->nhe);
+		zebra_nhg_set_valid(rb_node_dep->nhe, valid);
 }
 
 void zebra_nhg_check_valid(struct nhg_hash_entry *nhe)
@@ -1071,10 +1067,7 @@ void zebra_nhg_check_valid(struct nhg_hash_entry *nhe)
 		}
 	}
 
-	if (valid)
-		zebra_nhg_set_valid(nhe);
-	else
-		zebra_nhg_set_invalid(nhe);
+	zebra_nhg_set_valid(nhe, valid);
 }
 
 static void zebra_nhg_release_all_deps(struct nhg_hash_entry *nhe)
@@ -1082,8 +1075,11 @@ static void zebra_nhg_release_all_deps(struct nhg_hash_entry *nhe)
 	/* Remove it from any lists it may be on */
 	zebra_nhg_depends_release(nhe);
 	zebra_nhg_dependents_release(nhe);
-	if (nhe->ifp)
-		if_nhg_dependents_del(nhe->ifp, nhe);
+	if (nhe->ifp) {
+		struct zebra_if *zif = nhe->ifp->info;
+
+		nhg_connected_tree_del_nhe(&zif->nhg_dependents, nhe);
+	}
 }
 
 static void zebra_nhg_release(struct nhg_hash_entry *nhe)
@@ -1115,7 +1111,7 @@ static void zebra_nhg_handle_install(struct nhg_hash_entry *nhe, bool install)
 	struct nhg_connected *rb_node_dep;
 
 	frr_each_safe (nhg_connected_tree, &nhe->nhg_dependents, rb_node_dep) {
-		zebra_nhg_set_valid(rb_node_dep->nhe);
+		zebra_nhg_set_valid(rb_node_dep->nhe, true);
 		/* install dependent NHG into kernel */
 		if (install) {
 			if (IS_ZEBRA_DEBUG_NHG_DETAIL)
@@ -3094,14 +3090,15 @@ void zebra_nhg_install_kernel(struct nhg_hash_entry *nhe)
 		zebra_nhg_install_kernel(rb_node_dep->nhe);
 	}
 
-	if (CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_VALID)
-	    && !CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_INSTALLED)
-	    && !CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_QUEUED)) {
+	if (CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_VALID) &&
+	    (!CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_INSTALLED) ||
+	     CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_REINSTALL)) &&
+	    !CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_QUEUED)) {
 		/* Change its type to us since we are installing it */
 		if (!ZEBRA_NHG_CREATED(nhe))
 			nhe->type = ZEBRA_ROUTE_NHG;
 
-		int ret = dplane_nexthop_add(nhe);
+		enum zebra_dplane_result ret = dplane_nexthop_add(nhe);
 
 		switch (ret) {
 		case ZEBRA_DPLANE_REQUEST_QUEUED:
@@ -3114,8 +3111,9 @@ void zebra_nhg_install_kernel(struct nhg_hash_entry *nhe)
 				nhe);
 			break;
 		case ZEBRA_DPLANE_REQUEST_SUCCESS:
-			SET_FLAG(nhe->flags, NEXTHOP_GROUP_INSTALLED);
-			zebra_nhg_handle_install(nhe, false);
+			flog_err(EC_ZEBRA_DP_INVALID_RC,
+				 "DPlane returned an invalid result code for attempt of installation of %pNG into the kernel",
+				 nhe);
 			break;
 		}
 	}
@@ -3182,8 +3180,9 @@ void zebra_nhg_dplane_result(struct zebra_dplane_ctx *ctx)
 		}
 
 		UNSET_FLAG(nhe->flags, NEXTHOP_GROUP_QUEUED);
-		if (status == ZEBRA_DPLANE_REQUEST_SUCCESS) {
-			SET_FLAG(nhe->flags, NEXTHOP_GROUP_VALID);
+		UNSET_FLAG(nhe->flags, NEXTHOP_GROUP_REINSTALL);
+		switch (status) {
+		case ZEBRA_DPLANE_REQUEST_SUCCESS:
 			SET_FLAG(nhe->flags, NEXTHOP_GROUP_INSTALLED);
 			zebra_nhg_handle_install(nhe, true);
 
@@ -3192,7 +3191,9 @@ void zebra_nhg_dplane_result(struct zebra_dplane_ctx *ctx)
 				zsend_nhg_notify(nhe->type, nhe->zapi_instance,
 						 nhe->zapi_session, nhe->id,
 						 ZAPI_NHG_INSTALLED);
-		} else {
+			break;
+		case ZEBRA_DPLANE_REQUEST_FAILURE:
+			UNSET_FLAG(nhe->flags, NEXTHOP_GROUP_INSTALLED);
 			/* If daemon nhg, send it an update */
 			if (PROTO_OWNED(nhe))
 				zsend_nhg_notify(nhe->type, nhe->zapi_instance,
@@ -3205,6 +3206,12 @@ void zebra_nhg_dplane_result(struct zebra_dplane_ctx *ctx)
 					EC_ZEBRA_DP_INSTALL_FAIL,
 					"Failed to install Nexthop (%pNG) into the kernel",
 					nhe);
+			break;
+		case ZEBRA_DPLANE_REQUEST_QUEUED:
+			flog_err(EC_ZEBRA_DP_INVALID_RC,
+				 "Dplane returned an invalid result code for a result from the dplane for %pNG into the kernel",
+				 nhe);
+			break;
 		}
 	}
 }
@@ -3681,12 +3688,11 @@ void zebra_interface_nhg_reinstall(struct interface *ifp)
 				       &rb_node_dep->nhe->nhg_dependents,
 				       rb_node_dependent) {
 				if (IS_ZEBRA_DEBUG_NHG)
-					zlog_debug(
-						"%s dependent nhe %pNG unset installed flag",
-						__func__,
-						rb_node_dependent->nhe);
-				UNSET_FLAG(rb_node_dependent->nhe->flags,
-					   NEXTHOP_GROUP_INSTALLED);
+					zlog_debug("%s dependent nhe %pNG Setting Reinstall flag",
+						   __func__,
+						   rb_node_dependent->nhe);
+				SET_FLAG(rb_node_dependent->nhe->flags,
+					 NEXTHOP_GROUP_REINSTALL);
 			}
 		}
 	}

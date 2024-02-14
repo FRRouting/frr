@@ -605,10 +605,6 @@ void zebra_interface_address_add_update(struct interface *ifp,
 						client, ifp, ifc);
 		}
 	}
-	/* interface associated NHGs may have been deleted,
-	 * re-sync zebra -> dplane NHGs
-	 */
-	zebra_interface_nhg_reinstall(ifp);
 }
 
 /* Interface address deletion. */
