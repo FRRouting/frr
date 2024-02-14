@@ -122,6 +122,7 @@ zebra_zebra_SOURCES = \
 
 clippy_scan += \
 	zebra/debug.c \
+	zebra/dplane_fpm_nl.c \
 	zebra/interface.c \
 	zebra/rtadv.c \
 	zebra/zebra_mlag_vty.c \
