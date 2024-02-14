@@ -730,9 +730,9 @@ LY_ERR yang_parse_notification(LYD_FORMAT format, const char *data,
 
 	err = lyd_parse_op(ly_native_ctx, NULL, in, format, LYD_TYPE_NOTIF_YANG,
 			   &tree, NULL);
+	ly_in_free(in, 0);
 	if (err) {
 		zlog_err("Failed to parse notification: %s", ly_last_errmsg());
-		ly_in_free(in, 0);
 		return err;
 	}
 
@@ -751,7 +751,6 @@ LY_ERR yang_parse_notification(LYD_FORMAT format, const char *data,
 	if (!found) {
 		zlog_err("Notification not found in the parsed tree");
 		lyd_free_all(tree);
-		ly_in_free(in, 0);
 		return LY_ENOTFOUND;
 	}
 
