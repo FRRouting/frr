@@ -22,6 +22,7 @@ sys.path.append(os.path.join(CWD, "../"))
 # pylint: disable=C0413
 from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
+from time import sleep
 
 
 pytestmark = [pytest.mark.bgpd]
@@ -134,10 +135,64 @@ conf
         }
     }
 
+    # tgen.mininet_cli()
     test_func = functools.partial(_bgp_regexp_1, tgen.gears["r1"])
     _, result = topotest.run_and_expect(test_func, None, count=30, wait=0.5)
 
     assert result is None, "Failed overriding incoming AS-PATH with regex 2 route-map"
+
+
+def test_no_bgp_set_aspath_exclude_access_list():
+    tgen = get_topogen()
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    rname = "r1"
+    r1 = tgen.gears[rname]
+
+    r1.vtysh_cmd(
+        """
+conf
+ no bgp as-path access-list SECOND permit 2 
+    """
+    )
+
+    expected = {
+        "routes": {
+            "172.16.255.31/32": [{"path": "65003"}],
+            "172.16.255.32/32": [{"path": "65003"}],
+        }
+    }
+
+    def _bgp_regexp_2(router):
+        output = json.loads(router.vtysh_cmd("show bgp ipv4 unicast json"))
+
+        return topotest.json_cmp(output, expected)
+
+    test_func = functools.partial(_bgp_regexp_2, tgen.gears["r1"])
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=0.5)
+
+    assert result is None, "Failed removing bgp as-path access-list"
+
+    r1.vtysh_cmd(
+        """
+clear bgp *
+    """
+    )
+
+    expected = {
+        "routes": {
+            "172.16.255.31/32": [{"path": "65002 65003"}],
+            "172.16.255.32/32": [{"path": "65002 65003"}],
+        }
+    }
+    sleep(10)
+
+    test_func = functools.partial(_bgp_regexp_2, tgen.gears["r1"])
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=0.5)
+
+    assert result is None, "Failed to renegociate with peers"
 
 
 if __name__ == "__main__":
