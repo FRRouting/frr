@@ -24,7 +24,7 @@ sys.path.append(os.path.join(CWD, "../"))
 from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
-
+from lib.checkping import check_ping
 
 pytestmark = [pytest.mark.bgpd]
 
@@ -278,8 +278,7 @@ def test_ping():
     r1 = tgen.gears["r1"]
 
     logger.info("Ping from default to DONNA")
-    output = r1.run("ping -c 4 -w 4 -I 10.0.4.1 10.0.0.1")
-    assert " 0% packet loss" in output, "Ping default->DONNA FAILED"
+    check_ping("r1", "10.0.0.1", True, 10, 0.5, source_addr="10.0.4.1")
 
 
 def test_memory_leak():
