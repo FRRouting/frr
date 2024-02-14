@@ -49,7 +49,6 @@ struct mgmt_set_cfg_req {
 enum mgmt_commit_phase {
 	MGMTD_COMMIT_PHASE_PREPARE_CFG = 0,
 	MGMTD_COMMIT_PHASE_TXN_CREATE,
-	MGMTD_COMMIT_PHASE_SEND_CFG,
 	MGMTD_COMMIT_PHASE_APPLY_CFG,
 	MGMTD_COMMIT_PHASE_TXN_DELETE,
 	MGMTD_COMMIT_PHASE_MAX
@@ -62,8 +61,6 @@ static inline const char *mgmt_commit_phase2str(enum mgmt_commit_phase cmt_phase
 		return "PREP-CFG";
 	case MGMTD_COMMIT_PHASE_TXN_CREATE:
 		return "CREATE-TXN";
-	case MGMTD_COMMIT_PHASE_SEND_CFG:
-		return "SEND-CFG";
 	case MGMTD_COMMIT_PHASE_APPLY_CFG:
 		return "APPLY-CFG";
 	case MGMTD_COMMIT_PHASE_TXN_DELETE:
@@ -1187,13 +1184,10 @@ static int mgmt_txn_send_be_cfg_data(struct mgmt_txn_ctx *txn,
 		cmtcfg_req->cmt_stats->last_num_cfgdata_reqs++;
 	}
 
-	cmtcfg_req->be_phase[adapter->id] = MGMTD_COMMIT_PHASE_SEND_CFG;
-
 	/*
-	 * This could be the last Backend Client to send CFGDATA_CREATE_REQ to.
-	 * Try moving the commit to next phase.
+	 * We don't advance the phase here, instead that is driven by the
+	 * cfg_reply.
 	 */
-	mgmt_try_move_commit_to_next_phase(txn, cmtcfg_req);
 
 	return 0;
 }
@@ -1393,24 +1387,6 @@ static void mgmt_txn_process_commit_cfg(struct event *thread)
 		 * Send TXN_CREATE_REQ to all Backend now.
 		 */
 		mgmt_txn_send_be_txn_create(txn);
-		break;
-	case MGMTD_COMMIT_PHASE_SEND_CFG:
-		if (mm->perf_stats_en)
-			gettimeofday(&cmtcfg_req->cmt_stats->send_cfg_start,
-				     NULL);
-			/*
-			 * All CFGDATA_CREATE_REQ should have been sent to
-			 * Backend by now.
-			 */
-#ifndef MGMTD_LOCAL_VALIDATIONS_ENABLED
-		__dbg("txn-id: %" PRIu64 " session-id: %" PRIu64
-		      " trigger sending CFG_VALIDATE_REQ to all backend clients",
-		      txn->txn_id, txn->session_id);
-#else  /* ifndef MGMTD_LOCAL_VALIDATIONS_ENABLED */
-		__dbg("txn-id: %" PRIu64 " session-id: %" PRIu64
-		      " trigger sending CFG_APPLY_REQ to all backend clients",
-		      txn->txn_id, txn->session_id);
-#endif /* ifndef MGMTD_LOCAL_VALIDATIONS_ENABLED */
 		break;
 	case MGMTD_COMMIT_PHASE_APPLY_CFG:
 		if (mm->perf_stats_en)
