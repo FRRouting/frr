@@ -611,6 +611,7 @@ extern void yang_debugging_set(bool enable);
  * Parse a YANG notification.
  *
  * Args:
+ *	xpath: xpath of notification.
  *	format: LYD_FORMAT of input data.
  *	data: input data.
  *	notif: pointer to the libyang data tree to store the parsed notification.
@@ -618,8 +619,8 @@ extern void yang_debugging_set(bool enable);
  *	       the pointer to the notification node is still returned, but it's
  *	       part of the full data tree with all its parents.
  */
-extern LY_ERR yang_parse_notification(LYD_FORMAT format, const char *data,
-				      struct lyd_node **notif);
+extern LY_ERR yang_parse_notification(const char *xpath, LYD_FORMAT format,
+				      const char *data, struct lyd_node **notif);
 
 /*
  * "Print" the yang tree in `root` into dynamic sized array.
@@ -647,7 +648,7 @@ extern uint8_t *yang_print_tree(const struct lyd_node *root, LYD_FORMAT format,
  * Return:
  *	A darr based string or NULL for error.
  */
-extern char *yang_convert_lyd_format(const uint8_t *data, size_t msg_len,
+extern char *yang_convert_lyd_format(const char *data, size_t msg_len,
 				     LYD_FORMAT in_format,
 				     LYD_FORMAT out_format, bool shrink);
 

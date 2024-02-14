@@ -333,6 +333,8 @@ static int mgmt_be_send_notification(void *__be_client, const char *xpath,
 	msg->code = MGMT_MSG_CODE_NOTIFY;
 	msg->result_type = format;
 
+	mgmt_msg_native_xpath_encode(msg, xpath);
+
 	darrp = mgmt_msg_native_get_darrp(msg);
 	err = yang_print_tree_append(darrp, tree, format,
 				     (LYD_PRINT_SHRINK | LYD_PRINT_WD_EXPLICIT |
@@ -921,27 +923,40 @@ static void be_client_handle_notify(struct mgmt_be_client *client, void *msgbuf,
 {
 	struct mgmt_msg_notify_data *notif_msg = msgbuf;
 	struct nb_node *nb_node;
-	char notif[XPATH_MAXLEN];
 	struct lyd_node *dnode;
+	const char *data;
+	const char *notif;
 	LY_ERR err;
 
 	debug_be_client("Received notification for client %s", client->name);
 
-	err = yang_parse_notification(notif_msg->result_type,
-				      (char *)notif_msg->result, &dnode);
-	if (err)
+	notif = mgmt_msg_native_xpath_data_decode(notif_msg, msg_len, data);
+	if (!notif || !data) {
+		log_err_be_client("Corrupt notify msg");
 		return;
-
-	lysc_path(dnode->schema, LYSC_PATH_DATA, notif, sizeof(notif));
+	}
 
 	nb_node = nb_node_find(notif);
-	if (!nb_node || !nb_node->cbs.notify) {
-		debug_be_client("No notification callback for %s", notif);
-		goto cleanup;
+	if (!nb_node) {
+		log_err_be_client("No schema found for notification: %s", notif);
+		return;
+	}
+
+	if (!nb_node->cbs.notify) {
+		debug_be_client("No notification callback for: %s", notif);
+		return;
+	}
+
+	err = yang_parse_notification(notif, notif_msg->result_type, data,
+				      &dnode);
+	if (err) {
+		log_err_be_client("Can't parse notification data for: %s",
+				  notif);
+		return;
 	}
 
 	nb_callback_notify(nb_node, notif, dnode);
-cleanup:
+
 	lyd_free_all(dnode);
 }
 

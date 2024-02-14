@@ -714,12 +714,12 @@ static void ly_log_cb(LY_LOG_LEVEL level, const char *msg, const char *path)
 		zlog(priority, "libyang: %s", msg);
 }
 
-LY_ERR yang_parse_notification(LYD_FORMAT format, const char *data,
-			       struct lyd_node **notif)
+LY_ERR yang_parse_notification(const char *xpath, LYD_FORMAT format,
+			       const char *data, struct lyd_node **notif)
 {
-	struct lyd_node *tree, *dnode;
+	struct lyd_node *tree;
+	struct ly_set *set = NULL;
 	struct ly_in *in = NULL;
-	bool found = false;
 	LY_ERR err;
 
 	err = ly_in_new_memory(data, &in);
@@ -736,26 +736,20 @@ LY_ERR yang_parse_notification(LYD_FORMAT format, const char *data,
 		return err;
 	}
 
-	/*
-	 * Notification can be a child of some data node, so traverse the tree
-	 * until we find the notification.
-	 */
-	LYD_TREE_DFS_BEGIN (tree, dnode) {
-		if (dnode->schema->nodetype == LYS_NOTIF) {
-			found = true;
-			break;
-		}
-		LYD_TREE_DFS_END(tree, dnode);
+	err = lyd_find_xpath3(NULL, tree, xpath, NULL, &set);
+	if (err) {
+		zlog_err("Failed to parse notification: %s", ly_last_errmsg());
+		lyd_free_all(tree);
+		return err;
 	}
-
-	if (!found) {
-		zlog_err("Notification not found in the parsed tree");
+	if (set->count == 0) {
+		zlog_err("Notification not found in the parsed tree: %s", xpath);
+		ly_set_free(set, NULL);
 		lyd_free_all(tree);
 		return LY_ENOTFOUND;
 	}
-
-	*notif = dnode;
-
+	*notif = set->dnodes[0];
+	ly_set_free(set, NULL);
 	return LY_SUCCESS;
 }
 
@@ -790,9 +784,9 @@ uint8_t *yang_print_tree(const struct lyd_node *root, LYD_FORMAT format,
 	return darr;
 }
 
-char *yang_convert_lyd_format(const uint8_t *data, size_t data_len,
-				     LYD_FORMAT in_format,
-				     LYD_FORMAT out_format, bool shrink)
+char *yang_convert_lyd_format(const char *data, size_t data_len,
+			      LYD_FORMAT in_format, LYD_FORMAT out_format,
+			      bool shrink)
 {
 	struct lyd_node *tree = NULL;
 	uint32_t options = LYD_PRINT_WD_EXPLICIT | LYD_PRINT_WITHSIBLINGS;
