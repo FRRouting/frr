@@ -62,23 +62,48 @@ def teardown_module(mod):
     tgen.stop_topology()
 
 
+expected_1 = {
+    "routes": {
+        "172.16.255.31/32": [{"path": "65002"}],
+        "172.16.255.32/32": [{"path": ""}],
+    }
+}
+
+expected_2 = {
+    "routes": {
+        "172.16.255.31/32": [{"path": ""}],
+        "172.16.255.32/32": [{"path": ""}],
+    }
+}
+
+expected_3 = {
+    "routes": {
+        "172.16.255.31/32": [{"path": "65003"}],
+        "172.16.255.32/32": [{"path": "65003"}],
+    }
+}
+
+expected_4 = {
+    "routes": {
+        "172.16.255.31/32": [{"path": "65002 65003"}],
+        "172.16.255.32/32": [{"path": "65002 65003"}],
+    }
+}
+
+
+def bgp_converge(router, expected):
+    output = json.loads(router.vtysh_cmd("show bgp ipv4 unicast json"))
+
+    return topotest.json_cmp(output, expected)
+
+
 def test_bgp_set_aspath_exclude():
     tgen = get_topogen()
 
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    def _bgp_converge(router):
-        output = json.loads(router.vtysh_cmd("show bgp ipv4 unicast json"))
-        expected = {
-            "routes": {
-                "172.16.255.31/32": [{"path": "65002"}],
-                "172.16.255.32/32": [{"path": ""}],
-            }
-        }
-        return topotest.json_cmp(output, expected)
-
-    test_func = functools.partial(_bgp_converge, tgen.gears["r1"])
+    test_func = functools.partial(bgp_converge, tgen.gears["r1"], expected_1)
     _, result = topotest.run_and_expect(test_func, None, count=30, wait=0.5)
 
     assert result is None, "Failed overriding incoming AS-PATH with route-map"
@@ -102,19 +127,7 @@ conf
     """
     )
 
-    expected = {
-        "routes": {
-            "172.16.255.31/32": [{"path": ""}],
-            "172.16.255.32/32": [{"path": ""}],
-        }
-    }
-
-    def _bgp_regexp_1(router):
-        output = json.loads(router.vtysh_cmd("show bgp ipv4 unicast json"))
-
-        return topotest.json_cmp(output, expected)
-
-    test_func = functools.partial(_bgp_regexp_1, tgen.gears["r1"])
+    test_func = functools.partial(bgp_converge, tgen.gears["r1"], expected_2)
     _, result = topotest.run_and_expect(test_func, None, count=30, wait=0.5)
 
     assert result is None, "Failed overriding incoming AS-PATH with regex 1 route-map"
@@ -127,17 +140,44 @@ conf
     """
     )
 
-    expected = {
-        "routes": {
-            "172.16.255.31/32": [{"path": "65003"}],
-            "172.16.255.32/32": [{"path": "65003"}],
-        }
-    }
-
-    test_func = functools.partial(_bgp_regexp_1, tgen.gears["r1"])
+    # tgen.mininet_cli()
+    test_func = functools.partial(bgp_converge, tgen.gears["r1"], expected_3)
     _, result = topotest.run_and_expect(test_func, None, count=30, wait=0.5)
 
     assert result is None, "Failed overriding incoming AS-PATH with regex 2 route-map"
+
+
+def test_no_bgp_set_aspath_exclude_access_list():
+    tgen = get_topogen()
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    rname = "r1"
+    r1 = tgen.gears[rname]
+
+    r1.vtysh_cmd(
+        """
+conf
+ no bgp as-path access-list SECOND permit 2
+    """
+    )
+
+    test_func = functools.partial(bgp_converge, tgen.gears["r1"], expected_3)
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=0.5)
+
+    assert result is None, "Failed removing bgp as-path access-list"
+
+    r1.vtysh_cmd(
+        """
+clear bgp *
+    """
+    )
+
+    test_func = functools.partial(bgp_converge, tgen.gears["r1"], expected_4)
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=0.5)
+
+    assert result is None, "Failed to renegotiate with peers"
 
 
 if __name__ == "__main__":
