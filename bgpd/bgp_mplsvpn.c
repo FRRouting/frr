@@ -4111,8 +4111,7 @@ bool bgp_mplsvpn_path_uses_valid_mpls_label(struct bgp_path_info *pi)
 		/* prefix_sid attribute */
 		return false;
 
-	if (!pi->extra || !pi->extra->num_labels ||
-	    !bgp_is_valid_label(&pi->extra->label[0]))
+	if (!bgp_path_info_has_valid_label(pi))
 		/* invalid MPLS label */
 		return false;
 	return true;

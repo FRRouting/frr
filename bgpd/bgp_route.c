@@ -285,6 +285,16 @@ struct bgp_path_info_extra *bgp_path_info_extra_get(struct bgp_path_info *pi)
 	return pi->extra;
 }
 
+bool bgp_path_info_has_valid_label(const struct bgp_path_info *path)
+{
+	if (!path->extra)
+		return false;
+	if (!path->extra->num_labels)
+		return false;
+
+	return bgp_is_valid_label(&path->extra->label[0]);
+}
+
 /* Free bgp route information. */
 void bgp_path_info_free_with_caller(const char *name,
 				    struct bgp_path_info *path)
@@ -1277,10 +1287,8 @@ int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 		 */
 		bool new_label_valid, exist_label_valid;
 
-		new_label_valid = new->extra && new->extra->num_labels &&
-				    bgp_is_valid_label(&new->extra->label[0]);
-		exist_label_valid = exist->extra && exist->extra->num_labels &&
-				    bgp_is_valid_label(&exist->extra->label[0]);
+		new_label_valid = bgp_path_info_has_valid_label(new);
+		exist_label_valid = bgp_path_info_has_valid_label(exist);
 
 		if (new_label_valid != exist_label_valid) {
 			if (debug)
@@ -3159,8 +3167,7 @@ static bool bgp_lu_need_null_label(struct bgp *bgp,
 	    || new_select->sub_type == BGP_ROUTE_AGGREGATE
 	    || new_select->sub_type == BGP_ROUTE_REDISTRIBUTE)
 		goto need_null_label;
-	else if (new_select->extra && new_select->extra->num_labels &&
-		 bgp_is_valid_label(&new_select->extra->label[0]))
+	else if (bgp_path_info_has_valid_label(new_select))
 		return false;
 need_null_label:
 	if (label == NULL)
@@ -9737,8 +9744,7 @@ void route_vty_out_tag(struct vty *vty, const struct prefix *p,
 		}
 	}
 
-	if (path->extra->num_labels &&
-	    bgp_is_valid_label(&path->extra->label[0])) {
+	if (bgp_path_info_has_valid_label(path)) {
 		label = decode_label(&path->extra->label[0]);
 		if (json) {
 			json_object_int_add(json_out, "notag", label);
@@ -10925,8 +10931,8 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 		bgp_damp_info_vty(vty, path, afi, safi, json_path);
 
 	/* Remote Label */
-	if (path->extra && bgp_is_valid_label(&path->extra->label[0])
-	    && (safi != SAFI_EVPN && !is_route_parent_evpn(path))) {
+	if (bgp_path_info_has_valid_label(path) &&
+	    (safi != SAFI_EVPN && !is_route_parent_evpn(path))) {
 		mpls_lse_decode(path->extra->label[0], &label, &ttl, &exp,
 				&bos);
 
