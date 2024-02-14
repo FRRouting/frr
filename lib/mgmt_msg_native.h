@@ -77,6 +77,11 @@ extern "C" {
  * mgmt_msg_native_get_msg_len() - Get the total length of the msg.
  * mgmt_msg_native_send_msg() - Send the message.
  *
+ * mgmt_msg_native_xpath_encode() - Encode xpath in xpath, data format message.
+ * mgmt_msg_native_xpath_data_decode() - Decode xpath, data format message.
+ * mgmt_msg_native_xpath_decode() - Get the xpath, from xpath, data format message.
+ * mgmt_msg_native_data_decode() - Get the secondary data from xpath, data message.
+ * mgmt_msg_native_data_len_decode() - Get length of secondary data.
  *
  * -------------------------------------
  * [Advanced Use] Dynamic Array Messages
@@ -299,18 +304,18 @@ _Static_assert(sizeof(struct mgmt_msg_get_data) ==
  * struct mgmt_msg_notify_data - Message carrying notification data.
  *
  * @result_type: ``LYD_FORMAT`` for format of the @result value.
- * @result: The tree data in @result_type format.
- *
+ * @data: The xpath string of the notification followed by the tree data in
+ *        @result_type format.
  */
 struct mgmt_msg_notify_data {
 	struct mgmt_msg_header;
 	uint8_t result_type;
 	uint8_t resv2[7];
 
-	alignas(8) uint8_t result[];
+	alignas(8) char data[];
 };
 _Static_assert(sizeof(struct mgmt_msg_notify_data) ==
-		       offsetof(struct mgmt_msg_notify_data, result),
+		       offsetof(struct mgmt_msg_notify_data, data),
 	       "Size mismatch");
 
 /*
@@ -404,7 +409,12 @@ extern int vmgmt_msg_native_send_error(struct msg_conn *conn,
  * Return: a pointer to the newly appended data.
  */
 #define mgmt_msg_native_append(msg, data, len)                                 \
-	memcpy(darr_append(*mgmt_msg_native_get_darrp(msg), len), data, len)
+	({                                                                     \
+		uint8_t **darrp = mgmt_msg_native_get_darrp(msg);              \
+		uint8_t *p = darr_append_n(*darrp, len);                       \
+		memcpy(p, data, len);                                          \
+		p;                                                             \
+	})
 
 /**
  * mgmt_msg_native_send_msg(msg, short_circuit_ok) - Send a native msg.
@@ -457,6 +467,116 @@ extern int vmgmt_msg_native_send_error(struct msg_conn *conn,
  * a dynamic array.
  */
 #define mgmt_msg_native_get_darrp(msg) ((uint8_t **)&(msg))
+
+/* ------------------------- */
+/* Encode and Decode Helpers */
+/* ------------------------- */
+
+/**
+ * mgmt_msg_native_xpath_encode() - encode an xpath in a xpath, data message.
+ * @msg: Pointer to the native message.
+ * @xpath: The xpath string to encode.
+ *
+ * This function starts the encoding of a message that can be decoded with
+ * `mgmt_msg_native_xpath_data_decode()`. The variable length data is comprised
+ * of a NUL terminated string followed by some data of any format. This starts
+ * the first half of the encoding, after which one can simply append the
+ * secondary data to the message.
+ */
+#define mgmt_msg_native_xpath_encode(msg, xpath)                               \
+	do {                                                                   \
+		size_t __slen = strlen(xpath) + 1;                             \
+		mgmt_msg_native_append(msg, xpath, __slen);                    \
+		(msg)->vsplit = __slen;                                        \
+	} while (0)
+
+/**
+ * mgmt_msg_native_xpath_data_decode() - decode an xpath, data format message.
+ * @msg: Pointer to the native message.
+ * @msglen: Length of the message.
+ * @data: [OUT] Pointer to the data section of the variable data
+ *
+ * This function decodes a message that was encoded with
+ * `mgmt_msg_native_xpath_encode()`. The variable length data is comprised of a
+ * NUL terminated string followed by some data of any format.
+ *
+ * Return:
+ *	The xpath string or NULL if there was an error decoding (i.e., the
+ *	message is corrupt).
+ */
+#define mgmt_msg_native_xpath_data_decode(msg, msglen, data)                   \
+	({                                                                     \
+		size_t __len = (msglen) - sizeof(*msg);                        \
+		const char *__s = NULL;                                        \
+		if (msg->vsplit && msg->vsplit <= __len &&                     \
+		    msg->data[msg->vsplit - 1] == 0) {                         \
+			(data) = msg->data + msg->vsplit;                      \
+			__s = msg->data;                                       \
+		}                                                              \
+		__s;                                                           \
+	})
+
+/**
+ * mgmt_msg_native_xpath_decode() - return the xpath from xpath, data message.
+ * @msg: Pointer to the native message.
+ * @msglen: Length of the message.
+ *
+ * This function decodes the xpath from a message that was encoded with
+ * `mgmt_msg_native_xpath_encode()`. The variable length data is comprised of a
+ * NUL terminated string followed by some data of any format.
+ *
+ * Return:
+ *	The xpath string or NULL if there was an error decoding (i.e., the
+ *	message is corrupt).
+ */
+#define mgmt_msg_native_xpath_decode(msg, msglen)                              \
+	({                                                                     \
+		size_t __len = (msglen) - sizeof(*msg);                        \
+		const char *__s = msg->data;                                   \
+		if (!msg->vsplit || msg->vsplit > __len ||                     \
+		    __s[msg->vsplit - 1] != 0)                                 \
+			__s = NULL;                                            \
+		__s;                                                           \
+	})
+
+/**
+ * mgmt_msg_native_data_decode() - return the data from xpath, data message.
+ * @msg: Pointer to the native message.
+ * @msglen: Length of the message.
+ *
+ * This function decodes the secondary data from a message that was encoded with
+ * `mgmt_msg_native_xpath_encode()`. The variable length data is comprised of a
+ * NUL terminated string followed by some data of any format.
+ *
+ * Return:
+ *	The secondary data or NULL if there was an error decoding (i.e., the
+ *	message is corrupt).
+ */
+#define mgmt_msg_native_data_decode(msg, msglen)                               \
+	({                                                                     \
+		size_t __len = (msglen) - sizeof(*msg);                        \
+		const char *__data = msg->data + msg->vsplit;                  \
+		if (!msg->vsplit || msg->vsplit > __len || __data[-1] != 0)    \
+			__data = NULL;                                         \
+		__data;                                                        \
+	})
+
+/**
+ * mgmt_msg_native_data_len_decode() - len of data in xpath, data format message.
+ * @msg: Pointer to the native message.
+ * @msglen: Length of the message.
+ *
+ * This function returns the length of the secondary variable data from a
+ * message that was encoded with `mgmt_msg_native_xpath_encode()`. The variable
+ * length data is comprised of a NUL terminated string followed by some data of
+ * any format.
+ *
+ * Return:
+ *	The length of the secondary variable data. The message is assumed to be
+ *	validated as not corrupt already.
+ */
+#define mgmt_msg_native_data_len_decode(msg, msglen)                           \
+	((msglen) - sizeof(*msg) - msg->vsplit)
 
 #ifdef __cplusplus
 }
