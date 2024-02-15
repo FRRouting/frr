@@ -186,4 +186,12 @@ extern bool is_route_injectable_into_evpn_non_supp(struct bgp_path_info *pi);
 extern void bgp_aggr_supp_withdraw_from_evpn(struct bgp *bgp, afi_t afi,
 					     safi_t safi);
 
+extern enum zclient_send_status evpn_zebra_install(struct bgp *bgp,
+						   struct bgpevpn *vpn,
+						   const struct prefix_evpn *p,
+						   struct bgp_path_info *pi);
+extern enum zclient_send_status
+evpn_zebra_uninstall(struct bgp *bgp, struct bgpevpn *vpn,
+		     const struct prefix_evpn *p, struct bgp_path_info *pi,
+		     bool is_sync);
 #endif /* _QUAGGA_BGP_EVPN_H */
