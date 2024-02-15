@@ -83,8 +83,8 @@ def test_bgp_evpn_route_map_match_route_type():
         )
         expected = {
             "advertisedRoutes": {
-                "10.10.10.1:2": {
-                    "[3]:[0]:[32]:[10.10.10.1]": {
+                "10.10.10.1:1": {
+                    "[5]:[0]:[32]:[10.10.10.10]": {
                         "valid": True,
                     }
                 },
@@ -102,7 +102,7 @@ def test_bgp_evpn_route_map_match_route_type():
         _bgp_converge,
     )
     _, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
-    assert result is None, "MAC-IP EVPN routes should not be advertised"
+    assert result is None, "Filtered EVPN routes should not be advertised"
 
 
 if __name__ == "__main__":
