@@ -183,4 +183,12 @@ extern bool bgp_evpn_mpath_has_dvni(const struct bgp *bgp_vrf,
 				    struct bgp_path_info *mpinfo);
 extern bool is_route_injectable_into_evpn(struct bgp_path_info *pi);
 
+extern enum zclient_send_status evpn_zebra_install(struct bgp *bgp,
+						   struct bgpevpn *vpn,
+						   const struct prefix_evpn *p,
+						   struct bgp_path_info *pi);
+extern enum zclient_send_status
+evpn_zebra_uninstall(struct bgp *bgp, struct bgpevpn *vpn,
+		     const struct prefix_evpn *p, struct bgp_path_info *pi,
+		     bool is_sync);
 #endif /* _QUAGGA_BGP_EVPN_H */

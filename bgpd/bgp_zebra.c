@@ -1675,7 +1675,8 @@ void bgp_zebra_announce_table(struct bgp *bgp, afi_t afi, safi_t safi)
 			     && (pi->sub_type == BGP_ROUTE_NORMAL
 				 || pi->sub_type == BGP_ROUTE_IMPORTED)))
 
-				bgp_zebra_route_install(dest, pi, bgp, true);
+				bgp_zebra_route_install(dest, pi, bgp, NULL,
+							true);
 }
 
 /* Announce routes of any bgp subtype of a table to zebra */
@@ -1697,7 +1698,8 @@ void bgp_zebra_announce_table_all_subtypes(struct bgp *bgp, afi_t afi,
 		for (pi = bgp_dest_get_bgp_path_info(dest); pi; pi = pi->next)
 			if (CHECK_FLAG(pi->flags, BGP_PATH_SELECTED) &&
 			    pi->type == ZEBRA_ROUTE_BGP)
-				bgp_zebra_route_install(dest, pi, bgp, true);
+				bgp_zebra_route_install(dest, pi, bgp, NULL,
+							true);
 }
 
 static enum zclient_send_status
@@ -1750,8 +1752,11 @@ bgp_zebra_withdraw_actual(struct bgp_dest *dest, struct bgp_path_info *info,
 #define ZEBRA_LOOP 1000
 static void bgp_handle_route_announcements_to_zebra(struct event *e)
 {
+	bool is_evpn = false;
 	uint32_t count = 0;
 	struct bgp_dest *dest = NULL;
+	const struct prefix *pfx = NULL;
+	const struct prefix_evpn *evpn_pfx = NULL;
 	struct bgp_table *bgp_tbl = NULL;
 	enum zclient_send_status status = ZCLIENT_SEND_SUCCESS;
 
@@ -1761,21 +1766,45 @@ static void bgp_handle_route_announcements_to_zebra(struct event *e)
 		if (!dest)
 			break;
 
+		pfx = bgp_dest_get_prefix(dest);
+		if (pfx->family == AF_EVPN) {
+			is_evpn = true;
+			evpn_pfx = (const struct prefix_evpn *)pfx;
+		}
+
 		bgp_tbl = bgp_dest_table(dest);
 
 		if (CHECK_FLAG(dest->flags, BGP_NODE_SCHEDULE_FOR_INSTALL)) {
-			status = bgp_zebra_announce_actual(dest, dest->za_bgp_pi,
-							   bgp_tbl->bgp);
+			if (is_evpn)
+				status = evpn_zebra_install(bgp_tbl->bgp,
+							    dest->za_vpn,
+							    evpn_pfx,
+							    dest->za_bgp_pi);
+			else
+				status =
+					bgp_zebra_announce_actual(dest,
+								  dest->za_bgp_pi,
+								  bgp_tbl->bgp);
 			UNSET_FLAG(dest->flags, BGP_NODE_SCHEDULE_FOR_INSTALL);
 		} else if (CHECK_FLAG(dest->flags,
 				      BGP_NODE_SCHEDULE_FOR_DELETE)) {
-			status = bgp_zebra_withdraw_actual(dest, dest->za_bgp_pi,
-							   bgp_tbl->bgp);
+			if (is_evpn)
+				status = evpn_zebra_uninstall(bgp_tbl->bgp,
+							      dest->za_vpn,
+							      evpn_pfx,
+							      dest->za_bgp_pi,
+							      false);
+			else
+				status =
+					bgp_zebra_withdraw_actual(dest,
+								  dest->za_bgp_pi,
+								  bgp_tbl->bgp);
 			UNSET_FLAG(dest->flags, BGP_NODE_SCHEDULE_FOR_DELETE);
 		}
 
 		bgp_path_info_unlock(dest->za_bgp_pi);
 		dest->za_bgp_pi = NULL;
+		dest->za_vpn = NULL;
 		bgp_dest_unlock_node(dest);
 
 		if (status == ZCLIENT_SEND_BUFFERED)
@@ -1829,8 +1858,13 @@ static void bgp_zebra_buffer_write_ready(void)
  *                                     withdrawn.
  */
 void bgp_zebra_route_install(struct bgp_dest *dest, struct bgp_path_info *info,
-			     struct bgp *bgp, bool install)
+			     struct bgp *bgp, struct bgpevpn *vpn, bool install)
 {
+	const struct prefix *pfx = NULL;
+	bool is_evpn;
+
+	pfx = bgp_dest_get_prefix(dest);
+	is_evpn = pfx->family == AF_EVPN ? true : false;
 	/*
 	 * BGP is installing this route and bgp has been configured
 	 * to suppress announcements until the route has been installed
@@ -1840,7 +1874,7 @@ void bgp_zebra_route_install(struct bgp_dest *dest, struct bgp_path_info *info,
 		if (BGP_SUPPRESS_FIB_ENABLED(bgp))
 			SET_FLAG(dest->flags, BGP_NODE_FIB_INSTALL_PENDING);
 
-		if (bgp->main_zebra_update_hold)
+		if (bgp->main_zebra_update_hold && !is_evpn)
 			return;
 	} else {
 		UNSET_FLAG(dest->flags, BGP_NODE_FIB_INSTALL_PENDING);
@@ -1850,7 +1884,7 @@ void bgp_zebra_route_install(struct bgp_dest *dest, struct bgp_path_info *info,
 	 * Don't try to install if we're not connected to Zebra or Zebra doesn't
 	 * know of this instance.
 	 */
-	if (!bgp_install_info_to_zebra(bgp))
+	if (!bgp_install_info_to_zebra(bgp) && !is_evpn)
 		return;
 
 	if (!CHECK_FLAG(dest->flags, BGP_NODE_SCHEDULE_FOR_INSTALL) &&
@@ -1870,13 +1904,16 @@ void bgp_zebra_route_install(struct bgp_dest *dest, struct bgp_path_info *info,
 		dest->za_bgp_pi = info;
 	} else if (CHECK_FLAG(dest->flags, BGP_NODE_SCHEDULE_FOR_DELETE)) {
 		assert(dest->za_bgp_pi);
-		if (install)
+		if (install & !is_evpn)
 			bgp_zebra_withdraw_actual(dest, dest->za_bgp_pi, bgp);
 
 		bgp_path_info_unlock(dest->za_bgp_pi);
 		bgp_path_info_lock(info);
 		dest->za_bgp_pi = info;
 	}
+
+	if (is_evpn)
+		dest->za_vpn = vpn;
 
 	if (install) {
 		UNSET_FLAG(dest->flags, BGP_NODE_SCHEDULE_FOR_DELETE);
@@ -1908,7 +1945,8 @@ void bgp_zebra_withdraw_table_all_subtypes(struct bgp *bgp, afi_t afi, safi_t sa
 		for (pi = bgp_dest_get_bgp_path_info(dest); pi; pi = pi->next) {
 			if (CHECK_FLAG(pi->flags, BGP_PATH_SELECTED)
 			    && (pi->type == ZEBRA_ROUTE_BGP))
-				bgp_zebra_route_install(dest, pi, bgp, false);
+				bgp_zebra_route_install(dest, pi, bgp, NULL,
+							false);
 		}
 	}
 }
