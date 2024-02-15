@@ -30,7 +30,8 @@ extern int bgp_zebra_get_table_range(struct zclient *zc, uint32_t chunk_size,
 extern int bgp_if_update_all(void);
 extern void bgp_zebra_route_install(struct bgp_dest *dest,
 				    struct bgp_path_info *path, struct bgp *bgp,
-				    bool install);
+				    bool install, struct bgpevpn *vpn,
+				    bool is_sync);
 extern void bgp_zebra_announce_table(struct bgp *bgp, afi_t afi, safi_t safi);
 extern void bgp_zebra_label_set_to_imp_null(struct bgp *bgp, afi_t afi);
 extern void bgp_zebra_label_set_to_exp_null(struct bgp *bgp, afi_t afi);
