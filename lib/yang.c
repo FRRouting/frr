@@ -730,9 +730,9 @@ LY_ERR yang_parse_notification(LYD_FORMAT format, const char *data,
 
 	err = lyd_parse_op(ly_native_ctx, NULL, in, format, LYD_TYPE_NOTIF_YANG,
 			   &tree, NULL);
+	ly_in_free(in, 0);
 	if (err) {
 		zlog_err("Failed to parse notification: %s", ly_last_errmsg());
-		ly_in_free(in, 0);
 		return err;
 	}
 
@@ -751,7 +751,6 @@ LY_ERR yang_parse_notification(LYD_FORMAT format, const char *data,
 	if (!found) {
 		zlog_err("Notification not found in the parsed tree");
 		lyd_free_all(tree);
-		ly_in_free(in, 0);
 		return LY_ENOTFOUND;
 	}
 
@@ -796,23 +795,38 @@ char *yang_convert_lyd_format(const uint8_t *data, size_t data_len,
 				     LYD_FORMAT out_format, bool shrink)
 {
 	struct lyd_node *tree = NULL;
-	uint8_t *result = NULL;
 	uint32_t options = LYD_PRINT_WD_EXPLICIT | LYD_PRINT_WITHSIBLINGS;
+	uint8_t *result = NULL;
+	LY_ERR err;
 
 	assert(out_format != LYD_LYB);
 
-	if (!MGMT_MSG_VALIDATE_NUL_TERM(data, data_len))
+	if (in_format != LYD_LYB && !MGMT_MSG_VALIDATE_NUL_TERM(data, data_len)) {
+		zlog_err("Corrupt input data, no NUL terminating byte");
 		return NULL;
+	}
 
 	if (in_format == out_format)
 		return darr_strdup((const char *)data);
+
+	err = lyd_parse_data_mem(ly_native_ctx, (const char *)data, in_format,
+				 LYD_PARSE_ONLY, 0, &tree);
+
+	if (err) {
+		flog_err_sys(EC_LIB_LIBYANG,
+			     "cannot parse input data to convert: %s",
+			     ly_last_errmsg());
+		return NULL;
+	}
 
 	if (shrink)
 		options |= LYD_PRINT_SHRINK;
 
 	/* Take a guess at the initial capacity based on input data size */
 	darr_ensure_cap(result, data_len);
-	if (yang_print_tree_append(&result, tree, out_format, options)) {
+	err = yang_print_tree_append(&result, tree, out_format, options);
+	lyd_free_all(tree);
+	if (err) {
 		darr_free(result);
 		return NULL;
 	}
