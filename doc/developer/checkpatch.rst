@@ -761,15 +761,6 @@ Indentation and Line Breaks
 Macros, Attributes and Symbols
 ------------------------------
 
-  **ARRAY_SIZE**
-    The ARRAY_SIZE(foo) macro should be preferred over
-    sizeof(foo)/sizeof(foo[0]) for finding number of elements in an
-    array.
-
-    The macro is defined in include/linux/kernel.h::
-
-      #define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
-
   **AVOID_EXTERNS**
     Function prototypes don't need to be declared extern in .h
     files.  It's assumed by the compiler and is unnecessary.
