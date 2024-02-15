@@ -2553,7 +2553,6 @@ route_map_result_t route_map_apply_ext(struct route_map *map,
 	struct route_map_index *index = NULL;
 	struct route_map_rule *set = NULL;
 	bool skip_match_clause = false;
-	struct prefix conv;
 
 	if (recursion > RMAP_RECURSION_LIMIT) {
 		flog_warn(
@@ -2571,27 +2570,14 @@ route_map_result_t route_map_apply_ext(struct route_map *map,
 
 	map->applied++;
 
-	/*
-	 * Handling for matching evpn_routes in the prefix table.
-	 *
-	 * We convert type2/5 prefix to ipv4/6 prefix to do longest
-	 * prefix matching on.
-	 */
 	if (prefix->family == AF_EVPN) {
-		if (evpn_prefix2prefix(prefix, &conv) != 0) {
-			zlog_debug(
-				"Unable to convert EVPN prefix %pFX into IPv4/IPv6 prefix. Falling back to non-optimized route-map lookup",
-				prefix);
-		} else {
-			zlog_debug(
-				"Converted EVPN prefix %pFX into %pFX for optimized route-map lookup",
-				prefix, &conv);
-
-			prefix = &conv;
-		}
+		index = map->head;
+	} else {
+		skip_match_clause = true;
+		index = route_map_get_index(map, prefix, match_object,
+					    &match_ret);
 	}
 
-	index = route_map_get_index(map, prefix, match_object, &match_ret);
 	if (index) {
 		index->applied++;
 		if (rmap_debug)
@@ -2615,7 +2601,6 @@ route_map_result_t route_map_apply_ext(struct route_map *map,
 			ret = RMAP_DENYMATCH;
 		goto route_map_apply_end;
 	}
-	skip_match_clause = true;
 
 	for (; index; index = index->next) {
 		if (!skip_match_clause) {
