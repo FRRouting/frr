@@ -2856,17 +2856,15 @@ void isis_print_routes(struct vty *vty, struct isis_spftree *spftree,
 				 json != NULL);
 	}
 
-	/* Dump the generated table. */
-	if (json == NULL && tt->nrows > 1) {
-		char *table;
-
-		table = ttable_dump(tt, "\n");
-		vty_out(vty, "%s\n", table);
-		XFREE(MTYPE_TMP, table);
-	} else if (json) {
+	if (!json) {
+		if (tt->nrows > 1)
+			ttable_vty_finish(vty, &tt, "\n");
+		else
+			ttable_del(tt);
+	} else {
 		*json = ttable_json(tt, prefix_sid ? "sdssdsdd" : "sdsss");
+		ttable_del(tt);
 	}
-	ttable_del(tt);
 }
 
 static void show_isis_route_common(struct vty *vty, int levels,
@@ -3152,7 +3150,6 @@ static void isis_print_frr_summary(struct vty *vty,
 				   struct isis_spftree *spftree)
 {
 	struct ttable *tt;
-	char *table;
 	const char *tree_id_text = NULL;
 	uint32_t protectd[SPF_PREFIX_PRIO_MAX] = {0};
 	uint32_t unprotected[SPF_PREFIX_PRIO_MAX] = {0};
@@ -3234,11 +3231,7 @@ static void isis_print_frr_summary(struct vty *vty,
 	isis_print_frr_summary_line_coverage(tt, "Protection coverage",
 					     coverage, coverage_total);
 
-	/* Dump the generated table. */
-	table = ttable_dump(tt, "\n");
-	vty_out(vty, "%s\n", table);
-	XFREE(MTYPE_TMP, table);
-	ttable_del(tt);
+	ttable_vty_finish(vty, &tt, "\n");
 }
 
 static void show_isis_frr_summary_common(struct vty *vty, int levels,

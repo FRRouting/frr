@@ -290,6 +290,18 @@ void ttable_rowseps(struct ttable *tt, unsigned int row,
 	}
 }
 
+void ttable_vty_finish(struct vty *vty, struct ttable **tt, const char *newline)
+{
+	char *out = ttable_dump(*tt, newline);
+
+	vty_out(vty, "%s", out);
+
+	XFREE(MTYPE_TMP, out);
+	ttable_del(*tt);
+
+	*tt = NULL;
+}
+
 char *ttable_dump(struct ttable *tt, const char *newline)
 {
 	/* clang-format off */

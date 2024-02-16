@@ -2479,7 +2479,6 @@ static void gm_show_if_vrf(struct vty *vty, struct vrf *vrf, const char *ifname,
 	json_object *js_vrf = NULL;
 	struct pim_interface *pim_ifp;
 	struct ttable *tt = NULL;
-	char *table = NULL;
 
 	if (js) {
 		js_vrf = json_object_new_object();
@@ -2533,13 +2532,8 @@ static void gm_show_if_vrf(struct vty *vty, struct vrf *vrf, const char *ifname,
 		gm_show_if_one(vty, ifp, js_if, tt);
 	}
 
-	/* Dump the generated table. */
-	if (!js && !detail) {
-		table = ttable_dump(tt, "\n");
-		vty_out(vty, "%s\n", table);
-		XFREE(MTYPE_TMP, table);
-		ttable_del(tt);
-	}
+	if (!js && !detail)
+		ttable_vty_finish(vty, &tt, "\n");
 }
 
 static void gm_show_if(struct vty *vty, struct vrf *vrf, const char *ifname,
@@ -2937,7 +2931,6 @@ static void gm_show_groups(struct vty *vty, struct vrf *vrf, bool uj)
 {
 	struct interface *ifp;
 	struct ttable *tt = NULL;
-	char *table;
 	json_object *json = NULL;
 	json_object *json_iface = NULL;
 	json_object *json_group = NULL;
@@ -3017,13 +3010,8 @@ static void gm_show_groups(struct vty *vty, struct vrf *vrf, bool uj)
 
 	if (uj)
 		vty_json(vty, json);
-	else {
-		/* Dump the generated table. */
-		table = ttable_dump(tt, "\n");
-		vty_out(vty, "%s\n", table);
-		XFREE(MTYPE_TMP, table);
-		ttable_del(tt);
-	}
+	else
+		ttable_vty_finish(vty, &tt, "\n");
 }
 
 DEFPY(gm_show_mld_groups,

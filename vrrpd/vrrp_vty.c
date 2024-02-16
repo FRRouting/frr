@@ -587,11 +587,7 @@ static void vrrp_show(struct vty *vty, struct vrrp_vrouter *vr)
 		}
 	}
 
-	char *table = ttable_dump(tt, "\n");
-
-	vty_out(vty, "\n%s\n", table);
-	XFREE(MTYPE_TMP, table);
-	ttable_del(tt);
+	ttable_vty_finish(vty, &tt, "\n");
 }
 
 /*
@@ -692,11 +688,7 @@ DEFPY_YANG(vrrp_vrid_show_summary,
 							       : "Backup");
 	}
 
-	char *table = ttable_dump(tt, "\n");
-
-	vty_out(vty, "\n%s\n", table);
-	XFREE(MTYPE_TMP, table);
-	ttable_del(tt);
+	ttable_vty_finish(vty, &tt, "\n");
 
 	list_delete(&ll);
 

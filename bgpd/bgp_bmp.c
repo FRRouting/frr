@@ -2587,7 +2587,6 @@ DEFPY(show_bmp,
 	struct bmp *bmp;
 	struct ttable *tt;
 	char uptime[BGP_UPTIME_LEN];
-	char *out;
 
 	frr_each(bmp_bgph, &bmp_bgph, bmpbgp) {
 		vty_out(vty, "BMP state for BGP %s:\n\n",
@@ -2685,10 +2684,7 @@ DEFPY(show_bmp,
 					       uptime, &ba->addrsrc);
 				continue;
 			}
-			out = ttable_dump(tt, "\n");
-			vty_out(vty, "%s", out);
-			XFREE(MTYPE_TMP, out);
-			ttable_del(tt);
+			ttable_vty_finish(vty, &tt, "\n");
 
 			vty_out(vty, "\n    %zu connected clients:\n",
 					bmp_session_count(&bt->sessions));
@@ -2712,10 +2708,8 @@ DEFPY(show_bmp,
 					       bmp->cnt_mirror_overruns,
 					       total, q, kq);
 			}
-			out = ttable_dump(tt, "\n");
-			vty_out(vty, "%s", out);
-			XFREE(MTYPE_TMP, out);
-			ttable_del(tt);
+			ttable_vty_finish(vty, &tt, "\n");
+
 			vty_out(vty, "\n");
 		}
 	}

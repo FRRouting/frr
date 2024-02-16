@@ -442,13 +442,13 @@ DEFUN_NOSH(show_hash_stats,
 
 	if (tt->nrows > 1) {
 		ttable_colseps(tt, 0, RIGHT, true, '|');
-		char *table = ttable_dump(tt, "\n");
-		vty_out(vty, "%s\n", table);
-		XFREE(MTYPE_TMP, table);
-	} else
+
+		ttable_vty_finish(vty, &tt, "\n");
+	} else {
 		vty_out(vty, "No named hash tables to display.\n");
 
-	ttable_del(tt);
+		ttable_del(tt);
+	}
 
 	return CMD_SUCCESS;
 }

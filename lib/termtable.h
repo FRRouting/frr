@@ -279,6 +279,16 @@ void ttable_rowseps(struct ttable *tt, unsigned int row,
 char *ttable_dump(struct ttable *tt, const char *newline);
 
 /**
+ * Dumps the table, and frees the table
+ *
+ * @parm  vty - The terminal to print to
+ * @param tt - double pointer to the table to dump, this pointer
+ *             is freed.
+ * @param newline the desired newline sequence to use, null terminated.
+ */
+void ttable_vty_finish(struct vty *vty, struct ttable **tt, const char *newline);
+
+/**
  * Convert a table to a JSON array of objects.
  *
  * Caller must free the returned json_object structure.

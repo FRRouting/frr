@@ -97,7 +97,6 @@ DEFPY(show_srte_policy,
 {
 	struct ttable *tt;
 	struct srte_policy *policy;
-	char *table;
 
 	if (RB_EMPTY(srte_policy_head, &srte_policies)) {
 		vty_out(vty, "No SR Policies to display.\n\n");
@@ -128,12 +127,7 @@ DEFPY(show_srte_policy,
 				       : "Inactive");
 	}
 
-	/* Dump the generated table. */
-	table = ttable_dump(tt, "\n");
-	vty_out(vty, "%s\n", table);
-	XFREE(MTYPE_TMP, table);
-
-	ttable_del(tt);
+	ttable_vty_finish(vty, &tt, "\n");
 
 	return CMD_SUCCESS;
 }

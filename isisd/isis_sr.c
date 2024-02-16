@@ -1059,15 +1059,10 @@ static void show_node(struct vty *vty, struct isis_area *area, int level,
 			       buf, cap->msd);
 	}
 
-	/* Dump the generated table. */
-	if (tt->nrows > 1) {
-		char *table;
-
-		table = ttable_dump(tt, "\n");
-		vty_out(vty, "%s\n", table);
-		XFREE(MTYPE_TMP, table);
-	}
-	ttable_del(tt);
+	if (tt->nrows > 1)
+		ttable_vty_finish(vty, &tt, "\n");
+	else
+		ttable_del(tt);
 }
 
 DEFUN(show_sr_node, show_sr_node_cmd,
