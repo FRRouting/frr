@@ -2323,17 +2323,10 @@ static const struct route_map_rule_cmd route_set_aspath_prepend_cmd = {
 	route_set_aspath_prepend_free,
 };
 
-/* `set as-path exclude ASn' */
-struct aspath_exclude {
-	struct aspath *aspath;
-	bool exclude_all;
-	char *exclude_aspath_acl_name;
-	struct as_list *exclude_aspath_acl;
-};
-
 static void *route_aspath_exclude_compile(const char *arg)
 {
 	struct aspath_exclude *ase;
+	struct aspath_exclude_list *ael;
 	const char *str = arg;
 	static const char asp_acl[] = "as-path-access-list";
 
@@ -2348,16 +2341,41 @@ static void *route_aspath_exclude_compile(const char *arg)
 		ase->exclude_aspath_acl = as_list_lookup(str);
 	} else
 		ase->aspath = aspath_str2aspath(str, bgp_get_asnotation(NULL));
+
+	if (ase->exclude_aspath_acl) {
+		ael = XCALLOC(MTYPE_ROUTE_MAP_COMPILED,
+				sizeof(struct aspath_exclude_list));
+		ael->bp_as_excl = ase;
+		ael->next = ase->exclude_aspath_acl->exclude_list;
+		ase->exclude_aspath_acl->exclude_list = ael;
+	}
+
 	return ase;
 }
 
 static void route_aspath_exclude_free(void *rule)
 {
 	struct aspath_exclude *ase = rule;
+	struct aspath_exclude_list *cur_ael = NULL;
+	struct aspath_exclude_list *prev_ael = NULL;
 
 	aspath_free(ase->aspath);
 	if (ase->exclude_aspath_acl_name)
 		XFREE(MTYPE_TMP, ase->exclude_aspath_acl_name);
+	if (ase->exclude_aspath_acl)
+		cur_ael = ase->exclude_aspath_acl->exclude_list;
+	while (cur_ael) {
+		if (cur_ael->bp_as_excl == ase) {
+			if (prev_ael)
+				prev_ael->next = cur_ael->next;
+			else
+				ase->exclude_aspath_acl->exclude_list = NULL;
+			XFREE(MTYPE_ROUTE_MAP_COMPILED, cur_ael);
+			break;
+		}
+		prev_ael = cur_ael;
+		cur_ael = cur_ael->next;
+	}
 	XFREE(MTYPE_ROUTE_MAP_COMPILED, ase);
 }
 
