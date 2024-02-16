@@ -285,8 +285,10 @@ char *ttable_dump(struct ttable *tt, const char *newline);
  * @param tt - double pointer to the table to dump, this pointer
  *             is freed.
  * @param newline the desired newline sequence to use, null terminated.
+ * @param display_if_no_rows The string to display if nrows is 0
  */
-void ttable_vty_finish(struct vty *vty, struct ttable **tt, const char *newline);
+void ttable_vty_finish(struct vty *vty, struct ttable **tt, const char *newline,
+		       const char *display_if_no_rows);
 
 /**
  * Convert a table to a JSON array of objects.

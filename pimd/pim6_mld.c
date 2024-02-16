@@ -2533,7 +2533,7 @@ static void gm_show_if_vrf(struct vty *vty, struct vrf *vrf, const char *ifname,
 	}
 
 	if (!js && !detail)
-		ttable_vty_finish(vty, &tt, "\n");
+		ttable_vty_finish(vty, &tt, "\n", NULL);
 }
 
 static void gm_show_if(struct vty *vty, struct vrf *vrf, const char *ifname,
@@ -3011,7 +3011,7 @@ static void gm_show_groups(struct vty *vty, struct vrf *vrf, bool uj)
 	if (uj)
 		vty_json(vty, json);
 	else
-		ttable_vty_finish(vty, &tt, "\n");
+		ttable_vty_finish(vty, &tt, "\n", NULL);
 }
 
 DEFPY(gm_show_mld_groups,

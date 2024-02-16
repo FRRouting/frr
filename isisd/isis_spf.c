@@ -2856,12 +2856,9 @@ void isis_print_routes(struct vty *vty, struct isis_spftree *spftree,
 				 json != NULL);
 	}
 
-	if (!json) {
-		if (tt->nrows > 1)
-			ttable_vty_finish(vty, &tt, "\n");
-		else
-			ttable_del(tt);
-	} else {
+	if (!json)
+		ttable_vty_finish(vty, &tt, "\n", NULL);
+	else {
 		*json = ttable_json(tt, prefix_sid ? "sdssdsdd" : "sdsss");
 		ttable_del(tt);
 	}
@@ -3231,7 +3228,7 @@ static void isis_print_frr_summary(struct vty *vty,
 	isis_print_frr_summary_line_coverage(tt, "Protection coverage",
 					     coverage, coverage_total);
 
-	ttable_vty_finish(vty, &tt, "\n");
+	ttable_vty_finish(vty, &tt, "\n", NULL);
 }
 
 static void show_isis_frr_summary_common(struct vty *vty, int levels,

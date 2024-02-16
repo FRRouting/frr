@@ -546,7 +546,7 @@ static int path_pcep_cli_show_srte_pcep_counters(struct vty *vty)
 		}
 	}
 
-	ttable_vty_finish(vty, &tt, "\n");
+	ttable_vty_finish(vty, &tt, "\n", NULL);
 
 	pcep_lib_free_counters(group);
 

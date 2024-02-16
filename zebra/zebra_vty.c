@@ -3902,7 +3902,7 @@ DEFUN (show_zebra,
 	ttable_add_row(table, "v6 Default MC Forwarding|%s",
 		       zrouter.default_mc_forwardingv6 ? "On" : "Off");
 
-	ttable_vty_finish(vty, &table, "\n");
+	ttable_vty_finish(vty, &table, "\n", NULL);
 
 	vty_out(vty,
 		"                            Route      Route      Neighbor   LSP        LSP\n");

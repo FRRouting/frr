@@ -587,7 +587,7 @@ static void vrrp_show(struct vty *vty, struct vrrp_vrouter *vr)
 		}
 	}
 
-	ttable_vty_finish(vty, &tt, "\n");
+	ttable_vty_finish(vty, &tt, "\n", NULL);
 }
 
 /*
@@ -688,7 +688,7 @@ DEFPY_YANG(vrrp_vrid_show_summary,
 							       : "Backup");
 	}
 
-	ttable_vty_finish(vty, &tt, "\n");
+	ttable_vty_finish(vty, &tt, "\n", NULL);
 
 	list_delete(&ll);
 

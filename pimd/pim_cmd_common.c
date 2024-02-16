@@ -958,7 +958,7 @@ void pim_show_rpf(struct pim_instance *pim, struct vty *vty, json_object *json)
 		}
 	}
 	if (!json)
-		ttable_vty_finish(vty, &tt, "\n");
+		ttable_vty_finish(vty, &tt, "\n", NULL);
 }
 
 void pim_show_neighbors_secondary(struct pim_instance *pim, struct vty *vty)
@@ -1005,7 +1005,7 @@ void pim_show_neighbors_secondary(struct pim_instance *pim, struct vty *vty)
 		}
 	}
 
-	ttable_vty_finish(vty, &tt, "\n");
+	ttable_vty_finish(vty, &tt, "\n", NULL);
 }
 
 void pim_show_state(struct pim_instance *pim, struct vty *vty,
@@ -1255,7 +1255,7 @@ void pim_show_state(struct pim_instance *pim, struct vty *vty,
 #if PIM_IPV == 4
 		vty_out(vty, "\n");
 #else
-		ttable_vty_finish(vty, &tt, "\n");
+		ttable_vty_finish(vty, &tt, "\n", NULL);
 #endif
 	}
 }
@@ -1484,7 +1484,7 @@ void pim_show_upstream(struct pim_instance *pim, struct vty *vty,
 	}
 
 	if (!json)
-		ttable_vty_finish(vty, &tt, "\n");
+		ttable_vty_finish(vty, &tt, "\n", NULL);
 }
 
 static void pim_show_join_desired_helper(struct pim_instance *pim,
@@ -1555,7 +1555,7 @@ void pim_show_join_desired(struct pim_instance *pim, struct vty *vty, bool uj)
 	if (uj)
 		vty_json(vty, json);
 	else
-		ttable_vty_finish(vty, &tt, "\n");
+		ttable_vty_finish(vty, &tt, "\n", NULL);
 }
 
 void pim_show_upstream_rpf(struct pim_instance *pim, struct vty *vty, bool uj)
@@ -1628,7 +1628,7 @@ void pim_show_upstream_rpf(struct pim_instance *pim, struct vty *vty, bool uj)
 	if (uj)
 		vty_json(vty, json);
 	else
-		ttable_vty_finish(vty, &tt, "\n");
+		ttable_vty_finish(vty, &tt, "\n", NULL);
 }
 
 static void pim_show_join_helper(struct pim_interface *pim_ifp,
@@ -1805,7 +1805,7 @@ void pim_show_join(struct pim_instance *pim, struct vty *vty, pim_sgaddr *sg,
 	}
 	/* Dump the generated table. */
 	if (!json)
-		ttable_vty_finish(vty, &tt, "\n");
+		ttable_vty_finish(vty, &tt, "\n", NULL);
 }
 
 static void pim_show_jp_agg_helper(struct interface *ifp,
@@ -1879,7 +1879,7 @@ void pim_show_jp_agg_list(struct pim_instance *pim, struct vty *vty)
 		}
 	}
 
-	ttable_vty_finish(vty, &tt, "\n");
+	ttable_vty_finish(vty, &tt, "\n", NULL);
 }
 
 int pim_show_membership_cmd_helper(const char *vrf, struct vty *vty, bool uj)
@@ -2018,7 +2018,7 @@ void pim_show_membership(struct pim_instance *pim, struct vty *vty, bool uj)
 		}
 		json_object_free(json);
 
-		ttable_vty_finish(vty, &tt, "\n");
+		ttable_vty_finish(vty, &tt, "\n", NULL);
 	}
 }
 
@@ -2118,7 +2118,7 @@ void pim_show_channel(struct pim_instance *pim, struct vty *vty, bool uj)
 	if (uj)
 		vty_json(vty, json);
 	else
-		ttable_vty_finish(vty, &tt, "\n");
+		ttable_vty_finish(vty, &tt, "\n", NULL);
 }
 
 int pim_show_channel_cmd_helper(const char *vrf, struct vty *vty, bool uj)
@@ -2295,7 +2295,7 @@ void pim_show_interfaces(struct pim_instance *pim, struct vty *vty, bool mlag,
 		}
 		json_object_free(json);
 
-		ttable_vty_finish(vty, &tt, "\n");
+		ttable_vty_finish(vty, &tt, "\n", NULL);
 	}
 }
 
@@ -2762,7 +2762,7 @@ static int pim_print_vty_pnc_cache_walkcb(struct hash_bucket *bucket, void *arg)
 #endif
 	}
 
-	ttable_vty_finish(vty, &tt, "\n");
+	ttable_vty_finish(vty, &tt, "\n", NULL);
 
 	return CMD_SUCCESS;
 }
@@ -3238,7 +3238,7 @@ void pim_show_neighbors(struct pim_instance *pim, struct vty *vty,
 	}
 
 	if (!json)
-		ttable_vty_finish(vty, &tt, "\n");
+		ttable_vty_finish(vty, &tt, "\n", NULL);
 }
 
 int gm_process_query_max_response_time_cmd(struct vty *vty,
@@ -3529,7 +3529,7 @@ void show_multicast_interfaces(struct pim_instance *pim, struct vty *vty,
 	}
 
 	if (!json)
-		ttable_vty_finish(vty, &tt, "\n");
+		ttable_vty_finish(vty, &tt, "\n", NULL);
 }
 
 void pim_cmd_show_ip_multicast_helper(struct pim_instance *pim, struct vty *vty)
@@ -3963,7 +3963,7 @@ void show_mroute(struct pim_instance *pim, struct vty *vty, pim_sgaddr *sg,
 	}
 
 	if (!json)
-		ttable_vty_finish(vty, &tt, "\n");
+		ttable_vty_finish(vty, &tt, "\n", NULL);
 }
 
 static void show_mroute_count_per_channel_oil(struct channel_oil *c_oil,
@@ -4040,7 +4040,7 @@ void show_mroute_count(struct pim_instance *pim, struct vty *vty,
 		show_mroute_count_per_channel_oil(&sr->c_oil, json, tt);
 
 	if (!json)
-		ttable_vty_finish(vty, &tt, "\n");
+		ttable_vty_finish(vty, &tt, "\n", NULL);
 }
 
 void show_mroute_summary(struct pim_instance *pim, struct vty *vty,
@@ -5337,7 +5337,7 @@ static void pim_show_group_rp_mappings_info(struct pim_instance *pim,
 		}
 
 		if (tt)
-			ttable_vty_finish(vty, &tt, "\n");
+			ttable_vty_finish(vty, &tt, "\n", NULL);
 
 		if (!bsm_rpinfos_count(bsgrp->bsrp_list) && !uj)
 			vty_out(vty, "Active List is empty.\n");
@@ -5385,7 +5385,7 @@ static void pim_show_group_rp_mappings_info(struct pim_instance *pim,
 		}
 
 		if (tt)
-			ttable_vty_finish(vty, &tt, "\n");
+			ttable_vty_finish(vty, &tt, "\n", NULL);
 
 		if (!bsm_rpinfos_count(bsgrp->partial_bsrp_list) && !uj)
 			vty_out(vty, "Partial List is empty\n");

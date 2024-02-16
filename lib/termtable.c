@@ -290,13 +290,18 @@ void ttable_rowseps(struct ttable *tt, unsigned int row,
 	}
 }
 
-void ttable_vty_finish(struct vty *vty, struct ttable **tt, const char *newline)
+void ttable_vty_finish(struct vty *vty, struct ttable **tt, const char *newline,
+		       const char *display_if_no_rows)
 {
-	char *out = ttable_dump(*tt, newline);
+	if ((*tt)->nrows > 1) {
+		char *out = ttable_dump(*tt, newline);
 
-	vty_out(vty, "%s", out);
+		vty_out(vty, "%s", out);
 
-	XFREE(MTYPE_TMP, out);
+		XFREE(MTYPE_TMP, out);
+	} else if (display_if_no_rows)
+		vty_out(vty, "%s", display_if_no_rows);
+
 	ttable_del(*tt);
 
 	*tt = NULL;

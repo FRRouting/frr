@@ -2684,7 +2684,7 @@ DEFPY(show_bmp,
 					       uptime, &ba->addrsrc);
 				continue;
 			}
-			ttable_vty_finish(vty, &tt, "\n");
+			ttable_vty_finish(vty, &tt, "\n", NULL);
 
 			vty_out(vty, "\n    %zu connected clients:\n",
 					bmp_session_count(&bt->sessions));
@@ -2708,7 +2708,7 @@ DEFPY(show_bmp,
 					       bmp->cnt_mirror_overruns,
 					       total, q, kq);
 			}
-			ttable_vty_finish(vty, &tt, "\n");
+			ttable_vty_finish(vty, &tt, "\n", NULL);
 
 			vty_out(vty, "\n");
 		}

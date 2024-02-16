@@ -1268,7 +1268,7 @@ void pim_rp_show_information(struct pim_instance *pim, struct prefix *range,
 	}
 
 	if (!json)
-		ttable_vty_finish(vty, &tt, "\n");
+		ttable_vty_finish(vty, &tt, "\n", NULL);
 	else {
 		if (prev_rp_info && json_rp_rows)
 			json_object_object_addf(json, json_rp_rows, "%pPA",

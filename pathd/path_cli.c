@@ -127,7 +127,7 @@ DEFPY(show_srte_policy,
 				       : "Inactive");
 	}
 
-	ttable_vty_finish(vty, &tt, "\n");
+	ttable_vty_finish(vty, &tt, "\n", NULL);
 
 	return CMD_SUCCESS;
 }

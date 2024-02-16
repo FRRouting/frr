@@ -683,10 +683,7 @@ static void show_node(struct vty *vty, struct isis_area *area, int level)
 			       cap->srv6_msd.max_end_d_msd);
 	}
 
-	if (tt->nrows > 1) {
-		ttable_vty_finish(vty, &tt, "\n");
-	} else
-		ttable_del(tt);
+	ttable_vty_finish(vty, &tt, "\n", NULL);
 }
 
 DEFUN(show_srv6_node, show_srv6_node_cmd,

@@ -3778,10 +3778,7 @@ void zebra_mpls_print_lsp_table(struct vty *vty, struct zebra_vrf *zvrf,
 			}
 		}
 
-		if (tt->nrows > 1)
-			ttable_vty_finish(vty, &tt, "\n");
-		else
-			ttable_del(tt);
+		ttable_vty_finish(vty, &tt, "\n", NULL);
 	}
 
 	list_delete(&lsp_list);

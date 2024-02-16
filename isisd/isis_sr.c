@@ -1059,10 +1059,7 @@ static void show_node(struct vty *vty, struct isis_area *area, int level,
 			       buf, cap->msd);
 	}
 
-	if (tt->nrows > 1)
-		ttable_vty_finish(vty, &tt, "\n");
-	else
-		ttable_del(tt);
+	ttable_vty_finish(vty, &tt, "\n", NULL);
 }
 
 DEFUN(show_sr_node, show_sr_node_cmd,
