@@ -1082,7 +1082,7 @@ static void print_prefix_table(struct vty *vty, struct rpki_vrf *rpki_vrf,
 
 	unsigned int number_of_ipv4_prefixes = 0;
 	unsigned int number_of_ipv6_prefixes = 0;
-	struct rtr_mgr_group *group = get_connected_group(rpki_vrf);
+	struct rtr_mgr_group *group;
 	json_object *json_records = NULL;
 
 	if (!rpki_vrf)
