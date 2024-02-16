@@ -205,8 +205,17 @@ static struct as_list *as_list_new(void)
 
 static void as_list_free(struct as_list *aslist)
 {
+	struct bp_as_excl_list *cur_bp = aslist->bp_list;
+	struct bp_as_excl_list *next_bp = NULL;
 	XFREE(MTYPE_AS_STR, aslist->name);
 	XFREE(MTYPE_AS_LIST, aslist);
+
+	while(cur_bp) {
+		next_bp = cur_bp->next;
+		XFREE(MTYPE_ROUTE_MAP_COMPILED, cur_bp);
+		cur_bp = next_bp;
+	}
+
 }
 
 /* Insert new AS list to list of as_list.  Each as_list is sorted by
@@ -290,6 +299,7 @@ static void as_list_delete(struct as_list *aslist)
 {
 	struct as_list_list *list;
 	struct as_filter *filter, *next;
+	struct bp_as_excl_list *cur_bp;
 
 	for (filter = aslist->head; filter; filter = next) {
 		next = filter->next;
@@ -307,6 +317,14 @@ static void as_list_delete(struct as_list *aslist)
 		aslist->prev->next = aslist->next;
 	else
 		list->head = aslist->next;
+
+	cur_bp = aslist->bp_list;
+	while (cur_bp) {
+            cur_bp->bp_as_excl->exclude_aspath_acl = NULL;
+            cur_bp = cur_bp->next;
+	}
+
+
 
 	as_list_free(aslist);
 }
