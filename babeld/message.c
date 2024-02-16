@@ -139,7 +139,7 @@ static bool parse_update_subtlv(const unsigned char *a, int alen,
 	    return false;
 	}
 
-	if (type & SUBTLV_MANDATORY) {
+	if (CHECK_FLAG(type, SUBTLV_MANDATORY)) {
 		/*
 		 * RFC 8966 - 4.4
 		 * If the mandatory bit is set, then the whole enclosing
@@ -162,8 +162,7 @@ static bool parse_update_subtlv(const unsigned char *a, int alen,
 		}
 		if (memchr(a + i + 2, 0, len) != NULL) {
 			/* 0 is reserved. */
-			flog_err(EC_BABEL_PACKET,
-				 "Channel information contains 0!");
+			flog_err(EC_BABEL_PACKET, "Channel information contains 0!");
 			return false;
 		}
 		memset(channels, 0, DIVERSITY_HOPS);
@@ -203,7 +202,7 @@ parse_hello_subtlv(const unsigned char *a, int alen,
             return -1;
         }
 
-	if (type & SUBTLV_MANDATORY) {
+	if (CHECK_FLAG(type, SUBTLV_MANDATORY)) {
 		/*
 		 * RFC 8966 4.4
 		 * If the mandatory bit is set, then the whole enclosing
@@ -417,7 +416,7 @@ parse_packet(const unsigned char *from, struct interface *ifp,
     unsigned int hello_send_us = 0, hello_rtt_receive_time = 0;
     babel_interface_nfo *babel_ifp = babel_get_if_nfo(ifp);
 
-    if(babel_ifp->flags & BABEL_IF_TIMESTAMPS) {
+    if (CHECK_FLAG(babel_ifp->flags, BABEL_IF_TIMESTAMPS)) {
         /* We want to track exactly when we received this packet. */
         gettime(&babel_now);
     }
@@ -513,8 +512,7 @@ parse_packet(const unsigned char *from, struct interface *ifp,
 			schedule_neighbours_check(interval * 15, 0);
 		/* Sub-TLV handling. */
 		if (len > 8) {
-			if (parse_hello_subtlv(message + 8, len - 6,
-					       &timestamp) > 0) {
+			if (parse_hello_subtlv(message + 8, len - 6, &timestamp) > 0) {
 				neigh->hello_send_us = timestamp;
 				neigh->hello_rtt_receive_time = babel_now;
 				have_hello_rtt = 1;
@@ -554,8 +552,7 @@ parse_packet(const unsigned char *from, struct interface *ifp,
         } else if(type == MESSAGE_NH) {
             unsigned char nh[16];
             int rc;
-            rc = network_address(message[2], message + 4, len - 2,
-                                 nh);
+            rc = network_address(message[2], message + 4, len - 2, nh);
             if(rc <= 0) {
                 have_v4_nh = 0;
                 have_v6_nh = 0;
@@ -577,9 +574,9 @@ parse_packet(const unsigned char *from, struct interface *ifp,
             unsigned char channels[DIVERSITY_HOPS];
             unsigned short interval, seqno, metric;
             int rc, parsed_len;
-	    bool ignore_update = false;
+            bool ignore_update = false;
 
-	    DO_NTOHS(interval, message + 6);
+            DO_NTOHS(interval, message + 6);
             DO_NTOHS(seqno, message + 8);
             DO_NTOHS(metric, message + 10);
             if(message[5] == 0 ||
@@ -651,7 +648,7 @@ parse_packet(const unsigned char *from, struct interface *ifp,
                     goto done;
             }
 
-            if((babel_get_if_nfo(ifp)->flags & BABEL_IF_FARAWAY)) {
+            if(CHECK_FLAG(babel_get_if_nfo(ifp)->flags, BABEL_IF_FARAWAY)) {
                 channels[0] = 0;
             } else {
                 /* This will be overwritten by parse_update_subtlv below. */
@@ -665,15 +662,14 @@ parse_packet(const unsigned char *from, struct interface *ifp,
                 }
 
                 if(parsed_len < len)
-			ignore_update =
-				parse_update_subtlv(message + 2 + parsed_len,
-						    len - parsed_len, channels);
+					ignore_update =
+						parse_update_subtlv(message + 2 + parsed_len,
+						len - parsed_len, channels);
 	    }
 
 	    if (!ignore_update)
 		    update_route(router_id, prefix, plen, seqno, metric,
-				 interval, neigh, nh, channels,
-				 channels_len(channels));
+				 interval, neigh, nh, channels, channels_len(channels));
 	} else if(type == MESSAGE_REQUEST) {
             unsigned char prefix[16], src_prefix[16], plen, src_plen;
             int rc, is_ss;
@@ -738,8 +734,7 @@ parse_packet(const unsigned char *from, struct interface *ifp,
                    format_prefix(prefix, plen),
                    format_address(from), ifp->name,
                    format_eui64(message + 8), seqno);
-            handle_request(neigh, prefix, plen, message[6],
-                           seqno, message + 8);
+            handle_request(neigh, prefix, plen, message[6], seqno, message + 8);
         } else {
             debugf(BABEL_DEBUG_COMMON,"Received unknown packet type %d from %s on %s.",
                    type, format_address(from), ifp->name);
@@ -821,11 +816,10 @@ check_bucket(struct interface *ifp)
     }
 }
 
-static int
-fill_rtt_message(struct interface *ifp)
+static int fill_rtt_message(struct interface *ifp)
 {
     babel_interface_nfo *babel_ifp = babel_get_if_nfo(ifp);
-    if((babel_ifp->flags & BABEL_IF_TIMESTAMPS) &&
+    if(CHECK_FLAG(babel_ifp->flags, BABEL_IF_TIMESTAMPS) &&
        (babel_ifp->buffered_hello >= 0)) {
         if(babel_ifp->sendbuf[babel_ifp->buffered_hello + 8] == SUBTLV_PADN &&
            babel_ifp->sendbuf[babel_ifp->buffered_hello + 9] == 4) {
@@ -845,8 +839,7 @@ fill_rtt_message(struct interface *ifp)
     return 0;
 }
 
-void
-flushbuf(struct interface *ifp)
+void flushbuf(struct interface *ifp)
 {
     int rc;
     struct sockaddr_in6 sin6;
@@ -888,8 +881,7 @@ flushbuf(struct interface *ifp)
     babel_ifp->flush_timeout.tv_usec = 0;
 }
 
-static void
-schedule_flush(struct interface *ifp)
+static void schedule_flush(struct interface *ifp)
 {
     babel_interface_nfo *babel_ifp = babel_get_if_nfo(ifp);
     unsigned msecs = jitter(babel_ifp, 0);
@@ -899,8 +891,7 @@ schedule_flush(struct interface *ifp)
     set_timeout(&babel_ifp->flush_timeout, msecs);
 }
 
-static void
-schedule_flush_now(struct interface *ifp)
+static void schedule_flush_now(struct interface *ifp)
 {
     babel_interface_nfo *babel_ifp = babel_get_if_nfo(ifp);
     /* Almost now */
@@ -911,8 +902,7 @@ schedule_flush_now(struct interface *ifp)
     set_timeout(&babel_ifp->flush_timeout, msecs);
 }
 
-static void
-schedule_unicast_flush(unsigned msecs)
+static void schedule_unicast_flush(unsigned msecs)
 {
     if(!unicast_neighbour)
         return;
@@ -924,16 +914,14 @@ schedule_unicast_flush(unsigned msecs)
         babel_now.tv_sec + (babel_now.tv_usec / 1000 + msecs) / 1000;
 }
 
-static void
-ensure_space(struct interface *ifp, int space)
+static void ensure_space(struct interface *ifp, int space)
 {
     babel_interface_nfo *babel_ifp = babel_get_if_nfo(ifp);
     if(babel_ifp->bufsize - babel_ifp->buffered < space)
         flushbuf(ifp);
 }
 
-static void
-start_message(struct interface *ifp, int type, int len)
+static void start_message(struct interface *ifp, int type, int len)
 {
   babel_interface_nfo *babel_ifp = babel_get_if_nfo(ifp);
     if(babel_ifp->bufsize - babel_ifp->buffered < len + 2)
@@ -942,8 +930,7 @@ start_message(struct interface *ifp, int type, int len)
     babel_ifp->sendbuf[babel_ifp->buffered++] = len;
 }
 
-static void
-end_message(struct interface *ifp, int type, int bytes)
+static void end_message(struct interface *ifp, int type, int bytes)
 {
     babel_interface_nfo *babel_ifp = babel_get_if_nfo(ifp);
     assert(babel_ifp->buffered >= bytes + 2 &&
@@ -952,23 +939,20 @@ end_message(struct interface *ifp, int type, int bytes)
     schedule_flush(ifp);
 }
 
-static void
-accumulate_byte(struct interface *ifp, unsigned char value)
+static void accumulate_byte(struct interface *ifp, unsigned char value)
 {
     babel_interface_nfo *babel_ifp = babel_get_if_nfo(ifp);
     babel_ifp->sendbuf[babel_ifp->buffered++] = value;
 }
 
-static void
-accumulate_short(struct interface *ifp, unsigned short value)
+static void accumulate_short(struct interface *ifp, unsigned short value)
 {
     babel_interface_nfo *babel_ifp = babel_get_if_nfo(ifp);
     DO_HTONS(babel_ifp->sendbuf + babel_ifp->buffered, value);
     babel_ifp->buffered += 2;
 }
 
-static void
-accumulate_int(struct interface *ifp, unsigned int value)
+static void accumulate_int(struct interface *ifp, unsigned int value)
 {
     babel_interface_nfo *babel_ifp = babel_get_if_nfo(ifp);
     DO_HTONL(babel_ifp->sendbuf + babel_ifp->buffered, value);
@@ -984,8 +968,7 @@ accumulate_bytes(struct interface *ifp,
     babel_ifp->buffered += len;
 }
 
-static int
-start_unicast_message(struct neighbour *neigh, int type, int len)
+static int start_unicast_message(struct neighbour *neigh, int type, int len)
 {
     if(unicast_neighbour) {
         if(neigh != unicast_neighbour ||
@@ -1008,8 +991,7 @@ start_unicast_message(struct neighbour *neigh, int type, int len)
     return 1;
 }
 
-static void
-end_unicast_message(struct neighbour *neigh, int type, int bytes)
+static void end_unicast_message(struct neighbour *neigh, int type, int bytes)
 {
     assert(unicast_neighbour == neigh && unicast_buffered >= bytes + 2 &&
            unicast_buffer[unicast_buffered - bytes - 2] == type &&
@@ -1030,8 +1012,7 @@ accumulate_unicast_short(struct neighbour *neigh, unsigned short value)
     unicast_buffered += 2;
 }
 
-static void
-accumulate_unicast_int(struct neighbour *neigh, unsigned int value)
+static void accumulate_unicast_int(struct neighbour *neigh, unsigned int value)
 {
     DO_HTONL(unicast_buffer + unicast_buffered, value);
     unicast_buffered += 4;
@@ -1051,15 +1032,16 @@ send_ack(struct neighbour *neigh, unsigned short nonce, unsigned short interval)
     int rc;
     debugf(BABEL_DEBUG_COMMON,"Sending ack (%04x) to %s on %s.",
            nonce, format_address(neigh->address), neigh->ifp->name);
-    rc = start_unicast_message(neigh, MESSAGE_ACK, 2); if(rc < 0) return;
+    rc = start_unicast_message(neigh, MESSAGE_ACK, 2);
+    if(rc < 0)
+        return;
     accumulate_unicast_short(neigh, nonce);
     end_unicast_message(neigh, MESSAGE_ACK, 2);
     /* Roughly yields a value no larger than 3/2, so this meets the deadline */
     schedule_unicast_flush(roughly(interval * 6));
 }
 
-void
-send_hello_noupdate(struct interface *ifp, unsigned interval)
+void send_hello_noupdate(struct interface *ifp, unsigned interval)
 {
     babel_interface_nfo *babel_ifp = babel_get_if_nfo(ifp);
     /* This avoids sending multiple hellos in a single packet, which breaks
@@ -1082,7 +1064,7 @@ send_hello_noupdate(struct interface *ifp, unsigned interval)
     accumulate_short(ifp, 0);
     accumulate_short(ifp, babel_ifp->hello_seqno);
     accumulate_short(ifp, interval > 0xFFFF ? 0xFFFF : interval);
-    if(babel_ifp->flags & BABEL_IF_TIMESTAMPS) {
+    if (CHECK_FLAG(babel_ifp->flags, BABEL_IF_TIMESTAMPS)) {
         /* Sub-TLV containing the local time of emission. We use a
            Pad4 sub-TLV, which we'll fill just before sending. */
         accumulate_byte(ifp, SUBTLV_PADN);
@@ -1090,11 +1072,10 @@ send_hello_noupdate(struct interface *ifp, unsigned interval)
         accumulate_int(ifp, 0);
     }
     end_message(ifp, MESSAGE_HELLO,
-                (babel_ifp->flags & BABEL_IF_TIMESTAMPS) ? 12 : 6);
+                CHECK_FLAG(babel_ifp->flags, BABEL_IF_TIMESTAMPS) ? 12 : 6);
 }
 
-void
-send_hello(struct interface *ifp)
+void send_hello(struct interface *ifp)
 {
     babel_interface_nfo *babel_ifp = babel_get_if_nfo(ifp);
     send_hello_noupdate(ifp, (babel_ifp->hello_interval + 9) / 10);
@@ -1105,8 +1086,7 @@ send_hello(struct interface *ifp)
         send_marginal_ihu(ifp);
 }
 
-void
-flush_unicast(int dofree)
+void flush_unicast(int dofree)
 {
     struct sockaddr_in6 sin6;
     int rc;
@@ -1183,7 +1163,7 @@ really_send_update(struct interface *ifp,
     /* Worst case */
     ensure_space(ifp, 20 + 12 + 28);
 
-    v4 = plen >= 96 && v4mapped(prefix);
+    v4 = (plen >= 96) && v4mapped(prefix);
 
     if(v4) {
         if(!babel_ifp->ipv4)
@@ -1208,7 +1188,7 @@ really_send_update(struct interface *ifp,
                 omit++;
         }
         if(!babel_ifp->have_buffered_prefix || plen >= 48)
-            flags |= 0x80;
+            SET_FLAG(flags, 0x80);
         real_prefix = prefix;
         real_plen = plen;
     }
@@ -1216,7 +1196,7 @@ really_send_update(struct interface *ifp,
     if(!babel_ifp->have_buffered_id
        || memcmp(id, babel_ifp->buffered_id, 8) != 0) {
         if(real_plen == 128 && memcmp(real_prefix + 8, id, 8) == 0) {
-            flags |= 0x40;
+            SET_FLAG(flags, 0x40);
         } else {
             start_message(ifp, MESSAGE_ROUTER_ID, 10);
             accumulate_short(ifp, 0);
@@ -1248,14 +1228,13 @@ really_send_update(struct interface *ifp,
     end_message(ifp, MESSAGE_UPDATE, 10 + (real_plen + 7) / 8 - omit +
                 channels_size);
 
-    if(flags & 0x80) {
+    if (CHECK_FLAG(flags, 0x80)) {
         memcpy(babel_ifp->buffered_prefix, prefix, 16);
         babel_ifp->have_buffered_prefix = 1;
     }
 }
 
-static int
-compare_buffered_updates(const void *av, const void *bv)
+static int compare_buffered_updates(const void *av, const void *bv)
 {
     const struct buffered_update *a = av, *b = bv;
     int rc, v4a, v4b, ma, mb;
@@ -1288,8 +1267,7 @@ compare_buffered_updates(const void *av, const void *bv)
     return memcmp(a->prefix, b->prefix, 16);
 }
 
-void
-flushupdates(struct interface *ifp)
+void flushupdates(struct interface *ifp)
 {
     babel_interface_nfo *babel_ifp = NULL;
     struct xroute *xroute;
@@ -1299,7 +1277,7 @@ flushupdates(struct interface *ifp)
     int i;
 
     if(ifp == NULL) {
-	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
+		struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
         struct interface *ifp_aux;
         FOR_ALL_INTERFACES(vrf, ifp_aux)
             flushupdates(ifp_aux);
@@ -1372,7 +1350,7 @@ flushupdates(struct interface *ifp)
                 if(metric < INFINITY)
                     satisfy_request(route->src->prefix, route->src->plen,
                                     seqno, route->src->id, ifp);
-                if((babel_ifp->flags & BABEL_IF_SPLIT_HORIZON) &&
+                if(CHECK_FLAG(babel_ifp->flags, BABEL_IF_SPLIT_HORIZON) &&
                    route->neigh->ifp == ifp)
                     continue;
 
@@ -1414,11 +1392,11 @@ flushupdates(struct interface *ifp)
     babel_ifp->update_flush_timeout.tv_usec = 0;
 }
 
-static void
-schedule_update_flush(struct interface *ifp, int urgent)
+static void schedule_update_flush(struct interface *ifp, int urgent)
 {
     babel_interface_nfo *babel_ifp = babel_get_if_nfo(ifp);
     unsigned msecs;
+
     msecs = update_jitter(babel_ifp, urgent);
     if(babel_ifp->update_flush_timeout.tv_sec != 0 &&
        timeval_minus_msec(&babel_ifp->update_flush_timeout, &babel_now) < msecs)
@@ -1528,10 +1506,10 @@ send_update_resend(struct interface *ifp,
     record_resend(RESEND_UPDATE, prefix, plen, 0, NULL, NULL, resend_delay);
 }
 
-void
-send_wildcard_retraction(struct interface *ifp)
+void send_wildcard_retraction(struct interface *ifp)
 {
     babel_interface_nfo *babel_ifp = NULL;
+
     if(ifp == NULL) {
 	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
         struct interface *ifp_aux;
@@ -1557,14 +1535,12 @@ send_wildcard_retraction(struct interface *ifp)
     babel_ifp->have_buffered_id = 0;
 }
 
-void
-update_myseqno(void)
+void update_myseqno(void)
 {
     myseqno = seqno_plus(myseqno, 1);
 }
 
-void
-send_self_update(struct interface *ifp)
+void send_self_update(struct interface *ifp)
 {
     struct xroute_stream *xroutes;
     if(ifp == NULL) {
@@ -1592,8 +1568,7 @@ send_self_update(struct interface *ifp)
     }
 }
 
-void
-send_ihu(struct neighbour *neigh, struct interface *ifp)
+void send_ihu(struct neighbour *neigh, struct interface *ifp)
 {
     babel_interface_nfo *babel_ifp = NULL;
     int rxcost, interval;
@@ -1645,7 +1620,7 @@ send_ihu(struct neighbour *neigh, struct interface *ifp)
 
     ll = linklocal(neigh->address);
 
-    if((babel_ifp->flags & BABEL_IF_TIMESTAMPS) && neigh->hello_send_us
+    if(CHECK_FLAG(babel_ifp->flags, BABEL_IF_TIMESTAMPS) && neigh->hello_send_us
        /* Checks whether the RTT data is not too old to be sent. */
        && timeval_minus_msec(&babel_now,
                              &neigh->hello_rtt_receive_time) < 1000000) {
@@ -1700,14 +1675,13 @@ send_ihu(struct neighbour *neigh, struct interface *ifp)
 }
 
 /* Send IHUs to all marginal neighbours */
-void
-send_marginal_ihu(struct interface *ifp)
+void send_marginal_ihu(struct interface *ifp)
 {
     struct neighbour *neigh;
     FOR_ALL_NEIGHBOURS(neigh) {
         if(ifp && neigh->ifp != ifp)
             continue;
-        if(neigh->txcost >= 384 || (neigh->reach & 0xF000) != 0xF000)
+        if(neigh->txcost >= 384 || CHECK_FLAG(neigh->reach, 0xF000) != 0xF000)
             send_ihu(neigh, ifp);
     }
 }
