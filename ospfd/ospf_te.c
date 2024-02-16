@@ -3959,7 +3959,6 @@ static void ospf_mpls_te_show_info(struct vty *vty, struct json_object *json,
 	json_object *jobj = NULL;
 
 	sum = 0;
-	sub = 0;
 	total = lsa->size - OSPF_LSA_HEADER_SIZE;
 
 	for (tlvh = TLV_HDR_TOP(lsah); sum < total && tlvh;
