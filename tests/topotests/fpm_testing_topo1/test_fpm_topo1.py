@@ -31,7 +31,7 @@ from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
 
 
-pytestmark = [pytest.mark.sharpd]
+pytestmark = [pytest.mark.fpm, pytest.mark.sharpd]
 
 
 def build_topo(tgen):
