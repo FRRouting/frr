@@ -14,7 +14,6 @@ enum base64_encodestep {
 struct base64_encodestate {
 	enum base64_encodestep step;
 	char result;
-	int stepcount;
 };
 
 void base64_init_encodestate(struct base64_encodestate *state_in);
