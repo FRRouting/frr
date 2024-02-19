@@ -803,6 +803,8 @@ typedef enum nb_error (*nb_oper_data_finish_cb)(const struct lyd_node *tree,
 /* Hooks. */
 DECLARE_HOOK(nb_notification_send, (const char *xpath, struct list *arguments),
 	     (xpath, arguments));
+DECLARE_HOOK(nb_notification_tree_send,
+	     (const char *xpath, const struct lyd_node *tree), (xpath, tree));
 DECLARE_HOOK(nb_client_debug_config_write, (struct vty *vty), (vty));
 DECLARE_HOOK(nb_client_debug_set_all, (uint32_t flags, bool set), (flags, set));
 
@@ -1491,14 +1493,17 @@ extern int nb_notification_send(const char *xpath, struct list *arguments);
  * Send a YANG notification from a backend . This is a no-op unless th
  * 'nb_notification_tree_send' hook was registered by a northbound plugin.
  *
+ * xpath
+ *    XPath of the YANG notification.
+ *
  * tree
- *    The libyang tree for the notification. The tree will be freed by
- *    this call.
+ *    The libyang tree for the notification.
  *
  * Returns:
  *    NB_OK on success, NB_ERR otherwise.
  */
-extern int nb_notification_tree_send(struct lyd_node *tree);
+extern int nb_notification_tree_send(const char *xpath,
+				     const struct lyd_node *tree);
 
 /*
  * Associate a user pointer to a configuration node.

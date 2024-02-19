@@ -2076,20 +2076,68 @@ DEFINE_HOOK(nb_notification_send, (const char *xpath, struct list *arguments),
 
 int nb_notification_send(const char *xpath, struct list *arguments)
 {
+	struct lyd_node *root = NULL;
+	struct lyd_node *dnode;
+	struct yang_data *data;
+	struct listnode *ln;
+	LY_ERR err;
 	int ret;
 
 	DEBUGD(&nb_dbg_notif, "northbound notification: %s", xpath);
 
+	/*
+	 * Call old hook functions
+	 */
 	ret = hook_call(nb_notification_send, xpath, arguments);
+
+	if (!hook_have_hooks(nb_notification_tree_send))
+		goto done;
+	/*
+	 * Convert yang data arguments list to a libyang data tree for new hook
+	 * functions.
+	 */
+	for (ALL_LIST_ELEMENTS_RO(arguments, ln, data)) {
+		err = lyd_new_path(root, ly_native_ctx, data->xpath,
+				   data->value, LYD_NEW_PATH_UPDATE, &dnode);
+		if (err != LY_SUCCESS)
+			goto lyerr;
+		if (!root) {
+			root = dnode;
+			while (root->parent)
+				root = lyd_parent(root);
+		}
+	}
+
+	if (!root) {
+		err = lyd_new_path(NULL, ly_native_ctx, xpath, "", 0, &root);
+		if (err) {
+lyerr:
+			flog_err(EC_LIB_LIBYANG,
+				 "%s: error creating notification data: %s",
+				 __func__, ly_strerrcode(err));
+			ret += 1;
+			goto done;
+		}
+	}
+
+	/*
+	 * Call new hook functions
+	 */
+	ret += nb_notification_tree_send(xpath, root);
+
+done:
+	if (root)
+		lyd_free_all(root);
 	if (arguments)
 		list_delete(&arguments);
 
 	return ret;
 }
 
-DEFINE_HOOK(nb_notification_tree_send, (struct lyd_node *tree), (tree));
+DEFINE_HOOK(nb_notification_tree_send,
+	    (const char *xpath, const struct lyd_node *tree), (xpath, tree));
 
-int nb_notification_tree_send(struct lyd_node *tree)
+int nb_notification_tree_send(const char *xpath, const struct lyd_node *tree)
 {
 	int ret;
 
@@ -2098,8 +2146,7 @@ int nb_notification_tree_send(struct lyd_node *tree)
 	DEBUGD(&nb_dbg_notif, "northbound tree notification: %s",
 	       tree->schema->name);
 
-	ret = hook_call(nb_notification_tree_send, tree);
-	lyd_free_all(tree);
+	ret = hook_call(nb_notification_tree_send, xpath, tree);
 
 	return ret;
 }

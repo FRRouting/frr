@@ -311,13 +311,15 @@ static int be_client_send_error(struct mgmt_be_client *client, uint64_t txn_id,
 	return ret;
 }
 
-void mgmt_be_send_notification(struct lyd_node *tree)
+static int mgmt_be_send_notification(void *__be_client, const char *xpath,
+				     const struct lyd_node *tree)
 {
 	struct mgmt_be_client *client = __be_client;
 	struct mgmt_msg_notify_data *msg = NULL;
 	LYD_FORMAT format = LYD_JSON;
 	uint8_t **darrp;
 	LY_ERR err;
+	int ret = 0;
 
 	assert(tree);
 
@@ -331,6 +333,8 @@ void mgmt_be_send_notification(struct lyd_node *tree)
 	msg->code = MGMT_MSG_CODE_NOTIFY;
 	msg->result_type = format;
 
+	mgmt_msg_native_xpath_encode(msg, xpath);
+
 	darrp = mgmt_msg_native_get_darrp(msg);
 	err = yang_print_tree_append(darrp, tree, format,
 				     (LYD_PRINT_SHRINK | LYD_PRINT_WD_EXPLICIT |
@@ -339,6 +343,7 @@ void mgmt_be_send_notification(struct lyd_node *tree)
 		flog_err(EC_LIB_LIBYANG,
 			 "%s: error creating notification data: %s", __func__,
 			 ly_strerrcode(err));
+		ret = 1;
 		goto done;
 	}
 
@@ -346,53 +351,7 @@ void mgmt_be_send_notification(struct lyd_node *tree)
 					mgmt_msg_native_get_msg_len(msg), false);
 done:
 	mgmt_msg_native_free_msg(msg);
-	lyd_free_all(tree);
-}
-
-/*
- * Convert old style NB notification data into new MGMTD YANG tree and send.
- */
-static int mgmt_be_notification_send(void *arg, const char *xpath,
-				     struct list *args)
-{
-	struct lyd_node *root = NULL;
-	struct lyd_node *dnode;
-	struct yang_data *data;
-	struct listnode *ln;
-	LY_ERR err;
-
-	debug_be_client("%s: sending notification: %s", __func__, xpath);
-
-	/*
-	 * Convert yang data args list to a libyang data tree
-	 */
-	for (ALL_LIST_ELEMENTS_RO(args, ln, data)) {
-		err = lyd_new_path(root, ly_native_ctx, data->xpath,
-				   data->value, LYD_NEW_PATH_UPDATE, &dnode);
-		if (err != LY_SUCCESS) {
-lyerr:
-			flog_err(EC_LIB_LIBYANG,
-				 "%s: error creating notification data: %s",
-				 __func__, ly_strerrcode(err));
-			if (root)
-				lyd_free_all(root);
-			return 1;
-		}
-		if (!root) {
-			root = dnode;
-			while (root->parent)
-				root = lyd_parent(root);
-		}
-	}
-
-	if (!root) {
-		err = lyd_new_path(NULL, ly_native_ctx, xpath, "", 0, &root);
-		if (err)
-			goto lyerr;
-	}
-
-	mgmt_be_send_notification(root);
-	return 0;
+	return ret;
 }
 
 static int mgmt_be_send_txn_reply(struct mgmt_be_client *client_ctx,
@@ -964,27 +923,40 @@ static void be_client_handle_notify(struct mgmt_be_client *client, void *msgbuf,
 {
 	struct mgmt_msg_notify_data *notif_msg = msgbuf;
 	struct nb_node *nb_node;
-	char notif[XPATH_MAXLEN];
 	struct lyd_node *dnode;
+	const char *data;
+	const char *notif;
 	LY_ERR err;
 
 	debug_be_client("Received notification for client %s", client->name);
 
-	err = yang_parse_notification(notif_msg->result_type,
-				      (char *)notif_msg->result, &dnode);
-	if (err)
+	notif = mgmt_msg_native_xpath_data_decode(notif_msg, msg_len, data);
+	if (!notif || !data) {
+		log_err_be_client("Corrupt notify msg");
 		return;
-
-	lysc_path(dnode->schema, LYSC_PATH_DATA, notif, sizeof(notif));
+	}
 
 	nb_node = nb_node_find(notif);
-	if (!nb_node || !nb_node->cbs.notify) {
-		debug_be_client("No notification callback for %s", notif);
-		goto cleanup;
+	if (!nb_node) {
+		log_err_be_client("No schema found for notification: %s", notif);
+		return;
+	}
+
+	if (!nb_node->cbs.notify) {
+		debug_be_client("No notification callback for: %s", notif);
+		return;
+	}
+
+	err = yang_parse_notification(notif, notif_msg->result_type, data,
+				      &dnode);
+	if (err) {
+		log_err_be_client("Can't parse notification data for: %s",
+				  notif);
+		return;
 	}
 
 	nb_callback_notify(nb_node, notif, dnode);
-cleanup:
+
 	lyd_free_all(dnode);
 }
 
@@ -1202,7 +1174,7 @@ struct mgmt_be_client *mgmt_be_client_create(const char *client_name,
 			"BE-client", debug_check_be_client());
 
 	/* Hook to receive notifications */
-	hook_register_arg(nb_notification_send, mgmt_be_notification_send,
+	hook_register_arg(nb_notification_tree_send, mgmt_be_send_notification,
 			  client);
 
 	debug_be_client("Initialized client '%s'", client_name);
