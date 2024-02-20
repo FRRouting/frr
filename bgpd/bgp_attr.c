@@ -2347,6 +2347,12 @@ int bgp_mp_reach_parse(struct bgp_attr_parser_args *args,
 				return BGP_ATTR_PARSE_WITHDRAW;
 			}
 			attr->nh_ifindex = peer->nexthop.ifp->ifindex;
+			if (if_is_operative(peer->nexthop.ifp))
+				SET_FLAG(attr->nh_flags,
+					 BGP_ATTR_NH_IF_OPERSTATE);
+			else
+				UNSET_FLAG(attr->nh_flags,
+					   BGP_ATTR_NH_IF_OPERSTATE);
 		}
 		break;
 	case BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL:
@@ -2364,6 +2370,12 @@ int bgp_mp_reach_parse(struct bgp_attr_parser_args *args,
 				return BGP_ATTR_PARSE_WITHDRAW;
 			}
 			attr->nh_ifindex = peer->nexthop.ifp->ifindex;
+			if (if_is_operative(peer->nexthop.ifp))
+				SET_FLAG(attr->nh_flags,
+					 BGP_ATTR_NH_IF_OPERSTATE);
+			else
+				UNSET_FLAG(attr->nh_flags,
+					   BGP_ATTR_NH_IF_OPERSTATE);
 		}
 		if (attr->mp_nexthop_len
 		    == BGP_ATTR_NHLEN_VPNV6_GLOBAL_AND_LL) {
