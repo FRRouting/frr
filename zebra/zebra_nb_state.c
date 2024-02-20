@@ -49,8 +49,46 @@ lib_interface_zebra_state_down_count_get_elem(struct nb_cb_get_elem_args *args)
 struct yang_data *
 lib_interface_zebra_state_zif_type_get_elem(struct nb_cb_get_elem_args *args)
 {
-	/* TODO: implement me. */
-	return NULL;
+	const struct interface *ifp = args->list_entry;
+	struct zebra_if *zebra_if;
+	const char *type = NULL;
+
+	zebra_if = ifp->info;
+
+	switch (zebra_if->zif_type) {
+	case ZEBRA_IF_OTHER:
+		type = "frr-zebra:zif-other";
+		break;
+	case ZEBRA_IF_VXLAN:
+		type = "frr-zebra:zif-vxlan";
+		break;
+	case ZEBRA_IF_VRF:
+		type = "frr-zebra:zif-vrf";
+		break;
+	case ZEBRA_IF_BRIDGE:
+		type = "frr-zebra:zif-bridge";
+		break;
+	case ZEBRA_IF_VLAN:
+		type = "frr-zebra:zif-vlan";
+		break;
+	case ZEBRA_IF_MACVLAN:
+		type = "frr-zebra:zif-macvlan";
+		break;
+	case ZEBRA_IF_VETH:
+		type = "frr-zebra:zif-veth";
+		break;
+	case ZEBRA_IF_BOND:
+		type = "frr-zebra:zif-bond";
+		break;
+	case ZEBRA_IF_GRE:
+		type = "frr-zebra:zif-gre";
+		break;
+	}
+
+	if (!type)
+		return NULL;
+
+	return yang_data_new_string(args->xpath, type);
 }
 
 /*
