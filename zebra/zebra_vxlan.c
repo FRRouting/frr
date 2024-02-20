@@ -5110,6 +5110,11 @@ void zebra_vxlan_macvlan_up(struct interface *ifp)
 
 	zif = ifp->info;
 	assert(zif);
+
+	if (zif->link_nsid)
+		/* the link interface is another namespace */
+		return;
+
 	link_ifp = zif->link;
 	link_zif = link_ifp->info;
 	assert(link_zif);
