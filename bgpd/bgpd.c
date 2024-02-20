@@ -4,6 +4,7 @@
  */
 
 #include <zebra.h>
+#include <malloc.h>
 
 #include "prefix.h"
 #include "frrevent.h"
@@ -1243,12 +1244,24 @@ struct peer_connection *bgp_peer_connection_new(struct peer *peer)
 	return connection;
 }
 
+
+#define TRIM_THRESHOLD_PEER 250
+
 static void peer_free(struct peer *peer)
 {
 	afi_t afi;
 	safi_t safi;
+	static int nb_peer_freed;
 
 	assert(peer->connection->status == Deleted);
+
+	/* garbage collector related stuf */
+	if ( nb_peer_freed == TRIM_THRESHOLD_PEER ) {
+		malloc_trim(0);
+		nb_peer_freed = 0;
+	}
+	else
+		nb_peer_freed++;
 
 	QOBJ_UNREG(peer);
 
