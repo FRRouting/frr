@@ -2733,6 +2733,12 @@ module frr-zebra {
           description
             "The VNI multicast group for BUM traffic.";
         }
+
+        leaf bond {
+          type frr-interface:interface-ref;
+          description
+            "The bond interface this interface belongs to.";
+        }
       }
     }
   }

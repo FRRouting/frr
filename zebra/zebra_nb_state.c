@@ -145,6 +145,28 @@ lib_interface_zebra_state_mcast_group_get_elem(struct nb_cb_get_elem_args *args)
 	return yang_data_new_ipv4(args->xpath, &vni->mcast_grp);
 }
 
+/*
+ * XPath: /frr-interface:lib/interface/frr-zebra:zebra/state/bond
+ */
+struct yang_data *
+lib_interface_zebra_state_bond_get_elem(struct nb_cb_get_elem_args *args)
+{
+	const struct interface *ifp = args->list_entry;
+	struct zebra_if *zebra_if;
+	struct interface *bond;
+
+	if (!IS_ZEBRA_IF_BOND_SLAVE(ifp))
+		return NULL;
+
+	zebra_if = ifp->info;
+	bond = zebra_if->bondslave_info.bond_if;
+
+	if (!bond)
+		return NULL;
+
+	return yang_data_new_string(args->xpath, bond->name);
+}
+
 const void *lib_vrf_zebra_ribs_rib_get_next(struct nb_cb_get_next_args *args)
 {
 	struct vrf *vrf = (struct vrf *)args->parent_list_entry;
