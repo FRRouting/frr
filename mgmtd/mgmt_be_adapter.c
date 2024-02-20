@@ -592,25 +592,29 @@ static void mgmt_be_adapter_send_notify(struct mgmt_msg_notify_data *msg,
 {
 	struct mgmt_be_client_adapter *adapter;
 	struct mgmt_be_xpath_map *map;
-	char notif[XPATH_MAXLEN];
-	struct lyd_node *dnode;
-	LY_ERR err;
-	uint id;
+	struct nb_node *nb_node;
+	const char *notif;
+	uint id, len;
 
 	if (!darr_len(be_notif_xpath_map))
 		return;
 
-	err = yang_parse_notification(msg->result_type, (char *)msg->result,
-				      &dnode);
-	if (err)
+	notif = mgmt_msg_native_xpath_decode(msg, msglen);
+	if (!notif) {
+		__log_err("Corrupt notify msg");
 		return;
+	}
 
-	lysc_path(dnode->schema, LYSC_PATH_DATA, notif, sizeof(notif));
-
-	lyd_free_all(dnode);
+	nb_node = nb_node_find(notif);
+	if (!nb_node) {
+		__log_err("No schema found for notification: %s", notif);
+		return;
+	}
 
 	darr_foreach_p (be_notif_xpath_map, map) {
-		if (strncmp(map->xpath_prefix, notif, strlen(map->xpath_prefix)))
+		len = strlen(map->xpath_prefix);
+		if (strncmp(map->xpath_prefix, nb_node->xpath, len) &&
+		    strncmp(map->xpath_prefix, notif, len))
 			continue;
 
 		FOREACH_BE_CLIENT_BITS (id, map->clients) {

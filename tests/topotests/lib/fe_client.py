@@ -321,12 +321,18 @@ class Session:
         while True:
             logging.debug("Waiting for Notify Message")
             mhdr, mfixed, mdata = self.recv_native_msg()
-            assert mdata[-1] == 0
-            result = mdata[:-1].decode("utf-8")
             if mhdr[HDR_FIELD_CODE] == MSG_CODE_NOTIFY:
                 logging.debug("Received Notify Message: %s: %s", mfixed, mdata)
             else:
                 raise Exception(f"Received NON-NOTIFY Message: {mfixed}: {mdata}")
+
+            vsplit = mhdr[HDR_FIELD_VSPLIT]
+            assert mdata[vsplit - 1] == 0
+            xpath = mdata[: vsplit - 1].decode("utf-8")
+
+            assert mdata[-1] == 0
+            result = mdata[vsplit:-1].decode("utf-8")
+
             if not xpaths:
                 return result
             js = json.loads(result)

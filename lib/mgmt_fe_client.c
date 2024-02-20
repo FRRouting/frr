@@ -504,7 +504,8 @@ static void fe_client_handle_native_msg(struct mgmt_fe_client *client,
 	struct mgmt_msg_notify_data *notify_msg;
 	struct mgmt_msg_tree_data *tree_msg;
 	struct mgmt_msg_error *err_msg;
-	char *notify_data = NULL;
+	const char *data = NULL;
+	size_t dlen;
 
 	debug_fe_client("Got native message for session-id %" PRIu64,
 			msg->refer_id);
@@ -563,20 +564,17 @@ static void fe_client_handle_native_msg(struct mgmt_fe_client *client,
 			return;
 		}
 
-		if (notify_msg->result_type != LYD_LYB &&
-		    !MGMT_MSG_VALIDATE_NUL_TERM(notify_msg, msg_len)) {
+		data = mgmt_msg_native_data_decode(notify_msg, msg_len);
+		if (!data) {
 			log_err_fe_client("Corrupt error msg recv");
 			return;
 		}
-		if (notify_msg->result_type == LYD_JSON)
-			notify_data = (char *)notify_msg->result;
-		else
-			notify_data =
-				yang_convert_lyd_format(notify_msg->result,
-							msg_len,
-							notify_msg->result_type,
-							LYD_JSON, true);
-		if (!notify_data) {
+		dlen = mgmt_msg_native_data_len_decode(notify_msg, msg_len);
+		if (notify_msg->result_type != LYD_JSON)
+			data = yang_convert_lyd_format(data, dlen,
+						       notify_msg->result_type,
+						       LYD_JSON, true);
+		if (!data) {
 			log_err_fe_client("Can't convert format %d to JSON",
 					  notify_msg->result_type);
 			return;
@@ -588,11 +586,10 @@ static void fe_client_handle_native_msg(struct mgmt_fe_client *client,
 			session->client->cbs
 				.async_notification(client, client->user_data,
 						    session->client_id,
-						    session->user_ctx,
-						    notify_data);
+						    session->user_ctx, data);
 		}
 		if (notify_msg->result_type != LYD_JSON)
-			darr_free(notify_data);
+			darr_free(data);
 		break;
 	default:
 		log_err_fe_client("unknown native message session-id %" PRIu64
