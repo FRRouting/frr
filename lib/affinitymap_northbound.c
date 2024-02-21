@@ -94,7 +94,8 @@ const struct frr_yang_module_info frr_affinity_map_info = {
 			.cbs = {
 				.create = lib_affinity_map_create,
 				.destroy = lib_affinity_map_destroy,
-			}
+			},
+			.priority = NB_DFLT_PRIORITY - 1,
 		},
 		{
 			.xpath = "/frr-affinity-map:lib/affinity-maps/affinity-map/value",

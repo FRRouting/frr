@@ -391,11 +391,14 @@ void nb_config_replace(struct nb_config *config_dst,
 static inline int nb_config_cb_compare(const struct nb_config_cb *a,
 				       const struct nb_config_cb *b)
 {
-	/* Sort by priority first. */
+	/*
+	 * Sort by priority first. If the operation is "destroy", reverse the
+	 * order, so that the dependencies are destroyed before the dependants.
+	 */
 	if (a->nb_node->priority < b->nb_node->priority)
-		return -1;
+		return a->operation != NB_CB_DESTROY ? -1 : 1;
 	if (a->nb_node->priority > b->nb_node->priority)
-		return 1;
+		return a->operation != NB_CB_DESTROY ? 1 : -1;
 
 	/*
 	 * Preserve the order of the configuration changes as told by libyang.
