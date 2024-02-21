@@ -393,7 +393,7 @@ static inline int nb_config_cb_compare(const struct nb_config_cb *a,
 {
 	/*
 	 * Sort by priority first. If the operation is "destroy", reverse the
-	 * order, so that the dependencies are destroyed before the dependants.
+	 * order, so that the dependants are destroyed before the dependencies.
 	 */
 	if (a->nb_node->priority < b->nb_node->priority)
 		return a->operation != NB_CB_DESTROY ? -1 : 1;
