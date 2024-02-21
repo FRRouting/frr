@@ -2198,15 +2198,18 @@ static void vty_show_ip_route_summary(struct vty *vty,
 	uint32_t fib_cnt[ZEBRA_ROUTE_TOTAL + 1];
 	uint32_t offload_cnt[ZEBRA_ROUTE_TOTAL + 1];
 	uint32_t trap_cnt[ZEBRA_ROUTE_TOTAL + 1];
+	uint32_t select_cnt[ZEBRA_ROUTE_TOTAL + 1];
 	uint32_t i;
 	uint32_t is_ibgp;
 	json_object *json_route_summary = NULL;
 	json_object *json_route_routes = NULL;
+	rib_dest_t *dest;
 
 	memset(&rib_cnt, 0, sizeof(rib_cnt));
 	memset(&fib_cnt, 0, sizeof(fib_cnt));
 	memset(&offload_cnt, 0, sizeof(offload_cnt));
 	memset(&trap_cnt, 0, sizeof(trap_cnt));
+	memset(&select_cnt, 0, sizeof(select_cnt));
 
 	if (use_json) {
 		json_route_summary = json_object_new_object();
@@ -2215,7 +2218,9 @@ static void vty_show_ip_route_summary(struct vty *vty,
 				       json_route_routes);
 	}
 
-	for (rn = route_top(table); rn; rn = srcdest_route_next(rn))
+	for (rn = route_top(table); rn; rn = srcdest_route_next(rn)) {
+		dest = rib_dest_from_rnode(rn);
+
 		RNODE_FOREACH_RE (rn, re) {
 			is_ibgp = (re->type == ZEBRA_ROUTE_BGP
 				   && CHECK_FLAG(re->flags, ZEBRA_FLAG_IBGP));
@@ -2248,7 +2253,18 @@ static void vty_show_ip_route_summary(struct vty *vty,
 				else
 					offload_cnt[re->type]++;
 			}
+
+			if (CHECK_FLAG(re->status, ROUTE_ENTRY_INSTALLED)
+			    && (re == dest->selected_fib)) {
+				select_cnt[ZEBRA_ROUTE_TOTAL]++;
+
+				if (is_ibgp)
+					select_cnt[ZEBRA_ROUTE_IBGP]++;
+				else
+					select_cnt[re->type]++;
+			}
 		}
+	}
 
 	if (!use_json)
 		vty_out(vty, "%-20s %-20s %s  (vrf %s)\n", "Route Source",
@@ -2277,6 +2293,9 @@ static void vty_show_ip_route_summary(struct vty *vty,
 					json_object_int_add(
 						json_route_ebgp, "fibTrapped",
 						trap_cnt[ZEBRA_ROUTE_BGP]);
+					json_object_int_add(
+						json_route_ebgp, "fibSelected",
+						select_cnt[ZEBRA_ROUTE_BGP]);
 
 					json_object_string_add(json_route_ebgp,
 							       "type", "ebgp");
@@ -2298,6 +2317,9 @@ static void vty_show_ip_route_summary(struct vty *vty,
 					json_object_int_add(
 						json_route_ibgp, "fibTrapped",
 						trap_cnt[ZEBRA_ROUTE_IBGP]);
+					json_object_int_add(
+						json_route_ibgp, "fibSelected",
+						select_cnt[ZEBRA_ROUTE_IBGP]);
 					json_object_string_add(json_route_ibgp,
 							       "type", "ibgp");
 					json_object_array_add(json_route_routes,
@@ -2328,6 +2350,9 @@ static void vty_show_ip_route_summary(struct vty *vty,
 					json_object_int_add(json_route_type,
 							    "fibTrapped",
 							    trap_cnt[i]);
+					json_object_int_add(json_route_type,
+							    "fibSelected",
+							    select_cnt[i]);
 					json_object_string_add(
 						json_route_type, "type",
 						zebra_route_string(i));
@@ -2346,6 +2371,9 @@ static void vty_show_ip_route_summary(struct vty *vty,
 				    rib_cnt[ZEBRA_ROUTE_TOTAL]);
 		json_object_int_add(json_route_summary, "routesTotalFib",
 				    fib_cnt[ZEBRA_ROUTE_TOTAL]);
+		json_object_int_add(json_route_summary,
+				    "routesTotalFibSelected",
+				    select_cnt[ZEBRA_ROUTE_TOTAL]);
 
 		vty_json(vty, json_route_summary);
 	} else {
