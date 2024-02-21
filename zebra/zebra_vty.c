@@ -529,18 +529,8 @@ static void vty_show_ip_route_detail(struct vty *vty, struct route_node *rn,
 	struct nexthop *nexthop;
 	char buf[SRCDEST2STR_BUFFER];
 	struct zebra_vrf *zvrf;
-	rib_dest_t *dest;
-
-	dest = rib_dest_from_rnode(rn);
 
 	RNODE_FOREACH_RE (rn, re) {
-		/*
-		 * If re not selected for forwarding, skip re
-		 * for "show ip/ipv6 fib <prefix>"
-		 */
-		if (use_fib && re != dest->selected_fib)
-			continue;
-
 		const char *mcast_info = "";
 		if (mcast) {
 			struct rib_table_info *info =
@@ -834,20 +824,11 @@ static void vty_show_ip_route_detail_json(struct vty *vty,
 	json_object *json_prefix = NULL;
 	struct route_entry *re;
 	char buf[BUFSIZ];
-	rib_dest_t *dest;
-
-	dest = rib_dest_from_rnode(rn);
 
 	json = json_object_new_object();
 	json_prefix = json_object_new_array();
 
 	RNODE_FOREACH_RE (rn, re) {
-		/*
-		 * If re not selected for forwarding, skip re
-		 * for "show ip/ipv6 fib <prefix> json"
-		 */
-		if (use_fib && re != dest->selected_fib)
-			continue;
 		vty_show_ip_route(vty, rn, re, json_prefix, use_fib, false);
 	}
 
@@ -868,7 +849,6 @@ static void do_show_route_helper(struct vty *vty, struct zebra_vrf *zvrf,
 	struct route_node *rn;
 	struct route_entry *re;
 	int first = 1;
-	rib_dest_t *dest;
 	json_object *json = NULL;
 	json_object *json_prefix = NULL;
 	uint32_t addr;
@@ -890,12 +870,7 @@ static void do_show_route_helper(struct vty *vty, struct zebra_vrf *zvrf,
 
 	/* Show all routes. */
 	for (rn = route_top(table); rn; rn = srcdest_route_next(rn)) {
-		dest = rib_dest_from_rnode(rn);
-
 		RNODE_FOREACH_RE (rn, re) {
-			if (use_fib && re != dest->selected_fib)
-				continue;
-
 			if (tag && re->tag != tag)
 				continue;
 
@@ -1856,7 +1831,6 @@ DEFPY (show_route_detail,
 	struct prefix p;
 	struct route_node *rn;
 	bool use_fib = !!fib;
-	rib_dest_t *dest;
 	bool network_found = false;
 	bool show_ng = !!ng;
 
@@ -1880,12 +1854,6 @@ DEFPY (show_route_detail,
 			if (!rn)
 				continue;
 			if (!address_str && rn->p.prefixlen != p.prefixlen) {
-				route_unlock_node(rn);
-				continue;
-			}
-
-			dest = rib_dest_from_rnode(rn);
-			if (use_fib && !dest->selected_fib) {
 				route_unlock_node(rn);
 				continue;
 			}
@@ -1924,11 +1892,8 @@ DEFPY (show_route_detail,
 			return CMD_SUCCESS;
 
 		rn = route_node_match(table, &p);
-		if (rn)
-			dest = rib_dest_from_rnode(rn);
 
-		if (!rn || (!address_str && rn->p.prefixlen != p.prefixlen) ||
-			(use_fib && dest && !dest->selected_fib)) {
+		if (!rn || (!address_str && rn->p.prefixlen != p.prefixlen)) {
 			if (json)
 				vty_out(vty, "{}\n");
 			else {
