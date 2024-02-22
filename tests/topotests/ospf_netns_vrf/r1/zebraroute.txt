@@ -1,10 +1,10 @@
 VRF r1-ospf-cust1:
 O   10.0.1.0/24 [110/10] is directly connected, r1-eth0, weight 1, XX:XX:XX
-C>* 10.0.1.0/24 is directly connected, r1-eth0, XX:XX:XX
-L>* 10.0.1.1/32 is directly connected, r1-eth0, XX:XX:XX
+C>* 10.0.1.0/24 is directly connected, r1-eth0, weight 1, XX:XX:XX
+L>* 10.0.1.1/32 is directly connected, r1-eth0, weight 1, XX:XX:XX
 O>* 10.0.2.0/24 [110/20] via 10.0.3.3, r1-eth1, weight 1, XX:XX:XX
 O   10.0.3.0/24 [110/10] is directly connected, r1-eth1, weight 1, XX:XX:XX
-C>* 10.0.3.0/24 is directly connected, r1-eth1, XX:XX:XX
-L>* 10.0.3.2/32 is directly connected, r1-eth1, XX:XX:XX
+C>* 10.0.3.0/24 is directly connected, r1-eth1, weight 1, XX:XX:XX
+L>* 10.0.3.2/32 is directly connected, r1-eth1, weight 1, XX:XX:XX
 O>* 10.0.10.0/24 [110/20] via 10.0.3.1, r1-eth1, weight 1, XX:XX:XX
 

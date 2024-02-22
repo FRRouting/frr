@@ -1,23 +1,23 @@
-C>* 192.168.0.0/24 is directly connected, r1-eth0, XX:XX:XX
-C>* 192.168.1.0/26 is directly connected, r1-eth1, XX:XX:XX
-C>* 192.168.2.0/26 is directly connected, r1-eth2, XX:XX:XX
-C>* 192.168.3.0/26 is directly connected, r1-eth3, XX:XX:XX
-C>* 192.168.4.0/26 is directly connected, r1-eth4, XX:XX:XX
-C>* 192.168.5.0/26 is directly connected, r1-eth5, XX:XX:XX
-C>* 192.168.6.0/26 is directly connected, r1-eth6, XX:XX:XX
-C>* 192.168.7.0/26 is directly connected, r1-eth7, XX:XX:XX
-C>* 192.168.8.0/26 is directly connected, r1-eth8, XX:XX:XX
-C>* 192.168.9.0/26 is directly connected, r1-eth9, XX:XX:XX
-L>* 192.168.0.1/32 is directly connected, r1-eth0, XX:XX:XX
-L>* 192.168.1.1/32 is directly connected, r1-eth1, XX:XX:XX
-L>* 192.168.2.1/32 is directly connected, r1-eth2, XX:XX:XX
-L>* 192.168.3.1/32 is directly connected, r1-eth3, XX:XX:XX
-L>* 192.168.4.1/32 is directly connected, r1-eth4, XX:XX:XX
-L>* 192.168.5.1/32 is directly connected, r1-eth5, XX:XX:XX
-L>* 192.168.6.1/32 is directly connected, r1-eth6, XX:XX:XX
-L>* 192.168.7.1/32 is directly connected, r1-eth7, XX:XX:XX
-L>* 192.168.8.1/32 is directly connected, r1-eth8, XX:XX:XX
-L>* 192.168.9.1/32 is directly connected, r1-eth9, XX:XX:XX
+C>* 192.168.0.0/24 is directly connected, r1-eth0, weight 1, XX:XX:XX
+C>* 192.168.1.0/26 is directly connected, r1-eth1, weight 1, XX:XX:XX
+C>* 192.168.2.0/26 is directly connected, r1-eth2, weight 1, XX:XX:XX
+C>* 192.168.3.0/26 is directly connected, r1-eth3, weight 1, XX:XX:XX
+C>* 192.168.4.0/26 is directly connected, r1-eth4, weight 1, XX:XX:XX
+C>* 192.168.5.0/26 is directly connected, r1-eth5, weight 1, XX:XX:XX
+C>* 192.168.6.0/26 is directly connected, r1-eth6, weight 1, XX:XX:XX
+C>* 192.168.7.0/26 is directly connected, r1-eth7, weight 1, XX:XX:XX
+C>* 192.168.8.0/26 is directly connected, r1-eth8, weight 1, XX:XX:XX
+C>* 192.168.9.0/26 is directly connected, r1-eth9, weight 1, XX:XX:XX
+L>* 192.168.0.1/32 is directly connected, r1-eth0, weight 1, XX:XX:XX
+L>* 192.168.1.1/32 is directly connected, r1-eth1, weight 1, XX:XX:XX
+L>* 192.168.2.1/32 is directly connected, r1-eth2, weight 1, XX:XX:XX
+L>* 192.168.3.1/32 is directly connected, r1-eth3, weight 1, XX:XX:XX
+L>* 192.168.4.1/32 is directly connected, r1-eth4, weight 1, XX:XX:XX
+L>* 192.168.5.1/32 is directly connected, r1-eth5, weight 1, XX:XX:XX
+L>* 192.168.6.1/32 is directly connected, r1-eth6, weight 1, XX:XX:XX
+L>* 192.168.7.1/32 is directly connected, r1-eth7, weight 1, XX:XX:XX
+L>* 192.168.8.1/32 is directly connected, r1-eth8, weight 1, XX:XX:XX
+L>* 192.168.9.1/32 is directly connected, r1-eth9, weight 1, XX:XX:XX
 O   192.168.0.0/24 [110/10] is directly connected, r1-eth0, weight 1, XX:XX:XX
 O   192.168.3.0/26 [110/10] is directly connected, r1-eth3, weight 1, XX:XX:XX
 S>* 1.1.1.1/32 [1/0] is directly connected, r1-eth1, weight 1, XX:XX:XX
