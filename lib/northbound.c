@@ -391,14 +391,27 @@ void nb_config_replace(struct nb_config *config_dst,
 static inline int nb_config_cb_compare(const struct nb_config_cb *a,
 				       const struct nb_config_cb *b)
 {
+	bool a_destroy = a->operation == NB_CB_DESTROY;
+	bool b_destroy = b->operation == NB_CB_DESTROY;
+
 	/*
-	 * Sort by priority first. If the operation is "destroy", reverse the
-	 * order, so that the dependencies are destroyed before the dependants.
+	 * Sort by operation first. All "destroys" must come first, to correctly
+	 * process the change of a "case" inside a "choice". The old "case" must
+	 * be deleted before the new "case" is created.
+	 */
+	if (a_destroy && !b_destroy)
+		return -1;
+	if (!a_destroy && b_destroy)
+		return 1;
+
+	/*
+	 * Then sort by priority. If the operation is "destroy", reverse the
+	 * order, so that the dependants are deleted before the dependencies.
 	 */
 	if (a->nb_node->priority < b->nb_node->priority)
-		return a->operation != NB_CB_DESTROY ? -1 : 1;
+		return !a_destroy ? -1 : 1;
 	if (a->nb_node->priority > b->nb_node->priority)
-		return a->operation != NB_CB_DESTROY ? 1 : -1;
+		return !a_destroy ? 1 : -1;
 
 	/*
 	 * Preserve the order of the configuration changes as told by libyang.
@@ -1814,6 +1827,7 @@ nb_apply_finish_cb_new(struct nb_config_cbs *cbs, const struct nb_node *nb_node,
 	struct nb_config_cb *cb;
 
 	cb = XCALLOC(MTYPE_TMP, sizeof(*cb));
+	cb->operation = NB_CB_APPLY_FINISH;
 	cb->nb_node = nb_node;
 	cb->dnode = dnode;
 	RB_INSERT(nb_config_cbs, cbs, cb);
@@ -1828,6 +1842,7 @@ nb_apply_finish_cb_find(struct nb_config_cbs *cbs,
 {
 	struct nb_config_cb s;
 
+	s.operation = NB_CB_APPLY_FINISH;
 	s.seq = 0;
 	s.nb_node = nb_node;
 	s.dnode = dnode;
