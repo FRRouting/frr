@@ -510,14 +510,11 @@ static void fe_client_handle_native_msg(struct mgmt_fe_client *client,
 	debug_fe_client("Got native message for session-id %" PRIu64,
 			msg->refer_id);
 
-	if (msg->code != MGMT_MSG_CODE_NOTIFY) {
-		session = mgmt_fe_find_session_by_session_id(client,
-							     msg->refer_id);
-		if (!session || !session->client) {
-			log_err_fe_client("No session for received native msg session-id %" PRIu64,
-					  msg->refer_id);
-			return;
-		}
+	session = mgmt_fe_find_session_by_session_id(client, msg->refer_id);
+	if (!session || !session->client) {
+		log_err_fe_client("No session for received native msg session-id %" PRIu64,
+				  msg->refer_id);
+		return;
 	}
 
 	switch (msg->code) {
@@ -558,6 +555,9 @@ static void fe_client_handle_native_msg(struct mgmt_fe_client *client,
 						     tree_msg->partial_error);
 		break;
 	case MGMT_MSG_CODE_NOTIFY:
+		if (!session->client->cbs.async_notification)
+			return;
+
 		notify_msg = (typeof(notify_msg))msg;
 		if (msg_len < sizeof(*notify_msg)) {
 			log_err_fe_client("Corrupt notify-data msg recv");
@@ -579,15 +579,13 @@ static void fe_client_handle_native_msg(struct mgmt_fe_client *client,
 					  notify_msg->result_type);
 			return;
 		}
-		FOREACH_SESSION_IN_LIST (client, session) {
-			if (!session->client->cbs.async_notification)
-				continue;
 
-			session->client->cbs
-				.async_notification(client, client->user_data,
-						    session->client_id,
-						    session->user_ctx, data);
-		}
+		session->client->cbs.async_notification(client,
+							client->user_data,
+							session->client_id,
+							msg->refer_id,
+							session->user_ctx, data);
+
 		if (notify_msg->result_type != LYD_JSON)
 			darr_free(data);
 		break;
