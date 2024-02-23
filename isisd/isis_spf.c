@@ -2424,7 +2424,7 @@ DEFUN(show_isis_topology, show_isis_topology_cmd,
       " [vrf <NAME|all>] topology"
 #ifndef FABRICD
       " [<level-1|level-2>]"
-      " [algorithm (128-255)]"
+      " [algorithm [(128-255)]]"
 #endif /* ifndef FABRICD */
       ,
       SHOW_STR PROTO_HELP VRF_CMD_HELP_STR
@@ -2443,8 +2443,10 @@ DEFUN(show_isis_topology, show_isis_topology_cmd,
 	struct isis *isis = NULL;
 	const char *vrf_name = VRF_DEFAULT_NAME;
 	bool all_vrf = false;
+	bool all_algorithm = false;
 	int idx_vrf = 0;
-	uint8_t algorithm = SR_ALGORITHM_SPF;
+	uint16_t algorithm = SR_ALGORITHM_SPF;
+
 #ifndef FABRICD
 	int idx = 0;
 
@@ -2453,8 +2455,12 @@ DEFUN(show_isis_topology, show_isis_topology_cmd,
 		levels = ISIS_LEVEL1;
 	if (argv_find(argv, argc, "level-2", &idx))
 		levels = ISIS_LEVEL2;
-	if (argv_find(argv, argc, "algorithm", &idx))
-		algorithm = (uint8_t)strtoul(argv[idx + 1]->arg, NULL, 10);
+	if (argv_find(argv, argc, "algorithm", &idx)) {
+		if (argv_find(argv, argc, "(128-255)", &idx))
+			algorithm = (uint16_t)strtoul(argv[idx]->arg, NULL, 10);
+		else
+			all_algorithm = true;
+	}
 #endif /* ifndef FABRICD */
 
 	if (!im) {
@@ -2465,14 +2471,34 @@ DEFUN(show_isis_topology, show_isis_topology_cmd,
 
 	if (vrf_name) {
 		if (all_vrf) {
-			for (ALL_LIST_ELEMENTS_RO(im->isis, node, isis))
-				show_isis_topology_common(vty, levels, isis,
-							  algorithm);
+			for (ALL_LIST_ELEMENTS_RO(im->isis, node, isis)) {
+				if (all_algorithm) {
+					for (algorithm = SR_ALGORITHM_FLEX_MIN;
+					     algorithm <= SR_ALGORITHM_FLEX_MAX;
+					     algorithm++)
+						show_isis_topology_common(
+							vty, levels, isis,
+							(uint8_t)algorithm);
+				} else {
+					show_isis_topology_common(
+						vty, levels, isis,
+						(uint8_t)algorithm);
+				}
+			}
 			return CMD_SUCCESS;
 		}
 		isis = isis_lookup_by_vrfname(vrf_name);
-		if (isis != NULL)
-			show_isis_topology_common(vty, levels, isis, algorithm);
+		if (isis == NULL)
+			return CMD_SUCCESS;
+		if (all_algorithm) {
+			for (algorithm = SR_ALGORITHM_FLEX_MIN;
+			     algorithm <= SR_ALGORITHM_FLEX_MAX; algorithm++) {
+				show_isis_topology_common(vty, levels, isis,
+							  (uint8_t)algorithm);
+			}
+		} else
+			show_isis_topology_common(vty, levels, isis,
+						  (uint8_t)algorithm);
 	}
 
 	return CMD_SUCCESS;
@@ -2912,6 +2938,7 @@ static void show_isis_route_common(struct vty *vty, int levels,
 			jstr = json_object_new_string(
 				area->area_tag ? area->area_tag : "null");
 			json_object_object_add(*json, "area", jstr);
+			json_object_int_add(*json, "algorithm", algo);
 		} else {
 			vty_out(vty, "Area %s:",
 				area->area_tag ? area->area_tag : "null");
@@ -3011,6 +3038,39 @@ static void show_isis_route_common(struct vty *vty, int levels,
 	}
 }
 
+static void show_isis_route_all_algos(struct vty *vty, int levels,
+				      struct isis *isis, bool prefix_sid,
+				      bool backup, json_object **json)
+{
+	uint16_t algo;
+
+	json_object *json_algo = NULL, *json_algos = NULL;
+
+	if (json) {
+		*json = json_object_new_object();
+		json_algos = json_object_new_array();
+	}
+
+	for (algo = SR_ALGORITHM_FLEX_MIN; algo <= SR_ALGORITHM_FLEX_MAX;
+	     algo++) {
+		show_isis_route_common(vty, levels, isis, prefix_sid, backup,
+				       (uint8_t)algo, json ? &json_algo : NULL);
+		if (!json)
+			continue;
+		if (json_object_object_length(json_algo) == 0) {
+			json_object_free(json_algo);
+			continue;
+		}
+		json_object_object_add(json_algo, "algorithm",
+				       json_object_new_int(algo));
+		json_object_array_add(json_algos, json_algo);
+	}
+
+	if (json)
+		json_object_object_add(*json, "algorithms", json_algos);
+}
+
+
 DEFUN(show_isis_route, show_isis_route_cmd,
       "show " PROTO_NAME
       " [vrf <NAME|all>] route"
@@ -3019,7 +3079,7 @@ DEFUN(show_isis_route, show_isis_route_cmd,
 #endif /* ifndef FABRICD */
       " [<prefix-sid|backup>]"
 #ifndef FABRICD
-      " [algorithm (128-255)]"
+      " [algorithm [(128-255)]]"
 #endif /* ifndef FABRICD */
       " [json$uj]",
       SHOW_STR PROTO_HELP VRF_FULL_CMD_HELP_STR
@@ -3041,6 +3101,7 @@ DEFUN(show_isis_route, show_isis_route_cmd,
 	struct listnode *node;
 	const char *vrf_name = VRF_DEFAULT_NAME;
 	bool all_vrf = false;
+	bool all_algorithm = false;
 	bool prefix_sid = false;
 	bool backup = false;
 	bool uj = use_json(argc, argv);
@@ -3067,8 +3128,13 @@ DEFUN(show_isis_route, show_isis_route_cmd,
 		backup = true;
 
 #ifndef FABRICD
-	if (argv_find(argv, argc, "algorithm", &idx))
-		algorithm = (uint8_t)strtoul(argv[idx + 1]->arg, NULL, 10);
+	if (argv_find(argv, argc, "algorithm", &idx)) {
+		if (argv_find(argv, argc, "(128-255)", &idx))
+			algorithm = (uint8_t)strtoul(argv[idx + 1]->arg, NULL,
+						     10);
+		else
+			all_algorithm = true;
+	}
 #endif /* ifndef FABRICD */
 
 	if (uj)
@@ -3077,9 +3143,19 @@ DEFUN(show_isis_route, show_isis_route_cmd,
 	if (vrf_name) {
 		if (all_vrf) {
 			for (ALL_LIST_ELEMENTS_RO(im->isis, node, isis)) {
-				show_isis_route_common(
-					vty, levels, isis, prefix_sid, backup,
-					algorithm, uj ? &json_vrf : NULL);
+				if (all_algorithm)
+					show_isis_route_all_algos(vty, levels,
+								  isis,
+								  prefix_sid,
+								  backup,
+								  uj ? &json_vrf
+								     : NULL);
+				else
+					show_isis_route_common(vty, levels,
+							       isis, prefix_sid,
+							       backup, algorithm,
+							       uj ? &json_vrf
+								  : NULL);
 				if (uj) {
 					json_object_object_add(
 						json_vrf, "vrf_id",
@@ -3092,9 +3168,15 @@ DEFUN(show_isis_route, show_isis_route_cmd,
 		}
 		isis = isis_lookup_by_vrfname(vrf_name);
 		if (isis != NULL) {
-			show_isis_route_common(vty, levels, isis, prefix_sid,
-					       backup, algorithm,
-					       uj ? &json_vrf : NULL);
+			if (all_algorithm)
+				show_isis_route_all_algos(vty, levels, isis,
+							  prefix_sid, backup,
+							  uj ? &json_vrf : NULL);
+			else
+				show_isis_route_common(vty, levels, isis,
+						       prefix_sid, backup,
+						       algorithm,
+						       uj ? &json_vrf : NULL);
 			if (uj) {
 				json_object_object_add(
 					json_vrf, "vrf_id",

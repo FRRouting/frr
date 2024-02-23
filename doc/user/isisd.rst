@@ -320,12 +320,12 @@ Showing ISIS information
    Show the ISIS database globally, for a specific LSP id without or with
    details.
 
-.. clicmd:: show isis topology [level-1|level-2] [algorithm (128-255)]
+.. clicmd:: show isis topology [level-1|level-2] [algorithm [(128-255)]]
 
    Show topology IS-IS paths to Intermediate Systems, globally, in area
    (level-1) or domain (level-2).
 
-.. clicmd:: show isis route [level-1|level-2] [prefix-sid|backup] [algorithm (128-255)]
+.. clicmd:: show isis route [level-1|level-2] [prefix-sid|backup] [algorithm [(128-255)]]
 
    Show the ISIS routing table, as determined by the most recent SPF
    calculation.
@@ -435,7 +435,7 @@ Known limitations:
    clear the Node flag that is set by default for Prefix-SIDs associated to
    loopback addresses. This option is necessary to configure Anycast-SIDs.
 
-.. clicmd:: show isis segment-routing node [algorithm (128-255)]
+.. clicmd:: show isis segment-routing node [algorithm [(128-255)]]
 
    Show detailed information about all learned Segment Routing Nodes.
 
