@@ -109,11 +109,6 @@ void zebra_evpn_print(struct zebra_evpn *zevpn, void **ctxt)
 	} else {
 		json_object_int_add(json, "vni", zevpn->vni);
 		json_object_string_add(json, "type", "L2");
-#if CONFDATE > 20240210
-CPP_NOTICE("Drop `vrf` from JSON output")
-#endif
-		json_object_string_add(json, "vrf",
-				       vrf_id_to_name(zevpn->vrf_id));
 		json_object_string_add(json, "tenantVrf",
 				       vrf_id_to_name(zevpn->vrf_id));
 	}
@@ -142,10 +137,6 @@ CPP_NOTICE("Drop `vrf` from JSON output")
 	} else {
 		json_object_string_add(json, "vxlanInterface",
 				       zevpn->vxlan_if->name);
-#if CONFDATE > 20240210
-CPP_NOTICE("Drop `ifindex` from JSON output")
-#endif
-		json_object_int_add(json, "ifindex", zevpn->vxlan_if->ifindex);
 		json_object_int_add(json, "vxlanIfindex",
 				    zevpn->vxlan_if->ifindex);
 		if (zevpn->svi_if) {
