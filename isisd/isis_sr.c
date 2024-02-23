@@ -1074,7 +1074,7 @@ DEFUN(show_sr_node, show_sr_node_cmd,
       "show " PROTO_NAME
       " segment-routing node"
 #ifndef FABRICD
-      " [algorithm (128-255)]"
+      " [algorithm [(128-255)]]"
 #endif /* ifndef FABRICD */
       ,
       SHOW_STR PROTO_HELP
@@ -1088,13 +1088,18 @@ DEFUN(show_sr_node, show_sr_node_cmd,
 {
 	struct listnode *node, *inode;
 	struct isis_area *area;
-	uint8_t algorithm = SR_ALGORITHM_SPF;
+	uint16_t algorithm = SR_ALGORITHM_SPF;
+	bool all_algorithm = false;
 	struct isis *isis;
 #ifndef FABRICD
 	int idx = 0;
 
-	if (argv_find(argv, argc, "algorithm", &idx))
-		algorithm = (uint8_t)strtoul(argv[idx + 1]->arg, NULL, 10);
+	if (argv_find(argv, argc, "algorithm", &idx)) {
+		if (argv_find(argv, argc, "(128-255)", &idx))
+			algorithm = (uint16_t)strtoul(argv[idx]->arg, NULL, 10);
+		else
+			all_algorithm = true;
+	}
 #endif /* ifndef FABRICD */
 
 	for (ALL_LIST_ELEMENTS_RO(im->isis, inode, isis)) {
@@ -1106,8 +1111,17 @@ DEFUN(show_sr_node, show_sr_node_cmd,
 				continue;
 			}
 			for (int level = ISIS_LEVEL1; level <= ISIS_LEVELS;
-			     level++)
-				show_node(vty, area, level, algorithm);
+			     level++) {
+				if (all_algorithm) {
+					for (algorithm = SR_ALGORITHM_FLEX_MIN;
+					     algorithm <= SR_ALGORITHM_FLEX_MAX;
+					     algorithm++)
+						show_node(vty, area, level,
+							  (uint8_t)algorithm);
+				} else
+					show_node(vty, area, level,
+						  (uint8_t)algorithm);
+			}
 		}
 	}
 
