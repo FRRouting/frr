@@ -129,15 +129,19 @@ int bgp_path_info_nexthop_cmp(struct bgp_path_info *bpi1,
 					&bpi2->attr->mp_nexthop_global);
 				break;
 			case BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL:
-				addr1 = (bpi1->attr->mp_nexthop_prefer_global)
+				addr1 = (CHECK_FLAG(bpi1->attr->nh_flags,
+						    BGP_ATTR_NH_MP_PREFER_GLOBAL))
 						? bpi1->attr->mp_nexthop_global
 						: bpi1->attr->mp_nexthop_local;
-				addr2 = (bpi2->attr->mp_nexthop_prefer_global)
+				addr2 = (CHECK_FLAG(bpi2->attr->nh_flags,
+						    BGP_ATTR_NH_MP_PREFER_GLOBAL))
 						? bpi2->attr->mp_nexthop_global
 						: bpi2->attr->mp_nexthop_local;
 
-				if (!bpi1->attr->mp_nexthop_prefer_global
-				    && !bpi2->attr->mp_nexthop_prefer_global)
+				if (!CHECK_FLAG(bpi1->attr->nh_flags,
+						BGP_ATTR_NH_MP_PREFER_GLOBAL) &&
+				    !CHECK_FLAG(bpi2->attr->nh_flags,
+						BGP_ATTR_NH_MP_PREFER_GLOBAL))
 					compare = !bgp_interface_same(
 						bpi1->peer->ifp,
 						bpi2->peer->ifp);
