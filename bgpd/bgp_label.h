@@ -15,6 +15,21 @@ struct bgp_dest;
 struct bgp_path_info;
 struct peer;
 
+/* MPLS label(s) - VNI(s) for EVPN-VxLAN  */
+struct bgp_labels {
+	mpls_label_t label[BGP_MAX_LABELS];
+	uint8_t num_labels;
+
+	unsigned long refcnt;
+};
+
+extern void bgp_labels_init(void);
+extern void bgp_labels_finish(void);
+extern struct bgp_labels *bgp_labels_intern(struct bgp_labels *labels);
+extern void bgp_labels_unintern(struct bgp_labels **plabels);
+extern bool bgp_labels_cmp(const struct bgp_labels *labels1,
+			   const struct bgp_labels *labels2);
+
 extern int bgp_reg_for_label_callback(mpls_label_t new_label, void *labelid,
 				    bool allocated);
 extern void bgp_reg_dereg_for_label(struct bgp_dest *dest,

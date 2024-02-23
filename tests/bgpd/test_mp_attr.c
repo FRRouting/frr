@@ -23,6 +23,7 @@
 #include "bgpd/bgp_nexthop.h"
 #include "bgpd/bgp_vty.h"
 #include "bgpd/bgp_network.h"
+#include "bgpd/bgp_label.h"
 
 #define VT100_RESET "\x1b[0m"
 #define VT100_RED "\x1b[31m"
@@ -1075,6 +1076,7 @@ int main(void)
 	vrf_init(NULL, NULL, NULL, NULL);
 	bgp_option_set(BGP_OPT_NO_LISTEN);
 	bgp_attr_init();
+	bgp_labels_init();
 
 	if (fileno(stdout) >= 0)
 		tty = isatty(fileno(stdout));

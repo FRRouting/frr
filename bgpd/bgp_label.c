@@ -15,6 +15,7 @@
 #include "memory.h"
 #include "nexthop.h"
 #include "mpls.h"
+#include "jhash.h"
 
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_table.h"
@@ -26,6 +27,124 @@
 #include "bgpd/bgp_errors.h"
 
 extern struct zclient *zclient;
+
+
+/* MPLS Labels hash routines. */
+static struct hash *labels_hash;
+
+static void *bgp_labels_hash_alloc(void *p)
+{
+	const struct bgp_labels *labels = p;
+	struct bgp_labels *new;
+	uint8_t i;
+
+	new = XMALLOC(MTYPE_BGP_LABELS, sizeof(struct bgp_labels));
+
+	new->num_labels = labels->num_labels;
+	for (i = 0; i < labels->num_labels; i++)
+		new->label[i] = labels->label[i];
+
+	return new;
+}
+
+static uint32_t bgp_labels_hash_key_make(const void *p)
+{
+	const struct bgp_labels *labels = p;
+	uint32_t key = 0;
+
+	if (labels->num_labels)
+		key = jhash(&labels->label,
+			    labels->num_labels * sizeof(mpls_label_t), key);
+
+	return key;
+}
+
+static bool bgp_labels_hash_cmp(const void *p1, const void *p2)
+{
+	return bgp_labels_cmp(p1, p2);
+}
+
+void bgp_labels_init(void)
+{
+	labels_hash = hash_create(bgp_labels_hash_key_make, bgp_labels_hash_cmp,
+				  "BGP Labels hash");
+}
+
+/*
+ * special for hash_clean below
+ */
+static void bgp_labels_free(void *labels)
+{
+	XFREE(MTYPE_BGP_LABELS, labels);
+}
+
+void bgp_labels_finish(void)
+{
+	hash_clean_and_free(&labels_hash, bgp_labels_free);
+}
+
+struct bgp_labels *bgp_labels_intern(struct bgp_labels *labels)
+{
+	struct bgp_labels *find;
+
+	if (!labels)
+		return NULL;
+
+	if (!labels->num_labels)
+		/* do not intern void labels structure */
+		return NULL;
+
+	find = (struct bgp_labels *)hash_get(labels_hash, labels,
+					     bgp_labels_hash_alloc);
+	find->refcnt++;
+
+	return find;
+}
+
+void bgp_labels_unintern(struct bgp_labels **plabels)
+{
+	struct bgp_labels *labels = *plabels;
+	struct bgp_labels *ret;
+
+	if (!*plabels)
+		return;
+
+	/* Decrement labels reference. */
+	labels->refcnt--;
+
+	/* If reference becomes zero then free labels object. */
+	if (labels->refcnt == 0) {
+		ret = hash_release(labels_hash, labels);
+		assert(ret != NULL);
+		bgp_labels_free(labels);
+		*plabels = NULL;
+	}
+}
+
+bool bgp_labels_cmp(const struct bgp_labels *labels1,
+		    const struct bgp_labels *labels2)
+{
+	uint8_t i;
+
+	if (!labels1 && !labels2)
+		return true;
+
+	if (!labels1 && labels2)
+		return false;
+
+	if (labels1 && !labels2)
+		return false;
+
+	if (labels1->num_labels != labels2->num_labels)
+		return false;
+
+	for (i = 0; i < labels1->num_labels; i++) {
+		if (labels1->label[i] != labels2->label[i])
+			return false;
+	}
+
+	return true;
+}
 
 int bgp_parse_fec_update(void)
 {
