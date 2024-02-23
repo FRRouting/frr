@@ -1940,6 +1940,8 @@ bool nb_cb_operation_is_valid(enum nb_cb_operation operation,
 				return false;
 			break;
 		case LYS_CONTAINER:
+			if (snode->parent && snode->parent->nodetype == LYS_CASE)
+				return true;
 			scontainer = (struct lysc_node_container *)snode;
 			if (!CHECK_FLAG(scontainer->flags, LYS_PRESENCE))
 				return false;
@@ -1994,6 +1996,8 @@ bool nb_cb_operation_is_valid(enum nb_cb_operation operation,
 				return false;
 			break;
 		case LYS_CONTAINER:
+			if (snode->parent && snode->parent->nodetype == LYS_CASE)
+				return true;
 			scontainer = (struct lysc_node_container *)snode;
 			if (!CHECK_FLAG(scontainer->flags, LYS_PRESENCE))
 				return false;

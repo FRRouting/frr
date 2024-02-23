@@ -145,6 +145,8 @@ int lib_interface_zebra_link_params_utilized_bandwidth_destroy(
 int lib_interface_zebra_legacy_admin_group_modify(struct nb_cb_modify_args *args);
 int lib_interface_zebra_legacy_admin_group_destroy(
 	struct nb_cb_destroy_args *args);
+int lib_interface_zebra_affinities_create(struct nb_cb_create_args *args);
+int lib_interface_zebra_affinities_destroy(struct nb_cb_destroy_args *args);
 int lib_interface_zebra_affinity_create(struct nb_cb_create_args *args);
 int lib_interface_zebra_affinity_destroy(struct nb_cb_destroy_args *args);
 int lib_interface_zebra_affinity_mode_modify(struct nb_cb_modify_args *args);
@@ -175,9 +177,13 @@ int lib_interface_zebra_link_params_packet_loss_modify(
 	struct nb_cb_modify_args *args);
 int lib_interface_zebra_link_params_packet_loss_destroy(
 	struct nb_cb_destroy_args *args);
+int lib_interface_zebra_evpn_mh_type_0_create(struct nb_cb_create_args *args);
+int lib_interface_zebra_evpn_mh_type_0_destroy(struct nb_cb_destroy_args *args);
 int lib_interface_zebra_evpn_mh_type_0_esi_modify(struct nb_cb_modify_args *args);
 int lib_interface_zebra_evpn_mh_type_0_esi_destroy(
 	struct nb_cb_destroy_args *args);
+int lib_interface_zebra_evpn_mh_type_3_create(struct nb_cb_create_args *args);
+int lib_interface_zebra_evpn_mh_type_3_destroy(struct nb_cb_destroy_args *args);
 int lib_interface_zebra_evpn_mh_type_3_system_mac_modify(
 	struct nb_cb_modify_args *args);
 int lib_interface_zebra_evpn_mh_type_3_system_mac_destroy(
