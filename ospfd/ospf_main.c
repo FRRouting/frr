@@ -134,6 +134,8 @@ static const struct frr_yang_module_info *const ospfd_yang_modules[] = {
 	&frr_route_map_info,
 	&frr_vrf_info,
 	&frr_ospf_route_map_info,
+	&ietf_key_chain_info,
+	&ietf_key_chain_deviation_info,
 };
 
 /* actual paths filled in main() */

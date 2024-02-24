@@ -90,10 +90,12 @@ static const char *const ripd_config_xpaths[] = {
 	"/frr-ripd:ripd",
 	"/frr-route-map:lib",
 	"/frr-vrf:lib",
+	"/ietf-key-chain:key-chains",
 	NULL,
 };
 static const char *const ripd_oper_xpaths[] = {
 	"/frr-ripd:ripd",
+	"/ietf-key-chain:key-chains",
 	NULL,
 };
 #endif

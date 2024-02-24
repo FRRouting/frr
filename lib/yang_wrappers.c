@@ -1026,30 +1026,50 @@ void yang_dnode_get_mac(struct ethaddr *mac, const struct lyd_node *dnode,
 	(void)prefix_str2mac(canon, mac);
 }
 
-struct yang_data *yang_data_new_date_and_time(const char *xpath, time_t time)
+struct yang_data *yang_data_new_date_and_time(const char *xpath, time_t time, bool is_monotime)
 {
-	struct tm tm;
-	char timebuf[MONOTIME_STRLEN];
-	struct timeval _time, time_real;
-	char *ts_dot;
-	uint16_t buflen;
+	struct yang_data *yd;
+	char *times = NULL;
 
-	_time.tv_sec = time;
-	_time.tv_usec = 0;
-	monotime_to_realtime(&_time, &time_real);
+	if (is_monotime) {
+		struct timeval _time = { time, 0 };
+		struct timeval time_real;
 
-	gmtime_r(&time_real.tv_sec, &tm);
+		monotime_to_realtime(&_time, &time_real);
+		time = time_real.tv_sec;
+	}
 
-	/* rfc-3339 format */
-	strftime(timebuf, sizeof(timebuf), "%Y-%m-%dT%H:%M:%S", &tm);
-	buflen = strlen(timebuf);
-	ts_dot = timebuf + buflen;
+	(void)ly_time_time2str(time, NULL, &times);
+	yd = yang_data_new(xpath, times);
+	free(times);
 
-	/* microseconds and appends Z */
-	snprintfrr(ts_dot, sizeof(timebuf) - buflen, ".%06luZ",
-		   (unsigned long)time_real.tv_usec);
+	return yd;
+}
 
-	return yang_data_new(xpath, timebuf);
+struct timespec yang_dnode_get_date_and_timespec(const struct lyd_node *dnode,
+						 const char *xpath_fmt, ...)
+{
+	const char *canon = YANG_DNODE_XPATH_GET_CANON(dnode, xpath_fmt);
+	struct timespec ts;
+	LY_ERR err;
+
+	err = ly_time_str2ts(canon, &ts);
+	assert(!err);
+
+	return ts;
+}
+
+time_t yang_dnode_get_date_and_time(const struct lyd_node *dnode,
+				    const char *xpath_fmt, ...)
+{
+	const char *canon = YANG_DNODE_XPATH_GET_CANON(dnode, xpath_fmt);
+	time_t time;
+	LY_ERR err;
+
+	err = ly_time_str2time(canon, &time, NULL);
+	assert(!err);
+
+	return time;
 }
 
 float yang_dnode_get_bandwidth_ieee_float32(const struct lyd_node *dnode,
