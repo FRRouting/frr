@@ -169,6 +169,8 @@ static const struct frr_yang_module_info *const ospf6d_yang_modules[] = {
 	&frr_vrf_info,
 	&frr_ospf_route_map_info,
 	&frr_ospf6_route_map_info,
+	&ietf_key_chain_info,
+	&ietf_key_chain_deviation_info,
 };
 
 /* actual paths filled in main() */
@@ -182,19 +184,19 @@ static char *state_paths[] = {
 
 /* clang-format off */
 FRR_DAEMON_INFO(ospf6d, OSPF6,
-	.vty_port = OSPF6_VTY_PORT,
-	.proghelp = "Implementation of the OSPFv3 routing protocol.",
+		.vty_port = OSPF6_VTY_PORT,
+		.proghelp = "Implementation of the OSPFv3 routing protocol.",
 
-	.signals = ospf6_signals,
-	.n_signals = array_size(ospf6_signals),
+		.signals = ospf6_signals,
+		.n_signals = array_size(ospf6_signals),
 
-	.privs = &ospf6d_privs,
+		.privs = &ospf6d_privs,
 
-	.yang_modules = ospf6d_yang_modules,
-	.n_yang_modules = array_size(ospf6d_yang_modules),
+		.yang_modules = ospf6d_yang_modules,
+		.n_yang_modules = array_size(ospf6d_yang_modules),
 
-	.state_paths = state_paths,
-);
+		.state_paths = state_paths,
+	);
 /* clang-format on */
 
 /* Max wait time for config to load before accepting hellos */
