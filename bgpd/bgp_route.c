@@ -2907,9 +2907,7 @@ void bgp_best_selection(struct bgp *bgp, struct bgp_dest *dest,
 	}
 
 	if (do_mpath && new_select) {
-		for (pi = bgp_dest_get_bgp_path_info(dest);
-		     (pi != NULL) && (nextpi = pi->next, 1); pi = nextpi) {
-
+		for (pi = bgp_dest_get_bgp_path_info(dest); pi; pi = pi->next) {
 			if (debug)
 				bgp_path_info_path_with_addpath_rx_str(
 					pi, path_buf, sizeof(path_buf));
