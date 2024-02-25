@@ -410,7 +410,10 @@ void access_list_filter_add(struct access_list *access,
 		filter->prev = access->tail;
 		access->tail = filter;
 	}
+}
 
+void access_list_filter_update(struct access_list *access)
+{
 	/* Run hook function. */
 	if (access->master->add_hook)
 		(*access->master->add_hook)(access);
