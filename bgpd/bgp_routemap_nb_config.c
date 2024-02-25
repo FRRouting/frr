@@ -1232,22 +1232,6 @@ lib_route_map_entry_match_condition_rmap_match_condition_comm_list_comm_list_nam
 	return NB_OK;
 }
 
-int
-lib_route_map_entry_match_condition_rmap_match_condition_comm_list_comm_list_name_destroy(
-	struct nb_cb_destroy_args *args)
-{
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		break;
-	}
-
-	return NB_OK;
-
-}
-
 /*
  * XPath:
  * /frr-route-map:lib/route-map/entry/match-condition/rmap-match-condition/frr-bgp-route-map:comm-list/comm-list-name-any
@@ -2838,21 +2822,6 @@ lib_route_map_entry_set_action_rmap_set_action_aggregator_aggregator_asn_modify(
 	return NB_OK;
 }
 
-int
-lib_route_map_entry_set_action_rmap_set_action_aggregator_aggregator_asn_destroy(
-	struct nb_cb_destroy_args *args)
-{
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		break;
-	}
-
-	return NB_OK;
-}
-
 /*
  * XPath:
  * /frr-route-map:lib/route-map/entry/set-action/rmap-set-action/frr-bgp-route-map:aggregator/aggregator-address
@@ -2860,21 +2829,6 @@ lib_route_map_entry_set_action_rmap_set_action_aggregator_aggregator_asn_destroy
 int
 lib_route_map_entry_set_action_rmap_set_action_aggregator_aggregator_address_modify(
 	struct nb_cb_modify_args *args)
-{
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		break;
-	}
-
-	return NB_OK;
-}
-
-int
-lib_route_map_entry_set_action_rmap_set_action_aggregator_aggregator_address_destroy(
-	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
 	case NB_EV_VALIDATE:
@@ -3031,13 +2985,6 @@ lib_route_map_entry_set_action_rmap_set_action_extcommunity_lb_lb_type_modify(
 	return NB_OK;
 }
 
-int
-lib_route_map_entry_set_action_rmap_set_action_extcommunity_lb_lb_type_destroy(
-		struct nb_cb_destroy_args *args)
-{
-	return NB_OK;
-}
-
 /*
  * XPath:
  * /frr-route-map:lib/route-map/entry/set-action/rmap-set-action/frr-bgp-route-map:extcommunity-lb/bandwidth
@@ -3115,13 +3062,6 @@ int lib_route_map_entry_set_action_rmap_set_action_extcommunity_color_destroy(
 int
 lib_route_map_entry_set_action_rmap_set_action_extcommunity_lb_two_octet_as_specific_modify(
 	struct nb_cb_modify_args *args)
-{
-	return NB_OK;
-}
-
-int
-lib_route_map_entry_set_action_rmap_set_action_extcommunity_lb_two_octet_as_specific_destroy(
-	struct nb_cb_destroy_args *args)
 {
 	return NB_OK;
 }

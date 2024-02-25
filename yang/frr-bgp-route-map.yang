@@ -379,6 +379,7 @@ identity set-extcommunity-color {
   grouping extcommunity-non-transitive-types {
     leaf two-octet-as-specific {
       type boolean;
+      default false;
       description
         "Non-Transitive Two-Octet AS-Specific Extended Community";
     }
@@ -769,6 +770,7 @@ identity set-extcommunity-color {
         + "derived-from-or-self(/frr-route-map:lib/frr-route-map:route-map/frr-route-map:entry/frr-route-map:match-condition/frr-route-map:condition, 'frr-bgp-route-map:match-extcommunity')";
       container comm-list {
         leaf comm-list-name {
+          mandatory true;
           type bgp-filter:bgp-list-name;
         }
 
@@ -872,11 +874,13 @@ identity set-extcommunity-color {
         description
           "Value of the ext-community.";
         leaf lb-type {
+          mandatory true;
           type frr-bgp-route-map:extcommunity-lb-type;
         }
 
         leaf bandwidth {
           when "../lb-type = 'explicit-bandwidth'";
+          mandatory true;
           type uint16 {
             range "1..25600";
           }
@@ -1108,12 +1112,14 @@ identity set-extcommunity-color {
       container aggregator {
         leaf aggregator-asn {
           type asn-type;
+          mandatory true;
           description
             "ASN of the aggregator";
         }
 
         leaf aggregator-address {
           type inet:ipv4-address;
+          mandatory true;
           description
             "IPv4 address of the aggregator";
         }
