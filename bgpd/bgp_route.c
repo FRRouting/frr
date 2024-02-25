@@ -2777,41 +2777,35 @@ void bgp_best_selection(struct bgp *bgp, struct bgp_dest *dest,
 			}
 
 			new_select = pi1;
-			if (pi1->next) {
-				for (pi2 = pi1->next; pi2; pi2 = pi2->next) {
-					if (CHECK_FLAG(pi2->flags,
-						       BGP_PATH_DMED_CHECK))
-						continue;
-					if (BGP_PATH_HOLDDOWN(pi2))
-						continue;
-					if (pi2->peer != bgp->peer_self &&
-					    !CHECK_FLAG(pi2->peer->sflags,
-							PEER_STATUS_NSF_WAIT) &&
-					    !peer_established(
-						    pi2->peer->connection))
-						continue;
+			for (pi2 = pi1->next; pi2; pi2 = pi2->next) {
+				if (CHECK_FLAG(pi2->flags, BGP_PATH_DMED_CHECK))
+					continue;
+				if (BGP_PATH_HOLDDOWN(pi2))
+					continue;
+				if (pi2->peer != bgp->peer_self &&
+				    !CHECK_FLAG(pi2->peer->sflags,
+						PEER_STATUS_NSF_WAIT) &&
+				    !peer_established(pi2->peer->connection))
+					continue;
 
-					if (!aspath_cmp_left(pi1->attr->aspath,
-							     pi2->attr->aspath)
-					    && !aspath_cmp_left_confed(
-						       pi1->attr->aspath,
-						       pi2->attr->aspath))
-						continue;
+				if (!aspath_cmp_left(pi1->attr->aspath,
+						     pi2->attr->aspath) &&
+				    !aspath_cmp_left_confed(pi1->attr->aspath,
+							    pi2->attr->aspath))
+					continue;
 
-					if (bgp_path_info_cmp(
-						    bgp, pi2, new_select,
-						    &paths_eq, mpath_cfg, debug,
-						    pfx_buf, afi, safi,
-						    &dest->reason)) {
-						bgp_path_info_unset_flag(
-							dest, new_select,
-							BGP_PATH_DMED_SELECTED);
-						new_select = pi2;
-					}
-
-					bgp_path_info_set_flag(
-						dest, pi2, BGP_PATH_DMED_CHECK);
+				if (bgp_path_info_cmp(bgp, pi2, new_select,
+						      &paths_eq, mpath_cfg,
+						      debug, pfx_buf, afi, safi,
+						      &dest->reason)) {
+					bgp_path_info_unset_flag(dest,
+								 new_select,
+								 BGP_PATH_DMED_SELECTED);
+					new_select = pi2;
 				}
+
+				bgp_path_info_set_flag(dest, pi2,
+						       BGP_PATH_DMED_CHECK);
 			}
 			bgp_path_info_set_flag(dest, new_select,
 					       BGP_PATH_DMED_CHECK);
