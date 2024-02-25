@@ -2866,17 +2866,16 @@ void bgp_best_selection(struct bgp *bgp, struct bgp_dest *dest,
 				continue;
 			}
 
-		if (CHECK_FLAG(bgp->flags, BGP_FLAG_DETERMINISTIC_MED)
-		    && (!CHECK_FLAG(pi->flags, BGP_PATH_DMED_SELECTED))) {
-			bgp_path_info_unset_flag(dest, pi, BGP_PATH_DMED_CHECK);
+		bgp_path_info_unset_flag(dest, pi, BGP_PATH_DMED_CHECK);
+
+		if (CHECK_FLAG(bgp->flags, BGP_FLAG_DETERMINISTIC_MED) &&
+		    (!CHECK_FLAG(pi->flags, BGP_PATH_DMED_SELECTED))) {
 			if (debug)
 				zlog_debug("%s: %pBD(%s) pi %s dmed", __func__,
 					   dest, bgp->name_pretty,
 					   pi->peer->host);
 			continue;
 		}
-
-		bgp_path_info_unset_flag(dest, pi, BGP_PATH_DMED_CHECK);
 
 		reason = dest->reason;
 		if (bgp_path_info_cmp(bgp, pi, new_select, &paths_eq, mpath_cfg,
