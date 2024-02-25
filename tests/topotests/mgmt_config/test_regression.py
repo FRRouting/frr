@@ -51,3 +51,23 @@ def test_regression_issue_13920(tgen):
     )
     output = r1.net.checkRouterCores()
     assert not output.strip()
+
+
+def test_regression_pullreq_15423(tgen):
+    r1 = tgen.gears["r1"]
+    r1.vtysh_multicmd(
+        """
+    conf t
+    access-list test seq 1 permit ip any 10.10.10.0 0.0.0.255
+    """
+    )
+
+    output = r1.vtysh_multicmd(
+        """
+    conf terminal file-lock
+    mgmt delete-config /frr-filter:lib/access-list[name='test'][type='ipv4']/entry[sequence='1']/destination-network
+    mgmt commit apply
+    end
+    """
+    )
+    assert "No changes found" not in output
