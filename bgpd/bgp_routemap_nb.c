@@ -156,7 +156,6 @@ const struct frr_yang_module_info frr_bgp_route_map_info = {
 			.xpath = "/frr-route-map:lib/route-map/entry/match-condition/rmap-match-condition/frr-bgp-route-map:comm-list/comm-list-name",
 			.cbs = {
 				.modify = lib_route_map_entry_match_condition_rmap_match_condition_comm_list_comm_list_name_modify,
-				.destroy = lib_route_map_entry_match_condition_rmap_match_condition_comm_list_comm_list_name_destroy,
 			}
 		},
 		{
@@ -367,14 +366,12 @@ const struct frr_yang_module_info frr_bgp_route_map_info = {
 			.xpath = "/frr-route-map:lib/route-map/entry/set-action/rmap-set-action/frr-bgp-route-map:aggregator/aggregator-asn",
 			.cbs = {
 				.modify = lib_route_map_entry_set_action_rmap_set_action_aggregator_aggregator_asn_modify,
-				.destroy = lib_route_map_entry_set_action_rmap_set_action_aggregator_aggregator_asn_destroy,
 			}
 		},
 		{
 			.xpath = "/frr-route-map:lib/route-map/entry/set-action/rmap-set-action/frr-bgp-route-map:aggregator/aggregator-address",
 			.cbs = {
 				.modify = lib_route_map_entry_set_action_rmap_set_action_aggregator_aggregator_address_modify,
-				.destroy = lib_route_map_entry_set_action_rmap_set_action_aggregator_aggregator_address_destroy,
 			}
 		},
 		{
@@ -403,7 +400,6 @@ const struct frr_yang_module_info frr_bgp_route_map_info = {
 			.xpath = "/frr-route-map:lib/route-map/entry/set-action/rmap-set-action/frr-bgp-route-map:extcommunity-lb/lb-type",
 			.cbs = {
 				.modify = lib_route_map_entry_set_action_rmap_set_action_extcommunity_lb_lb_type_modify,
-				.destroy = lib_route_map_entry_set_action_rmap_set_action_extcommunity_lb_lb_type_destroy,
 			}
 		},
 		{
@@ -424,7 +420,6 @@ const struct frr_yang_module_info frr_bgp_route_map_info = {
 			.xpath = "/frr-route-map:lib/route-map/entry/set-action/rmap-set-action/frr-bgp-route-map:extcommunity-lb/two-octet-as-specific",
 			.cbs = {
 				.modify = lib_route_map_entry_set_action_rmap_set_action_extcommunity_lb_two_octet_as_specific_modify,
-				.destroy = lib_route_map_entry_set_action_rmap_set_action_extcommunity_lb_two_octet_as_specific_destroy,
 			}
 		},
 		{
