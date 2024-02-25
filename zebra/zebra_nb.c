@@ -456,6 +456,8 @@ const struct frr_yang_module_info frr_zebra_info = {
 		{
 			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/link-params/affinities",
 			.cbs = {
+				.create = lib_interface_zebra_affinities_create,
+				.destroy = lib_interface_zebra_affinities_destroy,
 			},
 		},
 		{
@@ -531,10 +533,24 @@ const struct frr_yang_module_info frr_zebra_info = {
 			}
 		},
 		{
+			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/evpn-mh/type-0",
+			.cbs = {
+				.create = lib_interface_zebra_evpn_mh_type_0_create,
+				.destroy = lib_interface_zebra_evpn_mh_type_0_destroy,
+			}
+		},
+		{
 			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/evpn-mh/type-0/esi",
 			.cbs = {
 				.modify = lib_interface_zebra_evpn_mh_type_0_esi_modify,
 				.destroy = lib_interface_zebra_evpn_mh_type_0_esi_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/evpn-mh/type-3",
+			.cbs = {
+				.create = lib_interface_zebra_evpn_mh_type_3_create,
+				.destroy = lib_interface_zebra_evpn_mh_type_3_destroy,
 			}
 		},
 		{

@@ -1746,9 +1746,6 @@ int lib_interface_zebra_legacy_admin_group_modify(
 
 		iflp->admin_grp = admin_group_value;
 		SET_PARAM(iflp, LP_ADM_GRP);
-
-		admin_group_clear(&iflp->ext_admin_grp);
-		UNSET_PARAM(iflp, LP_EXTEND_ADM_GRP);
 		break;
 	}
 	return NB_OK;
@@ -1773,6 +1770,35 @@ int lib_interface_zebra_legacy_admin_group_destroy(
 		UNSET_PARAM(iflp, LP_ADM_GRP);
 		break;
 	}
+	return NB_OK;
+}
+
+/*
+ * XPath:
+ * /frr-interface:lib/interface/frr-zebra:zebra/link-params/affinities
+ */
+int lib_interface_zebra_affinities_create(struct nb_cb_create_args *args)
+{
+	return NB_OK;
+}
+
+int lib_interface_zebra_affinities_destroy(struct nb_cb_destroy_args *args)
+{
+	struct interface *ifp;
+	struct if_link_params *iflp;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	ifp = nb_running_get_entry(args->dnode, NULL, true);
+	iflp = if_link_params_get(ifp);
+
+	iflp->admin_grp = 0;
+	UNSET_PARAM(iflp, LP_ADM_GRP);
+
+	admin_group_clear(&iflp->ext_admin_grp);
+	UNSET_PARAM(iflp, LP_EXTEND_ADM_GRP);
+
 	return NB_OK;
 }
 
@@ -2282,6 +2308,27 @@ static bool esi_unique(struct lyd_node *dnode)
 }
 
 /*
+ * XPath: /frr-interface:lib/interface/frr-zebra:zebra/evpn-mh/type-0
+ */
+int lib_interface_zebra_evpn_mh_type_0_create(struct nb_cb_create_args *args)
+{
+	return NB_OK;
+}
+
+int lib_interface_zebra_evpn_mh_type_0_destroy(struct nb_cb_destroy_args *args)
+{
+	struct interface *ifp;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	ifp = nb_running_get_entry(args->dnode, NULL, true);
+	zebra_evpn_es_type0_esi_update(ifp->info, NULL);
+
+	return NB_OK;
+}
+
+/*
  * XPath: /frr-interface:lib/interface/frr-zebra:zebra/evpn-mh/type-0/esi
  */
 int lib_interface_zebra_evpn_mh_type_0_esi_modify(struct nb_cb_modify_args *args)
@@ -2320,6 +2367,28 @@ int lib_interface_zebra_evpn_mh_type_0_esi_destroy(struct nb_cb_destroy_args *ar
 
 	ifp = nb_running_get_entry(args->dnode, NULL, true);
 	zebra_evpn_es_type0_esi_update(ifp->info, NULL);
+
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-interface:lib/interface/frr-zebra:zebra/evpn-mh/type-3
+ */
+int lib_interface_zebra_evpn_mh_type_3_create(struct nb_cb_create_args *args)
+{
+	return NB_OK;
+}
+
+int lib_interface_zebra_evpn_mh_type_3_destroy(struct nb_cb_destroy_args *args)
+{
+	struct interface *ifp;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	ifp = nb_running_get_entry(args->dnode, NULL, true);
+	zebra_evpn_es_sys_mac_update(ifp->info, NULL);
+	zebra_evpn_es_lid_update(ifp->info, 0);
 
 	return NB_OK;
 }
