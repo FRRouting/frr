@@ -572,6 +572,11 @@ void bgp_path_info_path_with_addpath_rx_str(struct bgp_path_info *pi, char *buf,
 {
 	struct peer *peer;
 
+	if (!pi) {
+		snprintf(buf, buf_len, "NONE");
+		return;
+	}
+
 	if (pi->sub_type == BGP_ROUTE_IMPORTED &&
 	    bgp_get_imported_bpi_ultimate(pi))
 		peer = bgp_get_imported_bpi_ultimate(pi)->peer;
@@ -2893,11 +2898,8 @@ void bgp_best_selection(struct bgp *bgp, struct bgp_dest *dest,
 	 * qualify as multipaths
 	 */
 	if (debug) {
-		if (new_select)
-			bgp_path_info_path_with_addpath_rx_str(
-				new_select, path_buf, sizeof(path_buf));
-		else
-			snprintf(path_buf, sizeof(path_buf), "NONE");
+		bgp_path_info_path_with_addpath_rx_str(new_select, path_buf,
+						       sizeof(path_buf));
 		zlog_debug(
 			"%pBD(%s): After path selection, newbest is %s oldbest was %s",
 			dest, bgp->name_pretty, path_buf,
