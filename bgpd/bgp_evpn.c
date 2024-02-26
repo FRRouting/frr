@@ -2896,7 +2896,7 @@ bgp_create_evpn_bgp_path_info(struct bgp_path_info *parent_pi,
 	if (parent_pi->extra) {
 		memcpy(&pi->extra->label, &parent_pi->extra->label,
 		       sizeof(pi->extra->label));
-		pi->extra->num_labels = parent_pi->extra->num_labels;
+		pi->extra->num_labels = bgp_path_info_num_labels(parent_pi);
 		pi->extra->igpmetric = parent_pi->extra->igpmetric;
 	}
 

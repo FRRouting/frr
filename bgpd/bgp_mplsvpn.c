@@ -2072,7 +2072,7 @@ static void vpn_leak_to_vrf_update_onevrf(struct bgp *to_bgp,   /* to */
 	safi_t safi = SAFI_UNICAST;
 	const char *debugmsg;
 	struct prefix nexthop_orig;
-	mpls_label_t *pLabels = NULL;
+	mpls_label_t *label_pnt = NULL;
 	uint32_t num_labels = 0;
 	int nexthop_self_flag = 1;
 	struct bgp_path_info *bpi_ultimate = NULL;
@@ -2318,19 +2318,16 @@ static void vpn_leak_to_vrf_update_onevrf(struct bgp *to_bgp,   /* to */
 				origin_local = 1;
 		}
 
-		/* copy labels */
-		if (!origin_local && path_vpn->extra
-		    && path_vpn->extra->num_labels) {
-			num_labels = path_vpn->extra->num_labels;
-			pLabels = path_vpn->extra->label;
-		}
+		num_labels = origin_local ? 0
+					  : bgp_path_info_num_labels(path_vpn);
+		label_pnt = num_labels ? path_vpn->extra->label : NULL;
 	}
 
 	if (debug)
 		zlog_debug("%s: pfx %pBD: num_labels %d", __func__,
 			   path_vpn->net, num_labels);
 
-	if (!leak_update(to_bgp, bn, new_attr, afi, safi, path_vpn, pLabels,
+	if (!leak_update(to_bgp, bn, new_attr, afi, safi, path_vpn, label_pnt,
 			 num_labels, src_vrf, &nexthop_orig, nexthop_self_flag,
 			 debug))
 		bgp_dest_unlock_node(bn);
@@ -4204,8 +4201,9 @@ void bgp_mplsvpn_nh_label_bind_register_local_label(struct bgp *bgp,
 	struct bgp_mplsvpn_nh_label_bind_cache_head *tree;
 	mpls_label_t label;
 
-	label = pi->extra->num_labels ? decode_label(&pi->extra->label[0])
-				      : MPLS_INVALID_LABEL;
+	label = bgp_path_info_num_labels(pi)
+			? decode_label(&pi->extra->label[0])
+			: MPLS_INVALID_LABEL;
 
 	tree = &bgp->mplsvpn_nh_label_bind;
 	bmnc = bgp_mplsvpn_nh_label_bind_find(tree, &pi->nexthop->prefix, label);

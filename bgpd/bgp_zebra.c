@@ -1271,8 +1271,6 @@ static void bgp_zebra_announce_parse_nexthop(
 	}
 
 	for (; mpinfo; mpinfo = bgp_path_info_mpath_next(mpinfo)) {
-		labels = NULL;
-		num_labels = 0;
 		uint32_t nh_weight;
 		bool is_evpn;
 		bool is_parent_evpn;
@@ -1313,7 +1311,7 @@ static void bgp_zebra_announce_parse_nexthop(
 			api_nh->srte_color = bgp_attr_get_color(info->attr);
 
 		if (bgp_debug_zebra(&api->prefix)) {
-			if (mpinfo->extra && mpinfo->extra->num_labels) {
+			if (bgp_path_info_num_labels(mpinfo)) {
 				zlog_debug("%s: p=%pFX, bgp_is_valid_label: %d",
 					   __func__, p,
 					   bgp_is_valid_label(
@@ -1385,13 +1383,10 @@ static void bgp_zebra_announce_parse_nexthop(
 		     mpinfo->peer->sort == BGP_PEER_CONFED))
 			*allow_recursion = true;
 
-		if (mpinfo->extra) {
-			labels = mpinfo->extra->label;
-			num_labels = mpinfo->extra->num_labels;
-		}
+		num_labels = bgp_path_info_num_labels(mpinfo);
+		labels = num_labels ? mpinfo->extra->label : NULL;
 
-		if (labels && (num_labels > 0) &&
-		    (is_evpn || bgp_is_valid_label(&labels[0]))) {
+		if (num_labels && (is_evpn || bgp_is_valid_label(&labels[0]))) {
 			enum lsp_types_t nh_label_type = ZEBRA_LSP_NONE;
 
 			if (is_evpn) {

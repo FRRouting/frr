@@ -1056,7 +1056,7 @@ static enum route_map_cmd_result_t
 route_match_vni(void *rule, const struct prefix *prefix, void *object)
 {
 	vni_t vni = 0;
-	unsigned int label_cnt = 0;
+	unsigned int label_cnt;
 	struct bgp_path_info *path = NULL;
 	struct prefix_evpn *evp = (struct prefix_evpn *) prefix;
 
@@ -1081,11 +1081,8 @@ route_match_vni(void *rule, const struct prefix *prefix, void *object)
 		&& evp->prefix.route_type != BGP_EVPN_IP_PREFIX_ROUTE))
 		return RMAP_NOOP;
 
-	if (path->extra == NULL)
-		return RMAP_NOMATCH;
-
-	for (;
-	     label_cnt < BGP_MAX_LABELS && label_cnt < path->extra->num_labels;
+	for (label_cnt = 0; label_cnt < BGP_MAX_LABELS &&
+			    label_cnt < bgp_path_info_num_labels(path);
 	     label_cnt++) {
 		if (vni == label2vni(&path->extra->label[label_cnt]))
 			return RMAP_MATCH;
