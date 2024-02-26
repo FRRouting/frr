@@ -238,7 +238,7 @@ struct bgp_path_info_extra {
 
 	/* MPLS label(s) - VNI(s) for EVPN-VxLAN  */
 	mpls_label_t label[BGP_MAX_LABELS];
-	uint32_t num_labels;
+	uint8_t num_labels;
 
 	/* timestamp of the rib installation */
 	time_t bgp_rib_uptime;
@@ -751,7 +751,7 @@ extern void bgp_path_info_delete(struct bgp_dest *dest,
 extern struct bgp_path_info_extra *
 bgp_path_info_extra_get(struct bgp_path_info *path);
 extern bool bgp_path_info_has_valid_label(const struct bgp_path_info *path);
-extern uint32_t bgp_path_info_num_labels(const struct bgp_path_info *pi);
+extern uint8_t bgp_path_info_num_labels(const struct bgp_path_info *pi);
 extern void bgp_path_info_set_flag(struct bgp_dest *dest,
 				   struct bgp_path_info *path, uint32_t flag);
 extern void bgp_path_info_unset_flag(struct bgp_dest *dest,
@@ -796,12 +796,12 @@ extern void bgp_update(struct peer *peer, const struct prefix *p,
 		       uint32_t addpath_id, struct attr *attr, afi_t afi,
 		       safi_t safi, int type, int sub_type,
 		       struct prefix_rd *prd, mpls_label_t *label,
-		       uint32_t num_labels, int soft_reconfig,
+		       uint8_t num_labels, int soft_reconfig,
 		       struct bgp_route_evpn *evpn);
 extern void bgp_withdraw(struct peer *peer, const struct prefix *p,
 			 uint32_t addpath_id, afi_t afi, safi_t safi, int type,
 			 int sub_type, struct prefix_rd *prd,
-			 mpls_label_t *label, uint32_t num_labels,
+			 mpls_label_t *label, uint8_t num_labels,
 			 struct bgp_route_evpn *evpn);
 
 /* for bgp_nexthop and bgp_damp */

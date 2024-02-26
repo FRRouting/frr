@@ -115,12 +115,12 @@ extern void bgp_evpn_advertise_type5_routes(struct bgp *bgp_vrf, afi_t afi,
 					    safi_t safi);
 extern void bgp_evpn_vrf_delete(struct bgp *bgp_vrf);
 extern void bgp_evpn_handle_router_id_update(struct bgp *bgp, int withdraw);
-extern char *bgp_evpn_label2str(mpls_label_t *label, uint32_t num_labels,
+extern char *bgp_evpn_label2str(mpls_label_t *label, uint8_t num_labels,
 				char *buf, int len);
 extern void bgp_evpn_route2json(const struct prefix_evpn *p, json_object *json);
 extern void bgp_evpn_encode_prefix(struct stream *s, const struct prefix *p,
 				   const struct prefix_rd *prd,
-				   mpls_label_t *label, uint32_t num_labels,
+				   mpls_label_t *label, uint8_t num_labels,
 				   struct attr *attr, bool addpath_capable,
 				   uint32_t addpath_tx_id);
 extern int bgp_nlri_parse_evpn(struct peer *peer, struct attr *attr,
@@ -177,7 +177,7 @@ extern void
 bgp_evpn_handle_resolve_overlay_index_unset(struct hash_bucket *bucket,
 					    void *arg);
 extern mpls_label_t *bgp_evpn_path_info_labels_get_l3vni(mpls_label_t *labels,
-							 uint32_t num_labels);
+							 uint8_t num_labels);
 extern vni_t bgp_evpn_path_info_get_l3vni(const struct bgp_path_info *pi);
 extern bool bgp_evpn_mpath_has_dvni(const struct bgp *bgp_vrf,
 				    struct bgp_path_info *mpinfo);

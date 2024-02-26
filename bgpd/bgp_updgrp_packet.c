@@ -665,7 +665,7 @@ struct bpacket *subgroup_update_packet(struct update_subgroup *subgrp)
 	uint32_t addpath_tx_id = 0;
 	struct prefix_rd *prd = NULL;
 	mpls_label_t label = MPLS_INVALID_LABEL, *label_pnt = NULL;
-	uint32_t num_labels = 0;
+	uint8_t num_labels = 0;
 
 	if (!subgrp)
 		return NULL;
@@ -1082,7 +1082,7 @@ void subgroup_default_update_packet(struct update_subgroup *subgrp,
 	struct bpacket_attr_vec_arr vecarr;
 	bool addpath_capable = false;
 	mpls_label_t label = MPLS_LABEL_IMPLICIT_NULL;
-	uint32_t num_labels = 0;
+	uint8_t num_labels = 0;
 
 	if (DISABLE_BGP_ANNOUNCE)
 		return;

@@ -125,7 +125,7 @@ static void bgp_process_mac_rescan_table(struct bgp *bgp, struct peer *peer,
 {
 	struct bgp_dest *pdest, *dest;
 	struct bgp_path_info *pi;
-	uint32_t num_labels;
+	uint8_t num_labels;
 	mpls_label_t *label_pnt;
 
 	for (pdest = bgp_table_top(table); pdest;
