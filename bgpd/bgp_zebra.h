@@ -120,7 +120,7 @@ extern int bgp_zebra_srv6_manager_release_locator_chunk(const char *name);
 extern void bgp_zebra_send_nexthop_label(int cmd, mpls_label_t label,
 					 ifindex_t index, vrf_id_t vrfid,
 					 enum lsp_types_t ltype,
-					 struct prefix *p, uint32_t num_labels,
+					 struct prefix *p, uint8_t num_labels,
 					 mpls_label_t out_labels[]);
 extern bool bgp_zebra_request_label_range(uint32_t base, uint32_t chunk_size,
 					  bool label_auto);

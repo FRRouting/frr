@@ -1931,7 +1931,7 @@ static int update_evpn_route_entry(struct bgp *bgp, struct bgpevpn *vpn,
 	struct attr *attr_new;
 	struct attr local_attr;
 	mpls_label_t label[BGP_MAX_LABELS];
-	uint32_t num_labels = 1;
+	uint8_t num_labels = 1;
 	int route_change = 1;
 	uint8_t sticky = 0;
 	const struct prefix_evpn *evp;
@@ -4676,7 +4676,7 @@ static int process_type2_route(struct peer *peer, afi_t afi, safi_t safi,
 	uint8_t macaddr_len;
 	/* holds the VNI(s) as in packet */
 	mpls_label_t label[BGP_MAX_LABELS] = {};
-	uint32_t num_labels = 0;
+	uint8_t num_labels = 0;
 	uint32_t eth_tag;
 	int ret = 0;
 
@@ -5019,7 +5019,7 @@ static int process_type5_route(struct peer *peer, afi_t afi, safi_t safi,
 
 static void evpn_mpattr_encode_type5(struct stream *s, const struct prefix *p,
 				     const struct prefix_rd *prd,
-				     mpls_label_t *label, uint32_t num_labels,
+				     mpls_label_t *label, uint8_t num_labels,
 				     struct attr *attr)
 {
 	int len;
@@ -5809,7 +5809,7 @@ int bgp_evpn_uninstall_routes(struct bgp *bgp, struct bgpevpn *vpn)
 /*
  * TODO: Hardcoded for a maximum of 2 VNIs right now
  */
-char *bgp_evpn_label2str(mpls_label_t *label, uint32_t num_labels, char *buf,
+char *bgp_evpn_label2str(mpls_label_t *label, uint8_t num_labels, char *buf,
 			 int len)
 {
 	vni_t vni1, vni2;
@@ -5893,7 +5893,7 @@ void bgp_evpn_route2json(const struct prefix_evpn *p, json_object *json)
  */
 void bgp_evpn_encode_prefix(struct stream *s, const struct prefix *p,
 			    const struct prefix_rd *prd, mpls_label_t *label,
-			    uint32_t num_labels, struct attr *attr,
+			    uint8_t num_labels, struct attr *attr,
 			    bool addpath_capable, uint32_t addpath_tx_id)
 {
 	struct prefix_evpn *evp = (struct prefix_evpn *)p;
@@ -7737,7 +7737,7 @@ void bgp_evpn_handle_resolve_overlay_index_unset(struct hash_bucket *bucket,
  *
  */
 mpls_label_t *bgp_evpn_path_info_labels_get_l3vni(mpls_label_t *labels,
-						  uint32_t num_labels)
+						  uint8_t num_labels)
 {
 	if (!labels)
 		return NULL;
