@@ -293,6 +293,19 @@ bool bgp_path_info_has_valid_label(const struct bgp_path_info *path)
 	return bgp_is_valid_label(&path->extra->label[0]);
 }
 
+bool bgp_path_info_labels_same(const struct bgp_path_info *bpi,
+			       const mpls_label_t *label, uint32_t n)
+{
+	uint32_t bpi_num_labels;
+	const mpls_label_t *bpi_label;
+
+	bpi_num_labels = bpi->extra ? bpi->extra->num_labels : 0;
+	bpi_label = bpi_num_labels ? bpi->extra->label : NULL;
+
+	return bgp_labels_same(bpi_label, bpi_num_labels,
+			       (const mpls_label_t *)label, n);
+}
+
 /* Free bgp route information. */
 void bgp_path_info_free_with_caller(const char *name,
 				    struct bgp_path_info *path)
@@ -4528,10 +4541,7 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 		/* Same attribute comes in. */
 		if (!CHECK_FLAG(pi->flags, BGP_PATH_REMOVED) && same_attr &&
 		    (!has_valid_label ||
-		     (bgp_path_info_extra_get(pi) &&
-		      bgp_labels_same((const mpls_label_t *)pi->extra->label,
-				      pi->extra->num_labels, label,
-				      num_labels)))) {
+		     bgp_path_info_labels_same(pi, label, num_labels))) {
 			if (CHECK_FLAG(bgp->af_flags[afi][safi],
 				       BGP_CONFIG_DAMPENING)
 			    && peer->sort == BGP_PEER_EBGP
@@ -4716,9 +4726,7 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 		/* Update MPLS label */
 		if (has_valid_label) {
 			extra = bgp_path_info_extra_get(pi);
-			if (!bgp_labels_same((const mpls_label_t *)extra->label,
-					     extra->num_labels, label,
-					     num_labels)) {
+			if (!bgp_path_info_labels_same(pi, label, num_labels)) {
 				memcpy(&extra->label, label,
 				       num_labels * sizeof(mpls_label_t));
 				extra->num_labels = num_labels;
