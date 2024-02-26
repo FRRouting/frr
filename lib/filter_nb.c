@@ -757,6 +757,32 @@ lib_access_list_entry_host_destroy(struct nb_cb_destroy_args *args)
 }
 
 /*
+ * XPath: /frr-filter:lib/access-list/entry/network
+ */
+static int lib_access_list_entry_network_create(struct nb_cb_create_args *args)
+{
+	/* Nothing to do here, everything is done in children callbacks */
+	return NB_OK;
+}
+
+static int lib_access_list_entry_network_destroy(struct nb_cb_destroy_args *args)
+{
+	struct filter_cisco *fc;
+	struct filter *f;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	f = nb_running_get_entry(args->dnode, NULL, true);
+	fc = &f->u.cfilter;
+	cisco_unset_addr_mask(&fc->addr, &fc->addr_mask);
+
+	acl_notify_route_map(f->acl, RMAP_EVENT_FILTER_DELETED);
+
+	return NB_OK;
+}
+
+/*
  * XPath: /frr-filter:lib/access-list/entry/network/address
  */
 static int
@@ -909,6 +935,35 @@ static int lib_access_list_entry_destination_host_modify(
 }
 
 static int lib_access_list_entry_destination_host_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	struct filter_cisco *fc;
+	struct filter *f;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	f = nb_running_get_entry(args->dnode, NULL, true);
+	fc = &f->u.cfilter;
+	fc->extended = 0;
+	cisco_unset_addr_mask(&fc->mask, &fc->mask_mask);
+
+	acl_notify_route_map(f->acl, RMAP_EVENT_FILTER_DELETED);
+
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-filter:lib/access-list/entry/destination-network
+ */
+static int
+lib_access_list_entry_destination_network_create(struct nb_cb_create_args *args)
+{
+	/* Nothing to do here, everything is done in children callbacks */
+	return NB_OK;
+}
+
+static int lib_access_list_entry_destination_network_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	struct filter_cisco *fc;
@@ -1629,6 +1684,13 @@ const struct frr_yang_module_info frr_filter_info = {
 			}
 		},
 		{
+			.xpath = "/frr-filter:lib/access-list/entry/network",
+			.cbs = {
+				.create = lib_access_list_entry_network_create,
+				.destroy = lib_access_list_entry_network_destroy,
+			}
+		},
+		{
 			.xpath = "/frr-filter:lib/access-list/entry/network/address",
 			.cbs = {
 				.modify = lib_access_list_entry_network_address_modify,
@@ -1652,6 +1714,13 @@ const struct frr_yang_module_info frr_filter_info = {
 			.cbs = {
 				.modify = lib_access_list_entry_destination_host_modify,
 				.destroy = lib_access_list_entry_destination_host_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-filter:lib/access-list/entry/destination-network",
+			.cbs = {
+				.create = lib_access_list_entry_destination_network_create,
+				.destroy = lib_access_list_entry_destination_network_destroy,
 			}
 		},
 		{
