@@ -2245,6 +2245,10 @@ static int ospf_te_parse_te(struct ls_ted *ted, struct ospf_lsa *lsa)
 	}
 
 	/* Get corresponding Edge from Link State Data Base */
+	if (IPV4_NET0(attr.standard.local.s_addr) && !attr.standard.local_id) {
+		ote_debug("  |- Found no TE Link local address/ID. Abort!");
+		return -1;
+	}
 	edge = get_edge(ted, attr.adv, attr.standard.local);
 	old = edge->attributes;
 
