@@ -2322,8 +2322,6 @@ static void vpn_leak_to_vrf_update_onevrf(struct bgp *to_bgp,   /* to */
 		if (!origin_local && path_vpn->extra
 		    && path_vpn->extra->num_labels) {
 			num_labels = path_vpn->extra->num_labels;
-			if (num_labels > BGP_MAX_LABELS)
-				num_labels = BGP_MAX_LABELS;
 			pLabels = path_vpn->extra->label;
 		}
 	}
