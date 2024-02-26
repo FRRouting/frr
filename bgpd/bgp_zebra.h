@@ -128,4 +128,7 @@ extern void bgp_zebra_release_label_range(uint32_t start, uint32_t end);
 extern enum zclient_send_status
 bgp_zebra_withdraw_actual(struct bgp_dest *dest, struct bgp_path_info *info,
 			  struct bgp *bgp);
+void bgp_debug_zebra_nh(struct zapi_nexthop api_nexthops[], int count);
+void bgp_debug_zebra_nh_buffer(struct zapi_nexthop *api_nh, char *nexthop_buf,
+			       size_t len);
 #endif /* _QUAGGA_BGP_ZEBRA_H */
