@@ -751,6 +751,7 @@ extern void bgp_path_info_delete(struct bgp_dest *dest,
 extern struct bgp_path_info_extra *
 bgp_path_info_extra_get(struct bgp_path_info *path);
 extern bool bgp_path_info_has_valid_label(const struct bgp_path_info *path);
+extern uint32_t bgp_path_info_num_labels(const struct bgp_path_info *pi);
 extern void bgp_path_info_set_flag(struct bgp_dest *dest,
 				   struct bgp_path_info *path, uint32_t flag);
 extern void bgp_path_info_unset_flag(struct bgp_dest *dest,
