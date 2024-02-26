@@ -964,21 +964,6 @@ void transpose_sid(struct in6_addr *sid, uint32_t label, uint8_t offset,
 	}
 }
 
-static bool labels_same(struct bgp_path_info *bpi, mpls_label_t *label,
-			uint32_t n)
-{
-	if (!bpi->extra) {
-		if (!n)
-			return true;
-		else
-			return false;
-	}
-
-	return bgp_labels_same((const mpls_label_t *)bpi->extra->label,
-			       bpi->extra->num_labels,
-			       (const mpls_label_t *)label, n);
-}
-
 /*
  * make encoded route labels match specified encoded label set
  */
@@ -1129,7 +1114,8 @@ leak_update(struct bgp *to_bgp, struct bgp_dest *bn,
 	}
 
 	if (bpi) {
-		bool labelssame = labels_same(bpi, label, num_labels);
+		bool labelssame = bgp_path_info_labels_same(bpi, label,
+							    num_labels);
 
 		if (CHECK_FLAG(source_bpi->flags, BGP_PATH_REMOVED)
 		    && CHECK_FLAG(bpi->flags, BGP_PATH_REMOVED)) {

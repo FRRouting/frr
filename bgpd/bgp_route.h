@@ -757,6 +757,8 @@ extern void bgp_path_info_unset_flag(struct bgp_dest *dest,
 				     struct bgp_path_info *path, uint32_t flag);
 extern void bgp_path_info_path_with_addpath_rx_str(struct bgp_path_info *pi,
 						   char *buf, size_t buf_len);
+extern bool bgp_path_info_labels_same(const struct bgp_path_info *bpi,
+				      const mpls_label_t *label, uint32_t n);
 
 extern int bgp_nlri_parse_ip(struct peer *, struct attr *, struct bgp_nlri *);
 
