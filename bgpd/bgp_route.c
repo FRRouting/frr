@@ -294,7 +294,7 @@ bool bgp_path_info_has_valid_label(const struct bgp_path_info *path)
 bool bgp_path_info_labels_same(const struct bgp_path_info *bpi,
 			       const mpls_label_t *label, uint32_t n)
 {
-	uint32_t bpi_num_labels;
+	uint8_t bpi_num_labels;
 	const mpls_label_t *bpi_label;
 
 	bpi_num_labels = bgp_path_info_num_labels(bpi);
@@ -304,7 +304,7 @@ bool bgp_path_info_labels_same(const struct bgp_path_info *bpi,
 			       (const mpls_label_t *)label, n);
 }
 
-uint32_t bgp_path_info_num_labels(const struct bgp_path_info *pi)
+uint8_t bgp_path_info_num_labels(const struct bgp_path_info *pi)
 {
 	if (!pi)
 		return 0;
@@ -1782,7 +1782,7 @@ static bool bgp_check_role_applicability(afi_t afi, safi_t safi)
 static int bgp_input_modifier(struct peer *peer, const struct prefix *p,
 			      struct attr *attr, afi_t afi, safi_t safi,
 			      const char *rmap_name, mpls_label_t *label,
-			      uint32_t num_labels, struct bgp_dest *dest)
+			      uint8_t num_labels, struct bgp_dest *dest)
 {
 	struct bgp_filter *filter;
 	struct bgp_path_info rmap_path = { 0 };
@@ -4206,7 +4206,7 @@ static bool bgp_accept_own(struct peer *peer, afi_t afi, safi_t safi,
 void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 		struct attr *attr, afi_t afi, safi_t safi, int type,
 		int sub_type, struct prefix_rd *prd, mpls_label_t *label,
-		uint32_t num_labels, int soft_reconfig,
+		uint8_t num_labels, int soft_reconfig,
 		struct bgp_route_evpn *evpn)
 {
 	int ret;
@@ -5119,7 +5119,7 @@ filtered:
 void bgp_withdraw(struct peer *peer, const struct prefix *p,
 		  uint32_t addpath_id, afi_t afi, safi_t safi, int type,
 		  int sub_type, struct prefix_rd *prd, mpls_label_t *label,
-		  uint32_t num_labels, struct bgp_route_evpn *evpn)
+		  uint8_t num_labels, struct bgp_route_evpn *evpn)
 {
 	struct bgp *bgp;
 	char pfx_buf[BGP_PRD_PATH_STRLEN];
@@ -5346,7 +5346,7 @@ static void bgp_soft_reconfig_table_update(struct peer *peer,
 					   safi_t safi, struct prefix_rd *prd)
 {
 	struct bgp_path_info *pi;
-	uint32_t num_labels;
+	uint8_t num_labels;
 	mpls_label_t *label_pnt;
 	struct bgp_route_evpn evpn;
 
@@ -6367,7 +6367,7 @@ void bgp_static_update(struct bgp *bgp, const struct prefix *p,
 	int vnc_implicit_withdraw = 0;
 	mpls_label_t label = MPLS_INVALID_LABEL;
 #endif
-	uint32_t num_labels = 0;
+	uint8_t num_labels = 0;
 
 	assert(bgp_static);
 

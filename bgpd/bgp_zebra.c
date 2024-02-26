@@ -1243,7 +1243,7 @@ static void bgp_zebra_announce_parse_nexthop(
 	struct bgp_path_info local_info;
 	struct bgp_path_info *mpinfo_cp = &local_info;
 	mpls_label_t *labels;
-	uint32_t num_labels = 0;
+	uint8_t num_labels = 0;
 	mpls_label_t nh_label;
 	int nh_othervrf = 0;
 	bool nh_updated = false;
@@ -3904,8 +3904,7 @@ int bgp_zebra_srv6_manager_release_locator_chunk(const char *name)
 void bgp_zebra_send_nexthop_label(int cmd, mpls_label_t label,
 				  ifindex_t ifindex, vrf_id_t vrf_id,
 				  enum lsp_types_t ltype, struct prefix *p,
-				  uint32_t num_labels,
-				  mpls_label_t out_labels[])
+				  uint8_t num_labels, mpls_label_t out_labels[])
 {
 	struct zapi_labels zl = {};
 	struct zapi_nexthop *znh;

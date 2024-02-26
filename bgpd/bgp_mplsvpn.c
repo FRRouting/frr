@@ -962,7 +962,7 @@ void transpose_sid(struct in6_addr *sid, uint32_t label, uint8_t offset,
  */
 static void setlabels(struct bgp_path_info *bpi,
 		      mpls_label_t *label, /* array of labels */
-		      uint32_t num_labels)
+		      uint8_t num_labels)
 {
 	if (num_labels)
 		assert(label);
@@ -975,7 +975,7 @@ static void setlabels(struct bgp_path_info *bpi,
 	}
 
 	struct bgp_path_info_extra *extra = bgp_path_info_extra_get(bpi);
-	uint32_t i;
+	uint8_t i;
 
 	for (i = 0; i < num_labels; ++i) {
 		extra->label[i] = label[i];
@@ -1064,7 +1064,7 @@ static struct bgp_path_info *
 leak_update(struct bgp *to_bgp, struct bgp_dest *bn,
 	    struct attr *new_attr, /* already interned */
 	    afi_t afi, safi_t safi, struct bgp_path_info *source_bpi,
-	    mpls_label_t *label, uint32_t num_labels, struct bgp *bgp_orig,
+	    mpls_label_t *label, uint8_t num_labels, struct bgp *bgp_orig,
 	    struct prefix *nexthop_orig, int nexthop_self_flag, int debug)
 {
 	const struct prefix *p = bgp_dest_get_prefix(bn);
@@ -2073,7 +2073,7 @@ static void vpn_leak_to_vrf_update_onevrf(struct bgp *to_bgp,   /* to */
 	const char *debugmsg;
 	struct prefix nexthop_orig;
 	mpls_label_t *label_pnt = NULL;
-	uint32_t num_labels = 0;
+	uint8_t num_labels = 0;
 	int nexthop_self_flag = 1;
 	struct bgp_path_info *bpi_ultimate = NULL;
 	struct bgp_path_info *bpi;
@@ -3957,7 +3957,7 @@ static void bgp_mplsvpn_nh_label_bind_send_nexthop_label(
 	struct bgp_mplsvpn_nh_label_bind_cache *bmnc, int cmd)
 {
 	struct prefix pfx_nh, *p = NULL;
-	uint32_t num_labels = 0, lsp_num_labels;
+	uint8_t num_labels = 0, lsp_num_labels;
 	mpls_label_t label[MPLS_MAX_LABELS];
 	struct nexthop *nh;
 	ifindex_t ifindex = IFINDEX_INTERNAL;

@@ -472,8 +472,8 @@ int bgp_nlri_parse_label(struct peer *peer, struct attr *attr,
 	return BGP_NLRI_PARSE_OK;
 }
 
-bool bgp_labels_same(const mpls_label_t *tbl_a, const uint32_t num_labels_a,
-		     const mpls_label_t *tbl_b, const uint32_t num_labels_b)
+bool bgp_labels_same(const mpls_label_t *tbl_a, const uint8_t num_labels_a,
+		     const mpls_label_t *tbl_b, const uint8_t num_labels_b)
 {
 	uint32_t i;
 

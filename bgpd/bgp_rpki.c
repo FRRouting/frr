@@ -657,7 +657,7 @@ static void revalidate_bgp_node(struct bgp_dest *bgp_dest, afi_t afi,
 {
 	struct bgp_adj_in *ain;
 	mpls_label_t *label;
-	uint32_t num_labels;
+	uint8_t num_labels;
 
 	for (ain = bgp_dest->adj_in; ain; ain = ain->next) {
 		struct bgp_path_info *path =
