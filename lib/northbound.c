@@ -157,7 +157,7 @@ void nb_nodes_delete(void)
 struct nb_node *nb_node_find(const char *path)
 {
 	const struct lysc_node *snode;
-	uint32_t llopts;
+	uint32_t llopts = 0;
 
 	/*
 	 * Use libyang to find the schema node associated to the path and get
@@ -165,8 +165,6 @@ struct nb_node *nb_node_find(const char *path)
 	 * disable logging temporarily to avoid libyang from logging an error
 	 * message when the node is not found.
 	 */
-	llopts = ly_log_options(LY_LOSTORE);
-	llopts &= ~LY_LOLOG;
 	ly_temp_log_options(&llopts);
 
 	snode = yang_find_snode(ly_native_ctx, path, 0);
