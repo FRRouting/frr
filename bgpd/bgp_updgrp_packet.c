@@ -814,9 +814,10 @@ struct bpacket *subgroup_update_packet(struct update_subgroup *subgrp)
 					path);
 				label_pnt = &label;
 				num_labels = 1;
-			} else if (path && path->extra) {
-				label_pnt = &path->extra->label[0];
-				num_labels = path->extra->num_labels;
+			} else {
+				num_labels = bgp_path_info_num_labels(path);
+				label_pnt = num_labels ? &path->extra->label[0]
+						       : NULL;
 			}
 
 			if (stream_empty(snlri))
