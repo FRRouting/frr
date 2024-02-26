@@ -15,6 +15,11 @@ struct bgp_dest;
 struct bgp_path_info;
 struct peer;
 
+/* Maximum number of labels we can process or send with a prefix. We
+ * really do only 1 for MPLS (BGP-LU) but we can do 2 for EVPN-VxLAN.
+ */
+#define BGP_MAX_LABELS 2
+
 /* MPLS label(s) - VNI(s) for EVPN-VxLAN  */
 struct bgp_labels {
 	mpls_label_t label[BGP_MAX_LABELS];

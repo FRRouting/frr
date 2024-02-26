@@ -38,6 +38,7 @@
 #include "bgpd/bgp_vty.h"
 #include "bgpd/bgp_trace.h"
 #include "bgpd/bgp_network.h"
+#include "bgpd/bgp_label.h"
 
 static void bmp_close(struct bmp *bmp);
 static struct bmp_bgp *bmp_bgp_find(struct bgp *bgp);
@@ -1046,6 +1047,7 @@ static void bmp_monitor(struct bmp *bmp, struct peer *peer, uint8_t flags,
 
 static bool bmp_wrsync(struct bmp *bmp, struct pullwr *pullwr)
 {
+	uint8_t bpi_num_labels;
 	afi_t afi;
 	safi_t safi;
 
@@ -1219,14 +1221,16 @@ afibreak:
 	    (safi == SAFI_MPLS_VPN))
 		prd = (struct prefix_rd *)bgp_dest_get_prefix(bmp->syncrdpos);
 
+	bpi_num_labels = bgp_path_info_num_labels(bpi);
+
 	if (bpi && CHECK_FLAG(bpi->flags, BGP_PATH_SELECTED) &&
 	    CHECK_FLAG(bmp->targets->afimon[afi][safi], BMP_MON_LOC_RIB)) {
 		bmp_monitor(bmp, bpi->peer, 0, BMP_PEER_TYPE_LOC_RIB_INSTANCE,
 			    bn_p, prd, bpi->attr, afi, safi,
 			    bpi && bpi->extra ? bpi->extra->bgp_rib_uptime
 					      : (time_t)(-1L),
-			    bpi->extra ? bpi->extra->label : NULL,
-			    bpi->extra ? bpi->extra->num_labels : 0);
+			    bpi_num_labels ? bpi->extra->labels->label : NULL,
+			    bpi_num_labels);
 	}
 
 	if (bpi && CHECK_FLAG(bpi->flags, BGP_PATH_VALID) &&
@@ -1234,8 +1238,8 @@ afibreak:
 		bmp_monitor(bmp, bpi->peer, BMP_PEER_FLAG_L,
 			    BMP_PEER_TYPE_GLOBAL_INSTANCE, bn_p, prd, bpi->attr,
 			    afi, safi, bpi->uptime,
-			    bpi->extra ? bpi->extra->label : NULL,
-			    bpi->extra ? bpi->extra->num_labels : 0);
+			    bpi_num_labels ? bpi->extra->labels->label : NULL,
+			    bpi_num_labels);
 
 	if (adjin)
 		/* TODO: set label here when adjin supports labels */
@@ -1292,6 +1296,7 @@ static bool bmp_wrqueue_locrib(struct bmp *bmp, struct pullwr *pullwr)
 	struct peer *peer;
 	struct bgp_dest *bn = NULL;
 	bool written = false;
+	uint8_t bpi_num_labels;
 
 	bqe = bmp_pull_locrib(bmp);
 	if (!bqe)
@@ -1351,12 +1356,14 @@ static bool bmp_wrqueue_locrib(struct bmp *bmp, struct pullwr *pullwr)
 			break;
 	}
 
+	bpi_num_labels = bgp_path_info_num_labels(bpi);
+
 	bmp_monitor(bmp, peer, 0, BMP_PEER_TYPE_LOC_RIB_INSTANCE, &bqe->p, prd,
 		    bpi ? bpi->attr : NULL, afi, safi,
 		    bpi && bpi->extra ? bpi->extra->bgp_rib_uptime
 				      : (time_t)(-1L),
-		    (bpi && bpi->extra) ? bpi->extra->label : NULL,
-		    (bpi && bpi->extra) ? bpi->extra->num_labels : 0);
+		    bpi_num_labels ? bpi->extra->labels->label : NULL,
+		    bpi_num_labels);
 	written = true;
 
 out:
@@ -1375,6 +1382,7 @@ static bool bmp_wrqueue(struct bmp *bmp, struct pullwr *pullwr)
 	struct peer *peer;
 	struct bgp_dest *bn = NULL;
 	bool written = false;
+	uint8_t bpi_num_labels;
 
 	bqe = bmp_pull(bmp);
 	if (!bqe)
@@ -1426,12 +1434,14 @@ static bool bmp_wrqueue(struct bmp *bmp, struct pullwr *pullwr)
 				break;
 		}
 
+		bpi_num_labels = bgp_path_info_num_labels(bpi);
+
 		bmp_monitor(bmp, peer, BMP_PEER_FLAG_L,
 			    BMP_PEER_TYPE_GLOBAL_INSTANCE, &bqe->p, prd,
 			    bpi ? bpi->attr : NULL, afi, safi,
 			    bpi ? bpi->uptime : monotime(NULL),
-			    (bpi && bpi->extra) ? bpi->extra->label : NULL,
-			    (bpi && bpi->extra) ? bpi->extra->num_labels : 0);
+			    bpi_num_labels ? bpi->extra->labels->label : NULL,
+			    bpi_num_labels);
 		written = true;
 	}
 

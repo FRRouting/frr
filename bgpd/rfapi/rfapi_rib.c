@@ -693,7 +693,7 @@ static void rfapiRibBi2Ri(struct bgp_path_info *bpi, struct rfapi_info *ri,
 		/* label comes from MP_REACH_NLRI label */
 		vo->v.l2addr.label =
 			bgp_path_info_num_labels(bpi)
-				? decode_label(&bpi->extra->label[0])
+				? decode_label(&bpi->extra->labels->label[0])
 				: MPLS_INVALID_LABEL;
 
 		rfapi_vn_options_free(

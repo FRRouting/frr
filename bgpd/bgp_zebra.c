@@ -1343,7 +1343,8 @@ static void bgp_zebra_announce_parse_nexthop(
 				zlog_debug("%s: p=%pFX, bgp_is_valid_label: %d",
 					   __func__, p,
 					   bgp_is_valid_label(
-						   &mpinfo->extra->label[0]));
+						   &mpinfo->extra->labels
+							    ->label[0]));
 			} else {
 				zlog_debug("%s: p=%pFX, no label", __func__, p);
 			}
@@ -1412,7 +1413,7 @@ static void bgp_zebra_announce_parse_nexthop(
 			*allow_recursion = true;
 
 		num_labels = bgp_path_info_num_labels(mpinfo);
-		labels = num_labels ? mpinfo->extra->label : NULL;
+		labels = num_labels ? mpinfo->extra->labels->label : NULL;
 
 		if (num_labels && (is_evpn || bgp_is_valid_label(&labels[0]))) {
 			enum lsp_types_t nh_label_type = ZEBRA_LSP_NONE;

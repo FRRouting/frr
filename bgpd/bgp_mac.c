@@ -14,6 +14,7 @@
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_mac.h"
 #include "bgpd/bgp_memory.h"
+#include "bgpd/bgp_label.h"
 #include "bgpd/bgp_route.h"
 #include "bgpd/bgp_packet.h"
 #include "bgpd/bgp_rd.h"
@@ -170,7 +171,8 @@ static void bgp_process_mac_rescan_table(struct bgp *bgp, struct peer *peer,
 				continue;
 
 			num_labels = bgp_path_info_num_labels(pi);
-			label_pnt = num_labels ? &pi->extra->label[0] : NULL;
+			label_pnt = num_labels ? &pi->extra->labels->label[0]
+					       : NULL;
 
 			prd.family = AF_UNSPEC;
 			prd.prefixlen = 64;

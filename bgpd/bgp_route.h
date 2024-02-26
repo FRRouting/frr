@@ -69,11 +69,6 @@ enum bgp_show_adj_route_type {
 #define BGP_SHOW_HEADER "     Network          Next Hop            Metric LocPrf Weight Path\n"
 #define BGP_SHOW_HEADER_WIDE "     Network                                      Next Hop                                  Metric LocPrf Weight Path\n"
 
-/* Maximum number of labels we can process or send with a prefix. We
- * really do only 1 for MPLS (BGP-LU) but we can do 2 for EVPN-VxLAN.
- */
-#define BGP_MAX_LABELS 2
-
 /* Maximum number of sids we can process or send with a prefix. */
 #define BGP_MAX_SIDS 6
 
@@ -237,8 +232,7 @@ struct bgp_path_info_extra {
 	uint32_t igpmetric;
 
 	/* MPLS label(s) - VNI(s) for EVPN-VxLAN  */
-	mpls_label_t label[BGP_MAX_LABELS];
-	uint8_t num_labels;
+	struct bgp_labels *labels;
 
 	/* timestamp of the rib installation */
 	time_t bgp_rib_uptime;

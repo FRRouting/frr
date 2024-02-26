@@ -471,7 +471,7 @@ static void vnc_import_bgp_add_route_mode_resolve_nve_one_bi(
 		ecommunity_merge(new_ecom, bgp_attr_get_ecommunity(bpi->attr));
 
 	if (bgp_path_info_num_labels(bpi))
-		label = decode_label(&bpi->extra->label[0]);
+		label = decode_label(&bpi->extra->labels->label[0]);
 	else
 		label = MPLS_INVALID_LABEL;
 
@@ -1706,7 +1706,8 @@ static void vnc_import_bgp_exterior_add_route_it(
 
 				if (bgp_path_info_num_labels(bpi_interior))
 					label = decode_label(
-						&bpi_interior->extra->label[0]);
+						&bpi_interior->extra->labels
+							 ->label[0]);
 				else
 					label = MPLS_INVALID_LABEL;
 
@@ -1879,7 +1880,8 @@ void vnc_import_bgp_exterior_del_route(
 
 				if (bgp_path_info_num_labels(bpi_interior))
 					label = decode_label(
-						&bpi_interior->extra->label[0]);
+						&bpi_interior->extra->labels
+							 ->label[0]);
 				else
 					label = MPLS_INVALID_LABEL;
 
@@ -2030,7 +2032,7 @@ void vnc_import_bgp_exterior_add_route_interior(
 
 			if (bgp_path_info_num_labels(bpi_interior))
 				label = decode_label(
-					&bpi_interior->extra->label[0]);
+					&bpi_interior->extra->labels->label[0]);
 			else
 				label = MPLS_INVALID_LABEL;
 
@@ -2147,7 +2149,8 @@ void vnc_import_bgp_exterior_add_route_interior(
 
 					if (bgp_path_info_num_labels(bpi))
 						label = decode_label(
-							&bpi->extra->label[0]);
+							&bpi->extra->labels
+								 ->label[0]);
 					else
 						label = MPLS_INVALID_LABEL;
 
@@ -2173,7 +2176,8 @@ void vnc_import_bgp_exterior_add_route_interior(
 
 				if (bgp_path_info_num_labels(bpi_interior))
 					label = decode_label(
-						&bpi_interior->extra->label[0]);
+						&bpi_interior->extra->labels
+							 ->label[0]);
 				else
 					label = MPLS_INVALID_LABEL;
 
@@ -2295,7 +2299,7 @@ void vnc_import_bgp_exterior_add_route_interior(
 
 			if (bgp_path_info_num_labels(bpi_interior))
 				label = decode_label(
-					&bpi_interior->extra->label[0]);
+					&bpi_interior->extra->labels->label[0]);
 			else
 				label = MPLS_INVALID_LABEL;
 
@@ -2406,7 +2410,8 @@ void vnc_import_bgp_exterior_del_route_interior(
 			prd = NULL;
 
 		if (bgp_path_info_num_labels(bpi_interior))
-			label = decode_label(&bpi_interior->extra->label[0]);
+			label = decode_label(
+				&bpi_interior->extra->labels->label[0]);
 		else
 			label = MPLS_INVALID_LABEL;
 
@@ -2488,7 +2493,7 @@ void vnc_import_bgp_exterior_del_route_interior(
 
 				if (bgp_path_info_num_labels(bpi))
 					label = decode_label(
-						&bpi->extra->label[0]);
+						&bpi->extra->labels->label[0]);
 				else
 					label = MPLS_INVALID_LABEL;
 
