@@ -10464,7 +10464,7 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 			  json_object *json_paths)
 {
 	char buf[INET6_ADDRSTRLEN];
-	char tag_buf[30];
+	char vni_buf[30] = {};
 	struct attr *attr = path->attr;
 	time_t tbuf;
 	char timebuf[32];
@@ -10497,7 +10497,6 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 	uint32_t bos = 0;
 	uint32_t exp = 0;
 	mpls_label_t label = MPLS_INVALID_LABEL;
-	tag_buf[0] = '\0';
 	struct bgp_path_info *bpi_ultimate =
 		bgp_get_imported_bpi_ultimate(path);
 
@@ -10507,26 +10506,21 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 		json_nexthop_global = json_object_new_object();
 	}
 
+	if (path->extra && path->extra->num_labels) {
+		bgp_evpn_label2str(path->extra->label, path->extra->num_labels,
+				   vni_buf, sizeof(vni_buf));
+	}
+
 	if (safi == SAFI_EVPN) {
 		if (!json_paths)
 			vty_out(vty, "  Route %pFX", p);
-	}
 
-	if (path->extra) {
-		if (path->extra && path->extra->num_labels) {
-			bgp_evpn_label2str(path->extra->label,
-					   path->extra->num_labels, tag_buf,
-					   sizeof(tag_buf));
-		}
-		if (safi == SAFI_EVPN) {
-			if (!json_paths) {
-				if (tag_buf[0] != '\0')
-					vty_out(vty, " VNI %s", tag_buf);
-			} else {
-				if (tag_buf[0])
-					json_object_string_add(json_path, "vni",
-							       tag_buf);
-			}
+		if (vni_buf[0]) {
+			if (json_paths)
+				json_object_string_add(json_path, "vni",
+						       vni_buf);
+			else
+				vty_out(vty, " VNI %s", vni_buf);
 		}
 	}
 
@@ -10566,7 +10560,7 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 				vty_out(vty, ":%pFX, VNI %s",
 					(struct prefix_evpn *)
 						bgp_dest_get_prefix(dest),
-					tag_buf);
+					vni_buf);
 				if (CHECK_FLAG(attr->es_flags, ATTR_ES_L3_NHG))
 					vty_out(vty, ", L3NHG %s",
 						CHECK_FLAG(
