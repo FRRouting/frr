@@ -1784,11 +1784,10 @@ static void ospf_router_info_schedule(enum lsa_opcode opcode)
 
 DEFUN (router_info,
        router_info_area_cmd,
-       "router-info <as|area [A.B.C.D]>",
+       "router-info <as|area>",
        OSPF_RI_STR
        "Enable the Router Information functionality with AS flooding scope\n"
-       "Enable the Router Information functionality with Area flooding scope\n"
-       "OSPF area ID in IP format (deprecated)\n")
+       "Enable the Router Information functionality with Area flooding scope\n")
 {
 	int idx_mode = 1;
 	uint8_t scope;
@@ -1844,6 +1843,15 @@ DEFUN (router_info,
 	return CMD_SUCCESS;
 }
 
+#if CONFDATE > 20240809
+CPP_NOTICE("Drop deprecated router_info_area_id_cmd")
+#endif
+ALIAS_HIDDEN (router_info,
+              router_info_area_id_cmd,
+              "router-info area A.B.C.D",
+              OSPF_RI_STR
+              "Enable the Router Information functionality with Area flooding scope\n"
+              "OSPF area ID in IP format (deprecated)\n")
 
 DEFUN (no_router_info,
        no_router_info_cmd,
@@ -2239,6 +2247,7 @@ static void ospf_router_info_register_vty(void)
 	install_element(VIEW_NODE, &show_ip_ospf_router_info_pce_cmd);
 
 	install_element(OSPF_NODE, &router_info_area_cmd);
+	install_element(OSPF_NODE, &router_info_area_id_cmd);
 	install_element(OSPF_NODE, &no_router_info_cmd);
 	install_element(OSPF_NODE, &pce_address_cmd);
 	install_element(OSPF_NODE, &no_pce_address_cmd);
