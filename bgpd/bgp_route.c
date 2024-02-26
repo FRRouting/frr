@@ -4551,12 +4551,12 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 	char pfx_buf[BGP_PRD_PATH_STRLEN];
 	int connected = 0;
 	int do_loop_check = 1;
-	int has_valid_label = 0;
 	afi_t nh_afi;
 	bool force_evpn_import = false;
 	safi_t orig_safi = safi;
 	int allowas_in = 0;
 	struct bgp_labels bgp_labels = {};
+	uint8_t i;
 
 	if (frrtrace_enabled(frr_bgp, process_update)) {
 		char pfxprint[PREFIX2STR_BUFFER];
@@ -4578,15 +4578,12 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 
 	bgp = peer->bgp;
 	dest = bgp_afi_node_get(bgp->rib[afi][safi], afi, safi, p, prd);
-	/* TODO: Check to see if we can get rid of "is_valid_label" */
-	if (afi == AFI_L2VPN && safi == SAFI_EVPN)
-		has_valid_label = (num_labels > 0) ? 1 : 0;
-	else
-		has_valid_label = bgp_is_valid_label(label);
 
-	if (has_valid_label)
-		assert(label != NULL);
-
+	if ((afi == AFI_L2VPN && safi == SAFI_EVPN) ||
+	    bgp_is_valid_label(&label[0]))
+		bgp_labels.num_labels = num_labels;
+	for (i = 0; i < bgp_labels.num_labels; i++)
+		bgp_labels.label[i] = label[i];
 
 	/* When peer's soft reconfiguration enabled.  Record input packet in
 	   Adj-RIBs-In.  */
@@ -4880,8 +4877,9 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 
 		/* Same attribute comes in. */
 		if (!CHECK_FLAG(pi->flags, BGP_PATH_REMOVED) && same_attr &&
-		    (!has_valid_label ||
-		     bgp_path_info_labels_same(pi, label, num_labels))) {
+		    (!bgp_labels.num_labels ||
+		     bgp_path_info_labels_same(pi, bgp_labels.label,
+					       bgp_labels.num_labels))) {
 			if (get_active_bdc_from_pi(pi, afi, safi) &&
 			    peer->sort == BGP_PEER_EBGP &&
 			    CHECK_FLAG(pi->flags, BGP_PATH_HISTORY)) {
@@ -5063,19 +5061,11 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 		pi->attr = attr_new;
 
 		/* Update MPLS label */
-		if (has_valid_label) {
+		if (!bgp_path_info_labels_same(pi, &bgp_labels.label[0],
+					       bgp_labels.num_labels)) {
 			bgp_path_info_extra_get(pi);
-			bgp_labels.label[0] = *label;
-			bgp_labels.num_labels = num_labels;
-			if (!(afi == AFI_L2VPN && safi == SAFI_EVPN))
-				bgp_set_valid_label(&bgp_labels.label[0]);
-
-			if (!bgp_path_info_labels_same(pi, &bgp_labels.label[0],
-						       bgp_labels.num_labels)) {
-				bgp_labels_unintern(&pi->extra->labels);
-				pi->extra->labels =
-					bgp_labels_intern(&bgp_labels);
-			}
+			bgp_labels_unintern(&pi->extra->labels);
+			pi->extra->labels = bgp_labels_intern(&bgp_labels);
 		}
 
 #ifdef ENABLE_BGP_VNC
@@ -5266,15 +5256,8 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 	new = info_make(type, sub_type, 0, peer, attr_new, dest);
 
 	/* Update MPLS label */
-	if (has_valid_label) {
-		bgp_path_info_extra_get(new);
-		bgp_labels.label[0] = *label;
-		bgp_labels.num_labels = num_labels;
-		if (!(afi == AFI_L2VPN && safi == SAFI_EVPN))
-			bgp_set_valid_label(&bgp_labels.label[0]);
-
-		new->extra->labels = bgp_labels_intern(&bgp_labels);
-	}
+	bgp_path_info_extra_get(new);
+	new->extra->labels = bgp_labels_intern(&bgp_labels);
 
 	/* Nexthop reachability check. */
 	if (((afi == AFI_IP || afi == AFI_IP6) &&
