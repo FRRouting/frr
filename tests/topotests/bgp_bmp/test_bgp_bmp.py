@@ -123,7 +123,7 @@ def get_bmp_messages():
     return messages
 
 
-def check_for_prefixes(expected_prefixes, bmp_log_type, policy):
+def check_for_prefixes(expected_prefixes, bmp_log_type, policy, labels=None):
     """
     Check for the presence of the given prefixes in the BMP server logs with
     the given message type and the set policy.
@@ -142,6 +142,12 @@ def check_for_prefixes(expected_prefixes, bmp_log_type, policy):
         and "bmp_log_type" in m.keys()
         and m["bmp_log_type"] == bmp_log_type
         and m["policy"] == policy
+        and (
+            labels is None
+            or (
+                m["ip_prefix"] in labels.keys() and m["label"] == labels[m["ip_prefix"]]
+            )
+        )
     ]
 
     # check for prefixes
@@ -228,12 +234,23 @@ def vpn_prefixes(policy):
     set_bmp_policy(tgen, "r1", 65501, "bmp1", "vpn", policy)
 
     prefixes = ["172.31.10.1/32", "2001::2222/128"]
+
+    if policy == PRE_POLICY:
+        # labels are not yet supported in adj-RIB-in. Do not test for the moment
+        labels = None
+    else:
+        # "label vpn export" value in r2/bgpd.conf
+        labels = {
+            "172.31.10.1/32": 102,
+            "2001::2222/128": 105,
+        }
+
     # add prefixes
     configure_prefixes(tgen, "r2", 65502, "unicast", prefixes, vrf="vrf1")
 
     logger.info("checking for updated prefixes")
     # check
-    test_func = partial(check_for_prefixes, prefixes, "update", policy)
+    test_func = partial(check_for_prefixes, prefixes, "update", policy, labels=labels)
     success, _ = topotest.run_and_expect(test_func, True, wait=0.5)
     assert success, "Checking the updated prefixes has been failed !."
 
