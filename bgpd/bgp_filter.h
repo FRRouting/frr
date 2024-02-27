@@ -25,6 +25,11 @@ struct as_filter {
 	int64_t seq;
 };
 
+struct aspath_exclude_list {
+	struct aspath_exclude_list *next;
+	struct aspath_exclude *bp_as_excl;
+};
+
 /* AS path filter list. */
 struct as_list {
 	char *name;
@@ -34,6 +39,7 @@ struct as_list {
 
 	struct as_filter *head;
 	struct as_filter *tail;
+	struct aspath_exclude_list *exclude_list;
 };
 
 

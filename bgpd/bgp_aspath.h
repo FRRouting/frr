@@ -65,6 +65,14 @@ struct aspath {
 
 #define ASPATH_STR_DEFAULT_LEN 32
 
+/* `set as-path exclude ASn' */
+struct aspath_exclude {
+	struct aspath *aspath;
+	bool exclude_all;
+	char *exclude_aspath_acl_name;
+	struct as_list *exclude_aspath_acl;
+};
+
 /* Prototypes. */
 extern void aspath_init(void);
 extern void aspath_finish(void);
