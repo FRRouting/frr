@@ -1045,7 +1045,7 @@ static void bmp_monitor(struct bmp *bmp, struct peer *peer, uint8_t flags,
 
 static bool bmp_wrsync(struct bmp *bmp, struct pullwr *pullwr)
 {
-	uint8_t bpi_num_labels;
+	uint8_t bpi_num_labels, adjin_num_labels;
 	afi_t afi;
 	safi_t safi;
 
@@ -1239,11 +1239,13 @@ afibreak:
 			    bpi_num_labels ? bpi->extra->labels->label : NULL,
 			    bpi_num_labels);
 
-	if (adjin)
-		/* TODO: set label here when adjin supports labels */
+	if (adjin) {
+		adjin_num_labels = adjin->labels ? adjin->labels->num_labels : 0;
 		bmp_monitor(bmp, adjin->peer, 0, BMP_PEER_TYPE_GLOBAL_INSTANCE,
 			    bn_p, prd, adjin->attr, afi, safi, adjin->uptime,
-			    NULL, 0);
+			    adjin_num_labels ? &adjin->labels->label[0] : NULL,
+			    adjin_num_labels);
+	}
 
 	if (bn)
 		bgp_dest_unlock_node(bn);
@@ -1380,7 +1382,7 @@ static bool bmp_wrqueue(struct bmp *bmp, struct pullwr *pullwr)
 	struct peer *peer;
 	struct bgp_dest *bn = NULL;
 	bool written = false;
-	uint8_t bpi_num_labels;
+	uint8_t bpi_num_labels, adjin_num_labels;
 
 	bqe = bmp_pull(bmp);
 	if (!bqe)
@@ -1451,10 +1453,14 @@ static bool bmp_wrqueue(struct bmp *bmp, struct pullwr *pullwr)
 			if (adjin->peer == peer)
 				break;
 		}
-		/* TODO: set label here when adjin supports labels */
+		adjin_num_labels = adjin && adjin->labels
+					   ? adjin->labels->num_labels
+					   : 0;
 		bmp_monitor(bmp, peer, 0, BMP_PEER_TYPE_GLOBAL_INSTANCE,
 			    &bqe->p, prd, adjin ? adjin->attr : NULL, afi, safi,
-			    adjin ? adjin->uptime : monotime(NULL), NULL, 0);
+			    adjin ? adjin->uptime : monotime(NULL),
+			    adjin_num_labels ? &adjin->labels->label[0] : NULL,
+			    adjin_num_labels);
 		written = true;
 	}
 
