@@ -174,7 +174,7 @@ def configure_prefixes(tgen, node, asn, safi, prefixes, vrf=None, update=True):
     Configure the bgp prefixes.
     """
     withdraw = "no " if not update else ""
-    vrf = " vrf {}" if vrf else ""
+    vrf = " vrf {}".format(vrf) if vrf else ""
     for p in prefixes:
         ip = ip_network(p)
         cmd = [
@@ -216,6 +216,34 @@ def unicast_prefixes(policy):
     assert success, "Checking the withdrawed prefixes has been failed !."
 
 
+def vpn_prefixes(policy):
+    """
+    Setup the BMP  monitor policy, Add and withdraw ipv4/v6 prefixes.
+    Check if the previous actions are logged in the BMP server with the right
+    message type and the right policy.
+    """
+    tgen = get_topogen()
+    set_bmp_policy(tgen, "r1", 65501, "bmp1", "vpn", policy)
+
+    prefixes = ["172.31.10.1/32", "2001::2222/128"]
+    # add prefixes
+    configure_prefixes(tgen, "r2", 65502, "unicast", prefixes, vrf="vrf1")
+
+    logger.info("checking for updated prefixes")
+    # check
+    test_func = partial(check_for_prefixes, prefixes, "update", policy)
+    success, _ = topotest.run_and_expect(test_func, True, wait=0.5)
+    assert success, "Checking the updated prefixes has been failed !."
+
+    # withdraw prefixes
+    configure_prefixes(tgen, "r2", 65502, "unicast", prefixes, vrf="vrf1", update=False)
+    logger.info("checking for withdrawed prefixes")
+    # check
+    test_func = partial(check_for_prefixes, prefixes, "withdraw", policy)
+    success, _ = topotest.run_and_expect(test_func, True, wait=0.5)
+    assert success, "Checking the withdrawed prefixes has been failed !."
+
+
 def test_bmp_server_logging():
     """
     Assert the logging of the bmp server.
@@ -242,6 +270,16 @@ def test_bmp_bgp_unicast():
     unicast_prefixes(POST_POLICY)
     logger.info("*** Unicast prefixes loc-rib logging ***")
     unicast_prefixes(LOC_RIB)
+
+
+def test_bmp_bgp_vpn():
+    # check for the prefixes in the BMP server logging file
+    logger.info("***** VPN prefixes pre-policy logging *****")
+    vpn_prefixes(PRE_POLICY)
+    logger.info("***** VPN prefixes post-policy logging *****")
+    vpn_prefixes(POST_POLICY)
+    logger.info("***** VPN prefixes loc-rib logging *****")
+    vpn_prefixes(LOC_RIB)
 
 
 if __name__ == "__main__":
