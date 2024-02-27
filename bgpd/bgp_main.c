@@ -26,6 +26,7 @@
 #include "bfd.h"
 #include "libfrr.h"
 #include "ns.h"
+#include <malloc.h>
 
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_attr.h"
@@ -502,6 +503,7 @@ int main(int argc, char **argv)
 	if (skip_runas)
 		memset(&bgpd_privs, 0, sizeof(bgpd_privs));
 
+	mallopt(M_MMAP_THRESHOLD, 64*1024);
 	/* BGP master init. */
 	bgp_master_init(frr_init(), buffer_size, addresses);
 	bm->port = bgp_port;
