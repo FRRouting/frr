@@ -234,15 +234,11 @@ def vpn_prefixes(policy):
 
     prefixes = ["172.31.10.1/32", "2001::2222/128"]
 
-    if policy == PRE_POLICY:
-        # labels are not yet supported in adj-RIB-in. Do not test for the moment
-        labels = None
-    else:
-        # "label vpn export" value in r2/bgpd.conf
-        labels = {
-            "172.31.10.1/32": 102,
-            "2001::2222/128": 105,
-        }
+    # "label vpn export" value in r2/bgpd.conf
+    labels = {
+        "172.31.10.1/32": 102,
+        "2001::2222/128": 105,
+    }
 
     # add prefixes
     configure_prefixes(tgen, "r2", 65502, "unicast", prefixes, vrf="vrf1")
