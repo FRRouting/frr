@@ -1253,9 +1253,10 @@ class TopoBMPCollector(TopoHost):
         gear += " TopoBMPCollector<>".format()
         return gear
 
-    def start(self):
+    def start(self, log_file=None):
+        log_arg =  "-l {}".format(log_file) if log_file else ""
         self.run(
-            "{}/bmp_collector/bmpserver -a {} -p {}&".format(CWD, self.ip, self.port),
+            "{}/bmp_collector/bmpserver -a {} -p {} {}&".format(CWD, self.ip, self.port, log_arg),
             stdout=None,
         )
 

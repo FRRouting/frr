@@ -38,11 +38,11 @@ def bin2str_ipaddress(ip_bytes, is_ipv6=False):
         return str(ipaddress.IPv6Address(ip_bytes))
     return str(ipaddress.IPv4Address(ip_bytes[-4:]))
 
-def log2file(logs):
+def log2file(logs, log_file):
     """
     XXX: extract the useful information and save it in a flat dictionnary
     """
-    with open(LOG_FILE, 'a') as f:
+    with open(log_file, 'a') as f:
         f.write(json.dumps(logs) + "\n")
 
 
@@ -183,7 +183,7 @@ class BMPMsg:
             return _version, _len, _type
 
     @classmethod
-    def dissect(cls, data):
+    def dissect(cls, data, log_file=None):
         global SEQ
         version, msglen, msgtype = cls.dissect_header(data)
 
@@ -202,7 +202,7 @@ class BMPMsg:
         msg_cls.MSG_LEN = msglen - cls.MIN_LEN
         logs = msg_cls.dissect(msg_data)
         logs["seq"] = SEQ
-        log2file(logs)
+        log2file(logs, log_file if log_file else LOG_FILE)
         SEQ += 1
 
         return data

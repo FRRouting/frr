@@ -16,10 +16,12 @@ BGP_MAX_SIZE = 4096
 parser = argparse.ArgumentParser()
 parser.add_argument("-a", "--address", type=str, default="0.0.0.0")
 parser.add_argument("-p", "--port", type=int, default=1789)
+parser.add_argument("-l", "--logfile", type=str, default="/var/log/bmp.log")
 
 def main():
     args = parser.parse_args()
     ADDRESS, PORT = args.address, args.port
+    LOG_FILE = args.logfile
 
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -31,7 +33,7 @@ def main():
             while True:
                 data = connection.recv(BGP_MAX_SIZE)
                 while len(data) > BMPMsg.MIN_LEN:
-                    data = BMPMsg.dissect(data)
+                    data = BMPMsg.dissect(data, log_file=LOG_FILE)
         except Exception as e:
             # XXX: do something
             pass
