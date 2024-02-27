@@ -55,7 +55,7 @@ LOC_RIB = "loc-rib"
 def build_topo(tgen):
     tgen.add_router("r1")
     tgen.add_router("r2")
-    tgen.add_bmp_server("bmp1", ip="192.0.178.10", defaultRoute="via 192.0.178.1")
+    tgen.add_bmp_server("bmp1", ip="192.0.2.10", defaultRoute="via 192.0.2.1")
 
     switch = tgen.add_switch("s1")
     switch.add_link(tgen.gears["r1"])
