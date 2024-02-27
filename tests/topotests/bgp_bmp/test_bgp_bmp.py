@@ -81,8 +81,8 @@ def setup_module(mod):
     tgen.start_router()
 
     logger.info("starting BMP servers")
-    for _, server in tgen.get_bmp_servers().items():
-        server.start()
+    for bmp_name, server in tgen.get_bmp_servers().items():
+        server.start(log_file=os.path.join(tgen.logdir, bmp_name, "bmp.log"))
 
 
 def teardown_module(_mod):
@@ -105,7 +105,9 @@ def get_bmp_messages():
     """
     messages = []
     tgen = get_topogen()
-    text_output = tgen.gears["bmp1"].run("cat /var/log/bmp.log")
+    text_output = tgen.gears["bmp1"].run(
+        "cat {}".format(os.path.join(tgen.logdir, "bmp1", "bmp.log"))
+    )
 
     for m in text_output.splitlines():
         # some output in the bash can break the message decoding
@@ -251,7 +253,9 @@ def test_bmp_server_logging():
 
     def check_for_log_file():
         tgen = get_topogen()
-        output = tgen.gears["bmp1"].run("ls /var/log/")
+        output = tgen.gears["bmp1"].run(
+            "ls {}".format(os.path.join(tgen.logdir, "bmp1"))
+        )
         if "bmp.log" not in output:
             return False
         return True
