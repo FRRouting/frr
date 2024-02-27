@@ -42,6 +42,7 @@ const struct message capcode_str[] = {
 	{ CAPABILITY_CODE_LLGR, "Long-lived BGP Graceful Restart" },
 	{ CAPABILITY_CODE_ROLE, "Role" },
 	{ CAPABILITY_CODE_SOFT_VERSION, "Software Version" },
+	{ CAPABILITY_CODE_PATHS_LIMIT, "Paths-Limit" },
 	{ 0 }
 };
 
@@ -61,6 +62,7 @@ static const size_t cap_minsizes[] = {
 		[CAPABILITY_CODE_LLGR] = CAPABILITY_CODE_LLGR_LEN,
 		[CAPABILITY_CODE_ROLE] = CAPABILITY_CODE_ROLE_LEN,
 		[CAPABILITY_CODE_SOFT_VERSION] = CAPABILITY_CODE_SOFT_VERSION_LEN,
+		[CAPABILITY_CODE_PATHS_LIMIT] = CAPABILITY_CODE_PATHS_LIMIT_LEN,
 };
 
 /* value the capability must be a multiple of.
@@ -83,6 +85,7 @@ static const size_t cap_modsizes[] = {
 		[CAPABILITY_CODE_LLGR] = 1,
 		[CAPABILITY_CODE_ROLE] = 1,
 		[CAPABILITY_CODE_SOFT_VERSION] = 1,
+		[CAPABILITY_CODE_PATHS_LIMIT] = 5,
 };
 
 /* BGP-4 Multiprotocol Extentions lead us to the complex world. We can
@@ -739,6 +742,62 @@ static int bgp_capability_addpath(struct peer *peer,
 	return 0;
 }
 
+static int bgp_capability_paths_limit(struct peer *peer,
+				      struct capability_header *hdr)
+{
+	struct stream *s = BGP_INPUT(peer);
+	size_t end = stream_get_getp(s) + hdr->length;
+
+	if (hdr->length % CAPABILITY_CODE_PATHS_LIMIT_LEN) {
+		flog_warn(EC_BGP_CAPABILITY_INVALID_LENGTH,
+			  "Paths-Limit: Received invalid length %d, non-multiple of %d",
+			  hdr->length, CAPABILITY_CODE_PATHS_LIMIT_LEN);
+		return -1;
+	}
+
+	if (!CHECK_FLAG(peer->cap, PEER_CAP_ADDPATH_RCV)) {
+		flog_warn(EC_BGP_CAPABILITY_INVALID_DATA,
+			  "Paths-Limit: Received Paths-Limit capability without Add-Path capability");
+		return -1;
+	}
+
+	SET_FLAG(peer->cap, PEER_CAP_PATHS_LIMIT_RCV);
+
+	while (stream_get_getp(s) + CAPABILITY_CODE_PATHS_LIMIT_LEN <= end) {
+		afi_t afi;
+		safi_t safi;
+		iana_afi_t pkt_afi = stream_getw(s);
+		iana_safi_t pkt_safi = stream_getc(s);
+		uint16_t paths_limit = stream_getw(s);
+
+		if (bgp_debug_neighbor_events(peer))
+			zlog_debug("%s OPEN has %s capability for afi/safi: %s/%s limit: %u",
+				   peer->host,
+				   lookup_msg(capcode_str, hdr->code, NULL),
+				   iana_afi2str(pkt_afi),
+				   iana_safi2str(pkt_safi), paths_limit);
+
+		if (bgp_map_afi_safi_iana2int(pkt_afi, pkt_safi, &afi, &safi)) {
+			if (bgp_debug_neighbor_events(peer))
+				zlog_debug("%s Addr-family %s/%s(afi/safi) not supported. Ignore the Paths-Limit capability for this AFI/SAFI",
+					   peer->host, iana_afi2str(pkt_afi),
+					   iana_safi2str(pkt_safi));
+			continue;
+		} else if (!peer->afc[afi][safi]) {
+			if (bgp_debug_neighbor_events(peer))
+				zlog_debug("%s Addr-family %s/%s(afi/safi) not enabled. Ignore the Paths-Limit capability for this AFI/SAFI",
+					   peer->host, iana_afi2str(pkt_afi),
+					   iana_safi2str(pkt_safi));
+			continue;
+		}
+
+		SET_FLAG(peer->af_cap[afi][safi], PEER_CAP_PATHS_LIMIT_AF_RCV);
+		peer->addpath_paths_limit[afi][safi].receive = paths_limit;
+	}
+
+	return 0;
+}
+
 static int bgp_capability_enhe(struct peer *peer, struct capability_header *hdr)
 {
 	struct stream *s = BGP_INPUT(peer);
@@ -1012,6 +1071,7 @@ static int bgp_capability_parse(struct peer *peer, size_t length,
 		case CAPABILITY_CODE_EXT_MESSAGE:
 		case CAPABILITY_CODE_ROLE:
 		case CAPABILITY_CODE_SOFT_VERSION:
+		case CAPABILITY_CODE_PATHS_LIMIT:
 			/* Check length. */
 			if (caphdr.length < cap_minsizes[caphdr.code]) {
 				zlog_info(
@@ -1112,6 +1172,9 @@ static int bgp_capability_parse(struct peer *peer, size_t length,
 			break;
 		case CAPABILITY_CODE_SOFT_VERSION:
 			ret = bgp_capability_software_version(peer, &caphdr);
+			break;
+		case CAPABILITY_CODE_PATHS_LIMIT:
+			ret = bgp_capability_paths_limit(peer, &caphdr);
 			break;
 		default:
 			if (caphdr.code > 128) {
@@ -1872,6 +1935,31 @@ uint16_t bgp_open_capability(struct stream *s, struct peer *peer,
 
 			stream_putc(s, flags);
 		}
+	}
+
+	/* Paths-Limit capability */
+	SET_FLAG(peer->cap, PEER_CAP_PATHS_LIMIT_ADV);
+	stream_putc(s, BGP_OPEN_OPT_CAP);
+	ext_opt_params ? stream_putw(s, (CAPABILITY_CODE_PATHS_LIMIT_LEN *
+					 afi_safi_count) +
+						2)
+		       : stream_putc(s, (CAPABILITY_CODE_PATHS_LIMIT_LEN *
+					 afi_safi_count) +
+						2);
+	stream_putc(s, CAPABILITY_CODE_PATHS_LIMIT);
+	stream_putc(s, CAPABILITY_CODE_PATHS_LIMIT_LEN * afi_safi_count);
+
+	FOREACH_AFI_SAFI (afi, safi) {
+		if (!peer->afc[afi][safi])
+			continue;
+
+		bgp_map_afi_safi_int2iana(afi, safi, &pkt_afi, &pkt_safi);
+
+		stream_putw(s, pkt_afi);
+		stream_putc(s, pkt_safi);
+		stream_putw(s, peer->addpath_paths_limit[afi][safi].send);
+
+		SET_FLAG(peer->af_cap[afi][safi], PEER_CAP_PATHS_LIMIT_AF_ADV);
 	}
 
 	/* ORF capability. */

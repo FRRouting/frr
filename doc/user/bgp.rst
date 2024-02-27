@@ -1780,6 +1780,17 @@ Configuring Peers
 
    Do not accept additional paths from this neighbor.
 
+.. clicmd:: neighbor <A.B.C.D|X:X::X:X|WORD> addpath-rx-paths-limit (1-65535)
+
+   Limit the maximum number of paths a BGP speaker can receive from a peer, optimizing
+   the transmission of BGP routes by selectively relaying pertinent routes instead of
+   the entire set.
+
+   If this command is configured, the sender will only send the number of paths specified
+   in PATHS-LIMIT capability.
+
+   To exchange this limit, both peers must support the PATHS-LIMIT capability.
+
 .. clicmd:: neighbor PEER ttl-security hops NUMBER
 
    This command enforces Generalized TTL Security Mechanism (GTSM), as

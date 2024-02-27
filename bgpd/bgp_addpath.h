@@ -21,6 +21,12 @@ struct bgp_addpath_capability {
 	uint8_t flags;
 };
 
+struct bgp_paths_limit_capability {
+	uint16_t afi;
+	uint8_t safi;
+	uint16_t paths_limit;
+};
+
 #define BGP_ADDPATH_TX_ID_FOR_DEFAULT_ORIGINATE 1
 
 void bgp_addpath_init_bgp_data(struct bgp_addpath_bgp_data *d);

@@ -1224,7 +1224,7 @@ void bgp_capability_send(struct peer *peer, afi_t afi, safi_t safi,
 	if (!peer_established(peer->connection))
 		return;
 
-	if (!CHECK_FLAG(peer->cap, PEER_CAP_DYNAMIC_RCV) &&
+	if (!CHECK_FLAG(peer->cap, PEER_CAP_DYNAMIC_RCV) ||
 	    !CHECK_FLAG(peer->cap, PEER_CAP_DYNAMIC_ADV))
 		return;
 
@@ -1460,6 +1460,49 @@ void bgp_capability_send(struct peer *peer, afi_t afi, safi_t safi,
 					   : "Removing",
 				   capability, iana_afi2str(pkt_afi),
 				   iana_safi2str(pkt_safi));
+
+		break;
+	case CAPABILITY_CODE_PATHS_LIMIT:
+		SET_FLAG(peer->cap, PEER_CAP_PATHS_LIMIT_ADV);
+
+		FOREACH_AFI_SAFI (afi, safi) {
+			if (!peer->afc[afi][safi])
+				continue;
+
+			addpath_afi_safi_count++;
+		}
+
+		stream_putc(s, action);
+		stream_putc(s, CAPABILITY_CODE_PATHS_LIMIT);
+		stream_putc(s, CAPABILITY_CODE_PATHS_LIMIT_LEN *
+				       addpath_afi_safi_count);
+
+		FOREACH_AFI_SAFI (afi, safi) {
+			if (!peer->afc[afi][safi])
+				continue;
+
+			bgp_map_afi_safi_int2iana(afi, safi, &pkt_afi,
+						  &pkt_safi);
+
+			stream_putw(s, pkt_afi);
+			stream_putc(s, pkt_safi);
+			stream_putw(s,
+				    peer->addpath_paths_limit[afi][safi].send);
+
+			SET_FLAG(peer->af_cap[afi][safi],
+				 PEER_CAP_PATHS_LIMIT_AF_ADV);
+
+			if (bgp_debug_neighbor_events(peer))
+				zlog_debug("%pBP sending CAPABILITY has %s %s for afi/safi: %s/%s, limit: %u",
+					   peer,
+					   action == CAPABILITY_ACTION_SET
+						   ? "Advertising"
+						   : "Removing",
+					   capability, iana_afi2str(pkt_afi),
+					   iana_safi2str(pkt_safi),
+					   peer->addpath_paths_limit[afi][safi]
+						   .send);
+		}
 
 		break;
 	case CAPABILITY_CODE_ORF:
@@ -3170,6 +3213,85 @@ ignore:
 	}
 }
 
+static void bgp_dynamic_capability_paths_limit(uint8_t *pnt, int action,
+					       struct capability_header *hdr,
+					       struct peer *peer)
+{
+	uint8_t *data = pnt + 3;
+	uint8_t *end = data + hdr->length;
+	size_t len = end - data;
+	afi_t afi;
+	safi_t safi;
+
+	if (action == CAPABILITY_ACTION_SET) {
+		if (len % CAPABILITY_CODE_PATHS_LIMIT_LEN) {
+			flog_warn(EC_BGP_CAPABILITY_INVALID_LENGTH,
+				  "Paths-Limit: Received invalid length %zu, non-multiple of %d",
+				  len, CAPABILITY_CODE_PATHS_LIMIT_LEN);
+			return;
+		}
+
+		if (!CHECK_FLAG(peer->cap, PEER_CAP_ADDPATH_RCV)) {
+			flog_warn(EC_BGP_CAPABILITY_INVALID_DATA,
+				  "Paths-Limit: Received Paths-Limit capability without Add-Path capability");
+			goto ignore;
+		}
+
+		SET_FLAG(peer->cap, PEER_CAP_PATHS_LIMIT_RCV);
+
+		while (data + CAPABILITY_CODE_PATHS_LIMIT_LEN <= end) {
+			afi_t afi;
+			safi_t safi;
+			iana_afi_t pkt_afi;
+			iana_safi_t pkt_safi;
+			struct bgp_paths_limit_capability bpl = {};
+
+			memcpy(&bpl, data, sizeof(bpl));
+			pkt_afi = ntohs(bpl.afi);
+			pkt_safi = safi_int2iana(bpl.safi);
+
+			if (bgp_debug_neighbor_events(peer))
+				zlog_debug("%s OPEN has %s capability for afi/safi: %s/%s limit: %u",
+					   peer->host,
+					   lookup_msg(capcode_str, hdr->code,
+						      NULL),
+					   iana_afi2str(pkt_afi),
+					   iana_safi2str(pkt_safi),
+					   bpl.paths_limit);
+
+			if (bgp_map_afi_safi_iana2int(pkt_afi, pkt_safi, &afi,
+						      &safi)) {
+				if (bgp_debug_neighbor_events(peer))
+					zlog_debug("%s Addr-family %s/%s(afi/safi) not supported. Ignore the Paths-Limit capability for this AFI/SAFI",
+						   peer->host,
+						   iana_afi2str(pkt_afi),
+						   iana_safi2str(pkt_safi));
+				goto ignore;
+			} else if (!peer->afc[afi][safi]) {
+				if (bgp_debug_neighbor_events(peer))
+					zlog_debug("%s Addr-family %s/%s(afi/safi) not enabled. Ignore the Paths-Limit capability for this AFI/SAFI",
+						   peer->host,
+						   iana_afi2str(pkt_afi),
+						   iana_safi2str(pkt_safi));
+				goto ignore;
+			}
+
+			SET_FLAG(peer->af_cap[afi][safi],
+				 PEER_CAP_PATHS_LIMIT_AF_RCV);
+			peer->addpath_paths_limit[afi][safi].receive =
+				bpl.paths_limit;
+ignore:
+			data += CAPABILITY_CODE_PATHS_LIMIT_LEN;
+		}
+	} else {
+		FOREACH_AFI_SAFI (afi, safi)
+			UNSET_FLAG(peer->af_cap[afi][safi],
+				   PEER_CAP_PATHS_LIMIT_AF_RCV);
+
+		UNSET_FLAG(peer->cap, PEER_CAP_PATHS_LIMIT_RCV);
+	}
+}
+
 static void bgp_dynamic_capability_orf(uint8_t *pnt, int action,
 				       struct capability_header *hdr,
 				       struct peer *peer)
@@ -3722,6 +3844,10 @@ static int bgp_capability_msg_parse(struct peer *peer, uint8_t *pnt,
 			break;
 		case CAPABILITY_CODE_ADDPATH:
 			bgp_dynamic_capability_addpath(pnt, action, hdr, peer);
+			break;
+		case CAPABILITY_CODE_PATHS_LIMIT:
+			bgp_dynamic_capability_paths_limit(pnt, action, hdr,
+							   peer);
 			break;
 		case CAPABILITY_CODE_ORF:
 			bgp_dynamic_capability_orf(pnt, action, hdr, peer);
