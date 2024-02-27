@@ -3207,6 +3207,31 @@ L3VPN SRv6
    Specify the SRv6 locator to be used for SRv6 L3VPN. The Locator name must
    be set in zebra, but user can set it in any order.
 
+L3VPN SRv6 SID reachability
+---------------------------
+
+In the context of IPv4 L3VPN over SRv6 specific usecase, 2001:db8:12::2
+is the peer IPv6 address of r2, and 2001:db8:2:2:: is the SRv6 SID
+advertised by router r2 for prefix P. On r1, the SID reachability is
+checked in order to install the prefix P. The below output indicates
+that the 2001:db8:2:2:: prefix is valid.
+
+
+.. code-block:: frr
+
+   r1# show bgp nexthop detail 
+   Current BGP nexthop cache:
+    2001:db8:2:2:: valid [IGP metric 0], #paths 4
+     gate 2001:db8:12::2, if eth0
+     Last update: Tue Nov 14 10:36:28 2023
+     Paths:
+       1/1 192.168.2.0/24 VRF vrf10 flags 0x4018
+       1/3 192.168.2.0/24 RD 65002:10 VRF default flags 0x418
+    2001:db8:12::2 valid [IGP metric 0], #paths 0, peer 2001:db8:12::2
+     if eth0
+     Last update: Tue Nov 14 10:36:26 2023
+     Paths:
+
 General configuration
 ^^^^^^^^^^^^^^^^^^^^^
 

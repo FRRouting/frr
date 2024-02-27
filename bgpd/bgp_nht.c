@@ -116,24 +116,36 @@ static int bgp_isvalid_nexthop_for_mplsovergre(struct bgp_nexthop_cache *bnc,
 static int bgp_isvalid_nexthop_for_mpls(struct bgp_nexthop_cache *bnc,
 					struct bgp_path_info *path)
 {
+	return (bnc && (bnc->nexthop_num > 0 &&
+			(CHECK_FLAG(path->flags, BGP_PATH_ACCEPT_OWN) ||
+			 CHECK_FLAG(bnc->flags, BGP_NEXTHOP_LABELED_VALID) ||
+			 bgp_isvalid_nexthop_for_ebgp(bnc, path) ||
+			 bgp_isvalid_nexthop_for_mplsovergre(bnc, path))));
+}
+
+static bool bgp_isvalid_nexthop_for_l3vpn(struct bgp_nexthop_cache *bnc,
+					  struct bgp_path_info *path)
+{
+	if (bgp_zebra_num_connects() == 0)
+		return 1;
+
+	if (path->attr->srv6_l3vpn || path->attr->srv6_vpn) {
+		/* In the case of SRv6-VPN, we need to track the reachability to the
+		 * SID (in other words, IPv6 address). We check that the SID is
+		 * available in the BGP update; then if it is available, we check
+		 * for the nexthop reachability.
+		 */
+		if (bnc && (bnc->nexthop_num > 0 && bgp_isvalid_nexthop(bnc)))
+			return 1;
+		return 0;
+	}
 	/*
-	 * - In the case of MPLS-VPN, the label is learned from LDP or other
+	 * In the case of MPLS-VPN, the label is learned from LDP or other
 	 * protocols, and nexthop tracking is enabled for the label.
 	 * The value is recorded as BGP_NEXTHOP_LABELED_VALID.
-	 * - In the case of SRv6-VPN, we need to track the reachability to the
-	 * SID (in other words, IPv6 address). As in MPLS, we need to record
-	 * the value as BGP_NEXTHOP_SID_VALID. However, this function is
-	 * currently not implemented, and this function assumes that all
-	 * Transit routes for SRv6-VPN are valid.
 	 * - Otherwise check for mpls-gre acceptance
 	 */
-	return (bgp_zebra_num_connects() == 0 ||
-		(bnc && (bnc->nexthop_num > 0 &&
-			 (CHECK_FLAG(path->flags, BGP_PATH_ACCEPT_OWN) ||
-			  CHECK_FLAG(bnc->flags, BGP_NEXTHOP_LABELED_VALID) ||
-			  bnc->bgp->srv6_enabled ||
-			  bgp_isvalid_nexthop_for_ebgp(bnc, path) ||
-			  bgp_isvalid_nexthop_for_mplsovergre(bnc, path)))));
+	return bgp_isvalid_nexthop_for_mpls(bnc, path);
 }
 
 static void bgp_unlink_nexthop_check(struct bgp_nexthop_cache *bnc)
@@ -496,7 +508,7 @@ int bgp_find_or_add_nexthop(struct bgp *bgp_route, struct bgp *bgp_nexthop,
 	else if (safi == SAFI_UNICAST && pi &&
 		 pi->sub_type == BGP_ROUTE_IMPORTED && pi->extra &&
 		 pi->extra->num_labels && !bnc->is_evpn_gwip_nexthop)
-		return bgp_isvalid_nexthop_for_mpls(bnc, pi);
+		return bgp_isvalid_nexthop_for_l3vpn(bnc, pi);
 	else if (safi == SAFI_MPLS_VPN && pi &&
 		 pi->sub_type != BGP_ROUTE_IMPORTED)
 		/* avoid not redistributing mpls vpn routes */
@@ -1045,8 +1057,11 @@ static int make_prefix(int afi, struct bgp_path_info *pi, struct prefix *p)
 		break;
 	case AFI_IP6:
 		p->family = AF_INET6;
-
-		if (is_bgp_static) {
+		if (pi->attr && pi->attr->srv6_l3vpn) {
+			IPV6_ADDR_COPY(&(p->u.prefix6),
+				       &(pi->attr->srv6_l3vpn->sid));
+			p->prefixlen = IPV6_MAX_BITLEN;
+		} else if (is_bgp_static) {
 			p->u.prefix6 = p_orig->u.prefix6;
 			p->prefixlen = p_orig->prefixlen;
 		} else {
@@ -1295,8 +1310,9 @@ void evaluate_paths(struct bgp_nexthop_cache *bnc)
 		    && (path->attr->evpn_overlay.type
 			!= OVERLAY_INDEX_GATEWAY_IP)) {
 			bnc_is_valid_nexthop =
-				bgp_isvalid_nexthop_for_mpls(bnc, path) ? true
-									: false;
+				bgp_isvalid_nexthop_for_l3vpn(bnc, path)
+					? true
+					: false;
 		} else if (safi == SAFI_MPLS_VPN &&
 			   path->sub_type != BGP_ROUTE_IMPORTED) {
 			/* avoid not redistributing mpls vpn routes */
