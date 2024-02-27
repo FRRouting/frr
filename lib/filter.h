@@ -128,6 +128,7 @@ struct filter *filter_new(void);
 void access_list_filter_add(struct access_list *access, struct filter *filter);
 void access_list_filter_delete(struct access_list *access,
 			       struct filter *filter);
+void access_list_filter_update(struct access_list *access);
 int64_t filter_new_seq_get(struct access_list *access);
 
 extern const struct frr_yang_module_info frr_filter_info;
