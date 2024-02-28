@@ -316,7 +316,8 @@ class BMPStatisticsReport:
 
 
 # ------------------------------------------------------------------------------
-class BMPPeerDownNotification:
+@BMPMsg.register_msg_type(BMPCodes.BMP_MSG_TYPE_PEER_DOWN_NOTIFICATION)
+class BMPPeerDownNotification(BMPPerPeerMessage):
     """
     0 1 2 3 4 5 6 7 8 1 2 3 4 5 6 7 8 1 2 3 4 5 6 7 8 1 2 3 4 5 6 7 8
     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
@@ -326,7 +327,20 @@ class BMPPeerDownNotification:
     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
     """
 
-    pass
+    @classmethod
+    def dissect(cls, data):
+        data, peer_msg = super().dissect(data)
+
+        msg = {
+            **peer_msg,
+            **{
+                "bmp_log_type": "peer down",
+            },
+        }
+
+        # XXX: dissect the bgp open message
+
+        return msg
 
 
 # ------------------------------------------------------------------------------
