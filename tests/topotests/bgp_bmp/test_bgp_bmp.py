@@ -160,6 +160,34 @@ def check_for_prefixes(expected_prefixes, bmp_log_type, policy, labels=None):
     return True
 
 
+def check_for_peer_message(expected_peers, bmp_log_type):
+    """
+    Check for the presence of a peer up message for the peer
+    """
+    global SEQ
+    # we care only about the new messages
+    messages = [
+        m for m in sorted(get_bmp_messages(), key=lambda d: d["seq"]) if m["seq"] > SEQ
+    ]
+
+    # get the list of pairs (prefix, policy, seq) for the given message type
+    peers = [
+        m["peer_ip"]
+        for m in messages
+        if "peer_ip" in m.keys() and m["bmp_log_type"] == bmp_log_type
+    ]
+
+    # check for prefixes
+    for ep in expected_peers:
+        if ep not in peers:
+            msg = "The peer {} is not present in the {} log messages."
+            logger.debug(msg.format(ep, bmp_log_type))
+            return False
+
+    SEQ = messages[-1]["seq"]
+    return True
+
+
 def set_bmp_policy(tgen, node, asn, target, safi, policy, vrf=None):
     """
     Configure the bmp policy.
@@ -276,6 +304,20 @@ def test_bmp_server_logging():
     assert success, "The BMP server is not logging"
 
 
+def test_peer_up():
+    """
+    Checking for BMP peers up messages
+    """
+
+    peers = ["192.168.0.2", "192:168::2"]
+
+    logger.info("checking for BMP peers up messages")
+
+    test_func = partial(check_for_peer_message, peers, "peer up")
+    success, _ = topotest.run_and_expect(test_func, True, wait=0.5)
+    assert success, "Checking the updated prefixes has been failed !."
+
+
 def test_bmp_bgp_unicast():
     """
     Add/withdraw bgp unicast prefixes and check the bmp logs.
@@ -296,6 +338,23 @@ def test_bmp_bgp_vpn():
     vpn_prefixes(POST_POLICY)
     logger.info("***** VPN prefixes loc-rib logging *****")
     vpn_prefixes(LOC_RIB)
+
+
+def test_peer_down():
+    """
+    Checking for BMP peers down messages
+    """
+    tgen = get_topogen()
+
+    tgen.gears["r2"].vtysh_cmd("clear bgp *")
+
+    peers = ["192.168.0.2", "192:168::2"]
+
+    logger.info("checking for BMP peers down messages")
+
+    test_func = partial(check_for_peer_message, peers, "peer down")
+    success, _ = topotest.run_and_expect(test_func, True, wait=0.5)
+    assert success, "Checking the updated prefixes has been failed !."
 
 
 if __name__ == "__main__":
