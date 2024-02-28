@@ -685,6 +685,8 @@ void bgp_nhg_id_set_installed(uint32_t id, bool install)
 			   nhg->id);
 
 	LIST_FOREACH (path, &(nhg->paths), nhg_cache_thread) {
+		if (!CHECK_FLAG(path->flags, BGP_PATH_SELECTED))
+			continue;
 		table = bgp_dest_table(path->net);
 		if (table)
 			bgp_zebra_route_install(path->net, path, table->bgp,

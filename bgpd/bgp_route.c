@@ -3479,7 +3479,7 @@ static void bgp_process_main_one(struct bgp *bgp, struct bgp_dest *dest,
 	     (pi != NULL) && (nextpi = pi->next, 1); pi = nextpi) {
 		if (!CHECK_FLAG(pi->flags, BGP_PATH_SELECTED) &&
 		    !CHECK_FLAG(pi->flags, BGP_PATH_MULTIPATH))
-			bgp_nhg_path_nexthop_unlink(pi, false);
+			bgp_nhg_path_unlink(pi);
 	}
 
 	/* call bmp hook for loc-rib route update / withdraw after flags were
