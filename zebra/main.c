@@ -204,6 +204,12 @@ static void sigint(void)
 
 	list_delete(&zrouter.client_list);
 
+	/*
+	 * Besides other clean-ups zebra's vrf_disable() also enqueues installed
+	 * routes for removal from the kernel, unless ZEBRA_VRF_RETAIN is set.
+	 */
+	vrf_iterate(vrf_disable);
+
 	/* Indicate that all new dplane work has been enqueued. When that
 	 * work is complete, the dataplane will enqueue an event
 	 * with the 'finalize' function.
