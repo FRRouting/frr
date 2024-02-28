@@ -360,6 +360,7 @@ class BMPPeerUpNotification(BMPPerPeerMessage):
         msg = {
             **peer_msg,
             **{
+                "bmp_log_type": "peer up",
                 "local_ip": bin2str_ipaddress(local_addr, peer_msg.get("ipv6")),
                 "local_port": int(local_port),
                 "remote_port": int(remote_port),
