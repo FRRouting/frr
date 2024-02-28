@@ -1593,18 +1593,6 @@ void bgp_zebra_announce_parse_nexthop(struct bgp_path_info *info,
 		nhg_parent.groups.group_num++;
 		nhg_parent.groups.groups[i] = p_nhg[i]->id;
 	}
-	/* unlink parent nhg from p_mpinfo[i], except for info */
-	for (i = 0; i < *valid_nh_count; i++) {
-		if (info != p_mpinfo[i] && p_mpinfo[i]->bgp_nhg &&
-		    p_mpinfo[i]->bgp_nhg != info->bgp_nhg) {
-			LIST_REMOVE(p_mpinfo[i], nhg_cache_thread);
-			p_mpinfo[i]->bgp_nhg->path_count--;
-			if (LIST_EMPTY(&(p_mpinfo[i]->bgp_nhg->paths)))
-				bgp_nhg_del_nhg(p_mpinfo[i]->bgp_nhg);
-			p_mpinfo[i]->bgp_nhg = NULL;
-		}
-	}
-
 
 	/* sort to always use the same parent nhg */
 	bgp_nhg_group_sort(nhg_parent.groups.groups,
@@ -1619,30 +1607,36 @@ void bgp_zebra_announce_parse_nexthop(struct bgp_path_info *info,
 		creation = true;
 	}
 
-	if (p_nhg_parent != info->bgp_nhg) {
-		if (BGP_DEBUG(nexthop_group, NEXTHOP_GROUP))
-			bgp_nhg_debug_group(p_nhg_parent->groups.groups,
-					    nhg_parent.groups.group_num,
-					    nexthop_buf, sizeof(nexthop_buf));
-		if (info->bgp_nhg) {
-			if (BGP_DEBUG(nexthop_group, NEXTHOP_GROUP))
-				zlog_debug("parse_nexthop: %pFX, replacing old NHG %u with %u (%s)",
-					   p, info->bgp_nhg->id,
-					   p_nhg_parent->id, nexthop_buf);
-			LIST_REMOVE(info, nhg_cache_thread);
-			info->bgp_nhg->path_count--;
-			if (LIST_EMPTY(&(info->bgp_nhg->paths)))
-				bgp_nhg_del_nhg(info->bgp_nhg);
-		} else {
-			if (BGP_DEBUG(nexthop_group, NEXTHOP_GROUP)) {
+	if (BGP_DEBUG(nexthop_group, NEXTHOP_GROUP))
+		bgp_nhg_debug_group(p_nhg_parent->groups.groups,
+				    nhg_parent.groups.group_num, nexthop_buf,
+				    sizeof(nexthop_buf));
+
+	/* unlink parent nhg from p_mpinfo[i], except for info */
+	for (i = 0; i < *valid_nh_count; i++) {
+		if (p_mpinfo[i]->bgp_nhg != p_nhg_parent) {
+			if (p_mpinfo[i]->bgp_nhg) {
+				if (BGP_DEBUG(nexthop_group, NEXTHOP_GROUP))
+					zlog_debug("parse_nexthop: %pFX, replacing old NHG %u with %u (%s)",
+						   p, p_mpinfo[i]->bgp_nhg->id,
+						   p_nhg_parent->id,
+						   nexthop_buf);
+				LIST_REMOVE(p_mpinfo[i], nhg_cache_thread);
+				p_mpinfo[i]->bgp_nhg->path_count--;
+				if (LIST_EMPTY(&(p_mpinfo[i]->bgp_nhg->paths)))
+					bgp_nhg_del_nhg(p_mpinfo[i]->bgp_nhg);
+				p_mpinfo[i]->bgp_nhg = NULL;
+			} else if (BGP_DEBUG(nexthop_group, NEXTHOP_GROUP))
 				zlog_debug("parse_nexthop: %pFX, attaching %sNHG %u (%s)",
 					   p, creation ? "new " : "",
 					   p_nhg_parent->id, nexthop_buf);
-			}
-		}
-		LIST_INSERT_HEAD(&(p_nhg_parent->paths), info, nhg_cache_thread);
-		info->bgp_nhg = p_nhg_parent;
-		p_nhg_parent->path_count++;
+			LIST_INSERT_HEAD(&(p_nhg_parent->paths), p_mpinfo[i],
+					 nhg_cache_thread);
+			p_mpinfo[i]->bgp_nhg = p_nhg_parent;
+			p_nhg_parent->path_count++;
+		} else
+			zlog_debug("parse_nexthop: %pFX, NHG %u already attached (%s)",
+				   p, p_nhg_parent->id, nexthop_buf);
 	}
 	p_nhg_parent->last_update = monotime(NULL);
 
