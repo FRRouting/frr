@@ -1074,7 +1074,7 @@ static int make_prefix(int afi, safi_t safi, struct bgp_path_info *pi, struct pr
 			 * or LL(LL), use LL address as nexthop cache.
 			 */
 			p->prefixlen = IPV6_MAX_BITLEN;
-			if (pi->attr->mp_nexthop_len
+			if (pi->attr && pi->attr->mp_nexthop_len
 				    == BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL
 			    && (IN6_IS_ADDR_UNSPECIFIED(
 					&pi->attr->mp_nexthop_global)
@@ -1084,7 +1084,7 @@ static int make_prefix(int afi, safi_t safi, struct bgp_path_info *pi, struct pr
 			/* If we receive MR_REACH with (GA)::(LL)
 			 * then check for route-map to choose GA or LL
 			 */
-			else if (pi->attr->mp_nexthop_len
+			else if (pi->attr && pi->attr->mp_nexthop_len
 				 == BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL) {
 				if (CHECK_FLAG(pi->attr->nh_flags, BGP_ATTR_NH_MP_PREFER_GLOBAL)) {
 					is_labeled_unicast =
