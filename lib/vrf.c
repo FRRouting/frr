@@ -326,6 +326,33 @@ void vrf_disable(struct vrf *vrf)
 		(*vrf_master.vrf_disable_hook)(vrf);
 }
 
+void vrf_iterate(vrf_iter_func fnc)
+{
+	struct vrf *vrf, *tmp;
+
+	if (debug_vrf)
+		zlog_debug("%s:  vrf subsystem iteration", __func__);
+
+	RB_FOREACH_SAFE (vrf, vrf_id_head, &vrfs_by_id, tmp) {
+		if (vrf->vrf_id == VRF_DEFAULT)
+			continue;
+
+		fnc(vrf);
+	}
+
+	RB_FOREACH_SAFE (vrf, vrf_name_head, &vrfs_by_name, tmp) {
+		if (vrf->vrf_id == VRF_DEFAULT)
+			continue;
+
+		fnc(vrf);
+	}
+
+	/* Finally process default VRF */
+	vrf = vrf_lookup_by_id(VRF_DEFAULT);
+	if (vrf)
+		fnc(vrf);
+}
+
 const char *vrf_id_to_name(vrf_id_t vrf_id)
 {
 	struct vrf *vrf;
@@ -542,32 +569,12 @@ static void vrf_terminate_single(struct vrf *vrf)
 	vrf_delete(vrf);
 }
 
-/* Terminate VRF module. */
 void vrf_terminate(void)
 {
-	struct vrf *vrf, *tmp;
-
 	if (debug_vrf)
 		zlog_debug("%s: Shutting down vrf subsystem", __func__);
 
-	RB_FOREACH_SAFE (vrf, vrf_id_head, &vrfs_by_id, tmp) {
-		if (vrf->vrf_id == VRF_DEFAULT)
-			continue;
-
-		vrf_terminate_single(vrf);
-	}
-
-	RB_FOREACH_SAFE (vrf, vrf_name_head, &vrfs_by_name, tmp) {
-		if (vrf->vrf_id == VRF_DEFAULT)
-			continue;
-
-		vrf_terminate_single(vrf);
-	}
-
-	/* Finally terminate default VRF */
-	vrf = vrf_lookup_by_id(VRF_DEFAULT);
-	if (vrf)
-		vrf_terminate_single(vrf);
+	vrf_iterate(vrf_terminate_single);
 }
 
 int vrf_socket(int domain, int type, int protocol, vrf_id_t vrf_id,

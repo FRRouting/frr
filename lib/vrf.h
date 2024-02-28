@@ -202,6 +202,12 @@ extern void vrf_init(int (*create)(struct vrf *vrf),
 		     int (*destroy)(struct vrf *vrf));
 
 /*
+ * Iterate over custom VRFs and round up by processing the default VRF.
+ */
+typedef void (*vrf_iter_func)(struct vrf *vrf);
+extern void vrf_iterate(vrf_iter_func fnc);
+
+/*
  * Call vrf_terminate when the protocol is being shutdown
  */
 extern void vrf_terminate(void);
