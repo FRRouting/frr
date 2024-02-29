@@ -101,3 +101,16 @@ def verify_route_nexthop_group(route_str, rname, recursive=False, ecmp=0):
     # Verify route and that zebra created NHGs for and they are valid/installed
     nhg_id = route_get_nhg_id(route_str, rname)
     verify_nexthop_group(nhg_id, rname, recursive, ecmp)
+
+
+def route_check_nhg_id_is_protocol(ipaddr_str, rname, vrf_name=None, protocol="bgp"):
+    tgen = get_topogen()
+    nhg_id = route_get_nhg_id(ipaddr_str, rname, vrf_name=vrf_name)
+    output = tgen.gears["r1"].vtysh_cmd(
+        "show nexthop-group rib %d" % nhg_id,
+    )
+    assert f"ID: {nhg_id} ({protocol})" in output, (
+        "NHG %d not found in 'show nexthop-group rib ID json" % nhg_id
+    )
+
+    return nhg_id
