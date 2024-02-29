@@ -24,5 +24,6 @@ int path_zebra_request_label_range(uint32_t base, uint32_t chunk_size);
 extern void path_zebra_fae_igp_opaque_register(void);
 void path_zebra_init(struct event_loop *master);
 void path_zebra_stop(void);
+void path_nht_removed(struct srte_candidate *candidate);
 
 #endif /* _FRR_PATH_MPLS_H_ */

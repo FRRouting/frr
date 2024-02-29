@@ -652,6 +652,9 @@ struct zapi_srte_tunnel {
 
 	/* SRv6-TE */
 	struct seg6_segs srv6_segs;
+
+	uint32_t metric;
+	uint8_t distance;
 };
 
 struct zapi_sr_policy {
