@@ -10,6 +10,7 @@
 #include "lib_errors.h"
 #include "if.h"
 #include "prefix.h"
+#include "jhash.h"
 #include "zclient.h"
 #include "network.h"
 #include "stream.h"
@@ -48,6 +49,90 @@ struct in6_addr g_router_id_v6;
 pthread_mutex_t g_router_id_v4_mtx = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t g_router_id_v6_mtx = PTHREAD_MUTEX_INITIALIZER;
 
+DEFINE_MTYPE_STATIC(PATHD, PATH_NHT_DATA, "Pathd Nexthop tracking data");
+PREDECL_HASH(path_nht_hash);
+
+struct path_nht_data {
+	struct path_nht_hash_item itm;
+
+	struct prefix nh;
+
+	vrf_id_t nh_vrf_id;
+
+	uint32_t refcount;
+	uint8_t nh_num;
+	struct nexthop *nexthop;
+	bool registered;
+
+	uint32_t metric;
+	uint8_t distance;
+};
+
+static int path_nht_data_cmp(const struct path_nht_data *nhtd1,
+			     const struct path_nht_data *nhtd2)
+{
+	if (nhtd1->nh_vrf_id != nhtd2->nh_vrf_id)
+		return numcmp(nhtd1->nh_vrf_id, nhtd2->nh_vrf_id);
+
+	return prefix_cmp(&nhtd1->nh, &nhtd2->nh);
+}
+
+static unsigned int path_nht_data_hash(const struct path_nht_data *nhtd)
+{
+	unsigned int key = 0;
+
+	key = prefix_hash_key(&nhtd->nh);
+	return jhash_1word(nhtd->nh_vrf_id, key);
+}
+
+DECLARE_HASH(path_nht_hash, struct path_nht_data, itm, path_nht_data_cmp,
+	     path_nht_data_hash);
+
+static struct path_nht_hash_head path_nht_hash[1];
+
+static struct path_nht_data *path_nht_hash_getref(const struct path_nht_data *ref)
+{
+	struct path_nht_data *nhtd;
+
+	nhtd = path_nht_hash_find(path_nht_hash, ref);
+	if (!nhtd) {
+		nhtd = XCALLOC(MTYPE_PATH_NHT_DATA, sizeof(*nhtd));
+
+		prefix_copy(&nhtd->nh, &ref->nh);
+		nhtd->nh_vrf_id = ref->nh_vrf_id;
+
+		path_nht_hash_add(path_nht_hash, nhtd);
+	}
+
+	nhtd->refcount++;
+	return nhtd;
+}
+
+static bool path_nht_hash_decref(struct path_nht_data **nhtd_p)
+{
+	struct path_nht_data *nhtd = *nhtd_p;
+
+	*nhtd_p = NULL;
+
+	if (--nhtd->refcount > 0)
+		return true;
+
+	path_nht_hash_del(path_nht_hash, nhtd);
+	XFREE(MTYPE_PATH_NHT_DATA, nhtd);
+	return false;
+}
+
+static void path_nht_hash_clear(void)
+{
+	struct path_nht_data *nhtd;
+
+	while ((nhtd = path_nht_hash_pop(path_nht_hash))) {
+		if (nhtd->nexthop)
+			nexthops_free(nhtd->nexthop);
+		XFREE(MTYPE_PATH_NHT_DATA, nhtd);
+	}
+}
+
 /**
  * Gives the IPv4 router ID received from Zebra.
  *
@@ -57,6 +142,7 @@ pthread_mutex_t g_router_id_v6_mtx = PTHREAD_MUTEX_INITIALIZER;
 bool get_ipv4_router_id(struct in_addr *router_id)
 {
 	bool retval = false;
+
 	assert(router_id != NULL);
 	pthread_mutex_lock(&g_router_id_v4_mtx);
 	if (g_has_router_id_v4) {
@@ -76,6 +162,7 @@ bool get_ipv4_router_id(struct in_addr *router_id)
 bool get_ipv6_router_id(struct in6_addr *router_id)
 {
 	bool retval = false;
+
 	assert(router_id != NULL);
 	pthread_mutex_lock(&g_router_id_v6_mtx);
 	if (g_has_router_id_v6) {
@@ -84,6 +171,96 @@ bool get_ipv6_router_id(struct in6_addr *router_id)
 	}
 	pthread_mutex_unlock(&g_router_id_v6_mtx);
 	return retval;
+}
+
+static bool path_zebra_segment_list_srv6(struct srte_segment_list *segment_list)
+{
+	struct srte_segment_entry *segment;
+
+	segment = RB_MIN(srte_segment_entry_head, &segment_list->segments);
+	if (segment && !IPV6_ADDR_SAME(&segment->srv6_sid_value, &in6addr_any))
+		return true;
+
+	return false;
+}
+
+static bool path_zebra_nht_get_srv6_prefix(struct srte_segment_list *segment_list,
+					   struct prefix *nh)
+{
+	struct srte_segment_entry *segment;
+	bool found = false;
+
+	if (!segment_list)
+		return false;
+
+	segment = RB_MIN(srte_segment_entry_head, &segment_list->segments);
+	if (segment && !IPV6_ADDR_SAME(&segment->srv6_sid_value, &in6addr_any)) {
+		nh->family = AF_INET6;
+		nh->prefixlen = IPV6_MAX_BITLEN;
+		memcpy(&nh->u.prefix6, &segment->srv6_sid_value,
+		       sizeof(struct in6_addr));
+		found = true;
+	}
+	return found;
+}
+
+static void path_zebra_add_srv6_policy_internal(struct srte_policy *policy)
+{
+	struct path_nht_data *nhtd, lookup = {};
+	uint32_t cmd;
+	struct srte_candidate *candidate;
+	struct srte_segment_list *segment_list = NULL;
+
+	candidate = policy->best_candidate;
+	if (candidate && candidate->lsp)
+		segment_list = candidate->lsp->segment_list;
+
+	if (!segment_list)
+		return;
+
+	if (!path_zebra_nht_get_srv6_prefix(segment_list, &lookup.nh))
+		return;
+
+	lookup.nh_vrf_id = VRF_DEFAULT;
+
+	if (CHECK_FLAG(segment_list->flags, F_SEGMENT_LIST_NHT_REGISTERED)) {
+		/* nh->nh_registered means we own a reference on the nhtd */
+		nhtd = path_nht_hash_find(path_nht_hash, &lookup);
+
+		assertf(nhtd, "BUG: NH %pFX registered but not in hashtable",
+			&lookup.nh);
+	} else {
+		nhtd = path_nht_hash_getref(&lookup);
+
+		if (nhtd->refcount > 1)
+			zlog_debug("Reusing registered nexthop(%pFX) for candidate %s pref %u (num %d)",
+				   &lookup.nh, candidate->name,
+				   candidate->preference, nhtd->nh_num);
+	}
+
+	SET_FLAG(segment_list->flags, F_SEGMENT_LIST_NHT_REGISTERED);
+
+	if (nhtd->nh_num) {
+		path_zebra_add_sr_policy(candidate->policy, segment_list);
+		return;
+	}
+	path_zebra_delete_sr_policy(candidate->policy);
+
+	if (nhtd->registered)
+		/* have no data, but did send register */
+		return;
+
+	cmd = ZEBRA_NEXTHOP_REGISTER;
+	zlog_debug("Registering nexthop(%pFX) for candidate %s pref %u",
+		   &lookup.nh, candidate->name, candidate->preference);
+
+	if (zclient_send_rnh(zclient, cmd, &lookup.nh, SAFI_UNICAST, false,
+			     false, VRF_DEFAULT) == ZCLIENT_SEND_FAILURE)
+		zlog_warn("%s: Failure to send nexthop %pFX for candidate %s pref %u to zebra",
+			  __func__, &lookup.nh, candidate->name,
+			  candidate->preference);
+	else
+		nhtd->registered = true;
 }
 
 static void path_zebra_connected(struct zclient *zclient)
@@ -105,8 +282,10 @@ static void path_zebra_connected(struct zclient *zclient)
 		segment_list = candidate->lsp->segment_list;
 		if (!segment_list)
 			continue;
-
-		path_zebra_add_sr_policy(policy, segment_list);
+		if (path_zebra_segment_list_srv6(segment_list))
+			path_zebra_add_srv6_policy_internal(policy);
+		else
+			path_zebra_add_sr_policy(policy, segment_list);
 	}
 }
 
@@ -140,6 +319,7 @@ static int path_zebra_router_id_update(ZAPI_CALLBACK_ARGS)
 	struct prefix pref;
 	const char *family;
 	char buf[PREFIX2STR_BUFFER];
+
 	zebra_router_id_update_read(zclient->ibuf, &pref);
 	if (pref.family == AF_INET) {
 		pthread_mutex_lock(&g_router_id_v4_mtx);
@@ -167,13 +347,65 @@ static int path_zebra_router_id_update(ZAPI_CALLBACK_ARGS)
 }
 
 /**
+ * Disconnect from NHT
+ */
+void path_nht_removed(struct srte_candidate *candidate)
+{
+	struct path_nht_data *nhtd, lookup;
+	struct srte_segment_list *segment_list;
+	bool was_zebra_registered;
+
+	if (!candidate || !candidate->lsp)
+		return;
+
+	segment_list = candidate->lsp->segment_list;
+	if (!segment_list)
+		return;
+
+	if (!CHECK_FLAG(segment_list->flags, F_SEGMENT_LIST_NHT_REGISTERED))
+		return;
+
+	if (!path_zebra_nht_get_srv6_prefix(segment_list, &lookup.nh))
+		return;
+
+	lookup.nh_vrf_id = VRF_DEFAULT;
+
+	/* nh->nh_registered means we own a reference on the nhtd */
+	nhtd = path_nht_hash_find(path_nht_hash, &lookup);
+
+	assertf(nhtd, "BUG: NH %pFX registered but not in hashtable",
+		&lookup.nh);
+
+	was_zebra_registered = nhtd->registered;
+	UNSET_FLAG(segment_list->flags, F_SEGMENT_LIST_NHT_REGISTERED);
+	if (path_nht_hash_decref(&nhtd))
+		/* still got references alive */
+		return;
+
+	/* NB: nhtd is now NULL. */
+	if (!was_zebra_registered)
+		return;
+
+	zlog_debug("Unregistering nexthop(%pFX) for candidate %s pref %u",
+		   &lookup.nh, candidate->name, candidate->preference);
+
+	if (zclient_send_rnh(zclient, ZEBRA_NEXTHOP_UNREGISTER, &lookup.nh,
+			     SAFI_UNICAST, false, false,
+			     VRF_DEFAULT) == ZCLIENT_SEND_FAILURE)
+		zlog_warn("%s: Failure to send nexthop %pFX for candidate %s pref %u to zebra",
+			  __func__, &lookup.nh, candidate->name,
+			  candidate->preference);
+}
+
+/**
  * Adds a segment routing policy to Zebra.
  *
  * @param policy The policy to add
  * @param segment_list The segment list for the policy
  */
-void path_zebra_add_sr_policy(struct srte_policy *policy,
-			      struct srte_segment_list *segment_list)
+static void
+path_zebra_add_sr_policy_internal(struct srte_policy *policy,
+				  struct srte_segment_list *segment_list)
 {
 	struct zapi_sr_policy zp = {};
 	struct srte_segment_entry *segment;
@@ -181,9 +413,8 @@ void path_zebra_add_sr_policy(struct srte_policy *policy,
 	zp.color = policy->color;
 	zp.endpoint = policy->endpoint;
 	strlcpy(zp.name, policy->name, sizeof(zp.name));
-	segment = RB_MIN(srte_segment_entry_head, &segment_list->segments);
 
-	if (sid_zero_ipv6(&segment->srv6_sid_value)) {
+	if (!path_zebra_segment_list_srv6(segment_list)) {
 		zp.segment_list.type = ZEBRA_SR_LSP_SRTE;
 		zp.segment_list.local_label = policy->binding_sid;
 		zp.segment_list.label_num = 0;
@@ -208,6 +439,21 @@ void path_zebra_add_sr_policy(struct srte_policy *policy,
 }
 
 /**
+ * Adds a segment routing policy to Zebra.
+ *
+ * @param policy The policy to add
+ * @param segment_list The segment list for the policy
+ */
+void path_zebra_add_sr_policy(struct srte_policy *policy,
+			      struct srte_segment_list *segment_list)
+{
+	if (path_zebra_segment_list_srv6(segment_list))
+		path_zebra_add_srv6_policy_internal(policy);
+	else
+		path_zebra_add_sr_policy_internal(policy, segment_list);
+}
+
+/**
  * Deletes a segment policy from Zebra.
  *
  * @param policy The policy to remove
@@ -215,15 +461,18 @@ void path_zebra_add_sr_policy(struct srte_policy *policy,
 void path_zebra_delete_sr_policy(struct srte_policy *policy)
 {
 	struct zapi_sr_policy zp = {};
-	struct srte_segment_entry *segment;
+	struct srte_segment_entry *segment = NULL;
 
 	zp.color = policy->color;
 	zp.endpoint = policy->endpoint;
 	strlcpy(zp.name, policy->name, sizeof(zp.name));
-	segment = RB_MIN(srte_segment_entry_head,
-			 &policy->best_candidate->segment_list->segments);
 
-	if (sid_zero_ipv6(&segment->srv6_sid_value)) {
+	if (policy->best_candidate && policy->best_candidate->segment_list)
+		segment =
+			RB_MIN(srte_segment_entry_head,
+			       &policy->best_candidate->segment_list->segments);
+
+	if (segment && sid_zero_ipv6(&segment->srv6_sid_value)) {
 		zp.segment_list.type = ZEBRA_SR_LSP_SRTE;
 		zp.segment_list.local_label = policy->binding_sid;
 		zp.segment_list.label_num = 0;
@@ -317,6 +566,24 @@ static void path_zebra_label_manager_connect(struct event *event)
 	}
 }
 
+static void path_zebra_nexthop_update(struct vrf *vrf, struct prefix *match,
+				      struct zapi_route *nhr)
+{
+	struct path_nht_data *nhtd, lookup;
+
+	if (match->family != AF_INET6)
+		return;
+
+	memset(&lookup, 0, sizeof(lookup));
+	prefix_copy(&lookup.nh, match);
+	lookup.nh_vrf_id = vrf->vrf_id;
+
+	nhtd = path_nht_hash_find(path_nht_hash, &lookup);
+
+	if (!nhtd)
+		zlog_err("Unable to find next-hop data for the given route.");
+}
+
 static int path_zebra_opaque_msg_handler(ZAPI_CALLBACK_ARGS)
 {
 	int ret = 0;
@@ -391,13 +658,21 @@ void path_zebra_init(struct event_loop *master)
 	zclient_sync->instance = 1;
 	zclient_sync->privs = &pathd_privs;
 
+	zclient->nexthop_update = path_zebra_nexthop_update;
+
 	/* Connect to the LM. */
 	t_sync_connect = NULL;
 	path_zebra_label_manager_connect(NULL);
+
+	/* Pathd nht init */
+	path_nht_hash_init(path_nht_hash);
 }
 
 void path_zebra_stop(void)
 {
+	path_nht_hash_clear();
+	path_nht_hash_fini(path_nht_hash);
+
 	zclient_stop(zclient);
 	zclient_free(zclient);
 	event_cancel(&t_sync_connect);

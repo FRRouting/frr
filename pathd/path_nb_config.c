@@ -734,6 +734,7 @@ int pathd_srte_policy_candidate_path_segment_list_name_modify(
 	candidate = nb_running_get_entry(args->dnode, NULL, true);
 	segment_list_name = yang_dnode_get_string(args->dnode, NULL);
 
+	path_nht_removed(candidate);
 	candidate->segment_list = srte_segment_list_find(segment_list_name);
 	candidate->lsp->segment_list = candidate->segment_list;
 	assert(candidate->segment_list);

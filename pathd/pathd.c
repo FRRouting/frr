@@ -616,7 +616,8 @@ void srte_policy_apply_changes(struct srte_policy *policy)
 			UNSET_FLAG(old_best_candidate->flags, F_CANDIDATE_BEST);
 			SET_FLAG(old_best_candidate->flags,
 				 F_CANDIDATE_MODIFIED);
-
+			if (old_best_candidate->lsp)
+				path_nht_removed(old_best_candidate);
 			/*
 			 * Rely on replace semantics if there's a new best
 			 * candidate.
@@ -629,7 +630,6 @@ void srte_policy_apply_changes(struct srte_policy *policy)
 			SET_FLAG(new_best_candidate->flags, F_CANDIDATE_BEST);
 			SET_FLAG(new_best_candidate->flags,
 				 F_CANDIDATE_MODIFIED);
-
 			path_zebra_add_sr_policy(
 				policy, new_best_candidate->lsp->segment_list);
 		}

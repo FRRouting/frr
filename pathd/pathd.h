@@ -210,6 +210,7 @@ struct srte_segment_list {
 #define F_SEGMENT_LIST_MODIFIED 0x0004
 #define F_SEGMENT_LIST_DELETED 0x0008
 #define F_SEGMENT_LIST_SID_CONFLICT 0x0010
+#define F_SEGMENT_LIST_NHT_REGISTERED 0x0020
 };
 RB_HEAD(srte_segment_list_head, srte_segment_list);
 RB_PROTOTYPE(srte_segment_list_head, srte_segment_list, entry,

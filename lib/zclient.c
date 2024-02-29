@@ -2330,8 +2330,8 @@ const char *zapi_nexthop2str(const struct zapi_nexthop *znh, char *buf,
 /*
  * Decode the nexthop-tracking update message
  */
-static bool zapi_nexthop_update_decode(struct stream *s, struct prefix *match,
-				       struct zapi_route *nhr)
+bool zapi_nexthop_update_decode(struct stream *s, struct prefix *match,
+				struct zapi_route *nhr)
 {
 	uint32_t i;
 
