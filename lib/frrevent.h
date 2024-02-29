@@ -6,6 +6,7 @@
 #ifndef _ZEBRA_THREAD_H
 #define _ZEBRA_THREAD_H
 
+#include <signal.h>
 #include <zebra.h>
 #include <pthread.h>
 #include <poll.h>
