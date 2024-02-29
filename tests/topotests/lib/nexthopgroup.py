@@ -18,7 +18,9 @@ def route_get_nhg_id(route_str, rname, vrf_name=None):
         net = get_topogen().net
         if vrf_name:
             output = net[rname].cmd(
-                'vtysh -c "show ip route vrf {} {} nexthop-group"'.format(vrf_name, route_str)
+                'vtysh -c "show ip route vrf {} {} nexthop-group"'.format(
+                    vrf_name, route_str
+                )
             )
         else:
             output = net[rname].cmd(
@@ -134,3 +136,16 @@ def verify_nexthop_group_has_nexthop(router, nexthop, client="sharp"):
         if n["nexthops"][0]["ip"] == nexthop:
             return None
     return f"nexthop {nexthop} not found in show nexthop-group rib"
+
+
+def route_check_nhg_id_is_protocol(ipaddr_str, rname, vrf_name=None, protocol="bgp"):
+    tgen = get_topogen()
+    nhg_id = route_get_nhg_id(ipaddr_str, rname, vrf_name=vrf_name)
+    output = tgen.gears["r1"].vtysh_cmd(
+        "show nexthop-group rib %d" % nhg_id,
+    )
+    assert f"ID: {nhg_id} ({protocol})" in output, (
+        "NHG %d not found in 'show nexthop-group rib ID json" % nhg_id
+    )
+
+    return nhg_id

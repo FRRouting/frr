@@ -49,7 +49,9 @@ def ip_check_path_selection(
     return ret
 
 
-def iproute2_check_path_selection(router, ipaddr_str, expected, vrf_name=None):
+def iproute2_check_path_selection(
+    router, ipaddr_str, expected, vrf_name=None, nhg_id=None
+):
     if not topotest.iproute2_is_json_capable():
         return None
 
@@ -61,5 +63,14 @@ def iproute2_check_path_selection(router, ipaddr_str, expected, vrf_name=None):
         output = json.loads(router.cmd(cmdstr))
     except:
         output = []
+
+    if nhg_id is None:
+        return topotest.json_cmp(output, expected)
+
+    for entry in output:
+        if "nhid" not in entry.keys():
+            return "problem. nhid not found"
+        if entry["nhid"] != nhg_id:
+            return f"problem: invalid nhid {entry['nhid']}, expected {nhg_id}"
 
     return topotest.json_cmp(output, expected)
