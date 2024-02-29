@@ -116,6 +116,7 @@ static const struct message bgp_notify_msg[] = {
 	{BGP_NOTIFY_FSM_ERR, "Neighbor Events Error"},
 	{BGP_NOTIFY_CEASE, "Cease"},
 	{BGP_NOTIFY_ROUTE_REFRESH_ERR, "ROUTE-REFRESH Message Error"},
+	{BGP_NOTIFY_SEND_HOLD_ERR, "Send Hold Timer Expired"},
 	{0}};
 
 static const struct message bgp_notify_head_msg[] = {
@@ -515,6 +516,7 @@ const char *bgp_notify_subcode_str(char code, char subcode)
 		return lookup_msg(bgp_notify_update_msg, subcode,
 				  "Unrecognized Error Subcode");
 	case BGP_NOTIFY_HOLD_ERR:
+	case BGP_NOTIFY_SEND_HOLD_ERR:
 		break;
 	case BGP_NOTIFY_FSM_ERR:
 		return lookup_msg(bgp_notify_fsm_msg, subcode,
