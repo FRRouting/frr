@@ -7,8 +7,8 @@
 #
 
 """
-Check that dummy interfaces are considered as loopback when they are PRESENT
-BEFORE zebra statup.
+Check that dummy interfaces are considered as loopback when they are CREATED
+AFTER zebra statup.
 """
 
 import os
@@ -47,17 +47,8 @@ def setup_module(mod):
 
     router_list = tgen.routers()
 
-    for routern in range(1, 4):
-        tgen.gears["r{}".format(routern)].cmd("ip link add dummy0 type dummy")
-        tgen.gears["r{}".format(routern)].cmd("ip link add dummy1 type dummy")
-        tgen.gears["r{}".format(routern)].cmd("ip link add vrf1 type vrf table 10")
-        tgen.gears["r{}".format(routern)].cmd("ip link set vrf1 up")
-        tgen.gears["r{}".format(routern)].cmd("ip link set dummy1 master vrf1")
-
     for i, (rname, router) in enumerate(router_list.items(), 1):
-        router.load_config(
-            TopoRouter.RD_ZEBRA, os.path.join(CWD, "{}/zebra.conf".format(rname))
-        )
+        router.load_config(TopoRouter.RD_ZEBRA, "/dev/null")
         router.load_config(
             TopoRouter.RD_BGP, os.path.join(CWD, "{}/bgpd.conf".format(rname))
         )
@@ -74,6 +65,29 @@ def setup_module(mod):
 def teardown_module(mod):
     tgen = get_topogen()
     tgen.stop_topology()
+
+
+def test_interfaces():
+    """
+    Not an actual test. Just make sure that dummies are created after startup
+    """
+
+    tgen = get_topogen()
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    for routern in range(1, 4):
+        router = tgen.gears["r{}".format(routern)]
+        router.cmd("ip link add dummy0 type dummy")
+        router.cmd("ip link add dummy1 type dummy")
+        router.cmd("ip link add vrf1 type vrf table 10")
+        router.cmd("ip link set vrf1 up")
+        router.cmd("ip link set dummy1 master vrf1")
+
+        zebra_conf = os.path.join(CWD, "{}/zebra.conf".format(router.name))
+        with open(zebra_conf, "r") as file:
+            router.vtysh_cmd("conf t\n{}".format(file.read()))
 
 
 def test_bgp_convergence():
