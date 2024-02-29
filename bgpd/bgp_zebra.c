@@ -1292,6 +1292,7 @@ void bgp_zebra_announce_parse_nexthop(struct bgp_path_info *info,
 	bool is_evpn = false, creation = true;
 	struct bgp_path_info *p_mpinfo[MULTIPATH_NUM] = { 0 };
 	char nexthop_buf[1024];
+	bool route_need_update;
 
 	/* Determine if we're doing weighted ECMP or not */
 	do_wt_ecmp = bgp_path_info_mpath_chkwtd(bgp, info);
@@ -1613,6 +1614,7 @@ void bgp_zebra_announce_parse_nexthop(struct bgp_path_info *info,
 				    sizeof(nexthop_buf));
 
 	/* unlink parent nhg from p_mpinfo[i], except for info */
+	route_need_update = false;
 	for (i = 0; i < *valid_nh_count; i++) {
 		if (p_mpinfo[i]->bgp_nhg != p_nhg_parent) {
 			if (p_mpinfo[i]->bgp_nhg) {
@@ -1634,10 +1636,18 @@ void bgp_zebra_announce_parse_nexthop(struct bgp_path_info *info,
 					 nhg_cache_thread);
 			p_mpinfo[i]->bgp_nhg = p_nhg_parent;
 			p_nhg_parent->path_count++;
-		} else
+			route_need_update = true;
+		} else if (BGP_DEBUG(nexthop_group, NEXTHOP_GROUP))
 			zlog_debug("parse_nexthop: %pFX, NHG %u already attached (%s)",
 				   p, p_nhg_parent->id, nexthop_buf);
 	}
+
+	if (!CHECK_FLAG(p_nhg_parent->state, BGP_NHG_STATE_INSTALLED))
+		SET_FLAG(info->net->flags, BGP_NODE_FIB_UPDATE_OVERRIDE);
+	else if (route_need_update == false &&
+		 !CHECK_FLAG(info->net->flags, BGP_NODE_FIB_UPDATE_OVERRIDE))
+		SET_FLAG(info->net->flags, BGP_NODE_FIB_UPDATE_UNNEEDED);
+
 	p_nhg_parent->last_update = monotime(NULL);
 
 	*nhg_id = p_nhg_parent->id;
@@ -1839,13 +1849,27 @@ bgp_zebra_announce_actual(struct bgp_dest *dest, struct bgp_path_info *info,
 		api.distance = distance;
 	}
 
-	if (nhg_id && info->bgp_nhg &&
-	    !CHECK_FLAG(info->bgp_nhg->state, BGP_NHG_STATE_INSTALLED)) {
-		if (BGP_DEBUG(nexthop_group, NEXTHOP_GROUP))
-			zlog_debug("NHG %u, BGP %s: ID not installed, postpone prefix %pFX install",
-				   info->bgp_nhg->id, bgp->name_pretty, p);
-		return ZCLIENT_SEND_SUCCESS;
+	if (nhg_id && info->bgp_nhg) {
+		if (!CHECK_FLAG(info->bgp_nhg->state, BGP_NHG_STATE_INSTALLED)) {
+			if (BGP_DEBUG(nexthop_group, NEXTHOP_GROUP))
+				zlog_debug("NHG %u, BGP %s: ID not installed, postpone prefix %pFX install",
+					   info->bgp_nhg->id, bgp->name_pretty,
+					   p);
+			return ZCLIENT_SEND_SUCCESS;
+		}
+		if (CHECK_FLAG(dest->flags, BGP_NODE_FIB_INSTALLED) &&
+		    !CHECK_FLAG(dest->flags, BGP_NODE_FIB_UPDATE_OVERRIDE) &&
+		    CHECK_FLAG(dest->flags, BGP_NODE_FIB_UPDATE_UNNEEDED)) {
+			if (BGP_DEBUG(nexthop_group, NEXTHOP_GROUP))
+				zlog_debug("NHG %u, BGP %s: ID and route already installed, no re-install %pFX",
+					   info->bgp_nhg->id, bgp->name_pretty,
+					   p);
+			UNSET_FLAG(dest->flags, BGP_NODE_FIB_UPDATE_UNNEEDED);
+			return ZCLIENT_SEND_SUCCESS;
+		}
 	}
+
+	UNSET_FLAG(dest->flags, BGP_NODE_FIB_UPDATE_OVERRIDE);
 
 	if (bgp_debug_zebra(p)) {
 		zlog_debug(
