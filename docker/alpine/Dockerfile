@@ -33,8 +33,7 @@ RUN source /src/alpine/APKBUILD.in \
 	&& apk add \
 		--no-cache \
 		--update-cache \
-		$makedepends \
-	&& pip install pytest
+		$makedepends
 COPY . /src
 ARG PKGVER
 RUN cd /src \
