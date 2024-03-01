@@ -636,6 +636,7 @@ extern void cmd_banner_motd_line(const char *line);
 
 struct cmd_variable_handler {
 	const char *tokenname, *varname;
+	const char *xpath;	/* fill comps from set of values at xpath */
 	void (*completions)(vector out, struct cmd_token *token);
 };
 

@@ -678,6 +678,21 @@ vector cmd_describe_command(vector vline, struct vty *vty, int *status)
 
 static struct list *varhandlers = NULL;
 
+static int __add_key_comp(const struct lyd_node *dnode, void *arg)
+{
+	const char *key_value = yang_dnode_get_string(dnode, NULL);
+
+	vector_set((vector)arg, XSTRDUP(MTYPE_COMPLETION, key_value));
+
+	return YANG_ITER_CONTINUE;
+}
+
+static void __get_list_keys(vector comps, const char *xpath)
+{
+	yang_dnode_iterate(__add_key_comp, comps,
+			   vty_shared_candidate_config->dnode, "%s", xpath);
+}
+
 void cmd_variable_complete(struct cmd_token *token, const char *arg,
 			   vector comps)
 {
@@ -694,7 +709,10 @@ void cmd_variable_complete(struct cmd_token *token, const char *arg,
 		if (cvh->varname && (!token->varname
 				     || strcmp(cvh->varname, token->varname)))
 			continue;
-		cvh->completions(tmpcomps, token);
+		if (cvh->xpath)
+			__get_list_keys(tmpcomps, cvh->xpath);
+		if (cvh->completions)
+			cvh->completions(tmpcomps, token);
 		break;
 	}
 
@@ -753,7 +771,7 @@ void cmd_variable_handler_register(const struct cmd_variable_handler *cvh)
 	if (!varhandlers)
 		return;
 
-	for (; cvh->completions; cvh++)
+	for (; cvh->completions || cvh->xpath; cvh++)
 		listnode_add(varhandlers, (void *)cvh);
 }
 
