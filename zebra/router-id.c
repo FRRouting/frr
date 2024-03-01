@@ -36,9 +36,12 @@ static struct connected *router_id_find_node(struct list *l,
 	struct listnode *node;
 	struct connected *c;
 
-	for (ALL_LIST_ELEMENTS_RO(l, node, c))
+	for (ALL_LIST_ELEMENTS_RO(l, node, c)) {
+		if (ifc->ifp != c->ifp)
+			continue;
 		if (prefix_same(ifc->address, c->address))
 			return c;
+	}
 
 	return NULL;
 }
