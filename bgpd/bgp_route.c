@@ -114,6 +114,45 @@ static const struct message bgp_pmsi_tnltype_str[] = {
 #define VRFID_NONE_STR "-"
 #define SOFT_RECONFIG_TASK_MAX_PREFIX 25000
 
+static inline char *bgp_route_dump_path_info_flags(struct bgp_path_info *pi,
+						   char *buf, size_t len)
+{
+	uint32_t flags = pi->flags;
+
+	if (flags == 0) {
+		snprintfrr(buf, len, "None ");
+		return buf;
+	}
+
+	snprintfrr(buf, len, "%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s",
+		   CHECK_FLAG(flags, BGP_PATH_IGP_CHANGED) ? "IGP Changed " : "",
+		   CHECK_FLAG(flags, BGP_PATH_DAMPED) ? "Damped" : "",
+		   CHECK_FLAG(flags, BGP_PATH_HISTORY) ? "History " : "",
+		   CHECK_FLAG(flags, BGP_PATH_SELECTED) ? "Selected " : "",
+		   CHECK_FLAG(flags, BGP_PATH_VALID) ? "Valid " : "",
+		   CHECK_FLAG(flags, BGP_PATH_ATTR_CHANGED) ? "Attr Changed "
+							    : "",
+		   CHECK_FLAG(flags, BGP_PATH_DMED_CHECK) ? "Dmed Check " : "",
+		   CHECK_FLAG(flags, BGP_PATH_DMED_SELECTED) ? "Dmed Selected "
+							     : "",
+		   CHECK_FLAG(flags, BGP_PATH_STALE) ? "Stale " : "",
+		   CHECK_FLAG(flags, BGP_PATH_REMOVED) ? "Removed " : "",
+		   CHECK_FLAG(flags, BGP_PATH_COUNTED) ? "Counted " : "",
+		   CHECK_FLAG(flags, BGP_PATH_MULTIPATH) ? "Mpath " : "",
+		   CHECK_FLAG(flags, BGP_PATH_MULTIPATH_CHG) ? "Mpath Chg " : "",
+		   CHECK_FLAG(flags, BGP_PATH_RIB_ATTR_CHG) ? "Rib Chg " : "",
+		   CHECK_FLAG(flags, BGP_PATH_ANNC_NH_SELF) ? "NH Self " : "",
+		   CHECK_FLAG(flags, BGP_PATH_LINK_BW_CHG) ? "LinkBW Chg " : "",
+		   CHECK_FLAG(flags, BGP_PATH_ACCEPT_OWN) ? "Accept Own " : "",
+		   CHECK_FLAG(flags, BGP_PATH_MPLSVPN_LABEL_NH) ? "MPLS Label "
+								: "",
+		   CHECK_FLAG(flags, BGP_PATH_MPLSVPN_NH_LABEL_BIND)
+			   ? "MPLS Label Bind "
+			   : "");
+
+	return buf;
+}
+
 DEFINE_HOOK(bgp_process,
 	    (struct bgp * bgp, afi_t afi, safi_t safi, struct bgp_dest *bn,
 	     struct peer *peer, bool withdraw),
@@ -679,12 +718,18 @@ int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 	}
 
 	if (debug) {
+		char buf1[256], buf2[256];
+
 		bpi_ultimate = bgp_get_imported_bpi_ultimate(exist);
 		bgp_path_info_path_with_addpath_rx_str(bpi_ultimate, exist_buf,
 						       sizeof(exist_buf));
-		zlog_debug("%s(%s): Comparing %s flags 0x%x with %s flags 0x%x",
-			   pfx_buf, bgp->name_pretty, new_buf, new->flags,
-			   exist_buf, exist->flags);
+		zlog_debug("%s(%s): Comparing %s flags %s with %s flags %s",
+			   pfx_buf, bgp->name_pretty, new_buf,
+			   bgp_route_dump_path_info_flags(new, buf1,
+							  sizeof(buf1)),
+			   exist_buf,
+			   bgp_route_dump_path_info_flags(exist, buf2,
+							  sizeof(buf2)));
 	}
 
 	newattr = new->attr;
