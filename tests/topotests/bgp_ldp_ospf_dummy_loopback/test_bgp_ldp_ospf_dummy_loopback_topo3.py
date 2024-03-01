@@ -8,7 +8,7 @@
 
 """
 Check that dummy interfaces are considered as loopback when they are CREATED
-AFTER zebra statup with a VOID configuration.
+AFTER zebra statup with a COMPLETE configuration.
 """
 
 import os
@@ -32,14 +32,6 @@ def build_topo(tgen):
     for routern in range(1, 4):
         tgen.add_router("r{}".format(routern))
 
-    switch = tgen.add_switch("s1")
-    switch.add_link(tgen.gears["r1"])
-    switch.add_link(tgen.gears["r2"])
-
-    switch = tgen.add_switch("s2")
-    switch.add_link(tgen.gears["r1"])
-    switch.add_link(tgen.gears["r3"])
-
 
 def setup_module(mod):
     tgen = Topogen(build_topo, mod.__name__)
@@ -48,7 +40,9 @@ def setup_module(mod):
     router_list = tgen.routers()
 
     for i, (rname, router) in enumerate(router_list.items(), 1):
-        router.load_config(TopoRouter.RD_ZEBRA, "/dev/null")
+        router.load_config(
+            TopoRouter.RD_ZEBRA, os.path.join(CWD, "{}/zebra.conf".format(rname))
+        )
         router.load_config(
             TopoRouter.RD_BGP, os.path.join(CWD, "{}/bgpd.conf".format(rname))
         )
@@ -69,7 +63,8 @@ def teardown_module(mod):
 
 def test_interfaces():
     """
-    Not an actual test. Just make sure that dummies are created after startup
+    Not an actual test. Just make sure that dummies and interfaces are created
+    after startup
     """
 
     tgen = get_topogen()
@@ -85,9 +80,33 @@ def test_interfaces():
         router.cmd("ip link set vrf1 up")
         router.cmd("ip link set dummy1 master vrf1")
 
-        zebra_conf = os.path.join(CWD, "{}/zebra.conf".format(router.name))
-        with open(zebra_conf, "r") as file:
-            router.vtysh_cmd("conf t\n{}".format(file.read()))
+    switch = tgen.add_switch("s1")
+    switch.add_link(tgen.gears["r1"])
+    switch.add_link(tgen.gears["r2"])
+
+    switch = tgen.add_switch("s2")
+    switch.add_link(tgen.gears["r1"])
+    switch.add_link(tgen.gears["r3"])
+
+
+def test_dummy_interface():
+    tgen = get_topogen()
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    def _check_dummy_interface():
+        router = "r1"
+        output = json.loads(tgen.gears[router].vtysh_cmd("show interface dummy0 json"))
+
+        expected = {"dummy0": {"interfaceType": "dummy"}}
+
+        return topotest.json_cmp(output, expected)
+
+    step("Check if dummy0 is recognized as a dummy interface")
+    test_func = functools.partial(_check_dummy_interface)
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+    assert result is None, "Failed to recognize dummy type on r1"
 
 
 def test_bgp_convergence():
@@ -153,26 +172,6 @@ def test_bgp_convergence():
     test_func = functools.partial(_bgp_check_path_selection_vpn_ecmp)
     _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
     assert result is None, "Failed to see BGP prefixes on R1"
-
-
-def test_dummy_interface():
-    tgen = get_topogen()
-
-    if tgen.routers_have_failure():
-        pytest.skip(tgen.errors)
-
-    def _check_dummy_interface():
-        router = "r1"
-        output = json.loads(tgen.gears[router].vtysh_cmd("show interface dummy0 json"))
-
-        expected = {"dummy0": {"interfaceType": "dummy"}}
-
-        return topotest.json_cmp(output, expected)
-
-    step("Check if dummy0 is recognized as a dummy interface")
-    test_func = functools.partial(_check_dummy_interface)
-    _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
-    assert result is None, "Failed to recognize dummy type on r1"
 
 
 def test_dummy_loopback_bgp():
