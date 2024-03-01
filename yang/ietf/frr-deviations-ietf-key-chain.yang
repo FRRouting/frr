@@ -1,0 +1,29 @@
+module frr-deviations-ietf-key-chain {
+  yang-version 1.1;
+  namespace "http://frrouting.org/yang/frr-deviations-ietf-key-chain";
+  prefix frr-deviations-ietf-key-chain;
+
+  import ietf-key-chain {
+    prefix kc;
+  }
+
+  organization
+    "FRRouting";
+  contact
+    "FRR Users List:       <mailto:frog@lists.frrouting.org>
+     FRR Development List: <mailto:dev@lists.frrouting.org>";
+  description
+    "This module defines deviation statements for the ietf-key-chain
+     module.";
+
+  revision 2024-03-03 {
+    description "Initial revision.";
+    reference "RFC 8177: YANG Data Model for Key Chains";
+  }
+
+  deviation /kc:key-chains/kc:key-chain/kc:key/kc:crypto-algorithm {
+    deviate replace {
+      mandatory false;
+    }
+  }
+}

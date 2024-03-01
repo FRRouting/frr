@@ -35,6 +35,7 @@ dist_yangmodels_DATA += yang/frr-bgp-route-map.yang
 dist_yangmodels_DATA += yang/frr-vrf.yang
 dist_yangmodels_DATA += yang/frr-route-types.yang
 dist_yangmodels_DATA += yang/frr-routing.yang
+dist_yangmodels_DATA += yang/ietf/frr-deviations-ietf-key-chain.yang
 dist_yangmodels_DATA += yang/ietf/ietf-routing-types.yang
 dist_yangmodels_DATA += yang/ietf/ietf-interfaces.yang
 dist_yangmodels_DATA += yang/ietf/ietf-bgp-types.yang
