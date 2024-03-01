@@ -110,7 +110,8 @@ ospf_external_info_add(struct ospf *ospf, uint8_t type, unsigned short instance,
 		new = rn->info;
 		if ((new->ifindex == ifindex)
 		    && (new->nexthop.s_addr == nexthop.s_addr)
-		    && (new->tag == tag)) {
+		    && (new->tag == tag)
+		    && (new->metric == metric)) {
 			route_unlock_node(rn);
 			return NULL; /* NULL => no LSA to refresh */
 		}
