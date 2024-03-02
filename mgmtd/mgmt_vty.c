@@ -608,13 +608,13 @@ void mgmt_vty_init(void)
 	 * here one by one.
 	 */
 	zebra_cli_init();
-#if HAVE_RIPD
+#ifdef HAVE_RIPD
 	rip_cli_init();
 #endif
-#if HAVE_RIPNGD
+#ifdef HAVE_RIPNGD
 	ripng_cli_init();
 #endif
-#if HAVE_STATICD
+#ifdef HAVE_STATICD
 	static_vty_init();
 #endif
 
