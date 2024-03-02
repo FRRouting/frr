@@ -122,8 +122,9 @@ static void bgp_conditional_adv_routes(struct peer *peer, afi_t afi,
 			if (update_type == UPDATE_TYPE_ADVERTISE &&
 			    subgroup_announce_check(dest, pi, subgrp, dest_p,
 						    &attr, &advmap_attr)) {
-				bgp_adj_out_set_subgroup(dest, subgrp, &attr,
-							 pi);
+				if (!bgp_adj_out_set_subgroup(dest, subgrp,
+							      &attr, pi))
+					bgp_attr_flush(&attr);
 			} else {
 				/* If default originate is enabled for
 				 * the peer, do not send explicit
