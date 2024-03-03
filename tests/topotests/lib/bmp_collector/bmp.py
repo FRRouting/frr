@@ -33,30 +33,33 @@ IS_FILTERED = 1 << 7
 if not os.path.exists(LOG_DIR):
     os.makedirs(LOG_DIR)
 
+
 def bin2str_ipaddress(ip_bytes, is_ipv6=False):
     if is_ipv6:
         return str(ipaddress.IPv6Address(ip_bytes))
     return str(ipaddress.IPv4Address(ip_bytes[-4:]))
 
-def log2file(logs):
+
+def log2file(logs, log_file):
     """
     XXX: extract the useful information and save it in a flat dictionnary
     """
-    with open(LOG_FILE, 'a') as f:
+    with open(log_file, "a") as f:
         f.write(json.dumps(logs) + "\n")
 
 
-#------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------
 class BMPCodes:
     """
     XXX: complete the list, provide RFCs.
     """
+
     VERSION = 0x3
 
     BMP_MSG_TYPE_ROUTE_MONITORING = 0x00
     BMP_MSG_TYPE_STATISTICS_REPORT = 0x01
-    BMP_MSG_TYPE_PEER_DOWN_NOTIFICATION =  0x02
-    BMP_MSG_TYPE_PEER_UP_NOTIFICATION =  0x03
+    BMP_MSG_TYPE_PEER_DOWN_NOTIFICATION = 0x02
+    BMP_MSG_TYPE_PEER_UP_NOTIFICATION = 0x03
     BMP_MSG_TYPE_INITIATION = 0x04
     BMP_MSG_TYPE_TERMINATION = 0x05
     BMP_MSG_TYPE_ROUTE_MIRRORING = 0x06
@@ -107,15 +110,15 @@ class BMPCodes:
 
     # peer down reason code
     BMP_PEER_DOWN_LOCAL_NOTIFY = 0x01
-    BMP_PEER_DOWN_LOCAL_NO_NOTIFY = 0X02
-    BMP_PEER_DOWN_REMOTE_NOTIFY = 0X03
-    BMP_PEER_DOWN_REMOTE_NO_NOTIFY = 0X04
+    BMP_PEER_DOWN_LOCAL_NO_NOTIFY = 0x02
+    BMP_PEER_DOWN_REMOTE_NOTIFY = 0x03
+    BMP_PEER_DOWN_REMOTE_NO_NOTIFY = 0x04
     BMP_PEER_DOWN_INFO_NO_LONGER = 0x05
-    BMP_PEER_DOWN_SYSTEM_CLOSED = 0X06
+    BMP_PEER_DOWN_SYSTEM_CLOSED = 0x06
 
     # termincation message types
     BMP_TERM_TYPE_STRING = 0x00
-    BMP_TERM_TYPE_REASON = 0X01
+    BMP_TERM_TYPE_REASON = 0x01
 
     # termination reason code
     BMP_TERM_REASON_ADMIN_CLOSE = 0x00
@@ -126,31 +129,32 @@ class BMPCodes:
 
     # policy route tlv
     BMP_ROUTE_POLICY_TLV_VRF = 0x00
-    BMP_ROUTE_POLICY_TLV_POLICY= 0x01
+    BMP_ROUTE_POLICY_TLV_POLICY = 0x01
     BMP_ROUTE_POLICY_TLV_PRE_POLICY = 0x02
     BMP_ROUTE_POLICY_TLV_POST_POLICY = 0x03
     BMP_ROUTE_POLICY_TLV_STRING = 0x04
 
 
-#------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------
 class BMPMsg:
     """
     XXX: should we move register_msg_type and look_msg_type
     to generic Type class.
     """
+
     TYPES = {}
     UNKNOWN_TYPE = None
-    HDR_STR = '!BIB'
+    HDR_STR = "!BIB"
     MIN_LEN = struct.calcsize(HDR_STR)
     TYPES_STR = {
-        BMPCodes.BMP_MSG_TYPE_INITIATION: 'initiation',
-        BMPCodes.BMP_MSG_TYPE_PEER_DOWN_NOTIFICATION: 'peer down notification',
-        BMPCodes.BMP_MSG_TYPE_PEER_UP_NOTIFICATION: 'peer up notification',
-        BMPCodes.BMP_MSG_TYPE_ROUTE_MONITORING: 'route monitoring',
-        BMPCodes.BMP_MSG_TYPE_STATISTICS_REPORT: 'statistics report',
-        BMPCodes.BMP_MSG_TYPE_TERMINATION: 'termination',
-        BMPCodes.BMP_MSG_TYPE_ROUTE_MIRRORING: 'route mirroring',
-        BMPCodes.BMP_MSG_TYPE_ROUTE_POLICY: 'route policy',
+        BMPCodes.BMP_MSG_TYPE_INITIATION: "initiation",
+        BMPCodes.BMP_MSG_TYPE_PEER_DOWN_NOTIFICATION: "peer down notification",
+        BMPCodes.BMP_MSG_TYPE_PEER_UP_NOTIFICATION: "peer up notification",
+        BMPCodes.BMP_MSG_TYPE_ROUTE_MONITORING: "route monitoring",
+        BMPCodes.BMP_MSG_TYPE_STATISTICS_REPORT: "statistics report",
+        BMPCodes.BMP_MSG_TYPE_TERMINATION: "termination",
+        BMPCodes.BMP_MSG_TYPE_ROUTE_MIRRORING: "route mirroring",
+        BMPCodes.BMP_MSG_TYPE_ROUTE_POLICY: "route policy",
     }
 
     @classmethod
@@ -158,6 +162,7 @@ class BMPMsg:
         def _register_type(subcls):
             cls.TYPES[msgtype] = subcls
             return subcls
+
         return _register_type
 
     @classmethod
@@ -179,15 +184,15 @@ class BMPMsg:
         if len(data) < cls.MIN_LEN:
             pass
         else:
-            _version, _len, _type = struct.unpack(cls.HDR_STR, data[0:cls.MIN_LEN])
+            _version, _len, _type = struct.unpack(cls.HDR_STR, data[0 : cls.MIN_LEN])
             return _version, _len, _type
 
     @classmethod
-    def dissect(cls, data):
+    def dissect(cls, data, log_file=None):
         global SEQ
         version, msglen, msgtype = cls.dissect_header(data)
 
-        msg_data = data[cls.MIN_LEN:msglen]
+        msg_data = data[cls.MIN_LEN : msglen]
         data = data[msglen:]
 
         if version != BMPCodes.VERSION:
@@ -202,13 +207,13 @@ class BMPMsg:
         msg_cls.MSG_LEN = msglen - cls.MIN_LEN
         logs = msg_cls.dissect(msg_data)
         logs["seq"] = SEQ
-        log2file(logs)
+        log2file(logs, log_file if log_file else LOG_FILE)
         SEQ += 1
 
         return data
 
 
-#------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------
 class BMPPerPeerMessage:
     """
     0 1 2 3 4 5 6 7 8 1 2 3 4 5 6 7 8 1 2 3 4 5 6 7 8 1 2 3 4 5 6 7 8
@@ -229,30 +234,33 @@ class BMPPerPeerMessage:
     |                    Timestamp (microseconds)                   |
     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
     """
-    PEER_UNPACK_STR = '!BB8s16sI4sII'
+
+    PEER_UNPACK_STR = "!BB8s16sI4sII"
     PEER_TYPE_STR = {
-        BMPCodes.BMP_PEER_GLOBAL_INSTANCE: 'global instance',
-        BMPCodes.BMP_PEER_RD_INSTANCE: 'route distinguisher instance',
-        BMPCodes.BMP_PEER_LOCAL_INSTANCE: 'local instance',
-        BMPCodes.BMP_PEER_LOC_RIB_INSTANCE: 'loc-rib instance',
+        BMPCodes.BMP_PEER_GLOBAL_INSTANCE: "global instance",
+        BMPCodes.BMP_PEER_RD_INSTANCE: "route distinguisher instance",
+        BMPCodes.BMP_PEER_LOCAL_INSTANCE: "local instance",
+        BMPCodes.BMP_PEER_LOC_RIB_INSTANCE: "loc-rib instance",
     }
 
     @classmethod
     def dissect(cls, data):
-        (peer_type,
-         peer_flags,
-         peer_distinguisher,
-         peer_address,
-         peer_asn,
-         peer_bgp_id,
-         timestamp_secs,
-         timestamp_microsecs) = struct.unpack_from(cls.PEER_UNPACK_STR, data)
+        (
+            peer_type,
+            peer_flags,
+            peer_distinguisher,
+            peer_address,
+            peer_asn,
+            peer_bgp_id,
+            timestamp_secs,
+            timestamp_microsecs,
+        ) = struct.unpack_from(cls.PEER_UNPACK_STR, data)
 
-        msg = {'peer_type': cls.PEER_TYPE_STR[peer_type]}
+        msg = {"peer_type": cls.PEER_TYPE_STR[peer_type]}
 
         if peer_type == 0x03:
-            msg['is_filtered'] = bool(peer_flags & IS_FILTERED)
-            msg['policy'] = 'loc-rib'
+            msg["is_filtered"] = bool(peer_flags & IS_FILTERED)
+            msg["policy"] = "loc-rib"
         else:
             # peer_flags = 0x0000 0000
             # ipv6, post-policy, as-path, adj-rib-out, reserverdx4
@@ -260,29 +268,29 @@ class BMPPerPeerMessage:
             is_as_path = bool(peer_flags & IS_AS_PATH)
             is_post_policy = bool(peer_flags & IS_POST_POLICY)
             is_ipv6 = bool(peer_flags & IS_IPV6)
-            msg['policy'] = 'post-policy' if is_post_policy else 'pre-policy'
-            msg['ipv6'] = is_ipv6
-            msg['peer_ip'] = bin2str_ipaddress(peer_address, is_ipv6)
-
+            msg["policy"] = "post-policy" if is_post_policy else "pre-policy"
+            msg["ipv6"] = is_ipv6
+            msg["peer_ip"] = bin2str_ipaddress(peer_address, is_ipv6)
 
         peer_bgp_id = bin2str_ipaddress(peer_bgp_id)
-        timestamp = float(timestamp_secs) + timestamp_microsecs * (10 ** -6)
+        timestamp = float(timestamp_secs) + timestamp_microsecs * (10**-6)
 
-        data = data[struct.calcsize(cls.PEER_UNPACK_STR):]
-        msg.update({
-            'peer_distinguisher': str(RouteDistinguisher(peer_distinguisher)),
-            'peer_asn': peer_asn,
-            'peer_bgp_id': peer_bgp_id,
-            'timestamp': str(datetime.datetime.fromtimestamp(timestamp)),
-        })
+        data = data[struct.calcsize(cls.PEER_UNPACK_STR) :]
+        msg.update(
+            {
+                "peer_distinguisher": str(RouteDistinguisher(peer_distinguisher)),
+                "peer_asn": peer_asn,
+                "peer_bgp_id": peer_bgp_id,
+                "timestamp": str(datetime.datetime.fromtimestamp(timestamp)),
+            }
+        )
 
         return data, msg
 
 
-#------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------
 @BMPMsg.register_msg_type(BMPCodes.BMP_MSG_TYPE_ROUTE_MONITORING)
 class BMPRouteMonitoring(BMPPerPeerMessage):
-
     @classmethod
     def dissect(cls, data):
         data, peer_msg = super().dissect(data)
@@ -290,7 +298,7 @@ class BMPRouteMonitoring(BMPPerPeerMessage):
         return {**peer_msg, **update_msg}
 
 
-#------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------
 class BMPStatisticsReport:
     """
     0 1 2 3 4 5 6 7 8 1 2 3 4 5 6 7 8 1 2 3 4 5 6 7 8 1 2 3 4 5 6 7 8
@@ -303,10 +311,11 @@ class BMPStatisticsReport:
     ~                                                               ~
     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
     """
+
     pass
 
 
-#------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------
 class BMPPeerDownNotification:
     """
     0 1 2 3 4 5 6 7 8 1 2 3 4 5 6 7 8 1 2 3 4 5 6 7 8 1 2 3 4 5 6 7 8
@@ -316,10 +325,11 @@ class BMPPeerDownNotification:
     |            Data (present if Reason = 1, 2 or 3)               |
     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
     """
+
     pass
 
 
-#------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------
 @BMPMsg.register_msg_type(BMPCodes.BMP_MSG_TYPE_PEER_UP_NOTIFICATION)
 class BMPPeerUpNotification(BMPPerPeerMessage):
     """
@@ -336,7 +346,8 @@ class BMPPeerUpNotification(BMPPerPeerMessage):
     ~                                                               ~
     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
     """
-    UNPACK_STR = '!16sHH'
+
+    UNPACK_STR = "!16sHH"
     MIN_LEN = struct.calcsize(UNPACK_STR)
     MSG_LEN = None
 
@@ -344,16 +355,14 @@ class BMPPeerUpNotification(BMPPerPeerMessage):
     def dissect(cls, data):
         data, peer_msg = super().dissect(data)
 
-        (local_addr,
-         local_port,
-         remote_port) = struct.unpack_from(cls.UNPACK_STR, data)
+        (local_addr, local_port, remote_port) = struct.unpack_from(cls.UNPACK_STR, data)
 
         msg = {
             **peer_msg,
             **{
-                'local_ip': bin2str_ipaddress(local_addr, peer_msg.get('ipv6')),
-                'local_port': int(local_port),
-                'remote_port': int(remote_port),
+                "local_ip": bin2str_ipaddress(local_addr, peer_msg.get("ipv6")),
+                "local_port": int(local_port),
+                "remote_port": int(remote_port),
             },
         }
 
@@ -362,7 +371,7 @@ class BMPPeerUpNotification(BMPPerPeerMessage):
         return msg
 
 
-#------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------
 @BMPMsg.register_msg_type(BMPCodes.BMP_MSG_TYPE_INITIATION)
 class BMPInitiation:
     """
@@ -374,30 +383,31 @@ class BMPInitiation:
     ~                                                               ~
     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
     """
-    TLV_STR = '!HH'
+
+    TLV_STR = "!HH"
     MIN_LEN = struct.calcsize(TLV_STR)
     FIELD_TO_STR = {
-        BMPCodes.BMP_INIT_INFO_STRING: 'information',
-        BMPCodes.BMP_INIT_ADMIN_LABEL: 'admin_label',
-        BMPCodes.BMP_INIT_SYSTEM_DESCRIPTION: 'system_description',
-        BMPCodes.BMP_INIT_SYSTEM_NAME: 'system_name',
-        BMPCodes.BMP_INIT_VRF_TABLE_NAME: 'vrf_table_name',
+        BMPCodes.BMP_INIT_INFO_STRING: "information",
+        BMPCodes.BMP_INIT_ADMIN_LABEL: "admin_label",
+        BMPCodes.BMP_INIT_SYSTEM_DESCRIPTION: "system_description",
+        BMPCodes.BMP_INIT_SYSTEM_NAME: "system_name",
+        BMPCodes.BMP_INIT_VRF_TABLE_NAME: "vrf_table_name",
     }
 
     @classmethod
     def dissect(cls, data):
         msg = {}
         while len(data) > cls.MIN_LEN:
-            _type, _len = struct.unpack_from(cls.TLV_STR, data[0:cls.MIN_LEN])
-            _value = data[cls.MIN_LEN: cls.MIN_LEN + _len].decode()
+            _type, _len = struct.unpack_from(cls.TLV_STR, data[0 : cls.MIN_LEN])
+            _value = data[cls.MIN_LEN : cls.MIN_LEN + _len].decode()
 
             msg[cls.FIELD_TO_STR[_type]] = _value
-            data = data[cls.MIN_LEN + _len:]
+            data = data[cls.MIN_LEN + _len :]
 
         return msg
 
 
-#------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------
 class BMPTermination:
     """
     0 1 2 3 4 5 6 7 8 1 2 3 4 5 6 7 8 1 2 3 4 5 6 7 8 1 2 3 4 5 6 7 8
@@ -408,14 +418,15 @@ class BMPTermination:
     ~                                                               ~
     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
     """
+
     pass
 
 
-#------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------
 class BMPRouteMirroring:
     pass
 
 
-#------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------
 class BMPRoutePolicy:
     pass

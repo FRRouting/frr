@@ -55,7 +55,7 @@ LOC_RIB = "loc-rib"
 def build_topo(tgen):
     tgen.add_router("r1")
     tgen.add_router("r2")
-    tgen.add_bmp_server("bmp1", ip="192.0.178.10", defaultRoute="via 192.0.178.1")
+    tgen.add_bmp_server("bmp1", ip="192.0.2.10", defaultRoute="via 192.0.2.1")
 
     switch = tgen.add_switch("s1")
     switch.add_link(tgen.gears["r1"])
@@ -81,8 +81,8 @@ def setup_module(mod):
     tgen.start_router()
 
     logger.info("starting BMP servers")
-    for _, server in tgen.get_bmp_servers().items():
-        server.start()
+    for bmp_name, server in tgen.get_bmp_servers().items():
+        server.start(log_file=os.path.join(tgen.logdir, bmp_name, "bmp.log"))
 
 
 def teardown_module(_mod):
@@ -105,7 +105,9 @@ def get_bmp_messages():
     """
     messages = []
     tgen = get_topogen()
-    text_output = tgen.gears["bmp1"].run("cat /var/log/bmp.log")
+    text_output = tgen.gears["bmp1"].run(
+        "cat {}".format(os.path.join(tgen.logdir, "bmp1", "bmp.log"))
+    )
 
     for m in text_output.splitlines():
         # some output in the bash can break the message decoding
@@ -121,7 +123,7 @@ def get_bmp_messages():
     return messages
 
 
-def check_for_prefixes(expected_prefixes, bmp_log_type, policy):
+def check_for_prefixes(expected_prefixes, bmp_log_type, policy, labels=None):
     """
     Check for the presence of the given prefixes in the BMP server logs with
     the given message type and the set policy.
@@ -140,6 +142,12 @@ def check_for_prefixes(expected_prefixes, bmp_log_type, policy):
         and "bmp_log_type" in m.keys()
         and m["bmp_log_type"] == bmp_log_type
         and m["policy"] == policy
+        and (
+            labels is None
+            or (
+                m["ip_prefix"] in labels.keys() and m["label"] == labels[m["ip_prefix"]]
+            )
+        )
     ]
 
     # check for prefixes
@@ -174,7 +182,7 @@ def configure_prefixes(tgen, node, asn, safi, prefixes, vrf=None, update=True):
     Configure the bgp prefixes.
     """
     withdraw = "no " if not update else ""
-    vrf = " vrf {}" if vrf else ""
+    vrf = " vrf {}".format(vrf) if vrf else ""
     for p in prefixes:
         ip = ip_network(p)
         cmd = [
@@ -216,6 +224,45 @@ def unicast_prefixes(policy):
     assert success, "Checking the withdrawed prefixes has been failed !."
 
 
+def vpn_prefixes(policy):
+    """
+    Setup the BMP  monitor policy, Add and withdraw ipv4/v6 prefixes.
+    Check if the previous actions are logged in the BMP server with the right
+    message type and the right policy.
+    """
+    tgen = get_topogen()
+    set_bmp_policy(tgen, "r1", 65501, "bmp1", "vpn", policy)
+
+    prefixes = ["172.31.10.1/32", "2001::2222/128"]
+
+    if policy == PRE_POLICY:
+        # labels are not yet supported in adj-RIB-in. Do not test for the moment
+        labels = None
+    else:
+        # "label vpn export" value in r2/bgpd.conf
+        labels = {
+            "172.31.10.1/32": 102,
+            "2001::2222/128": 105,
+        }
+
+    # add prefixes
+    configure_prefixes(tgen, "r2", 65502, "unicast", prefixes, vrf="vrf1")
+
+    logger.info("checking for updated prefixes")
+    # check
+    test_func = partial(check_for_prefixes, prefixes, "update", policy, labels=labels)
+    success, _ = topotest.run_and_expect(test_func, True, wait=0.5)
+    assert success, "Checking the updated prefixes has been failed !."
+
+    # withdraw prefixes
+    configure_prefixes(tgen, "r2", 65502, "unicast", prefixes, vrf="vrf1", update=False)
+    logger.info("checking for withdrawed prefixes")
+    # check
+    test_func = partial(check_for_prefixes, prefixes, "withdraw", policy)
+    success, _ = topotest.run_and_expect(test_func, True, wait=0.5)
+    assert success, "Checking the withdrawed prefixes has been failed !."
+
+
 def test_bmp_server_logging():
     """
     Assert the logging of the bmp server.
@@ -223,7 +270,9 @@ def test_bmp_server_logging():
 
     def check_for_log_file():
         tgen = get_topogen()
-        output = tgen.gears["bmp1"].run("ls /var/log/")
+        output = tgen.gears["bmp1"].run(
+            "ls {}".format(os.path.join(tgen.logdir, "bmp1"))
+        )
         if "bmp.log" not in output:
             return False
         return True
@@ -242,6 +291,16 @@ def test_bmp_bgp_unicast():
     unicast_prefixes(POST_POLICY)
     logger.info("*** Unicast prefixes loc-rib logging ***")
     unicast_prefixes(LOC_RIB)
+
+
+def test_bmp_bgp_vpn():
+    # check for the prefixes in the BMP server logging file
+    logger.info("***** VPN prefixes pre-policy logging *****")
+    vpn_prefixes(PRE_POLICY)
+    logger.info("***** VPN prefixes post-policy logging *****")
+    vpn_prefixes(POST_POLICY)
+    logger.info("***** VPN prefixes loc-rib logging *****")
+    vpn_prefixes(LOC_RIB)
 
 
 if __name__ == "__main__":
