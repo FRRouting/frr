@@ -1589,7 +1589,7 @@ bgp_stop_with_error(struct peer_connection *connection)
 
 
 /* something went wrong, send notify and tear down */
-static enum bgp_fsm_state_progress
+enum bgp_fsm_state_progress
 bgp_stop_with_notify(struct peer_connection *connection, uint8_t code,
 		     uint8_t sub_code)
 {

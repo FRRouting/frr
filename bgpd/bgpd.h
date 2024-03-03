@@ -1983,6 +1983,7 @@ struct bgp_nlri {
 #define BGP_NOTIFY_FSM_ERR                       5
 #define BGP_NOTIFY_CEASE                         6
 #define BGP_NOTIFY_ROUTE_REFRESH_ERR             7
+#define BGP_NOTIFY_SEND_HOLD_ERR                 8
 
 /* Subcodes for BGP Finite State Machine Error */
 #define BGP_NOTIFY_FSM_ERR_SUBCODE_UNSPECIFIC  0
