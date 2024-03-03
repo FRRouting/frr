@@ -771,6 +771,14 @@ extern int yang_get_key_preds(char *s, const struct lysc_node *snode,
 extern int yang_get_node_keys(struct lyd_node *node, struct yang_list_keys *keys);
 
 /**
+ * yang_xpath_pop_node() - remove the last node from xpath string
+ * @xpath: an xpath string
+ *
+ * Return: NB_OK or NB_ERR_NOT_FOUND if nothing left to pop.
+ */
+extern int yang_xpath_pop_node(char *xpath);
+
+/**
  * yang_resolve_snodes() - Resolve an XPath to matching schema nodes.
  * @ly_ctx: libyang context to operate on.
  * @xpath: the path or XPath to resolve.
@@ -800,6 +808,11 @@ extern LY_ERR yang_lyd_new_list(struct lyd_node_inner *parent,
 				const struct yang_list_keys *keys,
 				struct lyd_node **nodes);
 extern LY_ERR yang_lyd_trim_xpath(struct lyd_node **rootp, const char *xpath);
+extern LY_ERR yang_lyd_parse_data(const struct ly_ctx *ctx,
+				  struct lyd_node *parent, struct ly_in *in,
+				  LYD_FORMAT format, uint32_t parse_options,
+				  uint32_t validate_options,
+				  struct lyd_node **tree);
 
 #ifdef __cplusplus
 }

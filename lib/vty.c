@@ -3826,6 +3826,23 @@ static int vty_mgmt_get_tree_result_notified(
 	return 0;
 }
 
+static int vty_mgmt_edit_result_notified(struct mgmt_fe_client *client,
+					 uintptr_t user_data,
+					 uint64_t client_id, uint64_t session_id,
+					 uintptr_t session_ctx, uint64_t req_id,
+					 const char *xpath)
+{
+	struct vty *vty = (struct vty *)session_ctx;
+
+	debug_fe_client("EDIT request for client 0x%" PRIx64 " req-id %" PRIu64
+			" was successful, xpath: %s",
+			client_id, req_id, xpath);
+
+	vty_mgmt_resume_response(vty, CMD_SUCCESS);
+
+	return 0;
+}
+
 static int vty_mgmt_error_notified(struct mgmt_fe_client *client,
 				   uintptr_t user_data, uint64_t client_id,
 				   uint64_t session_id, uintptr_t session_ctx,
@@ -3867,6 +3884,7 @@ static struct mgmt_fe_client_cbs mgmt_cbs = {
 	.commit_config_notify = vty_mgmt_commit_config_result_notified,
 	.get_data_notify = vty_mgmt_get_data_result_notified,
 	.get_tree_notify = vty_mgmt_get_tree_result_notified,
+	.edit_notify = vty_mgmt_edit_result_notified,
 	.error_notify = vty_mgmt_error_notified,
 
 };
@@ -4118,6 +4136,28 @@ int vty_mgmt_send_get_data_req(struct vty *vty, uint8_t datastore,
 
 	vty->mgmt_req_pending_cmd = "MESSAGE_GET_DATA_REQ";
 	vty->mgmt_req_pending_data = result_type;
+
+	return 0;
+}
+
+int vty_mgmt_send_edit_req(struct vty *vty, uint8_t datastore,
+			   LYD_FORMAT request_type, uint8_t flags,
+			   uint8_t operation, const char *xpath,
+			   const char *data)
+{
+	vty->mgmt_req_id++;
+
+	if (mgmt_fe_send_edit_req(mgmt_fe_client, vty->mgmt_session_id,
+				  vty->mgmt_req_id, datastore, request_type,
+				  flags, operation, xpath, data)) {
+		zlog_err("Failed to send EDIT to MGMTD session-id: %" PRIu64
+			 " req-id %" PRIu64 ".",
+			 vty->mgmt_session_id, vty->mgmt_req_id);
+		vty_out(vty, "Failed to send EDIT to MGMTD!\n");
+		return -1;
+	}
+
+	vty->mgmt_req_pending_cmd = "MESSAGE_EDIT_REQ";
 
 	return 0;
 }
