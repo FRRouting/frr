@@ -70,11 +70,11 @@ char *__darr_in_vsprintf(char **sp, bool concat, const char *fmt, va_list ap)
 		*darr_append(*sp) = 0;
 again:
 	va_copy(ap_copy, ap);
-	len = vsnprintf(darr_last(*sp), darr_avail(*sp), fmt, ap_copy);
+	len = vsnprintf(darr_last(*sp), darr_avail(*sp) + 1, fmt, ap_copy);
 	va_end(ap_copy);
 	if (len < 0)
 		darr_in_strcat(*sp, fmt);
-	else if ((size_t)len < darr_avail(*sp))
+	else if ((size_t)len <= darr_avail(*sp))
 		_darr_len(*sp) += len;
 	else {
 		darr_ensure_cap(*sp, darr_len(*sp) + (size_t)len);
