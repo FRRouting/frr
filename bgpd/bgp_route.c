@@ -572,6 +572,11 @@ void bgp_path_info_path_with_addpath_rx_str(struct bgp_path_info *pi, char *buf,
 {
 	struct peer *peer;
 
+	if (!pi) {
+		snprintf(buf, buf_len, "NONE");
+		return;
+	}
+
 	if (pi->sub_type == BGP_ROUTE_IMPORTED &&
 	    bgp_get_imported_bpi_ultimate(pi))
 		peer = bgp_get_imported_bpi_ultimate(pi)->peer;
@@ -2777,41 +2782,35 @@ void bgp_best_selection(struct bgp *bgp, struct bgp_dest *dest,
 			}
 
 			new_select = pi1;
-			if (pi1->next) {
-				for (pi2 = pi1->next; pi2; pi2 = pi2->next) {
-					if (CHECK_FLAG(pi2->flags,
-						       BGP_PATH_DMED_CHECK))
-						continue;
-					if (BGP_PATH_HOLDDOWN(pi2))
-						continue;
-					if (pi2->peer != bgp->peer_self &&
-					    !CHECK_FLAG(pi2->peer->sflags,
-							PEER_STATUS_NSF_WAIT) &&
-					    !peer_established(
-						    pi2->peer->connection))
-						continue;
+			for (pi2 = pi1->next; pi2; pi2 = pi2->next) {
+				if (CHECK_FLAG(pi2->flags, BGP_PATH_DMED_CHECK))
+					continue;
+				if (BGP_PATH_HOLDDOWN(pi2))
+					continue;
+				if (pi2->peer != bgp->peer_self &&
+				    !CHECK_FLAG(pi2->peer->sflags,
+						PEER_STATUS_NSF_WAIT) &&
+				    !peer_established(pi2->peer->connection))
+					continue;
 
-					if (!aspath_cmp_left(pi1->attr->aspath,
-							     pi2->attr->aspath)
-					    && !aspath_cmp_left_confed(
-						       pi1->attr->aspath,
-						       pi2->attr->aspath))
-						continue;
+				if (!aspath_cmp_left(pi1->attr->aspath,
+						     pi2->attr->aspath) &&
+				    !aspath_cmp_left_confed(pi1->attr->aspath,
+							    pi2->attr->aspath))
+					continue;
 
-					if (bgp_path_info_cmp(
-						    bgp, pi2, new_select,
-						    &paths_eq, mpath_cfg, debug,
-						    pfx_buf, afi, safi,
-						    &dest->reason)) {
-						bgp_path_info_unset_flag(
-							dest, new_select,
-							BGP_PATH_DMED_SELECTED);
-						new_select = pi2;
-					}
-
-					bgp_path_info_set_flag(
-						dest, pi2, BGP_PATH_DMED_CHECK);
+				if (bgp_path_info_cmp(bgp, pi2, new_select,
+						      &paths_eq, mpath_cfg,
+						      debug, pfx_buf, afi, safi,
+						      &dest->reason)) {
+					bgp_path_info_unset_flag(dest,
+								 new_select,
+								 BGP_PATH_DMED_SELECTED);
+					new_select = pi2;
 				}
+
+				bgp_path_info_set_flag(dest, pi2,
+						       BGP_PATH_DMED_CHECK);
 			}
 			bgp_path_info_set_flag(dest, new_select,
 					       BGP_PATH_DMED_CHECK);
@@ -2872,17 +2871,16 @@ void bgp_best_selection(struct bgp *bgp, struct bgp_dest *dest,
 				continue;
 			}
 
-		if (CHECK_FLAG(bgp->flags, BGP_FLAG_DETERMINISTIC_MED)
-		    && (!CHECK_FLAG(pi->flags, BGP_PATH_DMED_SELECTED))) {
-			bgp_path_info_unset_flag(dest, pi, BGP_PATH_DMED_CHECK);
+		bgp_path_info_unset_flag(dest, pi, BGP_PATH_DMED_CHECK);
+
+		if (CHECK_FLAG(bgp->flags, BGP_FLAG_DETERMINISTIC_MED) &&
+		    (!CHECK_FLAG(pi->flags, BGP_PATH_DMED_SELECTED))) {
 			if (debug)
 				zlog_debug("%s: %pBD(%s) pi %s dmed", __func__,
 					   dest, bgp->name_pretty,
 					   pi->peer->host);
 			continue;
 		}
-
-		bgp_path_info_unset_flag(dest, pi, BGP_PATH_DMED_CHECK);
 
 		reason = dest->reason;
 		if (bgp_path_info_cmp(bgp, pi, new_select, &paths_eq, mpath_cfg,
@@ -2900,11 +2898,8 @@ void bgp_best_selection(struct bgp *bgp, struct bgp_dest *dest,
 	 * qualify as multipaths
 	 */
 	if (debug) {
-		if (new_select)
-			bgp_path_info_path_with_addpath_rx_str(
-				new_select, path_buf, sizeof(path_buf));
-		else
-			snprintf(path_buf, sizeof(path_buf), "NONE");
+		bgp_path_info_path_with_addpath_rx_str(new_select, path_buf,
+						       sizeof(path_buf));
 		zlog_debug(
 			"%pBD(%s): After path selection, newbest is %s oldbest was %s",
 			dest, bgp->name_pretty, path_buf,
@@ -2912,9 +2907,7 @@ void bgp_best_selection(struct bgp *bgp, struct bgp_dest *dest,
 	}
 
 	if (do_mpath && new_select) {
-		for (pi = bgp_dest_get_bgp_path_info(dest);
-		     (pi != NULL) && (nextpi = pi->next, 1); pi = nextpi) {
-
+		for (pi = bgp_dest_get_bgp_path_info(dest); pi; pi = pi->next) {
 			if (debug)
 				bgp_path_info_path_with_addpath_rx_str(
 					pi, path_buf, sizeof(path_buf));
