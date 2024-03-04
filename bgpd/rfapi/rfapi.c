@@ -463,7 +463,7 @@ void del_vnc_route(struct rfapi_descriptor *rfd,
 
 		bgp_aggregate_decrement(bgp, p, bpi, afi, safi);
 		bgp_path_info_delete(bn, bpi);
-		bgp_process(bgp, bn, afi, safi);
+		bgp_process(bgp, bn, bpi, afi, safi);
 	} else {
 		vnc_zlog_debug_verbose(
 			"%s: Couldn't find route (safi=%d) at prefix %pFX",
@@ -1001,7 +1001,7 @@ void add_vnc_route(struct rfapi_descriptor *rfd, /* cookie, VPN UN addr, peer */
 
 			/* Process change. */
 			bgp_aggregate_increment(bgp, p, bpi, afi, safi);
-			bgp_process(bgp, bn, afi, safi);
+			bgp_process(bgp, bn, bpi, afi, safi);
 			bgp_dest_unlock_node(bn);
 
 			vnc_zlog_debug_any(
@@ -1046,7 +1046,7 @@ void add_vnc_route(struct rfapi_descriptor *rfd, /* cookie, VPN UN addr, peer */
 	}
 
 	bgp_dest_unlock_node(bn);
-	bgp_process(bgp, bn, afi, safi);
+	bgp_process(bgp, bn, new, afi, safi);
 
 	vnc_zlog_debug_any(
 		"%s: Added route (safi=%s) at prefix %s (bn=%p, prd=%pRDP)",

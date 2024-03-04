@@ -150,7 +150,7 @@ static void bgp_reuse_timer(struct event *t)
 				bgp_aggregate_increment(
 					bgp, bgp_dest_get_prefix(bdi->dest),
 					bdi->path, bdi->afi, bdi->safi);
-				bgp_process(bgp, bdi->dest, bdi->afi,
+				bgp_process(bgp, bdi->dest, bdi->path, bdi->afi,
 					    bdi->safi);
 			}
 
@@ -308,7 +308,7 @@ void bgp_damp_info_free(struct bgp_damp_info *bdi, int withdraw, afi_t afi,
 
 	if (bdi->lastrecord == BGP_RECORD_WITHDRAW && withdraw) {
 		bgp_path_info_delete(bdi->dest, path);
-		bgp_process(path->peer->bgp, bdi->dest, afi, safi);
+		bgp_process(path->peer->bgp, bdi->dest, path, afi, safi);
 	}
 
 	XFREE(MTYPE_BGP_DAMP_INFO, bdi);
