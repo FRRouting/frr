@@ -1394,8 +1394,14 @@ static void fpm_process_queue(struct event *t)
 	uint64_t processed_contexts = 0;
 
 	while (true) {
+		size_t writeable_amount;
+
+		frr_with_mutex (&fnc->obuf_mutex) {
+			writeable_amount = STREAM_WRITEABLE(fnc->obuf);
+		}
+
 		/* No space available yet. */
-		if (STREAM_WRITEABLE(fnc->obuf) < NL_PKT_BUF_SIZE) {
+		if (writeable_amount < NL_PKT_BUF_SIZE) {
 			no_bufs = true;
 			break;
 		}
