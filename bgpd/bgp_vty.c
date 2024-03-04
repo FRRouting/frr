@@ -13589,9 +13589,8 @@ static void bgp_show_neighbor_graceful_restart_capability_per_afi_safi(
 			 */
 			if (CHECK_FLAG(peer->flags,
 				       PEER_FLAG_GRACEFUL_RESTART)) {
-				json_object_int_add(json_timer,
-						    "selectionDeferralTimer",
-						    peer->bgp->stalepath_time);
+				json_object_int_add(json_timer, "selectionDeferralTimer",
+						    peer->bgp->select_defer_time);
 			}
 
 			if (peer->bgp->gr_info[afi][safi].t_select_deferral !=
