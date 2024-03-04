@@ -802,7 +802,8 @@ extern void bgp_withdraw(struct peer *peer, const struct prefix *p,
 			 struct bgp_route_evpn *evpn);
 
 /* for bgp_nexthop and bgp_damp */
-extern void bgp_process(struct bgp *, struct bgp_dest *, afi_t, safi_t);
+extern void bgp_process(struct bgp *bgp, struct bgp_dest *dest,
+			struct bgp_path_info *pi, afi_t afi, safi_t safi);
 
 /*
  * Add an end-of-initial-update marker to the process queue. This is just a

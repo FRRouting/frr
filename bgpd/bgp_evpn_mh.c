@@ -511,7 +511,7 @@ static int bgp_evpn_mh_route_delete(struct bgp *bgp, struct bgp_evpn_es *es,
 		 * this table.
 		 */
 		if (pi)
-			bgp_process(bgp, global_dest, afi, safi);
+			bgp_process(bgp, global_dest, pi, afi, safi);
 		bgp_dest_unlock_node(global_dest);
 	}
 
@@ -562,7 +562,7 @@ int delete_global_ead_evi_routes(struct bgp *bgp, struct bgpevpn *vpn)
 
 			delete_evpn_route_entry(bgp, afi, safi, bd, &pi);
 			if (pi)
-				bgp_process(bgp, bd, afi, safi);
+				bgp_process(bgp, bd, pi, afi, safi);
 		}
 	}
 
@@ -686,7 +686,7 @@ static int bgp_evpn_type4_route_update(struct bgp *bgp,
 					 attr_new, &global_pi, &route_changed);
 
 		/* Schedule for processing and unlock node. */
-		bgp_process(bgp, dest, afi, safi);
+		bgp_process(bgp, dest, global_pi, afi, safi);
 		bgp_dest_unlock_node(dest);
 	}
 
@@ -1025,7 +1025,7 @@ static int bgp_evpn_type1_route_update(struct bgp *bgp, struct bgp_evpn_es *es,
 					 attr_new, &global_pi, &route_changed);
 
 		/* Schedule for processing and unlock node. */
-		bgp_process(bgp, dest, afi, safi);
+		bgp_process(bgp, dest, global_pi, afi, safi);
 		bgp_dest_unlock_node(dest);
 	}
 
