@@ -206,7 +206,7 @@ Basic Config Commands
    enabled log destinations. The note that logging includes full command lines,
    including passwords. If the daemon startup option `--command-log-always`
    is used to start the daemon then this command is turned on by default
-   and cannot be turned off and the [no] form of the command is dissallowed.
+   and cannot be turned off and the [no] form of the command is disallowed.
 
 .. clicmd:: log filtered-file [FILENAME [LEVEL]]
 
@@ -769,7 +769,7 @@ These options apply to all |PACKAGE_NAME| daemons.
 .. option:: --command-log-always
 
    Cause the daemon to always log commands entered to the specified log file.
-   This also makes the `no log commands` command dissallowed.  Enabling this
+   This also makes the `no log commands` command disallowed. Enabling this
    is suggested if you have need to track what the operator is doing on
    this router.
 
