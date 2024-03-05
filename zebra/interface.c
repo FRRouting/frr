@@ -138,10 +138,6 @@ static int if_zebra_new_hook(struct interface *ifp)
 
 	memset(&zebra_if->neigh_mac[0], 0, 6);
 
-	/* Initialize installed address chains tree. */
-	zebra_if->ipv4_subnets =
-		route_table_init_with_delegate(&zebra_if_table_delegate);
-
 	ifp->info = zebra_if;
 
 	/*
@@ -194,10 +190,6 @@ static int if_zebra_delete_hook(struct interface *ifp)
 			zebra_if_update_protodown_rc(ifp, true,
 						     (zebra_if->protodown_rc &
 						      ~ZEBRA_PROTODOWN_ALL));
-
-		/* Free installed address chains tree. */
-		if (zebra_if->ipv4_subnets)
-			route_table_finish(zebra_if->ipv4_subnets);
 
 		rtadv_if_fini(zebra_if);
 
@@ -314,106 +306,6 @@ const char *ifindex2ifname_per_ns(struct zebra_ns *zns, unsigned int ifindex)
 	return ((ifp = if_lookup_by_index_per_ns(zns, ifindex)) != NULL)
 		       ? ifp->name
 		       : "unknown";
-}
-
-/* Tie an interface address to its derived subnet list of addresses. */
-int if_subnet_add(struct interface *ifp, struct connected *ifc)
-{
-	struct route_node *rn;
-	struct zebra_if *zebra_if;
-	struct prefix cp;
-	struct list *addr_list;
-
-	assert(ifp && ifp->info && ifc);
-	zebra_if = ifp->info;
-
-	/* Get address derived subnet node and associated address list, while
-	   marking
-	   address secondary attribute appropriately. */
-	cp = *CONNECTED_PREFIX(ifc);
-	apply_mask(&cp);
-	rn = route_node_get(zebra_if->ipv4_subnets, &cp);
-
-	if ((addr_list = rn->info))
-		SET_FLAG(ifc->flags, ZEBRA_IFA_SECONDARY);
-	else {
-		UNSET_FLAG(ifc->flags, ZEBRA_IFA_SECONDARY);
-		rn->info = addr_list = list_new();
-		route_lock_node(rn);
-	}
-
-	/* Tie address at the tail of address list. */
-	listnode_add(addr_list, ifc);
-
-	/* Return list element count. */
-	return (addr_list->count);
-}
-
-/* Untie an interface address from its derived subnet list of addresses. */
-int if_subnet_delete(struct interface *ifp, struct connected *ifc)
-{
-	struct route_node *rn;
-	struct zebra_if *zebra_if;
-	struct list *addr_list;
-	struct prefix cp;
-
-	assert(ifp && ifp->info && ifc);
-	zebra_if = ifp->info;
-
-	cp = *CONNECTED_PREFIX(ifc);
-	apply_mask(&cp);
-
-	/* Get address derived subnet node. */
-	rn = route_node_lookup(zebra_if->ipv4_subnets, &cp);
-	if (!(rn && rn->info)) {
-		flog_warn(EC_ZEBRA_REMOVE_ADDR_UNKNOWN_SUBNET,
-			  "Trying to remove an address from an unknown subnet. (please report this bug)");
-		return -1;
-	}
-	route_unlock_node(rn);
-
-	/* Untie address from subnet's address list. */
-	addr_list = rn->info;
-
-	/* Deleting an address that is not registered is a bug.
-	 * In any case, we shouldn't decrement the lock counter if the address
-	 * is unknown. */
-	if (!listnode_lookup(addr_list, ifc)) {
-		flog_warn(
-			EC_ZEBRA_REMOVE_UNREGISTERED_ADDR,
-			"Trying to remove an address from a subnet where it is not currently registered. (please report this bug)");
-		return -1;
-	}
-
-	listnode_delete(addr_list, ifc);
-	route_unlock_node(rn);
-
-	/* Return list element count, if not empty. */
-	if (addr_list->count) {
-		/* If deleted address is primary, mark subsequent one as such
-		 * and distribute. */
-		if (!CHECK_FLAG(ifc->flags, ZEBRA_IFA_SECONDARY)) {
-			ifc = listgetdata(
-				(struct listnode *)listhead(addr_list));
-			zebra_interface_address_delete_update(ifp, ifc);
-			UNSET_FLAG(ifc->flags, ZEBRA_IFA_SECONDARY);
-			/* XXX: Linux kernel removes all the secondary addresses
-			 * when the primary
-			 * address is removed. We could try to work around that,
-			 * though this is
-			 * non-trivial. */
-			zebra_interface_address_add_update(ifp, ifc);
-		}
-
-		return addr_list->count;
-	}
-
-	/* Otherwise, free list and route node. */
-	list_delete(&addr_list);
-	rn->info = NULL;
-	route_unlock_node(rn);
-
-	return 0;
 }
 
 /* if_flags_mangle: A place for hacks that require mangling
@@ -646,10 +538,6 @@ static void if_delete_connected(struct interface *ifp)
 {
 	struct connected *ifc, *ifc_next;
 	struct prefix cp;
-	struct route_node *rn;
-	struct zebra_if *zebra_if;
-
-	zebra_if = ifp->info;
 
 	for (ifc = if_connected_first(ifp->connected); ifc; ifc = ifc_next) {
 		ifc_next = if_connected_next(ifp->connected, ifc);
@@ -657,77 +545,16 @@ static void if_delete_connected(struct interface *ifp)
 		cp = *CONNECTED_PREFIX(ifc);
 		apply_mask(&cp);
 
-		if (cp.family == AF_INET
-		    && (rn = route_node_lookup(zebra_if->ipv4_subnets, &cp))) {
-			struct listnode *anode;
-			struct listnode *next;
-			struct listnode *first;
-			struct list *addr_list;
+		connected_down(ifp, ifc);
 
-			route_unlock_node(rn);
-			addr_list = (struct list *)rn->info;
+		zebra_interface_address_delete_update(ifp, ifc);
 
-			/* Remove addresses, secondaries first. */
-			first = listhead(addr_list);
-			if (first)
-				for (anode = first->next; anode || first;
-				     anode = next) {
-					if (!anode) {
-						anode = first;
-						first = NULL;
-					}
-					next = anode->next;
+		UNSET_FLAG(ifc->conf, ZEBRA_IFC_REAL);
+		UNSET_FLAG(ifc->conf, ZEBRA_IFC_QUEUED);
 
-					ifc = listgetdata(anode);
-					connected_down(ifp, ifc);
-
-					/* XXX: We have to send notifications
-					 * here explicitly, because we destroy
-					 * the ifc before receiving the
-					 * notification about the address being
-					 * deleted.
-					 */
-					zebra_interface_address_delete_update(
-						ifp, ifc);
-
-					UNSET_FLAG(ifc->conf, ZEBRA_IFC_REAL);
-					UNSET_FLAG(ifc->conf, ZEBRA_IFC_QUEUED);
-
-					/* Remove from subnet chain. */
-					list_delete_node(addr_list, anode);
-					route_unlock_node(rn);
-
-					/* Remove from interface address list
-					 * (unconditionally). */
-					if (!CHECK_FLAG(ifc->conf,
-							ZEBRA_IFC_CONFIGURED)) {
-						if (ifc == ifc_next)
-							ifc_next = if_connected_next(
-								ifp->connected,
-								ifc);
-
-						if_connected_del(ifp->connected,
-								 ifc);
-						connected_free(&ifc);
-					}
-				}
-
-			/* Free chain list and respective route node. */
-			list_delete(&addr_list);
-			rn->info = NULL;
-			route_unlock_node(rn);
-		} else if (cp.family == AF_INET6) {
-			connected_down(ifp, ifc);
-
-			zebra_interface_address_delete_update(ifp, ifc);
-
-			UNSET_FLAG(ifc->conf, ZEBRA_IFC_REAL);
-			UNSET_FLAG(ifc->conf, ZEBRA_IFC_QUEUED);
-
-			if (!CHECK_FLAG(ifc->conf, ZEBRA_IFC_CONFIGURED)) {
-				if_connected_del(ifp->connected, ifc);
-				connected_free(&ifc);
-			}
+		if (!CHECK_FLAG(ifc->conf, ZEBRA_IFC_CONFIGURED)) {
+			if_connected_del(ifp->connected, ifc);
+			connected_free(&ifc);
 		}
 	}
 }
@@ -2386,12 +2213,10 @@ static const char *zebra_ziftype_2str(enum zebra_iftype zif_type)
 static void ifs_dump_brief_vty(struct vty *vty, struct vrf *vrf)
 {
 	struct connected *connected;
-	struct listnode *node;
-	struct route_node *rn;
-	struct zebra_if *zebra_if;
 	struct prefix *p;
 	struct interface *ifp;
 	bool print_header = true;
+	uint32_t list_size = 0;
 
 	FOR_ALL_INTERFACES (vrf, ifp) {
 		bool first_pfx_printed = false;
@@ -2403,7 +2228,6 @@ static void ifs_dump_brief_vty(struct vty *vty, struct vrf *vrf)
 				"------", "---", "---------");
 			print_header = false; /* We have at least 1 iface */
 		}
-		zebra_if = ifp->info;
 
 		vty_out(vty, "%-16s", ifp->name);
 
@@ -2414,40 +2238,34 @@ static void ifs_dump_brief_vty(struct vty *vty, struct vrf *vrf)
 
 		vty_out(vty, "%-16s", vrf->name);
 
-		for (rn = route_top(zebra_if->ipv4_subnets); rn;
-		     rn = route_next(rn)) {
-			if (!rn->info)
-				continue;
-			uint32_t list_size = listcount((struct list *)rn->info);
-
-			for (ALL_LIST_ELEMENTS_RO((struct list *)rn->info, node,
-						  connected)) {
-				if (!CHECK_FLAG(connected->flags,
-						ZEBRA_IFA_SECONDARY)) {
-					p = connected->address;
-					if (first_pfx_printed) {
-						/* padding to prepare row only
-						 * for ip addr */
-						vty_out(vty, "%-40s", "");
-						if (list_size > 1)
-							vty_out(vty, "+ ");
-						vty_out(vty, "%pFX\n", p);
-					} else {
-						if (list_size > 1)
-							vty_out(vty, "+ ");
-						vty_out(vty, "%pFX\n", p);
-					}
-					first_pfx_printed = true;
-					break;
+		frr_each (if_connected, ifp->connected, connected) {
+			if (CHECK_FLAG(connected->conf, ZEBRA_IFC_REAL) &&
+			    (connected->address->family == AF_INET))
+				list_size++;
+		}
+		frr_each (if_connected, ifp->connected, connected) {
+			if (!CHECK_FLAG(connected->flags, ZEBRA_IFA_SECONDARY) &&
+			    (connected->address->family == AF_INET)) {
+				p = connected->address;
+				if (first_pfx_printed) {
+					vty_out(vty, "%-40s", "");
+					if (list_size > 1)
+						vty_out(vty, "+ ");
+					vty_out(vty, "%pFX\n", p);
+				} else {
+					if (list_size > 1)
+						vty_out(vty, "+ ");
+					vty_out(vty, "%pFX\n", p);
 				}
+				first_pfx_printed = true;
+				break;
 			}
 		}
 
-		uint32_t v6_list_size = 0;
 		frr_each (if_connected, ifp->connected, connected) {
 			if (CHECK_FLAG(connected->conf, ZEBRA_IFC_REAL)
 				&& (connected->address->family == AF_INET6))
-				v6_list_size++;
+				list_size++;
 		}
 		frr_each (if_connected, ifp->connected, connected) {
 			if (!CHECK_FLAG(connected->flags, ZEBRA_IFA_SECONDARY) &&
@@ -2455,11 +2273,11 @@ static void ifs_dump_brief_vty(struct vty *vty, struct vrf *vrf)
 				p = connected->address;
 				if (first_pfx_printed) {
 					vty_out(vty, "%-40s", "");
-					if (v6_list_size > 1)
+					if (list_size > 1)
 						vty_out(vty, "+ ");
 					vty_out(vty, "%pFX\n", p);
 				} else {
-					if (v6_list_size > 1)
+					if (list_size > 1)
 						vty_out(vty, "+ ");
 					vty_out(vty, "%pFX\n", p);
 				}
@@ -2609,7 +2427,6 @@ static void if_dump_vty(struct vty *vty, struct interface *ifp)
 	struct connected *connected;
 	struct nbr_connected *nbr_connected;
 	struct listnode *node;
-	struct route_node *rn;
 	struct zebra_if *zebra_if;
 	char pd_buf[ZEBRA_PROTODOWN_RC_STR_LEN];
 
@@ -2690,12 +2507,8 @@ static void if_dump_vty(struct vty *vty, struct interface *ifp)
 		vty_out(vty, "\n");
 	}
 
-	for (rn = route_top(zebra_if->ipv4_subnets); rn; rn = route_next(rn)) {
-		if (!rn->info)
-			continue;
-
-		for (ALL_LIST_ELEMENTS_RO((struct list *)rn->info, node,
-					  connected))
+	frr_each (if_connected, ifp->connected, connected) {
+		if (connected->address->family == AF_INET)
 			connected_dump_vty(vty, NULL, connected);
 	}
 
@@ -2970,7 +2783,6 @@ static void if_dump_vty_json(struct vty *vty, struct interface *ifp,
 	struct connected *connected;
 	struct nbr_connected *nbr_connected;
 	struct listnode *node;
-	struct route_node *rn;
 	struct zebra_if *zebra_if;
 	char pd_buf[ZEBRA_PROTODOWN_RC_STR_LEN];
 	char buf[BUFSIZ];
@@ -3066,12 +2878,8 @@ static void if_dump_vty_json(struct vty *vty, struct interface *ifp,
 	json_addrs = json_object_new_array();
 	json_object_object_add(json_if, "ipAddresses", json_addrs);
 
-	for (rn = route_top(zebra_if->ipv4_subnets); rn; rn = route_next(rn)) {
-		if (!rn->info)
-			continue;
-
-		for (ALL_LIST_ELEMENTS_RO((struct list *)rn->info, node,
-					  connected))
+	frr_each (if_connected, ifp->connected, connected) {
+		if (connected->address->family == AF_INET)
 			connected_dump_vty(vty, json_addrs, connected);
 	}
 

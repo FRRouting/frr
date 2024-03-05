@@ -36,9 +36,6 @@ static void connected_withdraw(struct connected *ifc)
 	if (CHECK_FLAG(ifc->conf, ZEBRA_IFC_REAL)) {
 		zebra_interface_address_delete_update(ifc->ifp, ifc);
 
-		if (ifc->address->family == AF_INET)
-			if_subnet_delete(ifc->ifp, ifc);
-
 		connected_down(ifc->ifp, ifc);
 
 		UNSET_FLAG(ifc->conf, ZEBRA_IFC_REAL);
@@ -66,10 +63,6 @@ static void connected_announce(struct interface *ifp, struct connected *ifc)
 	}
 
 	if_connected_add_tail(ifp->connected, ifc);
-
-	/* Update interface address information to protocol daemon. */
-	if (ifc->address->family == AF_INET)
-		if_subnet_add(ifp, ifc);
 
 	zebra_interface_address_add_update(ifp, ifc);
 
