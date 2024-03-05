@@ -320,6 +320,14 @@ void vtysh_config_parse_line(void *arg, const char *line)
 				   config->index == VRF_NODE) {
 				config_add_line(config->line, line);
 				config->index = RPKI_VRF_NODE;
+			} else if (!strncmp(line, " ip address",
+					    strlen(" ip address")) &&
+				   config->index == INTERFACE_NODE) {
+				config_add_line(config->line, line);
+			} else if (!strncmp(line, " ipv6 address",
+					    strlen(" ipv6 address")) &&
+				   config->index == INTERFACE_NODE) {
+				config_add_line(config->line, line);
 			} else if (config->index == RMAP_NODE ||
 				   config->index == INTERFACE_NODE ||
 				   config->index == VTY_NODE)
