@@ -1050,7 +1050,7 @@ static int make_prefix(int afi, safi_t safi, struct bgp_path_info *pi, struct pr
 		break;
 	case AFI_IP6:
 		p->family = AF_INET6;
-		if (pi->attr && pi->attr->srv6_l3vpn) {
+		if (pi->attr->srv6_l3vpn) {
 			p->prefixlen = IPV6_MAX_BITLEN;
 			if (pi->attr->srv6_l3vpn->transposition_len != 0 &&
 			    bgp_path_info_has_valid_label(pi)) {
