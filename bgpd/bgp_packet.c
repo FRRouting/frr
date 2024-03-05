@@ -561,11 +561,10 @@ void bgp_generate_updgrp_packets(struct event *thread)
 				 *   general, and thus the practice is
 				 *   recommended.
 				 */
-				if (!(PAF_SUBGRP(paf))->t_coalesce &&
-				    peer->afc_nego[afi][safi] &&
+				if (!(PAF_SUBGRP(paf))->t_coalesce && peer->afc_nego[afi][safi] &&
 				    peer->synctime &&
-				    !CHECK_FLAG(peer->af_sflags[afi][safi],
-						PEER_STATUS_EOR_SEND)) {
+				    !CHECK_FLAG(peer->af_sflags[afi][safi], PEER_STATUS_EOR_SEND) &&
+				    advertise_list_is_empty(PAF_SUBGRP(paf))) {
 					/* If EOR is disabled, the message is
 					 * not sent.
 					 */
