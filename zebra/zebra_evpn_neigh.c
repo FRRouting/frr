@@ -62,7 +62,7 @@ static bool neigh_cmp(const void *p1, const void *p2)
 	if (n1 == NULL || n2 == NULL)
 		return false;
 
-	return ipaddr_cmp(&n1->ip, &n2->ip) == 0;
+	return (ipaddr_cmp(&n1->ip, &n2->ip) == 0);
 }
 
 int neigh_list_cmp(void *p1, void *p2)
@@ -147,7 +147,7 @@ int zebra_evpn_rem_neigh_install(struct zebra_evpn *zevpn,
 	int flags;
 	int ret = 0;
 
-	if (!(n->flags & ZEBRA_NEIGH_REMOTE))
+	if (!CHECK_FLAG(n->flags, ZEBRA_NEIGH_REMOTE))
 		return 0;
 
 	vlan_if = zevpn_map_to_svi(zevpn);
@@ -155,8 +155,8 @@ int zebra_evpn_rem_neigh_install(struct zebra_evpn *zevpn,
 		return -1;
 
 	flags = DPLANE_NTF_EXT_LEARNED;
-	if (n->flags & ZEBRA_NEIGH_ROUTER_FLAG)
-		flags |= DPLANE_NTF_ROUTER;
+	if (CHECK_FLAG(n->flags, ZEBRA_NEIGH_ROUTER_FLAG))
+		SET_FLAG(flags, DPLANE_NTF_ROUTER);
 	ZEBRA_NEIGH_SET_ACTIVE(n);
 
 	dplane_rem_neigh_add(vlan_if, &n->ip, &n->emac, flags, was_static);
@@ -175,8 +175,7 @@ void zebra_evpn_install_neigh_hash(struct hash_bucket *bucket, void *ctxt)
 	n = (struct zebra_neigh *)bucket->data;
 
 	if (CHECK_FLAG(n->flags, ZEBRA_NEIGH_REMOTE))
-		zebra_evpn_rem_neigh_install(wctx->zevpn, n,
-					     false /*was_static*/);
+		zebra_evpn_rem_neigh_install(wctx->zevpn, n, false /*was_static*/);
 }
 
 /*
@@ -209,15 +208,14 @@ static void zebra_evpn_local_neigh_ref_mac(struct zebra_neigh *n,
 		return;
 
 	listnode_add_sort(mac->neigh_list, n);
-	if (n->flags & ZEBRA_NEIGH_ALL_PEER_FLAGS) {
+	if (CHECK_FLAG(n->flags, ZEBRA_NEIGH_ALL_PEER_FLAGS)) {
 		old_static = zebra_evpn_mac_is_static(mac);
 		++mac->sync_neigh_cnt;
 		new_static = zebra_evpn_mac_is_static(mac);
 		if (IS_ZEBRA_DEBUG_EVPN_MH_NEIGH)
 			zlog_debug(
 				"sync-neigh ref mac vni %u ip %pIA mac %pEA ref %d",
-				n->zevpn->vni, &n->ip, &n->emac,
-				mac->sync_neigh_cnt);
+				n->zevpn->vni, &n->ip, &n->emac, mac->sync_neigh_cnt);
 		if ((old_static != new_static) && send_mac_update)
 			/* program the local mac in the kernel */
 			zebra_evpn_sync_mac_dp_install(
@@ -243,8 +241,7 @@ static void zebra_evpn_sync_neigh_dp_install(struct zebra_neigh *n,
 		if (IS_ZEBRA_DEBUG_EVPN_MH_NEIGH)
 			zlog_debug(
 				"%s: dp-install sync-neigh vni %u ip %pIA mac %pEA if %d f 0x%x skipped",
-				caller, n->zevpn->vni, &n->ip, &n->emac,
-				n->ifindex, n->flags);
+				caller, n->zevpn->vni, &n->ip, &n->emac, n->ifindex, n->flags);
 		return;
 	}
 
@@ -305,8 +302,7 @@ int zebra_evpn_neigh_send_add_to_client(vni_t vni, const struct ipaddr *ip,
 		SET_FLAG(flags, ZEBRA_MACIP_TYPE_SVI_IP);
 
 	return zebra_evpn_macip_send_msg_to_client(vni, macaddr, ip, flags, seq,
-						   ZEBRA_NEIGH_ACTIVE, zmac->es,
-						   ZEBRA_MACIP_ADD);
+							ZEBRA_NEIGH_ACTIVE, zmac->es, ZEBRA_MACIP_ADD);
 }
 
 /*
@@ -333,12 +329,10 @@ static void zebra_evpn_neigh_send_add_del_to_client(struct zebra_neigh *n,
 {
 	if (new_bgp_ready)
 		zebra_evpn_neigh_send_add_to_client(n->zevpn->vni, &n->ip,
-						    &n->emac, n->mac, n->flags,
-						    n->loc_seq);
+						    &n->emac, n->mac, n->flags, n->loc_seq);
 	else if (old_bgp_ready)
 		zebra_evpn_neigh_send_del_to_client(n->zevpn->vni, &n->ip,
-						    &n->emac, n->flags,
-						    n->state, true /*force*/);
+						    &n->emac, n->flags, n->state, true /*force*/);
 }
 
 /* if the static flag associated with the neigh changes we need
@@ -362,8 +356,7 @@ void zebra_evpn_sync_neigh_static_chg(struct zebra_neigh *n, bool old_n_static,
 	 */
 	if (!defer_n_dp)
 		zebra_evpn_sync_neigh_dp_install(n, false /* set_inactive */,
-						 false /* force_clear_static */,
-						 __func__);
+						false /* force_clear_static */, __func__);
 
 	if (!mac)
 		return;
@@ -381,14 +374,12 @@ void zebra_evpn_sync_neigh_static_chg(struct zebra_neigh *n, bool old_n_static,
 	/* update the mac sync references in the dataplane */
 	if ((old_mac_static != new_mac_static) && !defer_mac_dp)
 		zebra_evpn_sync_mac_dp_install(mac, false /* set_inactive */,
-					       false /* force_clear_static */,
-					       __func__);
+									false /* force_clear_static */, __func__);
 
 	if (IS_ZEBRA_DEBUG_EVPN_MH_NEIGH)
 		zlog_debug(
 			"sync-neigh ref-chg vni %u ip %pIA mac %pEA f 0x%x %d%s%s%s%s by %s",
-			n->zevpn->vni, &n->ip, &n->emac, n->flags,
-			mac->sync_neigh_cnt,
+			n->zevpn->vni, &n->ip, &n->emac, n->flags, mac->sync_neigh_cnt,
 			old_n_static ? " old_n_static" : "",
 			new_n_static ? " new_n_static" : "",
 			old_mac_static ? " old_mac_static" : "",
@@ -436,8 +427,7 @@ static void zebra_evpn_neigh_hold_exp_cb(struct event *t)
 
 	/* inform bgp if needed */
 	if (old_bgp_ready != new_bgp_ready)
-		zebra_evpn_neigh_send_add_del_to_client(n, old_bgp_ready,
-							new_bgp_ready);
+		zebra_evpn_neigh_send_add_del_to_client(n, old_bgp_ready, new_bgp_ready);
 }
 
 static inline void zebra_evpn_neigh_start_hold_timer(struct zebra_neigh *n)
@@ -471,13 +461,13 @@ static void zebra_evpn_local_neigh_deref_mac(struct zebra_neigh *n,
 		if (IS_ZEBRA_DEBUG_EVPN_MH_NEIGH)
 			zlog_debug(
 				"sync-neigh deref mac vni %u ip %pIA mac %pEA ref %d",
-				n->zevpn->vni, &n->ip, &n->emac,
-				mac->sync_neigh_cnt);
+				n->zevpn->vni, &n->ip, &n->emac, mac->sync_neigh_cnt);
+
 		if ((old_static != new_static) && send_mac_update)
 			/* program the local mac in the kernel */
 			zebra_evpn_sync_mac_dp_install(
-				mac, false /* set_inactive */,
-				false /* force_clear_static */, __func__);
+								mac, false /* set_inactive */,
+								false /* force_clear_static */, __func__);
 	}
 
 	listnode_delete(mac->neigh_list, n);
@@ -504,13 +494,11 @@ bool zebra_evpn_neigh_is_bgp_seq_ok(struct zebra_evpn *zevpn,
 
 	if (seq < tmp_seq) {
 		if (is_local && !zebra_evpn_neigh_is_ready_for_bgp(n)) {
-			if (IS_ZEBRA_DEBUG_EVPN_MH_NEIGH ||
-			    IS_ZEBRA_DEBUG_VXLAN)
+			if (IS_ZEBRA_DEBUG_EVPN_MH_NEIGH || IS_ZEBRA_DEBUG_VXLAN)
 				zlog_debug(
 					"%s-macip not ready vni %u %s mac %pEA IP %pIA lower seq %u f 0x%x",
-					sync ? "sync" : "remote", zevpn->vni,
-					n_type, macaddr, &n->ip, tmp_seq,
-					n->flags);
+					sync ? "sync" : "remote",
+					zevpn->vni, n_type, macaddr, &n->ip, tmp_seq, n->flags);
 			return true;
 		}
 
@@ -518,21 +506,19 @@ bool zebra_evpn_neigh_is_bgp_seq_ok(struct zebra_evpn *zevpn,
 		 * whatever sequence number bgp sends
 		 */
 		if (!is_local && zebra_vxlan_get_accept_bgp_seq()) {
-			if (IS_ZEBRA_DEBUG_EVPN_MH_NEIGH
-			    || IS_ZEBRA_DEBUG_VXLAN)
+			if (IS_ZEBRA_DEBUG_EVPN_MH_NEIGH || IS_ZEBRA_DEBUG_VXLAN)
 				zlog_debug(
 					"%s-macip accept vni %u %s mac %pEA IP %pIA lower seq %u f 0x%x",
-					sync ? "sync" : "remote", zevpn->vni,
-					n_type, macaddr, &n->ip,
-					tmp_seq, n->flags);
+					sync ? "sync" : "remote",
+					zevpn->vni, n_type, macaddr, &n->ip, tmp_seq, n->flags);
 			return true;
 		}
 
 		if (IS_ZEBRA_DEBUG_EVPN_MH_NEIGH || IS_ZEBRA_DEBUG_VXLAN)
 			zlog_debug(
 				"%s-macip ignore vni %u %s mac %pEA IP %pIA as existing has higher seq %u f 0x%x",
-				sync ? "sync" : "remote", zevpn->vni, n_type,
-				macaddr, &n->ip, tmp_seq, n->flags);
+				sync ? "sync" : "remote",
+				zevpn->vni, n_type, macaddr, &n->ip, tmp_seq, n->flags);
 		return false;
 	}
 
@@ -563,8 +549,7 @@ static struct zebra_neigh *zebra_evpn_neigh_add(struct zebra_evpn *zevpn,
 
 	if (!zmac)
 		zmac = zebra_evpn_mac_lookup(zevpn, mac);
-	zebra_evpn_local_neigh_ref_mac(n, mac, zmac,
-				       false /* send_mac_update */);
+	zebra_evpn_local_neigh_ref_mac(n, mac, zmac, false /* send_mac_update */);
 
 	return n;
 }
@@ -651,8 +636,7 @@ struct zebra_neigh *zebra_evpn_proc_sync_neigh_update(
 			SET_FLAG(n_flags, ZEBRA_NEIGH_ES_PEER_ACTIVE);
 		SET_FLAG(n_flags, ZEBRA_NEIGH_LOCAL_INACTIVE);
 
-		n = zebra_evpn_neigh_add(zevpn, ipaddr, &mac->macaddr, mac,
-					 n_flags);
+		n = zebra_evpn_neigh_add(zevpn, ipaddr, &mac->macaddr, mac, n_flags);
 		n->ifindex = ifindex;
 		ZEBRA_NEIGH_SET_ACTIVE(n);
 
@@ -677,12 +661,11 @@ struct zebra_neigh *zebra_evpn_proc_sync_neigh_update(
 		if (mac_change) {
 			if (old_bgp_ready) {
 				zebra_evpn_neigh_send_del_to_client(
-					zevpn->vni, &n->ip, &n->emac, n->flags,
-					n->state, false /*force*/);
+										zevpn->vni, &n->ip, &n->emac, n->flags,
+										n->state, false /*force*/);
 				old_bgp_ready = false;
 			}
-			zebra_evpn_local_neigh_deref_mac(n,
-							 false /*send_mac_update*/);
+			zebra_evpn_local_neigh_deref_mac(n, false /*send_mac_update*/);
 		}
 		/* clear old fwd info */
 		n->rem_seq = 0;
@@ -694,12 +677,12 @@ struct zebra_neigh *zebra_evpn_proc_sync_neigh_update(
 		/* retain activity flag if the neigh was
 		 * previously local
 		 */
-		if (old_flags & ZEBRA_NEIGH_LOCAL) {
-			n->flags |= (old_flags & ZEBRA_NEIGH_LOCAL_INACTIVE);
+		if (CHECK_FLAG(old_flags, ZEBRA_NEIGH_LOCAL)) {
+			SET_FLAG(n->flags, CHECK_FLAG(old_flags, ZEBRA_NEIGH_LOCAL_INACTIVE));
 		} else {
 			inform_dataplane = true;
 			set_dp_inactive = true;
-			n->flags |= ZEBRA_NEIGH_LOCAL_INACTIVE;
+			SET_FLAG(n->flags, ZEBRA_NEIGH_LOCAL_INACTIVE);
 		}
 
 		if (CHECK_FLAG(flags, ZEBRA_MACIP_TYPE_PROXY_ADVERT)) {
@@ -725,13 +708,12 @@ struct zebra_neigh *zebra_evpn_proc_sync_neigh_update(
 		if (IS_ZEBRA_DEBUG_EVPN_MH_NEIGH && (old_flags != n->flags))
 			zlog_debug(
 				"sync-neigh vni %u ip %pIA mac %pEA old_f 0x%x new_f 0x%x",
-				n->zevpn->vni, &n->ip, &n->emac,
-				old_flags, n->flags);
+				n->zevpn->vni, &n->ip, &n->emac, old_flags, n->flags);
 
 		new_n_static = zebra_evpn_neigh_is_static(n);
 		if (mac_change) {
 			set_dp_inactive = true;
-			n->flags |= ZEBRA_NEIGH_LOCAL_INACTIVE;
+			SET_FLAG(n->flags, ZEBRA_NEIGH_LOCAL_INACTIVE);
 			inform_dataplane = true;
 			zebra_evpn_local_neigh_ref_mac(
 				n, &mac->macaddr, mac,
@@ -788,8 +770,7 @@ struct zebra_neigh *zebra_evpn_proc_sync_neigh_update(
 	if (IS_ZEBRA_DEBUG_EVPN_MH_NEIGH)
 		zlog_debug(
 			"sync-neigh %s vni %u ip %pIA mac %pEA if %s(%d) seq %d f 0x%x%s%s",
-			created ? "created" : "updated", n->zevpn->vni,
-			&n->ip, &n->emac,
+			created ? "created" : "updated", n->zevpn->vni, &n->ip, &n->emac,
 			ifp ? ifp->name : "", ifindex, n->loc_seq, n->flags,
 			inform_bgp ? " inform_bgp" : "",
 			inform_dataplane ? " inform_dp" : "");
@@ -814,7 +795,7 @@ static int zebra_evpn_neigh_uninstall(struct zebra_evpn *zevpn,
 {
 	struct interface *vlan_if;
 
-	if (!(n->flags & ZEBRA_NEIGH_REMOTE))
+	if (!CHECK_FLAG(n->flags, ZEBRA_NEIGH_REMOTE))
 		return 0;
 
 	vlan_if = zevpn_map_to_svi(zevpn);
@@ -838,12 +819,13 @@ static void zebra_evpn_neigh_del_hash_entry(struct hash_bucket *bucket,
 	struct neigh_walk_ctx *wctx = arg;
 	struct zebra_neigh *n = bucket->data;
 
-	if (((wctx->flags & DEL_LOCAL_NEIGH) && (n->flags & ZEBRA_NEIGH_LOCAL))
-	    || ((wctx->flags & DEL_REMOTE_NEIGH)
-		&& (n->flags & ZEBRA_NEIGH_REMOTE))
-	    || ((wctx->flags & DEL_REMOTE_NEIGH_FROM_VTEP)
-		&& (n->flags & ZEBRA_NEIGH_REMOTE)
-		&& IPV4_ADDR_SAME(&n->r_vtep_ip, &wctx->r_vtep_ip))) {
+	if ((CHECK_FLAG(wctx->flags, DEL_LOCAL_NEIGH)
+			&& CHECK_FLAG(n->flags, ZEBRA_NEIGH_LOCAL))
+		|| (CHECK_FLAG(wctx->flags, DEL_REMOTE_NEIGH)
+			&& CHECK_FLAG(n->flags, ZEBRA_NEIGH_REMOTE))
+		|| (CHECK_FLAG(wctx->flags, DEL_REMOTE_NEIGH_FROM_VTEP)
+			&& CHECK_FLAG(n->flags, ZEBRA_NEIGH_REMOTE)
+			&& IPV4_ADDR_SAME(&n->r_vtep_ip, &wctx->r_vtep_ip))) {
 		if (wctx->upd_client && (n->flags & ZEBRA_NEIGH_LOCAL))
 			zebra_evpn_neigh_send_del_to_client(
 				wctx->zevpn->vni, &n->ip, &n->emac, n->flags,
@@ -855,7 +837,7 @@ static void zebra_evpn_neigh_del_hash_entry(struct hash_bucket *bucket,
 					n, false /* set_inactive */,
 					true /* force_clear_static */,
 					__func__);
-			if ((n->flags & ZEBRA_NEIGH_REMOTE))
+			if (CHECK_FLAG(n->flags, ZEBRA_NEIGH_REMOTE))
 				zebra_evpn_neigh_uninstall(wctx->zevpn, n);
 		}
 
@@ -882,8 +864,7 @@ void zebra_evpn_neigh_del_all(struct zebra_evpn *zevpn, int uninstall,
 	wctx.upd_client = upd_client;
 	wctx.flags = flags;
 
-	hash_iterate(zevpn->neigh_table, zebra_evpn_neigh_del_hash_entry,
-		     &wctx);
+	hash_iterate(zevpn->neigh_table, zebra_evpn_neigh_del_hash_entry, &wctx);
 }
 
 /*
@@ -919,8 +900,7 @@ void zebra_evpn_process_neigh_on_local_mac_change(struct zebra_evpn *zevpn,
 
 	if (IS_ZEBRA_DEBUG_VXLAN)
 		zlog_debug("Processing neighbors on local MAC %pEA %s, VNI %u",
-			   &zmac->macaddr, seq_change ? "CHANGE" : "ADD",
-			   zevpn->vni);
+			   &zmac->macaddr, seq_change ? "CHANGE" : "ADD", zevpn->vni);
 
 	/* Walk all neighbors and mark any inactive local neighbors as
 	 * active and/or update sequence number upon a move, and inform BGP.
@@ -930,14 +910,12 @@ void zebra_evpn_process_neigh_on_local_mac_change(struct zebra_evpn *zevpn,
 	 */
 	for (ALL_LIST_ELEMENTS_RO(zmac->neigh_list, node, n)) {
 		if (CHECK_FLAG(n->flags, ZEBRA_NEIGH_LOCAL)) {
-			if (IS_ZEBRA_NEIGH_INACTIVE(n) || seq_change
-			    || es_change) {
+			if (IS_ZEBRA_NEIGH_INACTIVE(n) || seq_change || es_change) {
 				ZEBRA_NEIGH_SET_ACTIVE(n);
 				n->loc_seq = zmac->loc_seq;
 				if (!(zebra_evpn_do_dup_addr_detect(zvrf)
 				      && zvrf->dad_freeze
-				      && !!CHECK_FLAG(n->flags,
-						      ZEBRA_NEIGH_DUPLICATE)))
+				      && !!CHECK_FLAG(n->flags, ZEBRA_NEIGH_DUPLICATE)))
 					zebra_evpn_neigh_send_add_to_client(
 						zevpn->vni, &n->ip, &n->emac,
 						n->mac, n->flags, n->loc_seq);
@@ -1054,8 +1032,7 @@ static int zebra_evpn_ip_inherit_dad_from_mac(struct zebra_vrf *zvrf,
 	 * mark this neigh as duplicate
 	 */
 	if (new_zmac)
-		is_new_mac_dup =
-			CHECK_FLAG(new_zmac->flags, ZEBRA_MAC_DUPLICATE);
+		is_new_mac_dup = CHECK_FLAG(new_zmac->flags, ZEBRA_MAC_DUPLICATE);
 	/* Old and/or new MAC can be in duplicate state,
 	 * based on that IP/Neigh Inherits the flag.
 	 * If New MAC is marked duplicate, inherit to the IP.
@@ -1118,8 +1095,7 @@ static void zebra_evpn_dad_ip_auto_recovery_exp(struct event *t)
 	/* Send to BGP */
 	if (CHECK_FLAG(nbr->flags, ZEBRA_NEIGH_LOCAL)) {
 		zebra_evpn_neigh_send_add_to_client(zevpn->vni, &nbr->ip,
-						    &nbr->emac, nbr->mac,
-						    nbr->flags, nbr->loc_seq);
+						    &nbr->emac, nbr->mac, nbr->flags, nbr->loc_seq);
 	} else if (!!CHECK_FLAG(nbr->flags, ZEBRA_NEIGH_REMOTE)) {
 		zebra_evpn_rem_neigh_install(zevpn, nbr, false /*was_static*/);
 	}
@@ -1182,8 +1158,7 @@ static void zebra_evpn_dup_addr_detect_for_neigh(
 		if (IS_ZEBRA_DEBUG_VXLAN)
 			zlog_debug(
 				"%s: duplicate addr MAC %pEA IP %pIA flags 0x%x detection time passed, reset learn count %u",
-				__func__, &nbr->emac, &nbr->ip,
-				nbr->flags, nbr->dad_count);
+				__func__, &nbr->emac, &nbr->ip, nbr->flags, nbr->dad_count);
 		/* Reset learn count but do not start detection
 		 * during REMOTE learn event.
 		 */
@@ -1322,8 +1297,7 @@ int zebra_evpn_local_neigh_update(struct zebra_evpn *zevpn,
 
 			/* Note any changes and see if of interest to BGP. */
 			mac_different = !!memcmp(&n->emac, macaddr, ETH_ALEN);
-			cur_is_router =
-				!!CHECK_FLAG(n->flags, ZEBRA_NEIGH_ROUTER_FLAG);
+			cur_is_router = !!CHECK_FLAG(n->flags, ZEBRA_NEIGH_ROUTER_FLAG);
 			new_static = zebra_evpn_neigh_is_static(n);
 			if (!mac_different && is_router == cur_is_router
 			    && old_local_inactive == local_inactive
@@ -1331,7 +1305,7 @@ int zebra_evpn_local_neigh_update(struct zebra_evpn *zevpn,
 				if (IS_ZEBRA_DEBUG_VXLAN)
 					zlog_debug(
 						"        Ignoring entry mac is the same and is_router == cur_is_router");
-				n->ifindex = ifp->ifindex;
+						n->ifindex = ifp->ifindex;
 				return 0;
 			}
 
@@ -1342,20 +1316,15 @@ int zebra_evpn_local_neigh_update(struct zebra_evpn *zevpn,
 
 				/* Only the router flag has changed. */
 				if (is_router)
-					SET_FLAG(n->flags,
-						 ZEBRA_NEIGH_ROUTER_FLAG);
+					SET_FLAG(n->flags, ZEBRA_NEIGH_ROUTER_FLAG);
 				else
-					UNSET_FLAG(n->flags,
-						   ZEBRA_NEIGH_ROUTER_FLAG);
+					UNSET_FLAG(n->flags, ZEBRA_NEIGH_ROUTER_FLAG);
 
 				if (local_inactive)
-					SET_FLAG(n->flags,
-						 ZEBRA_NEIGH_LOCAL_INACTIVE);
+					SET_FLAG(n->flags, ZEBRA_NEIGH_LOCAL_INACTIVE);
 				else
-					UNSET_FLAG(n->flags,
-						   ZEBRA_NEIGH_LOCAL_INACTIVE);
-				new_bgp_ready =
-					zebra_evpn_neigh_is_ready_for_bgp(n);
+					UNSET_FLAG(n->flags, ZEBRA_NEIGH_LOCAL_INACTIVE);
+				new_bgp_ready = zebra_evpn_neigh_is_ready_for_bgp(n);
 
 				if (dp_static != new_static)
 					inform_dataplane = true;
@@ -1366,8 +1335,7 @@ int zebra_evpn_local_neigh_update(struct zebra_evpn *zevpn,
 				is_neigh_freezed =
 					(zebra_evpn_do_dup_addr_detect(zvrf)
 					 && zvrf->dad_freeze
-					 && CHECK_FLAG(n->flags,
-						       ZEBRA_NEIGH_DUPLICATE));
+					 && CHECK_FLAG(n->flags, ZEBRA_NEIGH_DUPLICATE));
 
 				zebra_evpn_local_neigh_update_log(
 					"local", n, is_router, local_inactive,
@@ -1388,10 +1356,8 @@ int zebra_evpn_local_neigh_update(struct zebra_evpn *zevpn,
 						n, old_bgp_ready,
 						new_bgp_ready);
 				} else {
-					if (IS_ZEBRA_DEBUG_VXLAN
-					    && IS_ZEBRA_NEIGH_ACTIVE(n))
-						zlog_debug(
-							"        Neighbor active and frozen");
+					if (IS_ZEBRA_DEBUG_VXLAN && IS_ZEBRA_NEIGH_ACTIVE(n))
+						zlog_debug("        Neighbor active and frozen");
 				}
 				return 0;
 			}
@@ -1410,13 +1376,10 @@ int zebra_evpn_local_neigh_update(struct zebra_evpn *zevpn,
 			}
 			if (old_zmac) {
 				is_old_mac_dup = CHECK_FLAG(old_zmac->flags, ZEBRA_MAC_DUPLICATE);
-				old_mac_seq = CHECK_FLAG(old_zmac->flags,
-							 ZEBRA_MAC_REMOTE)
-						      ? old_zmac->rem_seq
-						      : old_zmac->loc_seq;
+				old_mac_seq = CHECK_FLAG(old_zmac->flags, ZEBRA_MAC_REMOTE)
+								? old_zmac->rem_seq : old_zmac->loc_seq;
 				neigh_mac_change = upd_mac_seq = true;
-				zebra_evpn_local_neigh_deref_mac(
-					n, true /* send_mac_update */);
+				zebra_evpn_local_neigh_deref_mac(n, true /* send_mac_update */);
 			}
 
 			/* if mac changes abandon peer flags and tell
@@ -1440,14 +1403,10 @@ int zebra_evpn_local_neigh_update(struct zebra_evpn *zevpn,
 				old_zmac = n->mac;
 				if (old_zmac) {
 					is_old_mac_dup = CHECK_FLAG(old_zmac->flags, ZEBRA_MAC_DUPLICATE);
-					old_mac_seq =
-						CHECK_FLAG(old_zmac->flags,
-							   ZEBRA_MAC_REMOTE)
-							? old_zmac->rem_seq
-							: old_zmac->loc_seq;
+					old_mac_seq = CHECK_FLAG(old_zmac->flags, ZEBRA_MAC_REMOTE)
+							? old_zmac->rem_seq : old_zmac->loc_seq;
 					neigh_mac_change = upd_mac_seq = true;
-					zebra_evpn_local_neigh_deref_mac(
-						n, true /* send_update */);
+					zebra_evpn_local_neigh_deref_mac(n, true /* send_update */);
 				}
 
 				/* Link to new MAC */
@@ -1522,8 +1481,7 @@ int zebra_evpn_local_neigh_update(struct zebra_evpn *zevpn,
 
 	if (inform_dataplane)
 		zebra_evpn_sync_neigh_dp_install(n, false /* set_inactive */,
-						 false /* force_clear_static */,
-						 __func__);
+						 false /* force_clear_static */, __func__);
 
 	/* Before we program this in BGP, we need to check if MAC is locally
 	 * learnt. If not, force neighbor to be inactive and reset its seq.
@@ -1550,12 +1508,10 @@ int zebra_evpn_local_neigh_update(struct zebra_evpn *zevpn,
 		if (IS_ZEBRA_DEBUG_VXLAN)
 			zlog_debug(
 				"Seq changed for MAC %pEA VNI %u - old %u new %u",
-				macaddr, zevpn->vni,
-				zmac->loc_seq, mac_new_seq);
+				macaddr, zevpn->vni, zmac->loc_seq, mac_new_seq);
 		zmac->loc_seq = mac_new_seq;
 		if (zebra_evpn_mac_send_add_to_client(zevpn->vni, macaddr,
-						      zmac->flags,
-						      zmac->loc_seq, zmac->es))
+						      zmac->flags, zmac->loc_seq, zmac->es))
 			return -1;
 		zebra_evpn_process_neigh_on_local_mac_change(zevpn, zmac, 1,
 							     0 /*es_change*/);
@@ -1567,8 +1523,7 @@ int zebra_evpn_local_neigh_update(struct zebra_evpn *zevpn,
 	if (!neigh_on_hold) {
 		ZEBRA_NEIGH_SET_ACTIVE(n);
 		new_bgp_ready = zebra_evpn_neigh_is_ready_for_bgp(n);
-		zebra_evpn_neigh_send_add_del_to_client(n, old_bgp_ready,
-							new_bgp_ready);
+		zebra_evpn_neigh_send_add_del_to_client(n, old_bgp_ready, new_bgp_ready);
 	} else {
 		if (IS_ZEBRA_DEBUG_VXLAN)
 			zlog_debug("        Neighbor on hold not sending");
@@ -1593,9 +1548,8 @@ int zebra_evpn_remote_neigh_update(struct zebra_evpn *zevpn,
 	/* If a remote entry, see if it needs to be refreshed */
 	if (CHECK_FLAG(n->flags, ZEBRA_NEIGH_REMOTE)) {
 #ifdef GNU_LINUX
-		if (state & NUD_STALE)
-			zebra_evpn_rem_neigh_install(zevpn, n,
-						     false /*was_static*/);
+		if (CHECK_FLAG(state, NUD_STALE))
+			zebra_evpn_rem_neigh_install(zevpn, n, false /*was_static*/);
 #endif
 	} else {
 		/* We got a "remote" neighbor notification for an entry
@@ -1639,8 +1593,7 @@ zebra_evpn_send_neigh_hash_entry_to_client(struct hash_bucket *bucket,
 			return;
 
 		zebra_evpn_neigh_send_add_to_client(wctx->zevpn->vni, &zn->ip,
-						    &zn->emac, zn->mac,
-						    zn->flags, zn->loc_seq);
+						    &zn->emac, zn->mac, zn->flags, zn->loc_seq);
 	}
 }
 
@@ -1727,13 +1680,11 @@ void zebra_evpn_print_neigh(struct zebra_neigh *n, void *ctxt,
 	if (json == NULL) {
 		bool sync_info = false;
 
-		vty_out(vty, "IP: %s\n",
-			ipaddr2str(&n->ip, buf2, sizeof(buf2)));
+		vty_out(vty, "IP: %s\n", ipaddr2str(&n->ip, buf2, sizeof(buf2)));
 		vty_out(vty, " Type: %s\n", type_str);
 		vty_out(vty, " State: %s\n", state_str);
 		vty_out(vty, " Uptime: %s\n", up_str);
-		vty_out(vty, " MAC: %s\n",
-			prefix_mac2str(&n->emac, buf1, sizeof(buf1)));
+		vty_out(vty, " MAC: %s\n", prefix_mac2str(&n->emac, buf1, sizeof(buf1)));
 		vty_out(vty, " Sync-info:");
 		if (CHECK_FLAG(n->flags, ZEBRA_NEIGH_LOCAL_INACTIVE)) {
 			vty_out(vty, " local-inactive");
@@ -1749,9 +1700,7 @@ void zebra_evpn_print_neigh(struct zebra_neigh *n, void *ctxt,
 		}
 		if (n->hold_timer) {
 			vty_out(vty, " (ht: %s)",
-				event_timer_to_hhmmss(thread_buf,
-						      sizeof(thread_buf),
-						      n->hold_timer));
+				event_timer_to_hhmmss(thread_buf, sizeof(thread_buf), n->hold_timer));
 			sync_info = true;
 		}
 		if (!sync_info)
@@ -1772,25 +1721,19 @@ void zebra_evpn_print_neigh(struct zebra_neigh *n, void *ctxt,
 		if (n->hold_timer)
 			json_object_string_add(
 				json, "peerActiveHold",
-				event_timer_to_hhmmss(thread_buf,
-						      sizeof(thread_buf),
-						      n->hold_timer));
+				event_timer_to_hhmmss(thread_buf, sizeof(thread_buf), n->hold_timer));
 	}
 	if (CHECK_FLAG(n->flags, ZEBRA_NEIGH_REMOTE)) {
 		if (n->mac->es) {
 			if (json)
-				json_object_string_add(json, "remoteEs",
-						       n->mac->es->esi_str);
+				json_object_string_add(json, "remoteEs", n->mac->es->esi_str);
 			else
-				vty_out(vty, " Remote ES: %s\n",
-					n->mac->es->esi_str);
+				vty_out(vty, " Remote ES: %s\n", n->mac->es->esi_str);
 		} else {
 			if (json)
-				json_object_string_addf(json, "remoteVtep",
-							"%pI4", &n->r_vtep_ip);
+				json_object_string_addf(json, "remoteVtep", "%pI4", &n->r_vtep_ip);
 			else
-				vty_out(vty, " Remote VTEP: %pI4\n",
-					&n->r_vtep_ip);
+				vty_out(vty, " Remote VTEP: %pI4\n", &n->r_vtep_ip);
 		}
 	}
 	if (CHECK_FLAG(n->flags, ZEBRA_NEIGH_DEF_GW)) {
@@ -1802,27 +1745,22 @@ void zebra_evpn_print_neigh(struct zebra_neigh *n, void *ctxt,
 	}
 	if (CHECK_FLAG(n->flags, ZEBRA_NEIGH_ROUTER_FLAG)) {
 		if (!json) {
-			vty_out(vty,
-				flags_present ? " ,Router" : " Flags: Router");
+			vty_out(vty, flags_present ? " ,Router" : " Flags: Router");
 			flags_present = true;
 		}
 	}
 	if (json == NULL) {
 		if (flags_present)
 			vty_out(vty, "\n");
-		vty_out(vty, " Local Seq: %u Remote Seq: %u\n", n->loc_seq,
-			n->rem_seq);
+		vty_out(vty, " Local Seq: %u Remote Seq: %u\n", n->loc_seq, n->rem_seq);
 
 		if (CHECK_FLAG(n->flags, ZEBRA_NEIGH_DUPLICATE)) {
 			vty_out(vty, " Duplicate, detected at %s",
-				time_to_string(n->dad_dup_detect_time,
-					       timebuf));
+				time_to_string(n->dad_dup_detect_time, timebuf));
 		} else if (n->dad_count) {
-			monotime_since(&n->detect_start_time,
-				       &detect_start_time);
+			monotime_since(&n->detect_start_time, &detect_start_time);
 			if (detect_start_time.tv_sec <= zvrf->dad_time) {
-				time_to_string(n->detect_start_time.tv_sec,
-					       timebuf);
+				time_to_string(n->detect_start_time.tv_sec, timebuf);
 				vty_out(vty,
 					" Duplicate detection started at %s, detection count %u\n",
 					timebuf, n->dad_count);
@@ -1852,12 +1790,9 @@ static char *zebra_evpn_print_neigh_flags(struct zebra_neigh *n,
 					  uint32_t flags_buf_sz)
 {
 	snprintf(flags_buf, flags_buf_sz, "%s%s%s",
-			(n->flags & ZEBRA_NEIGH_ES_PEER_ACTIVE) ?
-			"P" : "",
-			(n->flags & ZEBRA_NEIGH_ES_PEER_PROXY) ?
-			"X" : "",
-			(n->flags & ZEBRA_NEIGH_LOCAL_INACTIVE) ?
-			"I" : "");
+			CHECK_FLAG(n->flags, ZEBRA_NEIGH_ES_PEER_ACTIVE) ? "P" : "",
+			CHECK_FLAG(n->flags, ZEBRA_NEIGH_ES_PEER_PROXY) ? "X" : "",
+			CHECK_FLAG(n->flags, ZEBRA_NEIGH_LOCAL_INACTIVE) ? "I" : "");
 
 	return flags_buf;
 }
@@ -1888,7 +1823,7 @@ void zebra_evpn_print_neigh_hash(struct hash_bucket *bucket, void *ctxt)
 	ipaddr2str(&n->ip, buf2, sizeof(buf2));
 	state_str = IS_ZEBRA_NEIGH_ACTIVE(n) ? "active" : "inactive";
 	if (CHECK_FLAG(n->flags, ZEBRA_NEIGH_LOCAL)) {
-		if (wctx->flags & SHOW_REMOTE_NEIGH_FROM_VTEP)
+		if (CHECK_FLAG(wctx->flags, SHOW_REMOTE_NEIGH_FROM_VTEP))
 			return;
 
 		if (json_evpn == NULL) {
@@ -1902,40 +1837,33 @@ void zebra_evpn_print_neigh_hash(struct hash_bucket *bucket, void *ctxt)
 			json_object_string_add(json_row, "state", state_str);
 			json_object_string_add(json_row, "mac", buf1);
 			if (CHECK_FLAG(n->flags, ZEBRA_NEIGH_DEF_GW))
-				json_object_boolean_true_add(json_row,
-							     "defaultGateway");
-			json_object_int_add(json_row, "localSequence",
-					    n->loc_seq);
-			json_object_int_add(json_row, "remoteSequence",
-					    n->rem_seq);
-			json_object_int_add(json_row, "detectionCount",
-					    n->dad_count);
+				json_object_boolean_true_add(json_row, "defaultGateway");
+			json_object_int_add(json_row, "localSequence", n->loc_seq);
+			json_object_int_add(json_row, "remoteSequence", n->rem_seq);
+			json_object_int_add(json_row, "detectionCount", n->dad_count);
 			if (CHECK_FLAG(n->flags, ZEBRA_NEIGH_DUPLICATE))
-				json_object_boolean_true_add(json_row,
-							     "isDuplicate");
+				json_object_boolean_true_add(json_row, "isDuplicate");
 			else
-				json_object_boolean_false_add(json_row,
-							      "isDuplicate");
+				json_object_boolean_false_add(json_row, "isDuplicate");
 		}
 		wctx->count++;
 	} else if (CHECK_FLAG(n->flags, ZEBRA_NEIGH_REMOTE)) {
-		if ((wctx->flags & SHOW_REMOTE_NEIGH_FROM_VTEP)
+		if (CHECK_FLAG(wctx->flags, SHOW_REMOTE_NEIGH_FROM_VTEP)
 		    && !IPV4_ADDR_SAME(&n->r_vtep_ip, &wctx->r_vtep_ip))
 			return;
 
 		if (json_evpn == NULL) {
-			if ((wctx->flags & SHOW_REMOTE_NEIGH_FROM_VTEP)
+			if (CHECK_FLAG(wctx->flags, SHOW_REMOTE_NEIGH_FROM_VTEP)
 			    && (wctx->count == 0))
 				zebra_evpn_print_neigh_hdr(vty, wctx);
 
 			if (n->mac->es == NULL)
-				inet_ntop(AF_INET, &n->r_vtep_ip,
-					  addr_buf, sizeof(addr_buf));
+				inet_ntop(AF_INET, &n->r_vtep_ip, addr_buf, sizeof(addr_buf));
 
 			vty_out(vty, "%*s %-6s %-5s %-8s %-17s %-30s %u/%u\n",
 				-wctx->addr_width, buf2, "remote",
-				zebra_evpn_print_neigh_flags(n, flags_buf,
-				sizeof(flags_buf)), state_str, buf1,
+				zebra_evpn_print_neigh_flags(n, flags_buf, sizeof(flags_buf)),
+				state_str, buf1,
 				n->mac->es ? n->mac->es->esi_str : addr_buf,
 				n->loc_seq, n->rem_seq);
 		} else {
@@ -1943,26 +1871,18 @@ void zebra_evpn_print_neigh_hash(struct hash_bucket *bucket, void *ctxt)
 			json_object_string_add(json_row, "state", state_str);
 			json_object_string_add(json_row, "mac", buf1);
 			if (n->mac->es)
-				json_object_string_add(json_row, "remoteEs",
-						       n->mac->es->esi_str);
+				json_object_string_add(json_row, "remoteEs", n->mac->es->esi_str);
 			else
-				json_object_string_addf(json_row, "remoteVtep",
-							"%pI4", &n->r_vtep_ip);
+				json_object_string_addf(json_row, "remoteVtep", "%pI4", &n->r_vtep_ip);
 			if (CHECK_FLAG(n->flags, ZEBRA_NEIGH_DEF_GW))
-				json_object_boolean_true_add(json_row,
-							     "defaultGateway");
-			json_object_int_add(json_row, "localSequence",
-					    n->loc_seq);
-			json_object_int_add(json_row, "remoteSequence",
-					    n->rem_seq);
-			json_object_int_add(json_row, "detectionCount",
-					    n->dad_count);
+				json_object_boolean_true_add(json_row, "defaultGateway");
+			json_object_int_add(json_row, "localSequence", n->loc_seq);
+			json_object_int_add(json_row, "remoteSequence", n->rem_seq);
+			json_object_int_add(json_row, "detectionCount", n->dad_count);
 			if (CHECK_FLAG(n->flags, ZEBRA_NEIGH_DUPLICATE))
-				json_object_boolean_true_add(json_row,
-							     "isDuplicate");
+				json_object_boolean_true_add(json_row, "isDuplicate");
 			else
-				json_object_boolean_false_add(json_row,
-							      "isDuplicate");
+				json_object_boolean_false_add(json_row, "isDuplicate");
 		}
 		wctx->count++;
 	}
@@ -2054,8 +1974,7 @@ void zebra_evpn_neigh_remote_macip_add(struct zebra_evpn *zevpn,
 
 	if (update_neigh) {
 		if (!n) {
-			n = zebra_evpn_neigh_add(zevpn, ipaddr, &mac->macaddr,
-						 mac, 0);
+			n = zebra_evpn_neigh_add(zevpn, ipaddr, &mac->macaddr, mac, 0);
 		} else {
 			/* When host moves but changes its (MAC,IP)
 			 * binding, BGP may install a MACIP entry that
@@ -2074,21 +1993,16 @@ void zebra_evpn_neigh_remote_macip_add(struct zebra_evpn *zevpn,
 				if (IS_ZEBRA_DEBUG_EVPN_MH_NEIGH)
 					zlog_debug(
 						"sync->remote neigh vni %u ip %pIA mac %pEA seq %d f0x%x",
-						n->zevpn->vni, &n->ip, &n->emac,
-						seq, n->flags);
+						n->zevpn->vni, &n->ip, &n->emac, seq, n->flags);
 				if (IS_ZEBRA_NEIGH_ACTIVE(n))
 					zebra_evpn_neigh_send_del_to_client(
 						zevpn->vni, &n->ip, &n->emac,
-						n->flags, n->state,
-						false /*force*/);
+						n->flags, n->state, false /*force*/);
 				zebra_evpn_neigh_clear_sync_info(n);
 			}
-			if (memcmp(&n->emac, &mac->macaddr,
-				   sizeof(struct ethaddr))
-			    != 0) {
+			if (memcmp(&n->emac, &mac->macaddr, sizeof(struct ethaddr)) != 0) {
 				/* update neigh list for macs */
-				old_mac =
-					zebra_evpn_mac_lookup(zevpn, &n->emac);
+				old_mac = zebra_evpn_mac_lookup(zevpn, &n->emac);
 				if (old_mac) {
 					is_old_mac_dup = CHECK_FLAG(old_mac->flags, ZEBRA_MAC_DUPLICATE);
 					listnode_delete(old_mac->neigh_list, n);
@@ -2113,8 +2027,7 @@ void zebra_evpn_neigh_remote_macip_add(struct zebra_evpn *zevpn,
 				 * Mobilty event scenario-B IP-MAC binding
 				 * changed.
 				 */
-				if ((!CHECK_FLAG(n->flags, ZEBRA_NEIGH_REMOTE))
-				    && n->dad_count)
+				if ((!CHECK_FLAG(n->flags, ZEBRA_NEIGH_REMOTE)) && n->dad_count)
 					do_dad = true;
 			}
 		}
@@ -2240,8 +2153,7 @@ void zebra_evpn_neigh_remote_uninstall(struct zebra_evpn *zevpn,
 		if (IS_ZEBRA_DEBUG_VXLAN)
 			zlog_debug(
 				"%s: IP %pIA MAC %pEA (flags 0x%x) found doesn't match MAC %pEA, ignoring Neigh DEL",
-				__func__, ipaddr, &n->emac, n->flags,
-				&mac->macaddr);
+				__func__, ipaddr, &n->emac, n->flags, &mac->macaddr);
 	}
 }
 
@@ -2263,8 +2175,7 @@ int zebra_evpn_neigh_del_ip(struct zebra_evpn *zevpn, const struct ipaddr *ip)
 		if (IS_ZEBRA_DEBUG_VXLAN)
 			zlog_debug(
 				"Trying to del a neigh %pIA without a mac %pEA on VNI %u",
-				ip, &n->emac,
-				zevpn->vni);
+				ip, &n->emac, zevpn->vni);
 
 		return 0;
 	}
@@ -2284,28 +2195,24 @@ int zebra_evpn_neigh_del_ip(struct zebra_evpn *zevpn, const struct ipaddr *ip)
 	if (zebra_evpn_neigh_is_static(n)) {
 		if (IS_ZEBRA_DEBUG_EVPN_MH_NEIGH)
 			zlog_debug("re-add sync neigh vni %u ip %pIA mac %pEA 0x%x",
-				   n->zevpn->vni, &n->ip, &n->emac,
-				   n->flags);
+				   n->zevpn->vni, &n->ip, &n->emac, n->flags);
 
 		if (!CHECK_FLAG(n->flags, ZEBRA_NEIGH_LOCAL_INACTIVE))
 			SET_FLAG(n->flags, ZEBRA_NEIGH_LOCAL_INACTIVE);
 		/* inform-bgp about change in local-activity if any */
 		new_bgp_ready = zebra_evpn_neigh_is_ready_for_bgp(n);
-		zebra_evpn_neigh_send_add_del_to_client(n, old_bgp_ready,
-							new_bgp_ready);
+		zebra_evpn_neigh_send_add_del_to_client(n, old_bgp_ready, new_bgp_ready);
 
 		/* re-install the entry in the kernel */
 		zebra_evpn_sync_neigh_dp_install(n, false /* set_inactive */,
-						 false /* force_clear_static */,
-						 __func__);
+								false /* force_clear_static */, __func__);
 
 		return 0;
 	}
 
 	zvrf = zevpn->vxlan_if->vrf->info;
 	if (!zvrf) {
-		zlog_debug("%s: VNI %u vrf lookup failed.", __func__,
-			   zevpn->vni);
+		zlog_debug("%s: VNI %u vrf lookup failed.", __func__, zevpn->vni);
 		return -1;
 	}
 
@@ -2318,15 +2225,13 @@ int zebra_evpn_neigh_del_ip(struct zebra_evpn *zevpn, const struct ipaddr *ip)
 
 	/* Remove neighbor from BGP. */
 	zebra_evpn_neigh_send_del_to_client(zevpn->vni, &n->ip, &n->emac,
-					    n->flags, n->state,
-					    false /* force */);
+					    n->flags, n->state, false /* force */);
 
 	/* Delete this neighbor entry. */
 	zebra_evpn_neigh_del(zevpn, n);
 
 	/* see if the AUTO mac needs to be deleted */
-	if (CHECK_FLAG(zmac->flags, ZEBRA_MAC_AUTO)
-	    && !zebra_evpn_mac_in_use(zmac))
+	if (CHECK_FLAG(zmac->flags, ZEBRA_MAC_AUTO) && !zebra_evpn_mac_in_use(zmac))
 		zebra_evpn_mac_del(zevpn, zmac);
 
 	return 0;
