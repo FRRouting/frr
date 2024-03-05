@@ -803,6 +803,12 @@ const struct frr_yang_module_info frr_zebra_info = {
 			}
 		},
 		{
+			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/state/bond",
+			.cbs = {
+				.get_elem = lib_interface_zebra_state_bond_get_elem,
+			}
+		},
+		{
 			.xpath = "/frr-vrf:lib/vrf/frr-zebra:zebra/router-id",
 			.cbs = {
 				.modify = lib_vrf_zebra_router_id_modify,

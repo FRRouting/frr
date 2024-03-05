@@ -25,7 +25,8 @@
 					},
 					"state": {
 						"up-count": 0,
-						"down-count": 0
+						"down-count": 0,
+						"zif-type": "zif-veth"
 					}
 				}
 			}
