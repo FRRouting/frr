@@ -1873,7 +1873,7 @@ static void nb_transaction_apply_finish(struct nb_transaction *transaction,
 
 			dnode = lyd_parent(dnode);
 			if (!dnode)
-				break;
+				continue;
 
 			/*
 			 * The dnode from 'delete' callbacks point to elements
