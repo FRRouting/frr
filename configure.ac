@@ -703,6 +703,8 @@ AC_ARG_ENABLE([mgmtd_local_validations],
   AS_HELP_STRING([--enable-mgmtd-local-validations], [dev: unimplemented local validation]))
 AC_ARG_ENABLE([mgmtd_test_be_client],
   AS_HELP_STRING([--enable-mgmtd-test-be-client], [build test backend client]))
+AC_ARG_ENABLE([fpm_listener],
+  AS_HELP_STRING([--enable-fpm-listener], [build fpm listener test program]))
 AC_ARG_ENABLE([ripd],
   AS_HELP_STRING([--disable-ripd], [do not build ripd]))
 AC_ARG_ENABLE([ripngd],
@@ -1811,6 +1813,10 @@ AS_IF([test "$enable_mgmtd_test_be_client" = "yes"], [
   AC_DEFINE([HAVE_MGMTD_TESTC], [1], [mgmtd_testc])
 ])
 
+AS_IF([test "$enable_fpm_listener" = "yes"], [
+  AC_DEFINE([HAVE_FPM_LISTENER], [1], [fpm_listener])
+])
+
 AS_IF([test "$enable_ripd" != "no"], [
   AC_DEFINE([HAVE_RIPD], [1], [ripd])
 ])
@@ -2773,6 +2779,7 @@ AM_CONDITIONAL([ZEBRA], [test "$enable_zebra" != "no"])
 AM_CONDITIONAL([BGPD], [test "$enable_bgpd" != "no"])
 AM_CONDITIONAL([MGMTD], [test "$enable_mgmtd" != "no"])
 AM_CONDITIONAL([MGMTD_TESTC], [test "$enable_mgmtd_test_be_client" = "yes"])
+AM_CONDITIONAL([FPM_LISTENER], [test "enable_fpm_listener" = "yes"])
 AM_CONDITIONAL([RIPD], [test "$enable_ripd" != "no"])
 AM_CONDITIONAL([OSPFD], [test "$enable_ospfd" != "no"])
 AM_CONDITIONAL([LDPD], [test "$enable_ldpd" != "no"])

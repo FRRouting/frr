@@ -1262,8 +1262,8 @@ def rlimit_atleast(rname, min_value, raises=False):
 
 def fix_netns_limits(ns):
     # Maximum read and write socket buffer sizes
-    sysctl_atleast(ns, "net.ipv4.tcp_rmem", [10 * 1024, 87380, 16 * 2**20])
-    sysctl_atleast(ns, "net.ipv4.tcp_wmem", [10 * 1024, 87380, 16 * 2**20])
+    sysctl_atleast(ns, "net.ipv4.tcp_rmem", [10 * 1024, 87380, 16 * 2 ** 20])
+    sysctl_atleast(ns, "net.ipv4.tcp_wmem", [10 * 1024, 87380, 16 * 2 ** 20])
 
     sysctl_assure(ns, "net.ipv4.conf.all.rp_filter", 0)
     sysctl_assure(ns, "net.ipv4.conf.default.rp_filter", 0)
@@ -1322,8 +1322,8 @@ def fix_host_limits():
     sysctl_atleast(None, "net.core.netdev_max_backlog", 4 * 1024)
 
     # Maximum read and write socket buffer sizes
-    sysctl_atleast(None, "net.core.rmem_max", 16 * 2**20)
-    sysctl_atleast(None, "net.core.wmem_max", 16 * 2**20)
+    sysctl_atleast(None, "net.core.rmem_max", 16 * 2 ** 20)
+    sysctl_atleast(None, "net.core.wmem_max", 16 * 2 ** 20)
 
     # Garbage Collection Settings for ARP and Neighbors
     sysctl_atleast(None, "net.ipv4.neigh.default.gc_thresh2", 4 * 1024)
@@ -1426,6 +1426,7 @@ class Router(Node):
             "snmpd": 0,
             "mgmtd": 0,
             "snmptrapd": 0,
+            "fpm_listener": 0,
         }
         self.daemons_options = {"zebra": ""}
         self.reportCores = True
@@ -1896,7 +1897,11 @@ class Router(Node):
                 )
 
             rediropt = " > {0}.out 2> {0}.err".format(daemon)
-            if daemon == "snmpd":
+            if daemon == "fpm_listener":
+                binary = "/usr/lib/frr/fpm_listener"
+                cmdenv = ""
+                cmdopt = "-d {}".format(daemon_opts)
+            elif daemon == "snmpd":
                 binary = "/usr/sbin/snmpd"
                 cmdenv = ""
                 cmdopt = "{} -C -c /etc/frr/snmpd.conf -p ".format(
@@ -2162,7 +2167,11 @@ class Router(Node):
                         "%s: %s %s started with rr", self, self.routertype, daemon
                     )
             else:
-                if daemon != "snmpd" and daemon != "snmptrapd":
+                if (
+                    daemon != "snmpd"
+                    and daemon != "snmptrapd"
+                    and daemon != "fpm_listener"
+                ):
                     cmdopt += " -d "
                 cmdopt += rediropt
 
@@ -2211,6 +2220,11 @@ class Router(Node):
             start_daemon("snmpd")
             while "snmpd" in daemons_list:
                 daemons_list.remove("snmpd")
+
+        if "fpm_listener" in daemons_list:
+            start_daemon("fpm_listener")
+            while "fpm_listener" in daemons_list:
+                daemons_list.remove("fpm_listener")
 
         # Now start all the other daemons
         for daemon in daemons_list:
@@ -2406,6 +2420,8 @@ class Router(Node):
             if daemon == "snmpd":
                 continue
             if daemon == "snmptrapd":
+                continue
+            if daemon == "fpm_listener":
                 continue
             if (self.daemons[daemon] == 1) and not (daemon in daemonsRunning):
                 sys.stderr.write("%s: Daemon %s not running\n" % (self.name, daemon))

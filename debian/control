@@ -102,6 +102,14 @@ Description: FRRouting suite - BGP RPKI support (rtrlib)
  number.
 Build-Profiles: <!pkg.frr.nortrlib>
 
+Package: frr-test-tools
+Architecture: linux-any
+Depends: frr (= ${binary:Version}),
+	${misc:Depends},
+	${shlibs:Depends}
+Description: FRRouting suite - Testing Tools
+ Adds FRR test tools, used in testing FRR.
+
 Package: frr-doc
 Section: doc
 Architecture: all

@@ -274,6 +274,10 @@ options from the list below.
 
    Build with FPM module support.
 
+.. option:: --enable-fpm-listener
+
+   Build a small fpm listener for testing.
+
 .. option:: --with-service-timeout=X
 
    Set timeout value for FRR service. The time of restarting or reloading FRR

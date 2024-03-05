@@ -677,6 +677,7 @@ fi
     %{_sbindir}/mgmtd_testc
 %endif
 %exclude %{_sbindir}/ssd
+%exclude %{_sbindir}/fpm_listener
 %if %{with_watchfrr}
     %{_sbindir}/watchfrr
 %endif

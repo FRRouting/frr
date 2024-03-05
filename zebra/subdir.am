@@ -19,6 +19,12 @@ if LINUX
 module_LTLIBRARIES += zebra/zebra_cumulus_mlag.la
 endif
 
+#if FPM_LISTENER
+sbin_PROGRAMS += zebra/fpm_listener
+zebra_fpm_listener_SOURCES = zebra/fpm_listener.c
+zebra_fpm_listener_LDADD = lib/libfrr.la
+#endf
+
 # Dataplane sample plugin
 if DEV_BUILD
 module_LTLIBRARIES += zebra/dplane_sample_plugin.la
@@ -116,6 +122,7 @@ zebra_zebra_SOURCES = \
 
 clippy_scan += \
 	zebra/debug.c \
+	zebra/dplane_fpm_nl.c \
 	zebra/interface.c \
 	zebra/rtadv.c \
 	zebra/zebra_mlag_vty.c \
