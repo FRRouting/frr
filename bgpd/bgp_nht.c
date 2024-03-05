@@ -1068,18 +1068,19 @@ static int make_prefix(int afi, struct bgp_path_info *pi, struct prefix *p)
 			/* If we receive MP_REACH nexthop with ::(LL)
 			 * or LL(LL), use LL address as nexthop cache.
 			 */
-			if (pi->attr->mp_nexthop_len
-				    == BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL
-			    && (IN6_IS_ADDR_UNSPECIFIED(
-					&pi->attr->mp_nexthop_global)
-				|| IN6_IS_ADDR_LINKLOCAL(
-					&pi->attr->mp_nexthop_global)))
+			if (pi->attr &&
+			    pi->attr->mp_nexthop_len ==
+				    BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL &&
+			    (IN6_IS_ADDR_UNSPECIFIED(
+				     &pi->attr->mp_nexthop_global) ||
+			     IN6_IS_ADDR_LINKLOCAL(&pi->attr->mp_nexthop_global)))
 				p->u.prefix6 = pi->attr->mp_nexthop_local;
 			/* If we receive MR_REACH with (GA)::(LL)
 			 * then check for route-map to choose GA or LL
 			 */
-			else if (pi->attr->mp_nexthop_len
-				 == BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL) {
+			else if (pi->attr &&
+				 pi->attr->mp_nexthop_len ==
+					 BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL) {
 				if (CHECK_FLAG(pi->attr->nh_flags,
 					       BGP_ATTR_NH_MP_PREFER_GLOBAL))
 					p->u.prefix6 =
