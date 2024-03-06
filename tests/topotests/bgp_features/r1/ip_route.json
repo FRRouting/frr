@@ -313,7 +313,6 @@
       "metric":0,
       "nexthops":[
         {
-          "flags":0,
           "ip":"192.168.101.2",
           "afi":"ipv4",
           "weight":1
