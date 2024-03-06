@@ -1858,17 +1858,19 @@ void bgp_recalculate_afi_safi_bestpaths(struct bgp *bgp, afi_t afi, safi_t safi)
 	for (dest = bgp_table_top(bgp->rib[afi][safi]); dest;
 	     dest = bgp_route_next(dest)) {
 		table = bgp_dest_get_bgp_table_info(dest);
-		if (table != NULL) {
-			/* Special handling for 2-level routing
-			 * tables. */
-			if (safi == SAFI_MPLS_VPN || safi == SAFI_ENCAP
-			    || safi == SAFI_EVPN) {
-				for (ndest = bgp_table_top(table); ndest;
-				     ndest = bgp_route_next(ndest))
-					bgp_process(bgp, ndest, afi, safi);
-			} else
-				bgp_process(bgp, dest, afi, safi);
-		}
+
+		if (!table)
+			continue;
+
+		/* Special handling for 2-level routing
+		 * tables. */
+		if (safi == SAFI_MPLS_VPN || safi == SAFI_ENCAP
+		    || safi == SAFI_EVPN) {
+			for (ndest = bgp_table_top(table); ndest;
+			     ndest = bgp_route_next(ndest))
+				bgp_process(bgp, ndest, afi, safi);
+		} else
+			bgp_process(bgp, dest, afi, safi);
 	}
 }
 
