@@ -3152,6 +3152,7 @@ void zebra_nhg_dplane_result(struct zebra_dplane_ctx *ctx)
 	enum zebra_dplane_result status;
 	uint32_t id = 0;
 	struct nhg_hash_entry *nhe = NULL;
+	struct nexthop *nexthop;
 
 	op = dplane_ctx_get_op(ctx);
 	status = dplane_ctx_get_status(ctx);
@@ -3187,6 +3188,21 @@ void zebra_nhg_dplane_result(struct zebra_dplane_ctx *ctx)
 		switch (status) {
 		case ZEBRA_DPLANE_REQUEST_SUCCESS:
 			SET_FLAG(nhe->flags, NEXTHOP_GROUP_INSTALLED);
+			/* Update installed nexthops to signal which have been
+			 * installed.
+			 */
+			for (ALL_NEXTHOPS_PTR(&nhe->nhg, nexthop)) {
+				if (CHECK_FLAG(nexthop->flags,
+					       NEXTHOP_FLAG_RECURSIVE))
+					continue;
+
+				if (CHECK_FLAG(nexthop->flags,
+					       NEXTHOP_FLAG_ACTIVE)) {
+					SET_FLAG(nexthop->flags,
+						 NEXTHOP_FLAG_FIB);
+				}
+			}
+
 			zebra_nhg_handle_install(nhe, true);
 
 			/* If daemon nhg, send it an update */
