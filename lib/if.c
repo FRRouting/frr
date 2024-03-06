@@ -60,6 +60,9 @@ DEFINE_KOOH(if_unreal, (struct interface *ifp), (ifp));
 DEFINE_HOOK(if_up, (struct interface *ifp), (ifp));
 DEFINE_KOOH(if_down, (struct interface *ifp), (ifp));
 
+/* Control debug output for the lib module */
+static bool ifp_debug;
+
 /* Compare interface names, returning an integer greater than, equal to, or
  * less than 0, (following the strcmp convention), according to the
  * relationship between ifp1 and ifp2.  Interface names consist of an
@@ -186,11 +189,19 @@ static struct interface *if_new(struct vrf *vrf)
 
 void if_new_via_zapi(struct interface *ifp)
 {
+	if (ifp_debug)
+		zlog_debug("%s: ifp %s, vrf %u", __func__, ifp->name,
+			   ifp->vrf->vrf_id);
+
 	hook_call(if_real, ifp);
 }
 
 void if_destroy_via_zapi(struct interface *ifp)
 {
+	if (ifp_debug)
+		zlog_debug("%s: ifp %s, vrf %u", __func__, ifp->name,
+			   ifp->vrf->vrf_id);
+
 	hook_call(if_unreal, ifp);
 
 	ifp->oldifindex = ifp->ifindex;
@@ -202,11 +213,19 @@ void if_destroy_via_zapi(struct interface *ifp)
 
 void if_up_via_zapi(struct interface *ifp)
 {
+	if (ifp_debug)
+		zlog_debug("%s: ifp %s, vrf %u", __func__, ifp->name,
+			   ifp->vrf->vrf_id);
+
 	hook_call(if_up, ifp);
 }
 
 void if_down_via_zapi(struct interface *ifp)
 {
+	if (ifp_debug)
+		zlog_debug("%s: ifp %s, vrf %u", __func__, ifp->name,
+			   ifp->vrf->vrf_id);
+
 	hook_call(if_down, ifp);
 }
 
@@ -316,6 +335,10 @@ static struct interface *if_create_name(const char *name, struct vrf *vrf)
 
 	if_set_name(ifp, name);
 
+	if (ifp_debug)
+		zlog_debug("%s: ifp %s, vrf %u", __func__, ifp->name,
+			   ifp->vrf->vrf_id);
+
 	if (if_notify_oper_changes && ifp->state)
 		if_update_state(ifp);
 
@@ -331,6 +354,10 @@ void if_update_to_new_vrf(struct interface *ifp, vrf_id_t vrf_id)
 
 	/* remove interface from old master vrf list */
 	old_vrf = ifp->vrf;
+
+	if (ifp_debug)
+		zlog_debug("%s: ifp %s, old vrf %u -> new vrf %u", __func__,
+			   ifp->name, old_vrf->vrf_id, vrf_id);
 
 	if (ifp->name[0] != '\0') {
 		IFNAME_RB_REMOVE(old_vrf, ifp);
@@ -375,6 +402,10 @@ void if_delete(struct interface **ifp)
 {
 	struct interface *ptr = *ifp;
 	struct vrf *vrf = ptr->vrf;
+
+	if (ifp_debug)
+		zlog_debug("%s: ifp %s, vrf %u", __func__, ptr->name,
+			   vrf->vrf_id);
 
 	IFNAME_RB_REMOVE(vrf, ptr);
 	if (ptr->ifindex != IFINDEX_INTERNAL)
@@ -700,6 +731,10 @@ struct interface *if_get_by_name(const char *name, vrf_id_t vrf_id,
 
 		break;
 	case VRF_BACKEND_VRF_LITE:
+		if (ifp_debug)
+			zlog_debug("%s: ifname %s, vrf_id %i, vrf_name %s",
+				   __func__, name, vrf_id, vrf_name);
+
 		ifp = if_lookup_by_name_all_vrf(name);
 		if (ifp) {
 			/* If it came from the kernel or by way of zclient,
