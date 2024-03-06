@@ -107,6 +107,7 @@ void ripngd_instance_timers_apply_finish(struct nb_cb_apply_finish_args *args);
 /* Optional 'cli_show' callbacks. */
 void cli_show_router_ripng(struct vty *vty, const struct lyd_node *dnode,
 			   bool show_defaults);
+void cli_show_end_router_ripng(struct vty *vty, const struct lyd_node *dnode);
 void cli_show_ripng_allow_ecmp(struct vty *vty, const struct lyd_node *dnode,
 			       bool show_defaults);
 void cli_show_ripng_default_information_originate(struct vty *vty,
