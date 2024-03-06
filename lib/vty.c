@@ -3570,8 +3570,9 @@ static void vty_mgmt_set_config_result_notified(
 		zlog_err("SET_CONFIG request for client 0x%" PRIx64
 			 " failed, Error: '%s'",
 			 client_id, errmsg_if_any ? errmsg_if_any : "Unknown");
-		vty_out(vty, "ERROR: SET_CONFIG request failed, Error: %s\n",
-			errmsg_if_any ? errmsg_if_any : "Unknown");
+		vty_out(vty, "%% Configuration failed.\n\n");
+		if (errmsg_if_any)
+			vty_out(vty, "%s\n", errmsg_if_any);
 	} else {
 		debug_fe_client("SET_CONFIG request for client 0x%" PRIx64
 				" req-id %" PRIu64 " was successfull",
@@ -3602,8 +3603,9 @@ static void vty_mgmt_commit_config_result_notified(
 		zlog_err("COMMIT_CONFIG request for client 0x%" PRIx64
 			 " failed, Error: '%s'",
 			 client_id, errmsg_if_any ? errmsg_if_any : "Unknown");
-		vty_out(vty, "ERROR: COMMIT_CONFIG request failed, Error: %s\n",
-			errmsg_if_any ? errmsg_if_any : "Unknown");
+		vty_out(vty, "%% Configuration failed.\n\n");
+		if (errmsg_if_any)
+			vty_out(vty, "%s\n", errmsg_if_any);
 	} else {
 		debug_fe_client("COMMIT_CONFIG request for client 0x%" PRIx64
 				" req-id %" PRIu64 " was successfull",
