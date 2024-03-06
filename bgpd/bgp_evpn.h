@@ -182,5 +182,8 @@ extern vni_t bgp_evpn_path_info_get_l3vni(const struct bgp_path_info *pi);
 extern bool bgp_evpn_mpath_has_dvni(const struct bgp *bgp_vrf,
 				    struct bgp_path_info *mpinfo);
 extern bool is_route_injectable_into_evpn(struct bgp_path_info *pi);
+extern bool is_route_injectable_into_evpn_non_supp(struct bgp_path_info *pi);
+extern void bgp_aggr_supp_withdraw_from_evpn(struct bgp *bgp, afi_t afi,
+					     safi_t safi);
 
 #endif /* _QUAGGA_BGP_EVPN_H */
