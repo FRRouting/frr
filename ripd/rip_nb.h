@@ -173,6 +173,7 @@ void ripd_instance_timers_apply_finish(struct nb_cb_apply_finish_args *args);
 /* Optional 'cli_show' callbacks. */
 void cli_show_router_rip(struct vty *vty, const struct lyd_node *dnode,
 			 bool show_defaults);
+void cli_show_end_router_rip(struct vty *vty, const struct lyd_node *dnode);
 void cli_show_rip_allow_ecmp(struct vty *vty, const struct lyd_node *dnode,
 			     bool show_defaults);
 void cli_show_rip_default_information_originate(struct vty *vty,
