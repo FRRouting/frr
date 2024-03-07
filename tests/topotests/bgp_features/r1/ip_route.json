@@ -253,7 +253,6 @@
           "weight":1
         },
         {
-          "flags":1,
           "ip":"192.168.1.2",
           "afi":"ipv4",
           "interfaceName":"r1-eth1",
