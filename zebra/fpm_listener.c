@@ -39,6 +39,7 @@
 struct glob {
 	int server_sock;
 	int sock;
+	bool reflect;
 };
 
 struct glob glob_space;
@@ -526,11 +527,12 @@ static int netlink_msg_ctx_snprint(struct netlink_msg_ctx *ctx, char *buf,
 	cur = buf;
 	end = buf + buf_len;
 
-	cur += snprintf(cur, end - cur, "%s %s/%d, Prot: %s",
+	cur += snprintf(cur, end - cur, "%s %s/%d, Prot: %s(%u)",
 			netlink_msg_type_to_s(hdr->nlmsg_type),
 			addr_to_s(rtmsg->rtm_family, RTA_DATA(ctx->dest)),
 			rtmsg->rtm_dst_len,
-			netlink_prot_to_s(rtmsg->rtm_protocol));
+			netlink_prot_to_s(rtmsg->rtm_protocol),
+			rtmsg->rtm_protocol);
 
 	if (ctx->metric)
 		cur += snprintf(cur, end - cur, ", Metric: %d", *ctx->metric);
@@ -570,8 +572,7 @@ static void print_netlink_msg_ctx(struct netlink_msg_ctx *ctx)
 /*
  * parse_netlink_msg
  */
-static void
-parse_netlink_msg(char *buf, size_t buf_len)
+static void parse_netlink_msg(char *buf, size_t buf_len, fpm_msg_hdr_t *fpm)
 {
 	struct netlink_msg_ctx ctx_space, *ctx;
 	struct nlmsghdr *hdr;
@@ -599,6 +600,16 @@ parse_netlink_msg(char *buf, size_t buf_len)
 			}
 
 			print_netlink_msg_ctx(ctx);
+
+			if (glob->reflect && hdr->nlmsg_type == RTM_NEWROUTE &&
+			    ctx->rtmsg->rtm_protocol > RTPROT_STATIC) {
+				printf("  Route %s(%u) reflecting back\n",
+				       netlink_prot_to_s(
+					       ctx->rtmsg->rtm_protocol),
+				       ctx->rtmsg->rtm_protocol);
+				ctx->rtmsg->rtm_flags |= RTM_F_OFFLOAD;
+				write(glob->sock, fpm, fpm_msg_len(fpm));
+			}
 			break;
 
 		default:
@@ -623,7 +634,7 @@ static void process_fpm_msg(fpm_msg_hdr_t *hdr)
 		return;
 	}
 
-	parse_netlink_msg(fpm_msg_data(hdr), fpm_msg_data_len(hdr));
+	parse_netlink_msg(fpm_msg_data(hdr), fpm_msg_data_len(hdr), hdr);
 }
 
 /*
@@ -647,17 +658,28 @@ static void fpm_serve(void)
 int main(int argc, char **argv)
 {
 	pid_t daemon;
-	int d;
+	int r;
+	bool fork_daemon = false;
 
-	d = getopt(argc, argv, "d");
-	if (d == 'd') {
+	memset(glob, 0, sizeof(*glob));
+
+	while ((r = getopt(argc, argv, "rd")) != -1) {
+		switch (r) {
+		case 'r':
+			glob->reflect = true;
+			break;
+		case 'd':
+			fork_daemon = true;
+			break;
+		}
+	}
+
+	if (fork_daemon) {
 		daemon = fork();
 
 		if (daemon)
 			exit(0);
 	}
-
-	memset(glob, 0, sizeof(*glob));
 
 	if (!create_listen_sock(FPM_DEFAULT_PORT, &glob->server_sock))
 		exit(1);
