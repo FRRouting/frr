@@ -32,6 +32,7 @@
 #include <linux/netlink.h>
 #include <linux/rtnetlink.h>
 
+#include "rt_netlink.h"
 #include "fpm/fpm.h"
 #include "lib/libfrr.h"
 
@@ -238,6 +239,39 @@ netlink_prot_to_s(unsigned char prot)
 
 	case RTPROT_DHCP:
 		return "Dhcp";
+
+	case RTPROT_BGP:
+		return "BGP";
+
+	case RTPROT_ISIS:
+		return "ISIS";
+
+	case RTPROT_OSPF:
+		return "OSPF";
+
+	case RTPROT_RIP:
+		return "RIP";
+
+	case RTPROT_RIPNG:
+		return "RIPNG";
+
+	case RTPROT_BABEL:
+		return "BABEL";
+
+	case RTPROT_NHRP:
+		return "NHRP";
+
+	case RTPROT_EIGRP:
+		return "EIGRP";
+
+	case RTPROT_SHARP:
+		return "SHARP";
+
+	case RTPROT_PBR:
+		return "PBR";
+
+	case RTPROT_ZSTATIC:
+		return "Static";
 
 	default:
 		return "Unknown";
