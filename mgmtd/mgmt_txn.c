@@ -821,7 +821,6 @@ static int mgmt_txn_create_config_batches(struct mgmt_txn_req *txn_req,
 	struct nb_config_change *chg;
 	struct mgmt_txn_be_cfg_batch *batch;
 	char *xpath = NULL, *value = NULL;
-	char err_buf[1024];
 	enum mgmt_be_client_id id;
 	struct mgmt_be_client_adapter *adapter;
 	struct mgmt_commit_cfg_req *cmtcfg_req;
@@ -916,12 +915,9 @@ static int mgmt_txn_create_config_batches(struct mgmt_txn_req *txn_req,
 			num_chgs++;
 		}
 
-		if (!chg_clients) {
-			snprintf(err_buf, sizeof(err_buf),
-				 "No validator module found for XPATH: '%s",
-				 xpath);
-			__log_err("***** %s", err_buf);
-		}
+		if (!chg_clients)
+			__log_err("No connected daemon is interested in XPATH %s",
+				  xpath);
 
 		cmtcfg_req->clients |= chg_clients;
 
