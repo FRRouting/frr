@@ -1,13 +1,13 @@
 from lib.lutil import luCommand
 
 luCommand(
-    "r1", 'vtysh -c "show bgp next"', "99.0.0.. valid", "wait", "See CE static NH"
+    "r1", 'vtysh -c "show bgp nexthop"', "99.0.0.. valid", "wait", "See CE static NH"
 )
 luCommand(
-    "r3", 'vtysh -c "show bgp next"', "99.0.0.. valid", "wait", "See CE static NH"
+    "r3", 'vtysh -c "show bgp nexthop"', "99.0.0.. valid", "wait", "See CE static NH"
 )
 luCommand(
-    "r4", 'vtysh -c "show bgp next"', "99.0.0.. valid", "wait", "See CE static NH"
+    "r4", 'vtysh -c "show bgp nexthop"', "99.0.0.. valid", "wait", "See CE static NH"
 )
 luCommand("r1", 'vtysh -c "show bgp ipv4 uni"', "i 5.*i 5", "wait", "See CE routes")
 luCommand("r3", 'vtysh -c "show bgp ipv4 uni"', "i 5.*i 5", "wait", "See CE routes")
