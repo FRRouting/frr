@@ -212,6 +212,12 @@ netlink_msg_type_to_s(uint16_t type)
 	case RTM_DELROUTE:
 		return "Del route";
 
+	case RTM_NEWNEXTHOP:
+		return "New Nexthop Group";
+
+	case RTM_DELNEXTHOP:
+		return "Del Nexthop Group";
+
 	default:
 		return "Unknown";
 	}
@@ -303,6 +309,7 @@ struct netlink_msg_ctx {
 	struct rtattr *dest;
 	struct rtattr *src;
 	int *metric;
+	unsigned int *nhgid;
 
 	const char *err_msg;
 };
@@ -466,6 +473,10 @@ static int parse_route_msg(struct netlink_msg_ctx *ctx)
 	if (rtattr)
 		ctx->metric = (int *)RTA_DATA(rtattr);
 
+	rtattr = rtattrs[RTA_NH_ID];
+	if (rtattr)
+		ctx->nhgid = (unsigned int *)RTA_DATA(rtattr);
+
 	gateway = rtattrs[RTA_GATEWAY];
 	oif = rtattrs[RTA_OIF];
 	if (gateway || oif) {
@@ -524,6 +535,8 @@ static int netlink_msg_ctx_snprint(struct netlink_msg_ctx *ctx, char *buf,
 	if (ctx->metric)
 		cur += snprintf(cur, end - cur, ", Metric: %d", *ctx->metric);
 
+	if (ctx->nhgid)
+		cur += snprintf(cur, end - cur, ", nhgid: %u", *ctx->nhgid);
 	for (i = 0; i < ctx->num_nhs; i++) {
 		cur += snprintf(cur, end - cur, "\n ");
 		nh = &ctx->nhs[i];
@@ -589,8 +602,10 @@ parse_netlink_msg(char *buf, size_t buf_len)
 			break;
 
 		default:
-			fprintf(stdout, "Ignoring unknown netlink message - Type: %d\n",
-			      hdr->nlmsg_type);
+			fprintf(stdout,
+				"Ignoring netlink message - Type: %s(%d)\n",
+				netlink_msg_type_to_s(hdr->nlmsg_type),
+				hdr->nlmsg_type);
 		}
 	}
 }
