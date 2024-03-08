@@ -1004,6 +1004,8 @@ static void ospf6_neighbor_show_detail(struct vty *vty,
 				    on->ospf6_if->interface->ifindex);
 		json_object_int_add(json_neighbor, "neighborInterfaceIndex",
 				    on->ifindex);
+		json_object_string_addf(json_neighbor, "localLinkLocalAddress",
+				       "%pI6", on->ospf6_if->linklocal_addr);
 		json_object_string_add(json_neighbor, "linkLocalAddress",
 				       linklocal_addr);
 		json_object_string_add(json_neighbor, "neighborState",
