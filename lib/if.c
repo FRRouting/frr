@@ -61,7 +61,7 @@ DEFINE_HOOK(if_up, (struct interface *ifp), (ifp));
 DEFINE_KOOH(if_down, (struct interface *ifp), (ifp));
 
 /* Control debug output for the lib module */
-static bool ifp_debug;
+static bool intf_lib_debug;
 
 /* Compare interface names, returning an integer greater than, equal to, or
  * less than 0, (following the strcmp convention), according to the
@@ -189,7 +189,7 @@ static struct interface *if_new(struct vrf *vrf)
 
 void if_new_via_zapi(struct interface *ifp)
 {
-	if (ifp_debug)
+	if (intf_lib_debug)
 		zlog_debug("%s: ifp %s, vrf %u", __func__, ifp->name,
 			   ifp->vrf->vrf_id);
 
@@ -198,7 +198,7 @@ void if_new_via_zapi(struct interface *ifp)
 
 void if_destroy_via_zapi(struct interface *ifp)
 {
-	if (ifp_debug)
+	if (intf_lib_debug)
 		zlog_debug("%s: ifp %s, vrf %u", __func__, ifp->name,
 			   ifp->vrf->vrf_id);
 
@@ -213,7 +213,7 @@ void if_destroy_via_zapi(struct interface *ifp)
 
 void if_up_via_zapi(struct interface *ifp)
 {
-	if (ifp_debug)
+	if (intf_lib_debug)
 		zlog_debug("%s: ifp %s, vrf %u", __func__, ifp->name,
 			   ifp->vrf->vrf_id);
 
@@ -222,7 +222,7 @@ void if_up_via_zapi(struct interface *ifp)
 
 void if_down_via_zapi(struct interface *ifp)
 {
-	if (ifp_debug)
+	if (intf_lib_debug)
 		zlog_debug("%s: ifp %s, vrf %u", __func__, ifp->name,
 			   ifp->vrf->vrf_id);
 
@@ -335,7 +335,7 @@ static struct interface *if_create_name(const char *name, struct vrf *vrf)
 
 	if_set_name(ifp, name);
 
-	if (ifp_debug)
+	if (intf_lib_debug)
 		zlog_debug("%s: ifp %s, vrf %u", __func__, ifp->name,
 			   ifp->vrf->vrf_id);
 
@@ -355,7 +355,7 @@ void if_update_to_new_vrf(struct interface *ifp, vrf_id_t vrf_id)
 	/* remove interface from old master vrf list */
 	old_vrf = ifp->vrf;
 
-	if (ifp_debug)
+	if (intf_lib_debug)
 		zlog_debug("%s: ifp %s, old vrf %u -> new vrf %u", __func__,
 			   ifp->name, old_vrf->vrf_id, vrf_id);
 
@@ -403,7 +403,7 @@ void if_delete(struct interface **ifp)
 	struct interface *ptr = *ifp;
 	struct vrf *vrf = ptr->vrf;
 
-	if (ifp_debug)
+	if (intf_lib_debug)
 		zlog_debug("%s: ifp %s, vrf %u", __func__, ptr->name,
 			   vrf->vrf_id);
 
@@ -731,7 +731,7 @@ struct interface *if_get_by_name(const char *name, vrf_id_t vrf_id,
 
 		break;
 	case VRF_BACKEND_VRF_LITE:
-		if (ifp_debug)
+		if (intf_lib_debug)
 			zlog_debug("%s: ifname %s, vrf_id %i, vrf_name %s",
 				   __func__, name, vrf_id, vrf_name);
 
@@ -1519,6 +1519,50 @@ static void if_autocomplete(vector comps, struct cmd_token *token)
 	}
 }
 
+/* Enable, disable lib debugging. The controlling CLI handlers are in another
+ * lib module...
+ */
+void lib_if_enable_debug(struct vty *vty, bool enable, bool config)
+{
+	char xpath[XPATH_MAXLEN];
+
+	intf_lib_debug = enable;
+	if (config) {
+		/* Update northbound */
+		strlcpy(xpath, "/frr-interface:lib/debug-enable", sizeof(xpath));
+		nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY,
+				      enable ? "true" : "false");
+
+		nb_cli_apply_changes(vty, NULL);
+	}
+}
+
+int lib_if_debug_write_config(struct vty *vty)
+{
+	int written = 0;
+	const struct lyd_node *dnode;
+	bool enabled;
+
+	dnode = yang_dnode_get(running_config->dnode,
+			       "/frr-interface:lib/debug-enable");
+	if (dnode) {
+		enabled = yang_dnode_get_bool(dnode, NULL);
+		if (enabled) {
+			vty_out(vty, "debug interface\n");
+			written++;
+		}
+	}
+
+	return written;
+}
+
+/* Show lib debugging */
+void lib_if_show_debug(struct vty *vty)
+{
+	if (intf_lib_debug)
+		vty_out(vty, "  Interface library debugging is on\n");
+}
+
 static const struct cmd_variable_handler if_var_handlers[] = {
 	{/* "interface NAME" */
 	 .varname = "interface",
@@ -1859,12 +1903,43 @@ lib_interface_state_phy_address_get_elem(struct nb_cb_get_elem_args *args)
 	return yang_data_new_mac(args->xpath, &macaddr);
 }
 
+/*
+ * XPath: /frr-interface:lib/debug-enable
+ */
+static int lib_debug_enable_modify(struct nb_cb_modify_args *args)
+{
+	bool enable;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	/* Apply begins here */
+	enable = yang_dnode_get_bool(args->dnode, NULL);
+	intf_lib_debug = enable;
+
+	return NB_OK;
+}
+
+static void lib_debug_enable_cli_write(struct vty *vty,
+				       const struct lyd_node *dnode,
+				       bool show_defaults)
+{
+	lib_if_debug_write_config(vty);
+}
+
 /* clang-format off */
 
 /* cli_show callbacks are kept here for daemons not yet converted to mgmtd */
 const struct frr_yang_module_info frr_interface_info = {
 	.name = "frr-interface",
 	.nodes = {
+		{
+			.xpath = "/frr-interface:lib/debug-enable",
+			.cbs = {
+				.modify = lib_debug_enable_modify,
+				.cli_show = lib_debug_enable_cli_write,
+			}
+		},
 		{
 			.xpath = "/frr-interface:lib/interface",
 			.cbs = {
