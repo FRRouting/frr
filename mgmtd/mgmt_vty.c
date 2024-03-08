@@ -12,6 +12,7 @@
 #include "command.h"
 #include "filter.h"
 #include "json.h"
+#include "keychain.h"
 #include "network.h"
 #include "northbound_cli.h"
 #include "routemap.h"
@@ -600,6 +601,7 @@ void mgmt_vty_init(void)
 	filter_cli_init();
 	route_map_cli_init();
 	affinity_map_init();
+	keychain_cli_init();
 
 	/*
 	 * Initialize command handling from VTYSH connection.

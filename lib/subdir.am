@@ -53,6 +53,8 @@ lib_libfrr_la_SOURCES = \
 	lib/jhash.c \
 	lib/json.c \
 	lib/keychain.c \
+	lib/keychain_cli.c \
+	lib/keychain_nb.c \
 	lib/ldp_sync.c \
 	lib/lib_errors.c \
 	lib/lib_vty.c \
@@ -148,7 +150,9 @@ nodist_lib_libfrr_la_SOURCES = \
 	yang/frr-vrf.yang.c \
 	yang/frr-routing.yang.c \
 	yang/frr-nexthop.yang.c \
+	yang/ietf/frr-deviations-ietf-key-chain.yang.c \
 	yang/ietf/ietf-routing-types.yang.c \
+	yang/ietf/ietf-key-chain.yang.c \
 	yang/ietf/ietf-interfaces.yang.c \
 	yang/ietf/ietf-bgp-types.yang.c \
 	yang/frr-module-translator.yang.c \
@@ -181,6 +185,7 @@ clippy_scan += \
 	lib/if.c \
 	lib/filter_cli.c \
 	lib/if_rmap.c \
+	lib/keychain_cli.c \
 	lib/log_vty.c \
 	lib/mgmt_be_client.c \
 	lib/mgmt_fe_client.c \

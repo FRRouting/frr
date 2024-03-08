@@ -608,7 +608,7 @@ struct yang_data *lib_vrf_zebra_ribs_rib_route_route_entry_uptime_get_elem(
 {
 	struct route_entry *re = (struct route_entry *)args->list_entry;
 
-	return yang_data_new_date_and_time(args->xpath, re->uptime);
+	return yang_data_new_date_and_time(args->xpath, re->uptime, true);
 }
 
 /*

@@ -131,6 +131,8 @@ static const struct frr_yang_module_info *const ripd_yang_modules[] = {
 	&frr_ripd_info,
 	&frr_route_map_info,
 	&frr_vrf_info,
+	&ietf_key_chain_info,
+	&ietf_key_chain_deviation_info,
 };
 
 /* clang-format off */
@@ -189,7 +191,7 @@ int main(int argc, char **argv)
 
 	/* Library initialization. */
 	rip_error_init();
-	keychain_init();
+	keychain_init_new(true);
 	rip_vrf_init();
 
 	/* RIP related initialization. */

@@ -132,6 +132,8 @@ static const struct frr_yang_module_info *const eigrpd_yang_modules[] = {
 	&frr_interface_info,
 	&frr_route_map_info,
 	&frr_vrf_info,
+	&ietf_key_chain_info,
+	&ietf_key_chain_deviation_info,
 };
 
 /* clang-format off */
