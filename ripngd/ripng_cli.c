@@ -512,36 +512,6 @@ void cli_show_ipv6_ripng_split_horizon(struct vty *vty,
 	}
 }
 
-/*
- * XPath: /frr-ripngd:clear-ripng-route
- */
-DEFPY_YANG (clear_ipv6_rip,
-       clear_ipv6_rip_cmd,
-       "clear ipv6 ripng [vrf WORD]",
-       CLEAR_STR
-       IPV6_STR
-       "Clear IPv6 RIP database\n"
-       VRF_CMD_HELP_STR)
-{
-	struct list *input;
-	int ret;
-
-	input = list_new();
-	if (vrf) {
-		struct yang_data *yang_vrf;
-
-		yang_vrf = yang_data_new(
-			"/frr-ripngd:clear-ripng-route/input/vrf", vrf);
-		listnode_add(input, yang_vrf);
-	}
-
-	ret = nb_cli_rpc(vty, "/frr-ripngd:clear-ripng-route", input, NULL);
-
-	list_delete(&input);
-
-	return ret;
-}
-
 DEFPY_YANG(
 	ripng_ipv6_distribute_list, ripng_ipv6_distribute_list_cmd,
 	"ipv6 distribute-list ACCESSLIST6_NAME$name <in|out>$dir [WORD$ifname]",
@@ -692,8 +662,6 @@ void ripng_cli_init(void)
 	install_element(RIPNG_NODE, &no_ripng_timers_cmd);
 
 	install_element(INTERFACE_NODE, &ipv6_ripng_split_horizon_cmd);
-
-	install_element(ENABLE_NODE, &clear_ipv6_rip_cmd);
 
 	if_rmap_init(RIPNG_NODE);
 }

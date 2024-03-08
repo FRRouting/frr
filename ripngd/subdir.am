@@ -27,6 +27,7 @@ ripngd_ripngd_SOURCES = \
 
 clippy_scan += \
 	ripngd/ripng_cli.c \
+	ripngd/ripngd.c \
 	# end
 
 noinst_HEADERS += \
