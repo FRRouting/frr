@@ -33,6 +33,7 @@ ripd_ripd_SOURCES = \
 clippy_scan += \
 	ripd/rip_bfd.c \
 	ripd/rip_cli.c \
+	ripd/ripd.c \
 	# end
 
 noinst_HEADERS += \
