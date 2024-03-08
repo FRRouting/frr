@@ -822,6 +822,46 @@ static int pm_sessions_change_ifp_walkcb(struct hash_bucket *backet, void *arg)
 	return HASHWALK_CONTINUE;
 }
 
+static int pm_sessions_update_ifp_walkcb(struct hash_bucket *backet, void *arg)
+{
+	struct pm_session_ifp *psi = (struct pm_session_ifp *)arg;
+	struct pm_session *pm = (struct pm_session *)backet->data;
+	struct interface *ifp = psi->ifp;
+	bool enable = psi->enable;
+	struct interface *if_ctx;
+	struct vrf *vrf, *vrf_ctx;
+	char errormsg[128];
+
+	vrf = ifp->vrf;
+	if (!vrf)
+		return HASHWALK_CONTINUE;
+
+	if (pm->key.vrfname[0])
+		vrf_ctx = vrf_lookup_by_name(pm->key.vrfname);
+	else
+		vrf_ctx = vrf_lookup_by_id(VRF_DEFAULT);
+
+	if (vrf_ctx != vrf)
+		return HASHWALK_CONTINUE;
+
+	if (!pm->key.ifname[0])
+		return HASHWALK_CONTINUE;
+
+	if_ctx = if_lookup_by_name(pm->key.ifname, vrf->vrf_id);
+	if (!if_ctx)
+		return HASHWALK_CONTINUE;
+
+	if (if_ctx != ifp)
+		return HASHWALK_CONTINUE;
+
+	if (enable)
+		pm_echo(pm, errormsg, sizeof(errormsg));
+	else
+		pm_echo_stop(pm, errormsg, sizeof(errormsg), true);
+
+	return HASHWALK_CONTINUE;
+}
+
 static int pm_sessions_change_vrf_walkcb(struct hash_bucket *backet, void *arg)
 {
 	struct pm_session_vrf *psv = (struct pm_session_vrf *)arg;
@@ -866,6 +906,16 @@ void pm_sessions_change_interface(struct interface *ifp, bool enable)
 	psi.enable = enable;
 
 	hash_walk(pm_session_list, pm_sessions_change_ifp_walkcb, &psi);
+}
+
+void pm_sessions_update_interface(struct interface *ifp, bool enable)
+{
+	struct pm_session_ifp psi;
+
+	psi.ifp = ifp;
+	psi.enable = enable;
+
+	hash_walk(pm_session_list, pm_sessions_update_ifp_walkcb, &psi);
 }
 
 const char *pm_get_probe_type(struct pm_session *pm)

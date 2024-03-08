@@ -182,6 +182,7 @@ extern const char *pm_get_probe_type(struct pm_session *pm);
 
 extern void pm_sessions_update(void);
 extern void pm_sessions_change_interface(struct interface *ifp, bool ret);
+extern void pm_sessions_update_interface(struct interface *ifp, bool ret);
 
 extern int pm_get_default_packet_size(struct pm_session *pm);
 extern const char *pm_get_state_str(struct pm_session *pm);

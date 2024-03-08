@@ -341,11 +341,13 @@ static int pm_interface_address_delete(int command, struct zclient *zclient,
 
 static int pm_zebra_ifp_up(struct interface *ifp)
 {
+	pm_sessions_update_interface(ifp, true);
 	return 0;
 }
 
 static int pm_zebra_ifp_down(struct interface *ifp)
 {
+	pm_sessions_update_interface(ifp, false);
 	return 0;
 }
 
