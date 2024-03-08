@@ -83,6 +83,11 @@ void cli_show_router_ripng(struct vty *vty, const struct lyd_node *dnode,
 	vty_out(vty, "\n");
 }
 
+void cli_show_end_router_ripng(struct vty *vty, const struct lyd_node *dnode)
+{
+	vty_out(vty, "exit\n");
+}
+
 /*
  * XPath: /frr-ripngd:ripngd/instance/allow-ecmp
  */
@@ -701,6 +706,7 @@ const struct frr_yang_module_info frr_ripngd_cli_info = {
 		{
 			.xpath = "/frr-ripngd:ripngd/instance",
 			.cbs.cli_show = cli_show_router_ripng,
+			.cbs.cli_show_end = cli_show_end_router_ripng,
 		},
 		{
 			.xpath = "/frr-ripngd:ripngd/instance/allow-ecmp",

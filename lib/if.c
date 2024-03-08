@@ -1340,6 +1340,15 @@ static void cli_show_interface_end(struct vty *vty,
 	vty_out(vty, "exit\n");
 }
 
+static int cli_cmp_interface(const struct lyd_node *dnode1,
+			     const struct lyd_node *dnode2)
+{
+	const char *ifname1 = yang_dnode_get_string(dnode1, "name");
+	const char *ifname2 = yang_dnode_get_string(dnode2, "name");
+
+	return if_cmp_name_func(ifname1, ifname2);
+}
+
 void if_vty_config_start(struct vty *vty, struct interface *ifp)
 {
 	vty_frame(vty, "!\n");
@@ -1760,6 +1769,7 @@ const struct frr_yang_module_info frr_interface_info = {
 				.destroy = lib_interface_destroy,
 				.cli_show = cli_show_interface,
 				.cli_show_end = cli_show_interface_end,
+				.cli_cmp = cli_cmp_interface,
 				.get_next = lib_interface_get_next,
 				.get_keys = lib_interface_get_keys,
 				.lookup_entry = lib_interface_lookup_entry,
@@ -1842,6 +1852,7 @@ const struct frr_yang_module_info frr_interface_cli_info = {
 			.cbs = {
 				.cli_show = cli_show_interface,
 				.cli_show_end = cli_show_interface_end,
+				.cli_cmp = cli_cmp_interface,
 			},
 		},
 		{
