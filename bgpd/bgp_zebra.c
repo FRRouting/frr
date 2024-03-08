@@ -1523,6 +1523,14 @@ void bgp_zebra_announce_parse_nexthop(struct bgp_path_info *info,
 				bgp_nhg_path_unlink(p_mpinfo[i]);
 			return;
 		}
+		if (p_mpinfo[i] && p_mpinfo[i]->nexthop &&
+		    p_mpinfo[i]->nexthop->nexthop &&
+		    p_mpinfo[i]->nexthop->nexthop->type ==
+			    NEXTHOP_TYPE_BLACKHOLE) {
+			for (i = 0; i < *valid_nh_count; i++)
+				bgp_nhg_path_unlink(p_mpinfo[i]);
+			return;
+		}
 	}
 
 	nhg.nexthops.nexthop_num = 1;
