@@ -1581,6 +1581,21 @@ FRR_INCLUDES
 #endif
 ])dnl
 
+AC_CHECK_HEADERS([netinet6/ip6_mroute.h], [], [],[
+	#include <sys/socket.h>
+	#include <sys/param.h>
+	#include <sys/types.h>
+	#include <netinet/in.h>
+	#include <net/route.h>
+])
+
+m4_define([FRR_INCLUDES],
+FRR_INCLUDES
+[#ifdef HAVE_NETINET_IP6_MROUTE_H
+# include <netinet6/ip6_mroute.h>
+#endif
+])dnl
+
 AC_MSG_CHECKING([for RFC3678 protocol-independed API])
 AC_COMPILE_IFELSE(
 [ AC_LANG_PROGRAM([[
