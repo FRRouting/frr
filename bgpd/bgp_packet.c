@@ -1240,7 +1240,6 @@ void bgp_capability_send(struct peer *peer, afi_t afi, safi_t safi,
 	/* Encode MP_EXT capability. */
 	switch (capability_code) {
 	case CAPABILITY_CODE_SOFT_VERSION:
-		SET_FLAG(peer->cap, PEER_CAP_SOFT_VERSION_ADV);
 		stream_putc(s, action);
 		stream_putc(s, CAPABILITY_CODE_SOFT_VERSION);
 		cap_len = stream_get_endp(s);
@@ -1271,6 +1270,9 @@ void bgp_capability_send(struct peer *peer, afi_t afi, safi_t safi,
 					   : "Removing",
 				   capability, iana_afi2str(pkt_afi),
 				   iana_safi2str(pkt_safi));
+
+		COND_FLAG(peer->cap, PEER_CAP_SOFT_VERSION_ADV,
+			  action == CAPABILITY_ACTION_SET);
 		break;
 	case CAPABILITY_CODE_MP:
 		stream_putc(s, action);
@@ -1294,7 +1296,6 @@ void bgp_capability_send(struct peer *peer, afi_t afi, safi_t safi,
 		    !CHECK_FLAG(peer->flags, PEER_FLAG_GRACEFUL_RESTART_HELPER))
 			return;
 
-		SET_FLAG(peer->cap, PEER_CAP_RESTART_ADV);
 		stream_putc(s, action);
 		stream_putc(s, CAPABILITY_CODE_RESTART);
 		cap_len = stream_get_endp(s);
@@ -1343,12 +1344,12 @@ void bgp_capability_send(struct peer *peer, afi_t afi, safi_t safi,
 				   capability, iana_afi2str(pkt_afi),
 				   iana_safi2str(pkt_safi));
 
+		COND_FLAG(peer->cap, PEER_CAP_RESTART_ADV,
+			  action == CAPABILITY_ACTION_SET);
 		break;
 	case CAPABILITY_CODE_LLGR:
 		if (!CHECK_FLAG(peer->cap, PEER_CAP_RESTART_ADV))
 			return;
-
-		SET_FLAG(peer->cap, PEER_CAP_LLGR_ADV);
 
 		stream_putc(s, action);
 		stream_putc(s, CAPABILITY_CODE_LLGR);
@@ -1381,10 +1382,11 @@ void bgp_capability_send(struct peer *peer, afi_t afi, safi_t safi,
 					   : "Removing",
 				   capability, iana_afi2str(pkt_afi),
 				   iana_safi2str(pkt_safi));
+
+		COND_FLAG(peer->cap, PEER_CAP_LLGR_ADV,
+			  action == CAPABILITY_ACTION_SET);
 		break;
 	case CAPABILITY_CODE_ADDPATH:
-		SET_FLAG(peer->cap, PEER_CAP_ADDPATH_ADV);
-
 		FOREACH_AFI_SAFI (afi, safi) {
 			if (peer->afc[afi][safi]) {
 				addpath_afi_safi_count++;
@@ -1462,10 +1464,10 @@ void bgp_capability_send(struct peer *peer, afi_t afi, safi_t safi,
 				   capability, iana_afi2str(pkt_afi),
 				   iana_safi2str(pkt_safi));
 
+		COND_FLAG(peer->cap, PEER_CAP_ADDPATH_ADV,
+			  action == CAPABILITY_ACTION_SET);
 		break;
 	case CAPABILITY_CODE_PATHS_LIMIT:
-		SET_FLAG(peer->cap, PEER_CAP_PATHS_LIMIT_ADV);
-
 		FOREACH_AFI_SAFI (afi, safi) {
 			if (!peer->afc[afi][safi])
 				continue;
@@ -1505,6 +1507,8 @@ void bgp_capability_send(struct peer *peer, afi_t afi, safi_t safi,
 						   .send);
 		}
 
+		COND_FLAG(peer->cap, PEER_CAP_PATHS_LIMIT_ADV,
+			  action == CAPABILITY_ACTION_SET);
 		break;
 	case CAPABILITY_CODE_ORF:
 		/* Convert AFI, SAFI to values for packet. */
@@ -1578,43 +1582,42 @@ void bgp_capability_send(struct peer *peer, afi_t afi, safi_t safi,
 				   iana_safi2str(pkt_safi));
 		break;
 	case CAPABILITY_CODE_FQDN:
-		if (CHECK_FLAG(peer->flags, PEER_FLAG_CAPABILITY_FQDN) &&
-		    hostname) {
-			SET_FLAG(peer->cap, PEER_CAP_HOSTNAME_ADV);
-			stream_putc(s, action);
-			stream_putc(s, CAPABILITY_CODE_FQDN);
-			cap_len = stream_get_endp(s);
-			stream_putc(s, 0); /* Capability Length */
+		stream_putc(s, action);
+		stream_putc(s, CAPABILITY_CODE_FQDN);
+		cap_len = stream_get_endp(s);
+		stream_putc(s, 0); /* Capability Length */
 
-			len = strlen(hostname);
+		len = strlen(hostname);
+		if (len > BGP_MAX_HOSTNAME)
+			len = BGP_MAX_HOSTNAME;
+
+		stream_putc(s, len);
+		stream_put(s, hostname, len);
+
+		if (domainname) {
+			len = strlen(domainname);
 			if (len > BGP_MAX_HOSTNAME)
 				len = BGP_MAX_HOSTNAME;
 
 			stream_putc(s, len);
-			stream_put(s, hostname, len);
+			stream_put(s, domainname, len);
+		} else
+			stream_putc(s, 0);
 
-			if (domainname) {
-				len = strlen(domainname);
-				if (len > BGP_MAX_HOSTNAME)
-					len = BGP_MAX_HOSTNAME;
+		len = stream_get_endp(s) - cap_len - 1;
+		stream_putc_at(s, cap_len, len);
 
-				stream_putc(s, len);
-				stream_put(s, domainname, len);
-			} else
-				stream_putc(s, 0);
+		if (bgp_debug_neighbor_events(peer))
+			zlog_debug("%pBP sending CAPABILITY has %s %s for afi/safi: %s/%s",
+				   peer,
+				   action == CAPABILITY_ACTION_SET
+					   ? "Advertising"
+					   : "Removing",
+				   capability, iana_afi2str(pkt_afi),
+				   iana_safi2str(pkt_safi));
 
-			len = stream_get_endp(s) - cap_len - 1;
-			stream_putc_at(s, cap_len, len);
-
-			if (bgp_debug_neighbor_events(peer))
-				zlog_debug("%pBP sending CAPABILITY has %s %s for afi/safi: %s/%s",
-					   peer,
-					   action == CAPABILITY_ACTION_SET
-						   ? "Advertising"
-						   : "Removing",
-					   capability, iana_afi2str(pkt_afi),
-					   iana_safi2str(pkt_safi));
-		}
+		COND_FLAG(peer->cap, PEER_CAP_HOSTNAME_ADV,
+			  action == CAPABILITY_ACTION_SET);
 		break;
 	case CAPABILITY_CODE_REFRESH:
 	case CAPABILITY_CODE_AS4:
@@ -1624,13 +1627,12 @@ void bgp_capability_send(struct peer *peer, afi_t afi, safi_t safi,
 	case CAPABILITY_CODE_EXT_MESSAGE:
 		break;
 	case CAPABILITY_CODE_ROLE:
-		if (peer->local_role != ROLE_UNDEFINED) {
-			SET_FLAG(peer->cap, PEER_CAP_ROLE_ADV);
-			stream_putc(s, action);
-			stream_putc(s, CAPABILITY_CODE_ROLE);
-			stream_putc(s, CAPABILITY_CODE_ROLE_LEN);
-			stream_putc(s, peer->local_role);
-		}
+		stream_putc(s, action);
+		stream_putc(s, CAPABILITY_CODE_ROLE);
+		stream_putc(s, CAPABILITY_CODE_ROLE_LEN);
+		stream_putc(s, peer->local_role);
+		COND_FLAG(peer->cap, PEER_CAP_ROLE_ADV,
+			  action == CAPABILITY_ACTION_SET);
 		break;
 	default:
 		break;
