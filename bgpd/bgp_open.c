@@ -1975,7 +1975,7 @@ uint16_t bgp_open_capability(struct stream *s, struct peer *peer,
 	}
 
 	/* Dynamic capability. */
-	if (CHECK_FLAG(peer->flags, PEER_FLAG_DYNAMIC_CAPABILITY)) {
+	if (peergroup_flag_check(peer, PEER_FLAG_DYNAMIC_CAPABILITY)) {
 		SET_FLAG(peer->cap, PEER_CAP_DYNAMIC_ADV);
 		stream_putc(s, BGP_OPEN_OPT_CAP);
 		ext_opt_params
