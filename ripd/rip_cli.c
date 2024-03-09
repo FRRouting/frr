@@ -1125,36 +1125,6 @@ void cli_show_ip_rip_bfd_profile(struct vty *vty, const struct lyd_node *dnode,
 		yang_dnode_get_string(dnode, NULL));
 }
 
-/*
- * XPath: /frr-ripd:clear-rip-route
- */
-DEFPY_YANG (clear_ip_rip,
-       clear_ip_rip_cmd,
-       "clear ip rip [vrf WORD]",
-       CLEAR_STR
-       IP_STR
-       "Clear IP RIP database\n"
-       VRF_CMD_HELP_STR)
-{
-	struct list *input;
-	int ret;
-
-	input = list_new();
-	if (vrf) {
-		struct yang_data *yang_vrf;
-
-		yang_vrf = yang_data_new("/frr-ripd:clear-rip-route/input/vrf",
-					 vrf);
-		listnode_add(input, yang_vrf);
-	}
-
-	ret = nb_cli_rpc(vty, "/frr-ripd:clear-rip-route", input, NULL);
-
-	list_delete(&input);
-
-	return ret;
-}
-
 DEFPY_YANG(
 	rip_distribute_list, rip_distribute_list_cmd,
 	"distribute-list ACCESSLIST4_NAME$name <in|out>$dir [WORD$ifname]",
@@ -1324,8 +1294,6 @@ void rip_cli_init(void)
 	install_element(INTERFACE_NODE, &ip_rip_bfd_cmd);
 	install_element(INTERFACE_NODE, &ip_rip_bfd_profile_cmd);
 	install_element(INTERFACE_NODE, &no_ip_rip_bfd_profile_cmd);
-
-	install_element(ENABLE_NODE, &clear_ip_rip_cmd);
 
 	if_rmap_init(RIP_NODE);
 }
