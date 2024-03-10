@@ -86,7 +86,7 @@ def test_bgp_dynamic_capability_software_version():
     step("Enable software version capability and check if it's exchanged dynamically")
 
     # Clear message stats to check if we receive a notification or not after we
-    # change the settings fo LLGR.
+    # enable software-version capability.
     r1.vtysh_cmd("clear bgp 192.168.1.2 message-stats")
     r1.vtysh_cmd(
         """
@@ -154,6 +154,41 @@ def test_bgp_dynamic_capability_software_version():
     assert (
         result is None
     ), "Session was reset after enabling software version capability"
+
+    # Clear message stats to check if we receive a notification or not after we
+    # disable software-version capability.
+    r1.vtysh_cmd("clear bgp 192.168.1.2 message-stats")
+    r1.vtysh_cmd(
+        """
+    configure terminal
+    router bgp
+      no neighbor 192.168.1.2 capability software-version
+    """
+    )
+
+    def _bgp_check_if_software_version_capability_is_absent():
+        output = json.loads(r1.vtysh_cmd("show bgp neighbor json"))
+        expected = {
+            "192.168.1.2": {
+                "bgpState": "Established",
+                "neighborCapabilities": {
+                    "dynamic": "advertisedAndReceived",
+                    "softwareVersion": {
+                        "advertisedSoftwareVersion": None,
+                    },
+                },
+                "messageStats": {
+                    "notificationsRecv": 0,
+                },
+            }
+        }
+        return topotest.json_cmp(output, expected)
+
+    test_func = functools.partial(
+        _bgp_check_if_software_version_capability_is_absent,
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    assert result is None, "Failed to disable software version capability"
 
 
 if __name__ == "__main__":
