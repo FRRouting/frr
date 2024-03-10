@@ -3260,6 +3260,8 @@ DEFUN (bgp_graceful_restart_disable,
 	GR_DISABLE)
 {
 	int ret = BGP_GR_FAILURE;
+	struct listnode *node, *nnode;
+	struct peer *peer;
 
 	if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
 		zlog_debug(
@@ -3277,6 +3279,15 @@ DEFUN (bgp_graceful_restart_disable,
 			"[BGP_GR] bgp_graceful_restart_disable_cmd : END ");
 	vty_out(vty,
 		"Graceful restart configuration changed, reset all peers to take effect\n");
+
+	for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
+		bgp_capability_send(peer, AFI_IP, SAFI_UNICAST,
+				    CAPABILITY_CODE_RESTART,
+				    CAPABILITY_ACTION_UNSET);
+		bgp_capability_send(peer, AFI_IP, SAFI_UNICAST,
+				    CAPABILITY_CODE_LLGR,
+				    CAPABILITY_ACTION_UNSET);
+	}
 
 	return bgp_vty_return(vty, ret);
 }
