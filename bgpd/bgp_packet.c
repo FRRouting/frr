@@ -1292,10 +1292,6 @@ void bgp_capability_send(struct peer *peer, afi_t afi, safi_t safi,
 				   iana_safi2str(pkt_safi));
 		break;
 	case CAPABILITY_CODE_RESTART:
-		if (!CHECK_FLAG(peer->flags, PEER_FLAG_GRACEFUL_RESTART) &&
-		    !CHECK_FLAG(peer->flags, PEER_FLAG_GRACEFUL_RESTART_HELPER))
-			return;
-
 		stream_putc(s, action);
 		stream_putc(s, CAPABILITY_CODE_RESTART);
 		cap_len = stream_get_endp(s);
@@ -1348,9 +1344,6 @@ void bgp_capability_send(struct peer *peer, afi_t afi, safi_t safi,
 			  action == CAPABILITY_ACTION_SET);
 		break;
 	case CAPABILITY_CODE_LLGR:
-		if (!CHECK_FLAG(peer->cap, PEER_CAP_RESTART_ADV))
-			return;
-
 		stream_putc(s, action);
 		stream_putc(s, CAPABILITY_CODE_LLGR);
 		cap_len = stream_get_endp(s);
