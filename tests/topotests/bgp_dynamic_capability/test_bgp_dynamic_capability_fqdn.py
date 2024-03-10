@@ -1,12 +1,12 @@
 #!/usr/bin/env python
 # SPDX-License-Identifier: ISC
 
-# Copyright (c) 2023 by
+# Copyright (c) 2024 by
 # Donatas Abraitis <donatas@opensourcerouting.org>
 #
 
 """
-Test if role capability is exchanged dynamically.
+Test if fqdn capability is exchanged dynamically.
 """
 
 import os
@@ -47,7 +47,7 @@ def teardown_module(mod):
     tgen.stop_topology()
 
 
-def test_bgp_dynamic_capability_role():
+def test_bgp_dynamic_capability_fqdn():
     tgen = get_topogen()
 
     if tgen.routers_have_failure():
@@ -61,15 +61,12 @@ def test_bgp_dynamic_capability_role():
         expected = {
             "192.168.1.2": {
                 "bgpState": "Established",
-                "localRole": "undefined",
-                "remoteRole": "undefined",
                 "neighborCapabilities": {
                     "dynamic": "advertisedAndReceived",
-                },
-                "addressFamilyInfo": {
-                    "ipv4Unicast": {
-                        "acceptedPrefixCounter": 3,
-                    }
+                    "hostName": {
+                        "advHostName": "r1",
+                        "rcvHostName": "r2",
+                    },
                 },
             }
         }
@@ -81,78 +78,30 @@ def test_bgp_dynamic_capability_role():
     _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
     assert result is None, "Can't converge"
 
-    step("Set local-role and check if it's exchanged dynamically")
+    step("Disable fqdn capability and check if it's exchanged dynamically")
 
     # Clear message stats to check if we receive a notification or not after we
-    # change the role.
+    # disable fqdn capability.
     r1.vtysh_cmd("clear bgp 192.168.1.2 message-stats")
     r1.vtysh_cmd(
         """
     configure terminal
     router bgp
-      neighbor 192.168.1.2 local-role customer
+      no neighbor 192.168.1.2 capability fqdn
     """
     )
 
-    r2.vtysh_cmd(
-        """
-    configure terminal
-    router bgp
-      neighbor 192.168.1.1 local-role provider
-    """
-    )
-
-    def _bgp_check_if_session_not_reset():
+    def _bgp_check_if_fqdn_capability_is_absent():
         output = json.loads(r1.vtysh_cmd("show bgp neighbor json"))
         expected = {
             "192.168.1.2": {
                 "bgpState": "Established",
-                "localRole": "customer",
-                "remoteRole": "provider",
                 "neighborCapabilities": {
                     "dynamic": "advertisedAndReceived",
-                    "role": "advertisedAndReceived",
-                },
-                "addressFamilyInfo": {
-                    "ipv4Unicast": {
-                        "acceptedPrefixCounter": 3,
-                    }
-                },
-                "messageStats": {
-                    "notificationsRecv": 0,
-                    "capabilityRecv": 1,
-                },
-            }
-        }
-        return topotest.json_cmp(output, expected)
-
-    test_func = functools.partial(
-        _bgp_check_if_session_not_reset,
-    )
-    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
-    assert result is None, "Session was reset after setting role capability"
-
-    # Clear message stats to check if we receive a notification or not after we
-    # change the role.
-    r1.vtysh_cmd("clear bgp 192.168.1.2 message-stats")
-    r1.vtysh_cmd(
-        """
-    configure terminal
-    router bgp
-      no neighbor 192.168.1.2 local-role customer
-    """
-    )
-
-    def _bgp_check_if_role_capability_is_absent():
-        output = json.loads(r1.vtysh_cmd("show bgp neighbor json"))
-        expected = {
-            "192.168.1.2": {
-                "bgpState": "Established",
-                "localRole": "undefined",
-                "remoteRole": "provider",
-                "neighborCapabilities": {
-                    "dynamic": "advertisedAndReceived",
-                    "role": "received",
+                    "hostName": {
+                        "advHostName": None,
+                        "rcvHostName": "r2",
+                    },
                 },
                 "messageStats": {
                     "notificationsRecv": 0,
@@ -162,10 +111,10 @@ def test_bgp_dynamic_capability_role():
         return topotest.json_cmp(output, expected)
 
     test_func = functools.partial(
-        _bgp_check_if_role_capability_is_absent,
+        _bgp_check_if_fqdn_capability_is_absent,
     )
     _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
-    assert result is None, "Failed to disable role capability"
+    assert result is None, "Failed to disable fqdn capability"
 
 
 if __name__ == "__main__":
