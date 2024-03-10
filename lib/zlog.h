@@ -125,6 +125,9 @@ static inline void zlog_ref(const struct xref_logmsg *xref,
 
 extern void zlog_sigsafe(const char *text, size_t len);
 
+/* recirculate a log message from zlog_live */
+extern void zlog_recirculate_live_msg(uint8_t *data, size_t len);
+
 /* extra priority value to disable a target without deleting it */
 #define ZLOG_DISABLED	(LOG_EMERG-1)
 
