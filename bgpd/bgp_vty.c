@@ -18427,9 +18427,19 @@ static void bgp_config_write_peer_global(struct vty *vty, struct bgp *bgp,
 	}
 
 	/* capability software-version */
-	if (peergroup_flag_check(peer, PEER_FLAG_CAPABILITY_SOFT_VERSION))
-		vty_out(vty, " neighbor %s capability software-version\n",
-			addr);
+	if (CHECK_FLAG(bgp->flags, BGP_FLAG_SOFT_VERSION_CAPABILITY)) {
+		if (!peergroup_flag_check(peer,
+					  PEER_FLAG_CAPABILITY_SOFT_VERSION))
+			vty_out(vty,
+				" no neighbor %s capability software-version\n",
+				addr);
+	} else {
+		if (peergroup_flag_check(peer,
+					 PEER_FLAG_CAPABILITY_SOFT_VERSION))
+			vty_out(vty,
+				" neighbor %s capability software-version\n",
+				addr);
+	}
 
 	/* dont-capability-negotiation */
 	if (peergroup_flag_check(peer, PEER_FLAG_DONT_CAPABILITY))
