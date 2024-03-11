@@ -203,6 +203,7 @@ static void sigint(void)
 	rib_update_finish();
 
 	list_delete(&zrouter.client_list);
+	list_delete(&zrouter.stale_client_list);
 
 	/* Indicate that all new dplane work has been enqueued. When that
 	 * work is complete, the dataplane will enqueue an event
