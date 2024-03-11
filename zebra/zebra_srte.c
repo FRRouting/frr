@@ -7,6 +7,7 @@
 
 #include "lib/zclient.h"
 #include "lib/lib_errors.h"
+#include "frrdistance.h"
 
 #include "zebra/zebra_srte.h"
 #include "zebra/zebra_mpls.h"
@@ -81,6 +82,49 @@ struct zebra_sr_policy *zebra_sr_policy_find_by_name(char *name)
 	return NULL;
 }
 
+static int process_routes_for_policy(struct zebra_sr_policy *policy,
+				     struct zserv *client, uint32_t message,
+				     struct stream *s, struct zapi_nexthop *znh,
+				     unsigned long *nump)
+{
+	int num = 0;
+	int ret, i;
+	struct prefix p = {};
+
+	assert(policy->status == ZEBRA_SR_POLICY_UP);
+	p.family = AF_INET6;
+	p.prefixlen = IPV6_MAX_BITLEN;
+	memcpy(&p.u.prefix6, &policy->endpoint.ipaddr_v6, sizeof(p.u.prefix6));
+
+	stream_putc(s, ZEBRA_ROUTE_SRTE);
+	stream_putw(s, 0); /* instance - not available */
+	stream_putc(s, policy->segment_list.distance);
+	stream_putl(s, policy->segment_list.metric);
+	*nump = stream_get_endp(s);
+	stream_putc(s, 0);
+
+	for (i = 0; i < policy->segment_list.nexthop_resolved_num; i++) {
+		znh = &policy->segment_list.nexthop_resolved[i];
+		/* add SRTE in znh */
+		if (CHECK_FLAG(message, ZAPI_MESSAGE_SRTE))
+			znh->srte_color = policy->color;
+		ret = zapi_nexthop_encode(s, znh, 0, message);
+		if (ret < 0)
+			goto failure;
+		num++;
+	}
+	stream_putc_at(s, *nump, num);
+	stream_putw_at(s, 0, stream_get_endp(s));
+
+	client->nh_last_upd_time = monotime(NULL);
+	return zserv_send_message(client, s);
+
+failure:
+	stream_free(s);
+	/* Handle failure as needed */
+	return ret;
+}
+
 static int zebra_sr_policy_notify_update_client(struct zebra_sr_policy *policy,
 						struct zserv *client)
 {
@@ -132,6 +176,13 @@ static int zebra_sr_policy_notify_update_client(struct zebra_sr_policy *policy,
 		exit(1);
 	}
 	stream_putl(s, policy->color);
+
+	if (policy->segment_list.srv6_segs.num_segs > SRV6_MAX_SIDS)
+		policy->segment_list.srv6_segs.num_segs = SRV6_MAX_SIDS;
+
+	if (policy->segment_list.srv6_segs.num_segs > 0)
+		return process_routes_for_policy(policy, client, message, s,
+						 &znh, &nump);
 
 	num = 0;
 	frr_each (nhlfe_list_const, &policy->lsp->nhlfe_list, nhlfe) {
