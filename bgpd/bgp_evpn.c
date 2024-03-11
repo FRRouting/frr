@@ -1438,13 +1438,15 @@ static void evpn_delete_old_local_route(struct bgp *bgp, struct bgpevpn *vpn,
  * Note: vpn is NULL for local EAD-ES routes.
  */
 int evpn_route_select_install(struct bgp *bgp, struct bgpevpn *vpn,
-				     struct bgp_dest *dest)
+			      struct bgp_dest *dest, struct bgp_path_info *pi)
 {
 	struct bgp_path_info *old_select, *new_select;
 	struct bgp_path_info_pair old_and_new;
 	afi_t afi = AFI_L2VPN;
 	safi_t safi = SAFI_EVPN;
 	int ret = 0;
+
+	SET_FLAG(pi->flags, BGP_PATH_UNSORTED);
 
 	/* Compute the best path. */
 	bgp_best_selection(bgp, dest, &bgp->maxpaths[afi][safi], &old_and_new,
@@ -2225,7 +2227,7 @@ static int update_evpn_route(struct bgp *bgp, struct bgpevpn *vpn,
         * route would win, and we should evict the defunct local route
         * and (re)install the remote route into zebra.
 	*/
-	evpn_route_select_install(bgp, vpn, dest);
+	evpn_route_select_install(bgp, vpn, dest, pi);
 	/*
 	 * If the new local route was not selected evict it and tell zebra
 	 * to re-add the best remote dest. BGP doesn't retain non-best local
@@ -2383,7 +2385,7 @@ static int delete_evpn_route(struct bgp *bgp, struct bgpevpn *vpn,
 	if (pi) {
 		dest = bgp_path_info_reap(dest, pi);
 		assert(dest);
-		evpn_route_select_install(bgp, vpn, dest);
+		evpn_route_select_install(bgp, vpn, dest, pi);
 	}
 
 	/* dest should still exist due to locking make coverity happy */
@@ -2497,7 +2499,7 @@ void bgp_evpn_update_type2_route_entry(struct bgp *bgp, struct bgpevpn *vpn,
 	 * advertised to peers; otherwise, ensure it is evicted and
 	 * (re)install the remote route into zebra.
 	 */
-	evpn_route_select_install(bgp, vpn, dest);
+	evpn_route_select_install(bgp, vpn, dest, pi);
 
 	if (CHECK_FLAG(pi->flags, BGP_PATH_REMOVED)) {
 		route_change = 0;
@@ -3187,7 +3189,7 @@ static int install_evpn_route_entry_in_vni_common(
 	bgp_evpn_remote_ip_hash_add(vpn, pi);
 
 	/* Perform route selection and update zebra, if required. */
-	ret = evpn_route_select_install(bgp, vpn, dest);
+	ret = evpn_route_select_install(bgp, vpn, dest, pi);
 
 	/* if the best path is a local path with a non-zero ES
 	 * sync info against the local path may need to be updated
@@ -3229,7 +3231,7 @@ static int uninstall_evpn_route_entry_in_vni_common(
 	bgp_path_info_delete(dest, pi);
 
 	/* Perform route selection and update zebra, if required. */
-	ret = evpn_route_select_install(bgp, vpn, dest);
+	ret = evpn_route_select_install(bgp, vpn, dest, pi);
 
 	/* if the best path is a local path with a non-zero ES
 	 * sync info against the local path may need to be updated
