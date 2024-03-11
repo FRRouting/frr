@@ -172,6 +172,51 @@ def test_bgp_dynamic_capability_orf():
         result is None
     ), "Only 10.10.10.20/32 SHOULD be advertised due to ORF filtering"
 
+    # Clear message stats to check if we receive a notification or not after we
+    # disable ORF capability.
+    r1.vtysh_cmd("clear bgp 192.168.1.2 message-stats")
+    r1.vtysh_cmd(
+        """
+    configure terminal
+    router bgp
+     address-family ipv4 unicast
+      no neighbor 192.168.1.2 capability orf prefix-list both
+    """
+    )
+
+    def _bgp_check_if_orf_capability_is_absent():
+        output = json.loads(r1.vtysh_cmd("show bgp neighbor json"))
+        expected = {
+            "192.168.1.2": {
+                "bgpState": "Established",
+                "neighborCapabilities": {
+                    "dynamic": "advertisedAndReceived",
+                },
+                "messageStats": {
+                    "notificationsRecv": 0,
+                    "notificationsSent": 0,
+                },
+                "addressFamilyInfo": {
+                    "ipv4Unicast": {
+                        "acceptedPrefixCounter": 1,
+                        "afDependentCap": {
+                            "orfPrefixList": {
+                                "sendMode": "received",
+                                "recvMode": "received",
+                            }
+                        },
+                    }
+                },
+            }
+        }
+        return topotest.json_cmp(output, expected)
+
+    test_func = functools.partial(
+        _bgp_check_if_orf_capability_is_absent,
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    assert result is None, "Failed to disable ORF capability"
+
 
 if __name__ == "__main__":
     args = ["-s"] + sys.argv[1:]
