@@ -642,6 +642,7 @@ struct zapi_srte_tunnel {
 
 	/* For SRv6 resolution. contains
 	 * the resolved next-hop obtained by nexthop tracking
+	 * the original metric and distance values
 	 */
 	uint16_t nexthop_resolved_num;
 	struct zapi_nexthop nexthop_resolved[MULTIPATH_NUM];
