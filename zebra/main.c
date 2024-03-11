@@ -208,6 +208,7 @@ static void sigint(void)
 	rib_update_finish();
 
 	list_delete(&zrouter.client_list);
+	list_delete(&zrouter.stale_client_list);
 
 	/*
 	 * Besides other clean-ups zebra's vrf_disable() also enqueues installed
