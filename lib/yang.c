@@ -199,6 +199,16 @@ next:
 		if (ret == YANG_ITER_STOP)
 			return ret;
 	}
+	LY_LIST_FOR ((const struct lysc_node *)lysc_node_notifs(snode), child) {
+		ret = yang_snodes_iterate_subtree(child, module, cb, flags, arg);
+		if (ret == YANG_ITER_STOP)
+			return ret;
+	}
+	LY_LIST_FOR ((const struct lysc_node *)lysc_node_actions(snode), child) {
+		ret = yang_snodes_iterate_subtree(child, module, cb, flags, arg);
+		if (ret == YANG_ITER_STOP)
+			return ret;
+	}
 	return ret;
 }
 
