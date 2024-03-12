@@ -597,6 +597,9 @@ DEFUN(no_neighbor_bfd_profile, no_neighbor_bfd_profile_cmd,
 	if (!peer)
 		return CMD_WARNING_CONFIG_FAILED;
 
+	if (!peer->bfd_config)
+		return CMD_SUCCESS;
+
 	if (CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP))
 		bgp_group_configure_bfd(peer);
 	else
