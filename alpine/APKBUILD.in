@@ -27,6 +27,7 @@ source="$pkgname-$pkgver.tar.gz"
 
 builddir="$srcdir"/$pkgname-$pkgver
 
+_sysconfdir=/etc
 _sbindir=/usr/lib/frr
 _libdir=/usr/lib
 _user=frr
@@ -36,7 +37,7 @@ build() {
 
 	./configure \
 		--prefix=/usr \
-		--sysconfdir=/etc \
+		--sysconfdir=$_sysconfdir \
 		--localstatedir=/var \
 		--sbindir=$_sbindir \
 		--libdir=$_libdir \
@@ -61,7 +62,9 @@ package() {
 	cd "$builddir"
 	make DESTDIR="$pkgdir" install
 
-	install -Dm644 "$builddir"/tools/etc/frr/daemons "$pkgdir"$_sysconfdir/daemons
-	install -d "$pkgdir"/etc/init.d
-	ln -s ${_sbindir}/frr "$pkgdir"/etc/init.d/frr
+	install -d $pkgdir/$_sysconfdir/frr
+	install -m 0644 tools/etc/frr/daemons $pkgdir/$_sysconfdir/frr/daemons
+
+	install -d $pkgdir/$_sysconfdir/init.d
+	ln -s ${_sbindir}/frr $pkgdir/$_sysconfdir/init.d/frr
 }

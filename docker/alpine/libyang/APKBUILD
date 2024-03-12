@@ -1,7 +1,7 @@
 # Contributor: Sören Tempel <soeren+alpine@soeren-tempel.net>
 # Maintainer: Christian Franke <nobody@nowhere.ws>
 pkgname=libyang
-pkgver=2.1.80
+pkgver=2.1.128
 pkgrel=0
 pkgdesc="YANG data modelling language parser and toolkit"
 url="https://github.com/CESNET/libyang"
