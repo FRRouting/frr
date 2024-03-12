@@ -14127,33 +14127,28 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 					    CHECK_FLAG(
 						    p->af_cap[afi][safi],
 						    PEER_CAP_ADDPATH_AF_TX_RCV)) {
-						if (CHECK_FLAG(
-							    p->af_cap[afi]
-								     [safi],
-							    PEER_CAP_ADDPATH_AF_TX_ADV) &&
-						    CHECK_FLAG(
-							    p->af_cap[afi]
-								     [safi],
-							    PEER_CAP_ADDPATH_AF_TX_RCV))
-							json_object_boolean_true_add(
-								json_sub,
-								"txAdvertisedAndReceived");
-						else if (
-							CHECK_FLAG(
-								p->af_cap[afi]
-									 [safi],
-								PEER_CAP_ADDPATH_AF_TX_ADV))
-							json_object_boolean_true_add(
-								json_sub,
-								"txAdvertised");
-						else if (
-							CHECK_FLAG(
-								p->af_cap[afi]
-									 [safi],
-								PEER_CAP_ADDPATH_AF_TX_RCV))
-							json_object_boolean_true_add(
-								json_sub,
-								"txReceived");
+						json_object_boolean_add(
+							json_sub,
+							"txAdvertisedAndReceived",
+							CHECK_FLAG(p->af_cap[afi]
+									    [safi],
+								   PEER_CAP_ADDPATH_AF_TX_ADV) &&
+								CHECK_FLAG(
+									p->af_cap[afi]
+										 [safi],
+									PEER_CAP_ADDPATH_AF_TX_RCV));
+
+						json_object_boolean_add(
+							json_sub, "txAdvertised",
+							CHECK_FLAG(p->af_cap[afi]
+									    [safi],
+								   PEER_CAP_ADDPATH_AF_TX_ADV));
+
+						json_object_boolean_add(
+							json_sub, "txReceived",
+							CHECK_FLAG(p->af_cap[afi]
+									    [safi],
+								   PEER_CAP_ADDPATH_AF_TX_RCV));
 					}
 
 					if (CHECK_FLAG(
@@ -14162,33 +14157,28 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 					    CHECK_FLAG(
 						    p->af_cap[afi][safi],
 						    PEER_CAP_ADDPATH_AF_RX_RCV)) {
-						if (CHECK_FLAG(
-							    p->af_cap[afi]
-								     [safi],
-							    PEER_CAP_ADDPATH_AF_RX_ADV) &&
-						    CHECK_FLAG(
-							    p->af_cap[afi]
-								     [safi],
-							    PEER_CAP_ADDPATH_AF_RX_RCV))
-							json_object_boolean_true_add(
-								json_sub,
-								"rxAdvertisedAndReceived");
-						else if (
-							CHECK_FLAG(
-								p->af_cap[afi]
-									 [safi],
-								PEER_CAP_ADDPATH_AF_RX_ADV))
-							json_object_boolean_true_add(
-								json_sub,
-								"rxAdvertised");
-						else if (
-							CHECK_FLAG(
-								p->af_cap[afi]
-									 [safi],
-								PEER_CAP_ADDPATH_AF_RX_RCV))
-							json_object_boolean_true_add(
-								json_sub,
-								"rxReceived");
+						json_object_boolean_add(
+							json_sub,
+							"rxAdvertisedAndReceived",
+							CHECK_FLAG(p->af_cap[afi]
+									    [safi],
+								   PEER_CAP_ADDPATH_AF_RX_ADV) &&
+								CHECK_FLAG(
+									p->af_cap[afi]
+										 [safi],
+									PEER_CAP_ADDPATH_AF_RX_RCV));
+
+						json_object_boolean_add(
+							json_sub, "rxAdvertised",
+							CHECK_FLAG(p->af_cap[afi]
+									    [safi],
+								   PEER_CAP_ADDPATH_AF_RX_ADV));
+
+						json_object_boolean_add(
+							json_sub, "rxReceived",
+							CHECK_FLAG(p->af_cap[afi]
+									    [safi],
+								   PEER_CAP_ADDPATH_AF_RX_RCV));
 					}
 
 					if (CHECK_FLAG(
