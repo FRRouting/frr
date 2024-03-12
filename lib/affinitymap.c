@@ -41,8 +41,6 @@
 #include "jhash.h"
 
 DEFINE_MTYPE_STATIC(LIB, AFFINITY_MAP, "Affinity map");
-DEFINE_MTYPE(LIB, AFFINITY_MAP_NAME, "Affinity map name");
-DEFINE_MTYPE_STATIC(LIB, AFFINITY_MAP_INDEX, "Affinity map index");
 
 DEFINE_QOBJ_TYPE(affinity_maps);
 DEFINE_QOBJ_TYPE(affinity_map);

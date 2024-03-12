@@ -9,7 +9,6 @@
 #include "mgmt_msg_native.h"
 
 DEFINE_MGROUP(MSG_NATIVE, "Native message allocations");
-DEFINE_MTYPE(MSG_NATIVE, MSG_NATIVE_MSG, "native mgmt msg");
 DEFINE_MTYPE(MSG_NATIVE, MSG_NATIVE_ERROR, "native error msg");
 DEFINE_MTYPE(MSG_NATIVE, MSG_NATIVE_GET_TREE, "native get tree msg");
 DEFINE_MTYPE(MSG_NATIVE, MSG_NATIVE_TREE_DATA, "native tree data msg");
