@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 /* Thread management routine
  * Copyright (C) 1998, 2000 Kunihiro Ishiguro <kunihiro@zebra.org>
+ * Portions:
+ *     Copyright (C) 2023 Kaifei Peng
  */
 
 /* #define DEBUG */
@@ -9,6 +11,7 @@
 
 #include <signal.h>
 #include <sys/resource.h>
+#include <sys/stat.h>
 
 #include "frrevent.h"
 #include "memory.h"
@@ -57,11 +60,23 @@ static int event_timer_cmp(const struct event *a, const struct event *b)
 
 DECLARE_HEAP(event_timer_list, struct event, timeritem, event_timer_cmp);
 
+#if EPOLL_ENABLED
+/* When epoll APIs are used, the AWAKEN macro is supposed to be called with m->awakened mtx held */
 #define AWAKEN(m)                                                              \
 	do {                                                                   \
 		const unsigned char wakebyte = 0x01;                           \
-		write(m->io_pipe[1], &wakebyte, 1);                            \
+		pthread_mutex_lock(&(m)->awakened_mtx);                                   \
+		(m)->awakened = true;                                            \
+		pthread_mutex_unlock(&(m)->awakened_mtx);                                 \
+		write((m)->io_pipe[1], &wakebyte, 1);                            \
 	} while (0)
+#else
+#define AWAKEN(m)                                                              \
+	do {                                                                   \
+		const unsigned char wakebyte = 0x01;                           \
+		write((m)->io_pipe[1], &wakebyte, 1);                            \
+	} while (0)
+#endif
 
 /* control variable for initializer */
 static pthread_once_t init_once = PTHREAD_ONCE_INIT;
@@ -381,6 +396,49 @@ DEFPY (service_walltime_warning,
 	return CMD_SUCCESS;
 }
 
+#if EPOLL_ENABLED
+static void show_event_poll_helper(struct vty *vty, struct event_loop *m)
+{
+	const char *name = m->name ? m->name : "main";
+	char underline[strlen(name) + 1];
+	struct event *thread;
+	struct epoll_event *ev;
+	uint32_t i;
+
+	memset(underline, '-', sizeof(underline));
+	underline[sizeof(underline) - 1] = '\0';
+
+	vty_out(vty, "\nShowing epoll FD's for %s\n", name);
+	vty_out(vty, "----------------------%s\n", underline);
+	vty_out(vty, "Count: %u/%d\n", (uint32_t)m->handler.event_count,
+		m->fd_limit);
+	for (i = 0; i < m->handler.event_count; i++) {
+		ev = &(m->handler.event_ptrs[i]->ev);
+		vty_out(vty, "\t%6d fd:%6d events:%2d\t\t", i, ev->data.fd,
+			ev->events);
+
+		if (ev->events & EPOLLIN) {
+			thread = m->read[ev->data.fd];
+
+			if (!thread)
+				vty_out(vty, "ERROR ");
+			else
+				vty_out(vty, "%s ", thread->xref->funcname);
+		} else
+			vty_out(vty, " ");
+
+		if (ev->events & EPOLLOUT) {
+			thread = m->write[ev->data.fd];
+
+			if (!thread)
+				vty_out(vty, "ERROR\n");
+			else
+				vty_out(vty, "%s\n", thread->xref->funcname);
+		} else
+			vty_out(vty, "\n");
+	}
+}
+#else
 static void show_event_poll_helper(struct vty *vty, struct event_loop *m)
 {
 	const char *name = m->name ? m->name : "main";
@@ -421,6 +479,7 @@ static void show_event_poll_helper(struct vty *vty, struct event_loop *m)
 			vty_out(vty, "\n");
 	}
 }
+#endif
 
 DEFUN_NOSH (show_event_poll,
             show_event_poll_cmd,
@@ -548,6 +607,10 @@ struct event_loop *event_master_create(const char *name)
 {
 	struct event_loop *rv;
 	struct rlimit limit;
+#if EPOLL_ENABLED
+	struct epoll_event pipe_read_ev;
+	nfds_t i;
+#endif
 
 	pthread_once(&init_once, &initializer);
 
@@ -585,7 +648,7 @@ struct event_loop *event_master_create(const char *name)
 
 	char tmhashname[strlen(name) + 32];
 
-	snprintf(tmhashname, sizeof(tmhashname), "%s - threadmaster event hash",
+	snprintf(tmhashname, sizeof(tmhashname), "%s - event_loop event hash",
 		 name);
 	cpu_records_init(rv->cpu_records);
 
@@ -609,6 +672,55 @@ struct event_loop *event_master_create(const char *name)
 	set_nonblocking(rv->io_pipe[0]);
 	set_nonblocking(rv->io_pipe[1]);
 
+#if EPOLL_ENABLED
+	rv->awakened = false;
+	pthread_mutex_init(&rv->awakened_mtx, NULL);
+
+	/* Initialize data structures for epoll() */
+	rv->handler.event_size = rv->fd_limit;
+	rv->handler.event_count = 0;
+	rv->handler.new_event_count = 0;
+	rv->handler.regular_revent_count = 0;
+	rv->handler.epoll_fd = epoll_create1(0);
+	if (rv->handler.epoll_fd == -1) {
+		flog_err(
+			EC_LIB_NO_THREAD,
+			"Couldn't create an epoll set!");
+		return NULL;
+	}
+	rv->handler.events =
+		XCALLOC(MTYPE_EVENT_MASTER, sizeof(struct frr_epoll_event) *
+						    rv->handler.event_size);
+	rv->handler.event_ptrs =
+		XCALLOC(MTYPE_EVENT_MASTER, sizeof(struct frr_epoll_event *) *
+						    rv->handler.event_size);
+	rv->handler.new_events =
+		XCALLOC(MTYPE_EVENT_MASTER, sizeof(struct frr_epoll_event) *
+						    rv->handler.event_size);
+	rv->handler.new_event_ptrs =
+		XCALLOC(MTYPE_EVENT_MASTER, sizeof(struct frr_epoll_event *) *
+						    rv->handler.event_size);
+	rv->handler.revents =
+		XCALLOC(MTYPE_EVENT_MASTER,
+			sizeof(struct epoll_event) * rv->handler.event_size);
+	rv->handler.regular_revents =
+		XCALLOC(MTYPE_EVENT_MASTER,
+			sizeof(struct epoll_event) * rv->handler.event_size);
+	for (i = 0; i < rv->handler.event_size; i++) {
+		rv->handler.events[i].index = -1;
+		rv->handler.new_events[i].index = -1;
+	}
+	pipe_read_ev.data.fd = rv->io_pipe[0];
+	pipe_read_ev.events = EPOLLIN;
+	if (-1 == epoll_ctl(rv->handler.epoll_fd, EPOLL_CTL_ADD, rv->io_pipe[0],
+			    &pipe_read_ev)) {
+		flog_err(
+			EC_LIB_NO_THREAD,
+			"Attempting to call epoll_ctl to add io_pipe[0] but failed, fd: %d!",
+			rv->io_pipe[0]);
+		exit(1);
+	}
+#else
 	/* Initialize data structures for poll() */
 	rv->handler.pfdsize = rv->fd_limit;
 	rv->handler.pfdcount = 0;
@@ -616,6 +728,7 @@ struct event_loop *event_master_create(const char *name)
 				   sizeof(struct pollfd) * rv->handler.pfdsize);
 	rv->handler.copy = XCALLOC(MTYPE_EVENT_MASTER,
 				   sizeof(struct pollfd) * rv->handler.pfdsize);
+#endif
 
 	/* add to list of threadmasters */
 	frr_with_mutex (&masters_mtx) {
@@ -725,6 +838,11 @@ void event_master_free(struct event_loop *m)
 	pthread_cond_destroy(&m->cancel_cond);
 	close(m->io_pipe[0]);
 	close(m->io_pipe[1]);
+#if EPOLL_ENABLED
+	pthread_mutex_destroy(&m->awakened_mtx);
+	epoll_ctl(m->handler.epoll_fd, EPOLL_CTL_DEL, m->io_pipe[0], NULL);
+	close(m->handler.epoll_fd);
+#endif
 	list_delete(&m->cancel_req);
 	m->cancel_req = NULL;
 
@@ -733,8 +851,17 @@ void event_master_free(struct event_loop *m)
 	cpu_records_fini(m->cpu_records);
 
 	XFREE(MTYPE_EVENT_MASTER, m->name);
+#if EPOLL_ENABLED
+	XFREE(MTYPE_EVENT_MASTER, m->handler.events);
+	XFREE(MTYPE_EVENT_MASTER, m->handler.event_ptrs);
+	XFREE(MTYPE_EVENT_MASTER, m->handler.new_events);
+	XFREE(MTYPE_EVENT_MASTER, m->handler.new_event_ptrs);
+	XFREE(MTYPE_EVENT_MASTER, m->handler.revents);
+	XFREE(MTYPE_EVENT_MASTER, m->handler.regular_revents);
+#else
 	XFREE(MTYPE_EVENT_MASTER, m->handler.pfds);
 	XFREE(MTYPE_EVENT_MASTER, m->handler.copy);
+#endif
 	XFREE(MTYPE_EVENT_MASTER, m);
 }
 
@@ -856,12 +983,179 @@ static void thread_free(struct event_loop *master, struct event *thread)
 	XFREE(MTYPE_THREAD, thread);
 }
 
+#if EPOLL_ENABLED
+static void get_fd_stat(int fd, struct stat *fd_stat, bool *fd_closed)
+{
+	assert(fd_stat != NULL);
+	if (fstat(fd, fd_stat) == -1) {
+		/* fd is probably already closed */
+		if (errno == EBADF) {
+			if (fd_closed != NULL)
+				*fd_closed = true;
+			return;
+		}
+		zlog_debug("[!] In %s, fstat failed unexpectedly, fd: %d, errno: %d)",
+			   __func__, fd, errno);
+	}
+	if (fd_closed != NULL)
+		*fd_closed = false;
+}
+
+/*
+ * Flush new event requests to epoll_fd set and m->handler.events
+ *
+ * @REQUIRE m->mtx
+ */
+static void update_events(struct event_loop *m)
+{
+	struct frr_epoll_event *new_frr_ev, *existing_frr_ev;
+	struct epoll_event ev, *new_ev, *existing_ev;
+	bool has_existing, fd_closed;
+	int update_fd;
+	struct stat fd_stat;
+
+	/* Flush m->handler.new_events to epoll_fd set and m->handler.events */
+	for (nfds_t i = 0; i < m->handler.new_event_count; i++) {
+		new_frr_ev = m->handler.new_event_ptrs[i];
+		new_ev = &new_frr_ev->ev;
+		update_fd = new_ev->data.fd;
+		existing_frr_ev = m->handler.events + update_fd;
+		existing_ev = &existing_frr_ev->ev;
+		has_existing = (existing_frr_ev->index >= 0);
+
+		get_fd_stat(update_fd, &fd_stat, &fd_closed);
+
+		/*
+		 * Construct ev which is passed to epoll_ctl call
+		 * Note that ev.events should be new events OR'd with
+		 * existing events
+		 */
+		ev.data.fd = update_fd;
+		ev.events = has_existing ? new_ev->events | existing_ev->events
+					 : new_ev->events;
+
+		/* Update epoll_fd set, .events and .event_ptrs */
+		if (!has_existing) {
+			if (S_ISREG(fd_stat.st_mode)) {
+				/*
+				 * Don't add regular file into epoll set,
+				 * directly add it into regular_revents.
+				 */
+				m->handler
+					.regular_revents
+						[m->handler
+							 .regular_revent_count]
+					.data.fd = update_fd;
+				m->handler
+					.regular_revents
+						[m->handler
+							 .regular_revent_count]
+					.events = ev.events;
+				m->handler.regular_revent_count++;
+			} else if (!fd_closed &&
+				   -1 == epoll_ctl(m->handler.epoll_fd,
+						   EPOLL_CTL_ADD, update_fd,
+						   &ev)) {
+				if (errno == EEXIST) {
+					/* We are never supposed to reach here
+					 */
+					zlog_err("[!] Attempting to add an existing fd into epoll_fd set. Existing fd: %d, existing_ev: %d, req_ev: %d",
+						 update_fd, existing_ev->events,
+						 new_ev->events);
+				}
+			}
+			existing_ev->data.fd = update_fd;
+			existing_ev->events = ev.events;
+			existing_frr_ev->index = m->handler.event_count++;
+			m->handler.event_ptrs[existing_frr_ev->index] =
+				existing_frr_ev;
+		} else {
+			if (S_ISREG(fd_stat.st_mode)) {
+				/*
+				 * Don't add regular file into epoll set,
+				 * directly add it into regular_revents.
+				 */
+				m->handler
+					.regular_revents
+						[m->handler
+							 .regular_revent_count]
+					.data.fd = update_fd;
+				m->handler
+					.regular_revents
+						[m->handler
+							 .regular_revent_count]
+					.events = ev.events;
+			} else if (!fd_closed &&
+				   -1 == epoll_ctl(m->handler.epoll_fd,
+						   EPOLL_CTL_MOD, update_fd,
+						   &ev) &&
+				   errno == ENOENT) {
+				/*
+				 * Errno == ENOENT, indicating update_fd is a
+				 * zombie fd (already closed fd)
+				 *
+				 *
+				 * Why zombie fds occur?
+				 *
+				 * Fds are always added to epoll set by calling
+				 * event_add_read_write. Intuitively, fds are
+				 * supposed to be removed from epoll set in kernel
+				 * explictly by calling event_cancel_*.
+				 *
+				 * However, some fds are closed without
+				 * calling event_cancel_*. In other words,
+				 * these fds have been IMPLICITLY removed from
+				 * epoll set. These implicitly removed fds left
+				 * there entries in .event(_ptr)s and
+				 * .new_event(_ptr)s. When the fd number is re-used
+				 * and events related to these new fds occur, we
+				 * can re-utilize these entries, but must update
+				 * epoll set according to incoming new_event.
+				 *
+				 * Calling epoll_set to MODIFY a zombie fd, we
+				 * get errno 2. Once an errno of 2 occurs, we
+				 * encounter a zombie fd. We call epoll_ctl with
+				 * EPOLL_CTL_ADD instead, to re-add the fd into
+				 * epoll set. After this ADDing, the fd points to
+				 * new underlying file structure correctly
+				 */
+				if (!fd_closed &&
+				    -1 == epoll_ctl(m->handler.epoll_fd,
+						    EPOLL_CTL_ADD, update_fd,
+						    &ev)) {
+					zlog_debug(
+						"[!] Reutilizing a zombie event entry(fd: %d) failed! Existing_ev: %d, req_ev: %d",
+						update_fd, existing_ev->events,
+						new_ev->events);
+				}
+			}
+			existing_ev->data.fd = update_fd;
+			existing_ev->events = ev.events;
+		}
+
+		/* Clear flushed *new_frr_ev and new_frr_ev */
+		new_frr_ev->index = -1;
+		new_frr_ev->ev.data.fd = 0;
+		new_frr_ev->ev.events = 0;
+	}
+
+	m->handler.new_event_count = 0;
+}
+#endif
+
 static int fd_poll(struct event_loop *m, const struct timeval *timer_wait,
 		   bool *eintr_p)
 {
 	sigset_t origsigs;
 	unsigned char trash[64];
+#if !EPOLL_ENABLED
 	nfds_t count = m->handler.copycount;
+#endif
+
+#if EPOLL_ENABLED
+	if (m->handler.event_count == 0)
+		return 0;
+#endif
 
 	/*
 	 * If timer_wait is null here, that means poll() should block
@@ -894,18 +1188,20 @@ static int fd_poll(struct event_loop *m, const struct timeval *timer_wait,
 	rcu_read_unlock();
 	rcu_assert_read_unlocked();
 
+#if !EPOLL_ENABLED
 	/* add poll pipe poker */
 	assert(count + 1 < m->handler.pfdsize);
 	m->handler.copy[count].fd = m->io_pipe[0];
 	m->handler.copy[count].events = POLLIN;
 	m->handler.copy[count].revents = 0x00;
+#endif
 
-	/* We need to deal with a signal-handling race here: we
-	 * don't want to miss a crucial signal, such as SIGTERM or SIGINT,
-	 * that may arrive just before we enter poll(). We will block the
+	/* We need to deal with a signal-handling race here: we don't want
+	 * to miss a crucial signal, such as SIGTERM or SIGINT, that may
+	 * arrive just before we enter poll()/epoll_wait(). We will block the
 	 * key signals, then check whether any have arrived - if so, we return
-	 * before calling poll(). If not, we'll re-enable the signals
-	 * in the ppoll() call.
+	 * before calling poll()/epoll_wait(). If not, we'll re-enable the
+	 * signals in the poll()/epoll_wait() call.
 	 */
 
 	sigemptyset(&origsigs);
@@ -923,16 +1219,26 @@ static int fd_poll(struct event_loop *m, const struct timeval *timer_wait,
 		pthread_sigmask(SIG_SETMASK, NULL, &origsigs);
 	}
 
-#if defined(HAVE_PPOLL)
+#if defined(USE_EPOLL) && defined(HAVE_EPOLL_PWAIT2)
 	struct timespec ts, *tsp;
 
-	if (timeout >= 0) {
-		ts.tv_sec = timeout / 1000;
-		ts.tv_nsec = (timeout % 1000) * 1000000;
-		tsp = &ts;
-	} else
-		tsp = NULL;
+	ms2ts(timeout, ts, tsp);
+	num = epoll_pwait2(m->handler.epoll_fd, m->handler.revents,
+			   m->handler.event_count, tsp, &origsigs);
+	pthread_sigmask(SIG_SETMASK, &origsigs, NULL);
+#elif defined(USE_EPOLL) && defined(HAVE_EPOLL_PWAIT)
+	num = epoll_pwait(m->handler.epoll_fd, m->handler.revents,
+			  m->handler.event_count, timeout, &origsigs);
+	pthread_sigmask(SIG_SETMASK, &origsigs, NULL);
+#elif defined(USE_EPOLL) && defined(HAVE_EPOLL_WAIT)
+	/* Not ideal - there is a race after we restore the signal mask */
+	pthread_sigmask(SIG_SETMASK, &origsigs, NULL);
+	num = epoll_wait(m->handler.epoll_fd, m->handler.revents,
+			 m->handler.event_count, timeout);
+#elif defined(HAVE_PPOLL)
+	struct timespec ts, *tsp;
 
+	ms2ts(timeout, ts, tsp);
 	num = ppoll(m->handler.copy, count + 1, tsp, &origsigs);
 	pthread_sigmask(SIG_SETMASK, &origsigs, NULL);
 #else
@@ -946,9 +1252,21 @@ done:
 	if (num < 0 && errno == EINTR)
 		*eintr_p = true;
 
+	/* AWAKENed, exhaust io_pipe */
+#if EPOLL_ENABLED
+	pthread_mutex_lock(&m->awakened_mtx);
+	if (num > 0 && m->awakened) {
+		while (read(m->io_pipe[0], &trash, sizeof(trash)) > 0)
+			;
+		m->awakened = false;
+		num--;
+	}
+	pthread_mutex_unlock(&m->awakened_mtx);
+#else
 	if (num > 0 && m->handler.copy[count].revents != 0 && num--)
 		while (read(m->io_pipe[0], &trash, sizeof(trash)) > 0)
 			;
+#endif
 
 	rcu_read_lock();
 
@@ -960,6 +1278,94 @@ void _event_add_read_write(const struct xref_eventsched *xref,
 			   struct event_loop *m, void (*func)(struct event *),
 			   void *arg, int fd, struct event **t_ptr)
 {
+#if EPOLL_ENABLED
+	struct frr_epoll_event *new_frr_ev;
+	struct epoll_event *new_ev;
+	bool has_new;
+	int dir = xref->event_type;
+	struct event *thread = NULL;
+	struct event **thread_array;
+
+	if (dir == EVENT_READ)
+		frrtrace(9, frr_libfrr, schedule_read, m, xref->funcname,
+			 xref->xref.file, xref->xref.line, t_ptr, fd, 0, arg,
+			 0);
+	else
+		frrtrace(9, frr_libfrr, schedule_write, m, xref->funcname,
+			 xref->xref.file, xref->xref.line, t_ptr, fd, 0, arg,
+			 0);
+
+	assert(fd >= 0);
+	if (fd >= m->fd_limit)
+		assert(!"Number of FD's open is greater than FRR currently configured to handle, aborting");
+
+	frr_with_mutex (&m->mtx) {
+		if (t_ptr && *t_ptr)
+			/* thread is already scheduled; don't reschedule */
+			break;
+
+		/*
+		 * default: a new frr_epoll_event for the new request.
+		 * Queue the new event at the end of .new_event_ptrs array
+		 */
+		nfds_t queuepos = m->handler.new_event_count;
+
+		if (dir == EVENT_READ)
+			thread_array = m->read;
+		else
+			thread_array = m->write;
+
+		new_frr_ev = m->handler.new_events + fd;
+		has_new = (new_frr_ev->index >= 0);
+
+		/*
+		 * if we already have a new_event for our file descriptor, find
+		 * and use it
+		 */
+		if (has_new) {
+			queuepos = new_frr_ev->index;
+#ifdef DEV_BUILD
+			/*
+			 * What happens if we have a thread already
+			 * created for this event?
+			 */
+			if (thread_array[fd])
+				assert(!"Thread already scheduled for file descriptor");
+#endif
+		}
+
+		thread = thread_get(m, dir, func, arg, xref);
+
+		/* Record the new event requset in .new_events*/
+		new_ev = &new_frr_ev->ev;
+		new_ev->data.fd = fd;
+		new_ev->events |= (dir == EVENT_READ ? EPOLLIN : EPOLLOUT);
+		/* Queue the new event request into .new_event_ptrs */
+		m->handler.new_event_ptrs[queuepos] = new_frr_ev;
+		new_frr_ev->index = queuepos;
+
+		if (queuepos == m->handler.new_event_count)
+			m->handler.new_event_count++;
+
+		/*
+		 * Queue the thread which will handle the new event request
+		 * into thread_array
+		 */
+		if (thread) {
+			frr_with_mutex (&thread->mtx) {
+				thread->u.fd = fd;
+				thread_array[thread->u.fd] = thread;
+			}
+
+			if (t_ptr) {
+				*t_ptr = thread;
+				thread->ref = t_ptr;
+			}
+		}
+
+		AWAKEN(m);
+	}
+#else
 	int dir = xref->event_type;
 	struct event *thread = NULL;
 	struct event **thread_array;
@@ -1035,6 +1441,7 @@ void _event_add_read_write(const struct xref_eventsched *xref,
 
 		AWAKEN(m);
 	}
+#endif
 }
 
 static void _event_add_timer_timeval(const struct xref_eventsched *xref,
@@ -1163,6 +1570,196 @@ void _event_add_event(const struct xref_eventsched *xref, struct event_loop *m,
 
 /* Thread cancellation ------------------------------------------------------ */
 
+#if EPOLL_ENABLED
+/**
+ *
+ * Remove the EPOLLIN/EPOLLOUT marks of the given file descriptor in
+ * master->handler.events and epoll_fd set. Also, Modify
+ * master->handler.event_ptrs accordingly.
+ *
+ * The event to be NOT'd is passed in the 'state' parameter.
+ *
+ * @param master
+ * @param fd
+ * @param state the event to cancel. One or more (OR'd together) of the
+ * following:
+ *   - EPOLLIN
+ *   - EPOLLOUT
+ */
+static void event_cancel_exist_rw(struct event_loop *master, int fd,
+				  uint32_t state)
+{
+	struct frr_epoll_event *existing_frr_ev;
+	struct epoll_event *existing_ev;
+	bool has_existing = false, events_cleaned = false, fd_closed;
+	struct stat fd_stat;
+	nfds_t i_ptr, i;
+
+	get_fd_stat(fd, &fd_stat, &fd_closed);
+
+	/* Cancel EPOLLHUP too just in case some bozo set it */
+	state |= EPOLLHUP;
+
+	/* Look for the index of the canceled event in .event_ptrs array */
+	existing_frr_ev = master->handler.events + fd;
+	has_existing = (existing_frr_ev->index >= 0);
+
+	if (!has_existing) {
+		/* Fd of the canceled rw job is not flushed to the epoll set yet */
+		return;
+	}
+	i_ptr = existing_frr_ev->index;
+
+	/* NOT out .events of corresponding frr_epoll_event */
+	existing_ev = &existing_frr_ev->ev;
+	existing_ev->events &= ~(state);
+
+	events_cleaned = !(existing_ev->events & (EPOLLIN | EPOLLOUT));
+
+	if (events_cleaned) {
+		/* remove fd from epoll_fd set */
+		if (S_ISREG(fd_stat.st_mode)) {
+			for (i = 0; i < master->handler.regular_revent_count;
+			     i++) {
+				if (master->handler.regular_revents[i]
+					    .data.fd == fd) {
+					break;
+				}
+			}
+			if (i == master->handler.regular_revent_count) {
+				zlog_debug(
+					"[!] Received cancellation request for nonexistent regular rw job");
+				zlog_debug("[!] threadmaster: %s | fd: %d",
+					   master->name ? master->name : "",
+					   fd);
+				return;
+			}
+			memmove(master->handler.regular_revents + i,
+				master->handler.regular_revents + i + 1,
+				(master->handler.regular_revent_count - i - 1) *
+					sizeof(struct epoll_event));
+			master->handler.regular_revent_count--;
+			master->handler
+				.regular_revents[master->handler
+							 .regular_revent_count]
+				.data.fd = 0;
+			master->handler
+				.regular_revents[master->handler
+							 .regular_revent_count]
+				.events = 0;
+		} else if (!fd_closed &&
+			   -1 == epoll_ctl(master->handler.epoll_fd,
+					   EPOLL_CTL_DEL, fd, existing_ev)) {
+			zlog_debug("[!] epoll_ctl(EPOLL_CTL_DEL) error while canceling existing rw events, errno: %d",
+				   errno);
+			zlog_debug("[!] threadmaster: %s | fd: %d",
+				   master->name ? master->name : "", fd);
+		}
+		/* reset existing_frr_ev */
+		existing_ev->data.fd = 0;
+		existing_ev->events = 0;
+		existing_frr_ev->index = -1;
+		/* remove the entry in .event_ptrs */
+		for (i = i_ptr; i < master->handler.event_count - 1; i++) {
+			master->handler.event_ptrs[i] =
+				master->handler.event_ptrs[i + 1];
+			master->handler.event_ptrs[i]->index = i;
+		}
+		master->handler.event_count--;
+	} else {
+		/* modify the events of fd in epoll_fd set */
+		if (S_ISREG(fd_stat.st_mode)) {
+			for (i = 0; i < master->handler.regular_revent_count;
+			     i++) {
+				if (master->handler.regular_revents[i]
+					    .data.fd == fd) {
+					break;
+				}
+			}
+			if (i == master->handler.regular_revent_count) {
+				zlog_debug(
+					"[!] Received cancellation request for nonexistent regular rw job");
+				zlog_debug("[!] threadmaster: %s | fd: %d",
+					   master->name ? master->name : "",
+					   fd);
+				return;
+			}
+			master->handler.regular_revents[i].events =
+				existing_ev->events;
+		} else if (!fd_closed &&
+			   -1 == epoll_ctl(master->handler.epoll_fd,
+					   EPOLL_CTL_MOD, fd, existing_ev)) {
+			zlog_debug("[!] epoll_ctl(EPOLL_CTL_MOD) error while canceling existing rw events, errno: %d",
+				   errno);
+			zlog_debug("[!] threadmaster: %s | fd: %d",
+				   master->name ? master->name : "", fd);
+		}
+	}
+}
+
+/**
+ *
+ * Remove the EPOLLIN/EPOLLOUT marks of the given file descriptor in
+ * master->handler.new_events. Also, modify master->handler.new_event_ptrs
+ * accordingly.
+ *
+ * The event to be NOT'd is passed in the 'state' parameter.
+ *
+ * @param master
+ * @param fd
+ * @param state the event to cancel. One or more (OR'd together) of the
+ * following:
+ *   - EPOLLIN
+ *   - EPOLLOUT
+ */
+static void event_cancel_new_rw(struct event_loop *master, int fd,
+				uint32_t state)
+{
+	struct frr_epoll_event *new_frr_ev;
+	struct epoll_event *new_ev;
+	bool has_new = false, events_cleaned = false, fd_closed;
+	struct stat fd_stat;
+	nfds_t i_ptr, i;
+
+	get_fd_stat(fd, &fd_stat, &fd_closed);
+
+	/* Cancel EPOLLHUP too just in case some bozo set it */
+	state |= EPOLLHUP;
+
+	/* Look for the index of the canceled event in .new_event_ptrs array */
+	new_frr_ev = master->handler.new_events + fd;
+	has_new = (new_frr_ev->index >= 0);
+
+	if (!has_new) {
+		/*
+		 * The canceled events is not in fd_handler->new_events. Instead, it
+		 * should be in fd_handler->events.
+		 */
+		return;
+	}
+	i_ptr = new_frr_ev->index;
+
+	/* NOT out .events of corresponding frr_epoll_event */
+	new_ev = &new_frr_ev->ev;
+	new_ev->events &= ~(state);
+
+	events_cleaned = !(new_ev->events & (EPOLLIN | EPOLLOUT));
+
+	if (events_cleaned) {
+		/* reset new_frr_ev */
+		new_ev->data.fd = 0;
+		new_ev->events = 0;
+		new_frr_ev->index = -1;
+		/* remove the entry in .new_event_ptrs */
+		for (i = i_ptr; i < master->handler.new_event_count - 1; i++) {
+			master->handler.new_event_ptrs[i] =
+				master->handler.new_event_ptrs[i + 1];
+			master->handler.new_event_ptrs[i]->index = i;
+		}
+		master->handler.new_event_count--;
+	}
+}
+#else
 /**
  * NOT's out the .events field of pollfd corresponding to the given file
  * descriptor. The event to be NOT'd is passed in the 'state' parameter.
@@ -1240,6 +1837,7 @@ static void event_cancel_rw(struct event_loop *master, int fd, short state,
 		master->handler.copy[master->handler.copycount].events = 0;
 	}
 }
+#endif
 
 /*
  * Process task cancellation given a task argument: iterate through the
@@ -1251,7 +1849,12 @@ static void cancel_arg_helper(struct event_loop *master,
 	struct event *t;
 	nfds_t i;
 	int fd;
+#if EPOLL_ENABLED
+	struct frr_epoll_event *frr_ev;
+	struct epoll_event *ev;
+#else
 	struct pollfd *pfd;
+#endif
 
 	/* We're only processing arg-based cancellations here. */
 	if (cr->eventobj == NULL)
@@ -1281,6 +1884,72 @@ static void cancel_arg_helper(struct event_loop *master,
 		return;
 
 	/* Check the io tasks */
+#if EPOLL_ENABLED
+	/* Traverse through master->handler.event_ptrs */
+	for (i = 0; i < master->handler.event_count;) {
+		frr_ev = *(master->handler.event_ptrs + i);
+		ev = &frr_ev->ev;
+
+		if (ev->events & EPOLLIN)
+			t = master->read[ev->data.fd];
+		else
+			t = master->write[ev->data.fd];
+
+		if (t && t->arg == cr->eventobj) {
+			fd = ev->data.fd;
+
+			/* Found a match to cancel: clean up fd arrays */
+			event_cancel_exist_rw(master, fd, ev->events);
+
+			/* Clean up thread arrays */
+			master->read[fd] = NULL;
+			master->write[fd] = NULL;
+
+			/* Clear caller's ref */
+			if (t->ref)
+				*t->ref = NULL;
+
+			thread_add_unuse(master, t);
+
+			/* Don't increment 'i' since the cancellation will have
+			 * removed the entry from the .event_ptrs array
+			 */
+		} else
+			i++;
+	}
+	/* Traverse through master->handler.new_event_ptrs */
+	for (i = 0; i < master->handler.new_event_count;) {
+		frr_ev = *(master->handler.new_event_ptrs + i);
+		ev = &frr_ev->ev;
+
+		if (ev->events & EPOLLIN)
+			t = master->read[ev->data.fd];
+		else
+			t = master->write[ev->data.fd];
+
+		if (t && t->arg == cr->eventobj) {
+			fd = ev->data.fd;
+
+			/* Found a match to cancel: clean up fd arrays */
+			event_cancel_new_rw(master, fd, ev->events);
+
+			/* Clean up thread arrays */
+			master->read[fd] = NULL;
+			master->write[fd] = NULL;
+
+			/* Clear caller's ref */
+			if (t->ref)
+				*t->ref = NULL;
+
+			thread_add_unuse(master, t);
+
+			/* Don't increment 'i' since the cancellation will have
+			 * removed the entry from the .new_event_ptrs array
+			 */
+		} else
+			i++;
+	}
+#else
 	for (i = 0; i < master->handler.pfdcount;) {
 		pfd = master->handler.pfds + i;
 
@@ -1311,6 +1980,7 @@ static void cancel_arg_helper(struct event_loop *master,
 		} else
 			i++;
 	}
+#endif
 
 	/* Check the timer tasks */
 	t = event_timer_list_first(&master->timer);
@@ -1374,11 +2044,21 @@ static void do_event_cancel(struct event_loop *master)
 		/* Determine the appropriate queue to cancel the thread from */
 		switch (thread->type) {
 		case EVENT_READ:
+#if EPOLL_ENABLED
+			event_cancel_exist_rw(master, thread->u.fd, EPOLLIN);
+			event_cancel_new_rw(master, thread->u.fd, EPOLLIN);
+#else
 			event_cancel_rw(master, thread->u.fd, POLLIN, -1);
+#endif
 			thread_array = master->read;
 			break;
 		case EVENT_WRITE:
+#if EPOLL_ENABLED
+			event_cancel_exist_rw(master, thread->u.fd, EPOLLOUT);
+			event_cancel_new_rw(master, thread->u.fd, EPOLLOUT);
+#else
 			event_cancel_rw(master, thread->u.fd, POLLOUT, -1);
+#endif
 			thread_array = master->write;
 			break;
 		case EVENT_TIMER:
@@ -1588,6 +2268,221 @@ static struct event *thread_run(struct event_loop *m, struct event *thread,
 	return fetch;
 }
 
+#if EPOLL_ENABLED
+static int thread_process_io_helper(struct event_loop *m, struct event *thread,
+				    uint32_t state, uint32_t actual_state,
+				    int fd)
+{
+	struct event **thread_array;
+	struct frr_epoll_event *existing_frr_ev;
+	struct epoll_event *existing_ev;
+	bool has_existing = false, fd_closed;
+	struct stat fd_stat;
+
+	get_fd_stat(fd, &fd_stat, &fd_closed);
+
+	/*
+	 * Clear the "state" bits of the .events field of the
+	 * corresponding epoll_event object in m->handler.events,
+	 * and then modify epoll_fd set accordingly (don't make
+	 * deletion even if .events field are all cleaned).
+	 *
+	 * This cleans up a possible infinite loop where we refuse
+	 * to respond to a epoll event but epoll is insistent that
+	 * we should.
+	 */
+	existing_frr_ev = m->handler.events + fd;
+	has_existing = (existing_frr_ev->index >= 0);
+
+	if (!has_existing) {
+		zlog_debug(
+			"[!] Unexpected processing of an I/O thread. fd: %d, state: %u, actual_state: %u",
+			fd, state, actual_state);
+		zlog_debug("[!] threadmaster: %s | fd: %d",
+			   m->name ? m->name : "", fd);
+		return 0;
+	}
+
+	existing_ev = &existing_frr_ev->ev;
+	existing_ev->events &= ~(state);
+
+	/* modify the events of fd in epoll_fd set */
+	if (!S_ISREG(fd_stat.st_mode) && !fd_closed &&
+	    -1 == epoll_ctl(m->handler.epoll_fd, EPOLL_CTL_MOD, fd,
+			    existing_ev)) {
+		zlog_debug(
+			"[!] epoll_ctl(EPOLL_CTL_MOD) error while processing an I/O thread, fd: %d, incoming_event: %d, actual_state: %d, errno: %d",
+			fd, state, actual_state, errno);
+	}
+
+	if (!thread) {
+		if ((!fd_closed &&
+		     (actual_state & (EPOLLHUP | EPOLLIN)) != EPOLLHUP))
+			flog_err(
+				EC_LIB_NO_THREAD,
+				"Attempting to process an I/O event but for fd: %d(%d) no thread to handle this!",
+				fd, actual_state);
+		return 0;
+	}
+
+	if (thread->type == EVENT_READ)
+		thread_array = m->read;
+	else
+		thread_array = m->write;
+
+	thread_array[thread->u.fd] = NULL;
+	event_list_add_tail(&m->ready, thread);
+	thread->type = EVENT_READY;
+
+	return 1;
+}
+
+static inline void thread_process_io_inner_loop(struct event_loop *m,
+						unsigned int num,
+						struct epoll_event *revents,
+						nfds_t *i, uint32_t *ready)
+{
+	struct frr_epoll_event *existing_frr_ev, *new_frr_ev;
+	struct epoll_event *existing_ev, *new_ev;
+	nfds_t j, j_start;
+	int fd;
+	bool fd_closed;
+	struct stat fd_stat;
+
+	fd = revents[*i].data.fd;
+	if (fd == m->io_pipe[0] || fd == m->io_pipe[1])
+		return;
+
+	*ready = *ready + 1;
+
+	/*
+	 * We are including EPOLLERR here to do a READ event
+	 * this is because the read should fail and the
+	 * read function should handle it appropriately
+	 */
+	if (revents[*i].events & (EPOLLIN | EPOLLRDHUP | EPOLLHUP | EPOLLERR)) {
+		thread_process_io_helper(m, m->read[fd], EPOLLIN,
+					 revents[*i].events, fd);
+	}
+	if (revents[*i].events & EPOLLOUT) {
+		thread_process_io_helper(m, m->write[fd], EPOLLOUT,
+					 revents[*i].events, fd);
+	}
+
+	/*
+	 * If one of our file descriptors is garbage, do
+	 *   1. reset the fd in .events and .new_events
+	 *   2. remove the fd from epoll_fd set, .event_ptrs, and
+	 * .new_event_ptrs
+	 */
+	/* Reset the fd in .events and .new_events */
+	get_fd_stat(fd, &fd_stat, &fd_closed);
+	if (fd_closed || (revents[*i].events & (EPOLLHUP | EPOLLERR))) {
+		/* remove fd from epoll_fd set */
+		if (S_ISREG(fd_stat.st_mode)) {
+			for (j = 0; j < m->handler.regular_revent_count; j++) {
+				if (m->handler.regular_revents[j].data.fd == fd)
+					break;
+			}
+			if (j == m->handler.regular_revent_count) {
+				zlog_debug(
+					"[!] Canceling nonexistent regular rw job");
+				zlog_debug("[!] threadmaster: %s | fd: %d",
+					   m->name ? m->name : "", fd);
+				return;
+			}
+			memmove(m->handler.regular_revents + j,
+				m->handler.regular_revents + j + 1,
+				(m->handler.regular_revent_count - j - 1) *
+					sizeof(struct epoll_event));
+			m->handler.regular_revent_count--;
+			m->handler
+				.regular_revents[m->handler.regular_revent_count]
+				.data.fd = 0;
+			m->handler
+				.regular_revents[m->handler.regular_revent_count]
+				.events = 0;
+		} else if (!fd_closed &&
+			   -1 == epoll_ctl(m->handler.epoll_fd, EPOLL_CTL_DEL,
+					   fd, NULL)) {
+			zlog_debug(
+				"[!] epoll_ctl(EPOLL_CTL_DEL) error when handling EPOLLHUP/EPOLLERR");
+			zlog_debug("threadmaster: %s | fd: %d",
+				   m->name ? m->name : "", fd);
+		}
+		/* Remove the fd from epoll_fd set, .event_ptrs, and .new_event_ptrs */
+		existing_frr_ev = m->handler.events + fd;
+		existing_ev = &existing_frr_ev->ev;
+		new_frr_ev = m->handler.new_events + fd;
+		new_ev = &new_frr_ev->ev;
+		if (existing_frr_ev->index >= 0) {
+			/* reset existing_frr_ev */
+			j_start = existing_frr_ev->index;
+			existing_ev->data.fd = 0;
+			existing_ev->events = 0;
+			existing_frr_ev->index = -1;
+			/* remove the entry in .event_ptrs */
+			for (j = j_start; j < m->handler.event_count - 1; j++) {
+				zlog_debug("event_ptrs j: %lu", j);
+				m->handler.event_ptrs[j] =
+					m->handler.event_ptrs[j + 1];
+				m->handler.event_ptrs[j]->index = j;
+			}
+			m->handler.event_count--;
+		}
+		if (new_frr_ev->index >= 0) {
+			/* reset new_frr_ev */
+			j_start = new_frr_ev->index;
+			new_ev->data.fd = 0;
+			new_ev->events = 0;
+			new_frr_ev->index = -1;
+			/* remove the entry in .new_event_ptrs */
+			for (j = j_start; j < m->handler.new_event_count - 1;
+			     j++) {
+				m->handler.new_event_ptrs[j] =
+					m->handler.new_event_ptrs[j + 1];
+				m->handler.new_event_ptrs[j]->index = j;
+			}
+			m->handler.new_event_count--;
+		}
+	}
+}
+
+/**
+ * Process I/O events.
+ *
+ * Walks through m->handler.revents array looking for those epoll_event
+ * whose .events field has something interesting.
+ *
+ * Deletes any invalid file descriptors.
+ *
+ * @param m the thread master
+ * @param num the number of active file descriptors (return value of
+ * epoll_wait())
+ */
+static void thread_process_io(struct event_loop *m, unsigned int num,
+			      int regular)
+{
+	unsigned int ready = 0;
+	struct epoll_event *revents;
+	nfds_t i;
+
+	if (regular == 1) {
+		revents = m->handler.regular_revents;
+	} else if (regular == 0) {
+		revents = m->handler.revents;
+	} else {
+		zlog_debug("[!] In %s, wrong regular arg value: %d", __func__,
+			   regular);
+		return;
+	}
+
+	for (i = 0; i < num; ++i)
+		thread_process_io_inner_loop(m, num, revents, &i, &ready);
+
+	m->last_read++;
+}
+#else
 static int thread_process_io_helper(struct event_loop *m, struct event *thread,
 				    short state, short actual_state, int pos)
 {
@@ -1707,6 +2602,7 @@ static void thread_process_io(struct event_loop *m, unsigned int num)
 
 	m->last_read++;
 }
+#endif
 
 /* Add all timers that have popped to the ready list. */
 static unsigned int thread_process_timers(struct event_loop *m,
@@ -1764,122 +2660,167 @@ static unsigned int thread_process(struct event_list_head *list)
 	return ready;
 }
 
-
 /* Fetch next ready thread. */
-struct event *event_fetch(struct event_loop *m, struct event *fetch)
+static inline void event_fetch_inner_loop(struct event_loop *m, struct event **fetch,
+									struct event **thread, bool *eintr_p, bool *broken)
 {
-	struct event *thread = NULL;
 	struct timeval now;
 	struct timeval zerotime = {0, 0};
 	struct timeval tv;
 	struct timeval *tw = NULL;
-	bool eintr_p = false;
 	int num = 0;
 
+	/* Handle signals if any */
+	if (m->handle_signals)
+		frr_sigevent_process();
+
+	pthread_mutex_lock(&m->mtx);
+
+	/* Process any pending cancellation requests */
+	do_event_cancel(m);
+
+	/*
+	 * Attempt to flush ready queue before going into fd_poll().
+	 * This is performance-critical. Think twice before modifying.
+	 */
+	if ((*thread = event_list_pop(&m->ready))) {
+		*fetch = thread_run(m, *thread, *fetch);
+		if ((*fetch)->ref)
+			*(*fetch)->ref = NULL;
+		pthread_mutex_unlock(&m->mtx);
+		if (!m->ready_run_loop)
+			GETRUSAGE(&m->last_getrusage);
+		m->ready_run_loop = true;
+		*broken = true;
+		return;
+	}
+
+	m->ready_run_loop = false;
+	/* otherwise, tick through scheduling sequence */
+
+	/*
+	 * Post events to ready queue. This must come before the
+	 * following block since events should occur immediately
+	 */
+	thread_process(&m->event);
+
+	/*
+	 * If there are no tasks on the ready queue, we will fd_poll()
+	 * until a timer expires or we receive I/O, whichever comes
+	 * first. The strategy for doing this is:
+	 *
+	 * - If there are events pending, set the fd_poll() timeout to zero
+	 * - If there are no events pending, but there are timers
+	 * pending, set the timeout to the smallest remaining time on
+	 * any timer.
+	 * - If there are neither timers nor events pending, but there
+	 * are file descriptors pending, block indefinitely in fd_poll()
+	 * - If nothing is pending, it's time for the application to die
+	 *
+	 * In every case except the last, we need to hit fd_poll() at least
+	 * once per loop to avoid starvation by events
+	 */
+	if (!event_list_count(&m->ready))
+		tw = thread_timer_wait(&m->timer, &tv);
+
+	if (event_list_count(&m->ready) ||
+		(tw && !timercmp(tw, &zerotime, >)))
+		tw = &zerotime;
+
+#if EPOLL_ENABLED
+	if (!tw && m->handler.event_count == 0 &&
+		m->handler.new_event_count == 0 &&
+		m->handler.regular_revent_count == 0) { /* die */
+		pthread_mutex_unlock(&m->mtx);
+		*fetch = NULL;
+		*broken = true;
+		return;
+	}
+#else
+	if (!tw && m->handler.pfdcount == 0) { /* die */
+		pthread_mutex_unlock(&m->mtx);
+		*fetch = NULL;
+		*broken = true;
+		return;
+	}
+#endif
+
+#if EPOLL_ENABLED
+	/* Prepare the correct epoll_fd set for epoll_wait().
+	 * To this end, we call epoll_ctl() and modify m->handler.events
+	 * according to m->handler.new_events.
+	 */
+	update_events(m);
+#else
+	/*
+	 * Copy pollfd array + # active pollfds in it. Not necessary to
+	 * copy the array size as this is fixed.
+	 */
+	m->handler.copycount = m->handler.pfdcount;
+	memcpy(m->handler.copy, m->handler.pfds,
+			m->handler.copycount * sizeof(struct pollfd));
+#endif
+
+	pthread_mutex_unlock(&m->mtx);
+	{
+		*eintr_p = false;
+		num = fd_poll(m, tw, eintr_p);
+	}
+	pthread_mutex_lock(&m->mtx);
+
+	/* Handle any errors received in poll()/epoll_wait() */
+	if (num < 0) {
+		if (*eintr_p) {
+			pthread_mutex_unlock(&m->mtx);
+			/* loop around to signal handler */
+			return;
+		}
+
+		/* else die */
+#if EPOLL_ENABLED
+		flog_err(EC_LIB_SYSTEM_CALL, "epoll_wait() error: %s",
+				safe_strerror(errno));
+#else
+		flog_err(EC_LIB_SYSTEM_CALL, "poll() error: %s",
+			 safe_strerror(errno));
+#endif
+
+		pthread_mutex_unlock(&m->mtx);
+		*fetch = NULL;
+		*broken = true;
+		return;
+	}
+
+	/* Post timers to ready queue. */
+	monotime(&now);
+	thread_process_timers(m, &now);
+
+	/* Post I/O to ready queue. */
+#if EPOLL_ENABLED
+	if (m->handler.regular_revent_count > 0)
+		thread_process_io(m, m->handler.regular_revent_count,
+					1);
+	if (num > 0)
+		thread_process_io(m, num, 0);
+#else
+	if (num > 0)
+		thread_process_io(m, num);
+#endif
+
+	pthread_mutex_unlock(&m->mtx);
+}
+
+struct event *event_fetch(struct event_loop *m, struct event *fetch)
+{
+	struct event *thread = NULL;
+	bool eintr_p = false;
+	bool broken;
+
 	do {
-		/* Handle signals if any */
-		if (m->handle_signals)
-			frr_sigevent_process();
-
-		pthread_mutex_lock(&m->mtx);
-
-		/* Process any pending cancellation requests */
-		do_event_cancel(m);
-
-		/*
-		 * Attempt to flush ready queue before going into poll().
-		 * This is performance-critical. Think twice before modifying.
-		 */
-		if ((thread = event_list_pop(&m->ready))) {
-			fetch = thread_run(m, thread, fetch);
-			if (fetch->ref)
-				*fetch->ref = NULL;
-			pthread_mutex_unlock(&m->mtx);
-			if (!m->ready_run_loop)
-				GETRUSAGE(&m->last_getrusage);
-			m->ready_run_loop = true;
+		broken = false;
+		event_fetch_inner_loop(m, &fetch, &thread, &eintr_p, &broken);
+		if (broken)
 			break;
-		}
-
-		m->ready_run_loop = false;
-		/* otherwise, tick through scheduling sequence */
-
-		/*
-		 * Post events to ready queue. This must come before the
-		 * following block since events should occur immediately
-		 */
-		thread_process(&m->event);
-
-		/*
-		 * If there are no tasks on the ready queue, we will poll()
-		 * until a timer expires or we receive I/O, whichever comes
-		 * first. The strategy for doing this is:
-		 *
-		 * - If there are events pending, set the poll() timeout to zero
-		 * - If there are no events pending, but there are timers
-		 * pending, set the timeout to the smallest remaining time on
-		 * any timer.
-		 * - If there are neither timers nor events pending, but there
-		 * are file descriptors pending, block indefinitely in poll()
-		 * - If nothing is pending, it's time for the application to die
-		 *
-		 * In every case except the last, we need to hit poll() at least
-		 * once per loop to avoid starvation by events
-		 */
-		if (!event_list_count(&m->ready))
-			tw = thread_timer_wait(&m->timer, &tv);
-
-		if (event_list_count(&m->ready) ||
-		    (tw && !timercmp(tw, &zerotime, >)))
-			tw = &zerotime;
-
-		if (!tw && m->handler.pfdcount == 0) { /* die */
-			pthread_mutex_unlock(&m->mtx);
-			fetch = NULL;
-			break;
-		}
-
-		/*
-		 * Copy pollfd array + # active pollfds in it. Not necessary to
-		 * copy the array size as this is fixed.
-		 */
-		m->handler.copycount = m->handler.pfdcount;
-		memcpy(m->handler.copy, m->handler.pfds,
-		       m->handler.copycount * sizeof(struct pollfd));
-
-		pthread_mutex_unlock(&m->mtx);
-		{
-			eintr_p = false;
-			num = fd_poll(m, tw, &eintr_p);
-		}
-		pthread_mutex_lock(&m->mtx);
-
-		/* Handle any errors received in poll() */
-		if (num < 0) {
-			if (eintr_p) {
-				pthread_mutex_unlock(&m->mtx);
-				/* loop around to signal handler */
-				continue;
-			}
-
-			/* else die */
-			flog_err(EC_LIB_SYSTEM_CALL, "poll() error: %s",
-				 safe_strerror(errno));
-			pthread_mutex_unlock(&m->mtx);
-			fetch = NULL;
-			break;
-		}
-
-		/* Post timers to ready queue. */
-		monotime(&now);
-		thread_process_timers(m, &now);
-
-		/* Post I/O to ready queue. */
-		if (num > 0)
-			thread_process_io(m, num);
-
-		pthread_mutex_unlock(&m->mtx);
-
 	} while (!thread && m->spin);
 
 	return fetch;
