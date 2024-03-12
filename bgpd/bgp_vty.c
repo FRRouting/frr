@@ -9261,7 +9261,7 @@ DEFPY (no_neighbor_addpath_paths_limit,
 	peer->addpath_paths_limit[afi][safi].send = 0;
 
 	bgp_capability_send(peer, afi, safi, CAPABILITY_CODE_PATHS_LIMIT,
-			    CAPABILITY_ACTION_UNSET);
+			    CAPABILITY_ACTION_SET);
 
 	return ret;
 }
