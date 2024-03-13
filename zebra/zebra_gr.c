@@ -298,6 +298,16 @@ struct zebra_gr_afi_clean {
  * Functions to deal with capabilities
  */
 
+void zebra_gr_client_final_shutdown(struct zserv *client)
+{
+	struct client_gr_info *info;
+
+	while (!TAILQ_EMPTY(&client->gr_info_queue)) {
+		info = TAILQ_FIRST(&client->gr_info_queue);
+		zebra_gr_client_info_delete(client, info);
+	}
+}
+
 /*
  * Function to decode and call appropriate functions
  * to handle client capabilities.
