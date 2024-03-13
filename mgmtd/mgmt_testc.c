@@ -133,8 +133,10 @@ static void sigusr1(void)
 static void quit(int exit_code)
 {
 	EVENT_OFF(event_timeout);
-	frr_fini();
 	darr_free(__client_cbs.notif_xpaths);
+
+	frr_fini();
+
 	exit(exit_code);
 }
 

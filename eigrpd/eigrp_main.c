@@ -94,9 +94,10 @@ static void sighup(void)
 static void sigint(void)
 {
 	zlog_notice("Terminating on signal");
-	eigrp_terminate();
 
 	keychain_terminate();
+
+	eigrp_terminate();
 
 	exit(0);
 }
