@@ -346,7 +346,7 @@ extern void ecommunity_strfree(char **s);
 extern bool ecommunity_include(struct ecommunity *e1, struct ecommunity *e2);
 extern bool ecommunity_match(const struct ecommunity *,
 			     const struct ecommunity *);
-extern char *ecommunity_str(struct ecommunity *ecom);
+extern const char *ecommunity_str(struct ecommunity *ecom);
 extern struct ecommunity_val *ecommunity_lookup(const struct ecommunity *,
 						uint8_t, uint8_t);
 

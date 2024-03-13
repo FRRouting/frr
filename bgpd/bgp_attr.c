@@ -911,9 +911,16 @@ static void attr_show_all_iterator(struct hash_bucket *bucket, struct vty *vty)
 
 	vty_out(vty,
 		"\tflags: %" PRIu64
-		" distance: %u med: %u local_pref: %u origin: %u weight: %u label: %u sid: %pI6\n",
+		" distance: %u med: %u local_pref: %u origin: %u weight: %u label: %u sid: %pI6 aigp_metric: %" PRIu64
+		"\n",
 		attr->flag, attr->distance, attr->med, attr->local_pref,
-		attr->origin, attr->weight, attr->label, sid);
+		attr->origin, attr->weight, attr->label, sid, attr->aigp_metric);
+	vty_out(vty,
+		"\taspath: %s Community: %s Extended Community: %s Large Community: %s\n",
+		aspath_print(attr->aspath),
+		community_str(attr->community, false, false),
+		ecommunity_str(attr->ecommunity),
+		lcommunity_str(attr->lcommunity, false, false));
 }
 
 void attr_show_all(struct vty *vty)
