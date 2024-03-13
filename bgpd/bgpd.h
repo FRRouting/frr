@@ -1471,6 +1471,7 @@ struct peer {
 #define PEER_FLAG_IO_STOPPED                (1ULL << 38)
 
 #define PEER_FLAG_EXTENDED_LINK_BANDWIDTH (1ULL << 39)
+#define PEER_FLAG_AS_LOOP_DETECTION (1ULL << 40) /* as path loop detection */
 
 	/*
 	 *GR-Disabled mode means unset PEER_FLAG_GRACEFUL_RESTART
@@ -1822,9 +1823,6 @@ struct peer {
 	/* hostname and domainname advertised by host */
 	char *hostname;
 	char *domainname;
-
-	/* Sender side AS path loop detection. */
-	bool as_path_loop_detection;
 
 	/* Extended Message Support */
 	uint16_t max_packet_size;
