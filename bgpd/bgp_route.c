@@ -6286,13 +6286,14 @@ static void bgp_nexthop_reachability_check(afi_t afi, safi_t safi,
 					   struct bgp_path_info *bpi,
 					   const struct prefix *p,
 					   struct bgp_dest *dest,
-					   struct bgp *bgp)
+					   struct bgp *bgp,
+					   struct bgp *bgp_nexthop)
 {
 	/* Nexthop reachability check. */
 	if (safi == SAFI_UNICAST || safi == SAFI_LABELED_UNICAST) {
 		if (CHECK_FLAG(bgp->flags, BGP_FLAG_IMPORT_CHECK)) {
-			if (bgp_find_or_add_nexthop(bgp, bgp, afi, safi, bpi,
-						    NULL, 0, p))
+			if (bgp_find_or_add_nexthop(bgp, bgp_nexthop, afi, safi,
+						    bpi, NULL, 0, p))
 				bgp_path_info_set_flag(dest, bpi,
 						       BGP_PATH_VALID);
 			else {
@@ -6350,6 +6351,7 @@ void bgp_static_update(struct bgp *bgp, const struct prefix *p,
 	mpls_label_t label = 0;
 #endif
 	uint32_t num_labels = 0;
+	struct bgp *bgp_nexthop = bgp;
 
 	assert(bgp_static);
 
@@ -6504,9 +6506,11 @@ void bgp_static_update(struct bgp *bgp, const struct prefix *p,
 						&pi->extra->label[0]);
 			}
 #endif
+			if (pi->extra && pi->extra->vrfleak->bgp_orig)
+				bgp_nexthop = pi->extra->vrfleak->bgp_orig;
 
 			bgp_nexthop_reachability_check(afi, safi, pi, p, dest,
-						       bgp);
+						       bgp, bgp_nexthop);
 
 			/* Process change. */
 			bgp_aggregate_increment(bgp, p, pi, afi, safi);
@@ -6556,7 +6560,7 @@ void bgp_static_update(struct bgp *bgp, const struct prefix *p,
 #endif
 	}
 
-	bgp_nexthop_reachability_check(afi, safi, new, p, dest, bgp);
+	bgp_nexthop_reachability_check(afi, safi, new, p, dest, bgp, bgp);
 
 	/* Aggregate address increment. */
 	bgp_aggregate_increment(bgp, p, new, afi, safi);
