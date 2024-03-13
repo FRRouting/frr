@@ -675,10 +675,14 @@ static void zserv_client_free(struct zserv *client)
 	 * If any instance are graceful restart enabled,
 	 * client is not deleted
 	 */
-	if (DYNAMIC_CLIENT_GR_DISABLED(client)) {
+	if (DYNAMIC_CLIENT_GR_DISABLED(client) || zebra_router_in_shutdown()) {
 		if (IS_ZEBRA_DEBUG_EVENT)
 			zlog_debug("%s: Deleting client %s", __func__,
 				   zebra_route_string(client->proto));
+
+		if (zebra_router_in_shutdown())
+			zebra_gr_client_final_shutdown(client);
+
 		zserv_client_delete(client);
 	} else {
 		/* Handle cases where client has GR instance. */

@@ -378,6 +378,7 @@ __attribute__((__noreturn__)) void zebra_finalize(struct event *event);
 /*
  * Graceful restart functions.
  */
+extern void zebra_gr_client_final_shutdown(struct zserv *client);
 extern int zebra_gr_client_disconnect(struct zserv *client);
 extern void zebra_gr_client_reconnect(struct zserv *client);
 extern void zebra_gr_stale_client_cleanup(struct list *client_list);
