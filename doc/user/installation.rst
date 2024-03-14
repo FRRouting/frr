@@ -326,11 +326,6 @@ options from the list below.
 
    Build with configuration rollback support. Requires SQLite3.
 
-.. option:: --enable-confd=<dir>
-
-   Build the ConfD northbound plugin. Look for the libconfd libs and headers
-   in `dir`.
-
 .. option:: --enable-sysrepo
 
    Build the Sysrepo northbound plugin.

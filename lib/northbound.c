@@ -2403,8 +2403,6 @@ const char *nb_client_name(enum nb_client client)
 	switch (client) {
 	case NB_CLIENT_CLI:
 		return "CLI";
-	case NB_CLIENT_CONFD:
-		return "ConfD";
 	case NB_CLIENT_SYSREPO:
 		return "Sysrepo";
 	case NB_CLIENT_GRPC:

@@ -12,8 +12,7 @@ Auto-generated CLI commands
 In order to have less code to maintain, it should be possible to write a
 tool that auto-generates CLI commands based on the FRR YANG models. As a
 matter of fact, there are already a number of NETCONF-based CLIs that do
-exactly that (e.g. `Clixon <https://github.com/clicon/clixon>`__,
-ConfD’s CLI).
+exactly that (e.g. `Clixon <https://github.com/clicon/clixon>`__).
 
 The problem however is that there isn’t an exact one-to-one mapping
 between the existing CLI commands and the corresponding YANG nodes from
@@ -26,11 +25,6 @@ like. Without YANG annotations, the CLI auto-generator will generate a
 command for each YANG leaf, (leaf-)list and presence-container. The
 ripd’s ``timers basic`` command, for instance, would become three
 different commands, which would be undesirable.
-
-   This Tail-f’s®
-   `document <http://info.tail-f.com/hubfs/Whitepapers/Tail-f_ConfD-CLI__Cfg_Mode_App_Note_Rev%20C.pdf>`__
-   shows how to customize ConfD auto-generated CLI commands using YANG
-   annotations.
 
 The good news is that *libyang* allows users to create plugins to
 implement their own YANG extensions, which can be used to implement CLI
@@ -76,8 +70,8 @@ Example of how this feature could be provided in the CLI:
 ``commit confirmed [minutes <1-60>]``. The ability to do confirmed
 commits should also be exposed in the northbound API so that the
 northbound plugins can also take advantage of it (in the case of the
-Sysrepo and ConfD plugins, confirmed commits are implemented externally
-in the *netopeer2-server* and *confd* daemons, respectively).
+Sysrepo plugin, confirmed commit is implemented externally in the
+*netopeer2-server* daemon).
 
 Proposed feature: enable/disable configuration commands/sections
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

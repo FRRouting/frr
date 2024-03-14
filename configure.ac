@@ -751,8 +751,6 @@ AC_ARG_ENABLE([snmp],
   AS_HELP_STRING([--enable-snmp], [enable SNMP support for agentx]))
 AC_ARG_ENABLE([config_rollbacks],
   AS_HELP_STRING([--enable-config-rollbacks], [enable configuration rollbacks (requires sqlite3)]))
-AC_ARG_ENABLE([confd],
-  AS_HELP_STRING([--enable-confd=ARG], [enable confd integration]))
 AC_ARG_ENABLE([sysrepo],
   AS_HELP_STRING([--enable-sysrepo], [enable sysrepo integration]))
 AC_ARG_ENABLE([grpc],
@@ -2082,22 +2080,6 @@ if test "$enable_config_rollbacks" = "yes"; then
 fi
 
 dnl ---------------
-dnl confd
-dnl ---------------
-if test "$enable_confd" != "" -a "$enable_confd" != "no"; then
-   AC_CHECK_PROG([CONFD], [confd], [confd], [/bin/false], "${enable_confd}/bin")
-   if test "$CONFD" = "/bin/false"; then
-      AC_MSG_ERROR([confd was not found on your system.])]
-   fi
-   AC_CHECK_PROG([CONFDC], [confdc], [confdc], [/bin/false], "${enable_confd}/bin")
-   CONFD_CFLAGS="-I${enable_confd}/include -L${enable_confd}/lib"
-   AC_SUBST([CONFD_CFLAGS])
-   CONFD_LIBS="-lconfd"
-   AC_SUBST([CONFD_LIBS])
-   AC_DEFINE([HAVE_CONFD], [1], [Enable confd integration])
-fi
-
-dnl ---------------
 dnl sysrepo
 dnl ---------------
 if test "$enable_sysrepo" = "yes"; then
@@ -2766,7 +2748,6 @@ AM_CONDITIONAL([ENABLE_BGP_VNC], [test "$enable_bgp_vnc" != "no"])
 AM_CONDITIONAL([BGP_BMP], [$bgpd_bmp])
 dnl northbound
 AM_CONDITIONAL([SQLITE3], [$SQLITE3])
-AM_CONDITIONAL([CONFD], [test "$enable_confd" != ""])
 AM_CONDITIONAL([SYSREPO], [test "$enable_sysrepo" = "yes"])
 AM_CONDITIONAL([GRPC], [test "$enable_grpc" = "yes"])
 AM_CONDITIONAL([ZEROMQ], [test "$ZEROMQ" = "true"])
