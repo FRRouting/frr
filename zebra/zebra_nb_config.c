@@ -3102,7 +3102,7 @@ int lib_interface_zebra_ipv6_router_advertisements_rdnss_rdnss_address_create(
 	struct nb_cb_create_args *args)
 {
 	struct interface *ifp;
-	struct rtadv_rdnss rdnss = {0}, *p;
+	struct rtadv_rdnss rdnss = {{{{0}}}}, *p;
 
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
@@ -3181,7 +3181,7 @@ int lib_interface_zebra_ipv6_router_advertisements_dnssl_dnssl_domain_create(
 	struct nb_cb_create_args *args)
 {
 	struct interface *ifp;
-	struct rtadv_dnssl dnssl = {0}, *p;
+	struct rtadv_dnssl dnssl = {{0}}, *p;
 	int ret;
 
 	strlcpy(dnssl.name, yang_dnode_get_string(args->dnode, "domain"),
