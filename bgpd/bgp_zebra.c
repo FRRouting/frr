@@ -1505,6 +1505,29 @@ void bgp_zebra_announce_parse_nexthop(struct bgp_path_info *info,
 		return;
 	}
 	for (i = 0; i < *valid_nh_count; i++) {
+		if (p_mpinfo[i] && p_mpinfo[i]->nexthop &&
+		    is_default_prefix(&p_mpinfo[i]->nexthop->resolved_prefix)) {
+			if (BGP_DEBUG(nexthop_group, NEXTHOP_GROUP))
+				zlog_debug("        :%s: %pFX Resolved against default route",
+					   __func__, p);
+			for (i = 0; i < *valid_nh_count; i++)
+				bgp_nhg_path_unlink(p_mpinfo[i]);
+			return;
+		}
+		if (p_mpinfo[i] && p_mpinfo[i]->nexthop &&
+		    prefix_same(p, &p_mpinfo[i]->nexthop->resolved_prefix)) {
+			if ((p->family == AF_INET &&
+			     (p->prefixlen != IPV4_MAX_BITLEN)) ||
+			    (p->family == AF_INET6 &&
+			     (p->prefixlen != IPV6_MAX_BITLEN))) {
+				if (BGP_DEBUG(nexthop_group, NEXTHOP_GROUP))
+					zlog_debug("        %s: %pFX, Matched against ourself and prefix length is not max bit length",
+						   __func__, p);
+				for (i = 0; i < *valid_nh_count; i++)
+					bgp_nhg_path_unlink(p_mpinfo[i]);
+			}
+			return;
+		}
 		/* disallow nexthop interfaces from NHG (eg: mplsvpn routes)
 		 * or blackhole routes
 		 */

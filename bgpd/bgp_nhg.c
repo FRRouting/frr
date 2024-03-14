@@ -741,6 +741,101 @@ static void bgp_nhg_detach_nexthop(struct bgp_nhg_cache *nhg)
 		bgp_nhg_del_nhg(nhg);
 }
 
+/* called whenever a nhg is resolved over ourselves
+ * nexthop_active() detects compares prefix to install with the resolved route
+ * but with nhg, the prefix is not available, and we lose the loop detection
+ * this code replaces nhgs with regular route_add/delete to avoid this corner case
+ * for each path to install, use route_add/delete when route resolved matches the prefix
+ * for each path, we assume dependent paths are active, and are pushed again to zebra
+ */
+static bool bgp_nhg_try_detach_if_same_prefix(struct bgp_nhg_cache *nhg,
+					      struct prefix *resolved_prefix)
+{
+	struct bgp_nhg_connected *rb_node_dep = NULL;
+	struct bgp_nhg_cache *dep_nhg;
+	struct bgp_path_info *path, *safe;
+	const struct prefix *p;
+
+	frr_each_safe (bgp_nhg_connected_tree, &nhg->nhg_dependents_groups,
+		       rb_node_dep) {
+		dep_nhg = rb_node_dep->nhg;
+		LIST_FOREACH_SAFE (path, &(dep_nhg->paths), nhg_cache_thread,
+				   safe) {
+			p = bgp_dest_get_prefix(path->net);
+			if (path->bgp_nhg_nexthop == nhg &&
+			    prefix_same(resolved_prefix, p) &&
+			    ((p->family == AF_INET &&
+			      (p->prefixlen != IPV4_MAX_BITLEN)) ||
+			     (p->family == AF_INET6 &&
+			      (p->prefixlen != IPV6_MAX_BITLEN)))) {
+				if (BGP_DEBUG(nexthop_group, NEXTHOP_GROUP))
+					zlog_debug("        %s: %pFX, matched against ourself and prefix length is not max bit length",
+						   __func__, p);
+				/* nhg = pi->nhg_nexthop is detached,
+				 * nhg will not be suppressed when bgp_nhg_path_unlink() is called
+				 */
+				bgp_nhg_path_nexthop_unlink(path, false);
+				bgp_nhg_path_unlink(path);
+				/* path should still be active */
+				if (bgp_dest_get_bgp_table_info(path->net)->bgp)
+					bgp_zebra_route_install(path->net, path,
+								bgp_dest_get_bgp_table_info(
+									path->net)
+									->bgp,
+								true);
+			}
+		}
+	}
+	if (LIST_EMPTY(&(nhg->paths))) {
+		bgp_nhg_del_nhg(nhg);
+		return true;
+	}
+	return false;
+}
+
+/* called whenever a nhg is resolved over default route:
+ * nexthop_active() detects resolution over default route by comparing to the matching routes
+ * but with nhg, we may lose the ability to detect a looped resolution
+ * this code replaced nhgs with regular route_add/delete to avoid this corner case
+ * for each path, we assume dependent paths are active, and are pushed again to zebra
+ */
+static bool bgp_nhg_detach_paths(struct bgp_nhg_cache *nhg)
+{
+	struct bgp_nhg_connected *rb_node_dep = NULL;
+	struct bgp_nhg_cache *dep_nhg;
+	struct bgp_path_info *path, *safe;
+	const struct prefix *p;
+
+	frr_each_safe (bgp_nhg_connected_tree, &nhg->nhg_dependents_groups,
+		       rb_node_dep) {
+		dep_nhg = rb_node_dep->nhg;
+		LIST_FOREACH_SAFE (path, &(dep_nhg->paths), nhg_cache_thread,
+				   safe) {
+			p = bgp_dest_get_prefix(path->net);
+			if (BGP_DEBUG(nexthop_group, NEXTHOP_GROUP))
+				zlog_debug("        :%s: %pFX Resolved against default route",
+					   __func__, p);
+			/* nhg = pi->nhg_nexthop is detached,
+			 * nhg will not be suppressed when bgp_nhg_path_unlink() is called
+			 */
+			bgp_nhg_path_nexthop_unlink(path, false);
+			bgp_nhg_path_unlink(path);
+			/* path should still be active */
+			if (bgp_dest_get_bgp_table_info(path->net)->bgp)
+				bgp_zebra_route_install(path->net, path,
+							bgp_dest_get_bgp_table_info(
+								path->net)
+								->bgp,
+							true);
+		}
+	}
+	if (LIST_EMPTY(&(nhg->paths))) {
+		bgp_nhg_del_nhg(nhg);
+		return true;
+	}
+	return false;
+}
+
 void bgp_nhg_refresh_by_nexthop(struct bgp_nexthop_cache *bnc)
 {
 	struct bgp_nhg_cache *nhg;
@@ -795,6 +890,15 @@ void bgp_nhg_refresh_by_nexthop(struct bgp_nexthop_cache *bnc)
 				bgp_nhg_detach_nexthop(nhg);
 				continue;
 			}
+
+			if (is_default_prefix(&bnc->resolved_prefix) &&
+			    bgp_nhg_detach_paths(nhg))
+				continue;
+
+			if (bgp_nhg_try_detach_if_same_prefix(nhg,
+							      &bnc->resolved_prefix))
+				continue;
+
 			if (BGP_DEBUG(nexthop_group, NEXTHOP_GROUP))
 				zlog_debug("NHG %u, VRF %u : IGP change detected with NH %pFX SRTE %u",
 					   nhg->id, vrf_id, p, srte_color);
