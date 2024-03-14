@@ -25,7 +25,7 @@ struct bgp_paths_limit_capability {
 	uint16_t afi;
 	uint8_t safi;
 	uint16_t paths_limit;
-};
+} __attribute__((packed));
 
 #define BGP_ADDPATH_TX_ID_FOR_DEFAULT_ORIGINATE 1
 
