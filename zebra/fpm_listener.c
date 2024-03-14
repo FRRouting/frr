@@ -32,12 +32,14 @@
 #include <linux/netlink.h>
 #include <linux/rtnetlink.h>
 
+#include "rt_netlink.h"
 #include "fpm/fpm.h"
 #include "lib/libfrr.h"
 
 struct glob {
 	int server_sock;
 	int sock;
+	bool reflect;
 };
 
 struct glob glob_space;
@@ -211,6 +213,12 @@ netlink_msg_type_to_s(uint16_t type)
 	case RTM_DELROUTE:
 		return "Del route";
 
+	case RTM_NEWNEXTHOP:
+		return "New Nexthop Group";
+
+	case RTM_DELNEXTHOP:
+		return "Del Nexthop Group";
+
 	default:
 		return "Unknown";
 	}
@@ -238,6 +246,39 @@ netlink_prot_to_s(unsigned char prot)
 
 	case RTPROT_DHCP:
 		return "Dhcp";
+
+	case RTPROT_BGP:
+		return "BGP";
+
+	case RTPROT_ISIS:
+		return "ISIS";
+
+	case RTPROT_OSPF:
+		return "OSPF";
+
+	case RTPROT_RIP:
+		return "RIP";
+
+	case RTPROT_RIPNG:
+		return "RIPNG";
+
+	case RTPROT_BABEL:
+		return "BABEL";
+
+	case RTPROT_NHRP:
+		return "NHRP";
+
+	case RTPROT_EIGRP:
+		return "EIGRP";
+
+	case RTPROT_SHARP:
+		return "SHARP";
+
+	case RTPROT_PBR:
+		return "PBR";
+
+	case RTPROT_ZSTATIC:
+		return "Static";
 
 	default:
 		return "Unknown";
@@ -269,6 +310,7 @@ struct netlink_msg_ctx {
 	struct rtattr *dest;
 	struct rtattr *src;
 	int *metric;
+	unsigned int *nhgid;
 
 	const char *err_msg;
 };
@@ -432,6 +474,10 @@ static int parse_route_msg(struct netlink_msg_ctx *ctx)
 	if (rtattr)
 		ctx->metric = (int *)RTA_DATA(rtattr);
 
+	rtattr = rtattrs[RTA_NH_ID];
+	if (rtattr)
+		ctx->nhgid = (unsigned int *)RTA_DATA(rtattr);
+
 	gateway = rtattrs[RTA_GATEWAY];
 	oif = rtattrs[RTA_OIF];
 	if (gateway || oif) {
@@ -481,15 +527,18 @@ static int netlink_msg_ctx_snprint(struct netlink_msg_ctx *ctx, char *buf,
 	cur = buf;
 	end = buf + buf_len;
 
-	cur += snprintf(cur, end - cur, "%s %s/%d, Prot: %s",
+	cur += snprintf(cur, end - cur, "%s %s/%d, Prot: %s(%u)",
 			netlink_msg_type_to_s(hdr->nlmsg_type),
 			addr_to_s(rtmsg->rtm_family, RTA_DATA(ctx->dest)),
 			rtmsg->rtm_dst_len,
-			netlink_prot_to_s(rtmsg->rtm_protocol));
+			netlink_prot_to_s(rtmsg->rtm_protocol),
+			rtmsg->rtm_protocol);
 
 	if (ctx->metric)
 		cur += snprintf(cur, end - cur, ", Metric: %d", *ctx->metric);
 
+	if (ctx->nhgid)
+		cur += snprintf(cur, end - cur, ", nhgid: %u", *ctx->nhgid);
 	for (i = 0; i < ctx->num_nhs; i++) {
 		cur += snprintf(cur, end - cur, "\n ");
 		nh = &ctx->nhs[i];
@@ -523,8 +572,7 @@ static void print_netlink_msg_ctx(struct netlink_msg_ctx *ctx)
 /*
  * parse_netlink_msg
  */
-static void
-parse_netlink_msg(char *buf, size_t buf_len)
+static void parse_netlink_msg(char *buf, size_t buf_len, fpm_msg_hdr_t *fpm)
 {
 	struct netlink_msg_ctx ctx_space, *ctx;
 	struct nlmsghdr *hdr;
@@ -552,11 +600,23 @@ parse_netlink_msg(char *buf, size_t buf_len)
 			}
 
 			print_netlink_msg_ctx(ctx);
+
+			if (glob->reflect && hdr->nlmsg_type == RTM_NEWROUTE &&
+			    ctx->rtmsg->rtm_protocol > RTPROT_STATIC) {
+				printf("  Route %s(%u) reflecting back\n",
+				       netlink_prot_to_s(
+					       ctx->rtmsg->rtm_protocol),
+				       ctx->rtmsg->rtm_protocol);
+				ctx->rtmsg->rtm_flags |= RTM_F_OFFLOAD;
+				write(glob->sock, fpm, fpm_msg_len(fpm));
+			}
 			break;
 
 		default:
-			fprintf(stdout, "Ignoring unknown netlink message - Type: %d\n",
-			      hdr->nlmsg_type);
+			fprintf(stdout,
+				"Ignoring netlink message - Type: %s(%d)\n",
+				netlink_msg_type_to_s(hdr->nlmsg_type),
+				hdr->nlmsg_type);
 		}
 	}
 }
@@ -574,7 +634,7 @@ static void process_fpm_msg(fpm_msg_hdr_t *hdr)
 		return;
 	}
 
-	parse_netlink_msg(fpm_msg_data(hdr), fpm_msg_data_len(hdr));
+	parse_netlink_msg(fpm_msg_data(hdr), fpm_msg_data_len(hdr), hdr);
 }
 
 /*
@@ -598,17 +658,28 @@ static void fpm_serve(void)
 int main(int argc, char **argv)
 {
 	pid_t daemon;
-	int d;
+	int r;
+	bool fork_daemon = false;
 
-	d = getopt(argc, argv, "d");
-	if (d == 'd') {
+	memset(glob, 0, sizeof(*glob));
+
+	while ((r = getopt(argc, argv, "rd")) != -1) {
+		switch (r) {
+		case 'r':
+			glob->reflect = true;
+			break;
+		case 'd':
+			fork_daemon = true;
+			break;
+		}
+	}
+
+	if (fork_daemon) {
 		daemon = fork();
 
 		if (daemon)
 			exit(0);
 	}
-
-	memset(glob, 0, sizeof(*glob));
 
 	if (!create_listen_sock(FPM_DEFAULT_PORT, &glob->server_sock))
 		exit(1);
