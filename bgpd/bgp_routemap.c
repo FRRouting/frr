@@ -4167,6 +4167,13 @@ static void bgp_route_map_update_peer_group(const char *rmap_name,
 					       filter->map[direct].name)
 					== 0))
 					filter->map[direct].map = map;
+
+				if (group->conf->default_rmap[afi][safi].name &&
+				    strmatch(group->conf->default_rmap[afi][safi]
+						     .name,
+					     rmap_name))
+					group->conf->default_rmap[afi][safi].map =
+						map;
 			}
 
 			if (filter->usmap.name
