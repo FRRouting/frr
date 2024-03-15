@@ -263,8 +263,11 @@ struct ecommunity *ecommunity_dup(struct ecommunity *ecom)
 }
 
 /* Return string representation of ecommunities attribute. */
-char *ecommunity_str(struct ecommunity *ecom)
+const char *ecommunity_str(struct ecommunity *ecom)
 {
+	if (!ecom)
+		return "(null)";
+
 	if (!ecom->str)
 		ecom->str =
 			ecommunity_ecom2str(ecom, ECOMMUNITY_FORMAT_DISPLAY, 0);

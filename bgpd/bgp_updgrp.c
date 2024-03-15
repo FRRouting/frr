@@ -443,7 +443,7 @@ static unsigned int updgrp_hash_key_make(const void *p)
 	key = jhash_1word((peer->flags & PEER_FLAG_AIGP), key);
 
 	if (peer->soo[afi][safi]) {
-		char *soo_str = ecommunity_str(peer->soo[afi][safi]);
+		const char *soo_str = ecommunity_str(peer->soo[afi][safi]);
 
 		key = jhash_1word(jhash(soo_str, strlen(soo_str), SEED1), key);
 	}

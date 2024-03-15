@@ -2249,7 +2249,7 @@ void aspath_finish(void)
 /* return and as path value */
 const char *aspath_print(struct aspath *as)
 {
-	return (as ? as->str : NULL);
+	return as ? as->str : "(null)";
 }
 
 /* Printing functions */
