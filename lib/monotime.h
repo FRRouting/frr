@@ -59,6 +59,18 @@ struct printfrr_eargs;
 	} while (0)
 #endif
 
+#ifndef msec_to_timespec
+#define msec_to_timespec(ms, ts, tsp)                                          \
+	do {                                                                   \
+		if ((ms) >= 0) {                                               \
+			(ts).tv_sec = (ms) / 1000;                             \
+			(ts).tv_nsec = ((ms) % 1000) * 1000000;                \
+			(tsp) = &(ts);                                         \
+		} else                                                         \
+			(tsp) = NULL;                                          \
+	} while (0)
+#endif
+
 static inline time_t monotime(struct timeval *tvo)
 {
 	struct timespec ts;
