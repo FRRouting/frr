@@ -2973,9 +2973,21 @@ int peer_group_remote_as(struct bgp *bgp, const char *group_name, as_t *as,
 	peer_as_change(group->conf, *as, as_type, as_str);
 
 	for (ALL_LIST_ELEMENTS(group->peer, node, nnode, peer)) {
-		if (((peer->as_type == AS_SPECIFIED) && peer->as != *as)
-		    || (peer->as_type != as_type))
+		if (((peer->as_type == AS_SPECIFIED) && peer->as != *as) ||
+		    (peer->as_type != as_type)) {
 			peer_as_change(peer, *as, as_type, as_str);
+			if (bgp_debug_neighbor_events(peer))
+				zlog_debug("%s peer %s set to as_type %u curr status %s trigger BGP_Start",
+					   __func__, peer->host, peer->as_type,
+					   lookup_msg(bgp_status_msg,
+						      peer->connection->status, NULL));
+			/* Start Peer FSM to form neighbor using new as,
+			 * NOTE: the connection is triggered upon start
+			 * timer expiry.
+			 */
+			if (!BGP_PEER_START_SUPPRESSED(peer))
+				BGP_EVENT_ADD(peer->connection, BGP_Start);
+		}
 	}
 
 	return 0;
@@ -3070,7 +3082,7 @@ int peer_group_delete(struct peer_group *group)
 
 int peer_group_remote_as_delete(struct peer_group *group)
 {
-	struct peer *peer, *other;
+	struct peer *peer;
 	struct listnode *node, *nnode;
 
 	if ((group->conf->as_type == AS_UNSPECIFIED)
@@ -3078,19 +3090,12 @@ int peer_group_remote_as_delete(struct peer_group *group)
 		return 0;
 
 	for (ALL_LIST_ELEMENTS(group->peer, node, nnode, peer)) {
-		other = peer->doppelganger;
-
 		if (CHECK_FLAG(peer->flags, PEER_FLAG_CAPABILITY_ENHE))
 			bgp_zebra_terminate_radv(peer->bgp, peer);
 
-		peer_delete(peer);
-
-		if (other && other->connection->status != Deleted) {
-			other->group = NULL;
-			peer_delete(other);
-		}
+		/* reset existing peer connection */
+		peer_as_change(peer, 0, AS_UNSPECIFIED, NULL);
 	}
-	list_delete_all_node(group->peer);
 
 	group->conf->as = 0;
 	group->conf->as_type = AS_UNSPECIFIED;
