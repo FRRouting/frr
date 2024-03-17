@@ -68,6 +68,10 @@ def log_handler(basename, logpath):
         topolog.logfinish(basename, logpath)
 
 
+def is_main_runner():
+    return "PYTEST_XDIST_WORKER" not in os.environ
+
+
 def pytest_addoption(parser):
     """
     Add topology-only option to the topology tester. This option makes pytest
@@ -83,6 +87,17 @@ def pytest_addoption(parser):
         "--cli-on-error",
         action="store_true",
         help="Mininet cli on test failure",
+    )
+
+    parser.addoption(
+        "--cov-topotest",
+        action="store_true",
+        help="Enable reporting of coverage",
+    )
+
+    parser.addoption(
+        "--cov-frr-build-dir",
+        help="Dir of coverage-enable build being run, default is the source dir",
     )
 
     parser.addoption(
@@ -456,6 +471,37 @@ def pytest_assertrepr_compare(op, left, right):
     return json_result.gen_report()
 
 
+def setup_coverage(config):
+    commander = Commander("pytest")
+    if config.option.cov_frr_build_dir:
+        bdir = Path(config.option.cov_frr_build_dir).resolve()
+        output = commander.cmd_raises(f"find {bdir} -name zebra_nb.gcno").strip()
+    else:
+        # Support build sub-directory of main source dir
+        bdir = Path(__file__).resolve().parent.parent.parent
+        output = commander.cmd_raises(f"find {bdir} -name zebra_nb.gcno").strip()
+    m = re.match(f"({bdir}.*)/zebra/zebra_nb.gcno", output)
+    if not m:
+        logger.warning(
+            "No coverage data files (*.gcno) found, try specifying --cov-frr-build-dir"
+        )
+        return
+
+    bdir = Path(m.group(1))
+    # Save so we can get later from g_pytest_config
+    rundir = Path(config.option.rundir).resolve()
+    gcdadir = rundir / "gcda"
+    os.environ["FRR_BUILD_DIR"] = str(bdir)
+    os.environ["GCOV_PREFIX_STRIP"] = str(len(bdir.parts) - 1)
+    os.environ["GCOV_PREFIX"] = str(gcdadir)
+
+    if is_main_runner():
+        commander.cmd_raises(f"find {bdir} -name '*.gc??' -exec chmod o+rw {{}} +")
+        commander.cmd_raises(f"mkdir -p {gcdadir}")
+        commander.cmd_raises(f"chown -R root:frr {gcdadir}")
+        commander.cmd_raises(f"chmod 2775 {gcdadir}")
+
+
 def pytest_configure(config):
     """
     Assert that the environment is correctly configured, and get extra config.
@@ -556,8 +602,6 @@ def pytest_configure(config):
     if config.option.topology_only and is_xdist:
         pytest.exit("Cannot use --topology-only with distributed test mode")
 
-        pytest.exit("Cannot use --topology-only with distributed test mode")
-
     # Check environment now that we have config
     if not diagnose_env(rundir):
         pytest.exit("environment has errors, please read the logs in %s" % rundir)
@@ -572,27 +616,25 @@ def pytest_configure(config):
         if "TOPOTESTS_CHECK_STDERR" in os.environ:
             del os.environ["TOPOTESTS_CHECK_STDERR"]
 
+    if config.option.cov_topotest:
+        setup_coverage(config)
+
 
 @pytest.fixture(autouse=True, scope="session")
-def setup_session_auto():
+def session_autouse():
     # Aligns logs nicely
     logging.addLevelName(logging.WARNING, " WARN")
     logging.addLevelName(logging.INFO, " INFO")
 
-    if "PYTEST_TOPOTEST_WORKER" not in os.environ:
-        is_worker = False
-    elif not os.environ["PYTEST_TOPOTEST_WORKER"]:
-        is_worker = False
-    else:
-        is_worker = True
+    is_main = is_main_runner()
 
-    logger.debug("Before the run (is_worker: %s)", is_worker)
-    if not is_worker:
+    logger.debug("Before the run (is_main: %s)", is_main)
+    if is_main:
         cleanup_previous()
     yield
-    if not is_worker:
+    if is_main:
         cleanup_current()
-    logger.debug("After the run (is_worker: %s)", is_worker)
+    logger.debug("After the run (is_main: %s)", is_main)
 
 
 def pytest_runtest_setup(item):
@@ -717,6 +759,42 @@ def pytest_runtest_makereport(item, call):
 
     if pause and isatty:
         pause_test()
+
+
+def coverage_finish(terminalreporter, config):
+    commander = Commander("pytest")
+    rundir = Path(config.option.rundir).resolve()
+    bdir = Path(os.environ["FRR_BUILD_DIR"])
+    gcdadir = Path(os.environ["GCOV_PREFIX"])
+
+    # Get the data files into the build directory
+    logger.info("Copying gcda files from '%s' to '%s'", gcdadir, bdir)
+    user = os.environ.get("SUDO_USER", os.environ["USER"])
+    commander.cmd_raises(f"chmod -R ugo+r {gcdadir}")
+    commander.cmd_raises(
+        f"tar -C {gcdadir} -cf - . | su {user} -c 'tar -C {bdir} -xf -'"
+    )
+
+    # Get the results into a summary file
+    data_file = rundir / "coverage.info"
+    logger.info("Gathering coverage data into: %s", data_file)
+    commander.cmd_raises(f"lcov --directory {bdir} --capture --output-file {data_file}")
+
+    # Get coverage info filtered to a specific set of files
+    report_file = rundir / "coverage.info"
+    logger.debug("Generating coverage summary from: %s\n%s", report_file)
+    output = commander.cmd_raises(f"lcov --summary {data_file}")
+    logger.info("\nCOVERAGE-SUMMARY-START\n%s\nCOVERAGE-SUMMARY-END", output)
+    terminalreporter.write(
+        f"\nCOVERAGE-SUMMARY-START\n{output}\nCOVERAGE-SUMMARY-END\n"
+    )
+
+
+def pytest_terminal_summary(terminalreporter, exitstatus, config):
+    # Only run if we are the top level test runner
+    is_xdist_worker = "PYTEST_XDIST_WORKER" in os.environ
+    if config.option.cov_topotest and not is_xdist_worker:
+        coverage_finish(terminalreporter, config)
 
 
 #

@@ -704,6 +704,44 @@ Here's an example of collecting ``rr`` execution state from ``mgmtd`` on router
 To specify additional arguments for ``rr record``, one can use the
 ``--rr-options``.
 
+.. _code_coverage:
+
+Code coverage
+"""""""""""""
+Code coverage reporting requires installation of the ``gcov`` and ``lcov``
+packages.
+
+Code coverage can automatically be gathered for any topotest run. To support
+this FRR must first be compiled with the ``--enable-gcov`` configure option.
+This will cause *.gnco files to be created during the build. When topotests are
+run the statistics are generated and stored in *.gcda files. Topotest
+infrastructure will gather these files, capture the information into a
+``coverage.info`` ``lcov`` file and also report the coverage summary.
+
+To enable code coverage support pass the ``--cov-topotest`` argument to pytest.
+If you build your FRR in a directory outside of the FRR source directory you
+will also need to pass the ``--cov-frr-build-dir`` argument specifying the build
+directory location.
+
+During the topotest run the *.gcda files are generated into a ``gcda``
+sub-directory of the top-level run directory (i.e., normally
+``/tmp/topotests/gcda``). These files will then be copied at the end of the
+topotest run into the FRR build directory where the ``gcov`` and ``lcov``
+utilities expect to find them. This is done to deal with the various different
+file ownership and permissions.
+
+At the end of the run ``lcov`` will be run to capture all of the coverage data
+into a ``coverage.info`` file. This file will be located in the top-level run
+directory (i.e., normally ``/tmp/topotests/coverage.info``).
+
+The ``coverage.info`` file can then be used to generate coverage reports or file
+markup (e.g., using the ``genhtml`` utility) or enable markup within your
+IDE/editor if supported (e.g., the emacs ``cov-mode`` package)
+
+NOTE: the *.gcda files in ``/tmp/topotests/gcda`` are cumulative so if you do
+not remove them they will aggregate data across multiple topotest runs.
+
+
 .. _topotests_docker:
 
 Running Tests with Docker

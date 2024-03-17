@@ -27,6 +27,7 @@ import time
 import logging
 from collections.abc import Mapping
 from copy import deepcopy
+from pathlib import Path
 
 import lib.topolog as topolog
 from lib.micronet_compat import Node
@@ -1523,7 +1524,7 @@ class Router(Node):
                 pass
         return ret
 
-    def stopRouter(self, assertOnError=True, minErrorVersion="5.1"):
+    def stopRouter(self, assertOnError=True):
         # Stop Running FRR Daemons
         running = self.listDaemons()
         if not running:
@@ -1570,9 +1571,6 @@ class Router(Node):
             )
 
         errors = self.checkRouterCores(reportOnce=True)
-        if self.checkRouterVersion("<", minErrorVersion):
-            # ignore errors in old versions
-            errors = ""
         if assertOnError and (errors is not None) and len(errors) > 0:
             assert "Errors found - details follow:" == 0, errors
         return errors
@@ -1803,6 +1801,8 @@ class Router(Node):
         "Starts FRR daemons for this router."
 
         asan_abort = bool(g_pytest_config.option.asan_abort)
+        cov_option = bool(g_pytest_config.option.cov_topotest)
+        cov_dir = Path(g_pytest_config.option.rundir) / "gcda"
         gdb_breakpoints = g_pytest_config.get_option_list("--gdb-breakpoints")
         gdb_daemons = g_pytest_config.get_option_list("--gdb-daemons")
         gdb_routers = g_pytest_config.get_option_list("--gdb-routers")
@@ -1835,13 +1835,6 @@ class Router(Node):
 
         # Re-enable to allow for report per run
         self.reportCores = True
-
-        # XXX: glue code forward ported from removed function.
-        if self.version is None:
-            self.version = self.cmd(
-                os.path.join(self.daemondir, "bgpd") + " -v"
-            ).split()[2]
-            logger.info("{}: running version: {}".format(self.name, self.version))
 
         perfds = {}
         perf_options = g_pytest_config.get_option("--perf-options", "-g")
@@ -1927,6 +1920,10 @@ class Router(Node):
                 cmdenv += "log_path={0}/{1}.asan.{2} ".format(
                     self.logdir, self.name, daemon
                 )
+
+                if cov_option:
+                    scount = os.environ["GCOV_PREFIX_STRIP"]
+                    cmdenv += f"GCOV_PREFIX_STRIP={scount} GCOV_PREFIX={cov_dir}"
 
                 if valgrind_memleaks:
                     this_dir = os.path.dirname(
@@ -2277,9 +2274,7 @@ class Router(Node):
         rc, o, e = self.cmd_status("kill -0 " + str(pid), warn=False)
         return rc == 0 or "No such process" not in e
 
-    def killRouterDaemons(
-        self, daemons, wait=True, assertOnError=True, minErrorVersion="5.1"
-    ):
+    def killRouterDaemons(self, daemons, wait=True, assertOnError=True):
         # Kill Running FRR
         # Daemons(user specified daemon only) using SIGKILL
         rundaemons = self.cmd("ls -1 /var/run/%s/*.pid" % self.routertype)
@@ -2339,9 +2334,6 @@ class Router(Node):
                         self.cmd("rm -- {}".format(daemonpidfile))
                     if wait:
                         errors = self.checkRouterCores(reportOnce=True)
-                        if self.checkRouterVersion("<", minErrorVersion):
-                            # ignore errors in old versions
-                            errors = ""
                         if assertOnError and len(errors) > 0:
                             assert "Errors found - details follow:" == 0, errors
             else:
