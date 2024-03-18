@@ -101,8 +101,10 @@ extern struct vrf_name_head vrfs_by_name;
 
 extern struct vrf *vrf_lookup_by_id(vrf_id_t);
 extern struct vrf *vrf_lookup_by_name(const char *);
+extern vrf_id_t vrf_lookup_by_table(uint32_t table_id, ns_id_t ns_id);
 extern struct vrf *vrf_get(vrf_id_t, const char *);
 extern struct vrf *vrf_update(vrf_id_t new_vrf_id, const char *name);
+extern void vrf_update_table_id(struct vrf *vrf, uint32_t new_table_id);
 extern const char *vrf_id_to_name(vrf_id_t vrf_id);
 
 #define VRF_LOGNAME(V) V ? V->name : "Unknown"

@@ -2503,7 +2503,9 @@ static int zclient_vrf_add(ZAPI_CALLBACK_ARGS)
 	if (!vrf)
 		return 0;
 
-	vrf->data.l.table_id = data.l.table_id;
+	/* set the vrf table_id if created*/
+	vrf_update_table_id(vrf, data.l.table_id);
+
 	memcpy(vrf->data.l.netns_name, data.l.netns_name, NS_NAMSIZ);
 	vrf_enable(vrf);
 

@@ -21,6 +21,7 @@
 #include "lib_errors.h"
 #include "northbound.h"
 #include "northbound_cli.h"
+#include "jhash.h"
 
 /* default VRF name value used when VRF backend is not NETNS */
 #define VRF_DEFAULT_NAME_INTERNAL "default"
@@ -61,11 +62,90 @@ static struct vrf_master {
 
 static int vrf_is_enabled(struct vrf *vrf);
 
+/*Hash Table for table_id based lookup of vrf_id*/
+DEFINE_MTYPE_STATIC(LIB, HASH_ENTRY, "VRF IDs by Table Hash Entry");
+
+PREDECL_HASH(vrf_ids_by_table);
+
+struct vrf_ids_by_table_entry {
+	struct vrf_ids_by_table_item hash_item;
+	uint32_t table_id;
+	vrf_id_t vrf_id;
+};
+
+static int vrf_ids_by_table_cmp(const struct vrf_ids_by_table_entry *a,
+				const struct vrf_ids_by_table_entry *b)
+{
+	return numcmp(a->table_id, b->table_id);
+}
+
+static uint32_t vrf_ids_by_table_hash(const struct vrf_ids_by_table_entry *item)
+{
+	return jhash_1word(item->table_id, 0xa010bf92);
+}
+
+DECLARE_HASH(vrf_ids_by_table, struct vrf_ids_by_table_entry, hash_item,
+	     vrf_ids_by_table_cmp, vrf_ids_by_table_hash);
+
+static struct vrf_ids_by_table_head vrf_ids_by_table_head;
+
+static int vrf_ids_by_table_is_initialized;
+
+/* Helper functions for vrf_ids_by_table hashmap */
+static struct vrf_ids_by_table_entry *vrf_ids_by_table_entry_new(void)
+{
+	struct vrf_ids_by_table_entry *new_entry;
+	new_entry = XCALLOC(MTYPE_HASH_ENTRY,
+			    sizeof(struct vrf_ids_by_table_entry));
+
+	return new_entry;
+}
+
+static void vrf_ids_by_table_delete(uint32_t table_id)
+{
+	if (!vrf_ids_by_table_is_initialized)
+		return;
+
+	struct vrf_ids_by_table_entry lookup = {.table_id = table_id};
+	struct vrf_ids_by_table_entry *entry =
+		vrf_ids_by_table_find(&vrf_ids_by_table_head, &lookup);
+
+	if (entry) {
+		vrf_ids_by_table_del(&vrf_ids_by_table_head, entry);
+		XFREE(MTYPE_HASH_ENTRY, entry);
+	}
+}
+
+static void vrf_ids_by_table_update(uint32_t table_id, vrf_id_t new_vrf_id)
+{
+	if (new_vrf_id == VRF_UNKNOWN)
+		return;
+
+	if (!vrf_ids_by_table_is_initialized) {
+		vrf_ids_by_table_init(&vrf_ids_by_table_head);
+		vrf_ids_by_table_is_initialized = 1;
+	}
+
+	struct vrf_ids_by_table_entry lookup = {.table_id = table_id};
+	struct vrf_ids_by_table_entry *entry =
+		vrf_ids_by_table_find(&vrf_ids_by_table_head, &lookup);
+
+	if (!entry) {
+		entry = vrf_ids_by_table_entry_new();
+		entry->table_id = table_id;
+		vrf_ids_by_table_add(&vrf_ids_by_table_head, entry);
+	}
+
+	entry->vrf_id = new_vrf_id;
+}
+
 /* VRF list existance check by name. */
 struct vrf *vrf_lookup_by_name(const char *name)
 {
 	struct vrf vrf;
+
 	strlcpy(vrf.name, name, sizeof(vrf.name));
+
 	return (RB_FIND(vrf_name_head, &vrfs_by_name, &vrf));
 }
 
@@ -136,6 +216,7 @@ struct vrf *vrf_get(vrf_id_t vrf_id, const char *name)
 	if (!vrf && vrf_id != VRF_UNKNOWN)
 		vrf = vrf_lookup_by_id(vrf_id);
 
+	/* Unable to find VRF by either ID or name, so create */
 	if (vrf == NULL) {
 		vrf = XCALLOC(MTYPE_VRF, sizeof(struct vrf));
 		vrf->vrf_id = VRF_UNKNOWN;
@@ -186,6 +267,7 @@ struct vrf *vrf_update(vrf_id_t new_vrf_id, const char *name)
 
 	/*Treat VRF add for existing vrf as update
 	 * Update VRF ID and also update in VRF ID table
+	 * and also update in vrf_ids_by_table hashmap
 	 */
 	if (name)
 		vrf = vrf_lookup_by_name(name);
@@ -208,6 +290,9 @@ struct vrf *vrf_update(vrf_id_t new_vrf_id, const char *name)
 		vrf->vrf_id = new_vrf_id;
 		RB_INSERT(vrf_id_head, &vrfs_by_id, vrf);
 
+		/* Update hash map */
+		vrf_ids_by_table_update(vrf->data.l.table_id, new_vrf_id);
+
 	} else {
 
 		/*
@@ -216,6 +301,40 @@ struct vrf *vrf_update(vrf_id_t new_vrf_id, const char *name)
 		vrf = vrf_get(new_vrf_id, name);
 	}
 	return vrf;
+}
+
+/* Update table_id in existing VRF.
+ * Arg:
+ *   vrf          - pointer to vrf struct.
+ *   new_table_id - The table_id to be saved to vrf struct.
+ * Description: This function first checks if vrf struct has matching table_id
+ * matching new_table_id arg. If so, it ensures entry is created in
+ * vrf_ids_by_table hashmap and returns. If not matching, then it removes
+ * previous entry and adds new entry with new_table_id.
+ * Finally, it updates the table_id in the vrf struct.
+ */
+void vrf_update_table_id(struct vrf *vrf, uint32_t new_table_id)
+{
+	if (!vrf)
+		return;
+
+	/* If new and old table ids are same */
+	if (new_table_id == vrf->data.l.table_id) {
+
+		/* Ensure that entry is added to hash map */
+		vrf_ids_by_table_update(new_table_id, vrf->vrf_id);
+
+		return;
+	}
+
+	/* New and old table ids are different
+	 * so remove any entry with old table_id and vrf_id, and add new entry
+	 */
+	vrf_ids_by_table_delete(vrf->data.l.table_id);
+	vrf_ids_by_table_update(new_table_id, vrf->vrf_id);
+
+	/*Update table_id in vrf struct */
+	vrf->data.l.table_id = new_table_id;
 }
 
 /* Delete a VRF. This is called when the underlying VRF goes away, a
@@ -249,6 +368,9 @@ void vrf_delete(struct vrf *vrf)
 	if (vrf_master.vrf_delete_hook)
 		(*vrf_master.vrf_delete_hook)(vrf);
 
+	/* remove from vrf_ids_by_table hash map*/
+	vrf_ids_by_table_delete(vrf->data.l.table_id);
+
 	QOBJ_UNREG(vrf);
 
 	if (vrf->name[0] != '\0')
@@ -263,6 +385,48 @@ struct vrf *vrf_lookup_by_id(vrf_id_t vrf_id)
 	struct vrf vrf;
 	vrf.vrf_id = vrf_id;
 	return (RB_FIND(vrf_id_head, &vrfs_by_id, &vrf));
+}
+
+/* Finds vrf_id of vrf with table_id or ns_id.
+ *
+ * table_id
+ *    The table_id associated with vrf of interest
+ *
+ * ns_id
+ *    The ns_id associated with vrf of interest
+ *
+ * Description:
+ *    This function checks if vrf is backened by netns
+ *    or vrf lite, and looks them up appropriately.
+ *    Hashmap look up implemented for vrf lite, but not netns.
+ *
+ * Returns:
+ *    vrf_id if found table by table_id, or VRF_DEFAULT if not found
+ */
+vrf_id_t vrf_lookup_by_table(uint32_t table_id, ns_id_t ns_id)
+{
+	struct vrf *vrf;
+
+	/* case vrf with netns : match the netnsid */
+	if (vrf_is_backend_netns()) {
+		RB_FOREACH (vrf, vrf_id_head, &vrfs_by_id) {
+			if (vrf->info == NULL)
+				continue;
+			if (ns_id == vrf->vrf_id)
+				return vrf->vrf_id;
+		}
+		/* case vrf with VRF_BACKEND_VRF_LITE : match the table_id */
+	} else if (vrf_get_backend() == VRF_BACKEND_VRF_LITE) {
+
+		struct vrf_ids_by_table_entry lookup = {.table_id = table_id};
+
+		struct vrf_ids_by_table_entry *entry =
+			vrf_ids_by_table_find(&vrf_ids_by_table_head, &lookup);
+		if (entry != NULL)
+			return entry->vrf_id;
+	}
+
+	return VRF_DEFAULT;
 }
 
 /*
@@ -506,6 +670,10 @@ void vrf_init(int (*create)(struct vrf *), int (*enable)(struct vrf *),
 	vrf_master.vrf_disable_hook = disable;
 	vrf_master.vrf_delete_hook = destroy;
 
+	/* Initialize vrf_ids_by_table */
+	vrf_ids_by_table_init(&vrf_ids_by_table_head);
+	vrf_ids_by_table_is_initialized = 1;
+
 	/* The default VRF always exists. */
 	default_vrf = vrf_get(VRF_DEFAULT, VRF_DEFAULT_NAME);
 	if (!default_vrf) {
@@ -568,6 +736,10 @@ void vrf_terminate(void)
 	vrf = vrf_lookup_by_id(VRF_DEFAULT);
 	if (vrf)
 		vrf_terminate_single(vrf);
+
+	/* Clean up vrf_ids_by_table hashmap */
+	vrf_ids_by_table_fini(&vrf_ids_by_table_head);
+	vrf_ids_by_table_is_initialized = 0;
 }
 
 int vrf_socket(int domain, int type, int protocol, vrf_id_t vrf_id,
