@@ -1820,13 +1820,10 @@ const void *nb_callback_lookup_next(const struct nb_node *nb_node,
 }
 
 int nb_callback_rpc(const struct nb_node *nb_node, const char *xpath,
-		    const struct list *input, struct list *output, char *errmsg,
-		    size_t errmsg_len)
+		    const struct lyd_node *input, struct lyd_node *output,
+		    char *errmsg, size_t errmsg_len)
 {
 	struct nb_cb_rpc_args args = {};
-
-	if (CHECK_FLAG(nb_node->flags, F_NB_NODE_IGNORE_CFG_CBS))
-		return 0;
 
 	DEBUGD(&nb_dbg_cbs_rpc, "northbound RPC: %s", xpath);
 

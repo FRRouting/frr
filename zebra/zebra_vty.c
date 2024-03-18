@@ -3553,56 +3553,17 @@ DEFPY (clear_evpn_dup_addr,
        "IPv4 address\n"
        "IPv6 address\n")
 {
-	struct ipaddr host_ip = {.ipa_type = IPADDR_NONE };
-	int ret = CMD_SUCCESS;
-	struct list *input;
-	struct yang_data *yang_dup = NULL, *yang_dup_ip = NULL,
-			 *yang_dup_mac = NULL;
-
-	input = list_new();
-
 	if (!vni_str) {
-		yang_dup = yang_data_new(
-			"/frr-zebra:clear-evpn-dup-addr/input/clear-dup-choice",
-			"all-case");
+		nb_cli_rpc_enqueue(vty, "all-vnis", NULL);
 	} else {
-		yang_dup = yang_data_new_uint32(
-			"/frr-zebra:clear-evpn-dup-addr/input/clear-dup-choice/single-case/vni-id",
-			vni);
-		if (!is_zero_mac(&mac->eth_addr)) {
-			yang_dup_mac = yang_data_new_mac(
-				"/frr-zebra:clear-evpn-dup-addr/input/clear-dup-choice/single-case/vni-id/mac-addr",
-				&mac->eth_addr);
-			if (yang_dup_mac)
-				listnode_add(input, yang_dup_mac);
-		} else if (ip) {
-			if (sockunion_family(ip) == AF_INET) {
-				host_ip.ipa_type = IPADDR_V4;
-				host_ip.ipaddr_v4.s_addr = sockunion2ip(ip);
-			} else {
-				host_ip.ipa_type = IPADDR_V6;
-				memcpy(&host_ip.ipaddr_v6, &ip->sin6.sin6_addr,
-				       sizeof(struct in6_addr));
-			}
-
-			yang_dup_ip = yang_data_new_ip(
-				"/frr-zebra:clear-evpn-dup-addr/input/clear-dup-choice/single-case/vni-id/vni-ipaddr",
-				&host_ip);
-
-			if (yang_dup_ip)
-				listnode_add(input, yang_dup_ip);
-		}
+		nb_cli_rpc_enqueue(vty, "vni-id", vni_str);
+		if (mac_str)
+			nb_cli_rpc_enqueue(vty, "mac-addr", mac_str);
+		else if (ip_str)
+			nb_cli_rpc_enqueue(vty, "vni-ipaddr", ip_str);
 	}
 
-	if (yang_dup) {
-		listnode_add(input, yang_dup);
-		ret = nb_cli_rpc(vty, "/frr-zebra:clear-evpn-dup-addr", input,
-				 NULL);
-	}
-
-	list_delete(&input);
-
-	return ret;
+	return nb_cli_rpc(vty, "/frr-zebra:clear-evpn-dup-addr", NULL);
 }
 
 DEFPY_HIDDEN (evpn_accept_bgp_seq,

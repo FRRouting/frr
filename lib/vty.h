@@ -122,6 +122,10 @@ struct vty {
 	size_t num_cfg_changes;
 	struct nb_cfg_change cfg_changes[VTY_MAXCFGCHANGES];
 
+	/* Input parameters */
+	size_t num_rpc_params;
+	struct nb_cfg_change rpc_params[VTY_MAXCFGCHANGES];
+
 	/* XPath of the current node */
 	int xpath_index;
 	char xpath[VTY_MAXDEPTH][XPATH_MAXLEN];

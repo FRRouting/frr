@@ -2244,23 +2244,10 @@ DEFPY_YANG (clear_ipv6_rip,
        "Clear IPv6 RIP database\n"
        VRF_CMD_HELP_STR)
 {
-	struct list *input;
-	int ret;
+	if (vrf)
+		nb_cli_rpc_enqueue(vty, "vrf", vrf);
 
-	input = list_new();
-	if (vrf) {
-		struct yang_data *yang_vrf;
-
-		yang_vrf = yang_data_new(
-			"/frr-ripngd:clear-ripng-route/input/vrf", vrf);
-		listnode_add(input, yang_vrf);
-	}
-
-	ret = nb_cli_rpc(vty, "/frr-ripngd:clear-ripng-route", input, NULL);
-
-	list_delete(&input);
-
-	return ret;
+	return nb_cli_rpc(vty, "/frr-ripngd:clear-ripng-route", NULL);
 }
 
 /* Update ECMP routes to zebra when ECMP is disabled. */
