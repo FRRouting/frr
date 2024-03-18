@@ -306,8 +306,10 @@ void bgp_damp_info_free(struct bgp_damp_info *bdi, int withdraw, afi_t afi,
 	bgp_path_info_unset_flag(bdi->dest, path,
 				 BGP_PATH_HISTORY | BGP_PATH_DAMPED);
 
-	if (bdi->lastrecord == BGP_RECORD_WITHDRAW && withdraw)
+	if (bdi->lastrecord == BGP_RECORD_WITHDRAW && withdraw) {
 		bgp_path_info_delete(bdi->dest, path);
+		bgp_process(path->peer->bgp, bdi->dest, afi, safi);
+	}
 
 	XFREE(MTYPE_BGP_DAMP_INFO, bdi);
 }
