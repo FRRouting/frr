@@ -9198,15 +9198,7 @@ DEFPY(
 	NEIGHBOR_ADDR_STR2
 	"Detect AS loops before sending to neighbor\n")
 {
-	struct peer *peer;
-
-	peer = peer_and_group_lookup_vty(vty, neighbor);
-	if (!peer)
-		return CMD_WARNING_CONFIG_FAILED;
-
-	peer->as_path_loop_detection = true;
-
-	return CMD_SUCCESS;
+	return peer_flag_set_vty(vty, neighbor, PEER_FLAG_AS_LOOP_DETECTION);
 }
 
 DEFPY (neighbor_addpath_paths_limit,
@@ -9275,15 +9267,7 @@ DEFPY(
 	NEIGHBOR_ADDR_STR2
 	"Detect AS loops before sending to neighbor\n")
 {
-	struct peer *peer;
-
-	peer = peer_and_group_lookup_vty(vty, neighbor);
-	if (!peer)
-		return CMD_WARNING_CONFIG_FAILED;
-
-	peer->as_path_loop_detection = false;
-
-	return CMD_SUCCESS;
+	return peer_flag_unset_vty(vty, neighbor, PEER_FLAG_AS_LOOP_DETECTION);
 }
 
 DEFPY(neighbor_path_attribute_discard,
@@ -18460,7 +18444,7 @@ static void bgp_config_write_peer_global(struct vty *vty, struct bgp *bgp,
 		vty_out(vty, " neighbor %s strict-capability-match\n", addr);
 
 	/* Sender side AS path loop detection. */
-	if (peer->as_path_loop_detection)
+	if (peergroup_flag_check(peer, PEER_FLAG_AS_LOOP_DETECTION))
 		vty_out(vty, " neighbor %s sender-as-path-loop-detection\n",
 			addr);
 
