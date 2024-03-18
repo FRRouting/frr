@@ -957,8 +957,6 @@ static void frr_daemonize(void)
 	}
 
 	close(fds[1]);
-	nb_terminate();
-	yang_terminate();
 	frr_daemon_wait(fds[0]);
 }
 
