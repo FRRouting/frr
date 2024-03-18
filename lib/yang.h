@@ -635,6 +635,25 @@ extern LY_ERR yang_parse_notification(const char *xpath, LYD_FORMAT format,
 				      const char *data, struct lyd_node **notif);
 
 /*
+ * Parse a YANG RPC.
+ *
+ * Args:
+ *	xpath: xpath of an RPC/action.
+ *	format: LYD_FORMAT of input data.
+ *	data: input data.
+ *	reply: true if the data represents a reply to an RPC/action.
+ *	rpc: pointer to the libyang data tree to store the parsed RPC/action.
+ *	     If data represents an action, the pointer to the action node is
+ *	     still returned, but it's part of the full data tree with all its
+ *	     parents.
+ *
+ * Returns:
+ *	LY_ERR from underlying calls.
+ */
+LY_ERR yang_parse_rpc(const char *xpath, LYD_FORMAT format, const char *data,
+		      bool reply, struct lyd_node **rpc);
+
+/*
  * "Print" the yang tree in `root` into dynamic sized array.
  *
  * Args:
