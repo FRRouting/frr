@@ -383,7 +383,8 @@ bgpd
 
 .. frrfmt:: %pBD (struct bgp_dest *)
 
-   Print prefix for a BGP destination.
+   Print prefix for a BGP destination.  When using ``--enable-dev-build`` include
+   the pointer value for the bgp_dest.
 
    :frrfmtout:`fe80::1234/64`
 
