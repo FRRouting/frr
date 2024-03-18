@@ -240,7 +240,17 @@ core_handler(int signo, siginfo_t *siginfo, void *context)
 	/* dump memory stats on core */
 	log_memstats(stderr, "core_handler");
 
-	zlog_tls_buffer_fini();
+	/*
+	 * This is a buffer flush because FRR is going down
+	 * hard.  This is especially important if the crash
+	 * was caused by a memory operation and if we call
+	 * zlog_tls_buffer_fini() then it has memory
+	 * operations as well.  This will cause the
+	 * core dump to not happen.  BAD MOJO
+	 * So this is intentional, let's try to flush
+	 * what we can and let the crash happen.
+	 */
+	zlog_tls_buffer_flush();
 
 	/* give the kernel a chance to generate a coredump */
 	sigaddset(&sigset, signo);
