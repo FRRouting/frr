@@ -653,6 +653,16 @@ void yang_dnode_free(struct lyd_node *dnode)
 	lyd_free_all(dnode);
 }
 
+void yang_dnode_rpc_output_add(struct lyd_node *output, const char *xpath,
+			       const char *value)
+{
+	LY_ERR err;
+
+	err = lyd_new_path(output, ly_native_ctx, xpath, value,
+			   LYD_NEW_PATH_OUTPUT | LYD_NEW_PATH_UPDATE, NULL);
+	assert(err == LY_SUCCESS);
+}
+
 struct yang_data *yang_data_new(const char *xpath, const char *value)
 {
 	struct yang_data *data;

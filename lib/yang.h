@@ -536,6 +536,21 @@ extern struct lyd_node *yang_dnode_dup(const struct lyd_node *dnode);
 extern void yang_dnode_free(struct lyd_node *dnode);
 
 /*
+ * Add a libyang data node to an RPC/action output container.
+ *
+ * output
+ *    RPC/action output container.
+ *
+ * xpath
+ *    XPath of the data node to add, relative to the output container.
+ *
+ * value
+ *    String representing the value of the data node.
+ */
+extern void yang_dnode_rpc_output_add(struct lyd_node *output,
+				      const char *xpath, const char *value);
+
+/*
  * Create a new yang_data structure.
  *
  * xpath
