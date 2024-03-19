@@ -21,6 +21,7 @@
 
 #define MGMTD_TXN_CFG_COMMIT_MAX_DELAY_SEC 600
 #define MGMTD_TXN_GET_TREE_MAX_DELAY_SEC   600
+#define MGMTD_TXN_RPC_MAX_DELAY_SEC	   60
 
 #define MGMTD_TXN_CLEANUP_DELAY_USEC 10
 
@@ -48,7 +49,8 @@ struct mgmt_edit_req;
 enum mgmt_txn_type {
 	MGMTD_TXN_TYPE_NONE = 0,
 	MGMTD_TXN_TYPE_CONFIG,
-	MGMTD_TXN_TYPE_SHOW
+	MGMTD_TXN_TYPE_SHOW,
+	MGMTD_TXN_TYPE_RPC,
 };
 
 static inline const char *mgmt_txn_type2str(enum mgmt_txn_type type)
@@ -60,6 +62,8 @@ static inline const char *mgmt_txn_type2str(enum mgmt_txn_type type)
 		return "CONFIG";
 	case MGMTD_TXN_TYPE_SHOW:
 		return "SHOW";
+	case MGMTD_TXN_TYPE_RPC:
+		return "RPC";
 	}
 
 	return "Unknown";
@@ -246,6 +250,25 @@ mgmt_txn_send_edit(uint64_t txn_id, uint64_t req_id, Mgmtd__DatastoreId ds_id,
 		   LYD_FORMAT request_type, uint8_t flags, uint8_t operation,
 		   const char *xpath, const char *data);
 
+/**
+ * Send RPC request.
+ *
+ * Args:
+ *	txn_id: Transaction identifier.
+ *	req_id: FE client request identifier.
+ *	clients: Bitmask of clients to send RPC to.
+ *	result_type: LYD_FORMAT result format.
+ *	xpath: The xpath of the RPC.
+ *	data: The input parameters data tree.
+ *	data_len: The length of the input parameters data.
+ *
+ * Return:
+ *	0 on success.
+ */
+extern int mgmt_txn_send_rpc(uint64_t txn_id, uint64_t req_id, uint64_t clients,
+			     LYD_FORMAT result_type, const char *xpath,
+			     const char *data, size_t data_len);
+
 /*
  * Notifiy backend adapter on connection.
  */
@@ -311,6 +334,18 @@ int mgmt_txn_notify_error(struct mgmt_be_client_adapter *adapter,
 extern int mgmt_txn_notify_tree_data_reply(struct mgmt_be_client_adapter *adapter,
 					   struct mgmt_msg_tree_data *data_msg,
 					   size_t msg_len);
+
+/**
+ * Process a reply from a backend client to our RPC request
+ *
+ * Args:
+ *	adapter: The adapter that received the result.
+ *	reply_msg: The message from the backend.
+ *	msg_len: Total length of the message.
+ */
+extern int mgmt_txn_notify_rpc_reply(struct mgmt_be_client_adapter *adapter,
+				     struct mgmt_msg_rpc_reply *reply_msg,
+				     size_t msg_len);
 
 /*
  * Dump transaction status to vty.

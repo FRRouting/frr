@@ -163,6 +163,26 @@ mgmt_fe_adapter_send_tree_data(uint64_t session_id, uint64_t txn_id,
 			       int partial_error, bool short_circuit_ok);
 
 /**
+ * Send RPC reply back to client.
+ *
+ * This also cleans up and frees the transaction.
+ *
+ * Args:
+ *	session_id: the session.
+ *	txn_id: the txn_id this data pertains to
+ *	req_id: the req id for the rpc message
+ *	result_type: the format of the result data.
+ *	result: the results.
+ *
+ * Return:
+ *	the return value from the underlying send function.
+ */
+extern int mgmt_fe_adapter_send_rpc_reply(uint64_t session_id, uint64_t txn_id,
+					  uint64_t req_id,
+					  LYD_FORMAT result_type,
+					  const struct lyd_node *result);
+
+/**
  * Send edit reply back to client. If error is not 0, a native error is sent.
  *
  * This also cleans up and frees the transaction.

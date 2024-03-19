@@ -609,7 +609,10 @@ extern int vmgmt_msg_native_send_error(struct msg_conn *conn,
 		const char *__s = NULL;                                        \
 		if (msg->vsplit && msg->vsplit <= __len &&                     \
 		    msg->data[msg->vsplit - 1] == 0) {                         \
-			(__data) = msg->data + msg->vsplit;                    \
+			if (msg->vsplit < __len)                               \
+				(__data) = msg->data + msg->vsplit;            \
+			else                                                   \
+				(__data) = NULL;                               \
 			__s = msg->data;                                       \
 		}                                                              \
 		__s;                                                           \

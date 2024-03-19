@@ -672,6 +672,7 @@ static void be_adapter_handle_native_msg(struct mgmt_be_client_adapter *adapter,
 {
 	struct mgmt_msg_notify_data *notify_msg;
 	struct mgmt_msg_tree_data *tree_msg;
+	struct mgmt_msg_rpc_reply *rpc_msg;
 	struct mgmt_msg_error *error_msg;
 
 	/* get the transaction */
@@ -695,6 +696,15 @@ static void be_adapter_handle_native_msg(struct mgmt_be_client_adapter *adapter,
 
 		/* Forward the reply to the txn module */
 		mgmt_txn_notify_tree_data_reply(adapter, tree_msg, msg_len);
+		break;
+	case MGMT_MSG_CODE_RPC_REPLY:
+		/* RPC reply from a backend client */
+		rpc_msg = (typeof(rpc_msg))msg;
+		__dbg("Got RPC_REPLY from '%s' txn-id %" PRIx64, adapter->name,
+		      msg->refer_id);
+
+		/* Forward the reply to the txn module */
+		mgmt_txn_notify_rpc_reply(adapter, rpc_msg, msg_len);
 		break;
 	case MGMT_MSG_CODE_NOTIFY:
 		notify_msg = (typeof(notify_msg))msg;
