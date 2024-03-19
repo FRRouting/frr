@@ -346,6 +346,8 @@ struct bgp_path_info {
 
 	unsigned short instance;
 
+	enum bgp_path_selection_reason reason;
+
 	/* Addpath identifiers */
 	uint32_t addpath_rx_id;
 	struct bgp_addpath_info_data tx_addpath;

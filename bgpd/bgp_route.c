@@ -482,6 +482,7 @@ void bgp_path_info_add_with_caller(const char *name, struct bgp_dest *dest,
 		top->prev = pi;
 	bgp_dest_set_bgp_path_info(dest, pi);
 
+	SET_FLAG(pi->flags, BGP_PATH_UNSORTED);
 	bgp_path_info_lock(pi);
 	bgp_dest_lock_node(dest);
 	peer_lock(pi->peer); /* bgp_path_info peer reference */
@@ -502,8 +503,26 @@ struct bgp_dest *bgp_path_info_reap(struct bgp_dest *dest,
 		bgp_dest_set_bgp_path_info(dest, pi->next);
 
 	bgp_path_info_mpath_dequeue(pi);
-	bgp_path_info_unlock(pi);
+
+	pi->next = NULL;
+	pi->prev = NULL;
+
 	hook_call(bgp_snmp_update_stats, dest, pi, false);
+
+	bgp_path_info_unlock(pi);
+	return bgp_dest_unlock_node(dest);
+}
+
+static struct bgp_dest *bgp_path_info_reap_unsorted(struct bgp_dest *dest,
+						    struct bgp_path_info *pi)
+{
+	bgp_path_info_mpath_dequeue(pi);
+
+	pi->next = NULL;
+	pi->prev = NULL;
+
+	hook_call(bgp_snmp_update_stats, dest, pi, false);
+	bgp_path_info_unlock(pi);
 
 	return bgp_dest_unlock_node(dest);
 }
@@ -2782,17 +2801,18 @@ void bgp_best_selection(struct bgp *bgp, struct bgp_dest *dest,
 			struct bgp_path_info_pair *result, afi_t afi,
 			safi_t safi)
 {
-	struct bgp_path_info *new_select;
-	struct bgp_path_info *old_select;
+	struct bgp_path_info *new_select, *look_thru;
+	struct bgp_path_info *old_select, *worse, *first;
 	struct bgp_path_info *pi;
 	struct bgp_path_info *pi1;
 	struct bgp_path_info *pi2;
-	struct bgp_path_info *nextpi = NULL;
 	int paths_eq, do_mpath;
-	bool debug;
+	bool debug, any_comparisons;
 	struct list mp_list;
 	char pfx_buf[PREFIX2STR_BUFFER] = {};
 	char path_buf[PATH_ADDPATH_STR_BUFFER];
+	enum bgp_path_selection_reason reason = bgp_path_selection_none;
+	bool unsorted_items = true;
 
 	bgp_mp_list_init(&mp_list);
 	do_mpath =
@@ -2803,16 +2823,16 @@ void bgp_best_selection(struct bgp *bgp, struct bgp_dest *dest,
 	if (debug)
 		prefix2str(bgp_dest_get_prefix(dest), pfx_buf, sizeof(pfx_buf));
 
-	dest->reason = bgp_path_selection_none;
 	/* bgp deterministic-med */
 	new_select = NULL;
 	if (CHECK_FLAG(bgp->flags, BGP_FLAG_DETERMINISTIC_MED)) {
-
 		/* Clear BGP_PATH_DMED_SELECTED for all paths */
 		for (pi1 = bgp_dest_get_bgp_path_info(dest); pi1;
-		     pi1 = pi1->next)
+		     pi1 = pi1->next) {
 			bgp_path_info_unset_flag(dest, pi1,
 						 BGP_PATH_DMED_SELECTED);
+			UNSET_FLAG(pi1->flags, BGP_PATH_DMED_CHECK);
+		}
 
 		for (pi1 = bgp_dest_get_bgp_path_info(dest); pi1;
 		     pi1 = pi1->next) {
@@ -2875,69 +2895,273 @@ void bgp_best_selection(struct bgp *bgp, struct bgp_dest *dest,
 		}
 	}
 
-	/* Check old selected route and new selected route. */
-	old_select = NULL;
-	new_select = NULL;
-	for (pi = bgp_dest_get_bgp_path_info(dest);
-	     (pi != NULL) && (nextpi = pi->next, 1); pi = nextpi) {
-		enum bgp_path_selection_reason reason;
+	/*
+	 * Let's grab the unsorted items from the list
+	 */
+	struct bgp_path_info *unsorted_list = NULL;
+	struct bgp_path_info *unsorted_list_spot = NULL;
+	struct bgp_path_info *unsorted_holddown = NULL;
 
-		UNSET_FLAG(pi->flags, BGP_PATH_UNSORTED);
+	old_select = NULL;
+	pi = bgp_dest_get_bgp_path_info(dest);
+	while (pi && CHECK_FLAG(pi->flags, BGP_PATH_UNSORTED)) {
+		struct bgp_path_info *next = pi->next;
+
 		if (CHECK_FLAG(pi->flags, BGP_PATH_SELECTED))
 			old_select = pi;
 
-		if (BGP_PATH_HOLDDOWN(pi)) {
-			/* reap REMOVED routes, if needs be
+		/*
+		 * Pull off pi off the list
+		 */
+		if (pi->next)
+			pi->next->prev = NULL;
+
+		bgp_dest_set_bgp_path_info(dest, pi->next);
+		pi->next = NULL;
+		pi->prev = NULL;
+
+		/*
+		 * Place it on the unsorted list
+		 */
+		if (unsorted_list_spot) {
+			unsorted_list_spot->next = pi;
+			pi->prev = unsorted_list_spot;
+			pi->next = NULL;
+		} else {
+			unsorted_list = pi;
+
+			pi->next = NULL;
+			pi->prev = NULL;
+		}
+
+		unsorted_list_spot = pi;
+		pi = next;
+	}
+
+	if (!old_select) {
+		old_select = bgp_dest_get_bgp_path_info(dest);
+		if (old_select &&
+		    !CHECK_FLAG(old_select->flags, BGP_PATH_SELECTED))
+			old_select = NULL;
+	}
+
+	if (!unsorted_list)
+		unsorted_items = true;
+	else
+		unsorted_items = false;
+
+	any_comparisons = false;
+	worse = NULL;
+	while (unsorted_list) {
+		first = unsorted_list;
+		unsorted_list = unsorted_list->next;
+
+		if (unsorted_list)
+			unsorted_list->prev = NULL;
+		first->next = NULL;
+		first->prev = NULL;
+
+		/*
+		 * It's not likely that the just received unsorted entry
+		 * is in holddown and scheduled for removal but we should
+		 * check
+		 */
+		if (BGP_PATH_HOLDDOWN(first)) {
+			/*
+			 * reap REMOVED routes, if needs be
 			 * selected route must stay for a while longer though
 			 */
 			if (debug)
-				zlog_debug(
-					"%s: %pBD(%s) pi from %s in holddown",
-					__func__, dest, bgp->name_pretty,
-					pi->peer->host);
+				zlog_debug("%s: %pBD(%s) pi %p from %s in holddown",
+					   __func__, dest, bgp->name_pretty,
+					   first, first->peer->host);
 
-			if (CHECK_FLAG(pi->flags, BGP_PATH_REMOVED) &&
-			    (pi != old_select)) {
-				dest = bgp_path_info_reap(dest, pi);
+			if (old_select != first &&
+			    CHECK_FLAG(first->flags, BGP_PATH_REMOVED)) {
+				dest = bgp_path_info_reap_unsorted(dest, first);
 				assert(dest);
-			}
+			} else {
+				/*
+				 * We are in hold down, so we cannot sort this
+				 * item yet.  Let's wait, so hold the unsorted
+				 * to the side
+				 */
+				if (unsorted_holddown) {
+					first->next = unsorted_holddown;
+					unsorted_holddown->prev = first;
+					unsorted_holddown = first;
+				} else
+					unsorted_holddown = first;
 
+				UNSET_FLAG(first->flags, BGP_PATH_UNSORTED);
+			}
 			continue;
 		}
 
-		if (pi->peer && pi->peer != bgp->peer_self
-		    && !CHECK_FLAG(pi->peer->sflags, PEER_STATUS_NSF_WAIT))
-			if (!peer_established(pi->peer->connection)) {
+		bgp_path_info_unset_flag(dest, first, BGP_PATH_DMED_CHECK);
+
+		worse = NULL;
+
+		struct bgp_path_info *look_thru_next;
+
+		for (look_thru = bgp_dest_get_bgp_path_info(dest); look_thru;
+		     look_thru = look_thru_next) {
+			/* look thru can be reaped save the next pointer */
+			look_thru_next = look_thru->next;
+
+			/*
+			 * Now we have the first unsorted and the best selected
+			 * Let's do best path comparison
+			 */
+			if (BGP_PATH_HOLDDOWN(look_thru)) {
+				/* reap REMOVED routes, if needs be
+				 * selected route must stay for a while longer though
+				 */
 				if (debug)
-					zlog_debug(
-						"%s: %pBD(%s) non self peer %s not estab state",
-						__func__, dest,
-						bgp->name_pretty,
-						pi->peer->host);
+					zlog_debug("%s: %pBD(%s) pi from %s %p in holddown",
+						   __func__, dest,
+						   bgp->name_pretty,
+						   look_thru->peer->host,
+						   look_thru);
+
+				if (CHECK_FLAG(look_thru->flags,
+					       BGP_PATH_REMOVED) &&
+				    (look_thru != old_select)) {
+					dest = bgp_path_info_reap(dest,
+								  look_thru);
+					assert(dest);
+				}
 
 				continue;
 			}
 
-		bgp_path_info_unset_flag(dest, pi, BGP_PATH_DMED_CHECK);
+			if (look_thru->peer &&
+			    look_thru->peer != bgp->peer_self &&
+			    !CHECK_FLAG(look_thru->peer->sflags,
+					PEER_STATUS_NSF_WAIT))
+				if (!peer_established(
+					    look_thru->peer->connection)) {
+					if (debug)
+						zlog_debug("%s: %pBD(%s) non self peer %s not estab state",
+							   __func__, dest,
+							   bgp->name_pretty,
+							   look_thru->peer->host);
 
-		if (CHECK_FLAG(bgp->flags, BGP_FLAG_DETERMINISTIC_MED) &&
-		    (!CHECK_FLAG(pi->flags, BGP_PATH_DMED_SELECTED))) {
-			if (debug)
-				zlog_debug("%s: %pBD(%s) pi %s dmed", __func__,
-					   dest, bgp->name_pretty,
-					   pi->peer->host);
-			continue;
+					continue;
+				}
+
+			bgp_path_info_unset_flag(dest, look_thru,
+						 BGP_PATH_DMED_CHECK);
+			if (CHECK_FLAG(bgp->flags, BGP_FLAG_DETERMINISTIC_MED) &&
+			    (!CHECK_FLAG(look_thru->flags,
+					 BGP_PATH_DMED_SELECTED))) {
+				bgp_path_info_unset_flag(dest, look_thru,
+							 BGP_PATH_DMED_CHECK);
+				if (debug)
+					zlog_debug("%s: %pBD(%s) pi %s dmed",
+						   __func__, dest,
+						   bgp->name_pretty,
+						   look_thru->peer->host);
+
+				worse = look_thru;
+				continue;
+			}
+
+			reason = dest->reason;
+			any_comparisons = true;
+			if (bgp_path_info_cmp(bgp, first, look_thru, &paths_eq,
+					      mpath_cfg, debug, pfx_buf, afi,
+					      safi, &reason)) {
+				first->reason = reason;
+				worse = look_thru;
+				/*
+				 * We can stop looking
+				 */
+				break;
+			}
+
+			look_thru->reason = reason;
 		}
 
-		reason = dest->reason;
-		if (bgp_path_info_cmp(bgp, pi, new_select, &paths_eq, mpath_cfg,
-				      debug, pfx_buf, afi, safi,
-				      &dest->reason)) {
-			if (new_select == NULL &&
-			    reason != bgp_path_selection_none)
-				dest->reason = reason;
-			new_select = pi;
+		if (!any_comparisons)
+			first->reason = bgp_path_selection_first;
+
+		/*
+		 * At this point worse if NON-NULL is where the first
+		 * pointer should be before.  if worse is NULL then
+		 * first is bestpath too.  Let's remove first from the
+		 * list and place it in the right spot
+		 */
+
+		if (!worse) {
+			struct bgp_path_info *end =
+				bgp_dest_get_bgp_path_info(dest);
+
+			for (; end && end->next != NULL; end = end->next)
+				;
+
+			if (end)
+				end->next = first;
+			else
+				bgp_dest_set_bgp_path_info(dest, first);
+			first->prev = end;
+			first->next = NULL;
+
+			dest->reason = first->reason;
+		} else {
+			if (worse->prev)
+				worse->prev->next = first;
+			first->next = worse;
+			if (worse) {
+				first->prev = worse->prev;
+				worse->prev = first;
+			} else
+				first->prev = NULL;
+
+			if (dest->info == worse) {
+				bgp_dest_set_bgp_path_info(dest, first);
+				dest->reason = first->reason;
+			}
 		}
+		UNSET_FLAG(first->flags, BGP_PATH_UNSORTED);
+	}
+
+	if (!unsorted_items) {
+		new_select = bgp_dest_get_bgp_path_info(dest);
+		while (new_select && BGP_PATH_HOLDDOWN(new_select))
+			new_select = new_select->next;
+
+		if (new_select) {
+			if (new_select->reason == bgp_path_selection_none)
+				new_select->reason = bgp_path_selection_first;
+			else if (new_select == bgp_dest_get_bgp_path_info(dest) &&
+				 new_select->next == NULL)
+				new_select->reason = bgp_path_selection_first;
+			dest->reason = new_select->reason;
+		} else
+			dest->reason = bgp_path_selection_none;
+	} else
+		new_select = old_select;
+
+
+	/*
+	 * Reinsert all the unsorted_holddown items for future processing
+	 * at the end of the list.
+	 */
+	if (unsorted_holddown) {
+		struct bgp_path_info *top = bgp_dest_get_bgp_path_info(dest);
+		struct bgp_path_info *prev = NULL;
+
+		while (top != NULL) {
+			prev = top;
+			top = top->next;
+		}
+
+		if (prev) {
+			prev->next = unsorted_holddown;
+			unsorted_holddown->prev = prev;
+		} else
+			bgp_dest_set_bgp_path_info(dest, unsorted_holddown);
 	}
 
 	/* Now that we know which path is the bestpath see if any of the other
@@ -3511,7 +3735,8 @@ static void bgp_process_main_one(struct bgp *bgp, struct bgp_dest *dest,
 		bgp_path_info_unset_flag(dest, old_select, BGP_PATH_SELECTED);
 	if (new_select) {
 		if (debug)
-			zlog_debug("%s: setting SELECTED flag", __func__);
+			zlog_debug("%s: %pBD setting SELECTED flag", __func__,
+				   dest);
 		bgp_path_info_set_flag(dest, new_select, BGP_PATH_SELECTED);
 		bgp_path_info_unset_flag(dest, new_select,
 					 BGP_PATH_ATTR_CHANGED);
@@ -3747,8 +3972,24 @@ void bgp_process(struct bgp *bgp, struct bgp_dest *dest,
 	 * situation, even if the node is already
 	 * scheduled.
 	 */
-	if (pi)
+	if (pi) {
+		struct bgp_path_info *first = bgp_dest_get_bgp_path_info(dest);
+
 		SET_FLAG(pi->flags, BGP_PATH_UNSORTED);
+
+		if (pi != first) {
+			if (pi->next)
+				pi->next->prev = pi->prev;
+			if (pi->prev)
+				pi->prev->next = pi->next;
+
+			if (first)
+				first->prev = pi;
+			pi->next = first;
+			pi->prev = NULL;
+			bgp_dest_set_bgp_path_info(dest, pi);
+		}
+	}
 
 	/* already scheduled for processing? */
 	if (CHECK_FLAG(dest->flags, BGP_NODE_PROCESS_SCHEDULED))
@@ -5637,7 +5878,7 @@ static wq_item_status bgp_clear_route_node(struct work_queue *wq, void *data)
 	struct bgp_clear_node_queue *cnq = data;
 	struct bgp_dest *dest = cnq->dest;
 	struct peer *peer = wq->spec.data;
-	struct bgp_path_info *pi;
+	struct bgp_path_info *pi, *next;
 	struct bgp *bgp;
 	afi_t afi = bgp_dest_table(dest)->afi;
 	safi_t safi = bgp_dest_table(dest)->safi;
@@ -5648,7 +5889,8 @@ static wq_item_status bgp_clear_route_node(struct work_queue *wq, void *data)
 	/* It is possible that we have multiple paths for a prefix from a peer
 	 * if that peer is using AddPath.
 	 */
-	for (pi = bgp_dest_get_bgp_path_info(dest); pi; pi = pi->next) {
+	for (pi = bgp_dest_get_bgp_path_info(dest);
+	     (pi != NULL) && (next = pi->next, 1); pi = next) {
 		if (pi->peer != peer)
 			continue;
 
@@ -5910,7 +6152,7 @@ void bgp_clear_adj_in(struct peer *peer, afi_t afi, safi_t safi)
 void bgp_clear_stale_route(struct peer *peer, afi_t afi, safi_t safi)
 {
 	struct bgp_dest *dest;
-	struct bgp_path_info *pi;
+	struct bgp_path_info *pi, *next;
 	struct bgp_table *table;
 
 	if (safi == SAFI_MPLS_VPN || safi == SAFI_ENCAP || safi == SAFI_EVPN) {
@@ -5925,8 +6167,9 @@ void bgp_clear_stale_route(struct peer *peer, afi_t afi, safi_t safi)
 
 			for (rm = bgp_table_top(table); rm;
 			     rm = bgp_route_next(rm))
-				for (pi = bgp_dest_get_bgp_path_info(rm); pi;
-				     pi = pi->next) {
+				for (pi = bgp_dest_get_bgp_path_info(rm);
+				     (pi != NULL) && (next = pi->next, 1);
+				     pi = next) {
 					if (pi->peer != peer)
 						continue;
 					if (CHECK_FLAG(
@@ -5959,8 +6202,8 @@ void bgp_clear_stale_route(struct peer *peer, afi_t afi, safi_t safi)
 	} else {
 		for (dest = bgp_table_top(peer->bgp->rib[afi][safi]); dest;
 		     dest = bgp_route_next(dest))
-			for (pi = bgp_dest_get_bgp_path_info(dest); pi;
-			     pi = pi->next) {
+			for (pi = bgp_dest_get_bgp_path_info(dest);
+			     (pi != NULL) && (next = pi->next, 1); pi = next) {
 				if (pi->peer != peer)
 					continue;
 				if (CHECK_FLAG(peer->af_sflags[afi][safi],
@@ -6670,6 +6913,7 @@ void bgp_static_withdraw(struct bgp *bgp, const struct prefix *p, afi_t afi,
 
 	/* Withdraw static BGP route from routing table. */
 	if (pi) {
+		SET_FLAG(pi->flags, BGP_PATH_UNSORTED);
 #ifdef ENABLE_BGP_VNC
 		if (safi == SAFI_MPLS_VPN || safi == SAFI_ENCAP)
 			rfapiProcessWithdraw(pi->peer, NULL, p, prd, pi->attr,
@@ -7452,8 +7696,10 @@ static void bgp_aggregate_install(
 		/*
 		 * Mark the old as unusable
 		 */
-		if (pi)
+		if (pi) {
 			bgp_path_info_delete(dest, pi);
+			bgp_process(bgp, dest, pi, afi, safi);
+		}
 
 		attr = bgp_attr_aggregate_intern(
 			bgp, origin, aspath, community, ecommunity, lcommunity,
@@ -7900,7 +8146,8 @@ void bgp_aggregate_delete(struct bgp *bgp, const struct prefix *p, afi_t afi,
 					bgp_process(bgp, dest, pi, afi, safi);
 			}
 
-			aggregate->count--;
+			if (aggregate->count > 0)
+				aggregate->count--;
 
 			if (pi->attr->origin == BGP_ORIGIN_INCOMPLETE)
 				aggregate->incomplete_origin_count--;
