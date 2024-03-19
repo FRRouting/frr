@@ -319,7 +319,12 @@ void frr_preinit(struct frr_daemon_info *daemon, int argc, char **argv)
 	char *p = strrchr(argv[0], '/');
 	di->progname = p ? p + 1 : argv[0];
 
-	umask(0027);
+	if (!getenv("GCOV_PREFIX"))
+		umask(0027);
+	else {
+		/* If we are profiling use a more generous umask */
+		umask(0002);
+	}
 
 	log_args_init(daemon->early_logging);
 
