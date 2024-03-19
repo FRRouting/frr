@@ -2877,9 +2877,9 @@ void subgroup_process_announce_selected(struct update_subgroup *subgrp,
 {
 	const struct prefix *p;
 	struct peer *onlypeer;
-	struct attr attr;
 	afi_t afi;
 	safi_t safi;
+	struct attr attr = { 0 }, *pattr = &attr;
 	struct bgp *bgp;
 	bool advertise;
 
@@ -2909,26 +2909,30 @@ void subgroup_process_announce_selected(struct update_subgroup *subgrp,
 	advertise = bgp_check_advertise(bgp, dest);
 
 	if (selected) {
-		if (subgroup_announce_check(dest, selected, subgrp, p, &attr,
+		if (subgroup_announce_check(dest, selected, subgrp, p, pattr,
 					    NULL)) {
 			/* Route is selected, if the route is already installed
 			 * in FIB, then it is advertised
 			 */
 			if (advertise) {
 				if (!bgp_check_withdrawal(bgp, dest)) {
-					struct attr *adv_attr =
-						bgp_attr_intern(&attr);
-
-					bgp_adj_out_set_subgroup(dest, subgrp,
-								 adv_attr,
-								 selected);
-				} else
+					if (!bgp_adj_out_set_subgroup(dest,
+								      subgrp,
+								      pattr,
+								      selected))
+						bgp_attr_flush(pattr);
+				} else {
 					bgp_adj_out_unset_subgroup(
 						dest, subgrp, 1, addpath_tx_id);
-			}
-		} else
+					bgp_attr_flush(pattr);
+				}
+			} else
+				bgp_attr_flush(pattr);
+		} else {
 			bgp_adj_out_unset_subgroup(dest, subgrp, 1,
 						   addpath_tx_id);
+			bgp_attr_flush(pattr);
+		}
 	}
 
 	/* If selected is NULL we must withdraw the path using addpath_tx_id */
@@ -5836,10 +5840,10 @@ bool bgp_outbound_policy_exists(struct peer *peer, struct bgp_filter *filter)
 	if (peer->sort == BGP_PEER_IBGP)
 		return true;
 
-	if (peer->sort == BGP_PEER_EBGP
-	    && (ROUTE_MAP_OUT_NAME(filter) || PREFIX_LIST_OUT_NAME(filter)
-		|| FILTER_LIST_OUT_NAME(filter)
-		|| DISTRIBUTE_OUT_NAME(filter)))
+	if (peer->sort == BGP_PEER_EBGP &&
+	    (ROUTE_MAP_OUT_NAME(filter) || PREFIX_LIST_OUT_NAME(filter) ||
+	     FILTER_LIST_OUT_NAME(filter) || DISTRIBUTE_OUT_NAME(filter) ||
+	     UNSUPPRESS_MAP_NAME(filter)))
 		return true;
 	return false;
 }
