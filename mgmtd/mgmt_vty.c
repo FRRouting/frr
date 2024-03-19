@@ -296,6 +296,21 @@ DEFPY(mgmt_edit, mgmt_edit_cmd,
 	return CMD_SUCCESS;
 }
 
+DEFPY(mgmt_rpc, mgmt_rpc_cmd,
+      "mgmt rpc XPATH [json|xml]$fmt [DATA]",
+      MGMTD_STR
+      "Invoke RPC\n"
+      "XPath expression specifying the YANG data path\n"
+      "JSON input format (default)\n"
+      "XML input format\n"
+      "Input data tree\n")
+{
+	LYD_FORMAT format = (fmt && fmt[0] == 'x') ? LYD_XML : LYD_JSON;
+
+	vty_mgmt_send_rpc_req(vty, format, xpath, data);
+	return CMD_SUCCESS;
+}
+
 DEFPY(show_mgmt_get_config, show_mgmt_get_config_cmd,
       "show mgmt get-config [candidate|operational|running]$dsname WORD$path",
       SHOW_STR MGMTD_STR
@@ -702,6 +717,7 @@ void mgmt_vty_init(void)
 	install_element(CONFIG_NODE, &mgmt_remove_config_data_cmd);
 	install_element(CONFIG_NODE, &mgmt_replace_config_data_cmd);
 	install_element(CONFIG_NODE, &mgmt_edit_cmd);
+	install_element(CONFIG_NODE, &mgmt_rpc_cmd);
 	install_element(CONFIG_NODE, &mgmt_load_config_cmd);
 	install_element(CONFIG_NODE, &mgmt_save_config_cmd);
 	install_element(CONFIG_NODE, &mgmt_rollback_cmd);

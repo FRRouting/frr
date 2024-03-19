@@ -360,6 +360,33 @@ int mgmt_fe_send_edit_req(struct mgmt_fe_client *client, uint64_t session_id,
 	return ret;
 }
 
+int mgmt_fe_send_rpc_req(struct mgmt_fe_client *client, uint64_t session_id,
+			 uint64_t req_id, LYD_FORMAT request_type,
+			 const char *xpath, const char *data)
+{
+	struct mgmt_msg_rpc *msg;
+	int ret;
+
+	msg = mgmt_msg_native_alloc_msg(struct mgmt_msg_rpc, 0,
+					MTYPE_MSG_NATIVE_RPC);
+	msg->refer_id = session_id;
+	msg->req_id = req_id;
+	msg->code = MGMT_MSG_CODE_RPC;
+	msg->request_type = request_type;
+
+	mgmt_msg_native_xpath_encode(msg, xpath);
+	if (data)
+		mgmt_msg_native_append(msg, data, strlen(data) + 1);
+
+	debug_fe_client("Sending RPC_REQ session-id %" PRIu64 " req-id %" PRIu64
+			" xpath: %s",
+			session_id, req_id, xpath);
+
+	ret = mgmt_msg_native_send_msg(&client->client.conn, msg, false);
+	mgmt_msg_native_free_msg(msg);
+	return ret;
+}
+
 static int mgmt_fe_client_handle_msg(struct mgmt_fe_client *client,
 				     Mgmtd__FeMessage *fe_msg)
 {
@@ -534,6 +561,7 @@ static void fe_client_handle_native_msg(struct mgmt_fe_client *client,
 	struct mgmt_msg_notify_data *notify_msg;
 	struct mgmt_msg_tree_data *tree_msg;
 	struct mgmt_msg_edit_reply *edit_msg;
+	struct mgmt_msg_rpc_reply *rpc_msg;
 	struct mgmt_msg_error *err_msg;
 	const char *xpath = NULL;
 	const char *data = NULL;
@@ -607,6 +635,23 @@ static void fe_client_handle_native_msg(struct mgmt_fe_client *client,
 						 msg->refer_id,
 						 session->user_ctx, msg->req_id,
 						 xpath);
+		break;
+	case MGMT_MSG_CODE_RPC_REPLY:
+		if (!session->client->cbs.rpc_notify)
+			return;
+
+		rpc_msg = (typeof(rpc_msg))msg;
+		if (msg_len < sizeof(*rpc_msg)) {
+			log_err_fe_client("Corrupt rpc-reply msg recv");
+			return;
+		}
+		dlen = msg_len - sizeof(*rpc_msg);
+
+		session->client->cbs.rpc_notify(client, client->user_data,
+						session->client_id,
+						msg->refer_id,
+						session->user_ctx, msg->req_id,
+						dlen ? rpc_msg->data : NULL);
 		break;
 	case MGMT_MSG_CODE_NOTIFY:
 		if (!session->client->cbs.async_notification)

@@ -322,6 +322,22 @@ int nb_cli_rpc(struct vty *vty, const char *xpath, struct lyd_node **output_p)
 		assert(err == LY_SUCCESS);
 	}
 
+	if (vty_mgmt_fe_enabled()) {
+		char *data = NULL;
+
+		err = lyd_print_mem(&data, input, LYD_JSON, LYD_PRINT_SHRINK);
+		assert(err == LY_SUCCESS);
+
+		ret = vty_mgmt_send_rpc_req(vty, LYD_JSON, xpath, data);
+
+		free(data);
+		lyd_free_all(input);
+
+		if (ret < 0)
+			return CMD_WARNING;
+		return CMD_SUCCESS;
+	}
+
 	/* validate input tree to create implicit defaults */
 	err = lyd_validate_op(input, NULL, LYD_TYPE_RPC_YANG, NULL);
 	assert(err == LY_SUCCESS);
