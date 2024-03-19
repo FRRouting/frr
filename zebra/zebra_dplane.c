@@ -6351,7 +6351,7 @@ dplane_provider_dequeue_out_ctx(struct zebra_dplane_provider *prov)
  */
 bool dplane_provider_is_threaded(const struct zebra_dplane_provider *prov)
 {
-	return (prov->dp_flags & DPLANE_PROV_FLAG_THREADED);
+	return CHECK_FLAG(prov->dp_flags, DPLANE_PROV_FLAG_THREADED);
 }
 
 #ifdef HAVE_NETLINK
