@@ -3240,11 +3240,13 @@ static void bgp_dynamic_capability_paths_limit(uint8_t *pnt, int action,
 			safi_t safi;
 			iana_afi_t pkt_afi;
 			iana_safi_t pkt_safi;
+			uint16_t paths_limit = 0;
 			struct bgp_paths_limit_capability bpl = {};
 
 			memcpy(&bpl, data, sizeof(bpl));
 			pkt_afi = ntohs(bpl.afi);
 			pkt_safi = safi_int2iana(bpl.safi);
+			paths_limit = ntohs(bpl.paths_limit);
 
 			if (bgp_debug_neighbor_events(peer))
 				zlog_debug("%s OPEN has %s capability for afi/safi: %s/%s limit: %u",
@@ -3252,8 +3254,7 @@ static void bgp_dynamic_capability_paths_limit(uint8_t *pnt, int action,
 					   lookup_msg(capcode_str, hdr->code,
 						      NULL),
 					   iana_afi2str(pkt_afi),
-					   iana_safi2str(pkt_safi),
-					   bpl.paths_limit);
+					   iana_safi2str(pkt_safi), paths_limit);
 
 			if (bgp_map_afi_safi_iana2int(pkt_afi, pkt_safi, &afi,
 						      &safi)) {
@@ -3275,7 +3276,7 @@ static void bgp_dynamic_capability_paths_limit(uint8_t *pnt, int action,
 			SET_FLAG(peer->af_cap[afi][safi],
 				 PEER_CAP_PATHS_LIMIT_AF_RCV);
 			peer->addpath_paths_limit[afi][safi].receive =
-				bpl.paths_limit;
+				paths_limit;
 ignore:
 			data += CAPABILITY_CODE_PATHS_LIMIT_LEN;
 		}
