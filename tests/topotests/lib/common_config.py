@@ -936,14 +936,26 @@ def generate_support_bundle():
     """
 
     tgen = get_topogen()
+    if tgen is None:
+        logger.warn(
+            "Support bundle attempted to be generated, but topogen is not being used"
+        )
+        return True
+
     router_list = tgen.routers()
     test_name = os.environ.get("PYTEST_CURRENT_TEST").split(":")[-1].split(" ")[0]
 
     bundle_procs = {}
     for rname, rnode in router_list.items():
         logger.info("Spawn collection of support bundle for %s", rname)
-        dst_bundle = "{}/{}/support_bundles/{}".format(tgen.logdir, rname, test_name)
-        rnode.run("mkdir -p " + dst_bundle)
+        try:
+            dst_bundle = "{}/{}/support_bundles/{}".format(
+                tgen.logdir, rname, test_name
+            )
+            rnode.run("mkdir -p " + dst_bundle)
+        except Exception as err:
+            logger.error("Generation of Support bundle failed {}".format(err))
+            return True
 
         gen_sup_cmd = [
             "/usr/lib/frr/generate_support_bundle.py",
