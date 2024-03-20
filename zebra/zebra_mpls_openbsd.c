@@ -64,8 +64,8 @@ static int kernel_send_rtmsg_v4(int action, mpls_label_t in_label,
 	sa_label_in.smpls_family = AF_MPLS;
 	sa_label_in.smpls_label = htonl(in_label << MPLS_LABEL_OFFSET);
 	/* adjust header */
-	hdr.rtm_flags |= RTF_MPLS | RTF_MPATH;
-	hdr.rtm_addrs |= RTA_DST;
+	SET_FLAG(hdr.rtm_flags, (RTF_MPLS | RTF_MPATH));
+	SET_FLAG(hdr.rtm_addrs, RTA_DST);
 	hdr.rtm_msglen += sizeof(sa_label_in);
 	/* adjust iovec */
 	iov[iovcnt].iov_base = &sa_label_in;
@@ -77,8 +77,8 @@ static int kernel_send_rtmsg_v4(int action, mpls_label_t in_label,
 	nexthop.sin_family = AF_INET;
 	nexthop.sin_addr = nhlfe->nexthop->gate.ipv4;
 	/* adjust header */
-	hdr.rtm_flags |= RTF_GATEWAY;
-	hdr.rtm_addrs |= RTA_GATEWAY;
+	SET_FLAG(hdr.rtm_flags, RTF_GATEWAY);
+	SET_FLAG(hdr.rtm_addrs, RTA_GATEWAY);
 	hdr.rtm_msglen += sizeof(nexthop);
 	/* adjust iovec */
 	iov[iovcnt].iov_base = &nexthop;
@@ -93,8 +93,8 @@ static int kernel_send_rtmsg_v4(int action, mpls_label_t in_label,
 			htonl(nhlfe->nexthop->nh_label->label[0]
 			      << MPLS_LABEL_OFFSET);
 		/* adjust header */
-		hdr.rtm_addrs |= RTA_SRC;
-		hdr.rtm_flags |= RTF_MPLS;
+		SET_FLAG(hdr.rtm_addrs, RTA_SRC);
+		SET_FLAG(hdr.rtm_flags, RTF_MPLS);
 		hdr.rtm_msglen += sizeof(sa_label_out);
 		/* adjust iovec */
 		iov[iovcnt].iov_base = &sa_label_out;
@@ -159,8 +159,8 @@ static int kernel_send_rtmsg_v6(int action, mpls_label_t in_label,
 	sa_label_in.smpls_family = AF_MPLS;
 	sa_label_in.smpls_label = htonl(in_label << MPLS_LABEL_OFFSET);
 	/* adjust header */
-	hdr.rtm_flags |= RTF_MPLS | RTF_MPATH;
-	hdr.rtm_addrs |= RTA_DST;
+	SET_FLAG(hdr.rtm_flags, (RTF_MPLS | RTF_MPATH));
+	SET_FLAG(hdr.rtm_addrs, RTA_DST);
 	hdr.rtm_msglen += sizeof(sa_label_in);
 	/* adjust iovec */
 	iov[iovcnt].iov_base = &sa_label_in;
@@ -184,8 +184,8 @@ static int kernel_send_rtmsg_v6(int action, mpls_label_t in_label,
 	}
 
 	/* adjust header */
-	hdr.rtm_flags |= RTF_GATEWAY;
-	hdr.rtm_addrs |= RTA_GATEWAY;
+	SET_FLAG(hdr.rtm_flags, RTF_GATEWAY);
+	SET_FLAG(hdr.rtm_addrs, RTA_GATEWAY);
 	hdr.rtm_msglen += ROUNDUP(sizeof(struct sockaddr_in6));
 	/* adjust iovec */
 	iov[iovcnt].iov_base = &nexthop;
@@ -200,8 +200,8 @@ static int kernel_send_rtmsg_v6(int action, mpls_label_t in_label,
 			htonl(nhlfe->nexthop->nh_label->label[0]
 			      << MPLS_LABEL_OFFSET);
 		/* adjust header */
-		hdr.rtm_addrs |= RTA_SRC;
-		hdr.rtm_flags |= RTF_MPLS;
+		SET_FLAG(hdr.rtm_addrs, RTA_SRC);
+		SET_FLAG(hdr.rtm_flags, RTF_MPLS);
 		hdr.rtm_msglen += sizeof(sa_label_out);
 		/* adjust iovec */
 		iov[iovcnt].iov_base = &sa_label_out;
@@ -324,8 +324,8 @@ static enum zebra_dplane_result kmpw_install(struct zebra_dplane_ctx *ctx)
 		return ZEBRA_DPLANE_REQUEST_FAILURE;
 	}
 
-	if (dplane_ctx_get_pw_flags(ctx) & F_PSEUDOWIRE_CWORD)
-		imr.imr_flags |= IMR_FLAG_CONTROLWORD;
+	if (CHECK_FLAG(dplane_ctx_get_pw_flags(ctx), F_PSEUDOWIRE_CWORD))
+		SET_FLAG(imr.imr_flags, IMR_FLAG_CONTROLWORD);
 
 	/* pseudowire nexthop */
 	memset(&ss, 0, sizeof(ss));
