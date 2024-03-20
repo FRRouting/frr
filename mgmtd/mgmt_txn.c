@@ -880,7 +880,9 @@ static int mgmt_txn_create_config_batches(struct mgmt_txn_req *txn_req,
 
 		__dbg("XPATH: %s, Value: '%s'", xpath, value ? value : "NIL");
 
-		clients = mgmt_be_interested_clients(xpath, true);
+		clients =
+			mgmt_be_interested_clients(xpath,
+						   MGMT_BE_XPATH_SUBSCR_TYPE_CFG);
 
 		chg_clients = 0;
 

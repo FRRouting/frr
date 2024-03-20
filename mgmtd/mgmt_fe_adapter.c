@@ -1215,7 +1215,8 @@ static void fe_adapter_handle_get_data(struct mgmt_fe_session_ctx *session,
 	}
 	darr_free(snodes);
 
-	clients = mgmt_be_interested_clients(msg->xpath, false);
+	clients = mgmt_be_interested_clients(msg->xpath,
+					     MGMT_BE_XPATH_SUBSCR_TYPE_OPER);
 	if (!clients && !CHECK_FLAG(msg->flags, GET_DATA_FLAG_CONFIG)) {
 		__dbg("No backends provide xpath: %s for txn-id: %" PRIu64
 		      " session-id: %" PRIu64,

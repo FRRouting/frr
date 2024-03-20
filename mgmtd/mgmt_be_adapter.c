@@ -147,6 +147,8 @@ static const char *const *be_client_oper_xpaths[MGMTD_BE_CLIENT_ID_MAX] = {
 	[MGMTD_BE_CLIENT_ID_ZEBRA] = zebra_oper_xpaths,
 };
 
+static const char *const *be_client_rpc_xpaths[MGMTD_BE_CLIENT_ID_MAX] = {};
+
 /*
  * We would like to have a better ADT than one with O(n) comparisons
  *
@@ -159,6 +161,7 @@ static const char *const *be_client_oper_xpaths[MGMTD_BE_CLIENT_ID_MAX] = {
 static struct mgmt_be_xpath_map *be_cfg_xpath_map;
 static struct mgmt_be_xpath_map *be_oper_xpath_map;
 static struct mgmt_be_xpath_map *be_notif_xpath_map;
+static struct mgmt_be_xpath_map *be_rpc_xpath_map;
 
 static struct event_loop *mgmt_loop;
 static struct msg_server mgmt_be_server = {.fd = -1};
@@ -173,8 +176,8 @@ static struct mgmt_be_client_adapter
 static void
 mgmt_be_adapter_sched_init_event(struct mgmt_be_client_adapter *adapter);
 
-static bool be_is_client_interested(const char *xpath,
-				    enum mgmt_be_client_id id, bool config);
+static bool be_is_client_interested(const char *xpath, enum mgmt_be_client_id id,
+				    enum mgmt_be_xpath_subscr_type type);
 
 const char *mgmt_be_client_id2name(enum mgmt_be_client_id id)
 {
@@ -223,16 +226,25 @@ mgmt_be_find_adapter_by_name(const char *name)
 }
 
 static void mgmt_register_client_xpath(enum mgmt_be_client_id id,
-				       const char *xpath, bool config, bool oper)
+				       const char *xpath,
+				       enum mgmt_be_xpath_subscr_type type)
 {
 	struct mgmt_be_xpath_map **maps, *map;
 
-	if (config)
+	switch (type) {
+	case MGMT_BE_XPATH_SUBSCR_TYPE_CFG:
 		maps = &be_cfg_xpath_map;
-	else if (oper)
+		break;
+	case MGMT_BE_XPATH_SUBSCR_TYPE_OPER:
 		maps = &be_oper_xpath_map;
-	else
+		break;
+	case MGMT_BE_XPATH_SUBSCR_TYPE_NOTIF:
 		maps = &be_notif_xpath_map;
+		break;
+	case MGMT_BE_XPATH_SUBSCR_TYPE_RPC:
+		maps = &be_rpc_xpath_map;
+		break;
+	}
 
 	darr_foreach_p (*maps, map) {
 		if (!strcmp(xpath, map->xpath_prefix)) {
@@ -260,18 +272,28 @@ static void mgmt_be_xpath_map_init(void)
 		/* Initialize the common config init map */
 		for (init = be_client_config_xpaths[id]; init && *init; init++) {
 			__dbg(" - CFG XPATH: '%s'", *init);
-			mgmt_register_client_xpath(id, *init, true, false);
+			mgmt_register_client_xpath(id, *init,
+						   MGMT_BE_XPATH_SUBSCR_TYPE_CFG);
 		}
 
 		/* Initialize the common oper init map */
 		for (init = be_client_oper_xpaths[id]; init && *init; init++) {
 			__dbg(" - OPER XPATH: '%s'", *init);
-			mgmt_register_client_xpath(id, *init, false, true);
+			mgmt_register_client_xpath(id, *init,
+						   MGMT_BE_XPATH_SUBSCR_TYPE_OPER);
+		}
+
+		/* Initialize the common RPC init map */
+		for (init = be_client_rpc_xpaths[id]; init && *init; init++) {
+			__dbg(" - RPC XPATH: '%s'", *init);
+			mgmt_register_client_xpath(id, *init,
+						   MGMT_BE_XPATH_SUBSCR_TYPE_RPC);
 		}
 	}
 
 	__dbg("Total Cfg XPath Maps: %u", darr_len(be_cfg_xpath_map));
 	__dbg("Total Oper XPath Maps: %u", darr_len(be_oper_xpath_map));
+	__dbg("Total RPC XPath Maps: %u", darr_len(be_rpc_xpath_map));
 }
 
 static void mgmt_be_xpath_map_cleanup(void)
@@ -289,6 +311,10 @@ static void mgmt_be_xpath_map_cleanup(void)
 	darr_foreach_p (be_notif_xpath_map, map)
 		XFREE(MTYPE_MGMTD_XPATH, map->xpath_prefix);
 	darr_free(be_notif_xpath_map);
+
+	darr_foreach_p (be_rpc_xpath_map, map)
+		XFREE(MTYPE_MGMTD_XPATH, map->xpath_prefix);
+	darr_free(be_rpc_xpath_map);
 }
 
 
@@ -405,11 +431,12 @@ mgmt_be_adapter_handle_msg(struct mgmt_be_client_adapter *adapter,
 	 */
 	switch ((int)be_msg->message_case) {
 	case MGMTD__BE_MESSAGE__MESSAGE_SUBSCR_REQ:
-		__dbg("Got SUBSCR_REQ from '%s' to register xpaths config: %zu oper: %zu notif: %zu",
+		__dbg("Got SUBSCR_REQ from '%s' to register xpaths config: %zu oper: %zu notif: %zu rpc: %zu",
 		      be_msg->subscr_req->client_name,
 		      be_msg->subscr_req->n_config_xpaths,
 		      be_msg->subscr_req->n_oper_xpaths,
-		      be_msg->subscr_req->n_notif_xpaths);
+		      be_msg->subscr_req->n_notif_xpaths,
+		      be_msg->subscr_req->n_rpc_xpaths);
 
 		if (strlen(be_msg->subscr_req->client_name)) {
 			strlcpy(adapter->name, be_msg->subscr_req->client_name,
@@ -432,22 +459,29 @@ mgmt_be_adapter_handle_msg(struct mgmt_be_client_adapter *adapter,
 		num = be_msg->subscr_req->n_config_xpaths;
 		for (i = 0; i < num; i++) {
 			xpath = be_msg->subscr_req->config_xpaths[i];
-			mgmt_register_client_xpath(adapter->id, xpath, true,
-						   false);
+			mgmt_register_client_xpath(adapter->id, xpath,
+						   MGMT_BE_XPATH_SUBSCR_TYPE_CFG);
 		}
 
 		num = be_msg->subscr_req->n_oper_xpaths;
 		for (i = 0; i < num; i++) {
 			xpath = be_msg->subscr_req->oper_xpaths[i];
-			mgmt_register_client_xpath(adapter->id, xpath, false,
-						   true);
+			mgmt_register_client_xpath(adapter->id, xpath,
+						   MGMT_BE_XPATH_SUBSCR_TYPE_OPER);
 		}
 
 		num = be_msg->subscr_req->n_notif_xpaths;
 		for (i = 0; i < num; i++) {
 			xpath = be_msg->subscr_req->notif_xpaths[i];
-			mgmt_register_client_xpath(adapter->id, xpath, false,
-						   false);
+			mgmt_register_client_xpath(adapter->id, xpath,
+						   MGMT_BE_XPATH_SUBSCR_TYPE_NOTIF);
+		}
+
+		num = be_msg->subscr_req->n_rpc_xpaths;
+		for (i = 0; i < num; i++) {
+			xpath = be_msg->subscr_req->rpc_xpaths[i];
+			mgmt_register_client_xpath(adapter->id, xpath,
+						   MGMT_BE_XPATH_SUBSCR_TYPE_RPC);
 		}
 
 		mgmt_be_send_subscr_reply(adapter, true);
@@ -882,7 +916,8 @@ void mgmt_be_get_adapter_config(struct mgmt_be_client_adapter *adapter,
 				goto walk_cont;
 
 			xpath = lyd_path(dnode, LYD_PATH_STD, NULL, 0);
-			if (be_is_client_interested(xpath, adapter->id, true))
+			if (be_is_client_interested(xpath, adapter->id,
+						    MGMT_BE_XPATH_SUBSCR_TYPE_CFG))
 				nb_config_diff_add_change(*changes, NB_CB_CREATE, &seq, dnode);
 			else
 				LYD_TREE_DFS_continue = 1; /* skip any subtree */
@@ -893,13 +928,27 @@ void mgmt_be_get_adapter_config(struct mgmt_be_client_adapter *adapter,
 	}
 }
 
-uint64_t mgmt_be_interested_clients(const char *xpath, bool config)
+uint64_t mgmt_be_interested_clients(const char *xpath,
+				    enum mgmt_be_xpath_subscr_type type)
 {
-	struct mgmt_be_xpath_map *maps, *map;
+	struct mgmt_be_xpath_map *maps = NULL, *map;
 	enum mgmt_be_client_id id;
 	uint64_t clients;
 
-	maps = config ? be_cfg_xpath_map : be_oper_xpath_map;
+	switch (type) {
+	case MGMT_BE_XPATH_SUBSCR_TYPE_CFG:
+		maps = be_cfg_xpath_map;
+		break;
+	case MGMT_BE_XPATH_SUBSCR_TYPE_OPER:
+		maps = be_oper_xpath_map;
+		break;
+	case MGMT_BE_XPATH_SUBSCR_TYPE_NOTIF:
+		maps = be_notif_xpath_map;
+		break;
+	case MGMT_BE_XPATH_SUBSCR_TYPE_RPC:
+		maps = be_rpc_xpath_map;
+		break;
+	}
 
 	clients = 0;
 
@@ -928,8 +977,8 @@ uint64_t mgmt_be_interested_clients(const char *xpath, bool config)
  * Returns:
  *     Interested or not.
  */
-static bool be_is_client_interested(const char *xpath,
-				    enum mgmt_be_client_id id, bool config)
+static bool be_is_client_interested(const char *xpath, enum mgmt_be_client_id id,
+				    enum mgmt_be_xpath_subscr_type type)
 {
 	uint64_t clients;
 
@@ -938,7 +987,7 @@ static bool be_is_client_interested(const char *xpath,
 	__dbg("Checking client: %s for xpath: '%s'", mgmt_be_client_id2name(id),
 	      xpath);
 
-	clients = mgmt_be_interested_clients(xpath, config);
+	clients = mgmt_be_interested_clients(xpath, type);
 	if (IS_IDBIT_SET(clients, id)) {
 		__dbg("client: %s: interested", mgmt_be_client_id2name(id));
 		return true;
@@ -998,23 +1047,32 @@ void mgmt_be_xpath_register_write(struct vty *vty)
 		darr_len(be_oper_xpath_map));
 	darr_foreach_p (be_oper_xpath_map, map)
 		be_show_xpath_register(vty, map);
+
+	vty_out(vty, "\nMGMTD Backend RPC XPath Registry: Count: %u\n",
+		darr_len(be_rpc_xpath_map));
+	darr_foreach_p (be_rpc_xpath_map, map)
+		be_show_xpath_register(vty, map);
 }
 
 void mgmt_be_show_xpath_registries(struct vty *vty, const char *xpath)
 {
 	enum mgmt_be_client_id id;
 	struct mgmt_be_client_adapter *adapter;
-	uint64_t cclients, oclients, combined;
+	uint64_t cclients, oclients, rclients, combined;
 
-	cclients = mgmt_be_interested_clients(xpath, true);
-	oclients = mgmt_be_interested_clients(xpath, false);
+	cclients = mgmt_be_interested_clients(xpath,
+					      MGMT_BE_XPATH_SUBSCR_TYPE_CFG);
+	oclients = mgmt_be_interested_clients(xpath,
+					      MGMT_BE_XPATH_SUBSCR_TYPE_OPER);
+	rclients = mgmt_be_interested_clients(xpath,
+					      MGMT_BE_XPATH_SUBSCR_TYPE_RPC);
 	combined = cclients | oclients;
 
 	vty_out(vty, "XPath: '%s'\n", xpath);
 	FOREACH_BE_CLIENT_BITS (id, combined) {
-		vty_out(vty, "  -- Client: '%s'\tconfig:%d oper:%d\n",
+		vty_out(vty, "  -- Client: '%s'\tconfig:%d oper:%d rpc:%d\n",
 			mgmt_be_client_id2name(id), IS_IDBIT_SET(cclients, id),
-			IS_IDBIT_SET(oclients, id));
+			IS_IDBIT_SET(oclients, id), IS_IDBIT_SET(rclients, id));
 		adapter = mgmt_be_get_adapter_by_id(id);
 		if (adapter)
 			vty_out(vty, "    -- Adapter: %p\n", adapter);
