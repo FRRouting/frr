@@ -480,7 +480,7 @@ static int ospf_ase_route_match_same(struct route_table *rt,
 
 	assert(or);
 
-	if (or->path_type != newor->path_type)
+	if (or->changed || (or->path_type != newor->path_type))
 		return 0;
 
 	switch (or->path_type) {

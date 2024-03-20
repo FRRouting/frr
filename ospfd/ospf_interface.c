@@ -821,13 +821,40 @@ int ospf_if_up(struct ospf_interface *oi)
 	return 1;
 }
 
-int ospf_if_down(struct ospf_interface *oi)
+/* This function will mark routes with next-hops matching the down
+ * OSPF interface as changed. It is used to assure routes that get
+ * removed from the zebra RIB when an interface goes down are
+ * reinstalled if the interface comes back up prior to an intervening
+ * SPF calculation.
+ */
+static void ospf_if_down_mark_routes_changed(struct route_table *table,
+					     struct ospf_interface *oi)
 {
-	struct ospf *ospf;
 	struct route_node *rn;
 	struct ospf_route *or;
 	struct listnode *nh;
 	struct ospf_path *op;
+
+	for (rn = route_top(table); rn; rn = route_next(rn)) {
+		or = rn->info;
+
+		if (or == NULL)
+			continue;
+
+		for (nh = listhead(or->paths); nh;
+		     nh = listnextnode_unchecked(nh)) {
+			op = listgetdata(nh);
+			if (op->ifindex == oi->ifp->ifindex) {
+				or->changed = true;
+				break;
+			}
+		}
+	}
+}
+
+int ospf_if_down(struct ospf_interface *oi)
+{
+	struct ospf *ospf;
 
 	if (oi == NULL)
 		return 0;
@@ -864,23 +891,11 @@ int ospf_if_down(struct ospf_interface *oi)
 	/* Shutdown packet reception and sending */
 	ospf_if_stream_unset(oi);
 
-	if (!ospf->new_table)
-		return 1;
-	for (rn = route_top(ospf->new_table); rn; rn = route_next(rn)) {
-		or = rn->info;
+	if (ospf->new_table)
+		ospf_if_down_mark_routes_changed(ospf->new_table, oi);
 
-		if (!or)
-			continue;
-
-		for (nh = listhead(or->paths); nh;
-		     nh = listnextnode_unchecked(nh)) {
-			op = listgetdata(nh);
-			if (op->ifindex == oi->ifp->ifindex) {
-				or->changed = true;
-				break;
-			}
-		}
-	}
+	if (ospf->new_external_route)
+		ospf_if_down_mark_routes_changed(ospf->new_external_route, oi);
 
 	return 1;
 }
