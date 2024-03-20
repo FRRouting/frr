@@ -1961,7 +1961,89 @@ done:
 }
 
 
+static void zebra_rib_evaluate_prefix_nhg(struct hash_bucket *b, void *data)
+{
+	struct zebra_router_table *zrt;
+	struct nhg_prefix_proto_nhgs *nhg_p = b->data;
+	struct zebra_vrf *zvrf = zebra_vrf_lookup_by_id(nhg_p->vrf_id);
+	struct route_node *rn;
+	struct route_entry *re, *next;
+	rib_dest_t *dest;
 
+	if (!zvrf)
+		return;
+
+	zrt = zebra_router_find_zrt(zvrf, nhg_p->table_id, nhg_p->afi,
+				    nhg_p->safi);
+
+	if (!zrt)
+		return;
+
+	if (nhg_p->src_prefix.family)
+		rn = srcdest_rnode_get(zrt->table, &nhg_p->prefix,
+				       (const struct prefix_ipv6 *)&nhg_p
+					       ->src_prefix);
+	else
+		rn = srcdest_rnode_get(zrt->table, &nhg_p->prefix, NULL);
+	if (!rn)
+		return;
+
+	if (IS_ZEBRA_DEBUG_NHG_DETAIL)
+		zlog_debug("%s: => NHG updated, evaluating prefix %pRN",
+			   __func__, rn);
+
+	RNODE_FOREACH_RE_SAFE (rn, re, next) {
+		/* re did not change, an, still selected */
+		dest = rib_dest_from_rnode(rn);
+		/* Redistribute if this is the selected re */
+		if (dest && re == dest->selected_fib)
+			redistribute_update(rn, re, re);
+		zebra_rib_evaluate_rn_nexthops(rn,
+					       zebra_router_get_next_sequence(),
+					       false);
+		zebra_rib_evaluate_mpls(rn);
+	}
+}
+/*
+ * update results processing after async dataplane update.
+ */
+static void rib_nhg_process_result(struct zebra_dplane_ctx *ctx)
+{
+	enum dplane_op_e op;
+	enum zebra_dplane_result status;
+	uint32_t id;
+	struct nhg_hash_entry *nhe;
+
+	op = dplane_ctx_get_op(ctx);
+	status = dplane_ctx_get_status(ctx);
+
+	id = dplane_ctx_get_nhe_id(ctx);
+
+	if (op == DPLANE_OP_NH_DELETE) {
+		/* We already free'd the data, nothing to do */
+		return;
+	}
+
+	nhe = zebra_nhg_lookup_id(id);
+	if (!nhe) {
+		/* nothing to process, as there is no NHG add or update */
+		return;
+	}
+
+	if (status != ZEBRA_DPLANE_REQUEST_SUCCESS) {
+		/* no sucess, means that the attempt to change did not work */
+		return;
+	}
+
+	if (IS_ZEBRA_DEBUG_RIB_DETAILED || IS_ZEBRA_DEBUG_NHG_DETAIL)
+		zlog_debug("%s: Evaluating routes using updated nhe (%u)",
+			   __func__, id);
+
+	/* We have to do them ALL */
+	if (nhe->prefix_proto_nhgs)
+		hash_iterate(nhe->prefix_proto_nhgs,
+			     zebra_rib_evaluate_prefix_nhg, NULL);
+}
 /*
  * Route-update results processing after async dataplane update.
  */
@@ -4929,6 +5011,8 @@ static void rib_process_dplane_results(struct event *thread)
 			case DPLANE_OP_NH_UPDATE:
 			case DPLANE_OP_NH_DELETE:
 				zebra_nhg_dplane_result(ctx);
+				if (dplane_ctx_get_notif_provider(ctx) == 0)
+					rib_nhg_process_result(ctx);
 				break;
 
 			case DPLANE_OP_LSP_INSTALL:
