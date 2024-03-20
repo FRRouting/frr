@@ -2383,8 +2383,7 @@ static int delete_evpn_route(struct bgp *bgp, struct bgpevpn *vpn,
 	 */
 	delete_evpn_route_entry(bgp, afi, safi, dest, &pi);
 	if (pi) {
-		dest = bgp_path_info_reap(dest, pi);
-		assert(dest);
+		bgp_path_info_delete(dest, pi);
 		evpn_route_select_install(bgp, vpn, dest, pi);
 	}
 
