@@ -1732,18 +1732,6 @@ static int update_group_walkcb(struct hash_bucket *bucket, void *arg)
 	return ret;
 }
 
-static int update_group_periodic_merge_walkcb(struct update_group *updgrp,
-					      void *arg)
-{
-	struct update_subgroup *subgrp;
-	struct update_subgroup *tmp_subgrp;
-	const char *reason = arg;
-
-	UPDGRP_FOREACH_SUBGRP_SAFE (updgrp, subgrp, tmp_subgrp)
-		update_subgroup_check_merge(subgrp, reason);
-	return UPDWALK_CONTINUE;
-}
-
 /********************
  * PUBLIC FUNCTIONS
  ********************/
@@ -2080,14 +2068,6 @@ void update_group_walk(struct bgp *bgp, updgrp_walkcb cb, void *ctx)
 	FOREACH_AFI_SAFI (afi, safi) {
 		update_group_af_walk(bgp, afi, safi, cb, ctx);
 	}
-}
-
-void update_group_periodic_merge(struct bgp *bgp)
-{
-	char reason[] = "periodic merge check";
-
-	update_group_walk(bgp, update_group_periodic_merge_walkcb,
-			  (void *)reason);
 }
 
 static int
