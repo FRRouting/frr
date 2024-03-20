@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: GPL-2.0
 # clang-format configuration file. Intended for clang-format >= 11.
+# If the version is changed also check that CI tool frrbot is updated.
 #
 # For more information, see:
 #
