@@ -98,6 +98,10 @@ static const char *const ripd_oper_xpaths[] = {
 	"/ietf-key-chain:key-chains",
 	NULL,
 };
+static const char *const ripd_rpc_xpaths[] = {
+	"/frr-ripd",
+	NULL,
+};
 #endif
 
 #if HAVE_RIPNGD
@@ -147,7 +151,11 @@ static const char *const *be_client_oper_xpaths[MGMTD_BE_CLIENT_ID_MAX] = {
 	[MGMTD_BE_CLIENT_ID_ZEBRA] = zebra_oper_xpaths,
 };
 
-static const char *const *be_client_rpc_xpaths[MGMTD_BE_CLIENT_ID_MAX] = {};
+static const char *const *be_client_rpc_xpaths[MGMTD_BE_CLIENT_ID_MAX] = {
+#ifdef HAVE_RIPD
+	[MGMTD_BE_CLIENT_ID_RIPD] = ripd_rpc_xpaths,
+#endif
+};
 
 /*
  * We would like to have a better ADT than one with O(n) comparisons

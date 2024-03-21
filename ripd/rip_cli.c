@@ -1233,6 +1233,23 @@ DEFPY_YANG(no_rip_distribute_list_prefix,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
+/*
+ * XPath: /frr-ripd:clear-rip-route
+ */
+DEFPY_YANG (clear_ip_rip,
+       clear_ip_rip_cmd,
+       "clear ip rip [vrf WORD]",
+       CLEAR_STR
+       IP_STR
+       "Clear IP RIP database\n"
+       VRF_CMD_HELP_STR)
+{
+	if (vrf)
+		nb_cli_rpc_enqueue(vty, "vrf", vrf);
+
+	return nb_cli_rpc(vty, "/frr-ripd:clear-rip-route", NULL);
+}
+
 /* RIP node structure. */
 static struct cmd_node rip_node = {
 	.name = "rip",
@@ -1294,6 +1311,8 @@ void rip_cli_init(void)
 	install_element(INTERFACE_NODE, &ip_rip_bfd_cmd);
 	install_element(INTERFACE_NODE, &ip_rip_bfd_profile_cmd);
 	install_element(INTERFACE_NODE, &no_ip_rip_bfd_profile_cmd);
+
+	install_element(ENABLE_NODE, &clear_ip_rip_cmd);
 
 	if_rmap_init(RIP_NODE);
 }
