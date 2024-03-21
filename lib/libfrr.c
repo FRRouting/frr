@@ -59,7 +59,7 @@ char config_default[512];
 char frr_zclientpath[512];
 static char pidfile_default[1024];
 #ifdef HAVE_SQLITE3
-static char dbfile_default[512];
+static char dbfile_default[1024];
 #endif
 static char vtypath_default[512];
 
