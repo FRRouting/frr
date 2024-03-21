@@ -91,6 +91,10 @@ struct nhg_hash_entry {
 
 	struct event *timer;
 
+	/* list of prefixes using that nexthop group
+	 * only populated for protocol nexthop groups
+	 */
+	struct hash *prefix_proto_nhgs;
 /*
  * Is this nexthop group valid, ie all nexthops are fully resolved.
  * What is fully resolved?  It's a nexthop that is either self contained
@@ -244,6 +248,18 @@ struct nhg_ctx {
 	enum nhg_ctx_status status;
 };
 
+struct nhg_prefix_proto_nhgs {
+	/* key */
+	struct prefix prefix;
+	struct prefix src_prefix;
+	afi_t afi;
+	safi_t safi;
+	uint32_t table_id;
+	vrf_id_t vrf_id;
+
+	struct nhg_hash_entry *nhe;
+};
+
 /* Global control to disable use of kernel nexthops, if available. We can't
  * force the kernel to support nexthop ids, of course, but we can disable
  * zebra's use of them, for testing e.g. By default, if the kernel supports
@@ -282,6 +298,13 @@ void zebra_nhe_init(struct nhg_hash_entry *nhe, afi_t afi,
  */
 struct nhg_hash_entry *zebra_nhe_copy(const struct nhg_hash_entry *orig,
 				      uint32_t id);
+
+/* Allocate/Free prefix_proto_nhgs object */
+void *zebra_nhg_prefix_proto_nhgs_alloc(void *arg);
+void zebra_nhg_prefix_proto_nhgs_hash_free(void *p);
+/* Utility to copy hash list of prefixes in a new nhg */
+void zebra_nhg_prefix_copy(struct nhg_hash_entry *new,
+			   struct nhg_hash_entry *old);
 
 /* Allocate, free backup nexthop info objects */
 struct nhg_backup_info *zebra_nhg_backup_alloc(void);
