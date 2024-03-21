@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
+
 #ifndef _FRR_ROUTING_NB_H_
 #define _FRR_ROUTING_NB_H_
 
