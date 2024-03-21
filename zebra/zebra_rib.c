@@ -484,6 +484,8 @@ int rib_handle_nhg_replace(struct nhg_hash_entry *old_entry,
 		}
 	}
 
+	zebra_nhg_prefix_copy(new_entry, old_entry);
+
 	/*
 	 * if ret > 0, some previous re->nhe has freed the address to which
 	 * old_entry is pointing.
@@ -2022,6 +2024,10 @@ static void rib_process_result(struct zebra_dplane_ctx *ctx)
 	bool fib_changed = false;
 	struct rib_table_info *info;
 	bool rt_delete = false;
+	struct nhg_hash_entry *nhe;
+	struct nhg_prefix_proto_nhgs nhg_p = {}, *p_nhg_p;
+	const struct prefix *p;
+	const struct prefix *src_p = NULL;
 
 	zvrf = zebra_vrf_lookup_by_id(dplane_ctx_get_vrf(ctx));
 	vrf = vrf_lookup_by_id(dplane_ctx_get_vrf(ctx));
@@ -2115,6 +2121,25 @@ static void rib_process_result(struct zebra_dplane_ctx *ctx)
 	}
 
 	if (op == DPLANE_OP_ROUTE_INSTALL || op == DPLANE_OP_ROUTE_UPDATE) {
+		if (re && re->nhe_id >= ZEBRA_NHG_PROTO_LOWER) {
+			nhe = zebra_nhg_lookup_id(re->nhe_id);
+			if (nhe) {
+				srcdest_rnode_prefixes(rn, &p, &src_p);
+				prefix_copy(&nhg_p.prefix, p);
+				if (src_p)
+					prefix_copy(&nhg_p.src_prefix, src_p);
+				nhg_p.table_id = dplane_ctx_get_table(ctx);
+				nhg_p.afi = dplane_ctx_get_afi(ctx);
+				nhg_p.safi = dplane_ctx_get_safi(ctx);
+				nhg_p.vrf_id = dplane_ctx_get_vrf(ctx);
+				nhg_p.nhe = nhe;
+				hash_get(nhe->prefix_proto_nhgs, &nhg_p,
+					 zebra_nhg_prefix_proto_nhgs_alloc);
+				if (IS_ZEBRA_DEBUG_NHG_DETAIL)
+					zlog_debug("%s: => attach prefix %pFX to NHG (%pNG)",
+						   __func__, p, nhe);
+			}
+		}
 		if (status == ZEBRA_DPLANE_REQUEST_SUCCESS) {
 			if (re) {
 				UNSET_FLAG(re->status, ROUTE_ENTRY_FAILED);
@@ -2218,6 +2243,32 @@ static void rib_process_result(struct zebra_dplane_ctx *ctx)
 			if (re) {
 				UNSET_FLAG(re->status, ROUTE_ENTRY_INSTALLED);
 				UNSET_FLAG(re->status, ROUTE_ENTRY_FAILED);
+
+				if (re->nhe && re->nhe->prefix_proto_nhgs) {
+					/* remove prefix from nhe_id list */
+					srcdest_rnode_prefixes(rn, &p, &src_p);
+					prefix_copy(&nhg_p.prefix, p);
+					if (src_p)
+						prefix_copy(&nhg_p.src_prefix,
+							    src_p);
+					nhg_p.table_id =
+						dplane_ctx_get_table(ctx);
+					nhg_p.afi = dplane_ctx_get_afi(ctx);
+					nhg_p.safi = dplane_ctx_get_safi(ctx);
+					nhg_p.vrf_id = dplane_ctx_get_vrf(ctx);
+					p_nhg_p =
+						hash_lookup(re->nhe->prefix_proto_nhgs,
+							    &nhg_p);
+					if (IS_ZEBRA_DEBUG_NHG_DETAIL)
+						zlog_debug("%s: => detach prefix %pFX from NHG (%pNG)",
+							   __func__, p, re->nhe);
+					if (p_nhg_p) {
+						hash_release(re->nhe->prefix_proto_nhgs,
+							     p_nhg_p);
+						zebra_nhg_prefix_proto_nhgs_hash_free(
+							p_nhg_p);
+					}
+				}
 			}
 			zsend_route_notify_owner_ctx(ctx, ZAPI_ROUTE_REMOVED);
 
