@@ -117,6 +117,10 @@ static const char *const ripngd_oper_xpaths[] = {
 	"/frr-ripngd:ripngd",
 	NULL,
 };
+static const char *const ripngd_rpc_xpaths[] = {
+	"/frr-ripngd",
+	NULL,
+};
 #endif
 
 #if HAVE_STATICD
@@ -154,6 +158,9 @@ static const char *const *be_client_oper_xpaths[MGMTD_BE_CLIENT_ID_MAX] = {
 static const char *const *be_client_rpc_xpaths[MGMTD_BE_CLIENT_ID_MAX] = {
 #ifdef HAVE_RIPD
 	[MGMTD_BE_CLIENT_ID_RIPD] = ripd_rpc_xpaths,
+#endif
+#ifdef HAVE_RIPNGD
+	[MGMTD_BE_CLIENT_ID_RIPNGD] = ripngd_rpc_xpaths,
 #endif
 };
 
