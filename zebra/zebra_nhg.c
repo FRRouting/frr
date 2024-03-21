@@ -389,6 +389,103 @@ struct nhg_hash_entry *zebra_nhg_alloc(void)
 	return nhe;
 }
 
+static uint32_t zebra_nhg_prefix_proto_nhgs_hash_key(const void *arg)
+{
+	const struct nhg_prefix_proto_nhgs *nhg_p = arg;
+	uint32_t key, key2;
+
+	key = prefix_hash_key(&(nhg_p->prefix));
+	key2 = prefix_hash_key(&(nhg_p->src_prefix));
+	key = jhash_1word(key, key2);
+	key = jhash_2words(nhg_p->afi, nhg_p->safi, key);
+	key = jhash_2words(nhg_p->table_id, nhg_p->vrf_id, key);
+
+	return key;
+}
+
+static bool zebra_nhg_prefix_proto_nhgs_hash_equal(const void *arg1,
+						   const void *arg2)
+{
+	const struct nhg_prefix_proto_nhgs *r1, *r2;
+
+	r1 = (const struct nhg_prefix_proto_nhgs *)arg1;
+	r2 = (const struct nhg_prefix_proto_nhgs *)arg2;
+
+	if (r1->afi != r2->afi)
+		return false;
+
+	if (r1->safi != r2->safi)
+		return false;
+
+	if (r1->vrf_id != r2->vrf_id)
+		return false;
+
+	if (r1->table_id != r2->table_id)
+		return false;
+
+	if (prefix_cmp(&r1->prefix, &r2->prefix))
+		return false;
+
+	if (r1->src_prefix.family != r2->src_prefix.family)
+		return false;
+
+	if (r1->src_prefix.family &&
+	    prefix_cmp(&r1->src_prefix, &r2->src_prefix))
+		return false;
+
+	return true;
+}
+
+static void zebra_nhg_prefix_copy_entry(struct hash_bucket *b, void *data)
+{
+	struct nhg_prefix_proto_nhgs *nhg_p = b->data, *new_nhg_p;
+	struct nhg_hash_entry *nhe = data;
+
+	assert(nhe);
+	assert(nhe->prefix_proto_nhgs);
+
+	new_nhg_p = hash_get(nhe->prefix_proto_nhgs, nhg_p,
+			     zebra_nhg_prefix_proto_nhgs_alloc);
+	new_nhg_p->back_ptr = nhe;
+	if (IS_ZEBRA_DEBUG_NHG_DETAIL)
+		zlog_debug("%s: => copy prefix %pFX to NHG (%pNG)", __func__,
+			   &nhg_p->prefix, nhe);
+}
+
+void zebra_nhg_prefix_proto_nhgs_hash_free(void *p)
+{
+	struct nhg_prefix_proto_nhgs *nhg_p = p;
+
+	if (IS_ZEBRA_DEBUG_NHG_DETAIL)
+		zlog_debug("%s: => detach prefix %pFX from NHG (%pNG)",
+			   __func__, &nhg_p->prefix, nhg_p->back_ptr);
+
+	XFREE(MTYPE_NHG, nhg_p);
+}
+
+void *zebra_nhg_prefix_proto_nhgs_alloc(void *arg)
+{
+	struct nhg_prefix_proto_nhgs *nhg_p, *orig;
+
+	orig = (struct nhg_prefix_proto_nhgs *)arg;
+
+	nhg_p = XCALLOC(MTYPE_NHG, sizeof(struct nhg_prefix_proto_nhgs));
+
+	memcpy(nhg_p, orig, sizeof(struct nhg_prefix_proto_nhgs));
+
+	return nhg_p;
+}
+
+void zebra_nhg_prefix_copy(struct nhg_hash_entry *old_entry,
+			   struct nhg_hash_entry *new_entry)
+{
+	if (new_entry && old_entry && old_entry->prefix_proto_nhgs &&
+	    new_entry->prefix_proto_nhgs) {
+		hash_iterate(old_entry->prefix_proto_nhgs,
+			     zebra_nhg_prefix_copy_entry, new_entry);
+	}
+}
+
 /*
  * Allocate new nhe and make shallow copy of 'orig'; no
  * recursive info is copied.
@@ -401,6 +498,12 @@ struct nhg_hash_entry *zebra_nhe_copy(const struct nhg_hash_entry *orig,
 	nhe = zebra_nhg_alloc();
 
 	nhe->id = id;
+
+	if (id >= ZEBRA_NHG_PROTO_LOWER)
+		nhe->prefix_proto_nhgs =
+			hash_create_size(8, zebra_nhg_prefix_proto_nhgs_hash_key,
+					 zebra_nhg_prefix_proto_nhgs_hash_equal,
+					 "Zebra Nexthop groups Prefixes hash list index");
 
 	nexthop_group_copy(&(nhe->nhg), &(orig->nhg));
 
@@ -1618,6 +1721,13 @@ void zebra_nhg_free(struct nhg_hash_entry *nhe)
 
 	zebra_nhg_free_members(nhe);
 
+	if (nhe->prefix_proto_nhgs) {
+		if (IS_ZEBRA_DEBUG_NHG_DETAIL)
+			zlog_debug("%s: => suppressing prefixes from NHG (%pNG)",
+				   __func__, nhe);
+		hash_clean_and_free(&nhe->prefix_proto_nhgs,
+				    zebra_nhg_prefix_proto_nhgs_hash_free);
+	}
 	XFREE(MTYPE_NHG, nhe);
 }
 
