@@ -224,17 +224,17 @@ ISIS interface
 
    Add padding to IS-IS hello packets during adjacency formation only.
 
-.. clicmd:: isis hello-interval (1-600) [level-1 | level-2]
+.. clicmd:: isis hello-interval [level-1 | level-2] (1-600)
 
    Set Hello interval in seconds globally, for an area (level-1) or a domain
    (level-2).
 
-.. clicmd:: isis hello-multiplier (2-100) [level-1 | level-2]
+.. clicmd:: isis hello-multiplier [level-1 | level-2] (2-100)
 
    Set multiplier for Hello holding time globally, for an area (level-1) or a
    domain (level-2).
 
-.. clicmd:: isis metric [(0-255) | (0-16777215)] [level-1 | level-2]
+.. clicmd:: isis metric [level-1 | level-2] [(0-255) | (0-16777215)]
 
    Set default metric value globally, for an area (level-1) or a domain
    (level-2).  Max value depend if metric support narrow or wide value (see
