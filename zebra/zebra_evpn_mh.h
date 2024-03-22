@@ -378,7 +378,8 @@ extern void zebra_evpn_es_bypass_update(struct zebra_evpn_es *es,
 extern void zebra_evpn_proc_remote_nh(ZAPI_HANDLER_ARGS);
 extern struct zebra_evpn_es_evi *
 zebra_evpn_es_evi_find(struct zebra_evpn_es *es, struct zebra_evpn *zevpn);
-
+extern int zebra_evpn_vl_vxl_bridge_lookup(uint16_t vid,
+					   struct zebra_if *vxlan_zif);
 void zebra_build_type3_esi(uint32_t lid, struct ethaddr *mac, esi_t *esi);
 
 void zebra_evpn_es_sys_mac_update(struct zebra_if *zif, struct ethaddr *sysmac);

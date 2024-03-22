@@ -506,7 +506,7 @@ static int zebra_vxlan_if_add_update_vni(struct zebra_if *zif,
 	if ((hashcount(ctx->old_vni_table) == 0) ||
 	    !(old_vni = hash_release(ctx->old_vni_table, &vni_tmp))) {
 		if (IS_ZEBRA_DEBUG_VXLAN)
-			zlog_debug("vxlan %s adding vni(%d, %d)",
+			zlog_debug("%s vxlan %s adding vni(%d, %d)", __func__,
 				   zif->ifp->name, vni->vni, vni->access_vlan);
 
 		zebra_vxlan_if_vni_entry_add(zif, &vni_tmp);
@@ -521,17 +521,39 @@ static int zebra_vxlan_if_add_update_vni(struct zebra_if *zif,
 
 	if (old_vni->access_vlan != vni->access_vlan) {
 		if (IS_ZEBRA_DEBUG_VXLAN)
-			zlog_debug(
-				"vxlan %s updating vni(%d, %d) -> vni(%d, %d)",
-				zif->ifp->name, old_vni->vni,
-				old_vni->access_vlan, vni->vni,
-				vni->access_vlan);
+			zlog_debug("%s vxlan %s updating vni(%d, %d) -> vni(%d, %d)",
+				   __func__, zif->ifp->name, old_vni->vni,
+				   old_vni->access_vlan, vni->vni,
+				   vni->access_vlan);
 
 		zebra_evpn_vl_vxl_deref(old_vni->access_vlan, old_vni->vni,
 					zif);
 		zebra_evpn_vl_vxl_ref(vni->access_vlan, vni->vni, zif);
 		zebra_vxlan_if_update_vni(zif->ifp, vni, ctx);
 		zebra_vxlan_vni_free(old_vni);
+	} else {
+		int ret;
+
+		ret = zebra_evpn_vl_vxl_bridge_lookup(vni->access_vlan, zif);
+		/* Here ret value 0 implied bridge vlan mapping is not present
+		 * repopulated. Ignore ret value 1 as it means vlan mapping is
+		 * present in bridge table.
+		 */
+		if (ret < 0) {
+			if (IS_ZEBRA_DEBUG_VXLAN)
+				zlog_debug("%s vxlan %s vni %u has error accessing bridge table.",
+					   __func__, zif->ifp->name, vni->vni);
+		} else if (ret == 0) {
+			if (IS_ZEBRA_DEBUG_VXLAN)
+				zlog_debug("%s vxlan %s vni (%u, %u) not present in bridge table",
+					   __func__, zif->ifp->name, vni->vni,
+					   vni->access_vlan);
+			zebra_evpn_vl_vxl_deref(old_vni->access_vlan,
+						old_vni->vni, zif);
+			zebra_evpn_vl_vxl_ref(vni->access_vlan, vni->vni, zif);
+			zebra_vxlan_if_update_vni(zif->ifp, vni, ctx);
+			zebra_vxlan_vni_free(old_vni);
+		}
 	}
 
 	return 0;
@@ -768,6 +790,7 @@ vni_t zebra_vxlan_if_access_vlan_vni_find(struct zebra_if *zif,
 	return vni->vni;
 }
 
+/* SVD VLAN-VNI mapping update */
 int zebra_vxlan_if_vni_table_add_update(struct interface *ifp,
 					struct hash *vni_table)
 {
