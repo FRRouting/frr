@@ -31,8 +31,10 @@
 #include <netinet/in.h>
 
 
+DEFINE_QOBJ_TYPE(zebra_srv6_locator);
 DEFINE_MGROUP(SRV6_MGR, "SRv6 Manager");
 DEFINE_MTYPE_STATIC(SRV6_MGR, SRV6M_CHUNK, "SRv6 Manager Chunk");
+DEFINE_MTYPE_STATIC(SRV6_MGR, ZEBRA_SRV6_LOCATOR, "Zebra SRv6 locator");
 
 /* define hooks for the basic API, so that it can be specialized or served
  * externally
@@ -90,14 +92,40 @@ static int zebra_srv6_cleanup(struct zserv *client)
 	return 0;
 }
 
-void zebra_srv6_locator_add(struct srv6_locator *locator)
+/* --- Zebra SRv6 locator management functions ------------------------------ */
+
+struct zebra_srv6_locator *zebra_srv6_locator_alloc(const char *name)
+{
+	struct zebra_srv6_locator *locator = NULL;
+
+	locator = XCALLOC(MTYPE_ZEBRA_SRV6_LOCATOR,
+			  sizeof(struct zebra_srv6_locator));
+	strlcpy(locator->locator.name, name, sizeof(locator->locator.name));
+	locator->locator.chunks = list_new();
+	locator->locator.chunks->del = srv6_locator_chunk_list_free;
+
+	QOBJ_REG(locator, zebra_srv6_locator);
+	return locator;
+}
+
+void zebra_srv6_locator_free(struct zebra_srv6_locator *locator)
+{
+	if (!locator)
+		return;
+
+	QOBJ_UNREG(locator);
+	list_delete(&locator->locator.chunks);
+	XFREE(MTYPE_ZEBRA_SRV6_LOCATOR, locator);
+}
+
+void zebra_srv6_locator_add(struct zebra_srv6_locator *locator)
 {
 	struct zebra_srv6 *srv6 = zebra_srv6_get_default();
-	struct srv6_locator *tmp;
+	struct zebra_srv6_locator *tmp;
 	struct listnode *node;
 	struct zserv *client;
 
-	tmp = zebra_srv6_locator_lookup(locator->name);
+	tmp = zebra_srv6_locator_lookup(locator->locator.name);
 	if (!tmp)
 		listnode_add(srv6->locators, locator);
 
@@ -115,10 +143,10 @@ void zebra_srv6_locator_add(struct srv6_locator *locator)
 	 * not degrade the overall performance of FRRouting.
 	 */
 	for (ALL_LIST_ELEMENTS_RO(zrouter.client_list, node, client))
-		zsend_zebra_srv6_locator_add(client, locator);
+		zsend_zebra_srv6_locator_add(client, &locator->locator);
 }
 
-void zebra_srv6_locator_delete(struct srv6_locator *locator)
+void zebra_srv6_locator_delete(struct zebra_srv6_locator *locator)
 {
 	struct listnode *n;
 	struct srv6_locator_chunk *c;
@@ -136,7 +164,7 @@ void zebra_srv6_locator_delete(struct srv6_locator *locator)
 	 * by ZEBRA_SRV6_LOCATOR_DELETE, and this notification is sent to the
 	 * owner of each chunk.
 	 */
-	for (ALL_LIST_ELEMENTS_RO((struct list *)locator->chunks, n, c)) {
+	for (ALL_LIST_ELEMENTS_RO((struct list *)locator->locator.chunks, n, c)) {
 		if (c->proto == ZEBRA_ROUTE_SYSTEM)
 			continue;
 		client = zserv_find_client(c->proto, c->instance);
@@ -146,26 +174,26 @@ void zebra_srv6_locator_delete(struct srv6_locator *locator)
 				__func__, c->proto, c->instance);
 			continue;
 		}
-		zsend_zebra_srv6_locator_delete(client, locator);
+		zsend_zebra_srv6_locator_delete(client, &locator->locator);
 	}
 
 	listnode_delete(srv6->locators, locator);
-	srv6_locator_free(locator);
+	zebra_srv6_locator_free(locator);
 }
 
-struct srv6_locator *zebra_srv6_locator_lookup(const char *name)
+struct zebra_srv6_locator *zebra_srv6_locator_lookup(const char *name)
 {
 	struct zebra_srv6 *srv6 = zebra_srv6_get_default();
-	struct srv6_locator *locator;
+	struct zebra_srv6_locator *locator;
 	struct listnode *node;
 
 	for (ALL_LIST_ELEMENTS_RO(srv6->locators, node, locator))
-		if (!strncmp(name, locator->name, SRV6_LOCNAME_SIZE))
+		if (!strncmp(name, locator->locator.name, SRV6_LOCNAME_SIZE))
 			return locator;
 	return NULL;
 }
 
-void zebra_notify_srv6_locator_add(struct srv6_locator *locator)
+void zebra_notify_srv6_locator_add(struct zebra_srv6_locator *locator)
 {
 	struct listnode *node;
 	struct zserv *client;
@@ -184,10 +212,10 @@ void zebra_notify_srv6_locator_add(struct srv6_locator *locator)
 	 * not degrade the overall performance of FRRouting.
 	 */
 	for (ALL_LIST_ELEMENTS_RO(zrouter.client_list, node, client))
-		zsend_zebra_srv6_locator_add(client, locator);
+		zsend_zebra_srv6_locator_add(client, &locator->locator);
 }
 
-void zebra_notify_srv6_locator_delete(struct srv6_locator *locator)
+void zebra_notify_srv6_locator_delete(struct zebra_srv6_locator *locator)
 {
 	struct listnode *n;
 	struct srv6_locator_chunk *c;
@@ -204,7 +232,7 @@ void zebra_notify_srv6_locator_delete(struct srv6_locator *locator)
 	 * by ZEBRA_SRV6_LOCATOR_DELETE, and this notification is sent to the
 	 * owner of each chunk.
 	 */
-	for (ALL_LIST_ELEMENTS_RO((struct list *)locator->chunks, n, c)) {
+	for (ALL_LIST_ELEMENTS_RO((struct list *)locator->locator.chunks, n, c)) {
 		if (c->proto == ZEBRA_ROUTE_SYSTEM)
 			continue;
 		client = zserv_find_client(c->proto, c->instance);
@@ -213,7 +241,7 @@ void zebra_notify_srv6_locator_delete(struct srv6_locator *locator)
 				  c->proto, c->instance);
 			continue;
 		}
-		zsend_zebra_srv6_locator_delete(client, locator);
+		zsend_zebra_srv6_locator_delete(client, &locator->locator);
 	}
 }
 
@@ -251,7 +279,7 @@ assign_srv6_locator_chunk(uint8_t proto,
 {
 	bool chunk_found = false;
 	struct listnode *node = NULL;
-	struct srv6_locator *loc = NULL;
+	struct zebra_srv6_locator *loc = NULL;
 	struct srv6_locator_chunk *chunk = NULL;
 
 	loc = zebra_srv6_locator_lookup(locator_name);
@@ -261,7 +289,8 @@ assign_srv6_locator_chunk(uint8_t proto,
 		return NULL;
 	}
 
-	for (ALL_LIST_ELEMENTS_RO((struct list *)loc->chunks, node, chunk)) {
+	for (ALL_LIST_ELEMENTS_RO((struct list *)loc->locator.chunks, node,
+				  chunk)) {
 		if (chunk->proto != NO_PROTO && chunk->proto != proto)
 			continue;
 		chunk_found = true;
@@ -276,7 +305,7 @@ assign_srv6_locator_chunk(uint8_t proto,
 	chunk->proto = proto;
 	chunk->instance = instance;
 	chunk->session_id = session_id;
-	return loc;
+	return &loc->locator;
 }
 
 static int zebra_srv6_manager_get_locator_chunk(struct srv6_locator **loc,
@@ -320,7 +349,7 @@ static int release_srv6_locator_chunk(uint8_t proto, uint16_t instance,
 	int ret = -1;
 	struct listnode *node;
 	struct srv6_locator_chunk *chunk;
-	struct srv6_locator *loc = NULL;
+	struct zebra_srv6_locator *loc = NULL;
 
 	loc = zebra_srv6_locator_lookup(locator_name);
 	if (!loc)
@@ -330,7 +359,8 @@ static int release_srv6_locator_chunk(uint8_t proto, uint16_t instance,
 		zlog_debug("%s: Releasing srv6-locator on %s", __func__,
 			   locator_name);
 
-	for (ALL_LIST_ELEMENTS_RO((struct list *)loc->chunks, node, chunk)) {
+	for (ALL_LIST_ELEMENTS_RO((struct list *)loc->locator.chunks, node,
+				  chunk)) {
 		if (chunk->proto != proto ||
 		    chunk->instance != instance ||
 		    chunk->session_id != session_id)
@@ -429,7 +459,7 @@ void zebra_srv6_encap_src_addr_unset(void)
 
 void zebra_srv6_terminate(void)
 {
-	struct srv6_locator *locator;
+	struct zebra_srv6_locator *locator;
 
 	if (!srv6.locators)
 		return;
@@ -438,7 +468,7 @@ void zebra_srv6_terminate(void)
 		locator = listnode_head(srv6.locators);
 
 		listnode_delete(srv6.locators, locator);
-		srv6_locator_free(locator);
+		zebra_srv6_locator_free(locator);
 	}
 
 	list_delete(&srv6.locators);

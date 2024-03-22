@@ -16,6 +16,15 @@
 #include <pthread.h>
 #include <plist.h>
 
+/* Zebra SRv6 locator. */
+struct zebra_srv6_locator {
+	/* SRv6 locator information. */
+	struct srv6_locator locator;
+
+	QOBJ_FIELDS;
+};
+DECLARE_QOBJ_TYPE(zebra_srv6_locator);
+
 /* SRv6 instance structure. */
 struct zebra_srv6 {
 	struct list *locators;
@@ -46,13 +55,15 @@ DECLARE_HOOK(srv6_manager_release_chunk,
 	      vrf_id_t vrf_id),
 	     (client, locator_name, vrf_id));
 
+extern struct zebra_srv6_locator *zebra_srv6_locator_alloc(const char *name);
+extern void zebra_srv6_locator_free(struct zebra_srv6_locator *locator);
 
-extern void zebra_srv6_locator_add(struct srv6_locator *locator);
-extern void zebra_srv6_locator_delete(struct srv6_locator *locator);
-extern struct srv6_locator *zebra_srv6_locator_lookup(const char *name);
+extern void zebra_srv6_locator_add(struct zebra_srv6_locator *locator);
+extern void zebra_srv6_locator_delete(struct zebra_srv6_locator *locator);
+extern struct zebra_srv6_locator *zebra_srv6_locator_lookup(const char *name);
 
-void zebra_notify_srv6_locator_add(struct srv6_locator *locator);
-void zebra_notify_srv6_locator_delete(struct srv6_locator *locator);
+void zebra_notify_srv6_locator_add(struct zebra_srv6_locator *locator);
+void zebra_notify_srv6_locator_delete(struct zebra_srv6_locator *locator);
 
 extern void zebra_srv6_init(void);
 extern void zebra_srv6_terminate(void);

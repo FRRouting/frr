@@ -118,7 +118,7 @@ DEFUN (show_srv6_locator,
 {
 	const bool uj = use_json(argc, argv);
 	struct zebra_srv6 *srv6 = zebra_srv6_get_default();
-	struct srv6_locator *locator;
+	struct zebra_srv6_locator *locator;
 	struct listnode *node;
 	char str[256];
 	int id;
@@ -132,7 +132,7 @@ DEFUN (show_srv6_locator,
 		json_object_object_add(json, "locators", json_locators);
 
 		for (ALL_LIST_ELEMENTS_RO(srv6->locators, node, locator)) {
-			json_locator = srv6_locator_json(locator);
+			json_locator = srv6_locator_json(&locator->locator);
 			if (!json_locator)
 				continue;
 			json_object_array_add(json_locators, json_locator);
@@ -147,10 +147,10 @@ DEFUN (show_srv6_locator,
 
 		id = 1;
 		for (ALL_LIST_ELEMENTS_RO(srv6->locators, node, locator)) {
-			prefix2str(&locator->prefix, str, sizeof(str));
+			prefix2str(&locator->locator.prefix, str, sizeof(str));
 			vty_out(vty, "%-20s %7d %-24s %s\n",
-				locator->name, id, str,
-				locator->status_up ? "Up" : "Down");
+				locator->locator.name, id, str,
+				locator->locator.status_up ? "Up" : "Down");
 			++id;
 		}
 		vty_out(vty, "\n");
@@ -172,7 +172,7 @@ DEFUN (show_srv6_locator_detail,
 {
 	const bool uj = use_json(argc, argv);
 	struct zebra_srv6 *srv6 = zebra_srv6_get_default();
-	struct srv6_locator *locator;
+	struct zebra_srv6_locator *locator;
 	struct listnode *node;
 	char str[256];
 	const char *locator_name = argv[4]->arg;
@@ -183,7 +183,7 @@ DEFUN (show_srv6_locator_detail,
 		if (!locator)
 			return CMD_WARNING;
 
-		json_locator = srv6_locator_detailed_json(locator);
+		json_locator = srv6_locator_detailed_json(&locator->locator);
 		vty_json(vty, json_locator);
 		return CMD_SUCCESS;
 	}
@@ -192,25 +192,27 @@ DEFUN (show_srv6_locator_detail,
 		struct listnode *node;
 		struct srv6_locator_chunk *chunk;
 
-		if (strcmp(locator->name, locator_name) != 0)
+		if (strcmp(locator->locator.name, locator_name) != 0)
 			continue;
 
-		prefix2str(&locator->prefix, str, sizeof(str));
-		vty_out(vty, "Name: %s\n", locator->name);
+		prefix2str(&locator->locator.prefix, str, sizeof(str));
+		vty_out(vty, "Name: %s\n", locator->locator.name);
 		vty_out(vty, "Prefix: %s\n", str);
-		vty_out(vty, "Block-Bit-Len: %u\n", locator->block_bits_length);
-		vty_out(vty, "Node-Bit-Len: %u\n", locator->node_bits_length);
+		vty_out(vty, "Block-Bit-Len: %u\n",
+			locator->locator.block_bits_length);
+		vty_out(vty, "Node-Bit-Len: %u\n",
+			locator->locator.node_bits_length);
 		vty_out(vty, "Function-Bit-Len: %u\n",
-			locator->function_bits_length);
+			locator->locator.function_bits_length);
 		vty_out(vty, "Argument-Bit-Len: %u\n",
-			locator->argument_bits_length);
+			locator->locator.argument_bits_length);
 
-		if (CHECK_FLAG(locator->flags, SRV6_LOCATOR_USID))
+		if (CHECK_FLAG(locator->locator.flags, SRV6_LOCATOR_USID))
 			vty_out(vty, "Behavior: uSID\n");
 
 		vty_out(vty, "Chunks:\n");
-		for (ALL_LIST_ELEMENTS_RO((struct list *)locator->chunks, node,
-					  chunk)) {
+		for (ALL_LIST_ELEMENTS_RO((struct list *)locator->locator.chunks,
+					  node, chunk)) {
 			prefix2str(&chunk->prefix, str, sizeof(str));
 			vty_out(vty, "- prefix: %s, owner: %s\n", str,
 				zebra_route_string(chunk->proto));
@@ -246,7 +248,7 @@ DEFUN (no_srv6,
        "Segment Routing SRv6\n")
 {
 	struct zebra_srv6 *srv6 = zebra_srv6_get_default();
-	struct srv6_locator *locator;
+	struct zebra_srv6_locator *locator;
 	struct listnode *node, *nnode;
 
 	for (ALL_LIST_ELEMENTS(srv6->locators, node, nnode, locator))
@@ -269,21 +271,21 @@ DEFUN_NOSH (srv6_locator,
             "Segment Routing SRv6 locator\n"
             "Specify locator-name\n")
 {
-	struct srv6_locator *locator = NULL;
+	struct zebra_srv6_locator *locator = NULL;
 
 	locator = zebra_srv6_locator_lookup(argv[1]->arg);
 	if (locator) {
 		VTY_PUSH_CONTEXT(SRV6_LOC_NODE, locator);
-		locator->status_up = true;
+		locator->locator.status_up = true;
 		return CMD_SUCCESS;
 	}
 
-	locator = srv6_locator_alloc(argv[1]->arg);
+	locator = zebra_srv6_locator_alloc(argv[1]->arg);
 	if (!locator) {
 		vty_out(vty, "%% Alloc failed\n");
 		return CMD_WARNING_CONFIG_FAILED;
 	}
-	locator->status_up = true;
+	locator->locator.status_up = true;
 
 	VTY_PUSH_CONTEXT(SRV6_LOC_NODE, locator);
 	vty->node = SRV6_LOC_NODE;
@@ -297,7 +299,8 @@ DEFUN (no_srv6_locator,
        "Segment Routing SRv6 locator\n"
        "Specify locator-name\n")
 {
-	struct srv6_locator *locator = zebra_srv6_locator_lookup(argv[2]->arg);
+	struct zebra_srv6_locator *locator =
+		zebra_srv6_locator_lookup(argv[2]->arg);
 	if (!locator) {
 		vty_out(vty, "%% Can't find SRv6 locator\n");
 		return CMD_WARNING_CONFIG_FAILED;
@@ -320,11 +323,11 @@ DEFPY (locator_prefix,
        "Configure SRv6 locator function length in bits\n"
        "Specify SRv6 locator function length in bits\n")
 {
-	VTY_DECLVAR_CONTEXT(srv6_locator, locator);
+	VTY_DECLVAR_CONTEXT(zebra_srv6_locator, locator);
 	struct srv6_locator_chunk *chunk = NULL;
 	struct listnode *node = NULL;
 
-	locator->prefix = *prefix;
+	locator->locator.prefix = *prefix;
 	func_bit_len = func_bit_len ?: ZEBRA_SRV6_FUNCTION_LENGTH;
 
 	/* Resolve optional arguments */
@@ -365,18 +368,18 @@ DEFPY (locator_prefix,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	locator->block_bits_length = block_bit_len;
-	locator->node_bits_length = node_bit_len;
-	locator->function_bits_length = func_bit_len;
-	locator->argument_bits_length = 0;
+	locator->locator.block_bits_length = block_bit_len;
+	locator->locator.node_bits_length = node_bit_len;
+	locator->locator.function_bits_length = func_bit_len;
+	locator->locator.argument_bits_length = 0;
 
-	if (list_isempty(locator->chunks)) {
+	if (list_isempty(locator->locator.chunks)) {
 		chunk = srv6_locator_chunk_alloc();
 		chunk->prefix = *prefix;
 		chunk->proto = 0;
-		listnode_add(locator->chunks, chunk);
+		listnode_add(locator->locator.chunks, chunk);
 	} else {
-		for (ALL_LIST_ELEMENTS_RO(locator->chunks, node, chunk)) {
+		for (ALL_LIST_ELEMENTS_RO(locator->locator.chunks, node, chunk)) {
 			uint8_t zero[16] = {0};
 
 			if (memcmp(&chunk->prefix.prefix, zero, 16) == 0) {
@@ -393,9 +396,9 @@ DEFPY (locator_prefix,
 						continue;
 
 					srv6_manager_get_locator_chunk_call(
-							&tmp, client,
-							locator->name,
-							VRF_DEFAULT);
+						&tmp, client,
+						locator->locator.name,
+						VRF_DEFAULT);
 				}
 			}
 		}
@@ -412,13 +415,13 @@ DEFPY (locator_behavior,
        "Configure SRv6 behavior\n"
        "Specify SRv6 behavior uSID\n")
 {
-	VTY_DECLVAR_CONTEXT(srv6_locator, locator);
+	VTY_DECLVAR_CONTEXT(zebra_srv6_locator, locator);
 
-	if (no && !CHECK_FLAG(locator->flags, SRV6_LOCATOR_USID))
+	if (no && !CHECK_FLAG(locator->locator.flags, SRV6_LOCATOR_USID))
 		/* SRv6 locator uSID flag already unset, nothing to do */
 		return CMD_SUCCESS;
 
-	if (!no && CHECK_FLAG(locator->flags, SRV6_LOCATOR_USID))
+	if (!no && CHECK_FLAG(locator->locator.flags, SRV6_LOCATOR_USID))
 		/* SRv6 locator uSID flag already set, nothing to do */
 		return CMD_SUCCESS;
 
@@ -427,9 +430,9 @@ DEFPY (locator_behavior,
 
 	/* Set/Unset the SRV6_LOCATOR_USID */
 	if (no)
-		UNSET_FLAG(locator->flags, SRV6_LOCATOR_USID);
+		UNSET_FLAG(locator->locator.flags, SRV6_LOCATOR_USID);
 	else
-		SET_FLAG(locator->flags, SRV6_LOCATOR_USID);
+		SET_FLAG(locator->locator.flags, SRV6_LOCATOR_USID);
 
 	/* Notify the new locator to zclients */
 	zebra_notify_srv6_locator_add(locator);
@@ -473,7 +476,7 @@ static int zebra_sr_config(struct vty *vty)
 {
 	struct zebra_srv6 *srv6 = zebra_srv6_get_default();
 	struct listnode *node;
-	struct srv6_locator *locator;
+	struct zebra_srv6_locator *locator;
 	char str[256];
 
 	vty_out(vty, "!\n");
@@ -487,25 +490,26 @@ static int zebra_sr_config(struct vty *vty)
 		}
 		vty_out(vty, "  locators\n");
 		for (ALL_LIST_ELEMENTS_RO(srv6->locators, node, locator)) {
-			inet_ntop(AF_INET6, &locator->prefix.prefix,
+			inet_ntop(AF_INET6, &locator->locator.prefix.prefix,
 				  str, sizeof(str));
-			vty_out(vty, "   locator %s\n", locator->name);
+			vty_out(vty, "   locator %s\n", locator->locator.name);
 			vty_out(vty, "    prefix %s/%u", str,
-				locator->prefix.prefixlen);
-			if (locator->block_bits_length)
+				locator->locator.prefix.prefixlen);
+			if (locator->locator.block_bits_length)
 				vty_out(vty, " block-len %u",
-					locator->block_bits_length);
-			if (locator->node_bits_length)
+					locator->locator.block_bits_length);
+			if (locator->locator.node_bits_length)
 				vty_out(vty, " node-len %u",
-					locator->node_bits_length);
-			if (locator->function_bits_length)
+					locator->locator.node_bits_length);
+			if (locator->locator.function_bits_length)
 				vty_out(vty, " func-bits %u",
-					locator->function_bits_length);
-			if (locator->argument_bits_length)
+					locator->locator.function_bits_length);
+			if (locator->locator.argument_bits_length)
 				vty_out(vty, " arg-len %u",
-					locator->argument_bits_length);
+					locator->locator.argument_bits_length);
 			vty_out(vty, "\n");
-			if (CHECK_FLAG(locator->flags, SRV6_LOCATOR_USID))
+			if (CHECK_FLAG(locator->locator.flags,
+				       SRV6_LOCATOR_USID))
 				vty_out(vty, "    behavior usid\n");
 			vty_out(vty, "   exit\n");
 			vty_out(vty, "   !\n");
