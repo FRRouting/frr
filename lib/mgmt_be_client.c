@@ -880,7 +880,7 @@ done:
 	if (ret)
 		be_client_send_error(client, args->txn_id, args->req_id, false,
 				     -EINVAL,
-				     "FE cilent %s txn-id %" PRIu64
+				     "BE client %s txn-id %" PRIu64
 				     " error fetching oper state %d",
 				     client->name, args->txn_id, ret);
 	if (ret != NB_OK || !more)
@@ -984,7 +984,7 @@ static void be_client_handle_native_msg(struct mgmt_be_client *client,
 				  txn_id, msg->req_id, msg->code, client->name);
 		be_client_send_error(client, msg->refer_id, msg->req_id, false,
 				     -1,
-				     "BE cilent %s recv msg unknown txn-id %" PRIu64,
+				     "BE client %s recv msg unknown txn-id %" PRIu64,
 				     client->name, txn_id);
 		break;
 	}
