@@ -347,52 +347,111 @@ DEFPY (locator_prefix,
 	VTY_DECLVAR_CONTEXT(zebra_srv6_locator, locator);
 	struct srv6_locator_chunk *chunk = NULL;
 	struct listnode *node = NULL;
+	struct zebra_srv6_sid_format *format;
+	struct zebra_srv6_sid_block *block_old, *block_new;
+	struct prefix_ipv6 block_pfx_old, block_pfx_new;
 
-	locator->locator.prefix = *prefix;
-	func_bit_len = func_bit_len ?: ZEBRA_SRV6_FUNCTION_LENGTH;
-
-	/* Resolve optional arguments */
-	if (block_bit_len == 0 && node_bit_len == 0) {
-		block_bit_len =
-			prefix->prefixlen - ZEBRA_SRV6_LOCATOR_NODE_LENGTH;
-		node_bit_len = ZEBRA_SRV6_LOCATOR_NODE_LENGTH;
-	} else if (block_bit_len == 0) {
-		block_bit_len = prefix->prefixlen - node_bit_len;
-	} else if (node_bit_len == 0) {
-		node_bit_len = prefix->prefixlen - block_bit_len;
-	} else {
-		if (block_bit_len + node_bit_len != prefix->prefixlen) {
-			vty_out(vty,
-				"%% block-len + node-len must be equal to the selected prefix length %d\n",
-				prefix->prefixlen);
-			return CMD_WARNING_CONFIG_FAILED;
-		}
-	}
-
-	if (prefix->prefixlen + func_bit_len + 0 > 128) {
-		vty_out(vty,
-			"%% prefix-len + function-len + arg-len (%ld) cannot be greater than 128\n",
-			prefix->prefixlen + func_bit_len + 0);
-		return CMD_WARNING_CONFIG_FAILED;
-	}
+	format = locator->sid_format;
 
 	/*
-	 * Currently, the SID transposition algorithm implemented in bgpd
-	 * handles incorrectly the SRv6 locators with function length greater
-	 * than 20 bits. To prevent issues, we currently limit the function
-	 * length to 20 bits.
-	 * This limit will be removed when the bgpd SID transposition is fixed.
+	 * Save parent block of the locator before changing the locator.
+	 * This will be used later to check if the block has changed.
 	 */
-	if (func_bit_len > 20) {
-		vty_out(vty,
-			"%% currently func_bit_len > 20 is not supported\n");
-		return CMD_WARNING_CONFIG_FAILED;
+	if (format) {
+		block_pfx_old = locator->locator.prefix;
+		block_pfx_old.prefixlen = locator->locator.block_bits_length;
+		apply_mask(&block_pfx_old);
 	}
 
-	locator->locator.block_bits_length = block_bit_len;
-	locator->locator.node_bits_length = node_bit_len;
-	locator->locator.function_bits_length = func_bit_len;
-	locator->locator.argument_bits_length = 0;
+	locator->locator.prefix = *prefix;
+
+	/*
+	 * If the SID format has not been explicitly specified by the user,
+	 * let FRR automatically choose the SID format to use based on the
+	 * parameters block-len, node-len, and func-bits passed as parameters
+	 * to the locator prefix CLI.
+	 */
+	if (!format) {
+		func_bit_len = func_bit_len ?: ZEBRA_SRV6_FUNCTION_LENGTH;
+
+		/* Resolve optional arguments */
+		if (block_bit_len == 0 && node_bit_len == 0) {
+			block_bit_len = prefix->prefixlen -
+					ZEBRA_SRV6_LOCATOR_NODE_LENGTH;
+			node_bit_len = ZEBRA_SRV6_LOCATOR_NODE_LENGTH;
+		} else if (block_bit_len == 0) {
+			block_bit_len = prefix->prefixlen - node_bit_len;
+		} else if (node_bit_len == 0) {
+			node_bit_len = prefix->prefixlen - block_bit_len;
+		} else {
+			if (block_bit_len + node_bit_len != prefix->prefixlen) {
+				vty_out(vty,
+					"%% block-len + node-len must be equal to the selected prefix length %d\n",
+					prefix->prefixlen);
+				return CMD_WARNING_CONFIG_FAILED;
+			}
+		}
+
+		if (prefix->prefixlen + func_bit_len + 0 > 128) {
+			vty_out(vty,
+				"%% prefix-len + function-len + arg-len (%ld) cannot be greater than 128\n",
+				prefix->prefixlen + func_bit_len + 0);
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+
+		/*
+		 * Currently, the SID transposition algorithm implemented in bgpd
+		 * handles incorrectly the SRv6 locators with function length greater
+		 * than 20 bits. To prevent issues, we currently limit the function
+		 * length to 20 bits.
+		 * This limit will be removed when the bgpd SID transposition is fixed.
+		 */
+		if (func_bit_len > 20) {
+			vty_out(vty,
+				"%% currently func_bit_len > 20 is not supported\n");
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+
+		locator->locator.block_bits_length = block_bit_len;
+		locator->locator.node_bits_length = node_bit_len;
+		locator->locator.function_bits_length = func_bit_len;
+		locator->locator.argument_bits_length = 0;
+
+		if (locator->locator.block_bits_length ==
+			    ZEBRA_SRV6_SID_FORMAT_UNCOMPRESSED_BLOCK_LEN &&
+		    locator->locator.node_bits_length ==
+			    ZEBRA_SRV6_SID_FORMAT_UNCOMPRESSED_NODE_LEN &&
+		    locator->locator.function_bits_length ==
+			    ZEBRA_SRV6_SID_FORMAT_UNCOMPRESSED_FUNCTION_LEN &&
+		    !CHECK_FLAG(locator->locator.flags, SRV6_LOCATOR_USID)) {
+			format = zebra_srv6_sid_format_lookup(
+				ZEBRA_SRV6_SID_FORMAT_UNCOMPRESSED_NAME);
+			assert(format);
+			locator->sid_format = format;
+		} else if (locator->locator.block_bits_length ==
+				   ZEBRA_SRV6_SID_FORMAT_USID_F3216_BLOCK_LEN &&
+			   locator->locator.node_bits_length ==
+				   ZEBRA_SRV6_SID_FORMAT_USID_F3216_NODE_LEN &&
+			   locator->locator.function_bits_length ==
+				   ZEBRA_SRV6_SID_FORMAT_USID_F3216_FUNCTION_LEN &&
+			   CHECK_FLAG(locator->locator.flags,
+				      SRV6_LOCATOR_USID)) {
+			format = zebra_srv6_sid_format_lookup(
+				ZEBRA_SRV6_SID_FORMAT_USID_F3216_NAME);
+			assert(format);
+			locator->sid_format = format;
+		} else {
+			zlog_warn("Unsupported SID format (block-len=%u node-len=%u func-len=%u usid=%s) specified for locator %s",
+				  locator->locator.block_bits_length,
+				  locator->locator.node_bits_length,
+				  locator->locator.function_bits_length,
+				  (CHECK_FLAG(locator->locator.flags,
+					      SRV6_LOCATOR_USID))
+					  ? "yes"
+					  : "no",
+				  locator->locator.name);
+		}
+	}
 
 	if (list_isempty(locator->locator.chunks)) {
 		chunk = srv6_locator_chunk_alloc();
@@ -425,6 +484,34 @@ DEFPY (locator_prefix,
 		}
 	}
 
+	if (format) {
+		/* Get the new parent block of the locator */
+		block_pfx_new = *prefix;
+		block_pfx_new.prefixlen = format->block_len;
+		apply_mask(&block_pfx_new);
+
+		/*
+		 * Compare the new block with the old block. If block has changed,
+		 * release/free the old block and allocate the new one.
+		 */
+		if (memcmp(&block_pfx_old, &block_pfx_new,
+			   sizeof(struct prefix_ipv6)) != 0) {
+			block_old = zebra_srv6_sid_block_lookup(&block_pfx_old);
+			if (block_old) {
+				block_old->refcnt--;
+				if (block_old->refcnt == 0)
+					zebra_srv6_sid_block_free(block_old);
+			}
+
+			block_new = zebra_srv6_sid_block_lookup(&block_pfx_new);
+			if (!block_new)
+				block_new = zebra_srv6_sid_block_alloc(format);
+
+			block_new->refcnt++;
+			locator->sid_block = block_new;
+		}
+	}
+
 	zebra_srv6_locator_add(locator);
 	return CMD_SUCCESS;
 }
@@ -437,6 +524,9 @@ DEFPY (locator_behavior,
        "Specify SRv6 behavior uSID\n")
 {
 	VTY_DECLVAR_CONTEXT(zebra_srv6_locator, locator);
+	struct zebra_srv6_sid_format *format;
+	struct zebra_srv6_sid_block *block_old, *block_new;
+	struct prefix_ipv6 block_pfx_new;
 
 	if (no && !CHECK_FLAG(locator->locator.flags, SRV6_LOCATOR_USID))
 		/* SRv6 locator uSID flag already unset, nothing to do */
@@ -455,7 +545,155 @@ DEFPY (locator_behavior,
 	else
 		SET_FLAG(locator->locator.flags, SRV6_LOCATOR_USID);
 
+	if (locator->locator.block_bits_length ==
+		    ZEBRA_SRV6_SID_FORMAT_UNCOMPRESSED_BLOCK_LEN &&
+	    locator->locator.node_bits_length ==
+		    ZEBRA_SRV6_SID_FORMAT_UNCOMPRESSED_NODE_LEN &&
+	    locator->locator.function_bits_length ==
+		    ZEBRA_SRV6_SID_FORMAT_UNCOMPRESSED_FUNCTION_LEN &&
+	    !CHECK_FLAG(locator->locator.flags, SRV6_LOCATOR_USID)) {
+		format = zebra_srv6_sid_format_lookup(
+			ZEBRA_SRV6_SID_FORMAT_UNCOMPRESSED_NAME);
+		assert(format);
+		locator->sid_format = format;
+	} else if (locator->locator.block_bits_length ==
+			   ZEBRA_SRV6_SID_FORMAT_USID_F3216_BLOCK_LEN &&
+		   locator->locator.node_bits_length ==
+			   ZEBRA_SRV6_SID_FORMAT_USID_F3216_NODE_LEN &&
+		   locator->locator.function_bits_length ==
+			   ZEBRA_SRV6_SID_FORMAT_USID_F3216_FUNCTION_LEN &&
+		   CHECK_FLAG(locator->locator.flags, SRV6_LOCATOR_USID)) {
+		format = zebra_srv6_sid_format_lookup(
+			ZEBRA_SRV6_SID_FORMAT_USID_F3216_NAME);
+		assert(format);
+		locator->sid_format = format;
+	} else {
+		zlog_warn("Unsupported SID format (block-len=%u node-len=%u func-len=%u usid=%s) specified for locator %s",
+			  locator->locator.block_bits_length,
+			  locator->locator.node_bits_length,
+			  locator->locator.function_bits_length,
+			  (CHECK_FLAG(locator->locator.flags, SRV6_LOCATOR_USID))
+				  ? "yes"
+				  : "no",
+			  locator->locator.name);
+		zebra_srv6_locator_add(locator);
+		return CMD_SUCCESS;
+	}
+
+	/* Get the new parent block of the locator */
+	block_pfx_new = locator->locator.prefix;
+	block_pfx_new.prefixlen = locator->locator.block_bits_length;
+	apply_mask(&block_pfx_new);
+
+	block_old = locator->sid_block;
+	if (block_old) {
+		block_old->refcnt--;
+		if (block_old->refcnt == 0)
+			zebra_srv6_sid_block_free(block_old);
+		locator->sid_block = NULL;
+	}
+
+	block_new = zebra_srv6_sid_block_lookup(&block_pfx_new);
+	if (!block_new)
+		block_new = zebra_srv6_sid_block_alloc(format);
+
+	block_new->refcnt++;
+	locator->sid_block = block_new;
+
 	/* Notify the new locator to zclients */
+	zebra_notify_srv6_locator_add(locator);
+
+	return CMD_SUCCESS;
+}
+
+DEFPY(locator_sid_format,
+      locator_sid_format_cmd,
+      "[no] format WORD",
+      NO_STR
+      "Configure SRv6 SID format\n"
+      "Specify SRv6 SID format\n")
+{
+	VTY_DECLVAR_CONTEXT(zebra_srv6_locator, locator);
+	struct zebra_srv6_sid_format *sid_format = NULL;
+	struct zebra_srv6_sid_block *block_old, *block_new;
+	struct prefix_ipv6 block_pfx_old, block_pfx_new;
+
+	sid_format = locator->sid_format;
+
+	/*
+	 * Save parent block of the locator before changing the locator.
+	 * This will be used later to check if the block has changed.
+	 */
+	if (sid_format) {
+		block_pfx_old = locator->locator.prefix;
+		block_pfx_old.prefixlen = locator->locator.block_bits_length;
+		apply_mask(&block_pfx_old);
+	}
+
+	if (no) {
+		locator->sid_format = NULL;
+		locator->locator.block_bits_length = 0;
+		locator->locator.node_bits_length = 0;
+		locator->locator.function_bits_length = 0;
+		locator->locator.argument_bits_length = 0;
+		UNSET_FLAG(locator->locator.flags, SRV6_LOCATOR_USID);
+	} else {
+		sid_format = zebra_srv6_sid_format_lookup(format);
+		if (!sid_format) {
+			vty_out(vty, "%% SID format '%s' not defined\n", format);
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+	}
+
+	/*
+	 * After switching the locator to a different format, the SIDs allocated
+	 * from the locator may no longer be valid; we need to notify the
+	 * interested zclient that the locator has changed, so that the
+	 * zclients can withdraw/uninstall the old SIDs,allocate/advertise/program
+	 * the new SIDs.
+	 */
+
+	/* Notify zclients that the locator is no longer valid */
+	zebra_notify_srv6_locator_delete(locator);
+
+	/* Update the locator based on the new SID format */
+	locator->sid_format = sid_format;
+	locator->locator.block_bits_length = sid_format->block_len;
+	locator->locator.node_bits_length = sid_format->node_len;
+	locator->locator.function_bits_length = sid_format->function_len;
+	locator->locator.argument_bits_length = sid_format->argument_len;
+	if (sid_format->type == ZEBRA_SRV6_SID_FORMAT_TYPE_COMPRESSED_USID)
+		SET_FLAG(locator->locator.flags, SRV6_LOCATOR_USID);
+	else
+		UNSET_FLAG(locator->locator.flags, SRV6_LOCATOR_USID);
+
+	/* Get the new parent block of the locator */
+	block_pfx_new = locator->locator.prefix;
+	block_pfx_new.prefixlen = sid_format->block_len;
+	apply_mask(&block_pfx_new);
+
+	/*
+	 * Compare the new block with the old block. If block has changed,
+	 * release/free the old block and allocate the new one.
+	 */
+	if (memcmp(&block_pfx_old, &block_pfx_new,
+		   sizeof(struct prefix_ipv6)) != 0) {
+		block_old = zebra_srv6_sid_block_lookup(&block_pfx_old);
+		if (block_old) {
+			block_old->refcnt--;
+			if (block_old->refcnt == 0)
+				zebra_srv6_sid_block_free(block_old);
+		}
+
+		block_new = zebra_srv6_sid_block_lookup(&block_pfx_new);
+		if (!block_new)
+			block_new = zebra_srv6_sid_block_alloc(sid_format);
+
+		block_new->refcnt++;
+		locator->sid_block = block_new;
+	}
+
+	/* Notify zclients about the updated locator */
 	zebra_notify_srv6_locator_add(locator);
 
 	return CMD_SUCCESS;
@@ -561,6 +799,9 @@ DEFUN(no_srv6_sid_format,
 		assert(0);
 	}
 
+	/* Notify zclients that the format has changed */
+	zebra_srv6_sid_format_changed_cb(sid_format);
+
 	return CMD_SUCCESS;
 }
 
@@ -599,6 +840,9 @@ DEFPY(srv6_sid_format_usid_lib_start,
 	else
 		format->config.usid.lib_start = start;
 
+	/* Notify zclients that the format has changed */
+	zebra_srv6_sid_format_changed_cb(format);
+
 	return CMD_SUCCESS;
 }
 
@@ -618,6 +862,9 @@ DEFPY(srv6_sid_format_usid_lib_explicit_start,
 			ZEBRA_SRV6_SID_FORMAT_USID_F3216_ELIB_START;
 	else
 		format->config.usid.elib_start = start;
+
+	/* Notify zclients that the format has changed */
+	zebra_srv6_sid_format_changed_cb(format);
 
 	return CMD_SUCCESS;
 }
@@ -639,6 +886,9 @@ DEFPY(srv6_sid_format_usid_lib_explicit_end,
 	else
 		format->config.usid.elib_end = end;
 
+	/* Notify zclients that the format has changed */
+	zebra_srv6_sid_format_changed_cb(format);
+
 	return CMD_SUCCESS;
 }
 
@@ -657,6 +907,9 @@ DEFPY(srv6_sid_format_usid_wlib_start,
 			ZEBRA_SRV6_SID_FORMAT_USID_F3216_WLIB_START;
 	else
 		format->config.usid.wlib_start = start;
+
+	/* Notify zclients that the format has changed */
+	zebra_srv6_sid_format_changed_cb(format);
 
 	return CMD_SUCCESS;
 }
@@ -677,6 +930,9 @@ DEFPY(srv6_sid_format_usid_wlib_end,
 	else
 		format->config.usid.wlib_end = end;
 
+	/* Notify zclients that the format has changed */
+	zebra_srv6_sid_format_changed_cb(format);
+
 	return CMD_SUCCESS;
 }
 
@@ -696,6 +952,9 @@ DEFPY(srv6_sid_format_usid_wide_lib_explicit_start,
 			ZEBRA_SRV6_SID_FORMAT_USID_F3216_EWLIB_START;
 	else
 		format->config.usid.ewlib_start = start;
+
+	/* Notify zclients that the format has changed */
+	zebra_srv6_sid_format_changed_cb(format);
 
 	return CMD_SUCCESS;
 }
@@ -819,6 +1078,7 @@ void zebra_srv6_vty_init(void)
 	/* Command for configuration */
 	install_element(SRV6_LOC_NODE, &locator_prefix_cmd);
 	install_element(SRV6_LOC_NODE, &locator_behavior_cmd);
+	install_element(SRV6_LOC_NODE, &locator_sid_format_cmd);
 	install_element(SRV6_ENCAP_NODE, &srv6_src_addr_cmd);
 	install_element(SRV6_ENCAP_NODE, &no_srv6_src_addr_cmd);
 	install_element(SRV6_SID_FORMAT_USID_NODE,

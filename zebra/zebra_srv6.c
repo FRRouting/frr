@@ -160,6 +160,55 @@ struct zebra_srv6_sid_format *zebra_srv6_sid_format_lookup(const char *name)
 }
 
 /*
+ * Called when a SID format is modified by the user.
+ *
+ * After modifying a SID format, the SIDs that are using that format may no
+ * longer be valid.
+ * This function walks through the list of locators that are using the SID format
+ * and notifies the zclients that the locator has changed, so that the zclients
+ * can withdraw/uninstall the old SIDs, allocate/advertise/program the new SIDs.
+ */
+void zebra_srv6_sid_format_changed_cb(struct zebra_srv6_sid_format *format)
+{
+	struct zebra_srv6 *srv6 = zebra_srv6_get_default();
+	struct zebra_srv6_locator *locator;
+	struct listnode *node;
+
+	if (IS_ZEBRA_DEBUG_PACKET)
+		zlog_debug("%s: SID format %s has changed. Notifying zclients.",
+			   __func__, format->name);
+
+	for (ALL_LIST_ELEMENTS_RO(srv6->locators, node, locator))
+		if (locator->sid_format == format) {
+			if (IS_ZEBRA_DEBUG_PACKET)
+				zlog_debug("%s: Locator %s has changed because its format (%s) has been modified. Notifying zclients.",
+					   __func__, locator->locator.name,
+					   format->name);
+
+			/* Notify zclients that the locator is no longer valid */
+			zebra_notify_srv6_locator_delete(locator);
+
+			/* Update the locator based on the new SID format */
+			locator->locator.block_bits_length = format->block_len;
+			locator->locator.node_bits_length = format->node_len;
+			locator->locator.function_bits_length =
+				format->function_len;
+			locator->locator.argument_bits_length =
+				format->argument_len;
+			if (format->type ==
+			    ZEBRA_SRV6_SID_FORMAT_TYPE_COMPRESSED_USID)
+				SET_FLAG(locator->locator.flags,
+					 SRV6_LOCATOR_USID);
+			else
+				UNSET_FLAG(locator->locator.flags,
+					   SRV6_LOCATOR_USID);
+
+			/* Notify zclients about the new locator */
+			zebra_notify_srv6_locator_add(locator);
+		}
+}
+
+/*
  * Helper function to create the SRv6 compressed format `usid-f3216`.
  */
 static struct zebra_srv6_sid_format *create_srv6_sid_format_usid_f3216(void)

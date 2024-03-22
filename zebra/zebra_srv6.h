@@ -161,6 +161,15 @@ struct zebra_srv6_locator {
 	/* SRv6 locator information. */
 	struct srv6_locator locator;
 
+	/*
+	 * Pointer to the SID format that defines the structure of the SIDs
+	 * allocated from this locator.
+	 */
+	struct zebra_srv6_sid_format *sid_format;
+
+	/* Pointer to the parent SID block of the locator. */
+	struct zebra_srv6_sid_block *sid_block;
+
 	QOBJ_FIELDS;
 };
 DECLARE_QOBJ_TYPE(zebra_srv6_locator);
@@ -238,6 +247,7 @@ extern void delete_zebra_srv6_sid_format(void *format);
 void zebra_srv6_sid_format_add(struct zebra_srv6_sid_format *sid_format);
 void zebra_srv6_sid_format_delete(struct zebra_srv6_sid_format *sid_format);
 struct zebra_srv6_sid_format *zebra_srv6_sid_format_lookup(const char *name);
+void zebra_srv6_sid_format_changed_cb(struct zebra_srv6_sid_format *format);
 
 uint32_t *zebra_srv6_sid_func_alloc(void);
 void zebra_srv6_sid_func_free(uint32_t *func);
