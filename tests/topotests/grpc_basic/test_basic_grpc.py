@@ -142,7 +142,7 @@ def test_shutdown_checks(tgen):
     time.sleep(1)
     try:
         for r in tgen.routers().values():
-            r.net.stopRouter()
+            r.net.stopRouter(False)
             r.net.checkRouterCores()
     finally:
         if p:

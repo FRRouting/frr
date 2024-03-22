@@ -32,7 +32,7 @@ extern "C" {
 #if __clang_major__ > 3 || (__clang_major__ == 3 && __clang_minor__ >= 5)
 #  define _RET_NONNULL    , returns_nonnull
 #endif
-#if __has_attribute(fallthrough)
+#if __has_attribute(fallthrough) && !defined(__cplusplus)
 #  define fallthrough __attribute__((fallthrough));
 #endif
 # define _CONSTRUCTOR(x)  constructor(x)
@@ -56,7 +56,7 @@ extern "C" {
 #if __GNUC__ < 5
 #  define __has_attribute(x) 0
 #endif
-#if __GNUC__ >= 7
+#if __GNUC__ >= 7 && !defined(__cplusplus)
 #  define fallthrough __attribute__((fallthrough));
 #endif
 #endif
@@ -112,7 +112,7 @@ extern "C" {
 #ifndef _ALLOC_SIZE
 # define _ALLOC_SIZE(x)
 #endif
-#ifndef fallthrough
+#if !defined(fallthrough) && !defined(__cplusplus)
 #define fallthrough
 #endif
 #ifndef _DEPRECATED

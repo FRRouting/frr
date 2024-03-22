@@ -36,16 +36,24 @@ Installing Topotest Requirements
        tshark \
        valgrind
    python3 -m pip install wheel
-   python3 -m pip install 'protobuf<4'
    python3 -m pip install 'pytest>=6.2.4' 'pytest-xdist>=2.3.0'
    python3 -m pip install 'scapy>=2.4.5'
    python3 -m pip install xmltodict
    python3 -m pip install git+https://github.com/Exa-Networks/exabgp@0659057837cd6c6351579e9f0fa47e9fb7de7311
    useradd -d /var/run/exabgp/ -s /bin/false exabgp
 
-   # To enable the gRPC topotest install:
-   # It's important to include 'protobuf<4' here to avoid incompatible grpcio-tools versions.
-   python3 -m pip install 'protobuf<4' grpcio grpcio-tools
+The version of protobuf package that is installed on your system will determine
+which versions of the python protobuf packages you need to install.
+
+.. code:: shell
+   # - Either - For protobuf version <= 3.12
+   python3 -m pip install 'protobuf<4'
+
+   # - OR- for protobuf version >= 3.21
+   python3 -m pip install 'protobuf>=4'
+
+   # To enable the gRPC topotest also install:
+   python3 -m pip install grpcio grpcio-tools
 
 
 Enable Coredumps
