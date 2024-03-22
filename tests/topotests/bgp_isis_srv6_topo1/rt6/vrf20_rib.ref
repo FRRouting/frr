@@ -1,0 +1,86 @@
+{
+  "2001:4::/64": [
+    {
+      "prefix": "2001:4::/64",
+      "protocol": "connected",
+      "vrfName": "vrf20",
+      "selected": true,
+      "destSelected": true,
+      "distance": 0,
+      "metric": 0,
+      "installed": true,
+      "table": 20,
+      "internalStatus": 16,
+      "internalFlags": 8,
+      "internalNextHopNum": 1,
+      "internalNextHopActiveNum": 1,
+      "nexthops": [
+        {
+          "flags": 3,
+          "fib": true,
+          "directlyConnected": true,
+          "interfaceName": "eth-ce4",
+          "active": true
+        }
+      ]
+    }
+  ],
+  "2001:5::/64": [
+    {
+      "prefix": "2001:5::/64",
+      "protocol": "bgp",
+      "vrfName": "vrf20",
+      "selected": true,
+      "destSelected": true,
+      "distance": 20,
+      "metric": 0,
+      "installed": true,
+      "table": 20,
+      "internalStatus": 16,
+      "internalFlags": 9,
+      "internalNextHopNum": 3,
+      "internalNextHopActiveNum": 3,
+      "nexthops": [
+        {
+          "flags": 3,
+          "fib": true,
+          "afi": "ipv6",
+          "interfaceName": "eth-rt5",
+          "vrf": "default",
+          "active": true,
+          "weight": 1,
+          "seg6": {
+            "segs": "fc00:0:1:fe01::"
+          }
+        }
+      ],
+      "asPath": "1"
+    }
+  ],
+  "2001:6::/64": [
+    {
+      "prefix": "2001:6::/64",
+      "protocol": "connected",
+      "vrfName": "vrf20",
+      "selected": true,
+      "destSelected": true,
+      "distance": 0,
+      "metric": 0,
+      "installed": true,
+      "table": 20,
+      "internalStatus": 16,
+      "internalFlags": 8,
+      "internalNextHopNum": 1,
+      "internalNextHopActiveNum": 1,
+      "nexthops": [
+        {
+          "flags": 3,
+          "fib": true,
+          "directlyConnected": true,
+          "interfaceName": "eth-ce6",
+          "active": true
+        }
+      ]
+    }
+  ]
+}
