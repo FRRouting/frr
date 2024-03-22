@@ -2561,7 +2561,7 @@ static void evpn_show_route_vni_multicast(struct vty *vty, struct bgp *bgp,
 
 	/* Prefix and num paths displayed once per prefix. */
 	route_vty_out_detail_header(vty, bgp, dest, bgp_dest_get_prefix(dest),
-				    NULL, afi, safi, json, false);
+				    NULL, afi, safi, json, false, true);
 
 	/* Display each path for this prefix. */
 	for (pi = bgp_dest_get_bgp_path_info(dest); pi; pi = pi->next) {
@@ -2663,7 +2663,7 @@ static void evpn_show_route_vni_macip(struct vty *vty, struct bgp *bgp,
 
 	/* Prefix and num paths displayed once per prefix. */
 	route_vty_out_detail_header(vty, bgp, dest, (struct prefix *)&p, NULL,
-				    afi, safi, json, false);
+				    afi, safi, json, false, true);
 
 	evp = (const struct prefix_evpn *)bgp_dest_get_prefix(dest);
 
@@ -2798,7 +2798,7 @@ static void evpn_show_route_rd_macip(struct vty *vty, struct bgp *bgp,
 
 	/* Prefix and num paths displayed once per prefix. */
 	route_vty_out_detail_header(vty, bgp, dest, bgp_dest_get_prefix(dest),
-				    prd, afi, safi, json, false);
+				    prd, afi, safi, json, false, false);
 
 	if (json)
 		json_paths = json_object_new_array();
@@ -2905,9 +2905,10 @@ static void evpn_show_route_rd(struct vty *vty, struct bgp *bgp,
 			}
 
 			/* Prefix and num paths displayed once per prefix. */
-			route_vty_out_detail_header(
-				vty, bgp, dest, bgp_dest_get_prefix(dest), prd,
-				afi, safi, json_prefix, false);
+			route_vty_out_detail_header(vty, bgp, dest,
+						    bgp_dest_get_prefix(dest),
+						    prd, afi, safi, json_prefix,
+						    false, false);
 
 			prefix_cnt++;
 		}
@@ -3042,9 +3043,10 @@ static void evpn_show_route_rd_all_macip(struct vty *vty, struct bgp *bgp,
 					    p->prefixlen);
 		} else
 			/* Prefix and num paths displayed once per prefix. */
-			route_vty_out_detail_header(
-				vty, bgp, dest, p, (struct prefix_rd *)rd_destp,
-				AFI_L2VPN, SAFI_EVPN, json_prefix, false);
+			route_vty_out_detail_header(vty, bgp, dest, p,
+						    (struct prefix_rd *)rd_destp,
+						    AFI_L2VPN, SAFI_EVPN,
+						    json_prefix, false, false);
 
 		/* For EVPN, the prefix is displayed for each path (to
 		 * fit in with code that already exists).
@@ -3197,11 +3199,14 @@ static void evpn_show_all_routes(struct vty *vty, struct bgp *bgp, int type,
 
 			/* Prefix and num paths displayed once per prefix. */
 			if (detail)
-				route_vty_out_detail_header(
-					vty, bgp, dest,
-					bgp_dest_get_prefix(dest),
-					(struct prefix_rd *)rd_destp, AFI_L2VPN,
-					SAFI_EVPN, json_prefix, false);
+				route_vty_out_detail_header(vty, bgp, dest,
+							    bgp_dest_get_prefix(
+								    dest),
+							    (struct prefix_rd *)
+								    rd_destp,
+							    AFI_L2VPN, SAFI_EVPN,
+							    json_prefix, false,
+							    false);
 
 			/* For EVPN, the prefix is displayed for each path (to
 			 * fit in
