@@ -127,6 +127,139 @@ struct srv6_sid_format *srv6_sid_format_lookup(const char *name)
 }
 
 /*
+ * Called to change the SID format of a locator.
+ *
+ * After switching the locator to a different format, the SIDs allocated
+ * from the locator may no longer be valid; we need to notify the
+ * interested zclient that the locator has changed, so that the
+ * zclients can withdraw/uninstall the old SIDs, allocate/advertise/program
+ * the new SIDs.
+ */
+void zebra_srv6_locator_format_set(struct srv6_locator *locator,
+				   struct srv6_sid_format *format)
+{
+	struct zebra_srv6 *srv6 = zebra_srv6_get_default();
+	struct zebra_srv6_sid_block *block_old, *block_new;
+	struct prefix_ipv6 block_pfx_new;
+	struct listnode *node, *nnode;
+	struct zebra_srv6_sid_ctx *ctx;
+
+	if (!locator)
+		return;
+
+	locator->sid_format = format;
+
+	if (IS_ZEBRA_DEBUG_PACKET)
+		zlog_debug("%s: Locator %s format has changed, old=%s new=%s",
+			   __func__, locator->name,
+			   locator->sid_format ? ((struct srv6_sid_format *)
+							  locator->sid_format)
+							 ->name
+					       : NULL,
+			   format ? format->name : NULL);
+
+	/* Notify zclients that the locator is no longer valid */
+	zebra_notify_srv6_locator_delete(locator);
+
+	for (ALL_LIST_ELEMENTS(srv6->sids, node, nnode, ctx)) {
+		if (!ctx->sid || ctx->sid->locator != locator)
+			continue;
+
+		if (ctx->sid)
+			zebra_srv6_sid_free(ctx->sid);
+
+		listnode_delete(srv6->sids, ctx);
+		zebra_srv6_sid_ctx_free(ctx);
+	}
+
+	if (IS_ZEBRA_DEBUG_PACKET)
+		zlog_debug("%s: Locator %s format has changed, send SRV6_LOCATOR_DEL notification to zclients",
+			   __func__, locator->name);
+
+	/* Release the current parent block */
+	block_old = locator->sid_block;
+	if (block_old) {
+		block_old->refcnt--;
+		if (block_old->refcnt == 0) {
+			listnode_delete(srv6->sid_blocks, block_old);
+			zebra_srv6_sid_block_free(block_old);
+		}
+	}
+	locator->sid_block = NULL;
+
+	block_pfx_new = locator->prefix;
+	if (format)
+		block_pfx_new.prefixlen = format->block_len;
+	else
+		block_pfx_new.prefixlen = locator->block_bits_length;
+	apply_mask(&block_pfx_new);
+
+	/* Allocate the new parent block */
+	block_new = zebra_srv6_sid_block_lookup(&block_pfx_new);
+	if (!block_new) {
+		block_new = zebra_srv6_sid_block_alloc(format, &block_pfx_new);
+		listnode_add(srv6->sid_blocks, block_new);
+	}
+
+	block_new->refcnt++;
+	locator->sid_block = block_new;
+
+	if (IS_ZEBRA_DEBUG_PACKET)
+		zlog_debug("%s: Locator %s format has changed, send SRV6_LOCATOR_ADD notification to zclients",
+			   __func__, locator->name);
+
+	/* Notify zclients about the updated locator */
+	zebra_srv6_locator_add(locator);
+}
+
+/*
+ * Called when a SID format is modified by the user.
+ *
+ * After modifying a SID format, the SIDs that are using that format may no
+ * longer be valid.
+ * This function walks through the list of locators that are using the SID format
+ * and notifies the zclients that the locator has changed, so that the zclients
+ * can withdraw/uninstall the old SIDs, allocate/program/advertise the new SIDs.
+ */
+void zebra_srv6_sid_format_changed_cb(struct srv6_sid_format *format)
+{
+	struct zebra_srv6 *srv6 = zebra_srv6_get_default();
+	struct srv6_locator *locator;
+	struct listnode *node, *nnode;
+	struct zebra_srv6_sid_ctx *ctx;
+
+	if (IS_ZEBRA_DEBUG_PACKET)
+		zlog_debug("%s: SID format %s has changed. Notifying zclients.",
+			   __func__, format->name);
+
+	for (ALL_LIST_ELEMENTS_RO(srv6->locators, node, locator)) {
+		if (locator->sid_format == format) {
+			if (IS_ZEBRA_DEBUG_PACKET)
+				zlog_debug("%s: Locator %s has changed because its format (%s) has been modified. Notifying zclients.",
+					   __func__, locator->name,
+					   format->name);
+
+			/* Notify zclients that the locator is no longer valid */
+			zebra_notify_srv6_locator_delete(locator);
+
+			for (ALL_LIST_ELEMENTS(srv6->sids, node, nnode, ctx)) {
+				if (!ctx->sid || ctx->sid->locator != locator)
+					continue;
+
+				if (ctx->sid)
+					zebra_srv6_sid_free(ctx->sid);
+
+				listnode_delete(srv6->sids, ctx);
+				zebra_srv6_sid_ctx_free(ctx);
+			}
+
+			/* Notify zclients about the updated locator */
+			zebra_notify_srv6_locator_add(locator);
+		}
+	}
+}
+
+/*
  * Helper function to create the SRv6 compressed format `usid-f3216`.
  */
 static struct srv6_sid_format *create_srv6_sid_format_usid_f3216(void)

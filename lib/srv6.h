@@ -129,6 +129,12 @@ struct srv6_locator {
 	uint8_t flags;
 #define SRV6_LOCATOR_USID (1 << 0) /* The SRv6 Locator is a uSID Locator */
 
+	/* Pointer to the SID format. */
+	struct srv6_sid_format *sid_format;
+
+	/* Pointer to the parent SID block of the locator. */
+	void *sid_block;
+
 	QOBJ_FIELDS;
 };
 DECLARE_QOBJ_TYPE(srv6_locator);

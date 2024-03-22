@@ -1136,9 +1136,25 @@ static int zsend_table_manager_connect_response(struct zserv *client,
 int zsend_zebra_srv6_locator_add(struct zserv *client, struct srv6_locator *loc)
 {
 	struct stream *s = stream_new(ZEBRA_MAX_PACKET_SIZ);
+	struct srv6_locator locator = {};
+	struct srv6_sid_format *format = loc->sid_format;
+
+	/*
+	 * Copy the locator and fill locator block/node/func/arg length from the format
+	 * before sending the locator to the zclient
+	 */
+	srv6_locator_copy(&locator, loc);
+	if (format) {
+		locator.block_bits_length = format->block_len;
+		locator.node_bits_length = format->node_len;
+		locator.function_bits_length = format->function_len;
+		locator.argument_bits_length = format->argument_len;
+		if (format->type == ZEBRA_SRV6_SID_FORMAT_TYPE_USID)
+			SET_FLAG(locator.flags, SRV6_LOCATOR_USID);
+	}
 
 	zclient_create_header(s, ZEBRA_SRV6_LOCATOR_ADD, VRF_DEFAULT);
-	zapi_srv6_locator_encode(s, loc);
+	zapi_srv6_locator_encode(s, &locator);
 	stream_putw_at(s, 0, stream_get_endp(s));
 
 	return zserv_send_message(client, s);

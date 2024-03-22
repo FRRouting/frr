@@ -68,7 +68,7 @@ struct zebra_srv6_sid_block {
 	 * Pointer to the SID format that defines the structure of the SIDs
 	 * allocated from this block
 	 */
-	struct zebra_srv6_sid_format *sid_format;
+	struct srv6_sid_format *sid_format;
 
 	/*
 	 * Run-time information/state of this SID block.
@@ -169,13 +169,16 @@ extern void zebra_srv6_encap_src_addr_unset(void);
 void srv6_sid_format_register(struct srv6_sid_format *format);
 void srv6_sid_format_unregister(struct srv6_sid_format *format);
 struct srv6_sid_format *srv6_sid_format_lookup(const char *name);
+void zebra_srv6_locator_format_set(struct srv6_locator *locator,
+				   struct srv6_sid_format *format);
+void zebra_srv6_sid_format_changed_cb(struct srv6_sid_format *format);
 
 uint32_t *zebra_srv6_sid_func_alloc(uint32_t func);
 void zebra_srv6_sid_func_free(uint32_t *func);
 void delete_zebra_srv6_sid_func(void *val);
 
 extern struct zebra_srv6_sid_block *
-zebra_srv6_sid_block_alloc(struct zebra_srv6_sid_format *format,
+zebra_srv6_sid_block_alloc(struct srv6_sid_format *format,
 			   struct prefix_ipv6 *prefix);
 extern void zebra_srv6_sid_block_free(struct zebra_srv6_sid_block *block);
 extern void delete_zebra_srv6_sid_block(void *val);
