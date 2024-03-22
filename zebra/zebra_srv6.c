@@ -32,9 +32,11 @@
 
 
 DEFINE_QOBJ_TYPE(zebra_srv6_locator);
+DEFINE_QOBJ_TYPE(zebra_srv6_sid_format);
 DEFINE_MGROUP(SRV6_MGR, "SRv6 Manager");
 DEFINE_MTYPE_STATIC(SRV6_MGR, SRV6M_CHUNK, "SRv6 Manager Chunk");
 DEFINE_MTYPE_STATIC(SRV6_MGR, ZEBRA_SRV6_LOCATOR, "Zebra SRv6 locator");
+DEFINE_MTYPE_STATIC(SRV6_MGR, ZEBRA_SRV6_SID_FORMAT, "SRv6 SID format");
 
 /* define hooks for the basic API, so that it can be specialized or served
  * externally
@@ -90,6 +92,125 @@ int srv6_manager_client_disconnect_cb(struct zserv *client)
 static int zebra_srv6_cleanup(struct zserv *client)
 {
 	return 0;
+}
+
+/* --- Zebra SRv6 SID format management functions --------------------------- */
+
+struct zebra_srv6_sid_format *zebra_srv6_sid_format_alloc(const char *name)
+{
+	struct zebra_srv6_sid_format *format = NULL;
+
+	format = XCALLOC(MTYPE_ZEBRA_SRV6_SID_FORMAT,
+			 sizeof(struct zebra_srv6_sid_format));
+	strlcpy(format->name, name, sizeof(format->name));
+
+	QOBJ_REG(format, zebra_srv6_sid_format);
+	return format;
+}
+
+void zebra_srv6_sid_format_free(struct zebra_srv6_sid_format *format)
+{
+	if (format) {
+		QOBJ_UNREG(format);
+		XFREE(MTYPE_ZEBRA_SRV6_SID_FORMAT, format);
+	}
+}
+
+/**
+ * Free an SRv6 SID format.
+ *
+ * @param val SRv6 SID format to be freed
+ */
+void delete_zebra_srv6_sid_format(void *val)
+{
+	zebra_srv6_sid_format_free((struct zebra_srv6_sid_format *)val);
+}
+
+void zebra_srv6_sid_format_add(struct zebra_srv6_sid_format *format)
+{
+	struct zebra_srv6 *srv6 = zebra_srv6_get_default();
+
+	if (!zebra_srv6_sid_format_lookup(format->name))
+		listnode_add(srv6->sid_formats, format);
+}
+
+void zebra_srv6_sid_format_delete(struct zebra_srv6_sid_format *format)
+{
+	struct zebra_srv6 *srv6 = zebra_srv6_get_default();
+
+	listnode_delete(srv6->sid_formats, format);
+	zebra_srv6_sid_format_free(format);
+}
+
+struct zebra_srv6_sid_format *zebra_srv6_sid_format_lookup(const char *name)
+{
+	struct zebra_srv6 *srv6 = zebra_srv6_get_default();
+	struct zebra_srv6_sid_format *format;
+	struct listnode *node;
+
+	for (ALL_LIST_ELEMENTS_RO(srv6->sid_formats, node, format))
+		if (!strncmp(name, format->name, sizeof(format->name)))
+			return format;
+
+	return NULL;
+}
+
+/*
+ * Helper function to create the SRv6 compressed format `usid-f3216`.
+ */
+static struct zebra_srv6_sid_format *create_srv6_sid_format_usid_f3216(void)
+{
+	struct zebra_srv6_sid_format *format = NULL;
+
+	format = zebra_srv6_sid_format_alloc(
+		ZEBRA_SRV6_SID_FORMAT_USID_F3216_NAME);
+
+	format->type = ZEBRA_SRV6_SID_FORMAT_TYPE_COMPRESSED_USID;
+
+	/* Define block/node/function length */
+	format->block_len = ZEBRA_SRV6_SID_FORMAT_USID_F3216_BLOCK_LEN;
+	format->node_len = ZEBRA_SRV6_SID_FORMAT_USID_F3216_NODE_LEN;
+	format->function_len = ZEBRA_SRV6_SID_FORMAT_USID_F3216_FUNCTION_LEN;
+	format->argument_len = ZEBRA_SRV6_SID_FORMAT_USID_F3216_ARGUMENT_LEN;
+
+	/* Define the ranges from which the function is allocated */
+	format->config.usid.lib_start =
+		ZEBRA_SRV6_SID_FORMAT_USID_F3216_LIB_START;
+	format->config.usid.elib_start =
+		ZEBRA_SRV6_SID_FORMAT_USID_F3216_ELIB_START;
+	format->config.usid.elib_end = ZEBRA_SRV6_SID_FORMAT_USID_F3216_ELIB_END;
+	format->config.usid.wlib_start =
+		ZEBRA_SRV6_SID_FORMAT_USID_F3216_WLIB_START;
+	format->config.usid.wlib_end = ZEBRA_SRV6_SID_FORMAT_USID_F3216_WLIB_END;
+	format->config.usid.ewlib_start =
+		ZEBRA_SRV6_SID_FORMAT_USID_F3216_EWLIB_START;
+
+	return format;
+}
+
+/*
+ * Helper function to create the SRv6 uncompressed format.
+ */
+static struct zebra_srv6_sid_format *create_srv6_sid_format_uncompressed(void)
+{
+	struct zebra_srv6_sid_format *format = NULL;
+
+	format = zebra_srv6_sid_format_alloc(
+		ZEBRA_SRV6_SID_FORMAT_UNCOMPRESSED_NAME);
+
+	format->type = ZEBRA_SRV6_SID_FORMAT_TYPE_UNCOMPRESSED;
+
+	/* Define block/node/function length */
+	format->block_len = ZEBRA_SRV6_SID_FORMAT_UNCOMPRESSED_BLOCK_LEN;
+	format->node_len = ZEBRA_SRV6_SID_FORMAT_UNCOMPRESSED_NODE_LEN;
+	format->function_len = ZEBRA_SRV6_SID_FORMAT_UNCOMPRESSED_FUNCTION_LEN;
+	format->argument_len = ZEBRA_SRV6_SID_FORMAT_UNCOMPRESSED_ARGUMENT_LEN;
+
+	/* Define the ranges from which the function is allocated */
+	format->config.uncompressed.explicit_start =
+		ZEBRA_SRV6_SID_FORMAT_UNCOMPRESSED_EXPLICIT_RANGE_START;
+
+	return format;
 }
 
 /* --- Zebra SRv6 locator management functions ------------------------------ */
@@ -250,10 +371,24 @@ struct zebra_srv6 srv6;
 struct zebra_srv6 *zebra_srv6_get_default(void)
 {
 	static bool first_execution = true;
+	struct zebra_srv6_sid_format *format_usidf3216;
+	struct zebra_srv6_sid_format *format_uncompressed;
 
 	if (first_execution) {
 		first_execution = false;
 		srv6.locators = list_new();
+
+		/* Initialize list of sid formats */
+		srv6.sid_formats = list_new();
+		srv6.sid_formats->del = delete_zebra_srv6_sid_format;
+
+		/* Create SID format `usid-f3216` */
+		format_usidf3216 = create_srv6_sid_format_usid_f3216();
+		zebra_srv6_sid_format_add(format_usidf3216);
+
+		/* Create SID format `uncompressed` */
+		format_uncompressed = create_srv6_sid_format_uncompressed();
+		zebra_srv6_sid_format_add(format_uncompressed);
 	}
 	return &srv6;
 }
@@ -460,18 +595,30 @@ void zebra_srv6_encap_src_addr_unset(void)
 void zebra_srv6_terminate(void)
 {
 	struct zebra_srv6_locator *locator;
+	struct zebra_srv6_sid_format *format;
 
-	if (!srv6.locators)
-		return;
+	if (srv6.locators) {
+		while (listcount(srv6.locators)) {
+			locator = listnode_head(srv6.locators);
 
-	while (listcount(srv6.locators)) {
-		locator = listnode_head(srv6.locators);
+			listnode_delete(srv6.locators, locator);
+			zebra_srv6_locator_free(locator);
+		}
 
-		listnode_delete(srv6.locators, locator);
-		zebra_srv6_locator_free(locator);
+		list_delete(&srv6.locators);
 	}
 
-	list_delete(&srv6.locators);
+	/* Free SRv6 SID formats */
+	if (srv6.sid_formats) {
+		while (listcount(srv6.sid_formats)) {
+			format = listnode_head(srv6.sid_formats);
+
+			listnode_delete(srv6.sid_formats, format);
+			zebra_srv6_sid_format_free(format);
+		}
+
+		list_delete(&srv6.sid_formats);
+	}
 }
 
 void zebra_srv6_init(void)
