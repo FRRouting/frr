@@ -40,6 +40,70 @@
 #define ZEBRA_SRV6_SID_FORMAT_UNCOMPRESSED_EXPLICIT_RANGE_START 0xFF00
 #define ZEBRA_SRV6_SID_FORMAT_UNCOMPRESSED_FUNC_UNRESERVED_MIN	0x40
 
+/* uSID Wide LIB */
+struct wide_lib {
+	uint32_t func;
+	uint32_t num_func_allocated;
+	uint32_t first_available_func;
+	struct list *func_allocated;
+	struct list *func_released;
+};
+
+/*
+ * SRv6 SID block.
+ *
+ * A SID block is an IPv6 prefix from which SRv6 SIDs are allocated.
+ * Example:
+ *   SID block = fc00:0::/32
+ *   SID 1 = fc00:0:1:e000::
+ *   SID 2 = fc00:0:1:fe00::
+ *   ...
+ */
+struct zebra_srv6_sid_block {
+	/*  Prefix of this block, e.g. fc00:0::/32 */
+	struct prefix_ipv6 prefix;
+
+	/* Reference counter */
+	unsigned long refcnt;
+
+	/*
+	 * Pointer to the SID format that defines the structure of the SIDs
+	 * allocated from this block
+	 */
+	struct zebra_srv6_sid_format *sid_format;
+
+	/*
+	 * Run-time information/state of this SID block.
+	 *
+	 * This includes stuff like how many SID functions have been allocated
+	 * from this block, which functions are still available to be allocated
+	 * and so on...
+	 */
+	union {
+		/* Information/state for compressed uSID format */
+		struct {
+			/* uSID Local ID Block (LIB) */
+			struct {
+				uint32_t num_func_allocated;
+				uint32_t first_available_func;
+				struct list *func_allocated;
+				struct list *func_released;
+			} lib;
+
+			/* uSID Wide LIB */
+			struct wide_lib *wide_lib;
+		} usid;
+
+		/* Information/state for uncompressed SID format */
+		struct {
+			uint32_t num_func_allocated;
+			uint32_t first_available_func;
+			struct list *func_allocated;
+			struct list *func_released;
+		} uncompressed;
+	} u;
+};
+
 /* SID format type */
 enum zebra_srv6_sid_format_type {
 	ZEBRA_SRV6_SID_FORMAT_TYPE_UNSPEC = 0,
@@ -110,6 +174,9 @@ struct zebra_srv6 {
 
 	/* SRv6 SID formats */
 	struct list *sid_formats;
+
+	/* SRv6 SID blocks */
+	struct list *sid_blocks;
 };
 
 /* declare hooks for the basic API, so that it can be specialized or served
@@ -171,5 +238,16 @@ extern void delete_zebra_srv6_sid_format(void *format);
 void zebra_srv6_sid_format_add(struct zebra_srv6_sid_format *sid_format);
 void zebra_srv6_sid_format_delete(struct zebra_srv6_sid_format *sid_format);
 struct zebra_srv6_sid_format *zebra_srv6_sid_format_lookup(const char *name);
+
+uint32_t *zebra_srv6_sid_func_alloc(void);
+void zebra_srv6_sid_func_free(uint32_t *func);
+void delete_zebra_srv6_sid_func(void *val);
+
+extern struct zebra_srv6_sid_block *
+zebra_srv6_sid_block_alloc(struct zebra_srv6_sid_format *format);
+extern void zebra_srv6_sid_block_free(struct zebra_srv6_sid_block *block);
+extern void delete_zebra_srv6_sid_block(void *val);
+extern struct zebra_srv6_sid_block *
+zebra_srv6_sid_block_lookup(struct prefix_ipv6 *prefix);
 
 #endif /* _ZEBRA_SRV6_H */

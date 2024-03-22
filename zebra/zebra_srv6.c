@@ -37,6 +37,10 @@ DEFINE_MGROUP(SRV6_MGR, "SRv6 Manager");
 DEFINE_MTYPE_STATIC(SRV6_MGR, SRV6M_CHUNK, "SRv6 Manager Chunk");
 DEFINE_MTYPE_STATIC(SRV6_MGR, ZEBRA_SRV6_LOCATOR, "Zebra SRv6 locator");
 DEFINE_MTYPE_STATIC(SRV6_MGR, ZEBRA_SRV6_SID_FORMAT, "SRv6 SID format");
+DEFINE_MTYPE_STATIC(SRV6_MGR, ZEBRA_SRV6_SID_BLOCK, "SRv6 SID block");
+DEFINE_MTYPE_STATIC(SRV6_MGR, ZEBRA_SRV6_SID_FUNC, "Zebra SRv6 SID function");
+DEFINE_MTYPE_STATIC(SRV6_MGR, ZEBRA_SRV6_USID_WLIB,
+		    "Zebra SRv6 uSID Wide LIB information");
 
 /* define hooks for the basic API, so that it can be specialized or served
  * externally
@@ -211,6 +215,153 @@ static struct zebra_srv6_sid_format *create_srv6_sid_format_uncompressed(void)
 		ZEBRA_SRV6_SID_FORMAT_UNCOMPRESSED_EXPLICIT_RANGE_START;
 
 	return format;
+}
+
+/* --- Zebra SRv6 SID function management functions ---------------------------- */
+
+uint32_t *zebra_srv6_sid_func_alloc(void)
+{
+	return XCALLOC(MTYPE_ZEBRA_SRV6_SID_FUNC, sizeof(uint32_t));
+}
+
+void zebra_srv6_sid_func_free(uint32_t *func)
+{
+	XFREE(MTYPE_ZEBRA_SRV6_SID_FUNC, func);
+}
+
+/**
+ * Free an SRv6 SID function.
+ *
+ * @param val SRv6 SID function to be freed
+ */
+void delete_zebra_srv6_sid_func(void *val)
+{
+	zebra_srv6_sid_func_free((uint32_t *)val);
+}
+
+/* --- Zebra SRv6 SID block management functions ---------------------------- */
+
+static struct zebra_srv6_sid_block *zebra_srv6_sid_block_alloc_internal(void)
+{
+	struct zebra_srv6_sid_block *block = NULL;
+
+	block = XCALLOC(MTYPE_ZEBRA_SRV6_SID_BLOCK,
+			sizeof(struct zebra_srv6_sid_block));
+
+	return block;
+}
+
+struct zebra_srv6_sid_block *
+zebra_srv6_sid_block_alloc(struct zebra_srv6_sid_format *format)
+{
+	struct zebra_srv6_sid_block *block;
+
+	block = zebra_srv6_sid_block_alloc_internal();
+	block->sid_format = format;
+
+	if (format->type == ZEBRA_SRV6_SID_FORMAT_TYPE_COMPRESSED_USID) {
+		uint32_t wlib_start, wlib_end, func;
+
+		/* Init uSID LIB */
+		block->u.usid.lib.func_allocated = list_new();
+		block->u.usid.lib.func_allocated->del =
+			delete_zebra_srv6_sid_func;
+		block->u.usid.lib.func_released = list_new();
+		block->u.usid.lib.func_released->del =
+			delete_zebra_srv6_sid_func;
+		block->u.usid.lib.first_available_func =
+			format->config.usid.lib_start;
+
+		/* Init uSID Wide LIB */
+		wlib_start = block->sid_format->config.usid.wlib_start;
+		wlib_end = block->sid_format->config.usid.wlib_end;
+		block->u.usid.wide_lib = XCALLOC(MTYPE_ZEBRA_SRV6_USID_WLIB,
+						 (wlib_end - wlib_start +
+						  1) * sizeof(struct wide_lib));
+		for (func = 0; func < wlib_end - wlib_start + 1; func++) {
+			block->u.usid.wide_lib[func].func_allocated = list_new();
+			block->u.usid.wide_lib[func].func_allocated->del =
+				delete_zebra_srv6_sid_func;
+			block->u.usid.wide_lib[func].func_released = list_new();
+			block->u.usid.wide_lib[func].func_released->del =
+				delete_zebra_srv6_sid_func;
+		}
+	} else if (format->type == ZEBRA_SRV6_SID_FORMAT_TYPE_UNCOMPRESSED) {
+		block->u.uncompressed.func_allocated = list_new();
+		block->u.uncompressed.func_allocated->del =
+			delete_zebra_srv6_sid_func;
+		block->u.uncompressed.func_released = list_new();
+		block->u.uncompressed.func_released->del =
+			delete_zebra_srv6_sid_func;
+		block->u.uncompressed.first_available_func =
+			ZEBRA_SRV6_SID_FORMAT_UNCOMPRESSED_FUNC_UNRESERVED_MIN;
+	} else {
+		/* We should never arrive here */
+		assert(0);
+	}
+
+	return block;
+}
+
+void zebra_srv6_sid_block_free(struct zebra_srv6_sid_block *block)
+{
+	/*
+	 * We expect the zebra_srv6_sid_block_free function to be called only
+	 * when the block is no longer referenced by anyone
+	 */
+	assert(block->refcnt == 0);
+
+	if (block->sid_format->type ==
+	    ZEBRA_SRV6_SID_FORMAT_TYPE_COMPRESSED_USID) {
+		uint32_t wlib_start, wlib_end, func;
+
+		/* Free uSID LIB */
+		list_delete(&block->u.usid.lib.func_allocated);
+		list_delete(&block->u.usid.lib.func_released);
+
+		/* Free uSID Wide LIB */
+		wlib_start = block->sid_format->config.usid.wlib_start;
+		wlib_end = block->sid_format->config.usid.wlib_end;
+		for (func = 0; func < wlib_end - wlib_start + 1; func++) {
+			list_delete(
+				&block->u.usid.wide_lib[func].func_allocated);
+			list_delete(&block->u.usid.wide_lib[func].func_released);
+		}
+		XFREE(MTYPE_ZEBRA_SRV6_USID_WLIB, block->u.usid.wide_lib);
+	} else if (block->sid_format->type ==
+		   ZEBRA_SRV6_SID_FORMAT_TYPE_UNCOMPRESSED) {
+		list_delete(&block->u.uncompressed.func_allocated);
+		list_delete(&block->u.uncompressed.func_released);
+	} else {
+		/* We should never arrive here */
+		assert(0);
+	}
+
+	XFREE(MTYPE_ZEBRA_SRV6_SID_BLOCK, block);
+}
+
+/**
+ * Free an SRv6 SID block.
+ *
+ * @param val SRv6 SID block to be freed
+ */
+void delete_zebra_srv6_sid_block(void *val)
+{
+	zebra_srv6_sid_block_free((struct zebra_srv6_sid_block *)val);
+}
+
+struct zebra_srv6_sid_block *
+zebra_srv6_sid_block_lookup(struct prefix_ipv6 *prefix)
+{
+	struct zebra_srv6 *srv6 = zebra_srv6_get_default();
+	struct zebra_srv6_sid_block *block;
+	struct listnode *node;
+
+	for (ALL_LIST_ELEMENTS_RO(srv6->sid_blocks, node, block))
+		if (prefix_match(prefix, &block->prefix))
+			return block;
+
+	return NULL;
 }
 
 /* --- Zebra SRv6 locator management functions ------------------------------ */
@@ -389,6 +540,10 @@ struct zebra_srv6 *zebra_srv6_get_default(void)
 		/* Create SID format `uncompressed` */
 		format_uncompressed = create_srv6_sid_format_uncompressed();
 		zebra_srv6_sid_format_add(format_uncompressed);
+
+		/* Init list to store SRv6 SID blocks */
+		srv6.sid_blocks = list_new();
+		srv6.sid_blocks->del = delete_zebra_srv6_sid_block;
 	}
 	return &srv6;
 }
@@ -596,6 +751,7 @@ void zebra_srv6_terminate(void)
 {
 	struct zebra_srv6_locator *locator;
 	struct zebra_srv6_sid_format *format;
+	struct zebra_srv6_sid_block *block;
 
 	if (srv6.locators) {
 		while (listcount(srv6.locators)) {
@@ -618,6 +774,18 @@ void zebra_srv6_terminate(void)
 		}
 
 		list_delete(&srv6.sid_formats);
+	}
+
+	/* Free SRv6 SID blocks */
+	if (srv6.sid_blocks) {
+		while (listcount(srv6.sid_blocks)) {
+			block = listnode_head(srv6.sid_blocks);
+
+			listnode_delete(srv6.sid_blocks, block);
+			zebra_srv6_sid_block_free(block);
+		}
+
+		list_delete(&srv6.sid_blocks);
 	}
 }
 
