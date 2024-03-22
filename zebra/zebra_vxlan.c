@@ -5116,6 +5116,15 @@ void zebra_vxlan_macvlan_up(struct interface *ifp)
 		return;
 
 	link_ifp = zif->link;
+	if (!link_ifp) {
+		if (IS_ZEBRA_DEBUG_VXLAN)
+			zlog_debug(
+				"macvlan parent link is not found. Parent index %d ifp %s",
+				zif->link_ifindex,
+				ifindex2ifname(zif->link_ifindex,
+					       ifp->vrf->vrf_id));
+		return;
+	}
 	link_zif = link_ifp->info;
 	assert(link_zif);
 
