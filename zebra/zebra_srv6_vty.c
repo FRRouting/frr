@@ -833,8 +833,7 @@ static int zebra_sr_config(struct vty *vty)
 						format->config.uncompressed
 							.explicit_start);
 			}
-			if (format->type ==
-			    SRV6_SID_FORMAT_TYPE_COMPRESSED_USID) {
+			if (format->type == SRV6_SID_FORMAT_TYPE_USID) {
 				vty_out(vty, "   format %s\n", format->name);
 				if (format->config.usid.lib_start !=
 				    SRV6_SID_FORMAT_USID_F3216_LIB_START)
