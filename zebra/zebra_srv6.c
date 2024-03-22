@@ -92,7 +92,7 @@ static int zebra_srv6_cleanup(struct zserv *client)
 
 /* --- Zebra SRv6 SID format management functions --------------------------- */
 
-void zebra_srv6_sid_format_register(struct zebra_srv6_sid_format *format)
+void zebra_srv6_sid_format_register(struct srv6_sid_format *format)
 {
 	struct zebra_srv6 *srv6 = zebra_srv6_get_default();
 
@@ -102,17 +102,17 @@ void zebra_srv6_sid_format_register(struct zebra_srv6_sid_format *format)
 	listnode_add(srv6->sid_formats, format);
 }
 
-void zebra_srv6_sid_format_unregister(struct zebra_srv6_sid_format *format)
+void zebra_srv6_sid_format_unregister(struct srv6_sid_format *format)
 {
 	struct zebra_srv6 *srv6 = zebra_srv6_get_default();
 
 	listnode_delete(srv6->sid_formats, format);
 }
 
-struct zebra_srv6_sid_format *zebra_srv6_sid_format_lookup(const char *name)
+struct srv6_sid_format *zebra_srv6_sid_format_lookup(const char *name)
 {
 	struct zebra_srv6 *srv6 = zebra_srv6_get_default();
-	struct zebra_srv6_sid_format *format;
+	struct srv6_sid_format *format;
 	struct listnode *node;
 
 	for (ALL_LIST_ELEMENTS_RO(srv6->sid_formats, node, format))
@@ -125,12 +125,11 @@ struct zebra_srv6_sid_format *zebra_srv6_sid_format_lookup(const char *name)
 /*
  * Helper function to create the SRv6 compressed format `usid-f3216`.
  */
-static struct zebra_srv6_sid_format *create_srv6_sid_format_usid_f3216(void)
+static struct srv6_sid_format *create_srv6_sid_format_usid_f3216(void)
 {
-	struct zebra_srv6_sid_format *format = NULL;
+	struct srv6_sid_format *format = NULL;
 
-	format = zebra_srv6_sid_format_alloc(
-		ZEBRA_SRV6_SID_FORMAT_USID_F3216_NAME);
+	format = srv6_sid_format_alloc(ZEBRA_SRV6_SID_FORMAT_USID_F3216_NAME);
 
 	format->type = SRV6_SID_FORMAT_TYPE_USID;
 
@@ -158,11 +157,11 @@ static struct zebra_srv6_sid_format *create_srv6_sid_format_usid_f3216(void)
 /*
  * Helper function to create the SRv6 uncompressed format.
  */
-static struct zebra_srv6_sid_format *create_srv6_sid_format_uncompressed(void)
+static struct srv6_sid_format *create_srv6_sid_format_uncompressed(void)
 {
-	struct zebra_srv6_sid_format *format = NULL;
+	struct srv6_sid_format *format = NULL;
 
-	format = zebra_srv6_sid_format_alloc(
+	format = srv6_sid_format_alloc(
 		ZEBRA_SRV6_SID_FORMAT_UNCOMPRESSED_F4024_NAME);
 
 	format->type = ZEBRA_SRV6_SID_FORMAT_TYPE_UNCOMPRESSED;
@@ -314,8 +313,8 @@ struct zebra_srv6 srv6;
 struct zebra_srv6 *zebra_srv6_get_default(void)
 {
 	static bool first_execution = true;
-	struct zebra_srv6_sid_format *format_usidf3216;
-	struct zebra_srv6_sid_format *format_uncompressed;
+	struct srv6_sid_format *format_usidf3216;
+	struct srv6_sid_format *format_uncompressed;
 
 	if (first_execution) {
 		first_execution = false;
@@ -323,7 +322,7 @@ struct zebra_srv6 *zebra_srv6_get_default(void)
 
 		/* Initialize list of SID formats */
 		srv6.sid_formats = list_new();
-		srv6.sid_formats->del = delete_zebra_srv6_sid_format;
+		srv6.sid_formats->del = delete_srv6_sid_format;
 
 		/* Create SID format `usid-f3216` */
 		format_usidf3216 = create_srv6_sid_format_usid_f3216();
@@ -536,7 +535,7 @@ void zebra_srv6_encap_src_addr_unset(void)
 void zebra_srv6_terminate(void)
 {
 	struct srv6_locator *locator;
-	struct zebra_srv6_sid_format *format;
+	struct srv6_sid_format *format;
 
 	if (srv6.locators) {
 		while (listcount(srv6.locators)) {
@@ -555,7 +554,7 @@ void zebra_srv6_terminate(void)
 			format = listnode_head(srv6.sid_formats);
 
 			zebra_srv6_sid_format_unregister(format);
-			zebra_srv6_sid_format_free(format);
+			srv6_sid_format_free(format);
 		}
 
 		list_delete(&srv6.sid_formats);

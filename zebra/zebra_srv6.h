@@ -99,8 +99,8 @@ extern int release_daemon_srv6_locator_chunks(struct zserv *client);
 extern void zebra_srv6_encap_src_addr_set(struct in6_addr *src_addr);
 extern void zebra_srv6_encap_src_addr_unset(void);
 
-void zebra_srv6_sid_format_register(struct zebra_srv6_sid_format *format);
-void zebra_srv6_sid_format_unregister(struct zebra_srv6_sid_format *format);
-struct zebra_srv6_sid_format *zebra_srv6_sid_format_lookup(const char *name);
+void zebra_srv6_sid_format_register(struct srv6_sid_format *format);
+void zebra_srv6_sid_format_unregister(struct srv6_sid_format *format);
+struct srv6_sid_format *zebra_srv6_sid_format_lookup(const char *name);
 
 #endif /* _ZEBRA_SRV6_H */
