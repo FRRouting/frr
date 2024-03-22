@@ -30,7 +30,6 @@ enum mgmt_txn_event {
 	MGMTD_TXN_PROC_GETCFG,
 	MGMTD_TXN_PROC_GETTREE,
 	MGMTD_TXN_COMMITCFG_TIMEOUT,
-	MGMTD_TXN_GETTREE_TIMEOUT,
 };
 
 PREDECL_LIST(mgmt_txn_reqs);
@@ -407,7 +406,6 @@ static struct mgmt_txn_req *mgmt_txn_req_alloc(struct mgmt_txn_ctx *txn,
 		      txn_req->req_id, txn->txn_id, txn->session_id);
 		break;
 	case MGMTD_TXN_COMMITCFG_TIMEOUT:
-	case MGMTD_TXN_GETTREE_TIMEOUT:
 		break;
 	}
 
@@ -496,7 +494,6 @@ static void mgmt_txn_req_free(struct mgmt_txn_req **txn_req)
 		XFREE(MTYPE_MGMTD_TXN_GETTREE_REQ, (*txn_req)->req.get_tree);
 		break;
 	case MGMTD_TXN_COMMITCFG_TIMEOUT:
-	case MGMTD_TXN_GETTREE_TIMEOUT:
 		break;
 	}
 
@@ -1488,7 +1485,6 @@ static void mgmt_txn_send_getcfg_reply_data(struct mgmt_txn_req *txn_req,
 	case MGMTD_TXN_PROC_SETCFG:
 	case MGMTD_TXN_PROC_COMMITCFG:
 	case MGMTD_TXN_PROC_GETTREE:
-	case MGMTD_TXN_GETTREE_TIMEOUT:
 	case MGMTD_TXN_COMMITCFG_TIMEOUT:
 		__log_err("Invalid Txn-Req-Event %u", txn_req->req_event);
 		break;
@@ -1861,11 +1857,6 @@ static void mgmt_txn_register_event(struct mgmt_txn_ctx *txn,
 		event_add_timer(mgmt_txn_tm, mgmt_txn_cfg_commit_timedout, txn,
 				MGMTD_TXN_CFG_COMMIT_MAX_DELAY_SEC,
 				&txn->comm_cfg_timeout);
-		break;
-	case MGMTD_TXN_GETTREE_TIMEOUT:
-		event_add_timer(mgmt_txn_tm, txn_get_tree_timeout, txn,
-				MGMTD_TXN_GET_TREE_MAX_DELAY_SEC,
-				&txn->get_tree_timeout);
 		break;
 	case MGMTD_TXN_PROC_GETTREE:
 		assert(!"code bug do not register this event");
@@ -2475,7 +2466,6 @@ int mgmt_txn_notify_error(struct mgmt_be_client_adapter *adapter,
 	case MGMTD_TXN_PROC_COMMITCFG:
 	case MGMTD_TXN_PROC_GETCFG:
 	case MGMTD_TXN_COMMITCFG_TIMEOUT:
-	case MGMTD_TXN_GETTREE_TIMEOUT:
 	default:
 		assert(!"non-native req event in native erorr path");
 		return -1;
