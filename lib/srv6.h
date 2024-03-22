@@ -20,6 +20,8 @@
 #define SRH_BASE_HEADER_LENGTH 8
 #define SRH_SEGMENT_LENGTH     16
 
+#define SRV6_SID_FORMAT_NAME_SIZE 512
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -183,6 +185,61 @@ struct nexthop_srv6 {
 	struct seg6_seg_stack *seg6_segs;
 };
 
+/* SID format type */
+enum srv6_sid_format_type {
+	SRV6_SID_FORMAT_TYPE_UNSPEC = 0,
+	/* SRv6 SID uncompressed format */
+	SRV6_SID_FORMAT_TYPE_UNCOMPRESSED = 1,
+	/* SRv6 SID compressed uSID format */
+	SRV6_SID_FORMAT_TYPE_USID = 2,
+};
+
+/* SRv6 SID format */
+struct srv6_sid_format {
+	/* Name of the format */
+	char name[SRV6_SID_FORMAT_NAME_SIZE];
+
+	/* Format type: uncompressed vs compressed */
+	enum srv6_sid_format_type type;
+
+	/*
+	 * Lengths of block/node/function/argument parts of the SIDs allocated
+	 * using this format
+	 */
+	uint8_t block_len;
+	uint8_t node_len;
+	uint8_t function_len;
+	uint8_t argument_len;
+
+	union {
+		/* Configuration settings for compressed uSID format type */
+		struct {
+			/* Start of the Local ID Block (LIB) range */
+			uint32_t lib_start;
+
+			/* Start/End of the Explicit LIB range */
+			uint32_t elib_start;
+			uint32_t elib_end;
+
+			/* Start/End of the Wide LIB range */
+			uint32_t wlib_start;
+			uint32_t wlib_end;
+
+			/* Start/End of the Explicit Wide LIB range */
+			uint32_t ewlib_start;
+		} usid;
+
+		/* Configuration settings for uncompressed format type */
+		struct {
+			/* Start of the Explicit range */
+			uint32_t explicit_start;
+		} uncompressed;
+	} config;
+
+	QOBJ_FIELDS;
+};
+DECLARE_QOBJ_TYPE(srv6_sid_format);
+
 static inline const char *seg6_mode2str(enum seg6_mode_t mode)
 {
 	switch (mode) {
@@ -259,6 +316,10 @@ json_object *srv6_locator_json(const struct srv6_locator *loc);
 json_object *srv6_locator_detailed_json(const struct srv6_locator *loc);
 json_object *
 srv6_locator_chunk_detailed_json(const struct srv6_locator_chunk *chunk);
+
+extern struct srv6_sid_format *srv6_sid_format_alloc(const char *name);
+extern void srv6_sid_format_free(struct srv6_sid_format *format);
+extern void delete_srv6_sid_format(void *format);
 
 #ifdef __cplusplus
 }

@@ -10,8 +10,10 @@
 #include "log.h"
 
 DEFINE_QOBJ_TYPE(srv6_locator);
+DEFINE_QOBJ_TYPE(srv6_sid_format);
 DEFINE_MTYPE_STATIC(LIB, SRV6_LOCATOR, "SRV6 locator");
 DEFINE_MTYPE_STATIC(LIB, SRV6_LOCATOR_CHUNK, "SRV6 locator chunk");
+DEFINE_MTYPE_STATIC(LIB, SRV6_SID_FORMAT, "SRv6 SID format");
 
 const char *seg6local_action2str(uint32_t action)
 {
@@ -154,6 +156,36 @@ void srv6_locator_chunk_free(struct srv6_locator_chunk **chunk)
 	XFREE(MTYPE_SRV6_LOCATOR_CHUNK, *chunk);
 }
 
+struct srv6_sid_format *srv6_sid_format_alloc(const char *name)
+{
+	struct srv6_sid_format *format = NULL;
+
+	format = XCALLOC(MTYPE_SRV6_SID_FORMAT, sizeof(struct srv6_sid_format));
+	strlcpy(format->name, name, sizeof(format->name));
+
+	QOBJ_REG(format, srv6_sid_format);
+	return format;
+}
+
+void srv6_sid_format_free(struct srv6_sid_format *format)
+{
+	if (!format)
+		return;
+
+	QOBJ_UNREG(format);
+	XFREE(MTYPE_SRV6_SID_FORMAT, format);
+}
+
+/**
+ * Free an SRv6 SID format.
+ *
+ * @param val SRv6 SID format to be freed
+ */
+void delete_srv6_sid_format(void *val)
+{
+	srv6_sid_format_free((struct srv6_sid_format *)val);
+}
+
 json_object *srv6_locator_chunk_json(const struct srv6_locator_chunk *chunk)
 {
 	json_object *jo_root = NULL;
@@ -223,23 +255,47 @@ json_object *srv6_locator_json(const struct srv6_locator *loc)
 	/* set prefix */
 	json_object_string_addf(jo_root, "prefix", "%pFX", &loc->prefix);
 
-	/* set block_bits_length */
-	json_object_int_add(jo_root, "blockBitsLength", loc->block_bits_length);
+	if (loc->sid_format) {
+		/* set block_bits_length */
+		json_object_int_add(jo_root, "blockBitsLength",
+				    loc->sid_format->block_len);
 
-	/* set node_bits_length */
-	json_object_int_add(jo_root, "nodeBitsLength", loc->node_bits_length);
+		/* set node_bits_length */
+		json_object_int_add(jo_root, "nodeBitsLength",
+				    loc->sid_format->node_len);
 
-	/* set function_bits_length */
-	json_object_int_add(jo_root, "functionBitsLength",
-			    loc->function_bits_length);
+		/* set function_bits_length */
+		json_object_int_add(jo_root, "functionBitsLength",
+				    loc->sid_format->function_len);
 
-	/* set argument_bits_length */
-	json_object_int_add(jo_root, "argumentBitsLength",
-			    loc->argument_bits_length);
+		/* set argument_bits_length */
+		json_object_int_add(jo_root, "argumentBitsLength",
+				    loc->sid_format->argument_len);
 
-	/* set true if the locator is a Micro-segment (uSID) locator */
-	if (CHECK_FLAG(loc->flags, SRV6_LOCATOR_USID))
-		json_object_string_add(jo_root, "behavior", "usid");
+		/* set true if the locator is a Micro-segment (uSID) locator */
+		if (loc->sid_format->type == SRV6_SID_FORMAT_TYPE_USID)
+			json_object_string_add(jo_root, "behavior", "usid");
+	} else {
+		/* set block_bits_length */
+		json_object_int_add(jo_root, "blockBitsLength",
+				    loc->block_bits_length);
+
+		/* set node_bits_length */
+		json_object_int_add(jo_root, "nodeBitsLength",
+				    loc->node_bits_length);
+
+		/* set function_bits_length */
+		json_object_int_add(jo_root, "functionBitsLength",
+				    loc->function_bits_length);
+
+		/* set argument_bits_length */
+		json_object_int_add(jo_root, "argumentBitsLength",
+				    loc->argument_bits_length);
+
+		/* set true if the locator is a Micro-segment (uSID) locator */
+		if (CHECK_FLAG(loc->flags, SRV6_LOCATOR_USID))
+			json_object_string_add(jo_root, "behavior", "usid");
+	}
 
 	/* set status_up */
 	json_object_boolean_add(jo_root, "statusUp",
@@ -272,23 +328,47 @@ json_object *srv6_locator_detailed_json(const struct srv6_locator *loc)
 	/* set prefix */
 	json_object_string_addf(jo_root, "prefix", "%pFX", &loc->prefix);
 
-	/* set block_bits_length */
-	json_object_int_add(jo_root, "blockBitsLength", loc->block_bits_length);
+	if (loc->sid_format) {
+		/* set block_bits_length */
+		json_object_int_add(jo_root, "blockBitsLength",
+				    loc->sid_format->block_len);
 
-	/* set node_bits_length */
-	json_object_int_add(jo_root, "nodeBitsLength", loc->node_bits_length);
+		/* set node_bits_length */
+		json_object_int_add(jo_root, "nodeBitsLength",
+				    loc->sid_format->node_len);
 
-	/* set function_bits_length */
-	json_object_int_add(jo_root, "functionBitsLength",
-			    loc->function_bits_length);
+		/* set function_bits_length */
+		json_object_int_add(jo_root, "functionBitsLength",
+				    loc->sid_format->function_len);
 
-	/* set argument_bits_length */
-	json_object_int_add(jo_root, "argumentBitsLength",
-			    loc->argument_bits_length);
+		/* set argument_bits_length */
+		json_object_int_add(jo_root, "argumentBitsLength",
+				    loc->sid_format->argument_len);
 
-	/* set true if the locator is a Micro-segment (uSID) locator */
-	if (CHECK_FLAG(loc->flags, SRV6_LOCATOR_USID))
-		json_object_string_add(jo_root, "behavior", "usid");
+		/* set true if the locator is a Micro-segment (uSID) locator */
+		if (loc->sid_format->type == SRV6_SID_FORMAT_TYPE_USID)
+			json_object_string_add(jo_root, "behavior", "usid");
+	} else {
+		/* set block_bits_length */
+		json_object_int_add(jo_root, "blockBitsLength",
+				    loc->block_bits_length);
+
+		/* set node_bits_length */
+		json_object_int_add(jo_root, "nodeBitsLength",
+				    loc->node_bits_length);
+
+		/* set function_bits_length */
+		json_object_int_add(jo_root, "functionBitsLength",
+				    loc->function_bits_length);
+
+		/* set argument_bits_length */
+		json_object_int_add(jo_root, "argumentBitsLength",
+				    loc->argument_bits_length);
+
+		/* set true if the locator is a Micro-segment (uSID) locator */
+		if (CHECK_FLAG(loc->flags, SRV6_LOCATOR_USID))
+			json_object_string_add(jo_root, "behavior", "usid");
+	}
 
 	/* set algonum */
 	json_object_int_add(jo_root, "algoNum", loc->algonum);
