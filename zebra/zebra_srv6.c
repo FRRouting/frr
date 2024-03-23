@@ -66,6 +66,11 @@ DEFINE_HOOK(srv6_manager_release_chunk,
 	     vrf_id_t vrf_id),
 	    (client, locator_name, vrf_id));
 
+DEFINE_HOOK(srv6_manager_get_locator,
+	    (struct zebra_srv6_locator * *locator, struct zserv *client,
+	     const char *locator_name),
+	    (locator, client, locator_name));
+
 /* define wrappers to be called in zapi_msg.c (as hooks must be called in
  * source file where they were defined)
  */
@@ -94,6 +99,13 @@ int srv6_manager_client_disconnect_cb(struct zserv *client)
 {
 	hook_call(srv6_manager_client_disconnect, client);
 	return 0;
+}
+
+void srv6_manager_get_locator_call(struct zebra_srv6_locator **locator,
+				   struct zserv *client,
+				   const char *locator_name)
+{
+	hook_call(srv6_manager_get_locator, locator, client, locator_name);
 }
 
 static int zebra_srv6_cleanup(struct zserv *client)
@@ -978,6 +990,28 @@ void zebra_srv6_encap_src_addr_unset(void)
 	memset(&srv6->encap_src_addr, 0, sizeof(struct in6_addr));
 }
 
+/**
+ * Handle a get SRv6 Locator request received from a client.
+ *
+ * It looks up the requested locator and send it to the client.
+ *
+ * @param locator SRv6 locator returned by this function
+ * @param client Client that sent the Get SRv6 Locator request
+ * @param locator_name Name of the locator to look up
+ *
+ * @return 0 on success
+*/
+static int srv6_manager_get_srv6_locator(struct zebra_srv6_locator **locator,
+					 struct zserv *client,
+					 const char *locator_name)
+{
+	*locator = zebra_srv6_locator_lookup(locator_name);
+	if (!*locator || !(*locator)->sid_format)
+		return -1;
+
+	return zsend_srv6_manager_get_locator_response(client, *locator);
+}
+
 void zebra_srv6_terminate(void)
 {
 	struct zebra_srv6_locator *locator;
@@ -1040,6 +1074,8 @@ void zebra_srv6_init(void)
 		      zebra_srv6_manager_get_locator_chunk);
 	hook_register(srv6_manager_release_chunk,
 		      zebra_srv6_manager_release_locator_chunk);
+
+	hook_register(srv6_manager_get_locator, srv6_manager_get_srv6_locator);
 }
 
 bool zebra_srv6_is_enable(void)
