@@ -1149,7 +1149,7 @@ int zsend_zebra_srv6_locator_add(struct zserv *client, struct srv6_locator *loc)
 		locator.node_bits_length = format->node_len;
 		locator.function_bits_length = format->function_len;
 		locator.argument_bits_length = format->argument_len;
-		if (format->type == ZEBRA_SRV6_SID_FORMAT_TYPE_USID)
+		if (format->type == SRV6_SID_FORMAT_TYPE_USID)
 			SET_FLAG(locator.flags, SRV6_LOCATOR_USID);
 	}
 

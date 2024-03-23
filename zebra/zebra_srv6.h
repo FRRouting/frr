@@ -294,6 +294,11 @@ extern void srv6_manager_get_locator_call(struct srv6_locator **locator,
 					  struct zserv *client,
 					  const char *locator_name);
 
+extern int get_srv6_sid(struct zebra_srv6_sid **sid, struct srv6_sid_ctx *ctx,
+			struct in6_addr *sid_value, const char *locator_name);
+extern int release_srv6_sid(struct zserv *client,
+			    struct zebra_srv6_sid_ctx *zctx);
+
 extern struct zebra_srv6_sid_ctx *zebra_srv6_sid_ctx_alloc(void);
 extern void zebra_srv6_sid_ctx_free(struct zebra_srv6_sid_ctx *ctx);
 extern void delete_zebra_srv6_sid_ctx(void *val);
