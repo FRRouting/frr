@@ -3379,11 +3379,50 @@ static int bgp_zebra_process_srv6_locator_chunk(ZAPI_CALLBACK_ARGS)
 	return 0;
 }
 
+/**
+ * Internal function to process an SRv6 locator
+ *
+ * @param locator The locator to be processed
+ */
+static int bgp_zebra_process_srv6_locator_internal(struct srv6_locator *locator)
+{
+	struct bgp *bgp = bgp_get_default();
+
+	if (!bgp || !bgp->srv6_enabled || !locator)
+		return -1;
+
+	/*
+	 * Check if the main BGP instance is configured to use the received
+	 * locator
+	 */
+	if (strcmp(bgp->srv6_locator_name, locator->name) != 0) {
+		zlog_err("%s: SRv6 Locator name unmatch %s:%s", __func__,
+			 bgp->srv6_locator_name, locator->name);
+		return 0;
+	}
+
+	zlog_info("%s: Received SRv6 locator %s %pFX, loc-block-len=%u, loc-node-len=%u func-len=%u, arg-len=%u",
+		  __func__, locator->name, &locator->prefix,
+		  locator->block_bits_length, locator->node_bits_length,
+		  locator->function_bits_length, locator->argument_bits_length);
+
+	/* Store the locator in the main BGP instance */
+	bgp->srv6_locator = srv6_locator_alloc(locator->name);
+	srv6_locator_copy(bgp->srv6_locator, locator);
+
+	/*
+	 * Process VPN-to-VRF and VRF-to-VPN leaks to advertise new locator
+	 * and SIDs.
+	 */
+	vpn_leak_postchange_all();
+
+	return 0;
+}
+
 static int bgp_zebra_process_srv6_locator_add(ZAPI_CALLBACK_ARGS)
 {
 	struct srv6_locator loc = {};
 	struct bgp *bgp = bgp_get_default();
-	const char *loc_name = bgp->srv6_locator_name;
 
 	if (!bgp || !bgp->srv6_enabled)
 		return 0;
@@ -3391,10 +3430,7 @@ static int bgp_zebra_process_srv6_locator_add(ZAPI_CALLBACK_ARGS)
 	if (zapi_srv6_locator_decode(zclient->ibuf, &loc) < 0)
 		return -1;
 
-	if (bgp_zebra_srv6_manager_get_locator_chunk(loc_name) < 0)
-		return -1;
-
-	return 0;
+	return bgp_zebra_process_srv6_locator_internal(&loc);
 }
 
 static int bgp_zebra_process_srv6_locator_delete(ZAPI_CALLBACK_ARGS)
