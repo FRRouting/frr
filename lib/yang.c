@@ -1336,11 +1336,16 @@ LY_ERR yang_lyd_trim_xpath(struct lyd_node **root, const char *xpath)
 
 /*
  * Safe to remove after libyang v2.1.128 is required
+ * XXX it is not removed for libyang3 migration in order
+ * to have a double support of libyang2 and libyang3 support
+ * during an interim period.
  */
 const char *yang_ly_strerrcode(LY_ERR err)
 {
 #ifdef HAVE_LY_STRERRCODE
 	return ly_strerrcode(err);
+#elif defined(HAVE_LY_STRERR)
+	return ly_strerr(err);
 #else
 	switch (err) {
 	case LY_SUCCESS:
