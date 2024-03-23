@@ -1948,7 +1948,7 @@ int release_srv6_sid(uint8_t proto, unsigned short instance,
  * @param locator_name Name of the locator to look up
  *
  * @return 0 on success
-*/
+ */
 static int srv6_manager_get_srv6_locator(struct zebra_srv6_locator **locator,
 					 struct zserv *client,
 					 const char *locator_name)
