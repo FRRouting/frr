@@ -315,6 +315,13 @@ DECLARE_HOOK(srv6_manager_release_chunk,
 	      vrf_id_t vrf_id),
 	     (client, locator_name, vrf_id));
 
+DECLARE_HOOK(srv6_manager_get_sid,
+	     (struct zebra_srv6_sid **sid, struct zserv *client,
+	      struct srv6_sid_ctx *ctx, struct in6_addr *sid_value,
+	      const char *locator_name),
+	     (sid, client, ctx, sid_value, locator_name));
+DECLARE_HOOK(srv6_manager_release_sid,
+	     (struct zserv *client, struct srv6_sid_ctx *ctx), (client, ctx));
 DECLARE_HOOK(srv6_manager_get_locator,
 	     (struct zebra_srv6_locator **locator, struct zserv *client,
 	      const char *locator_name),
@@ -388,6 +395,13 @@ zebra_srv6_sid_alloc(struct zebra_srv6_sid_ctx *ctx, struct in6_addr *sid_value,
 extern void zebra_srv6_sid_free(struct zebra_srv6_sid *sid);
 extern void delete_zebra_srv6_sid(void *val);
 
+extern void srv6_manager_get_sid_call(struct zebra_srv6_sid **sid,
+				      struct zserv *client,
+				      struct srv6_sid_ctx *ctx,
+				      struct in6_addr *sid_value,
+				      const char *locator_name);
+extern void srv6_manager_release_sid_call(struct zserv *client,
+					  struct srv6_sid_ctx *ctx);
 extern void srv6_manager_get_locator_call(struct zebra_srv6_locator **locator,
 					  struct zserv *client,
 					  const char *locator_name);
@@ -398,6 +412,9 @@ assign_srv6_sid(uint8_t proto, unsigned short instance, uint32_t session_id,
 		struct in6_addr *sid_value, const char *locator);
 int release_srv6_sid(uint8_t proto, unsigned short instance,
 		     uint32_t session_id, struct zebra_srv6_sid_ctx *ctx);
+int release_daemon_srv6_sids(struct zserv *client);
+int srv6_manager_get_sid_response(struct zebra_srv6_sid *sid,
+				  struct zserv *client);
 
 extern struct zebra_srv6_sid_ctx *zebra_srv6_sid_ctx_alloc(void);
 extern void zebra_srv6_sid_ctx_free(struct zebra_srv6_sid_ctx *ctx);
