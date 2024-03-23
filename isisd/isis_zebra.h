@@ -68,4 +68,6 @@ void isis_zebra_srv6_adj_sid_uninstall(struct srv6_adjacency *sra);
 extern int isis_zebra_srv6_manager_get_locator_chunk(const char *name);
 extern int isis_zebra_srv6_manager_release_locator_chunk(const char *name);
 
+extern int isis_zebra_srv6_manager_get_locator(const char *name);
+
 #endif /* _ZEBRA_ISIS_ZEBRA_H */
