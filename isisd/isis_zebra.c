@@ -1368,6 +1368,24 @@ int isis_zebra_srv6_manager_release_locator_chunk(const char *name)
 	return srv6_manager_release_locator_chunk(zclient, name);
 }
 
+/**
+ * Ask the SRv6 Manager (zebra) about a specific locator
+ *
+ * @param name Locator name
+ * @return 0 on success, -1 otherwise
+ */
+int isis_zebra_srv6_manager_get_locator(const char *name)
+{
+	if (!name)
+		return -1;
+
+	/*
+	 * Send the Get Locator request to the SRv6 Manager and return the
+	 * result
+	 */
+	return srv6_manager_get_locator(zclient, name);
+}
+
 static zclient_handler *const isis_handlers[] = {
 	[ZEBRA_ROUTER_ID_UPDATE] = isis_router_id_update_zebra,
 	[ZEBRA_INTERFACE_ADDRESS_ADD] = isis_zebra_if_address_add,
