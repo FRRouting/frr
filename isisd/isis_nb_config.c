@@ -3465,6 +3465,8 @@ int isis_instance_segment_routing_srv6_enabled_modify(
 		if (IS_DEBUG_EVENTS)
 			zlog_debug(
 				"Segment Routing over IPv6 (SRv6): OFF -> ON");
+
+		isis_zebra_srv6_manager_connect();
 	} else {
 		if (IS_DEBUG_EVENTS)
 			zlog_debug(

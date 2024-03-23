@@ -708,6 +708,43 @@ int isis_zebra_label_manager_connect(void)
 	return 0;
 }
 
+bool isis_zebra_srv6_manager_ready(void)
+{
+	return (zclient_sync->sock > 0);
+}
+
+/**
+ * Connect to the SRv6 Manager.
+ *
+ * @return	0 on success, -1 otherwise
+ */
+int isis_zebra_srv6_manager_connect(void)
+{
+	/* Connect to label manager. */
+	if (zclient_sync->sock <= 0) {
+		if (zclient_socket_connect(zclient_sync) < 0) {
+			zlog_warn("%s: failed connecting synchronous zclient!",
+				  __func__);
+			return -1;
+		}
+		/* make socket non-blocking */
+		set_nonblocking(zclient_sync->sock);
+
+		/* Send hello to notify zebra this is a synchronous client */
+		if (zclient_send_hello(zclient_sync) == ZCLIENT_SEND_FAILURE) {
+			zlog_warn("%s: failed sending hello for synchronous zclient!",
+				  __func__);
+			close(zclient_sync->sock);
+			zclient_sync->sock = -1;
+			return -1;
+		}
+	}
+
+	sr_debug("ISIS-SRv6: Successfully connected to the SRv6 Manager");
+
+	return 0;
+}
+
 void isis_zebra_vrf_register(struct isis *isis)
 {
 	if (!zclient || zclient->sock < 0 || !isis)
