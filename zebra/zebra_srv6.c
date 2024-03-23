@@ -65,6 +65,13 @@ DEFINE_HOOK(srv6_manager_release_chunk,
 	     vrf_id_t vrf_id),
 	    (client, locator_name, vrf_id));
 
+DEFINE_HOOK(srv6_manager_get_sid,
+	    (struct zebra_srv6_sid **sid, struct zserv *client,
+	     struct srv6_sid_ctx *ctx, struct in6_addr *sid_value,
+	     const char *locator_name),
+	    (sid, client, ctx, sid_value, locator_name));
+DEFINE_HOOK(srv6_manager_release_sid,
+	    (struct zserv *client, struct srv6_sid_ctx *ctx), (client, ctx));
 DEFINE_HOOK(srv6_manager_get_locator,
 	    (struct srv6_locator **locator, struct zserv *client,
 	     const char *locator_name),
@@ -100,6 +107,22 @@ int srv6_manager_client_disconnect_cb(struct zserv *client)
 	return 0;
 }
 
+
+void srv6_manager_get_sid_call(struct zebra_srv6_sid **sid,
+			       struct zserv *client, struct srv6_sid_ctx *ctx,
+			       struct in6_addr *sid_value,
+			       const char *locator_name)
+{
+	hook_call(srv6_manager_get_sid, sid, client, ctx, sid_value,
+		  locator_name);
+}
+
+void srv6_manager_release_sid_call(struct zserv *client,
+				   struct srv6_sid_ctx *ctx)
+{
+	hook_call(srv6_manager_release_sid, client, ctx);
+}
+
 void srv6_manager_get_locator_call(struct srv6_locator **locator,
 				   struct zserv *client,
 				   const char *locator_name)
@@ -109,6 +132,8 @@ void srv6_manager_get_locator_call(struct srv6_locator **locator,
 
 static int zebra_srv6_cleanup(struct zserv *client)
 {
+	/* Client has disconnected, let's release all the SIDs allocated by it. */
+	release_daemon_srv6_sids(client);
 	return 0;
 }
 
@@ -2225,6 +2250,141 @@ static int srv6_manager_get_srv6_locator_internal(struct srv6_locator **locator,
 	return zsend_zebra_srv6_locator_add(client, *locator);
 }
 
+/**
+ * Handle a get SID request received from a client.
+ *
+ * It gets a SID for a given context. If there is no SID associated with the context yet,
+ * we allocate one and return it to the client. Otherwise, we return the existing SID.
+ *
+ * - When the `sid_value` parameter is non-NULL, SRv6 Manager assigns the requested SID value
+ *   if it is available (explicit SID allocation).
+ * - When the `sid_value` parameter is NULL, SRv6 Manager assigns any available SID value
+ *   (dynamic SID allocation).
+ *
+ * Finally, notify the client whether the SID allocation was successful or failed.
+ *
+ * @param sid SID returned by this function
+ * @param client The client that requested the SID
+ * @param ctx Context for which the SID was requested
+ * @param sid_value SID value (i.e., IPv6 address) that has to be assigned to the SID
+ *                  (for explicit SID allocation)
+ * @param locator_name Locator from which the SID has to be allocated (for dynamic SID allocation)
+ *
+ * @return 0 on success, -1 otherwise
+ */
+static int srv6_manager_get_sid_internal(struct zebra_srv6_sid **sid,
+					 struct zserv *client,
+					 struct srv6_sid_ctx *ctx,
+					 struct in6_addr *sid_value,
+					 const char *locator_name)
+{
+	int ret = -1;
+	char buf[256];
+
+	if (IS_ZEBRA_DEBUG_PACKET)
+		zlog_debug("%s: getting SRv6 SID for ctx %s, sid_value=%pI6, locator_name=%s",
+			   __func__, srv6_sid_ctx2str(buf, sizeof(buf), ctx),
+			   sid_value, locator_name);
+
+	ret = get_srv6_sid(sid, ctx, sid_value, locator_name);
+	if (ret < 0) {
+		zlog_warn("%s: not got SRv6 SID for ctx %s, sid_value=%pI6, locator_name=%s",
+			  __func__, srv6_sid_ctx2str(buf, sizeof(buf), ctx),
+			  sid_value, locator_name);
+	} else if (ret == 0) {
+		if (IS_ZEBRA_DEBUG_PACKET)
+			zlog_debug("%s: got existing SRv6 SID for ctx %s: sid_value=%pI6 (func=%u) (proto=%u, instance=%u, sessionId=%u), notify client",
+				   __func__,
+				   srv6_sid_ctx2str(buf, sizeof(buf), ctx),
+				   &(*sid)->value, (*sid)->func, client->proto,
+				   client->instance, client->session_id);
+		if (!listnode_lookup((*sid)->client_list, client))
+			listnode_add((*sid)->client_list, client);
+	} else {
+		if (IS_ZEBRA_DEBUG_PACKET)
+			zlog_debug("%s: got new SRv6 SID for ctx %s: sid_value=%pI6 (func=%u) (proto=%u, instance=%u, sessionId=%u), notifying all clients",
+				   __func__,
+				   srv6_sid_ctx2str(buf, sizeof(buf), ctx),
+				   &(*sid)->value, (*sid)->func, client->proto,
+				   client->instance, client->session_id);
+		if (!listnode_lookup((*sid)->client_list, client))
+			listnode_add((*sid)->client_list, client);
+	}
+
+	return ret;
+}
+
+/**
+ * Release SRv6 SIDs from a client.
+ *
+ * Called on client disconnection or reconnection.
+ *
+ * @param client The client to release SIDs from
+ * @return Number of SIDs released
+ */
+int release_daemon_srv6_sids(struct zserv *client)
+{
+	struct zebra_srv6 *srv6 = zebra_srv6_get_default();
+	struct listnode *node, *nnode;
+	struct zebra_srv6_sid_ctx *ctx;
+	int count = 0;
+	int ret;
+
+	if (IS_ZEBRA_DEBUG_PACKET)
+		zlog_debug("%s: releasing SRv6 SIDs for client proto %s, instance %d, session %u",
+			   __func__, zebra_route_string(client->proto),
+			   client->instance, client->session_id);
+
+	/* Iterate over the SIDs and release SIDs used by the client daemon */
+	for (ALL_LIST_ELEMENTS(srv6->sids, node, nnode, ctx)) {
+		if (!listnode_lookup(ctx->sid->client_list, client))
+			continue;
+
+		ret = release_srv6_sid(client, ctx);
+		if (ret == 0)
+			count++;
+	}
+
+	if (IS_ZEBRA_DEBUG_PACKET)
+		zlog_debug("%s: released %d SRv6 SIDs", __func__, count);
+
+	return count;
+}
+
+/**
+ * Release SRv6 SIDs from a client.
+ *
+ * @param client The client zapi session
+ * @param ctx Context associated with the SRv6 SID
+ * @return 0 on success, -1 on failure
+ */
+static int srv6_manager_release_sid_internal(struct zserv *client,
+					     struct srv6_sid_ctx *ctx)
+{
+	int ret = -1;
+	struct zebra_srv6 *srv6 = zebra_srv6_get_default();
+	struct zebra_srv6_sid_ctx *zctx;
+	struct listnode *node, *nnode;
+	char buf[256];
+
+	if (IS_ZEBRA_DEBUG_PACKET)
+		zlog_debug("%s: releasing SRv6 SID associated with ctx %s",
+			   __func__, srv6_sid_ctx2str(buf, sizeof(buf), ctx));
+
+	/* Lookup Zebra SID context and release it */
+	for (ALL_LIST_ELEMENTS(srv6->sids, node, nnode, zctx))
+		if (memcmp(&zctx->ctx, ctx, sizeof(struct srv6_sid_ctx)) == 0) {
+			ret = release_srv6_sid(client, zctx);
+			break;
+		}
+
+	if (IS_ZEBRA_DEBUG_PACKET)
+		zlog_debug("%s: no SID associated with ctx %s", __func__,
+			   srv6_sid_ctx2str(buf, sizeof(buf), ctx));
+
+	return ret;
+}
+
 void zebra_srv6_terminate(void)
 {
 	struct srv6_locator *locator;
@@ -2288,6 +2448,9 @@ void zebra_srv6_init(void)
 	hook_register(srv6_manager_release_chunk,
 		      zebra_srv6_manager_release_locator_chunk);
 
+	hook_register(srv6_manager_get_sid, srv6_manager_get_sid_internal);
+	hook_register(srv6_manager_release_sid,
+		      srv6_manager_release_sid_internal);
 	hook_register(srv6_manager_get_locator,
 		      srv6_manager_get_srv6_locator_internal);
 }
