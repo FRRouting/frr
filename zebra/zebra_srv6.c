@@ -41,6 +41,9 @@ DEFINE_MTYPE_STATIC(SRV6_MGR, ZEBRA_SRV6_SID_BLOCK, "SRv6 SID block");
 DEFINE_MTYPE_STATIC(SRV6_MGR, ZEBRA_SRV6_SID_FUNC, "Zebra SRv6 SID function");
 DEFINE_MTYPE_STATIC(SRV6_MGR, ZEBRA_SRV6_USID_WLIB,
 		    "Zebra SRv6 uSID Wide LIB information");
+DEFINE_MTYPE_STATIC(SRV6_MGR, ZEBRA_SRV6_SID, "Zebra SRv6 SID");
+DEFINE_MTYPE_STATIC(SRV6_MGR, ZEBRA_SRV6_SID_CTX, "Zebra SRv6 SID context");
+DEFINE_MTYPE_STATIC(SRV6_MGR, ZEBRA_SRV6_SID_OWNER, "Zebra SRv6 SID owner");
 
 /* define hooks for the basic API, so that it can be specialized or served
  * externally
@@ -96,6 +99,128 @@ int srv6_manager_client_disconnect_cb(struct zserv *client)
 static int zebra_srv6_cleanup(struct zserv *client)
 {
 	return 0;
+}
+
+/* --- SRv6 SID owner management functions -------------------------------- */
+
+void zebra_srv6_sid_owner_free(struct zebra_srv6_sid_owner *owner)
+{
+	XFREE(MTYPE_ZEBRA_SRV6_SID_OWNER, owner);
+}
+
+/**
+ * Free an SRv6 SID owner object.
+ *
+ * @param val SRv6 SID owner to be freed
+ */
+void delete_zebra_srv6_sid_owner(void *val)
+{
+	zebra_srv6_sid_owner_free((struct zebra_srv6_sid_owner *)val);
+}
+
+/**
+ * Check whether an SRv6 SID is owned by a specific protocol daemon or not.
+ *
+ * @param proto Daemon protocol of client, to identify the owner
+ * @param instance Instance, to identify the owner
+ * @param sid SRv6 SID to verify
+ * @return True if the SID is owned by the protocol daemon, False otherwise
+ */
+bool sid_is_owned_by_proto(uint8_t proto, unsigned short instance,
+			   struct zebra_srv6_sid *sid)
+{
+	struct zebra_srv6_sid_owner *owner;
+	struct listnode *node;
+
+	if (!sid)
+		return false;
+
+	for (ALL_LIST_ELEMENTS_RO(sid->owners, node, owner)) {
+		if (owner->proto == proto && owner->instance == instance)
+			return true;
+	}
+
+	return false;
+}
+
+/**
+ * Add a client daemon the owners list of an SRv6 SID.
+ *
+ * @param SID to which the owner needs to be added
+ * @param proto Daemon protocol of client, to identify the owner
+ * @param instance Instance, to identify the owner
+ * @return True if success, False otherwise
+ */
+bool zebra_srv6_sid_owner_add(struct zebra_srv6_sid *sid, uint8_t proto,
+			      unsigned short instance)
+{
+	struct zebra_srv6_sid_owner *owner;
+
+	if (!sid)
+		return false;
+
+	owner = XCALLOC(MTYPE_ZEBRA_SRV6_SID_OWNER,
+			sizeof(struct zebra_srv6_sid_owner));
+	owner->proto = proto;
+	owner->instance = instance;
+
+	listnode_add(sid->owners, owner);
+
+	return true;
+}
+
+/**
+ * Remove a client daemon from the owners list of an SRv6 SID.
+ *
+ * @param SID to which the owner needs to be removed
+ * @param proto Daemon protocol of client, to identify the owner
+ * @param instance Instance, to identify the owner
+ * @return True if success, False otherwise
+ */
+bool zebra_srv6_sid_owner_del(struct zebra_srv6_sid *sid, uint8_t proto,
+			      unsigned short instance, uint32_t session_id)
+{
+	struct zebra_srv6_sid_owner *owner;
+	struct listnode *node, *nnode;
+
+	if (!sid)
+		return false;
+
+	for (ALL_LIST_ELEMENTS(sid->owners, node, nnode, owner)) {
+		if (owner->proto == proto && owner->instance == instance) {
+			listnode_delete(sid->owners, owner);
+			zebra_srv6_sid_owner_free(owner);
+		}
+	}
+
+	return true;
+}
+
+/* --- Zebra SRv6 SID context management functions -------------------------- */
+
+struct zebra_srv6_sid_ctx *zebra_srv6_sid_ctx_alloc(void)
+{
+	struct zebra_srv6_sid_ctx *ctx = NULL;
+
+	ctx = XCALLOC(MTYPE_ZEBRA_SRV6_SID_CTX,
+		      sizeof(struct zebra_srv6_sid_ctx));
+
+	return ctx;
+}
+
+void zebra_srv6_sid_ctx_free(struct zebra_srv6_sid_ctx *ctx)
+{
+	XFREE(MTYPE_ZEBRA_SRV6_SID_CTX, ctx);
+}
+
+/**
+ * Free an SRv6 SID context.
+ *
+ * @param val SRv6 SID context to be freed
+ */
+void delete_zebra_srv6_sid_ctx(void *val)
+{
+	zebra_srv6_sid_ctx_free((struct zebra_srv6_sid_ctx *)val);
 }
 
 /* --- Zebra SRv6 SID format management functions --------------------------- */
@@ -413,6 +538,59 @@ zebra_srv6_sid_block_lookup(struct prefix_ipv6 *prefix)
 	return NULL;
 }
 
+/* --- Zebra SRv6 SID management functions ---------------------------------- */
+
+/**
+ * Alloc and fill an SRv6 SID.
+ *
+ * @param ctx Context associated with the SID to be created
+ * @param sid_value IPv6 address associated with the SID to be created
+ * @param locator Parent locator of the SID to be created
+ * @param sid_block Block from which the SID value has been allocated
+ * @param sid_func Function part of the SID to be created
+ * @param alloc_mode Allocation mode of the Function (dynamic vs explicit)
+ * @return The requested SID
+ */
+struct zebra_srv6_sid *
+zebra_srv6_sid_alloc(struct zebra_srv6_sid_ctx *ctx, struct in6_addr *sid_value,
+		     struct zebra_srv6_locator *locator,
+		     struct zebra_srv6_sid_block *sid_block, uint32_t sid_func,
+		     enum srv6_sid_alloc_mode alloc_mode)
+{
+	struct zebra_srv6_sid *sid;
+
+	if (!ctx || !sid_value)
+		return NULL;
+
+	sid = XCALLOC(MTYPE_ZEBRA_SRV6_SID, sizeof(struct zebra_srv6_sid));
+	sid->ctx = ctx;
+	sid->value = *sid_value;
+	sid->locator = locator;
+	sid->block = sid_block;
+	sid->func = sid_func;
+	sid->alloc_mode = alloc_mode;
+	sid->owners = list_new();
+	sid->owners->del = delete_zebra_srv6_sid_owner;
+
+	return sid;
+}
+
+void zebra_srv6_sid_free(struct zebra_srv6_sid *sid)
+{
+	list_delete(&sid->owners);
+	XFREE(MTYPE_ZEBRA_SRV6_SID, sid);
+}
+
+/**
+ * Free an SRv6 SID.
+ *
+ * @param val SRv6 SID to be freed
+ */
+void delete_zebra_srv6_sid(void *val)
+{
+	zebra_srv6_sid_free((struct zebra_srv6_sid *)val);
+}
+
 /* --- Zebra SRv6 locator management functions ------------------------------ */
 
 struct zebra_srv6_locator *zebra_srv6_locator_alloc(const char *name)
@@ -589,6 +767,10 @@ struct zebra_srv6 *zebra_srv6_get_default(void)
 		/* Create SID format `uncompressed` */
 		format_uncompressed = create_srv6_sid_format_uncompressed();
 		zebra_srv6_sid_format_add(format_uncompressed);
+
+		/* Init list to store SRv6 SIDs */
+		srv6.sids = list_new();
+		srv6.sids->del = delete_zebra_srv6_sid_ctx;
 
 		/* Init list to store SRv6 SID blocks */
 		srv6.sid_blocks = list_new();
@@ -801,6 +983,7 @@ void zebra_srv6_terminate(void)
 	struct zebra_srv6_locator *locator;
 	struct zebra_srv6_sid_format *format;
 	struct zebra_srv6_sid_block *block;
+	struct zebra_srv6_sid_ctx *sid_ctx;
 
 	if (srv6.locators) {
 		while (listcount(srv6.locators)) {
@@ -823,6 +1006,18 @@ void zebra_srv6_terminate(void)
 		}
 
 		list_delete(&srv6.sid_formats);
+	}
+
+	/* Free SRv6 SIDs */
+	if (srv6.sids) {
+		while (listcount(srv6.sids)) {
+			sid_ctx = listnode_head(srv6.sids);
+
+			listnode_delete(srv6.sids, sid_ctx);
+			zebra_srv6_sid_ctx_free(sid_ctx);
+		}
+
+		list_delete(&srv6.sids);
 	}
 
 	/* Free SRv6 SID blocks */
