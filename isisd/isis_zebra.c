@@ -1183,105 +1183,6 @@ void isis_zebra_srv6_adj_sid_uninstall(struct srv6_adjacency *sra)
 }
 
 /**
- * Callback to process an SRv6 locator chunk received from SRv6 Manager (zebra).
- *
- * @result 0 on success, -1 otherwise
- */
-static int isis_zebra_process_srv6_locator_chunk(ZAPI_CALLBACK_ARGS)
-{
-	struct isis *isis = isis_lookup_by_vrfid(VRF_DEFAULT);
-	struct stream *s = NULL;
-	struct listnode *node;
-	struct isis_area *area;
-	struct srv6_locator_chunk *c;
-	struct srv6_locator_chunk *chunk = srv6_locator_chunk_alloc();
-	struct isis_srv6_sid *sid;
-	struct isis_adjacency *adj;
-	enum srv6_endpoint_behavior_codepoint behavior;
-	bool allocated = false;
-
-	if (!isis) {
-		srv6_locator_chunk_free(&chunk);
-		return -1;
-	}
-
-	/* Decode the received zebra message */
-	s = zclient->ibuf;
-	if (zapi_srv6_locator_chunk_decode(s, chunk) < 0) {
-		srv6_locator_chunk_free(&chunk);
-		return -1;
-	}
-
-	sr_debug(
-		"Received SRv6 locator chunk from zebra: name %s, "
-		"prefix %pFX, block_len %u, node_len %u, func_len %u, arg_len %u",
-		chunk->locator_name, &chunk->prefix, chunk->block_bits_length,
-		chunk->node_bits_length, chunk->function_bits_length,
-		chunk->argument_bits_length);
-
-	/* Walk through all areas of the ISIS instance */
-	for (ALL_LIST_ELEMENTS_RO(isis->area_list, node, area)) {
-		if (strncmp(area->srv6db.config.srv6_locator_name,
-			    chunk->locator_name,
-			    sizeof(area->srv6db.config.srv6_locator_name)) != 0)
-			continue;
-
-		for (ALL_LIST_ELEMENTS_RO(area->srv6db.srv6_locator_chunks,
-					  node, c)) {
-			if (!prefix_cmp(&c->prefix, &chunk->prefix)) {
-				srv6_locator_chunk_free(&chunk);
-				return 0;
-			}
-		}
-
-		sr_debug(
-			"SRv6 locator chunk (locator %s, prefix %pFX) assigned to IS-IS area %s",
-			chunk->locator_name, &chunk->prefix, area->area_tag);
-
-		/* Add the SRv6 Locator chunk to the per-area chunks list */
-		listnode_add(area->srv6db.srv6_locator_chunks, chunk);
-
-		/* Decide which behavior to use,depending on the locator type
-		 * (i.e. uSID vs classic locator) */
-		behavior = (CHECK_FLAG(chunk->flags, SRV6_LOCATOR_USID))
-				   ? SRV6_ENDPOINT_BEHAVIOR_END_NEXT_CSID
-				   : SRV6_ENDPOINT_BEHAVIOR_END;
-
-		/* Allocate new SRv6 End SID */
-		sid = isis_srv6_sid_alloc(area, chunk, behavior, 0);
-		if (!sid)
-			return -1;
-
-		/* Install the new SRv6 End SID in the forwarding plane through
-		 * Zebra */
-		isis_zebra_srv6_sid_install(area, sid);
-
-		/* Store the SID */
-		listnode_add(area->srv6db.srv6_sids, sid);
-
-		/* Create SRv6 End.X SIDs from existing IS-IS Adjacencies */
-		for (ALL_LIST_ELEMENTS_RO(area->adjacency_list, node, adj)) {
-			if (adj->ll_ipv6_count > 0)
-				srv6_endx_sid_add(adj);
-		}
-
-		/* Regenerate LSPs to advertise the new locator and the SID */
-		lsp_regenerate_schedule(area, area->is_type, 0);
-
-		allocated = true;
-		break;
-	}
-
-	if (!allocated) {
-		sr_debug("No IS-IS area configured for the locator %s",
-			 chunk->locator_name);
-		srv6_locator_chunk_free(&chunk);
-	}
-
-	return 0;
-}
-
-/**
  * Internal function to process an SRv6 locator
  *
  * @param locator The locator to be processed
@@ -1692,8 +1593,6 @@ static zclient_handler *const isis_handlers[] = {
 
 	[ZEBRA_CLIENT_CLOSE_NOTIFY] = isis_zebra_client_close_notify,
 
-	[ZEBRA_SRV6_MANAGER_GET_LOCATOR_CHUNK] =
-		isis_zebra_process_srv6_locator_chunk,
 	[ZEBRA_SRV6_LOCATOR_ADD] = isis_zebra_process_srv6_locator_add,
 	[ZEBRA_SRV6_LOCATOR_DELETE] = isis_zebra_process_srv6_locator_delete,
 	[ZEBRA_SRV6_SID_NOTIFY] = isis_zebra_srv6_sid_notify,
