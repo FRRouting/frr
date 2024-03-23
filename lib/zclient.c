@@ -3305,6 +3305,230 @@ int srv6_manager_get_locator(struct zclient *zclient, const char *locator_name)
 	return zclient_send_message(zclient);
 }
 
+/**
+ * Function to request an SRv6 SID in a synchronous way
+ *
+ * It first writes the request to zclient output buffer and then
+ * immediately reads the answer from the input buffer.
+ *
+ * @param zclient Zclient used to connect to SRv6 manager (zebra)
+ * @param ctx Context associated with the SRv6 SID
+ * @param sid_value SRv6 SID value for explicit SID allocation
+ * @param locator_name Name of the parent locator for dynamic SID allocation
+ * @param sid_func SID function assigned by the SRv6 Manager
+ * @result 0 on success, -1 otherwise
+ */
+int srv6_manager_get_srv6_sid(struct zclient *zclient,
+			      const struct srv6_sid_ctx *ctx,
+			      struct in6_addr *sid_value,
+			      const char *locator_name, uint32_t *sid_func)
+{
+	int ret;
+	struct stream *s;
+	struct srv6_sid_ctx response_ctx;
+	struct in6_addr response_sid_value;
+	uint32_t response_sid_func;
+	uint8_t flags = 0;
+	size_t len;
+	char buf[256];
+
+	if (zclient->sock < 0) {
+		flog_err(EC_LIB_ZAPI_SOCKET, "%s: invalid zclient socket",
+			 __func__);
+		return ZCLIENT_SEND_FAILURE;
+	}
+
+	if (zclient_debug)
+		zlog_debug("Getting SRv6 SID: %s",
+			   srv6_sid_ctx2str(buf, sizeof(buf), ctx));
+
+	/* send request */
+	s = zclient->obuf;
+	stream_reset(s);
+
+	zclient_create_header(s, ZEBRA_SRV6_MANAGER_GET_SRV6_SID, VRF_DEFAULT);
+	/* proto */
+	stream_putc(s, zclient->redist_default);
+	/* instance */
+	stream_putw(s, zclient->instance);
+	/* Context associated with the SRv6 SID */
+	stream_put(s, ctx, sizeof(struct srv6_sid_ctx));
+
+	/* Flags */
+	if (!sid_zero_ipv6(
+		    sid_value)) /* explicit allocation, we need to send the SID address to SRv6 manager */
+		SET_FLAG(flags, ZAPI_SRV6_MANAGER_SID_FLAG_HAS_SID_VALUE);
+	if (locator_name)
+		SET_FLAG(flags, ZAPI_SRV6_MANAGER_SID_FLAG_HAS_LOCATOR);
+	stream_putc(s, flags);
+
+	/* SRv6 SID value */
+	if (CHECK_FLAG(flags, ZAPI_SRV6_MANAGER_SID_FLAG_HAS_SID_VALUE))
+		stream_put(s, sid_value, sizeof(struct in6_addr));
+
+	/* SRv6 locator */
+	if (CHECK_FLAG(flags, ZAPI_SRV6_MANAGER_SID_FLAG_HAS_LOCATOR)) {
+		len = strlen(locator_name);
+		stream_putw(s, len);
+		stream_put(s, locator_name, len);
+	}
+
+	/* Put length at the first point of the stream. */
+	stream_putw_at(s, 0, stream_get_endp(s));
+
+	/* Send the request to SRv6 Manager */
+	ret = writen(zclient->sock, s->data, stream_get_endp(s));
+	if (ret < 0) {
+		flog_err(EC_LIB_ZAPI_SOCKET, "Can't write to zclient sock");
+		close(zclient->sock);
+		zclient->sock = -1;
+		return -1;
+	}
+	if (ret == 0) {
+		flog_err(EC_LIB_ZAPI_SOCKET, "Zclient sock closed");
+		close(zclient->sock);
+		zclient->sock = -1;
+		return -1;
+	}
+	if (zclient_debug)
+		zlog_debug("SRv6 SID request (%d bytes) sent", ret);
+
+	/* read response */
+	if (zclient_read_sync_response(zclient,
+				       ZEBRA_SRV6_MANAGER_GET_SRV6_SID) != 0)
+		return -1;
+
+	/* parse response */
+	s = zclient->ibuf;
+
+	/* read proto and instance */
+	uint8_t proto;
+	uint8_t instance;
+
+	STREAM_GETC(s, proto);
+	STREAM_GETW(s, instance);
+
+	/* sanities */
+	if (proto != zclient->redist_default)
+		flog_err(EC_LIB_ZAPI_ENCODE,
+			 "Wrong proto (%u) in get chunk response. Should be %u",
+			 proto, zclient->redist_default);
+	if (instance != zclient->instance)
+		flog_err(EC_LIB_ZAPI_ENCODE,
+			 "Wrong instId (%u) in get chunk response Should be %u",
+			 instance, zclient->instance);
+
+	/* if we requested a specific SID and it could not be allocated, the
+	 * response message will end here
+	 */
+	if (!STREAM_READABLE(s)) {
+		zlog_info("Unable to assign SRv6 SID to %s instance %u",
+			  zebra_route_string(proto), instance);
+		return -1;
+	}
+
+	/* SRv6 SID context, SID value, and SID function */
+	STREAM_GET(&response_ctx, s, sizeof(struct srv6_sid_ctx));
+	STREAM_GET(&response_sid_value, s, sizeof(struct in6_addr));
+	STREAM_GETL(s, response_sid_func);
+
+	/* not owning this response */
+	if (memcmp(ctx, &response_ctx, sizeof(struct srv6_sid_ctx)) != 0) {
+		flog_err(EC_LIB_ZAPI_ENCODE,
+			 "Invalid SRv6 SID: %pI6 ctx %s, SID context mismatch %s != %s",
+			 &response_sid_value,
+			 srv6_sid_ctx2str(buf, sizeof(buf), &response_ctx),
+			 srv6_sid_ctx2str(buf, sizeof(buf), ctx),
+			 srv6_sid_ctx2str(buf, sizeof(buf), &response_ctx));
+		return -1;
+	}
+	if (!sid_zero_ipv6(sid_value)) {
+		if (memcmp(sid_value, &response_sid_value,
+			   sizeof(struct in6_addr)) != 0) {
+			flog_err(EC_LIB_ZAPI_ENCODE,
+				 "Invalid SRv6 SID: %pI6 ctx %s, SID value mismatch %pI6 != %pI6",
+				 &response_sid_value,
+				 srv6_sid_ctx2str(buf, sizeof(buf),
+						  &response_ctx),
+				 sid_value, &response_sid_value);
+			return -1;
+		}
+	} else {
+		/* Dynamic allocation */
+		*sid_value = response_sid_value;
+	}
+	/* SID function assigned by the SRv6 Manager */
+	if (sid_func)
+		*sid_func = response_sid_func;
+
+	if (zclient_debug)
+		zlog_debug("SRv6 SID assigned: %pI6 ctx %s", &response_sid_value,
+			   srv6_sid_ctx2str(buf, sizeof(buf), &response_ctx));
+
+	return 0;
+
+stream_failure:
+	return -1;
+}
+
+/**
+ * Function to release an SRv6 SID
+ *
+ * @param zclient Zclient used to connect to SRv6 manager (zebra)
+ * @param ctx Context associated with the SRv6 SID to be removed
+ * @result 0 on success, -1 otherwise
+ */
+int sm_release_srv6_sid(struct zclient *zclient, const struct srv6_sid_ctx *ctx)
+{
+	int ret;
+	struct stream *s;
+	char buf[256];
+
+	if (zclient->sock < 0) {
+		flog_err(EC_LIB_ZAPI_SOCKET, "%s: invalid zclient socket",
+			 __func__);
+		return -1;
+	}
+
+	if (zclient_debug)
+		zlog_debug("Releasing SRv6 SID: %s",
+			   srv6_sid_ctx2str(buf, sizeof(buf), ctx));
+
+	/* send request */
+	s = zclient->obuf;
+	stream_reset(s);
+
+	zclient_create_header(s, ZEBRA_SRV6_MANAGER_RELEASE_SRV6_SID,
+			      VRF_DEFAULT);
+
+	/* proto */
+	stream_putc(s, zclient->redist_default);
+	/* instance */
+	stream_putw(s, zclient->instance);
+	/* Context associated with the SRv6 SID */
+	stream_put(s, ctx, sizeof(struct srv6_sid_ctx));
+
+	/* Put length at the first point of the stream. */
+	stream_putw_at(s, 0, stream_get_endp(s));
+
+	/* Send the SID release message */
+	ret = writen(zclient->sock, s->data, stream_get_endp(s));
+	if (ret < 0) {
+		flog_err(EC_LIB_ZAPI_SOCKET, "Can't write to zclient sock");
+		close(zclient->sock);
+		zclient->sock = -1;
+		return -1;
+	}
+	if (ret == 0) {
+		flog_err(EC_LIB_ZAPI_SOCKET, "Zclient sock connection closed");
+		close(zclient->sock);
+		zclient->sock = -1;
+		return -1;
+	}
+
+	return 0;
+}
+
 /*
  * Asynchronous label chunk request
  *
