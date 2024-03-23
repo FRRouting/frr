@@ -117,6 +117,8 @@ extern int bgp_zebra_update(struct bgp *bgp, afi_t afi, safi_t safi,
 extern int bgp_zebra_stale_timer_update(struct bgp *bgp);
 extern int bgp_zebra_srv6_manager_get_locator_chunk(const char *name);
 extern int bgp_zebra_srv6_manager_release_locator_chunk(const char *name);
+extern int bgp_zebra_srv6_manager_get_locator(const char *name);
+
 extern void bgp_zebra_send_nexthop_label(int cmd, mpls_label_t label,
 					 ifindex_t index, vrf_id_t vrfid,
 					 enum lsp_types_t ltype,
