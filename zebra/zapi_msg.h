@@ -127,6 +127,8 @@ DECLARE_HOOK(zebra_nflog_configure,
 	     (int nflog_group, struct zebra_vrf *zvrf), (nflog_group, zvrf));
 DECLARE_HOOK(zebra_redirect_set,
 	    (struct interface *ifp, int family, int on), (ifp, family, on));
+extern int zsend_srv6_manager_get_locator_response(struct zserv *client,
+						   struct srv6_locator *locator);
 
 #ifdef __cplusplus
 }
