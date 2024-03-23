@@ -210,6 +210,8 @@ typedef enum {
 	ZEBRA_SRV6_MANAGER_GET_LOCATOR_CHUNK,
 	ZEBRA_SRV6_MANAGER_RELEASE_LOCATOR_CHUNK,
 	ZEBRA_SRV6_MANAGER_GET_LOCATOR,
+	ZEBRA_SRV6_MANAGER_GET_SRV6_SID,
+	ZEBRA_SRV6_MANAGER_RELEASE_SRV6_SID,
 	ZEBRA_ERROR,
 	ZEBRA_CLIENT_CAPABILITIES,
 	ZEBRA_OPAQUE_MESSAGE,
@@ -1071,12 +1073,23 @@ extern int tm_get_table_chunk(struct zclient *zclient, uint32_t chunk_size,
 			      uint32_t *start, uint32_t *end);
 extern int tm_release_table_chunk(struct zclient *zclient, uint32_t start,
 				  uint32_t end);
+
+/* Zebra SRv6 Manager flags */
+#define ZAPI_SRV6_MANAGER_SID_FLAG_HAS_SID_VALUE 0x01
+#define ZAPI_SRV6_MANAGER_SID_FLAG_HAS_LOCATOR	 0x02
+
 extern int srv6_manager_get_locator_chunk(struct zclient *zclient,
 					  const char *locator_name);
 extern int srv6_manager_release_locator_chunk(struct zclient *zclient,
 					      const char *locator_name);
 extern int srv6_manager_get_locator(struct zclient *zclient,
 				    const char *locator_name);
+extern int srv6_manager_get_sid(struct zclient *zclient,
+				const struct srv6_sid_ctx *ctx,
+				struct in6_addr *sid_value,
+				const char *locator_name, uint32_t *sid_func);
+extern int srv6_manager_release_sid(struct zclient *zclient,
+				    const struct srv6_sid_ctx *ctx);
 
 extern enum zclient_send_status zebra_send_sr_policy(struct zclient *zclient,
 						     int cmd,

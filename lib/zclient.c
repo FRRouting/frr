@@ -3309,6 +3309,109 @@ int srv6_manager_get_locator(struct zclient *zclient, const char *locator_name)
 	return zclient_send_message(zclient);
 }
 
+/**
+ * Function to request an SRv6 SID in an asynchronous way
+ *
+ * @param zclient The zclient used to connect to SRv6 manager (zebra)
+ * @param ctx Context associated with the SRv6 SID
+ * @param sid_value SRv6 SID value for explicit SID allocation
+ * @param locator_name Name of the parent locator for dynamic SID allocation
+ * @param sid_func SID function assigned by the SRv6 Manager
+ * @result 0 on success, -1 otherwise
+ */
+int srv6_manager_get_sid(struct zclient *zclient, const struct srv6_sid_ctx *ctx,
+			 struct in6_addr *sid_value, const char *locator_name,
+			 uint32_t *sid_func)
+{
+	struct stream *s;
+	uint8_t flags = 0;
+	size_t len;
+	char buf[256];
+
+	if (zclient->sock < 0) {
+		flog_err(EC_LIB_ZAPI_SOCKET, "%s: invalid zclient socket",
+			 __func__);
+		return ZCLIENT_SEND_FAILURE;
+	}
+
+	if (zclient_debug)
+		zlog_debug("Getting SRv6 SID: %s",
+			   srv6_sid_ctx2str(buf, sizeof(buf), ctx));
+
+	/* send request */
+	s = zclient->obuf;
+	stream_reset(s);
+
+	zclient_create_header(s, ZEBRA_SRV6_MANAGER_GET_SRV6_SID, VRF_DEFAULT);
+
+	/* Context associated with the SRv6 SID */
+	stream_put(s, ctx, sizeof(struct srv6_sid_ctx));
+
+	/* Flags */
+	if (!sid_zero_ipv6(sid_value))
+		SET_FLAG(flags, ZAPI_SRV6_MANAGER_SID_FLAG_HAS_SID_VALUE);
+	if (locator_name)
+		SET_FLAG(flags, ZAPI_SRV6_MANAGER_SID_FLAG_HAS_LOCATOR);
+	stream_putc(s, flags);
+
+	/* SRv6 SID value */
+	if (CHECK_FLAG(flags, ZAPI_SRV6_MANAGER_SID_FLAG_HAS_SID_VALUE))
+		stream_put(s, sid_value, sizeof(struct in6_addr));
+
+	/* SRv6 locator */
+	if (CHECK_FLAG(flags, ZAPI_SRV6_MANAGER_SID_FLAG_HAS_LOCATOR)) {
+		len = strlen(locator_name);
+		stream_putw(s, len);
+		stream_put(s, locator_name, len);
+	}
+
+	/* Put length at the first point of the stream. */
+	stream_putw_at(s, 0, stream_get_endp(s));
+
+	/* Send the request to SRv6 Manager */
+	return zclient_send_message(zclient);
+}
+
+/**
+ * Function to release an SRv6 SID
+ *
+ * @param zclient Zclient used to connect to SRv6 manager (zebra)
+ * @param ctx Context associated with the SRv6 SID to be removed
+ * @result 0 on success, -1 otherwise
+ */
+int srv6_manager_release_sid(struct zclient *zclient,
+			     const struct srv6_sid_ctx *ctx)
+{
+	struct stream *s;
+	char buf[256];
+
+	if (zclient->sock < 0) {
+		flog_err(EC_LIB_ZAPI_SOCKET, "%s: invalid zclient socket",
+			 __func__);
+		return -1;
+	}
+
+	if (zclient_debug)
+		zlog_debug("Releasing SRv6 SID: %s",
+			   srv6_sid_ctx2str(buf, sizeof(buf), ctx));
+
+	/* send request */
+	s = zclient->obuf;
+	stream_reset(s);
+
+	zclient_create_header(s, ZEBRA_SRV6_MANAGER_RELEASE_SRV6_SID,
+			      VRF_DEFAULT);
+
+	/* Context associated with the SRv6 SID */
+	stream_put(s, ctx, sizeof(struct srv6_sid_ctx));
+
+	/* Put length at the first point of the stream. */
+	stream_putw_at(s, 0, stream_get_endp(s));
+
+	/* Send the SID release message */
+	return zclient_send_message(zclient);
+}
+
 /*
  * Asynchronous label chunk request
  *
