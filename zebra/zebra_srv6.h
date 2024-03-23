@@ -102,6 +102,96 @@ struct zebra_srv6_sid_block {
 	} u;
 };
 
+/**
+ * The function part of an SRv6 SID can be allocated in one
+ * of the following ways:
+ *  - dynamic: allocate any available function
+ *  - explicit: allocate a specific function
+ */
+enum srv6_sid_alloc_mode {
+	SRV6_SID_ALLOC_MODE_UNSPEC = 0,
+	/* Dynamic SID allocation */
+	SRV6_SID_ALLOC_MODE_DYNAMIC = 1,
+	/* Explicit SID allocation */
+	SRV6_SID_ALLOC_MODE_EXPLICIT = 2,
+	SRV6_SID_ALLOC_MODE_MAX = 3,
+};
+
+/**
+ * Convert SID allocation mode to string.
+ *
+ * @param alloc_mode SID allocation mode
+ * @return String representing the allocation mode
+ */
+static inline const char *
+srv6_sid_alloc_mode2str(enum srv6_sid_alloc_mode alloc_mode)
+{
+	switch (alloc_mode) {
+	case SRV6_SID_ALLOC_MODE_EXPLICIT:
+		return "explicit";
+	case SRV6_SID_ALLOC_MODE_DYNAMIC:
+		return "dynamic";
+	case SRV6_SID_ALLOC_MODE_UNSPEC:
+		return "unspec";
+	case SRV6_SID_ALLOC_MODE_MAX:
+	default:
+		return "unknown";
+	}
+}
+
+/* SRv6 SID instance. */
+struct zebra_srv6_sid {
+	/*
+	 * SID context associated with the SID.
+	 * Defines behavior and attributes of the SID.
+	 */
+	struct zebra_srv6_sid_ctx *ctx;
+
+	/* SID value (e.g. fc00:0:1:e000::) */
+	struct in6_addr value;
+
+	/* Pointer to the SRv6 locator from which the SID has been allocated */
+	struct srv6_locator *locator;
+
+	/* Pointer to the SRv6 block from which the SID has been allocated */
+	struct zebra_srv6_sid_block *block;
+
+	/*
+	 * Function part of the SID
+	 * Example:
+	 *   SID = fc00:0:1:e000:: => func = e000
+	 */
+	uint32_t func;
+
+	/* SID wide function. */
+	uint32_t wide_func;
+
+	/* SID allocation mode: dynamic or explicit */
+	enum srv6_sid_alloc_mode alloc_mode;
+
+	/* List of clients that are using the SID */
+	struct list *client_list;
+};
+
+/*
+ * Zebra SRv6 SID context.
+ * A context defines a behavior and (optionally) some behavior-specific
+ * attributes. Client daemons (bgp, isis, ...) ask SRv6 Manager to allocate
+ * a SID for a particular context. SRv6 Manager is responsible for allocating
+ * a SID from a given SID block and associating with the context.
+ *
+ * Example:
+ *    bgp asks to associate a SID to the context {behavior=End.DT46 vrf=Vrf10}.
+ *    SRv6 Manager allocate SID fc00:0:1:e000:: for that context.
+ */
+struct zebra_srv6_sid_ctx {
+	/* SRv6 SID context information. */
+	struct srv6_sid_ctx ctx;
+
+	/* SID associated with the context. */
+	struct zebra_srv6_sid *sid;
+};
+
 /* SRv6 instance structure. */
 struct zebra_srv6 {
 	struct list *locators;
@@ -111,6 +201,9 @@ struct zebra_srv6 {
 
 	/* SRv6 SID formats */
 	struct list *sid_formats;
+
+	/* SRv6 SIDs */
+	struct list *sids;
 
 	/* SRv6 SID blocks */
 	struct list *sid_blocks;
@@ -184,5 +277,17 @@ extern void zebra_srv6_sid_block_free(struct zebra_srv6_sid_block *block);
 extern void delete_zebra_srv6_sid_block(void *val);
 extern struct zebra_srv6_sid_block *
 zebra_srv6_sid_block_lookup(struct prefix_ipv6 *prefix);
+
+extern struct zebra_srv6_sid *
+zebra_srv6_sid_alloc(struct zebra_srv6_sid_ctx *ctx, struct in6_addr *sid_value,
+		     struct srv6_locator *locator,
+		     struct zebra_srv6_sid_block *sid_block, uint32_t sid_func,
+		     enum srv6_sid_alloc_mode alloc_mode);
+extern void zebra_srv6_sid_free(struct zebra_srv6_sid *sid);
+extern void delete_zebra_srv6_sid(void *val);
+
+extern struct zebra_srv6_sid_ctx *zebra_srv6_sid_ctx_alloc(void);
+extern void zebra_srv6_sid_ctx_free(struct zebra_srv6_sid_ctx *ctx);
+extern void delete_zebra_srv6_sid_ctx(void *val);
 
 #endif /* _ZEBRA_SRV6_H */
