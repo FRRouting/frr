@@ -3268,6 +3268,47 @@ int srv6_manager_release_locator_chunk(struct zclient *zclient,
 	return zclient_send_message(zclient);
 }
 
+/**
+ * Function to request a SRv6 locator in an asynchronous way
+ *
+ * @param zclient The zclient used to connect to SRv6 Manager (zebra)
+ * @param locator_name Name of SRv6 locator
+ * @return 0 on success, -1 otherwise
+ */
+int srv6_manager_get_locator(struct zclient *zclient, const char *locator_name)
+{
+	struct stream *s;
+	size_t len;
+
+	if (!locator_name)
+		return -1;
+
+	if (zclient->sock < 0) {
+		flog_err(EC_LIB_ZAPI_SOCKET, "%s: invalid zclient socket",
+			 __func__);
+		return -1;
+	}
+
+	if (zclient_debug)
+		zlog_debug("Getting SRv6 Locator %s", locator_name);
+
+	len = strlen(locator_name);
+
+	/* Send request */
+	s = zclient->obuf;
+	stream_reset(s);
+	zclient_create_header(s, ZEBRA_SRV6_MANAGER_GET_LOCATOR, VRF_DEFAULT);
+
+	/* Locator name */
+	stream_putw(s, len);
+	stream_put(s, locator_name, len);
+
+	/* Put length at the first point of the stream. */
+	stream_putw_at(s, 0, stream_get_endp(s));
+
+	return zclient_send_message(zclient);
+}
+
 /*
  * Asynchronous label chunk request
  *
