@@ -3006,6 +3006,31 @@ stream_failure:
 	return;
 }
 
+/**
+ * Handle SRv6 locator get request received from a client daemon protocol.
+ *
+ * @param client The client zapi session
+ * @param msg The request message
+ */
+static void zread_srv6_manager_get_locator(struct zserv *client,
+					   struct stream *msg)
+{
+	struct stream *s = msg;
+	uint16_t len;
+	char locator_name[SRV6_LOCNAME_SIZE] = { 0 };
+	struct srv6_locator *locator = NULL;
+
+	/* Get data */
+	STREAM_GETW(s, len);
+	STREAM_GET(locator_name, s, len);
+
+	/* Call hook to get the locator info using wrapper */
+	srv6_manager_get_locator_call(&locator, client, locator_name);
+
+stream_failure:
+	return;
+}
+
 static void zread_srv6_manager_request(ZAPI_HANDLER_ARGS)
 {
 	switch (hdr->command) {
@@ -3016,6 +3041,9 @@ static void zread_srv6_manager_request(ZAPI_HANDLER_ARGS)
 	case ZEBRA_SRV6_MANAGER_RELEASE_LOCATOR_CHUNK:
 		zread_srv6_manager_release_locator_chunk(client, msg,
 							 zvrf_id(zvrf));
+		break;
+	case ZEBRA_SRV6_MANAGER_GET_LOCATOR:
+		zread_srv6_manager_get_locator(client, msg);
 		break;
 	default:
 		zlog_err("%s: unknown SRv6 Manager command", __func__);
@@ -3965,6 +3993,7 @@ void (*const zserv_handlers[])(ZAPI_HANDLER_ARGS) = {
 	[ZEBRA_MLAG_FORWARD_MSG] = zebra_mlag_forward_client_msg,
 	[ZEBRA_SRV6_MANAGER_GET_LOCATOR_CHUNK] = zread_srv6_manager_request,
 	[ZEBRA_SRV6_MANAGER_RELEASE_LOCATOR_CHUNK] = zread_srv6_manager_request,
+	[ZEBRA_SRV6_MANAGER_GET_LOCATOR] = zread_srv6_manager_request,
 	[ZEBRA_CLIENT_CAPABILITIES] = zread_client_capabilities,
 	[ZEBRA_NEIGH_DISCOVER] = zread_neigh_discover,
 	[ZEBRA_NHG_ADD] = zread_nhg_add,
