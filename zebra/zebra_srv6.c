@@ -41,6 +41,8 @@ DEFINE_MTYPE_STATIC(SRV6_MGR, ZEBRA_SRV6_SID_BLOCK, "SRv6 SID block");
 DEFINE_MTYPE_STATIC(SRV6_MGR, ZEBRA_SRV6_SID_FUNC, "SRv6 SID function");
 DEFINE_MTYPE_STATIC(SRV6_MGR, ZEBRA_SRV6_USID_WLIB,
 		    "SRv6 uSID Wide LIB information");
+DEFINE_MTYPE_STATIC(SRV6_MGR, ZEBRA_SRV6_SID, "SRv6 SID");
+DEFINE_MTYPE_STATIC(SRV6_MGR, ZEBRA_SRV6_SID_CTX, "SRv6 SID context");
 
 /* define hooks for the basic API, so that it can be specialized or served
  * externally
@@ -147,6 +149,33 @@ void zebra_srv6_check_sr0_created(void)
  netlink_error:
 	flog_err(EC_ZEBRA_SRV6_SR0_CREATION_ERROR,
 		 "%s: SRv6 sr0 failed to be created: netlink_error", __func__);
+}
+
+/* --- Zebra SRv6 SID context management functions -------------------------- */
+
+struct zebra_srv6_sid_ctx *zebra_srv6_sid_ctx_alloc(void)
+{
+	struct zebra_srv6_sid_ctx *ctx = NULL;
+
+	ctx = XCALLOC(MTYPE_ZEBRA_SRV6_SID_CTX,
+		      sizeof(struct zebra_srv6_sid_ctx));
+
+	return ctx;
+}
+
+void zebra_srv6_sid_ctx_free(struct zebra_srv6_sid_ctx *ctx)
+{
+	XFREE(MTYPE_ZEBRA_SRV6_SID_CTX, ctx);
+}
+
+/**
+ * Free an SRv6 SID context.
+ *
+ * @param val SRv6 SID context to be freed
+ */
+void delete_zebra_srv6_sid_ctx(void *val)
+{
+	zebra_srv6_sid_ctx_free((struct zebra_srv6_sid_ctx *)val);
 }
 
 /* --- Zebra SRv6 SID format management functions --------------------------- */
@@ -536,6 +565,58 @@ zebra_srv6_sid_block_lookup(struct prefix_ipv6 *prefix)
 	return NULL;
 }
 
+/* --- Zebra SRv6 SID management functions ---------------------------------- */
+
+/**
+ * Alloc and fill an SRv6 SID.
+ *
+ * @param ctx Context associated with the SID to be created
+ * @param sid_value IPv6 address associated with the SID to be created
+ * @param locator Parent locator of the SID to be created
+ * @param sid_block Block from which the SID value has been allocated
+ * @param sid_func Function part of the SID to be created
+ * @param alloc_mode Allocation mode of the Function (dynamic vs explicit)
+ * @return The requested SID
+ */
+struct zebra_srv6_sid *
+zebra_srv6_sid_alloc(struct zebra_srv6_sid_ctx *ctx, struct in6_addr *sid_value,
+		     struct srv6_locator *locator,
+		     struct zebra_srv6_sid_block *sid_block, uint32_t sid_func,
+		     enum srv6_sid_alloc_mode alloc_mode)
+{
+	struct zebra_srv6_sid *sid;
+
+	if (!ctx || !sid_value)
+		return NULL;
+
+	sid = XCALLOC(MTYPE_ZEBRA_SRV6_SID, sizeof(struct zebra_srv6_sid));
+	sid->ctx = ctx;
+	sid->value = *sid_value;
+	sid->locator = locator;
+	sid->block = sid_block;
+	sid->func = sid_func;
+	sid->alloc_mode = alloc_mode;
+	sid->client_list = list_new();
+
+	return sid;
+}
+
+void zebra_srv6_sid_free(struct zebra_srv6_sid *sid)
+{
+	list_delete(&sid->client_list);
+	XFREE(MTYPE_ZEBRA_SRV6_SID, sid);
+}
+
+/**
+ * Free an SRv6 SID.
+ *
+ * @param val SRv6 SID to be freed
+ */
+void delete_zebra_srv6_sid(void *val)
+{
+	zebra_srv6_sid_free((struct zebra_srv6_sid *)val);
+}
+
 void zebra_srv6_locator_add(struct srv6_locator *locator)
 {
 	struct zebra_srv6 *srv6 = zebra_srv6_get_default();
@@ -686,6 +767,10 @@ struct zebra_srv6 *zebra_srv6_get_default(void)
 		/* Create SID format `uncompressed` */
 		format_uncompressed = create_srv6_sid_format_uncompressed();
 		srv6_sid_format_register(format_uncompressed);
+
+		/* Init list to store SRv6 SIDs */
+		srv6.sids = list_new();
+		srv6.sids->del = delete_zebra_srv6_sid_ctx;
 
 		/* Init list to store SRv6 SID blocks */
 		srv6.sid_blocks = list_new();
@@ -896,6 +981,7 @@ void zebra_srv6_terminate(void)
 	struct srv6_locator *locator;
 	struct srv6_sid_format *format;
 	struct zebra_srv6_sid_block *block;
+	struct zebra_srv6_sid_ctx *sid_ctx;
 
 	if (srv6.locators) {
 		while (listcount(srv6.locators)) {
@@ -906,6 +992,18 @@ void zebra_srv6_terminate(void)
 		}
 
 		list_delete(&srv6.locators);
+	}
+
+	/* Free SRv6 SIDs */
+	if (srv6.sids) {
+		while (listcount(srv6.sids)) {
+			sid_ctx = listnode_head(srv6.sids);
+
+			listnode_delete(srv6.sids, sid_ctx);
+			zebra_srv6_sid_ctx_free(sid_ctx);
+		}
+
+		list_delete(&srv6.sids);
 	}
 
 	/* Free SRv6 SID blocks */
