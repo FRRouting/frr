@@ -2134,7 +2134,15 @@ int nb_notification_send(const char *xpath, struct list *arguments)
 lyerr:
 			flog_err(EC_LIB_LIBYANG,
 				 "%s: error creating notification data: %s",
-				 __func__, ly_strerrcode(err));
+				 __func__,
+#if defined(HAVE_LY_STRERRCODE)
+				 ly_strerrcode(err)
+#elif defined(HAVE_LY_STRERR)
+				 ly_strerr(err)
+#else
+#error missing ly_strerror()
+#endif
+			);
 			ret += 1;
 			goto done;
 		}

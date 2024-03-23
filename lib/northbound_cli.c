@@ -16,6 +16,7 @@
 #include "termtable.h"
 #include "db.h"
 #include "debug.h"
+#include <libyang/version.h>
 #include "yang_translator.h"
 #include "northbound.h"
 #include "northbound_cli.h"
@@ -1434,7 +1435,13 @@ static int nb_cli_oper_data_cb(const struct lysc_node *snode,
 			     LYD_NEW_PATH_UPDATE, &dnode);
 	if (err) {
 		flog_warn(EC_LIB_LIBYANG, "%s: lyd_new_path(%s) failed: %s",
-			  __func__, data->xpath, ly_errmsg(ly_native_ctx));
+			  __func__, data->xpath,
+#if (LY_VERSION_MAJOR < 3)
+			  ly_errmsg(ly_native_ctx)
+#else
+			  ly_last_logmsg()
+#endif
+		);
 		goto error;
 	}
 
