@@ -2063,7 +2063,7 @@ AC_CHECK_LIB([yang],[lyd_find_xpath3],[],[AC_MSG_ERROR([m4_normalize([
 libyang missing lyd_find_xpath3])])])
 dnl -- don't add lyd_new_list3 to this list unless bug is fixed upstream
 dnl -- https://github.com/CESNET/libyang/issues/2149
-AC_CHECK_FUNCS([ly_strerrcode ly_strvecode lyd_trim_xpath])
+AC_CHECK_FUNCS([ly_strerrcode ly_strerr ly_strvecode lyd_trim_xpath])
 
 CFLAGS="$ac_cflags_save"
 
