@@ -3203,11 +3203,50 @@ static int bgp_zebra_process_srv6_locator_chunk(ZAPI_CALLBACK_ARGS)
 	return 0;
 }
 
+/**
+ * Internal function to process an SRv6 locator
+ *
+ * @param locator Locator to be processed
+ */
+static int bgp_zebra_process_srv6_locator_internal(struct srv6_locator *locator)
+{
+	struct bgp *bgp = bgp_get_default();
+
+	if (!bgp || !bgp->srv6_enabled || !locator)
+		return -1;
+
+	/*
+	 * Check if the main BGP instance is configured to use the received
+	 * locator
+	 */
+	if (strcmp(bgp->srv6_locator_name, locator->name) != 0) {
+		zlog_err("%s: SRv6 Locator name unmatch %s:%s", __func__,
+			 bgp->srv6_locator_name, locator->name);
+		return 0;
+	}
+
+	zlog_info("%s: Received SRv6 locator %s %pFX, loc-block-len=%u, loc-node-len=%u func-len=%u, arg-len=%u",
+		  __func__, locator->name, &locator->prefix,
+		  locator->block_bits_length, locator->node_bits_length,
+		  locator->function_bits_length, locator->argument_bits_length);
+
+	/* Store the locator in the main BGP instance */
+	bgp->srv6_locator = srv6_locator_alloc(locator->name);
+	srv6_locator_copy(bgp->srv6_locator, locator);
+
+	/*
+	 * Process VPN-to-VRF and VRF-to-VPN leaks to advertise new locator
+	 * and SIDs.
+	 */
+	vpn_leak_postchange_all();
+
+	return 0;
+}
+
 static int bgp_zebra_process_srv6_locator_add(ZAPI_CALLBACK_ARGS)
 {
 	struct srv6_locator loc = {};
 	struct bgp *bgp = bgp_get_default();
-	const char *loc_name = bgp->srv6_locator_name;
 
 	if (zapi_srv6_locator_decode(zclient->ibuf, &loc) < 0)
 		return -1;
@@ -3215,10 +3254,7 @@ static int bgp_zebra_process_srv6_locator_add(ZAPI_CALLBACK_ARGS)
 	if (!bgp || !bgp->srv6_enabled)
 		return 0;
 
-	if (bgp_zebra_srv6_manager_get_locator_chunk(loc_name) < 0)
-		return -1;
-
-	return 0;
+	return bgp_zebra_process_srv6_locator_internal(&loc);
 }
 
 static int bgp_zebra_process_srv6_locator_delete(ZAPI_CALLBACK_ARGS)
@@ -3226,7 +3262,8 @@ static int bgp_zebra_process_srv6_locator_delete(ZAPI_CALLBACK_ARGS)
 	struct srv6_locator loc = {};
 	struct bgp *bgp = bgp_get_default();
 	struct listnode *node, *nnode;
-	struct srv6_locator_chunk *chunk, *tovpn_sid_locator;
+	struct srv6_locator_chunk *chunk;
+	struct srv6_locator *tovpn_sid_locator;
 	struct bgp_srv6_function *func;
 	struct bgp *bgp_vrf;
 	struct in6_addr *tovpn_sid;
@@ -3234,6 +3271,12 @@ static int bgp_zebra_process_srv6_locator_delete(ZAPI_CALLBACK_ARGS)
 
 	if (zapi_srv6_locator_decode(zclient->ibuf, &loc) < 0)
 		return -1;
+
+	// clear SRv6 locator
+	if (bgp->srv6_locator) {
+		srv6_locator_free(bgp->srv6_locator);
+		bgp->srv6_locator = NULL;
+	}
 
 	// refresh chunks
 	for (ALL_LIST_ELEMENTS(bgp->srv6_locator_chunks, node, nnode, chunk))
@@ -3311,10 +3354,12 @@ static int bgp_zebra_process_srv6_locator_delete(ZAPI_CALLBACK_ARGS)
 			tmp_prefi.prefixlen = IPV6_MAX_BITLEN;
 			tmp_prefi.prefix = tovpn_sid_locator->prefix.prefix;
 			if (prefix_match((struct prefix *)&loc.prefix,
-					 (struct prefix *)&tmp_prefi))
-				srv6_locator_chunk_free(
-					&bgp_vrf->vpn_policy[AFI_IP]
-						 .tovpn_sid_locator);
+					 (struct prefix *)&tmp_prefi)) {
+				srv6_locator_free(bgp_vrf->vpn_policy[AFI_IP]
+							  .tovpn_sid_locator);
+				bgp_vrf->vpn_policy[AFI_IP].tovpn_sid_locator =
+					NULL;
+			}
 		}
 
 		/* refresh vpnv6 tovpn_sid_locator */
@@ -3325,10 +3370,12 @@ static int bgp_zebra_process_srv6_locator_delete(ZAPI_CALLBACK_ARGS)
 			tmp_prefi.prefixlen = IPV6_MAX_BITLEN;
 			tmp_prefi.prefix = tovpn_sid_locator->prefix.prefix;
 			if (prefix_match((struct prefix *)&loc.prefix,
-					 (struct prefix *)&tmp_prefi))
-				srv6_locator_chunk_free(
-					&bgp_vrf->vpn_policy[AFI_IP6]
-						 .tovpn_sid_locator);
+					 (struct prefix *)&tmp_prefi)) {
+				srv6_locator_free(bgp_vrf->vpn_policy[AFI_IP6]
+							  .tovpn_sid_locator);
+				bgp_vrf->vpn_policy[AFI_IP6].tovpn_sid_locator =
+					NULL;
+			}
 		}
 
 		/* refresh per-vrf tovpn_sid_locator */
@@ -3338,9 +3385,10 @@ static int bgp_zebra_process_srv6_locator_delete(ZAPI_CALLBACK_ARGS)
 			tmp_prefi.prefixlen = IPV6_MAX_BITLEN;
 			tmp_prefi.prefix = tovpn_sid_locator->prefix.prefix;
 			if (prefix_match((struct prefix *)&loc.prefix,
-					 (struct prefix *)&tmp_prefi))
-				srv6_locator_chunk_free(
-					&bgp_vrf->tovpn_sid_locator);
+					 (struct prefix *)&tmp_prefi)) {
+				srv6_locator_free(bgp_vrf->tovpn_sid_locator);
+				bgp_vrf->tovpn_sid_locator = NULL;
+			}
 		}
 	}
 
