@@ -392,6 +392,13 @@ extern void srv6_manager_get_locator_call(struct zebra_srv6_locator **locator,
 					  struct zserv *client,
 					  const char *locator_name);
 
+struct zebra_srv6_sid *
+assign_srv6_sid(uint8_t proto, unsigned short instance, uint32_t session_id,
+		enum srv6_sid_alloc_mode alloc_mode, struct srv6_sid_ctx *ctx,
+		struct in6_addr *sid_value, const char *locator);
+int release_srv6_sid(uint8_t proto, unsigned short instance,
+		     uint32_t session_id, struct zebra_srv6_sid_ctx *ctx);
+
 extern struct zebra_srv6_sid_ctx *zebra_srv6_sid_ctx_alloc(void);
 extern void zebra_srv6_sid_ctx_free(struct zebra_srv6_sid_ctx *ctx);
 extern void delete_zebra_srv6_sid_ctx(void *val);
