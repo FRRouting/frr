@@ -69,6 +69,10 @@ extern int isis_zebra_srv6_manager_get_locator_chunk(const char *name);
 extern int isis_zebra_srv6_manager_release_locator_chunk(const char *name);
 
 extern int isis_zebra_srv6_manager_get_locator(const char *name);
+extern bool isis_zebra_request_srv6_sid(const struct srv6_sid_ctx *ctx,
+					struct in6_addr *sid_value,
+					const char *locator_name);
+extern void isis_zebra_release_srv6_sid(const struct srv6_sid_ctx *ctx);
 
 extern bool isis_zebra_srv6_manager_ready(void);
 extern int isis_zebra_srv6_manager_connect(void);

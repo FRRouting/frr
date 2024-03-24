@@ -1423,6 +1423,76 @@ int isis_zebra_srv6_manager_get_locator(const char *name)
 	return srv6_manager_get_locator(zclient, name);
 }
 
+/**
+ * Ask the SRv6 Manager (zebra) to allocate a SID.
+ *
+ * Optionally, it is possible to provide an IPv6 address (sid_addr parameter).
+ *
+ * When sid_addr is provided, the SRv6 Manager allocates the requested SID
+ * address, if the request can be satisfied (explicit allocation).
+ *
+ * When sid_addr is not provided, the SRv6 Manager allocates any available SID
+ * from the provided locator (dynamic allocation).
+ *
+ * @param ctx Context to be associated with the request SID
+ * @param sid_value IPv6 address to be associated with the requested SID (optional)
+ * @param locator_name Name of the locator from which the SID must be allocated
+ */
+bool isis_zebra_request_srv6_sid(const struct srv6_sid_ctx *ctx,
+				 struct in6_addr *sid_value,
+				 const char *locator_name)
+{
+	int ret;
+
+	if (!ctx || !locator_name)
+		return false;
+
+	if (!zclient_sync || !isis_zebra_srv6_manager_ready())
+		return false;
+
+	/*
+	 * Send the Get SRv6 SID request to the SRv6 Manager and check the
+	 * result
+	 */
+	ret = srv6_manager_get_srv6_sid(zclient_sync, ctx, sid_value,
+					locator_name, NULL);
+	if (ret < 0) {
+		zlog_warn("%s: error getting SRv6 SID!", __func__);
+		return false;
+	}
+
+	return true;
+}
+
+/**
+ * Ask the SRv6 Manager (zebra) to release a previously allocated SID.
+ *
+ * This function is used to tell the SRv6 Manager that IS-IS no longer intends
+ * to use the SID.
+ *
+ * @param ctx Context to be associated with the SID to be released
+ */
+void isis_zebra_release_srv6_sid(const struct srv6_sid_ctx *ctx)
+{
+	int ret;
+
+	if (!ctx)
+		return;
+
+	if (!zclient_sync || !isis_zebra_srv6_manager_ready())
+		return;
+
+	/*
+	 * Send the Release SRv6 SID request to the SRv6 Manager and check the
+	 * result
+	 */
+	ret = sm_release_srv6_sid(zclient_sync, ctx);
+	if (ret < 0) {
+		zlog_warn("%s: error releasing SRv6 SID!", __func__);
+		return;
+	}
+}
+
 static zclient_handler *const isis_handlers[] = {
 	[ZEBRA_ROUTER_ID_UPDATE] = isis_router_id_update_zebra,
 	[ZEBRA_INTERFACE_ADDRESS_ADD] = isis_zebra_if_address_add,
