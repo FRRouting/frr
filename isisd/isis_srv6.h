@@ -153,7 +153,7 @@ void isis_srv6_interface_set(struct isis_area *area, const char *ifname);
 struct isis_srv6_sid *
 isis_srv6_sid_alloc(struct isis_area *area, struct srv6_locator *locator,
 		    enum srv6_endpoint_behavior_codepoint behavior,
-		    int sid_func);
+		    struct in6_addr *sid_value);
 extern void isis_srv6_sid_free(struct isis_srv6_sid *sid);
 
 extern void isis_srv6_area_init(struct isis_area *area);
