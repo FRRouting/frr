@@ -44,7 +44,7 @@ struct isis_srv6_sid {
 	struct isis_srv6_sid_structure structure;
 
 	/* Parent SRv6 locator */
-	struct srv6_locator_chunk *locator;
+	struct srv6_locator *locator;
 
 	/* Backpointer to IS-IS area */
 	struct isis_area *area;
@@ -89,7 +89,7 @@ struct srv6_adjacency {
 	struct isis_srv6_sid_structure structure;
 
 	/* Parent SRv6 locator */
-	struct srv6_locator_chunk *locator;
+	struct srv6_locator *locator;
 
 	/* Adjacency-SID nexthop information */
 	struct in6_addr nexthop;
@@ -109,6 +109,8 @@ struct srv6_adjacency {
 
 /* Per-area IS-IS SRv6 Data Base (SRv6 DB) */
 struct isis_srv6_db {
+	/* List of SRv6 Locator */
+	struct srv6_locator *srv6_locator;
 
 	/* List of SRv6 Locator chunks */
 	struct list *srv6_locator_chunks;
@@ -149,7 +151,7 @@ bool isis_srv6_locator_unset(struct isis_area *area);
 void isis_srv6_interface_set(struct isis_area *area, const char *ifname);
 
 struct isis_srv6_sid *
-isis_srv6_sid_alloc(struct isis_area *area, struct srv6_locator_chunk *chunk,
+isis_srv6_sid_alloc(struct isis_area *area, struct srv6_locator *locator,
 		    enum srv6_endpoint_behavior_codepoint behavior,
 		    int sid_func);
 extern void isis_srv6_sid_free(struct isis_srv6_sid *sid);
