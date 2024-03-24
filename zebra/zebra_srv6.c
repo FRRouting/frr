@@ -683,14 +683,13 @@ void zebra_srv6_locator_add(struct zebra_srv6_locator *locator)
 void zebra_srv6_locator_delete(struct zebra_srv6_locator *locator)
 {
 	struct listnode *n;
-	struct srv6_locator_chunk *c;
 	struct zebra_srv6 *srv6 = zebra_srv6_get_default();
 	struct zserv *client;
 
 	/*
-	 * Notify deleted locator info to zclients if needed.
+	 * Notify deleted locator info to zclients.
 	 *
-	 * zclient(bgpd,isisd,etc) allocates a sid from srv6 locator chunk and
+	 * zclient(bgpd,isisd,etc) allocates a sid and
 	 * uses it for its own purpose. For example, in the case of BGP L3VPN,
 	 * the SID assigned to vpn unicast rib will be given.
 	 * And when the locator is deleted by zserv(zebra), those SIDs need to
@@ -698,18 +697,8 @@ void zebra_srv6_locator_delete(struct zebra_srv6_locator *locator)
 	 * by ZEBRA_SRV6_LOCATOR_DELETE, and this notification is sent to the
 	 * owner of each chunk.
 	 */
-	for (ALL_LIST_ELEMENTS_RO((struct list *)locator->locator.chunks, n, c)) {
-		if (c->proto == ZEBRA_ROUTE_SYSTEM)
-			continue;
-		client = zserv_find_client(c->proto, c->instance);
-		if (!client) {
-			zlog_warn(
-				"%s: Not found zclient(proto=%u, instance=%u).",
-				__func__, c->proto, c->instance);
-			continue;
-		}
+	for (ALL_LIST_ELEMENTS_RO(zrouter.client_list, n, client))
 		zsend_zebra_srv6_locator_delete(client, &locator->locator);
-	}
 
 	listnode_delete(srv6->locators, locator);
 	zebra_srv6_locator_free(locator);
@@ -752,31 +741,21 @@ void zebra_notify_srv6_locator_add(struct zebra_srv6_locator *locator)
 void zebra_notify_srv6_locator_delete(struct zebra_srv6_locator *locator)
 {
 	struct listnode *n;
-	struct srv6_locator_chunk *c;
 	struct zserv *client;
 
 	/*
-	 * Notify deleted locator info to zclients if needed.
+	 * Notify deleted locator info to zclients.
 	 *
-	 * zclient(bgpd,isisd,etc) allocates a sid from srv6 locator chunk and
+	 * zclient(bgpd,isisd,etc) allocates a sid and
 	 * uses it for its own purpose. For example, in the case of BGP L3VPN,
 	 * the SID assigned to vpn unicast rib will be given.
 	 * And when the locator is deleted by zserv(zebra), those SIDs need to
 	 * be withdrawn. The zclient must initiate the withdrawal of the SIDs
 	 * by ZEBRA_SRV6_LOCATOR_DELETE, and this notification is sent to the
-	 * owner of each chunk.
+	 * all zclients.
 	 */
-	for (ALL_LIST_ELEMENTS_RO((struct list *)locator->locator.chunks, n, c)) {
-		if (c->proto == ZEBRA_ROUTE_SYSTEM)
-			continue;
-		client = zserv_find_client(c->proto, c->instance);
-		if (!client) {
-			zlog_warn("Not found zclient(proto=%u, instance=%u).",
-				  c->proto, c->instance);
-			continue;
-		}
+	for (ALL_LIST_ELEMENTS_RO(zrouter.client_list, n, client))
 		zsend_zebra_srv6_locator_delete(client, &locator->locator);
-	}
 }
 
 struct zebra_srv6 srv6;
