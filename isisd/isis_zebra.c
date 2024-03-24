@@ -678,6 +678,36 @@ void isis_zebra_request_srv6_sid_endx(struct isis_adjacency *adj)
 	}
 }
 
+static void request_srv6_sids(struct isis_area *area)
+{
+	struct srv6_sid_ctx ctx = {};
+	struct in6_addr sid_value = {};
+	struct listnode *node;
+	struct isis_adjacency *adj;
+	bool ret;
+
+	if (!area || !area->srv6db.config.enabled || !area->srv6db.srv6_locator)
+		return;
+
+	sr_debug("Requesting SRv6 SIDs for IS-IS area %s", area->area_tag);
+
+	/* Request new SRv6 End SID */
+	ctx.behavior = ZEBRA_SEG6_LOCAL_ACTION_END;
+	ret = isis_zebra_request_srv6_sid(&ctx, &sid_value,
+					  area->srv6db.config.srv6_locator_name);
+	if (!ret) {
+		zlog_err("%s: not allocated new End SID for IS-IS area %s",
+			 __func__, area->area_tag);
+		return;
+	}
+
+	/* Create SRv6 End.X SIDs from existing IS-IS Adjacencies */
+	for (ALL_LIST_ELEMENTS_RO(area->adjacency_list, node, adj)) {
+		if (adj->ll_ipv6_count > 0)
+			isis_zebra_request_srv6_sid_endx(adj);
+	}
+}
+
 /**
  * Release Label Range to the Label Manager.
  *
@@ -1252,6 +1282,53 @@ static int isis_zebra_process_srv6_locator_chunk(ZAPI_CALLBACK_ARGS)
 }
 
 /**
+ * Internal function to process an SRv6 locator
+ *
+ * @param locator The locator to be processed
+ */
+static int isis_zebra_process_srv6_locator_internal(struct srv6_locator *locator)
+{
+	struct isis *isis = isis_lookup_by_vrfid(VRF_DEFAULT);
+	struct isis_area *area;
+	struct listnode *node;
+
+	if (!isis || !locator)
+		return -1;
+
+	zlog_info("%s: Received SRv6 locator %s %pFX, loc-block-len=%u, loc-node-len=%u func-len=%u, arg-len=%u",
+		  __func__, locator->name, &locator->prefix,
+		  locator->block_bits_length, locator->node_bits_length,
+		  locator->function_bits_length, locator->argument_bits_length);
+
+	/* Walk through all areas of the ISIS instance */
+	for (ALL_LIST_ELEMENTS_RO(isis->area_list, node, area)) {
+		/*
+		 * Check if the IS-IS area is configured to use the received
+		 * locator
+		 */
+		if (strncmp(area->srv6db.config.srv6_locator_name, locator->name,
+			    sizeof(area->srv6db.config.srv6_locator_name)) != 0) {
+			zlog_err("%s: SRv6 Locator name unmatch %s:%s",
+				 __func__, area->srv6db.config.srv6_locator_name,
+				 locator->name);
+			continue;
+		}
+
+		sr_debug("SRv6 locator (locator %s, prefix %pFX) set for IS-IS area %s",
+			 locator->name, &locator->prefix, area->area_tag);
+
+		/* Store the locator in the IS-IS area */
+		area->srv6db.srv6_locator = srv6_locator_alloc(locator->name);
+		srv6_locator_copy(area->srv6db.srv6_locator, locator);
+
+		/* Request SIDs from the locator */
+		request_srv6_sids(area);
+	}
+
+	return 0;
+}
+
+/**
  * Callback to process an SRv6 locator received from SRv6 Manager (zebra).
  *
  * @result 0 on success, -1 otherwise
@@ -1260,8 +1337,6 @@ static int isis_zebra_process_srv6_locator_add(ZAPI_CALLBACK_ARGS)
 {
 	struct isis *isis = isis_lookup_by_vrfid(VRF_DEFAULT);
 	struct srv6_locator loc = {};
-	struct listnode *node;
-	struct isis_area *area;
 
 	if (!isis)
 		return -1;
@@ -1270,33 +1345,7 @@ static int isis_zebra_process_srv6_locator_add(ZAPI_CALLBACK_ARGS)
 	if (zapi_srv6_locator_decode(zclient->ibuf, &loc) < 0)
 		return -1;
 
-	sr_debug(
-		"New SRv6 locator allocated in zebra: name %s, "
-		"prefix %pFX, block_len %u, node_len %u, func_len %u, arg_len %u",
-		loc.name, &loc.prefix, loc.block_bits_length,
-		loc.node_bits_length, loc.function_bits_length,
-		loc.argument_bits_length);
-
-	/* Lookup on the IS-IS areas */
-	for (ALL_LIST_ELEMENTS_RO(isis->area_list, node, area)) {
-		/* If SRv6 is enabled on this area and the configured locator
-		 * corresponds to the new locator, then request a chunk from the
-		 * locator */
-		if (area->srv6db.config.enabled &&
-		    strncmp(area->srv6db.config.srv6_locator_name, loc.name,
-			    sizeof(area->srv6db.config.srv6_locator_name)) == 0) {
-			sr_debug(
-				"Sending a request to get a chunk from the SRv6 locator %s (%pFX) "
-				"for IS-IS area %s",
-				loc.name, &loc.prefix, area->area_tag);
-
-			if (isis_zebra_srv6_manager_get_locator_chunk(
-				    loc.name) < 0)
-				return -1;
-		}
-	}
-
-	return 0;
+	return isis_zebra_process_srv6_locator_internal(&loc);
 }
 
 /**
