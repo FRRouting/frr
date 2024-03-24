@@ -141,7 +141,7 @@ def test_sid_unreachable_bgp_update():
         exit
         router bgp 65002 vrf vrf10
          address-family ipv4 unicast
-          no sid vpn export 1
+          no sid vpn export 65280
         """
     )
     check_ping("c11", "192.168.2.1", False, 10, 1)
@@ -158,7 +158,7 @@ def test_sid_reachable_again_bgp_update():
         exit
         router bgp 65002 vrf vrf10
          address-family ipv4 unicast
-          sid vpn export 1
+          sid vpn export 65280
         """
     )
     check_ping("c11", "192.168.2.1", True, 10, 1)

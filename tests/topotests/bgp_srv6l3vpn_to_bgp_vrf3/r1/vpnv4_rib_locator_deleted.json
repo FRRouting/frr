@@ -9,9 +9,6 @@
       "1:10": {
         "192.168.1.0/24": [
           {
-            "valid": true,
-            "bestpath": true,
-            "selectionReason": "First path received",
             "pathFrom": "external",
             "prefix": "192.168.1.0",
             "prefixLen": 24,
@@ -34,9 +31,6 @@
         ],
         "192.168.3.0/24": [
           {
-            "valid": true,
-            "bestpath": true,
-            "selectionReason": "First path received",
             "pathFrom": "external",
             "prefix": "192.168.3.0",
             "prefixLen": 24,
@@ -61,9 +55,6 @@
       "1:20": {
         "192.168.5.0/24": [
           {
-            "valid": true,
-            "bestpath": true,
-            "selectionReason": "First path received",
             "pathFrom": "external",
             "prefix": "192.168.5.0",
             "prefixLen": 24,

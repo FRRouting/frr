@@ -37,14 +37,14 @@
           "ip":"2001::2",
           "afi":"ipv6",
           "labels":[
-            128
+            1044480
           ],
           "weight":1,
           "seg6local":{
             "action":"unspec"
           },
           "seg6":{
-            "segs":"2001:db8:2:2:8::"
+            "segs":"2001:db8:2:2:ff00::"
           }
         }
       ]

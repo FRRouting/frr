@@ -550,6 +550,7 @@ def test_isis_adjacencies_step3():
            locators
             locator loc1
              prefix fc00:0:1::/48
+             format usid-f3216
         """
     )
 
@@ -1216,6 +1217,7 @@ def test_isis_adjacencies_step9():
            locators
             locator loc1
              prefix fc00:0:1::/48
+             format usid-f3216
         """
     )
 

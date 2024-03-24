@@ -264,7 +264,7 @@ def test_sid_per_afv6_manual():
         configure terminal
          router bgp 2 vrf vrf10
           address-family ipv6 unicast
-           sid vpn export 8
+           sid vpn export 65280
         """
     )
 
@@ -278,7 +278,7 @@ def test_sid_per_afv6_manual():
         configure terminal
          router bgp 2 vrf vrf10
           address-family ipv6 unicast
-           no sid vpn export 8
+           no sid vpn export 65280
         """
     )
     check_rib(
@@ -340,7 +340,7 @@ def test_sid_per_afv4_manual():
         configure terminal
          router bgp 2 vrf vrf10
           address-family ipv4 unicast
-           sid vpn export 8
+           sid vpn export 65280
         """
     )
 
@@ -352,7 +352,7 @@ def test_sid_per_afv4_manual():
         configure terminal
          router bgp 2 vrf vrf10
           address-family ipv4 unicast
-           no sid vpn export 8
+           no sid vpn export 65280
         """
     )
     check_ping("ce1", "192.168.2.2", False, 10, 0.5)
@@ -406,7 +406,7 @@ def test_sid_per_vrf_manual():
         """
         configure terminal
          router bgp 2 vrf vrf10
-          sid vpn per-vrf export 8
+          sid vpn per-vrf export 65280
         """
     )
 
@@ -423,7 +423,7 @@ def test_sid_per_vrf_manual():
         """
         configure terminal
          router bgp 2 vrf vrf10
-           no sid vpn per-vrf export 8
+           no sid vpn per-vrf export 65280
         """
     )
 
