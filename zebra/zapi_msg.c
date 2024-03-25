@@ -55,6 +55,10 @@
 
 DEFINE_MTYPE_STATIC(ZEBRA, RE_OPAQUE, "Route Opaque Data");
 
+DEFINE_HOOK(zebra_qppb_mark_prefix,
+	    (const struct prefix *p, uint8_t dscp, bool add), (p, dscp, add));
+
+
 static int zapi_nhg_decode(struct stream *s, int cmd, struct zapi_nhg *api_nhg);
 
 /* Encoding helpers -------------------------------------------------------- */
@@ -604,6 +608,10 @@ int zsend_redistribute_route(int cmd, struct zserv *client,
 		api.distance = re->distance;
 	SET_FLAG(api.message, ZAPI_MESSAGE_METRIC);
 	api.metric = re->metric;
+	if (re->dscp) {
+		SET_FLAG(api.message, ZAPI_MESSAGE_DSCP);
+		api.dscp = re->dscp;
+	}
 	if (re->tag) {
 		SET_FLAG(api.message, ZAPI_MESSAGE_TAG);
 		api.tag = re->tag;
@@ -2182,6 +2190,8 @@ static void zread_route_add(ZAPI_HANDLER_ARGS)
 		XFREE(MTYPE_RE, re);
 	}
 
+	hook_call(zebra_qppb_mark_prefix, &api.prefix, api.dscp, true);
+
 	/* At this point, these allocations are not needed: 're' has been
 	 * retained or freed, and if 're' still exists, it is using
 	 * a reference to a shared group object.
@@ -2247,6 +2257,8 @@ static void zread_route_del(ZAPI_HANDLER_ARGS)
 	rib_delete(afi, api.safi, zvrf_id(zvrf), api.type, api.instance,
 		   api.flags, &api.prefix, src_p, NULL, 0, table_id, api.metric,
 		   api.distance, false);
+
+	hook_call(zebra_qppb_mark_prefix, &api.prefix, api.dscp, false);
 
 	/* Stats */
 	switch (api.prefix.family) {

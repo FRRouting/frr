@@ -1293,6 +1293,52 @@ lib_route_map_entry_set_action_tag_destroy(struct nb_cb_destroy_args *args)
 }
 
 /*
+ * XPath: /frr-route-map:lib/route-map/entry/set-action/dscp
+ */
+static int
+lib_route_map_entry_set_action_dscp_modify(struct nb_cb_modify_args *args)
+{
+	struct routemap_hook_context *rhc;
+	const char *dscp;
+	int rv;
+
+	/*
+	 * NOTE: validate if 'action' is 'dscp', currently it is not
+	 * necessary because this is the only implemented action. Other
+	 * actions might have different validations.
+	 */
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	/* Check for hook function. */
+	if (rmap_match_set_hook.set_dscp == NULL)
+		return NB_OK;
+
+	/* Add configuration. */
+	rhc = nb_running_get_entry(args->dnode, NULL, true);
+	dscp = yang_dnode_get_string(args->dnode, NULL);
+
+	/* Set destroy information. */
+	rhc->rhc_shook = rmap_match_set_hook.no_set_dscp;
+	rhc->rhc_rule = "dscp";
+
+	rv = rmap_match_set_hook.set_dscp(rhc->rhc_rmi, "dscp", dscp,
+					  args->errmsg, args->errmsg_len);
+	if (rv != CMD_SUCCESS) {
+		rhc->rhc_shook = NULL;
+		return NB_ERR_INCONSISTENCY;
+	}
+
+	return NB_OK;
+}
+
+static int
+lib_route_map_entry_set_action_dscp_destroy(struct nb_cb_destroy_args *args)
+{
+	return lib_route_map_entry_set_destroy(args);
+}
+
+/*
  * XPath: /frr-route-map:lib/route-map/entry/set-action/policy
  */
 static int
@@ -1535,6 +1581,13 @@ const struct frr_yang_module_info frr_route_map_info = {
 			.cbs = {
 				.modify = lib_route_map_entry_set_action_tag_modify,
 				.destroy = lib_route_map_entry_set_action_tag_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-route-map:lib/route-map/entry/set-action/rmap-set-action/dscp",
+			.cbs = {
+				.modify = lib_route_map_entry_set_action_dscp_modify,
+				.destroy = lib_route_map_entry_set_action_dscp_destroy,
 			}
 		},
 		{

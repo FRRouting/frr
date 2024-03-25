@@ -1004,6 +1004,39 @@ DEFPY_YANG(
 	return nb_cli_apply_changes(vty, NULL);
 }
 
+DEFPY_YANG(
+	set_dscp, set_dscp_cmd,
+	"set dscp DSCP$dscp",
+	SET_STR
+	"DSCP value for routing protocol\n"
+        "DSCP value\n")
+{
+	const char *xpath = "./set-action[action='frr-route-map:set-dscp']";
+	char xpath_value[XPATH_MAXLEN];
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+	snprintf(xpath_value, sizeof(xpath_value), "%s/rmap-set-action/dscp",
+		 xpath);
+	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, dscp);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG(
+	no_set_dscp, no_set_dscp_cmd,
+	"no set dscp [OPTVAL]",
+	NO_STR
+	SET_STR
+	"DSCP value for routing protocol\n"
+	"DSCP value\n")
+{
+	const char *xpath = "./set-action[action='frr-route-map:set-dscp']";
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
 DEFUN_YANG (set_srte_color,
 	    set_srte_color_cmd,
 	    "set sr-te color (1-4294967295)",
@@ -1103,6 +1136,9 @@ void route_map_action_show(struct vty *vty, const struct lyd_node *dnode,
 	} else if (IS_SET_TAG(action)) {
 		vty_out(vty, " set tag %s\n",
 			yang_dnode_get_string(dnode, "rmap-set-action/tag"));
+	} else if (IS_SET_DSCP(action)) {
+		vty_out(vty, " set dscp %s\n",
+			yang_dnode_get_string(dnode, "./rmap-set-action/dscp"));
 	} else if (IS_SET_SR_TE_COLOR(action)) {
 		vty_out(vty, " set sr-te color %s\n",
 			yang_dnode_get_string(dnode,
@@ -1668,6 +1704,9 @@ void route_map_cli_init(void)
 
 	install_element(RMAP_NODE, &set_tag_cmd);
 	install_element(RMAP_NODE, &no_set_tag_cmd);
+
+	install_element(RMAP_NODE, &set_dscp_cmd);
+	install_element(RMAP_NODE, &no_set_dscp_cmd);
 
 	install_element(RMAP_NODE, &set_srte_color_cmd);
 	install_element(RMAP_NODE, &no_set_srte_color_cmd);
