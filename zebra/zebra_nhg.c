@@ -1795,8 +1795,8 @@ static struct nexthop *nexthop_set_resolved(afi_t afi,
 		break;
 	}
 
-	if (newhop->flags & NEXTHOP_FLAG_ONLINK)
-		resolved_hop->flags |= NEXTHOP_FLAG_ONLINK;
+	if (CHECK_FLAG(newhop->flags, NEXTHOP_FLAG_ONLINK))
+		SET_FLAG(resolved_hop->flags, NEXTHOP_FLAG_ONLINK);
 
 	/* Copy labels of the resolved route and the parent resolving to it */
 	if (policy) {

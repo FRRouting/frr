@@ -304,7 +304,7 @@ static void zebra_ns_notify_read(struct event *t)
 		char *netnspath;
 		struct zebra_netns_info *netnsinfo;
 
-		if (!(event->mask & (IN_CREATE | IN_DELETE)))
+		if (!CHECK_FLAG(event->mask, (IN_CREATE | IN_DELETE)))
 			continue;
 
 		if (offsetof(struct inotify_event, name) + event->len
@@ -350,7 +350,7 @@ static void zebra_ns_notify_read(struct event *t)
 		memcpy(event_name, event->name, event->len);
 		event_name[event->len - 1] = 0;
 
-		if (event->mask & IN_DELETE) {
+		if (CHECK_FLAG(event->mask, IN_DELETE)) {
 			zebra_ns_delete(event_name);
 			continue;
 		}
