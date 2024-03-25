@@ -104,6 +104,16 @@ module frr-isisd {
         description
           "This enum indicates capability for both levels.";
       }
+        enum "level2_to_level1" {
+        value 4;
+        description
+          "This enum indicates capability for both levels.";
+      }
+      enum "level1_to_level2" {
+        value 5;
+        description
+          "This enum indicates capability for both levels.";
+      }
     }
     description
       "This type defines IS-IS level of an object.";
@@ -310,6 +320,27 @@ module frr-isisd {
     }
 
     uses redistribute-attributes;
+  }
+
+  grouping leanking-attributes {
+    description
+      "Common optional attributes of any leanking entry.";
+    leaf route-map {
+      type frr-route-map:route-map-ref;
+      description
+        "Applies the conditions of the specified route-map to routes that
+         are redistributed into this routing instance.";
+    }
+
+    leaf metric {
+      type uint32 {
+        range "0..16777215";
+      }
+      default "0";
+      description
+        "Metric used for the redistributed route. If 0,
+         the default-metric attribute is used instead.";
+    }
   }
 
   grouping isis-password {
@@ -2078,6 +2109,45 @@ module frr-isisd {
         }
       }
 
+      container route_leanking {
+        description
+          "Redistributes routes learned from other routing protocols.";
+        list ipv4 {
+          key "protocol level";
+          description
+            "IPv4 route redistribution.";
+          leaf protocol {
+            type frr-route-types:frr-route-types-v4;
+            description
+              "Originating routing protocol for the IPv4 routes.";
+          }
+
+          leaf level {
+            type level;
+            description
+              "IS-IS level into which the routes should be redistributed.";
+          }
+
+          uses leanking-attributes;
+        }
+        list ipv6 {
+          key "protocol level";
+          description
+            "IPv6 route redistribution.";
+          leaf protocol {
+            type frr-route-types:frr-route-types-v6;
+            description
+              "Originating routing protocol for the IPv6 routes.";
+          }
+
+          leaf level {
+            type level;
+            description
+              "IS-IS level into which the routes should be redistributed.";
+          }
+         uses redistribute-attributes;
+        }
+      }
     }
   }
 

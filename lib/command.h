@@ -393,6 +393,8 @@ struct cmd_node {
 #define SRTE_COLOR_STR "SR-TE Color information\n"
 #define NO_STR "Negate a command or set its defaults\n"
 #define IGNORED_IN_NO_STR "Ignored value in no form\n"
+#define ROUTE_LEANKING	  "route_leanking\n"
+#define LEANKING_STR	  "Leanking between level's in IS-IS routing protocol\n"
 #define REDIST_STR "Redistribute information from another routing protocol\n"
 #define CLEAR_STR "Reset functions\n"
 #define RIP_STR "RIP information\n"

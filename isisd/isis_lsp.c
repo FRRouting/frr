@@ -938,7 +938,6 @@ static void lsp_build_internal_reach_ipv6(struct isis_lsp *lsp,
 				 metric, false, pcfgs);
 }
 
-
 static void lsp_build_ext_reach_ipv4(struct isis_lsp *lsp,
 				     struct isis_area *area)
 {
@@ -1032,6 +1031,71 @@ static void lsp_build_ext_reach_ipv6(struct isis_lsp *lsp,
 							p, src_p, metric);
 		}
 	}
+}
+
+static void lsp_build_leanking_reach_ipv4(struct isis_lsp *lsp,
+					  struct isis_area *area,
+					  struct prefix_leanking *leanking)
+{
+	struct prefix_ipv4 *ipv4 = (struct prefix_ipv4 *)leanking->prefix;
+
+	if (area->oldmetric)
+		isis_tlvs_add_oldstyle_ip_reach(lsp->tlvs, ipv4,
+						leanking->metric);
+	if (area->newmetric) {
+		struct sr_prefix_cfg *pcfgs[SR_ALGORITHM_COUNT] = { NULL };
+
+		if (area->srdb.enabled)
+			for (int i = 0; i < SR_ALGORITHM_COUNT; i++) {
+#ifndef FABRICD
+				if (flex_algo_id_valid(i) &&
+				    !isis_flex_algo_elected_supported(i, area))
+					continue;
+#endif /* ifndef FABRICD */
+				pcfgs[i] = isis_sr_cfg_prefix_find(area, ipv4,
+								   i);
+			}
+		isis_tlvs_add_extended_ip_reach(lsp->tlvs, ipv4,
+						leanking->metric, true, pcfgs);
+	}
+}
+
+static void lsp_build_leanking_reach_ipv6(struct isis_lsp *lsp,
+					  struct isis_area *area,
+					  struct prefix_leanking *leanking)
+{
+	struct prefix_ipv6 *ipv6 = (struct prefix_ipv6 *)leanking->prefix;
+	struct sr_prefix_cfg *pcfgs[SR_ALGORITHM_COUNT] = { NULL };
+
+	if (area->srdb.enabled)
+		for (int i = 0; i < SR_ALGORITHM_COUNT; i++) {
+#ifndef FABRICD
+			if (flex_algo_id_valid(i) &&
+			    !isis_flex_algo_elected_supported(i, area))
+				continue;
+#endif /* ifndef FABRICD */
+			pcfgs[i] = isis_sr_cfg_prefix_find(area, ipv6, i);
+		}
+	isis_tlvs_add_ipv6_reach(lsp->tlvs, isis_area_ipv6_topology(area), ipv6,
+				 leanking->metric, true, pcfgs);
+}
+
+static void lsp_build_leanking_reach(struct isis_lsp *lsp,
+				     struct isis_area *area)
+{
+	struct listnode *node;
+	struct prefix_leanking *leanking;
+
+	for (ALL_LIST_ELEMENTS_RO(area->leanking_list[lsp->level - 1], node,
+				  leanking)) {
+		if (leanking->prefix->family == AF_INET)
+			lsp_build_leanking_reach_ipv4(lsp, area, leanking);
+		if (leanking->prefix->family == AF_INET6)
+			lsp_build_leanking_reach_ipv6(lsp, area, leanking);
+	}
+
+	list_delete_all_node(area->leanking_list[LVL_ISIS_LEANKING_1]);
+	list_delete_all_node(area->leanking_list[LVL_ISIS_LEANKING_2]);
 }
 
 static void lsp_build_ext_reach(struct isis_lsp *lsp, struct isis_area *area)
@@ -1437,7 +1501,14 @@ static void lsp_build(struct isis_lsp *lsp, struct isis_area *area)
 		}
 	}
 
+	struct listnode *node_redist;
+	struct isis_leanking *redist;
+
+	for (ALL_LIST_ELEMENTS_RO(area->leanking_settings, node_redist, redist))
+		iteration_in_spftree(area, redist);
+
 	lsp_build_ext_reach(lsp, area);
+	lsp_build_leanking_reach(lsp, area);
 
 	struct isis_tlvs *tlvs = lsp->tlvs;
 	lsp->tlvs = NULL;
