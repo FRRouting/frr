@@ -9045,6 +9045,9 @@ static void route_vty_short_status_out(struct vty *vty,
 		vty_out(vty, "i");
 	else
 		vty_out(vty, " ");
+
+	/* adding space between next column */
+	vty_out(vty, " ");
 }
 
 static char *bgp_nexthop_hostname(struct peer *peer,
