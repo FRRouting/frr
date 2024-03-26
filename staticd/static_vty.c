@@ -1646,19 +1646,11 @@ DEFUN_NOSH (show_debugging_static,
 	return CMD_SUCCESS;
 }
 
-static struct cmd_node debug_node = {
-	.name = "debug",
-	.node = DEBUG_NODE,
-	.prompt = "",
-	.config_write = static_config_write_debug,
-};
-
 #endif /* ifndef INCLUDE_MGMTD_CMDDEFS_ONLY */
 
 void static_vty_init(void)
 {
 #ifndef INCLUDE_MGMTD_CMDDEFS_ONLY
-	install_node(&debug_node);
 	install_element(ENABLE_NODE, &debug_staticd_cmd);
 	install_element(CONFIG_NODE, &debug_staticd_cmd);
 	install_element(ENABLE_NODE, &show_debugging_static_cmd);

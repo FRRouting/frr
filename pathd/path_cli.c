@@ -1305,20 +1305,8 @@ int config_write_segment_routing(struct vty *vty)
 	return 1;
 }
 
-static int path_policy_cli_debug_config_write(struct vty *vty)
-{
-	if (DEBUG_MODE_CHECK(&path_policy_debug, DEBUG_MODE_CONF)) {
-		vty_out(vty, "debug pathd policy\n");
-		return 1;
-	}
-	return 0;
-}
-
 void path_cli_init(void)
 {
-	hook_register(nb_client_debug_config_write,
-		      path_policy_cli_debug_config_write);
-
 	debug_install(&path_policy_debug);
 
 	install_node(&segment_routing_node);

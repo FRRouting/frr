@@ -33,7 +33,10 @@ DEFINE_HOOK(pathd_candidate_updated, (struct srte_candidate * candidate),
 DEFINE_HOOK(pathd_candidate_removed, (struct srte_candidate * candidate),
 	    (candidate));
 
-struct debug path_policy_debug;
+struct debug path_policy_debug = {
+	.conf = "debug pathd policy",
+	.desc = "Pathd policy",
+};
 
 #define PATH_POLICY_DEBUG(fmt, ...)                                            \
 	DEBUGD(&path_policy_debug, "policy: " fmt, ##__VA_ARGS__)

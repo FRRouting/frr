@@ -19,9 +19,9 @@
  */
 
 /* clang-format off */
-struct debug static_dbg_events = {0, "Staticd events"};
-struct debug static_dbg_route = {0, "Staticd route"};
-struct debug static_dbg_bfd = {0, "Staticd bfd"};
+struct debug static_dbg_events = {0, "debug static events", "Staticd events"};
+struct debug static_dbg_route = {0, "debug static route", "Staticd route"};
+struct debug static_dbg_bfd = {0, "debug static bfd", "Staticd bfd"};
 
 struct debug *static_debug_arr[] =  {
 	&static_dbg_events,
@@ -48,11 +48,6 @@ static int static_debug_config_write_helper(struct vty *vty, bool config)
 			vty_out(vty, "%s\n", static_debugs_conflines[i]);
 
 	return 0;
-}
-
-int static_config_write_debug(struct vty *vty)
-{
-	return static_debug_config_write_helper(vty, true);
 }
 
 int static_debug_status_write(struct vty *vty)

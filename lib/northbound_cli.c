@@ -22,13 +22,19 @@
 #include "northbound_db.h"
 #include "lib/northbound_cli_clippy.c"
 
-struct debug nb_dbg_cbs_config = {0, "Northbound callbacks: configuration"};
-struct debug nb_dbg_cbs_state = {0, "Northbound callbacks: state"};
-struct debug nb_dbg_cbs_rpc = {0, "Northbound callbacks: RPCs"};
-struct debug nb_dbg_cbs_notify = {0, "Northbound callbacks: notifications"};
-struct debug nb_dbg_notif = {0, "Northbound notifications"};
-struct debug nb_dbg_events = {0, "Northbound events"};
-struct debug nb_dbg_libyang = {0, "libyang debugging"};
+struct debug nb_dbg_cbs_config = { 0, "debug northbound callbacks configuration",
+				   "Northbound callbacks: configuration" };
+struct debug nb_dbg_cbs_state = { 0, "debug northbound callbacks state",
+				  "Northbound callbacks: state" };
+struct debug nb_dbg_cbs_rpc = { 0, "debug northbound callbacks rpc",
+				"Northbound callbacks: RPCs" };
+struct debug nb_dbg_cbs_notify = { 0, "debug northbound callbacks notify",
+				   "Northbound callbacks: notifications" };
+struct debug nb_dbg_notif = { 0, "debug northbound notifications",
+			      "Northbound notifications" };
+struct debug nb_dbg_events = { 0, "debug northbound events",
+			       "Northbound events" };
+struct debug nb_dbg_libyang = { 0, "debug northbound libyang", "libyang" };
 
 struct nb_config *vty_shared_candidate_config;
 static struct event_loop *master;
@@ -1771,22 +1777,6 @@ DEFPY (rollback_config,
 }
 
 /* Debug CLI commands. */
-static struct debug *nb_debugs[] = {
-	&nb_dbg_cbs_config, &nb_dbg_cbs_state, &nb_dbg_cbs_rpc,
-	&nb_dbg_cbs_notify, &nb_dbg_notif,     &nb_dbg_events,
-	&nb_dbg_libyang,
-};
-
-static const char *const nb_debugs_conflines[] = {
-	"debug northbound callbacks configuration",
-	"debug northbound callbacks state",
-	"debug northbound callbacks rpc",
-	"debug northbound callbacks notify",
-	"debug northbound notifications",
-	"debug northbound events",
-	"debug northbound libyang",
-};
-
 DEFPY (debug_nb,
        debug_nb_cmd,
        "[no] debug northbound\
@@ -1838,26 +1828,6 @@ DEFPY (debug_nb,
 
 	return CMD_SUCCESS;
 }
-
-DEFINE_HOOK(nb_client_debug_config_write, (struct vty *vty), (vty));
-
-static int nb_debug_config_write(struct vty *vty)
-{
-	for (unsigned int i = 0; i < array_size(nb_debugs); i++)
-		if (DEBUG_MODE_CHECK(nb_debugs[i], DEBUG_MODE_CONF))
-			vty_out(vty, "%s\n", nb_debugs_conflines[i]);
-
-	hook_call(nb_client_debug_config_write, vty);
-
-	return 1;
-}
-
-static struct cmd_node nb_debug_node = {
-	.name = "northbound debug",
-	.node = NORTHBOUND_DEBUG_NODE,
-	.prompt = "",
-	.config_write = nb_debug_config_write,
-};
 
 void nb_cli_install_default(int node)
 {
@@ -1927,7 +1897,6 @@ void nb_cli_init(struct event_loop *tm)
 	debug_install(&nb_dbg_events);
 	debug_install(&nb_dbg_libyang);
 
-	install_node(&nb_debug_node);
 	install_element(ENABLE_NODE, &debug_nb_cmd);
 	install_element(CONFIG_NODE, &debug_nb_cmd);
 

@@ -805,7 +805,6 @@ DECLARE_HOOK(nb_notification_send, (const char *xpath, struct list *arguments),
 	     (xpath, arguments));
 DECLARE_HOOK(nb_notification_tree_send,
 	     (const char *xpath, const struct lyd_node *tree), (xpath, tree));
-DECLARE_HOOK(nb_client_debug_config_write, (struct vty *vty), (vty));
 
 /* Northbound debugging records */
 extern struct debug nb_dbg_cbs_config;
