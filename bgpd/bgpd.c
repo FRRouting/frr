@@ -1544,6 +1544,9 @@ struct peer *peer_new(struct bgp *bgp)
 	if (CHECK_FLAG(bgp->flags, BGP_FLAG_SOFT_VERSION_CAPABILITY))
 		SET_FLAG(peer->flags, PEER_FLAG_CAPABILITY_SOFT_VERSION);
 
+	if (CHECK_FLAG(bgp->flags, BGP_FLAG_DYNAMIC_CAPABILITY))
+		SET_FLAG(peer->flags, PEER_FLAG_DYNAMIC_CAPABILITY);
+
 	SET_FLAG(peer->flags_invert, PEER_FLAG_CAPABILITY_FQDN);
 	SET_FLAG(peer->flags, PEER_FLAG_CAPABILITY_FQDN);
 
@@ -2918,6 +2921,13 @@ static void peer_group2peer_config_copy(struct peer_group *group,
 		if (CHECK_FLAG(conf->flags, PEER_FLAG_CAPABILITY_SOFT_VERSION))
 			SET_FLAG(peer->flags,
 				 PEER_FLAG_CAPABILITY_SOFT_VERSION);
+
+	/* capability dynamic apply */
+	if (!CHECK_FLAG(peer->flags_override,
+			PEER_FLAG_DYNAMIC_CAPABILITY))
+		if (CHECK_FLAG(conf->flags, PEER_FLAG_DYNAMIC_CAPABILITY))
+			SET_FLAG(peer->flags,
+				 PEER_FLAG_DYNAMIC_CAPABILITY);
 
 	/* password apply */
 	if (!CHECK_FLAG(peer->flags_override, PEER_FLAG_PASSWORD))

@@ -126,6 +126,10 @@ FRR_CFG_DEFAULT_BOOL(BGP_SOFT_VERSION_CAPABILITY,
 	{ .val_bool = true, .match_profile = "datacenter", },
 	{ .val_bool = false },
 );
+FRR_CFG_DEFAULT_BOOL(BGP_DYNAMIC_CAPABILITY,
+	{ .val_bool = true, .match_profile = "datacenter", },
+	{ .val_bool = false },
+);
 FRR_CFG_DEFAULT_BOOL(BGP_ENFORCE_FIRST_AS,
 	{ .val_bool = false, .match_version = "< 9.1", },
 	{ .val_bool = true },
@@ -623,6 +627,9 @@ int bgp_get_vty(struct bgp **bgp, as_t *as, const char *name,
 		if (DFLT_BGP_SOFT_VERSION_CAPABILITY)
 			SET_FLAG((*bgp)->flags,
 				 BGP_FLAG_SOFT_VERSION_CAPABILITY);
+		if (DFLT_BGP_DYNAMIC_CAPABILITY)
+			SET_FLAG((*bgp)->flags,
+				 BGP_FLAG_DYNAMIC_CAPABILITY);
 		if (DFLT_BGP_ENFORCE_FIRST_AS)
 			SET_FLAG((*bgp)->flags, BGP_FLAG_ENFORCE_FIRST_AS);
 
@@ -4294,6 +4301,24 @@ DEFPY (bgp_default_software_version_capability,
 		UNSET_FLAG(bgp->flags, BGP_FLAG_SOFT_VERSION_CAPABILITY);
 	else
 		SET_FLAG(bgp->flags, BGP_FLAG_SOFT_VERSION_CAPABILITY);
+
+	return CMD_SUCCESS;
+}
+
+DEFPY (bgp_default_dynamic_capability,
+       bgp_default_dynamic_capability_cmd,
+       "[no] bgp default dynamic-capability",
+       NO_STR
+       BGP_STR
+       "Configure BGP defaults\n"
+       "Advertise dynamic capability for all neighbors\n")
+{
+	VTY_DECLVAR_CONTEXT(bgp, bgp);
+
+	if (no)
+		UNSET_FLAG(bgp->flags, BGP_FLAG_DYNAMIC_CAPABILITY);
+	else
+		SET_FLAG(bgp->flags, BGP_FLAG_DYNAMIC_CAPABILITY);
 
 	return CMD_SUCCESS;
 }
@@ -18383,9 +18408,15 @@ static void bgp_config_write_peer_global(struct vty *vty, struct bgp *bgp,
 		vty_out(vty, " neighbor %s timers delayopen %u\n", addr,
 			peer->bgp->default_delayopen);
 
-	/* capability dynamic */
-	if (peergroup_flag_check(peer, PEER_FLAG_DYNAMIC_CAPABILITY))
-		vty_out(vty, " neighbor %s capability dynamic\n", addr);
+	/* capability software-version */
+	if (CHECK_FLAG(bgp->flags, BGP_FLAG_DYNAMIC_CAPABILITY)) {
+		if (!peergroup_flag_check(peer, PEER_FLAG_DYNAMIC_CAPABILITY))
+			vty_out(vty, " no neighbor %s capability dynamic\n",
+				addr);
+	} else {
+		if (peergroup_flag_check(peer, PEER_FLAG_DYNAMIC_CAPABILITY))
+			vty_out(vty, " neighbor %s capability dynamic\n", addr);
+	}
 
 	/* capability extended-nexthop */
 	if (peergroup_flag_check(peer, PEER_FLAG_CAPABILITY_ENHE)) {
@@ -19073,6 +19104,15 @@ int bgp_config_write(struct vty *vty)
 				" %sbgp default software-version-capability\n",
 				CHECK_FLAG(bgp->flags,
 					   BGP_FLAG_SOFT_VERSION_CAPABILITY)
+					? ""
+					: "no ");
+
+		if (!!CHECK_FLAG(bgp->flags, BGP_FLAG_DYNAMIC_CAPABILITY) !=
+		    SAVE_BGP_DYNAMIC_CAPABILITY)
+			vty_out(vty,
+				" %sbgp default dynamic-capability\n",
+				CHECK_FLAG(bgp->flags,
+					   BGP_FLAG_DYNAMIC_CAPABILITY)
 					? ""
 					: "no ");
 
@@ -20123,6 +20163,9 @@ void bgp_vty_init(void)
 
 	/* bgp default software-version-capability */
 	install_element(BGP_NODE, &bgp_default_software_version_capability_cmd);
+
+	/* bgp default dynamic-capability */
+	install_element(BGP_NODE, &bgp_default_dynamic_capability_cmd);
 
 	/* "bgp default subgroup-pkt-queue-max" commands. */
 	install_element(BGP_NODE, &bgp_default_subgroup_pkt_queue_max_cmd);
