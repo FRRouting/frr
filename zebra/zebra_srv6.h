@@ -17,26 +17,26 @@
 #include <plist.h>
 
 /* Default config for SRv6 SID `usid-f3216` format */
-#define ZEBRA_SRV6_SID_FORMAT_USID_F3216_NAME	      "usid-f3216"
-#define ZEBRA_SRV6_SID_FORMAT_USID_F3216_BLOCK_LEN    32
-#define ZEBRA_SRV6_SID_FORMAT_USID_F3216_NODE_LEN     16
-#define ZEBRA_SRV6_SID_FORMAT_USID_F3216_FUNCTION_LEN 16
-#define ZEBRA_SRV6_SID_FORMAT_USID_F3216_ARGUMENT_LEN 0
-#define ZEBRA_SRV6_SID_FORMAT_USID_F3216_LIB_START    0xE000
-#define ZEBRA_SRV6_SID_FORMAT_USID_F3216_ELIB_START   0xFE00
-#define ZEBRA_SRV6_SID_FORMAT_USID_F3216_ELIB_END     0xFEFF
-#define ZEBRA_SRV6_SID_FORMAT_USID_F3216_WLIB_START   0xFFF0
-#define ZEBRA_SRV6_SID_FORMAT_USID_F3216_WLIB_END     0xFFF7
-#define ZEBRA_SRV6_SID_FORMAT_USID_F3216_EWLIB_START  0xFFF7
+#define SRV6_SID_FORMAT_USID_F3216_NAME		"usid-f3216"
+#define SRV6_SID_FORMAT_USID_F3216_BLOCK_LEN	32
+#define SRV6_SID_FORMAT_USID_F3216_NODE_LEN	16
+#define SRV6_SID_FORMAT_USID_F3216_FUNCTION_LEN 16
+#define SRV6_SID_FORMAT_USID_F3216_ARGUMENT_LEN 0
+#define SRV6_SID_FORMAT_USID_F3216_LIB_START	0xE000
+#define SRV6_SID_FORMAT_USID_F3216_ELIB_START	0xFE00
+#define SRV6_SID_FORMAT_USID_F3216_ELIB_END	0xFEFF
+#define SRV6_SID_FORMAT_USID_F3216_WLIB_START	0xFFF0
+#define SRV6_SID_FORMAT_USID_F3216_WLIB_END	0xFFF7
+#define SRV6_SID_FORMAT_USID_F3216_EWLIB_START	0xFFF7
 
 /* Default config for SRv6 SID `uncompressed` format */
-#define ZEBRA_SRV6_SID_FORMAT_UNCOMPRESSED_F4024_NAME		      "uncompressed-f4024"
-#define ZEBRA_SRV6_SID_FORMAT_UNCOMPRESSED_F4024_BLOCK_LEN	      40
-#define ZEBRA_SRV6_SID_FORMAT_UNCOMPRESSED_F4024_NODE_LEN	      24
-#define ZEBRA_SRV6_SID_FORMAT_UNCOMPRESSED_F4024_FUNCTION_LEN	      16
-#define ZEBRA_SRV6_SID_FORMAT_UNCOMPRESSED_F4024_ARGUMENT_LEN	      0
-#define ZEBRA_SRV6_SID_FORMAT_UNCOMPRESSED_F4024_EXPLICIT_RANGE_START 0xFF00
-#define ZEBRA_SRV6_SID_FORMAT_UNCOMPRESSED_F4024_FUNC_UNRESERVED_MIN  0x40
+#define SRV6_SID_FORMAT_UNCOMPRESSED_F4024_NAME			"uncompressed-f4024"
+#define SRV6_SID_FORMAT_UNCOMPRESSED_F4024_BLOCK_LEN		40
+#define SRV6_SID_FORMAT_UNCOMPRESSED_F4024_NODE_LEN		24
+#define SRV6_SID_FORMAT_UNCOMPRESSED_F4024_FUNCTION_LEN		16
+#define SRV6_SID_FORMAT_UNCOMPRESSED_F4024_ARGUMENT_LEN		0
+#define SRV6_SID_FORMAT_UNCOMPRESSED_F4024_EXPLICIT_RANGE_START 0xFF00
+#define SRV6_SID_FORMAT_UNCOMPRESSED_F4024_FUNC_UNRESERVED_MIN	0x40
 
 /* SRv6 instance structure. */
 struct zebra_srv6 {
@@ -99,8 +99,8 @@ extern int release_daemon_srv6_locator_chunks(struct zserv *client);
 extern void zebra_srv6_encap_src_addr_set(struct in6_addr *src_addr);
 extern void zebra_srv6_encap_src_addr_unset(void);
 
-void zebra_srv6_sid_format_register(struct srv6_sid_format *format);
-void zebra_srv6_sid_format_unregister(struct srv6_sid_format *format);
-struct srv6_sid_format *zebra_srv6_sid_format_lookup(const char *name);
+void srv6_sid_format_register(struct srv6_sid_format *format);
+void srv6_sid_format_unregister(struct srv6_sid_format *format);
+struct srv6_sid_format *srv6_sid_format_lookup(const char *name);
 
 #endif /* _ZEBRA_SRV6_H */
