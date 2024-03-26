@@ -1639,8 +1639,6 @@ DEFUN_NOSH (show_debugging_static,
 {
 	vty_out(vty, "Staticd debugging status\n");
 
-	static_debug_status_write(vty);
-
 	cmd_show_lib_debugs(vty);
 
 	return CMD_SUCCESS;

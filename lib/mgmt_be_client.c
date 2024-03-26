@@ -1116,12 +1116,6 @@ DEFPY(debug_mgmt_client_be, debug_mgmt_client_be_cmd,
 	return CMD_SUCCESS;
 }
 
-void mgmt_debug_be_client_show_debug(struct vty *vty)
-{
-	if (debug_check_be_client())
-		vty_out(vty, "debug mgmt client backend\n");
-}
-
 struct mgmt_be_client *mgmt_be_client_create(const char *client_name,
 					     struct mgmt_be_client_cbs *cbs,
 					     uintptr_t user_data,

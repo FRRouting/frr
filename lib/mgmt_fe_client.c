@@ -707,12 +707,6 @@ DEFPY(debug_mgmt_client_fe, debug_mgmt_client_fe_cmd,
 	return CMD_SUCCESS;
 }
 
-void mgmt_debug_fe_client_show_debug(struct vty *vty)
-{
-	if (debug_check_fe_client())
-		vty_out(vty, "debug mgmt client frontend\n");
-}
-
 /*
  * Initialize library and try connecting with MGMTD.
  */

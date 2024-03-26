@@ -22,38 +22,7 @@
 struct debug static_dbg_events = {0, "debug static events", "Staticd events"};
 struct debug static_dbg_route = {0, "debug static route", "Staticd route"};
 struct debug static_dbg_bfd = {0, "debug static bfd", "Staticd bfd"};
-
-struct debug *static_debug_arr[] =  {
-	&static_dbg_events,
-	&static_dbg_route,
-	&static_dbg_bfd
-};
-
-const char *static_debugs_conflines[] = {
-	"debug static events",
-	"debug static route",
-	"debug static bfd"
-};
 /* clang-format on */
-
-static int static_debug_config_write_helper(struct vty *vty, bool config)
-{
-	uint32_t mode = DEBUG_MODE_ALL;
-
-	if (config)
-		mode = DEBUG_MODE_CONF;
-
-	for (unsigned int i = 0; i < array_size(static_debug_arr); i++)
-		if (DEBUG_MODE_CHECK(static_debug_arr[i], mode))
-			vty_out(vty, "%s\n", static_debugs_conflines[i]);
-
-	return 0;
-}
-
-int static_debug_status_write(struct vty *vty)
-{
-	return static_debug_config_write_helper(vty, false);
-}
 
 /*
  * Set debugging status.

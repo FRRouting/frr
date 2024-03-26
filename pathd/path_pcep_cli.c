@@ -1952,27 +1952,6 @@ int pcep_cli_pcep_pce_config_write(struct vty *vty)
  * The param names are taken from the path_pcep_cli_clippy.c generated file.
  */
 
-DEFPY(show_debugging_pathd_pcep,
-      show_debugging_pathd_pcep_cmd,
-      "show debugging pathd-pcep",
-      SHOW_STR
-      "State of each debugging option\n"
-      "pathd pcep module debugging\n")
-{
-	vty_out(vty, "Pathd pcep debugging status:\n");
-
-	if (DEBUG_MODE_CHECK(&pcep_g->dbg_basic, DEBUG_MODE_ALL))
-		vty_out(vty, "PCEP basic debugging is on\n");
-	if (DEBUG_MODE_CHECK(&pcep_g->dbg_path, DEBUG_MODE_ALL))
-		vty_out(vty, "PCEP path debugging is on\n");
-	if (DEBUG_MODE_CHECK(&pcep_g->dbg_msg, DEBUG_MODE_ALL))
-		vty_out(vty, "PCEP message debugging is on\n");
-	if (DEBUG_MODE_CHECK(&pcep_g->dbg_lib, DEBUG_MODE_ALL))
-		vty_out(vty, "PCEP lib debugging is on\n");
-
-	return CMD_SUCCESS;
-}
-
 DEFPY(pcep_cli_debug,
       pcep_cli_debug_cmd,
       "[no] debug pathd pcep [{basic$basic|path$path|message$msg|pceplib$lib}]",
@@ -2369,7 +2348,6 @@ void pcep_cli_init(void)
 	/* Top commands */
 	install_element(CONFIG_NODE, &pcep_cli_debug_cmd);
 	install_element(ENABLE_NODE, &pcep_cli_debug_cmd);
-	install_element(ENABLE_NODE, &show_debugging_pathd_pcep_cmd);
 	install_element(ENABLE_NODE, &pcep_cli_show_srte_pcep_counters_cmd);
 	install_element(ENABLE_NODE, &pcep_cli_show_srte_pcep_pce_config_cmd);
 	install_element(ENABLE_NODE, &pcep_cli_show_srte_pcep_pce_cmd);
