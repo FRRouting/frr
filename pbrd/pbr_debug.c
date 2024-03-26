@@ -28,17 +28,6 @@ const char *pbr_debugs_conflines[] = {
 	"debug pbr events",
 };
 
-void pbr_debug_set_all(uint32_t flags, bool set)
-{
-	for (unsigned int i = 0; i < array_size(pbr_debugs); i++) {
-		DEBUG_FLAGS_SET(pbr_debugs[i], flags, set);
-
-		/* if all modes have been turned off, don't preserve options */
-		if (!DEBUG_MODE_CHECK(pbr_debugs[i], DEBUG_MODE_ALL))
-			DEBUG_CLEAR(pbr_debugs[i]);
-	}
-}
-
 int pbr_debug_config_write_helper(struct vty *vty, bool config)
 {
 	uint32_t mode = DEBUG_MODE_ALL;
@@ -57,9 +46,10 @@ int pbr_debug_config_write(struct vty *vty)
 	return pbr_debug_config_write_helper(vty, true);
 }
 
-struct debug_callbacks pbr_dbg_cbs = {.debug_set_all = pbr_debug_set_all};
-
 void pbr_debug_init(void)
 {
-	debug_init(&pbr_dbg_cbs);
+	debug_install(&pbr_dbg_map);
+	debug_install(&pbr_dbg_zebra);
+	debug_install(&pbr_dbg_nht);
+	debug_install(&pbr_dbg_event);
 }

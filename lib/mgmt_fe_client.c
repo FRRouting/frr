@@ -819,10 +819,6 @@ void mgmt_debug_fe_client_show_debug(struct vty *vty)
 		vty_out(vty, "debug mgmt client frontend\n");
 }
 
-static struct debug_callbacks mgmt_dbg_fe_client_cbs = {
-	.debug_set_all = mgmt_debug_client_fe_set
-};
-
 static struct cmd_node mgmt_dbg_node = {
 	.name = "debug mgmt client frontend",
 	.node = MGMT_FE_DEBUG_NODE,
@@ -870,7 +866,8 @@ struct mgmt_fe_client *mgmt_fe_client_create(const char *client_name,
 
 void mgmt_fe_client_lib_vty_init(void)
 {
-	debug_init(&mgmt_dbg_fe_client_cbs);
+	debug_install(&mgmt_dbg_fe_client);
+
 	install_node(&mgmt_dbg_node);
 	install_element(ENABLE_NODE, &debug_mgmt_client_fe_cmd);
 	install_element(CONFIG_NODE, &debug_mgmt_client_fe_cmd);

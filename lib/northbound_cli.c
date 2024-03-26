@@ -1858,21 +1858,6 @@ static const char *const nb_debugs_conflines[] = {
 	"debug northbound libyang",
 };
 
-DEFINE_HOOK(nb_client_debug_set_all, (uint32_t flags, bool set), (flags, set));
-
-static void nb_debug_set_all(uint32_t flags, bool set)
-{
-	for (unsigned int i = 0; i < array_size(nb_debugs); i++) {
-		DEBUG_FLAGS_SET(nb_debugs[i], flags, set);
-
-		/* If all modes have been turned off, don't preserve options. */
-		if (!DEBUG_MODE_CHECK(nb_debugs[i], DEBUG_MODE_ALL))
-			DEBUG_CLEAR(nb_debugs[i]);
-	}
-
-	hook_call(nb_client_debug_set_all, flags, set);
-}
-
 DEFPY (debug_nb,
        debug_nb_cmd,
        "[no] debug northbound\
@@ -1895,8 +1880,13 @@ DEFPY (debug_nb,
        "libyang debugging\n")
 {
 	uint32_t mode = DEBUG_NODE2MODE(vty->node);
+	bool all = false;
 
-	if (cbs) {
+	/* no specific debug --> act on all of them */
+	if (strmatch(argv[argc - 1]->text, "northbound"))
+		all = true;
+
+	if (cbs || all) {
 		bool none = (!cbs_cfg && !cbs_state && !cbs_rpc && !cbs_notify);
 
 		if (none || cbs_cfg)
@@ -1908,18 +1898,12 @@ DEFPY (debug_nb,
 		if (none || cbs_notify)
 			DEBUG_MODE_SET(&nb_dbg_cbs_notify, mode, !no);
 	}
-	if (notifications)
+	if (notifications || all)
 		DEBUG_MODE_SET(&nb_dbg_notif, mode, !no);
-	if (events)
+	if (events || all)
 		DEBUG_MODE_SET(&nb_dbg_events, mode, !no);
-	if (libyang) {
+	if (libyang || all) {
 		DEBUG_MODE_SET(&nb_dbg_libyang, mode, !no);
-		yang_debugging_set(!no);
-	}
-
-	/* no specific debug --> act on all of them */
-	if (strmatch(argv[argc - 1]->text, "northbound")) {
-		nb_debug_set_all(mode, !no);
 		yang_debugging_set(!no);
 	}
 
@@ -1939,7 +1923,6 @@ static int nb_debug_config_write(struct vty *vty)
 	return 1;
 }
 
-static struct debug_callbacks nb_dbg_cbs = {.debug_set_all = nb_debug_set_all};
 static struct cmd_node nb_debug_node = {
 	.name = "northbound debug",
 	.node = NORTHBOUND_DEBUG_NODE,
@@ -2007,7 +1990,13 @@ void nb_cli_init(struct event_loop *tm)
 	/* Initialize the shared candidate configuration. */
 	vty_shared_candidate_config = nb_config_new(NULL);
 
-	debug_init(&nb_dbg_cbs);
+	debug_install(&nb_dbg_cbs_config);
+	debug_install(&nb_dbg_cbs_state);
+	debug_install(&nb_dbg_cbs_rpc);
+	debug_install(&nb_dbg_cbs_notify);
+	debug_install(&nb_dbg_notif);
+	debug_install(&nb_dbg_events);
+	debug_install(&nb_dbg_libyang);
 
 	install_node(&nb_debug_node);
 	install_element(ENABLE_NODE, &debug_nb_cmd);

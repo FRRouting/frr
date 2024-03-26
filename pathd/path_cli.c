@@ -1314,22 +1314,12 @@ static int path_policy_cli_debug_config_write(struct vty *vty)
 	return 0;
 }
 
-static int path_policy_cli_debug_set_all(uint32_t flags, bool set)
-{
-	DEBUG_FLAGS_SET(&path_policy_debug, flags, set);
-
-	/* If all modes have been turned off, don't preserve options. */
-	if (!DEBUG_MODE_CHECK(&path_policy_debug, DEBUG_MODE_ALL))
-		DEBUG_CLEAR(&path_policy_debug);
-
-	return 0;
-}
-
 void path_cli_init(void)
 {
 	hook_register(nb_client_debug_config_write,
 		      path_policy_cli_debug_config_write);
-	hook_register(nb_client_debug_set_all, path_policy_cli_debug_set_all);
+
+	debug_install(&path_policy_debug);
 
 	install_node(&segment_routing_node);
 	install_node(&sr_traffic_eng_node);

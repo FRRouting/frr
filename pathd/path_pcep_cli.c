@@ -47,7 +47,6 @@
 
 /* CLI Function declarations */
 static int pcep_cli_debug_config_write(struct vty *vty);
-static int pcep_cli_debug_set_all(uint32_t flags, bool set);
 static int pcep_cli_pcep_config_write(struct vty *vty);
 static int pcep_cli_pcc_config_write(struct vty *vty);
 static int pcep_cli_pce_config_write(struct vty *vty);
@@ -1710,17 +1709,6 @@ int pcep_cli_debug_config_write(struct vty *vty)
 	return 0;
 }
 
-int pcep_cli_debug_set_all(uint32_t flags, bool set)
-{
-	DEBUG_FLAGS_SET(&pcep_g->dbg, flags, set);
-
-	/* If all modes have been turned off, don't preserve options. */
-	if (!DEBUG_MODE_CHECK(&pcep_g->dbg, DEBUG_MODE_ALL))
-		DEBUG_CLEAR(&pcep_g->dbg);
-
-	return 0;
-}
-
 int pcep_cli_pcep_config_write(struct vty *vty)
 {
 	vty_out(vty, "  pcep\n");
@@ -2345,7 +2333,11 @@ void pcep_cli_init(void)
 	hook_register(pathd_srte_config_write, pcep_cli_pcep_config_write);
 	hook_register(nb_client_debug_config_write,
 		      pcep_cli_debug_config_write);
-	hook_register(nb_client_debug_set_all, pcep_cli_debug_set_all);
+
+	debug_install(&pcep_g->dbg_basic);
+	debug_install(&pcep_g->dbg_path);
+	debug_install(&pcep_g->dbg_msg);
+	debug_install(&pcep_g->dbg_lib);
 
 	memset(&pce_connections_g, 0, sizeof(pce_connections_g));
 

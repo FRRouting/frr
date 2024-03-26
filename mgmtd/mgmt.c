@@ -39,6 +39,10 @@ void mgmt_master_init(struct event_loop *master, const int buffer_size)
 
 void mgmt_init(void)
 {
+	debug_install(&mgmt_debug_be);
+	debug_install(&mgmt_debug_ds);
+	debug_install(&mgmt_debug_fe);
+	debug_install(&mgmt_debug_txn);
 
 	/* Initialize datastores */
 	mgmt_ds_init(mm);
