@@ -519,8 +519,9 @@ void bgp_mpath_diff_insert(struct bgp_mpath_diff_head *diff,
 		return;
 	}
 
-	struct bgp_path_info_mpath_diff *item = XCALLOC(
-		MTYPE_BGP_MPATH_DIFF, sizeof(struct bgp_path_info_mpath_diff));
+	struct bgp_path_info_mpath_diff *item =
+		XCALLOC(MTYPE_BGP_MPATH_DIFF,
+			sizeof(struct bgp_path_info_mpath_diff));
 	item->path = bpi;
 	item->update = update;
 

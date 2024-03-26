@@ -715,8 +715,8 @@ void bgp_open_send(struct peer_connection *connection)
 
 		zlog_debug("%pBP fd %d sending OPEN%s, version %d, my as %u, holdtime %d, id %pI4",
 			   peer, peer->connection->fd,
-			   ext_opt_params ? " (Extended)" : "", BGP_VERSION_4, local_as, send_holdtime,
-			   &peer->local_id);
+			   ext_opt_params ? " (Extended)" : "", BGP_VERSION_4,
+			   local_as, send_holdtime, &peer->local_id);
 	}
 
 	/* Dump packet if debug option is set. */
