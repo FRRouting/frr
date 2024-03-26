@@ -156,8 +156,8 @@ struct bgp_debug_filter {
 		TERM_DEBUG_OFF(a, b);                                          \
 	} while (0)
 
-#define BGP_DEBUG(a, b)		(term_bgp_debug_ ## a & BGP_DEBUG_ ## b)
-#define CONF_BGP_DEBUG(a, b)    (conf_bgp_debug_ ## a & BGP_DEBUG_ ## b)
+#define BGP_DEBUG(a, b)	     (unlikely(term_bgp_debug_##a & BGP_DEBUG_##b))
+#define CONF_BGP_DEBUG(a, b) (unlikely(conf_bgp_debug_##a & BGP_DEBUG_##b))
 
 extern const char *const bgp_type_str[];
 
