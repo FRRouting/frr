@@ -3403,8 +3403,8 @@ static void bgp_process_main_one(struct bgp *bgp, struct bgp_dest *dest,
 					|| new_select->sub_type
 						   == BGP_ROUTE_IMPORTED))
 
-					bgp_zebra_announce(dest, p, old_select,
-							   bgp, afi, safi);
+					bgp_zebra_route_install(dest, old_select,
+								bgp, true);
 			}
 		}
 
@@ -3521,10 +3521,10 @@ static void bgp_process_main_one(struct bgp *bgp, struct bgp_dest *dest,
 			 */
 			if (old_select &&
 			    is_route_parent_evpn(old_select))
-				bgp_zebra_withdraw(p, old_select, bgp, afi,
-						   safi);
+				bgp_zebra_route_install(dest, old_select, bgp,
+							false);
 
-			bgp_zebra_announce(dest, p, new_select, bgp, afi, safi);
+			bgp_zebra_route_install(dest, new_select, bgp, true);
 		} else {
 			/* Withdraw the route from the kernel. */
 			if (old_select && old_select->type == ZEBRA_ROUTE_BGP
@@ -3532,8 +3532,8 @@ static void bgp_process_main_one(struct bgp *bgp, struct bgp_dest *dest,
 				|| old_select->sub_type == BGP_ROUTE_AGGREGATE
 				|| old_select->sub_type == BGP_ROUTE_IMPORTED))
 
-				bgp_zebra_withdraw(p, old_select, bgp, afi,
-						   safi);
+				bgp_zebra_route_install(dest, old_select, bgp,
+							false);
 		}
 	}
 
@@ -4430,7 +4430,7 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 	if (pi && pi->attr->rmap_table_id != new_attr.rmap_table_id) {
 		if (CHECK_FLAG(pi->flags, BGP_PATH_SELECTED))
 			/* remove from RIB previous entry */
-			bgp_zebra_withdraw(p, pi, bgp, afi, safi);
+			bgp_zebra_route_install(dest, pi, bgp, false);
 	}
 
 	if (peer->sort == BGP_PEER_EBGP) {
@@ -6056,8 +6056,7 @@ static void bgp_cleanup_table(struct bgp *bgp, struct bgp_table *table,
 				|| pi->sub_type == BGP_ROUTE_IMPORTED)) {
 
 				if (bgp_fibupd_safi(safi))
-					bgp_zebra_withdraw(p, pi, bgp, afi,
-							   safi);
+					bgp_zebra_withdraw_actual(dest, pi, bgp);
 			}
 
 			dest = bgp_path_info_reap(dest, pi);
