@@ -13,13 +13,13 @@
 #include "vrrp_debug.h"
 
 /* clang-format off */
-struct debug vrrp_dbg_arp = {0, "VRRP ARP"};
-struct debug vrrp_dbg_auto = {0, "VRRP autoconfiguration events"};
-struct debug vrrp_dbg_ndisc = {0, "VRRP Neighbor Discovery"};
-struct debug vrrp_dbg_pkt = {0, "VRRP packets"};
-struct debug vrrp_dbg_proto = {0, "VRRP protocol events"};
-struct debug vrrp_dbg_sock = {0, "VRRP sockets"};
-struct debug vrrp_dbg_zebra = {0, "VRRP Zebra events"};
+struct debug vrrp_dbg_arp = {0, "debug vrrp arp", "VRRP ARP"};
+struct debug vrrp_dbg_auto = {0, "debug vrrp autoconfigure", "VRRP autoconfiguration events"};
+struct debug vrrp_dbg_ndisc = {0, "debug vrrp ndisc", "VRRP Neighbor Discovery"};
+struct debug vrrp_dbg_pkt = {0, "debug vrrp packets", "VRRP packets"};
+struct debug vrrp_dbg_proto = {0, "debug vrrp protocol", "VRRP protocol events"};
+struct debug vrrp_dbg_sock = {0, "debug vrrp sockets", "VRRP sockets"};
+struct debug vrrp_dbg_zebra = {0, "debug vrrp zebra", "VRRP Zebra events"};
 
 struct debug *vrrp_debugs[] = {
 	&vrrp_dbg_arp,
@@ -54,11 +54,6 @@ static int vrrp_debug_config_write_helper(struct vty *vty, bool config)
 			vty_out(vty, "%s\n", vrrp_debugs_conflines[i]);
 
 	return 0;
-}
-
-int vrrp_config_write_debug(struct vty *vty)
-{
-	return vrrp_debug_config_write_helper(vty, true);
 }
 
 int vrrp_debug_status_write(struct vty *vty)

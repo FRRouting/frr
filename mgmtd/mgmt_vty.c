@@ -557,14 +557,6 @@ DEFPY(mgmt_rollback,
 	return CMD_SUCCESS;
 }
 
-int config_write_mgmt_debug(struct vty *vty);
-static struct cmd_node debug_node = {
-	.name = "mgmt debug",
-	.node = DEBUG_NODE,
-	.prompt = "",
-	.config_write = config_write_mgmt_debug,
-};
-
 static int write_mgmt_debug_helper(struct vty *vty, bool config)
 {
 	uint32_t mode = config ? DEBUG_MODE_CONF : DEBUG_MODE_ALL;
@@ -589,11 +581,6 @@ static int write_mgmt_debug_helper(struct vty *vty, bool config)
 	vty_out(vty, "\n");
 
 	return 0;
-}
-
-int config_write_mgmt_debug(struct vty *vty)
-{
-	return write_mgmt_debug_helper(vty, true);
 }
 
 DEFPY_NOSH(show_debugging_mgmt, show_debugging_mgmt_cmd,
@@ -696,7 +683,6 @@ void mgmt_vty_init(void)
 	event_add_event(mm->master, mgmt_config_read_in, NULL, 0,
 			&mgmt_daemon_info->read_in);
 
-	install_node(&debug_node);
 	install_node(&mgmtd_node);
 
 	install_element(VIEW_NODE, &show_mgmt_be_adapter_cmd);

@@ -49,12 +49,4 @@ void pbr_debug_set_all(uint32_t flags, bool set);
  */
 int pbr_debug_config_write_helper(struct vty *vty, bool config);
 
-/*
- * Print PBR debugging configuration.
- *
- * vty
- *    VTY to print debugging configuration to.
- */
-int pbr_debug_config_write(struct vty *vty);
-
 #endif /* __PBR_DEBUG_H__ */

@@ -1954,13 +1954,6 @@ DEFPY (show_pbr_interface,
 
 /* PBR debugging CLI ------------------------------------------------------- */
 
-static struct cmd_node debug_node = {
-	.name = "debug",
-	.node = DEBUG_NODE,
-	.prompt = "",
-	.config_write = pbr_debug_config_write,
-};
-
 DEFPY(debug_pbr,
       debug_pbr_cmd,
       "[no] debug pbr [{map$map|zebra$zebra|nht$nht|events$events}]",
@@ -2195,7 +2188,6 @@ void pbr_vty_init(void)
 	install_node(&pbr_map_node);
 
 	/* debug */
-	install_node(&debug_node);
 	install_element(ENABLE_NODE, &debug_pbr_cmd);
 	install_element(CONFIG_NODE, &debug_pbr_cmd);
 	install_element(ENABLE_NODE, &show_debugging_pbr_cmd);

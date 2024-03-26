@@ -46,7 +46,6 @@
 #define BUFFER_PCC_PCE_SIZE 1024
 
 /* CLI Function declarations */
-static int pcep_cli_debug_config_write(struct vty *vty);
 static int pcep_cli_pcep_config_write(struct vty *vty);
 static int pcep_cli_pcc_config_write(struct vty *vty);
 static int pcep_cli_pce_config_write(struct vty *vty);
@@ -1695,20 +1694,6 @@ static int path_pcep_cli_clear_srte_pcep_session(struct vty *vty,
  * Config Write functions
  */
 
-int pcep_cli_debug_config_write(struct vty *vty)
-{
-	if (DEBUG_MODE_CHECK(&pcep_g->dbg_basic, DEBUG_MODE_CONF))
-		vty_out(vty, "debug pathd pcep basic\n");
-	if (DEBUG_MODE_CHECK(&pcep_g->dbg_path, DEBUG_MODE_CONF))
-		vty_out(vty, "debug pathd pcep path\n");
-	if (DEBUG_MODE_CHECK(&pcep_g->dbg_msg, DEBUG_MODE_CONF))
-		vty_out(vty, "debug pathd pcep message\n");
-	if (DEBUG_MODE_CHECK(&pcep_g->dbg_lib, DEBUG_MODE_CONF))
-		vty_out(vty, "debug pathd pcep pceplib\n");
-
-	return 0;
-}
-
 int pcep_cli_pcep_config_write(struct vty *vty)
 {
 	vty_out(vty, "  pcep\n");
@@ -2331,8 +2316,6 @@ DEFPY(pcep_cli_clear_srte_pcep_session,
 void pcep_cli_init(void)
 {
 	hook_register(pathd_srte_config_write, pcep_cli_pcep_config_write);
-	hook_register(nb_client_debug_config_write,
-		      pcep_cli_debug_config_write);
 
 	debug_install(&pcep_g->dbg_basic);
 	debug_install(&pcep_g->dbg_path);

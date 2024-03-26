@@ -64,11 +64,15 @@ PREDECL_LIST(debug_list);
  *    manipulate the flags field in a multithreaded environment results in
  *    undefined behavior.
  *
+ * conf
+ *    The configuration string that will be written to the config file.
+ *
  * desc
  *    Human-readable description of this debugging record.
  */
 struct debug {
 	atomic_uint_fast32_t flags;
+	const char *conf;
 	const char *desc;
 
 	struct debug_list_item item;
