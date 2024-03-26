@@ -308,26 +308,24 @@ struct bmp_bpi_lock {
 };
 
 
-#define BMP_LBPI_LOOKUP_DEST(head, prev, lookup, target_dest, target_bgp,      \
-			     condition)                                        \
-	struct bmp_bpi_lock _dummy_lbpi = {                                    \
-		.dest = (target_dest),                                         \
-		.bgp = (target_bgp),                                           \
-	};                                                                     \
-									\
-	struct bmp_bpi_lock *(head) = NULL, *(prev) = NULL, *(lookup) = NULL;  \
-									\
-	(head) = bmp_lbpi_h_find(&bmp_lbpi, &_dummy_lbpi);                     \
-									\
-	for ((lookup) = (head); (lookup);                                      \
-	     (lookup) = ((prev) = (lookup))->next) {                           \
-		if ((condition))                                               \
-			break;                                                 \
+#define BMP_LBPI_LOOKUP_DEST(head, prev, lookup, target_dest, target_bgp, condition)               \
+	struct bmp_bpi_lock _dummy_lbpi = {                                                        \
+		.dest = (target_dest),                                                             \
+		.bgp = (target_bgp),                                                               \
+	};                                                                                         \
+\
+	struct bmp_bpi_lock *(head) = NULL, *(prev) = NULL, *(lookup) = NULL;                      \
+\
+	(head) = bmp_lbpi_h_find(&bmp_lbpi, &_dummy_lbpi);                                         \
+\
+	for ((lookup) = (head); (lookup); (lookup) = ((prev) = (lookup))->next) {                  \
+		if ((condition))                                                                   \
+			break;                                                                     \
 	}
 
-#define BMP_LBPI_LOOKUP_BPI(head, prev, lookup, target_bpi, target_bgp)        \
-	BMP_LBPI_LOOKUP_DEST((head), (prev), (lookup), (target_bpi)->net,      \
-			     (target_bgp), ((lookup)->locked == (target_bpi)))
+#define BMP_LBPI_LOOKUP_BPI(head, prev, lookup, target_bpi, target_bgp)                            \
+	BMP_LBPI_LOOKUP_DEST((head), (prev), (lookup), (target_bpi)->net, (target_bgp),            \
+			     ((lookup)->locked == (target_bpi)))
 /* per struct bgp * data */
 PREDECL_HASH(bmp_bgph);
 
@@ -371,25 +369,25 @@ enum {
 };
 
 enum {
-	BMP_STATS_PFX_REJECTED               = 0,
-	BMP_STATS_PFX_DUP_ADV                = 1,
-	BMP_STATS_PFX_DUP_WITHDRAW           = 2,
-	BMP_STATS_UPD_LOOP_CLUSTER           = 3,
-	BMP_STATS_UPD_LOOP_ASPATH            = 4,
-	BMP_STATS_UPD_LOOP_ORIGINATOR        = 5,
-	BMP_STATS_UPD_LOOP_CONFED            = 6,
-	BMP_STATS_SIZE_ADJ_RIB_IN            = 7,
-	BMP_STATS_SIZE_LOC_RIB               = 8,
-	BMP_STATS_SIZE_ADJ_RIB_IN_SAFI       = 9,
-	BMP_STATS_SIZE_LOC_RIB_SAFI          = 10,
-	BMP_STATS_UPD_7606_WITHDRAW          = 11,
-	BMP_STATS_PFX_7606_WITHDRAW          = 12,
-	BMP_STATS_UPD_DUP                    = 13,
-	BMP_STATS_SIZE_ADJ_RIB_OUT_PRE       = 14,
-	BMP_STATS_SIZE_ADJ_RIB_OUT_POST      = 15,
-	BMP_STATS_SIZE_ADJ_RIB_OUT_PRE_SAFI  = 16,
+	BMP_STATS_PFX_REJECTED = 0,
+	BMP_STATS_PFX_DUP_ADV = 1,
+	BMP_STATS_PFX_DUP_WITHDRAW = 2,
+	BMP_STATS_UPD_LOOP_CLUSTER = 3,
+	BMP_STATS_UPD_LOOP_ASPATH = 4,
+	BMP_STATS_UPD_LOOP_ORIGINATOR = 5,
+	BMP_STATS_UPD_LOOP_CONFED = 6,
+	BMP_STATS_SIZE_ADJ_RIB_IN = 7,
+	BMP_STATS_SIZE_LOC_RIB = 8,
+	BMP_STATS_SIZE_ADJ_RIB_IN_SAFI = 9,
+	BMP_STATS_SIZE_LOC_RIB_SAFI = 10,
+	BMP_STATS_UPD_7606_WITHDRAW = 11,
+	BMP_STATS_PFX_7606_WITHDRAW = 12,
+	BMP_STATS_UPD_DUP = 13,
+	BMP_STATS_SIZE_ADJ_RIB_OUT_PRE = 14,
+	BMP_STATS_SIZE_ADJ_RIB_OUT_POST = 15,
+	BMP_STATS_SIZE_ADJ_RIB_OUT_PRE_SAFI = 16,
 	BMP_STATS_SIZE_ADJ_RIB_OUT_POST_SAFI = 17,
-	BMP_STATS_FRR_NH_INVALID             = 65531,
+	BMP_STATS_FRR_NH_INVALID = 65531,
 };
 
 DECLARE_MGROUP(BMP);

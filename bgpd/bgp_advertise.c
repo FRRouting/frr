@@ -162,8 +162,8 @@ bool bgp_adj_out_lookup(struct peer *peer, struct bgp_dest *dest,
 }
 
 
-void bgp_adj_in_set(struct bgp_dest *dest, afi_t afi, safi_t safi,
-		    struct peer *peer, struct attr *attr, uint32_t addpath_id, struct bgp_labels *labels)
+void bgp_adj_in_set(struct bgp_dest *dest, afi_t afi, safi_t safi, struct peer *peer,
+		    struct attr *attr, uint32_t addpath_id, struct bgp_labels *labels)
 {
 	struct bgp_adj_in *adj;
 
@@ -191,8 +191,7 @@ void bgp_adj_in_set(struct bgp_dest *dest, afi_t afi, safi_t safi,
 	bgp_dest_lock_node(dest);
 }
 
-void bgp_adj_in_remove(struct bgp_dest **dest, afi_t afi, safi_t safi,
-		       struct bgp_adj_in *bai)
+void bgp_adj_in_remove(struct bgp_dest **dest, afi_t afi, safi_t safi, struct bgp_adj_in *bai)
 {
 	bgp_attr_unintern(&bai->attr);
 	bgp_labels_unintern(&bai->labels);
@@ -203,8 +202,8 @@ void bgp_adj_in_remove(struct bgp_dest **dest, afi_t afi, safi_t safi,
 	XFREE(MTYPE_BGP_ADJ_IN, bai);
 }
 
-bool bgp_adj_in_unset(struct bgp_dest **dest, afi_t afi, safi_t safi,
-		      struct peer *peer, uint32_t addpath_id)
+bool bgp_adj_in_unset(struct bgp_dest **dest, afi_t afi, safi_t safi, struct peer *peer,
+		      uint32_t addpath_id)
 {
 	struct bgp_adj_in *adj;
 	struct bgp_adj_in *adj_next;

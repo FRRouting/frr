@@ -1791,14 +1791,14 @@ static int bgp_open_receive(struct peer_connection *connection,
 	uint16_t optlen;
 	uint16_t holdtime;
 	uint16_t send_holdtime;
-	as_t remote_as;
-	as_t as4 = 0, as4_be;
 	struct in_addr remote_id;
 	int mp_capability;
 	uint8_t notify_data_remote_as[2];
 	uint8_t notify_data_remote_as4[4];
 	uint8_t notify_data_remote_id[4];
 	uint16_t *holdtime_ptr;
+	as_t remote_as;
+	as_t as4 = 0, as4_be;
 
 	/* Parse open packet. */
 	version = stream_getc(peer->curr);

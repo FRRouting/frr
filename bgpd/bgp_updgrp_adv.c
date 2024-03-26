@@ -37,9 +37,8 @@
 #include "bgpd/bgp_addpath.h"
 
 DEFINE_HOOK(bgp_adj_out_updated,
-	    (struct update_subgroup *subgrp, struct bgp_dest *dest,
-	     struct bgp_path_info *path, uint32_t addpath_id, struct attr *attr,
-	     bool post_policy, bool withdraw),
+	    (struct update_subgroup *subgrp, struct bgp_dest *dest, struct bgp_path_info *path,
+	     uint32_t addpath_id, struct attr *attr, bool post_policy, bool withdraw),
 	    (subgrp, dest, path, addpath_id, attr, post_policy, withdraw));
 
 /********************
@@ -64,8 +63,7 @@ static int bgp_adj_out_compare(const struct bgp_adj_out *o1,
 }
 RB_GENERATE(bgp_adj_out_rb, bgp_adj_out, adj_entry, bgp_adj_out_compare);
 
-inline struct bgp_adj_out *adj_lookup(struct bgp_dest *dest,
-				      struct update_subgroup *subgrp,
+inline struct bgp_adj_out *adj_lookup(struct bgp_dest *dest, struct update_subgroup *subgrp,
 				      uint32_t addpath_tx_id)
 {
 	struct bgp_adj_out lookup;
@@ -285,11 +283,8 @@ static int group_announce_route_walkcb(struct update_group *updgrp, void *arg)
 					}
 
 					if (!adj)
-						bgp_adj_out_updated(subgrp,
-								    ctx->dest,
-								    NULL, 0,
-								    NULL, false,
-								    true);
+						bgp_adj_out_updated(subgrp, ctx->dest, NULL, 0,
+								    NULL, false, true);
 				}
 			}
 		}
@@ -537,16 +532,15 @@ bgp_advertise_clean_subgroup(struct update_subgroup *subgrp,
 
 /* call the bgp_adj_out_updated hook for bmp rib-out monitoring */
 void bgp_adj_out_updated(struct update_subgroup *subgrp, struct bgp_dest *dest,
-			 struct bgp_path_info *path, uint32_t addpath_tx,
-			 struct attr *attr, bool post_policy, bool withdraw)
+			 struct bgp_path_info *path, uint32_t addpath_tx, struct attr *attr,
+			 bool post_policy, bool withdraw)
 {
 	if (path && !withdraw && CHECK_FLAG(path->flags, BGP_PATH_REMOVED)) {
 		/* path is removed, enforcing withdraw state */
 		withdraw = true;
 	}
 
-	hook_call(bgp_adj_out_updated, subgrp, dest, path, addpath_tx, attr,
-		  post_policy, withdraw);
+	hook_call(bgp_adj_out_updated, subgrp, dest, path, addpath_tx, attr, post_policy, withdraw);
 }
 
 bool bgp_adj_out_set_subgroup(struct bgp_dest *dest,
@@ -681,8 +675,7 @@ bool bgp_adj_out_set_subgroup(struct bgp_dest *dest,
 
 	subgrp->version = MAX(subgrp->version, dest->version);
 
-	bgp_adj_out_updated(subgrp, dest, path, adj->addpath_tx_id, attr, true,
-			    false);
+	bgp_adj_out_updated(subgrp, dest, path, adj->addpath_tx_id, attr, true, false);
 	return true;
 }
 
@@ -734,8 +727,7 @@ void bgp_adj_out_unset_subgroup(struct bgp_dest *dest,
 			if (trigger_write)
 				subgroup_trigger_write(subgrp);
 
-			bgp_adj_out_updated(subgrp, dest, NULL,
-					    adj->addpath_tx_id, NULL, true,
+			bgp_adj_out_updated(subgrp, dest, NULL, adj->addpath_tx_id, NULL, true,
 					    withdraw);
 		} else {
 			/* Free allocated information.  */
@@ -1044,9 +1036,8 @@ void subgroup_default_originate(struct update_subgroup *subgrp, bool withdraw)
 					continue;
 
 				if (subgroup_announce_check(dest, pi, subgrp,
-							    bgp_dest_get_prefix(
-								    dest),
-							    &attr, NULL, 0)) {
+							    bgp_dest_get_prefix(dest), &attr, NULL,
+							    0)) {
 					if (!bgp_adj_out_set_subgroup(dest,
 								      subgrp,
 								      &attr, pi))

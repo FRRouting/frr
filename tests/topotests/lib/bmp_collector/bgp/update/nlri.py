@@ -134,6 +134,7 @@ def detect_addpath_prefix_ipv46(data, max_bit_length):
     # we don't know if it's add-path so let's say no
     return False
 
+
 class NlriIPv6Unicast:
     @staticmethod
     def parse(data):

@@ -46,8 +46,8 @@ struct bgp_path_info_mpath_diff {
 
 DECLARE_LIST(bgp_mpath_diff, struct bgp_path_info_mpath_diff, next);
 
-extern void bgp_mpath_diff_insert(struct bgp_mpath_diff_head *diff,
-				  struct bgp_path_info *bpi, bool update);
+extern void bgp_mpath_diff_insert(struct bgp_mpath_diff_head *diff, struct bgp_path_info *bpi,
+				  bool update);
 
 extern void bgp_mpath_diff_clear(struct bgp_mpath_diff_head *diff);
 

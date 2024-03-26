@@ -140,12 +140,10 @@ struct bgp_synchronize {
 /* Prototypes.  */
 extern bool bgp_adj_out_lookup(struct peer *peer, struct bgp_dest *dest,
 			       uint32_t addpath_tx_id);
-extern void bgp_adj_in_set(struct bgp_dest *dest, afi_t afi, safi_t safi,
-			   struct peer *peer, struct attr *attr,
-			   uint32_t addpath_id,
-			   struct bgp_labels *labels);
-extern bool bgp_adj_in_unset(struct bgp_dest **dest, afi_t afi, safi_t safi,
-			     struct peer *peer, uint32_t addpath_id);
+extern void bgp_adj_in_set(struct bgp_dest *dest, afi_t afi, safi_t safi, struct peer *peer,
+			   struct attr *attr, uint32_t addpath_id, struct bgp_labels *labels);
+extern bool bgp_adj_in_unset(struct bgp_dest **dest, afi_t afi, safi_t safi, struct peer *peer,
+			     uint32_t addpath_id);
 extern void bgp_adj_in_remove(struct bgp_dest **dest, afi_t afi, safi_t safi,
 			      struct bgp_adj_in *bai);
 

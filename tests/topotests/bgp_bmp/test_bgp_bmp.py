@@ -391,7 +391,13 @@ def _test_prefixes(policy, vrf=None, step=0, prefixes=TEST_PREFIXES):
         update_seq()
 
         configure_prefixes(
-            tgen, "r2", 65502, "unicast", prefixes, vrf=vrf, update=(type == BMP_UPDATE)
+            tgen,
+            "r2",
+            65502,
+            "unicast",
+            prefixes,
+            vrf=vrf,
+            update=(type == BMP_UPDATE),
         )
 
         logger.info(f"checking for prefixes {type}")
