@@ -1973,19 +1973,20 @@ DEFPY(debug_pbr,
       "Events\n")
 {
 	uint32_t mode = DEBUG_NODE2MODE(vty->node);
-
-	if (map)
-		DEBUG_MODE_SET(&pbr_dbg_map, mode, !no);
-	if (zebra)
-		DEBUG_MODE_SET(&pbr_dbg_zebra, mode, !no);
-	if (nht)
-		DEBUG_MODE_SET(&pbr_dbg_nht, mode, !no);
-	if (events)
-		DEBUG_MODE_SET(&pbr_dbg_event, mode, !no);
+	bool all = false;
 
 	/* no specific debug --> act on all of them */
 	if (strmatch(argv[argc - 1]->text, "pbr"))
-		pbr_debug_set_all(mode, !no);
+		all = true;
+
+	if (map || all)
+		DEBUG_MODE_SET(&pbr_dbg_map, mode, !no);
+	if (zebra || all)
+		DEBUG_MODE_SET(&pbr_dbg_zebra, mode, !no);
+	if (nht || all)
+		DEBUG_MODE_SET(&pbr_dbg_nht, mode, !no);
+	if (events || all)
+		DEBUG_MODE_SET(&pbr_dbg_event, mode, !no);
 
 	return CMD_SUCCESS;
 }

@@ -42,26 +42,6 @@ const char *vrrp_debugs_conflines[] = {
 };
 /* clang-format on */
 
-/*
- * Set or unset flags on all debugs for vrrpd.
- *
- * flags
- *    The flags to set
- *
- * set
- *    Whether to set or unset the specified flags
- */
-static void vrrp_debug_set_all(uint32_t flags, bool set)
-{
-	for (unsigned int i = 0; i < array_size(vrrp_debugs); i++) {
-		DEBUG_FLAGS_SET(vrrp_debugs[i], flags, set);
-
-		/* if all modes have been turned off, don't preserve options */
-		if (!DEBUG_MODE_CHECK(vrrp_debugs[i], DEBUG_MODE_ALL))
-			DEBUG_CLEAR(vrrp_debugs[i]);
-	}
-}
-
 static int vrrp_debug_config_write_helper(struct vty *vty, bool config)
 {
 	uint32_t mode = DEBUG_MODE_ALL;
@@ -110,9 +90,13 @@ void vrrp_debug_set(struct interface *ifp, uint8_t vrid, int vtynode,
 
 /* ------------------------------------------------------------------------- */
 
-struct debug_callbacks vrrp_dbg_cbs = {.debug_set_all = vrrp_debug_set_all};
-
 void vrrp_debug_init(void)
 {
-	debug_init(&vrrp_dbg_cbs);
+	debug_install(&vrrp_dbg_arp);
+	debug_install(&vrrp_dbg_auto);
+	debug_install(&vrrp_dbg_ndisc);
+	debug_install(&vrrp_dbg_pkt);
+	debug_install(&vrrp_dbg_proto);
+	debug_install(&vrrp_dbg_sock);
+	debug_install(&vrrp_dbg_zebra);
 }

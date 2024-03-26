@@ -34,6 +34,7 @@ extern "C" {
 #define DEBUG_OPT_NONE 0x00000000
 
 
+PREDECL_LIST(debug_list);
 /*
  * Debugging record.
  *
@@ -69,31 +70,8 @@ extern "C" {
 struct debug {
 	atomic_uint_fast32_t flags;
 	const char *desc;
-};
 
-PREDECL_LIST(debug_cb_list);
-/*
- * Callback set for debugging code.
- *
- * debug_set_all
- *    Function pointer to call when the user requests that all debugs have a
- *    mode set.
- */
-struct debug_callbacks {
-	/*
-	 * Linked list of Callbacks to call
-	 */
-	struct debug_cb_list_item item;
-
-	/*
-	 * flags
-	 *    flags to set on debug flag fields
-	 *
-	 * set
-	 *    true: set flags
-	 *    false: unset flags
-	 */
-	void (*debug_set_all)(uint32_t flags, bool set);
+	struct debug_list_item item;
 };
 
 /*
@@ -218,21 +196,15 @@ struct debug_callbacks {
 #define DEBUGD(name, fmt, ...) DEBUG(debug, name, fmt, ##__VA_ARGS__)
 
 /*
- * Optional initializer for debugging. Highly recommended.
- *
- * This function installs common debugging commands and allows the caller to
- * specify callbacks to take when these commands are issued, allowing the
- * caller to respond to events such as a request to turn off all debugs.
- *
- * MT-Safe
+ * Register a debug item.
  */
-void debug_init(struct debug_callbacks *cb);
+void debug_install(struct debug *debug);
 
 /*
- * Turn on the cli to turn on/off debugs.
- * Should only be called by libfrr
+ * Initialize debugging.
+ * Should only be called by libfrr.
  */
-void debug_init_cli(void);
+void debug_init(void);
 
 #ifdef __cplusplus
 }

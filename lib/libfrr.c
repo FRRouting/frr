@@ -798,6 +798,7 @@ struct event_loop *frr_init(void)
 
 	vty_init(master, di->log_always);
 	lib_cmd_init();
+	debug_init();
 
 	frr_pthread_init();
 #ifdef HAVE_SCRIPTING
@@ -813,8 +814,6 @@ struct event_loop *frr_init(void)
 		flog_warn(EC_LIB_NB_DATABASE,
 			  "%s: failed to initialize northbound database",
 			  __func__);
-
-	debug_init_cli();
 
 	return master;
 }

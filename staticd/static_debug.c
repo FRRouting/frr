@@ -36,27 +36,6 @@ const char *static_debugs_conflines[] = {
 };
 /* clang-format on */
 
-
-/*
- * Set or unset all staticd debugs
- *
- * flags
- *    The flags to set
- *
- * set
- *    Whether to set or unset the specified flags
- */
-static void static_debug_set_all(uint32_t flags, bool set)
-{
-	for (unsigned int i = 0; i < array_size(static_debug_arr); i++) {
-		DEBUG_FLAGS_SET(static_debug_arr[i], flags, set);
-
-		/* if all modes have been turned off, don't preserve options */
-		if (!DEBUG_MODE_CHECK(static_debug_arr[i], DEBUG_MODE_ALL))
-			DEBUG_CLEAR(static_debug_arr[i]);
-	}
-}
-
 static int static_debug_config_write_helper(struct vty *vty, bool config)
 {
 	uint32_t mode = DEBUG_MODE_ALL;
@@ -113,11 +92,9 @@ void static_debug_set(int vtynode, bool onoff, bool events, bool route,
  * Debug lib initialization
  */
 
-struct debug_callbacks static_dbg_cbs = {
-	.debug_set_all = static_debug_set_all
-};
-
 void static_debug_init(void)
 {
-	debug_init(&static_dbg_cbs);
+	debug_install(&static_dbg_events);
+	debug_install(&static_dbg_route);
+	debug_install(&static_dbg_bfd);
 }
