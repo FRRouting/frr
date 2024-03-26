@@ -36,12 +36,7 @@ DEFINE_HOOK(pathd_candidate_removed, (struct srte_candidate * candidate),
 struct debug path_policy_debug;
 
 #define PATH_POLICY_DEBUG(fmt, ...)                                            \
-	do {                                                                   \
-		if (DEBUG_FLAGS_CHECK(&path_policy_debug,                      \
-				      PATH_POLICY_DEBUG_BASIC))                \
-			DEBUGD(&path_policy_debug, "policy: " fmt,             \
-			       ##__VA_ARGS__);                                 \
-	} while (0)
+	DEBUGD(&path_policy_debug, "policy: " fmt, ##__VA_ARGS__)
 
 
 static void trigger_pathd_candidate_created(struct srte_candidate *candidate);
@@ -1283,7 +1278,7 @@ const char *srte_origin2str(enum srte_protocol_origin origin)
 
 void path_policy_show_debugging(struct vty *vty)
 {
-	if (DEBUG_FLAGS_CHECK(&path_policy_debug, PATH_POLICY_DEBUG_BASIC))
+	if (DEBUG_MODE_CHECK(&path_policy_debug, DEBUG_MODE_ALL))
 		vty_out(vty, "  Path policy debugging is on\n");
 }
 

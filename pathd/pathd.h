@@ -32,8 +32,6 @@ enum srte_protocol_origin {
 
 extern struct debug path_policy_debug;
 
-#define PATH_POLICY_DEBUG_BASIC 0x01
-
 enum srte_policy_status {
 	SRTE_POLICY_STATUS_UNKNOWN = 0,
 	SRTE_POLICY_STATUS_DOWN = 1,

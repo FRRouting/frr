@@ -335,10 +335,8 @@ DEFPY (debug_path_ted,
        "ted debugging\n")
 {
 	uint32_t mode = DEBUG_NODE2MODE(vty->node);
-	bool no_debug = (no != NULL);
 
 	DEBUG_MODE_SET(&ted_state_g.dbg, mode, !no);
-	DEBUG_FLAGS_SET(&ted_state_g.dbg, PATH_TED_DEBUG_BASIC, !no_debug);
 	return CMD_SUCCESS;
 }
 
@@ -473,8 +471,7 @@ DEFPY (show_pathd_ted_db,
 int path_ted_cli_debug_config_write(struct vty *vty)
 {
 	if (DEBUG_MODE_CHECK(&ted_state_g.dbg, DEBUG_MODE_CONF)) {
-		if (DEBUG_FLAGS_CHECK(&ted_state_g.dbg, PATH_TED_DEBUG_BASIC))
-			vty_out(vty, "debug pathd mpls-te\n");
+		vty_out(vty, "debug pathd mpls-te\n");
 		return 1;
 	}
 	return 0;
@@ -482,7 +479,7 @@ int path_ted_cli_debug_config_write(struct vty *vty)
 
 void path_ted_show_debugging(struct vty *vty)
 {
-	if (DEBUG_FLAGS_CHECK(&ted_state_g.dbg, PATH_TED_DEBUG_BASIC))
+	if (DEBUG_MODE_CHECK(&ted_state_g.dbg, DEBUG_MODE_ALL))
 		vty_out(vty, "  Path TED debugging is on\n");
 }
 

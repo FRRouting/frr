@@ -59,28 +59,17 @@ struct ted_state {
 	struct debug dbg;
 };
 /* Debug flags. */
-#define PATH_TED_DEBUG_BASIC   0x01
 #define PATH_TED_DEBUG(fmt, ...)                                               \
-	do {                                                                   \
-		if (DEBUG_FLAGS_CHECK(&ted_state_g.dbg, PATH_TED_DEBUG_BASIC))  \
-			DEBUGD(&ted_state_g.dbg, "mpls-te: " fmt, ##__VA_ARGS__); \
-	} while (0)
+	DEBUGD(&ted_state_g.dbg, "mpls-te: " fmt, ##__VA_ARGS__)
 
 #define PATH_TED_ERROR(fmt, ...)                                               \
-	do {                                                                   \
-		if (DEBUG_FLAGS_CHECK(&ted_state_g.dbg, PATH_TED_DEBUG_BASIC)) \
-			DEBUGE(&ted_state_g.dbg, "mpls-te: " fmt, ##__VA_ARGS__); \
-	} while (0)
+	DEBUGE(&ted_state_g.dbg, "mpls-te: " fmt, ##__VA_ARGS__)
+
 #define PATH_TED_WARN(fmt, ...)                                                \
-	do {                                                                   \
-		if (DEBUG_FLAGS_CHECK(&ted_state_g.dbg, PATH_TED_DEBUG_BASIC))  \
-			DEBUGW(&ted_state_g.dbg, "mpls-te: " fmt, ##__VA_ARGS__); \
-	} while (0)
+	DEBUGW(&ted_state_g.dbg, "mpls-te: " fmt, ##__VA_ARGS__)
+
 #define PATH_TED_INFO(fmt, ...)                                                \
-	do {                                                                   \
-		if (DEBUG_FLAGS_CHECK(&ted_state_g.dbg, PATH_TED_DEBUG_BASIC)) \
-			DEBUGI(&ted_state_g.dbg, "mpls-te: " fmt, ##__VA_ARGS__); \
-	} while (0)
+	DEBUGI(&ted_state_g.dbg, "mpls-te: " fmt, ##__VA_ARGS__)
 
 /* TED management functions */
 bool path_ted_is_initialized(void);

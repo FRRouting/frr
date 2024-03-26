@@ -27,40 +27,22 @@ DECLARE_MTYPE(PCEP);
 #define PCEP_DEBUG_MODE_PCEPLIB 0x08
 #define PCEP_DEBUG_MODE_ALL 0x0F
 #define PCEP_DEBUG(fmt, ...)                                                   \
-	do {                                                                   \
-		if (DEBUG_FLAGS_CHECK(&pcep_g->dbg, PCEP_DEBUG_MODE_BASIC))    \
-			DEBUGD(&pcep_g->dbg, "pcep: " fmt, ##__VA_ARGS__);     \
-	} while (0)
+	DEBUGD(&pcep_g->dbg_basic, "pcep: " fmt, ##__VA_ARGS__)
 #define PCEP_DEBUG_PATH(fmt, ...)                                              \
-	do {                                                                   \
-		if (DEBUG_FLAGS_CHECK(&pcep_g->dbg, PCEP_DEBUG_MODE_PATH))     \
-			DEBUGD(&pcep_g->dbg, "pcep: " fmt, ##__VA_ARGS__);     \
-	} while (0)
+	DEBUGD(&pcep_g->dbg_path, "pcep: " fmt, ##__VA_ARGS__)
 #define PCEP_DEBUG_PCEP(fmt, ...)                                              \
-	do {                                                                   \
-		if (DEBUG_FLAGS_CHECK(&pcep_g->dbg, PCEP_DEBUG_MODE_PCEP))     \
-			DEBUGD(&pcep_g->dbg, "pcep: " fmt, ##__VA_ARGS__);     \
-	} while (0)
+	DEBUGD(&pcep_g->dbg_msg, "pcep: " fmt, ##__VA_ARGS__)
 #define PCEP_DEBUG_PCEPLIB(priority, fmt, ...)                                 \
 	do {                                                                   \
 		switch (priority) {                                            \
 		case LOG_DEBUG:                                                \
-			if (DEBUG_FLAGS_CHECK(&pcep_g->dbg,                    \
-					      PCEP_DEBUG_MODE_PCEPLIB))        \
-				DEBUGD(&pcep_g->dbg, "pcep: " fmt,             \
-				       ##__VA_ARGS__);                         \
+			DEBUGD(&pcep_g->dbg_lib, "pcep: " fmt, ##__VA_ARGS__); \
 			break;                                                 \
 		case LOG_INFO:                                                 \
-			if (DEBUG_FLAGS_CHECK(&pcep_g->dbg,                    \
-					      PCEP_DEBUG_MODE_PCEPLIB))        \
-				DEBUGI(&pcep_g->dbg, "pcep: " fmt,             \
-				       ##__VA_ARGS__);                         \
+			DEBUGI(&pcep_g->dbg_lib, "pcep: " fmt, ##__VA_ARGS__); \
 			break;                                                 \
 		case LOG_NOTICE:                                               \
-			if (DEBUG_FLAGS_CHECK(&pcep_g->dbg,                    \
-					      PCEP_DEBUG_MODE_PCEPLIB))        \
-				DEBUGN(&pcep_g->dbg, "pcep: " fmt,             \
-				       ##__VA_ARGS__);                         \
+			DEBUGN(&pcep_g->dbg_lib, "pcep: " fmt, ##__VA_ARGS__); \
 			break;                                                 \
 		case LOG_WARNING:                                              \
 		case LOG_ERR:                                                  \
@@ -294,7 +276,10 @@ struct path {
 };
 
 struct pcep_glob {
-	struct debug dbg;
+	struct debug dbg_basic;
+	struct debug dbg_path;
+	struct debug dbg_msg;
+	struct debug dbg_lib;
 	struct event_loop *master;
 	struct frr_pthread *fpt;
 	uint8_t num_pce_opts_cli;
