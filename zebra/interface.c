@@ -176,6 +176,10 @@ static void if_nhg_dependents_release(const struct interface *ifp)
 	frr_each(nhg_connected_tree, &zif->nhg_dependents, rb_node_dep) {
 		rb_node_dep->nhe->ifp = NULL; /* Null it out */
 		zebra_nhg_check_valid(rb_node_dep->nhe);
+		if (CHECK_FLAG(rb_node_dep->nhe->flags,
+			       NEXTHOP_GROUP_KEEP_AROUND) &&
+		    rb_node_dep->nhe->refcnt == 1)
+			zebra_nhg_decrement_ref(rb_node_dep->nhe);
 	}
 }
 
