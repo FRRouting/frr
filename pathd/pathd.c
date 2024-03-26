@@ -1279,12 +1279,6 @@ const char *srte_origin2str(enum srte_protocol_origin origin)
 	assert(!"Reached end of function we should never hit");
 }
 
-void path_policy_show_debugging(struct vty *vty)
-{
-	if (DEBUG_MODE_CHECK(&path_policy_debug, DEBUG_MODE_ALL))
-		vty_out(vty, "  Path policy debugging is on\n");
-}
-
 void pathd_shutdown(void)
 {
 	path_ted_teardown();

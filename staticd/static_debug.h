@@ -29,14 +29,6 @@ extern struct debug static_dbg_bfd;
 void static_debug_init(void);
 
 /*
- * Print staticd debugging configuration, human readable form.
- *
- * vty
- *    VTY to print debugging configuration to.
- */
-int static_debug_status_write(struct vty *vty);
-
-/*
  * Set debugging status.
  *
  * vtynode

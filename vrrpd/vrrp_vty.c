@@ -738,8 +738,6 @@ DEFUN_NOSH (show_debugging_vrrp,
 {
 	vty_out(vty, "VRRP debugging status:\n");
 
-	vrrp_debug_status_write(vty);
-
 	cmd_show_lib_debugs(vty);
 
 	return CMD_SUCCESS;

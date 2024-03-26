@@ -463,17 +463,6 @@ DEFPY (show_pathd_ted_db,
 	return CMD_SUCCESS;
 }
 
-/*
- * Config Write functions
- */
-
-
-void path_ted_show_debugging(struct vty *vty)
-{
-	if (DEBUG_MODE_CHECK(&ted_state_g.dbg, DEBUG_MODE_ALL))
-		vty_out(vty, "  Path TED debugging is on\n");
-}
-
 /**
  * Help fn to show ted related configuration
  *

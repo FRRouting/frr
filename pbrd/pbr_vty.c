@@ -1993,8 +1993,6 @@ DEFUN_NOSH(show_debugging_pbr,
 {
 	vty_out(vty, "PBR debugging status:\n");
 
-	pbr_debug_config_write_helper(vty, false);
-
 	cmd_show_lib_debugs(vty);
 
 	return CMD_SUCCESS;

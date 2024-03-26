@@ -38,6 +38,16 @@ DEFUN_NOSH (debug_all,
 
 /* ------------------------------------------------------------------------- */
 
+void debug_status_write(struct vty *vty)
+{
+	struct debug *debug;
+
+	frr_each (debug_list, &debug_head, debug) {
+		if (DEBUG_MODE_CHECK(debug, DEBUG_MODE_ALL))
+			vty_out(vty, "  %s debugging is on\n", debug->desc);
+	}
+}
+
 static int config_write_debug(struct vty *vty)
 {
 	struct debug *debug;

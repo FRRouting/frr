@@ -557,38 +557,10 @@ DEFPY(mgmt_rollback,
 	return CMD_SUCCESS;
 }
 
-static int write_mgmt_debug_helper(struct vty *vty, bool config)
-{
-	uint32_t mode = config ? DEBUG_MODE_CONF : DEBUG_MODE_ALL;
-	bool be = DEBUG_MODE_CHECK(&mgmt_debug_be, mode);
-	bool ds = DEBUG_MODE_CHECK(&mgmt_debug_ds, mode);
-	bool fe = DEBUG_MODE_CHECK(&mgmt_debug_fe, mode);
-	bool txn = DEBUG_MODE_CHECK(&mgmt_debug_txn, mode);
-
-	if (!(be || ds || fe || txn))
-		return 0;
-
-	vty_out(vty, "debug mgmt");
-	if (be)
-		vty_out(vty, " backend");
-	if (ds)
-		vty_out(vty, " datastore");
-	if (fe)
-		vty_out(vty, " frontend");
-	if (txn)
-		vty_out(vty, " transaction");
-
-	vty_out(vty, "\n");
-
-	return 0;
-}
-
 DEFPY_NOSH(show_debugging_mgmt, show_debugging_mgmt_cmd,
 	   "show debugging [mgmt]", SHOW_STR DEBUG_STR "MGMT Information\n")
 {
 	vty_out(vty, "MGMT debugging status:\n");
-
-	write_mgmt_debug_helper(vty, false);
 
 	cmd_show_lib_debugs(vty);
 

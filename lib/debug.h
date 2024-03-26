@@ -199,6 +199,9 @@ struct debug {
 #define DEBUGN(name, fmt, ...) DEBUG(notice, name, fmt, ##__VA_ARGS__)
 #define DEBUGD(name, fmt, ...) DEBUG(debug, name, fmt, ##__VA_ARGS__)
 
+/* Show current debugging status. */
+void debug_status_write(struct vty *vty);
+
 /*
  * Register a debug item.
  */

@@ -19,29 +19,6 @@ struct debug pbr_dbg_zebra = { 0, "debug pbr zebra",
 struct debug pbr_dbg_nht = { 0, "debug pbr nht", "PBR nexthop tracking" };
 struct debug pbr_dbg_event = { 0, "debug pbr events", "PBR events" };
 
-struct debug *pbr_debugs[] = {&pbr_dbg_map, &pbr_dbg_zebra, &pbr_dbg_nht,
-			      &pbr_dbg_event};
-
-const char *pbr_debugs_conflines[] = {
-	"debug pbr map",
-	"debug pbr zebra",
-	"debug pbr nht",
-	"debug pbr events",
-};
-
-int pbr_debug_config_write_helper(struct vty *vty, bool config)
-{
-	uint32_t mode = DEBUG_MODE_ALL;
-
-	if (config)
-		mode = DEBUG_MODE_CONF;
-
-	for (unsigned int i = 0; i < array_size(pbr_debugs); i++)
-		if (DEBUG_MODE_CHECK(pbr_debugs[i], mode))
-			vty_out(vty, "%s\n", pbr_debugs_conflines[i]);
-	return 0;
-}
-
 void pbr_debug_init(void)
 {
 	debug_install(&pbr_dbg_map);
