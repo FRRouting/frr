@@ -98,8 +98,9 @@ static void bgp_conditional_adv_routes(struct peer *peer, afi_t afi,
 		for (pi = bgp_dest_get_bgp_path_info(dest); pi; pi = pi->next) {
 			advmap_attr = *pi->attr;
 
-			bool selected = bgp_check_selected(
-				pi, peer, addpath_capable, afi, safi);
+			bool selected = bgp_check_selected(pi, peer,
+							   addpath_capable, afi,
+							   safi);
 
 			if (selected) {
 				bgp_adj_out_updated(

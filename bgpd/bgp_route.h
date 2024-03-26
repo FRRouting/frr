@@ -329,8 +329,8 @@ struct bgp_path_info {
 #define BGP_PATH_MPLSVPN_LABEL_NH (1 << 17)
 #define BGP_PATH_MPLSVPN_NH_LABEL_BIND (1 << 18)
 #define BGP_PATH_UNSORTED (1 << 19)
-#define BGP_PATH_BMP_LOCKED (1 << 20)
-#define BGP_PATH_BMP_ADJIN_CHG (1 << 21)
+#define BGP_PATH_BMP_LOCKED	       (1 << 20)
+#define BGP_PATH_BMP_ADJIN_CHG	       (1 << 21)
 
 	/* BGP route type.  This can be static, RIP, OSPF, BGP etc.  */
 	uint8_t type;
@@ -878,7 +878,7 @@ extern void subgroup_process_announce_selected(struct update_subgroup *subgrp,
 					       uint32_t addpath_tx_id);
 
 /* used by bmp to ignore certain conditions in rib-out pre-policy check */
-#define BGP_ANNCHK_SPECIAL_IGNORE_OUT_POLICY (1 << 0)
+#define BGP_ANNCHK_SPECIAL_IGNORE_OUT_POLICY  (1 << 0)
 #define BGP_ANNCHK_SPECIAL_IGNORE_PATH_STATUS (1 << 1)
 #define BGP_ANNCHK_SPECIAL_PREPOLICY                                           \
 	(BGP_ANNCHK_SPECIAL_IGNORE_OUT_POLICY |                                \

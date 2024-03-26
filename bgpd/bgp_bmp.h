@@ -314,11 +314,11 @@ struct bmp_bpi_lock {
 		.dest = (target_dest),                                         \
 		.bgp = (target_bgp),                                           \
 	};                                                                     \
-									\
+\
 	struct bmp_bpi_lock *(head) = NULL, *(prev) = NULL, *(lookup) = NULL;  \
-									\
+\
 	(head) = bmp_lbpi_h_find(&bmp_lbpi, &_dummy_lbpi);                     \
-									\
+\
 	for ((lookup) = (head); (lookup);                                      \
 	     (lookup) = ((prev) = (lookup))->next) {                           \
 		if ((condition))                                               \
