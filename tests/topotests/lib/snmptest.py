@@ -154,14 +154,14 @@ class SnmpTester(object):
 
     def is_notif_bgp4v2_valid(self, output_list, address, type_requested):
         oid_notif_type = ".1.3.6.1.6.3.1.1.4.1.0"
-        peer_notif_established = ".1.3.6.1.3.5.1.0.1"
-        peer_notif_backward = ".1.3.6.1.3.5.1.0.2"
-        oid_peer_state = ".1.3.6.1.3.5.1.1.2.1.13"
-        oid_peer_local_port = ".1.3.6.1.3.5.1.1.2.1.6"
-        oid_peer_remote_port = ".1.3.6.1.3.5.1.1.2.1.9"
-        oid_peer_err_code_recv = ".1.3.6.1.3.5.1.1.3.1.1"
-        oid_peer_err_sub_code_recv = ".1.3.6.1.3.5.1.1.3.1.2"
-        oid_peer_err_recv_text = ".1.3.6.1.3.5.1.1.3.1.4"
+        peer_notif_established = ".1.3.6.1.4.1.7336.4.2.1.0.1"
+        peer_notif_backward = ".1.3.6.1.4.1.7336.4.2.1.0.2"
+        oid_peer_state = ".1.3.6.1.4.1.7336.4.2.1.1.2.1.13"
+        oid_peer_local_port = ".1.3.6.1.4.1.7336.4.2.1.1.2.1.6"
+        oid_peer_remote_port = ".1.3.6.1.4.1.7336.4.2.1.1.2.1.9"
+        oid_peer_err_code_recv = ".1.3.6.1.4.1.7336.4.2.1.1.3.1.1"
+        oid_peer_err_sub_code_recv = ".1.3.6.1.4.1.7336.4.2.1.1.3.1.2"
+        oid_peer_err_recv_text = ".1.3.6.1.4.1.7336.4.2.1.1.3.1.4"
 
         nb_notif = len(output_list)
         for nb in range(nb_notif):
@@ -178,6 +178,7 @@ class SnmpTester(object):
             else:
                 return False
 
+            # continue until found requested type 
             if notif_type != type_requested:
                 continue
 
@@ -243,7 +244,7 @@ class SnmpTester(object):
             if re.search(r"(\.([0-9]+))+\s", result):
                 notifs.append(result)
 
-        oid_v6 = r"1\.3\.6\.1\.3\.5\.1"
+        oid_v6 = "1\.3\.6\.1\.4\.1\.7336"
         for one_notif in notifs:
             is_ipv6_notif = re.search(oid_v6, one_notif)
             if is_ipv6_notif != None:
