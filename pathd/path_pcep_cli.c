@@ -110,10 +110,6 @@ static const char PCEP_VTYSH_ARG_DELEGATION_TIMEOUT[] = "delegation-timeout";
 static const char PCEP_VTYSH_ARG_SR_DRAFT07[] = "sr-draft07";
 static const char PCEP_VTYSH_ARG_PCE_INIT[] = "pce-initiated";
 static const char PCEP_VTYSH_ARG_TCP_MD5[] = "tcp-md5-auth";
-static const char PCEP_VTYSH_ARG_BASIC[] = "basic";
-static const char PCEP_VTYSH_ARG_PATH[] = "path";
-static const char PCEP_VTYSH_ARG_MESSAGE[] = "message";
-static const char PCEP_VTYSH_ARG_PCEPLIB[] = "pceplib";
 static const char PCEP_CLI_CAP_STATEFUL[] = " [Stateful PCE]";
 static const char PCEP_CLI_CAP_INCL_DB_VER[] = " [Include DB version]";
 static const char PCEP_CLI_CAP_LSP_TRIGGERED[] = " [LSP Triggered Resync]";
@@ -463,31 +459,19 @@ static void pcep_cli_remove_pce_connection(struct pce_opts *pce_opts)
  * VTY command implementations
  */
 
-static int path_pcep_cli_debug(struct vty *vty, const char *debug_type, bool set)
+static int path_pcep_cli_debug(struct vty *vty, bool onoff, bool basic,
+			       bool path, bool message, bool lib)
 {
 	uint32_t mode = DEBUG_NODE2MODE(vty->node);
 
-	/* Global Set */
-	if (debug_type == NULL) {
-		DEBUG_MODE_SET(&pcep_g->dbg, mode, set);
-		DEBUG_FLAGS_SET(&pcep_g->dbg, PCEP_DEBUG_MODE_ALL, set);
-		return CMD_SUCCESS;
-	}
-
-	DEBUG_MODE_SET(&pcep_g->dbg, mode, true);
-
-	if (strcmp(debug_type, "basic") == 0)
-		DEBUG_FLAGS_SET(&pcep_g->dbg, PCEP_DEBUG_MODE_BASIC, set);
-	else if (strcmp(debug_type, "path") == 0)
-		DEBUG_FLAGS_SET(&pcep_g->dbg, PCEP_DEBUG_MODE_PATH, set);
-	else if (strcmp(debug_type, "message") == 0)
-		DEBUG_FLAGS_SET(&pcep_g->dbg, PCEP_DEBUG_MODE_PCEP, set);
-	else if (strcmp(debug_type, "pceplib") == 0)
-		DEBUG_FLAGS_SET(&pcep_g->dbg, PCEP_DEBUG_MODE_PCEPLIB, set);
-
-	/* Unset the pcep debug mode if there is no flag at least set*/
-	if (!DEBUG_FLAGS_CHECK(&pcep_g->dbg, PCEP_DEBUG_MODE_ALL))
-		DEBUG_MODE_SET(&pcep_g->dbg, mode, false);
+	if (basic)
+		DEBUG_MODE_SET(&pcep_g->dbg_basic, mode, onoff);
+	if (path)
+		DEBUG_MODE_SET(&pcep_g->dbg_path, mode, onoff);
+	if (message)
+		DEBUG_MODE_SET(&pcep_g->dbg_msg, mode, onoff);
+	if (lib)
+		DEBUG_MODE_SET(&pcep_g->dbg_lib, mode, onoff);
 
 	return CMD_SUCCESS;
 }
@@ -1714,25 +1698,14 @@ static int path_pcep_cli_clear_srte_pcep_session(struct vty *vty,
 
 int pcep_cli_debug_config_write(struct vty *vty)
 {
-	char buff[128] = "";
-
-	if (DEBUG_MODE_CHECK(&pcep_g->dbg, DEBUG_MODE_CONF)) {
-		if (DEBUG_FLAGS_CHECK(&pcep_g->dbg, PCEP_DEBUG_MODE_BASIC))
-			csnprintfrr(buff, sizeof(buff), " %s",
-				    PCEP_VTYSH_ARG_BASIC);
-		if (DEBUG_FLAGS_CHECK(&pcep_g->dbg, PCEP_DEBUG_MODE_PATH))
-			csnprintfrr(buff, sizeof(buff), " %s",
-				    PCEP_VTYSH_ARG_PATH);
-		if (DEBUG_FLAGS_CHECK(&pcep_g->dbg, PCEP_DEBUG_MODE_PCEP))
-			csnprintfrr(buff, sizeof(buff), " %s",
-				    PCEP_VTYSH_ARG_MESSAGE);
-		if (DEBUG_FLAGS_CHECK(&pcep_g->dbg, PCEP_DEBUG_MODE_PCEPLIB))
-			csnprintfrr(buff, sizeof(buff), " %s",
-				    PCEP_VTYSH_ARG_PCEPLIB);
-		vty_out(vty, "debug pathd pcep%s\n", buff);
-		buff[0] = 0;
-		return 1;
-	}
+	if (DEBUG_MODE_CHECK(&pcep_g->dbg_basic, DEBUG_MODE_CONF))
+		vty_out(vty, "debug pathd pcep basic\n");
+	if (DEBUG_MODE_CHECK(&pcep_g->dbg_path, DEBUG_MODE_CONF))
+		vty_out(vty, "debug pathd pcep path\n");
+	if (DEBUG_MODE_CHECK(&pcep_g->dbg_msg, DEBUG_MODE_CONF))
+		vty_out(vty, "debug pathd pcep message\n");
+	if (DEBUG_MODE_CHECK(&pcep_g->dbg_lib, DEBUG_MODE_CONF))
+		vty_out(vty, "debug pathd pcep pceplib\n");
 
 	return 0;
 }
@@ -2015,27 +1988,21 @@ DEFPY(show_debugging_pathd_pcep,
 {
 	vty_out(vty, "Pathd pcep debugging status:\n");
 
-	if (DEBUG_MODE_CHECK(&pcep_g->dbg, DEBUG_MODE_CONF)) {
-		if (DEBUG_FLAGS_CHECK(&pcep_g->dbg, PCEP_DEBUG_MODE_BASIC))
-			vty_out(vty, "  Pathd pcep %s debugging is on\n",
-				PCEP_VTYSH_ARG_BASIC);
-		if (DEBUG_FLAGS_CHECK(&pcep_g->dbg, PCEP_DEBUG_MODE_PATH))
-			vty_out(vty, "  Pathd pcep %s debugging is on\n",
-				PCEP_VTYSH_ARG_PATH);
-		if (DEBUG_FLAGS_CHECK(&pcep_g->dbg, PCEP_DEBUG_MODE_PCEP))
-			vty_out(vty, "  Pathd pcep %s debugging is on\n",
-				PCEP_VTYSH_ARG_MESSAGE);
-		if (DEBUG_FLAGS_CHECK(&pcep_g->dbg, PCEP_DEBUG_MODE_PCEPLIB))
-			vty_out(vty, "  Pathd pcep %s debugging is on\n",
-				PCEP_VTYSH_ARG_PCEPLIB);
-	}
+	if (DEBUG_MODE_CHECK(&pcep_g->dbg_basic, DEBUG_MODE_ALL))
+		vty_out(vty, "PCEP basic debugging is on\n");
+	if (DEBUG_MODE_CHECK(&pcep_g->dbg_path, DEBUG_MODE_ALL))
+		vty_out(vty, "PCEP path debugging is on\n");
+	if (DEBUG_MODE_CHECK(&pcep_g->dbg_msg, DEBUG_MODE_ALL))
+		vty_out(vty, "PCEP message debugging is on\n");
+	if (DEBUG_MODE_CHECK(&pcep_g->dbg_lib, DEBUG_MODE_ALL))
+		vty_out(vty, "PCEP lib debugging is on\n");
 
 	return CMD_SUCCESS;
 }
 
 DEFPY(pcep_cli_debug,
       pcep_cli_debug_cmd,
-      "[no] debug pathd pcep [<basic|path|message|pceplib>$debug_type]",
+      "[no] debug pathd pcep [{basic$basic|path$path|message$msg|pceplib$lib}]",
       NO_STR DEBUG_STR
       "pathd debugging\n"
       "pcep module debugging\n"
@@ -2044,7 +2011,11 @@ DEFPY(pcep_cli_debug,
       "pcep message debugging\n"
       "pceplib debugging\n")
 {
-	return path_pcep_cli_debug(vty, debug_type, !no);
+	if (strmatch(argv[argc - 1]->text, "pcep"))
+		return path_pcep_cli_debug(vty, !no, true, true, true, true);
+	else
+		return path_pcep_cli_debug(vty, !no, !!basic, !!path, !!msg,
+					   !!lib);
 }
 
 DEFPY(pcep_cli_show_srte_pcep_counters,

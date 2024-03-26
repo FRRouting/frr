@@ -1101,10 +1101,8 @@ DEFPY(debug_path_policy, debug_path_policy_cmd, "[no] debug pathd policy",
       "policy debugging\n")
 {
 	uint32_t mode = DEBUG_NODE2MODE(vty->node);
-	bool no_debug = no;
 
 	DEBUG_MODE_SET(&path_policy_debug, mode, !no);
-	DEBUG_FLAGS_SET(&path_policy_debug, PATH_POLICY_DEBUG_BASIC, !no_debug);
 	return CMD_SUCCESS;
 }
 
@@ -1310,9 +1308,7 @@ int config_write_segment_routing(struct vty *vty)
 static int path_policy_cli_debug_config_write(struct vty *vty)
 {
 	if (DEBUG_MODE_CHECK(&path_policy_debug, DEBUG_MODE_CONF)) {
-		if (DEBUG_FLAGS_CHECK(&path_policy_debug,
-				      PATH_POLICY_DEBUG_BASIC))
-			vty_out(vty, "debug pathd policy\n");
+		vty_out(vty, "debug pathd policy\n");
 		return 1;
 	}
 	return 0;
