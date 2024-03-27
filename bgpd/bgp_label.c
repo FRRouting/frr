@@ -74,7 +74,7 @@ int bgp_parse_fec_update(void)
 		bgp_set_valid_label(&dest->local_label);
 	}
 	SET_FLAG(dest->flags, BGP_NODE_LABEL_CHANGED);
-	bgp_process(bgp, dest, afi, safi);
+	bgp_process(bgp, dest, NULL, afi, safi);
 	bgp_dest_unlock_node(dest);
 	return 1;
 }

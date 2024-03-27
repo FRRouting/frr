@@ -2116,7 +2116,7 @@ bool bgp_redistribute_metric_set(struct bgp *bgp, struct bgp_redist *red,
 
 				bgp_path_info_set_flag(dest, pi,
 						       BGP_PATH_ATTR_CHANGED);
-				bgp_process(bgp, dest, afi, SAFI_UNICAST);
+				bgp_process(bgp, dest, pi, afi, SAFI_UNICAST);
 			}
 		}
 	}
