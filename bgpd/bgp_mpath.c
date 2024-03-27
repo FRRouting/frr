@@ -320,7 +320,8 @@ bgp_path_info_mpath_get(struct bgp_path_info *path)
  * list entry
  */
 static void bgp_path_info_mpath_enqueue(struct bgp_path_info *prev_info,
-					struct bgp_path_info *path)
+					struct bgp_path_info *path,
+					uint32_t flag)
 {
 	struct bgp_path_info_mpath *prev, *mpath;
 
@@ -335,7 +336,29 @@ static void bgp_path_info_mpath_enqueue(struct bgp_path_info *prev_info,
 		prev->mp_next->mp_prev = mpath;
 	prev->mp_next = mpath;
 
-	SET_FLAG(path->flags, BGP_PATH_MULTIPATH);
+	SET_FLAG(path->flags, flag);
+	if (CHECK_FLAG(path->flags, BGP_PATH_BACKUP) &&
+	    CHECK_FLAG(path->flags, BGP_PATH_MULTIPATH))
+		UNSET_FLAG(path->flags, BGP_PATH_BACKUP);
+}
+
+
+/*
+ * bgp_mpath_is_primary_path
+ *
+ * Return true if a 'current' path is a primary route like 'best'
+ */
+bool bgp_mpath_is_primary_path(struct bgp_path_info *current,
+			       struct bgp_path_info *best)
+{
+	struct bgp_path_info *mpath = bgp_path_info_mpath_first(best);
+
+	while (mpath) {
+		if (mpath == current)
+			return true;
+		mpath = bgp_path_info_mpath_next(mpath);
+	};
+	return false;
 }
 
 /*
@@ -343,7 +366,7 @@ static void bgp_path_info_mpath_enqueue(struct bgp_path_info *prev_info,
  *
  * Remove a path from the multipath list
  */
-void bgp_path_info_mpath_dequeue(struct bgp_path_info *path)
+void bgp_path_info_mpath_dequeue(struct bgp_path_info *path, uint32_t flag)
 {
 	struct bgp_path_info_mpath *mpath = path->mpath;
 	if (!mpath)
@@ -353,7 +376,7 @@ void bgp_path_info_mpath_dequeue(struct bgp_path_info *path)
 	if (mpath->mp_next)
 		mpath->mp_next->mp_prev = mpath->mp_prev;
 	mpath->mp_next = mpath->mp_prev = NULL;
-	UNSET_FLAG(path->flags, BGP_PATH_MULTIPATH);
+	UNSET_FLAG(path->flags, flag);
 }
 
 /*
@@ -515,8 +538,7 @@ static void bgp_path_info_mpath_attr_set(struct bgp_path_info *path,
  * bgp_best_selection
  */
 void bgp_path_info_mpath_update(struct bgp *bgp, struct bgp_dest *dest,
-				struct bgp_path_info *new_best,
-				struct bgp_path_info *old_best,
+				struct bgp_path_info_pair *result,
 				struct list *mp_list,
 				struct bgp_maxpaths_cfg *mpath_cfg)
 {
@@ -528,6 +550,9 @@ void bgp_path_info_mpath_update(struct bgp *bgp, struct bgp_dest *dest,
 	int mpath_changed, debug;
 	bool all_paths_lb;
 	char path_buf[PATH_ADDPATH_STR_BUFFER];
+	struct bgp_path_info *old_best = result->old;
+	struct bgp_path_info *new_best = result->new;
+	uint32_t mpath_flag;
 
 	mpath_changed = 0;
 	maxpaths = multipath_num;
@@ -539,10 +564,15 @@ void bgp_path_info_mpath_update(struct bgp *bgp, struct bgp_dest *dest,
 	mp_node = listhead(mp_list);
 	debug = bgp_debug_bestpath(dest);
 
+	if (result->blacklist)
+		mpath_flag = BGP_PATH_BACKUP_MULTIPATH;
+	else
+		mpath_flag = BGP_PATH_MULTIPATH;
+
 	if (new_best) {
 		mpath_count++;
 		if (new_best != old_best)
-			bgp_path_info_mpath_dequeue(new_best);
+			bgp_path_info_mpath_dequeue(new_best, mpath_flag);
 		maxpaths = (new_best->peer->sort == BGP_PEER_IBGP)
 				   ? mpath_cfg->maxpaths_ibgp
 				   : mpath_cfg->maxpaths_ebgp;
@@ -554,12 +584,13 @@ void bgp_path_info_mpath_update(struct bgp *bgp, struct bgp_dest *dest,
 		old_cum_bw = bgp_path_info_mpath_cumbw(old_best);
 		bgp_path_info_mpath_count_set(old_best, 0);
 		bgp_path_info_mpath_lb_update(old_best, false, false, 0);
-		bgp_path_info_mpath_dequeue(old_best);
+		bgp_path_info_mpath_dequeue(old_best, mpath_flag);
 	}
 
 	if (debug)
-		zlog_debug("%pBD(%s): starting mpath update, newbest %s num candidates %d old-mpath-count %d old-cum-bw %" PRIu64,
+		zlog_debug("%pBD(%s): starting mpath update, new%sbest %s num candidates %d old-mpath-count %d old-cum-bw %" PRIu64,
 			   dest, bgp->name_pretty,
+			   result->blacklist ? " second " : "",
 			   new_best ? new_best->peer->host : "NONE",
 			   mp_list ? listcount(mp_list) : 0, old_mpath_count,
 			   old_cum_bw);
@@ -604,13 +635,14 @@ void bgp_path_info_mpath_update(struct bgp *bgp, struct bgp_dest *dest,
 		 */
 		if (mp_node && (listgetdata(mp_node) == cur_mpath)) {
 			list_delete_node(mp_list, mp_node);
-			bgp_path_info_mpath_dequeue(cur_mpath);
+			bgp_path_info_mpath_dequeue(cur_mpath, mpath_flag);
 			if ((mpath_count < maxpaths)
 			    && prev_mpath
 			    && bgp_path_info_nexthop_cmp(prev_mpath,
 							 cur_mpath)) {
 				bgp_path_info_mpath_enqueue(prev_mpath,
-							    cur_mpath);
+							    cur_mpath,
+							    mpath_flag);
 				prev_mpath = cur_mpath;
 				mpath_count++;
 				if (ecommunity_linkbw_present(
@@ -656,7 +688,7 @@ void bgp_path_info_mpath_update(struct bgp *bgp, struct bgp_dest *dest,
 			 * multipath, so we need to purge this path from the
 			 * multipath list
 			 */
-			bgp_path_info_mpath_dequeue(cur_mpath);
+			bgp_path_info_mpath_dequeue(cur_mpath, mpath_flag);
 			mpath_changed = 1;
 			if (debug) {
 				bgp_path_info_path_with_addpath_rx_str(
@@ -693,10 +725,12 @@ void bgp_path_info_mpath_update(struct bgp *bgp, struct bgp_dest *dest,
 			if ((mpath_count < maxpaths) && (new_mpath != new_best)
 			    && bgp_path_info_nexthop_cmp(prev_mpath,
 							 new_mpath)) {
-				bgp_path_info_mpath_dequeue(new_mpath);
+				bgp_path_info_mpath_dequeue(new_mpath,
+							    mpath_flag);
 
 				bgp_path_info_mpath_enqueue(prev_mpath,
-							    new_mpath);
+							    new_mpath,
+							    mpath_flag);
 				prev_mpath = new_mpath;
 				mpath_changed = 1;
 				mpath_count++;
@@ -733,11 +767,11 @@ void bgp_path_info_mpath_update(struct bgp *bgp, struct bgp_dest *dest,
 					      all_paths_lb, cum_bw);
 
 		if (debug)
-			zlog_debug("%pBD(%s): New mpath count (incl newbest) %d mpath-change %s all_paths_lb %d cum_bw %" PRIu64,
-				   dest, bgp->name_pretty, mpath_count,
-				   mpath_changed ? "YES" : "NO", all_paths_lb,
-				   cum_bw);
-
+			zlog_debug("%pBD(%s): New mpath count (incl new%sbest) %d mpath-change %s all_paths_lb %d cum_bw %" PRIu64,
+				   dest, bgp->name_pretty,
+				   result->blacklist ? " second " : "",
+				   mpath_count, mpath_changed ? "YES" : "NO",
+				   all_paths_lb, cum_bw);
 		if (mpath_changed
 		    || (bgp_path_info_mpath_count(new_best) != old_mpath_count))
 			SET_FLAG(new_best->flags, BGP_PATH_MULTIPATH_CHG);
@@ -763,7 +797,8 @@ void bgp_mp_dmed_deselect(struct bgp_path_info *dmed_best)
 	for (mpinfo = bgp_path_info_mpath_first(dmed_best); mpinfo;
 	     mpinfo = mpnext) {
 		mpnext = bgp_path_info_mpath_next(mpinfo);
-		bgp_path_info_mpath_dequeue(mpinfo);
+		bgp_path_info_mpath_dequeue(mpinfo, BGP_PATH_BACKUP_MULTIPATH |
+							    BGP_PATH_MULTIPATH);
 	}
 
 	bgp_path_info_mpath_count_set(dmed_best, 0);

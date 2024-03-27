@@ -60,7 +60,7 @@ enum bgp_show_adj_route_type {
 #define BGP_SHOW_SCODE_HEADER                                                  \
 	"Status codes:  s suppressed, d damped, "                              \
 	"h history, * valid, > best, = multipath,\n"                           \
-	"               i internal, r RIB-failure, S Stale, R Removed\n"
+	"               i internal, r RIB-failure, S Stale, R Removed, b backup\n"
 #define BGP_SHOW_OCODE_HEADER                                                  \
 	"Origin codes:  i - IGP, e - EGP, ? - incomplete\n"
 #define BGP_SHOW_NCODE_HEADER "Nexthop codes: @NNN nexthop's vrf id, < announce-nh-self\n"
@@ -327,6 +327,8 @@ struct bgp_path_info {
 #define BGP_PATH_ACCEPT_OWN (1 << 16)
 #define BGP_PATH_MPLSVPN_LABEL_NH (1 << 17)
 #define BGP_PATH_MPLSVPN_NH_LABEL_BIND (1 << 18)
+#define BGP_PATH_BACKUP		       (1 << 19)
+#define BGP_PATH_BACKUP_MULTIPATH      (1 << 20)
 
 	/* BGP route type.  This can be static, RIP, OSPF, BGP etc.  */
 	uint8_t type;
@@ -359,6 +361,7 @@ struct bgp_path_info {
 struct bgp_path_info_pair {
 	struct bgp_path_info *old;
 	struct bgp_path_info *new;
+	struct bgp_path_info *blacklist;
 };
 
 /* BGP static route configuration. */
@@ -878,11 +881,11 @@ extern struct bgp_dest *bgp_safi_node_lookup(struct bgp_table *table,
 extern void bgp_path_info_restore(struct bgp_dest *dest,
 				  struct bgp_path_info *path);
 
-extern int bgp_path_info_cmp_compatible(struct bgp *bgp,
-					struct bgp_path_info *new,
-					struct bgp_path_info *exist,
-					char *pfx_buf, afi_t afi, safi_t safi,
-					enum bgp_path_selection_reason *reason);
+extern int
+bgp_path_info_cmp_compatible(struct bgp *bgp,
+			     struct bgp_path_info_pair *info_new_and_next,
+			     char *pfx_buf, afi_t afi, safi_t safi,
+			     enum bgp_path_selection_reason *reason);
 extern void bgp_attr_add_llgr_community(struct attr *attr);
 extern void bgp_attr_add_gshut_community(struct attr *attr);
 
@@ -912,9 +915,10 @@ extern void bgp_best_path_select_defer(struct bgp *bgp, afi_t afi, safi_t safi);
 extern bool bgp_update_martian_nexthop(struct bgp *bgp, afi_t afi, safi_t safi,
 				       uint8_t type, uint8_t stype,
 				       struct attr *attr, struct bgp_dest *dest);
-extern int bgp_evpn_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
-				  struct bgp_path_info *exist, int *paths_eq,
-				  bool debug);
+extern int
+bgp_evpn_path_info_cmp(struct bgp *bgp,
+		       struct bgp_path_info_pair *pi_and_second_best_path,
+		       int *paths_eq, bool debug);
 extern void bgp_aggregate_toggle_suppressed(struct bgp_aggregate *aggregate,
 					    struct bgp *bgp,
 					    const struct prefix *p, afi_t afi,
@@ -932,10 +936,10 @@ extern void bgp_path_info_add_with_caller(const char *caller,
 					  struct bgp_dest *dest,
 					  struct bgp_path_info *pi);
 extern void bgp_aggregate_free(struct bgp_aggregate *aggregate);
-extern int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
-			     struct bgp_path_info *exist, int *paths_eq,
-			     struct bgp_maxpaths_cfg *mpath_cfg, bool debug,
-			     char *pfx_buf, afi_t afi, safi_t safi,
+extern int bgp_path_info_cmp(struct bgp *bgp,
+			     struct bgp_path_info_pair *new_and_exist,
+			     int *paths_eq, struct bgp_maxpaths_cfg *mpath_cfg,
+			     bool debug, char *pfx_buf, afi_t afi, safi_t safi,
 			     enum bgp_path_selection_reason *reason);
 #define bgp_path_info_add(A, B)                                                \
 	bgp_path_info_add_with_caller(__func__, (A), (B))

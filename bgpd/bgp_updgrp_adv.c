@@ -101,8 +101,74 @@ subgrp_announce_addpath_best_selected(struct bgp_dest *dest,
 	struct bgp_path_info *pi = NULL;
 	uint16_t paths_count = 0;
 	uint16_t paths_limit = peer->addpath_paths_limit[afi][safi].receive;
+	struct bgp_path_info_pair pi_and_exist = { 0 };
+	uint32_t path_type = 0;
 
-	if (peer->addpath_type[afi][safi] == BGP_ADDPATH_BEST_SELECTED) {
+	if (peer->addpath_type[afi][safi] == BGP_ADDPATH_BEST_SELECTED &&
+	    CHECK_FLAG(peer->bgp->af_flags[afi][safi],
+		       BGP_CONFIG_ADDPATH_BACKUP)) {
+		paths_limit =
+			paths_limit
+				? MIN(paths_limit,
+				      peer->addpath_best_selected[afi][safi])
+				: peer->addpath_best_selected[afi][safi];
+
+		while (1) {
+			struct bgp_path_info *exist = NULL;
+
+			if (path_type == 0)
+				path_type = BGP_PATH_MULTIPATH;
+			else if (path_type == BGP_PATH_MULTIPATH)
+				path_type = BGP_PATH_BACKUP;
+			else if (path_type == BGP_PATH_BACKUP)
+				path_type = BGP_PATH_BACKUP_MULTIPATH;
+			else
+				path_type = 0;
+			for (pi = bgp_dest_get_bgp_path_info(dest); pi;
+			     pi = pi->next) {
+				if (listnode_lookup(list, pi))
+					/* backup, ecmp and backup-ecmp are filtered */
+					continue;
+				if (CHECK_FLAG(pi->flags, BGP_PATH_SELECTED))
+					continue;
+				if (path_type == 0) {
+					pi_and_exist.new = pi;
+					pi_and_exist.old = exist;
+					if (bgp_path_info_cmp(peer->bgp,
+							      &pi_and_exist,
+							      &paths_eq, NULL,
+							      0, pfx_buf, afi,
+							      safi, &reason))
+						exist = pi;
+					continue;
+				}
+				if (!CHECK_FLAG(pi->flags, path_type))
+					continue;
+				if (paths_count <
+				    peer->addpath_best_selected[afi][safi]) {
+					listnode_add(list, pi);
+					paths_count++;
+				} else
+					break;
+			}
+			if (paths_count >=
+			    peer->addpath_best_selected[afi][safi])
+				break;
+			if (path_type != 0)
+				continue;
+			if (exist) {
+				listnode_add(list, exist);
+				paths_count++;
+				listnode_add(list, exist);
+				if (paths_count >=
+				    peer->addpath_best_selected[afi][safi])
+					break;
+				continue;
+			}
+			/* no other paths available to reach best selected */
+			break;
+		}
+	} else if (peer->addpath_type[afi][safi] == BGP_ADDPATH_BEST_SELECTED) {
 		paths_limit =
 			paths_limit
 				? MIN(paths_limit,
@@ -119,8 +185,9 @@ subgrp_announce_addpath_best_selected(struct bgp_dest *dest,
 
 				if (CHECK_FLAG(pi->flags, BGP_PATH_SELECTED))
 					continue;
-
-				if (bgp_path_info_cmp(peer->bgp, pi, exist,
+				pi_and_exist.new = pi;
+				pi_and_exist.old = exist;
+				if (bgp_path_info_cmp(peer->bgp, &pi_and_exist,
 						      &paths_eq, NULL, 0,
 						      pfx_buf, afi, safi,
 						      &reason))

@@ -35,6 +35,14 @@ static const struct bgp_addpath_strategy_names strat_names[BGP_ADDPATH_MAX] = {
 		.type_json_name = "addpathTxBestSelectedPaths",
 		.id_json_name = "addpathTxIdBestSelected"
 	},
+	{
+		.config_name = "addpath-tx-backup-path",
+		.human_name = "Backup",
+		.human_description =
+			"Advertise bestpath and backup-bestpaths via addpath",
+		.type_json_name = "addpathTxBackupPaths",
+		.id_json_name = "addpathTxBackup",
+	},
 };
 
 static const struct bgp_addpath_strategy_names unknown_names = {
@@ -165,6 +173,13 @@ bool bgp_addpath_tx_path(enum bgp_addpath_strat strat, struct bgp_path_info *pi)
 		return false;
 	case BGP_ADDPATH_ALL:
 		return true;
+	case BGP_ADDPATH_BACKUP:
+		if (CHECK_FLAG(pi->flags, BGP_PATH_BACKUP | BGP_PATH_SELECTED |
+						  BGP_PATH_MULTIPATH |
+						  BGP_PATH_BACKUP_MULTIPATH))
+			return true;
+		else
+			return false;
 	case BGP_ADDPATH_BEST_PER_AS:
 		if (CHECK_FLAG(pi->flags, BGP_PATH_DMED_SELECTED))
 			return true;
@@ -368,6 +383,7 @@ int bgp_addpath_capability_action(enum bgp_addpath_strat addpath_type,
 
 	switch (addpath_type) {
 	case BGP_ADDPATH_ALL:
+	case BGP_ADDPATH_BACKUP:
 	case BGP_ADDPATH_BEST_PER_AS:
 		action = CAPABILITY_ACTION_SET;
 		break;
@@ -405,11 +421,15 @@ void bgp_addpath_set_peer_type(struct peer *peer, afi_t afi, safi_t safi,
 	if (safi == SAFI_LABELED_UNICAST)
 		safi = SAFI_UNICAST;
 
-	peer->addpath_best_selected[afi][safi] = paths;
-
 	old_type = peer->addpath_type[afi][safi];
-	if (addpath_type == old_type)
-		return;
+	if (addpath_type == old_type) {
+		if (addpath_type != BGP_ADDPATH_BEST_SELECTED)
+			return;
+		if (peer->addpath_best_selected[afi][safi] == paths)
+			return;
+	}
+
+	peer->addpath_best_selected[afi][safi] = paths;
 
 	if (addpath_type == BGP_ADDPATH_NONE && peer->group &&
 	    !CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
@@ -514,4 +534,19 @@ void bgp_addpath_update_ids(struct bgp *bgp, struct bgp_dest *bn, afi_t afi,
 		/* Free any IDs left in the pool to the main allocator */
 		idalloc_drain_pool(alloc, pool_ptr);
 	}
+}
+
+void bgp_addpath_configure_backup_paths(struct bgp *bgp, afi_t afi, safi_t safi,
+					bool set)
+{
+	if (!!CHECK_FLAG(bgp->af_flags[afi][safi], BGP_CONFIG_ADDPATH_BACKUP) ==
+	    set)
+		return;
+
+	if (set)
+		SET_FLAG(bgp->af_flags[afi][safi], BGP_CONFIG_ADDPATH_BACKUP);
+	else
+		UNSET_FLAG(bgp->af_flags[afi][safi], BGP_CONFIG_ADDPATH_BACKUP);
+
+	bgp_recalculate_afi_safi_bestpaths(bgp, afi, safi);
 }
