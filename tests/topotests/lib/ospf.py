@@ -780,15 +780,15 @@ def verify_ospf6_neighbor(tgen, topo=None, dut=None, input_dict=None, lan=False)
                 "neighbors": {
                     "r1": {
                         "state": "Full",
-                        "role": "DR"
+                        "nbrState": "Full/DR"
                     },
                     "r2": {
                         "state": "Full",
-                        "role": "DROther"
+                        "nbrState": "Full/DROther"
                     },
                     "r3": {
                         "state": "Full",
-                        "role": "DROther"
+                        "nbrState": "Full/DROther"
                     }
                 }
             }

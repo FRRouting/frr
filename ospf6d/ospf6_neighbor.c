@@ -848,6 +848,25 @@ DEFPY(ipv6_ospf6_p2xp_neigh_poll_interval,
 	return CMD_SUCCESS;
 }
 
+static const char *ospf6_neighbor_role_message(struct ospf6_neighbor *on)
+{
+	/* Neighbor State */
+	if (on->router_id == on->drouter)
+		return "DR";
+	if (on->router_id == on->bdrouter)
+		return "BR";
+	return "DROther";
+}
+
+static const char *ospf6_neighbor_state_message(struct ospf6_neighbor *on)
+{
+	if (on->ospf6_if->type == OSPF_IFTYPE_POINTOMULTIPOINT)
+		return "PtMultipoint";
+	if (on->ospf6_if->type == OSPF_IFTYPE_POINTOPOINT)
+		return "PointToPoint";
+	return ospf6_neighbor_role_message(on);
+}
+
 /* show neighbor structure */
 static void ospf6_neighbor_show(struct vty *vty, struct ospf6_neighbor *on,
 				json_object *json_array, bool use_json)
@@ -855,9 +874,8 @@ static void ospf6_neighbor_show(struct vty *vty, struct ospf6_neighbor *on,
 	char router_id[16];
 	char duration[64];
 	struct timeval res;
-	char nstate[16];
 	char deadtime[64];
-	long h, m, s;
+	long h, m, s, time_store;
 	json_object *json_route;
 
 	/* Router-ID (Name) */
@@ -879,20 +897,6 @@ static void ospf6_neighbor_show(struct vty *vty, struct ospf6_neighbor *on,
 	}
 	snprintf(deadtime, sizeof(deadtime), "%02ld:%02ld:%02ld", h, m, s);
 
-	/* Neighbor State */
-	if (on->ospf6_if->type == OSPF_IFTYPE_POINTOPOINT)
-		snprintf(nstate, sizeof(nstate), "PointToPoint");
-	else if (on->ospf6_if->type == OSPF_IFTYPE_POINTOMULTIPOINT)
-		snprintf(nstate, sizeof(nstate), "PtMultipoint");
-	else {
-		if (on->router_id == on->drouter)
-			snprintf(nstate, sizeof(nstate), "DR");
-		else if (on->router_id == on->bdrouter)
-			snprintf(nstate, sizeof(nstate), "BDR");
-		else
-			snprintf(nstate, sizeof(nstate), "DROther");
-	}
-
 	/* Duration */
 	monotime_since(&on->last_changed, &res);
 	timerstring(&res, duration, sizeof(duration));
@@ -906,11 +910,34 @@ static void ospf6_neighbor_show(struct vty *vty, struct ospf6_neighbor *on,
 		json_route = json_object_new_object();
 
 		json_object_string_add(json_route, "neighborId", router_id);
+#if CONFDATE > 20241129
+		CPP_NOTICE(
+			"Remove %s() JSON keys: state, priority", __func__)
+#endif
 		json_object_int_add(json_route, "priority", on->priority);
 		json_object_string_add(json_route, "deadTime", deadtime);
 		json_object_string_add(json_route, "state",
 				       ospf6_neighbor_state_str[on->state]);
-		json_object_string_add(json_route, "ifState", nstate);
+		json_object_int_add(json_route, "nbrPriority", on->priority);
+		json_object_string_addf(json_route, "nbrState", "%s/%s",
+					ospf6_neighbor_state_str[on->state],
+					ospf6_neighbor_role_message(on));
+		json_object_string_add(json_route, "role",
+				       ospf6_neighbor_role_message(on));
+		if (on->inactivity_timer) {
+			time_store =
+				monotime_until(&on->inactivity_timer->u.sands,
+					       NULL)
+				/ 1000LL;
+			json_object_int_add(json_route,
+					    "routerDeadIntervalTimerDueMsec",
+					    time_store);
+		} else
+			json_object_string_add(json_route,
+					       "routerDeadIntervalTimerDueMsec",
+					       "inactive");
+		json_object_string_add(json_route, "ifState",
+				       ospf6_neighbor_state_message(on));
 		json_object_string_add(json_route, "duration", duration);
 		json_object_string_add(json_route, "interfaceName",
 				       on->ospf6_if->interface->name);
@@ -922,7 +949,8 @@ static void ospf6_neighbor_show(struct vty *vty, struct ospf6_neighbor *on,
 	} else
 		vty_out(vty, "%-15s %3d %11s %8s/%-12s %11s %s[%s]\n",
 			router_id, on->priority, deadtime,
-			ospf6_neighbor_state_str[on->state], nstate, duration,
+			ospf6_neighbor_state_str[on->state],
+			ospf6_neighbor_state_message(on), duration,
 			on->ospf6_if->interface->name,
 			ospf6_interface_state_str[on->ospf6_if->state]);
 }
@@ -984,6 +1012,7 @@ static void ospf6_neighbor_show_detail(struct vty *vty,
 	json_object *json_neighbor;
 	json_object *json_array;
 	char db_desc_str[20];
+	long time_store;
 
 	inet_ntop(AF_INET6, &on->linklocal_addr, linklocal_addr,
 		  sizeof(linklocal_addr));
@@ -1008,8 +1037,30 @@ static void ospf6_neighbor_show_detail(struct vty *vty,
 				       "%pI6", on->ospf6_if->linklocal_addr);
 		json_object_string_add(json_neighbor, "linkLocalAddress",
 				       linklocal_addr);
+#if CONFDATE > 20241129
+		CPP_NOTICE(
+			"Remove %s() JSON keys: neighborState", __func__)
+#endif
 		json_object_string_add(json_neighbor, "neighborState",
 				       ospf6_neighbor_state_str[on->state]);
+		json_object_int_add(json_neighbor, "nbrPriority", on->priority);
+		json_object_string_addf(json_neighbor, "nbrState", "%s/%s",
+					ospf6_neighbor_state_str[on->state],
+					ospf6_neighbor_role_message(on));
+		json_object_string_add(json_neighbor, "role",
+				       ospf6_neighbor_role_message(on));
+		if (on->inactivity_timer) {
+			time_store =
+				monotime_until(&on->inactivity_timer->u.sands,
+					       NULL)
+				/ 1000LL;
+			json_object_int_add(json_neighbor,
+					    "routerDeadIntervalTimerDueMsec",
+					    time_store);
+		} else
+			json_object_string_add(json_neighbor,
+					       "routerDeadIntervalTimerDueMsec",
+					       "inactive");
 		json_object_string_add(json_neighbor, "neighborStateDuration",
 				       duration);
 		json_object_string_add(json_neighbor, "neighborDRouter",
@@ -1175,7 +1226,6 @@ static void ospf6_neighbor_show_detail(struct vty *vty,
 		} else
 			json_object_string_add(json_neighbor, "authStatus",
 					       "disabled");
-
 		json_object_object_add(json, on->name, json_neighbor);
 
 	} else {
@@ -1332,9 +1382,10 @@ static void ospf6_neighbor_show_detail_common(struct vty *vty,
 			}
 
 	if (uj) {
-		if (showfunc != ospf6_neighbor_show_detail)
-			json_object_object_add(json, "neighbors", json_array);
-		else
+		if (showfunc != ospf6_neighbor_show_detail) {
+			json_object_object_add(json, "neighbors",
+					json_array);
+		} else
 			json_object_free(json_array);
 		vty_json(vty, json);
 	}

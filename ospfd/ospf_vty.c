@@ -5089,14 +5089,9 @@ DEFUN (show_ip_ospf_neighbor_all,
 	if (ospf) {
 		ret = show_ip_ospf_neighbor_all_common(vty, ospf, json, uj,
 						       use_vrf);
-		if (uj) {
-			vty_out(vty, "%s\n",
-				json_object_to_json_string_ext(
-					json, JSON_C_TO_STRING_PRETTY));
-		}
-	}
-
-	if (uj)
+		if (uj)
+			vty_json(vty, json);
+	} else if (uj)
 		json_object_free(json);
 
 	return ret;
