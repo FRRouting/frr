@@ -409,6 +409,96 @@ const struct frr_yang_module_info frr_isisd_info = {
 			},
 		},
 		{
+			.xpath = "/frr-isisd:isis/instance/route_leanking/ipv4",
+			.cbs = {
+				.apply_finish = leanking_ipv4_apply_finish,
+				.cli_show = cli_show_isis_leanking_ipv4,
+				.create = isis_instance_leanking_ipv4_create,
+				.destroy = isis_instance_leanking_ipv4_destroy,
+			},
+		},
+		{
+			.xpath = "/frr-isisd:isis/instance/route_leanking/ipv4/route-map",
+			.cbs = {
+				.destroy = isis_instance_route_leanking_ipv4_route_map_destroy,
+				.modify = isis_instance_route_leanking_ipv4_route_map_modify,
+			},
+		},
+		{
+			.xpath = "/frr-isisd:isis/instance/route_leanking/ipv4/metric",
+			.cbs = {
+				.destroy = isis_instance_route_leanking_ipv4_metric_destroy,
+				.modify = isis_instance_route_leanking_ipv4_metric_modify,
+			},
+		},
+		{
+			.xpath = "/frr-isisd:isis/instance/route_leanking/ipv4/table",
+			.cbs = {
+				.cli_show = cli_show_isis_route_leanking_ipv4_table,
+				.cli_cmp = cli_cmp_isis_route_leanking_table,
+				.create = isis_instance_route_leanking_ipv4_table_create,
+				.destroy = isis_instance_route_leanking_ipv4_table_destroy,
+			},
+		},
+		{
+			.xpath = "/frr-isisd:isis/instance/route_leanking/ipv4/table/route-map",
+			.cbs = {
+				.destroy = isis_instance_route_leanking_ipv4_route_map_destroy,
+				.modify = isis_instance_route_leanking_ipv4_route_map_modify,
+			},
+		},
+		{
+			.xpath = "/frr-isisd:isis/instance/route_leanking/ipv4/table/metric",
+			.cbs = {
+				.modify = isis_instance_route_leanking_ipv4_metric_modify,
+			},
+		},
+		{
+			.xpath = "/frr-isisd:isis/instance/route_leanking/ipv6",
+			.cbs = {
+				.apply_finish = leanking_ipv6_apply_finish,
+				.cli_show = cli_show_isis_leanking_ipv6,
+				.create = isis_instance_leanking_ipv6_create,
+				.destroy = isis_instance_leanking_ipv6_destroy,
+			},
+		},
+		{
+			.xpath = "/frr-isisd:isis/instance/route_leanking/ipv6/route-map",
+			.cbs = {
+				.destroy = isis_instance_route_leanking_ipv6_route_map_destroy,
+				.modify = isis_instance_route_leanking_ipv6_route_map_modify,
+			},
+		},
+		{
+			.xpath = "/frr-isisd:isis/instance/route_leanking/ipv6/metric",
+			.cbs = {
+				.destroy = isis_instance_route_leanking_ipv6_metric_destroy,
+				.modify = isis_instance_route_leanking_ipv6_metric_modify,
+			},
+		},
+		{
+			.xpath = "/frr-isisd:isis/instance/redistribute/ipv6/table",
+			.cbs = {
+				.cli_show = cli_show_isis_route_leanking_ipv6_table,
+				.cli_cmp = cli_cmp_isis_route_leanking_table,
+				.create = isis_instance_route_leanking_ipv6_table_create,
+				.destroy = isis_instance_route_leanking_ipv6_table_destroy,
+			},
+		},
+		{
+			.xpath = "/frr-isisd:isis/instance/redistribute/ipv6/table/route-map",
+			.cbs = {
+				.destroy = isis_instance_route_leanking_ipv6_route_map_destroy,
+				.modify = isis_instance_route_leanking_ipv6_route_map_modify,
+			},
+		},
+		{
+			.xpath = "/frr-isisd:isis/instance/redistribute/ipv6/table/metric",
+			.cbs = {
+				.modify = isis_instance_route_leanking_ipv6_metric_modify,
+			},
+		},
+		{
 			.xpath = "/frr-isisd:isis/instance/redistribute/ipv6",
 			.cbs = {
 				.apply_finish = redistribute_ipv6_apply_finish,

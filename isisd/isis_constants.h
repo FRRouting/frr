@@ -42,6 +42,14 @@
 #define ISIS_LEVEL2                   2
 
 /*
+ * implementation specific route-leanking values
+ */
+
+#define LEVEL2_TO_LEVEL1    4
+#define LEVEL1_TO_LEVEL2    5
+#define LVL_ISIS_LEANKING_1 0
+#define LVL_ISIS_LEANKING_2 1
+/*
  * Default values
  * ISO - 10589 Section 7.3.21 - Parameters
  * RFC 4444

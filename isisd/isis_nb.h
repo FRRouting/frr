@@ -114,7 +114,12 @@ int isis_instance_default_information_originate_ipv6_route_map_destroy(
 int isis_instance_default_information_originate_ipv6_metric_modify(
 	struct nb_cb_modify_args *args);
 int isis_instance_redistribute_ipv4_create(struct nb_cb_create_args *args);
+int isis_instance_redistribute_ipv6_create(struct nb_cb_create_args *args);
 int isis_instance_redistribute_ipv4_destroy(struct nb_cb_destroy_args *args);
+int isis_instance_redistribute_ipv6_destroy(struct nb_cb_destroy_args *args);
+int isis_instance_leanking_ipv4_create(struct nb_cb_create_args *args);
+int isis_instance_leanking_ipv4_destroy(struct nb_cb_destroy_args *args);
+int isis_instance_leanking_ipv4_create(struct nb_cb_create_args *args);
 int isis_instance_redistribute_ipv4_route_map_modify(
 	struct nb_cb_modify_args *args);
 int isis_instance_redistribute_ipv4_route_map_destroy(
@@ -126,8 +131,9 @@ int isis_instance_redistribute_ipv4_metric_destroy(
 int isis_instance_redistribute_ipv4_table_create(struct nb_cb_create_args *args);
 int isis_instance_redistribute_ipv4_table_destroy(
 	struct nb_cb_destroy_args *args);
-int isis_instance_redistribute_ipv6_create(struct nb_cb_create_args *args);
-int isis_instance_redistribute_ipv6_destroy(struct nb_cb_destroy_args *args);
+int isis_instance_leanking_ipv6_create(struct nb_cb_create_args *args);
+int isis_instance_leanking_ipv6_destroy(struct nb_cb_destroy_args *args);
+int isis_instance_leanking_ipv6_metric_modify(struct nb_cb_modify_args *args);
 int isis_instance_redistribute_ipv6_route_map_modify(
 	struct nb_cb_modify_args *args);
 int isis_instance_redistribute_ipv6_route_map_destroy(
@@ -528,13 +534,39 @@ void default_info_origin_ipv6_apply_finish(
 void redistribute_apply_finish(const struct lyd_node *dnode, int family);
 void redistribute_ipv4_apply_finish(struct nb_cb_apply_finish_args *args);
 void redistribute_ipv6_apply_finish(struct nb_cb_apply_finish_args *args);
+void leanking_ipv4_apply_finish(struct nb_cb_apply_finish_args *args);
+void leanking_ipv6_apply_finish(struct nb_cb_apply_finish_args *args);
+void leanking_apply_finish(const struct lyd_node *dnode, int family);
 void isis_instance_segment_routing_srgb_apply_finish(
 	struct nb_cb_apply_finish_args *args);
 void isis_instance_segment_routing_srlb_apply_finish(
 	struct nb_cb_apply_finish_args *args);
 void isis_instance_segment_routing_prefix_sid_map_prefix_sid_apply_finish(
 	struct nb_cb_apply_finish_args *args);
-
+int isis_instance_route_leanking_ipv4_route_map_modify(
+	struct nb_cb_modify_args *args);
+int isis_instance_route_leanking_ipv4_route_map_destroy(
+	struct nb_cb_destroy_args *args);
+int isis_instance_route_leanking_ipv4_metric_modify(
+	struct nb_cb_modify_args *args);
+int isis_instance_route_leanking_ipv4_metric_destroy(
+	struct nb_cb_destroy_args *args);
+int isis_instance_route_leanking_ipv4_table_create(
+	struct nb_cb_create_args *args);
+int isis_instance_route_leanking_ipv4_table_destroy(
+	struct nb_cb_destroy_args *args);
+int isis_instance_route_leanking_ipv6_table_destroy(
+	struct nb_cb_destroy_args *args);
+int isis_instance_route_leanking_ipv6_table_create(
+	struct nb_cb_create_args *args);
+int isis_instance_route_leanking_ipv6_metric_destroy(
+	struct nb_cb_destroy_args *args);
+int isis_instance_route_leanking_ipv6_metric_modify(
+	struct nb_cb_modify_args *args);
+int isis_instance_route_leanking_ipv6_route_map_destroy(
+	struct nb_cb_destroy_args *args);
+int isis_instance_route_leanking_ipv6_route_map_modify(
+	struct nb_cb_modify_args *args);
 /* Optional 'cli_show' callbacks. */
 void cli_show_router_isis(struct vty *vty, const struct lyd_node *dnode,
 			  bool show_defaults);
@@ -618,6 +650,10 @@ void cli_show_isis_redistribute_ipv4(struct vty *vty,
 void cli_show_isis_redistribute_ipv6(struct vty *vty,
 				     const struct lyd_node *dnode,
 				     bool show_defaults);
+void cli_show_isis_leanking_ipv4(struct vty *vty, const struct lyd_node *dnode,
+				 bool show_defaults);
+void cli_show_isis_leanking_ipv6(struct vty *vty, const struct lyd_node *dnode,
+				 bool show_defaults);
 void cli_show_isis_mt_ipv4_multicast(struct vty *vty,
 				     const struct lyd_node *dnode,
 				     bool show_defaults);
@@ -627,6 +663,12 @@ void cli_show_isis_redistribute_ipv4_table(struct vty *vty,
 void cli_show_isis_redistribute_ipv6_table(struct vty *vty,
 					   const struct lyd_node *dnode,
 					   bool show_defaults);
+void cli_show_isis_route_leanking_ipv4_table(struct vty *vty,
+					     const struct lyd_node *dnode,
+					     bool show_defaults);
+void cli_show_isis_route_leanking_ipv6_table(struct vty *vty,
+					     const struct lyd_node *dnode,
+					     bool show_defaults);
 void cli_show_isis_mt_ipv4_mgmt(struct vty *vty, const struct lyd_node *dnode,
 				bool show_defaults);
 void cli_show_isis_mt_ipv6_unicast(struct vty *vty,
@@ -785,7 +827,8 @@ void isis_notif_own_lsp_purge(const struct isis_circuit *circuit,
 /* cmp */
 int cli_cmp_isis_redistribute_table(const struct lyd_node *dnode1,
 				    const struct lyd_node *dnode2);
-
+int cli_cmp_isis_route_leanking_table(const struct lyd_node *dnode1,
+				      const struct lyd_node *dnode2);
 /* We also declare hook for every notification */
 
 DECLARE_HOOK(isis_hook_db_overload, (const struct isis_area *area), (area));
