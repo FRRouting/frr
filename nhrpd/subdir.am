@@ -42,3 +42,7 @@ noinst_HEADERS += \
 	nhrpd/zbuf.h \
 	nhrpd/znl.h \
 	# end
+
+clippy_scan += \
+	nhrpd/nhrp_vty.c \
+	# end
