@@ -238,6 +238,64 @@ DEFPY(mgmt_replace_config_data, mgmt_replace_config_data_cmd,
 	return CMD_SUCCESS;
 }
 
+DEFPY(mgmt_edit, mgmt_edit_cmd,
+      "mgmt edit {create|delete|merge|replace|remove}$op XPATH [json|xml]$fmt [lock$lock] [commit$commit] [DATA]",
+      MGMTD_STR
+      "Edit configuration data\n"
+      "Create data\n"
+      "Delete data\n"
+      "Merge data\n"
+      "Replace data\n"
+      "Remove data\n"
+      "XPath expression specifying the YANG data path\n"
+      "JSON input format (default)\n"
+      "XML input format\n"
+      "Lock the datastores automatically\n"
+      "Commit the changes automatically\n"
+      "Data tree\n")
+{
+	LYD_FORMAT format = (fmt && fmt[0] == 'x') ? LYD_XML : LYD_JSON;
+	uint8_t operation;
+	uint8_t flags = 0;
+
+	switch (op[2]) {
+	case 'e':
+		operation = NB_OP_CREATE_EXCL;
+		break;
+	case 'l':
+		operation = NB_OP_DELETE;
+		break;
+	case 'r':
+		operation = NB_OP_MODIFY;
+		break;
+	case 'p':
+		operation = NB_OP_REPLACE;
+		break;
+	case 'm':
+		operation = NB_OP_DESTROY;
+		break;
+	default:
+		vty_out(vty, "Invalid operation!\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	if (!data && (operation == NB_OP_CREATE_EXCL ||
+		      operation == NB_OP_MODIFY || operation == NB_OP_REPLACE)) {
+		vty_out(vty, "Data tree is missing!\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	if (lock)
+		flags |= EDIT_FLAG_IMPLICIT_LOCK;
+
+	if (commit)
+		flags |= EDIT_FLAG_IMPLICIT_COMMIT;
+
+	vty_mgmt_send_edit_req(vty, MGMT_MSG_DATASTORE_CANDIDATE, format, flags,
+			       operation, xpath, data);
+	return CMD_SUCCESS;
+}
+
 DEFPY(show_mgmt_get_config, show_mgmt_get_config_cmd,
       "show mgmt get-config [candidate|operational|running]$dsname WORD$path",
       SHOW_STR MGMTD_STR
@@ -643,6 +701,7 @@ void mgmt_vty_init(void)
 	install_element(CONFIG_NODE, &mgmt_delete_config_data_cmd);
 	install_element(CONFIG_NODE, &mgmt_remove_config_data_cmd);
 	install_element(CONFIG_NODE, &mgmt_replace_config_data_cmd);
+	install_element(CONFIG_NODE, &mgmt_edit_cmd);
 	install_element(CONFIG_NODE, &mgmt_load_config_cmd);
 	install_element(CONFIG_NODE, &mgmt_save_config_cmd);
 	install_element(CONFIG_NODE, &mgmt_rollback_cmd);

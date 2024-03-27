@@ -14,6 +14,8 @@ DEFINE_MTYPE(MSG_NATIVE, MSG_NATIVE_GET_TREE, "native get tree msg");
 DEFINE_MTYPE(MSG_NATIVE, MSG_NATIVE_TREE_DATA, "native tree data msg");
 DEFINE_MTYPE(MSG_NATIVE, MSG_NATIVE_GET_DATA, "native get data msg");
 DEFINE_MTYPE(MSG_NATIVE, MSG_NATIVE_NOTIFY, "native get data msg");
+DEFINE_MTYPE(MSG_NATIVE, MSG_NATIVE_EDIT, "native edit msg");
+DEFINE_MTYPE(MSG_NATIVE, MSG_NATIVE_EDIT_REPLY, "native edit reply msg");
 
 int vmgmt_msg_native_send_error(struct msg_conn *conn, uint64_t sess_or_txn_id,
 				uint64_t req_id, bool short_circuit_ok,

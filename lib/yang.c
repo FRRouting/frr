@@ -12,6 +12,7 @@
 #include "yang.h"
 #include "yang_translator.h"
 #include "northbound.h"
+#include "frrstr.h"
 
 #include "lib/config_paths.h"
 
@@ -1122,6 +1123,32 @@ int yang_get_node_keys(struct lyd_node *node, struct yang_list_keys *keys)
 	return NB_OK;
 }
 
+int yang_xpath_pop_node(char *xpath)
+{
+	int len = strlen(xpath);
+	bool abs = xpath[0] == '/';
+	char *slash;
+
+	/* "//" or "/" => NULL */
+	if (abs && (len == 1 || (len == 2 && xpath[1] == '/')))
+		return NB_ERR_NOT_FOUND;
+
+	slash = (char *)frrstr_back_to_char(xpath, '/');
+	/* "/foo/bar/" or "/foo/bar//" => "/foo " */
+	if (slash && slash == &xpath[len - 1]) {
+		xpath[--len] = 0;
+		slash = (char *)frrstr_back_to_char(xpath, '/');
+		if (slash && slash == &xpath[len - 1]) {
+			xpath[--len] = 0;
+			slash = (char *)frrstr_back_to_char(xpath, '/');
+		}
+	}
+	if (!slash)
+		return NB_ERR_NOT_FOUND;
+	*slash = 0;
+	return NB_OK;
+}
+
 /*
  * ------------------------
  * Libyang Future Functions
@@ -1273,6 +1300,42 @@ LY_ERR yang_lyd_trim_xpath(struct lyd_node **root, const char *xpath)
 
 	return LY_SUCCESS;
 #endif
+}
+
+/* Can be replaced by `lyd_parse_data` with libyang >= 2.1.156 */
+LY_ERR yang_lyd_parse_data(const struct ly_ctx *ctx, struct lyd_node *parent,
+			   struct ly_in *in, LYD_FORMAT format,
+			   uint32_t parse_options, uint32_t validate_options,
+			   struct lyd_node **tree)
+{
+	struct lyd_node *child;
+	LY_ERR err;
+
+	err = lyd_parse_data(ctx, parent, in, format, parse_options,
+			     validate_options, tree);
+	if (err)
+		return err;
+
+	if (!parent || !(parse_options & LYD_PARSE_ONLY))
+		return LY_SUCCESS;
+
+	/*
+	 * Versions prior to 2.1.156 don't return `tree` if `parent` is not NULL
+	 * and validation is disabled (`LYD_PARSE_ONLY`). To work around this,
+	 * go through the children and find the one with `LYD_NEW` flag set.
+	 */
+	*tree = NULL;
+
+	LY_LIST_FOR (lyd_child_no_keys(parent), child) {
+		if (child->flags & LYD_NEW) {
+			*tree = child;
+			break;
+		}
+	}
+
+	assert(tree);
+
+	return LY_SUCCESS;
 }
 
 /*
