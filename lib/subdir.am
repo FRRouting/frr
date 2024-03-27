@@ -410,18 +410,6 @@ lib_libfrrzmq_la_SOURCES = \
 	#end
 
 #
-# Tail-f's ConfD support
-#
-if CONFD
-module_LTLIBRARIES += lib/confd.la
-endif
-
-lib_confd_la_CFLAGS = $(AM_CFLAGS) $(CONFD_CFLAGS)
-lib_confd_la_LDFLAGS = $(MODULE_LDFLAGS)
-lib_confd_la_LIBADD = lib/libfrr.la $(CONFD_LIBS)
-lib_confd_la_SOURCES = lib/northbound_confd.c
-
-#
 # Sysrepo support
 #
 if SYSREPO

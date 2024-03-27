@@ -621,11 +621,6 @@ struct nb_node {
 
 	/* Flags. */
 	uint8_t flags;
-
-#ifdef HAVE_CONFD
-	/* ConfD hash value corresponding to this YANG path. */
-	int confd_hash;
-#endif
 };
 /* The YANG container or list contains only config data. */
 #define F_NB_NODE_CONFIG_ONLY 0x01
@@ -700,7 +695,6 @@ enum nb_error {
 enum nb_client {
 	NB_CLIENT_NONE = 0,
 	NB_CLIENT_CLI,
-	NB_CLIENT_CONFD,
 	NB_CLIENT_SYSREPO,
 	NB_CLIENT_GRPC,
 	NB_CLIENT_PCEP,

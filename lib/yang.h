@@ -45,9 +45,6 @@ struct yang_module {
 	RB_ENTRY(yang_module) entry;
 	const char *name;
 	const struct lys_module *info;
-#ifdef HAVE_CONFD
-	int confd_hash;
-#endif
 #ifdef HAVE_SYSREPO
 	sr_subscription_ctx_t *sr_subscription;
 	struct event *sr_thread;
