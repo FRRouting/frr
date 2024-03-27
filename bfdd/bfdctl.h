@@ -88,6 +88,10 @@ struct bfd_peer_cfg {
 	bool bpc_has_profile;
 	char bpc_profile[64];
 
+	/* protocol parameters */
+	uint32_t bpc_session_id;
+	bool bpc_session_disable;
+
 	/* Status information */
 	enum bfd_peer_status bpc_bps;
 	uint32_t bpc_id;
