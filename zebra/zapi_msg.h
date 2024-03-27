@@ -110,6 +110,12 @@ extern int zsend_zebra_srv6_locator_delete(struct zserv *client,
 extern int zsend_srv6_manager_get_locator_chunk_response(struct zserv *client,
 		vrf_id_t vrf_id, struct srv6_locator *loc);
 
+extern int
+zsend_srv6_manager_get_locator_response(struct zserv *client,
+					struct zebra_srv6_locator *locator);
+extern int zsend_assign_srv6_sid_response(struct zserv *client,
+					  struct zebra_srv6_sid *sid);
+
 #ifdef __cplusplus
 }
 #endif

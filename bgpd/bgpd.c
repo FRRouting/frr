@@ -1477,6 +1477,8 @@ static void bgp_srv6_cleanup(struct bgp *bgp)
 		list_delete(&bgp->srv6_locator_chunks);
 	if (bgp->srv6_functions)
 		list_delete(&bgp->srv6_functions);
+	srv6_locator_free(bgp->srv6_locator);
+	bgp->srv6_locator = NULL;
 }
 
 /* Allocate new peer object, implicitely locked.  */
@@ -4126,9 +4128,11 @@ void bgp_free(struct bgp *bgp)
 		if (bgp->vpn_policy[afi].tovpn_rd_pretty)
 			XFREE(MTYPE_BGP_NAME,
 			      bgp->vpn_policy[afi].tovpn_rd_pretty);
-		if (bgp->vpn_policy[afi].tovpn_sid_locator != NULL)
-			srv6_locator_chunk_free(
-				&bgp->vpn_policy[afi].tovpn_sid_locator);
+		if (bgp->vpn_policy[afi].tovpn_sid_locator != NULL) {
+			srv6_locator_free(
+				bgp->vpn_policy[afi].tovpn_sid_locator);
+			bgp->vpn_policy[afi].tovpn_sid_locator = NULL;
+		}
 		if (bgp->vpn_policy[afi].tovpn_zebra_vrf_sid_last_sent != NULL)
 			XFREE(MTYPE_BGP_SRV6_SID,
 			      bgp->vpn_policy[afi]

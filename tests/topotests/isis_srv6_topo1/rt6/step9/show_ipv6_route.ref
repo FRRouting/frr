@@ -223,9 +223,9 @@
       ]
     }
   ],
-  "fc00:0:6:1::\/64":[
+  "fc00:0:6:e000::\/64":[
     {
-      "prefix":"fc00:0:6:1::\/64",
+      "prefix":"fc00:0:6:e000::\/64",
       "protocol":"isis",
       "selected":true,
       "destSelected":true,
@@ -244,9 +244,9 @@
       ]
     }
   ],
-  "fc00:0:6:2::\/64":[
+  "fc00:0:6:e001::\/64":[
     {
-      "prefix":"fc00:0:6:2::\/64",
+      "prefix":"fc00:0:6:e001::\/64",
       "protocol":"isis",
       "selected":true,
       "destSelected":true,

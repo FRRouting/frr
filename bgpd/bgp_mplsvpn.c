@@ -465,6 +465,7 @@ void vpn_leak_zebra_vrf_sid_update(struct bgp *bgp, afi_t afi)
 void vpn_leak_zebra_vrf_sid_withdraw_per_af(struct bgp *bgp, afi_t afi)
 {
 	int debug = BGP_DEBUG(vpn, VPN_LEAK_LABEL);
+	struct srv6_sid_ctx ctx = {};
 
 	if (bgp->vrf_id == VRF_UNKNOWN) {
 		if (debug)
@@ -482,6 +483,11 @@ void vpn_leak_zebra_vrf_sid_withdraw_per_af(struct bgp *bgp, afi_t afi)
 		bgp->vrf_id, ZEBRA_SEG6_LOCAL_ACTION_UNSPEC, NULL);
 	XFREE(MTYPE_BGP_SRV6_SID,
 	      bgp->vpn_policy[afi].tovpn_zebra_vrf_sid_last_sent);
+
+	ctx.vrf_id = bgp->vrf_id;
+	ctx.behavior = afi == AFI_IP ? ZEBRA_SEG6_LOCAL_ACTION_END_DT4
+				     : ZEBRA_SEG6_LOCAL_ACTION_END_DT6;
+	bgp_zebra_release_srv6_sid(&ctx);
 }
 
 /*
@@ -491,6 +497,7 @@ void vpn_leak_zebra_vrf_sid_withdraw_per_af(struct bgp *bgp, afi_t afi)
 void vpn_leak_zebra_vrf_sid_withdraw_per_vrf(struct bgp *bgp)
 {
 	int debug = BGP_DEBUG(vpn, VPN_LEAK_LABEL);
+	struct srv6_sid_ctx ctx = {};
 
 	if (bgp->vrf_id == VRF_UNKNOWN) {
 		if (debug)
@@ -508,6 +515,10 @@ void vpn_leak_zebra_vrf_sid_withdraw_per_vrf(struct bgp *bgp)
 			      bgp->vrf_id, ZEBRA_SEG6_LOCAL_ACTION_UNSPEC,
 			      NULL);
 	XFREE(MTYPE_BGP_SRV6_SID, bgp->tovpn_zebra_vrf_sid_last_sent);
+
+	ctx.vrf_id = bgp->vrf_id;
+	ctx.behavior = ZEBRA_SEG6_LOCAL_ACTION_END_DT46;
+	bgp_zebra_release_srv6_sid(&ctx);
 }
 
 /*
@@ -624,108 +635,98 @@ static bool sid_exist(struct bgp *bgp, const struct in6_addr *sid)
 	return false;
 }
 
-/*
- * This function generates a new SID based on bgp->srv6_locator_chunks and
- * index. The locator and generated SID are stored in arguments sid_locator
- * and sid, respectively.
+/**
+ * Return the SRv6 SID value obtained composing the LOCATOR and FUNCTION.
  *
- * if index != 0: try to allocate as index-mode
- * else: try to allocate as auto-mode
+ * @param sid_value SRv6 SID value returned
+ * @param locator Parent locator of the SRv6 SID
+ * @param sid_func Function part of the SID
+ * @return True if success, False otherwise
  */
-static uint32_t alloc_new_sid(struct bgp *bgp, uint32_t index,
-			      struct srv6_locator_chunk *sid_locator_chunk,
-			      struct in6_addr *sid)
+static bool srv6_sid_compose(struct in6_addr *sid_value,
+			     struct srv6_locator *locator, uint32_t sid_func)
 {
 	int debug = BGP_DEBUG(vpn, VPN_LEAK_LABEL);
-	struct listnode *node;
-	struct srv6_locator_chunk *chunk;
-	bool alloced = false;
 	int label = 0;
 	uint8_t offset = 0;
 	uint8_t func_len = 0, shift_len = 0;
-	uint32_t index_max = 0;
+	uint32_t sid_func_max = 0;
 
-	if (!bgp || !sid_locator_chunk || !sid)
+	if (!locator || !sid_value)
 		return false;
 
-	for (ALL_LIST_ELEMENTS_RO(bgp->srv6_locator_chunks, node, chunk)) {
-		if (chunk->function_bits_length >
-		    BGP_PREFIX_SID_SRV6_MAX_FUNCTION_LENGTH) {
-			if (debug)
-				zlog_debug(
-					"%s: invalid SRv6 Locator chunk (%pFX): Function Length must be less or equal to %d",
-					__func__, &chunk->prefix,
-					BGP_PREFIX_SID_SRV6_MAX_FUNCTION_LENGTH);
-			continue;
-		}
-
-		index_max = (1 << chunk->function_bits_length) - 1;
-
-		if (index > index_max) {
-			if (debug)
-				zlog_debug(
-					"%s: skipped SRv6 Locator chunk (%pFX): Function Length is too short to support specified index (%u)",
-					__func__, &chunk->prefix, index);
-			continue;
-		}
-
-		*sid = chunk->prefix.prefix;
-		*sid_locator_chunk = *chunk;
-		offset = chunk->block_bits_length + chunk->node_bits_length;
-		func_len = chunk->function_bits_length;
-		shift_len = BGP_PREFIX_SID_SRV6_MAX_FUNCTION_LENGTH - func_len;
-
-		if (index != 0) {
-			label = index << shift_len;
-			if (label < MPLS_LABEL_UNRESERVED_MIN) {
-				if (debug)
-					zlog_debug(
-						"%s: skipped to allocate SRv6 SID (%pFX): Label (%u) is too small to use",
-						__func__, &chunk->prefix,
-						label);
-				continue;
-			}
-
-			transpose_sid(sid, label, offset, func_len);
-			if (sid_exist(bgp, sid))
-				continue;
-			alloced = true;
-			break;
-		}
-
-		for (uint32_t i = 1; i < index_max; i++) {
-			label = i << shift_len;
-			if (label < MPLS_LABEL_UNRESERVED_MIN) {
-				if (debug)
-					zlog_debug(
-						"%s: skipped to allocate SRv6 SID (%pFX): Label (%u) is too small to use",
-						__func__, &chunk->prefix,
-						label);
-				continue;
-			}
-			transpose_sid(sid, label, offset, func_len);
-			if (sid_exist(bgp, sid))
-				continue;
-			alloced = true;
-			break;
-		}
+	if (locator->function_bits_length >
+	    BGP_PREFIX_SID_SRV6_MAX_FUNCTION_LENGTH) {
+		if (debug)
+			zlog_debug("%s: invalid SRv6 Locator (%pFX): Function Length must be less or equal to %d",
+				   __func__, &locator->prefix,
+				   BGP_PREFIX_SID_SRV6_MAX_FUNCTION_LENGTH);
+		return false;
 	}
 
-	if (!alloced)
-		return 0;
+	/* Max value that can be encoded in the Function part of the SID */
+	sid_func_max = (1 << locator->function_bits_length) - 1;
 
-	sid_register(bgp, sid, bgp->srv6_locator_name);
-	return label;
+	if (sid_func > sid_func_max) {
+		if (debug)
+			zlog_debug("%s: invalid SRv6 Locator (%pFX): Function Length is too short to support specified function (%u)",
+				   __func__, &locator->prefix, sid_func);
+		return false;
+	}
+
+	/**
+	 * Let's build the SID value.
+	 * sid_value = LOC:FUNC::
+	 */
+
+	/* First, we put the locator (LOC) in the most significant bits of sid_value */
+	*sid_value = locator->prefix.prefix;
+
+	/*
+	 * Then, we compute the offset at which we have to place the function (FUNC).
+	 * FUNC will be placed immediately after LOC, i.e. at block_bits_length + node_bits_length
+	 */
+	offset = locator->block_bits_length + locator->node_bits_length;
+
+	/*
+	 * The FUNC part of the SID is advertised in the label field of SRv6 Service TLV.
+	 * (see SID Transposition Scheme, RFC 9252 section #4).
+	 * Therefore, we need to encode the FUNC in the most significant bits of the
+	 * 20-bit label.
+	 */
+	func_len = locator->function_bits_length;
+	shift_len = BGP_PREFIX_SID_SRV6_MAX_FUNCTION_LENGTH - func_len;
+
+	label = sid_func << shift_len;
+	if (label < MPLS_LABEL_UNRESERVED_MIN) {
+		if (debug)
+			zlog_debug("%s: skipped to allocate SRv6 SID (%pFX): Label (%u) is too small to use",
+				   __func__, &locator->prefix, label);
+		return false;
+	}
+
+	if (sid_exist(bgp_get_default(), sid_value)) {
+		zlog_warn("%s: skipped to allocate SRv6 SID (%pFX): SID %pI6 already in use",
+			  __func__, &locator->prefix, sid_value);
+		return false;
+	}
+
+	/* Finally, we put the FUNC in sid_value at the computed offset */
+	transpose_sid(sid_value, label, offset, func_len);
+
+	return true;
 }
 
 void ensure_vrf_tovpn_sid_per_af(struct bgp *bgp_vpn, struct bgp *bgp_vrf,
 				 afi_t afi)
 {
 	int debug = BGP_DEBUG(vpn, VPN_LEAK_FROM_VRF);
-	struct srv6_locator_chunk *tovpn_sid_locator;
+	struct srv6_locator *tovpn_sid_locator;
 	struct in6_addr *tovpn_sid;
 	uint32_t tovpn_sid_index = 0, tovpn_sid_transpose_label;
 	bool tovpn_sid_auto = false;
+	struct srv6_sid_ctx ctx = {};
+	uint32_t sid_func;
 
 	if (debug)
 		zlog_debug("%s: try to allocate new SID for vrf %s: afi %s",
@@ -737,10 +738,17 @@ void ensure_vrf_tovpn_sid_per_af(struct bgp *bgp_vpn, struct bgp *bgp_vrf,
 
 	/*
 	 * skip when bgp vpn instance ins't allocated
-	 * or srv6 locator chunk isn't allocated
+	 * or srv6 locator isn't allocated
 	 */
-	if (!bgp_vpn || !bgp_vpn->srv6_locator_chunks)
+	if (!bgp_vpn || !bgp_vpn->srv6_locator)
 		return;
+
+	if (bgp_vrf->vrf_id == VRF_UNKNOWN) {
+		if (debug)
+			zlog_debug("%s: vrf %s: vrf_id not set, can't set zebra vrf SRv6 SID",
+				   __func__, bgp_vrf->name_pretty);
+		return;
+	}
 
 	tovpn_sid_index = bgp_vrf->vpn_policy[afi].tovpn_sid_index;
 	tovpn_sid_auto = CHECK_FLAG(bgp_vrf->vpn_policy[afi].flags,
@@ -757,18 +765,41 @@ void ensure_vrf_tovpn_sid_per_af(struct bgp *bgp_vpn, struct bgp *bgp_vrf,
 		return;
 	}
 
-	tovpn_sid_locator = srv6_locator_chunk_alloc();
+	tovpn_sid_locator = srv6_locator_alloc(bgp_vpn->srv6_locator_name);
+	srv6_locator_copy(tovpn_sid_locator, bgp_vpn->srv6_locator);
+
 	tovpn_sid = XCALLOC(MTYPE_BGP_SRV6_SID, sizeof(struct in6_addr));
 
-	tovpn_sid_transpose_label = alloc_new_sid(bgp_vpn, tovpn_sid_index,
-						  tovpn_sid_locator, tovpn_sid);
+	if (!tovpn_sid_auto) {
+		if (!srv6_sid_compose(tovpn_sid, tovpn_sid_locator,
+				      tovpn_sid_index)) {
+			zlog_err("%s: failed to compose sid for vrf %s: afi %s",
+				 __func__, bgp_vrf->name_pretty, afi2str(afi));
+			return;
+		}
+	}
+
+	ctx.vrf_id = bgp_vrf->vrf_id;
+	ctx.behavior = afi == AFI_IP ? ZEBRA_SEG6_LOCAL_ACTION_END_DT4
+				     : ZEBRA_SEG6_LOCAL_ACTION_END_DT6;
+	if (!bgp_zebra_request_srv6_sid(&ctx, tovpn_sid,
+					bgp_vpn->srv6_locator_name, &sid_func)) {
+		zlog_err("%s: failed to request sid for vrf %s: afi %s",
+			 __func__, bgp_vrf->name_pretty, afi2str(afi));
+		return;
+	}
+
+	uint8_t func_len = bgp_vpn->srv6_locator->function_bits_length;
+	uint8_t shift_len = BGP_PREFIX_SID_SRV6_MAX_FUNCTION_LENGTH - func_len;
+
+	tovpn_sid_transpose_label = sid_func << shift_len;
 
 	if (tovpn_sid_transpose_label == 0) {
 		if (debug)
 			zlog_debug(
 				"%s: not allocated new sid for vrf %s: afi %s",
 				__func__, bgp_vrf->name_pretty, afi2str(afi));
-		srv6_locator_chunk_free(&tovpn_sid_locator);
+		srv6_locator_free(tovpn_sid_locator);
 		XFREE(MTYPE_BGP_SRV6_SID, tovpn_sid);
 		return;
 	}
@@ -782,15 +813,19 @@ void ensure_vrf_tovpn_sid_per_af(struct bgp *bgp_vpn, struct bgp *bgp_vrf,
 	bgp_vrf->vpn_policy[afi].tovpn_sid_locator = tovpn_sid_locator;
 	bgp_vrf->vpn_policy[afi].tovpn_sid_transpose_label =
 		tovpn_sid_transpose_label;
+
+	sid_register(bgp_vpn, tovpn_sid, bgp_vpn->srv6_locator_name);
 }
 
 void ensure_vrf_tovpn_sid_per_vrf(struct bgp *bgp_vpn, struct bgp *bgp_vrf)
 {
 	int debug = BGP_DEBUG(vpn, VPN_LEAK_FROM_VRF);
-	struct srv6_locator_chunk *tovpn_sid_locator;
+	struct srv6_locator *tovpn_sid_locator;
 	struct in6_addr *tovpn_sid;
 	uint32_t tovpn_sid_index = 0, tovpn_sid_transpose_label;
 	bool tovpn_sid_auto = false;
+	struct srv6_sid_ctx ctx = {};
+	uint32_t sid_func;
 
 	if (debug)
 		zlog_debug("%s: try to allocate new SID for vrf %s", __func__,
@@ -802,10 +837,17 @@ void ensure_vrf_tovpn_sid_per_vrf(struct bgp *bgp_vpn, struct bgp *bgp_vrf)
 
 	/*
 	 * skip when bgp vpn instance ins't allocated
-	 * or srv6 locator chunk isn't allocated
+	 * or srv6 locator isn't allocated
 	 */
-	if (!bgp_vpn || !bgp_vpn->srv6_locator_chunks)
+	if (!bgp_vpn || !bgp_vpn->srv6_locator)
 		return;
+
+	if (bgp_vrf->vrf_id == VRF_UNKNOWN) {
+		if (debug)
+			zlog_debug("%s: vrf %s: vrf_id not set, can't set zebra vrf SRv6 SID",
+				   __func__, bgp_vrf->name_pretty);
+		return;
+	}
 
 	tovpn_sid_index = bgp_vrf->tovpn_sid_index;
 	tovpn_sid_auto = CHECK_FLAG(bgp_vrf->vrf_flags, BGP_VRF_TOVPN_SID_AUTO);
@@ -821,17 +863,39 @@ void ensure_vrf_tovpn_sid_per_vrf(struct bgp *bgp_vpn, struct bgp *bgp_vrf)
 		return;
 	}
 
-	tovpn_sid_locator = srv6_locator_chunk_alloc();
+	tovpn_sid_locator = srv6_locator_alloc(bgp_vpn->srv6_locator_name);
+	srv6_locator_copy(tovpn_sid_locator, bgp_vpn->srv6_locator);
+
 	tovpn_sid = XCALLOC(MTYPE_BGP_SRV6_SID, sizeof(struct in6_addr));
 
-	tovpn_sid_transpose_label = alloc_new_sid(bgp_vpn, tovpn_sid_index,
-						  tovpn_sid_locator, tovpn_sid);
+	if (!tovpn_sid_auto) {
+		if (!srv6_sid_compose(tovpn_sid, bgp_vpn->srv6_locator,
+				      bgp_vrf->tovpn_sid_index)) {
+			zlog_err("%s: failed to compose new sid for vrf %s",
+				 __func__, bgp_vrf->name_pretty);
+			return;
+		}
+	}
+
+	ctx.vrf_id = bgp_vrf->vrf_id;
+	ctx.behavior = ZEBRA_SEG6_LOCAL_ACTION_END_DT46;
+	if (!bgp_zebra_request_srv6_sid(&ctx, tovpn_sid,
+					bgp_vpn->srv6_locator_name, &sid_func)) {
+		zlog_err("%s: failed to request new sid for vrf %s", __func__,
+			 bgp_vrf->name_pretty);
+		return;
+	}
+
+	uint8_t func_len = bgp_vpn->srv6_locator->function_bits_length;
+	uint8_t shift_len = BGP_PREFIX_SID_SRV6_MAX_FUNCTION_LENGTH - func_len;
+
+	tovpn_sid_transpose_label = sid_func << shift_len;
 
 	if (tovpn_sid_transpose_label == 0) {
 		if (debug)
 			zlog_debug("%s: not allocated new sid for vrf %s",
 				   __func__, bgp_vrf->name_pretty);
-		srv6_locator_chunk_free(&tovpn_sid_locator);
+		srv6_locator_free(tovpn_sid_locator);
 		XFREE(MTYPE_BGP_SRV6_SID, tovpn_sid);
 		return;
 	}
@@ -843,6 +907,8 @@ void ensure_vrf_tovpn_sid_per_vrf(struct bgp *bgp_vpn, struct bgp *bgp_vrf)
 	bgp_vrf->tovpn_sid = tovpn_sid;
 	bgp_vrf->tovpn_sid_locator = tovpn_sid_locator;
 	bgp_vrf->tovpn_sid_transpose_label = tovpn_sid_transpose_label;
+
+	sid_register(bgp_vpn, tovpn_sid, bgp_vpn->srv6_locator_name);
 }
 
 void ensure_vrf_tovpn_sid(struct bgp *bgp_vpn, struct bgp *bgp_vrf, afi_t afi)
@@ -865,6 +931,7 @@ void delete_vrf_tovpn_sid_per_af(struct bgp *bgp_vpn, struct bgp *bgp_vrf,
 	int debug = BGP_DEBUG(vpn, VPN_LEAK_FROM_VRF);
 	uint32_t tovpn_sid_index = 0;
 	bool tovpn_sid_auto = false;
+	struct srv6_sid_ctx ctx = {};
 
 	if (debug)
 		zlog_debug("%s: try to remove SID for vrf %s: afi %s", __func__,
@@ -878,7 +945,20 @@ void delete_vrf_tovpn_sid_per_af(struct bgp *bgp_vpn, struct bgp *bgp_vrf,
 	if (tovpn_sid_index != 0 || tovpn_sid_auto)
 		return;
 
-	srv6_locator_chunk_free(&bgp_vrf->vpn_policy[afi].tovpn_sid_locator);
+	if (bgp_vrf->vrf_id == VRF_UNKNOWN) {
+		if (debug)
+			zlog_debug("%s: vrf %s: vrf_id not set, can't set zebra vrf label",
+				   __func__, bgp_vrf->name_pretty);
+		return;
+	}
+
+	ctx.vrf_id = bgp_vrf->vrf_id;
+	ctx.behavior = afi == AFI_IP ? ZEBRA_SEG6_LOCAL_ACTION_END_DT4
+				     : ZEBRA_SEG6_LOCAL_ACTION_END_DT6;
+	bgp_zebra_release_srv6_sid(&ctx);
+
+	srv6_locator_free(bgp_vrf->vpn_policy[afi].tovpn_sid_locator);
+	bgp_vrf->vpn_policy[afi].tovpn_sid_locator = NULL;
 
 	if (bgp_vrf->vpn_policy[afi].tovpn_sid) {
 		sid_unregister(bgp_vpn, bgp_vrf->vpn_policy[afi].tovpn_sid);
@@ -892,6 +972,7 @@ void delete_vrf_tovpn_sid_per_vrf(struct bgp *bgp_vpn, struct bgp *bgp_vrf)
 	int debug = BGP_DEBUG(vpn, VPN_LEAK_FROM_VRF);
 	uint32_t tovpn_sid_index = 0;
 	bool tovpn_sid_auto = false;
+	struct srv6_sid_ctx ctx = {};
 
 	if (debug)
 		zlog_debug("%s: try to remove SID for vrf %s", __func__,
@@ -905,7 +986,19 @@ void delete_vrf_tovpn_sid_per_vrf(struct bgp *bgp_vpn, struct bgp *bgp_vrf)
 	if (tovpn_sid_index != 0 || tovpn_sid_auto)
 		return;
 
-	srv6_locator_chunk_free(&bgp_vrf->tovpn_sid_locator);
+	if (bgp_vrf->vrf_id == VRF_UNKNOWN) {
+		if (debug)
+			zlog_debug("%s: vrf %s: vrf_id not set, can't set zebra vrf label",
+				   __func__, bgp_vrf->name_pretty);
+		return;
+	}
+
+	ctx.vrf_id = bgp_vrf->vrf_id;
+	ctx.behavior = ZEBRA_SEG6_LOCAL_ACTION_END_DT46;
+	bgp_zebra_release_srv6_sid(&ctx);
+
+	srv6_locator_free(bgp_vrf->tovpn_sid_locator);
+	bgp_vrf->tovpn_sid_locator = NULL;
 
 	if (bgp_vrf->tovpn_sid) {
 		sid_unregister(bgp_vpn, bgp_vrf->tovpn_sid);
@@ -1776,7 +1869,7 @@ void vpn_leak_from_vrf_update(struct bgp *to_bgp,	     /* to */
 
 	/* Set SID for SRv6 VPN */
 	if (from_bgp->vpn_policy[afi].tovpn_sid_locator) {
-		struct srv6_locator_chunk *locator =
+		struct srv6_locator *locator =
 			from_bgp->vpn_policy[afi].tovpn_sid_locator;
 		encode_label(
 			from_bgp->vpn_policy[afi].tovpn_sid_transpose_label,
@@ -1818,8 +1911,8 @@ void vpn_leak_from_vrf_update(struct bgp *to_bgp,	     /* to */
 				.tovpn_sid_locator->prefix.prefix,
 		       sizeof(struct in6_addr));
 	} else if (from_bgp->tovpn_sid_locator) {
-		struct srv6_locator_chunk *locator =
-			from_bgp->tovpn_sid_locator;
+		struct srv6_locator *locator = from_bgp->tovpn_sid_locator;
+
 		encode_label(from_bgp->tovpn_sid_transpose_label, &label);
 		static_attr.srv6_l3vpn =
 			XCALLOC(MTYPE_BGP_SRV6_L3VPN,

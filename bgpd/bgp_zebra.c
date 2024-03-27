@@ -3338,11 +3338,50 @@ static int bgp_zebra_process_srv6_locator_chunk(ZAPI_CALLBACK_ARGS)
 	return 0;
 }
 
+/**
+ * Internal function to process an SRv6 locator
+ *
+ * @param locator Locator to be processed
+ */
+static int bgp_zebra_process_srv6_locator_internal(struct srv6_locator *locator)
+{
+	struct bgp *bgp = bgp_get_default();
+
+	if (!bgp || !bgp->srv6_enabled || !locator)
+		return -1;
+
+	/*
+	 * Check if the main BGP instance is configured to use the received
+	 * locator
+	 */
+	if (strcmp(bgp->srv6_locator_name, locator->name) != 0) {
+		zlog_err("%s: SRv6 Locator name unmatch %s:%s", __func__,
+			 bgp->srv6_locator_name, locator->name);
+		return 0;
+	}
+
+	zlog_info("%s: Received SRv6 locator %s %pFX, loc-block-len=%u, loc-node-len=%u func-len=%u, arg-len=%u",
+		  __func__, locator->name, &locator->prefix,
+		  locator->block_bits_length, locator->node_bits_length,
+		  locator->function_bits_length, locator->argument_bits_length);
+
+	/* Store the locator in the main BGP instance */
+	bgp->srv6_locator = srv6_locator_alloc(locator->name);
+	srv6_locator_copy(bgp->srv6_locator, locator);
+
+	/*
+	 * Process VPN-to-VRF and VRF-to-VPN leaks to advertise new locator
+	 * and SIDs.
+	 */
+	vpn_leak_postchange_all();
+
+	return 0;
+}
+
 static int bgp_zebra_process_srv6_locator_add(ZAPI_CALLBACK_ARGS)
 {
 	struct srv6_locator loc = {};
 	struct bgp *bgp = bgp_get_default();
-	const char *loc_name = bgp->srv6_locator_name;
 
 	if (zapi_srv6_locator_decode(zclient->ibuf, &loc) < 0)
 		return -1;
@@ -3350,10 +3389,7 @@ static int bgp_zebra_process_srv6_locator_add(ZAPI_CALLBACK_ARGS)
 	if (!bgp || !bgp->srv6_enabled)
 		return 0;
 
-	if (bgp_zebra_srv6_manager_get_locator_chunk(loc_name) < 0)
-		return -1;
-
-	return 0;
+	return bgp_zebra_process_srv6_locator_internal(&loc);
 }
 
 static int bgp_zebra_process_srv6_locator_delete(ZAPI_CALLBACK_ARGS)
@@ -3361,14 +3397,24 @@ static int bgp_zebra_process_srv6_locator_delete(ZAPI_CALLBACK_ARGS)
 	struct srv6_locator loc = {};
 	struct bgp *bgp = bgp_get_default();
 	struct listnode *node, *nnode;
-	struct srv6_locator_chunk *chunk, *tovpn_sid_locator;
+	struct srv6_locator_chunk *chunk;
+	struct srv6_locator *tovpn_sid_locator;
 	struct bgp_srv6_function *func;
 	struct bgp *bgp_vrf;
 	struct in6_addr *tovpn_sid;
 	struct prefix_ipv6 tmp_prefi;
 
+	if (!bgp)
+		return 0;
+
 	if (zapi_srv6_locator_decode(zclient->ibuf, &loc) < 0)
 		return -1;
+
+	// clear SRv6 locator
+	if (bgp->srv6_locator) {
+		srv6_locator_free(bgp->srv6_locator);
+		bgp->srv6_locator = NULL;
+	}
 
 	// refresh chunks
 	for (ALL_LIST_ELEMENTS(bgp->srv6_locator_chunks, node, nnode, chunk))
@@ -3394,6 +3440,11 @@ static int bgp_zebra_process_srv6_locator_delete(ZAPI_CALLBACK_ARGS)
 	for (ALL_LIST_ELEMENTS_RO(bm->bgp, node, bgp_vrf)) {
 		if (bgp_vrf->inst_type != BGP_INSTANCE_TYPE_VRF)
 			continue;
+
+		vpn_leak_prechange(BGP_VPN_POLICY_DIR_TOVPN, AFI_IP, bgp,
+				   bgp_vrf);
+		vpn_leak_prechange(BGP_VPN_POLICY_DIR_TOVPN, AFI_IP6, bgp,
+				   bgp_vrf);
 
 		// refresh vpnv4 tovpn_sid
 		tovpn_sid = bgp_vrf->vpn_policy[AFI_IP].tovpn_sid;
@@ -3431,8 +3482,6 @@ static int bgp_zebra_process_srv6_locator_delete(ZAPI_CALLBACK_ARGS)
 		}
 	}
 
-	vpn_leak_postchange_all();
-
 	/* refresh tovpn_sid_locator */
 	for (ALL_LIST_ELEMENTS_RO(bm->bgp, node, bgp_vrf)) {
 		if (bgp_vrf->inst_type != BGP_INSTANCE_TYPE_VRF)
@@ -3446,10 +3495,12 @@ static int bgp_zebra_process_srv6_locator_delete(ZAPI_CALLBACK_ARGS)
 			tmp_prefi.prefixlen = IPV6_MAX_BITLEN;
 			tmp_prefi.prefix = tovpn_sid_locator->prefix.prefix;
 			if (prefix_match((struct prefix *)&loc.prefix,
-					 (struct prefix *)&tmp_prefi))
-				srv6_locator_chunk_free(
-					&bgp_vrf->vpn_policy[AFI_IP]
-						 .tovpn_sid_locator);
+					 (struct prefix *)&tmp_prefi)) {
+				srv6_locator_free(bgp_vrf->vpn_policy[AFI_IP]
+							  .tovpn_sid_locator);
+				bgp_vrf->vpn_policy[AFI_IP].tovpn_sid_locator =
+					NULL;
+			}
 		}
 
 		/* refresh vpnv6 tovpn_sid_locator */
@@ -3460,10 +3511,12 @@ static int bgp_zebra_process_srv6_locator_delete(ZAPI_CALLBACK_ARGS)
 			tmp_prefi.prefixlen = IPV6_MAX_BITLEN;
 			tmp_prefi.prefix = tovpn_sid_locator->prefix.prefix;
 			if (prefix_match((struct prefix *)&loc.prefix,
-					 (struct prefix *)&tmp_prefi))
-				srv6_locator_chunk_free(
-					&bgp_vrf->vpn_policy[AFI_IP6]
-						 .tovpn_sid_locator);
+					 (struct prefix *)&tmp_prefi)) {
+				srv6_locator_free(bgp_vrf->vpn_policy[AFI_IP6]
+							  .tovpn_sid_locator);
+				bgp_vrf->vpn_policy[AFI_IP6].tovpn_sid_locator =
+					NULL;
+			}
 		}
 
 		/* refresh per-vrf tovpn_sid_locator */
@@ -3473,11 +3526,14 @@ static int bgp_zebra_process_srv6_locator_delete(ZAPI_CALLBACK_ARGS)
 			tmp_prefi.prefixlen = IPV6_MAX_BITLEN;
 			tmp_prefi.prefix = tovpn_sid_locator->prefix.prefix;
 			if (prefix_match((struct prefix *)&loc.prefix,
-					 (struct prefix *)&tmp_prefi))
-				srv6_locator_chunk_free(
-					&bgp_vrf->tovpn_sid_locator);
+					 (struct prefix *)&tmp_prefi)) {
+				srv6_locator_free(bgp_vrf->tovpn_sid_locator);
+				bgp_vrf->tovpn_sid_locator = NULL;
+			}
 		}
 	}
+
+	vpn_leak_postchange_all();
 
 	return 0;
 }
@@ -4042,6 +4098,95 @@ int bgp_zebra_srv6_manager_get_locator_chunk(const char *name)
 int bgp_zebra_srv6_manager_release_locator_chunk(const char *name)
 {
 	return srv6_manager_release_locator_chunk(zclient, name);
+}
+
+/**
+ * Ask the SRv6 Manager (zebra) about a specific locator
+ *
+ * @param name Locator name
+ * @return 0 on success, -1 otherwise
+ */
+int bgp_zebra_srv6_manager_get_locator(const char *name)
+{
+	if (!name)
+		return -1;
+
+	/*
+	 * Send the Get Locator request to the SRv6 Manager and return the
+	 * result
+	 */
+	return srv6_manager_get_locator(zclient, name);
+}
+
+/**
+ * Ask the SRv6 Manager (zebra) to allocate a SID.
+ *
+ * Optionally, it is possible to provide an IPv6 address (sid_value parameter).
+ *
+ * When sid_value is provided, the SRv6 Manager allocates the requested SID
+ * address, if the request can be satisfied (explicit allocation).
+ *
+ * When sid_value is not provided, the SRv6 Manager allocates any available SID
+ * from the provided locator (dynamic allocation).
+ *
+ * @param ctx Context to be associated with the request SID
+ * @param sid_value IPv6 address to be associated with the requested SID (optional)
+ * @param locator_name Name of the locator from which the SID must be allocated
+ * @param sid_func SID Function allocated by the SRv6 Manager.
+ */
+bool bgp_zebra_request_srv6_sid(const struct srv6_sid_ctx *ctx,
+				struct in6_addr *sid_value,
+				const char *locator_name, uint32_t *sid_func)
+{
+	int ret;
+
+	if (!ctx || !locator_name)
+		return false;
+
+	if (!zclient_sync || zclient_sync->sock <= 0)
+		return false;
+
+	/*
+	 * Send the Get SRv6 SID request to the SRv6 Manager and check the
+	 * result
+	 */
+	ret = srv6_manager_get_srv6_sid(zclient_sync, ctx, sid_value,
+					locator_name, sid_func);
+	if (ret < 0) {
+		zlog_warn("%s: error getting SRv6 SID!", __func__);
+		return false;
+	}
+
+	return true;
+}
+
+/**
+ * Ask the SRv6 Manager (zebra) to release a previously allocated SID.
+ *
+ * This function is used to tell the SRv6 Manager that BGP no longer intends
+ * to use the SID.
+ *
+ * @param ctx Context to be associated with the SID to be released
+ */
+void bgp_zebra_release_srv6_sid(const struct srv6_sid_ctx *ctx)
+{
+	int ret;
+
+	if (!ctx)
+		return;
+
+	if (!zclient_sync || zclient_sync->sock <= 0)
+		return;
+
+	/*
+	 * Send the Release SRv6 SID request to the SRv6 Manager and check the
+	 * result
+	 */
+	ret = sm_release_srv6_sid(zclient_sync, ctx);
+	if (ret < 0) {
+		zlog_warn("%s: error releasing SRv6 SID!", __func__);
+		return;
+	}
 }
 
 void bgp_zebra_send_nexthop_label(int cmd, mpls_label_t label,

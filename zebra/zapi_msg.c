@@ -1157,6 +1157,58 @@ int zsend_zebra_srv6_locator_delete(struct zserv *client,
 	return zserv_send_message(client, s);
 }
 
+/**
+ * Send response to an SRv6 Manager get locator request to client.
+ *
+ * @param client Client zapi session
+ * @param locator The locator information to send to the client
+ * @return 0 on success
+ */
+int zsend_srv6_manager_get_locator_response(struct zserv *client,
+					    struct zebra_srv6_locator *locator)
+{
+	/* Get output stream */
+	struct stream *s = stream_new(ZEBRA_MAX_PACKET_SIZ);
+
+	/* Message type */
+	zclient_create_header(s, ZEBRA_SRV6_LOCATOR_ADD, VRF_DEFAULT);
+
+	/* Encode SRv6 locator */
+	zapi_srv6_locator_encode(s, &locator->locator);
+
+	/* Write packet size */
+	stream_putw_at(s, 0, stream_get_endp(s));
+
+	return zserv_send_message(client, s);
+}
+
+/* Send response to a get SRv6 SID request to client */
+int zsend_assign_srv6_sid_response(struct zserv *client,
+				   struct zebra_srv6_sid *sid)
+{
+	struct stream *s = stream_new(ZEBRA_MAX_PACKET_SIZ);
+
+	zclient_create_header(s, ZEBRA_SRV6_MANAGER_GET_SRV6_SID, VRF_DEFAULT);
+	/* proto */
+	stream_putc(s, client->proto);
+	/* instance */
+	stream_putw(s, client->instance);
+
+	if (sid) {
+		/* Context associated with the SRv6 SID */
+		stream_put(s, &sid->ctx->ctx, sizeof(struct srv6_sid_ctx));
+		/* SRv6 SID address */
+		stream_put(s, &sid->value, sizeof(struct in6_addr));
+		/* SRv6 SID function */
+		stream_putl(s, sid->func);
+	}
+
+	/* Write packet size. */
+	stream_putw_at(s, 0, stream_get_endp(s));
+
+	return zserv_send_message(client, s);
+}
+
 /* Inbound message handling ------------------------------------------------ */
 
 /* Nexthop register */
@@ -2991,6 +3043,108 @@ stream_failure:
 	return;
 }
 
+/**
+ * Handle SRv6 SID request received from a client daemon protocol.
+ *
+ * @param client Client zapi session
+ * @param msg The request message
+ */
+static void zread_srv6_manager_get_srv6_sid(struct zserv *client,
+					    struct stream *msg)
+{
+	struct stream *s;
+	struct srv6_sid_ctx ctx = {};
+	struct in6_addr sid_value = {};
+	struct in6_addr *sid_value_ptr = NULL;
+	char locator[SRV6_LOCNAME_SIZE] = { 0 };
+	uint16_t len;
+	struct zebra_srv6_sid *sid = NULL;
+	uint8_t proto;
+	unsigned short instance;
+	uint8_t flags;
+
+	/* Get input stream */
+	s = msg;
+
+	/* Get data */
+	STREAM_GETC(s, proto);
+	STREAM_GETW(s, instance);
+	STREAM_GET(&ctx, s, sizeof(struct srv6_sid_ctx));
+	STREAM_GETC(s, flags);
+	if (CHECK_FLAG(flags, ZAPI_SRV6_MANAGER_SID_FLAG_HAS_SID_VALUE)) {
+		STREAM_GET(&sid_value, s, sizeof(struct in6_addr));
+		sid_value_ptr = &sid_value;
+	}
+	if (CHECK_FLAG(flags, ZAPI_SRV6_MANAGER_SID_FLAG_HAS_LOCATOR)) {
+		STREAM_GETW(s, len);
+		STREAM_GET(locator, s, len);
+	}
+
+	assert(proto == client->proto && instance == client->instance);
+
+	/* Call hook to get a SID using wrapper */
+	srv6_manager_get_sid_call(&sid, client, &ctx, sid_value_ptr, locator);
+
+stream_failure:
+	return;
+}
+
+/**
+ * Handle SRv6 SID release request received from a client daemon protocol.
+ *
+ * @param client Client zapi session
+ * @param msg The request message
+ */
+static void zread_srv6_manager_release_srv6_sid(struct zserv *client,
+						struct stream *msg)
+{
+	struct stream *s;
+	struct srv6_sid_ctx ctx = {};
+	uint8_t proto;
+	unsigned short instance;
+
+	/* Get input stream */
+	s = msg;
+
+	/* Get data */
+	STREAM_GETC(s, proto);
+	STREAM_GETW(s, instance);
+	STREAM_GET(&ctx, s, sizeof(struct srv6_sid_ctx));
+
+	assert(proto == client->proto && instance == client->instance);
+
+	/* Call hook to release a SID using wrapper */
+	srv6_manager_release_sid_call(client, &ctx);
+
+stream_failure:
+	return;
+}
+
+/**
+ * Handle SRv6 locator get request received from a client daemon protocol.
+ *
+ * @param client Client zapi session
+ * @param msg The request message
+ */
+static void zread_srv6_manager_get_locator(struct zserv *client,
+					   struct stream *msg)
+{
+	struct stream *s = msg;
+	uint16_t len;
+	char locator_name[SRV6_LOCNAME_SIZE] = { 0 };
+	struct zebra_srv6_locator *locator = NULL;
+
+	/* Get data */
+	STREAM_GETW(s, len);
+	STREAM_GET(locator_name, s, len);
+
+	/* Call hook to get the locator info using wrapper */
+	srv6_manager_get_locator_call(&locator, client, locator_name);
+
+stream_failure:
+	return;
+}
+
 static void zread_srv6_manager_request(ZAPI_HANDLER_ARGS)
 {
 	switch (hdr->command) {
@@ -3001,6 +3155,15 @@ static void zread_srv6_manager_request(ZAPI_HANDLER_ARGS)
 	case ZEBRA_SRV6_MANAGER_RELEASE_LOCATOR_CHUNK:
 		zread_srv6_manager_release_locator_chunk(client, msg,
 							 zvrf_id(zvrf));
+		break;
+	case ZEBRA_SRV6_MANAGER_GET_SRV6_SID:
+		zread_srv6_manager_get_srv6_sid(client, msg);
+		break;
+	case ZEBRA_SRV6_MANAGER_RELEASE_SRV6_SID:
+		zread_srv6_manager_release_srv6_sid(client, msg);
+		break;
+	case ZEBRA_SRV6_MANAGER_GET_LOCATOR:
+		zread_srv6_manager_get_locator(client, msg);
 		break;
 	default:
 		zlog_err("%s: unknown SRv6 Manager command", __func__);
@@ -3950,6 +4113,9 @@ void (*const zserv_handlers[])(ZAPI_HANDLER_ARGS) = {
 	[ZEBRA_MLAG_FORWARD_MSG] = zebra_mlag_forward_client_msg,
 	[ZEBRA_SRV6_MANAGER_GET_LOCATOR_CHUNK] = zread_srv6_manager_request,
 	[ZEBRA_SRV6_MANAGER_RELEASE_LOCATOR_CHUNK] = zread_srv6_manager_request,
+	[ZEBRA_SRV6_MANAGER_GET_SRV6_SID] = zread_srv6_manager_request,
+	[ZEBRA_SRV6_MANAGER_RELEASE_SRV6_SID] = zread_srv6_manager_request,
+	[ZEBRA_SRV6_MANAGER_GET_LOCATOR] = zread_srv6_manager_request,
 	[ZEBRA_CLIENT_CAPABILITIES] = zread_client_capabilities,
 	[ZEBRA_NEIGH_DISCOVER] = zread_neigh_discover,
 	[ZEBRA_NHG_ADD] = zread_nhg_add,

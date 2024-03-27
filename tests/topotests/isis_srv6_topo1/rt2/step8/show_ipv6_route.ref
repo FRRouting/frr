@@ -240,9 +240,9 @@
       ]
     }
   ],
-  "fc00:0:2:1::\/64":[
+  "fc00:0:2:e000::\/64":[
     {
-      "prefix":"fc00:0:2:1::\/64",
+      "prefix":"fc00:0:2:e000::\/64",
       "protocol":"isis",
       "selected":true,
       "destSelected":true,
@@ -261,9 +261,9 @@
       ]
     }
   ],
-  "fc00:0:2:2::\/64":[
+  "fc00:0:2:e001::\/64":[
     {
-      "prefix":"fc00:0:2:2::\/64",
+      "prefix":"fc00:0:2:e001::\/64",
       "protocol":"isis",
       "selected":true,
       "destSelected":true,
@@ -282,9 +282,9 @@
       ]
     }
   ],
-  "fc00:0:2:3::\/64":[
+  "fc00:0:2:e002::\/64":[
     {
-      "prefix":"fc00:0:2:3::\/64",
+      "prefix":"fc00:0:2:e002::\/64",
       "protocol":"isis",
       "selected":true,
       "destSelected":true,
@@ -303,9 +303,9 @@
       ]
     }
   ],
-  "fc00:0:2:4::\/64":[
+  "fc00:0:2:e003::\/64":[
     {
-      "prefix":"fc00:0:2:4::\/64",
+      "prefix":"fc00:0:2:e003::\/64",
       "protocol":"isis",
       "selected":true,
       "destSelected":true,

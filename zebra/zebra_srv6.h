@@ -16,12 +16,281 @@
 #include <pthread.h>
 #include <plist.h>
 
+#define SRV6_SID_FORMAT_NAME_SIZE 512
+
+/* Default config for SRv6 SID `usid-f3216` format */
+#define ZEBRA_SRV6_SID_FORMAT_USID_F3216_NAME	      "usid-f3216"
+#define ZEBRA_SRV6_SID_FORMAT_USID_F3216_BLOCK_LEN    32
+#define ZEBRA_SRV6_SID_FORMAT_USID_F3216_NODE_LEN     16
+#define ZEBRA_SRV6_SID_FORMAT_USID_F3216_FUNCTION_LEN 16
+#define ZEBRA_SRV6_SID_FORMAT_USID_F3216_ARGUMENT_LEN 0
+#define ZEBRA_SRV6_SID_FORMAT_USID_F3216_LIB_START    0xE000
+#define ZEBRA_SRV6_SID_FORMAT_USID_F3216_ELIB_START   0xFE00
+#define ZEBRA_SRV6_SID_FORMAT_USID_F3216_ELIB_END     0xFEFF
+#define ZEBRA_SRV6_SID_FORMAT_USID_F3216_WLIB_START   0xFFF0
+#define ZEBRA_SRV6_SID_FORMAT_USID_F3216_WLIB_END     0xFFF7
+#define ZEBRA_SRV6_SID_FORMAT_USID_F3216_EWLIB_START  0xFFF7
+
+/* Default config for SRv6 SID `uncompressed` format */
+#define ZEBRA_SRV6_SID_FORMAT_UNCOMPRESSED_NAME			"uncompressed"
+#define ZEBRA_SRV6_SID_FORMAT_UNCOMPRESSED_BLOCK_LEN		40
+#define ZEBRA_SRV6_SID_FORMAT_UNCOMPRESSED_NODE_LEN		24
+#define ZEBRA_SRV6_SID_FORMAT_UNCOMPRESSED_FUNCTION_LEN		16
+#define ZEBRA_SRV6_SID_FORMAT_UNCOMPRESSED_ARGUMENT_LEN		0
+#define ZEBRA_SRV6_SID_FORMAT_UNCOMPRESSED_EXPLICIT_RANGE_START 0xFF00
+#define ZEBRA_SRV6_SID_FORMAT_UNCOMPRESSED_FUNC_UNRESERVED_MIN	0x40
+
+/* uSID Wide LIB */
+struct wide_lib {
+	uint32_t func;
+	uint32_t num_func_allocated;
+	uint32_t first_available_func;
+	struct list *func_allocated;
+	struct list *func_released;
+};
+
+/*
+ * SRv6 SID block.
+ *
+ * A SID block is an IPv6 prefix from which SRv6 SIDs are allocated.
+ * Example:
+ *   SID block = fc00:0::/32
+ *   SID 1 = fc00:0:1:e000::
+ *   SID 2 = fc00:0:1:fe00::
+ *   ...
+ */
+struct zebra_srv6_sid_block {
+	/*  Prefix of this block, e.g. fc00:0::/32 */
+	struct prefix_ipv6 prefix;
+
+	/* Reference counter */
+	unsigned long refcnt;
+
+	/*
+	 * Pointer to the SID format that defines the structure of the SIDs
+	 * allocated from this block
+	 */
+	struct zebra_srv6_sid_format *sid_format;
+
+	/*
+	 * Run-time information/state of this SID block.
+	 *
+	 * This includes stuff like how many SID functions have been allocated
+	 * from this block, which functions are still available to be allocated
+	 * and so on...
+	 */
+	union {
+		/* Information/state for compressed uSID format */
+		struct {
+			/* uSID Local ID Block (LIB) */
+			struct {
+				uint32_t num_func_allocated;
+				uint32_t first_available_func;
+				struct list *func_allocated;
+				struct list *func_released;
+			} lib;
+
+			/* uSID Wide LIB */
+			struct wide_lib *wide_lib;
+		} usid;
+
+		/* Information/state for uncompressed SID format */
+		struct {
+			uint32_t num_func_allocated;
+			uint32_t first_available_func;
+			struct list *func_allocated;
+			struct list *func_released;
+		} uncompressed;
+	} u;
+};
+
+/* SID format type */
+enum zebra_srv6_sid_format_type {
+	ZEBRA_SRV6_SID_FORMAT_TYPE_UNSPEC = 0,
+	/* SRv6 SID uncompressed format */
+	ZEBRA_SRV6_SID_FORMAT_TYPE_UNCOMPRESSED = 1,
+	/* SRv6 SID compressed uSID format */
+	ZEBRA_SRV6_SID_FORMAT_TYPE_COMPRESSED_USID = 2,
+};
+
+/* SRv6 SID format */
+struct zebra_srv6_sid_format {
+	/* Name of the format */
+	char name[SRV6_SID_FORMAT_NAME_SIZE];
+
+	/* Format type: uncompressed vs compressed */
+	enum zebra_srv6_sid_format_type type;
+
+	/* Lengths of block/node/function/argument parts of the SIDs allocated using this format */
+	uint8_t block_len;
+	uint8_t node_len;
+	uint8_t function_len;
+	uint8_t argument_len;
+
+	union {
+		/* Configuration settings for compressed uSID format type */
+		struct {
+			/* Start of the Local ID Block (LIB) range */
+			uint32_t lib_start;
+
+			/* Start/End of the Explicit LIB range */
+			uint32_t elib_start;
+			uint32_t elib_end;
+
+			/* Start/End of the Wide LIB range */
+			uint32_t wlib_start;
+			uint32_t wlib_end;
+
+			/* Start/End of the Explicit Wide LIB range */
+			uint32_t ewlib_start;
+		} usid;
+
+		/* Configuration settings for uncompressed format type */
+		struct {
+			/* Start of the Explicit range */
+			uint32_t explicit_start;
+		} uncompressed;
+	} config;
+
+	QOBJ_FIELDS;
+};
+DECLARE_QOBJ_TYPE(zebra_srv6_sid_format);
+
+/**
+ * Given a SID block, the function part of an SRv6 SID is allocated in one
+ * of the following ways:
+ *  - dynamic: allocate any available function
+ *  - explicit: allocate a specific function
+ */
+enum srv6_sid_alloc_mode {
+	SRV6_SID_ALLOC_MODE_UNSPEC = 0,
+	/* Dynamic SID allocation */
+	SRV6_SID_ALLOC_MODE_DYNAMIC = 1,
+	/* Explicit SID allocation */
+	SRV6_SID_ALLOC_MODE_EXPLICIT = 2,
+	SRV6_SID_ALLOC_MODE_MAX = 3,
+};
+
+/**
+ * Convert SID allocation mode to string.
+ *
+ * @param alloc_mode SID allocation mode
+ * @return String representing the allocation mode
+ */
+static inline const char *
+srv6_sid_alloc_mode2str(enum srv6_sid_alloc_mode alloc_mode)
+{
+	switch (alloc_mode) {
+	case SRV6_SID_ALLOC_MODE_EXPLICIT:
+		return "explicit";
+	case SRV6_SID_ALLOC_MODE_DYNAMIC:
+		return "dynamic";
+	case SRV6_SID_ALLOC_MODE_UNSPEC:
+		return "unspec";
+	case SRV6_SID_ALLOC_MODE_MAX:
+	default:
+		return "unknown";
+	}
+}
+
+/*
+ * Struct to hold information about the client daemon(s) which an SRv6 SID belongs to.
+ * A Client daemon can be identified by a tuple of: proto (daemon protocol) + instance.
+ */
+struct zebra_srv6_sid_owner {
+	uint8_t proto;
+	unsigned short instance;
+};
+
+/* SRv6 SID instance. */
+struct zebra_srv6_sid {
+	/*
+	 * SID context associated with the SID.
+	 * Defines behavior and attributes of the SID.
+	 */
+	struct zebra_srv6_sid_ctx *ctx;
+
+	/* SID value (e.g. fc00:0:1:e000::) */
+	struct in6_addr value;
+
+	/* Pointer to the SID format that defines the structure of the SID */
+	struct zebra_srv6_sid_format *format;
+
+	/* Pointer to the SRv6 locator from which the SID has been allocated */
+	struct zebra_srv6_locator *locator;
+
+	/* Pointer to the SRv6 block from which the SID has been allocated */
+	struct zebra_srv6_sid_block *block;
+
+	/*
+	 * Function part of the SID
+	 * Example:
+	 *   SID = fc00:0:1:e000:: => func = e000
+	 */
+	uint32_t func;
+
+	/* SID wide function. */
+	uint32_t wide_func;
+
+	/* SID allocation mode: dynamic or explicit */
+	enum srv6_sid_alloc_mode alloc_mode;
+
+	/* List of protocols that own the SID */
+	struct list *owners;
+};
+
+/*
+ * Zebra SRv6 SID context.
+ * A context defines a behavior and (optionally) some behavior-specific
+ * attributes. Client daemons (bgp, isis, ...) asks SRv6 Manager to allocate
+ * a SID for a particular context. SRv6 Manager is responsible for allocating
+ * a SID from a given SID block and associating with the context.
+ *
+ * Example:
+ *    bgp asks to associate a SID to the context {behavior=End.DT46 vrf=Vrf10}.
+ *    SRv6 Manager allocate SID fc00:0:1:e000:: for that context.
+ */
+struct zebra_srv6_sid_ctx {
+	/* SRv6 SID context information. */
+	struct srv6_sid_ctx ctx;
+
+	/* SID associated with the context. */
+	struct zebra_srv6_sid *sid;
+};
+
+/* Zebra SRv6 locator. */
+struct zebra_srv6_locator {
+	/* SRv6 locator information. */
+	struct srv6_locator locator;
+
+	/*
+	 * Pointer to the SID format that defines the structure of the SIDs
+	 * allocated from this locator.
+	 */
+	struct zebra_srv6_sid_format *sid_format;
+
+	/* Pointer to the parent SID block of the locator. */
+	struct zebra_srv6_sid_block *sid_block;
+
+	QOBJ_FIELDS;
+};
+DECLARE_QOBJ_TYPE(zebra_srv6_locator);
+
 /* SRv6 instance structure. */
 struct zebra_srv6 {
 	struct list *locators;
 
 	/* Source address for SRv6 encapsulation */
 	struct in6_addr encap_src_addr;
+
+	/* SRv6 SID formats */
+	struct list *sid_formats;
+
+	/* SRv6 SIDs */
+	struct list *sids;
+
+	/* SRv6 SID blocks */
+	struct list *sid_blocks;
 };
 
 /* declare hooks for the basic API, so that it can be specialized or served
@@ -46,13 +315,27 @@ DECLARE_HOOK(srv6_manager_release_chunk,
 	      vrf_id_t vrf_id),
 	     (client, locator_name, vrf_id));
 
+DECLARE_HOOK(srv6_manager_get_sid,
+	     (struct zebra_srv6_sid **sid, struct zserv *client,
+	      struct srv6_sid_ctx *ctx, struct in6_addr *sid_value,
+	      const char *locator_name),
+	     (sid, client, ctx, sid_value, locator_name));
+DECLARE_HOOK(srv6_manager_release_sid,
+	     (struct zserv *client, struct srv6_sid_ctx *ctx), (client, ctx));
+DECLARE_HOOK(srv6_manager_get_locator,
+	     (struct zebra_srv6_locator **locator, struct zserv *client,
+	      const char *locator_name),
+	     (locator, client, locator_name));
 
-extern void zebra_srv6_locator_add(struct srv6_locator *locator);
-extern void zebra_srv6_locator_delete(struct srv6_locator *locator);
-extern struct srv6_locator *zebra_srv6_locator_lookup(const char *name);
+extern struct zebra_srv6_locator *zebra_srv6_locator_alloc(const char *name);
+extern void zebra_srv6_locator_free(struct zebra_srv6_locator *locator);
 
-void zebra_notify_srv6_locator_add(struct srv6_locator *locator);
-void zebra_notify_srv6_locator_delete(struct srv6_locator *locator);
+extern void zebra_srv6_locator_add(struct zebra_srv6_locator *locator);
+extern void zebra_srv6_locator_delete(struct zebra_srv6_locator *locator);
+extern struct zebra_srv6_locator *zebra_srv6_locator_lookup(const char *name);
+
+void zebra_notify_srv6_locator_add(struct zebra_srv6_locator *locator);
+void zebra_notify_srv6_locator_delete(struct zebra_srv6_locator *locator);
 
 extern void zebra_srv6_init(void);
 extern void zebra_srv6_terminate(void);
@@ -73,5 +356,68 @@ extern int release_daemon_srv6_locator_chunks(struct zserv *client);
 
 extern void zebra_srv6_encap_src_addr_set(struct in6_addr *src_addr);
 extern void zebra_srv6_encap_src_addr_unset(void);
+
+extern struct zebra_srv6_sid_format *
+zebra_srv6_sid_format_alloc(const char *name);
+extern void zebra_srv6_sid_format_free(struct zebra_srv6_sid_format *format);
+extern void delete_zebra_srv6_sid_format(void *format);
+void zebra_srv6_sid_format_add(struct zebra_srv6_sid_format *sid_format);
+void zebra_srv6_sid_format_delete(struct zebra_srv6_sid_format *sid_format);
+struct zebra_srv6_sid_format *zebra_srv6_sid_format_lookup(const char *name);
+void zebra_srv6_sid_format_changed_cb(struct zebra_srv6_sid_format *format);
+
+uint32_t *zebra_srv6_sid_func_alloc(void);
+void zebra_srv6_sid_func_free(uint32_t *func);
+void delete_zebra_srv6_sid_func(void *val);
+
+extern struct zebra_srv6_sid_block *
+zebra_srv6_sid_block_alloc(struct zebra_srv6_sid_format *format);
+extern void zebra_srv6_sid_block_free(struct zebra_srv6_sid_block *block);
+extern void delete_zebra_srv6_sid_block(void *val);
+extern struct zebra_srv6_sid_block *
+zebra_srv6_sid_block_lookup(struct prefix_ipv6 *prefix);
+
+extern void zebra_srv6_sid_owner_free(struct zebra_srv6_sid_owner *owner);
+extern void delete_zebra_srv6_sid_owner(void *val);
+extern bool sid_is_owned_by_proto(uint8_t proto, unsigned short instance,
+				  struct zebra_srv6_sid *sid);
+extern bool zebra_srv6_sid_owner_add(struct zebra_srv6_sid *sid, uint8_t proto,
+				     unsigned short instance);
+extern bool zebra_srv6_sid_owner_del(struct zebra_srv6_sid *sid, uint8_t proto,
+				     unsigned short instance,
+				     uint32_t session_id);
+
+extern struct zebra_srv6_sid *
+zebra_srv6_sid_alloc(struct zebra_srv6_sid_ctx *ctx, struct in6_addr *sid_value,
+		     struct zebra_srv6_locator *locator,
+		     struct zebra_srv6_sid_block *sid_block, uint32_t sid_func,
+		     enum srv6_sid_alloc_mode alloc_mode);
+extern void zebra_srv6_sid_free(struct zebra_srv6_sid *sid);
+extern void delete_zebra_srv6_sid(void *val);
+
+extern void srv6_manager_get_sid_call(struct zebra_srv6_sid **sid,
+				      struct zserv *client,
+				      struct srv6_sid_ctx *ctx,
+				      struct in6_addr *sid_value,
+				      const char *locator_name);
+extern void srv6_manager_release_sid_call(struct zserv *client,
+					  struct srv6_sid_ctx *ctx);
+extern void srv6_manager_get_locator_call(struct zebra_srv6_locator **locator,
+					  struct zserv *client,
+					  const char *locator_name);
+
+struct zebra_srv6_sid *
+assign_srv6_sid(uint8_t proto, unsigned short instance, uint32_t session_id,
+		enum srv6_sid_alloc_mode alloc_mode, struct srv6_sid_ctx *ctx,
+		struct in6_addr *sid_value, const char *locator);
+int release_srv6_sid(uint8_t proto, unsigned short instance,
+		     uint32_t session_id, struct zebra_srv6_sid_ctx *ctx);
+int release_daemon_srv6_sids(struct zserv *client);
+int srv6_manager_get_sid_response(struct zebra_srv6_sid *sid,
+				  struct zserv *client);
+
+extern struct zebra_srv6_sid_ctx *zebra_srv6_sid_ctx_alloc(void);
+extern void zebra_srv6_sid_ctx_free(struct zebra_srv6_sid_ctx *ctx);
+extern void delete_zebra_srv6_sid_ctx(void *val);
 
 #endif /* _ZEBRA_SRV6_H */
