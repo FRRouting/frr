@@ -119,5 +119,7 @@ test# show yang operational-data /frr-test-module:frr-test-module
     }
   }
 }
+test# test rpc
+vrf testname data testdata
 test# 
 end.

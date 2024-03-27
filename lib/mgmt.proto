@@ -79,6 +79,7 @@ message BeSubscribeReq {
   repeated string config_xpaths = 2;
   repeated string oper_xpaths = 3;
   repeated string notif_xpaths = 4;
+  repeated string rpc_xpaths = 5;
 }
 
 message BeSubscribeReply {

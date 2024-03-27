@@ -75,6 +75,8 @@ struct mgmt_be_client_cbs {
 
 	const char **notif_xpaths;
 	uint nnotif_xpaths;
+	const char **rpc_xpaths;
+	uint nrpc_xpaths;
 };
 
 /***************************************************************

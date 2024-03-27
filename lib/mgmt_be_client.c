@@ -915,6 +915,143 @@ static void be_client_handle_get_tree(struct mgmt_be_client *client,
 		   be_client_send_tree_data_batch, args);
 }
 
+static void be_client_send_rpc_reply(struct mgmt_be_client *client,
+				     uint64_t txn_id, uint64_t req_id,
+				     uint8_t result_type,
+				     struct lyd_node *output)
+{
+	struct mgmt_msg_rpc_reply *rpc_reply_msg;
+	uint8_t **darrp;
+	LY_ERR err;
+	int ret = NB_OK;
+
+	rpc_reply_msg = mgmt_msg_native_alloc_msg(struct mgmt_msg_rpc_reply, 0,
+						  MTYPE_MSG_NATIVE_RPC_REPLY);
+	rpc_reply_msg->refer_id = txn_id;
+	rpc_reply_msg->req_id = req_id;
+	rpc_reply_msg->code = MGMT_MSG_CODE_RPC_REPLY;
+	rpc_reply_msg->result_type = result_type;
+
+	if (output) {
+		darrp = mgmt_msg_native_get_darrp(rpc_reply_msg);
+		err = yang_print_tree_append(darrp, output, result_type,
+					     LYD_PRINT_SHRINK);
+		lyd_free_all(output);
+		if (err) {
+			ret = NB_ERR;
+			goto done;
+		}
+	}
+
+	(void)be_client_send_native_msg(client, rpc_reply_msg,
+					mgmt_msg_native_get_msg_len(
+						rpc_reply_msg),
+					false);
+done:
+	mgmt_msg_native_free_msg(rpc_reply_msg);
+	if (ret != NB_OK)
+		be_client_send_error(client, txn_id, req_id, false, -EINVAL,
+				     "Can't format RPC reply");
+}
+
+/*
+ * Process the RPC request.
+ */
+static void be_client_handle_rpc(struct mgmt_be_client *client, uint64_t txn_id,
+				 void *msgbuf, size_t msg_len)
+{
+	struct mgmt_msg_rpc *rpc_msg = msgbuf;
+	struct nb_node *nb_node;
+	struct lyd_node *input, *output;
+	const char *xpath;
+	const char *data;
+	char errmsg[BUFSIZ] = { 0 };
+	LY_ERR err;
+	int ret;
+
+	debug_be_client("Received RPC request for client %s txn-id %" PRIu64
+			" req-id %" PRIu64,
+			client->name, txn_id, rpc_msg->req_id);
+
+	xpath = mgmt_msg_native_xpath_data_decode(rpc_msg, msg_len, data);
+	if (!xpath) {
+		be_client_send_error(client, txn_id, rpc_msg->req_id, false,
+				     -EINVAL, "Corrupt RPC message");
+		return;
+	}
+
+	nb_node = nb_node_find(xpath);
+	if (!nb_node) {
+		be_client_send_error(client, txn_id, rpc_msg->req_id, false,
+				     -EINVAL, "No schema found for RPC: %s",
+				     xpath);
+		return;
+	}
+
+	if (!nb_node->cbs.rpc) {
+		be_client_send_error(client, txn_id, rpc_msg->req_id, false,
+				     -EINVAL, "No RPC callback for: %s", xpath);
+		return;
+	}
+
+	if (data) {
+		err = yang_parse_rpc(xpath, rpc_msg->request_type, data, false,
+				     &input);
+		if (err) {
+			be_client_send_error(client, txn_id, rpc_msg->req_id,
+					     false, -EINVAL,
+					     "Can't parse RPC data for: %s",
+					     xpath);
+			return;
+		}
+	} else {
+		/*
+		 * If there's no input data, create an empty input container.
+		 * It is especially needed for actions, because their parents
+		 * may hold necessary information.
+		 */
+		err = lyd_new_path2(NULL, ly_native_ctx, xpath, NULL, 0, 0, 0,
+				    NULL, &input);
+		if (err) {
+			be_client_send_error(client, txn_id, rpc_msg->req_id,
+					     false, -EINVAL,
+					     "Can't create input node for RPC: %s",
+					     xpath);
+			return;
+		}
+	}
+
+	err = lyd_new_path2(NULL, ly_native_ctx, xpath, NULL, 0, 0, 0, NULL,
+			    &output);
+	if (err) {
+		lyd_free_all(input);
+		be_client_send_error(client, txn_id, rpc_msg->req_id, false,
+				     -EINVAL,
+				     "Can't create output node for RPC: %s",
+				     xpath);
+		return;
+	}
+
+	ret = nb_callback_rpc(nb_node, xpath, input, output, errmsg,
+			      sizeof(errmsg));
+	if (ret != NB_OK) {
+		lyd_free_all(input);
+		lyd_free_all(output);
+		be_client_send_error(client, txn_id, rpc_msg->req_id, false,
+				     -EINVAL, "%s", errmsg);
+		return;
+	}
+
+	lyd_free_all(input);
+	if (!lyd_child(output)) {
+		lyd_free_all(output);
+		output = NULL;
+	}
+
+	be_client_send_rpc_reply(client, txn_id, rpc_msg->req_id,
+				 rpc_msg->request_type, output);
+}
+
 /*
  * Process the notification.
  */
@@ -974,6 +1111,9 @@ static void be_client_handle_native_msg(struct mgmt_be_client *client,
 	switch (msg->code) {
 	case MGMT_MSG_CODE_GET_TREE:
 		be_client_handle_get_tree(client, txn_id, msg, msg_len);
+		break;
+	case MGMT_MSG_CODE_RPC:
+		be_client_handle_rpc(client, txn_id, msg, msg_len);
 		break;
 	case MGMT_MSG_CODE_NOTIFY:
 		be_client_handle_notify(client, msg, msg_len);
@@ -1039,6 +1179,9 @@ int mgmt_be_send_subscr_req(struct mgmt_be_client *client_ctx,
 	/* See if we should register for notifications */
 	subscr_req.n_notif_xpaths = client_ctx->cbs.nnotif_xpaths;
 	subscr_req.notif_xpaths = (char **)client_ctx->cbs.notif_xpaths;
+
+	subscr_req.n_rpc_xpaths = client_ctx->cbs.nrpc_xpaths;
+	subscr_req.rpc_xpaths = (char **)client_ctx->cbs.rpc_xpaths;
 
 	mgmtd__be_message__init(&be_msg);
 	be_msg.message_case = MGMTD__BE_MESSAGE__MESSAGE_SUBSCR_REQ;

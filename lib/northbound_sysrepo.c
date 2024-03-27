@@ -377,16 +377,11 @@ static int frr_sr_state_cb(sr_session_ctx_t *session, uint32_t sub_id,
 	return SR_ERR_OK;
 }
 static int frr_sr_config_rpc_cb(sr_session_ctx_t *session, uint32_t sub_id,
-				const char *xpath, const sr_val_t *sr_input,
-				const size_t input_cnt, sr_event_t sr_ev,
-				uint32_t request_id, sr_val_t **sr_output,
-				size_t *sr_output_cnt, void *private_ctx)
+				const char *xpath, const struct lyd_node *input,
+				sr_event_t sr_ev, uint32_t request_id,
+				struct lyd_node *output, void *private_ctx)
 {
 	struct nb_node *nb_node;
-	struct list *input;
-	struct list *output;
-	struct yang_data *data;
-	size_t cb_output_cnt;
 	int ret = SR_ERR_OK;
 	char errmsg[BUFSIZ] = {0};
 
@@ -397,19 +392,6 @@ static int frr_sr_config_rpc_cb(sr_session_ctx_t *session, uint32_t sub_id,
 		return SR_ERR_INTERNAL;
 	}
 
-	input = yang_data_list_new();
-	output = yang_data_list_new();
-
-	/* Process input. */
-	for (size_t i = 0; i < input_cnt; i++) {
-		char value_str[YANG_VALUE_MAXLEN];
-
-		sr_val_to_buff(&sr_input[i], value_str, sizeof(value_str));
-
-		data = yang_data_new(xpath, value_str);
-		listnode_add(input, data);
-	}
-
 	/* Execute callback registered for this XPath. */
 	if (nb_callback_rpc(nb_node, xpath, input, output, errmsg,
 			    sizeof(errmsg))
@@ -417,43 +399,7 @@ static int frr_sr_config_rpc_cb(sr_session_ctx_t *session, uint32_t sub_id,
 		flog_warn(EC_LIB_NB_CB_RPC, "%s: rpc callback failed: %s",
 			  __func__, xpath);
 		ret = SR_ERR_OPERATION_FAILED;
-		goto exit;
 	}
-
-	/* Process output. */
-	if (listcount(output) > 0) {
-		sr_val_t *values = NULL;
-		struct listnode *node;
-		int i = 0;
-
-		cb_output_cnt = listcount(output);
-		ret = sr_new_values(cb_output_cnt, &values);
-		if (ret != SR_ERR_OK) {
-			flog_err(EC_LIB_LIBSYSREPO, "%s: sr_new_values(): %s",
-				 __func__, sr_strerror(ret));
-			goto exit;
-		}
-
-		for (ALL_LIST_ELEMENTS_RO(output, node, data)) {
-			if (yang_data_frr2sr(data, &values[i++]) != 0) {
-				flog_err(
-					EC_LIB_SYSREPO_DATA_CONVERT,
-					"%s: failed to convert data to Sysrepo format",
-					__func__);
-				ret = SR_ERR_INTERNAL;
-				sr_free_values(values, cb_output_cnt);
-				goto exit;
-			}
-		}
-
-		*sr_output = values;
-		*sr_output_cnt = cb_output_cnt;
-	}
-
-exit:
-	/* Release memory. */
-	list_delete(&input);
-	list_delete(&output);
 
 	return ret;
 }
@@ -579,8 +525,9 @@ static int frr_sr_subscribe_rpc(const struct lysc_node *snode, void *arg)
 	DEBUGD(&nb_dbg_client_sysrepo, "sysrepo: providing RPC to '%s'",
 	       nb_node->xpath);
 
-	ret = sr_rpc_subscribe(session, nb_node->xpath, frr_sr_config_rpc_cb,
-			       NULL, 0, 0, &module->sr_subscription);
+	ret = sr_rpc_subscribe_tree(session, nb_node->xpath,
+				    frr_sr_config_rpc_cb, NULL, 0, 0,
+				    &module->sr_subscription);
 	if (ret != SR_ERR_OK)
 		flog_err(EC_LIB_LIBSYSREPO, "sr_rpc_subscribe(): %s",
 			 sr_strerror(ret));

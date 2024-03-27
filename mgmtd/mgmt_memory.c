@@ -20,6 +20,7 @@
 DEFINE_MGROUP(MGMTD, "mgmt");
 DEFINE_MTYPE(MGMTD, MGMTD, "instance");
 DEFINE_MTYPE(MGMTD, MGMTD_XPATH, "xpath regex");
+DEFINE_MTYPE(MGMTD, MGMTD_ERR, "error");
 DEFINE_MTYPE(MGMTD, MGMTD_BE_ADPATER, "backend adapter");
 DEFINE_MTYPE(MGMTD, MGMTD_FE_ADPATER, "frontend adapter");
 DEFINE_MTYPE(MGMTD, MGMTD_FE_SESSION, "frontend session");
@@ -30,5 +31,6 @@ DEFINE_MTYPE(MGMTD, MGMTD_TXN_COMMCFG_REQ, "txn commit-config requests");
 DEFINE_MTYPE(MGMTD, MGMTD_TXN_GETDATA_REQ, "txn get-data requests");
 DEFINE_MTYPE(MGMTD, MGMTD_TXN_GETDATA_REPLY, "txn get-data replies");
 DEFINE_MTYPE(MGMTD, MGMTD_TXN_GETTREE_REQ, "txn get-tree requests");
+DEFINE_MTYPE(MGMTD, MGMTD_TXN_RPC_REQ, "txn rpc requests");
 DEFINE_MTYPE(MGMTD, MGMTD_TXN_CFG_BATCH, "txn config batches");
 DEFINE_MTYPE(MGMTD, MGMTD_CMT_INFO, "commit info");

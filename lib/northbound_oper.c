@@ -342,38 +342,6 @@ static void nb_op_resume_data_tree(struct nb_op_yield_state *ys)
 /* ======================= */
 
 /**
- * __xpath_pop_node() - remove the last node from xpath string
- * @xpath: an xpath string
- *
- * Return: NB_OK or NB_ERR_NOT_FOUND if nothing left to pop.
- */
-static int __xpath_pop_node(char *xpath)
-{
-	int len = strlen(xpath);
-	bool abs = xpath[0] == '/';
-	char *slash;
-
-	/* "//" or "/" => NULL */
-	if (abs && (len == 1 || (len == 2 && xpath[1] == '/')))
-		return NB_ERR_NOT_FOUND;
-
-	slash = (char *)frrstr_back_to_char(xpath, '/');
-	/* "/foo/bar/" or "/foo/bar//" => "/foo " */
-	if (slash && slash == &xpath[len - 1]) {
-		xpath[--len] = 0;
-		slash = (char *)frrstr_back_to_char(xpath, '/');
-		if (slash && slash == &xpath[len - 1]) {
-			xpath[--len] = 0;
-			slash = (char *)frrstr_back_to_char(xpath, '/');
-		}
-	}
-	if (!slash)
-		return NB_ERR_NOT_FOUND;
-	*slash = 0;
-	return NB_OK;
-}
-
-/**
  * nb_op_xpath_to_trunk() - generate a lyd_node tree (trunk) using an xpath.
  * @xpath_in: xpath query string to build trunk from.
  * @dnode: resulting tree (trunk)
@@ -398,7 +366,7 @@ static enum nb_error nb_op_xpath_to_trunk(const char *xpath_in,
 		if (err == LY_SUCCESS)
 			break;
 
-		ret = __xpath_pop_node(xpath);
+		ret = yang_xpath_pop_node(xpath);
 		if (ret != NB_OK)
 			break;
 	}

@@ -12,6 +12,7 @@
 #include "yang.h"
 #include "yang_translator.h"
 #include "northbound.h"
+#include "frrstr.h"
 
 #include "lib/config_paths.h"
 
@@ -652,6 +653,16 @@ void yang_dnode_free(struct lyd_node *dnode)
 	lyd_free_all(dnode);
 }
 
+void yang_dnode_rpc_output_add(struct lyd_node *output, const char *xpath,
+			       const char *value)
+{
+	LY_ERR err;
+
+	err = lyd_new_path(output, ly_native_ctx, xpath, value,
+			   LYD_NEW_PATH_OUTPUT | LYD_NEW_PATH_UPDATE, NULL);
+	assert(err == LY_SUCCESS);
+}
+
 struct yang_data *yang_data_new(const char *xpath, const char *value)
 {
 	struct yang_data *data;
@@ -760,6 +771,63 @@ LY_ERR yang_parse_notification(const char *xpath, LYD_FORMAT format,
 	}
 	*notif = set->dnodes[0];
 	ly_set_free(set, NULL);
+	return LY_SUCCESS;
+}
+
+LY_ERR yang_parse_rpc(const char *xpath, LYD_FORMAT format, const char *data,
+		      bool reply, struct lyd_node **rpc)
+{
+	const struct lysc_node *snode;
+	struct lyd_node *parent = NULL;
+	struct ly_in *in = NULL;
+	LY_ERR err;
+
+	snode = lys_find_path(ly_native_ctx, NULL, xpath, 0);
+	if (!snode) {
+		zlog_err("Failed to find RPC/action schema node: %s", xpath);
+		return LY_ENOTFOUND;
+	}
+
+	/* If it's an action, create its parent */
+	if (snode->nodetype == LYS_ACTION) {
+		char *parent_xpath = XSTRDUP(MTYPE_TMP, xpath);
+
+		if (yang_xpath_pop_node(parent_xpath) != NB_OK) {
+			XFREE(MTYPE_TMP, parent_xpath);
+			zlog_err("Invalid action xpath: %s", xpath);
+			return LY_EINVAL;
+		}
+
+		err = lyd_new_path2(NULL, ly_native_ctx, parent_xpath, NULL, 0,
+				    0, 0, NULL, &parent);
+		XFREE(MTYPE_TMP, parent_xpath);
+		if (err) {
+			zlog_err("Failed to create parent node for action: %s",
+				 ly_last_errmsg());
+			return err;
+		}
+	} else if (snode->nodetype != LYS_RPC) {
+		zlog_err("Schema node is not an RPC/action: %s", xpath);
+		return LY_EINVAL;
+	}
+
+	err = ly_in_new_memory(data, &in);
+	if (err) {
+		lyd_free_all(parent);
+		zlog_err("Failed to initialize ly_in: %s", ly_last_errmsg());
+		return err;
+	}
+
+	err = lyd_parse_op(ly_native_ctx, parent, in, format,
+			   reply ? LYD_TYPE_REPLY_YANG : LYD_TYPE_RPC_YANG,
+			   NULL, rpc);
+	ly_in_free(in, 0);
+	if (err) {
+		lyd_free_all(parent);
+		zlog_err("Failed to parse RPC/action: %s", ly_last_errmsg());
+		return err;
+	}
+
 	return LY_SUCCESS;
 }
 
@@ -1122,6 +1190,32 @@ int yang_get_node_keys(struct lyd_node *node, struct yang_list_keys *keys)
 	return NB_OK;
 }
 
+int yang_xpath_pop_node(char *xpath)
+{
+	int len = strlen(xpath);
+	bool abs = xpath[0] == '/';
+	char *slash;
+
+	/* "//" or "/" => NULL */
+	if (abs && (len == 1 || (len == 2 && xpath[1] == '/')))
+		return NB_ERR_NOT_FOUND;
+
+	slash = (char *)frrstr_back_to_char(xpath, '/');
+	/* "/foo/bar/" or "/foo/bar//" => "/foo " */
+	if (slash && slash == &xpath[len - 1]) {
+		xpath[--len] = 0;
+		slash = (char *)frrstr_back_to_char(xpath, '/');
+		if (slash && slash == &xpath[len - 1]) {
+			xpath[--len] = 0;
+			slash = (char *)frrstr_back_to_char(xpath, '/');
+		}
+	}
+	if (!slash)
+		return NB_ERR_NOT_FOUND;
+	*slash = 0;
+	return NB_OK;
+}
+
 /*
  * ------------------------
  * Libyang Future Functions
@@ -1273,6 +1367,42 @@ LY_ERR yang_lyd_trim_xpath(struct lyd_node **root, const char *xpath)
 
 	return LY_SUCCESS;
 #endif
+}
+
+/* Can be replaced by `lyd_parse_data` with libyang >= 2.1.156 */
+LY_ERR yang_lyd_parse_data(const struct ly_ctx *ctx, struct lyd_node *parent,
+			   struct ly_in *in, LYD_FORMAT format,
+			   uint32_t parse_options, uint32_t validate_options,
+			   struct lyd_node **tree)
+{
+	struct lyd_node *child;
+	LY_ERR err;
+
+	err = lyd_parse_data(ctx, parent, in, format, parse_options,
+			     validate_options, tree);
+	if (err)
+		return err;
+
+	if (!parent || !(parse_options & LYD_PARSE_ONLY))
+		return LY_SUCCESS;
+
+	/*
+	 * Versions prior to 2.1.156 don't return `tree` if `parent` is not NULL
+	 * and validation is disabled (`LYD_PARSE_ONLY`). To work around this,
+	 * go through the children and find the one with `LYD_NEW` flag set.
+	 */
+	*tree = NULL;
+
+	LY_LIST_FOR (lyd_child_no_keys(parent), child) {
+		if (child->flags & LYD_NEW) {
+			*tree = child;
+			break;
+		}
+	}
+
+	assert(tree);
+
+	return LY_SUCCESS;
 }
 
 /*

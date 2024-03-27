@@ -36,6 +36,7 @@ import time
 import os
 import pytest
 import platform
+import json
 
 # Save the Current Working Directory to find configuration files.
 CWD = os.path.dirname(os.path.realpath(__file__))
@@ -45,7 +46,7 @@ sys.path.append(os.path.join(CWD, "../lib/"))
 # pylint: disable=C0413
 # Import topogen and topotest helpers
 from lib.topogen import Topogen, get_topogen
-from lib.topotest import version_cmp
+from lib.topotest import version_cmp, router_json_cmp
 
 # Import topoJson from lib, to create topology and initial configuration
 from lib.common_config import (
@@ -399,6 +400,242 @@ def test_mgmt_delete_config(request):
     ), "Testcase {} : Failed" "Error: Routes is still present in RIB".format(tc_name)
 
     write_test_footer(tc_name)
+
+
+def test_mgmt_edit_config(request):
+    """
+    Verify mgmt edit config.
+    """
+    tc_name = request.node.name
+    write_test_header(tc_name)
+    tgen = get_topogen()
+    # Don't run this test if we have any failure.
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    reset_config_on_routers(tgen)
+
+    r1 = tgen.gears["r1"]
+
+    # check "create" operation
+    data = {"frr-interface:interface": [{"name": "eth0", "description": "eth0-desc"}]}
+    r1.vtysh_cmd(
+        f"conf\nmgmt edit create /frr-interface:lib lock commit {json.dumps(data, separators=(',', ':'))}"
+    )
+    data_out = data
+    assert (
+        router_json_cmp(
+            r1,
+            "show mgmt get-data /frr-interface:lib/interface[name='eth0'] only-config exact",
+            data_out,
+            exact=True,
+        )
+        == None
+    )
+
+    # check error on "create" for an existing object
+    data = {"frr-interface:interface": [{"name": "eth0", "description": "eth0-desc"}]}
+    ret = r1.vtysh_cmd(
+        f"conf\nmgmt edit create /frr-interface:lib lock commit {json.dumps(data, separators=(',', ':'))}"
+    )
+    assert "Data already exists" in ret
+
+    # check adding a leaf to an existing object using "merge"
+    data = {
+        "frr-interface:interface": [
+            {"name": "eth0", "frr-zebra:zebra": {"bandwidth": 100}}
+        ]
+    }
+    r1.vtysh_cmd(
+        f"conf\nmgmt edit merge /frr-interface:lib/interface[name='eth0'] lock commit {json.dumps(data, separators=(',', ':'))}"
+    )
+    data_out = {
+        "frr-interface:interface": [
+            {
+                "name": "eth0",
+                "description": "eth0-desc",
+                "frr-zebra:zebra": {"bandwidth": 100},
+            }
+        ]
+    }
+    assert (
+        router_json_cmp(
+            r1,
+            "show mgmt get-data /frr-interface:lib/interface[name='eth0'] only-config exact",
+            data_out,
+            exact=True,
+        )
+        == None
+    )
+
+    # check replacing an existing object using "replace"
+    data = {
+        "frr-interface:interface": [{"name": "eth0", "description": "eth0-desc-new"}]
+    }
+    r1.vtysh_cmd(
+        f"conf\nmgmt edit replace /frr-interface:lib/interface[name='eth0'] lock commit {json.dumps(data, separators=(',', ':'))}"
+    )
+    data_out = data
+    assert (
+        router_json_cmp(
+            r1,
+            "show mgmt get-data /frr-interface:lib/interface[name='eth0'] only-config exact",
+            data_out,
+            exact=True,
+        )
+        == None
+    )
+
+    # check error on "replace" when keys in xpath and data are different
+    data = {
+        "frr-interface:interface": [{"name": "eth1", "description": "eth0-desc-new"}]
+    }
+    ret = r1.vtysh_cmd(
+        f"conf\nmgmt edit replace /frr-interface:lib/interface[name='eth0'] lock commit {json.dumps(data, separators=(',', ':'))}"
+    )
+    assert "List keys in xpath and data tree are different" in ret
+
+    # check deleting an existing object using "delete"
+    r1.vtysh_cmd(
+        f"conf\nmgmt edit delete /frr-interface:lib/interface[name='eth0'] lock commit"
+    )
+    assert (
+        router_json_cmp(
+            r1,
+            "show mgmt get-data /frr-interface:lib/interface[name='eth0'] only-config exact",
+            {},
+            exact=True,
+        )
+        == None
+    )
+
+    # check error on "delete" for a non-existing object
+    ret = r1.vtysh_cmd(
+        f"conf\nmgmt edit delete /frr-interface:lib/interface[name='eth0'] lock commit"
+    )
+    assert "Data missing" in ret
+
+    # check no error on "remove" for a non-existing object
+    ret = r1.vtysh_cmd(
+        f"conf\nmgmt edit remove /frr-interface:lib/interface[name='eth0'] lock commit"
+    )
+    assert "Data missing" not in ret
+
+    # check "remove" for an existing object
+    data = {"frr-interface:interface": [{"name": "eth0", "description": "eth0-desc"}]}
+    r1.vtysh_cmd(
+        f"conf\nmgmt edit create /frr-interface:lib lock commit {json.dumps(data, separators=(',', ':'))}"
+    )
+    r1.vtysh_cmd(
+        f"conf\nmgmt edit remove /frr-interface:lib/interface[name='eth0'] lock commit"
+    )
+    assert (
+        router_json_cmp(
+            r1,
+            "show mgmt get-data /frr-interface:lib/interface[name='eth0'] only-config exact",
+            {},
+            exact=True,
+        )
+        == None
+    )
+
+    # check "create" of a top-level node
+    data = {"frr-vrf:lib": {"vrf": [{"name": "vrf1"}]}}
+    r1.vtysh_cmd(
+        f"conf\nmgmt edit create / lock commit {json.dumps(data, separators=(',', ':'))}"
+    )
+    data_out = data
+    assert (
+        router_json_cmp(
+            r1,
+            "show mgmt get-data /frr-vrf:lib only-config exact",
+            data_out,
+            exact=True,
+        )
+        == None
+    )
+
+    # check "replace" of a top-level node
+    data = {"frr-vrf:lib": {"vrf": [{"name": "vrf2"}]}}
+    r1.vtysh_cmd(
+        f"conf\nmgmt edit replace /frr-vrf:lib lock commit {json.dumps(data, separators=(',', ':'))}"
+    )
+    data_out = data
+    assert (
+        router_json_cmp(
+            r1,
+            "show mgmt get-data /frr-vrf:lib only-config exact",
+            data_out,
+            exact=True,
+        )
+        == None
+    )
+
+    # check "delete" of a top-level node
+    r1.vtysh_cmd(f"conf\nmgmt edit delete /frr-vrf:lib lock commit")
+    assert (
+        router_json_cmp(
+            r1, "show mgmt get-data /frr-vrf:lib only-config exact", {}, exact=True
+        )
+        == None
+    )
+
+    # check replace of the whole config
+    #   this test won't work at the moment, because we don't allow to delete
+    #   interfaces from the config if they are present in the system
+    #   another problem is that we don't allow "/" as an xpath in get-data command
+    #   therefore, commenting it out for now
+    # data = {
+    #     "frr-interface:lib": {
+    #         "interface": [{"name": "eth1", "description": "eth1-desc"}]
+    #     },
+    #     "frr-vrf:lib": {"vrf": [{"name": "vrf3"}]},
+    # }
+    # r1.vtysh_cmd(
+    #     f"conf\nmgmt edit replace / lock commit {json.dumps(data, separators=(',', ':'))}"
+    # )
+    # data_out = data
+    # assert (
+    #     router_json_cmp(
+    #         r1,
+    #         "show mgmt get-data / only-config exact",
+    #         data_out,
+    #         exact=True,
+    #     )
+    #     == None
+    # )
+
+    # check "merge" of the whole config
+    data = {
+        "frr-interface:lib": {
+            "interface": [{"name": "eth2", "description": "eth2-desc"}]
+        },
+        "frr-vrf:lib": {"vrf": [{"name": "vrf4"}]},
+    }
+    r1.vtysh_cmd(
+        f"conf\nmgmt edit merge / lock commit {json.dumps(data, separators=(',', ':'))}"
+    )
+    data_out = data
+    assert (
+        router_json_cmp(
+            r1,
+            "show mgmt get-data /frr-interface:lib only-config exact",
+            {
+                "frr-interface:lib": {
+                    "interface": [{"name": "eth2", "description": "eth2-desc"}]
+                }
+            },
+        )
+        == None
+    )
+    assert (
+        router_json_cmp(
+            r1,
+            "show mgmt get-data /frr-vrf:lib only-config exact",
+            {"frr-vrf:lib": {"vrf": [{"name": "vrf4"}]}},
+        )
+        == None
+    )
 
 
 def test_mgmt_chaos_stop_start_frr(request):

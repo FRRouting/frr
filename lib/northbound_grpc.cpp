@@ -1011,12 +1011,11 @@ grpc::Status HandleUnaryExecute(
 	grpc_debug("%s: entered", __func__);
 
 	struct nb_node *nb_node;
-	struct list *input_list;
-	struct list *output_list;
-	struct listnode *node;
-	struct yang_data *data;
+	struct lyd_node *input_tree, *output_tree, *child;
 	const char *xpath;
 	char errmsg[BUFSIZ] = {0};
+	char path[XPATH_MAXLEN];
+	LY_ERR err;
 
 	// Request: string path = 1;
 	xpath = tag->request.path().c_str();
@@ -1032,40 +1031,66 @@ grpc::Status HandleUnaryExecute(
 		return grpc::Status(grpc::StatusCode::INVALID_ARGUMENT,
 				    "Unknown data path");
 
-	input_list = yang_data_list_new();
-	output_list = yang_data_list_new();
+	// Create input data tree.
+	err = lyd_new_path2(NULL, ly_native_ctx, xpath, NULL, 0,
+			    (LYD_ANYDATA_VALUETYPE)0, 0, NULL, &input_tree);
+	if (err != LY_SUCCESS) {
+		return grpc::Status(grpc::StatusCode::INVALID_ARGUMENT,
+				    "Invalid data path");
+	}
 
 	// Read input parameters.
 	auto input = tag->request.input();
 	for (const frr::PathValue &pv : input) {
 		// Request: repeated PathValue input = 2;
-		data = yang_data_new(pv.path().c_str(), pv.value().c_str());
-		listnode_add(input_list, data);
+		err = lyd_new_path(input_tree, ly_native_ctx, pv.path().c_str(),
+				   pv.value().c_str(), 0, NULL);
+		if (err != LY_SUCCESS) {
+			lyd_free_tree(input_tree);
+			return grpc::Status(grpc::StatusCode::INVALID_ARGUMENT,
+					    "Invalid input data");
+		}
+	}
+
+	// Validate input data.
+	err = lyd_validate_op(input_tree, NULL, LYD_TYPE_RPC_YANG, NULL);
+	if (err != LY_SUCCESS) {
+		lyd_free_tree(input_tree);
+		return grpc::Status(grpc::StatusCode::INVALID_ARGUMENT,
+				    "Invalid input data");
+	}
+
+	// Create output data tree.
+	err = lyd_new_path2(NULL, ly_native_ctx, xpath, NULL, 0,
+			    (LYD_ANYDATA_VALUETYPE)0, 0, NULL, &output_tree);
+	if (err != LY_SUCCESS) {
+		lyd_free_tree(input_tree);
+		return grpc::Status(grpc::StatusCode::INVALID_ARGUMENT,
+				    "Invalid data path");
 	}
 
 	// Execute callback registered for this XPath.
-	if (nb_callback_rpc(nb_node, xpath, input_list, output_list, errmsg,
-			    sizeof(errmsg))
-	    != NB_OK) {
+	if (nb_callback_rpc(nb_node, xpath, input_tree, output_tree, errmsg,
+			    sizeof(errmsg)) != NB_OK) {
 		flog_warn(EC_LIB_NB_CB_RPC, "%s: rpc callback failed: %s",
 			  __func__, xpath);
-		list_delete(&input_list);
-		list_delete(&output_list);
+		lyd_free_tree(input_tree);
+		lyd_free_tree(output_tree);
 
 		return grpc::Status(grpc::StatusCode::INTERNAL, "RPC failed");
 	}
 
 	// Process output parameters.
-	for (ALL_LIST_ELEMENTS_RO(output_list, node, data)) {
+	LY_LIST_FOR (lyd_child(output_tree), child) {
 		// Response: repeated PathValue output = 1;
 		frr::PathValue *pv = tag->response.add_output();
-		pv->set_path(data->xpath);
-		pv->set_value(data->value);
+		pv->set_path(lyd_path(child, LYD_PATH_STD, path, sizeof(path)));
+		pv->set_value(yang_dnode_get_string(child, NULL));
 	}
 
 	// Release memory.
-	list_delete(&input_list);
-	list_delete(&output_list);
+	lyd_free_tree(input_tree);
+	lyd_free_tree(output_tree);
 
 	return grpc::Status::OK;
 }
