@@ -42,7 +42,7 @@
 #define NETLINK_SOCKET_BUFFER_SIZE 512
 #define NETLINK_ALIGNTO             4
 #define NETLINK_ALIGN(len)                                                     \
-	(((len) + NETLINK_ALIGNTO - 1) & ~(NETLINK_ALIGNTO - 1))
+	CHECK_FLAG(((len) + NETLINK_ALIGNTO - 1), ~(NETLINK_ALIGNTO - 1))
 #define NETLINK_NLATTR_LEN(_a, _b)   (unsigned int)((char *)_a - (char *)_b)
 
 #endif /* defined(HAVE_NETLINK) */
@@ -66,7 +66,7 @@ static struct nlmsghdr *initiate_nlh(char *buf, unsigned int *seq, int type)
 	nlh->nlmsg_type = type;
 	nlh->nlmsg_flags = NLM_F_REQUEST;
 	if (type == RTM_NEWNSID)
-		nlh->nlmsg_flags |= NLM_F_ACK;
+		SET_FLAG(nlh->nlmsg_flags, NLM_F_ACK);
 	nlh->nlmsg_seq = *seq = frr_sequence32_next();
 	return nlh;
 }
