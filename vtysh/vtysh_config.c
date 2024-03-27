@@ -651,12 +651,8 @@ static int vtysh_read_config(const char *config_file_path, bool dry_run)
 	int ret;
 
 	confp = fopen(config_file_path, "r");
-	if (confp == NULL) {
-		fprintf(stderr,
-			"%% Can't open configuration file %s due to '%s'.\n",
-			config_file_path, safe_strerror(errno));
+	if (confp == NULL)
 		return CMD_ERR_NO_FILE;
-	}
 
 	save = vtysh_add_timestamp;
 	vtysh_add_timestamp = false;
