@@ -138,6 +138,11 @@ struct pim_msdp_peer {
 
 	/* timestamps */
 	int64_t uptime;
+
+	/** SA input access list name. */
+	char *acl_in;
+	/** SA output access list name. */
+	char *acl_out;
 };
 
 struct pim_msdp_mg_mbr {

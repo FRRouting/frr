@@ -5131,6 +5131,83 @@ DEFUN (no_ip_msdp_peer,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
+DEFPY(ip_msdp_peer_sa_filter, ip_msdp_peer_sa_filter_cmd,
+      "ip msdp peer A.B.C.D$peer sa-filter ACL_NAME$acl_name <in|out>$dir",
+      IP_STR
+      CFG_MSDP_STR
+      "Configure MSDP peer\n"
+      "MSDP Peer address\n"
+      "SA access-list filter\n"
+      "SA access-list name\n"
+      "Filter incoming SAs\n"
+      "Filter outgoing SAs\n")
+{
+	const struct lyd_node *peer_node;
+	const char *vrfname;
+	char xpath[XPATH_MAXLEN];
+
+	vrfname = pim_cli_get_vrf_name(vty);
+	if (vrfname == NULL)
+		return CMD_WARNING_CONFIG_FAILED;
+
+	snprintf(xpath, sizeof(xpath),
+		 FRR_PIM_VRF_XPATH "/msdp-peer[peer-ip='%s']", "frr-pim:pimd",
+		 "pim", vrfname, "frr-routing:ipv4", peer_str);
+	peer_node = yang_dnode_get(vty->candidate_config->dnode, xpath);
+	if (peer_node == NULL) {
+		vty_out(vty, "%% MSDP peer %s not yet configured\n", peer_str);
+		return CMD_SUCCESS;
+	}
+
+	if (strcmp(dir, "in") == 0)
+		nb_cli_enqueue_change(vty, "./sa-filter-in", NB_OP_MODIFY,
+				      acl_name);
+	else
+		nb_cli_enqueue_change(vty, "./sa-filter-out", NB_OP_MODIFY,
+				      acl_name);
+
+	return nb_cli_apply_changes(vty, "%s", xpath);
+}
+
+DEFPY(no_ip_msdp_peer_sa_filter, no_ip_msdp_peer_sa_filter_cmd,
+      "no ip msdp peer A.B.C.D$peer sa-filter ACL_NAME <in|out>$dir",
+      NO_STR
+      IP_STR
+      CFG_MSDP_STR
+      "Configure MSDP peer\n"
+      "MSDP Peer address\n"
+      "SA access-list filter\n"
+      "SA access-list name\n"
+      "Filter incoming SAs\n"
+      "Filter outgoing SAs\n")
+{
+	const struct lyd_node *peer_node;
+	const char *vrfname;
+	char xpath[XPATH_MAXLEN];
+
+	vrfname = pim_cli_get_vrf_name(vty);
+	if (vrfname == NULL)
+		return CMD_WARNING_CONFIG_FAILED;
+
+	snprintf(xpath, sizeof(xpath),
+		 FRR_PIM_VRF_XPATH "/msdp-peer[peer-ip='%s']", "frr-pim:pimd",
+		 "pim", vrfname, "frr-routing:ipv4", peer_str);
+	peer_node = yang_dnode_get(vty->candidate_config->dnode, xpath);
+	if (peer_node == NULL) {
+		vty_out(vty, "%% MSDP peer %s not yet configured\n", peer_str);
+		return CMD_SUCCESS;
+	}
+
+	if (strcmp(dir, "in") == 0)
+		nb_cli_enqueue_change(vty, "./sa-filter-in", NB_OP_DESTROY,
+				      NULL);
+	else
+		nb_cli_enqueue_change(vty, "./sa-filter-out", NB_OP_DESTROY,
+				      NULL);
+
+	return nb_cli_apply_changes(vty, "%s", xpath);
+}
+
 DEFPY(ip_msdp_mesh_group_member,
       ip_msdp_mesh_group_member_cmd,
       "ip msdp mesh-group WORD$gname member A.B.C.D$maddr",
@@ -6472,6 +6549,10 @@ void pim_cmd_init(void)
 	install_element(VRF_NODE, &ip_msdp_peer_cmd);
 	install_element(CONFIG_NODE, &no_ip_msdp_peer_cmd);
 	install_element(VRF_NODE, &no_ip_msdp_peer_cmd);
+	install_element(CONFIG_NODE, &ip_msdp_peer_sa_filter_cmd);
+	install_element(VRF_NODE, &ip_msdp_peer_sa_filter_cmd);
+	install_element(CONFIG_NODE, &no_ip_msdp_peer_sa_filter_cmd);
+	install_element(VRF_NODE, &no_ip_msdp_peer_sa_filter_cmd);
 	install_element(CONFIG_NODE, &ip_pim_ecmp_cmd);
 	install_element(VRF_NODE, &ip_pim_ecmp_cmd);
 	install_element(CONFIG_NODE, &no_ip_pim_ecmp_cmd);
