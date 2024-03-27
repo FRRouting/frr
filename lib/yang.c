@@ -11,6 +11,7 @@
 #include "lib_errors.h"
 #include "yang.h"
 #include "yang_translator.h"
+#include <libyang/version.h>
 #include "northbound.h"
 
 #include "lib/config_paths.h"
@@ -701,7 +702,12 @@ struct yang_data *yang_data_list_find(const struct list *list,
 }
 
 /* Make libyang log its errors using FRR logging infrastructure. */
-static void ly_log_cb(LY_LOG_LEVEL level, const char *msg, const char *path)
+static void ly_zlog_cb(LY_LOG_LEVEL level, const char *msg, const char *data_path
+#if !(LY_VERSION_MAJOR < 3)
+		       ,
+		       const char *schema_path, uint64_t line
+#endif
+)
 {
 	int priority = LOG_ERR;
 
@@ -718,8 +724,14 @@ static void ly_log_cb(LY_LOG_LEVEL level, const char *msg, const char *path)
 		break;
 	}
 
-	if (path)
-		zlog(priority, "libyang: %s (%s)", msg, path);
+	if (data_path)
+		zlog(priority, "libyang: %s (%s)", msg, data_path);
+#if !(LY_VERSION_MAJOR < 3)
+	else if (schema_path)
+		zlog(priority, "libyang %s (%s)\n", msg, schema_path);
+	else if (line)
+		zlog(priority, "libyang %s (line %" PRIu64 ")\n", msg, line);
+#endif
 	else
 		zlog(priority, "libyang: %s", msg);
 }
@@ -734,7 +746,11 @@ LY_ERR yang_parse_notification(const char *xpath, LYD_FORMAT format,
 
 	err = ly_in_new_memory(data, &in);
 	if (err) {
+#if (LY_VERSION_MAJOR < 3)
 		zlog_err("Failed to initialize ly_in: %s", ly_last_errmsg());
+#else
+		zlog_err("Failed to initialize ly_in: %s", ly_last_logmsg());
+#endif
 		return err;
 	}
 
@@ -742,13 +758,26 @@ LY_ERR yang_parse_notification(const char *xpath, LYD_FORMAT format,
 			   &tree, NULL);
 	ly_in_free(in, 0);
 	if (err) {
+#if (LY_VERSION_MAJOR < 3)
 		zlog_err("Failed to parse notification: %s", ly_last_errmsg());
+#else
+		zlog_err("Failed to parse notification: %s", ly_last_logmsg());
+#endif
 		return err;
 	}
 
+#if (LY_VERSION_MAJOR < 3)
 	err = lyd_find_xpath3(NULL, tree, xpath, NULL, &set);
+#else
+	err = lyd_find_xpath3(NULL, tree, xpath, LY_VALUE_JSON, NULL, NULL,
+			      &set);
+#endif
 	if (err) {
+#if (LY_VERSION_MAJOR < 3)
 		zlog_err("Failed to parse notification: %s", ly_last_errmsg());
+#else
+		zlog_err("Failed to parse notification: %s", ly_last_logmsg());
+#endif
 		lyd_free_all(tree);
 		return err;
 	}
@@ -778,7 +807,11 @@ LY_ERR yang_print_tree_append(uint8_t **darr, const struct lyd_node *root,
 
 	err = lyd_print_clb(yang_print_darr, darr, root, format, options);
 	if (err)
+#if (LY_VERSION_MAJOR < 3)
 		zlog_err("Failed to save yang tree: %s", ly_last_errmsg());
+#else
+		zlog_err("Failed to save yang tree: %s", ly_last_logmsg());
+#endif
 	else if (format != LYD_LYB)
 		*darr_append(*darr) = 0;
 	return err;
@@ -819,7 +852,12 @@ char *yang_convert_lyd_format(const char *data, size_t data_len,
 	if (err) {
 		flog_err_sys(EC_LIB_LIBYANG,
 			     "cannot parse input data to convert: %s",
-			     ly_last_errmsg());
+#if (LY_VERSION_MAJOR < 3)
+			     ly_last_errmsg()
+#else
+			     ly_last_logmsg()
+#endif
+		);
 		return NULL;
 	}
 
@@ -839,23 +877,29 @@ char *yang_convert_lyd_format(const char *data, size_t data_len,
 
 const char *yang_print_errors(struct ly_ctx *ly_ctx, char *buf, size_t buf_len)
 {
-	struct ly_err_item *ei;
+	const struct ly_err_item *ei;
 
 	ei = ly_err_first(ly_ctx);
 	if (!ei)
 		return "";
 
 	strlcpy(buf, "YANG error(s):\n", buf_len);
+#if (LY_VERSION_MAJOR < 3)
+#define data_path path
+#else
+#define data_path data_path
+#endif
 	for (; ei; ei = ei->next) {
-		if (ei->path) {
+		if (ei->data_path) {
 			strlcat(buf, " Path: ", buf_len);
-			strlcat(buf, ei->path, buf_len);
+			strlcat(buf, ei->data_path, buf_len);
 			strlcat(buf, "\n", buf_len);
 		}
 		strlcat(buf, " Error: ", buf_len);
 		strlcat(buf, ei->msg, buf_len);
 		strlcat(buf, "\n", buf_len);
 	}
+#undef data_path
 
 	ly_err_clean(ly_ctx, NULL);
 
@@ -907,7 +951,12 @@ struct ly_ctx *yang_ctx_new_setup(bool embedded_modules, bool explicit_compile)
 void yang_init(bool embedded_modules, bool defer_compile)
 {
 	/* Initialize libyang global parameters that affect all containers. */
-	ly_set_log_clb(ly_log_cb, 1);
+	ly_set_log_clb(ly_zlog_cb
+#if (LY_VERSION_MAJOR < 3)
+		       ,
+		       1
+#endif
+	);
 	ly_log_options(LY_LOLOG | LY_LOSTORE);
 
 	/* Initialize libyang container for native models. */
@@ -926,7 +975,12 @@ void yang_init_loading_complete(void)
 	if (ly_ctx_compile(ly_native_ctx) != LY_SUCCESS) {
 		flog_err(EC_LIB_YANG_MODULE_LOAD,
 			 "%s: failed to compile loaded modules: %s", __func__,
-			 ly_errmsg(ly_native_ctx));
+#if (LY_VERSION_MAJOR < 3)
+			 ly_errmsg(ly_native_ctx)
+#else
+			 ly_last_logmsg()
+#endif
+		);
 		exit(1);
 	}
 }
@@ -1219,7 +1273,12 @@ LY_ERR yang_lyd_trim_xpath(struct lyd_node **root, const char *xpath)
 
 	*root = lyd_first_sibling(*root);
 
+#if (LY_VERSION_MAJOR < 3)
 	err = lyd_find_xpath3(NULL, *root, xpath, NULL, &set);
+#else
+	err = lyd_find_xpath3(NULL, *root, xpath, LY_VALUE_JSON, NULL, NULL,
+			      &set);
+#endif
 	if (err) {
 		flog_err_sys(EC_LIB_LIBYANG,
 			     "cannot obtain specific result for xpath \"%s\": %s",
@@ -1277,11 +1336,16 @@ LY_ERR yang_lyd_trim_xpath(struct lyd_node **root, const char *xpath)
 
 /*
  * Safe to remove after libyang v2.1.128 is required
+ * XXX it is not removed for libyang3 migration in order
+ * to have a double support of libyang2 and libyang3 support
+ * during an interim period.
  */
 const char *yang_ly_strerrcode(LY_ERR err)
 {
 #ifdef HAVE_LY_STRERRCODE
 	return ly_strerrcode(err);
+#elif defined(HAVE_LY_STRERR)
+	return ly_strerr(err);
 #else
 	switch (err) {
 	case LY_SUCCESS:

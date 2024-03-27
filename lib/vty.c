@@ -39,6 +39,7 @@
 #include "libfrr.h"
 #include "frrstr.h"
 #include "lib_errors.h"
+#include <libyang/version.h>
 #include "northbound_cli.h"
 #include "printfrr.h"
 #include "json.h"
@@ -3670,15 +3671,24 @@ static ssize_t vty_mgmt_libyang_print(void *user_data, const void *buf,
 }
 
 static void vty_out_yang_error(struct vty *vty, LYD_FORMAT format,
-			       struct ly_err_item *ei)
+			       const struct ly_err_item *ei)
 {
+#if (LY_VERSION_MAJOR < 3)
+#define data_path path
+#else
+#define data_path data_path
+#endif
 	bool have_apptag = ei->apptag && ei->apptag[0] != 0;
-	bool have_path = ei->path && ei->path[0] != 0;
+	bool have_path = ei->data_path && ei->data_path[0] != 0;
 	bool have_msg = ei->msg && ei->msg[0] != 0;
 	const char *severity = NULL;
 	const char *evalid = NULL;
 	const char *ecode = NULL;
+#if (LY_VERSION_MAJOR < 3)
 	LY_ERR err = ei->no;
+#else
+	LY_ERR err = ei->err;
+#endif
 
 	if (ei->level == LY_LLERR)
 		severity = "error";
@@ -3703,7 +3713,8 @@ static void vty_out_yang_error(struct vty *vty, LYD_FORMAT format,
 			vty_out(vty, "<error-validation>%s</error-validation>\n",
 				evalid);
 		if (have_path)
-			vty_out(vty, "<error-path>%s</error-path>\n", ei->path);
+			vty_out(vty, "<error-path>%s</error-path>\n",
+				ei->data_path);
 		if (have_apptag)
 			vty_out(vty, "<error-app-tag>%s</error-app-tag>\n",
 				ei->apptag);
@@ -3722,7 +3733,7 @@ static void vty_out_yang_error(struct vty *vty, LYD_FORMAT format,
 		if (evalid)
 			vty_out(vty, ", \"error-validation\": \"%s\"", evalid);
 		if (have_path)
-			vty_out(vty, ", \"error-path\": \"%s\"", ei->path);
+			vty_out(vty, ", \"error-path\": \"%s\"", ei->data_path);
 		if (have_apptag)
 			vty_out(vty, ", \"error-app-tag\": \"%s\"", ei->apptag);
 		if (have_msg)
@@ -3739,18 +3750,19 @@ static void vty_out_yang_error(struct vty *vty, LYD_FORMAT format,
 		if (evalid)
 			vty_out(vty, " invalid: %s", evalid);
 		if (have_path)
-			vty_out(vty, " path: %s", ei->path);
+			vty_out(vty, " path: %s", ei->data_path);
 		if (have_apptag)
 			vty_out(vty, " app-tag: %s", ei->apptag);
 		if (have_msg)
 			vty_out(vty, " msg: %s", ei->msg);
 		break;
 	}
+#undef data_path
 }
 
 static uint vty_out_yang_errors(struct vty *vty, LYD_FORMAT format)
 {
-	struct ly_err_item *ei = ly_err_first(ly_native_ctx);
+	const struct ly_err_item *ei = ly_err_first(ly_native_ctx);
 	uint count;
 
 	if (!ei)
