@@ -4280,12 +4280,11 @@ int rib_add_gr_run(afi_t afi, vrf_id_t vrf_id, uint8_t proto, uint8_t instance)
 	return mq_add_handler(gr_run, rib_meta_queue_gr_run_add);
 }
 
-struct route_entry *zebra_rib_route_entry_new(vrf_id_t vrf_id, int type,
-					      uint8_t instance, uint32_t flags,
-					      uint32_t nhe_id,
-					      uint32_t table_id,
-					      uint32_t metric, uint32_t mtu,
-					      uint8_t distance, route_tag_t tag)
+struct route_entry *
+zebra_rib_route_entry_new(vrf_id_t vrf_id, int type, uint8_t instance,
+			  uint32_t flags, uint32_t nhe_id, uint32_t table_id,
+			  uint32_t metric, uint32_t mtu, uint8_t distance,
+			  route_tag_t tag, bool startup)
 {
 	struct route_entry *re;
 
@@ -4299,6 +4298,9 @@ struct route_entry *zebra_rib_route_entry_new(vrf_id_t vrf_id, int type,
 	re->table = table_id;
 	re->vrf_id = vrf_id;
 	re->uptime = monotime(NULL);
+	if (startup)
+		re->uptime -= 1;
+
 	re->tag = tag;
 	re->nhe_id = nhe_id;
 
@@ -4393,7 +4395,7 @@ void rib_delete(afi_t afi, safi_t safi, vrf_id_t vrf_id, int type,
 	struct nhg_hash_entry *nhe = NULL;
 
 	re = zebra_rib_route_entry_new(vrf_id, type, instance, flags, nhe_id,
-				       table_id, metric, 0, distance, 0);
+				       table_id, metric, 0, distance, 0, false);
 
 	if (nh) {
 		nhe = zebra_nhg_alloc();
@@ -4429,7 +4431,8 @@ int rib_add(afi_t afi, safi_t safi, vrf_id_t vrf_id, int type,
 
 	/* Allocate new route_entry structure. */
 	re = zebra_rib_route_entry_new(vrf_id, type, instance, flags, nhe_id,
-				       table_id, metric, mtu, distance, tag);
+				       table_id, metric, mtu, distance, tag,
+				       startup);
 
 	/* If the owner of the route supplies a shared nexthop-group id,
 	 * we'll use that. Otherwise, pass the nexthop along directly.
