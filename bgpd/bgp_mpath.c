@@ -27,6 +27,7 @@
 #include "bgpd/bgp_lcommunity.h"
 #include "bgpd/bgp_mpath.h"
 
+
 /*
  * bgp_maximum_paths_set
  *
@@ -508,6 +509,43 @@ static void bgp_path_info_mpath_attr_set(struct bgp_path_info *path,
 	mpath->mp_attr = attr;
 }
 
+void bgp_mpath_diff_insert(struct bgp_mpath_diff_head *diff,
+			   struct bgp_path_info *bpi, bool update)
+{
+	if (!diff)
+		return;
+	if (!bpi) {
+		zlog_warn("%s: path info given is null", __func__);
+		return;
+	}
+
+	struct bgp_path_info_mpath_diff *item =
+		XCALLOC(MTYPE_BGP_MPATH_DIFF,
+			sizeof(struct bgp_path_info_mpath_diff));
+	item->path = bpi;
+	item->update = update;
+
+	bgp_path_info_lock(bpi);
+	bgp_dest_lock_node(bpi->net);
+	bgp_mpath_diff_add_tail(diff, item);
+}
+
+void bgp_mpath_diff_clear(struct bgp_mpath_diff_head *diff)
+{
+	struct bgp_path_info_mpath_diff *mp_diff;
+
+	if (!diff)
+		return;
+
+	while ((mp_diff = bgp_mpath_diff_pop(diff))) {
+		if (mp_diff->path && mp_diff->path->net)
+			bgp_dest_unlock_node(mp_diff->path->net);
+		if (mp_diff->path)
+			bgp_path_info_unlock(mp_diff->path);
+		XFREE(MTYPE_BGP_MPATH_DIFF, mp_diff);
+	}
+}
+
 /*
  * bgp_path_info_mpath_update
  *
@@ -518,7 +556,8 @@ void bgp_path_info_mpath_update(struct bgp *bgp, struct bgp_dest *dest,
 				struct bgp_path_info *new_best,
 				struct bgp_path_info *old_best,
 				struct list *mp_list,
-				struct bgp_maxpaths_cfg *mpath_cfg)
+				struct bgp_maxpaths_cfg *mpath_cfg,
+				struct bgp_mpath_diff_head *mpath_diff_list)
 {
 	uint16_t maxpaths, mpath_count, old_mpath_count;
 	uint32_t bwval;
@@ -543,6 +582,7 @@ void bgp_path_info_mpath_update(struct bgp *bgp, struct bgp_dest *dest,
 		mpath_count++;
 		if (new_best != old_best)
 			bgp_path_info_mpath_dequeue(new_best);
+
 		maxpaths = (new_best->peer->sort == BGP_PEER_IBGP)
 				   ? mpath_cfg->maxpaths_ibgp
 				   : mpath_cfg->maxpaths_ebgp;
@@ -629,6 +669,9 @@ void bgp_path_info_mpath_update(struct bgp *bgp, struct bgp_dest *dest,
 				}
 			} else {
 				mpath_changed = 1;
+				bgp_mpath_diff_insert(mpath_diff_list,
+						      cur_mpath, false);
+
 				if (debug) {
 					bgp_path_info_path_with_addpath_rx_str(
 						cur_mpath, path_buf,
@@ -657,6 +700,7 @@ void bgp_path_info_mpath_update(struct bgp *bgp, struct bgp_dest *dest,
 			 * multipath list
 			 */
 			bgp_path_info_mpath_dequeue(cur_mpath);
+			bgp_mpath_diff_insert(mpath_diff_list, cur_mpath, false);
 			mpath_changed = 1;
 			if (debug) {
 				bgp_path_info_path_with_addpath_rx_str(
@@ -690,6 +734,7 @@ void bgp_path_info_mpath_update(struct bgp *bgp, struct bgp_dest *dest,
 			list_delete_node(mp_list, mp_node);
 			assert(new_mpath);
 			assert(prev_mpath);
+
 			if ((mpath_count < maxpaths) && (new_mpath != new_best)
 			    && bgp_path_info_nexthop_cmp(prev_mpath,
 							 new_mpath)) {
@@ -697,6 +742,8 @@ void bgp_path_info_mpath_update(struct bgp *bgp, struct bgp_dest *dest,
 
 				bgp_path_info_mpath_enqueue(prev_mpath,
 							    new_mpath);
+				bgp_mpath_diff_insert(mpath_diff_list,
+						      new_mpath, true);
 				prev_mpath = new_mpath;
 				mpath_changed = 1;
 				mpath_count++;
