@@ -1409,25 +1409,43 @@ static void zl3vni_remote_rmac_del(struct zebra_l3vni *zl3vni,
 				   struct zebra_mac *zrmac,
 				   struct ipaddr *vtep_ip)
 {
-	struct ipaddr ipv4_vtep;
+	struct ipaddr tmp_ip;
+	struct ipaddr *ipv4_vtep, *ipv6_nh;
 
-	if (!zl3vni_nh_lookup(zl3vni, vtep_ip)) {
-		memset(&ipv4_vtep, 0, sizeof(ipv4_vtep));
-		ipv4_vtep.ipa_type = IPADDR_V4;
-		if (vtep_ip->ipa_type == IPADDR_V6)
-			ipv4_mapped_ipv6_to_ipv4(&vtep_ip->ipaddr_v6,
-						 &ipv4_vtep.ipaddr_v4);
-		else
-			memcpy(&(ipv4_vtep.ipaddr_v4), &vtep_ip->ipaddr_v4,
-			       sizeof(struct in_addr));
+	memset(&tmp_ip, 0, sizeof(tmp_ip));
+	if (vtep_ip->ipa_type == IPADDR_V6) {
+		if (!IS_MAPPED_IPV6(&vtep_ip->ipaddr_v6)) {
+			zlog_warn("Unsupported IPv6 EVPN nexthop %pIA", vtep_ip);
+			return;
+		}
+		ipv4_vtep = &tmp_ip;
+		ipv6_nh = vtep_ip;
+		ipv4_vtep->ipa_type = IPADDR_V4;
+		ipv4_mapped_ipv6_to_ipv4(&ipv6_nh->ipaddr_v6,
+					 &ipv4_vtep->ipaddr_v4);
+	} else {
+		ipv4_vtep = vtep_ip;
+		ipv6_nh = &tmp_ip;
+		ipv6_nh->ipa_type = IPADDR_V6;
+		ipv4_to_ipv4_mapped_ipv6(&ipv6_nh->ipaddr_v6,
+					 ipv4_vtep->ipaddr_v4);
+	}
+
+	/*
+	 * We may have IPv4 and IPv4-mapped IPv6 address of the VTEP as
+	 * nexthops, but only IPv4 is inserted to rmac nh_list. Check for both
+	 * before deleting from rmac.
+	 */
+	if (!zl3vni_nh_lookup(zl3vni, ipv4_vtep) &&
+	    !zl3vni_nh_lookup(zl3vni, ipv6_nh)) {
 
 		/* remove nh from rmac's list */
-		l3vni_rmac_nh_list_nh_delete(zl3vni, zrmac, &ipv4_vtep);
+		l3vni_rmac_nh_list_nh_delete(zl3vni, zrmac, ipv4_vtep);
 		/* delete nh is same as current selected, fall back to
 		 * one present in the list
 		 */
 		if (IPV4_ADDR_SAME(&zrmac->fwd_info.r_vtep_ip,
-				   &ipv4_vtep.ipaddr_v4) &&
+				   &ipv4_vtep->ipaddr_v4) &&
 		    listcount(zrmac->nh_list)) {
 			struct ipaddr *vtep;
 
@@ -1436,7 +1454,7 @@ static void zl3vni_remote_rmac_del(struct zebra_l3vni *zl3vni,
 			if (IS_ZEBRA_DEBUG_VXLAN)
 				zlog_debug(
 					"L3VNI %u Remote VTEP nh change(%pIA -> %pI4) for RMAC %pEA",
-					zl3vni->vni, &ipv4_vtep,
+					zl3vni->vni, ipv4_vtep,
 					&zrmac->fwd_info.r_vtep_ip,
 					&zrmac->macaddr);
 
