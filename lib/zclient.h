@@ -134,6 +134,7 @@ typedef enum {
 	ZEBRA_INTERFACE_DISABLE_RADV,
 	ZEBRA_NEXTHOP_LOOKUP_MRIB,
 	ZEBRA_INTERFACE_LINK_PARAMS,
+	ZEBRA_INTERFACE_MPLS_SET,
 	ZEBRA_MPLS_LABELS_ADD,
 	ZEBRA_MPLS_LABELS_DELETE,
 	ZEBRA_MPLS_LABELS_REPLACE,
@@ -1055,6 +1056,12 @@ extern struct interface *zebra_interface_link_params_read(struct stream *s,
 							  bool *changed);
 extern size_t zebra_interface_link_params_write(struct stream *,
 						struct interface *);
+extern int zebra_send_interface_mpls_set(struct zclient *zclient,
+					 vrf_id_t vrf_id, ifindex_t ifindex,
+					 bool set);
+extern struct interface *zebra_interface_mpls_set_read(struct stream *s,
+						       vrf_id_t vrf_id,
+						       bool *value_to_set);
 extern enum zclient_send_status
 zclient_send_get_label_chunk(struct zclient *zclient, uint8_t keep,
 			     uint32_t chunk_size, uint32_t base);

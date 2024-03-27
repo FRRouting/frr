@@ -29,6 +29,7 @@
 #include "zebra/zebra_routemap.h"
 #include "zebra/zebra_rnh.h"
 #include "zebra/table_manager.h"
+#include "zebra/zebra_defaults.h"
 
 /*
  * XPath: /frr-zebra:zebra/mcast-rpf-lookup
@@ -1235,7 +1236,6 @@ int lib_interface_zebra_enabled_destroy(struct nb_cb_destroy_args *args)
 int lib_interface_zebra_mpls_modify(struct nb_cb_modify_args *args)
 {
 	struct interface *ifp;
-	bool mpls;
 	struct zebra_if *zif;
 
 	if (args->event != NB_EV_APPLY)
@@ -1243,15 +1243,14 @@ int lib_interface_zebra_mpls_modify(struct nb_cb_modify_args *args)
 
 	ifp = nb_running_get_entry(args->dnode, NULL, true);
 	zif = ifp->info;
-	mpls = yang_dnode_get_bool(args->dnode, NULL);
+	zif->mpls_config = yang_dnode_get_enum(args->dnode, NULL);
 
-	if (mpls)
-		zif->mpls_config = IF_ZEBRA_DATA_ON;
-	else
-		zif->mpls_config = IF_ZEBRA_DATA_OFF;
+	if (zif->mpls_config == IF_ZEBRA_DATA_ON ||
+	    zif->mpls_config == IF_ZEBRA_DATA_OFF)
+		dplane_intf_mpls_modify_state(ifp, zif->mpls_config ==
+							   IF_ZEBRA_DATA_ON);
 
-	dplane_intf_mpls_modify_state(ifp, mpls);
-
+	/* if auto mode, then let us wait other events */
 	return NB_OK;
 }
 
@@ -1266,7 +1265,7 @@ int lib_interface_zebra_mpls_destroy(struct nb_cb_destroy_args *args)
 	ifp = nb_running_get_entry(args->dnode, NULL, true);
 	zif = ifp->info;
 
-	zif->mpls_config = IF_ZEBRA_DATA_UNSPEC;
+	zif->mpls_config = DFLT_ZEBRA_MPLS;
 
 	/* keep the state as it is */
 
