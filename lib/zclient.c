@@ -2791,6 +2791,7 @@ static void zebra_interface_if_set_value(struct stream *s,
 	STREAM_GETL(s, ifp->link_ifindex);
 	STREAM_GETL(s, ifp->ll_type);
 	STREAM_GETL(s, ifp->hw_addr_len);
+	STREAM_GETL(s, ifp->if_type);
 	if (ifp->hw_addr_len)
 		STREAM_GET(ifp->hw_addr, s,
 			   MIN(ifp->hw_addr_len, INTERFACE_HWADDR_MAX));

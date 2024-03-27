@@ -19,6 +19,19 @@ extern "C" {
 
 DECLARE_MTYPE(CONNECTED_LABEL);
 
+/* Interface type - ones of interest. */
+enum intf_type {
+	IF_OTHER = 0,  /* Anything else */
+	IF_VXLAN,      /* VxLAN interface */
+	IF_VRF,	       /* VRF device */
+	IF_BRIDGE,     /* bridge device */
+	IF_VLAN,       /* VLAN sub-interface */
+	IF_MACVLAN,    /* MAC VLAN interface*/
+	IF_VETH,       /* VETH interface*/
+	IF_BOND,       /* Bond */
+	IF_GRE,	       /* GRE interface */
+};
+
 /* Interface link-layer type, if known. Derived from:
  *
  * net/if_arp.h on various platforms - Linux especially.
@@ -304,6 +317,7 @@ struct interface {
 	 * fashion?
 	 */
 	bool configured;
+	enum intf_type if_type;
 
 	QOBJ_FIELDS;
 };
