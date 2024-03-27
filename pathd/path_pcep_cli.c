@@ -503,7 +503,6 @@ static int path_pcep_cli_show_srte_pcep_counters(struct vty *vty)
 	struct counter *counter;
 	const char *group_name, *empty_string = "";
 	struct ttable *tt;
-	char *table;
 
 	group = pcep_ctrl_get_counters(pcep_g->fpt, 1);
 
@@ -547,12 +546,7 @@ static int path_pcep_cli_show_srte_pcep_counters(struct vty *vty)
 		}
 	}
 
-	/* Dump the generated table. */
-	table = ttable_dump(tt, "\n");
-	vty_out(vty, "%s\n", table);
-	XFREE(MTYPE_TMP, table);
-
-	ttable_del(tt);
+	ttable_vty_finish(vty, &tt, "\n", NULL);
 
 	pcep_lib_free_counters(group);
 
