@@ -526,7 +526,7 @@ struct stream *bpacket_reformat_for_peer(struct bpacket *pkt,
 		if (peer->nexthop.v4.s_addr != INADDR_ANY &&
 		    (IN6_IS_ADDR_UNSPECIFIED(mod_v6nhg) ||
 		     (peer->connection->su.sa.sa_family == AF_INET &&
-		      paf->afi == AFI_IP6))) {
+		      paf->afi == AFI_IP6 && !route_map_sets_nh))) {
 			/* set a IPv4 mapped IPv6 address if no global IPv6
 			 * address is found or if announcing IPv6 prefix
 			 * over an IPv4 BGP session.
