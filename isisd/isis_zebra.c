@@ -49,7 +49,7 @@ struct zclient *zclient;
 static struct zclient *zclient_sync;
 
 /* Router-id update message from zebra. */
-static int isis_router_id_update_zebra(ZAPI_CALLBACK_ARGS)
+static void isis_router_id_update_zebra(ZAPI_CALLBACK_ARGS)
 {
 	struct isis_area *area;
 	struct listnode *node;
@@ -59,22 +59,20 @@ static int isis_router_id_update_zebra(ZAPI_CALLBACK_ARGS)
 	isis = isis_lookup_by_vrfid(vrf_id);
 
 	if (isis == NULL) {
-		return -1;
+		return;
 	}
 
 	zebra_router_id_update_read(zclient->ibuf, &router_id);
 	if (isis->router_id == router_id.u.prefix4.s_addr)
-		return 0;
+		return;
 
 	isis->router_id = router_id.u.prefix4.s_addr;
 	for (ALL_LIST_ELEMENTS_RO(isis->area_list, node, area))
 		if (listcount(area->area_addrs) > 0)
 			lsp_regenerate_schedule(area, area->is_type, 0);
-
-	return 0;
 }
 
-static int isis_zebra_if_address_add(ZAPI_CALLBACK_ARGS)
+static void isis_zebra_if_address_add(ZAPI_CALLBACK_ARGS)
 {
 	struct isis_circuit *circuit;
 	struct connected *c;
@@ -83,7 +81,7 @@ static int isis_zebra_if_address_add(ZAPI_CALLBACK_ARGS)
 					 zclient->ibuf, vrf_id);
 
 	if (c == NULL)
-		return 0;
+		return;
 
 #ifdef EXTREME_DEBUG
 	if (c->address->family == AF_INET)
@@ -99,11 +97,9 @@ static int isis_zebra_if_address_add(ZAPI_CALLBACK_ARGS)
 	}
 
 	sr_if_addr_update(c->ifp);
-
-	return 0;
 }
 
-static int isis_zebra_if_address_del(ZAPI_CALLBACK_ARGS)
+static void isis_zebra_if_address_del(ZAPI_CALLBACK_ARGS)
 {
 	struct isis_circuit *circuit;
 	struct connected *c;
@@ -112,7 +108,7 @@ static int isis_zebra_if_address_del(ZAPI_CALLBACK_ARGS)
 					 zclient->ibuf, vrf_id);
 
 	if (c == NULL)
-		return 0;
+		return;
 
 #ifdef EXTREME_DEBUG
 	if (c->address->family == AF_INET)
@@ -130,11 +126,9 @@ static int isis_zebra_if_address_del(ZAPI_CALLBACK_ARGS)
 	sr_if_addr_update(c->ifp);
 
 	connected_free(&c);
-
-	return 0;
 }
 
-static int isis_zebra_link_params(ZAPI_CALLBACK_ARGS)
+static void isis_zebra_link_params(ZAPI_CALLBACK_ARGS)
 {
 	struct interface *ifp;
 	bool changed = false;
@@ -142,12 +136,10 @@ static int isis_zebra_link_params(ZAPI_CALLBACK_ARGS)
 	ifp = zebra_interface_link_params_read(zclient->ibuf, vrf_id, &changed);
 
 	if (ifp == NULL || !changed)
-		return 0;
+		return;
 
 	/* Update TE TLV */
 	isis_mpls_te_update(ifp);
-
-	return 0;
 }
 
 enum isis_zebra_nexthop_type {
@@ -474,7 +466,7 @@ void isis_zebra_send_adjacency_sid(int cmd, const struct sr_adjacency *sra)
 	(void)zebra_send_mpls_labels(zclient, cmd, &zl);
 }
 
-static int isis_zebra_read(ZAPI_CALLBACK_ARGS)
+static void isis_zebra_read(ZAPI_CALLBACK_ARGS)
 {
 	struct zapi_route api;
 	struct isis *isis = NULL;
@@ -482,14 +474,14 @@ static int isis_zebra_read(ZAPI_CALLBACK_ARGS)
 	isis = isis_lookup_by_vrfid(vrf_id);
 
 	if (isis == NULL)
-		return -1;
+		return;
 
 	if (zapi_route_decode(zclient->ibuf, &api) < 0)
-		return -1;
+		return;
 
 	if (api.prefix.family == AF_INET6
 	    && IN6_IS_ADDR_LINKLOCAL(&api.prefix.u.prefix6))
-		return 0;
+		return;
 
 	/*
 	 * Avoid advertising a false default reachability. (A default
@@ -509,8 +501,6 @@ static int isis_zebra_read(ZAPI_CALLBACK_ARGS)
 	else
 		isis_redist_delete(isis, api.type, &api.prefix, &api.src_prefix,
 				   api.instance);
-
-	return 0;
 }
 
 int isis_distribute_list_update(int routetype)
@@ -765,7 +755,7 @@ int isis_zebra_ls_register(bool up)
 /*
  * opaque messages between processes
  */
-static int isis_opaque_msg_handler(ZAPI_CALLBACK_ARGS)
+static void isis_opaque_msg_handler(ZAPI_CALLBACK_ARGS)
 {
 	struct stream *s;
 	struct zapi_opaque_msg info;
@@ -773,11 +763,10 @@ static int isis_opaque_msg_handler(ZAPI_CALLBACK_ARGS)
 	struct ldp_igp_sync_if_state state;
 	struct ldp_igp_sync_announce announce;
 	struct zapi_rlfa_response rlfa;
-	int ret = 0;
 
 	s = zclient->ibuf;
 	if (zclient_opaque_decode(s, &info) != 0)
-		return -1;
+		return;
 
 	switch (info.type) {
 	case LINK_STATE_SYNC:
@@ -785,15 +774,15 @@ static int isis_opaque_msg_handler(ZAPI_CALLBACK_ARGS)
 		dst.instance = info.src_instance;
 		dst.session_id = info.src_session_id;
 		dst.type = LINK_STATE_SYNC;
-		ret = isis_te_sync_ted(dst);
+		isis_te_sync_ted(dst);
 		break;
 	case LDP_IGP_SYNC_IF_STATE_UPDATE:
 		STREAM_GET(&state, s, sizeof(state));
-		ret = isis_ldp_sync_state_update(state);
+		isis_ldp_sync_state_update(state);
 		break;
 	case LDP_IGP_SYNC_ANNOUNCE_UPDATE:
 		STREAM_GET(&announce, s, sizeof(announce));
-		ret = isis_ldp_sync_announce_update(announce);
+		isis_ldp_sync_announce_update(announce);
 		break;
 	case LDP_RLFA_LABELS:
 		STREAM_GET(&rlfa, s, sizeof(rlfa));
@@ -804,23 +793,18 @@ static int isis_opaque_msg_handler(ZAPI_CALLBACK_ARGS)
 	}
 
 stream_failure:
-
-	return ret;
+	return;
 }
 
-static int isis_zebra_client_close_notify(ZAPI_CALLBACK_ARGS)
+static void isis_zebra_client_close_notify(ZAPI_CALLBACK_ARGS)
 {
-	int ret = 0;
-
 	struct zapi_client_close_info info;
 
 	if (zapi_client_close_notify_decode(zclient->ibuf, &info) < 0)
-		return -1;
+		return;
 
 	isis_ldp_sync_handle_client_close(&info);
 	isis_ldp_rlfa_handle_client_close(&info);
-
-	return ret;
 }
 
 /**
@@ -1121,9 +1105,8 @@ void isis_zebra_srv6_adj_sid_uninstall(struct srv6_adjacency *sra)
 /**
  * Callback to process an SRv6 locator chunk received from SRv6 Manager (zebra).
  *
- * @result 0 on success, -1 otherwise
  */
-static int isis_zebra_process_srv6_locator_chunk(ZAPI_CALLBACK_ARGS)
+static void isis_zebra_process_srv6_locator_chunk(ZAPI_CALLBACK_ARGS)
 {
 	struct isis *isis = isis_lookup_by_vrfid(VRF_DEFAULT);
 	struct stream *s = NULL;
@@ -1138,14 +1121,14 @@ static int isis_zebra_process_srv6_locator_chunk(ZAPI_CALLBACK_ARGS)
 
 	if (!isis) {
 		srv6_locator_chunk_free(&chunk);
-		return -1;
+		return;
 	}
 
 	/* Decode the received zebra message */
 	s = zclient->ibuf;
 	if (zapi_srv6_locator_chunk_decode(s, chunk) < 0) {
 		srv6_locator_chunk_free(&chunk);
-		return -1;
+		return;
 	}
 
 	sr_debug(
@@ -1166,7 +1149,7 @@ static int isis_zebra_process_srv6_locator_chunk(ZAPI_CALLBACK_ARGS)
 					  node, c)) {
 			if (!prefix_cmp(&c->prefix, &chunk->prefix)) {
 				srv6_locator_chunk_free(&chunk);
-				return 0;
+				return;
 			}
 		}
 
@@ -1186,7 +1169,7 @@ static int isis_zebra_process_srv6_locator_chunk(ZAPI_CALLBACK_ARGS)
 		/* Allocate new SRv6 End SID */
 		sid = isis_srv6_sid_alloc(area, chunk, behavior, 0);
 		if (!sid)
-			return -1;
+			return;
 
 		/* Install the new SRv6 End SID in the forwarding plane through
 		 * Zebra */
@@ -1213,16 +1196,12 @@ static int isis_zebra_process_srv6_locator_chunk(ZAPI_CALLBACK_ARGS)
 			 chunk->locator_name);
 		srv6_locator_chunk_free(&chunk);
 	}
-
-	return 0;
 }
 
 /**
  * Callback to process an SRv6 locator received from SRv6 Manager (zebra).
- *
- * @result 0 on success, -1 otherwise
  */
-static int isis_zebra_process_srv6_locator_add(ZAPI_CALLBACK_ARGS)
+static void isis_zebra_process_srv6_locator_add(ZAPI_CALLBACK_ARGS)
 {
 	struct isis *isis = isis_lookup_by_vrfid(VRF_DEFAULT);
 	struct srv6_locator loc = {};
@@ -1230,11 +1209,11 @@ static int isis_zebra_process_srv6_locator_add(ZAPI_CALLBACK_ARGS)
 	struct isis_area *area;
 
 	if (!isis)
-		return -1;
+		return;
 
 	/* Decode the SRv6 locator */
 	if (zapi_srv6_locator_decode(zclient->ibuf, &loc) < 0)
-		return -1;
+		return;
 
 	sr_debug(
 		"New SRv6 locator allocated in zebra: name %s, "
@@ -1258,20 +1237,16 @@ static int isis_zebra_process_srv6_locator_add(ZAPI_CALLBACK_ARGS)
 
 			if (isis_zebra_srv6_manager_get_locator_chunk(
 				    loc.name) < 0)
-				return -1;
+				return;
 		}
 	}
-
-	return 0;
 }
 
 /**
  * Callback to process a notification from SRv6 Manager (zebra) of an SRv6
  * locator deleted.
- *
- * @result 0 on success, -1 otherwise
  */
-static int isis_zebra_process_srv6_locator_delete(ZAPI_CALLBACK_ARGS)
+static void isis_zebra_process_srv6_locator_delete(ZAPI_CALLBACK_ARGS)
 {
 	struct isis *isis = isis_lookup_by_vrfid(VRF_DEFAULT);
 	struct srv6_locator loc = {};
@@ -1282,11 +1257,11 @@ static int isis_zebra_process_srv6_locator_delete(ZAPI_CALLBACK_ARGS)
 	struct srv6_adjacency *sra;
 
 	if (!isis)
-		return -1;
+		return;
 
 	/* Decode the received zebra message */
 	if (zapi_srv6_locator_decode(zclient->ibuf, &loc) < 0)
-		return -1;
+		return;
 
 	sr_debug(
 		"SRv6 locator deleted in zebra: name %s, "
@@ -1339,8 +1314,6 @@ static int isis_zebra_process_srv6_locator_delete(ZAPI_CALLBACK_ARGS)
 		 * exists */
 		lsp_regenerate_schedule(area, area->is_type, 0);
 	}
-
-	return 0;
 }
 
 /**

@@ -589,7 +589,7 @@ stream_failure:
 	zlog_err("ptm-del-client: failed to deregister client");
 }
 
-static int bfdd_replay(ZAPI_CALLBACK_ARGS)
+static void bfdd_replay(ZAPI_CALLBACK_ARGS)
 {
 	struct stream *msg = zclient->ibuf;
 	uint32_t rcmd;
@@ -614,14 +614,11 @@ static int bfdd_replay(ZAPI_CALLBACK_ARGS)
 	default:
 		if (bglobal.debug_zebra)
 			zlog_debug("ptm-replay: invalid message type %u", rcmd);
-		return -1;
+		return;
 	}
-
-	return 0;
 
 stream_failure:
 	zlog_err("ptm-replay: failed to find command");
-	return -1;
 }
 
 static void bfdd_zebra_connected(struct zclient *zc)
@@ -779,13 +776,13 @@ static void bfdd_sessions_enable_address(struct connected *ifc)
 	}
 }
 
-static int bfdd_interface_address_update(ZAPI_CALLBACK_ARGS)
+static void bfdd_interface_address_update(ZAPI_CALLBACK_ARGS)
 {
 	struct connected *ifc;
 
 	ifc = zebra_interface_address_read(cmd, zclient->ibuf, vrf_id);
 	if (ifc == NULL)
-		return 0;
+		return;
 
 	if (bglobal.debug_zebra)
 		zlog_debug("zclient: %s local address %pFX (VRF %u)",
@@ -797,8 +794,6 @@ static int bfdd_interface_address_update(ZAPI_CALLBACK_ARGS)
 		bfdd_sessions_enable_address(ifc);
 	else
 		connected_free(&ifc);
-
-	return 0;
 }
 
 static int bfd_ifp_create(struct interface *ifp)
