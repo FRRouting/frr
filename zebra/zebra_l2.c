@@ -384,7 +384,7 @@ void zebra_l2_vxlanif_update_access_vlan(struct interface *ifp,
 		return;
 
 	old_access_vlan = zif->l2info.vxl.vni_info.vni.access_vlan;
-	;
+
 	if (old_access_vlan == access_vlan)
 		return;
 
