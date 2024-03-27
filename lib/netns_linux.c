@@ -16,6 +16,7 @@
 
 /* for basename */
 #include <libgen.h>
+#include <dirent.h>
 
 #include "if.h"
 #include "ns.h"
@@ -602,4 +603,52 @@ ns_id_t ns_id_get_absolute(ns_id_t ns_id_reference, ns_id_t link_nsid)
 struct ns *ns_get_default(void)
 {
 	return default_ns;
+}
+
+int ns_get_name_from_pid(pid_t pid, char *name, int len)
+{
+	char name_path[PATH_MAX];
+	int netns = -1, ret = -1;
+	char net_path[PATH_MAX];
+	struct dirent *entry;
+	struct stat netst;
+	struct stat st;
+	DIR *dir;
+
+	snprintf(net_path, sizeof(net_path), "/proc/%d/ns/net", pid);
+	netns = open(net_path, O_RDONLY);
+	if (netns < 0)
+		goto out;
+
+	if (fstat(netns, &netst) < 0)
+		goto out;
+
+	dir = opendir(NS_RUN_DIR);
+	if (!dir)
+		goto out;
+
+	while ((entry = readdir(dir))) {
+
+		if (strcmp(entry->d_name, ".") == 0)
+			continue;
+		if (strcmp(entry->d_name, "..") == 0)
+			continue;
+
+		snprintf(name_path, sizeof(name_path), "%s/%s", NS_RUN_DIR,
+			 entry->d_name);
+
+		if (stat(name_path, &st) != 0)
+			continue;
+
+		if ((st.st_dev == netst.st_dev) &&
+		    (st.st_ino == netst.st_ino)) {
+			strlcpy(name, entry->d_name, len);
+			ret = 0;
+			break;
+		}
+	}
+	closedir(dir);
+out:
+	close(netns);
+	return ret;
 }
