@@ -3227,11 +3227,16 @@ static wq_item_status meta_queue_process(struct work_queue *dummy, void *data)
 	/* Ensure there's room for more dataplane updates */
 	queue_limit = dplane_get_in_queue_limit();
 	queue_len = dplane_get_in_queue_len();
-	if (queue_len > queue_limit) {
-		if (IS_ZEBRA_DEBUG_RIB_DETAILED)
-			zlog_debug(
-				"rib queue: dplane queue len %u, limit %u, retrying",
-				queue_len, queue_limit);
+	if (queue_len > queue_limit || t_dplane) {
+		if (IS_ZEBRA_DEBUG_RIB_DETAILED) {
+			if (t_dplane)
+				zlog_debug(
+					"rib_process_dplane_results is running, retrying");
+			else
+				zlog_debug(
+					"rib queue: dplane queue len %u, limit %u, retrying",
+					queue_len, queue_limit);
+		}
 
 		/* Ensure that the meta-queue is actually enqueued */
 		if (work_queue_empty(zrouter.ribq))
@@ -4974,6 +4979,7 @@ static void rib_process_dplane_results(struct event *thread)
 		}
 
 	} while (1);
+	t_dplane = NULL;
 
 #ifdef HAVE_SCRIPTING
 	if (fs)
