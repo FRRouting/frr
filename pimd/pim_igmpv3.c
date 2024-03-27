@@ -347,7 +347,6 @@ void igmp_source_delete(struct gm_source *source)
 
 	source_timer_off(group, source);
 	igmp_source_forward_stop(source);
-	source->source_channel_oil = NULL;
 
 	/* sanity check that forwarding has been disabled */
 	if (IGMP_SOURCE_TEST_FORWARDING(source->source_flags)) {
