@@ -13,6 +13,7 @@
 
 #include "lib/typesafe.h"
 #include "isisd/isis_pdu.h"
+#include "isisd/isis_tlvs.h"
 
 PREDECL_RBTREE_UNIQ(lspdb);
 
@@ -81,6 +82,13 @@ struct isis_lsp *lsp_search(struct lspdb_head *head, const uint8_t *id);
 void lsp_build_list(struct lspdb_head *head, const uint8_t *start_id,
 		    const uint8_t *stop_id, uint8_t num_lsps,
 		    struct list *list);
+void iteration_in_lspdb(struct isis_area *area, struct isis_lsp *lsp);
+void adding_new_prefix(struct isis_area *area, struct isis_lsp *lsp,
+		       struct isis_lsp *lsp_tmp);
+void iteration_in_lsp_ip(struct isis_extended_ip_reach *i, struct isis_lsp *lsp,
+			 int *count);
+void iteration_in_lsp_ipv6(struct isis_ipv6_reach *i, struct isis_lsp *lsp,
+			   int *count);
 void lsp_build_list_nonzero_ht(struct lspdb_head *head,
 			       const uint8_t *start_id,
 			       const uint8_t *stop_id, struct list *list);

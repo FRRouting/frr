@@ -532,6 +532,7 @@ static void lsp_update_data(struct isis_lsp *lsp, struct isis_lsp_hdr *hdr,
 				: IS_LEVEL_1);
 	}
 
+	lsp_regenerate_schedule(area, lsp->level, 0);
 	return;
 }
 
@@ -1070,6 +1071,80 @@ static struct isis_lsp *lsp_next_frag(uint8_t frag_num, struct isis_lsp *lsp0,
  * Builds the LSP data part. This func creates a new frag whenever
  * area->lsp_frag_threshold is exceeded.
  */
+void iteration_in_lsp_ip(struct isis_extended_ip_reach *r, struct isis_lsp *lsp,
+			 int *count)
+{
+	for (struct isis_item *l = lsp->tlvs->extended_ip_reach.head; l;
+	     l = l->next) {
+		struct isis_extended_ip_reach *rt =
+			(struct isis_extended_ip_reach *)l;
+		if (IPV4_ADDR_SAME(&r->prefix.prefix, &rt->prefix.prefix)) {
+			if ((r->metric > rt->metric) ||
+			    (r->metric == rt->metric))
+				*count += 1;
+			break;
+		}
+	}
+}
+
+void iteration_in_lsp_ipv6(struct isis_ipv6_reach *r, struct isis_lsp *lsp,
+			   int *count)
+{
+	for (struct isis_item *l = lsp->tlvs->ipv6_reach.head; l; l = l->next) {
+		struct isis_ipv6_reach *rt = (struct isis_ipv6_reach *)l;
+
+		if (IPV6_ADDR_SAME(&r->prefix.prefix.s6_addr,
+				   &rt->prefix.prefix.s6_addr)) {
+			if ((r->metric > rt->metric) ||
+			    (r->metric == rt->metric))
+				*count += 1;
+			break;
+		}
+	}
+}
+
+void adding_new_prefix(struct isis_area *area, struct isis_lsp *lsp,
+		       struct isis_lsp *lsp_tmp)
+{
+	for (struct isis_item *i = lsp_tmp->tlvs->extended_ip_reach.head; i;
+	     i = i->next) {
+		int count = 0;
+		struct isis_extended_ip_reach *r =
+			(struct isis_extended_ip_reach *)i;
+
+		iteration_in_lsp_ip(r, lsp, &count);
+		if (count == 0)
+			lsp_build_internal_reach_ipv4(lsp, area, &r->prefix,
+						      r->metric);
+	}
+	for (struct isis_item *i = lsp_tmp->tlvs->ipv6_reach.head; i;
+	     i = i->next) {
+		int count = 0;
+		struct isis_ipv6_reach *r = (struct isis_ipv6_reach *)i;
+
+		iteration_in_lsp_ipv6(r, lsp, &count);
+		if (count == 0)
+			lsp_build_internal_reach_ipv6(lsp, area, &r->prefix,
+						      r->metric);
+	}
+}
+
+void iteration_in_lspdb(struct isis_area *area, struct isis_lsp *lsp)
+{
+	struct isis_lsp *lsp_tmp;
+	struct lspdb_head *head_tmp = &area->lspdb[0];
+
+	if (head_tmp) {
+		frr_each (lspdb, head_tmp, lsp_tmp) {
+			if (strcmp(lsp->tlvs->hostname,
+				   lsp_tmp->tlvs->hostname) != 0) {
+				adding_new_prefix(area, lsp, lsp_tmp);
+			}
+		}
+	}
+}
+
+
 static void lsp_build(struct isis_lsp *lsp, struct isis_area *area)
 {
 	int level = lsp->level;
@@ -1316,6 +1391,14 @@ static void lsp_build(struct isis_lsp *lsp, struct isis_area *area)
 		isis_tlvs_add_spine_leaf(lsp->tlvs, fabricd_tier(area), true,
 					 false, false, false);
 	}
+	struct isis_adjacency *adj;
+	bool flag = false;
+
+	for (ALL_LIST_ELEMENTS_RO(area->adjacency_list, node, adj)) {
+		if (adj->level == IS_LEVEL_2)
+			flag = true;
+	}
+
 
 	struct isis_circuit *circuit;
 	for (ALL_LIST_ELEMENTS_RO(area->circuit_list, node, circuit)) {
@@ -1348,6 +1431,7 @@ static void lsp_build(struct isis_lsp *lsp, struct isis_area *area)
 					  ? circuit->metric[level - 1]
 					  : circuit->te_metric[level - 1];
 
+
 		if (circuit->ip_router && circuit->ip_addrs->count > 0) {
 			lsp_debug(
 				"ISIS (%s): Circuit has IPv4 active, adding respective TLVs.",
@@ -1368,6 +1452,12 @@ static void lsp_build(struct isis_lsp *lsp, struct isis_area *area)
 						  ipnode, ipv6))
 				lsp_build_internal_reach_ipv6(lsp, area, ipv6,
 							      metric);
+		}
+
+		if (flag && (lsp->level == IS_LEVEL_2) &&
+		    (area->is_type == IS_LEVEL_1_AND_2) &&
+		    (lsp->hdr.lsp_bits != LSPBIT_ATT)) {
+			iteration_in_lspdb(area, lsp);
 		}
 
 		switch (circuit->circ_type) {
@@ -1400,6 +1490,7 @@ static void lsp_build(struct isis_lsp *lsp, struct isis_area *area)
 			break;
 		case CIRCUIT_T_P2P: {
 			struct isis_adjacency *nei = circuit->u.p2p.neighbor;
+
 			if (nei && nei->adj_state == ISIS_ADJ_UP
 			    && (level & nei->circuit_t)) {
 				uint8_t ne_id[7];
