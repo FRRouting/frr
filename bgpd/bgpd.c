@@ -6021,28 +6021,48 @@ int peer_weight_unset(struct peer *peer, afi_t afi, safi_t safi)
 	return 0;
 }
 
-int peer_timers_set(struct peer *peer, uint32_t keepalive, uint32_t holdtime)
+int peer_timers_set(struct peer *peer, uint32_t val1, uint32_t val2,
+		uint32_t flag)
 {
 	struct peer *member;
 	struct listnode *node, *nnode;
 
-	if (keepalive > UINT16_MAX)
+	if (val1 > UINT16_MAX || val2 > UINT16_MAX)
 		return BGP_ERR_INVALID_VALUE;
 
-	if (holdtime > UINT16_MAX)
-		return BGP_ERR_INVALID_VALUE;
-
-	if (holdtime < 3 && holdtime != 0)
+	if (flag == PEER_FLAG_TIMER && val2 < 3)
 		return BGP_ERR_INVALID_VALUE;
 
 	/* Set flag and configuration on peer. */
-	peer_flag_set(peer, PEER_FLAG_TIMER);
-	peer->holdtime = holdtime;
-	peer->keepalive = (keepalive < holdtime / 3 ? keepalive : holdtime / 3);
+	peer_flag_set(peer, flag);
+	switch (flag) {
+	case PEER_FLAG_TIMER:
+		peer->holdtime = val2;
+		peer->keepalive = (val1 < val2 / 3 ? val1 : val2 / 3);
+		break;
+	case PEER_FLAG_TIMER_CONNECT:
+		peer->connect = val1;
+		peer->v_connect = val1;
+		break;
+	case PEER_FLAG_TIMER_DELAYOPEN:
+		peer->delayopen = val1;
+		peer->v_delayopen = val1;
+		break;
+	default:
+		break;
+	}
 
 	/* Skip peer-group mechanics for regular peers. */
-	if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP))
+	if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
+		if (flag == PEER_FLAG_TIMER_CONNECT) {
+			if (!peer_established(peer->connection))
+				if (peer_active(peer))
+					BGP_EVENT_ADD(peer->connection,
+							BGP_Stop);
+			BGP_EVENT_ADD(peer->connection, BGP_Start);
+		}
 		return 0;
+	}
 
 	/*
 	 * Set flag and configuration on all peer-group members, unless they are
@@ -6050,38 +6070,102 @@ int peer_timers_set(struct peer *peer, uint32_t keepalive, uint32_t holdtime)
 	 */
 	for (ALL_LIST_ELEMENTS(peer->group->peer, node, nnode, member)) {
 		/* Skip peers with overridden configuration. */
-		if (CHECK_FLAG(member->flags_override, PEER_FLAG_TIMER))
+		if (CHECK_FLAG(member->flags_override, flag))
 			continue;
 
 		/* Set flag and configuration on peer-group member. */
-		SET_FLAG(member->flags, PEER_FLAG_TIMER);
-		PEER_ATTR_INHERIT(member, peer->group, holdtime);
-		PEER_ATTR_INHERIT(member, peer->group, keepalive);
+		SET_FLAG(member->flags, flag);
+		switch (flag) {
+		case PEER_FLAG_TIMER:
+			PEER_ATTR_INHERIT(member, peer->group,
+					holdtime);
+			PEER_ATTR_INHERIT(member, peer->group,
+					keepalive);
+			break;
+		case PEER_FLAG_TIMER_CONNECT:
+			member->connect = val1;
+			member->v_connect = val1;
+
+			if (!peer_established(member->connection)) {
+				if (peer_active(member))
+					BGP_EVENT_ADD(
+						member->connection,
+						BGP_Stop);
+				BGP_EVENT_ADD(member->connection,
+						BGP_Start);
+			}
+			break;
+		case PEER_FLAG_TIMER_DELAYOPEN:
+			member->delayopen = val1;
+			member->v_delayopen = val1;
+			break;
+		default:
+			break;
+		}
 	}
 
 	return 0;
 }
 
-int peer_timers_unset(struct peer *peer)
+int peer_timers_unset(struct peer *peer, uint32_t flag)
 {
 	struct peer *member;
 	struct listnode *node, *nnode;
 
 	/* Inherit configuration from peer-group if peer is member. */
 	if (peer_group_active(peer)) {
-		peer_flag_inherit(peer, PEER_FLAG_TIMER);
-		PEER_ATTR_INHERIT(peer, peer->group, holdtime);
-		PEER_ATTR_INHERIT(peer, peer->group, keepalive);
+		peer_flag_inherit(peer, flag);
+		switch (flag) {
+		case PEER_FLAG_TIMER:
+			PEER_ATTR_INHERIT(peer, peer->group, holdtime);
+			PEER_ATTR_INHERIT(peer, peer->group, keepalive);
+			break;
+		case PEER_FLAG_TIMER_CONNECT:
+			PEER_ATTR_INHERIT(peer, peer->group, connect);
+			if (peer->connect)
+				peer->v_connect = peer->connect;
+			else
+				peer->v_connect = peer->bgp->default_connect_retry;
+			break;
+		case PEER_FLAG_TIMER_DELAYOPEN:
+			PEER_ATTR_INHERIT(peer, peer->group, delayopen);
+			peer->v_delayopen = 0;
+			break;
+		default:
+			break;
+		}
 	} else {
 		/* Otherwise remove flag and configuration from peer. */
-		peer_flag_unset(peer, PEER_FLAG_TIMER);
-		peer->holdtime = 0;
-		peer->keepalive = 0;
+		peer_flag_unset(peer, flag);
+		switch (flag) {
+		case PEER_FLAG_TIMER:
+			peer->holdtime = 0;
+			peer->keepalive = 0;
+			break;
+		case PEER_FLAG_TIMER_CONNECT:
+			peer->connect = 0;
+			peer->v_connect = peer->bgp->default_connect_retry;
+			break;
+		case PEER_FLAG_TIMER_DELAYOPEN:
+			peer->delayopen = peer->bgp->default_delayopen;
+			peer->v_delayopen = 0;
+			break;
+		default:
+			break;
+		}
 	}
 
 	/* Skip peer-group mechanics for regular peers. */
-	if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP))
+	if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
+		if (flag == PEER_FLAG_TIMER_CONNECT) {
+			if (!peer_established(peer->connection))
+				if (peer_active(peer))
+					BGP_EVENT_ADD(peer->connection,
+							BGP_Stop);
+			BGP_EVENT_ADD(peer->connection, BGP_Start);
+		}
 		return 0;
+	}
 
 	/*
 	 * Remove flag and configuration from all peer-group members, unless
@@ -6089,112 +6173,32 @@ int peer_timers_unset(struct peer *peer)
 	 */
 	for (ALL_LIST_ELEMENTS(peer->group->peer, node, nnode, member)) {
 		/* Skip peers with overridden configuration. */
-		if (CHECK_FLAG(member->flags_override, PEER_FLAG_TIMER))
+		if (CHECK_FLAG(member->flags_override, flag))
 			continue;
 
 		/* Remove flag and configuration on peer-group member. */
-		UNSET_FLAG(member->flags, PEER_FLAG_TIMER);
-		member->holdtime = 0;
-		member->keepalive = 0;
-	}
-
-	return 0;
-}
-
-int peer_timers_connect_set(struct peer *peer, uint32_t connect)
-{
-	struct peer *member;
-	struct listnode *node, *nnode;
-
-	if (connect > UINT16_MAX)
-		return BGP_ERR_INVALID_VALUE;
-
-	/* Set flag and configuration on peer. */
-	peer_flag_set(peer, PEER_FLAG_TIMER_CONNECT);
-	peer->connect = connect;
-	peer->v_connect = connect;
-
-	/* Skip peer-group mechanics for regular peers. */
-	if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
-		if (!peer_established(peer->connection)) {
-			if (peer_active(peer))
-				BGP_EVENT_ADD(peer->connection, BGP_Stop);
-			BGP_EVENT_ADD(peer->connection, BGP_Start);
-		}
-		return 0;
-	}
-	/*
-	 * Set flag and configuration on all peer-group members, unless they are
-	 * explicitly overriding peer-group configuration.
-	 */
-	for (ALL_LIST_ELEMENTS(peer->group->peer, node, nnode, member)) {
-		/* Skip peers with overridden configuration. */
-		if (CHECK_FLAG(member->flags_override, PEER_FLAG_TIMER_CONNECT))
-			continue;
-
-		/* Set flag and configuration on peer-group member. */
-		SET_FLAG(member->flags, PEER_FLAG_TIMER_CONNECT);
-		member->connect = connect;
-		member->v_connect = connect;
-
-		if (!peer_established(member->connection)) {
-			if (peer_active(member))
-				BGP_EVENT_ADD(member->connection, BGP_Stop);
-			BGP_EVENT_ADD(member->connection, BGP_Start);
-		}
-	}
-
-	return 0;
-}
-
-int peer_timers_connect_unset(struct peer *peer)
-{
-	struct peer *member;
-	struct listnode *node, *nnode;
-
-	/* Inherit configuration from peer-group if peer is member. */
-	if (peer_group_active(peer)) {
-		peer_flag_inherit(peer, PEER_FLAG_TIMER_CONNECT);
-		PEER_ATTR_INHERIT(peer, peer->group, connect);
-	} else {
-		/* Otherwise remove flag and configuration from peer. */
-		peer_flag_unset(peer, PEER_FLAG_TIMER_CONNECT);
-		peer->connect = 0;
-	}
-
-	/* Set timer with fallback to default value. */
-	if (peer->connect)
-		peer->v_connect = peer->connect;
-	else
-		peer->v_connect = peer->bgp->default_connect_retry;
-
-	/* Skip peer-group mechanics for regular peers. */
-	if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
-		if (!peer_established(peer->connection)) {
-			if (peer_active(peer))
-				BGP_EVENT_ADD(peer->connection, BGP_Stop);
-			BGP_EVENT_ADD(peer->connection, BGP_Start);
-		}
-		return 0;
-	}
-	/*
-	 * Remove flag and configuration from all peer-group members, unless
-	 * they are explicitly overriding peer-group configuration.
-	 */
-	for (ALL_LIST_ELEMENTS(peer->group->peer, node, nnode, member)) {
-		/* Skip peers with overridden configuration. */
-		if (CHECK_FLAG(member->flags_override, PEER_FLAG_TIMER_CONNECT))
-			continue;
-
-		/* Remove flag and configuration on peer-group member. */
-		UNSET_FLAG(member->flags, PEER_FLAG_TIMER_CONNECT);
-		member->connect = 0;
-		member->v_connect = peer->bgp->default_connect_retry;
-
-		if (!peer_established(member->connection)) {
-			if (peer_active(member))
-				BGP_EVENT_ADD(member->connection, BGP_Stop);
-			BGP_EVENT_ADD(member->connection, BGP_Start);
+		UNSET_FLAG(member->flags, flag);
+		switch (flag) {
+		case PEER_FLAG_TIMER:
+			member->holdtime = 0;
+			member->keepalive = 0;
+			break;
+		case PEER_FLAG_TIMER_CONNECT:
+			member->connect = 0;
+			member->v_connect = peer->bgp->default_connect_retry;
+			if (!peer_established(member->connection)) {
+				if (peer_active(peer))
+					BGP_EVENT_ADD(
+						member->connection, BGP_Stop);
+				BGP_EVENT_ADD(member->connection, BGP_Start);
+			}
+			break;
+		case PEER_FLAG_TIMER_DELAYOPEN:
+			member->delayopen = peer->bgp->default_delayopen;
+			member->v_delayopen = 0;
+			break;
+		default:
+			break;
 		}
 	}
 
@@ -6302,90 +6306,6 @@ int peer_advertise_interval_unset(struct peer *peer)
 		update_group_adjust_peer_afs(member);
 		if (peer_established(member->connection))
 			bgp_announce_route_all(member);
-	}
-
-	return 0;
-}
-
-/* set the peers RFC 4271 DelayOpen session attribute flag and DelayOpenTimer
- * interval
- */
-int peer_timers_delayopen_set(struct peer *peer, uint32_t delayopen)
-{
-	struct peer *member;
-	struct listnode *node;
-
-	/* Set peers session attribute flag and timer interval. */
-	peer_flag_set(peer, PEER_FLAG_TIMER_DELAYOPEN);
-	peer->delayopen = delayopen;
-	peer->v_delayopen = delayopen;
-
-	/* Skip group mechanics for regular peers. */
-	if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP))
-		return 0;
-
-	/* Set flag and configuration on all peer-group members, unless they are
-	 * explicitly overriding peer-group configuration.
-	 */
-	for (ALL_LIST_ELEMENTS_RO(peer->group->peer, node, member)) {
-		/* Skip peers with overridden configuration. */
-		if (CHECK_FLAG(member->flags_override,
-			       PEER_FLAG_TIMER_DELAYOPEN))
-			continue;
-
-		/* Set session attribute flag and timer intervals on peer-group
-		 * member.
-		 */
-		SET_FLAG(member->flags, PEER_FLAG_TIMER_DELAYOPEN);
-		member->delayopen = delayopen;
-		member->v_delayopen = delayopen;
-	}
-
-	return 0;
-}
-
-/* unset the peers RFC 4271 DelayOpen session attribute flag and reset the
- * DelayOpenTimer interval to the default value.
- */
-int peer_timers_delayopen_unset(struct peer *peer)
-{
-	struct peer *member;
-	struct listnode *node;
-
-	/* Inherit configuration from peer-group if peer is member. */
-	if (peer_group_active(peer)) {
-		peer_flag_inherit(peer, PEER_FLAG_TIMER_DELAYOPEN);
-		PEER_ATTR_INHERIT(peer, peer->group, delayopen);
-	} else {
-		/* Otherwise remove session attribute flag and set timer
-		 * interval to default value.
-		 */
-		peer_flag_unset(peer, PEER_FLAG_TIMER_DELAYOPEN);
-		peer->delayopen = peer->bgp->default_delayopen;
-	}
-
-	/* Set timer value to zero */
-	peer->v_delayopen = 0;
-
-	/* Skip peer-group mechanics for regular peers. */
-	if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP))
-		return 0;
-
-	/* Remove flag and configuration from all peer-group members, unless
-	 * they are explicitly overriding peer-group configuration.
-	 */
-	for (ALL_LIST_ELEMENTS_RO(peer->group->peer, node, member)) {
-		/* Skip peers with overridden configuration. */
-		if (CHECK_FLAG(member->flags_override,
-			       PEER_FLAG_TIMER_DELAYOPEN))
-			continue;
-
-		/* Remove session attribute flag, reset the timer interval to
-		 * the default value and set the timer value to zero.
-		 */
-		UNSET_FLAG(member->flags, PEER_FLAG_TIMER_DELAYOPEN);
-		member->delayopen = peer->bgp->default_delayopen;
-		member->v_delayopen = 0;
 	}
 
 	return 0;

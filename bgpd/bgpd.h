@@ -2388,18 +2388,12 @@ extern void peer_port_unset(struct peer *);
 extern int peer_weight_set(struct peer *, afi_t, safi_t, uint16_t);
 extern int peer_weight_unset(struct peer *, afi_t, safi_t);
 
-extern int peer_timers_set(struct peer *, uint32_t keepalive,
-			   uint32_t holdtime);
-extern int peer_timers_unset(struct peer *);
-
-extern int peer_timers_connect_set(struct peer *, uint32_t);
-extern int peer_timers_connect_unset(struct peer *);
+extern int peer_timers_set(struct peer *peer, uint32_t val1, uint32_t val2,
+		uint32_t flag);
+extern int peer_timers_unset(struct peer *peer, uint32_t flag);
 
 extern int peer_advertise_interval_set(struct peer *, uint32_t);
 extern int peer_advertise_interval_unset(struct peer *);
-
-extern int peer_timers_delayopen_set(struct peer *peer, uint32_t delayopen);
-extern int peer_timers_delayopen_unset(struct peer *peer);
 
 extern void peer_interface_set(struct peer *, const char *);
 extern void peer_interface_unset(struct peer *);
