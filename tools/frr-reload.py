@@ -1904,11 +1904,17 @@ if __name__ == "__main__":
         help="Used by topotest to not delete debug or log file commands",
     )
 
+    parser.add_argument(
+        "--logfile",
+        help="logfile for frr-reload",
+        default="/var/log/frr/frr-reload.log",
+    )
+
     args = parser.parse_args()
 
     # Logging
     # For --test log to stdout
-    # For --reload log to /var/log/frr/frr-reload.log
+    # For --reload log to --logfile (default: "/var/log/frr/frr-reload.log")
     if args.test or args.stdout:
         logging.basicConfig(format="%(asctime)s %(levelname)5s: %(message)s")
 
@@ -1921,11 +1927,11 @@ if __name__ == "__main__":
         )
 
     elif args.reload:
-        if not os.path.isdir("/var/log/frr/"):
-            os.makedirs("/var/log/frr/", mode=0o0755)
+        if not os.path.isdir(os.path.dirname(args.logfile)):
+            os.makedirs(os.path.dirname(args.logfile), mode=0o0755)
 
         logging.basicConfig(
-            filename="/var/log/frr/frr-reload.log",
+            filename=args.logfile,
             format="%(asctime)s %(levelname)5s: %(message)s",
         )
 
