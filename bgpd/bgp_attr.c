@@ -1382,6 +1382,15 @@ bgp_attr_malformed(struct bgp_attr_parser_args *args, uint8_t subcode,
 			(args->startp - STREAM_DATA(BGP_INPUT(peer)))
 				+ args->total);
 
+	/* Partial optional attributes that are malformed should not cause
+	 * the whole session to be reset. Instead treat it as a withdrawal
+	 * of the routes, if possible.
+	 */
+	if (CHECK_FLAG(flags, BGP_ATTR_FLAG_TRANS) &&
+	    CHECK_FLAG(flags, BGP_ATTR_FLAG_OPTIONAL) &&
+	    CHECK_FLAG(flags, BGP_ATTR_FLAG_PARTIAL))
+		return BGP_ATTR_PARSE_WITHDRAW;
+
 	switch (args->type) {
 	/* where an attribute is relatively inconsequential, e.g. it does not
 	 * affect route selection, and can be safely ignored, then any such
@@ -1419,19 +1428,21 @@ bgp_attr_malformed(struct bgp_attr_parser_args *args, uint8_t subcode,
 					  BGP_NOTIFY_UPDATE_ERR, subcode,
 					  notify_datap, length);
 		return BGP_ATTR_PARSE_ERROR;
+	default:
+		/* Unknown attributes, that are handled by this function
+		 * should be treated as withdraw, to prevent one more CVE
+		 * from being introduced.
+		 * RFC 7606 says:
+		 * The "treat-as-withdraw" approach is generally preferred
+		 * and the "session reset" approach is discouraged.
+		 */
+		flog_err(EC_BGP_ATTR_FLAG,
+			 "%s(%u) attribute received, while it is not known how to handle it, treating as withdraw",
+			 lookup_msg(attr_str, args->type, NULL), args->type);
+		break;
 	}
 
-	/* Partial optional attributes that are malformed should not cause
-	 * the whole session to be reset. Instead treat it as a withdrawal
-	 * of the routes, if possible.
-	 */
-	if (CHECK_FLAG(flags, BGP_ATTR_FLAG_TRANS)
-	    && CHECK_FLAG(flags, BGP_ATTR_FLAG_OPTIONAL)
-	    && CHECK_FLAG(flags, BGP_ATTR_FLAG_PARTIAL))
-		return BGP_ATTR_PARSE_WITHDRAW;
-
-	/* default to reset */
-	return BGP_ATTR_PARSE_ERROR_NOTIFYPLS;
+	return BGP_ATTR_PARSE_WITHDRAW;
 }
 
 /* Find out what is wrong with the path attribute flag bits and log the error.
