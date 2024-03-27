@@ -49,9 +49,30 @@ def setup_module(mod):
     for routern in range(1, 4):
         tgen.gears["r{}".format(routern)].cmd("ip link add vrf1 type vrf table 10")
         tgen.gears["r{}".format(routern)].cmd("ip link set vrf1 up")
-        tgen.gears["r{}".format(routern)].cmd("ip address add dev vrf1 {}.{}.{}.{}/32".format(routern, routern, routern,routern))
+        tgen.gears["r{}".format(routern)].cmd(
+            "ip address add dev vrf1 {}.{}.{}.{}/32".format(
+                routern, routern, routern, routern
+            )
+        )
+        tgen.gears["r{}".format(routern)].cmd("ip link add vrf2 type vrf table 20")
+        tgen.gears["r{}".format(routern)].cmd("ip link set vrf2 up")
+        tgen.gears["r{}".format(routern)].cmd(
+            "ip address add dev vrf2 192.0.2.{}/32".format(routern)
+        )
+        tgen.gears["r{}".format(routern)].cmd("ip link add br1 type bridge")
+        tgen.gears["r{}".format(routern)].cmd(
+            "ip link add vxl1 type vxlan id 100 dev lo local 192.0.2.{}".format(routern)
+        )
+        tgen.gears["r{}".format(routern)].cmd("ip link set dev vxl1 master br1")
+        tgen.gears["r{}".format(routern)].cmd("ip link set dev br1 master vrf2")
+        tgen.gears["r{}".format(routern)].cmd("ip link set dev br1 up")
+        tgen.gears["r{}".format(routern)].cmd("ip link set dev vxl1 up")
+
     tgen.gears["r2"].cmd("ip address add dev vrf1 192.0.2.8/32")
     tgen.gears["r3"].cmd("ip address add dev vrf1 192.0.2.8/32")
+
+    tgen.gears["r2"].cmd("ip address add dev vrf2 192.0.4.8/32")
+    tgen.gears["r3"].cmd("ip address add dev vrf2 192.0.4.8/32")
 
     for i, (rname, router) in enumerate(router_list.items(), 1):
         router.load_config(
@@ -73,6 +94,7 @@ def setup_module(mod):
 def teardown_module(mod):
     tgen = get_topogen()
     tgen.stop_topology()
+
 
 def test_bgp_path_selection_ecmp():
     tgen = get_topogen()
@@ -97,7 +119,7 @@ def test_bgp_path_selection_ecmp():
                     "aspath": {"string": "65002"},
                     "multipath": True,
                     "nexthops": [{"ip": "192.0.2.3", "metric": 20}],
-                }
+                },
             ]
         }
 
@@ -117,7 +139,9 @@ def test_bgp_path_selection_vpn_ecmp():
 
     def _bgp_check_path_selection_vpn_ecmp():
         output = json.loads(
-            tgen.gears["r1"].vtysh_cmd("show bgp vrf vrf1 ipv4 unicast 192.0.2.8/32 json")
+            tgen.gears["r1"].vtysh_cmd(
+                "show bgp vrf vrf1 ipv4 unicast 192.0.2.8/32 json"
+            )
         )
         expected = {
             "paths": [
@@ -132,7 +156,7 @@ def test_bgp_path_selection_vpn_ecmp():
                     "aspath": {"string": "65002"},
                     "multipath": True,
                     "nexthops": [{"ip": "192.0.2.3", "metric": 20}],
-                }
+                },
             ]
         }
 
@@ -140,6 +164,58 @@ def test_bgp_path_selection_vpn_ecmp():
 
     step("Check if two ECMP paths are present")
     test_func = functools.partial(_bgp_check_path_selection_vpn_ecmp)
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+    assert result is None, "Failed to see BGP prefixes on R1"
+
+
+def test_bgp_path_selection_evpn_r5_ecmp():
+    tgen = get_topogen()
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    def _bgp_check_path_selection_evpn_r5_ecmp():
+        output = json.loads(
+            tgen.gears["r1"].vtysh_cmd("show ip route vrf vrf2 192.0.4.8/32 json")
+        )
+        expected = {
+            "192.0.4.8/32": [
+                {
+                    "prefix": "192.0.4.8/32",
+                    "protocol": "bgp",
+                    "vrfName": "vrf2",
+                    "selected": True,
+                    "installed": True,
+                    "internalNextHopNum": 2,
+                    "internalNextHopActiveNum": 2,
+                    "nexthops": [
+                        {
+                            "fib": True,
+                            "ip": "192.0.2.2",
+                            "afi": "ipv4",
+                            "interfaceName": "br1",
+                            "active": True,
+                            "onLink": True,
+                            "weight": 1,
+                        },
+                        {
+                            "fib": True,
+                            "ip": "192.0.2.3",
+                            "afi": "ipv4",
+                            "interfaceName": "br1",
+                            "active": True,
+                            "onLink": True,
+                            "weight": 1,
+                        },
+                    ],
+                }
+            ]
+        }
+
+        return topotest.json_cmp(output, expected)
+
+    step("Check if two ECMP paths are present")
+    test_func = functools.partial(_bgp_check_path_selection_evpn_r5_ecmp)
     _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
     assert result is None, "Failed to see BGP prefixes on R1"
 
@@ -160,13 +236,13 @@ def test_bgp_path_selection_metric():
                     "valid": True,
                     "aspath": {"string": "65002"},
                     "nexthops": [{"ip": "192.0.2.2", "metric": 10}],
-                    "bestpath":{ "selectionReason":"IGP Metric"},
+                    "bestpath": {"selectionReason": "IGP Metric"},
                 },
                 {
                     "valid": True,
                     "aspath": {"string": "65002"},
                     "nexthops": [{"ip": "192.0.2.3", "metric": 20}],
-                }
+                },
             ]
         }
 
@@ -189,7 +265,9 @@ def test_bgp_path_selection_vpn_metric():
 
     def _bgp_check_path_selection_vpn_metric():
         output = json.loads(
-            tgen.gears["r1"].vtysh_cmd("show bgp vrf vrf1 ipv4 unicast 192.0.2.8/32 json")
+            tgen.gears["r1"].vtysh_cmd(
+                "show bgp vrf vrf1 ipv4 unicast 192.0.2.8/32 json"
+            )
         )
         expected = {
             "paths": [
@@ -197,13 +275,13 @@ def test_bgp_path_selection_vpn_metric():
                     "valid": True,
                     "aspath": {"string": "65002"},
                     "nexthops": [{"ip": "192.0.2.2", "metric": 10}],
-                    "bestpath":{ "selectionReason":"IGP Metric"},
+                    "bestpath": {"selectionReason": "IGP Metric"},
                 },
                 {
                     "valid": True,
                     "aspath": {"string": "65002"},
                     "nexthops": [{"ip": "192.0.2.3", "metric": 20}],
-                }
+                },
             ]
         }
 
@@ -211,6 +289,49 @@ def test_bgp_path_selection_vpn_metric():
 
     step("Check if IGP metric best path is selected")
     test_func = functools.partial(_bgp_check_path_selection_vpn_metric)
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+    assert result is None, "Failed to see BGP prefixes on R1"
+
+
+def test_bgp_path_selection_evpn_r5_metric():
+    tgen = get_topogen()
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    def _bgp_check_path_selection_evpn_r5_metric():
+        output = json.loads(
+            tgen.gears["r1"].vtysh_cmd("show ip route vrf vrf2 192.0.4.8/32 json")
+        )
+        expected = {
+            "192.0.4.8/32": [
+                {
+                    "prefix": "192.0.4.8/32",
+                    "protocol": "bgp",
+                    "vrfName": "vrf2",
+                    "selected": True,
+                    "installed": True,
+                    "internalNextHopNum": 1,
+                    "internalNextHopActiveNum": 1,
+                    "nexthops": [
+                        {
+                            "fib": True,
+                            "ip": "192.0.2.2",
+                            "afi": "ipv4",
+                            "interfaceName": "br1",
+                            "active": True,
+                            "onLink": True,
+                            "weight": 1,
+                        }
+                    ],
+                }
+            ]
+        }
+
+        return topotest.json_cmp(output, expected)
+
+    step("Check if IGP metric best path is selected")
+    test_func = functools.partial(_bgp_check_path_selection_evpn_r5_metric)
     _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
     assert result is None, "Failed to see BGP prefixes on R1"
 
