@@ -342,6 +342,13 @@ void pim_ifchannel_ifjoin_switch(const char *caller, struct pim_ifchannel *ch,
 				   ch->sg_str, ch->interface->name);
 		}
 
+		/* pim_upstream_update_join_desired looks at up->channel_oil,
+		 * but that's updated from pim_forward_stop().  Need this here
+		 * so we correctly determine join_desired right below.
+		 */
+		if (new_state == PIM_IFJOIN_NOINFO)
+			pim_forward_stop(ch);
+
 		/*
 		  Record uptime of state transition to/from NOINFO
 		*/
@@ -619,7 +626,6 @@ struct pim_ifchannel *pim_ifchannel_add(struct interface *ifp, pim_sgaddr *sg,
 static void ifjoin_to_noinfo(struct pim_ifchannel *ch)
 {
 	pim_ifchannel_ifjoin_switch(__func__, ch, PIM_IFJOIN_NOINFO);
-	pim_forward_stop(ch);
 
 	PIM_UPSTREAM_FLAG_UNSET_SRC_PIM(ch->upstream->flags);
 
