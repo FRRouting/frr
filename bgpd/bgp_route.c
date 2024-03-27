@@ -2356,7 +2356,8 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 	((safi != SAFI_ENCAP && safi != SAFI_MPLS_VPN                          \
 	  && (p->family == AF_INET6 || peer_cap_enhe(peer, afi, safi)))        \
 	 || ((safi == SAFI_ENCAP || safi == SAFI_MPLS_VPN)                     \
-	     && attr->mp_nexthop_len >= IPV6_MAX_BYTELEN))
+	     && attr->mp_nexthop_len >= IPV6_MAX_BYTELEN)                      \
+	 || (safi == SAFI_MPLS_VPN && peer_cap_enhe(peer, afi, safi)))
 
 	/* IPv6/MP starts with 1 nexthop. The link-local address is passed only
 	 * if
