@@ -750,6 +750,7 @@ void pim_reg_del_on_couldreg_fail(struct interface *ifp)
 					    PIM_OIF_FLAG_PROTO_PIM, __func__);
 			EVENT_OFF(up->t_rs_timer);
 			up->reg_state = PIM_REG_NOINFO;
+			PIM_UPSTREAM_FLAG_SET_SRC_NOCACHE(up->flags);
 			PIM_UPSTREAM_FLAG_UNSET_FHR(up->flags);
 		}
 	}
