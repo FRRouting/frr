@@ -450,6 +450,41 @@ struct route_table *zebra_vrf_table(afi_t afi, safi_t safi, vrf_id_t vrf_id)
 	return zvrf->table[afi][safi];
 }
 
+DEFPY(mpls_fec_nexthop_resolution, mpls_fec_nexthop_resolution_cmd,
+      "[no$no] mpls fec nexthop-resolution",
+      NO_STR
+      MPLS_STR
+      "MPLS FEC table\n"
+      "Authorise nexthop resolution over all labeled routes.\n")
+{
+	struct zebra_vrf *zvrf;
+	struct vrf *vrf;
+
+	vrf = vrf_lookup_by_id(VRF_DEFAULT);
+
+	zvrf = vrf->info;
+	zebra_mpls_fec_nexthop_resolution_enabled(!no, zvrf);
+
+	return CMD_SUCCESS;
+}
+
+DEFPY(mpls_fec_nexthop_resolution_vrf, mpls_fec_nexthop_resolution_vrf_cmd,
+      "[no$no] mpls fec nexthop-resolution",
+      NO_STR
+      MPLS_STR
+      "MPLS FEC table (VRF)\n"
+      "Authorise nexthop resolution over all labeled routes.\n")
+{
+	struct zebra_vrf *zvrf;
+
+	VTY_DECLVAR_CONTEXT(vrf, vrf);
+
+	zvrf = vrf->info;
+	zebra_mpls_fec_nexthop_resolution_enabled(!no, zvrf);
+
+	return CMD_SUCCESS;
+}
+
 /* if ns_id is different and not VRF_UNKNOWN,
  * then update vrf identifier, and enable VRF
  */
@@ -541,6 +576,13 @@ int zebra_vrf_netns_handler_create(struct vty *vty, struct vrf *vrf,
 	return CMD_SUCCESS;
 }
 
+static struct cmd_node vrf_node = {
+	.name = "vrf",
+	.node = VRF_NODE,
+	.parent_node = CONFIG_NODE,
+	.prompt = "%s(config-vrf)# ",
+};
+
 /* Zebra VRF initialization. */
 void zebra_vrf_init(void)
 {
@@ -548,4 +590,8 @@ void zebra_vrf_init(void)
 		 zebra_vrf_delete);
 
 	hook_register(zserv_client_close, release_daemon_table_chunks);
+	install_node(&vrf_node);
+	install_default(VRF_NODE);
+	install_element(VRF_NODE, &mpls_fec_nexthop_resolution_vrf_cmd);
+	install_element(CONFIG_NODE, &mpls_fec_nexthop_resolution_cmd);
 }

@@ -223,6 +223,8 @@ extern bool nexthop_labels_match(const struct nexthop *nh1,
 extern const char *nexthop2str(const struct nexthop *nexthop,
 			       char *str, int size);
 extern struct nexthop *nexthop_next(const struct nexthop *nexthop);
+extern struct nexthop *nexthop_next_resolution(const struct nexthop *nexthop,
+					       bool nexthop_resolution);
 extern struct nexthop *
 nexthop_next_active_resolved(const struct nexthop *nexthop);
 extern unsigned int nexthop_level(const struct nexthop *nexthop);

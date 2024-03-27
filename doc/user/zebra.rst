@@ -815,6 +815,16 @@ Allocated label chunks table can be dumped using the command
    range is configured, static label requests that match that
    range are not accepted.
 
+FEC nexthop entry resolution over MPLS networks
+-----------------------------------------------
+
+The LSP associated with a BGP labeled route is normally restricted to
+directly-connected nexthops. If connected nexthops are not available,
+the LSP entry will not be installed. This command permits the use of
+recursive resolution for LSPs, similar to that available for IP routes.
+
+.. clicmd:: mpls fec nexthop-resolution
+
 .. _zebra-srv6:
 
 Segment-Routing IPv6

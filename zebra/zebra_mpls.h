@@ -256,6 +256,13 @@ void zebra_mpls_zapi_labels_process(bool add_p, struct zebra_vrf *zvrf,
 				    const struct zapi_labels *zl);
 
 /*
+ * Enable/Disable FEC nexthop resolution, according to the
+ * vtysh configuration of "mpls fec nexthop-resolution"
+ */
+void zebra_mpls_fec_nexthop_resolution_enabled(bool status,
+					       struct zebra_vrf *zvrf);
+
+/*
  * Uninstall all NHLFEs bound to a single FEC.
  *
  * mpls_ftn_uninstall -> Called to enqueue into early label processing
