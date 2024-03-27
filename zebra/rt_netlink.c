@@ -1550,7 +1550,7 @@ static ssize_t fill_seg6ipt_encap(char *buffer, size_t buflen,
 	srh->first_segment = segs->num_segs - 1;
 
 	for (i = 0; i < segs->num_segs; i++) {
-		memcpy(&srh->segments[i], &segs->seg[i],
+		memcpy(&srh->segments[segs->num_segs - i - 1], &segs->seg[i],
 		       sizeof(struct in6_addr));
 	}
 
