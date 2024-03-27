@@ -6,6 +6,12 @@
 #ifndef _ZEBRA_IF_H
 #define _ZEBRA_IF_H
 
+#include <net/if.h>
+
+#ifdef GNU_LINUX
+#include <linux/if.h>
+#endif /* GNU_LINUX */
+
 #include "zebra.h"
 #include "linklist.h"
 #include "memory.h"

@@ -1,5 +1,5 @@
 r1-eth0 is up
-  ifindex X, MTU 1500 bytes, BW XX Mbit <UP,BROADCAST,RUNNING,MULTICAST>
+  ifindex X, MTU 1500 bytes, BW XX Mbit <UP,LOWER_UP,BROADCAST,RUNNING,MULTICAST>
   Internet Address 192.168.0.1/24, Broadcast 192.168.0.255, Area 0.0.0.0
   MTU mismatch detection: enabled
   Router ID 192.168.0.1, Network Type BROADCAST, Cost: 10
@@ -12,7 +12,7 @@ r1-eth0 is up
   Neighbor Count is 0, Adjacent neighbor count is 0
   Graceful Restart hello delay: 10s
 r1-eth3 is up
-  ifindex X, MTU 1500 bytes, BW XX Mbit <UP,BROADCAST,RUNNING,MULTICAST>
+  ifindex X, MTU 1500 bytes, BW XX Mbit <UP,LOWER_UP,BROADCAST,RUNNING,MULTICAST>
   Internet Address 192.168.3.1/26, Broadcast 192.168.3.63, Area 0.0.0.0
   MTU mismatch detection: enabled
   Router ID 192.168.0.1, Network Type BROADCAST, Cost: 10
