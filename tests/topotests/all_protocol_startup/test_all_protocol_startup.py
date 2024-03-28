@@ -37,7 +37,11 @@ from lib.topogen import Topogen, get_topogen
 from lib.common_config import (
     required_linux_kernel_version,
 )
-
+from lib.nexthopgroup import (
+    route_get_nhg_id,
+    verify_nexthop_group,
+    verify_route_nexthop_group,
+)
 from lib.topolog import logger
 import json
 
@@ -105,6 +109,7 @@ def setup_module(module):
         net["r%s" % i].loadConf("nhrpd", "%s/r%s/nhrpd.conf" % (thisDir, i))
         net["r%s" % i].loadConf("babeld", "%s/r%s/babeld.conf" % (thisDir, i))
         net["r%s" % i].loadConf("pbrd", "%s/r%s/pbrd.conf" % (thisDir, i))
+        net["r%s" % i].loadConf("pathd", "%s/r%s/pathd.conf" % (thisDir, i))
         tgen.gears["r%s" % i].start()
 
     # For debugging after starting FRR daemons, uncomment the next line
@@ -385,93 +390,6 @@ def test_converge_protocols():
         assert failures == 0, "IPv6 Routing table failed for r%s\n%s" % (i, diff)
 
 
-def route_get_nhg_id(route_str):
-    net = get_topogen().net
-    output = net["r1"].cmd('vtysh -c "show ip route %s nexthop-group"' % route_str)
-    match = re.search(r"Nexthop Group ID: (\d+)", output)
-    assert match is not None, (
-        "Nexthop Group ID not found for sharpd route %s" % route_str
-    )
-
-    nhg_id = int(match.group(1))
-    return nhg_id
-
-
-def verify_nexthop_group(nhg_id, recursive=False, ecmp=0):
-    net = get_topogen().net
-    count = 0
-    valid = None
-    ecmpcount = None
-    depends = None
-    resolved_id = None
-    installed = None
-    found = False
-
-    while not found and count < 10:
-        count += 1
-        # Verify NHG is valid/installed
-        output = net["r1"].cmd('vtysh -c "show nexthop-group rib %d"' % nhg_id)
-        valid = re.search(r"Valid", output)
-        if valid is None:
-            found = False
-            sleep(1)
-            continue
-
-        if ecmp or recursive:
-            ecmpcount = re.search(r"Depends:.*\n", output)
-            if ecmpcount is None:
-                found = False
-                sleep(1)
-                continue
-
-            # list of IDs in group
-            depends = re.findall(r"\((\d+)\)", ecmpcount.group(0))
-
-            if ecmp:
-                if len(depends) != ecmp:
-                    found = False
-                    sleep(1)
-                    continue
-            else:
-                # If recursive, we need to look at its resolved group
-                if len(depends) != 1:
-                    found = False
-                    sleep(1)
-                    continue
-
-                resolved_id = int(depends[0])
-                verify_nexthop_group(resolved_id, False)
-        else:
-            installed = re.search(r"Installed", output)
-            if installed is None:
-                found = False
-                sleep(1)
-                continue
-        found = True
-
-    assert valid is not None, "Nexthop Group ID=%d not marked Valid" % nhg_id
-    if ecmp or recursive:
-        assert ecmpcount is not None, "Nexthop Group ID=%d has no depends" % nhg_id
-        if ecmp:
-            assert len(depends) == ecmp, (
-                "Nexthop Group ID=%d doesn't match ecmp size" % nhg_id
-            )
-        else:
-            assert len(depends) == 1, (
-                "Nexthop Group ID=%d should only have one recursive depend" % nhg_id
-            )
-    else:
-        assert installed is not None, (
-            "Nexthop Group ID=%d not marked Installed" % nhg_id
-        )
-
-
-def verify_route_nexthop_group(route_str, recursive=False, ecmp=0):
-    # Verify route and that zebra created NHGs for and they are valid/installed
-    nhg_id = route_get_nhg_id(route_str)
-    verify_nexthop_group(nhg_id, recursive, ecmp)
-
-
 def test_nexthop_groups():
     global fatal_error
     net = get_topogen().net
@@ -494,7 +412,7 @@ def test_nexthop_groups():
 
     # Create with sharpd using nexthop-group
     net["r1"].cmd('vtysh -c "sharp install routes 2.2.2.1 nexthop-group basic 1"')
-    verify_route_nexthop_group("2.2.2.1/32")
+    verify_route_nexthop_group("2.2.2.1/32", "r1")
 
     ## Connected
 
@@ -503,7 +421,7 @@ def test_nexthop_groups():
     )
 
     net["r1"].cmd('vtysh -c "sharp install routes 2.2.2.2 nexthop-group connected 1"')
-    verify_route_nexthop_group("2.2.2.2/32")
+    verify_route_nexthop_group("2.2.2.2/32", "r1")
 
     ## Recursive
 
@@ -515,7 +433,7 @@ def test_nexthop_groups():
         'vtysh -c "sharp install routes 3.3.3.1 nexthop-group basic-recursive 1"'
     )
 
-    verify_route_nexthop_group("3.3.3.1/32", True)
+    verify_route_nexthop_group("3.3.3.1/32", "r1", True)
 
     ## Duplicate
 
@@ -525,7 +443,7 @@ def test_nexthop_groups():
 
     net["r1"].cmd('vtysh -c "sharp install routes 3.3.3.2 nexthop-group duplicate 1"')
 
-    verify_route_nexthop_group("3.3.3.2/32")
+    verify_route_nexthop_group("3.3.3.2/32", "r1")
 
     ## Two 4-Way ECMP
 
@@ -536,7 +454,7 @@ def test_nexthop_groups():
 
     net["r1"].cmd('vtysh -c "sharp install routes 4.4.4.1 nexthop-group fourA 1"')
 
-    verify_route_nexthop_group("4.4.4.1/32")
+    verify_route_nexthop_group("4.4.4.1/32", "r1")
 
     net["r1"].cmd(
         'vtysh -c "c t" -c "nexthop-group fourB" -c "nexthop 1.1.1.5" -c "nexthop 1.1.1.6" \
@@ -545,7 +463,7 @@ def test_nexthop_groups():
 
     net["r1"].cmd('vtysh -c "sharp install routes 4.4.4.2 nexthop-group fourB 1"')
 
-    verify_route_nexthop_group("4.4.4.2/32")
+    verify_route_nexthop_group("4.4.4.2/32", "r1")
 
     ## Recursive to 8-Way ECMP
 
@@ -557,7 +475,7 @@ def test_nexthop_groups():
         'vtysh -c "sharp install routes 5.5.5.1 nexthop-group eight-recursive 1"'
     )
 
-    verify_route_nexthop_group("5.5.5.1/32")
+    verify_route_nexthop_group("5.5.5.1/32", "r1")
 
     ## 4-way ECMP Routes Pointing to Each Other
 
@@ -598,7 +516,7 @@ def test_nexthop_groups():
     # Get routes and test if has too many (duplicate) nexthops
     count = 0
     dups = []
-    nhg_id = route_get_nhg_id("6.6.6.1/32")
+    nhg_id = route_get_nhg_id("6.6.6.1/32", "r1")
     while (len(dups) != 4) and count < 10:
         output = net["r1"].cmd('vtysh -c "show nexthop-group rib %d"' % nhg_id)
 
@@ -613,6 +531,129 @@ def test_nexthop_groups():
         % nhg_id
     )
 
+    ## nexthop-group ALLOWRECURSION
+    ## create a static route, and use that static route to resolve the nexthop-group
+    tgen = get_topogen()
+    tgen.gears["r1"].vtysh_cmd(
+        """
+        configure terminal
+        nexthop-group ALLOWRECURSION
+        allow-recursion
+        nexthop 192.0.2.200
+        """
+    )
+    tgen.gears["r1"].vtysh_cmd(
+        "sharp install routes 9.9.9.9 nexthop-group ALLOWRECURSION 1"
+    )
+    nhg_id = route_get_nhg_id("9.9.9.9/32", "r1")
+    verify_nexthop_group(nhg_id, "r1", recursive=True, ecmp=0, recursive_again=True)
+
+    tgen.gears["r1"].vtysh_cmd("sharp remove routes 9.9.9.9 1")
+    tgen.gears["r1"].vtysh_cmd(
+        """
+        configure terminal
+        nexthop-group ALLOWRECURSION
+        no allow-recursion
+        """
+    )
+    output = tgen.gears["r1"].vtysh_cmd("show nexthop-group rib %d" % nhg_id)
+    found = re.search(r"Time to Deletion", output)
+    assert found is not None, (
+        "Route 9.9.9.9/32 with Nexthop Group ID=%d is not scheduled for removal"
+        % nhg_id
+    )
+
+    # Create colored static route
+    ## create a colored static route, and expect that the nexthop is steered by pathd
+    tgen.gears["r1"].vtysh_cmd(
+        """
+        configure terminal
+        nexthop-group TESTSRTE
+        allow-recursion
+        nexthop 172.31.0.200 color 1
+        """
+    )
+    tgen.gears["r1"].vtysh_cmd(
+        "sharp install routes 10.10.10.10 nexthop-group TESTSRTE 1"
+    )
+    tgen.gears["r1"].vtysh_cmd("sharp watch nexthop 172.31.0.200 color 1")
+    nhg_id = route_get_nhg_id("10.10.10.10/32", "r1")
+    verify_nexthop_group(nhg_id, "r1", recursive=True, ecmp=0, recursive_again=True)
+
+    output = tgen.gears["r1"].vtysh_cmd("show nexthop-group rib %d json" % nhg_id)
+    joutput = json.loads(output)
+
+    # Use the json output and collect the nhg id from it
+    jnexthops = joutput[str(nhg_id)]["nexthops"]
+    for jnexthop in jnexthops:
+        if "recursive" in jnexthop.keys():
+            assert jnexthop["srteColor"] == 1, "nexthop-group is not colored"
+            assert (
+                jnexthop["ip"] == "172.31.0.200"
+            ), "nexthop-group 172.31.0.200 address not found"
+        if "labels" in jnexthop.keys():
+            assert (
+                jnexthop["ip"] == "192.168.0.209"
+            ), "nexthop-group recursive nexthop is not 192.168.0.209"
+            assert jnexthop["labels"] == [
+                400,
+                600,
+            ], "nexthop-group recursive label is not 400/600"
+
+    tgen.gears["r1"].vtysh_cmd("sharp remove routes 10.10.10.10 1")
+
+    ## multiple nexthop-group dependencies
+    tgen.gears["r1"].vtysh_cmd(
+        """
+        configure terminal
+        nexthop-group GROUP1
+        group ECMP1
+        group ECMP2
+        """
+    )
+    tgen.gears["r1"].vtysh_cmd(
+        """
+        configure terminal
+        nexthop-group ECMP1
+        nexthop 192.168.0.202 r1-eth0
+        """
+    )
+    tgen.gears["r1"].vtysh_cmd(
+        """
+        configure terminal
+        nexthop-group ECMP2
+        nexthop 192.168.0.205 r1-eth0
+        """
+    )
+    tgen.gears["r1"].vtysh_cmd("sharp install routes 8.8.8.8 nexthop-group GROUP1 1")
+    verify_route_nexthop_group("8.8.8.8/32", "r1", ecmp=2)
+
+    tgen.gears["r1"].vtysh_cmd(
+        """
+        configure terminal
+        nexthop-group GROUP1
+        no group ECMP2
+        """
+    )
+    verify_route_nexthop_group("8.8.8.8/32", "r1", ecmp=1)
+    tgen.gears["r1"].vtysh_cmd(
+        """
+        configure terminal
+        nexthop-group ECMP3
+        nexthop 192.168.0.207 r1-eth0
+        """
+    )
+    tgen.gears["r1"].vtysh_cmd(
+        """
+        configure terminal
+        nexthop-group GROUP1
+        group ECMP3
+        group ECMP2
+        nexthop 192.168.0.207 r1-eth0
+        """
+    )
+    verify_route_nexthop_group("8.8.8.8/32", "r1", ecmp=3)
+
     ## Remove all NHG routes
 
     net["r1"].cmd('vtysh -c "sharp remove routes 2.2.2.1 1"')
@@ -624,6 +665,7 @@ def test_nexthop_groups():
     net["r1"].cmd('vtysh -c "sharp remove routes 5.5.5.1 1"')
     net["r1"].cmd('vtysh -c "sharp remove routes 6.6.6.1 4"')
     net["r1"].cmd('vtysh -c "c t" -c "no ip route 6.6.6.0/24 1.1.1.1"')
+    net["r1"].cmd('vtysh -c "sharp remove routes 8.8.8.8 1"')
 
 
 def test_rip_status():
@@ -1424,7 +1466,7 @@ def test_nexthop_groups_with_route_maps():
 
     net["r1"].cmd('vtysh -c "sharp install routes %s nexthop-group test 1"' % route_str)
 
-    verify_route_nexthop_group("%s/32" % route_str)
+    verify_route_nexthop_group("%s/32" % route_str, "r1")
 
     # Only a valid test on linux using nexthop objects
     if sys.platform.startswith("linux"):
@@ -1462,14 +1504,14 @@ def test_nexthop_groups_with_route_maps():
         'vtysh -c "sharp install routes %s nexthop-group test 1"' % permit_route_str
     )
 
-    verify_route_nexthop_group("%s/32" % permit_route_str)
+    verify_route_nexthop_group("%s/32" % permit_route_str, "r1")
 
     # This route should be denied
     net["r1"].cmd(
         'vtysh -c "sharp install routes %s nexthop-group test 1"' % deny_route_str
     )
 
-    nhg_id = route_get_nhg_id(deny_route_str)
+    nhg_id = route_get_nhg_id(deny_route_str, "r1")
     output = net["r1"].cmd('vtysh -c "show nexthop-group rib %d"' % nhg_id)
 
     match = re.search(r"Valid", output)
@@ -1521,7 +1563,7 @@ def test_nexthop_group_replace():
     # Create with sharpd using nexthop-group
     net["r1"].cmd('vtysh -c "sharp install routes 3.3.3.1 nexthop-group replace 1"')
 
-    verify_route_nexthop_group("3.3.3.1/32")
+    verify_route_nexthop_group("3.3.3.1/32", "r1")
 
     # Change the nexthop group
     net["r1"].cmd(
@@ -1529,7 +1571,7 @@ def test_nexthop_group_replace():
     )
 
     # Verify it updated. We can just check install and ecmp count here.
-    verify_route_nexthop_group("3.3.3.1/32", False, 3)
+    verify_route_nexthop_group("3.3.3.1/32", "r1", False, 3)
 
 
 def test_mpls_interfaces():
@@ -1623,7 +1665,7 @@ def test_resilient_nexthop_group():
         if "buckets" in n:
             break
 
-    verify_nexthop_group(int(nhgid))
+    verify_nexthop_group(int(nhgid), "r1")
     assert len(buckets) == 1, "Resilient NHG not created in zebra"
 
 

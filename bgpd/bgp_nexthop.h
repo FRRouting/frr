@@ -90,6 +90,7 @@ struct bgp_nexthop_cache {
 	struct bgp_nexthop_cache_head *tree;
 
 	struct prefix prefix;
+	struct prefix resolved_prefix;
 	void *nht_info; /* In BGP, peer session */
 	LIST_HEAD(path_list, bgp_path_info) paths;
 	unsigned int path_count;

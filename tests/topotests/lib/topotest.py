@@ -602,6 +602,30 @@ def is_linux():
     return False
 
 
+def iproute2_is_json_capable():
+    """
+    Checks if the iproute2 version installed on the system is capable of
+    handling JSON outputss
+
+    Returns True if capability can be detected, returns False otherwise.
+    """
+    if is_linux():
+        try:
+            subp = subprocess.Popen(
+                ["ip", "-json", "route", "show"],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                stdin=subprocess.PIPE,
+            )
+            iproute2_err = subp.communicate()[1].splitlines()[0].split()[0]
+
+            if iproute2_err != "Error:":
+                return True
+        except Exception:
+            pass
+    return False
+
+
 def iproute2_is_vrf_capable():
     """
     Checks if the iproute2 version installed on the system is capable of
@@ -1294,8 +1318,8 @@ def fix_netns_limits(ns):
     if version_cmp(platform.release(), "4.20") >= 0:
         sysctl_assure(ns, "net.ipv6.route.skip_notify_on_dev_down", 1)
 
-    sysctl_assure(ns, "net.ipv4.conf.all.ignore_routes_with_linkdown", 1)
-    sysctl_assure(ns, "net.ipv6.conf.all.ignore_routes_with_linkdown", 1)
+    sysctl_assure(ns, "net.ipv4.conf.default.ignore_routes_with_linkdown", 1)
+    sysctl_assure(ns, "net.ipv6.conf.default.ignore_routes_with_linkdown", 1)
 
     # igmp
     sysctl_atleast(ns, "net.ipv4.igmp_max_memberships", 1000)

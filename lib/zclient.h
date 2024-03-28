@@ -202,6 +202,7 @@ typedef enum {
 	ZEBRA_MLAG_FORWARD_MSG,
 	ZEBRA_NHG_ADD,
 	ZEBRA_NHG_DEL,
+	ZEBRA_NHG_GROUP_ADD,
 	ZEBRA_NHG_NOTIFY_OWNER,
 	ZEBRA_EVPN_REMOTE_NH_ADD,
 	ZEBRA_EVPN_REMOTE_NH_DEL,
@@ -487,6 +488,27 @@ struct zapi_nhg {
 
 	uint16_t backup_nexthop_num;
 	struct zapi_nexthop backup_nexthops[MULTIPATH_NUM];
+
+	uint8_t flags;
+	/* nexthop group message : definition from nexthop_group.h */
+#define ZAPI_NEXTHOP_MESSAGE_SRTE NEXTHOP_GROUP_MESSAGE_SRTE
+	uint8_t message;
+};
+
+struct zapi_nhg_group {
+	uint16_t proto;
+	uint32_t id;
+
+	uint16_t nh_grp_count;
+	uint32_t id_grp[MULTIPATH_NUM];
+
+	uint16_t backup_nh_grp_count;
+	uint32_t backup_id_grp[MULTIPATH_NUM];
+
+	struct nhg_resilience resilience;
+
+	uint8_t flags;
+	uint8_t message;
 };
 
 /*
@@ -1132,6 +1154,9 @@ bool zapi_ipset_notify_decode(struct stream *s,
 /* Nexthop-group message apis */
 extern enum zclient_send_status
 zclient_nhg_send(struct zclient *zclient, int cmd, struct zapi_nhg *api_nhg);
+extern enum zclient_send_status
+zclient_nhg_group_send(struct zclient *zclient, int cmd,
+		       struct zapi_nhg_group *api_nhg_group);
 
 #define ZEBRA_IPSET_NAME_SIZE   32
 
@@ -1348,6 +1373,9 @@ extern int zapi_client_close_notify_decode(struct stream *s,
 
 extern int zclient_send_zebra_gre_request(struct zclient *client,
 					  struct interface *ifp);
+
+extern int zapi_nexthop_cmp(const void *item1, const void *item2);
+
 #ifdef __cplusplus
 }
 #endif

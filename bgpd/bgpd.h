@@ -128,6 +128,7 @@ struct bgp_master {
 #define BGP_OPT_NO_ZEBRA                 (1 << 2)
 #define BGP_OPT_TRAPS_RFC4273            (1 << 3)
 #define BGP_OPT_TRAPS_BGP4MIBV2          (1 << 4)
+#define BGP_OPT_NHG			 (1 << 5)
 
 	uint64_t updgrp_idspace;
 	uint64_t subgrp_idspace;
@@ -2278,6 +2279,9 @@ extern void bgp_option_norib_set_runtime(void);
 /* unset the bgp no-rib option during runtime and reset all peers */
 extern void bgp_option_norib_unset_runtime(void);
 
+/* update the route entries with/without the nhg mechanism */
+extern void bgp_option_nhg_update(void);
+
 extern int bgp_get(struct bgp **bgp, as_t *as, const char *name,
 		   enum bgp_instance_type kind, const char *as_pretty,
 		   enum asnotation_mode asnotation);
@@ -2769,6 +2773,9 @@ extern bool bgp_path_attribute_treat_as_withdraw(struct peer *peer, char *buf,
 						 size_t size);
 
 extern void srv6_function_free(struct bgp_srv6_function *func);
+
+extern void bgp_path_info_display(struct bgp_path_info *path, struct vty *vty,
+				  json_object *json_path);
 
 #ifdef _FRR_ATTRIBUTE_PRINTFRR
 /* clang-format off */

@@ -12,7 +12,7 @@ listing of ECMP nexthops used to forward packets.
    sub-mode where you can specify individual nexthops.  To exit this mode type
    exit or end as per normal conventions for leaving a sub-mode.
 
-.. clicmd:: nexthop [A.B.C.D|X:X::X:XX] [interface [onlink]] [nexthop-vrf NAME] [label LABELS]
+.. clicmd:: nexthop [A.B.C.D|X:X::X:XX] [interface [onlink]] [nexthop-vrf NAME] [label LABELS] [color (1-4294967295)]
 
    Create a v4 or v6 nexthop.  All normal rules for creating nexthops that you
    are used to are allowed here.  The syntax was intentionally kept the same as
@@ -27,3 +27,26 @@ listing of ECMP nexthops used to forward packets.
    will be automatically re-assigned.  This cli command must be the first
    command entered currently.  Additionally this command only works with linux 5.19
    kernels or newer.
+
+.. clicmd:: allow-recursion
+
+   Allow a next-hop to be resolved at zebra level. Instead of beig considered valid,
+   the next-hop is checked against route reachability at zebra level. This permits
+   sending an incomplete next-hop to zebra, whereas it was not authorised before.
+
+.. clicmd:: force-nexthop-config
+
+   Allow a Nexthop Group to be configured in ZEBRA, even if the nexthop has neither
+   an interface configured and no `allow-recursion` set.
+
+.. clicmd:: ibgp
+
+   Allow a Nexthop Group to be considered as an IBGP nexthop. When used in ZEBRA,
+   if `allow-recursion` is not used, some debug information is given.
+
+.. clicmd:: group NAME
+
+   Append a Nexthop Group group dependency in the current nexthop group. The protocol
+   daemon using it will ensure that the dependent group is configured at the protocol
+   level, and installed at ZEBRA level, before installing the parent Nexthop Group.
+   This option is very useful to consider nexthop groups having multiple paths.

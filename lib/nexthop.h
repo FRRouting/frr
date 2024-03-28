@@ -252,6 +252,11 @@ extern bool nexthop_is_ifindex_type(const struct nexthop *nh);
 int nexthop_str2backups(const char *str, int *num_backups,
 			uint8_t *backups);
 
+void nexthop_json_helper(json_object *json_nexthop,
+			 const struct nexthop *nexthop, bool display_vrfid);
+void nexthop_vty_helper(struct vty *vty, const struct nexthop *nexthop,
+			bool display_vrfid);
+
 #ifdef _FRR_ATTRIBUTE_PRINTFRR
 #pragma FRR printfrr_ext "%pNH"  (struct nexthop *)
 #endif
