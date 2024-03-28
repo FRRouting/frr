@@ -2749,8 +2749,12 @@ static int bgp_zebra_route_notify_owner(int command, struct zclient *zclient,
 	/* Find the bgp route node */
 	dest = bgp_safi_node_lookup(bgp->rib[afi][safi], safi, &p,
 				    &bgp->vrf_prd);
-	if (!dest)
+	if (!dest) {
+		if (BGP_DEBUG(zebra, ZEBRA))
+			zlog_debug("%s: %pFX does not exist in the BGP table, nothing to do for %u",
+				   __func__, &p, note);
 		return -1;
+	}
 
 	switch (note) {
 	case ZAPI_ROUTE_INSTALLED:
