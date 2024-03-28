@@ -466,6 +466,8 @@ int segment_list_has_prefix(
 DEFPY(srte_segment_list_segment, srte_segment_list_segment_cmd,
       "index (0-4294967295)$index <[mpls$has_mpls_label label (16-1048575)$label] "
       "|"
+      "[ipv6-address$has_ipv6_address X:X::X:X$ipv6_address]"
+      "|"
       "[nai$has_nai <"
       "prefix <A.B.C.D/M$prefix_ipv4|X:X::X:X/M$prefix_ipv6>"
       "<algorithm$has_algo (0-1)$algo| iface$has_iface_id (0-4294967295)$iface_id>"
@@ -478,6 +480,8 @@ DEFPY(srte_segment_list_segment, srte_segment_list_segment_cmd,
       "MPLS or IP Label\n"
       "Label\n"
       "Label Value\n"
+      "IPv6 address\n"
+      "IPv6 address Value\n"
       "Segment NAI\n"
       "NAI prefix identifier\n"
       "NAI IPv4 prefix identifier\n"
@@ -504,6 +508,14 @@ DEFPY(srte_segment_list_segment, srte_segment_list_segment_cmd,
 		snprintf(xpath, sizeof(xpath),
 			 "./segment[index='%s']/sid-value", index_str);
 		nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, label_str);
+		return nb_cli_apply_changes(vty, NULL);
+	}
+
+	if (has_ipv6_address != NULL) {
+		snprintf(xpath, sizeof(xpath),
+			 "./segment[index='%s']/srv6-sid-value", index_str);
+		nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY,
+				      ipv6_address_str);
 		return nb_cli_apply_changes(vty, NULL);
 	}
 
@@ -550,6 +562,10 @@ void cli_show_srte_segment_list_segment(struct vty *vty,
 	if (yang_dnode_exists(dnode, "sid-value")) {
 		vty_out(vty, " mpls label %s",
 			yang_dnode_get_string(dnode, "sid-value"));
+	}
+	if (yang_dnode_exists(dnode, "srv6-sid-value")) {
+		vty_out(vty, " ipv6-address %s",
+			yang_dnode_get_string(dnode, "srv6-sid-value"));
 	}
 	if (yang_dnode_exists(dnode, "nai")) {
 		struct ipaddr addr;

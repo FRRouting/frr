@@ -490,7 +490,8 @@ static int parse_encap_seg6(struct rtattr *tb, struct in6_addr *segs)
 			RTA_DATA(tb_encap[SEG6_IPTUNNEL_SRH]);
 
 		for (i = ipt->srh[0].first_segment; i >= 0; i--)
-			memcpy(&segs[i], &ipt->srh[0].segments[i],
+			memcpy(&segs[ipt->srh[0].first_segment - i],
+			       &ipt->srh[0].segments[i],
 			       sizeof(struct in6_addr));
 
 		return ipt->srh[0].first_segment + 1;
@@ -1550,7 +1551,7 @@ static ssize_t fill_seg6ipt_encap(char *buffer, size_t buflen,
 	srh->first_segment = segs->num_segs - 1;
 
 	for (i = 0; i < segs->num_segs; i++) {
-		memcpy(&srh->segments[i], &segs->seg[i],
+		memcpy(&srh->segments[segs->num_segs - i - 1], &segs->seg[i],
 		       sizeof(struct in6_addr));
 	}
 
