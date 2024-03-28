@@ -4042,6 +4042,116 @@ When default route is not present in R2'2 BGP table, 10.139.224.0/20 and 192.0.2
    Total number of prefixes 3
    Router2#
 
+BGP nexthop-group handling
+--------------------------
+
+Some scenarios like BGP peering with multihoming, require BGP to converge as
+fast as possible: when any of the remote peers fails, the multipath selection
+should apply to the remaining peers very quickly.
+
+Actually, when pushing and updating thousands of routes to the system, a bottleneck
+happens at the communication level between *bgpd* and *zebra*, and alters the
+system (`Out of Memory` or high CPU consumption issues). To avoid those problems,
+the global ``bgp nexthop-group`` command changes the way internal messaging happens
+from *bgpd* to *zebra*: nexthop messages are introduced, are further used by route
+messages, and when a failover event happens at BGP level, then *bgpd* will only
+refresh the necessary nexthop messages. Instead of sending thousands of route
+messages, *bgpd* will only send the nexthop messages to *zebra*.
+
+.. clicmd:: bgp nexthop-group
+
+   Enable on all BGP instances the usage of nexthop messages between *bgpd* and
+   *zebra*. By default, the functionality is enabled.
+
+.. clicmd:: show bgp nexthop-group [vrf <vrfname>] [(0-4294967295)] [detail] [json]
+
+   Display the configured nexthop-groups at *bgpd* level. The `detail` keyword
+   displays the attached routes.
+
+.. code-block:: frr
+
+   Router2# show bgp vrf RED_A nexthop-group detail
+   ID: 75757653, #paths 2
+     Flags: 0x0003 (allowRecursion, internalBgp)
+     State: 0x0001 (Installed)
+              via 1001::1 (vrf RED_A) inactive, weight 1
+             parent list count 1
+             parent(s) 75757655
+     Paths:
+       2/1 1::2/128 VRF RED_A flags 0x418
+       2/1 1::1/128 VRF RED_A flags 0x418
+   ID: 75757655, #paths 2
+     Flags: 0x000b (allowRecursion, internalBgp, TypeGroup)
+     State: 0x0001 (Installed)
+             child list count 1
+             child(s) 75757653
+     Paths:
+       2/1 1::2/128 VRF RED_A flags 0x418
+       2/1 1::1/128 VRF RED_A flags 0x418
+
+
+IGP failover benefit
+~~~~~~~~~~~~~~~~~~~~
+
+When an IGP segment or node fails, BGP is informed of the changes thanks to BGP
+nexthop tracking. If BGP uses the nexthop-groups and the given nexthop is still
+reachable, but changed, then BGP only updates the nexthop-group by sending a
+message related to all nexthops-groups using that nexthop.
+
+BGP failover benefit
+~~~~~~~~~~~~~~~~~~~~
+
+When a failure is detected at BGP level, like it is the case when BFD is attached
+to a BGP session, then BGP will flush the RIB of the relevant BGP updates from
+the failed peer.
+
+In the case where the same prefix is announced with two different nexthops, the
+same parent nexthop group is used by both BGP paths. At failover, only one
+nexthop remains; the parent nexthop group is being decremented the child list
+from two to one.
+
+In the case where Addpath is used, the same BGP path can be received from multiple
+peers, and multiple identical BGP Paths may be received. This can be the case of
+recursive BGP paths that have the same nexthop and same prefix. Under those
+conditions, the same parent nexthop-group is used, and refers the same unique
+nexthop. The below example illustrates that the same parent nexthop-group has one
+single child but is used by two peers.
+
+.. code-block:: frr
+
+   Router2# show bgp nexthop-group 71428590 detail
+   ID: 71428590, #paths 6
+   Flags: 0x000b (allowRecursion, internalBgp, TypeParent)
+   State: 0x0001 (Installed)
+           child list count 1 (peer count 2)
+           child(s) 71428577
+   Paths:
+     1/1 172.18.1.101/32 VRF default flags 0xc10
+     1/1 172.18.1.101/32 VRF default flags 0xc10
+     1/1 172.18.1.101/32 VRF default flags 0x418
+     1/1 172.18.1.100/32 VRF default flags 0xc10
+     1/1 172.18.1.100/32 VRF default flags 0xc10
+     1/1 172.18.1.100/32 VRF default flags 0x418
+
+At failover, the BGP path for the failed peer is detached; BGP figures out
+that the failed peer can be safely detached from the parent nexthop-group.
+Consequently, the same parent nexthop-group is kept.
+
+.. note::
+
+   The `bgp suppress-fib-pending` command needs to be used; otherwise BGP
+   does not know for a given update, if the BGP paths have been added or
+   not. More information is given at :ref:`bgp-suppress-fib`.
+
+.. note::
+
+   When using BGP nexthop-groups, the mechanism will not apply to the
+   following routes: routes resolving over blackhole routes, or default
+   routes, blackhole or interface based routes (MPLS-based L3VPN routes),
+   routes with IPv4 mapped IPv6 nexthops. Also, an internal issue prevents
+   from using both :ref:`BGP route filtering <zebra-route-filtering>` with
+   BGP nexthop-group configuration.
+
 .. _bgp-debugging:
 
 Debugging
@@ -4114,6 +4224,10 @@ Debugging
 .. clicmd:: debug bgp zebra
 
    Enable or disable debugging of communications between *bgpd* and *zebra*.
+
+.. clicmd:: debug bgp nexthop-group
+
+   Enable or disable debugging of nexthop-group messaging between *bgpd* and *zebra*.
 
 Dumping Messages and Routing Tables
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
