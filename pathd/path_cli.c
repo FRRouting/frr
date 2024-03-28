@@ -114,9 +114,13 @@ DEFPY(show_srte_policy,
 
 	RB_FOREACH (policy, srte_policy_head, &srte_policies) {
 		char endpoint[ENDPOINT_STR_LENGTH];
-		char binding_sid[16] = "-";
+		char binding_sid[ENDPOINT_STR_LENGTH] = "-";
+		struct in6_addr ipv6_zero = {};
 
 		ipaddr2str(&policy->endpoint, endpoint, sizeof(endpoint));
+		if (!IPV6_ADDR_SAME(&policy->srv6_binding_sid, &ipv6_zero))
+			sid2str(&policy->srv6_binding_sid, binding_sid,
+				ENDPOINT_STR_LENGTH);
 		if (policy->binding_sid != MPLS_LABEL_NONE)
 			snprintf(binding_sid, sizeof(binding_sid), "%u",
 				 policy->binding_sid);
@@ -161,13 +165,15 @@ DEFPY(show_srte_policy_detail,
 	RB_FOREACH (policy, srte_policy_head, &srte_policies) {
 		struct srte_candidate *candidate;
 		char endpoint[ENDPOINT_STR_LENGTH];
-		char binding_sid[16] = "-";
+		char binding_sid[ENDPOINT_STR_LENGTH] = "-";
 		char *segment_list_info;
 		static char undefined_info[] = "(undefined)";
 		static char created_by_pce_info[] = "(created by PCE)";
 
 
 		ipaddr2str(&policy->endpoint, endpoint, sizeof(endpoint));
+		if (!sid_zero_ipv6(&policy->srv6_binding_sid))
+			sid2str(&policy->srv6_binding_sid, binding_sid, 128);
 		if (policy->binding_sid != MPLS_LABEL_NONE)
 			snprintf(binding_sid, sizeof(binding_sid), "%u",
 				 policy->binding_sid);
@@ -466,6 +472,8 @@ int segment_list_has_prefix(
 DEFPY(srte_segment_list_segment, srte_segment_list_segment_cmd,
       "index (0-4294967295)$index <[mpls$has_mpls_label label (16-1048575)$label] "
       "|"
+      "[ipv6-address$has_ipv6_address X:X::X:X$ipv6_address]"
+      "|"
       "[nai$has_nai <"
       "prefix <A.B.C.D/M$prefix_ipv4|X:X::X:X/M$prefix_ipv6>"
       "<algorithm$has_algo (0-1)$algo| iface$has_iface_id (0-4294967295)$iface_id>"
@@ -478,6 +486,8 @@ DEFPY(srte_segment_list_segment, srte_segment_list_segment_cmd,
       "MPLS or IP Label\n"
       "Label\n"
       "Label Value\n"
+      "IPv6 address\n"
+      "IPv6 address Value\n"
       "Segment NAI\n"
       "NAI prefix identifier\n"
       "NAI IPv4 prefix identifier\n"
@@ -504,6 +514,14 @@ DEFPY(srte_segment_list_segment, srte_segment_list_segment_cmd,
 		snprintf(xpath, sizeof(xpath),
 			 "./segment[index='%s']/sid-value", index_str);
 		nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, label_str);
+		return nb_cli_apply_changes(vty, NULL);
+	}
+
+	if (has_ipv6_address != NULL) {
+		snprintf(xpath, sizeof(xpath),
+			 "./segment[index='%s']/srv6-sid-value", index_str);
+		nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY,
+				      ipv6_address_str);
 		return nb_cli_apply_changes(vty, NULL);
 	}
 
@@ -550,6 +568,10 @@ void cli_show_srte_segment_list_segment(struct vty *vty,
 	if (yang_dnode_exists(dnode, "sid-value")) {
 		vty_out(vty, " mpls label %s",
 			yang_dnode_get_string(dnode, "sid-value"));
+	}
+	if (yang_dnode_exists(dnode, "srv6-sid-value")) {
+		vty_out(vty, " ipv6-address %s",
+			yang_dnode_get_string(dnode, "srv6-sid-value"));
 	}
 	if (yang_dnode_exists(dnode, "nai")) {
 		struct ipaddr addr;
@@ -731,6 +753,32 @@ void cli_show_srte_policy_binding_sid(struct vty *vty,
 				      bool show_defaults)
 {
 	vty_out(vty, "   binding-sid %s\n", yang_dnode_get_string(dnode, NULL));
+}
+
+/*
+ * XPath: /frr-pathd:pathd/srte/policy/srv6-binding-sid
+ */
+DEFPY(srte_policy_srv6_binding_sid, srte_policy_srv6_binding_sid_cmd,
+      "[no] srv6-binding-sid X:X::X:X$ipv6address",
+      NO_STR "Segment Routing Policy SRv6-Binding-SID\n"
+	     "SR Policy SRv6-Binding-SID ipv6-address\n")
+{
+	if (!no)
+		nb_cli_enqueue_change(vty, "./srv6-binding-sid", NB_OP_CREATE,
+				      ipv6address_str);
+	else
+		nb_cli_enqueue_change(vty, "./srv6-binding-sid", NB_OP_DESTROY,
+				      NULL);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+void cli_show_srte_policy_srv6_binding_sid(struct vty *vty,
+					   const struct lyd_node *dnode,
+					   bool show_defaults)
+{
+	vty_out(vty, "   srv6-binding-sid %s\n",
+		yang_dnode_get_string(dnode, NULL));
 }
 
 /*
@@ -1359,6 +1407,7 @@ void path_cli_init(void)
 	install_element(SR_TRAFFIC_ENG_NODE, &srte_no_segment_list_cmd);
 	install_element(SR_SEGMENT_LIST_NODE,
 			&srte_segment_list_segment_cmd);
+
 	install_element(SR_SEGMENT_LIST_NODE,
 			&srte_segment_list_no_segment_cmd);
 	install_element(SR_TRAFFIC_ENG_NODE, &srte_policy_cmd);
@@ -1367,6 +1416,7 @@ void path_cli_init(void)
 	install_element(SR_POLICY_NODE, &srte_policy_no_name_cmd);
 	install_element(SR_POLICY_NODE, &srte_policy_binding_sid_cmd);
 	install_element(SR_POLICY_NODE, &srte_policy_no_binding_sid_cmd);
+	install_element(SR_POLICY_NODE, &srte_policy_srv6_binding_sid_cmd);
 	install_element(SR_POLICY_NODE, &srte_policy_candidate_exp_cmd);
 	install_element(SR_POLICY_NODE, &srte_policy_candidate_dyn_cmd);
 	install_element(SR_POLICY_NODE, &srte_policy_no_candidate_cmd);
