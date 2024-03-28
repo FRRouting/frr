@@ -1426,10 +1426,9 @@ static void ospf6_external_lsa_fwd_addr_set(struct ospf6 *ospf6,
 }
 
 void ospf6_asbr_redistribute_add(int type, ifindex_t ifindex,
-				 struct prefix *prefix,
-				 unsigned int nexthop_num,
-				 const struct in6_addr *nexthop,
-				 route_tag_t tag, struct ospf6 *ospf6)
+				 struct prefix *prefix, unsigned int nexthop_num,
+				 const struct in6_addr *nexthop, route_tag_t tag,
+				 struct ospf6 *ospf6, uint32_t metric)
 {
 	route_map_result_t ret;
 	struct ospf6_route troute;
@@ -1498,9 +1497,10 @@ void ospf6_asbr_redistribute_add(int type, ifindex_t ifindex,
 				match->path.metric_type =
 					metric_type(ospf6, type, 0);
 			if (troute.path.cost)
-				match->path.cost = troute.path.cost;
+				match->path.cost = troute.path.cost + metric;
 			else
-				match->path.cost = metric_value(ospf6, type, 0);
+				match->path.cost =
+					metric_value(ospf6, type, 0) + metric;
 
 			if (!IN6_IS_ADDR_UNSPECIFIED(&tinfo.forwarding))
 				memcpy(&info->forwarding, &tinfo.forwarding,
@@ -1511,9 +1511,13 @@ void ospf6_asbr_redistribute_add(int type, ifindex_t ifindex,
 			 * metric fields
 			 */
 			match->path.metric_type = metric_type(ospf6, type, 0);
-			match->path.cost = metric_value(ospf6, type, 0);
+			match->path.cost = metric_value(ospf6, type, 0) + metric;
 			info->tag = tag;
 		}
+
+		/* sum of metrics caused an overflow */
+		if (match->path.cost < metric)
+			match->path.cost = UINT32_MAX;
 
 		info->type = type;
 
@@ -1924,7 +1928,7 @@ static void ospf6_redistribute_default_set(struct ospf6 *ospf6, int originate)
 	case DEFAULT_ORIGINATE_ALWAYS:
 		ospf6_asbr_redistribute_add(DEFAULT_ROUTE, 0,
 					    (struct prefix *)&p, 0, &nexthop, 0,
-					    ospf6);
+					    ospf6, 0);
 		break;
 	}
 }
