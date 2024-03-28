@@ -400,10 +400,12 @@ static int bgp_interface_address_add(ZAPI_CALLBACK_ARGS)
 static int bgp_interface_address_delete(ZAPI_CALLBACK_ARGS)
 {
 	struct listnode *node, *nnode;
-	struct connected *ifc;
+	struct connected *ifc, *connected;
 	struct peer *peer;
 	struct bgp *bgp;
 	struct prefix *addr;
+	struct in6_addr *v6_global = NULL;
+	struct in6_addr *v6_local = NULL;
 	afi_t afi;
 	safi_t safi;
 
@@ -425,7 +427,17 @@ static int bgp_interface_address_delete(ZAPI_CALLBACK_ARGS)
 	addr = ifc->address;
 
 	if (bgp && addr->family == AF_INET6 &&
-	    !IN6_IS_ADDR_LINKLOCAL(&addr->u.prefix)) {
+	    !IN6_IS_ADDR_LINKLOCAL(&addr->u.prefix6)) {
+		/* find another IPv6 global if possible and find the IPv6 link-local */
+		frr_each (if_connected, ifc->ifp->connected, connected) {
+			if (connected->address->family != AF_INET6)
+				continue;
+			if (IN6_IS_ADDR_LINKLOCAL(&connected->address->u.prefix6))
+				v6_local = &connected->address->u.prefix6;
+			else
+				v6_global = &connected->address->u.prefix6;
+		}
+
 		/*
 		 * When we are using the v6 global as part of the peering
 		 * nexthops and we are removing it, then we need to
@@ -436,8 +448,15 @@ static int bgp_interface_address_delete(ZAPI_CALLBACK_ARGS)
 		for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
 			if (IPV6_ADDR_SAME(&peer->nexthop.v6_global,
 					   &addr->u.prefix6)) {
-				memset(&peer->nexthop.v6_global, 0,
-				       IPV6_MAX_BYTELEN);
+				if (v6_global)
+					IPV6_ADDR_COPY(&peer->nexthop.v6_global,
+						       v6_global);
+				else if (v6_local)
+					IPV6_ADDR_COPY(&peer->nexthop.v6_global,
+						       v6_local);
+				else
+					memset(&peer->nexthop.v6_global, 0,
+					       IPV6_MAX_BYTELEN);
 				FOREACH_AFI_SAFI (afi, safi)
 					bgp_announce_route(peer, afi, safi,
 							   true);
