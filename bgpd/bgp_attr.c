@@ -1365,6 +1365,7 @@ bgp_attr_malformed(struct bgp_attr_parser_args *args, uint8_t subcode,
 	 * the caller therefore signals this with the seperate length argument
 	 */
 	uint8_t *notify_datap = (length > 0 ? args->startp : NULL);
+	bool unhandled_attr = false;
 
 	if (bgp_debug_update(peer, NULL, NULL, 1)) {
 		char attr_str[BUFSIZ] = {0};
@@ -1398,6 +1399,7 @@ bgp_attr_malformed(struct bgp_attr_parser_args *args, uint8_t subcode,
 	case BGP_ATTR_AS4_AGGREGATOR:
 	case BGP_ATTR_AGGREGATOR:
 	case BGP_ATTR_ATOMIC_AGGREGATE:
+	case BGP_ATTR_PREFIX_SID:
 		return BGP_ATTR_PARSE_PROCEED;
 
 	/* Core attributes, particularly ones which may influence route
@@ -1425,6 +1427,15 @@ bgp_attr_malformed(struct bgp_attr_parser_args *args, uint8_t subcode,
 					  BGP_NOTIFY_UPDATE_ERR, subcode,
 					  notify_datap, length);
 		return BGP_ATTR_PARSE_ERROR;
+	default:
+		/* Unknown attributes, that are handled by this function
+		 * should be treated as withdraw, to prevent one more CVE
+		 * from being introduced.
+		 */
+		flog_err(EC_BGP_ATTR_FLAG,
+			 "%s attribute received, while it is not known how to handle it, treating as withdraw",
+			 lookup_msg(attr_str, args->type, NULL));
+		unhandled_attr = true;
 	}
 
 	/* Partial optional attributes that are malformed should not cause
@@ -1436,8 +1447,8 @@ bgp_attr_malformed(struct bgp_attr_parser_args *args, uint8_t subcode,
 	    && CHECK_FLAG(flags, BGP_ATTR_FLAG_PARTIAL))
 		return BGP_ATTR_PARSE_WITHDRAW;
 
-	/* default to reset */
-	return BGP_ATTR_PARSE_ERROR_NOTIFYPLS;
+	return unhandled_attr ? BGP_ATTR_PARSE_WITHDRAW
+			      : BGP_ATTR_PARSE_ERROR_NOTIFYPLS;
 }
 
 /* Find out what is wrong with the path attribute flag bits and log the error.
@@ -3163,8 +3174,6 @@ enum bgp_attr_parse_ret bgp_attr_prefix_sid(struct bgp_attr_parser_args *args)
 	struct attr *const attr = args->attr;
 	enum bgp_attr_parse_ret ret;
 
-	attr->flag |= ATTR_FLAG_BIT(BGP_ATTR_PREFIX_SID);
-
 	uint8_t type;
 	uint16_t length;
 	size_t headersz = sizeof(type) + sizeof(length);
@@ -3213,6 +3222,8 @@ enum bgp_attr_parse_ret bgp_attr_prefix_sid(struct bgp_attr_parser_args *args)
 				args->total);
 		}
 	}
+
+	SET_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_PREFIX_SID));
 
 	return BGP_ATTR_PARSE_PROCEED;
 }
