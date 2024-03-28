@@ -1,0 +1,32 @@
+{
+  "routes": {
+    "fd00:500::/64": [
+      {
+        "valid": true,
+        "bestpath": true,
+        "nexthops": [
+          {
+            "ip": "fd00:1000::2",
+            "afi": "ipv6",
+            "scope": "global",
+            "used": true
+          }
+        ]
+      }
+    ],
+    "fd00:600::/64": [
+      {
+        "valid": true,
+        "bestpath": true,
+        "path": "65600",
+        "nexthops": [
+          {
+            "afi": "ipv6",
+            "scope": "link-local",
+            "used": true
+          }
+        ]
+      }
+    ]
+  }
+}

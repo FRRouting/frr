@@ -1,0 +1,47 @@
+{
+  "routes": {
+    "fd00:500::/64": [
+      {
+        "valid": true,
+        "bestpath": true,
+        "path": "65500",
+        "nexthops": [
+          {
+            "ip": "fd00:0:1::1",
+            "afi": "ipv6",
+            "scope": "global",
+            "used": true
+          }
+        ]
+      },
+      {
+        "valid": true,
+        "multipath": true,
+        "path": "65500",
+        "nexthops": [
+          {
+            "ip": "fd00:0:2::1",
+            "afi": "ipv6",
+            "scope": "global",
+            "used": true
+          }
+        ]
+      }
+    ],
+    "fd00:600::/64": [
+      {
+        "valid": true,
+        "bestpath": true,
+        "path": "65600",
+        "nexthops": [
+          {
+            "ip": "fd00:0:9::7",
+            "afi": "ipv6",
+            "scope": "global",
+            "used": true
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,44 @@
+{
+  "routes": {
+    "192.168.5.0/24": [
+      {
+        "valid": true,
+        "bestpath": true,
+        "path": "65500",
+        "nexthops": [
+          {
+            "ip": "172.16.0.1",
+            "afi": "ipv4",
+            "used": true
+          }
+        ]
+      },
+      {
+        "valid": true,
+        "multipath": true,
+        "path": "65500",
+        "nexthops": [
+          {
+            "ip": "172.16.1.1",
+            "afi": "ipv4",
+            "used": true
+          }
+        ]
+      }
+    ],
+    "192.168.6.0/24": [
+      {
+        "valid": true,
+        "bestpath": true,
+        "path": "65600",
+        "nexthops": [
+          {
+            "ip": "172.17.0.7",
+            "afi": "ipv4",
+            "used": true
+          }
+        ]
+      }
+    ]
+  }
+}
