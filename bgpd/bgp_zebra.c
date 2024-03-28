@@ -357,9 +357,10 @@ static int bgp_interface_address_add(ZAPI_CALLBACK_ARGS)
 			    ((IS_MAPPED_IPV6(&peer->nexthop.v6_global)) ||
 			     IN6_IS_ADDR_LINKLOCAL(&peer->nexthop.v6_global))) {
 				if (bgp_debug_zebra(ifc->address)) {
-					zlog_debug("Update peer %pBP's current intf addr %pI6 and send updates",
+					zlog_debug("Update peer %pBP's current intf global addr from %pI6 to %pI6 and send updates",
 						   peer,
-						   &peer->nexthop.v6_global);
+						   &peer->nexthop.v6_global,
+						   &addr->u.prefix6);
 				}
 				memcpy(&peer->nexthop.v6_global,
 				       &addr->u.prefix6, IPV6_MAX_BYTELEN);
