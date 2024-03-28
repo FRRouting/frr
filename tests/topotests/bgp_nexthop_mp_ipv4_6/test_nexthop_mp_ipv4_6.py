@@ -226,6 +226,58 @@ def test_bgp_ping_ok_step1():
     check_ping("h1", "fd00:800::1", True, 5, 1)
 
 
+def test_bgp_ipv6_nexthop_step2():
+    """
+    Remove IPv6 global on r1 and r7
+    Assert that BGP has correct ipv6 nexthops.
+    """
+
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    tgen.gears["r1"].vtysh_cmd(
+        """
+configure
+interface eth-r2
+ no ipv6 address fd00:0:1::1/64
+!
+interface eth-r3
+ no ipv6 address fd00:0:2::1/64
+"""
+    )
+
+    for rname, router in tgen.routers().items():
+        if "h" in rname:
+            # hosts
+            continue
+        if "rs1" in rname:
+            continue
+        ref_file = "{}/{}/bgp_ipv6_step2.json".format(CWD, rname)
+        expected = json.loads(open(ref_file).read())
+        test_func = partial(
+            topotest.router_json_cmp,
+            router,
+            "show bgp ipv6 unicast json",
+            expected,
+        )
+        _, res = topotest.run_and_expect(test_func, None, count=30, wait=1)
+        assertmsg = "{}: BGP IPv6 Nexthop failure".format(rname)
+        assert res is None, assertmsg
+
+
+def test_bgp_ping_ok_step2():
+    "Check that h1 pings h2 and h3"
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    check_ping("h1", "192.168.7.1", True, 5, 1)
+    check_ping("h1", "fd00:700::1", True, 5, 1)
+    check_ping("h1", "192.168.8.1", True, 5, 1)
+    check_ping("h1", "fd00:800::1", True, 5, 1)
+
+
 if __name__ == "__main__":
     args = ["-s"] + sys.argv[1:]
     sys.exit(pytest.main(args))
