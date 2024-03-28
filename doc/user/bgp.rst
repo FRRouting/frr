@@ -3934,6 +3934,60 @@ When default route is not present in R2'2 BGP table, 10.139.224.0/20 and 192.0.2
    Total number of prefixes 3
    Router2#
 
+BGP nexthop-group handling
+--------------------------
+
+Some scenarios like BGP peering with multihoming, require BGP to converge as
+fast as possible, when switching the routes from the primary gateway with the
+secondary one. More generally, when pushing and updating thousands of routes
+to the system, a bottleneck may happen at the communication level between
+*bgpd* and *zebra*, and may alter the system (`Out of Memory` or high CPU
+consumption issues). To avoid those problems, the global ``bgp nexthop-group``
+command changes the way internal messaging happens from *bgpd* to *zebra*:
+nexthop messages are introduced, are further used by route messages, and when a
+failover event happens at BGP level, then *bgpd* will only refresh the necessary
+nexthop messages. This specific case avoids sending thousands of additional
+messages to *zebra*.
+
+.. clicmd:: bgp nexthop-group
+
+   Enable on all BGP instances the usage of nexthop messages between *bgpd* and
+   *zebra*. By default, the functionality is enabled.
+
+.. clicmd:: show bgp nexthop-group [vrf <vrfname>] [(0-4294967295)] [detail] [json]
+
+   Display the configured nexthop-groups at *bgpd* level. The `detail` keyword
+   displays the attached routes.
+
+.. code-block:: frr
+
+   Router2# show bgp vrf RED_A nexthop-group detail
+   ID: 75757653, #paths 2
+     Flags: 0x0003 (allowRecursion, internalBgp)
+     State: 0x0001 (Installed)
+              via 1001::1 (vrf RED_A) inactive, weight 1
+             dependents 75757655
+     Paths:
+       2/1 1::2/128 VRF RED_A flags 0x418
+       2/1 1::1/128 VRF RED_A flags 0x418
+   ID: 75757655, #paths 2
+     Flags: 0x000b (allowRecursion, internalBgp, TypeGroup)
+     State: 0x0001 (Installed)
+             depends count 1
+             depends 75757653
+     Paths:
+       2/1 1::2/128 VRF RED_A flags 0x418
+       2/1 1::1/128 VRF RED_A flags 0x418
+
+.. note::
+
+   When using BGP nexthop-groups, the mechanism will not apply to the
+   following routes: routes resolving over blackhole routes, or default
+   routes, blackhole or interface based routes (MPLS-based L3VPN routes),
+   routes with IPv4 mapped IPv6 nexthops. Also, an internal issue prevents
+   from using both :ref:`BGP route filtering <zebra-route-filtering> with
+   BGP nexthop-group configuration.
+
 .. _bgp-debugging:
 
 Debugging
@@ -4006,6 +4060,10 @@ Debugging
 .. clicmd:: debug bgp zebra
 
    Enable or disable debugging of communications between *bgpd* and *zebra*.
+
+.. clicmd:: debug bgp nexthop-group
+
+   Enable or disable debugging of nexthop-group messaging between *bgpd* and *zebra*.
 
 Dumping Messages and Routing Tables
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
