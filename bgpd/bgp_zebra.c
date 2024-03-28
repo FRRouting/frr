@@ -404,6 +404,8 @@ static int bgp_interface_address_delete(ZAPI_CALLBACK_ARGS)
 	struct peer *peer;
 	struct bgp *bgp;
 	struct prefix *addr;
+	afi_t afi;
+	safi_t safi;
 
 	bgp = bgp_lookup_by_vrf_id(vrf_id);
 
@@ -422,7 +424,8 @@ static int bgp_interface_address_delete(ZAPI_CALLBACK_ARGS)
 
 	addr = ifc->address;
 
-	if (bgp) {
+	if (bgp && addr->family == AF_INET6 &&
+	    !IN6_IS_ADDR_LINKLOCAL(&addr->u.prefix)) {
 		/*
 		 * When we are using the v6 global as part of the peering
 		 * nexthops and we are removing it, then we need to
@@ -431,17 +434,10 @@ static int bgp_interface_address_delete(ZAPI_CALLBACK_ARGS)
 		 * we do not want the peering to bounce.
 		 */
 		for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
-			afi_t afi;
-			safi_t safi;
-
-			if (addr->family == AF_INET)
-				continue;
-
-			if (!IN6_IS_ADDR_LINKLOCAL(&addr->u.prefix6)
-			    && memcmp(&peer->nexthop.v6_global,
-				      &addr->u.prefix6, 16)
-				       == 0) {
-				memset(&peer->nexthop.v6_global, 0, 16);
+			if (IPV6_ADDR_SAME(&peer->nexthop.v6_global,
+					   &addr->u.prefix6)) {
+				memset(&peer->nexthop.v6_global, 0,
+				       IPV6_MAX_BYTELEN);
 				FOREACH_AFI_SAFI (afi, safi)
 					bgp_announce_route(peer, afi, safi,
 							   true);
