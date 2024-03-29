@@ -1,0 +1,33 @@
+{
+    "1001::/64":[
+    {
+      "prefix":"1001::/64",
+      "prefixLen":64,
+      "protocol":"bgp",
+      "vrfId":0,
+      "vrfName":"default",
+      "selected":true,
+      "destSelected":true,
+      "distance":200,
+      "metric":0,
+      "table":254,
+      "nexthops":[
+        {
+          "ip":"::ffff:c000:204",
+          "afi":"ipv6",
+          "active":true,
+          "recursive":true,
+          "weight":1
+        },
+        {
+          "ip":"172.31.0.4",
+          "afi":"ipv4",
+          "interfaceName":"r1-eth0",
+          "resolver":true,
+          "active":true,
+          "weight":1
+        }
+      ]
+    }
+  ]
+}
