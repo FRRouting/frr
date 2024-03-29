@@ -626,6 +626,8 @@ static void bgp_process_nexthop_update(struct bgp_nexthop_cache *bnc,
 	} else if (nhr->nexthop_num) {
 		struct peer *peer = bnc->nht_info;
 
+		prefix_copy(&bnc->resolved_prefix, &nhr->prefix);
+
 		/* notify bgp fsm if nbr ip goes from invalid->valid */
 		if (!bnc->nexthop_num)
 			UNSET_FLAG(bnc->flags, BGP_NEXTHOP_PEER_NOTIFIED);
@@ -731,6 +733,7 @@ static void bgp_process_nexthop_update(struct bgp_nexthop_cache *bnc,
 			}
 		}
 	} else {
+		memset(&bnc->resolved_prefix, 0, sizeof(bnc->resolved_prefix));
 		bnc->flags &= ~BGP_NEXTHOP_EVPN_INCOMPLETE;
 		bnc->flags &= ~BGP_NEXTHOP_VALID;
 		bnc->flags &= ~BGP_NEXTHOP_LABELED_VALID;
