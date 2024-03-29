@@ -1,0 +1,141 @@
+{
+    "vrfId": 0,
+    "routerId": "192.0.2.1",
+    "defaultLocPrf": 100,
+    "localAS": 65500,
+    "routes": {
+        "0.0.0.0/0": [
+            {
+                "valid": true,
+                "bestpath": true,
+                "pathFrom": "external",
+                "prefix":"0.0.0.0",
+                "prefixLen": 0,
+                "network": "0.0.0.0/0",
+                "metric": 0,
+                "weight": 0,
+                "peerId": "172.31.0.2",
+                "path": "65501",
+                "origin": "IGP",
+                "nexthops": [
+                    {
+                        "ip": "172.31.0.2",
+                        "afi": "ipv4",
+                        "used": true
+                    }
+                ]
+            }
+        ],
+        "172.31.1.0/24": [
+            {
+                "valid": true,
+                "bestpath": true,
+                "pathFrom": "external",
+                "prefix": "172.31.1.0",
+                "prefixLen": 24,
+                "network": "172.31.1.0/24",
+                "metric": 0,
+                "weight": 0,
+                "peerId": "172.31.0.2",
+                "path": "65501",
+                "origin": "IGP",
+                "nexthops": [
+                    {
+                        "ip": "172.31.0.2",
+                         "afi": "ipv4",
+                        "used": true
+                    }
+                ]
+            }
+        ],
+        "192.168.1.0/24": [
+            {
+                "valid": true,
+                "bestpath": true,
+                "prefix": "192.168.1.0",
+                "prefixLen": 24,
+                "network": "192.168.1.0/24",
+                "metric": 0,
+                "locPrf": 100,
+                "weight": 0,
+                "peerId": "172.31.0.3",
+                "path": "",
+                "origin": "IGP",
+                "nexthops": [
+                    {
+                        "ip": "172.31.2.4",
+                        "afi": "ipv4",
+                        "used": true
+                    }
+                ]
+            }
+        ],
+        "192.168.2.0/24": [
+            {
+                "valid": true,
+                "bestpath": true,
+                "pathFrom": "internal",
+                "prefix": "192.168.2.0",
+                "prefixLen": 24,
+                "network": "192.168.2.0/24",
+                "metric": 0,
+                "locPrf": 100,
+                "weight": 0,
+                "peerId": "172.31.0.3",
+                "path": "",
+                "origin": "IGP",
+                "nexthops": [
+                    {
+                        "ip":"172.31.3.4",
+                        "afi": "ipv4",
+                        "used": true
+                    }
+                ]
+            }
+        ],
+        "192.168.3.0/24": [
+            {
+                "valid": true,
+                "bestpath": true,
+                "pathFrom": "internal",
+                "prefix": "192.168.3.0",
+                "prefixLen": 24,
+                "network": "192.168.3.0/24",
+                "metric": 0,
+                "locPrf": 100,
+                "weight": 0,
+                "peerId": "172.31.0.3",
+                "path": "",
+                "origin": "IGP",
+                "nexthops": [
+                    {
+                        "ip": "192.168.3.3",
+                        "afi": "ipv4",
+                        "used": true
+                    }
+                ]
+            }
+        ],
+        "192.168.4.0/24": [
+            {
+                "valid": true,
+                "bestpath": true,
+                "prefix": "192.168.4.0",
+                "prefixLen": 24,
+                "network": "192.168.4.0/24",
+                "metric": 0,
+                "weight": 32768,
+                "path": "",
+                "announceNexthopSelf": true,
+                "nhVrfName": "vrf1",
+                "nexthops": [
+                    {
+                        "ip": "0.0.0.0",
+                        "afi": "ipv4",
+                        "used": true
+                    }
+                ]
+            }
+        ]
+    }
+}
