@@ -523,11 +523,22 @@ struct stream *bpacket_reformat_for_peer(struct bpacket *pkt,
 			gnh_modified = 1;
 		}
 
-		if (IN6_IS_ADDR_UNSPECIFIED(mod_v6nhg)) {
-			if (peer->nexthop.v4.s_addr != INADDR_ANY) {
-				ipv4_to_ipv4_mapped_ipv6(mod_v6nhg,
-							 peer->nexthop.v4);
-			}
+		/* Send an IPv4-mapped IPv6 address global nexthop
+		 * if an IPv4 nexthop exists and either:
+		 *  - No IPv6 nexthop is available
+		 *  - A link-local IPv6 nexthop is available but not suitable because:
+		 *    either:
+		 *     - IPv4 prefixes are sent over an IPv6 session
+		 *     - IPv6 prefixes are sent over an IPv4 session
+		 */
+		if (peer->nexthop.v4.s_addr != INADDR_ANY &&
+		    (IN6_IS_ADDR_UNSPECIFIED(mod_v6nhg) ||
+		     (IN6_IS_ADDR_LINKLOCAL(mod_v6nhg) &&
+		      ((peer->connection->su.sa.sa_family == AF_INET6 && paf->afi == AFI_IP) ||
+		       (!peer->conf_if && peer->connection->su.sa.sa_family == AF_INET &&
+			paf->afi == AFI_IP6))))) {
+			ipv4_to_ipv4_mapped_ipv6(mod_v6nhg, peer->nexthop.v4);
+			gnh_modified = 1;
 		}
 
 		if (IS_MAPPED_IPV6(&peer->nexthop.v6_global)) {
