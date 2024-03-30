@@ -2710,6 +2710,7 @@ static int bgp_capability_msg_parse(struct peer *peer, uint8_t *pnt,
 			zlog_info("%s Capability length error", peer->host);
 			bgp_notify_send(peer, BGP_NOTIFY_CEASE,
 					BGP_NOTIFY_SUBCODE_UNSPECIFIC);
+			pnt += length;
 			return BGP_Stop;
 		}
 		action = *pnt;
@@ -2722,7 +2723,7 @@ static int bgp_capability_msg_parse(struct peer *peer, uint8_t *pnt,
 				  peer->host, action);
 			bgp_notify_send(peer, BGP_NOTIFY_CEASE,
 					BGP_NOTIFY_SUBCODE_UNSPECIFIC);
-			return BGP_Stop;
+			goto done;
 		}
 
 		if (bgp_debug_neighbor_events(peer))
@@ -2743,15 +2744,40 @@ static int bgp_capability_msg_parse(struct peer *peer, uint8_t *pnt,
 			zlog_info("%s Capability length error", peer->host);
 			bgp_notify_send(peer, BGP_NOTIFY_CEASE,
 					BGP_NOTIFY_SUBCODE_UNSPECIFIC);
+			pnt += length;
 			return BGP_Stop;
 		}
 
+<<<<<<< HEAD
 		/* Fetch structure to the byte stream. */
 		memcpy(&mpc, pnt + 3, sizeof(struct capability_mp_data));
 		pnt += hdr->length + 3;
 
 		/* We know MP Capability Code. */
 		if (hdr->code == CAPABILITY_CODE_MP) {
+=======
+		/* Ignore capability when override-capability is set. */
+		if (CHECK_FLAG(peer->flags, PEER_FLAG_OVERRIDE_CAPABILITY))
+			goto done;
+
+		capability = lookup_msg(capcode_str, hdr->code, "Unknown");
+
+		switch (hdr->code) {
+		case CAPABILITY_CODE_SOFT_VERSION:
+			bgp_dynamic_capability_software_version(pnt, action,
+								hdr, peer);
+			break;
+		case CAPABILITY_CODE_MP:
+			if (hdr->length < sizeof(struct capability_mp_data)) {
+				zlog_err("%pBP: Capability (%s) structure is not properly filled out, expected at least %zu bytes but header length specified is %d",
+					 peer, capability,
+					 sizeof(struct capability_mp_data),
+					 hdr->length);
+				goto done;
+			}
+
+			memcpy(&mpc, pnt + 3, sizeof(struct capability_mp_data));
+>>>>>>> 30a332dad (bgpd: Fix errors handling for MP/GR capabilities as dynamic capability)
 			pkt_afi = ntohs(mpc.afi);
 			pkt_safi = mpc.safi;
 
@@ -2764,12 +2790,20 @@ static int bgp_capability_msg_parse(struct peer *peer, uint8_t *pnt,
 			if (bgp_map_afi_safi_iana2int(pkt_afi, pkt_safi, &afi,
 						      &safi)) {
 				if (bgp_debug_neighbor_events(peer))
+<<<<<<< HEAD
 					zlog_debug(
 						"%s Dynamic Capability MP_EXT afi/safi invalid (%s/%s)",
 						peer->host,
 						iana_afi2str(pkt_afi),
 						iana_safi2str(pkt_safi));
 				continue;
+=======
+					zlog_debug("%pBP: Dynamic Capability %s afi/safi invalid (%s/%s)",
+						   peer, capability,
+						   iana_afi2str(pkt_afi),
+						   iana_safi2str(pkt_safi));
+				goto done;
+>>>>>>> 30a332dad (bgpd: Fix errors handling for MP/GR capabilities as dynamic capability)
 			}
 
 			/* Address family check.  */
@@ -2797,14 +2831,85 @@ static int bgp_capability_msg_parse(struct peer *peer, uint8_t *pnt,
 				if (peer_active_nego(peer))
 					bgp_clear_route(peer, afi, safi);
 				else
-					return BGP_Stop;
+					goto done;
 			}
+<<<<<<< HEAD
 		} else {
 			flog_warn(
 				EC_BGP_UNRECOGNIZED_CAPABILITY,
 				"%s unrecognized capability code: %d - ignored",
 				peer->host, hdr->code);
 		}
+=======
+			break;
+		case CAPABILITY_CODE_RESTART:
+			if ((hdr->length - 2) % 4) {
+				zlog_err("%pBP: Received invalid Graceful-Restart capability length %d",
+					 peer, hdr->length);
+				bgp_notify_send(peer->connection,
+						BGP_NOTIFY_CEASE,
+						BGP_NOTIFY_SUBCODE_UNSPECIFIC);
+				goto done;
+			}
+
+			bgp_dynamic_capability_graceful_restart(pnt, action,
+								hdr, peer);
+			break;
+		case CAPABILITY_CODE_LLGR:
+			bgp_dynamic_capability_llgr(pnt, action, hdr, peer);
+			break;
+		case CAPABILITY_CODE_ADDPATH:
+			bgp_dynamic_capability_addpath(pnt, action, hdr, peer);
+			break;
+		case CAPABILITY_CODE_PATHS_LIMIT:
+			bgp_dynamic_capability_paths_limit(pnt, action, hdr,
+							   peer);
+			break;
+		case CAPABILITY_CODE_ORF:
+			bgp_dynamic_capability_orf(pnt, action, hdr, peer);
+			break;
+		case CAPABILITY_CODE_FQDN:
+			bgp_dynamic_capability_fqdn(pnt, action, hdr, peer);
+			break;
+		case CAPABILITY_CODE_REFRESH:
+		case CAPABILITY_CODE_AS4:
+		case CAPABILITY_CODE_DYNAMIC:
+		case CAPABILITY_CODE_ENHANCED_RR:
+		case CAPABILITY_CODE_ENHE:
+		case CAPABILITY_CODE_EXT_MESSAGE:
+			break;
+		case CAPABILITY_CODE_ROLE:
+			if (hdr->length != CAPABILITY_CODE_ROLE_LEN) {
+				zlog_err("%pBP: Capability (%s) length error",
+					 peer, capability);
+				bgp_notify_send(peer->connection,
+						BGP_NOTIFY_CEASE,
+						BGP_NOTIFY_SUBCODE_UNSPECIFIC);
+				goto done;
+			}
+
+			uint8_t role;
+
+			if (action == CAPABILITY_ACTION_SET) {
+				SET_FLAG(peer->cap, PEER_CAP_ROLE_RCV);
+				memcpy(&role, pnt + 3, sizeof(role));
+
+				peer->remote_role = role;
+			} else {
+				UNSET_FLAG(peer->cap, PEER_CAP_ROLE_RCV);
+				peer->remote_role = ROLE_UNDEFINED;
+			}
+			break;
+		default:
+			flog_warn(EC_BGP_UNRECOGNIZED_CAPABILITY,
+				  "%pBP: unrecognized capability code: %d - ignored",
+				  peer, hdr->code);
+			break;
+		}
+
+done:
+		pnt += hdr->length + 3;
+>>>>>>> 30a332dad (bgpd: Fix errors handling for MP/GR capabilities as dynamic capability)
 	}
 
 	/* No FSM action necessary */
