@@ -3610,6 +3610,7 @@ static int bgp_capability_msg_parse(struct peer *peer, uint8_t *pnt,
 			zlog_err("%pBP: Capability length error", peer);
 			bgp_notify_send(peer->connection, BGP_NOTIFY_CEASE,
 					BGP_NOTIFY_SUBCODE_UNSPECIFIC);
+			pnt += length;
 			return BGP_Stop;
 		}
 		action = *pnt;
@@ -3622,7 +3623,7 @@ static int bgp_capability_msg_parse(struct peer *peer, uint8_t *pnt,
 				 action);
 			bgp_notify_send(peer->connection, BGP_NOTIFY_CEASE,
 					BGP_NOTIFY_SUBCODE_UNSPECIFIC);
-			return BGP_Stop;
+			goto done;
 		}
 
 		if (bgp_debug_neighbor_events(peer))
@@ -3634,12 +3635,13 @@ static int bgp_capability_msg_parse(struct peer *peer, uint8_t *pnt,
 			zlog_err("%pBP: Capability length error", peer);
 			bgp_notify_send(peer->connection, BGP_NOTIFY_CEASE,
 					BGP_NOTIFY_SUBCODE_UNSPECIFIC);
+			pnt += length;
 			return BGP_Stop;
 		}
 
 		/* Ignore capability when override-capability is set. */
 		if (CHECK_FLAG(peer->flags, PEER_FLAG_OVERRIDE_CAPABILITY))
-			continue;
+			goto done;
 
 		capability = lookup_msg(capcode_str, hdr->code, "Unknown");
 
@@ -3654,7 +3656,7 @@ static int bgp_capability_msg_parse(struct peer *peer, uint8_t *pnt,
 					 peer, capability,
 					 sizeof(struct capability_mp_data),
 					 hdr->length);
-				return BGP_Stop;
+				goto done;
 			}
 
 			memcpy(&mpc, pnt + 3, sizeof(struct capability_mp_data));
@@ -3669,7 +3671,7 @@ static int bgp_capability_msg_parse(struct peer *peer, uint8_t *pnt,
 						   peer, capability,
 						   iana_afi2str(pkt_afi),
 						   iana_safi2str(pkt_safi));
-				continue;
+				goto done;
 			}
 
 			/* Address family check.  */
@@ -3696,7 +3698,7 @@ static int bgp_capability_msg_parse(struct peer *peer, uint8_t *pnt,
 				if (peer_active_nego(peer))
 					bgp_clear_route(peer, afi, safi);
 				else
-					return BGP_Stop;
+					goto done;
 			}
 			break;
 		case CAPABILITY_CODE_RESTART:
@@ -3706,7 +3708,7 @@ static int bgp_capability_msg_parse(struct peer *peer, uint8_t *pnt,
 				bgp_notify_send(peer->connection,
 						BGP_NOTIFY_CEASE,
 						BGP_NOTIFY_SUBCODE_UNSPECIFIC);
-				return BGP_Stop;
+				goto done;
 			}
 
 			bgp_dynamic_capability_graceful_restart(pnt, action,
@@ -3738,7 +3740,7 @@ static int bgp_capability_msg_parse(struct peer *peer, uint8_t *pnt,
 				bgp_notify_send(peer->connection,
 						BGP_NOTIFY_CEASE,
 						BGP_NOTIFY_SUBCODE_UNSPECIFIC);
-				return BGP_Stop;
+				goto done;
 			}
 
 			uint8_t role;
@@ -3760,6 +3762,7 @@ static int bgp_capability_msg_parse(struct peer *peer, uint8_t *pnt,
 			break;
 		}
 
+done:
 		pnt += hdr->length + 3;
 	}
 
