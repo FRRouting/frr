@@ -388,6 +388,9 @@ void vpn_leak_zebra_vrf_sid_update_per_af(struct bgp *bgp, afi_t afi)
 
 	tovpn_sid_ls = XCALLOC(MTYPE_BGP_SRV6_SID, sizeof(struct in6_addr));
 	*tovpn_sid_ls = *tovpn_sid;
+	if (bgp->vpn_policy[afi].tovpn_zebra_vrf_sid_last_sent)
+		XFREE(MTYPE_BGP_SRV6_SID,
+		      bgp->vpn_policy[afi].tovpn_zebra_vrf_sid_last_sent);
 	bgp->vpn_policy[afi].tovpn_zebra_vrf_sid_last_sent = tovpn_sid_ls;
 }
 
@@ -435,6 +438,8 @@ void vpn_leak_zebra_vrf_sid_update_per_vrf(struct bgp *bgp)
 
 	tovpn_sid_ls = XCALLOC(MTYPE_BGP_SRV6_SID, sizeof(struct in6_addr));
 	*tovpn_sid_ls = *tovpn_sid;
+	if (bgp->tovpn_zebra_vrf_sid_last_sent)
+		XFREE(MTYPE_BGP_SRV6_SID, bgp->tovpn_zebra_vrf_sid_last_sent);
 	bgp->tovpn_zebra_vrf_sid_last_sent = tovpn_sid_ls;
 }
 
@@ -482,6 +487,7 @@ void vpn_leak_zebra_vrf_sid_withdraw_per_af(struct bgp *bgp, afi_t afi)
 		bgp->vrf_id, ZEBRA_SEG6_LOCAL_ACTION_UNSPEC, NULL);
 	XFREE(MTYPE_BGP_SRV6_SID,
 	      bgp->vpn_policy[afi].tovpn_zebra_vrf_sid_last_sent);
+	bgp->vpn_policy[afi].tovpn_zebra_vrf_sid_last_sent = NULL;
 }
 
 /*
@@ -508,6 +514,7 @@ void vpn_leak_zebra_vrf_sid_withdraw_per_vrf(struct bgp *bgp)
 			      bgp->vrf_id, ZEBRA_SEG6_LOCAL_ACTION_UNSPEC,
 			      NULL);
 	XFREE(MTYPE_BGP_SRV6_SID, bgp->tovpn_zebra_vrf_sid_last_sent);
+	bgp->tovpn_zebra_vrf_sid_last_sent = NULL;
 }
 
 /*
