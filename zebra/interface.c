@@ -1745,6 +1745,9 @@ interface_bridge_vxlan_vlan_vni_map_update(struct zebra_dplane_ctx *ctx,
 	vlanid_t vid;
 	int i;
 
+	if (vniarray == NULL)
+		return;
+
 	memset(&vni_start, 0, sizeof(vni_start));
 	memset(&vni_end, 0, sizeof(vni_end));
 
