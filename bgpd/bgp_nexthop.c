@@ -1003,6 +1003,8 @@ static void bgp_show_nexthop(struct vty *vty, struct bgp *bgp,
 			if (bnc->is_evpn_gwip_nexthop)
 				json_object_boolean_true_add(json_nexthop,
 							     "isEvpnGatewayIp");
+			json_object_string_addf(json, "resolvedPrefix", "%pFX",
+						&bnc->resolved_prefix);
 		} else {
 			vty_out(vty, " %s valid [IGP metric %d], #paths %d",
 				buf, bnc->metric, bnc->path_count);
@@ -1010,6 +1012,8 @@ static void bgp_show_nexthop(struct vty *vty, struct bgp *bgp,
 				vty_out(vty, ", peer %s", peer->host);
 			if (bnc->is_evpn_gwip_nexthop)
 				vty_out(vty, " EVPN Gateway IP");
+			vty_out(vty, "\n  Resolved prefix %pFX",
+				&bnc->resolved_prefix);
 			vty_out(vty, "\n");
 		}
 		bgp_show_nexthops_detail(vty, bgp, bnc, json_nexthop);
