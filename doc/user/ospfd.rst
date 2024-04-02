@@ -239,6 +239,17 @@ To start OSPF process you have to specify the OSPF router.
    This configuration setting MUST be consistent across all routers within the
    OSPF domain.
 
+.. clicmd:: neighbor A.B.C.D [poll-interval (1-65535)] [priority (0-255)]
+
+
+   Configures OSPF neighbors for non-broadcast multi-access (NBMA) networks
+   and point-to-multipoint non-broadcast networks. The `poll-interval`
+   specifies the rate for sending hello packets to neighbors that are not
+   active. When the configured neighbor is discovered, hello packets will be
+   sent at the rate of the hello-interval. The default `poll-interval` is 60
+   seconds. The `priority` is used to for the Designated Router (DR) election
+   on non-broadcast multi-access networks.
+
 .. clicmd:: network A.B.C.D/M area A.B.C.D
 
 .. clicmd:: network A.B.C.D/M area (0-4294967295)
@@ -580,7 +591,7 @@ Interfaces
    Note that OSPF MD5 authentication requires that time never go backwards
    (correct time is NOT important, only that it never goes backwards), even
    across resets, if ospfd is to be able to promptly reestablish adjacencies
-   with its neighbours after restarts/reboots. The host should have system time
+   with its neighbors after restarts/reboots. The host should have system time
    be set at boot from an external or non-volatile source (e.g. battery backed
    clock, NTP, etc.) or else the system clock should be periodically saved to
    non-volatile storage and restored at boot if MD5 authentication is to be
@@ -612,7 +623,7 @@ Interfaces
    Note that OSPF HMAC cryptographic authentication requires that time never go backwards
    (correct time is NOT important, only that it never goes backwards), even
    across resets, if ospfd is to be able to promptly reestablish adjacencies
-   with its neighbours after restarts/reboots. The host should have system time
+   with its neighbors after restarts/reboots. The host should have system time
    be set at boot from an external or non-volatile source (e.g. battery backed
    clock, NTP, etc.) or else the system clock should be periodically saved to
    non-volatile storage and restored at boot if HMAC cryptographic authentication is to be
@@ -679,7 +690,7 @@ Interfaces
    it's recommended to set the hello delay and hello interval with the same values.
    The default value is 10 seconds.
 
-.. clicmd:: ip ospf network (broadcast|non-broadcast|point-to-multipoint [delay-reflood]|point-to-point [dmvpn])
+.. clicmd:: ip ospf network (broadcast|non-broadcast|point-to-multipoint [delay-reflood|non-broadcast]|point-to-point [dmvpn])
 
    When configuring a point-to-point network on an interface and the interface
    has a /32 address associated with then OSPF will treat the interface
@@ -690,6 +701,13 @@ Interfaces
    When used in a DMVPN network at a spoke, this OSPF will be configured in
    point-to-point, but the HUB will be a point-to-multipoint. To make this
    topology work, specify the optional 'dmvpn' parameter at the spoke.
+
+   When the network is configured as point-to-multipoint and `non-broadcast`
+   is specified, the network doesn't support broadcast or multicast delivery
+   and neighbors cannot be discovered from OSPF hello received from the
+   OSPFAllRouters (224.0.0.5). Rather, they must be explicitly configured
+   using the :clicmd:`neighbor A.B.C.D` configuration command as they are
+   on non-broadcast networks.
 
    When the network is configured as point-to-multipoint and `delay-reflood`
    is specified, LSAs received on the interface from neighbors on the
@@ -838,11 +856,11 @@ Graceful Restart
 
 
    Configure Graceful Restart (RFC 3623) helper support.
-   By default, helper support is disabled for all neighbours.
+   By default, helper support is disabled for all neighbors.
    This config enables/disables helper support on this router
-   for all neighbours.
+   for all neighbors.
    To enable/disable helper support for a specific
-   neighbour, the router-id (A.B.C.D) has to be specified.
+   neighbor, the router-id (A.B.C.D) has to be specified.
 
 .. clicmd:: graceful-restart helper strict-lsa-checking
 
@@ -1082,7 +1100,7 @@ Router Information
    respectively the PCE IP address, Autonomous System (AS) numbers of
    controlled domains, neighbor ASs, flag and scope. For flag and scope, please
    refer to :rfc`5088` for the BITPATTERN recognition. Multiple 'pce neighbor'
-   command could be specified in order to specify all PCE neighbours.
+   command could be specified in order to specify all PCE neighbors.
 
 .. clicmd:: show ip ospf router-info
 

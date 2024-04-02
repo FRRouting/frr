@@ -431,7 +431,7 @@ static struct ospf_neighbor *ospf_nbr_add(struct ospf_interface *oi,
 	memcpy(&nbr->address, p, sizeof(struct prefix));
 
 	nbr->nbr_nbma = NULL;
-	if (oi->type == OSPF_IFTYPE_NBMA) {
+	if (OSPF_IF_NON_BROADCAST(oi)) {
 		struct ospf_nbr_nbma *nbr_nbma;
 		struct listnode *node;
 
@@ -485,7 +485,7 @@ struct ospf_neighbor *ospf_nbr_get(struct ospf_interface *oi,
 		route_unlock_node(rn);
 		nbr = rn->info;
 
-		if (oi->type == OSPF_IFTYPE_NBMA && nbr->state == NSM_Attempt) {
+		if (OSPF_IF_NON_BROADCAST(nbr->oi) && nbr->state == NSM_Attempt) {
 			nbr->src = iph->ip_src;
 			memcpy(&nbr->address, p, sizeof(struct prefix));
 		}

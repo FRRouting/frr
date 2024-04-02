@@ -69,6 +69,7 @@ extern "C" {
 #define OSPF_MTU_IGNORE_DEFAULT             0
 #define OSPF_FAST_HELLO_DEFAULT             0
 #define OSPF_P2MP_DELAY_REFLOOD_DEFAULT	    false
+#define OSPF_P2MP_NON_BROADCAST_DEFAULT	    false
 #define OSPF_OPAQUE_CAPABLE_DEFAULT true
 #define OSPF_PREFIX_SUPPRESSION_DEFAULT	    false
 #define OSPF_AREA_BACKBONE              0x00000000      /* 0.0.0.0 */
