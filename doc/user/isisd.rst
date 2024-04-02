@@ -123,7 +123,7 @@ ISIS Timer
    Set LSP refresh interval in seconds, globally, for an area (level-1) or a
    domain (level-2).
 
-.. clicmd:: max-lsp-lifetime [level-1 | level-2] (360-65535)
+.. clicmd:: max-lsp-lifetime [level-1 | level-2] (350-65535)
 
    Set LSP maximum LSP lifetime in seconds, globally, for an area (level-1) or
    a domain (level-2).
