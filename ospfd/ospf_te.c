@@ -2479,6 +2479,9 @@ static int ospf_te_parse_ri(struct ls_ted *ted, struct ospf_lsa *lsa)
 
 		switch (ntohs(tlvh->type)) {
 		case RI_SR_TLV_SR_ALGORITHM:
+			if (TLV_BODY_SIZE(tlvh) < 1 ||
+			    TLV_BODY_SIZE(tlvh) > ALGORITHM_COUNT)
+				break;
 			algo = (struct ri_sr_tlv_sr_algorithm *)tlvh;
 
 			for (int i = 0; i < ntohs(algo->header.length); i++) {
@@ -2503,6 +2506,8 @@ static int ospf_te_parse_ri(struct ls_ted *ted, struct ospf_lsa *lsa)
 			break;
 
 		case RI_SR_TLV_SRGB_LABEL_RANGE:
+			if (TLV_BODY_SIZE(tlvh) != RI_SR_TLV_LABEL_RANGE_SIZE)
+				break;
 			range = (struct ri_sr_tlv_sid_label_range *)tlvh;
 			size = GET_RANGE_SIZE(ntohl(range->size));
 			lower = GET_LABEL(ntohl(range->lower.value));
@@ -2520,6 +2525,8 @@ static int ospf_te_parse_ri(struct ls_ted *ted, struct ospf_lsa *lsa)
 			break;
 
 		case RI_SR_TLV_SRLB_LABEL_RANGE:
+			if (TLV_BODY_SIZE(tlvh) != RI_SR_TLV_LABEL_RANGE_SIZE)
+				break;
 			range = (struct ri_sr_tlv_sid_label_range *)tlvh;
 			size = GET_RANGE_SIZE(ntohl(range->size));
 			lower = GET_LABEL(ntohl(range->lower.value));
@@ -2537,6 +2544,8 @@ static int ospf_te_parse_ri(struct ls_ted *ted, struct ospf_lsa *lsa)
 			break;
 
 		case RI_SR_TLV_NODE_MSD:
+			if (TLV_BODY_SIZE(tlvh) < RI_SR_TLV_NODE_MSD_SIZE)
+				break;
 			msd = (struct ri_sr_tlv_node_msd *)tlvh;
 			if ((CHECK_FLAG(node->flags, LS_NODE_MSD))
 			    && (node->msd == msd->value))
