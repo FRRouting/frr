@@ -687,7 +687,7 @@ void isis_adj_print_json(struct isis_adjacency *adj, struct json_object *json,
 			default:
 				continue;
 			}
-			backup = (sra->type == ISIS_SR_LAN_BACKUP) ? " (backup)"
+			backup = (sra->type == ISIS_SR_ADJ_BACKUP) ? " (backup)"
 								   : "";
 
 			json_object_string_add(adj_sid_json, "nexthop",
@@ -862,7 +862,7 @@ void isis_adj_print_vty(struct isis_adjacency *adj, struct vty *vty,
 			default:
 				continue;
 			}
-			backup = (sra->type == ISIS_SR_LAN_BACKUP) ? " (backup)"
+			backup = (sra->type == ISIS_SR_ADJ_BACKUP) ? " (backup)"
 								   : "";
 
 			vty_out(vty, "    %s %s%s: %u\n",

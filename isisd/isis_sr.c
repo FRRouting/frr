@@ -462,8 +462,7 @@ void isis_area_delete_backup_adj_sids(struct isis_area *area, int level)
 	struct listnode *node, *nnode;
 
 	for (ALL_LIST_ELEMENTS(area->srdb.adj_sids, node, nnode, sra))
-		if (sra->type == ISIS_SR_LAN_BACKUP
-		    && (sra->adj->level & level))
+		if (sra->type == ISIS_SR_ADJ_BACKUP && (sra->adj->level & level))
 			sr_adj_sid_del(sra);
 }
 
@@ -689,7 +688,7 @@ void sr_adj_sid_add_single(struct isis_adjacency *adj, int family, bool backup,
 		circuit->ext = isis_alloc_ext_subtlvs();
 
 	sra = XCALLOC(MTYPE_ISIS_SR_INFO, sizeof(*sra));
-	sra->type = backup ? ISIS_SR_LAN_BACKUP : ISIS_SR_ADJ_NORMAL;
+	sra->type = backup ? ISIS_SR_ADJ_BACKUP : ISIS_SR_ADJ_NORMAL;
 	sra->input_label = input_label;
 	sra->nexthop.family = family;
 	sra->nexthop.address = nexthop;
@@ -819,7 +818,7 @@ static void sr_adj_sid_del(struct sr_adjacency *sra)
 		exit(1);
 	}
 
-	if (sra->type == ISIS_SR_LAN_BACKUP && sra->backup_nexthops) {
+	if (sra->type == ISIS_SR_ADJ_BACKUP && sra->backup_nexthops) {
 		sra->backup_nexthops->del =
 			(void (*)(void *))isis_nexthop_delete;
 		list_delete(&sra->backup_nexthops);
