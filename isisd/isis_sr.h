@@ -82,7 +82,7 @@ struct sr_local_block {
 /* Segment Routing Adjacency-SID type. */
 enum sr_adj_type {
 	ISIS_SR_ADJ_NORMAL = 0,
-	ISIS_SR_LAN_BACKUP,
+	ISIS_SR_ADJ_BACKUP,
 };
 
 /* Segment Routing Adjacency. */
