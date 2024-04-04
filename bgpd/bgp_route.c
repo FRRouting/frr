@@ -3329,14 +3329,6 @@ static void bgp_process_main_one(struct bgp *bgp, struct bgp_dest *dest,
 	}
 #endif
 
-	group_announce_route(bgp, afi, safi, dest, new_select);
-
-	/* unicast routes must also be annouced to labeled-unicast update-groups
-	 */
-	if (safi == SAFI_UNICAST)
-		group_announce_route(bgp, afi, SAFI_LABELED_UNICAST, dest,
-				     new_select);
-
 	/* FIB update. */
 	if (bgp_fibupd_safi(safi) && (bgp->inst_type != BGP_INSTANCE_TYPE_VIEW)
 	    && !bgp_option_check(BGP_OPT_NO_FIB)) {
@@ -3365,6 +3357,15 @@ static void bgp_process_main_one(struct bgp *bgp, struct bgp_dest *dest,
 				bgp_zebra_withdraw(p, old_select, bgp, safi);
 		}
 	}
+
+	group_announce_route(bgp, afi, safi, dest, new_select);
+
+	/* unicast routes must also be annouced to labeled-unicast update-groups
+	 */
+	if (safi == SAFI_UNICAST)
+		group_announce_route(bgp, afi, SAFI_LABELED_UNICAST, dest,
+				     new_select);
+
 
 	bgp_process_evpn_route_injection(bgp, afi, safi, dest, new_select,
 					 old_select);
