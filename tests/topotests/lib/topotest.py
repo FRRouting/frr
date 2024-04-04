@@ -1296,6 +1296,8 @@ def fix_netns_limits(ns):
 
     sysctl_assure(ns, "net.ipv4.conf.all.ignore_routes_with_linkdown", 1)
     sysctl_assure(ns, "net.ipv6.conf.all.ignore_routes_with_linkdown", 1)
+    sysctl_assure(ns, "net.ipv4.conf.default.ignore_routes_with_linkdown", 1)
+    sysctl_assure(ns, "net.ipv6.conf.default.ignore_routes_with_linkdown", 1)
 
     # igmp
     sysctl_atleast(ns, "net.ipv4.igmp_max_memberships", 1000)
