@@ -343,6 +343,7 @@ static int raw_cmd_loop(void)
 		case CMD_SUCCESS_DAEMON:
 			buf_out[1] = (char)0;
 			break;
+		case CMD_ERR_NO_DAEMON:
 		case CMD_WARNING:
 			buf_out[1] = (char)2;
 			break;
