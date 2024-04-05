@@ -1450,3 +1450,12 @@ void _libfrr_version(void)
 	write(1, banner, sizeof(banner) - 1);
 	_exit(0);
 }
+
+/* Render simple version tuple to string */
+const char *frr_vers2str(uint32_t version, char *buf, int buflen)
+{
+	snprintf(buf, buflen, "%d.%d.%d", MAJOR_FRRVERSION(version),
+		 MINOR_FRRVERSION(version), SUB_FRRVERSION(version));
+
+	return buf;
+}

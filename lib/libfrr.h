@@ -233,6 +233,17 @@ extern bool frr_is_after_fork;
 
 extern bool debug_memstats_at_exit;
 
+/*
+ * Version numbering: MAJOR (8) | MINOR (16) | SUB (8)
+ */
+#define MAKE_FRRVERSION(maj, min, sub)                                         \
+	((((maj) & 0xff) << 24) | (((min) & 0xffff) << 8) | ((sub) & 0xff))
+#define MAJOR_FRRVERSION(v) (((v) >> 24) & 0xff)
+#define MINOR_FRRVERSION(v) (((v) >> 8) & 0xffff)
+#define SUB_FRRVERSION(v)  ((v) & 0xff)
+
+const char *frr_vers2str(uint32_t version, char *buf, int buflen);
+
 #ifdef __cplusplus
 }
 #endif
