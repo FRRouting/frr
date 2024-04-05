@@ -94,9 +94,11 @@ const char *seg6local_context2str(char *str, size_t size,
 		snprintf(str, size, "table %u", ctx->table);
 		return str;
 
-	case ZEBRA_SEG6_LOCAL_ACTION_END_DX2:
 	case ZEBRA_SEG6_LOCAL_ACTION_END_B6:
 	case ZEBRA_SEG6_LOCAL_ACTION_END_B6_ENCAP:
+		snprintfrr(str, size, "nh6 %pI6", &ctx->nh6);
+		return str;
+	case ZEBRA_SEG6_LOCAL_ACTION_END_DX2:
 	case ZEBRA_SEG6_LOCAL_ACTION_END_BM:
 	case ZEBRA_SEG6_LOCAL_ACTION_END_S:
 	case ZEBRA_SEG6_LOCAL_ACTION_END_AS:
