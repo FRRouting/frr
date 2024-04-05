@@ -70,6 +70,7 @@ pathd_pathd_SOURCES = \
 nodist_pathd_pathd_SOURCES = \
 	yang/frr-pathd.yang.c \
 	yang/frr-pathd-flexalgo.yang.c \
+	yang/frr-pathd-triggered-srte.yang.c \
 	# end
 pathd_pathd_LDADD = pathd/libpath.a lib/libfrr.la -lm $(LIBCAP)
 
