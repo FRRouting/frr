@@ -2291,7 +2291,7 @@ int zebra_mpls_fec_register(struct zebra_vrf *zvrf, struct prefix *p,
 		new_client = true;
 	} else {
 		/* Check if the FEC has been statically defined in the config */
-		is_configured_fec = fec->flags & FEC_FLAG_CONFIGURED;
+		is_configured_fec = CHECK_FLAG(fec->flags, FEC_FLAG_CONFIGURED);
 		/* Client may register same FEC with different label index. */
 		new_client =
 			(listnode_lookup(fec->client_list, client) == NULL);
@@ -2382,8 +2382,8 @@ int zebra_mpls_fec_unregister(struct zebra_vrf *zvrf, struct prefix *p,
 	/* If not a configured entry, delete the FEC if no other clients. Before
 	 * deleting, see if any LSP needs to be uninstalled.
 	 */
-	if (!(fec->flags & FEC_FLAG_CONFIGURED)
-	    && list_isempty(fec->client_list)) {
+	if (!CHECK_FLAG(fec->flags, FEC_FLAG_CONFIGURED) &&
+	    list_isempty(fec->client_list)) {
 		mpls_label_t old_label = fec->label;
 		fec->label = MPLS_INVALID_LABEL; /* reset */
 		fec_change_update_lsp(zvrf, fec, old_label);
