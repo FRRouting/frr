@@ -24,6 +24,13 @@
 extern "C" {
 #endif
 
+/* Retrieve the dataplane API version number; see libfrr.h to decode major,
+ * minor, sub version values.
+ * Plugins should pay attention to the major version number, at least, to
+ * be able to detect API changes that may not be backward-compatible.
+ */
+uint32_t zebra_dplane_get_version(void);
+
 /* Key netlink info from zebra ns */
 struct zebra_dplane_info {
 	ns_id_t ns_id;
