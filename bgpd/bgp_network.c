@@ -876,11 +876,7 @@ int bgp_getsockname(struct peer *peer)
 	}
 
 	peer->su_local = sockunion_getsockname(peer->connection->fd);
-	if (!peer->su_local)
-		return -1;
 	peer->su_remote = sockunion_getpeername(peer->connection->fd);
-	if (!peer->su_remote)
-		return -1;
 
 	if (!bgp_zebra_nexthop_set(peer->su_local, peer->su_remote,
 				   &peer->nexthop, peer)) {
