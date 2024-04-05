@@ -1796,6 +1796,22 @@ bgp_connect_fail(struct peer_connection *connection)
 	return bgp_stop(connection);
 }
 
+/* after connect is called(), getpeername is able to return
+ * port and address on non established streams
+ */
+static void bgp_connect_in_progress_update_connection(struct peer *peer)
+{
+	bgp_getsockname(peer);
+	if (!peer->su_remote && !BGP_CONNECTION_SU_UNSPEC(peer->connection)) {
+		/* if connect initiated, then dest port and dest addresses are well known */
+		peer->su_remote = sockunion_dup(&peer->connection->su);
+		if (sockunion_family(peer->su_remote) == AF_INET)
+			peer->su_remote->sin.sin_port = htons(peer->port);
+		else if (sockunion_family(peer->su_remote) == AF_INET6)
+			peer->su_remote->sin6.sin6_port = htons(peer->port);
+	}
+}
+
 /* This function is the first starting point of all BGP connection. It
  * try to connect to remote peer with non-blocking IO.
  */
@@ -1892,6 +1908,8 @@ static enum bgp_fsm_state_progress bgp_start(struct peer_connection *connection)
 				 __func__, peer->connection->fd);
 			return BGP_FSM_FAILURE;
 		}
+		bgp_connect_in_progress_update_connection(peer);
+
 		/*
 		 * - when the socket becomes ready, poll() will signify POLLOUT
 		 * - if it fails to connect, poll() will signify POLLHUP
