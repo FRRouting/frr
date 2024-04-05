@@ -2643,6 +2643,7 @@ static int ospf_te_parse_ext_pref(struct ls_ted *ted, struct ospf_lsa *lsa)
 	struct ext_tlv_prefix *ext;
 	struct ext_subtlv_prefix_sid *pref_sid;
 	uint32_t label;
+	uint16_t len, size;
 
 	/* Get corresponding Subnet from Link State Data Base */
 	ext = (struct ext_tlv_prefix *)TLV_HDR_TOP(lsa->data);
@@ -2663,6 +2664,18 @@ static int ospf_te_parse_ext_pref(struct ls_ted *ted, struct ospf_lsa *lsa)
 
 	ote_debug("  |- Process Extended Prefix LSA %pI4 for subnet %pFX",
 		  &lsa->data->id, &pref);
+
+	/*
+	 * Check Extended Prefix TLV size against LSA size
+	 * as only one TLV is allowed per LSA
+	 */
+	len = TLV_BODY_SIZE(&ext->header);
+	size = lsa->size - (OSPF_LSA_HEADER_SIZE + TLV_HDR_SIZE);
+	if (len != size || len <= 0) {
+		ote_debug("  |- Wrong TLV size: %u instead of %u",
+			  (uint32_t)len, (uint32_t)size);
+		return -1;
+	}
 
 	/* Initialize TLV browsing */
 	ls_pref = subnet->ls_pref;
@@ -2774,8 +2787,20 @@ static int ospf_te_parse_ext_link(struct ls_ted *ted, struct ospf_lsa *lsa)
 	ote_debug("  |- Process Extended Link LSA %pI4 for edge %pI4",
 		  &lsa->data->id, &edge->attributes->standard.local);
 
-	/* Initialize TLV browsing */
-	len = TLV_BODY_SIZE(&ext->header) - EXT_TLV_LINK_SIZE;
+	/*
+	 * Check Extended Link TLV size against LSA size
+	 * as only one TLV is allowed per LSA
+	 */
+	len = TLV_BODY_SIZE(&ext->header);
+	i = lsa->size - (OSPF_LSA_HEADER_SIZE + TLV_HDR_SIZE);
+	if (len != i || len <= 0) {
+		ote_debug("  |- Wrong TLV size: %u instead of %u",
+			  (uint32_t)len, (uint32_t)i);
+		return -1;
+	}
+
+	/* Initialize subTLVs browsing */
+	len -= EXT_TLV_LINK_SIZE;
 	tlvh = (struct tlv_header *)((char *)(ext) + TLV_HDR_SIZE
 				     + EXT_TLV_LINK_SIZE);
 	for (; sum < len; tlvh = TLV_HDR_NEXT(tlvh)) {
@@ -2785,6 +2810,8 @@ static int ospf_te_parse_ext_link(struct ls_ted *ted, struct ospf_lsa *lsa)
 
 		switch (ntohs(tlvh->type)) {
 		case EXT_SUBTLV_ADJ_SID:
+			if (TLV_BODY_SIZE(tlvh) != EXT_SUBTLV_ADJ_SID_SIZE)
+				break;
 			adj = (struct ext_subtlv_adj_sid *)tlvh;
 			label = CHECK_FLAG(adj->flags,
 					   EXT_SUBTLV_LINK_ADJ_SID_VFLG)
@@ -2811,6 +2838,8 @@ static int ospf_te_parse_ext_link(struct ls_ted *ted, struct ospf_lsa *lsa)
 
 			break;
 		case EXT_SUBTLV_LAN_ADJ_SID:
+			if (TLV_BODY_SIZE(tlvh) != EXT_SUBTLV_LAN_ADJ_SID_SIZE)
+				break;
 			ladj = (struct ext_subtlv_lan_adj_sid *)tlvh;
 			label = CHECK_FLAG(ladj->flags,
 					   EXT_SUBTLV_LINK_ADJ_SID_VFLG)
@@ -2840,6 +2869,8 @@ static int ospf_te_parse_ext_link(struct ls_ted *ted, struct ospf_lsa *lsa)
 
 			break;
 		case EXT_SUBTLV_RMT_ITF_ADDR:
+			if (TLV_BODY_SIZE(tlvh) != EXT_SUBTLV_RMT_ITF_ADDR_SIZE)
+				break;
 			rmt = (struct ext_subtlv_rmt_itf_addr *)tlvh;
 			if (CHECK_FLAG(atr->flags, LS_ATTR_NEIGH_ADDR)
 			    && IPV4_ADDR_SAME(&atr->standard.remote,
