@@ -454,7 +454,7 @@ void isis_zebra_send_adjacency_sid(int cmd, const struct sr_adjacency *sra)
 	znh->labels[0] = MPLS_LABEL_IMPLICIT_NULL;
 
 	/* Set backup nexthops. */
-	if (sra->type == ISIS_SR_LAN_BACKUP) {
+	if (sra->type == ISIS_SR_ADJ_BACKUP) {
 		int count;
 
 		count = isis_zebra_add_nexthops(isis, sra->backup_nexthops,

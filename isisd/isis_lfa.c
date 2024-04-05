@@ -916,9 +916,8 @@ int isis_tilfa_check(struct isis_spftree *spftree_pc,
 
 		adj = isis_adj_find(spftree_pc->area, spftree_pc->level,
 				    vertex->N.id);
-		if (adj
-		    && isis_sr_adj_sid_find(adj, spftree_pc->family,
-					    ISIS_SR_LAN_BACKUP)) {
+		if (adj && isis_sr_adj_sid_find(adj, spftree_pc->family,
+						ISIS_SR_ADJ_BACKUP)) {
 			if (IS_DEBUG_LFA)
 				zlog_debug(
 					"ISIS-LFA: %s %s already covered by node protection",
