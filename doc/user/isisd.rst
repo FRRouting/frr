@@ -301,7 +301,7 @@ Showing ISIS information
 
    Show summary information about ISIS.
 
-.. clicmd:: show isis hostname
+.. clicmd:: show isis [vrf <NAME|all>] hostname
 
    Show information about ISIS node.
 
@@ -320,17 +320,17 @@ Showing ISIS information
    Show the ISIS database globally, for a specific LSP id without or with
    details.
 
-.. clicmd:: show isis topology [level-1|level-2] [algorithm [(128-255)]]
+.. clicmd:: show isis [vrf <NAME|all>] topology [level-1|level-2] [algorithm [(128-255)]]
 
    Show topology IS-IS paths to Intermediate Systems, globally, in area
    (level-1) or domain (level-2).
 
-.. clicmd:: show isis route [level-1|level-2] [prefix-sid|backup] [algorithm [(128-255)]]
+.. clicmd:: show isis [vrf <NAME|all>] route [level-1|level-2] [prefix-sid|backup] [algorithm [(128-255)]]
 
    Show the ISIS routing table, as determined by the most recent SPF
    calculation.
 
-.. clicmd:: show isis fast-reroute summary [level-1|level-2]
+.. clicmd:: show isis [vrf <NAME|all>] fast-reroute summary [level-1|level-2]
 
    Show information about the number of prefixes having LFA protection,
    and network-wide LFA coverage.
