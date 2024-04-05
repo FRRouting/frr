@@ -811,12 +811,17 @@ int bgp_getsockname(struct peer *peer)
 		peer->su_remote = NULL;
 	}
 
+<<<<<<< HEAD
 	peer->su_local = sockunion_getsockname(peer->fd);
 	if (!peer->su_local)
 		return -1;
 	peer->su_remote = sockunion_getpeername(peer->fd);
 	if (!peer->su_remote)
 		return -1;
+=======
+	peer->su_local = sockunion_getsockname(peer->connection->fd);
+	peer->su_remote = sockunion_getpeername(peer->connection->fd);
+>>>>>>> ba71303099 (bgpd: remove useless control checks about TCP connection)
 
 	if (!bgp_zebra_nexthop_set(peer->su_local, peer->su_remote,
 				   &peer->nexthop, peer)) {
