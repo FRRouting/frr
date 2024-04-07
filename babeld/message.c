@@ -400,7 +400,13 @@ parse_packet(const unsigned char *from, struct interface *ifp,
             DO_NTOHS(interval, message + 6);
             debugf(BABEL_DEBUG_COMMON,"Received ack-req (%04X %d) from %s on %s.",
                    nonce, interval, format_address(from), ifp->name);
-            send_ack(neigh, nonce, interval);
+            if (interval > 0) {           
+                send_ack(neigh, nonce, interval);
+            } else {
+                debugf(BABEL_DEBUG_COMMON,"Received ack-req (%04X %d) with zero interval from %s on %s.",
+                    nonce, interval, format_address(from), ifp->name);
+                goto done;
+            }
         } else if(type == MESSAGE_ACK) {
             debugf(BABEL_DEBUG_COMMON,"Received ack from %s on %s.",
                    format_address(from), ifp->name);
@@ -475,16 +481,43 @@ parse_packet(const unsigned char *from, struct interface *ifp,
                 neigh->ihu_time = babel_now;
                 neigh->ihu_interval = interval;
                 update_neighbour_metric(neigh, changed);
-                if(interval > 0)
+                if(interval > 0){
                     /* Multiply by 3/2 to allow neighbours to expire. */
                     schedule_neighbours_check(interval * 45, 0);
+                } else {
+                    debugf(BABEL_DEBUG_COMMON, "Received ihu %d (%d) with zero interval from %s on %s for %s.",
+                    txcost, interval,
+                    format_address(from), ifp->name,
+                    format_address(address));
+                    goto done;
+                }
+                    
                 /* RTT sub-TLV. */
                 if(len > 10 + rc)
                     parse_ihu_subtlv(message + 8 + rc, len - 6 - rc,
                                      &hello_send_us, &hello_rtt_receive_time);
             }
         } else if(type == MESSAGE_ROUTER_ID) {
+            if (len < 10) {
+                have_router_id = 0;
+                goto fail;
+            }
             memcpy(router_id, message + 4, 8);
+            // Check if the Router-Id is all zeroes or all ones
+            bool is_all_zeroes = true;
+            bool is_all_ones = true;
+            for (int i = 0; i < 8; i++) {
+                if (router_id[i] != 0x00) {
+                    is_all_zeroes = false;
+                }
+                if (router_id[i] != 0xFF) {
+                    is_all_ones = false;
+                }
+            }
+            if (is_all_zeroes || is_all_ones) {
+                debugf(BABEL_DEBUG_COMMON, "Invalid Router-Id detected. Ignoring TLV.");
+                goto done;
+            } 
             have_router_id = 1;
             debugf(BABEL_DEBUG_COMMON,"Received router-id %s from %s on %s.",
                    format_eui64(router_id), format_address(from), ifp->name);
@@ -607,10 +640,15 @@ parse_packet(const unsigned char *from, struct interface *ifp,
 						    len - parsed_len, channels);
 	    }
 
-	    if (!ignore_update)
-		    update_route(router_id, prefix, plen, seqno, metric,
+	    if (!ignore_update) {
+            if(interval > 0) {
+                update_route(router_id, prefix, plen, seqno, metric,
 				 interval, neigh, nh, channels,
 				 channels_len(channels));
+            } else {
+                debugf(BABEL_DEBUG_COMMON, "Received update with zero interval.");
+            }
+        }	    
 	} else if(type == MESSAGE_REQUEST) {
             unsigned char prefix[16], plen;
             int rc;
@@ -642,6 +680,22 @@ parse_packet(const unsigned char *from, struct interface *ifp,
             unsigned short seqno;
             int rc;
             DO_NTOHS(seqno, message + 4);
+            memcpy(router_id, message + 8, 8);
+            // Check if the Router-Id is all zeroes or all ones
+            bool is_all_zeroes = true;
+            bool is_all_ones = true;
+            for (int i = 0; i < 8; i++) {
+                if (router_id[i] != 0x00) {
+                    is_all_zeroes = false;
+                }
+                if (router_id[i] != 0xFF) {
+                    is_all_ones = false;
+                }
+            }
+            if (is_all_zeroes || is_all_ones) {
+                debugf(BABEL_DEBUG_COMMON, "Invalid Router-Id detected. Ignoring TLV.");
+                goto done;
+            } 
             rc = network_prefix(message[2], message[3], 0,
                                 message + 16, NULL, len - 14, prefix);
             if(rc < 0) goto fail;
