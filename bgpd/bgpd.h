@@ -1469,6 +1469,9 @@ struct peer {
 
 	/* stopped I/O */
 #define PEER_FLAG_IO_STOPPED                (1ULL << 38)
+
+#define PEER_FLAG_EXTENDED_LINK_BANDWIDTH (1ULL << 39)
+
 	/*
 	 *GR-Disabled mode means unset PEER_FLAG_GRACEFUL_RESTART
 	 *& PEER_FLAG_GRACEFUL_RESTART_HELPER
