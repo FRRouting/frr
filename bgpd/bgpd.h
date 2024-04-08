@@ -1480,6 +1480,7 @@ struct peer {
 #define PEER_FLAG_CAPABILITY_SOFT_VERSION (1ULL << 36)
 #define PEER_FLAG_CAPABILITY_FQDN (1ULL << 37)  /* fqdn capability */
 #define PEER_FLAG_AS_LOOP_DETECTION (1ULL << 38) /* as path loop detection */
+#define PEER_FLAG_EXTENDED_LINK_BANDWIDTH (1ULL << 39)
 
 	/*
 	 *GR-Disabled mode means unset PEER_FLAG_GRACEFUL_RESTART
