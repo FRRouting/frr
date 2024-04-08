@@ -804,7 +804,21 @@ sed -i 's/ -M rpki//' %{_sysconfdir}/frr/daemons
 
 %changelog
 
-* Tue Oct 10 2023 Donatas Abraitis <donatas@opensourcerouting.org> - %{version}
+* Mon Apr 08 2024 Jafar Al-Gharaibeh <jafar@atcorp.com> - %{version}
+
+* Mon Apr 08 2024 Jafar Al-Gharaibeh <jafar@atcorp.com> - 10.0
+- Major highlights:
+-   Introduce local host routes
+-   Require libyang 2.1.128
+-   Add suport to configire a log file per daemon
+-   BGP BMP Loc-RIB (RFC9069) support
+-   eBGP-OAD (One Administrative Domain) support
+-   BGP RPKI VRF support
+-   BGP SNMP traps for BGP4-MIBV2
+-   Management (mgmtd) daemon "replace" operation support
+-   BGP dynamic capabilities for addpath, fqdn, orf capabilities
+-   SRv6 encapsulation source address feature
+-   OSPFv3 Point-To-Multipoint mode
 
 * Mon Oct 09 2023 Donatas Abraitis <donatas@opensourcerouting.org> - 9.1
 - Major highlights:
