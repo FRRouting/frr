@@ -1059,7 +1059,7 @@ BGP GR Global Mode Commands
    This command will enable BGP graceful restart functionality at the global
    level.
 
-.. clicmd:: bgp graceful-restart disable
+.. clicmd:: bgp graceful-restart-disable
 
    This command will disable both the functionality graceful restart and helper
    mode.
