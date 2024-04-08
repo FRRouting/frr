@@ -237,11 +237,10 @@ struct ecommunity *ecommunity_parse(uint8_t *pnt, unsigned short length,
 					 disable_ieee_floating);
 }
 
-struct ecommunity *ecommunity_parse_ipv6(uint8_t *pnt, unsigned short length,
-					 bool disable_ieee_floating)
+struct ecommunity *ecommunity_parse_ipv6(uint8_t *pnt, unsigned short length)
 {
 	return ecommunity_parse_internal(pnt, length, IPV6_ECOMMUNITY_SIZE,
-					 disable_ieee_floating);
+					 false);
 }
 
 /* Duplicate the Extended Communities Attribute structure.  */

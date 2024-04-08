@@ -326,8 +326,7 @@ extern void ecommunity_free(struct ecommunity **);
 extern struct ecommunity *ecommunity_parse(uint8_t *, unsigned short,
 					   bool disable_ieee_floating);
 extern struct ecommunity *ecommunity_parse_ipv6(uint8_t *pnt,
-						unsigned short length,
-						bool disable_ieee_floating);
+						unsigned short length);
 extern struct ecommunity *ecommunity_dup(struct ecommunity *);
 extern struct ecommunity *ecommunity_merge(struct ecommunity *,
 					   struct ecommunity *);

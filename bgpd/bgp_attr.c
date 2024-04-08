@@ -2650,10 +2650,7 @@ bgp_attr_ipv6_ext_communities(struct bgp_attr_parser_args *args)
 	if (peer->discard_attrs[args->type] || peer->withdraw_attrs[args->type])
 		goto ipv6_ext_community_ignore;
 
-	ipv6_ecomm = ecommunity_parse_ipv6(
-		stream_pnt(peer->curr), length,
-		CHECK_FLAG(peer->flags,
-			   PEER_FLAG_DISABLE_LINK_BW_ENCODING_IEEE));
+	ipv6_ecomm = ecommunity_parse_ipv6(stream_pnt(peer->curr), length);
 	bgp_attr_set_ipv6_ecommunity(attr, ipv6_ecomm);
 
 	/* XXX: fix ecommunity_parse to use stream API */
