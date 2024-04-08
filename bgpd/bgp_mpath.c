@@ -521,7 +521,7 @@ void bgp_path_info_mpath_update(struct bgp *bgp, struct bgp_dest *dest,
 				struct bgp_maxpaths_cfg *mpath_cfg)
 {
 	uint16_t maxpaths, mpath_count, old_mpath_count;
-	uint32_t bwval;
+	uint64_t bwval;
 	uint64_t cum_bw, old_cum_bw;
 	struct listnode *mp_node, *mp_next_node;
 	struct bgp_path_info *cur_mpath, *new_mpath, *next_mpath, *prev_mpath;
