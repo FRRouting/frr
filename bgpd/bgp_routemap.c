@@ -3196,7 +3196,7 @@ struct rmap_ecomm_lb_set {
 #define RMAP_ECOMM_LB_SET_CUMUL 2
 #define RMAP_ECOMM_LB_SET_NUM_MPATH 3
 	bool non_trans;
-	uint32_t bw;
+	uint64_t bw;
 };
 
 static enum route_map_cmd_result_t
@@ -3207,7 +3207,7 @@ route_set_ecommunity_lb(void *rule, const struct prefix *prefix, void *object)
 	struct peer *peer;
 	struct ecommunity ecom_lb = {0};
 	struct ecommunity_val lb_eval;
-	uint32_t bw_bytes = 0;
+	uint64_t bw_bytes = 0;
 	uint16_t mpath_count = 0;
 	struct ecommunity *new_ecom;
 	struct ecommunity *old_ecom;
@@ -3221,13 +3221,13 @@ route_set_ecommunity_lb(void *rule, const struct prefix *prefix, void *object)
 	/* Build link bandwidth extended community */
 	as = (peer->bgp->as > BGP_AS_MAX) ? BGP_AS_TRANS : peer->bgp->as;
 	if (rels->lb_type == RMAP_ECOMM_LB_SET_VALUE) {
-		bw_bytes = ((uint64_t)rels->bw * 1000 * 1000) / 8;
+		bw_bytes = (rels->bw * 1000 * 1000) / 8;
 	} else if (rels->lb_type == RMAP_ECOMM_LB_SET_CUMUL) {
 		/* process this only for the best path. */
 		if (!CHECK_FLAG(path->flags, BGP_PATH_SELECTED))
 			return RMAP_OKAY;
 
-		bw_bytes = (uint32_t)bgp_path_info_mpath_cumbw(path);
+		bw_bytes = bgp_path_info_mpath_cumbw(path);
 		if (!bw_bytes)
 			return RMAP_OKAY;
 
@@ -3237,7 +3237,7 @@ route_set_ecommunity_lb(void *rule, const struct prefix *prefix, void *object)
 		if (!CHECK_FLAG(path->flags, BGP_PATH_SELECTED))
 			return RMAP_OKAY;
 
-		bw_bytes = ((uint64_t)peer->bgp->lb_ref_bw * 1000 * 1000) / 8;
+		bw_bytes = (peer->bgp->lb_ref_bw * 1000 * 1000) / 8;
 		mpath_count = bgp_path_info_mpath_count(path) + 1;
 		bw_bytes *= mpath_count;
 	}
@@ -3275,7 +3275,7 @@ static void *route_set_ecommunity_lb_compile(const char *arg)
 {
 	struct rmap_ecomm_lb_set *rels;
 	uint8_t lb_type;
-	uint32_t bw = 0;
+	uint64_t bw = 0;
 	char bw_str[40] = {0};
 	char *p, *str;
 	bool non_trans = false;

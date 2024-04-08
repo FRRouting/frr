@@ -224,12 +224,13 @@ static uint32_t uint32_to_ieee_float_uint32(uint32_t u)
  * Encode BGP Link Bandwidth extended community
  *  bandwidth (bw) is in bytes-per-sec
  */
-static inline void encode_lb_extcomm(as_t as, uint32_t bw, bool non_trans,
+static inline void encode_lb_extcomm(as_t as, uint64_t bw, bool non_trans,
 				     struct ecommunity_val *eval,
 				     bool disable_ieee_floating)
 {
-	uint32_t bandwidth =
-		disable_ieee_floating ? bw : uint32_to_ieee_float_uint32(bw);
+	uint64_t bandwidth = disable_ieee_floating
+				     ? bw
+				     : uint32_to_ieee_float_uint32(bw);
 
 	memset(eval, 0, sizeof(*eval));
 	eval->val[0] = ECOMMUNITY_ENCODE_AS;
@@ -385,7 +386,7 @@ extern void bgp_remove_ecomm_from_aggregate_hash(
 					struct ecommunity *ecommunity);
 extern void bgp_aggr_ecommunity_remove(void *arg);
 extern const uint8_t *ecommunity_linkbw_present(struct ecommunity *ecom,
-						uint32_t *bw);
+						uint64_t *bw);
 extern struct ecommunity *ecommunity_replace_linkbw(as_t as,
 						    struct ecommunity *ecom,
 						    uint64_t cum_bw,

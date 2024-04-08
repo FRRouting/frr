@@ -301,7 +301,7 @@ struct attr {
 	uint32_t rmap_table_id;
 
 	/* Link bandwidth value, if any. */
-	uint32_t link_bw;
+	uint64_t link_bw;
 
 	/* EVPN ES */
 	esi_t esi;

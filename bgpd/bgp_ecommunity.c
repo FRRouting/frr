@@ -1805,7 +1805,7 @@ ecommunity_add_origin_validation_state(enum rpki_states rpki_state,
  * return the BGP link bandwidth extended community, if present;
  * the actual bandwidth is returned via param
  */
-const uint8_t *ecommunity_linkbw_present(struct ecommunity *ecom, uint32_t *bw)
+const uint8_t *ecommunity_linkbw_present(struct ecommunity *ecom, uint64_t *bw)
 {
 	const uint8_t *eval;
 	uint32_t i;
@@ -1832,10 +1832,10 @@ const uint8_t *ecommunity_linkbw_present(struct ecommunity *ecom, uint32_t *bw)
 			pnt = ptr_get_be32(pnt, &bwval);
 			(void)pnt; /* consume value */
 			if (bw)
-				*bw = ecom->disable_ieee_floating
-					      ? bwval
-					      : ieee_float_uint32_to_uint32(
-							bwval);
+				*bw = (uint64_t)(ecom->disable_ieee_floating
+							 ? bwval
+							 : ieee_float_uint32_to_uint32(
+								   bwval));
 			return eval;
 		}
 	}
@@ -1852,7 +1852,7 @@ struct ecommunity *ecommunity_replace_linkbw(as_t as, struct ecommunity *ecom,
 	struct ecommunity_val lb_eval;
 	const uint8_t *eval;
 	uint8_t type;
-	uint32_t cur_bw;
+	uint64_t cur_bw;
 
 	/* Nothing to replace if link-bandwidth doesn't exist or
 	 * is non-transitive - just return existing extcommunity.
