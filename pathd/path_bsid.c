@@ -304,17 +304,6 @@ DEFPY(debug_path_bsid, debug_path_bsid_cmd, "[no] debug pathd bsid",
 /*
  * Config Write functions
  */
-
-extern void path_bsid_config_write(struct vty *vty)
-{
-	if (srte_bsid_pool.conf_lower_bound != SRTE_BSID_LOWER_BOUND
-	    || srte_bsid_pool.conf_upper_bound != SRTE_BSID_UPPER_BOUND) {
-		vty_out(vty, "  policy-label-blocks template %u %u\n",
-			srte_bsid_pool.conf_lower_bound,
-			srte_bsid_pool.conf_upper_bound);
-	}
-}
-
 static int path_bsid_cli_debug_config_write(struct vty *vty)
 {
 	if (DEBUG_MODE_CHECK(&path_debug_bsid, DEBUG_MODE_CONF)) {

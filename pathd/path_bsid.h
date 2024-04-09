@@ -59,6 +59,5 @@ extern bool path_bsid_configure_label_range(uint32_t lower_bound,
 extern void path_bsid_show_debugging(struct vty *vty);
 extern void path_bsid_is_allocated(void);
 extern bool path_bsid_enable_pool(bool enable);
-extern void path_bsid_config_write(struct vty *vty);
 
 #endif /* _FRR_PATH_BSID_H_ */

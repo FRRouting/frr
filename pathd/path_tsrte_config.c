@@ -122,6 +122,7 @@ const struct frr_yang_module_info frr_pathd_triggered_srte_info = {
 			 .xpath = "/frr-pathd:pathd/frr-pathd:srte/frr-pathd-triggered-srte:policy-label-blocks/template",
 			 .cbs = {
 				 .apply_finish = pathd_srte_policy_label_blocks_apply_finish,
+				 .cli_show = cli_show_pathd_srte_policy_label_blocks,
 			}
 		},
 		{
@@ -141,6 +142,8 @@ const struct frr_yang_module_info frr_pathd_triggered_srte_info = {
 		},
 	}
 };
+
+/* clang-format on */
 
 int path_zebra_handle_tsrte_bgp_ready(struct zclient *zclient,
 				      struct stream *s)
@@ -979,6 +982,24 @@ void pathd_srte_policy_label_blocks_apply_finish(
 	if (path_bsid_configure_label_range(lower_bound, upper_bound))
 		srte_apply_changes();
 }
+
+void cli_show_pathd_srte_policy_label_blocks(struct vty *vty,
+					     const struct lyd_node *dnode,
+					     bool show_defaults)
+{
+	uint32_t lower_bound, upper_bound;
+
+	lower_bound = yang_dnode_get_uint32(dnode, "./lower-bound");
+	upper_bound = yang_dnode_get_uint32(dnode, "./upper-bound");
+
+	if (!show_defaults && lower_bound == SRTE_BSID_LOWER_BOUND &&
+	    upper_bound == SRTE_BSID_UPPER_BOUND)
+		return;
+
+	vty_out(vty, "  policy-label-blocks template %u %u\n", lower_bound,
+		upper_bound);
+}
+
 
 static int dummy_destroy(struct nb_cb_destroy_args *args)
 {

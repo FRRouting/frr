@@ -1431,8 +1431,8 @@ int config_write_segment_routing(struct vty *vty)
 
 	path_ted_config_write(vty);
 
-	path_bsid_config_write(vty);
-
+	yang_dnode_iterate(config_write_dnode, vty, running_config->dnode,
+			   "/frr-pathd:pathd/srte/frr-pathd-triggered-srte:policy-label-blocks");
 	yang_dnode_iterate(config_write_dnode, vty, running_config->dnode,
 			   "/frr-pathd:pathd/srte/flex-algo");
 	yang_dnode_iterate(config_write_dnode, vty, running_config->dnode,
