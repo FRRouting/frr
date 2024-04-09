@@ -58,6 +58,7 @@ noinst_HEADERS += \
 	ospf6d/ospf6_route.h \
 	ospf6d/ospf6_routemap_nb.h \
 	ospf6d/ospf6_spf.h \
+	ospf6d/ospf6_tlv.h \
 	ospf6d/ospf6_top.h \
 	ospf6d/ospf6_zebra.h \
 	ospf6d/ospf6d.h \

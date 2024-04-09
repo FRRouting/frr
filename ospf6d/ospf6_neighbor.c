@@ -30,6 +30,7 @@
 #include "ospf6_lsa.h"
 #include "ospf6_spf.h"
 #include "ospf6_zebra.h"
+#include "ospf6_tlv.h"
 #include "ospf6_gr.h"
 #include "lib/json.h"
 
