@@ -117,13 +117,13 @@ static struct ospf6_vertex *ospf6_vertex_create(struct ospf6_lsa *lsa)
 	/* name */
 	ospf6_linkstate_prefix2str(&v->vertex_id, v->name, sizeof(v->name));
 
-	if (IS_OSPF6_DEBUG_SPF(PROCESS))
-		zlog_debug("%s: Creating vertex %s of type %s (0x%04hx) lsa %s",
-			   __func__, v->name,
-			   ((ntohs(lsa->header->type) == OSPF6_LSTYPE_ROUTER)
-				    ? "Router"
-				    : "N/W"),
-			   ntohs(lsa->header->type), lsa->name);
+	zlog_debug_cond(IS_OSPF6_DEBUG_SPF(PROCESS),
+			"%s: Creating vertex %s of type %s (0x%04hx) lsa %s",
+			__func__, v->name,
+			((ntohs(lsa->header->type) == OSPF6_LSTYPE_ROUTER)
+				 ? "Router"
+				 : "N/W"),
+			ntohs(lsa->header->type), lsa->name);
 
 
 	/* Associated LSA */
@@ -244,9 +244,9 @@ static char *ospf6_lsdesc_backlink(struct ospf6_lsa *lsa, caddr_t lsdesc,
 		}
 	}
 
-	if (IS_OSPF6_DEBUG_SPF(PROCESS))
-		zlog_debug("Vertex %s Lsa %s Backlink %s", v->name, lsa->name,
-			   (found ? "OK" : "FAIL"));
+	zlog_debug_cond(IS_OSPF6_DEBUG_SPF(PROCESS),
+			"Vertex %s Lsa %s Backlink %s", v->name, lsa->name,
+			(found ? "OK" : "FAIL"));
 
 	return found;
 }
@@ -303,8 +303,8 @@ static void ospf6_nexthop_calc(struct ospf6_vertex *w, struct ospf6_vertex *v,
 		i++;
 	}
 
-	if (i == 0 && IS_OSPF6_DEBUG_SPF(PROCESS))
-		zlog_debug("No nexthop for %s found", w->name);
+	zlog_debug_cond(i == 0 && IS_OSPF6_DEBUG_SPF(PROCESS),
+			"No nexthop for %s found", w->name);
 }
 
 static int ospf6_spf_install(struct ospf6_vertex *v,
@@ -313,21 +313,19 @@ static int ospf6_spf_install(struct ospf6_vertex *v,
 	struct ospf6_route *route;
 	struct ospf6_vertex *prev;
 
-	if (IS_OSPF6_DEBUG_SPF(PROCESS))
-		zlog_debug("SPF install %s (lsa %s) hops %d cost %d", v->name,
-			   v->lsa->name, v->hops, v->cost);
+	zlog_debug_cond(IS_OSPF6_DEBUG_SPF(PROCESS),
+			"SPF install %s (lsa %s) hops %d cost %d", v->name,
+			v->lsa->name, v->hops, v->cost);
 
 	route = ospf6_route_lookup(&v->vertex_id, result_table);
 	if (route && route->path.cost < v->cost) {
-		if (IS_OSPF6_DEBUG_SPF(PROCESS))
-			zlog_debug(
+		zlog_debug_cond(IS_OSPF6_DEBUG_SPF(PROCESS),
 				"  already installed with lower cost (%d), ignore",
 				route->path.cost);
 		ospf6_vertex_delete(v);
 		return -1;
 	} else if (route && route->path.cost == v->cost) {
-		if (IS_OSPF6_DEBUG_SPF(PROCESS))
-			zlog_debug(
+		zlog_debug_cond(IS_OSPF6_DEBUG_SPF(PROCESS),
 				"  another path found to route %pFX lsa %s, merge",
 				&route->prefix, v->lsa->name);
 
@@ -342,13 +340,11 @@ static int ospf6_spf_install(struct ospf6_vertex *v,
 
 		if ((VERTEX_IS_TYPE(ROUTER, v)
 		     && route->path.origin.id != v->lsa->header->id)) {
-			if (IS_OSPF6_DEBUG_SPF(PROCESS)) {
-				zlog_debug(
+			zlog_debug_cond(IS_OSPF6_DEBUG_SPF(PROCESS),
 					"%s: V lsa %s id %u, route id %u are different",
 					__func__, v->lsa->name,
 					ntohl(v->lsa->header->id),
 					ntohl(route->path.origin.id));
-			}
 			return 0;
 		}
 
@@ -608,13 +604,12 @@ static void ospf6_spf_calculation_thread(struct event *t)
 		ospf6_abr_range_reset_cost(ospf6);
 
 	for (ALL_LIST_ELEMENTS_RO(ospf6->area_list, node, oa)) {
-
 		if (oa == ospf6->backbone)
 			continue;
 
 		monotime(&oa->ts_spf);
-		if (IS_OSPF6_DEBUG_SPF(PROCESS))
-			zlog_debug("SPF calculation for Area %s", oa->name);
+		zlog_debug_cond(IS_OSPF6_DEBUG_SPF(PROCESS),
+				"SPF calculation for Area %s", oa->name);
 		if (IS_OSPF6_DEBUG_SPF(DATABASE))
 			ospf6_spf_log_database(oa);
 
@@ -627,9 +622,9 @@ static void ospf6_spf_calculation_thread(struct event *t)
 
 	if (ospf6->backbone) {
 		monotime(&ospf6->backbone->ts_spf);
-		if (IS_OSPF6_DEBUG_SPF(PROCESS))
-			zlog_debug("SPF calculation for Backbone area %s",
-				   ospf6->backbone->name);
+		zlog_debug_cond(IS_OSPF6_DEBUG_SPF(PROCESS),
+				"SPF calculation for Backbone area %s",
+				ospf6->backbone->name);
 		if (IS_OSPF6_DEBUG_SPF(DATABASE))
 			ospf6_spf_log_database(ospf6->backbone);
 
@@ -656,8 +651,7 @@ static void ospf6_spf_calculation_thread(struct event *t)
 
 	ospf6_spf_reason_string(ospf6->spf_reason, rbuf, sizeof(rbuf));
 
-	if (IS_OSPF6_DEBUG_SPF(PROCESS) || IS_OSPF6_DEBUG_SPF(TIME))
-		zlog_debug(
+	zlog_debug_cond(IS_OSPF6_DEBUG_SPF(PROCESS) || IS_OSPF6_DEBUG_SPF(TIME),
 			"SPF processing: # Areas: %d, SPF runtime: %lld sec %lld usec, Reason: %s",
 			areas_processed, (long long)runtime.tv_sec,
 			(long long)runtime.tv_usec, rbuf);
@@ -687,8 +681,8 @@ void ospf6_spf_schedule(struct ospf6 *ospf6, unsigned int reason)
 
 	/* SPF calculation timer is already scheduled. */
 	if (event_is_scheduled(ospf6->t_spf_calc)) {
-		if (IS_OSPF6_DEBUG_SPF(PROCESS) || IS_OSPF6_DEBUG_SPF(TIME))
-			zlog_debug(
+		zlog_debug_cond(IS_OSPF6_DEBUG_SPF(PROCESS) ||
+					IS_OSPF6_DEBUG_SPF(TIME),
 				"SPF: calculation timer is already scheduled: %p",
 				(void *)ospf6->t_spf_calc);
 		return;
@@ -720,8 +714,8 @@ void ospf6_spf_schedule(struct ospf6 *ospf6, unsigned int reason)
 		ospf6->spf_hold_multiplier = 1;
 	}
 
-	if (IS_OSPF6_DEBUG_SPF(PROCESS) || IS_OSPF6_DEBUG_SPF(TIME))
-		zlog_debug("SPF: Rescheduling in %ld msec", delay);
+	zlog_debug_cond(IS_OSPF6_DEBUG_SPF(PROCESS) || IS_OSPF6_DEBUG_SPF(TIME),
+			"SPF: Rescheduling in %ld msec", delay);
 
 	EVENT_OFF(ospf6->t_spf_calc);
 	event_add_timer_msec(master, ospf6_spf_calculation_thread, ospf6, delay,
@@ -1015,16 +1009,16 @@ struct ospf6_lsa *ospf6_create_single_router_lsa(struct ospf6_area *area,
 		num_lsa++;
 		rtr_lsa = ospf6_lsdb_next(end, rtr_lsa);
 	}
-	if (IS_OSPF6_DEBUG_SPF(PROCESS))
-		zlog_debug("%s: adv_router %s num_lsa %u to convert.", __func__,
-			   ifbuf, num_lsa);
+	zlog_debug_cond(IS_OSPF6_DEBUG_SPF(PROCESS),
+			"%s: adv_router %s num_lsa %u to convert.", __func__,
+			ifbuf, num_lsa);
 	if (num_lsa == 1)
 		return lsa;
 
 	if (num_lsa == 0) {
-		if (IS_OSPF6_DEBUG_SPF(PROCESS))
-			zlog_debug("%s: adv_router %s not found in LSDB.",
-				   __func__, ifbuf);
+		zlog_debug_cond(IS_OSPF6_DEBUG_SPF(PROCESS),
+				"%s: adv_router %s not found in LSDB.",
+				__func__, ifbuf);
 		return NULL;
 	}
 
@@ -1088,11 +1082,11 @@ struct ospf6_lsa *ospf6_create_single_router_lsa(struct ospf6_area *area,
 	/* Store Aggregated LSA into area temp lsdb */
 	ospf6_lsdb_add(lsa, area->temp_router_lsa_lsdb);
 
-	if (IS_OSPF6_DEBUG_SPF(PROCESS))
-		zlog_debug("%s: LSA %s id %u type 0%x len %u num_lsa %u",
-			   __func__, lsa->name, ntohl(lsa->header->id),
-			   ntohs(lsa->header->type), ntohs(lsa->header->length),
-			   num_lsa);
+	zlog_debug_cond(IS_OSPF6_DEBUG_SPF(PROCESS),
+			"%s: LSA %s id %u type 0%x len %u num_lsa %u", __func__,
+			lsa->name, ntohl(lsa->header->id),
+			ntohs(lsa->header->type), ntohs(lsa->header->length),
+			num_lsa);
 
 	return lsa;
 }
@@ -1102,8 +1096,7 @@ void ospf6_remove_temp_router_lsa(struct ospf6_area *area)
 	struct ospf6_lsa *lsa = NULL, *lsanext;
 
 	for (ALL_LSDB(area->temp_router_lsa_lsdb, lsa, lsanext)) {
-		if (IS_OSPF6_DEBUG_SPF(PROCESS))
-			zlog_debug(
+		zlog_debug_cond(IS_OSPF6_DEBUG_SPF(PROCESS),
 				"%s Remove LSA %s lsa->lock %u lsdb count %u",
 				__func__, lsa->name, lsa->lock,
 				area->temp_router_lsa_lsdb->count);
@@ -1122,18 +1115,16 @@ int ospf6_ase_calculate_route(struct ospf6 *ospf6, struct ospf6_lsa *lsa,
 
 	assert(lsa);
 
-	if (IS_OSPF6_DEBUG_SPF(PROCESS))
-		zlog_debug("%s :  start", __func__);
+	zlog_debug_cond(IS_OSPF6_DEBUG_SPF(PROCESS), "%s :  start", __func__);
 
 	if (ntohs(lsa->header->type) == OSPF6_LSTYPE_TYPE_7)
-		if (IS_OSPF6_DEBUG_SPF(PROCESS))
-			zlog_debug("%s: Processing Type-7", __func__);
+		zlog_debug_cond(IS_OSPF6_DEBUG_SPF(PROCESS),
+				"%s: Processing Type-7", __func__);
 
 	/* Stay away from any Local Translated Type-7 LSAs */
 	if (CHECK_FLAG(lsa->flag, OSPF6_LSA_LOCAL_XLT)) {
-		if (IS_OSPF6_DEBUG_SPF(PROCESS))
-			zlog_debug("%s: Rejecting Local translated LSA",
-				   __func__);
+		zlog_debug_cond(IS_OSPF6_DEBUG_SPF(PROCESS),
+				"%s: Rejecting Local translated LSA", __func__);
 		return 0;
 	}
 
@@ -1157,9 +1148,9 @@ int ospf6_ase_calculate_route(struct ospf6 *ospf6, struct ospf6_lsa *lsa,
 
 		route = ospf6_route_lookup(&prefix, ospf6->route_table);
 		if (route == NULL) {
-			if (IS_OSPF6_DEBUG_SPF(PROCESS))
-				zlog_debug("%s: no external route %pFX",
-					   __func__, &prefix);
+			zlog_debug_cond(IS_OSPF6_DEBUG_SPF(PROCESS),
+					"%s: no external route %pFX", __func__,
+					&prefix);
 			return 0;
 		}
 
@@ -1174,8 +1165,7 @@ int ospf6_ase_calculate_route(struct ospf6 *ospf6, struct ospf6_lsa *lsa,
 		else if (CHECK_FLAG(route->flag, OSPF6_ROUTE_ADD)
 			 || CHECK_FLAG(route->flag, OSPF6_ROUTE_CHANGE)) {
 			if (hook_add) {
-				if (IS_OSPF6_DEBUG_SPF(PROCESS))
-					zlog_debug(
+				zlog_debug_cond(IS_OSPF6_DEBUG_SPF(PROCESS),
 						"%s: add external route %pFX",
 						__func__, &prefix);
 				(*hook_add)(route);
@@ -1195,9 +1185,9 @@ int ospf6_ase_calculate_route(struct ospf6 *ospf6, struct ospf6_lsa *lsa,
 
 		route = ospf6_route_lookup(&prefix, area->route_table);
 		if (route == NULL) {
-			if (IS_OSPF6_DEBUG_SPF(PROCESS))
-				zlog_debug("%s: no route %pFX, area %s",
-					   __func__, &prefix, area->name);
+			zlog_debug_cond(IS_OSPF6_DEBUG_SPF(PROCESS),
+					"%s: no route %pFX, area %s", __func__,
+					&prefix, area->name);
 			return 0;
 		}
 
@@ -1208,15 +1198,14 @@ int ospf6_ase_calculate_route(struct ospf6 *ospf6, struct ospf6_lsa *lsa,
 		}
 
 		if (CHECK_FLAG(route->flag, OSPF6_ROUTE_REMOVE)) {
-			if (IS_OSPF6_DEBUG_SPF(PROCESS))
-				zlog_debug("%s : remove route %pFX, area %s",
-					   __func__, &prefix, area->name);
+			zlog_debug_cond(IS_OSPF6_DEBUG_SPF(PROCESS),
+					"%s : remove route %pFX, area %s",
+					__func__, &prefix, area->name);
 			ospf6_route_remove(route, area->route_table);
 		} else if (CHECK_FLAG(route->flag, OSPF6_ROUTE_ADD)
 			   || CHECK_FLAG(route->flag, OSPF6_ROUTE_CHANGE)) {
 			if (hook_add) {
-				if (IS_OSPF6_DEBUG_SPF(PROCESS))
-					zlog_debug(
+				zlog_debug_cond(IS_OSPF6_DEBUG_SPF(PROCESS),
 						"%s: add nssa route %pFX, area %s",
 						__func__, &prefix, area->name);
 				(*hook_add)(route);
@@ -1245,9 +1234,9 @@ static void ospf6_ase_calculate_timer(struct event *t)
 	/*  This version simple adds to the table all NSSA areas  */
 	if (ospf6->anyNSSA) {
 		for (ALL_LIST_ELEMENTS(ospf6->area_list, node, nnode, area)) {
-			if (IS_OSPF6_DEBUG_SPF(PROCESS))
-				zlog_debug("%s : looking at area %s", __func__,
-					   area->name);
+			zlog_debug_cond(IS_OSPF6_DEBUG_SPF(PROCESS),
+					"%s : looking at area %s", __func__,
+					area->name);
 
 			type = htons(OSPF6_LSTYPE_TYPE_7);
 			for (ALL_LSDB_TYPED(area->lsdb, type, lsa))
