@@ -1083,7 +1083,7 @@ def test_network_without_import_check_command():
     bgp_vpnv6_table_check(tgen.gears["r2"], group=["172:31::15/128"])
     bgp_vpnv6_table_check(
         tgen.gears["r2"],
-        group=["192:168::255/112", "192:2::/64", "172:31::30/128", "33:33::/64"],
+        group=["192:168::255:0/112", "192:2::/64", "33:33::/64"],
     )
 
     logger.info("Restoring previous configuration without network")
