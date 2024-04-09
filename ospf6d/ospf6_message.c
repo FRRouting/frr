@@ -33,6 +33,7 @@
 
 #include "ospf6_flood.h"
 #include "ospf6d.h"
+#include "ospf6_tlv.h"
 #include "ospf6_gr.h"
 #include <netinet/ip6.h>
 #include "lib/libospf.h"
