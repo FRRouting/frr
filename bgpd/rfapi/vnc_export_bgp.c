@@ -1,21 +1,8 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  *
  * Copyright 2009-2016, LabN Consulting, L.L.C.
  *
- *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 /*
@@ -399,7 +386,6 @@ void vnc_direct_bgp_del_route_ce(struct bgp *bgp, struct agg_node *rn,
 	 * withdraw the route
 	 */
 	bgp_withdraw(bpi->peer, p, 0, /* addpath_id */
-		     NULL,	      /* attr, ignored */
 		     afi, SAFI_UNICAST, ZEBRA_ROUTE_VNC_DIRECT,
 		     BGP_ROUTE_REDISTRIBUTE, NULL, /* RD not used for unicast */
 		     NULL, 0, NULL); /* tag not used for unicast */
@@ -491,7 +477,6 @@ static void vnc_direct_bgp_vpn_disable_ce(struct bgp *bgp, afi_t afi)
 				bgp_withdraw(
 					ri->peer, bgp_dest_get_prefix(dest),
 					0,    /* addpath_id */
-					NULL, /* ignored */
 					AFI_IP, SAFI_UNICAST,
 					ZEBRA_ROUTE_VNC_DIRECT,
 					BGP_ROUTE_REDISTRIBUTE,
@@ -876,7 +861,6 @@ void vnc_direct_bgp_del_prefix(struct bgp *bgp,
 
 			bgp_withdraw(irfd->peer, p, /* prefix */
 				     0,		    /* addpath_id */
-				     NULL,	    /* attr, ignored */
 				     afi, SAFI_UNICAST, ZEBRA_ROUTE_VNC_DIRECT,
 				     BGP_ROUTE_REDISTRIBUTE,
 				     NULL, /* RD not used for unicast */
@@ -906,7 +890,6 @@ void vnc_direct_bgp_del_prefix(struct bgp *bgp,
 
 			bgp_withdraw(irfd->peer, p, /* prefix */
 				     0,		    /* addpath_id */
-				     NULL,	    /* attr, ignored */
 				     afi, SAFI_UNICAST, ZEBRA_ROUTE_VNC_DIRECT,
 				     BGP_ROUTE_REDISTRIBUTE,
 				     NULL, /* RD not used for unicast */
@@ -1143,7 +1126,6 @@ void vnc_direct_bgp_del_nve(struct bgp *bgp, struct rfapi_descriptor *rfd)
 
 					bgp_withdraw(irfd->peer, p, /* prefix */
 						     0,	   /* addpath_id */
-						     NULL, /* attr, ignored */
 						     afi, SAFI_UNICAST,
 						     ZEBRA_ROUTE_VNC_DIRECT,
 						     BGP_ROUTE_REDISTRIBUTE,
@@ -1375,7 +1357,6 @@ static void vnc_direct_del_rn_group_rd(struct bgp *bgp,
 
 	bgp_withdraw(irfd->peer, agg_node_get_prefix(rn), /* prefix */
 		     0,					  /* addpath_id */
-		     NULL,				  /* attr, ignored */
 		     afi, SAFI_UNICAST, ZEBRA_ROUTE_VNC_DIRECT,
 		     BGP_ROUTE_REDISTRIBUTE, NULL, /* RD not used for unicast */
 		     NULL, 0, NULL); /* tag not used for unicast */
@@ -1494,7 +1475,6 @@ static void vnc_direct_bgp_unexport_table(afi_t afi, struct agg_table *rt,
 					bgp_withdraw(irfd->peer,
 						     agg_node_get_prefix(rn),
 						     0,	   /* addpath_id */
-						     NULL, /* attr, ignored */
 						     afi, SAFI_UNICAST,
 						     ZEBRA_ROUTE_VNC_DIRECT,
 						     BGP_ROUTE_REDISTRIBUTE,
@@ -1712,7 +1692,7 @@ void vnc_direct_bgp_rh_add_route(struct bgp *bgp, afi_t afi,
 	 * export expiration timer is already running on
 	 * this route: cancel it
 	 */
-	THREAD_OFF(eti->timer);
+	EVENT_OFF(eti->timer);
 
 	bgp_update(peer, prefix, /* prefix */
 		   0,		 /* addpath_id */
@@ -1724,16 +1704,15 @@ void vnc_direct_bgp_rh_add_route(struct bgp *bgp, afi_t afi,
 	bgp_attr_unintern(&iattr);
 }
 
-static void vncExportWithdrawTimer(struct thread *t)
+static void vncExportWithdrawTimer(struct event *t)
 {
-	struct vnc_export_info *eti = THREAD_ARG(t);
+	struct vnc_export_info *eti = EVENT_ARG(t);
 	const struct prefix *p = agg_node_get_prefix(eti->node);
 
 	/*
 	 * withdraw the route
 	 */
 	bgp_withdraw(eti->peer, p, 0, /* addpath_id */
-		     NULL,	      /* attr, ignored */
 		     family2afi(p->family), SAFI_UNICAST, eti->type,
 		     eti->subtype, NULL, /* RD not used for unicast */
 		     NULL, 0,
@@ -1786,8 +1765,8 @@ void vnc_direct_bgp_rh_del_route(struct bgp *bgp, afi_t afi,
 
 	if (!eti->timer && eti->lifetime <= INT32_MAX) {
 		eti->timer = NULL;
-		thread_add_timer(bm->master, vncExportWithdrawTimer, eti,
-				 eti->lifetime, &eti->timer);
+		event_add_timer(bm->master, vncExportWithdrawTimer, eti,
+				eti->lifetime, &eti->timer);
 		vnc_zlog_debug_verbose(
 			"%s: set expiration timer for %u seconds", __func__,
 			eti->lifetime);
@@ -1943,7 +1922,7 @@ void vnc_direct_bgp_rh_vpn_enable(struct bgp *bgp, afi_t afi)
 					 * already running on
 					 * this route: cancel it
 					 */
-					THREAD_OFF(eti->timer);
+					EVENT_OFF(eti->timer);
 
 					vnc_zlog_debug_verbose(
 						"%s: calling bgp_update",
@@ -2012,13 +1991,12 @@ void vnc_direct_bgp_rh_vpn_disable(struct bgp *bgp, afi_t afi)
 					ZEBRA_ROUTE_VNC_DIRECT_RH,
 					BGP_ROUTE_REDISTRIBUTE);
 				if (eti) {
-					THREAD_OFF(eti->timer);
+					EVENT_OFF(eti->timer);
 					vnc_eti_delete(eti);
 				}
 
 				bgp_withdraw(ri->peer, dest_p, /* prefix */
 					     0,		       /* addpath_id */
-					     NULL,	       /* ignored */
 					     AFI_IP, SAFI_UNICAST,
 					     ZEBRA_ROUTE_VNC_DIRECT_RH,
 					     BGP_ROUTE_REDISTRIBUTE,

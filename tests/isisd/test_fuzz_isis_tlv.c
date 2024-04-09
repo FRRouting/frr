@@ -9,7 +9,7 @@
 #include "memory.h"
 #include "sbuf.h"
 #include "stream.h"
-#include "thread.h"
+#include "frrevent.h"
 
 #include "isisd/isis_circuit.h"
 #include "isisd/isis_tlvs.h"

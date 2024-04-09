@@ -1,30 +1,16 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* BGP Nexthop tracking
  * Copyright (C) 2013 Cumulus Networks, Inc.
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef _BGP_NHT_H
 #define _BGP_NHT_H
 
 /**
- * bgp_parse_nexthop_update() - parse a nexthop update message from Zebra.
+ * bgp_nexthop_update() - process a nexthop update message from Zebra.
  */
-extern void bgp_parse_nexthop_update(int command, vrf_id_t vrf_id);
+extern void bgp_nexthop_update(struct vrf *vrf, struct prefix *match,
+			       struct zapi_route *nhr);
 
 /**
  * bgp_find_or_add_nexthop() - lookup the nexthop cache table for the bnc
@@ -92,12 +78,6 @@ extern void bgp_nht_register_nexthops(struct bgp *bgp);
 extern void bgp_nht_reg_enhe_cap_intfs(struct peer *peer);
 extern void bgp_nht_dereg_enhe_cap_intfs(struct peer *peer);
 extern void evaluate_paths(struct bgp_nexthop_cache *bnc);
-
-/* APIs for setting up and allocating L3 nexthop group ids */
-extern uint32_t bgp_l3nhg_id_alloc(void);
-extern void bgp_l3nhg_id_free(uint32_t nhg_id);
-extern void bgp_l3nhg_init(void);
-void bgp_l3nhg_finish(void);
 
 extern void bgp_nht_ifp_up(struct interface *ifp);
 extern void bgp_nht_ifp_down(struct interface *ifp);

@@ -1,20 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Copyright (C) 2018        Vmware
  *                           Vishal Dhingra
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -27,6 +14,8 @@
 
 
 DEFINE_HOOK(routing_conf_event, (struct nb_cb_create_args *args), (args));
+DEFINE_HOOK(routing_create, (struct nb_cb_create_args *args), (args));
+DEFINE_KOOH(routing_destroy, (struct nb_cb_destroy_args *args), (args));
 
 /*
  * XPath: /frr-routing:routing/control-plane-protocols/control-plane-protocol
@@ -57,11 +46,12 @@ int routing_control_plane_protocols_control_plane_protocol_create(
 		 * find the vrf and store the pointer.
 		 */
 		if (nb_node_has_dependency(args->dnode->schema->priv)) {
-			vrfname = yang_dnode_get_string(args->dnode, "./vrf");
+			vrfname = yang_dnode_get_string(args->dnode, "vrf");
 			vrf = vrf_lookup_by_name(vrfname);
 			assert(vrf);
 			nb_running_set_entry(args->dnode, vrf);
 		}
+		hook_call(routing_create, args);
 		break;
 	};
 
@@ -73,6 +63,8 @@ int routing_control_plane_protocols_control_plane_protocol_destroy(
 {
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
+
+	hook_call(routing_destroy, args);
 
 	/*
 	 * If dependency on VRF module is registered, then VRF
@@ -89,7 +81,7 @@ static void vrf_to_control_plane_protocol(const struct lyd_node *dnode,
 {
 	const char *vrf;
 
-	vrf = yang_dnode_get_string(dnode, "./name");
+	vrf = yang_dnode_get_string(dnode, "name");
 
 	snprintf(xpath, XPATH_MAXLEN, FRR_ROUTING_KEY_XPATH_VRF, vrf);
 }
@@ -99,7 +91,7 @@ static void control_plane_protocol_to_vrf(const struct lyd_node *dnode,
 {
 	const char *vrf;
 
-	vrf = yang_dnode_get_string(dnode, "./vrf");
+	vrf = yang_dnode_get_string(dnode, "vrf");
 
 	snprintf(xpath, XPATH_MAXLEN, FRR_VRF_KEY_XPATH, vrf);
 }

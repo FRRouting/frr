@@ -1,23 +1,10 @@
+# SPDX-License-Identifier: ISC
 #
 # topogen.py
 # Library of helper functions for NetDEF Topology Tests
 #
 # Copyright (c) 2020 by Volta Networks
 #
-#
-# Permission to use, copy, modify, and/or distribute this software
-# for any purpose with or without fee is hereby granted, provided
-# that the above copyright notice and this permission notice appear
-# in all copies.
-#
-# THE SOFTWARE IS PROVIDED "AS IS" AND NETDEF DISCLAIMS ALL WARRANTIES
-# WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
-# MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL NETDEF BE LIABLE FOR
-# ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY
-# DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS,
-# WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS
-# ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE
-# OF THIS SOFTWARE.
 #
 
 """
@@ -31,6 +18,7 @@ Basic usage instructions:
 """
 
 from lib.topolog import logger
+import re
 
 
 class SnmpTester(object):
@@ -85,16 +73,6 @@ class SnmpTester(object):
         # third token onwards is the value of the object
         return tokens[0].split(".", 1)[1]
 
-    @staticmethod
-    def _get_snmp_oid(snmp_output):
-        tokens = snmp_output.strip().split()
-
-        #        if len(tokens) > 5:
-        #            return None
-
-        # third token is the value of the object
-        return tokens[0].split(".", 1)[1]
-
     def _parse_multiline(self, snmp_output):
         results = snmp_output.strip().split("\n")
 
@@ -128,6 +106,151 @@ class SnmpTester(object):
 
         result = self.router.cmd(cmd)
         return self._parse_multiline(result)
+
+    def parse_notif_ipv4(self, notif):
+        # normalise values
+        notif = re.sub(":", "", notif)
+        notif = re.sub('"([0-9]{2}) ([0-9]{2}) "', r"\1\2", notif)
+        notif = re.sub('"([0-9]{2}) "', r"\1", notif)
+        elems = re.findall(r"([0-9,\.]+) = ([0-9,\.]+)", notif)
+
+        # remove common part
+        elems = elems[1:]
+        return elems
+
+    def is_notif_bgp4_valid(self, output_list, address):
+        oid_notif_type = ".1.3.6.1.6.3.1.1.4.1.0"
+        peer_notif_established = ".1.3.6.1.2.1.15.0.1"
+        peer_notif_backward = ".1.3.6.1.2.1.15.0.2"
+        oid_peer_last_error = ".1.3.6.1.2.1.15.3.1.14"
+        oid_peer_remote_addr = ".1.3.6.1.2.1.15.3.1.7"
+        oid_peer_state = ".1.3.6.1.2.1.15.3.1.2"
+
+        nb_notif = len(output_list)
+        for nb in range(0, nb_notif - 1):
+            # identify type of notification
+            # established or BackwardTransition
+
+            if output_list[nb][0][0] != "{}".format(oid_notif_type):
+                return False
+
+            if output_list[nb][0][1] == "{}".format(peer_notif_established):
+                logger.info("Established notification")
+            elif output_list[nb][0][1] == "{}".format(peer_notif_backward):
+                logger.info("Backward transition notification")
+            else:
+                return False
+
+            # same behavior for 2 notification type in bgp4
+            if output_list[nb][1][0] != "{}.{}".format(oid_peer_remote_addr, address):
+                return False
+
+            if output_list[nb][2][0] != "{}.{}".format(oid_peer_last_error, address):
+                return False
+            if output_list[nb][3][0] != "{}.{}".format(oid_peer_state, address):
+                return False
+
+        return True
+
+    def is_notif_bgp4v2_valid(self, output_list, address, type_requested):
+        oid_notif_type = ".1.3.6.1.6.3.1.1.4.1.0"
+        peer_notif_established = ".1.3.6.1.3.5.1.0.1"
+        peer_notif_backward = ".1.3.6.1.3.5.1.0.2"
+        oid_peer_state = ".1.3.6.1.3.5.1.1.2.1.13"
+        oid_peer_local_port = ".1.3.6.1.3.5.1.1.2.1.6"
+        oid_peer_remote_port = ".1.3.6.1.3.5.1.1.2.1.9"
+        oid_peer_err_code_recv = ".1.3.6.1.3.5.1.1.3.1.1"
+        oid_peer_err_sub_code_recv = ".1.3.6.1.3.5.1.1.3.1.2"
+        oid_peer_err_recv_text = ".1.3.6.1.3.5.1.1.3.1.4"
+
+        nb_notif = len(output_list)
+        for nb in range(nb_notif):
+            if output_list[nb][0][0] != "{}".format(oid_notif_type):
+                return False
+
+            if output_list[nb][0][1] == "{}".format(peer_notif_established):
+                logger.info("Established notification")
+                notif_type = "Estab"
+
+            elif output_list[nb][0][1] == "{}".format(peer_notif_backward):
+                logger.info("Backward transition notification")
+                notif_type = "Backward"
+            else:
+                return False
+
+            if notif_type != type_requested:
+                continue
+
+            if output_list[nb][1][0] != "{}.1.{}".format(oid_peer_state, address):
+                continue
+
+            if output_list[nb][2][0] != "{}.1.{}".format(oid_peer_local_port, address):
+                return False
+
+            if output_list[nb][3][0] != "{}.1.{}".format(oid_peer_remote_port, address):
+                return False
+
+            if notif_type == "Estab":
+                return True
+
+            if output_list[nb][4][0] != "{}.1.{}".format(
+                oid_peer_err_code_recv, address
+            ):
+                return False
+
+            if output_list[nb][5][0] != "{}.1.{}".format(
+                oid_peer_err_sub_code_recv, address
+            ):
+                return False
+
+            if output_list[nb][6][0] != "{}.1.{}".format(
+                oid_peer_err_recv_text, address
+            ):
+                return False
+
+            return True
+
+        return False
+
+    def get_notif_bgp4(self, output_file):
+        notifs = []
+        notif_list = []
+        whitecleanfile = re.sub("\t", " ", output_file)
+        results = whitecleanfile.strip().split("\n")
+
+        # don't consider additional SNMP or application messages
+        for result in results:
+            if re.search(r"(\.([0-9]+))+\s", result):
+                notifs.append(result)
+
+        oid_v4 = r"1\.3\.6\.1\.2\.1\.15"
+        for one_notif in notifs:
+            is_ipv4_notif = re.search(oid_v4, one_notif)
+            if is_ipv4_notif != None:
+                formated_notif = self.parse_notif_ipv4(one_notif)
+                notif_list.append(formated_notif)
+
+        return notif_list
+
+    def get_notif_bgp4v2(self, output_file):
+        notifs = []
+        notif_list = []
+        whitecleanfile = re.sub("\t", " ", output_file)
+        results = whitecleanfile.strip().split("\n")
+
+        # don't consider additional SNMP or application messages
+        for result in results:
+            if re.search(r"(\.([0-9]+))+\s", result):
+                notifs.append(result)
+
+        oid_v6 = r"1\.3\.6\.1\.3\.5\.1"
+        for one_notif in notifs:
+            is_ipv6_notif = re.search(oid_v6, one_notif)
+            if is_ipv6_notif != None:
+                formated_notif = self.parse_notif_ipv4(one_notif)
+                notif_list.append(formated_notif)
+
+        return notif_list
 
     def test_oid(self, oid, value):
         print("oid: {}".format(self.get_next(oid)))

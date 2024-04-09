@@ -1,22 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * OSPF Flooding -- RFC2328 Section 13.
  * Copyright (C) 1999, 2000 Toshiaki Takada
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published
- * by the Free Software Foundation; either version 2, or (at your
- * option) any later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -27,7 +12,7 @@
 #include "if.h"
 #include "command.h"
 #include "table.h"
-#include "thread.h"
+#include "frrevent.h"
 #include "memory.h"
 #include "log.h"
 #include "zclient.h"
@@ -49,6 +34,75 @@
 #include "ospfd/ospf_dump.h"
 
 extern struct zclient *zclient;
+
+/** @brief Function to refresh type-5 and type-7 DNA
+ *	   LSAs when we receive an indication LSA.
+ *  @param Ospf instance.
+ *  @return Void.
+ */
+void ospf_refresh_dna_type5_and_type7_lsas(struct ospf *ospf)
+{
+	struct route_node *rn;
+	struct ospf_lsa *lsa = NULL;
+
+	LSDB_LOOP (EXTERNAL_LSDB(ospf), rn, lsa)
+		if (IS_LSA_SELF(lsa) &&
+		    CHECK_FLAG(lsa->data->ls_age, DO_NOT_AGE))
+			ospf_lsa_refresh(ospf, lsa);
+
+	LSDB_LOOP (NSSA_LSDB(ospf), rn, lsa)
+		if (IS_LSA_SELF(lsa) &&
+		    CHECK_FLAG(lsa->data->ls_age, DO_NOT_AGE))
+			ospf_lsa_refresh(ospf, lsa);
+}
+
+/** @brief Function to update area flood reduction states.
+ *  @param area pointer.
+ *  @return Void.
+ */
+void ospf_area_update_fr_state(struct ospf_area *area)
+{
+	unsigned int count_router_lsas = 0;
+
+	if (area == NULL)
+		return;
+
+	count_router_lsas =
+		(unsigned int)(ospf_lsdb_count(area->lsdb, OSPF_ROUTER_LSA) -
+			       ospf_lsdb_count_self(area->lsdb,
+						    OSPF_ROUTER_LSA));
+
+	if (count_router_lsas >
+	    (unsigned int)area->fr_info.router_lsas_recv_dc_bit) {
+		area->fr_info.enabled = false;
+		area->fr_info.area_dc_clear = true;
+		return;
+	} else if (count_router_lsas <
+		   (unsigned int)area->fr_info.router_lsas_recv_dc_bit) {
+		/* This can never happen, total number of router lsas received
+		 * can never be less than router lsas received with dc bit set
+		 */
+		OSPF_LOG_ERR("%s: Counter mismatch for area %pI4", __func__,
+			     &area->area_id);
+		OSPF_LOG_ERR(
+			"%s: router LSAs in lsdb %d router LSAs recvd with dc bit set %d",
+			__func__, count_router_lsas,
+			area->fr_info.router_lsas_recv_dc_bit);
+		return;
+	}
+
+	area->fr_info.area_dc_clear = false;
+
+	if (OSPF_FR_CONFIG(area->ospf, area)) {
+		if (!area->fr_info.enabled) {
+			area->fr_info.enabled = true;
+			area->fr_info.state_changed = true;
+		}
+	} else {
+		area->fr_info.enabled = false;
+		area->fr_info.area_dc_clear = true;
+	}
+}
 
 /* Do the LSA acking specified in table 19, Section 13.5, row 2
  * This get called from ospf_flood_out_interface. Declared inline
@@ -100,11 +154,11 @@ struct external_info *ospf_external_info_check(struct ospf *ospf,
 		redist_on =
 			is_default_prefix4(&p)
 				? vrf_bitmap_check(
-					zclient->default_information[AFI_IP],
-					ospf->vrf_id)
-				: (zclient->mi_redist[AFI_IP][type].enabled
-				   || vrf_bitmap_check(
-					   zclient->redist[AFI_IP][type],
+					  &zclient->default_information[AFI_IP],
+					  ospf->vrf_id)
+				: (zclient->mi_redist[AFI_IP][type].enabled ||
+				   vrf_bitmap_check(
+					   &zclient->redist[AFI_IP][type],
 					   ospf->vrf_id));
 		// Pending: check for MI above.
 		if (redist_on) {
@@ -428,6 +482,55 @@ int ospf_flood(struct ospf *ospf, struct ospf_neighbor *nbr,
 	if (!(new = ospf_lsa_install(ospf, oi, new)))
 		return -1; /* unknown LSA type or any other error condition */
 
+	/* check if the installed LSA is an indication LSA */
+	if (ospf_check_indication_lsa(new) && !IS_LSA_SELF(new) &&
+	    !IS_LSA_MAXAGE(new)) {
+		new->area->fr_info.area_ind_lsa_recvd = true;
+		/* check if there are already type 5 LSAs originated
+		 * with DNA bit set, if yes reoriginate those LSAs.
+		 */
+		ospf_refresh_dna_type5_and_type7_lsas(ospf);
+	}
+
+	/* Check if we recived an indication LSA flush on backbone
+	 * network.
+	 */
+	ospf_recv_indication_lsa_flush(new);
+
+	if (new->area && OSPF_FR_CONFIG(ospf, new->area)) {
+		struct lsa_header const *lsah = new->data;
+
+		if (!CHECK_FLAG(lsah->options, OSPF_OPTION_DC) &&
+		    !ospf_check_indication_lsa(new)) {
+
+			new->area->fr_info.area_dc_clear = true;
+			/* check of previously area supported flood reduction */
+			if (new->area->fr_info.enabled) {
+				new->area->fr_info.enabled = false;
+				OSPF_LOG_DEBUG(
+					IS_DEBUG_OSPF_EVENT,
+					"Flood Reduction STATE on -> off by %s LSA",
+					dump_lsa_key(new));
+				/* if yes update all the lsa to the area the
+				 * new LSAs will have DNA bit set to 0.
+				 */
+				ospf_refresh_area_self_lsas(new->area);
+			}
+		} else if (!new->area->fr_info.enabled) {
+			/* check again after installing new LSA that area
+			 * supports flood reduction.
+			 */
+			ospf_area_update_fr_state(new->area);
+			if (new->area->fr_info.enabled) {
+				OSPF_LOG_DEBUG(
+					IS_DEBUG_OSPF_EVENT,
+					"Flood Reduction STATE off -> on by %s LSA",
+					dump_lsa_key(new));
+				ospf_refresh_area_self_lsas(new->area);
+			}
+		}
+	}
+
 	/* Acknowledge the receipt of the LSA by sending a Link State
 	   Acknowledgment packet back out the receiving interface. */
 	if (lsa_ack_flag)
@@ -464,6 +567,34 @@ int ospf_flood_through_interface(struct ospf_interface *oi,
 
 	if (!ospf_if_is_enable(oi))
 		return 0;
+
+	if (IS_OPAQUE_LSA(lsa->data->type) &&
+	    !OSPF_IF_PARAM(oi, opaque_capable)) {
+		if (IS_DEBUG_OSPF(lsa, LSA_FLOODING))
+			zlog_debug(
+				"%s: Skipping interface %s (%s) with opaque disabled.",
+				__func__, IF_NAME(oi), ospf_get_name(oi->ospf));
+		return 0;
+	}
+
+	/* If flood reduction is configured, set the DC bit on the lsa. */
+	if (IS_LSA_SELF(lsa)) {
+		if (OSPF_FR_CONFIG(oi->area->ospf, oi->area)) {
+			if (!ospf_check_indication_lsa(lsa)) {
+				SET_FLAG(lsa->data->options, OSPF_OPTION_DC);
+				ospf_lsa_checksum(lsa->data);
+			}
+		} else if (CHECK_FLAG(lsa->data->options, OSPF_OPTION_DC)) {
+			UNSET_FLAG(lsa->data->options, OSPF_OPTION_DC);
+			ospf_lsa_checksum(lsa->data);
+		}
+
+		/* If flood reduction is enabled then set DNA bit on the
+		 * self lsas.
+		 */
+		if (oi->area->fr_info.enabled)
+			SET_FLAG(lsa->data->ls_age, DO_NOT_AGE);
+	}
 
 	/* Remember if new LSA is added to a retransmit list. */
 	retx_flag = 0;
@@ -648,15 +779,26 @@ int ospf_flood_through_interface(struct ospf_interface *oi,
 						     OSPF_SEND_PACKET_DIRECT);
 		}
 	} else
-		/* Optimization: for P2MP interfaces,
-		   don't send back out the incoming interface immediately,
-		   allow time to rx multicast ack to the rx'ed (multicast)
-		   update */
-		if (retx_flag != 1 ||
-		    oi->type != OSPF_IFTYPE_POINTOMULTIPOINT || inbr == NULL ||
-		    oi != inbr->oi)
-		ospf_ls_upd_send_lsa(oi->nbr_self, lsa,
-				     OSPF_SEND_PACKET_INDIRECT);
+		/* If P2MP delayed reflooding is configured and the LSA was
+		   received from a neighbor on the P2MP interface, do not flood
+		   if back out on the interface. The LSA will be  retransmitted
+		   upon expiration of each neighbor's retransmission timer. This
+		   will allow time to receive a multicast multicast link state
+		   acknoweldgement and remove the LSA from each neighbor's link
+		   state retransmission list. */
+		if (oi->p2mp_delay_reflood &&
+		    (oi->type == OSPF_IFTYPE_POINTOMULTIPOINT) &&
+		    (inbr != NULL) && (oi == inbr->oi)) {
+			if (IS_DEBUG_OSPF(lsa, LSA_FLOODING))
+				zlog_debug(
+					"Delay reflooding for LSA[%s] from NBR %pI4 on interface %s",
+					dump_lsa_key(lsa),
+					inbr ? &(inbr->router_id)
+					     : &(oi->ospf->router_id),
+					IF_NAME(oi));
+		} else
+			ospf_ls_upd_send_lsa(oi->nbr_self, lsa,
+					     OSPF_SEND_PACKET_INDIRECT);
 
 	return 0;
 }
@@ -812,7 +954,7 @@ int ospf_flood_through(struct ospf *ospf, struct ospf_neighbor *inbr,
 
 		if (IS_DEBUG_OSPF_NSSA)
 			zlog_debug("%s: LOCAL NSSA FLOOD of Type-7.", __func__);
-	/* Fallthrough */
+		fallthrough;
 	default:
 		lsa_ack_flag = ospf_flood_through_area(lsa->area, inbr, lsa);
 		break;

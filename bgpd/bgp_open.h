@@ -1,21 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* BGP open message handling
  * Copyright (C) 1999 Kunihiro Ishiguro
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef _QUAGGA_BGP_OPEN_H
@@ -35,10 +20,23 @@ struct capability_mp_data {
 };
 
 struct graceful_restart_af {
-	afi_t afi;
-	safi_t safi;
+	uint16_t afi;
+	uint8_t safi;
 	uint8_t flag;
 };
+
+/*
+ * +--------------------------------------------------+
+ * | Address Family Identifier (16 bits)              |
+ * +--------------------------------------------------+
+ * | Subsequent Address Family Identifier (8 bits)    |
+ * +--------------------------------------------------+
+ * | Flags for Address Family (8 bits)                |
+ * +--------------------------------------------------+
+ * | Long-lived Stale Time (24 bits)                  |
+ * +--------------------------------------------------+
+ */
+#define BGP_CAP_LLGR_MIN_PACKET_LEN 7
 
 /* Capability Code */
 #define CAPABILITY_CODE_MP              1 /* Multiprotocol Extensions */
@@ -46,17 +44,16 @@ struct graceful_restart_af {
 #define CAPABILITY_CODE_ORF             3 /* Cooperative Route Filtering Capability */
 #define CAPABILITY_CODE_RESTART        64 /* Graceful Restart Capability */
 #define CAPABILITY_CODE_AS4            65 /* 4-octet AS number Capability */
-#define CAPABILITY_CODE_DYNAMIC_OLD    66 /* Dynamic Capability, deprecated since 2003 */
 #define CAPABILITY_CODE_DYNAMIC        67 /* Dynamic Capability */
 #define CAPABILITY_CODE_ADDPATH        69 /* Addpath Capability */
 #define CAPABILITY_CODE_ENHANCED_RR    70 /* Enhanced Route Refresh capability */
 #define CAPABILITY_CODE_LLGR           71 /* Long-lived Graceful Restart */
 #define CAPABILITY_CODE_FQDN           73 /* Advertise hostname capability */
+#define CAPABILITY_CODE_SOFT_VERSION   75 /* Software Version capability */
 #define CAPABILITY_CODE_ENHE            5 /* Extended Next Hop Encoding */
-#define CAPABILITY_CODE_REFRESH_OLD   128 /* Route Refresh Capability(cisco) */
-#define CAPABILITY_CODE_ORF_OLD       130 /* Cooperative Route Filtering Capability(cisco) */
 #define CAPABILITY_CODE_EXT_MESSAGE     6 /* Extended Message Support */
 #define CAPABILITY_CODE_ROLE            9 /* Role Capability */
+#define CAPABILITY_CODE_PATHS_LIMIT    76 /* Paths Limit Capability */
 
 /* Capability Length */
 #define CAPABILITY_CODE_MP_LEN          4
@@ -65,6 +62,7 @@ struct graceful_restart_af {
 #define CAPABILITY_CODE_RESTART_LEN     2 /* Receiving only case */
 #define CAPABILITY_CODE_AS4_LEN         4
 #define CAPABILITY_CODE_ADDPATH_LEN     4
+#define CAPABILITY_CODE_PATHS_LIMIT_LEN 5
 #define CAPABILITY_CODE_ENHE_LEN        6 /* NRLI AFI = 2, SAFI = 2, Nexthop AFI = 2 */
 #define CAPABILITY_CODE_MIN_FQDN_LEN    2
 #define CAPABILITY_CODE_ENHANCED_LEN    0
@@ -72,13 +70,13 @@ struct graceful_restart_af {
 #define CAPABILITY_CODE_ORF_LEN         5
 #define CAPABILITY_CODE_EXT_MESSAGE_LEN 0 /* Extended Message Support */
 #define CAPABILITY_CODE_ROLE_LEN        1
+#define CAPABILITY_CODE_SOFT_VERSION_LEN 1
 
 /* Cooperative Route Filtering Capability.  */
 
 /* ORF Type */
 #define ORF_TYPE_RESERVED               0
 #define ORF_TYPE_PREFIX                64
-#define ORF_TYPE_PREFIX_OLD           128
 
 /* ORF Mode */
 #define ORF_MODE_RECEIVE                1
@@ -111,5 +109,8 @@ extern uint16_t bgp_open_capability(struct stream *s, struct peer *peer,
 extern void bgp_capability_vty_out(struct vty *vty, struct peer *peer,
 				   bool use_json, json_object *json_neigh);
 extern as_t peek_for_as4_capability(struct peer *peer, uint16_t length);
+extern const struct message capcode_str[];
+extern const struct message orf_type_str[];
+extern const struct message orf_mode_str[];
 
 #endif /* _QUAGGA_BGP_OPEN_H */

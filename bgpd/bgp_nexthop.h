@@ -1,21 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* BGP nexthop scan
  * Copyright (C) 2000 Kunihiro Ishiguro
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef _QUAGGA_BGP_NEXTHOP_H
@@ -41,8 +26,10 @@ PREDECL_RBTREE_UNIQ(bgp_nexthop_cache);
 
 /* BGP nexthop cache value structure. */
 struct bgp_nexthop_cache {
+	afi_t afi;
+
 	/* The ifindex of the outgoing interface *if* it's a v6 LL */
-	ifindex_t ifindex;
+	ifindex_t ifindex_ipv6_ll;
 
 	/* RB-tree entry. */
 	struct bgp_nexthop_cache_item entry;
@@ -52,6 +39,18 @@ struct bgp_nexthop_cache {
 
 	/* Nexthop number and nexthop linked list.*/
 	uint8_t nexthop_num;
+
+	/* This flag is set to TRUE for a bnc that is gateway IP overlay index
+	 * nexthop.
+	 */
+	bool is_evpn_gwip_nexthop;
+
+	uint16_t change_flags;
+#define BGP_NEXTHOP_CHANGED	      (1 << 0)
+#define BGP_NEXTHOP_METRIC_CHANGED    (1 << 1)
+#define BGP_NEXTHOP_CONNECTED_CHANGED (1 << 2)
+#define BGP_NEXTHOP_MACIP_CHANGED     (1 << 3)
+
 	struct nexthop *nexthop;
 	time_t last_update;
 	uint16_t flags;
@@ -85,27 +84,17 @@ struct bgp_nexthop_cache {
  */
 #define BGP_NEXTHOP_EVPN_INCOMPLETE (1 << 7)
 
-	uint16_t change_flags;
-
-#define BGP_NEXTHOP_CHANGED           (1 << 0)
-#define BGP_NEXTHOP_METRIC_CHANGED    (1 << 1)
-#define BGP_NEXTHOP_CONNECTED_CHANGED (1 << 2)
-#define BGP_NEXTHOP_MACIP_CHANGED (1 << 3)
+	uint32_t srte_color;
 
 	/* Back pointer to the cache tree this entry belongs to. */
 	struct bgp_nexthop_cache_head *tree;
 
-	uint32_t srte_color;
 	struct prefix prefix;
+	struct prefix resolved_prefix;
 	void *nht_info; /* In BGP, peer session */
 	LIST_HEAD(path_list, bgp_path_info) paths;
 	unsigned int path_count;
 	struct bgp *bgp;
-
-	/* This flag is set to TRUE for a bnc that is gateway IP overlay index
-	 * nexthop.
-	 */
-	bool is_evpn_gwip_nexthop;
 };
 
 extern int bgp_nexthop_cache_compare(const struct bgp_nexthop_cache *a,
@@ -117,11 +106,6 @@ DECLARE_RBTREE_UNIQ(bgp_nexthop_cache, struct bgp_nexthop_cache, entry,
 struct tip_addr {
 	struct in_addr addr;
 	int refcnt;
-};
-
-struct bgp_addrv6 {
-	struct in6_addr addrv6;
-	struct list *ifp_name_list;
 };
 
 /* Forward declaration(s). */

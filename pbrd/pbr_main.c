@@ -1,27 +1,14 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * PBR - main code
  * Copyright (C) 2018 Cumulus Networks, Inc.
  *               Donald Sharp
- *
- * FRR is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * FRR is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 #include <zebra.h>
 
 #include <lib/version.h>
 #include "getopt.h"
-#include "thread.h"
+#include "frrevent.h"
 #include "prefix.h"
 #include "linklist.h"
 #include "if.h"
@@ -69,7 +56,7 @@ struct zebra_privs_t pbr_privs = {
 struct option longopts[] = { { 0 } };
 
 /* Master of threads. */
-struct thread_master *master;
+struct event_loop *master;
 
 /* SIGHUP handler. */
 static void sighup(void)
@@ -83,6 +70,8 @@ static void sigint(void)
 	zlog_notice("Terminating on signal");
 
 	pbr_vrf_terminate();
+
+	pbr_zebra_destroy();
 
 	frr_fini();
 
@@ -114,26 +103,26 @@ struct frr_signal_t pbr_signals[] = {
 	},
 };
 
-#define PBR_VTY_PORT 2615
-
 static const struct frr_yang_module_info *const pbrd_yang_modules[] = {
 	&frr_filter_info,
 	&frr_interface_info,
 	&frr_vrf_info,
 };
 
-FRR_DAEMON_INFO(pbrd, PBR, .vty_port = PBR_VTY_PORT,
+/* clang-format off */
+FRR_DAEMON_INFO(pbrd, PBR,
+	.vty_port = PBR_VTY_PORT,
+	.proghelp = "Implementation of PBR.",
 
-		.proghelp = "Implementation of PBR.",
+	.signals = pbr_signals,
+	.n_signals = array_size(pbr_signals),
 
-		.signals = pbr_signals,
-		.n_signals = array_size(pbr_signals),
+	.privs = &pbr_privs,
 
-		.privs = &pbr_privs,
-
-		.yang_modules = pbrd_yang_modules,
-		.n_yang_modules = array_size(pbrd_yang_modules),
+	.yang_modules = pbrd_yang_modules,
+	.n_yang_modules = array_size(pbrd_yang_modules),
 );
+/* clang-format on */
 
 int main(int argc, char **argv, char **envp)
 {
@@ -171,8 +160,10 @@ int main(int argc, char **argv, char **envp)
 	access_list_init();
 	pbr_nht_init();
 	pbr_map_init();
-	if_zapi_callbacks(pbr_ifp_create, pbr_ifp_up,
-			  pbr_ifp_down, pbr_ifp_destroy);
+	hook_register_prio(if_real, 0, pbr_ifp_create);
+	hook_register_prio(if_up, 0, pbr_ifp_up);
+	hook_register_prio(if_down, 0, pbr_ifp_down);
+	hook_register_prio(if_unreal, 0, pbr_ifp_destroy);
 	pbr_zebra_init();
 	pbr_vrf_init();
 	pbr_vty_init();

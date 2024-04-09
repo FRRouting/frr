@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * EIGRP Network Related Functions.
  * Copyright (C) 2013-2014
@@ -7,27 +8,11 @@
  *   Matej Perina
  *   Peter Orsag
  *   Peter Paluch
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
 
-#include "thread.h"
+#include "frrevent.h"
 #include "linklist.h"
 #include "prefix.h"
 #include "if.h"
@@ -248,13 +233,11 @@ static void eigrp_network_run_interface(struct eigrp *eigrp, struct prefix *p,
 					struct interface *ifp)
 {
 	struct eigrp_interface *ei;
-	struct listnode *cnode;
 	struct connected *co;
 
 	/* if interface prefix is match specified prefix,
 	   then create socket and join multicast group. */
-	for (ALL_LIST_ELEMENTS_RO(ifp->connected, cnode, co)) {
-
+	frr_each (if_connected, ifp->connected, co) {
 		if (CHECK_FLAG(co->flags, ZEBRA_IFA_SECONDARY))
 			continue;
 

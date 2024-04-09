@@ -41,9 +41,7 @@ export PYTHON=python3
 override_dh_auto_configure:
 	$(shell dpkg-buildflags --export=sh); \
 	dh_auto_configure -- \
-		--localstatedir=/var/run/frr \
 		--sbindir=/usr/lib/frr \
-		--sysconfdir=/etc/frr \
 		--with-vtysh-pager=/usr/bin/pager \
 		--libdir=/usr/lib/$(DEB_HOST_MULTIARCH)/frr \
 		--with-moduledir=/usr/lib/$(DEB_HOST_MULTIARCH)/frr/modules \

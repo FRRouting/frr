@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * EIGRP Filter Functions.
  * Copyright (C) 2013-2015
@@ -12,22 +13,6 @@
  *   Martin Kontsek
  *   Lukas Koribsky
  *
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -36,7 +21,7 @@
 #include "command.h"
 #include "prefix.h"
 #include "table.h"
-#include "thread.h"
+#include "frrevent.h"
 #include "memory.h"
 #include "log.h"
 #include "stream.h"
@@ -126,11 +111,11 @@ void eigrp_distribute_update(struct distribute_ctx *ctx,
 		// TODO: check Graceful restart after 10sec
 
 		/* cancel GR scheduled */
-		thread_cancel(&(e->t_distribute));
+		event_cancel(&(e->t_distribute));
 
 		/* schedule Graceful restart for whole process in 10sec */
-		thread_add_timer(master, eigrp_distribute_timer_process, e,
-				 (10), &e->t_distribute);
+		event_add_timer(master, eigrp_distribute_timer_process, e, (10),
+				&e->t_distribute);
 
 		return;
 	}
@@ -201,10 +186,10 @@ void eigrp_distribute_update(struct distribute_ctx *ctx,
 	// TODO: check Graceful restart after 10sec
 
 	/* Cancel GR scheduled */
-	thread_cancel(&(ei->t_distribute));
+	event_cancel(&(ei->t_distribute));
 	/* schedule Graceful restart for interface in 10sec */
-	thread_add_timer(master, eigrp_distribute_timer_interface, ei, 10,
-			 &ei->t_distribute);
+	event_add_timer(master, eigrp_distribute_timer_interface, ei, 10,
+			&ei->t_distribute);
 }
 
 /*
@@ -257,11 +242,11 @@ void eigrp_distribute_update_all_wrapper(struct access_list *notused)
  * Called when 10sec waiting time expire and
  * executes Graceful restart for whole process
  */
-void eigrp_distribute_timer_process(struct thread *thread)
+void eigrp_distribute_timer_process(struct event *thread)
 {
 	struct eigrp *eigrp;
 
-	eigrp = THREAD_ARG(thread);
+	eigrp = EVENT_ARG(thread);
 
 	/* execute GR for whole process */
 	eigrp_update_send_process_GR(eigrp, EIGRP_GR_FILTER, NULL);
@@ -278,11 +263,11 @@ void eigrp_distribute_timer_process(struct thread *thread)
  * Called when 10sec waiting time expire and
  * executes Graceful restart for interface
  */
-void eigrp_distribute_timer_interface(struct thread *thread)
+void eigrp_distribute_timer_interface(struct event *thread)
 {
 	struct eigrp_interface *ei;
 
-	ei = THREAD_ARG(thread);
+	ei = EVENT_ARG(thread);
 	ei->t_distribute = NULL;
 
 	/* execute GR for interface */

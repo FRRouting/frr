@@ -1,19 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* BGP FlowSpec VTY
  * Copyright (C) 2018 6WIND
- *
- * FRRouting is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * FRRouting is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -368,7 +355,8 @@ void route_vty_out_flowspec(struct vty *vty, const struct prefix *p,
 			bgp_path_info_extra_get(path);
 		bool list_began = false;
 
-		if (extra->bgp_fs_pbr && listcount(extra->bgp_fs_pbr)) {
+		if (extra->flowspec && extra->flowspec->bgp_fs_pbr &&
+		    listcount(extra->flowspec->bgp_fs_pbr)) {
 			struct listnode *node;
 			struct bgp_pbr_match_entry *bpme;
 			struct bgp_pbr_match *bpm;
@@ -376,8 +364,8 @@ void route_vty_out_flowspec(struct vty *vty, const struct prefix *p,
 
 			list_bpm = list_new();
 			vty_out(vty, "\tinstalled in PBR");
-			for (ALL_LIST_ELEMENTS_RO(extra->bgp_fs_pbr,
-						  node, bpme)) {
+			for (ALL_LIST_ELEMENTS_RO(extra->flowspec->bgp_fs_pbr, node,
+						  bpme)) {
 				bpm = bpme->backpointer;
 				if (listnode_lookup(list_bpm, bpm))
 					continue;
@@ -391,13 +379,14 @@ void route_vty_out_flowspec(struct vty *vty, const struct prefix *p,
 			}
 			list_delete(&list_bpm);
 		}
-		if (extra->bgp_fs_iprule && listcount(extra->bgp_fs_iprule)) {
+		if (extra->flowspec && extra->flowspec->bgp_fs_iprule &&
+		    listcount(extra->flowspec->bgp_fs_iprule)) {
 			struct listnode *node;
 			struct bgp_pbr_rule *bpr;
 
 			if (!list_began)
 				vty_out(vty, "\tinstalled in PBR");
-			for (ALL_LIST_ELEMENTS_RO(extra->bgp_fs_iprule,
+			for (ALL_LIST_ELEMENTS_RO(extra->flowspec->bgp_fs_iprule,
 						  node, bpr)) {
 				if (!bpr->action)
 					continue;
@@ -558,7 +547,7 @@ static int bgp_fs_local_install_interface(struct bgp *bgp,
 			return CMD_SUCCESS;
 		pbr_if = XCALLOC(MTYPE_TMP,
 				 sizeof(struct bgp_pbr_interface));
-		strlcpy(pbr_if->name, ifname, INTERFACE_NAMSIZ);
+		strlcpy(pbr_if->name, ifname, IFNAMSIZ);
 		RB_INSERT(bgp_pbr_interface_head, head, pbr_if);
 		*bgp_pbr_interface_any = false;
 	} else {

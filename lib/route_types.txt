@@ -49,6 +49,7 @@
 ZEBRA_ROUTE_SYSTEM,     system,    NULL,   'X', 0, 0, 0,     "Reserved",      none
 ZEBRA_ROUTE_KERNEL,     kernel,    zebra,  'K', 1, 1, 1,     "kernel route",  zebra
 ZEBRA_ROUTE_CONNECT,    connected, zebra,  'C', 1, 1, 1,     "connected",     zebra
+ZEBRA_ROUTE_LOCAL,      local,     zebra,  'L', 1, 1, 1,     "local",         zebra
 ZEBRA_ROUTE_STATIC,     static,    zebra,  'S', 1, 1, 1,     "static",        zebra
 ZEBRA_ROUTE_RIP,        rip,       ripd,   'R', 1, 0, 1,     "RIP",           ripd
 ZEBRA_ROUTE_RIPNG,      ripng,     ripngd, 'R', 0, 1, 1,     "RIPng",         ripngd
@@ -86,6 +87,7 @@ ZEBRA_ROUTE_OPENFABRIC, openfabric, fabricd,  'f', 1, 1, 1,  "OpenFabric",    fa
 ZEBRA_ROUTE_VRRP,       vrrp,      vrrpd,  '-', 0, 0, 0,     "VRRP",          vrrpd
 ZEBRA_ROUTE_NHG,        zebra,     none,   '-', 0, 0, 0,     "Nexthop Group", none
 ZEBRA_ROUTE_SRTE,       srte,      none,   '-', 0, 0, 0,     "SR-TE",         none
+ZEBRA_ROUTE_TABLE_DIRECT,      table-direct,     zebra,  't', 1, 1, 1,     "Table-Direct",         zebra
 ZEBRA_ROUTE_ALL,        wildcard,  none,   '-', 0, 0, 0,     "-",             none
 
 
@@ -93,6 +95,7 @@ ZEBRA_ROUTE_ALL,        wildcard,  none,   '-', 0, 0, 0,     "-",             no
 ZEBRA_ROUTE_SYSTEM, "Reserved route type, for internal use only"
 ZEBRA_ROUTE_KERNEL, "Kernel routes (not installed via the zebra RIB)"
 ZEBRA_ROUTE_CONNECT,"Connected routes (directly attached subnet or host)"
+ZEBRA_ROUTE_LOCAL,  "Local routes (directly attached host route)"
 ZEBRA_ROUTE_STATIC, "Statically configured routes"
 ZEBRA_ROUTE_RIP,    "Routing Information Protocol (RIP)"
 ZEBRA_ROUTE_RIPNG,  "Routing Information Protocol next-generation (IPv6) (RIPng)"
@@ -116,3 +119,4 @@ ZEBRA_ROUTE_BFD, "Bidirectional Fowarding Detection (BFD)"
 ZEBRA_ROUTE_VRRP, "Virtual Router Redundancy Protocol (VRRP)"
 ZEBRA_ROUTE_OPENFABRIC, "OpenFabric Routing Protocol"
 ZEBRA_ROUTE_NHG, "Zebra Nexthop Groups (NHG)"
+ZEBRA_ROUTE_TABLE_DIRECT,  "Non-main Kernel Routing Table - Direct"

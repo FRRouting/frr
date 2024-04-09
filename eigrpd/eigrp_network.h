@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * EIGRP Network Related Functions.
  * Copyright (C) 2013-2014
@@ -7,22 +8,6 @@
  *   Matej Perina
  *   Peter Orsag
  *   Peter Paluch
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef _ZEBRA_EIGRP_NETWORK_H
@@ -35,7 +20,7 @@ extern int eigrp_if_ipmulticast(struct eigrp *, struct prefix *, unsigned int);
 extern int eigrp_network_set(struct eigrp *eigrp, struct prefix *p);
 extern int eigrp_network_unset(struct eigrp *eigrp, struct prefix *p);
 
-extern void eigrp_hello_timer(struct thread *thread);
+extern void eigrp_hello_timer(struct event *thread);
 extern void eigrp_if_update(struct interface *);
 extern int eigrp_if_add_allspfrouters(struct eigrp *, struct prefix *,
 				      unsigned int);

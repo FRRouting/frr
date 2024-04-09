@@ -8,7 +8,7 @@
  * Chris Torek.
  *
  * Copyright (c) 2011 The FreeBSD Foundation
- * All rights reserved.
+ *
  * Portions of this software were developed by David Chisnall
  * under sponsorship from the FreeBSD Foundation.
  *
@@ -35,8 +35,6 @@
  * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
- *
- * $FreeBSD$
  */
 
 /*
@@ -70,7 +68,7 @@ io_print(struct io_state *iop, const CHAR * __restrict ptr, size_t len)
 {
 	size_t copylen = len;
 
-	if (!iop->cb)
+	if (!iop->cb || !len)
 		return 0;
 	if (iop->avail < copylen)
 		copylen = iop->avail;
@@ -171,6 +169,13 @@ __ultoa(u_long val, CHAR *endp, int base, int octzero, const char *xdigs)
 		} while (sval != 0);
 		break;
 
+	case 2:
+		do {
+			*--cp = to_char(val & 1);
+			val >>= 1;
+		} while (val);
+		break;
+
 	case 8:
 		do {
 			*--cp = to_char(val & 7);
@@ -219,6 +224,13 @@ __ujtoa(uintmax_t val, CHAR *endp, int base, int octzero, const char *xdigs)
 			*--cp = to_char(sval % 10);
 			sval /= 10;
 		} while (sval != 0);
+		break;
+
+	case 2:
+		do {
+			*--cp = to_char(val & 1);
+			val >>= 1;
+		} while (val);
 		break;
 
 	case 8:

@@ -1,21 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* Header file exported by rt_netlink.c to zebra.
  * Copyright (C) 1997, 98, 99 Kunihiro Ishiguro
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef _ZEBRA_RT_NETLINK_H
@@ -71,7 +56,8 @@ extern ssize_t netlink_mpls_multipath_msg_encode(int cmd,
 extern ssize_t netlink_route_multipath_msg_encode(int cmd,
 						  struct zebra_dplane_ctx *ctx,
 						  uint8_t *data, size_t datalen,
-						  bool fpm, bool force_nhg);
+						  bool fpm, bool force_nhg,
+						  bool force_rr);
 extern ssize_t netlink_macfdb_update_ctx(struct zebra_dplane_ctx *ctx,
 					 void *data, size_t datalen);
 
@@ -92,7 +78,10 @@ extern int netlink_neigh_change(struct nlmsghdr *h, ns_id_t ns_id);
 extern int netlink_macfdb_read(struct zebra_ns *zns);
 extern int netlink_macfdb_read_for_bridge(struct zebra_ns *zns,
 					  struct interface *ifp,
-					  struct interface *br_if);
+					  struct interface *br_if,
+					  vlanid_t vid);
+extern int netlink_macfdb_read_mcast_for_vni(struct zebra_ns *zns,
+					     struct interface *ifp, vni_t vni);
 extern int netlink_neigh_read(struct zebra_ns *zns);
 extern int netlink_neigh_read_for_vlan(struct zebra_ns *zns,
 				       struct interface *vlan_if);
@@ -102,7 +91,6 @@ extern int netlink_macfdb_read_specific_mac(struct zebra_ns *zns,
 					    uint16_t vid);
 extern int netlink_neigh_read_specific_ip(const struct ipaddr *ip,
 					  struct interface *vlan_if);
-extern vrf_id_t vrf_lookup_by_table(uint32_t table_id, ns_id_t ns_id);
 
 struct nl_batch;
 extern enum netlink_msg_status

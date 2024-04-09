@@ -1,21 +1,8 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * PIM for Quagga
  * Copyright (C) 2015 Cumulus Networks, Inc.
  * Donald Sharp
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 #include <zebra.h>
 
@@ -60,9 +47,7 @@ void pim_rp_list_hash_clean(void *data)
 
 	list_delete(&pnc->rp_list);
 
-	hash_clean(pnc->upstream_hash, NULL);
-	hash_free(pnc->upstream_hash);
-	pnc->upstream_hash = NULL;
+	hash_clean_and_free(&pnc->upstream_hash, NULL);
 	if (pnc->nexthop)
 		nexthops_free(pnc->nexthop);
 
@@ -263,7 +248,7 @@ struct rp_info *pim_rp_find_match_group(struct pim_instance *pim,
 	}
 
 	rp_info = rn->info;
-	if (PIM_DEBUG_PIM_TRACE) {
+	if (PIM_DEBUG_PIM_TRACE_DETAIL) {
 		if (best)
 			zlog_debug(
 				"Lookedup(%pFX): prefix_list match %s, rn %p found: %pFX",
@@ -1078,6 +1063,14 @@ struct pim_rpf *pim_rp_g(struct pim_instance *pim, pim_addr group)
 
 	if (rp_info) {
 		pim_addr nht_p;
+
+		if (pim_addr_is_any(rp_info->rp.rpf_addr)) {
+			if (PIM_DEBUG_PIM_NHT_RP)
+				zlog_debug(
+					"%s: Skipping NHT Register since RP is not configured for the group %pPA",
+					__func__, &group);
+			return &rp_info->rp;
+		}
 
 		/* Register addr with Zebra NHT */
 		nht_p = rp_info->rp.rpf_addr;

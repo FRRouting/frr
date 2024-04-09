@@ -1,24 +1,11 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Copyright (C) 2020  NetDEF, Inc.
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
 
-#include "thread.h"
+#include "frrevent.h"
 #include "log.h"
 #include "lib_errors.h"
 #include "if.h"
@@ -331,11 +318,8 @@ static zclient_handler *const path_handlers[] = {
  *
  * @param master The master thread
  */
-void path_zebra_init(struct thread_master *master)
+void path_zebra_init(struct event_loop *master)
 {
-	struct zclient_options options = zclient_options_default;
-	options.synchronous = true;
-
 	/* Initialize asynchronous zclient. */
 	zclient = zclient_new(master, &zclient_options_default, path_handlers,
 			      array_size(path_handlers));
@@ -343,7 +327,7 @@ void path_zebra_init(struct thread_master *master)
 	zclient->zebra_connected = path_zebra_connected;
 
 	/* Initialize special zclient for synchronous message exchanges. */
-	zclient_sync = zclient_new(master, &options, NULL, 0);
+	zclient_sync = zclient_new(master, &zclient_options_sync, NULL, 0);
 	zclient_sync->sock = -1;
 	zclient_sync->redist_default = ZEBRA_ROUTE_SRTE;
 	zclient_sync->instance = 1;
@@ -357,4 +341,6 @@ void path_zebra_stop(void)
 {
 	zclient_stop(zclient);
 	zclient_free(zclient);
+	zclient_stop(zclient_sync);
+	zclient_free(zclient_sync);
 }

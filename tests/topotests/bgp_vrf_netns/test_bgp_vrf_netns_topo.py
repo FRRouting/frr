@@ -1,24 +1,11 @@
 #!/usr/bin/env python
+# SPDX-License-Identifier: ISC
 
 #
 # test_bgp_vrf_netns_topo1.py
 # Part of NetDEF Topology Tests
 #
 # Copyright (c) 2018 by 6WIND
-#
-# Permission to use, copy, modify, and/or distribute this software
-# for any purpose with or without fee is hereby granted, provided
-# that the above copyright notice and this permission notice appear
-# in all copies.
-#
-# THE SOFTWARE IS PROVIDED "AS IS" AND NETDEF DISCLAIMS ALL WARRANTIES
-# WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
-# MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL NETDEF BE LIABLE FOR
-# ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY
-# DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS,
-# WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS
-# ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE
-# OF THIS SOFTWARE.
 #
 
 """
@@ -107,6 +94,7 @@ def setup_module(module):
     router.net.set_intf_netns("r1-eth0", ns, up=True)
 
     # run daemons
+    router.load_config(TopoRouter.RD_MGMTD, None, "--vrfwnetns")
     router.load_config(
         TopoRouter.RD_ZEBRA,
         os.path.join(CWD, "{}/zebra.conf".format("r1")),
@@ -218,7 +206,6 @@ def test_bgp_vrf_netns():
 
 
 if __name__ == "__main__":
-
     args = ["-s"] + sys.argv[1:]
     ret = pytest.main(args)
 

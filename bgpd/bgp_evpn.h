@@ -1,21 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* E-VPN header for packet handling
  * Copyright (C) 2016 6WIND
- *
- * This file is part of FRRouting.
- *
- * FRRouting is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * FRRouting is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef _QUAGGA_BGP_EVPN_H
@@ -34,27 +19,6 @@ static inline int is_evpn_enabled(void)
 
 	bgp = bgp_get_evpn();
 	return bgp ? EVPN_ENABLED(bgp) : 0;
-}
-
-static inline void vni2label(vni_t vni, mpls_label_t *label)
-{
-	uint8_t *tag = (uint8_t *)label;
-
-	tag[0] = (vni >> 16) & 0xFF;
-	tag[1] = (vni >> 8) & 0xFF;
-	tag[2] = vni & 0xFF;
-}
-
-static inline vni_t label2vni(mpls_label_t *label)
-{
-	uint8_t *tag = (uint8_t *)label;
-	vni_t vni;
-
-	vni = ((uint32_t)*tag++ << 16);
-	vni |= (uint32_t)*tag++ << 8;
-	vni |= (uint32_t)(*tag & 0xFF);
-
-	return vni;
 }
 
 static inline int advertise_type5_routes(struct bgp *bgp_vrf,
@@ -87,15 +51,15 @@ get_route_parent_evpn(struct bgp_path_info *ri)
 	struct bgp_path_info *parent_ri;
 
 	/* If not imported (or doesn't have a parent), bail. */
-	if (ri->sub_type != BGP_ROUTE_IMPORTED ||
-	    !ri->extra ||
-	    !ri->extra->parent)
+	if (ri->sub_type != BGP_ROUTE_IMPORTED || !ri->extra ||
+	    !ri->extra->vrfleak || !ri->extra->vrfleak->parent)
 		return NULL;
 
 	/* Determine parent recursively */
-	for (parent_ri = ri->extra->parent;
-	     parent_ri->extra && parent_ri->extra->parent;
-	     parent_ri = parent_ri->extra->parent)
+	for (parent_ri = ri->extra->vrfleak->parent;
+	     parent_ri->extra && parent_ri->extra->vrfleak &&
+	     parent_ri->extra->vrfleak->parent;
+	     parent_ri = parent_ri->extra->vrfleak->parent)
 		;
 
 	return parent_ri;
@@ -130,32 +94,6 @@ static inline bool is_pi_family_evpn(struct bgp_path_info *pi)
 	return is_pi_family_matching(pi, AFI_L2VPN, SAFI_EVPN);
 }
 
-/* Flag if the route is injectable into EVPN. This would be either a
- * non-imported route or a non-EVPN imported route.
- */
-static inline bool is_route_injectable_into_evpn(struct bgp_path_info *pi)
-{
-	struct bgp_path_info *parent_pi;
-	struct bgp_table *table;
-	struct bgp_dest *dest;
-
-	if (pi->sub_type != BGP_ROUTE_IMPORTED ||
-	    !pi->extra ||
-	    !pi->extra->parent)
-		return true;
-
-	parent_pi = (struct bgp_path_info *)pi->extra->parent;
-	dest = parent_pi->net;
-	if (!dest)
-		return true;
-	table = bgp_dest_table(dest);
-	if (table &&
-	    table->afi == AFI_L2VPN &&
-	    table->safi == SAFI_EVPN)
-		return false;
-	return true;
-}
-
 static inline bool evpn_resolve_overlay_index(void)
 {
 	struct bgp *bgp = NULL;
@@ -186,14 +124,23 @@ extern void bgp_evpn_encode_prefix(struct stream *s, const struct prefix *p,
 				   struct attr *attr, bool addpath_capable,
 				   uint32_t addpath_tx_id);
 extern int bgp_nlri_parse_evpn(struct peer *peer, struct attr *attr,
-			       struct bgp_nlri *packet, int withdraw);
+			       struct bgp_nlri *packet, bool withdraw);
 extern int bgp_evpn_import_route(struct bgp *bgp, afi_t afi, safi_t safi,
 				 const struct prefix *p,
 				 struct bgp_path_info *ri);
 extern int bgp_evpn_unimport_route(struct bgp *bgp, afi_t afi, safi_t safi,
 				   const struct prefix *p,
 				   struct bgp_path_info *ri);
-extern int bgp_filter_evpn_routes_upon_martian_nh_change(struct bgp *bgp);
+extern void
+bgp_reimport_evpn_routes_upon_macvrf_soo_change(struct bgp *bgp,
+						struct ecommunity *old_soo,
+						struct ecommunity *new_soo);
+extern void bgp_reimport_evpn_routes_upon_martian_change(
+	struct bgp *bgp, enum bgp_martian_type martian_type, void *old_martian,
+	void *new_martian);
+extern void
+bgp_filter_evpn_routes_upon_martian_change(struct bgp *bgp,
+					   enum bgp_martian_type martian_type);
 extern int bgp_evpn_local_macip_del(struct bgp *bgp, vni_t vni,
 				    struct ethaddr *mac, struct ipaddr *ip,
 					int state);
@@ -229,5 +176,14 @@ bgp_evpn_handle_resolve_overlay_index_set(struct hash_bucket *bucket,
 extern void
 bgp_evpn_handle_resolve_overlay_index_unset(struct hash_bucket *bucket,
 					    void *arg);
+extern mpls_label_t *bgp_evpn_path_info_labels_get_l3vni(mpls_label_t *labels,
+							 uint32_t num_labels);
+extern vni_t bgp_evpn_path_info_get_l3vni(const struct bgp_path_info *pi);
+extern bool bgp_evpn_mpath_has_dvni(const struct bgp *bgp_vrf,
+				    struct bgp_path_info *mpinfo);
+extern bool is_route_injectable_into_evpn(struct bgp_path_info *pi);
+extern bool is_route_injectable_into_evpn_non_supp(struct bgp_path_info *pi);
+extern void bgp_aggr_supp_withdraw_from_evpn(struct bgp *bgp, afi_t afi,
+					     safi_t safi);
 
 #endif /* _QUAGGA_BGP_EVPN_H */

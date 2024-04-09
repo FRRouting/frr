@@ -1,21 +1,8 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * PIMv6 main()
  * Copyright (C) 2021  David Lamparter for NetDEF, Inc.
  * Copyright (C) 2008  Everton da Silva Marques (pim_main.c)
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -39,6 +26,7 @@
 #include "pim_nb.h"
 #include "pim6_cmd.h"
 #include "pim6_mld.h"
+#include "pim_zlookup.h"
 
 zebra_capabilities_t _caps_p[] = {
 	ZCAP_SYS_ADMIN,
@@ -202,11 +190,20 @@ int main(int argc, char **argv, char **envp)
 
 static void pim6_terminate(void)
 {
+	struct zclient *zclient;
+
 	pim_vrf_terminate();
 	pim_router_terminate();
 
 	prefix_list_reset();
 	access_list_reset();
 
+	zclient = pim_zebra_zclient_get();
+	if (zclient) {
+		zclient_stop(zclient);
+		zclient_free(zclient);
+	}
+
+	zclient_lookup_free();
 	frr_fini();
 }

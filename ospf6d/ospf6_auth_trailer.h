@@ -1,21 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Copyright (C) 2021 Abhinay Ramesh
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef __OSPF6_AUTH_TRAILER_H__
@@ -29,6 +14,8 @@
 
 #define OSPF6_AUTHENTICATION_NULL 0
 #define OSPF6_AUTHENTICATION_CRYPTOGRAPHIC 1
+
+#define OSPFV3_CRYPTO_PROTO_ID 1
 
 /* Auth debug options */
 extern unsigned char conf_debug_ospf6_auth[2];
@@ -61,9 +48,9 @@ enum ospf6_auth_err {
 	OSPF6_AUTH_VALIDATE_SUCCESS = 0,
 	OSPF6_AUTH_VALIDATE_FAILURE,
 	OSPF6_AUTH_PROCESS_NORMAL,
-	OSPF6_AUTH_FILE_EXIST,
-	OSPF6_AUTH_FILE_DO_NOT_EXIST
 };
+
+void ospf6_auth_init(struct ospf6 *o);
 
 void ospf6_auth_hdr_dump_send(struct ospf6_header *ospfh, uint16_t length);
 void ospf6_auth_hdr_dump_recv(struct ospf6_header *ospfh, uint16_t length,
@@ -86,8 +73,5 @@ void ospf6_auth_digest_send(struct in6_addr *src, struct ospf6_interface *oi,
 void install_element_ospf6_debug_auth(void);
 int config_write_ospf6_debug_auth(struct vty *vty);
 void install_element_ospf6_clear_intf_auth(void);
-enum ospf6_auth_err ospf6_auth_nvm_file_exist(void);
-void ospf6_auth_seqno_nvm_update(struct ospf6 *ospf6);
-void ospf6_auth_seqno_nvm_delete(struct ospf6 *ospf6);
-void ospf6_auth_seqno_nvm_read(struct ospf6 *ospf6);
+
 #endif /* __OSPF6_AUTH_TRAILER_H__ */

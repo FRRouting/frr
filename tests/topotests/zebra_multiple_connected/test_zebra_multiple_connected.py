@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# SPDX-License-Identifier: ISC
 
 #
 # test_zebra_multiple_connected.py
@@ -6,20 +7,6 @@
 # Copyright (c) 2022 by
 # Nvidia Corporation
 # Donald Sharp
-#
-# Permission to use, copy, modify, and/or distribute this software
-# for any purpose with or without fee is hereby granted, provided
-# that the above copyright notice and this permission notice appear
-# in all copies.
-#
-# THE SOFTWARE IS PROVIDED "AS IS" AND NETDEF DISCLAIMS ALL WARRANTIES
-# WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
-# MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL NETDEF BE LIABLE FOR
-# ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY
-# DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS,
-# WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS
-# ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE
-# OF THIS SOFTWARE.
 #
 
 """
@@ -155,6 +142,23 @@ def test_zebra_system_recursion():
 
     _, result = topotest.run_and_expect(test_func, None, count=20, wait=1)
     assert result is None, "Kernel route is missing from zebra"
+
+
+def test_zebra_noprefix_connected():
+    "Test that a noprefixroute created does not create a connected route"
+
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    router = tgen.gears["r1"]
+    router.run("ip addr add 192.168.44.1/24 dev r1-eth1 noprefixroute")
+    expected = "% Network not in table"
+    test_func = partial(
+        topotest.router_output_cmp, router, "show ip route 192.168.44.0/24", expected
+    )
+    result, diff = topotest.run_and_expect(test_func, "", count=20, wait=1)
+    assert result, "Connected Route should not have been added"
 
 
 if __name__ == "__main__":

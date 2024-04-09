@@ -1,19 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Copyright (C) 2020  NetDEF, Inc.
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 /* TODOS AND KNOWN ISSUES:
@@ -33,7 +20,6 @@
 #include "command.h"
 #include "libfrr.h"
 #include "printfrr.h"
-#include "lib/version.h"
 #include "northbound.h"
 #include "frr_pthread.h"
 #include "jhash.h"
@@ -204,17 +190,17 @@ void pcep_pcc_finalize(struct ctrl_state *ctrl_state,
 	}
 
 	if (pcc_state->t_reconnect != NULL) {
-		thread_cancel(&pcc_state->t_reconnect);
+		event_cancel(&pcc_state->t_reconnect);
 		pcc_state->t_reconnect = NULL;
 	}
 
 	if (pcc_state->t_update_best != NULL) {
-		thread_cancel(&pcc_state->t_update_best);
+		event_cancel(&pcc_state->t_update_best);
 		pcc_state->t_update_best = NULL;
 	}
 
 	if (pcc_state->t_session_timeout != NULL) {
-		thread_cancel(&pcc_state->t_session_timeout);
+		event_cancel(&pcc_state->t_session_timeout);
 		pcc_state->t_session_timeout = NULL;
 	}
 
@@ -354,7 +340,7 @@ int pcep_pcc_enable(struct ctrl_state *ctrl_state, struct pcc_state *pcc_state)
 	assert(pcc_state->sess == NULL);
 
 	if (pcc_state->t_reconnect != NULL) {
-		thread_cancel(&pcc_state->t_reconnect);
+		event_cancel(&pcc_state->t_reconnect);
 		pcc_state->t_reconnect = NULL;
 	}
 
@@ -422,7 +408,7 @@ int pcep_pcc_enable(struct ctrl_state *ctrl_state, struct pcc_state *pcc_state)
 
 	// In case some best pce alternative were waiting to activate
 	if (pcc_state->t_update_best != NULL) {
-		thread_cancel(&pcc_state->t_update_best);
+		event_cancel(&pcc_state->t_update_best);
 		pcc_state->t_update_best = NULL;
 	}
 
@@ -450,9 +436,11 @@ int pcep_pcc_disable(struct ctrl_state *ctrl_state, struct pcc_state *pcc_state)
 		pcc_state->sess = NULL;
 		pcc_state->status = PCEP_PCC_DISCONNECTED;
 		return 0;
-	default:
+	case PCEP_PCC_INITIALIZED:
 		return 1;
 	}
+
+	assert(!"Reached end of function where we are not expecting to");
 }
 
 void pcep_pcc_sync_path(struct ctrl_state *ctrl_state,
@@ -614,7 +602,8 @@ void pcep_pcc_timeout_handler(struct ctrl_state *ctrl_state,
 			free_req_entry(req);
 		}
 		break;
-	default:
+	case TO_UNDEFINED:
+	case TO_MAX:
 		break;
 	}
 }
@@ -674,7 +663,7 @@ void pcep_pcc_pathd_event_handler(struct ctrl_state *ctrl_state,
 		if (pcc_state->caps.is_stateful)
 			send_report(pcc_state, path);
 		return;
-	default:
+	case PCEP_PATH_UNDEFINED:
 		flog_warn(EC_PATH_PCEP_RECOVERABLE_INTERNAL_ERROR,
 			  "Unexpected pathd event received by pcc %s: %u",
 			  pcc_state->tag, type);
@@ -748,7 +737,7 @@ void pcep_pcc_pcep_event_handler(struct ctrl_state *ctrl_state,
 		       || pcc_state->status == PCEP_PCC_OPERATING);
 		handle_pcep_message(ctrl_state, pcc_state, event->message);
 		break;
-	default:
+	case PCC_CONNECTION_FAILURE:
 		flog_warn(EC_PATH_PCEP_UNEXPECTED_PCEPLIB_EVENT,
 			  "Unexpected event from pceplib: %s",
 			  format_pcep_event(event));
@@ -1179,7 +1168,15 @@ void handle_pcep_message(struct ctrl_state *ctrl_state,
 	case PCEP_TYPE_PCREP:
 		handle_pcep_comp_reply(ctrl_state, pcc_state, msg);
 		break;
-	default:
+	case PCEP_TYPE_OPEN:
+	case PCEP_TYPE_KEEPALIVE:
+	case PCEP_TYPE_PCREQ:
+	case PCEP_TYPE_PCNOTF:
+	case PCEP_TYPE_ERROR:
+	case PCEP_TYPE_CLOSE:
+	case PCEP_TYPE_REPORT:
+	case PCEP_TYPE_START_TLS:
+	case PCEP_TYPE_MAX:
 		flog_warn(EC_PATH_PCEP_UNEXPECTED_PCEP_MESSAGE,
 			  "Unexpected pcep message from pceplib: %s",
 			  format_pcep_message(msg));
@@ -1953,9 +1950,11 @@ static uint32_t hash_nbkey(const struct lsp_nb_key *nbkey)
 	case IPADDR_V6:
 		return jhash(&nbkey->endpoint.ipaddr_v6,
 			     sizeof(nbkey->endpoint.ipaddr_v6), hash);
-	default:
+	case IPADDR_NONE:
 		return hash;
 	}
+
+	assert(!"Reached end of function where we were not expecting to");
 }
 
 static int cmp_nbkey(const struct lsp_nb_key *a, const struct lsp_nb_key *b)

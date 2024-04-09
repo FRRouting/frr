@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: ISC
 /*	$OpenBSD$ */
 
 /*
@@ -5,18 +6,6 @@
  * Copyright (c) 2009 Michele Marchetto <michele@openbsd.org>
  * Copyright (c) 2005 Claudio Jeker <claudio@openbsd.org>
  * Copyright (c) 2004, 2005, 2008 Esben Norby <norby@openbsd.org>
- *
- * Permission to use, copy, modify, and distribute this software for any
- * purpose with or without fee is hereby granted, provided that the above
- * copyright notice and this permission notice appear in all copies.
- *
- * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
- * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
- * ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
- * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
- * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
- * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
 #include <zebra.h>
@@ -172,7 +161,7 @@ l2vpn_if_update(struct l2vpn_if *lif)
 		fec.type = MAP_TYPE_PWID;
 		fec.fec.pwid.type = l2vpn->pw_type;
 		fec.fec.pwid.group_id = 0;
-		fec.flags |= F_MAP_PW_ID;
+		SET_FLAG(fec.flags, F_MAP_PW_ID);
 		fec.fec.pwid.pwid = pw->pwid;
 
 		send_mac_withdrawal(nbr, &fec, lif->mac);
@@ -285,17 +274,17 @@ l2vpn_pw_reset(struct l2vpn_pw *pw)
 	pw->local_status = PW_FORWARDING;
 	pw->remote_status = PW_NOT_FORWARDING;
 
-	if (pw->flags & F_PW_CWORD_CONF)
-		pw->flags |= F_PW_CWORD;
+	if (CHECK_FLAG(pw->flags, F_PW_CWORD_CONF))
+		SET_FLAG(pw->flags, F_PW_CWORD);
 	else
-		pw->flags &= ~F_PW_CWORD;
+		UNSET_FLAG(pw->flags, F_PW_CWORD);
 
-	if (pw->flags & F_PW_STATUSTLV_CONF)
-		pw->flags |= F_PW_STATUSTLV;
+	if (CHECK_FLAG(pw->flags, F_PW_STATUSTLV_CONF))
+		SET_FLAG(pw->flags, F_PW_STATUSTLV);
 	else
-		pw->flags &= ~F_PW_STATUSTLV;
+		UNSET_FLAG(pw->flags, F_PW_STATUSTLV);
 
-	if (pw->flags & F_PW_STATUSTLV_CONF) {
+	if (CHECK_FLAG(pw->flags, F_PW_STATUSTLV_CONF)) {
 		struct fec_node         *fn;
 		struct fec fec;
 		l2vpn_pw_fec(pw, &fec);
@@ -311,8 +300,7 @@ l2vpn_pw_ok(struct l2vpn_pw *pw, struct fec_nh *fnh)
 {
 	/* check for a remote label */
 	if (fnh->remote_label == NO_LABEL) {
-		log_warnx("%s: pseudowire %s: no remote label", __func__,
-			  pw->ifname);
+		log_warnx("%s: pseudowire %s: no remote label", __func__, pw->ifname);
 		pw->reason = F_PW_NO_REMOTE_LABEL;
 		return (0);
 	}
@@ -326,10 +314,9 @@ l2vpn_pw_ok(struct l2vpn_pw *pw, struct fec_nh *fnh)
 	}
 
 	/* check pw status if applicable */
-	if ((pw->flags & F_PW_STATUSTLV) &&
+	if (CHECK_FLAG(pw->flags, F_PW_STATUSTLV) &&
 	    pw->remote_status != PW_FORWARDING) {
-		log_warnx("%s: pseudowire %s: remote end is down", __func__,
-			  pw->ifname);
+		log_warnx("%s: pseudowire %s: remote end is down", __func__, pw->ifname);
 		pw->reason = F_PW_REMOTE_NOT_FWD;
 		return (0);
 	}
@@ -356,34 +343,34 @@ l2vpn_pw_negotiate(struct lde_nbr *ln, struct fec_node *fn, struct map *map)
 
 	/* RFC4447 - Section 6.2: control word negotiation */
 	if (fec_find(&ln->sent_map, &fn->fec)) {
-		if ((map->flags & F_MAP_PW_CWORD) &&
-		    !(pw->flags & F_PW_CWORD_CONF)) {
+		if (CHECK_FLAG(map->flags, F_MAP_PW_CWORD) &&
+		    !CHECK_FLAG(pw->flags, F_PW_CWORD_CONF)) {
 			/* ignore the received label mapping */
 			return (1);
-		} else if (!(map->flags & F_MAP_PW_CWORD) &&
-		    (pw->flags & F_PW_CWORD_CONF)) {
+		} else if (!CHECK_FLAG(map->flags, F_MAP_PW_CWORD) &&
+		    CHECK_FLAG(pw->flags, F_PW_CWORD_CONF)) {
 			/* append a "Wrong C-bit" status code */
 			st.status_code = S_WRONG_CBIT;
 			st.msg_id = map->msg_id;
 			st.msg_type = htons(MSG_TYPE_LABELMAPPING);
 			lde_send_labelwithdraw(ln, fn, NULL, &st);
 
-			pw->flags &= ~F_PW_CWORD;
+			UNSET_FLAG(pw->flags, F_PW_CWORD);
 			lde_send_labelmapping(ln, fn, 1);
 		}
-	} else if (map->flags & F_MAP_PW_CWORD) {
-		if (pw->flags & F_PW_CWORD_CONF)
-			pw->flags |= F_PW_CWORD;
+	} else if (CHECK_FLAG(map->flags, F_MAP_PW_CWORD)) {
+		if (CHECK_FLAG(pw->flags, F_PW_CWORD_CONF))
+			SET_FLAG(pw->flags, F_PW_CWORD);
 		else
 			/* act as if no label mapping had been received */
 			return (1);
 	} else
-		pw->flags &= ~F_PW_CWORD;
+		UNSET_FLAG(pw->flags, F_PW_CWORD);
 
 	/* RFC4447 - Section 5.4.3: pseudowire status negotiation */
 	if (fec_find(&ln->recv_map, &fn->fec) == NULL &&
-	    !(map->flags & F_MAP_PW_STATUS))
-		pw->flags &= ~F_PW_STATUSTLV;
+	    !CHECK_FLAG(map->flags, F_MAP_PW_STATUS))
+		UNSET_FLAG(pw->flags, F_PW_STATUSTLV);
 
 	return (0);
 }
@@ -396,12 +383,11 @@ l2vpn_send_pw_status(struct lde_nbr *ln, uint32_t status, struct fec *fec)
 	memset(&nm, 0, sizeof(nm));
 	nm.status_code = S_PW_STATUS;
 	nm.pw_status = status;
-	nm.flags |= F_NOTIF_PW_STATUS;
+	SET_FLAG(nm.flags, F_NOTIF_PW_STATUS);
 	lde_fec2map(fec, &nm.fec);
-	nm.flags |= F_NOTIF_FEC;
+	SET_FLAG(nm.flags, F_NOTIF_FEC);
 
-	lde_imsg_compose_ldpe(IMSG_NOTIFICATION_SEND, ln->peerid, 0, &nm,
-	    sizeof(nm));
+	lde_imsg_compose_ldpe(IMSG_NOTIFICATION_SEND, ln->peerid, 0, &nm, sizeof(nm));
 }
 
 void
@@ -413,14 +399,13 @@ l2vpn_send_pw_status_wcard(struct lde_nbr *ln, uint32_t status,
 	memset(&nm, 0, sizeof(nm));
 	nm.status_code = S_PW_STATUS;
 	nm.pw_status = status;
-	nm.flags |= F_NOTIF_PW_STATUS;
+	SET_FLAG(nm.flags, F_NOTIF_PW_STATUS);
 	nm.fec.type = MAP_TYPE_PWID;
 	nm.fec.fec.pwid.type = pw_type;
 	nm.fec.fec.pwid.group_id = group_id;
-	nm.flags |= F_NOTIF_FEC;
+	SET_FLAG(nm.flags, F_NOTIF_FEC);
 
-	lde_imsg_compose_ldpe(IMSG_NOTIFICATION_SEND, ln->peerid, 0, &nm,
-	    sizeof(nm));
+	lde_imsg_compose_ldpe(IMSG_NOTIFICATION_SEND, ln->peerid, 0, &nm, sizeof(nm));
 }
 
 void
@@ -432,7 +417,7 @@ l2vpn_recv_pw_status(struct lde_nbr *ln, struct notify_msg *nm)
 	struct l2vpn_pw		*pw;
 
 	if (nm->fec.type == MAP_TYPE_TYPED_WCARD ||
-	    !(nm->fec.flags & F_MAP_PW_ID)) {
+	    !CHECK_FLAG(nm->fec.flags, F_MAP_PW_ID)) {
 		l2vpn_recv_pw_status_wcard(ln, nm);
 		return;
 	}
@@ -551,7 +536,7 @@ l2vpn_pw_status_update(struct zapi_pw_status *zpw)
 	if (ln == NULL)
 		return (0);
 	l2vpn_pw_fec(pw, &fec);
-	if (pw->flags & F_PW_STATUSTLV)
+	if (CHECK_FLAG(pw->flags, F_PW_STATUSTLV))
 		l2vpn_send_pw_status(ln, local_status, &fec);
 	else {
 		struct fec_node *fn;
@@ -622,8 +607,7 @@ l2vpn_binding_ctl(pid_t pid)
 			pwctl.local_label = fn->local_label;
 			pwctl.local_gid = 0;
 			pwctl.local_ifmtu = pw->l2vpn->mtu;
-			pwctl.local_cword = (pw->flags & F_PW_CWORD_CONF) ?
-			    1 : 0;
+			pwctl.local_cword = CHECK_FLAG(pw->flags, F_PW_CWORD_CONF) ? 1 : 0;
 			pwctl.reason = pw->reason;
 		} else
 			pwctl.local_label = NO_LABEL;
@@ -635,11 +619,10 @@ l2vpn_binding_ctl(pid_t pid)
 		if (me) {
 			pwctl.remote_label = me->map.label;
 			pwctl.remote_gid = me->map.fec.pwid.group_id;
-			if (me->map.flags & F_MAP_PW_IFMTU)
+			if (CHECK_FLAG(me->map.flags, F_MAP_PW_IFMTU))
 				pwctl.remote_ifmtu = me->map.fec.pwid.ifmtu;
 			if (pw)
-				pwctl.remote_cword = (pw->flags & F_PW_CWORD) ?
-				    1 : 0;
+				pwctl.remote_cword = CHECK_FLAG(pw->flags, F_PW_CWORD) ? 1 : 0;
 
 			lde_imsg_compose_ldpe(IMSG_CTL_SHOW_L2VPN_BINDING,
 			    0, pid, &pwctl, sizeof(pwctl));

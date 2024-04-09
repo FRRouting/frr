@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * IS-IS TLV Serializer/Deserializer
  *
@@ -5,33 +6,28 @@
 
  * Copyright (C) 2019 Olivier Dugeon - Orange Labs (for TE and SR)
  *
- * This file is part of FRR.
- *
- * FRR is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * FRR is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with FRR; see the file COPYING.  If not, write to the Free
- * Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
- * 02111-1307, USA.
+ * Copyright (C) 2023 Carmine Scarpitta - University of Rome Tor Vergata
+ * (for IS-IS Extensions to Support SRv6 as per RFC 9352)
  */
 #ifndef ISIS_TLVS_H
 #define ISIS_TLVS_H
 
+#include "segment_routing.h"
 #include "openbsd-tree.h"
 #include "prefix.h"
+#include "flex_algo.h"
+#include "affinitymap.h"
+
+
+#include "lib/srv6.h"
 
 DECLARE_MTYPE(ISIS_SUBTLV);
+DECLARE_MTYPE(ISIS_SUBSUBTLV);
 
 struct lspdb_head;
 struct sr_prefix_cfg;
+struct isis_srv6_sid;
+struct isis_srv6_locator;
 
 struct isis_area_address {
 	struct isis_area_address *next;
@@ -118,7 +114,7 @@ struct isis_spine_leaf {
 enum isis_threeway_state {
 	ISIS_THREEWAY_DOWN = 2,
 	ISIS_THREEWAY_INITIALIZING = 1,
-	ISIS_THREEWAY_UP = 0
+	ISIS_THREEWAY_UP = 0,
 };
 
 struct isis_threeway_adj {
@@ -193,18 +189,107 @@ struct isis_lan_adj_sid {
 #define ISIS_ROUTER_CAP_FLAG_D	0x02
 #define ISIS_ROUTER_CAP_SIZE	5
 
-/* Number of supported algorithm for Segment Routing.
- * Right now only 2 have been standardized:
- *  - 0: SPF
- *  - 1: Strict SPF
- */
-#define SR_ALGORITHM_COUNT	2
-#define SR_ALGORITHM_SPF	0
-#define SR_ALGORITHM_STRICT_SPF	1
-#define SR_ALGORITHM_UNSET	255
-
 #define MSD_TYPE_BASE_MPLS_IMPOSITION  0x01
 #define MSD_TLV_SIZE            2
+
+#ifndef FABRICD
+struct isis_router_cap_fad;
+struct isis_router_cap_fad {
+	uint8_t sysid[ISIS_SYS_ID_LEN + 2];
+
+	struct flex_algo fad;
+};
+#endif /* ifndef FABRICD */
+
+/* SRv6 SID Structure Sub-Sub-TLV as per RFC 9352 section #9 */
+struct isis_srv6_sid_structure_subsubtlv {
+	uint8_t loc_block_len;
+	uint8_t loc_node_len;
+	uint8_t func_len;
+	uint8_t arg_len;
+};
+
+/* SRv6 End SID Sub-TLV as per RFC 9352 section #7.2 */
+struct isis_srv6_end_sid_subtlv {
+	struct isis_srv6_end_sid_subtlv *next;
+
+	uint8_t flags;
+	enum srv6_endpoint_behavior_codepoint behavior;
+	struct in6_addr sid;
+
+	struct isis_subsubtlvs *subsubtlvs;
+};
+
+/* SRv6 End.X SID and SRv6 LAN End.X SID sub-TLVs flags */
+#define EXT_SUBTLV_LINK_SRV6_ENDX_SID_PFLG	0x20
+#define EXT_SUBTLV_LINK_SRV6_ENDX_SID_SFLG	0x40
+#define EXT_SUBTLV_LINK_SRV6_ENDX_SID_BFLG	0x80
+
+/* SRv6 End.X SID Sub-TLV as per RFC 9352 section #8.1 */
+struct isis_srv6_endx_sid_subtlv {
+	struct isis_srv6_endx_sid_subtlv *next;
+
+	uint8_t flags;
+	uint8_t algorithm;
+	uint8_t weight;
+	enum srv6_endpoint_behavior_codepoint behavior;
+	struct in6_addr sid;
+
+	struct isis_subsubtlvs *subsubtlvs;
+};
+
+/* SRv6 End.X SID Sub-TLV as per RFC 9352 section #8.2 */
+struct isis_srv6_lan_endx_sid_subtlv {
+	struct isis_srv6_lan_endx_sid_subtlv *next;
+
+	uint8_t neighbor_id[ISIS_SYS_ID_LEN];
+	uint8_t flags;
+	uint8_t algorithm;
+	uint8_t weight;
+	enum srv6_endpoint_behavior_codepoint behavior;
+	struct in6_addr sid;
+
+	struct isis_subsubtlvs *subsubtlvs;
+};
+
+/* RFC 9352 section 7.1 */
+struct isis_srv6_locator_tlv {
+	struct isis_srv6_locator_tlv *next;
+
+	uint32_t metric;
+
+	uint8_t flags;
+#define ISIS_TLV_SRV6_LOCATOR_FLAG_D 1 << 7
+
+	uint8_t algorithm;
+	struct prefix_ipv6 prefix;
+
+	struct isis_subtlvs *subtlvs;
+};
+
+#define ISIS_SRV6_LOCATOR_HDR_SIZE 22
+
+/* Maximum SRv6 SID Depths (MSD) as per RFC 9352 section #4 */
+struct isis_srv6_msd {
+	/* RFC 9352 section #4.1 */
+	uint8_t max_seg_left_msd;
+	/* RFC 9352 section #4.2 */
+	uint8_t max_end_pop_msd;
+	/* RFC 9352 section #4.3 */
+	uint8_t max_h_encaps_msd;
+	/* RFC 9352 section #4.4 */
+	uint8_t max_end_d_msd;
+};
+
+/* SRv6 Capabilities as per RFC 9352 section #2 */
+struct isis_srv6_cap {
+	bool is_srv6_capable;
+
+	uint16_t flags;
+#define ISIS_SUBTLV_SRV6_FLAG_O 0x4000
+#define SUPPORTS_SRV6_OAM(srv6)                                                \
+	(CHECK_FLAG((srv6)->flags, ISIS_SUBTLV_SRV6_FLAG_O))
+};
 
 struct isis_router_cap {
 	struct in_addr router_id;
@@ -216,6 +301,17 @@ struct isis_router_cap {
 	uint8_t algo[SR_ALGORITHM_COUNT];
 	/* RFC 8491 */
 	uint8_t msd;
+
+#ifndef FABRICD
+	/* RFC9350 Flex-Algorithm */
+	struct isis_router_cap_fad *fads[SR_ALGORITHM_COUNT];
+#endif /* ifndef FABRICD */
+
+	/* RFC 9352 section #2 */
+	struct isis_srv6_cap srv6_cap;
+
+	/* RFC 9352 section #4 */
+	struct isis_srv6_msd srv6_msd;
 };
 
 struct isis_item {
@@ -318,6 +414,7 @@ struct isis_tlvs {
 	struct isis_threeway_adj *threeway_adj;
 	struct isis_router_cap *router_cap;
 	struct isis_spine_leaf *spine_leaf;
+	struct isis_mt_item_list srv6_locator;
 };
 
 enum isis_tlv_context {
@@ -325,7 +422,11 @@ enum isis_tlv_context {
 	ISIS_CONTEXT_SUBTLV_NE_REACH,
 	ISIS_CONTEXT_SUBTLV_IP_REACH,
 	ISIS_CONTEXT_SUBTLV_IPV6_REACH,
-	ISIS_CONTEXT_MAX
+	ISIS_CONTEXT_SUBTLV_SRV6_LOCATOR,
+	ISIS_CONTEXT_SUBSUBTLV_SRV6_END_SID,
+	ISIS_CONTEXT_SUBSUBTLV_SRV6_ENDX_SID,
+	ISIS_CONTEXT_SUBSUBTLV_SRV6_LAN_ENDX_SID,
+	ISIS_CONTEXT_MAX,
 };
 
 struct isis_subtlvs {
@@ -335,6 +436,16 @@ struct isis_subtlvs {
 	struct prefix_ipv6 *source_prefix;
 	/* RFC 8667 section #2.4 */
 	struct isis_item_list prefix_sids;
+
+	/* RFC 9352 section #7.2 */
+	struct isis_item_list srv6_end_sids;
+};
+
+struct isis_subsubtlvs {
+	enum isis_tlv_context context;
+
+	/* RFC 9352 section #9 */
+	struct isis_srv6_sid_structure_subsubtlv *srv6_sid_structure;
 };
 
 enum isis_tlv_type {
@@ -347,6 +458,8 @@ enum isis_tlv_type {
 	ISIS_TLV_AUTH = 10,
 	ISIS_TLV_PURGE_ORIGINATOR = 13,
 	ISIS_TLV_EXTENDED_REACH = 22,
+
+	ISIS_TLV_SRV6_LOCATOR = 27,
 
 	ISIS_TLV_OLDSTYLE_IP_REACH = 128,
 	ISIS_TLV_PROTOCOLS_SUPPORTED = 129,
@@ -410,11 +523,47 @@ enum isis_tlv_type {
 	ISIS_SUBTLV_AVA_BW = 38,
 	ISIS_SUBTLV_USE_BW = 39,
 
-	ISIS_SUBTLV_MAX = 40
+	/* RFC 7308 */
+	ISIS_SUBTLV_EXT_ADMIN_GRP = 14,
+
+	/* RFC 8919 */
+	ISIS_SUBTLV_ASLA = 16,
+
+	/* draft-ietf-lsr-isis-srv6-extensions */
+	ISIS_SUBTLV_SID_END = 5,
+	ISIS_SUBTLV_SID_END_X = 43,
+
+	ISIS_SUBTLV_MAX = 40,
+
+	/* RFC 9352 section #2 */
+	ISIS_SUBTLV_SRV6_CAPABILITIES = 25,
+	/* RFC 9352 section #4.1 */
+	ISIS_SUBTLV_SRV6_MAX_SL_MSD = 41,
+	/* RFC 9352 section #4.2 */
+	ISIS_SUBTLV_SRV6_MAX_END_POP_MSD = 42,
+	/* RFC 9352 section #4.3 */
+	ISIS_SUBTLV_SRV6_MAX_H_ENCAPS_MSD = 44,
+	/* RFC 9352 section #4.4 */
+	ISIS_SUBTLV_SRV6_MAX_END_D_MSD = 45,
+
+	ISIS_SUBTLV_SRV6_END_SID = 5,
+	ISIS_SUBTLV_SRV6_ENDX_SID = 43,
+	ISIS_SUBTLV_SRV6_LAN_ENDX_SID = 44,
+
+	ISIS_SUBSUBTLV_SRV6_SID_STRUCTURE = 1,
+
+	/* draft-ietf-lsr-isis-srv6-extensions */
+	ISIS_SUBSUBTLV_SID_STRUCTURE = 1,
+
+	ISIS_SUBSUBTLV_MAX = 256,
 };
 
 /* subTLVs size for TE and SR */
 enum ext_subtlv_size {
+	/* Sub-TLV Type and Length fields */
+	ISIS_SUBTLV_TYPE_FIELD_SIZE = 1,
+	ISIS_SUBTLV_LENGTH_FIELD_SIZE = 1,
+
 	/* RFC 5307 */
 	ISIS_SUBTLV_LLRI_SIZE = 8,
 
@@ -425,6 +574,8 @@ enum ext_subtlv_size {
 
 	/* RFC 8491 */
 	ISIS_SUBTLV_NODE_MSD_SIZE = 2,
+	ISIS_SUBTLV_NODE_MSD_TYPE_SIZE = 1,
+	ISIS_SUBTLV_NODE_MSD_VALUE_SIZE = 1,
 
 	/* RFC 8667 sections #2 & #3 */
 	ISIS_SUBTLV_SID_LABEL_SIZE = 3,
@@ -438,16 +589,46 @@ enum ext_subtlv_size {
 	/* RFC 7810 */
 	ISIS_SUBTLV_MM_DELAY_SIZE = 8,
 
+	/* RFC9350 - Flex-Algorithm */
+	ISIS_SUBTLV_FAD = 26,
+	ISIS_SUBTLV_FAD_MIN_SIZE = 4,
+
 	ISIS_SUBTLV_HDR_SIZE = 2,
 	ISIS_SUBTLV_DEF_SIZE = 4,
 
-	ISIS_SUBTLV_MAX_SIZE = 180
+	ISIS_SUBTLV_MAX_SIZE = 180,
+
+	/* RFC 9352 sections #8.1 & #8.2 */
+	ISIS_SUBTLV_SRV6_ENDX_SID_SIZE = 21,
+	ISIS_SUBTLV_SRV6_LAN_ENDX_SID_SIZE = 27,
+
+	/* draft-ietf-lsr-isis-srv6-extensions */
+	ISIS_SUBSUBTLV_SID_STRUCTURE_SIZE = 4,
+
+	ISIS_SUBSUBTLV_HDR_SIZE = 2,
+	ISIS_SUBSUBTLV_MAX_SIZE = 180,
+
+	/* RFC9350 - Flex-Algorithm */
+	ISIS_SUBTLV_FAD_SUBSUBTLV_FLAGS_SIZE = 1,
+
+	/* RFC 9352 section #2 */
+	ISIS_SUBTLV_SRV6_CAPABILITIES_SIZE = 2,
+};
+
+enum ext_subsubtlv_types {
+	ISIS_SUBTLV_FAD_SUBSUBTLV_EXCAG = 1,
+	ISIS_SUBTLV_FAD_SUBSUBTLV_INCANYAG = 2,
+	ISIS_SUBTLV_FAD_SUBSUBTLV_INCALLAG = 3,
+	ISIS_SUBTLV_FAD_SUBSUBTLV_FLAGS = 4,
+	ISIS_SUBTLV_FAD_SUBSUBTLV_ESRLG = 5,
 };
 
 /* Macros to manage the optional presence of EXT subTLVs */
 #define SET_SUBTLV(s, t) ((s->status) |= (t))
 #define UNSET_SUBTLV(s, t) ((s->status) &= ~(t))
 #define IS_SUBTLV(s, t) (s->status & t)
+#define RESET_SUBTLV(s) (s->status = 0)
+#define NO_SUBTLV(s) (s->status == 0)
 
 #define EXT_DISABLE		0x000000
 #define EXT_ADM_GRP		0x000001
@@ -471,6 +652,9 @@ enum ext_subtlv_size {
 #define EXT_RES_BW		0x040000
 #define EXT_AVA_BW		0x080000
 #define EXT_USE_BW		0x100000
+#define EXT_EXTEND_ADM_GRP 0x200000
+#define EXT_SRV6_ENDX_SID 0x400000
+#define EXT_SRV6_LAN_ENDX_SID 0x800000
 
 /*
  * This structure groups all Extended IS Reachability subTLVs.
@@ -484,13 +668,14 @@ enum ext_subtlv_size {
  * For Delay and packet Loss, upper bit (A) indicates if the value is
  * normal (0) or anomalous (1).
  */
-#define IS_ANORMAL(v) (v & 0x80000000)
+#define IS_ANORMAL(v) (v & TE_EXT_ANORMAL)
 
 struct isis_ext_subtlvs {
 
 	uint32_t status;
 
 	uint32_t adm_group; /* Resource Class/Color - RFC 5305 */
+	struct admin_group ext_admin_group; /* Res. Class/Color - RFC 7308 */
 	/* Link Local/Remote Identifiers - RFC 5307 */
 	uint32_t local_llri;
 	uint32_t remote_llri;
@@ -517,6 +702,49 @@ struct isis_ext_subtlvs {
 	/* Segment Routing Adjacency & LAN Adjacency Segment ID */
 	struct isis_item_list adj_sid;
 	struct isis_item_list lan_sid;
+
+	struct list *aslas;
+
+	/* SRv6 End.X & LAN End.X SID */
+	struct isis_item_list srv6_endx_sid;
+	struct isis_item_list srv6_lan_endx_sid;
+};
+
+/* RFC 8919 */
+#define ISIS_SABM_FLAG_R 0x80 /* RSVP-TE */
+#define ISIS_SABM_FLAG_S 0x40 /* Segment Routing Policy */
+#define ISIS_SABM_FLAG_L 0x20 /* Loop-Free Alternate */
+#define ISIS_SABM_FLAG_X 0x10 /* Flex-Algorithm - RFC9350 */
+
+#define ASLA_APP_IDENTIFIER_BIT_LENGTH 1
+#define ASLA_LEGACY_FLAG 0x80
+#define ASLA_APPS_LENGTH_MASK 0x7f
+
+struct isis_asla_subtlvs {
+	uint32_t status;
+
+	/* Application Specific Link Attribute - RFC 8919 */
+	bool legacy; /* L-Flag */
+	uint8_t standard_apps_length;
+	uint8_t user_def_apps_length;
+	uint8_t standard_apps;
+	uint8_t user_def_apps;
+
+	/* Sub-TLV list - rfc8919 section-3.1 */
+	uint32_t admin_group;
+	struct admin_group ext_admin_group; /* Res. Class/Color - RFC 7308 */
+	float max_bw;			    /* Maximum Bandwidth - RFC 5305 */
+	float max_rsv_bw;   /* Maximum Reservable Bandwidth - RFC 5305 */
+	float unrsv_bw[8];  /* Unreserved Bandwidth - RFC 5305 */
+	uint32_t te_metric; /* Traffic Engineering Metric - RFC 5305 */
+	uint32_t delay;     /* Average Link Delay  - RFC 8570 */
+	uint32_t min_delay; /* Low Link Delay  - RFC 8570 */
+	uint32_t max_delay; /* High Link Delay  - RFC 8570 */
+	uint32_t delay_var; /* Link Delay Variation i.e. Jitter - RFC 8570 */
+	uint32_t pkt_loss;  /* Unidirectional Link Packet Loss - RFC 8570 */
+	float res_bw;       /* Unidirectional Residual Bandwidth - RFC 8570 */
+	float ava_bw;       /* Unidirectional Available Bandwidth - RFC 8570 */
+	float use_bw;       /* Unidirectional Utilized Bandwidth - RFC 8570 */
 };
 
 #define IS_COMPAT_MT_TLV(tlv_type)                                             \
@@ -528,6 +756,7 @@ int isis_pack_tlvs(struct isis_tlvs *tlvs, struct stream *stream,
 		   size_t len_pointer, bool pad, bool is_lsp);
 void isis_free_tlvs(struct isis_tlvs *tlvs);
 struct isis_tlvs *isis_alloc_tlvs(void);
+struct isis_subsubtlvs *isis_alloc_subsubtlvs(enum isis_tlv_context context);
 int isis_unpack_tlvs(size_t avail_len, struct stream *stream,
 		     struct isis_tlvs **dest, const char **error_log);
 const char *isis_format_tlvs(struct isis_tlvs *tlvs, struct json_object *json);
@@ -546,6 +775,12 @@ struct list *isis_fragment_tlvs(struct isis_tlvs *tlvs, size_t size);
 #define ISIS_MT_OL_MASK        0x8000
 #define ISIS_MT_AT_MASK        0x4000
 #endif
+
+/* RFC 8919 */
+#define ISIS_SABM_FLAG_R 0x80 /* RSVP-TE */
+#define ISIS_SABM_FLAG_S 0x40 /* Segment Routing Policy */
+#define ISIS_SABM_FLAG_L 0x20 /* Loop-Free Alternate */
+#define ISIS_SABM_FLAG_X 0x10 /* Flex-Algorithm - RFC9350 */
 
 void isis_tlvs_add_auth(struct isis_tlvs *tlvs, struct isis_passwd *passwd);
 void isis_tlvs_add_area_addresses(struct isis_tlvs *tlvs,
@@ -578,8 +813,19 @@ void isis_tlvs_add_csnp_entries(struct isis_tlvs *tlvs, uint8_t *start_id,
 				struct isis_lsp **last_lsp);
 void isis_tlvs_set_dynamic_hostname(struct isis_tlvs *tlvs,
 				    const char *hostname);
-void isis_tlvs_set_router_capability(struct isis_tlvs *tlvs,
-                     const struct isis_router_cap *cap);
+struct isis_router_cap *
+isis_tlvs_init_router_capability(struct isis_tlvs *tlvs);
+
+struct isis_area;
+struct isis_flex_algo;
+void isis_tlvs_set_router_capability_fad(struct isis_tlvs *tlvs,
+					 struct flex_algo *fa, int algorithm,
+					 uint8_t *sysid);
+
+struct isis_area;
+
+int isis_tlvs_sr_algo_count(const struct isis_router_cap *cap);
+
 void isis_tlvs_set_te_router_id(struct isis_tlvs *tlvs,
 				const struct in_addr *id);
 void isis_tlvs_set_te_router_id_ipv6(struct isis_tlvs *tlvs,
@@ -588,10 +834,11 @@ void isis_tlvs_add_oldstyle_ip_reach(struct isis_tlvs *tlvs,
 				     struct prefix_ipv4 *dest, uint8_t metric);
 void isis_tlvs_add_extended_ip_reach(struct isis_tlvs *tlvs,
 				     struct prefix_ipv4 *dest, uint32_t metric,
-				     bool external, struct sr_prefix_cfg *pcfg);
+				     bool external,
+				     struct sr_prefix_cfg **pcfgs);
 void isis_tlvs_add_ipv6_reach(struct isis_tlvs *tlvs, uint16_t mtid,
 			      struct prefix_ipv6 *dest, uint32_t metric,
-			      bool external, struct sr_prefix_cfg *pcfg);
+			      bool external, struct sr_prefix_cfg **pcfgs);
 void isis_tlvs_add_ipv6_dstsrc_reach(struct isis_tlvs *tlvs, uint16_t mtid,
 				     struct prefix_ipv6 *dest,
 				     struct prefix_ipv6 *src,
@@ -606,6 +853,12 @@ void isis_tlvs_add_lan_adj_sid(struct isis_ext_subtlvs *exts,
 			       struct isis_lan_adj_sid *lan);
 void isis_tlvs_del_lan_adj_sid(struct isis_ext_subtlvs *exts,
 			       struct isis_lan_adj_sid *lan);
+
+void isis_tlvs_del_asla_flex_algo(struct isis_ext_subtlvs *ext,
+				  struct isis_asla_subtlvs *asla);
+struct isis_asla_subtlvs *
+isis_tlvs_find_alloc_asla(struct isis_ext_subtlvs *ext, uint8_t standard_apps);
+void isis_tlvs_free_asla(struct isis_ext_subtlvs *ext, uint8_t standard_apps);
 
 void isis_tlvs_add_oldstyle_reach(struct isis_tlvs *tlvs, uint8_t *id,
 				  uint8_t metric);
@@ -631,4 +884,20 @@ isis_tlvs_lookup_mt_router_info(struct isis_tlvs *tlvs, uint16_t mtid);
 void isis_tlvs_set_purge_originator(struct isis_tlvs *tlvs,
 				    const uint8_t *generator,
 				    const uint8_t *sender);
+
+void isis_subsubtlvs_set_srv6_sid_structure(struct isis_subsubtlvs *subsubtlvs,
+					    struct isis_srv6_sid *sid);
+void isis_subtlvs_add_srv6_end_sid(struct isis_subtlvs *subtlvs,
+				   struct isis_srv6_sid *sid);
+void isis_tlvs_add_srv6_locator(struct isis_tlvs *tlvs, uint16_t mtid,
+				struct isis_srv6_locator *loc);
+
+void isis_tlvs_add_srv6_endx_sid(struct isis_ext_subtlvs *exts,
+				 struct isis_srv6_endx_sid_subtlv *adj);
+void isis_tlvs_del_srv6_endx_sid(struct isis_ext_subtlvs *exts,
+				 struct isis_srv6_endx_sid_subtlv *adj);
+void isis_tlvs_add_srv6_lan_endx_sid(struct isis_ext_subtlvs *exts,
+				     struct isis_srv6_lan_endx_sid_subtlv *lan);
+void isis_tlvs_del_srv6_lan_endx_sid(struct isis_ext_subtlvs *exts,
+				     struct isis_srv6_lan_endx_sid_subtlv *lan);
 #endif

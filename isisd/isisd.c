@@ -1,28 +1,15 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * IS-IS Rout(e)ing protocol - isisd.c
  *
  * Copyright (C) 2001,2002   Sampo Saaristo
  *                           Tampere University of Technology
  *                           Institute of Communications Engineering
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public Licenseas published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful,but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
 
-#include "thread.h"
+#include "frrevent.h"
 #include "vty.h"
 #include "command.h"
 #include "log.h"
@@ -40,6 +27,7 @@
 #include "zclient.h"
 #include "vrf.h"
 #include "spf_backoff.h"
+#include "flex_algo.h"
 #include "lib/northbound_cli.h"
 #include "bfd.h"
 
@@ -62,6 +50,7 @@
 #include "isisd/isis_te.h"
 #include "isisd/isis_mt.h"
 #include "isisd/isis_sr.h"
+#include "isisd/isis_flex_algo.h"
 #include "isisd/fabricd.h"
 #include "isisd/isis_nb.h"
 
@@ -99,6 +88,9 @@ static struct isis_master isis_master;
 
 /* ISIS process wide configuration pointer to export. */
 struct isis_master *im;
+
+/* ISIS config processing thread */
+struct event *t_isis_cfg;
 
 #ifndef FABRICD
 DEFINE_HOOK(isis_hook_db_overload, (const struct isis_area *area), (area));
@@ -176,7 +168,7 @@ struct isis *isis_lookup_by_sysid(const uint8_t *sysid)
 	return NULL;
 }
 
-void isis_master_init(struct thread_master *master)
+void isis_master_init(struct event_loop *master)
 {
 	memset(&isis_master, 0, sizeof(isis_master));
 	im = &isis_master;
@@ -282,7 +274,7 @@ void isis_area_del_circuit(struct isis_area *area, struct isis_circuit *circuit)
 
 static void delete_area_addr(void *arg)
 {
-	struct area_addr *addr = (struct area_addr *)arg;
+	struct iso_address *addr = (struct iso_address *)arg;
 
 	XFREE(MTYPE_ISIS_AREA_ADDR, addr);
 }
@@ -327,6 +319,12 @@ struct isis_area *isis_area_create(const char *area_tag, const char *vrf_name)
 	if (area->is_type & IS_LEVEL_2)
 		lsp_db_init(&area->lspdb[1]);
 
+#ifndef FABRICD
+	/* Flex-Algo */
+	area->flex_algos = flex_algos_alloc(isis_flex_algo_data_alloc,
+					    isis_flex_algo_data_free);
+#endif /* ifndef FABRICD */
+
 	spftree_area_init(area);
 
 	area->circuit_list = list_new();
@@ -335,10 +333,11 @@ struct isis_area *isis_area_create(const char *area_tag, const char *vrf_name)
 	area->area_addrs->del = delete_area_addr;
 
 	if (!CHECK_FLAG(im->options, F_ISIS_UNIT_TEST))
-		thread_add_timer(master, lsp_tick, area, 1, &area->t_tick);
+		event_add_timer(master, lsp_tick, area, 1, &area->t_tick);
 	flags_initialize(&area->flags);
 
 	isis_sr_area_init(area);
+	isis_srv6_area_init(area);
 
 	/*
 	 * Default values
@@ -522,18 +521,23 @@ void isis_area_destroy(struct isis_area *area)
 	isis_area_invalidate_routes(area, area->is_type);
 	isis_area_verify_routes(area);
 
+#ifndef FABRICD
+	flex_algos_free(area->flex_algos);
+#endif /* ifndef FABRICD */
+
 	isis_sr_area_term(area);
+	isis_srv6_area_term(area);
 
 	isis_mpls_te_term(area);
 
 	spftree_area_del(area);
 
 	if (area->spf_timer[0])
-		isis_spf_timer_free(THREAD_ARG(area->spf_timer[0]));
-	THREAD_OFF(area->spf_timer[0]);
+		isis_spf_timer_free(EVENT_ARG(area->spf_timer[0]));
+	EVENT_OFF(area->spf_timer[0]);
 	if (area->spf_timer[1])
-		isis_spf_timer_free(THREAD_ARG(area->spf_timer[1]));
-	THREAD_OFF(area->spf_timer[1]);
+		isis_spf_timer_free(EVENT_ARG(area->spf_timer[1]));
+	EVENT_OFF(area->spf_timer[1]);
 
 	spf_backoff_free(area->spf_delay_ietf[0]);
 	spf_backoff_free(area->spf_delay_ietf[1]);
@@ -553,12 +557,12 @@ void isis_area_destroy(struct isis_area *area)
 	isis_lfa_tiebreakers_clear(area, ISIS_LEVEL1);
 	isis_lfa_tiebreakers_clear(area, ISIS_LEVEL2);
 
-	THREAD_OFF(area->t_tick);
-	THREAD_OFF(area->t_lsp_refresh[0]);
-	THREAD_OFF(area->t_lsp_refresh[1]);
-	THREAD_OFF(area->t_rlfa_rib_update);
+	EVENT_OFF(area->t_tick);
+	EVENT_OFF(area->t_lsp_refresh[0]);
+	EVENT_OFF(area->t_lsp_refresh[1]);
+	EVENT_OFF(area->t_rlfa_rib_update);
 
-	thread_cancel_event(master, area);
+	event_cancel_event(master, area);
 
 	listnode_delete(area->isis->area_list, area);
 
@@ -597,64 +601,66 @@ static int isis_vrf_delete(struct vrf *vrf)
 
 static void isis_set_redist_vrf_bitmaps(struct isis *isis, bool set)
 {
-	struct listnode *node;
+	struct listnode *node, *lnode;
 	struct isis_area *area;
 	int type;
 	int level;
 	int protocol;
-
-	char do_subscribe[REDIST_PROTOCOL_COUNT][ZEBRA_ROUTE_MAX + 1];
-
-	memset(do_subscribe, 0, sizeof(do_subscribe));
+	struct isis_redist *redist;
 
 	for (ALL_LIST_ELEMENTS_RO(isis->area_list, node, area))
 		for (protocol = 0; protocol < REDIST_PROTOCOL_COUNT; protocol++)
 			for (type = 0; type < ZEBRA_ROUTE_MAX + 1; type++)
-				for (level = 0; level < ISIS_LEVELS; level++)
-					if (area->redist_settings[protocol]
-								 [type][level]
-									 .redist
-					    == 1)
-						do_subscribe[protocol][type] =
-							1;
+				for (level = 0; level < ISIS_LEVELS; level++) {
+					if (area->redist_settings[protocol][type]
+								 [level] == NULL)
+						continue;
+					for (ALL_LIST_ELEMENTS_RO(area->redist_settings
+									  [protocol]
+									  [type]
+									  [level],
+								  lnode,
+								  redist)) {
+						if (redist->redist == 0)
+							continue;
+						/* This field is actually
+						 * controlling transmission of
+						 * the IS-IS
+						 * routes to Zebra and has
+						 * nothing to do with
+						 * redistribution,
+						 * so skip it. */
+						afi_t afi =
+							afi_for_redist_protocol(
+								protocol);
 
-	for (protocol = 0; protocol < REDIST_PROTOCOL_COUNT; protocol++)
-		for (type = 0; type < ZEBRA_ROUTE_MAX + 1; type++) {
-			/* This field is actually controlling transmission of
-			 * the IS-IS
-			 * routes to Zebra and has nothing to do with
-			 * redistribution,
-			 * so skip it. */
-			if (type == PROTO_TYPE)
-				continue;
-
-			if (!do_subscribe[protocol][type])
-				continue;
-
-			afi_t afi = afi_for_redist_protocol(protocol);
-
-			if (type == DEFAULT_ROUTE) {
-				if (set)
-					vrf_bitmap_set(
-						zclient->default_information
-							[afi],
-						isis->vrf_id);
-				else
-					vrf_bitmap_unset(
-						zclient->default_information
-							[afi],
-						isis->vrf_id);
-			} else {
-				if (set)
-					vrf_bitmap_set(
-						zclient->redist[afi][type],
-						isis->vrf_id);
-				else
-					vrf_bitmap_unset(
-						zclient->redist[afi][type],
-						isis->vrf_id);
-			}
-		}
+						if (type == DEFAULT_ROUTE) {
+							if (set)
+								vrf_bitmap_set(
+									&zclient->default_information
+										 [afi],
+									isis->vrf_id);
+							else
+								vrf_bitmap_unset(
+									&zclient->default_information
+										 [afi],
+									isis->vrf_id);
+						} else {
+							if (set)
+								vrf_bitmap_set(
+									&zclient->redist
+										 [afi]
+										 [type],
+									isis->vrf_id);
+							else
+								vrf_bitmap_unset(
+									&zclient->redist
+										 [afi]
+										 [type],
+									isis->vrf_id);
+						}
+					}
+				}
 }
 
 static int isis_vrf_enable(struct vrf *vrf)
@@ -819,8 +825,8 @@ static void area_set_mt_overload(struct isis_area *area, uint16_t mtid,
 int area_net_title(struct vty *vty, const char *net_title)
 {
 	VTY_DECLVAR_CONTEXT(isis_area, area);
-	struct area_addr *addr;
-	struct area_addr *addrp;
+	struct iso_address *addr;
+	struct iso_address *addrp;
 	struct listnode *node;
 
 	uint8_t buff[255];
@@ -833,14 +839,14 @@ int area_net_title(struct vty *vty, const char *net_title)
 		return CMD_ERR_NOTHING_TODO;
 	}
 
-	addr = XMALLOC(MTYPE_ISIS_AREA_ADDR, sizeof(struct area_addr));
+	addr = XMALLOC(MTYPE_ISIS_AREA_ADDR, sizeof(struct iso_address));
 	addr->addr_len = dotformat2buff(buff, net_title);
 	memcpy(addr->area_addr, buff, addr->addr_len);
 #ifdef EXTREME_DEBUG
 	zlog_debug("added area address %s for area %s (address length %d)",
 		   net_title, area->area_tag, addr->addr_len);
 #endif /* EXTREME_DEBUG */
-	if (addr->addr_len < 8 || addr->addr_len > 20) {
+	if (addr->addr_len < ISO_ADDR_MIN || addr->addr_len > ISO_ADDR_SIZE) {
 		vty_out(vty,
 			"area address must be at least 8..20 octets long (%d)\n",
 			addr->addr_len);
@@ -862,8 +868,8 @@ int area_net_title(struct vty *vty, const char *net_title)
 		memcpy(area->isis->sysid, GETSYSID(addr), ISIS_SYS_ID_LEN);
 		area->isis->sysid_set = 1;
 		if (IS_DEBUG_EVENTS)
-			zlog_debug("Router has SystemID %s",
-				   sysid_print(area->isis->sysid));
+			zlog_debug("Router has SystemID %pSY",
+				   area->isis->sysid);
 	} else {
 		/*
 		 * Check that the SystemID portions match
@@ -909,12 +915,12 @@ int area_net_title(struct vty *vty, const char *net_title)
 int area_clear_net_title(struct vty *vty, const char *net_title)
 {
 	VTY_DECLVAR_CONTEXT(isis_area, area);
-	struct area_addr addr, *addrp = NULL;
+	struct iso_address addr, *addrp = NULL;
 	struct listnode *node;
 	uint8_t buff[255];
 
 	addr.addr_len = dotformat2buff(buff, net_title);
-	if (addr.addr_len < 8 || addr.addr_len > 20) {
+	if (addr.addr_len < ISO_ADDR_MIN || addr.addr_len > ISO_ADDR_SIZE) {
 		vty_out(vty,
 			"Unsupported area address length %d, should be 8...20 \n",
 			addr.addr_len);
@@ -2260,7 +2266,7 @@ static void isis_spf_ietf_common(struct vty *vty, struct isis *isis)
 			vty_out(vty, "  Level-%d:\n", level);
 			vty_out(vty, "    SPF delay status: ");
 			if (area->spf_timer[level - 1]) {
-				struct timeval remain = thread_timer_remain(
+				struct timeval remain = event_timer_remain(
 					area->spf_timer[level - 1]);
 				vty_out(vty, "Pending, due in %lld msec\n",
 					(long long)remain.tv_sec * 1000
@@ -2340,9 +2346,11 @@ static const char *pdu_counter_index_to_name_json(enum pdu_counter_index index)
 		return "l1-psnp";
 	case L2_PARTIAL_SEQ_NUM_INDEX:
 		return "l2-psnp";
-	default:
+	case PDU_COUNTER_SIZE:
 		return "???????";
 	}
+
+	assert(!"Reached end of function where we are not expecting to");
 }
 
 static void common_isis_summary_json(struct json_object *json,
@@ -2356,11 +2364,11 @@ static void common_isis_summary_json(struct json_object *json,
 	time_t cur;
 	char uptime[MONOTIME_STRLEN];
 	char stier[5];
+
 	json_object_string_add(json, "vrf", isis->name);
 	json_object_int_add(json, "process-id", isis->process_id);
 	if (isis->sysid_set)
-		json_object_string_add(json, "system-id",
-				       sysid_print(isis->sysid));
+		json_object_string_addf(json, "system-id", "%pSY", isis->sysid);
 
 	cur = time(NULL);
 	cur -= isis->uptime;
@@ -2388,16 +2396,11 @@ static void common_isis_summary_json(struct json_object *json,
 		}
 
 		if (listcount(area->area_addrs) > 0) {
-			struct area_addr *area_addr;
+			struct iso_address *area_addr;
 			for (ALL_LIST_ELEMENTS_RO(area->area_addrs, node2,
-						  area_addr)) {
-				json_object_string_add(
-					area_json, "net",
-					isonet_print(area_addr->area_addr,
-						     area_addr->addr_len +
-							     ISIS_SYS_ID_LEN +
-							     1));
-			}
+						  area_addr))
+				json_object_string_addf(area_json, "net",
+							"%pISl", area_addr);
 		}
 
 		tx_pdu_json = json_object_new_object();
@@ -2470,8 +2473,7 @@ static void common_isis_summary_vty(struct vty *vty, struct isis *isis)
 	vty_out(vty, "vrf             : %s\n", isis->name);
 	vty_out(vty, "Process Id      : %ld\n", isis->process_id);
 	if (isis->sysid_set)
-		vty_out(vty, "System Id       : %s\n",
-			sysid_print(isis->sysid));
+		vty_out(vty, "System Id       : %pSY\n", isis->sysid);
 
 	vty_out(vty, "Up time         : ");
 	vty_out_timestr(vty, isis->uptime);
@@ -2493,15 +2495,10 @@ static void common_isis_summary_vty(struct vty *vty, struct isis *isis)
 		}
 
 		if (listcount(area->area_addrs) > 0) {
-			struct area_addr *area_addr;
+			struct iso_address *area_addr;
 			for (ALL_LIST_ELEMENTS_RO(area->area_addrs, node2,
-						  area_addr)) {
-				vty_out(vty, "  Net: %s\n",
-					isonet_print(area_addr->area_addr,
-						     area_addr->addr_len
-							     + ISIS_SYS_ID_LEN
-							     + 1));
-			}
+						  area_addr))
+				vty_out(vty, "  Net: %pISl\n", area_addr);
 		}
 
 		vty_out(vty, "  TX counters per PDU type:\n");
@@ -2510,6 +2507,12 @@ static void common_isis_summary_vty(struct vty *vty, struct isis *isis)
 			area->lsp_rxmt_count);
 		vty_out(vty, "  RX counters per PDU type:\n");
 		pdu_counter_print(vty, "    ", area->pdu_rx_counters);
+
+		vty_out(vty, "  Drop counters per PDU type:\n");
+		pdu_counter_print(vty, "    ", area->pdu_drop_counters);
+
+		vty_out(vty, "  Advertise high metrics: %s\n",
+			area->advertise_high_metrics ? "Enabled" : "Disabled");
 
 		for (level = ISIS_LEVEL1; level <= ISIS_LEVELS; level++) {
 			if ((area->is_type & level) == 0)
@@ -3074,12 +3077,27 @@ int isis_area_passwd_hmac_md5_set(struct isis_area *area, int level,
 
 void isis_area_invalidate_routes(struct isis_area *area, int levels)
 {
+#ifndef FABRICD
+	struct flex_algo *fa;
+	struct listnode *node;
+	struct isis_flex_algo_data *data;
+#endif /* ifndef FABRICD */
+
 	for (int level = ISIS_LEVEL1; level <= ISIS_LEVEL2; level++) {
 		if (!(level & levels))
 			continue;
 		for (int tree = SPFTREE_IPV4; tree < SPFTREE_COUNT; tree++) {
 			isis_spf_invalidate_routes(
 					area->spftree[tree][level - 1]);
+
+#ifndef FABRICD
+			for (ALL_LIST_ELEMENTS_RO(area->flex_algos->flex_algos,
+						  node, fa)) {
+				data = fa->data;
+				isis_spf_invalidate_routes(
+					data->spftree[tree][level - 1]);
+			}
+#endif /* ifndef FABRICD */
 		}
 	}
 }
@@ -3087,7 +3105,7 @@ void isis_area_invalidate_routes(struct isis_area *area, int levels)
 void isis_area_verify_routes(struct isis_area *area)
 {
 	for (int tree = SPFTREE_IPV4; tree < SPFTREE_COUNT; tree++)
-		isis_spf_verify_routes(area, area->spftree[tree]);
+		isis_spf_verify_routes(area, area->spftree[tree], tree);
 }
 
 void isis_area_switchover_routes(struct isis_area *area, int family,
@@ -3111,6 +3129,12 @@ void isis_area_switchover_routes(struct isis_area *area, int family,
 
 static void area_resign_level(struct isis_area *area, int level)
 {
+#ifndef FABRICD
+	struct flex_algo *fa;
+	struct listnode *node;
+	struct isis_flex_algo_data *data;
+#endif /* ifndef FABRICD */
+
 	isis_area_invalidate_routes(area, level);
 	isis_area_verify_routes(area);
 
@@ -3123,15 +3147,29 @@ static void area_resign_level(struct isis_area *area, int level)
 		}
 	}
 
-	if (area->spf_timer[level - 1])
-		isis_spf_timer_free(THREAD_ARG(area->spf_timer[level - 1]));
+#ifndef FABRICD
+	for (int tree = SPFTREE_IPV4; tree < SPFTREE_COUNT; tree++) {
+		for (ALL_LIST_ELEMENTS_RO(area->flex_algos->flex_algos, node,
+					  fa)) {
+			data = fa->data;
+			if (data->spftree[tree][level - 1]) {
+				isis_spftree_del(
+					data->spftree[tree][level - 1]);
+				data->spftree[tree][level - 1] = NULL;
+			}
+		}
+	}
+#endif /* ifndef FABRICD */
 
-	THREAD_OFF(area->spf_timer[level - 1]);
+	if (area->spf_timer[level - 1])
+		isis_spf_timer_free(EVENT_ARG(area->spf_timer[level - 1]));
+
+	EVENT_OFF(area->spf_timer[level - 1]);
 
 	sched_debug(
 		"ISIS (%s): Resigned from L%d - canceling LSP regeneration timer.",
 		area->area_tag, level);
-	THREAD_OFF(area->t_lsp_refresh[level - 1]);
+	EVENT_OFF(area->t_lsp_refresh[level - 1]);
 	area->lsp_regenerate_pending[level - 1] = 0;
 }
 
@@ -3220,7 +3258,7 @@ void isis_area_overload_bit_set(struct isis_area *area, bool overload_bit)
 		} else {
 			/* Cancel overload on startup timer if it's running */
 			if (area->t_overload_on_startup_timer) {
-				THREAD_OFF(area->t_overload_on_startup_timer);
+				EVENT_OFF(area->t_overload_on_startup_timer);
 				area->t_overload_on_startup_timer = NULL;
 			}
 		}
@@ -3245,15 +3283,66 @@ void isis_area_overload_on_startup_set(struct isis_area *area,
 	}
 }
 
-/*
- * Returns the path of the file (non-volatile memory) that contains restart
- * information.
- */
-char *isis_restart_filepath(void)
+void config_end_lsp_generate(struct isis_area *area)
 {
-	static char filepath[MAXPATHLEN];
-	snprintf(filepath, sizeof(filepath), ISISD_RESTART, "");
-	return filepath;
+	if (listcount(area->area_addrs) > 0) {
+		if (CHECK_FLAG(area->is_type, IS_LEVEL_1))
+			lsp_generate(area, IS_LEVEL_1);
+		if (CHECK_FLAG(area->is_type, IS_LEVEL_2))
+			lsp_generate(area, IS_LEVEL_2);
+	}
+}
+
+void isis_area_advertise_high_metrics_set(struct isis_area *area,
+					  bool advertise_high_metrics)
+{
+	struct listnode *node;
+	struct isis_circuit *circuit;
+	int max_metric;
+	char xpath[XPATH_MAXLEN];
+	struct lyd_node *dnode;
+	int configured_metric_l1;
+	int configured_metric_l2;
+
+	if (area->advertise_high_metrics == advertise_high_metrics)
+		return;
+
+	if (advertise_high_metrics) {
+		if (area->oldmetric && area->newmetric)
+			max_metric = ISIS_NARROW_METRIC_INFINITY;
+		else if (area->newmetric)
+			max_metric = MAX_WIDE_LINK_METRIC;
+		else
+			max_metric = MAX_NARROW_LINK_METRIC;
+
+		for (ALL_LIST_ELEMENTS_RO(area->circuit_list, node, circuit)) {
+			isis_circuit_metric_set(circuit, IS_LEVEL_1,
+						max_metric);
+			isis_circuit_metric_set(circuit, IS_LEVEL_2,
+						max_metric);
+		}
+
+		area->advertise_high_metrics = true;
+	} else {
+		area->advertise_high_metrics = false;
+		for (ALL_LIST_ELEMENTS_RO(area->circuit_list, node, circuit)) {
+			/* Get configured metric */
+			snprintf(xpath, XPATH_MAXLEN,
+				 "/frr-interface:lib/interface[name='%s']",
+				 circuit->interface->name);
+			dnode = yang_dnode_get(running_config->dnode, xpath);
+
+			configured_metric_l1 = yang_dnode_get_uint32(
+				dnode, "./frr-isisd:isis/metric/level-1");
+			configured_metric_l2 = yang_dnode_get_uint32(
+				dnode, "./frr-isisd:isis/metric/level-2");
+
+			isis_circuit_metric_set(circuit, IS_LEVEL_1,
+						configured_metric_l1);
+			isis_circuit_metric_set(circuit, IS_LEVEL_2,
+						configured_metric_l2);
+		}
+	}
 }
 
 /*
@@ -3262,18 +3351,13 @@ char *isis_restart_filepath(void)
 void isis_restart_write_overload_time(struct isis_area *isis_area,
 				      uint32_t overload_time)
 {
-	char *filepath;
 	const char *area_name;
 	json_object *json;
 	json_object *json_areas;
 	json_object *json_area;
 
-	filepath = isis_restart_filepath();
+	json = frr_daemon_state_load();
 	area_name = isis_area->area_tag;
-
-	json = json_object_from_file(filepath);
-	if (json == NULL)
-		json = json_object_new_object();
 
 	json_object_object_get_ex(json, "areas", &json_areas);
 	if (!json_areas) {
@@ -3289,8 +3373,8 @@ void isis_restart_write_overload_time(struct isis_area *isis_area,
 
 	json_object_int_add(json_area, "overload_time",
 			    isis_area->overload_on_startup_time);
-	json_object_to_file_ext(filepath, json, JSON_C_TO_STRING_PRETTY);
-	json_object_free(json);
+
+	frr_daemon_state_save(&json);
 }
 
 /*
@@ -3298,7 +3382,6 @@ void isis_restart_write_overload_time(struct isis_area *isis_area,
  */
 uint32_t isis_restart_read_overload_time(struct isis_area *isis_area)
 {
-	char *filepath;
 	const char *area_name;
 	json_object *json;
 	json_object *json_areas;
@@ -3306,12 +3389,9 @@ uint32_t isis_restart_read_overload_time(struct isis_area *isis_area)
 	json_object *json_overload_time;
 	uint32_t overload_time = 0;
 
-	filepath = isis_restart_filepath();
 	area_name = isis_area->area_tag;
 
-	json = json_object_from_file(filepath);
-	if (json == NULL)
-		json = json_object_new_object();
+	json = frr_daemon_state_load();
 
 	json_object_object_get_ex(json, "areas", &json_areas);
 	if (!json_areas) {
@@ -3333,8 +3413,7 @@ uint32_t isis_restart_read_overload_time(struct isis_area *isis_area)
 
 	json_object_object_del(json_areas, area_name);
 
-	json_object_to_file_ext(filepath, json, JSON_C_TO_STRING_PRETTY);
-	json_object_free(json);
+	frr_daemon_state_save(&json);
 
 	return overload_time;
 }
@@ -3437,15 +3516,10 @@ static int isis_config_write(struct vty *vty)
 			write++;
 			/* ISIS - Net */
 			if (listcount(area->area_addrs) > 0) {
-				struct area_addr *area_addr;
+				struct iso_address *area_addr;
 				for (ALL_LIST_ELEMENTS_RO(area->area_addrs,
 							  node2, area_addr)) {
-					vty_out(vty, " net %s\n",
-						isonet_print(
-							area_addr->area_addr,
-							area_addr->addr_len
-								+ ISIS_SYS_ID_LEN
-								+ 1));
+					vty_out(vty, " net %pISl\n", area_addr);
 					write++;
 				}
 			}
@@ -3704,7 +3778,8 @@ struct cmd_node router_node = {
 	.prompt = "%s(config-router)# ",
 	.config_write = isis_config_write,
 };
-#else
+#endif /* ifdef FABRICD */
+#ifndef FABRICD
 /* IS-IS configuration write function */
 static int isis_config_write(struct vty *vty)
 {
@@ -3727,7 +3802,28 @@ struct cmd_node router_node = {
 	.prompt = "%s(config-router)# ",
 	.config_write = isis_config_write,
 };
-#endif /* ifdef FABRICD */
+
+struct cmd_node isis_flex_algo_node = {
+	.name = "isis-flex-algo",
+	.node = ISIS_FLEX_ALGO_NODE,
+	.parent_node = ISIS_NODE,
+	.prompt = "%s(config-router-flex-algo)# ",
+};
+#endif /* ifdnef FABRICD */
+
+struct cmd_node isis_srv6_node = {
+	.name = "isis-srv6",
+	.node = ISIS_SRV6_NODE,
+	.parent_node = ISIS_NODE,
+	.prompt = "%s(config-router-srv6)# ",
+};
+
+struct cmd_node isis_srv6_node_msd_node = {
+	.name = "isis-srv6-node-msd",
+	.node = ISIS_SRV6_NODE_MSD_NODE,
+	.parent_node = ISIS_SRV6_NODE,
+	.prompt = "%s(config-router-srv6-node-msd)# ",
+};
 
 void isis_init(void)
 {
@@ -3836,6 +3932,16 @@ void isis_init(void)
 	install_element(ROUTER_NODE, &log_adj_changes_cmd);
 	install_element(ROUTER_NODE, &no_log_adj_changes_cmd);
 #endif /* ifdef FABRICD */
+#ifndef FABRICD
+	install_node(&isis_flex_algo_node);
+	install_default(ISIS_FLEX_ALGO_NODE);
+#endif /* ifdnef FABRICD */
+
+	install_node(&isis_srv6_node);
+	install_default(ISIS_SRV6_NODE);
+
+	install_node(&isis_srv6_node_msd_node);
+	install_default(ISIS_SRV6_NODE_MSD_NODE);
 
 	spf_backoff_cmd_init();
 }

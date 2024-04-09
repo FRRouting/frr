@@ -19,6 +19,12 @@ if LINUX
 module_LTLIBRARIES += zebra/zebra_cumulus_mlag.la
 endif
 
+#if FPM_LISTENER
+sbin_PROGRAMS += zebra/fpm_listener
+zebra_fpm_listener_SOURCES = zebra/fpm_listener.c
+zebra_fpm_listener_LDADD = lib/libfrr.la
+#endf
+
 # Dataplane sample plugin
 if DEV_BUILD
 module_LTLIBRARIES += zebra/dplane_sample_plugin.la
@@ -28,7 +34,7 @@ man8 += $(MANBUILD)/frr-zebra.8
 ## endif ZEBRA
 endif
 
-zebra_zebra_LDADD = lib/libfrr.la $(LIBCAP) $(UST_LIBS)
+zebra_zebra_LDADD = lib/libfrr.la $(LIBCAP) $(LIBYANG_LIBS) $(UST_LIBS)
 if HAVE_PROTOBUF3
 zebra_zebra_LDADD += mlag/libmlag_pb.la $(PROTOBUF_C_LIBS)
 zebra/zebra_mlag.$(OBJEXT): mlag/mlag.pb-c.h
@@ -52,6 +58,7 @@ zebra_zebra_SOURCES = \
 	zebra/redistribute.c \
 	zebra/router-id.c \
 	zebra/rt_netlink.c \
+	zebra/ge_netlink.c \
 	zebra/rt_socket.c \
 	zebra/rtadv.c \
 	zebra/rtread_netlink.c \
@@ -62,10 +69,12 @@ zebra_zebra_SOURCES = \
 	zebra/tc_netlink.c \
 	zebra/tc_socket.c \
 	zebra/zapi_msg.c \
+	zebra/zebra_affinitymap.c \
 	zebra/zebra_dplane.c \
 	zebra/zebra_errors.c \
 	zebra/zebra_gr.c \
 	zebra/zebra_l2.c \
+	zebra/zebra_l2_bridge_if.c \
 	zebra/zebra_evpn.c \
 	zebra/zebra_evpn_mac.c \
 	zebra/zebra_evpn_neigh.c \
@@ -105,6 +114,7 @@ zebra_zebra_SOURCES = \
 	zebra/zebra_vrf.c \
 	zebra/zebra_vty.c \
 	zebra/zebra_vxlan.c \
+	zebra/zebra_vxlan_if.c \
 	zebra/zebra_evpn_mh.c \
 	zebra/zebra_neigh.c \
 	zebra/zserv.c \
@@ -112,15 +122,17 @@ zebra_zebra_SOURCES = \
 
 clippy_scan += \
 	zebra/debug.c \
+	zebra/dplane_fpm_nl.c \
 	zebra/interface.c \
 	zebra/rtadv.c \
-	zebra/zebra_evpn_mh.c \
 	zebra/zebra_mlag_vty.c \
 	zebra/zebra_routemap.c \
 	zebra/zebra_vty.c \
 	zebra/zebra_srv6_vty.c \
 	zebra/zebra_vrf.c \
 	zebra/dpdk/zebra_dplane_dpdk_vty.c \
+	zebra/label_manager.c \
+	zebra/zebra_cli.c \
 	# end
 
 noinst_HEADERS += \
@@ -140,11 +152,13 @@ noinst_HEADERS += \
 	zebra/router-id.h \
 	zebra/rt.h \
 	zebra/rt_netlink.h \
+	zebra/ge_netlink.h \
 	zebra/rtadv.h \
 	zebra/rule_netlink.h \
 	zebra/table_manager.h \
 	zebra/tc_netlink.h \
 	zebra/zapi_msg.h \
+	zebra/zebra_affinitymap.h \
 	zebra/zebra_dplane.h \
 	zebra/zebra_errors.h \
 	zebra/zebra_evpn.h \
@@ -183,6 +197,8 @@ noinst_HEADERS += \
 	zebra/zebra_vxlan_private.h \
 	zebra/zebra_evpn_mh.h \
 	zebra/zebra_neigh.h \
+	zebra/zebra_l2_bridge_if.h \
+	zebra/zebra_vxlan_if.h \
 	zebra/zserv.h \
 	zebra/dpdk/zebra_dplane_dpdk.h \
 	zebra/dpdk/zebra_dplane_dpdk_private.h \

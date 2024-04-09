@@ -3,7 +3,7 @@
     "2.2.2.2":[
       {
         "converged":"Full",
-        "address":"10.0.1.2",
+        "ifaceAddress":"10.0.1.2",
         "ifaceName":"eth-rt2:10.0.1.1"
       }
     ]

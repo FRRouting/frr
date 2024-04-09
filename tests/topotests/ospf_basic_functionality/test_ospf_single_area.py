@@ -1,23 +1,10 @@
 #!/usr/bin/python
+# SPDX-License-Identifier: ISC
 
 #
 # Copyright (c) 2020 by VMware, Inc. ("VMware")
 # Used Copyright (c) 2018 by Network Device Education Foundation, Inc.
 # ("NetDEF") in this file.
-#
-# Permission to use, copy, modify, and/or distribute this software
-# for any purpose with or without fee is hereby granted, provided
-# that the above copyright notice and this permission notice appear
-# in all copies.
-#
-# THE SOFTWARE IS PROVIDED "AS IS" AND VMWARE DISCLAIMS ALL WARRANTIES
-# WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
-# MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL VMWARE BE LIABLE FOR
-# ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY
-# DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS,
-# WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS
-# ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE
-# OF THIS SOFTWARE.
 #
 
 
@@ -121,7 +108,7 @@ def setup_module(mod):
         pytest.skip(tgen.errors)
 
     ospf_covergence = verify_ospf_neighbor(tgen, topo)
-    assert ospf_covergence is True, "setup_module :Failed \n Error:" " {}".format(
+    assert ospf_covergence is True, "setup_module :Failed \n Error  {}".format(
         ospf_covergence
     )
 
@@ -371,7 +358,7 @@ def test_ospf_p2p_tc3_p0(request):
 
     # Api call verify whether BGP is converged
     ospf_covergence = verify_ospf_neighbor(tgen, topo)
-    assert ospf_covergence is True, "setup_module :Failed \n Error:" " {}".format(
+    assert ospf_covergence is True, "Testcase Failed \n Error  {}".format(
         ospf_covergence
     )
 
@@ -453,7 +440,7 @@ def test_ospf_hello_tc10_p0(request):
 
     step("verify that ospf neighbours are  full")
     ospf_covergence = verify_ospf_neighbor(tgen, topo, dut=dut)
-    assert ospf_covergence is True, "setup_module :Failed \n Error:" " {}".format(
+    assert ospf_covergence is True, "Testcase Failed \n Error  {}".format(
         ospf_covergence
     )
 
@@ -499,7 +486,7 @@ def test_ospf_hello_tc10_p0(request):
 
     step("verify that ospf neighbours are  full")
     ospf_covergence = verify_ospf_neighbor(tgen, topo, dut=dut)
-    assert ospf_covergence is True, "setup_module :Failed \n Error:" " {}".format(
+    assert ospf_covergence is True, "Testcase Failed \n Error  {}".format(
         ospf_covergence
     )
 
@@ -545,7 +532,7 @@ def test_ospf_hello_tc10_p0(request):
 
     step("verify that ospf neighbours are  full")
     ospf_covergence = verify_ospf_neighbor(tgen, topo, dut=dut)
-    assert ospf_covergence is True, "setup_module :Failed \n Error:" " {}".format(
+    assert ospf_covergence is True, "Testcase Failed \n Error  {}".format(
         ospf_covergence
     )
 
@@ -588,7 +575,7 @@ def test_ospf_hello_tc10_p0(request):
 
     step("verify that ospf neighbours are  full")
     ospf_covergence = verify_ospf_neighbor(tgen, topo, dut=dut)
-    assert ospf_covergence is True, "setup_module :Failed \n Error:" " {}".format(
+    assert ospf_covergence is True, "Testcase Failed \n Error  {}".format(
         ospf_covergence
     )
 
@@ -610,7 +597,7 @@ def test_ospf_show_p1(request):
     reset_config_on_routers(tgen)
 
     ospf_covergence = verify_ospf_neighbor(tgen, topo)
-    assert ospf_covergence is True, "setup_module :Failed \n Error:" " {}".format(
+    assert ospf_covergence is True, "Testcase Failed \n Error  {}".format(
         ospf_covergence
     )
     dut = "r1"
@@ -703,7 +690,7 @@ def test_ospf_dead_tc11_p0(request):
     result = verify_ospf_interface(tgen, topo, dut=dut, input_dict=input_dict)
     assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
-    step("modify dead interval from default value to r1" "dead interval timer on r2")
+    step("modify dead interval from default value to r1 dead interval timer on r2")
 
     topo1 = {
         "r0": {
@@ -727,11 +714,11 @@ def test_ospf_dead_tc11_p0(request):
 
     step("verify that ospf neighbours are  full")
     ospf_covergence = verify_ospf_neighbor(tgen, topo, dut=dut)
-    assert ospf_covergence is True, "setup_module :Failed \n Error:" " {}".format(
+    assert ospf_covergence is True, "Testcase Failed \n Error  {}".format(
         ospf_covergence
     )
 
-    step("reconfigure the default dead interval timer value to " "default on r1 and r2")
+    step("reconfigure the default dead interval timer value to  default on r1 and r2")
     topo1 = {
         "r0": {
             "links": {
@@ -768,7 +755,7 @@ def test_ospf_dead_tc11_p0(request):
 
     step("verify that ospf neighbours are  full")
     ospf_covergence = verify_ospf_neighbor(tgen, topo, dut=dut)
-    assert ospf_covergence is True, "setup_module :Failed \n Error:" " {}".format(
+    assert ospf_covergence is True, "Testcase Failed \n Error  {}".format(
         ospf_covergence
     )
 
@@ -810,7 +797,7 @@ def test_ospf_dead_tc11_p0(request):
 
     step("verify that ospf neighbours are  full")
     ospf_covergence = verify_ospf_neighbor(tgen, topo, dut=dut)
-    assert ospf_covergence is True, "setup_module :Failed \n Error:" " {}".format(
+    assert ospf_covergence is True, "Testcase Failed \n Error  {}".format(
         ospf_covergence
     )
 
@@ -848,9 +835,7 @@ def test_ospf_dead_tc11_p0(request):
     result = create_interfaces_cfg(tgen, topo1)
     assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
-    step(
-        "Verify that timer value is deleted from intf & " "set to default value 40 sec."
-    )
+    step("Verify that timer value is deleted from intf &  set to default value 40 sec.")
     input_dict = {"r1": {"links": {"r0": {"ospf": {"timerDeadSecs": 40}}}}}
     dut = "r1"
     result = verify_ospf_interface(tgen, topo, dut=dut, input_dict=input_dict)
@@ -896,18 +881,14 @@ def test_ospf_tc4_mtu_ignore_p0(request):
 
     clear_ospf(tgen, "r0")
 
-    step(
-        "Verify that OSPF neighborship between R0 and R1 is stuck in Exstart" " State."
-    )
+    step("Verify that OSPF neighborship between R0 and R1 is stuck in Exstart  State.")
     result = verify_ospf_neighbor(tgen, topo, expected=False)
     assert result is not True, (
         "Testcase {} : Failed \n OSPF nbrs are Full "
         "instead of Exstart. Error: {}".format(tc_name, result)
     )
 
-    step(
-        "Verify that configured MTU value is updated in the show ip " "ospf interface."
-    )
+    step("Verify that configured MTU value is updated in the show ip  ospf interface.")
 
     dut = "r0"
     input_dict = {"r0": {"links": {"r1": {"ospf": {"mtuBytes": 1200}}}}}
@@ -964,9 +945,7 @@ def test_ospf_tc4_mtu_ignore_p0(request):
 
     clear_ospf(tgen, "r0")
 
-    step(
-        "Verify that OSPF neighborship between R0 and R1 is stuck in Exstart" " State."
-    )
+    step("Verify that OSPF neighborship between R0 and R1 is stuck in Exstart  State.")
     result = verify_ospf_neighbor(tgen, topo, expected=False)
     assert result is not True, (
         "Testcase {} : Failed \n OSPF nbrs are Full "
@@ -983,9 +962,7 @@ def test_ospf_tc4_mtu_ignore_p0(request):
     result = verify_ospf_neighbor(tgen, topo)
     assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
-    step(
-        "Configure ospf interface with jumbo MTU (9216)." "Reset ospf neighbors on R0."
-    )
+    step("Configure ospf interface with jumbo MTU (9216). Reset ospf neighbors on R0.")
 
     rtr0.run("ip link set {} mtu 9216".format(r0_r1_intf))
     rtr1.run("ip link set {} mtu 9216".format(r1_r0_intf))

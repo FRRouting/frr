@@ -77,7 +77,14 @@ are available:
 
 .. note::
 
-   ``printfrr()`` does not support the ``%n`` format.
+   ``printfrr()`` does not support the ``%n`` format.  It does support ISO C23
+   ``%b``, ``%w99d`` and ``%wf99d`` additions, but the latter two are not
+   supported by the ``frr-format`` plugin yet, and all 3 aren't supported by
+   the older compilers still in use on some supported platforms.
+
+   ``%b`` can be used with ``FMT_NSTD``, but ``%w99d`` and ``%wf99d`` require
+   work in the ``frr-format`` plugin before they are really usable.
+
 
 AS-Safety
 ^^^^^^^^^
@@ -335,16 +342,16 @@ Time/interval formats
 FRR library helper formats
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-.. frrfmt:: %pTH (struct thread *)
+.. frrfmt:: %pTH (struct event *)
 
-   Print remaining time on timer thread. Interval-printing flag characters
+   Print remaining time on timer event. Interval-printing flag characters
    listed above for ``%pTV`` can be added, e.g. ``%pTHtx``.
 
    ``NULL`` pointers are printed as ``-``.
 
-.. frrfmt:: %pTHD (struct thread *)
+.. frrfmt:: %pTHD (struct event *)
 
-   Print debugging information for given thread.  Sample output:
+   Print debugging information for given event.  Sample output:
 
    .. code-block:: none
 
@@ -376,7 +383,8 @@ bgpd
 
 .. frrfmt:: %pBD (struct bgp_dest *)
 
-   Print prefix for a BGP destination.
+   Print prefix for a BGP destination.  When using ``--enable-dev-build`` include
+   the pointer value for the bgp_dest.
 
    :frrfmtout:`fe80::1234/64`
 
@@ -502,6 +510,51 @@ General utility formats
    representation for a hexdump.  Non-printable characters are replaced with
    a dot.
 
+.. frrfmt:: %pIS (struct iso_address *)
+
+   ([IS]o Network address) - Format ISO Network Address
+
+   ``%pIS``: :frrfmtout:`01.0203.04O5`
+   ISO Network address is printed as separated byte. The number of byte of the
+   address is embeded in the `iso_net` structure.
+
+   ``%pISl``: :frrfmtout:`01.0203.04O5.0607.0809.1011.1213.14` - long format to
+   print the long version of the ISO Network address which include the System
+   ID and the PSEUDO-ID of the IS-IS system
+
+   Note that the `ISO_ADDR_STRLEN` define gives the total size of the string
+   that could be used in conjunction to snprintfrr. Use like::
+
+     char buf[ISO_ADDR_STRLEN];
+     struct iso_address addr = {.addr_len = 4, .area_addr = {1, 2, 3, 4}};
+     snprintfrr(buf, ISO_ADDR_STRLEN, "%pIS", &addr);
+
+.. frrfmt:: %pSY (uint8_t *)
+
+   (IS-IS [SY]stem ID) - Format IS-IS System ID
+
+   ``%pSY``: :frrfmtout:`0102.0304.0506`
+
+.. frrfmt:: %pPN (uint8_t *)
+
+   (IS-IS [P]seudo [N]ode System ID) - Format IS-IS Pseudo Node System ID
+
+   ``%pPN``: :frrfmtout:`0102.0304.0506.07`
+
+.. frrfmt:: %pLS (uint8_t *)
+
+   (IS-IS [L]sp fragment [S]ystem ID) - Format IS-IS Pseudo System ID
+
+   ``%pLS``: :frrfmtout:`0102.0304.0506.07-08`
+
+   Note that the `ISO_SYSID_STRLEN` define gives the total size of the string
+   that could be used in conjunction to snprintfrr. Use like::
+
+     char buf[ISO_SYSID_STRLEN];
+     uint8_t id[8] = {1, 2, 3, 4 , 5 , 6 , 7, 8};
+     snprintfrr(buf, SYS_ID_SIZE, "%pSY", id);
+
+
 Integer formats
 ^^^^^^^^^^^^^^^
 
@@ -512,8 +565,9 @@ Integer formats
    cause compiler warnings when used without the plugin.  Use with
    :c:macro:`FMT_NSTD` if necessary.
 
-   It is possible ISO C23 may introduce another format for these, possibly
-   ``%w64d`` discussed in `JTC 1/SC 22/WG 14/N2680 <http://www.open-std.org/jtc1/sc22/wg14/www/docs/n2680.pdf>`_.
+   As anticipated, ISO C23 has introduced new modifiers for this, specifically
+   ``%w64d`` (= ``%Ld``) and ``%w64u`` (= ``%Lu``).  Unfortunately, these new
+   modifiers are not supported by ``frr-format`` yet.
 
 .. frrfmt:: %Lu (uint64_t)
 

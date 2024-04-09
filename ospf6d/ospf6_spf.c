@@ -1,21 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Copyright (C) 2003 Yasuhiro Ohara
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 /* Shortest Path First calculation for OSPFv3 */
@@ -28,7 +13,7 @@
 #include "vty.h"
 #include "prefix.h"
 #include "linklist.h"
-#include "thread.h"
+#include "frrevent.h"
 #include "lib_errors.h"
 
 #include "ospf6_lsa.h"
@@ -325,7 +310,7 @@ static void ospf6_nexthop_calc(struct ospf6_vertex *w, struct ospf6_vertex *v,
 static int ospf6_spf_install(struct ospf6_vertex *v,
 			     struct ospf6_route_table *result_table)
 {
-	struct ospf6_route *route, *parent_route;
+	struct ospf6_route *route;
 	struct ospf6_vertex *prev;
 
 	if (IS_OSPF6_DEBUG_SPF(PROCESS))
@@ -345,7 +330,12 @@ static int ospf6_spf_install(struct ospf6_vertex *v,
 			zlog_debug(
 				"  another path found to route %pFX lsa %s, merge",
 				&route->prefix, v->lsa->name);
-		ospf6_spf_merge_nexthops_to_route(route, v);
+
+		/* merging the parent's nexthop information to the child's
+		 * if the parent is not the root of the tree.
+		 */
+		if (!ospf6_merge_parents_nh_to_child(v, route, result_table))
+			ospf6_spf_merge_nexthops_to_route(route, v);
 
 		prev = (struct ospf6_vertex *)route->route_option;
 		assert(prev->hops <= v->hops);
@@ -411,13 +401,7 @@ static int ospf6_spf_install(struct ospf6_vertex *v,
 	 * installed,
 	 * its parent's route's nexthops have already been installed.
 	 */
-	if (v->parent && v->parent->hops) {
-		parent_route =
-			ospf6_route_lookup(&v->parent->vertex_id, result_table);
-		if (parent_route) {
-			ospf6_route_merge_nexthops(route, parent_route);
-		}
-	}
+	ospf6_merge_parents_nh_to_child(v, route, result_table);
 
 	if (v->parent)
 		listnode_add_sort(v->parent->child_list, v);
@@ -605,7 +589,7 @@ static void ospf6_spf_log_database(struct ospf6_area *oa)
 	zlog_debug("%s", buffer);
 }
 
-static void ospf6_spf_calculation_thread(struct thread *t)
+static void ospf6_spf_calculation_thread(struct event *t)
 {
 	struct ospf6_area *oa;
 	struct ospf6 *ospf6;
@@ -614,7 +598,7 @@ static void ospf6_spf_calculation_thread(struct thread *t)
 	int areas_processed = 0;
 	char rbuf[32];
 
-	ospf6 = (struct ospf6 *)THREAD_ARG(t);
+	ospf6 = (struct ospf6 *)EVENT_ARG(t);
 
 	/* execute SPF calculation */
 	monotime(&start);
@@ -702,7 +686,7 @@ void ospf6_spf_schedule(struct ospf6 *ospf6, unsigned int reason)
 	}
 
 	/* SPF calculation timer is already scheduled. */
-	if (thread_is_scheduled(ospf6->t_spf_calc)) {
+	if (event_is_scheduled(ospf6->t_spf_calc)) {
 		if (IS_OSPF6_DEBUG_SPF(PROCESS) || IS_OSPF6_DEBUG_SPF(TIME))
 			zlog_debug(
 				"SPF: calculation timer is already scheduled: %p",
@@ -739,9 +723,9 @@ void ospf6_spf_schedule(struct ospf6 *ospf6, unsigned int reason)
 	if (IS_OSPF6_DEBUG_SPF(PROCESS) || IS_OSPF6_DEBUG_SPF(TIME))
 		zlog_debug("SPF: Rescheduling in %ld msec", delay);
 
-	THREAD_OFF(ospf6->t_spf_calc);
-	thread_add_timer_msec(master, ospf6_spf_calculation_thread, ospf6,
-			      delay, &ospf6->t_spf_calc);
+	EVENT_OFF(ospf6->t_spf_calc);
+	event_add_timer_msec(master, ospf6_spf_calculation_thread, ospf6, delay,
+			     &ospf6->t_spf_calc);
 }
 
 void ospf6_spf_display_subtree(struct vty *vty, const char *prefix, int rest,
@@ -1243,7 +1227,7 @@ int ospf6_ase_calculate_route(struct ospf6 *ospf6, struct ospf6_lsa *lsa,
 	return 0;
 }
 
-static void ospf6_ase_calculate_timer(struct thread *t)
+static void ospf6_ase_calculate_timer(struct event *t)
 {
 	struct ospf6 *ospf6;
 	struct ospf6_lsa *lsa;
@@ -1251,7 +1235,7 @@ static void ospf6_ase_calculate_timer(struct thread *t)
 	struct ospf6_area *area;
 	uint16_t type;
 
-	ospf6 = THREAD_ARG(t);
+	ospf6 = EVENT_ARG(t);
 
 	/* Calculate external route for each AS-external-LSA */
 	type = htons(OSPF6_LSTYPE_AS_EXTERNAL);
@@ -1278,6 +1262,7 @@ static void ospf6_ase_calculate_timer(struct thread *t)
 		 * no longer valid.
 		 */
 		ospf6_zebra_gr_disable(ospf6);
+		ospf6_zebra_gr_enable(ospf6, ospf6->gr_info.grace_period);
 		ospf6->gr_info.finishing_restart = false;
 	}
 }
@@ -1287,6 +1272,23 @@ void ospf6_ase_calculate_timer_add(struct ospf6 *ospf6)
 	if (ospf6 == NULL)
 		return;
 
-	thread_add_timer(master, ospf6_ase_calculate_timer, ospf6,
-			 OSPF6_ASE_CALC_INTERVAL, &ospf6->t_ase_calc);
+	event_add_timer(master, ospf6_ase_calculate_timer, ospf6,
+			OSPF6_ASE_CALC_INTERVAL, &ospf6->t_ase_calc);
+}
+
+bool ospf6_merge_parents_nh_to_child(struct ospf6_vertex *v,
+				     struct ospf6_route *route,
+				     struct ospf6_route_table *result_table)
+{
+	struct ospf6_route *parent_route;
+
+	if (v->parent && v->parent->hops) {
+		parent_route =
+			ospf6_route_lookup(&v->parent->vertex_id, result_table);
+		if (parent_route) {
+			ospf6_route_merge_nexthops(route, parent_route);
+			return true;
+		}
+	}
+	return false;
 }

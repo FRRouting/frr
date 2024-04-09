@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# SPDX-License-Identifier: ISC
 
 #
 # test_bfd_topo3.py
@@ -6,20 +7,6 @@
 #
 # Copyright (c) 2020 by
 # Network Device Education Foundation, Inc. ("NetDEF")
-#
-# Permission to use, copy, modify, and/or distribute this software
-# for any purpose with or without fee is hereby granted, provided
-# that the above copyright notice and this permission notice appear
-# in all copies.
-#
-# THE SOFTWARE IS PROVIDED "AS IS" AND NETDEF DISCLAIMS ALL WARRANTIES
-# WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
-# MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL NETDEF BE LIABLE FOR
-# ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY
-# DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS,
-# WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS
-# ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE
-# OF THIS SOFTWARE.
 #
 
 """
@@ -76,6 +63,41 @@ def setup_module(mod):
 
     # Initialize all routers.
     tgen.start_router()
+
+
+def expect_static_bfd_output(router, filename):
+    "Load JSON file and compare with 'show bfd peer json'"
+
+    tgen = get_topogen()
+
+    logger.info("waiting BFD configuration on router {}".format(router))
+    bfd_config = json.loads(open("{}/{}/{}.json".format(CWD, router, filename)).read())
+    test_func = partial(
+        topotest.router_json_cmp,
+        tgen.gears[router],
+        "show bfd static route json",
+        bfd_config,
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=20, wait=1)
+    assertmsg = '"{}" BFD static route status failure'.format(router)
+    assert result is None, assertmsg
+
+
+def expect_route_missing(router, iptype, route):
+    "Wait until route is present on RIB for protocol."
+
+    tgen = get_topogen()
+
+    logger.info("waiting route {} to disapear in {}".format(route, router))
+    test_func = partial(
+        topotest.router_json_cmp,
+        tgen.gears[router],
+        "show {} route json".format(iptype),
+        {route: None},
+    )
+    rv, result = topotest.run_and_expect(test_func, None, count=20, wait=1)
+    assertmsg = '"{}" convergence failure'.format(router)
+    assert result is None, assertmsg
 
 
 def test_wait_bgp_convergence():
@@ -167,7 +189,7 @@ def test_wait_bfd_convergence():
             "show bfd peers json",
             bfd_config,
         )
-        _, result = topotest.run_and_expect(test_func, None, count=130, wait=1)
+        _, result = topotest.run_and_expect(test_func, None, count=200, wait=1)
         assertmsg = '"{}" BFD configuration failure'.format(router)
         assert result is None, assertmsg
 
@@ -179,7 +201,7 @@ def test_wait_bfd_convergence():
     expect_bfd_configuration("r6")
 
 
-def test_static_route_monitoring():
+def test_static_route_monitoring_convergence():
     "Test static route monitoring output."
     tgen = get_topogen()
     if tgen.routers_have_failure():
@@ -187,31 +209,47 @@ def test_static_route_monitoring():
 
     logger.info("test BFD static route status")
 
-    def expect_static_bfd_output(router, filename):
-        "Load JSON file and compare with 'show bfd peer json'"
-        logger.info("waiting BFD configuration on router {}".format(router))
-        bfd_config = json.loads(
-            open("{}/{}/{}.json".format(CWD, router, filename)).read()
-        )
-        test_func = partial(
-            topotest.router_json_cmp,
-            tgen.gears[router],
-            "show bfd static route json",
-            bfd_config,
-        )
-        _, result = topotest.run_and_expect(test_func, None, count=20, wait=1)
-        assertmsg = '"{}" BFD static route status failure'.format(router)
-        assert result is None, assertmsg
-
     expect_static_bfd_output("r3", "bfd-static")
     expect_static_bfd_output("r6", "bfd-static")
 
-    logger.info("Setting r4 link down ...")
 
-    tgen.gears["r4"].link_enable("r4-eth0", False)
+def test_static_route_monitoring_wrong_source():
+    "Test that static monitoring fails if setting a wrong source."
 
-    expect_static_bfd_output("r3", "bfd-static-down")
-    expect_static_bfd_output("r6", "bfd-static-down")
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    logger.info("test route wrong ")
+
+    tgen.gears["r3"].vtysh_cmd(
+        """
+configure
+ipv6 route 2001:db8:5::/64 2001:db8:4::3 bfd multi-hop source 2001:db8:4::2 profile slow-tx
+"""
+    )
+
+    expect_route_missing("r3", "ipv6", "2001:db8:5::/64")
+
+
+def test_static_route_monitoring_unset_source():
+    "Test that static monitoring fails if setting a wrong source."
+
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    logger.info("test route wrong ")
+
+    tgen.gears["r3"].vtysh_cmd(
+        """
+configure
+ipv6 route 2001:db8:5::/64 2001:db8:4::3 bfd multi-hop profile slow-tx
+"""
+    )
+
+    expect_static_bfd_output("r3", "bfd-static")
+    expect_static_bfd_output("r6", "bfd-static")
 
 
 def test_expect_static_rib_removal():
@@ -221,18 +259,12 @@ def test_expect_static_rib_removal():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    def expect_route_missing(router, iptype, route):
-        "Wait until route is present on RIB for protocol."
-        logger.info("waiting route {} to disapear in {}".format(route, router))
-        test_func = partial(
-            topotest.router_json_cmp,
-            tgen.gears[router],
-            "show {} route json".format(iptype),
-            {route: None},
-        )
-        rv, result = topotest.run_and_expect(test_func, None, count=20, wait=1)
-        assertmsg = '"{}" convergence failure'.format(router)
-        assert result is None, assertmsg
+    logger.info("Setting r4 link down ...")
+
+    tgen.gears["r4"].link_enable("r4-eth0", False)
+
+    expect_static_bfd_output("r3", "bfd-static-down")
+    expect_static_bfd_output("r6", "bfd-static-down")
 
     expect_route_missing("r1", "ip", "10.254.254.5/32")
     expect_route_missing("r2", "ip", "10.254.254.5/32")

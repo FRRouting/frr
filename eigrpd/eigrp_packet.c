@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * EIGRP General Sending and Receiving of EIGRP Packets.
  * Copyright (C) 2013-2014
@@ -7,27 +8,11 @@
  *   Matej Perina
  *   Peter Orsag
  *   Peter Paluch
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
 
-#include "thread.h"
+#include "frrevent.h"
 #include "memory.h"
 #include "linklist.h"
 #include "vty.h"
@@ -320,9 +305,9 @@ int eigrp_check_sha256_digest(struct stream *s,
 	return 1;
 }
 
-void eigrp_write(struct thread *thread)
+void eigrp_write(struct event *thread)
 {
-	struct eigrp *eigrp = THREAD_ARG(thread);
+	struct eigrp *eigrp = EVENT_ARG(thread);
 	struct eigrp_header *eigrph;
 	struct eigrp_interface *ei;
 	struct eigrp_packet *ep;
@@ -468,13 +453,13 @@ out:
 
 	/* If packets still remain in queue, call write thread. */
 	if (!list_isempty(eigrp->oi_write_q)) {
-		thread_add_write(master, eigrp_write, eigrp, eigrp->fd,
-				 &eigrp->t_write);
+		event_add_write(master, eigrp_write, eigrp, eigrp->fd,
+				&eigrp->t_write);
 	}
 }
 
 /* Starting point of packet process function. */
-void eigrp_read(struct thread *thread)
+void eigrp_read(struct event *thread)
 {
 	int ret;
 	struct stream *ibuf;
@@ -489,10 +474,10 @@ void eigrp_read(struct thread *thread)
 	uint16_t length = 0;
 
 	/* first of all get interface pointer. */
-	eigrp = THREAD_ARG(thread);
+	eigrp = EVENT_ARG(thread);
 
 	/* prepare for next packet. */
-	thread_add_read(master, eigrp_read, eigrp, eigrp->fd, &eigrp->t_read);
+	event_add_read(master, eigrp_read, eigrp, eigrp->fd, &eigrp->t_read);
 
 	stream_reset(eigrp->ibuf);
 	if (!(ibuf = eigrp_recv_packet(eigrp, eigrp->fd, &ifp, eigrp->ibuf))) {
@@ -843,9 +828,9 @@ void eigrp_send_packet_reliably(struct eigrp_neighbor *nbr)
 		eigrp_fifo_push(nbr->ei->obuf, duplicate);
 
 		/*Start retransmission timer*/
-		thread_add_timer(master, eigrp_unack_packet_retrans, nbr,
-				 EIGRP_PACKET_RETRANS_TIME,
-				 &ep->t_retrans_timer);
+		event_add_timer(master, eigrp_unack_packet_retrans, nbr,
+				EIGRP_PACKET_RETRANS_TIME,
+				&ep->t_retrans_timer);
 
 		/*Increment sequence number counter*/
 		nbr->ei->eigrp->sequence_number++;
@@ -855,8 +840,8 @@ void eigrp_send_packet_reliably(struct eigrp_neighbor *nbr)
 			listnode_add(nbr->ei->eigrp->oi_write_q, nbr->ei);
 			nbr->ei->on_write_q = 1;
 		}
-		thread_add_write(master, eigrp_write, nbr->ei->eigrp,
-				 nbr->ei->eigrp->fd, &nbr->ei->eigrp->t_write);
+		event_add_write(master, eigrp_write, nbr->ei->eigrp,
+				nbr->ei->eigrp->fd, &nbr->ei->eigrp->t_write);
 	}
 }
 
@@ -938,7 +923,7 @@ void eigrp_packet_free(struct eigrp_packet *ep)
 	if (ep->s)
 		stream_free(ep->s);
 
-	THREAD_OFF(ep->t_retrans_timer);
+	EVENT_OFF(ep->t_retrans_timer);
 
 	XFREE(MTYPE_EIGRP_PACKET, ep);
 }
@@ -985,10 +970,10 @@ static int eigrp_check_network_mask(struct eigrp_interface *ei,
 	return 0;
 }
 
-void eigrp_unack_packet_retrans(struct thread *thread)
+void eigrp_unack_packet_retrans(struct event *thread)
 {
 	struct eigrp_neighbor *nbr;
-	nbr = (struct eigrp_neighbor *)THREAD_ARG(thread);
+	nbr = (struct eigrp_neighbor *)EVENT_ARG(thread);
 
 	struct eigrp_packet *ep;
 	ep = eigrp_fifo_next(nbr->retrans_queue);
@@ -1007,24 +992,24 @@ void eigrp_unack_packet_retrans(struct thread *thread)
 		}
 
 		/*Start retransmission timer*/
-		thread_add_timer(master, eigrp_unack_packet_retrans, nbr,
-				 EIGRP_PACKET_RETRANS_TIME,
-				 &ep->t_retrans_timer);
+		event_add_timer(master, eigrp_unack_packet_retrans, nbr,
+				EIGRP_PACKET_RETRANS_TIME,
+				&ep->t_retrans_timer);
 
 		/* Hook thread to write packet. */
 		if (nbr->ei->on_write_q == 0) {
 			listnode_add(nbr->ei->eigrp->oi_write_q, nbr->ei);
 			nbr->ei->on_write_q = 1;
 		}
-		thread_add_write(master, eigrp_write, nbr->ei->eigrp,
-				 nbr->ei->eigrp->fd, &nbr->ei->eigrp->t_write);
+		event_add_write(master, eigrp_write, nbr->ei->eigrp,
+				nbr->ei->eigrp->fd, &nbr->ei->eigrp->t_write);
 	}
 }
 
-void eigrp_unack_multicast_packet_retrans(struct thread *thread)
+void eigrp_unack_multicast_packet_retrans(struct event *thread)
 {
 	struct eigrp_neighbor *nbr;
-	nbr = (struct eigrp_neighbor *)THREAD_ARG(thread);
+	nbr = (struct eigrp_neighbor *)EVENT_ARG(thread);
 
 	struct eigrp_packet *ep;
 	ep = eigrp_fifo_next(nbr->multicast_queue);
@@ -1042,17 +1027,17 @@ void eigrp_unack_multicast_packet_retrans(struct thread *thread)
 		}
 
 		/*Start retransmission timer*/
-		thread_add_timer(master, eigrp_unack_multicast_packet_retrans,
-				 nbr, EIGRP_PACKET_RETRANS_TIME,
-				 &ep->t_retrans_timer);
+		event_add_timer(master, eigrp_unack_multicast_packet_retrans,
+				nbr, EIGRP_PACKET_RETRANS_TIME,
+				&ep->t_retrans_timer);
 
 		/* Hook thread to write packet. */
 		if (nbr->ei->on_write_q == 0) {
 			listnode_add(nbr->ei->eigrp->oi_write_q, nbr->ei);
 			nbr->ei->on_write_q = 1;
 		}
-		thread_add_write(master, eigrp_write, nbr->ei->eigrp,
-				 nbr->ei->eigrp->fd, &nbr->ei->eigrp->t_write);
+		event_add_write(master, eigrp_write, nbr->ei->eigrp,
+				nbr->ei->eigrp->fd, &nbr->ei->eigrp->t_write);
 	}
 }
 

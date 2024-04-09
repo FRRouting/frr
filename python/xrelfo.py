@@ -1,20 +1,7 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
 # FRR ELF xref extractor
 #
 # Copyright (C) 2020  David Lamparter for NetDEF, Inc.
-#
-# This program is free software; you can redistribute it and/or modify it
-# under the terms of the GNU General Public License as published by the Free
-# Software Foundation; either version 2 of the License, or (at your option)
-# any later version.
-#
-# This program is distributed in the hope that it will be useful, but WITHOUT
-# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-# FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
-# more details.
-#
-# You should have received a copy of the GNU General Public License along
-# with this program; see the file COPYING; if not, write to the Free Software
-# Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
 
 import sys
 import os
@@ -53,7 +40,7 @@ tool available) could not be found.  It should be included with the sources.
 
 # constants, need to be kept in sync manually...
 
-XREFT_THREADSCHED = 0x100
+XREFT_EVENTSCHED = 0x100
 XREFT_LOGMSG = 0x200
 XREFT_DEFUN = 0x300
 XREFT_INSTALL_ELEMENT = 0x301
@@ -123,7 +110,7 @@ class XrefThreadSched(ELFDissectStruct, XrelfoJson):
     struct = "xref_threadsched"
 
 
-Xref.containers[XREFT_THREADSCHED] = XrefThreadSched
+Xref.containers[XREFT_EVENTSCHED] = XrefThreadSched
 
 
 class XrefLogmsg(ELFDissectStruct, XrelfoJson):

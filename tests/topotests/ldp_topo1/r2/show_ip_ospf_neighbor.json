@@ -2,40 +2,40 @@
   "neighbors": {
     "1.1.1.1": [
       {
-        "dbSummaryCounter": 0,
-        "retransmitCounter": 0,
-        "priority": 1,
+        "databaseSummaryListCounter": 0,
+        "linkStateRetransmissionListCounter": 0,
+        "nbrPriority": 1,
         "converged": "Full",
-        "address": "10.0.1.1",
-        "requestCounter": 0
+        "ifaceAddress": "10.0.1.1",
+        "linkStateRequestListCounter": 0
       }
     ],
     "3.3.3.3": [
       {
-        "dbSummaryCounter": 0,
-        "retransmitCounter": 0,
-        "priority": 1,
+        "databaseSummaryListCounter": 0,
+        "linkStateRetransmissionListCounter": 0,
+        "nbrPriority": 1,
         "converged": "Full",
-        "address": "10.0.2.3",
-        "requestCounter": 0
+        "ifaceAddress": "10.0.2.3",
+        "linkStateRequestListCounter": 0
       },
       {
-        "dbSummaryCounter": 0,
-        "retransmitCounter": 0,
-        "priority": 1,
+        "databaseSummaryListCounter": 0,
+        "linkStateRetransmissionListCounter": 0,
+        "nbrPriority": 1,
         "converged": "Full",
-        "address": "10.0.3.3",
-        "requestCounter": 0
+        "ifaceAddress": "10.0.3.3",
+        "linkStateRequestListCounter": 0
       }
     ],
     "4.4.4.4": [
       {
-        "dbSummaryCounter": 0,
-        "retransmitCounter": 0,
-        "priority": 1,
+        "databaseSummaryListCounter": 0,
+        "linkStateRetransmissionListCounter": 0,
+        "nbrPriority": 1,
         "converged": "Full",
-        "address": "10.0.2.4",
-        "requestCounter": 0
+        "ifaceAddress": "10.0.2.4",
+        "linkStateRequestListCounter": 0
       }
     ]
   }

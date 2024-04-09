@@ -1,21 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* Interface related function for RIP.
  * Copyright (C) 1997, 98 Kunihiro Ishiguro <kunihiro@zebra.org>
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -29,7 +14,7 @@
 #include "table.h"
 #include "log.h"
 #include "stream.h"
-#include "thread.h"
+#include "frrevent.h"
 #include "zclient.h"
 #include "filter.h"
 #include "sockopt.h"
@@ -40,6 +25,7 @@
 #include "zebra/connected.h"
 
 #include "ripd/ripd.h"
+#include "ripd/rip_bfd.h"
 #include "ripd/rip_debug.h"
 #include "ripd/rip_interface.h"
 
@@ -142,14 +128,12 @@ static void rip_request_interface_send(struct interface *ifp, uint8_t version)
 
 	/* RIPv1 and non multicast interface. */
 	if (if_is_pointopoint(ifp) || if_is_broadcast(ifp)) {
-		struct listnode *cnode, *cnnode;
 		struct connected *connected;
 
 		if (IS_RIP_DEBUG_EVENT)
 			zlog_debug("broadcast request to %s", ifp->name);
 
-		for (ALL_LIST_ELEMENTS(ifp->connected, cnode, cnnode,
-				       connected)) {
+		frr_each (if_connected, ifp->connected, connected) {
 			if (connected->address->family != AF_INET)
 				continue;
 
@@ -211,14 +195,13 @@ static void rip_request_interface(struct interface *ifp)
 /* Multicast packet receive socket. */
 static int rip_multicast_join(struct interface *ifp, int sock)
 {
-	struct listnode *cnode;
 	struct connected *ifc;
 
 	if (if_is_operative(ifp) && if_is_multicast(ifp)) {
 		if (IS_RIP_DEBUG_EVENT)
 			zlog_debug("multicast join at %s", ifp->name);
 
-		for (ALL_LIST_ELEMENTS_RO(ifp->connected, cnode, ifc)) {
+		frr_each (if_connected, ifp->connected, ifc) {
 			struct prefix_ipv4 *p;
 			struct in_addr group;
 
@@ -242,14 +225,13 @@ static int rip_multicast_join(struct interface *ifp, int sock)
 /* Leave from multicast group. */
 static void rip_multicast_leave(struct interface *ifp, int sock)
 {
-	struct listnode *cnode;
 	struct connected *connected;
 
 	if (if_is_up(ifp) && if_is_multicast(ifp)) {
 		if (IS_RIP_DEBUG_EVENT)
 			zlog_debug("multicast leave from %s", ifp->name);
 
-		for (ALL_LIST_ELEMENTS_RO(ifp->connected, cnode, connected)) {
+		frr_each (if_connected, ifp->connected, connected) {
 			struct prefix_ipv4 *p;
 			struct in_addr group;
 
@@ -270,11 +252,10 @@ static void rip_multicast_leave(struct interface *ifp, int sock)
 /* Is there and address on interface that I could use ? */
 static int rip_if_ipv4_address_check(struct interface *ifp)
 {
-	struct listnode *nn;
 	struct connected *connected;
 	int count = 0;
 
-	for (ALL_LIST_ELEMENTS_RO(ifp->connected, nn, connected)) {
+	frr_each (if_connected, ifp->connected, connected) {
 		struct prefix *p;
 
 		p = connected->address;
@@ -293,10 +274,9 @@ int if_check_address(struct rip *rip, struct in_addr addr)
 	struct interface *ifp;
 
 	FOR_ALL_INTERFACES (rip->vrf, ifp) {
-		struct listnode *cnode;
 		struct connected *connected;
 
-		for (ALL_LIST_ELEMENTS_RO(ifp->connected, cnode, connected)) {
+		frr_each (if_connected, ifp->connected, connected) {
 			struct prefix_ipv4 *p;
 
 			p = (struct prefix_ipv4 *)connected->address;
@@ -397,38 +377,13 @@ static int rip_ifp_destroy(struct interface *ifp)
 	return 0;
 }
 
-/* VRF update for an interface. */
-int rip_interface_vrf_update(ZAPI_CALLBACK_ARGS)
-{
-	struct interface *ifp;
-	vrf_id_t new_vrf_id;
-
-	ifp = zebra_interface_vrf_update_read(zclient->ibuf, vrf_id,
-					      &new_vrf_id);
-	if (!ifp)
-		return 0;
-
-	if (IS_RIP_DEBUG_ZEBRA) {
-		struct vrf *nvrf = vrf_lookup_by_id(new_vrf_id);
-
-		zlog_debug("interface %s VRF change vrf %s(%u) new vrf %s(%u)",
-			   ifp->name, ifp->vrf->name, vrf_id, VRF_LOGNAME(nvrf),
-			   new_vrf_id);
-	}
-
-	if_update_to_new_vrf(ifp, new_vrf_id);
-	rip_interface_sync(ifp);
-
-	return 0;
-}
-
 static void rip_interface_clean(struct rip_interface *ri)
 {
 	ri->enable_network = 0;
 	ri->enable_interface = 0;
 	ri->running = 0;
 
-	THREAD_OFF(ri->t_wakeup);
+	EVENT_OFF(ri->t_wakeup);
 }
 
 void rip_interfaces_clean(struct rip *rip)
@@ -472,6 +427,7 @@ static void rip_interface_reset(struct rip_interface *ri)
 	ri->sent_updates = 0;
 
 	ri->passive = 0;
+	XFREE(MTYPE_RIP_BFD_PROFILE, ri->bfd.profile);
 
 	rip_interface_clean(ri);
 }
@@ -487,7 +443,7 @@ int rip_if_down(struct interface *ifp)
 
 	ri = ifp->info;
 
-	THREAD_OFF(ri->t_wakeup);
+	EVENT_OFF(ri->t_wakeup);
 
 	rip = ri->rip;
 	if (rip) {
@@ -634,14 +590,13 @@ static int rip_enable_network_lookup_if(struct interface *ifp)
 {
 	struct rip_interface *ri = ifp->info;
 	struct rip *rip = ri->rip;
-	struct listnode *node, *nnode;
 	struct connected *connected;
 	struct prefix_ipv4 address;
 
 	if (!rip)
 		return -1;
 
-	for (ALL_LIST_ELEMENTS(ifp->connected, node, nnode, connected)) {
+	frr_each (if_connected, ifp->connected, connected) {
 		struct prefix *p;
 		struct route_node *n;
 
@@ -789,13 +744,13 @@ int rip_enable_if_delete(struct rip *rip, const char *ifname)
 }
 
 /* Join to multicast group and send request to the interface. */
-static void rip_interface_wakeup(struct thread *t)
+static void rip_interface_wakeup(struct event *t)
 {
 	struct interface *ifp;
 	struct rip_interface *ri;
 
 	/* Get interface. */
-	ifp = THREAD_ARG(t);
+	ifp = EVENT_ARG(t);
 
 	ri = ifp->info;
 
@@ -818,14 +773,13 @@ static void rip_connect_set(struct interface *ifp, int set)
 {
 	struct rip_interface *ri = ifp->info;
 	struct rip *rip = ri->rip;
-	struct listnode *node, *nnode;
 	struct connected *connected;
 	struct prefix_ipv4 address;
 	struct nexthop nh;
 
 	memset(&nh, 0, sizeof(nh));
 
-	for (ALL_LIST_ELEMENTS(ifp->connected, node, nnode, connected)) {
+	frr_each (if_connected, ifp->connected, connected) {
 		struct prefix *p;
 		p = connected->address;
 
@@ -900,8 +854,8 @@ void rip_enable_apply(struct interface *ifp)
 			zlog_debug("turn on %s", ifp->name);
 
 		/* Add interface wake up thread. */
-		thread_add_timer(master, rip_interface_wakeup, ifp, 1,
-				 &ri->t_wakeup);
+		event_add_timer(master, rip_interface_wakeup, ifp, 1,
+				&ri->t_wakeup);
 		rip_connect_set(ifp, 1);
 	} else if (ri->running) {
 		/* Might as well clean up the route table as well
@@ -1124,8 +1078,10 @@ void rip_interface_sync(struct interface *ifp)
 	struct rip_interface *ri;
 
 	ri = ifp->info;
-	if (ri)
+	if (ri) {
 		ri->rip = ifp->vrf->info;
+		ri->ifp = ifp;
+	}
 }
 
 /* Called when interface structure allocated. */
@@ -1153,7 +1109,8 @@ void rip_if_init(void)
 	hook_register_prio(if_del, 0, rip_interface_delete_hook);
 
 	/* Install interface node. */
-	if_cmd_init_default();
-	if_zapi_callbacks(rip_ifp_create, rip_ifp_up,
-			  rip_ifp_down, rip_ifp_destroy);
+	hook_register_prio(if_real, 0, rip_ifp_create);
+	hook_register_prio(if_up, 0, rip_ifp_up);
+	hook_register_prio(if_down, 0, rip_ifp_down);
+	hook_register_prio(if_unreal, 0, rip_ifp_destroy);
 }

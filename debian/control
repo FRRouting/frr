@@ -17,14 +17,16 @@ Build-Depends: bison,
                libjson-c-dev | libjson0-dev,
                libpam0g-dev | libpam-dev,
                libpcre2-dev,
+               libprotobuf-c-dev,
                libpython3-dev:native,
                libreadline-dev,
                librtr-dev (>= 0.8.0~) <!pkg.frr.nortrlib>,
                libsnmp-dev,
                libssh-dev <!pkg.frr.nortrlib>,
-               libyang2-dev,
+               libyang2-dev (>= 2.1.80),
                lsb-base,
                pkg-config,
+               protobuf-c-compiler,
                python3:native,
                python3-dev:native,
                python3-pytest:native <!nocheck>,
@@ -99,6 +101,14 @@ Description: FRRouting suite - BGP RPKI support (rtrlib)
  relevant to internet service providers using their own autonomous system
  number.
 Build-Profiles: <!pkg.frr.nortrlib>
+
+Package: frr-test-tools
+Architecture: linux-any
+Depends: frr (= ${binary:Version}),
+	${misc:Depends},
+	${shlibs:Depends}
+Description: FRRouting suite - Testing Tools
+ Adds FRR test tools, used in testing FRR.
 
 Package: frr-doc
 Section: doc

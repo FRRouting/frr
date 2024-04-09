@@ -1,22 +1,9 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 
 
 /*
  * PIM for Quagga
  * Copyright (C) 2008  Everton da Silva Marques
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -56,7 +43,7 @@ static void recv_join(struct interface *ifp, struct pim_neighbor *neigh,
 {
 	struct pim_interface *pim_ifp = NULL;
 
-	if (PIM_DEBUG_PIM_TRACE)
+	if (PIM_DEBUG_PIM_J_P)
 		zlog_debug(
 			"%s: join (S,G)=%pSG rpt=%d wc=%d upstream=%pPAs holdtime=%d from %pPA on %s",
 			__func__, sg, !!(source_flags & PIM_RPT_BIT_MASK),
@@ -128,7 +115,7 @@ static void recv_prune(struct interface *ifp, struct pim_neighbor *neigh,
 {
 	struct pim_interface *pim_ifp = NULL;
 
-	if (PIM_DEBUG_PIM_TRACE)
+	if (PIM_DEBUG_PIM_J_P)
 		zlog_debug(
 			"%s: prune (S,G)=%pSG rpt=%d wc=%d upstream=%pPAs holdtime=%d from %pPA on %s",
 			__func__, sg, source_flags & PIM_RPT_BIT_MASK,
@@ -160,7 +147,7 @@ static void recv_prune(struct interface *ifp, struct pim_neighbor *neigh,
 		 * Received Prune(*,G) messages are processed even if the
 		 * RP in the message does not match RP(G).
 		 */
-		if (PIM_DEBUG_PIM_TRACE)
+		if (PIM_DEBUG_PIM_J_P)
 			zlog_debug("%s: Prune received with RP(%pPAs) for %pSG",
 				   __func__, &sg->src, sg);
 
@@ -339,10 +326,9 @@ int pim_joinprune_recv(struct interface *ifp, struct pim_neighbor *neigh,
 				if (PIM_IF_FLAG_TEST_S_G_RPT(child->flags)) {
 					if (child->ifjoin_state
 					    == PIM_IFJOIN_PRUNE_PENDING_TMP)
-						THREAD_OFF(
+						EVENT_OFF(
 							child->t_ifjoin_prune_pending_timer);
-					THREAD_OFF(
-						child->t_ifjoin_expiry_timer);
+					EVENT_OFF(child->t_ifjoin_expiry_timer);
 					PIM_IF_FLAG_UNSET_S_G_RPT(child->flags);
 					child->ifjoin_state = PIM_IFJOIN_NOINFO;
 					delete_on_noinfo(child);

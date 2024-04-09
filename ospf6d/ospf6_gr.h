@@ -1,24 +1,9 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * OSPF6 Graceful Retsart helper functions.
  *
  * Copyright (C) 2021-22 Vmware, Inc.
  * Rajesh Kumar Girada
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef OSPF6_GR_H
@@ -170,9 +155,15 @@ extern int config_write_ospf6_gr(struct vty *vty, struct ospf6 *ospf6);
 extern int config_write_ospf6_gr_helper(struct vty *vty, struct ospf6 *ospf6);
 extern int config_write_ospf6_debug_gr_helper(struct vty *vty);
 
+extern void ospf6_gr_iface_send_grace_lsa(struct event *thread);
+extern void ospf6_gr_restart_enter(struct ospf6 *ospf6,
+				   enum ospf6_gr_restart_reason reason,
+				   time_t timestamp);
 extern void ospf6_gr_check_lsdb_consistency(struct ospf6 *ospf,
 					    struct ospf6_area *area);
 extern void ospf6_gr_nvm_read(struct ospf6 *ospf);
+extern void ospf6_gr_nvm_delete(struct ospf6 *ospf6);
+extern void ospf6_gr_unplanned_start_interface(struct ospf6_interface *oi);
 extern void ospf6_gr_init(void);
 
 #endif /* OSPF6_GR_H */

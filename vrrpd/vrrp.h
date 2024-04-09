@@ -1,21 +1,8 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * VRRP global definitions and state machine.
  * Copyright (C) 2018-2019 Cumulus Networks, Inc.
  * Quentin Young
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 #ifndef __VRRP_H__
 #define __VRRP_H__
@@ -31,7 +18,7 @@
 #include "lib/northbound.h"
 #include "lib/privs.h"
 #include "lib/stream.h"
-#include "lib/thread.h"
+#include "lib/frrevent.h"
 #include "lib/vty.h"
 
 /* Global definitions */
@@ -78,7 +65,7 @@ struct vrrp_defaults {
 extern struct vrrp_defaults vd;
 
 /* threadmaster */
-extern struct thread_master *master;
+extern struct event_loop *master;
 
 /* privileges */
 extern struct zebra_privs_t vrrp_privs;
@@ -206,10 +193,10 @@ struct vrrp_router {
 		uint32_t trans_cnt;
 	} stats;
 
-	struct thread *t_master_down_timer;
-	struct thread *t_adver_timer;
-	struct thread *t_read;
-	struct thread *t_write;
+	struct event *t_master_down_timer;
+	struct event *t_adver_timer;
+	struct event *t_read;
+	struct event *t_write;
 };
 
 /*

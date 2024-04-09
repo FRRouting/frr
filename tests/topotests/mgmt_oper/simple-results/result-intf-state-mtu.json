@@ -1,0 +1,12 @@
+{
+  "frr-interface:lib": {
+    "interface": [
+      {
+        "name": "r1-eth0",
+        "state": {
+          "mtu": 1500
+        }
+      }
+    ]
+  }
+}

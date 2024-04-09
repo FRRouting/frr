@@ -1,23 +1,10 @@
 #!/usr/bin/env python
+# SPDX-License-Identifier: ISC
 
 #
 # test_zebra_netlink.py
 #
 # Copyright (c) 2020 by
-#
-# Permission to use, copy, modify, and/or distribute this software
-# for any purpose with or without fee is hereby granted, provided
-# that the above copyright notice and this permission notice appear
-# in all copies.
-#
-# THE SOFTWARE IS PROVIDED "AS IS" AND NETDEF DISCLAIMS ALL WARRANTIES
-# WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
-# MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL NETDEF BE LIABLE FOR
-# ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY
-# DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS,
-# WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS
-# ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE
-# OF THIS SOFTWARE.
 #
 
 """
@@ -34,7 +21,6 @@ import pytest
 from lib import topotest
 from lib.topogen import Topogen, TopoRouter
 from lib.topolog import logger
-
 
 pytestmark = [pytest.mark.sharpd]
 
@@ -80,6 +66,10 @@ def test_zebra_netlink_batching(tgen):
 
     # Reduce the size of the buffer to hit the limit.
     r1.vtysh_cmd("conf t\nzebra kernel netlink batch-tx-buf 256 256")
+
+    entry = {"r1-eth0": {"addresses": ["192.168.1.1/24"]}}
+    ok = topotest.router_json_cmp_retry(r1, "show int brief json", entry, False, 30)
+    assert ok, '"r1" Address not installed yet'
 
     count = 100
     r1.vtysh_cmd("sharp install routes 2.1.3.7 nexthop 192.168.1.1 " + str(count))

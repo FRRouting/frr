@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * CLI backend interface.
  *
@@ -6,25 +7,13 @@
  * Copyright (C) 1997, 98, 99 Kunihiro Ishiguro
  * Copyright (C) 2013 by Open Source Routing.
  * Copyright (C) 2013 by Internet Systems Consortium, Inc. ("ISC")
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
+#include <sys/utsname.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+
 #include <lib/version.h>
 
 #include "command.h"
@@ -32,7 +21,7 @@
 #include "memory.h"
 #include "log.h"
 #include "log_vty.h"
-#include "thread.h"
+#include "frrevent.h"
 #include "vector.h"
 #include "linklist.h"
 #include "vty.h"
@@ -46,11 +35,15 @@
 #include "jhash.h"
 #include "hook.h"
 #include "lib_errors.h"
+#include "mgmt_be_client.h"
+#include "mgmt_fe_client.h"
 #include "northbound_cli.h"
 #include "network.h"
 #include "routemap.h"
 
 #include "frrscript.h"
+
+#include "lib/config_paths.h"
 
 DEFINE_MTYPE_STATIC(LIB, HOST, "Host config");
 DEFINE_MTYPE(LIB, COMPLETION, "Completion item");
@@ -71,6 +64,7 @@ const struct message tokennames[] = {
 	item(IPV6_PREFIX_TKN),
 	item(MAC_TKN),
 	item(MAC_PREFIX_TKN),
+	item(ASNUM_TKN),
 	item(FORK_TKN),
 	item(JOIN_TKN),
 	item(START_TKN),
@@ -125,6 +119,11 @@ const char *cmd_version_get(void)
 bool cmd_allow_reserved_ranges_get(void)
 {
 	return host.allow_reserved_ranges;
+}
+
+const char *cmd_software_version_get(void)
+{
+	return FRR_FULL_NAME "/" FRR_VERSION;
 }
 
 static int root_on_exit(struct vty *vty);
@@ -484,33 +483,18 @@ static int config_write_host(struct vty *vty)
 		}
 		log_config_write(vty);
 
-		/* print disable always, but enable only if default is flipped
-		 * => prep for future removal of compile-time knob
-		 */
 		if (!cputime_enabled)
 			vty_out(vty, "no service cputime-stats\n");
-#ifdef EXCLUDE_CPU_TIME
-		else
-			vty_out(vty, "service cputime-stats\n");
-#endif
 
 		if (!cputime_threshold)
 			vty_out(vty, "no service cputime-warning\n");
-#if defined(CONSUMED_TIME_CHECK) && CONSUMED_TIME_CHECK != 5000000
-		else /* again, always print non-default */
-#else
-		else if (cputime_threshold != 5000000)
-#endif
+		else if (cputime_threshold != CONSUMED_TIME_CHECK)
 			vty_out(vty, "service cputime-warning %lu\n",
 				cputime_threshold / 1000);
 
 		if (!walltime_threshold)
 			vty_out(vty, "no service walltime-warning\n");
-#if defined(CONSUMED_TIME_CHECK) && CONSUMED_TIME_CHECK != 5000000
-		else /* again, always print non-default */
-#else
-		else if (walltime_threshold != 5000000)
-#endif
+		else if (walltime_threshold != CONSUMED_TIME_CHECK)
 			vty_out(vty, "service walltime-warning %lu\n",
 				walltime_threshold / 1000);
 
@@ -694,6 +678,21 @@ vector cmd_describe_command(vector vline, struct vty *vty, int *status)
 
 static struct list *varhandlers = NULL;
 
+static int __add_key_comp(const struct lyd_node *dnode, void *arg)
+{
+	const char *key_value = yang_dnode_get_string(dnode, NULL);
+
+	vector_set((vector)arg, XSTRDUP(MTYPE_COMPLETION, key_value));
+
+	return YANG_ITER_CONTINUE;
+}
+
+static void __get_list_keys(vector comps, const char *xpath)
+{
+	yang_dnode_iterate(__add_key_comp, comps,
+			   vty_shared_candidate_config->dnode, "%s", xpath);
+}
+
 void cmd_variable_complete(struct cmd_token *token, const char *arg,
 			   vector comps)
 {
@@ -710,7 +709,10 @@ void cmd_variable_complete(struct cmd_token *token, const char *arg,
 		if (cvh->varname && (!token->varname
 				     || strcmp(cvh->varname, token->varname)))
 			continue;
-		cvh->completions(tmpcomps, token);
+		if (cvh->xpath)
+			__get_list_keys(tmpcomps, cvh->xpath);
+		if (cvh->completions)
+			cvh->completions(tmpcomps, token);
 		break;
 	}
 
@@ -742,9 +744,13 @@ char *cmd_variable_comp2str(vector comps, unsigned short cols)
 		char *item = vector_slot(comps, j);
 		itemlen = strlen(item);
 
-		if (cs + itemlen + AUTOCOMP_INDENT + 3 >= bsz)
-			buf = XREALLOC(MTYPE_TMP, buf, (bsz *= 2));
+		size_t next_sz = cs + itemlen + AUTOCOMP_INDENT + 3;
 
+		if (next_sz > bsz) {
+			/* Make sure the buf size is large enough */
+			bsz = next_sz;
+			buf = XREALLOC(MTYPE_TMP, buf, bsz);
+		}
 		if (lc + itemlen + 1 >= cols) {
 			cs += snprintf(&buf[cs], bsz - cs, "\n%*s",
 				       AUTOCOMP_INDENT, "");
@@ -765,7 +771,7 @@ void cmd_variable_handler_register(const struct cmd_variable_handler *cvh)
 	if (!varhandlers)
 		return;
 
-	for (; cvh->completions; cvh++)
+	for (; cvh->completions || cvh->xpath; cvh++)
 		listnode_add(varhandlers, (void *)cvh);
 }
 
@@ -906,8 +912,7 @@ enum node_type node_parent(enum node_type node)
 }
 
 /* Execute command by argument vline vector. */
-static int cmd_execute_command_real(vector vline, enum cmd_filter_type filter,
-				    struct vty *vty,
+static int cmd_execute_command_real(vector vline, struct vty *vty,
 				    const struct cmd_element **cmd,
 				    unsigned int up_level)
 {
@@ -949,7 +954,8 @@ static int cmd_execute_command_real(vector vline, enum cmd_filter_type filter,
 			return CMD_ERR_INCOMPLETE;
 		case MATCHER_AMBIGUOUS:
 			return CMD_ERR_AMBIGUOUS;
-		default:
+		case MATCHER_NO_MATCH:
+		case MATCHER_OK:
 			return CMD_ERR_NO_MATCH;
 		}
 	}
@@ -1043,8 +1049,7 @@ int cmd_execute_command(vector vline, struct vty *vty,
 			vector_set_index(shifted_vline, index - 1,
 					 vector_lookup(vline, index));
 
-		ret = cmd_execute_command_real(shifted_vline, FILTER_RELAXED,
-					       vty, cmd, 0);
+		ret = cmd_execute_command_real(shifted_vline, vty, cmd, 0);
 
 		vector_free(shifted_vline);
 		vty->node = onode;
@@ -1053,7 +1058,7 @@ int cmd_execute_command(vector vline, struct vty *vty,
 	}
 
 	saved_ret = ret =
-		cmd_execute_command_real(vline, FILTER_RELAXED, vty, cmd, 0);
+		cmd_execute_command_real(vline, vty, cmd, 0);
 
 	if (vtysh)
 		return saved_ret;
@@ -1071,8 +1076,7 @@ int cmd_execute_command(vector vline, struct vty *vty,
 			if (vty->xpath_index > 0 && !cnode->no_xpath)
 				vty->xpath_index--;
 
-			ret = cmd_execute_command_real(vline, FILTER_RELAXED,
-						       vty, cmd, 0);
+			ret = cmd_execute_command_real(vline, vty, cmd, 0);
 			if (ret == CMD_SUCCESS || ret == CMD_WARNING
 			    || ret == CMD_ERR_AMBIGUOUS || ret == CMD_ERR_INCOMPLETE
 			    || ret == CMD_NOT_MY_INSTANCE
@@ -1104,7 +1108,7 @@ int cmd_execute_command(vector vline, struct vty *vty,
 int cmd_execute_command_strict(vector vline, struct vty *vty,
 			       const struct cmd_element **cmd)
 {
-	return cmd_execute_command_real(vline, FILTER_STRICT, vty, cmd, 0);
+	return cmd_execute_command_real(vline, vty, cmd, 0);
 }
 
 /*
@@ -1276,8 +1280,7 @@ int command_config_read_one_line(struct vty *vty,
 	       && ret != CMD_ERR_AMBIGUOUS && ret != CMD_ERR_INCOMPLETE
 	       && ret != CMD_NOT_MY_INSTANCE && ret != CMD_WARNING_CONFIG_FAILED
 	       && ret != CMD_NO_LEVEL_UP)
-		ret = cmd_execute_command_real(vline, FILTER_STRICT, vty, cmd,
-					       ++up_level);
+		ret = cmd_execute_command_real(vline, vty, cmd, ++up_level);
 
 	if (ret == CMD_NO_LEVEL_UP)
 		ret = CMD_ERR_NO_MATCH;
@@ -1289,6 +1292,7 @@ int command_config_read_one_line(struct vty *vty,
 
 		memcpy(ve->error_buf, vty->buf, VTY_BUFSIZ);
 		ve->line_num = line_num;
+		ve->cmd_ret = ret;
 		if (!vty->error)
 			vty->error = list_new();
 
@@ -1309,6 +1313,14 @@ int config_from_file(struct vty *vty, FILE *fp, unsigned int *line_num)
 	while (fgets(vty->buf, VTY_BUFSIZ, fp)) {
 		++(*line_num);
 
+		if (vty_log_commands) {
+			int len = strlen(vty->buf);
+
+			/* now log the command */
+			zlog_notice("config-from-file# %.*s", len ? len - 1 : 0,
+				    vty->buf);
+		}
+
 		ret = command_config_read_one_line(vty, NULL, *line_num, 0);
 
 		if (ret != CMD_SUCCESS && ret != CMD_WARNING
@@ -1326,11 +1338,12 @@ int config_from_file(struct vty *vty, FILE *fp, unsigned int *line_num)
 /* Configuration from terminal */
 DEFUN (config_terminal,
        config_terminal_cmd,
-       "configure [terminal]",
+       "configure [terminal [file-lock]]",
        "Configuration from vty interface\n"
-       "Configuration terminal\n")
+       "Configuration terminal\n"
+       "Configuration with locked datastores\n")
 {
-	return vty_config_enter(vty, false, false);
+	return vty_config_enter(vty, false, false, argc == 3);
 }
 
 /* Enable command */
@@ -1640,6 +1653,10 @@ static int vty_write_config(struct vty *vty)
 	return CMD_SUCCESS;
 }
 
+/* cross-reference frr_daemon_state_save in libfrr.c
+ * the code there is similar but not identical (state files always use the same
+ * name for the new write, and don't keep a backup of previous state.)
+ */
 static int file_write_config(struct vty *vty)
 {
 	int fd, dirfd;
@@ -2446,6 +2463,8 @@ const char *host_config_get(void)
 void cmd_show_lib_debugs(struct vty *vty)
 {
 	route_map_show_debug(vty);
+	mgmt_debug_be_client_show_debug(vty);
+	mgmt_debug_fe_client_show_debug(vty);
 }
 
 void install_default(enum node_type node)
@@ -2550,7 +2569,7 @@ void cmd_init(int terminal)
 
 		install_default(CONFIG_NODE);
 
-		thread_cmd_init();
+		event_cmd_init();
 		workqueue_cmd_init();
 		hash_cmd_init();
 	}
@@ -2604,9 +2623,7 @@ void cmd_terminate(void)
 				// well
 				graph_delete_graph(cmd_node->cmdgraph);
 				vector_free(cmd_node->cmd_vector);
-				hash_clean(cmd_node->cmd_hash, NULL);
-				hash_free(cmd_node->cmd_hash);
-				cmd_node->cmd_hash = NULL;
+				hash_clean_and_free(&cmd_node->cmd_hash, NULL);
 			}
 
 		vector_free(cmdvec);

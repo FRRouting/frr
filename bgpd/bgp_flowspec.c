@@ -1,21 +1,8 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* BGP FlowSpec for packet handling
  * Portions:
  *     Copyright (C) 2017 ChinaTelecom SDN Group
  *     Copyright (C) 2018 6WIND
- *
- * FRRouting is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * FRRouting is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -95,7 +82,7 @@ static int bgp_fs_nlri_validate(uint8_t *nlri_content, uint32_t len,
 }
 
 int bgp_nlri_parse_flowspec(struct peer *peer, struct attr *attr,
-			    struct bgp_nlri *packet, int withdraw)
+			    struct bgp_nlri *packet, bool withdraw)
 {
 	uint8_t *pnt;
 	uint8_t *lim;
@@ -110,6 +97,13 @@ int bgp_nlri_parse_flowspec(struct peer *peer, struct attr *attr,
 	lim = pnt + packet->length;
 	afi = packet->afi;
 	safi = packet->safi;
+
+	/*
+	 * All other AFI/SAFI's treat no attribute as a implicit
+	 * withdraw.  Flowspec should as well.
+	 */
+	if (!attr)
+		withdraw = true;
 
 	if (packet->length >= FLOWSPEC_NLRI_SIZELIMIT_EXTENDED) {
 		flog_err(EC_BGP_FLOWSPEC_PACKET,
@@ -140,6 +134,13 @@ int bgp_nlri_parse_flowspec(struct peer *peer, struct attr *attr,
 				psize);
 			return BGP_NLRI_PARSE_ERROR_PACKET_OVERFLOW;
 		}
+
+		if (psize == 0) {
+			flog_err(EC_BGP_FLOWSPEC_PACKET,
+				 "Flowspec NLRI length 0 which makes no sense");
+			return BGP_NLRI_PARSE_ERROR_PACKET_OVERFLOW;
+		}
+
 		if (bgp_fs_nlri_validate(pnt, psize, afi) < 0) {
 			flog_err(
 				EC_BGP_FLOWSPEC_PACKET,
@@ -188,14 +189,16 @@ int bgp_nlri_parse_flowspec(struct peer *peer, struct attr *attr,
 			zlog_info("%s", local_string);
 		}
 		/* Process the route. */
-		if (!withdraw)
+		if (!withdraw) {
 			bgp_update(peer, &p, 0, attr, afi, safi,
 				   ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL, NULL,
 				   NULL, 0, 0, NULL);
-		else
-			bgp_withdraw(peer, &p, 0, attr, afi, safi,
-				     ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL, NULL,
-				     NULL, 0, NULL);
+		} else {
+			bgp_withdraw(peer, &p, 0, afi, safi, ZEBRA_ROUTE_BGP,
+				     BGP_ROUTE_NORMAL, NULL, NULL, 0, NULL);
+		}
+
+		XFREE(MTYPE_TMP, temp);
 	}
 	return BGP_NLRI_PARSE_OK;
 }

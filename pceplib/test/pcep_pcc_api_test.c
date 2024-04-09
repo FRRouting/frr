@@ -1,20 +1,8 @@
+// SPDX-License-Identifier: LGPL-2.1-or-later
 /*
  * This file is part of the PCEPlib, a PCEP protocol library.
  *
  * Copyright (C) 2020 Volta Networks https://voltanet.io/
- *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Lesser General Public
- * License as published by the Free Software Foundation; either
- * version 2 of the License, or (at your option) any later version.
- *
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public License
- * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *
  * Author : Brady Johnson <brady@voltanet.io>
  *
@@ -46,13 +34,13 @@ extern const char UNKNOWN_EVENT_STR[];
  * Test suite setup and teardown called before AND after the test suite.
  */
 
-int pcep_pcc_api_test_suite_setup()
+int pcep_pcc_api_test_suite_setup(void)
 {
 	pceplib_memory_reset();
 	return 0;
 }
 
-int pcep_pcc_api_test_suite_teardown()
+int pcep_pcc_api_test_suite_teardown(void)
 {
 	printf("\n");
 	pceplib_memory_dump();
@@ -63,13 +51,13 @@ int pcep_pcc_api_test_suite_teardown()
  * Test case setup and teardown called before AND after each test.
  */
 
-void pcep_pcc_api_test_setup()
+void pcep_pcc_api_test_setup(void)
 {
 	setup_mock_socket_comm_info();
 }
 
 
-void pcep_pcc_api_test_teardown()
+void pcep_pcc_api_test_teardown(void)
 {
 	teardown_mock_socket_comm_info();
 }
@@ -78,7 +66,7 @@ void pcep_pcc_api_test_teardown()
  * Unit test cases
  */
 
-void test_initialize_pcc()
+void test_initialize_pcc(void)
 {
 	CU_ASSERT_TRUE(initialize_pcc());
 	/* Give the PCC time to initialize */
@@ -86,7 +74,7 @@ void test_initialize_pcc()
 	CU_ASSERT_TRUE(destroy_pcc());
 }
 
-void test_connect_pce()
+void test_connect_pce(void)
 {
 	pcep_configuration *config = create_default_pcep_configuration();
 	struct hostent *host_info = gethostbyname("localhost");
@@ -121,7 +109,7 @@ void test_connect_pce()
 	destroy_pcc();
 }
 
-void test_connect_pce_ipv6()
+void test_connect_pce_ipv6(void)
 {
 	pcep_configuration *config = create_default_pcep_configuration();
 	struct in6_addr dest_address;
@@ -159,7 +147,7 @@ void test_connect_pce_ipv6()
 	destroy_pcc();
 }
 
-void test_connect_pce_with_src_ip()
+void test_connect_pce_with_src_ip(void)
 {
 	pcep_configuration *config = create_default_pcep_configuration();
 	struct hostent *host_info = gethostbyname("localhost");
@@ -192,7 +180,7 @@ void test_connect_pce_with_src_ip()
 	destroy_pcc();
 }
 
-void test_disconnect_pce()
+void test_disconnect_pce(void)
 {
 	pcep_configuration *config = create_default_pcep_configuration();
 	struct hostent *host_info = gethostbyname("localhost");
@@ -237,7 +225,7 @@ void test_disconnect_pce()
 }
 
 
-void test_send_message()
+void test_send_message(void)
 {
 	pcep_configuration *config = create_default_pcep_configuration();
 	struct hostent *host_info = gethostbyname("localhost");
@@ -261,7 +249,7 @@ void test_send_message()
 	destroy_pcc();
 }
 
-void test_event_queue()
+void test_event_queue(void)
 {
 	/* This initializes the event_queue */
 	CU_ASSERT_TRUE(initialize_pcc());
@@ -290,7 +278,7 @@ void test_event_queue()
 	CU_ASSERT_TRUE(destroy_pcc());
 }
 
-void test_get_event_type_str()
+void test_get_event_type_str(void)
 {
 	CU_ASSERT_EQUAL(strcmp(get_event_type_str(MESSAGE_RECEIVED),
 			       MESSAGE_RECEIVED_STR),

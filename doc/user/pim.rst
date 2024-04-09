@@ -23,12 +23,11 @@ network for optimizing forwarding of overlay BUM traffic.
 Starting and Stopping pimd
 ==========================
 
-The default configuration file name of *pimd*'s is :file:`pimd.conf`. When
-invoked *pimd* searches directory |INSTALL_PREFIX_ETC|. If
-:file:`pimd.conf` is not there then next search current directory.
+.. include:: config-include.rst
 
-*pimd* requires zebra for proper operation. Additionally *pimd* depends on
-routing properly setup and working in the network that it is working on.
+If starting daemons by hand then please note, *pimd* requires zebra for proper
+operation. Additionally *pimd* depends on routing properly setup and working in
+the network that it is working on.
 
 ::
 
@@ -40,7 +39,7 @@ Please note that *zebra* must be invoked before *pimd*.
 
 To stop *pimd* please use::
 
-   kill `cat /var/run/pimd.pid`
+   kill `cat /var/run/frr/pimd.pid`
 
 Certain signals have special meanings to *pimd*.
 
@@ -387,9 +386,14 @@ cause great confusion.
 .. clicmd:: show ip igmp [vrf NAME] join [json]
 
    Display IGMP static join information for a specific vrf.
-   If "vrf all" is provided, it displays information for all the vrfs present.
+   
+.. index:: show ip igmp [vrf NAME$vrf_name] groups [INTERFACE$ifname [GROUP$grp_str]] [detail] [json$json]
+.. clicmd:: show ip igmp [vrf NAME$vrf_name] groups [INTERFACE$ifname [GROUP$grp_str]] [detail] [json$json]
 
-.. clicmd:: show ip igmp groups
+   Display IGMP static join information for all the vrfs present.
+
+.. index:: show ip igmp vrf all groups [GROUP$grp_str] [detail$detail] [json$json]
+.. clicmd:: show ip igmp vrf all groups [GROUP$grp_str] [detail$detail] [json$json]
 
    Display IGMP groups information.
 

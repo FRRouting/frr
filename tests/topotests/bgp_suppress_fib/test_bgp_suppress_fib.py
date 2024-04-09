@@ -1,23 +1,10 @@
 #!/usr/bin/env python
+# SPDX-License-Identifier: ISC
 
 #
 # test_bgp_suppress_fib.py
 #
 # Copyright (c) 2019 by
-#
-# Permission to use, copy, modify, and/or distribute this software
-# for any purpose with or without fee is hereby granted, provided
-# that the above copyright notice and this permission notice appear
-# in all copies.
-#
-# THE SOFTWARE IS PROVIDED "AS IS" AND NETDEF DISCLAIMS ALL WARRANTIES
-# WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
-# MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL NETDEF BE LIABLE FOR
-# ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY
-# DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS,
-# WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS
-# ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE
-# OF THIS SOFTWARE.
 #
 
 """
@@ -107,7 +94,6 @@ def test_bgp_route():
         expected,
     )
     _, result = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
-    assertmsg = '"r3" JSON output mismatches'
     assert result is None, assertmsg
 
     json_file = "{}/r3/v4_route3.json".format(CWD)
@@ -116,10 +102,11 @@ def test_bgp_route():
     test_func = partial(
         topotest.router_json_cmp,
         r3,
-        "show ip route 10.0.0.3 json",
+        "show ip route 60.0.0.0 json",
         expected,
     )
     _, result = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+    assert result is None, assertmsg
 
 
 def test_bgp_better_admin_won():
@@ -229,6 +216,20 @@ def test_bgp_allow_as_in():
     _, result = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
     assertmsg = '"r2" 192.168.1.1/32 route should be gone'
     assert result is None, assertmsg
+
+def test_local_vs_non_local():
+    tgen = get_topogen()
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r2 = tgen.gears["r2"]
+
+    output = json.loads(r2.vtysh_cmd("show bgp ipv4 uni 60.0.0.0/24 json"))
+    paths = output["paths"]
+    for i in range(len(paths)):
+        if "fibPending" in paths[i]:
+            assert(False),  "Route 60.0.0.0/24 should not have fibPending"
 
 
 if __name__ == "__main__":

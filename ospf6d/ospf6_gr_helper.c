@@ -1,24 +1,9 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * OSPF6 Graceful Restart helper functions.
  *
  * Copyright (C) 2021-22 Vmware, Inc.
  * Rajesh Kumar Girada
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -125,10 +110,8 @@ static void ospf6_enable_rtr_hash_destroy(struct ospf6 *ospf6)
 	if (ospf6->ospf6_helper_cfg.enable_rtr_list == NULL)
 		return;
 
-	hash_clean(ospf6->ospf6_helper_cfg.enable_rtr_list,
-		   ospf6_disable_rtr_hash_free);
-	hash_free(ospf6->ospf6_helper_cfg.enable_rtr_list);
-	ospf6->ospf6_helper_cfg.enable_rtr_list = NULL;
+	hash_clean_and_free(&ospf6->ospf6_helper_cfg.enable_rtr_list,
+			    ospf6_disable_rtr_hash_free);
 }
 
 /*
@@ -151,7 +134,7 @@ static int ospf6_extract_grace_lsa_fields(struct ospf6_lsa *lsa,
 	uint16_t length = 0;
 	int sum = 0;
 
-	lsah = (struct ospf6_lsa_header *)lsa->header;
+	lsah = lsa->header;
 	if (ntohs(lsah->length) <= OSPF6_LSA_HEADER_SIZE) {
 		if (IS_DEBUG_OSPF6_GR)
 			zlog_debug("%s: undersized (%u B) lsa", __func__,
@@ -212,9 +195,9 @@ static int ospf6_extract_grace_lsa_fields(struct ospf6_lsa *lsa,
  * Returns:
  *    Nothing
  */
-static void ospf6_handle_grace_timer_expiry(struct thread *thread)
+static void ospf6_handle_grace_timer_expiry(struct event *thread)
 {
-	struct ospf6_neighbor *nbr = THREAD_ARG(thread);
+	struct ospf6_neighbor *nbr = EVENT_ARG(thread);
 
 	ospf6_gr_helper_exit(nbr, OSPF6_GR_HELPER_GRACE_TIMEOUT);
 }
@@ -245,9 +228,9 @@ static bool ospf6_check_chg_in_rxmt_list(struct ospf6_neighbor *nbr)
 					  lsa->header->adv_router, lsa->lsdb);
 
 		if (lsa_in_db && lsa_in_db->tobe_acknowledged) {
-			ospf6_lsa_unlock(lsa);
+			ospf6_lsa_unlock(&lsa);
 			if (lsanext)
-				ospf6_lsa_unlock(lsanext);
+				ospf6_lsa_unlock(&lsanext);
 
 			return OSPF6_TRUE;
 		}
@@ -295,8 +278,9 @@ int ospf6_process_grace_lsa(struct ospf6 *ospf6, struct ospf6_lsa *lsa,
 
 	if (IS_DEBUG_OSPF6_GR)
 		zlog_debug(
-			"%s, Grace LSA received from  %pI4, grace interval:%u, restart reason :%s",
-			__func__, &restarter->router_id, grace_interval,
+			"%s, Grace LSA received from %s(%pI4), grace interval:%u, restart reason:%s",
+			__func__, restarter->name, &restarter->router_id,
+			grace_interval,
 			ospf6_restart_reason_desc[restart_reason]);
 
 	/* Verify Helper enabled globally */
@@ -398,7 +382,7 @@ int ospf6_process_grace_lsa(struct ospf6 *ospf6, struct ospf6_lsa *lsa,
 	}
 
 	if (OSPF6_GR_IS_ACTIVE_HELPER(restarter)) {
-		THREAD_OFF(restarter->gr_helper_info.t_grace_timer);
+		EVENT_OFF(restarter->gr_helper_info.t_grace_timer);
 
 		if (ospf6->ospf6_helper_cfg.active_restarter_cnt > 0)
 			ospf6->ospf6_helper_cfg.active_restarter_cnt--;
@@ -431,9 +415,9 @@ int ospf6_process_grace_lsa(struct ospf6 *ospf6, struct ospf6_lsa *lsa,
 			   actual_grace_interval);
 
 	/* Start the grace timer */
-	thread_add_timer(master, ospf6_handle_grace_timer_expiry, restarter,
-			 actual_grace_interval,
-			 &restarter->gr_helper_info.t_grace_timer);
+	event_add_timer(master, ospf6_handle_grace_timer_expiry, restarter,
+			actual_grace_interval,
+			&restarter->gr_helper_info.t_grace_timer);
 
 	return OSPF6_GR_ACTIVE_HELPER;
 }
@@ -486,7 +470,7 @@ void ospf6_gr_helper_exit(struct ospf6_neighbor *nbr,
 	 * expiry, stop the grace timer.
 	 */
 	if (reason != OSPF6_GR_HELPER_GRACE_TIMEOUT)
-		THREAD_OFF(nbr->gr_helper_info.t_grace_timer);
+		EVENT_OFF(nbr->gr_helper_info.t_grace_timer);
 
 	if (ospf6->ospf6_helper_cfg.active_restarter_cnt <= 0) {
 		zlog_err(
@@ -849,7 +833,7 @@ static void show_ospfv6_gr_helper_per_nbr(struct vty *vty, json_object *json,
 		vty_out(vty, "   Actual Grace period : %d(in seconds)\n",
 			nbr->gr_helper_info.actual_grace_period);
 		vty_out(vty, "   Remaining GraceTime:%ld(in seconds).\n",
-			thread_timer_remain_second(
+			event_timer_remain_second(
 				nbr->gr_helper_info.t_grace_timer));
 		vty_out(vty, "   Graceful Restart reason: %s.\n\n",
 			ospf6_restart_reason_desc[nbr->gr_helper_info
@@ -866,8 +850,8 @@ static void show_ospfv6_gr_helper_per_nbr(struct vty *vty, json_object *json,
 		json_object_int_add(json_neigh, "actualGraceInterval",
 			nbr->gr_helper_info.actual_grace_period);
 		json_object_int_add(json_neigh, "remainGracetime",
-			thread_timer_remain_second(
-				nbr->gr_helper_info.t_grace_timer));
+				    event_timer_remain_second(
+					    nbr->gr_helper_info.t_grace_timer));
 		json_object_string_add(json_neigh, "restartReason",
 			ospf6_restart_reason_desc[
 				nbr->gr_helper_info.gr_restart_reason]);
@@ -953,8 +937,18 @@ static void show_ospf6_gr_helper_details(struct vty *vty, struct ospf6 *ospf6,
 			(ospf6->ospf6_helper_cfg.strict_lsa_check)
 				? "Enabled"
 				: "Disabled");
+
+#if CONFDATE > 20240401
+		CPP_NOTICE("Remove deprecated json key: restartSupoort")
+#endif
 		json_object_string_add(
 			json, "restartSupoort",
+			(ospf6->ospf6_helper_cfg.only_planned_restart)
+				? "Planned Restart only"
+				: "Planned and Unplanned Restarts");
+
+		json_object_string_add(
+			json, "restartSupport",
 			(ospf6->ospf6_helper_cfg.only_planned_restart)
 				? "Planned Restart only"
 				: "Planned and Unplanned Restarts");
@@ -1237,7 +1231,7 @@ static int ospf6_grace_lsa_show_info(struct vty *vty, struct ospf6_lsa *lsa,
 	uint16_t length = 0;
 	int sum = 0;
 
-	lsah = (struct ospf6_lsa_header *)lsa->header;
+	lsah = lsa->header;
 	if (ntohs(lsah->length) <= OSPF6_LSA_HEADER_SIZE) {
 		if (IS_DEBUG_OSPF6_GR)
 			zlog_debug("%s: undersized (%u B) lsa", __func__,

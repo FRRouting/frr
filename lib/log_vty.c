@@ -1,21 +1,8 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Logging - VTY code
  * Copyright (C) 2019 Cumulus Networks, Inc.
  *                    Stephen Worley
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -28,6 +15,7 @@
 #include "lib/lib_errors.h"
 #include "lib/printfrr.h"
 #include "lib/systemd.h"
+#include "lib/vtysh_daemons.h"
 
 #include "lib/log_vty_clippy.c"
 
@@ -47,18 +35,23 @@ static int log_cmdline_syslog_lvl = ZLOG_DISABLED;
 
 static struct zlog_cfg_file zt_file_cmdline = {
 	.prio_min = ZLOG_DISABLED,
+	.ts_subsec = LOG_TIMESTAMP_PRECISION,
 };
 static struct zlog_cfg_file zt_file = {
 	.prio_min = ZLOG_DISABLED,
+	.ts_subsec = LOG_TIMESTAMP_PRECISION,
 };
 static struct zlog_cfg_filterfile zt_filterfile = {
-	.parent = {
-		.prio_min = ZLOG_DISABLED,
-	},
+	.parent =
+		{
+			.prio_min = ZLOG_DISABLED,
+			.ts_subsec = LOG_TIMESTAMP_PRECISION,
+		},
 };
 
 static struct zlog_cfg_file zt_stdout_file = {
 	.prio_min = ZLOG_DISABLED,
+	.ts_subsec = LOG_TIMESTAMP_PRECISION,
 };
 static struct zlog_cfg_5424 zt_stdout_journald = {
 	.prio_min = ZLOG_DISABLED,
@@ -467,6 +460,70 @@ DEFUN (clear_log_cmdline,
 	return CMD_SUCCESS;
 }
 
+/* Per-daemon log file config */
+DEFUN (config_log_dmn_file,
+       config_log_dmn_file_cmd,
+       "log daemon " DAEMONS_LIST " file FILENAME [<emergencies|alerts|critical|errors|warnings|notifications|informational|debugging>$levelarg]",
+       "Logging control\n"
+       "Specific daemon\n"
+       DAEMONS_STR
+       "Logging to file\n"
+       "Logging filename\n"
+       LOG_LEVEL_DESC)
+{
+	int level = log_default_lvl;
+	int idx = 0;
+	const char *d_str;
+	const char *filename;
+	const char *levelarg = NULL;
+
+	d_str = argv[2]->text;
+
+	/* Ignore if not for this daemon */
+	if (!strmatch(d_str, frr_get_progname()))
+		return CMD_SUCCESS;
+
+	if (argv_find(argv, argc, "file", &idx))
+		filename = argv[idx + 1]->arg;
+	else
+		return CMD_SUCCESS;
+
+	if (argc > 5)
+		levelarg = argv[5]->text;
+
+	if (levelarg) {
+		level = log_level_match(levelarg);
+		if (level == ZLOG_DISABLED)
+			return CMD_ERR_NO_MATCH;
+	}
+	return set_log_file(&zt_file, vty, filename, level);
+}
+
+/* Per-daemon no log file */
+DEFUN (no_config_log_dmn_file,
+       no_config_log_dmn_file_cmd,
+       "no log daemon " DAEMONS_LIST " file [FILENAME [LEVEL]]",
+       NO_STR
+       "Logging control\n"
+       "Specific daemon\n"
+       DAEMONS_STR
+       "Cancel logging to file\n"
+       "Logging file name\n"
+       "Logging level\n")
+{
+	const char *d_str;
+
+	d_str = argv[3]->text;
+
+	/* Ignore if not for this daemon */
+	if (!strmatch(d_str, frr_get_progname()))
+		return CMD_SUCCESS;
+
+	zt_file.prio_min = ZLOG_DISABLED;
+	zlog_file_set_other(&zt_file);
+	return CMD_SUCCESS;
+}
+
 DEFPY (config_log_file,
        config_log_file_cmd,
        "log file FILENAME [<emergencies|alerts|critical|errors|warnings|notifications|informational|debugging>$levelarg]",
@@ -845,6 +902,8 @@ void log_config_write(struct vty *vty)
 		vty_out(vty, "no log error-category\n");
 	if (!zlog_get_prefix_xid())
 		vty_out(vty, "no log unique-id\n");
+	if (zlog_get_immediate_mode())
+		vty_out(vty, "log immediate-mode\n");
 
 	if (logmsgs_with_persist_bt) {
 		struct xrefdata *xrd;
@@ -865,11 +924,23 @@ void log_config_write(struct vty *vty)
 	}
 }
 
+static int log_vty_fini(void)
+{
+	if (zt_file_cmdline.filename)
+		zlog_file_fini(&zt_file_cmdline);
+	if (zt_file.filename)
+		zlog_file_fini(&zt_file);
+	return 0;
+}
+
+
 static int log_vty_init(const char *progname, const char *protoname,
 			 unsigned short instance, uid_t uid, gid_t gid)
 {
 	zlog_progname = progname;
 	zlog_protoname = protoname;
+
+	hook_register(zlog_fini, log_vty_fini);
 
 	zlog_set_prefix_ec(true);
 	zlog_set_prefix_xid(true);
@@ -900,6 +971,8 @@ void log_cmd_init(void)
 	install_element(CONFIG_NODE, &config_log_monitor_cmd);
 	install_element(CONFIG_NODE, &no_config_log_monitor_cmd);
 	install_element(CONFIG_NODE, &config_log_file_cmd);
+	install_element(CONFIG_NODE, &config_log_dmn_file_cmd);
+	install_element(CONFIG_NODE, &no_config_log_dmn_file_cmd);
 	install_element(CONFIG_NODE, &no_config_log_file_cmd);
 	install_element(CONFIG_NODE, &config_log_syslog_cmd);
 	install_element(CONFIG_NODE, &no_config_log_syslog_cmd);

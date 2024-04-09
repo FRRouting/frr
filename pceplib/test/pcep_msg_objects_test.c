@@ -1,20 +1,8 @@
+// SPDX-License-Identifier: LGPL-2.1-or-later
 /*
  * This file is part of the PCEPlib, a PCEP protocol library.
  *
  * Copyright (C) 2020 Volta Networks https://voltanet.io/
- *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Lesser General Public
- * License as published by the Free Software Foundation; either
- * version 2 of the License, or (at your option) any later version.
- *
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public License
- * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *
  * Author : Brady Johnson <brady@voltanet.io>
  *
@@ -61,18 +49,18 @@ int pcep_objects_test_suite_teardown(void)
 	return 0;
 }
 
-void reset_objects_buffer()
+void reset_objects_buffer(void)
 {
 	memset(object_buf, 0, 2000);
 }
 
-void pcep_objects_test_setup()
+void pcep_objects_test_setup(void)
 {
 	versioning = create_default_pcep_versioning();
 	reset_objects_buffer();
 }
 
-void pcep_objects_test_teardown()
+void pcep_objects_test_teardown(void)
 {
 	destroy_pcep_versioning(versioning);
 }
@@ -135,7 +123,7 @@ static void verify_pcep_obj_header(uint8_t obj_class, uint8_t obj_type,
 				obj_hdr->encoded_object);
 }
 
-void test_pcep_obj_create_open()
+void test_pcep_obj_create_open(void)
 {
 	uint8_t deadtimer = 60;
 	uint8_t keepalive = 30;
@@ -159,7 +147,7 @@ void test_pcep_obj_create_open()
 	pcep_obj_free_object((struct pcep_object_header *)open);
 }
 
-void test_pcep_obj_create_open_with_tlvs()
+void test_pcep_obj_create_open_with_tlvs(void)
 {
 	uint8_t deadtimer = 60;
 	uint8_t keepalive = 30;
@@ -194,7 +182,7 @@ void test_pcep_obj_create_open_with_tlvs()
 	pcep_obj_free_object((struct pcep_object_header *)open);
 }
 
-void test_pcep_obj_create_rp()
+void test_pcep_obj_create_rp(void)
 {
 	uint32_t reqid = 15;
 	uint8_t invalid_priority = 100;
@@ -225,7 +213,7 @@ void test_pcep_obj_create_rp()
 	pcep_obj_free_object((struct pcep_object_header *)rp);
 }
 
-void test_pcep_obj_create_nopath()
+void test_pcep_obj_create_nopath(void)
 {
 	uint8_t ni = 8;
 	uint32_t errorcode = 42;
@@ -263,7 +251,8 @@ void test_pcep_obj_create_nopath()
 
 	pcep_obj_free_object((struct pcep_object_header *)nopath);
 }
-void test_pcep_obj_create_association_ipv4()
+
+void test_pcep_obj_create_association_ipv4(void)
 {
 
 	uint16_t all_assoc_groups = 0xffff;
@@ -287,7 +276,7 @@ void test_pcep_obj_create_association_ipv4()
 	pcep_obj_free_object((struct pcep_object_header *)assoc);
 }
 
-void test_pcep_obj_create_association_ipv6()
+void test_pcep_obj_create_association_ipv6(void)
 {
 	uint32_t all_assoc_groups = 0xffff;
 	struct in6_addr src;
@@ -317,7 +306,7 @@ void test_pcep_obj_create_association_ipv6()
 	pcep_obj_free_object((struct pcep_object_header *)assoc);
 }
 
-void test_pcep_obj_create_endpoint_ipv4()
+void test_pcep_obj_create_endpoint_ipv4(void)
 {
 	struct in_addr src_ipv4, dst_ipv4;
 	inet_pton(AF_INET, "192.168.1.2", &src_ipv4);
@@ -346,7 +335,7 @@ void test_pcep_obj_create_endpoint_ipv4()
 	pcep_obj_free_object((struct pcep_object_header *)ipv4);
 }
 
-void test_pcep_obj_create_endpoint_ipv6()
+void test_pcep_obj_create_endpoint_ipv6(void)
 {
 	struct in6_addr src_ipv6, dst_ipv6;
 	inet_pton(AF_INET6, "2001:db8::8a2e:370:7334", &src_ipv6);
@@ -380,7 +369,7 @@ void test_pcep_obj_create_endpoint_ipv6()
 	pcep_obj_free_object((struct pcep_object_header *)ipv6);
 }
 
-void test_pcep_obj_create_bandwidth()
+void test_pcep_obj_create_bandwidth(void)
 {
 	/* 1.8 => binary 1.11001101
 	 * exponent = 127 => 0111 1111
@@ -401,7 +390,7 @@ void test_pcep_obj_create_bandwidth()
 	pcep_obj_free_object((struct pcep_object_header *)bw);
 }
 
-void test_pcep_obj_create_metric()
+void test_pcep_obj_create_metric(void)
 {
 	uint8_t type = PCEP_METRIC_BORDER_NODE_COUNT;
 	/* https://en.wikipedia.org/wiki/IEEE_754-1985
@@ -433,7 +422,7 @@ void test_pcep_obj_create_metric()
 	pcep_obj_free_object((struct pcep_object_header *)metric);
 }
 
-void test_pcep_obj_create_lspa()
+void test_pcep_obj_create_lspa(void)
 {
 	uint32_t exclude_any = 10;
 	uint32_t include_any = 20;
@@ -460,7 +449,7 @@ void test_pcep_obj_create_lspa()
 	pcep_obj_free_object((struct pcep_object_header *)lspa);
 }
 
-void test_pcep_obj_create_svec()
+void test_pcep_obj_create_svec(void)
 {
 	struct pcep_object_svec *svec =
 		pcep_obj_create_svec(true, true, true, NULL);
@@ -491,7 +480,7 @@ void test_pcep_obj_create_svec()
 	pcep_obj_free_object((struct pcep_object_header *)svec);
 }
 
-void test_pcep_obj_create_error()
+void test_pcep_obj_create_error(void)
 {
 	uint8_t error_type = PCEP_ERRT_SESSION_FAILURE;
 	uint8_t error_value = PCEP_ERRV_RECVD_INVALID_OPEN_MSG;
@@ -511,7 +500,7 @@ void test_pcep_obj_create_error()
 	pcep_obj_free_object((struct pcep_object_header *)error);
 }
 
-void test_pcep_obj_create_close()
+void test_pcep_obj_create_close(void)
 {
 	uint8_t reason = PCEP_CLOSE_REASON_DEADTIMER;
 
@@ -529,7 +518,7 @@ void test_pcep_obj_create_close()
 	pcep_obj_free_object((struct pcep_object_header *)close);
 }
 
-void test_pcep_obj_create_srp()
+void test_pcep_obj_create_srp(void)
 {
 	bool lsp_remove = true;
 	uint32_t srp_id_number = 0x89674523;
@@ -550,7 +539,7 @@ void test_pcep_obj_create_srp()
 	pcep_obj_free_object((struct pcep_object_header *)srp);
 }
 
-void test_pcep_obj_create_lsp()
+void test_pcep_obj_create_lsp(void)
 {
 	uint32_t plsp_id = 0x000fffff;
 	enum pcep_lsp_operational_status status = PCEP_LSP_OPERATIONAL_ACTIVE;
@@ -591,7 +580,7 @@ void test_pcep_obj_create_lsp()
 	pcep_obj_free_object((struct pcep_object_header *)lsp);
 }
 
-void test_pcep_obj_create_vendor_info()
+void test_pcep_obj_create_vendor_info(void)
 {
 	uint32_t enterprise_number = 0x01020304;
 	uint32_t enterprise_specific_info = 0x05060708;
@@ -657,19 +646,19 @@ static void test_pcep_obj_create_object_common(ro_func func_to_test,
 	pcep_obj_free_object((struct pcep_object_header *)ero);
 }
 
-void test_pcep_obj_create_ero()
+void test_pcep_obj_create_ero(void)
 {
 	test_pcep_obj_create_object_common(
 		pcep_obj_create_ero, PCEP_OBJ_CLASS_ERO, PCEP_OBJ_TYPE_ERO);
 }
 
-void test_pcep_obj_create_rro()
+void test_pcep_obj_create_rro(void)
 {
 	test_pcep_obj_create_object_common(
 		pcep_obj_create_rro, PCEP_OBJ_CLASS_RRO, PCEP_OBJ_TYPE_RRO);
 }
 
-void test_pcep_obj_create_iro()
+void test_pcep_obj_create_iro(void)
 {
 	test_pcep_obj_create_object_common(
 		pcep_obj_create_iro, PCEP_OBJ_CLASS_IRO, PCEP_OBJ_TYPE_IRO);
@@ -743,7 +732,7 @@ verify_pcep_obj_ro_sr_header(struct pcep_object_ro *ro,
 	}
 }
 
-void test_pcep_obj_create_ro_subobj_ipv4()
+void test_pcep_obj_create_ro_subobj_ipv4(void)
 {
 	struct in_addr ro_ipv4;
 	inet_pton(AF_INET, "192.168.1.2", &ro_ipv4);
@@ -780,7 +769,7 @@ void test_pcep_obj_create_ro_subobj_ipv4()
 	pcep_obj_free_object((struct pcep_object_header *)ro);
 }
 
-void test_pcep_obj_create_ro_subobj_ipv6()
+void test_pcep_obj_create_ro_subobj_ipv6(void)
 {
 	struct in6_addr ro_ipv6;
 	uint8_t prefix_len = 16;
@@ -823,7 +812,7 @@ void test_pcep_obj_create_ro_subobj_ipv6()
 	pcep_obj_free_object((struct pcep_object_header *)ro);
 }
 
-void test_pcep_obj_create_ro_subobj_unnum()
+void test_pcep_obj_create_ro_subobj_unnum(void)
 {
 	struct in_addr router_id;
 	uint32_t if_id = 123;
@@ -848,7 +837,7 @@ void test_pcep_obj_create_ro_subobj_unnum()
 	pcep_obj_free_object((struct pcep_object_header *)ro);
 }
 
-void test_pcep_obj_create_ro_subobj_32label()
+void test_pcep_obj_create_ro_subobj_32label(void)
 {
 	uint8_t class_type = 1;
 	uint32_t label = 0xeeffaabb;
@@ -868,7 +857,7 @@ void test_pcep_obj_create_ro_subobj_32label()
 	pcep_obj_free_object((struct pcep_object_header *)ro);
 }
 
-void test_pcep_obj_create_ro_subobj_asn()
+void test_pcep_obj_create_ro_subobj_asn(void)
 {
 	uint16_t asn = 0x0102;
 
@@ -883,7 +872,7 @@ void test_pcep_obj_create_ro_subobj_asn()
 	pcep_obj_free_object((struct pcep_object_header *)ro);
 }
 
-void test_pcep_obj_create_ro_subobj_sr_nonai()
+void test_pcep_obj_create_ro_subobj_sr_nonai(void)
 {
 	uint32_t sid = 0x01020304;
 
@@ -914,7 +903,7 @@ void test_pcep_obj_create_ro_subobj_sr_nonai()
 	pcep_obj_free_object((struct pcep_object_header *)ro);
 }
 
-void test_pcep_obj_create_ro_subobj_sr_ipv4_node()
+void test_pcep_obj_create_ro_subobj_sr_ipv4_node(void)
 {
 	uint32_t sid = 0x01020304;
 	struct in_addr ipv4_node_id;
@@ -966,7 +955,7 @@ void test_pcep_obj_create_ro_subobj_sr_ipv4_node()
 	pcep_obj_free_object((struct pcep_object_header *)ro);
 }
 
-void test_pcep_obj_create_ro_subobj_sr_ipv6_node()
+void test_pcep_obj_create_ro_subobj_sr_ipv6_node(void)
 {
 	uint32_t sid = 0x01020304;
 	struct in6_addr ipv6_node_id;
@@ -1019,7 +1008,7 @@ void test_pcep_obj_create_ro_subobj_sr_ipv6_node()
 	pcep_obj_free_object((struct pcep_object_header *)ro);
 }
 
-void test_pcep_obj_create_ro_subobj_sr_ipv4_adj()
+void test_pcep_obj_create_ro_subobj_sr_ipv4_adj(void)
 {
 	struct in_addr local_ipv4;
 	struct in_addr remote_ipv4;
@@ -1084,7 +1073,7 @@ void test_pcep_obj_create_ro_subobj_sr_ipv4_adj()
 	pcep_obj_free_object((struct pcep_object_header *)ro);
 }
 
-void test_pcep_obj_create_ro_subobj_sr_ipv6_adj()
+void test_pcep_obj_create_ro_subobj_sr_ipv6_adj(void)
 {
 	uint32_t sid = 0x01020304;
 	struct in6_addr local_ipv6;
@@ -1159,7 +1148,7 @@ void test_pcep_obj_create_ro_subobj_sr_ipv6_adj()
 	pcep_obj_free_object((struct pcep_object_header *)ro);
 }
 
-void test_pcep_obj_create_ro_subobj_sr_unnumbered_ipv4_adj()
+void test_pcep_obj_create_ro_subobj_sr_unnumbered_ipv4_adj(void)
 {
 	uint32_t sid = 0x01020304;
 	uint32_t local_node_id = 0x11223344;
@@ -1220,7 +1209,7 @@ void test_pcep_obj_create_ro_subobj_sr_unnumbered_ipv4_adj()
 	/* TODO Test draft07 types  */
 }
 
-void test_pcep_obj_create_ro_subobj_sr_linklocal_ipv6_adj()
+void test_pcep_obj_create_ro_subobj_sr_linklocal_ipv6_adj(void)
 {
 	uint32_t sid = 0x01020304;
 	uint32_t local_if_id = 0x11002200;

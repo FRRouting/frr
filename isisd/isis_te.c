@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * IS-IS Rout(e)ing protocol - isis_te.c
  *
@@ -6,29 +7,13 @@
  * Author: Olivier Dugeon <olivier.dugeon@orange.com>
  *
  * Copyright (C) 2014 - 2019 Orange Labs http://www.orange.com
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
 #include <math.h>
 
 #include "linklist.h"
-#include "thread.h"
+#include "frrevent.h"
 #include "vty.h"
 #include "stream.h"
 #include "memory.h"
@@ -179,6 +164,154 @@ void isis_mpls_te_term(struct isis_area *area)
 	XFREE(MTYPE_ISIS_MPLS_TE, area->mta);
 }
 
+static void isis_link_params_update_asla(struct isis_circuit *circuit,
+					 struct interface *ifp)
+{
+	struct isis_asla_subtlvs *asla;
+	struct listnode *node, *nnode;
+	struct isis_ext_subtlvs *ext = circuit->ext;
+	int i;
+
+	if (!HAS_LINK_PARAMS(ifp)) {
+		list_delete_all_node(ext->aslas);
+		return;
+	}
+
+#ifndef FABRICD
+	/* RFC 8919 Application Specific Link-Attributes
+	 * is required by flex-algo application ISIS_SABM_FLAG_X
+	 */
+	if (list_isempty(circuit->area->flex_algos->flex_algos))
+		isis_tlvs_free_asla(ext, ISIS_SABM_FLAG_X);
+	else
+		isis_tlvs_find_alloc_asla(ext, ISIS_SABM_FLAG_X);
+#endif /* ifndef FABRICD */
+
+	if (list_isempty(ext->aslas))
+		return;
+
+	for (ALL_LIST_ELEMENTS(ext->aslas, node, nnode, asla)) {
+		asla->legacy = circuit->area->asla_legacy_flag;
+		RESET_SUBTLV(asla);
+
+		if (asla->legacy)
+			continue;
+
+		/* Fulfill ASLA subTLVs from interface link parameters */
+		if (IS_PARAM_SET(ifp->link_params, LP_ADM_GRP)) {
+			asla->admin_group = ifp->link_params->admin_grp;
+			SET_SUBTLV(asla, EXT_ADM_GRP);
+		} else
+			UNSET_SUBTLV(asla, EXT_ADM_GRP);
+
+		if (IS_PARAM_SET(ifp->link_params, LP_EXTEND_ADM_GRP)) {
+			admin_group_copy(&asla->ext_admin_group,
+					 &ifp->link_params->ext_admin_grp);
+			SET_SUBTLV(asla, EXT_EXTEND_ADM_GRP);
+		} else
+			UNSET_SUBTLV(asla, EXT_EXTEND_ADM_GRP);
+
+		/* Send admin-group zero for better compatibility
+		 * https://www.rfc-editor.org/rfc/rfc7308#section-2.3.2
+		 */
+		if (circuit->area->admin_group_send_zero &&
+		    !IS_SUBTLV(asla, EXT_ADM_GRP) &&
+		    !IS_SUBTLV(asla, EXT_EXTEND_ADM_GRP)) {
+			asla->admin_group = 0;
+			SET_SUBTLV(asla, EXT_ADM_GRP);
+			admin_group_clear(&asla->ext_admin_group);
+			admin_group_allow_explicit_zero(&asla->ext_admin_group);
+			SET_SUBTLV(asla, EXT_EXTEND_ADM_GRP);
+		}
+
+		if (IS_PARAM_SET(ifp->link_params, LP_TE_METRIC)) {
+			asla->te_metric = ifp->link_params->te_metric;
+			SET_SUBTLV(asla, EXT_TE_METRIC);
+		} else
+			UNSET_SUBTLV(asla, EXT_TE_METRIC);
+
+		if (IS_PARAM_SET(ifp->link_params, LP_DELAY)) {
+			asla->delay = ifp->link_params->av_delay;
+			SET_SUBTLV(asla, EXT_DELAY);
+		} else
+			UNSET_SUBTLV(asla, EXT_DELAY);
+
+		if (IS_PARAM_SET(ifp->link_params, LP_MM_DELAY)) {
+			asla->min_delay = ifp->link_params->min_delay;
+			asla->max_delay = ifp->link_params->max_delay;
+			SET_SUBTLV(asla, EXT_MM_DELAY);
+		} else {
+			UNSET_SUBTLV(asla, EXT_MM_DELAY);
+		}
+
+		if (asla->standard_apps == ISIS_SABM_FLAG_X)
+			/* Flex-Algo ASLA does not need the following TE
+			 * sub-TLVs
+			 */
+			continue;
+
+		if (IS_PARAM_SET(ifp->link_params, LP_MAX_BW)) {
+			asla->max_bw = ifp->link_params->max_bw;
+			SET_SUBTLV(asla, EXT_MAX_BW);
+		} else
+			UNSET_SUBTLV(asla, EXT_MAX_BW);
+
+		if (IS_PARAM_SET(ifp->link_params, LP_MAX_RSV_BW)) {
+			asla->max_rsv_bw = ifp->link_params->max_rsv_bw;
+			SET_SUBTLV(asla, EXT_MAX_RSV_BW);
+		} else
+			UNSET_SUBTLV(asla, EXT_MAX_RSV_BW);
+
+		if (IS_PARAM_SET(ifp->link_params, LP_UNRSV_BW)) {
+			for (i = 0; i < MAX_CLASS_TYPE; i++)
+				asla->unrsv_bw[i] =
+					ifp->link_params->unrsv_bw[i];
+			SET_SUBTLV(asla, EXT_UNRSV_BW);
+		} else
+			UNSET_SUBTLV(asla, EXT_UNRSV_BW);
+
+		if (IS_PARAM_SET(ifp->link_params, LP_DELAY_VAR)) {
+			asla->delay_var = ifp->link_params->delay_var;
+			SET_SUBTLV(asla, EXT_DELAY_VAR);
+		} else
+			UNSET_SUBTLV(asla, EXT_DELAY_VAR);
+
+		if (IS_PARAM_SET(ifp->link_params, LP_PKT_LOSS)) {
+			asla->pkt_loss = ifp->link_params->pkt_loss;
+			SET_SUBTLV(asla, EXT_PKT_LOSS);
+		} else
+			UNSET_SUBTLV(asla, EXT_PKT_LOSS);
+
+		if (IS_PARAM_SET(ifp->link_params, LP_RES_BW)) {
+			asla->res_bw = ifp->link_params->res_bw;
+			SET_SUBTLV(asla, EXT_RES_BW);
+		} else
+			UNSET_SUBTLV(asla, EXT_RES_BW);
+
+		if (IS_PARAM_SET(ifp->link_params, LP_AVA_BW)) {
+			asla->ava_bw = ifp->link_params->ava_bw;
+			SET_SUBTLV(asla, EXT_AVA_BW);
+		} else
+			UNSET_SUBTLV(asla, EXT_AVA_BW);
+
+		if (IS_PARAM_SET(ifp->link_params, LP_USE_BW)) {
+			asla->use_bw = ifp->link_params->use_bw;
+			SET_SUBTLV(asla, EXT_USE_BW);
+		} else
+			UNSET_SUBTLV(asla, EXT_USE_BW);
+	}
+
+
+	for (ALL_LIST_ELEMENTS(ext->aslas, node, nnode, asla)) {
+		if (!asla->legacy && NO_SUBTLV(asla) &&
+		    admin_group_nb_words(&asla->ext_admin_group) == 0)
+			/* remove ASLA without info from the list of ASLAs to
+			 * not send void ASLA
+			 */
+			isis_tlvs_del_asla_flex_algo(ext, asla);
+	}
+}
+
 /* Main initialization / update function of the MPLS TE Circuit context */
 /* Call when interface TE Link parameters are modified */
 void isis_link_params_update(struct isis_circuit *circuit,
@@ -217,6 +350,26 @@ void isis_link_params_update(struct isis_circuit *circuit,
 			SET_SUBTLV(ext, EXT_ADM_GRP);
 		} else
 			UNSET_SUBTLV(ext, EXT_ADM_GRP);
+
+		if (IS_PARAM_SET(ifp->link_params, LP_EXTEND_ADM_GRP)) {
+			admin_group_copy(&ext->ext_admin_group,
+					 &ifp->link_params->ext_admin_grp);
+			SET_SUBTLV(ext, EXT_EXTEND_ADM_GRP);
+		} else
+			UNSET_SUBTLV(ext, EXT_EXTEND_ADM_GRP);
+
+		/* Send admin-group zero for better compatibility
+		 * https://www.rfc-editor.org/rfc/rfc7308#section-2.3.2
+		 */
+		if (circuit->area->admin_group_send_zero &&
+		    !IS_SUBTLV(ext, EXT_ADM_GRP) &&
+		    !IS_SUBTLV(ext, EXT_EXTEND_ADM_GRP)) {
+			ext->adm_group = 0;
+			SET_SUBTLV(ext, EXT_ADM_GRP);
+			admin_group_clear(&ext->ext_admin_group);
+			admin_group_allow_explicit_zero(&ext->ext_admin_group);
+			SET_SUBTLV(ext, EXT_EXTEND_ADM_GRP);
+		}
 
 		/* If known, register local IPv4 addr from ip_addr list */
 		if (listcount(circuit->ip_addrs) != 0) {
@@ -338,6 +491,8 @@ void isis_link_params_update(struct isis_circuit *circuit,
 		else
 			ext->status = 0;
 	}
+
+	isis_link_params_update_asla(circuit, ifp);
 
 	return;
 }
@@ -511,7 +666,12 @@ int isis_mpls_te_update(struct interface *ifp)
 	isis_link_params_update(circuit, ifp);
 
 	/* ... and LSP */
-	if (circuit->area && IS_MPLS_TE(circuit->area->mta))
+	if (circuit->area &&
+	    (IS_MPLS_TE(circuit->area->mta)
+#ifndef FABRICD
+	     || !list_isempty(circuit->area->flex_algos->flex_algos)
+#endif /* ifndef FABRICD */
+		     ))
 		lsp_regenerate_schedule(circuit->area, circuit->is_type, 0);
 
 	rc = 0;
@@ -619,7 +779,7 @@ static struct ls_vertex *lsp_to_vertex(struct ls_ted *ted, struct isis_lsp *lsp)
 				lnode.srgb.flag = cap->srgb.flags;
 				lnode.srgb.lower_bound = cap->srgb.lower_bound;
 				lnode.srgb.range_size = cap->srgb.range_size;
-				for (int i = 0; i < SR_ALGORITHM_COUNT; i++)
+				for (int i = 0; i < LIB_LS_SR_ALGO_COUNT; i++)
 					lnode.algo[i] = cap->algo[i];
 			}
 
@@ -665,7 +825,7 @@ static struct ls_edge *get_edge(struct ls_ted *ted, struct ls_attributes *attr)
 {
 	struct ls_edge *edge;
 	struct ls_standard *std;
-	uint64_t key = 0;
+	struct ls_edge_key key;
 
 	/* Check parameters */
 	if (!ted || !attr)
@@ -674,19 +834,22 @@ static struct ls_edge *get_edge(struct ls_ted *ted, struct ls_attributes *attr)
 	std = &attr->standard;
 
 	/* Compute keys in function of local address (IPv4/v6) or identifier */
-	if (CHECK_FLAG(attr->flags, LS_ATTR_LOCAL_ADDR))
-		key = ((uint64_t)ntohl(std->local.s_addr)) & 0xffffffff;
-	else if (CHECK_FLAG(attr->flags, LS_ATTR_LOCAL_ADDR6))
-		key = ((uint64_t)ntohl(std->local6.s6_addr32[2]) << 32
-		       | (uint64_t)ntohl(std->local6.s6_addr32[3]));
-	else if (CHECK_FLAG(attr->flags, LS_ATTR_LOCAL_ID))
-		key = ((uint64_t)std->remote_id << 32)
-		       | (((uint64_t)std->local_id) & 0xffffffff);
-	else
-		key = 0;
+	if (CHECK_FLAG(attr->flags, LS_ATTR_LOCAL_ADDR)) {
+		key.family = AF_INET;
+		IPV4_ADDR_COPY(&key.k.addr, &std->local);
+	} else if (CHECK_FLAG(attr->flags, LS_ATTR_LOCAL_ADDR6)) {
+		key.family = AF_INET6;
+		IPV6_ADDR_COPY(&key.k.addr6, &std->local6);
+	} else if (CHECK_FLAG(attr->flags, LS_ATTR_LOCAL_ID)) {
+		key.family = AF_LOCAL;
+		key.k.link_id = (((uint64_t)std->local_id) & 0xffffffff) |
+				((uint64_t)std->remote_id << 32);
+	} else {
+		key.family = AF_UNSPEC;
+	}
 
 	/* Stop here if we don't got a valid key */
-	if (key == 0)
+	if (key.family == AF_UNSPEC)
 		return NULL;
 
 	/* Get corresponding Edge by key from Link State Data Base */
@@ -705,18 +868,17 @@ static struct ls_edge *get_edge(struct ls_ted *ted, struct ls_attributes *attr)
 	}
 
 	if (CHECK_FLAG(edge->attributes->flags, LS_ATTR_LOCAL_ADDR))
-		te_debug("    |- %s Edge (%" PRIu64
-			 ") from Extended Reach. %pI4",
-			 edge->status == NEW ? "Create" : "Found", edge->key,
-			 &attr->standard.local);
+		te_debug("    |- %s Edge (%pI4) from Extended Reach. %pI4",
+			 edge->status == NEW ? "Create" : "Found",
+			 &edge->key.k.addr, &attr->standard.local);
 	else if (CHECK_FLAG(edge->attributes->flags, LS_ATTR_LOCAL_ADDR6))
-		te_debug("    |- %s Edge (%" PRIu64
-			 ") from Extended Reach. %pI6",
-			 edge->status == NEW ? "Create" : "Found", edge->key,
-			 &attr->standard.local6);
+		te_debug("    |- %s Edge (%pI6) from Extended Reach. %pI6",
+			 edge->status == NEW ? "Create" : "Found",
+			 &edge->key.k.addr6, &attr->standard.local6);
 	else
 		te_debug("    |- %s Edge (%" PRIu64 ")",
-			 edge->status == NEW ? "Create" : "Found", edge->key);
+			 edge->status == NEW ? "Create" : "Found",
+			 edge->key.k.link_id);
 
 	return edge;
 }
@@ -757,6 +919,11 @@ static struct ls_attributes *get_attributes(struct ls_node_id adv,
 	if (CHECK_FLAG(tlvs->status, EXT_ADM_GRP)) {
 		attr->standard.admin_group = tlvs->adm_group;
 		SET_FLAG(attr->flags, LS_ATTR_ADM_GRP);
+	}
+	if (CHECK_FLAG(tlvs->status, EXT_EXTEND_ADM_GRP)) {
+		admin_group_copy(&attr->ext_admin_group,
+				 &tlvs->ext_admin_group);
+		SET_FLAG(attr->flags, LS_ATTR_EXT_ADM_GRP);
 	}
 	if (CHECK_FLAG(tlvs->status, EXT_LLRI)) {
 		attr->standard.local_id = tlvs->local_llri;
@@ -906,7 +1073,7 @@ static int lsp_to_edge_cb(const uint8_t *id, uint32_t metric, bool old_metric,
 	struct ls_edge *edge, *dst;
 	struct ls_attributes *attr;
 
-	te_debug("  |- Process Extended IS for %s", sysid_print(id));
+	te_debug("  |- Process Extended IS for %pSY", id);
 
 	/* Check parameters */
 	if (old_metric || !args || !tlvs)
@@ -953,8 +1120,21 @@ static int lsp_to_edge_cb(const uint8_t *id, uint32_t metric, bool old_metric,
 	}
 
 	/* Try to update remote Link from remote address or reachability ID */
-	te_debug("    |- Link Edge (%" PRIu64 ") to destination vertex (%s)",
-		 edge->key, print_sys_hostname(id));
+	if (edge->key.family == AF_INET)
+		te_debug("    |- Link Edge (%pI4) to destination vertex (%s)",
+			 &edge->key.k.addr, print_sys_hostname(id));
+	else if (edge->key.family == AF_INET6)
+		te_debug("    |- Link Edge (%pI6) to destination vertex (%s)",
+			 &edge->key.k.addr6, print_sys_hostname(id));
+	else if (edge->key.family == AF_LOCAL)
+		te_debug("    |- Link Edge (%" PRIu64
+			 ") to destination vertex (%s)",
+			 edge->key.k.link_id, print_sys_hostname(id));
+	else
+		te_debug(
+			"    |- Link Edge (Unknown) to destination vertex (%s)",
+			print_sys_hostname(id));
+
 	dst = ls_find_edge_by_destination(args->ted, edge->attributes);
 	if (dst) {
 		/* Attach remote link if not set */
@@ -1078,16 +1258,29 @@ static int lsp_to_subnet_cb(const struct prefix *prefix, uint32_t metric,
 	}
 	if (!std)
 		prefix_copy(&p, prefix);
-	else
+	else {
+		/* Remove old subnet if any before prefix adjustment */
+		subnet = ls_find_subnet(args->ted, prefix);
+		if (subnet) {
+			if (args->export) {
+				subnet->status = DELETE;
+				isis_te_export(LS_MSG_TYPE_PREFIX, subnet);
+			}
+			te_debug("   |- Remove subnet with prefix %pFX",
+				 &subnet->key);
+			ls_subnet_del_all(args->ted, subnet);
+		}
 		te_debug("   |- Adjust prefix %pFX with local address to: %pFX",
 			 prefix, &p);
+	}
 
 	/* Search existing Subnet in TED ... */
-	subnet = ls_find_subnet(args->ted, p);
+	subnet = ls_find_subnet(args->ted, &p);
 	/* ... and create a new Subnet if not found */
 	if (!subnet) {
-		ls_pref = ls_prefix_new(vertex->node->adv, p);
+		ls_pref = ls_prefix_new(vertex->node->adv, &p);
 		subnet = ls_subnet_add(args->ted, ls_pref);
+		/* Stop processing if we are unable to create a new subnet */
 		if (!subnet)
 			return LSP_ITER_CONTINUE;
 	}
@@ -1170,14 +1363,14 @@ static void isis_te_parse_lsp(struct mpls_te_area *mta, struct isis_lsp *lsp)
 
 	ted = mta->ted;
 
-	te_debug("ISIS-TE(%s): Parse LSP %s", lsp->area->area_tag,
-		 sysid_print(lsp->hdr.lsp_id));
+	te_debug("ISIS-TE(%s): Parse LSP %pSY", lsp->area->area_tag,
+		 lsp->hdr.lsp_id);
 
 	/* First parse LSP to obtain the corresponding Vertex */
 	vertex = lsp_to_vertex(ted, lsp);
 	if (!vertex) {
-		zlog_warn("Unable to build Vertex from LSP %s. Abort!",
-			  sysid_print(lsp->hdr.lsp_id));
+		zlog_warn("Unable to build Vertex from LSP %pSY. Abort!",
+			  lsp->hdr.lsp_id);
 		return;
 	}
 
@@ -1241,8 +1434,8 @@ static void isis_te_delete_lsp(struct mpls_te_area *mta, struct isis_lsp *lsp)
 	if (!IS_MPLS_TE(mta) || !mta->ted || !lsp)
 		return;
 
-	te_debug("ISIS-TE(%s): Delete Link State TED objects from LSP %s",
-		 lsp->area->area_tag, sysid_print(lsp->hdr.lsp_id));
+	te_debug("ISIS-TE(%s): Delete Link State TED objects from LSP %pSY",
+		 lsp->area->area_tag, lsp->hdr.lsp_id);
 
 	/* Compute Link State Node ID from IS-IS sysID ... */
 	if (lsp->level == ISIS_LEVEL1)
@@ -1344,7 +1537,8 @@ void isis_te_lsp_event(struct isis_lsp *lsp, enum lsp_event event)
 	case LSP_DEL:
 		isis_te_delete_lsp(area->mta, lsp0);
 		break;
-	default:
+	case LSP_UNKNOWN:
+	case LSP_TICK:
 		break;
 	}
 }
@@ -1540,7 +1734,7 @@ static void show_ext_sub(struct vty *vty, char *name,
 		sbuf_push(&buf, 4,
 			  "%s Average Link Delay: %u (micro-sec)\n",
 			  IS_ANORMAL(ext->delay) ? "Anomalous" : "Normal",
-			  ext->delay);
+			  ext->delay & TE_EXT_MASK);
 	if (IS_SUBTLV(ext, EXT_MM_DELAY)) {
 		sbuf_push(&buf, 4, "%s Min/Max Link Delay: %u / %u (micro-sec)\n",
 			  IS_ANORMAL(ext->min_delay) ? "Anomalous" : "Normal",
@@ -1730,7 +1924,7 @@ static int show_ted(struct vty *vty, struct cmd_token *argv[], int argc,
 	struct ls_vertex *vertex;
 	struct ls_edge *edge;
 	struct ls_subnet *subnet;
-	uint64_t key;
+	struct ls_edge_key key;
 	bool detail = false;
 	bool uj = use_json(argc, argv);
 	json_object *json = NULL;
@@ -1784,7 +1978,8 @@ static int show_ted(struct vty *vty, struct cmd_token *argv[], int argc,
 				return CMD_WARNING_CONFIG_FAILED;
 			}
 			/* Get the Edge from the Link State Database */
-			key = ((uint64_t)ntohl(ip_addr.s_addr)) & 0xffffffff;
+			key.family = AF_INET;
+			IPV4_ADDR_COPY(&key.k.addr, &ip_addr);
 			edge = ls_find_edge_by_key(ted, key);
 			if (!edge) {
 				vty_out(vty, "No edge found for ID %pI4\n",
@@ -1799,8 +1994,8 @@ static int show_ted(struct vty *vty, struct cmd_token *argv[], int argc,
 				return CMD_WARNING_CONFIG_FAILED;
 			}
 			/* Get the Edge from the Link State Database */
-			key = (uint64_t)ntohl(ip6_addr.s6_addr32[3])
-			      | ((uint64_t)ntohl(ip6_addr.s6_addr32[2]) << 32);
+			key.family = AF_INET6;
+			IPV6_ADDR_COPY(&key.k.addr6, &ip6_addr);
 			edge = ls_find_edge_by_key(ted, key);
 			if (!edge) {
 				vty_out(vty, "No edge found for ID %pI6\n",
@@ -1824,7 +2019,7 @@ static int show_ted(struct vty *vty, struct cmd_token *argv[], int argc,
 				return CMD_WARNING_CONFIG_FAILED;
 			}
 			/* Get the Subnet from the Link State Database */
-			subnet = ls_find_subnet(ted, pref);
+			subnet = ls_find_subnet(ted, &pref);
 			if (!subnet) {
 				vty_out(vty, "No subnet found for ID %pFX\n",
 					&pref);
@@ -1837,7 +2032,7 @@ static int show_ted(struct vty *vty, struct cmd_token *argv[], int argc,
 				return CMD_WARNING_CONFIG_FAILED;
 			}
 			/* Get the Subnet from the Link State Database */
-			subnet = ls_find_subnet(ted, pref);
+			subnet = ls_find_subnet(ted, &pref);
 			if (!subnet) {
 				vty_out(vty, "No subnet found for ID %pFX\n",
 					&pref);

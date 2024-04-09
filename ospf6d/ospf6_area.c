@@ -1,21 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Copyright (C) 2003 Yasuhiro Ohara
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -23,7 +8,7 @@
 #include "log.h"
 #include "memory.h"
 #include "linklist.h"
-#include "thread.h"
+#include "frrevent.h"
 #include "vty.h"
 #include "command.h"
 #include "if.h"
@@ -436,8 +421,8 @@ void ospf6_area_disable(struct ospf6_area *oa)
 	ospf6_spf_table_finish(oa->spf_table);
 	ospf6_route_remove_all(oa->route_table);
 
-	THREAD_OFF(oa->thread_router_lsa);
-	THREAD_OFF(oa->thread_intra_prefix_lsa);
+	EVENT_OFF(oa->thread_router_lsa);
+	EVENT_OFF(oa->thread_intra_prefix_lsa);
 }
 
 
@@ -746,7 +731,7 @@ void ospf6_area_config_write(struct vty *vty, struct ospf6 *ospf6)
 
 DEFUN (area_filter_list,
        area_filter_list_cmd,
-       "area <A.B.C.D|(0-4294967295)> filter-list prefix PREFIXLIST_NAME <in|out>",
+       "area <A.B.C.D|(0-4294967295)> filter-list prefix PREFIXLIST6_NAME <in|out>",
        "OSPF6 area parameters\n"
        "OSPF6 area ID in IP address format\n"
        "OSPF6 area ID as a decimal value\n"
@@ -789,7 +774,7 @@ DEFUN (area_filter_list,
 
 DEFUN (no_area_filter_list,
        no_area_filter_list_cmd,
-       "no area <A.B.C.D|(0-4294967295)> filter-list prefix PREFIXLIST_NAME <in|out>",
+       "no area <A.B.C.D|(0-4294967295)> filter-list prefix PREFIXLIST6_NAME <in|out>",
        NO_STR
        "OSPF6 area parameters\n"
        "OSPF6 area ID in IP address format\n"

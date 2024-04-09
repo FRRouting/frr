@@ -1,20 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*********************************************************************
  * Copyright 2013 Cumulus Networks, LLC.  All rights reserved.
  * Copyright 2014,2015,2016,2017 Cumulus Networks, Inc.  All rights reserved.
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  *
  * bfd.c: implements the BFD protocol.
  *
@@ -631,25 +618,25 @@ struct bfd_session *ptm_bfd_sess_find(struct bfd_pkt *cp,
 	return bfd_key_lookup(key);
 }
 
-void bfd_xmt_cb(struct thread *t)
+void bfd_xmt_cb(struct event *t)
 {
-	struct bfd_session *bs = THREAD_ARG(t);
+	struct bfd_session *bs = EVENT_ARG(t);
 
 	ptm_bfd_xmt_TO(bs, 0);
 }
 
-void bfd_echo_xmt_cb(struct thread *t)
+void bfd_echo_xmt_cb(struct event *t)
 {
-	struct bfd_session *bs = THREAD_ARG(t);
+	struct bfd_session *bs = EVENT_ARG(t);
 
 	if (bs->echo_xmt_TO > 0)
 		ptm_bfd_echo_xmt_TO(bs);
 }
 
 /* Was ptm_bfd_detect_TO() */
-void bfd_recvtimer_cb(struct thread *t)
+void bfd_recvtimer_cb(struct event *t)
 {
-	struct bfd_session *bs = THREAD_ARG(t);
+	struct bfd_session *bs = EVENT_ARG(t);
 
 	switch (bs->ses_state) {
 	case PTM_BFD_INIT:
@@ -660,9 +647,9 @@ void bfd_recvtimer_cb(struct thread *t)
 }
 
 /* Was ptm_bfd_echo_detect_TO() */
-void bfd_echo_recvtimer_cb(struct thread *t)
+void bfd_echo_recvtimer_cb(struct event *t)
 {
-	struct bfd_session *bs = THREAD_ARG(t);
+	struct bfd_session *bs = EVENT_ARG(t);
 
 	switch (bs->ses_state) {
 	case PTM_BFD_INIT:
@@ -1970,23 +1957,23 @@ static int bfd_vrf_enable(struct vrf *vrf)
 		bvrf->bg_echov6 = bp_echov6_socket(vrf);
 
 	if (!bvrf->bg_ev[0] && bvrf->bg_shop != -1)
-		thread_add_read(master, bfd_recv_cb, bvrf, bvrf->bg_shop,
-				&bvrf->bg_ev[0]);
+		event_add_read(master, bfd_recv_cb, bvrf, bvrf->bg_shop,
+			       &bvrf->bg_ev[0]);
 	if (!bvrf->bg_ev[1] && bvrf->bg_mhop != -1)
-		thread_add_read(master, bfd_recv_cb, bvrf, bvrf->bg_mhop,
-				&bvrf->bg_ev[1]);
+		event_add_read(master, bfd_recv_cb, bvrf, bvrf->bg_mhop,
+			       &bvrf->bg_ev[1]);
 	if (!bvrf->bg_ev[2] && bvrf->bg_shop6 != -1)
-		thread_add_read(master, bfd_recv_cb, bvrf, bvrf->bg_shop6,
-				&bvrf->bg_ev[2]);
+		event_add_read(master, bfd_recv_cb, bvrf, bvrf->bg_shop6,
+			       &bvrf->bg_ev[2]);
 	if (!bvrf->bg_ev[3] && bvrf->bg_mhop6 != -1)
-		thread_add_read(master, bfd_recv_cb, bvrf, bvrf->bg_mhop6,
-				&bvrf->bg_ev[3]);
+		event_add_read(master, bfd_recv_cb, bvrf, bvrf->bg_mhop6,
+			       &bvrf->bg_ev[3]);
 	if (!bvrf->bg_ev[4] && bvrf->bg_echo != -1)
-		thread_add_read(master, bfd_recv_cb, bvrf, bvrf->bg_echo,
-				&bvrf->bg_ev[4]);
+		event_add_read(master, bfd_recv_cb, bvrf, bvrf->bg_echo,
+			       &bvrf->bg_ev[4]);
 	if (!bvrf->bg_ev[5] && bvrf->bg_echov6 != -1)
-		thread_add_read(master, bfd_recv_cb, bvrf, bvrf->bg_echov6,
-				&bvrf->bg_ev[5]);
+		event_add_read(master, bfd_recv_cb, bvrf, bvrf->bg_echov6,
+			       &bvrf->bg_ev[5]);
 
 	if (vrf->vrf_id != VRF_DEFAULT) {
 		bfdd_zclient_register(vrf->vrf_id);
@@ -2012,12 +1999,12 @@ static int bfd_vrf_disable(struct vrf *vrf)
 		zlog_debug("VRF disable %s id %d", vrf->name, vrf->vrf_id);
 
 	/* Disable read/write poll triggering. */
-	THREAD_OFF(bvrf->bg_ev[0]);
-	THREAD_OFF(bvrf->bg_ev[1]);
-	THREAD_OFF(bvrf->bg_ev[2]);
-	THREAD_OFF(bvrf->bg_ev[3]);
-	THREAD_OFF(bvrf->bg_ev[4]);
-	THREAD_OFF(bvrf->bg_ev[5]);
+	EVENT_OFF(bvrf->bg_ev[0]);
+	EVENT_OFF(bvrf->bg_ev[1]);
+	EVENT_OFF(bvrf->bg_ev[2]);
+	EVENT_OFF(bvrf->bg_ev[3]);
+	EVENT_OFF(bvrf->bg_ev[4]);
+	EVENT_OFF(bvrf->bg_ev[5]);
 
 	/* Close all descriptors. */
 	socket_close(&bvrf->bg_echo);

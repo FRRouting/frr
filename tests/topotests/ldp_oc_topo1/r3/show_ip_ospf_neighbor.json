@@ -2,17 +2,17 @@
   "neighbors":{
     "2.2.2.2":[
       {
-        "priority":1,
+        "nbrPriority":1,
         "converged":"Full",
-        "address":"10.0.2.2",
+        "ifaceAddress":"10.0.2.2",
         "ifaceName":"r3-eth0:10.0.2.3"
       }
     ],
     "4.4.4.4":[
       {
-        "priority":3,
+        "nbrPriority":3,
         "converged":"Full",
-        "address":"10.0.2.4",
+        "ifaceAddress":"10.0.2.4",
         "ifaceName":"r3-eth0:10.0.2.3"
       }
     ]

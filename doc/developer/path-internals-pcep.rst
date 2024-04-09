@@ -182,7 +182,7 @@ The controller is defined and implemented in `path_pcep_controller.[hc]`.
 Part of the controller code runs in FRR main thread and part runs in its own
 FRR pthread started to isolate the main thread from the PCCs' event loop.
 To communicate between the threads it uses FRR events, timers and
-`thread_execute` calls.
+`event_execute` calls.
 
 
 PCC

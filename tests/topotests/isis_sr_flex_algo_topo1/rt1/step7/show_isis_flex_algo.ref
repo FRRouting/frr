@@ -1,0 +1,108 @@
+Area 1: Algorithm 201
+
+ Enabled Data-Planes: SR-MPLS
+
+ Elected and running Flexible-Algorithm Definition:
+  Source: 0000.0000.0002
+  Priority: 128
+  Equal to local: yes
+  Local state: enabled
+  Calculation type: spf
+  Metric type: igp
+  Prefix-metric: disabled
+  Exclude SRLG: disabled
+  Exclude-any admin-group: 0x00000001
+            Bit positions: 0
+  Include-all admin-group: not-set
+  Include-any admin-group: not-set
+
+Area 1: Algorithm 202
+
+ Enabled Data-Planes: SR-MPLS
+
+ Elected and running Flexible-Algorithm Definition:
+  Source: 0000.0000.0002
+  Priority: 128
+  Equal to local: yes
+  Local state: enabled
+  Calculation type: spf
+  Metric type: igp
+  Prefix-metric: disabled
+  Exclude SRLG: disabled
+  Exclude-any admin-group: 0x00000002
+            Bit positions: 1
+  Include-all admin-group: not-set
+  Include-any admin-group: not-set
+
+Area 1: Algorithm 204
+
+ Enabled Data-Planes: SR-MPLS
+
+ Elected and running Flexible-Algorithm Definition:
+  Source: 0000.0000.0002
+  Priority: 128
+  Equal to local: yes
+  Local state: enabled
+  Calculation type: spf
+  Metric type: igp
+  Prefix-metric: disabled
+  Exclude SRLG: disabled
+  Exclude-any admin-group: not-set
+  Include-all admin-group: not-set
+  Include-any admin-group: 0x00000006
+            Bit positions: 1, 2
+
+Area 1: Algorithm 205
+
+ Enabled Data-Planes: SR-MPLS
+
+ Elected and running Flexible-Algorithm Definition:
+  Source: 0000.0000.0002
+  Priority: 128
+  Equal to local: yes
+  Local state: enabled
+  Calculation type: spf
+  Metric type: igp
+  Prefix-metric: disabled
+  Exclude SRLG: disabled
+  Exclude-any admin-group: not-set
+  Include-all admin-group: not-set
+  Include-any admin-group: 0x00000005
+            Bit positions: 0, 2
+
+Area 1: Algorithm 206
+
+ Enabled Data-Planes: SR-MPLS
+
+ Elected and running Flexible-Algorithm Definition:
+  Source: 0000.0000.0002
+  Priority: 128
+  Equal to local: yes
+  Local state: enabled
+  Calculation type: spf
+  Metric type: igp
+  Prefix-metric: disabled
+  Exclude SRLG: disabled
+  Exclude-any admin-group: not-set
+  Include-all admin-group: not-set
+  Include-any admin-group: 0x00000003
+            Bit positions: 0, 1
+
+Area 1: Algorithm 207
+
+ Enabled Data-Planes: SR-MPLS
+
+ Elected and running Flexible-Algorithm Definition:
+  Source: 0000.0000.0002
+  Priority: 128
+  Equal to local: yes
+  Local state: enabled
+  Calculation type: spf
+  Metric type: igp
+  Prefix-metric: disabled
+  Exclude SRLG: disabled
+  Exclude-any admin-group: not-set
+  Include-all admin-group: 0x00000018
+            Bit positions: 3, 4
+  Include-any admin-group: not-set
+

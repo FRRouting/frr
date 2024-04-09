@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: NONE
 /*
  * This is part of the libb64 project, and has been placed in the public domain.
  * For details, see http://sourceforge.net/projects/libb64
@@ -13,7 +14,6 @@ enum base64_encodestep {
 struct base64_encodestate {
 	enum base64_encodestep step;
 	char result;
-	int stepcount;
 };
 
 void base64_init_encodestate(struct base64_encodestate *state_in);

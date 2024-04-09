@@ -1,19 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Copyright (C) 2020  NetDEF, Inc.
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -300,7 +287,7 @@ void cli_show_srte_segment_list(struct vty *vty, const struct lyd_node *dnode,
 				bool show_defaults)
 {
 	vty_out(vty, "  segment-list %s\n",
-		yang_dnode_get_string(dnode, "./name"));
+		yang_dnode_get_string(dnode, "name"));
 }
 
 void cli_show_srte_segment_list_end(struct vty *vty,
@@ -559,37 +546,37 @@ void cli_show_srte_segment_list_segment(struct vty *vty,
 					const struct lyd_node *dnode,
 					bool show_defaults)
 {
-	vty_out(vty, "   index %s", yang_dnode_get_string(dnode, "./index"));
-	if (yang_dnode_exists(dnode, "./sid-value")) {
+	vty_out(vty, "   index %s", yang_dnode_get_string(dnode, "index"));
+	if (yang_dnode_exists(dnode, "sid-value")) {
 		vty_out(vty, " mpls label %s",
-			yang_dnode_get_string(dnode, "./sid-value"));
+			yang_dnode_get_string(dnode, "sid-value"));
 	}
-	if (yang_dnode_exists(dnode, "./nai")) {
+	if (yang_dnode_exists(dnode, "nai")) {
 		struct ipaddr addr;
 		struct ipaddr addr_rmt;
 
-		switch (yang_dnode_get_enum(dnode, "./nai/type")) {
+		switch (yang_dnode_get_enum(dnode, "nai/type")) {
 		case SRTE_SEGMENT_NAI_TYPE_IPV4_NODE:
 		case SRTE_SEGMENT_NAI_TYPE_IPV4_LOCAL_IFACE:
 		case SRTE_SEGMENT_NAI_TYPE_IPV4_ALGORITHM:
-			yang_dnode_get_ip(&addr, dnode, "./nai/local-address");
+			yang_dnode_get_ip(&addr, dnode, "nai/local-address");
 			vty_out(vty, " nai prefix %pI4", &addr.ipaddr_v4);
 			break;
 		case SRTE_SEGMENT_NAI_TYPE_IPV6_NODE:
 		case SRTE_SEGMENT_NAI_TYPE_IPV6_LOCAL_IFACE:
 		case SRTE_SEGMENT_NAI_TYPE_IPV6_ALGORITHM:
-			yang_dnode_get_ip(&addr, dnode, "./nai/local-address");
+			yang_dnode_get_ip(&addr, dnode, "nai/local-address");
 			vty_out(vty, " nai prefix %pI6", &addr.ipaddr_v6);
 			break;
 		case SRTE_SEGMENT_NAI_TYPE_IPV4_ADJACENCY:
-			yang_dnode_get_ip(&addr, dnode, "./nai/local-address");
+			yang_dnode_get_ip(&addr, dnode, "nai/local-address");
 			yang_dnode_get_ip(&addr_rmt, dnode,
 					  "./nai/remote-address");
 			vty_out(vty, " nai adjacency %pI4", &addr.ipaddr_v4);
 			vty_out(vty, " %pI4", &addr_rmt.ipaddr_v4);
 			break;
 		case SRTE_SEGMENT_NAI_TYPE_IPV6_ADJACENCY:
-			yang_dnode_get_ip(&addr, dnode, "./nai/local-address");
+			yang_dnode_get_ip(&addr, dnode, "nai/local-address");
 			yang_dnode_get_ip(&addr_rmt, dnode,
 					  "./nai/remote-address");
 			vty_out(vty, " nai adjacency %pI6", &addr.ipaddr_v6);
@@ -598,17 +585,17 @@ void cli_show_srte_segment_list_segment(struct vty *vty,
 		default:
 			break;
 		}
-		if (yang_dnode_exists(dnode, "./nai/local-prefix-len")) {
+		if (yang_dnode_exists(dnode, "nai/local-prefix-len")) {
 			vty_out(vty, "/%s",
 				yang_dnode_get_string(
 					dnode, "./nai/local-prefix-len"));
 		}
-		if (yang_dnode_exists(dnode, "./nai/local-interface")) {
+		if (yang_dnode_exists(dnode, "nai/local-interface")) {
 			vty_out(vty, " iface %s",
 				yang_dnode_get_string(dnode,
 						      "./nai/local-interface"));
 		}
-		if (yang_dnode_exists(dnode, "./nai/algorithm")) {
+		if (yang_dnode_exists(dnode, "nai/algorithm")) {
 			vty_out(vty, " algorithm %s",
 				yang_dnode_get_string(dnode,
 						      "./nai/algorithm"));
@@ -671,8 +658,8 @@ void cli_show_srte_policy(struct vty *vty, const struct lyd_node *dnode,
 			  bool show_defaults)
 {
 	vty_out(vty, "  policy color %s endpoint %s\n",
-		yang_dnode_get_string(dnode, "./color"),
-		yang_dnode_get_string(dnode, "./endpoint"));
+		yang_dnode_get_string(dnode, "color"),
+		yang_dnode_get_string(dnode, "endpoint"));
 }
 
 void cli_show_srte_policy_end(struct vty *vty, const struct lyd_node *dnode)
@@ -873,7 +860,7 @@ DEFPY(srte_candidate_no_affinity_filter, srte_candidate_no_affinity_filter_cmd,
 
 DEFPY(srte_candidate_metric,
       srte_candidate_metric_cmd,
-      "metric [bound$bound] <igp|te|hc|abc|lmll|cigp|cte|pigp|pte|phc|msd|pd|pdv|pl|ppd|ppdv|ppl|nap|nlp|dc|bnc>$type METRIC$value [required$required]",
+      "metric [bound$bound] <igp|te|hc|abc|lmll|cigp|cte|pigp|pte|phc|msd|pd|pdv|pl|ppd|ppdv|ppl|nap|nlp|dc|bnc>$type METRIC$value [required$required] [computed$computed]",
       "Define a metric constraint\n"
       "If the metric is bounded\n"
       "IGP metric\n"
@@ -898,7 +885,8 @@ DEFPY(srte_candidate_metric,
       "Domain Count metric\n"
       "Border Node Count metric\n"
       "Metric value\n"
-      "Required constraint\n")
+      "Required constraint\n"
+      "Force the PCE to provide the computed path metric\n")
 {
 	char xpath[XPATH_CANDIDATE_MAXLEN];
 	snprintf(xpath, sizeof(xpath), "./constraints/metrics[type='%s']/value",
@@ -912,12 +900,16 @@ DEFPY(srte_candidate_metric,
 	         "./constraints/metrics[type='%s']/required", type);
 	nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY,
 			      required ? "true" : "false");
+	snprintf(xpath, sizeof(xpath),
+		 "./constraints/metrics[type='%s']/is-computed", type);
+	nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY,
+			      computed ? "true" : "false");
 	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFPY(srte_candidate_no_metric,
       srte_candidate_no_metric_cmd,
-      "no metric [bound] <igp|te|hc|abc|lmll|cigp|cte|pigp|pte|phc|msd|pd|pdv|pl|ppd|ppdv|ppl|nap|nlp|dc|bnc>$type [METRIC$value] [required$required]",
+      "no metric [bound] <igp|te|hc|abc|lmll|cigp|cte|pigp|pte|phc|msd|pd|pdv|pl|ppd|ppdv|ppl|nap|nlp|dc|bnc>$type [METRIC$value] [required$required] [computed$computed]",
       NO_STR
       "Remove a metric constraint\n"
       "If the metric is bounded\n"
@@ -943,7 +935,8 @@ DEFPY(srte_candidate_no_metric,
       "Domain Count metric\n"
       "Border Node Count metric\n"
       "Metric value\n"
-      "Required constraint\n")
+      "Required constraint\n"
+      "Force the PCE to provide the computed path metric\n")
 {
 	char xpath[XPATH_CANDIDATE_MAXLEN];
 	snprintf(xpath, sizeof(xpath), "./constraints/metrics[type='%s']",
@@ -1079,9 +1072,11 @@ static const char *objfun_type_name(enum objfun_type type)
 		return "mss";
 	case OBJFUN_MSN:
 		return "msn";
-	default:
+	case OBJFUN_UNDEFINED:
 		return NULL;
 	}
+
+	assert(!"Reached end of function we should never hit");
 }
 
 DEFPY_NOSH(show_debugging_pathd, show_debugging_pathd_cmd,
@@ -1175,7 +1170,8 @@ static void config_write_float(struct vty *vty, float value)
 
 static void config_write_metric(struct vty *vty,
 				enum srte_candidate_metric_type type,
-				float value, bool required, bool is_bound)
+				float value, bool required, bool is_bound,
+				bool is_computed)
 {
 	const char *name = metric_type_name(type);
 	if (name == NULL)
@@ -1184,6 +1180,7 @@ static void config_write_metric(struct vty *vty,
 	        metric_type_name(type));
 	config_write_float(vty, value);
 	vty_out(vty, required ? " required" : "");
+	vty_out(vty, is_computed ? " computed" : "");
 	vty_out(vty, "\n");
 }
 
@@ -1191,16 +1188,18 @@ static int config_write_metric_cb(const struct lyd_node *dnode, void *arg)
 {
 	struct vty *vty = arg;
 	enum srte_candidate_metric_type type;
-	bool required, is_bound = false;
+	bool required, is_bound = false, is_computed = false;
 	float value;
 
-	type = yang_dnode_get_enum(dnode, "./type");
-	value = (float)yang_dnode_get_dec64(dnode, "./value");
-	required = yang_dnode_get_bool(dnode, "./required");
-	if (yang_dnode_exists(dnode, "./is-bound"))
-		is_bound = yang_dnode_get_bool(dnode, "./is-bound");
+	type = yang_dnode_get_enum(dnode, "type");
+	value = (float)yang_dnode_get_dec64(dnode, "value");
+	required = yang_dnode_get_bool(dnode, "required");
+	if (yang_dnode_exists(dnode, "is-bound"))
+		is_bound = yang_dnode_get_bool(dnode, "is-bound");
+	if (yang_dnode_exists(dnode, "is-computed"))
+		is_computed = yang_dnode_get_bool(dnode, "is-computed");
 
-	config_write_metric(vty, type, value, required, is_bound);
+	config_write_metric(vty, type, value, required, is_bound, is_computed);
 	return YANG_ITER_CONTINUE;
 }
 
@@ -1212,18 +1211,18 @@ void cli_show_srte_policy_candidate_path(struct vty *vty,
 	uint32_t affinity;
 	bool required;
 	enum objfun_type objfun_type;
-	const char *type = yang_dnode_get_string(dnode, "./type");
+	const char *type = yang_dnode_get_string(dnode, "type");
 
 	vty_out(vty, "   candidate-path preference %s name %s %s",
-		yang_dnode_get_string(dnode, "./preference"),
-		yang_dnode_get_string(dnode, "./name"), type);
+		yang_dnode_get_string(dnode, "preference"),
+		yang_dnode_get_string(dnode, "name"), type);
 	if (strmatch(type, "explicit"))
 		vty_out(vty, " segment-list %s",
-			yang_dnode_get_string(dnode, "./segment-list-name"));
+			yang_dnode_get_string(dnode, "segment-list-name"));
 	vty_out(vty, "\n");
 
 	if (strmatch(type, "dynamic")) {
-		if (yang_dnode_exists(dnode, "./constraints/bandwidth")) {
+		if (yang_dnode_exists(dnode, "constraints/bandwidth")) {
 			bandwidth = (float)yang_dnode_get_dec64(
 				dnode, "./constraints/bandwidth/value");
 			required = yang_dnode_get_bool(
@@ -1273,7 +1272,7 @@ void cli_show_srte_policy_candidate_path(struct vty *vty,
 void cli_show_srte_policy_candidate_path_end(struct vty *vty,
 					     const struct lyd_node *dnode)
 {
-	const char *type = yang_dnode_get_string(dnode, "./type");
+	const char *type = yang_dnode_get_string(dnode, "type");
 
 	if (strmatch(type, "dynamic"))
 		vty_out(vty, "   exit\n");

@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * EIGRP Filter Functions.
  * Copyright (C) 2013-2015
@@ -18,22 +19,6 @@
  * in distribute command in EIGRP is matching destination IP (with both
  * access and prefix list).
  *
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -1122,59 +1107,13 @@ ALIAS(no_set_tag, no_set_tag_val_cmd, "no set tag (0-65535)", NO_STR SET_STR
       "Tag value for routing protocol\n"
       "Tag value\n")
 
-DEFUN (eigrp_distribute_list,
-       eigrp_distribute_list_cmd,
-       "distribute-list [prefix] ACCESSLIST_NAME <in|out> [WORD]",
-       "Filter networks in routing updates\n"
-       "Specify a prefix\n"
-       "Access-list name\n"
-       "Filter incoming routing updates\n"
-       "Filter outgoing routing updates\n"
-       "Interface name\n")
-{
-	const char *ifname = NULL;
-	int prefix = (argv[1]->type == WORD_TKN) ? 1 : 0;
-
-	if (argv[argc - 1]->type == VARIABLE_TKN)
-		ifname = argv[argc - 1]->arg;
-
-	return distribute_list_parser(prefix, true, argv[2 + prefix]->text,
-				      argv[1 + prefix]->arg, ifname);
-}
-
-DEFUN (eigrp_no_distribute_list,
-       eigrp_no_distribute_list_cmd,
-       "no distribute-list [prefix] ACCESSLIST_NAME <in|out> [WORD]",
-       NO_STR
-       "Filter networks in routing updates\n"
-       "Specify a prefix\n"
-       "Access-list name\n"
-       "Filter incoming routing updates\n"
-       "Filter outgoing routing updates\n"
-       "Interface name\n")
-{
-	const char *ifname = NULL;
-	int prefix = (argv[2]->type == WORD_TKN) ? 1 : 0;
-
-	if (argv[argc - 1]->type == VARIABLE_TKN)
-		ifname = argv[argc - 1]->arg;
-
-	return distribute_list_no_parser(vty, prefix, true,
-					 argv[3 + prefix]->text,
-					 argv[2 + prefix]->arg, ifname);
-}
-
-
 /* Route-map init */
-void eigrp_route_map_init()
+void eigrp_route_map_init(void)
 {
 	route_map_init();
 	route_map_init_vty();
 	route_map_add_hook(eigrp_route_map_update);
 	route_map_delete_hook(eigrp_route_map_update);
-
-	install_element(EIGRP_NODE, &eigrp_distribute_list_cmd);
-	install_element(EIGRP_NODE, &eigrp_no_distribute_list_cmd);
 
 	/*route_map_install_match (&route_match_metric_cmd);
 	  route_map_install_match (&route_match_interface_cmd);*/

@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * This is an implementation of RFC4970 Router Information
  * with support of RFC5088 PCE Capabilites announcement
@@ -5,22 +6,6 @@
  * Module name: Router Information
  * Author: Olivier Dugeon <olivier.dugeon@orange.com>
  * Copyright (C) 2012 - 2017 Orange Labs http://www.orange.com/
- *
- * This file is part of GNU Quagga.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Quagga is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -35,10 +20,11 @@
 #include "vty.h"
 #include "stream.h"
 #include "log.h"
-#include "thread.h"
+#include "frrevent.h"
 #include "hash.h"
 #include "sockunion.h" /* for inet_aton() */
 #include "mpls.h"
+#include <lib/json.h>
 
 #include "ospfd/ospfd.h"
 #include "ospfd/ospf_interface.h"
@@ -168,6 +154,7 @@ static int ospf_router_info_unregister(void)
 void ospf_router_info_term(void)
 {
 
+	list_delete(&OspfRI.area_info);
 	list_delete(&OspfRI.pce_info.pce_domain);
 	list_delete(&OspfRI.pce_info.pce_neighbor);
 
@@ -813,12 +800,9 @@ static struct ospf_lsa *ospf_router_info_lsa_new(struct ospf_area *area)
 	/* Now, create an OSPF LSA instance. */
 	new = ospf_lsa_new_and_data(length);
 
+	/* Routing Information is only supported for default VRF */
+	new->vrf_id = VRF_DEFAULT;
 	new->area = area;
-
-	if (new->area && new->area->ospf)
-		new->vrf_id = new->area->ospf->vrf_id;
-	else
-		new->vrf_id = VRF_DEFAULT;
 
 	SET_FLAG(new->flags, OSPF_LSA_SELF);
 	memcpy(new->data, lsah, length);
@@ -832,7 +816,6 @@ static int ospf_router_info_lsa_originate_as(void *arg)
 	struct ospf_lsa *new;
 	struct ospf *top;
 	int rc = -1;
-	vrf_id_t vrf_id = VRF_DEFAULT;
 
 	/* Sanity Check */
 	if (OspfRI.scope == OSPF_OPAQUE_AREA_LSA) {
@@ -845,13 +828,12 @@ static int ospf_router_info_lsa_originate_as(void *arg)
 
 	/* Create new Opaque-LSA/ROUTER INFORMATION instance. */
 	new = ospf_router_info_lsa_new(NULL);
-	new->vrf_id = VRF_DEFAULT;
 	top = (struct ospf *)arg;
 
 	/* Check ospf info */
 	if (top == NULL) {
 		zlog_debug("RI (%s): ospf instance not found for vrf id %u",
-			   __func__, vrf_id);
+			   __func__, VRF_DEFAULT);
 		ospf_lsa_unlock(&new);
 		return rc;
 	}
@@ -889,7 +871,6 @@ static int ospf_router_info_lsa_originate_area(void *arg)
 	struct ospf *top;
 	struct ospf_ri_area_info *ai = NULL;
 	int rc = -1;
-	vrf_id_t vrf_id = VRF_DEFAULT;
 
 	/* Sanity Check */
 	if (OspfRI.scope == OSPF_OPAQUE_AS_LSA) {
@@ -908,19 +889,18 @@ static int ospf_router_info_lsa_originate_area(void *arg)
 			__func__);
 		return rc;
 	}
-	if (ai->area->ospf) {
-		vrf_id = ai->area->ospf->vrf_id;
+
+	if (ai->area->ospf)
 		top = ai->area->ospf;
-	} else {
-		top = ospf_lookup_by_vrf_id(vrf_id);
-	}
+	else
+		top = ospf_lookup_by_vrf_id(VRF_DEFAULT);
+
 	new = ospf_router_info_lsa_new(ai->area);
-	new->vrf_id = vrf_id;
 
 	/* Check ospf info */
 	if (top == NULL) {
 		zlog_debug("RI (%s): ospf instance not found for vrf id %u",
-			   __func__, vrf_id);
+			   __func__, VRF_DEFAULT);
 		ospf_lsa_unlock(&new);
 		return rc;
 	}
@@ -1054,10 +1034,9 @@ static struct ospf_lsa *ospf_router_info_lsa_refresh(struct ospf_lsa *lsa)
 		/* Create new Opaque-LSA/ROUTER INFORMATION instance. */
 		new = ospf_router_info_lsa_new(ai->area);
 		new->data->ls_seqnum = lsa_seqnum_increment(lsa);
-		new->vrf_id = lsa->vrf_id;
 		/* Install this LSA into LSDB. */
 		/* Given "lsa" will be freed in the next function. */
-		top = ospf_lookup_by_vrf_id(lsa->vrf_id);
+		top = ospf_lookup_by_vrf_id(VRF_DEFAULT);
 		if (ospf_lsa_install(top, NULL /*oi */, new) == NULL) {
 			flog_warn(EC_OSPF_LSA_INSTALL_FAILURE,
 				  "RI (%s): ospf_lsa_install() ?", __func__);
@@ -1077,10 +1056,9 @@ static struct ospf_lsa *ospf_router_info_lsa_refresh(struct ospf_lsa *lsa)
 		/* Create new Opaque-LSA/ROUTER INFORMATION instance. */
 		new = ospf_router_info_lsa_new(NULL);
 		new->data->ls_seqnum = lsa_seqnum_increment(lsa);
-		new->vrf_id = lsa->vrf_id;
 		/* Install this LSA into LSDB. */
 		/* Given "lsa" will be freed in the next function. */
-		top = ospf_lookup_by_vrf_id(lsa->vrf_id);
+		top = ospf_lookup_by_vrf_id(VRF_DEFAULT);
 		if (ospf_lsa_install(top, NULL /*oi */, new) == NULL) {
 			flog_warn(EC_OSPF_LSA_INSTALL_FAILURE,
 				  "RI (%s): ospf_lsa_install() ?", __func__);
@@ -1239,15 +1217,20 @@ static int ospf_router_info_lsa_update(struct ospf_lsa *lsa)
 		}                                                              \
 	} while (0)
 
-static uint16_t show_vty_router_cap(struct vty *vty, struct tlv_header *tlvh)
+static uint16_t show_vty_router_cap(struct vty *vty, struct tlv_header *tlvh,
+				    json_object *json)
 {
 	struct ri_tlv_router_cap *top = (struct ri_tlv_router_cap *)tlvh;
 
 	check_tlv_size(RI_TLV_CAPABILITIES_SIZE, "Router Capabilities");
 
 	if (vty != NULL)
-		vty_out(vty, "  Router Capabilities: 0x%x\n",
-			ntohl(top->value));
+		if (!json)
+			vty_out(vty, "  Router Capabilities: 0x%x\n",
+				ntohl(top->value));
+		else
+			json_object_string_addf(json, "routerCapabilities",
+						"0x%x", ntohl(top->value));
 	else
 		zlog_debug("    Router Capabilities: 0x%x", ntohl(top->value));
 
@@ -1255,7 +1238,8 @@ static uint16_t show_vty_router_cap(struct vty *vty, struct tlv_header *tlvh)
 }
 
 static uint16_t show_vty_pce_subtlv_address(struct vty *vty,
-					    struct tlv_header *tlvh)
+					    struct tlv_header *tlvh,
+					    json_object *json)
 {
 	struct ri_pce_subtlv_address *top =
 		(struct ri_pce_subtlv_address *)tlvh;
@@ -1263,20 +1247,28 @@ static uint16_t show_vty_pce_subtlv_address(struct vty *vty,
 	if (ntohs(top->address.type) == PCE_ADDRESS_IPV4) {
 		check_tlv_size(PCE_ADDRESS_IPV4_SIZE, "PCE Address");
 		if (vty != NULL)
-			vty_out(vty, "  PCE Address: %pI4\n",
-				&top->address.value);
+			if (!json)
+				vty_out(vty, "  PCE Address: %pI4\n",
+					&top->address.value);
+			else
+				json_object_string_addf(json, "pceAddress",
+							"%pI4",
+							&top->address.value);
 		else
 			zlog_debug("    PCE Address: %pI4",
 				   &top->address.value);
 	} else if (ntohs(top->address.type) == PCE_ADDRESS_IPV6) {
-		/* TODO: Add support to IPv6 with inet_ntop() */
 		check_tlv_size(PCE_ADDRESS_IPV6_SIZE, "PCE Address");
 		if (vty != NULL)
-			vty_out(vty, "  PCE Address: 0x%x\n",
-				ntohl(top->address.value.s_addr));
+			if (!json)
+				vty_out(vty,
+					"  PCE Address: unsupported IPv6\n");
+			else
+				json_object_string_add(json, "pceAddress",
+						       "unsupported IPv6");
+
 		else
-			zlog_debug("    PCE Address: 0x%x",
-				   ntohl(top->address.value.s_addr));
+			zlog_debug("    PCE Address: unsupported IPv6");
 	} else {
 		if (vty != NULL)
 			vty_out(vty, "  Wrong PCE Address type: 0x%x\n",
@@ -1290,7 +1282,8 @@ static uint16_t show_vty_pce_subtlv_address(struct vty *vty,
 }
 
 static uint16_t show_vty_pce_subtlv_path_scope(struct vty *vty,
-					       struct tlv_header *tlvh)
+					       struct tlv_header *tlvh,
+					       json_object *json)
 {
 	struct ri_pce_subtlv_path_scope *top =
 		(struct ri_pce_subtlv_path_scope *)tlvh;
@@ -1298,7 +1291,12 @@ static uint16_t show_vty_pce_subtlv_path_scope(struct vty *vty,
 	check_tlv_size(RI_PCE_SUBTLV_PATH_SCOPE_SIZE, "PCE Path Scope");
 
 	if (vty != NULL)
-		vty_out(vty, "  PCE Path Scope: 0x%x\n", ntohl(top->value));
+		if (!json)
+			vty_out(vty, "  PCE Path Scope: 0x%x\n",
+				ntohl(top->value));
+		else
+			json_object_string_addf(json, "pcePathScope", "0x%x",
+						ntohl(top->value));
 	else
 		zlog_debug("    PCE Path Scope: 0x%x", ntohl(top->value));
 
@@ -1306,7 +1304,8 @@ static uint16_t show_vty_pce_subtlv_path_scope(struct vty *vty,
 }
 
 static uint16_t show_vty_pce_subtlv_domain(struct vty *vty,
-					   struct tlv_header *tlvh)
+					   struct tlv_header *tlvh,
+					   json_object *json)
 {
 	struct ri_pce_subtlv_domain *top = (struct ri_pce_subtlv_domain *)tlvh;
 	struct in_addr tmp;
@@ -1316,13 +1315,21 @@ static uint16_t show_vty_pce_subtlv_domain(struct vty *vty,
 	if (ntohs(top->type) == PCE_DOMAIN_TYPE_AREA) {
 		tmp.s_addr = top->value;
 		if (vty != NULL)
-			vty_out(vty, "  PCE Domain Area: %pI4\n", &tmp);
+			if (!json)
+				vty_out(vty, "  PCE Domain Area: %pI4\n", &tmp);
+			else
+				json_object_string_addf(json, "pceDomainArea",
+							"%pI4", &tmp);
 		else
 			zlog_debug("    PCE Domain Area: %pI4", &tmp);
 	} else if (ntohs(top->type) == PCE_DOMAIN_TYPE_AS) {
 		if (vty != NULL)
-			vty_out(vty, "  PCE Domain AS: %d\n",
-				ntohl(top->value));
+			if (!json)
+				vty_out(vty, "  PCE Domain AS: %d\n",
+					ntohl(top->value));
+			else
+				json_object_int_add(json, "pceDomainAS",
+						    ntohl(top->value));
 		else
 			zlog_debug("    PCE Domain AS: %d", ntohl(top->value));
 	} else {
@@ -1338,7 +1345,8 @@ static uint16_t show_vty_pce_subtlv_domain(struct vty *vty,
 }
 
 static uint16_t show_vty_pce_subtlv_neighbor(struct vty *vty,
-					     struct tlv_header *tlvh)
+					     struct tlv_header *tlvh,
+					     json_object *json)
 {
 
 	struct ri_pce_subtlv_neighbor *top =
@@ -1350,13 +1358,22 @@ static uint16_t show_vty_pce_subtlv_neighbor(struct vty *vty,
 	if (ntohs(top->type) == PCE_DOMAIN_TYPE_AREA) {
 		tmp.s_addr = top->value;
 		if (vty != NULL)
-			vty_out(vty, "  PCE Neighbor Area: %pI4\n", &tmp);
+			if (!json)
+				vty_out(vty, "  PCE Neighbor Area: %pI4\n",
+					&tmp);
+			else
+				json_object_string_addf(json, "pceNeighborArea",
+							"%pI4", &tmp);
 		else
 			zlog_debug("    PCE Neighbor Area: %pI4", &tmp);
 	} else if (ntohs(top->type) == PCE_DOMAIN_TYPE_AS) {
 		if (vty != NULL)
-			vty_out(vty, "  PCE Neighbor AS: %d\n",
-				ntohl(top->value));
+			if (!json)
+				vty_out(vty, "  PCE Neighbor AS: %d\n",
+					ntohl(top->value));
+			else
+				json_object_int_add(json, "pceNeighborAS",
+						    ntohl(top->value));
 		else
 			zlog_debug("    PCE Neighbor AS: %d",
 				   ntohl(top->value));
@@ -1373,7 +1390,8 @@ static uint16_t show_vty_pce_subtlv_neighbor(struct vty *vty,
 }
 
 static uint16_t show_vty_pce_subtlv_cap_flag(struct vty *vty,
-					     struct tlv_header *tlvh)
+					     struct tlv_header *tlvh,
+					     json_object *json)
 {
 	struct ri_pce_subtlv_cap_flag *top =
 		(struct ri_pce_subtlv_cap_flag *)tlvh;
@@ -1381,8 +1399,12 @@ static uint16_t show_vty_pce_subtlv_cap_flag(struct vty *vty,
 	check_tlv_size(RI_PCE_SUBTLV_CAP_FLAG_SIZE, "PCE Capabilities");
 
 	if (vty != NULL)
-		vty_out(vty, "  PCE Capabilities Flag: 0x%x\n",
-			ntohl(top->value));
+		if (!json)
+			vty_out(vty, "  PCE Capabilities Flag: 0x%x\n",
+				ntohl(top->value));
+		else
+			json_object_string_addf(json, "pceCapabilities",
+						"0x%x", ntohl(top->value));
 	else
 		zlog_debug("    PCE Capabilities Flag: 0x%x",
 			   ntohl(top->value));
@@ -1391,8 +1413,10 @@ static uint16_t show_vty_pce_subtlv_cap_flag(struct vty *vty,
 }
 
 static uint16_t show_vty_unknown_tlv(struct vty *vty, struct tlv_header *tlvh,
-				     size_t buf_size)
+				     size_t buf_size, json_object *json)
 {
+	json_object *obj;
+
 	if (TLV_SIZE(tlvh) > buf_size) {
 		if (vty != NULL)
 			vty_out(vty,
@@ -1406,8 +1430,18 @@ static uint16_t show_vty_unknown_tlv(struct vty *vty, struct tlv_header *tlvh,
 	}
 
 	if (vty != NULL)
-		vty_out(vty, "  Unknown TLV: [type(0x%x), length(0x%x)]\n",
-			ntohs(tlvh->type), ntohs(tlvh->length));
+		if (!json)
+			vty_out(vty,
+				"  Unknown TLV: [type(0x%x), length(0x%x)]\n",
+				ntohs(tlvh->type), ntohs(tlvh->length));
+		else {
+			obj = json_object_new_object();
+			json_object_string_addf(obj, "type", "0x%x",
+						ntohs(tlvh->type));
+			json_object_string_addf(obj, "length", "0x%x",
+						ntohs(tlvh->length));
+			json_object_object_add(json, "unknownTLV", obj);
+		}
 	else
 		zlog_debug("    Unknown TLV: [type(0x%x), length(0x%x)]",
 			   ntohs(tlvh->type), ntohs(tlvh->length));
@@ -1416,7 +1450,7 @@ static uint16_t show_vty_unknown_tlv(struct vty *vty, struct tlv_header *tlvh,
 }
 
 static uint16_t show_vty_pce_info(struct vty *vty, struct tlv_header *ri,
-				  size_t buf_size)
+				  size_t buf_size, json_object *json)
 {
 	struct tlv_header *tlvh;
 	uint16_t length = ntohs(ri->length);
@@ -1433,22 +1467,23 @@ static uint16_t show_vty_pce_info(struct vty *vty, struct tlv_header *ri,
 	for (tlvh = ri; sum < length; tlvh = TLV_HDR_NEXT(tlvh)) {
 		switch (ntohs(tlvh->type)) {
 		case RI_PCE_SUBTLV_ADDRESS:
-			sum += show_vty_pce_subtlv_address(vty, tlvh);
+			sum += show_vty_pce_subtlv_address(vty, tlvh, json);
 			break;
 		case RI_PCE_SUBTLV_PATH_SCOPE:
-			sum += show_vty_pce_subtlv_path_scope(vty, tlvh);
+			sum += show_vty_pce_subtlv_path_scope(vty, tlvh, json);
 			break;
 		case RI_PCE_SUBTLV_DOMAIN:
-			sum += show_vty_pce_subtlv_domain(vty, tlvh);
+			sum += show_vty_pce_subtlv_domain(vty, tlvh, json);
 			break;
 		case RI_PCE_SUBTLV_NEIGHBOR:
-			sum += show_vty_pce_subtlv_neighbor(vty, tlvh);
+			sum += show_vty_pce_subtlv_neighbor(vty, tlvh, json);
 			break;
 		case RI_PCE_SUBTLV_CAP_FLAG:
-			sum += show_vty_pce_subtlv_cap_flag(vty, tlvh);
+			sum += show_vty_pce_subtlv_cap_flag(vty, tlvh, json);
 			break;
 		default:
-			sum += show_vty_unknown_tlv(vty, tlvh, length - sum);
+			sum += show_vty_unknown_tlv(vty, tlvh, length - sum,
+						    json);
 			break;
 		}
 	}
@@ -1456,33 +1491,62 @@ static uint16_t show_vty_pce_info(struct vty *vty, struct tlv_header *ri,
 }
 
 /* Display Segment Routing Algorithm TLV information */
-static uint16_t show_vty_sr_algorithm(struct vty *vty, struct tlv_header *tlvh)
+static uint16_t show_vty_sr_algorithm(struct vty *vty, struct tlv_header *tlvh,
+				      json_object *json)
 {
 	struct ri_sr_tlv_sr_algorithm *algo =
 		(struct ri_sr_tlv_sr_algorithm *)tlvh;
 	int i;
+	json_object *json_algo, *obj;
+	char buf[2];
 
 	check_tlv_size(ALGORITHM_COUNT, "Segment Routing Algorithm");
 
-	if (vty != NULL) {
-		vty_out(vty, "  Segment Routing Algorithm TLV:\n");
-		for (i = 0; i < ntohs(algo->header.length); i++) {
-			switch (algo->value[i]) {
-			case 0:
-				vty_out(vty, "    Algorithm %d: SPF\n", i);
-				break;
-			case 1:
-				vty_out(vty, "    Algorithm %d: Strict SPF\n",
-					i);
-				break;
-			default:
-				vty_out(vty,
-					"  Algorithm %d: Unknown value %d\n", i,
-					algo->value[i]);
-				break;
+	if (vty != NULL)
+		if (!json) {
+			vty_out(vty, "  Segment Routing Algorithm TLV:\n");
+			for (i = 0; i < ntohs(algo->header.length); i++) {
+				switch (algo->value[i]) {
+				case 0:
+					vty_out(vty,
+						"    Algorithm %d: SPF\n", i);
+					break;
+				case 1:
+					vty_out(vty,
+						"    Algorithm %d: Strict SPF\n",
+						i);
+					break;
+				default:
+					vty_out(vty,
+						"  Algorithm %d: Unknown value %d\n", i,
+						algo->value[i]);
+					break;
+				}
+			}
+		} else {
+			json_algo = json_object_new_array();
+			json_object_object_add(json, "algorithms",
+					       json_algo);
+			for (i = 0; i < ntohs(algo->header.length); i++) {
+				obj = json_object_new_object();
+				snprintfrr(buf, 2, "%d", i);
+				switch (algo->value[i]) {
+				case 0:
+					json_object_string_add(obj, buf, "SPF");
+					break;
+				case 1:
+					json_object_string_add(obj, buf,
+							       "strictSPF");
+					break;
+				default:
+					json_object_string_add(obj, buf,
+							       "unknown");
+					break;
+				}
+				json_object_array_add(json_algo, obj);
 			}
 		}
-	} else {
+	else {
 		zlog_debug("  Segment Routing Algorithm TLV:");
 		for (i = 0; i < ntohs(algo->header.length); i++)
 			switch (algo->value[i]) {
@@ -1503,24 +1567,47 @@ static uint16_t show_vty_sr_algorithm(struct vty *vty, struct tlv_header *tlvh)
 }
 
 /* Display Segment Routing SID/Label Range TLV information */
-static uint16_t show_vty_sr_range(struct vty *vty, struct tlv_header *tlvh)
+static uint16_t show_vty_sr_range(struct vty *vty, struct tlv_header *tlvh,
+				  json_object *json)
 {
 	struct ri_sr_tlv_sid_label_range *range =
 		(struct ri_sr_tlv_sid_label_range *)tlvh;
+	json_object *obj;
+	uint32_t upper;
 
 	check_tlv_size(RI_SR_TLV_LABEL_RANGE_SIZE, "SR Label Range");
 
-	if (vty != NULL) {
-		vty_out(vty,
-			"  Segment Routing %s Range TLV:\n"
-			"    Range Size = %d\n"
-			"    SID Label = %d\n\n",
-			ntohs(range->header.type) == RI_SR_TLV_SRGB_LABEL_RANGE
-				? "Global"
-				: "Local",
-			GET_RANGE_SIZE(ntohl(range->size)),
-			GET_LABEL(ntohl(range->lower.value)));
-	} else {
+	if (vty != NULL)
+		if (!json) {
+			vty_out(vty,
+				"  Segment Routing %s Range TLV:\n"
+				"    Range Size = %d\n"
+				"    SID Label = %d\n\n",
+				ntohs(range->header.type) ==
+						RI_SR_TLV_SRGB_LABEL_RANGE
+					? "Global"
+					: "Local",
+				GET_RANGE_SIZE(ntohl(range->size)),
+				GET_LABEL(ntohl(range->lower.value)));
+		} else {
+			/*
+			 * According to draft-ietf-teas-yang-sr-te-topo, SRGB
+			 * and SRLB are describe with lower and upper bounds
+			 */
+			upper = GET_LABEL(ntohl(range->lower.value)) +
+				GET_RANGE_SIZE(ntohl(range->size)) - 1;
+			obj = json_object_new_object();
+			json_object_int_add(obj, "upperBound", upper);
+			json_object_int_add(obj, "lowerBound",
+				GET_LABEL(ntohl(range->lower.value)));
+			json_object_object_add(json,
+					       ntohs(range->header.type) ==
+						     RI_SR_TLV_SRGB_LABEL_RANGE
+						     ? "srgb"
+						     : "srlb",
+					       obj);
+		}
+	else {
 		zlog_debug(
 			"  Segment Routing %s Range TLV:  Range Size = %d  SID Label = %d",
 			ntohs(range->header.type) == RI_SR_TLV_SRGB_LABEL_RANGE
@@ -1534,22 +1621,25 @@ static uint16_t show_vty_sr_range(struct vty *vty, struct tlv_header *tlvh)
 }
 
 /* Display Segment Routing Maximum Stack Depth TLV information */
-static uint16_t show_vty_sr_msd(struct vty *vty, struct tlv_header *tlvh)
+static uint16_t show_vty_sr_msd(struct vty *vty, struct tlv_header *tlvh,
+				json_object *json)
 {
 	struct ri_sr_tlv_node_msd *msd = (struct ri_sr_tlv_node_msd *)tlvh;
 
 	check_tlv_size(RI_SR_TLV_NODE_MSD_SIZE, "Node Maximum Stack Depth");
 
-	if (vty != NULL) {
-		vty_out(vty,
-			"  Segment Routing MSD TLV:\n"
-			"    Node Maximum Stack Depth = %d\n",
-			msd->value);
-	} else {
+	if (vty != NULL)
+		if (!json)
+			vty_out(vty,
+				"  Segment Routing MSD TLV:\n"
+				"    Node Maximum Stack Depth = %d\n",
+				msd->value);
+		else
+			json_object_int_add(json, "nodeMsd", msd->value);
+	else
 		zlog_debug(
 			"  Segment Routing MSD TLV:  Node Maximum Stack Depth = %d",
 			msd->value);
-	}
 
 	return TLV_SIZE(tlvh);
 }
@@ -1561,9 +1651,14 @@ static void ospf_router_info_show_info(struct vty *vty,
 	struct lsa_header *lsah = lsa->data;
 	struct tlv_header *tlvh;
 	uint16_t length = 0, sum = 0;
+	json_object *jri = NULL, *jpce = NULL, *jsr = NULL;
 
-	if (json)
-		return;
+	if (json) {
+		jri = json_object_new_object();
+		json_object_object_add(json, "routerInformation", jri);
+		jpce = json_object_new_object();
+		jsr = json_object_new_object();
+	}
 
 	/* Initialize TLV browsing */
 	length = lsa->size - OSPF_LSA_HEADER_SIZE;
@@ -1572,30 +1667,36 @@ static void ospf_router_info_show_info(struct vty *vty,
 	     tlvh = TLV_HDR_NEXT(tlvh)) {
 		switch (ntohs(tlvh->type)) {
 		case RI_TLV_CAPABILITIES:
-			sum += show_vty_router_cap(vty, tlvh);
+			sum += show_vty_router_cap(vty, tlvh, jri);
 			break;
 		case RI_TLV_PCE:
 			tlvh++;
 			sum += TLV_HDR_SIZE;
-			sum += show_vty_pce_info(vty, tlvh, length - sum);
+			sum += show_vty_pce_info(vty, tlvh, length - sum, jpce);
 			break;
 		case RI_SR_TLV_SR_ALGORITHM:
-			sum += show_vty_sr_algorithm(vty, tlvh);
+			sum += show_vty_sr_algorithm(vty, tlvh, jsr);
 			break;
 		case RI_SR_TLV_SRGB_LABEL_RANGE:
 		case RI_SR_TLV_SRLB_LABEL_RANGE:
-			sum += show_vty_sr_range(vty, tlvh);
+			sum += show_vty_sr_range(vty, tlvh, jsr);
 			break;
 		case RI_SR_TLV_NODE_MSD:
-			sum += show_vty_sr_msd(vty, tlvh);
+			sum += show_vty_sr_msd(vty, tlvh, jsr);
 			break;
 
 		default:
-			sum += show_vty_unknown_tlv(vty, tlvh, length);
+			sum += show_vty_unknown_tlv(vty, tlvh, length, jri);
 			break;
 		}
 	}
 
+	if (json) {
+		if (json_object_object_length(jpce) > 1)
+			json_object_object_add(jri, "pceInformation", jpce);
+		if (json_object_object_length(jsr) > 1)
+			json_object_object_add(jri, "segmentRouting", jsr);
+	}
 	return;
 }
 
@@ -1683,17 +1784,24 @@ static void ospf_router_info_schedule(enum lsa_opcode opcode)
 
 DEFUN (router_info,
        router_info_area_cmd,
-       "router-info <as|area [A.B.C.D]>",
+       "router-info <as|area>",
        OSPF_RI_STR
        "Enable the Router Information functionality with AS flooding scope\n"
-       "Enable the Router Information functionality with Area flooding scope\n"
-       "OSPF area ID in IP format (deprecated)\n")
+       "Enable the Router Information functionality with Area flooding scope\n")
 {
 	int idx_mode = 1;
 	uint8_t scope;
+	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
 
 	if (OspfRI.enabled)
 		return CMD_SUCCESS;
+
+	/* Check that the OSPF is using default VRF */
+	if (ospf->vrf_id != VRF_DEFAULT) {
+		vty_out(vty,
+			"Router Information is only supported in default VRF\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
 
 	/* Check and get Area value if present */
 	if (strncmp(argv[idx_mode]->arg, "as", 2) == 0)
@@ -1735,12 +1843,23 @@ DEFUN (router_info,
 	return CMD_SUCCESS;
 }
 
+#if CONFDATE > 20240809
+CPP_NOTICE("Drop deprecated router_info_area_id_cmd")
+#endif
+ALIAS_HIDDEN (router_info,
+              router_info_area_id_cmd,
+              "router-info area A.B.C.D",
+              OSPF_RI_STR
+              "Enable the Router Information functionality with Area flooding scope\n"
+              "OSPF area ID in IP format (deprecated)\n")
 
 DEFUN (no_router_info,
        no_router_info_cmd,
-       "no router-info",
+       "no router-info [<area|as>]",
        NO_STR
-       "Disable the Router Information functionality\n")
+       "Disable the Router Information functionality\n"
+       "Disable the Router Information functionality with AS flooding scope\n"
+       "Disable the Router Information functionality with Area flooding scope\n")
 {
 
 	if (!OspfRI.enabled)
@@ -2058,7 +2177,7 @@ DEFUN (show_ip_ospf_router_info,
 
 	if (OspfRI.enabled) {
 		vty_out(vty, "--- Router Information parameters ---\n");
-		show_vty_router_cap(vty, &OspfRI.router_cap.header);
+		show_vty_router_cap(vty, &OspfRI.router_cap.header, NULL);
 	} else {
 		if (vty != NULL)
 			vty_out(vty,
@@ -2087,27 +2206,32 @@ DEFUN (show_ip_opsf_router_info_pce,
 
 		if (pce->pce_address.header.type != 0)
 			show_vty_pce_subtlv_address(vty,
-						    &pce->pce_address.header);
+						    &pce->pce_address.header,
+						    NULL);
 
 		if (pce->pce_scope.header.type != 0)
 			show_vty_pce_subtlv_path_scope(vty,
-						       &pce->pce_scope.header);
+						       &pce->pce_scope.header,
+						       NULL);
 
 		for (ALL_LIST_ELEMENTS_RO(pce->pce_domain, node, domain)) {
 			if (domain->header.type != 0)
 				show_vty_pce_subtlv_domain(vty,
-							   &domain->header);
+							   &domain->header,
+							   NULL);
 		}
 
 		for (ALL_LIST_ELEMENTS_RO(pce->pce_neighbor, node, neighbor)) {
 			if (neighbor->header.type != 0)
 				show_vty_pce_subtlv_neighbor(vty,
-							     &neighbor->header);
+							     &neighbor->header,
+							     NULL);
 		}
 
 		if (pce->pce_cap_flag.header.type != 0)
 			show_vty_pce_subtlv_cap_flag(vty,
-						     &pce->pce_cap_flag.header);
+						     &pce->pce_cap_flag.header,
+						     NULL);
 
 	} else {
 		vty_out(vty, "  PCE info is disabled on this router\n");
@@ -2123,6 +2247,7 @@ static void ospf_router_info_register_vty(void)
 	install_element(VIEW_NODE, &show_ip_ospf_router_info_pce_cmd);
 
 	install_element(OSPF_NODE, &router_info_area_cmd);
+	install_element(OSPF_NODE, &router_info_area_id_cmd);
 	install_element(OSPF_NODE, &no_router_info_cmd);
 	install_element(OSPF_NODE, &pce_address_cmd);
 	install_element(OSPF_NODE, &no_pce_address_cmd);

@@ -3,14 +3,14 @@
     "3.3.3.3":[
       {
         "converged":"Full",
-        "address":"10.0.4.3",
+        "ifaceAddress":"10.0.4.3",
         "ifaceName":"eth-rt3:10.0.4.6"
       }
     ],
     "7.7.7.7":[
       {
         "converged":"Full",
-        "address":"10.0.6.7",
+        "ifaceAddress":"10.0.6.7",
         "ifaceName":"eth-rt7:10.0.6.6"
       }
     ]

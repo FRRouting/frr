@@ -1,19 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Copyright (C) 2020  NetDEF, Inc.
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -58,9 +45,9 @@ struct debug path_policy_debug;
 
 
 static void trigger_pathd_candidate_created(struct srte_candidate *candidate);
-static void trigger_pathd_candidate_created_timer(struct thread *thread);
+static void trigger_pathd_candidate_created_timer(struct event *thread);
 static void trigger_pathd_candidate_updated(struct srte_candidate *candidate);
-static void trigger_pathd_candidate_updated_timer(struct thread *thread);
+static void trigger_pathd_candidate_updated_timer(struct event *thread);
 static void trigger_pathd_candidate_removed(struct srte_candidate *candidate);
 static const char *
 srte_candidate_metric_name(enum srte_candidate_metric_type type);
@@ -281,7 +268,8 @@ int srte_segment_entry_set_nai(struct srte_segment_entry *segment,
 		segment->nai_local_iface = local_iface;
 		status = srte_ted_do_query_type_e(segment, &pre, local_iface);
 		break;
-	default:
+	case SRTE_SEGMENT_NAI_TYPE_NONE:
+	case SRTE_SEGMENT_NAI_TYPE_IPV6_ADJACENCY_LINK_LOCAL_ADDRESSES:
 		segment->nai_local_addr.ipa_type = IPADDR_NONE;
 		segment->nai_local_iface = 0;
 		segment->nai_remote_addr.ipa_type = IPADDR_NONE;
@@ -472,7 +460,11 @@ int srte_policy_update_ted_sid(void)
 						s_entry, &prefix_cli,
 						s_entry->nai_algorithm);
 				break;
-			default:
+			case SRTE_SEGMENT_NAI_TYPE_NONE:
+			case SRTE_SEGMENT_NAI_TYPE_IPV4_NODE:
+			case SRTE_SEGMENT_NAI_TYPE_IPV6_NODE:
+			case SRTE_SEGMENT_NAI_TYPE_IPV4_UNNUMBERED_ADJACENCY:
+			case SRTE_SEGMENT_NAI_TYPE_IPV6_ADJACENCY_LINK_LOCAL_ADDRESSES:
 				break;
 			}
 		}
@@ -1025,9 +1017,11 @@ static uint32_t filter_type_to_flag(enum affinity_filter_type type)
 		return F_CANDIDATE_HAS_INCLUDE_ANY;
 	case AFFINITY_FILTER_INCLUDE_ALL:
 		return F_CANDIDATE_HAS_INCLUDE_ALL;
-	default:
+	case AFFINITY_FILTER_UNDEFINED:
 		return 0;
 	}
+
+	assert(!"Reached end of function we should never hit");
 }
 
 static const char *filter_type_name(enum affinity_filter_type type)
@@ -1039,9 +1033,11 @@ static const char *filter_type_name(enum affinity_filter_type type)
 		return "include-any";
 	case AFFINITY_FILTER_INCLUDE_ALL:
 		return "include-all";
-	default:
+	case AFFINITY_FILTER_UNDEFINED:
 		return "unknown";
 	}
+
+	assert(!"Reached end of function we should never hit");
 }
 
 /**
@@ -1155,7 +1151,9 @@ void srte_candidate_status_update(struct srte_candidate *candidate, int status)
 		case SRTE_POLICY_STATUS_GOING_UP:
 		case SRTE_POLICY_STATUS_DOWN:
 			return;
-		default:
+		case SRTE_POLICY_STATUS_UNKNOWN:
+		case SRTE_POLICY_STATUS_UP:
+		case SRTE_POLICY_STATUS_GOING_DOWN:
 			policy->status = SRTE_POLICY_STATUS_DOWN;
 			srte_policy_status_log(policy);
 			break;
@@ -1165,7 +1163,10 @@ void srte_candidate_status_update(struct srte_candidate *candidate, int status)
 		switch (policy->status) {
 		case SRTE_POLICY_STATUS_UP:
 			return;
-		default:
+		case SRTE_POLICY_STATUS_UNKNOWN:
+		case SRTE_POLICY_STATUS_DOWN:
+		case SRTE_POLICY_STATUS_GOING_DOWN:
+		case SRTE_POLICY_STATUS_GOING_UP:
 			policy->status = SRTE_POLICY_STATUS_UP;
 			srte_policy_status_log(policy);
 			break;
@@ -1263,9 +1264,11 @@ const char *srte_origin2str(enum srte_protocol_origin origin)
 		return "BGP";
 	case SRTE_ORIGIN_LOCAL:
 		return "Local";
-	default:
+	case SRTE_ORIGIN_UNDEFINED:
 		return "Unknown";
 	}
+
+	assert(!"Reached end of function we should never hit");
 }
 
 void path_policy_show_debugging(struct vty *vty)
@@ -1290,13 +1293,13 @@ void trigger_pathd_candidate_created(struct srte_candidate *candidate)
 	from changing the candidate by hand with the console */
 	if (candidate->hook_timer != NULL)
 		return;
-	thread_add_timer(master, trigger_pathd_candidate_created_timer,
-			 (void *)candidate, HOOK_DELAY, &candidate->hook_timer);
+	event_add_timer(master, trigger_pathd_candidate_created_timer,
+			(void *)candidate, HOOK_DELAY, &candidate->hook_timer);
 }
 
-void trigger_pathd_candidate_created_timer(struct thread *thread)
+void trigger_pathd_candidate_created_timer(struct event *thread)
 {
-	struct srte_candidate *candidate = THREAD_ARG(thread);
+	struct srte_candidate *candidate = EVENT_ARG(thread);
 	candidate->hook_timer = NULL;
 	hook_call(pathd_candidate_created, candidate);
 }
@@ -1310,13 +1313,13 @@ void trigger_pathd_candidate_updated(struct srte_candidate *candidate)
 	from changing the candidate by hand with the console */
 	if (candidate->hook_timer != NULL)
 		return;
-	thread_add_timer(master, trigger_pathd_candidate_updated_timer,
-			 (void *)candidate, HOOK_DELAY, &candidate->hook_timer);
+	event_add_timer(master, trigger_pathd_candidate_updated_timer,
+			(void *)candidate, HOOK_DELAY, &candidate->hook_timer);
 }
 
-void trigger_pathd_candidate_updated_timer(struct thread *thread)
+void trigger_pathd_candidate_updated_timer(struct event *thread)
 {
-	struct srte_candidate *candidate = THREAD_ARG(thread);
+	struct srte_candidate *candidate = EVENT_ARG(thread);
 	candidate->hook_timer = NULL;
 	hook_call(pathd_candidate_updated, candidate);
 }
@@ -1326,7 +1329,7 @@ void trigger_pathd_candidate_removed(struct srte_candidate *candidate)
 	/* The hook needs to be call synchronously, otherwise the candidate
 	path will be already deleted when the handler is called */
 	if (candidate->hook_timer != NULL) {
-		thread_cancel(&candidate->hook_timer);
+		event_cancel(&candidate->hook_timer);
 		candidate->hook_timer = NULL;
 	}
 	hook_call(pathd_candidate_removed, candidate);

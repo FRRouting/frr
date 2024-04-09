@@ -1,0 +1,44 @@
+graph template {
+    label="ospf_topo2";
+    splines = "line"
+
+    # Routers
+    r1 [
+        shape=doubleoctagon,
+        label="r1\n192.0.2.1\n2001:db8::1",
+        fillcolor="#f08080",
+        style=filled,
+    ];
+    r2 [
+        shape=doubleoctagon,
+        label="r2\n\192.0.2.2\n2001:db8::2",
+        fillcolor="#f08080",
+        style=filled,
+    ];
+    r3 [
+        shape=doubleoctagon,
+        label="r3\n192.0.2.3\n2001:db8::3",
+        fillcolor="#f08080",
+        style=filled,
+    ];
+    r4 [
+        shape=doubleoctagon,
+        label="r4\n192.0.2.4\n2001:db8::4",
+        fillcolor="#f08080",
+        style=filled,
+    ];
+
+    # Connections
+    r1 -- r2 [label="eth1"];
+    r1 -- r2 [label="eth2"];
+
+    r2 -- r3 [label="eth3\neth1"];
+    r1 -- r4 [label="eth3\neth1"];
+
+    r4 -- r3 [label="eth2"];
+    r4 -- r3 [label="eth3"];
+
+    # Group r1 and r2 above, r3 and r4 below
+    { rank=min; r1; r2; }
+    { rank=max; r3; r4; }
+}

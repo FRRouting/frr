@@ -1,0 +1,14 @@
+fc00:1111:1111:1111::/64 via fe80::__(r1-sw5)__ dev r2-sw5 proto XXXX metric 20 pref medium
+fc00:1:1:1::/64 via fe80::__(r1-sw5)__ dev r2-sw5 proto XXXX metric 20 pref medium
+fc00:2222:2222:2222::/64 via fc00:2:2:2::1234 dev r2-stubnet proto XXXX metric 20 pref medium
+fc00:2:2:2::/64 dev r2-stubnet proto XXXX metric 256 pref medium
+fc00:3333:3333:3333::/64 via fe80::__(r3-sw5)__ dev r2-sw5 proto XXXX metric 20 pref medium
+fc00:3:3:3::/64 via fe80::__(r3-sw5)__ dev r2-sw5 proto XXXX metric 20 pref medium
+fc00:4444:4444:4444::/64 via fe80::__(r3-sw5)__ dev r2-sw5 proto XXXX metric 20 pref medium
+fc00:4:4:4::/64 via fe80::__(r3-sw5)__ dev r2-sw5 proto XXXX metric 20 pref medium
+fc00:a:a:a::/64 dev r2-sw5 proto XXXX metric 256 pref medium
+fc00:a:a:a::1 via fe80::__(r1-sw5)__ dev r2-sw5 proto XXXX metric 20 pref medium
+fc00:a:a:a::3 via fe80::__(r3-sw5)__ dev r2-sw5 proto XXXX metric 20 pref medium
+fc00:b:b:b::/64 via fe80::__(r3-sw5)__ dev r2-sw5 proto XXXX metric 20 pref medium
+fc00:b:b:b::3 via fe80::__(r3-sw5)__ dev r2-sw5 proto XXXX metric 20 pref medium
+fc00:b:b:b::4 via fe80::__(r3-sw5)__ dev r2-sw5 proto XXXX metric 20 pref medium

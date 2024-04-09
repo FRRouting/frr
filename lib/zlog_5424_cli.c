@@ -1,19 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Copyright (C) 2021  David Lamparter for NetDEF, Inc.
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include "zebra.h"
@@ -41,7 +28,7 @@ DECLARE_RBTREE_UNIQ(targets, struct zlog_cfg_5424_user, targets_item,
 DEFINE_QOBJ_TYPE(zlog_cfg_5424_user);
 
 static struct targets_head targets = INIT_RBTREE_UNIQ(targets);
-static struct thread_master *log_5424_master;
+static struct event_loop *log_5424_master;
 
 static void clear_dst(struct zlog_cfg_5424_user *cfg);
 
@@ -877,7 +864,8 @@ static int log_5424_show(struct vty *vty)
 			}
 			break;
 
-		default:
+		case ZLOG_FMT_3164:
+		case ZLOG_FMT_LOCAL:
 			vty_out(vty,
 				"  structured data is not supported by the selected format\n");
 			break;
@@ -960,7 +948,7 @@ void log_5424_cmd_init(void)
 
 /* hooks */
 
-static int log_5424_early_init(struct thread_master *master);
+static int log_5424_early_init(struct event_loop *master);
 static int log_5424_rotate(void);
 static int log_5424_fini(void);
 
@@ -971,7 +959,7 @@ __attribute__((_CONSTRUCTOR(475))) static void zlog_5424_startup_init(void)
 	hook_register(frr_fini, log_5424_fini);
 }
 
-static int log_5424_early_init(struct thread_master *master)
+static int log_5424_early_init(struct event_loop *master)
 {
 	log_5424_master = master;
 

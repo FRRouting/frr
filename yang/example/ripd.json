@@ -23,7 +23,7 @@
         "instance": [
             {
                 "vrf": "default",
-                "allow-ecmp": "true",
+                "allow-ecmp": 1,
                 "distance": {
                     "source": [
                         {

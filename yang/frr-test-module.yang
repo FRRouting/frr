@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: BSD-2-Clause
 module frr-test-module {
   yang-version 1.1;
   namespace "urn:frr-test-module";
@@ -77,6 +78,24 @@ module frr-test-module {
             leaf active {
               type empty;
             }
+          }
+        }
+      }
+    }
+    choice achoice {
+      description "a choice statement";
+      case case1 {
+        leaf c1value {
+          type uint8;
+          description "A uint8 value for case 1";
+        }
+      }
+      case case2 {
+        container c2cont {
+          description "case 2 container";
+          leaf c2value {
+            type uint32;
+            description "A uint32 value for case 2";
           }
         }
       }

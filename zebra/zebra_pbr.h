@@ -1,24 +1,8 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Zebra Policy Based Routing (PBR) Data structures and definitions
  * These are public definitions referenced by multiple files.
  * Copyright (C) 2018 Cumulus Networks, Inc.
- *
- * This file is part of FRR.
- *
- * FRR is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * FRR is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with FRR; see the file COPYING.  If not, write to the Free
- * Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
- * 02111-1307, USA.
  */
 
 #ifndef _ZEBRA_PBR_H
@@ -62,7 +46,7 @@ struct zebra_pbr_rule {
 
 	struct pbr_rule rule;
 
-	char ifname[INTERFACE_NAMSIZ];
+	char ifname[IFNAMSIZ];
 
 	struct zebra_pbr_action action;
 
@@ -77,8 +61,6 @@ struct zebra_pbr_rule {
 	(r->rule.filter.filter_bm & PBR_FILTER_SRC_PORT)
 #define IS_RULE_FILTERING_ON_DST_PORT(r) \
 	(r->rule.filter.filter_bm & PBR_FILTER_DST_PORT)
-#define IS_RULE_FILTERING_ON_DSFIELD(r) \
-	(r->rule.filter.filter_bm & PBR_FILTER_DSFIELD)
 #define IS_RULE_FILTERING_ON_FWMARK(r) \
 	(r->rule.filter.filter_bm & PBR_FILTER_FWMARK)
 

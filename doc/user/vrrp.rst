@@ -24,11 +24,7 @@ protocol.
 Starting VRRP
 =============
 
-The configuration file for *vrrpd* is :file:`vrrpd.conf`. The typical location
-of :file:`vrrpd.conf` is |INSTALL_PREFIX_ETC|/vrrpd.conf.
-
-If using integrated config, then :file:`vrrpd.conf` need not be present and
-:file:`frr.conf` is read instead.
+.. include:: config-include.rst
 
 .. program:: vrrpd
 

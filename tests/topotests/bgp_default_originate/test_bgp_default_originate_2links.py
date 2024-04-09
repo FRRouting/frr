@@ -1,22 +1,10 @@
 #!/usr/bin/env python
+# SPDX-License-Identifier: ISC
 #
 # Copyright (c) 2022 by VMware, Inc. ("VMware")
+#                       Shreenidhi A R <rshreenidhi@vmware.com>
 # Used Copyright (c) 2018 by Network Device Education Foundation, Inc. ("NetDEF")
 # in this file.
-#
-# Permission to use, copy, modify, and/or distribute this software
-# for any purpose with or without fee is hereby granted, provided
-# that the above copyright notice and this permission notice appear
-# in all copies.
-# Shreenidhi A R <rshreenidhi@vmware.com>
-# THE SOFTWARE IS PROVIDED "AS IS" AND VMWARE DISCLAIMS ALL WARRANTIES
-# WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
-# MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL VMWARE BE LIABLE FOR
-# ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY
-# DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS,
-# WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS
-# ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE
-# OF THIS SOFTWARE.
 #
 """
 Following tests are covered.
@@ -31,12 +19,14 @@ import pytest
 import datetime
 from copy import deepcopy
 from lib.topolog import logger
+from time import sleep
 
 # pylint: disable=C0413
 # Import topogen and topotest helpers
 from lib.topogen import Topogen, get_topogen
 from lib.topojson import build_config_from_json
 from lib.topolog import logger
+from lib import topotest
 
 from lib.bgp import (
     verify_bgp_convergence,
@@ -604,6 +594,7 @@ def test_verify_bgp_default_originate_with_default_static_route_p1(request):
     step("Taking uptime snapshot before configuring default - originate")
     uptime_before_ipv4 = get_rib_route_uptime(tgen, "ipv4", "r2", ipv4_uptime_dict)
     uptime_before_ipv6 = get_rib_route_uptime(tgen, "ipv6", "r2", ipv6_uptime_dict)
+    sleep(1)
 
     step(
         "Configure default-originate on R1 link-1 again for IPv4 and IPv6 address family"
@@ -1043,6 +1034,7 @@ def test_verify_bgp_default_originate_with_default_static_route_p1(request):
     step("Taking uptime snapshot before  removing   redisctribute static ")
     uptime_before_ipv4 = get_rib_route_uptime(tgen, "ipv4", "r2", ipv4_uptime_dict)
     uptime_before_ipv6 = get_rib_route_uptime(tgen, "ipv6", "r2", ipv6_uptime_dict)
+    sleep(1)
 
     step("Remove redistribute static from IPv4 and IPv6 address family ")
     input_dict_1 = {
@@ -1568,8 +1560,14 @@ def test_verify_default_originate_with_2way_ecmp_p2(request):
     step("Ping R1 configure IPv4 and IPv6 loopback address from R2")
     pingaddr = topo["routers"]["r1"]["links"]["lo"]["ipv4"].split("/")[0]
     router = tgen.gears["r2"]
-    output = router.run("ping -c 4 -w 4 {}".format(pingaddr))
-    assert " 0% packet loss" in output, "Ping R1->R2  FAILED"
+
+    def ping_router():
+        output = router.run("ping -c 4 -w 4 {}".format(pingaddr))
+        logger.info(output)
+        if " 0% packet loss" not in output:
+            return False
+
+    _, res = topotest.run_and_expect(ping_router, None, count=10, wait=1)
     logger.info("Ping from R1 to R2 ... success")
 
     step("Shuting up the active route")

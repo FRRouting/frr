@@ -1,20 +1,8 @@
+// SPDX-License-Identifier: LGPL-2.1-or-later
 /*
  * This file is part of the PCEPlib, a PCEP protocol library.
  *
  * Copyright (C) 2020 Volta Networks https://voltanet.io/
- *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Lesser General Public
- * License as published by the Free Software Foundation; either
- * version 2 of the License, or (at your option) any later version.
- *
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public License
- * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *
  * Author : Brady Johnson <brady@voltanet.io>
  *
@@ -67,23 +55,23 @@ int pcep_tlvs_test_suite_teardown(void)
 	return 0;
 }
 
-void reset_tlv_buffer()
+void reset_tlv_buffer(void)
 {
 	memset(tlv_buf, 0, 2000);
 }
 
-void pcep_tlvs_test_setup()
+void pcep_tlvs_test_setup(void)
 {
 	versioning = create_default_pcep_versioning();
 	reset_tlv_buffer();
 }
 
-void pcep_tlvs_test_teardown()
+void pcep_tlvs_test_teardown(void)
 {
 	destroy_pcep_versioning(versioning);
 }
 
-void test_pcep_tlv_create_stateful_pce_capability()
+void test_pcep_tlv_create_stateful_pce_capability(void)
 {
 	struct pcep_object_tlv_stateful_pce_capability *tlv =
 		pcep_tlv_create_stateful_pce_capability(true, true, true, true,
@@ -108,7 +96,7 @@ void test_pcep_tlv_create_stateful_pce_capability()
 	pcep_obj_free_tlv(&tlv->header);
 }
 
-void test_pcep_tlv_create_speaker_entity_id()
+void test_pcep_tlv_create_speaker_entity_id(void)
 {
 	struct pcep_object_tlv_speaker_entity_identifier *tlv =
 		pcep_tlv_create_speaker_entity_id(NULL);
@@ -117,10 +105,8 @@ void test_pcep_tlv_create_speaker_entity_id()
 	double_linked_list *list = dll_initialize();
 	tlv = pcep_tlv_create_speaker_entity_id(list);
 	CU_ASSERT_PTR_NULL(tlv);
-	if (tlv != NULL) {
+	if (tlv != NULL)
 		pceplib_free(PCEPLIB_INFRA, tlv);
-		tlv = NULL;
-	}
 
 	uint32_t *speaker_entity =
 		pceplib_malloc(PCEPLIB_MESSAGES, sizeof(uint32_t));
@@ -142,7 +128,7 @@ void test_pcep_tlv_create_speaker_entity_id()
 	pcep_obj_free_tlv(&tlv->header);
 }
 
-void test_pcep_tlv_create_lsp_db_version()
+void test_pcep_tlv_create_lsp_db_version(void)
 {
 	uint64_t lsp_db_version = 0xf005ba11ba5eba11;
 	struct pcep_object_tlv_lsp_db_version *tlv =
@@ -160,7 +146,7 @@ void test_pcep_tlv_create_lsp_db_version()
 	pcep_obj_free_tlv(&tlv->header);
 }
 
-void test_pcep_tlv_create_path_setup_type()
+void test_pcep_tlv_create_path_setup_type(void)
 {
 	uint8_t pst = 0x89;
 
@@ -178,7 +164,7 @@ void test_pcep_tlv_create_path_setup_type()
 	pcep_obj_free_tlv(&tlv->header);
 }
 
-void test_pcep_tlv_create_path_setup_type_capability()
+void test_pcep_tlv_create_path_setup_type_capability(void)
 {
 	/* The sub_tlv list is optional */
 
@@ -191,28 +177,22 @@ void test_pcep_tlv_create_path_setup_type_capability()
 	double_linked_list *pst_list = dll_initialize();
 	tlv = pcep_tlv_create_path_setup_type_capability(pst_list, NULL);
 	CU_ASSERT_PTR_NULL(tlv);
-	if (tlv != NULL) {
+	if (tlv != NULL)
 		pcep_obj_free_tlv(&tlv->header);
-		tlv = NULL;
-	}
 
 	/* Should still return NULL if pst_list is NULL */
 	double_linked_list *sub_tlv_list = dll_initialize();
 	tlv = pcep_tlv_create_path_setup_type_capability(NULL, sub_tlv_list);
 	CU_ASSERT_PTR_NULL(tlv);
-	if (tlv != NULL) {
+	if (tlv != NULL)
 		pcep_obj_free_tlv(&tlv->header);
-		tlv = NULL;
-	}
 
 	/* Should still return NULL if pst_list is empty */
 	tlv = pcep_tlv_create_path_setup_type_capability(pst_list,
 							 sub_tlv_list);
 	CU_ASSERT_PTR_NULL(tlv);
-	if (tlv != NULL) {
+	if (tlv != NULL)
 		pcep_obj_free_tlv(&tlv->header);
-		tlv = NULL;
-	}
 
 	/* Test only populating the pst list */
 	uint8_t *pst1 = pceplib_malloc(PCEPLIB_MESSAGES, 1);
@@ -286,7 +266,7 @@ void test_pcep_tlv_create_path_setup_type_capability()
 	pcep_obj_free_tlv(&tlv->header);
 }
 
-void test_pcep_tlv_create_sr_pce_capability()
+void test_pcep_tlv_create_sr_pce_capability(void)
 {
 	struct pcep_object_tlv_sr_pce_capability *tlv =
 		pcep_tlv_create_sr_pce_capability(true, true, 8);
@@ -306,7 +286,7 @@ void test_pcep_tlv_create_sr_pce_capability()
 	pcep_obj_free_tlv(&tlv->header);
 }
 
-void test_pcep_tlv_create_symbolic_path_name()
+void test_pcep_tlv_create_symbolic_path_name(void)
 {
 	/* char *symbolic_path_name, uint16_t symbolic_path_name_length); */
 	char path_name[16] = "Some Path Name";
@@ -348,7 +328,7 @@ void test_pcep_tlv_create_symbolic_path_name()
 	pcep_obj_free_tlv(&tlv->header);
 }
 
-void test_pcep_tlv_create_ipv4_lsp_identifiers()
+void test_pcep_tlv_create_ipv4_lsp_identifiers(void)
 {
 	struct in_addr sender_ip, endpoint_ip;
 	uint16_t lsp_id = 7;
@@ -409,7 +389,7 @@ void test_pcep_tlv_create_ipv4_lsp_identifiers()
 	pcep_obj_free_tlv(&tlv->header);
 }
 
-void test_pcep_tlv_create_ipv6_lsp_identifiers()
+void test_pcep_tlv_create_ipv6_lsp_identifiers(void)
 {
 	struct in6_addr sender_ip, endpoint_ip;
 	uint16_t lsp_id = 3;
@@ -456,7 +436,8 @@ void test_pcep_tlv_create_ipv6_lsp_identifiers()
 
 	pcep_obj_free_tlv(&tlv->header);
 }
-void test_pcep_tlv_create_srpag_pol_id_ipv4()
+
+void test_pcep_tlv_create_srpag_pol_id_ipv4(void)
 {
 	uint32_t color = 1;
 	struct in_addr src;
@@ -486,7 +467,8 @@ void test_pcep_tlv_create_srpag_pol_id_ipv4()
 	pceplib_free(PCEPLIB_MESSAGES, dec_hdr);
 	pcep_obj_free_tlv(&tlv->header);
 }
-void test_pcep_tlv_create_srpag_pol_id_ipv6()
+
+void test_pcep_tlv_create_srpag_pol_id_ipv6(void)
 {
 
 	uint32_t color = 1;
@@ -516,7 +498,7 @@ void test_pcep_tlv_create_srpag_pol_id_ipv6()
 	pceplib_free(PCEPLIB_MESSAGES, dec_hdr);
 	pcep_obj_free_tlv(&tlv->header);
 }
-void test_pcep_tlv_create_srpag_pol_name()
+void test_pcep_tlv_create_srpag_pol_name(void)
 {
 	const char *pol_name = "Some Pol  Name";
 
@@ -536,7 +518,7 @@ void test_pcep_tlv_create_srpag_pol_name()
 	pcep_obj_free_tlv(&tlv->header);
 }
 
-void test_pcep_tlv_create_srpag_cp_id()
+void test_pcep_tlv_create_srpag_cp_id(void)
 {
 	// draft-ietf-spring-segment-routing-policy-06.pdf#2.3
 	// 10 PCEP, 20 BGP SR Policy, 30 Via Configuration
@@ -570,7 +552,7 @@ void test_pcep_tlv_create_srpag_cp_id()
 	pcep_obj_free_tlv(&tlv->header);
 }
 
-void test_pcep_tlv_create_srpag_cp_pref()
+void test_pcep_tlv_create_srpag_cp_pref(void)
 {
 	uint32_t preference_default = 100;
 
@@ -599,7 +581,8 @@ void test_pcep_tlv_create_srpag_cp_pref()
 	pceplib_free(PCEPLIB_MESSAGES, dec_hdr);
 	pcep_obj_free_tlv(&tlv->header);
 }
-void test_pcep_tlv_create_lsp_error_code()
+
+void test_pcep_tlv_create_lsp_error_code(void)
 {
 	struct pcep_object_tlv_lsp_error_code *tlv =
 		pcep_tlv_create_lsp_error_code(
@@ -617,7 +600,7 @@ void test_pcep_tlv_create_lsp_error_code()
 	pcep_obj_free_tlv(&tlv->header);
 }
 
-void test_pcep_tlv_create_rsvp_ipv4_error_spec()
+void test_pcep_tlv_create_rsvp_ipv4_error_spec(void)
 {
 	struct in_addr error_node_ip;
 	inet_pton(AF_INET, "192.168.1.1", &error_node_ip);
@@ -641,7 +624,7 @@ void test_pcep_tlv_create_rsvp_ipv4_error_spec()
 	pcep_obj_free_tlv(&tlv->header);
 }
 
-void test_pcep_tlv_create_rsvp_ipv6_error_spec()
+void test_pcep_tlv_create_rsvp_ipv6_error_spec(void)
 {
 	struct in6_addr error_node_ip;
 	inet_pton(AF_INET6, "2001:db8::8a2e:370:7334", &error_node_ip);
@@ -665,7 +648,7 @@ void test_pcep_tlv_create_rsvp_ipv6_error_spec()
 	pcep_obj_free_tlv(&tlv->header);
 }
 
-void test_pcep_tlv_create_nopath_vector()
+void test_pcep_tlv_create_nopath_vector(void)
 {
 	uint32_t enterprise_number = 0x01020304;
 	uint32_t enterprise_specific_info = 0x05060708;
@@ -685,7 +668,7 @@ void test_pcep_tlv_create_nopath_vector()
 	pcep_obj_free_tlv(&tlv->header);
 }
 
-void test_pcep_tlv_create_arbitrary()
+void test_pcep_tlv_create_arbitrary(void)
 {
 	char data[16] = "Some Data";
 	uint16_t data_length = 9;

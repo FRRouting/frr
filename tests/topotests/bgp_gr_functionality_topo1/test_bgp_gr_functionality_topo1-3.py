@@ -1,22 +1,9 @@
 #!/usr/bin/env python
+# SPDX-License-Identifier: ISC
 #
 # Copyright (c) 2019 by VMware, Inc. ("VMware")
 # Used Copyright (c) 2018 by Network Device Education Foundation, Inc. ("NetDEF")
 # in this file.
-#
-# Permission to use, copy, modify, and/or distribute this software
-# for any purpose with or without fee is hereby granted, provided
-# that the above copyright notice and this permission notice appear
-# in all copies.
-#
-# THE SOFTWARE IS PROVIDED "AS IS" AND VMWARE DISCLAIMS ALL WARRANTIES
-# WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
-# MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL VMWARE BE LIABLE FOR
-# ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY
-# DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS,
-# WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS
-# ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE
-# OF THIS SOFTWARE.
 #
 
 """
@@ -1172,7 +1159,7 @@ def test_BGP_GR_TC_31_2_p1(request):
     reset_config_on_routers(tgen)
 
     logger.info(
-        "[Phase 1] : Test Setup " "[Disable Mode]R1-----R2[Restart Mode] initialized  "
+        "[Phase 1] : Test Setup " "[Disable Mode]R1-----R2[Helper Mode] initialized  "
     )
 
     # Configure graceful-restart
@@ -1264,7 +1251,7 @@ def test_BGP_GR_TC_31_2_p1(request):
             tc_name, result
         )
 
-    logger.info("[Phase 2] : R2 Goes from Disable to Restart Mode  ")
+    logger.info("[Phase 2] : R1 Goes from Disable to Restart Mode  ")
 
     # Configure graceful-restart
     input_dict = {
@@ -1369,31 +1356,7 @@ def test_BGP_GR_TC_31_2_p1(request):
         },
     }
 
-    # here the verify_graceful_restart fro the neighbor would be
-    # "NotReceived" as the latest GR config is not yet applied.
-    for addr_type in ADDR_TYPES:
-        result = verify_graceful_restart(
-            tgen, topo, addr_type, input_dict, dut="r1", peer="r2"
-        )
-        assert result is True, "Testcase {} : Failed \n Error {}".format(
-            tc_name, result
-        )
-
-    for addr_type in ADDR_TYPES:
-        # Verifying RIB routes
-        next_hop = next_hop_per_address_family(
-            tgen, dut, peer, addr_type, NEXT_HOP_IP_2
-        )
-        input_topo = {key: topo["routers"][key] for key in ["r2"]}
-        result = verify_rib(tgen, addr_type, dut, input_topo, next_hop, protocol)
-        assert result is True, "Testcase {} : Failed \n Error {}".format(
-            tc_name, result
-        )
-
-    logger.info("[Phase 6] : R1 is about to come up now  ")
-    start_router_daemons(tgen, "r1", ["bgpd"])
-
-    logger.info("[Phase 4] : R1 is UP now, so time to collect GR stats ")
+    logger.info("[Phase 4] : R1 is UP and GR state is correct ")
 
     for addr_type in ADDR_TYPES:
         result = verify_graceful_restart(
@@ -2155,6 +2118,9 @@ def test_BGP_GR_TC_43_p1(request):
             tc_name, result
         )
 
+    # restart the daemon or we get warnings in the follow-on tests
+    start_router_daemons(tgen, "r1", ["bgpd"])
+
     write_test_footer(tc_name)
 
 
@@ -2444,6 +2410,9 @@ def test_BGP_GR_TC_44_p1(request):
         assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
         result = verify_rib(tgen, addr_type, dut, input_topo, next_hop, protocol)
         assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
+
+    # restart the daemon or we get warnings in the follow-on tests
+    start_router_daemons(tgen, "r2", ["bgpd"])
 
     write_test_footer(tc_name)
 
@@ -2739,6 +2708,9 @@ def test_BGP_GR_TC_45_p1(request):
         assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
         result = verify_rib(tgen, addr_type, dut, input_topo, next_hop, protocol)
         assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
+
+    # restart the daemon or we get warnings in the follow-on tests
+    start_router_daemons(tgen, "r1", ["bgpd"])
 
     write_test_footer(tc_name)
 

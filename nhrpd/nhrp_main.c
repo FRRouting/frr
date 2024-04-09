@@ -1,10 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* NHRP daemon main functions
  * Copyright (c) 2014-2015 Timo Teräs
- *
- * This file is free software: you may copy, redistribute and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 2 of the License, or
- * (at your option) any later version.
  */
 
 #ifdef HAVE_CONFIG_H
@@ -16,7 +12,7 @@
 #include "zebra.h"
 #include "privs.h"
 #include "getopt.h"
-#include "thread.h"
+#include "frrevent.h"
 #include "sigevent.h"
 #include "lib/version.h"
 #include "log.h"
@@ -32,7 +28,7 @@ DEFINE_MGROUP(NHRPD, "NHRP");
 
 unsigned int debug_flags = 0;
 
-struct thread_master *master;
+struct event_loop *master;
 struct timeval current_time;
 
 /* nhrpd options. */
@@ -92,10 +88,12 @@ static void nhrp_request_stop(void)
 	nhrp_zebra_terminate();
 	vici_terminate();
 	evmgr_terminate();
-	nhrp_vc_terminate();
 	vrf_terminate();
+	nhrp_vc_terminate();
 
 	debugf(NHRP_DEBUG_COMMON, "Done.");
+
+	resolver_terminate();
 	frr_fini();
 
 	exit(0);
@@ -122,15 +120,20 @@ static const struct frr_yang_module_info *const nhrpd_yang_modules[] = {
 	&frr_vrf_info,
 };
 
-FRR_DAEMON_INFO(nhrpd, NHRP, .vty_port = NHRP_VTY_PORT,
+/* clang-format off */
+FRR_DAEMON_INFO(nhrpd, NHRP,
+	.vty_port = NHRP_VTY_PORT,
+	.proghelp = "Implementation of the NHRP routing protocol.",
 
-		.proghelp = "Implementation of the NHRP routing protocol.",
+	.signals = sighandlers,
+	.n_signals = array_size(sighandlers),
 
-		.signals = sighandlers, .n_signals = array_size(sighandlers),
+	.privs = &nhrpd_privs,
 
-		.privs = &nhrpd_privs, .yang_modules = nhrpd_yang_modules,
-		.n_yang_modules = array_size(nhrpd_yang_modules),
+	.yang_modules = nhrpd_yang_modules,
+	.n_yang_modules = array_size(nhrpd_yang_modules),
 );
+/* clang-format on */
 
 int main(int argc, char **argv)
 {
@@ -159,8 +162,10 @@ int main(int argc, char **argv)
 	nhrp_vc_init();
 	nhrp_packet_init();
 	vici_init();
-	if_zapi_callbacks(nhrp_ifp_create, nhrp_ifp_up,
-			  nhrp_ifp_down, nhrp_ifp_destroy);
+	hook_register_prio(if_real, 0, nhrp_ifp_create);
+	hook_register_prio(if_up, 0, nhrp_ifp_up);
+	hook_register_prio(if_down, 0, nhrp_ifp_down);
+	hook_register_prio(if_unreal, 0, nhrp_ifp_destroy);
 	nhrp_zebra_init();
 	nhrp_shortcut_init();
 

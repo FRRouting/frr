@@ -1,21 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* Zebra MPLS VTY functions
  * Copyright (C) 2002 Kunihiro Ishiguro
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -37,6 +22,7 @@
 #include "zebra/zebra_rnh.h"
 #include "zebra/redistribute.h"
 #include "zebra/zebra_routemap.h"
+#include "zebra/label_manager.h"
 
 static int zebra_mpls_transit_lsp(struct vty *vty, int add_cmd,
 				  const char *inlabel_str, const char *gate_str,
@@ -56,11 +42,7 @@ static int zebra_mpls_transit_lsp(struct vty *vty, int add_cmd,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	zvrf = vrf_info_lookup(VRF_DEFAULT);
-	if (!zvrf) {
-		vty_out(vty, "%% Default VRF does not exist\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
+	zvrf = zebra_vrf_lookup_by_id(VRF_DEFAULT);
 
 	if (!inlabel_str) {
 		vty_out(vty, "%% No Label Information\n");
@@ -200,11 +182,7 @@ static int zebra_mpls_bind(struct vty *vty, int add_cmd, const char *prefix,
 	uint32_t label;
 	int ret;
 
-	zvrf = vrf_info_lookup(VRF_DEFAULT);
-	if (!zvrf) {
-		vty_out(vty, "%% Default VRF does not exist\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
+	zvrf = zebra_vrf_lookup_by_id(VRF_DEFAULT);
 
 	memset(&p, 0, sizeof(p));
 	ret = str2prefix(prefix, &p);
@@ -288,13 +266,13 @@ static int zebra_mpls_config(struct vty *vty)
 	int write = 0;
 	struct zebra_vrf *zvrf;
 
-	zvrf = vrf_info_lookup(VRF_DEFAULT);
-	if (!zvrf)
-		return 0;
+	zvrf = zebra_vrf_lookup_by_id(VRF_DEFAULT);
 
 	write += zebra_mpls_write_lsp_config(vty, zvrf);
 	write += zebra_mpls_write_fec_config(vty, zvrf);
 	write += zebra_mpls_write_label_block_config(vty, zvrf);
+	write += lm_write_label_block_config_call(vty, zvrf);
+
 	return write;
 }
 
@@ -311,9 +289,7 @@ DEFUN (show_mpls_fec,
 	struct prefix p;
 	int ret;
 
-	zvrf = vrf_info_lookup(VRF_DEFAULT);
-	if (!zvrf)
-		return 0;
+	zvrf = zebra_vrf_lookup_by_id(VRF_DEFAULT);
 
 	if (argc == 3)
 		zebra_mpls_print_fec_table(vty, zvrf);
@@ -341,7 +317,7 @@ DEFUN (show_mpls_table,
 	struct zebra_vrf *zvrf;
 	bool uj = use_json(argc, argv);
 
-	zvrf = vrf_info_lookup(VRF_DEFAULT);
+	zvrf = zebra_vrf_lookup_by_id(VRF_DEFAULT);
 	zebra_mpls_print_lsp_table(vty, zvrf, uj);
 	return CMD_SUCCESS;
 }
@@ -359,7 +335,7 @@ DEFUN (show_mpls_table_lsp,
 	struct zebra_vrf *zvrf;
 	bool uj = use_json(argc, argv);
 
-	zvrf = vrf_info_lookup(VRF_DEFAULT);
+	zvrf = zebra_vrf_lookup_by_id(VRF_DEFAULT);
 	label = atoi(argv[3]->arg);
 	zebra_mpls_print_lsp(vty, zvrf, label, uj);
 	return CMD_SUCCESS;
@@ -388,10 +364,6 @@ static int zebra_mpls_global_block(struct vty *vty, int add_cmd,
 	struct zebra_vrf *zvrf;
 
 	zvrf = zebra_vrf_lookup_by_id(VRF_DEFAULT);
-	if (!zvrf) {
-		vty_out(vty, "%% Default VRF does not exist\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
 
 	if (add_cmd) {
 		if (!start_label_str || !end_label_str) {

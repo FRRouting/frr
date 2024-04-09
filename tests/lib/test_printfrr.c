@@ -1,20 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * printfrr() unit test
  * Copyright (C) 2019  David Lamparter
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include "zebra.h"
@@ -25,6 +12,7 @@
 #include "lib/memory.h"
 #include "lib/prefix.h"
 #include "lib/nexthop.h"
+#include "lib/asn.h"
 
 static int errors;
 
@@ -155,9 +143,12 @@ int main(int argc, char **argv)
 		NAN,
 	};
 	uint64_t ui64 = 0xfeed1278cafef00d;
+	uint16_t i16 = -23456;
+	int_fast8_t if8 = 123;
 	struct in_addr ip;
 	char *p;
 	char buf[256];
+	as_t asn;
 
 	printcmp("%d %u %d %u", 123, 123, -456, -456);
 	printcmp("%lld %llu %lld %llu", 123LL, 123LL, -456LL, -456LL);
@@ -176,6 +167,19 @@ int main(int argc, char **argv)
 
 	printchk("-77385308584349683 18369358765125201933 feed1278cafef00d",
 		 "%Ld %Lu %Lx", ui64, ui64, ui64);
+
+	FMT_NSTD(printchk("11110000000011111010010111000011", "%b", 0xf00fa5c3));
+	FMT_NSTD(printchk("0b01011010", "%#010b", 0x5a));
+
+/* FMT_NSTD is conditional on the frr-format plugin being NOT enabled.
+ * However, the frr-format plugin does not support %wd/%wfd yet, so this needs
+ * to be unconditional.
+ */
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wformat"
+	printchk("123 -23456 feed1278cafef00d 9876", "%wf8d %w16d %w64x %d",
+		 if8, i16, ui64, 9876);
+#pragma GCC diagnostic pop
 
 	inet_aton("192.168.1.2", &ip);
 	printchk("192.168.1.2", "%pI4", &ip);
@@ -405,6 +409,13 @@ int main(int argc, char **argv)
 	printchk("-00:09", "%pTSIm", &ts);
 	printchk("--:--", "%pTVImx", &tv);
 	printchk("--:--", "%pTTImx", &tt);
+	/* ASN checks */
+	asn = 65536;
+	printchk("1.0", "%pASD", &asn);
+	asn = 65400;
+	printchk("65400", "%pASP", &asn);
+	printchk("0.65400", "%pASE", &asn);
+	printchk("65400", "%pASD", &asn);
 
 	return !!errors;
 }

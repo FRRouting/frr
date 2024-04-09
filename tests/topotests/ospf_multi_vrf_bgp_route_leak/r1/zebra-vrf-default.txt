@@ -1,9 +1,11 @@
 O   10.0.1.0/24 [110/10] is directly connected, r1-eth0, weight 1, XX:XX:XX
 C>* 10.0.1.0/24 is directly connected, r1-eth0, XX:XX:XX
+L>* 10.0.1.1/32 is directly connected, r1-eth0, XX:XX:XX
 O>* 10.0.2.0/24 [110/20] via 10.0.20.2, r1-eth1, weight 1, XX:XX:XX
 B>* 10.0.3.0/24 [20/20] via 10.0.30.3, r1-eth2 (vrf neno), weight 1, XX:XX:XX
 O>* 10.0.4.0/24 [110/20] via 10.0.20.2, r1-eth1, weight 1, XX:XX:XX
 O   10.0.20.0/24 [110/10] is directly connected, r1-eth1, weight 1, XX:XX:XX
 C>* 10.0.20.0/24 is directly connected, r1-eth1, XX:XX:XX
-B>* 10.0.30.0/24 [20/0] is directly connected, r1-eth2 (vrf neno), weight 1, XX:XX:XX
+L>* 10.0.20.1/32 is directly connected, r1-eth1, XX:XX:XX
+B>* 10.0.30.0/24 [20/0] is directly connected, neno (vrf neno), weight 1, XX:XX:XX
 O>* 10.0.40.0/24 [110/20] via 10.0.20.2, r1-eth1, weight 1, XX:XX:XX

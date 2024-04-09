@@ -1,17 +1,13 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* NHRP virtual connection
  * Copyright (c) 2014-2015 Timo Teräs
- *
- * This file is free software: you may copy, redistribute and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 2 of the License, or
- * (at your option) any later version.
  */
 
 #include "zebra.h"
 #include "memory.h"
 #include "stream.h"
 #include "hash.h"
-#include "thread.h"
+#include "frrevent.h"
 #include "jhash.h"
 
 #include "nhrpd.h"
@@ -218,4 +214,5 @@ void nhrp_vc_terminate(void)
 {
 	nhrp_vc_reset();
 	hash_clean(nhrp_vc_hash, nhrp_vc_free);
+	hash_free(nhrp_vc_hash);
 }

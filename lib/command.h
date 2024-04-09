@@ -1,22 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Zebra configuration command interface routine
  * Copyright (C) 1997, 98 Kunihiro Ishiguro
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published
- * by the Free Software Foundation; either version 2, or (at your
- * option) any later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef _ZEBRA_COMMAND_H
@@ -90,22 +75,28 @@ struct host {
 };
 
 /* List of CLI nodes. Please remember to update the name array in command.c. */
+/* clang-format off */
 enum node_type {
 	AUTH_NODE,		 /* Authentication mode of vty interface. */
 	VIEW_NODE,		 /* View node. Default mode of vty interface. */
 	AUTH_ENABLE_NODE,	/* Authentication mode for change enable. */
 	ENABLE_NODE,		 /* Enable node. */
 	CONFIG_NODE,		 /* Config node. Default mode of config file. */
+	PREFIX_NODE, /* ip prefix-list node. */
+	PREFIX_IPV6_NODE, /* ipv6 prefix-list node. */
 	DEBUG_NODE,		 /* Debug node. */
 	VRF_DEBUG_NODE,		 /* Vrf Debug node. */
 	NORTHBOUND_DEBUG_NODE,	 /* Northbound Debug node. */
 	DEBUG_VNC_NODE,		 /* Debug VNC node. */
 	RMAP_DEBUG_NODE,         /* Route-map debug node */
 	RESOLVER_DEBUG_NODE,	 /* Resolver debug node */
+	MGMT_BE_DEBUG_NODE,	 /* mgmtd backend-client debug node */
+	MGMT_FE_DEBUG_NODE,	 /* mgmtd frontend-client debug node */
 	AAA_NODE,		 /* AAA node. */
 	EXTLOG_NODE,		 /* RFC5424 & co. extended syslog */
 	KEYCHAIN_NODE,		 /* Key-chain node. */
 	KEYCHAIN_KEY_NODE,       /* Key-chain key node. */
+	AFFMAP_NODE,		 /* Affinity map node. */
 	IP_NODE,		 /* Static ip route node. */
 	VRF_NODE,		 /* VRF mode node. */
 	INTERFACE_NODE,		 /* Interface mode node. */
@@ -142,11 +133,10 @@ enum node_type {
 	LDP_L2VPN_NODE,		 /* LDP L2VPN node */
 	LDP_PSEUDOWIRE_NODE,     /* LDP Pseudowire node */
 	ISIS_NODE,		 /* ISIS protocol mode */
+	ISIS_FLEX_ALGO_NODE,    /* ISIS Flex Algo mode */
 	ACCESS_NODE,		 /* Access list node. */
-	PREFIX_NODE,		 /* Prefix list node. */
 	ACCESS_IPV6_NODE,	/* Access list node. */
 	ACCESS_MAC_NODE,	 /* MAC access list node*/
-	PREFIX_IPV6_NODE,	/* Prefix list node. */
 	AS_LIST_NODE,		 /* AS list node. */
 	COMMUNITY_LIST_NODE,     /* Community list node. */
 	COMMUNITY_ALIAS_NODE, /* Community alias node. */
@@ -170,6 +160,7 @@ enum node_type {
 	SRV6_NODE,		 /* SRv6 node */
 	SRV6_LOCS_NODE,		 /* SRv6 locators node */
 	SRV6_LOC_NODE,		 /* SRv6 locator node */
+	SRV6_ENCAP_NODE,		 /* SRv6 encapsulation node */
 	VTY_NODE,		 /* Vty node. */
 	FPM_NODE,		 /* Dataplane FPM node. */
 	LINK_PARAMS_NODE,	/* Link-parameters node */
@@ -184,8 +175,13 @@ enum node_type {
 	OPENFABRIC_NODE,	/* OpenFabric router configuration node */
 	VRRP_NODE,		 /* VRRP node */
 	BMP_NODE,		/* BMP config under router bgp */
+	ISIS_SRV6_NODE,    /* ISIS SRv6 node */
+	ISIS_SRV6_NODE_MSD_NODE,    /* ISIS SRv6 Node MSDs node */
+	MGMTD_NODE,		 /* MGMTD node. */
+	RPKI_VRF_NODE,  /* RPKI node for VRF */
 	NODE_TYPE_MAX, /* maximum */
 };
+/* clang-format on */
 
 extern vector cmdvec;
 extern const struct message tokennames[];
@@ -295,6 +291,10 @@ struct cmd_node {
 #define DEFPY_YANG(funcname, cmdname, cmdstr, helpstr)                         \
 	DEFPY_ATTR(funcname, cmdname, cmdstr, helpstr, CMD_ATTR_YANG)
 
+#define DEFPY_YANG_HIDDEN(funcname, cmdname, cmdstr, helpstr)                  \
+	DEFPY_ATTR(funcname, cmdname, cmdstr, helpstr,                         \
+		   CMD_ATTR_YANG | CMD_ATTR_HIDDEN)
+
 #define DEFPY_YANG_NOSH(funcname, cmdname, cmdstr, helpstr)                    \
 	DEFPY_ATTR(funcname, cmdname, cmdstr, helpstr,                         \
 		   CMD_ATTR_YANG | CMD_ATTR_NOSH)
@@ -318,6 +318,10 @@ struct cmd_node {
 /* DEFUN_NOSH for commands that vtysh should ignore */
 #define DEFUN_NOSH(funcname, cmdname, cmdstr, helpstr)                         \
 	DEFUN_ATTR(funcname, cmdname, cmdstr, helpstr, CMD_ATTR_NOSH)
+
+#define DEFUN_YANG_HIDDEN(funcname, cmdname, cmdstr, helpstr)                  \
+	DEFUN_ATTR(funcname, cmdname, cmdstr, helpstr,                         \
+		   CMD_ATTR_YANG | CMD_ATTR_HIDDEN)
 
 #define DEFUN_YANG_NOSH(funcname, cmdname, cmdstr, helpstr)                    \
 	DEFUN_ATTR(funcname, cmdname, cmdstr, helpstr,                         \
@@ -403,7 +407,8 @@ struct cmd_node {
 #define DEBUG_STR "Debugging functions\n"
 #define UNDEBUG_STR "Disable debugging functions (see also 'debug')\n"
 #define ROUTER_STR "Enable a routing process\n"
-#define AS_STR "AS number\n"
+#define AS_STR                                                                 \
+	"AS number in plain  <1-4294967295> or dotted <0-65535>.<0-65535> format\n"
 #define MAC_STR "MAC address\n"
 #define MBGP_STR "MBGP information\n"
 #define MATCH_STR "Match values from routing table\n"
@@ -426,6 +431,10 @@ struct cmd_node {
 #define COMMUNITY_AANN_STR "Community number where AA and NN are (0-65535)\n"
 #define COMMUNITY_VAL_STR                                                      \
 	"Community number in AA:NN format (where AA and NN are (0-65535)) or local-AS|no-advertise|no-export|internet|graceful-shutdown|accept-own-nexthop|accept-own|route-filter-translated-v4|route-filter-v4|route-filter-translated-v6|route-filter-v6|llgr-stale|no-llgr|blackhole|no-peer or additive\n"
+#define EXTCOMM_LIST_CMD_STR "<(1-99)|(100-500)|EXTCOMMUNITY_LIST_NAME>"
+#define EXTCOMM_STD_LIST_NUM_STR "Extended community-list number (standard)\n"
+#define EXTCOMM_EXP_LIST_NUM_STR "Extended community-list number (expanded)\n"
+#define EXTCOMM_LIST_NAME_STR "Extended community-list name\n"
 #define MPLS_TE_STR "MPLS-TE specific commands\n"
 #define LINK_PARAMS_STR "Configure interface link parameters\n"
 #define OSPF_RI_STR "OSPF Router Information specific commands\n"
@@ -440,6 +449,11 @@ struct cmd_node {
 #define SHARP_STR "Sharp Routing Protocol\n"
 #define OSPF_GR_STR                                                            \
 	"OSPF non-stop forwarding (NSF) also known as OSPF Graceful Restart\n"
+#define MGMTD_STR "Management Daemon (MGMTD) information\n"
+#define MGMTD_BE_ADAPTER_STR "MGMTD Backend Adapter information\n"
+#define MGMTD_FE_ADAPTER_STR "MGMTD Frontend Adapter information\n"
+#define MGMTD_TXN_STR "MGMTD Transaction information\n"
+#define MGMTD_DS_STR "MGMTD Datastore information\n"
 
 #define CMD_VNI_RANGE "(1-16777215)"
 #define CONF_BACKUP_EXT ".sav"
@@ -603,6 +617,7 @@ extern const char *cmd_domainname_get(void);
 extern const char *cmd_system_get(void);
 extern const char *cmd_release_get(void);
 extern const char *cmd_version_get(void);
+extern const char *cmd_software_version_get(void);
 extern bool cmd_allow_reserved_ranges_get(void);
 
 /* NOT safe for general use; call this only if DEV_BUILD! */
@@ -621,6 +636,7 @@ extern void cmd_banner_motd_line(const char *line);
 
 struct cmd_variable_handler {
 	const char *tokenname, *varname;
+	const char *xpath;	/* fill comps from set of values at xpath */
 	void (*completions)(vector out, struct cmd_token *token);
 };
 

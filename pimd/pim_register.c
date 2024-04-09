@@ -1,28 +1,15 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * PIM for Quagga
  * Copyright (C) 2015 Cumulus Networks, Inc.
  * Donald Sharp
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
 
 #include "log.h"
 #include "if.h"
-#include "thread.h"
+#include "frrevent.h"
 #include "prefix.h"
 #include "vty.h"
 #include "plist.h"
@@ -45,7 +32,7 @@
 #include "pim_vxlan.h"
 #include "pim_addr.h"
 
-struct thread *send_test_packet_timer = NULL;
+struct event *send_test_packet_timer = NULL;
 
 void pim_register_join(struct pim_upstream *up)
 {
@@ -98,7 +85,7 @@ void pim_register_stop_send(struct interface *ifp, pim_sgaddr *sg, pim_addr src,
 			zlog_debug("%s: No pinfo!", __func__);
 		return;
 	}
-	if (pim_msg_send(pinfo->pim_sock_fd, src, originator, buffer,
+	if (pim_msg_send(pinfo->pim->reg_sock, src, originator, buffer,
 			 b1length + PIM_MSG_REGISTER_STOP_LEN, ifp)) {
 		if (PIM_DEBUG_PIM_TRACE) {
 			zlog_debug(
@@ -429,11 +416,8 @@ void pim_null_register_send(struct pim_upstream *up)
 	memset(buffer, 0, (sizeof(ip6_hdr) + sizeof(pim_msg_header)));
 	memcpy(buffer, &ip6_hdr, sizeof(ip6_hdr));
 
-	pim_msg_header.ver = 0;
-	pim_msg_header.type = 0;
-	pim_msg_header.reserved = 0;
-
-	pim_msg_header.checksum = 0;
+	memset(&pim_msg_header, 0, sizeof(pim_msg_header));
+	memset(&ph, 0, sizeof(ph));
 
 	ph.src = up->sg.src;
 	ph.dst = up->sg.grp;
@@ -507,6 +491,7 @@ int pim_register_recv(struct interface *ifp, pim_addr dest_addr,
 	struct pim_interface *pim_ifp = ifp->info;
 	struct pim_instance *pim = pim_ifp->pim;
 	pim_addr rp_addr;
+	struct pim_rpf *rpg;
 
 	if (pim_ifp->pim_passive_enable) {
 		if (PIM_DEBUG_PIM_PACKETS)
@@ -615,7 +600,14 @@ int pim_register_recv(struct interface *ifp, pim_addr dest_addr,
 		}
 	}
 
-	rp_addr = (RP(pim, sg.grp))->rpf_addr;
+	rpg = RP(pim, sg.grp);
+	if (!rpg) {
+		zlog_warn("%s: Received Register Message %pSG from %pPA on %s where the RP could not be looked up",
+			  __func__, &sg, &src_addr, ifp->name);
+		return 0;
+	}
+
+	rp_addr = rpg->rpf_addr;
 	if (i_am_rp && (!pim_addr_cmp(dest_addr, rp_addr))) {
 		sentRegisterStop = 0;
 
@@ -756,8 +748,9 @@ void pim_reg_del_on_couldreg_fail(struct interface *ifp)
 		    && (up->reg_state != PIM_REG_NOINFO)) {
 			pim_channel_del_oif(up->channel_oil, pim->regiface,
 					    PIM_OIF_FLAG_PROTO_PIM, __func__);
-			THREAD_OFF(up->t_rs_timer);
+			EVENT_OFF(up->t_rs_timer);
 			up->reg_state = PIM_REG_NOINFO;
+			PIM_UPSTREAM_FLAG_UNSET_FHR(up->flags);
 		}
 	}
 }

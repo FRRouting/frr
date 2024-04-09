@@ -1,31 +1,16 @@
+// SPDX-License-Identifier: MIT
 /*
 Copyright 2011 by Matthieu Boutier and Juliusz Chroboczek
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in
-all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-THE SOFTWARE.
 */
 
 /* include zebra library */
 #include <zebra.h>
+#include <fcntl.h>
+
 #include "getopt.h"
 #include "if.h"
 #include "log.h"
-#include "thread.h"
+#include "frrevent.h"
 #include "privs.h"
 #include "sigevent.h"
 #include "lib/version.h"
@@ -54,7 +39,7 @@ static void babel_exit_properly(void);
 static void babel_save_state_file(void);
 
 
-struct thread_master *master;     /* quagga's threads handler */
+struct event_loop *master;	  /* quagga's threads handler */
 struct timeval babel_now;         /* current time             */
 
 unsigned char myid[8];            /* unique id (mac address of an interface) */
@@ -73,7 +58,6 @@ unsigned char protocol_group[16]; /* babel's link-local multicast address */
 int protocol_port;                /* babel's port */
 int protocol_socket = -1;         /* socket: communicate with others babeld */
 
-static const char babel_config_default[] = SYSCONFDIR BABEL_DEFAULT_CONFIG;
 static char *babel_vty_addr = NULL;
 static int babel_vty_port = BABEL_VTY_PORT;
 
@@ -141,18 +125,20 @@ static const struct frr_yang_module_info *const babeld_yang_modules[] = {
 	&frr_vrf_info,
 };
 
+/* clang-format off */
 FRR_DAEMON_INFO(babeld, BABELD,
-		.vty_port = BABEL_VTY_PORT,
-		.proghelp = "Implementation of the BABEL routing protocol.",
+	.vty_port = BABEL_VTY_PORT,
+	.proghelp = "Implementation of the BABEL routing protocol.",
 
-		.signals = babel_signals,
-		.n_signals = array_size(babel_signals),
+	.signals = babel_signals,
+	.n_signals = array_size(babel_signals),
 
-		.privs = &babeld_privs,
+	.privs = &babeld_privs,
 
-		.yang_modules = babeld_yang_modules,
-		.n_yang_modules = array_size(babeld_yang_modules),
+	.yang_modules = babeld_yang_modules,
+	.n_yang_modules = array_size(babeld_yang_modules),
 );
+/* clang-format on */
 
 int
 main(int argc, char **argv)
@@ -186,8 +172,8 @@ main(int argc, char **argv)
 	  }
     }
 
-    snprintf(state_file, sizeof(state_file), "%s/%s",
-	     frr_vtydir, "babel-state");
+    snprintf(state_file, sizeof(state_file), "%s/%s", frr_runstatedir,
+	     "babel-state");
 
     /* create the threads handler */
     master = frr_init ();
@@ -199,8 +185,10 @@ main(int argc, char **argv)
     change_smoothing_half_life(BABEL_DEFAULT_SMOOTHING_HALF_LIFE);
 
     /* init some quagga's dependencies, and babeld's commands */
-    if_zapi_callbacks(babel_ifp_create, babel_ifp_up,
-		      babel_ifp_down, babel_ifp_destroy);
+    hook_register_prio(if_real, 0, babel_ifp_create);
+    hook_register_prio(if_up, 0, babel_ifp_up);
+    hook_register_prio(if_down, 0, babel_ifp_down);
+    hook_register_prio(if_unreal, 0, babel_ifp_destroy);
     babeld_quagga_init();
     /* init zebra client's structure and it's commands */
     /* this replace kernel_setup && kernel_setup_socket */
@@ -323,6 +311,8 @@ babel_exit_properly(void)
     babel_save_state_file();
     debugf(BABEL_DEBUG_COMMON, "Remove pid file.");
     debugf(BABEL_DEBUG_COMMON, "Done.");
+
+    vrf_terminate();
     frr_fini();
 
     exit(0);
@@ -377,7 +367,7 @@ show_babel_main_configuration (struct vty *vty)
             "id                      = %s\n"
             "kernel_metric           = %d\n",
             state_file,
-            babeld_di.config_file ? babeld_di.config_file : babel_config_default,
+            babeld_di.config_file,
             format_address(protocol_group),
             protocol_port,
             babel_vty_addr ? babel_vty_addr : "None",

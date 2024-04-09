@@ -1,17 +1,6 @@
+// SPDX-License-Identifier: ISC
 /*
  * Copyright (c) 2017-19  David Lamparter, for NetDEF, Inc.
- *
- * Permission to use, copy, modify, and distribute this software for any
- * purpose with or without fee is hereby granted, provided that the above
- * copyright notice and this permission notice appear in all copies.
- *
- * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
- * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
- * ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
- * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
- * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
- * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
 /* implementation notes:  this is an epoch-based RCU implementation.  rcu_seq
@@ -160,20 +149,9 @@ static struct rcu_thread *rcu_self(void)
 	return (struct rcu_thread *)pthread_getspecific(rcu_thread_key);
 }
 
-/*
- * thread management (for the non-main thread)
- */
-struct rcu_thread *rcu_thread_prepare(void)
+struct rcu_thread *rcu_thread_new(void *arg)
 {
-	struct rcu_thread *rt, *cur;
-
-	rcu_assert_read_locked();
-
-	if (!rcu_active)
-		rcu_start();
-
-	cur = rcu_self();
-	assert(cur->depth);
+	struct rcu_thread *rt, *cur = arg;
 
 	/* new thread always starts with rcu_read_lock held at depth 1, and
 	 * holding the same epoch as the parent (this makes it possible to
@@ -183,11 +161,30 @@ struct rcu_thread *rcu_thread_prepare(void)
 	rt->depth = 1;
 
 	seqlock_init(&rt->rcu);
-	seqlock_acquire(&rt->rcu, &cur->rcu);
+	if (cur)
+		seqlock_acquire(&rt->rcu, &cur->rcu);
 
 	rcu_threads_add_tail(&rcu_threads, rt);
 
 	return rt;
+}
+
+/*
+ * thread management (for the non-main thread)
+ */
+struct rcu_thread *rcu_thread_prepare(void)
+{
+	struct rcu_thread *cur;
+
+	rcu_assert_read_locked();
+
+	if (!rcu_active)
+		rcu_start();
+
+	cur = rcu_self();
+	assert(cur->depth);
+
+	return rcu_thread_new(cur);
 }
 
 void rcu_thread_start(struct rcu_thread *rt)

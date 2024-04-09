@@ -1,20 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Copyright (C) 2018  NetDEF, Inc.
  *                     Renato Westphal
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef _FRR_YANG_H_
@@ -58,12 +45,9 @@ struct yang_module {
 	RB_ENTRY(yang_module) entry;
 	const char *name;
 	const struct lys_module *info;
-#ifdef HAVE_CONFD
-	int confd_hash;
-#endif
 #ifdef HAVE_SYSREPO
 	sr_subscription_ctx_t *sr_subscription;
-	struct thread *sr_thread;
+	struct event *sr_thread;
 #endif
 };
 RB_HEAD(yang_modules, yang_module);
@@ -125,10 +109,16 @@ extern struct yang_modules yang_modules;
  * module_name
  *    Name of the YANG module.
  *
+ * features
+ *    NULL-terminated array of feature names to enable.
+ *    If NULL, all features are disabled.
+ *    To enable all features, use ["*", NULL].
+ *
  * Returns:
  *    Pointer to newly created YANG module.
  */
-extern struct yang_module *yang_module_load(const char *module_name);
+extern struct yang_module *yang_module_load(const char *module_name,
+					    const char **features);
 
 /*
  * Load all FRR native YANG models.
@@ -223,6 +213,27 @@ extern void yang_snode_get_path(const struct lysc_node *snode,
 				enum yang_path_type type, char *xpath,
 				size_t xpath_len);
 
+
+/*
+ * Find libyang schema node for the given xpath. Uses `lys_find_xpath`,
+ * returning only the first of a set of nodes -- normally there should only
+ * be one.
+ *
+ * ly_ctx
+ *    libyang context to operate on.
+ *
+ * xpath
+ *    XPath expression (absolute or relative) to find the schema node for.
+ *
+ * options
+ *    Libyang findxpathoptions value (see lys_find_xpath).
+ *
+ * Returns:
+ *    The libyang schema node if found, or NULL if not found.
+ */
+extern struct lysc_node *yang_find_snode(struct ly_ctx *ly_ctx,
+					 const char *xpath, uint32_t options);
+
 /*
  * Find first parent schema node which is a presence-container or a list
  * (non-presence containers are ignored).
@@ -309,30 +320,16 @@ extern unsigned int yang_snode_num_keys(const struct lysc_node *snode);
  *    libyang data node to be processed.
  *
  * xpath
- *    Pointer to previously allocated buffer.
+ *    Pointer to previously allocated buffer or NULL.
  *
  * xpath_len
- *    Size of the xpath buffer.
+ *    Size of the xpath buffer if xpath non-NULL.
+ *
+ * If xpath is NULL, the returned string (if non-NULL) needs to be free()d by
+ * the caller.
  */
-extern void yang_dnode_get_path(const struct lyd_node *dnode, char *xpath,
+extern char *yang_dnode_get_path(const struct lyd_node *dnode, char *xpath,
 				size_t xpath_len);
-
-/*
- * Return the schema name of the given libyang data node.
- *
- * dnode
- *    libyang data node.
- *
- * xpath_fmt
- *    Optional XPath expression (absolute or relative) to specify a different
- *    data node to operate on in the same data tree.
- *
- * Returns:
- *    Schema name of the libyang data node.
- */
-extern const char *yang_dnode_get_schema_name(const struct lyd_node *dnode,
-					      const char *xpath_fmt, ...)
-	PRINTFRR(2, 3);
 
 /*
  * Find a libyang data node by its YANG data path.
@@ -425,6 +422,21 @@ extern bool yang_dnode_existsf(const struct lyd_node *dnode,
 void yang_dnode_iterate(yang_dnode_iter_cb cb, void *arg,
 			const struct lyd_node *dnode, const char *xpath_fmt,
 			...) PRINTFRR(4, 5);
+
+/*
+ * Count the number of data nodes that satisfy an XPath query.
+ *
+ * dnode
+ *    Base libyang data node to operate on.
+ *
+ * xpath_fmt
+ *    XPath expression (absolute or relative).
+ *
+ * ...
+ *    any parameters for xpath_fmt.
+ */
+uint32_t yang_dnode_count(const struct lyd_node *dnode, const char *xpath_fmt,
+			  ...) PRINTFRR(2, 3);
 
 /*
  * Check if the libyang data node contains a default value. Non-presence
@@ -593,6 +605,69 @@ extern struct ly_ctx *yang_ctx_new_setup(bool embedded_modules,
 extern void yang_debugging_set(bool enable);
 
 /*
+ * Parse a YANG notification.
+ *
+ * Args:
+ *	xpath: xpath of notification.
+ *	format: LYD_FORMAT of input data.
+ *	data: input data.
+ *	notif: pointer to the libyang data tree to store the parsed notification.
+ *	       If the notification is not on the top level of the yang model,
+ *	       the pointer to the notification node is still returned, but it's
+ *	       part of the full data tree with all its parents.
+ */
+extern LY_ERR yang_parse_notification(const char *xpath, LYD_FORMAT format,
+				      const char *data, struct lyd_node **notif);
+
+/*
+ * "Print" the yang tree in `root` into dynamic sized array.
+ *
+ * Args:
+ *	root: root of the subtree to "print" along with siblings.
+ *	format: LYD_FORMAT of output (see lyd_print_mem)
+ *	options: printing options (see lyd_print_mem)
+ *
+ * Return:
+ *	A darr dynamic array with the "printed" output or NULL on failure.
+ */
+extern uint8_t *yang_print_tree(const struct lyd_node *root, LYD_FORMAT format,
+				uint32_t options);
+
+
+/**
+ * yang_convert_lyd_format() - convert one libyang format to darr string.
+ * @data: data to convert.
+ * @data_len: length of the data.
+ * @in_format: format of the data.
+ * @out_format: format to return.
+ * @shrink: true to avoid pretty printing.
+ *
+ * Return:
+ *	A darr based string or NULL for error.
+ */
+extern char *yang_convert_lyd_format(const char *data, size_t msg_len,
+				     LYD_FORMAT in_format,
+				     LYD_FORMAT out_format, bool shrink);
+
+/*
+ * "Print" the yang tree in `root` into an existing dynamic sized array.
+ *
+ * This function does not initialize or free the dynamic array, the array can
+ * already existing data, the tree will be appended to this data.
+ *
+ * Args:
+ *	darr: existing `uint8_t *`, dynamic array.
+ *	root: root of the subtree to "print" along with siblings.
+ *	format: LYD_FORMAT of output (see lyd_print_mem)
+ *	options: printing options (see lyd_print_mem)
+ *
+ * Return:
+ *	LY_ERR from underlying calls.
+ */
+extern LY_ERR yang_print_tree_append(uint8_t **darr, const struct lyd_node *root,
+				     LYD_FORMAT format, uint32_t options);
+
+/*
  * Print libyang error messages into the provided buffer.
  *
  * ly_ctx
@@ -684,6 +759,44 @@ bool yang_is_last_list_dnode(const struct lyd_node *dnode);
 
 /* API to check if the given node is last node in the data tree level */
 bool yang_is_last_level_dnode(const struct lyd_node *dnode);
+
+/* Create a YANG predicate string based on the keys */
+extern int yang_get_key_preds(char *s, const struct lysc_node *snode,
+			      struct yang_list_keys *keys, ssize_t space);
+
+/* Get YANG keys from an existing dnode */
+extern int yang_get_node_keys(struct lyd_node *node, struct yang_list_keys *keys);
+
+/**
+ * yang_resolve_snodes() - Resolve an XPath to matching schema nodes.
+ * @ly_ctx: libyang context to operate on.
+ * @xpath: the path or XPath to resolve.
+ * @snodes: [OUT] pointer for resulting dynamic array (darr) of schema node
+ *          pointers.
+ * @simple: [OUT] indicates if @xpath was resolvable simply or not. Non-simple
+ *          means that the @xpath is not a simple path and utilizes XPath 1.0
+ *          functionality beyond simple key predicates.
+ *
+ * This function can be used to find the schema node (or nodes) that correspond
+ * to a given @xpath. If the @xpath includes non-key predicates (e.g., using
+ * functions) then @simple will be set to false, and @snodes may contain more
+ * than a single schema node.
+ *
+ * Return: a libyang error or LY_SUCCESS.
+ */
+extern LY_ERR yang_resolve_snode_xpath(struct ly_ctx *ly_ctx, const char *xpath,
+				       struct lysc_node ***snodes, bool *simple);
+
+/*
+ * Libyang future functions
+ */
+extern const char *yang_ly_strerrcode(LY_ERR err);
+extern const char *yang_ly_strvecode(LY_VECODE vecode);
+extern LY_ERR yang_lyd_new_list(struct lyd_node_inner *parent,
+				const struct lysc_node *snode,
+				const struct yang_list_keys *keys,
+				struct lyd_node **nodes);
+extern LY_ERR yang_lyd_trim_xpath(struct lyd_node **rootp, const char *xpath);
 
 #ifdef __cplusplus
 }

@@ -1,21 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* BGP routing table
  * Copyright (C) 1998, 2001 Kunihiro Ishiguro
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -62,16 +47,6 @@ void bgp_table_finish(struct bgp_table **rt)
 }
 
 /*
- * bgp_dest_unlock_node
- */
-void bgp_dest_unlock_node(struct bgp_dest *dest)
-{
-	frrtrace(1, frr_bgp, bgp_dest_unlock, dest);
-	bgp_delete_listnode(dest);
-	route_unlock_node(bgp_dest_to_rnode(dest));
-}
-
-/*
  * bgp_dest_lock_node
  */
 struct bgp_dest *bgp_dest_lock_node(struct bgp_dest *dest)
@@ -98,44 +73,59 @@ const char *bgp_dest_get_prefix_str(struct bgp_dest *dest)
 }
 
 /*
- * bgp_node_create
+ * bgp_dest_unlock_node
  */
-static struct route_node *bgp_node_create(route_table_delegate_t *delegate,
-					  struct route_table *table)
+inline struct bgp_dest *bgp_dest_unlock_node(struct bgp_dest *dest)
 {
-	struct bgp_node *node;
-	node = XCALLOC(MTYPE_BGP_NODE, sizeof(struct bgp_node));
+	frrtrace(1, frr_bgp, bgp_dest_unlock, dest);
+	bgp_delete_listnode(dest);
+	struct route_node *rn = bgp_dest_to_rnode(dest);
 
-	RB_INIT(bgp_adj_out_rb, &node->adj_out);
-	return bgp_dest_to_rnode(node);
+	if (rn->lock == 1) {
+		struct bgp_table *rt = bgp_dest_table(dest);
+		if (rt->bgp) {
+			bgp_addpath_free_node_data(&rt->bgp->tx_addpath,
+						   &dest->tx_addpath, rt->afi,
+						   rt->safi);
+		}
+		XFREE(MTYPE_BGP_NODE, dest);
+		dest = NULL;
+		rn->info = NULL;
+	}
+	route_unlock_node(rn);
+
+	return dest;
 }
 
 /*
  * bgp_node_destroy
  */
 static void bgp_node_destroy(route_table_delegate_t *delegate,
-			     struct route_table *table, struct route_node *node)
+							struct route_table *table, struct route_node *node)
 {
-	struct bgp_node *bgp_node;
+	struct bgp_dest *dest;
 	struct bgp_table *rt;
-	bgp_node = bgp_dest_from_rnode(node);
+	dest = bgp_dest_from_rnode(node);
 	rt = table->info;
-
-	if (rt->bgp) {
-		bgp_addpath_free_node_data(&rt->bgp->tx_addpath,
-					 &bgp_node->tx_addpath,
-					 rt->afi, rt->safi);
+	if (dest) {
+		if (rt->bgp) {
+			bgp_addpath_free_node_data(&rt->bgp->tx_addpath,
+										&dest->tx_addpath,
+										rt->afi, rt->safi);
+		}
+		XFREE(MTYPE_BGP_NODE, dest);
+		node->info = NULL;
 	}
 
-	XFREE(MTYPE_BGP_NODE, bgp_node);
+	XFREE(MTYPE_ROUTE_NODE, node);
 }
 
 /*
  * Function vector to customize the behavior of the route table
  * library for BGP route tables.
  */
-route_table_delegate_t bgp_table_delegate = {.create_node = bgp_node_create,
-					     .destroy_node = bgp_node_destroy};
+route_table_delegate_t bgp_table_delegate = { .create_node = route_node_create,
+					      .destroy_node = bgp_node_destroy };
 
 /*
  * bgp_table_init
@@ -166,9 +156,9 @@ struct bgp_table *bgp_table_init(struct bgp *bgp, afi_t afi, safi_t safi)
 }
 
 /* Delete the route node from the selection deferral route list */
-void bgp_delete_listnode(struct bgp_node *node)
+void bgp_delete_listnode(struct bgp_dest *dest)
 {
-	struct route_node *rn = NULL;
+	const struct route_node *rn = NULL;
 	struct bgp_table *table = NULL;
 	struct bgp *bgp = NULL;
 	afi_t afi;
@@ -177,8 +167,8 @@ void bgp_delete_listnode(struct bgp_node *node)
 	/* If the route to be deleted is selection pending, update the
 	 * route node in gr_info
 	 */
-	if (CHECK_FLAG(node->flags, BGP_NODE_SELECT_DEFER)) {
-		table = bgp_dest_table(node);
+	if (CHECK_FLAG(dest->flags, BGP_NODE_SELECT_DEFER)) {
+		table = bgp_dest_table(dest);
 
 		if (table) {
 			bgp = table->bgp;
@@ -187,47 +177,48 @@ void bgp_delete_listnode(struct bgp_node *node)
 		} else
 			return;
 
-		rn = bgp_dest_to_rnode(node);
+		rn = bgp_dest_to_rnode(dest);
 
 		if (bgp && rn && rn->lock == 1) {
 			/* Delete the route from the selection pending list */
 			bgp->gr_info[afi][safi].gr_deferred--;
-			UNSET_FLAG(node->flags, BGP_NODE_SELECT_DEFER);
+			UNSET_FLAG(dest->flags, BGP_NODE_SELECT_DEFER);
 		}
 	}
 }
 
-struct bgp_node *bgp_table_subtree_lookup(const struct bgp_table *table,
+struct bgp_dest *bgp_table_subtree_lookup(const struct bgp_table *table,
 					  const struct prefix *p)
 {
-	struct bgp_node *node = bgp_dest_from_rnode(table->route_table->top);
-	struct bgp_node *matched = NULL;
+	struct bgp_dest *dest = bgp_dest_from_rnode(table->route_table->top);
+	struct bgp_dest *matched = NULL;
 
-	if (node == NULL)
+	if (dest == NULL)
 		return NULL;
 
 
-	while (node) {
-		const struct prefix *node_p = bgp_dest_get_prefix(node);
+	while (dest) {
+		const struct prefix *dest_p = bgp_dest_get_prefix(dest);
+		struct route_node *node = dest->rn;
 
-		if (node_p->prefixlen >= p->prefixlen) {
-			if (!prefix_match(p, node_p))
+		if (dest_p->prefixlen >= p->prefixlen) {
+			if (!prefix_match(p, dest_p))
 				return NULL;
 
-			matched = node;
+			matched = dest;
 			break;
 		}
 
-		if (!prefix_match(node_p, p))
+		if (!prefix_match(dest_p, p))
 			return NULL;
 
-		if (node_p->prefixlen == p->prefixlen) {
-			matched = node;
+		if (dest_p->prefixlen == p->prefixlen) {
+			matched = dest;
 			break;
 		}
 
-		node = bgp_dest_from_rnode(node->link[prefix_bit(
-			&p->u.prefix, node_p->prefixlen)]);
+		dest = bgp_dest_from_rnode(
+			node->link[prefix_bit(&p->u.prefix, dest_p->prefixlen)]);
 	}
 
 	if (!matched)
@@ -248,7 +239,11 @@ static ssize_t printfrr_bd(struct fbuf *buf, struct printfrr_eargs *ea,
 	if (!dest)
 		return bputs(buf, "(null)");
 
+#if !defined(DEV_BUILD)
 	/* need to get the real length even if buffer too small */
 	prefix2str(p, cbuf, sizeof(cbuf));
 	return bputs(buf, cbuf);
+#else
+	return bprintfrr(buf, "%s(%p)", prefix2str(p, cbuf, sizeof(cbuf)), dest);
+#endif
 }

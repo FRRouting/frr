@@ -1,20 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * PIM address generalizations
  * Copyright (C) 2022  David Lamparter for NetDEF, Inc.
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef _PIMD_PIM_ADDR_H
@@ -41,17 +28,18 @@ typedef struct in_addr pim_addr;
 #define PIM_MROUTE_DBG  "mroute"
 #define PIMREG          "pimreg"
 #define GM              "IGMP"
+#define IPPROTO_GM      IPPROTO_IGMP
 
 #define PIM_ADDR_FUNCNAME(name) ipv4_##name
 
 union pimprefixptr {
-	prefixtype(pimprefixptr, struct prefix,      p)
-	prefixtype(pimprefixptr, struct prefix_ipv4, p4)
+	uniontype(pimprefixptr, struct prefix,      p)
+	uniontype(pimprefixptr, struct prefix_ipv4, p4)
 } TRANSPARENT_UNION;
 
 union pimprefixconstptr {
-	prefixtype(pimprefixconstptr, const struct prefix,      p)
-	prefixtype(pimprefixconstptr, const struct prefix_ipv4, p4)
+	uniontype(pimprefixconstptr, const struct prefix,      p)
+	uniontype(pimprefixconstptr, const struct prefix_ipv4, p4)
 } TRANSPARENT_UNION;
 
 #else
@@ -70,17 +58,18 @@ typedef struct in6_addr pim_addr;
 #define PIM_MROUTE_DBG  "mroute6"
 #define PIMREG          "pim6reg"
 #define GM              "MLD"
+#define IPPROTO_GM      IPPROTO_ICMPV6
 
 #define PIM_ADDR_FUNCNAME(name) ipv6_##name
 
 union pimprefixptr {
-	prefixtype(pimprefixptr, struct prefix,      p)
-	prefixtype(pimprefixptr, struct prefix_ipv6, p6)
+	uniontype(pimprefixptr, struct prefix,      p)
+	uniontype(pimprefixptr, struct prefix_ipv6, p6)
 } TRANSPARENT_UNION;
 
 union pimprefixconstptr {
-	prefixtype(pimprefixconstptr, const struct prefix,      p)
-	prefixtype(pimprefixconstptr, const struct prefix_ipv6, p6)
+	uniontype(pimprefixconstptr, const struct prefix,      p)
+	uniontype(pimprefixconstptr, const struct prefix_ipv6, p6)
 } TRANSPARENT_UNION;
 #endif
 

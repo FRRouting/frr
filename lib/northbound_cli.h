@@ -1,20 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Copyright (C) 2018  NetDEF, Inc.
  *                     Renato Westphal
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef _FRR_NORTHBOUND_CLI_H_
@@ -45,7 +32,7 @@ extern struct nb_config *vty_shared_candidate_config;
  *    XPath (absolute or relative) of the configuration option being edited.
  *
  * operation
- *    Operation to apply (either NB_OP_CREATE, NB_OP_MODIFY or NB_OP_DELETE).
+ *    Operation to apply (either NB_OP_CREATE, NB_OP_MODIFY or NB_OP_DESTROY).
  *
  * value
  *    New value of the configuration option. Should be NULL for typeless YANG
@@ -150,7 +137,7 @@ extern void nb_cli_show_config_prepare(struct nb_config *config,
 extern void nb_cli_confirmed_commit_clean(struct vty *vty);
 extern int nb_cli_confirmed_commit_rollback(struct vty *vty);
 extern void nb_cli_install_default(int node);
-extern void nb_cli_init(struct thread_master *tm);
+extern void nb_cli_init(struct event_loop *tm);
 extern void nb_cli_terminate(void);
 
 #ifdef __cplusplus

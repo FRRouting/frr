@@ -1,25 +1,16 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * libfrr overall management functions
  *
  * Copyright (C) 2016  David Lamparter for NetDEF, Inc.
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
+
+#include <signal.h>
+#include <sys/stat.h>
 #include <sys/un.h>
+#include <fcntl.h>
 
 #include <sys/types.h>
 #include <sys/wait.h>
@@ -46,18 +37,18 @@
 #include "frrscript.h"
 #include "systemd.h"
 
-DEFINE_HOOK(frr_early_init, (struct thread_master * tm), (tm));
-DEFINE_HOOK(frr_late_init, (struct thread_master * tm), (tm));
-DEFINE_HOOK(frr_config_pre, (struct thread_master * tm), (tm));
-DEFINE_HOOK(frr_config_post, (struct thread_master * tm), (tm));
+#include "lib/config_paths.h"
+
+DEFINE_HOOK(frr_early_init, (struct event_loop * tm), (tm));
+DEFINE_HOOK(frr_late_init, (struct event_loop * tm), (tm));
+DEFINE_HOOK(frr_config_pre, (struct event_loop * tm), (tm));
+DEFINE_HOOK(frr_config_post, (struct event_loop * tm), (tm));
 DEFINE_KOOH(frr_early_fini, (), ());
 DEFINE_KOOH(frr_fini, (), ());
 
 const char frr_sysconfdir[] = SYSCONFDIR;
-char frr_vtydir[256];
-#ifdef HAVE_SQLITE3
-const char frr_dbdir[] = DAEMON_DB_DIR;
-#endif
+char frr_runstatedir[256] = FRR_RUNSTATE_PATH;
+char frr_libstatedir[256] = FRR_LIBSTATE_PATH;
 const char frr_moduledir[] = MODULE_PATH;
 const char frr_scriptdir[] = SCRIPT_PATH;
 
@@ -65,7 +56,7 @@ char frr_protoname[256] = "NONE";
 char frr_protonameinst[256] = "NONE";
 
 char config_default[512];
-char frr_zclientpath[256];
+char frr_zclientpath[512];
 static char pidfile_default[1024];
 #ifdef HAVE_SQLITE3
 static char dbfile_default[512];
@@ -143,6 +134,7 @@ static const struct optspec os_always = {
 	"      --limit-fds    Limit number of fds supported\n",
 	lo_always};
 
+static bool logging_to_stdout = false; /* set when --log stdout specified */
 
 static const struct option lo_cfg[] = {
 	{"config_file", required_argument, NULL, 'f'},
@@ -216,7 +208,7 @@ bool frr_zclient_addr(struct sockaddr_storage *sa, socklen_t *sa_len,
 	if (!strncmp(path, ZAPI_TCP_PATHNAME, strlen(ZAPI_TCP_PATHNAME))) {
 		/* note: this functionality is disabled at bottom */
 		int af;
-		int port = ZEBRA_PORT;
+		int port = ZEBRA_TCP_PORT;
 		char *err = NULL;
 		struct sockaddr_in *sin = NULL;
 		struct sockaddr_in6 *sin6 = NULL;
@@ -230,7 +222,8 @@ bool frr_zclient_addr(struct sockaddr_storage *sa, socklen_t *sa_len,
 			break;
 		case '6':
 			path++;
-		/* fallthrough */
+			af = AF_INET6;
+			break;
 		default:
 			af = AF_INET6;
 			break;
@@ -317,11 +310,6 @@ bool frr_zclient_addr(struct sockaddr_storage *sa, socklen_t *sa_len,
 
 static struct frr_daemon_info *di = NULL;
 
-void frr_init_vtydir(void)
-{
-	snprintf(frr_vtydir, sizeof(frr_vtydir), DAEMON_VTY_DIR, "", "");
-}
-
 void frr_preinit(struct frr_daemon_info *daemon, int argc, char **argv)
 {
 	di = daemon;
@@ -331,7 +319,12 @@ void frr_preinit(struct frr_daemon_info *daemon, int argc, char **argv)
 	char *p = strrchr(argv[0], '/');
 	di->progname = p ? p + 1 : argv[0];
 
-	umask(0027);
+	if (!getenv("GCOV_PREFIX"))
+		umask(0027);
+	else {
+		/* If we are profiling use a more generous umask */
+		umask(0002);
+	}
 
 	log_args_init(daemon->early_logging);
 
@@ -351,16 +344,14 @@ void frr_preinit(struct frr_daemon_info *daemon, int argc, char **argv)
 	if (di->flags & FRR_DETACH_LATER)
 		nodetach_daemon = true;
 
-	frr_init_vtydir();
 	snprintf(config_default, sizeof(config_default), "%s/%s.conf",
 		 frr_sysconfdir, di->name);
 	snprintf(pidfile_default, sizeof(pidfile_default), "%s/%s.pid",
-		 frr_vtydir, di->name);
-	snprintf(frr_zclientpath, sizeof(frr_zclientpath),
-		 ZEBRA_SERV_PATH, "", "");
+		 frr_runstatedir, di->name);
+	snprintf(frr_zclientpath, sizeof(frr_zclientpath), ZAPI_SOCK_NAME);
 #ifdef HAVE_SQLITE3
 	snprintf(dbfile_default, sizeof(dbfile_default), "%s/%s.db",
-		 frr_dbdir, di->name);
+		 frr_libstatedir, di->name);
 #endif
 
 	strlcpy(frr_protoname, di->logname, sizeof(frr_protoname));
@@ -509,13 +500,15 @@ static int frr_opt(int opt)
 		}
 		di->pathspace = optarg;
 
+		snprintf(frr_runstatedir, sizeof(frr_runstatedir),
+			 FRR_RUNSTATE_PATH "/%s", di->pathspace);
+		snprintf(frr_libstatedir, sizeof(frr_libstatedir),
+			 FRR_LIBSTATE_PATH "/%s", di->pathspace);
+		snprintf(pidfile_default, sizeof(pidfile_default), "%s/%s.pid",
+			 frr_runstatedir, di->name);
 		if (!di->zpathspace)
 			snprintf(frr_zclientpath, sizeof(frr_zclientpath),
-				 ZEBRA_SERV_PATH, "/", di->pathspace);
-		snprintf(frr_vtydir, sizeof(frr_vtydir), DAEMON_VTY_DIR, "/",
-			 di->pathspace);
-		snprintf(pidfile_default, sizeof(pidfile_default), "%s/%s.pid",
-			 frr_vtydir, di->name);
+				 ZAPI_SOCK_NAME);
 		break;
 	case 'o':
 		vrf_set_default_name(optarg);
@@ -709,8 +702,8 @@ static void _err_print(const void *cookie, const char *errstr)
 	fprintf(stderr, "%s: %s\n", prefix, errstr);
 }
 
-static struct thread_master *master;
-struct thread_master *frr_init(void)
+static struct event_loop *master;
+struct event_loop *frr_init(void)
 {
 	struct option_chain *oc;
 	struct log_arg *log_arg;
@@ -736,10 +729,10 @@ struct thread_master *frr_init(void)
 	snprintf(config_default, sizeof(config_default), "%s%s%s%s.conf",
 		 frr_sysconfdir, p_pathspace, di->name, p_instance);
 	snprintf(pidfile_default, sizeof(pidfile_default), "%s/%s%s.pid",
-		 frr_vtydir, di->name, p_instance);
+		 frr_runstatedir, di->name, p_instance);
 #ifdef HAVE_SQLITE3
 	snprintf(dbfile_default, sizeof(dbfile_default), "%s/%s%s%s.db",
-		 frr_dbdir, p_pathspace, di->name, p_instance);
+		 frr_libstatedir, p_pathspace, di->name, p_instance);
 #endif
 
 	zprivs_preinit(di->privs);
@@ -751,6 +744,11 @@ struct thread_master *frr_init(void)
 	while ((log_arg = log_args_pop(di->early_logging))) {
 		command_setup_early_logging(log_arg->target,
 					    di->early_loglevel);
+		/* this is a bit of a hack,
+		   but need to notice when
+		   the target is stdout */
+		if (strcmp(log_arg->target, "stdout") == 0)
+			logging_to_stdout = true;
 		XFREE(MTYPE_TMP, log_arg);
 	}
 
@@ -763,8 +761,9 @@ struct thread_master *frr_init(void)
 
 	/* don't mkdir these as root... */
 	if (!(di->flags & FRR_NO_PRIVSEP)) {
+		frr_mkdir(frr_libstatedir, false);
 		if (!di->pid_file || !di->vty_path)
-			frr_mkdir(frr_vtydir, false);
+			frr_mkdir(frr_runstatedir, false);
 		if (di->pid_file)
 			frr_mkdir(di->pid_file, true);
 		if (di->vty_path)
@@ -782,7 +781,7 @@ struct thread_master *frr_init(void)
 
 	zprivs_init(di->privs);
 
-	master = thread_master_create(NULL);
+	master = event_master_create(NULL);
 	signal_init(master, di->n_signals, di->signals);
 	hook_call(frr_early_init, master);
 
@@ -963,8 +962,6 @@ static void frr_daemonize(void)
 	}
 
 	close(fds[1]);
-	nb_terminate();
-	yang_terminate();
 	frr_daemon_wait(fds[0]);
 }
 
@@ -977,7 +974,7 @@ static void frr_daemonize(void)
  * to read the config in after thread execution starts, so that
  * we can match this behavior.
  */
-static void frr_config_read_in(struct thread *t)
+static void frr_config_read_in(struct event *t)
 {
 	hook_call(frr_config_pre, master);
 
@@ -1005,7 +1002,7 @@ static void frr_config_read_in(struct thread *t)
 		int ret;
 
 		context.client = NB_CLIENT_CLI;
-		ret = nb_candidate_commit(&context, vty_shared_candidate_config,
+		ret = nb_candidate_commit(context, vty_shared_candidate_config,
 					  true, "Read configuration file", NULL,
 					  errmsg, sizeof(errmsg));
 		if (ret != NB_OK && ret != NB_ERR_NO_CHANGES)
@@ -1028,8 +1025,8 @@ void frr_config_fork(void)
 			exit(0);
 		}
 
-		thread_add_event(master, frr_config_read_in, NULL, 0,
-				 &di->read_in);
+		event_add_event(master, frr_config_read_in, NULL, 0,
+				&di->read_in);
 	}
 
 	if (di->daemon_mode || di->terminal)
@@ -1043,7 +1040,7 @@ void frr_config_fork(void)
 	zlog_tls_buffer_init();
 }
 
-static void frr_vty_serv(void)
+void frr_vty_serv_start(void)
 {
 	/* allow explicit override of vty_path in the future
 	 * (not currently set anywhere) */
@@ -1051,7 +1048,7 @@ static void frr_vty_serv(void)
 		const char *dir;
 		char defvtydir[256];
 
-		snprintf(defvtydir, sizeof(defvtydir), "%s", frr_vtydir);
+		snprintf(defvtydir, sizeof(defvtydir), "%s", frr_runstatedir);
 
 		dir = di->vty_sock_path ? di->vty_sock_path : defvtydir;
 
@@ -1065,7 +1062,15 @@ static void frr_vty_serv(void)
 		di->vty_path = vtypath_default;
 	}
 
-	vty_serv_sock(di->vty_addr, di->vty_port, di->vty_path);
+	vty_serv_start(di->vty_addr, di->vty_port, di->vty_path);
+}
+
+void frr_vty_serv_stop(void)
+{
+	vty_serv_stop();
+
+	if (di->vty_path)
+		unlink(di->vty_path);
 }
 
 static void frr_check_detach(void)
@@ -1101,16 +1106,22 @@ static void frr_terminal_close(int isexit)
 			     "%s: failed to open /dev/null: %s", __func__,
 			     safe_strerror(errno));
 	} else {
-		dup2(nullfd, 0);
-		dup2(nullfd, 1);
-		dup2(nullfd, 2);
+		int fd;
+		/*
+		 * only redirect stdin, stdout, stderr to null when a tty also
+		 * don't redirect when stdout is set with --log stdout
+		 */
+		for (fd = 2; fd >= 0; fd--)
+			if (isatty(fd) &&
+			    (fd != STDOUT_FILENO || !logging_to_stdout))
+				dup2(nullfd, fd);
 		close(nullfd);
 	}
 }
 
-static struct thread *daemon_ctl_thread = NULL;
+static struct event *daemon_ctl_thread = NULL;
 
-static void frr_daemon_ctl(struct thread *t)
+static void frr_daemon_ctl(struct event *t)
 {
 	char buf[1];
 	ssize_t nr;
@@ -1142,8 +1153,8 @@ static void frr_daemon_ctl(struct thread *t)
 	}
 
 out:
-	thread_add_read(master, frr_daemon_ctl, NULL, daemon_ctl_sock,
-			&daemon_ctl_thread);
+	event_add_read(master, frr_daemon_ctl, NULL, daemon_ctl_sock,
+		       &daemon_ctl_thread);
 }
 
 void frr_detach(void)
@@ -1152,11 +1163,12 @@ void frr_detach(void)
 	frr_check_detach();
 }
 
-void frr_run(struct thread_master *master)
+void frr_run(struct event_loop *master)
 {
 	char instanceinfo[64] = "";
 
-	frr_vty_serv();
+	if (!(di->flags & FRR_MANUAL_VTY_START))
+		frr_vty_serv_start();
 
 	if (di->instance)
 		snprintf(instanceinfo, sizeof(instanceinfo), "instance %u ",
@@ -1171,8 +1183,8 @@ void frr_run(struct thread_master *master)
 		vty_stdio(frr_terminal_close);
 		if (daemon_ctl_sock != -1) {
 			set_nonblocking(daemon_ctl_sock);
-			thread_add_read(master, frr_daemon_ctl, NULL,
-					daemon_ctl_sock, &daemon_ctl_thread);
+			event_add_read(master, frr_daemon_ctl, NULL,
+				       daemon_ctl_sock, &daemon_ctl_thread);
 		}
 	} else if (di->daemon_mode) {
 		int nullfd = open("/dev/null", O_RDONLY | O_NOCTTY);
@@ -1181,9 +1193,16 @@ void frr_run(struct thread_master *master)
 				     "%s: failed to open /dev/null: %s",
 				     __func__, safe_strerror(errno));
 		} else {
-			dup2(nullfd, 0);
-			dup2(nullfd, 1);
-			dup2(nullfd, 2);
+			int fd;
+			/*
+			 * only redirect stdin, stdout, stderr to null when a
+			 * tty also don't redirect when stdout is set with --log
+			 * stdout
+			 */
+			for (fd = 2; fd >= 0; fd--)
+				if (isatty(fd) &&
+				    (fd != STDOUT_FILENO || !logging_to_stdout))
+					dup2(nullfd, fd);
 			close(nullfd);
 		}
 
@@ -1193,9 +1212,9 @@ void frr_run(struct thread_master *master)
 	/* end fixed stderr startup logging */
 	zlog_startup_end();
 
-	struct thread thread;
-	while (thread_fetch(master, &thread))
-		thread_call(&thread);
+	struct event thread;
+	while (event_fetch(master, &thread))
+		event_call(&thread);
 }
 
 void frr_early_fini(void)
@@ -1207,7 +1226,7 @@ void frr_fini(void)
 {
 	FILE *fp;
 	char filename[128];
-	int have_leftovers;
+	int have_leftovers = 0;
 
 	hook_call(frr_fini);
 
@@ -1226,23 +1245,22 @@ void frr_fini(void)
 	frr_pthread_finish();
 	zprivs_terminate(di->privs);
 	/* signal_init -> nothing needed */
-	thread_master_free(master);
+	event_master_free(master);
 	master = NULL;
 	zlog_tls_buffer_fini();
 	zlog_fini();
 	/* frrmod_init -> nothing needed / hooks */
 	rcu_shutdown();
 
-	if (!debug_memstats_at_exit)
-		return;
-
-	have_leftovers = log_memstats(stderr, di->name);
+	/* also log memstats to stderr when stderr goes to a file*/
+	if (debug_memstats_at_exit || !isatty(STDERR_FILENO))
+		have_leftovers = log_memstats(stderr, di->name);
 
 	/* in case we decide at runtime that we want exit-memstats for
-	 * a daemon, but it has no stderr because it's daemonized
+	 * a daemon
 	 * (only do this if we actually have something to print though)
 	 */
-	if (!have_leftovers)
+	if (!debug_memstats_at_exit || !have_leftovers)
 		return;
 
 	snprintf(filename, sizeof(filename), "/tmp/frr-memstats-%s-%llu-%llu",
@@ -1254,6 +1272,161 @@ void frr_fini(void)
 		log_memstats(fp, di->name);
 		fclose(fp);
 	}
+}
+
+struct json_object *frr_daemon_state_load(void)
+{
+	struct json_object *state;
+	char **state_path;
+
+	assertf(di->state_paths,
+		"CODE BUG: daemon trying to load state, but no state path in frr_daemon_info");
+
+	for (state_path = di->state_paths; *state_path; state_path++) {
+		state = json_object_from_file(*state_path);
+		if (state)
+			return state;
+	}
+
+	return json_object_new_object();
+}
+
+/* cross-reference file_write_config() in command.c
+ * the code there is similar but not identical (configs use a unique temporary
+ * name for writing and keep a backup of the previous config.)
+ */
+void frr_daemon_state_save(struct json_object **statep)
+{
+	struct json_object *state = *statep;
+	char *state_path, *slash, *temp_name, **other;
+	size_t name_len, json_len;
+	const char *json_str;
+	int dirfd, fd;
+
+	assertf(di->state_paths,
+		"CODE BUG: daemon trying to save state, but no state path in frr_daemon_info");
+
+	state_path = di->state_paths[0];
+	json_str = json_object_to_json_string_ext(state,
+						  JSON_C_TO_STRING_PRETTY);
+	json_len = strlen(json_str);
+
+	/* To correctly fsync() and ensure we have either consistent old state
+	 * or consistent new state but no fs-damage garbage inbetween, we need
+	 * to work with a directory fd.  If we need that anyway we might as
+	 * well use the dirfd with openat() & co in fd-relative operations.
+	 */
+
+	slash = strrchr(state_path, '/');
+	if (slash) {
+		char *state_dir;
+
+		state_dir = XSTRDUP(MTYPE_TMP, state_path);
+		state_dir[slash - state_path] = '\0';
+		dirfd = open(state_dir, O_DIRECTORY | O_RDONLY);
+		XFREE(MTYPE_TMP, state_dir);
+
+		if (dirfd < 0) {
+			zlog_err("failed to open directory %pSQq for saving daemon state: %m",
+				 state_dir);
+			return;
+		}
+
+		/* skip to file name */
+		slash++;
+	} else {
+		dirfd = open(".", O_DIRECTORY | O_RDONLY);
+		if (dirfd < 0) {
+			zlog_err(
+				"failed to open current directory for saving daemon state: %m");
+			return;
+		}
+
+		/* file name = path */
+		slash = state_path;
+	}
+
+	/* unlike saving configs, a temporary unique filename is unhelpful
+	 * here as it might litter files on limited write-heavy storage
+	 * (think switch with small NOR flash for frequently written data.)
+	 *
+	 * => always use filename with .sav suffix, worst case it litters one
+	 * file.
+	 */
+	name_len = strlen(slash);
+	temp_name = XMALLOC(MTYPE_TMP, name_len + 5);
+	memcpy(temp_name, slash, name_len);
+	memcpy(temp_name + name_len, ".sav", 5);
+
+	/* state file is always 0600, it's by and for FRR itself only */
+	fd = openat(dirfd, temp_name, O_WRONLY | O_CREAT | O_TRUNC, 0600);
+	if (fd < 0) {
+		zlog_err("failed to open temporary daemon state save file for %pSQq: %m",
+			 state_path);
+		goto out_closedir_free;
+	}
+
+	while (json_len) {
+		ssize_t nwr = write(fd, json_str, json_len);
+
+		if (nwr <= 0) {
+			zlog_err("failed to write temporary daemon state to %pSQq: %m",
+				 state_path);
+
+			close(fd);
+			unlinkat(dirfd, temp_name, 0);
+			goto out_closedir_free;
+		}
+
+		json_str += nwr;
+		json_len -= nwr;
+	}
+
+	/* fsync is theoretically implicit in close(), but... */
+	if (fsync(fd) < 0)
+		zlog_warn("fsync for daemon state %pSQq failed: %m", state_path);
+	close(fd);
+
+	/* this is the *actual* fsync that ensures we're consistent.  The
+	 * file fsync only syncs the inode, but not the directory entry
+	 * referring to it.
+	 */
+	if (fsync(dirfd) < 0)
+		zlog_warn("directory fsync for daemon state %pSQq failed: %m",
+			  state_path);
+
+	/* atomic, hopefully. */
+	if (renameat(dirfd, temp_name, dirfd, slash) < 0) {
+		zlog_err("renaming daemon state %pSQq to %pSQq failed: %m",
+			 temp_name, state_path);
+		/* no unlink here, give the user a chance to investigate */
+		goto out_closedir_free;
+	}
+
+	/* and the rename needs to be synced too */
+	if (fsync(dirfd) < 0)
+		zlog_warn("directory fsync for daemon state %pSQq failed after rename: %m",
+			  state_path);
+
+	/* daemon may specify other deprecated paths to load from; since we
+	 * just saved successfully we should delete those.
+	 */
+	for (other = di->state_paths + 1; *other; other++) {
+		if (unlink(*other) == 0)
+			continue;
+		if (errno == ENOENT || errno == ENOTDIR)
+			continue;
+
+		zlog_warn("failed to remove deprecated daemon state file %pSQq: %m",
+			  *other);
+	}
+
+out_closedir_free:
+	XFREE(MTYPE_TMP, temp_name);
+	close(dirfd);
+
+	json_object_free(state);
+	*statep = NULL;
 }
 
 #ifdef INTERP

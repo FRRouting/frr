@@ -1,21 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* Zebra common header.
  * Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002 Kunihiro Ishiguro
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef _ZEBRA_H
@@ -32,17 +17,9 @@
 #include <stdlib.h>
 #include <stddef.h>
 #include <ctype.h>
-#include <errno.h>
-#include <fcntl.h>
-#include <signal.h>
-#include <string.h>
-#include <pwd.h>
-#include <grp.h>
 #ifdef HAVE_STROPTS_H
 #include <stropts.h>
 #endif /* HAVE_STROPTS_H */
-#include <sys/select.h>
-#include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/param.h>
 #ifdef HAVE_SYS_SYSCTL_H
@@ -52,22 +29,15 @@
 #include <sys/sysctl.h>
 #endif
 #endif /* HAVE_SYS_SYSCTL_H */
-#include <sys/ioctl.h>
 #ifdef HAVE_SYS_CONF_H
 #include <sys/conf.h>
 #endif /* HAVE_SYS_CONF_H */
 #ifdef HAVE_SYS_KSYM_H
 #include <sys/ksym.h>
 #endif /* HAVE_SYS_KSYM_H */
-#include <syslog.h>
 #include <sys/time.h>
 #include <time.h>
-#include <sys/uio.h>
-#include <sys/utsname.h>
-#include <sys/resource.h>
-#include <limits.h>
 #include <inttypes.h>
-#include <stdbool.h>
 #ifdef HAVE_SYS_ENDIAN_H
 #include <sys/endian.h>
 #endif
@@ -75,22 +45,8 @@
 #include <endian.h>
 #endif
 
-/* machine dependent includes */
-#ifdef HAVE_LINUX_VERSION_H
-#include <linux/version.h>
-#endif /* HAVE_LINUX_VERSION_H */
-
-#ifdef HAVE_ASM_TYPES_H
-#include <asm/types.h>
-#endif /* HAVE_ASM_TYPES_H */
-
 /* misc include group */
 #include <stdarg.h>
-
-#ifdef HAVE_LCAPS
-#include <sys/capability.h>
-#include <sys/prctl.h>
-#endif /* HAVE_LCAPS */
 
 /* network include group */
 
@@ -100,10 +56,6 @@
 #include <sys/sockio.h>
 #endif /* HAVE_SYS_SOCKIO_H */
 
-#ifdef __APPLE__
-#define __APPLE_USE_RFC_3542
-#endif
-
 #ifndef HAVE_LIBCRYPT
 #ifdef HAVE_LIBCRYPTO
 #include <openssl/des.h>
@@ -111,15 +63,9 @@
 #endif
 #endif
 
-#ifdef CRYPTO_OPENSSL
-#include <openssl/evp.h>
-#include <openssl/hmac.h>
-#endif
-
 #include "openbsd-tree.h"
 
 #include <netinet/in.h>
-#include <netinet/in_systm.h>
 #include <netinet/ip.h>
 #include <netinet/tcp.h>
 
@@ -137,14 +83,9 @@
 #include <net/if_var.h>
 #endif /* HAVE_NET_IF_VAR_H */
 
-#include <net/route.h>
-
-#ifdef HAVE_NETLINK
-#include <linux/netlink.h>
-#include <linux/rtnetlink.h>
-#include <linux/filter.h>
-#else
+#ifndef HAVE_NETLINK
 #define RT_TABLE_MAIN		0
+#define RT_TABLE_LOCAL		RT_TABLE_MAIN
 #endif /* HAVE_NETLINK */
 
 #include <netdb.h>
@@ -170,36 +111,13 @@
 #include <netinet6/in.h>
 #endif /* HAVE_NETINET6_IN_H */
 
-
 #ifdef HAVE_NETINET6_IP6_H
 #include <netinet6/ip6.h>
 #endif /* HAVE_NETINET6_IP6_H */
 
-#include <netinet/icmp6.h>
-
 #ifdef HAVE_NETINET6_ND6_H
 #include <netinet6/nd6.h>
 #endif /* HAVE_NETINET6_ND6_H */
-
-/* Some systems do not define UINT32_MAX, etc.. from inttypes.h
- * e.g. this makes life easier for FBSD 4.11 users.
- */
-#ifndef INT16_MAX
-#define INT16_MAX	(32767)
-#endif
-#ifndef INT32_MAX
-#define INT32_MAX	(2147483647)
-#endif
-#ifndef UINT16_MAX
-#define UINT16_MAX	(65535U)
-#endif
-#ifndef UINT32_MAX
-#define UINT32_MAX	(4294967295U)
-#endif
-
-#ifdef HAVE_GLIBC_BACKTRACE
-#include <execinfo.h>
-#endif /* HAVE_GLIBC_BACKTRACE */
 
 /* Local includes: */
 #if !defined(__GNUC__)
@@ -232,26 +150,6 @@ size_t strlcpy(char *__restrict dest,
 
 #ifndef HAVE_EXPLICIT_BZERO
 void explicit_bzero(void *buf, size_t len);
-#endif
-
-#if !defined(HAVE_STRUCT_MMSGHDR_MSG_HDR) || !defined(HAVE_SENDMMSG)
-/* avoid conflicts in case we have partial support */
-#define mmsghdr frr_mmsghdr
-#define sendmmsg frr_sendmmsg
-
-struct mmsghdr {
-	struct msghdr msg_hdr;
-	unsigned int msg_len;
-};
-
-/* just go 1 at a time here, the loop this is used in will handle the rest */
-static inline int sendmmsg(int fd, struct mmsghdr *mmh, unsigned int len,
-			   int flags)
-{
-	int rv = sendmsg(fd, &mmh->msg_hdr, 0);
-
-	return rv > 0 ? 1 : rv;
-}
 #endif
 
 /*
@@ -307,10 +205,9 @@ struct in_pktinfo {
  * OpenBSD: network byte order, apart from older versions which are as per
  *          *BSD
  */
-#if defined(__NetBSD__)                                                        \
-	|| (defined(__FreeBSD__) && (__FreeBSD_version < 1100030))             \
-	|| (defined(__OpenBSD__) && (OpenBSD < 200311))                        \
-	|| (defined(__APPLE__))
+#if defined(__NetBSD__) ||                                                     \
+	(defined(__FreeBSD__) && (__FreeBSD_version < 1100030)) ||             \
+	(defined(__OpenBSD__) && (OpenBSD < 200311))
 #define HAVE_IP_HDRINCL_BSD_ORDER
 #endif
 
@@ -324,19 +221,18 @@ struct in_pktinfo {
 #define IN6_ARE_ADDR_EQUAL IN6_IS_ADDR_EQUAL
 #endif /* IN6_ARE_ADDR_EQUAL */
 
-/* default zebra TCP port for zclient */
-#define ZEBRA_PORT			2600
-
-/*
- * The compiler.h header is used for anyone using the CPP_NOTICE
- * since this is universally needed, let's add it to zebra.h
- */
-#include "compiler.h"
-
 /* Zebra route's types are defined in route_types.h */
 #include "lib/route_types.h"
 
 #define strmatch(a,b) (!strcmp((a), (b)))
+
+#if BYTE_ORDER == LITTLE_ENDIAN
+#define htonll(x) (((uint64_t)htonl((x)&0xFFFFFFFF) << 32) | htonl((x) >> 32))
+#define ntohll(x) (((uint64_t)ntohl((x)&0xFFFFFFFF) << 32) | ntohl((x) >> 32))
+#else
+#define htonll(x) (x)
+#define ntohll(x) (x)
+#endif
 
 #ifndef INADDR_LOOPBACK
 #define	INADDR_LOOPBACK	0x7f000001	/* Internet address 127.0.0.1.  */
@@ -374,19 +270,6 @@ typedef enum {
 	for (afi = AFI_IP; afi < AFI_MAX; afi++)                               \
 		for (safi = SAFI_UNICAST; safi <= SAFI_MPLS_VPN; safi++)
 
-/* Default Administrative Distance of each protocol. */
-#define ZEBRA_KERNEL_DISTANCE_DEFAULT      0
-#define ZEBRA_CONNECT_DISTANCE_DEFAULT     0
-#define ZEBRA_STATIC_DISTANCE_DEFAULT      1
-#define ZEBRA_RIP_DISTANCE_DEFAULT       120
-#define ZEBRA_RIPNG_DISTANCE_DEFAULT     120
-#define ZEBRA_OSPF_DISTANCE_DEFAULT      110
-#define ZEBRA_OSPF6_DISTANCE_DEFAULT     110
-#define ZEBRA_ISIS_DISTANCE_DEFAULT      115
-#define ZEBRA_IBGP_DISTANCE_DEFAULT      200
-#define ZEBRA_EBGP_DISTANCE_DEFAULT       20
-#define ZEBRA_TABLE_DISTANCE_DEFAULT      15
-
 /* Flag manipulation macros. */
 #define CHECK_FLAG(V,F)      ((V) & (F))
 #define SET_FLAG(V,F)        (V) |= (F)
@@ -410,9 +293,6 @@ typedef uint32_t vrf_id_t;
 typedef uint32_t route_tag_t;
 #define ROUTE_TAG_MAX UINT32_MAX
 #define ROUTE_TAG_PRI PRIu32
-
-/* Name of hook calls */
-#define ZEBRA_ON_RIB_PROCESS_HOOK_CALL "on_rib_process_dplane_results"
 
 #ifdef __cplusplus
 }

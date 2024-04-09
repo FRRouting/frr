@@ -1,24 +1,11 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Copyright (C) 2016 by Open Source Routing.
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
+#include <sys/ioctl.h>
+#include <sys/uio.h>
 
 #ifdef OPEN_BSD
 
@@ -77,8 +64,8 @@ static int kernel_send_rtmsg_v4(int action, mpls_label_t in_label,
 	sa_label_in.smpls_family = AF_MPLS;
 	sa_label_in.smpls_label = htonl(in_label << MPLS_LABEL_OFFSET);
 	/* adjust header */
-	hdr.rtm_flags |= RTF_MPLS | RTF_MPATH;
-	hdr.rtm_addrs |= RTA_DST;
+	SET_FLAG(hdr.rtm_flags, (RTF_MPLS | RTF_MPATH));
+	SET_FLAG(hdr.rtm_addrs, RTA_DST);
 	hdr.rtm_msglen += sizeof(sa_label_in);
 	/* adjust iovec */
 	iov[iovcnt].iov_base = &sa_label_in;
@@ -90,8 +77,8 @@ static int kernel_send_rtmsg_v4(int action, mpls_label_t in_label,
 	nexthop.sin_family = AF_INET;
 	nexthop.sin_addr = nhlfe->nexthop->gate.ipv4;
 	/* adjust header */
-	hdr.rtm_flags |= RTF_GATEWAY;
-	hdr.rtm_addrs |= RTA_GATEWAY;
+	SET_FLAG(hdr.rtm_flags, RTF_GATEWAY);
+	SET_FLAG(hdr.rtm_addrs, RTA_GATEWAY);
 	hdr.rtm_msglen += sizeof(nexthop);
 	/* adjust iovec */
 	iov[iovcnt].iov_base = &nexthop;
@@ -106,8 +93,8 @@ static int kernel_send_rtmsg_v4(int action, mpls_label_t in_label,
 			htonl(nhlfe->nexthop->nh_label->label[0]
 			      << MPLS_LABEL_OFFSET);
 		/* adjust header */
-		hdr.rtm_addrs |= RTA_SRC;
-		hdr.rtm_flags |= RTF_MPLS;
+		SET_FLAG(hdr.rtm_addrs, RTA_SRC);
+		SET_FLAG(hdr.rtm_flags, RTF_MPLS);
 		hdr.rtm_msglen += sizeof(sa_label_out);
 		/* adjust iovec */
 		iov[iovcnt].iov_base = &sa_label_out;
@@ -172,8 +159,8 @@ static int kernel_send_rtmsg_v6(int action, mpls_label_t in_label,
 	sa_label_in.smpls_family = AF_MPLS;
 	sa_label_in.smpls_label = htonl(in_label << MPLS_LABEL_OFFSET);
 	/* adjust header */
-	hdr.rtm_flags |= RTF_MPLS | RTF_MPATH;
-	hdr.rtm_addrs |= RTA_DST;
+	SET_FLAG(hdr.rtm_flags, (RTF_MPLS | RTF_MPATH));
+	SET_FLAG(hdr.rtm_addrs, RTA_DST);
 	hdr.rtm_msglen += sizeof(sa_label_in);
 	/* adjust iovec */
 	iov[iovcnt].iov_base = &sa_label_in;
@@ -197,8 +184,8 @@ static int kernel_send_rtmsg_v6(int action, mpls_label_t in_label,
 	}
 
 	/* adjust header */
-	hdr.rtm_flags |= RTF_GATEWAY;
-	hdr.rtm_addrs |= RTA_GATEWAY;
+	SET_FLAG(hdr.rtm_flags, RTF_GATEWAY);
+	SET_FLAG(hdr.rtm_addrs, RTA_GATEWAY);
 	hdr.rtm_msglen += ROUNDUP(sizeof(struct sockaddr_in6));
 	/* adjust iovec */
 	iov[iovcnt].iov_base = &nexthop;
@@ -213,8 +200,8 @@ static int kernel_send_rtmsg_v6(int action, mpls_label_t in_label,
 			htonl(nhlfe->nexthop->nh_label->label[0]
 			      << MPLS_LABEL_OFFSET);
 		/* adjust header */
-		hdr.rtm_addrs |= RTA_SRC;
-		hdr.rtm_flags |= RTF_MPLS;
+		SET_FLAG(hdr.rtm_addrs, RTA_SRC);
+		SET_FLAG(hdr.rtm_flags, RTF_MPLS);
 		hdr.rtm_msglen += sizeof(sa_label_out);
 		/* adjust iovec */
 		iov[iovcnt].iov_base = &sa_label_out;
@@ -244,20 +231,18 @@ static int kernel_lsp_cmd(struct zebra_dplane_ctx *ctx)
 	const struct nexthop *nexthop = NULL;
 	unsigned int nexthop_num = 0;
 	int action;
+	enum dplane_op_e op;
 
-	switch (dplane_ctx_get_op(ctx)) {
-	case DPLANE_OP_LSP_DELETE:
+	op = dplane_ctx_get_op(ctx);
+
+	if (op == DPLANE_OP_LSP_DELETE)
 		action = RTM_DELETE;
-		break;
-	case DPLANE_OP_LSP_INSTALL:
+	else if (op == DPLANE_OP_LSP_INSTALL)
 		action = RTM_ADD;
-		break;
-	case DPLANE_OP_LSP_UPDATE:
+	else if (op == DPLANE_OP_LSP_UPDATE)
 		action = RTM_CHANGE;
-		break;
-	default:
+	else
 		return -1;
-	}
 
 	head = dplane_ctx_get_nhlfe_list(ctx);
 	frr_each(nhlfe_list_const, head, nhlfe) {
@@ -339,8 +324,8 @@ static enum zebra_dplane_result kmpw_install(struct zebra_dplane_ctx *ctx)
 		return ZEBRA_DPLANE_REQUEST_FAILURE;
 	}
 
-	if (dplane_ctx_get_pw_flags(ctx) & F_PSEUDOWIRE_CWORD)
-		imr.imr_flags |= IMR_FLAG_CONTROLWORD;
+	if (CHECK_FLAG(dplane_ctx_get_pw_flags(ctx), F_PSEUDOWIRE_CWORD))
+		SET_FLAG(imr.imr_flags, IMR_FLAG_CONTROLWORD);
 
 	/* pseudowire nexthop */
 	memset(&ss, 0, sizeof(ss));
@@ -407,17 +392,14 @@ static enum zebra_dplane_result kmpw_uninstall(struct zebra_dplane_ctx *ctx)
 enum zebra_dplane_result kernel_pw_update(struct zebra_dplane_ctx *ctx)
 {
 	enum zebra_dplane_result result = ZEBRA_DPLANE_REQUEST_FAILURE;
+	enum dplane_op_e op;
 
-	switch (dplane_ctx_get_op(ctx)) {
-	case DPLANE_OP_PW_INSTALL:
+	op = dplane_ctx_get_op(ctx);
+
+	if (op == DPLANE_OP_PW_INSTALL)
 		result = kmpw_install(ctx);
-		break;
-	case DPLANE_OP_PW_UNINSTALL:
+	else if (op == DPLANE_OP_PW_UNINSTALL)
 		result = kmpw_uninstall(ctx);
-		break;
-	default:
-		break;
-	}
 
 	return result;
 }

@@ -1,27 +1,16 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Logging of zebra
  * Copyright (C) 1997, 1998, 1999 Kunihiro Ishiguro
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #define FRR_DEFINE_DESC_TABLE
 
 #include <zebra.h>
+
+#ifdef HAVE_GLIBC_BACKTRACE
+#include <execinfo.h>
+#endif /* HAVE_GLIBC_BACKTRACE */
 
 #include "zclient.h"
 #include "log.h"
@@ -155,7 +144,7 @@ void zlog_signal(int signo, const char *action, void *siginfo_v,
 
 	fb.pos = buf;
 
-	struct thread *tc;
+	struct event *tc;
 	tc = pthread_getspecific(thread_current);
 
 	if (!tc)
@@ -299,7 +288,7 @@ void zlog_backtrace(int priority)
 
 void zlog_thread_info(int log_level)
 {
-	struct thread *tc;
+	struct event *tc;
 	tc = pthread_getspecific(thread_current);
 
 	if (tc)
@@ -366,7 +355,6 @@ static const struct zebra_desc_table command_types[] = {
 	DESC_ENTRY(ZEBRA_VRF_ADD),
 	DESC_ENTRY(ZEBRA_VRF_DELETE),
 	DESC_ENTRY(ZEBRA_VRF_LABEL),
-	DESC_ENTRY(ZEBRA_INTERFACE_VRF_UPDATE),
 	DESC_ENTRY(ZEBRA_BFD_CLIENT_REGISTER),
 	DESC_ENTRY(ZEBRA_BFD_CLIENT_DEREGISTER),
 	DESC_ENTRY(ZEBRA_INTERFACE_ENABLE_RADV),
@@ -456,11 +444,11 @@ static const struct zebra_desc_table command_types[] = {
 	DESC_ENTRY(ZEBRA_NEIGH_DISCOVER),
 	DESC_ENTRY(ZEBRA_ROUTE_NOTIFY_REQUEST),
 	DESC_ENTRY(ZEBRA_CLIENT_CLOSE_NOTIFY),
-	DESC_ENTRY(ZEBRA_NHRP_NEIGH_ADDED),
-	DESC_ENTRY(ZEBRA_NHRP_NEIGH_REMOVED),
-	DESC_ENTRY(ZEBRA_NHRP_NEIGH_GET),
-	DESC_ENTRY(ZEBRA_NHRP_NEIGH_REGISTER),
-	DESC_ENTRY(ZEBRA_NHRP_NEIGH_UNREGISTER),
+	DESC_ENTRY(ZEBRA_NEIGH_ADDED),
+	DESC_ENTRY(ZEBRA_NEIGH_REMOVED),
+	DESC_ENTRY(ZEBRA_NEIGH_GET),
+	DESC_ENTRY(ZEBRA_NEIGH_REGISTER),
+	DESC_ENTRY(ZEBRA_NEIGH_UNREGISTER),
 	DESC_ENTRY(ZEBRA_NEIGH_IP_ADD),
 	DESC_ENTRY(ZEBRA_NEIGH_IP_DEL),
 	DESC_ENTRY(ZEBRA_CONFIGURE_ARP),
@@ -472,7 +460,9 @@ static const struct zebra_desc_table command_types[] = {
 	DESC_ENTRY(ZEBRA_TC_CLASS_ADD),
 	DESC_ENTRY(ZEBRA_TC_CLASS_DELETE),
 	DESC_ENTRY(ZEBRA_TC_FILTER_ADD),
-	DESC_ENTRY(ZEBRA_TC_FILTER_DELETE)};
+	DESC_ENTRY(ZEBRA_TC_FILTER_DELETE),
+	DESC_ENTRY(ZEBRA_OPAQUE_NOTIFY)
+};
 #undef DESC_ENTRY
 
 static const struct zebra_desc_table unknown = {0, "unknown", '?'};
@@ -521,6 +511,26 @@ const char *zserv_command_string(unsigned int command)
 	return command_types[command].string;
 }
 
+#define DESC_ENTRY(T) [(T)] = {(T), (#T), '\0'}
+static const struct zebra_desc_table gr_client_cap_types[] = {
+	DESC_ENTRY(ZEBRA_CLIENT_GR_CAPABILITIES),
+	DESC_ENTRY(ZEBRA_CLIENT_ROUTE_UPDATE_COMPLETE),
+	DESC_ENTRY(ZEBRA_CLIENT_ROUTE_UPDATE_PENDING),
+	DESC_ENTRY(ZEBRA_CLIENT_GR_DISABLE),
+	DESC_ENTRY(ZEBRA_CLIENT_RIB_STALE_TIME),
+};
+#undef DESC_ENTRY
+
+const char *zserv_gr_client_cap_string(uint32_t zcc)
+{
+	if (zcc >= array_size(gr_client_cap_types)) {
+		flog_err(EC_LIB_DEVELOPMENT, "unknown zserv command type: %u",
+			 zcc);
+		return unknown.string;
+	}
+	return gr_client_cap_types[zcc].string;
+}
+
 int proto_name2num(const char *s)
 {
 	unsigned i;
@@ -541,6 +551,8 @@ int proto_redistnum(int afi, const char *s)
 			return ZEBRA_ROUTE_KERNEL;
 		else if (strmatch(s, "connected"))
 			return ZEBRA_ROUTE_CONNECT;
+		else if (strmatch(s, "local"))
+			return ZEBRA_ROUTE_LOCAL;
 		else if (strmatch(s, "static"))
 			return ZEBRA_ROUTE_STATIC;
 		else if (strmatch(s, "rip"))
@@ -567,12 +579,16 @@ int proto_redistnum(int afi, const char *s)
 			return ZEBRA_ROUTE_SHARP;
 		else if (strmatch(s, "openfabric"))
 			return ZEBRA_ROUTE_OPENFABRIC;
+		else if (strmatch(s, "table-direct"))
+			return ZEBRA_ROUTE_TABLE_DIRECT;
 	}
 	if (afi == AFI_IP6) {
 		if (strmatch(s, "kernel"))
 			return ZEBRA_ROUTE_KERNEL;
 		else if (strmatch(s, "connected"))
 			return ZEBRA_ROUTE_CONNECT;
+		else if (strmatch(s, "local"))
+			return ZEBRA_ROUTE_LOCAL;
 		else if (strmatch(s, "static"))
 			return ZEBRA_ROUTE_STATIC;
 		else if (strmatch(s, "ripng"))
@@ -597,6 +613,8 @@ int proto_redistnum(int afi, const char *s)
 			return ZEBRA_ROUTE_SHARP;
 		else if (strmatch(s, "openfabric"))
 			return ZEBRA_ROUTE_OPENFABRIC;
+		else if (strmatch(s, "table-direct"))
+			return ZEBRA_ROUTE_TABLE_DIRECT;
 	}
 	return -1;
 }

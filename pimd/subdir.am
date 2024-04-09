@@ -43,7 +43,6 @@ pim_common = \
 	pimd/pim_ssm.c \
 	pimd/pim_ssmpingd.c \
 	pimd/pim_static.c \
-	pimd/pim_str.c \
 	pimd/pim_tib.c \
 	pimd/pim_time.c \
 	pimd/pim_tlv.c \
@@ -169,6 +168,7 @@ pimd_pim6d_CFLAGS = $(AM_CFLAGS) -DPIM_IPV=6
 pimd_pim6d_LDADD = lib/libfrr.la $(LIBCAP)
 endif
 
+pimd_test_igmpv3_join_CFLAGS = $(AM_CFLAGS) -DPIM_IPV=4
 pimd_test_igmpv3_join_LDADD = lib/libfrr.la
 pimd_test_igmpv3_join_SOURCES = pimd/test_igmpv3_join.c
 

@@ -1,22 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * RIPng related value and structure.
  * Copyright (C) 1998 Kunihiro Ishiguro
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef _ZEBRA_RIPNG_RIPNGD_H
@@ -31,7 +16,6 @@
 /* RIPng version and port number. */
 #define RIPNG_V1                         1
 #define RIPNG_PORT_DEFAULT             521
-#define RIPNG_VTY_PORT                2603
 #define RIPNG_MAX_PACKET_SIZE         1500
 #define RIPNG_PRIORITY_DEFAULT           0
 
@@ -136,16 +120,16 @@ struct ripng {
 	struct list *offset_list_master;
 
 	/* RIPng threads. */
-	struct thread *t_read;
-	struct thread *t_update;
+	struct event *t_read;
+	struct event *t_update;
 
 	/* Triggered update hack. */
 	int trigger;
-	struct thread *t_triggered_update;
-	struct thread *t_triggered_interval;
+	struct event *t_triggered_update;
+	struct event *t_triggered_interval;
 
 	/* RIPng ECMP flag */
-	bool ecmp;
+	uint8_t ecmp;
 
 	/* RIPng redistribute configuration. */
 	struct {
@@ -215,8 +199,8 @@ struct ripng_info {
 	uint8_t flags;
 
 	/* Garbage collect timer. */
-	struct thread *t_timeout;
-	struct thread *t_garbage_collect;
+	struct event *t_timeout;
+	struct event *t_garbage_collect;
 
 	/* Route-map features - this variables can be changed. */
 	struct in6_addr nexthop_out;
@@ -269,7 +253,7 @@ struct ripng_interface {
 	uint8_t default_only;
 
 	/* Wake up thread. */
-	struct thread *t_wakeup;
+	struct event *t_wakeup;
 
 	/* Passive interface. */
 	int passive;
@@ -297,7 +281,7 @@ struct ripng_peer {
 	int recv_badroutes;
 
 	/* Timeout thread. */
-	struct thread *t_timeout;
+	struct event *t_timeout;
 };
 
 /* All RIPng events. */
@@ -310,7 +294,7 @@ enum ripng_event {
 };
 
 /* RIPng timer on/off macro. */
-#define RIPNG_TIMER_ON(T,F,V) thread_add_timer (master, (F), rinfo, (V), &(T))
+#define RIPNG_TIMER_ON(T, F, V) event_add_timer(master, (F), rinfo, (V), &(T))
 
 #define RIPNG_OFFSET_LIST_IN  0
 #define RIPNG_OFFSET_LIST_OUT 1
@@ -331,7 +315,7 @@ struct ripng_offset_list {
 
 /* Extern variables. */
 extern struct zebra_privs_t ripngd_privs;
-extern struct thread_master *master;
+extern struct event_loop *master;
 extern struct ripng_instance_head ripng_instances;
 
 /* Prototypes. */
@@ -353,7 +337,7 @@ extern void ripng_zebra_vrf_register(struct vrf *vrf);
 extern void ripng_zebra_vrf_deregister(struct vrf *vrf);
 extern void ripng_terminate(void);
 /* zclient_init() is done by ripng_zebra.c:zebra_init() */
-extern void zebra_init(struct thread_master *);
+extern void zebra_init(struct event_loop *master);
 extern void ripng_zebra_stop(void);
 extern void ripng_redistribute_conf_update(struct ripng *ripng, int type);
 extern void ripng_redistribute_conf_delete(struct ripng *ripng, int type);
@@ -428,7 +412,6 @@ extern int ripng_interface_add(ZAPI_CALLBACK_ARGS);
 extern int ripng_interface_delete(ZAPI_CALLBACK_ARGS);
 extern int ripng_interface_address_add(ZAPI_CALLBACK_ARGS);
 extern int ripng_interface_address_delete(ZAPI_CALLBACK_ARGS);
-extern int ripng_interface_vrf_update(ZAPI_CALLBACK_ARGS);
 extern void ripng_interface_sync(struct interface *ifp);
 
 extern struct ripng *ripng_lookup_by_vrf_id(vrf_id_t vrf_id);
@@ -444,9 +427,11 @@ extern struct ripng_info *ripng_ecmp_replace(struct ripng *ripng,
 					     struct ripng_info *rinfo);
 extern struct ripng_info *ripng_ecmp_delete(struct ripng *ripng,
 					    struct ripng_info *rinfo);
+extern void ripng_ecmp_change(struct ripng *ripng);
 
 extern void ripng_vrf_init(void);
 extern void ripng_vrf_terminate(void);
-extern void ripng_cli_init(void);
+
+extern uint32_t zebra_ecmp_count;
 
 #endif /* _ZEBRA_RIPNG_RIPNGD_H */

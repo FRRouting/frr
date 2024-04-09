@@ -1,23 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* Zebra Router Code.
  * Copyright (C) 2018 Cumulus Networks, Inc.
  *                    Donald Sharp
- *
- * This file is part of FRR.
- *
- * FRR is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * FRR is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with FRR; see the file COPYING.  If not, write to the Free
- * Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
- * 02111-1307, USA.
  */
 #include "zebra.h"
 
@@ -82,6 +66,26 @@ struct zebra_router_table *zebra_router_find_zrt(struct zebra_vrf *zvrf,
 	finder.tableid = tableid;
 	finder.ns_id = zvrf->zns->ns_id;
 	zrt = RB_FIND(zebra_router_table_head, &zrouter.tables, &finder);
+
+	return zrt;
+}
+
+struct zebra_router_table *zebra_router_find_next_zrt(struct zebra_vrf *zvrf,
+						      uint32_t tableid,
+						      afi_t afi, safi_t safi)
+{
+	struct zebra_router_table finder;
+	struct zebra_router_table *zrt;
+
+	memset(&finder, 0, sizeof(finder));
+	finder.afi = afi;
+	finder.safi = safi;
+	finder.tableid = tableid;
+	finder.ns_id = zvrf->zns->ns_id;
+	zrt = RB_NFIND(zebra_router_table_head, &zrouter.tables, &finder);
+	if (zrt->afi == afi && zrt->safi == safi && zrt->tableid == tableid &&
+	    zrt->ns_id == finder.ns_id)
+		zrt = RB_NEXT(zebra_router_table_head, zrt);
 
 	return zrt;
 }
@@ -234,7 +238,7 @@ void zebra_router_terminate(void)
 {
 	struct zebra_router_table *zrt, *tmp;
 
-	THREAD_OFF(zrouter.sweeper);
+	EVENT_OFF(zrouter.sweeper);
 
 	RB_FOREACH_SAFE (zrt, zebra_router_table_head, &zrouter.tables, tmp)
 		zebra_router_free_table(zrt);
@@ -248,25 +252,24 @@ void zebra_router_terminate(void)
 
 	/* Free NHE in ID table only since it has unhashable entries as well */
 	hash_iterate(zrouter.nhgs_id, zebra_nhg_hash_free_zero_id, NULL);
-	hash_clean(zrouter.nhgs_id, zebra_nhg_hash_free);
-	hash_free(zrouter.nhgs_id);
-	hash_clean(zrouter.nhgs, NULL);
-	hash_free(zrouter.nhgs);
+	hash_clean_and_free(&zrouter.nhgs_id, zebra_nhg_hash_free);
+	hash_clean_and_free(&zrouter.nhgs, NULL);
 
-	hash_clean(zrouter.rules_hash, zebra_pbr_rules_free);
-	hash_free(zrouter.rules_hash);
+	hash_clean_and_free(&zrouter.rules_hash, zebra_pbr_rules_free);
 
-	hash_clean(zrouter.ipset_entry_hash, zebra_pbr_ipset_entry_free),
-		hash_clean(zrouter.ipset_hash, zebra_pbr_ipset_free);
-	hash_free(zrouter.ipset_hash);
-	hash_free(zrouter.ipset_entry_hash);
-	hash_clean(zrouter.iptable_hash, zebra_pbr_iptable_free);
-	hash_free(zrouter.iptable_hash);
+	hash_clean_and_free(&zrouter.ipset_entry_hash,
+			    zebra_pbr_ipset_entry_free);
+	hash_clean_and_free(&zrouter.ipset_hash, zebra_pbr_ipset_free);
+	hash_clean_and_free(&zrouter.iptable_hash, zebra_pbr_iptable_free);
+	hash_clean_and_free(&zrouter.filter_hash, (void (*)(void *)) zebra_tc_filter_free);
+	hash_clean_and_free(&zrouter.qdisc_hash, (void (*)(void *)) zebra_tc_qdisc_free);
+	hash_clean_and_free(&zrouter.class_hash, (void (*)(void *)) zebra_tc_class_free);
 
 #ifdef HAVE_SCRIPTING
 	zebra_script_destroy();
 #endif
 
+	zebra_vxlan_terminate();
 	/* OS-specific deinit */
 	kernel_router_terminate();
 }
@@ -276,9 +279,12 @@ bool zebra_router_notify_on_ack(void)
 	return !zrouter.asic_offloaded || zrouter.notify_on_ack;
 }
 
-void zebra_router_init(bool asic_offload, bool notify_on_ack)
+void zebra_router_init(bool asic_offload, bool notify_on_ack,
+		       bool v6_with_v4_nexthop)
 {
 	zrouter.sequence_num = 0;
+
+	zrouter.protodown_r_bit = FRR_PROTODOWN_REASON_DEFAULT_BIT;
 
 	zrouter.allow_delete = false;
 
@@ -313,10 +319,6 @@ void zebra_router_init(bool asic_offload, bool notify_on_ack)
 		hash_create_size(8, zebra_nhg_id_key, zebra_nhg_hash_id_equal,
 				 "Zebra Router Nexthop Groups ID index");
 
-	zrouter.rules_hash =
-		hash_create_size(8, zebra_pbr_rules_hash_key,
-				 zebra_pbr_rules_hash_equal, "Rules Hash");
-
 	zrouter.qdisc_hash =
 		hash_create_size(8, zebra_tc_qdisc_hash_key,
 				 zebra_tc_qdisc_hash_equal, "TC (qdisc) Hash");
@@ -329,7 +331,7 @@ void zebra_router_init(bool asic_offload, bool notify_on_ack)
 
 	zrouter.asic_offloaded = asic_offload;
 	zrouter.notify_on_ack = notify_on_ack;
-
+	zrouter.v6_with_v4_nexthop = v6_with_v4_nexthop;
 	/*
 	 * If you start using asic_notification_nexthop_control
 	 * come talk to the FRR community about what you are doing
@@ -340,6 +342,8 @@ void zebra_router_init(bool asic_offload, bool notify_on_ack)
 		"Remove zrouter.asic_notification_nexthop_control as that it's not being maintained or used");
 #endif
 	zrouter.asic_notification_nexthop_control = false;
+
+	zrouter.nexthop_weight_scale_value = 255;
 
 #ifdef HAVE_SCRIPTING
 	zebra_script_init();

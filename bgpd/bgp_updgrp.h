@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /**
  * bgp_updgrp.c: BGP update group structures
  *
@@ -6,22 +7,6 @@
  * @author Avneesh Sachdev <avneesh@sproute.net>
  * @author Rajesh Varadarajan <rajesh@sproute.net>
  * @author Pradosh Mohapatra <pradosh@sproute.net>
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef _QUAGGA_BGP_UPDGRP_H
@@ -55,24 +40,22 @@
 	(PEER_FLAG_LOCAL_AS_NO_PREPEND | PEER_FLAG_LOCAL_AS_REPLACE_AS)
 
 #define PEER_UPDGRP_AF_FLAGS                                                   \
-	(PEER_FLAG_SEND_COMMUNITY | PEER_FLAG_SEND_EXT_COMMUNITY               \
-	 | PEER_FLAG_SEND_LARGE_COMMUNITY                                      \
-	 | PEER_FLAG_DEFAULT_ORIGINATE | PEER_FLAG_REFLECTOR_CLIENT            \
-	 | PEER_FLAG_RSERVER_CLIENT | PEER_FLAG_NEXTHOP_SELF                   \
-	 | PEER_FLAG_NEXTHOP_UNCHANGED | PEER_FLAG_FORCE_NEXTHOP_SELF          \
-	 | PEER_FLAG_AS_PATH_UNCHANGED | PEER_FLAG_MED_UNCHANGED               \
-	 | PEER_FLAG_NEXTHOP_LOCAL_UNCHANGED | PEER_FLAG_REMOVE_PRIVATE_AS     \
-	 | PEER_FLAG_REMOVE_PRIVATE_AS_ALL                                     \
-	 | PEER_FLAG_REMOVE_PRIVATE_AS_REPLACE                                 \
-	 | PEER_FLAG_REMOVE_PRIVATE_AS_ALL_REPLACE                             \
-	 | PEER_FLAG_AS_OVERRIDE)
+	(PEER_FLAG_SEND_COMMUNITY | PEER_FLAG_SEND_EXT_COMMUNITY |             \
+	 PEER_FLAG_SEND_EXT_COMMUNITY_RPKI | PEER_FLAG_SEND_LARGE_COMMUNITY |  \
+	 PEER_FLAG_DEFAULT_ORIGINATE | PEER_FLAG_REFLECTOR_CLIENT |            \
+	 PEER_FLAG_RSERVER_CLIENT | PEER_FLAG_NEXTHOP_SELF |                   \
+	 PEER_FLAG_NEXTHOP_UNCHANGED | PEER_FLAG_FORCE_NEXTHOP_SELF |          \
+	 PEER_FLAG_AS_PATH_UNCHANGED | PEER_FLAG_MED_UNCHANGED |               \
+	 PEER_FLAG_NEXTHOP_LOCAL_UNCHANGED | PEER_FLAG_REMOVE_PRIVATE_AS |     \
+	 PEER_FLAG_REMOVE_PRIVATE_AS_ALL |                                     \
+	 PEER_FLAG_REMOVE_PRIVATE_AS_REPLACE |                                 \
+	 PEER_FLAG_REMOVE_PRIVATE_AS_ALL_REPLACE | PEER_FLAG_AS_OVERRIDE)
 
 #define PEER_UPDGRP_CAP_FLAGS (PEER_CAP_AS4_RCV)
 
 #define PEER_UPDGRP_AF_CAP_FLAGS                                               \
-	(PEER_CAP_ORF_PREFIX_SM_RCV | PEER_CAP_ORF_PREFIX_SM_OLD_RCV           \
-	 | PEER_CAP_ADDPATH_AF_TX_ADV | PEER_CAP_ADDPATH_AF_RX_RCV             \
-	 | PEER_CAP_ENHE_AF_NEGO)
+	(PEER_CAP_ORF_PREFIX_SM_RCV | PEER_CAP_ADDPATH_AF_TX_ADV |             \
+	 PEER_CAP_ADDPATH_AF_RX_RCV | PEER_CAP_ENHE_AF_NEGO)
 
 enum bpacket_attr_vec_type { BGP_ATTR_VEC_NH = 0, BGP_ATTR_VEC_MAX };
 
@@ -212,10 +195,10 @@ struct update_subgroup {
 	/* announcement attribute hash */
 	struct hash *hash;
 
-	struct thread *t_coalesce;
+	struct event *t_coalesce;
 	uint32_t v_coalesce;
 
-	struct thread *t_merge_check;
+	struct event *t_merge_check;
 
 	/* table version that the subgroup has caught up to. */
 	uint64_t version;
@@ -386,9 +369,8 @@ extern void update_group_policy_update(struct bgp *bgp,
 extern void update_group_af_walk(struct bgp *bgp, afi_t afi, safi_t safi,
 				 updgrp_walkcb cb, void *ctx);
 extern void update_group_walk(struct bgp *bgp, updgrp_walkcb cb, void *ctx);
-extern void update_group_periodic_merge(struct bgp *bgp);
 extern void
-update_group_refresh_default_originate_route_map(struct thread *thread);
+update_group_refresh_default_originate_route_map(struct event *thread);
 extern void update_group_start_advtimer(struct bgp *bgp);
 
 extern void update_subgroup_inherit_info(struct update_subgroup *to,
@@ -444,7 +426,7 @@ extern void subgroup_announce_route(struct update_subgroup *subgrp);
 extern void subgroup_announce_all(struct update_subgroup *subgrp);
 
 extern void subgroup_default_originate(struct update_subgroup *subgrp,
-				       int withdraw);
+				       bool withdraw);
 extern void group_announce_route(struct bgp *bgp, afi_t afi, safi_t safi,
 				 struct bgp_dest *dest,
 				 struct bgp_path_info *pi);
@@ -458,7 +440,7 @@ extern struct bgp_adj_out *bgp_adj_out_alloc(struct update_subgroup *subgrp,
 extern void bgp_adj_out_remove_subgroup(struct bgp_dest *dest,
 					struct bgp_adj_out *adj,
 					struct update_subgroup *subgrp);
-extern void bgp_adj_out_set_subgroup(struct bgp_dest *dest,
+extern bool bgp_adj_out_set_subgroup(struct bgp_dest *dest,
 				     struct update_subgroup *subgrp,
 				     struct attr *attr,
 				     struct bgp_path_info *path);
@@ -600,11 +582,9 @@ static inline void bgp_announce_peer(struct peer *peer)
  */
 static inline int advertise_list_is_empty(struct update_subgroup *subgrp)
 {
-	if (bgp_adv_fifo_count(&subgrp->sync->update)
-	    || bgp_adv_fifo_count(&subgrp->sync->withdraw)
-	    || bgp_adv_fifo_count(&subgrp->sync->withdraw_low)) {
+	if (bgp_adv_fifo_count(&subgrp->sync->update) ||
+	    bgp_adv_fifo_count(&subgrp->sync->withdraw))
 		return 0;
-	}
 
 	return 1;
 }

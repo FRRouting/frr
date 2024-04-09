@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Link State Database - link_state.c
  *
@@ -6,20 +7,6 @@
  * Copyright (C) 2020 Orange http://www.orange.com
  *
  * This file is part of Free Range Routing (FRR).
- *
- * FRR is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * FRR is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -39,6 +26,7 @@
 #include "printfrr.h"
 #include <lib/json.h>
 #include "link_state.h"
+#include "iso.h"
 
 /* Link State Memory allocation */
 DEFINE_MTYPE_STATIC(LIB, LS_DB, "Link State Database");
@@ -192,6 +180,8 @@ struct ls_attributes *ls_attributes_new(struct ls_node_id adv,
 		return NULL;
 	}
 
+	admin_group_init(&new->ext_admin_group);
+
 	return new;
 }
 
@@ -214,6 +204,8 @@ void ls_attributes_del(struct ls_attributes *attr)
 		return;
 
 	ls_attributes_srlg_del(attr);
+
+	admin_group_term(&attr->ext_admin_group);
 
 	XFREE(MTYPE_LS_DB, attr);
 }
@@ -245,6 +237,9 @@ int ls_attributes_same(struct ls_attributes *l1, struct ls_attributes *l2)
 		return 0;
 	if (CHECK_FLAG(l1->flags, LS_ATTR_ADM_GRP)
 	    && (l1->standard.admin_group != l2->standard.admin_group))
+		return 0;
+	if (CHECK_FLAG(l1->flags, LS_ATTR_EXT_ADM_GRP) &&
+	    !admin_group_cmp(&l1->ext_admin_group, &l2->ext_admin_group))
 		return 0;
 	if (CHECK_FLAG(l1->flags, LS_ATTR_LOCAL_ADDR)
 	    && !IPV4_ADDR_SAME(&l1->standard.local, &l2->standard.local))
@@ -339,7 +334,7 @@ int ls_attributes_same(struct ls_attributes *l1, struct ls_attributes *l2)
 /**
  *  Link State prefix management functions
  */
-struct ls_prefix *ls_prefix_new(struct ls_node_id adv, struct prefix p)
+struct ls_prefix *ls_prefix_new(struct ls_node_id adv, struct prefix *p)
 {
 	struct ls_prefix *new;
 
@@ -348,7 +343,7 @@ struct ls_prefix *ls_prefix_new(struct ls_node_id adv, struct prefix p)
 
 	new = XCALLOC(MTYPE_LS_DB, sizeof(struct ls_prefix));
 	new->adv = adv;
-	new->pref = p;
+	new->pref = *p;
 
 	return new;
 }
@@ -443,7 +438,7 @@ struct ls_vertex *ls_vertex_add(struct ls_ted *ted, struct ls_node *node)
 	case ISIS_L2:
 		key = sysid_to_key(node->adv.id.iso.sys_id);
 		break;
-	default:
+	case UNKNOWN:
 		key = 0;
 		break;
 	}
@@ -502,7 +497,6 @@ void ls_vertex_del(struct ls_ted *ted, struct ls_vertex *vertex)
 	/* Then remove Vertex from Link State Data Base and free memory */
 	vertices_del(&ted->vertices, vertex);
 	XFREE(MTYPE_LS_DB, vertex);
-	vertex = NULL;
 }
 
 void ls_vertex_del_all(struct ls_ted *ted, struct ls_vertex *vertex)
@@ -529,7 +523,9 @@ struct ls_vertex *ls_vertex_update(struct ls_ted *ted, struct ls_node *node)
 		if (!ls_node_same(old->node, node)) {
 			ls_node_del(old->node);
 			old->node = node;
-		}
+		} else
+			ls_node_del(node);
+
 		old->status = UPDATE;
 		return old;
 	}
@@ -565,7 +561,7 @@ struct ls_vertex *ls_find_vertex_by_id(struct ls_ted *ted,
 	case ISIS_L2:
 		vertex.key = sysid_to_key(nid.id.iso.sys_id);
 		break;
-	default:
+	case UNKNOWN:
 		return NULL;
 	}
 
@@ -679,9 +675,9 @@ static void ls_edge_connect_to(struct ls_ted *ted, struct ls_edge *edge)
 	}
 }
 
-static uint64_t get_edge_key(struct ls_attributes *attr, bool dst)
+static struct ls_edge_key get_edge_key(struct ls_attributes *attr, bool dst)
 {
-	uint64_t key = 0;
+	struct ls_edge_key key = {.family = AF_UNSPEC};
 	struct ls_standard *std;
 
 	if (!attr)
@@ -690,30 +686,37 @@ static uint64_t get_edge_key(struct ls_attributes *attr, bool dst)
 	std = &attr->standard;
 
 	if (dst) {
-		/* Key is the IPv4 remote address */
-		if (CHECK_FLAG(attr->flags, LS_ATTR_NEIGH_ADDR))
-			key = ((uint64_t)ntohl(std->remote.s_addr))
-			      & 0xffffffff;
-		/* or the 64 bits LSB of IPv6 remote address */
-		else if (CHECK_FLAG(attr->flags, LS_ATTR_NEIGH_ADDR6))
-			key = ((uint64_t)ntohl(std->remote6.s6_addr32[2]) << 32
-			       | (uint64_t)ntohl(std->remote6.s6_addr32[3]));
-		/* of remote identifier if no IP addresses are defined */
-		else if (CHECK_FLAG(attr->flags, LS_ATTR_NEIGH_ID))
-			key = (((uint64_t)std->remote_id) & 0xffffffff)
-			      | ((uint64_t)std->local_id << 32);
+		if (CHECK_FLAG(attr->flags, LS_ATTR_NEIGH_ADDR)) {
+			/* Key is the IPv4 remote address */
+			key.family = AF_INET;
+			IPV4_ADDR_COPY(&key.k.addr, &std->remote);
+		} else if (CHECK_FLAG(attr->flags, LS_ATTR_NEIGH_ADDR6)) {
+			/* or the IPv6 remote address */
+			key.family = AF_INET6;
+			IPV6_ADDR_COPY(&key.k.addr6, &std->remote6);
+		} else if (CHECK_FLAG(attr->flags, LS_ATTR_NEIGH_ID)) {
+			/* or Remote identifier if IP addr. are not defined */
+			key.family = AF_LOCAL;
+			key.k.link_id =
+				(((uint64_t)std->remote_id) & 0xffffffff) |
+				((uint64_t)std->local_id << 32);
+		}
 	} else {
-		/* Key is the IPv4 local address */
-		if (CHECK_FLAG(attr->flags, LS_ATTR_LOCAL_ADDR))
-			key = ((uint64_t)ntohl(std->local.s_addr)) & 0xffffffff;
-		/* or the 64 bits LSB of IPv6 local address */
-		else if (CHECK_FLAG(attr->flags, LS_ATTR_LOCAL_ADDR6))
-			key = ((uint64_t)ntohl(std->local6.s6_addr32[2]) << 32
-			       | (uint64_t)ntohl(std->local6.s6_addr32[3]));
-		/* of local identifier if no IP addresses are defined */
-		else if (CHECK_FLAG(attr->flags, LS_ATTR_LOCAL_ID))
-			key = (((uint64_t)std->local_id) & 0xffffffff)
-			      | ((uint64_t)std->remote_id << 32);
+		if (CHECK_FLAG(attr->flags, LS_ATTR_LOCAL_ADDR)) {
+			/* Key is the IPv4 local address */
+			key.family = AF_INET;
+			IPV4_ADDR_COPY(&key.k.addr, &std->local);
+		} else if (CHECK_FLAG(attr->flags, LS_ATTR_LOCAL_ADDR6)) {
+			/* or the 64 bits LSB of IPv6 local address */
+			key.family = AF_INET6;
+			IPV6_ADDR_COPY(&key.k.addr6, &std->local6);
+		} else if (CHECK_FLAG(attr->flags, LS_ATTR_LOCAL_ID)) {
+			/* or Remote identifier if IP addr. are not defined */
+			key.family = AF_LOCAL;
+			key.k.link_id =
+				(((uint64_t)std->local_id) & 0xffffffff) |
+				((uint64_t)std->remote_id << 32);
+		}
 	}
 
 	return key;
@@ -723,13 +726,13 @@ struct ls_edge *ls_edge_add(struct ls_ted *ted,
 			    struct ls_attributes *attributes)
 {
 	struct ls_edge *new;
-	uint64_t key = 0;
+	struct ls_edge_key key;
 
 	if (attributes == NULL)
 		return NULL;
 
 	key = get_edge_key(attributes, false);
-	if (key == 0)
+	if (key.family == AF_UNSPEC)
 		return NULL;
 
 	/* Create Edge and add it to the TED */
@@ -747,11 +750,12 @@ struct ls_edge *ls_edge_add(struct ls_ted *ted,
 	return new;
 }
 
-struct ls_edge *ls_find_edge_by_key(struct ls_ted *ted, const uint64_t key)
+struct ls_edge *ls_find_edge_by_key(struct ls_ted *ted,
+				    const struct ls_edge_key key)
 {
 	struct ls_edge edge = {};
 
-	if (key == 0)
+	if (key.family == AF_UNSPEC)
 		return NULL;
 
 	edge.key = key;
@@ -767,7 +771,7 @@ struct ls_edge *ls_find_edge_by_source(struct ls_ted *ted,
 		return NULL;
 
 	edge.key = get_edge_key(attributes, false);
-	if (edge.key == 0)
+	if (edge.key.family == AF_UNSPEC)
 		return NULL;
 
 	return edges_find(&ted->edges, &edge);
@@ -782,7 +786,7 @@ struct ls_edge *ls_find_edge_by_destination(struct ls_ted *ted,
 		return NULL;
 
 	edge.key = get_edge_key(attributes, true);
-	if (edge.key == 0)
+	if (edge.key.family == AF_UNSPEC)
 		return NULL;
 
 	return edges_find(&ted->edges, &edge);
@@ -803,7 +807,9 @@ struct ls_edge *ls_edge_update(struct ls_ted *ted,
 		if (!ls_attributes_same(old->attributes, attributes)) {
 			ls_attributes_del(old->attributes);
 			old->attributes = attributes;
-		}
+		} else
+			ls_attributes_del(attributes);
+
 		old->status = UPDATE;
 		return old;
 	}
@@ -820,7 +826,7 @@ int ls_edge_same(struct ls_edge *e1, struct ls_edge *e2)
 	if (!e1 && !e2)
 		return 1;
 
-	if (e1->key != e2->key)
+	if (edge_cmp(e1, e2) != 0)
 		return 0;
 
 	if (e1->attributes == e2->attributes)
@@ -895,12 +901,14 @@ struct ls_subnet *ls_subnet_update(struct ls_ted *ted, struct ls_prefix *pref)
 	if (pref == NULL)
 		return NULL;
 
-	old = ls_find_subnet(ted, pref->pref);
+	old = ls_find_subnet(ted, &pref->pref);
 	if (old) {
 		if (!ls_prefix_same(old->ls_pref, pref)) {
 			ls_prefix_del(old->ls_pref);
 			old->ls_pref = pref;
-		}
+		} else
+			ls_prefix_del(pref);
+
 		old->status = UPDATE;
 		return old;
 	}
@@ -948,11 +956,15 @@ void ls_subnet_del_all(struct ls_ted *ted, struct ls_subnet *subnet)
 	ls_subnet_del(ted, subnet);
 }
 
-struct ls_subnet *ls_find_subnet(struct ls_ted *ted, const struct prefix prefix)
+struct ls_subnet *ls_find_subnet(struct ls_ted *ted,
+				 const struct prefix *prefix)
 {
 	struct ls_subnet subnet = {};
 
-	subnet.key = prefix;
+	if (!prefix)
+		return NULL;
+
+	prefix_copy(&subnet.key, prefix);
 	return subnets_find(&ted->subnets, &subnet);
 }
 
@@ -1132,31 +1144,13 @@ int ls_unregister(struct zclient *zclient, bool server)
 
 int ls_request_sync(struct zclient *zclient)
 {
-	struct stream *s;
-	uint16_t flags = 0;
-
 	/* Check buffer size */
 	if (STREAM_SIZE(zclient->obuf)
 	    < (ZEBRA_HEADER_SIZE + 3 * sizeof(uint32_t)))
 		return -1;
 
-	s = zclient->obuf;
-	stream_reset(s);
-
-	zclient_create_header(s, ZEBRA_OPAQUE_MESSAGE, VRF_DEFAULT);
-
-	/* Set type and flags */
-	stream_putl(s, LINK_STATE_SYNC);
-	stream_putw(s, flags);
-	/* Send destination client info */
-	stream_putc(s, zclient->redist_default);
-	stream_putw(s, zclient->instance);
-	stream_putl(s, zclient->session_id);
-
-	/* Put length into the header at the start of the stream. */
-	stream_putw_at(s, 0, stream_get_endp(s));
-
-	return zclient_send_message(zclient);
+	/* No data with this message */
+	return zclient_send_opaque(zclient, LINK_STATE_SYNC, NULL, 0);
 }
 
 static struct ls_node *ls_parse_node(struct stream *s)
@@ -1206,9 +1200,12 @@ stream_failure:
 static struct ls_attributes *ls_parse_attributes(struct stream *s)
 {
 	struct ls_attributes *attr;
+	uint8_t nb_ext_adm_grp;
+	uint32_t bitmap_data;
 	size_t len;
 
 	attr = XCALLOC(MTYPE_LS_DB, sizeof(struct ls_attributes));
+	admin_group_init(&attr->ext_admin_group);
 	attr->srlgs = NULL;
 
 	STREAM_GET(&attr->adv, s, sizeof(struct ls_node_id));
@@ -1223,6 +1220,15 @@ static struct ls_attributes *ls_parse_attributes(struct stream *s)
 		STREAM_GETL(s, attr->standard.te_metric);
 	if (CHECK_FLAG(attr->flags, LS_ATTR_ADM_GRP))
 		STREAM_GETL(s, attr->standard.admin_group);
+	if (CHECK_FLAG(attr->flags, LS_ATTR_EXT_ADM_GRP)) {
+		/* Extended Administrative Group */
+		STREAM_GETC(s, nb_ext_adm_grp);
+		for (size_t i = 0; i < nb_ext_adm_grp; i++) {
+			STREAM_GETL(s, bitmap_data);
+			admin_group_bulk_set(&attr->ext_admin_group,
+					     bitmap_data, i);
+		}
+	}
 	if (CHECK_FLAG(attr->flags, LS_ATTR_LOCAL_ADDR))
 		attr->standard.local.s_addr = stream_get_ipv4(s);
 	if (CHECK_FLAG(attr->flags, LS_ATTR_NEIGH_ADDR))
@@ -1430,7 +1436,7 @@ static int ls_format_node(struct stream *s, struct ls_node *node)
 
 static int ls_format_attributes(struct stream *s, struct ls_attributes *attr)
 {
-	size_t len;
+	size_t len, nb_ext_adm_grp;
 
 	/* Push Advertise node information first */
 	stream_put(s, &attr->adv, sizeof(struct ls_node_id));
@@ -1449,6 +1455,14 @@ static int ls_format_attributes(struct stream *s, struct ls_attributes *attr)
 		stream_putl(s, attr->standard.te_metric);
 	if (CHECK_FLAG(attr->flags, LS_ATTR_ADM_GRP))
 		stream_putl(s, attr->standard.admin_group);
+	if (CHECK_FLAG(attr->flags, LS_ATTR_EXT_ADM_GRP)) {
+		/* Extended Administrative Group */
+		nb_ext_adm_grp = admin_group_nb_words(&attr->ext_admin_group);
+		stream_putc(s, nb_ext_adm_grp);
+		for (size_t i = 0; i < nb_ext_adm_grp; i++)
+			stream_putl(s, admin_group_get_offset(
+					       &attr->ext_admin_group, i));
+	}
 	if (CHECK_FLAG(attr->flags, LS_ATTR_LOCAL_ADDR))
 		stream_put_ipv4(s, attr->standard.local.s_addr);
 	if (CHECK_FLAG(attr->flags, LS_ATTR_NEIGH_ADDR))
@@ -1597,23 +1611,15 @@ int ls_send_msg(struct zclient *zclient, struct ls_message *msg,
 	    (ZEBRA_HEADER_SIZE + sizeof(uint32_t) + sizeof(msg)))
 		return -1;
 
+	/* Init the message, then encode the data inline. */
+	if (dst == NULL)
+		zapi_opaque_init(zclient, LINK_STATE_UPDATE, flags);
+	else
+		zapi_opaque_unicast_init(zclient, LINK_STATE_UPDATE, flags,
+					 dst->proto, dst->instance,
+					 dst->session_id);
+
 	s = zclient->obuf;
-	stream_reset(s);
-
-	zclient_create_header(s, ZEBRA_OPAQUE_MESSAGE, VRF_DEFAULT);
-
-	/* Set sub-type, flags and destination for unicast message */
-	stream_putl(s, LINK_STATE_UPDATE);
-	if (dst != NULL) {
-		SET_FLAG(flags, ZAPI_OPAQUE_FLAG_UNICAST);
-		stream_putw(s, flags);
-		/* Send destination client info */
-		stream_putc(s, dst->proto);
-		stream_putw(s, dst->instance);
-		stream_putl(s, dst->session_id);
-	} else {
-		stream_putw(s, flags);
-	}
 
 	/* Format Link State message */
 	if (ls_format_msg(s, msg) < 0) {
@@ -1649,7 +1655,8 @@ struct ls_message *ls_vertex2msg(struct ls_message *msg,
 	case SYNC:
 		msg->event = LS_MSG_EVENT_SYNC;
 		break;
-	default:
+	case UNSET:
+	case ORPHAN:
 		msg->event = LS_MSG_EVENT_UNDEF;
 		break;
 	}
@@ -1681,7 +1688,8 @@ struct ls_message *ls_edge2msg(struct ls_message *msg, struct ls_edge *edge)
 	case SYNC:
 		msg->event = LS_MSG_EVENT_SYNC;
 		break;
-	default:
+	case UNSET:
+	case ORPHAN:
 		msg->event = LS_MSG_EVENT_UNDEF;
 		break;
 	}
@@ -1717,7 +1725,8 @@ struct ls_message *ls_subnet2msg(struct ls_message *msg,
 	case SYNC:
 		msg->event = LS_MSG_EVENT_SYNC;
 		break;
-	default:
+	case UNSET:
+	case ORPHAN:
 		msg->event = LS_MSG_EVENT_UNDEF;
 		break;
 	}
@@ -1730,7 +1739,7 @@ struct ls_message *ls_subnet2msg(struct ls_message *msg,
 struct ls_vertex *ls_msg2vertex(struct ls_ted *ted, struct ls_message *msg,
 				bool delete)
 {
-	struct ls_node *node = (struct ls_node *)msg->data.node;
+	struct ls_node *node = msg->data.node;
 	struct ls_vertex *vertex = NULL;
 
 	switch (msg->event) {
@@ -1752,9 +1761,10 @@ struct ls_vertex *ls_msg2vertex(struct ls_ted *ted, struct ls_message *msg,
 	case LS_MSG_EVENT_DELETE:
 		vertex = ls_find_vertex_by_id(ted, node->adv);
 		if (vertex) {
-			if (delete)
+			if (delete) {
 				ls_vertex_del_all(ted, vertex);
-			else
+				vertex = NULL;
+			} else
 				vertex->status = DELETE;
 		}
 		break;
@@ -1769,7 +1779,7 @@ struct ls_vertex *ls_msg2vertex(struct ls_ted *ted, struct ls_message *msg,
 struct ls_edge *ls_msg2edge(struct ls_ted *ted, struct ls_message *msg,
 			    bool delete)
 {
-	struct ls_attributes *attr = (struct ls_attributes *)msg->data.attr;
+	struct ls_attributes *attr = msg->data.attr;
 	struct ls_edge *edge = NULL;
 
 	switch (msg->event) {
@@ -1809,7 +1819,7 @@ struct ls_edge *ls_msg2edge(struct ls_ted *ted, struct ls_message *msg,
 struct ls_subnet *ls_msg2subnet(struct ls_ted *ted, struct ls_message *msg,
 				bool delete)
 {
-	struct ls_prefix *pref = (struct ls_prefix *)msg->data.prefix;
+	struct ls_prefix *pref = msg->data.prefix;
 	struct ls_subnet *subnet = NULL;
 
 	switch (msg->event) {
@@ -1829,11 +1839,12 @@ struct ls_subnet *ls_msg2subnet(struct ls_ted *ted, struct ls_message *msg,
 			subnet->status = UPDATE;
 		break;
 	case LS_MSG_EVENT_DELETE:
-		subnet = ls_find_subnet(ted, pref->pref);
+		subnet = ls_find_subnet(ted, &pref->pref);
 		if (subnet) {
-			if (delete)
+			if (delete) {
 				ls_subnet_del_all(ted, subnet);
-			else
+				subnet = NULL;
+			} else
 				subnet->status = DELETE;
 		}
 		break;
@@ -1887,6 +1898,20 @@ void ls_delete_msg(struct ls_message *msg)
 {
 	if (msg == NULL)
 		return;
+
+	if (msg->event == LS_MSG_EVENT_DELETE) {
+		switch (msg->type) {
+		case LS_MSG_TYPE_NODE:
+			ls_node_del(msg->data.node);
+			break;
+		case LS_MSG_TYPE_ATTRIBUTES:
+			ls_attributes_del(msg->data.attr);
+			break;
+		case LS_MSG_TYPE_PREFIX:
+			ls_prefix_del(msg->data.prefix);
+			break;
+		}
+	}
 
 	XFREE(MTYPE_LS_DB, msg);
 }
@@ -1948,13 +1973,9 @@ static const char *const status2txt[] = {
 static const char *ls_node_id_to_text(struct ls_node_id lnid, char *str,
 				      size_t size)
 {
-	if (lnid.origin == ISIS_L1 || lnid.origin == ISIS_L2) {
-		uint8_t *id;
-
-		id = lnid.id.iso.sys_id;
-		snprintfrr(str, size, "%02x%02x.%02x%02x.%02x%02x", id[0],
-			   id[1], id[2], id[3], id[4], id[5]);
-	} else
+	if (lnid.origin == ISIS_L1 || lnid.origin == ISIS_L2)
+		snprintfrr(str, size, "%pSY", lnid.id.iso.sys_id);
+	else
 		snprintfrr(str, size, "%pI4", &lnid.id.ip.addr);
 
 	return str;
@@ -2160,17 +2181,47 @@ void ls_show_vertices(struct ls_ted *ted, struct vty *vty,
 	}
 }
 
+static const char *edge_key_to_text(struct ls_edge_key key)
+{
+#define FORMAT_BUF_COUNT 4
+	static char buf_ring[FORMAT_BUF_COUNT][INET6_BUFSIZ];
+	static size_t cur_buf = 0;
+	char *rv;
+
+	rv = buf_ring[cur_buf];
+	cur_buf = (cur_buf + 1) % FORMAT_BUF_COUNT;
+
+	switch (key.family) {
+	case AF_INET:
+		snprintfrr(rv, INET6_BUFSIZ, "%pI4", &key.k.addr);
+		break;
+	case AF_INET6:
+		snprintfrr(rv, INET6_BUFSIZ, "%pI6", &key.k.addr6);
+		break;
+	case AF_LOCAL:
+		snprintfrr(rv, INET6_BUFSIZ, "%" PRIu64, key.k.link_id);
+		break;
+	default:
+		snprintfrr(rv, INET6_BUFSIZ, "(Unknown)");
+		break;
+	}
+
+	return rv;
+}
+
 static void ls_show_edge_vty(struct ls_edge *edge, struct vty *vty,
 			     bool verbose)
 {
+	char admin_group_buf[ADMIN_GROUP_PRINT_MAX_SIZE];
 	struct ls_attributes *attr;
 	struct sbuf sbuf;
 	char buf[INET6_BUFSIZ];
+	int indent;
 
 	attr = edge->attributes;
 	sbuf_init(&sbuf, NULL, 0);
 
-	sbuf_push(&sbuf, 2, "Edge (%" PRIu64 "): ", edge->key);
+	sbuf_push(&sbuf, 2, "Edge (%s): ", edge_key_to_text(edge->key));
 	if (CHECK_FLAG(attr->flags, LS_ATTR_LOCAL_ADDR))
 		sbuf_push(&sbuf, 0, "%pI4", &attr->standard.local);
 	else if (CHECK_FLAG(attr->flags, LS_ATTR_LOCAL_ADDR6))
@@ -2195,6 +2246,20 @@ static void ls_show_edge_vty(struct ls_edge *edge, struct vty *vty,
 	if (CHECK_FLAG(attr->flags, LS_ATTR_ADM_GRP))
 		sbuf_push(&sbuf, 4, "Admin Group: 0x%x\n",
 			  attr->standard.admin_group);
+	if (CHECK_FLAG(attr->flags, LS_ATTR_EXT_ADM_GRP) &&
+	    admin_group_nb_words(&attr->ext_admin_group) != 0) {
+		indent = 4;
+		sbuf_push(&sbuf, indent, "Ext Admin Group: %s\n",
+			  admin_group_string(
+				  admin_group_buf, ADMIN_GROUP_PRINT_MAX_SIZE,
+				  indent + strlen("Ext Admin Group: "),
+				  &attr->ext_admin_group));
+		if (admin_group_buf[0] != '\0' &&
+		    (sbuf.pos + strlen(admin_group_buf) +
+		     SBUF_DEFAULT_SIZE / 2) < sbuf.size)
+			sbuf_push(&sbuf, indent + 2, "Bit positions: %s\n",
+				  admin_group_buf);
+	}
 	if (CHECK_FLAG(attr->flags, LS_ATTR_LOCAL_ADDR))
 		sbuf_push(&sbuf, 4, "Local IPv4 address: %pI4\n",
 			  &attr->standard.local);
@@ -2305,12 +2370,17 @@ end:
 static void ls_show_edge_json(struct ls_edge *edge, struct json_object *json)
 {
 	struct ls_attributes *attr;
-	struct json_object *jte, *jbw, *jobj, *jsr = NULL, *jsrlg;
+	struct json_object *jte, *jbw, *jobj, *jsr = NULL, *jsrlg, *js_ext_ag,
+					      *js_ext_ag_arr_word,
+					      *js_ext_ag_arr_bit;
 	char buf[INET6_BUFSIZ];
+	char buf_ag[strlen("0xffffffff") + 1];
+	uint32_t bitmap;
+	size_t i;
 
 	attr = edge->attributes;
 
-	json_object_int_add(json, "edge-id", edge->key);
+	json_object_string_add(json, "edge-id", edge_key_to_text(edge->key));
 	json_object_string_add(json, "status", status2txt[edge->status]);
 	json_object_string_add(json, "origin", origin2txt[attr->adv.origin]);
 	ls_node_id_to_text(attr->adv, buf, INET6_BUFSIZ);
@@ -2330,6 +2400,30 @@ static void ls_show_edge_json(struct ls_edge *edge, struct json_object *json)
 	if (CHECK_FLAG(attr->flags, LS_ATTR_ADM_GRP))
 		json_object_int_add(jte, "admin-group",
 				    attr->standard.admin_group);
+	if (CHECK_FLAG(attr->flags, LS_ATTR_EXT_ADM_GRP)) {
+		js_ext_ag = json_object_new_object();
+		json_object_object_add(jte, "extAdminGroup", js_ext_ag);
+		js_ext_ag_arr_word = json_object_new_array();
+		json_object_object_add(js_ext_ag, "words", js_ext_ag_arr_word);
+		js_ext_ag_arr_bit = json_object_new_array();
+		json_object_object_add(js_ext_ag, "bitPositions",
+				       js_ext_ag_arr_bit);
+		for (i = 0; i < admin_group_nb_words(&attr->ext_admin_group);
+		     i++) {
+			bitmap = admin_group_get_offset(&attr->ext_admin_group,
+							i);
+			snprintf(buf_ag, sizeof(buf_ag), "0x%08x", bitmap);
+			json_object_array_add(js_ext_ag_arr_word,
+					      json_object_new_string(buf_ag));
+		}
+		for (i = 0;
+		     i < (admin_group_size(&attr->ext_admin_group) * WORD_SIZE);
+		     i++) {
+			if (admin_group_get(&attr->ext_admin_group, i))
+				json_object_array_add(js_ext_ag_arr_bit,
+						      json_object_new_int(i));
+		}
+	}
 	if (CHECK_FLAG(attr->flags, LS_ATTR_LOCAL_ADDR)) {
 		snprintfrr(buf, INET6_BUFSIZ, "%pI4", &attr->standard.local);
 		json_object_string_add(jte, "local-address", buf);
@@ -2664,8 +2758,8 @@ void ls_dump_ted(struct ls_ted *ted)
 		for (ALL_LIST_ELEMENTS_RO(vertex->incoming_edges, lst_node,
 					  vertex_edge)) {
 			zlog_debug(
-				"        inc edge key:%" PRIu64 " attr key:%pI4 loc:(%pI4) rmt:(%pI4)",
-				vertex_edge->key,
+				"        inc edge key:%s attr key:%pI4 loc:(%pI4) rmt:(%pI4)",
+				edge_key_to_text(vertex_edge->key),
 				&vertex_edge->attributes->adv.id.ip.addr,
 				&vertex_edge->attributes->standard.local,
 				&vertex_edge->attributes->standard.remote);
@@ -2673,15 +2767,16 @@ void ls_dump_ted(struct ls_ted *ted)
 		for (ALL_LIST_ELEMENTS_RO(vertex->outgoing_edges, lst_node,
 					  vertex_edge)) {
 			zlog_debug(
-				"        out edge key:%" PRIu64 " attr key:%pI4  loc:(%pI4) rmt:(%pI4)",
-				vertex_edge->key,
+				"        out edge key:%s attr key:%pI4  loc:(%pI4) rmt:(%pI4)",
+				edge_key_to_text(vertex_edge->key),
 				&vertex_edge->attributes->adv.id.ip.addr,
 				&vertex_edge->attributes->standard.local,
 				&vertex_edge->attributes->standard.remote);
 		}
 	}
 	frr_each (edges, &ted->edges, edge) {
-		zlog_debug("    Ted edge key:%" PRIu64 "src:%pI4 dst:%pI4", edge->key,
+		zlog_debug("    Ted edge key:%s src:%pI4 dst:%pI4",
+			   edge_key_to_text(edge->key),
 			   edge->source ? &edge->source->node->router_id
 					: &inaddr_any,
 			   edge->destination

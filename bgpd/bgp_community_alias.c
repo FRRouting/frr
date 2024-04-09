@@ -1,21 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* BGP community, large-community aliasing.
  *
  * Copyright (C) 2021 Donatas Abraitis <donatas.abraitis@gmail.com>
- *
- * This file is part of FRRouting (FRR).
- *
- * FRR is free software; you can redistribute it and/or modify it under the
- * terms of the GNU General Public License as published by the Free Software
- * Foundation; either version 2, or (at your option) any later version.
- *
- * FRR is distributed in the hope that it will be useful, but WITHOUT ANY
- * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
- * FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more
- * details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include "zebra.h"
@@ -88,10 +74,8 @@ static void bgp_ca_free(void *ca)
 
 void bgp_community_alias_finish(void)
 {
-	hash_clean(bgp_ca_community_hash, bgp_ca_free);
-	hash_free(bgp_ca_community_hash);
-	hash_clean(bgp_ca_alias_hash, bgp_ca_free);
-	hash_free(bgp_ca_alias_hash);
+	hash_clean_and_free(&bgp_ca_community_hash, bgp_ca_free);
+	hash_clean_and_free(&bgp_ca_alias_hash, bgp_ca_free);
 }
 
 static void bgp_community_alias_show_iterator(struct hash_bucket *hb,

@@ -1,23 +1,8 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /**
  * ospf6_bfd.c: IPv6 OSPF BFD handling routines
  *
  * @copyright Copyright (C) 2015 Cumulus Networks, Inc.
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -26,7 +11,7 @@
 #include "linklist.h"
 #include "memory.h"
 #include "prefix.h"
-#include "thread.h"
+#include "frrevent.h"
 #include "buffer.h"
 #include "stream.h"
 #include "zclient.h"
@@ -120,8 +105,8 @@ static void ospf6_bfd_callback(struct bfd_session_params *bsp,
 
 	if (bss->state == BFD_STATUS_DOWN
 	    && bss->previous_state == BFD_STATUS_UP) {
-		THREAD_OFF(on->inactivity_timer);
-		thread_add_event(master, inactivity_timer, on, 0, NULL);
+		EVENT_OFF(on->inactivity_timer);
+		event_add_event(master, inactivity_timer, on, 0, NULL);
 	}
 }
 

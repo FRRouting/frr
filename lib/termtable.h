@@ -1,26 +1,14 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * ASCII table generator.
  * Copyright (C) 2017  Cumulus Networks
  * Quentin Young
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 #ifndef _TERMTABLE_H_
 #define _TERMTABLE_H_
 
 #include <zebra.h>
+#include "lib/json.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -289,6 +277,17 @@ void ttable_rowseps(struct ttable *tt, unsigned int row,
  * @return table in text form
  */
 char *ttable_dump(struct ttable *tt, const char *newline);
+
+/**
+ * Convert a table to a JSON array of objects.
+ *
+ * Caller must free the returned json_object structure.
+ *
+ * @param tt the table to convert
+ * @param formats an array of characters indicating what JSON type should be
+ * used.
+ */
+json_object *ttable_json(struct ttable *tt, const char *const formats);
 
 #ifdef __cplusplus
 }

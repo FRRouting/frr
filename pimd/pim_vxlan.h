@@ -1,22 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* PIM support for VxLAN BUM flooding
  *
  * Copyright (C) 2019 Cumulus Networks, Inc.
- *
- * This file is part of FRR.
- *
- * FRR is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * FRR is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
  */
 
 #ifndef PIM_VXLAN_H
@@ -64,6 +49,9 @@ struct pim_vxlan_sg {
 	struct interface *iif;
 	/* on a MLAG setup the peerlink is added as a static OIF */
 	struct interface *orig_oif;
+
+	struct event *null_register;
+	uint32_t null_register_sent;
 };
 
 enum pim_vxlan_mlag_flags {
@@ -90,7 +78,7 @@ enum pim_vxlan_flags {
 struct pim_vxlan {
 	enum pim_vxlan_flags flags;
 
-	struct thread *work_timer;
+	struct event *work_timer;
 	struct list *work_list;
 	struct listnode *next_work;
 	int max_work_cnt;
@@ -149,6 +137,9 @@ extern void pim_vxlan_mlag_update(bool enable, bool peer_state, uint32_t role,
 extern bool pim_vxlan_do_mlag_reg(void);
 extern void pim_vxlan_inherit_mlag_flags(struct pim_instance *pim,
 		struct pim_upstream *up, bool inherit);
+
+extern void pim_vxlan_rp_info_is_alive(struct pim_instance *pim,
+				       struct pim_rpf *rpg_changed);
 
 /* Shutdown of PIM stop the thread */
 extern void pim_vxlan_terminate(void);

@@ -1,21 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* Hash routine.
  * Copyright (C) 1998 Kunihiro Ishiguro
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published
- * by the Free Software Foundation; either version 2, or (at your
- * option) any later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef _ZEBRA_HASH_H
@@ -43,11 +28,11 @@ struct hash_bucket {
 	 */
 	int len;
 
-	/* Linked list.  */
-	struct hash_bucket *next;
-
 	/* Hash key. */
 	unsigned int key;
+
+	/* Linked list.  */
+	struct hash_bucket *next;
 
 	/* Data.  */
 	void *data;
@@ -291,6 +276,17 @@ extern void hash_walk(struct hash *hash,
  *    function to call with each removed item; intended to free the data
  */
 extern void hash_clean(struct hash *hash, void (*free_func)(void *));
+
+/*
+ * Remove all elements from a hash table and free the table,
+ * setting the pointer to NULL.
+ *
+ * hash
+ *    hash table to operate on
+ * free_func
+ *    function to call with each removed item, intended to free the data
+ */
+extern void hash_clean_and_free(struct hash **hash, void (*free_func)(void *));
 
 /*
  * Delete a hash table.

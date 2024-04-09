@@ -1,0 +1,84 @@
+version: 1
+formatters:
+  brief:
+    format: '%(levelname)5s: %(message)s'
+  operfmt:
+    class: munet.mulog.ColorFormatter
+    format: ' ------| %(message)s'
+  exec:
+    format: '%(asctime)s %(levelname)5s: %(name)s: %(message)s'
+  output:
+    format: '%(asctime)s %(levelname)5s: OUTPUT: %(message)s'
+  results:
+    # format: '%(asctime)s %(levelname)5s: %(message)s'
+    format: '%(message)s'
+
+handlers:
+  console:
+    level: WARNING
+    class: logging.StreamHandler
+    formatter: brief
+    stream: ext://sys.stderr
+  info_console:
+    level: INFO
+    class: logging.StreamHandler
+    formatter: brief
+    stream: ext://sys.stderr
+  oper_console:
+    level: DEBUG
+    class: logging.StreamHandler
+    formatter: operfmt
+    stream: ext://sys.stderr
+  exec:
+    level: DEBUG
+    class: logging.FileHandler
+    formatter: exec
+    filename: mutest-exec.log
+    mode: w
+  output:
+    level: DEBUG
+    class: munet.mulog.MultiFileHandler
+    root_path: "mutest.output"
+    formatter: output
+    filename: mutest-output.log
+    mode: w
+  results:
+    level: INFO
+    class: munet.mulog.MultiFileHandler
+    root_path: "mutest.results"
+    new_handler_level: DEBUG
+    formatter: results
+    filename: mutest-results.log
+    mode: w
+
+root:
+  level: DEBUG
+  handlers: [ "console", "exec" ]
+
+loggers:
+  # These are some loggers that get used...
+  # munet:
+  #   level: DEBUG
+  #   propagate: true
+  # munet.base.commander
+  #   level: DEBUG
+  #   propagate: true
+  # mutest.error:
+  #   level: DEBUG
+  #   propagate: true
+  mutest.output:
+    level: DEBUG
+    handlers: ["output", "exec"]
+    propagate: false
+  mutest.results:
+    level: DEBUG
+    handlers: [ "info_console", "exec", "output", "results" ]
+    # We don't propagate this b/c we want a lower level accept on the console
+    # Instead we use info_console and exec to cover what root would log to.
+    propagate: false
+  # This is used to debug the operation of mutest
+  mutest.oper:
+    # Records are emitted at DEBUG so this will normally filter everything
+    level: INFO
+    handlers: [ "oper_console" ]
+    propagate: false

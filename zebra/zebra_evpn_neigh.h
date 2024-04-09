@@ -1,25 +1,9 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Zebra EVPN Neighbor Data structures and definitions
  * These are "internal" to this function.
  * Copyright (C) 2016, 2017 Cumulus Networks, Inc.
  * Copyright (C) 2020 Volta Networks.
- *
- * This file is part of FRR.
- *
- * FRR is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * FRR is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with FRR; see the file COPYING.  If not, write to the Free
- * Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
- * 02111-1307, USA.
  */
 
 #ifndef _ZEBRA_EVPN_NEIGH_H
@@ -63,6 +47,9 @@ struct zebra_neigh {
 
 	struct zebra_evpn *zevpn;
 
+	/* Refcnt - Only used by SVD neighs currently */
+	uint32_t refcnt;
+
 	uint32_t flags;
 #define ZEBRA_NEIGH_LOCAL 0x01
 #define ZEBRA_NEIGH_REMOTE 0x02
@@ -105,7 +92,7 @@ struct zebra_neigh {
 	/* Duplicate ip detection */
 	uint32_t dad_count;
 
-	struct thread *dad_ip_auto_recovery_timer;
+	struct event *dad_ip_auto_recovery_timer;
 
 	struct timeval detect_start_time;
 
@@ -114,7 +101,7 @@ struct zebra_neigh {
 	time_t uptime;
 
 	/* used for ageing out the PEER_ACTIVE flag */
-	struct thread *hold_timer;
+	struct event *hold_timer;
 };
 
 /*
@@ -171,7 +158,7 @@ static inline void zebra_evpn_neigh_stop_hold_timer(struct zebra_neigh *n)
 	if (IS_ZEBRA_DEBUG_EVPN_MH_NEIGH)
 		zlog_debug("sync-neigh vni %u ip %pIA mac %pEA 0x%x hold stop",
 			   n->zevpn->vni, &n->ip, &n->emac, n->flags);
-	THREAD_OFF(n->hold_timer);
+	EVENT_OFF(n->hold_timer);
 }
 
 void zebra_evpn_sync_neigh_static_chg(struct zebra_neigh *n, bool old_n_static,

@@ -302,7 +302,7 @@ parts:
            - libpcre2-8-0
         source: https://github.com/CESNET/libyang.git
         source-type: git
-        source-tag: v2.0.7
+        source-tag: v2.1.80
         plugin: cmake
         configflags:
            - -DCMAKE_INSTALL_PREFIX:PATH=/usr
@@ -369,7 +369,6 @@ parts:
             - --enable-ospfapi=yes
             - --enable-multipath=64
             - --enable-rtadv
-            - --enable-irdp
             - --enable-user=root
             - --enable-group=root
             - --enable-pimd
@@ -381,10 +380,10 @@ parts:
             - --enable-vrrpd
             - --enable-configfile-mask=0640
             - --enable-logfile-mask=0640
-            - --localstatedir=/var/run
+            - --sysconfdir=/etc
+            - --localstatedir=/var
             - --sbindir=/sbin
             - --bindir=/bin
-            - --sysconfdir=/etc/frr
             - --with-pkg-extra-version=@PACKAGE_EXTRAVERSION@
     frr-defaults:
         plugin: dump

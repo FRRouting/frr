@@ -1,20 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * IP MSDP packet helpers
  * Copyright (C) 2016 Cumulus Networks, Inc.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 #ifndef PIM_MSDP_PACKET_H
 #define PIM_MSDP_PACKET_H
@@ -64,7 +51,7 @@
 #define PIM_MSDP_PKT_TYPE_STRLEN 16
 
 void pim_msdp_pkt_ka_tx(struct pim_msdp_peer *mp);
-void pim_msdp_read(struct thread *thread);
+void pim_msdp_read(struct event *thread);
 void pim_msdp_pkt_sa_tx(struct pim_instance *pim);
 void pim_msdp_pkt_sa_tx_one(struct pim_msdp_sa *sa);
 void pim_msdp_pkt_sa_tx_to_one_peer(struct pim_msdp_peer *mp);

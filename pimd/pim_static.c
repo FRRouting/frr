@@ -1,20 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * PIM for Quagga: add the ability to configure multicast static routes
  * Copyright (C) 2014  Nathan Bahr, ATCorp
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -57,7 +44,7 @@ static struct static_route *static_route_new(ifindex_t iif, ifindex_t oif,
 	s_route->c_oil.oil_ref_count = 1;
 	*oil_origin(&s_route->c_oil) = source;
 	*oil_mcastgrp(&s_route->c_oil) = group;
-	*oil_parent(&s_route->c_oil) = iif;
+	*oil_incoming_vif(&s_route->c_oil) = iif;
 	oil_if_set(&s_route->c_oil, oif, 1);
 	s_route->c_oil.oif_creation[oif] = pim_time_monotonic_sec();
 

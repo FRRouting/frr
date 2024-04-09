@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: ISC
 /*	$OpenBSD$ */
 
 /*
@@ -5,18 +6,6 @@
  * Copyright (c) 2009 Michele Marchetto <michele@openbsd.org>
  * Copyright (c) 2004 Esben Norby <norby@openbsd.org>
  * Copyright (c) 2003, 2004 Henning Brauer <henning@openbsd.org>
- *
- * Permission to use, copy, modify, and distribute this software for any
- * purpose with or without fee is hereby granted, provided that the above
- * copyright notice and this permission notice appear in all copies.
- *
- * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
- * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
- * ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
- * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
- * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
- * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
 #ifndef _LDPD_H_
@@ -25,7 +14,7 @@
 #include "queue.h"
 #include "openbsd-tree.h"
 #include "imsg.h"
-#include "thread.h"
+#include "frrevent.h"
 #include "qobj.h"
 #include "prefix.h"
 #include "filter.h"
@@ -41,6 +30,7 @@
 
 #define LDPD_FD_ASYNC		3
 #define LDPD_FD_SYNC		4
+#define LDPD_FD_LOG		5
 
 #define LDPD_OPT_VERBOSE	0x00000001
 #define LDPD_OPT_VERBOSE2	0x00000002
@@ -62,17 +52,17 @@
 
 struct evbuf {
 	struct msgbuf		 wbuf;
-	struct thread		*ev;
-	void (*handler)(struct thread *);
+	struct event *ev;
+	void (*handler)(struct event *);
 	void			*arg;
 };
 
 struct imsgev {
 	struct imsgbuf		 ibuf;
-	void (*handler_write)(struct thread *);
-	struct thread		*ev_write;
-	void (*handler_read)(struct thread *);
-	struct thread		*ev_read;
+	void (*handler_write)(struct event *);
+	struct event *ev_write;
+	void (*handler_read)(struct event *);
+	struct event *ev_read;
 };
 
 enum imsg_type {
@@ -150,7 +140,6 @@ enum imsg_type {
 	IMSG_RECONF_L2VPN_IPW,
 	IMSG_RECONF_END,
 	IMSG_DEBUG_UPDATE,
-	IMSG_LOG,
 	IMSG_ACL_CHECK,
 	IMSG_INIT,
 	IMSG_PW_UPDATE,
@@ -340,19 +329,19 @@ struct iface_af {
 	int			 state;
 	struct ia_adj_head	 adj_tree;
 	time_t			 uptime;
-	struct thread		*hello_timer;
+	struct event *hello_timer;
 	uint16_t		 hello_holdtime;
 	uint16_t		 hello_interval;
 };
 
 struct iface_ldp_sync {
 	int			 state;
-	struct thread           *wait_for_sync_timer;
+	struct event *wait_for_sync_timer;
 };
 
 struct iface {
 	RB_ENTRY(iface)		 entry;
-	char			 name[INTERFACE_NAMSIZ];
+	char name[IFNAMSIZ];
 	ifindex_t		 ifindex;
 	struct if_addr_head	 addr_list;
 	struct in6_addr		 linklocal;
@@ -370,7 +359,7 @@ DECLARE_QOBJ_TYPE(iface);
 /* source of targeted hellos */
 struct tnbr {
 	RB_ENTRY(tnbr)		 entry;
-	struct thread		*hello_timer;
+	struct event *hello_timer;
 	struct adj		*adj;
 	int			 af;
 	union ldpd_addr		 addr;
@@ -458,7 +447,7 @@ struct ldp_entity_stats {
 struct l2vpn_if {
 	RB_ENTRY(l2vpn_if)	 entry;
 	struct l2vpn		*l2vpn;
-	char			 ifname[INTERFACE_NAMSIZ];
+	char ifname[IFNAMSIZ];
 	ifindex_t		 ifindex;
 	int			 operative;
 	uint8_t			 mac[ETH_ALEN];
@@ -475,7 +464,7 @@ struct l2vpn_pw {
 	int			 af;
 	union ldpd_addr		 addr;
 	uint32_t		 pwid;
-	char			 ifname[INTERFACE_NAMSIZ];
+	char ifname[IFNAMSIZ];
 	ifindex_t		 ifindex;
 	bool			 enabled;
 	uint32_t		 remote_group;
@@ -507,7 +496,7 @@ struct l2vpn {
 	int			 type;
 	int			 pw_type;
 	int			 mtu;
-	char			 br_ifname[INTERFACE_NAMSIZ];
+	char br_ifname[IFNAMSIZ];
 	ifindex_t		 br_ifindex;
 	struct l2vpn_if_head	 if_tree;
 	struct l2vpn_pw_head	 pw_tree;
@@ -593,8 +582,8 @@ DECLARE_QOBJ_TYPE(ldpd_conf);
 #define	F_LDPD_ALLOW_BROKEN_LSP 0x0010
 
 struct ldpd_af_global {
-	struct thread		*disc_ev;
-	struct thread		*edisc_ev;
+	struct event *disc_ev;
+	struct event *edisc_ev;
 	int			 ldp_disc_socket;
 	int			 ldp_edisc_socket;
 	int			 ldp_session_socket;
@@ -629,7 +618,7 @@ struct kroute {
 };
 
 struct kaddr {
-	char			 ifname[INTERFACE_NAMSIZ];
+	char ifname[IFNAMSIZ];
 	ifindex_t		 ifindex;
 	int			 af;
 	union ldpd_addr		 addr;
@@ -638,7 +627,7 @@ struct kaddr {
 };
 
 struct kif {
-	char			 ifname[INTERFACE_NAMSIZ];
+	char ifname[IFNAMSIZ];
 	ifindex_t		 ifindex;
 	int			 flags;
 	int			 operative;
@@ -656,7 +645,7 @@ struct acl_check {
 /* control data structures */
 struct ctl_iface {
 	int			 af;
-	char			 name[INTERFACE_NAMSIZ];
+	char name[IFNAMSIZ];
 	ifindex_t		 ifindex;
 	int			 state;
 	enum iface_type		 type;
@@ -667,7 +656,7 @@ struct ctl_iface {
 };
 
 struct ctl_disc_if {
-	char			 name[INTERFACE_NAMSIZ];
+	char name[IFNAMSIZ];
 	int			 active_v4;
 	int			 active_v6;
 	int			 no_adj;
@@ -683,7 +672,7 @@ struct ctl_adj {
 	int			 af;
 	struct in_addr		 id;
 	enum hello_type		 type;
-	char			 ifname[INTERFACE_NAMSIZ];
+	char ifname[IFNAMSIZ];
 	union ldpd_addr		 src_addr;
 	uint16_t		 holdtime;
 	uint16_t		 holdtime_remaining;
@@ -723,7 +712,7 @@ struct ctl_rt {
 struct ctl_pw {
 	uint16_t		 type;
 	char			 l2vpn_name[L2VPN_NAME_LEN];
-	char			 ifname[INTERFACE_NAMSIZ];
+	char ifname[IFNAMSIZ];
 	uint32_t		 pwid;
 	struct in_addr		 lsr_id;
 	uint32_t		 local_label;
@@ -739,7 +728,7 @@ struct ctl_pw {
 };
 
 struct ctl_ldp_sync {
-	char			 name[INTERFACE_NAMSIZ];
+	char name[IFNAMSIZ];
 	ifindex_t		 ifindex;
 	bool			 in_sync;
 	bool			 timer_running;
@@ -792,7 +781,7 @@ void		 sa2addr(struct sockaddr *, int *, union ldpd_addr *,
 socklen_t	 sockaddr_len(struct sockaddr *);
 
 /* ldpd.c */
-void ldp_write_handler(struct thread *thread);
+void ldp_write_handler(struct event *thread);
 void			 main_imsg_compose_ldpe(int, pid_t, void *, uint16_t);
 void			 main_imsg_compose_lde(int, pid_t, void *, uint16_t);
 int			 main_imsg_compose_both(enum imsg_type, void *,
@@ -802,7 +791,7 @@ int			 imsg_compose_event(struct imsgev *, uint16_t, uint32_t,
 			    pid_t, int, void *, uint16_t);
 void			 evbuf_enqueue(struct evbuf *, struct ibuf *);
 void			 evbuf_event_add(struct evbuf *);
-void evbuf_init(struct evbuf *, int, void (*)(struct thread *), void *);
+void evbuf_init(struct evbuf *, int, void (*)(struct event *), void *);
 void			 evbuf_clear(struct evbuf *);
 int			 ldp_acl_request(struct imsgev *, char *, int,
 			    union ldpd_addr *, uint8_t);
@@ -894,11 +883,11 @@ const char	*pw_type_name(uint16_t);
 const char	*pw_error_code(uint8_t);
 
 /* quagga */
-extern struct thread_master	*master;
+extern struct event_loop *master;
 extern char			 ctl_sock_path[MAXPATHLEN];
 
 /* ldp_zebra.c */
-void		 ldp_zebra_init(struct thread_master *);
+void ldp_zebra_init(struct event_loop *m);
 void		 ldp_zebra_destroy(void);
 int		 ldp_sync_zebra_send_state_update(struct ldp_igp_sync_if_state *);
 int		 ldp_zebra_send_rlfa_labels(struct zapi_rlfa_response *
@@ -915,7 +904,7 @@ void ldp_zebra_regdereg_zebra_info(bool want_register);
 	(__IPV6_ADDR_MC_SCOPE(a) == __IPV6_ADDR_SCOPE_INTFACELOCAL))
 #endif
 
-DECLARE_HOOK(ldp_register_mib, (struct thread_master * tm), (tm));
+DECLARE_HOOK(ldp_register_mib, (struct event_loop * tm), (tm));
 
 extern void ldp_agentx_enabled(void);
 

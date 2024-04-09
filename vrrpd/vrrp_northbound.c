@@ -1,21 +1,8 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * VRRP northbound bindings.
  * Copyright (C) 2019  Cumulus Networks, Inc.
  * Quentin Young
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -40,8 +27,8 @@ static int lib_interface_vrrp_vrrp_group_create(struct nb_cb_create_args *args)
 	uint8_t version = 3;
 	struct vrrp_vrouter *vr;
 
-	vrid = yang_dnode_get_uint8(args->dnode, "./virtual-router-id");
-	version = yang_dnode_get_enum(args->dnode, "./version");
+	vrid = yang_dnode_get_uint8(args->dnode, "virtual-router-id");
+	version = yang_dnode_get_enum(args->dnode, "version");
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:

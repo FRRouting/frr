@@ -1,31 +1,22 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * OSPF ABR functions.
  * Copyright (C) 1999 Alex Zinin
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef _ZEBRA_OSPF_ABR_H
 #define _ZEBRA_OSPF_ABR_H
 
 #define OSPF_ABR_TASK_DELAY 	5
+#define OSPF_ABR_DNA_TIMER 10
+/* Delay in announceing Non-DNA routers
+ * so that LSAs are completely synced
+ * before generating indication LSAs.
+ */
 
 #define OSPF_AREA_RANGE_ADVERTISE	(1 << 0)
 #define OSPF_AREA_RANGE_SUBSTITUTE	(1 << 1)
+#define OSPF_AREA_RANGE_NSSA		(1 << 2)
 
 /* Area range. */
 struct ospf_area_range {
@@ -54,23 +45,23 @@ struct ospf_area_range {
 
 /* Prototypes. */
 extern struct ospf_area_range *ospf_area_range_lookup(struct ospf_area *,
+						      struct route_table *,
 						      struct prefix_ipv4 *);
-
-extern struct ospf_area_range *ospf_some_area_range_match(struct prefix_ipv4 *);
-
 extern struct ospf_area_range *
 ospf_area_range_lookup_next(struct ospf_area *, struct in_addr *, int);
 
-extern int ospf_area_range_set(struct ospf *, struct in_addr,
-			       struct prefix_ipv4 *, int);
-extern int ospf_area_range_cost_set(struct ospf *, struct in_addr,
-				    struct prefix_ipv4 *, uint32_t);
-extern int ospf_area_range_unset(struct ospf *, struct in_addr,
-				 struct prefix_ipv4 *);
-extern int ospf_area_range_substitute_set(struct ospf *, struct in_addr,
+extern int ospf_area_range_set(struct ospf *, struct ospf_area *,
+			       struct route_table *, struct prefix_ipv4 *, int,
+			       bool);
+extern int ospf_area_range_cost_set(struct ospf *, struct ospf_area *,
+				    struct route_table *, struct prefix_ipv4 *,
+				    uint32_t);
+extern int ospf_area_range_unset(struct ospf *, struct ospf_area *,
+				 struct route_table *, struct prefix_ipv4 *);
+extern int ospf_area_range_substitute_set(struct ospf *, struct ospf_area *,
 					  struct prefix_ipv4 *,
 					  struct prefix_ipv4 *);
-extern int ospf_area_range_substitute_unset(struct ospf *, struct in_addr,
+extern int ospf_area_range_substitute_unset(struct ospf *, struct ospf_area *,
 					    struct prefix_ipv4 *);
 extern struct ospf_area_range *ospf_area_range_match_any(struct ospf *,
 							 struct prefix_ipv4 *);
@@ -79,9 +70,27 @@ extern int ospf_act_bb_connection(struct ospf *);
 
 extern void ospf_check_abr_status(struct ospf *);
 extern void ospf_abr_task(struct ospf *);
+extern void ospf_abr_nssa_task(struct ospf *ospf);
 extern void ospf_schedule_abr_task(struct ospf *);
 
 extern void ospf_abr_announce_network_to_area(struct prefix_ipv4 *, uint32_t,
 					      struct ospf_area *);
+extern void ospf_abr_nssa_type7_defaults(struct ospf *ospf);
 extern void ospf_abr_nssa_check_status(struct ospf *ospf);
+extern void ospf_abr_generate_indication_lsa(struct ospf *ospf,
+					     const struct ospf_area *area);
+extern void ospf_flush_indication_lsas(struct ospf *ospf);
+extern void ospf_generate_indication_lsa(struct ospf *ospf,
+					 struct ospf_area *area);
+extern bool ospf_check_fr_enabled_all(struct ospf *ospf);
+extern void ospf_recv_indication_lsa_flush(struct ospf_lsa *lsa);
+
+/** @brief Static inline functions.
+ *  @param Area pointer.
+ *  @return area Flood Reduction status.
+ */
+static inline bool ospf_check_area_fr_enabled(const struct ospf_area *area)
+{
+	return area->fr_info.enabled ? true : false;
+}
 #endif /* _ZEBRA_OSPF_ABR_H */

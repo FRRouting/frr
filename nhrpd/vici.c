@@ -1,10 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* strongSwan VICI protocol implementation for NHRP
  * Copyright (c) 2014-2015 Timo Teräs
- *
- * This file is free software: you may copy, redistribute and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 2 of the License, or
- * (at your option) any later version.
  */
 
 #ifdef HAVE_CONFIG_H
@@ -14,8 +10,9 @@
 #include <string.h>
 #include <sys/socket.h>
 #include <sys/un.h>
+#include <fcntl.h>
 
-#include "thread.h"
+#include "frrevent.h"
 #include "zbuf.h"
 #include "log.h"
 #include "lib_errors.h"
@@ -48,7 +45,7 @@ static int blob2buf(const struct blob *b, char *buf, size_t n)
 }
 
 struct vici_conn {
-	struct thread *t_reconnect, *t_read, *t_write;
+	struct event *t_reconnect, *t_read, *t_write;
 	struct zbuf ibuf;
 	struct zbuf_queue obuf;
 	int fd;
@@ -60,7 +57,7 @@ struct vici_message_ctx {
 	int nsections;
 };
 
-static void vici_reconnect(struct thread *t);
+static void vici_reconnect(struct event *t);
 static void vici_submit_request(struct vici_conn *vici, const char *name, ...);
 
 static void vici_zbuf_puts(struct zbuf *obuf, const char *str)
@@ -74,14 +71,14 @@ static void vici_connection_error(struct vici_conn *vici)
 {
 	nhrp_vc_reset();
 
-	THREAD_OFF(vici->t_read);
-	THREAD_OFF(vici->t_write);
+	EVENT_OFF(vici->t_read);
+	EVENT_OFF(vici->t_write);
 	zbuf_reset(&vici->ibuf);
 	zbufq_reset(&vici->obuf);
 
 	close(vici->fd);
 	vici->fd = -1;
-	thread_add_timer(master, vici_reconnect, vici, 2, &vici->t_reconnect);
+	event_add_timer(master, vici_reconnect, vici, 2, &vici->t_reconnect);
 }
 
 static void vici_parse_message(struct vici_conn *vici, struct zbuf *msg,
@@ -135,11 +132,6 @@ static void vici_parse_message(struct vici_conn *vici, struct zbuf *msg,
 		case VICI_LIST_END:
 			debugf(NHRP_DEBUG_VICI, "VICI: List end");
 			break;
-		default:
-			debugf(NHRP_DEBUG_VICI,
-			       "VICI: Unsupported message component type %d",
-			       *type);
-			return;
 		}
 	}
 }
@@ -207,7 +199,12 @@ static void parse_sa_message(struct vici_message_ctx *ctx,
 			}
 		}
 		break;
-	default:
+	case VICI_START:
+	case VICI_KEY_VALUE:
+	case VICI_LIST_START:
+	case VICI_LIST_ITEM:
+	case VICI_LIST_END:
+	case VICI_END:
 		if (!key || !key->ptr)
 			break;
 
@@ -286,7 +283,13 @@ static void parse_cmd_response(struct vici_message_ctx *ctx,
 		    && blob2buf(val, buf, sizeof(buf)))
 			flog_err(EC_NHRP_SWAN, "VICI: strongSwan: %s", buf);
 		break;
-	default:
+	case VICI_START:
+	case VICI_SECTION_START:
+	case VICI_SECTION_END:
+	case VICI_LIST_START:
+	case VICI_LIST_ITEM:
+	case VICI_LIST_END:
+	case VICI_END:
 		break;
 	}
 }
@@ -355,9 +358,9 @@ static void vici_recv_message(struct vici_conn *vici, struct zbuf *msg)
 	}
 }
 
-static void vici_read(struct thread *t)
+static void vici_read(struct event *t)
 {
-	struct vici_conn *vici = THREAD_ARG(t);
+	struct vici_conn *vici = EVENT_ARG(t);
 	struct zbuf *ibuf = &vici->ibuf;
 	struct zbuf pktbuf;
 
@@ -382,18 +385,18 @@ static void vici_read(struct thread *t)
 		vici_recv_message(vici, &pktbuf);
 	} while (1);
 
-	thread_add_read(master, vici_read, vici, vici->fd, &vici->t_read);
+	event_add_read(master, vici_read, vici, vici->fd, &vici->t_read);
 }
 
-static void vici_write(struct thread *t)
+static void vici_write(struct event *t)
 {
-	struct vici_conn *vici = THREAD_ARG(t);
+	struct vici_conn *vici = EVENT_ARG(t);
 	int r;
 
 	r = zbufq_write(&vici->obuf, vici->fd);
 	if (r > 0) {
-		thread_add_write(master, vici_write, vici, vici->fd,
-				 &vici->t_write);
+		event_add_write(master, vici_write, vici, vici->fd,
+				&vici->t_write);
 	} else if (r < 0) {
 		vici_connection_error(vici);
 	}
@@ -407,7 +410,7 @@ static void vici_submit(struct vici_conn *vici, struct zbuf *obuf)
 	}
 
 	zbufq_queue(&vici->obuf, obuf);
-	thread_add_write(master, vici_write, vici, vici->fd, &vici->t_write);
+	event_add_write(master, vici_write, vici, vici->fd, &vici->t_write);
 }
 
 static void vici_submit_request(struct vici_conn *vici, const char *name, ...)
@@ -498,9 +501,9 @@ static char *vici_get_charon_filepath(void)
 	return buff;
 }
 
-static void vici_reconnect(struct thread *t)
+static void vici_reconnect(struct event *t)
 {
-	struct vici_conn *vici = THREAD_ARG(t);
+	struct vici_conn *vici = EVENT_ARG(t);
 	int fd;
 	char *file_path;
 
@@ -517,14 +520,14 @@ static void vici_reconnect(struct thread *t)
 		debugf(NHRP_DEBUG_VICI,
 		       "%s: failure connecting VICI socket: %s", __func__,
 		       strerror(errno));
-		thread_add_timer(master, vici_reconnect, vici, 2,
-				 &vici->t_reconnect);
+		event_add_timer(master, vici_reconnect, vici, 2,
+				&vici->t_reconnect);
 		return;
 	}
 
 	debugf(NHRP_DEBUG_COMMON, "VICI: Connected");
 	vici->fd = fd;
-	thread_add_read(master, vici_read, vici, vici->fd, &vici->t_read);
+	event_add_read(master, vici_read, vici, vici->fd, &vici->t_read);
 
 	/* Send event subscribtions */
 	// vici_register_event(vici, "child-updown");
@@ -545,8 +548,8 @@ void vici_init(void)
 	vici->fd = -1;
 	zbuf_init(&vici->ibuf, vici->ibuf_data, sizeof(vici->ibuf_data), 0);
 	zbufq_init(&vici->obuf);
-	thread_add_timer_msec(master, vici_reconnect, vici, 10,
-			      &vici->t_reconnect);
+	event_add_timer_msec(master, vici_reconnect, vici, 10,
+			     &vici->t_reconnect);
 }
 
 void vici_terminate(void)

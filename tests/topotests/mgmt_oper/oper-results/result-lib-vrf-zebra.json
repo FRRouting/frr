@@ -1,0 +1,572 @@
+{
+  "frr-vrf:lib": {
+    "vrf": [
+      {
+        "name": "default",
+        "frr-zebra:zebra": {
+          "ribs": {
+            "rib": [
+              {
+                "afi-safi-name": "frr-routing:ipv4-unicast",
+                "table-id": 254,
+                "route": [
+                  {
+                    "prefix": "0.0.0.0/0"
+                  },
+                  {
+                    "prefix": "1.1.1.0/24",
+                    "route-entry": [
+                      {
+                        "protocol": "connected",
+                        "distance": 0,
+                        "metric": 0,
+                        "selected": [null],
+                        "installed": [null],
+                        "internal-flags": 8,
+                        "internal-status": 16,
+                        "uptime": "rubout",
+                        "nexthop-group": {
+                          "id": "rubout",
+                          "nexthop": [
+                            {
+                              "nh-type": "ifindex",
+                              "vrf": "rubout",
+                              "gateway": "",
+                              "interface": "r1-eth0",
+                              "active": [null],
+                              "fib": [null]
+                            }
+                          ]
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "prefix": "1.1.1.1/32",
+                    "route-entry": [
+                      {
+                        "protocol": "local",
+                        "distance": 0,
+                        "metric": 0,
+                        "selected": [null],
+                        "installed": [null],
+                        "internal-flags": 8,
+                        "internal-status": 16,
+                        "uptime": "rubout",
+                        "nexthop-group": {
+                          "id": "rubout",
+                          "nexthop": [
+                            {
+                              "nh-type": "ifindex",
+                              "vrf": "rubout",
+                              "gateway": "",
+                              "interface": "r1-eth0",
+                              "active": [null],
+                              "fib": [null]
+                            }
+                          ]
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "prefix": "2.2.2.0/24",
+                    "route-entry": [
+                      {
+                        "protocol": "connected",
+                        "distance": 0,
+                        "metric": 0,
+                        "selected": [null],
+                        "installed": [null],
+                        "internal-flags": 8,
+                        "internal-status": 16,
+                        "uptime": "rubout",
+                        "nexthop-group": {
+                          "id": "rubout",
+                          "nexthop": [
+                            {
+                              "nh-type": "ifindex",
+                              "vrf": "rubout",
+                              "gateway": "",
+                              "interface": "r1-eth1",
+                              "active": [null],
+                              "fib": [null]
+                            }
+                          ]
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "prefix": "2.2.2.1/32",
+                    "route-entry": [
+                      {
+                        "protocol": "local",
+                        "distance": 0,
+                        "metric": 0,
+                        "selected": [null],
+                        "installed": [null],
+                        "internal-flags": 8,
+                        "internal-status": 16,
+                        "uptime": "rubout",
+                        "nexthop-group": {
+                          "id": "rubout",
+                          "nexthop": [
+                            {
+                              "nh-type": "ifindex",
+                              "vrf": "rubout",
+                              "gateway": "",
+                              "interface": "r1-eth1",
+                              "active": [null],
+                              "fib": [null]
+                            }
+                          ]
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "prefix": "11.0.0.0/8",
+                    "route-entry": [
+                      {
+                        "protocol": "static",
+                        "distance": 1,
+                        "metric": 0,
+                        "selected": [null],
+                        "installed": [null],
+                        "internal-flags": 73,
+                        "internal-status": 16,
+                        "uptime": "rubout",
+                        "nexthop-group": {
+                          "id": "rubout",
+                          "nexthop": [
+                            {
+                              "nh-type": "blackhole",
+                              "vrf": "rubout",
+                              "gateway": "",
+                              "interface": " ",
+                              "bh-type": "null",
+                              "active": [null],
+                              "fib": [null],
+                              "weight": 1
+                            }
+                          ]
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "prefix": "11.11.11.11/32",
+                    "route-entry": [
+                      {
+                        "protocol": "static",
+                        "distance": 1,
+                        "metric": 0,
+                        "selected": [null],
+                        "installed": [null],
+                        "internal-flags": 73,
+                        "internal-status": 16,
+                        "uptime": "rubout",
+                        "nexthop-group": {
+                          "id": "rubout",
+                          "nexthop": [
+                            {
+                              "nh-type": "ip4-ifindex",
+                              "vrf": "rubout",
+                              "gateway": "1.1.1.2",
+                              "interface": "r1-eth0",
+                              "active": [null],
+                              "fib": [null],
+                              "weight": 1
+                            }
+                          ]
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "prefix": "12.12.12.12/32",
+                    "route-entry": [
+                      {
+                        "protocol": "static",
+                        "distance": 1,
+                        "metric": 0,
+                        "selected": [null],
+                        "installed": [null],
+                        "internal-flags": 73,
+                        "internal-status": 16,
+                        "uptime": "rubout",
+                        "nexthop-group": {
+                          "id": "rubout",
+                          "nexthop": [
+                            {
+                              "nh-type": "ip4-ifindex",
+                              "vrf": "rubout",
+                              "gateway": "2.2.2.2",
+                              "interface": "r1-eth1",
+                              "active": [null],
+                              "fib": [null],
+                              "weight": 1
+                            }
+                          ]
+                        }
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "afi-safi-name": "frr-routing:ipv4-multicast",
+                "table-id": 254,
+                "route": [
+                  {
+                    "prefix": "0.0.0.0/0"
+                  },
+                  {
+                    "prefix": "1.1.1.0/24",
+                    "route-entry": [
+                      {
+                        "protocol": "connected",
+                        "distance": 0,
+                        "metric": 0,
+                        "selected": [null],
+                        "internal-flags": 8,
+                        "uptime": "rubout",
+                        "nexthop-group": {
+                          "id": "rubout",
+                          "nexthop": [
+                            {
+                              "nh-type": "ifindex",
+                              "vrf": "rubout",
+                              "gateway": "",
+                              "interface": "r1-eth0",
+                              "active": [null],
+                              "fib": [null]
+                            }
+                          ]
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "prefix": "1.1.1.1/32",
+                    "route-entry": [
+                      {
+                        "protocol": "local",
+                        "distance": 0,
+                        "metric": 0,
+                        "selected": [null],
+                        "internal-flags": 8,
+                        "uptime": "rubout",
+                        "nexthop-group": {
+                          "id": "rubout",
+                          "nexthop": [
+                            {
+                              "nh-type": "ifindex",
+                              "vrf": "rubout",
+                              "gateway": "",
+                              "interface": "r1-eth0",
+                              "active": [null],
+                              "fib": [null]
+                            }
+                          ]
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "prefix": "2.2.2.0/24",
+                    "route-entry": [
+                      {
+                        "protocol": "connected",
+                        "distance": 0,
+                        "metric": 0,
+                        "selected": [null],
+                        "internal-flags": 8,
+                        "uptime": "rubout",
+                        "nexthop-group": {
+                          "id": "rubout",
+                          "nexthop": [
+                            {
+                              "nh-type": "ifindex",
+                              "vrf": "rubout",
+                              "gateway": "",
+                              "interface": "r1-eth1",
+                              "active": [null],
+                              "fib": [null]
+                            }
+                          ]
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "prefix": "2.2.2.1/32",
+                    "route-entry": [
+                      {
+                        "protocol": "local",
+                        "distance": 0,
+                        "metric": 0,
+                        "selected": [null],
+                        "internal-flags": 8,
+                        "uptime": "rubout",
+                        "nexthop-group": {
+                          "id": "rubout",
+                          "nexthop": [
+                            {
+                              "nh-type": "ifindex",
+                              "vrf": "rubout",
+                              "gateway": "",
+                              "interface": "r1-eth1",
+                              "active": [null],
+                              "fib": [null]
+                            }
+                          ]
+                        }
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "afi-safi-name": "frr-routing:ipv6-unicast",
+                "table-id": 254,
+                "route": [
+                  {
+                    "prefix": "::/0"
+                  },
+                  {
+                    "prefix": "2001:1111::/64",
+                    "route-entry": [
+                      {
+                        "protocol": "connected",
+                        "distance": 0,
+                        "metric": 0,
+                        "selected": [null],
+                        "installed": [null],
+                        "internal-flags": 8,
+                        "internal-status": 16,
+                        "uptime": "rubout",
+                        "nexthop-group": {
+                          "id": "rubout",
+                          "nexthop": [
+                            {
+                              "nh-type": "ifindex",
+                              "vrf": "rubout",
+                              "gateway": "",
+                              "interface": "r1-eth0",
+                              "active": [null],
+                              "fib": [null]
+                            }
+                          ]
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "prefix": "2001:1111::1/128",
+                    "route-entry": [
+                      {
+                        "protocol": "local",
+                        "distance": 0,
+                        "metric": 0,
+                        "selected": [null],
+                        "installed": [null],
+                        "internal-flags": 8,
+                        "internal-status": 16,
+                        "uptime": "rubout",
+                        "nexthop-group": {
+                          "id": "rubout",
+                          "nexthop": [
+                            {
+                              "nh-type": "ifindex",
+                              "vrf": "rubout",
+                              "gateway": "",
+                              "interface": "r1-eth0",
+                              "active": [null],
+                              "fib": [null]
+                            }
+                          ]
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "prefix": "2002:2222::/64",
+                    "route-entry": [
+                      {
+                        "protocol": "connected",
+                        "distance": 0,
+                        "metric": 0,
+                        "selected": [null],
+                        "installed": [null],
+                        "internal-flags": 8,
+                        "internal-status": 16,
+                        "uptime": "rubout",
+                        "nexthop-group": {
+                          "id": "rubout",
+                          "nexthop": [
+                            {
+                              "nh-type": "ifindex",
+                              "vrf": "rubout",
+                              "gateway": "",
+                              "interface": "r1-eth1",
+                              "active": [null],
+                              "fib": [null]
+                            }
+                          ]
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "prefix": "2002:2222::1/128",
+                    "route-entry": [
+                      {
+                        "protocol": "local",
+                        "distance": 0,
+                        "metric": 0,
+                        "selected": [null],
+                        "installed": [null],
+                        "internal-flags": 8,
+                        "internal-status": 16,
+                        "uptime": "rubout",
+                        "nexthop-group": {
+                          "id": "rubout",
+                          "nexthop": [
+                            {
+                              "nh-type": "ifindex",
+                              "vrf": "rubout",
+                              "gateway": "",
+                              "interface": "r1-eth1",
+                              "active": [null],
+                              "fib": [null]
+                            }
+                          ]
+                        }
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "afi-safi-name": "frr-routing:ipv6-multicast",
+                "table-id": 254,
+                "route": [
+                  {
+                    "prefix": "::/0"
+                  },
+                  {
+                    "prefix": "2001:1111::/64",
+                    "route-entry": [
+                      {
+                        "protocol": "connected",
+                        "distance": 0,
+                        "metric": 0,
+                        "selected": [null],
+                        "internal-flags": 8,
+                        "uptime": "rubout",
+                        "nexthop-group": {
+                          "id": "rubout",
+                          "nexthop": [
+                            {
+                              "nh-type": "ifindex",
+                              "vrf": "rubout",
+                              "gateway": "",
+                              "interface": "r1-eth0",
+                              "active": [null],
+                              "fib": [null]
+                            }
+                          ]
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "prefix": "2001:1111::1/128",
+                    "route-entry": [
+                      {
+                        "protocol": "local",
+                        "distance": 0,
+                        "metric": 0,
+                        "selected": [null],
+                        "internal-flags": 8,
+                        "uptime": "rubout",
+                        "nexthop-group": {
+                          "id": "rubout",
+                          "nexthop": [
+                            {
+                              "nh-type": "ifindex",
+                              "vrf": "rubout",
+                              "gateway": "",
+                              "interface": "r1-eth0",
+                              "active": [null],
+                              "fib": [null]
+                            }
+                          ]
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "prefix": "2002:2222::/64",
+                    "route-entry": [
+                      {
+                        "protocol": "connected",
+                        "distance": 0,
+                        "metric": 0,
+                        "selected": [null],
+                        "internal-flags": 8,
+                        "uptime": "rubout",
+                        "nexthop-group": {
+                          "id": "rubout",
+                          "nexthop": [
+                            {
+                              "nh-type": "ifindex",
+                              "vrf": "rubout",
+                              "gateway": "",
+                              "interface": "r1-eth1",
+                              "active": [null],
+                              "fib": [null]
+                            }
+                          ]
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "prefix": "2002:2222::1/128",
+                    "route-entry": [
+                      {
+                        "protocol": "local",
+                        "distance": 0,
+                        "metric": 0,
+                        "selected": [null],
+                        "internal-flags": 8,
+                        "uptime": "rubout",
+                        "nexthop-group": {
+                          "id": "rubout",
+                          "nexthop": [
+                            {
+                              "nh-type": "ifindex",
+                              "vrf": "rubout",
+                              "gateway": "",
+                              "interface": "r1-eth1",
+                              "active": [null],
+                              "fib": [null]
+                            }
+                          ]
+                        }
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      }
+    ]
+  }
+}
+

@@ -1,23 +1,8 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * This is an implementation of rfc2370.
  * Copyright (C) 2001 KDD R&D Laboratories, Inc.
  * http://www.kddlabs.co.jp/
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef _ZEBRA_OSPF_OPAQUE_H
@@ -124,6 +109,7 @@ extern void ospf_opaque_term(void);
 extern void ospf_opaque_finish(void);
 extern int ospf_opaque_type9_lsa_init(struct ospf_interface *oi);
 extern void ospf_opaque_type9_lsa_term(struct ospf_interface *oi);
+extern void ospf_opaque_type9_lsa_if_cleanup(struct ospf_interface *oi);
 extern int ospf_opaque_type10_lsa_init(struct ospf_area *area);
 extern void ospf_opaque_type10_lsa_term(struct ospf_area *area);
 extern int ospf_opaque_type11_lsa_init(struct ospf *ospf);

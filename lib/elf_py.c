@@ -1,20 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * fast ELF file accessor
  * Copyright (C) 2018-2020  David Lamparter for NetDEF, Inc.
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 /* Note: this wrapper is intended to be used as build-time helper.  While
@@ -1102,7 +1089,9 @@ static void elffile_add_dynreloc(struct elffile *w, Elf_Data *reldata,
 		symidx = relw->symidx = GELF_R_SYM(rela->r_info);
 		sym = relw->sym = gelf_getsym(symdata, symidx, &relw->_sym);
 		if (sym) {
-			relw->symname = elfdata_strptr(strdata, sym->st_name);
+			if (strdata)
+				relw->symname = elfdata_strptr(strdata,
+							       sym->st_name);
 			relw->symvalid = GELF_ST_TYPE(sym->st_info)
 					!= STT_NOTYPE;
 			relw->unresolved = sym->st_shndx == SHN_UNDEF;
@@ -1153,7 +1142,8 @@ static PyObject *elffile_load(PyTypeObject *type, PyObject *args,
 	fd = open(filename, O_RDONLY | O_NOCTTY);
 	if (fd < 0 || fstat(fd, &st)) {
 		PyErr_SetFromErrnoWithFilename(PyExc_OSError, filename);
-		close(fd);
+		if (fd >= 0)
+			close(fd);
 		goto out;
 	}
 	w->len = st.st_size;

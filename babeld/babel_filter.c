@@ -1,23 +1,6 @@
+// SPDX-License-Identifier: MIT
 /*
 Copyright 2011 by Matthieu Boutier and Juliusz Chroboczek
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in
-all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-THE SOFTWARE.
 */
 
 #ifdef HAVE_CONFIG_H
@@ -44,15 +27,18 @@ babel_filter(int output, const unsigned char *prefix, unsigned short plen,
     struct prefix_list *plist;
     int distribute;
     struct babel *babel;
+    afi_t family;
 
     p.family = v4mapped(prefix) ? AF_INET : AF_INET6;
     p.prefixlen = v4mapped(prefix) ? plen - 96 : plen;
     if (p.family == AF_INET) {
         uchar_to_inaddr(&p.u.prefix4, prefix);
         distribute = output ? DISTRIBUTE_V4_OUT : DISTRIBUTE_V4_IN;
+        family = AFI_IP;
     } else {
         uchar_to_in6addr(&p.u.prefix6, prefix);
         distribute = output ? DISTRIBUTE_V6_OUT : DISTRIBUTE_V6_IN;
+        family = AFI_IP6;
     }
 
     if (babel_ifp != NULL && babel_ifp->list[distribute]) {
@@ -79,7 +65,7 @@ babel_filter(int output, const unsigned char *prefix, unsigned short plen,
         dist = distribute_lookup (babel->distribute_ctx, NULL);
     if (dist) {
         if (dist->list[distribute]) {
-            alist = access_list_lookup (p.family, dist->list[distribute]);
+            alist = access_list_lookup (family, dist->list[distribute]);
 
             if (alist) {
                 if (access_list_apply (alist, &p) == FILTER_DENY) {
@@ -90,7 +76,7 @@ babel_filter(int output, const unsigned char *prefix, unsigned short plen,
 	    }
 	}
         if (dist->prefix[distribute]) {
-            plist = prefix_list_lookup (p.family, dist->prefix[distribute]);
+            plist = prefix_list_lookup (family, dist->prefix[distribute]);
             if (plist) {
                 if (prefix_list_apply (plist, &p) == PREFIX_DENY) {
                     debugf(BABEL_DEBUG_FILTER,"%pFX filtered by distribute %s",

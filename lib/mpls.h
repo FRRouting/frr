@@ -1,28 +1,14 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * MPLS definitions
  * Copyright 2015 Cumulus Networks, Inc.
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published
- * by the Free Software Foundation; either version 2, or (at your
- * option) any later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef _QUAGGA_MPLS_H
 #define _QUAGGA_MPLS_H
 
 #include <zebra.h>
+#include <vxlan.h>
 #include <arpa/inet.h>
 
 #ifdef __cplusplus
@@ -129,9 +115,35 @@ enum lsp_types_t {
 	ZEBRA_LSP_ISIS_SR = 5,/* IS-IS Segment Routing LSP. */
 	ZEBRA_LSP_SHARP = 6,  /* Identifier for test protocol */
 	ZEBRA_LSP_SRTE = 7,   /* SR-TE LSP */
+	ZEBRA_LSP_EVPN = 8,  /* EVPN VNI Label */
 };
 
 /* Functions for basic label operations. */
+
+static inline void vni2label(vni_t vni, mpls_label_t *label)
+{
+	uint8_t *tag = (uint8_t *)label;
+
+	assert(tag);
+
+	tag[0] = (vni >> 16) & 0xFF;
+	tag[1] = (vni >> 8) & 0xFF;
+	tag[2] = vni & 0xFF;
+}
+
+static inline vni_t label2vni(const mpls_label_t *label)
+{
+	uint8_t *tag = (uint8_t *)label;
+	vni_t vni;
+
+	assert(tag);
+
+	vni = ((uint32_t)*tag++ << 16);
+	vni |= (uint32_t)*tag++ << 8;
+	vni |= (uint32_t)(*tag & 0xFF);
+
+	return vni;
+}
 
 /* Encode a label stack entry from fields; convert to network byte-order as
  * the Netlink interface expects MPLS labels to be in this format.
@@ -168,8 +180,14 @@ static inline void mpls_lse_decode(mpls_lse_t lse, mpls_label_t *label,
 #define MPLS_INVALID_LABEL_INDEX   0xFFFFFFFF
 
 /* Printable string for labels (with consideration for reserved values). */
-static inline char *label2str(mpls_label_t label, char *buf, size_t len)
+static inline char *label2str(mpls_label_t label, enum lsp_types_t type,
+			      char *buf, size_t len)
 {
+	if (type == ZEBRA_LSP_EVPN) {
+		snprintf(buf, len, "%u", label2vni(&label));
+		return (buf);
+	}
+
 	switch (label) {
 	case MPLS_LABEL_IPV4_EXPLICIT_NULL:
 		strlcpy(buf, "IPv4 Explicit Null", len);
@@ -200,7 +218,7 @@ static inline char *label2str(mpls_label_t label, char *buf, size_t len)
 			snprintf(buf, len, "Reserved (%u)", label);
 		else
 			snprintf(buf, len, "%u", label);
-		return (buf);
+		return buf;
 	}
 }
 
@@ -217,7 +235,7 @@ int mpls_str2label(const char *label_str, uint8_t *num_labels,
  * Label to string conversion, labels in string separated by '/'.
  */
 char *mpls_label2str(uint8_t num_labels, const mpls_label_t *labels, char *buf,
-		     int len, int pretty);
+		     int len, enum lsp_types_t type, int pretty);
 
 #ifdef __cplusplus
 }

@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * This is an implementation of Segment Routing
  * as per RFC 8665 - OSPF Extensions for Segment Routing
@@ -9,20 +10,6 @@
  * Author: Anselme Sawadogo <anselmesawadogo@gmail.com>
  *
  * Copyright (C) 2016 - 2020 Orange Labs http://www.orange.com
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef _FRR_OSPF_SR_H
@@ -256,7 +243,7 @@ struct ospf_sr_db {
 	uint8_t msd;
 
 	/* Thread timer to start Label Manager */
-	struct thread *t_start_lm;
+	struct event *t_start_lm;
 };
 
 /* Structure aggregating all received SR info from LSAs by node */

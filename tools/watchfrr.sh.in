@@ -5,7 +5,7 @@
 # internally by watchfrr to start the protocol daemons with the appropriate
 # options.
 #
-# This script should be installed in  @CFG_SBIN@/watchfrr.sh
+# This script should be installed in  @e_sbindir@/watchfrr.sh
 
 log_success_msg() {
 	:
@@ -27,7 +27,7 @@ self="`dirname $0`"
 if [ -r "$self/frrcommon.sh" ]; then
 	. "$self/frrcommon.sh"
 else
-	. "@CFG_SBIN@/frrcommon.sh"
+	. "@e_sbindir@/frrcommon.sh"
 fi
 
 frrcommon_main "$@"

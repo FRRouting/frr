@@ -1,25 +1,9 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Zebra EVPN Data structures and definitions
  * These are "internal" to this function.
  * Copyright (C) 2016, 2017 Cumulus Networks, Inc.
  * Copyright (C) 2020 Volta Networks.
- *
- * This file is part of FRR.
- *
- * FRR is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * FRR is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with FRR; see the file COPYING.  If not, write to the Free
- * Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
- * 02111-1307, USA.
  */
 
 #ifndef _ZEBRA_EVPN_H
@@ -33,6 +17,7 @@
 
 #include "zebra/zebra_l2.h"
 #include "zebra/interface.h"
+#include "zebra/zebra_vxlan.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -82,6 +67,10 @@ struct zebra_evpn {
 	/* ES flags */
 	uint32_t flags;
 #define ZEVPN_READY_FOR_BGP (1 << 0) /* ready to be sent to BGP */
+
+	/* Corresponding Bridge information */
+	vlanid_t vid;
+	struct interface *bridge_if;
 
 	/* Flag for advertising gw macip */
 	uint8_t advertise_gw_macip;
@@ -138,7 +127,7 @@ static inline struct interface *zevpn_map_to_svi(struct zebra_evpn *zevpn)
 {
 	struct interface *ifp;
 	struct zebra_if *zif = NULL;
-	struct zebra_l2info_vxlan zl2_info;
+	struct zebra_vxlan_vni *vni;
 
 	ifp = zevpn->vxlan_if;
 	if (!ifp)
@@ -146,12 +135,15 @@ static inline struct interface *zevpn_map_to_svi(struct zebra_evpn *zevpn)
 	zif = ifp->info;
 	if (!zif)
 		return NULL;
+	vni = zebra_vxlan_if_vni_find(zif, zevpn->vni);
+	if (!vni)
+		return NULL;
 
 	/* If down or not mapped to a bridge, we're done. */
 	if (!if_is_operative(ifp) || !zif->brslave_info.br_if)
 		return NULL;
-	zl2_info = zif->l2info.vxl;
-	return zvni_map_to_svi(zl2_info.access_vlan, zif->brslave_info.br_if);
+
+	return zvni_map_to_svi(vni->access_vlan, zif->brslave_info.br_if);
 }
 
 int advertise_gw_macip_enabled(struct zebra_evpn *zevpn);
@@ -181,7 +173,8 @@ struct zebra_evpn *zebra_evpn_from_svi(struct interface *ifp,
 				       struct interface *br_if);
 struct interface *zebra_evpn_map_to_macvlan(struct interface *br_if,
 					    struct interface *svi_if);
-void zebra_evpn_install_mac_hash(struct hash_bucket *bucket, void *ctxt);
+void zebra_evpn_rem_mac_install_all(struct zebra_evpn *zevpn);
+void zebra_evpn_rem_mac_uninstall_all(struct zebra_evpn *zevpn);
 void zebra_evpn_read_mac_neigh(struct zebra_evpn *zevpn, struct interface *ifp);
 unsigned int zebra_evpn_hash_keymake(const void *p);
 bool zebra_evpn_hash_cmp(const void *p1, const void *p2);

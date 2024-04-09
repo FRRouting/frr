@@ -1,17 +1,6 @@
+// SPDX-License-Identifier: ISC
 /*
  * Copyright (c) 2019  David Lamparter, for NetDEF, Inc.
- *
- * Permission to use, copy, modify, and distribute this software for any
- * purpose with or without fee is hereby granted, provided that the above
- * copyright notice and this permission notice appear in all copies.
- *
- * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
- * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
- * ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
- * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
- * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
- * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
 #ifdef HAVE_CONFIG_H
@@ -95,6 +84,15 @@ void typesafe_hash_grow(struct thash_head *head)
 {
 	uint32_t newsize = head->count, i, j;
 	uint8_t newshift, delta;
+
+	/* note hash_grow is called after head->count++, so newsize is
+	 * guaranteed to be >= 1.  So the minimum argument to builtin_ctz
+	 * below is 2, which returns 1, and that makes newshift >= 2.
+	 *
+	 * Calling hash_grow with a zero head->count would result in a
+	 * malformed hash table that has tabshift == 1.
+	 */
+	assert(head->count > 0);
 
 	hash_consistency_check(head);
 

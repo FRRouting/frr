@@ -1,23 +1,10 @@
 #!/usr/bin/python
+# SPDX-License-Identifier: ISC
 
 #
 # Copyright (c) 2020 by VMware, Inc. ("VMware")
 # Used Copyright (c) 2018 by Network Device Education Foundation, Inc.
 # ("NetDEF") in this file.
-#
-# Permission to use, copy, modify, and/or distribute this software
-# for any purpose with or without fee is hereby granted, provided
-# that the above copyright notice and this permission notice appear
-# in all copies.
-#
-# THE SOFTWARE IS PROVIDED "AS IS" AND VMWARE DISCLAIMS ALL WARRANTIES
-# WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
-# MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL VMWARE BE LIABLE FOR
-# ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY
-# DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS,
-# WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS
-# ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE
-# OF THIS SOFTWARE.
 #
 
 
@@ -145,7 +132,7 @@ def setup_module(mod):
         pytest.skip(tgen.errors)
     # Api call verify whether OSPF is converged
     ospf_covergence = verify_ospf_neighbor(tgen, topo)
-    assert ospf_covergence is True, "setup_module :Failed \n Error:" " {}".format(
+    assert ospf_covergence is True, "setup_module :Failed \n Error  {}".format(
         ospf_covergence
     )
 
@@ -248,11 +235,9 @@ def test_ospf_type5_summary_tc44_p0(request):
     result = verify_rib(tgen, "ipv4", dut, input_dict_static_rtes, protocol=protocol)
     assert (
         result is True
-    ), "Testcase {} : Failed" "Error: Routes is missing in RIB".format(tc_name)
+    ), "Testcase {} : Failed. Error: Routes is missing in RIB".format(tc_name)
 
-    step(
-        "Configure External Route summary in R0 to summarise 5" " routes to one route."
-    )
+    step("Configure External Route summary in R0 to summarise 5  routes to one route.")
 
     ospf_summ_r0 = {
         "r0": {
@@ -272,9 +257,7 @@ def test_ospf_type5_summary_tc44_p0(request):
         "route is sent to R1."
     )
 
-    step(
-        "Configure summary & redistribute static/connected route with " "metric type 2"
-    )
+    step("Configure summary & redistribute static/connected route with  metric type 2")
 
     input_dict_summary = {"r0": {"static_routes": [{"network": SUMMARY["ipv4"][3]}]}}
     dut = "r1"
@@ -285,7 +268,7 @@ def test_ospf_type5_summary_tc44_p0(request):
     result = verify_rib(tgen, "ipv4", dut, input_dict_summary, protocol=protocol)
     assert (
         result is True
-    ), "Testcase {} : Failed" "Error: Routes is missing in RIB".format(tc_name)
+    ), "Testcase {} : Failed. Error: Routes is missing in RIB".format(tc_name)
 
     step("Verify that show ip ospf summary should show the summaries.")
     input_dict = {
@@ -301,7 +284,7 @@ def test_ospf_type5_summary_tc44_p0(request):
     result = verify_ospf_summary(tgen, topo, dut, input_dict)
     assert (
         result is True
-    ), "Testcase {} : Failed" "Error: Summary missing in OSPF DB".format(tc_name)
+    ), "Testcase {} : Failed. Error: Summary missing in OSPF DB".format(tc_name)
 
     step("Learn type 7 lsa from neighbours")
 
@@ -325,7 +308,7 @@ def test_ospf_type5_summary_tc44_p0(request):
     result = verify_rib(tgen, "ipv4", dut, input_dict_static_rtes, protocol=protocol)
     assert (
         result is True
-    ), "Testcase {} : Failed" "Error: Routes is missing in RIB".format(tc_name)
+    ), "Testcase {} : Failed. Error: Routes is missing in RIB".format(tc_name)
 
     ospf_summ_r0 = {
         "r0": {
@@ -353,7 +336,7 @@ def test_ospf_type5_summary_tc44_p0(request):
     result = verify_ospf_summary(tgen, topo, dut, input_dict)
     assert (
         result is True
-    ), "Testcase {} : Failed" "Error: Summary missing in OSPF DB".format(tc_name)
+    ), "Testcase {} : Failed. Error: Summary missing in OSPF DB".format(tc_name)
 
     step("Verify that already originated summary is intact.")
     input_dict = {
@@ -369,7 +352,7 @@ def test_ospf_type5_summary_tc44_p0(request):
     result = verify_ospf_summary(tgen, topo, dut, input_dict)
     assert (
         result is True
-    ), "Testcase {} : Failed" "Error: Summary missing in OSPF DB".format(tc_name)
+    ), "Testcase {} : Failed. Error: Summary missing in OSPF DB".format(tc_name)
 
     dut = "r1"
     aggr_timer = {"r1": {"ospf": {"aggr_timer": 6}}}

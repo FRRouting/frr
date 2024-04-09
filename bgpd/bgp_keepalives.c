@@ -1,23 +1,8 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* BGP Keepalives.
  * Implements a producer thread to generate BGP keepalives for peers.
  * Copyright (C) 2017 Cumulus Networks, Inc.
  * Quentin Young
- *
- * This file is part of FRRouting.
- *
- * FRRouting is free software; you can redistribute it and/or modify it under
- * the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2, or (at your option) any later
- * version.
- *
- * FRRouting is distributed in the hope that it will be useful, but WITHOUT ANY
- * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
- * FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more
- * details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 /* clang-format off */
@@ -30,7 +15,7 @@
 #include "memory.h"		// for MTYPE_TMP, XFREE, XCALLOC, XMALLOC
 #include "monotime.h"		// for monotime, monotime_since
 
-#include "bgpd/bgpd.h"          // for peer, PEER_THREAD_KEEPALIVES_ON, peer...
+#include "bgpd/bgpd.h"          // for peer, PEER_EVENT_KEEPALIVES_ON, peer...
 #include "bgpd/bgp_debug.h"	// for bgp_debug_neighbor_events
 #include "bgpd/bgp_packet.h"	// for bgp_keepalive_send
 #include "bgpd/bgp_keepalives.h"
@@ -151,12 +136,7 @@ static unsigned int peer_hash_key(const void *arg)
 /* Cleanup handler / deinitializer. */
 static void bgp_keepalives_finish(void *arg)
 {
-	if (peerhash) {
-		hash_clean(peerhash, pkat_del);
-		hash_free(peerhash);
-	}
-
-	peerhash = NULL;
+	hash_clean_and_free(&peerhash, pkat_del);
 
 	pthread_mutex_unlock(peerhash_mtx);
 	pthread_mutex_destroy(peerhash_mtx);
@@ -182,7 +162,7 @@ void *bgp_keepalives_start(void *arg)
 	/*
 	 * The RCU mechanism for each pthread is initialized in a "locked"
 	 * state. That's ok for pthreads using the frr_pthread,
-	 * thread_fetch event loop, because that event loop unlocks regularly.
+	 * event_fetch event loop, because that event loop unlocks regularly.
 	 * For foreign pthreads, the lock needs to be unlocked so that the
 	 * background rcu pthread can run.
 	 */
@@ -249,8 +229,10 @@ void *bgp_keepalives_start(void *arg)
 
 /* --- thread external functions ------------------------------------------- */
 
-void bgp_keepalives_on(struct peer *peer)
+void bgp_keepalives_on(struct peer_connection *connection)
 {
+	struct peer *peer = connection->peer;
+
 	if (CHECK_FLAG(peer->thread_flags, PEER_THREAD_KEEPALIVES_ON))
 		return;
 
@@ -278,8 +260,10 @@ void bgp_keepalives_on(struct peer *peer)
 	}
 }
 
-void bgp_keepalives_off(struct peer *peer)
+void bgp_keepalives_off(struct peer_connection *connection)
 {
+	struct peer *peer = connection->peer;
+
 	if (!CHECK_FLAG(peer->thread_flags, PEER_THREAD_KEEPALIVES_ON))
 		return;
 

@@ -1,14 +1,11 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* NHRP daemon Linux specific glue
  * Copyright (c) 2014-2015 Timo Teräs
- *
- * This file is free software: you may copy, redistribute and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 2 of the License, or
- * (at your option) any later version.
  */
 
 #include "zebra.h"
 
+#include <fcntl.h>
 #include <errno.h>
 #include <linux/if_packet.h>
 
@@ -100,25 +97,6 @@ int os_recvmsg(uint8_t *buf, size_t *len, int *ifindex, uint8_t *addr,
 	return 0;
 }
 
-static int linux_configure_arp(const char *iface, int on)
-{
-	struct ifreq ifr;
-
-	strlcpy(ifr.ifr_name, iface, IFNAMSIZ);
-	if (ioctl(nhrp_socket_fd, SIOCGIFFLAGS, &ifr))
-		return -1;
-
-	if (on)
-		ifr.ifr_flags &= ~IFF_NOARP;
-	else
-		ifr.ifr_flags |= IFF_NOARP;
-
-	if (ioctl(nhrp_socket_fd, SIOCSIFFLAGS, &ifr))
-		return -1;
-
-	return 0;
-}
-
 static int linux_icmp_redirect_off(const char *iface)
 {
 	char fname[PATH_MAX];
@@ -146,7 +124,6 @@ int os_configure_dmvpn(unsigned int ifindex, const char *ifname, int af)
 		ret |= linux_icmp_redirect_off(ifname);
 		break;
 	}
-	ret |= linux_configure_arp(ifname, 1);
 
 	return ret;
 }

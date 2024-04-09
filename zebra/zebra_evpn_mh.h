@@ -1,20 +1,9 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Zebra EVPN MH Data structures and definitions
  *
  * Copyright (C) 2019 Cumulus Networks, Inc.
  * Anuradha Karuppiah
- *
- * This file is part of FRR.
- *
- * FRR is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * FRR is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
  */
 
 #ifndef _ZEBRA_EVPN_MH_H
@@ -28,8 +17,7 @@
 #include "zebra_vxlan.h"
 #include "zebra_vxlan_private.h"
 #include "zebra_nhg.h"
-
-#define EVPN_MH_VTY_STR "Multihoming\n"
+#include "zebra_nb.h"
 
 /* Ethernet Segment entry -
  * - Local and remote ESs are maintained in a global RB tree,
@@ -98,7 +86,7 @@ struct zebra_evpn_es {
 	 * imported before running the DF election.
 	 */
 #define ZEBRA_EVPN_MH_DF_DELAY_TIME 3 /* seconds */
-	struct thread *df_delay_timer;
+	struct event *df_delay_timer;
 };
 RB_HEAD(zebra_es_rb_head, zebra_evpn_es);
 RB_PROTOTYPE(zebra_es_rb_head, zebra_evpn_es, rb_node, zebra_es_rb_cmp);
@@ -166,7 +154,7 @@ struct zebra_evpn_es_vtep {
 
 	/* Parameters for DF election */
 	uint8_t df_alg;
-	uint32_t df_pref;
+	uint16_t df_pref;
 
 	/* XXX - maintain a backpointer to struct zebra_vtep */
 };
@@ -179,6 +167,10 @@ struct zebra_evpn_es_vtep {
 struct zebra_evpn_access_bd {
 	vlanid_t vid;
 
+	ifindex_t bridge_ifindex;
+	struct zebra_if *bridge_zif; /* associated bridge */
+
+	vni_t vni;		    /* vni associated with the vxlan device */
 	struct zebra_if *vxlan_zif; /* vxlan device */
 	/* list of members associated with the BD i.e. (potential) ESs */
 	struct list *mbr_zifs;
@@ -255,7 +247,7 @@ struct zebra_evpn_mh_info {
 	 */
 	int startup_delay_time; /* seconds */
 #define ZEBRA_EVPN_MH_STARTUP_DELAY_DEF (3 * 60)
-	struct thread *startup_delay_timer;
+	struct event *startup_delay_timer;
 
 	/* Number of configured uplinks */
 	uint32_t uplink_cfg_cnt;
@@ -319,8 +311,10 @@ extern void zebra_evpn_vxl_evpn_set(struct zebra_if *zif,
 				    struct zebra_evpn *zevpn, bool set);
 extern void zebra_evpn_es_set_base_evpn(struct zebra_evpn *zevpn);
 extern void zebra_evpn_es_clear_base_evpn(struct zebra_evpn *zevpn);
-extern void zebra_evpn_vl_vxl_ref(uint16_t vid, struct zebra_if *vxlan_zif);
-extern void zebra_evpn_vl_vxl_deref(uint16_t vid, struct zebra_if *vxlan_zif);
+extern void zebra_evpn_vl_vxl_ref(uint16_t vid, vni_t vni_id,
+				  struct zebra_if *vxlan_zif);
+extern void zebra_evpn_vl_vxl_deref(uint16_t vid, vni_t vni_id,
+				    struct zebra_if *vxlan_zif);
 extern void zebra_evpn_vl_mbr_ref(uint16_t vid, struct zebra_if *zif);
 extern void zebra_evpn_vl_mbr_deref(uint16_t vid, struct zebra_if *zif);
 extern void zebra_evpn_es_send_all_to_client(bool add);
@@ -341,13 +335,16 @@ extern bool zebra_evpn_es_mac_ref_entry(struct zebra_mac *mac,
 					struct zebra_evpn_es *es);
 extern bool zebra_evpn_es_mac_ref(struct zebra_mac *mac, const esi_t *esi);
 extern struct zebra_evpn_es *zebra_evpn_es_find(const esi_t *esi);
-extern void zebra_evpn_interface_init(void);
-extern int zebra_evpn_mh_if_write(struct vty *vty, struct interface *ifp);
 extern void zebra_evpn_acc_vl_show(struct vty *vty, bool uj);
 extern void zebra_evpn_acc_vl_show_detail(struct vty *vty, bool uj);
-extern void zebra_evpn_acc_vl_show_vid(struct vty *vty, bool uj, vlanid_t vid);
 extern void zebra_evpn_if_es_print(struct vty *vty, json_object *json,
 				   struct zebra_if *zif);
+extern struct zebra_evpn_access_bd *
+zebra_evpn_acc_vl_find(vlanid_t vid, struct interface *br_if);
+struct zebra_evpn_access_bd *
+zebra_evpn_acc_vl_find_index(vlanid_t vid, ifindex_t bridge_ifindex);
+extern void zebra_evpn_acc_vl_show_vid(struct vty *vty, bool uj, vlanid_t vid,
+				       struct interface *br_if);
 extern void zebra_evpn_es_cleanup(void);
 extern int zebra_evpn_mh_mac_holdtime_update(struct vty *vty,
 		uint32_t duration, bool set_default);
@@ -373,10 +370,25 @@ extern void zebra_evpn_l2_nh_show(struct vty *vty, bool uj);
 extern void zebra_evpn_acc_bd_svi_set(struct zebra_if *vlan_zif,
 				      struct zebra_if *br_zif, bool is_up);
 extern void zebra_evpn_acc_bd_svi_mac_add(struct interface *vlan_if);
+extern void
+zebra_evpn_access_bd_bridge_cleanup(vlanid_t vid, struct interface *br_if,
+				    struct zebra_evpn_access_bd *acc_bd);
 extern void zebra_evpn_es_bypass_update(struct zebra_evpn_es *es,
 					struct interface *ifp, bool bypass);
 extern void zebra_evpn_proc_remote_nh(ZAPI_HANDLER_ARGS);
 extern struct zebra_evpn_es_evi *
 zebra_evpn_es_evi_find(struct zebra_evpn_es *es, struct zebra_evpn *zevpn);
+
+void zebra_build_type3_esi(uint32_t lid, struct ethaddr *mac, esi_t *esi);
+
+void zebra_evpn_es_sys_mac_update(struct zebra_if *zif, struct ethaddr *sysmac);
+void zebra_evpn_es_lid_update(struct zebra_if *zif, uint32_t lid);
+void zebra_evpn_es_type0_esi_update(struct zebra_if *zif, esi_t *esi);
+
+void zebra_evpn_es_df_pref_update(struct zebra_if *zif, uint16_t df_pref);
+void zebra_evpn_es_bypass_cfg_update(struct zebra_if *zif, bool bypass);
+void zebra_evpn_mh_uplink_cfg_update(struct zebra_if *zif, bool set);
+
+void zebra_evpn_mh_if_init(struct zebra_if *zif);
 
 #endif /* _ZEBRA_EVPN_MH_H */

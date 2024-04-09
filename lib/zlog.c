@@ -1,20 +1,15 @@
+// SPDX-License-Identifier: ISC
 /*
  * Copyright (c) 2015-19  David Lamparter, for NetDEF, Inc.
- *
- * Permission to use, copy, modify, and distribute this software for any
- * purpose with or without fee is hereby granted, provided that the above
- * copyright notice and this permission notice appear in all copies.
- *
- * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
- * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
- * ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
- * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
- * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
- * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
 #include "zebra.h"
+#include <sys/stat.h>
+#include <fcntl.h>
+
+#ifdef HAVE_GLIBC_BACKTRACE
+#include <execinfo.h>
+#endif /* HAVE_GLIBC_BACKTRACE */
 
 #include <unistd.h>
 #include <sys/time.h>
@@ -43,9 +38,6 @@
 #ifdef __DragonFly__
 #include <sys/lwp.h>
 #endif
-#ifdef __APPLE__
-#include <mach/mach_traps.h>
-#endif
 
 #ifdef HAVE_LIBUNWIND
 #define UNW_LOCAL_ONLY
@@ -58,8 +50,9 @@
 #include "printfrr.h"
 #include "frrcu.h"
 #include "zlog.h"
+#include "zlog_live.h"
 #include "libfrr_trace.h"
-#include "thread.h"
+#include "frrevent.h"
 
 DEFINE_MTYPE_STATIC(LIB, LOG_MESSAGE,  "log message");
 DEFINE_MTYPE_STATIC(LIB, LOG_TLSBUF,   "log thread-local buffer");
@@ -92,7 +85,7 @@ static struct zlog_targets_head zlog_targets;
 /* Global setting for buffered vs immediate output. The default is
  * per-pthread buffering.
  */
-static bool default_immediate;
+static bool zlog_default_immediate;
 
 /* cf. zlog.h for additional comments on this struct.
  *
@@ -116,6 +109,9 @@ struct zlog_msg {
 	char *text;
 	size_t textlen;
 	size_t hdrlen;
+
+	/* for relayed log messages ONLY (cf. zlog_recirculate_live_msg) */
+	intmax_t pid, tid;
 
 	/* This is always ISO8601 with sub-second precision 9 here, it's
 	 * converted for callers as needed.  ts_dot points to the "."
@@ -365,6 +361,16 @@ void zlog_msg_pid(struct zlog_msg *msg, intmax_t *pid, intmax_t *tid)
 {
 #ifndef __OpenBSD__
 	static thread_local intmax_t cached_pid = -1;
+#endif
+
+	/* recirculated messages */
+	if (msg->pid) {
+		*pid = msg->pid;
+		*tid = msg->tid;
+		return;
+	}
+
+#ifndef __OpenBSD__
 	if (cached_pid != -1)
 		*pid = cached_pid;
 	else
@@ -453,7 +459,7 @@ static void vzlog_tls(struct zlog_tls *zlog_tls, const struct xref_logmsg *xref,
 	struct zlog_msg *msg;
 	char *buf;
 	bool ignoremsg = true;
-	bool immediate = default_immediate;
+	bool immediate = zlog_default_immediate;
 
 	/* avoid further processing cost if no target wants this message */
 	rcu_read_lock();
@@ -515,9 +521,92 @@ static void vzlog_tls(struct zlog_tls *zlog_tls, const struct xref_logmsg *xref,
 		XFREE(MTYPE_LOG_MESSAGE, msg->text);
 }
 
+/* reinject log message received by zlog_recirculate_recv().  As of writing,
+ * only used in the ldpd parent process to proxy messages from lde/ldpe
+ * subprocesses.
+ */
+void zlog_recirculate_live_msg(uint8_t *data, size_t len)
+{
+	struct zlog_target *zt;
+	struct zlog_msg stackmsg = {}, *msg = &stackmsg;
+	struct zlog_live_hdr *hdr;
+	struct xrefdata *xrefdata, ref = {};
+
+	if (len < sizeof(*hdr))
+		return;
+
+	hdr = (struct zlog_live_hdr *)data;
+	if (hdr->hdrlen < sizeof(*hdr))
+		return;
+	data += hdr->hdrlen;
+	len -= sizeof(*hdr);
+
+	msg->ts.tv_sec = hdr->ts_sec;
+	msg->ts.tv_nsec = hdr->ts_nsec;
+	msg->pid = hdr->pid;
+	msg->tid = hdr->tid;
+	msg->prio = hdr->prio;
+
+	if (hdr->textlen > len)
+		return;
+	msg->textlen = hdr->textlen;
+	msg->hdrlen = hdr->texthdrlen;
+	msg->text = (char *)data;
+
+	/* caller needs to make sure we have a trailing \n\0, it's not
+	 * transmitted on zlog_live
+	 */
+	if (msg->text[msg->textlen] != '\n' ||
+	    msg->text[msg->textlen + 1] != '\0')
+		return;
+
+	static_assert(sizeof(msg->argpos[0]) == sizeof(hdr->argpos[0]),
+		      "in-memory struct doesn't match on-wire variant");
+	msg->n_argpos = MIN(hdr->n_argpos, array_size(msg->argpos));
+	memcpy(msg->argpos, hdr->argpos, msg->n_argpos * sizeof(msg->argpos[0]));
+
+	/* This will only work if we're in the same daemon: we received a log
+	 * message uid and are now doing a lookup in *our* known uids to find
+	 * it.  This works for ldpd because it's the same binary containing the
+	 * same log messages, and ldpd is the only use case right now.
+	 *
+	 * When the uid is not found, the log message uid is lost but the
+	 * message itself is still processed correctly.  If this is needed,
+	 * this can be made to work in two ways:
+	 * (a) synthesize a temporary xref_logmsg from the received data.
+	 *     This is a bit annoying due to lifetimes with per-thread buffers.
+	 * (b) extract and aggregate all log messages.  This already happens
+	 *     with frr.xref but that would need to be fed back in.
+	 */
+	strlcpy(ref.uid, hdr->uid, sizeof(ref.uid));
+	xrefdata = xrefdata_uid_find(&xrefdata_uid, &ref);
+
+	if (xrefdata && xrefdata->xref->type == XREFT_LOGMSG) {
+		struct xref_logmsg *xref_logmsg;
+
+		xref_logmsg = (struct xref_logmsg *)xrefdata->xref;
+		msg->xref = xref_logmsg;
+		msg->fmt = xref_logmsg->fmtstring;
+	} else {
+		/* fake out format string... */
+		msg->fmt = msg->text + hdr->texthdrlen;
+	}
+
+	rcu_read_lock();
+	frr_each_safe (zlog_targets, &zlog_targets, zt) {
+		if (msg->prio > zt->prio_min)
+			continue;
+		if (!zt->logfn)
+			continue;
+
+		zt->logfn(zt, &msg, 1);
+	}
+	rcu_read_unlock();
+}
+
 static void zlog_backtrace_msg(const struct xref_logmsg *xref, int prio)
 {
-	struct thread *tc = pthread_getspecific(thread_current);
+	struct event *tc = pthread_getspecific(thread_current);
 	const char *uid = xref->xref.xrefdata->uid;
 	bool found_thread = false;
 
@@ -974,7 +1063,12 @@ struct zlog_target *zlog_target_replace(struct zlog_target *oldzt,
  */
 void zlog_set_immediate(bool set_p)
 {
-	default_immediate = set_p;
+	zlog_default_immediate = set_p;
+}
+
+bool zlog_get_immediate_mode(void)
+{
+	return zlog_default_immediate;
 }
 
 /* common init */

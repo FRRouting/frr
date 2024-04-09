@@ -1,29 +1,17 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * VRRP entry point.
  * Copyright (C) 2018-2019 Cumulus Networks, Inc.
  * Quentin Young
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 #include <zebra.h>
+
+#include <getopt.h>
 
 #include <lib/version.h>
 
 #include "lib/command.h"
 #include "lib/filter.h"
-#include "lib/getopt.h"
 #include "lib/if.h"
 #include "lib/libfrr.h"
 #include "lib/log.h"
@@ -31,7 +19,7 @@
 #include "lib/nexthop.h"
 #include "lib/privs.h"
 #include "lib/sigevent.h"
-#include "lib/thread.h"
+#include "lib/frrevent.h"
 #include "lib/vrf.h"
 #include "lib/vty.h"
 
@@ -63,7 +51,7 @@ struct zebra_privs_t vrrp_privs = {
 struct option longopts[] = { {0} };
 
 /* Master of threads. */
-struct thread_master *master;
+struct event_loop *master;
 
 static struct frr_daemon_info vrrpd_di;
 
@@ -119,16 +107,20 @@ static const struct frr_yang_module_info *const vrrp_yang_modules[] = {
 	&frr_vrrpd_info,
 };
 
-#define VRRP_VTY_PORT 2619
+/* clang-format off */
+FRR_DAEMON_INFO(vrrpd, VRRP,
+	.vty_port = VRRP_VTY_PORT,
+	.proghelp = "Virtual Router Redundancy Protocol",
 
-FRR_DAEMON_INFO(vrrpd, VRRP, .vty_port = VRRP_VTY_PORT,
-		.proghelp = "Virtual Router Redundancy Protocol",
-		.signals = vrrp_signals,
-		.n_signals = array_size(vrrp_signals),
-		.privs = &vrrp_privs,
-		.yang_modules = vrrp_yang_modules,
-		.n_yang_modules = array_size(vrrp_yang_modules),
+	.signals = vrrp_signals,
+	.n_signals = array_size(vrrp_signals),
+
+	.privs = &vrrp_privs,
+
+	.yang_modules = vrrp_yang_modules,
+	.n_yang_modules = array_size(vrrp_yang_modules),
 );
+/* clang-format on */
 
 int main(int argc, char **argv, char **envp)
 {

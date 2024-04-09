@@ -1,23 +1,9 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * FRR filter CLI implementation.
  *
  * Copyright (C) 2019 Network Device Education Foundation, Inc. ("NetDEF")
  *                    Rafael Zalamena
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
- * 02110-1301 USA.
  */
 
 #include "zebra.h"
@@ -83,51 +69,58 @@ static int64_t acl_get_seq(struct vty *vty, const char *xpath, bool is_remove)
 	return seq;
 }
 
-static int acl_remove_if_empty(struct vty *vty, const char *iptype,
-			       const char *name)
+/**
+ * Remove main data structure filter list if there are no more entries or
+ * remark. This fixes compatibility with old CLI and tests.
+ */
+static int filter_remove_check_empty(struct vty *vty, const char *ftype,
+				     const char *iptype, const char *name,
+				     uint32_t del_seq, bool del_remark)
 {
+	const struct lyd_node *remark_dnode = NULL;
+	const struct lyd_node *entry_dnode = NULL;
 	char xpath[XPATH_MAXLEN];
+	uint32_t count;
 
+	/* Count existing entries */
+	count = yang_dnode_count(vty->candidate_config->dnode,
+				 "/frr-filter:lib/%s-list[type='%s'][name='%s']/entry",
+				 ftype, iptype, name);
+
+	/* Check entry-to-delete actually exists */
+	if (del_seq) {
+		snprintf(xpath, sizeof(xpath),
+			 "/frr-filter:lib/%s-list[type='%s'][name='%s']/entry[sequence='%u']",
+			 ftype, iptype, name, del_seq);
+		entry_dnode = yang_dnode_get(vty->candidate_config->dnode,
+					     xpath);
+
+		/* If exists, delete and don't count it, we need only remaining entries */
+		if (entry_dnode) {
+			nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+			count--;
+		}
+	}
+
+	/* Delete the remark, or check whether it exists if we're keeping it */
 	snprintf(xpath, sizeof(xpath),
-		 "/frr-filter:lib/access-list[type='%s'][name='%s']/remark",
+		 "/frr-filter:lib/%s-list[type='%s'][name='%s']/remark", ftype,
 		 iptype, name);
-	/* List is not empty if there is a remark, check that: */
-	if (yang_dnode_exists(vty->candidate_config->dnode, xpath))
-		return CMD_SUCCESS;
+	if (del_remark)
+		nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+	else
+		remark_dnode = yang_dnode_get(vty->candidate_config->dnode,
+					      xpath);
 
-	/* Check if we have any entries: */
-	snprintf(xpath, sizeof(xpath),
-		 "/frr-filter:lib/access-list[type='%s'][name='%s']", iptype,
-		 name);
-	/*
-	 * NOTE: if the list is empty it will return the first sequence
-	 * number: 5.
-	 */
-	if (acl_get_seq(vty, xpath, true) != 5)
-		return CMD_SUCCESS;
+	/* If there are no entries left and no remark, delete the whole list */
+	if (count == 0 && !remark_dnode) {
+		snprintf(xpath, sizeof(xpath),
+			 "/frr-filter:lib/%s-list[type='%s'][name='%s']", ftype,
+			 iptype, name);
+		nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+	}
 
-	/* Nobody is using this list, lets remove it. */
-	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
 	return nb_cli_apply_changes(vty, NULL);
-}
-
-static int acl_remove(struct vty *vty, const char *iptype, const char *name,
-		      int64_t sseq)
-{
-	char xpath[XPATH_MAXLEN];
-	int rv;
-
-	snprintfrr(
-		xpath, sizeof(xpath),
-		"/frr-filter:lib/access-list[type='%s'][name='%s']/entry[sequence='%" PRId64 "']",
-		iptype, name, sseq);
-	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
-
-	rv = nb_cli_apply_changes(vty, NULL);
-	if (rv == CMD_SUCCESS)
-		return acl_remove_if_empty(vty, iptype, name);
-
-	return rv;
 }
 
 /*
@@ -135,7 +128,7 @@ static int acl_remove(struct vty *vty, const char *iptype, const char *name,
  */
 DEFPY_YANG(
 	access_list_std, access_list_std_cmd,
-	"access-list WORD$name [seq (1-4294967295)$seq] <deny|permit>$action <[host] A.B.C.D$host|A.B.C.D$host A.B.C.D$mask>",
+	"access-list ACCESSLIST4_NAME$name [seq (1-4294967295)$seq] <deny|permit>$action <[host] A.B.C.D$host|A.B.C.D$host A.B.C.D$mask>",
 	ACCESS_LIST_STR
 	ACCESS_LIST_ZEBRA_STR
 	ACCESS_LIST_SEQ_STR
@@ -211,7 +204,7 @@ DEFPY_YANG(
 
 DEFPY_YANG(
 	no_access_list_std, no_access_list_std_cmd,
-	"no access-list WORD$name [seq (1-4294967295)$seq] <deny|permit>$action <[host] A.B.C.D$host|A.B.C.D$host A.B.C.D$mask>",
+	"no access-list ACCESSLIST4_NAME$name [seq (1-4294967295)$seq] <deny|permit>$action <[host] A.B.C.D$host|A.B.C.D$host A.B.C.D$mask>",
 	NO_STR
 	ACCESS_LIST_STR
 	ACCESS_LIST_ZEBRA_STR
@@ -227,7 +220,8 @@ DEFPY_YANG(
 
 	/* If the user provided sequence number, then just go for it. */
 	if (seq_str != NULL)
-		return acl_remove(vty, "ipv4", name, seq);
+		return filter_remove_check_empty(vty, "access", "ipv4", name,
+						 seq, false);
 
 	/* Otherwise, to keep compatibility, we need to figure it out. */
 	ada.ada_type = "ipv4";
@@ -251,12 +245,13 @@ DEFPY_YANG(
 	else
 		return CMD_WARNING_CONFIG_FAILED;
 
-	return acl_remove(vty, "ipv4", name, sseq);
+	return filter_remove_check_empty(vty, "access", "ipv4", name, sseq,
+					 false);
 }
 
 DEFPY_YANG(
 	access_list_ext, access_list_ext_cmd,
-	"access-list WORD$name [seq (1-4294967295)$seq] <deny|permit>$action ip <A.B.C.D$src A.B.C.D$src_mask|host A.B.C.D$src|any> <A.B.C.D$dst A.B.C.D$dst_mask|host A.B.C.D$dst|any>",
+	"access-list ACCESSLIST4_NAME$name [seq (1-4294967295)$seq] <deny|permit>$action ip <A.B.C.D$src A.B.C.D$src_mask|host A.B.C.D$src|any> <A.B.C.D$dst A.B.C.D$dst_mask|host A.B.C.D$dst|any>",
 	ACCESS_LIST_STR
 	ACCESS_LIST_ZEBRA_STR
 	ACCESS_LIST_SEQ_STR
@@ -374,7 +369,7 @@ DEFPY_YANG(
 
 DEFPY_YANG(
 	no_access_list_ext, no_access_list_ext_cmd,
-	"no access-list WORD$name [seq (1-4294967295)$seq] <deny|permit>$action ip <A.B.C.D$src A.B.C.D$src_mask|host A.B.C.D$src|any> <A.B.C.D$dst A.B.C.D$dst_mask|host A.B.C.D$dst|any>",
+	"no access-list ACCESSLIST4_NAME$name [seq (1-4294967295)$seq] <deny|permit>$action ip <A.B.C.D$src A.B.C.D$src_mask|host A.B.C.D$src|any> <A.B.C.D$dst A.B.C.D$dst_mask|host A.B.C.D$dst|any>",
 	NO_STR
 	ACCESS_LIST_STR
 	ACCESS_LIST_ZEBRA_STR
@@ -398,7 +393,8 @@ DEFPY_YANG(
 
 	/* If the user provided sequence number, then just go for it. */
 	if (seq_str != NULL)
-		return acl_remove(vty, "ipv4", name, seq);
+		return filter_remove_check_empty(vty, "access", "ipv4", name,
+						 seq, false);
 
 	/* Otherwise, to keep compatibility, we need to figure it out. */
 	ada.ada_type = "ipv4";
@@ -443,7 +439,8 @@ DEFPY_YANG(
 	else
 		return CMD_WARNING_CONFIG_FAILED;
 
-	return acl_remove(vty, "ipv4", name, sseq);
+	return filter_remove_check_empty(vty, "access", "ipv4", name, sseq,
+					 false);
 }
 
 /*
@@ -451,7 +448,7 @@ DEFPY_YANG(
  */
 DEFPY_YANG(
 	access_list, access_list_cmd,
-	"access-list WORD$name [seq (1-4294967295)$seq] <deny|permit>$action <A.B.C.D/M$prefix [exact-match$exact]|any>",
+	"access-list ACCESSLIST4_NAME$name [seq (1-4294967295)$seq] <deny|permit>$action <A.B.C.D/M$prefix [exact-match$exact]|any>",
 	ACCESS_LIST_STR
 	ACCESS_LIST_ZEBRA_STR
 	ACCESS_LIST_SEQ_STR
@@ -524,7 +521,7 @@ DEFPY_YANG(
 
 DEFPY_YANG(
 	no_access_list, no_access_list_cmd,
-	"no access-list WORD$name [seq (1-4294967295)$seq] <deny|permit>$action <A.B.C.D/M$prefix [exact-match$exact]|any>",
+	"no access-list ACCESSLIST4_NAME$name [seq (1-4294967295)$seq] <deny|permit>$action <A.B.C.D/M$prefix [exact-match$exact]|any>",
 	NO_STR
 	ACCESS_LIST_STR
 	ACCESS_LIST_ZEBRA_STR
@@ -539,7 +536,8 @@ DEFPY_YANG(
 
 	/* If the user provided sequence number, then just go for it. */
 	if (seq_str != NULL)
-		return acl_remove(vty, "ipv4", name, seq);
+		return filter_remove_check_empty(vty, "access", "ipv4", name,
+						 seq, false);
 
 	/* Otherwise, to keep compatibility, we need to figure it out. */
 	ada.ada_type = "ipv4";
@@ -563,12 +561,13 @@ DEFPY_YANG(
 	else
 		return CMD_WARNING_CONFIG_FAILED;
 
-	return acl_remove(vty, "ipv4", name, sseq);
+	return filter_remove_check_empty(vty, "access", "ipv4", name, sseq,
+					 false);
 }
 
 DEFPY_YANG(
 	no_access_list_all, no_access_list_all_cmd,
-	"no access-list WORD$name",
+	"no access-list ACCESSLIST4_NAME$name",
 	NO_STR
 	ACCESS_LIST_STR
 	ACCESS_LIST_ZEBRA_STR)
@@ -584,7 +583,7 @@ DEFPY_YANG(
 
 DEFPY_YANG(
 	access_list_remark, access_list_remark_cmd,
-	"access-list WORD$name remark LINE...",
+	"access-list ACCESSLIST4_NAME$name remark LINE...",
 	ACCESS_LIST_STR
 	ACCESS_LIST_ZEBRA_STR
 	ACCESS_LIST_REMARK_STR
@@ -608,30 +607,18 @@ DEFPY_YANG(
 
 DEFPY_YANG(
 	no_access_list_remark, no_access_list_remark_cmd,
-	"no access-list WORD$name remark",
+	"no access-list ACCESSLIST4_NAME$name remark",
 	NO_STR
 	ACCESS_LIST_STR
 	ACCESS_LIST_ZEBRA_STR
 	ACCESS_LIST_REMARK_STR)
 {
-	char xpath[XPATH_MAXLEN];
-	int rv;
-
-	snprintf(xpath, sizeof(xpath),
-		 "/frr-filter:lib/access-list[type='ipv4'][name='%s']/remark",
-		 name);
-	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
-
-	rv = nb_cli_apply_changes(vty, NULL);
-	if (rv == CMD_SUCCESS)
-		return acl_remove_if_empty(vty, "ipv4", name);
-
-	return rv;
+	return filter_remove_check_empty(vty, "access", "ipv4", name, 0, true);
 }
 
 ALIAS(
 	no_access_list_remark, no_access_list_remark_line_cmd,
-	"no access-list WORD$name remark LINE...",
+	"no access-list ACCESSLIST4_NAME$name remark LINE...",
 	NO_STR
 	ACCESS_LIST_STR
 	ACCESS_LIST_ZEBRA_STR
@@ -640,7 +627,7 @@ ALIAS(
 
 DEFPY_YANG(
 	ipv6_access_list, ipv6_access_list_cmd,
-	"ipv6 access-list WORD$name [seq (1-4294967295)$seq] <deny|permit>$action <X:X::X:X/M$prefix [exact-match$exact]|any>",
+	"ipv6 access-list ACCESSLIST6_NAME$name [seq (1-4294967295)$seq] <deny|permit>$action <X:X::X:X/M$prefix [exact-match$exact]|any>",
 	IPV6_STR
 	ACCESS_LIST_STR
 	ACCESS_LIST_ZEBRA_STR
@@ -714,7 +701,7 @@ DEFPY_YANG(
 
 DEFPY_YANG(
 	no_ipv6_access_list, no_ipv6_access_list_cmd,
-	"no ipv6 access-list WORD$name [seq (1-4294967295)$seq] <deny|permit>$action <X:X::X:X/M$prefix [exact-match$exact]|any>",
+	"no ipv6 access-list ACCESSLIST6_NAME$name [seq (1-4294967295)$seq] <deny|permit>$action <X:X::X:X/M$prefix [exact-match$exact]|any>",
 	NO_STR
 	IPV6_STR
 	ACCESS_LIST_STR
@@ -730,7 +717,8 @@ DEFPY_YANG(
 
 	/* If the user provided sequence number, then just go for it. */
 	if (seq_str != NULL)
-		return acl_remove(vty, "ipv6", name, seq);
+		return filter_remove_check_empty(vty, "access", "ipv6", name,
+						 seq, false);
 
 	/* Otherwise, to keep compatibility, we need to figure it out. */
 	ada.ada_type = "ipv6";
@@ -754,12 +742,13 @@ DEFPY_YANG(
 	else
 		return CMD_WARNING_CONFIG_FAILED;
 
-	return acl_remove(vty, "ipv6", name, sseq);
+	return filter_remove_check_empty(vty, "access", "ipv6", name, sseq,
+					 false);
 }
 
 DEFPY_YANG(
 	no_ipv6_access_list_all, no_ipv6_access_list_all_cmd,
-	"no ipv6 access-list WORD$name",
+	"no ipv6 access-list ACCESSLIST6_NAME$name",
 	NO_STR
 	IPV6_STR
 	ACCESS_LIST_STR
@@ -776,7 +765,7 @@ DEFPY_YANG(
 
 DEFPY_YANG(
 	ipv6_access_list_remark, ipv6_access_list_remark_cmd,
-	"ipv6 access-list WORD$name remark LINE...",
+	"ipv6 access-list ACCESSLIST6_NAME$name remark LINE...",
 	IPV6_STR
 	ACCESS_LIST_STR
 	ACCESS_LIST_ZEBRA_STR
@@ -801,26 +790,14 @@ DEFPY_YANG(
 
 DEFPY_YANG(
 	no_ipv6_access_list_remark, no_ipv6_access_list_remark_cmd,
-	"no ipv6 access-list WORD$name remark",
+	"no ipv6 access-list ACCESSLIST6_NAME$name remark",
 	NO_STR
 	IPV6_STR
 	ACCESS_LIST_STR
 	ACCESS_LIST_ZEBRA_STR
 	ACCESS_LIST_REMARK_STR)
 {
-	char xpath[XPATH_MAXLEN];
-	int rv;
-
-	snprintf(xpath, sizeof(xpath),
-		 "/frr-filter:lib/access-list[type='ipv6'][name='%s']/remark",
-		 name);
-	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
-
-	rv = nb_cli_apply_changes(vty, NULL);
-	if (rv == CMD_SUCCESS)
-		return acl_remove_if_empty(vty, "ipv6", name);
-
-	return rv;
+	return filter_remove_check_empty(vty, "access", "ipv6", name, 0, true);
 }
 
 ALIAS(
@@ -916,7 +893,8 @@ DEFPY_YANG(
 
 	/* If the user provided sequence number, then just go for it. */
 	if (seq_str != NULL)
-		return acl_remove(vty, "mac", name, seq);
+		return filter_remove_check_empty(vty, "access", "mac", name,
+						 seq, false);
 
 	/* Otherwise, to keep compatibility, we need to figure it out. */
 	ada.ada_type = "mac";
@@ -936,7 +914,8 @@ DEFPY_YANG(
 	else
 		return CMD_WARNING_CONFIG_FAILED;
 
-	return acl_remove(vty, "mac", name, sseq);
+	return filter_remove_check_empty(vty, "access", "mac", name, sseq,
+					 false);
 }
 
 DEFPY_YANG(
@@ -990,19 +969,7 @@ DEFPY_YANG(
 	ACCESS_LIST_ZEBRA_STR
 	ACCESS_LIST_REMARK_STR)
 {
-	char xpath[XPATH_MAXLEN];
-	int rv;
-
-	snprintf(xpath, sizeof(xpath),
-		 "/frr-filter:lib/access-list[type='mac'][name='%s']/remark",
-		 name);
-	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
-
-	rv = nb_cli_apply_changes(vty, NULL);
-	if (rv == CMD_SUCCESS)
-		return acl_remove_if_empty(vty, "mac", name);
-
-	return rv;
+	return filter_remove_check_empty(vty, "access", "mac", name, 0, true);
 }
 
 ALIAS(
@@ -1018,8 +985,8 @@ ALIAS(
 int access_list_cmp(const struct lyd_node *dnode1,
 		    const struct lyd_node *dnode2)
 {
-	uint32_t seq1 = yang_dnode_get_uint32(dnode1, "./sequence");
-	uint32_t seq2 = yang_dnode_get_uint32(dnode2, "./sequence");
+	uint32_t seq1 = yang_dnode_get_uint32(dnode1, "sequence");
+	uint32_t seq2 = yang_dnode_get_uint32(dnode2, "sequence");
 
 	return seq1 - seq2;
 }
@@ -1036,23 +1003,23 @@ void access_list_show(struct vty *vty, const struct lyd_node *dnode,
 	struct in_addr addr, mask;
 	char macstr[PREFIX2STR_BUFFER];
 
-	is_any = yang_dnode_exists(dnode, "./any");
+	is_any = yang_dnode_exists(dnode, "any");
 	switch (type) {
 	case YALT_IPV4:
 		if (is_any)
 			break;
 
-		if (yang_dnode_exists(dnode, "./host")
-		    || yang_dnode_exists(dnode, "./network/address")
-		    || yang_dnode_exists(dnode, "./source-any")) {
+		if (yang_dnode_exists(dnode, "host")
+		    || yang_dnode_exists(dnode, "network/address")
+		    || yang_dnode_exists(dnode, "source-any")) {
 			cisco_style = true;
-			if (yang_dnode_exists(dnode, "./destination-host")
+			if (yang_dnode_exists(dnode, "destination-host")
 			    || yang_dnode_exists(
 				    dnode, "./destination-network/address")
-			    || yang_dnode_exists(dnode, "./destination-any"))
+			    || yang_dnode_exists(dnode, "destination-any"))
 				cisco_extended = true;
 		} else {
-			yang_dnode_get_prefix(&p, dnode, "./ipv4-prefix");
+			yang_dnode_get_prefix(&p, dnode, "ipv4-prefix");
 			is_exact = yang_dnode_get_bool(dnode,
 						       "./ipv4-exact-match");
 		}
@@ -1062,39 +1029,39 @@ void access_list_show(struct vty *vty, const struct lyd_node *dnode,
 		if (is_any)
 			break;
 
-		yang_dnode_get_prefix(&p, dnode, "./ipv6-prefix");
-		is_exact = yang_dnode_get_bool(dnode, "./ipv6-exact-match");
+		yang_dnode_get_prefix(&p, dnode, "ipv6-prefix");
+		is_exact = yang_dnode_get_bool(dnode, "ipv6-exact-match");
 		break;
 	case YALT_MAC: /* mac */
 		vty_out(vty, "mac ");
 		if (is_any)
 			break;
 
-		yang_dnode_get_prefix(&p, dnode, "./mac");
+		yang_dnode_get_prefix(&p, dnode, "mac");
 		break;
 	}
 
 	vty_out(vty, "access-list %s seq %s %s",
 		yang_dnode_get_string(dnode, "../name"),
-		yang_dnode_get_string(dnode, "./sequence"),
-		yang_dnode_get_string(dnode, "./action"));
+		yang_dnode_get_string(dnode, "sequence"),
+		yang_dnode_get_string(dnode, "action"));
 
 	/* Handle Cisco style access lists. */
 	if (cisco_style) {
 		if (cisco_extended)
 			vty_out(vty, " ip");
 
-		if (yang_dnode_exists(dnode, "./network")) {
-			yang_dnode_get_ipv4(&addr, dnode, "./network/address");
-			yang_dnode_get_ipv4(&mask, dnode, "./network/mask");
+		if (yang_dnode_exists(dnode, "network")) {
+			yang_dnode_get_ipv4(&addr, dnode, "network/address");
+			yang_dnode_get_ipv4(&mask, dnode, "network/mask");
 			vty_out(vty, " %pI4 %pI4", &addr, &mask);
-		} else if (yang_dnode_exists(dnode, "./host")) {
+		} else if (yang_dnode_exists(dnode, "host")) {
 			if (cisco_extended)
 				vty_out(vty, " host");
 
 			vty_out(vty, " %s",
-				yang_dnode_get_string(dnode, "./host"));
-		} else if (yang_dnode_exists(dnode, "./source-any"))
+				yang_dnode_get_string(dnode, "host"));
+		} else if (yang_dnode_exists(dnode, "source-any"))
 			vty_out(vty, " any");
 
 		/* Not extended, exit earlier. */
@@ -1104,17 +1071,17 @@ void access_list_show(struct vty *vty, const struct lyd_node *dnode,
 		}
 
 		/* Handle destination address. */
-		if (yang_dnode_exists(dnode, "./destination-network")) {
+		if (yang_dnode_exists(dnode, "destination-network")) {
 			yang_dnode_get_ipv4(&addr, dnode,
 					    "./destination-network/address");
 			yang_dnode_get_ipv4(&mask, dnode,
 					    "./destination-network/mask");
 			vty_out(vty, " %pI4 %pI4", &addr, &mask);
-		} else if (yang_dnode_exists(dnode, "./destination-host"))
+		} else if (yang_dnode_exists(dnode, "destination-host"))
 			vty_out(vty, " host %s",
 				yang_dnode_get_string(dnode,
 						      "./destination-host"));
-		else if (yang_dnode_exists(dnode, "./destination-any"))
+		else if (yang_dnode_exists(dnode, "destination-any"))
 			vty_out(vty, " any");
 
 		vty_out(vty, "\n");
@@ -1163,62 +1130,17 @@ void access_list_remark_show(struct vty *vty, const struct lyd_node *dnode,
  * Prefix lists.
  */
 
-/**
- * Remove main data structure prefix list if there are no more entries or
- * remark. This fixes compatibility with old CLI and tests.
- */
-static int plist_remove_if_empty(struct vty *vty, const char *iptype,
-				 const char *name)
-{
-	char xpath[XPATH_MAXLEN];
-
-	snprintf(xpath, sizeof(xpath),
-		 "/frr-filter:lib/prefix-list[type='%s'][name='%s']/remark",
-		 iptype, name);
-	/* List is not empty if there is a remark, check that: */
-	if (yang_dnode_exists(vty->candidate_config->dnode, xpath))
-		return CMD_SUCCESS;
-
-	/* Check if we have any entries: */
-	snprintf(xpath, sizeof(xpath),
-		 "/frr-filter:lib/prefix-list[type='%s'][name='%s']", iptype,
-		 name);
-	/*
-	 * NOTE: if the list is empty it will return the first sequence
-	 * number: 5.
-	 */
-	if (acl_get_seq(vty, xpath, true) != 5)
-		return CMD_SUCCESS;
-
-	/* Nobody is using this list, lets remove it. */
-	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
-	return nb_cli_apply_changes(vty, NULL);
-}
-
 static int plist_remove(struct vty *vty, const char *iptype, const char *name,
-			const char *seq, const char *action,
+			uint32_t seq, const char *action,
 			union prefixconstptr prefix, int ge, int le)
 {
 	int64_t sseq;
 	struct plist_dup_args pda = {};
-	char xpath[XPATH_MAXLEN];
-	char xpath_entry[XPATH_MAXLEN + 32];
-	int rv;
 
 	/* If the user provided sequence number, then just go for it. */
-	if (seq != NULL) {
-		snprintf(
-			xpath, sizeof(xpath),
-			"/frr-filter:lib/prefix-list[type='%s'][name='%s']/entry[sequence='%s']",
-			iptype, name, seq);
-		nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
-
-		rv = nb_cli_apply_changes(vty, NULL);
-		if (rv == CMD_SUCCESS)
-			return plist_remove_if_empty(vty, iptype, name);
-
-		return rv;
-	}
+	if (seq != 0)
+		return filter_remove_check_empty(vty, "prefix", iptype, name,
+						 seq, false);
 
 	/* Otherwise, to keep compatibility, we need to figure it out. */
 	pda.pda_type = iptype;
@@ -1238,22 +1160,13 @@ static int plist_remove(struct vty *vty, const char *iptype, const char *name,
 	else
 		return CMD_WARNING_CONFIG_FAILED;
 
-	snprintfrr(
-		xpath_entry, sizeof(xpath_entry),
-		"/frr-filter:lib/prefix-list[type='%s'][name='%s']/entry[sequence='%" PRId64 "']",
-		iptype, name, sseq);
-	nb_cli_enqueue_change(vty, xpath_entry, NB_OP_DESTROY, NULL);
-
-	rv = nb_cli_apply_changes(vty, NULL);
-	if (rv == CMD_SUCCESS)
-		return plist_remove_if_empty(vty, iptype, name);
-
-	return rv;
+	return filter_remove_check_empty(vty, "prefix", iptype, name, sseq,
+					 false);
 }
 
 DEFPY_YANG(
 	ip_prefix_list, ip_prefix_list_cmd,
-	"ip prefix-list WORD$name [seq (1-4294967295)$seq] <deny|permit>$action <any|A.B.C.D/M$prefix [{ge (0-32)$ge|le (0-32)$le}]>",
+	"ip prefix-list PREFIXLIST4_NAME$name [seq (1-4294967295)$seq] <deny|permit>$action <any|A.B.C.D/M$prefix [{ge (0-32)$ge|le (0-32)$le}]>",
 	IP_STR
 	PREFIX_LIST_STR
 	PREFIX_LIST_NAME_STR
@@ -1285,9 +1198,6 @@ DEFPY_YANG(
 	} else {
 		pda.any = true;
 	}
-
-	if (plist_is_dup(vty->candidate_config->dnode, &pda))
-		return CMD_SUCCESS;
 
 	/*
 	 * Create the prefix-list first, so we can generate sequence if
@@ -1340,6 +1250,7 @@ DEFPY_YANG(
 				vty, "./ipv4-prefix-length-lesser-or-equal",
 				NB_OP_DESTROY, NULL);
 		}
+		nb_cli_enqueue_change(vty, "./any", NB_OP_DESTROY, NULL);
 	} else {
 		nb_cli_enqueue_change(vty, "./any", NB_OP_CREATE, NULL);
 	}
@@ -1349,7 +1260,7 @@ DEFPY_YANG(
 
 DEFPY_YANG(
 	no_ip_prefix_list, no_ip_prefix_list_cmd,
-	"no ip prefix-list WORD$name [seq (1-4294967295)$seq] <deny|permit>$action <any|A.B.C.D/M$prefix [{ge (0-32)|le (0-32)}]>",
+	"no ip prefix-list PREFIXLIST4_NAME$name [seq (1-4294967295)$seq] <deny|permit>$action <any|A.B.C.D/M$prefix [{ge (0-32)|le (0-32)}]>",
 	NO_STR
 	IP_STR
 	PREFIX_LIST_STR
@@ -1363,25 +1274,25 @@ DEFPY_YANG(
 	"Maximum prefix length to be matched\n"
 	"Maximum prefix length\n")
 {
-	return plist_remove(vty, "ipv4", name, seq_str, action,
+	return plist_remove(vty, "ipv4", name, seq, action,
 			    prefix_str ? prefix : NULL, ge, le);
 }
 
 DEFPY_YANG(
 	no_ip_prefix_list_seq, no_ip_prefix_list_seq_cmd,
-	"no ip prefix-list WORD$name seq (1-4294967295)$seq",
+	"no ip prefix-list PREFIXLIST4_NAME$name seq (1-4294967295)$seq",
 	NO_STR
 	IP_STR
 	PREFIX_LIST_STR
 	PREFIX_LIST_NAME_STR
 	ACCESS_LIST_SEQ_STR)
 {
-	return plist_remove(vty, "ipv4", name, seq_str, NULL, NULL, 0, 0);
+	return plist_remove(vty, "ipv4", name, seq, NULL, NULL, 0, 0);
 }
 
 DEFPY_YANG(
 	no_ip_prefix_list_all, no_ip_prefix_list_all_cmd,
-	"no ip prefix-list WORD$name",
+	"no ip prefix-list PREFIXLIST4_NAME$name",
 	NO_STR
 	IP_STR
 	PREFIX_LIST_STR
@@ -1398,7 +1309,7 @@ DEFPY_YANG(
 
 DEFPY_YANG(
 	ip_prefix_list_remark, ip_prefix_list_remark_cmd,
-	"ip prefix-list WORD$name description LINE...",
+	"ip prefix-list PREFIXLIST4_NAME$name description LINE...",
 	IP_STR
 	PREFIX_LIST_STR
 	PREFIX_LIST_NAME_STR
@@ -1423,31 +1334,19 @@ DEFPY_YANG(
 
 DEFPY_YANG(
 	no_ip_prefix_list_remark, no_ip_prefix_list_remark_cmd,
-	"no ip prefix-list WORD$name description",
+	"no ip prefix-list PREFIXLIST4_NAME$name description",
 	NO_STR
 	IP_STR
 	PREFIX_LIST_STR
 	PREFIX_LIST_NAME_STR
 	ACCESS_LIST_REMARK_STR)
 {
-	char xpath[XPATH_MAXLEN];
-	int rv;
-
-	snprintf(xpath, sizeof(xpath),
-		 "/frr-filter:lib/prefix-list[type='ipv4'][name='%s']/remark",
-		 name);
-	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
-
-	rv = nb_cli_apply_changes(vty, NULL);
-	if (rv == CMD_SUCCESS)
-		return plist_remove_if_empty(vty, "ipv4", name);
-
-	return rv;
+	return filter_remove_check_empty(vty, "prefix", "ipv4", name, 0, true);
 }
 
 ALIAS(
 	no_ip_prefix_list_remark, no_ip_prefix_list_remark_line_cmd,
-	"no ip prefix-list WORD$name description LINE...",
+	"no ip prefix-list PREFIXLIST4_NAME$name description LINE...",
 	NO_STR
 	IP_STR
 	PREFIX_LIST_STR
@@ -1457,7 +1356,7 @@ ALIAS(
 
 DEFPY_YANG(
 	ipv6_prefix_list, ipv6_prefix_list_cmd,
-	"ipv6 prefix-list WORD$name [seq (1-4294967295)] <deny|permit>$action <any|X:X::X:X/M$prefix [{ge (0-128)$ge|le (0-128)$le}]>",
+	"ipv6 prefix-list PREFIXLIST6_NAME$name [seq (1-4294967295)] <deny|permit>$action <any|X:X::X:X/M$prefix [{ge (0-128)$ge|le (0-128)$le}]>",
 	IPV6_STR
 	PREFIX_LIST_STR
 	PREFIX_LIST_NAME_STR
@@ -1489,9 +1388,6 @@ DEFPY_YANG(
 	} else {
 		pda.any = true;
 	}
-
-	if (plist_is_dup(vty->candidate_config->dnode, &pda))
-		return CMD_SUCCESS;
 
 	/*
 	 * Create the prefix-list first, so we can generate sequence if
@@ -1544,6 +1440,7 @@ DEFPY_YANG(
 				vty, "./ipv6-prefix-length-lesser-or-equal",
 				NB_OP_DESTROY, NULL);
 		}
+		nb_cli_enqueue_change(vty, "./any", NB_OP_DESTROY, NULL);
 	} else {
 		nb_cli_enqueue_change(vty, "./any", NB_OP_CREATE, NULL);
 	}
@@ -1553,7 +1450,7 @@ DEFPY_YANG(
 
 DEFPY_YANG(
 	no_ipv6_prefix_list, no_ipv6_prefix_list_cmd,
-	"no ipv6 prefix-list WORD$name [seq (1-4294967295)$seq] <deny|permit>$action <any|X:X::X:X/M$prefix [{ge (0-128)$ge|le (0-128)$le}]>",
+	"no ipv6 prefix-list PREFIXLIST6_NAME$name [seq (1-4294967295)$seq] <deny|permit>$action <any|X:X::X:X/M$prefix [{ge (0-128)$ge|le (0-128)$le}]>",
 	NO_STR
 	IPV6_STR
 	PREFIX_LIST_STR
@@ -1567,25 +1464,25 @@ DEFPY_YANG(
 	"Minimum prefix length to be matched\n"
 	"Minimum prefix length\n")
 {
-	return plist_remove(vty, "ipv6", name, seq_str, action,
+	return plist_remove(vty, "ipv6", name, seq, action,
 			    prefix_str ? prefix : NULL, ge, le);
 }
 
 DEFPY_YANG(
 	no_ipv6_prefix_list_seq, no_ipv6_prefix_list_seq_cmd,
-	"no ipv6 prefix-list WORD$name seq (1-4294967295)$seq",
+	"no ipv6 prefix-list PREFIXLIST6_NAME$name seq (1-4294967295)$seq",
 	NO_STR
 	IPV6_STR
 	PREFIX_LIST_STR
 	PREFIX_LIST_NAME_STR
 	ACCESS_LIST_SEQ_STR)
 {
-	return plist_remove(vty, "ipv6", name, seq_str, NULL, NULL, 0, 0);
+	return plist_remove(vty, "ipv6", name, seq, NULL, NULL, 0, 0);
 }
 
 DEFPY_YANG(
 	no_ipv6_prefix_list_all, no_ipv6_prefix_list_all_cmd,
-	"no ipv6 prefix-list WORD$name",
+	"no ipv6 prefix-list PREFIXLIST6_NAME$name",
 	NO_STR
 	IPV6_STR
 	PREFIX_LIST_STR
@@ -1602,7 +1499,7 @@ DEFPY_YANG(
 
 DEFPY_YANG(
 	ipv6_prefix_list_remark, ipv6_prefix_list_remark_cmd,
-	"ipv6 prefix-list WORD$name description LINE...",
+	"ipv6 prefix-list PREFIXLIST6_NAME$name description LINE...",
 	IPV6_STR
 	PREFIX_LIST_STR
 	PREFIX_LIST_NAME_STR
@@ -1627,31 +1524,19 @@ DEFPY_YANG(
 
 DEFPY_YANG(
 	no_ipv6_prefix_list_remark, no_ipv6_prefix_list_remark_cmd,
-	"no ipv6 prefix-list WORD$name description",
+	"no ipv6 prefix-list PREFIXLIST6_NAME$name description",
 	NO_STR
 	IPV6_STR
 	PREFIX_LIST_STR
 	PREFIX_LIST_NAME_STR
 	ACCESS_LIST_REMARK_STR)
 {
-	char xpath[XPATH_MAXLEN];
-	int rv;
-
-	snprintf(xpath, sizeof(xpath),
-		 "/frr-filter:lib/prefix-list[type='ipv6'][name='%s']/remark",
-		 name);
-	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
-
-	rv = nb_cli_apply_changes(vty, NULL);
-	if (rv == CMD_SUCCESS)
-		return plist_remove_if_empty(vty, "ipv6", name);
-
-	return rv;
+	return filter_remove_check_empty(vty, "prefix", "ipv6", name, 0, true);
 }
 
 ALIAS(
 	no_ipv6_prefix_list_remark, no_ipv6_prefix_list_remark_line_cmd,
-	"no ipv6 prefix-list WORD$name description LINE...",
+	"no ipv6 prefix-list PREFIXLIST6_NAME$name description LINE...",
 	NO_STR
 	IPV6_STR
 	PREFIX_LIST_STR
@@ -1662,8 +1547,8 @@ ALIAS(
 int prefix_list_cmp(const struct lyd_node *dnode1,
 		    const struct lyd_node *dnode2)
 {
-	uint32_t seq1 = yang_dnode_get_uint32(dnode1, "./sequence");
-	uint32_t seq2 = yang_dnode_get_uint32(dnode2, "./sequence");
+	uint32_t seq1 = yang_dnode_get_uint32(dnode1, "sequence");
+	uint32_t seq2 = yang_dnode_get_uint32(dnode2, "sequence");
 
 	return seq1 - seq2;
 }
@@ -1676,11 +1561,11 @@ void prefix_list_show(struct vty *vty, const struct lyd_node *dnode,
 	bool is_any;
 	struct prefix p;
 
-	is_any = yang_dnode_exists(dnode, "./any");
+	is_any = yang_dnode_exists(dnode, "any");
 	switch (type) {
 	case YPLT_IPV4:
 		if (!is_any)
-			yang_dnode_get_prefix(&p, dnode, "./ipv4-prefix");
+			yang_dnode_get_prefix(&p, dnode, "ipv4-prefix");
 		if (yang_dnode_exists(dnode,
 				      "./ipv4-prefix-length-greater-or-equal"))
 			ge_str = yang_dnode_get_string(
@@ -1710,8 +1595,8 @@ void prefix_list_show(struct vty *vty, const struct lyd_node *dnode,
 
 	vty_out(vty, "prefix-list %s seq %s %s",
 		yang_dnode_get_string(dnode, "../name"),
-		yang_dnode_get_string(dnode, "./sequence"),
-		yang_dnode_get_string(dnode, "./action"));
+		yang_dnode_get_string(dnode, "sequence"),
+		yang_dnode_get_string(dnode, "action"));
 
 	if (is_any) {
 		vty_out(vty, " any\n");

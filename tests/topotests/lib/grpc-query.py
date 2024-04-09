@@ -1,27 +1,10 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 eval: (blacken-mode 1) -*-
+# SPDX-License-Identifier: MIT
 #
 # February 22 2022, Christian Hopps <chopps@labn.net>
 #
 # Copyright (c) 2022, LabN Consulting, L.L.C.
-#
-# Permission is hereby granted, free of charge, to any person obtaining a copy
-# of this software and associated documentation files (the "Software"), to deal
-# in the Software without restriction, including without limitation the rights
-# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-# copies of the Software, and to permit persons to whom the Software is
-# furnished to do so, subject to the following conditions:
-#
-# The above copyright notice and this permission notice shall be included in all
-# copies or substantial portions of the Software.
-#
-# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-# SOFTWARE.
 
 import argparse
 import logging
@@ -38,11 +21,12 @@ try:
     import grpc
     import grpc_tools
 
-    from micronet import commander
+    sys.path.append(os.path.dirname(CWD))
+    from munet.base import commander
 
     commander.cmd_raises(f"cp {CWD}/../../../grpc/frr-northbound.proto .")
     commander.cmd_raises(
-        f"python -m grpc_tools.protoc --python_out=. --grpc_python_out=. -I . frr-northbound.proto"
+        f"python3 -m grpc_tools.protoc --python_out=. --grpc_python_out=. -I . frr-northbound.proto"
     )
 except Exception as error:
     logging.error("can't create proto definition modules %s", error)
@@ -52,17 +36,6 @@ try:
     sys.path[0:0] = "."
     import frr_northbound_pb2
     import frr_northbound_pb2_grpc
-
-    # Would be nice if compiling the modules internally from the source worked
-    # # import grpc_tools.protoc
-    # # proto_include = pkg_resources.resource_filename("grpc_tools", "_proto")
-    # from grpc_tools.protoc import _proto_file_to_module_name, _protos_and_services
-    # try:
-    #     frr_northbound_pb2, frr_northbound_pb2_grpc = _protos_and_services(
-    #         "frr_northbound.proto"
-    #     )
-    # finally:
-    #     os.chdir(CWD)
 except Exception as error:
     logging.error("can't import proto definition modules %s", error)
     raise

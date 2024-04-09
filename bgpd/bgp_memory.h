@@ -1,22 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* bgpd memory type declarations
  *
  * Copyright (C) 2015  David Lamparter
- *
- * This file is part of Quagga.
- *
- * Quagga is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * Quagga is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef _QUAGGA_BGP_MEMORY_H
@@ -26,8 +11,10 @@
 
 DECLARE_MGROUP(BGPD);
 DECLARE_MTYPE(BGP);
+DECLARE_MTYPE(BGP_NAME);
 DECLARE_MTYPE(BGP_LISTENER);
 DECLARE_MTYPE(BGP_PEER);
+DECLARE_MTYPE(BGP_PEER_CONNECTION);
 DECLARE_MTYPE(BGP_PEER_HOST);
 DECLARE_MTYPE(BGP_PEER_IFNAME);
 DECLARE_MTYPE(PEER_GROUP);
@@ -48,6 +35,10 @@ DECLARE_MTYPE(BGP_TABLE);
 DECLARE_MTYPE(BGP_NODE);
 DECLARE_MTYPE(BGP_ROUTE);
 DECLARE_MTYPE(BGP_ROUTE_EXTRA);
+DECLARE_MTYPE(BGP_ROUTE_EXTRA_EVPN);
+DECLARE_MTYPE(BGP_ROUTE_EXTRA_FS);
+DECLARE_MTYPE(BGP_ROUTE_EXTRA_VRFLEAK);
+DECLARE_MTYPE(BGP_ROUTE_EXTRA_VNC);
 DECLARE_MTYPE(BGP_CONN);
 DECLARE_MTYPE(BGP_STATIC);
 DECLARE_MTYPE(BGP_ADVERTISE_ATTR);
@@ -137,5 +128,7 @@ DECLARE_MTYPE(BGP_SRV6_FUNCTION);
 DECLARE_MTYPE(EVPN_REMOTE_IP);
 
 DECLARE_MTYPE(BGP_NOTIFICATION);
+
+DECLARE_MTYPE(BGP_SOFT_VERSION);
 
 #endif /* _QUAGGA_BGP_MEMORY_H */

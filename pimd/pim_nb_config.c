@@ -1,20 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Copyright (C) 2020 VmWare
  *                    Sarita Patra
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -58,20 +45,6 @@ MACRO_REQUIRE_SEMICOLON()
 #define yang_dnode_get_pimaddr yang_dnode_get_ipv4
 #endif /* PIM_IPV != 6 */
 
-static void pim_if_membership_clear(struct interface *ifp)
-{
-	struct pim_interface *pim_ifp;
-
-	pim_ifp = ifp->info;
-	assert(pim_ifp);
-
-	if (pim_ifp->pim_enable && pim_ifp->gm_enable) {
-		return;
-	}
-
-	pim_ifchannel_membership_clear(ifp);
-}
-
 /*
  * When PIM is disabled on interface, IGMPv3 local membership
  * information is not injected into PIM interface state.
@@ -84,9 +57,13 @@ static void pim_if_membership_clear(struct interface *ifp)
 static void pim_if_membership_refresh(struct interface *ifp)
 {
 	struct pim_interface *pim_ifp;
+#if PIM_IPV == 4
 	struct listnode *grpnode;
 	struct gm_group *grp;
-
+#else
+	struct gm_if *gm_ifp;
+	struct gm_sg *sg, *sg_start;
+#endif
 
 	pim_ifp = ifp->info;
 	assert(pim_ifp);
@@ -96,6 +73,11 @@ static void pim_if_membership_refresh(struct interface *ifp)
 	if (!pim_ifp->gm_enable)
 		return;
 
+#if PIM_IPV == 6
+	gm_ifp = pim_ifp->mld;
+	if (!gm_ifp)
+		return;
+#endif
 	/*
 	 * First clear off membership from all PIM (S,G) entries on the
 	 * interface
@@ -103,6 +85,7 @@ static void pim_if_membership_refresh(struct interface *ifp)
 
 	pim_ifchannel_membership_clear(ifp);
 
+#if PIM_IPV == 4
 	/*
 	 * Then restore PIM (S,G) membership from all IGMPv3 (S,G) entries on
 	 * the interface
@@ -129,6 +112,16 @@ static void pim_if_membership_refresh(struct interface *ifp)
 
 		} /* scan group sources */
 	}	 /* scan igmp groups */
+#else
+	sg_start = gm_sgs_first(gm_ifp->sgs);
+
+	frr_each_from (gm_sgs, gm_ifp->sgs, sg, sg_start) {
+		if (!in6_multicast_nofwd(&sg->sgaddr.grp)) {
+			pim_ifchannel_local_membership_add(
+				ifp, &sg->sgaddr, false /*is_vxlan*/);
+		}
+	}
+#endif
 
 	/*
 	 * Finally delete every PIM (S,G) entry lacking all state info
@@ -151,32 +144,6 @@ static int pim_cmd_interface_add(struct interface *ifp)
 	pim_if_membership_refresh(ifp);
 
 	pim_if_create_pimreg(pim_ifp->pim);
-	return 1;
-}
-
-static int pim_cmd_interface_delete(struct interface *ifp)
-{
-	struct pim_interface *pim_ifp = ifp->info;
-
-	if (!pim_ifp)
-		return 1;
-
-	pim_ifp->pim_enable = false;
-
-	pim_if_membership_clear(ifp);
-
-	/*
-	 * pim_sock_delete() removes all neighbors from
-	 * pim_ifp->pim_neighbor_list.
-	 */
-	pim_sock_delete(ifp, "pim unconfigured on interface");
-
-	if (!pim_ifp->gm_enable) {
-		pim_if_addr_del_all(ifp);
-		pim_upstream_nh_if_update(pim_ifp->pim, ifp);
-		pim_if_delete(ifp);
-	}
-
 	return 1;
 }
 
@@ -271,7 +238,7 @@ static int pim_rp_cmd_worker(struct pim_instance *pim, pim_addr rp_addr,
 	if (result == PIM_RP_NO_PATH) {
 		snprintfrr(errmsg, errmsg_len,
 			   "No Path to RP address specified: %pPA", &rp_addr);
-		return NB_ERR_INCONSISTENCY;
+		return NB_OK;
 	}
 
 	if (result == PIM_GROUP_OVERLAP) {
@@ -518,7 +485,7 @@ int routing_control_plane_protocols_name_validate(
 {
 	const char *name;
 
-	name = yang_dnode_get_string(args->dnode, "./name");
+	name = yang_dnode_get_string(args->dnode, "name");
 	if (!strmatch(name, "pim")) {
 		snprintf(args->errmsg, args->errmsg_len,
 				"pim supports only one instance with name pimd");
@@ -812,7 +779,7 @@ void routing_control_plane_protocols_control_plane_protocol_pim_address_family_s
 
 	vrf = nb_running_get_entry(args->dnode, NULL, true);
 	pim = vrf->info;
-	spt_switch_action = yang_dnode_get_enum(args->dnode, "./spt-action");
+	spt_switch_action = yang_dnode_get_enum(args->dnode, "spt-action");
 
 	switch (spt_switch_action) {
 	case PIM_SPT_INFINITY:
@@ -955,8 +922,7 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_ss
 	case NB_EV_APPLY:
 		vrf = nb_running_get_entry(args->dnode, NULL, true);
 		pim = vrf->info;
-		yang_dnode_get_pimaddr(&source_addr, args->dnode,
-				       "./source-addr");
+		yang_dnode_get_pimaddr(&source_addr, args->dnode, NULL);
 		result = pim_ssmpingd_start(pim, source_addr);
 		if (result) {
 			snprintf(
@@ -986,8 +952,7 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_ss
 	case NB_EV_APPLY:
 		vrf = nb_running_get_entry(args->dnode, NULL, true);
 		pim = vrf->info;
-		yang_dnode_get_pimaddr(&source_addr, args->dnode,
-				       "./source-addr");
+		yang_dnode_get_pimaddr(&source_addr, args->dnode, NULL);
 		result = pim_ssmpingd_stop(pim, source_addr);
 		if (result) {
 			snprintf(
@@ -1266,8 +1231,8 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_ms
 	case NB_EV_APPLY:
 		vrf = nb_running_get_entry(args->dnode, NULL, true);
 		pim = vrf->info;
-		yang_dnode_get_ip(&peer_ip, args->dnode, "./peer-ip");
-		yang_dnode_get_ip(&source_ip, args->dnode, "./source-ip");
+		yang_dnode_get_ip(&peer_ip, args->dnode, "peer-ip");
+		yang_dnode_get_ip(&source_ip, args->dnode, "source-ip");
 		mp = pim_msdp_peer_add(pim, &peer_ip.ipaddr_v4,
 				       &source_ip.ipaddr_v4, NULL);
 		nb_running_set_entry(args->dnode, mp);
@@ -1371,16 +1336,16 @@ void routing_control_plane_protocols_control_plane_protocol_pim_address_family_m
 	struct interface *ifp;
 	struct ipaddr reg_addr;
 
-	ifname = yang_dnode_get_string(args->dnode, "./peerlink-rif");
+	ifname = yang_dnode_get_string(args->dnode, "peerlink-rif");
 	ifp = if_lookup_by_name(ifname, VRF_DEFAULT);
 	if (!ifp) {
 		snprintf(args->errmsg, args->errmsg_len,
 			 "No such interface name %s", ifname);
 		return;
 	}
-	role = yang_dnode_get_enum(args->dnode, "./my-role");
-	peer_state = yang_dnode_get_bool(args->dnode, "./peer-state");
-	yang_dnode_get_ip(&reg_addr, args->dnode, "./reg-address");
+	role = yang_dnode_get_enum(args->dnode, "my-role");
+	peer_state = yang_dnode_get_bool(args->dnode, "peer-state");
+	yang_dnode_get_ip(&reg_addr, args->dnode, "reg-address");
 
 	pim_vxlan_mlag_update(true, peer_state, role, ifp,
 			&reg_addr.ip._v4_addr);
@@ -1566,12 +1531,7 @@ int lib_interface_pim_address_family_destroy(struct nb_cb_destroy_args *args)
 		if (!pim_ifp)
 			return NB_OK;
 
-		if (!pim_cmd_interface_delete(ifp)) {
-			snprintf(args->errmsg, args->errmsg_len,
-				 "Unable to delete interface information %s",
-				 ifp->name);
-			return NB_ERR_INCONSISTENCY;
-		}
+		pim_pim_interface_delete(ifp);
 	}
 
 	return NB_OK;
@@ -1619,11 +1579,7 @@ int lib_interface_pim_address_family_pim_enable_modify(struct nb_cb_modify_args 
 			if (!pim_ifp)
 				return NB_ERR_INCONSISTENCY;
 
-			if (!pim_cmd_interface_delete(ifp)) {
-				snprintf(args->errmsg, args->errmsg_len,
-					 "Unable to delete interface information");
-				return NB_ERR_INCONSISTENCY;
-			}
+			pim_pim_interface_delete(ifp);
 		}
 		break;
 	}
@@ -1675,7 +1631,7 @@ int lib_interface_pim_address_family_hello_interval_modify(
 		ifp = nb_running_get_entry(args->dnode, NULL, true);
 		pim_ifp = ifp->info;
 		pim_ifp->pim_hello_period =
-			yang_dnode_get_uint8(args->dnode, NULL);
+			yang_dnode_get_uint16(args->dnode, NULL);
 		pim_ifp->pim_default_holdtime = -1;
 		break;
 	}
@@ -1801,11 +1757,11 @@ void lib_interface_pim_address_family_bfd_apply_finish(
 	}
 
 	pim_ifp->bfd_config.detection_multiplier =
-		yang_dnode_get_uint8(args->dnode, "./detect_mult");
+		yang_dnode_get_uint8(args->dnode, "detect_mult");
 	pim_ifp->bfd_config.min_rx =
-		yang_dnode_get_uint16(args->dnode, "./min-rx-interval");
+		yang_dnode_get_uint16(args->dnode, "min-rx-interval");
 	pim_ifp->bfd_config.min_tx =
-		yang_dnode_get_uint16(args->dnode, "./min-tx-interval");
+		yang_dnode_get_uint16(args->dnode, "min-tx-interval");
 
 	pim_bfd_reg_dereg_all_nbr(ifp);
 }
@@ -2233,7 +2189,7 @@ int lib_interface_pim_address_family_mroute_destroy(
 		pim_iifp = iif->info;
 		pim = pim_iifp->pim;
 
-		oifname = yang_dnode_get_string(args->dnode, "./oif");
+		oifname = yang_dnode_get_string(args->dnode, "oif");
 		oif = if_lookup_by_name(oifname, pim->vrf->vrf_id);
 
 		if (!oif) {
@@ -2243,8 +2199,8 @@ int lib_interface_pim_address_family_mroute_destroy(
 			return NB_ERR_INCONSISTENCY;
 		}
 
-		yang_dnode_get_pimaddr(&source_addr, args->dnode, "./source-addr");
-		yang_dnode_get_pimaddr(&group_addr, args->dnode, "./group-addr");
+		yang_dnode_get_pimaddr(&source_addr, args->dnode, "source-addr");
+		yang_dnode_get_pimaddr(&group_addr, args->dnode, "group-addr");
 
 		if (pim_static_del(pim, iif, oif, group_addr, source_addr)) {
 			snprintf(args->errmsg, args->errmsg_len,
@@ -2383,9 +2339,9 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp
 	case NB_EV_APPLY:
 		vrf = nb_running_get_entry(args->dnode, NULL, true);
 		pim = vrf->info;
-		yang_dnode_get_pimaddr(&rp_addr, args->dnode, "./rp-address");
+		yang_dnode_get_pimaddr(&rp_addr, args->dnode, "rp-address");
 
-		if (yang_dnode_get(args->dnode, "./group-list")) {
+		if (yang_dnode_get(args->dnode, "group-list")) {
 			yang_dnode_get_prefix(&group, args->dnode,
 					      "./group-list");
 			apply_mask(&group);
@@ -2394,7 +2350,7 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp
 						      args->errmsg_len);
 		}
 
-		else if (yang_dnode_get(args->dnode, "./prefix-list")) {
+		else if (yang_dnode_get(args->dnode, "prefix-list")) {
 			plist = yang_dnode_get_string(args->dnode,
 					"./prefix-list");
 			if (!pim_get_all_mcast_group(&group)) {
@@ -2558,7 +2514,6 @@ int lib_interface_gmp_address_family_create(struct nb_cb_create_args *args)
 int lib_interface_gmp_address_family_destroy(struct nb_cb_destroy_args *args)
 {
 	struct interface *ifp;
-	struct pim_interface *pim_ifp;
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
@@ -2567,19 +2522,7 @@ int lib_interface_gmp_address_family_destroy(struct nb_cb_destroy_args *args)
 		break;
 	case NB_EV_APPLY:
 		ifp = nb_running_get_entry(args->dnode, NULL, true);
-		pim_ifp = ifp->info;
-
-		if (!pim_ifp)
-			return NB_OK;
-
-		pim_ifp->gm_enable = false;
-
-		pim_if_membership_clear(ifp);
-
-		pim_if_addr_del_all_igmp(ifp);
-
-		if (!pim_ifp->pim_enable)
-			pim_if_delete(ifp);
+		pim_gm_interface_delete(ifp);
 	}
 
 	return NB_OK;
@@ -2593,7 +2536,6 @@ int lib_interface_gmp_address_family_enable_modify(
 {
 	struct interface *ifp;
 	bool gm_enable;
-	struct pim_interface *pim_ifp;
 	int mcast_if_count;
 	const char *ifp_name;
 	const struct lyd_node *if_dnode;
@@ -2623,25 +2565,8 @@ int lib_interface_gmp_address_family_enable_modify(
 		if (gm_enable)
 			return pim_cmd_gm_start(ifp);
 
-		else {
-			pim_ifp = ifp->info;
-
-			if (!pim_ifp)
-				return NB_ERR_INCONSISTENCY;
-
-			pim_ifp->gm_enable = false;
-
-			pim_if_membership_clear(ifp);
-
-#if PIM_IPV == 4
-			pim_if_addr_del_all_igmp(ifp);
-#else
-			gm_ifp_teardown(ifp);
-#endif
-
-			if (!pim_ifp->pim_enable)
-				pim_if_delete(ifp);
-		}
+		else
+			pim_gm_interface_delete(ifp);
 	}
 	return NB_OK;
 }
@@ -2893,10 +2818,9 @@ int lib_interface_gmp_address_family_robustness_variable_modify(
 int lib_interface_gmp_address_family_static_group_create(
 	struct nb_cb_create_args *args)
 {
-#if PIM_IPV == 4
 	struct interface *ifp;
-	struct ipaddr source_addr;
-	struct ipaddr group_addr;
+	pim_addr source_addr;
+	pim_addr group_addr;
 	int result;
 	const char *ifp_name;
 	const struct lyd_node *if_dnode;
@@ -2912,33 +2836,40 @@ int lib_interface_gmp_address_family_static_group_create(
 			return NB_ERR_VALIDATION;
 		}
 
-		yang_dnode_get_ip(&group_addr, args->dnode, "./group-addr");
-		if (pim_is_group_224_0_0_0_24(group_addr.ip._v4_addr)) {
+		yang_dnode_get_pimaddr(&group_addr, args->dnode,
+				       "./group-addr");
+#if PIM_IPV == 4
+		if (pim_is_group_224_0_0_0_24(group_addr)) {
 			snprintf(
 				args->errmsg, args->errmsg_len,
 				"Groups within 224.0.0.0/24 are reserved and cannot be joined");
 			return NB_ERR_VALIDATION;
 		}
+#else
+		if (ipv6_mcast_reserved(&group_addr)) {
+			snprintf(
+				args->errmsg, args->errmsg_len,
+				"Groups within ffx2::/16 are reserved and cannot be joined");
+			return NB_ERR_VALIDATION;
+		}
+#endif
 		break;
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
 		ifp = nb_running_get_entry(args->dnode, NULL, true);
-		yang_dnode_get_ip(&source_addr, args->dnode, "./source-addr");
-		yang_dnode_get_ip(&group_addr, args->dnode, "./group-addr");
-
-		result = pim_if_igmp_join_add(ifp, group_addr.ip._v4_addr,
-				source_addr.ip._v4_addr);
+		yang_dnode_get_pimaddr(&source_addr, args->dnode,
+				       "./source-addr");
+		yang_dnode_get_pimaddr(&group_addr, args->dnode,
+				       "./group-addr");
+		result = pim_if_gm_join_add(ifp, group_addr, source_addr);
 		if (result) {
 			snprintf(args->errmsg, args->errmsg_len,
-				 "Failure joining IGMP group");
+				 "Failure joining " GM " group");
 			return NB_ERR_INCONSISTENCY;
 		}
 	}
-#else
-	/* TBD Depends on MLD data structure changes */
-#endif /* PIM_IPV == 4 */
 	return NB_OK;
 }
 
@@ -2946,8 +2877,8 @@ int lib_interface_gmp_address_family_static_group_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	struct interface *ifp;
-	struct ipaddr source_addr;
-	struct ipaddr group_addr;
+	pim_addr source_addr;
+	pim_addr group_addr;
 	int result;
 
 	switch (args->event) {
@@ -2957,22 +2888,17 @@ int lib_interface_gmp_address_family_static_group_destroy(
 		break;
 	case NB_EV_APPLY:
 		ifp = nb_running_get_entry(args->dnode, NULL, true);
-		yang_dnode_get_ip(&source_addr, args->dnode, "./source-addr");
-		yang_dnode_get_ip(&group_addr, args->dnode, "./group-addr");
-
-		result = pim_if_igmp_join_del(ifp, group_addr.ip._v4_addr,
-				source_addr.ip._v4_addr);
+		yang_dnode_get_pimaddr(&source_addr, args->dnode,
+				       "./source-addr");
+		yang_dnode_get_pimaddr(&group_addr, args->dnode,
+				       "./group-addr");
+		result = pim_if_gm_join_del(ifp, group_addr, source_addr);
 
 		if (result) {
-			char src_str[INET_ADDRSTRLEN];
-			char grp_str[INET_ADDRSTRLEN];
-
-			ipaddr2str(&source_addr, src_str, sizeof(src_str));
-			ipaddr2str(&group_addr, grp_str, sizeof(grp_str));
-
 			snprintf(args->errmsg, args->errmsg_len,
-				 "%% Failure leaving IGMP group %s %s on interface %s: %d",
-				 src_str, grp_str, ifp->name, result);
+				 "%% Failure leaving " GM
+				 " group %pPAs %pPAs on interface %s: %d",
+				 &source_addr, &group_addr, ifp->name, result);
 
 			return NB_ERR_INCONSISTENCY;
 		}

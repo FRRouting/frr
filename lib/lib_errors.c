@@ -1,21 +1,8 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Library-specific error messages.
  * Copyright (C) 2018  Cumulus Networks, Inc.
  *                     Donald Sharp
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifdef HAVE_CONFIG_H
@@ -319,24 +306,6 @@ static struct log_ref ferr_lib_err[] = {
 		.title = "Failure to load a libyang plugin",
 		.description = "The northbound subsystem, during initialization, has detected that a libyang plugin failed to be loaded",
 		.suggestion = "Check if the FRR libyang plugins were installed correctly in the system",
-	},
-	{
-		.code = EC_LIB_CONFD_INIT,
-		.title = "ConfD initialization error",
-		.description = "Upon startup FRR failed to properly initialize and startup the ConfD northbound plugin",
-		.suggestion = "Check if ConfD is installed correctly in the system. Also, check if the confd daemon is running.",
-	},
-	{
-		.code = EC_LIB_CONFD_DATA_CONVERT,
-		.title = "ConfD data conversion error",
-		.description = "An error has occurred while converting a ConfD data value (binary) to a string",
-		.suggestion = "Open an Issue with all relevant log files and restart FRR"
-	},
-	{
-		.code = EC_LIB_LIBCONFD,
-		.title = "libconfd error",
-		.description = "The northbound subsystem has detected that the libconfd library returned an error",
-		.suggestion = "Open an Issue with all relevant log files and restart FRR"
 	},
 	{
 		.code = EC_LIB_SYSREPO_INIT,

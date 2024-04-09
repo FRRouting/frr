@@ -1,21 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* Declarations and definitions for kernel interaction over netlink
  * Copyright (C) 2016 Cumulus Networks, Inc.
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef _ZEBRA_KERNEL_NETLINK_H
@@ -31,7 +16,7 @@ extern "C" {
 	((struct rtattr *)(((char *)(h)) + NLMSG_ALIGN(sizeof(struct nhmsg))))
 
 
-#define NL_RCV_PKT_BUF_SIZE     32768
+#define NL_RCV_PKT_BUF_SIZE     (34 * 1024)
 #define NL_PKT_BUF_SIZE         8192
 
 /*
@@ -48,6 +33,8 @@ extern bool nl_attr_put16(struct nlmsghdr *n, unsigned int maxlen, int type,
 			  uint16_t data);
 extern bool nl_attr_put32(struct nlmsghdr *n, unsigned int maxlen, int type,
 			  uint32_t data);
+extern bool nl_attr_put64(struct nlmsghdr *n, unsigned int maxlen, int type,
+			  uint64_t data);
 
 /*
  * nl_attr_nest - start an attribute nest.
@@ -98,35 +85,6 @@ extern void netlink_parse_rtattr_nested(struct rtattr **tb, int max,
  */
 extern bool nl_addraw_l(struct nlmsghdr *n, unsigned int maxlen,
 			const void *data, unsigned int len);
-/*
- * nl_rta_put - add an additional optional attribute(rtattr) to the
- * Netlink message buffer.
- *
- * Returns true if the attribute could be added to the message (fits into the
- * buffer), otherwise false is returned.
- */
-extern bool nl_rta_put(struct rtattr *rta, unsigned int maxlen, int type,
-		       const void *data, int alen);
-extern bool nl_rta_put16(struct rtattr *rta, unsigned int maxlen, int type,
-			 uint16_t data);
-extern bool nl_rta_put64(struct rtattr *rta, unsigned int maxlen, int type,
-			 uint64_t data);
-/*
- * nl_rta_nest - start an additional optional attribute (rtattr) nest.
- *
- * Returns a valid pointer to the beginning of the nest if the attribute
- * describing the nest could be added to the message (fits into the buffer),
- * otherwise NULL is returned.
- */
-extern struct rtattr *nl_rta_nest(struct rtattr *rta, unsigned int maxlen,
-				  int type);
-/*
- * nl_rta_nest_end - finalize nesting of an aditionl optionl attributes.
- *
- * Updates the length field of the attribute header to include the appeneded
- * attributes. Returns a total length of the Netlink message.
- */
-extern int nl_rta_nest_end(struct rtattr *rta, struct rtattr *nest);
 extern const char *nl_msg_type_to_str(uint16_t msg_type);
 extern const char *nl_rtproto_to_str(uint8_t rtproto);
 extern const char *nl_family_to_str(uint8_t family);
@@ -140,6 +98,9 @@ extern int netlink_talk_filter(struct nlmsghdr *h, ns_id_t ns, int startup);
 extern int netlink_talk(int (*filter)(struct nlmsghdr *, ns_id_t, int startup),
 			struct nlmsghdr *n, struct nlsock *nl,
 			struct zebra_ns *zns, bool startup);
+extern int
+ge_netlink_talk(int (*filter)(struct nlmsghdr *, ns_id_t, int startup),
+		struct nlmsghdr *n, struct zebra_ns *zns, bool startup);
 extern int netlink_request(struct nlsock *nl, void *req);
 
 enum netlink_msg_status {

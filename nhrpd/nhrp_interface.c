@@ -1,10 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* NHRP interface
  * Copyright (c) 2014-2015 Timo Teräs
- *
- * This file is free software: you may copy, redistribute and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 2 of the License, or
- * (at your option) any later version.
  */
 
 #ifdef HAVE_CONFIG_H
@@ -15,7 +11,7 @@
 #include "zebra.h"
 #include "linklist.h"
 #include "memory.h"
-#include "thread.h"
+#include "frrevent.h"
 
 #include "nhrpd.h"
 #include "os.h"
@@ -184,16 +180,17 @@ void nhrp_interface_update_nbma(struct interface *ifp,
 	struct nhrp_interface *nifp = ifp->info, *nbmanifp = NULL;
 	struct interface *nbmaifp = NULL;
 	union sockunion nbma;
+	struct in_addr saddr = {0};
 
 	sockunion_family(&nbma) = AF_UNSPEC;
 
 	if (nifp->source)
 		nbmaifp = if_lookup_by_name(nifp->source, nifp->link_vrf_id);
 
-	switch (ifp->ll_type) {
-	case ZEBRA_LLT_IPGRE: {
-		struct in_addr saddr = {0};
-
+	if (ifp->ll_type != ZEBRA_LLT_IPGRE)
+		debugf(NHRP_DEBUG_IF, "%s: Ignoring non GRE interface type %u",
+		       __func__, ifp->ll_type);
+	else {
 		if (!gre_info) {
 			nhrp_send_zebra_gre_request(ifp);
 			return;
@@ -214,9 +211,6 @@ void nhrp_interface_update_nbma(struct interface *ifp,
 			nbmaifp =
 				if_lookup_by_index(nifp->link_idx,
 						   nifp->link_vrf_id);
-	} break;
-	default:
-		break;
 	}
 
 	if (nbmaifp)
@@ -265,13 +259,12 @@ static void nhrp_interface_update_address(struct interface *ifp, afi_t afi,
 	struct nhrp_afi_data *if_ad = &nifp->afi[afi];
 	struct nhrp_cache *nc;
 	struct connected *c, *best;
-	struct listnode *cnode;
 	union sockunion addr;
 	char buf[PREFIX_STRLEN];
 
 	/* Select new best match preferring primary address */
 	best = NULL;
-	for (ALL_LIST_ELEMENTS_RO(ifp->connected, cnode, c)) {
+	frr_each (if_connected, ifp->connected, c) {
 		if (PREFIX_FAMILY(c->address) != family)
 			continue;
 		if (best == NULL) {
@@ -358,6 +351,7 @@ void nhrp_interface_update(struct interface *ifp)
 		if (!if_ad->configured) {
 			os_configure_dmvpn(ifp->ifindex, ifp->name,
 					   afi2family(afi));
+			nhrp_interface_update_arp(ifp, true);
 			nhrp_send_zebra_configure_arp(ifp, afi2family(afi));
 			if_ad->configured = 1;
 			nhrp_interface_update_address(ifp, afi, 1);

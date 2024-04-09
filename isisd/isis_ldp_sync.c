@@ -1,20 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /**
  * isis_ldp_sync.c: ISIS LDP-IGP Sync  handling routines
  * Copyright (C) 2020 Volta Networks, Inc.
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -22,7 +9,7 @@
 
 #include "monotime.h"
 #include "memory.h"
-#include "thread.h"
+#include "frrevent.h"
 #include "prefix.h"
 #include "table.h"
 #include "vty.h"
@@ -184,7 +171,7 @@ void isis_ldp_sync_if_complete(struct isis_circuit *circuit)
 		if (ldp_sync_info->state == LDP_IGP_SYNC_STATE_REQUIRED_NOT_UP)
 			ldp_sync_info->state = LDP_IGP_SYNC_STATE_REQUIRED_UP;
 
-		THREAD_OFF(ldp_sync_info->t_holddown);
+		EVENT_OFF(ldp_sync_info->t_holddown);
 
 		isis_ldp_sync_set_if_metric(circuit, true);
 	}
@@ -204,7 +191,7 @@ void isis_ldp_sync_ldp_fail(struct isis_circuit *circuit)
 	if (ldp_sync_info &&
 	    ldp_sync_info->enabled == LDP_IGP_SYNC_ENABLED &&
 	    ldp_sync_info->state != LDP_IGP_SYNC_STATE_NOT_REQUIRED) {
-		THREAD_OFF(ldp_sync_info->t_holddown);
+		EVENT_OFF(ldp_sync_info->t_holddown);
 		ldp_sync_info->state = LDP_IGP_SYNC_STATE_REQUIRED_NOT_UP;
 		isis_ldp_sync_set_if_metric(circuit, true);
 	}
@@ -344,7 +331,7 @@ void isis_ldp_sync_set_if_metric(struct isis_circuit *circuit, bool run_regen)
 /*
  * LDP-SYNC holddown timer routines
  */
-static void isis_ldp_sync_holddown_timer(struct thread *thread)
+static void isis_ldp_sync_holddown_timer(struct event *thread)
 {
 	struct isis_circuit *circuit;
 	struct ldp_sync_info *ldp_sync_info;
@@ -353,7 +340,7 @@ static void isis_ldp_sync_holddown_timer(struct thread *thread)
 	 *  didn't receive msg from LDP indicating sync-complete
 	 *  restore interface cost to original value
 	 */
-	circuit = THREAD_ARG(thread);
+	circuit = EVENT_ARG(thread);
 	if (circuit->ldp_sync_info == NULL)
 		return;
 
@@ -386,9 +373,8 @@ void isis_ldp_sync_holddown_timer_add(struct isis_circuit *circuit)
 	ils_debug("%s: start holddown timer for %s time %d", __func__,
 		  circuit->interface->name, ldp_sync_info->holddown);
 
-	thread_add_timer(master, isis_ldp_sync_holddown_timer,
-			 circuit, ldp_sync_info->holddown,
-			 &ldp_sync_info->t_holddown);
+	event_add_timer(master, isis_ldp_sync_holddown_timer, circuit,
+			ldp_sync_info->holddown, &ldp_sync_info->t_holddown);
 }
 
 /*
@@ -530,7 +516,7 @@ void isis_if_ldp_sync_disable(struct isis_circuit *circuit)
 	if (!CHECK_FLAG(area->ldp_sync_cmd.flags, LDP_SYNC_FLAG_ENABLE))
 		return;
 
-	THREAD_OFF(ldp_sync_info->t_holddown);
+	EVENT_OFF(ldp_sync_info->t_holddown);
 	ldp_sync_info->state = LDP_IGP_SYNC_STATE_NOT_REQUIRED;
 	isis_ldp_sync_set_if_metric(circuit, true);
 }
@@ -589,8 +575,8 @@ static void isis_circuit_ldp_sync_print_vty(struct isis_circuit *circuit,
 		break;
 	case LDP_IGP_SYNC_STATE_REQUIRED_NOT_UP:
 		if (ldp_sync_info->t_holddown != NULL) {
-			struct timeval remain = thread_timer_remain(
-				ldp_sync_info->t_holddown);
+			struct timeval remain =
+				event_timer_remain(ldp_sync_info->t_holddown);
 			vty_out(vty,
 				"  Holddown timer is running %lld.%03lld remaining\n",
 				(long long)remain.tv_sec,

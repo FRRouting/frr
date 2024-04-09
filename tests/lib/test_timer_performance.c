@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Test program which measures the time it takes to schedule and
  * remove timers.
@@ -6,20 +7,6 @@
  * Copyright (C) 2013 by Internet Systems Consortium, Inc. ("ISC")
  *
  * This file is part of Quagga
- *
- * Quagga is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * Quagga is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -27,15 +14,15 @@
 #include <stdio.h>
 #include <unistd.h>
 
-#include "thread.h"
+#include "frrevent.h"
 #include "prng.h"
 
 #define SCHEDULE_TIMERS 1000000
 #define REMOVE_TIMERS    500000
 
-struct thread_master *master;
+struct event_loop *master;
 
-static void dummy_func(struct thread *thread)
+static void dummy_func(struct event *thread)
 {
 }
 
@@ -43,21 +30,21 @@ int main(int argc, char **argv)
 {
 	struct prng *prng;
 	int i;
-	struct thread **timers;
+	struct event **timers;
 	struct timeval tv_start, tv_lap, tv_stop;
 	unsigned long t_schedule, t_remove;
 
-	master = thread_master_create(NULL);
+	master = event_master_create(NULL);
 	prng = prng_new(0);
 	timers = calloc(SCHEDULE_TIMERS, sizeof(*timers));
 
 	/* create thread structures so they won't be allocated during the
 	 * time measurement */
 	for (i = 0; i < SCHEDULE_TIMERS; i++) {
-		thread_add_timer_msec(master, dummy_func, NULL, 0, &timers[i]);
+		event_add_timer_msec(master, dummy_func, NULL, 0, &timers[i]);
 	}
 	for (i = 0; i < SCHEDULE_TIMERS; i++)
-		thread_cancel(&timers[i]);
+		event_cancel(&timers[i]);
 
 	monotime(&tv_start);
 
@@ -65,8 +52,8 @@ int main(int argc, char **argv)
 		long interval_msec;
 
 		interval_msec = prng_rand(prng) % (100 * SCHEDULE_TIMERS);
-		thread_add_timer_msec(master, dummy_func, NULL, interval_msec,
-				      &timers[i]);
+		event_add_timer_msec(master, dummy_func, NULL, interval_msec,
+				     &timers[i]);
 	}
 
 	monotime(&tv_lap);
@@ -75,7 +62,7 @@ int main(int argc, char **argv)
 		int index;
 
 		index = prng_rand(prng) % SCHEDULE_TIMERS;
-		thread_cancel(&timers[index]);
+		event_cancel(&timers[index]);
 	}
 
 	monotime(&tv_stop);
@@ -93,7 +80,7 @@ int main(int argc, char **argv)
 	fflush(stdout);
 
 	free(timers);
-	thread_master_free(master);
+	event_master_free(master);
 	prng_free(prng);
 	return 0;
 }

@@ -1,20 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * PIM for Quagga
  * Copyright (C) 2008  Everton da Silva Marques
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -42,7 +29,7 @@
 #include "pim_tib.h"
 
 static void group_timer_off(struct gm_group *group);
-static void pim_igmp_general_query(struct thread *t);
+static void pim_igmp_general_query(struct event *t);
 
 void igmp_anysource_forward_start(struct pim_instance *pim,
 				  struct gm_group *group)
@@ -338,11 +325,11 @@ struct gm_sock *pim_igmp_sock_lookup_ifaddr(struct list *igmp_sock_list,
 	return NULL;
 }
 
-static void pim_igmp_other_querier_expire(struct thread *t)
+static void pim_igmp_other_querier_expire(struct event *t)
 {
 	struct gm_sock *igmp;
 
-	igmp = THREAD_ARG(t);
+	igmp = EVENT_ARG(t);
 
 	assert(!igmp->t_igmp_query_timer);
 
@@ -390,7 +377,7 @@ void pim_igmp_other_querier_timer_on(struct gm_sock *igmp)
 				"Querier %s resetting TIMER event for Other-Querier-Present",
 				ifaddr_str);
 		}
-		THREAD_OFF(igmp->t_other_querier_timer);
+		EVENT_OFF(igmp->t_other_querier_timer);
 	} else {
 		/*
 		  We are the current querier, then stop sending general queries:
@@ -433,9 +420,9 @@ void pim_igmp_other_querier_timer_on(struct gm_sock *igmp)
 			other_querier_present_interval_msec % 1000);
 	}
 
-	thread_add_timer_msec(router->master, pim_igmp_other_querier_expire,
-			      igmp, other_querier_present_interval_msec,
-			      &igmp->t_other_querier_timer);
+	event_add_timer_msec(router->master, pim_igmp_other_querier_expire,
+			     igmp, other_querier_present_interval_msec,
+			     &igmp->t_other_querier_timer);
 }
 
 void pim_igmp_other_querier_timer_off(struct gm_sock *igmp)
@@ -452,7 +439,7 @@ void pim_igmp_other_querier_timer_off(struct gm_sock *igmp)
 				ifaddr_str, igmp->fd, igmp->interface->name);
 		}
 	}
-	THREAD_OFF(igmp->t_other_querier_timer);
+	EVENT_OFF(igmp->t_other_querier_timer);
 }
 
 int igmp_validate_checksum(char *igmp_msg, int igmp_msg_len)
@@ -878,8 +865,8 @@ void pim_igmp_general_query_on(struct gm_sock *igmp)
 			ifaddr_str, query_interval,
 			startup_mode ? "startup" : "non-startup", igmp->fd);
 	}
-	thread_add_timer(router->master, pim_igmp_general_query, igmp,
-			 query_interval, &igmp->t_igmp_query_timer);
+	event_add_timer(router->master, pim_igmp_general_query, igmp,
+			query_interval, &igmp->t_igmp_query_timer);
 }
 
 void pim_igmp_general_query_off(struct gm_sock *igmp)
@@ -896,11 +883,11 @@ void pim_igmp_general_query_off(struct gm_sock *igmp)
 				ifaddr_str, igmp->fd, igmp->interface->name);
 		}
 	}
-	THREAD_OFF(igmp->t_igmp_query_timer);
+	EVENT_OFF(igmp->t_igmp_query_timer);
 }
 
 /* Issue IGMP general query */
-static void pim_igmp_general_query(struct thread *t)
+static void pim_igmp_general_query(struct event *t)
 {
 	struct gm_sock *igmp;
 	struct in_addr dst_addr;
@@ -908,7 +895,7 @@ static void pim_igmp_general_query(struct thread *t)
 	struct pim_interface *pim_ifp;
 	int query_buf_size;
 
-	igmp = THREAD_ARG(t);
+	igmp = EVENT_ARG(t);
 
 	assert(igmp->interface);
 	assert(igmp->interface->info);
@@ -966,7 +953,7 @@ static void sock_close(struct gm_sock *igmp)
 				igmp->interface->name);
 		}
 	}
-	THREAD_OFF(igmp->t_igmp_read);
+	EVENT_OFF(igmp->t_igmp_read);
 
 	if (close(igmp->fd)) {
 		flog_err(
@@ -1058,7 +1045,7 @@ void igmp_group_delete(struct gm_group *group)
 		igmp_source_delete(src);
 	}
 
-	THREAD_OFF(group->t_group_query_retransmit_timer);
+	EVENT_OFF(group->t_group_query_retransmit_timer);
 
 	group_timer_off(group);
 	igmp_group_count_decr(pim_ifp);
@@ -1221,10 +1208,10 @@ static struct gm_sock *igmp_sock_new(int fd, struct in_addr ifaddr,
 
 static void igmp_read_on(struct gm_sock *igmp);
 
-static void pim_igmp_read(struct thread *t)
+static void pim_igmp_read(struct event *t)
 {
 	uint8_t buf[10000];
-	struct gm_sock *igmp = (struct gm_sock *)THREAD_ARG(t);
+	struct gm_sock *igmp = (struct gm_sock *)EVENT_ARG(t);
 	struct sockaddr_storage from;
 	struct sockaddr_storage to;
 	socklen_t fromlen = sizeof(from);
@@ -1256,8 +1243,8 @@ static void igmp_read_on(struct gm_sock *igmp)
 		zlog_debug("Scheduling READ event on IGMP socket fd=%d",
 			   igmp->fd);
 	}
-	thread_add_read(router->master, pim_igmp_read, igmp, igmp->fd,
-			&igmp->t_igmp_read);
+	event_add_read(router->master, pim_igmp_read, igmp, igmp->fd,
+		       &igmp->t_igmp_read);
 }
 
 struct gm_sock *pim_igmp_sock_add(struct list *igmp_sock_list,
@@ -1313,11 +1300,11 @@ struct gm_sock *pim_igmp_sock_add(struct list *igmp_sock_list,
   source records.  Source records whose timers are zero (from the
   previous EXCLUDE mode) are deleted.
  */
-static void igmp_group_timer(struct thread *t)
+static void igmp_group_timer(struct event *t)
 {
 	struct gm_group *group;
 
-	group = THREAD_ARG(t);
+	group = EVENT_ARG(t);
 
 	if (PIM_DEBUG_GM_TRACE) {
 		char group_str[INET_ADDRSTRLEN];
@@ -1361,7 +1348,7 @@ static void group_timer_off(struct gm_group *group)
 		zlog_debug("Cancelling TIMER event for group %s on %s",
 			   group_str, group->interface->name);
 	}
-	THREAD_OFF(group->t_group_timer);
+	EVENT_OFF(group->t_group_timer);
 }
 
 void igmp_group_timer_on(struct gm_group *group, long interval_msec,
@@ -1388,8 +1375,8 @@ void igmp_group_timer_on(struct gm_group *group, long interval_msec,
 	*/
 	assert(group->group_filtermode_isexcl);
 
-	thread_add_timer_msec(router->master, igmp_group_timer, group,
-			      interval_msec, &group->t_group_timer);
+	event_add_timer_msec(router->master, igmp_group_timer, group,
+			     interval_msec, &group->t_group_timer);
 }
 
 struct gm_group *find_group_by_addr(struct gm_sock *igmp,

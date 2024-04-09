@@ -1,21 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* Route map function.
  * Copyright (C) 1998 Kunihiro Ishiguro
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef _ZEBRA_ROUTEMAP_H
@@ -36,6 +21,10 @@ extern "C" {
 DECLARE_MTYPE(ROUTE_MAP_NAME);
 DECLARE_MTYPE(ROUTE_MAP_RULE);
 DECLARE_MTYPE(ROUTE_MAP_COMPILED);
+
+#define DEBUG_ROUTEMAP 0x01
+#define DEBUG_ROUTEMAP_DETAIL 0x02
+extern uint32_t rmap_debug;
 
 /* Route map's type. */
 enum route_map_type { RMAP_PERMIT, RMAP_DENY, RMAP_ANY };
@@ -270,6 +259,8 @@ DECLARE_QOBJ_TYPE(route_map);
 	(strmatch(C, "frr-zebra-route-map:ipv4-next-hop-prefix-length"))
 #define IS_MATCH_SRC_PROTO(C)                                                  \
 	(strmatch(C, "frr-zebra-route-map:source-protocol"))
+#define IS_MATCH_BGP_SRC_PROTO(C)                                              \
+	(strmatch(C, "frr-bgp-route-map:source-protocol"))
 #define IS_MATCH_SRC_INSTANCE(C)                                               \
 	(strmatch(C, "frr-zebra-route-map:source-instance"))
 /* BGP route-map match conditions */
@@ -323,6 +314,8 @@ DECLARE_QOBJ_TYPE(route_map);
 	(strmatch(A, "frr-route-map:ipv6-next-hop"))
 #define IS_SET_METRIC(A)                                                       \
 	(strmatch(A, "frr-route-map:set-metric"))
+#define IS_SET_MIN_METRIC(A) (strmatch(A, "frr-route-map:set-min-metric"))
+#define IS_SET_MAX_METRIC(A) (strmatch(A, "frr-route-map:set-max-metric"))
 #define IS_SET_TAG(A) (strmatch(A, "frr-route-map:set-tag"))
 #define IS_SET_SR_TE_COLOR(A)                                                  \
 	(strmatch(A, "frr-route-map:set-sr-te-color"))
@@ -355,6 +348,8 @@ DECLARE_QOBJ_TYPE(route_map);
 	(strmatch(A, "frr-bgp-route-map:comm-list-delete"))
 #define IS_SET_LCOMM_LIST_DEL(A)                                               \
 	(strmatch(A, "frr-bgp-route-map:large-comm-list-delete"))
+#define IS_SET_EXTCOMM_LIST_DEL(A)                                                \
+	(strmatch(A, "frr-bgp-route-map:extended-comm-list-delete"))
 #define IS_SET_LCOMMUNITY(A)                                                   \
 	(strmatch(A, "frr-bgp-route-map:set-large-community"))
 #define IS_SET_COMMUNITY(A)                                                    \
@@ -363,10 +358,15 @@ DECLARE_QOBJ_TYPE(route_map);
 	(strmatch(A, "frr-bgp-route-map:set-extcommunity-none"))
 #define IS_SET_EXTCOMMUNITY_RT(A)                                              \
 	(strmatch(A, "frr-bgp-route-map:set-extcommunity-rt"))
+#define IS_SET_EXTCOMMUNITY_NT(A)                                              \
+	(strmatch(A, "frr-bgp-route-map:set-extcommunity-nt"))
 #define IS_SET_EXTCOMMUNITY_SOO(A)                                             \
 	(strmatch(A, "frr-bgp-route-map:set-extcommunity-soo"))
 #define IS_SET_EXTCOMMUNITY_LB(A)                                              \
 	(strmatch(A, "frr-bgp-route-map:set-extcommunity-lb"))
+#define IS_SET_EXTCOMMUNITY_COLOR(A)                                           \
+	(strmatch(A, "frr-bgp-route-map:set-extcommunity-color"))
+
 #define IS_SET_AGGREGATOR(A)                                                   \
 	(strmatch(A, "frr-bgp-route-map:aggregator"))
 #define IS_SET_AS_PREPEND(A)                                                   \
@@ -401,6 +401,7 @@ enum ecommunity_lb_type {
 
 /* Prototypes. */
 extern void route_map_init(void);
+extern void route_map_init_new(bool in_backend);
 
 /*
  * This should only be called on shutdown
@@ -695,6 +696,22 @@ extern void route_map_no_set_metric_hook(
 	int (*func)(struct route_map_index *index,
 		    const char *command, const char *arg,
 		    char *errmsg, size_t errmsg_len));
+/* set metric */
+extern void route_map_set_max_metric_hook(
+	int (*func)(struct route_map_index *index, const char *command,
+		    const char *arg, char *errmsg, size_t errmsg_len));
+/* no set metric */
+extern void route_map_no_set_max_metric_hook(
+	int (*func)(struct route_map_index *index, const char *command,
+		    const char *arg, char *errmsg, size_t errmsg_len));
+/* set metric */
+extern void route_map_set_min_metric_hook(
+	int (*func)(struct route_map_index *index, const char *command,
+		    const char *arg, char *errmsg, size_t errmsg_len));
+/* no set metric */
+extern void route_map_no_set_min_metric_hook(
+	int (*func)(struct route_map_index *index, const char *command,
+		    const char *arg, char *errmsg, size_t errmsg_len));
 /* set tag */
 extern void route_map_set_tag_hook(int (*func)(struct route_map_index *index,
 					       const char *command,
@@ -931,6 +948,25 @@ struct route_map_match_set_hooks {
 	int (*no_set_metric)(struct route_map_index *index,
 			     const char *command, const char *arg,
 			     char *errmsg, size_t errmsg_len);
+	/* set min-metric */
+	int (*set_min_metric)(struct route_map_index *index,
+			      const char *command, const char *arg,
+			      char *errmsg, size_t errmsg_len);
+
+	/* no set min-metric */
+	int (*no_set_min_metric)(struct route_map_index *index,
+				 const char *command, const char *arg,
+				 char *errmsg, size_t errmsg_len);
+
+	/* set max-metric */
+	int (*set_max_metric)(struct route_map_index *index,
+			      const char *command, const char *arg,
+			      char *errmsg, size_t errmsg_len);
+
+	/* no set max-metric */
+	int (*no_set_max_metric)(struct route_map_index *index,
+				 const char *command, const char *arg,
+				 char *errmsg, size_t errmsg_len);
 
 	/* set tag */
 	int (*set_tag)(struct route_map_index *index,
@@ -989,6 +1025,7 @@ routemap_hook_context_insert(struct route_map_index *rmi);
 void routemap_hook_context_free(struct routemap_hook_context *rhc);
 
 extern const struct frr_yang_module_info frr_route_map_info;
+extern const struct frr_yang_module_info frr_route_map_cli_info;
 
 /* routemap_cli.c */
 extern int route_map_instance_cmp(const struct lyd_node *dnode1,

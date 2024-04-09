@@ -1,22 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * kernel routing table update prototype.
  * Copyright (C) 1998 Kunihiro Ishiguro
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef _ZEBRA_RT_H
@@ -40,7 +25,8 @@ extern "C" {
 #define RKERNEL_ROUTE(type) ((type) == ZEBRA_ROUTE_KERNEL)
 
 #define RSYSTEM_ROUTE(type)                                                    \
-	((RKERNEL_ROUTE(type)) || (type) == ZEBRA_ROUTE_CONNECT)
+	((RKERNEL_ROUTE(type)) || (type) == ZEBRA_ROUTE_CONNECT ||             \
+	 (type) == ZEBRA_ROUTE_LOCAL)
 
 #ifndef HAVE_NETLINK
 /*
@@ -99,11 +85,15 @@ extern int kernel_get_ipmr_sg_stats(struct zebra_vrf *zvrf, void *mroute);
  * state.
  */
 extern void interface_list(struct zebra_ns *zns);
+extern void interface_list_tunneldump(struct zebra_ns *zns);
+extern void interface_list_second(struct zebra_ns *zns);
 extern void kernel_init(struct zebra_ns *zns);
 extern void kernel_terminate(struct zebra_ns *zns, bool complete);
 extern void macfdb_read(struct zebra_ns *zns);
 extern void macfdb_read_for_bridge(struct zebra_ns *zns, struct interface *ifp,
-				   struct interface *br_if);
+				   struct interface *br_if, vlanid_t vid);
+extern void macfdb_read_mcast_entry_for_vni(struct zebra_ns *zns,
+					    struct interface *ifp, vni_t vni);
 extern void macfdb_read_specific_mac(struct zebra_ns *zns,
 				     struct interface *br_if,
 				     const struct ethaddr *mac, vlanid_t vid);
@@ -127,6 +117,7 @@ extern void kernel_update_multi(struct dplane_ctx_list_head *ctx_list);
  * Called by the dplane pthread to read incoming OS messages and dispatch them.
  */
 int kernel_dplane_read(struct zebra_dplane_info *info);
+extern void vlan_read(struct zebra_ns *zns);
 
 #ifdef __cplusplus
 }

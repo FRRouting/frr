@@ -1,21 +1,8 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  *
  * Copyright 2015-2016, LabN Consulting, L.L.C.
  *
- *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifdef HAVE_CONFIG_H
@@ -30,7 +17,7 @@
 struct rfp_instance_t {
 	struct rfapi_rfp_cfg rfapi_config;
 	struct rfapi_rfp_cb_methods rfapi_callbacks;
-	struct thread_master *master;
+	struct event_loop *master;
 	uint32_t config_var;
 };
 
@@ -284,7 +271,7 @@ static int rfp_cfg_write_cb(struct vty *vty, void *rfp_start_val)
  *    rfp_start_val rfp returned value passed on rfp_stop and rfp_cfg_write
  *
 --------------------------------------------*/
-void *rfp_start(struct thread_master *master, struct rfapi_rfp_cfg **cfgp,
+void *rfp_start(struct event_loop *master, struct rfapi_rfp_cfg **cfgp,
 		struct rfapi_rfp_cb_methods **cbmp)
 {
 	memset(&global_rfi, 0, sizeof(global_rfi));

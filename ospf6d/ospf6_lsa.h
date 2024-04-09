@@ -1,21 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Copyright (C) 2003 Yasuhiro Ohara
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef OSPF6_LSA_H
@@ -134,8 +119,8 @@ struct ospf6_lsa {
 	struct timeval received;   /* used by MinLSArrival check */
 	struct timeval installed;
 
-	struct thread *expire;
-	struct thread *refresh; /* For self-originated LSA */
+	struct event *expire;
+	struct event *refresh; /* For self-originated LSA */
 
 	int retrans_count;
 
@@ -254,10 +239,10 @@ extern void ospf6_lsa_delete(struct ospf6_lsa *lsa);
 extern struct ospf6_lsa *ospf6_lsa_copy(struct ospf6_lsa *lsa);
 
 extern struct ospf6_lsa *ospf6_lsa_lock(struct ospf6_lsa *lsa);
-extern struct ospf6_lsa *ospf6_lsa_unlock(struct ospf6_lsa *lsa);
+extern void ospf6_lsa_unlock(struct ospf6_lsa **lsa);
 
-extern void ospf6_lsa_expire(struct thread *thread);
-extern void ospf6_lsa_refresh(struct thread *thread);
+extern void ospf6_lsa_expire(struct event *thread);
+extern void ospf6_lsa_refresh(struct event *thread);
 
 extern unsigned short ospf6_lsa_checksum(struct ospf6_lsa_header *lsah);
 extern int ospf6_lsa_checksum_valid(struct ospf6_lsa_header *lsah);

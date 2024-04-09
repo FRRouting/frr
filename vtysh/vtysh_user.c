@@ -1,21 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* User authentication for vtysh.
  * Copyright (C) 2000 Kunihiro Ishiguro
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -57,7 +42,7 @@ static struct pam_conv conv = {PAM_CONV_FUNC, NULL};
 
 static int vtysh_pam(const char *user)
 {
-	int ret;
+	int ret, second_ret;
 	pam_handle_t *pamh = NULL;
 
 	/* Start PAM. */
@@ -71,15 +56,18 @@ static int vtysh_pam(const char *user)
 		fprintf(stderr, "vtysh_pam: Failure to initialize pam: %s(%d)",
 			pam_strerror(pamh, ret), ret);
 
-	if (pam_acct_mgmt(pamh, 0) != PAM_SUCCESS)
+	second_ret = pam_acct_mgmt(pamh, 0);
+	if (second_ret != PAM_SUCCESS)
 		fprintf(stderr, "%s: Failed in account validation: %s(%d)",
-			__func__, pam_strerror(pamh, ret), ret);
+			__func__, pam_strerror(pamh, second_ret), second_ret);
 
 	/* close Linux-PAM */
-	if (pam_end(pamh, ret) != PAM_SUCCESS) {
+	second_ret = pam_end(pamh, ret);
+	if (second_ret != PAM_SUCCESS) {
 		pamh = NULL;
-		fprintf(stderr, "vtysh_pam: failed to release authenticator: %s(%d)\n",
-			pam_strerror(pamh, ret), ret);
+		fprintf(stderr,
+			"vtysh_pam: failed to release authenticator: %s(%d)\n",
+			pam_strerror(pamh, second_ret), second_ret);
 		exit(1);
 	}
 

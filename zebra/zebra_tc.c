@@ -1,21 +1,8 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Zebra Traffic Control (TC) main handling.
  *
  * Copyright (C) 2022 Shichu Yang
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -145,13 +132,18 @@ static void *tc_qdisc_alloc_intern(void *arg)
 	return new;
 }
 
+void zebra_tc_qdisc_free(struct zebra_tc_qdisc *qdisc)
+{
+	XFREE(MTYPE_TC_QDISC, qdisc);
+}
+
 static struct zebra_tc_qdisc *tc_qdisc_free(struct zebra_tc_qdisc *hash_data,
 					    bool free_data)
 {
 	hash_release(zrouter.qdisc_hash, hash_data);
 
 	if (free_data) {
-		XFREE(MTYPE_TC_QDISC, hash_data);
+		zebra_tc_qdisc_free(hash_data);
 		return NULL;
 	}
 
@@ -191,7 +183,7 @@ void zebra_tc_qdisc_install(struct zebra_tc_qdisc *qdisc)
 			new = hash_get(zrouter.qdisc_hash, qdisc,
 				       tc_qdisc_alloc_intern);
 			(void)dplane_tc_qdisc_install(new);
-			XFREE(MTYPE_TC_QDISC, old);
+			zebra_tc_qdisc_free(old);
 		}
 	} else {
 		new = hash_get(zrouter.qdisc_hash, qdisc,
@@ -256,13 +248,18 @@ static void *tc_class_alloc_intern(void *arg)
 	return new;
 }
 
+void zebra_tc_class_free(struct zebra_tc_class *class)
+{
+	XFREE(MTYPE_TC_CLASS, class);
+}
+
 static struct zebra_tc_class *tc_class_free(struct zebra_tc_class *hash_data,
 					    bool free_data)
 {
 	hash_release(zrouter.class_hash, hash_data);
 
 	if (free_data) {
-		XFREE(MTYPE_TC_CLASS, hash_data);
+		zebra_tc_class_free(hash_data);
 		return NULL;
 	}
 
@@ -366,13 +363,18 @@ bool zebra_tc_filter_hash_equal(const void *arg1, const void *arg2)
 	return true;
 }
 
+void zebra_tc_filter_free(struct zebra_tc_filter *filter)
+{
+	XFREE(MTYPE_TC_FILTER, filter);
+}
+
 static struct zebra_tc_filter *tc_filter_free(struct zebra_tc_filter *hash_data,
 					      bool free_data)
 {
 	hash_release(zrouter.filter_hash, hash_data);
 
 	if (free_data) {
-		XFREE(MTYPE_TC_FILTER, hash_data);
+		zebra_tc_filter_free(hash_data);
 		return NULL;
 	}
 

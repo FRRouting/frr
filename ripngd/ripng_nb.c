@@ -1,26 +1,15 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Copyright (C) 2018 NetDEF, Inc.
  *                    Renato Westphal
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
 
-#include "northbound.h"
+#include "distribute.h"
+#include "if_rmap.h"
 #include "libfrr.h"
+#include "northbound.h"
 
 #include "ripngd/ripng_nb.h"
 
@@ -31,7 +20,6 @@ const struct frr_yang_module_info frr_ripngd_info = {
 		{
 			.xpath = "/frr-ripngd:ripngd/instance",
 			.cbs = {
-				.cli_show = cli_show_router_ripng,
 				.create = ripngd_instance_create,
 				.destroy = ripngd_instance_destroy,
 				.get_keys = ripngd_instance_get_keys,
@@ -42,28 +30,24 @@ const struct frr_yang_module_info frr_ripngd_info = {
 		{
 			.xpath = "/frr-ripngd:ripngd/instance/allow-ecmp",
 			.cbs = {
-				.cli_show = cli_show_ripng_allow_ecmp,
 				.modify = ripngd_instance_allow_ecmp_modify,
 			},
 		},
 		{
 			.xpath = "/frr-ripngd:ripngd/instance/default-information-originate",
 			.cbs = {
-				.cli_show = cli_show_ripng_default_information_originate,
 				.modify = ripngd_instance_default_information_originate_modify,
 			},
 		},
 		{
 			.xpath = "/frr-ripngd:ripngd/instance/default-metric",
 			.cbs = {
-				.cli_show = cli_show_ripng_default_metric,
 				.modify = ripngd_instance_default_metric_modify,
 			},
 		},
 		{
 			.xpath = "/frr-ripngd:ripngd/instance/network",
 			.cbs = {
-				.cli_show = cli_show_ripng_network_prefix,
 				.create = ripngd_instance_network_create,
 				.destroy = ripngd_instance_network_destroy,
 			},
@@ -71,7 +55,6 @@ const struct frr_yang_module_info frr_ripngd_info = {
 		{
 			.xpath = "/frr-ripngd:ripngd/instance/interface",
 			.cbs = {
-				.cli_show = cli_show_ripng_network_interface,
 				.create = ripngd_instance_interface_create,
 				.destroy = ripngd_instance_interface_destroy,
 			},
@@ -79,7 +62,6 @@ const struct frr_yang_module_info frr_ripngd_info = {
 		{
 			.xpath = "/frr-ripngd:ripngd/instance/offset-list",
 			.cbs = {
-				.cli_show = cli_show_ripng_offset_list,
 				.create = ripngd_instance_offset_list_create,
 				.destroy = ripngd_instance_offset_list_destroy,
 			},
@@ -99,16 +81,49 @@ const struct frr_yang_module_info frr_ripngd_info = {
 		{
 			.xpath = "/frr-ripngd:ripngd/instance/passive-interface",
 			.cbs = {
-				.cli_show = cli_show_ripng_passive_interface,
 				.create = ripngd_instance_passive_interface_create,
 				.destroy = ripngd_instance_passive_interface_destroy,
 			},
 		},
 		{
+			.xpath = "/frr-ripngd:ripngd/instance/distribute-list",
+			.cbs = {
+				.create = ripngd_instance_distribute_list_create,
+				.destroy = group_distribute_list_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-ripngd:ripngd/instance/distribute-list/in/access-list",
+			.cbs = {
+				.modify = group_distribute_list_ipv6_modify,
+				.destroy = group_distribute_list_ipv6_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-ripngd:ripngd/instance/distribute-list/out/access-list",
+			.cbs = {
+				.modify = group_distribute_list_ipv6_modify,
+				.destroy = group_distribute_list_ipv6_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-ripngd:ripngd/instance/distribute-list/in/prefix-list",
+			.cbs = {
+				.modify = group_distribute_list_ipv6_modify,
+				.destroy = group_distribute_list_ipv6_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-ripngd:ripngd/instance/distribute-list/out/prefix-list",
+			.cbs = {
+				.modify = group_distribute_list_ipv6_modify,
+				.destroy = group_distribute_list_ipv6_destroy,
+			}
+		},
+		{
 			.xpath = "/frr-ripngd:ripngd/instance/redistribute",
 			.cbs = {
 				.apply_finish = ripngd_instance_redistribute_apply_finish,
-				.cli_show = cli_show_ripng_redistribute,
 				.create = ripngd_instance_redistribute_create,
 				.destroy = ripngd_instance_redistribute_destroy,
 			},
@@ -128,9 +143,29 @@ const struct frr_yang_module_info frr_ripngd_info = {
 			},
 		},
 		{
+			.xpath = "/frr-ripngd:ripngd/instance/if-route-maps/if-route-map",
+			.cbs = {
+				.create = ripngd_instance_if_route_maps_if_route_map_create,
+				.destroy = ripngd_instance_if_route_maps_if_route_map_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-ripngd:ripngd/instance/if-route-maps/if-route-map/in-route-map",
+			.cbs = {
+				.modify = ripngd_instance_if_route_maps_if_route_map_in_route_map_modify,
+				.destroy = ripngd_instance_if_route_maps_if_route_map_in_route_map_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-ripngd:ripngd/instance/if-route-maps/if-route-map/out-route-map",
+			.cbs = {
+				.modify = ripngd_instance_if_route_maps_if_route_map_out_route_map_modify,
+				.destroy = ripngd_instance_if_route_maps_if_route_map_out_route_map_destroy,
+			}
+		},
+		{
 			.xpath = "/frr-ripngd:ripngd/instance/static-route",
 			.cbs = {
-				.cli_show = cli_show_ripng_route,
 				.create = ripngd_instance_static_route_create,
 				.destroy = ripngd_instance_static_route_destroy,
 			},
@@ -138,7 +173,6 @@ const struct frr_yang_module_info frr_ripngd_info = {
 		{
 			.xpath = "/frr-ripngd:ripngd/instance/aggregate-address",
 			.cbs = {
-				.cli_show = cli_show_ripng_aggregate_address,
 				.create = ripngd_instance_aggregate_address_create,
 				.destroy = ripngd_instance_aggregate_address_destroy,
 			},
@@ -147,7 +181,6 @@ const struct frr_yang_module_info frr_ripngd_info = {
 			.xpath = "/frr-ripngd:ripngd/instance/timers",
 			.cbs = {
 				.apply_finish = ripngd_instance_timers_apply_finish,
-				.cli_show = cli_show_ripng_timers,
 			},
 		},
 		{
@@ -241,7 +274,6 @@ const struct frr_yang_module_info frr_ripngd_info = {
 		{
 			.xpath = "/frr-interface:lib/interface/frr-ripngd:ripng/split-horizon",
 			.cbs = {
-				.cli_show = cli_show_ipv6_ripng_split_horizon,
 				.modify = lib_interface_ripng_split_horizon_modify,
 			},
 		},

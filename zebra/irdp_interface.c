@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  *
  * Copyright (C) 1997, 2000
@@ -8,22 +9,6 @@
  *
  * Thanks to Jens Laas at Swedish University of Agricultural Sciences
  * for reviewing and tests.
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -39,7 +24,7 @@
 #include "connected.h"
 #include "log.h"
 #include "zclient.h"
-#include "thread.h"
+#include "frrevent.h"
 #include "lib_errors.h"
 #include "zebra/interface.h"
 #include "zebra/rtadv.h"
@@ -102,12 +87,12 @@ static const char *inet_2a(uint32_t a, char *b, size_t b_len)
 
 static struct prefix *irdp_get_prefix(struct interface *ifp)
 {
-	struct listnode *node;
 	struct connected *ifc;
 
-	if (ifp->connected)
-		for (ALL_LIST_ELEMENTS_RO(ifp->connected, node, ifc))
+	frr_each (if_connected, ifp->connected, ifc) {
+		if (ifc->address->family == AF_INET)
 			return ifc->address;
+	}
 
 	return NULL;
 }
@@ -213,7 +198,6 @@ static void irdp_if_start(struct interface *ifp, int multicast,
 {
 	struct zebra_if *zi = ifp->info;
 	struct irdp_interface *irdp = zi->irdp;
-	struct listnode *node;
 	struct connected *ifc;
 	uint32_t timer, seed;
 
@@ -262,11 +246,12 @@ static void irdp_if_start(struct interface *ifp, int multicast,
 	/* The spec suggests this for randomness */
 
 	seed = 0;
-	if (ifp->connected)
-		for (ALL_LIST_ELEMENTS_RO(ifp->connected, node, ifc)) {
+	frr_each (if_connected, ifp->connected, ifc) {
+		if (ifc->address->family == AF_INET) {
 			seed = ifc->address->u.prefix4.s_addr;
 			break;
 		}
+	}
 
 	srandom(seed);
 	timer = (frr_weak_random() % IRDP_DEFAULT_INTERVAL) + 1;
@@ -287,8 +272,8 @@ static void irdp_if_start(struct interface *ifp, int multicast,
 			   timer);
 
 	irdp->t_advertise = NULL;
-	thread_add_timer(zrouter.master, irdp_send_thread, ifp, timer,
-			 &irdp->t_advertise);
+	event_add_timer(zrouter.master, irdp_send_thread, ifp, timer,
+			&irdp->t_advertise);
 }
 
 static void irdp_if_stop(struct interface *ifp)
@@ -709,7 +694,6 @@ DEFUN (ip_irdp_debug_disable,
 
 void irdp_if_init(void)
 {
-	hook_register(zebra_if_config_wr, irdp_config_write);
 	hook_register(if_del, irdp_if_delete);
 
 	install_element(INTERFACE_NODE, &ip_irdp_broadcast_cmd);

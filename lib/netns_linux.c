@@ -1,25 +1,11 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * NS functions.
  * Copyright (C) 2014 6WIND S.A.
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published
- * by the Free Software Foundation; either version 2, or (at your
- * option) any later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
+#include <fcntl.h>
 
 #ifdef HAVE_NETNS
 #undef _GNU_SOURCE
@@ -517,11 +503,18 @@ void ns_init_management(ns_id_t default_ns_id, ns_id_t internal_ns)
 void ns_terminate(void)
 {
 	struct ns *ns;
+	struct ns_map_nsid *ns_map;
 
 	while (!RB_EMPTY(ns_head, &ns_tree)) {
 		ns = RB_ROOT(ns_head, &ns_tree);
 
 		ns_delete(ns);
+	}
+
+	while (!RB_EMPTY(ns_map_nsid_head, &ns_map_nsid_list)) {
+		ns_map = RB_ROOT(ns_map_nsid_head, &ns_map_nsid_list);
+		RB_REMOVE(ns_map_nsid_head, &ns_map_nsid_list, ns_map);
+		XFREE(MTYPE_NS, ns_map);
 	}
 }
 

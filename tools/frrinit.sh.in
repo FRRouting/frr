@@ -37,7 +37,7 @@ self="`dirname $0`"
 if [ -r "$self/frrcommon.sh" ]; then
 	. "$self/frrcommon.sh"
 else
-	. "@CFG_SBIN@/frrcommon.sh"
+	. "@e_sbindir@/frrcommon.sh"
 fi
 
 case "$1" in
@@ -122,8 +122,8 @@ reload)
 
 	NEW_CONFIG_FILE="${2:-$C_PATH/frr.conf}"
 	[ ! -r $NEW_CONFIG_FILE ] && log_failure_msg "Unable to read new configuration file $NEW_CONFIG_FILE" && exit 1
-	"$RELOAD_SCRIPT" --reload --bindir "$D_PATH" --confdir "$C_PATH" --rundir "$V_PATH" "$NEW_CONFIG_FILE" `echo $nsopt`
-	exit $?
+	"$RELOAD_SCRIPT" --reload --bindir "$B_PATH" --confdir "$C_PATH" --rundir "$V_PATH" "$NEW_CONFIG_FILE" `echo $nsopt`
+	exit 0
 	;;
 
 *)

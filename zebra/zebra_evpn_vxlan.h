@@ -1,23 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Zebra EVPN for VxLAN code
  * Copyright (C) 2016, 2017 Cumulus Networks, Inc.
- *
- * This file is part of FRR.
- *
- * FRR is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * FRR is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with FRR; see the file COPYING.  If not, write to the Free
- * Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
- * 02111-1307, USA.
  */
 
 /* Get the VRR interface for SVI if any */
@@ -68,4 +52,34 @@ static inline void zevpn_vxlan_if_set(struct zebra_evpn *zevpn,
 		zif = NULL;
 
 	zebra_evpn_vxl_evpn_set(zif, zevpn, set);
+}
+
+/* EVPN<=>Bridge interface association */
+static inline void zevpn_bridge_if_set(struct zebra_evpn *zevpn,
+				       struct interface *ifp, bool set)
+{
+	if (set) {
+		if (zevpn->bridge_if == ifp)
+			return;
+		zevpn->bridge_if = ifp;
+	} else {
+		if (!zevpn->bridge_if)
+			return;
+		zevpn->bridge_if = NULL;
+	}
+}
+
+/* EVPN<=>Bridge interface association */
+static inline void zl3vni_bridge_if_set(struct zebra_l3vni *zl3vni,
+					struct interface *ifp, bool set)
+{
+	if (set) {
+		if (zl3vni->bridge_if == ifp)
+			return;
+		zl3vni->bridge_if = ifp;
+	} else {
+		if (!zl3vni->bridge_if)
+			return;
+		zl3vni->bridge_if = NULL;
+	}
 }

@@ -1,22 +1,8 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * PIM for FRR - PIM Instance
  * Copyright (C) 2017 Cumulus Networks, Inc.
  * Donald Sharp
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; see the file COPYING; if not, write to the
- * Free Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston,
- * MA 02110-1301 USA
  */
 #ifndef __PIM_INSTANCE_H__
 #define __PIM_INSTANCE_H__
@@ -78,7 +64,7 @@ enum pim_mlag_flags {
 };
 
 struct pim_router {
-	struct thread_master *master;
+	struct event_loop *master;
 
 	uint32_t debugs;
 
@@ -106,12 +92,12 @@ struct pim_router {
 	/* Holds the client data(unencoded) that need to be pushed to MCLAGD*/
 	struct stream_fifo *mlag_fifo;
 	struct stream *mlag_stream;
-	struct thread *zpthread_mlag_write;
+	struct event *zpthread_mlag_write;
 	struct in_addr anycast_vtep_ip;
 	struct in_addr local_vtep_ip;
 	struct pim_mlag_stats mlag_stats;
 	enum pim_mlag_flags mlag_flags;
-	char peerlink_rif[INTERFACE_NAMSIZ];
+	char peerlink_rif[IFNAMSIZ];
 	struct interface *peerlink_rif_p;
 };
 
@@ -134,7 +120,7 @@ struct pim_instance {
 
 	int send_v6_secondary;
 
-	struct thread *thread;
+	struct event *thread;
 	int mroute_socket;
 	int reg_sock; /* Socket to send register msg */
 	int64_t mroute_socket_creation;
@@ -171,7 +157,7 @@ struct pim_instance {
 
 	unsigned int gm_socket_if_count;
 	int gm_socket;
-	struct thread *t_gm_recv;
+	struct event *t_gm_recv;
 
 	unsigned int gm_group_count;
 	unsigned int gm_watermark_limit;
@@ -190,7 +176,7 @@ struct pim_instance {
 	uint64_t bsm_dropped;
 
 	/* If we need to rescan all our upstreams */
-	struct thread *rpf_cache_refresher;
+	struct event *rpf_cache_refresher;
 	int64_t rpf_cache_refresh_requests;
 	int64_t rpf_cache_refresh_events;
 	int64_t rpf_cache_refresh_last;

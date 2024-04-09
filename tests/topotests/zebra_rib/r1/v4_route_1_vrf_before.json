@@ -1,0 +1,27 @@
+{
+    "3.5.1.0/24":[
+        {
+            "prefix":"3.5.1.0/24",
+            "prefixLen":24,
+            "protocol":"kernel",
+            "vrfId":0,
+            "vrfName":"default",
+            "selected":true,
+            "destSelected":true,
+            "distance":0,
+            "metric":0,
+            "installed":true,
+            "table":254,
+            "nexthops":[
+                {
+                    "flags":3,
+                    "fib":true,
+                    "ip":"192.168.210.1",
+                    "afi":"ipv4",
+                    "interfaceName":"r1-eth0",
+                    "active":true
+                }
+            ]
+        }
+    ]
+}

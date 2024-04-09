@@ -1,23 +1,10 @@
-#!/usr/bin/env python
+# -*- coding: utf-8 eval: (blacken-mode 1) -*-
+# SPDX-License-Identifier: ISC
 
 #
 # Copyright (c) 2022 by VMware, Inc. ("VMware")
 # Used Copyright (c) 2018 by Network Device Education Foundation,
 # Inc. ("NetDEF") in this file.
-#
-# Permission to use, copy, modify, and/or distribute this software
-# for any purpose with or without fee is hereby granted, provided
-# that the above copyright notice and this permission notice appear
-# in all copies.
-#
-# THE SOFTWARE IS PROVIDED "AS IS" AND VMWARE DISCLAIMS ALL WARRANTIES
-# WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
-# MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL VMWARE BE LIABLE FOR
-# ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY
-# DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS,
-# WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS
-# ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE
-# OF THIS SOFTWARE.
 #
 
 """
@@ -54,57 +41,36 @@ Test steps
 8. Verify PIM6 join send towards the higher preferred RP
 9. Verify PIM6 prune send towards the lower preferred RP
 """
-
-import os
 import sys
-import json
 import time
+
 import pytest
-
-# Save the Current Working Directory to find configuration files.
-CWD = os.path.dirname(os.path.realpath(__file__))
-sys.path.append(os.path.join(CWD, "../"))
-sys.path.append(os.path.join(CWD, "../lib/"))
-
-# Required to instantiate the topology builder class.
-
-# pylint: disable=C0413
-# Import topogen and topotest helpers
-from lib.topogen import Topogen, get_topogen
-
 from lib.common_config import (
-    start_topology,
-    write_test_header,
-    write_test_footer,
-    reset_config_on_routers,
-    step,
-    shutdown_bringup_interface,
-    kill_router_daemons,
-    start_router_daemons,
-    create_static_routes,
     check_router_status,
-    socat_send_mld_join,
-    socat_send_pim6_traffic,
-    kill_socat,
+    reset_config_on_routers,
+    shutdown_bringup_interface,
+    start_topology,
+    step,
+    write_test_footer,
+    write_test_header,
 )
 from lib.pim import (
+    McastTesterHelper,
+    clear_pim6_interface_traffic,
     create_pim_config,
-    verify_upstream_iif,
+    get_pim6_interface_traffic,
     verify_join_state_and_timer,
+    verify_mld_groups,
     verify_mroutes,
-    verify_pim_neighbors,
+    verify_pim6_neighbors,
     verify_pim_interface_traffic,
     verify_pim_rp_info,
     verify_pim_state,
-    clear_pim6_interface_traffic,
-    clear_pim6_mroute,
-    verify_pim6_neighbors,
-    get_pim6_interface_traffic,
-    clear_pim6_interfaces,
-    verify_mld_groups,
+    verify_upstream_iif,
 )
+from lib.topogen import Topogen, get_topogen
+from lib.topojson import build_config_from_json, build_topo_from_json
 from lib.topolog import logger
-from lib.topojson import build_topo_from_json, build_config_from_json
 
 # Global variables
 GROUP_RANGE_1 = "ff08::/64"
@@ -154,7 +120,7 @@ def setup_module(mod):
     logger.info("Running setup_module to create topology")
 
     # This function initiates the topology build with Topogen...
-    json_file = "{}/multicast_pim6_static_rp.json".format(CWD)
+    json_file = "multicast_pim6_static_rp.json"
     tgen = Topogen(json_file, mod.__name__)
     global TOPO
     TOPO = tgen.json_topo
@@ -176,6 +142,9 @@ def setup_module(mod):
     result = verify_pim6_neighbors(tgen, TOPO)
     assert result is True, "setup_module :Failed \n Error:" " {}".format(result)
 
+    global app_helper
+    app_helper = McastTesterHelper(tgen)
+
     logger.info("Running setup_module() done")
 
 
@@ -184,6 +153,8 @@ def teardown_module():
 
     logger.info("Running teardown_module to delete topology")
     tgen = get_topogen()
+
+    app_helper.cleanup()
 
     # Stop toplogy and Remove tmp files
     tgen.stop_topology()
@@ -270,6 +241,8 @@ def test_pim6_add_delete_static_RP_p0(request):
     step("Creating configuration from JSON")
     reset_config_on_routers(tgen)
 
+    app_helper.stop_all_hosts()
+
     step("Shut link b/w R1 and R3 and R1 and R4 as per testcase topology")
     intf_r1_r3 = TOPO["routers"]["r1"]["links"]["r3"]["interface"]
     intf_r1_r4 = TOPO["routers"]["r1"]["links"]["r4"]["interface"]
@@ -323,11 +296,7 @@ def test_pim6_add_delete_static_RP_p0(request):
     )
 
     step("send mld join {} to R1".format(GROUP_ADDRESS_1))
-    intf = TOPO["routers"]["r0"]["links"]["r1"]["interface"]
-    intf_ip = TOPO["routers"]["r0"]["links"]["r1"]["ipv6"].split("/")[0]
-    result = socat_send_mld_join(
-        tgen, "r0", "UDP6-RECV", GROUP_ADDRESS_1, intf, intf_ip
-    )
+    result = app_helper.run_join("r0", GROUP_ADDRESS_1, "r1")
     assert result is True, "Testcase {}: Failed Error: {}".format(tc_name, result)
 
     step("r1: Verify MLD groups")
@@ -467,6 +436,8 @@ def test_pim6_SPT_RPT_path_same_p1(request):
     step("Creating configuration from JSON")
     reset_config_on_routers(tgen)
 
+    app_helper.stop_all_hosts()
+
     step("Shut link b/w R1->R3, R1->R4 and R3->R1, R3->R4 as per " "testcase topology")
     intf_r1_r3 = TOPO["routers"]["r1"]["links"]["r3"]["interface"]
     intf_r1_r4 = TOPO["routers"]["r1"]["links"]["r4"]["interface"]
@@ -504,11 +475,7 @@ def test_pim6_SPT_RPT_path_same_p1(request):
     step(
         "Enable MLD on r1 interface and send MLD join {} to R1".format(GROUP_ADDRESS_1)
     )
-    intf = TOPO["routers"]["r0"]["links"]["r1"]["interface"]
-    intf_ip = TOPO["routers"]["r0"]["links"]["r1"]["ipv6"].split("/")[0]
-    result = socat_send_mld_join(
-        tgen, "r0", "UDP6-RECV", GROUP_ADDRESS_1, intf, intf_ip
-    )
+    result = app_helper.run_join("r0", GROUP_ADDRESS_1, "r1")
     assert result is True, "Testcase {}: Failed Error: {}".format(tc_name, result)
 
     step("r1: Verify MLD groups")
@@ -518,9 +485,8 @@ def test_pim6_SPT_RPT_path_same_p1(request):
     assert result is True, ASSERT_MSG.format(tc_name, result)
 
     step("Send multicast traffic from R5")
-    intf = TOPO["routers"]["r5"]["links"]["r3"]["interface"]
     SOURCE_ADDRESS = TOPO["routers"]["r5"]["links"]["r3"]["ipv6"].split("/")[0]
-    result = socat_send_pim6_traffic(tgen, "r5", "UDP6-SEND", GROUP_ADDRESS_1, intf)
+    result = app_helper.run_traffic("r5", GROUP_ADDRESS_1, "r3")
     assert result is True, "Testcase {}: Failed Error: {}".format(tc_name, result)
 
     step("r2: Verify RP info")
@@ -640,6 +606,8 @@ def test_pim6_RP_configured_as_LHR_p1(request):
     step("Creating configuration from JSON")
     reset_config_on_routers(tgen)
 
+    app_helper.stop_all_hosts()
+
     step("Enable MLD on r1 interface")
     step("Enable the PIM6 on all the interfaces of r1, r2, r3 and r4 routers")
 
@@ -675,11 +643,7 @@ def test_pim6_RP_configured_as_LHR_p1(request):
     assert result is True, ASSERT_MSG.format(tc_name, result)
 
     step("send mld join {} to R1".format(GROUP_ADDRESS_1))
-    intf = TOPO["routers"]["r0"]["links"]["r1"]["interface"]
-    intf_ip = TOPO["routers"]["r0"]["links"]["r1"]["ipv6"].split("/")[0]
-    result = socat_send_mld_join(
-        tgen, "r0", "UDP6-RECV", GROUP_ADDRESS_1, intf, intf_ip
-    )
+    result = app_helper.run_join("r0", GROUP_ADDRESS_1, "r1")
     assert result is True, "Testcase {}: Failed Error: {}".format(tc_name, result)
 
     step("r1: Verify MLD groups")
@@ -689,9 +653,8 @@ def test_pim6_RP_configured_as_LHR_p1(request):
     assert result is True, ASSERT_MSG.format(tc_name, result)
 
     step("r5: Send multicast traffic for group {}".format(GROUP_ADDRESS_1))
-    intf = TOPO["routers"]["r5"]["links"]["r3"]["interface"]
     SOURCE_ADDRESS = TOPO["routers"]["r5"]["links"]["r3"]["ipv6"].split("/")[0]
-    result = socat_send_pim6_traffic(tgen, "r5", "UDP6-SEND", GROUP_ADDRESS_1, intf)
+    result = app_helper.run_traffic("r5", GROUP_ADDRESS_1, "r3")
     assert result is True, "Testcase {}: Failed Error: {}".format(tc_name, result)
 
     step("r1: Verify (*, G) upstream IIF interface")
@@ -772,6 +735,8 @@ def test_pim6_RP_configured_as_FHR_p1(request):
     step("Creating configuration from JSON")
     reset_config_on_routers(tgen)
 
+    app_helper.stop_all_hosts()
+
     step("Enable MLD on r1 interface")
     step("Enable the PIM6 on all the interfaces of r1, r2, r3 and r4 routers")
     step("r3: Configure r3(FHR) as RP")
@@ -802,11 +767,7 @@ def test_pim6_RP_configured_as_FHR_p1(request):
     assert result is True, ASSERT_MSG.format(tc_name, result)
 
     step("send mld join {} to R1".format(GROUP_ADDRESS_1))
-    intf = TOPO["routers"]["r0"]["links"]["r1"]["interface"]
-    intf_ip = TOPO["routers"]["r0"]["links"]["r1"]["ipv6"].split("/")[0]
-    result = socat_send_mld_join(
-        tgen, "r0", "UDP6-RECV", GROUP_ADDRESS_1, intf, intf_ip
-    )
+    result = app_helper.run_join("r0", GROUP_ADDRESS_1, "r1")
     assert result is True, "Testcase {}: Failed Error: {}".format(tc_name, result)
 
     step("r1: Verify MLD groups")
@@ -816,9 +777,8 @@ def test_pim6_RP_configured_as_FHR_p1(request):
     assert result is True, ASSERT_MSG.format(tc_name, result)
 
     step("r5: Send multicast traffic for group {}".format(GROUP_ADDRESS_1))
-    intf = TOPO["routers"]["r5"]["links"]["r3"]["interface"]
     SOURCE_ADDRESS = TOPO["routers"]["r5"]["links"]["r3"]["ipv6"].split("/")[0]
-    result = socat_send_pim6_traffic(tgen, "r5", "UDP6-SEND", GROUP_ADDRESS_1, intf)
+    result = app_helper.run_traffic("r5", GROUP_ADDRESS_1, "r3")
     assert result is True, "Testcase {}: Failed Error: {}".format(tc_name, result)
 
     step("r1: Verify (*, G) upstream IIF interface")
@@ -900,6 +860,8 @@ def test_pim6_SPT_RPT_path_different_p1(request):
     step("Creating configuration from JSON")
     reset_config_on_routers(tgen)
 
+    app_helper.stop_all_hosts()
+
     step("Enable MLD on r1 interface")
     step("Enable the PIM6 on all the interfaces of r1, r2, r3 and r4 routers")
     step("r2: Configure r2 as RP")
@@ -931,11 +893,7 @@ def test_pim6_SPT_RPT_path_different_p1(request):
     assert result is True, ASSERT_MSG.format(tc_name, result)
 
     step("send mld join {} to R1".format(GROUP_ADDRESS_1))
-    intf = TOPO["routers"]["r0"]["links"]["r1"]["interface"]
-    intf_ip = TOPO["routers"]["r0"]["links"]["r1"]["ipv6"].split("/")[0]
-    result = socat_send_mld_join(
-        tgen, "r0", "UDP6-RECV", GROUP_ADDRESS_1, intf, intf_ip
-    )
+    result = app_helper.run_join("r0", GROUP_ADDRESS_1, "r1")
     assert result is True, "Testcase {}: Failed Error: {}".format(tc_name, result)
 
     step("r1: Verify MLD groups")
@@ -945,9 +903,8 @@ def test_pim6_SPT_RPT_path_different_p1(request):
     assert result is True, ASSERT_MSG.format(tc_name, result)
 
     step("r5: Send multicast traffic for group {}".format(GROUP_ADDRESS_1))
-    intf = TOPO["routers"]["r5"]["links"]["r3"]["interface"]
     SOURCE_ADDRESS = TOPO["routers"]["r5"]["links"]["r3"]["ipv6"].split("/")[0]
-    result = socat_send_pim6_traffic(tgen, "r5", "UDP6-SEND", GROUP_ADDRESS_1, intf)
+    result = app_helper.run_traffic("r5", GROUP_ADDRESS_1, "r3")
     assert result is True, "Testcase {}: Failed Error: {}".format(tc_name, result)
 
     step("r1: Verify (*, G) upstream IIF interface")
@@ -1070,6 +1027,8 @@ def test_pim6_send_join_on_higher_preffered_rp_p1(request):
     step("Creating configuration from JSON")
     reset_config_on_routers(tgen)
 
+    app_helper.stop_all_hosts()
+
     step("Enable MLD on r1 interface")
     step("Enable the PIM66 on all the interfaces of r1, r2, r3 and r4 routers")
     step(
@@ -1119,11 +1078,7 @@ def test_pim6_send_join_on_higher_preffered_rp_p1(request):
     )
 
     step("r0: send mld join {} to R1".format(GROUP_ADDRESS_3))
-    intf = TOPO["routers"]["r0"]["links"]["r1"]["interface"]
-    intf_ip = TOPO["routers"]["r0"]["links"]["r1"]["ipv6"].split("/")[0]
-    result = socat_send_mld_join(
-        tgen, "r0", "UDP6-RECV", GROUP_ADDRESS_3, intf, intf_ip
-    )
+    result = app_helper.run_join("r0", GROUP_ADDRESS_3, "r1")
     assert result is True, "Testcase {}: Failed Error: {}".format(tc_name, result)
 
     step("r1: Verify MLD groups")

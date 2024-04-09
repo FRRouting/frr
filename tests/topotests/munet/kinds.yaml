@@ -1,0 +1,84 @@
+version: 1
+kinds:
+  - name: frr
+    cap-add:
+      # Zebra requires these
+      - NET_ADMIN
+      - NET_RAW
+      - SYS_ADMIN
+      - AUDIT_WRITE             # needed for ssh pty allocation
+  - name: ceos
+    init: false
+    shell: false
+    merge: ["env"]
+    # Should we cap-drop some of these in privileged mode?
+    # ceos kind is special. munet will add args to /sbin/init for each
+    # environment variable of the form `systemd.setenv=ENVNAME=VALUE` for each
+    # environment varialbe named ENVNAME with a value of `VALUE`. If cmd: is
+    # changed to anything but `/sbin/init` munet will not do this.
+    cmd: /sbin/init
+    privileged: true
+    env:
+      - name: "EOS_PLATFORM"
+        value: "ceoslab"
+      - name: "container"
+        value: "docker"
+      - name: "ETBA"
+        value: "4"
+      - name: "SKIP_ZEROTOUCH_BARRIER_IN_SYSDBINIT"
+        value: "1"
+      - name: "INTFTYPE"
+        value: "eth"
+      - name: "MAPETH0"
+        value: "1"
+      - name: "MGMT_INTF"
+        value: "eth0"
+      - name: "CEOS"
+        value: "1"
+
+    # cap-add:
+    #   # cEOS requires these, except GNMI still doesn't work
+    #   # - NET_ADMIN
+    #   # - NET_RAW
+    #   # - SYS_ADMIN
+    #   # - SYS_RESOURCE            # Required for the CLI
+
+    # All Caps
+    #   - AUDIT_CONTROL
+    #   - AUDIT_READ
+    #   - AUDIT_WRITE
+    #   - BLOCK_SUSPEND
+    #   - CHOWN
+    #   - DAC_OVERRIDE
+    #   - DAC_READ_SEARCH
+    #   - FOWNER
+    #   - FSETID
+    #   - IPC_LOCK
+    #   - IPC_OWNER
+    #   - KILL
+    #   - LEASE
+    #   - LINUX_IMMUTABLE
+    #   - MKNOD
+    #   - NET_ADMIN
+    #   - NET_BIND_SERVICE
+    #   - NET_BROADCAST
+    #   - NET_RAW
+    #   - SETFCAP
+    #   - SETGID
+    #   - SETPCAP
+    #   - SETUID
+    #   - SYSLOG
+    #   - SYS_ADMIN
+    #   - SYS_BOOT
+    #   - SYS_CHROOT
+    #   - SYS_MODULE
+    #   - SYS_NICE
+    #   - SYS_PACCT
+    #   - SYS_PTRACE
+    #   - SYS_RAWIO
+    #   - SYS_RESOURCE
+    #   - SYS_TIME
+    #   - SYS_TTY_CONFIG
+    #   - WAKE_ALARM
+    #   - MAC_ADMIN  - Smack project?
+    #   - MAC_OVERRIDE - Smack project?

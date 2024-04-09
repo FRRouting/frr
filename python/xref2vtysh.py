@@ -1,20 +1,7 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
 # FRR xref vtysh command extraction
 #
 # Copyright (C) 2022  David Lamparter for NetDEF, Inc.
-#
-# This program is free software; you can redistribute it and/or modify it
-# under the terms of the GNU General Public License as published by the Free
-# Software Foundation; either version 2 of the License, or (at your option)
-# any later version.
-#
-# This program is distributed in the hope that it will be useful, but WITHOUT
-# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-# FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
-# more details.
-#
-# You should have received a copy of the GNU General Public License along
-# with this program; see the file COPYING; if not, write to the Free Software
-# Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
 
 """
 Generate vtysh_cmd.c from frr .xref file(s).
@@ -46,18 +33,20 @@ frr_top_src = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 daemon_flags = {
     "lib/agentx.c": "VTYSH_ISISD|VTYSH_RIPD|VTYSH_OSPFD|VTYSH_OSPF6D|VTYSH_BGPD|VTYSH_ZEBRA",
-    "lib/filter.c": "VTYSH_ACL",
-    "lib/filter_cli.c": "VTYSH_ACL",
+    "lib/filter.c": "VTYSH_ACL_SHOW",
+    "lib/filter_cli.c": "VTYSH_ACL_CONFIG",
     "lib/if.c": "VTYSH_INTERFACE",
-    "lib/keychain.c": "VTYSH_RIPD|VTYSH_EIGRPD|VTYSH_OSPF6D",
+    "lib/keychain_cli.c": "VTYSH_KEYS",
+    "lib/mgmt_be_client.c": "VTYSH_MGMT_BACKEND",
+    "lib/mgmt_fe_client.c": "VTYSH_MGMT_FRONTEND",
     "lib/lib_vty.c": "VTYSH_ALL",
     "lib/log_vty.c": "VTYSH_ALL",
     "lib/nexthop_group.c": "VTYSH_NH_GROUP",
     "lib/resolver.c": "VTYSH_NHRPD|VTYSH_BGPD",
-    "lib/routemap.c": "VTYSH_RMAP",
-    "lib/routemap_cli.c": "VTYSH_RMAP",
+    "lib/routemap.c": "VTYSH_RMAP_SHOW",
+    "lib/routemap_cli.c": "VTYSH_RMAP_CONFIG",
     "lib/spf_backoff.c": "VTYSH_ISISD",
-    "lib/thread.c": "VTYSH_ALL",
+    "lib/event.c": "VTYSH_ALL",
     "lib/vrf.c": "VTYSH_VRF",
     "lib/vty.c": "VTYSH_ALL",
 }
@@ -217,10 +206,7 @@ class CommandEntry:
                 }
 
         if defun_file == "lib/if_rmap.c":
-            if v6_cmd:
-                return {"VTYSH_RIPNGD"}
-            else:
-                return {"VTYSH_RIPD"}
+            return {"VTYSH_MGMTD"}
 
         return {}
 

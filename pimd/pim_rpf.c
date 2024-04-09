@@ -1,20 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * PIM for Quagga
  * Copyright (C) 2008  Everton da Silva Marques
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -45,7 +32,7 @@ static pim_addr pim_rpf_find_rpf_addr(struct pim_upstream *up);
 void pim_rpf_set_refresh_time(struct pim_instance *pim)
 {
 	pim->last_route_change_time = pim_time_monotonic_usec();
-	if (PIM_DEBUG_PIM_TRACE)
+	if (PIM_DEBUG_PIM_TRACE_DETAIL)
 		zlog_debug("%s: vrf(%s) New last route change time: %" PRId64,
 			   __func__, pim->vrf->name,
 			   pim->last_route_change_time);
@@ -129,8 +116,8 @@ bool pim_nexthop_lookup(struct pim_instance *pim, struct pim_nexthop *nexthop,
 			i++;
 		} else if (neighbor_needed &&
 			   !pim_if_connected_to_source(ifp, addr)) {
-			nbr = pim_neighbor_find(ifp,
-						nexthop_tab[i].nexthop_addr);
+			nbr = pim_neighbor_find(
+				ifp, nexthop_tab[i].nexthop_addr, true);
 			if (PIM_DEBUG_PIM_TRACE_DETAIL)
 				zlog_debug("ifp name: %s, pim nbr: %p",
 					   ifp->name, nbr);

@@ -1,0 +1,16 @@
+{
+  "vni":101,
+  "type":"L2",
+  "tenantVrf":"default",
+  "vxlanInterface":"vxlan0",
+  "vtepIp":"10.10.10.10",
+  "mcastGroup":"0.0.0.0",
+  "advertiseGatewayMacip":"No",
+  "remoteVteps":[
+    {
+      "ip":"10.30.30.30",
+      "flood":"HER"
+    }
+  ]
+}
+

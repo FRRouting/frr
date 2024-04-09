@@ -1,21 +1,9 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * FRR string processing utilities.
  * Copyright (C) 2018  Cumulus Networks, Inc.
  *                     Quentin Young
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
+ * Copyright (c) 2023, LabN Consulting, L.L.C.
  */
 
 #ifndef _FRRSTR_H_
@@ -178,6 +166,19 @@ int all_digit(const char *str);
  *    Pointer to buffer containing resulting hexadecimal representation.
  */
 char *frrstr_hex(char *buff, size_t bufsiz, const uint8_t *str, size_t num);
+
+/*
+ * Advance past a given char `skipc` in a string, while honoring quoting and
+ * backslash escapes (i.e., ignore `skipc` which occur in quoted sections).
+ */
+const char *frrstr_skip_over_char(const char *s, int skipc);
+
+/*
+ * Advance back from end to a given char `toc` in a string, while honoring
+ * quoting and backslash escapes. `toc` chars inside quote or escaped are
+ * ignored.
+ */
+const char *frrstr_back_to_char(const char *s, int toc);
 
 #ifdef __cplusplus
 }

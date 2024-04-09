@@ -1,20 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Copyright (C) 2018  NetDEF, Inc.
  *                     Renato Westphal
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -102,7 +89,7 @@ static const char *yang_get_default_value(const char *xpath)
 	const struct lysc_node *snode;
 	const char *value;
 
-	snode = lys_find_path(ly_native_ctx, NULL, xpath, 0);
+	snode = yang_find_snode(ly_native_ctx, xpath, 0);
 	if (snode == NULL) {
 		flog_err(EC_LIB_YANG_UNKNOWN_DATA_PATH,
 			 "%s: unknown data path: %s", __func__, xpath);
@@ -181,10 +168,9 @@ struct yang_data *yang_data_new_dec64(const char *xpath, double value)
 double yang_dnode_get_dec64(const struct lyd_node *dnode, const char *xpath_fmt,
 			    ...)
 {
-	const double denom[19] = {1e0,   1e-1,  1e-2,  1e-3,  1e-4,
-				  1e-5,  1e-6,  1e-7,  1e-8,  1e-9,
-				  1e-10, 1e-11, 1e-12, 1e-13, 1e-14,
-				  1e-15, 1e-16, 1e-17, 1e-18};
+	const double denom[19] = { 1e0,	 1e1,  1e2,  1e3,  1e4,	 1e5,  1e6,
+				   1e7,	 1e8,  1e9,  1e10, 1e11, 1e12, 1e13,
+				   1e14, 1e15, 1e16, 1e17, 1e18 };
 	const struct lysc_type_dec *dectype;
 	const struct lyd_value *dvalue;
 
@@ -192,7 +178,7 @@ double yang_dnode_get_dec64(const struct lyd_node *dnode, const char *xpath_fmt,
 	dectype = (const struct lysc_type_dec *)dvalue->realtype;
 	assert(dectype->basetype == LY_TYPE_DEC64);
 	assert(dectype->fraction_digits < sizeof(denom) / sizeof(*denom));
-	return (double)dvalue->dec64 * denom[dectype->fraction_digits];
+	return (double)dvalue->dec64 / denom[dectype->fraction_digits];
 }
 
 double yang_get_default_dec64(const char *xpath_fmt, ...)
@@ -219,7 +205,7 @@ int yang_str2enum(const char *xpath, const char *value)
 	const struct lysc_type_enum *type;
 	const struct lysc_type_bitenum_item *enums;
 
-	snode = lys_find_path(ly_native_ctx, NULL, xpath, 0);
+	snode = yang_find_snode(ly_native_ctx, xpath, 0);
 	if (snode == NULL) {
 		flog_err(EC_LIB_YANG_UNKNOWN_DATA_PATH,
 			 "%s: unknown data path: %s", __func__, xpath);
@@ -254,7 +240,7 @@ struct yang_data *yang_data_new_enum(const char *xpath, int value)
 	const struct lysc_type_enum *type;
 	const struct lysc_type_bitenum_item *enums;
 
-	snode = lys_find_path(ly_native_ctx, NULL, xpath, 0);
+	snode = yang_find_snode(ly_native_ctx, xpath, 0);
 	if (snode == NULL) {
 		flog_err(EC_LIB_YANG_UNKNOWN_DATA_PATH,
 			 "%s: unknown data path: %s", __func__, xpath);
@@ -1033,30 +1019,68 @@ void yang_str2mac(const char *value, struct ethaddr *mac)
 	(void)prefix_str2mac(value, mac);
 }
 
-struct yang_data *yang_data_new_date_and_time(const char *xpath, time_t time)
+void yang_dnode_get_mac(struct ethaddr *mac, const struct lyd_node *dnode,
+			const char *xpath_fmt, ...)
 {
-	struct tm tm;
-	char timebuf[MONOTIME_STRLEN];
-	struct timeval _time, time_real;
-	char *ts_dot;
-	uint16_t buflen;
+	const char *canon = YANG_DNODE_XPATH_GET_CANON(dnode, xpath_fmt);
+	(void)prefix_str2mac(canon, mac);
+}
 
-	_time.tv_sec = time;
-	_time.tv_usec = 0;
-	monotime_to_realtime(&_time, &time_real);
+struct yang_data *yang_data_new_date_and_time(const char *xpath, time_t time, bool is_monotime)
+{
+	struct yang_data *yd;
+	char *times = NULL;
 
-	gmtime_r(&time_real.tv_sec, &tm);
+	if (is_monotime) {
+		struct timeval _time = { time, 0 };
+		struct timeval time_real;
 
-	/* rfc-3339 format */
-	strftime(timebuf, sizeof(timebuf), "%Y-%m-%dT%H:%M:%S", &tm);
-	buflen = strlen(timebuf);
-	ts_dot = timebuf + buflen;
+		monotime_to_realtime(&_time, &time_real);
+		time = time_real.tv_sec;
+	}
 
-	/* microseconds and appends Z */
-	snprintfrr(ts_dot, sizeof(timebuf) - buflen, ".%06luZ",
-		   (unsigned long)time_real.tv_usec);
+	(void)ly_time_time2str(time, NULL, &times);
+	yd = yang_data_new(xpath, times);
+	free(times);
 
-	return yang_data_new(xpath, timebuf);
+	return yd;
+}
+
+struct timespec yang_dnode_get_date_and_timespec(const struct lyd_node *dnode,
+						 const char *xpath_fmt, ...)
+{
+	const char *canon = YANG_DNODE_XPATH_GET_CANON(dnode, xpath_fmt);
+	struct timespec ts;
+	LY_ERR err;
+
+	err = ly_time_str2ts(canon, &ts);
+	assert(!err);
+
+	return ts;
+}
+
+time_t yang_dnode_get_date_and_time(const struct lyd_node *dnode,
+				    const char *xpath_fmt, ...)
+{
+	const char *canon = YANG_DNODE_XPATH_GET_CANON(dnode, xpath_fmt);
+	time_t time;
+	LY_ERR err;
+
+	err = ly_time_str2time(canon, &time, NULL);
+	assert(!err);
+
+	return time;
+}
+
+float yang_dnode_get_bandwidth_ieee_float32(const struct lyd_node *dnode,
+					    const char *xpath_fmt, ...)
+{
+	const char *canon = YANG_DNODE_XPATH_GET_CANON(dnode, xpath_fmt);
+	float value;
+
+	assert(sscanf(canon, "%a", &value) == 1);
+
+	return value;
 }
 
 const char *yang_nexthop_type2str(uint32_t ntype)

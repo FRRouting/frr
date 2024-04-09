@@ -1,22 +1,9 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Assorted library VTY commands
  *
  * Copyright (C) 1998 Kunihiro Ishiguro
  * Copyright (C) 2016-2017  David Lamparter for NetDEF, Inc.
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -255,6 +242,17 @@ DEFUN_NOSH(end_config, end_config_cmd, "XFRR_end_configuration",
 	ret = nb_cli_pending_commit_check(vty);
 
 	zlog_info("Configuration Read in Took: %s", readin_time_str);
+	zlog_debug("%s: VTY:%p, pending SET-CFG: %u", __func__, vty,
+		   (uint32_t)vty->mgmt_num_pending_setcfg);
+
+	/*
+	 * If (and only if) we have sent any CLI config commands to MGMTd
+	 * FE interface using vty_mgmt_send_config_data() without implicit
+	 * commit before, should we need to send an explicit COMMIT-REQ now
+	 * to apply all those commands at once.
+	 */
+	if (vty->mgmt_num_pending_setcfg && vty_mgmt_fe_enabled())
+		vty_mgmt_send_commit_config(vty, false, false);
 
 	if (callback.end_config)
 		(*callback.end_config)();

@@ -1,19 +1,5 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
- * This file is part of Quagga.
- *
- * Quagga is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * Quagga is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 /* This programme shows the effects of 'heavy' long-running functions
@@ -28,7 +14,7 @@
 #include <zebra.h>
 #include <math.h>
 
-#include "thread.h"
+#include "frrevent.h"
 #include "vty.h"
 #include "command.h"
 #include "memory.h"
@@ -36,7 +22,7 @@
 
 #include "tests.h"
 
-extern struct thread_master *master;
+extern struct event_loop *master;
 
 enum { ITERS_FIRST = 0,
        ITERS_ERR = 100,
@@ -70,9 +56,9 @@ static void slow_func(struct vty *vty, const char *str, const int i)
 		printf("%s did %d, x = %g\n", str, i, x);
 }
 
-static void clear_something(struct thread *thread)
+static void clear_something(struct event *thread)
 {
-	struct work_state *ws = THREAD_ARG(thread);
+	struct work_state *ws = EVENT_ARG(thread);
 
 	/* this could be like iterating through 150k of route_table
 	 * or worse, iterating through a list of peers, to bgp_stop them with
@@ -81,9 +67,9 @@ static void clear_something(struct thread *thread)
 	while (ws->i < ITERS_MAX) {
 		slow_func(ws->vty, ws->str, ws->i);
 		ws->i++;
-		if (thread_should_yield(thread)) {
-			thread_add_timer_msec(master, clear_something, ws, 0,
-					      NULL);
+		if (event_should_yield(thread)) {
+			event_add_timer_msec(master, clear_something, ws, 0,
+					     NULL);
 			return;
 		}
 	}
@@ -116,7 +102,7 @@ DEFUN (clear_foo,
 	ws->vty = vty;
 	ws->i = ITERS_FIRST;
 
-	thread_add_timer_msec(master, clear_something, ws, 0, NULL);
+	event_add_timer_msec(master, clear_something, ws, 0, NULL);
 
 	return CMD_SUCCESS;
 }

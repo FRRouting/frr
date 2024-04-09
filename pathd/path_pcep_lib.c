@@ -1,19 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Copyright (C) 2020  NetDEF, Inc.
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -46,8 +33,8 @@ static int pcep_lib_pceplib_socket_read_cb(void *fpt, void **thread, int fd,
 					   void *payload);
 static int pcep_lib_pceplib_socket_write_cb(void *fpt, void **thread, int fd,
 					    void *payload);
-static void pcep_lib_socket_read_ready(struct thread *thread);
-static void pcep_lib_socket_write_ready(struct thread *thread);
+static void pcep_lib_socket_read_ready(struct event *thread);
+static void pcep_lib_socket_write_ready(struct event *thread);
 
 /* pceplib pcep_event callbacks */
 static void pcep_lib_pceplib_event_cb(void *fpt, pcep_event *event);
@@ -242,18 +229,18 @@ int pcep_lib_pceplib_socket_read_cb(void *fpt, void **thread, int fd,
 /* Callbacks called by path_pcep_controller when a socket is ready to read/write
  */
 
-void pcep_lib_socket_write_ready(struct thread *thread)
+void pcep_lib_socket_write_ready(struct event *thread)
 {
-	struct pcep_ctrl_socket_data *data = THREAD_ARG(thread);
+	struct pcep_ctrl_socket_data *data = EVENT_ARG(thread);
 	assert(data != NULL);
 
 	pceplib_external_socket_write(data->fd, data->payload);
 	XFREE(MTYPE_PCEP, data);
 }
 
-void pcep_lib_socket_read_ready(struct thread *thread)
+void pcep_lib_socket_read_ready(struct event *thread)
 {
-	struct pcep_ctrl_socket_data *data = THREAD_ARG(thread);
+	struct pcep_ctrl_socket_data *data = EVENT_ARG(thread);
 	assert(data != NULL);
 
 	pceplib_external_socket_read(data->fd, data->payload);
@@ -767,7 +754,9 @@ double_linked_list *pcep_lib_format_path(struct pcep_caps *caps,
 							.s_addr,
 						hop->nai.remote_iface);
 				break;
-			default:
+			case PCEP_SR_SUBOBJ_NAI_ABSENT:
+			case PCEP_SR_SUBOBJ_NAI_LINK_LOCAL_IPV6_ADJACENCY:
+			case PCEP_SR_SUBOBJ_NAI_UNKNOWN:
 				break;
 			}
 		}
@@ -854,7 +843,24 @@ void pcep_lib_parse_open(struct pcep_caps *caps, struct pcep_object_open *open)
 		case PCEP_OBJ_TLV_TYPE_OBJECTIVE_FUNCTION_LIST:
 			pcep_lib_parse_open_objfun_list(caps, tlv_header);
 			break;
-		default:
+		case PCEP_OBJ_TLV_TYPE_NO_PATH_VECTOR:
+		case PCEP_OBJ_TLV_TYPE_VENDOR_INFO:
+		case PCEP_OBJ_TLV_TYPE_IPV4_LSP_IDENTIFIERS:
+		case PCEP_OBJ_TLV_TYPE_IPV6_LSP_IDENTIFIERS:
+		case PCEP_OBJ_TLV_TYPE_LSP_ERROR_CODE:
+		case PCEP_OBJ_TLV_TYPE_RSVP_ERROR_SPEC:
+		case PCEP_OBJ_TLV_TYPE_LSP_DB_VERSION:
+		case PCEP_OBJ_TLV_TYPE_SPEAKER_ENTITY_ID:
+		case PCEP_OBJ_TLV_TYPE_PATH_SETUP_TYPE:
+		case PCEP_OBJ_TLV_TYPE_PATH_SETUP_TYPE_CAPABILITY:
+		case PCEP_OBJ_TLV_TYPE_SRPOLICY_POL_ID:
+		case PCEP_OBJ_TLV_TYPE_SRPOLICY_POL_NAME:
+		case PCEP_OBJ_TLV_TYPE_SRPOLICY_CPATH_ID:
+		case PCEP_OBJ_TLV_TYPE_SRPOLICY_CPATH_PREFERENCE:
+		case PCEP_OBJ_TLV_TYPE_UNKNOWN:
+		case PCEP_OBJ_TLV_TYPE_ARBITRARY:
+		case PCEP_OBJ_TLV_TYPE_SYMBOLIC_PATH_NAME:
+		case PCEP_OBJ_TYPE_CISCO_BSID:
 			flog_warn(EC_PATH_PCEP_UNEXPECTED_PCEP_TLV,
 				  "Unexpected OPEN's TLV %s (%u)",
 				  pcep_tlv_type_name(tlv_header->type),
@@ -915,7 +921,26 @@ void pcep_lib_parse_rp(struct path *path, struct pcep_object_rp *rp)
 		case PCEP_OBJ_TLV_TYPE_PATH_SETUP_TYPE:
 			// TODO: enforce the path setup type is SR_TE_PST
 			break;
-		default:
+		case PCEP_OBJ_TLV_TYPE_NO_PATH_VECTOR:
+		case PCEP_OBJ_TLV_TYPE_OBJECTIVE_FUNCTION_LIST:
+		case PCEP_OBJ_TLV_TYPE_VENDOR_INFO:
+		case PCEP_OBJ_TLV_TYPE_IPV4_LSP_IDENTIFIERS:
+		case PCEP_OBJ_TLV_TYPE_IPV6_LSP_IDENTIFIERS:
+		case PCEP_OBJ_TLV_TYPE_LSP_ERROR_CODE:
+		case PCEP_OBJ_TLV_TYPE_RSVP_ERROR_SPEC:
+		case PCEP_OBJ_TLV_TYPE_LSP_DB_VERSION:
+		case PCEP_OBJ_TLV_TYPE_SPEAKER_ENTITY_ID:
+		case PCEP_OBJ_TLV_TYPE_SR_PCE_CAPABILITY:
+		case PCEP_OBJ_TLV_TYPE_SRPOLICY_POL_ID:
+		case PCEP_OBJ_TLV_TYPE_SRPOLICY_POL_NAME:
+		case PCEP_OBJ_TLV_TYPE_SRPOLICY_CPATH_ID:
+		case PCEP_OBJ_TLV_TYPE_SRPOLICY_CPATH_PREFERENCE:
+		case PCEP_OBJ_TLV_TYPE_STATEFUL_PCE_CAPABILITY:
+		case PCEP_OBJ_TLV_TYPE_UNKNOWN:
+		case PCEP_OBJ_TLV_TYPE_ARBITRARY:
+		case PCEP_OBJ_TLV_TYPE_SYMBOLIC_PATH_NAME:
+		case PCEP_OBJ_TYPE_CISCO_BSID:
+		case PCEP_OBJ_TLV_TYPE_PATH_SETUP_TYPE_CAPABILITY:
 			flog_warn(EC_PATH_PCEP_UNEXPECTED_PCEP_TLV,
 				  "Unexpected RP's TLV %s (%u)",
 				  pcep_tlv_type_name(tlv->type), tlv->type);
@@ -945,7 +970,26 @@ void pcep_lib_parse_srp(struct path *path, struct pcep_object_srp *srp)
 		case PCEP_OBJ_TLV_TYPE_PATH_SETUP_TYPE:
 			// TODO: enforce the path setup type is SR_TE_PST
 			break;
-		default:
+		case PCEP_OBJ_TLV_TYPE_NO_PATH_VECTOR:
+		case PCEP_OBJ_TLV_TYPE_OBJECTIVE_FUNCTION_LIST:
+		case PCEP_OBJ_TLV_TYPE_VENDOR_INFO:
+		case PCEP_OBJ_TLV_TYPE_STATEFUL_PCE_CAPABILITY:
+		case PCEP_OBJ_TLV_TYPE_SYMBOLIC_PATH_NAME:
+		case PCEP_OBJ_TLV_TYPE_IPV4_LSP_IDENTIFIERS:
+		case PCEP_OBJ_TLV_TYPE_IPV6_LSP_IDENTIFIERS:
+		case PCEP_OBJ_TLV_TYPE_LSP_ERROR_CODE:
+		case PCEP_OBJ_TLV_TYPE_RSVP_ERROR_SPEC:
+		case PCEP_OBJ_TLV_TYPE_LSP_DB_VERSION:
+		case PCEP_OBJ_TLV_TYPE_SPEAKER_ENTITY_ID:
+		case PCEP_OBJ_TLV_TYPE_SR_PCE_CAPABILITY:
+		case PCEP_OBJ_TLV_TYPE_PATH_SETUP_TYPE_CAPABILITY:
+		case PCEP_OBJ_TLV_TYPE_SRPOLICY_POL_ID:
+		case PCEP_OBJ_TLV_TYPE_SRPOLICY_POL_NAME:
+		case PCEP_OBJ_TLV_TYPE_SRPOLICY_CPATH_ID:
+		case PCEP_OBJ_TLV_TYPE_SRPOLICY_CPATH_PREFERENCE:
+		case PCEP_OBJ_TLV_TYPE_UNKNOWN:
+		case PCEP_OBJ_TYPE_CISCO_BSID:
+		case PCEP_OBJ_TLV_TYPE_ARBITRARY:
 			flog_warn(EC_PATH_PCEP_UNEXPECTED_PCEP_TLV,
 				  "Unexpected SRP's TLV %s (%u)",
 				  pcep_tlv_type_name(tlv->type), tlv->type);
@@ -991,7 +1035,25 @@ void pcep_lib_parse_lsp(struct path *path, struct pcep_object_lsp *lsp)
 			path->binding_sid = ntohl(path->binding_sid);
 			path->binding_sid = (path->binding_sid >> 12);
 			break;
-		default:
+		case PCEP_OBJ_TLV_TYPE_NO_PATH_VECTOR:
+		case PCEP_OBJ_TLV_TYPE_OBJECTIVE_FUNCTION_LIST:
+		case PCEP_OBJ_TLV_TYPE_VENDOR_INFO:
+		case PCEP_OBJ_TLV_TYPE_IPV4_LSP_IDENTIFIERS:
+		case PCEP_OBJ_TLV_TYPE_IPV6_LSP_IDENTIFIERS:
+		case PCEP_OBJ_TLV_TYPE_LSP_ERROR_CODE:
+		case PCEP_OBJ_TLV_TYPE_RSVP_ERROR_SPEC:
+		case PCEP_OBJ_TLV_TYPE_LSP_DB_VERSION:
+		case PCEP_OBJ_TLV_TYPE_SPEAKER_ENTITY_ID:
+		case PCEP_OBJ_TLV_TYPE_SR_PCE_CAPABILITY:
+		case PCEP_OBJ_TLV_TYPE_PATH_SETUP_TYPE:
+		case PCEP_OBJ_TLV_TYPE_PATH_SETUP_TYPE_CAPABILITY:
+		case PCEP_OBJ_TLV_TYPE_SRPOLICY_POL_ID:
+		case PCEP_OBJ_TLV_TYPE_SRPOLICY_POL_NAME:
+		case PCEP_OBJ_TLV_TYPE_SRPOLICY_CPATH_ID:
+		case PCEP_OBJ_TLV_TYPE_SRPOLICY_CPATH_PREFERENCE:
+		case PCEP_OBJ_TLV_TYPE_STATEFUL_PCE_CAPABILITY:
+		case PCEP_OBJ_TLV_TYPE_UNKNOWN:
+		case PCEP_OBJ_TLV_TYPE_ARBITRARY:
 			flog_warn(EC_PATH_PCEP_UNEXPECTED_PCEP_TLV,
 				  "Unexpected LSP TLV %s (%u)",
 				  pcep_tlv_type_name(tlv->type), tlv->type);
@@ -1082,7 +1144,12 @@ void pcep_lib_parse_ero(struct path *path, struct pcep_object_ro *ero)
 			hop = pcep_lib_parse_ero_sr(
 				hop, (struct pcep_ro_subobj_sr *)obj);
 			break;
-		default:
+		case RO_SUBOBJ_TYPE_IPV4:
+		case RO_SUBOBJ_TYPE_IPV6:
+		case RO_SUBOBJ_TYPE_LABEL:
+		case RO_SUBOBJ_TYPE_UNNUM:
+		case RO_SUBOBJ_TYPE_ASN:
+		case RO_SUBOBJ_UNKNOWN:
 			flog_warn(EC_PATH_PCEP_UNEXPECTED_PCEP_ERO_SUBOBJ,
 				  "Unexpected ERO sub-object %s (%u)",
 				  pcep_ro_type_name(obj->ro_subobj_type),
@@ -1181,7 +1248,9 @@ struct path_hop *pcep_lib_parse_ero_sr(struct path_hop *next,
 			assert(n->data != NULL);
 			hop->nai.remote_iface = *(uint32_t *)n->data;
 			break;
-		default:
+		case PCEP_SR_SUBOBJ_NAI_ABSENT:
+		case PCEP_SR_SUBOBJ_NAI_LINK_LOCAL_IPV6_ADJACENCY:
+		case PCEP_SR_SUBOBJ_NAI_UNKNOWN:
 			hop->has_nai = false;
 			flog_warn(EC_PATH_PCEP_UNEXPECTED_SR_NAI,
 				  "Unexpected SR segment NAI type %s (%u)",

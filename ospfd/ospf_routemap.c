@@ -1,24 +1,9 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Route map function of ospfd.
  * Copyright (C) 2000 IP Infusion Inc.
  *
  * Written by Toshiaki Takada.
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -134,8 +119,13 @@ route_match_ip_nexthop(void *rule, const struct prefix *prefix, void *object)
 	p.prefixlen = IPV4_MAX_BITLEN;
 
 	alist = access_list_lookup(AFI_IP, (char *)rule);
-	if (alist == NULL)
+	if (alist == NULL) {
+		if (unlikely(CHECK_FLAG(rmap_debug, DEBUG_ROUTEMAP_DETAIL)))
+			zlog_debug(
+				"%s: Access-List Specified: %s does not exist defaulting to NO_MATCH",
+				__func__, (char *)rule);
 		return RMAP_NOMATCH;
+	}
 
 	return (access_list_apply(alist, &p) == FILTER_DENY ? RMAP_NOMATCH
 							    : RMAP_MATCH);
@@ -177,8 +167,13 @@ route_match_ip_next_hop_prefix_list(void *rule, const struct prefix *prefix,
 	p.prefixlen = IPV4_MAX_BITLEN;
 
 	plist = prefix_list_lookup(AFI_IP, (char *)rule);
-	if (plist == NULL)
+	if (plist == NULL) {
+		if (unlikely(CHECK_FLAG(rmap_debug, DEBUG_ROUTEMAP_DETAIL)))
+			zlog_debug(
+				"%s: Prefix List %s specified does not exist defaulting to NO_MATCH",
+				__func__, (char *)rule);
 		return RMAP_NOMATCH;
+	}
 
 	return (prefix_list_apply(plist, &p) == PREFIX_DENY ? RMAP_NOMATCH
 							    : RMAP_MATCH);
@@ -249,8 +244,13 @@ route_match_ip_address(void *rule, const struct prefix *prefix, void *object)
 	/* struct prefix_ipv4 match; */
 
 	alist = access_list_lookup(AFI_IP, (char *)rule);
-	if (alist == NULL)
+	if (alist == NULL) {
+		if (unlikely(CHECK_FLAG(rmap_debug, DEBUG_ROUTEMAP_DETAIL)))
+			zlog_debug(
+				"%s: Access-List Specified: %s does not exist defaulting to NO_MATCH",
+				__func__, (char *)rule);
 		return RMAP_NOMATCH;
+	}
 
 	return (access_list_apply(alist, prefix) == FILTER_DENY ? RMAP_NOMATCH
 								: RMAP_MATCH);
@@ -285,8 +285,14 @@ route_match_ip_address_prefix_list(void *rule, const struct prefix *prefix,
 	struct prefix_list *plist;
 
 	plist = prefix_list_lookup(AFI_IP, (char *)rule);
-	if (plist == NULL)
+	if (plist == NULL) {
+		if (unlikely(CHECK_FLAG(rmap_debug, DEBUG_ROUTEMAP_DETAIL)))
+			zlog_debug(
+				"%s: Prefix List %s specified does not exist defaulting to NO_MATCH",
+				__func__, (char *)rule);
+
 		return RMAP_NOMATCH;
+	}
 
 	return (prefix_list_apply(plist, prefix) == PREFIX_DENY ? RMAP_NOMATCH
 								: RMAP_MATCH);
@@ -392,17 +398,19 @@ route_set_metric(void *rule, const struct prefix *prefix, void *object)
 	if (!metric->used)
 		return RMAP_OKAY;
 
-	ei->route_map_set.metric = DEFAULT_DEFAULT_METRIC;
+	ROUTEMAP_METRIC(ei) = ei->metric;
 
 	if (metric->type == metric_increment)
-		ei->route_map_set.metric += metric->metric;
+		ROUTEMAP_METRIC(ei) += metric->metric;
 	else if (metric->type == metric_decrement)
-		ei->route_map_set.metric -= metric->metric;
+		ROUTEMAP_METRIC(ei) -= metric->metric;
 	else if (metric->type == metric_absolute)
-		ei->route_map_set.metric = metric->metric;
+		ROUTEMAP_METRIC(ei) = metric->metric;
 
-	if (ei->route_map_set.metric > OSPF_LS_INFINITY)
-		ei->route_map_set.metric = OSPF_LS_INFINITY;
+	if ((uint32_t)ROUTEMAP_METRIC(ei) < ei->min_metric)
+		ROUTEMAP_METRIC(ei) = ei->min_metric;
+	if ((uint32_t)ROUTEMAP_METRIC(ei) > ei->max_metric)
+		ROUTEMAP_METRIC(ei) = ei->max_metric;
 
 	return RMAP_OKAY;
 }
@@ -456,6 +464,115 @@ static const struct route_map_rule_cmd route_set_metric_cmd = {
 	route_set_metric_free,
 };
 
+/* `set min-metric METRIC' */
+/* Set min-metric to attribute. */
+static enum route_map_cmd_result_t
+route_set_min_metric(void *rule, const struct prefix *prefix, void *object)
+{
+	uint32_t *min_metric;
+	struct external_info *ei;
+
+	/* Fetch routemap's rule information. */
+	min_metric = rule;
+	ei = object;
+
+	ei->min_metric = *min_metric;
+
+	if (ei->min_metric > OSPF_LS_INFINITY)
+		ei->min_metric = OSPF_LS_INFINITY;
+
+	if ((uint32_t)ROUTEMAP_METRIC(ei) < ei->min_metric)
+		ROUTEMAP_METRIC(ei) = ei->min_metric;
+
+	return RMAP_OKAY;
+}
+
+/* set min-metric compilation. */
+static void *route_set_min_metric_compile(const char *arg)
+{
+
+	uint32_t *min_metric;
+
+	min_metric = XCALLOC(MTYPE_ROUTE_MAP_COMPILED, sizeof(uint32_t));
+
+	*min_metric = strtoul(arg, NULL, 10);
+
+	if (*min_metric)
+		return min_metric;
+
+	XFREE(MTYPE_ROUTE_MAP_COMPILED, min_metric);
+	return NULL;
+}
+
+/* Free route map's compiled `set min-metric' value. */
+static void route_set_min_metric_free(void *rule)
+{
+	XFREE(MTYPE_ROUTE_MAP_COMPILED, rule);
+}
+
+/* Set metric rule structure. */
+static const struct route_map_rule_cmd route_set_min_metric_cmd = {
+	"min-metric",
+	route_set_min_metric,
+	route_set_min_metric_compile,
+	route_set_min_metric_free,
+};
+
+
+/* `set max-metric METRIC' */
+/* Set max-metric to attribute. */
+static enum route_map_cmd_result_t
+route_set_max_metric(void *rule, const struct prefix *prefix, void *object)
+{
+	uint32_t *max_metric;
+	struct external_info *ei;
+
+	/* Fetch routemap's rule information. */
+	max_metric = rule;
+	ei = object;
+
+	ei->max_metric = *max_metric;
+
+	if (ei->max_metric > OSPF_LS_INFINITY)
+		ei->max_metric = OSPF_LS_INFINITY;
+
+	if ((uint32_t)ROUTEMAP_METRIC(ei) > ei->max_metric)
+		ROUTEMAP_METRIC(ei) = ei->max_metric;
+
+	return RMAP_OKAY;
+}
+
+/* set max-metric compilation. */
+static void *route_set_max_metric_compile(const char *arg)
+{
+
+	uint32_t *max_metric;
+
+	max_metric = XCALLOC(MTYPE_ROUTE_MAP_COMPILED, sizeof(uint32_t));
+
+	*max_metric = strtoul(arg, NULL, 10);
+
+	if (*max_metric)
+		return max_metric;
+
+	XFREE(MTYPE_ROUTE_MAP_COMPILED, max_metric);
+	return NULL;
+}
+
+/* Free route map's compiled `set max-metric' value. */
+static void route_set_max_metric_free(void *rule)
+{
+	XFREE(MTYPE_ROUTE_MAP_COMPILED, rule);
+}
+
+/* Set metric rule structure. */
+static const struct route_map_rule_cmd route_set_max_metric_cmd = {
+	"max-metric",
+	route_set_max_metric,
+	route_set_max_metric_compile,
+	route_set_max_metric_free,
+};
+
 /* `set metric-type TYPE' */
 /* Set metric-type to attribute. */
 static enum route_map_cmd_result_t
@@ -469,7 +586,7 @@ route_set_metric_type(void *rule, const struct prefix *prefix, void *object)
 	ei = object;
 
 	/* Set metric out value. */
-	ei->route_map_set.metric_type = *metric_type;
+	ROUTEMAP_METRIC_TYPE(ei) = *metric_type;
 
 	return RMAP_OKAY;
 }
@@ -576,9 +693,6 @@ void ospf_route_map_init(void)
 	route_map_delete_hook(ospf_route_map_update);
 	route_map_event_hook(ospf_route_map_event);
 
-	route_map_set_metric_hook(generic_set_add);
-	route_map_no_set_metric_hook(generic_set_delete);
-
 	route_map_match_ip_next_hop_hook(generic_match_add);
 	route_map_no_match_ip_next_hop_hook(generic_match_delete);
 
@@ -603,6 +717,12 @@ void ospf_route_map_init(void)
 	route_map_set_metric_hook(generic_set_add);
 	route_map_no_set_metric_hook(generic_set_delete);
 
+	route_map_set_min_metric_hook(generic_set_add);
+	route_map_no_set_min_metric_hook(generic_set_delete);
+
+	route_map_set_max_metric_hook(generic_set_add);
+	route_map_no_set_max_metric_hook(generic_set_delete);
+
 	route_map_set_tag_hook(generic_set_add);
 	route_map_no_set_tag_hook(generic_set_delete);
 
@@ -615,6 +735,8 @@ void ospf_route_map_init(void)
 	route_map_install_match(&route_match_tag_cmd);
 
 	route_map_install_set(&route_set_metric_cmd);
+	route_map_install_set(&route_set_min_metric_cmd);
+	route_map_install_set(&route_set_max_metric_cmd);
 	route_map_install_set(&route_set_metric_type_cmd);
 	route_map_install_set(&route_set_tag_cmd);
 

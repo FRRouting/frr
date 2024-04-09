@@ -1,21 +1,8 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  *
  * Copyright 2009-2016, LabN Consulting, L.L.C.
  *
- *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 /*
@@ -847,6 +834,8 @@ static void vnc_import_bgp_add_route_mode_plain(struct bgp *bgp,
 
 	if (ecom)
 		ecommunity_free(&ecom);
+	if (iattr)
+		bgp_attr_unintern(&iattr);
 }
 
 static void vnc_import_bgp_add_route_mode_nvegroup(
@@ -1043,6 +1032,8 @@ static void vnc_import_bgp_add_route_mode_nvegroup(
 
 	if (ecom)
 		ecommunity_free(&ecom);
+	if (iattr)
+		bgp_attr_unintern(&iattr);
 }
 
 static void vnc_import_bgp_del_route_mode_plain(struct bgp *bgp,
@@ -1705,8 +1696,8 @@ static void vnc_import_bgp_exterior_add_route_it(
 				have_usable_route = 1;
 
 				if (bpi_interior->extra) {
-					prd = &bpi_interior->extra->vnc.import
-						       .rd;
+					prd = &bpi_interior->extra->vnc->vnc
+						       .import.rd;
 					label = decode_label(
 						&bpi_interior->extra->label[0]);
 				} else
@@ -1874,8 +1865,8 @@ void vnc_import_bgp_exterior_del_route(
 				have_usable_route = 1;
 
 				if (bpi_interior->extra) {
-					prd = &bpi_interior->extra->vnc.import
-						       .rd;
+					prd = &bpi_interior->extra->vnc->vnc
+						       .import.rd;
 					label = decode_label(
 						&bpi_interior->extra->label[0]);
 				} else
@@ -1995,8 +1986,6 @@ void vnc_import_bgp_exterior_add_route_interior(
 
 	if (RFAPI_HAS_MONITOR_EXTERIOR(rn_interior)) {
 
-		int count = 0; /* debugging */
-
 		vnc_zlog_debug_verbose(
 			"%s: has exterior monitor; ext src: %p", __func__,
 			RFAPI_MONITOR_EXTERIOR(rn_interior)->source);
@@ -2020,14 +2009,11 @@ void vnc_import_bgp_exterior_add_route_interior(
 			struct attr new_attr;
 			uint32_t label = 0;
 
-
-			++count; /* debugging */
-
 			assert(bpi_exterior);
 			assert(pfx_exterior);
 
 			if (bpi_interior->extra) {
-				prd = &bpi_interior->extra->vnc.import.rd;
+				prd = &bpi_interior->extra->vnc->vnc.import.rd;
 				label = decode_label(
 					&bpi_interior->extra->label[0]);
 			} else
@@ -2140,8 +2126,8 @@ void vnc_import_bgp_exterior_add_route_interior(
 				for (bpi = par->info; bpi; bpi = bpi->next) {
 
 					if (bpi->extra) {
-						prd = &bpi->extra->vnc.import
-							       .rd;
+						prd = &bpi->extra->vnc->vnc
+							       .import.rd;
 						label = decode_label(
 							&bpi->extra->label[0]);
 					} else
@@ -2162,8 +2148,8 @@ void vnc_import_bgp_exterior_add_route_interior(
 				 * the new interior route at longer prefix.
 				 */
 				if (bpi_interior->extra) {
-					prd = &bpi_interior->extra->vnc.import
-						       .rd;
+					prd = &bpi_interior->extra->vnc->vnc
+						       .import.rd;
 					label = decode_label(
 						&bpi_interior->extra->label[0]);
 				} else
@@ -2281,7 +2267,7 @@ void vnc_import_bgp_exterior_add_route_interior(
 			 * new interior route at the longer prefix.
 			 */
 			if (bpi_interior->extra) {
-				prd = &bpi_interior->extra->vnc.import.rd;
+				prd = &bpi_interior->extra->vnc->vnc.import.rd;
 				label = decode_label(
 					&bpi_interior->extra->label[0]);
 			} else
@@ -2389,7 +2375,7 @@ void vnc_import_bgp_exterior_del_route_interior(
 		uint32_t label = 0;
 
 		if (bpi_interior->extra) {
-			prd = &bpi_interior->extra->vnc.import.rd;
+			prd = &bpi_interior->extra->vnc->vnc.import.rd;
 			label = decode_label(&bpi_interior->extra->label[0]);
 		} else
 			prd = NULL;
@@ -2466,7 +2452,7 @@ void vnc_import_bgp_exterior_del_route_interior(
 					continue;
 
 				if (bpi->extra) {
-					prd = &bpi->extra->vnc.import.rd;
+					prd = &bpi->extra->vnc->vnc.import.rd;
 					label = decode_label(
 						&bpi->extra->label[0]);
 				} else
@@ -2819,14 +2805,14 @@ void vnc_import_bgp_redist_disable(struct bgp *bgp, afi_t afi)
 
 				assert(bpi->extra);
 
-				rfd = bpi->extra->vnc.export.rfapi_handle;
+				rfd = bpi->extra->vnc->vnc.export.rfapi_handle;
 
 				vnc_zlog_debug_verbose(
-					"%s: deleting bpi=%p, bpi->peer=%p, bpi->type=%d, bpi->sub_type=%d, bpi->extra->vnc.export.rfapi_handle=%p [passing rfd=%p]",
+					"%s: deleting bpi=%p, bpi->peer=%p, bpi->type=%d, bpi->sub_type=%d, bpi->extra->vnc->vnc.export.rfapi_handle=%p [passing rfd=%p]",
 					__func__, bpi, bpi->peer, bpi->type,
 					bpi->sub_type,
-					(bpi->extra ? bpi->extra->vnc.export
-							      .rfapi_handle
+					(bpi->extra ? bpi->extra->vnc->vnc
+							      .export.rfapi_handle
 						    : NULL),
 					rfd);
 

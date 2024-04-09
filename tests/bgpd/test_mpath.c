@@ -1,22 +1,9 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * BGP Multipath Unit Test
  * Copyright (C) 2010 Google Inc.
  *
  * This file is part of Quagga
- *
- * Quagga is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * Quagga is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -74,7 +61,7 @@ struct testcase_t__ {
 };
 
 /* need these to link in libbgp */
-struct thread_master *master = NULL;
+struct event_loop *master = NULL;
 extern struct zclient *zclient;
 struct zebra_privs_t bgpd_privs = {
 	.user = NULL,
@@ -257,6 +244,7 @@ static int run_bgp_mp_list(testcase_t *t)
 	for (i = 0, mp_node = mp_list.head; i < test_mp_list_info_count;
 	     i++, mp_node = listnextnode(mp_node)) {
 		info = listgetdata(mp_node);
+		info->lock++;
 		EXPECT_TRUE(info == &test_mp_list_info[i], test_result);
 	}
 
@@ -287,14 +275,14 @@ testcase_t test_bgp_mp_list = {
  * Testcase for bgp_path_info_mpath_update
  */
 
-struct bgp_node test_rn;
+static struct bgp_dest *dest;
 
 static int setup_bgp_path_info_mpath_update(testcase_t *t)
 {
 	int i;
 	struct bgp *bgp;
 	struct bgp_table *rt;
-	struct route_node *rt_node;
+	struct prefix p;
 	as_t asn = 1;
 
 	t->tmp_data = bgp_create_fake(&asn, NULL);
@@ -307,13 +295,12 @@ static int setup_bgp_path_info_mpath_update(testcase_t *t)
 	if (!rt)
 		return -1;
 
-	str2prefix("42.1.1.0/24", &test_rn.p);
-	rt_node = bgp_dest_to_rnode(&test_rn);
-	memcpy((struct route_table *)&rt_node->table, &rt->route_table,
-	       sizeof(struct route_table));
+	str2prefix("42.1.1.0/24", &p);
+	dest = bgp_node_get(rt, &p);
+
 	setup_bgp_mp_list(t);
 	for (i = 0; i < test_mp_list_info_count; i++)
-		bgp_path_info_add(&test_rn, &test_mp_list_info[i]);
+		bgp_path_info_add(dest, &test_mp_list_info[i]);
 	return 0;
 }
 
@@ -322,6 +309,7 @@ static int run_bgp_path_info_mpath_update(testcase_t *t)
 	struct bgp_path_info *new_best, *old_best, *mpath;
 	struct list mp_list;
 	struct bgp_maxpaths_cfg mp_cfg = {3, 3};
+
 	int test_result = TEST_PASSED;
 	bgp_mp_list_init(&mp_list);
 	bgp_mp_list_add(&mp_list, &test_mp_list_info[4]);
@@ -330,7 +318,7 @@ static int run_bgp_path_info_mpath_update(testcase_t *t)
 	bgp_mp_list_add(&mp_list, &test_mp_list_info[1]);
 	new_best = &test_mp_list_info[3];
 	old_best = NULL;
-	bgp_path_info_mpath_update(NULL, &test_rn, new_best, old_best, &mp_list,
+	bgp_path_info_mpath_update(NULL, dest, new_best, old_best, &mp_list,
 				   &mp_cfg);
 	bgp_mp_list_clear(&mp_list);
 	EXPECT_TRUE(bgp_path_info_mpath_count(new_best) == 2, test_result);
@@ -345,7 +333,7 @@ static int run_bgp_path_info_mpath_update(testcase_t *t)
 	bgp_mp_list_add(&mp_list, &test_mp_list_info[1]);
 	new_best = &test_mp_list_info[0];
 	old_best = &test_mp_list_info[3];
-	bgp_path_info_mpath_update(NULL, &test_rn, new_best, old_best, &mp_list,
+	bgp_path_info_mpath_update(NULL, dest, new_best, old_best, &mp_list,
 				   &mp_cfg);
 	bgp_mp_list_clear(&mp_list);
 	EXPECT_TRUE(bgp_path_info_mpath_count(new_best) == 1, test_result);
@@ -391,7 +379,7 @@ int all_tests_count = array_size(all_tests);
 static int global_test_init(void)
 {
 	qobj_init();
-	master = thread_master_create(NULL);
+	master = event_master_create(NULL);
 	zclient = zclient_new(master, &zclient_options_default, NULL, 0);
 	bgp_master_init(master, BGP_SOCKET_SNDBUF_SIZE, list_new());
 	vrf_init(NULL, NULL, NULL, NULL);
@@ -406,7 +394,7 @@ static int global_test_cleanup(void)
 {
 	if (zclient != NULL)
 		zclient_free(zclient);
-	thread_master_free(master);
+	event_master_free(master);
 	return 0;
 }
 
@@ -479,9 +467,10 @@ int main(void)
 {
 	int pass_count, fail_count;
 	time_t cur_time;
+	char buf[32];
 
 	time(&cur_time);
-	printf("BGP Multipath Tests Run at %s", ctime(&cur_time));
+	printf("BGP Multipath Tests Run at %s", ctime_r(&cur_time, buf));
 	if (global_test_init() != 0) {
 		printf("Global init failed. Terminating.\n");
 		exit(1);

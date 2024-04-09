@@ -1,23 +1,10 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * IS-IS Rout(e)ing protocol - isisd.h
  *
  * Copyright (C) 2001,2002   Sampo Saaristo
  *                           Tampere University of Technology
  *                           Institute of Communications Engineering
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public Licenseas published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful,but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef ISISD_H
@@ -32,11 +19,13 @@
 #include "isisd/isis_pdu_counter.h"
 #include "isisd/isis_circuit.h"
 #include "isisd/isis_sr.h"
+#include "isisd/isis_srv6.h"
 #include "isis_flags.h"
 #include "isis_lsp.h"
 #include "isis_lfa.h"
 #include "qobj.h"
 #include "ldp_sync.h"
+#include "iso.h"
 
 DECLARE_MGROUP(ISISD);
 
@@ -84,7 +73,7 @@ struct isis_master {
 	/* ISIS instance. */
 	struct list *isis;
 	/* ISIS thread master. */
-	struct thread_master *master;
+	struct event_loop *master;
 	uint8_t options;
 };
 #define F_ISIS_UNIT_TEST 0x01
@@ -100,9 +89,9 @@ struct isis {
 	uint32_t router_id;		/* Router ID from zebra */
 	struct list *area_list;	/* list of IS-IS areas */
 	uint8_t max_area_addrs;		  /* maximumAreaAdresses */
-	struct area_addr *man_area_addrs; /* manualAreaAddresses */
+	struct iso_address *man_area_addrs; /* manualAreaAddresses */
 	time_t uptime;			  /* when did we start */
-	struct thread *t_dync_clean;      /* dynamic hostname cache cleanup thread */
+	struct event *t_dync_clean; /* dynamic hostname cache cleanup thread */
 	uint32_t circuit_ids_used[8];     /* 256 bits to track circuit ids 1 through 255 */
 	int snmp_notifications;
 	struct list *dyn_cache;
@@ -111,6 +100,8 @@ struct isis {
 };
 
 extern struct isis_master *im;
+
+extern struct event *t_isis_cfg;
 
 enum spf_tree_id {
 	SPFTREE_IPV4 = 0,
@@ -140,11 +131,11 @@ struct isis_area {
 	struct list *circuit_list; /* IS-IS circuits */
 	struct list *adjacency_list; /* IS-IS adjacencies */
 	struct flags flags;
-	struct thread *t_tick; /* LSP walker */
-	struct thread *t_lsp_refresh[ISIS_LEVELS];
-	struct thread *t_overload_on_startup_timer;
+	struct event *t_tick; /* LSP walker */
+	struct event *t_lsp_refresh[ISIS_LEVELS];
+	struct event *t_overload_on_startup_timer;
 	struct timeval last_lsp_refresh_event[ISIS_LEVELS];
-	struct thread *t_rlfa_rib_update;
+	struct event *t_rlfa_rib_update;
 	/* t_lsp_refresh is used in two ways:
 	 * a) regular refresh of LSPs
 	 * b) (possibly throttled) updates to LSPs
@@ -173,6 +164,10 @@ struct isis_area {
 	/* do we support new style metrics?  */
 	char newmetric;
 	char oldmetric;
+	/* Allow sending the default admin-group value of 0x00000000. */
+	bool admin_group_send_zero;
+	/* Set the legacy flag (aka. L-FLAG) in the ASLA Sub-TLV */
+	bool asla_legacy_flag;
 	/* identifies the routing instance   */
 	char *area_tag;
 	/* area addresses for this area      */
@@ -184,6 +179,10 @@ struct isis_area {
 	bool overload_configured;
 	uint32_t overload_counter;
 	uint32_t overload_on_startup_time;
+	/* advertise prefixes of passive interfaces only? */
+	bool advertise_passive_only;
+	/* Are we advertising high metrics? */
+	bool advertise_high_metrics;
 	/* L1/L2 router identifier for inter-area traffic */
 	char attached_bit_send;
 	char attached_bit_rcv_ignore;
@@ -202,12 +201,16 @@ struct isis_area {
 	int ip_circuits;
 	/* logging adjacency changes? */
 	uint8_t log_adj_changes;
+	/* logging pdu drops? */
+	uint8_t log_pdu_drops;
 	/* multi topology settings */
 	struct list *mt_settings;
 	/* MPLS-TE settings */
 	struct mpls_te_area *mta;
 	/* Segment Routing information */
 	struct isis_sr_db srdb;
+	/* Segment Routing over IPv6 (SRv6) information */
+	struct isis_srv6_db srv6db;
 	int ipv6_circuits;
 	bool purge_originator;
 	/* SPF prefix priorities. */
@@ -224,21 +227,26 @@ struct isis_area {
 	size_t tilfa_protected_links[ISIS_LEVELS];
 	/* MPLS LDP-IGP Sync */
 	struct ldp_sync_info_cmd ldp_sync_cmd;
+#ifndef FABRICD
+	/* Flex-Algo */
+	struct flex_algos *flex_algos;
+#endif /* ifndef FABRICD */
 	/* Counters */
 	uint32_t circuit_state_changes;
-	struct isis_redist redist_settings[REDIST_PROTOCOL_COUNT]
-					  [ZEBRA_ROUTE_MAX + 1][ISIS_LEVELS];
+	struct list *redist_settings[REDIST_PROTOCOL_COUNT][ZEBRA_ROUTE_MAX + 1]
+				    [ISIS_LEVELS];
 	struct route_table *ext_reach[REDIST_PROTOCOL_COUNT][ISIS_LEVELS];
 
 	struct spf_backoff *spf_delay_ietf[ISIS_LEVELS]; /*Structure with IETF
 							    SPF algo
 							    parameters*/
-	struct thread *spf_timer[ISIS_LEVELS];
+	struct event *spf_timer[ISIS_LEVELS];
 
 	struct lsp_refresh_arg lsp_refresh_arg[ISIS_LEVELS];
 
 	pdu_counter_t pdu_tx_counters;
 	pdu_counter_t pdu_rx_counters;
+	pdu_counter_t pdu_drop_counters;
 	uint64_t lsp_rxmt_count;
 
 	/* Area counters */
@@ -259,7 +267,7 @@ DECLARE_MTYPE(ISIS_PLIST_NAME);
 DECLARE_HOOK(isis_area_overload_bit_update, (struct isis_area * area), (area));
 
 void isis_terminate(void);
-void isis_master_init(struct thread_master *master);
+void isis_master_init(struct event_loop *master);
 void isis_vrf_link(struct isis *isis, struct vrf *vrf);
 void isis_vrf_unlink(struct isis *isis, struct vrf *vrf);
 struct isis *isis_lookup_by_vrfid(vrf_id_t vrf_id);
@@ -298,6 +306,8 @@ void isis_area_switchover_routes(struct isis_area *area, int family,
 void isis_area_overload_bit_set(struct isis_area *area, bool overload_bit);
 void isis_area_overload_on_startup_set(struct isis_area *area,
 				       uint32_t startup_time);
+void isis_area_advertise_high_metrics_set(struct isis_area *area,
+					  bool advertise_high_metrics);
 void isis_area_attached_bit_send_set(struct isis_area *area, bool attached_bit);
 void isis_area_attached_bit_receive_set(struct isis_area *area,
 					bool attached_bit);
@@ -327,12 +337,15 @@ char *isis_restart_filepath(void);
 void isis_restart_write_overload_time(struct isis_area *isis_area,
 				      uint32_t overload_time);
 uint32_t isis_restart_read_overload_time(struct isis_area *isis_area);
+void config_end_lsp_generate(struct isis_area *area);
+
 /* YANG paths */
 #define ISIS_INSTANCE	"/frr-isisd:isis/instance"
 #define ISIS_SR		"/frr-isisd:isis/instance/segment-routing"
+#define ISIS_SRV6	"/frr-isisd:isis/instance/segment-routing-srv6"
 
 /* Master of threads. */
-extern struct thread_master *master;
+extern struct event_loop *master;
 
 extern unsigned long debug_adj_pkt;
 extern unsigned long debug_snp_pkt;

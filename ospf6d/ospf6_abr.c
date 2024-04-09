@@ -1,22 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Area Border Router function.
  * Copyright (C) 2004 Yasuhiro Ohara
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -27,7 +12,7 @@
 #include "vty.h"
 #include "linklist.h"
 #include "command.h"
-#include "thread.h"
+#include "frrevent.h"
 #include "plist.h"
 #include "filter.h"
 
@@ -530,11 +515,21 @@ int ospf6_abr_originate_summary_to_area(struct ospf6_route *route,
 			summary->path.origin.id =
 				ADV_ROUTER_IN_PREFIX(&route->prefix);
 		} else {
+			struct ospf6_lsa *old;
+
 			summary->path.origin.type =
 				htons(OSPF6_LSTYPE_INTER_PREFIX);
-			summary->path.origin.id = ospf6_new_ls_id(
-				summary->path.origin.type,
-				summary->path.origin.adv_router, area->lsdb);
+
+			/* Try to reuse LS-ID from previous running instance. */
+			old = ospf6_find_inter_prefix_lsa(area->ospf6, area,
+							  &route->prefix);
+			if (old)
+				summary->path.origin.id = old->header->id;
+			else
+				summary->path.origin.id = ospf6_new_ls_id(
+					summary->path.origin.type,
+					summary->path.origin.adv_router,
+					area->lsdb);
 		}
 		summary = ospf6_route_add(summary, summary_table);
 	} else {
@@ -1151,11 +1146,9 @@ void ospf6_abr_examin_summary(struct ospf6_lsa *lsa, struct ospf6_area *oa)
 		}
 
 		if (CHECK_FLAG(prefix_lsa->prefix.prefix_options,
-			       OSPF6_PREFIX_OPTION_NU)
-		    || CHECK_FLAG(prefix_lsa->prefix.prefix_options,
-				  OSPF6_PREFIX_OPTION_LA)) {
+			       OSPF6_PREFIX_OPTION_NU)) {
 			if (is_debug)
-				zlog_debug("Prefix has NU/LA bit set, ignore");
+				zlog_debug("Prefix has the NU bit set, ignore");
 			if (old)
 				ospf6_route_remove(old, table);
 			return;
@@ -1168,7 +1161,8 @@ void ospf6_abr_examin_summary(struct ospf6_lsa *lsa, struct ospf6_area *oa)
 		if (!OSPF6_OPT_ISSET(router_lsa->options, OSPF6_OPT_R)
 		    || !OSPF6_OPT_ISSET(router_lsa->options, OSPF6_OPT_V6)) {
 			if (is_debug)
-				zlog_debug("Prefix has NU/LA bit set, ignore");
+				zlog_debug(
+					"Router-LSA has the V6-bit or R-bit unset, ignore");
 			if (old)
 				ospf6_route_remove(old, table);
 

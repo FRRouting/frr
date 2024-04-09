@@ -1,21 +1,8 @@
 #!/usr/bin/env python
+# SPDX-License-Identifier: ISC
 
 # Copyright (c) 2021 by
 # Donatas Abraitis <donatas.abraitis@gmail.com>
-#
-# Permission to use, copy, modify, and/or distribute this software
-# for any purpose with or without fee is hereby granted, provided
-# that the above copyright notice and this permission notice appear
-# in all copies.
-#
-# THE SOFTWARE IS PROVIDED "AS IS" AND NETDEF DISCLAIMS ALL WARRANTIES
-# WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
-# MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL NETDEF BE LIABLE FOR
-# ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY
-# DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS,
-# WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS
-# ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE
-# OF THIS SOFTWARE.
 #
 
 """
@@ -135,8 +122,9 @@ def test_bgp_check_fqdn():
     step("Wait to converge")
     test_func = functools.partial(bgp_converge, r1)
     _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
-    assert result is None, "Can't converge with dont-capability-negotiate"
+    assert result is None, "Can't converge with all capabilities"
 
+    step("Make sure FQDN capability is set")
     test_func = functools.partial(_bgp_check_fqdn, "r2")
     _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
     assert result is None, "FQDN capability enabled, but r1 can't see it"
@@ -163,6 +151,48 @@ def test_bgp_check_fqdn():
     _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
     assert result is None, "FQDN capability disabled, but we still have a hostname"
 
+    step("Re-enable sending any capability from r2")
+    r2.vtysh_cmd(
+        """
+    configure terminal
+        router bgp 65002
+            address-family ipv4 unicast
+                 no neighbor 192.168.1.1 dont-capability-negotiate
+    end
+    clear bgp 192.168.1.1
+    """
+    )
+    step("Wait to converge")
+    tgen = get_topogen()
+    test_func = functools.partial(bgp_converge, r1)
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+    assert result is None, "Can't converge with all capabilities re enabled"
+
+    step("Make sure FQDN capability is r2")
+    test_func = functools.partial(_bgp_check_fqdn, "r2")
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+    assert result is None, "FQDN capability enabled, but r1 can't see it"
+
+    step("Disable sending fqdn capability")
+    r2.vtysh_cmd(
+        """
+    configure terminal
+        router bgp 65002
+            no neighbor 192.168.1.1 capability fqdn
+    end
+    clear bgp 192.168.1.1
+    """
+    )
+    step("Wait to converge")
+    tgen = get_topogen()
+    test_func = functools.partial(bgp_converge, r1)
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+    assert result is None, "Can't converge with no capability fqdn"
+
+    step("Make sure FQDN capability is reset")
+    test_func = functools.partial(_bgp_check_fqdn)
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+    assert result is None, "FQDN capability disabled, but we still have a hostname"
 
 if __name__ == "__main__":
     args = ["-s"] + sys.argv[1:]

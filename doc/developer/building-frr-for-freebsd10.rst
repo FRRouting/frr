@@ -17,7 +17,8 @@ is first package install and asked)
 ::
 
     pkg install git autoconf automake libtool gmake json-c pkgconf \
-        bison flex py36-pytest c-ares python3.6 py36-sphinx libunwind
+        bison flex py36-pytest c-ares python3.6 py36-sphinx libunwind \
+        protobuf-c
 
 .. include:: building-libunwind-note.rst
 
@@ -59,9 +60,9 @@ an example)
     export LDFLAGS="-L/usr/local/lib"
     export CPPFLAGS="-I/usr/local/include"
     ./configure \
-        --sysconfdir=/usr/local/etc/frr \
+        --sysconfdir=/usr/local/etc \
+        --localstatedir=/var \
         --enable-pkgsrcrcdir=/usr/pkg/share/examples/rc.d \
-        --localstatedir=/var/run/frr \
         --prefix=/usr/local \
         --enable-multipath=64 \
         --enable-user=frr \

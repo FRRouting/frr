@@ -1,20 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * SRv6 definitions
  * Copyright (C) 2020  Hiroki Shirokura, LINE Corporation
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include "zebra.h"
@@ -107,9 +94,11 @@ const char *seg6local_context2str(char *str, size_t size,
 		snprintf(str, size, "table %u", ctx->table);
 		return str;
 
-	case ZEBRA_SEG6_LOCAL_ACTION_END_DX2:
 	case ZEBRA_SEG6_LOCAL_ACTION_END_B6:
 	case ZEBRA_SEG6_LOCAL_ACTION_END_B6_ENCAP:
+		snprintfrr(str, size, "nh6 %pI6", &ctx->nh6);
+		return str;
+	case ZEBRA_SEG6_LOCAL_ACTION_END_DX2:
 	case ZEBRA_SEG6_LOCAL_ACTION_END_BM:
 	case ZEBRA_SEG6_LOCAL_ACTION_END_S:
 	case ZEBRA_SEG6_LOCAL_ACTION_END_AS:
@@ -121,7 +110,7 @@ const char *seg6local_context2str(char *str, size_t size,
 	}
 }
 
-static void srv6_locator_chunk_list_free(void *data)
+void srv6_locator_chunk_list_free(void *data)
 {
 	struct srv6_locator_chunk *chunk = data;
 

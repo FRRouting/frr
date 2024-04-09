@@ -120,7 +120,7 @@ atomic ops & datastructures with other types of locking, e.g. rwlocks.
    The ``thread_master`` code currently always holds RCU everywhere, except
    while doing the actual ``poll()`` syscall.  This is both an optimization as
    well as an "easement" into getting RCU going.  The current implementation
-   contract is that any ``struct thread *`` callback is called with a RCU
+   contract is that any ``struct event *`` callback is called with a RCU
    holding depth of 1, and that this is owned by the thread so it may (should)
    drop and reacquire it when doing some longer-running work.
 
@@ -231,6 +231,15 @@ Internals
    accesses that pointer makes the library "access RCU-protected data".  In
    that case, either all of the library's threads must be registered for RCU,
    or the code must instead pass a (non-RCU) copy of the data to the library.
+
+.. c:function:: int frr_pthread_non_controlled_startup(pthread_t thread, const char *name, const char *os_name)
+
+   If a pthread is started outside the control of normal pthreads in frr
+   then frr_pthread_non_controlled_startup should be called.  This will
+   properly setup both the pthread with rcu usage as well as some data
+   structures pertaining to the name of the pthread.  This is especially
+   important if the pthread created ends up calling back into FRR and
+   one of the various zlog_XXX functions is called.
 
 .. c:function:: void rcu_shutdown(void)
 

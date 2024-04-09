@@ -1,0 +1,17 @@
+version: 1
+topology:
+  ipv6-enable: true
+  networks-autonumber: true
+  networks:
+    - name: net1
+    - name: net2
+  nodes:
+    - name: r1
+      kind: frr
+      connections: ["net1"]
+    - name: r2
+      kind: frr
+      connections: ["net1", "net2"]
+    - name: r3
+      kind: frr
+      connections: ["net2"]

@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# SPDX-License-Identifier: ISC
 
 #
 # test_all_protocol_startup.py
@@ -6,20 +7,6 @@
 #
 # Copyright (c) 2017 by
 # Network Device Education Foundation, Inc. ("NetDEF")
-#
-# Permission to use, copy, modify, and/or distribute this software
-# for any purpose with or without fee is hereby granted, provided
-# that the above copyright notice and this permission notice appear
-# in all copies.
-#
-# THE SOFTWARE IS PROVIDED "AS IS" AND NETDEF DISCLAIMS ALL WARRANTIES
-# WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
-# MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL NETDEF BE LIABLE FOR
-# ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY
-# DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS,
-# WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS
-# ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE
-# OF THIS SOFTWARE.
 #
 
 """
@@ -50,6 +37,9 @@ from lib.topogen import Topogen, get_topogen
 from lib.common_config import (
     required_linux_kernel_version,
 )
+
+from lib.topolog import logger
+import json
 
 fatal_error = ""
 
@@ -95,6 +85,7 @@ def setup_module(module):
     #
     # Main router
     for i in range(1, 2):
+        net["r%s" % i].loadConf("mgmtd", "%s/r%s/zebra.conf" % (thisDir, i))
         net["r%s" % i].loadConf("zebra", "%s/r%s/zebra.conf" % (thisDir, i))
         net["r%s" % i].loadConf("ripd", "%s/r%s/ripd.conf" % (thisDir, i))
         net["r%s" % i].loadConf("ripngd", "%s/r%s/ripngd.conf" % (thisDir, i))
@@ -210,6 +201,12 @@ def test_error_messages_daemons():
     if fatal_error != "":
         pytest.skip(fatal_error)
 
+    if os.environ.get("TOPOTESTS_CHECK_STDERR") is None:
+        print(
+            "SKIPPED final check on StdErr output: Disabled (TOPOTESTS_CHECK_STDERR undefined)\n"
+        )
+        pytest.skip("Skipping test for Stderr output")
+
     print("\n\n** Check for error messages in daemons")
     print("******************************************\n")
 
@@ -299,6 +296,17 @@ def test_converge_protocols():
         pytest.skip(fatal_error)
 
     thisDir = os.path.dirname(os.path.realpath(__file__))
+
+    # We need loopback to have a link local so it always is the
+    # "selected" router for fe80::/64 when we static compare below.
+    print("Adding link-local to loopback for stable results")
+    cmd = (
+        "mac=`cat /sys/class/net/lo/address`; echo lo: $mac;"
+        " [ -z \"$mac\" ] && continue; IFS=':'; set $mac; unset IFS;"
+        " ip address add dev lo scope link"
+        " fe80::$(printf %02x $((0x$1 ^ 2)))$2:${3}ff:fe$4:$5$6/64"
+    )
+    net["r1"].cmd_raises(cmd)
 
     print("\n\n** Waiting for protocols convergence")
     print("******************************************\n")
@@ -591,16 +599,16 @@ def test_nexthop_groups():
     count = 0
     dups = []
     nhg_id = route_get_nhg_id("6.6.6.1/32")
-    while (len(dups) != 3) and count < 10:
+    while (len(dups) != 4) and count < 10:
         output = net["r1"].cmd('vtysh -c "show nexthop-group rib %d"' % nhg_id)
 
         dups = re.findall(r"(via 1\.1\.1\.1)", output)
-        if len(dups) != 3:
+        if len(dups) != 4:
             count += 1
             sleep(1)
 
     # Should find 3, itself is inactive
-    assert len(dups) == 3, (
+    assert len(dups) == 4, (
         "Route 6.6.6.1/32 with Nexthop Group ID=%d has wrong number of resolved nexthops"
         % nhg_id
     )
@@ -943,26 +951,24 @@ def test_bgp_summary():
                 actual = re.sub(r"Total number.*", "", actual)
                 actual = re.sub(r"Displayed.*", "", actual)
                 # Remove IPv4 Unicast Summary (Title only)
-                actual = re.sub(r"IPv4 Unicast Summary \(VRF default\):", "", actual)
+                actual = re.sub(r"IPv4 Unicast Summary:", "", actual)
                 # Remove IPv4 Multicast Summary (all of it)
-                actual = re.sub(r"IPv4 Multicast Summary \(VRF default\):", "", actual)
+                actual = re.sub(r"IPv4 Multicast Summary:", "", actual)
                 actual = re.sub(r"No IPv4 Multicast neighbor is configured", "", actual)
                 # Remove IPv4 VPN Summary (all of it)
-                actual = re.sub(r"IPv4 VPN Summary \(VRF default\):", "", actual)
+                actual = re.sub(r"IPv4 VPN Summary:", "", actual)
                 actual = re.sub(r"No IPv4 VPN neighbor is configured", "", actual)
                 # Remove IPv4 Encap Summary (all of it)
-                actual = re.sub(r"IPv4 Encap Summary \(VRF default\):", "", actual)
+                actual = re.sub(r"IPv4 Encap Summary:", "", actual)
                 actual = re.sub(r"No IPv4 Encap neighbor is configured", "", actual)
                 # Remove Unknown Summary (all of it)
-                actual = re.sub(r"Unknown Summary \(VRF default\):", "", actual)
+                actual = re.sub(r"Unknown Summary:", "", actual)
                 actual = re.sub(r"No Unknown neighbor is configured", "", actual)
                 # Make Connect/Active/Idle the same (change them all to Active)
                 actual = re.sub(r" Connect ", "  Active ", actual)
                 actual = re.sub(r"    Idle ", "  Active ", actual)
 
-                actual = re.sub(
-                    r"IPv4 labeled-unicast Summary \(VRF default\):", "", actual
-                )
+                actual = re.sub(r"IPv4 labeled-unicast Summary:", "", actual)
                 actual = re.sub(
                     r"No IPv4 labeled-unicast neighbor is configured", "", actual
                 )
@@ -1100,27 +1106,25 @@ def test_bgp_ipv6_summary():
             actual = re.sub(r"Total number.*", "", actual)
             actual = re.sub(r"Displayed.*", "", actual)
             # Remove IPv4 Unicast Summary (Title only)
-            actual = re.sub(r"IPv6 Unicast Summary \(VRF default\):", "", actual)
+            actual = re.sub(r"IPv6 Unicast Summary:", "", actual)
             # Remove IPv4 Multicast Summary (all of it)
-            actual = re.sub(r"IPv6 Multicast Summary \(VRF default\):", "", actual)
+            actual = re.sub(r"IPv6 Multicast Summary:", "", actual)
             actual = re.sub(r"No IPv6 Multicast neighbor is configured", "", actual)
             # Remove IPv4 VPN Summary (all of it)
-            actual = re.sub(r"IPv6 VPN Summary \(VRF default\):", "", actual)
+            actual = re.sub(r"IPv6 VPN Summary:", "", actual)
             actual = re.sub(r"No IPv6 VPN neighbor is configured", "", actual)
             # Remove IPv4 Encap Summary (all of it)
-            actual = re.sub(r"IPv6 Encap Summary \(VRF default\):", "", actual)
+            actual = re.sub(r"IPv6 Encap Summary:", "", actual)
             actual = re.sub(r"No IPv6 Encap neighbor is configured", "", actual)
             # Remove Unknown Summary (all of it)
-            actual = re.sub(r"Unknown Summary \(VRF default\):", "", actual)
+            actual = re.sub(r"Unknown Summary:", "", actual)
             actual = re.sub(r"No Unknown neighbor is configured", "", actual)
             # Make Connect/Active/Idle the same (change them all to Active)
             actual = re.sub(r" Connect ", "  Active ", actual)
             actual = re.sub(r"    Idle ", "  Active ", actual)
 
             # Remove Labeled Unicast Summary (all of it)
-            actual = re.sub(
-                r"IPv6 labeled-unicast Summary \(VRF default\):", "", actual
-            )
+            actual = re.sub(r"IPv6 labeled-unicast Summary:", "", actual)
             actual = re.sub(
                 r"No IPv6 labeled-unicast neighbor is configured", "", actual
             )
@@ -1606,10 +1610,21 @@ def test_resilient_nexthop_group():
     )
 
     output = net["r1"].cmd('vtysh -c "show nexthop-group rib sharp"')
-    output = re.findall(r"Buckets", output)
+    buckets = re.findall(r"Buckets", output)
 
-    verify_nexthop_group(185483878)
-    assert len(output) == 1, "Resilient NHG not created in zebra"
+    output = net["r1"].cmd('vtysh -c "show nexthop-group rib sharp json"')
+
+    joutput = json.loads(output)
+
+    # Use the json output and collect the nhg id from it
+
+    for nhgid in joutput:
+        n = joutput[nhgid]
+        if "buckets" in n:
+            break
+
+    verify_nexthop_group(int(nhgid))
+    assert len(buckets) == 1, "Resilient NHG not created in zebra"
 
 
 def test_shutdown_check_stderr():

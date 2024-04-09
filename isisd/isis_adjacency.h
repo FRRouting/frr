@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * IS-IS Rout(e)ing protocol - isis_adjacency.h
  *                             IS-IS adjacency handling
@@ -6,20 +7,6 @@
  *                           Tampere University of Technology
  *                           Institute of Communications Engineering
  *
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public Licenseas published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful,but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef _ZEBRA_ISIS_ADJACENCY_H
@@ -82,17 +69,15 @@ struct isis_adjacency {
 	struct isis_dis_record dis_record[DIS_RECORDS * ISIS_LEVELS];
 	enum isis_adj_state adj_state;    /* adjacencyState */
 	enum isis_adj_usage adj_usage;    /* adjacencyUsage */
-	struct area_addr *area_addresses; /* areaAdressesOfNeighbour */
+	struct iso_address *area_addresses; /* areaAdressesOfNeighbour */
 	unsigned int area_address_count;
 	struct nlpids nlpids; /* protocols spoken ... */
 	struct in_addr *ipv4_addresses;
 	unsigned int ipv4_address_count;
-	struct in_addr router_address;
 	struct in6_addr *ll_ipv6_addrs; /* Link local IPv6 neighbor address */
 	unsigned int ll_ipv6_count;
 	struct in6_addr *global_ipv6_addrs; /* Global IPv6 neighbor address */
 	unsigned int global_ipv6_count;
-	struct in6_addr router_address6;
 	uint8_t prio[ISIS_LEVELS];      /* priorityOfNeighbour for DIS */
 	int circuit_t;			/* from hello PDU hdr */
 	int level;			/* level (1 or 2) */
@@ -103,7 +88,7 @@ struct isis_adjacency {
 	enum isis_threeway_state threeway_state;
 	uint32_t ext_circuit_id;
 	int flaps;		      /* number of adjacency flaps  */
-	struct thread *t_expire;      /* expire after hold_time  */
+	struct event *t_expire;	      /* expire after hold_time  */
 	struct isis_circuit *circuit; /* back pointer */
 	uint16_t *mt_set;      /* Topologies this adjacency is valid for */
 	unsigned int mt_count; /* Number of entries in mt_set */
@@ -111,6 +96,8 @@ struct isis_adjacency {
 	struct list *adj_sids; /* Segment Routing Adj-SIDs. */
 	uint32_t snmp_idx;
 	struct listnode *snmp_list_node;
+
+	struct list *srv6_endx_sids; /* SRv6 End.X SIDs. */
 };
 
 struct isis_threeway_adj;
@@ -141,7 +128,7 @@ void isis_adj_state_change(struct isis_adjacency **adj,
 			   enum isis_adj_state state, const char *reason);
 void isis_adj_print(struct isis_adjacency *adj);
 const char *isis_adj_yang_state(enum isis_adj_state state);
-void isis_adj_expire(struct thread *thread);
+void isis_adj_expire(struct event *thread);
 void isis_adj_print_vty(struct isis_adjacency *adj, struct vty *vty,
 			char detail);
 void isis_adj_print_json(struct isis_adjacency *adj, struct json_object *json,
@@ -149,6 +136,6 @@ void isis_adj_print_json(struct isis_adjacency *adj, struct json_object *json,
 void isis_adj_build_neigh_list(struct list *adjdb, struct list *list);
 void isis_adj_build_up_list(struct list *adjdb, struct list *list);
 int isis_adj_usage2levels(enum isis_adj_usage usage);
-void isis_bfd_startup_timer(struct thread *thread);
+void isis_bfd_startup_timer(struct event *thread);
 const char *isis_adj_name(const struct isis_adjacency *adj);
 #endif /* ISIS_ADJACENCY_H */

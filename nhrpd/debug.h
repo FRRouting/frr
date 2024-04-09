@@ -1,12 +1,6 @@
-#include "log.h"
+// SPDX-License-Identifier: GPL-2.0-or-later
 
-#if defined(__GNUC__) && (__GNUC__ >= 3)
-#define likely(_x) __builtin_expect(!!(_x), 1)
-#define unlikely(_x) __builtin_expect(!!(_x), 0)
-#else
-#define likely(_x) !!(_x)
-#define unlikely(_x) !!(_x)
-#endif
+#include "log.h"
 
 #define NHRP_DEBUG_COMMON	(1 << 0)
 #define NHRP_DEBUG_KERNEL	(1 << 1)

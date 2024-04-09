@@ -1,19 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Copyright (C) 2020  NetDEF, Inc.
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -26,7 +13,7 @@
 #include "pathd/path_pcep.h"
 #include "pathd/path_pcep_config.h"
 #include "pathd/path_pcep_debug.h"
-#include "thread.h"
+#include "frrevent.h"
 
 #define MAX_XPATH 256
 #define MAX_FLOAT_LEN 22
@@ -270,7 +257,8 @@ path_pcep_config_list_path_hops(struct srte_segment_list *segment_list)
 			       sizeof(struct ipaddr));
 			hop->nai.remote_iface = segment->nai_remote_iface;
 			break;
-		default:
+		case SRTE_SEGMENT_NAI_TYPE_NONE:
+		case SRTE_SEGMENT_NAI_TYPE_IPV6_ADJACENCY_LINK_LOCAL_ADDRESSES:
 			break;
 		}
 		last_hop = hop;
@@ -489,9 +477,12 @@ status_int_to_ext(enum srte_policy_status status)
 		return PCEP_LSP_OPERATIONAL_GOING_UP;
 	case SRTE_POLICY_STATUS_GOING_DOWN:
 		return PCEP_LSP_OPERATIONAL_GOING_DOWN;
-	default:
+	case SRTE_POLICY_STATUS_DOWN:
+	case SRTE_POLICY_STATUS_UNKNOWN:
 		return PCEP_LSP_OPERATIONAL_DOWN;
 	}
+
+	assert(!"Reached end of function where we are not expecting to");
 }
 
 enum pcep_sr_subobj_nai pcep_nai_type(enum srte_segment_nai_type type)
@@ -539,7 +530,10 @@ enum srte_segment_nai_type srte_nai_type(enum pcep_sr_subobj_nai type)
 		return SRTE_SEGMENT_NAI_TYPE_IPV6_ADJACENCY;
 	case PCEP_SR_SUBOBJ_NAI_UNNUMBERED_IPV4_ADJACENCY:
 		return SRTE_SEGMENT_NAI_TYPE_IPV4_UNNUMBERED_ADJACENCY;
-	default:
+	case PCEP_SR_SUBOBJ_NAI_LINK_LOCAL_IPV6_ADJACENCY:
+	case PCEP_SR_SUBOBJ_NAI_UNKNOWN:
 		return SRTE_SEGMENT_NAI_TYPE_NONE;
 	}
+
+	assert(!"Reached end of function where we were not expecting to");
 }

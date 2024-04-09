@@ -1,21 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Copyright (C) 1999-2003 Yasuhiro Ohara
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef OSPF6_MESSAGE_H
@@ -64,6 +49,8 @@ extern unsigned char conf_debug_ospf6_message[];
 #define OSPF6_MESSAGE_TYPE_LSACK    0x5  /* Flooding acknowledgment */
 #define OSPF6_MESSAGE_TYPE_ALL      0x6  /* For debug option */
 #define OSPF6_MESSAGE_TYPE_MAX 0x6       /* same as OSPF6_MESSAGE_TYPE_ALL */
+
+struct ospf6_interface;
 
 struct ospf6_packet {
 	struct ospf6_packet *next;
@@ -173,16 +160,19 @@ extern void ospf6_fifo_free(struct ospf6_fifo *fifo);
 
 extern int ospf6_iobuf_size(unsigned int size);
 extern void ospf6_message_terminate(void);
-extern void ospf6_receive(struct thread *thread);
+extern void ospf6_receive(struct event *thread);
 
-extern void ospf6_hello_send(struct thread *thread);
-extern void ospf6_dbdesc_send(struct thread *thread);
-extern void ospf6_dbdesc_send_newone(struct thread *thread);
-extern void ospf6_lsreq_send(struct thread *thread);
-extern void ospf6_lsupdate_send_interface(struct thread *thread);
-extern void ospf6_lsupdate_send_neighbor(struct thread *thread);
-extern void ospf6_lsack_send_interface(struct thread *thread);
-extern void ospf6_lsack_send_neighbor(struct thread *thread);
+extern void ospf6_hello_send(struct event *thread);
+extern void ospf6_dbdesc_send(struct event *thread);
+extern void ospf6_dbdesc_send_newone(struct event *thread);
+extern void ospf6_lsreq_send(struct event *thread);
+extern void ospf6_lsupdate_send_interface(struct event *thread);
+extern void ospf6_lsupdate_send_neighbor(struct event *thread);
+extern void ospf6_lsack_send_interface(struct event *thread);
+extern void ospf6_lsack_send_neighbor(struct event *thread);
+
+extern void ospf6_hello_send_addr(struct ospf6_interface *oi,
+				  const struct in6_addr *addr);
 
 extern int config_write_ospf6_debug_message(struct vty *);
 extern void install_element_ospf6_debug_message(void);

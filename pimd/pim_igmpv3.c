@@ -1,20 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * PIM for Quagga
  * Copyright (C) 2008  Everton da Silva Marques
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -120,12 +107,12 @@ void igmp_group_reset_gmi(struct gm_group *group)
 	igmp_group_timer_on(group, group_membership_interval_msec, ifp->name);
 }
 
-static void igmp_source_timer(struct thread *t)
+static void igmp_source_timer(struct event *t)
 {
 	struct gm_source *source;
 	struct gm_group *group;
 
-	source = THREAD_ARG(t);
+	source = EVENT_ARG(t);
 
 	group = source->source_group;
 
@@ -200,7 +187,7 @@ static void source_timer_off(struct gm_group *group, struct gm_source *source)
 			group_str, source_str, group->interface->name);
 	}
 
-	THREAD_OFF(source->t_source_timer);
+	EVENT_OFF(source->t_source_timer);
 }
 
 static void igmp_source_timer_on(struct gm_group *group,
@@ -222,8 +209,8 @@ static void igmp_source_timer_on(struct gm_group *group,
 			source_str, group->interface->name);
 	}
 
-	thread_add_timer_msec(router->master, igmp_source_timer, source,
-			      interval_msec, &source->t_source_timer);
+	event_add_timer_msec(router->master, igmp_source_timer, source,
+			     interval_msec, &source->t_source_timer);
 
 	/*
 	  RFC 3376: 6.3. IGMPv3 Source-Specific Forwarding Rules
@@ -332,14 +319,6 @@ void igmp_source_free(struct gm_source *source)
 	XFREE(MTYPE_PIM_IGMP_GROUP_SOURCE, source);
 }
 
-static void source_channel_oil_detach(struct gm_source *source)
-{
-	if (source->source_channel_oil) {
-		pim_channel_oil_del(source->source_channel_oil, __func__);
-		source->source_channel_oil = NULL;
-	}
-}
-
 /*
   igmp_source_delete:       stop forwarding, and delete the source
   igmp_source_forward_stop: stop forwarding, but keep the source
@@ -368,6 +347,7 @@ void igmp_source_delete(struct gm_source *source)
 
 	source_timer_off(group, source);
 	igmp_source_forward_stop(source);
+	source->source_channel_oil = NULL;
 
 	/* sanity check that forwarding has been disabled */
 	if (IGMP_SOURCE_TEST_FORWARDING(source->source_flags)) {
@@ -383,8 +363,6 @@ void igmp_source_delete(struct gm_source *source)
 			group->interface->name);
 		/* warning only */
 	}
-
-	source_channel_oil_detach(source);
 
 	/*
 	  notice that listnode_delete() can't be moved
@@ -1213,13 +1191,13 @@ static int group_retransmit_sources(struct gm_group *group,
 	return num_retransmit_sources_left;
 }
 
-static void igmp_group_retransmit(struct thread *t)
+static void igmp_group_retransmit(struct event *t)
 {
 	struct gm_group *group;
 	int num_retransmit_sources_left;
 	int send_with_sflag_set; /* boolean */
 
-	group = THREAD_ARG(t);
+	group = EVENT_ARG(t);
 
 	if (PIM_DEBUG_GM_TRACE) {
 		char group_str[INET_ADDRSTRLEN];
@@ -1294,9 +1272,8 @@ static void group_retransmit_timer_on(struct gm_group *group)
 			group->interface->name);
 	}
 
-	thread_add_timer_msec(router->master, igmp_group_retransmit, group,
-			      lmqi_msec,
-			      &group->t_group_query_retransmit_timer);
+	event_add_timer_msec(router->master, igmp_group_retransmit, group,
+			     lmqi_msec, &group->t_group_query_retransmit_timer);
 }
 
 static long igmp_group_timer_remain_msec(struct gm_group *group)

@@ -1,23 +1,8 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  *
  * Copyright (C) 2000  Robert Olsson.
  * Swedish University of Agricultural Sciences
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 /*
@@ -47,7 +32,7 @@
 #include "connected.h"
 #include "log.h"
 #include "zclient.h"
-#include "thread.h"
+#include "frrevent.h"
 #include "privs.h"
 #include "libfrr.h"
 #include "lib_errors.h"
@@ -71,7 +56,7 @@
 
 extern struct zebra_privs_t zserv_privs;
 
-struct thread *t_irdp_raw;
+struct event *t_irdp_raw;
 
 /* Timer interval of irdp. */
 int irdp_timer_interval = IRDP_DEFAULT_INTERVAL;
@@ -112,7 +97,7 @@ int irdp_sock_init(void)
 		return ret;
 	};
 
-	thread_add_read(zrouter.master, irdp_read_raw, NULL, sock, &t_irdp_raw);
+	event_add_read(zrouter.master, irdp_read_raw, NULL, sock, &t_irdp_raw);
 
 	return sock;
 }
@@ -205,14 +190,13 @@ static void irdp_advertisement(struct interface *ifp, struct prefix *p)
 	stream_free(s);
 }
 
-void irdp_send_thread(struct thread *t_advert)
+void irdp_send_thread(struct event *t_advert)
 {
 	uint32_t timer, tmp;
-	struct interface *ifp = THREAD_ARG(t_advert);
+	struct interface *ifp = EVENT_ARG(t_advert);
 	struct zebra_if *zi = ifp->info;
 	struct irdp_interface *irdp = zi->irdp;
 	struct prefix *p;
-	struct listnode *node, *nnode;
 	struct connected *ifc;
 
 	if (!irdp)
@@ -220,16 +204,15 @@ void irdp_send_thread(struct thread *t_advert)
 
 	irdp->flags &= ~IF_SOLICIT;
 
-	if (ifp->connected)
-		for (ALL_LIST_ELEMENTS(ifp->connected, node, nnode, ifc)) {
-			p = ifc->address;
+	frr_each (if_connected, ifp->connected, ifc) {
+		p = ifc->address;
 
-			if (p->family != AF_INET)
-				continue;
+		if (p->family != AF_INET)
+			continue;
 
-			irdp_advertisement(ifp, p);
-			irdp->irdp_sent++;
-		}
+		irdp_advertisement(ifp, p);
+		irdp->irdp_sent++;
+	}
 
 	tmp = irdp->MaxAdvertInterval - irdp->MinAdvertInterval;
 	timer = frr_weak_random() % (tmp + 1);
@@ -244,15 +227,14 @@ void irdp_send_thread(struct thread *t_advert)
 			   timer);
 
 	irdp->t_advertise = NULL;
-	thread_add_timer(zrouter.master, irdp_send_thread, ifp, timer,
-			 &irdp->t_advertise);
+	event_add_timer(zrouter.master, irdp_send_thread, ifp, timer,
+			&irdp->t_advertise);
 }
 
 void irdp_advert_off(struct interface *ifp)
 {
 	struct zebra_if *zi = ifp->info;
 	struct irdp_interface *irdp = zi->irdp;
-	struct listnode *node, *nnode;
 	int i;
 	struct connected *ifc;
 	struct prefix *p;
@@ -260,21 +242,23 @@ void irdp_advert_off(struct interface *ifp)
 	if (!irdp)
 		return;
 
-	THREAD_OFF(irdp->t_advertise);
+	EVENT_OFF(irdp->t_advertise);
 
-	if (ifp->connected)
-		for (ALL_LIST_ELEMENTS(ifp->connected, node, nnode, ifc)) {
-			p = ifc->address;
+	frr_each (if_connected, ifp->connected, ifc) {
+		p = ifc->address;
 
-			/* Output some packets with Lifetime 0
-			   we should add a wait...
-			*/
+		if (p->family != AF_INET)
+			continue;
 
-			for (i = 0; i < IRDP_LAST_ADVERT_MESSAGES; i++) {
-				irdp->irdp_sent++;
-				irdp_advertisement(ifp, p);
-			}
+		/* Output some packets with Lifetime 0
+		   we should add a wait...
+		*/
+
+		for (i = 0; i < IRDP_LAST_ADVERT_MESSAGES; i++) {
+			irdp->irdp_sent++;
+			irdp_advertisement(ifp, p);
 		}
+	}
 }
 
 
@@ -295,13 +279,13 @@ void process_solicit(struct interface *ifp)
 		return;
 
 	irdp->flags |= IF_SOLICIT;
-	THREAD_OFF(irdp->t_advertise);
+	EVENT_OFF(irdp->t_advertise);
 
 	timer = (frr_weak_random() % MAX_RESPONSE_DELAY) + 1;
 
 	irdp->t_advertise = NULL;
-	thread_add_timer(zrouter.master, irdp_send_thread, ifp, timer,
-			 &irdp->t_advertise);
+	event_add_timer(zrouter.master, irdp_send_thread, ifp, timer,
+			&irdp->t_advertise);
 }
 
 static int irdp_finish(void)
@@ -331,7 +315,7 @@ static int irdp_finish(void)
 	return 0;
 }
 
-static int irdp_init(struct thread_master *master)
+static int irdp_init(struct event_loop *master)
 {
 	irdp_if_init();
 

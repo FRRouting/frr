@@ -1,21 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* AS path filter list.
  * Copyright (C) 1999 Kunihiro Ishiguro
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -30,7 +15,6 @@
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_aspath.h"
 #include "bgpd/bgp_regex.h"
-#include "bgpd/bgp_filter.h"
 
 /* List of AS filter list. */
 struct as_list_list {
@@ -50,30 +34,6 @@ struct as_list_master {
 	void (*delete_hook)(const char *);
 };
 
-/* Element of AS path filter. */
-struct as_filter {
-	struct as_filter *next;
-	struct as_filter *prev;
-
-	enum as_filter_type type;
-
-	regex_t *reg;
-	char *reg_str;
-
-	/* Sequence number. */
-	int64_t seq;
-};
-
-/* AS path filter list. */
-struct as_list {
-	char *name;
-
-	struct as_list *next;
-	struct as_list *prev;
-
-	struct as_filter *head;
-	struct as_filter *tail;
-};
 
 
 /* Calculate new sequential number. */
@@ -235,7 +195,6 @@ struct as_list *as_list_lookup(const char *name)
 	for (aslist = as_list_master.str.head; aslist; aslist = aslist->next)
 		if (strcmp(aslist->name, name) == 0)
 			return aslist;
-
 	return NULL;
 }
 
@@ -246,8 +205,17 @@ static struct as_list *as_list_new(void)
 
 static void as_list_free(struct as_list *aslist)
 {
-	XFREE(MTYPE_AS_STR, aslist->name);
-	XFREE(MTYPE_AS_LIST, aslist);
+	struct aspath_exclude_list *cur_bp = aslist->exclude_list;
+	struct aspath_exclude_list *next_bp = NULL;
+
+	while (cur_bp) {
+		next_bp = cur_bp->next;
+		XFREE(MTYPE_ROUTE_MAP_COMPILED, cur_bp);
+		cur_bp = next_bp;
+	}
+
+	XFREE (MTYPE_AS_STR, aslist->name);
+	XFREE (MTYPE_AS_LIST, aslist);
 }
 
 /* Insert new AS list to list of as_list.  Each as_list is sorted by
@@ -331,6 +299,7 @@ static void as_list_delete(struct as_list *aslist)
 {
 	struct as_list_list *list;
 	struct as_filter *filter, *next;
+	struct aspath_exclude_list *cur_bp;
 
 	for (filter = aslist->head; filter; filter = next) {
 		next = filter->next;
@@ -348,6 +317,12 @@ static void as_list_delete(struct as_list *aslist)
 		aslist->prev->next = aslist->next;
 	else
 		list->head = aslist->next;
+
+	cur_bp = aslist->exclude_list;
+	while (cur_bp) {
+		cur_bp->bp_as_excl->exclude_aspath_acl = NULL;
+		cur_bp = cur_bp->next;
+	}
 
 	as_list_free(aslist);
 }

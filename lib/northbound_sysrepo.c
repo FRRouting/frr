@@ -1,20 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Copyright (C) 2018  NetDEF, Inc.
  *                     Renato Westphal
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -32,16 +19,14 @@
 #include <sysrepo/values.h>
 #include <sysrepo/xpath.h>
 
-DEFINE_MTYPE_STATIC(LIB, SYSREPO, "Sysrepo module");
-
 static struct debug nb_dbg_client_sysrepo = {0, "Northbound client: Sysrepo"};
 
-static struct thread_master *master;
+static struct event_loop *master;
 static sr_session_ctx_t *session;
 static sr_conn_ctx_t *connection;
 static struct nb_transaction *transaction;
 
-static void frr_sr_read_cb(struct thread *thread);
+static void frr_sr_read_cb(struct event *thread);
 static int frr_sr_finish(void);
 
 /* Convert FRR YANG data value to sysrepo YANG data value. */
@@ -131,6 +116,9 @@ static int yang_data_frr2sr(struct yang_data *frr_data, sr_val_t *sr_data)
 		sr_data->type = SR_INT64_T;
 		sr_data->data.int64_val = yang_str2int64(frr_data->value);
 		break;
+	case LY_TYPE_LEAFREF:
+		sr_val_set_str_data(sr_data, SR_STRING_T, frr_data->value);
+		break;
 	case LY_TYPE_STRING:
 		sr_val_set_str_data(sr_data, SR_STRING_T, frr_data->value);
 		break;
@@ -150,6 +138,11 @@ static int yang_data_frr2sr(struct yang_data *frr_data, sr_val_t *sr_data)
 		sr_data->type = SR_UINT64_T;
 		sr_data->data.uint64_val = yang_str2uint64(frr_data->value);
 		break;
+	case LY_TYPE_UNION:
+		/* No way to deal with this using un-typed yang_data object */
+		sr_val_set_str_data(sr_data, SR_STRING_T, frr_data->value);
+		break;
+	case LY_TYPE_UNKNOWN:
 	default:
 		return -1;
 	}
@@ -191,12 +184,12 @@ static int frr_sr_process_change(struct nb_config *candidate,
 	/* Map operation values. */
 	switch (sr_op) {
 	case SR_OP_CREATED:
+		nb_op = NB_OP_CREATE;
+		break;
 	case SR_OP_MODIFIED:
-		if (nb_operation_is_valid(NB_OP_CREATE, nb_node->snode))
-			nb_op = NB_OP_CREATE;
-		else if (nb_operation_is_valid(NB_OP_MODIFY, nb_node->snode)) {
+		if (nb_is_operation_allowed(nb_node, NB_OP_MODIFY))
 			nb_op = NB_OP_MODIFY;
-		} else
+		else
 			/* Ignore list keys modifications. */
 			return NB_OK;
 		break;
@@ -206,7 +199,7 @@ static int frr_sr_process_change(struct nb_config *candidate,
 		 * notified about the removal of all of its leafs, even the ones
 		 * that are non-optional. We need to ignore these notifications.
 		 */
-		if (!nb_operation_is_valid(NB_OP_DESTROY, nb_node->snode))
+		if (!nb_is_operation_allowed(nb_node, NB_OP_DESTROY))
 			return NB_OK;
 
 		nb_op = NB_OP_DESTROY;
@@ -226,7 +219,7 @@ static int frr_sr_process_change(struct nb_config *candidate,
 
 	ret = nb_candidate_edit(candidate, nb_node, nb_op, xpath, NULL, data);
 	yang_data_free(data);
-	if (ret != NB_OK && ret != NB_ERR_NOT_FOUND) {
+	if (ret != NB_OK) {
 		flog_warn(
 			EC_LIB_NB_CANDIDATE_EDIT_ERROR,
 			"%s: failed to edit candidate configuration: operation [%s] xpath [%s]",
@@ -281,13 +274,15 @@ static int frr_sr_config_change_cb_prepare(sr_session_ctx_t *session,
 	 * Validate the configuration changes and allocate all resources
 	 * required to apply them.
 	 */
-	ret = nb_candidate_commit_prepare(&context, candidate, NULL,
-					  &transaction, errmsg, sizeof(errmsg));
-	if (ret != NB_OK && ret != NB_ERR_NO_CHANGES)
-		flog_warn(
-			EC_LIB_LIBSYSREPO,
-			"%s: failed to prepare configuration transaction: %s (%s)",
-			__func__, nb_err_name(ret), errmsg);
+	ret = nb_candidate_commit_prepare(context, candidate, NULL,
+					  &transaction, false, false, errmsg,
+					  sizeof(errmsg));
+	if (ret != NB_OK && ret != NB_ERR_NO_CHANGES) {
+		flog_warn(EC_LIB_LIBSYSREPO,
+			  "%s: failed to prepare configuration transaction: %s (%s)",
+			  __func__, nb_err_name(ret), errmsg);
+		sr_session_set_error_message(session, errmsg);
+	}
 
 	if (!transaction)
 		nb_config_free(candidate);
@@ -352,32 +347,13 @@ static int frr_sr_config_change_cb(sr_session_ctx_t *session, uint32_t sub_id,
 		return frr_sr_config_change_cb_apply(session, module_name);
 	case SR_EV_ABORT:
 		return frr_sr_config_change_cb_abort(session, module_name);
+	case SR_EV_RPC:
+	case SR_EV_UPDATE:
 	default:
 		flog_err(EC_LIB_LIBSYSREPO, "%s: unexpected sysrepo event: %u",
 			 __func__, sr_ev);
 		return SR_ERR_INTERNAL;
 	}
-}
-
-static int frr_sr_state_data_iter_cb(const struct lysc_node *snode,
-				     struct yang_translator *translator,
-				     struct yang_data *data, void *arg)
-{
-	struct lyd_node *dnode = arg;
-	LY_ERR ly_errno;
-
-	ly_errno = 0;
-	ly_errno = lyd_new_path(NULL, ly_native_ctx, data->xpath, data->value,
-				0, &dnode);
-	if (!dnode && ly_errno) {
-		flog_warn(EC_LIB_LIBYANG, "%s: lyd_new_path() failed",
-			  __func__);
-		yang_data_free(data);
-		return NB_ERR;
-	}
-
-	yang_data_free(data);
-	return NB_OK;
 }
 
 /* Callback for state retrieval. */
@@ -386,12 +362,10 @@ static int frr_sr_state_cb(sr_session_ctx_t *session, uint32_t sub_id,
 			   const char *request_xpath, uint32_t request_id,
 			   struct lyd_node **parent, void *private_ctx)
 {
-	struct lyd_node *dnode;
+	struct lyd_node *dnode = NULL;
 
 	dnode = *parent;
-	if (nb_oper_data_iterate(request_xpath, NULL, 0,
-				 frr_sr_state_data_iter_cb, dnode)
-	    != NB_OK) {
+	if (nb_oper_iterate_legacy(request_xpath, NULL, 0, NULL, NULL, &dnode)) {
 		flog_warn(EC_LIB_NB_OPERATIONAL_DATA,
 			  "%s: failed to obtain operational data [xpath %s]",
 			  __func__, xpath);
@@ -526,10 +500,10 @@ static int frr_sr_notification_send(const char *xpath, struct list *arguments)
 	return NB_OK;
 }
 
-static void frr_sr_read_cb(struct thread *thread)
+static void frr_sr_read_cb(struct event *thread)
 {
-	struct yang_module *module = THREAD_ARG(thread);
-	int fd = THREAD_FD(thread);
+	struct yang_module *module = EVENT_ARG(thread);
+	int fd = EVENT_FD(thread);
 	int ret;
 
 	ret = sr_subscription_process_events(module->sr_subscription, session,
@@ -540,7 +514,7 @@ static void frr_sr_read_cb(struct thread *thread)
 		return;
 	}
 
-	thread_add_read(master, frr_sr_read_cb, module, fd, &module->sr_thread);
+	event_add_read(master, frr_sr_read_cb, module, fd, &module->sr_thread);
 }
 
 static void frr_sr_subscribe_config(struct yang_module *module)
@@ -700,8 +674,8 @@ static int frr_sr_init(void)
 				 sr_strerror(ret));
 			goto cleanup;
 		}
-		thread_add_read(master, frr_sr_read_cb, module,
-				event_pipe, &module->sr_thread);
+		event_add_read(master, frr_sr_read_cb, module, event_pipe,
+			       &module->sr_thread);
 	}
 
 	hook_register(nb_notification_send, frr_sr_notification_send);
@@ -722,7 +696,7 @@ static int frr_sr_finish(void)
 		if (!module->sr_subscription)
 			continue;
 		sr_unsubscribe(module->sr_subscription);
-		THREAD_OFF(module->sr_thread);
+		EVENT_OFF(module->sr_thread);
 	}
 
 	if (session)
@@ -733,7 +707,7 @@ static int frr_sr_finish(void)
 	return 0;
 }
 
-static int frr_sr_module_config_loaded(struct thread_master *tm)
+static int frr_sr_module_config_loaded(struct event_loop *tm)
 {
 	master = tm;
 
@@ -748,7 +722,7 @@ static int frr_sr_module_config_loaded(struct thread_master *tm)
 	return 0;
 }
 
-static int frr_sr_module_late_init(struct thread_master *tm)
+static int frr_sr_module_late_init(struct event_loop *tm)
 {
 	frr_sr_cli_init();
 

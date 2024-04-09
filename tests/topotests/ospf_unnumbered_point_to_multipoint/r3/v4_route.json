@@ -1,0 +1,126 @@
+{
+  "10.0.10.1\/32": [
+    {
+      "prefix": "10.0.10.1\/32",
+      "prefixLen": 32,
+      "protocol": "ospf",
+      "vrfId": 0,
+      "vrfName": "default",
+      "selected": true,
+      "destSelected": true,
+      "distance": 110,
+      "metric": 20,
+      "installed": true,
+      "table": 254,
+      "internalStatus": 16,
+      "internalFlags": 8,
+      "internalNextHopNum": 1,
+      "internalNextHopActiveNum": 1
+    }
+  ],
+  "10.0.20.1\/32": [
+    {
+      "prefix": "10.0.20.1\/32",
+      "prefixLen": 32,
+      "protocol": "ospf",
+      "vrfId": 0,
+      "vrfName": "default",
+      "selected": true,
+      "destSelected": true,
+      "distance": 110,
+      "metric": 20,
+      "installed": true,
+      "table": 254,
+      "internalStatus": 16,
+      "internalFlags": 8,
+      "internalNextHopNum": 1,
+      "internalNextHopActiveNum": 1
+    }
+  ],
+  "10.0.30.0\/24": [
+    {
+      "prefix": "10.0.30.0\/24",
+      "prefixLen": 24,
+      "protocol": "ospf",
+      "vrfId": 0,
+      "vrfName": "default",
+      "distance": 110,
+      "metric": 10,
+      "table": 254,
+      "internalStatus": 0,
+      "internalFlags": 0,
+      "internalNextHopNum": 1,
+      "internalNextHopActiveNum": 1
+    },
+    {
+      "prefix": "10.0.30.0\/24",
+      "prefixLen": 24,
+      "protocol": "connected",
+      "vrfId": 0,
+      "vrfName": "default",
+      "selected": true,
+      "destSelected": true,
+      "distance": 0,
+      "metric": 0,
+      "installed": true,
+      "table": 254,
+      "internalStatus": 16,
+      "internalFlags": 8,
+      "internalNextHopNum": 1,
+      "internalNextHopActiveNum": 1
+    }
+  ],
+  "10.0.30.1\/32": [
+    {
+      "prefix": "10.0.30.1\/32",
+      "prefixLen": 32,
+      "protocol": "local",
+      "vrfId": 0,
+      "vrfName": "default",
+      "selected": true,
+      "destSelected": true,
+      "distance": 0,
+      "metric": 0,
+      "installed": true,
+      "table": 254,
+      "internalStatus": 16,
+      "internalFlags": 8,
+      "internalNextHopNum": 1,
+      "internalNextHopActiveNum": 1
+    }
+  ],
+  "10.1.3.2\/32": [
+    {
+      "prefix": "10.1.3.2\/32",
+      "prefixLen": 32,
+      "protocol": "local",
+      "vrfId": 0,
+      "vrfName": "default",
+      "distance": 0,
+      "metric": 0,
+      "installed": true,
+      "table": 254,
+      "internalStatus": 16,
+      "internalFlags": 0,
+      "internalNextHopNum": 1,
+      "internalNextHopActiveNum": 1
+    },
+    {
+      "prefix": "10.1.3.2\/32",
+      "prefixLen": 32,
+      "protocol": "connected",
+      "vrfId": 0,
+      "vrfName": "default",
+      "selected": true,
+      "destSelected": true,
+      "distance": 0,
+      "metric": 0,
+      "installed": true,
+      "table": 254,
+      "internalStatus": 16,
+      "internalFlags": 8,
+      "internalNextHopNum": 1,
+      "internalNextHopActiveNum": 1
+    }
+  ]
+}

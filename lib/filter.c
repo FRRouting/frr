@@ -1,21 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* Route filtering function.
  * Copyright (C) 1998, 1999 Kunihiro Ishiguro
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published
- * by the Free Software Foundation; either version 2, or (at your
- * option) any later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -425,7 +410,10 @@ void access_list_filter_add(struct access_list *access,
 		filter->prev = access->tail;
 		access->tail = filter;
 	}
+}
 
+void access_list_filter_update(struct access_list *access)
+{
 	/* Run hook function. */
 	if (access->master->add_hook)
 		(*access->master->add_hook)(access);
@@ -900,7 +888,7 @@ static void access_list_init_ipv6(void)
 	install_element(ENABLE_NODE, &show_ipv6_access_list_name_cmd);
 }
 
-void access_list_init(void)
+void access_list_init_new(bool in_backend)
 {
 	cmd_variable_handler_register(access_list_handlers);
 
@@ -908,7 +896,15 @@ void access_list_init(void)
 	access_list_init_ipv6();
 	access_list_init_mac();
 
-	filter_cli_init();
+	if (!in_backend) {
+		/* we do not want to handle config commands in the backend */
+		filter_cli_init();
+	}
+}
+
+void access_list_init(void)
+{
+	access_list_init_new(false);
 }
 
 void access_list_reset(void)

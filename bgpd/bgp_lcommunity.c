@@ -1,21 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* BGP Large Communities Attribute
  *
  * Copyright (C) 2016 Keyur Patel <keyur@arrcus.com>
- *
- * This file is part of FRRouting (FRR).
- *
- * FRR is free software; you can redistribute it and/or modify it under the
- * terms of the GNU General Public License as published by the Free Software
- * Foundation; either version 2, or (at your option) any later version.
- *
- * FRR is distributed in the hope that it will be useful, but WITHOUT ANY
- * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
- * FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more
- * details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -211,12 +197,13 @@ static void set_lcommunity_string(struct lcommunity *lcom, bool make_json,
 	}
 
 	/* 1 space + lcom->size lcom strings + null terminator */
-	size_t str_buf_sz = BUFSIZ;
+	size_t str_buf_sz = (LCOMMUNITY_STRLEN * lcom->size) + 2;
 	str_buf = XCALLOC(MTYPE_LCOMMUNITY_STR, str_buf_sz);
 
+	len = 0;
 	for (i = 0; i < lcom->size; i++) {
 		if (i > 0)
-			strlcat(str_buf, " ", str_buf_sz);
+			len = strlcat(str_buf, " ", str_buf_sz);
 
 		pnt = lcom->val + (i * LCOMMUNITY_SIZE);
 		pnt = ptr_get_be32(pnt, &global);
@@ -229,11 +216,22 @@ static void set_lcommunity_string(struct lcommunity *lcom, bool make_json,
 		snprintf(lcsb, sizeof(lcsb), "%u:%u:%u", global, local1,
 			 local2);
 
+		/*
+		 * Aliases can cause havoc, if the alias length is greater
+		 * than the LCOMMUNITY_STRLEN for a particular item
+		 * then we need to realloc the memory associated
+		 * with the string so that it can fit
+		 */
 		const char *com2alias =
 			translate_alias ? bgp_community2alias(lcsb) : lcsb;
+		size_t individual_len = strlen(com2alias);
+		if (individual_len + len > str_buf_sz) {
+			str_buf_sz = individual_len + len + 1;
+			str_buf = XREALLOC(MTYPE_LCOMMUNITY_STR, str_buf,
+					   str_buf_sz);
+		}
 
 		len = strlcat(str_buf, com2alias, str_buf_sz);
-		assert((unsigned int)len < str_buf_sz);
 
 		if (make_json) {
 			json_string = json_object_new_string(com2alias);
@@ -348,9 +346,7 @@ void lcommunity_init(void)
 
 void lcommunity_finish(void)
 {
-	hash_clean(lcomhash, (void (*)(void *))lcommunity_hash_free);
-	hash_free(lcomhash);
-	lcomhash = NULL;
+	hash_clean_and_free(&lcomhash, (void (*)(void *))lcommunity_hash_free);
 }
 
 /* Get next Large Communities token from the string.

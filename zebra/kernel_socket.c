@@ -1,24 +1,11 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* Kernel communication using routing socket.
  * Copyright (C) 1999 Kunihiro Ishiguro
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
+
+#include <net/route.h>
 
 #ifndef HAVE_NETLINK
 
@@ -63,11 +50,7 @@ extern struct zebra_privs_t zserv_privs;
  * 0).  We follow this practice without questioning it, but it is a
  * bug if frr calls ROUNDUP with 0.
  */
-#ifdef __APPLE__
-#define ROUNDUP_TYPE	int
-#else
-#define ROUNDUP_TYPE	long
-#endif
+#define ROUNDUP_TYPE long
 
 /*
  * Because of these varying conventions, the only sane approach is for
@@ -849,12 +832,12 @@ int ifam_read(struct ifa_msghdr *ifam)
 	struct interface *ifp = NULL;
 	union sockunion addr, mask, brd;
 	bool dest_same = false;
-	char ifname[INTERFACE_NAMSIZ];
+	char ifname[IFNAMSIZ];
 	short ifnlen = 0;
 	bool isalias = false;
 	uint32_t flags = 0;
 
-	ifname[0] = ifname[INTERFACE_NAMSIZ - 1] = '\0';
+	ifname[0] = ifname[IFNAMSIZ - 1] = '\0';
 
 	/* Allocate and read address information. */
 	ifam_read_mesg(ifam, &addr, &mask, &brd, ifname, &ifnlen);
@@ -866,7 +849,7 @@ int ifam_read(struct ifa_msghdr *ifam)
 		return -1;
 	}
 
-	if (ifnlen && strncmp(ifp->name, ifname, INTERFACE_NAMSIZ))
+	if (ifnlen && strncmp(ifp->name, ifname, IFNAMSIZ))
 		isalias = true;
 
 	/*
@@ -1010,7 +993,7 @@ void rtm_read(struct rt_msghdr *rtm)
 	int flags;
 	uint32_t zebra_flags;
 	union sockunion dest, mask, gate;
-	char ifname[INTERFACE_NAMSIZ + 1];
+	char ifname[IFNAMSIZ + 1];
 	short ifnlen = 0;
 	struct nexthop nh;
 	struct prefix p;
@@ -1115,11 +1098,11 @@ void rtm_read(struct rt_msghdr *rtm)
 	if (rtm->rtm_type == RTM_GET || rtm->rtm_type == RTM_ADD
 	    || rtm->rtm_type == RTM_CHANGE)
 		rib_add(afi, SAFI_UNICAST, VRF_DEFAULT, proto, 0, zebra_flags,
-			&p, NULL, &nh, 0, RT_TABLE_MAIN, 0, 0, distance, 0,
+			&p, NULL, &nh, 0, rt_table_main_id, 0, 0, distance, 0,
 			false);
 	else
 		rib_delete(afi, SAFI_UNICAST, VRF_DEFAULT, proto, 0,
-			   zebra_flags, &p, NULL, &nh, 0, RT_TABLE_MAIN, 0,
+			   zebra_flags, &p, NULL, &nh, 0, rt_table_main_id, 0,
 			   distance, true);
 }
 
@@ -1226,7 +1209,8 @@ int rtm_write(int message, union sockunion *dest, union sockunion *mask,
 	case BLACKHOLE_REJECT:
 		msg.rtm.rtm_flags |= RTF_REJECT;
 		break;
-	default:
+	case BLACKHOLE_NULL:
+	case BLACKHOLE_ADMINPROHIB:
 		msg.rtm.rtm_flags |= RTF_BLACKHOLE;
 		break;
 	}
@@ -1269,7 +1253,7 @@ int rtm_write(int message, union sockunion *dest, union sockunion *mask,
 }
 
 
-#include "thread.h"
+#include "frrevent.h"
 #include "zebra/zserv.h"
 
 /* For debug purpose. */
@@ -1295,7 +1279,7 @@ static void rtmsg_debug(struct rt_msghdr *rtm)
 #endif /* RTAX_MAX */
 
 /* Kernel routing table and interface updates via routing socket. */
-static void kernel_read(struct thread *thread)
+static void kernel_read(struct event *thread)
 {
 	int sock;
 	int nbytes;
@@ -1340,7 +1324,7 @@ static void kernel_read(struct thread *thread)
 	} buf;
 
 	/* Fetch routing socket. */
-	sock = THREAD_FD(thread);
+	sock = EVENT_FD(thread);
 
 	nbytes = read(sock, &buf, sizeof(buf));
 
@@ -1352,8 +1336,8 @@ static void kernel_read(struct thread *thread)
 			 * shortage and is not harmful for consistency of
 			 * reading the routing socket.  Ignore it.
 			 */
-			thread_add_read(zrouter.master, kernel_read, NULL, sock,
-					NULL);
+			event_add_read(zrouter.master, kernel_read, NULL, sock,
+				       NULL);
 			return;
 #else
 			flog_err(EC_ZEBRA_RECVMSG_OVERRUN,
@@ -1376,7 +1360,7 @@ static void kernel_read(struct thread *thread)
 	if (nbytes == 0)
 		return;
 
-	thread_add_read(zrouter.master, kernel_read, NULL, sock, NULL);
+	event_add_read(zrouter.master, kernel_read, NULL, sock, NULL);
 
 	if (IS_ZEBRA_DEBUG_KERNEL)
 		rtmsg_debug(&buf.r.rtm);
@@ -1479,7 +1463,15 @@ static void routing_socket(struct zebra_ns *zns)
 	}
 
 	/* kernel_read needs rewrite. */
-	thread_add_read(zrouter.master, kernel_read, NULL, routing_sock, NULL);
+	event_add_read(zrouter.master, kernel_read, NULL, routing_sock, NULL);
+}
+
+void interface_list_second(struct zebra_ns *zns)
+{
+}
+
+void interface_list_tunneldump(struct zebra_ns *zns)
+{
 }
 
 /* Exported interface function.  This function simply calls
@@ -1631,6 +1623,8 @@ void kernel_update_multi(struct dplane_ctx_list_head *ctx_list)
 		case DPLANE_OP_GRE_SET:
 		case DPLANE_OP_INTF_ADDR_ADD:
 		case DPLANE_OP_INTF_ADDR_DEL:
+		case DPLANE_OP_STARTUP_STAGE:
+		case DPLANE_OP_SRV6_ENCAP_SRCADDR_SET:
 			zlog_err("Unhandled dplane data for %s",
 				 dplane_op2str(dplane_ctx_get_op(ctx)));
 			res = ZEBRA_DPLANE_REQUEST_FAILURE;
