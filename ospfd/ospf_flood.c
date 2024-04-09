@@ -765,8 +765,9 @@ int ospf_flood_through_interface(struct ospf_interface *oi,
 	    packets must be sent, as unicasts, to each adjacent	neighbor
 	    (i.e., those in state Exchange or greater).	 The destination
 	    IP addresses for these packets are the neighbors' IP
-	    addresses.   */
-	if (oi->type == OSPF_IFTYPE_NBMA) {
+	    addresses. This behavior is extended to P2MP networks which
+	    don't support broadcast. */
+	if (OSPF_IF_NON_BROADCAST(oi)) {
 		struct ospf_neighbor *nbr;
 
 		for (rn = route_top(oi->nbrs); rn; rn = route_next(rn)) {

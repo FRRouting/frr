@@ -147,17 +147,11 @@ void ospf_if_reset(struct interface *ifp)
 	}
 }
 
-void ospf_if_reset_variables(struct ospf_interface *oi)
+static void ospf_if_default_variables(struct ospf_interface *oi)
 {
 	/* Set default values. */
-	/* don't clear this flag.  oi->flag = OSPF_IF_DISABLE; */
 
-	if (oi->vl_data)
-		oi->type = OSPF_IFTYPE_VIRTUALLINK;
-	else
-		/* preserve network-type */
-		if (oi->type != OSPF_IFTYPE_NBMA)
-		oi->type = OSPF_IFTYPE_BROADCAST;
+	oi->type = OSPF_IFTYPE_BROADCAST;
 
 	oi->state = ISM_Down;
 
@@ -254,7 +248,7 @@ struct ospf_interface *ospf_if_new(struct ospf *ospf, struct interface *ifp,
 	oi->ls_ack_direct.ls_ack = list_new();
 
 	/* Set default values. */
-	ospf_if_reset_variables(oi);
+	ospf_if_default_variables(oi);
 
 	/* Set pseudo neighbor to Null */
 	oi->nbr_self = NULL;

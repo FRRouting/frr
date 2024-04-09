@@ -367,7 +367,7 @@ static int ism_interface_up(struct ospf_interface *oi)
 		/* Otherwise, the state transitions to Waiting. */
 		next_state = ISM_Waiting;
 
-	if (oi->type == OSPF_IFTYPE_NBMA)
+	if (OSPF_IF_NON_BROADCAST(oi))
 		ospf_nbr_nbma_if_update(oi->ospf, oi);
 
 	/*  ospf_ism_event (t); */

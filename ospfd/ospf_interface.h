@@ -119,6 +119,9 @@ struct ospf_if_params {
 	/* point-to-multipoint delayed reflooding configuration */
 	bool p2mp_delay_reflood;
 
+	/* point-to-multipoint doesn't support broadcast */
+	bool p2mp_non_broadcast;
+
 	/* Opaque LSA capability at interface level (see RFC5250) */
 	DECLARE_IF_PARAM(bool, opaque_capable);
 };
@@ -185,12 +188,19 @@ struct ospf_interface {
 
 	/* OSPF Network Type. */
 	uint8_t type;
+#define OSPF_IF_NON_BROADCAST(O)                                               \
+	(((O)->type == OSPF_IFTYPE_NBMA) ||                                    \
+	 ((((O)->type == OSPF_IFTYPE_POINTOMULTIPOINT) &&                      \
+	   (O)->p2mp_non_broadcast)))
 
 	/* point-to-point DMVPN configuration */
 	uint8_t ptp_dmvpn;
 
 	/* point-to-multipoint delayed reflooding */
 	bool p2mp_delay_reflood;
+
+	/* point-to-multipoint doesn't support broadcast */
+	bool p2mp_non_broadcast;
 
 	/* State of Interface State Machine. */
 	uint8_t state;
@@ -326,7 +336,6 @@ extern void ospf_if_update_params(struct interface *ifp, struct in_addr addr);
 extern int ospf_if_new_hook(struct interface *ifp);
 extern void ospf_if_init(void);
 extern void ospf_if_stream_unset(struct ospf_interface *oi);
-extern void ospf_if_reset_variables(struct ospf_interface *oi);
 extern int ospf_if_is_enable(struct ospf_interface *oi);
 extern int ospf_if_get_output_cost(struct ospf_interface *oi);
 extern void ospf_if_recalculate_output_cost(struct interface *ifp);

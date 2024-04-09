@@ -166,7 +166,7 @@ static int nsm_hello_received(struct ospf_neighbor *nbr)
 	OSPF_NSM_TIMER_ON(nbr->t_inactivity, ospf_inactivity_timer,
 			  nbr->v_inactivity);
 
-	if (nbr->oi->type == OSPF_IFTYPE_NBMA && nbr->nbr_nbma)
+	if (OSPF_IF_NON_BROADCAST(nbr->oi) && nbr->nbr_nbma != NULL)
 		EVENT_OFF(nbr->nbr_nbma->t_poll);
 
 	/* Send proactive ARP requests */
@@ -377,7 +377,7 @@ static int nsm_kill_nbr(struct ospf_neighbor *nbr)
 		return 0;
 	}
 
-	if (nbr->oi->type == OSPF_IFTYPE_NBMA && nbr->nbr_nbma != NULL) {
+	if (OSPF_IF_NON_BROADCAST(nbr->oi) && nbr->nbr_nbma != NULL) {
 		struct ospf_nbr_nbma *nbr_nbma = nbr->nbr_nbma;
 
 		nbr_nbma->nbr = NULL;
