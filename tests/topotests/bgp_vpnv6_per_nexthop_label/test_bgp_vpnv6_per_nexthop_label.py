@@ -946,7 +946,7 @@ def test_route_with_multiple_nexthop():
     # that route should be sent along with label for 192::2:11
     topotest.sleep(3, "Checking BGP VPNv6 labels on r2")
     bgp_vpnv6_table_check(
-        tgen.gears["r2"], group=["192:168::255/112", "192:2::/64", "172:31::30/128"]
+        tgen.gears["r2"], group=["192:168::255:0/112", "192:2::/64", "172:31::30/128"]
     )
 
     # diagnostic
