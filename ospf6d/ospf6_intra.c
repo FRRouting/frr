@@ -32,6 +32,7 @@
 #include "ospf6_flood.h"
 #include "ospf6d.h"
 #include "ospf6_spf.h"
+#include "ospf6_tlv.h"
 #include "ospf6_gr.h"
 
 unsigned char conf_debug_ospf6_brouter = 0;

@@ -30,6 +30,7 @@
 #include "ospf6d/ospf6_flood.h"
 #include "ospf6d/ospf6_intra.h"
 #include "ospf6d/ospf6_spf.h"
+#include "ospf6d/ospf6_tlv.h"
 #include "ospf6d/ospf6_gr.h"
 #include "ospf6d/ospf6_gr_clippy.c"
 
@@ -57,13 +58,13 @@ static int ospf6_gr_lsa_originate(struct ospf6_interface *oi,
 	grace_lsa = (struct ospf6_grace_lsa *)ospf6_lsa_header_end(lsa_header);
 
 	/* Put grace period. */
-	grace_lsa->tlv_period.header.type = htons(GRACE_PERIOD_TYPE);
-	grace_lsa->tlv_period.header.length = htons(GRACE_PERIOD_LENGTH);
+	grace_lsa->tlv_period.header.type = htons(TLV_GRACE_PERIOD_TYPE);
+	grace_lsa->tlv_period.header.length = htons(TLV_GRACE_PERIOD_LENGTH);
 	grace_lsa->tlv_period.interval = htonl(gr_info->grace_period);
 
 	/* Put restart reason. */
-	grace_lsa->tlv_reason.header.type = htons(RESTART_REASON_TYPE);
-	grace_lsa->tlv_reason.header.length = htons(RESTART_REASON_LENGTH);
+	grace_lsa->tlv_reason.header.type = htons(TLV_GRACE_RESTART_REASON_TYPE);
+	grace_lsa->tlv_reason.header.length = htons(TLV_GRACE_RESTART_REASON_LENGTH);
 	grace_lsa->tlv_reason.reason = reason;
 
 	/* Fill LSA Header */
