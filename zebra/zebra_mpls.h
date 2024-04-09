@@ -203,12 +203,13 @@ int zebra_mpls_fec_unregister(struct zebra_vrf *zvrf, struct prefix *p,
  * hash..
  */
 struct zebra_fec *zebra_mpls_fec_for_label(struct zebra_vrf *zvrf,
-					   mpls_label_t label);
+					   struct prefix *p, mpls_label_t label);
 
 /*
  * Inform if specified label is currently bound to a FEC or not.
  */
-int zebra_mpls_label_already_bound(struct zebra_vrf *zvrf, mpls_label_t label);
+int zebra_mpls_label_already_bound(struct zebra_vrf *zvrf, struct prefix *p,
+				   mpls_label_t label);
 
 /*
  * Add static FEC to label binding. If there are clients registered for this

@@ -2476,7 +2476,7 @@ static int zebra_mpls_cleanup_zclient_labels(struct zserv *client)
  * hash..
  */
 struct zebra_fec *zebra_mpls_fec_for_label(struct zebra_vrf *zvrf,
-					   mpls_label_t label)
+					   struct prefix *p, mpls_label_t label)
 {
 	struct route_node *rn;
 	struct zebra_fec *fec;
@@ -2491,8 +2491,11 @@ struct zebra_fec *zebra_mpls_fec_for_label(struct zebra_vrf *zvrf,
 			if (!rn->info)
 				continue;
 			fec = rn->info;
-			if (fec->label == label)
+			if (fec->label == label) {
+				if (p && prefix_same(p, &rn->p))
+					return NULL;
 				return fec;
+			}
 		}
 	}
 
@@ -2502,9 +2505,10 @@ struct zebra_fec *zebra_mpls_fec_for_label(struct zebra_vrf *zvrf,
 /*
  * Inform if specified label is currently bound to a FEC or not.
  */
-int zebra_mpls_label_already_bound(struct zebra_vrf *zvrf, mpls_label_t label)
+int zebra_mpls_label_already_bound(struct zebra_vrf *zvrf, struct prefix *p,
+				   mpls_label_t label)
 {
-	return (zebra_mpls_fec_for_label(zvrf, label) ? 1 : 0);
+	return (zebra_mpls_fec_for_label(zvrf, p, label) ? 1 : 0);
 }
 
 /*
