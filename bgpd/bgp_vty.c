@@ -9711,8 +9711,6 @@ DEFPY (af_label_vpn_export,
 				 BGP_VPN_POLICY_TOVPN_LABEL_AUTO);
 			/* fetch a label */
 			bgp->vpn_policy[afi].tovpn_label = MPLS_LABEL_NONE;
-			bgp_lp_get(LP_TYPE_VRF, &bgp->vpn_policy[afi],
-				   vpn_leak_label_callback);
 		} else {
 			bgp->vpn_policy[afi].tovpn_label = label;
 			UNSET_FLAG(bgp->vpn_policy[afi].flags,
