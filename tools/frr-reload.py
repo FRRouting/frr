@@ -220,6 +220,23 @@ def get_normalized_mac_ip_line(line):
     return line
 
 
+def get_normalized_interface_vrf(line):
+    """
+    If 'interface <int_name> vrf <vrf_name>' is present in file,
+    we need to remove the explicit "vrf <vrf_name>"
+    so that the context information is created
+    correctly and configurations are matched appropriately.
+    """
+
+    intf_vrf = re.search("interface (\S+) vrf (\S+)", line)
+    if intf_vrf:
+        old_line = "vrf %s" % intf_vrf.group(2)
+        new_line = line.replace(old_line, "").strip()
+        return new_line
+
+    return line
+
+
 # This dictionary contains a tree of all commands that we know start a
 # new multi-line context. All other commands are treated either as
 # commands inside a multi-line context or as single-line contexts. This
@@ -294,6 +311,10 @@ class Config(object):
 
             # Compress duplicate whitespaces
             line = " ".join(line.split())
+
+            # Remove 'vrf <vrf_name>' from 'interface <x> vrf <vrf_name>'
+            if line.startswith("interface ") and "vrf" in line:
+                line = get_normalized_interface_vrf(line)
 
             if ":" in line:
                 line = get_normalized_mac_ip_line(line)
