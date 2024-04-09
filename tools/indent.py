@@ -34,13 +34,13 @@ def wrap_file(fn):
         ci = subprocess.Popen(
             ["clang-format"], stdin=subprocess.PIPE, stdout=subprocess.PIPE
         )
-        stdout, ign = ci.communicate(text)
+        stdout, ign = ci.communicate(text.encode("utf-8"))
         ci.wait()
         if ci.returncode != 0:
             raise IOError("clang-format returned %d" % (ci.returncode))
 
         # remove the bits we inserted above
-        final = clean_re.sub("", stdout)
+        final = clean_re.sub("", stdout.decode("utf-8"))
 
         tmpname = fn + ".indent"
         with open(tmpname, "w") as ofd:
