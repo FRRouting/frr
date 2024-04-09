@@ -2,7 +2,6 @@
   "routerId":"192.168.100.1",
   "as":65001,
   "vrfName":"default",
-  "tableVersion":7,
   "peerCount":2,
   "peers":{
     "192.168.1.2":{
