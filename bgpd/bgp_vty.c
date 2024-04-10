@@ -12855,7 +12855,7 @@ static void bgp_show_neighbor_graceful_restart_remote_mode(struct vty *vty,
 	if (json)
 		json_object_string_add(json, "remoteGrMode", mode);
 	else
-		vty_out(vty, "%s\n", mode);
+		vty_out(vty, "%s", mode);
 }
 
 static void bgp_show_neighbor_graceful_restart_local_mode(struct vty *vty,
@@ -12887,7 +12887,7 @@ static void bgp_show_neighbor_graceful_restart_local_mode(struct vty *vty,
 	if (json)
 		json_object_string_add(json, "localGrMode", mode);
 	else
-		vty_out(vty, "%s\n", mode);
+		vty_out(vty, "%s", mode);
 }
 
 static void bgp_show_neighbor_graceful_restart_capability_per_afi_safi(
