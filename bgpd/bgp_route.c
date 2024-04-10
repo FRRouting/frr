@@ -2771,17 +2771,26 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 	 * the most sense. However, don't modify if the link-bandwidth has
 	 * been explicitly set by user policy.
 	 */
-	if (nh_reset &&
-	    bgp_path_info_mpath_chkwtd(bgp, pi) &&
+	if (nh_reset && bgp_path_info_mpath_chkwtd(bgp, pi) &&
 	    (cum_bw = bgp_path_info_mpath_cumbw(pi)) != 0 &&
-	    !CHECK_FLAG(attr->rmap_change_flags, BATTR_RMAP_LINK_BW_SET))
-		bgp_attr_set_ecommunity(
-			attr,
-			ecommunity_replace_linkbw(
-				bgp->as, bgp_attr_get_ecommunity(attr), cum_bw,
-				CHECK_FLAG(
-					peer->flags,
-					PEER_FLAG_DISABLE_LINK_BW_ENCODING_IEEE)));
+	    !CHECK_FLAG(attr->rmap_change_flags, BATTR_RMAP_LINK_BW_SET)) {
+		if (CHECK_FLAG(peer->flags, PEER_FLAG_EXTENDED_LINK_BANDWIDTH))
+			bgp_attr_set_ipv6_ecommunity(
+				attr,
+				ecommunity_replace_linkbw(bgp->as,
+							  bgp_attr_get_ipv6_ecommunity(
+								  attr),
+							  cum_bw, false, true));
+		else
+			bgp_attr_set_ecommunity(
+				attr,
+				ecommunity_replace_linkbw(
+					bgp->as, bgp_attr_get_ecommunity(attr),
+					cum_bw,
+					CHECK_FLAG(peer->flags,
+						   PEER_FLAG_DISABLE_LINK_BW_ENCODING_IEEE),
+					false));
+	}
 
 	return true;
 }
