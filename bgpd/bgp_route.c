@@ -10453,6 +10453,7 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 	json_object *json_cluster_list = NULL;
 	json_object *json_cluster_list_list = NULL;
 	json_object *json_ext_community = NULL;
+	json_object *json_ext_ipv6_community = NULL;
 	json_object *json_last_update = NULL;
 	json_object *json_pmsi = NULL;
 	json_object *json_nexthop_global = NULL;
@@ -11158,6 +11159,21 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 		} else {
 			vty_out(vty, "      Extended Community: %s\n",
 				bgp_attr_get_ecommunity(attr)->str);
+		}
+	}
+
+	if (attr->flag & ATTR_FLAG_BIT(BGP_ATTR_IPV6_EXT_COMMUNITIES)) {
+		if (json_paths) {
+			json_ext_ipv6_community = json_object_new_object();
+			json_object_string_add(json_ext_ipv6_community, "string",
+					       bgp_attr_get_ipv6_ecommunity(attr)
+						       ->str);
+			json_object_object_add(json_path,
+					       "extendedIpv6Community",
+					       json_ext_ipv6_community);
+		} else {
+			vty_out(vty, "      Extended IPv6 Community: %s\n",
+				bgp_attr_get_ipv6_ecommunity(attr)->str);
 		}
 	}
 
