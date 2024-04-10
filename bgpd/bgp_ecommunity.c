@@ -1820,7 +1820,7 @@ const uint8_t *ecommunity_linkbw_present(struct ecommunity *ecom, uint64_t *bw)
 		uint8_t type, sub_type;
 		uint32_t bwval;
 
-		eval = pnt = (ecom->val + (i * ECOMMUNITY_SIZE));
+		eval = pnt = (ecom->val + (i * ecom->unit_size));
 		type = *pnt++;
 		sub_type = *pnt++;
 
