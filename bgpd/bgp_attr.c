@@ -4357,7 +4357,7 @@ static void bgp_packet_ecommunity_attribute(struct stream *s, struct peer *peer,
 					    bool transparent, int attribute)
 {
 	if (peer->sort == BGP_PEER_IBGP || peer->sort == BGP_PEER_CONFED ||
-	    transparent) {
+	    peer->sub_sort == BGP_PEER_EBGP_OAD || transparent) {
 		if (ecomm->size * ecomm->unit_size > 255) {
 			stream_putc(s, BGP_ATTR_FLAG_OPTIONAL |
 					       BGP_ATTR_FLAG_TRANS |
