@@ -1125,12 +1125,10 @@ static void zebra_show_client_detail(struct vty *vty, struct zserv *client)
 	vty_out(vty, "ES-EVI      %-12u%-12u%-12u\n",
 		client->local_es_evi_add_cnt, 0, client->local_es_evi_del_cnt);
 	vty_out(vty, "Errors: %u\n", client->error_cnt);
-
-#if defined DEV_BUILD
 	vty_out(vty, "Input Fifo: %zu:%zu Output Fifo: %zu:%zu\n",
 		client->ibuf_fifo->count, client->ibuf_fifo->max_count,
 		client->obuf_fifo->count, client->obuf_fifo->max_count);
-#endif
+
 	vty_out(vty, "\n");
 }
 
