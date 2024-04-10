@@ -441,7 +441,7 @@ struct zapi_nexthop {
 
 	struct ethaddr rmac;
 
-	uint32_t weight;
+	uint64_t weight;
 
 	/* Backup nexthops, for IP-FRR, TI-LFA, etc */
 	uint8_t backup_num;
