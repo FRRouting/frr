@@ -62,33 +62,8 @@
           "local-address-v6":"2001:db8::1",
           "remote-address-v6":"2001:db8::2",
           "max-link-bandwidth":99999997952,
-          "max-resv-link-bandwidth":1250000,
-          "unreserved-bandwidth":[
-            {
-              "class-type-0":1250000
-            },
-            {
-              "class-type-1":1250000
-            },
-            {
-              "class-type-2":1250000
-            },
-            {
-              "class-type-3":1250000
-            },
-            {
-              "class-type-4":1250000
-            },
-            {
-              "class-type-5":1250000
-            },
-            {
-              "class-type-6":1250000
-            },
-            {
-              "class-type-7":1250000
-            }
-          ],
+          "max-resv-link-bandwidth":null,
+          "unreserved-bandwidth":null,
           "delay":10000,
           "available-bandwidth":125000000.0
         }
@@ -103,34 +78,9 @@
         "metric":10,
         "edge-attributes":{
           "local-address-v6":"2001:db8::2",
-          "max-link-bandwidth":1250000,
-          "max-resv-link-bandwidth":1250000,
-          "unreserved-bandwidth":[
-            {
-              "class-type-0":1250000
-            },
-            {
-              "class-type-1":1250000
-            },
-            {
-              "class-type-2":1250000
-            },
-            {
-              "class-type-3":1250000
-            },
-            {
-              "class-type-4":1250000
-            },
-            {
-              "class-type-5":1250000
-            },
-            {
-              "class-type-6":1250000
-            },
-            {
-              "class-type-7":1250000
-            }
-          ]
+          "max-link-bandwidth":null,
+          "max-resv-link-bandwidth":null,
+          "unreserved-bandwidth":null
         }
       },
       {
@@ -144,34 +94,9 @@
         "edge-attributes":{
           "local-address-v6":"2001:db8:1::1:1",
           "remote-address-v6":"2001:db8:1::1:2",
-          "max-link-bandwidth":1250000,
-          "max-resv-link-bandwidth":1250000,
-          "unreserved-bandwidth":[
-            {
-              "class-type-0":1250000
-            },
-            {
-              "class-type-1":1250000
-            },
-            {
-              "class-type-2":1250000
-            },
-            {
-              "class-type-3":1250000
-            },
-            {
-              "class-type-4":1250000
-            },
-            {
-              "class-type-5":1250000
-            },
-            {
-              "class-type-6":1250000
-            },
-            {
-              "class-type-7":1250000
-            }
-          ]
+          "max-link-bandwidth":null,
+          "max-resv-link-bandwidth":null,
+          "unreserved-bandwidth":null
         }
       },
       {
@@ -185,34 +110,9 @@
         "edge-attributes":{
           "local-address-v6":"2001:db8:1::1:2",
           "remote-address-v6":"2001:db8:1::1:1",
-          "max-link-bandwidth":1250000,
-          "max-resv-link-bandwidth":1250000,
-          "unreserved-bandwidth":[
-            {
-              "class-type-0":1250000
-            },
-            {
-              "class-type-1":1250000
-            },
-            {
-              "class-type-2":1250000
-            },
-            {
-              "class-type-3":1250000
-            },
-            {
-              "class-type-4":1250000
-            },
-            {
-              "class-type-5":1250000
-            },
-            {
-              "class-type-6":1250000
-            },
-            {
-              "class-type-7":1250000
-            }
-          ]
+          "max-link-bandwidth":null,
+          "max-resv-link-bandwidth":null,
+          "unreserved-bandwidth":null
         }
       },
       {
@@ -226,34 +126,9 @@
         "edge-attributes":{
           "local-address-v6":"2001:db8:3::3:2",
           "remote-address-v6":"2001:db8:3::3:3",
-          "max-link-bandwidth":1250000,
-          "max-resv-link-bandwidth":1250000,
-          "unreserved-bandwidth":[
-            {
-              "class-type-0":1250000
-            },
-            {
-              "class-type-1":1250000
-            },
-            {
-              "class-type-2":1250000
-            },
-            {
-              "class-type-3":1250000
-            },
-            {
-              "class-type-4":1250000
-            },
-            {
-              "class-type-5":1250000
-            },
-            {
-              "class-type-6":1250000
-            },
-            {
-              "class-type-7":1250000
-            }
-          ]
+          "max-link-bandwidth":null,
+          "max-resv-link-bandwidth":null,
+          "unreserved-bandwidth":null
         }
       },
       {
@@ -268,34 +143,9 @@
           "admin-group":32,
           "local-address-v6":"2001:db8:3::3:3",
           "remote-address-v6":"2001:db8:3::3:2",
-          "max-link-bandwidth":1250000,
-          "max-resv-link-bandwidth":1250000,
-          "unreserved-bandwidth":[
-            {
-              "class-type-0":1250000
-            },
-            {
-              "class-type-1":1250000
-            },
-            {
-              "class-type-2":1250000
-            },
-            {
-              "class-type-3":1250000
-            },
-            {
-              "class-type-4":1250000
-            },
-            {
-              "class-type-5":1250000
-            },
-            {
-              "class-type-6":1250000
-            },
-            {
-              "class-type-7":1250000
-            }
-          ]
+          "max-link-bandwidth":null,
+          "max-resv-link-bandwidth":null,
+          "unreserved-bandwidth":null
         }
       },
       {
@@ -309,34 +159,9 @@
         "edge-attributes":{
           "local-address-v6":"2001:db8:5::3:4",
           "remote-address-v6":"2001:db8:5::4:3",
-          "max-link-bandwidth":1250000,
-          "max-resv-link-bandwidth":1250000,
-          "unreserved-bandwidth":[
-            {
-              "class-type-0":1250000
-            },
-            {
-              "class-type-1":1250000
-            },
-            {
-              "class-type-2":1250000
-            },
-            {
-              "class-type-3":1250000
-            },
-            {
-              "class-type-4":1250000
-            },
-            {
-              "class-type-5":1250000
-            },
-            {
-              "class-type-6":1250000
-            },
-            {
-              "class-type-7":1250000
-            }
-          ]
+          "max-link-bandwidth":null,
+          "max-resv-link-bandwidth":null,
+          "unreserved-bandwidth":null
         },
         "segment-routing":[
           {
@@ -357,34 +182,9 @@
           "te-metric":10,
           "local-address-v6":"2001:db8:5::4:3",
           "remote-address-v6":"2001:db8:5::3:4",
-          "max-link-bandwidth":1250000,
-          "max-resv-link-bandwidth":1250000,
-          "unreserved-bandwidth":[
-            {
-              "class-type-0":1250000
-            },
-            {
-              "class-type-1":1250000
-            },
-            {
-              "class-type-2":1250000
-            },
-            {
-              "class-type-3":1250000
-            },
-            {
-              "class-type-4":1250000
-            },
-            {
-              "class-type-5":1250000
-            },
-            {
-              "class-type-6":1250000
-            },
-            {
-              "class-type-7":1250000
-            }
-          ],
+          "max-link-bandwidth":null,
+          "max-resv-link-bandwidth":null,
+          "unreserved-bandwidth":null,
           "delay":50000
         }
       },
@@ -401,33 +201,8 @@
           "local-address":"10.0.0.1",
           "remote-address":"10.0.0.2",
           "max-link-bandwidth":99999997952,
-          "max-resv-link-bandwidth":1250000,
-          "unreserved-bandwidth":[
-            {
-              "class-type-0":1250000
-            },
-            {
-              "class-type-1":1250000
-            },
-            {
-              "class-type-2":1250000
-            },
-            {
-              "class-type-3":1250000
-            },
-            {
-              "class-type-4":1250000
-            },
-            {
-              "class-type-5":1250000
-            },
-            {
-              "class-type-6":1250000
-            },
-            {
-              "class-type-7":1250000
-            }
-          ],
+          "max-resv-link-bandwidth":null,
+          "unreserved-bandwidth":null,
           "delay":10000,
           "available-bandwidth":125000000.0
         }
@@ -443,34 +218,9 @@
         "edge-attributes":{
           "local-address":"10.0.0.2",
           "remote-address":"10.0.0.1",
-          "max-link-bandwidth":1250000,
-          "max-resv-link-bandwidth":1250000,
-          "unreserved-bandwidth":[
-            {
-              "class-type-0":1250000
-            },
-            {
-              "class-type-1":1250000
-            },
-            {
-              "class-type-2":1250000
-            },
-            {
-              "class-type-3":1250000
-            },
-            {
-              "class-type-4":1250000
-            },
-            {
-              "class-type-5":1250000
-            },
-            {
-              "class-type-6":1250000
-            },
-            {
-              "class-type-7":1250000
-            }
-          ]
+          "max-link-bandwidth":null,
+          "max-resv-link-bandwidth":null,
+          "unreserved-bandwidth":null
         }
       },
       {
@@ -484,34 +234,9 @@
         "edge-attributes":{
           "local-address":"10.0.1.1",
           "remote-address":"10.0.1.2",
-          "max-link-bandwidth":1250000,
-          "max-resv-link-bandwidth":1250000,
-          "unreserved-bandwidth":[
-            {
-              "class-type-0":1250000
-            },
-            {
-              "class-type-1":1250000
-            },
-            {
-              "class-type-2":1250000
-            },
-            {
-              "class-type-3":1250000
-            },
-            {
-              "class-type-4":1250000
-            },
-            {
-              "class-type-5":1250000
-            },
-            {
-              "class-type-6":1250000
-            },
-            {
-              "class-type-7":1250000
-            }
-          ]
+          "max-link-bandwidth":null,
+          "max-resv-link-bandwidth":null,
+          "unreserved-bandwidth":null
         }
       },
       {
@@ -525,34 +250,9 @@
         "edge-attributes":{
           "local-address":"10.0.1.2",
           "remote-address":"10.0.1.1",
-          "max-link-bandwidth":1250000,
-          "max-resv-link-bandwidth":1250000,
-          "unreserved-bandwidth":[
-            {
-              "class-type-0":1250000
-            },
-            {
-              "class-type-1":1250000
-            },
-            {
-              "class-type-2":1250000
-            },
-            {
-              "class-type-3":1250000
-            },
-            {
-              "class-type-4":1250000
-            },
-            {
-              "class-type-5":1250000
-            },
-            {
-              "class-type-6":1250000
-            },
-            {
-              "class-type-7":1250000
-            }
-          ]
+          "max-link-bandwidth":null,
+          "max-resv-link-bandwidth":null,
+          "unreserved-bandwidth":null
         }
       },
       {
@@ -566,34 +266,9 @@
         "edge-attributes":{
           "local-address":"10.0.3.2",
           "remote-address":"10.0.3.3",
-          "max-link-bandwidth":1250000,
-          "max-resv-link-bandwidth":1250000,
-          "unreserved-bandwidth":[
-            {
-              "class-type-0":1250000
-            },
-            {
-              "class-type-1":1250000
-            },
-            {
-              "class-type-2":1250000
-            },
-            {
-              "class-type-3":1250000
-            },
-            {
-              "class-type-4":1250000
-            },
-            {
-              "class-type-5":1250000
-            },
-            {
-              "class-type-6":1250000
-            },
-            {
-              "class-type-7":1250000
-            }
-          ]
+          "max-link-bandwidth":null,
+          "max-resv-link-bandwidth":null,
+          "unreserved-bandwidth":null
         }
       },
       {
@@ -608,34 +283,9 @@
           "admin-group":32,
           "local-address":"10.0.3.3",
           "remote-address":"10.0.3.2",
-          "max-link-bandwidth":1250000,
-          "max-resv-link-bandwidth":1250000,
-          "unreserved-bandwidth":[
-            {
-              "class-type-0":1250000
-            },
-            {
-              "class-type-1":1250000
-            },
-            {
-              "class-type-2":1250000
-            },
-            {
-              "class-type-3":1250000
-            },
-            {
-              "class-type-4":1250000
-            },
-            {
-              "class-type-5":1250000
-            },
-            {
-              "class-type-6":1250000
-            },
-            {
-              "class-type-7":1250000
-            }
-          ]
+          "max-link-bandwidth":null,
+          "max-resv-link-bandwidth":null,
+          "unreserved-bandwidth":null
         }
       },
       {
@@ -651,33 +301,8 @@
           "local-address":"10.0.4.2",
           "remote-address":"10.0.4.4",
           "max-link-bandwidth":99999997952,
-          "max-resv-link-bandwidth":1250000,
-          "unreserved-bandwidth":[
-            {
-              "class-type-0":1250000
-            },
-            {
-              "class-type-1":1250000
-            },
-            {
-              "class-type-2":1250000
-            },
-            {
-              "class-type-3":1250000
-            },
-            {
-              "class-type-4":1250000
-            },
-            {
-              "class-type-5":1250000
-            },
-            {
-              "class-type-6":1250000
-            },
-            {
-              "class-type-7":1250000
-            }
-          ],
+          "max-resv-link-bandwidth":null,
+          "unreserved-bandwidth":null,
           "delay":25000
         }
       },
@@ -692,34 +317,9 @@
         "edge-attributes":{
           "local-address":"10.0.4.4",
           "remote-address":"10.0.4.2",
-          "max-link-bandwidth":1250000,
-          "max-resv-link-bandwidth":1250000,
-          "unreserved-bandwidth":[
-            {
-              "class-type-0":1250000
-            },
-            {
-              "class-type-1":1250000
-            },
-            {
-              "class-type-2":1250000
-            },
-            {
-              "class-type-3":1250000
-            },
-            {
-              "class-type-4":1250000
-            },
-            {
-              "class-type-5":1250000
-            },
-            {
-              "class-type-6":1250000
-            },
-            {
-              "class-type-7":1250000
-            }
-          ],
+          "max-link-bandwidth":null,
+          "max-resv-link-bandwidth":null,
+          "unreserved-bandwidth":null,
           "delay":20000,
           "jitter":10000
         },
