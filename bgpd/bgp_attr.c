@@ -2661,6 +2661,10 @@ bgp_attr_ipv6_ext_communities(struct bgp_attr_parser_args *args)
 		return bgp_attr_malformed(args, BGP_NOTIFY_UPDATE_OPT_ATTR_ERR,
 					  args->total);
 
+	/* Extract link bandwidth, if any. */
+	(void)ecommunity_linkbw_present(bgp_attr_get_ipv6_ecommunity(attr),
+					&attr->link_bw);
+
 	return BGP_ATTR_PARSE_PROCEED;
 
 ipv6_ext_community_ignore:
