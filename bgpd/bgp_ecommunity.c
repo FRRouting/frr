@@ -1025,10 +1025,6 @@ static int ecommunity_lb_str(char *buf, size_t bufsz, const uint8_t *pnt,
 	uint32_t bw_tmp, bw;
 	char bps_buf[20] = {0};
 
-#define ONE_GBPS_BYTES (1000 * 1000 * 1000 / 8)
-#define ONE_MBPS_BYTES (1000 * 1000 / 8)
-#define ONE_KBPS_BYTES (1000 / 8)
-
 	as = (*pnt++ << 8);
 	as |= (*pnt++);
 	(void)ptr_get_be32(pnt, &bw_tmp);
@@ -1049,6 +1045,33 @@ static int ecommunity_lb_str(char *buf, size_t bufsz, const uint8_t *pnt,
 		snprintf(bps_buf, sizeof(bps_buf), "%u bps", bw * 8);
 
 	len = snprintf(buf, bufsz, "LB:%u:%u (%s)", as, bw, bps_buf);
+	return len;
+}
+
+static int ipv6_ecommunity_lb_str(char *buf, size_t bufsz, const uint8_t *pnt)
+{
+	int len = 0;
+	as_t as;
+	uint64_t bw;
+	char bps_buf[20] = { 0 };
+
+	pnt += 2; /* Reserved */
+	pnt = ptr_get_be64(pnt, &bw);
+	(void)ptr_get_be32(pnt, &as);
+
+	if (bw >= ONE_GBPS_BYTES)
+		snprintf(bps_buf, sizeof(bps_buf), "%.3f Gbps",
+			 (float)(bw / ONE_GBPS_BYTES));
+	else if (bw >= ONE_MBPS_BYTES)
+		snprintf(bps_buf, sizeof(bps_buf), "%.3f Mbps",
+			 (float)(bw / ONE_MBPS_BYTES));
+	else if (bw >= ONE_KBPS_BYTES)
+		snprintf(bps_buf, sizeof(bps_buf), "%.3f Kbps",
+			 (float)(bw / ONE_KBPS_BYTES));
+	else
+		snprintf(bps_buf, sizeof(bps_buf), "%" PRIu64 " bps", bw * 8);
+
+	len = snprintf(buf, bufsz, "LB:%u:%" PRIu64 " (%s)", as, bw, bps_buf);
 	return len;
 }
 
@@ -1152,6 +1175,12 @@ char *ecommunity_ecom2str(struct ecommunity *ecom, int format, int filter)
 					ecommunity_lb_str(
 						encbuf, sizeof(encbuf), pnt,
 						ecom->disable_ieee_floating);
+				} else if (sub_type ==
+						   ECOMMUNITY_EXTENDED_LINK_BANDWIDTH &&
+					   type == ECOMMUNITY_ENCODE_AS4) {
+					ipv6_ecommunity_lb_str(encbuf,
+							       sizeof(encbuf),
+							       pnt);
 				} else if (sub_type == ECOMMUNITY_NODE_TARGET &&
 					   type == ECOMMUNITY_ENCODE_IP) {
 					ecommunity_node_target_str(
@@ -1367,6 +1396,13 @@ char *ecommunity_ecom2str(struct ecommunity *ecom, int format, int filter)
 			if (sub_type == ECOMMUNITY_LINK_BANDWIDTH)
 				ecommunity_lb_str(encbuf, sizeof(encbuf), pnt,
 						  ecom->disable_ieee_floating);
+			else
+				unk_ecom = 1;
+		} else if (type == ECOMMUNITY_ENCODE_AS_NON_TRANS) {
+			sub_type = *pnt++;
+			if (sub_type == ECOMMUNITY_EXTENDED_LINK_BANDWIDTH)
+				ipv6_ecommunity_lb_str(encbuf, sizeof(encbuf),
+						       pnt);
 			else
 				unk_ecom = 1;
 		} else if (type == ECOMMUNITY_ENCODE_IP_NON_TRANS) {
@@ -1818,7 +1854,6 @@ const uint8_t *ecommunity_linkbw_present(struct ecommunity *ecom, uint64_t *bw)
 	for (i = 0; i < ecom->size; i++) {
 		const uint8_t *pnt;
 		uint8_t type, sub_type;
-		uint32_t bwval;
 
 		eval = pnt = (ecom->val + (i * ecom->unit_size));
 		type = *pnt++;
@@ -1827,6 +1862,8 @@ const uint8_t *ecommunity_linkbw_present(struct ecommunity *ecom, uint64_t *bw)
 		if ((type == ECOMMUNITY_ENCODE_AS ||
 		     type == ECOMMUNITY_ENCODE_AS_NON_TRANS) &&
 		    sub_type == ECOMMUNITY_LINK_BANDWIDTH) {
+			uint32_t bwval;
+
 			pnt += 2; /* bandwidth is encoded as AS:val */
 			pnt = ptr_get_be32(pnt, &bwval);
 			(void)pnt; /* consume value */
@@ -1835,6 +1872,18 @@ const uint8_t *ecommunity_linkbw_present(struct ecommunity *ecom, uint64_t *bw)
 							 ? bwval
 							 : ieee_float_uint32_to_uint32(
 								   bwval));
+			return eval;
+		} else if (type == ECOMMUNITY_ENCODE_AS4 &&
+			   sub_type == ECOMMUNITY_EXTENDED_LINK_BANDWIDTH) {
+			uint64_t bwval;
+
+			pnt += 2; /* Reserved */
+			pnt = ptr_get_be64(pnt, &bwval);
+			(void)pnt;
+
+			if (bw)
+				*bw = bwval;
+
 			return eval;
 		}
 	}
@@ -1845,10 +1894,10 @@ const uint8_t *ecommunity_linkbw_present(struct ecommunity *ecom, uint64_t *bw)
 
 struct ecommunity *ecommunity_replace_linkbw(as_t as, struct ecommunity *ecom,
 					     uint64_t cum_bw,
-					     bool disable_ieee_floating)
+					     bool disable_ieee_floating,
+					     bool extended)
 {
 	struct ecommunity *new;
-	struct ecommunity_val lb_eval;
 	const uint8_t *eval;
 	uint8_t type;
 	uint64_t cur_bw;
@@ -1875,10 +1924,21 @@ struct ecommunity *ecommunity_replace_linkbw(as_t as, struct ecommunity *ecom,
 	 */
 	if (cum_bw > 0xFFFFFFFF)
 		cum_bw = 0xFFFFFFFF;
-	encode_lb_extcomm(as > BGP_AS_MAX ? BGP_AS_TRANS : as, cum_bw, false,
-			  &lb_eval, disable_ieee_floating);
-	new = ecommunity_dup(ecom);
-	ecommunity_add_val(new, &lb_eval, true, true);
+
+	if (extended) {
+		struct ecommunity_val_ipv6 lb_eval;
+
+		encode_lb_extended_extcomm(as, cum_bw, false, &lb_eval);
+		new = ecommunity_dup(ecom);
+		ecommunity_add_val_ipv6(new, &lb_eval, true, true);
+	} else {
+		struct ecommunity_val lb_eval;
+
+		encode_lb_extcomm(as > BGP_AS_MAX ? BGP_AS_TRANS : as, cum_bw,
+				  false, &lb_eval, disable_ieee_floating);
+		new = ecommunity_dup(ecom);
+		ecommunity_add_val(new, &lb_eval, true, true);
+	}
 
 	return new;
 }

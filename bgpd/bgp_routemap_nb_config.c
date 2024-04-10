@@ -2937,7 +2937,7 @@ lib_route_map_entry_set_action_rmap_set_action_extcommunity_lb_finish(
 	struct routemap_hook_context *rhc;
 	enum ecommunity_lb_type lb_type;
 	char str[VTY_BUFSIZ];
-	uint16_t bandwidth;
+	uint32_t bandwidth;
 	int ret;
 
 	/* Add configuration. */
@@ -2951,8 +2951,8 @@ lib_route_map_entry_set_action_rmap_set_action_extcommunity_lb_finish(
 
 	switch (lb_type) {
 	case EXPLICIT_BANDWIDTH:
-		bandwidth = yang_dnode_get_uint16(args->dnode, "bandwidth");
-		snprintf(str, sizeof(str), "%d", bandwidth);
+		bandwidth = yang_dnode_get_uint32(args->dnode, "bandwidth");
+		snprintf(str, sizeof(str), "%u", bandwidth);
 		break;
 	case CUMULATIVE_BANDWIDTH:
 		snprintf(str, sizeof(str), "%s", "cumulative");

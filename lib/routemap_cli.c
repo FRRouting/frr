@@ -1252,14 +1252,14 @@ void route_map_action_show(struct vty *vty, const struct lyd_node *dnode,
 	} else if (IS_SET_EXTCOMMUNITY_LB(action)) {
 		enum ecommunity_lb_type lb_type;
 		char str[VTY_BUFSIZ];
-		uint16_t bandwidth;
+		uint32_t bandwidth;
 
 		lb_type = yang_dnode_get_enum(
 			dnode,
 			"./rmap-set-action/frr-bgp-route-map:extcommunity-lb/lb-type");
 		switch (lb_type) {
 		case EXPLICIT_BANDWIDTH:
-			bandwidth = yang_dnode_get_uint16(
+			bandwidth = yang_dnode_get_uint32(
 				dnode,
 				"./rmap-set-action/frr-bgp-route-map:extcommunity-lb/bandwidth");
 			snprintf(str, sizeof(str), "%d", bandwidth);

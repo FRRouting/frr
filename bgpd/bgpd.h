@@ -478,7 +478,7 @@ struct bgp {
 	 * factor (e.g., number of multipaths for the prefix)
 	 * Value is in Mbps
 	 */
-	uint32_t lb_ref_bw;
+	uint64_t lb_ref_bw;
 #define BGP_LINK_BW_REF_BW                1
 
 	/* BGP flags. */

@@ -4352,6 +4352,69 @@ static bool bgp_append_local_as(struct peer *peer, afi_t afi, safi_t safi)
 	return false;
 }
 
+static void bgp_packet_ecommunity_attribute(struct stream *s, struct peer *peer,
+					    struct ecommunity *ecomm,
+					    bool transparent, int attribute)
+{
+	if (peer->sort == BGP_PEER_IBGP || peer->sort == BGP_PEER_CONFED ||
+	    transparent) {
+		if (ecomm->size * ecomm->unit_size > 255) {
+			stream_putc(s, BGP_ATTR_FLAG_OPTIONAL |
+					       BGP_ATTR_FLAG_TRANS |
+					       BGP_ATTR_FLAG_EXTLEN);
+			stream_putc(s, attribute);
+			stream_putw(s, ecomm->size * ecomm->unit_size);
+		} else {
+			stream_putc(s, BGP_ATTR_FLAG_OPTIONAL |
+					       BGP_ATTR_FLAG_TRANS);
+			stream_putc(s, attribute);
+			stream_putc(s, ecomm->size * ecomm->unit_size);
+		}
+		stream_put(s, ecomm->val, ecomm->size * ecomm->unit_size);
+	} else {
+		uint8_t *pnt;
+		int tbit;
+		int ecom_tr_size = 0;
+		uint32_t i;
+
+		for (i = 0; i < ecomm->size; i++) {
+			pnt = ecomm->val + (i * ecomm->unit_size);
+			tbit = *pnt;
+
+			if (CHECK_FLAG(tbit, ECOMMUNITY_FLAG_NON_TRANSITIVE))
+				continue;
+
+			ecom_tr_size++;
+		}
+
+		if (ecom_tr_size) {
+			if (ecom_tr_size * ecomm->unit_size > 255) {
+				stream_putc(s, BGP_ATTR_FLAG_OPTIONAL |
+						       BGP_ATTR_FLAG_TRANS |
+						       BGP_ATTR_FLAG_EXTLEN);
+				stream_putc(s, attribute);
+				stream_putw(s, ecom_tr_size * ecomm->unit_size);
+			} else {
+				stream_putc(s, BGP_ATTR_FLAG_OPTIONAL |
+						       BGP_ATTR_FLAG_TRANS);
+				stream_putc(s, attribute);
+				stream_putc(s, ecom_tr_size * ecomm->unit_size);
+			}
+
+			for (i = 0; i < ecomm->size; i++) {
+				pnt = ecomm->val + (i * ecomm->unit_size);
+				tbit = *pnt;
+
+				if (CHECK_FLAG(tbit,
+					       ECOMMUNITY_FLAG_NON_TRANSITIVE))
+					continue;
+
+				stream_put(s, pnt, ecomm->unit_size);
+			}
+		}
+	}
+}
+
 /* Make attribute packet. */
 bgp_size_t bgp_packet_attribute(struct bgp *bgp, struct peer *peer,
 				struct stream *s, struct attr *attr,
@@ -4654,82 +4717,31 @@ bgp_size_t bgp_packet_attribute(struct bgp *bgp, struct peer *peer,
 		}
 	}
 
-	/* Extended Communities attribute. */
-	if (CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_SEND_EXT_COMMUNITY)
-	    && (attr->flag & ATTR_FLAG_BIT(BGP_ATTR_EXT_COMMUNITIES))) {
-		struct ecommunity *ecomm = bgp_attr_get_ecommunity(attr);
+	/* Extended IPv6/Communities attributes. */
+	if (CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_SEND_EXT_COMMUNITY)) {
 		bool transparent = CHECK_FLAG(peer->af_flags[afi][safi],
 					      PEER_FLAG_RSERVER_CLIENT) &&
 				   from &&
 				   CHECK_FLAG(from->af_flags[afi][safi],
 					      PEER_FLAG_RSERVER_CLIENT);
 
-		if (peer->sort == BGP_PEER_IBGP ||
-		    peer->sort == BGP_PEER_CONFED || transparent) {
-			if (ecomm->size * 8 > 255) {
-				stream_putc(s,
-					    BGP_ATTR_FLAG_OPTIONAL
-						    | BGP_ATTR_FLAG_TRANS
-						    | BGP_ATTR_FLAG_EXTLEN);
-				stream_putc(s, BGP_ATTR_EXT_COMMUNITIES);
-				stream_putw(s, ecomm->size * 8);
-			} else {
-				stream_putc(s,
-					    BGP_ATTR_FLAG_OPTIONAL
-						    | BGP_ATTR_FLAG_TRANS);
-				stream_putc(s, BGP_ATTR_EXT_COMMUNITIES);
-				stream_putc(s, ecomm->size * 8);
-			}
-			stream_put(s, ecomm->val, ecomm->size * 8);
-		} else {
-			uint8_t *pnt;
-			int tbit;
-			int ecom_tr_size = 0;
-			uint32_t i;
+		if (CHECK_FLAG(attr->flag,
+			       ATTR_FLAG_BIT(BGP_ATTR_EXT_COMMUNITIES))) {
+			struct ecommunity *ecomm = bgp_attr_get_ecommunity(attr);
 
-			for (i = 0; i < ecomm->size; i++) {
-				pnt = ecomm->val + (i * 8);
-				tbit = *pnt;
+			bgp_packet_ecommunity_attribute(s, peer, ecomm,
+							transparent,
+							BGP_ATTR_EXT_COMMUNITIES);
+		}
 
-				if (CHECK_FLAG(tbit,
-					       ECOMMUNITY_FLAG_NON_TRANSITIVE))
-					continue;
+		if (CHECK_FLAG(attr->flag,
+			       ATTR_FLAG_BIT(BGP_ATTR_IPV6_EXT_COMMUNITIES))) {
+			struct ecommunity *ecomm =
+				bgp_attr_get_ipv6_ecommunity(attr);
 
-				ecom_tr_size++;
-			}
-
-			if (ecom_tr_size) {
-				if (ecom_tr_size * 8 > 255) {
-					stream_putc(
-						s,
-						BGP_ATTR_FLAG_OPTIONAL
-							| BGP_ATTR_FLAG_TRANS
-							| BGP_ATTR_FLAG_EXTLEN);
-					stream_putc(s,
-						    BGP_ATTR_EXT_COMMUNITIES);
-					stream_putw(s, ecom_tr_size * 8);
-				} else {
-					stream_putc(
-						s,
-						BGP_ATTR_FLAG_OPTIONAL
-							| BGP_ATTR_FLAG_TRANS);
-					stream_putc(s,
-						    BGP_ATTR_EXT_COMMUNITIES);
-					stream_putc(s, ecom_tr_size * 8);
-				}
-
-				for (i = 0; i < ecomm->size; i++) {
-					pnt = ecomm->val + (i * 8);
-					tbit = *pnt;
-
-					if (CHECK_FLAG(
-						    tbit,
-						    ECOMMUNITY_FLAG_NON_TRANSITIVE))
-						continue;
-
-					stream_put(s, pnt, 8);
-				}
-			}
+			bgp_packet_ecommunity_attribute(s, peer, ecomm,
+							transparent,
+							BGP_ATTR_IPV6_EXT_COMMUNITIES);
 		}
 	}
 

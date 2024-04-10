@@ -10,6 +10,10 @@
 #include "bgpd/bgp_rpki.h"
 #include "bgpd/bgpd.h"
 
+#define ONE_GBPS_BYTES (1000 * 1000 * 1000 / 8)
+#define ONE_MBPS_BYTES (1000 * 1000 / 8)
+#define ONE_KBPS_BYTES (1000 / 8)
+
 /* Refer to rfc7153 for the IANA registry definitions. These are
  * updated by other standards like rfc7674.
  */
@@ -54,6 +58,11 @@
 #define ECOMMUNITY_FLOWSPEC_REDIRECT_IPV4   0x0c
 /* RFC 8956 */
 #define ECOMMUNITY_FLOWSPEC_REDIRECT_IPV6 0x0d
+
+/* https://datatracker.ietf.org/doc/html/draft-li-idr-link-bandwidth-ext-01
+ * Sub-type is not allocated by IANA, but let's get the first available.
+ */
+#define ECOMMUNITY_EXTENDED_LINK_BANDWIDTH 0x0016
 
 /* Low-order octet of the Extended Communities type field for EVPN types */
 #define ECOMMUNITY_EVPN_SUBTYPE_MACMOBILITY  0x00
@@ -245,6 +254,33 @@ static inline void encode_lb_extcomm(as_t as, uint64_t bw, bool non_trans,
 	eval->val[7] = bandwidth & 0xff;
 }
 
+/*
+ * Encode BGP Link Bandwidth inside IPv6 Extended Community,
+ * bandwidth is in bytes per second.
+ */
+static inline void encode_lb_extended_extcomm(as_t as, uint64_t bandwidth,
+					      bool non_trans,
+					      struct ecommunity_val_ipv6 *eval)
+{
+	memset(eval, 0, sizeof(*eval));
+	eval->val[0] = ECOMMUNITY_ENCODE_AS4;
+	if (non_trans)
+		eval->val[0] |= ECOMMUNITY_FLAG_NON_TRANSITIVE;
+	eval->val[1] = ECOMMUNITY_EXTENDED_LINK_BANDWIDTH;
+	eval->val[4] = (bandwidth >> 56) & 0xff;
+	eval->val[5] = (bandwidth >> 48) & 0xff;
+	eval->val[6] = (bandwidth >> 40) & 0xff;
+	eval->val[7] = (bandwidth >> 32) & 0xff;
+	eval->val[8] = (bandwidth >> 24) & 0xff;
+	eval->val[9] = (bandwidth >> 16) & 0xff;
+	eval->val[10] = (bandwidth >> 8) & 0xff;
+	eval->val[11] = bandwidth & 0xff;
+	eval->val[12] = (as >> 24) & 0xff;
+	eval->val[13] = (as >> 16) & 0xff;
+	eval->val[14] = (as >> 8) & 0xff;
+	eval->val[15] = as & 0xff;
+}
+
 static inline void encode_origin_validation_state(enum rpki_states state,
 						  struct ecommunity_val *eval)
 {
@@ -386,10 +422,9 @@ extern void bgp_remove_ecomm_from_aggregate_hash(
 extern void bgp_aggr_ecommunity_remove(void *arg);
 extern const uint8_t *ecommunity_linkbw_present(struct ecommunity *ecom,
 						uint64_t *bw);
-extern struct ecommunity *ecommunity_replace_linkbw(as_t as,
-						    struct ecommunity *ecom,
-						    uint64_t cum_bw,
-						    bool disable_ieee_floating);
+extern struct ecommunity *
+ecommunity_replace_linkbw(as_t as, struct ecommunity *ecom, uint64_t cum_bw,
+			  bool disable_ieee_floating, bool extended);
 
 extern bool soo_in_ecom(struct ecommunity *ecom, struct ecommunity *soo);
 

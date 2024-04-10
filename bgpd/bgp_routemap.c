@@ -3206,7 +3206,6 @@ route_set_ecommunity_lb(void *rule, const struct prefix *prefix, void *object)
 	struct bgp_path_info *path;
 	struct peer *peer;
 	struct ecommunity ecom_lb = {0};
-	struct ecommunity_val lb_eval;
 	uint64_t bw_bytes = 0;
 	uint16_t mpath_count = 0;
 	struct ecommunity *new_ecom;
@@ -3242,26 +3241,48 @@ route_set_ecommunity_lb(void *rule, const struct prefix *prefix, void *object)
 		bw_bytes *= mpath_count;
 	}
 
-	encode_lb_extcomm(as, bw_bytes, rels->non_trans, &lb_eval,
-			  CHECK_FLAG(peer->flags,
-				     PEER_FLAG_DISABLE_LINK_BW_ENCODING_IEEE));
+	if (CHECK_FLAG(peer->flags, PEER_FLAG_EXTENDED_LINK_BANDWIDTH)) {
+		struct ecommunity_val_ipv6 lb_eval;
 
-	/* add to route or merge with existing */
-	old_ecom = bgp_attr_get_ecommunity(path->attr);
-	if (old_ecom) {
-		new_ecom = ecommunity_dup(old_ecom);
-		ecommunity_add_val(new_ecom, &lb_eval, true, true);
-		if (!old_ecom->refcnt)
-			ecommunity_free(&old_ecom);
+		encode_lb_extended_extcomm(as, bw_bytes, rels->non_trans,
+					   &lb_eval);
+
+		old_ecom = bgp_attr_get_ipv6_ecommunity(path->attr);
+		if (old_ecom) {
+			new_ecom = ecommunity_dup(old_ecom);
+			ecommunity_add_val_ipv6(new_ecom, &lb_eval, true, true);
+			if (!old_ecom->refcnt)
+				ecommunity_free(&old_ecom);
+		} else {
+			ecom_lb.size = 1;
+			ecom_lb.unit_size = IPV6_ECOMMUNITY_SIZE;
+			ecom_lb.val = (uint8_t *)lb_eval.val;
+			new_ecom = ecommunity_dup(&ecom_lb);
+		}
+
+		bgp_attr_set_ipv6_ecommunity(path->attr, new_ecom);
 	} else {
-		ecom_lb.size = 1;
-		ecom_lb.unit_size = ECOMMUNITY_SIZE;
-		ecom_lb.val = (uint8_t *)lb_eval.val;
-		new_ecom = ecommunity_dup(&ecom_lb);
-	}
+		struct ecommunity_val lb_eval;
 
-	/* new_ecom will be intern()'d or attr_flush()'d in call stack */
-	bgp_attr_set_ecommunity(path->attr, new_ecom);
+		encode_lb_extcomm(as, bw_bytes, rels->non_trans, &lb_eval,
+				  CHECK_FLAG(peer->flags,
+					     PEER_FLAG_DISABLE_LINK_BW_ENCODING_IEEE));
+
+		old_ecom = bgp_attr_get_ecommunity(path->attr);
+		if (old_ecom) {
+			new_ecom = ecommunity_dup(old_ecom);
+			ecommunity_add_val(new_ecom, &lb_eval, true, true);
+			if (!old_ecom->refcnt)
+				ecommunity_free(&old_ecom);
+		} else {
+			ecom_lb.size = 1;
+			ecom_lb.unit_size = ECOMMUNITY_SIZE;
+			ecom_lb.val = (uint8_t *)lb_eval.val;
+			new_ecom = ecommunity_dup(&ecom_lb);
+		}
+
+		bgp_attr_set_ecommunity(path->attr, new_ecom);
+	}
 
 	/* Mark that route-map has set link bandwidth; used in attribute
 	 * setting decisions.
@@ -6875,7 +6896,7 @@ DEFUN_YANG(no_set_ecommunity_none, no_set_ecommunity_none_cmd,
 
 DEFUN_YANG (set_ecommunity_lb,
 	    set_ecommunity_lb_cmd,
-	    "set extcommunity bandwidth <(1-25600)|cumulative|num-multipaths> [non-transitive]",
+	    "set extcommunity bandwidth <(1-4294967295)|cumulative|num-multipaths> [non-transitive]",
 	    SET_STR
 	    "BGP extended community attribute\n"
 	    "Link bandwidth extended community\n"
@@ -6929,7 +6950,7 @@ DEFUN_YANG (set_ecommunity_lb,
 
 DEFUN_YANG (no_set_ecommunity_lb,
 	    no_set_ecommunity_lb_cmd,
-	    "no set extcommunity bandwidth <(1-25600)|cumulative|num-multipaths> [non-transitive]",
+	    "no set extcommunity bandwidth <(1-4294967295)|cumulative|num-multipaths> [non-transitive]",
 	    NO_STR
 	    SET_STR
 	    "BGP extended community attribute\n"
