@@ -231,7 +231,7 @@ static inline bool is_selfroute(int proto)
 	    || (proto == RTPROT_LDP) || (proto == RTPROT_BABEL)
 	    || (proto == RTPROT_RIP) || (proto == RTPROT_SHARP)
 	    || (proto == RTPROT_PBR) || (proto == RTPROT_OPENFABRIC)
-	    || (proto == RTPROT_SRTE)) {
+	    || (proto == RTPROT_SRTE || (proto == RTPROT_ADJACENCY))) {
 		return true;
 	}
 
@@ -293,6 +293,10 @@ int zebra2proto(int proto)
 	case ZEBRA_ROUTE_KERNEL:
 		proto = RTPROT_KERNEL;
 		break;
+	case ZEBRA_ROUTE_ADJACENCY:
+		proto = RTPROT_ADJACENCY;
+		break;
+
 	default:
 		/*
 		 * When a user adds a new protocol this will show up
@@ -356,6 +360,9 @@ static inline int proto2zebra(int proto, int family, bool is_nexthop)
 		break;
 	case RTPROT_SRTE:
 		proto = ZEBRA_ROUTE_SRTE;
+		break;
+	case RTPROT_ADJACENCY:
+		proto = ZEBRA_ROUTE_ADJACENCY;
 		break;
 	case RTPROT_UNSPEC:
 	case RTPROT_REDIRECT:
