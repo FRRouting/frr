@@ -915,12 +915,13 @@ static void attr_show_all_iterator(struct hash_bucket *bucket, struct vty *vty)
 		"\n",
 		attr->flag, attr->distance, attr->med, attr->local_pref,
 		attr->origin, attr->weight, attr->label, sid, attr->aigp_metric);
-	vty_out(vty,
-		"\taspath: %s Community: %s Extended Community: %s Large Community: %s\n",
+	vty_out(vty, "\taspath: %s Community: %s Large Community: %s\n",
 		aspath_print(attr->aspath),
 		community_str(attr->community, false, false),
-		ecommunity_str(attr->ecommunity),
 		lcommunity_str(attr->lcommunity, false, false));
+	vty_out(vty, "\tExtended Community: %s Extended IPv6 Community: %s\n",
+		ecommunity_str(attr->ecommunity),
+		ecommunity_str(attr->ipv6_ecommunity));
 }
 
 void attr_show_all(struct vty *vty)
