@@ -1272,7 +1272,7 @@ static bool update_ipv6nh_for_route_install(int nh_othervrf, struct bgp *nh_bgp,
 }
 
 static bool bgp_zebra_use_nhop_weighted(struct bgp *bgp, struct attr *attr,
-					uint32_t *nh_weight)
+					uint64_t *nh_weight)
 {
 	/* zero link-bandwidth and link-bandwidth not present are treated
 	 * as the same situation.
@@ -1332,7 +1332,7 @@ static void bgp_zebra_announce_parse_nexthop(
 	}
 
 	for (; mpinfo; mpinfo = bgp_path_info_mpath_next(mpinfo)) {
-		uint32_t nh_weight;
+		uint64_t nh_weight;
 		bool is_evpn;
 		bool is_parent_evpn;
 
@@ -1570,8 +1570,9 @@ static void bgp_debug_zebra_nh(struct zapi_route *api)
 			snprintf(eth_buf, sizeof(eth_buf), " RMAC %s",
 				 prefix_mac2str(&api_nh->rmac, buf1,
 						sizeof(buf1)));
-		zlog_debug("  nhop [%d]: %s if %u VRF %u wt %u %s %s %s", i + 1,
-			   nh_buf, api_nh->ifindex, api_nh->vrf_id,
+		zlog_debug("  nhop [%d]: %s if %u VRF %u wt %" PRIu64
+			   " %s %s %s",
+			   i + 1, nh_buf, api_nh->ifindex, api_nh->vrf_id,
 			   api_nh->weight, label_buf, segs_buf, eth_buf);
 	}
 }

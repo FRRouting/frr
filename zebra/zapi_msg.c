@@ -1782,7 +1782,7 @@ static bool zapi_read_nexthops(uint8_t proto, struct prefix *p,
 	 * Let's convert the weights to a scaled value
 	 * between 1 and zrouter.nexthop_weight_scale_value
 	 * This is a simple application of a ratio:
-	 * scaled_weight/zrouter.nexthop_weight_scale_value = 
+	 * scaled_weight/zrouter.nexthop_weight_scale_value =
          * weight/max_weight
 	 * This translates to:
 	 * scaled_weight = weight * zrouter.nexthop_weight_scale_value
@@ -1796,9 +1796,8 @@ static bool zapi_read_nexthops(uint8_t proto, struct prefix *p,
 		for (i = 0; i < nexthop_num; i++) {
 			znh = &nhops[i];
 
-			tmp = (uint64_t)znh->weight *
-				zrouter.nexthop_weight_scale_value;
-			znh->weight = MAX(1, ((uint32_t)(tmp / max_weight)));
+			tmp = znh->weight * zrouter.nexthop_weight_scale_value;
+			znh->weight = MAX(1, (tmp / max_weight));
 		}
 	}
 
