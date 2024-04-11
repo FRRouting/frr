@@ -1893,6 +1893,14 @@ static int pim_ifp_up(struct interface *ifp)
 	*/
 	pim_if_addr_add_all(ifp);
 
+	/*pimreg interface might not be created in pim_ifp_create as
+	 * operational state may  be down at that moment, create one now if
+	 * not created.
+	 */
+	if (if_is_operative(ifp) && (!pim->regiface)) {
+		pim_if_create_pimreg(pim);
+	}
+
 	/*
 	 * If we have a pimreg device callback and it's for a specific
 	 * table set the master appropriately
