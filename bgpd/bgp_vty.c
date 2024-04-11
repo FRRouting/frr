@@ -11308,11 +11308,11 @@ static void print_bgp_vrfs(struct bgp *bgp, struct vty *vty, json_object *json,
 			safi_t safi = SAFI_UNICAST;
 			struct graceful_restart_info *gr_info;
 			json_object *json_gr = NULL;
-			json_gr = json_object_new_object();
 			json_object *json_grs = NULL;
 			json_grs = json_object_new_array();
 
 			for (afi = AFI_IP; afi <= AFI_IP6; afi++) {
+				json_gr = json_object_new_object();
 				json_object_string_add(json_gr, "addressFamily",
 						       get_afi_safi_str(afi,
 									safi,
