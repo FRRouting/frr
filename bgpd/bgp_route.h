@@ -845,10 +845,10 @@ extern void route_vty_out(struct vty *vty, const struct prefix *p,
 extern void route_vty_out_tag(struct vty *vty, const struct prefix *p,
 			      struct bgp_path_info *path, int display,
 			      safi_t safi, json_object *json);
-extern void route_vty_out_tmp(struct vty *vty, struct bgp_dest *dest,
-			      const struct prefix *p, struct attr *attr,
-			      safi_t safi, bool use_json, json_object *json_ar,
-			      bool wide);
+extern void route_vty_out_tmp(struct vty *vty, struct bgp *bgp,
+			      struct bgp_dest *dest, const struct prefix *p,
+			      struct attr *attr, safi_t safi, bool use_json,
+			      json_object *json_ar, bool wide);
 extern void route_vty_out_overlay(struct vty *vty, const struct prefix *p,
 				  struct bgp_path_info *path, int display,
 				  json_object *json);

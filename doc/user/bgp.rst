@@ -425,6 +425,11 @@ Route Selection
 
    Disabled by default.
 
+.. clicmd:: bgp bestpath med missing-as-worst
+
+   If the paths MED value is missing and this command is configured
+   then treat it as the worse possible value that it can be.
+
 .. clicmd:: maximum-paths (1-128)
 
    Sets the maximum-paths value used for ecmp calculations for this
