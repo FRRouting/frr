@@ -613,8 +613,11 @@ void bgp_path_info_mpath_update(struct bgp *bgp, struct bgp_dest *dest,
 							    cur_mpath);
 				prev_mpath = cur_mpath;
 				mpath_count++;
-				if (ecommunity_linkbw_present(
-					    bgp_attr_get_ecommunity(
+				if (ecommunity_linkbw_present(bgp_attr_get_ecommunity(
+								      cur_mpath->attr),
+							      &bwval) ||
+				    ecommunity_linkbw_present(
+					    bgp_attr_get_ipv6_ecommunity(
 						    cur_mpath->attr),
 					    &bwval))
 					cum_bw += bwval;
@@ -700,8 +703,11 @@ void bgp_path_info_mpath_update(struct bgp *bgp, struct bgp_dest *dest,
 				prev_mpath = new_mpath;
 				mpath_changed = 1;
 				mpath_count++;
-				if (ecommunity_linkbw_present(
-					    bgp_attr_get_ecommunity(
+				if (ecommunity_linkbw_present(bgp_attr_get_ecommunity(
+								      new_mpath->attr),
+							      &bwval) ||
+				    ecommunity_linkbw_present(
+					    bgp_attr_get_ipv6_ecommunity(
 						    new_mpath->attr),
 					    &bwval))
 					cum_bw += bwval;
@@ -724,8 +730,12 @@ void bgp_path_info_mpath_update(struct bgp *bgp, struct bgp_dest *dest,
 	if (new_best) {
 		bgp_path_info_mpath_count_set(new_best, mpath_count - 1);
 		if (mpath_count <= 1 ||
-		    !ecommunity_linkbw_present(
-			    bgp_attr_get_ecommunity(new_best->attr), &bwval))
+		    (!ecommunity_linkbw_present(bgp_attr_get_ecommunity(
+							new_best->attr),
+						&bwval) &&
+		     !ecommunity_linkbw_present(bgp_attr_get_ipv6_ecommunity(
+							new_best->attr),
+						&bwval)))
 			all_paths_lb = false;
 		else
 			cum_bw += bwval;
