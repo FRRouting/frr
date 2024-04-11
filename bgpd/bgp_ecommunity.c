@@ -1069,9 +1069,9 @@ static int ipv6_ecommunity_lb_str(char *buf, size_t bufsz, const uint8_t *pnt)
 		snprintf(bps_buf, sizeof(bps_buf), "%.3f Kbps",
 			 (float)(bw / ONE_KBPS_BYTES));
 	else
-		snprintf(bps_buf, sizeof(bps_buf), "%" PRIu64 " bps", bw * 8);
+		snprintfrr(bps_buf, sizeof(bps_buf), "%" PRIu64 " bps", bw * 8);
 
-	len = snprintf(buf, bufsz, "LB:%u:%" PRIu64 " (%s)", as, bw, bps_buf);
+	len = snprintfrr(buf, bufsz, "LB:%u:%" PRIu64 " (%s)", as, bw, bps_buf);
 	return len;
 }
 
