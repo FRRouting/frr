@@ -42,8 +42,13 @@ DEFINE_MTYPE_STATIC(ZEBRA, NHLFE, "MPLS nexthop object");
 bool mpls_enabled;
 bool mpls_pw_reach_strict; /* Strict reachability checking */
 
+/* global variables for auto feature */
+
+/* current sysctl platform_labels value */
 uint32_t label_manager_platform_value;
-static bool platform_auto;
+/* max label value needed for label input: input labels for swapping and popped labels */
+uint32_t label_manager_platform_max_input;
+static bool platform_auto; /* configured auto platform_labels */
 
 /* static function declarations */
 
@@ -4140,25 +4145,41 @@ void zebra_mpls_turned_on(void)
 	}
 }
 
+void zebra_mpls_platform_labels_update()
+{
+	uint32_t platform_labels_new;
+
+	if (platform_auto)
+		platform_labels_new = label_manager_platform_max_input;
+	else
+		platform_labels_new = MPLS_LABEL_MAX;
+
+	if (label_manager_platform_value == platform_labels_new)
+		/* no need to update sysctl platform_labels */
+		return;
+
+	if (mpls_platform_labels_set(platform_labels_new) < 0) {
+		zlog_warn("%s: mpls platform_label can't be updated", __func__);
+		return;
+	}
+
+	label_manager_platform_value = platform_labels_new;
+}
+
+
 /*
  * Enable/disable label manager to control the only
  * necessary mpls max label value to support.
  */
 void zebra_mpls_enable_platform_auto(bool enable)
 {
-	if (enable) {
-		platform_auto = true;
+	if (platform_auto == enable)
+		/* no change */
 		return;
-	}
 
-	if (label_manager_platform_value != MPLS_LABEL_MAX) {
-		if (mpls_platform_labels_set(MPLS_LABEL_MAX) < 0)
-			zlog_warn("%s: mpls platform_label can't be updated",
-				  __func__);
-		else
-			label_manager_platform_value = MPLS_LABEL_MAX;
-	}
-	platform_auto = false;
+	platform_auto = enable;
+
+	zebra_mpls_platform_labels_update();
 }
 
 /*

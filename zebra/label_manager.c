@@ -289,6 +289,8 @@ void label_manager_init(void)
 {
 	uint32_t label_platform_max = MPLS_LABEL_RESERVED_MAX + 1;
 
+	label_manager_platform_max_input = label_platform_max;
+
 	lbl_mgr.lc_list = list_new();
 	lbl_mgr.lc_list->del = delete_label_chunk;
 	lbl_mgr.dynamic_block_start = MPLS_LABEL_UNRESERVED_MIN;
@@ -625,13 +627,9 @@ int release_label_chunk(uint8_t proto, unsigned short instance,
 			if (data->end >= label_max)
 				label_max = data->end + 1;
 		}
-		if (label_max != label_manager_platform_value) {
-			if (mpls_platform_labels_set(label_max) < 0)
-				zlog_warn(
-					"%s: mpls platform_label can't be updated",
-					__func__);
-			else
-				label_manager_platform_value = label_max;
+		if (label_max != label_manager_platform_max_input) {
+			label_manager_platform_max_input = label_max;
+			zebra_mpls_platform_labels_update();
 		}
 	}
 	return ret;
@@ -672,13 +670,9 @@ static int label_manager_get_chunk(struct label_manager_chunk **lmc,
 			if (data->end >= label_max)
 				label_max = data->end + 1;
 		}
-		if (label_max != label_manager_platform_value) {
-			if (mpls_platform_labels_set(label_max) < 0)
-				zlog_warn(
-					"%s: mpls platform_label can't be updated",
-					__func__);
-			else
-				label_manager_platform_value = label_max;
+		if (label_max != label_manager_platform_max_input) {
+			label_manager_platform_max_input = label_max;
+			zebra_mpls_platform_labels_update();
 		}
 	}
 
