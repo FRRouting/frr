@@ -1941,12 +1941,15 @@ DEFUN (show_ip_pim_mlag_summary,
 		json_object *json_stat = NULL;
 
 		json = json_object_new_object();
-		if (router->mlag_flags & PIM_MLAGF_LOCAL_CONN_UP)
-			json_object_boolean_true_add(json, "mlagConnUp");
-		if (router->mlag_flags & PIM_MLAGF_PEER_CONN_UP)
-			json_object_boolean_true_add(json, "mlagPeerConnUp");
-		if (router->mlag_flags & PIM_MLAGF_PEER_ZEBRA_UP)
-			json_object_boolean_true_add(json, "mlagPeerZebraUp");
+		json_object_boolean_add(json, "mlagConnUp",
+					CHECK_FLAG(router->mlag_flags,
+						   PIM_MLAGF_LOCAL_CONN_UP));
+		json_object_boolean_add(json, "mlagPeerConnUp",
+					CHECK_FLAG(router->mlag_flags,
+						   PIM_MLAGF_PEER_CONN_UP));
+		json_object_boolean_add(json, "mlagPeerZebraUp",
+					CHECK_FLAG(router->mlag_flags,
+						   PIM_MLAGF_PEER_ZEBRA_UP));
 		json_object_string_add(json, "mlagRole",
 				       mlag_role2str(router->mlag_role,
 						     role_buf, sizeof(role_buf)));
