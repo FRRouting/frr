@@ -64,17 +64,10 @@ def build_topo(tgen):
 ##   Tests starting
 ##
 #####################################################
-def _populate_iface():
-    tgen = get_topogen()
-    tgen.net["r1"].cmd("echo 100000 > /proc/sys/net/mpls/platform_labels")
-
-
 def setup_module(module):
     "Setup topology"
     tgen = Topogen(build_topo, module.__name__)
     tgen.start_topology()
-
-    _populate_iface()
 
     # This is a sample of configuration loading.
     router_list = tgen.routers()
