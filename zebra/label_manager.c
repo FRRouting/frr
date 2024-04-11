@@ -287,7 +287,8 @@ static int label_manager_write_label_block_config(struct vty *vty,
  */
 void label_manager_init(void)
 {
-	label_manager_platform_value = MPLS_LABEL_RESERVED_MAX + 1;
+	uint32_t label_platform_max = MPLS_LABEL_RESERVED_MAX + 1;
+
 	lbl_mgr.lc_list = list_new();
 	lbl_mgr.lc_list->del = delete_label_chunk;
 	lbl_mgr.dynamic_block_start = MPLS_LABEL_UNRESERVED_MIN;
@@ -303,7 +304,15 @@ void label_manager_init(void)
 	install_element(VIEW_NODE, &show_label_table_cmd);
 	install_element(CONFIG_NODE, &mpls_label_dynamic_block_cmd);
 
-	mpls_platform_labels_set(label_manager_platform_value);
+	if (mpls_platform_labels_set(label_platform_max) < 0) {
+		zlog_warn("%s: mpls platform_label can't be updated", __func__);
+		/* 0 may be not the actual syctl plaform_labels value.
+		 * Setting to 0 to retry an update next time.
+		 */
+		label_manager_platform_value = 0;
+	} else {
+		label_manager_platform_value = label_platform_max;
+	}
 }
 
 void label_manager_terminate(void)
