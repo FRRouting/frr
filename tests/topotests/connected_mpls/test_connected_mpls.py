@@ -67,8 +67,6 @@ def build_topo(tgen):
 def _populate_iface():
     tgen = get_topogen()
     tgen.net["r1"].cmd("echo 100000 > /proc/sys/net/mpls/platform_labels")
-    tgen.net["r2"].cmd("echo 100000 > /proc/sys/net/mpls/platform_labels")
-    tgen.net["r2"].cmd("ip -f mpls route add 100 dev lo")
 
 
 def setup_module(module):
@@ -86,6 +84,8 @@ def setup_module(module):
         )
 
     tgen.start_router()
+
+    tgen.net["r2"].cmd("ip -f mpls route add 100 dev lo")
 
 
 def teardown_module(_mod):
