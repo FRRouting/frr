@@ -115,6 +115,12 @@ static inline void zlog_ref(const struct xref_logmsg *xref,
 #define zlog_notice(...) _zlog_ecref(0, LOG_NOTICE, __VA_ARGS__)
 #define zlog_debug(...)  _zlog_ecref(0, LOG_DEBUG, __VA_ARGS__)
 
+#define zlog_debug_cond(condition, ...)                                        \
+	do {                                                                   \
+		if (condition)                                                 \
+			zlog_debug(__VA_ARGS__);                               \
+	} while (0)
+
 #define flog_err(ferr_id, format, ...)                                         \
 	_zlog_ecref(ferr_id, LOG_ERR, format, ## __VA_ARGS__)
 #define flog_warn(ferr_id, format, ...)                                        \
