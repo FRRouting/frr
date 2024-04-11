@@ -115,6 +115,7 @@ struct ospf6_path {
 	/* Cost */
 	uint8_t metric_type;
 	uint32_t cost;
+	uint32_t redistribute_cost;
 
 	struct prefix ls_prefix;
 
@@ -138,6 +139,8 @@ struct ospf6_path {
 #define OSPF6_PATH_SUBTYPE_DEFAULT_RT   1
 
 #define OSPF6_PATH_COST_IS_CONFIGURED(path) (path.u.cost_config != OSPF_AREA_RANGE_COST_UNSPEC)
+
+#define OSPF6_EXT_PATH_METRIC_MAX 0x00ffffff
 
 #include "prefix.h"
 #include "table.h"

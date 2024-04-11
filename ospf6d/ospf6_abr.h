@@ -33,11 +33,12 @@ struct ospf6_inter_router_lsa {
 	uint32_t router_id;
 };
 
-#define OSPF6_ABR_SUMMARY_METRIC(E) (ntohl ((E)->metric & htonl (0x00ffffff)))
+#define OSPF6_ABR_SUMMARY_METRIC(E)                                            \
+	(ntohl((E)->metric & htonl(OSPF6_EXT_PATH_METRIC_MAX)))
 #define OSPF6_ABR_SUMMARY_METRIC_SET(E, C)                                     \
 	{                                                                      \
 		(E)->metric &= htonl(0x00000000);                              \
-		(E)->metric |= htonl(0x00ffffff) & htonl(C);                   \
+		(E)->metric |= htonl(OSPF6_EXT_PATH_METRIC_MAX) & htonl(C);    \
 	}
 
 #define OSPF6_ABR_RANGE_CLEAR_COST(range) (range->path.cost = OSPF_AREA_RANGE_COST_UNSPEC)

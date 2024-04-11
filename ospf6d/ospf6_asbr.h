@@ -94,11 +94,13 @@ struct ospf6_as_external_lsa {
 #define OSPF6_ASBR_BIT_F  ntohl (0x02000000)
 #define OSPF6_ASBR_BIT_E  ntohl (0x04000000)
 
-#define OSPF6_ASBR_METRIC(E) (ntohl ((E)->bits_metric & htonl (0x00ffffff)))
+#define OSPF6_ASBR_METRIC(E)                                                   \
+	(ntohl((E)->bits_metric & htonl(OSPF6_EXT_PATH_METRIC_MAX)))
 #define OSPF6_ASBR_METRIC_SET(E, C)                                            \
 	{                                                                      \
-		(E)->bits_metric &= htonl(0xff000000);                         \
-		(E)->bits_metric |= htonl(0x00ffffff) & htonl(C);              \
+		(E)->bits_metric &= htonl(~OSPF6_EXT_PATH_METRIC_MAX);         \
+		(E)->bits_metric |= htonl(OSPF6_EXT_PATH_METRIC_MAX) &         \
+				    htonl(C);                                  \
 	}
 
 extern void ospf6_asbr_lsa_add(struct ospf6_lsa *lsa);
@@ -115,7 +117,8 @@ extern void ospf6_asbr_redistribute_add(int type, ifindex_t ifindex,
 					struct prefix *prefix,
 					unsigned int nexthop_num,
 					const struct in6_addr *nexthop,
-					route_tag_t tag, struct ospf6 *ospf6);
+					route_tag_t tag, struct ospf6 *ospf6,
+					uint32_t metric);
 extern void ospf6_asbr_redistribute_remove(int type, ifindex_t ifindex,
 					   struct prefix *prefix,
 					   struct ospf6 *ospf6);
