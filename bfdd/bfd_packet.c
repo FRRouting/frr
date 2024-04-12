@@ -898,6 +898,12 @@ void bfd_recv_cb(struct event *t)
 		return;
 	}
 
+	if (BFD_GETMBIT(cp->flags)) {
+		cp_debug(is_mhop, &peer, &local, ifindex, vrfid,
+			 "detect non-zero Multipoint (M) flag");
+		return;
+	}
+
 	if (cp->discrs.my_discr == 0) {
 		cp_debug(is_mhop, &peer, &local, ifindex, vrfid,
 			 "'my discriminator' is zero");
