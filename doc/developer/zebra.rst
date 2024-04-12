@@ -161,6 +161,21 @@ Zebra Protocol Commands
 
 The definitions of zebra protocol commands can be found at ``lib/zclient.h``.
 
+
+Zebra Dataplane
+===============
+
+The zebra dataplane subsystem provides a framework for FIB
+programming. Zebra uses the dataplane to program the local kernel as
+it makes changes to objects such as IP routes, MPLS LSPs, and
+interface IP addresses. The dataplane runs in its own pthread, in
+order to off-load work from the main zebra pthread.
+
+The zebra dataplane API is versioned; the version number must be
+updated along with API changes. Plugins can test the current version
+number and confirm that they are compatible with the current version.
+
+
 Dataplane batching
 ==================
 

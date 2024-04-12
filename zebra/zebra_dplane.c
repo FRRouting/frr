@@ -39,6 +39,13 @@ DEFINE_MTYPE_STATIC(ZEBRA, DP_NS, "DPlane NSes");
 #  define AOK 0
 #endif
 
+/*
+ * Dataplane API version. This must be updated when any incompatible changes
+ * are made. The minor version (at least) should be updated when new APIs
+ * are introduced.
+ */
+static uint32_t zdplane_version = MAKE_FRRVERSION(2, 0, 0);
+
 /* Control for collection of extra interface info with route updates; a plugin
  * can enable the extra info via a dplane api.
  */
@@ -663,6 +670,12 @@ neigh_update_internal(enum dplane_op_e op, const struct interface *ifp,
 /*
  * Public APIs
  */
+
+/* Access the dplane API version */
+uint32_t zebra_dplane_get_version(void)
+{
+	return zdplane_version;
+}
 
 /* Obtain thread_master for dataplane thread */
 struct event_loop *dplane_get_thread_master(void)
