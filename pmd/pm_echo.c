@@ -163,14 +163,22 @@ static bool pm_check_retries_threshold(struct pm_echo *pme, bool retry_up)
 					icmp = (struct icmphdr *)(pme->rx_buf + (ip->ihl << 2));
 					if (icmp->type == ICMP_ECHOREPLY) {
 						zlog_debug("rx_buf contains ICMP reply packet from %pI4 to %pI4 Seq %d ID 0x%x",
-								  &ip->saddr, &ip->daddr, ntohs(icmp->un.echo.sequence),
-							      ntohs(icmp->un.echo.id));
+							   (in_addr_t *)&ip->saddr,
+							   (in_addr_t *)&ip->daddr,
+							   ntohs(icmp->un.echo
+									 .sequence),
+							   ntohs(icmp->un.echo
+									 .id));
 					} else
 						zlog_debug("rx_buf contains a ICMP packet from %pI4 to %pI4 Type %d",
-							 &ip->saddr, &ip->daddr, icmp->type);
+							   (in_addr_t *)&ip->saddr,
+							   (in_addr_t *)&ip->daddr,
+							   icmp->type);
 				} else
 					zlog_debug("rx_buf contains a IP packet from %pI4 to %pI4 proto %d",
-						 &ip->saddr, &ip->daddr, ip->protocol);
+						   (in_addr_t *)&ip->saddr,
+						   (in_addr_t *)&ip->daddr,
+						   ip->protocol);
 			} else
 				zlog_debug("rx_buf is NULL");
 		} else {
@@ -301,13 +309,16 @@ void pm_echo_receive(struct event *event)
 		if (icmp->type != ICMP_ECHOREPLY) {
 			if (pm_debug_echo)
 				zlog_err("ICMP from %pI4 to %pI4 ECHO REPLY expected (got type %u)",
-						&pme->peer.sin.sin_addr, &ip->daddr, icmp->type);
+					 &pme->peer.sin.sin_addr,
+					 (in_addr_t *)&ip->daddr, icmp->type);
 			return;
 		}
 		if (pm_debug_echo) {
 			zlog_debug("received ICMP reply packet from %pI4 to %pI4 Seq %d ID 0x%x",
-				 &pme->peer.sin.sin_addr, &ip->daddr, ntohs(icmp->un.echo.sequence),
-				 ntohs(icmp->un.echo.id));
+				   &pme->peer.sin.sin_addr,
+				   (in_addr_t *)&ip->daddr,
+				   ntohs(icmp->un.echo.sequence),
+				   ntohs(icmp->un.echo.id));
 		}
 		/* check that destination address matches
 		 * our local address configured
@@ -315,14 +326,16 @@ void pm_echo_receive(struct event *event)
 		if (ip->saddr != pme->peer.sin.sin_addr.s_addr) {
 			if (pm_debug_echo)
 				zlog_err("PMD: wrong src address %pI4, expected %pI4. retrying",
-						&ip->saddr, &pme->peer.sin.sin_addr);
+					 (in_addr_t *)&ip->saddr,
+					 &pme->peer.sin.sin_addr);
 			return;
 		}
 		if (sockunion_family(&pm->key.local) == AF_INET &&
 		    ip->daddr != pm->key.local.sin.sin_addr.s_addr) {
 			if (pm_debug_echo)
 				zlog_err("PMD: wrong dst address %pI4, expected %pI4. retrying",
-					&ip->daddr, &pm->key.local.sin.sin_addr);
+					 (in_addr_t *)&ip->daddr,
+					 &pm->key.local.sin.sin_addr);
 			return;
 		}
 		if (ntohs(icmp->un.echo.id) != (pme->discriminator_id & 0xffff)) {
@@ -337,21 +350,21 @@ void pm_echo_receive(struct event *event)
 		if (idx < 0 || idx >= pme->count) {
 			if (pm_debug_echo) {
 				if (pme->count > 1) {
-					zlog_debug(
-						"received ICMP from %pI4 to %pI4 Seq %u, "
-						"expected Seq between %u and %u",
-						&pme->peer.sin.sin_addr, &ip->daddr,
-						ntohs(icmp->un.echo.sequence),
-						pme->icmp_sequence - pme->count
-							- 1,
-						pme->icmp_sequence - 1);
+					zlog_debug("received ICMP from %pI4 to %pI4 Seq %u, "
+						   "expected Seq between %u and %u",
+						   &pme->peer.sin.sin_addr,
+						   (in_addr_t *)&ip->daddr,
+						   ntohs(icmp->un.echo.sequence),
+						   pme->icmp_sequence -
+							   pme->count - 1,
+						   pme->icmp_sequence - 1);
 				} else {
-					zlog_debug(
-						"received ICMP from %pI4 to %pI4 Seq %u, "
-						"expected Seq %u",
-						&pme->peer.sin.sin_addr, &ip->daddr,
-						ntohs(icmp->un.echo.sequence),
-						pme->icmp_sequence - 1);
+					zlog_debug("received ICMP from %pI4 to %pI4 Seq %u, "
+						   "expected Seq %u",
+						   &pme->peer.sin.sin_addr,
+						   (in_addr_t *)&ip->daddr,
+						   ntohs(icmp->un.echo.sequence),
+						   pme->icmp_sequence - 1);
 				}
 			}
 			return;
