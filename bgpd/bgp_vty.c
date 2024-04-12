@@ -2832,6 +2832,7 @@ DEFUN(bgp_ebgp_requires_policy, bgp_ebgp_requires_policy_cmd,
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
 	SET_FLAG(bgp->flags, BGP_FLAG_EBGP_REQUIRES_POLICY);
+	bgp_clear_star_soft_in(vty, bgp->name);
 	return CMD_SUCCESS;
 }
 
@@ -2843,6 +2844,7 @@ DEFUN(no_bgp_ebgp_requires_policy, no_bgp_ebgp_requires_policy_cmd,
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
 	UNSET_FLAG(bgp->flags, BGP_FLAG_EBGP_REQUIRES_POLICY);
+	bgp_clear_star_soft_in(vty, bgp->name);
 	return CMD_SUCCESS;
 }
 
