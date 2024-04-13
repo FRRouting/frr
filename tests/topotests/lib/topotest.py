@@ -1759,7 +1759,8 @@ class Router(Node):
 
         # Really want to use sysctl_atleast here, but only when MPLS is actually being
         # used
-        self.cmd("echo 100000 > /proc/sys/net/mpls/platform_labels")
+        if self.hasmpls:
+            self.cmd("echo 100000 > /proc/sys/net/mpls/platform_labels")
 
         if g_pytest_config.name_in_option_list(self.name, "--shell"):
             self.run_in_window(os.getenv("SHELL", "bash"), title="sh-%s" % self.name)
