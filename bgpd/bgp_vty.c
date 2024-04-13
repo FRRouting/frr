@@ -4340,6 +4340,9 @@ DEFUN (bgp_network_import_check,
 	return CMD_SUCCESS;
 }
 
+#if CONFDATE > 20241013
+CPP_NOTICE("Drop `bgp network import-check exact` command")
+#endif
 ALIAS_HIDDEN(bgp_network_import_check, bgp_network_import_check_exact_cmd,
 	     "bgp network import-check exact",
 	     BGP_STR
