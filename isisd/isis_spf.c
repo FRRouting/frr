@@ -2908,7 +2908,7 @@ static void show_isis_route_common(struct vty *vty, int levels,
 	struct isis_spftree *spftree;
 	struct listnode *node;
 	struct isis_area *area;
-	char key[8];
+	char key[18];
 
 	if (!isis->area_list || isis->area_list->count == 0)
 		return;
