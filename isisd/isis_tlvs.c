@@ -4041,6 +4041,19 @@ out:
 	return 1;
 }
 
+/*Functions for redistribte routes inside IS-IS*/
+void copy_leaking_extended_ip_reach(struct isis_tlvs *tlvs,
+				    struct isis_item *ip_reach_s,
+				    uint32_t metric)
+{
+	struct isis_extended_ip_reach *ip_reach_d =
+		(struct isis_extended_ip_reach *)copy_item_extended_ip_reach(
+			ip_reach_s);
+
+	ip_reach_d->metric = metric;
+	append_item(&tlvs->extended_ip_reach, (struct isis_item *)ip_reach_d);
+}
+
 /* Functions related to TLV 137 Dynamic Hostname */
 
 static char *copy_tlv_dynamic_hostname(const char *hostname)
@@ -4674,6 +4687,18 @@ out:
 		free_item_ipv6_reach((struct isis_item *)rv);
 	return 1;
 }
+
+/*Functions for redistribte routes inside IS-IS*/
+void copy_leaking_ipv6_reach(struct isis_tlvs *tlvs,
+			     struct isis_item *ipv6_reach_s, uint32_t metric)
+{
+	struct isis_ipv6_reach *ipv6_reach_d =
+		(struct isis_ipv6_reach *)copy_item_ipv6_reach(ipv6_reach_s);
+
+	ipv6_reach_d->metric = metric;
+	append_item(&tlvs->ipv6_reach, (struct isis_item *)ipv6_reach_d);
+}
+
 
 /* Functions related to TLV 242 Router Capability as per RFC7981 */
 static struct isis_router_cap *copy_tlv_router_cap(

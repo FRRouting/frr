@@ -332,6 +332,10 @@ struct isis_area *isis_area_create(const char *area_tag, const char *vrf_name)
 	area->area_addrs = list_new();
 	area->area_addrs->del = delete_area_addr;
 
+	for (int level = 0; level < 2; level++)
+		area->leaking_list[level] = list_new();
+	area->leaking_settings = list_new();
+
 	if (!CHECK_FLAG(im->options, F_ISIS_UNIT_TEST))
 		event_add_timer(master, lsp_tick, area, 1, &area->t_tick);
 	flags_initialize(&area->flags);
@@ -546,6 +550,10 @@ void isis_area_destroy(struct isis_area *area)
 		isis_redist_area_finish(area);
 
 	list_delete(&area->area_addrs);
+
+	for (int level = 0; level < 2; level++)
+		list_delete(&area->leaking_list[level]);
+	list_delete(&area->leaking_settings);
 
 	for (int i = SPF_PREFIX_PRIO_CRITICAL; i <= SPF_PREFIX_PRIO_MEDIUM;
 	     i++) {
@@ -3561,6 +3569,8 @@ static int isis_config_write(struct vty *vty)
 			}
 			write += isis_redist_config_write(vty, area, AF_INET);
 			write += isis_redist_config_write(vty, area, AF_INET6);
+			write += isis_leaking_config_write(vty, area, AF_INET);
+			write += isis_leaking_config_write(vty, area, AF_INET6);
 			/* ISIS - Lsp generation interval */
 			if (area->lsp_gen_interval[0]
 			    == area->lsp_gen_interval[1]) {

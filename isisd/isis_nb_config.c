@@ -1441,6 +1441,191 @@ int isis_instance_redistribute_ipv6_table_destroy(struct nb_cb_destroy_args *arg
 }
 
 /*
+ *  XPath: /frr-isisd:isis/intance/route_leaking/ipv4
+ */
+void leaking_apply_finish(const struct lyd_node *dnode, int family)
+{
+	assert(family == AF_INET || family == AF_INET6);
+	int type, level;
+	unsigned long metric = 0;
+	const char *routemap = NULL;
+	struct isis_area *area;
+
+	type = yang_dnode_get_enum(dnode, "./protocol");
+	level = yang_dnode_get_enum(dnode, "./level");
+	area = nb_running_get_entry(dnode, NULL, true);
+
+	if (yang_dnode_exists(dnode, "./route-map"))
+		routemap = yang_dnode_get_string(dnode, "./route-map");
+
+	isis_route_leaking_set(area, level, family, type, metric, routemap, 0,
+			       0);
+	if (level == IS_LEVEL_2)
+		lsp_regenerate_schedule(area, IS_LEVEL_1, 0);
+	else
+		lsp_regenerate_schedule(area, IS_LEVEL_2, 0);
+}
+
+void leaking_ipv4_apply_finish(struct nb_cb_apply_finish_args *args)
+{
+	leaking_apply_finish(args->dnode, AF_INET);
+}
+
+void leaking_ipv6_apply_finish(struct nb_cb_apply_finish_args *args)
+{
+	leaking_apply_finish(args->dnode, AF_INET6);
+}
+
+int isis_instance_leaking_ipv4_create(struct nb_cb_create_args *args)
+{
+	/* It's all done by redistribute_apply_finish */
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-isisd:isis/instance/route_leaking/ipv6
+ */
+
+int isis_instance_leaking_ipv6_create(struct nb_cb_create_args *args)
+{
+	/* It's all done by redistribute_apply_finish */
+	return NB_OK;
+}
+/*
+ * XPath: /frr-isisd:isis/instance/route_leaking/ipv4/route-map
+ * XPath: /frr-isisd:isis/instance/route_leaking/ipv4/table/route-map
+ */
+int isis_instance_route_leaking_ipv4_route_map_modify(
+	struct nb_cb_modify_args *args)
+{
+	/* It's all done by redistribute_apply_finish */
+	return NB_OK;
+}
+
+int isis_instance_route_leaking_ipv4_route_map_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	/* It's all done by redistribute_apply_finish */
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-isisd:isis/instance/route_leaking/ipv4/metric
+ */
+int isis_instance_route_leaking_ipv4_metric_modify(struct nb_cb_modify_args *args)
+{
+	/* It's all done by redistribute_apply_finish */
+	return NB_OK;
+}
+
+int isis_instance_route_leaking_ipv4_metric_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	/* It's all done by redistribute_apply_finish */
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-isisd:isis/instance/redistribute/ipv4/table
+ */
+int isis_instance_route_leaking_ipv4_table_create(struct nb_cb_create_args *args)
+{
+	/* TODO: support table redistribution between levels in  IS-IS*/
+	return NB_OK;
+}
+
+int isis_instance_route_leaking_ipv4_table_destroy(struct nb_cb_destroy_args *args)
+{
+	/* TODO: support table redistribution between levels in  IS-IS*/
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-isisd:isis/instance/redistribute/ipv6/route-map
+ */
+int isis_instance_route_leaking_ipv6_route_map_modify(
+	struct nb_cb_modify_args *args)
+{
+	/* It's all done by redistribute_apply_finish */
+	return NB_OK;
+}
+
+int isis_instance_route_leaking_ipv6_route_map_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	/* It's all done by redistribute_apply_finish */
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-isisd:isis/instance/redistribute/ipv6/metric
+ */
+int isis_instance_route_leaking_ipv6_metric_modify(struct nb_cb_modify_args *args)
+{
+	/* It's all done by redistribute_apply_finish */
+	return NB_OK;
+}
+
+int isis_instance_route_leaking_ipv6_metric_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	/* It's all done by redistribute_apply_finish */
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-isisd:isis/instance/redistribute/ipv6/table
+ */
+int isis_instance_route_leaking_ipv6_table_create(struct nb_cb_create_args *args)
+{
+	/* TODO: support table redistribution between levels in IS-IS*/
+	return NB_OK;
+}
+
+int isis_instance_route_leaking_ipv6_table_destroy(struct nb_cb_destroy_args *args)
+{
+	/* TODO: support table redistribution between levels in  IS-IS*/
+	return NB_OK;
+}
+
+
+int isis_instance_leaking_ipv4_destroy(struct nb_cb_destroy_args *args)
+{
+	struct isis_area *area;
+	const char *routemap = NULL;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	area = nb_running_get_entry(args->dnode, NULL, true);
+
+	if (yang_dnode_exists(args->dnode, "route-map"))
+		routemap = yang_dnode_get_string(args->dnode, "route-map");
+
+	isis_leaking_unset(area, routemap);
+
+	return NB_OK;
+}
+
+int isis_instance_leaking_ipv6_destroy(struct nb_cb_destroy_args *args)
+{
+	struct isis_area *area;
+	const char *routemap = NULL;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	area = nb_running_get_entry(args->dnode, NULL, true);
+
+	if (yang_dnode_exists(args->dnode, "route-map"))
+		routemap = yang_dnode_get_string(args->dnode, "route-map");
+
+	isis_leaking_unset(area, routemap);
+
+	return NB_OK;
+}
+
+/*
  * XPath: /frr-isisd:isis/instance/multi-topology/ipv4-multicast
  */
 static int isis_multi_topology_common(enum nb_event event,
