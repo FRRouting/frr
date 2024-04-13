@@ -2740,9 +2740,9 @@ static void show_sr_node(struct vty *vty, struct json_object *json,
 			if (srn->algo[i] == SR_ALGORITHM_UNSET)
 				continue;
 			json_obj = json_object_new_object();
-			char tmp[2];
+			char tmp[12];
 
-			snprintf(tmp, sizeof(tmp), "%u", i);
+			snprintf(tmp, sizeof(tmp), "%d", i);
 			json_object_string_add(json_obj, tmp,
 					       srn->algo[i] == SR_ALGORITHM_SPF
 						       ? "SPF"
