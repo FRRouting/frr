@@ -1377,7 +1377,7 @@ int bgp_global_gr_init(struct bgp *bgp)
 		/*GLOBAL_GR_cmd */	/*no_Global_GR_cmd*/
 			GLOBAL_GR,      GLOBAL_INVALID,
 		/*GLOBAL_DISABLE_cmd*//*no_Global_Disable_cmd*/
-			GLOBAL_INVALID,	GLOBAL_HELPER
+			GLOBAL_DISABLE,	GLOBAL_HELPER
 		},
 		/* GLOBAL_INVALID Mode  */
 		{
@@ -1411,13 +1411,13 @@ int bgp_peer_gr_init(struct peer *peer)
 	/* Event-> */ /* PEER_DISABLE_CMD */ /* NO_PEER_DISABLE_CMD */
 		{PEER_DISABLE, bgp_peer_gr_action }, {PEER_INVALID, NULL },
 	/* Event-> */ /* PEER_HELPER_cmd */ /* NO_PEER_HELPER_CMD */
-		{ PEER_INVALID, NULL }, {PEER_GLOBAL_INHERIT,
+		{ PEER_HELPER, NULL }, {PEER_GLOBAL_INHERIT,
 						bgp_peer_gr_action }
 	},
 	{
 	/*	PEER_GR Mode	*/
 	/* Event-> */ /* PEER_GR_CMD */ /* NO_PEER_GR_CMD */
-		{ PEER_INVALID, NULL }, { PEER_GLOBAL_INHERIT,
+		{ PEER_GR, NULL }, { PEER_GLOBAL_INHERIT,
 						bgp_peer_gr_action },
 	/* Event-> */ /* PEER_DISABLE_CMD */ /* NO_PEER_DISABLE_CMD */
 		{PEER_DISABLE, bgp_peer_gr_action }, { PEER_INVALID, NULL },
@@ -1429,7 +1429,7 @@ int bgp_peer_gr_init(struct peer *peer)
 	/* Event-> */ /* PEER_GR_CMD */ /* NO_PEER_GR_CMD */
 		{ PEER_GR, bgp_peer_gr_action }, { PEER_INVALID, NULL },
 	/* Event-> */ /* PEER_DISABLE_CMD */ /* NO_PEER_DISABLE_CMD */
-		{ PEER_INVALID, NULL }, { PEER_GLOBAL_INHERIT,
+		{ PEER_DISABLE, NULL }, { PEER_GLOBAL_INHERIT,
 						bgp_peer_gr_action },
 	/* Event-> */ /* PEER_HELPER_cmd */  /* NO_PEER_HELPER_CMD */
 		{ PEER_HELPER, bgp_peer_gr_action }, { PEER_INVALID, NULL }
