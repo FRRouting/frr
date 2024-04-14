@@ -148,7 +148,7 @@ be built and installed generally like:
    CC=${HOST_ARCH}-gcc \
    CXX=${HOST_ARCH}-g++ \
    cmake \
-       -DCMAKE_INSTALL_PREFIX=/usr/${HOST_ARCH} \
+       --install-prefix /usr/${HOST_ARCH} \
        ..
    make
    make install
