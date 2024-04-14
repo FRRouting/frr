@@ -32,7 +32,7 @@ libyang
    cd libyang
    git checkout v2.1.148
    mkdir build; cd build
-   cmake -DCMAKE_INSTALL_PREFIX:PATH=/usr \
+   cmake --install-prefix /usr \
          -DCMAKE_BUILD_TYPE:String="Release" ..
    make
    sudo make install
@@ -51,7 +51,7 @@ Sysrepo
    cd sysrepo/
    git checkout v2.2.150
    mkdir build; cd build
-   cmake -DCMAKE_INSTALL_PREFIX:PATH=/usr \
+   cmake --install-prefix /usr \
          -DCMAKE_BUILD_TYPE:String="Release" ..
    make
    sudo make install
