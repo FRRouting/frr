@@ -135,7 +135,7 @@ struct bfd_echo_pkt {
 		if ((val))                                                     \
 			flags |= val;                                          \
 	}
-#define BFD_GETCBIT(flags) (flags & BFD_FBIT)
+#define BFD_GETCBIT(flags) (flags & BFD_CBIT)
 #define BFD_ECHO_VERSION 1
 #define BFD_ECHO_PKT_LEN sizeof(struct bfd_echo_pkt)
 
