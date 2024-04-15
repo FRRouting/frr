@@ -1782,7 +1782,7 @@ static void bgp_handle_route_announcements_to_zebra(struct event *e)
 
 		table = bgp_dest_table(dest);
 		install = CHECK_FLAG(dest->flags, BGP_NODE_SCHEDULE_FOR_INSTALL);
-		if (table && table->afi == AFI_L2VPN && table->safi == SAFI_EVPN)
+		if (table->afi == AFI_L2VPN && table->safi == SAFI_EVPN)
 			is_evpn = true;
 
 		if (BGP_DEBUG(zebra, ZEBRA))
