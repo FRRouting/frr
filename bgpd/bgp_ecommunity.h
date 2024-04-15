@@ -52,10 +52,8 @@
  * 0x0c Flow-spec Redirect to IPv4 - draft-ietf-idr-flowspec-redirect
  */
 #define ECOMMUNITY_FLOWSPEC_REDIRECT_IPV4   0x0c
-/* from draft-ietf-idr-flow-spec-v6-09
- * 0x0b Flow-spec Redirect to IPv6
- */
-#define ECOMMUNITY_FLOWSPEC_REDIRECT_IPV6   0x0b
+/* RFC 8956 */
+#define ECOMMUNITY_FLOWSPEC_REDIRECT_IPV6 0x0d
 
 /* Low-order octet of the Extended Communities type field for EVPN types */
 #define ECOMMUNITY_EVPN_SUBTYPE_MACMOBILITY  0x00
