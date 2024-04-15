@@ -3187,6 +3187,7 @@ int lib_interface_zebra_ipv6_router_advertisements_dnssl_dnssl_domain_create(
 	strlcpy(dnssl.name, yang_dnode_get_string(args->dnode, "domain"),
 		sizeof(dnssl.name));
 	ret = rtadv_dnssl_encode(dnssl.encoded_name, dnssl.name);
+	dnssl.encoded_len = ret;
 
 	if (args->event == NB_EV_VALIDATE) {
 		if (ret < 0) {
