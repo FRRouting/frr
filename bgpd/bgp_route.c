@@ -3339,7 +3339,9 @@ static void bgp_process_main_one(struct bgp *bgp, struct bgp_dest *dest,
 		return;
 	}
 
+#ifdef ENABLE_BGP_VNC
 	const struct prefix *p = bgp_dest_get_prefix(dest);
+#endif
 
 	debug = bgp_debug_bestpath(dest);
 	if (debug)
