@@ -68,6 +68,10 @@ extern struct event_loop *master;
 	VTYSH_ZEBRA | VTYSH_RIPD | VTYSH_RIPNGD | VTYSH_OSPFD | VTYSH_OSPF6D | \
 		VTYSH_BGPD | VTYSH_ISISD | VTYSH_PIMD | VTYSH_EIGRPD |         \
 		VTYSH_FABRICD
+#define VTYSH_PREFIX_LIST_SHOW                                                 \
+	VTYSH_ZEBRA | VTYSH_RIPD | VTYSH_RIPNGD | VTYSH_OSPFD | VTYSH_OSPF6D | \
+		VTYSH_BGPD | VTYSH_ISISD | VTYSH_PIMD | VTYSH_EIGRPD |         \
+		VTYSH_FABRICD
 #define VTYSH_INTERFACE_SUBSET                                                 \
 	VTYSH_OSPFD | VTYSH_OSPF6D | \
 		VTYSH_ISISD | VTYSH_PIMD | VTYSH_PIM6D | VTYSH_NHRPD |         \
@@ -90,7 +94,17 @@ enum vtysh_write_integrated {
 	WRITE_INTEGRATED_YES
 };
 
+enum display_type {
+	normal_display,
+	summary_display,
+	detail_display,
+	sequential_display,
+	longer_display,
+	first_match_display
+};
+
 extern enum vtysh_write_integrated vtysh_write_integrated;
+extern enum display_type display_type;
 
 extern char frr_config[];
 extern char vtydir[];
