@@ -938,15 +938,6 @@ static void show_ospf6_gr_helper_details(struct vty *vty, struct ospf6 *ospf6,
 				? "Enabled"
 				: "Disabled");
 
-#if CONFDATE > 20240401
-		CPP_NOTICE("Remove deprecated json key: restartSupoort")
-#endif
-		json_object_string_add(
-			json, "restartSupoort",
-			(ospf6->ospf6_helper_cfg.only_planned_restart)
-				? "Planned Restart only"
-				: "Planned and Unplanned Restarts");
-
 		json_object_string_add(
 			json, "restartSupport",
 			(ospf6->ospf6_helper_cfg.only_planned_restart)

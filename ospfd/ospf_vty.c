@@ -10446,15 +10446,6 @@ static int ospf_show_gr_helper_details(struct vty *vty, struct ospf *ospf,
 		json_object_string_add(json_vrf, "strictLsaCheck",
 				       (ospf->strict_lsa_check) ? "Enabled"
 								: "Disabled");
-#if CONFDATE > 20240401
-		CPP_NOTICE("Remove deprecated json key: restartSupoort")
-#endif
-		json_object_string_add(
-			json_vrf, "restartSupoort",
-			(ospf->only_planned_restart)
-				? "Planned Restart only"
-				: "Planned and Unplanned Restarts");
-
 		json_object_string_add(
 			json_vrf, "restartSupport",
 			(ospf->only_planned_restart)
