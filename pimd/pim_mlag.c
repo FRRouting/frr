@@ -620,7 +620,7 @@ static void pim_mlag_process_mlagd_state_change(struct mlag_status msg)
 		router->mlag_flags |= PIM_MLAGF_STATUS_RXED;
 		pim_mlag_vxlan_state_update();
 		/* on session up re-eval DF status */
-		pim_mlag_up_local_reeval(false /*mlagd_send*/, "mlagd_up");
+		pim_mlag_up_local_reeval(true /*mlagd_send*/, "mlagd_up");
 		/* replay all the upstream entries to the local MLAG daemon */
 		pim_mlag_up_local_replay();
 		return;
