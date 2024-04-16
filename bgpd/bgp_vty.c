@@ -10752,7 +10752,10 @@ static int bgp_clear_prefix(struct vty *vty, const char *view_name,
 				if (rm_p->prefixlen == match.prefixlen) {
 					SET_FLAG(rm->flags,
 						 BGP_NODE_USER_CLEAR);
-					bgp_process(bgp, rm, afi, safi);
+					bgp_process(bgp, rm,
+						    bgp_dest_get_bgp_path_info(
+							    rm),
+						    afi, safi);
 				}
 				bgp_dest_unlock_node(rm);
 			}
@@ -10764,7 +10767,9 @@ static int bgp_clear_prefix(struct vty *vty, const char *view_name,
 
 			if (dest_p->prefixlen == match.prefixlen) {
 				SET_FLAG(dest->flags, BGP_NODE_USER_CLEAR);
-				bgp_process(bgp, dest, afi, safi);
+				bgp_process(bgp, dest,
+					    bgp_dest_get_bgp_path_info(dest),
+					    afi, safi);
 			}
 			bgp_dest_unlock_node(dest);
 		}

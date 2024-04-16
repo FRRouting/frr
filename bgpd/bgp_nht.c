@@ -1435,7 +1435,7 @@ void evaluate_paths(struct bgp_nexthop_cache *bnc)
 			}
 		}
 
-		bgp_process(bgp_path, dest, afi, safi);
+		bgp_process(bgp_path, dest, path, afi, safi);
 	}
 
 	if (peer) {

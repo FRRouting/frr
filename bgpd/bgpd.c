@@ -1853,21 +1853,31 @@ void bgp_peer_conf_if_to_su_update(struct peer_connection *connection)
 void bgp_recalculate_afi_safi_bestpaths(struct bgp *bgp, afi_t afi, safi_t safi)
 {
 	struct bgp_dest *dest, *ndest;
+	struct bgp_path_info *pi, *next;
 	struct bgp_table *table;
 
 	for (dest = bgp_table_top(bgp->rib[afi][safi]); dest;
 	     dest = bgp_route_next(dest)) {
 		table = bgp_dest_get_bgp_table_info(dest);
-		if (table != NULL) {
-			/* Special handling for 2-level routing
-			 * tables. */
-			if (safi == SAFI_MPLS_VPN || safi == SAFI_ENCAP
-			    || safi == SAFI_EVPN) {
-				for (ndest = bgp_table_top(table); ndest;
-				     ndest = bgp_route_next(ndest))
-					bgp_process(bgp, ndest, afi, safi);
-			} else
-				bgp_process(bgp, dest, afi, safi);
+
+		if (!table)
+			continue;
+
+		/* Special handling for 2-level routing
+		 * tables. */
+		if (safi == SAFI_MPLS_VPN || safi == SAFI_ENCAP
+		    || safi == SAFI_EVPN) {
+			for (ndest = bgp_table_top(table); ndest;
+			     ndest = bgp_route_next(ndest)) {
+				for (pi = bgp_dest_get_bgp_path_info(ndest);
+				     (pi != NULL) && (next = pi->next, 1);
+				     pi = next)
+					bgp_process(bgp, ndest, pi, afi, safi);
+			}
+		} else {
+			for (pi = bgp_dest_get_bgp_path_info(dest);
+			     (pi != NULL) && (next = pi->next, 1); pi = next)
+				bgp_process(bgp, dest, pi, afi, safi);
 		}
 	}
 }
