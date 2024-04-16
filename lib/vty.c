@@ -92,7 +92,11 @@ DECLARE_DLIST(vtyservs, struct vty_serv, itm);
 
 static void vty_event_serv(enum vty_event event, struct vty_serv *);
 static void vty_event(enum vty_event, struct vty *);
+#ifdef VTYSH
 static int vtysh_flush(struct vty *vty);
+/* Integrated configuration file path */
+static char integrate_default[] = SYSCONFDIR INTEGRATE_DEFAULT_CONFIG;
+#endif
 
 /* Extern host structure from command.c */
 extern struct host host;
@@ -118,9 +122,6 @@ static char vty_cwd[MAXPATHLEN];
 
 /* Login password check. */
 static int no_password_check = 0;
-
-/* Integrated configuration file path */
-static char integrate_default[] = SYSCONFDIR INTEGRATE_DEFAULT_CONFIG;
 
 bool vty_log_commands;
 static bool vty_log_commands_perm;
@@ -188,7 +189,11 @@ void vty_mgmt_resume_response(struct vty *vty, int ret)
 	if (vty->type != VTY_FILE) {
 		header[3] = ret;
 		buffer_put(vty->obuf, header, 4);
-		if (!vty->t_write && (vtysh_flush(vty) < 0)) {
+		if (!vty->t_write
+#ifdef VTYSH
+		    && (vtysh_flush(vty) < 0)
+#endif
+		) {
 			zlog_err("failed to vtysh_flush");
 			/* Try to flush results; exit if a write error occurs */
 			return;
@@ -197,9 +202,11 @@ void vty_mgmt_resume_response(struct vty *vty, int ret)
 
 	if (vty->status == VTY_CLOSE)
 		vty_close(vty);
-	else if (vty->type != VTY_FILE)
+	else if (vty->type != VTY_FILE) {
+#ifdef VTYSH
 		vty_event(VTYSH_READ, vty);
-	else
+#endif
+	} else
 		/* should we assert here? */
 		zlog_err("mgmtd: unexpected resume while reading config file");
 }
@@ -3007,12 +3014,14 @@ static void vty_event_serv(enum vty_event event, struct vty_serv *vty_serv)
 		event_add_read(vty_master, vtysh_accept, vty_serv,
 			       vty_serv->sock, &vty_serv->t_accept);
 		break;
+	case VTYSH_READ:
+	case VTYSH_WRITE:
+		assert(!"vty_event_serv() called incorrectly");
+		break;
 #endif /* VTYSH */
 	case VTY_READ:
 	case VTY_WRITE:
 	case VTY_TIMEOUT_RESET:
-	case VTYSH_READ:
-	case VTYSH_WRITE:
 		assert(!"vty_event_serv() called incorrectly");
 	}
 }
@@ -3028,6 +3037,9 @@ static void vty_event(enum vty_event event, struct vty *vty)
 	case VTYSH_WRITE:
 		event_add_write(vty_master, vtysh_write, vty, vty->wfd,
 				&vty->t_write);
+		break;
+	case VTYSH_SERV:
+		assert(!"vty_event() called incorrectly");
 		break;
 #endif /* VTYSH */
 	case VTY_READ:
@@ -3052,7 +3064,6 @@ static void vty_event(enum vty_event event, struct vty *vty)
 					vty->v_timeout, &vty->t_timeout);
 		break;
 	case VTY_SERV:
-	case VTYSH_SERV:
 		assert(!"vty_event() called incorrectly");
 	}
 }
@@ -3287,7 +3298,9 @@ DEFUN_NOSH(terminal_monitor,
 		return CMD_WARNING;
 	}
 
+#ifdef VTYSH
 	vty_pass_fd(vty, fd_ret);
+#endif
 	return CMD_SUCCESS;
 }
 

@@ -563,6 +563,7 @@ DEFPY(debug_mgmt, debug_mgmt_cmd,
 	return CMD_SUCCESS;
 }
 
+#ifdef VTYSH
 static void mgmt_config_read_in(struct event *event)
 {
 	if (vty_mgmt_fe_enabled())
@@ -574,6 +575,7 @@ static void mgmt_config_read_in(struct event *event)
 				&mgmt_daemon_info->read_in);
 	}
 }
+#endif
 
 static int mgmtd_config_write(struct vty *vty)
 {
@@ -620,8 +622,10 @@ void mgmt_vty_init(void)
 	static_vty_init();
 #endif
 
+#ifdef VTYSH
 	event_add_event(mm->master, mgmt_config_read_in, NULL, 0,
 			&mgmt_daemon_info->read_in);
+#endif
 
 	install_node(&debug_node);
 	install_node(&mgmtd_node);
