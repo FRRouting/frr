@@ -1374,7 +1374,7 @@ DEFUN (disable,
 }
 
 /* Down vty node level. */
-DEFUN (config_exit,
+DEFUN_YANG (config_exit,
        config_exit_cmd,
        "exit",
        "Exit current mode and down to previous mode\n")
