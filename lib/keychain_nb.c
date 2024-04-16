@@ -545,10 +545,6 @@ static int key_chains_key_chain_key_crypto_algorithm_modify(struct nb_cb_modify_
 	if (args->event != NB_EV_VALIDATE && args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	name = yang_dnode_get_string(args->dnode, "../../name");
-	keychain = keychain_lookup(name);
-	index = (uint32_t)yang_dnode_get_uint64(args->dnode, "../key-id");
-	key = key_lookup(keychain, index);
 	name = yang_dnode_get_string(args->dnode, NULL);
 	if (!strncmp(name, prefix, prefix_len))
 		name += prefix_len;
@@ -570,6 +566,10 @@ static int key_chains_key_chain_key_crypto_algorithm_modify(struct nb_cb_modify_
 	}
 
 	assert(args->event == NB_EV_APPLY);
+	name = yang_dnode_get_string(args->dnode, "../../name");
+	keychain = keychain_lookup(name);
+	index = (uint32_t)yang_dnode_get_uint64(args->dnode, "../key-id");
+	key = key_lookup(keychain, index);
 	key->hash_algo = hash_algo;
 
 	keychain_touch(keychain);
