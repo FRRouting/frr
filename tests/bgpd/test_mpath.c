@@ -307,6 +307,7 @@ static int setup_bgp_path_info_mpath_update(testcase_t *t)
 static int run_bgp_path_info_mpath_update(testcase_t *t)
 {
 	struct bgp_path_info *new_best, *old_best, *mpath;
+	struct bgp_path_info_pair new_and_old_best = { 0 };
 	struct list mp_list;
 	struct bgp_maxpaths_cfg mp_cfg = {3, 3};
 
@@ -318,8 +319,11 @@ static int run_bgp_path_info_mpath_update(testcase_t *t)
 	bgp_mp_list_add(&mp_list, &test_mp_list_info[1]);
 	new_best = &test_mp_list_info[3];
 	old_best = NULL;
-	bgp_path_info_mpath_update(NULL, dest, new_best, old_best, &mp_list,
+	new_and_old_best.new = new_best;
+	new_and_old_best.old = old_best;
+	bgp_path_info_mpath_update(NULL, dest, &new_and_old_best, &mp_list,
 				   &mp_cfg);
+
 	bgp_mp_list_clear(&mp_list);
 	EXPECT_TRUE(bgp_path_info_mpath_count(new_best) == 2, test_result);
 	mpath = bgp_path_info_mpath_first(new_best);
@@ -333,7 +337,9 @@ static int run_bgp_path_info_mpath_update(testcase_t *t)
 	bgp_mp_list_add(&mp_list, &test_mp_list_info[1]);
 	new_best = &test_mp_list_info[0];
 	old_best = &test_mp_list_info[3];
-	bgp_path_info_mpath_update(NULL, dest, new_best, old_best, &mp_list,
+	new_and_old_best.new = new_best;
+	new_and_old_best.old = old_best;
+	bgp_path_info_mpath_update(NULL, dest, &new_and_old_best, &mp_list,
 				   &mp_cfg);
 	bgp_mp_list_clear(&mp_list);
 	EXPECT_TRUE(bgp_path_info_mpath_count(new_best) == 1, test_result);

@@ -1931,14 +1931,17 @@ static void rfapiBgpInfoAttachSorted(struct agg_node *rn,
 	for (prev = NULL, next = rn->info; next;
 	     prev = next, next = next->next) {
 		enum bgp_path_selection_reason reason;
+		struct bgp_path_info_pair info_new_and_next = { 0 };
 
-		if (!bgp
-		    || (!CHECK_FLAG(info_new->flags, BGP_PATH_REMOVED)
-			&& CHECK_FLAG(next->flags, BGP_PATH_REMOVED))
-		    || bgp_path_info_cmp_compatible(bgp, info_new, next,
-						    pfx_buf, afi, safi,
-						    &reason)
-			       == -1) { /* -1 if 1st is better */
+		info_new_and_next.old = next;
+		info_new_and_next.new = info_new;
+
+		if (!bgp ||
+		    (!CHECK_FLAG(info_new->flags, BGP_PATH_REMOVED) &&
+		     CHECK_FLAG(next->flags, BGP_PATH_REMOVED)) ||
+		    bgp_path_info_cmp_compatible(bgp, &info_new_and_next,
+						 pfx_buf, afi, safi, &reason) ==
+			    -1) { /* -1 if 1st is better */
 			break;
 		}
 	}

@@ -1446,7 +1446,7 @@ int evpn_route_select_install(struct bgp *bgp, struct bgpevpn *vpn,
 				     struct bgp_dest *dest)
 {
 	struct bgp_path_info *old_select, *new_select;
-	struct bgp_path_info_pair old_and_new;
+	struct bgp_path_info_pair old_and_new = { 0 };
 	afi_t afi = AFI_L2VPN;
 	safi_t safi = SAFI_EVPN;
 	int ret = 0;
@@ -1759,6 +1759,7 @@ static void bgp_evpn_get_sync_info(struct bgp *bgp, esi_t *esi,
 				   bool *peer_router, bool *proxy_from_peer,
 				   const struct ethaddr *mac)
 {
+	struct bgp_path_info_pair pi_and_second_best_path = { 0 };
 	struct bgp_path_info *tmp_pi;
 	struct bgp_path_info *second_best_path = NULL;
 	uint32_t tmp_mm_seq = 0;
@@ -1789,7 +1790,9 @@ static void bgp_evpn_get_sync_info(struct bgp *bgp, esi_t *esi,
 				continue;
 		}
 
-		if (bgp_evpn_path_info_cmp(bgp, tmp_pi, second_best_path,
+		pi_and_second_best_path.old = second_best_path;
+		pi_and_second_best_path.new = tmp_pi;
+		if (bgp_evpn_path_info_cmp(bgp, &pi_and_second_best_path,
 					   &paths_eq, false))
 			second_best_path = tmp_pi;
 	}

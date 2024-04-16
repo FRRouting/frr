@@ -461,7 +461,8 @@ struct bgp_dest *bgp_path_info_reap(struct bgp_dest *dest,
 	else
 		bgp_dest_set_bgp_path_info(dest, pi->next);
 
-	bgp_path_info_mpath_dequeue(pi);
+	bgp_path_info_mpath_dequeue(pi, BGP_PATH_BACKUP_MULTIPATH |
+						BGP_PATH_MULTIPATH);
 	bgp_path_info_unlock(pi);
 	hook_call(bgp_snmp_update_stats, dest, pi, false);
 
@@ -612,10 +613,9 @@ struct bgp_path_info *bgp_get_imported_bpi_ultimate(struct bgp_path_info *info)
 
 /* Compare two bgp route entity.  If 'new' is preferable over 'exist' return 1.
  */
-int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
-		      struct bgp_path_info *exist, int *paths_eq,
-		      struct bgp_maxpaths_cfg *mpath_cfg, bool debug,
-		      char *pfx_buf, afi_t afi, safi_t safi,
+int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info_pair *new_and_exist,
+		      int *paths_eq, struct bgp_maxpaths_cfg *mpath_cfg,
+		      bool debug, char *pfx_buf, afi_t afi, safi_t safi,
 		      enum bgp_path_selection_reason *reason)
 {
 	const struct prefix *new_p;
@@ -653,6 +653,11 @@ int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 	bool new_origin, exist_origin;
 	struct bgp_path_info *bpi_ultimate;
 	struct peer *peer_new, *peer_exist;
+	struct bgp_path_info *new = new_and_exist->new;
+	struct bgp_path_info *exist = new_and_exist->old;
+	uint32_t select_or_backup = new_and_exist->blacklist
+					    ? BGP_PATH_BACKUP
+					    : BGP_PATH_SELECTED;
 
 	*paths_eq = 0;
 
@@ -673,8 +678,9 @@ int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 	if (exist == NULL) {
 		*reason = bgp_path_selection_first;
 		if (debug)
-			zlog_debug("%s(%s): %s is the initial bestpath",
-				   pfx_buf, bgp->name_pretty, new_buf);
+			zlog_debug("%s(%s): %s is the initial %sbestpath",
+				   pfx_buf, bgp->name_pretty, new_buf,
+				   new_and_exist->blacklist ? "second " : "");
 		return 1;
 	}
 
@@ -1381,7 +1387,7 @@ int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 	   preferred route based on the additional decision criteria below.  */
 	if (!CHECK_FLAG(bgp->flags, BGP_FLAG_COMPARE_ROUTER_ID)
 	    && new_sort == BGP_PEER_EBGP && exist_sort == BGP_PEER_EBGP) {
-		if (CHECK_FLAG(new->flags, BGP_PATH_SELECTED)) {
+		if (CHECK_FLAG(new->flags, select_or_backup)) {
 			*reason = bgp_path_selection_older;
 			if (debug)
 				zlog_debug(
@@ -1390,7 +1396,7 @@ int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 			return 1;
 		}
 
-		if (CHECK_FLAG(exist->flags, BGP_PATH_SELECTED)) {
+		if (CHECK_FLAG(exist->flags, select_or_backup)) {
 			*reason = bgp_path_selection_older;
 			if (debug)
 				zlog_debug(
@@ -1518,36 +1524,36 @@ int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 }
 
 
-int bgp_evpn_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
-			   struct bgp_path_info *exist, int *paths_eq,
-			   bool debug)
+int bgp_evpn_path_info_cmp(struct bgp *bgp,
+			   struct bgp_path_info_pair *pi_and_second_best_path,
+			   int *paths_eq, bool debug)
 {
 	enum bgp_path_selection_reason reason;
 	char pfx_buf[PREFIX2STR_BUFFER] = {};
 
 	if (debug)
-		prefix2str(bgp_dest_get_prefix(new->net), pfx_buf,
-			   sizeof(pfx_buf));
+		prefix2str(bgp_dest_get_prefix(pi_and_second_best_path->new->net),
+			   pfx_buf, sizeof(pfx_buf));
 
-	return bgp_path_info_cmp(bgp, new, exist, paths_eq, NULL, debug,
-				 pfx_buf, AFI_L2VPN, SAFI_EVPN, &reason);
+	return bgp_path_info_cmp(bgp, pi_and_second_best_path, paths_eq, NULL,
+				 debug, pfx_buf, AFI_L2VPN, SAFI_EVPN, &reason);
 }
 
 /* Compare two bgp route entity.  Return -1 if new is preferred, 1 if exist
  * is preferred, or 0 if they are the same (usually will only occur if
  * multipath is enabled
  * This version is compatible with */
-int bgp_path_info_cmp_compatible(struct bgp *bgp, struct bgp_path_info *new,
-				 struct bgp_path_info *exist, char *pfx_buf,
-				 afi_t afi, safi_t safi,
+int bgp_path_info_cmp_compatible(struct bgp *bgp,
+				 struct bgp_path_info_pair *result,
+				 char *pfx_buf, afi_t afi, safi_t safi,
 				 enum bgp_path_selection_reason *reason)
 {
 	int paths_eq;
 	int ret;
 	bool debug = false;
 
-	ret = bgp_path_info_cmp(bgp, new, exist, &paths_eq, NULL, debug,
-				pfx_buf, afi, safi, reason);
+	ret = bgp_path_info_cmp(bgp, result, &paths_eq, NULL, debug, pfx_buf,
+				afi, safi, reason);
 
 	if (paths_eq)
 		ret = 0;
@@ -2747,6 +2753,7 @@ void bgp_best_selection(struct bgp *bgp, struct bgp_dest *dest,
 	struct list mp_list;
 	char pfx_buf[PREFIX2STR_BUFFER] = {};
 	char path_buf[PATH_ADDPATH_STR_BUFFER];
+	struct bgp_path_info_pair pi_and_new_select = { 0 };
 
 	bgp_mp_list_init(&mp_list);
 	do_mpath =
@@ -2758,10 +2765,10 @@ void bgp_best_selection(struct bgp *bgp, struct bgp_dest *dest,
 		prefix2str(bgp_dest_get_prefix(dest), pfx_buf, sizeof(pfx_buf));
 
 	dest->reason = bgp_path_selection_none;
-	/* bgp deterministic-med */
+	/* bgp deterministic-med, only for best path */
 	new_select = NULL;
-	if (CHECK_FLAG(bgp->flags, BGP_FLAG_DETERMINISTIC_MED)) {
-
+	if (result->blacklist == NULL &&
+	    CHECK_FLAG(bgp->flags, BGP_FLAG_DETERMINISTIC_MED)) {
 		/* Clear BGP_PATH_DMED_SELECTED for all paths */
 		for (pi1 = bgp_dest_get_bgp_path_info(dest); pi1;
 		     pi1 = pi1->next)
@@ -2799,7 +2806,10 @@ void bgp_best_selection(struct bgp *bgp, struct bgp_dest *dest,
 							    pi2->attr->aspath))
 					continue;
 
-				if (bgp_path_info_cmp(bgp, pi2, new_select,
+				pi_and_new_select.new = pi2;
+				pi_and_new_select.old = new_select;
+				pi_and_new_select.blacklist = result->blacklist;
+				if (bgp_path_info_cmp(bgp, &pi_and_new_select,
 						      &paths_eq, mpath_cfg,
 						      debug, pfx_buf, afi, safi,
 						      &dest->reason)) {
@@ -2808,7 +2818,6 @@ void bgp_best_selection(struct bgp *bgp, struct bgp_dest *dest,
 								 BGP_PATH_DMED_SELECTED);
 					new_select = pi2;
 				}
-
 				bgp_path_info_set_flag(dest, pi2,
 						       BGP_PATH_DMED_CHECK);
 			}
@@ -2836,7 +2845,16 @@ void bgp_best_selection(struct bgp *bgp, struct bgp_dest *dest,
 	     (pi != NULL) && (nextpi = pi->next, 1); pi = nextpi) {
 		enum bgp_path_selection_reason reason;
 
-		if (CHECK_FLAG(pi->flags, BGP_PATH_SELECTED))
+		if (result->blacklist &&
+		    (pi == result->blacklist ||
+		     bgp_mpath_is_primary_path(pi, result->blacklist)))
+			continue;
+
+		if (result->blacklist == NULL &&
+		    CHECK_FLAG(pi->flags, BGP_PATH_SELECTED))
+			old_select = pi;
+		else if (result->blacklist &&
+			 CHECK_FLAG(pi->flags, BGP_PATH_BACKUP))
 			old_select = pi;
 
 		if (BGP_PATH_HOLDDOWN(pi)) {
@@ -2871,9 +2889,11 @@ void bgp_best_selection(struct bgp *bgp, struct bgp_dest *dest,
 				continue;
 			}
 
-		bgp_path_info_unset_flag(dest, pi, BGP_PATH_DMED_CHECK);
+		if (result->blacklist == NULL)
+			bgp_path_info_unset_flag(dest, pi, BGP_PATH_DMED_CHECK);
 
-		if (CHECK_FLAG(bgp->flags, BGP_FLAG_DETERMINISTIC_MED) &&
+		if (result->blacklist == NULL &&
+		    CHECK_FLAG(bgp->flags, BGP_FLAG_DETERMINISTIC_MED) &&
 		    (!CHECK_FLAG(pi->flags, BGP_PATH_DMED_SELECTED))) {
 			if (debug)
 				zlog_debug("%s: %pBD(%s) pi %s dmed", __func__,
@@ -2883,8 +2903,11 @@ void bgp_best_selection(struct bgp *bgp, struct bgp_dest *dest,
 		}
 
 		reason = dest->reason;
-		if (bgp_path_info_cmp(bgp, pi, new_select, &paths_eq, mpath_cfg,
-				      debug, pfx_buf, afi, safi,
+		pi_and_new_select.new = pi;
+		pi_and_new_select.old = new_select;
+		pi_and_new_select.blacklist = result->blacklist;
+		if (bgp_path_info_cmp(bgp, &pi_and_new_select, &paths_eq,
+				      mpath_cfg, debug, pfx_buf, afi, safi,
 				      &dest->reason)) {
 			if (new_select == NULL &&
 			    reason != bgp_path_selection_none)
@@ -2900,10 +2923,11 @@ void bgp_best_selection(struct bgp *bgp, struct bgp_dest *dest,
 	if (debug) {
 		bgp_path_info_path_with_addpath_rx_str(new_select, path_buf,
 						       sizeof(path_buf));
-		zlog_debug(
-			"%pBD(%s): After path selection, newbest is %s oldbest was %s",
-			dest, bgp->name_pretty, path_buf,
-			old_select ? old_select->peer->host : "NONE");
+		zlog_debug("%pBD(%s): After path selection, new%sbest is %s old%sbest was %s",
+			   dest, bgp->name_pretty,
+			   result->blacklist ? " second " : " ", path_buf,
+			   result->blacklist ? " second " : " ",
+			   old_select ? old_select->peer->host : "NONE");
 	}
 
 	if (do_mpath && new_select) {
@@ -2912,12 +2936,18 @@ void bgp_best_selection(struct bgp *bgp, struct bgp_dest *dest,
 				bgp_path_info_path_with_addpath_rx_str(
 					pi, path_buf, sizeof(path_buf));
 
+			if (result->blacklist &&
+			    (pi == result->blacklist ||
+			     bgp_mpath_is_primary_path(pi, result->blacklist)))
+				continue;
+
 			if (pi == new_select) {
 				if (debug)
-					zlog_debug(
-						"%pBD(%s): %s is the bestpath, add to the multipath list",
-						dest, bgp->name_pretty,
-						path_buf);
+					zlog_debug("%pBD(%s): %s is the best%spath, add to the multipath list",
+						   dest, bgp->name_pretty,
+						   path_buf,
+						   result->blacklist ? " second "
+								     : "");
 				bgp_mp_list_add(&mp_list, pi);
 				continue;
 			}
@@ -2933,38 +2963,45 @@ void bgp_best_selection(struct bgp *bgp, struct bgp_dest *dest,
 
 			if (!bgp_path_info_nexthop_cmp(pi, new_select)) {
 				if (debug)
-					zlog_debug(
-						"%pBD(%s): %s has the same nexthop as the bestpath, skip it",
-						dest, bgp->name_pretty,
-						path_buf);
+					zlog_debug("%pBD(%s): %s has the same nexthop as the best%spath, skip it",
+						   dest, bgp->name_pretty,
+						   path_buf,
+						   result->blacklist ? "second "
+								     : "");
 				continue;
 			}
 
-			bgp_path_info_cmp(bgp, pi, new_select, &paths_eq,
+			pi_and_new_select.new = pi;
+			pi_and_new_select.old = new_select;
+			pi_and_new_select.blacklist = result->blacklist;
+			bgp_path_info_cmp(bgp, &pi_and_new_select, &paths_eq,
 					  mpath_cfg, debug, pfx_buf, afi, safi,
 					  &dest->reason);
 
 			if (paths_eq) {
 				if (debug)
-					zlog_debug(
-						"%pBD(%s): %s is equivalent to the bestpath, add to the multipath list",
-						dest, bgp->name_pretty,
-						path_buf);
+					zlog_debug("%pBD(%s): %s is equivalent to the best%spath, add to the multipath list",
+						   dest, bgp->name_pretty,
+						   path_buf,
+						   result->blacklist ? " second "
+								     : "");
 				bgp_mp_list_add(&mp_list, pi);
 			}
 		}
 	}
 
-	bgp_path_info_mpath_update(bgp, dest, new_select, old_select, &mp_list,
+	pi_and_new_select.old = old_select;
+	pi_and_new_select.new = new_select;
+	pi_and_new_select.blacklist = result->blacklist;
+
+	bgp_path_info_mpath_update(bgp, dest, &pi_and_new_select, &mp_list,
 				   mpath_cfg);
 	bgp_path_info_mpath_aggregate_update(new_select, old_select);
-	bgp_mp_list_clear(&mp_list);
 
-	bgp_addpath_update_ids(bgp, dest, afi, safi);
+	bgp_mp_list_clear(&mp_list);
 
 	result->old = old_select;
 	result->new = new_select;
-
 	return;
 }
 
@@ -3312,6 +3349,8 @@ static void bgp_process_main_one(struct bgp *bgp, struct bgp_dest *dest,
 	struct bgp_path_info *new_select;
 	struct bgp_path_info *old_select;
 	struct bgp_path_info_pair old_and_new;
+	struct bgp_path_info_pair old_and_backup = { 0 };
+	struct bgp_path_info *pi;
 	int debug = 0;
 
 	if (CHECK_FLAG(bgp->flags, BGP_FLAG_DELETE_IN_PROGRESS)) {
@@ -3360,10 +3399,29 @@ static void bgp_process_main_one(struct bgp *bgp, struct bgp_dest *dest,
 	}
 
 	/* Best path selection. */
+	old_and_new.blacklist = NULL;
 	bgp_best_selection(bgp, dest, &bgp->maxpaths[afi][safi], &old_and_new,
 			   afi, safi);
 	old_select = old_and_new.old;
 	new_select = old_and_new.new;
+
+	/* Add-Path 2 : If best path available and adddpath enabled,
+	 * then check there is a Best backup path available
+	 */
+	if (CHECK_FLAG(bgp->af_flags[afi][safi], BGP_CONFIG_ADDPATH_BACKUP) &&
+	    new_select && new_select->addpath_rx_id) {
+		old_and_backup.blacklist = new_select;
+		bgp_best_selection(bgp, dest, &bgp->maxpaths[afi][safi],
+				   &old_and_backup, afi, safi);
+	} else if (!CHECK_FLAG(bgp->af_flags[afi][safi],
+			       BGP_CONFIG_ADDPATH_BACKUP)) {
+		/* unset backup and backup-multipath routes */
+		for (pi = bgp_dest_get_bgp_path_info(dest); pi; pi = pi->next)
+			bgp_path_info_unset_flag(dest, pi,
+						 BGP_PATH_BACKUP |
+							 BGP_PATH_BACKUP_MULTIPATH);
+	}
+
 
 	if (safi == SAFI_UNICAST || safi == SAFI_LABELED_UNICAST)
 		/* label unicast path :
@@ -3482,6 +3540,24 @@ static void bgp_process_main_one(struct bgp *bgp, struct bgp_dest *dest,
 			  new_select);
 	}
 
+	/* backup routes */
+	if (old_and_backup.old)
+		bgp_path_info_unset_flag(dest, old_and_backup.old,
+					 BGP_PATH_BACKUP);
+	if (old_and_backup.new) {
+		if (!CHECK_FLAG(old_and_backup.new->flags, BGP_PATH_MULTIPATH)) {
+			if (debug)
+				zlog_debug("%s: setting BACKUP flag", __func__);
+			bgp_path_info_set_flag(dest, old_and_backup.new,
+					       BGP_PATH_BACKUP);
+		}
+		bgp_path_info_unset_flag(dest, old_and_backup.new,
+					 BGP_PATH_ATTR_CHANGED);
+		UNSET_FLAG(old_and_backup.new->flags, BGP_PATH_MULTIPATH_CHG);
+		UNSET_FLAG(old_and_backup.new->flags, BGP_PATH_LINK_BW_CHG);
+	}
+
+	bgp_addpath_update_ids(bgp, dest, afi, safi);
 
 #ifdef ENABLE_BGP_VNC
 	if ((afi == AFI_IP || afi == AFI_IP6) && (safi == SAFI_UNICAST)) {
@@ -3530,6 +3606,7 @@ static void bgp_process_main_one(struct bgp *bgp, struct bgp_dest *dest,
 				bgp_zebra_route_install(dest, old_select, bgp,
 							false, NULL, false);
 		}
+		/* TODO: (un)install backup routes */
 	}
 
 	group_announce_route(bgp, afi, safi, dest, new_select);
@@ -8989,10 +9066,15 @@ static void route_vty_short_status_out(struct vty *vty,
 			json_object_string_add(json_path, "selectionReason",
 					       bgp_path_selection_reason2str(
 						       path->net->reason));
-		}
+		} else if (CHECK_FLAG(path->flags, BGP_PATH_BACKUP))
+			json_object_boolean_true_add(json_path,
+						     "backup-bestpath");
 
 		if (CHECK_FLAG(path->flags, BGP_PATH_MULTIPATH))
 			json_object_boolean_true_add(json_path, "multipath");
+		else if (CHECK_FLAG(path->flags, BGP_PATH_BACKUP_MULTIPATH))
+			json_object_boolean_true_add(json_path,
+						     "backup-multipath");
 
 		/* Internal route. */
 		if ((path->peer->as)
@@ -9026,6 +9108,10 @@ static void route_vty_short_status_out(struct vty *vty,
 		vty_out(vty, "S");
 	else if (bgp_path_suppressed(path))
 		vty_out(vty, "s");
+	else if (CHECK_FLAG(path->flags, BGP_PATH_BACKUP))
+		vty_out(vty, "b");
+	else if (CHECK_FLAG(path->flags, BGP_PATH_BACKUP_MULTIPATH))
+		vty_out(vty, "b");
 	else if (CHECK_FLAG(path->flags, BGP_PATH_VALID)
 		 && !CHECK_FLAG(path->flags, BGP_PATH_HISTORY))
 		vty_out(vty, "*");
@@ -10149,6 +10235,7 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 	time_t tbuf;
 	char timebuf[32];
 	json_object *json_bestpath = NULL;
+	json_object *json_best_second_path = NULL;
 	json_object *json_cluster_list = NULL;
 	json_object *json_cluster_list_list = NULL;
 	json_object *json_ext_community = NULL;
@@ -10777,6 +10864,14 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 			json_object_boolean_true_add(json_path, "multipath");
 		else
 			vty_out(vty, ", multipath");
+	} else if (CHECK_FLAG(path->flags, BGP_PATH_BACKUP_MULTIPATH) ||
+		   (CHECK_FLAG(path->flags, BGP_PATH_BACKUP) &&
+		    bgp_path_info_mpath_count(path))) {
+		if (json_paths)
+			json_object_boolean_true_add(json_path,
+						     "backup-multipath");
+		else
+			vty_out(vty, ", backup-multipath");
 	}
 
 	// Mark the bestpath(s)
@@ -10809,6 +10904,13 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 			vty_out(vty, " (%s)",
 				bgp_path_selection_reason2str(bn->reason));
 		}
+	} else if (CHECK_FLAG(path->flags, BGP_PATH_BACKUP)) {
+		if (json_paths) {
+			json_best_second_path = json_object_new_object();
+			json_object_boolean_true_add(json_best_second_path,
+						     "second");
+		} else
+			vty_out(vty, ", backup-bestpath");
 	}
 
 	if (rpki_curr_state != RPKI_NOT_BEING_USED) {
@@ -10823,6 +10925,9 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 
 	if (json_bestpath)
 		json_object_object_add(json_path, "bestpath", json_bestpath);
+	if (json_best_second_path)
+		json_object_object_add(json_path, "backup-bestpath",
+				       json_best_second_path);
 
 	if (!json_paths)
 		vty_out(vty, "\n");
