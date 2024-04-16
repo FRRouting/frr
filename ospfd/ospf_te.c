@@ -1670,6 +1670,11 @@ static struct ls_edge *get_edge(struct ls_ted *ted, struct ls_node_id adv,
 	struct ls_edge *edge;
 	struct ls_attributes *attr;
 
+	/* Check that Link ID and Node ID are valid */
+	if (IPV4_NET0(link_id.s_addr) || IPV4_NET0(adv.id.ip.addr.s_addr) ||
+	    adv.origin != OSPFv2)
+		return NULL;
+
 	/* Search Edge that corresponds to the Link ID */
 	key.family = AF_INET;
 	IPV4_ADDR_COPY(&key.k.addr, &link_id);
@@ -1743,6 +1748,10 @@ static void ospf_te_update_link(struct ls_ted *ted, struct ls_vertex *vertex,
 
 	/* Get Corresponding Edge from Link State Data Base */
 	edge = get_edge(ted, vertex->node->adv, link_data);
+	if (!edge) {
+		ote_debug("  |- Found no edge from Link Data. Abort!");
+		return;
+	}
 	attr = edge->attributes;
 
 	/* re-attached edge to vertex if needed */
@@ -2246,11 +2255,11 @@ static int ospf_te_parse_te(struct ls_ted *ted, struct ospf_lsa *lsa)
 	}
 
 	/* Get corresponding Edge from Link State Data Base */
-	if (IPV4_NET0(attr.standard.local.s_addr) && !attr.standard.local_id) {
-		ote_debug("  |- Found no TE Link local address/ID. Abort!");
+	edge = get_edge(ted, attr.adv, attr.standard.local);
+	if (!edge) {
+		ote_debug("  |- Found no edge from Link local add./ID. Abort!");
 		return -1;
 	}
-	edge = get_edge(ted, attr.adv, attr.standard.local);
 	old = edge->attributes;
 
 	ote_debug("  |- Process Traffic Engineering LSA %pI4 for Edge %pI4",
@@ -2759,6 +2768,10 @@ static int ospf_te_parse_ext_link(struct ls_ted *ted, struct ospf_lsa *lsa)
 	lnid.id.ip.area_id = lsa->area->area_id;
 	ext = (struct ext_tlv_link *)TLV_HDR_TOP(lsa->data);
 	edge = get_edge(ted, lnid, ext->link_data);
+	if (!edge) {
+		ote_debug("  |- Found no edge from Extended Link Data. Abort!");
+		return -1;
+	}
 	atr = edge->attributes;
 
 	ote_debug("  |- Process Extended Link LSA %pI4 for edge %pI4",
