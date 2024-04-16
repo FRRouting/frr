@@ -241,7 +241,7 @@ DEFUN_YANG_NOSH (link_params,
 	return ret;
 }
 
-DEFUN_NOSH (exit_link_params,
+DEFUN_YANG_NOSH (exit_link_params,
 	exit_link_params_cmd,
 	"exit-link-params",
 	"Exit from Link Params configuration mode\n")
