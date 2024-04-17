@@ -1267,7 +1267,15 @@ TRACEPOINT_EVENT(
 
 TRACEPOINT_LOGLEVEL(frr_zebra, if_netlink_parse_error, TRACE_INFO)
 
-/* clang-format on */
+/*
+ * Loc 1: zebra_gr_process_client
+ * Loc 2: zebra_gr_delete_stale_route_table_afi
+ */
+TRACEPOINT_EVENT(frr_zebra, gr_client_not_found,
+		 TP_ARGS(vrf_id_t, vrf_id, uint8_t, afi, uint8_t, loc),
+		 TP_FIELDS(ctf_integer(vrf_id_t, vrf_id, vrf_id) ctf_integer(uint8_t, afi, afi)
+				   ctf_integer(uint8_t, location, loc)))
+TRACEPOINT_LOGLEVEL(frr_zebra, gr_client_not_found, TRACE_INFO)
 
 #include <lttng/tracepoint-event.h>
 

@@ -306,6 +306,13 @@ def print_family_str(field_val):
 
     return cmd_str
 
+
+def location_gr_client_not_found(field_val):
+    if field_val == 1:
+        return "Process from GR queue"
+    elif field_val == 2:
+        return "Stale route delete from table"
+
 ############################ common parsers - end #############################
 
 
@@ -560,6 +567,11 @@ def parse_frr_bgp_gr_continue_deferred_path_selection(event):
 def parse_frr_bgp_gr_zebra_update(event):
     field_parsers = {"afi": print_afi_string, "safi": print_safi_string}
 
+    parse_event(event, field_parsers)
+
+
+def parse_frr_zebra_gr_client_not_found(event):
+    field_parsers = {"location": location_gr_client_not_found}
     parse_event(event, field_parsers)
 
 
@@ -1365,6 +1377,7 @@ def main():
         "frr_bgp:gr_send_fbit_capability": parse_frr_bgp_gr_send_fbit_capability,
         "frr_bgp:gr_continue_deferred_path_selection": parse_frr_bgp_gr_continue_deferred_path_selection,
         "frr_bgp:gr_zebra_update": parse_frr_bgp_gr_zebra_update,
+        "frr_zebra:gr_client_not_found": parse_frr_zebra_gr_client_not_found,
     }
 
     # get the trace path from the first command line argument
