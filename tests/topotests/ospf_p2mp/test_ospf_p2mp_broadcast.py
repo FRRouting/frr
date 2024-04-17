@@ -118,17 +118,21 @@ def teardown_module(mod):
     tgen.stop_topology()
 
 
-def verify_p2mp_interface(tgen):
+def verify_p2mp_interface(tgen, router, nbr_cnt, nbr_adj_cnt, nbr_filter):
     "Verify the P2MP Configuration and interface settings"
 
-    r1 = tgen.gears["r1"]
+    topo_router = tgen.gears[router]
 
     step("Test running configuration for P2MP configuration")
     rc = 0
-    rc, _, _ = tgen.net["r1"].cmd_status(
+    rc, _, _ = tgen.net[router].cmd_status(
         "show running ospfd | grep 'ip ospf network point-to-multipoint'", warn=False
     )
-    assertmsg = "'ip ospf network point-to-multipoint' applied, but not present in r1 configuration"
+    assertmsg = (
+        "'ip ospf network point-to-multipoint' applied, but not present in "
+        + router
+        + "configuration"
+    )
     assert rc, assertmsg
 
     step("Test OSPF interface for P2MP settings")
@@ -145,11 +149,11 @@ def verify_p2mp_interface(tgen):
                         "networkType": "POINTOMULTIPOINT",
                         "cost": 10,
                         "state": "Point-To-Point",
-                        "nbrCount": 3,
-                        "nbrAdjacentCount": 3,
+                        "nbrCount": nbr_cnt,
+                        "nbrAdjacentCount": nbr_adj_cnt,
                         "prefixSuppression": False,
                         "p2mpDelayReflood": False,
-                        "p2mpNonBroadcast": False,
+                        "nbrFilterPrefixList": nbr_filter,
                     }
                 },
                 "ipAddress": "10.1.0.1",
@@ -161,16 +165,19 @@ def verify_p2mp_interface(tgen):
                 "cost": 10,
                 "state": "Point-To-Point",
                 "opaqueCapable": True,
-                "nbrCount": 3,
-                "nbrAdjacentCount": 3,
+                "nbrCount": nbr_cnt,
+                "nbrAdjacentCount": nbr_adj_cnt,
                 "prefixSuppression": False,
                 "p2mpDelayReflood": False,
-                "p2mpNonBroadcast": False,
+                "nbrFilterPrefixList": nbr_filter,
             }
         }
     }
     test_func = partial(
-        topotest.router_json_cmp, r1, "show ip ospf interface r1-eth0 json", input_dict
+        topotest.router_json_cmp,
+        topo_router,
+        "show ip ospf interface r1-eth0 json",
+        input_dict,
     )
     _, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
     assertmsg = "P2MP Interface Mismatch on router r1"
@@ -251,6 +258,23 @@ def verify_p2mp_neighbor(tgen, router, neighbor, state, intf_addr, interface):
     assert result is None, assertmsg
 
 
+def verify_p2mp_neighbor_missing(tgen, router, neighbor):
+    topo_router = tgen.gears[router]
+
+    step("Verify neighbor " + neighbor + " missing")
+    input_dict = {"default": {}}
+    test_func = partial(
+        topotest.router_json_cmp,
+        topo_router,
+        "show ip ospf neighbor " + neighbor + " json",
+        input_dict,
+        True,  # Require exact match for missing neighbor
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
+    assertmsg = "P2MP Neighbor " + neighbor + " not missing"
+    assert result is None, assertmsg
+
+
 def verify_p2mp_route(tgen, router, prefix, prefix_len, nexthop, interface):
     topo_router = tgen.gears[router]
 
@@ -288,7 +312,7 @@ def test_p2mp_broadcast_interface():
         pytest.skip("Skipped because of router(s) failure")
 
     step("Verify router r1 interface r1-eth0 p2mp configuration")
-    verify_p2mp_interface(tgen)
+    verify_p2mp_interface(tgen, "r1", 3, 3, "N/A")
 
     step("Verify router r1 p2mp interface r1-eth0 neighbors")
     verify_p2mp_neighbor(
@@ -313,7 +337,7 @@ def test_p2mp_broadcast_interface():
 
     step("Verify router r1 interface r1-eth0 p2mp configuration application")
     r1.vtysh_cmd("conf t\ninterface r1-eth0\nip ospf network point-to-multipoint")
-    verify_p2mp_interface(tgen)
+    verify_p2mp_interface(tgen, "r1", 3, 3, "N/A")
 
     step("Verify restablishment of r1-eth0 p2mp neighbors")
     verify_p2mp_neighbor(
@@ -330,6 +354,108 @@ def test_p2mp_broadcast_interface():
     verify_p2mp_route(tgen, "r1", "10.1.2.0/24", 24, "10.1.0.2", "r1-eth0")
     verify_p2mp_route(tgen, "r1", "10.1.3.0/24", 24, "10.1.0.3", "r1-eth0")
     verify_p2mp_route(tgen, "r1", "10.1.4.0/24", 24, "10.1.0.4", "r1-eth0")
+
+
+def test_p2mp_broadcast_neighbor_filter():
+    tgen = get_topogen()
+
+    if tgen.routers_have_failure():
+        pytest.skip("Skipped because of router(s) failure")
+
+    step("Verify router r1 interface r1-eth0 p2mp configuration")
+    verify_p2mp_interface(tgen, "r1", 3, 3, "N/A")
+
+    step("Verify router r1 p2mp interface r1-eth0 neighbors")
+    verify_p2mp_neighbor(
+        tgen, "r1", "2.2.2.2", "Full/DROther", "10.1.0.2", "r1-eth0:10.1.0.1"
+    )
+    verify_p2mp_neighbor(
+        tgen, "r1", "3.3.3.3", "Full/DROther", "10.1.0.3", "r1-eth0:10.1.0.1"
+    )
+    verify_p2mp_neighbor(
+        tgen, "r1", "4.4.4.4", "Full/DROther", "10.1.0.4", "r1-eth0:10.1.0.1"
+    )
+
+    step("Add OSPF interface neighbor-filter to r1")
+    r1 = tgen.gears["r1"]
+    r1.vtysh_cmd("conf t\ninterface r1-eth0\nip ospf neighbor-filter nbr-filter")
+
+    step("Verify the R1 configuration of 'ip ospf neighbor-filter nbr-filter'")
+    neighbor_filter_cfg = (
+        tgen.net["r1"]
+        .cmd(
+            'vtysh -c "show running ospfd" | grep "^ ip ospf neighbor-filter nbr-filter"'
+        )
+        .rstrip()
+    )
+    assertmsg = (
+        "'ip ospf neighbor-filter nbr-filter' applied, but not present in configuration"
+    )
+    assert neighbor_filter_cfg == " ip ospf neighbor-filter nbr-filter", assertmsg
+
+    step("Verify non-existent neighbor-filter is not applied to r1 interfaces")
+    verify_p2mp_interface(tgen, "r1", 3, 3, "N/A")
+
+    step("Add nbr-filter prefix-list configuration to r1")
+    r1.vtysh_cmd("conf t\nip prefix-list nbr-filter seq 200 permit any")
+
+    step(
+        "Verify neighbor-filter is now applied to r1 interface and neighbors still adjacent"
+    )
+    verify_p2mp_interface(tgen, "r1", 3, 3, "nbr-filter")
+
+    step("Add nbr-filter prefix-list configuration to block r4")
+    r1.vtysh_cmd("conf t\nip prefix-list nbr-filter seq 10 deny 10.1.0.4/32")
+
+    step(
+        "Verify neighbor-filter is now applied to r1 interface and r4 is no longer adjacent"
+    )
+    verify_p2mp_interface(tgen, "r1", 2, 2, "nbr-filter")
+    verify_p2mp_neighbor_missing(tgen, "r1", "4.4.4.4")
+
+    step("Verify route to r4 subnet is now through r2")
+    verify_p2mp_route(tgen, "r1", "10.1.4.0/24", 24, "10.1.0.2", "r1-eth0")
+
+    step("Add nbr-filter prefix-list configuration to block r2")
+    r1.vtysh_cmd("conf t\nip prefix-list nbr-filter seq 20 deny 10.1.0.2/32")
+
+    step(
+        "Verify neighbor-filter is now applied to r1 interface and r2 is no longer adjacent"
+    )
+    verify_p2mp_interface(tgen, "r1", 1, 1, "nbr-filter")
+    verify_p2mp_neighbor_missing(tgen, "r1", "2.2.2.2")
+
+    step("Verify route to r4 and r2 subnet are now through r3")
+    verify_p2mp_route(tgen, "r1", "10.1.2.0/24", 24, "10.1.0.3", "r1-eth0")
+    verify_p2mp_route(tgen, "r1", "10.1.4.0/24", 24, "10.1.0.3", "r1-eth0")
+
+    step("Remove neighbor filter configuration and verify")
+    r1.vtysh_cmd("conf t\ninterface r1-eth0\nno ip ospf neighbor-filter")
+    rc, _, _ = tgen.net["r1"].cmd_status(
+        "show running ospfd | grep -q 'ip ospf neighbor-filter'", warn=False
+    )
+    assertmsg = "'ip ospf neighbor' not applied, but present in R1 configuration"
+    assert rc, assertmsg
+
+    step("Verify interface neighbor-filter is removed and neighbors present")
+    verify_p2mp_interface(tgen, "r1", 3, 3, "N/A")
+
+    step("Add neighbor filter configuration and verify neighbors are filtered")
+    r1.vtysh_cmd("conf t\ninterface r1-eth0\nip ospf neighbor-filter nbr-filter")
+    verify_p2mp_interface(tgen, "r1", 1, 1, "nbr-filter")
+    verify_p2mp_neighbor_missing(tgen, "r1", "2.2.2.2")
+    verify_p2mp_neighbor_missing(tgen, "r1", "4.4.4.4")
+
+    step("Remove nbr-filter prefix-list configuration to block r2 and verify neighbor")
+    r1.vtysh_cmd("conf t\nno ip prefix-list nbr-filter seq 20")
+    verify_p2mp_interface(tgen, "r1", 2, 2, "nbr-filter")
+    verify_p2mp_neighbor(
+        tgen, "r1", "2.2.2.2", "Full/DROther", "10.1.0.2", "r1-eth0:10.1.0.1"
+    )
+
+    step("Delete nbr-filter prefix-list and verify neighbors are present")
+    r1.vtysh_cmd("conf t\nno ip prefix-list nbr-filter")
+    verify_p2mp_interface(tgen, "r1", 3, 3, "N/A")
 
 
 def test_memory_leak():

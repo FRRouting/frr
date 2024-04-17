@@ -23,6 +23,7 @@
 #endif
 #include "vrf.h"
 #include "lib_errors.h"
+#include "plist.h"
 
 #include "ospfd/ospfd.h"
 #include "ospfd/ospf_network.h"
@@ -2745,6 +2746,20 @@ static enum ospf_read_return_enum ospf_read_helper(struct ospf *ospf)
 
 	/* associate packet with ospf interface */
 	oi = ospf_if_lookup_recv_if(ospf, iph->ip_src, ifp);
+
+	/*
+	 * If a neighbor filter prefix-list is configured, apply it to the IP
+	 * source address and ignore the packet if it doesn't match.
+	 */
+	if (oi && oi->nbr_filter) {
+		struct prefix ip_src_prefix = { AF_INET, IPV4_MAX_BITLEN, { 0 } };
+
+		ip_src_prefix.u.prefix4 = iph->ip_src;
+		if (prefix_list_apply(oi->nbr_filter,
+				      (struct prefix *)&(ip_src_prefix)) !=
+		    PREFIX_PERMIT)
+			return OSPF_READ_CONTINUE;
+	}
 
 	/*
 	 * ospf_verify_header() relies on a valid "oi" and thus can be called

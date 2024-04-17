@@ -124,6 +124,9 @@ struct ospf_if_params {
 
 	/* Opaque LSA capability at interface level (see RFC5250) */
 	DECLARE_IF_PARAM(bool, opaque_capable);
+
+	/* Name of prefix-list name for packet source address filtering. */
+	DECLARE_IF_PARAM(char *, nbr_filter_name);
 };
 
 enum { MEMBER_ALLROUTERS = 0,
@@ -241,6 +244,9 @@ struct ospf_interface {
 
 	/* List of configured NBMA neighbor. */
 	struct list *nbr_nbma;
+
+	/* Configured prefix-list for filtering neighbors. */
+	struct prefix_list *nbr_filter;
 
 	/* Graceful-Restart data. */
 	struct {
@@ -367,6 +373,7 @@ extern void ospf_crypt_key_add(struct list *list, struct crypt_key *key);
 extern int ospf_crypt_key_delete(struct list *list, uint8_t key_id);
 extern uint8_t ospf_default_iftype(struct interface *ifp);
 extern int ospf_interface_neighbor_count(struct ospf_interface *oi);
+extern void ospf_intf_neighbor_filter_apply(struct ospf_interface *oi);
 
 /* Set all multicast memberships appropriately based on the type and
    state of the interface. */

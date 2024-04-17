@@ -19,6 +19,7 @@
 #include "zclient.h"
 #include "bfd.h"
 #include "ldp_sync.h"
+#include "plist.h"
 
 #include "ospfd/ospfd.h"
 #include "ospfd/ospf_bfd.h"
@@ -65,6 +66,34 @@ int ospf_interface_neighbor_count(struct ospf_interface *oi)
 	}
 
 	return count;
+}
+
+
+void ospf_intf_neighbor_filter_apply(struct ospf_interface *oi)
+{
+	struct route_node *rn;
+	struct ospf_neighbor *nbr = NULL;
+	struct prefix nbr_src_prefix = { AF_INET, IPV4_MAX_BITLEN, { 0 } };
+
+	if (!oi->nbr_filter)
+		return;
+
+	/*
+	 * Kill neighbors that don't match the neighbor filter prefix-list
+	 * excluding the neighbor for the router itself and any neighbors
+	 * that are already down.
+	 */
+	for (rn = route_top(oi->nbrs); rn; rn = route_next(rn)) {
+		nbr = rn->info;
+		if (nbr && nbr != oi->nbr_self && nbr->state != NSM_Down) {
+			nbr_src_prefix.u.prefix4 = nbr->src;
+			if (prefix_list_apply(oi->nbr_filter,
+					      (struct prefix *)&(
+						      nbr_src_prefix)) !=
+			    PREFIX_PERMIT)
+				OSPF_NSM_EVENT_EXECUTE(nbr, NSM_KillNbr);
+		}
+	}
 }
 
 int ospf_if_get_output_cost(struct ospf_interface *oi)
@@ -526,6 +555,7 @@ static struct ospf_if_params *ospf_new_if_params(void)
 	UNSET_IF_PARAM(oip, if_area);
 	UNSET_IF_PARAM(oip, opaque_capable);
 	UNSET_IF_PARAM(oip, keychain_name);
+	UNSET_IF_PARAM(oip, nbr_filter_name);
 
 	oip->auth_crypt = list_new();
 
@@ -544,6 +574,7 @@ static void ospf_del_if_params(struct interface *ifp,
 {
 	list_delete(&oip->auth_crypt);
 	XFREE(MTYPE_OSPF_IF_PARAMS, oip->keychain_name);
+	XFREE(MTYPE_OSPF_IF_PARAMS, oip->nbr_filter_name);
 	ospf_interface_disable_bfd(ifp, oip);
 	ldp_sync_info_free(&(oip->ldp_sync_info));
 	XFREE(MTYPE_OSPF_IF_PARAMS, oip);
@@ -579,7 +610,8 @@ void ospf_free_if_params(struct interface *ifp, struct in_addr addr)
 	    !OSPF_IF_PARAM_CONFIGURED(oip, if_area) &&
 	    !OSPF_IF_PARAM_CONFIGURED(oip, opaque_capable) &&
 	    !OSPF_IF_PARAM_CONFIGURED(oip, prefix_suppression) &&
-		!OSPF_IF_PARAM_CONFIGURED(oip, keychain_name) &&
+	    !OSPF_IF_PARAM_CONFIGURED(oip, keychain_name) &&
+	    !OSPF_IF_PARAM_CONFIGURED(oip, nbr_filter_name) &&
 	    listcount(oip->auth_crypt) == 0) {
 		ospf_del_if_params(ifp, oip);
 		rn->info = NULL;

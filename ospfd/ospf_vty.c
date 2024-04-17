@@ -4084,6 +4084,31 @@ static void show_ip_ospf_interface_sub(struct vty *vty, struct ospf *ospf,
 		if (use_json)
 			json_object_object_addf(json_ois, json_oi, "%pI4",
 						&oi->address->u.prefix4);
+
+		if (oi->nbr_filter) {
+			if (use_json) {
+				json_object_string_add(json_interface_sub,
+						       "nbrFilterPrefixList",
+						       prefix_list_name(
+							       oi->nbr_filter));
+				json_object_string_add(json_oi,
+						       "nbrFilterPrefixList",
+						       prefix_list_name(
+							       oi->nbr_filter));
+			} else
+				vty_out(vty,
+					"  Neighbor filter prefix-list: %s\n",
+					prefix_list_name(oi->nbr_filter));
+		} else {
+			if (use_json) {
+				json_object_string_add(json_interface_sub,
+						       "nbrFilterPrefixList",
+						       "N/A");
+				json_object_string_add(json_oi,
+						       "nbrFilterPrefixList",
+						       "N/A");
+			}
+		}
 	}
 }
 
@@ -9936,6 +9961,58 @@ DEFPY(ip_ospf_prefix_suppression, ip_ospf_prefix_suppression_addr_cmd,
 	return CMD_SUCCESS;
 }
 
+DEFPY(ip_ospf_neighbor_filter, ip_ospf_neighbor_filter_addr_cmd,
+      "[no] ip ospf neighbor-filter ![PREFIXLIST4_NAME]$prefix_list [A.B.C.D]$ip_addr", NO_STR
+      "IP Information\n"
+      "OSPF interface commands\n"
+      "Filter OSPF neighbor packets\n"
+      "Prefix-List used for filtering\n"
+      "Address of interface\n")
+{
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+	struct ospf_if_params *params;
+	struct prefix_list *nbr_filter = NULL;
+	struct route_node *rn;
+
+	params = IF_DEF_PARAMS(ifp);
+
+	if (ip_addr.s_addr != INADDR_ANY) {
+		params = ospf_get_if_params(ifp, ip_addr);
+		ospf_if_update_params(ifp, ip_addr);
+	}
+
+	if (params->nbr_filter_name)
+		XFREE(MTYPE_OSPF_IF_PARAMS, params->nbr_filter_name);
+
+	if (no) {
+		UNSET_IF_PARAM(params, nbr_filter_name);
+		params->nbr_filter_name = NULL;
+	} else {
+		SET_IF_PARAM(params, nbr_filter_name);
+		params->nbr_filter_name = XSTRDUP(MTYPE_OSPF_IF_PARAMS,
+						  prefix_list);
+		nbr_filter = prefix_list_lookup(AFI_IP, params->nbr_filter_name);
+	}
+
+	/*
+	 * Determine if there is a change in neighbor filter prefix-list for the
+	 * interface.
+	 */
+	for (rn = route_top(IF_OIFS(ifp)); rn; rn = route_next(rn)) {
+		struct ospf_interface *oi = rn->info;
+
+		if (oi &&
+		    (ip_addr.s_addr == INADDR_ANY ||
+		     IPV4_ADDR_SAME(&oi->address->u.prefix4, &ip_addr)) &&
+		    oi->nbr_filter != nbr_filter) {
+			oi->nbr_filter = nbr_filter;
+			if (oi->nbr_filter)
+				ospf_intf_neighbor_filter_apply(oi);
+		}
+	}
+	return CMD_SUCCESS;
+}
+
 DEFUN (ospf_max_metric_router_lsa_admin,
        ospf_max_metric_router_lsa_admin_cmd,
        "max-metric router-lsa administrative",
@@ -12359,6 +12436,15 @@ static int config_write_interface_one(struct vty *vty, struct vrf *vrf)
 				vty_out(vty, "\n");
 			}
 
+			/* neighbor-filter print. */
+			if (OSPF_IF_PARAM_CONFIGURED(params, nbr_filter_name)) {
+				vty_out(vty, " ip ospf neighbor-filter %s",
+					params->nbr_filter_name);
+				if (params != IF_DEF_PARAMS(ifp) && rn)
+					vty_out(vty, " %pI4", &rn->p.u.prefix4);
+				vty_out(vty, "\n");
+			}
+
 			while (1) {
 				if (rn == NULL)
 					rn = route_top(IF_OIFS_PARAMS(ifp));
@@ -13174,6 +13260,9 @@ static void ospf_vty_if_init(void)
 
 	/* "ip ospf prefix-suppression" commands. */
 	install_element(INTERFACE_NODE, &ip_ospf_prefix_suppression_addr_cmd);
+
+	/* "ip ospf neighbor-filter" commands. */
+	install_element(INTERFACE_NODE, &ip_ospf_neighbor_filter_addr_cmd);
 
 	/* These commands are compatibitliy for previous version. */
 	install_element(INTERFACE_NODE, &ospf_authentication_key_cmd);

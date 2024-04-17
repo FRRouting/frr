@@ -757,6 +757,32 @@ Interfaces
    optional IPv4 address is specified, the prefix suppression will apply
    to the OSPF interface associated with the specified interface address.
 
+.. clicmd:: ip ospf neighbor-filter NAME [A.B.C.D]
+
+   Configure an IP prefix-list to use to filter packets received from
+   OSPF neighbors on the OSPF interface. The prefix-list should include rules
+   to permit or deny OSPF neighbors by IP source address. This is useful for
+   multi-access interfaces where adjacencies with only a subset of the
+   reachable neighbors are desired. Applications include testing partially
+   meshed topologies, OSPF Denial of Sevice (DoS) mitigation, and avoidance
+   of adjacencies with OSPF neighbors not meeting traffic engineering criteria.
+
+      Example:
+
+.. code-block:: frr
+
+   !
+   ! Prefix-list to block neighbor with source address 10.1.0.2
+   !
+   ip prefix-list nbr-filter seq 10 deny 10.1.0.2/32
+   ip prefix-list nbr-filter seq 200 permit any
+   !
+   ! Configure the neighbor filter prefix-list on interface eth0
+   !
+   interface eth0
+    ip ospf neighbor-filter nbr-filter
+   !
+
 .. clicmd:: ip ospf area (A.B.C.D|(0-4294967295))
 
 
