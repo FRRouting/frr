@@ -5870,6 +5870,11 @@ DEFPY (interface_ip_pim_allowrp,
 		return CMD_SUCCESS;
 	}
 
+	if (no && !pim_ifp) {
+		vty_out(vty, "PIM is not enabled on the interface %s\n", ifp->name);
+		return CMD_SUCCESS;
+	}
+
 	pim_ifp->allow_rp = !no;
 
 	XFREE(MTYPE_PIM_INTERFACE, pim_ifp->allow_rp_plist);
