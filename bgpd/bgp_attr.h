@@ -517,11 +517,9 @@ static inline void bgp_attr_set_ecommunity(struct attr *attr,
 {
 	attr->ecommunity = ecomm;
 
-	if (ecomm) {
+	if (ecomm)
 		SET_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_EXT_COMMUNITIES));
-		if (ecommunity_select_color(ecomm))
-			SET_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_SRTE_COLOR));
-	} else
+	else
 		UNSET_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_EXT_COMMUNITIES));
 }
 

@@ -1944,7 +1944,6 @@ route_set_srte_color(void *rule, const struct prefix *prefix, void *object)
 	path = object;
 
 	path->attr->srte_color = *srte_color;
-	path->attr->flag |= ATTR_FLAG_BIT(BGP_ATTR_SRTE_COLOR);
 
 	return RMAP_OKAY;
 }
@@ -3317,13 +3316,8 @@ static enum route_map_cmd_result_t
 route_set_ecommunity_color(void *rule, const struct prefix *prefix,
 			   void *object)
 {
-	struct bgp_path_info *path;
-
-	path = object;
-
 	route_set_ecommunity(rule, prefix, object);
 
-	path->attr->flag |= ATTR_FLAG_BIT(BGP_ATTR_SRTE_COLOR);
 	return RMAP_OKAY;
 }
 
