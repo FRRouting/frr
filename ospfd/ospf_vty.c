@@ -2580,7 +2580,7 @@ DEFUN (no_ospf_write_multiplier,
 }
 
 ALIAS(no_ospf_write_multiplier, no_write_multiplier_cmd,
-      "no write-multiplier (1-100)", NO_STR
+      "no write-multiplier [(1-100)]", NO_STR
       "Write multiplier\n"
       "Maximum number of interface serviced per write\n")
 
@@ -2654,9 +2654,10 @@ DEFUN (ospf_max_multipath,
 
 DEFUN (no_ospf_max_multipath,
        no_ospf_max_multipath_cmd,
-       "no maximum-paths",
+       "no maximum-paths [" CMD_RANGE_STR(1, MULTIPATH_NUM)"]",
        NO_STR
-       "Max no of multiple paths for ECMP support\n")
+       "Max no of multiple paths for ECMP support\n"
+       "Number of paths\n")
 {
 	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
 	uint16_t maxpaths = MULTIPATH_NUM;
