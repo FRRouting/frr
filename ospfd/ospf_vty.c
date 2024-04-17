@@ -2580,7 +2580,7 @@ DEFUN (no_ospf_write_multiplier,
 }
 
 ALIAS(no_ospf_write_multiplier, no_write_multiplier_cmd,
-      "no write-multiplier (1-100)", NO_STR
+      "no write-multiplier [(1-100)]", NO_STR
       "Write multiplier\n"
       "Maximum number of interface serviced per write\n")
 
