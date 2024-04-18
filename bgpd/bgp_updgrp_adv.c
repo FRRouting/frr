@@ -304,15 +304,16 @@ static void subgrp_show_adjq_vty(struct update_subgroup *subgrp,
 			}
 			if ((flags & UPDWALK_FLAGS_ADVQUEUE) && adj->adv &&
 			    adj->adv->baa) {
-				route_vty_out_tmp(
-					vty, dest, dest_p, adj->adv->baa->attr,
-					SUBGRP_SAFI(subgrp), 0, NULL, false);
+				route_vty_out_tmp(vty, bgp, dest, dest_p,
+						  adj->adv->baa->attr,
+						  SUBGRP_SAFI(subgrp), 0, NULL,
+						  false);
 				output_count++;
 			}
 			if ((flags & UPDWALK_FLAGS_ADVERTISED) && adj->attr) {
-				route_vty_out_tmp(vty, dest, dest_p, adj->attr,
-						  SUBGRP_SAFI(subgrp), 0, NULL,
-						  false);
+				route_vty_out_tmp(vty, bgp, dest, dest_p,
+						  adj->attr, SUBGRP_SAFI(subgrp),
+						  0, NULL, false);
 				output_count++;
 			}
 		}
