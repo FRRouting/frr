@@ -1083,6 +1083,7 @@ def pim_delete_move_lines(lines_to_add, lines_to_del):
     # Remove all such depdendent options from delete
     # pending list.
     pim_disable = False
+    lines_to_del_to_del = []
 
     for ctx_keys, line in lines_to_del:
         if ctx_keys[0].startswith("interface") and line and line == "ip pim":
@@ -1093,9 +1094,12 @@ def pim_delete_move_lines(lines_to_add, lines_to_del):
             if (
                 ctx_keys[0].startswith("interface")
                 and line
-                and line.startswith("ip pim ")
+                and (line.startswith("ip pim ") or line.startswith("ip multicast "))
             ):
-                lines_to_del.remove((ctx_keys, line))
+                lines_to_del_to_del.append((ctx_keys, line))
+
+    for ctx_keys, line in lines_to_del_to_del:
+        lines_to_del.remove((ctx_keys, line))
 
     return (lines_to_add, lines_to_del)
 
