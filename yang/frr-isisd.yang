@@ -685,7 +685,7 @@ module frr-isisd {
         type uint32 {
           range "0..16777215";
         }
-        must ". < 64 or /frr-isisd:isis/instance[area-tag = current()/../../area-tag]/metric-style = 'wide'";
+        must ". < 64 or /frr-isisd:isis/instance[area-tag = current()/../../area-tag]/metric-style = 'wide' or not(/frr-isisd:isis/instance[area-tag = current()/../../area-tag]/metric-style)";
         default "10";
         description
           "Default level-1 metric for this IS-IS circuit.";
@@ -695,7 +695,7 @@ module frr-isisd {
         type uint32 {
           range "0..16777215";
         }
-        must ". < 64 or /frr-isisd:isis/instance[area-tag = current()/../../area-tag]/metric-style = 'wide'";
+        must ". < 64 or /frr-isisd:isis/instance[area-tag = current()/../../area-tag]/metric-style = 'wide' or not(/frr-isisd:isis/instance[area-tag = current()/../../area-tag]/metric-style)";
         default "10";
         description
           "Default level-2 metric for this IS-IS circuit.";
