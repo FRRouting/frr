@@ -1775,6 +1775,25 @@ static int svd_nh_uninstall(struct zebra_l3vni *zl3vni, struct zebra_neigh *n)
 	return _nh_uninstall(zl3vni->vxlan_if, n);
 }
 
+/* Check for stale RMAC and delete if exists */
+static void zl3vni_check_del_rmac(struct zebra_l3vni *zl3vni,
+				  const struct ethaddr old_rmac,
+				  const struct ipaddr *vtep_ip)
+{
+	struct zebra_mac *zrmac = NULL;
+	zrmac = zl3vni_rmac_lookup(zl3vni, &old_rmac);
+	if (zrmac) {
+		if (IS_ZEBRA_DEBUG_VXLAN)
+			zlog_debug(
+				"L3VNI %u uninstalling old RMAC %pEA for nexthop %pIA",
+				zl3vni->vni, &old_rmac, vtep_ip);
+		/* Uninstall from kernel and rmac table */
+		zl3vni_rmac_uninstall(zl3vni, zrmac);
+		zl3vni_rmac_del(zl3vni, zrmac);
+	}
+	return;
+}
+
 /* Add remote vtep as a neigh entry */
 static int zl3vni_remote_nh_add(struct zebra_l3vni *zl3vni,
 				const struct ipaddr *vtep_ip,
@@ -1807,6 +1826,7 @@ static int zl3vni_remote_nh_add(struct zebra_l3vni *zl3vni,
 		frrtrace(5, frr_zebra, remote_nh_add_rmac_change, zl3vni->vni, &nh->emac, rmac,
 			 vtep_ip, nh->refcnt);
 
+		zl3vni_check_del_rmac(zl3vni, nh->emac, vtep_ip);
 		memcpy(&nh->emac, rmac, ETH_ALEN);
 		/* install (update) the nh neigh in kernel */
 		zl3vni_nh_install(zl3vni, nh);
@@ -1867,6 +1887,7 @@ static int svd_remote_nh_add(struct zebra_l3vni *zl3vni,
 		frrtrace(5, frr_zebra, remote_nh_add_rmac_change, zl3vni->vni, &nh->emac, rmac,
 			 vtep_ip, nh->refcnt);
 
+		zl3vni_check_del_rmac(zl3vni, nh->emac, vtep_ip);
 		memcpy(&nh->emac, rmac, ETH_ALEN);
 		/* install (update) the nh neigh in kernel */
 		svd_nh_install(zl3vni, nh);
