@@ -215,15 +215,18 @@ Displaying RPKI
 
    Display RPKI configuration state including timers values.
 
-.. clicmd:: show rpki prefix <A.B.C.D/M|X:X::X:X/M> [(1-4294967295)] [vrf NAME] [json]
+.. clicmd:: show rpki prefix <A.B.C.D/M|X:X::X:X/M> [ASN] [vrf NAME] [json]
 
    Display validated prefixes received from the cache servers filtered
-   by the specified prefix.
+   by the specified prefix.  The AS number space has been increased
+   to allow the choice of using AS 0 because RFC-7607 specifically
+   calls out the usage of 0 in a special case.
 
 .. clicmd:: show rpki as-number ASN [vrf NAME] [json]
 
    Display validated prefixes received from the cache servers filtered
-   by ASN.
+   by ASN.  The usage of AS 0 is allowed because RFC-76067 specifically
+   calls out the usage of 0 in a special case.
 
 .. clicmd:: show rpki prefix-table [vrf NAME] [json]
 

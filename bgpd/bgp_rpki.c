@@ -2088,16 +2088,18 @@ DEFPY (show_rpki_prefix_table,
 
 DEFPY (show_rpki_as_number,
        show_rpki_as_number_cmd,
-       "show rpki as-number ASNUM$by_asn [vrf NAME$vrfname] [json$uj]",
+       "show rpki as-number <0$zero|ASNUM$by_asn> [vrf NAME$vrfname] [json$uj]",
        SHOW_STR
        RPKI_OUTPUT_STRING
        "Lookup by ASN in prefix table\n"
+       "AS Number of 0, see RFC-7607\n"
        "AS Number\n"
        VRF_CMD_HELP_STR
        JSON_STR)
 {
 	struct json_object *json = NULL;
 	struct rpki_vrf *rpki_vrf;
+	as_t as;
 
 	if (uj)
 		json = json_object_new_object();
@@ -2118,18 +2120,24 @@ DEFPY (show_rpki_as_number,
 		return CMD_WARNING;
 	}
 
-	print_prefix_table_by_asn(vty, by_asn, rpki_vrf, json);
+	if (zero)
+		as = 0;
+	else
+		as = by_asn;
+
+	print_prefix_table_by_asn(vty, as, rpki_vrf, json);
 	return CMD_SUCCESS;
 }
 
 DEFPY (show_rpki_prefix,
        show_rpki_prefix_cmd,
-       "show rpki prefix <A.B.C.D/M|X:X::X:X/M> [ASNUM$asn] [vrf NAME$vrfname] [json$uj]",
+       "show rpki prefix <A.B.C.D/M|X:X::X:X/M> [0$zero|ASNUM$asn] [vrf NAME$vrfname] [json$uj]",
        SHOW_STR
        RPKI_OUTPUT_STRING
        "Lookup IP prefix and optionally ASN in prefix table\n"
        "IPv4 prefix\n"
        "IPv6 prefix\n"
+       "AS Number of 0, see RFC-7607\n"
        "AS Number\n"
        VRF_CMD_HELP_STR
        JSON_STR)
@@ -2138,6 +2146,7 @@ DEFPY (show_rpki_prefix,
 	json_object *json_records = NULL;
 	enum asnotation_mode asnotation;
 	struct rpki_vrf *rpki_vrf;
+	as_t as;
 
 	if (uj)
 		json = json_object_new_object();
@@ -2152,6 +2161,11 @@ DEFPY (show_rpki_prefix,
 			vty_out(vty, "No Connection to RPKI cache server.\n");
 		return CMD_WARNING;
 	}
+
+	if (zero)
+		as = 0;
+	else
+		as = asn;
 
 	struct lrtr_ip_addr addr;
 	char addr_str[INET6_ADDRSTRLEN];
@@ -2174,7 +2188,7 @@ DEFPY (show_rpki_prefix,
 	enum pfxv_state result;
 
 	if (pfx_table_validate_r(rpki_vrf->rtr_config->pfx_table, &matches,
-				 &match_count, asn, &addr, prefix->prefixlen,
+				 &match_count, as, &addr, prefix->prefixlen,
 				 &result) != PFX_SUCCESS) {
 		if (json) {
 			json_object_string_add(json, "error", "Prefix lookup failed.");
@@ -2198,7 +2212,7 @@ DEFPY (show_rpki_prefix,
 		const struct pfx_record *record = &matches[i];
 
 		if (record->max_len >= prefix->prefixlen &&
-		    ((asn != 0 && (uint32_t)asn == record->asn) || asn == 0)) {
+		    ((as != 0 && (uint32_t)as == record->asn) || asn == 0)) {
 			print_record(&matches[i], vty, json_records,
 				     asnotation);
 		}
