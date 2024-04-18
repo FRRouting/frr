@@ -525,10 +525,19 @@ static bool nhg_compare_nexthops(const struct nexthop *nh1,
 	    != CHECK_FLAG(nh2->flags, NEXTHOP_FLAG_ACTIVE))
 		return false;
 
-	if (!nexthop_same(nh1, nh2))
-		return false;
+	bool same = nexthop_same(nh1, nh2);
 
-	return true;
+	/*
+	 * In case of both nexthops having a resolved nexthop, check if both those
+	 * nh1 and nh2 and their respective resolved nexthops are equal.
+	 * Otherwise, we could have cases where a nexthop in a recursive route
+	 * is hashed to the same group as a new one, because this function returns true,
+	 * even though their resolved nexthop is not the same.
+	 */
+	if (nh1->resolved && nh2->resolved)
+		return same && nexthop_same(nh1->resolved, nh2->resolved);
+
+	return same;
 }
 
 bool zebra_nhg_hash_equal(const void *arg1, const void *arg2)
