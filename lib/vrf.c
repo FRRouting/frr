@@ -636,7 +636,7 @@ int vrf_configure_backend(enum vrf_backend_type backend)
 }
 
 /* vrf CLI commands */
-DEFUN_NOSH(vrf_exit,
+DEFUN_YANG_NOSH (vrf_exit,
            vrf_exit_cmd,
 	   "exit-vrf",
 	   "Exit current mode and down to previous mode\n")
