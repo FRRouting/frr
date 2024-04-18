@@ -4403,6 +4403,10 @@ struct peer *peer_lookup_dynamic_neighbor(struct bgp *bgp, union sockunion *su)
 		zlog_debug("%s Dynamic Neighbor added, group %s count %d",
 			   peer->host, group->name, dncount);
 
+	if (dncount == gbgp->dynamic_neighbors_limit) {
+		zlog_info("Dynamic Neighbor %s added as last connection. Peer-group %s reached maximum listen limit %d",
+				peer->host, group->name, gbgp->dynamic_neighbors_limit);
+	}
 	return peer;
 }
 
