@@ -5197,6 +5197,7 @@ DEFUN (no_neighbor_peer_group,
 	int idx_word = 2;
 	struct peer_group *group;
 	afi_t afi;
+
 	group = peer_group_lookup(bgp, argv[idx_word]->arg);
 	if (group) {
 		for (afi = AFI_IP; afi < AFI_MAX; afi++) {
