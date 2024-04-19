@@ -1452,21 +1452,15 @@ int bgp_open_option_parse(struct peer *peer, uint16_t length,
 	/* All OPEN option is parsed.  Check capability when strict compare
 	   flag is enabled.*/
 	if (CHECK_FLAG(peer->flags, PEER_FLAG_STRICT_CAP_MATCH)) {
-		/* If Unsupported Capability exists. */
-		if (error != error_data) {
+		/* If Unsupported Capability exists or local capability does
+		 * not negotiated with remote peer
+		 */
+		if (error != error_data || !strict_capability_same(peer)) {
 			bgp_notify_send_with_data(peer->connection,
 						  BGP_NOTIFY_OPEN_ERR,
 						  BGP_NOTIFY_OPEN_UNSUP_CAPBL,
 						  error_data,
 						  error - error_data);
-			return -1;
-		}
-
-		/* Check local capability does not negotiated with remote
-		   peer. */
-		if (!strict_capability_same(peer)) {
-			bgp_notify_send(peer->connection, BGP_NOTIFY_OPEN_ERR,
-					BGP_NOTIFY_OPEN_UNSUP_CAPBL);
 			return -1;
 		}
 	}
@@ -1503,17 +1497,11 @@ int bgp_open_option_parse(struct peer *peer, uint16_t length,
 				 "%s [Error] Configured AFI/SAFIs do not overlap with received MP capabilities",
 				 peer->host);
 
-			if (error != error_data)
-				bgp_notify_send_with_data(peer->connection,
-							  BGP_NOTIFY_OPEN_ERR,
-							  BGP_NOTIFY_OPEN_UNSUP_CAPBL,
-							  error_data,
-							  error - error_data);
-			else
-				bgp_notify_send(peer->connection,
-						BGP_NOTIFY_OPEN_ERR,
-						BGP_NOTIFY_OPEN_UNSUP_CAPBL);
-			return -1;
+			bgp_notify_send_with_data(peer->connection,
+						  BGP_NOTIFY_OPEN_ERR,
+						  BGP_NOTIFY_OPEN_UNSUP_CAPBL,
+						  error_data,
+						  error - error_data);
 		}
 	}
 	return 0;
