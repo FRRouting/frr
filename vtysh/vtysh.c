@@ -3423,7 +3423,7 @@ static void show_route_map_send(const char *route_map, bool json)
 	bool first = true;
 	char command_line[128];
 
-	snprintf(command_line, sizeof(command_line), "show route-map ");
+	snprintf(command_line, sizeof(command_line), "do show route-map ");
 	if (route_map)
 		strlcat(command_line, route_map, sizeof(command_line));
 	if (json)
