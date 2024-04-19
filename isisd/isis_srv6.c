@@ -363,7 +363,7 @@ void isis_area_delete_backup_srv6_endx_sids(struct isis_area *area, int level)
 	struct listnode *node, *nnode;
 
 	for (ALL_LIST_ELEMENTS(area->srv6db.srv6_endx_sids, node, nnode, sra))
-		if (sra->type == ISIS_SRV6_LAN_BACKUP &&
+		if (sra->type == ISIS_SRV6_ADJ_BACKUP &&
 		    (sra->adj->level & level))
 			srv6_endx_sid_del(sra);
 }
@@ -420,7 +420,7 @@ void srv6_endx_sid_add_single(struct isis_adjacency *adj, bool backup,
 			   : SRV6_ENDPOINT_BEHAVIOR_END_X;
 
 	sra = XCALLOC(MTYPE_ISIS_SRV6_INFO, sizeof(*sra));
-	sra->type = backup ? ISIS_SRV6_LAN_BACKUP : ISIS_SRV6_ADJ_NORMAL;
+	sra->type = backup ? ISIS_SRV6_ADJ_BACKUP : ISIS_SRV6_ADJ_NORMAL;
 	sra->behavior = behavior;
 	sra->locator = chunk;
 	sra->structure.loc_block_len = chunk->block_bits_length;
@@ -538,7 +538,7 @@ void srv6_endx_sid_del(struct srv6_adjacency *sra)
 		exit(1);
 	}
 
-	if (sra->type == ISIS_SRV6_LAN_BACKUP && sra->backup_nexthops) {
+	if (sra->type == ISIS_SRV6_ADJ_BACKUP && sra->backup_nexthops) {
 		sra->backup_nexthops->del =
 			(void (*)(void *))isis_nexthop_delete;
 		list_delete(&sra->backup_nexthops);

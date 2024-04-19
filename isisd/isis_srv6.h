@@ -68,7 +68,7 @@ struct isis_srv6_locator {
 /* SRv6 Adjacency-SID type */
 enum srv6_adj_type {
 	ISIS_SRV6_ADJ_NORMAL = 0,
-	ISIS_SRV6_LAN_BACKUP,
+	ISIS_SRV6_ADJ_BACKUP,
 };
 
 /* SRv6 Adjacency. */
