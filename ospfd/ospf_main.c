@@ -44,6 +44,7 @@
 #include "ospfd/ospf_errors.h"
 #include "ospfd/ospf_ldp_sync.h"
 #include "ospfd/ospf_routemap_nb.h"
+#include "ospfd/ospf_apiserver.h"
 
 #define OSPFD_STATE_NAME	 "%s/ospfd.json", frr_libstatedir
 #define OSPFD_INST_STATE_NAME(i) "%s/ospfd-%d.json", frr_runstatedir, i
@@ -75,6 +76,7 @@ struct zebra_privs_t ospfd_privs = {
 const struct option longopts[] = {
 	{"instance", required_argument, NULL, 'n'},
 	{"apiserver", no_argument, NULL, 'a'},
+	{"apiserver_addr", required_argument, NULL, 'l'},
 	{0}
 };
 
@@ -82,10 +84,6 @@ const struct option longopts[] = {
 
 /* Master of threads. */
 struct event_loop *master;
-
-#ifdef SUPPORT_OSPF_API
-extern int ospf_apiserver_enable;
-#endif /* SUPPORT_OSPF_API */
 
 /* SIGHUP handler. */
 static void sighup(void)
@@ -193,15 +191,11 @@ static void ospf_config_end(void)
 /* OSPFd main routine. */
 int main(int argc, char **argv)
 {
-#ifdef SUPPORT_OSPF_API
-	/* OSPF apiserver is disabled by default. */
-	ospf_apiserver_enable = 0;
-#endif /* SUPPORT_OSPF_API */
-
 	frr_preinit(&ospfd_di, argc, argv);
-	frr_opt_add("n:a", longopts,
+	frr_opt_add("n:al:", longopts,
 		    "  -n, --instance     Set the instance id\n"
-		    "  -a, --apiserver    Enable OSPF apiserver\n");
+		    "  -a, --apiserver    Enable OSPF apiserver\n"
+		    "  -l, --apiserver_addr     Set OSPF apiserver bind address\n");
 
 	while (1) {
 		int opt;
@@ -222,6 +216,14 @@ int main(int argc, char **argv)
 #ifdef SUPPORT_OSPF_API
 		case 'a':
 			ospf_apiserver_enable = 1;
+			break;
+		case 'l':
+			if (inet_pton(AF_INET, optarg, &ospf_apiserver_addr) <=
+			    0) {
+				zlog_err("OSPF: Invalid API Server IPv4 address %s specified",
+					 optarg);
+				exit(0);
+			}
 			break;
 #endif /* SUPPORT_OSPF_API */
 		default:

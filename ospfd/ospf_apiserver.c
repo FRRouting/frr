@@ -62,6 +62,11 @@ DEFINE_MTYPE_STATIC(OSPFD, APISERVER_MSGFILTER, "API Server Message Filter");
 /* List of all active connections. */
 struct list *apiserver_list;
 
+/* Indicates that API the server socket local addresss has been
+ * specified.
+ */
+struct in_addr ospf_apiserver_addr;
+
 /* -----------------------------------------------------------
  * Functions to lookup interfaces
  * -----------------------------------------------------------
@@ -109,7 +114,21 @@ struct ospf_interface *ospf_apiserver_if_lookup_by_ifp(struct interface *ifp)
 
 unsigned short ospf_apiserver_getport(void)
 {
-	struct servent *sp = getservbyname("ospfapi", "tcp");
+	struct servent *sp = NULL;
+	char sbuf[16];
+
+	/*
+	 * Allow the OSPF API server port to be specified per-instance by
+	 * including the instance ID in the /etc/services name. Use the
+	 * prior name if no per-instance service is specified.
+	 */
+	if (ospf_instance) {
+		snprintfrr(sbuf, sizeof(sbuf), "ospfapi-%d", ospf_instance);
+		sp = getservbyname(sbuf, "tcp");
+	}
+
+	if (!sp)
+		sp = getservbyname("ospfapi", "tcp");
 
 	return sp ? ntohs(sp->s_port) : OSPF_API_SYNC_PORT;
 }
@@ -557,8 +576,10 @@ int ospf_apiserver_serv_sock_family(unsigned short port, int family)
 	sockopt_reuseaddr(accept_sock);
 	sockopt_reuseport(accept_sock);
 
-	/* Bind socket to address and given port. */
-	rc = sockunion_bind(accept_sock, &su, port, NULL);
+	/* Bind socket to optional lcoal address and port. */
+	if (ospf_apiserver_addr.s_addr)
+		sockunion2ip(&su) = ospf_apiserver_addr.s_addr;
+	rc = sockunion_bind(accept_sock, &su, port, &su);
 	if (rc < 0) {
 		close(accept_sock); /* Close socket */
 		return rc;

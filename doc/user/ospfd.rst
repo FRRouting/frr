@@ -28,6 +28,12 @@ Configuring OSPF
 
    Enable the OSPF API server. This is required to use ``ospfclient``.
 
+.. option:: -l, --apiserver_addr <address>
+
+   Specify the local IPv4 address to which to bind the OSPF API server socket.
+   If unspecified, connections are accepted to any address. Specification of
+   127.0.0.1 can be used to limit socket access to local applications.
+
 *ospfd* must acquire interface information from *zebra* in order to function.
 Therefore *zebra* must be running before invoking *ospfd*. Also, if *zebra* is
 restarted then *ospfd* must be too.
