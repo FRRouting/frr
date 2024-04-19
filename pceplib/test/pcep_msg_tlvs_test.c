@@ -202,7 +202,7 @@ void test_pcep_tlv_create_path_setup_type_capability(void)
 	uint8_t *pst1 = pceplib_malloc(PCEPLIB_MESSAGES, 1);
 	uint8_t *pst2 = pceplib_malloc(PCEPLIB_MESSAGES, 1);
 	uint8_t *pst3 = pceplib_malloc(PCEPLIB_MESSAGES, 1);
-	*pst1 = 1;
+	*pst1 = SR_TE_PST;
 	*pst2 = 2;
 	*pst3 = 3;
 	dll_append(pst_list, pst1);
@@ -237,7 +237,7 @@ void test_pcep_tlv_create_path_setup_type_capability(void)
 	sub_tlv_list = dll_initialize();
 	pst1 = pceplib_malloc(PCEPLIB_MESSAGES, 1);
 	pst2 = pceplib_malloc(PCEPLIB_MESSAGES, 1);
-	*pst1 = 1;
+	*pst1 = SR_TE_PST;
 	*pst2 = 2;
 	dll_append(pst_list, pst1);
 	dll_append(pst_list, pst2);
