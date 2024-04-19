@@ -99,6 +99,8 @@ void lsp_purge_non_exist(int level, struct isis_lsp_hdr *hdr,
 	memcpy((I), isis->sysid, ISIS_SYS_ID_LEN);                             \
 	(I)[ISIS_SYS_ID_LEN] = 0;                                              \
 	(I)[ISIS_SYS_ID_LEN + 1] = 0
+void iteration_in_level1_lspdb(struct isis_area *area,
+                                      struct isis_lsp *lsp_d);
 int lsp_id_cmp(uint8_t *id1, uint8_t *id2);
 int lsp_compare(char *areatag, struct isis_lsp *lsp, uint32_t seqno,
 		uint16_t checksum, uint16_t rem_lifetime);
@@ -149,5 +151,4 @@ int isis_lsp_iterate_is_reach(struct isis_lsp *lsp, uint16_t mtid,
 void _lsp_flood(struct isis_lsp *lsp, struct isis_circuit *circuit,
 		const char *func, const char *file, int line);
 void lsp_init(void);
-
 #endif /* ISIS_LSP */

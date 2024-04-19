@@ -47,6 +47,7 @@
 #include "isisd/isis_tx_queue.h"
 #include "isisd/isis_nb.h"
 #include "isisd/isis_flex_algo.h"
+#include "isisd/isis_tlvs.h"
 
 DEFINE_MTYPE_STATIC(ISISD, ISIS_LSP, "ISIS LSP");
 
@@ -1034,6 +1035,140 @@ static void lsp_build_ext_reach_ipv6(struct isis_lsp *lsp,
 	}
 }
 
+/*
+ * Need to check the match of same prefixes in the database/
+ * prefix with a lower metric
+ */
+
+static int check_prefix_before_add_ip(struct isis_extended_ip_reach *r,
+				      struct isis_lsp *lsp_d)
+{
+	for (struct isis_item *i = lsp_d->tlvs->extended_ip_reach.head; i;
+	     i = i->next) {
+		struct isis_extended_ip_reach *rt =
+			(struct isis_extended_ip_reach *)i;
+		if (IPV4_ADDR_SAME(&r->prefix.prefix, &rt->prefix.prefix)) {
+			if ((r->metric > rt->metric) ||
+			    (r->metric == rt->metric))
+				return 0;
+		}
+	}
+	return 1;
+}
+
+static int check_prefix_before_add_ipv6(struct isis_ipv6_reach *r,
+					struct isis_lsp *lsp_d)
+{
+	for (struct isis_item *i = lsp_d->tlvs->ipv6_reach.head; i;
+	     i = i->next) {
+		struct isis_ipv6_reach *rt = (struct isis_ipv6_reach *)i;
+
+		if (IPV6_ADDR_SAME(&r->prefix.prefix.s6_addr,
+				   &rt->prefix.prefix.s6_addr)) {
+			if ((r->metric > rt->metric) ||
+			    (r->metric == rt->metric))
+				return 0;
+		}
+	}
+	return 1;
+}
+
+/*Functions for adding routes from Level-1 DB to Level-2*/
+static void add_prefix_from_l1_into_l2(struct isis_area *area,
+				       struct isis_lsp *lsp_d,
+				       struct isis_lsp *lsp_s)
+{
+	for (struct isis_item *i = lsp_s->tlvs->extended_ip_reach.head; i;
+	     i = i->next) {
+		struct isis_extended_ip_reach *ip_reach_s =
+			(struct isis_extended_ip_reach *)i;
+		bool up_down_flag = 0;
+
+		if (check_prefix_before_add_ip(ip_reach_s, lsp_d)) {
+			struct isis_extended_ip_reach *ip_reach_d = copy_extended_ip_reach((struct isis_item *)
+							       ip_reach_s,
+							       ip_reach_s->metric, up_down_flag);
+			append_extended_ip_reach(lsp_d->tlvs,
+                                                         (struct isis_item *)ip_reach_d);
+		}
+	}
+
+	for (struct isis_item *i = lsp_s->tlvs->ipv6_reach.head; i;
+	     i = i->next) {
+		struct isis_ipv6_reach *ipv6_reach_s =
+			(struct isis_ipv6_reach *)i;
+		bool up_down_flag = 0;
+
+		if (check_prefix_before_add_ipv6(ipv6_reach_s, lsp_d)) {
+			struct isis_ipv6_reach* ipv6_reach_d = copy_ipv6_reach((struct isis_item *)ipv6_reach_s,
+						ipv6_reach_s->metric, up_down_flag);
+			append_ipv6_reach(lsp_d->tlvs, (struct isis_item *)ipv6_reach_d);
+		}
+	}
+}
+
+void iteration_in_level1_lspdb(struct isis_area *area,
+				      struct isis_lsp *lsp_d)
+{
+	struct isis_lsp *lsp_s;
+	struct lspdb_head *head_s = &area->lspdb[ISIS_LEVEL1 - 1];
+
+	if (head_s) {
+		frr_each (lspdb, head_s, lsp_s)
+			if (lsp_s->own_lsp == 0)
+				add_prefix_from_l1_into_l2(area, lsp_d, lsp_s);
+	}
+}
+
+static void lsp_free_redist_reach(struct isis_area* area)
+{
+        list_delete_all_node(area->levels_redist_list[LVL_ISIS_LEAKING_1]);
+        list_delete_all_node(area->levels_redist_list[LVL_ISIS_LEAKING_2]);
+}
+
+static void lsp_build_ip_redist_reach(struct isis_area *area, struct isis_lsp *lsp)
+{
+	struct listnode *node;
+	struct levels_redist_match *leaking;
+	struct isis_extended_ip_reach *ip_reach_s;
+
+	for (ALL_LIST_ELEMENTS_RO(area->levels_redist_list[lsp->level - 1], node,
+                                  leaking)) {
+		if (leaking->extended_ip_reach) {
+			for (ALL_LIST_ELEMENTS_RO(leaking->extended_ip_reach,
+						node, ip_reach_s))
+				if (check_prefix_before_add_ip(ip_reach_s, lsp))
+					append_extended_ip_reach(lsp->tlvs,
+					(struct isis_item *)ip_reach_s);
+		}
+	}
+}
+
+static void lsp_build_ipv6_redist_reach(struct isis_area *area, struct isis_lsp *lsp)
+{
+	struct listnode *node;
+	struct levels_redist_match *leaking;
+	struct isis_ipv6_reach *ipv6_reach_s;
+
+	for (ALL_LIST_ELEMENTS_RO(area->levels_redist_list[lsp->level - 1], node,
+							leaking)) {
+		if (leaking->ipv6_reach) {
+			for (ALL_LIST_ELEMENTS_RO(leaking->ipv6_reach, node,
+							ipv6_reach_s))
+				if (check_prefix_before_add_ipv6(ipv6_reach_s,
+							lsp))
+					append_ipv6_reach(lsp->tlvs, (struct isis_item *)ipv6_reach_s);
+		}
+	}
+}
+
+static void lsp_build_redist_reach(struct isis_area *area, struct isis_lsp *lsp)
+{
+	lsp_build_ip_redist_reach(area, lsp);
+	lsp_build_ipv6_redist_reach(area, lsp);
+	lsp_free_redist_reach(area);
+}
+
 static void lsp_build_ext_reach(struct isis_lsp *lsp, struct isis_area *area)
 {
 	lsp_build_ext_reach_ipv4(lsp, area);
@@ -1317,6 +1452,14 @@ static void lsp_build(struct isis_lsp *lsp, struct isis_area *area)
 					 false, false, false);
 	}
 
+	struct isis_adjacency *adj;
+	bool adj_flag = false;
+
+	for (ALL_LIST_ELEMENTS_RO(area->adjacency_list, node, adj)) {
+		if (adj->level == IS_LEVEL_2)
+			adj_flag = true;
+	}
+
 	struct isis_circuit *circuit;
 	for (ALL_LIST_ELEMENTS_RO(area->circuit_list, node, circuit)) {
 		if (!circuit->interface)
@@ -1438,6 +1581,27 @@ static void lsp_build(struct isis_lsp *lsp, struct isis_area *area)
 	}
 
 	lsp_build_ext_reach(lsp, area);
+
+	struct listnode *node_redist;
+	struct isis_levels_redist *redist;
+	bool   propogation_flag = true;
+
+	/*
+	 * Flag required to track redistribution between layers
+	 * It is necessary to add all available prefixes from 1 to 2,
+	 * but if there is redistribution from 1 to 2,
+	 * then only the matched prefixes are added
+	*/
+
+	for (ALL_LIST_ELEMENTS_RO(area->levels_redist_sett, node_redist, redist)) {
+		isis_iteration_in_lspdb(area, redist);
+		lsp_build_redist_reach(area, lsp);
+		if (redist->level_to == LVL_ISIS_LEAKING_2) propogation_flag = false;
+	}
+
+	if (adj_flag && lsp->level == IS_LEVEL_2 &&
+	    area->is_type == IS_LEVEL_1_AND_2 && lsp->hdr.lsp_bits != LSPBIT_ATT && propogation_flag)
+		iteration_in_level1_lspdb(area, lsp);
 
 	struct isis_tlvs *tlvs = lsp->tlvs;
 	lsp->tlvs = NULL;

@@ -192,6 +192,8 @@ void isis_receive(struct event *thread);
 
 #define ISIS_AUTH_MD5_SIZE       16U
 
+#define REDISTRIBUTE_TO_L2   2
+#define REDISTRIBUTE_TO_L1   1
 /*
  * Sending functions
  */

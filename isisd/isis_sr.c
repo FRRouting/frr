@@ -152,7 +152,7 @@ mpls_label_t sr_prefix_out_label(struct lspdb_head *lspdb, int family,
 {
 	struct isis_sr_block *nh_srgb;
 
-	if (last_hop) {
+	if (last_hop && !CHECK_FLAG(psid->flags, ISIS_PREFIX_SID_READVERTISED)) {
 		if (!CHECK_FLAG(psid->flags, ISIS_PREFIX_SID_NO_PHP))
 			return MPLS_LABEL_IMPLICIT_NULL;
 
@@ -406,6 +406,13 @@ struct sr_prefix_cfg *isis_sr_cfg_prefix_find(struct isis_area *area,
 	prefix_copy(&pcfg.prefix, prefix.p);
 	pcfg.algorithm = algorithm;
 	return srdb_prefix_cfg_find(&area->srdb.config.prefix_sids, &pcfg);
+}
+
+/* fiil Prefix-SID Sub-TLV flags according to IS-IS level's redistribution*/
+void isis_redist_cfg2subtlvs(struct isis_prefix_sid *psid)
+{
+	/* RFC 8667 section #2.1.1.2 */
+        SET_FLAG(psid->flags, ISIS_PREFIX_SID_READVERTISED);
 }
 
 /**

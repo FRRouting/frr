@@ -4041,6 +4041,31 @@ out:
 	return 1;
 }
 
+/*Functions for redistribte routes inside IS-IS*/
+struct isis_extended_ip_reach* copy_extended_ip_reach(struct isis_item *ip_reach_s,
+				    uint32_t metric, bool up_down_flag)
+{
+	struct isis_extended_ip_reach *ip_reach_d =
+		(struct isis_extended_ip_reach *)copy_item_extended_ip_reach(
+			ip_reach_s);
+
+	ip_reach_d->metric = metric;
+	ip_reach_d->down = up_down_flag;
+
+	/* RFC 8667 section #2.1.1.2 */
+	if (ip_reach_d->subtlvs) {
+		for (struct isis_item *i = ip_reach_d->subtlvs->prefix_sids.head; i; i = i->next)
+			isis_redist_cfg2subtlvs((struct isis_prefix_sid*)i);
+	}
+
+	return ip_reach_d;
+}
+
+void append_extended_ip_reach(struct isis_tlvs *tlvs,
+		struct isis_item *ip_reach)
+{
+	append_item(&tlvs->extended_ip_reach, (struct isis_item *)ip_reach);
+}
 /* Functions related to TLV 137 Dynamic Hostname */
 
 static char *copy_tlv_dynamic_hostname(const char *hostname)
@@ -4673,6 +4698,30 @@ out:
 	if (rv)
 		free_item_ipv6_reach((struct isis_item *)rv);
 	return 1;
+}
+
+/*Functions for redistribte routes inside IS-IS*/
+struct isis_ipv6_reach* copy_ipv6_reach(struct isis_item *ipv6_reach_s, uint32_t metric,
+						bool up_down_flag)
+{
+	struct isis_ipv6_reach *ipv6_reach_d =
+		(struct isis_ipv6_reach *)copy_item_ipv6_reach(ipv6_reach_s);
+
+	ipv6_reach_d->metric = metric;
+	ipv6_reach_d->down   = up_down_flag;
+
+	/* RFC 8667 section #2.1.1.2 */
+        if (ipv6_reach_d->subtlvs) {
+                for (struct isis_item *i = ipv6_reach_d->subtlvs->prefix_sids.head; i; i = i->next)
+                        isis_redist_cfg2subtlvs((struct isis_prefix_sid*)i);
+	}
+
+	return ipv6_reach_d;
+}
+
+void append_ipv6_reach(struct isis_tlvs *tlvs, struct isis_item *ipv6_reach)
+{
+	append_item(&tlvs->ipv6_reach, (struct isis_item *)ipv6_reach);
 }
 
 /* Functions related to TLV 242 Router Capability as per RFC7981 */

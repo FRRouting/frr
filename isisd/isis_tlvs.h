@@ -900,4 +900,13 @@ void isis_tlvs_add_srv6_lan_endx_sid(struct isis_ext_subtlvs *exts,
 				     struct isis_srv6_lan_endx_sid_subtlv *lan);
 void isis_tlvs_del_srv6_lan_endx_sid(struct isis_ext_subtlvs *exts,
 				     struct isis_srv6_lan_endx_sid_subtlv *lan);
+
+/*Functions for redistribte routes inside IS-IS*/
+struct isis_extended_ip_reach *copy_extended_ip_reach(struct isis_item *ip_reach_s,
+				    uint32_t metric, bool up_down_flag);
+struct isis_ipv6_reach *copy_ipv6_reach(struct isis_item *ipv6_reach_s, uint32_t metric,
+						bool up_down_flag);
+void append_extended_ip_reach(struct isis_tlvs *tlvs,
+		struct isis_item *ip_reach);
+void append_ipv6_reach(struct isis_tlvs *tlvs, struct isis_item *ipv6_reach);
 #endif
