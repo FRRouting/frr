@@ -55,6 +55,10 @@ lib_interface_zebra_state_zif_type_get_elem(struct nb_cb_get_elem_args *args)
 
 	zebra_if = ifp->info;
 
+	/*
+	 * NOTE: when adding a new type to the switch, make sure it is defined
+	 * in it's YANG model.
+	 */
 	switch (zebra_if->zif_type) {
 	case ZEBRA_IF_OTHER:
 		type = "frr-zebra:zif-other";
