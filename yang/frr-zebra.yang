@@ -157,6 +157,12 @@ module frr-zebra {
       "Zebra interface type macvlan.";
   }
 
+  identity zif-gre {
+    base zebra-interface-type;
+    description
+      "Zebra interface type gre.";
+  }
+
   /*
    * Multicast RPF mode configurable type
    */
