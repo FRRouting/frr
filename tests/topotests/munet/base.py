@@ -21,6 +21,7 @@ import subprocess
 import sys
 import tempfile
 import time as time_mod
+
 from collections import defaultdict
 from pathlib import Path
 from typing import Union
@@ -28,8 +29,10 @@ from typing import Union
 from . import config as munet_config
 from . import linux
 
+
 try:
     import pexpect
+
     from pexpect.fdpexpect import fdspawn
     from pexpect.popen_spawn import PopenSpawn
 
@@ -273,6 +276,9 @@ def get_event_loop():
     """
     policy = asyncio.get_event_loop_policy()
     loop = policy.get_event_loop()
+    if not hasattr(os, "pidfd_open"):
+        return loop
+
     owatcher = policy.get_child_watcher()
     logging.debug(
         "event_loop_fixture: global policy %s, current loop %s, current watcher %s",
