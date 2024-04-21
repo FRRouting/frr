@@ -1539,7 +1539,7 @@ struct peer *peer_new(struct bgp *bgp)
 	SET_FLAG(peer->sflags, PEER_STATUS_CAPABILITY_OPEN);
 
 	if (CHECK_FLAG(bgp->flags, BGP_FLAG_ENFORCE_FIRST_AS))
-		SET_FLAG(peer->flags, PEER_FLAG_ENFORCE_FIRST_AS);
+		peer_flag_set(peer, PEER_FLAG_ENFORCE_FIRST_AS);
 
 	if (CHECK_FLAG(bgp->flags, BGP_FLAG_SOFT_VERSION_CAPABILITY))
 		SET_FLAG(peer->flags, PEER_FLAG_CAPABILITY_SOFT_VERSION);
