@@ -122,8 +122,8 @@ def test_bfd_connection():
 
 def test_bfd_loss_intermediate():
     """
-    Assert that BFD notices the bfd link down failure.
-    but BGP entries should still be present
+    Assert that BGP notices the BFD link down failure.
+    The BGP entries should be flushed as the C-bit is set in both directions.
     """
     tgen = get_topogen()
     if tgen.routers_have_failure():
@@ -160,7 +160,7 @@ def test_bfd_loss_intermediate():
         assertmsg = '"{}" JSON output mismatches'.format(router.name)
         assert result is None, assertmsg
 
-    logger.info("waiting for BGP entries to become stale")
+    logger.info("waiting for BGP entries to be removed")
     for router in tgen.routers().values():
         if router.name == "r2":
             continue
