@@ -1545,7 +1545,7 @@ struct peer *peer_new(struct bgp *bgp)
 		peer_flag_set(peer, PEER_FLAG_CAPABILITY_SOFT_VERSION);
 
 	if (CHECK_FLAG(bgp->flags, BGP_FLAG_DYNAMIC_CAPABILITY))
-		SET_FLAG(peer->flags, PEER_FLAG_DYNAMIC_CAPABILITY);
+		peer_flag_set(peer, PEER_FLAG_DYNAMIC_CAPABILITY);
 
 	SET_FLAG(peer->flags_invert, PEER_FLAG_CAPABILITY_FQDN);
 	SET_FLAG(peer->flags, PEER_FLAG_CAPABILITY_FQDN);
