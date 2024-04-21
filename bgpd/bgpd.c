@@ -1542,6 +1542,12 @@ struct peer *peer_new(struct bgp *bgp)
 	if (CHECK_FLAG(bgp->flags, BGP_FLAG_SOFT_VERSION_CAPABILITY))
 		peer_flag_set(peer, PEER_FLAG_CAPABILITY_SOFT_VERSION);
 
+<<<<<<< HEAD
+=======
+	if (CHECK_FLAG(bgp->flags, BGP_FLAG_DYNAMIC_CAPABILITY))
+		peer_flag_set(peer, PEER_FLAG_DYNAMIC_CAPABILITY);
+
+>>>>>>> 70631acbb (bgpd: Inherit `capability dynamic` flag from the peer-group)
 	SET_FLAG(peer->flags_invert, PEER_FLAG_CAPABILITY_FQDN);
 	SET_FLAG(peer->flags, PEER_FLAG_CAPABILITY_FQDN);
 
