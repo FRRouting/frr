@@ -258,7 +258,7 @@ int pim_rpf_is_same(struct pim_rpf *rpf1, struct pim_rpf *rpf2)
 	return 0;
 }
 
-bool pim_route_lookup(struct pim_instance *pim, pim_addr addr, uint32_t asn, struct pim_nexthop *pn)
+bool pim_route_lookup(struct pim_instance *pim, pim_addr addr, uint32_t *asn, struct pim_nexthop *pn)
 {
 	struct interface *ifp;
 	struct zroute_info *ri;
@@ -288,43 +288,10 @@ bool pim_route_lookup(struct pim_instance *pim, pim_addr addr, uint32_t asn, str
 	 * RFC 4611 Section 2.1. Peering between PIM Border Routers.
 	 */
 	if (asn) {
-		long long first_asn;
-
-		/*
-		 * We expect a BGP route so if no AS Path information is
-		 * available it means this is not a BGP route.
-		 */
-		if (ri->ri_type != ZEBRA_ROUTE_BGP) {
-			if (PIM_DEBUG_ZEBRA)
-				zlog_debug("%s: expected BGP route for %pPA (got %d)", __func__,
-					   &addr, ri->ri_type);
-			goto free_and_exit;
-		}
-
-		errno = 0;
-		first_asn = strtoll((char *)ri->ri_opaque, NULL, 10);
-		/* Check for number conversion failures. */
-		if (first_asn == LLONG_MIN || first_asn == LLONG_MAX) {
-			zlog_warn("%s: AS number overflow/underflow %s", __func__, ri->ri_opaque);
-			goto free_and_exit;
-		}
-		if (first_asn == 0 && errno != 0) {
-			zlog_warn("%s: AS number conversion failed: %s", __func__, strerror(errno));
-			goto free_and_exit;
-		}
-
-		/* AS did not match. */
-		if (first_asn != asn) {
-			if (PIM_DEBUG_ZEBRA)
-				zlog_debug("%s: next hop AS did not match for address %pPA (%u != %lld)",
-					   __func__, &addr, asn, first_asn);
-			goto free_and_exit;
-		}
-
-		/* Proceed to validate next hop. */
-		if (PIM_DEBUG_ZEBRA)
-			zlog_debug("%s: next hop AS matched for address %pPA (AS %u)", __func__,
-				   &addr, asn);
+		if (ri->ri_type == ZEBRA_ROUTE_BGP)
+			*asn = strtoull((char *)ri->ri_opaque, NULL, 10);
+		else
+			*asn = 0;
 	}
 
 	SLIST_FOREACH (rni, &ri->ri_nhlist, rni_entry) {
@@ -384,7 +351,6 @@ bool pim_route_lookup(struct pim_instance *pim, pim_addr addr, uint32_t asn, str
 		break;
 	}
 
-free_and_exit:
 	zroute_info_free(&ri);
 	return found;
 }
