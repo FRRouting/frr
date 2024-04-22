@@ -1275,8 +1275,6 @@ void ospf6_abr_examin_summary(struct ospf6_lsa *lsa, struct ospf6_area *oa)
 			continue;
 		}
 
-		list_delete_all_node(old_route->nh_list);
-		ospf6_route_copy_nexthops(old_route, route);
 		old_entry_updated = true;
 
 		for (ALL_LIST_ELEMENTS_RO(old_route->paths, anode,
@@ -1328,6 +1326,15 @@ void ospf6_abr_examin_summary(struct ospf6_lsa *lsa, struct ospf6_area *oa)
 				ospf6_route_delete(tmp_route);
 				continue;
 			}
+		}
+
+		/* We added a path or updated a path's nexthops above,
+		 * recompute (old) route nexthops by merging all path nexthops
+		 */
+		list_delete_all_node(old_route->nh_list);
+		for (ALL_LIST_ELEMENTS_RO(old_route->paths, anode, o_path)) {
+			ospf6_merge_nexthops(old_route->nh_list,
+					     o_path->nh_list);
 		}
 
 		if (is_debug)
