@@ -91,6 +91,11 @@ DECLARE_LIST(mgmt_txn_batches, struct mgmt_txn_be_cfg_batch, list_linkage);
 #define FOREACH_TXN_CFG_BATCH_IN_LIST(list, batch)                             \
 	frr_each_safe (mgmt_txn_batches, list, batch)
 
+struct mgmt_edit_req {
+	char xpath_created[XPATH_MAXLEN];
+	bool unlock;
+};
+
 struct mgmt_commit_cfg_req {
 	Mgmtd__DatastoreId src_ds_id;
 	struct mgmt_ds_ctx *src_ds_ctx;
@@ -107,6 +112,12 @@ struct mgmt_commit_cfg_req {
 	enum mgmt_commit_phase phase;
 
 	enum mgmt_commit_phase be_phase[MGMTD_BE_CLIENT_ID_MAX];
+
+	/*
+	 * Additional information when the commit is triggered by native edit
+	 * request.
+	 */
+	struct mgmt_edit_req *edit;
 
 	/*
 	 * Set of config changes to commit. This is used only
@@ -444,6 +455,8 @@ static void mgmt_txn_req_free(struct mgmt_txn_req **txn_req)
 		cleanup = (ccreq->phase >= MGMTD_COMMIT_PHASE_TXN_CREATE &&
 			   ccreq->phase < MGMTD_COMMIT_PHASE_TXN_DELETE);
 
+		XFREE(MTYPE_MGMTD_TXN_REQ, ccreq->edit);
+
 		FOREACH_MGMTD_BE_CLIENT_ID (id) {
 			/*
 			 * Send TXN_DELETE to cleanup state for this
@@ -604,7 +617,8 @@ static void mgmt_txn_process_set_cfg(struct event *thread)
 								->dst_ds_id,
 							txn_req->req.set_cfg
 								->dst_ds_ctx,
-							false, false, true);
+							false, false, true,
+							NULL);
 
 			if (mm->perf_stats_en)
 				gettimeofday(&cmt_stats->last_start, NULL);
@@ -655,7 +669,8 @@ static int mgmt_txn_send_commit_cfg_reply(struct mgmt_txn_ctx *txn,
 	 * b/c right now that is special cased.. that special casing should be
 	 * removed; however...
 	 */
-	if (!txn->commit_cfg_req->req.commit_cfg.implicit && txn->session_id &&
+	if (!txn->commit_cfg_req->req.commit_cfg.edit &&
+	    !txn->commit_cfg_req->req.commit_cfg.implicit && txn->session_id &&
 	    !txn->commit_cfg_req->req.commit_cfg.rollback &&
 	    mgmt_fe_send_commit_cfg_reply(txn->session_id, txn->txn_id,
 					  txn->commit_cfg_req->req.commit_cfg
@@ -671,7 +686,8 @@ static int mgmt_txn_send_commit_cfg_reply(struct mgmt_txn_ctx *txn,
 			  txn->txn_id, txn->session_id);
 	}
 
-	if (txn->commit_cfg_req->req.commit_cfg.implicit && txn->session_id &&
+	if (!txn->commit_cfg_req->req.commit_cfg.edit &&
+	    txn->commit_cfg_req->req.commit_cfg.implicit && txn->session_id &&
 	    !txn->commit_cfg_req->req.commit_cfg.rollback &&
 	    mgmt_fe_send_set_cfg_reply(txn->session_id, txn->txn_id,
 				       txn->commit_cfg_req->req.commit_cfg
@@ -681,6 +697,21 @@ static int mgmt_txn_send_commit_cfg_reply(struct mgmt_txn_ctx *txn,
 					       : MGMTD_INTERNAL_ERROR,
 				       error_if_any, true) != 0) {
 		__log_err("Failed to send SET-CONFIG-REPLY txn-id: %" PRIu64
+			  " session-id: %" PRIu64,
+			  txn->txn_id, txn->session_id);
+	}
+
+	if (txn->commit_cfg_req->req.commit_cfg.edit &&
+	    mgmt_fe_adapter_send_edit_reply(txn->session_id, txn->txn_id,
+					    txn->commit_cfg_req->req_id,
+					    txn->commit_cfg_req->req.commit_cfg
+						    .edit->unlock,
+					    true,
+					    txn->commit_cfg_req->req.commit_cfg
+						    .edit->xpath_created,
+					    success ? 0 : -1,
+					    error_if_any) != 0) {
+		__log_err("Failed to send EDIT-REPLY txn-id: %" PRIu64
 			  " session-id: %" PRIu64,
 			  txn->txn_id, txn->session_id);
 	}
@@ -2011,7 +2042,7 @@ int mgmt_txn_send_commit_config_req(uint64_t txn_id, uint64_t req_id,
 				    Mgmtd__DatastoreId dst_ds_id,
 				    struct mgmt_ds_ctx *dst_ds_ctx,
 				    bool validate_only, bool abort,
-				    bool implicit)
+				    bool implicit, struct mgmt_edit_req *edit)
 {
 	struct mgmt_txn_ctx *txn;
 	struct mgmt_txn_req *txn_req;
@@ -2035,6 +2066,7 @@ int mgmt_txn_send_commit_config_req(uint64_t txn_id, uint64_t req_id,
 	txn_req->req.commit_cfg.validate_only = validate_only;
 	txn_req->req.commit_cfg.abort = abort;
 	txn_req->req.commit_cfg.implicit = implicit;
+	txn_req->req.commit_cfg.edit = edit;
 	txn_req->req.commit_cfg.cmt_stats =
 		mgmt_fe_get_session_commit_stats(txn->session_id);
 
@@ -2415,6 +2447,52 @@ state:
 	event_add_timer(mgmt_txn_tm, txn_get_tree_timeout, txn_req,
 			MGMTD_TXN_GET_TREE_MAX_DELAY_SEC,
 			&txn->get_tree_timeout);
+	return 0;
+}
+
+int mgmt_txn_send_edit(uint64_t txn_id, uint64_t req_id,
+		       Mgmtd__DatastoreId ds_id, struct mgmt_ds_ctx *ds_ctx,
+		       Mgmtd__DatastoreId commit_ds_id,
+		       struct mgmt_ds_ctx *commit_ds_ctx, bool unlock,
+		       bool commit, LYD_FORMAT request_type, uint8_t flags,
+		       uint8_t operation, const char *xpath, const char *data)
+{
+	struct mgmt_txn_ctx *txn;
+	struct mgmt_edit_req *edit;
+	struct nb_config *nb_config;
+	char errstr[BUFSIZ];
+	int ret;
+
+	txn = mgmt_txn_id2ctx(txn_id);
+	if (!txn)
+		return -1;
+
+	edit = XCALLOC(MTYPE_MGMTD_TXN_REQ, sizeof(struct mgmt_edit_req));
+
+	nb_config = mgmt_ds_get_nb_config(ds_ctx);
+	assert(nb_config);
+
+	ret = nb_candidate_edit_tree(nb_config, operation, request_type, xpath,
+				     data, edit->xpath_created, errstr,
+				     sizeof(errstr));
+	if (ret)
+		goto reply;
+
+	if (commit) {
+		edit->unlock = unlock;
+
+		mgmt_txn_send_commit_config_req(txn_id, req_id, ds_id, ds_ctx,
+						commit_ds_id, commit_ds_ctx,
+						false, false, true, edit);
+		return 0;
+	}
+reply:
+	mgmt_fe_adapter_send_edit_reply(txn->session_id, txn->txn_id, req_id,
+					unlock, commit, edit->xpath_created,
+					ret ? -1 : 0, errstr);
+
+	XFREE(MTYPE_MGMTD_TXN_REQ, edit);
+
 	return 0;
 }
 

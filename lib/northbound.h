@@ -999,6 +999,44 @@ extern int nb_candidate_edit(struct nb_config *candidate,
 			     const struct yang_data *data);
 
 /*
+ * Edit a candidate configuration. Value is given as JSON/XML.
+ *
+ * candidate
+ *    Candidate configuration to edit.
+ *
+ * operation
+ *    Operation to apply.
+ *
+ * format
+ *    LYD_FORMAT of the value.
+ *
+ * xpath
+ *    XPath of the configuration node being edited.
+ *    For create, it must be the parent.
+ *
+ * data
+ *    New data tree for the node.
+ *
+ * xpath_created
+ *    XPath of the created node if operation is "create".
+ *
+ * errmsg
+ *    Buffer to store human-readable error message in case of error.
+ *
+ * errmsg_len
+ *    Size of errmsg.
+ *
+ * Returns:
+ *    - NB_OK on success.
+ *    - NB_ERR for other errors.
+ */
+extern int nb_candidate_edit_tree(struct nb_config *candidate,
+				  enum nb_operation operation,
+				  LYD_FORMAT format, const char *xpath,
+				  const char *data, char *xpath_created,
+				  char *errmsg, size_t errmsg_len);
+
+/*
  * Create diff for configuration.
  *
  * dnode

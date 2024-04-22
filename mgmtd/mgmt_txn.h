@@ -43,6 +43,7 @@
 PREDECL_LIST(mgmt_txns);
 
 struct mgmt_master;
+struct mgmt_edit_req;
 
 enum mgmt_txn_type {
 	MGMTD_TXN_TYPE_NONE = 0,
@@ -171,16 +172,17 @@ extern int mgmt_txn_send_set_config_req(uint64_t txn_id, uint64_t req_id,
  * implicit
  *    TRUE if the commit is implicit, FALSE otherwise.
  *
+ * edit
+ *    Additional info when triggered from native edit request.
+ *
  * Returns:
  *    0 on success, -1 on failures.
  */
-extern int mgmt_txn_send_commit_config_req(uint64_t txn_id, uint64_t req_id,
-					   Mgmtd__DatastoreId src_ds_id,
-					   struct mgmt_ds_ctx *dst_ds_ctx,
-					   Mgmtd__DatastoreId dst_ds_id,
-					   struct mgmt_ds_ctx *src_ds_ctx,
-					   bool validate_only, bool abort,
-					   bool implicit);
+extern int mgmt_txn_send_commit_config_req(
+	uint64_t txn_id, uint64_t req_id, Mgmtd__DatastoreId src_ds_id,
+	struct mgmt_ds_ctx *dst_ds_ctx, Mgmtd__DatastoreId dst_ds_id,
+	struct mgmt_ds_ctx *src_ds_ctx, bool validate_only, bool abort,
+	bool implicit, struct mgmt_edit_req *edit);
 
 /*
  * Send get-{cfg,data} request to be processed later in transaction.
@@ -218,6 +220,31 @@ extern int mgmt_txn_send_get_tree_oper(uint64_t txn_id, uint64_t req_id,
 				       LYD_FORMAT result_type, uint8_t flags,
 				       uint32_t wd_options, bool simple_xpath,
 				       const char *xpath);
+
+/**
+ * Send edit request.
+ *
+ * Args:
+ *	txn_id: Transaction identifier.
+ *	req_id: FE client request identifier.
+ *	ds_id: Datastore ID.
+ *	ds_ctx: Datastore context.
+ *	commit_ds_id: Commit datastore ID.
+ *	commit_ds_ctx: Commit datastore context.
+ *	unlock: Unlock datastores after the edit.
+ *	commit: Commit the candidate datastore after the edit.
+ *	request_type: LYD_FORMAT request type.
+ *	flags: option flags for the request.
+ *	operation: The operation to perform.
+ *	xpath: The xpath of data node to edit.
+ *	data: The data tree.
+ */
+extern int
+mgmt_txn_send_edit(uint64_t txn_id, uint64_t req_id, Mgmtd__DatastoreId ds_id,
+		   struct mgmt_ds_ctx *ds_ctx, Mgmtd__DatastoreId commit_ds_id,
+		   struct mgmt_ds_ctx *commit_ds_ctx, bool unlock, bool commit,
+		   LYD_FORMAT request_type, uint8_t flags, uint8_t operation,
+		   const char *xpath, const char *data);
 
 /*
  * Notifiy backend adapter on connection.
