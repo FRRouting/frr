@@ -705,31 +705,169 @@ static int pim_msdp_sa_comp(const void *p1, const void *p2)
 	return pim_sgaddr_cmp(sa1->sg, sa2->sg);
 }
 
+DEFINE_MTYPE_STATIC(PIMD, MSDP_RP_CACHE, "MSDP RP cache entry");
+
+struct msdp_rp_cache {
+	struct msdp_rp_cache_item item;
+
+	struct in_addr rp_addr;
+	struct in_addr nexthop_addr;
+	uint32_t nexthop_asn;
+	struct in_addr selected_msdp;
+
+	struct pim_instance *pim;
+	struct timeval lastuse;
+	struct event *refresh;
+};
+
+static int msdp_rp_cache_cmp(const struct msdp_rp_cache *a, const struct msdp_rp_cache *b)
+{
+	return IPV4_ADDR_CMP(&a->rp_addr, &b->rp_addr);
+}
+
+static uint32_t msdp_rp_cache_hash(const struct msdp_rp_cache *a)
+{
+	return jhash_1word(a->rp_addr.s_addr, 0x4e622350);
+}
+
+DECLARE_HASH(msdp_rp_cache, struct msdp_rp_cache, item, msdp_rp_cache_cmp, msdp_rp_cache_hash);
+
+static void msdp_rp_cache_update(struct msdp_rp_cache *ent)
+{
+	struct pim_nexthop nexthop = {};
+	uint32_t asn = 0;
+	struct pim_msdp_peer *mp;
+	unsigned int best_preference = ~0U;
+	const char *rule = "nothing found";
+	struct in_addr best_addr = {};
+	struct listnode *node;
+
+	if (!pim_bgp_nht_lookup(ent->pim, &nexthop, ent->rp_addr, PIMADDR_ANY, &asn)) {
+		ent->nexthop_addr.s_addr = INADDR_ANY;
+		ent->nexthop_asn = 0;
+		return;
+	}
+
+	if (PIM_DEBUG_ZEBRA && (IPV4_ADDR_CMP(&ent->nexthop_addr, &nexthop.mrib_nexthop_addr) ||
+				ent->nexthop_asn != asn)) {
+		zlog_debug("MSDP RP %pI4: nexthop changed to %pI4 [AS%u] (was %pI4 [AS%u])",
+			   &ent->rp_addr, &nexthop.mrib_nexthop_addr, asn, &ent->nexthop_addr,
+			   ent->nexthop_asn);
+	}
+
+	ent->nexthop_addr = nexthop.mrib_nexthop_addr;
+	ent->nexthop_asn = asn;
+
+	for (ALL_LIST_ELEMENTS_RO(ent->pim->msdp.peer_list, node, mp)) {
+		if (mp->state != PIM_MSDP_ESTABLISHED)
+			continue;
+
+		/* N == R */
+		if (!IPV4_ADDR_CMP(&mp->peer, &ent->rp_addr)) {
+			best_addr = mp->peer;
+			rule = "(i) MSDP peer is RP";
+			if (IPV4_ADDR_CMP(&mp->peer, &ent->nexthop_addr))
+				rule = "(i) MSDP peer is RP [NOTE: RPF mismatch]";
+			/* no point in looking further */
+			break;
+		}
+
+		/* is nexthop */
+		if (!IPV4_ADDR_CMP(&mp->peer, &ent->nexthop_addr) && best_preference > 3) {
+			best_preference = 3;
+			best_addr = mp->peer;
+			rule = "(ii/iii) MSDP peer is nexthop to RP";
+		}
+
+		if (best_preference == 3)
+			continue;
+
+		if (ent->nexthop_asn == mp->asn &&
+		    (best_preference > 4 || IPV4_ADDR_CMP(&best_addr, &mp->peer) > 0)) {
+			best_preference = 4;
+			best_addr = mp->peer;
+			rule = "(iv) MSDP peer is in closest AS to RP";
+		}
+
+		if (best_preference == 4)
+			continue;
+
+		/* 5 - static peer - not supported */
+	}
+
+	if (PIM_DEBUG_ZEBRA && IPV4_ADDR_CMP(&ent->selected_msdp, &best_addr))
+		zlog_debug("MSDP RP %pI4: best MSDP peer changed to %pI4 [%s] (was %pI4)",
+			   &ent->rp_addr, &best_addr, rule, &ent->selected_msdp);
+
+	ent->selected_msdp = best_addr;
+}
+
+static void msdp_rp_cache_timer(struct event *e)
+{
+	struct msdp_rp_cache *ent = EVENT_ARG(e);
+	int64_t us_since;
+
+	us_since = monotime_since(&ent->lastuse, NULL);
+	if (us_since > 135 * 1000 * 1000) {
+		if (PIM_DEBUG_ZEBRA)
+			zlog_debug("MSDP RP %pI4: expired, dropping", &ent->rp_addr);
+
+		msdp_rp_cache_del(ent->pim->msdp.rp_cache, ent);
+		XFREE(MTYPE_MSDP_RP_CACHE, ent);
+		return;
+	}
+
+	msdp_rp_cache_update(ent);
+
+	event_add_timer_msec(ent->pim->msdp.master, msdp_rp_cache_timer, ent, 60000, &ent->refresh);
+}
+
+static struct msdp_rp_cache *msdp_rp_cache_get(struct pim_instance *pim, struct in_addr addr)
+{
+	struct msdp_rp_cache *ent, ref = { .rp_addr = addr };
+
+	ent = msdp_rp_cache_find(pim->msdp.rp_cache, &ref);
+	if (!ent) {
+		ent = XCALLOC(MTYPE_MSDP_RP_CACHE, sizeof(*ent));
+		ent->rp_addr = addr;
+		ent->pim = pim;
+
+		msdp_rp_cache_add(pim->msdp.rp_cache, ent);
+		msdp_rp_cache_update(ent);
+		event_add_timer_msec(pim->msdp.master, msdp_rp_cache_timer, ent, 59000,
+				     &ent->refresh);
+	}
+
+	monotime(&ent->lastuse);
+	return ent;
+}
+
+static void msdp_rp_cache_clear(struct pim_instance *pim)
+{
+	struct msdp_rp_cache *ent;
+
+	while ((ent = msdp_rp_cache_pop(pim->msdp.rp_cache))) {
+		event_cancel(&ent->refresh);
+		XFREE(MTYPE_MSDP_RP_CACHE, ent);
+	}
+
+	msdp_rp_cache_fini(pim->msdp.rp_cache);
+}
+
 /* RFC-3618:Sec-10.1.3 - Peer-RPF forwarding */
 /* XXX: this can use a bit of refining and extensions */
 bool pim_msdp_peer_rpf_check(struct pim_msdp_peer *mp, struct in_addr rp)
 {
-	struct pim_nexthop nexthop = {0};
-	uint32_t asn = 0;
+	struct msdp_rp_cache *ent;
 
-	if (mp->peer.s_addr == rp.s_addr) {
+	ent = msdp_rp_cache_get(mp->pim, rp);
+	if (ent->selected_msdp.s_addr == mp->peer.s_addr)
 		return true;
-	}
-
-	/* check if the MSDP peer is the nexthop for the RP */
-	if (pim_bgp_nht_lookup(mp->pim, &nexthop, rp, PIMADDR_ANY, &asn) &&
-	    nexthop.mrib_nexthop_addr.s_addr == mp->peer.s_addr) {
-		if (mp->asn && mp->asn != asn)
-			return false;
-
-		return true;
-	}
 
 	if (pim_msdp_log_sa_events(mp->pim))
-		zlog_info("MSDP peer %pI4 RPF failure for %pI4", &mp->peer, &rp);
+		zlog_info("MSDP peer %pI4 is not RPF for %pI4", &mp->peer, &rp);
 
 	mp->rpf_lookup_failure_count++;
-
 	return false;
 }
 
@@ -1424,12 +1562,16 @@ void pim_msdp_init(struct pim_instance *pim, struct event_loop *master)
 	pim->msdp.hold_time = PIM_MSDP_PEER_HOLD_TIME;
 	pim->msdp.keep_alive = PIM_MSDP_PEER_KA_TIME;
 	pim->msdp.connection_retry = PIM_MSDP_PEER_CONNECT_RETRY_TIME;
+
+	msdp_rp_cache_init(pim->msdp.rp_cache);
 }
 
 /* counterpart to MSDP init; XXX: unused currently */
 void pim_msdp_exit(struct pim_instance *pim)
 {
 	struct pim_msdp_mg *mg;
+
+	msdp_rp_cache_clear(pim);
 
 	pim_msdp_sa_adv_timer_setup(pim, false);
 
@@ -1549,6 +1691,8 @@ void pim_msdp_shutdown(struct pim_instance *pim, bool state)
 			/* Disable and remove listener flag. */
 			UNSET_FLAG(pim->msdp.flags, PIM_MSDPF_ENABLE | PIM_MSDPF_LISTENER);
 		}
+
+		msdp_rp_cache_clear(pim);
 	} else {
 		pim->msdp.shutdown = false;
 
