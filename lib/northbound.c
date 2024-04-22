@@ -932,14 +932,22 @@ static int nb_candidate_edit_tree_add(struct nb_config *candidate,
 		/* if replace failed, restore the original node */
 		if (existing) {
 			if (root) {
+				/* Restoring the whole config. */
 				candidate->dnode = existing;
+			} else if (ex_parent) {
+				/*
+				 * Restoring a nested node. Insert it as a
+				 * child.
+				 */
+				lyd_insert_child(ex_parent, existing);
 			} else {
-				if (ex_parent)
-					lyd_insert_child(ex_parent, existing);
-				else
-					lyd_insert_sibling(candidate->dnode,
-							   existing,
-							   &candidate->dnode);
+				/*
+				 * Restoring a top-level node. Insert it as a
+				 * sibling to candidate->dnode to make sure
+				 * the linkage is correct.
+				 */
+				lyd_insert_sibling(candidate->dnode, existing,
+						   &candidate->dnode);
 			}
 		}
 		yang_print_errors(ly_native_ctx, errmsg, errmsg_len);
