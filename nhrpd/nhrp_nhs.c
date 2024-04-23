@@ -169,9 +169,15 @@ static void nhrp_reg_send_req(struct event *t)
 	struct nhrp_cie_header *cie;
 
 	if (!nhrp_peer_check(r->peer, 2)) {
-		debugf(NHRP_DEBUG_COMMON, "NHS: Waiting link for %pSU",
-		       &r->peer->vc->remote.nbma);
-		event_add_timer(master, nhrp_reg_send_req, r, 120,
+		int renewtime = if_ad->holdtime / 4;
+		/* RFC 2332 5.2.0.1 says "a retry is sent after an appropriate
+		 * interval." Using holdtime/4, to be shorter than
+		 * recommended renew time (holdtime/3), see RFC2332 Sec 5.2.3
+		 */
+		debugf(NHRP_DEBUG_COMMON,
+		       "NHS: Waiting link for %pSU, retrying in %d seconds",
+		       &r->peer->vc->remote.nbma, renewtime);
+		event_add_timer(master, nhrp_reg_send_req, r, renewtime,
 				&r->t_register);
 		return;
 	}
