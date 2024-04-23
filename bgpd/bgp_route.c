@@ -2426,11 +2426,21 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 	if (reflect)
 		SET_FLAG(attr->rmap_change_flags, BATTR_REFLECTED);
 
+	/* NEXTHOP can be V6 for,
+	 * - safi SAFI_MPLS_VPN, if nexthop length is >= IPV6 max length
+	 *    or peer capability extended nexthop is negotiated as per RFC5549,
+	 * - safi SAFI_ENCAP, if nexthop length is >= IPV6 max length
+	 * - for all other cases except for safi SAFI_ENCAP & SAFI_MPLS_VPN,
+	 *    if prefix address family is INET6 or extended nexthop capability
+	 *    is negotiated.
+	 */
 #define NEXTHOP_IS_V6                                                          \
-	((safi != SAFI_ENCAP && safi != SAFI_MPLS_VPN                          \
-	  && (p->family == AF_INET6 || peer_cap_enhe(peer, afi, safi)))        \
-	 || ((safi == SAFI_ENCAP || safi == SAFI_MPLS_VPN)                     \
-	     && attr->mp_nexthop_len >= IPV6_MAX_BYTELEN))
+	((safi != SAFI_ENCAP && safi != SAFI_MPLS_VPN &&                       \
+	  (p->family == AF_INET6 || peer_cap_enhe(peer, afi, safi))) ||        \
+	 ((safi == SAFI_ENCAP) && attr->mp_nexthop_len >= IPV6_MAX_BYTELEN) || \
+	 ((safi == SAFI_MPLS_VPN) &&                                           \
+	  (attr->mp_nexthop_len >= IPV6_MAX_BYTELEN ||                         \
+	   peer_cap_enhe(peer, afi, safi))))
 
 	/* IPv6/MP starts with 1 nexthop. The link-local address is passed only
 	 * if
