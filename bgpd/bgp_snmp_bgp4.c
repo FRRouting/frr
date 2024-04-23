@@ -401,7 +401,7 @@ static struct bgp_path_info *bgp4PathAttrLookup(struct variable *v, oid name[],
 		/* Set OID offset for prefix. */
 		offset = name + v->namelen;
 		oid2in_addr(offset, IN_ADDR_SIZE, &addr->prefix);
-		offset++;
+		offset += IN_ADDR_SIZE;
 
 		/* Prefix length. */
 		addr->prefixlen = *offset;
@@ -497,7 +497,7 @@ static struct bgp_path_info *bgp4PathAttrLookup(struct variable *v, oid name[],
 
 				offset = name + v->namelen;
 				oid_copy_in_addr(offset, &rn_p->u.prefix4);
-				offset++;
+				offset += IN_ADDR_SIZE;
 				*offset = rn_p->prefixlen;
 				offset++;
 				oid_copy_in_addr(offset,
