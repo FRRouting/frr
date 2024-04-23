@@ -405,7 +405,7 @@ static int netlink_msg_ctx_add_nh(struct netlink_msg_ctx *ctx, int if_index,
 static int parse_multipath_attr(struct netlink_msg_ctx *ctx,
 				struct rtattr *mpath_rtattr)
 {
-	size_t len;
+	int len;
 	struct rtnexthop *rtnh;
 	struct rtattr *rtattrs[RTA_MAX + 1];
 	struct rtattr *gateway;
