@@ -77,6 +77,9 @@ static struct hash *ashash;
 /* Stream for SNMP. See aspath_snmp_pathseg */
 static struct stream *snmp_stream;
 
+/* as-path orphan exclude list */
+static struct as_list_list_head as_exclude_list_orphan;
+
 /* Callers are required to initialize the memory */
 static as_t *assegment_data_new(int num)
 {
@@ -1558,6 +1561,38 @@ struct aspath *aspath_prepend(struct aspath *as1, struct aspath *as2)
 	/* Not reached */
 }
 
+/* insert aspath exclude in head of orphan exclude list*/
+void as_exclude_set_orphan(struct aspath_exclude *ase)
+{
+	ase->exclude_aspath_acl = NULL;
+	as_list_list_add_head(&as_exclude_list_orphan, ase);
+}
+
+void as_exclude_remove_orphan(struct aspath_exclude *ase)
+{
+	if (as_list_list_count(&as_exclude_list_orphan))
+		as_list_list_del(&as_exclude_list_orphan, ase);
+}
+
+/* currently provide only one exclude, not a list */
+struct aspath_exclude *as_exclude_lookup_orphan(const char *acl_name)
+{
+	struct aspath_exclude *ase = NULL;
+	char *name = NULL;
+
+	frr_each (as_list_list, &as_exclude_list_orphan, ase) {
+		if (ase->exclude_aspath_acl_name) {
+			name = ase->exclude_aspath_acl_name;
+			if (!strcmp(name, acl_name))
+				break;
+		}
+	}
+	if (ase)
+		as_exclude_remove_orphan(ase);
+
+	return ase;
+}
+
 /* Iterate over AS_PATH segments and wipe all occurrences of the
  * listed AS numbers. Hence some segments may lose some or even
  * all data on the way, the operation is implemented as a smarter
@@ -2236,14 +2271,26 @@ void aspath_init(void)
 {
 	ashash = hash_create_size(32768, aspath_key_make, aspath_cmp,
 				  "BGP AS Path");
+
+	as_list_list_init(&as_exclude_list_orphan);
 }
 
 void aspath_finish(void)
 {
+	struct aspath_exclude *ase;
+
 	hash_clean_and_free(&ashash, (void (*)(void *))aspath_free);
 
 	if (snmp_stream)
 		stream_free(snmp_stream);
+
+	while ((ase = as_list_list_pop(&as_exclude_list_orphan))) {
+		aspath_free(ase->aspath);
+		if (ase->exclude_aspath_acl_name)
+			XFREE(MTYPE_TMP, ase->exclude_aspath_acl_name);
+		XFREE(MTYPE_ROUTE_MAP_COMPILED, ase);
+	}
+	as_list_list_fini(&as_exclude_list_orphan);
 }
 
 /* return and as path value */
