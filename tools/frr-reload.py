@@ -1085,9 +1085,20 @@ def pim_delete_move_lines(lines_to_add, lines_to_del):
     pim_disable = False
     lines_to_del_to_del = []
 
+    index = -1
     for ctx_keys, line in lines_to_del:
+        index = index + 1
         if ctx_keys[0].startswith("interface") and line and line == "ip pim":
             pim_disable = True
+
+        # no ip msdp peer <> does not accept source so strip it off.
+        if line and line.startswith("ip msdp peer "):
+            pim_msdp_peer = re.search("ip msdp peer (\S+) source (\S+)", line)
+            if pim_msdp_peer:
+                source_sub_str = "source %s" % pim_msdp_peer.group(2)
+                new_line = line.replace(source_sub_str, "").strip()
+                lines_to_del.remove((ctx_keys, line))
+                lines_to_del.insert(index, (ctx_keys, new_line))
 
     if pim_disable:
         for ctx_keys, line in lines_to_del:
