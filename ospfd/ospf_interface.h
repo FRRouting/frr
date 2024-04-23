@@ -57,6 +57,7 @@ struct ospf_if_params {
 	DECLARE_IF_PARAM(struct in_addr, if_area);
 	uint32_t if_area_id_fmt;
 
+	bool type_cfg;
 	DECLARE_IF_PARAM(uint8_t, type); /* type of interface */
 #define OSPF_IF_ACTIVE                  0
 #define OSPF_IF_PASSIVE		        1
