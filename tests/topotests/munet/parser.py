@@ -230,7 +230,7 @@ def load_kinds(args, search=None):
     if args:
         os.chdir(args.rundir)
 
-    args_config = args.kinds_config if args else None
+    args_config = args.kinds_config if args and hasattr(args, "kinds_config") else None
     try:
         if search is None:
             search = [cwd]
@@ -305,7 +305,7 @@ async def async_build_topology(
 
     # create search directories from common root if given
     cpath = Path(config["config_pathname"]).absolute()
-    project_root = args.project_root if args else None
+    project_root = args.project_root if args and hasattr(args, "project_root") else None
     if not search_root:
         search_root = find_project_root(cpath, project_root)
     if not search_root:
@@ -341,7 +341,11 @@ async def async_build_topology(
         pytestconfig=pytestconfig,
         isolated=isolated,
         pid=top_level_pidns,
-        unshare_inline=args.unshare_inline if args else unshare_inline,
+        unshare_inline=(
+            args.unshare_inline
+            if args and hasattr(args, "unshare_inline")
+            else unshare_inline
+        ),
         logger=logger,
     )
 

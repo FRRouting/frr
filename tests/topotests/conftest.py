@@ -496,7 +496,7 @@ def setup_coverage(config):
     os.environ["GCOV_PREFIX"] = str(gcdadir)
 
     if is_main_runner():
-        commander.cmd_raises(f"find {bdir} -name '*.gc??' -exec chmod o+rw {{}} +")
+        commander.cmd_raises(f"find {bdir} -name '*.gc??' -exec chmod o+r {{}} +")
         commander.cmd_raises(f"mkdir -p {gcdadir}")
         commander.cmd_raises(f"chown -R root:frr {gcdadir}")
         commander.cmd_raises(f"chmod 2775 {gcdadir}")
@@ -767,18 +767,25 @@ def coverage_finish(terminalreporter, config):
     bdir = Path(os.environ["FRR_BUILD_DIR"])
     gcdadir = Path(os.environ["GCOV_PREFIX"])
 
-    # Get the data files into the build directory
-    logger.info("Copying gcda files from '%s' to '%s'", gcdadir, bdir)
-    user = os.environ.get("SUDO_USER", os.environ["USER"])
-    commander.cmd_raises(f"chmod -R ugo+r {gcdadir}")
+    logger.info("Creating .gcno ssymlink from '%s' to '%s'", gcdadir, bdir)
     commander.cmd_raises(
-        f"tar -C {gcdadir} -cf - . | su {user} -c 'tar -C {bdir} -xf -'"
+        f"cd {gcdadir}; bdir={bdir}"
+        + """
+for f in $(find . -name '*.gcda'); do
+    f=${f#./};
+    f=${f%.gcda}.gcno;
+    ln -fs $bdir/$f $f;
+    touch -h -r $bdir/$f $f;
+    echo $f;
+done"""
     )
 
     # Get the results into a summary file
     data_file = rundir / "coverage.info"
     logger.info("Gathering coverage data into: %s", data_file)
-    commander.cmd_raises(f"lcov --directory {bdir} --capture --output-file {data_file}")
+    commander.cmd_raises(
+        f"lcov --directory {gcdadir} --capture --output-file {data_file}"
+    )
 
     # Get coverage info filtered to a specific set of files
     report_file = rundir / "coverage.info"

@@ -18,6 +18,7 @@ import traceback
 
 import pytest
 
+from ..args import add_testing_args
 from ..base import BaseMunet  # pylint: disable=import-error
 from ..cli import cli  # pylint: disable=import-error
 from .util import pause_test
@@ -29,85 +30,7 @@ from .util import pause_test
 
 
 def pytest_addoption(parser):
-    parser.addoption(
-        "--cli-on-error",
-        action="store_true",
-        help="CLI on test failure",
-    )
-
-    parser.addoption(
-        "--coverage",
-        action="store_true",
-        help="Enable coverage gathering if supported",
-    )
-
-    parser.addoption(
-        "--gdb",
-        default="",
-        metavar="HOST[,HOST...]",
-        help="Comma-separated list of nodes to launch gdb on, or 'all'",
-    )
-    parser.addoption(
-        "--gdb-breakpoints",
-        default="",
-        metavar="BREAKPOINT[,BREAKPOINT...]",
-        help="Comma-separated list of breakpoints",
-    )
-    parser.addoption(
-        "--gdb-use-emacs",
-        action="store_true",
-        help="Use emacsclient to run gdb instead of a shell",
-    )
-
-    parser.addoption(
-        "--pcap",
-        default="",
-        metavar="NET[,NET...]",
-        help="Comma-separated list of networks to capture packets on, or 'all'",
-    )
-
-    parser.addoption(
-        "--pause",
-        action="store_true",
-        help="Pause after each test",
-    )
-    parser.addoption(
-        "--pause-at-end",
-        action="store_true",
-        help="Pause before taking munet down",
-    )
-    parser.addoption(
-        "--pause-on-error",
-        action="store_true",
-        help="Pause after (disables default when --shell or -vtysh given)",
-    )
-    parser.addoption(
-        "--no-pause-on-error",
-        dest="pause_on_error",
-        action="store_false",
-        help="Do not pause after (disables default when --shell or -vtysh given)",
-    )
-
-    parser.addoption(
-        "--shell",
-        default="",
-        metavar="NODE[,NODE...]",
-        help="Comma-separated list of nodes to spawn shell on, or 'all'",
-    )
-
-    parser.addoption(
-        "--stdout",
-        default="",
-        metavar="NODE[,NODE...]",
-        help="Comma-separated list of nodes to open tail-f stdout window on, or 'all'",
-    )
-
-    parser.addoption(
-        "--stderr",
-        default="",
-        metavar="NODE[,NODE...]",
-        help="Comma-separated list of nodes to open tail-f stderr window on, or 'all'",
-    )
+    add_testing_args(parser.addoption)
 
 
 def pytest_configure(config):
@@ -145,6 +68,18 @@ def pytest_configure(config):
             )
         elif b and not is_xdist and not have_windows:
             pytest.exit(f"{winopt} use requires byobu/TMUX/SCREEN/XTerm")
+
+    cli_pause = (
+        config.getoption("--cli-on-error")
+        or config.getoption("--pause")
+        or config.getoption("--pause-at-end")
+        or config.getoption("--pause-on-error")
+    )
+    if config.getoption("--capture") == "fd" and cli_pause:
+        pytest.exit(
+            "CLI is not compatible with `--capture=fd`, "
+            "please run again with `-s` or other `--capture` value"
+        )
 
 
 def pytest_runtest_makereport(item, call):

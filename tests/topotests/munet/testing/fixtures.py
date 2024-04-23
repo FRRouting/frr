@@ -150,7 +150,7 @@ def session_autouse():
 
 @pytest.fixture(autouse=True, scope="module")
 def module_autouse(request):
-    logpath = get_test_logdir(request.node.name, True)
+    logpath = get_test_logdir(request.node.nodeid, True)
     logpath = os.path.join("/tmp/unet-test", logpath, "pytest-exec.log")
     with log_handler("module", logpath):
         sdir = os.path.dirname(os.path.realpath(request.fspath))
@@ -161,7 +161,7 @@ def module_autouse(request):
             raise Exception("Base Munet was not cleaned up/deleted")
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="session")
 def event_loop():
     """Create an instance of the default event loop for the session."""
     loop = get_event_loop()
@@ -213,18 +213,14 @@ async def _unet_impl(
             param,
             exc_info=True,
         )
-        pytest.skip(
-            f"unet fixture: unet build failed: {error}", allow_module_level=True
-        )
-        raise
+        pytest.fail(f"unet fixture: unet build failed: {error}")
 
     try:
         tasks = await _unet.run()
     except Exception as error:
         logging.debug("unet fixture: unet run failed: %s", error, exc_info=True)
         await _unet.async_delete()
-        pytest.skip(f"unet fixture: unet run failed: {error}", allow_module_level=True)
-        raise
+        pytest.fail(f"unet fixture: unet run failed: {error}")
 
     logging.debug("unet fixture: containers running")
 

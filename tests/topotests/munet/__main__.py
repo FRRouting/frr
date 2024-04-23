@@ -16,6 +16,7 @@ import sys
 
 from . import cli
 from . import parser
+from .args import add_launch_args
 from .base import get_event_loop
 from .cleanup import cleanup_previous
 from .compat import PytestConfig
@@ -106,59 +107,35 @@ def main(*args):
     cap.add_argument(
         "--project-root", help="directory to stop searching for kinds config at"
     )
+
     rap = ap.add_argument_group(title="Runtime", description="runtime related options")
+    add_launch_args(rap.add_argument)
+
+    # Move to munet.args?
     rap.add_argument(
         "-C",
         "--cleanup",
         action="store_true",
         help="Remove the entire rundir (not just node subdirs) prior to running.",
     )
-    rap.add_argument(
-        "--gdb", metavar="NODE-LIST", help="comma-sep list of hosts to run gdb on"
-    )
-    rap.add_argument(
-        "--gdb-breakpoints",
-        metavar="BREAKPOINT-LIST",
-        help="comma-sep list of breakpoints to set",
-    )
-    rap.add_argument(
-        "--host",
-        action="store_true",
-        help="no isolation for top namespace, bridges exposed to default namespace",
-    )
-    rap.add_argument(
-        "--pcap",
-        metavar="TARGET-LIST",
-        help="comma-sep list of capture targets (NETWORK or NODE:IFNAME)",
-    )
-    rap.add_argument(
-        "--shell", metavar="NODE-LIST", help="comma-sep list of nodes to open shells on"
-    )
-    rap.add_argument(
-        "--stderr",
-        metavar="NODE-LIST",
-        help="comma-sep list of nodes to open windows viewing stderr",
-    )
-    rap.add_argument(
-        "--stdout",
-        metavar="NODE-LIST",
-        help="comma-sep list of nodes to open windows viewing stdout",
-    )
+    # Move to munet.args?
     rap.add_argument(
         "--topology-only",
         action="store_true",
         help="Do not run any node commands",
     )
-    rap.add_argument("--unshare-inline", action="store_true", help=argparse.SUPPRESS)
     rap.add_argument(
         "--validate-only",
         action="store_true",
         help="Validate the config against the schema definition",
     )
+    rap.add_argument("--unshare-inline", action="store_true", help=argparse.SUPPRESS)
+
     rap.add_argument("-v", "--verbose", action="store_true", help="be verbose")
     rap.add_argument(
         "-V", "--version", action="store_true", help="print the verison number and exit"
     )
+
     eap = ap.add_argument_group(title="Uncommon", description="uncommonly used options")
     eap.add_argument("--log-config", help="logging config file (yaml, toml, json, ...)")
     eap.add_argument(
@@ -181,7 +158,6 @@ def main(*args):
 
     rundir = args.rundir if args.rundir else "/tmp/munet"
     args.rundir = rundir
-
     if args.cleanup:
         if os.path.exists(rundir):
             if not os.path.exists(f"{rundir}/config.json"):
@@ -193,7 +169,6 @@ def main(*args):
                 sys.exit(1)
             else:
                 subprocess.run(["/usr/bin/rm", "-rf", rundir], check=True)
-
     subprocess.run(f"mkdir -p {rundir} && chmod 755 {rundir}", check=True, shell=True)
     os.environ["MUNET_RUNDIR"] = rundir
 
