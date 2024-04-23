@@ -1373,7 +1373,8 @@ static int ospf_ifp_create(struct interface *ifp)
 	    (!OSPF_IF_PARAM_CONFIGURED(IF_DEF_PARAMS(ifp), type) ||
 	     if_is_loopback(ifp))) {
 		SET_IF_PARAM(IF_DEF_PARAMS(ifp), type);
-		IF_DEF_PARAMS(ifp)->type = ospf_default_iftype(ifp);
+		if (!IF_DEF_PARAMS(ifp)->type_cfg)
+			IF_DEF_PARAMS(ifp)->type = ospf_default_iftype(ifp);
 	}
 
 	ospf = ifp->vrf->info;
