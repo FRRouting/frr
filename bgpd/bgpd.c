@@ -1539,13 +1539,13 @@ struct peer *peer_new(struct bgp *bgp)
 	SET_FLAG(peer->sflags, PEER_STATUS_CAPABILITY_OPEN);
 
 	if (CHECK_FLAG(bgp->flags, BGP_FLAG_ENFORCE_FIRST_AS))
-		SET_FLAG(peer->flags, PEER_FLAG_ENFORCE_FIRST_AS);
+		peer_flag_set(peer, PEER_FLAG_ENFORCE_FIRST_AS);
 
 	if (CHECK_FLAG(bgp->flags, BGP_FLAG_SOFT_VERSION_CAPABILITY))
-		SET_FLAG(peer->flags, PEER_FLAG_CAPABILITY_SOFT_VERSION);
+		peer_flag_set(peer, PEER_FLAG_CAPABILITY_SOFT_VERSION);
 
 	if (CHECK_FLAG(bgp->flags, BGP_FLAG_DYNAMIC_CAPABILITY))
-		SET_FLAG(peer->flags, PEER_FLAG_DYNAMIC_CAPABILITY);
+		peer_flag_set(peer, PEER_FLAG_DYNAMIC_CAPABILITY);
 
 	SET_FLAG(peer->flags_invert, PEER_FLAG_CAPABILITY_FQDN);
 	SET_FLAG(peer->flags, PEER_FLAG_CAPABILITY_FQDN);
@@ -4599,7 +4599,7 @@ static const struct peer_flag_action peer_flag_action_list[] = {
 	{PEER_FLAG_DONT_CAPABILITY, 0, peer_change_none},
 	{PEER_FLAG_OVERRIDE_CAPABILITY, 0, peer_change_none},
 	{PEER_FLAG_STRICT_CAP_MATCH, 0, peer_change_none},
-	{PEER_FLAG_DYNAMIC_CAPABILITY, 0, peer_change_reset},
+	{PEER_FLAG_DYNAMIC_CAPABILITY, 0, peer_change_none},
 	{PEER_FLAG_DISABLE_CONNECTED_CHECK, 0, peer_change_reset},
 	{PEER_FLAG_CAPABILITY_ENHE, 0, peer_change_reset},
 	{PEER_FLAG_ENFORCE_FIRST_AS, 0, peer_change_reset_in},
