@@ -60,9 +60,10 @@
 #define ECOMMUNITY_FLOWSPEC_REDIRECT_IPV6 0x0d
 
 /* https://datatracker.ietf.org/doc/html/draft-li-idr-link-bandwidth-ext-01
- * Sub-type is not allocated by IANA, but let's get the first available.
+ * Sub-type is allocated by IANA, just the draft is not yet updated with the
+ * new value.
  */
-#define ECOMMUNITY_EXTENDED_LINK_BANDWIDTH 0x0016
+#define ECOMMUNITY_EXTENDED_LINK_BANDWIDTH 0x0006
 
 /* Low-order octet of the Extended Communities type field for EVPN types */
 #define ECOMMUNITY_EVPN_SUBTYPE_MACMOBILITY  0x00
