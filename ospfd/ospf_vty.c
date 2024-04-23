@@ -8457,6 +8457,8 @@ DEFUN(ip_ospf_network, ip_ospf_network_cmd,
 	    && IF_DEF_PARAMS(ifp)->ptp_dmvpn == old_ptp_dmvpn)
 		return CMD_SUCCESS;
 
+	IF_DEF_PARAMS(ifp)->type_cfg = true;
+
 	SET_IF_PARAM(IF_DEF_PARAMS(ifp), type);
 
 	for (rn = route_top(IF_OIFS(ifp)); rn; rn = route_next(rn)) {
@@ -8506,6 +8508,7 @@ DEFUN (no_ip_ospf_network,
 	struct route_node *rn;
 
 	IF_DEF_PARAMS(ifp)->type = ospf_default_iftype(ifp);
+	IF_DEF_PARAMS(ifp)->type_cfg = false;
 	IF_DEF_PARAMS(ifp)->ptp_dmvpn = 0;
 
 	if (IF_DEF_PARAMS(ifp)->type == old_type)
@@ -11854,21 +11857,17 @@ static int config_write_interface_one(struct vty *vty, struct vrf *vrf)
 
 		do {
 			/* Interface Network print. */
-			if (OSPF_IF_PARAM_CONFIGURED(params, type)
-			    && params->type != OSPF_IFTYPE_LOOPBACK) {
-				if (params->type != ospf_default_iftype(ifp)) {
-					vty_out(vty, " ip ospf network %s",
-						ospf_int_type_str
-							[params->type]);
-					if (params->type
-						    == OSPF_IFTYPE_POINTOPOINT
-					    && params->ptp_dmvpn)
-						vty_out(vty, " dmvpn");
-					if (params != IF_DEF_PARAMS(ifp) && rn)
-						vty_out(vty, " %pI4",
-							&rn->p.u.prefix4);
-					vty_out(vty, "\n");
-				}
+			if (OSPF_IF_PARAM_CONFIGURED(params, type) &&
+			    params->type != OSPF_IFTYPE_LOOPBACK &&
+			    params->type_cfg) {
+				vty_out(vty, " ip ospf network %s",
+					ospf_int_type_str[params->type]);
+				if (params->type == OSPF_IFTYPE_POINTOPOINT &&
+				    params->ptp_dmvpn)
+					vty_out(vty, " dmvpn");
+				if (params != IF_DEF_PARAMS(ifp) && rn)
+					vty_out(vty, " %pI4", &rn->p.u.prefix4);
+				vty_out(vty, "\n");
 			}
 
 			/* OSPF interface authentication print */
