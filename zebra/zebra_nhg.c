@@ -3657,8 +3657,9 @@ void zebra_interface_nhg_reinstall(struct interface *ifp)
 					"%s: Setting the valid flag for nhe %pNG, interface: %s",
 					__func__, rb_node_dep->nhe, ifp->name);
 		}
+
 		/* Check for singleton NHG associated to interface */
-		if (nexthop_is_ifindex_type(nh) &&
+		if (!nexthop_is_blackhole(nh) &&
 		    zebra_nhg_depends_is_empty(rb_node_dep->nhe)) {
 			struct nhg_connected *rb_node_dependent;
 
