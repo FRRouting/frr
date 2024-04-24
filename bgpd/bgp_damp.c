@@ -155,7 +155,7 @@ int bgp_damp_decay(time_t tdiff, int penalty, struct bgp_damp_config *bdc)
    is evaluated.  RFC2439 Section 4.8.7.  */
 static void bgp_reuse_timer(struct event *t)
 {
-	struct bgp_damp_info *bdi;
+	struct bgp_damp_info *bdi, *bdi_next;
 	struct reuselist plist;
 	struct bgp *bgp;
 	time_t t_now, t_diff;
@@ -179,7 +179,7 @@ static void bgp_reuse_timer(struct event *t)
 	assert(bdc->reuse_offset < bdc->reuse_list_size);
 
 	/* 3. if ( the saved list head pointer is non-empty ) */
-	while ((bdi = SLIST_FIRST(&plist)) != NULL) {
+	SLIST_FOREACH_SAFE (bdi, &plist, entry, bdi_next) {
 		bgp = bdi->path->peer->bgp;
 
 		/* Set t-diff = t-now - t-updated.  */
