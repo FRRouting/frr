@@ -7138,6 +7138,10 @@ int bgp_static_set(struct vty *vty, bool negate, const char *ip_str,
 			bgp_static->label = label;
 			bgp_static->prd = prd;
 
+			if (rd_str)
+				bgp_static->prd_pretty = XSTRDUP(MTYPE_BGP,
+								 rd_str);
+
 			if (rmap) {
 				XFREE(MTYPE_ROUTE_MAP_NAME,
 				      bgp_static->rmap.name);
