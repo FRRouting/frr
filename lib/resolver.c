@@ -108,7 +108,7 @@ static void resolver_cb_timeout(struct thread *t)
 {
 	struct resolver_state *r = THREAD_ARG(t);
 
-	ares_process(r->channel, NULL, NULL);
+	ares_process_fd(r->channel, ARES_SOCKET_BAD, ARES_SOCKET_BAD);
 	resolver_update_timeouts(r);
 }
 
