@@ -130,7 +130,8 @@ extern int bgp_damp_withdraw(struct bgp_path_info *path, struct bgp_dest *dest,
 			     afi_t afi, safi_t safi, int attr_change);
 extern int bgp_damp_update(struct bgp_path_info *path, struct bgp_dest *dest,
 			   afi_t afi, safi_t saff);
-extern void bgp_damp_info_free(struct bgp_damp_info *bdi, int withdraw);
+extern void bgp_damp_info_free(struct bgp_damp_info *bdi,
+			       struct reuselist *list, int withdraw);
 extern void bgp_damp_info_clean(struct bgp *bgp, struct bgp_damp_config *bdc,
 				afi_t afi, safi_t safi);
 extern void bgp_damp_config_clean(struct bgp_damp_config *bdc);

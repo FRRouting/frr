@@ -251,7 +251,7 @@ void bgp_path_info_extra_free(struct bgp_path_info_extra **extra)
 	e = *extra;
 
 	if (e->damp_info)
-		bgp_damp_info_free(e->damp_info, 0);
+		bgp_damp_info_free(e->damp_info, NULL, 0);
 	e->damp_info = NULL;
 	if (e->vrfleak && e->vrfleak->parent) {
 		struct bgp_path_info *bpi =
@@ -15827,9 +15827,8 @@ static int bgp_clear_damp_route(struct vty *vty, const char *view_name,
 				while (pi) {
 					if (pi->extra && pi->extra->damp_info) {
 						pi_temp = pi->next;
-						bgp_damp_info_free(
-							pi->extra->damp_info,
-							1);
+						bgp_damp_info_free(pi->extra->damp_info,
+								   NULL, 1);
 						pi = pi_temp;
 					} else
 						pi = pi->next;
@@ -15866,9 +15865,8 @@ static int bgp_clear_damp_route(struct vty *vty, const char *view_name,
 								    bdi->afi,
 								    bdi->safi);
 						}
-						bgp_damp_info_free(
-							pi->extra->damp_info,
-							1);
+						bgp_damp_info_free(pi->extra->damp_info,
+								   NULL, 1);
 						pi = pi_temp;
 					} else
 						pi = pi->next;

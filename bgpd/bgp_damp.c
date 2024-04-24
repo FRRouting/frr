@@ -43,13 +43,16 @@ static void bgp_reuselist_switch(struct reuselist *source,
 	SLIST_INSERT_HEAD(target, info, entry);
 }
 
-static void bgp_damp_info_unclaim(struct bgp_damp_info *bdi)
+static void bgp_damp_info_unclaim(struct bgp_damp_info *bdi,
+				  struct reuselist *list)
 {
 	assert(bdi && bdi->config);
 	if (bdi->index == BGP_DAMP_NO_REUSE_LIST_INDEX)
 		bgp_reuselist_del(&bdi->config->no_reuse_list, bdi);
 	else
-		bgp_reuselist_del(&bdi->config->reuse_list[bdi->index], bdi);
+		bgp_reuselist_del(list ? list
+				       : &bdi->config->reuse_list[bdi->index],
+				  bdi);
 	bdi->config = NULL;
 }
 
@@ -61,7 +64,7 @@ static void bgp_damp_info_claim(struct bgp_damp_info *bdi,
 		bdi->config = bdc;
 		return;
 	}
-	bgp_damp_info_unclaim(bdi);
+	bgp_damp_info_unclaim(bdi, NULL);
 	bdi->config = bdc;
 	bdi->afi = bdc->afi;
 	bdi->safi = bdc->safi;
@@ -119,7 +122,7 @@ static void bgp_reuse_list_add(struct bgp_damp_info *bdi,
 /* Delete BGP dampening information from reuse list.  */
 static void bgp_reuse_list_delete(struct bgp_damp_info *bdi)
 {
-	bgp_damp_info_unclaim(bdi);
+	bgp_damp_info_unclaim(bdi, NULL);
 }
 
 static void bgp_no_reuse_list_add(struct bgp_damp_info *bdi,
@@ -132,7 +135,7 @@ static void bgp_no_reuse_list_add(struct bgp_damp_info *bdi,
 
 static void bgp_no_reuse_list_delete(struct bgp_damp_info *bdi)
 {
-	bgp_damp_info_unclaim(bdi);
+	bgp_damp_info_unclaim(bdi, NULL);
 }
 
 /* Return decayed penalty value.  */
@@ -210,8 +213,7 @@ static void bgp_reuse_timer(struct event *t)
 			}
 
 			if (bdi->penalty <= bdc->reuse_limit / 2.0) {
-				bgp_reuselist_del(&plist, bdi);
-				bgp_damp_info_free(bdi, 1);
+				bgp_damp_info_free(bdi, &plist, 1);
 			} else {
 				bdi->index = BGP_DAMP_NO_REUSE_LIST_INDEX;
 				bgp_reuselist_switch(&plist, bdi,
@@ -357,22 +359,18 @@ int bgp_damp_update(struct bgp_path_info *path, struct bgp_dest *dest,
 
 	if (bdi->penalty > bdc->reuse_limit / 2.0)
 		bdi->t_updated = t_now;
-	else {
-		bgp_damp_info_unclaim(bdi);
-		bgp_damp_info_free(bdi, 0);
-	}
+	else
+		bgp_damp_info_free(bdi, NULL, 0);
 
 	return status;
 }
 
-void bgp_damp_info_free(struct bgp_damp_info *bdi, int withdraw)
+void bgp_damp_info_free(struct bgp_damp_info *bdi, struct reuselist *list,
+			int withdraw)
 {
 	assert(bdi);
 
-	if (bdi->path == NULL) {
-		XFREE(MTYPE_BGP_DAMP_INFO, bdi);
-		return;
-	}
+	bgp_damp_info_unclaim(bdi, list);
 
 	bdi->path->extra->damp_info = NULL;
 	bgp_path_info_unset_flag(bdi->dest, bdi->path,
@@ -495,15 +493,12 @@ void bgp_damp_info_clean(struct bgp *bgp, struct bgp_damp_config *bdc,
 				bgp_process(bgp, bdi->dest, bdi->path, bdi->afi,
 					    bdi->safi);
 			}
-			bgp_reuselist_del(list, bdi);
-			bgp_damp_info_free(bdi, 1);
+			bgp_damp_info_free(bdi, list, 1);
 		}
 	}
 
-	while ((bdi = SLIST_FIRST(&bdc->no_reuse_list)) != NULL) {
-		bgp_reuselist_del(&bdc->no_reuse_list, bdi);
-		bgp_damp_info_free(bdi, 1);
-	}
+	while ((bdi = SLIST_FIRST(&bdc->no_reuse_list)) != NULL)
+		bgp_damp_info_free(bdi, &bdc->no_reuse_list, 1);
 
 	/* Free decay array */
 	XFREE(MTYPE_BGP_DAMP_ARRAY, bdc->decay_array);
