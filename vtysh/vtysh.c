@@ -39,7 +39,6 @@
 #include "frrstr.h"
 #include "json.h"
 #include "ferr.h"
-#include "bgpd/bgp_vty.h"
 
 DEFINE_MTYPE_STATIC(MVTYSH, VTYSH_CMD, "Vtysh cmd copy");
 
