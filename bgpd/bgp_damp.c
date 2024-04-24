@@ -370,14 +370,22 @@ void bgp_damp_info_free(struct bgp_damp_info *bdi, struct reuselist *list,
 {
 	assert(bdi);
 
+	afi_t afi = bdi->afi;
+	safi_t safi = bdi->safi;
+	struct bgp_path_info *bpi = bdi->path;
+	struct bgp_dest *dest = bdi->dest;
+	struct bgp *bgp = bpi->peer->bgp;
+	const struct prefix *p = bgp_dest_get_prefix(bdi->dest);
+
 	bgp_damp_info_unclaim(bdi, list);
 
-	bdi->path->extra->damp_info = NULL;
-	bgp_path_info_unset_flag(bdi->dest, bdi->path,
-				 BGP_PATH_HISTORY | BGP_PATH_DAMPED);
-
-	if (bdi->lastrecord == BGP_RECORD_WITHDRAW && withdraw)
-		bgp_path_info_delete(bdi->dest, bdi->path);
+	bpi->extra->damp_info = NULL;
+	bgp_path_info_unset_flag(dest, bpi, BGP_PATH_HISTORY | BGP_PATH_DAMPED);
+	if (bdi->lastrecord == BGP_RECORD_WITHDRAW && withdraw) {
+		bgp_aggregate_decrement(bgp, p, bpi, afi, SAFI_UNICAST);
+		bgp_path_info_delete(dest, bpi);
+		bgp_process(bgp, dest, bpi, afi, safi);
+	}
 
 	XFREE(MTYPE_BGP_DAMP_INFO, bdi);
 }
