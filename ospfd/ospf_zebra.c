@@ -1769,6 +1769,7 @@ static void ospf_prefix_list_update(struct prefix_list *plist)
 	int type;
 	int abr_inv = 0;
 	struct ospf_area *area;
+	struct ospf_interface *oi;
 	struct listnode *node, *n1;
 
 	/* If OSPF instatnce does not exist, return right now. */
@@ -1821,6 +1822,19 @@ static void ospf_prefix_list_update(struct prefix_list *plist)
 				PREFIX_LIST_OUT(area) = prefix_list_lookup(
 					AFI_IP, PREFIX_NAME_OUT(area));
 				abr_inv++;
+			}
+		}
+
+		/* Update interface neighbor-filter lists. */
+		for (ALL_LIST_ELEMENTS_RO(ospf->oiflist, node, oi)) {
+			if (OSPF_IF_PARAM(oi, nbr_filter_name) &&
+			    strcmp(OSPF_IF_PARAM(oi, nbr_filter_name),
+				   prefix_list_name(plist)) == 0) {
+				oi->nbr_filter = prefix_list_lookup(
+					AFI_IP,
+					OSPF_IF_PARAM(oi, nbr_filter_name));
+				if (oi->nbr_filter)
+					ospf_intf_neighbor_filter_apply(oi);
 			}
 		}
 
