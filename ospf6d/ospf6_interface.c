@@ -2644,13 +2644,14 @@ DEFUN (ipv6_ospf6_network,
 
 DEFUN (no_ipv6_ospf6_network,
        no_ipv6_ospf6_network_cmd,
-       "no ipv6 ospf6 network [<broadcast|point-to-point>]",
+       "no ipv6 ospf6 network [<broadcast|point-to-point|point-to-multipoint>]",
        NO_STR
        IP6_STR
        OSPF6_STR
        "Set default network type\n"
        "Specify OSPF6 broadcast network\n"
-       "Specify OSPF6 point-to-point network\n")
+       "Specify OSPF6 point-to-point network\n"
+       "Specify OSPF6 point-to-multipoint network\n")
 {
 	VTY_DECLVAR_CONTEXT(interface, ifp);
 	struct ospf6_interface *oi;
