@@ -13,8 +13,6 @@ struct bgp;
 #define BGP_INSTANCE_HELP_STR "BGP view\nBGP VRF\nView/VRF name\n"
 #define BGP_INSTANCE_ALL_HELP_STR "BGP view\nBGP VRF\nAll Views/VRFs\n"
 
-#define BGP_AF_STR "Address Family\n"
-#define BGP_AF_MODIFIER_STR "Address Family modifier\n"
 #define BGP_AFI_CMD_STR         "<ipv4|ipv6>"
 #define BGP_AFI_HELP_STR BGP_AF_STR BGP_AF_STR
 #define BGP_SAFI_CMD_STR        "<unicast|multicast|vpn>"
