@@ -1647,6 +1647,8 @@ static void bmp_stats(struct event *thread)
 					 peer->stat_pfx_nh_invalid);
 		bmp_stat_put_u64(s, &count, BMP_STATS_SIZE_ADJ_RIB_IN,
 				 peer->stat_pfx_adj_rib_in);
+		bmp_stat_put_u64(s, &count, BMP_STATS_SIZE_LOC_RIB,
+				 peer->stat_pfx_loc_rib);
 
 		stream_putl_at(s, count_pos, count);
 

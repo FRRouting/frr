@@ -487,6 +487,8 @@ void bgp_path_info_add_with_caller(const char *name, struct bgp_dest *dest,
 	bgp_dest_lock_node(dest);
 	peer_lock(pi->peer); /* bgp_path_info peer reference */
 	bgp_dest_set_defer_flag(dest, false);
+	if (pi->peer)
+		pi->peer->stat_pfx_loc_rib++;
 	hook_call(bgp_snmp_update_stats, dest, pi, true);
 }
 
@@ -507,6 +509,8 @@ struct bgp_dest *bgp_path_info_reap(struct bgp_dest *dest,
 	pi->next = NULL;
 	pi->prev = NULL;
 
+	if (pi->peer)
+		pi->peer->stat_pfx_loc_rib--;
 	hook_call(bgp_snmp_update_stats, dest, pi, false);
 
 	bgp_path_info_unlock(pi);
@@ -521,6 +525,8 @@ static struct bgp_dest *bgp_path_info_reap_unsorted(struct bgp_dest *dest,
 	pi->next = NULL;
 	pi->prev = NULL;
 
+	if (pi->peer)
+		pi->peer->stat_pfx_loc_rib--;
 	hook_call(bgp_snmp_update_stats, dest, pi, false);
 	bgp_path_info_unlock(pi);
 
