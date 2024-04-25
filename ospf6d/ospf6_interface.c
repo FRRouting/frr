@@ -792,8 +792,8 @@ void interface_up(struct event *thread)
 		return;
 	}
 
-	/* Recompute cost */
-	ospf6_interface_recalculate_cost(oi);
+	/* Recompute cost & update connected LSAs */
+	ospf6_interface_force_recalculate_cost(oi);
 
 	/* if already enabled, do nothing */
 	if (oi->state > OSPF6_INTERFACE_DOWN) {
