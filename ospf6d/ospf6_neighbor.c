@@ -609,6 +609,169 @@ void inactivity_timer(struct event *thread)
 
 
 /* vty functions */
+<<<<<<< HEAD
+=======
+
+#ifndef VTYSH_EXTRACT_PL
+#include "ospf6d/ospf6_neighbor_clippy.c"
+#endif
+
+DEFPY (ipv6_ospf6_p2xp_neigh,
+       ipv6_ospf6_p2xp_neigh_cmd,
+       "[no] ipv6 ospf6 neighbor X:X::X:X",
+       NO_STR
+       IP6_STR
+       OSPF6_STR
+       "Configure static neighbor\n"
+       "Neighbor link-local address\n")
+{
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+	struct ospf6_interface *oi = ifp->info;
+	struct ospf6_if_p2xp_neighcfg *p2xp_cfg;
+
+	if (!oi) {
+		if (no)
+			return CMD_SUCCESS;
+		oi = ospf6_interface_create(ifp);
+	}
+
+	if (no) {
+		struct ospf6_neighbor *on;
+		uint32_t prev_cost = 0;
+
+		p2xp_cfg = ospf6_if_p2xp_find(oi, &neighbor);
+		if (!p2xp_cfg)
+			return CMD_SUCCESS;
+
+		on = p2xp_cfg->active;
+		if (on)
+			prev_cost = ospf6_neighbor_cost(on);
+
+		p2xp_cfg->active = NULL;
+		ospf6_if_p2xp_destroy(p2xp_cfg);
+
+		if (on) {
+			on->p2xp_cfg = NULL;
+			p2xp_neigh_refresh(on, prev_cost);
+		}
+		return CMD_SUCCESS;
+	}
+
+	(void)ospf6_if_p2xp_get(oi, &neighbor);
+	return CMD_SUCCESS;
+}
+
+DEFPY (ipv6_ospf6_p2xp_neigh_cost,
+       ipv6_ospf6_p2xp_neigh_cost_cmd,
+       "[no] ipv6 ospf6 neighbor X:X::X:X cost (1-65535)",
+       NO_STR
+       IP6_STR
+       OSPF6_STR
+       "Configure static neighbor\n"
+       "Neighbor link-local address\n"
+       "Outgoing metric for this neighbor\n"
+       "Outgoing metric for this neighbor\n")
+{
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+	struct ospf6_interface *oi = ifp->info;
+	struct ospf6_if_p2xp_neighcfg *p2xp_cfg;
+	uint32_t prev_cost = 0;
+
+	if (!oi) {
+		if (no)
+			return CMD_SUCCESS;
+		oi = ospf6_interface_create(ifp);
+	}
+
+	p2xp_cfg = ospf6_if_p2xp_get(oi, &neighbor);
+
+	if (p2xp_cfg->active)
+		prev_cost = ospf6_neighbor_cost(p2xp_cfg->active);
+
+	if (no) {
+		p2xp_cfg->cfg_cost = false;
+		p2xp_cfg->cost = 0;
+	} else {
+		p2xp_cfg->cfg_cost = true;
+		p2xp_cfg->cost = cost;
+	}
+
+	if (p2xp_cfg->active)
+		p2xp_neigh_refresh(p2xp_cfg->active, prev_cost);
+	return CMD_SUCCESS;
+}
+
+static void p2xp_unicast_hello_send(struct event *event);
+
+static void p2xp_unicast_hello_sched(struct ospf6_if_p2xp_neighcfg *p2xp_cfg)
+{
+	if (!p2xp_cfg->poll_interval ||
+	    (p2xp_cfg->ospf6_if->state != OSPF6_INTERFACE_POINTTOMULTIPOINT &&
+	     p2xp_cfg->ospf6_if->state != OSPF6_INTERFACE_POINTTOPOINT))
+		/* state check covers DOWN state too */
+		EVENT_OFF(p2xp_cfg->t_unicast_hello);
+	else
+		event_add_timer(master, p2xp_unicast_hello_send, p2xp_cfg,
+				p2xp_cfg->poll_interval,
+				&p2xp_cfg->t_unicast_hello);
+}
+
+void ospf6_if_p2xp_up(struct ospf6_interface *oi)
+{
+	struct ospf6_if_p2xp_neighcfg *p2xp_cfg;
+
+	frr_each (ospf6_if_p2xp_neighcfgs, &oi->p2xp_neighs, p2xp_cfg)
+		p2xp_unicast_hello_sched(p2xp_cfg);
+}
+
+static void p2xp_unicast_hello_send(struct event *event)
+{
+	struct ospf6_if_p2xp_neighcfg *p2xp_cfg = EVENT_ARG(event);
+	struct ospf6_interface *oi = p2xp_cfg->ospf6_if;
+
+	if (oi->state != OSPF6_INTERFACE_POINTTOPOINT &&
+	    oi->state != OSPF6_INTERFACE_POINTTOMULTIPOINT)
+		return;
+
+	p2xp_unicast_hello_sched(p2xp_cfg);
+
+	if (p2xp_cfg->active && p2xp_cfg->active->state >= OSPF6_NEIGHBOR_INIT)
+		return;
+
+	ospf6_hello_send_addr(oi, &p2xp_cfg->addr);
+}
+
+DEFPY (ipv6_ospf6_p2xp_neigh_poll_interval,
+       ipv6_ospf6_p2xp_neigh_poll_interval_cmd,
+       "[no] ipv6 ospf6 neighbor X:X::X:X poll-interval (1-65535)",
+       NO_STR
+       IP6_STR
+       OSPF6_STR
+       "Configure static neighbor\n"
+       "Neighbor link-local address\n"
+       "Send unicast hellos to neighbor when down\n"
+       "Unicast hello interval when down (seconds)\n")
+{
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+	struct ospf6_interface *oi = ifp->info;
+	struct ospf6_if_p2xp_neighcfg *p2xp_cfg;
+
+	if (!oi) {
+		if (no)
+			return CMD_SUCCESS;
+		oi = ospf6_interface_create(ifp);
+	}
+	if (no)
+		poll_interval = 0;
+
+	p2xp_cfg = ospf6_if_p2xp_get(oi, &neighbor);
+	p2xp_cfg->poll_interval = poll_interval;
+
+	p2xp_unicast_hello_sched(p2xp_cfg);
+	return CMD_SUCCESS;
+}
+
+>>>>>>> b47657600 (ospf6d: fix DEFUN formatting wrecked by clang)
 /* show neighbor structure */
 static void ospf6_neighbor_show(struct vty *vty, struct ospf6_neighbor *on,
 				json_object *json_array, bool use_json)
@@ -1100,13 +1263,18 @@ static void ospf6_neighbor_show_detail_common(struct vty *vty,
 	}
 }
 
-DEFUN(show_ipv6_ospf6_neighbor, show_ipv6_ospf6_neighbor_cmd,
+DEFUN(show_ipv6_ospf6_neighbor,
+      show_ipv6_ospf6_neighbor_cmd,
       "show ipv6 ospf6 [vrf <NAME|all>] neighbor [<detail|drchoice>] [json]",
-      SHOW_STR IP6_STR OSPF6_STR VRF_CMD_HELP_STR
+      SHOW_STR
+      IP6_STR
+      OSPF6_STR
+      VRF_CMD_HELP_STR
       "All VRFs\n"
       "Neighbor list\n"
       "Display details\n"
-      "Display DR choices\n" JSON_STR)
+      "Display DR choices\n"
+      JSON_STR)
 {
 	struct ospf6 *ospf6;
 	struct listnode *node;
@@ -1176,12 +1344,17 @@ static int ospf6_neighbor_show_common(struct vty *vty, int argc,
 	return CMD_SUCCESS;
 }
 
-DEFUN(show_ipv6_ospf6_neighbor_one, show_ipv6_ospf6_neighbor_one_cmd,
+DEFUN(show_ipv6_ospf6_neighbor_one,
+      show_ipv6_ospf6_neighbor_one_cmd,
       "show ipv6 ospf6 [vrf <NAME|all>] neighbor A.B.C.D [json]",
-      SHOW_STR IP6_STR OSPF6_STR VRF_CMD_HELP_STR
+      SHOW_STR
+      IP6_STR
+      OSPF6_STR
+      VRF_CMD_HELP_STR
       "All VRFs\n"
       "Neighbor list\n"
-      "Specify Router-ID as IPv4 address notation\n" JSON_STR)
+      "Specify Router-ID as IPv4 address notation\n"
+      JSON_STR)
 {
 	int idx_ipv4 = 4;
 	struct ospf6 *ospf6;
