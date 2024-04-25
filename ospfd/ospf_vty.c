@@ -8042,6 +8042,8 @@ static int ospf_vty_dead_interval_set(struct vty *vty, const char *interval_str,
 				ospf_nbr_timer_update(oi);
 	}
 
+	if (params->fast_hello != OSPF_FAST_HELLO_DEFAULT)
+		ospf_reset_hello_timer(ifp, addr, false);
 	return CMD_SUCCESS;
 }
 
