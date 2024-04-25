@@ -1642,8 +1642,9 @@ static void bmp_stats(struct event *thread)
 				peer->stat_pfx_dup_withdraw);
 		bmp_stat_put_u32(s, &count, BMP_STATS_UPD_7606_WITHDRAW,
 				peer->stat_upd_7606);
-		bmp_stat_put_u32(s, &count, BMP_STATS_FRR_NH_INVALID,
-				peer->stat_pfx_nh_invalid);
+		if (bt->stats_send_experimental)
+			bmp_stat_put_u32(s, &count, BMP_STATS_FRR_NH_INVALID,
+					 peer->stat_pfx_nh_invalid);
 		bmp_stat_put_u64(s, &count, BMP_STATS_SIZE_ADJ_RIB_IN,
 				 peer->stat_pfx_adj_rib_in);
 
@@ -1900,6 +1901,7 @@ static struct bmp_targets *bmp_targets_get(struct bgp *bgp, const char *name)
 	bt->name = XSTRDUP(MTYPE_BMP_TARGETSNAME, name);
 	bt->bgp = bgp;
 	bt->bmpbgp = bmp_bgp_get(bgp);
+	bt->stats_send_experimental = true;
 	bmp_session_init(&bt->sessions);
 	bmp_qhash_init(&bt->updhash);
 	bmp_qlist_init(&bt->updlist);
@@ -2480,6 +2482,21 @@ DEFPY(bmp_stats_cfg,
 	return CMD_SUCCESS;
 }
 
+DEFPY(bmp_stats_send_experimental,
+      bmp_stats_send_experimental_cmd,
+      "[no] bmp stats send-experimental",
+      NO_STR
+      BMP_STR
+      "Send BMP statistics messages\n"
+      "Send experimental BMP stats [65531-65534]\n")
+{
+	VTY_DECLVAR_CONTEXT_SUB(bmp_targets, bt);
+
+	bt->stats_send_experimental = !!no;
+
+	return CMD_SUCCESS;
+}
+
 #define BMP_POLICY_IS_LOCRIB(str) ((str)[0] == 'l') /* __l__oc-rib */
 #define BMP_POLICY_IS_PRE(str) ((str)[1] == 'r')    /* p__r__e-policy */
 
@@ -2772,6 +2789,9 @@ static int bmp_config_write(struct bgp *bgp, struct vty *vty)
 		if (bt->acl_name)
 			vty_out(vty, "  ip access-list %s\n", bt->acl_name);
 
+		if (!bt->stats_send_experimental)
+			vty_out(vty, "  no bmp stats send-experimental\n");
+
 		if (bt->stat_msec)
 			vty_out(vty, "  bmp stats interval %d\n",
 					bt->stat_msec);
@@ -2827,6 +2847,7 @@ static int bgp_bmp_init(struct event_loop *tm)
 	install_element(BMP_NODE, &no_bmp_listener_cmd);
 	install_element(BMP_NODE, &bmp_connect_cmd);
 	install_element(BMP_NODE, &bmp_acl_cmd);
+	install_element(BMP_NODE, &bmp_stats_send_experimental_cmd);
 	install_element(BMP_NODE, &bmp_stats_cmd);
 	install_element(BMP_NODE, &bmp_monitor_cmd);
 	install_element(BMP_NODE, &bmp_mirror_cmd);
