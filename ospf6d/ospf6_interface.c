@@ -461,6 +461,38 @@ void ospf6_interface_connected_route_update(struct interface *ifp)
 			}
 		}
 
+<<<<<<< HEAD
+=======
+		if (oi->type == OSPF_IFTYPE_LOOPBACK ||
+		    oi->type == OSPF_IFTYPE_POINTOMULTIPOINT ||
+		    oi->type == OSPF_IFTYPE_POINTOPOINT) {
+			struct ospf6_route *la_route;
+
+			la_route = ospf6_route_create(oi->area->ospf6);
+			la_route->prefix = *c->address;
+			la_route->prefix.prefixlen = 128;
+			la_route->prefix_options |= OSPF6_PREFIX_OPTION_LA;
+
+			la_route->type = OSPF6_DEST_TYPE_NETWORK;
+			la_route->path.area_id = oi->area->area_id;
+			la_route->path.type = OSPF6_PATH_TYPE_INTRA;
+			la_route->path.cost = 0;
+			inet_pton(AF_INET6, "::1", &nh_addr);
+			ospf6_route_add_nexthop(la_route, oi->interface->ifindex,
+						&nh_addr);
+			ospf6_route_add(la_route, oi->route_connected);
+		}
+
+		if (oi->type == OSPF_IFTYPE_POINTOMULTIPOINT &&
+		    !oi->p2xp_connected_pfx_include)
+			continue;
+		if (oi->type == OSPF_IFTYPE_POINTOPOINT &&
+		    oi->p2xp_connected_pfx_exclude)
+			continue;
+
+		struct ospf6_route *route;
+
+>>>>>>> 4aa200c7c (ospf6d: fix loopback/ptp/ptmp conn. route checks)
 		route = ospf6_route_create(oi->area->ospf6);
 		memcpy(&route->prefix, c->address, sizeof(struct prefix));
 		apply_mask(&route->prefix);
