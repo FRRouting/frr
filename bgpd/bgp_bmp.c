@@ -1592,6 +1592,15 @@ static void bmp_stat_put_u32(struct stream *s, size_t *cnt, uint16_t type,
 	(*cnt)++;
 }
 
+static void bmp_stat_put_u64(struct stream *s, size_t *cnt, uint16_t type,
+			     uint64_t value)
+{
+	stream_putw(s, type);
+	stream_putw(s, 8);
+	stream_putq(s, value);
+	(*cnt)++;
+}
+
 static void bmp_stats(struct event *thread)
 {
 	struct bmp_targets *bt = EVENT_ARG(thread);
@@ -1635,6 +1644,8 @@ static void bmp_stats(struct event *thread)
 				peer->stat_upd_7606);
 		bmp_stat_put_u32(s, &count, BMP_STATS_FRR_NH_INVALID,
 				peer->stat_pfx_nh_invalid);
+		bmp_stat_put_u64(s, &count, BMP_STATS_SIZE_ADJ_RIB_IN,
+				 peer->stat_pfx_adj_rib_in);
 
 		stream_putl_at(s, count_pos, count);
 

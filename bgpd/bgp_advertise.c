@@ -182,12 +182,15 @@ void bgp_adj_in_set(struct bgp_dest *dest, struct peer *peer, struct attr *attr,
 	adj->uptime = monotime(NULL);
 	adj->addpath_rx_id = addpath_id;
 	BGP_ADJ_IN_ADD(dest, adj);
+	peer->stat_pfx_adj_rib_in++;
 	bgp_dest_lock_node(dest);
 }
 
 void bgp_adj_in_remove(struct bgp_dest **dest, struct bgp_adj_in *bai)
 {
 	bgp_attr_unintern(&bai->attr);
+	if (bai->peer)
+		bai->peer->stat_pfx_adj_rib_in--;
 	BGP_ADJ_IN_DEL(*dest, bai);
 	*dest = bgp_dest_unlock_node(*dest);
 	peer_unlock(bai->peer); /* adj_in peer reference */
