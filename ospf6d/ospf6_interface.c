@@ -455,9 +455,9 @@ void ospf6_interface_connected_route_update(struct interface *ifp)
 			}
 		}
 
-		if (oi->state == OSPF6_INTERFACE_LOOPBACK ||
-		    oi->state == OSPF6_INTERFACE_POINTTOMULTIPOINT ||
-		    oi->state == OSPF6_INTERFACE_POINTTOPOINT) {
+		if (oi->type == OSPF_IFTYPE_LOOPBACK ||
+		    oi->type == OSPF_IFTYPE_POINTOMULTIPOINT ||
+		    oi->type == OSPF_IFTYPE_POINTOPOINT) {
 			struct ospf6_route *la_route;
 
 			la_route = ospf6_route_create(oi->area->ospf6);
@@ -475,10 +475,10 @@ void ospf6_interface_connected_route_update(struct interface *ifp)
 			ospf6_route_add(la_route, oi->route_connected);
 		}
 
-		if (oi->state == OSPF6_INTERFACE_POINTTOMULTIPOINT &&
+		if (oi->type == OSPF_IFTYPE_POINTOMULTIPOINT &&
 		    !oi->p2xp_connected_pfx_include)
 			continue;
-		if (oi->state == OSPF6_INTERFACE_POINTTOPOINT &&
+		if (oi->type == OSPF_IFTYPE_POINTOPOINT &&
 		    oi->p2xp_connected_pfx_exclude)
 			continue;
 
