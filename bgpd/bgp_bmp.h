@@ -240,6 +240,8 @@ struct bmp_targets {
 
 	uint64_t cnt_accept, cnt_aclrefused;
 
+	bool stats_send_experimental;
+
 	QOBJ_FIELDS;
 };
 DECLARE_QOBJ_TYPE(bmp_targets);

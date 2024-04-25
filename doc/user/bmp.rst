@@ -147,6 +147,11 @@ associated with a particular ``bmp targets``:
    Send BMP Statistics (counter) messages at the specified interval (in
    milliseconds.)
 
+.. clicmd:: bmp stats send-experimental
+
+   Send BMP Statistics (counter) messages whose code is defined as
+   experimental (in the [65531-65534] range).
+
 .. clicmd:: bmp monitor AFI SAFI <pre-policy|post-policy|loc-rib>
 
    Perform Route Monitoring for the specified AFI and SAFI.  Only IPv4 and
