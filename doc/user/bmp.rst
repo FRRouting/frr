@@ -23,6 +23,7 @@ The `BMP` implementation in FRR has the following properties:
   - 3: count of **prefixes** with loop in cluster id
   - 4: count of **prefixes** with loop in AS-path
   - 5: count of **prefixes** with loop in originator
+  - 7: count of **routes** in adj-rib-in
   - 11: count of updates subjected to :rfc:`7607` "treat as withdrawal"
     handling due to errors
   - 65531: *experimental* count of prefixes rejected due to invalid next-hop
