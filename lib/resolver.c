@@ -183,7 +183,56 @@ static void ares_socket_cb(void *data, ares_socket_t fd, int readable,
 	resolver_fd_drop_maybe(resfd);
 }
 
+#if (ARES_VERSION >= 0x011c00)
+static void ares_address_cb(void *arg, int status, int timeouts,
+			    struct ares_addrinfo *result)
+{
+	struct resolver_query *query = (struct resolver_query *)arg;
+	union sockunion addr[16];
+	void (*callback)(struct resolver_query *q, const char *err, int ret,
+			 union sockunion *s);
+	size_t i;
+	struct ares_addrinfo_node *node;
 
+	callback = query->callback;
+	query->callback = NULL;
+
+	if (status != ARES_SUCCESS) {
+		if (resolver_debug)
+			zlog_debug("[%p] Resolving failed (%s)",
+				   query, ares_strerror(status));
+
+		callback(query, ares_strerror(status), -1, NULL);
+		if (result)
+			ares_freeaddrinfo(result);
+		return;
+	}
+
+
+	node = result->nodes;
+	for (i = 0; i < array_size(addr) && node; i++) {
+		memset(&addr[i], 0, sizeof(addr[i]));
+		addr[i].sa.sa_family = node->ai_family;
+		switch (node->ai_family) {
+		case AF_INET:
+			memcpy(&addr[i].sin.sin_addr, node->ai_addr,
+			       node->ai_addrlen);
+			break;
+		case AF_INET6:
+			memcpy(&addr[i].sin6.sin6_addr, node->ai_addr,
+			       node->ai_addrlen);
+			break;
+		}
+		node = node->ai_next;
+	}
+
+	if (resolver_debug)
+		zlog_debug("[%p] Resolved with %d results", query, (int)i);
+
+	callback(query, NULL, i, &addr[0]);
+	ares_freeaddrinfo(result);
+}
+#else
 static void ares_address_cb(void *arg, int status, int timeouts,
 			    struct hostent *he)
 {
@@ -226,6 +275,8 @@ static void ares_address_cb(void *arg, int status, int timeouts,
 	callback(query, NULL, i, &addr[0]);
 }
 
+#endif
+
 static void resolver_cb_literal(struct thread *t)
 {
 	struct resolver_query *query = THREAD_ARG(t);
@@ -244,6 +295,14 @@ void resolver_resolve(struct resolver_query *query, int af, vrf_id_t vrf_id,
 				       int, union sockunion *))
 {
 	int ret;
+#if (ARES_VERSION >= 0x011c00)
+	struct ares_addrinfo_hints hints = {
+		.ai_flags = 0,
+		.ai_family = af,
+		.ai_socktype = 0, /* any of SOCK_STREAM or SOCK_DGRAM */
+		.ai_protocol = 0  /* any protocol */
+	};
+#endif
 
 	if (hostname == NULL)
 		return;
@@ -282,7 +341,13 @@ void resolver_resolve(struct resolver_query *query, int af, vrf_id_t vrf_id,
 			     __func__, vrf_id, safe_strerror(errno));
 		return;
 	}
+
+#if (ARES_VERSION >= 0x011c00)
+	ares_getaddrinfo(state.channel, hostname, NULL, &hints, ares_address_cb,
+			 query);
+#else
 	ares_gethostbyname(state.channel, hostname, af, ares_address_cb, query);
+#endif
 	ret = vrf_switchback_to_initial();
 	if (ret < 0)
 		flog_err_sys(EC_LIB_SOCKET,
