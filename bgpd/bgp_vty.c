@@ -7115,6 +7115,26 @@ DEFUN (no_neighbor_disable_connected_check,
 				   PEER_FLAG_DISABLE_CONNECTED_CHECK);
 }
 
+DEFPY(neighbor_extended_link_bw,
+      neighbor_extended_link_bw_cmd,
+      "[no] neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor extended-link-bandwidth",
+      NO_STR
+      NEIGHBOR_STR
+      NEIGHBOR_ADDR_STR2
+      "Send Extended (64-bit) version of encoding for Link-Bandwidth\n")
+{
+	int ret;
+
+	if (no)
+		ret = peer_flag_unset_vty(vty, neighbor,
+					  PEER_FLAG_EXTENDED_LINK_BANDWIDTH);
+	else
+		ret = peer_flag_set_vty(vty, neighbor,
+					PEER_FLAG_EXTENDED_LINK_BANDWIDTH);
+
+	return ret;
+}
+
 /* disable-link-bw-encoding-ieee */
 DEFUN(neighbor_disable_link_bw_encoding_ieee,
       neighbor_disable_link_bw_encoding_ieee_cmd,
@@ -18439,6 +18459,9 @@ static void bgp_config_write_peer_global(struct vty *vty, struct bgp *bgp,
 		vty_out(vty, " neighbor %s disable-link-bw-encoding-ieee\n",
 			addr);
 
+	if (peergroup_flag_check(peer, PEER_FLAG_EXTENDED_LINK_BANDWIDTH))
+		vty_out(vty, " neighbor %s extended-link-bandwidth\n", addr);
+
 	/* extended-optional-parameters */
 	if (peergroup_flag_check(peer, PEER_FLAG_EXTENDED_OPT_PARAMS))
 		vty_out(vty, " neighbor %s extended-optional-parameters\n",
@@ -20950,6 +20973,9 @@ void bgp_vty_init(void)
 	install_element(BGP_NODE, &neighbor_disable_link_bw_encoding_ieee_cmd);
 	install_element(BGP_NODE,
 			&no_neighbor_disable_link_bw_encoding_ieee_cmd);
+
+
+	install_element(BGP_NODE, &neighbor_extended_link_bw_cmd);
 
 	/* "neighbor extended-optional-parameters" commands.  */
 	install_element(BGP_NODE, &neighbor_extended_optional_parameters_cmd);

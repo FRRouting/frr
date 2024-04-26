@@ -881,9 +881,7 @@ identity set-extcommunity-color {
         leaf bandwidth {
           when "../lb-type = 'explicit-bandwidth'";
           mandatory true;
-          type uint16 {
-            range "1..25600";
-          }
+          type uint32;
           description
             "Bandwidth value in Mbps";
         }

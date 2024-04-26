@@ -2771,17 +2771,26 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 	 * the most sense. However, don't modify if the link-bandwidth has
 	 * been explicitly set by user policy.
 	 */
-	if (nh_reset &&
-	    bgp_path_info_mpath_chkwtd(bgp, pi) &&
+	if (nh_reset && bgp_path_info_mpath_chkwtd(bgp, pi) &&
 	    (cum_bw = bgp_path_info_mpath_cumbw(pi)) != 0 &&
-	    !CHECK_FLAG(attr->rmap_change_flags, BATTR_RMAP_LINK_BW_SET))
-		bgp_attr_set_ecommunity(
-			attr,
-			ecommunity_replace_linkbw(
-				bgp->as, bgp_attr_get_ecommunity(attr), cum_bw,
-				CHECK_FLAG(
-					peer->flags,
-					PEER_FLAG_DISABLE_LINK_BW_ENCODING_IEEE)));
+	    !CHECK_FLAG(attr->rmap_change_flags, BATTR_RMAP_LINK_BW_SET)) {
+		if (CHECK_FLAG(peer->flags, PEER_FLAG_EXTENDED_LINK_BANDWIDTH))
+			bgp_attr_set_ipv6_ecommunity(
+				attr,
+				ecommunity_replace_linkbw(bgp->as,
+							  bgp_attr_get_ipv6_ecommunity(
+								  attr),
+							  cum_bw, false, true));
+		else
+			bgp_attr_set_ecommunity(
+				attr,
+				ecommunity_replace_linkbw(
+					bgp->as, bgp_attr_get_ecommunity(attr),
+					cum_bw,
+					CHECK_FLAG(peer->flags,
+						   PEER_FLAG_DISABLE_LINK_BW_ENCODING_IEEE),
+					false));
+	}
 
 	return true;
 }
@@ -10457,6 +10466,7 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 	json_object *json_cluster_list = NULL;
 	json_object *json_cluster_list_list = NULL;
 	json_object *json_ext_community = NULL;
+	json_object *json_ext_ipv6_community = NULL;
 	json_object *json_last_update = NULL;
 	json_object *json_pmsi = NULL;
 	json_object *json_nexthop_global = NULL;
@@ -11162,6 +11172,21 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 		} else {
 			vty_out(vty, "      Extended Community: %s\n",
 				bgp_attr_get_ecommunity(attr)->str);
+		}
+	}
+
+	if (attr->flag & ATTR_FLAG_BIT(BGP_ATTR_IPV6_EXT_COMMUNITIES)) {
+		if (json_paths) {
+			json_ext_ipv6_community = json_object_new_object();
+			json_object_string_add(json_ext_ipv6_community, "string",
+					       bgp_attr_get_ipv6_ecommunity(attr)
+						       ->str);
+			json_object_object_add(json_path,
+					       "extendedIpv6Community",
+					       json_ext_ipv6_community);
+		} else {
+			vty_out(vty, "      Extended IPv6 Community: %s\n",
+				bgp_attr_get_ipv6_ecommunity(attr)->str);
 		}
 	}
 

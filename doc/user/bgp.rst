@@ -1572,6 +1572,15 @@ Configuring Peers
    value is carried encoded as uint32. To enable backward compatibility we
    need to disable IEEE floating-point encoding option per-peer.
 
+.. clicmd:: neighbor PEER extended-link-bandwidth
+
+   By default bandwidth in extended communities is carried encoded as IEEE
+   floating-point format, and is limited to maximum of 25 Gbps.
+
+   Enabling this parameter, you can use the bandwidth of to 4294967295 Mbps.
+
+   This is disabled by default.
+
 .. clicmd:: neighbor PEER enforce-first-as
 
    Discard updates received from the specified (eBGP) peer if the AS_PATH

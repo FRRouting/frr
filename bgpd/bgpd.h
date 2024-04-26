@@ -478,7 +478,7 @@ struct bgp {
 	 * factor (e.g., number of multipaths for the prefix)
 	 * Value is in Mbps
 	 */
-	uint32_t lb_ref_bw;
+	uint64_t lb_ref_bw;
 #define BGP_LINK_BW_REF_BW                1
 
 	/* BGP flags. */
@@ -1480,6 +1480,7 @@ struct peer {
 #define PEER_FLAG_CAPABILITY_SOFT_VERSION (1ULL << 36)
 #define PEER_FLAG_CAPABILITY_FQDN (1ULL << 37)  /* fqdn capability */
 #define PEER_FLAG_AS_LOOP_DETECTION (1ULL << 38) /* as path loop detection */
+#define PEER_FLAG_EXTENDED_LINK_BANDWIDTH (1ULL << 39)
 
 	/*
 	 *GR-Disabled mode means unset PEER_FLAG_GRACEFUL_RESTART
