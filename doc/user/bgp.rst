@@ -1334,7 +1334,14 @@ OSPFv3 into ``address-family ipv4 unicast`` as OSPFv3 supports IPv6.
 
 .. clicmd:: redistribute <babel|connected|eigrp|isis|kernel|openfabric|ospf|ospf6|rip|ripng|sharp|static> [metric (0-4294967295)] [route-map WORD]
 
-Redistribute routes from other protocols into BGP.
+   Redistribute routes from other protocols into BGP.
+   
+   Note - When redistributing a static route, or any better Admin Distance route,
+   into BGP for which the same path is learned dynamically from another BGP
+   speaker, if the redistribute path is more preferred from a BGP Best Path
+   standpoint than the dynamically learned path, then BGP will not export
+   the best path to Zebra(RIB) for installation into the routing table,
+   unless BGP receives the path before the static route is created.
 
 .. clicmd:: redistribute <table|table-direct> (1-65535)] [metric (0-4294967295)] [route-map WORD]
 
