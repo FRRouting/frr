@@ -1459,6 +1459,35 @@ def ignore_delete_re_add_lines(lines_to_add, lines_to_del):
                 lines_to_add.append((add_cmd, None))
                 lines_to_del_to_del.append((ctx_keys, None))
 
+        # bgp as-path access-list can be specified without a seq number.
+        # However, the running config always
+        # adds `seq X` (sequence number). So, ignore such lines as well.
+        # Examples:
+        #      bgp as-path access-list important_internet_bgp_as_numbers seq 30 permit _40841_"
+        re_bgp_as_path = re.search(
+            "^(bgp )(as-path )(access-list )(\S+\s+)(seq \d+\s+)(permit|deny)(.*)$",
+            ctx_keys[0],
+        )
+        if re_bgp_as_path:
+            found = False
+            tmpline = (
+                re_bgp_as_path.group(1)
+                + re_bgp_as_path.group(2)
+                + re_bgp_as_path.group(3)
+                + re_bgp_as_path.group(4)
+                + re_bgp_as_path.group(6)
+                + re_bgp_as_path.group(7)
+            )
+            for ctx in lines_to_add:
+                if ctx[0][0] == tmpline:
+                    lines_to_del_to_del.append((ctx_keys, None))
+                    lines_to_add_to_del.append(((tmpline,), None))
+                    found = True
+            if found is False:
+                add_cmd = ("no " + ctx_keys[0],)
+                lines_to_add.append((add_cmd, None))
+                lines_to_del_to_del.append((ctx_keys, None))
+
         if (
             len(ctx_keys) == 3
             and ctx_keys[0].startswith("router bgp")
