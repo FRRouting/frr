@@ -634,25 +634,13 @@ Debugging ISIS
 
    IS-IS Adjacency related packets.
 
-.. clicmd:: debug isis checksum-errors
-
-   IS-IS LSP checksum errors.
-
 .. clicmd:: debug isis events
 
    IS-IS Events.
 
-.. clicmd:: debug isis local-updates
-
-   IS-IS local update packets.
-
 .. clicmd:: debug isis packet-dump
 
    IS-IS packet dump.
-
-.. clicmd:: debug isis protocol-errors
-
-   IS-IS LSP protocol errors.
 
 .. clicmd:: debug isis route-events
 
@@ -663,11 +651,8 @@ Debugging ISIS
    IS-IS CSNP/PSNP packets.
 
 .. clicmd:: debug isis spf-events
-.. clicmd:: debug isis spf-statistics
-.. clicmd:: debug isis spf-triggers
 
-   IS-IS Shortest Path First Events, Timing and Statistic Data and triggering
-   events.
+   IS-IS Shortest Path First Events.
 
 .. clicmd:: debug isis update-packets
 
@@ -846,7 +831,7 @@ A simple vrf example:
 
    !
    interface eth0 vrf RED
-    ip router isis FOO vrf RED
+    ip router isis FOO
     isis network point-to-point
     isis circuit-type level-2-only
    !
