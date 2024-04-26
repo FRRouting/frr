@@ -57,6 +57,7 @@ test_bfd_isis_topo1.py:
 
 import os
 import sys
+import time
 import pytest
 import json
 from functools import partial
@@ -76,6 +77,11 @@ pytestmark = [pytest.mark.bfdd, pytest.mark.isisd]
 
 def setup_module(mod):
     "Sets up the pytest environment"
+
+    testsuite_run_time = time.asctime(time.localtime(time.time()))
+    logger.info("Testsuite start time: {}".format(testsuite_run_time))
+    logger.info("=" * 40)
+
     topodef = {
         "s1": ("rt1:eth-rt2", "rt2:eth-rt1"),
         "s2": ("rt1:eth-rt3", "rt3:eth-rt1"),
@@ -110,6 +116,10 @@ def teardown_module(mod):
     # This function tears down the whole topology.
     tgen.stop_topology()
 
+    logger.info(
+        "Testsuite end time: {}".format(time.asctime(time.localtime(time.time())))
+    )
+    logger.info("=" * 40)
 
 def print_cmd_result(rname, command):
     print(get_topogen().gears[rname].vtysh_cmd(command, isjson=False))

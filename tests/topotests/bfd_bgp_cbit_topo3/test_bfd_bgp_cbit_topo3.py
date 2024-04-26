@@ -15,6 +15,7 @@ unnumbered.
 import os
 import sys
 import json
+import time
 from functools import partial
 import pytest
 
@@ -33,6 +34,11 @@ pytestmark = [pytest.mark.bgpd, pytest.mark.bfdd]
 
 def setup_module(mod):
     "Sets up the pytest environment"
+
+    testsuite_run_time = time.asctime(time.localtime(time.time()))
+    logger.info("Testsuite start time: {}".format(testsuite_run_time))
+    logger.info("=" * 40)
+
     topodef = {
         "s1": ("r1", "r2"),
         "s2": ("r2", "r3"),
@@ -71,6 +77,10 @@ def teardown_module(_mod):
     tgen = get_topogen()
     tgen.stop_topology()
 
+    logger.info(
+        "Testsuite end time: {}".format(time.asctime(time.localtime(time.time())))
+    )
+    logger.info("=" * 40)
 
 def test_protocols_convergence():
     """

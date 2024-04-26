@@ -16,6 +16,7 @@ test_bfd_vrf_topo1.py: Test the FRR BFD daemon.
 
 import os
 import sys
+import time
 import json
 from functools import partial
 import pytest
@@ -36,6 +37,8 @@ pytestmark = [pytest.mark.bfdd, pytest.mark.bgpd]
 
 
 def build_topo(tgen):
+    logger.info("Building topology with 4 routers")
+
     # Create 4 routers
     for routern in range(1, 5):
         tgen.add_router("r{}".format(routern))
@@ -55,6 +58,11 @@ def build_topo(tgen):
 
 def setup_module(mod):
     "Sets up the pytest environment"
+
+    testsuite_run_time = time.asctime(time.localtime(time.time()))
+    logger.info("Testsuite start time: {}".format(testsuite_run_time))
+    logger.info("=" * 40)
+
     tgen = Topogen(build_topo, mod.__name__)
     tgen.start_topology()
 
@@ -115,6 +123,10 @@ def teardown_module(_mod):
         router.net.delete_netns("{}-bfd-cust1".format(rname))
     tgen.stop_topology()
 
+    logger.info(
+        "Testsuite end time: {}".format(time.asctime(time.localtime(time.time())))
+    )
+    logger.info("=" * 40)
 
 def test_bfd_connection():
     "Assert that the BFD peers can find themselves."
