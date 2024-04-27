@@ -36,8 +36,6 @@ from lib.common_config import (
     step,
 )
 
-pytestmark = [pytest.mark.bgpd]
-
 
 def build_topo(tgen):
     for routern in range(0, 6):

@@ -45,7 +45,7 @@ from time import sleep
 import json
 import functools
 
-pytestmark = pytest.mark.pimd
+pytestmark = [pytest.mark.pimd]
 
 # Save the Current Working Directory to find configuration files.
 CWD = os.path.dirname(os.path.realpath(__file__))
@@ -91,7 +91,6 @@ from lib.topolog import logger
 from lib.topojson import build_config_from_json
 
 CWD = os.path.dirname(os.path.realpath(__file__))
-pytestmark = pytest.mark.pimd
 
 TOPOLOGY = """
 

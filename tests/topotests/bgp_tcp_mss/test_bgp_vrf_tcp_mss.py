@@ -69,7 +69,6 @@ from lib.common_config import (
     write_test_header
 )
 
-pytestmark = [pytest.mark.bgpd]
 # Global variables
 NETWORK1_1 = {"ipv4": "1.1.1.1/32", "ipv6": "1::1/128"}
 NETWORK1_2 = {"ipv4": "1.1.1.2/32", "ipv6": "1::2/128"}
