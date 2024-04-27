@@ -287,8 +287,15 @@ int pim_process_no_rp_kat_cmd(struct vty *vty)
 		sizeof(rs_timer_xpath));
 
 	/* RFC4601 */
-	v = yang_dnode_get_uint16(vty->candidate_config->dnode, "%s",
-				  rs_timer_xpath);
+	/* Check if register suppress time is configured or assigned
+	 * the default register suppress time.
+	 */
+	if (yang_dnode_exists(vty->candidate_config->dnode, rs_timer_xpath))
+		v = yang_dnode_get_uint16(vty->candidate_config->dnode, "%s",
+					  rs_timer_xpath);
+	else
+		v = PIM_REGISTER_SUPPRESSION_TIME_DEFAULT;
+
 	v = 3 * v + PIM_REGISTER_PROBE_TIME_DEFAULT;
 	if (v > UINT16_MAX)
 		v = UINT16_MAX;
