@@ -4670,21 +4670,25 @@ char *zclient_dump_route_flags(uint32_t flags, char *buf, size_t len)
 		return buf;
 	}
 
-	snprintfrr(
-		buf, len, "%s%s%s%s%s%s%s%s%s%s",
-		CHECK_FLAG(flags, ZEBRA_FLAG_ALLOW_RECURSION) ? "Recursion "
-							      : "",
-		CHECK_FLAG(flags, ZEBRA_FLAG_SELFROUTE) ? "Self " : "",
-		CHECK_FLAG(flags, ZEBRA_FLAG_IBGP) ? "iBGP " : "",
-		CHECK_FLAG(flags, ZEBRA_FLAG_SELECTED) ? "Selected " : "",
-		CHECK_FLAG(flags, ZEBRA_FLAG_FIB_OVERRIDE) ? "Override " : "",
-		CHECK_FLAG(flags, ZEBRA_FLAG_EVPN_ROUTE) ? "Evpn " : "",
-		CHECK_FLAG(flags, ZEBRA_FLAG_RR_USE_DISTANCE) ? "RR Distance "
-							      : "",
-		CHECK_FLAG(flags, ZEBRA_FLAG_TRAPPED) ? "Trapped " : "",
-		CHECK_FLAG(flags, ZEBRA_FLAG_OFFLOADED) ? "Offloaded " : "",
-		CHECK_FLAG(flags, ZEBRA_FLAG_OFFLOAD_FAILED) ? "Offload Failed "
-							     : "");
+	snprintfrr(buf, len, "%s%s%s%s%s%s%s%s%s%s%s",
+		   CHECK_FLAG(flags, ZEBRA_FLAG_ALLOW_RECURSION) ? "Recursion "
+								 : "",
+
+		   CHECK_FLAG(flags, ZEBRA_FLAG_SELFROUTE) ? "Self " : "",
+		   CHECK_FLAG(flags, ZEBRA_FLAG_IBGP) ? "iBGP " : "",
+		   CHECK_FLAG(flags, ZEBRA_FLAG_SELECTED) ? "Selected " : "",
+		   CHECK_FLAG(flags, ZEBRA_FLAG_FIB_OVERRIDE) ? "Override " : "",
+		   CHECK_FLAG(flags, ZEBRA_FLAG_EVPN_ROUTE) ? "Evpn " : "",
+		   CHECK_FLAG(flags, ZEBRA_FLAG_RR_USE_DISTANCE) ? "RR Distance "
+								 : "",
+
+		   CHECK_FLAG(flags, ZEBRA_FLAG_TRAPPED) ? "Trapped " : "",
+		   CHECK_FLAG(flags, ZEBRA_FLAG_OFFLOADED) ? "Offloaded " : "",
+		   CHECK_FLAG(flags, ZEBRA_FLAG_OFFLOAD_FAILED)
+			   ? "Offload Failed "
+			   : "",
+		   CHECK_FLAG(flags, ZEBRA_FLAG_OUTOFSYNC) ? "OutOfSync " : "");
+
 	return buf;
 }
 
