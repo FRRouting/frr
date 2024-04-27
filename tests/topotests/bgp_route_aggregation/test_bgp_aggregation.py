@@ -815,7 +815,11 @@ def test_route_summarisation_with_as_set_p1(request):
     )
 
     for addr_type in ADDR_TYPES:
-        for pfx, seq_id, network, in zip(
+        for (
+            pfx,
+            seq_id,
+            network,
+        ) in zip(
             [1, 2, 3, 4, 5],
             [10, 20, 30, 40, 50],
             [NETWORK_1_1, NETWORK_1_2, NETWORK_1_3, NETWORK_1_4, NETWORK_1_5],

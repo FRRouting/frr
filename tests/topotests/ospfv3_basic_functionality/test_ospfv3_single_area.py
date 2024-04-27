@@ -1124,7 +1124,7 @@ def test_ospfv3_show_p1(request):
     assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     ip = topo["routers"]["r0"]["links"]["r3"]["ipv6"]
-    ip_net = str(ipaddress.ip_interface(u"{}".format(ip)).network)
+    ip_net = str(ipaddress.ip_interface("{}".format(ip)).network)
     nh = topo["routers"]["r0"]["links"]["r1"]["ipv6"].split("/")[0]
     input_dict = {
         "r1": {

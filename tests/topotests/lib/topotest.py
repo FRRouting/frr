@@ -2183,12 +2183,16 @@ class Router(Node):
                         daemon,
                         error.returncode,
                         error.cmd,
-                        '\n:stdout: "{}"'.format(error.stdout.strip())
-                        if error.stdout
-                        else "",
-                        '\n:stderr: "{}"'.format(error.stderr.strip())
-                        if error.stderr
-                        else "",
+                        (
+                            '\n:stdout: "{}"'.format(error.stdout.strip())
+                            if error.stdout
+                            else ""
+                        ),
+                        (
+                            '\n:stderr: "{}"'.format(error.stderr.strip())
+                            if error.stderr
+                            else ""
+                        ),
                     )
                 else:
                     logger.debug("%s: %s %s started", self, self.routertype, daemon)

@@ -24,9 +24,7 @@ CWD = os.path.dirname(os.path.realpath(__file__))
 def tgen(request):
     "Setup/Teardown the environment and provide tgen argument to tests"
 
-    topodef = {
-        "s1": ("r1",)
-    }
+    topodef = {"s1": ("r1",)}
 
     tgen = Topogen(topodef, request.module.__name__)
     tgen.start_topology()
@@ -46,12 +44,14 @@ def test_access_list_config_ordering(tgen):
 
     r1 = tgen.gears["r1"]
 
-    output = r1.vtysh_multicmd([
-        "conf t",
-        "access-list test seq 1 permit host 10.0.0.1"])
+    output = r1.vtysh_multicmd(
+        ["conf t", "access-list test seq 1 permit host 10.0.0.1"]
+    )
     output = r1.vtysh_cmd("show ip access-list test json")
     got = json.loads(output)
-    expected = json.loads('{"ZEBRA":{"test":{"type":"Standard", "addressFamily":"IPv4", "rules":[{"sequenceNumber":1, "filterType":"permit", "address":"10.0.0.1", "mask":"0.0.0.0"}]}}}')
+    expected = json.loads(
+        '{"ZEBRA":{"test":{"type":"Standard", "addressFamily":"IPv4", "rules":[{"sequenceNumber":1, "filterType":"permit", "address":"10.0.0.1", "mask":"0.0.0.0"}]}}}'
+    )
     result = json_cmp(got, expected)
     assert result is None
 
@@ -59,11 +59,11 @@ def test_access_list_config_ordering(tgen):
     # If the northbound mis-orders the create/delete then this test fails.
     # https://github.com/FRRouting/frr/pull/15423/commits/38b85e0c2bc555b8827dbd2cb6515b6febf548b4
     #
-    output = r1.vtysh_multicmd([
-        "conf t",
-        "access-list test seq 1 permit 10.0.0.0/8"])
+    output = r1.vtysh_multicmd(["conf t", "access-list test seq 1 permit 10.0.0.0/8"])
     output = r1.vtysh_cmd("show ip access-list test json")
     got = json.loads(output)
-    expected = json.loads('{"ZEBRA":{"test":{"type":"Zebra", "addressFamily":"IPv4", "rules":[{"sequenceNumber":1, "filterType":"permit", "prefix":"10.0.0.0/8", "exact-match":false}]}}}')
+    expected = json.loads(
+        '{"ZEBRA":{"test":{"type":"Zebra", "addressFamily":"IPv4", "rules":[{"sequenceNumber":1, "filterType":"permit", "prefix":"10.0.0.0/8", "exact-match":false}]}}}'
+    )
     result = json_cmp(got, expected)
     assert result is None

@@ -224,16 +224,20 @@ def build_topo_from_json(tgen, topo=None):
                     )
 
                     # Assigning name to interfaces
-                    topo["routers"][destRouter]["links"][curSwitch][
-                        "interface"
-                    ] = "{}-{}-eth{}".format(
-                        destRouter, curSwitch, topo["routers"][destRouter]["nextIfname"]
+                    topo["routers"][destRouter]["links"][curSwitch]["interface"] = (
+                        "{}-{}-eth{}".format(
+                            destRouter,
+                            curSwitch,
+                            topo["routers"][destRouter]["nextIfname"],
+                        )
                     )
 
-                    topo["switches"][curSwitch]["links"][destRouter][
-                        "interface"
-                    ] = "{}-{}-eth{}".format(
-                        curSwitch, destRouter, topo["routers"][destRouter]["nextIfname"]
+                    topo["switches"][curSwitch]["links"][destRouter]["interface"] = (
+                        "{}-{}-eth{}".format(
+                            curSwitch,
+                            destRouter,
+                            topo["routers"][destRouter]["nextIfname"],
+                        )
                     )
 
                     topo["routers"][destRouter]["nextIfname"] += 1
@@ -251,10 +255,10 @@ def build_topo_from_json(tgen, topo=None):
                             topo["routers"][destRouter]["links"][curSwitch]["ipv4"]
                             == "auto"
                         ):
-                            topo["routers"][destRouter]["links"][curSwitch][
-                                "ipv4"
-                            ] = "{}/{}".format(
-                                ipv4Next, topo["link_ip_start"]["v4mask"]
+                            topo["routers"][destRouter]["links"][curSwitch]["ipv4"] = (
+                                "{}/{}".format(
+                                    ipv4Next, topo["link_ip_start"]["v4mask"]
+                                )
                             )
                             ipv4Next += 1
                     # IPv6
@@ -263,10 +267,10 @@ def build_topo_from_json(tgen, topo=None):
                             topo["routers"][destRouter]["links"][curSwitch]["ipv6"]
                             == "auto"
                         ):
-                            topo["routers"][destRouter]["links"][curSwitch][
-                                "ipv6"
-                            ] = "{}/{}".format(
-                                ipv6Next, topo["link_ip_start"]["v6mask"]
+                            topo["routers"][destRouter]["links"][curSwitch]["ipv6"] = (
+                                "{}/{}".format(
+                                    ipv6Next, topo["link_ip_start"]["v6mask"]
+                                )
                             )
                             ipv6Next = ipaddress.IPv6Address(int(ipv6Next) + ipv6Step)
 

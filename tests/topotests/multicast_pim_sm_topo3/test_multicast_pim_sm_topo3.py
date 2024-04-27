@@ -264,11 +264,14 @@ def verify_state_incremented(state_before, state_after):
         for intf, v2 in v1.items():
             for state, value in v2.items():
                 if value >= state_after[ttype][intf][state]:
-                    errormsg = "[DUT: %s]: state %s value has not incremented, Initial value: %s, Current value: %s [FAILED!!]" % (
-                        intf,
-                        state,
-                        value,
-                        state_after[ttype][intf][state],
+                    errormsg = (
+                        "[DUT: %s]: state %s value has not incremented, Initial value: %s, Current value: %s [FAILED!!]"
+                        % (
+                            intf,
+                            state,
+                            value,
+                            state_after[ttype][intf][state],
+                        )
                     )
                     return errormsg
 

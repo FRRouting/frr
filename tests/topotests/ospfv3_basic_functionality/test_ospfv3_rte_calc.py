@@ -262,7 +262,7 @@ def test_ospfv3_redistribution_tc5_p0(request):
 
     step("verify intra area route is calculated for r0-r3 interface ip in R1")
     ip = topo["routers"]["r0"]["links"]["r3"]["ipv6"]
-    ip_net = str(ipaddress.ip_interface(u"{}".format(ip)).network)
+    ip_net = str(ipaddress.ip_interface("{}".format(ip)).network)
 
     llip = get_llip("r0", "r1")
     assert llip is not None, "Testcase {} : Failed \n Error: {}".format(tc_name, llip)
@@ -379,7 +379,7 @@ def test_ospfv3_redistribution_tc6_p0(request):
 
     step("verify intra area route is calculated for r0-r3 interface ip in R1")
     ip = topo["routers"]["r0"]["links"]["r3"]["ipv6"]
-    ip_net = str(ipaddress.ip_interface(u"{}".format(ip)).network)
+    ip_net = str(ipaddress.ip_interface("{}".format(ip)).network)
     llip = get_llip("r0", "r1")
     assert llip is not None, "Testcase {} : Failed \n Error: {}".format(tc_name, llip)
     nh = llip

@@ -192,6 +192,7 @@ def test_bgp_check_fqdn():
     _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
     assert result is None, "FQDN capability disabled, but we still have a hostname"
 
+
 if __name__ == "__main__":
     args = ["-s"] + sys.argv[1:]
     sys.exit(pytest.main(args))

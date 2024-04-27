@@ -202,7 +202,6 @@ def teardown_module():
 
 
 def clear_bsrp_data(tgen, topo):
-
     """
     clear bsm databas after test"
     Parameters

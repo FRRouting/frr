@@ -32,7 +32,7 @@ pytestmark = [pytest.mark.bgpd]
 
 
 def build_topo(tgen):
-    for routern in range(1, 5):  
+    for routern in range(1, 5):
         tgen.add_router("r{}".format(routern))
 
     switch = tgen.add_switch("s1")
@@ -46,6 +46,7 @@ def build_topo(tgen):
     switch = tgen.add_switch("s2")
     switch.add_link(tgen.gears["r2"])
     switch.add_link(tgen.gears["r3"])
+
 
 def setup_module(mod):
 
@@ -66,6 +67,7 @@ def setup_module(mod):
 
     # Initialize all routers.
     tgen.start_router()
+
 
 def teardown_module(_mod):
     "Teardown the pytest environment"

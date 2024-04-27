@@ -65,7 +65,8 @@ def setup_module(module):
             TopoRouter.RD_SHARP, os.path.join(CWD, "{}/sharpd.conf".format(rname))
         )
         router.load_config(
-            TopoRouter.RD_FPM_LISTENER, os.path.join(CWD, "{}/fpm_stub.conf".format(rname))
+            TopoRouter.RD_FPM_LISTENER,
+            os.path.join(CWD, "{}/fpm_stub.conf".format(rname)),
         )
 
     tgen.start_router()

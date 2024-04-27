@@ -3764,12 +3764,12 @@ def verify_multicast_traffic(tgen, input_dict, return_traffic=False, expected=Tr
                     elif (
                         interface_json["pktsIn"] != 0 and interface_json["bytesIn"] != 0
                     ):
-                        traffic_dict[traffic_type][interface][
-                            "pktsIn"
-                        ] = interface_json["pktsIn"]
-                        traffic_dict[traffic_type][interface][
-                            "bytesIn"
-                        ] = interface_json["bytesIn"]
+                        traffic_dict[traffic_type][interface]["pktsIn"] = (
+                            interface_json["pktsIn"]
+                        )
+                        traffic_dict[traffic_type][interface]["bytesIn"] = (
+                            interface_json["bytesIn"]
+                        )
 
                         logger.info(
                             "[DUT %s]: Multicast traffic is "
@@ -3827,12 +3827,12 @@ def verify_multicast_traffic(tgen, input_dict, return_traffic=False, expected=Tr
                         interface_json["pktsOut"] != 0
                         and interface_json["bytesOut"] != 0
                     ):
-                        traffic_dict[traffic_type][interface][
-                            "pktsOut"
-                        ] = interface_json["pktsOut"]
-                        traffic_dict[traffic_type][interface][
-                            "bytesOut"
-                        ] = interface_json["bytesOut"]
+                        traffic_dict[traffic_type][interface]["pktsOut"] = (
+                            interface_json["pktsOut"]
+                        )
+                        traffic_dict[traffic_type][interface]["bytesOut"] = (
+                            interface_json["bytesOut"]
+                        )
 
                         logger.info(
                             "[DUT %s]: Multicast traffic is "

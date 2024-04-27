@@ -124,7 +124,8 @@ def test_rt_extcomm_list_delete():
 
     # check for the deletion of the extended community
     test_func = functools.partial(
-            _bgp_extcomm_list_del_check, r2, "10.10.10.1/32", r"1.1.1.1:1")
+        _bgp_extcomm_list_del_check, r2, "10.10.10.1/32", r"1.1.1.1:1"
+    )
     _, result = topotest.run_and_expect(test_func, True, count=60, wait=0.5)
     assert result, "RT extended community 1.1.1.1:1 was not stripped."
 
@@ -138,7 +139,8 @@ def test_soo_extcomm_list_delete():
 
     # check for the deletion of the extended community
     test_func = functools.partial(
-            _bgp_extcomm_list_del_check, r2, "10.10.10.2/32", r"2.2.2.2:2")
+        _bgp_extcomm_list_del_check, r2, "10.10.10.2/32", r"2.2.2.2:2"
+    )
     _, result = topotest.run_and_expect(test_func, True, count=60, wait=0.5)
     assert result, "SoO extended community 2.2.2.2:2 was not stripped."
 
@@ -152,7 +154,8 @@ def test_nt_extcomm_list_delete():
 
     # check for the deletion of the extended community
     test_func = functools.partial(
-            _bgp_extcomm_list_del_check, r2, "10.10.10.3/32", r"3.3.3.3")
+        _bgp_extcomm_list_del_check, r2, "10.10.10.3/32", r"3.3.3.3"
+    )
     _, result = topotest.run_and_expect(test_func, True, count=60, wait=0.5)
     assert result, "NT extended community 3.3.3.3:0 was not stripped."
 

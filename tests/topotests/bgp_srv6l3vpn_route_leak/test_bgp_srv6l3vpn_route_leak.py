@@ -37,10 +37,12 @@ def setup_module(mod):
     tgen.start_topology()
 
     for rname, router in tgen.routers().items():
-        router.load_config(TopoRouter.RD_ZEBRA,
-                           os.path.join(CWD, '{}/zebra.conf'.format(rname)))
-        router.load_config(TopoRouter.RD_BGP,
-                           os.path.join(CWD, '{}/bgpd.conf'.format(rname)))
+        router.load_config(
+            TopoRouter.RD_ZEBRA, os.path.join(CWD, "{}/zebra.conf".format(rname))
+        )
+        router.load_config(
+            TopoRouter.RD_BGP, os.path.join(CWD, "{}/bgpd.conf".format(rname))
+        )
 
     tgen.gears["pe1"].run("ip link add vrf10 type vrf table 10")
     tgen.gears["pe1"].run("ip link set vrf10 up")
@@ -62,7 +64,7 @@ def open_json_file(path):
             return json.load(f)
     except IOError:
         assert False, "Could not read file {}".format(path)
-    
+
 
 def check(name, command, checker):
     tgen = get_topogen()
@@ -80,25 +82,25 @@ def check(name, command, checker):
 
 
 def check_vrf10_bgp_rib(output):
-    expected = open_json_file("%s/pe1/results/vrf10_ipv4_unicast.json" % CWD) 
+    expected = open_json_file("%s/pe1/results/vrf10_ipv4_unicast.json" % CWD)
     actual = json.loads(output)
     return topotest.json_cmp(actual, expected)
 
 
 def check_default_bgp_vpn_rib(output):
-    expected = open_json_file("%s/pe1/results/default_ipv4_vpn.json" % CWD) 
+    expected = open_json_file("%s/pe1/results/default_ipv4_vpn.json" % CWD)
     actual = json.loads(output)
     return topotest.json_cmp(actual, expected)
 
 
 def check_vrf20_bgp_rib(output):
-    expected = open_json_file("%s/pe1/results/vrf20_ipv4_unicast.json" % CWD) 
+    expected = open_json_file("%s/pe1/results/vrf20_ipv4_unicast.json" % CWD)
     actual = json.loads(output)
     return topotest.json_cmp(actual, expected)
 
 
 def check_vrf20_rib(output):
-    expected = open_json_file("%s/pe1/results/vrf20_ipv4.json" % CWD) 
+    expected = open_json_file("%s/pe1/results/vrf20_ipv4.json" % CWD)
     actual = json.loads(output)
     return topotest.json_cmp(actual, expected)
 
