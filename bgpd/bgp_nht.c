@@ -357,9 +357,7 @@ int bgp_find_or_add_nexthop(struct bgp *bgp_route, struct bgp *bgp_nexthop,
 			return 0;
 		}
 
-		if (CHECK_FLAG(pi->attr->flag,
-			       ATTR_FLAG_BIT(BGP_ATTR_SRTE_COLOR)))
-			srte_color = bgp_attr_get_color(pi->attr);
+		srte_color = bgp_attr_get_color(pi->attr);
 
 	} else if (peer) {
 		/*
