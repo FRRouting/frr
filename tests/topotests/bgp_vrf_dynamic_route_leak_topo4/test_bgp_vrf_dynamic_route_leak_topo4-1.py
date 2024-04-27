@@ -320,7 +320,6 @@ def test_dynamic_import_recursive_import_tenant_vrf_p1(request):
     for dut, vrf_name, vrf_import, as_num in zip(
         ["r2", "r4"], ["GREEN", "BLUE"], ["RED", "default"], [2, 4]
     ):
-
         for action, value in zip(["Delete", "Re-add"], [True, False]):
             step("{} the import command on {} router".format(action, dut))
             temp = {}

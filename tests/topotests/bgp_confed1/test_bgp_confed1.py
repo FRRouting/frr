@@ -49,7 +49,6 @@ def build_topo(tgen):
 
 
 def setup_module(mod):
-
     tgen = Topogen(build_topo, mod.__name__)
     tgen.start_topology()
 

@@ -44,7 +44,6 @@ def dissect_nlri(nlri_data, afi, safi):
 
 # ------------------------------------------------------------------------------
 class NlriIPv4Unicast:
-
     @staticmethod
     def parse(data):
         """parses prefixes from withdrawn_routes or nrli data"""

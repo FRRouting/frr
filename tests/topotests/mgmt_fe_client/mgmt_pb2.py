@@ -2932,9 +2932,9 @@ _FEMESSAGE = _descriptor.Descriptor(
 _YANGDATAVALUE.oneofs_by_name["value"].fields.append(
     _YANGDATAVALUE.fields_by_name["encoded_str_val"]
 )
-_YANGDATAVALUE.fields_by_name["encoded_str_val"].containing_oneof = (
-    _YANGDATAVALUE.oneofs_by_name["value"]
-)
+_YANGDATAVALUE.fields_by_name[
+    "encoded_str_val"
+].containing_oneof = _YANGDATAVALUE.oneofs_by_name["value"]
 _YANGDATA.fields_by_name["value"].message_type = _YANGDATAVALUE
 _YANGCFGDATAREQ.fields_by_name["data"].message_type = _YANGDATA
 _YANGCFGDATAREQ.fields_by_name["req_type"].enum_type = _CFGDATAREQTYPE
@@ -2980,9 +2980,9 @@ _BEMESSAGE.fields_by_name["cfg_data_req"].containing_oneof = _BEMESSAGE.oneofs_b
 _BEMESSAGE.oneofs_by_name["message"].fields.append(
     _BEMESSAGE.fields_by_name["cfg_data_reply"]
 )
-_BEMESSAGE.fields_by_name["cfg_data_reply"].containing_oneof = (
-    _BEMESSAGE.oneofs_by_name["message"]
-)
+_BEMESSAGE.fields_by_name[
+    "cfg_data_reply"
+].containing_oneof = _BEMESSAGE.oneofs_by_name["message"]
 _BEMESSAGE.oneofs_by_name["message"].fields.append(
     _BEMESSAGE.fields_by_name["cfg_apply_req"]
 )
@@ -2992,21 +2992,21 @@ _BEMESSAGE.fields_by_name["cfg_apply_req"].containing_oneof = _BEMESSAGE.oneofs_
 _BEMESSAGE.oneofs_by_name["message"].fields.append(
     _BEMESSAGE.fields_by_name["cfg_apply_reply"]
 )
-_BEMESSAGE.fields_by_name["cfg_apply_reply"].containing_oneof = (
-    _BEMESSAGE.oneofs_by_name["message"]
-)
+_BEMESSAGE.fields_by_name[
+    "cfg_apply_reply"
+].containing_oneof = _BEMESSAGE.oneofs_by_name["message"]
 _FESESSIONREQ.oneofs_by_name["id"].fields.append(
     _FESESSIONREQ.fields_by_name["client_conn_id"]
 )
-_FESESSIONREQ.fields_by_name["client_conn_id"].containing_oneof = (
-    _FESESSIONREQ.oneofs_by_name["id"]
-)
+_FESESSIONREQ.fields_by_name[
+    "client_conn_id"
+].containing_oneof = _FESESSIONREQ.oneofs_by_name["id"]
 _FESESSIONREQ.oneofs_by_name["id"].fields.append(
     _FESESSIONREQ.fields_by_name["session_id"]
 )
-_FESESSIONREQ.fields_by_name["session_id"].containing_oneof = (
-    _FESESSIONREQ.oneofs_by_name["id"]
-)
+_FESESSIONREQ.fields_by_name[
+    "session_id"
+].containing_oneof = _FESESSIONREQ.oneofs_by_name["id"]
 _FELOCKDSREQ.fields_by_name["ds_id"].enum_type = _DATASTOREID
 _FELOCKDSREPLY.fields_by_name["ds_id"].enum_type = _DATASTOREID
 _FESETCONFIGREQ.fields_by_name["ds_id"].enum_type = _DATASTOREID
@@ -3104,9 +3104,9 @@ _FEMESSAGE.fields_by_name["get_reply"].containing_oneof = _FEMESSAGE.oneofs_by_n
 _FEMESSAGE.oneofs_by_name["message"].fields.append(
     _FEMESSAGE.fields_by_name["notify_data_req"]
 )
-_FEMESSAGE.fields_by_name["notify_data_req"].containing_oneof = (
-    _FEMESSAGE.oneofs_by_name["message"]
-)
+_FEMESSAGE.fields_by_name[
+    "notify_data_req"
+].containing_oneof = _FEMESSAGE.oneofs_by_name["message"]
 _FEMESSAGE.oneofs_by_name["message"].fields.append(
     _FEMESSAGE.fields_by_name["regnotify_req"]
 )

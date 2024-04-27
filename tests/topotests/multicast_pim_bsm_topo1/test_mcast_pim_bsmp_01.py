@@ -217,7 +217,6 @@ def clear_bsrp_data(tgen, topo):
     """
 
     for dut in tgen.routers():
-
         rnode = tgen.routers()[dut]
 
         logger.info("[DUT: %s]: clear_bsrp_data")

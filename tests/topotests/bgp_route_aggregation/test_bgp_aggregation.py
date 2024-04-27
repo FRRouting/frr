@@ -403,7 +403,6 @@ def test_route_summarisation_with_summary_only_p1(request):
         )
 
     for action, value in zip(["removed", "add"], [True, False]):
-
         step(
             "{} static routes as below: "
             "(no) ip route 10.1.1.0/24 and (no) ip route 10.1.2.0/24"

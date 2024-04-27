@@ -330,7 +330,6 @@ def find_tos_in_tcpdump(tgen, router, message, cap_file):
 
     filepath = os.path.join(tgen.logdir, router, cap_file)
     with open(filepath) as f:
-
         if len(re.findall(message, f.read())) < 1:
             errormsg = "[DUT: %s]: Verify Message: %s in tcpdump" " [FAILED!!]" % (
                 router,
