@@ -1,0 +1,118 @@
+{
+    "5.5.5.5\/32": [
+        {
+            "prefix": "5.5.5.5\/32",
+            "protocol": "nhrp",
+            "vrfId": 0,
+            "vrfName": "default",
+            "selected": true,
+            "destSelected": true,
+            "distance": 10,
+            "metric": 0,
+            "installed": true,
+            "internalNextHopNum": 1,
+            "internalNextHopActiveNum": 1,
+            "nexthops": [
+                {
+                    "fib": true,
+                    "ip": "176.16.1.5",
+                    "afi": "ipv4",
+                    "interfaceName": "r4-gre0",
+                    "active": true
+                }
+            ]
+        }
+    ],
+    "176.16.1.1\/32": [
+        {
+            "prefix": "176.16.1.1\/32",
+            "protocol": "nhrp",
+            "vrfId": 0,
+            "vrfName": "default",
+            "selected": true,
+            "destSelected": true,
+            "distance": 10,
+            "metric": 0,
+            "installed": true,
+            "internalNextHopNum": 1,
+            "internalNextHopActiveNum": 1,
+            "nexthops": [
+                {
+                    "fib": true,
+                    "directlyConnected": true,
+                    "interfaceName": "r4-gre0",
+                    "active": true
+                }
+            ]
+        }
+    ],
+    "176.16.1.2\/32": [
+        {
+            "prefix": "176.16.1.2\/32",
+            "protocol": "nhrp",
+            "vrfId": 0,
+            "vrfName": "default",
+            "selected": true,
+            "destSelected": true,
+            "distance": 10,
+            "metric": 0,
+            "installed": true,
+            "internalNextHopNum": 1,
+            "internalNextHopActiveNum": 1,
+            "nexthops": [
+                {
+                    "fib": true,
+                    "directlyConnected": true,
+                    "interfaceName": "r4-gre0",
+                    "active": true
+                }
+            ]
+        }
+    ],
+    "176.16.1.3\/32": [
+        {
+            "prefix": "176.16.1.3\/32",
+            "protocol": "nhrp",
+            "vrfId": 0,
+            "vrfName": "default",
+            "selected": true,
+            "destSelected": true,
+            "distance": 10,
+            "metric": 0,
+            "installed": true,
+            "internalNextHopNum": 1,
+            "internalNextHopActiveNum": 1,
+            "nexthops": [
+                {
+                    "fib": true,
+                    "directlyConnected": true,
+                    "interfaceName": "r4-gre0",
+                    "active": true
+                }
+            ]
+        }
+    ],
+    "176.16.1.5\/32": [
+        {
+            "prefix": "176.16.1.5\/32",
+            "protocol": "nhrp",
+            "vrfId": 0,
+            "vrfName": "default",
+            "selected": true,
+            "destSelected": true,
+            "distance": 10,
+            "metric": 0,
+            "installed": true,
+            "internalNextHopNum": 1,
+            "internalNextHopActiveNum": 1,
+            "nexthops": [
+                {
+                    "fib": true,
+                    "directlyConnected": true,
+                    "interfaceName": "r4-gre0",
+                    "active": true
+                }
+            ]
+        }
+    ]
+}
