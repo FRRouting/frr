@@ -18,7 +18,7 @@ import pytest
 import json
 from functools import partial
 
-pytestmark = pytest.mark.pimd
+pytestmark = [pytest.mark.pimd]
 
 CWD = os.path.dirname(os.path.realpath(__file__))
 sys.path.append(os.path.join(CWD, "../"))
@@ -27,9 +27,6 @@ sys.path.append(os.path.join(CWD, "../"))
 from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
-
-
-pytestmark = [pytest.mark.pimd]
 
 
 def build_topo(tgen):

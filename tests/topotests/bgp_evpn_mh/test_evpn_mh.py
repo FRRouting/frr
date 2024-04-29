@@ -37,8 +37,6 @@ from lib import topotest
 # Required to instantiate the topology builder class.
 from lib.topogen import Topogen, TopoRouter, get_topogen
 
-pytestmark = [pytest.mark.bgpd, pytest.mark.pimd]
-
 #####################################################
 ##
 ##   Network Topology Definition

@@ -7,90 +7,113 @@ from google.protobuf import descriptor as _descriptor
 from google.protobuf import message as _message
 from google.protobuf import reflection as _reflection
 from google.protobuf import symbol_database as _symbol_database
+
 # @@protoc_insertion_point(imports)
 
 _sym_db = _symbol_database.Default()
 
 
-
-
 DESCRIPTOR = _descriptor.FileDescriptor(
-  name='mgmt.proto',
-  package='mgmtd',
-  syntax='proto2',
-  serialized_options=None,
-  create_key=_descriptor._internal_create_key,
-  serialized_pb=b'\n\nmgmt.proto\x12\x05mgmtd\"\x1e\n\rYangDataXPath\x12\r\n\x05xpath\x18\x01 \x02(\t\"3\n\rYangDataValue\x12\x19\n\x0f\x65ncoded_str_val\x18\x64 \x01(\tH\x00\x42\x07\n\x05value\">\n\x08YangData\x12\r\n\x05xpath\x18\x01 \x02(\t\x12#\n\x05value\x18\x02 \x01(\x0b\x32\x14.mgmtd.YangDataValue\"X\n\x0eYangCfgDataReq\x12\x1d\n\x04\x64\x61ta\x18\x01 \x02(\x0b\x32\x0f.mgmtd.YangData\x12\'\n\x08req_type\x18\x02 \x02(\x0e\x32\x15.mgmtd.CfgDataReqType\"B\n\x0eYangGetDataReq\x12\x1d\n\x04\x64\x61ta\x18\x01 \x02(\x0b\x32\x0f.mgmtd.YangData\x12\x11\n\tnext_indx\x18\x02 \x02(\x03\"R\n\x0e\x42\x65SubscribeReq\x12\x13\n\x0b\x63lient_name\x18\x01 \x02(\t\x12\x18\n\x10subscribe_xpaths\x18\x02 \x02(\x08\x12\x11\n\txpath_reg\x18\x03 \x03(\t\"#\n\x10\x42\x65SubscribeReply\x12\x0f\n\x07success\x18\x01 \x02(\x08\"*\n\x08\x42\x65TxnReq\x12\x0e\n\x06txn_id\x18\x01 \x02(\x04\x12\x0e\n\x06\x63reate\x18\x02 \x02(\x08\"=\n\nBeTxnReply\x12\x0e\n\x06txn_id\x18\x01 \x02(\x04\x12\x0e\n\x06\x63reate\x18\x02 \x02(\x08\x12\x0f\n\x07success\x18\x03 \x02(\x08\"b\n\x12\x42\x65\x43\x66gDataCreateReq\x12\x0e\n\x06txn_id\x18\x01 \x02(\x04\x12\'\n\x08\x64\x61ta_req\x18\x02 \x03(\x0b\x32\x15.mgmtd.YangCfgDataReq\x12\x13\n\x0b\x65nd_of_data\x18\x03 \x02(\x08\"M\n\x14\x42\x65\x43\x66gDataCreateReply\x12\x0e\n\x06txn_id\x18\x01 \x02(\x04\x12\x0f\n\x07success\x18\x02 \x02(\x08\x12\x14\n\x0c\x65rror_if_any\x18\x03 \x01(\t\"#\n\x11\x42\x65\x43\x66gDataApplyReq\x12\x0e\n\x06txn_id\x18\x01 \x02(\x04\"L\n\x13\x42\x65\x43\x66gDataApplyReply\x12\x0e\n\x06txn_id\x18\x01 \x02(\x04\x12\x0f\n\x07success\x18\x02 \x02(\x08\x12\x14\n\x0c\x65rror_if_any\x18\x03 \x01(\t\"A\n\rYangDataReply\x12\x1d\n\x04\x64\x61ta\x18\x01 \x03(\x0b\x32\x0f.mgmtd.YangData\x12\x11\n\tnext_indx\x18\x02 \x02(\x03\"\x94\x03\n\tBeMessage\x12+\n\nsubscr_req\x18\x02 \x01(\x0b\x32\x15.mgmtd.BeSubscribeReqH\x00\x12/\n\x0csubscr_reply\x18\x03 \x01(\x0b\x32\x17.mgmtd.BeSubscribeReplyH\x00\x12\"\n\x07txn_req\x18\x04 \x01(\x0b\x32\x0f.mgmtd.BeTxnReqH\x00\x12&\n\ttxn_reply\x18\x05 \x01(\x0b\x32\x11.mgmtd.BeTxnReplyH\x00\x12\x31\n\x0c\x63\x66g_data_req\x18\x06 \x01(\x0b\x32\x19.mgmtd.BeCfgDataCreateReqH\x00\x12\x35\n\x0e\x63\x66g_data_reply\x18\x07 \x01(\x0b\x32\x1b.mgmtd.BeCfgDataCreateReplyH\x00\x12\x31\n\rcfg_apply_req\x18\x08 \x01(\x0b\x32\x18.mgmtd.BeCfgDataApplyReqH\x00\x12\x35\n\x0f\x63\x66g_apply_reply\x18\t \x01(\x0b\x32\x1a.mgmtd.BeCfgDataApplyReplyH\x00\x42\t\n\x07message\"$\n\rFeRegisterReq\x12\x13\n\x0b\x63lient_name\x18\x01 \x02(\t\"T\n\x0c\x46\x65SessionReq\x12\x0e\n\x06\x63reate\x18\x01 \x02(\x08\x12\x18\n\x0e\x63lient_conn_id\x18\x02 \x01(\x04H\x00\x12\x14\n\nsession_id\x18\x03 \x01(\x04H\x00\x42\x04\n\x02id\"]\n\x0e\x46\x65SessionReply\x12\x0e\n\x06\x63reate\x18\x01 \x02(\x08\x12\x0f\n\x07success\x18\x02 \x02(\x08\x12\x16\n\x0e\x63lient_conn_id\x18\x03 \x01(\x04\x12\x12\n\nsession_id\x18\x04 \x02(\x04\"b\n\x0b\x46\x65LockDsReq\x12\x12\n\nsession_id\x18\x01 \x02(\x04\x12\x0e\n\x06req_id\x18\x02 \x02(\x04\x12!\n\x05\x64s_id\x18\x03 \x02(\x0e\x32\x12.mgmtd.DatastoreId\x12\x0c\n\x04lock\x18\x04 \x02(\x08\"\x8b\x01\n\rFeLockDsReply\x12\x12\n\nsession_id\x18\x01 \x02(\x04\x12\x0e\n\x06req_id\x18\x02 \x02(\x04\x12!\n\x05\x64s_id\x18\x03 \x02(\x0e\x32\x12.mgmtd.DatastoreId\x12\x0c\n\x04lock\x18\x04 \x02(\x08\x12\x0f\n\x07success\x18\x05 \x02(\x08\x12\x14\n\x0c\x65rror_if_any\x18\x06 \x01(\t\"\xbf\x01\n\x0e\x46\x65SetConfigReq\x12\x12\n\nsession_id\x18\x01 \x02(\x04\x12!\n\x05\x64s_id\x18\x02 \x02(\x0e\x32\x12.mgmtd.DatastoreId\x12\x0e\n\x06req_id\x18\x03 \x02(\x04\x12#\n\x04\x64\x61ta\x18\x04 \x03(\x0b\x32\x15.mgmtd.YangCfgDataReq\x12\x17\n\x0fimplicit_commit\x18\x05 \x02(\x08\x12(\n\x0c\x63ommit_ds_id\x18\x06 \x02(\x0e\x32\x12.mgmtd.DatastoreId\"\x99\x01\n\x10\x46\x65SetConfigReply\x12\x12\n\nsession_id\x18\x01 \x02(\x04\x12!\n\x05\x64s_id\x18\x02 \x02(\x0e\x32\x12.mgmtd.DatastoreId\x12\x0e\n\x06req_id\x18\x03 \x02(\x04\x12\x0f\n\x07success\x18\x04 \x02(\x08\x12\x17\n\x0fimplicit_commit\x18\x05 \x02(\x08\x12\x14\n\x0c\x65rror_if_any\x18\x06 \x01(\t\"\xab\x01\n\x11\x46\x65\x43ommitConfigReq\x12\x12\n\nsession_id\x18\x01 \x02(\x04\x12%\n\tsrc_ds_id\x18\x02 \x02(\x0e\x32\x12.mgmtd.DatastoreId\x12%\n\tdst_ds_id\x18\x03 \x02(\x0e\x32\x12.mgmtd.DatastoreId\x12\x0e\n\x06req_id\x18\x04 \x02(\x04\x12\x15\n\rvalidate_only\x18\x05 \x02(\x08\x12\r\n\x05\x61\x62ort\x18\x06 \x02(\x08\"\xd4\x01\n\x13\x46\x65\x43ommitConfigReply\x12\x12\n\nsession_id\x18\x01 \x02(\x04\x12%\n\tsrc_ds_id\x18\x02 \x02(\x0e\x32\x12.mgmtd.DatastoreId\x12%\n\tdst_ds_id\x18\x03 \x02(\x0e\x32\x12.mgmtd.DatastoreId\x12\x0e\n\x06req_id\x18\x04 \x02(\x04\x12\x15\n\rvalidate_only\x18\x05 \x02(\x08\x12\x0f\n\x07success\x18\x06 \x02(\x08\x12\r\n\x05\x61\x62ort\x18\x07 \x02(\x08\x12\x14\n\x0c\x65rror_if_any\x18\x08 \x01(\t\"\x86\x01\n\x08\x46\x65GetReq\x12\x12\n\nsession_id\x18\x01 \x02(\x04\x12\x0e\n\x06\x63onfig\x18\x02 \x02(\x08\x12!\n\x05\x64s_id\x18\x03 \x02(\x0e\x32\x12.mgmtd.DatastoreId\x12\x0e\n\x06req_id\x18\x04 \x02(\x04\x12#\n\x04\x64\x61ta\x18\x05 \x03(\x0b\x32\x15.mgmtd.YangGetDataReq\"\xae\x01\n\nFeGetReply\x12\x12\n\nsession_id\x18\x01 \x02(\x04\x12\x0e\n\x06\x63onfig\x18\x02 \x02(\x08\x12!\n\x05\x64s_id\x18\x03 \x02(\x0e\x32\x12.mgmtd.DatastoreId\x12\x0e\n\x06req_id\x18\x04 \x02(\x04\x12\x0f\n\x07success\x18\x05 \x02(\x08\x12\x14\n\x0c\x65rror_if_any\x18\x06 \x01(\t\x12\"\n\x04\x64\x61ta\x18\x07 \x01(\x0b\x32\x14.mgmtd.YangDataReply\"0\n\x0f\x46\x65NotifyDataReq\x12\x1d\n\x04\x64\x61ta\x18\x01 \x03(\x0b\x32\x0f.mgmtd.YangData\"\x9c\x01\n\x13\x46\x65RegisterNotifyReq\x12\x12\n\nsession_id\x18\x01 \x02(\x04\x12!\n\x05\x64s_id\x18\x02 \x02(\x0e\x32\x12.mgmtd.DatastoreId\x12\x14\n\x0cregister_req\x18\x03 \x02(\x08\x12\x0e\n\x06req_id\x18\x04 \x02(\x04\x12(\n\ndata_xpath\x18\x05 \x03(\x0b\x32\x14.mgmtd.YangDataXPath\"\xf0\x04\n\tFeMessage\x12,\n\x0cregister_req\x18\x02 \x01(\x0b\x32\x14.mgmtd.FeRegisterReqH\x00\x12*\n\x0bsession_req\x18\x03 \x01(\x0b\x32\x13.mgmtd.FeSessionReqH\x00\x12.\n\rsession_reply\x18\x04 \x01(\x0b\x32\x15.mgmtd.FeSessionReplyH\x00\x12(\n\nlockds_req\x18\x05 \x01(\x0b\x32\x12.mgmtd.FeLockDsReqH\x00\x12,\n\x0clockds_reply\x18\x06 \x01(\x0b\x32\x14.mgmtd.FeLockDsReplyH\x00\x12+\n\nsetcfg_req\x18\x07 \x01(\x0b\x32\x15.mgmtd.FeSetConfigReqH\x00\x12/\n\x0csetcfg_reply\x18\x08 \x01(\x0b\x32\x17.mgmtd.FeSetConfigReplyH\x00\x12/\n\x0b\x63ommcfg_req\x18\t \x01(\x0b\x32\x18.mgmtd.FeCommitConfigReqH\x00\x12\x33\n\rcommcfg_reply\x18\n \x01(\x0b\x32\x1a.mgmtd.FeCommitConfigReplyH\x00\x12\"\n\x07get_req\x18\x0b \x01(\x0b\x32\x0f.mgmtd.FeGetReqH\x00\x12&\n\tget_reply\x18\x0c \x01(\x0b\x32\x11.mgmtd.FeGetReplyH\x00\x12\x31\n\x0fnotify_data_req\x18\x0f \x01(\x0b\x32\x16.mgmtd.FeNotifyDataReqH\x00\x12\x33\n\rregnotify_req\x18\x10 \x01(\x0b\x32\x1a.mgmtd.FeRegisterNotifyReqH\x00\x42\t\n\x07message*B\n\x0e\x43\x66gDataReqType\x12\x11\n\rREQ_TYPE_NONE\x10\x00\x12\x0c\n\x08SET_DATA\x10\x01\x12\x0f\n\x0b\x44\x45LETE_DATA\x10\x02*`\n\x0b\x44\x61tastoreId\x12\x0b\n\x07\x44S_NONE\x10\x00\x12\x0e\n\nRUNNING_DS\x10\x01\x12\x10\n\x0c\x43\x41NDIDATE_DS\x10\x02\x12\x12\n\x0eOPERATIONAL_DS\x10\x03\x12\x0e\n\nSTARTUP_DS\x10\x04'
+    name="mgmt.proto",
+    package="mgmtd",
+    syntax="proto2",
+    serialized_options=None,
+    create_key=_descriptor._internal_create_key,
+    serialized_pb=b'\n\nmgmt.proto\x12\x05mgmtd"\x1e\n\rYangDataXPath\x12\r\n\x05xpath\x18\x01 \x02(\t"3\n\rYangDataValue\x12\x19\n\x0f\x65ncoded_str_val\x18\x64 \x01(\tH\x00\x42\x07\n\x05value">\n\x08YangData\x12\r\n\x05xpath\x18\x01 \x02(\t\x12#\n\x05value\x18\x02 \x01(\x0b\x32\x14.mgmtd.YangDataValue"X\n\x0eYangCfgDataReq\x12\x1d\n\x04\x64\x61ta\x18\x01 \x02(\x0b\x32\x0f.mgmtd.YangData\x12\'\n\x08req_type\x18\x02 \x02(\x0e\x32\x15.mgmtd.CfgDataReqType"B\n\x0eYangGetDataReq\x12\x1d\n\x04\x64\x61ta\x18\x01 \x02(\x0b\x32\x0f.mgmtd.YangData\x12\x11\n\tnext_indx\x18\x02 \x02(\x03"R\n\x0e\x42\x65SubscribeReq\x12\x13\n\x0b\x63lient_name\x18\x01 \x02(\t\x12\x18\n\x10subscribe_xpaths\x18\x02 \x02(\x08\x12\x11\n\txpath_reg\x18\x03 \x03(\t"#\n\x10\x42\x65SubscribeReply\x12\x0f\n\x07success\x18\x01 \x02(\x08"*\n\x08\x42\x65TxnReq\x12\x0e\n\x06txn_id\x18\x01 \x02(\x04\x12\x0e\n\x06\x63reate\x18\x02 \x02(\x08"=\n\nBeTxnReply\x12\x0e\n\x06txn_id\x18\x01 \x02(\x04\x12\x0e\n\x06\x63reate\x18\x02 \x02(\x08\x12\x0f\n\x07success\x18\x03 \x02(\x08"b\n\x12\x42\x65\x43\x66gDataCreateReq\x12\x0e\n\x06txn_id\x18\x01 \x02(\x04\x12\'\n\x08\x64\x61ta_req\x18\x02 \x03(\x0b\x32\x15.mgmtd.YangCfgDataReq\x12\x13\n\x0b\x65nd_of_data\x18\x03 \x02(\x08"M\n\x14\x42\x65\x43\x66gDataCreateReply\x12\x0e\n\x06txn_id\x18\x01 \x02(\x04\x12\x0f\n\x07success\x18\x02 \x02(\x08\x12\x14\n\x0c\x65rror_if_any\x18\x03 \x01(\t"#\n\x11\x42\x65\x43\x66gDataApplyReq\x12\x0e\n\x06txn_id\x18\x01 \x02(\x04"L\n\x13\x42\x65\x43\x66gDataApplyReply\x12\x0e\n\x06txn_id\x18\x01 \x02(\x04\x12\x0f\n\x07success\x18\x02 \x02(\x08\x12\x14\n\x0c\x65rror_if_any\x18\x03 \x01(\t"A\n\rYangDataReply\x12\x1d\n\x04\x64\x61ta\x18\x01 \x03(\x0b\x32\x0f.mgmtd.YangData\x12\x11\n\tnext_indx\x18\x02 \x02(\x03"\x94\x03\n\tBeMessage\x12+\n\nsubscr_req\x18\x02 \x01(\x0b\x32\x15.mgmtd.BeSubscribeReqH\x00\x12/\n\x0csubscr_reply\x18\x03 \x01(\x0b\x32\x17.mgmtd.BeSubscribeReplyH\x00\x12"\n\x07txn_req\x18\x04 \x01(\x0b\x32\x0f.mgmtd.BeTxnReqH\x00\x12&\n\ttxn_reply\x18\x05 \x01(\x0b\x32\x11.mgmtd.BeTxnReplyH\x00\x12\x31\n\x0c\x63\x66g_data_req\x18\x06 \x01(\x0b\x32\x19.mgmtd.BeCfgDataCreateReqH\x00\x12\x35\n\x0e\x63\x66g_data_reply\x18\x07 \x01(\x0b\x32\x1b.mgmtd.BeCfgDataCreateReplyH\x00\x12\x31\n\rcfg_apply_req\x18\x08 \x01(\x0b\x32\x18.mgmtd.BeCfgDataApplyReqH\x00\x12\x35\n\x0f\x63\x66g_apply_reply\x18\t \x01(\x0b\x32\x1a.mgmtd.BeCfgDataApplyReplyH\x00\x42\t\n\x07message"$\n\rFeRegisterReq\x12\x13\n\x0b\x63lient_name\x18\x01 \x02(\t"T\n\x0c\x46\x65SessionReq\x12\x0e\n\x06\x63reate\x18\x01 \x02(\x08\x12\x18\n\x0e\x63lient_conn_id\x18\x02 \x01(\x04H\x00\x12\x14\n\nsession_id\x18\x03 \x01(\x04H\x00\x42\x04\n\x02id"]\n\x0e\x46\x65SessionReply\x12\x0e\n\x06\x63reate\x18\x01 \x02(\x08\x12\x0f\n\x07success\x18\x02 \x02(\x08\x12\x16\n\x0e\x63lient_conn_id\x18\x03 \x01(\x04\x12\x12\n\nsession_id\x18\x04 \x02(\x04"b\n\x0b\x46\x65LockDsReq\x12\x12\n\nsession_id\x18\x01 \x02(\x04\x12\x0e\n\x06req_id\x18\x02 \x02(\x04\x12!\n\x05\x64s_id\x18\x03 \x02(\x0e\x32\x12.mgmtd.DatastoreId\x12\x0c\n\x04lock\x18\x04 \x02(\x08"\x8b\x01\n\rFeLockDsReply\x12\x12\n\nsession_id\x18\x01 \x02(\x04\x12\x0e\n\x06req_id\x18\x02 \x02(\x04\x12!\n\x05\x64s_id\x18\x03 \x02(\x0e\x32\x12.mgmtd.DatastoreId\x12\x0c\n\x04lock\x18\x04 \x02(\x08\x12\x0f\n\x07success\x18\x05 \x02(\x08\x12\x14\n\x0c\x65rror_if_any\x18\x06 \x01(\t"\xbf\x01\n\x0e\x46\x65SetConfigReq\x12\x12\n\nsession_id\x18\x01 \x02(\x04\x12!\n\x05\x64s_id\x18\x02 \x02(\x0e\x32\x12.mgmtd.DatastoreId\x12\x0e\n\x06req_id\x18\x03 \x02(\x04\x12#\n\x04\x64\x61ta\x18\x04 \x03(\x0b\x32\x15.mgmtd.YangCfgDataReq\x12\x17\n\x0fimplicit_commit\x18\x05 \x02(\x08\x12(\n\x0c\x63ommit_ds_id\x18\x06 \x02(\x0e\x32\x12.mgmtd.DatastoreId"\x99\x01\n\x10\x46\x65SetConfigReply\x12\x12\n\nsession_id\x18\x01 \x02(\x04\x12!\n\x05\x64s_id\x18\x02 \x02(\x0e\x32\x12.mgmtd.DatastoreId\x12\x0e\n\x06req_id\x18\x03 \x02(\x04\x12\x0f\n\x07success\x18\x04 \x02(\x08\x12\x17\n\x0fimplicit_commit\x18\x05 \x02(\x08\x12\x14\n\x0c\x65rror_if_any\x18\x06 \x01(\t"\xab\x01\n\x11\x46\x65\x43ommitConfigReq\x12\x12\n\nsession_id\x18\x01 \x02(\x04\x12%\n\tsrc_ds_id\x18\x02 \x02(\x0e\x32\x12.mgmtd.DatastoreId\x12%\n\tdst_ds_id\x18\x03 \x02(\x0e\x32\x12.mgmtd.DatastoreId\x12\x0e\n\x06req_id\x18\x04 \x02(\x04\x12\x15\n\rvalidate_only\x18\x05 \x02(\x08\x12\r\n\x05\x61\x62ort\x18\x06 \x02(\x08"\xd4\x01\n\x13\x46\x65\x43ommitConfigReply\x12\x12\n\nsession_id\x18\x01 \x02(\x04\x12%\n\tsrc_ds_id\x18\x02 \x02(\x0e\x32\x12.mgmtd.DatastoreId\x12%\n\tdst_ds_id\x18\x03 \x02(\x0e\x32\x12.mgmtd.DatastoreId\x12\x0e\n\x06req_id\x18\x04 \x02(\x04\x12\x15\n\rvalidate_only\x18\x05 \x02(\x08\x12\x0f\n\x07success\x18\x06 \x02(\x08\x12\r\n\x05\x61\x62ort\x18\x07 \x02(\x08\x12\x14\n\x0c\x65rror_if_any\x18\x08 \x01(\t"\x86\x01\n\x08\x46\x65GetReq\x12\x12\n\nsession_id\x18\x01 \x02(\x04\x12\x0e\n\x06\x63onfig\x18\x02 \x02(\x08\x12!\n\x05\x64s_id\x18\x03 \x02(\x0e\x32\x12.mgmtd.DatastoreId\x12\x0e\n\x06req_id\x18\x04 \x02(\x04\x12#\n\x04\x64\x61ta\x18\x05 \x03(\x0b\x32\x15.mgmtd.YangGetDataReq"\xae\x01\n\nFeGetReply\x12\x12\n\nsession_id\x18\x01 \x02(\x04\x12\x0e\n\x06\x63onfig\x18\x02 \x02(\x08\x12!\n\x05\x64s_id\x18\x03 \x02(\x0e\x32\x12.mgmtd.DatastoreId\x12\x0e\n\x06req_id\x18\x04 \x02(\x04\x12\x0f\n\x07success\x18\x05 \x02(\x08\x12\x14\n\x0c\x65rror_if_any\x18\x06 \x01(\t\x12"\n\x04\x64\x61ta\x18\x07 \x01(\x0b\x32\x14.mgmtd.YangDataReply"0\n\x0f\x46\x65NotifyDataReq\x12\x1d\n\x04\x64\x61ta\x18\x01 \x03(\x0b\x32\x0f.mgmtd.YangData"\x9c\x01\n\x13\x46\x65RegisterNotifyReq\x12\x12\n\nsession_id\x18\x01 \x02(\x04\x12!\n\x05\x64s_id\x18\x02 \x02(\x0e\x32\x12.mgmtd.DatastoreId\x12\x14\n\x0cregister_req\x18\x03 \x02(\x08\x12\x0e\n\x06req_id\x18\x04 \x02(\x04\x12(\n\ndata_xpath\x18\x05 \x03(\x0b\x32\x14.mgmtd.YangDataXPath"\xf0\x04\n\tFeMessage\x12,\n\x0cregister_req\x18\x02 \x01(\x0b\x32\x14.mgmtd.FeRegisterReqH\x00\x12*\n\x0bsession_req\x18\x03 \x01(\x0b\x32\x13.mgmtd.FeSessionReqH\x00\x12.\n\rsession_reply\x18\x04 \x01(\x0b\x32\x15.mgmtd.FeSessionReplyH\x00\x12(\n\nlockds_req\x18\x05 \x01(\x0b\x32\x12.mgmtd.FeLockDsReqH\x00\x12,\n\x0clockds_reply\x18\x06 \x01(\x0b\x32\x14.mgmtd.FeLockDsReplyH\x00\x12+\n\nsetcfg_req\x18\x07 \x01(\x0b\x32\x15.mgmtd.FeSetConfigReqH\x00\x12/\n\x0csetcfg_reply\x18\x08 \x01(\x0b\x32\x17.mgmtd.FeSetConfigReplyH\x00\x12/\n\x0b\x63ommcfg_req\x18\t \x01(\x0b\x32\x18.mgmtd.FeCommitConfigReqH\x00\x12\x33\n\rcommcfg_reply\x18\n \x01(\x0b\x32\x1a.mgmtd.FeCommitConfigReplyH\x00\x12"\n\x07get_req\x18\x0b \x01(\x0b\x32\x0f.mgmtd.FeGetReqH\x00\x12&\n\tget_reply\x18\x0c \x01(\x0b\x32\x11.mgmtd.FeGetReplyH\x00\x12\x31\n\x0fnotify_data_req\x18\x0f \x01(\x0b\x32\x16.mgmtd.FeNotifyDataReqH\x00\x12\x33\n\rregnotify_req\x18\x10 \x01(\x0b\x32\x1a.mgmtd.FeRegisterNotifyReqH\x00\x42\t\n\x07message*B\n\x0e\x43\x66gDataReqType\x12\x11\n\rREQ_TYPE_NONE\x10\x00\x12\x0c\n\x08SET_DATA\x10\x01\x12\x0f\n\x0b\x44\x45LETE_DATA\x10\x02*`\n\x0b\x44\x61tastoreId\x12\x0b\n\x07\x44S_NONE\x10\x00\x12\x0e\n\nRUNNING_DS\x10\x01\x12\x10\n\x0c\x43\x41NDIDATE_DS\x10\x02\x12\x12\n\x0eOPERATIONAL_DS\x10\x03\x12\x0e\n\nSTARTUP_DS\x10\x04',
 )
 
 _CFGDATAREQTYPE = _descriptor.EnumDescriptor(
-  name='CfgDataReqType',
-  full_name='mgmtd.CfgDataReqType',
-  filename=None,
-  file=DESCRIPTOR,
-  create_key=_descriptor._internal_create_key,
-  values=[
-    _descriptor.EnumValueDescriptor(
-      name='REQ_TYPE_NONE', index=0, number=0,
-      serialized_options=None,
-      type=None,
-      create_key=_descriptor._internal_create_key),
-    _descriptor.EnumValueDescriptor(
-      name='SET_DATA', index=1, number=1,
-      serialized_options=None,
-      type=None,
-      create_key=_descriptor._internal_create_key),
-    _descriptor.EnumValueDescriptor(
-      name='DELETE_DATA', index=2, number=2,
-      serialized_options=None,
-      type=None,
-      create_key=_descriptor._internal_create_key),
-  ],
-  containing_type=None,
-  serialized_options=None,
-  serialized_start=3674,
-  serialized_end=3740,
+    name="CfgDataReqType",
+    full_name="mgmtd.CfgDataReqType",
+    filename=None,
+    file=DESCRIPTOR,
+    create_key=_descriptor._internal_create_key,
+    values=[
+        _descriptor.EnumValueDescriptor(
+            name="REQ_TYPE_NONE",
+            index=0,
+            number=0,
+            serialized_options=None,
+            type=None,
+            create_key=_descriptor._internal_create_key,
+        ),
+        _descriptor.EnumValueDescriptor(
+            name="SET_DATA",
+            index=1,
+            number=1,
+            serialized_options=None,
+            type=None,
+            create_key=_descriptor._internal_create_key,
+        ),
+        _descriptor.EnumValueDescriptor(
+            name="DELETE_DATA",
+            index=2,
+            number=2,
+            serialized_options=None,
+            type=None,
+            create_key=_descriptor._internal_create_key,
+        ),
+    ],
+    containing_type=None,
+    serialized_options=None,
+    serialized_start=3674,
+    serialized_end=3740,
 )
 _sym_db.RegisterEnumDescriptor(_CFGDATAREQTYPE)
 
 CfgDataReqType = enum_type_wrapper.EnumTypeWrapper(_CFGDATAREQTYPE)
 _DATASTOREID = _descriptor.EnumDescriptor(
-  name='DatastoreId',
-  full_name='mgmtd.DatastoreId',
-  filename=None,
-  file=DESCRIPTOR,
-  create_key=_descriptor._internal_create_key,
-  values=[
-    _descriptor.EnumValueDescriptor(
-      name='DS_NONE', index=0, number=0,
-      serialized_options=None,
-      type=None,
-      create_key=_descriptor._internal_create_key),
-    _descriptor.EnumValueDescriptor(
-      name='RUNNING_DS', index=1, number=1,
-      serialized_options=None,
-      type=None,
-      create_key=_descriptor._internal_create_key),
-    _descriptor.EnumValueDescriptor(
-      name='CANDIDATE_DS', index=2, number=2,
-      serialized_options=None,
-      type=None,
-      create_key=_descriptor._internal_create_key),
-    _descriptor.EnumValueDescriptor(
-      name='OPERATIONAL_DS', index=3, number=3,
-      serialized_options=None,
-      type=None,
-      create_key=_descriptor._internal_create_key),
-    _descriptor.EnumValueDescriptor(
-      name='STARTUP_DS', index=4, number=4,
-      serialized_options=None,
-      type=None,
-      create_key=_descriptor._internal_create_key),
-  ],
-  containing_type=None,
-  serialized_options=None,
-  serialized_start=3742,
-  serialized_end=3838,
+    name="DatastoreId",
+    full_name="mgmtd.DatastoreId",
+    filename=None,
+    file=DESCRIPTOR,
+    create_key=_descriptor._internal_create_key,
+    values=[
+        _descriptor.EnumValueDescriptor(
+            name="DS_NONE",
+            index=0,
+            number=0,
+            serialized_options=None,
+            type=None,
+            create_key=_descriptor._internal_create_key,
+        ),
+        _descriptor.EnumValueDescriptor(
+            name="RUNNING_DS",
+            index=1,
+            number=1,
+            serialized_options=None,
+            type=None,
+            create_key=_descriptor._internal_create_key,
+        ),
+        _descriptor.EnumValueDescriptor(
+            name="CANDIDATE_DS",
+            index=2,
+            number=2,
+            serialized_options=None,
+            type=None,
+            create_key=_descriptor._internal_create_key,
+        ),
+        _descriptor.EnumValueDescriptor(
+            name="OPERATIONAL_DS",
+            index=3,
+            number=3,
+            serialized_options=None,
+            type=None,
+            create_key=_descriptor._internal_create_key,
+        ),
+        _descriptor.EnumValueDescriptor(
+            name="STARTUP_DS",
+            index=4,
+            number=4,
+            serialized_options=None,
+            type=None,
+            create_key=_descriptor._internal_create_key,
+        ),
+    ],
+    containing_type=None,
+    serialized_options=None,
+    serialized_start=3742,
+    serialized_end=3838,
 )
 _sym_db.RegisterEnumDescriptor(_DATASTOREID)
 
@@ -105,1885 +128,3341 @@ OPERATIONAL_DS = 3
 STARTUP_DS = 4
 
 
-
 _YANGDATAXPATH = _descriptor.Descriptor(
-  name='YangDataXPath',
-  full_name='mgmtd.YangDataXPath',
-  filename=None,
-  file=DESCRIPTOR,
-  containing_type=None,
-  create_key=_descriptor._internal_create_key,
-  fields=[
-    _descriptor.FieldDescriptor(
-      name='xpath', full_name='mgmtd.YangDataXPath.xpath', index=0,
-      number=1, type=9, cpp_type=9, label=2,
-      has_default_value=False, default_value=b"".decode('utf-8'),
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
-  ],
-  extensions=[
-  ],
-  nested_types=[],
-  enum_types=[
-  ],
-  serialized_options=None,
-  is_extendable=False,
-  syntax='proto2',
-  extension_ranges=[],
-  oneofs=[
-  ],
-  serialized_start=21,
-  serialized_end=51,
+    name="YangDataXPath",
+    full_name="mgmtd.YangDataXPath",
+    filename=None,
+    file=DESCRIPTOR,
+    containing_type=None,
+    create_key=_descriptor._internal_create_key,
+    fields=[
+        _descriptor.FieldDescriptor(
+            name="xpath",
+            full_name="mgmtd.YangDataXPath.xpath",
+            index=0,
+            number=1,
+            type=9,
+            cpp_type=9,
+            label=2,
+            has_default_value=False,
+            default_value=b"".decode("utf-8"),
+            message_type=None,
+            enum_type=None,
+            containing_type=None,
+            is_extension=False,
+            extension_scope=None,
+            serialized_options=None,
+            file=DESCRIPTOR,
+            create_key=_descriptor._internal_create_key,
+        ),
+    ],
+    extensions=[],
+    nested_types=[],
+    enum_types=[],
+    serialized_options=None,
+    is_extendable=False,
+    syntax="proto2",
+    extension_ranges=[],
+    oneofs=[],
+    serialized_start=21,
+    serialized_end=51,
 )
 
 
 _YANGDATAVALUE = _descriptor.Descriptor(
-  name='YangDataValue',
-  full_name='mgmtd.YangDataValue',
-  filename=None,
-  file=DESCRIPTOR,
-  containing_type=None,
-  create_key=_descriptor._internal_create_key,
-  fields=[
-    _descriptor.FieldDescriptor(
-      name='encoded_str_val', full_name='mgmtd.YangDataValue.encoded_str_val', index=0,
-      number=100, type=9, cpp_type=9, label=1,
-      has_default_value=False, default_value=b"".decode('utf-8'),
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
-  ],
-  extensions=[
-  ],
-  nested_types=[],
-  enum_types=[
-  ],
-  serialized_options=None,
-  is_extendable=False,
-  syntax='proto2',
-  extension_ranges=[],
-  oneofs=[
-    _descriptor.OneofDescriptor(
-      name='value', full_name='mgmtd.YangDataValue.value',
-      index=0, containing_type=None,
-      create_key=_descriptor._internal_create_key,
-    fields=[]),
-  ],
-  serialized_start=53,
-  serialized_end=104,
+    name="YangDataValue",
+    full_name="mgmtd.YangDataValue",
+    filename=None,
+    file=DESCRIPTOR,
+    containing_type=None,
+    create_key=_descriptor._internal_create_key,
+    fields=[
+        _descriptor.FieldDescriptor(
+            name="encoded_str_val",
+            full_name="mgmtd.YangDataValue.encoded_str_val",
+            index=0,
+            number=100,
+            type=9,
+            cpp_type=9,
+            label=1,
+            has_default_value=False,
+            default_value=b"".decode("utf-8"),
+            message_type=None,
+            enum_type=None,
+            containing_type=None,
+            is_extension=False,
+            extension_scope=None,
+            serialized_options=None,
+            file=DESCRIPTOR,
+            create_key=_descriptor._internal_create_key,
+        ),
+    ],
+    extensions=[],
+    nested_types=[],
+    enum_types=[],
+    serialized_options=None,
+    is_extendable=False,
+    syntax="proto2",
+    extension_ranges=[],
+    oneofs=[
+        _descriptor.OneofDescriptor(
+            name="value",
+            full_name="mgmtd.YangDataValue.value",
+            index=0,
+            containing_type=None,
+            create_key=_descriptor._internal_create_key,
+            fields=[],
+        ),
+    ],
+    serialized_start=53,
+    serialized_end=104,
 )
 
 
 _YANGDATA = _descriptor.Descriptor(
-  name='YangData',
-  full_name='mgmtd.YangData',
-  filename=None,
-  file=DESCRIPTOR,
-  containing_type=None,
-  create_key=_descriptor._internal_create_key,
-  fields=[
-    _descriptor.FieldDescriptor(
-      name='xpath', full_name='mgmtd.YangData.xpath', index=0,
-      number=1, type=9, cpp_type=9, label=2,
-      has_default_value=False, default_value=b"".decode('utf-8'),
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
-    _descriptor.FieldDescriptor(
-      name='value', full_name='mgmtd.YangData.value', index=1,
-      number=2, type=11, cpp_type=10, label=1,
-      has_default_value=False, default_value=None,
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
-  ],
-  extensions=[
-  ],
-  nested_types=[],
-  enum_types=[
-  ],
-  serialized_options=None,
-  is_extendable=False,
-  syntax='proto2',
-  extension_ranges=[],
-  oneofs=[
-  ],
-  serialized_start=106,
-  serialized_end=168,
+    name="YangData",
+    full_name="mgmtd.YangData",
+    filename=None,
+    file=DESCRIPTOR,
+    containing_type=None,
+    create_key=_descriptor._internal_create_key,
+    fields=[
+        _descriptor.FieldDescriptor(
+            name="xpath",
+            full_name="mgmtd.YangData.xpath",
+            index=0,
+            number=1,
+            type=9,
+            cpp_type=9,
+            label=2,
+            has_default_value=False,
+            default_value=b"".decode("utf-8"),
+            message_type=None,
+            enum_type=None,
+            containing_type=None,
+            is_extension=False,
+            extension_scope=None,
+            serialized_options=None,
+            file=DESCRIPTOR,
+            create_key=_descriptor._internal_create_key,
+        ),
+        _descriptor.FieldDescriptor(
+            name="value",
+            full_name="mgmtd.YangData.value",
+            index=1,
+            number=2,
+            type=11,
+            cpp_type=10,
+            label=1,
+            has_default_value=False,
+            default_value=None,
+            message_type=None,
+            enum_type=None,
+            containing_type=None,
+            is_extension=False,
+            extension_scope=None,
+            serialized_options=None,
+            file=DESCRIPTOR,
+            create_key=_descriptor._internal_create_key,
+        ),
+    ],
+    extensions=[],
+    nested_types=[],
+    enum_types=[],
+    serialized_options=None,
+    is_extendable=False,
+    syntax="proto2",
+    extension_ranges=[],
+    oneofs=[],
+    serialized_start=106,
+    serialized_end=168,
 )
 
 
 _YANGCFGDATAREQ = _descriptor.Descriptor(
-  name='YangCfgDataReq',
-  full_name='mgmtd.YangCfgDataReq',
-  filename=None,
-  file=DESCRIPTOR,
-  containing_type=None,
-  create_key=_descriptor._internal_create_key,
-  fields=[
-    _descriptor.FieldDescriptor(
-      name='data', full_name='mgmtd.YangCfgDataReq.data', index=0,
-      number=1, type=11, cpp_type=10, label=2,
-      has_default_value=False, default_value=None,
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
-    _descriptor.FieldDescriptor(
-      name='req_type', full_name='mgmtd.YangCfgDataReq.req_type', index=1,
-      number=2, type=14, cpp_type=8, label=2,
-      has_default_value=False, default_value=0,
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
-  ],
-  extensions=[
-  ],
-  nested_types=[],
-  enum_types=[
-  ],
-  serialized_options=None,
-  is_extendable=False,
-  syntax='proto2',
-  extension_ranges=[],
-  oneofs=[
-  ],
-  serialized_start=170,
-  serialized_end=258,
+    name="YangCfgDataReq",
+    full_name="mgmtd.YangCfgDataReq",
+    filename=None,
+    file=DESCRIPTOR,
+    containing_type=None,
+    create_key=_descriptor._internal_create_key,
+    fields=[
+        _descriptor.FieldDescriptor(
+            name="data",
+            full_name="mgmtd.YangCfgDataReq.data",
+            index=0,
+            number=1,
+            type=11,
+            cpp_type=10,
+            label=2,
+            has_default_value=False,
+            default_value=None,
+            message_type=None,
+            enum_type=None,
+            containing_type=None,
+            is_extension=False,
+            extension_scope=None,
+            serialized_options=None,
+            file=DESCRIPTOR,
+            create_key=_descriptor._internal_create_key,
+        ),
+        _descriptor.FieldDescriptor(
+            name="req_type",
+            full_name="mgmtd.YangCfgDataReq.req_type",
+            index=1,
+            number=2,
+            type=14,
+            cpp_type=8,
+            label=2,
+            has_default_value=False,
+            default_value=0,
+            message_type=None,
+            enum_type=None,
+            containing_type=None,
+            is_extension=False,
+            extension_scope=None,
+            serialized_options=None,
+            file=DESCRIPTOR,
+            create_key=_descriptor._internal_create_key,
+        ),
+    ],
+    extensions=[],
+    nested_types=[],
+    enum_types=[],
+    serialized_options=None,
+    is_extendable=False,
+    syntax="proto2",
+    extension_ranges=[],
+    oneofs=[],
+    serialized_start=170,
+    serialized_end=258,
 )
 
 
 _YANGGETDATAREQ = _descriptor.Descriptor(
-  name='YangGetDataReq',
-  full_name='mgmtd.YangGetDataReq',
-  filename=None,
-  file=DESCRIPTOR,
-  containing_type=None,
-  create_key=_descriptor._internal_create_key,
-  fields=[
-    _descriptor.FieldDescriptor(
-      name='data', full_name='mgmtd.YangGetDataReq.data', index=0,
-      number=1, type=11, cpp_type=10, label=2,
-      has_default_value=False, default_value=None,
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
-    _descriptor.FieldDescriptor(
-      name='next_indx', full_name='mgmtd.YangGetDataReq.next_indx', index=1,
-      number=2, type=3, cpp_type=2, label=2,
-      has_default_value=False, default_value=0,
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
-  ],
-  extensions=[
-  ],
-  nested_types=[],
-  enum_types=[
-  ],
-  serialized_options=None,
-  is_extendable=False,
-  syntax='proto2',
-  extension_ranges=[],
-  oneofs=[
-  ],
-  serialized_start=260,
-  serialized_end=326,
+    name="YangGetDataReq",
+    full_name="mgmtd.YangGetDataReq",
+    filename=None,
+    file=DESCRIPTOR,
+    containing_type=None,
+    create_key=_descriptor._internal_create_key,
+    fields=[
+        _descriptor.FieldDescriptor(
+            name="data",
+            full_name="mgmtd.YangGetDataReq.data",
+            index=0,
+            number=1,
+            type=11,
+            cpp_type=10,
+            label=2,
+            has_default_value=False,
+            default_value=None,
+            message_type=None,
+            enum_type=None,
+            containing_type=None,
+            is_extension=False,
+            extension_scope=None,
+            serialized_options=None,
+            file=DESCRIPTOR,
+            create_key=_descriptor._internal_create_key,
+        ),
+        _descriptor.FieldDescriptor(
+            name="next_indx",
+            full_name="mgmtd.YangGetDataReq.next_indx",
+            index=1,
+            number=2,
+            type=3,
+            cpp_type=2,
+            label=2,
+            has_default_value=False,
+            default_value=0,
+            message_type=None,
+            enum_type=None,
+            containing_type=None,
+            is_extension=False,
+            extension_scope=None,
+            serialized_options=None,
+            file=DESCRIPTOR,
+            create_key=_descriptor._internal_create_key,
+        ),
+    ],
+    extensions=[],
+    nested_types=[],
+    enum_types=[],
+    serialized_options=None,
+    is_extendable=False,
+    syntax="proto2",
+    extension_ranges=[],
+    oneofs=[],
+    serialized_start=260,
+    serialized_end=326,
 )
 
 
 _BESUBSCRIBEREQ = _descriptor.Descriptor(
-  name='BeSubscribeReq',
-  full_name='mgmtd.BeSubscribeReq',
-  filename=None,
-  file=DESCRIPTOR,
-  containing_type=None,
-  create_key=_descriptor._internal_create_key,
-  fields=[
-    _descriptor.FieldDescriptor(
-      name='client_name', full_name='mgmtd.BeSubscribeReq.client_name', index=0,
-      number=1, type=9, cpp_type=9, label=2,
-      has_default_value=False, default_value=b"".decode('utf-8'),
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
-    _descriptor.FieldDescriptor(
-      name='subscribe_xpaths', full_name='mgmtd.BeSubscribeReq.subscribe_xpaths', index=1,
-      number=2, type=8, cpp_type=7, label=2,
-      has_default_value=False, default_value=False,
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
-    _descriptor.FieldDescriptor(
-      name='xpath_reg', full_name='mgmtd.BeSubscribeReq.xpath_reg', index=2,
-      number=3, type=9, cpp_type=9, label=3,
-      has_default_value=False, default_value=[],
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
-  ],
-  extensions=[
-  ],
-  nested_types=[],
-  enum_types=[
-  ],
-  serialized_options=None,
-  is_extendable=False,
-  syntax='proto2',
-  extension_ranges=[],
-  oneofs=[
-  ],
-  serialized_start=328,
-  serialized_end=410,
+    name="BeSubscribeReq",
+    full_name="mgmtd.BeSubscribeReq",
+    filename=None,
+    file=DESCRIPTOR,
+    containing_type=None,
+    create_key=_descriptor._internal_create_key,
+    fields=[
+        _descriptor.FieldDescriptor(
+            name="client_name",
+            full_name="mgmtd.BeSubscribeReq.client_name",
+            index=0,
+            number=1,
+            type=9,
+            cpp_type=9,
+            label=2,
+            has_default_value=False,
+            default_value=b"".decode("utf-8"),
+            message_type=None,
+            enum_type=None,
+            containing_type=None,
+            is_extension=False,
+            extension_scope=None,
+            serialized_options=None,
+            file=DESCRIPTOR,
+            create_key=_descriptor._internal_create_key,
+        ),
+        _descriptor.FieldDescriptor(
+            name="subscribe_xpaths",
+            full_name="mgmtd.BeSubscribeReq.subscribe_xpaths",
+            index=1,
+            number=2,
+            type=8,
+            cpp_type=7,
+            label=2,
+            has_default_value=False,
+            default_value=False,
+            message_type=None,
+            enum_type=None,
+            containing_type=None,
+            is_extension=False,
+            extension_scope=None,
+            serialized_options=None,
+            file=DESCRIPTOR,
+            create_key=_descriptor._internal_create_key,
+        ),
+        _descriptor.FieldDescriptor(
+            name="xpath_reg",
+            full_name="mgmtd.BeSubscribeReq.xpath_reg",
+            index=2,
+            number=3,
+            type=9,
+            cpp_type=9,
+            label=3,
+            has_default_value=False,
+            default_value=[],
+            message_type=None,
+            enum_type=None,
+            containing_type=None,
+            is_extension=False,
+            extension_scope=None,
+            serialized_options=None,
+            file=DESCRIPTOR,
+            create_key=_descriptor._internal_create_key,
+        ),
+    ],
+    extensions=[],
+    nested_types=[],
+    enum_types=[],
+    serialized_options=None,
+    is_extendable=False,
+    syntax="proto2",
+    extension_ranges=[],
+    oneofs=[],
+    serialized_start=328,
+    serialized_end=410,
 )
 
 
 _BESUBSCRIBEREPLY = _descriptor.Descriptor(
-  name='BeSubscribeReply',
-  full_name='mgmtd.BeSubscribeReply',
-  filename=None,
-  file=DESCRIPTOR,
-  containing_type=None,
-  create_key=_descriptor._internal_create_key,
-  fields=[
-    _descriptor.FieldDescriptor(
-      name='success', full_name='mgmtd.BeSubscribeReply.success', index=0,
-      number=1, type=8, cpp_type=7, label=2,
-      has_default_value=False, default_value=False,
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
-  ],
-  extensions=[
-  ],
-  nested_types=[],
-  enum_types=[
-  ],
-  serialized_options=None,
-  is_extendable=False,
-  syntax='proto2',
-  extension_ranges=[],
-  oneofs=[
-  ],
-  serialized_start=412,
-  serialized_end=447,
+    name="BeSubscribeReply",
+    full_name="mgmtd.BeSubscribeReply",
+    filename=None,
+    file=DESCRIPTOR,
+    containing_type=None,
+    create_key=_descriptor._internal_create_key,
+    fields=[
+        _descriptor.FieldDescriptor(
+            name="success",
+            full_name="mgmtd.BeSubscribeReply.success",
+            index=0,
+            number=1,
+            type=8,
+            cpp_type=7,
+            label=2,
+            has_default_value=False,
+            default_value=False,
+            message_type=None,
+            enum_type=None,
+            containing_type=None,
+            is_extension=False,
+            extension_scope=None,
+            serialized_options=None,
+            file=DESCRIPTOR,
+            create_key=_descriptor._internal_create_key,
+        ),
+    ],
+    extensions=[],
+    nested_types=[],
+    enum_types=[],
+    serialized_options=None,
+    is_extendable=False,
+    syntax="proto2",
+    extension_ranges=[],
+    oneofs=[],
+    serialized_start=412,
+    serialized_end=447,
 )
 
 
 _BETXNREQ = _descriptor.Descriptor(
-  name='BeTxnReq',
-  full_name='mgmtd.BeTxnReq',
-  filename=None,
-  file=DESCRIPTOR,
-  containing_type=None,
-  create_key=_descriptor._internal_create_key,
-  fields=[
-    _descriptor.FieldDescriptor(
-      name='txn_id', full_name='mgmtd.BeTxnReq.txn_id', index=0,
-      number=1, type=4, cpp_type=4, label=2,
-      has_default_value=False, default_value=0,
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
-    _descriptor.FieldDescriptor(
-      name='create', full_name='mgmtd.BeTxnReq.create', index=1,
-      number=2, type=8, cpp_type=7, label=2,
-      has_default_value=False, default_value=False,
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
-  ],
-  extensions=[
-  ],
-  nested_types=[],
-  enum_types=[
-  ],
-  serialized_options=None,
-  is_extendable=False,
-  syntax='proto2',
-  extension_ranges=[],
-  oneofs=[
-  ],
-  serialized_start=449,
-  serialized_end=491,
+    name="BeTxnReq",
+    full_name="mgmtd.BeTxnReq",
+    filename=None,
+    file=DESCRIPTOR,
+    containing_type=None,
+    create_key=_descriptor._internal_create_key,
+    fields=[
+        _descriptor.FieldDescriptor(
+            name="txn_id",
+            full_name="mgmtd.BeTxnReq.txn_id",
+            index=0,
+            number=1,
+            type=4,
+            cpp_type=4,
+            label=2,
+            has_default_value=False,
+            default_value=0,
+            message_type=None,
+            enum_type=None,
+            containing_type=None,
+            is_extension=False,
+            extension_scope=None,
+            serialized_options=None,
+            file=DESCRIPTOR,
+            create_key=_descriptor._internal_create_key,
+        ),
+        _descriptor.FieldDescriptor(
+            name="create",
+            full_name="mgmtd.BeTxnReq.create",
+            index=1,
+            number=2,
+            type=8,
+            cpp_type=7,
+            label=2,
+            has_default_value=False,
+            default_value=False,
+            message_type=None,
+            enum_type=None,
+            containing_type=None,
+            is_extension=False,
+            extension_scope=None,
+            serialized_options=None,
+            file=DESCRIPTOR,
+            create_key=_descriptor._internal_create_key,
+        ),
+    ],
+    extensions=[],
+    nested_types=[],
+    enum_types=[],
+    serialized_options=None,
+    is_extendable=False,
+    syntax="proto2",
+    extension_ranges=[],
+    oneofs=[],
+    serialized_start=449,
+    serialized_end=491,
 )
 
 
 _BETXNREPLY = _descriptor.Descriptor(
-  name='BeTxnReply',
-  full_name='mgmtd.BeTxnReply',
-  filename=None,
-  file=DESCRIPTOR,
-  containing_type=None,
-  create_key=_descriptor._internal_create_key,
-  fields=[
-    _descriptor.FieldDescriptor(
-      name='txn_id', full_name='mgmtd.BeTxnReply.txn_id', index=0,
-      number=1, type=4, cpp_type=4, label=2,
-      has_default_value=False, default_value=0,
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
-    _descriptor.FieldDescriptor(
-      name='create', full_name='mgmtd.BeTxnReply.create', index=1,
-      number=2, type=8, cpp_type=7, label=2,
-      has_default_value=False, default_value=False,
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
-    _descriptor.FieldDescriptor(
-      name='success', full_name='mgmtd.BeTxnReply.success', index=2,
-      number=3, type=8, cpp_type=7, label=2,
-      has_default_value=False, default_value=False,
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
-  ],
-  extensions=[
-  ],
-  nested_types=[],
-  enum_types=[
-  ],
-  serialized_options=None,
-  is_extendable=False,
-  syntax='proto2',
-  extension_ranges=[],
-  oneofs=[
-  ],
-  serialized_start=493,
-  serialized_end=554,
+    name="BeTxnReply",
+    full_name="mgmtd.BeTxnReply",
+    filename=None,
+    file=DESCRIPTOR,
+    containing_type=None,
+    create_key=_descriptor._internal_create_key,
+    fields=[
+        _descriptor.FieldDescriptor(
+            name="txn_id",
+            full_name="mgmtd.BeTxnReply.txn_id",
+            index=0,
+            number=1,
+            type=4,
+            cpp_type=4,
+            label=2,
+            has_default_value=False,
+            default_value=0,
+            message_type=None,
+            enum_type=None,
+            containing_type=None,
+            is_extension=False,
+            extension_scope=None,
+            serialized_options=None,
+            file=DESCRIPTOR,
+            create_key=_descriptor._internal_create_key,
+        ),
+        _descriptor.FieldDescriptor(
+            name="create",
+            full_name="mgmtd.BeTxnReply.create",
+            index=1,
+            number=2,
+            type=8,
+            cpp_type=7,
+            label=2,
+            has_default_value=False,
+            default_value=False,
+            message_type=None,
+            enum_type=None,
+            containing_type=None,
+            is_extension=False,
+            extension_scope=None,
+            serialized_options=None,
+            file=DESCRIPTOR,
+            create_key=_descriptor._internal_create_key,
+        ),
+        _descriptor.FieldDescriptor(
+            name="success",
+            full_name="mgmtd.BeTxnReply.success",
+            index=2,
+            number=3,
+            type=8,
+            cpp_type=7,
+            label=2,
+            has_default_value=False,
+            default_value=False,
+            message_type=None,
+            enum_type=None,
+            containing_type=None,
+            is_extension=False,
+            extension_scope=None,
+            serialized_options=None,
+            file=DESCRIPTOR,
+            create_key=_descriptor._internal_create_key,
+        ),
+    ],
+    extensions=[],
+    nested_types=[],
+    enum_types=[],
+    serialized_options=None,
+    is_extendable=False,
+    syntax="proto2",
+    extension_ranges=[],
+    oneofs=[],
+    serialized_start=493,
+    serialized_end=554,
 )
 
 
 _BECFGDATACREATEREQ = _descriptor.Descriptor(
-  name='BeCfgDataCreateReq',
-  full_name='mgmtd.BeCfgDataCreateReq',
-  filename=None,
-  file=DESCRIPTOR,
-  containing_type=None,
-  create_key=_descriptor._internal_create_key,
-  fields=[
-    _descriptor.FieldDescriptor(
-      name='txn_id', full_name='mgmtd.BeCfgDataCreateReq.txn_id', index=0,
-      number=1, type=4, cpp_type=4, label=2,
-      has_default_value=False, default_value=0,
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
-    _descriptor.FieldDescriptor(
-      name='data_req', full_name='mgmtd.BeCfgDataCreateReq.data_req', index=1,
-      number=2, type=11, cpp_type=10, label=3,
-      has_default_value=False, default_value=[],
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
-    _descriptor.FieldDescriptor(
-      name='end_of_data', full_name='mgmtd.BeCfgDataCreateReq.end_of_data', index=2,
-      number=3, type=8, cpp_type=7, label=2,
-      has_default_value=False, default_value=False,
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
-  ],
-  extensions=[
-  ],
-  nested_types=[],
-  enum_types=[
-  ],
-  serialized_options=None,
-  is_extendable=False,
-  syntax='proto2',
-  extension_ranges=[],
-  oneofs=[
-  ],
-  serialized_start=556,
-  serialized_end=654,
+    name="BeCfgDataCreateReq",
+    full_name="mgmtd.BeCfgDataCreateReq",
+    filename=None,
+    file=DESCRIPTOR,
+    containing_type=None,
+    create_key=_descriptor._internal_create_key,
+    fields=[
+        _descriptor.FieldDescriptor(
+            name="txn_id",
+            full_name="mgmtd.BeCfgDataCreateReq.txn_id",
+            index=0,
+            number=1,
+            type=4,
+            cpp_type=4,
+            label=2,
+            has_default_value=False,
+            default_value=0,
+            message_type=None,
+            enum_type=None,
+            containing_type=None,
+            is_extension=False,
+            extension_scope=None,
+            serialized_options=None,
+            file=DESCRIPTOR,
+            create_key=_descriptor._internal_create_key,
+        ),
+        _descriptor.FieldDescriptor(
+            name="data_req",
+            full_name="mgmtd.BeCfgDataCreateReq.data_req",
+            index=1,
+            number=2,
+            type=11,
+            cpp_type=10,
+            label=3,
+            has_default_value=False,
+            default_value=[],
+            message_type=None,
+            enum_type=None,
+            containing_type=None,
+            is_extension=False,
+            extension_scope=None,
+            serialized_options=None,
+            file=DESCRIPTOR,
+            create_key=_descriptor._internal_create_key,
+        ),
+        _descriptor.FieldDescriptor(
+            name="end_of_data",
+            full_name="mgmtd.BeCfgDataCreateReq.end_of_data",
+            index=2,
+            number=3,
+            type=8,
+            cpp_type=7,
+            label=2,
+            has_default_value=False,
+            default_value=False,
+            message_type=None,
+            enum_type=None,
+            containing_type=None,
+            is_extension=False,
+            extension_scope=None,
+            serialized_options=None,
+            file=DESCRIPTOR,
+            create_key=_descriptor._internal_create_key,
+        ),
+    ],
+    extensions=[],
+    nested_types=[],
+    enum_types=[],
+    serialized_options=None,
+    is_extendable=False,
+    syntax="proto2",
+    extension_ranges=[],
+    oneofs=[],
+    serialized_start=556,
+    serialized_end=654,
 )
 
 
 _BECFGDATACREATEREPLY = _descriptor.Descriptor(
-  name='BeCfgDataCreateReply',
-  full_name='mgmtd.BeCfgDataCreateReply',
-  filename=None,
-  file=DESCRIPTOR,
-  containing_type=None,
-  create_key=_descriptor._internal_create_key,
-  fields=[
-    _descriptor.FieldDescriptor(
-      name='txn_id', full_name='mgmtd.BeCfgDataCreateReply.txn_id', index=0,
-      number=1, type=4, cpp_type=4, label=2,
-      has_default_value=False, default_value=0,
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
-    _descriptor.FieldDescriptor(
-      name='success', full_name='mgmtd.BeCfgDataCreateReply.success', index=1,
-      number=2, type=8, cpp_type=7, label=2,
-      has_default_value=False, default_value=False,
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
-    _descriptor.FieldDescriptor(
-      name='error_if_any', full_name='mgmtd.BeCfgDataCreateReply.error_if_any', index=2,
-      number=3, type=9, cpp_type=9, label=1,
-      has_default_value=False, default_value=b"".decode('utf-8'),
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
-  ],
-  extensions=[
-  ],
-  nested_types=[],
-  enum_types=[
-  ],
-  serialized_options=None,
-  is_extendable=False,
-  syntax='proto2',
-  extension_ranges=[],
-  oneofs=[
-  ],
-  serialized_start=656,
-  serialized_end=733,
+    name="BeCfgDataCreateReply",
+    full_name="mgmtd.BeCfgDataCreateReply",
+    filename=None,
+    file=DESCRIPTOR,
+    containing_type=None,
+    create_key=_descriptor._internal_create_key,
+    fields=[
+        _descriptor.FieldDescriptor(
+            name="txn_id",
+            full_name="mgmtd.BeCfgDataCreateReply.txn_id",
+            index=0,
+            number=1,
+            type=4,
+            cpp_type=4,
+            label=2,
+            has_default_value=False,
+            default_value=0,
+            message_type=None,
+            enum_type=None,
+            containing_type=None,
+            is_extension=False,
+            extension_scope=None,
+            serialized_options=None,
+            file=DESCRIPTOR,
+            create_key=_descriptor._internal_create_key,
+        ),
+        _descriptor.FieldDescriptor(
+            name="success",
+            full_name="mgmtd.BeCfgDataCreateReply.success",
+            index=1,
+            number=2,
+            type=8,
+            cpp_type=7,
+            label=2,
+            has_default_value=False,
+            default_value=False,
+            message_type=None,
+            enum_type=None,
+            containing_type=None,
+            is_extension=False,
+            extension_scope=None,
+            serialized_options=None,
+            file=DESCRIPTOR,
+            create_key=_descriptor._internal_create_key,
+        ),
+        _descriptor.FieldDescriptor(
+            name="error_if_any",
+            full_name="mgmtd.BeCfgDataCreateReply.error_if_any",
+            index=2,
+            number=3,
+            type=9,
+            cpp_type=9,
+            label=1,
+            has_default_value=False,
+            default_value=b"".decode("utf-8"),
+            message_type=None,
+            enum_type=None,
+            containing_type=None,
+            is_extension=False,
+            extension_scope=None,
+            serialized_options=None,
+            file=DESCRIPTOR,
+            create_key=_descriptor._internal_create_key,
+        ),
+    ],
+    extensions=[],
+    nested_types=[],
+    enum_types=[],
+    serialized_options=None,
+    is_extendable=False,
+    syntax="proto2",
+    extension_ranges=[],
+    oneofs=[],
+    serialized_start=656,
+    serialized_end=733,
 )
 
 
 _BECFGDATAAPPLYREQ = _descriptor.Descriptor(
-  name='BeCfgDataApplyReq',
-  full_name='mgmtd.BeCfgDataApplyReq',
-  filename=None,
-  file=DESCRIPTOR,
-  containing_type=None,
-  create_key=_descriptor._internal_create_key,
-  fields=[
-    _descriptor.FieldDescriptor(
-      name='txn_id', full_name='mgmtd.BeCfgDataApplyReq.txn_id', index=0,
-      number=1, type=4, cpp_type=4, label=2,
-      has_default_value=False, default_value=0,
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
-  ],
-  extensions=[
-  ],
-  nested_types=[],
-  enum_types=[
-  ],
-  serialized_options=None,
-  is_extendable=False,
-  syntax='proto2',
-  extension_ranges=[],
-  oneofs=[
-  ],
-  serialized_start=735,
-  serialized_end=770,
+    name="BeCfgDataApplyReq",
+    full_name="mgmtd.BeCfgDataApplyReq",
+    filename=None,
+    file=DESCRIPTOR,
+    containing_type=None,
+    create_key=_descriptor._internal_create_key,
+    fields=[
+        _descriptor.FieldDescriptor(
+            name="txn_id",
+            full_name="mgmtd.BeCfgDataApplyReq.txn_id",
+            index=0,
+            number=1,
+            type=4,
+            cpp_type=4,
+            label=2,
+            has_default_value=False,
+            default_value=0,
+            message_type=None,
+            enum_type=None,
+            containing_type=None,
+            is_extension=False,
+            extension_scope=None,
+            serialized_options=None,
+            file=DESCRIPTOR,
+            create_key=_descriptor._internal_create_key,
+        ),
+    ],
+    extensions=[],
+    nested_types=[],
+    enum_types=[],
+    serialized_options=None,
+    is_extendable=False,
+    syntax="proto2",
+    extension_ranges=[],
+    oneofs=[],
+    serialized_start=735,
+    serialized_end=770,
 )
 
 
 _BECFGDATAAPPLYREPLY = _descriptor.Descriptor(
-  name='BeCfgDataApplyReply',
-  full_name='mgmtd.BeCfgDataApplyReply',
-  filename=None,
-  file=DESCRIPTOR,
-  containing_type=None,
-  create_key=_descriptor._internal_create_key,
-  fields=[
-    _descriptor.FieldDescriptor(
-      name='txn_id', full_name='mgmtd.BeCfgDataApplyReply.txn_id', index=0,
-      number=1, type=4, cpp_type=4, label=2,
-      has_default_value=False, default_value=0,
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
-    _descriptor.FieldDescriptor(
-      name='success', full_name='mgmtd.BeCfgDataApplyReply.success', index=1,
-      number=2, type=8, cpp_type=7, label=2,
-      has_default_value=False, default_value=False,
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
-    _descriptor.FieldDescriptor(
-      name='error_if_any', full_name='mgmtd.BeCfgDataApplyReply.error_if_any', index=2,
-      number=3, type=9, cpp_type=9, label=1,
-      has_default_value=False, default_value=b"".decode('utf-8'),
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
-  ],
-  extensions=[
-  ],
-  nested_types=[],
-  enum_types=[
-  ],
-  serialized_options=None,
-  is_extendable=False,
-  syntax='proto2',
-  extension_ranges=[],
-  oneofs=[
-  ],
-  serialized_start=772,
-  serialized_end=848,
+    name="BeCfgDataApplyReply",
+    full_name="mgmtd.BeCfgDataApplyReply",
+    filename=None,
+    file=DESCRIPTOR,
+    containing_type=None,
+    create_key=_descriptor._internal_create_key,
+    fields=[
+        _descriptor.FieldDescriptor(
+            name="txn_id",
+            full_name="mgmtd.BeCfgDataApplyReply.txn_id",
+            index=0,
+            number=1,
+            type=4,
+            cpp_type=4,
+            label=2,
+            has_default_value=False,
+            default_value=0,
+            message_type=None,
+            enum_type=None,
+            containing_type=None,
+            is_extension=False,
+            extension_scope=None,
+            serialized_options=None,
+            file=DESCRIPTOR,
+            create_key=_descriptor._internal_create_key,
+        ),
+        _descriptor.FieldDescriptor(
+            name="success",
+            full_name="mgmtd.BeCfgDataApplyReply.success",
+            index=1,
+            number=2,
+            type=8,
+            cpp_type=7,
+            label=2,
+            has_default_value=False,
+            default_value=False,
+            message_type=None,
+            enum_type=None,
+            containing_type=None,
+            is_extension=False,
+            extension_scope=None,
+            serialized_options=None,
+            file=DESCRIPTOR,
+            create_key=_descriptor._internal_create_key,
+        ),
+        _descriptor.FieldDescriptor(
+            name="error_if_any",
+            full_name="mgmtd.BeCfgDataApplyReply.error_if_any",
+            index=2,
+            number=3,
+            type=9,
+            cpp_type=9,
+            label=1,
+            has_default_value=False,
+            default_value=b"".decode("utf-8"),
+            message_type=None,
+            enum_type=None,
+            containing_type=None,
+            is_extension=False,
+            extension_scope=None,
+            serialized_options=None,
+            file=DESCRIPTOR,
+            create_key=_descriptor._internal_create_key,
+        ),
+    ],
+    extensions=[],
+    nested_types=[],
+    enum_types=[],
+    serialized_options=None,
+    is_extendable=False,
+    syntax="proto2",
+    extension_ranges=[],
+    oneofs=[],
+    serialized_start=772,
+    serialized_end=848,
 )
 
 
 _YANGDATAREPLY = _descriptor.Descriptor(
-  name='YangDataReply',
-  full_name='mgmtd.YangDataReply',
-  filename=None,
-  file=DESCRIPTOR,
-  containing_type=None,
-  create_key=_descriptor._internal_create_key,
-  fields=[
-    _descriptor.FieldDescriptor(
-      name='data', full_name='mgmtd.YangDataReply.data', index=0,
-      number=1, type=11, cpp_type=10, label=3,
-      has_default_value=False, default_value=[],
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
-    _descriptor.FieldDescriptor(
-      name='next_indx', full_name='mgmtd.YangDataReply.next_indx', index=1,
-      number=2, type=3, cpp_type=2, label=2,
-      has_default_value=False, default_value=0,
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
-  ],
-  extensions=[
-  ],
-  nested_types=[],
-  enum_types=[
-  ],
-  serialized_options=None,
-  is_extendable=False,
-  syntax='proto2',
-  extension_ranges=[],
-  oneofs=[
-  ],
-  serialized_start=850,
-  serialized_end=915,
+    name="YangDataReply",
+    full_name="mgmtd.YangDataReply",
+    filename=None,
+    file=DESCRIPTOR,
+    containing_type=None,
+    create_key=_descriptor._internal_create_key,
+    fields=[
+        _descriptor.FieldDescriptor(
+            name="data",
+            full_name="mgmtd.YangDataReply.data",
+            index=0,
+            number=1,
+            type=11,
+            cpp_type=10,
+            label=3,
+            has_default_value=False,
+            default_value=[],
+            message_type=None,
+            enum_type=None,
+            containing_type=None,
+            is_extension=False,
+            extension_scope=None,
+            serialized_options=None,
+            file=DESCRIPTOR,
+            create_key=_descriptor._internal_create_key,
+        ),
+        _descriptor.FieldDescriptor(
+            name="next_indx",
+            full_name="mgmtd.YangDataReply.next_indx",
+            index=1,
+            number=2,
+            type=3,
+            cpp_type=2,
+            label=2,
+            has_default_value=False,
+            default_value=0,
+            message_type=None,
+            enum_type=None,
+            containing_type=None,
+            is_extension=False,
+            extension_scope=None,
+            serialized_options=None,
+            file=DESCRIPTOR,
+            create_key=_descriptor._internal_create_key,
+        ),
+    ],
+    extensions=[],
+    nested_types=[],
+    enum_types=[],
+    serialized_options=None,
+    is_extendable=False,
+    syntax="proto2",
+    extension_ranges=[],
+    oneofs=[],
+    serialized_start=850,
+    serialized_end=915,
 )
 
 
 _BEMESSAGE = _descriptor.Descriptor(
-  name='BeMessage',
-  full_name='mgmtd.BeMessage',
-  filename=None,
-  file=DESCRIPTOR,
-  containing_type=None,
-  create_key=_descriptor._internal_create_key,
-  fields=[
-    _descriptor.FieldDescriptor(
-      name='subscr_req', full_name='mgmtd.BeMessage.subscr_req', index=0,
-      number=2, type=11, cpp_type=10, label=1,
-      has_default_value=False, default_value=None,
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
-    _descriptor.FieldDescriptor(
-      name='subscr_reply', full_name='mgmtd.BeMessage.subscr_reply', index=1,
-      number=3, type=11, cpp_type=10, label=1,
-      has_default_value=False, default_value=None,
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
-    _descriptor.FieldDescriptor(
-      name='txn_req', full_name='mgmtd.BeMessage.txn_req', index=2,
-      number=4, type=11, cpp_type=10, label=1,
-      has_default_value=False, default_value=None,
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
-    _descriptor.FieldDescriptor(
-      name='txn_reply', full_name='mgmtd.BeMessage.txn_reply', index=3,
-      number=5, type=11, cpp_type=10, label=1,
-      has_default_value=False, default_value=None,
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
-    _descriptor.FieldDescriptor(
-      name='cfg_data_req', full_name='mgmtd.BeMessage.cfg_data_req', index=4,
-      number=6, type=11, cpp_type=10, label=1,
-      has_default_value=False, default_value=None,
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
-    _descriptor.FieldDescriptor(
-      name='cfg_data_reply', full_name='mgmtd.BeMessage.cfg_data_reply', index=5,
-      number=7, type=11, cpp_type=10, label=1,
-      has_default_value=False, default_value=None,
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
-    _descriptor.FieldDescriptor(
-      name='cfg_apply_req', full_name='mgmtd.BeMessage.cfg_apply_req', index=6,
-      number=8, type=11, cpp_type=10, label=1,
-      has_default_value=False, default_value=None,
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
-    _descriptor.FieldDescriptor(
-      name='cfg_apply_reply', full_name='mgmtd.BeMessage.cfg_apply_reply', index=7,
-      number=9, type=11, cpp_type=10, label=1,
-      has_default_value=False, default_value=None,
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
-  ],
-  extensions=[
-  ],
-  nested_types=[],
-  enum_types=[
-  ],
-  serialized_options=None,
-  is_extendable=False,
-  syntax='proto2',
-  extension_ranges=[],
-  oneofs=[
-    _descriptor.OneofDescriptor(
-      name='message', full_name='mgmtd.BeMessage.message',
-      index=0, containing_type=None,
-      create_key=_descriptor._internal_create_key,
-    fields=[]),
-  ],
-  serialized_start=918,
-  serialized_end=1322,
+    name="BeMessage",
+    full_name="mgmtd.BeMessage",
+    filename=None,
+    file=DESCRIPTOR,
+    containing_type=None,
+    create_key=_descriptor._internal_create_key,
+    fields=[
+        _descriptor.FieldDescriptor(
+            name="subscr_req",
+            full_name="mgmtd.BeMessage.subscr_req",
+            index=0,
+            number=2,
+            type=11,
+            cpp_type=10,
+            label=1,
+            has_default_value=False,
+            default_value=None,
+            message_type=None,
+            enum_type=None,
+            containing_type=None,
+            is_extension=False,
+            extension_scope=None,
+            serialized_options=None,
+            file=DESCRIPTOR,
+            create_key=_descriptor._internal_create_key,
+        ),
+        _descriptor.FieldDescriptor(
+            name="subscr_reply",
+            full_name="mgmtd.BeMessage.subscr_reply",
+            index=1,
+            number=3,
+            type=11,
+            cpp_type=10,
+            label=1,
+            has_default_value=False,
+            default_value=None,
+            message_type=None,
+            enum_type=None,
+            containing_type=None,
+            is_extension=False,
+            extension_scope=None,
+            serialized_options=None,
+            file=DESCRIPTOR,
+            create_key=_descriptor._internal_create_key,
+        ),
+        _descriptor.FieldDescriptor(
+            name="txn_req",
+            full_name="mgmtd.BeMessage.txn_req",
+            index=2,
+            number=4,
+            type=11,
+            cpp_type=10,
+            label=1,
+            has_default_value=False,
+            default_value=None,
+            message_type=None,
+            enum_type=None,
+            containing_type=None,
+            is_extension=False,
+            extension_scope=None,
+            serialized_options=None,
+            file=DESCRIPTOR,
+            create_key=_descriptor._internal_create_key,
+        ),
+        _descriptor.FieldDescriptor(
+            name="txn_reply",
+            full_name="mgmtd.BeMessage.txn_reply",
+            index=3,
+            number=5,
+            type=11,
+            cpp_type=10,
+            label=1,
+            has_default_value=False,
+            default_value=None,
+            message_type=None,
+            enum_type=None,
+            containing_type=None,
+            is_extension=False,
+            extension_scope=None,
+            serialized_options=None,
+            file=DESCRIPTOR,
+            create_key=_descriptor._internal_create_key,
+        ),
+        _descriptor.FieldDescriptor(
+            name="cfg_data_req",
+            full_name="mgmtd.BeMessage.cfg_data_req",
+            index=4,
+            number=6,
+            type=11,
+            cpp_type=10,
+            label=1,
+            has_default_value=False,
+            default_value=None,
+            message_type=None,
+            enum_type=None,
+            containing_type=None,
+            is_extension=False,
+            extension_scope=None,
+            serialized_options=None,
+            file=DESCRIPTOR,
+            create_key=_descriptor._internal_create_key,
+        ),
+        _descriptor.FieldDescriptor(
+            name="cfg_data_reply",
+            full_name="mgmtd.BeMessage.cfg_data_reply",
+            index=5,
+            number=7,
+            type=11,
+            cpp_type=10,
+            label=1,
+            has_default_value=False,
+            default_value=None,
+            message_type=None,
+            enum_type=None,
+            containing_type=None,
+            is_extension=False,
+            extension_scope=None,
+            serialized_options=None,
+            file=DESCRIPTOR,
+            create_key=_descriptor._internal_create_key,
+        ),
+        _descriptor.FieldDescriptor(
+            name="cfg_apply_req",
+            full_name="mgmtd.BeMessage.cfg_apply_req",
+            index=6,
+            number=8,
+            type=11,
+            cpp_type=10,
+            label=1,
+            has_default_value=False,
+            default_value=None,
+            message_type=None,
+            enum_type=None,
+            containing_type=None,
+            is_extension=False,
+            extension_scope=None,
+            serialized_options=None,
+            file=DESCRIPTOR,
+            create_key=_descriptor._internal_create_key,
+        ),
+        _descriptor.FieldDescriptor(
+            name="cfg_apply_reply",
+            full_name="mgmtd.BeMessage.cfg_apply_reply",
+            index=7,
+            number=9,
+            type=11,
+            cpp_type=10,
+            label=1,
+            has_default_value=False,
+            default_value=None,
+            message_type=None,
+            enum_type=None,
+            containing_type=None,
+            is_extension=False,
+            extension_scope=None,
+            serialized_options=None,
+            file=DESCRIPTOR,
+            create_key=_descriptor._internal_create_key,
+        ),
+    ],
+    extensions=[],
+    nested_types=[],
+    enum_types=[],
+    serialized_options=None,
+    is_extendable=False,
+    syntax="proto2",
+    extension_ranges=[],
+    oneofs=[
+        _descriptor.OneofDescriptor(
+            name="message",
+            full_name="mgmtd.BeMessage.message",
+            index=0,
+            containing_type=None,
+            create_key=_descriptor._internal_create_key,
+            fields=[],
+        ),
+    ],
+    serialized_start=918,
+    serialized_end=1322,
 )
 
 
 _FEREGISTERREQ = _descriptor.Descriptor(
-  name='FeRegisterReq',
-  full_name='mgmtd.FeRegisterReq',
-  filename=None,
-  file=DESCRIPTOR,
-  containing_type=None,
-  create_key=_descriptor._internal_create_key,
-  fields=[
-    _descriptor.FieldDescriptor(
-      name='client_name', full_name='mgmtd.FeRegisterReq.client_name', index=0,
-      number=1, type=9, cpp_type=9, label=2,
-      has_default_value=False, default_value=b"".decode('utf-8'),
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
-  ],
-  extensions=[
-  ],
-  nested_types=[],
-  enum_types=[
-  ],
-  serialized_options=None,
-  is_extendable=False,
-  syntax='proto2',
-  extension_ranges=[],
-  oneofs=[
-  ],
-  serialized_start=1324,
-  serialized_end=1360,
+    name="FeRegisterReq",
+    full_name="mgmtd.FeRegisterReq",
+    filename=None,
+    file=DESCRIPTOR,
+    containing_type=None,
+    create_key=_descriptor._internal_create_key,
+    fields=[
+        _descriptor.FieldDescriptor(
+            name="client_name",
+            full_name="mgmtd.FeRegisterReq.client_name",
+            index=0,
+            number=1,
+            type=9,
+            cpp_type=9,
+            label=2,
+            has_default_value=False,
+            default_value=b"".decode("utf-8"),
+            message_type=None,
+            enum_type=None,
+            containing_type=None,
+            is_extension=False,
+            extension_scope=None,
+            serialized_options=None,
+            file=DESCRIPTOR,
+            create_key=_descriptor._internal_create_key,
+        ),
+    ],
+    extensions=[],
+    nested_types=[],
+    enum_types=[],
+    serialized_options=None,
+    is_extendable=False,
+    syntax="proto2",
+    extension_ranges=[],
+    oneofs=[],
+    serialized_start=1324,
+    serialized_end=1360,
 )
 
 
 _FESESSIONREQ = _descriptor.Descriptor(
-  name='FeSessionReq',
-  full_name='mgmtd.FeSessionReq',
-  filename=None,
-  file=DESCRIPTOR,
-  containing_type=None,
-  create_key=_descriptor._internal_create_key,
-  fields=[
-    _descriptor.FieldDescriptor(
-      name='create', full_name='mgmtd.FeSessionReq.create', index=0,
-      number=1, type=8, cpp_type=7, label=2,
-      has_default_value=False, default_value=False,
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
-    _descriptor.FieldDescriptor(
-      name='client_conn_id', full_name='mgmtd.FeSessionReq.client_conn_id', index=1,
-      number=2, type=4, cpp_type=4, label=1,
-      has_default_value=False, default_value=0,
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
-    _descriptor.FieldDescriptor(
-      name='session_id', full_name='mgmtd.FeSessionReq.session_id', index=2,
-      number=3, type=4, cpp_type=4, label=1,
-      has_default_value=False, default_value=0,
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
-  ],
-  extensions=[
-  ],
-  nested_types=[],
-  enum_types=[
-  ],
-  serialized_options=None,
-  is_extendable=False,
-  syntax='proto2',
-  extension_ranges=[],
-  oneofs=[
-    _descriptor.OneofDescriptor(
-      name='id', full_name='mgmtd.FeSessionReq.id',
-      index=0, containing_type=None,
-      create_key=_descriptor._internal_create_key,
-    fields=[]),
-  ],
-  serialized_start=1362,
-  serialized_end=1446,
+    name="FeSessionReq",
+    full_name="mgmtd.FeSessionReq",
+    filename=None,
+    file=DESCRIPTOR,
+    containing_type=None,
+    create_key=_descriptor._internal_create_key,
+    fields=[
+        _descriptor.FieldDescriptor(
+            name="create",
+            full_name="mgmtd.FeSessionReq.create",
+            index=0,
+            number=1,
+            type=8,
+            cpp_type=7,
+            label=2,
+            has_default_value=False,
+            default_value=False,
+            message_type=None,
+            enum_type=None,
+            containing_type=None,
+            is_extension=False,
+            extension_scope=None,
+            serialized_options=None,
+            file=DESCRIPTOR,
+            create_key=_descriptor._internal_create_key,
+        ),
+        _descriptor.FieldDescriptor(
+            name="client_conn_id",
+            full_name="mgmtd.FeSessionReq.client_conn_id",
+            index=1,
+            number=2,
+            type=4,
+            cpp_type=4,
+            label=1,
+            has_default_value=False,
+            default_value=0,
+            message_type=None,
+            enum_type=None,
+            containing_type=None,
+            is_extension=False,
+            extension_scope=None,
+            serialized_options=None,
+            file=DESCRIPTOR,
+            create_key=_descriptor._internal_create_key,
+        ),
+        _descriptor.FieldDescriptor(
+            name="session_id",
+            full_name="mgmtd.FeSessionReq.session_id",
+            index=2,
+            number=3,
+            type=4,
+            cpp_type=4,
+            label=1,
+            has_default_value=False,
+            default_value=0,
+            message_type=None,
+            enum_type=None,
+            containing_type=None,
+            is_extension=False,
+            extension_scope=None,
+            serialized_options=None,
+            file=DESCRIPTOR,
+            create_key=_descriptor._internal_create_key,
+        ),
+    ],
+    extensions=[],
+    nested_types=[],
+    enum_types=[],
+    serialized_options=None,
+    is_extendable=False,
+    syntax="proto2",
+    extension_ranges=[],
+    oneofs=[
+        _descriptor.OneofDescriptor(
+            name="id",
+            full_name="mgmtd.FeSessionReq.id",
+            index=0,
+            containing_type=None,
+            create_key=_descriptor._internal_create_key,
+            fields=[],
+        ),
+    ],
+    serialized_start=1362,
+    serialized_end=1446,
 )
 
 
 _FESESSIONREPLY = _descriptor.Descriptor(
-  name='FeSessionReply',
-  full_name='mgmtd.FeSessionReply',
-  filename=None,
-  file=DESCRIPTOR,
-  containing_type=None,
-  create_key=_descriptor._internal_create_key,
-  fields=[
-    _descriptor.FieldDescriptor(
-      name='create', full_name='mgmtd.FeSessionReply.create', index=0,
-      number=1, type=8, cpp_type=7, label=2,
-      has_default_value=False, default_value=False,
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
-    _descriptor.FieldDescriptor(
-      name='success', full_name='mgmtd.FeSessionReply.success', index=1,
-      number=2, type=8, cpp_type=7, label=2,
-      has_default_value=False, default_value=False,
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
-    _descriptor.FieldDescriptor(
-      name='client_conn_id', full_name='mgmtd.FeSessionReply.client_conn_id', index=2,
-      number=3, type=4, cpp_type=4, label=1,
-      has_default_value=False, default_value=0,
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
-    _descriptor.FieldDescriptor(
-      name='session_id', full_name='mgmtd.FeSessionReply.session_id', index=3,
-      number=4, type=4, cpp_type=4, label=2,
-      has_default_value=False, default_value=0,
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
-  ],
-  extensions=[
-  ],
-  nested_types=[],
-  enum_types=[
-  ],
-  serialized_options=None,
-  is_extendable=False,
-  syntax='proto2',
-  extension_ranges=[],
-  oneofs=[
-  ],
-  serialized_start=1448,
-  serialized_end=1541,
+    name="FeSessionReply",
+    full_name="mgmtd.FeSessionReply",
+    filename=None,
+    file=DESCRIPTOR,
+    containing_type=None,
+    create_key=_descriptor._internal_create_key,
+    fields=[
+        _descriptor.FieldDescriptor(
+            name="create",
+            full_name="mgmtd.FeSessionReply.create",
+            index=0,
+            number=1,
+            type=8,
+            cpp_type=7,
+            label=2,
+            has_default_value=False,
+            default_value=False,
+            message_type=None,
+            enum_type=None,
+            containing_type=None,
+            is_extension=False,
+            extension_scope=None,
+            serialized_options=None,
+            file=DESCRIPTOR,
+            create_key=_descriptor._internal_create_key,
+        ),
+        _descriptor.FieldDescriptor(
+            name="success",
+            full_name="mgmtd.FeSessionReply.success",
+            index=1,
+            number=2,
+            type=8,
+            cpp_type=7,
+            label=2,
+            has_default_value=False,
+            default_value=False,
+            message_type=None,
+            enum_type=None,
+            containing_type=None,
+            is_extension=False,
+            extension_scope=None,
+            serialized_options=None,
+            file=DESCRIPTOR,
+            create_key=_descriptor._internal_create_key,
+        ),
+        _descriptor.FieldDescriptor(
+            name="client_conn_id",
+            full_name="mgmtd.FeSessionReply.client_conn_id",
+            index=2,
+            number=3,
+            type=4,
+            cpp_type=4,
+            label=1,
+            has_default_value=False,
+            default_value=0,
+            message_type=None,
+            enum_type=None,
+            containing_type=None,
+            is_extension=False,
+            extension_scope=None,
+            serialized_options=None,
+            file=DESCRIPTOR,
+            create_key=_descriptor._internal_create_key,
+        ),
+        _descriptor.FieldDescriptor(
+            name="session_id",
+            full_name="mgmtd.FeSessionReply.session_id",
+            index=3,
+            number=4,
+            type=4,
+            cpp_type=4,
+            label=2,
+            has_default_value=False,
+            default_value=0,
+            message_type=None,
+            enum_type=None,
+            containing_type=None,
+            is_extension=False,
+            extension_scope=None,
+            serialized_options=None,
+            file=DESCRIPTOR,
+            create_key=_descriptor._internal_create_key,
+        ),
+    ],
+    extensions=[],
+    nested_types=[],
+    enum_types=[],
+    serialized_options=None,
+    is_extendable=False,
+    syntax="proto2",
+    extension_ranges=[],
+    oneofs=[],
+    serialized_start=1448,
+    serialized_end=1541,
 )
 
 
 _FELOCKDSREQ = _descriptor.Descriptor(
-  name='FeLockDsReq',
-  full_name='mgmtd.FeLockDsReq',
-  filename=None,
-  file=DESCRIPTOR,
-  containing_type=None,
-  create_key=_descriptor._internal_create_key,
-  fields=[
-    _descriptor.FieldDescriptor(
-      name='session_id', full_name='mgmtd.FeLockDsReq.session_id', index=0,
-      number=1, type=4, cpp_type=4, label=2,
-      has_default_value=False, default_value=0,
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
-    _descriptor.FieldDescriptor(
-      name='req_id', full_name='mgmtd.FeLockDsReq.req_id', index=1,
-      number=2, type=4, cpp_type=4, label=2,
-      has_default_value=False, default_value=0,
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
-    _descriptor.FieldDescriptor(
-      name='ds_id', full_name='mgmtd.FeLockDsReq.ds_id', index=2,
-      number=3, type=14, cpp_type=8, label=2,
-      has_default_value=False, default_value=0,
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
-    _descriptor.FieldDescriptor(
-      name='lock', full_name='mgmtd.FeLockDsReq.lock', index=3,
-      number=4, type=8, cpp_type=7, label=2,
-      has_default_value=False, default_value=False,
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
-  ],
-  extensions=[
-  ],
-  nested_types=[],
-  enum_types=[
-  ],
-  serialized_options=None,
-  is_extendable=False,
-  syntax='proto2',
-  extension_ranges=[],
-  oneofs=[
-  ],
-  serialized_start=1543,
-  serialized_end=1641,
+    name="FeLockDsReq",
+    full_name="mgmtd.FeLockDsReq",
+    filename=None,
+    file=DESCRIPTOR,
+    containing_type=None,
+    create_key=_descriptor._internal_create_key,
+    fields=[
+        _descriptor.FieldDescriptor(
+            name="session_id",
+            full_name="mgmtd.FeLockDsReq.session_id",
+            index=0,
+            number=1,
+            type=4,
+            cpp_type=4,
+            label=2,
+            has_default_value=False,
+            default_value=0,
+            message_type=None,
+            enum_type=None,
+            containing_type=None,
+            is_extension=False,
+            extension_scope=None,
+            serialized_options=None,
+            file=DESCRIPTOR,
+            create_key=_descriptor._internal_create_key,
+        ),
+        _descriptor.FieldDescriptor(
+            name="req_id",
+            full_name="mgmtd.FeLockDsReq.req_id",
+            index=1,
+            number=2,
+            type=4,
+            cpp_type=4,
+            label=2,
+            has_default_value=False,
+            default_value=0,
+            message_type=None,
+            enum_type=None,
+            containing_type=None,
+            is_extension=False,
+            extension_scope=None,
+            serialized_options=None,
+            file=DESCRIPTOR,
+            create_key=_descriptor._internal_create_key,
+        ),
+        _descriptor.FieldDescriptor(
+            name="ds_id",
+            full_name="mgmtd.FeLockDsReq.ds_id",
+            index=2,
+            number=3,
+            type=14,
+            cpp_type=8,
+            label=2,
+            has_default_value=False,
+            default_value=0,
+            message_type=None,
+            enum_type=None,
+            containing_type=None,
+            is_extension=False,
+            extension_scope=None,
+            serialized_options=None,
+            file=DESCRIPTOR,
+            create_key=_descriptor._internal_create_key,
+        ),
+        _descriptor.FieldDescriptor(
+            name="lock",
+            full_name="mgmtd.FeLockDsReq.lock",
+            index=3,
+            number=4,
+            type=8,
+            cpp_type=7,
+            label=2,
+            has_default_value=False,
+            default_value=False,
+            message_type=None,
+            enum_type=None,
+            containing_type=None,
+            is_extension=False,
+            extension_scope=None,
+            serialized_options=None,
+            file=DESCRIPTOR,
+            create_key=_descriptor._internal_create_key,
+        ),
+    ],
+    extensions=[],
+    nested_types=[],
+    enum_types=[],
+    serialized_options=None,
+    is_extendable=False,
+    syntax="proto2",
+    extension_ranges=[],
+    oneofs=[],
+    serialized_start=1543,
+    serialized_end=1641,
 )
 
 
 _FELOCKDSREPLY = _descriptor.Descriptor(
-  name='FeLockDsReply',
-  full_name='mgmtd.FeLockDsReply',
-  filename=None,
-  file=DESCRIPTOR,
-  containing_type=None,
-  create_key=_descriptor._internal_create_key,
-  fields=[
-    _descriptor.FieldDescriptor(
-      name='session_id', full_name='mgmtd.FeLockDsReply.session_id', index=0,
-      number=1, type=4, cpp_type=4, label=2,
-      has_default_value=False, default_value=0,
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
-    _descriptor.FieldDescriptor(
-      name='req_id', full_name='mgmtd.FeLockDsReply.req_id', index=1,
-      number=2, type=4, cpp_type=4, label=2,
-      has_default_value=False, default_value=0,
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
-    _descriptor.FieldDescriptor(
-      name='ds_id', full_name='mgmtd.FeLockDsReply.ds_id', index=2,
-      number=3, type=14, cpp_type=8, label=2,
-      has_default_value=False, default_value=0,
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
-    _descriptor.FieldDescriptor(
-      name='lock', full_name='mgmtd.FeLockDsReply.lock', index=3,
-      number=4, type=8, cpp_type=7, label=2,
-      has_default_value=False, default_value=False,
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
-    _descriptor.FieldDescriptor(
-      name='success', full_name='mgmtd.FeLockDsReply.success', index=4,
-      number=5, type=8, cpp_type=7, label=2,
-      has_default_value=False, default_value=False,
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
-    _descriptor.FieldDescriptor(
-      name='error_if_any', full_name='mgmtd.FeLockDsReply.error_if_any', index=5,
-      number=6, type=9, cpp_type=9, label=1,
-      has_default_value=False, default_value=b"".decode('utf-8'),
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
-  ],
-  extensions=[
-  ],
-  nested_types=[],
-  enum_types=[
-  ],
-  serialized_options=None,
-  is_extendable=False,
-  syntax='proto2',
-  extension_ranges=[],
-  oneofs=[
-  ],
-  serialized_start=1644,
-  serialized_end=1783,
+    name="FeLockDsReply",
+    full_name="mgmtd.FeLockDsReply",
+    filename=None,
+    file=DESCRIPTOR,
+    containing_type=None,
+    create_key=_descriptor._internal_create_key,
+    fields=[
+        _descriptor.FieldDescriptor(
+            name="session_id",
+            full_name="mgmtd.FeLockDsReply.session_id",
+            index=0,
+            number=1,
+            type=4,
+            cpp_type=4,
+            label=2,
+            has_default_value=False,
+            default_value=0,
+            message_type=None,
+            enum_type=None,
+            containing_type=None,
+            is_extension=False,
+            extension_scope=None,
+            serialized_options=None,
+            file=DESCRIPTOR,
+            create_key=_descriptor._internal_create_key,
+        ),
+        _descriptor.FieldDescriptor(
+            name="req_id",
+            full_name="mgmtd.FeLockDsReply.req_id",
+            index=1,
+            number=2,
+            type=4,
+            cpp_type=4,
+            label=2,
+            has_default_value=False,
+            default_value=0,
+            message_type=None,
+            enum_type=None,
+            containing_type=None,
+            is_extension=False,
+            extension_scope=None,
+            serialized_options=None,
+            file=DESCRIPTOR,
+            create_key=_descriptor._internal_create_key,
+        ),
+        _descriptor.FieldDescriptor(
+            name="ds_id",
+            full_name="mgmtd.FeLockDsReply.ds_id",
+            index=2,
+            number=3,
+            type=14,
+            cpp_type=8,
+            label=2,
+            has_default_value=False,
+            default_value=0,
+            message_type=None,
+            enum_type=None,
+            containing_type=None,
+            is_extension=False,
+            extension_scope=None,
+            serialized_options=None,
+            file=DESCRIPTOR,
+            create_key=_descriptor._internal_create_key,
+        ),
+        _descriptor.FieldDescriptor(
+            name="lock",
+            full_name="mgmtd.FeLockDsReply.lock",
+            index=3,
+            number=4,
+            type=8,
+            cpp_type=7,
+            label=2,
+            has_default_value=False,
+            default_value=False,
+            message_type=None,
+            enum_type=None,
+            containing_type=None,
+            is_extension=False,
+            extension_scope=None,
+            serialized_options=None,
+            file=DESCRIPTOR,
+            create_key=_descriptor._internal_create_key,
+        ),
+        _descriptor.FieldDescriptor(
+            name="success",
+            full_name="mgmtd.FeLockDsReply.success",
+            index=4,
+            number=5,
+            type=8,
+            cpp_type=7,
+            label=2,
+            has_default_value=False,
+            default_value=False,
+            message_type=None,
+            enum_type=None,
+            containing_type=None,
+            is_extension=False,
+            extension_scope=None,
+            serialized_options=None,
+            file=DESCRIPTOR,
+            create_key=_descriptor._internal_create_key,
+        ),
+        _descriptor.FieldDescriptor(
+            name="error_if_any",
+            full_name="mgmtd.FeLockDsReply.error_if_any",
+            index=5,
+            number=6,
+            type=9,
+            cpp_type=9,
+            label=1,
+            has_default_value=False,
+            default_value=b"".decode("utf-8"),
+            message_type=None,
+            enum_type=None,
+            containing_type=None,
+            is_extension=False,
+            extension_scope=None,
+            serialized_options=None,
+            file=DESCRIPTOR,
+            create_key=_descriptor._internal_create_key,
+        ),
+    ],
+    extensions=[],
+    nested_types=[],
+    enum_types=[],
+    serialized_options=None,
+    is_extendable=False,
+    syntax="proto2",
+    extension_ranges=[],
+    oneofs=[],
+    serialized_start=1644,
+    serialized_end=1783,
 )
 
 
 _FESETCONFIGREQ = _descriptor.Descriptor(
-  name='FeSetConfigReq',
-  full_name='mgmtd.FeSetConfigReq',
-  filename=None,
-  file=DESCRIPTOR,
-  containing_type=None,
-  create_key=_descriptor._internal_create_key,
-  fields=[
-    _descriptor.FieldDescriptor(
-      name='session_id', full_name='mgmtd.FeSetConfigReq.session_id', index=0,
-      number=1, type=4, cpp_type=4, label=2,
-      has_default_value=False, default_value=0,
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
-    _descriptor.FieldDescriptor(
-      name='ds_id', full_name='mgmtd.FeSetConfigReq.ds_id', index=1,
-      number=2, type=14, cpp_type=8, label=2,
-      has_default_value=False, default_value=0,
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
-    _descriptor.FieldDescriptor(
-      name='req_id', full_name='mgmtd.FeSetConfigReq.req_id', index=2,
-      number=3, type=4, cpp_type=4, label=2,
-      has_default_value=False, default_value=0,
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
-    _descriptor.FieldDescriptor(
-      name='data', full_name='mgmtd.FeSetConfigReq.data', index=3,
-      number=4, type=11, cpp_type=10, label=3,
-      has_default_value=False, default_value=[],
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
-    _descriptor.FieldDescriptor(
-      name='implicit_commit', full_name='mgmtd.FeSetConfigReq.implicit_commit', index=4,
-      number=5, type=8, cpp_type=7, label=2,
-      has_default_value=False, default_value=False,
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
-    _descriptor.FieldDescriptor(
-      name='commit_ds_id', full_name='mgmtd.FeSetConfigReq.commit_ds_id', index=5,
-      number=6, type=14, cpp_type=8, label=2,
-      has_default_value=False, default_value=0,
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
-  ],
-  extensions=[
-  ],
-  nested_types=[],
-  enum_types=[
-  ],
-  serialized_options=None,
-  is_extendable=False,
-  syntax='proto2',
-  extension_ranges=[],
-  oneofs=[
-  ],
-  serialized_start=1786,
-  serialized_end=1977,
+    name="FeSetConfigReq",
+    full_name="mgmtd.FeSetConfigReq",
+    filename=None,
+    file=DESCRIPTOR,
+    containing_type=None,
+    create_key=_descriptor._internal_create_key,
+    fields=[
+        _descriptor.FieldDescriptor(
+            name="session_id",
+            full_name="mgmtd.FeSetConfigReq.session_id",
+            index=0,
+            number=1,
+            type=4,
+            cpp_type=4,
+            label=2,
+            has_default_value=False,
+            default_value=0,
+            message_type=None,
+            enum_type=None,
+            containing_type=None,
+            is_extension=False,
+            extension_scope=None,
+            serialized_options=None,
+            file=DESCRIPTOR,
+            create_key=_descriptor._internal_create_key,
+        ),
+        _descriptor.FieldDescriptor(
+            name="ds_id",
+            full_name="mgmtd.FeSetConfigReq.ds_id",
+            index=1,
+            number=2,
+            type=14,
+            cpp_type=8,
+            label=2,
+            has_default_value=False,
+            default_value=0,
+            message_type=None,
+            enum_type=None,
+            containing_type=None,
+            is_extension=False,
+            extension_scope=None,
+            serialized_options=None,
+            file=DESCRIPTOR,
+            create_key=_descriptor._internal_create_key,
+        ),
+        _descriptor.FieldDescriptor(
+            name="req_id",
+            full_name="mgmtd.FeSetConfigReq.req_id",
+            index=2,
+            number=3,
+            type=4,
+            cpp_type=4,
+            label=2,
+            has_default_value=False,
+            default_value=0,
+            message_type=None,
+            enum_type=None,
+            containing_type=None,
+            is_extension=False,
+            extension_scope=None,
+            serialized_options=None,
+            file=DESCRIPTOR,
+            create_key=_descriptor._internal_create_key,
+        ),
+        _descriptor.FieldDescriptor(
+            name="data",
+            full_name="mgmtd.FeSetConfigReq.data",
+            index=3,
+            number=4,
+            type=11,
+            cpp_type=10,
+            label=3,
+            has_default_value=False,
+            default_value=[],
+            message_type=None,
+            enum_type=None,
+            containing_type=None,
+            is_extension=False,
+            extension_scope=None,
+            serialized_options=None,
+            file=DESCRIPTOR,
+            create_key=_descriptor._internal_create_key,
+        ),
+        _descriptor.FieldDescriptor(
+            name="implicit_commit",
+            full_name="mgmtd.FeSetConfigReq.implicit_commit",
+            index=4,
+            number=5,
+            type=8,
+            cpp_type=7,
+            label=2,
+            has_default_value=False,
+            default_value=False,
+            message_type=None,
+            enum_type=None,
+            containing_type=None,
+            is_extension=False,
+            extension_scope=None,
+            serialized_options=None,
+            file=DESCRIPTOR,
+            create_key=_descriptor._internal_create_key,
+        ),
+        _descriptor.FieldDescriptor(
+            name="commit_ds_id",
+            full_name="mgmtd.FeSetConfigReq.commit_ds_id",
+            index=5,
+            number=6,
+            type=14,
+            cpp_type=8,
+            label=2,
+            has_default_value=False,
+            default_value=0,
+            message_type=None,
+            enum_type=None,
+            containing_type=None,
+            is_extension=False,
+            extension_scope=None,
+            serialized_options=None,
+            file=DESCRIPTOR,
+            create_key=_descriptor._internal_create_key,
+        ),
+    ],
+    extensions=[],
+    nested_types=[],
+    enum_types=[],
+    serialized_options=None,
+    is_extendable=False,
+    syntax="proto2",
+    extension_ranges=[],
+    oneofs=[],
+    serialized_start=1786,
+    serialized_end=1977,
 )
 
 
 _FESETCONFIGREPLY = _descriptor.Descriptor(
-  name='FeSetConfigReply',
-  full_name='mgmtd.FeSetConfigReply',
-  filename=None,
-  file=DESCRIPTOR,
-  containing_type=None,
-  create_key=_descriptor._internal_create_key,
-  fields=[
-    _descriptor.FieldDescriptor(
-      name='session_id', full_name='mgmtd.FeSetConfigReply.session_id', index=0,
-      number=1, type=4, cpp_type=4, label=2,
-      has_default_value=False, default_value=0,
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
-    _descriptor.FieldDescriptor(
-      name='ds_id', full_name='mgmtd.FeSetConfigReply.ds_id', index=1,
-      number=2, type=14, cpp_type=8, label=2,
-      has_default_value=False, default_value=0,
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
-    _descriptor.FieldDescriptor(
-      name='req_id', full_name='mgmtd.FeSetConfigReply.req_id', index=2,
-      number=3, type=4, cpp_type=4, label=2,
-      has_default_value=False, default_value=0,
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
-    _descriptor.FieldDescriptor(
-      name='success', full_name='mgmtd.FeSetConfigReply.success', index=3,
-      number=4, type=8, cpp_type=7, label=2,
-      has_default_value=False, default_value=False,
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
-    _descriptor.FieldDescriptor(
-      name='implicit_commit', full_name='mgmtd.FeSetConfigReply.implicit_commit', index=4,
-      number=5, type=8, cpp_type=7, label=2,
-      has_default_value=False, default_value=False,
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
-    _descriptor.FieldDescriptor(
-      name='error_if_any', full_name='mgmtd.FeSetConfigReply.error_if_any', index=5,
-      number=6, type=9, cpp_type=9, label=1,
-      has_default_value=False, default_value=b"".decode('utf-8'),
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
-  ],
-  extensions=[
-  ],
-  nested_types=[],
-  enum_types=[
-  ],
-  serialized_options=None,
-  is_extendable=False,
-  syntax='proto2',
-  extension_ranges=[],
-  oneofs=[
-  ],
-  serialized_start=1980,
-  serialized_end=2133,
+    name="FeSetConfigReply",
+    full_name="mgmtd.FeSetConfigReply",
+    filename=None,
+    file=DESCRIPTOR,
+    containing_type=None,
+    create_key=_descriptor._internal_create_key,
+    fields=[
+        _descriptor.FieldDescriptor(
+            name="session_id",
+            full_name="mgmtd.FeSetConfigReply.session_id",
+            index=0,
+            number=1,
+            type=4,
+            cpp_type=4,
+            label=2,
+            has_default_value=False,
+            default_value=0,
+            message_type=None,
+            enum_type=None,
+            containing_type=None,
+            is_extension=False,
+            extension_scope=None,
+            serialized_options=None,
+            file=DESCRIPTOR,
+            create_key=_descriptor._internal_create_key,
+        ),
+        _descriptor.FieldDescriptor(
+            name="ds_id",
+            full_name="mgmtd.FeSetConfigReply.ds_id",
+            index=1,
+            number=2,
+            type=14,
+            cpp_type=8,
+            label=2,
+            has_default_value=False,
+            default_value=0,
+            message_type=None,
+            enum_type=None,
+            containing_type=None,
+            is_extension=False,
+            extension_scope=None,
+            serialized_options=None,
+            file=DESCRIPTOR,
+            create_key=_descriptor._internal_create_key,
+        ),
+        _descriptor.FieldDescriptor(
+            name="req_id",
+            full_name="mgmtd.FeSetConfigReply.req_id",
+            index=2,
+            number=3,
+            type=4,
+            cpp_type=4,
+            label=2,
+            has_default_value=False,
+            default_value=0,
+            message_type=None,
+            enum_type=None,
+            containing_type=None,
+            is_extension=False,
+            extension_scope=None,
+            serialized_options=None,
+            file=DESCRIPTOR,
+            create_key=_descriptor._internal_create_key,
+        ),
+        _descriptor.FieldDescriptor(
+            name="success",
+            full_name="mgmtd.FeSetConfigReply.success",
+            index=3,
+            number=4,
+            type=8,
+            cpp_type=7,
+            label=2,
+            has_default_value=False,
+            default_value=False,
+            message_type=None,
+            enum_type=None,
+            containing_type=None,
+            is_extension=False,
+            extension_scope=None,
+            serialized_options=None,
+            file=DESCRIPTOR,
+            create_key=_descriptor._internal_create_key,
+        ),
+        _descriptor.FieldDescriptor(
+            name="implicit_commit",
+            full_name="mgmtd.FeSetConfigReply.implicit_commit",
+            index=4,
+            number=5,
+            type=8,
+            cpp_type=7,
+            label=2,
+            has_default_value=False,
+            default_value=False,
+            message_type=None,
+            enum_type=None,
+            containing_type=None,
+            is_extension=False,
+            extension_scope=None,
+            serialized_options=None,
+            file=DESCRIPTOR,
+            create_key=_descriptor._internal_create_key,
+        ),
+        _descriptor.FieldDescriptor(
+            name="error_if_any",
+            full_name="mgmtd.FeSetConfigReply.error_if_any",
+            index=5,
+            number=6,
+            type=9,
+            cpp_type=9,
+            label=1,
+            has_default_value=False,
+            default_value=b"".decode("utf-8"),
+            message_type=None,
+            enum_type=None,
+            containing_type=None,
+            is_extension=False,
+            extension_scope=None,
+            serialized_options=None,
+            file=DESCRIPTOR,
+            create_key=_descriptor._internal_create_key,
+        ),
+    ],
+    extensions=[],
+    nested_types=[],
+    enum_types=[],
+    serialized_options=None,
+    is_extendable=False,
+    syntax="proto2",
+    extension_ranges=[],
+    oneofs=[],
+    serialized_start=1980,
+    serialized_end=2133,
 )
 
 
 _FECOMMITCONFIGREQ = _descriptor.Descriptor(
-  name='FeCommitConfigReq',
-  full_name='mgmtd.FeCommitConfigReq',
-  filename=None,
-  file=DESCRIPTOR,
-  containing_type=None,
-  create_key=_descriptor._internal_create_key,
-  fields=[
-    _descriptor.FieldDescriptor(
-      name='session_id', full_name='mgmtd.FeCommitConfigReq.session_id', index=0,
-      number=1, type=4, cpp_type=4, label=2,
-      has_default_value=False, default_value=0,
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
-    _descriptor.FieldDescriptor(
-      name='src_ds_id', full_name='mgmtd.FeCommitConfigReq.src_ds_id', index=1,
-      number=2, type=14, cpp_type=8, label=2,
-      has_default_value=False, default_value=0,
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
-    _descriptor.FieldDescriptor(
-      name='dst_ds_id', full_name='mgmtd.FeCommitConfigReq.dst_ds_id', index=2,
-      number=3, type=14, cpp_type=8, label=2,
-      has_default_value=False, default_value=0,
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
-    _descriptor.FieldDescriptor(
-      name='req_id', full_name='mgmtd.FeCommitConfigReq.req_id', index=3,
-      number=4, type=4, cpp_type=4, label=2,
-      has_default_value=False, default_value=0,
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
-    _descriptor.FieldDescriptor(
-      name='validate_only', full_name='mgmtd.FeCommitConfigReq.validate_only', index=4,
-      number=5, type=8, cpp_type=7, label=2,
-      has_default_value=False, default_value=False,
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
-    _descriptor.FieldDescriptor(
-      name='abort', full_name='mgmtd.FeCommitConfigReq.abort', index=5,
-      number=6, type=8, cpp_type=7, label=2,
-      has_default_value=False, default_value=False,
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
-  ],
-  extensions=[
-  ],
-  nested_types=[],
-  enum_types=[
-  ],
-  serialized_options=None,
-  is_extendable=False,
-  syntax='proto2',
-  extension_ranges=[],
-  oneofs=[
-  ],
-  serialized_start=2136,
-  serialized_end=2307,
+    name="FeCommitConfigReq",
+    full_name="mgmtd.FeCommitConfigReq",
+    filename=None,
+    file=DESCRIPTOR,
+    containing_type=None,
+    create_key=_descriptor._internal_create_key,
+    fields=[
+        _descriptor.FieldDescriptor(
+            name="session_id",
+            full_name="mgmtd.FeCommitConfigReq.session_id",
+            index=0,
+            number=1,
+            type=4,
+            cpp_type=4,
+            label=2,
+            has_default_value=False,
+            default_value=0,
+            message_type=None,
+            enum_type=None,
+            containing_type=None,
+            is_extension=False,
+            extension_scope=None,
+            serialized_options=None,
+            file=DESCRIPTOR,
+            create_key=_descriptor._internal_create_key,
+        ),
+        _descriptor.FieldDescriptor(
+            name="src_ds_id",
+            full_name="mgmtd.FeCommitConfigReq.src_ds_id",
+            index=1,
+            number=2,
+            type=14,
+            cpp_type=8,
+            label=2,
+            has_default_value=False,
+            default_value=0,
+            message_type=None,
+            enum_type=None,
+            containing_type=None,
+            is_extension=False,
+            extension_scope=None,
+            serialized_options=None,
+            file=DESCRIPTOR,
+            create_key=_descriptor._internal_create_key,
+        ),
+        _descriptor.FieldDescriptor(
+            name="dst_ds_id",
+            full_name="mgmtd.FeCommitConfigReq.dst_ds_id",
+            index=2,
+            number=3,
+            type=14,
+            cpp_type=8,
+            label=2,
+            has_default_value=False,
+            default_value=0,
+            message_type=None,
+            enum_type=None,
+            containing_type=None,
+            is_extension=False,
+            extension_scope=None,
+            serialized_options=None,
+            file=DESCRIPTOR,
+            create_key=_descriptor._internal_create_key,
+        ),
+        _descriptor.FieldDescriptor(
+            name="req_id",
+            full_name="mgmtd.FeCommitConfigReq.req_id",
+            index=3,
+            number=4,
+            type=4,
+            cpp_type=4,
+            label=2,
+            has_default_value=False,
+            default_value=0,
+            message_type=None,
+            enum_type=None,
+            containing_type=None,
+            is_extension=False,
+            extension_scope=None,
+            serialized_options=None,
+            file=DESCRIPTOR,
+            create_key=_descriptor._internal_create_key,
+        ),
+        _descriptor.FieldDescriptor(
+            name="validate_only",
+            full_name="mgmtd.FeCommitConfigReq.validate_only",
+            index=4,
+            number=5,
+            type=8,
+            cpp_type=7,
+            label=2,
+            has_default_value=False,
+            default_value=False,
+            message_type=None,
+            enum_type=None,
+            containing_type=None,
+            is_extension=False,
+            extension_scope=None,
+            serialized_options=None,
+            file=DESCRIPTOR,
+            create_key=_descriptor._internal_create_key,
+        ),
+        _descriptor.FieldDescriptor(
+            name="abort",
+            full_name="mgmtd.FeCommitConfigReq.abort",
+            index=5,
+            number=6,
+            type=8,
+            cpp_type=7,
+            label=2,
+            has_default_value=False,
+            default_value=False,
+            message_type=None,
+            enum_type=None,
+            containing_type=None,
+            is_extension=False,
+            extension_scope=None,
+            serialized_options=None,
+            file=DESCRIPTOR,
+            create_key=_descriptor._internal_create_key,
+        ),
+    ],
+    extensions=[],
+    nested_types=[],
+    enum_types=[],
+    serialized_options=None,
+    is_extendable=False,
+    syntax="proto2",
+    extension_ranges=[],
+    oneofs=[],
+    serialized_start=2136,
+    serialized_end=2307,
 )
 
 
 _FECOMMITCONFIGREPLY = _descriptor.Descriptor(
-  name='FeCommitConfigReply',
-  full_name='mgmtd.FeCommitConfigReply',
-  filename=None,
-  file=DESCRIPTOR,
-  containing_type=None,
-  create_key=_descriptor._internal_create_key,
-  fields=[
-    _descriptor.FieldDescriptor(
-      name='session_id', full_name='mgmtd.FeCommitConfigReply.session_id', index=0,
-      number=1, type=4, cpp_type=4, label=2,
-      has_default_value=False, default_value=0,
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
-    _descriptor.FieldDescriptor(
-      name='src_ds_id', full_name='mgmtd.FeCommitConfigReply.src_ds_id', index=1,
-      number=2, type=14, cpp_type=8, label=2,
-      has_default_value=False, default_value=0,
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
-    _descriptor.FieldDescriptor(
-      name='dst_ds_id', full_name='mgmtd.FeCommitConfigReply.dst_ds_id', index=2,
-      number=3, type=14, cpp_type=8, label=2,
-      has_default_value=False, default_value=0,
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
-    _descriptor.FieldDescriptor(
-      name='req_id', full_name='mgmtd.FeCommitConfigReply.req_id', index=3,
-      number=4, type=4, cpp_type=4, label=2,
-      has_default_value=False, default_value=0,
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
-    _descriptor.FieldDescriptor(
-      name='validate_only', full_name='mgmtd.FeCommitConfigReply.validate_only', index=4,
-      number=5, type=8, cpp_type=7, label=2,
-      has_default_value=False, default_value=False,
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
-    _descriptor.FieldDescriptor(
-      name='success', full_name='mgmtd.FeCommitConfigReply.success', index=5,
-      number=6, type=8, cpp_type=7, label=2,
-      has_default_value=False, default_value=False,
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
-    _descriptor.FieldDescriptor(
-      name='abort', full_name='mgmtd.FeCommitConfigReply.abort', index=6,
-      number=7, type=8, cpp_type=7, label=2,
-      has_default_value=False, default_value=False,
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
-    _descriptor.FieldDescriptor(
-      name='error_if_any', full_name='mgmtd.FeCommitConfigReply.error_if_any', index=7,
-      number=8, type=9, cpp_type=9, label=1,
-      has_default_value=False, default_value=b"".decode('utf-8'),
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
-  ],
-  extensions=[
-  ],
-  nested_types=[],
-  enum_types=[
-  ],
-  serialized_options=None,
-  is_extendable=False,
-  syntax='proto2',
-  extension_ranges=[],
-  oneofs=[
-  ],
-  serialized_start=2310,
-  serialized_end=2522,
+    name="FeCommitConfigReply",
+    full_name="mgmtd.FeCommitConfigReply",
+    filename=None,
+    file=DESCRIPTOR,
+    containing_type=None,
+    create_key=_descriptor._internal_create_key,
+    fields=[
+        _descriptor.FieldDescriptor(
+            name="session_id",
+            full_name="mgmtd.FeCommitConfigReply.session_id",
+            index=0,
+            number=1,
+            type=4,
+            cpp_type=4,
+            label=2,
+            has_default_value=False,
+            default_value=0,
+            message_type=None,
+            enum_type=None,
+            containing_type=None,
+            is_extension=False,
+            extension_scope=None,
+            serialized_options=None,
+            file=DESCRIPTOR,
+            create_key=_descriptor._internal_create_key,
+        ),
+        _descriptor.FieldDescriptor(
+            name="src_ds_id",
+            full_name="mgmtd.FeCommitConfigReply.src_ds_id",
+            index=1,
+            number=2,
+            type=14,
+            cpp_type=8,
+            label=2,
+            has_default_value=False,
+            default_value=0,
+            message_type=None,
+            enum_type=None,
+            containing_type=None,
+            is_extension=False,
+            extension_scope=None,
+            serialized_options=None,
+            file=DESCRIPTOR,
+            create_key=_descriptor._internal_create_key,
+        ),
+        _descriptor.FieldDescriptor(
+            name="dst_ds_id",
+            full_name="mgmtd.FeCommitConfigReply.dst_ds_id",
+            index=2,
+            number=3,
+            type=14,
+            cpp_type=8,
+            label=2,
+            has_default_value=False,
+            default_value=0,
+            message_type=None,
+            enum_type=None,
+            containing_type=None,
+            is_extension=False,
+            extension_scope=None,
+            serialized_options=None,
+            file=DESCRIPTOR,
+            create_key=_descriptor._internal_create_key,
+        ),
+        _descriptor.FieldDescriptor(
+            name="req_id",
+            full_name="mgmtd.FeCommitConfigReply.req_id",
+            index=3,
+            number=4,
+            type=4,
+            cpp_type=4,
+            label=2,
+            has_default_value=False,
+            default_value=0,
+            message_type=None,
+            enum_type=None,
+            containing_type=None,
+            is_extension=False,
+            extension_scope=None,
+            serialized_options=None,
+            file=DESCRIPTOR,
+            create_key=_descriptor._internal_create_key,
+        ),
+        _descriptor.FieldDescriptor(
+            name="validate_only",
+            full_name="mgmtd.FeCommitConfigReply.validate_only",
+            index=4,
+            number=5,
+            type=8,
+            cpp_type=7,
+            label=2,
+            has_default_value=False,
+            default_value=False,
+            message_type=None,
+            enum_type=None,
+            containing_type=None,
+            is_extension=False,
+            extension_scope=None,
+            serialized_options=None,
+            file=DESCRIPTOR,
+            create_key=_descriptor._internal_create_key,
+        ),
+        _descriptor.FieldDescriptor(
+            name="success",
+            full_name="mgmtd.FeCommitConfigReply.success",
+            index=5,
+            number=6,
+            type=8,
+            cpp_type=7,
+            label=2,
+            has_default_value=False,
+            default_value=False,
+            message_type=None,
+            enum_type=None,
+            containing_type=None,
+            is_extension=False,
+            extension_scope=None,
+            serialized_options=None,
+            file=DESCRIPTOR,
+            create_key=_descriptor._internal_create_key,
+        ),
+        _descriptor.FieldDescriptor(
+            name="abort",
+            full_name="mgmtd.FeCommitConfigReply.abort",
+            index=6,
+            number=7,
+            type=8,
+            cpp_type=7,
+            label=2,
+            has_default_value=False,
+            default_value=False,
+            message_type=None,
+            enum_type=None,
+            containing_type=None,
+            is_extension=False,
+            extension_scope=None,
+            serialized_options=None,
+            file=DESCRIPTOR,
+            create_key=_descriptor._internal_create_key,
+        ),
+        _descriptor.FieldDescriptor(
+            name="error_if_any",
+            full_name="mgmtd.FeCommitConfigReply.error_if_any",
+            index=7,
+            number=8,
+            type=9,
+            cpp_type=9,
+            label=1,
+            has_default_value=False,
+            default_value=b"".decode("utf-8"),
+            message_type=None,
+            enum_type=None,
+            containing_type=None,
+            is_extension=False,
+            extension_scope=None,
+            serialized_options=None,
+            file=DESCRIPTOR,
+            create_key=_descriptor._internal_create_key,
+        ),
+    ],
+    extensions=[],
+    nested_types=[],
+    enum_types=[],
+    serialized_options=None,
+    is_extendable=False,
+    syntax="proto2",
+    extension_ranges=[],
+    oneofs=[],
+    serialized_start=2310,
+    serialized_end=2522,
 )
 
 
 _FEGETREQ = _descriptor.Descriptor(
-  name='FeGetReq',
-  full_name='mgmtd.FeGetReq',
-  filename=None,
-  file=DESCRIPTOR,
-  containing_type=None,
-  create_key=_descriptor._internal_create_key,
-  fields=[
-    _descriptor.FieldDescriptor(
-      name='session_id', full_name='mgmtd.FeGetReq.session_id', index=0,
-      number=1, type=4, cpp_type=4, label=2,
-      has_default_value=False, default_value=0,
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
-    _descriptor.FieldDescriptor(
-      name='config', full_name='mgmtd.FeGetReq.config', index=1,
-      number=2, type=8, cpp_type=7, label=2,
-      has_default_value=False, default_value=False,
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
-    _descriptor.FieldDescriptor(
-      name='ds_id', full_name='mgmtd.FeGetReq.ds_id', index=2,
-      number=3, type=14, cpp_type=8, label=2,
-      has_default_value=False, default_value=0,
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
-    _descriptor.FieldDescriptor(
-      name='req_id', full_name='mgmtd.FeGetReq.req_id', index=3,
-      number=4, type=4, cpp_type=4, label=2,
-      has_default_value=False, default_value=0,
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
-    _descriptor.FieldDescriptor(
-      name='data', full_name='mgmtd.FeGetReq.data', index=4,
-      number=5, type=11, cpp_type=10, label=3,
-      has_default_value=False, default_value=[],
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
-  ],
-  extensions=[
-  ],
-  nested_types=[],
-  enum_types=[
-  ],
-  serialized_options=None,
-  is_extendable=False,
-  syntax='proto2',
-  extension_ranges=[],
-  oneofs=[
-  ],
-  serialized_start=2525,
-  serialized_end=2659,
+    name="FeGetReq",
+    full_name="mgmtd.FeGetReq",
+    filename=None,
+    file=DESCRIPTOR,
+    containing_type=None,
+    create_key=_descriptor._internal_create_key,
+    fields=[
+        _descriptor.FieldDescriptor(
+            name="session_id",
+            full_name="mgmtd.FeGetReq.session_id",
+            index=0,
+            number=1,
+            type=4,
+            cpp_type=4,
+            label=2,
+            has_default_value=False,
+            default_value=0,
+            message_type=None,
+            enum_type=None,
+            containing_type=None,
+            is_extension=False,
+            extension_scope=None,
+            serialized_options=None,
+            file=DESCRIPTOR,
+            create_key=_descriptor._internal_create_key,
+        ),
+        _descriptor.FieldDescriptor(
+            name="config",
+            full_name="mgmtd.FeGetReq.config",
+            index=1,
+            number=2,
+            type=8,
+            cpp_type=7,
+            label=2,
+            has_default_value=False,
+            default_value=False,
+            message_type=None,
+            enum_type=None,
+            containing_type=None,
+            is_extension=False,
+            extension_scope=None,
+            serialized_options=None,
+            file=DESCRIPTOR,
+            create_key=_descriptor._internal_create_key,
+        ),
+        _descriptor.FieldDescriptor(
+            name="ds_id",
+            full_name="mgmtd.FeGetReq.ds_id",
+            index=2,
+            number=3,
+            type=14,
+            cpp_type=8,
+            label=2,
+            has_default_value=False,
+            default_value=0,
+            message_type=None,
+            enum_type=None,
+            containing_type=None,
+            is_extension=False,
+            extension_scope=None,
+            serialized_options=None,
+            file=DESCRIPTOR,
+            create_key=_descriptor._internal_create_key,
+        ),
+        _descriptor.FieldDescriptor(
+            name="req_id",
+            full_name="mgmtd.FeGetReq.req_id",
+            index=3,
+            number=4,
+            type=4,
+            cpp_type=4,
+            label=2,
+            has_default_value=False,
+            default_value=0,
+            message_type=None,
+            enum_type=None,
+            containing_type=None,
+            is_extension=False,
+            extension_scope=None,
+            serialized_options=None,
+            file=DESCRIPTOR,
+            create_key=_descriptor._internal_create_key,
+        ),
+        _descriptor.FieldDescriptor(
+            name="data",
+            full_name="mgmtd.FeGetReq.data",
+            index=4,
+            number=5,
+            type=11,
+            cpp_type=10,
+            label=3,
+            has_default_value=False,
+            default_value=[],
+            message_type=None,
+            enum_type=None,
+            containing_type=None,
+            is_extension=False,
+            extension_scope=None,
+            serialized_options=None,
+            file=DESCRIPTOR,
+            create_key=_descriptor._internal_create_key,
+        ),
+    ],
+    extensions=[],
+    nested_types=[],
+    enum_types=[],
+    serialized_options=None,
+    is_extendable=False,
+    syntax="proto2",
+    extension_ranges=[],
+    oneofs=[],
+    serialized_start=2525,
+    serialized_end=2659,
 )
 
 
 _FEGETREPLY = _descriptor.Descriptor(
-  name='FeGetReply',
-  full_name='mgmtd.FeGetReply',
-  filename=None,
-  file=DESCRIPTOR,
-  containing_type=None,
-  create_key=_descriptor._internal_create_key,
-  fields=[
-    _descriptor.FieldDescriptor(
-      name='session_id', full_name='mgmtd.FeGetReply.session_id', index=0,
-      number=1, type=4, cpp_type=4, label=2,
-      has_default_value=False, default_value=0,
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
-    _descriptor.FieldDescriptor(
-      name='config', full_name='mgmtd.FeGetReply.config', index=1,
-      number=2, type=8, cpp_type=7, label=2,
-      has_default_value=False, default_value=False,
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
-    _descriptor.FieldDescriptor(
-      name='ds_id', full_name='mgmtd.FeGetReply.ds_id', index=2,
-      number=3, type=14, cpp_type=8, label=2,
-      has_default_value=False, default_value=0,
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
-    _descriptor.FieldDescriptor(
-      name='req_id', full_name='mgmtd.FeGetReply.req_id', index=3,
-      number=4, type=4, cpp_type=4, label=2,
-      has_default_value=False, default_value=0,
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
-    _descriptor.FieldDescriptor(
-      name='success', full_name='mgmtd.FeGetReply.success', index=4,
-      number=5, type=8, cpp_type=7, label=2,
-      has_default_value=False, default_value=False,
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
-    _descriptor.FieldDescriptor(
-      name='error_if_any', full_name='mgmtd.FeGetReply.error_if_any', index=5,
-      number=6, type=9, cpp_type=9, label=1,
-      has_default_value=False, default_value=b"".decode('utf-8'),
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
-    _descriptor.FieldDescriptor(
-      name='data', full_name='mgmtd.FeGetReply.data', index=6,
-      number=7, type=11, cpp_type=10, label=1,
-      has_default_value=False, default_value=None,
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
-  ],
-  extensions=[
-  ],
-  nested_types=[],
-  enum_types=[
-  ],
-  serialized_options=None,
-  is_extendable=False,
-  syntax='proto2',
-  extension_ranges=[],
-  oneofs=[
-  ],
-  serialized_start=2662,
-  serialized_end=2836,
+    name="FeGetReply",
+    full_name="mgmtd.FeGetReply",
+    filename=None,
+    file=DESCRIPTOR,
+    containing_type=None,
+    create_key=_descriptor._internal_create_key,
+    fields=[
+        _descriptor.FieldDescriptor(
+            name="session_id",
+            full_name="mgmtd.FeGetReply.session_id",
+            index=0,
+            number=1,
+            type=4,
+            cpp_type=4,
+            label=2,
+            has_default_value=False,
+            default_value=0,
+            message_type=None,
+            enum_type=None,
+            containing_type=None,
+            is_extension=False,
+            extension_scope=None,
+            serialized_options=None,
+            file=DESCRIPTOR,
+            create_key=_descriptor._internal_create_key,
+        ),
+        _descriptor.FieldDescriptor(
+            name="config",
+            full_name="mgmtd.FeGetReply.config",
+            index=1,
+            number=2,
+            type=8,
+            cpp_type=7,
+            label=2,
+            has_default_value=False,
+            default_value=False,
+            message_type=None,
+            enum_type=None,
+            containing_type=None,
+            is_extension=False,
+            extension_scope=None,
+            serialized_options=None,
+            file=DESCRIPTOR,
+            create_key=_descriptor._internal_create_key,
+        ),
+        _descriptor.FieldDescriptor(
+            name="ds_id",
+            full_name="mgmtd.FeGetReply.ds_id",
+            index=2,
+            number=3,
+            type=14,
+            cpp_type=8,
+            label=2,
+            has_default_value=False,
+            default_value=0,
+            message_type=None,
+            enum_type=None,
+            containing_type=None,
+            is_extension=False,
+            extension_scope=None,
+            serialized_options=None,
+            file=DESCRIPTOR,
+            create_key=_descriptor._internal_create_key,
+        ),
+        _descriptor.FieldDescriptor(
+            name="req_id",
+            full_name="mgmtd.FeGetReply.req_id",
+            index=3,
+            number=4,
+            type=4,
+            cpp_type=4,
+            label=2,
+            has_default_value=False,
+            default_value=0,
+            message_type=None,
+            enum_type=None,
+            containing_type=None,
+            is_extension=False,
+            extension_scope=None,
+            serialized_options=None,
+            file=DESCRIPTOR,
+            create_key=_descriptor._internal_create_key,
+        ),
+        _descriptor.FieldDescriptor(
+            name="success",
+            full_name="mgmtd.FeGetReply.success",
+            index=4,
+            number=5,
+            type=8,
+            cpp_type=7,
+            label=2,
+            has_default_value=False,
+            default_value=False,
+            message_type=None,
+            enum_type=None,
+            containing_type=None,
+            is_extension=False,
+            extension_scope=None,
+            serialized_options=None,
+            file=DESCRIPTOR,
+            create_key=_descriptor._internal_create_key,
+        ),
+        _descriptor.FieldDescriptor(
+            name="error_if_any",
+            full_name="mgmtd.FeGetReply.error_if_any",
+            index=5,
+            number=6,
+            type=9,
+            cpp_type=9,
+            label=1,
+            has_default_value=False,
+            default_value=b"".decode("utf-8"),
+            message_type=None,
+            enum_type=None,
+            containing_type=None,
+            is_extension=False,
+            extension_scope=None,
+            serialized_options=None,
+            file=DESCRIPTOR,
+            create_key=_descriptor._internal_create_key,
+        ),
+        _descriptor.FieldDescriptor(
+            name="data",
+            full_name="mgmtd.FeGetReply.data",
+            index=6,
+            number=7,
+            type=11,
+            cpp_type=10,
+            label=1,
+            has_default_value=False,
+            default_value=None,
+            message_type=None,
+            enum_type=None,
+            containing_type=None,
+            is_extension=False,
+            extension_scope=None,
+            serialized_options=None,
+            file=DESCRIPTOR,
+            create_key=_descriptor._internal_create_key,
+        ),
+    ],
+    extensions=[],
+    nested_types=[],
+    enum_types=[],
+    serialized_options=None,
+    is_extendable=False,
+    syntax="proto2",
+    extension_ranges=[],
+    oneofs=[],
+    serialized_start=2662,
+    serialized_end=2836,
 )
 
 
 _FENOTIFYDATAREQ = _descriptor.Descriptor(
-  name='FeNotifyDataReq',
-  full_name='mgmtd.FeNotifyDataReq',
-  filename=None,
-  file=DESCRIPTOR,
-  containing_type=None,
-  create_key=_descriptor._internal_create_key,
-  fields=[
-    _descriptor.FieldDescriptor(
-      name='data', full_name='mgmtd.FeNotifyDataReq.data', index=0,
-      number=1, type=11, cpp_type=10, label=3,
-      has_default_value=False, default_value=[],
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
-  ],
-  extensions=[
-  ],
-  nested_types=[],
-  enum_types=[
-  ],
-  serialized_options=None,
-  is_extendable=False,
-  syntax='proto2',
-  extension_ranges=[],
-  oneofs=[
-  ],
-  serialized_start=2838,
-  serialized_end=2886,
+    name="FeNotifyDataReq",
+    full_name="mgmtd.FeNotifyDataReq",
+    filename=None,
+    file=DESCRIPTOR,
+    containing_type=None,
+    create_key=_descriptor._internal_create_key,
+    fields=[
+        _descriptor.FieldDescriptor(
+            name="data",
+            full_name="mgmtd.FeNotifyDataReq.data",
+            index=0,
+            number=1,
+            type=11,
+            cpp_type=10,
+            label=3,
+            has_default_value=False,
+            default_value=[],
+            message_type=None,
+            enum_type=None,
+            containing_type=None,
+            is_extension=False,
+            extension_scope=None,
+            serialized_options=None,
+            file=DESCRIPTOR,
+            create_key=_descriptor._internal_create_key,
+        ),
+    ],
+    extensions=[],
+    nested_types=[],
+    enum_types=[],
+    serialized_options=None,
+    is_extendable=False,
+    syntax="proto2",
+    extension_ranges=[],
+    oneofs=[],
+    serialized_start=2838,
+    serialized_end=2886,
 )
 
 
 _FEREGISTERNOTIFYREQ = _descriptor.Descriptor(
-  name='FeRegisterNotifyReq',
-  full_name='mgmtd.FeRegisterNotifyReq',
-  filename=None,
-  file=DESCRIPTOR,
-  containing_type=None,
-  create_key=_descriptor._internal_create_key,
-  fields=[
-    _descriptor.FieldDescriptor(
-      name='session_id', full_name='mgmtd.FeRegisterNotifyReq.session_id', index=0,
-      number=1, type=4, cpp_type=4, label=2,
-      has_default_value=False, default_value=0,
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
-    _descriptor.FieldDescriptor(
-      name='ds_id', full_name='mgmtd.FeRegisterNotifyReq.ds_id', index=1,
-      number=2, type=14, cpp_type=8, label=2,
-      has_default_value=False, default_value=0,
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
-    _descriptor.FieldDescriptor(
-      name='register_req', full_name='mgmtd.FeRegisterNotifyReq.register_req', index=2,
-      number=3, type=8, cpp_type=7, label=2,
-      has_default_value=False, default_value=False,
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
-    _descriptor.FieldDescriptor(
-      name='req_id', full_name='mgmtd.FeRegisterNotifyReq.req_id', index=3,
-      number=4, type=4, cpp_type=4, label=2,
-      has_default_value=False, default_value=0,
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
-    _descriptor.FieldDescriptor(
-      name='data_xpath', full_name='mgmtd.FeRegisterNotifyReq.data_xpath', index=4,
-      number=5, type=11, cpp_type=10, label=3,
-      has_default_value=False, default_value=[],
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
-  ],
-  extensions=[
-  ],
-  nested_types=[],
-  enum_types=[
-  ],
-  serialized_options=None,
-  is_extendable=False,
-  syntax='proto2',
-  extension_ranges=[],
-  oneofs=[
-  ],
-  serialized_start=2889,
-  serialized_end=3045,
+    name="FeRegisterNotifyReq",
+    full_name="mgmtd.FeRegisterNotifyReq",
+    filename=None,
+    file=DESCRIPTOR,
+    containing_type=None,
+    create_key=_descriptor._internal_create_key,
+    fields=[
+        _descriptor.FieldDescriptor(
+            name="session_id",
+            full_name="mgmtd.FeRegisterNotifyReq.session_id",
+            index=0,
+            number=1,
+            type=4,
+            cpp_type=4,
+            label=2,
+            has_default_value=False,
+            default_value=0,
+            message_type=None,
+            enum_type=None,
+            containing_type=None,
+            is_extension=False,
+            extension_scope=None,
+            serialized_options=None,
+            file=DESCRIPTOR,
+            create_key=_descriptor._internal_create_key,
+        ),
+        _descriptor.FieldDescriptor(
+            name="ds_id",
+            full_name="mgmtd.FeRegisterNotifyReq.ds_id",
+            index=1,
+            number=2,
+            type=14,
+            cpp_type=8,
+            label=2,
+            has_default_value=False,
+            default_value=0,
+            message_type=None,
+            enum_type=None,
+            containing_type=None,
+            is_extension=False,
+            extension_scope=None,
+            serialized_options=None,
+            file=DESCRIPTOR,
+            create_key=_descriptor._internal_create_key,
+        ),
+        _descriptor.FieldDescriptor(
+            name="register_req",
+            full_name="mgmtd.FeRegisterNotifyReq.register_req",
+            index=2,
+            number=3,
+            type=8,
+            cpp_type=7,
+            label=2,
+            has_default_value=False,
+            default_value=False,
+            message_type=None,
+            enum_type=None,
+            containing_type=None,
+            is_extension=False,
+            extension_scope=None,
+            serialized_options=None,
+            file=DESCRIPTOR,
+            create_key=_descriptor._internal_create_key,
+        ),
+        _descriptor.FieldDescriptor(
+            name="req_id",
+            full_name="mgmtd.FeRegisterNotifyReq.req_id",
+            index=3,
+            number=4,
+            type=4,
+            cpp_type=4,
+            label=2,
+            has_default_value=False,
+            default_value=0,
+            message_type=None,
+            enum_type=None,
+            containing_type=None,
+            is_extension=False,
+            extension_scope=None,
+            serialized_options=None,
+            file=DESCRIPTOR,
+            create_key=_descriptor._internal_create_key,
+        ),
+        _descriptor.FieldDescriptor(
+            name="data_xpath",
+            full_name="mgmtd.FeRegisterNotifyReq.data_xpath",
+            index=4,
+            number=5,
+            type=11,
+            cpp_type=10,
+            label=3,
+            has_default_value=False,
+            default_value=[],
+            message_type=None,
+            enum_type=None,
+            containing_type=None,
+            is_extension=False,
+            extension_scope=None,
+            serialized_options=None,
+            file=DESCRIPTOR,
+            create_key=_descriptor._internal_create_key,
+        ),
+    ],
+    extensions=[],
+    nested_types=[],
+    enum_types=[],
+    serialized_options=None,
+    is_extendable=False,
+    syntax="proto2",
+    extension_ranges=[],
+    oneofs=[],
+    serialized_start=2889,
+    serialized_end=3045,
 )
 
 
 _FEMESSAGE = _descriptor.Descriptor(
-  name='FeMessage',
-  full_name='mgmtd.FeMessage',
-  filename=None,
-  file=DESCRIPTOR,
-  containing_type=None,
-  create_key=_descriptor._internal_create_key,
-  fields=[
-    _descriptor.FieldDescriptor(
-      name='register_req', full_name='mgmtd.FeMessage.register_req', index=0,
-      number=2, type=11, cpp_type=10, label=1,
-      has_default_value=False, default_value=None,
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
-    _descriptor.FieldDescriptor(
-      name='session_req', full_name='mgmtd.FeMessage.session_req', index=1,
-      number=3, type=11, cpp_type=10, label=1,
-      has_default_value=False, default_value=None,
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
-    _descriptor.FieldDescriptor(
-      name='session_reply', full_name='mgmtd.FeMessage.session_reply', index=2,
-      number=4, type=11, cpp_type=10, label=1,
-      has_default_value=False, default_value=None,
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
-    _descriptor.FieldDescriptor(
-      name='lockds_req', full_name='mgmtd.FeMessage.lockds_req', index=3,
-      number=5, type=11, cpp_type=10, label=1,
-      has_default_value=False, default_value=None,
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
-    _descriptor.FieldDescriptor(
-      name='lockds_reply', full_name='mgmtd.FeMessage.lockds_reply', index=4,
-      number=6, type=11, cpp_type=10, label=1,
-      has_default_value=False, default_value=None,
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
-    _descriptor.FieldDescriptor(
-      name='setcfg_req', full_name='mgmtd.FeMessage.setcfg_req', index=5,
-      number=7, type=11, cpp_type=10, label=1,
-      has_default_value=False, default_value=None,
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
-    _descriptor.FieldDescriptor(
-      name='setcfg_reply', full_name='mgmtd.FeMessage.setcfg_reply', index=6,
-      number=8, type=11, cpp_type=10, label=1,
-      has_default_value=False, default_value=None,
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
-    _descriptor.FieldDescriptor(
-      name='commcfg_req', full_name='mgmtd.FeMessage.commcfg_req', index=7,
-      number=9, type=11, cpp_type=10, label=1,
-      has_default_value=False, default_value=None,
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
-    _descriptor.FieldDescriptor(
-      name='commcfg_reply', full_name='mgmtd.FeMessage.commcfg_reply', index=8,
-      number=10, type=11, cpp_type=10, label=1,
-      has_default_value=False, default_value=None,
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
-    _descriptor.FieldDescriptor(
-      name='get_req', full_name='mgmtd.FeMessage.get_req', index=9,
-      number=11, type=11, cpp_type=10, label=1,
-      has_default_value=False, default_value=None,
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
-    _descriptor.FieldDescriptor(
-      name='get_reply', full_name='mgmtd.FeMessage.get_reply', index=10,
-      number=12, type=11, cpp_type=10, label=1,
-      has_default_value=False, default_value=None,
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
-    _descriptor.FieldDescriptor(
-      name='notify_data_req', full_name='mgmtd.FeMessage.notify_data_req', index=11,
-      number=15, type=11, cpp_type=10, label=1,
-      has_default_value=False, default_value=None,
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
-    _descriptor.FieldDescriptor(
-      name='regnotify_req', full_name='mgmtd.FeMessage.regnotify_req', index=12,
-      number=16, type=11, cpp_type=10, label=1,
-      has_default_value=False, default_value=None,
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
-  ],
-  extensions=[
-  ],
-  nested_types=[],
-  enum_types=[
-  ],
-  serialized_options=None,
-  is_extendable=False,
-  syntax='proto2',
-  extension_ranges=[],
-  oneofs=[
-    _descriptor.OneofDescriptor(
-      name='message', full_name='mgmtd.FeMessage.message',
-      index=0, containing_type=None,
-      create_key=_descriptor._internal_create_key,
-    fields=[]),
-  ],
-  serialized_start=3048,
-  serialized_end=3672,
+    name="FeMessage",
+    full_name="mgmtd.FeMessage",
+    filename=None,
+    file=DESCRIPTOR,
+    containing_type=None,
+    create_key=_descriptor._internal_create_key,
+    fields=[
+        _descriptor.FieldDescriptor(
+            name="register_req",
+            full_name="mgmtd.FeMessage.register_req",
+            index=0,
+            number=2,
+            type=11,
+            cpp_type=10,
+            label=1,
+            has_default_value=False,
+            default_value=None,
+            message_type=None,
+            enum_type=None,
+            containing_type=None,
+            is_extension=False,
+            extension_scope=None,
+            serialized_options=None,
+            file=DESCRIPTOR,
+            create_key=_descriptor._internal_create_key,
+        ),
+        _descriptor.FieldDescriptor(
+            name="session_req",
+            full_name="mgmtd.FeMessage.session_req",
+            index=1,
+            number=3,
+            type=11,
+            cpp_type=10,
+            label=1,
+            has_default_value=False,
+            default_value=None,
+            message_type=None,
+            enum_type=None,
+            containing_type=None,
+            is_extension=False,
+            extension_scope=None,
+            serialized_options=None,
+            file=DESCRIPTOR,
+            create_key=_descriptor._internal_create_key,
+        ),
+        _descriptor.FieldDescriptor(
+            name="session_reply",
+            full_name="mgmtd.FeMessage.session_reply",
+            index=2,
+            number=4,
+            type=11,
+            cpp_type=10,
+            label=1,
+            has_default_value=False,
+            default_value=None,
+            message_type=None,
+            enum_type=None,
+            containing_type=None,
+            is_extension=False,
+            extension_scope=None,
+            serialized_options=None,
+            file=DESCRIPTOR,
+            create_key=_descriptor._internal_create_key,
+        ),
+        _descriptor.FieldDescriptor(
+            name="lockds_req",
+            full_name="mgmtd.FeMessage.lockds_req",
+            index=3,
+            number=5,
+            type=11,
+            cpp_type=10,
+            label=1,
+            has_default_value=False,
+            default_value=None,
+            message_type=None,
+            enum_type=None,
+            containing_type=None,
+            is_extension=False,
+            extension_scope=None,
+            serialized_options=None,
+            file=DESCRIPTOR,
+            create_key=_descriptor._internal_create_key,
+        ),
+        _descriptor.FieldDescriptor(
+            name="lockds_reply",
+            full_name="mgmtd.FeMessage.lockds_reply",
+            index=4,
+            number=6,
+            type=11,
+            cpp_type=10,
+            label=1,
+            has_default_value=False,
+            default_value=None,
+            message_type=None,
+            enum_type=None,
+            containing_type=None,
+            is_extension=False,
+            extension_scope=None,
+            serialized_options=None,
+            file=DESCRIPTOR,
+            create_key=_descriptor._internal_create_key,
+        ),
+        _descriptor.FieldDescriptor(
+            name="setcfg_req",
+            full_name="mgmtd.FeMessage.setcfg_req",
+            index=5,
+            number=7,
+            type=11,
+            cpp_type=10,
+            label=1,
+            has_default_value=False,
+            default_value=None,
+            message_type=None,
+            enum_type=None,
+            containing_type=None,
+            is_extension=False,
+            extension_scope=None,
+            serialized_options=None,
+            file=DESCRIPTOR,
+            create_key=_descriptor._internal_create_key,
+        ),
+        _descriptor.FieldDescriptor(
+            name="setcfg_reply",
+            full_name="mgmtd.FeMessage.setcfg_reply",
+            index=6,
+            number=8,
+            type=11,
+            cpp_type=10,
+            label=1,
+            has_default_value=False,
+            default_value=None,
+            message_type=None,
+            enum_type=None,
+            containing_type=None,
+            is_extension=False,
+            extension_scope=None,
+            serialized_options=None,
+            file=DESCRIPTOR,
+            create_key=_descriptor._internal_create_key,
+        ),
+        _descriptor.FieldDescriptor(
+            name="commcfg_req",
+            full_name="mgmtd.FeMessage.commcfg_req",
+            index=7,
+            number=9,
+            type=11,
+            cpp_type=10,
+            label=1,
+            has_default_value=False,
+            default_value=None,
+            message_type=None,
+            enum_type=None,
+            containing_type=None,
+            is_extension=False,
+            extension_scope=None,
+            serialized_options=None,
+            file=DESCRIPTOR,
+            create_key=_descriptor._internal_create_key,
+        ),
+        _descriptor.FieldDescriptor(
+            name="commcfg_reply",
+            full_name="mgmtd.FeMessage.commcfg_reply",
+            index=8,
+            number=10,
+            type=11,
+            cpp_type=10,
+            label=1,
+            has_default_value=False,
+            default_value=None,
+            message_type=None,
+            enum_type=None,
+            containing_type=None,
+            is_extension=False,
+            extension_scope=None,
+            serialized_options=None,
+            file=DESCRIPTOR,
+            create_key=_descriptor._internal_create_key,
+        ),
+        _descriptor.FieldDescriptor(
+            name="get_req",
+            full_name="mgmtd.FeMessage.get_req",
+            index=9,
+            number=11,
+            type=11,
+            cpp_type=10,
+            label=1,
+            has_default_value=False,
+            default_value=None,
+            message_type=None,
+            enum_type=None,
+            containing_type=None,
+            is_extension=False,
+            extension_scope=None,
+            serialized_options=None,
+            file=DESCRIPTOR,
+            create_key=_descriptor._internal_create_key,
+        ),
+        _descriptor.FieldDescriptor(
+            name="get_reply",
+            full_name="mgmtd.FeMessage.get_reply",
+            index=10,
+            number=12,
+            type=11,
+            cpp_type=10,
+            label=1,
+            has_default_value=False,
+            default_value=None,
+            message_type=None,
+            enum_type=None,
+            containing_type=None,
+            is_extension=False,
+            extension_scope=None,
+            serialized_options=None,
+            file=DESCRIPTOR,
+            create_key=_descriptor._internal_create_key,
+        ),
+        _descriptor.FieldDescriptor(
+            name="notify_data_req",
+            full_name="mgmtd.FeMessage.notify_data_req",
+            index=11,
+            number=15,
+            type=11,
+            cpp_type=10,
+            label=1,
+            has_default_value=False,
+            default_value=None,
+            message_type=None,
+            enum_type=None,
+            containing_type=None,
+            is_extension=False,
+            extension_scope=None,
+            serialized_options=None,
+            file=DESCRIPTOR,
+            create_key=_descriptor._internal_create_key,
+        ),
+        _descriptor.FieldDescriptor(
+            name="regnotify_req",
+            full_name="mgmtd.FeMessage.regnotify_req",
+            index=12,
+            number=16,
+            type=11,
+            cpp_type=10,
+            label=1,
+            has_default_value=False,
+            default_value=None,
+            message_type=None,
+            enum_type=None,
+            containing_type=None,
+            is_extension=False,
+            extension_scope=None,
+            serialized_options=None,
+            file=DESCRIPTOR,
+            create_key=_descriptor._internal_create_key,
+        ),
+    ],
+    extensions=[],
+    nested_types=[],
+    enum_types=[],
+    serialized_options=None,
+    is_extendable=False,
+    syntax="proto2",
+    extension_ranges=[],
+    oneofs=[
+        _descriptor.OneofDescriptor(
+            name="message",
+            full_name="mgmtd.FeMessage.message",
+            index=0,
+            containing_type=None,
+            create_key=_descriptor._internal_create_key,
+            fields=[],
+        ),
+    ],
+    serialized_start=3048,
+    serialized_end=3672,
 )
 
-_YANGDATAVALUE.oneofs_by_name['value'].fields.append(
-  _YANGDATAVALUE.fields_by_name['encoded_str_val'])
-_YANGDATAVALUE.fields_by_name['encoded_str_val'].containing_oneof = _YANGDATAVALUE.oneofs_by_name['value']
-_YANGDATA.fields_by_name['value'].message_type = _YANGDATAVALUE
-_YANGCFGDATAREQ.fields_by_name['data'].message_type = _YANGDATA
-_YANGCFGDATAREQ.fields_by_name['req_type'].enum_type = _CFGDATAREQTYPE
-_YANGGETDATAREQ.fields_by_name['data'].message_type = _YANGDATA
-_BECFGDATACREATEREQ.fields_by_name['data_req'].message_type = _YANGCFGDATAREQ
-_YANGDATAREPLY.fields_by_name['data'].message_type = _YANGDATA
-_BEMESSAGE.fields_by_name['subscr_req'].message_type = _BESUBSCRIBEREQ
-_BEMESSAGE.fields_by_name['subscr_reply'].message_type = _BESUBSCRIBEREPLY
-_BEMESSAGE.fields_by_name['txn_req'].message_type = _BETXNREQ
-_BEMESSAGE.fields_by_name['txn_reply'].message_type = _BETXNREPLY
-_BEMESSAGE.fields_by_name['cfg_data_req'].message_type = _BECFGDATACREATEREQ
-_BEMESSAGE.fields_by_name['cfg_data_reply'].message_type = _BECFGDATACREATEREPLY
-_BEMESSAGE.fields_by_name['cfg_apply_req'].message_type = _BECFGDATAAPPLYREQ
-_BEMESSAGE.fields_by_name['cfg_apply_reply'].message_type = _BECFGDATAAPPLYREPLY
-_BEMESSAGE.oneofs_by_name['message'].fields.append(
-  _BEMESSAGE.fields_by_name['subscr_req'])
-_BEMESSAGE.fields_by_name['subscr_req'].containing_oneof = _BEMESSAGE.oneofs_by_name['message']
-_BEMESSAGE.oneofs_by_name['message'].fields.append(
-  _BEMESSAGE.fields_by_name['subscr_reply'])
-_BEMESSAGE.fields_by_name['subscr_reply'].containing_oneof = _BEMESSAGE.oneofs_by_name['message']
-_BEMESSAGE.oneofs_by_name['message'].fields.append(
-  _BEMESSAGE.fields_by_name['txn_req'])
-_BEMESSAGE.fields_by_name['txn_req'].containing_oneof = _BEMESSAGE.oneofs_by_name['message']
-_BEMESSAGE.oneofs_by_name['message'].fields.append(
-  _BEMESSAGE.fields_by_name['txn_reply'])
-_BEMESSAGE.fields_by_name['txn_reply'].containing_oneof = _BEMESSAGE.oneofs_by_name['message']
-_BEMESSAGE.oneofs_by_name['message'].fields.append(
-  _BEMESSAGE.fields_by_name['cfg_data_req'])
-_BEMESSAGE.fields_by_name['cfg_data_req'].containing_oneof = _BEMESSAGE.oneofs_by_name['message']
-_BEMESSAGE.oneofs_by_name['message'].fields.append(
-  _BEMESSAGE.fields_by_name['cfg_data_reply'])
-_BEMESSAGE.fields_by_name['cfg_data_reply'].containing_oneof = _BEMESSAGE.oneofs_by_name['message']
-_BEMESSAGE.oneofs_by_name['message'].fields.append(
-  _BEMESSAGE.fields_by_name['cfg_apply_req'])
-_BEMESSAGE.fields_by_name['cfg_apply_req'].containing_oneof = _BEMESSAGE.oneofs_by_name['message']
-_BEMESSAGE.oneofs_by_name['message'].fields.append(
-  _BEMESSAGE.fields_by_name['cfg_apply_reply'])
-_BEMESSAGE.fields_by_name['cfg_apply_reply'].containing_oneof = _BEMESSAGE.oneofs_by_name['message']
-_FESESSIONREQ.oneofs_by_name['id'].fields.append(
-  _FESESSIONREQ.fields_by_name['client_conn_id'])
-_FESESSIONREQ.fields_by_name['client_conn_id'].containing_oneof = _FESESSIONREQ.oneofs_by_name['id']
-_FESESSIONREQ.oneofs_by_name['id'].fields.append(
-  _FESESSIONREQ.fields_by_name['session_id'])
-_FESESSIONREQ.fields_by_name['session_id'].containing_oneof = _FESESSIONREQ.oneofs_by_name['id']
-_FELOCKDSREQ.fields_by_name['ds_id'].enum_type = _DATASTOREID
-_FELOCKDSREPLY.fields_by_name['ds_id'].enum_type = _DATASTOREID
-_FESETCONFIGREQ.fields_by_name['ds_id'].enum_type = _DATASTOREID
-_FESETCONFIGREQ.fields_by_name['data'].message_type = _YANGCFGDATAREQ
-_FESETCONFIGREQ.fields_by_name['commit_ds_id'].enum_type = _DATASTOREID
-_FESETCONFIGREPLY.fields_by_name['ds_id'].enum_type = _DATASTOREID
-_FECOMMITCONFIGREQ.fields_by_name['src_ds_id'].enum_type = _DATASTOREID
-_FECOMMITCONFIGREQ.fields_by_name['dst_ds_id'].enum_type = _DATASTOREID
-_FECOMMITCONFIGREPLY.fields_by_name['src_ds_id'].enum_type = _DATASTOREID
-_FECOMMITCONFIGREPLY.fields_by_name['dst_ds_id'].enum_type = _DATASTOREID
-_FEGETREQ.fields_by_name['ds_id'].enum_type = _DATASTOREID
-_FEGETREQ.fields_by_name['data'].message_type = _YANGGETDATAREQ
-_FEGETREPLY.fields_by_name['ds_id'].enum_type = _DATASTOREID
-_FEGETREPLY.fields_by_name['data'].message_type = _YANGDATAREPLY
-_FENOTIFYDATAREQ.fields_by_name['data'].message_type = _YANGDATA
-_FEREGISTERNOTIFYREQ.fields_by_name['ds_id'].enum_type = _DATASTOREID
-_FEREGISTERNOTIFYREQ.fields_by_name['data_xpath'].message_type = _YANGDATAXPATH
-_FEMESSAGE.fields_by_name['register_req'].message_type = _FEREGISTERREQ
-_FEMESSAGE.fields_by_name['session_req'].message_type = _FESESSIONREQ
-_FEMESSAGE.fields_by_name['session_reply'].message_type = _FESESSIONREPLY
-_FEMESSAGE.fields_by_name['lockds_req'].message_type = _FELOCKDSREQ
-_FEMESSAGE.fields_by_name['lockds_reply'].message_type = _FELOCKDSREPLY
-_FEMESSAGE.fields_by_name['setcfg_req'].message_type = _FESETCONFIGREQ
-_FEMESSAGE.fields_by_name['setcfg_reply'].message_type = _FESETCONFIGREPLY
-_FEMESSAGE.fields_by_name['commcfg_req'].message_type = _FECOMMITCONFIGREQ
-_FEMESSAGE.fields_by_name['commcfg_reply'].message_type = _FECOMMITCONFIGREPLY
-_FEMESSAGE.fields_by_name['get_req'].message_type = _FEGETREQ
-_FEMESSAGE.fields_by_name['get_reply'].message_type = _FEGETREPLY
-_FEMESSAGE.fields_by_name['notify_data_req'].message_type = _FENOTIFYDATAREQ
-_FEMESSAGE.fields_by_name['regnotify_req'].message_type = _FEREGISTERNOTIFYREQ
-_FEMESSAGE.oneofs_by_name['message'].fields.append(
-  _FEMESSAGE.fields_by_name['register_req'])
-_FEMESSAGE.fields_by_name['register_req'].containing_oneof = _FEMESSAGE.oneofs_by_name['message']
-_FEMESSAGE.oneofs_by_name['message'].fields.append(
-  _FEMESSAGE.fields_by_name['session_req'])
-_FEMESSAGE.fields_by_name['session_req'].containing_oneof = _FEMESSAGE.oneofs_by_name['message']
-_FEMESSAGE.oneofs_by_name['message'].fields.append(
-  _FEMESSAGE.fields_by_name['session_reply'])
-_FEMESSAGE.fields_by_name['session_reply'].containing_oneof = _FEMESSAGE.oneofs_by_name['message']
-_FEMESSAGE.oneofs_by_name['message'].fields.append(
-  _FEMESSAGE.fields_by_name['lockds_req'])
-_FEMESSAGE.fields_by_name['lockds_req'].containing_oneof = _FEMESSAGE.oneofs_by_name['message']
-_FEMESSAGE.oneofs_by_name['message'].fields.append(
-  _FEMESSAGE.fields_by_name['lockds_reply'])
-_FEMESSAGE.fields_by_name['lockds_reply'].containing_oneof = _FEMESSAGE.oneofs_by_name['message']
-_FEMESSAGE.oneofs_by_name['message'].fields.append(
-  _FEMESSAGE.fields_by_name['setcfg_req'])
-_FEMESSAGE.fields_by_name['setcfg_req'].containing_oneof = _FEMESSAGE.oneofs_by_name['message']
-_FEMESSAGE.oneofs_by_name['message'].fields.append(
-  _FEMESSAGE.fields_by_name['setcfg_reply'])
-_FEMESSAGE.fields_by_name['setcfg_reply'].containing_oneof = _FEMESSAGE.oneofs_by_name['message']
-_FEMESSAGE.oneofs_by_name['message'].fields.append(
-  _FEMESSAGE.fields_by_name['commcfg_req'])
-_FEMESSAGE.fields_by_name['commcfg_req'].containing_oneof = _FEMESSAGE.oneofs_by_name['message']
-_FEMESSAGE.oneofs_by_name['message'].fields.append(
-  _FEMESSAGE.fields_by_name['commcfg_reply'])
-_FEMESSAGE.fields_by_name['commcfg_reply'].containing_oneof = _FEMESSAGE.oneofs_by_name['message']
-_FEMESSAGE.oneofs_by_name['message'].fields.append(
-  _FEMESSAGE.fields_by_name['get_req'])
-_FEMESSAGE.fields_by_name['get_req'].containing_oneof = _FEMESSAGE.oneofs_by_name['message']
-_FEMESSAGE.oneofs_by_name['message'].fields.append(
-  _FEMESSAGE.fields_by_name['get_reply'])
-_FEMESSAGE.fields_by_name['get_reply'].containing_oneof = _FEMESSAGE.oneofs_by_name['message']
-_FEMESSAGE.oneofs_by_name['message'].fields.append(
-  _FEMESSAGE.fields_by_name['notify_data_req'])
-_FEMESSAGE.fields_by_name['notify_data_req'].containing_oneof = _FEMESSAGE.oneofs_by_name['message']
-_FEMESSAGE.oneofs_by_name['message'].fields.append(
-  _FEMESSAGE.fields_by_name['regnotify_req'])
-_FEMESSAGE.fields_by_name['regnotify_req'].containing_oneof = _FEMESSAGE.oneofs_by_name['message']
-DESCRIPTOR.message_types_by_name['YangDataXPath'] = _YANGDATAXPATH
-DESCRIPTOR.message_types_by_name['YangDataValue'] = _YANGDATAVALUE
-DESCRIPTOR.message_types_by_name['YangData'] = _YANGDATA
-DESCRIPTOR.message_types_by_name['YangCfgDataReq'] = _YANGCFGDATAREQ
-DESCRIPTOR.message_types_by_name['YangGetDataReq'] = _YANGGETDATAREQ
-DESCRIPTOR.message_types_by_name['BeSubscribeReq'] = _BESUBSCRIBEREQ
-DESCRIPTOR.message_types_by_name['BeSubscribeReply'] = _BESUBSCRIBEREPLY
-DESCRIPTOR.message_types_by_name['BeTxnReq'] = _BETXNREQ
-DESCRIPTOR.message_types_by_name['BeTxnReply'] = _BETXNREPLY
-DESCRIPTOR.message_types_by_name['BeCfgDataCreateReq'] = _BECFGDATACREATEREQ
-DESCRIPTOR.message_types_by_name['BeCfgDataCreateReply'] = _BECFGDATACREATEREPLY
-DESCRIPTOR.message_types_by_name['BeCfgDataApplyReq'] = _BECFGDATAAPPLYREQ
-DESCRIPTOR.message_types_by_name['BeCfgDataApplyReply'] = _BECFGDATAAPPLYREPLY
-DESCRIPTOR.message_types_by_name['YangDataReply'] = _YANGDATAREPLY
-DESCRIPTOR.message_types_by_name['BeMessage'] = _BEMESSAGE
-DESCRIPTOR.message_types_by_name['FeRegisterReq'] = _FEREGISTERREQ
-DESCRIPTOR.message_types_by_name['FeSessionReq'] = _FESESSIONREQ
-DESCRIPTOR.message_types_by_name['FeSessionReply'] = _FESESSIONREPLY
-DESCRIPTOR.message_types_by_name['FeLockDsReq'] = _FELOCKDSREQ
-DESCRIPTOR.message_types_by_name['FeLockDsReply'] = _FELOCKDSREPLY
-DESCRIPTOR.message_types_by_name['FeSetConfigReq'] = _FESETCONFIGREQ
-DESCRIPTOR.message_types_by_name['FeSetConfigReply'] = _FESETCONFIGREPLY
-DESCRIPTOR.message_types_by_name['FeCommitConfigReq'] = _FECOMMITCONFIGREQ
-DESCRIPTOR.message_types_by_name['FeCommitConfigReply'] = _FECOMMITCONFIGREPLY
-DESCRIPTOR.message_types_by_name['FeGetReq'] = _FEGETREQ
-DESCRIPTOR.message_types_by_name['FeGetReply'] = _FEGETREPLY
-DESCRIPTOR.message_types_by_name['FeNotifyDataReq'] = _FENOTIFYDATAREQ
-DESCRIPTOR.message_types_by_name['FeRegisterNotifyReq'] = _FEREGISTERNOTIFYREQ
-DESCRIPTOR.message_types_by_name['FeMessage'] = _FEMESSAGE
-DESCRIPTOR.enum_types_by_name['CfgDataReqType'] = _CFGDATAREQTYPE
-DESCRIPTOR.enum_types_by_name['DatastoreId'] = _DATASTOREID
+_YANGDATAVALUE.oneofs_by_name["value"].fields.append(
+    _YANGDATAVALUE.fields_by_name["encoded_str_val"]
+)
+_YANGDATAVALUE.fields_by_name[
+    "encoded_str_val"
+].containing_oneof = _YANGDATAVALUE.oneofs_by_name["value"]
+_YANGDATA.fields_by_name["value"].message_type = _YANGDATAVALUE
+_YANGCFGDATAREQ.fields_by_name["data"].message_type = _YANGDATA
+_YANGCFGDATAREQ.fields_by_name["req_type"].enum_type = _CFGDATAREQTYPE
+_YANGGETDATAREQ.fields_by_name["data"].message_type = _YANGDATA
+_BECFGDATACREATEREQ.fields_by_name["data_req"].message_type = _YANGCFGDATAREQ
+_YANGDATAREPLY.fields_by_name["data"].message_type = _YANGDATA
+_BEMESSAGE.fields_by_name["subscr_req"].message_type = _BESUBSCRIBEREQ
+_BEMESSAGE.fields_by_name["subscr_reply"].message_type = _BESUBSCRIBEREPLY
+_BEMESSAGE.fields_by_name["txn_req"].message_type = _BETXNREQ
+_BEMESSAGE.fields_by_name["txn_reply"].message_type = _BETXNREPLY
+_BEMESSAGE.fields_by_name["cfg_data_req"].message_type = _BECFGDATACREATEREQ
+_BEMESSAGE.fields_by_name["cfg_data_reply"].message_type = _BECFGDATACREATEREPLY
+_BEMESSAGE.fields_by_name["cfg_apply_req"].message_type = _BECFGDATAAPPLYREQ
+_BEMESSAGE.fields_by_name["cfg_apply_reply"].message_type = _BECFGDATAAPPLYREPLY
+_BEMESSAGE.oneofs_by_name["message"].fields.append(
+    _BEMESSAGE.fields_by_name["subscr_req"]
+)
+_BEMESSAGE.fields_by_name["subscr_req"].containing_oneof = _BEMESSAGE.oneofs_by_name[
+    "message"
+]
+_BEMESSAGE.oneofs_by_name["message"].fields.append(
+    _BEMESSAGE.fields_by_name["subscr_reply"]
+)
+_BEMESSAGE.fields_by_name["subscr_reply"].containing_oneof = _BEMESSAGE.oneofs_by_name[
+    "message"
+]
+_BEMESSAGE.oneofs_by_name["message"].fields.append(_BEMESSAGE.fields_by_name["txn_req"])
+_BEMESSAGE.fields_by_name["txn_req"].containing_oneof = _BEMESSAGE.oneofs_by_name[
+    "message"
+]
+_BEMESSAGE.oneofs_by_name["message"].fields.append(
+    _BEMESSAGE.fields_by_name["txn_reply"]
+)
+_BEMESSAGE.fields_by_name["txn_reply"].containing_oneof = _BEMESSAGE.oneofs_by_name[
+    "message"
+]
+_BEMESSAGE.oneofs_by_name["message"].fields.append(
+    _BEMESSAGE.fields_by_name["cfg_data_req"]
+)
+_BEMESSAGE.fields_by_name["cfg_data_req"].containing_oneof = _BEMESSAGE.oneofs_by_name[
+    "message"
+]
+_BEMESSAGE.oneofs_by_name["message"].fields.append(
+    _BEMESSAGE.fields_by_name["cfg_data_reply"]
+)
+_BEMESSAGE.fields_by_name[
+    "cfg_data_reply"
+].containing_oneof = _BEMESSAGE.oneofs_by_name["message"]
+_BEMESSAGE.oneofs_by_name["message"].fields.append(
+    _BEMESSAGE.fields_by_name["cfg_apply_req"]
+)
+_BEMESSAGE.fields_by_name["cfg_apply_req"].containing_oneof = _BEMESSAGE.oneofs_by_name[
+    "message"
+]
+_BEMESSAGE.oneofs_by_name["message"].fields.append(
+    _BEMESSAGE.fields_by_name["cfg_apply_reply"]
+)
+_BEMESSAGE.fields_by_name[
+    "cfg_apply_reply"
+].containing_oneof = _BEMESSAGE.oneofs_by_name["message"]
+_FESESSIONREQ.oneofs_by_name["id"].fields.append(
+    _FESESSIONREQ.fields_by_name["client_conn_id"]
+)
+_FESESSIONREQ.fields_by_name[
+    "client_conn_id"
+].containing_oneof = _FESESSIONREQ.oneofs_by_name["id"]
+_FESESSIONREQ.oneofs_by_name["id"].fields.append(
+    _FESESSIONREQ.fields_by_name["session_id"]
+)
+_FESESSIONREQ.fields_by_name[
+    "session_id"
+].containing_oneof = _FESESSIONREQ.oneofs_by_name["id"]
+_FELOCKDSREQ.fields_by_name["ds_id"].enum_type = _DATASTOREID
+_FELOCKDSREPLY.fields_by_name["ds_id"].enum_type = _DATASTOREID
+_FESETCONFIGREQ.fields_by_name["ds_id"].enum_type = _DATASTOREID
+_FESETCONFIGREQ.fields_by_name["data"].message_type = _YANGCFGDATAREQ
+_FESETCONFIGREQ.fields_by_name["commit_ds_id"].enum_type = _DATASTOREID
+_FESETCONFIGREPLY.fields_by_name["ds_id"].enum_type = _DATASTOREID
+_FECOMMITCONFIGREQ.fields_by_name["src_ds_id"].enum_type = _DATASTOREID
+_FECOMMITCONFIGREQ.fields_by_name["dst_ds_id"].enum_type = _DATASTOREID
+_FECOMMITCONFIGREPLY.fields_by_name["src_ds_id"].enum_type = _DATASTOREID
+_FECOMMITCONFIGREPLY.fields_by_name["dst_ds_id"].enum_type = _DATASTOREID
+_FEGETREQ.fields_by_name["ds_id"].enum_type = _DATASTOREID
+_FEGETREQ.fields_by_name["data"].message_type = _YANGGETDATAREQ
+_FEGETREPLY.fields_by_name["ds_id"].enum_type = _DATASTOREID
+_FEGETREPLY.fields_by_name["data"].message_type = _YANGDATAREPLY
+_FENOTIFYDATAREQ.fields_by_name["data"].message_type = _YANGDATA
+_FEREGISTERNOTIFYREQ.fields_by_name["ds_id"].enum_type = _DATASTOREID
+_FEREGISTERNOTIFYREQ.fields_by_name["data_xpath"].message_type = _YANGDATAXPATH
+_FEMESSAGE.fields_by_name["register_req"].message_type = _FEREGISTERREQ
+_FEMESSAGE.fields_by_name["session_req"].message_type = _FESESSIONREQ
+_FEMESSAGE.fields_by_name["session_reply"].message_type = _FESESSIONREPLY
+_FEMESSAGE.fields_by_name["lockds_req"].message_type = _FELOCKDSREQ
+_FEMESSAGE.fields_by_name["lockds_reply"].message_type = _FELOCKDSREPLY
+_FEMESSAGE.fields_by_name["setcfg_req"].message_type = _FESETCONFIGREQ
+_FEMESSAGE.fields_by_name["setcfg_reply"].message_type = _FESETCONFIGREPLY
+_FEMESSAGE.fields_by_name["commcfg_req"].message_type = _FECOMMITCONFIGREQ
+_FEMESSAGE.fields_by_name["commcfg_reply"].message_type = _FECOMMITCONFIGREPLY
+_FEMESSAGE.fields_by_name["get_req"].message_type = _FEGETREQ
+_FEMESSAGE.fields_by_name["get_reply"].message_type = _FEGETREPLY
+_FEMESSAGE.fields_by_name["notify_data_req"].message_type = _FENOTIFYDATAREQ
+_FEMESSAGE.fields_by_name["regnotify_req"].message_type = _FEREGISTERNOTIFYREQ
+_FEMESSAGE.oneofs_by_name["message"].fields.append(
+    _FEMESSAGE.fields_by_name["register_req"]
+)
+_FEMESSAGE.fields_by_name["register_req"].containing_oneof = _FEMESSAGE.oneofs_by_name[
+    "message"
+]
+_FEMESSAGE.oneofs_by_name["message"].fields.append(
+    _FEMESSAGE.fields_by_name["session_req"]
+)
+_FEMESSAGE.fields_by_name["session_req"].containing_oneof = _FEMESSAGE.oneofs_by_name[
+    "message"
+]
+_FEMESSAGE.oneofs_by_name["message"].fields.append(
+    _FEMESSAGE.fields_by_name["session_reply"]
+)
+_FEMESSAGE.fields_by_name["session_reply"].containing_oneof = _FEMESSAGE.oneofs_by_name[
+    "message"
+]
+_FEMESSAGE.oneofs_by_name["message"].fields.append(
+    _FEMESSAGE.fields_by_name["lockds_req"]
+)
+_FEMESSAGE.fields_by_name["lockds_req"].containing_oneof = _FEMESSAGE.oneofs_by_name[
+    "message"
+]
+_FEMESSAGE.oneofs_by_name["message"].fields.append(
+    _FEMESSAGE.fields_by_name["lockds_reply"]
+)
+_FEMESSAGE.fields_by_name["lockds_reply"].containing_oneof = _FEMESSAGE.oneofs_by_name[
+    "message"
+]
+_FEMESSAGE.oneofs_by_name["message"].fields.append(
+    _FEMESSAGE.fields_by_name["setcfg_req"]
+)
+_FEMESSAGE.fields_by_name["setcfg_req"].containing_oneof = _FEMESSAGE.oneofs_by_name[
+    "message"
+]
+_FEMESSAGE.oneofs_by_name["message"].fields.append(
+    _FEMESSAGE.fields_by_name["setcfg_reply"]
+)
+_FEMESSAGE.fields_by_name["setcfg_reply"].containing_oneof = _FEMESSAGE.oneofs_by_name[
+    "message"
+]
+_FEMESSAGE.oneofs_by_name["message"].fields.append(
+    _FEMESSAGE.fields_by_name["commcfg_req"]
+)
+_FEMESSAGE.fields_by_name["commcfg_req"].containing_oneof = _FEMESSAGE.oneofs_by_name[
+    "message"
+]
+_FEMESSAGE.oneofs_by_name["message"].fields.append(
+    _FEMESSAGE.fields_by_name["commcfg_reply"]
+)
+_FEMESSAGE.fields_by_name["commcfg_reply"].containing_oneof = _FEMESSAGE.oneofs_by_name[
+    "message"
+]
+_FEMESSAGE.oneofs_by_name["message"].fields.append(_FEMESSAGE.fields_by_name["get_req"])
+_FEMESSAGE.fields_by_name["get_req"].containing_oneof = _FEMESSAGE.oneofs_by_name[
+    "message"
+]
+_FEMESSAGE.oneofs_by_name["message"].fields.append(
+    _FEMESSAGE.fields_by_name["get_reply"]
+)
+_FEMESSAGE.fields_by_name["get_reply"].containing_oneof = _FEMESSAGE.oneofs_by_name[
+    "message"
+]
+_FEMESSAGE.oneofs_by_name["message"].fields.append(
+    _FEMESSAGE.fields_by_name["notify_data_req"]
+)
+_FEMESSAGE.fields_by_name[
+    "notify_data_req"
+].containing_oneof = _FEMESSAGE.oneofs_by_name["message"]
+_FEMESSAGE.oneofs_by_name["message"].fields.append(
+    _FEMESSAGE.fields_by_name["regnotify_req"]
+)
+_FEMESSAGE.fields_by_name["regnotify_req"].containing_oneof = _FEMESSAGE.oneofs_by_name[
+    "message"
+]
+DESCRIPTOR.message_types_by_name["YangDataXPath"] = _YANGDATAXPATH
+DESCRIPTOR.message_types_by_name["YangDataValue"] = _YANGDATAVALUE
+DESCRIPTOR.message_types_by_name["YangData"] = _YANGDATA
+DESCRIPTOR.message_types_by_name["YangCfgDataReq"] = _YANGCFGDATAREQ
+DESCRIPTOR.message_types_by_name["YangGetDataReq"] = _YANGGETDATAREQ
+DESCRIPTOR.message_types_by_name["BeSubscribeReq"] = _BESUBSCRIBEREQ
+DESCRIPTOR.message_types_by_name["BeSubscribeReply"] = _BESUBSCRIBEREPLY
+DESCRIPTOR.message_types_by_name["BeTxnReq"] = _BETXNREQ
+DESCRIPTOR.message_types_by_name["BeTxnReply"] = _BETXNREPLY
+DESCRIPTOR.message_types_by_name["BeCfgDataCreateReq"] = _BECFGDATACREATEREQ
+DESCRIPTOR.message_types_by_name["BeCfgDataCreateReply"] = _BECFGDATACREATEREPLY
+DESCRIPTOR.message_types_by_name["BeCfgDataApplyReq"] = _BECFGDATAAPPLYREQ
+DESCRIPTOR.message_types_by_name["BeCfgDataApplyReply"] = _BECFGDATAAPPLYREPLY
+DESCRIPTOR.message_types_by_name["YangDataReply"] = _YANGDATAREPLY
+DESCRIPTOR.message_types_by_name["BeMessage"] = _BEMESSAGE
+DESCRIPTOR.message_types_by_name["FeRegisterReq"] = _FEREGISTERREQ
+DESCRIPTOR.message_types_by_name["FeSessionReq"] = _FESESSIONREQ
+DESCRIPTOR.message_types_by_name["FeSessionReply"] = _FESESSIONREPLY
+DESCRIPTOR.message_types_by_name["FeLockDsReq"] = _FELOCKDSREQ
+DESCRIPTOR.message_types_by_name["FeLockDsReply"] = _FELOCKDSREPLY
+DESCRIPTOR.message_types_by_name["FeSetConfigReq"] = _FESETCONFIGREQ
+DESCRIPTOR.message_types_by_name["FeSetConfigReply"] = _FESETCONFIGREPLY
+DESCRIPTOR.message_types_by_name["FeCommitConfigReq"] = _FECOMMITCONFIGREQ
+DESCRIPTOR.message_types_by_name["FeCommitConfigReply"] = _FECOMMITCONFIGREPLY
+DESCRIPTOR.message_types_by_name["FeGetReq"] = _FEGETREQ
+DESCRIPTOR.message_types_by_name["FeGetReply"] = _FEGETREPLY
+DESCRIPTOR.message_types_by_name["FeNotifyDataReq"] = _FENOTIFYDATAREQ
+DESCRIPTOR.message_types_by_name["FeRegisterNotifyReq"] = _FEREGISTERNOTIFYREQ
+DESCRIPTOR.message_types_by_name["FeMessage"] = _FEMESSAGE
+DESCRIPTOR.enum_types_by_name["CfgDataReqType"] = _CFGDATAREQTYPE
+DESCRIPTOR.enum_types_by_name["DatastoreId"] = _DATASTOREID
 _sym_db.RegisterFileDescriptor(DESCRIPTOR)
 
-YangDataXPath = _reflection.GeneratedProtocolMessageType('YangDataXPath', (_message.Message,), {
-  'DESCRIPTOR' : _YANGDATAXPATH,
-  '__module__' : 'mgmt_pb2'
-  # @@protoc_insertion_point(class_scope:mgmtd.YangDataXPath)
-  })
+YangDataXPath = _reflection.GeneratedProtocolMessageType(
+    "YangDataXPath",
+    (_message.Message,),
+    {
+        "DESCRIPTOR": _YANGDATAXPATH,
+        "__module__": "mgmt_pb2",
+        # @@protoc_insertion_point(class_scope:mgmtd.YangDataXPath)
+    },
+)
 _sym_db.RegisterMessage(YangDataXPath)
 
-YangDataValue = _reflection.GeneratedProtocolMessageType('YangDataValue', (_message.Message,), {
-  'DESCRIPTOR' : _YANGDATAVALUE,
-  '__module__' : 'mgmt_pb2'
-  # @@protoc_insertion_point(class_scope:mgmtd.YangDataValue)
-  })
+YangDataValue = _reflection.GeneratedProtocolMessageType(
+    "YangDataValue",
+    (_message.Message,),
+    {
+        "DESCRIPTOR": _YANGDATAVALUE,
+        "__module__": "mgmt_pb2",
+        # @@protoc_insertion_point(class_scope:mgmtd.YangDataValue)
+    },
+)
 _sym_db.RegisterMessage(YangDataValue)
 
-YangData = _reflection.GeneratedProtocolMessageType('YangData', (_message.Message,), {
-  'DESCRIPTOR' : _YANGDATA,
-  '__module__' : 'mgmt_pb2'
-  # @@protoc_insertion_point(class_scope:mgmtd.YangData)
-  })
+YangData = _reflection.GeneratedProtocolMessageType(
+    "YangData",
+    (_message.Message,),
+    {
+        "DESCRIPTOR": _YANGDATA,
+        "__module__": "mgmt_pb2",
+        # @@protoc_insertion_point(class_scope:mgmtd.YangData)
+    },
+)
 _sym_db.RegisterMessage(YangData)
 
-YangCfgDataReq = _reflection.GeneratedProtocolMessageType('YangCfgDataReq', (_message.Message,), {
-  'DESCRIPTOR' : _YANGCFGDATAREQ,
-  '__module__' : 'mgmt_pb2'
-  # @@protoc_insertion_point(class_scope:mgmtd.YangCfgDataReq)
-  })
+YangCfgDataReq = _reflection.GeneratedProtocolMessageType(
+    "YangCfgDataReq",
+    (_message.Message,),
+    {
+        "DESCRIPTOR": _YANGCFGDATAREQ,
+        "__module__": "mgmt_pb2",
+        # @@protoc_insertion_point(class_scope:mgmtd.YangCfgDataReq)
+    },
+)
 _sym_db.RegisterMessage(YangCfgDataReq)
 
-YangGetDataReq = _reflection.GeneratedProtocolMessageType('YangGetDataReq', (_message.Message,), {
-  'DESCRIPTOR' : _YANGGETDATAREQ,
-  '__module__' : 'mgmt_pb2'
-  # @@protoc_insertion_point(class_scope:mgmtd.YangGetDataReq)
-  })
+YangGetDataReq = _reflection.GeneratedProtocolMessageType(
+    "YangGetDataReq",
+    (_message.Message,),
+    {
+        "DESCRIPTOR": _YANGGETDATAREQ,
+        "__module__": "mgmt_pb2",
+        # @@protoc_insertion_point(class_scope:mgmtd.YangGetDataReq)
+    },
+)
 _sym_db.RegisterMessage(YangGetDataReq)
 
-BeSubscribeReq = _reflection.GeneratedProtocolMessageType('BeSubscribeReq', (_message.Message,), {
-  'DESCRIPTOR' : _BESUBSCRIBEREQ,
-  '__module__' : 'mgmt_pb2'
-  # @@protoc_insertion_point(class_scope:mgmtd.BeSubscribeReq)
-  })
+BeSubscribeReq = _reflection.GeneratedProtocolMessageType(
+    "BeSubscribeReq",
+    (_message.Message,),
+    {
+        "DESCRIPTOR": _BESUBSCRIBEREQ,
+        "__module__": "mgmt_pb2",
+        # @@protoc_insertion_point(class_scope:mgmtd.BeSubscribeReq)
+    },
+)
 _sym_db.RegisterMessage(BeSubscribeReq)
 
-BeSubscribeReply = _reflection.GeneratedProtocolMessageType('BeSubscribeReply', (_message.Message,), {
-  'DESCRIPTOR' : _BESUBSCRIBEREPLY,
-  '__module__' : 'mgmt_pb2'
-  # @@protoc_insertion_point(class_scope:mgmtd.BeSubscribeReply)
-  })
+BeSubscribeReply = _reflection.GeneratedProtocolMessageType(
+    "BeSubscribeReply",
+    (_message.Message,),
+    {
+        "DESCRIPTOR": _BESUBSCRIBEREPLY,
+        "__module__": "mgmt_pb2",
+        # @@protoc_insertion_point(class_scope:mgmtd.BeSubscribeReply)
+    },
+)
 _sym_db.RegisterMessage(BeSubscribeReply)
 
-BeTxnReq = _reflection.GeneratedProtocolMessageType('BeTxnReq', (_message.Message,), {
-  'DESCRIPTOR' : _BETXNREQ,
-  '__module__' : 'mgmt_pb2'
-  # @@protoc_insertion_point(class_scope:mgmtd.BeTxnReq)
-  })
+BeTxnReq = _reflection.GeneratedProtocolMessageType(
+    "BeTxnReq",
+    (_message.Message,),
+    {
+        "DESCRIPTOR": _BETXNREQ,
+        "__module__": "mgmt_pb2",
+        # @@protoc_insertion_point(class_scope:mgmtd.BeTxnReq)
+    },
+)
 _sym_db.RegisterMessage(BeTxnReq)
 
-BeTxnReply = _reflection.GeneratedProtocolMessageType('BeTxnReply', (_message.Message,), {
-  'DESCRIPTOR' : _BETXNREPLY,
-  '__module__' : 'mgmt_pb2'
-  # @@protoc_insertion_point(class_scope:mgmtd.BeTxnReply)
-  })
+BeTxnReply = _reflection.GeneratedProtocolMessageType(
+    "BeTxnReply",
+    (_message.Message,),
+    {
+        "DESCRIPTOR": _BETXNREPLY,
+        "__module__": "mgmt_pb2",
+        # @@protoc_insertion_point(class_scope:mgmtd.BeTxnReply)
+    },
+)
 _sym_db.RegisterMessage(BeTxnReply)
 
-BeCfgDataCreateReq = _reflection.GeneratedProtocolMessageType('BeCfgDataCreateReq', (_message.Message,), {
-  'DESCRIPTOR' : _BECFGDATACREATEREQ,
-  '__module__' : 'mgmt_pb2'
-  # @@protoc_insertion_point(class_scope:mgmtd.BeCfgDataCreateReq)
-  })
+BeCfgDataCreateReq = _reflection.GeneratedProtocolMessageType(
+    "BeCfgDataCreateReq",
+    (_message.Message,),
+    {
+        "DESCRIPTOR": _BECFGDATACREATEREQ,
+        "__module__": "mgmt_pb2",
+        # @@protoc_insertion_point(class_scope:mgmtd.BeCfgDataCreateReq)
+    },
+)
 _sym_db.RegisterMessage(BeCfgDataCreateReq)
 
-BeCfgDataCreateReply = _reflection.GeneratedProtocolMessageType('BeCfgDataCreateReply', (_message.Message,), {
-  'DESCRIPTOR' : _BECFGDATACREATEREPLY,
-  '__module__' : 'mgmt_pb2'
-  # @@protoc_insertion_point(class_scope:mgmtd.BeCfgDataCreateReply)
-  })
+BeCfgDataCreateReply = _reflection.GeneratedProtocolMessageType(
+    "BeCfgDataCreateReply",
+    (_message.Message,),
+    {
+        "DESCRIPTOR": _BECFGDATACREATEREPLY,
+        "__module__": "mgmt_pb2",
+        # @@protoc_insertion_point(class_scope:mgmtd.BeCfgDataCreateReply)
+    },
+)
 _sym_db.RegisterMessage(BeCfgDataCreateReply)
 
-BeCfgDataApplyReq = _reflection.GeneratedProtocolMessageType('BeCfgDataApplyReq', (_message.Message,), {
-  'DESCRIPTOR' : _BECFGDATAAPPLYREQ,
-  '__module__' : 'mgmt_pb2'
-  # @@protoc_insertion_point(class_scope:mgmtd.BeCfgDataApplyReq)
-  })
+BeCfgDataApplyReq = _reflection.GeneratedProtocolMessageType(
+    "BeCfgDataApplyReq",
+    (_message.Message,),
+    {
+        "DESCRIPTOR": _BECFGDATAAPPLYREQ,
+        "__module__": "mgmt_pb2",
+        # @@protoc_insertion_point(class_scope:mgmtd.BeCfgDataApplyReq)
+    },
+)
 _sym_db.RegisterMessage(BeCfgDataApplyReq)
 
-BeCfgDataApplyReply = _reflection.GeneratedProtocolMessageType('BeCfgDataApplyReply', (_message.Message,), {
-  'DESCRIPTOR' : _BECFGDATAAPPLYREPLY,
-  '__module__' : 'mgmt_pb2'
-  # @@protoc_insertion_point(class_scope:mgmtd.BeCfgDataApplyReply)
-  })
+BeCfgDataApplyReply = _reflection.GeneratedProtocolMessageType(
+    "BeCfgDataApplyReply",
+    (_message.Message,),
+    {
+        "DESCRIPTOR": _BECFGDATAAPPLYREPLY,
+        "__module__": "mgmt_pb2",
+        # @@protoc_insertion_point(class_scope:mgmtd.BeCfgDataApplyReply)
+    },
+)
 _sym_db.RegisterMessage(BeCfgDataApplyReply)
 
-YangDataReply = _reflection.GeneratedProtocolMessageType('YangDataReply', (_message.Message,), {
-  'DESCRIPTOR' : _YANGDATAREPLY,
-  '__module__' : 'mgmt_pb2'
-  # @@protoc_insertion_point(class_scope:mgmtd.YangDataReply)
-  })
+YangDataReply = _reflection.GeneratedProtocolMessageType(
+    "YangDataReply",
+    (_message.Message,),
+    {
+        "DESCRIPTOR": _YANGDATAREPLY,
+        "__module__": "mgmt_pb2",
+        # @@protoc_insertion_point(class_scope:mgmtd.YangDataReply)
+    },
+)
 _sym_db.RegisterMessage(YangDataReply)
 
-BeMessage = _reflection.GeneratedProtocolMessageType('BeMessage', (_message.Message,), {
-  'DESCRIPTOR' : _BEMESSAGE,
-  '__module__' : 'mgmt_pb2'
-  # @@protoc_insertion_point(class_scope:mgmtd.BeMessage)
-  })
+BeMessage = _reflection.GeneratedProtocolMessageType(
+    "BeMessage",
+    (_message.Message,),
+    {
+        "DESCRIPTOR": _BEMESSAGE,
+        "__module__": "mgmt_pb2",
+        # @@protoc_insertion_point(class_scope:mgmtd.BeMessage)
+    },
+)
 _sym_db.RegisterMessage(BeMessage)
 
-FeRegisterReq = _reflection.GeneratedProtocolMessageType('FeRegisterReq', (_message.Message,), {
-  'DESCRIPTOR' : _FEREGISTERREQ,
-  '__module__' : 'mgmt_pb2'
-  # @@protoc_insertion_point(class_scope:mgmtd.FeRegisterReq)
-  })
+FeRegisterReq = _reflection.GeneratedProtocolMessageType(
+    "FeRegisterReq",
+    (_message.Message,),
+    {
+        "DESCRIPTOR": _FEREGISTERREQ,
+        "__module__": "mgmt_pb2",
+        # @@protoc_insertion_point(class_scope:mgmtd.FeRegisterReq)
+    },
+)
 _sym_db.RegisterMessage(FeRegisterReq)
 
-FeSessionReq = _reflection.GeneratedProtocolMessageType('FeSessionReq', (_message.Message,), {
-  'DESCRIPTOR' : _FESESSIONREQ,
-  '__module__' : 'mgmt_pb2'
-  # @@protoc_insertion_point(class_scope:mgmtd.FeSessionReq)
-  })
+FeSessionReq = _reflection.GeneratedProtocolMessageType(
+    "FeSessionReq",
+    (_message.Message,),
+    {
+        "DESCRIPTOR": _FESESSIONREQ,
+        "__module__": "mgmt_pb2",
+        # @@protoc_insertion_point(class_scope:mgmtd.FeSessionReq)
+    },
+)
 _sym_db.RegisterMessage(FeSessionReq)
 
-FeSessionReply = _reflection.GeneratedProtocolMessageType('FeSessionReply', (_message.Message,), {
-  'DESCRIPTOR' : _FESESSIONREPLY,
-  '__module__' : 'mgmt_pb2'
-  # @@protoc_insertion_point(class_scope:mgmtd.FeSessionReply)
-  })
+FeSessionReply = _reflection.GeneratedProtocolMessageType(
+    "FeSessionReply",
+    (_message.Message,),
+    {
+        "DESCRIPTOR": _FESESSIONREPLY,
+        "__module__": "mgmt_pb2",
+        # @@protoc_insertion_point(class_scope:mgmtd.FeSessionReply)
+    },
+)
 _sym_db.RegisterMessage(FeSessionReply)
 
-FeLockDsReq = _reflection.GeneratedProtocolMessageType('FeLockDsReq', (_message.Message,), {
-  'DESCRIPTOR' : _FELOCKDSREQ,
-  '__module__' : 'mgmt_pb2'
-  # @@protoc_insertion_point(class_scope:mgmtd.FeLockDsReq)
-  })
+FeLockDsReq = _reflection.GeneratedProtocolMessageType(
+    "FeLockDsReq",
+    (_message.Message,),
+    {
+        "DESCRIPTOR": _FELOCKDSREQ,
+        "__module__": "mgmt_pb2",
+        # @@protoc_insertion_point(class_scope:mgmtd.FeLockDsReq)
+    },
+)
 _sym_db.RegisterMessage(FeLockDsReq)
 
-FeLockDsReply = _reflection.GeneratedProtocolMessageType('FeLockDsReply', (_message.Message,), {
-  'DESCRIPTOR' : _FELOCKDSREPLY,
-  '__module__' : 'mgmt_pb2'
-  # @@protoc_insertion_point(class_scope:mgmtd.FeLockDsReply)
-  })
+FeLockDsReply = _reflection.GeneratedProtocolMessageType(
+    "FeLockDsReply",
+    (_message.Message,),
+    {
+        "DESCRIPTOR": _FELOCKDSREPLY,
+        "__module__": "mgmt_pb2",
+        # @@protoc_insertion_point(class_scope:mgmtd.FeLockDsReply)
+    },
+)
 _sym_db.RegisterMessage(FeLockDsReply)
 
-FeSetConfigReq = _reflection.GeneratedProtocolMessageType('FeSetConfigReq', (_message.Message,), {
-  'DESCRIPTOR' : _FESETCONFIGREQ,
-  '__module__' : 'mgmt_pb2'
-  # @@protoc_insertion_point(class_scope:mgmtd.FeSetConfigReq)
-  })
+FeSetConfigReq = _reflection.GeneratedProtocolMessageType(
+    "FeSetConfigReq",
+    (_message.Message,),
+    {
+        "DESCRIPTOR": _FESETCONFIGREQ,
+        "__module__": "mgmt_pb2",
+        # @@protoc_insertion_point(class_scope:mgmtd.FeSetConfigReq)
+    },
+)
 _sym_db.RegisterMessage(FeSetConfigReq)
 
-FeSetConfigReply = _reflection.GeneratedProtocolMessageType('FeSetConfigReply', (_message.Message,), {
-  'DESCRIPTOR' : _FESETCONFIGREPLY,
-  '__module__' : 'mgmt_pb2'
-  # @@protoc_insertion_point(class_scope:mgmtd.FeSetConfigReply)
-  })
+FeSetConfigReply = _reflection.GeneratedProtocolMessageType(
+    "FeSetConfigReply",
+    (_message.Message,),
+    {
+        "DESCRIPTOR": _FESETCONFIGREPLY,
+        "__module__": "mgmt_pb2",
+        # @@protoc_insertion_point(class_scope:mgmtd.FeSetConfigReply)
+    },
+)
 _sym_db.RegisterMessage(FeSetConfigReply)
 
-FeCommitConfigReq = _reflection.GeneratedProtocolMessageType('FeCommitConfigReq', (_message.Message,), {
-  'DESCRIPTOR' : _FECOMMITCONFIGREQ,
-  '__module__' : 'mgmt_pb2'
-  # @@protoc_insertion_point(class_scope:mgmtd.FeCommitConfigReq)
-  })
+FeCommitConfigReq = _reflection.GeneratedProtocolMessageType(
+    "FeCommitConfigReq",
+    (_message.Message,),
+    {
+        "DESCRIPTOR": _FECOMMITCONFIGREQ,
+        "__module__": "mgmt_pb2",
+        # @@protoc_insertion_point(class_scope:mgmtd.FeCommitConfigReq)
+    },
+)
 _sym_db.RegisterMessage(FeCommitConfigReq)
 
-FeCommitConfigReply = _reflection.GeneratedProtocolMessageType('FeCommitConfigReply', (_message.Message,), {
-  'DESCRIPTOR' : _FECOMMITCONFIGREPLY,
-  '__module__' : 'mgmt_pb2'
-  # @@protoc_insertion_point(class_scope:mgmtd.FeCommitConfigReply)
-  })
+FeCommitConfigReply = _reflection.GeneratedProtocolMessageType(
+    "FeCommitConfigReply",
+    (_message.Message,),
+    {
+        "DESCRIPTOR": _FECOMMITCONFIGREPLY,
+        "__module__": "mgmt_pb2",
+        # @@protoc_insertion_point(class_scope:mgmtd.FeCommitConfigReply)
+    },
+)
 _sym_db.RegisterMessage(FeCommitConfigReply)
 
-FeGetReq = _reflection.GeneratedProtocolMessageType('FeGetReq', (_message.Message,), {
-  'DESCRIPTOR' : _FEGETREQ,
-  '__module__' : 'mgmt_pb2'
-  # @@protoc_insertion_point(class_scope:mgmtd.FeGetReq)
-  })
+FeGetReq = _reflection.GeneratedProtocolMessageType(
+    "FeGetReq",
+    (_message.Message,),
+    {
+        "DESCRIPTOR": _FEGETREQ,
+        "__module__": "mgmt_pb2",
+        # @@protoc_insertion_point(class_scope:mgmtd.FeGetReq)
+    },
+)
 _sym_db.RegisterMessage(FeGetReq)
 
-FeGetReply = _reflection.GeneratedProtocolMessageType('FeGetReply', (_message.Message,), {
-  'DESCRIPTOR' : _FEGETREPLY,
-  '__module__' : 'mgmt_pb2'
-  # @@protoc_insertion_point(class_scope:mgmtd.FeGetReply)
-  })
+FeGetReply = _reflection.GeneratedProtocolMessageType(
+    "FeGetReply",
+    (_message.Message,),
+    {
+        "DESCRIPTOR": _FEGETREPLY,
+        "__module__": "mgmt_pb2",
+        # @@protoc_insertion_point(class_scope:mgmtd.FeGetReply)
+    },
+)
 _sym_db.RegisterMessage(FeGetReply)
 
-FeNotifyDataReq = _reflection.GeneratedProtocolMessageType('FeNotifyDataReq', (_message.Message,), {
-  'DESCRIPTOR' : _FENOTIFYDATAREQ,
-  '__module__' : 'mgmt_pb2'
-  # @@protoc_insertion_point(class_scope:mgmtd.FeNotifyDataReq)
-  })
+FeNotifyDataReq = _reflection.GeneratedProtocolMessageType(
+    "FeNotifyDataReq",
+    (_message.Message,),
+    {
+        "DESCRIPTOR": _FENOTIFYDATAREQ,
+        "__module__": "mgmt_pb2",
+        # @@protoc_insertion_point(class_scope:mgmtd.FeNotifyDataReq)
+    },
+)
 _sym_db.RegisterMessage(FeNotifyDataReq)
 
-FeRegisterNotifyReq = _reflection.GeneratedProtocolMessageType('FeRegisterNotifyReq', (_message.Message,), {
-  'DESCRIPTOR' : _FEREGISTERNOTIFYREQ,
-  '__module__' : 'mgmt_pb2'
-  # @@protoc_insertion_point(class_scope:mgmtd.FeRegisterNotifyReq)
-  })
+FeRegisterNotifyReq = _reflection.GeneratedProtocolMessageType(
+    "FeRegisterNotifyReq",
+    (_message.Message,),
+    {
+        "DESCRIPTOR": _FEREGISTERNOTIFYREQ,
+        "__module__": "mgmt_pb2",
+        # @@protoc_insertion_point(class_scope:mgmtd.FeRegisterNotifyReq)
+    },
+)
 _sym_db.RegisterMessage(FeRegisterNotifyReq)
 
-FeMessage = _reflection.GeneratedProtocolMessageType('FeMessage', (_message.Message,), {
-  'DESCRIPTOR' : _FEMESSAGE,
-  '__module__' : 'mgmt_pb2'
-  # @@protoc_insertion_point(class_scope:mgmtd.FeMessage)
-  })
+FeMessage = _reflection.GeneratedProtocolMessageType(
+    "FeMessage",
+    (_message.Message,),
+    {
+        "DESCRIPTOR": _FEMESSAGE,
+        "__module__": "mgmt_pb2",
+        # @@protoc_insertion_point(class_scope:mgmtd.FeMessage)
+    },
+)
 _sym_db.RegisterMessage(FeMessage)
 
 

@@ -197,13 +197,16 @@ def setup_module(mod):
 
     # For all registered routers, load the zebra and isis configuration files
     for rname, router in tgen.routers().items():
-        router.load_config(TopoRouter.RD_ZEBRA,
-                           os.path.join(CWD, '{}/zebra.conf'.format(rname)))
-        router.load_config(TopoRouter.RD_ISIS,
-                           os.path.join(CWD, '{}/isisd.conf'.format(rname)))
-        if (os.path.exists('{}/sharpd.conf'.format(rname))):
-            router.load_config(TopoRouter.RD_SHARP,
-                            os.path.join(CWD, '{}/sharpd.conf'.format(rname)))
+        router.load_config(
+            TopoRouter.RD_ZEBRA, os.path.join(CWD, "{}/zebra.conf".format(rname))
+        )
+        router.load_config(
+            TopoRouter.RD_ISIS, os.path.join(CWD, "{}/isisd.conf".format(rname))
+        )
+        if os.path.exists("{}/sharpd.conf".format(rname)):
+            router.load_config(
+                TopoRouter.RD_SHARP, os.path.join(CWD, "{}/sharpd.conf".format(rname))
+            )
 
     # Start routers
     tgen.start_router()
@@ -227,7 +230,9 @@ def router_compare_json_output(rname, command, reference):
     expected = json.loads(open(filename).read())
 
     # Run test function until we get an result. Wait at most 60 seconds.
-    test_func = functools.partial(topotest.router_json_cmp, tgen.gears[rname], command, expected)
+    test_func = functools.partial(
+        topotest.router_json_cmp, tgen.gears[rname], command, expected
+    )
     _, diff = topotest.run_and_expect(test_func, None, count=120, wait=0.5)
     assertmsg = '"{}" JSON output mismatches the expected result'.format(rname)
     assert diff is None, assertmsg
@@ -308,8 +313,10 @@ def test_srv6_locator_step1():
 
     for rname in ["rt1", "rt2", "rt3", "rt4", "rt5", "rt6"]:
         router_compare_json_output(
-            rname, "show segment-routing srv6 locator json", "step1/show_srv6_locator_table.ref"
-         )
+            rname,
+            "show segment-routing srv6 locator json",
+            "step1/show_srv6_locator_table.ref",
+        )
 
 
 def test_ping_step1():
@@ -326,10 +333,16 @@ def test_ping_step1():
         pytest.skip(tgen.errors)
 
     # Setup encap route on rt1, decap route on rt2
-    tgen.gears["rt1"].vtysh_cmd("sharp install seg6-routes fc00:0:9::1 nexthop-seg6 2001:db8:1::2 encap fc00:0:1:2:6:f00d:: 1")
-    tgen.gears["rt6"].vtysh_cmd("sharp install seg6local-routes fc00:0:f00d:: nexthop-seg6local eth-dst End_DT6 254 1")
-    tgen.gears["dst"].vtysh_cmd("sharp install route 2001:db8:1::1 nexthop 2001:db8:10::1 1")
-    
+    tgen.gears["rt1"].vtysh_cmd(
+        "sharp install seg6-routes fc00:0:9::1 nexthop-seg6 2001:db8:1::2 encap fc00:0:1:2:6:f00d:: 1"
+    )
+    tgen.gears["rt6"].vtysh_cmd(
+        "sharp install seg6local-routes fc00:0:f00d:: nexthop-seg6local eth-dst End_DT6 254 1"
+    )
+    tgen.gears["dst"].vtysh_cmd(
+        "sharp install route 2001:db8:1::1 nexthop 2001:db8:10::1 1"
+    )
+
     # Try to ping dst from rt1
     check_ping6("rt1", "fc00:0:9::1", True)
 
@@ -412,8 +425,10 @@ def test_srv6_locator_step2():
 
     for rname in ["rt1", "rt2", "rt3", "rt4", "rt5", "rt6"]:
         router_compare_json_output(
-            rname, "show segment-routing srv6 locator json", "step2/show_srv6_locator_table.ref"
-         )
+            rname,
+            "show segment-routing srv6 locator json",
+            "step2/show_srv6_locator_table.ref",
+        )
 
 
 def test_ping_step2():
@@ -428,7 +443,7 @@ def test_ping_step2():
     # Skip if previous fatal error condition is raised
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
-    
+
     check_ping6("rt1", "fc00:0:9::1", False)
 
 
@@ -512,8 +527,10 @@ def test_srv6_locator_step3():
 
     for rname in ["rt1", "rt2", "rt3", "rt4", "rt5", "rt6"]:
         router_compare_json_output(
-            rname, "show segment-routing srv6 locator json", "step3/show_srv6_locator_table.ref"
-         )
+            rname,
+            "show segment-routing srv6 locator json",
+            "step3/show_srv6_locator_table.ref",
+        )
 
 
 def test_ping_step3():
@@ -528,7 +545,7 @@ def test_ping_step3():
     # Skip if previous fatal error condition is raised
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
-    
+
     check_ping6("rt1", "fc00:0:9::1", True)
 
 
@@ -608,8 +625,10 @@ def test_srv6_locator_step4():
 
     for rname in ["rt1", "rt2", "rt3", "rt4", "rt5", "rt6"]:
         router_compare_json_output(
-            rname, "show segment-routing srv6 locator json", "step4/show_srv6_locator_table.ref"
-         )
+            rname,
+            "show segment-routing srv6 locator json",
+            "step4/show_srv6_locator_table.ref",
+        )
 
 
 def test_ping_step4():
@@ -624,7 +643,7 @@ def test_ping_step4():
     # Skip if previous fatal error condition is raised
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
-    
+
     check_ping6("rt1", "fc00:0:9::1", False)
 
 
@@ -704,8 +723,10 @@ def test_srv6_locator_step5():
 
     for rname in ["rt1", "rt2", "rt3", "rt4", "rt5", "rt6"]:
         router_compare_json_output(
-            rname, "show segment-routing srv6 locator json", "step5/show_srv6_locator_table.ref"
-         )
+            rname,
+            "show segment-routing srv6 locator json",
+            "step5/show_srv6_locator_table.ref",
+        )
 
 
 def test_ping_step5():
@@ -720,7 +741,7 @@ def test_ping_step5():
     # Skip if previous fatal error condition is raised
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
-    
+
     check_ping6("rt1", "fc00:0:9::1", True)
 
 
@@ -799,8 +820,10 @@ def test_srv6_locator_step6():
 
     for rname in ["rt1", "rt2", "rt3", "rt4", "rt5", "rt6"]:
         router_compare_json_output(
-            rname, "show segment-routing srv6 locator json", "step6/show_srv6_locator_table.ref"
-         )
+            rname,
+            "show segment-routing srv6 locator json",
+            "step6/show_srv6_locator_table.ref",
+        )
 
 
 def test_ping_step6():
@@ -815,7 +838,7 @@ def test_ping_step6():
     # Skip if previous fatal error condition is raised
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
-    
+
     check_ping6("rt1", "fc00:0:9::1", False)
 
 
@@ -895,8 +918,10 @@ def test_srv6_locator_step7():
 
     for rname in ["rt1", "rt2", "rt3", "rt4", "rt5", "rt6"]:
         router_compare_json_output(
-            rname, "show segment-routing srv6 locator json", "step7/show_srv6_locator_table.ref"
-         )
+            rname,
+            "show segment-routing srv6 locator json",
+            "step7/show_srv6_locator_table.ref",
+        )
 
 
 def test_ping_step7():
@@ -911,7 +936,7 @@ def test_ping_step7():
     # Skip if previous fatal error condition is raised
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
-    
+
     check_ping6("rt1", "fc00:0:9::1", True)
 
 
@@ -990,8 +1015,10 @@ def test_srv6_locator_step8():
 
     for rname in ["rt1", "rt2", "rt3", "rt4", "rt5", "rt6"]:
         router_compare_json_output(
-            rname, "show segment-routing srv6 locator json", "step8/show_srv6_locator_table.ref"
-         )
+            rname,
+            "show segment-routing srv6 locator json",
+            "step8/show_srv6_locator_table.ref",
+        )
 
 
 def test_ping_step8():
@@ -1006,7 +1033,7 @@ def test_ping_step8():
     # Skip if previous fatal error condition is raised
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
-    
+
     check_ping6("rt1", "fc00:0:9::1", False)
 
 
@@ -1089,8 +1116,10 @@ def test_srv6_locator_step9():
 
     for rname in ["rt1", "rt2", "rt3", "rt4", "rt5", "rt6"]:
         router_compare_json_output(
-            rname, "show segment-routing srv6 locator json", "step9/show_srv6_locator_table.ref"
-         )
+            rname,
+            "show segment-routing srv6 locator json",
+            "step9/show_srv6_locator_table.ref",
+        )
 
 
 def test_ping_step9():
@@ -1105,7 +1134,7 @@ def test_ping_step9():
     # Skip if previous fatal error condition is raised
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
-    
+
     check_ping6("rt1", "fc00:0:9::1", True)
 
 

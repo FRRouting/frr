@@ -65,8 +65,6 @@ ADDR_TYPES = check_address_types()
 NETWORK = {"ipv4": "2.2.2.2/32", "ipv6": "22:22::2/128"}
 NEXT_HOP_IP = {}
 
-pytestmark = [pytest.mark.bgpd, pytest.mark.staticd]
-
 
 def setup_module(mod):
     """
@@ -551,7 +549,7 @@ def test_static_routes_rmap_pfxlist_p0_tc7_ebgp(request):
         protocol = "bgp"
         ntwk_r2_vm1 = str(
             ipaddress.ip_interface(
-                u"{}".format(topo["routers"]["r2"]["links"]["vm1"][addr_type])
+                "{}".format(topo["routers"]["r2"]["links"]["vm1"][addr_type])
             ).network
         )
         input_dict = {"r1": {"static_routes": [{"network": ntwk_r2_vm1}]}}
@@ -571,7 +569,7 @@ def test_static_routes_rmap_pfxlist_p0_tc7_ebgp(request):
         dut = "r2"
         ntwk_r2_vm6 = str(
             ipaddress.ip_interface(
-                u"{}".format(topo["routers"]["r2"]["links"]["vm6"][addr_type])
+                "{}".format(topo["routers"]["r2"]["links"]["vm6"][addr_type])
             ).network
         )
         input_dict = {"r3": {"static_routes": [{"network": ntwk_r2_vm6}]}}
@@ -914,7 +912,7 @@ def test_static_routes_rmap_pfxlist_p0_tc7_ebgp(request):
         protocol = "bgp"
         ntwk_r2_vm1 = str(
             ipaddress.ip_interface(
-                u"{}".format(topo["routers"]["r2"]["links"]["vm1"][addr_type])
+                "{}".format(topo["routers"]["r2"]["links"]["vm1"][addr_type])
             ).network
         )
         input_dict = {"r1": {"static_routes": [{"network": ntwk_r2_vm1}]}}
@@ -931,7 +929,7 @@ def test_static_routes_rmap_pfxlist_p0_tc7_ebgp(request):
         dut = "r1"
         ntwk_r2_vm1 = str(
             ipaddress.ip_interface(
-                u"{}".format(topo["routers"]["r1"]["links"]["vm4"][addr_type])
+                "{}".format(topo["routers"]["r1"]["links"]["vm4"][addr_type])
             ).network
         )
         input_dict = {"r1": {"static_routes": [{"network": ntwk_r2_vm1}]}}
@@ -945,7 +943,7 @@ def test_static_routes_rmap_pfxlist_p0_tc7_ebgp(request):
         dut = "r2"
         ntwk_r2_vm1 = str(
             ipaddress.ip_interface(
-                u"{}".format(topo["routers"]["r1"]["links"]["vm4"][addr_type])
+                "{}".format(topo["routers"]["r1"]["links"]["vm4"][addr_type])
             ).network
         )
         input_dict = {"r1": {"static_routes": [{"network": ntwk_r2_vm1}]}}
@@ -959,7 +957,7 @@ def test_static_routes_rmap_pfxlist_p0_tc7_ebgp(request):
         protocol = "bgp"
         ntwk_r2_vm6 = str(
             ipaddress.ip_interface(
-                u"{}".format(topo["routers"]["r2"]["links"]["vm6"][addr_type])
+                "{}".format(topo["routers"]["r2"]["links"]["vm6"][addr_type])
             ).network
         )
         input_dict = {"r3": {"static_routes": [{"network": ntwk_r2_vm6}]}}
