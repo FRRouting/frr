@@ -5119,6 +5119,8 @@ DEFUN (no_neighbor,
 	struct peer_group *group;
 	struct peer *peer;
 	struct peer *other;
+	afi_t afi;
+	int lr_count;
 
 	ret = str2sockunion(argv[idx_peer]->arg, &su);
 	if (ret < 0) {
@@ -5136,6 +5138,15 @@ DEFUN (no_neighbor,
 
 		group = peer_group_lookup(bgp, argv[idx_peer]->arg);
 		if (group) {
+			for (afi = AFI_IP; afi < AFI_MAX; afi++) {
+				lr_count = listcount(group->listen_range[afi]);
+				if (lr_count) {
+					vty_out(vty,
+						"%%Peer-group %s is attached to %d listen-range(s), delete them first\n",
+						group->name, lr_count);
+					return CMD_WARNING_CONFIG_FAILED;
+				}
+			}
 			peer_group_notify_unconfig(group);
 			peer_group_delete(group);
 		} else {
@@ -5213,9 +5224,20 @@ DEFUN (no_neighbor_peer_group,
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
 	int idx_word = 2;
 	struct peer_group *group;
+	afi_t afi;
+	int lr_count;
 
 	group = peer_group_lookup(bgp, argv[idx_word]->arg);
 	if (group) {
+		for (afi = AFI_IP; afi < AFI_MAX; afi++) {
+			lr_count = listcount(group->listen_range[afi]);
+			if (lr_count) {
+				vty_out(vty,
+					"%%Peer-group %s is attached to %d listen-range(s), delete them first\n",
+					group->name, lr_count);
+				return CMD_WARNING_CONFIG_FAILED;
+			}
+		}
 		peer_group_notify_unconfig(group);
 		peer_group_delete(group);
 	} else {
