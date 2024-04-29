@@ -1801,14 +1801,18 @@ bgp_connect_fail(struct peer_connection *connection)
  */
 static void bgp_connect_in_progress_update_connection(struct peer *peer)
 {
-	bgp_getsockname(peer);
-	if (!peer->su_remote && !BGP_CONNECTION_SU_UNSPEC(peer->connection)) {
-		/* if connect initiated, then dest port and dest addresses are well known */
-		peer->su_remote = sockunion_dup(&peer->connection->su);
-		if (sockunion_family(peer->su_remote) == AF_INET)
-			peer->su_remote->sin.sin_port = htons(peer->port);
-		else if (sockunion_family(peer->su_remote) == AF_INET6)
-			peer->su_remote->sin6.sin6_port = htons(peer->port);
+	if (bgp_getsockname(peer) < 0) {
+		if (!peer->su_remote &&
+		    !BGP_CONNECTION_SU_UNSPEC(peer->connection)) {
+			/* if connect initiated, then dest port and dest addresses are well known */
+			peer->su_remote = sockunion_dup(&peer->connection->su);
+			if (sockunion_family(peer->su_remote) == AF_INET)
+				peer->su_remote->sin.sin_port =
+					htons(peer->port);
+			else if (sockunion_family(peer->su_remote) == AF_INET6)
+				peer->su_remote->sin6.sin6_port =
+					htons(peer->port);
+		}
 	}
 }
 
