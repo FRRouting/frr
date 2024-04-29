@@ -1396,11 +1396,7 @@ char *ecommunity_ecom2str(struct ecommunity *ecom, int format, int filter)
 			if (sub_type == ECOMMUNITY_LINK_BANDWIDTH)
 				ecommunity_lb_str(encbuf, sizeof(encbuf), pnt,
 						  ecom->disable_ieee_floating);
-			else
-				unk_ecom = 1;
-		} else if (type == ECOMMUNITY_ENCODE_AS_NON_TRANS) {
-			sub_type = *pnt++;
-			if (sub_type == ECOMMUNITY_EXTENDED_LINK_BANDWIDTH)
+			else if (sub_type == ECOMMUNITY_EXTENDED_LINK_BANDWIDTH)
 				ipv6_ecommunity_lb_str(encbuf, sizeof(encbuf),
 						       pnt);
 			else
