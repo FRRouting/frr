@@ -87,13 +87,17 @@ static void nhrp_request_stop(void)
 	debugf(NHRP_DEBUG_COMMON, "Exiting...");
 	frr_early_fini();
 
-	nhrp_shortcut_terminate();
+	vrf_terminate();
 	nhrp_nhs_terminate();
 	nhrp_zebra_terminate();
 	vici_terminate();
 	evmgr_terminate();
 	nhrp_vc_terminate();
+<<<<<<< HEAD
 	vrf_terminate();
+=======
+	nhrp_shortcut_terminate();
+>>>>>>> a4ee97627 (nhrpd: fixes core dump on shutdown)
 
 	debugf(NHRP_DEBUG_COMMON, "Done.");
 	frr_fini();
