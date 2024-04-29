@@ -6,10 +6,12 @@
 #ifndef _FRR_TYPESAFE_H
 #define _FRR_TYPESAFE_H
 
+#ifndef _TYPESAFE_EXPAND_MACROS
 #include <stddef.h>
 #include <stdint.h>
 #include <stdbool.h>
 #include "compiler.h"
+#endif /* _TYPESAFE_EXPAND_MACROS */
 
 #ifdef __cplusplus
 extern "C" {

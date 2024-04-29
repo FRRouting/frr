@@ -6,8 +6,10 @@
 #ifndef _FRR_ATOMLIST_H
 #define _FRR_ATOMLIST_H
 
+#ifndef _TYPESAFE_EXPAND_MACROS
 #include "typesafe.h"
 #include "frratomic.h"
+#endif /* _TYPESAFE_EXPAND_MACROS */
 
 #ifdef __cplusplus
 extern "C" {
