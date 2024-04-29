@@ -227,13 +227,17 @@ def build_topo_from_json(tgen, topo=None):
                     topo["routers"][destRouter]["links"][curSwitch][
                         "interface"
                     ] = "{}-{}-eth{}".format(
-                        destRouter, curSwitch, topo["routers"][destRouter]["nextIfname"]
+                        destRouter,
+                        curSwitch,
+                        topo["routers"][destRouter]["nextIfname"],
                     )
 
                     topo["switches"][curSwitch]["links"][destRouter][
                         "interface"
                     ] = "{}-{}-eth{}".format(
-                        curSwitch, destRouter, topo["routers"][destRouter]["nextIfname"]
+                        curSwitch,
+                        destRouter,
+                        topo["routers"][destRouter]["nextIfname"],
                     )
 
                     topo["routers"][destRouter]["nextIfname"] += 1

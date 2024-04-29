@@ -97,14 +97,18 @@ def is_iproute2_json_supported():
     Checks if the command 'ip -j route' is supported.
     """
     try:
-        output = subprocess.run(['ip', '-j', 'route', 'get', '0.0.0.0'], stdout=subprocess.PIPE).stdout.decode()
+        output = subprocess.run(
+            ["ip", "-j", "route", "get", "0.0.0.0"], stdout=subprocess.PIPE
+        ).stdout.decode()
         json.loads(output)
         return True
     except json.decoder.JSONDecodeError:
         return False
 
 
-@pytest.mark.skipif(not is_iproute2_json_supported(), reason="'ip -j route' not supported")
+@pytest.mark.skipif(
+    not is_iproute2_json_supported(), reason="'ip -j route' not supported"
+)
 def test_all_routes_advertised():
     tgen = get_topogen()
 
@@ -135,9 +139,13 @@ def test_all_routes_advertised():
                         ]
                     }
                 }
-                result = verify_ospf_rib(tgen, router_orig, input_dict, next_hop=network[1])
+                result = verify_ospf_rib(
+                    tgen, router_orig, input_dict, next_hop=network[1]
+                )
                 assert result is True, "Error: {}".format(result)
-                result = verify_rib(tgen, "ipv4", router_orig, input_dict, next_hop=network[1])
+                result = verify_rib(
+                    tgen, "ipv4", router_orig, input_dict, next_hop=network[1]
+                )
                 assert result is True, "Error: {}".format(result)
 
                 check_route(router_orig, network[0], network[1])
@@ -181,7 +189,9 @@ def check_route(router_name, network, expected_nexthop):
     output = router.cmd(f"ip -j route get {address}")
     logger.info(output)
     routes = json.loads(output)
-    assert routes[0]["gateway"] == expected_nexthop, f"{router_name} (kernel): no route {address} via {expected_nexthop}"
+    assert (
+        routes[0]["gateway"] == expected_nexthop
+    ), f"{router_name} (kernel): no route {address} via {expected_nexthop}"
 
 
 if __name__ == "__main__":

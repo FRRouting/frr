@@ -52,30 +52,32 @@ def build_topo(tgen):
     switch = tgen.add_switch("s3")
     switch.add_link(tgen.gears["r2"])
 
+
 def _populate_iface():
     tgen = get_topogen()
     cmds_list = [
-        'ip link add vrf1 type vrf table 10',
-        'echo 10 > /proc/sys/net/mpls/platform_labels',
-        'ip link set dev vrf1 up',
-        'ip link set dev {0}-eth1 master vrf1',
-        'echo 1 > /proc/sys/net/mpls/conf/{0}-eth0/input',
-        'ip tunnel add {0}-gre0 mode gre ttl 64 dev {0}-eth0 local 10.125.0.{1} remote 10.125.0.{2}',
-        'ip link set dev {0}-gre0 up',
-        'echo 1 > /proc/sys/net/mpls/conf/{0}-gre0/input',
+        "ip link add vrf1 type vrf table 10",
+        "echo 10 > /proc/sys/net/mpls/platform_labels",
+        "ip link set dev vrf1 up",
+        "ip link set dev {0}-eth1 master vrf1",
+        "echo 1 > /proc/sys/net/mpls/conf/{0}-eth0/input",
+        "ip tunnel add {0}-gre0 mode gre ttl 64 dev {0}-eth0 local 10.125.0.{1} remote 10.125.0.{2}",
+        "ip link set dev {0}-gre0 up",
+        "echo 1 > /proc/sys/net/mpls/conf/{0}-gre0/input",
     ]
 
     for cmd in cmds_list:
-        input = cmd.format('r1', '1', '2')
-        logger.info('input: ' + cmd)
-        output = tgen.net['r1'].cmd(cmd.format('r1', '1', '2'))
-        logger.info('output: ' + output)
+        input = cmd.format("r1", "1", "2")
+        logger.info("input: " + cmd)
+        output = tgen.net["r1"].cmd(cmd.format("r1", "1", "2"))
+        logger.info("output: " + output)
 
     for cmd in cmds_list:
-        input = cmd.format('r2', '2', '1')
-        logger.info('input: ' + cmd)
-        output = tgen.net['r2'].cmd(cmd.format('r2', '2', '1'))
-        logger.info('output: ' + output)
+        input = cmd.format("r2", "2", "1")
+        logger.info("input: " + cmd)
+        output = tgen.net["r2"].cmd(cmd.format("r2", "2", "1"))
+        logger.info("output: " + output)
+
 
 def setup_module(mod):
     "Sets up the pytest environment"
@@ -113,13 +115,13 @@ def test_protocols_convergence():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    router = tgen.gears['r1']
+    router = tgen.gears["r1"]
     logger.info("Dump some context for r1")
     router.vtysh_cmd("show bgp ipv4 vpn")
     router.vtysh_cmd("show bgp summary")
     router.vtysh_cmd("show bgp vrf vrf1 ipv4")
     router.vtysh_cmd("show running-config")
-    router = tgen.gears['r2']
+    router = tgen.gears["r2"]
     logger.info("Dump some context for r2")
     router.vtysh_cmd("show bgp ipv4 vpn")
     router.vtysh_cmd("show bgp summary")
@@ -128,11 +130,11 @@ def test_protocols_convergence():
 
     # Check IPv4 routing tables on r1
     logger.info("Checking IPv4 routes for convergence on r1")
-    router = tgen.gears['r1']
+    router = tgen.gears["r1"]
     json_file = "{}/{}/ipv4_routes.json".format(CWD, router.name)
     if not os.path.isfile(json_file):
         logger.info("skipping file {}".format(json_file))
-        assert 0, 'ipv4_routes.json file not found'
+        assert 0, "ipv4_routes.json file not found"
         return
 
     expected = json.loads(open(json_file).read())
@@ -148,10 +150,10 @@ def test_protocols_convergence():
 
     # Check BGP IPv4 routing tables on r2 not installed
     logger.info("Checking BGP IPv4 routes for convergence on r2")
-    router = tgen.gears['r2']
+    router = tgen.gears["r2"]
     json_file = "{}/{}/bgp_ipv4_routes.json".format(CWD, router.name)
     if not os.path.isfile(json_file):
-        assert 0, 'bgp_ipv4_routes.json file not found'
+        assert 0, "bgp_ipv4_routes.json file not found"
 
     expected = json.loads(open(json_file).read())
     test_func = partial(
@@ -163,7 +165,8 @@ def test_protocols_convergence():
     _, result = topotest.run_and_expect(test_func, None, count=40, wait=2)
     assertmsg = '"{}" JSON output mismatches'.format(router.name)
     assert result is None, assertmsg
-    
+
+
 def test_memory_leak():
     "Run the memory leak test and report results."
     tgen = get_topogen()

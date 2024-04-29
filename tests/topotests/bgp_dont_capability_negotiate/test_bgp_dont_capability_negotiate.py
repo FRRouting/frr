@@ -16,7 +16,7 @@ import json
 import pytest
 import functools
 
-pytestmark = pytest.mark.bgpd
+pytestmark = [pytest.mark.bgpd]
 
 CWD = os.path.dirname(os.path.realpath(__file__))
 sys.path.append(os.path.join(CWD, "../"))
@@ -25,8 +25,6 @@ sys.path.append(os.path.join(CWD, "../"))
 from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.common_config import step
-
-pytestmark = [pytest.mark.bgpd]
 
 
 def setup_module(mod):
@@ -193,6 +191,7 @@ def test_bgp_check_fqdn():
     test_func = functools.partial(_bgp_check_fqdn)
     _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
     assert result is None, "FQDN capability disabled, but we still have a hostname"
+
 
 if __name__ == "__main__":
     args = ["-s"] + sys.argv[1:]

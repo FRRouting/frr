@@ -37,7 +37,7 @@ import sys
 import time
 import pytest
 
-pytestmark = pytest.mark.pimd
+pytestmark = [pytest.mark.pimd]
 
 # Save the Current Working Directory to find configuration files.
 CWD = os.path.dirname(os.path.realpath(__file__))
@@ -80,8 +80,6 @@ from lib.pim import (
 from lib.topolog import logger
 from lib.topojson import build_config_from_json
 
-
-pytestmark = [pytest.mark.pimd]
 
 TOPOLOGY = """
 
