@@ -1,12 +1,13 @@
-frr (10.0-1) UNRELEASED; urgency=medium
+frr (10.0-1) unstable; urgency=medium
 
   * IRDP module is no longer packaged (slated to be removed upstream)
   * added mkdir+chown /var/lib/frr which is now used by FRR
   * sysconfdir and localstatedir configure args are no longer needed
   * NB: refer to never-released 8.5.2-1 changes below!
   * Link libatomic unconditionally (closes: #1067077)
+  * known to not build on hppa due to struct.calcsize python exception
 
- -- David Lamparter <equinox-debian@diac24.net>  Tue, 30 Apr 2024 16:34:16 +0200
+ -- David Lamparter <equinox-debian@diac24.net>  Tue, 30 Apr 2024 19:36:44 +0200
 
 frr (10.0-0.2) unstable; urgency=medium
 
