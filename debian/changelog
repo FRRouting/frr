@@ -1,3 +1,51 @@
+frr (9.1-0.1) unstable; urgency=high
+
+  * Non-maintainer upload.
+  * New upstream release (Closes: #1042473, #1055852):
+    - CVE-2023-3748: parsing certain babeld unicast hello messages that are
+      intended to be ignored. This issue may allow an attacker to send specially
+      crafted hello messages with the unicast flag set, the interval field set
+      to 0, or any TLV that contains a sub-TLV with the Mandatory flag set to
+      enter an infinite loop and cause a denial of service.
+    - CVE-2023-38407: bgpd/bgp_label.c attempts to read beyond the end of the
+      stream during labeled unicast parsing.
+    - CVE-2023-41361: bgpd/bgp_open.c does not check for an overly large
+      length of the rcv software version.
+    - CVE-2023-46752: It mishandles malformed MP_REACH_NLRI data, leading to a
+      crash.
+    - CVE-2023-46753: A crash can occur for a crafted BGP UPDATE message
+      without mandatory attributes, e.g., one with only an unknown transit
+      attribute.
+    - CVE-2023-47234: A crash can occur when processing a crafted BGP UPDATE
+      message with a MP_UNREACH_NLRI attribute and additional NLRI data (that
+      lacks mandatory path attributes).
+    - CVE-2023-47235: A crash can occur when a malformed BGP UPDATE message
+      with an EOR is processed, because the presence of EOR does not lead to a
+      treat-as-withdraw outcome.
+  * Updating patches:
+    - removing CVE-2023-38802.patch, included upstream.
+    - removing CVE-2023-41358.patch, included upstream.
+    - removing CVE-2023-41360.patch, included upstream.
+    - removing unapplied CVE-2023-41361.patch, included upstream.
+    - adding CVE-2024-27913.patch from upstream:
+      ospf_te_parse_te in ospfd/ospf_te.c allows remote attackers to cause a
+      denial of service (ospfd daemon crash) via a malformed OSPF LSA packet,
+      because of an attempted access to a missing attribute field (Closes:
+      #1065144).
+  * Updating build-depends:
+    - adding now required protobuf-c-compiler to build-depends.
+    - adding now required libprotobuf-c-dev to build-depends.
+    - adding new libmgmt_be_nb.so to frr.install.
+    - removing obsolete lsb-base.
+    - prefering new pkgconf over old pkg-config.
+  * Updating override_dh_auto_clean to fix FTBFS when built twice in a row
+    (Closes: #1044470):
+    - call dh_auto_clean which is safe to run now.
+    - remove tests/.pytest_cache.
+  * Removing obsolete doc-base.
+
+ -- Daniel Baumann <daniel.baumann@progress-linux.org>  Fri, 08 Mar 2024 23:21:21 +0100
+
 frr (8.4.4-1.1) unstable; urgency=high
 
   * Non-maintainer upload by the Security Team.

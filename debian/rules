@@ -116,9 +116,8 @@ override_dh_auto_test:
 endif
 
 override_dh_auto_clean:
-# we generally do NOT want a full distclean since that wipes both
-# debian/changelog and config.version
-	if test -f Makefile; then make redistclean; fi
+	dh_auto_clean
+	-rm -rf tests/.pytest_cache
 	-rm -f debian/frr.init
 	-rm -f debian/frr.service
 	-rm -f debian/frr@.service
