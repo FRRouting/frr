@@ -343,18 +343,18 @@ static int bgp_interface_address_add(ZAPI_CALLBACK_ARGS)
 					continue;
 
 				/*
-				 * If the Peer's interface name matches the
-				 * interface name for which BGP received the
-				 * update and if the received interface address
-				 * is a globalV6 and if the peer is currently
+				 * Is a globalV6 and if the peer is currently
 				 * using a v4-mapped-v6 addr or a link local
 				 * address, then copy the Rxed global v6 addr
 				 * into peer's v6_global and send updates out
 				 * with new nexthop addr.
+				 * Making sure peer nexthop ifname in sync with
+				 * local ifname. peer->su.sin6.sin6_scope_id can
+				 * be used only for unnumbered.
 				 */
-				if ((peer->conf_if &&
-				     (strcmp(peer->conf_if, ifc->ifp->name) ==
-				      0)) &&
+				if ((peer->nexthop.ifp &&
+				     (strcmp(peer->nexthop.ifp->name,
+					     ifc->ifp->name) == 0)) &&
 				    !IN6_IS_ADDR_LINKLOCAL(&addr->u.prefix6) &&
 				    ((IS_MAPPED_IPV6(
 					     &peer->nexthop.v6_global)) ||
