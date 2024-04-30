@@ -4,10 +4,6 @@
 
 export DEB_BUILD_MAINT_OPTIONS = hardening=+all
 
-ifneq (,$(filter $(DEB_HOST_ARCH), armel m68k mipsel powerpc sh4))
-  export DEB_LDFLAGS_MAINT_APPEND += -Wl,--no-as-needed -latomic -Wl,--as-needed
-endif
-
 ifneq (,$(filter terse,$(DEB_BUILD_OPTIONS)))
   MAKE_SILENT="V=0"
   export DH_VERBOSE=0
@@ -43,7 +39,7 @@ export PYTHON=python3
 	dh $@ -Bbuild --with=sphinxdoc
 
 override_dh_auto_configure:
-	$(shell dpkg-buildflags --export=sh); \
+	$(shell dpkg-buildflags --export=sh); export LIBS="$$LIBS -latomic"; \
 	dh_auto_configure -- \
 		--sbindir=/usr/lib/frr \
 		--with-vtysh-pager=/usr/bin/pager \

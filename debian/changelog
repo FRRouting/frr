@@ -4,6 +4,7 @@ frr (10.0-1) UNRELEASED; urgency=medium
   * added mkdir+chown /var/lib/frr which is now used by FRR
   * sysconfdir and localstatedir configure args are no longer needed
   * NB: refer to never-released 8.5.2-1 changes below!
+  * Link libatomic unconditionally (closes: #1067077)
 
  -- David Lamparter <equinox-debian@diac24.net>  Tue, 30 Apr 2024 16:34:16 +0200
 
