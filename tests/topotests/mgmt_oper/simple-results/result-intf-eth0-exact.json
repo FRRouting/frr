@@ -1,0 +1,22 @@
+{
+  "frr-interface:interface": [
+    {
+      "name": "r1-eth0",
+      "vrf": "default",
+      "state": {
+        "if-index": "rubout",
+        "mtu": 1500,
+        "mtu6": 1500,
+        "speed": 10000,
+        "metric": 0,
+        "phy-address": "rubout"
+      },
+      "frr-zebra:zebra": {
+        "state": {
+          "up-count": 0,
+          "down-count": 0
+        }
+      }
+    }
+  ]
+}

@@ -1,23 +1,10 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * This file defines the lua interface into
  * FRRouting.
  *
  * Copyright (C) 2016-2019 Cumulus Networks, Inc.
  * Donald Sharp, Quentin Young
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -272,31 +259,12 @@ void *lua_tosockunion(lua_State *L, int idx)
 	return su;
 }
 
-void lua_pushtimet(lua_State *L, const time_t *time)
-{
-	lua_pushinteger(L, *time);
-}
-
-void lua_decode_timet(lua_State *L, int idx, time_t *t)
-{
-	*t = lua_tointeger(L, idx);
-	lua_pop(L, 1);
-}
-
-void *lua_totimet(lua_State *L, int idx)
-{
-	time_t *t = XCALLOC(MTYPE_SCRIPT_RES, sizeof(time_t));
-
-	lua_decode_timet(L, idx, t);
-	return t;
-}
-
-void lua_pushintegerp(lua_State *L, const long long *num)
+void lua_pushintegerp(lua_State *L, const int *num)
 {
 	lua_pushinteger(L, *num);
 }
 
-void lua_decode_integerp(lua_State *L, int idx, long long *num)
+void lua_decode_integerp(lua_State *L, int idx, int *num)
 {
 	int isnum;
 	*num = lua_tonumberx(L, idx, &isnum);
@@ -306,7 +274,7 @@ void lua_decode_integerp(lua_State *L, int idx, long long *num)
 
 void *lua_tointegerp(lua_State *L, int idx)
 {
-	long long *num = XCALLOC(MTYPE_SCRIPT_RES, sizeof(long long));
+	int *num = XCALLOC(MTYPE_SCRIPT_RES, sizeof(int));
 
 	lua_decode_integerp(L, idx, num);
 	return num;
@@ -364,6 +332,28 @@ void lua_pushnexthop_group(lua_State *L, const struct nexthop_group *ng)
 	}
 }
 
+void lua_pushlonglongp(lua_State *L, const long long *num)
+{
+	/* lua library function; this can take a long long */
+	lua_pushinteger(L, *num);
+}
+
+void lua_decode_longlongp(lua_State *L, int idx, long long *num)
+{
+	int isnum;
+	*num = lua_tonumberx(L, idx, &isnum);
+	lua_pop(L, 1);
+	assert(isnum);
+}
+
+void *lua_tolonglongp(lua_State *L, int idx)
+{
+	long long *num = XCALLOC(MTYPE_SCRIPT_RES, sizeof(long long));
+
+	lua_decode_longlongp(L, idx, num);
+	return num;
+}
+
 void lua_decode_stringp(lua_State *L, int idx, char *str)
 {
 	strlcpy(str, lua_tostring(L, idx), strlen(str) + 1);
@@ -375,21 +365,6 @@ void *lua_tostringp(lua_State *L, int idx)
 	char *string = XSTRDUP(MTYPE_SCRIPT_RES, lua_tostring(L, idx));
 
 	return string;
-}
-
-/*
- * Decoder for const values, since we cannot modify them.
- */
-void lua_decode_noop(lua_State *L, int idx, const void *ptr)
-{
-}
-
-
-/*
- * Noop decoder for int.
- */
-void lua_decode_integer_noop(lua_State *L, int idx, int i)
-{
 }
 
 /*

@@ -1,29 +1,16 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Zebra Policy Based Routing (PBR) interaction with the kernel using
  * netlink.
  * Copyright (C) 2018  Cumulus Networks, Inc.
- *
- * This file is part of FRR.
- *
- * FRR is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * FRR is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with FRR; see the file COPYING.  If not, write to the Free
- * Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
- * 02111-1307, USA.
  */
 
 #include <zebra.h>
 
 #ifdef HAVE_NETLINK
+
+#include <linux/netlink.h>
+#include <linux/rtnetlink.h>
 
 #include "if.h"
 #include "prefix.h"
@@ -132,9 +119,9 @@ static ssize_t netlink_rule_msg_encode(
 			return 0;
 	}
 
-	/* dsfield, if specified */
-	if (filter_bm & PBR_FILTER_DSFIELD)
-		req->frh.tos = dsfield;
+	/* dsfield, if specified; mask off the ECN bits */
+	if (filter_bm & PBR_FILTER_DSCP)
+		req->frh.tos = dsfield & PBR_DSFIELD_DSCP;
 
 	/* protocol to match on */
 	if (filter_bm & PBR_FILTER_IP_PROTOCOL)
@@ -190,6 +177,17 @@ static ssize_t netlink_oldrule_msg_encoder(struct zebra_dplane_ctx *ctx,
 		dplane_ctx_rule_get_old_ipproto(ctx), buf, buflen);
 }
 
+/*
+ * Identify valid rule actions for netlink - other actions can't be installed
+ */
+static bool nl_rule_valid_action(uint32_t action)
+{
+	if (action == PBR_ACTION_TABLE)
+		return true;
+	else
+		return false;
+}
+
 /* Public functions */
 
 enum netlink_msg_status
@@ -197,6 +195,7 @@ netlink_put_rule_update_msg(struct nl_batch *bth, struct zebra_dplane_ctx *ctx)
 {
 	enum dplane_op_e op;
 	enum netlink_msg_status ret;
+	struct pbr_rule rule = {};
 
 	op = dplane_ctx_get_op(ctx);
 	if (!(op == DPLANE_OP_RULE_ADD || op == DPLANE_OP_RULE_UPDATE
@@ -206,6 +205,18 @@ netlink_put_rule_update_msg(struct nl_batch *bth, struct zebra_dplane_ctx *ctx)
 			"Context received for kernel rule update with incorrect OP code (%u)",
 			op);
 		return FRR_NETLINK_ERROR;
+	}
+
+	/* TODO -- special handling for rules that include actions that
+	 * netlink cannot install. Some of the rule attributes are not
+	 * available in netlink: only try to install valid actions.
+	 */
+	dplane_ctx_rule_get(ctx, &rule, NULL);
+	if (!nl_rule_valid_action(rule.action.flags)) {
+		if (IS_ZEBRA_DEBUG_KERNEL)
+			zlog_debug("%s: skip invalid action %#x", __func__,
+				   rule.action.flags);
+		return 0;
 	}
 
 	ret = netlink_batch_add_msg(bth, ctx, netlink_rule_msg_encoder, false);
@@ -416,6 +427,7 @@ int netlink_rules_read(struct zebra_ns *zns)
 
 	ret = netlink_parse_info(netlink_rule_change, &zns->netlink_cmd,
 				 &dp_info, 0, true);
+
 	return ret;
 }
 

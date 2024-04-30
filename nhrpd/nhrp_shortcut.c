@@ -1,10 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* NHRP shortcut related functions
  * Copyright (c) 2014-2015 Timo Teräs
- *
- * This file is free software: you may copy, redistribute and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 2 of the License, or
- * (at your option) any later version.
  */
 
 #ifdef HAVE_CONFIG_H
@@ -14,7 +10,7 @@
 #include "nhrpd.h"
 #include "table.h"
 #include "memory.h"
-#include "thread.h"
+#include "frrevent.h"
 #include "log.h"
 #include "nhrp_protocol.h"
 
@@ -22,7 +18,7 @@ DEFINE_MTYPE_STATIC(NHRPD, NHRP_SHORTCUT, "NHRP shortcut");
 
 static struct route_table *shortcut_rib[AFI_MAX];
 
-static void nhrp_shortcut_do_purge(struct thread *t);
+static void nhrp_shortcut_do_purge(struct event *t);
 static void nhrp_shortcut_delete(struct nhrp_shortcut *s);
 static void nhrp_shortcut_send_resolution_req(struct nhrp_shortcut *s);
 
@@ -35,12 +31,12 @@ static void nhrp_shortcut_check_use(struct nhrp_shortcut *s)
 	}
 }
 
-static void nhrp_shortcut_do_expire(struct thread *t)
+static void nhrp_shortcut_do_expire(struct event *t)
 {
-	struct nhrp_shortcut *s = THREAD_ARG(t);
+	struct nhrp_shortcut *s = EVENT_ARG(t);
 
-	thread_add_timer(master, nhrp_shortcut_do_purge, s, s->holding_time / 3,
-			 &s->t_timer);
+	event_add_timer(master, nhrp_shortcut_do_purge, s, s->holding_time / 3,
+			&s->t_timer);
 	s->expiring = 1;
 	nhrp_shortcut_check_use(s);
 }
@@ -127,12 +123,12 @@ static void nhrp_shortcut_update_binding(struct nhrp_shortcut *s,
 		s->route_installed = 0;
 	}
 
-	THREAD_OFF(s->t_timer);
+	EVENT_OFF(s->t_timer);
 	if (holding_time) {
 		s->expiring = 0;
 		s->holding_time = holding_time;
-		thread_add_timer(master, nhrp_shortcut_do_expire, s,
-				 2 * holding_time / 3, &s->t_timer);
+		event_add_timer(master, nhrp_shortcut_do_expire, s,
+				2 * holding_time / 3, &s->t_timer);
 	}
 }
 
@@ -141,7 +137,7 @@ static void nhrp_shortcut_delete(struct nhrp_shortcut *s)
 	struct route_node *rn;
 	afi_t afi = family2afi(PREFIX_FAMILY(s->p));
 
-	THREAD_OFF(s->t_timer);
+	EVENT_OFF(s->t_timer);
 	nhrp_reqid_free(&nhrp_packet_reqid, &s->reqid);
 
 	debugf(NHRP_DEBUG_ROUTE, "Shortcut %pFX purged", s->p);
@@ -158,9 +154,9 @@ static void nhrp_shortcut_delete(struct nhrp_shortcut *s)
 	}
 }
 
-static void nhrp_shortcut_do_purge(struct thread *t)
+static void nhrp_shortcut_do_purge(struct event *t)
 {
-	struct nhrp_shortcut *s = THREAD_ARG(t);
+	struct nhrp_shortcut *s = EVENT_ARG(t);
 	s->t_timer = NULL;
 	nhrp_shortcut_delete(s);
 }
@@ -208,8 +204,8 @@ static void nhrp_shortcut_recv_resolution_rep(struct nhrp_reqid *reqid,
 	int holding_time = pp->if_ad->holdtime;
 
 	nhrp_reqid_free(&nhrp_packet_reqid, &s->reqid);
-	THREAD_OFF(s->t_timer);
-	thread_add_timer(master, nhrp_shortcut_do_purge, s, 1, &s->t_timer);
+	EVENT_OFF(s->t_timer);
+	event_add_timer(master, nhrp_shortcut_do_purge, s, 1, &s->t_timer);
 
 	if (pp->hdr->type != NHRP_PACKET_RESOLUTION_REPLY) {
 		if (pp->hdr->type == NHRP_PACKET_ERROR_INDICATION
@@ -458,9 +454,9 @@ void nhrp_shortcut_initiate(union sockunion *addr)
 	s = nhrp_shortcut_get(&p);
 	if (s && s->type != NHRP_CACHE_INCOMPLETE) {
 		s->addr = *addr;
-		THREAD_OFF(s->t_timer);
-		thread_add_timer(master, nhrp_shortcut_do_purge, s, 30,
-				 &s->t_timer);
+		EVENT_OFF(s->t_timer);
+		event_add_timer(master, nhrp_shortcut_do_purge, s, 30,
+				&s->t_timer);
 		nhrp_shortcut_send_resolution_req(s);
 	}
 }
@@ -503,13 +499,13 @@ struct purge_ctx {
 
 void nhrp_shortcut_purge(struct nhrp_shortcut *s, int force)
 {
-	THREAD_OFF(s->t_timer);
+	EVENT_OFF(s->t_timer);
 	nhrp_reqid_free(&nhrp_packet_reqid, &s->reqid);
 
 	if (force) {
 		/* Immediate purge on route with draw or pending shortcut */
-		thread_add_timer_msec(master, nhrp_shortcut_do_purge, s, 5,
-				      &s->t_timer);
+		event_add_timer_msec(master, nhrp_shortcut_do_purge, s, 5,
+				     &s->t_timer);
 	} else {
 		/* Soft expire - force immediate renewal, but purge
 		 * in few seconds to make sure stale route is not
@@ -518,8 +514,8 @@ void nhrp_shortcut_purge(struct nhrp_shortcut *s, int force)
 		 * This allows to keep nhrp route up, and to not
 		 * cause temporary rerouting via hubs causing latency
 		 * jitter. */
-		thread_add_timer_msec(master, nhrp_shortcut_do_purge, s, 3000,
-				      &s->t_timer);
+		event_add_timer_msec(master, nhrp_shortcut_do_purge, s, 3000,
+				     &s->t_timer);
 		s->expiring = 1;
 		nhrp_shortcut_check_use(s);
 	}

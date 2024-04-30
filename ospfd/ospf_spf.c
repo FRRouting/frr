@@ -1,27 +1,12 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* OSPF SPF calculation.
  * Copyright (C) 1999, 2000 Kunihiro Ishiguro, Toshiaki Takada
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
 
 #include "monotime.h"
-#include "thread.h"
+#include "frrevent.h"
 #include "memory.h"
 #include "hash.h"
 #include "linklist.h"
@@ -539,7 +524,7 @@ void ospf_spf_remove_resource(struct vertex *vertex, struct list *vertex_list,
 					       vertex_list);
 
 		break;
-	default:
+	case OSPF_TI_LFA_UNDEFINED_PROTECTION:
 		/* do nothing */
 		break;
 	}
@@ -1857,9 +1842,9 @@ void ospf_spf_calculate_areas(struct ospf *ospf, struct route_table *new_table,
 }
 
 /* Worker for SPF calculation scheduler. */
-static void ospf_spf_calculate_schedule_worker(struct thread *thread)
+static void ospf_spf_calculate_schedule_worker(struct event *thread)
 {
-	struct ospf *ospf = THREAD_ARG(thread);
+	struct ospf *ospf = EVENT_ARG(thread);
 	struct route_table *new_table, *new_rtrs;
 	struct route_table *all_rtrs = NULL;
 	struct timeval start_time, spf_start_time;
@@ -2059,8 +2044,8 @@ void ospf_spf_calculate_schedule(struct ospf *ospf, ospf_spf_reason_t reason)
 		zlog_debug("SPF: calculation timer delay = %ld msec", delay);
 
 	ospf->t_spf_calc = NULL;
-	thread_add_timer_msec(master, ospf_spf_calculate_schedule_worker, ospf,
-			      delay, &ospf->t_spf_calc);
+	event_add_timer_msec(master, ospf_spf_calculate_schedule_worker, ospf,
+			     delay, &ospf->t_spf_calc);
 }
 
 /* Restart OSPF SPF algorithm*/

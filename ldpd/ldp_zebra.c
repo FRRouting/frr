@@ -1,20 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Copyright (C) 2016 by Open Source Routing.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; see the file COPYING; if not, write to the
- * Free Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston,
- * MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -36,8 +22,7 @@
 #include "ldp_debug.h"
 
 static void	 ifp2kif(struct interface *, struct kif *);
-static void	 ifc2kaddr(struct interface *, struct connected *,
-		    struct kaddr *);
+static void	 ifc2kaddr(struct interface *, struct connected *, struct kaddr *);
 static int	 ldp_zebra_send_mpls_labels(int, struct kroute *);
 static int	 ldp_router_id_update(ZAPI_CALLBACK_ARGS);
 static int	 ldp_interface_address_add(ZAPI_CALLBACK_ARGS);
@@ -54,6 +39,7 @@ static int 	ldp_zebra_opaque_msg_handler(ZAPI_CALLBACK_ARGS);
 static void 	ldp_sync_zebra_init(void);
 
 static struct zclient	*zclient;
+extern struct zclient *zclient_sync;
 static bool zebra_registered = false;
 
 static void
@@ -103,7 +89,7 @@ pw2zpw(struct l2vpn_pw *pw, struct zapi_pw *zpw)
 	zpw->nexthop.ipv6 = pw->addr.v6;
 	zpw->local_label = NO_LABEL;
 	zpw->remote_label = NO_LABEL;
-	if (pw->flags & F_PW_CWORD)
+	if (CHECK_FLAG(pw->flags, F_PW_CWORD))
 		zpw->flags = F_PSEUDOWIRE_CWORD;
 	zpw->data.ldp.lsr_id = pw->lsr_id;
 	zpw->data.ldp.pwid = pw->pwid;
@@ -176,10 +162,10 @@ ldp_zebra_opaque_msg_handler(ZAPI_CALLBACK_ARGS)
 	struct zapi_rlfa_igp igp;
 	struct zapi_rlfa_request rlfa;
 
-        s = zclient->ibuf;
+	s = zclient->ibuf;
 
-        if (zclient_opaque_decode(s, &info) != 0)
-                return -1;
+	if(zclient_opaque_decode(s, &info) != 0)
+		return -1;
 
 	switch (info.type) {
 	case LDP_IGP_SYNC_IF_STATE_REQUEST:
@@ -253,7 +239,7 @@ ldp_zebra_send_mpls_labels(int cmd, struct kroute *kr)
 	 * dropping them).
 	 */
 	if (kr->remote_label == NO_LABEL
-	    && !(ldpd_conf->flags & F_LDPD_ALLOW_BROKEN_LSP)
+	    && !CHECK_FLAG(ldpd_conf->flags, F_LDPD_ALLOW_BROKEN_LSP)
 	    && cmd == ZEBRA_MPLS_LABELS_ADD)
 		return 0;
 
@@ -309,8 +295,7 @@ kmpw_add(struct zapi_pw *zpw)
 	debug_zebra_out("pseudowire %s nexthop %s (add)",
 	    zpw->ifname, log_addr(zpw->af, (union ldpd_addr *)&zpw->nexthop));
 
-	return zebra_send_pw(zclient, ZEBRA_PW_ADD, zpw)
-	       == ZCLIENT_SEND_FAILURE;
+	return zebra_send_pw(zclient, ZEBRA_PW_ADD, zpw) == ZCLIENT_SEND_FAILURE;
 }
 
 int
@@ -319,8 +304,7 @@ kmpw_del(struct zapi_pw *zpw)
 	debug_zebra_out("pseudowire %s nexthop %s (del)",
 	    zpw->ifname, log_addr(zpw->af, (union ldpd_addr *)&zpw->nexthop));
 
-	return zebra_send_pw(zclient, ZEBRA_PW_DELETE, zpw)
-	       == ZCLIENT_SEND_FAILURE;
+	return zebra_send_pw(zclient, ZEBRA_PW_DELETE, zpw) == ZCLIENT_SEND_FAILURE;
 }
 
 int
@@ -330,8 +314,7 @@ kmpw_set(struct zapi_pw *zpw)
 	    zpw->ifname, log_addr(zpw->af, (union ldpd_addr *)&zpw->nexthop),
 	    zpw->local_label, zpw->remote_label);
 
-	return zebra_send_pw(zclient, ZEBRA_PW_SET, zpw)
-	       == ZCLIENT_SEND_FAILURE;
+	return zebra_send_pw(zclient, ZEBRA_PW_SET, zpw) == ZCLIENT_SEND_FAILURE;
 }
 
 int
@@ -340,15 +323,13 @@ kmpw_unset(struct zapi_pw *zpw)
 	debug_zebra_out("pseudowire %s nexthop %s (unset)",
 	    zpw->ifname, log_addr(zpw->af, (union ldpd_addr *)&zpw->nexthop));
 
-	return zebra_send_pw(zclient, ZEBRA_PW_UNSET, zpw)
-	       == ZCLIENT_SEND_FAILURE;
+	return zebra_send_pw(zclient, ZEBRA_PW_UNSET, zpw) == ZCLIENT_SEND_FAILURE;
 }
 
 void
 kif_redistribute(const char *ifname)
 {
 	struct vrf		*vrf = vrf_lookup_by_id(VRF_DEFAULT);
-	struct listnode		*cnode;
 	struct interface	*ifp;
 	struct connected	*ifc;
 	struct kif		 kif;
@@ -361,10 +342,9 @@ kif_redistribute(const char *ifname)
 		ifp2kif(ifp, &kif);
 		main_imsg_compose_both(IMSG_IFSTATUS, &kif, sizeof(kif));
 
-		for (ALL_LIST_ELEMENTS_RO(ifp->connected, cnode, ifc)) {
+		frr_each (if_connected, ifp->connected, ifc) {
 			ifc2kaddr(ifp, ifc, &ka);
-			main_imsg_compose_ldpe(IMSG_NEWADDR, 0, &ka,
-			    sizeof(ka));
+			main_imsg_compose_ldpe(IMSG_NEWADDR, 0, &ka, sizeof(ka));
 		}
 	}
 }
@@ -419,7 +399,6 @@ ldp_ifp_destroy(struct interface *ifp)
 static int
 ldp_interface_status_change(struct interface *ifp)
 {
-	struct listnode		*node;
 	struct connected	*ifc;
 	struct kif		 kif;
 	struct kaddr		 ka;
@@ -430,16 +409,14 @@ ldp_interface_status_change(struct interface *ifp)
 	main_imsg_compose_both(IMSG_IFSTATUS, &kif, sizeof(kif));
 
 	if (if_is_operative(ifp)) {
-		for (ALL_LIST_ELEMENTS_RO(ifp->connected, node, ifc)) {
+		frr_each (if_connected, ifp->connected, ifc) {
 			ifc2kaddr(ifp, ifc, &ka);
-			main_imsg_compose_ldpe(IMSG_NEWADDR, 0, &ka,
-			    sizeof(ka));
+			main_imsg_compose_ldpe(IMSG_NEWADDR, 0, &ka, sizeof(ka));
 		}
 	} else {
-		for (ALL_LIST_ELEMENTS_RO(ifp->connected, node, ifc)) {
+		frr_each (if_connected, ifp->connected, ifc) {
 			ifc2kaddr(ifp, ifc, &ka);
-			main_imsg_compose_ldpe(IMSG_DELADDR, 0, &ka,
-			    sizeof(ka));
+			main_imsg_compose_ldpe(IMSG_DELADDR, 0, &ka, sizeof(ka));
 		}
 	}
 
@@ -544,7 +521,7 @@ ldp_zebra_read_route(ZAPI_CALLBACK_ARGS)
 
 	switch (api.type) {
 	case ZEBRA_ROUTE_CONNECT:
-		kr.flags |= F_CONNECTED;
+		SET_FLAG(kr.flags, F_CONNECTED);
 		break;
 	case ZEBRA_ROUTE_BGP:
 		/* LDP should follow the IGP and ignore BGP routes */
@@ -594,10 +571,10 @@ ldp_zebra_read_route(ZAPI_CALLBACK_ARGS)
 			kr.ifindex = api_nh->ifindex;
 			break;
 		case NEXTHOP_TYPE_IFINDEX:
-			if (!(kr.flags & F_CONNECTED))
+			if (!CHECK_FLAG(kr.flags, F_CONNECTED))
 				continue;
 			break;
-		default:
+		case NEXTHOP_TYPE_BLACKHOLE:
 			continue;
 		}
 
@@ -607,8 +584,7 @@ ldp_zebra_read_route(ZAPI_CALLBACK_ARGS)
 		    zebra_route_string(api.type));
 
 		if (add)
-			main_imsg_compose_lde(IMSG_NETWORK_ADD, 0, &kr,
-			    sizeof(kr));
+			main_imsg_compose_lde(IMSG_NETWORK_ADD, 0, &kr, sizeof(kr));
 	}
 
 	main_imsg_compose_lde(IMSG_NETWORK_UPDATE, 0, &kr, sizeof(kr));
@@ -669,7 +645,7 @@ ldp_zebra_connected(struct zclient *zclient)
 
 	/* if MPLS was already enabled and we are re-connecting, register again
 	 */
-	if (vty_conf->flags & F_LDPD_ENABLED)
+	if (CHECK_FLAG(vty_conf->flags, F_LDPD_ENABLED))
 		ldp_zebra_regdereg_zebra_info(true);
 
 	ldp_zebra_opaque_register();
@@ -684,11 +660,9 @@ ldp_zebra_filter_update(struct access_list *access)
 
 	if (access && access->name[0] != '\0') {
 		strlcpy(laccess.name, access->name, sizeof(laccess.name));
-		debug_evt("%s ACL update filter name %s", __func__,
-			  access->name);
+		debug_evt("%s ACL update filter name %s", __func__, access->name);
 
-		main_imsg_compose_both(IMSG_FILTER_UPDATE, &laccess,
-			sizeof(laccess));
+		main_imsg_compose_both(IMSG_FILTER_UPDATE, &laccess, sizeof(laccess));
 	}
 }
 
@@ -704,11 +678,12 @@ static zclient_handler *const ldp_handlers[] = {
 	[ZEBRA_OPAQUE_MESSAGE] = ldp_zebra_opaque_msg_handler,
 };
 
-void
-ldp_zebra_init(struct thread_master *master)
+void ldp_zebra_init(struct event_loop *master)
 {
-	if_zapi_callbacks(ldp_ifp_create, ldp_ifp_up,
-			  ldp_ifp_down, ldp_ifp_destroy);
+	hook_register_prio(if_real, 0, ldp_ifp_create);
+	hook_register_prio(if_up, 0, ldp_ifp_up);
+	hook_register_prio(if_down, 0, ldp_ifp_down);
+	hook_register_prio(if_unreal, 0, ldp_ifp_destroy);
 
 	/* Set default values. */
 	zclient = zclient_new(master, &zclient_options_default, ldp_handlers,
@@ -730,4 +705,10 @@ ldp_zebra_destroy(void)
 	zclient_stop(zclient);
 	zclient_free(zclient);
 	zclient = NULL;
+
+	if (zclient_sync == NULL)
+		return;
+	zclient_stop(zclient_sync);
+	zclient_free(zclient_sync);
+	zclient_sync = NULL;
 }

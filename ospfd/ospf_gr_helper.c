@@ -1,29 +1,14 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * OSPF Graceful Restart helper functions.
  *
  * Copyright (C) 2020-21 Vmware, Inc.
  * Rajesh Kumar Girada
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
 
-#include "thread.h"
+#include "frrevent.h"
 #include "memory.h"
 #include "linklist.h"
 #include "prefix.h"
@@ -114,9 +99,7 @@ static void ospf_enable_rtr_hash_destroy(struct ospf *ospf)
 	if (ospf->enable_rtr_list == NULL)
 		return;
 
-	hash_clean(ospf->enable_rtr_list, ospf_disable_rtr_hash_free);
-	hash_free(ospf->enable_rtr_list);
-	ospf->enable_rtr_list = NULL;
+	hash_clean_and_free(&ospf->enable_rtr_list, ospf_disable_rtr_hash_free);
 }
 
 /*
@@ -346,9 +329,9 @@ static int ospf_extract_grace_lsa_fields(struct ospf_lsa *lsa,
  * Returns:
  *    Nothing
  */
-static void ospf_handle_grace_timer_expiry(struct thread *thread)
+static void ospf_handle_grace_timer_expiry(struct event *thread)
 {
-	struct ospf_neighbor *nbr = THREAD_ARG(thread);
+	struct ospf_neighbor *nbr = EVENT_ARG(thread);
 
 	nbr->gr_helper_info.t_grace_timer = NULL;
 
@@ -517,7 +500,7 @@ int ospf_process_grace_lsa(struct ospf *ospf, struct ospf_lsa *lsa,
 
 	if (OSPF_GR_IS_ACTIVE_HELPER(restarter)) {
 		if (restarter->gr_helper_info.t_grace_timer)
-			THREAD_OFF(restarter->gr_helper_info.t_grace_timer);
+			EVENT_OFF(restarter->gr_helper_info.t_grace_timer);
 
 		if (ospf->active_restarter_cnt > 0)
 			ospf->active_restarter_cnt--;
@@ -550,9 +533,9 @@ int ospf_process_grace_lsa(struct ospf *ospf, struct ospf_lsa *lsa,
 			   actual_grace_interval);
 
 	/* Start the grace timer */
-	thread_add_timer(master, ospf_handle_grace_timer_expiry, restarter,
-			 actual_grace_interval,
-			 &restarter->gr_helper_info.t_grace_timer);
+	event_add_timer(master, ospf_handle_grace_timer_expiry, restarter,
+			actual_grace_interval,
+			&restarter->gr_helper_info.t_grace_timer);
 
 	return OSPF_GR_ACTIVE_HELPER;
 }
@@ -716,7 +699,7 @@ void ospf_gr_helper_exit(struct ospf_neighbor *nbr,
 	 * expiry, stop the grace timer.
 	 */
 	if (reason != OSPF_GR_HELPER_GRACE_TIMEOUT)
-		THREAD_OFF(nbr->gr_helper_info.t_grace_timer);
+		EVENT_OFF(nbr->gr_helper_info.t_grace_timer);
 
 	/* check exit triggered due to successful completion
 	 * of graceful restart.

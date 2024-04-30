@@ -1,28 +1,15 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* Virtual terminal interface shell.
  * Copyright (C) 2000 Kunihiro Ishiguro
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
 
+#include <fcntl.h>
+#include <signal.h>
+#include <sys/stat.h>
 #include <sys/un.h>
 #include <setjmp.h>
-#include <sys/wait.h>
 #include <pwd.h>
 #include <sys/file.h>
 #include <unistd.h>
@@ -79,7 +66,7 @@ int execute_flag = 0;
 int user_mode;
 
 /* Master of threads. */
-struct thread_master *master;
+struct event_loop *master;
 
 /* Command logging */
 FILE *logfile;
@@ -193,6 +180,8 @@ static void usage(int status)
 		       "-u  --user               Run as an unprivileged user\n"
 		       "-w, --writeconfig        Write integrated config (frr.conf) and exit\n"
 		       "-H, --histfile           Override history file\n"
+		       "-t, --timestamp          Print a timestamp before going to shell or reading the configuration\n"
+		       "    --no-fork            Don't fork clients to handle daemons (slower for large configs)\n"
 		       "-h, --help               Display this help and exit\n\n"
 		       "Note that multiple commands may be executed from the command\n"
 		       "line by passing multiple -c args, or by embedding linefeed\n"
@@ -206,6 +195,7 @@ static void usage(int status)
 /* VTY shell options, we use GNU getopt library. */
 #define OPTION_VTYSOCK 1000
 #define OPTION_CONFDIR 1001
+#define OPTION_NOFORK 1002
 struct option longopts[] = {
 	{"boot", no_argument, NULL, 'b'},
 	/* For compatibility with older zebra/quagga versions */
@@ -225,37 +215,41 @@ struct option longopts[] = {
 	{"pathspace", required_argument, NULL, 'N'},
 	{"user", no_argument, NULL, 'u'},
 	{"timestamp", no_argument, NULL, 't'},
+	{"no-fork", no_argument, NULL, OPTION_NOFORK},
 	{0}};
 
 bool vtysh_loop_exited;
 
-static struct thread *vtysh_rl_read_thread;
+static struct event *vtysh_rl_read_thread;
 
-static void vtysh_rl_read(struct thread *thread)
+static void vtysh_rl_read(struct event *thread)
 {
-	thread_add_read(master, vtysh_rl_read, NULL, STDIN_FILENO,
-			&vtysh_rl_read_thread);
+	bool *suppress_warnings = EVENT_ARG(thread);
+
+	event_add_read(master, vtysh_rl_read, suppress_warnings, STDIN_FILENO,
+		       &vtysh_rl_read_thread);
 	rl_callback_read_char();
 }
 
 /* Read a string, and return a pointer to it.  Returns NULL on EOF. */
 static void vtysh_rl_run(void)
 {
-	struct thread thread;
+	struct event thread;
+	bool suppress_warnings = true;
 
-	master = thread_master_create(NULL);
+	master = event_master_create(NULL);
 
 	rl_callback_handler_install(vtysh_prompt(), vtysh_rl_callback);
-	thread_add_read(master, vtysh_rl_read, NULL, STDIN_FILENO,
-			&vtysh_rl_read_thread);
+	event_add_read(master, vtysh_rl_read, &suppress_warnings, STDIN_FILENO,
+		       &vtysh_rl_read_thread);
 
-	while (!vtysh_loop_exited && thread_fetch(master, &thread))
-		thread_call(&thread);
+	while (!vtysh_loop_exited && event_fetch(master, &thread))
+		event_call(&thread);
 
 	if (!vtysh_loop_exited)
 		rl_callback_handler_remove();
 
-	thread_master_free(master);
+	event_master_free(master);
 }
 
 static void log_it(const char *line)
@@ -336,6 +330,7 @@ int main(int argc, char **argv, char **env)
 	int dryrun = 0;
 	int boot_flag = 0;
 	bool ts_flag = false;
+	bool no_fork = false;
 	const char *daemon_name = NULL;
 	const char *inputfile = NULL;
 	struct cmd_rec {
@@ -370,8 +365,7 @@ int main(int argc, char **argv, char **env)
 
 	strlcpy(sysconfdir, frr_sysconfdir, sizeof(sysconfdir));
 
-	frr_init_vtydir();
-	strlcpy(vtydir, frr_vtydir, sizeof(vtydir));
+	strlcpy(vtydir, frr_runstatedir, sizeof(vtydir));
 
 	/* Option handling. */
 	while (1) {
@@ -406,6 +400,9 @@ int main(int argc, char **argv, char **env)
 		case OPTION_CONFDIR:
 			ditch_suid = 1; /* option disables SUID */
 			snprintf(sysconfdir, sizeof(sysconfdir), "%s/", optarg);
+			break;
+		case OPTION_NOFORK:
+			no_fork = true;
 			break;
 		case 'N':
 			if (strchr(optarg, '/') || strchr(optarg, '.')) {
@@ -455,6 +452,10 @@ int main(int argc, char **argv, char **env)
 		}
 	}
 
+	/* No need for forks if we're talking to 1 daemon */
+	if (daemon_name)
+		no_fork = true;
+
 	if (ditch_suid) {
 		elevuid = realuid;
 		elevgid = realgid;
@@ -467,7 +468,7 @@ int main(int argc, char **argv, char **env)
 	}
 	if (inputfile && (writeconfig || boot_flag)) {
 		fprintf(stderr,
-			"WARNING: Combinining the -f option with -b or -w is NOT SUPPORTED since its\nresults are inconsistent!\n");
+			"WARNING: Combining the -f option with -b or -w is NOT SUPPORTED since its\nresults are inconsistent!\n");
 	}
 
 	snprintf(vtysh_config, sizeof(vtysh_config), "%s%s%s", sysconfdir,
@@ -498,7 +499,7 @@ int main(int argc, char **argv, char **env)
 		/* Read vtysh configuration file before connecting to daemons.
 		 * (file may not be readable to calling user in SUID mode) */
 		suid_on();
-		vtysh_read_config(vtysh_config, dryrun);
+		vtysh_apply_config(vtysh_config, dryrun, false);
 		suid_off();
 	}
 	/* Error code library system */
@@ -517,9 +518,9 @@ int main(int argc, char **argv, char **env)
 	/* Start execution only if not in dry-run mode */
 	if (dryrun && !cmd) {
 		if (inputfile) {
-			ret = vtysh_read_config(inputfile, dryrun);
+			ret = vtysh_apply_config(inputfile, dryrun, false);
 		} else {
-			ret = vtysh_read_config(frr_config, dryrun);
+			ret = vtysh_apply_config(frr_config, dryrun, false);
 		}
 
 		exit(ret);
@@ -598,10 +599,17 @@ int main(int argc, char **argv, char **env)
 		return vtysh_write_config_integrated();
 	}
 
-	if (inputfile) {
+	if (boot_flag)
+		inputfile = frr_config;
+
+	if (inputfile || boot_flag) {
 		vtysh_flock_config(inputfile);
-		ret = vtysh_read_config(inputfile, dryrun);
+		ret = vtysh_apply_config(inputfile, dryrun, !no_fork);
 		vtysh_unflock_config();
+
+		if (no_error)
+			ret = 0;
+
 		exit(ret);
 	}
 
@@ -716,23 +724,6 @@ int main(int argc, char **argv, char **env)
 
 		history_truncate_file(history_file, 1000);
 		exit(0);
-	}
-
-	/* Boot startup configuration file. */
-	if (boot_flag) {
-		vtysh_flock_config(frr_config);
-		ret = vtysh_read_config(frr_config, dryrun);
-		vtysh_unflock_config();
-		if (ret) {
-			fprintf(stderr,
-				"Configuration file[%s] processing failure: %d\n",
-				frr_config, ret);
-			if (no_error)
-				exit(0);
-			else
-				exit(ret);
-		} else
-			exit(0);
 	}
 
 	vtysh_readline_init();

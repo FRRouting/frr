@@ -14,11 +14,11 @@
 #
 
 PATH=/bin:/usr/bin:/sbin:/usr/sbin
-D_PATH="@CFG_SBIN@" # /usr/lib/frr
-C_PATH="@CFG_SYSCONF@" # /etc/frr
-V_PATH="@CFG_STATE@" # /var/run/frr
-B_PATH="@CFG_BIN@"
-VTYSH="@vtysh_bin@" # /usr/bin/vtysh
+D_PATH="@e_sbindir@" # /usr/lib/frr
+C_PATH="@e_frr_sysconfdir@" # /etc/frr
+V_PATH="@e_frr_runstatedir@" # /var/run/frr
+B_PATH="@e_bindir@"
+VTYSH="@e_vtysh_bin@" # /usr/bin/vtysh
 FRR_USER="@enable_user@" # frr
 FRR_GROUP="@enable_group@" # frr
 FRR_VTY_GROUP="@enable_vty_group@" # frrvty
@@ -28,7 +28,7 @@ FRR_DEFAULT_PROFILE="@DFLT_NAME@" # traditional / datacenter
 # Local Daemon selection may be done by using /etc/frr/daemons.
 # See /usr/share/doc/frr/README.Debian.gz for further information.
 # Keep zebra first and do not list watchfrr!
-DAEMONS="zebra bgpd ripd ripngd ospfd ospf6d isisd babeld pimd pim6d ldpd nhrpd eigrpd sharpd pbrd staticd bfdd fabricd vrrpd pathd"
+DAEMONS="mgmtd zebra bgpd ripd ripngd ospfd ospf6d isisd babeld pimd pim6d ldpd nhrpd eigrpd sharpd pbrd staticd bfdd fabricd vrrpd pathd"
 MAX_INSTANCES=5
 RELOAD_SCRIPT="$D_PATH/frr-reload.py"
 

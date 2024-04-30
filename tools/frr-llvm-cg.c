@@ -1,28 +1,4 @@
-// This is free and unencumbered software released into the public domain.
-//
-// Anyone is free to copy, modify, publish, use, compile, sell, or
-// distribute this software, either in source code form or as a compiled
-// binary, for any purpose, commercial or non-commercial, and by any
-// means.
-//
-// In jurisdictions that recognize copyright laws, the author or authors
-// of this software dedicate any and all copyright interest in the
-// software to the public domain. We make this dedication for the benefit
-// of the public at large and to the detriment of our heirs and
-// successors. We intend this dedication to be an overt act of
-// relinquishment in perpetuity of all present and future rights to this
-// software under copyright law.
-//
-// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-// EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-// MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-// IN NO EVENT SHALL THE AUTHORS BE LIABLE FOR ANY CLAIM, DAMAGES OR
-// OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
-// ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
-// OTHER DEALINGS IN THE SOFTWARE.
-//
-// For more information, please refer to <http://unlicense.org/>
-
+// SPDX-License-Identifier: Unlicense
 /* based on example code: https://github.com/sheredom/llvm_bc_parsing_example
  * which came under the above (un-)license.  does not depend on any FRR
  * pieces, so no reason to change the license.
@@ -255,7 +231,7 @@ static void walk_const_fptrs(struct json_object *js_call, LLVMValueRef value,
 				"%s: calls function pointer from unhandled const GEP\n",
 				prefix);
 			*hdr_written = true;
-			/* fallthru */
+			fallthrough;
 		default:
 			/* to help the user / development */
 			if (!*hdr_written) {
@@ -295,12 +271,12 @@ static bool is_thread_sched(const char *name, size_t len)
 {
 #define thread_prefix "_"
 	static const char *const names[] = {
-		thread_prefix "thread_add_read_write",
-		thread_prefix "thread_add_timer",
-		thread_prefix "thread_add_timer_msec",
-		thread_prefix "thread_add_timer_tv",
-		thread_prefix "thread_add_event",
-		thread_prefix "thread_execute",
+		thread_prefix "event_add_read_write",
+		thread_prefix "event_add_timer",
+		thread_prefix "event_add_timer_msec",
+		thread_prefix "event_add_timer_tv",
+		thread_prefix "event_add_event",
+		thread_prefix "event_execute",
 	};
 	size_t i;
 

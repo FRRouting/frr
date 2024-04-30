@@ -95,7 +95,7 @@ March/July/November.  Walking backwards from this date:
    are considered lowest priority (regardless of when they were opened.)
 
  - 4 weeks earlier, the stable branch separates from master (named
-   ``dev/MAJOR.MINOR`` at this point) and tagged as ```base_X.Y``.
+   ``dev/MAJOR.MINOR`` at this point) and tagged as ``base_X.Y``.
    Master is unfrozen and new features may again proceed.
 
    Part of unfreezing master is editing the ``AC_INIT`` statement in
@@ -166,29 +166,27 @@ as early as possible, i.e. the first 2-week window.
 
 For reference, the expected release schedule according to the above is:
 
-+---------+------------+------------+------------+------------+------------+
-| Release | 2023-03-07 | 2023-07-04 | 2023-10-31 | 2024-02-27 | 2024-06-25 |
-+---------+------------+------------+------------+------------+------------+
-| RC      | 2023-02-21 | 2023-06-20 | 2023-10-17 | 2024-02-13 | 2024-06-11 |
-+---------+------------+------------+------------+------------+------------+
-| dev/X.Y | 2023-02-07 | 2023-06-06 | 2023-10-03 | 2024-01-30 | 2024-05-28 |
-+---------+------------+------------+------------+------------+------------+
-| freeze  | 2023-01-24 | 2023-05-23 | 2023-09-19 | 2024-01-16 | 2024-05-14 |
-+---------+------------+------------+------------+------------+------------+
++---------+------------+------------+------------+
+| Release | 2023-11-07 | 2024-03-05 | 2024-07-02 |
++---------+------------+------------+------------+
+| RC      | 2023-10-24 | 2024-02-20 | 2024-06-18 |
++---------+------------+------------+------------+
+| dev/X.Y | 2023-10-10 | 2024-02-06 | 2024-06-04 |
++---------+------------+------------+------------+
+| freeze  | 2023-09-26 | 2024-01-23 | 2024-05-21 |
++---------+------------+------------+------------+
 
 Here is the hint on how to get the dates easily:
 
    .. code-block:: console
 
-      ~$ # Last freeze date was 2023-09-19
-      ~$ date +%F --date='2023-09-19 +119 days' # Next freeze date
-      2024-01-16
-      ~$ date +%F --date='2024-01-16 +14 days'  # Next dev/X.Y date
-      2024-01-30
-      ~$ date +%F --date='2024-01-30 +14 days'  # Next RC date
-      2024-02-13
-      ~$ date +%F --date='2024-02-13 +14 days'  # Next Release date
-      2024-02-27
+      ~$ # Release date is 2023-11-07 (First Tuesday each March/July/November)
+      ~$ date +%F --date='2023-11-07 -42 days' # Next freeze date
+      2023-09-26
+      ~$ date +%F --date='2023-11-07 -28 days' # Next dev/X.Y date
+      2023-10-10
+      ~$ date +%F --date='2023-11-07 -14 days' # Next RC date
+      2023-10-24
 
 Each release is managed by one or more volunteer release managers from the FRR
 community.  These release managers are expected to handle the branch for a period
@@ -365,7 +363,6 @@ There is a built-in commit linter. Basic rules:
    `Check <https://github.com/FRRouting/frr/tree/master/.github/commitlint.config.js>`_ all
    the supported subsystems.
 
-- Commit messages must start with a capital letter
 - Commit messages must not end with a period ``.``
 
 Why was my pull request closed?
@@ -538,7 +535,8 @@ Programming Languages, Tools and Libraries
 ==========================================
 
 The core of FRR is written in C (gcc or clang supported) and makes
-use of GNU compiler extensions. A few non-essential scripts are
+use of GNU compiler extensions. Additionally, the CLI generation
+tool, `clippy`, requires Python. A few other non-essential scripts are
 implemented in Perl and Python. FRR requires the following tools
 to build distribution packages: automake, autoconf, texinfo, libtool and
 gawk and various libraries (i.e. libpam and libjson-c).
@@ -671,33 +669,36 @@ above) added to the file. The header should be:
 
 .. code-block:: c
 
+    // SPDX-License-Identifier: GPL-2.0-or-later
     /*
      * Title/Function of file
      * Copyright (C) YEAR  Author’s Name
-     *
-     * This program is free software; you can redistribute it and/or modify it
-     * under the terms of the GNU General Public License as published by the Free
-     * Software Foundation; either version 2 of the License, or (at your option)
-     * any later version.
-     *
-     * This program is distributed in the hope that it will be useful, but WITHOUT
-     * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-     * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
-     * more details.
-     *
-     * You should have received a copy of the GNU General Public License along
-     * with this program; see the file COPYING; if not, write to the Free Software
-     * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
      */
 
     #include <zebra.h>
 
-Please copy-paste this header verbatim. In particular:
+A ``SPDX-License-Identifier`` header is required in all source files, i.e.
+``.c``, ``.h``, ``.cpp`` and ``.py`` files.  The license boilerplate should be
+removed in these files.  Some existing files are missing this header, this is
+slowly being fixed.
 
-- Do not replace "This program" with "FRR"
-- Do not change the address of the FSF
-- keep ``#include <zebra.h>``.  The absolute first header included in any C
-  file **must** be either ``zebra.h`` or ``config.h`` (with HAVE_CONFIG_H guard)
+A ``SPDX-License-Identifier`` header *and* the full license boilerplate is
+required in schema definition files, i.e. ``.yang`` and ``.proto``.  The
+rationale for this is that these files are likely to be individually copied to
+places outside FRR, and having only the SPDX header would become a "dangling
+pointer".
+
+.. warning::
+
+   **DO NOT REMOVE A "Copyright" LINE OR AUTHOR NAME, EVER.**
+
+   **DO NOT APPLY AN SPDX HEADER WHEN THE LICENSE IS UNCLEAR, UNLESS YOU HAVE
+   CHECKED WITH *ALL* SIGNIFICANT AUTHORS.**
+
+Please to keep ``#include <zebra.h>``.  The absolute first header included in
+any C file **must** be either ``zebra.h`` or ``config.h`` (with HAVE_CONFIG_H
+guard.)
+
 
 Adding Copyright Claims to Existing Files
 -----------------------------------------
@@ -758,6 +759,13 @@ following requirements have achieved consensus:
   tools can catch uninitialized value use that would otherwise be suppressed by
   the (incorrect) zero initialization.
 
+- Usage of ``system()`` or other c library routines that cause signals to
+  possibly be ignored are not allowed.  This includes the ``fork()`` and
+  ``execXX`` call patterns, which is actually what system() does underneath
+  the covers.  This pattern causes the system shutdown to never work properly
+  as the SIGINT sent is never received.  It is better to just prohibit code
+  that does this instead of having to debug shutdown issues again.
+
 Other than these specific rules, coding practices from the Linux kernel as
 well as CERT or MISRA C guidelines may provide useful input on safe C code.
 However, these rules are not applied as-is;  some of them expressly collide
@@ -809,6 +817,7 @@ The project provides multiple tools to allow you to correctly style your code
 as painlessly as possible, primarily built around ``clang-format``.
 
 clang-format
+
    In the project root there is a :file:`.clang-format` configuration file
    which can be used with the ``clang-format`` source formatter tool from the
    LLVM project. Most of the time, this is the easiest and smartest tool to
@@ -865,14 +874,19 @@ clang-format
    https://clang.llvm.org/docs/ClangFormat.html
 
 checkpatch.sh
+checkpatch.pl
+
+   .. seealso:: :ref:`checkpatch`
+
    In the Linux kernel source tree there is a Perl script used to check
-   incoming patches for style errors. FRR uses an adapted version of this
-   script for the same purpose. It can be found at
-   :file:`tools/checkpatch.sh`. This script takes a git-formatted diff or
-   patch file, applies it to a clean FRR tree, and inspects the result to catch
-   potential style errors. Running this script on your patches before
-   submission is highly recommended. The CI system runs this script as well and
-   will comment on the PR with the results if style errors are found.
+   incoming patches for style errors. FRR uses a shell script front end and an
+   adapted version of the perl script for the same purpose. These scripts can
+   be found at :file:`tools/checkpatch.sh` and :file:`tools/checkpatch.pl`.
+   This script takes a git-formatted diff or patch file, applies it to a clean
+   FRR tree, and inspects the result to catch potential style errors. Running
+   this script on your patches before submission is highly recommended. The CI
+   system runs this script as well and will comment on the PR with the results
+   if style errors are found.
 
    It is run like this::
 
@@ -912,6 +926,10 @@ checkpatch.sh
 
    If the script finds one or more WARNINGs it will exit with 1. If it finds
    one or more ERRORs it will exit with 2.
+
+   For convenience the Linux documentation for the :file:`tools/checkpatch.pl`
+   script has been included unmodified (i.e., it has not been updated to
+   reflect local changes) :doc:`here <checkpatch>`
 
 
 Please remember that while FRR provides these tools for your convenience,
@@ -1328,10 +1346,23 @@ frr-format plugin
       Using the plugin also changes the string for ``PRI[udx]64`` from the
       system value to ``%L[udx]`` (normally ``%ll[udx]`` or ``%l[udx]``.)
 
-Additionally, the FRR codebase is regularly scanned with Coverity.
-Unfortunately Coverity does not have the ability to handle scanning pull
-requests, but after code is merged it will send an email notifying project
-members with Coverity access of newly introduced defects.
+Additionally, the FRR codebase is regularly scanned for static analysis
+errors with Coverity and pull request changes are scanned as part of the
+Continuous Integration (CI) process. Developers can scan their commits for
+Coverity static analysis errors prior to submission using the
+``scan-build`` command. To use this command, the ``clang-tools`` package must
+be installed. For example, this can be accomplished on Ubuntu with the
+``sudo apt-get install clang-tools`` command.  Then, touch the files you want scanned and
+invoke the ``scan-build`` command. For example::
+
+  cd ~/GitHub/frr
+  touch ospfd/ospf_flood.c ospfd/ospf_vty.c ospfd/ospf_opaque.c
+  cd build
+  scan-build make -j32
+
+The results of the scan including any static analysis errors will appear inline.
+Additionally, there will a directory in the /tmp containing the Coverity
+reports (e.g., scan-build-2023-06-09-120100-473730-1).
 
 Executing non-installed dynamic binaries
 ----------------------------------------

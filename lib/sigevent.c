@@ -1,24 +1,11 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* Quagga signal handling functions.
  * Copyright (C) 2004 Paul Jakma,
- *
- * This file is part of Quagga.
- *
- * Quagga is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * Quagga is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
+
+#include <signal.h>
 #include <sigevent.h>
 #include <log.h>
 #include <memory.h>
@@ -37,7 +24,7 @@
 
 /* master signals descriptor struct */
 static struct frr_sigevent_master_t {
-	struct thread *t;
+	struct event *t;
 
 	struct frr_signal_t *signals;
 	int sigc;
@@ -142,14 +129,14 @@ int frr_sigevent_process(void)
 
 #ifdef SIGEVENT_SCHEDULE_THREAD
 /* timer thread to check signals. shouldn't be needed */
-void frr_signal_timer(struct thread *t)
+void frr_signal_timer(struct event *t)
 {
 	struct frr_sigevent_master_t *sigm;
 
-	sigm = THREAD_ARG(t);
+	sigm = EVENT_ARG(t);
 	sigm->t = NULL;
-	thread_add_timer(sigm->t->master, frr_signal_timer, &sigmaster,
-			 FRR_SIGNAL_TIMER_INTERVAL, &sigm->t);
+	event_add_timer(sigm->t->master, frr_signal_timer, &sigmaster,
+			FRR_SIGNAL_TIMER_INTERVAL, &sigm->t);
 	frr_sigevent_process();
 }
 #endif /* SIGEVENT_SCHEDULE_THREAD */
@@ -346,8 +333,7 @@ static void trap_default_signals(void)
 	}
 }
 
-void signal_init(struct thread_master *m, int sigc,
-		 struct frr_signal_t signals[])
+void signal_init(struct event_loop *m, int sigc, struct frr_signal_t signals[])
 {
 
 	int i = 0;
@@ -369,7 +355,7 @@ void signal_init(struct thread_master *m, int sigc,
 
 #ifdef SIGEVENT_SCHEDULE_THREAD
 	sigmaster.t = NULL;
-	thread_add_timer(m, frr_signal_timer, &sigmaster,
-			 FRR_SIGNAL_TIMER_INTERVAL, &sigmaster.t);
+	event_add_timer(m, frr_signal_timer, &sigmaster,
+			FRR_SIGNAL_TIMER_INTERVAL, &sigmaster.t);
 #endif /* SIGEVENT_SCHEDULE_THREAD */
 }

@@ -1,21 +1,8 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * BGPd - Mac hash code
  * Copyright (C) 2018 Cumulus Networks, Inc.
  *               Donald Sharp
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 #include <zebra.h>
 
@@ -77,8 +64,7 @@ static void bgp_mac_hash_free(void *data)
 
 void bgp_mac_finish(void)
 {
-	hash_clean(bm->self_mac_hash, bgp_mac_hash_free);
-	hash_free(bm->self_mac_hash);
+	hash_clean_and_free(&bm->self_mac_hash, bgp_mac_hash_free);
 }
 
 static void bgp_mac_hash_interface_string_del(void *val)
@@ -233,7 +219,7 @@ static void bgp_mac_rescan_evpn_table(struct bgp *bgp, struct ethaddr *macaddr)
 		if (CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP))
 			continue;
 
-		if (!peer_established(peer))
+		if (!peer_established(peer->connection))
 			continue;
 
 		if (bgp_debug_update(peer, NULL, NULL, 1))
@@ -293,15 +279,29 @@ static void bgp_mac_remove_ifp_internal(struct bgp_self_mac *bsm, char *ifname,
 	}
 }
 
+/* Add/Update entry of the 'bgp mac hash' table.
+ * A rescan of the EVPN tables is only needed if
+ * a new hash bucket is allocated.
+ * Learning an existing mac on a new interface (or
+ * having an existing mac move from one interface to
+ * another) does not result in changes to self mac
+ * state, so we shouldn't trigger a rescan.
+ */
 void bgp_mac_add_mac_entry(struct interface *ifp)
 {
 	struct bgp_self_mac lookup;
 	struct bgp_self_mac *bsm;
 	struct bgp_self_mac *old_bsm;
 	char *ifname;
+	bool mac_added = false;
 
 	memcpy(&lookup.macaddr, &ifp->hw_addr, ETH_ALEN);
-	bsm = hash_get(bm->self_mac_hash, &lookup, bgp_mac_hash_alloc);
+	bsm = hash_lookup(bm->self_mac_hash, &lookup);
+	if (!bsm) {
+		bsm = hash_get(bm->self_mac_hash, &lookup, bgp_mac_hash_alloc);
+		/* mac is new, rescan needs to be triggered */
+		mac_added = true;
+	}
 
 	/*
 	 * Does this happen to be a move
@@ -332,7 +332,8 @@ void bgp_mac_add_mac_entry(struct interface *ifp)
 		listnode_add(bsm->ifp_list, ifname);
 	}
 
-	bgp_mac_rescan_all_evpn_tables(&bsm->macaddr);
+	if (mac_added)
+		bgp_mac_rescan_all_evpn_tables(&bsm->macaddr);
 }
 
 void bgp_mac_del_mac_entry(struct interface *ifp)
@@ -374,7 +375,7 @@ bool bgp_mac_exist(const struct ethaddr *mac)
 	return true;
 }
 
-/* This API checks EVPN type-2 prefix and comapares
+/* This API checks EVPN type-2 prefix and compares
  * mac against any of local assigned (SVIs) MAC
  * address.
  */
@@ -389,8 +390,6 @@ bool bgp_mac_entry_exists(const struct prefix *p)
 		return false;
 
 	return bgp_mac_exist(&p->u.prefix_evpn.macip_addr.mac);
-
-	return true;
 }
 
 static void bgp_mac_show_mac_entry(struct hash_bucket *bucket, void *arg)

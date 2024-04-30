@@ -18,5 +18,5 @@ Routing Protocol is "rip"
     r1-eth3
   Routing Information Sources:
     Gateway          BadPackets BadRoutes  Distance Last Update
-    193.1.1.2                0         0       120   XX:XX:XX
+    193.1.1.2                 0         0       120    XX:XX:XX
   Distance: (default is 120)

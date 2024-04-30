@@ -1,22 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Routing Information Base header
  * Copyright (C) 1997 Kunihiro Ishiguro
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef _ZEBRA_RIB_H
@@ -100,24 +85,11 @@ struct route_entry {
 	 */
 	struct nhg_hash_entry *nhe;
 
-	/* Nexthop group from FIB (optional), reflecting what is actually
-	 * installed in the FIB if that differs. The 'backup' group is used
-	 * when backup nexthops are present in the route's nhg.
-	 */
-	struct nexthop_group fib_ng;
-	struct nexthop_group fib_backup_ng;
-
 	/* Nexthop group hash entry IDs. The "installed" id is the id
 	 * used in linux/netlink, if available.
 	 */
 	uint32_t nhe_id;
 	uint32_t nhe_installed_id;
-
-	/* Tag */
-	route_tag_t tag;
-
-	/* Uptime. */
-	time_t uptime;
 
 	/* Type of this route. */
 	int type;
@@ -175,12 +147,29 @@ struct route_entry {
 	/* Distance. */
 	uint8_t distance;
 
+	/* Tag */
+	route_tag_t tag;
+
+	/* Uptime. */
+	time_t uptime;
+
 	struct re_opaque *opaque;
+
+	/* Nexthop group from FIB (optional), reflecting what is actually
+	 * installed in the FIB if that differs. The 'backup' group is used
+	 * when backup nexthops are present in the route's nhg.
+	 */
+	struct nexthop_group fib_ng;
+	struct nexthop_group fib_backup_ng;
 };
 
 #define RIB_SYSTEM_ROUTE(R) RSYSTEM_ROUTE((R)->type)
 
 #define RIB_KERNEL_ROUTE(R) RKERNEL_ROUTE((R)->type)
+
+/* Define route types that are equivalent to "connected". */
+#define RIB_CONNECTED_ROUTE(R)                                                 \
+	((R)->type == ZEBRA_ROUTE_CONNECT || (R)->type == ZEBRA_ROUTE_LOCAL || (R)->type == ZEBRA_ROUTE_NHRP)
 
 /* meta-queue structure:
  * sub-queue 0: nexthop group objects
@@ -195,7 +184,11 @@ struct route_entry {
  * sub-queue 9: any other origin (if any) typically those that
  *              don't generate routes
  */
-#define MQ_SIZE 10
+#define MQ_SIZE 11
+
+/* For checking that an object has already queued in some sub-queue */
+#define MQ_BIT_MASK ((1 << MQ_SIZE) - 1)
+
 struct meta_queue {
 	struct list *subq[MQ_SIZE];
 	uint32_t size; /* sum of lengths of all subqueues */
@@ -344,13 +337,15 @@ int route_entry_update_nhe(struct route_entry *re,
 			   struct nhg_hash_entry *new_nhghe);
 
 /* NHG replace has happend, we have to update route_entry pointers to new one */
-void rib_handle_nhg_replace(struct nhg_hash_entry *old_entry,
-			    struct nhg_hash_entry *new_entry);
+int rib_handle_nhg_replace(struct nhg_hash_entry *old_entry,
+			   struct nhg_hash_entry *new_entry);
 
 #define route_entry_dump(prefix, src, re) _route_entry_dump(__func__, prefix, src, re)
 extern void _route_entry_dump(const char *func, union prefixconstptr pp,
 			      union prefixconstptr src_pp,
 			      const struct route_entry *re);
+
+void zebra_rib_route_entry_free(struct route_entry *re);
 
 struct route_entry *
 zebra_rib_route_entry_new(vrf_id_t vrf_id, int type, uint8_t instance,
@@ -408,12 +403,9 @@ extern void rib_delete(afi_t afi, safi_t safi, vrf_id_t vrf_id, int type,
 extern struct route_entry *rib_match(afi_t afi, safi_t safi, vrf_id_t vrf_id,
 				     const union g_addr *addr,
 				     struct route_node **rn_out);
-extern struct route_entry *rib_match_ipv4_multicast(vrf_id_t vrf_id,
-						    struct in_addr addr,
-						    struct route_node **rn_out);
-extern struct route_entry *rib_match_ipv6_multicast(vrf_id_t vrf_id,
-						    struct in6_addr addr,
-						    struct route_node **rn_out);
+extern struct route_entry *rib_match_multicast(afi_t afi, vrf_id_t vrf_id,
+					       union g_addr *gaddr,
+					       struct route_node **rn_out);
 
 extern struct route_entry *rib_lookup_ipv4(struct prefix_ipv4 *p,
 					   vrf_id_t vrf_id);
@@ -421,10 +413,11 @@ extern struct route_entry *rib_lookup_ipv4(struct prefix_ipv4 *p,
 extern void rib_update(enum rib_update_event event);
 extern void rib_update_table(struct route_table *table,
 			     enum rib_update_event event, int rtype);
-extern void rib_sweep_route(struct thread *t);
+extern void rib_sweep_route(struct event *t);
 extern void rib_sweep_table(struct route_table *table);
 extern void rib_close_table(struct route_table *table);
-extern void rib_init(void);
+extern void zebra_rib_init(void);
+extern void zebra_rib_terminate(void);
 extern unsigned long rib_score_proto(uint8_t proto, unsigned short instance);
 extern unsigned long rib_score_proto_table(uint8_t proto,
 					   unsigned short instance,
@@ -439,6 +432,7 @@ extern int rib_queue_nhg_ctx_add(struct nhg_ctx *ctx);
 
 /* Enqueue incoming nhg from proto daemon for processing */
 extern int rib_queue_nhe_add(struct nhg_hash_entry *nhe);
+extern int rib_queue_nhe_del(struct nhg_hash_entry *nhe);
 
 /* Enqueue evpn route for processing */
 int zebra_rib_queue_evpn_route_add(vrf_id_t vrf_id, const struct ethaddr *rmac,
@@ -627,11 +621,20 @@ static inline struct nexthop_group *rib_get_fib_backup_nhg(
 	return &(re->fib_backup_ng);
 }
 
+extern void zebra_gr_process_client(afi_t afi, vrf_id_t vrf_id, uint8_t proto,
+				    uint8_t instance);
+
+extern int rib_add_gr_run(afi_t afi, vrf_id_t vrf_id, uint8_t proto,
+			  uint8_t instance);
+
 extern void zebra_vty_init(void);
 
 extern pid_t pid;
 
-extern bool v6_rr_semantics;
+extern uint32_t rt_table_main_id;
+
+/* Name of hook calls */
+#define ZEBRA_ON_RIB_PROCESS_HOOK_CALL "on_rib_process_dplane_results"
 
 #ifdef __cplusplus
 }

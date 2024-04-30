@@ -9,4 +9,5 @@ OSPFD
 
    ospf-api
    ospf-sr
+   cspf
 

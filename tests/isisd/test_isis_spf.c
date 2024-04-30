@@ -1,27 +1,15 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Copyright (C) 2020  NetDEF, Inc.
  *                     Renato Westphal
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
+#include <sys/stat.h>
 
 #include <lib/version.h>
 #include "getopt.h"
-#include "thread.h"
+#include "frrevent.h"
 #include "vty.h"
 #include "command.h"
 #include "log.h"
@@ -62,12 +50,13 @@ static void test_run_spf(struct vty *vty, const struct isis_topology *topology,
 	/* Run SPF. */
 	spf_type = reverse ? SPF_TYPE_REVERSE : SPF_TYPE_FORWARD;
 	spftree = isis_spftree_new(area, lspdb, root->sysid, level, tree,
-				   spf_type, F_SPFTREE_NO_ADJACENCIES);
+				   spf_type, F_SPFTREE_NO_ADJACENCIES,
+				   SR_ALGORITHM_SPF);
 	isis_run_spf(spftree);
 
 	/* Print the SPT and the corresponding routing table. */
 	isis_print_spftree(vty, spftree);
-	isis_print_routes(vty, spftree, false, false);
+	isis_print_routes(vty, spftree, NULL, false, false);
 
 	/* Cleanup SPF tree. */
 	isis_spftree_del(spftree);
@@ -84,8 +73,9 @@ static void test_run_lfa(struct vty *vty, const struct isis_topology *topology,
 
 	/* Run forward SPF in the root node. */
 	flags = F_SPFTREE_NO_ADJACENCIES;
-	spftree_self = isis_spftree_new(area, lspdb, root->sysid, level, tree,
-					SPF_TYPE_FORWARD, flags);
+	spftree_self =
+		isis_spftree_new(area, lspdb, root->sysid, level, tree,
+				 SPF_TYPE_FORWARD, flags, SR_ALGORITHM_SPF);
 	isis_run_spf(spftree_self);
 
 	/* Run forward SPF on all adjacent routers. */
@@ -97,9 +87,9 @@ static void test_run_lfa(struct vty *vty, const struct isis_topology *topology,
 	/* Print the SPT and the corresponding main/backup routing tables. */
 	isis_print_spftree(vty, spftree_self);
 	vty_out(vty, "Main:\n");
-	isis_print_routes(vty, spftree_self, false, false);
+	isis_print_routes(vty, spftree_self, NULL, false, false);
 	vty_out(vty, "Backup:\n");
-	isis_print_routes(vty, spftree_self, false, true);
+	isis_print_routes(vty, spftree_self, NULL, false, true);
 
 	/* Cleanup everything. */
 	isis_spftree_del(spftree_self);
@@ -120,8 +110,9 @@ static void test_run_rlfa(struct vty *vty, const struct isis_topology *topology,
 
 	/* Run forward SPF in the root node. */
 	flags = F_SPFTREE_NO_ADJACENCIES;
-	spftree_self = isis_spftree_new(area, lspdb, root->sysid, level, tree,
-					SPF_TYPE_FORWARD, flags);
+	spftree_self =
+		isis_spftree_new(area, lspdb, root->sysid, level, tree,
+				 SPF_TYPE_FORWARD, flags, SR_ALGORITHM_SPF);
 	isis_run_spf(spftree_self);
 
 	/* Run reverse SPF in the root node. */
@@ -175,9 +166,9 @@ static void test_run_rlfa(struct vty *vty, const struct isis_topology *topology,
 	/* Print the SPT and the corresponding main/backup routing tables. */
 	isis_print_spftree(vty, spftree_self);
 	vty_out(vty, "Main:\n");
-	isis_print_routes(vty, spftree_self, false, false);
+	isis_print_routes(vty, spftree_self, NULL, false, false);
 	vty_out(vty, "Backup:\n");
-	isis_print_routes(vty, spftree_self, false, true);
+	isis_print_routes(vty, spftree_self, NULL, false, true);
 
 	/* Cleanup everything. */
 	isis_spftree_del(spftree_self);
@@ -200,8 +191,9 @@ static void test_run_ti_lfa(struct vty *vty,
 
 	/* Run forward SPF in the root node. */
 	flags = F_SPFTREE_NO_ADJACENCIES;
-	spftree_self = isis_spftree_new(area, lspdb, root->sysid, level, tree,
-					SPF_TYPE_FORWARD, flags);
+	spftree_self =
+		isis_spftree_new(area, lspdb, root->sysid, level, tree,
+				 SPF_TYPE_FORWARD, flags, SR_ALGORITHM_SPF);
 	isis_run_spf(spftree_self);
 
 	/* Run reverse SPF in the root node. */
@@ -237,7 +229,7 @@ static void test_run_ti_lfa(struct vty *vty,
 	 * Print the post-convergence SPT and the corresponding routing table.
 	 */
 	isis_print_spftree(vty, spftree_pc);
-	isis_print_routes(vty, spftree_self, false, true);
+	isis_print_routes(vty, spftree_self, NULL, false, true);
 
 	/* Cleanup everything. */
 	isis_spftree_del(spftree_self);
@@ -468,7 +460,7 @@ static void vty_do_exit(int isexit)
 	cmd_terminate();
 	vty_terminate();
 	yang_terminate();
-	thread_master_free(master);
+	event_master_free(master);
 
 	log_memstats(stderr, "test-isis-spf");
 	if (!isexit)
@@ -501,7 +493,7 @@ int main(int argc, char **argv)
 {
 	char *p;
 	char *progname;
-	struct thread thread;
+	struct event thread;
 	bool debug = false;
 
 	/* Set umask before anything for security */
@@ -534,7 +526,7 @@ int main(int argc, char **argv)
 	}
 
 	/* master init. */
-	master = thread_master_create(NULL);
+	master = event_master_create(NULL);
 	isis_master_init(master);
 
 	/* Library inits. */
@@ -548,7 +540,7 @@ int main(int argc, char **argv)
 		zlog_aux_init("NONE: ", ZLOG_DISABLED);
 
 	/* IS-IS inits. */
-	yang_module_load("frr-isisd");
+	yang_module_load("frr-isisd", NULL);
 	SET_FLAG(im->options, F_ISIS_UNIT_TEST);
 	debug_spf_events |= DEBUG_SPF_EVENTS;
 	debug_lfa |= DEBUG_LFA;
@@ -562,8 +554,8 @@ int main(int argc, char **argv)
 	vty_stdio(vty_do_exit);
 
 	/* Fetch next active thread. */
-	while (thread_fetch(master, &thread))
-		thread_call(&thread);
+	while (event_fetch(master, &thread))
+		event_call(&thread);
 
 	/* Not reached. */
 	exit(0);

@@ -1,20 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * PIM for Quagga
  * Copyright (C) 2008  Everton da Silva Marques
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -203,13 +190,13 @@ static void update_dr_priority(struct pim_neighbor *neigh,
 	}
 }
 
-static void on_neighbor_timer(struct thread *t)
+static void on_neighbor_timer(struct event *t)
 {
 	struct pim_neighbor *neigh;
 	struct interface *ifp;
 	char msg[100];
 
-	neigh = THREAD_ARG(t);
+	neigh = EVENT_ARG(t);
 
 	ifp = neigh->interface;
 
@@ -235,7 +222,7 @@ void pim_neighbor_timer_reset(struct pim_neighbor *neigh, uint16_t holdtime)
 {
 	neigh->holdtime = holdtime;
 
-	THREAD_OFF(neigh->t_expire_timer);
+	EVENT_OFF(neigh->t_expire_timer);
 
 	/*
 	  0xFFFF is request for no holdtime
@@ -249,13 +236,13 @@ void pim_neighbor_timer_reset(struct pim_neighbor *neigh, uint16_t holdtime)
 			   __func__, neigh->holdtime, &neigh->source_addr,
 			   neigh->interface->name);
 
-	thread_add_timer(router->master, on_neighbor_timer, neigh,
-			 neigh->holdtime, &neigh->t_expire_timer);
+	event_add_timer(router->master, on_neighbor_timer, neigh,
+			neigh->holdtime, &neigh->t_expire_timer);
 }
 
-static void on_neighbor_jp_timer(struct thread *t)
+static void on_neighbor_jp_timer(struct event *t)
 {
-	struct pim_neighbor *neigh = THREAD_ARG(t);
+	struct pim_neighbor *neigh = EVENT_ARG(t);
 	struct pim_rpf rpf;
 
 	if (PIM_DEBUG_PIM_TRACE)
@@ -268,15 +255,15 @@ static void on_neighbor_jp_timer(struct thread *t)
 	rpf.rpf_addr = neigh->source_addr;
 	pim_joinprune_send(&rpf, neigh->upstream_jp_agg);
 
-	thread_add_timer(router->master, on_neighbor_jp_timer, neigh,
-			 router->t_periodic, &neigh->jp_timer);
+	event_add_timer(router->master, on_neighbor_jp_timer, neigh,
+			router->t_periodic, &neigh->jp_timer);
 }
 
 static void pim_neighbor_start_jp_timer(struct pim_neighbor *neigh)
 {
-	THREAD_OFF(neigh->jp_timer);
-	thread_add_timer(router->master, on_neighbor_jp_timer, neigh,
-			 router->t_periodic, &neigh->jp_timer);
+	EVENT_OFF(neigh->jp_timer);
+	event_add_timer(router->master, on_neighbor_jp_timer, neigh,
+			router->t_periodic, &neigh->jp_timer);
 }
 
 static struct pim_neighbor *
@@ -390,7 +377,7 @@ void pim_neighbor_free(struct pim_neighbor *neigh)
 	delete_prefix_list(neigh);
 
 	list_delete(&neigh->upstream_jp_agg);
-	THREAD_OFF(neigh->jp_timer);
+	EVENT_OFF(neigh->jp_timer);
 
 	bfd_sess_free(&neigh->bfd_session);
 
@@ -594,7 +581,7 @@ void pim_neighbor_delete(struct interface *ifp, struct pim_neighbor *neigh,
 	zlog_notice("PIM NEIGHBOR DOWN: neighbor %pPA on interface %s: %s",
 		    &neigh->source_addr, ifp->name, delete_message);
 
-	THREAD_OFF(neigh->t_expire_timer);
+	EVENT_OFF(neigh->t_expire_timer);
 
 	pim_if_assert_on_neighbor_down(ifp, neigh->source_addr);
 

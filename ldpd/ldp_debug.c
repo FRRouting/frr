@@ -1,20 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Copyright (C) 2016 by Open Source Routing.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; see the file COPYING; if not, write to the
- * Free Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston,
- * MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -111,8 +97,7 @@ ldp_vty_debug(struct vty *vty, const char *negate, const char *type_str,
 			DEBUG_ON(zebra, LDP_DEBUG_ZEBRA);
 	}
 
-	main_imsg_compose_both(IMSG_DEBUG_UPDATE, &ldp_debug,
-	    sizeof(ldp_debug));
+	main_imsg_compose_both(IMSG_DEBUG_UPDATE, &ldp_debug, sizeof(ldp_debug));
 
 	return (CMD_SUCCESS);
 }
@@ -133,13 +118,11 @@ ldp_vty_show_debugging(struct vty *vty)
 	if (LDP_DEBUG(labels, LDP_DEBUG_LABELS))
 		vty_out (vty, "  LDP labels debugging is on\n");
 	if (LDP_DEBUG(msg, LDP_DEBUG_MSG_RECV_ALL))
-		vty_out (vty,
-			  "  LDP detailed messages debugging is on (inbound)\n");
+		vty_out (vty, "  LDP detailed messages debugging is on (inbound)\n");
 	else if (LDP_DEBUG(msg, LDP_DEBUG_MSG_RECV))
 		vty_out (vty,"  LDP messages debugging is on (inbound)\n");
 	if (LDP_DEBUG(msg, LDP_DEBUG_MSG_SEND_ALL))
-		vty_out (vty,
-			  "  LDP detailed messages debugging is on (outbound)\n");
+		vty_out (vty, "  LDP detailed messages debugging is on (outbound)\n");
 	else if (LDP_DEBUG(msg, LDP_DEBUG_MSG_SEND))
 		vty_out (vty,"  LDP messages debugging is on (outbound)\n");
 	if (LDP_DEBUG(sync, LDP_DEBUG_SYNC))

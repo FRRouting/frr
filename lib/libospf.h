@@ -1,22 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Defines and structures common to OSPFv2 and OSPFv3
  * Copyright (C) 1998, 99, 2000 Kunihiro Ishiguro, Toshiaki Takada
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef _LIBOSPFD_H
@@ -70,19 +55,22 @@ extern "C" {
 #define OSPF_ROUTER_DEAD_INTERVAL_DEFAULT  40
 #define OSPF_ROUTER_DEAD_INTERVAL_MINIMAL   1
 #define OSPF_HELLO_INTERVAL_DEFAULT        10
+#define OSPF_HELLO_DELAY_DEFAULT           10
 #define OSPF_ROUTER_PRIORITY_DEFAULT        1
 #define OSPF_RETRANSMIT_INTERVAL_DEFAULT    5
 #define OSPF_TRANSMIT_DELAY_DEFAULT         1
 #define OSPF_DEFAULT_BANDWIDTH		 10000	/* Mbps */
 
-#define OSPF_DEFAULT_REF_BANDWIDTH	100000  /* Mbps */
+#define OSPF_DEFAULT_REF_BANDWIDTH	100000  /* Kbps */
 
 #define OSPF_POLL_INTERVAL_DEFAULT         60
 #define OSPF_NEIGHBOR_PRIORITY_DEFAULT      0
 
 #define OSPF_MTU_IGNORE_DEFAULT             0
 #define OSPF_FAST_HELLO_DEFAULT             0
-
+#define OSPF_P2MP_DELAY_REFLOOD_DEFAULT	    false
+#define OSPF_OPAQUE_CAPABLE_DEFAULT true
+#define OSPF_PREFIX_SUPPRESSION_DEFAULT	    false
 #define OSPF_AREA_BACKBONE              0x00000000      /* 0.0.0.0 */
 #define OSPF_AREA_RANGE_COST_UNSPEC	-1U
 

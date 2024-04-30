@@ -1,21 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* FIB SNMP.
  * Copyright (C) 1999 Kunihiro Ishiguro
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 /*
@@ -238,6 +223,8 @@ static int proto_trans(int type)
 		return 1; /* other */
 	case ZEBRA_ROUTE_CONNECT:
 		return 2; /* local interface */
+	case ZEBRA_ROUTE_LOCAL:
+		return 2;
 	case ZEBRA_ROUTE_STATIC:
 		return 3; /* static route */
 	case ZEBRA_ROUTE_RIP:
@@ -368,7 +355,7 @@ static void get_fwtable_route_node(struct variable *v, oid objid[],
 		if (policy) /* Not supported (yet?) */
 			return;
 		for (*np = route_top(table); *np; *np = route_next(*np)) {
-			if (!in_addr_cmp(&(*np)->p.u.prefix,
+			if (!in_addr_cmp((uint8_t *)&(*np)->p.u.prefix4,
 					 (uint8_t *)&dest)) {
 				RNODE_FOREACH_RE (*np, *re) {
 					if (!in_addr_cmp((uint8_t *)&(*re)->nhe
@@ -389,13 +376,14 @@ static void get_fwtable_route_node(struct variable *v, oid objid[],
 	for (np2 = route_top(table); np2; np2 = route_next(np2)) {
 
 		/* Check destination first */
-		if (in_addr_cmp(&np2->p.u.prefix, (uint8_t *)&dest) > 0)
+		if (in_addr_cmp((uint8_t *)&np2->p.u.prefix4,
+				(uint8_t *)&dest) > 0)
 			RNODE_FOREACH_RE (np2, re2) {
 				check_replace(np2, re2, np, re);
 			}
 
-		if (in_addr_cmp(&np2->p.u.prefix, (uint8_t *)&dest)
-		    == 0) { /* have to look at each re individually */
+		if (in_addr_cmp((uint8_t *)&np2->p.u.prefix4, (uint8_t *)&dest) ==
+		    0) { /* have to look at each re individually */
 			RNODE_FOREACH_RE (np2, re2) {
 				int proto2, policy2;
 
@@ -551,7 +539,7 @@ static uint8_t *ipCidrTable(struct variable *v, oid objid[], size_t *objid_len,
 	return NULL;
 }
 
-static int zebra_snmp_init(struct thread_master *tm)
+static int zebra_snmp_init(struct event_loop *tm)
 {
 	smux_init(tm);
 	REGISTER_MIB("mibII/ipforward", zebra_variables, variable, ipfw_oid);

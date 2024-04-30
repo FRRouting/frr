@@ -1,30 +1,17 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* SNMP support
  * Copyright (C) 2012 Vincent Bernat <bernat@luffy.cx>
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
+#include <fcntl.h>
 
 #ifdef SNMP_AGENTX
 #include <net-snmp/net-snmp-config.h>
 #include <net-snmp/net-snmp-includes.h>
 #include <net-snmp/agent/net-snmp-agent-includes.h>
 #include <net-snmp/agent/snmp_vars.h>
+#include <net-snmp/library/large_fd_set.h>
 
 #include "command.h"
 #include "smux.h"
@@ -42,13 +29,13 @@ DEFINE_HOOK(agentx_enabled, (), ());
 
 static bool agentx_enabled = false;
 
-static struct thread_master *agentx_tm;
-static struct thread *timeout_thr = NULL;
+static struct event_loop *agentx_tm;
+static struct event *timeout_thr = NULL;
 static struct list *events = NULL;
 
 static void agentx_events_update(void);
 
-static void agentx_timeout(struct thread *t)
+static void agentx_timeout(struct event *t)
 {
 	snmp_timeout();
 	run_alarms();
@@ -56,18 +43,18 @@ static void agentx_timeout(struct thread *t)
 	agentx_events_update();
 }
 
-static void agentx_read(struct thread *t)
+static void agentx_read(struct event *t)
 {
-	fd_set fds;
+	netsnmp_large_fd_set lfds;
 	int flags, new_flags = 0;
 	int nonblock = false;
-	struct listnode *ln = THREAD_ARG(t);
-	struct thread **thr = listgetdata(ln);
+	struct listnode *ln = EVENT_ARG(t);
+	struct event **thr = listgetdata(ln);
 	XFREE(MTYPE_TMP, thr);
 	list_delete_node(events, ln);
 
 	/* fix for non blocking socket */
-	flags = fcntl(THREAD_FD(t), F_GETFL, 0);
+	flags = fcntl(EVENT_FD(t), F_GETFL, 0);
 	if (-1 == flags) {
 		flog_err(EC_LIB_SYSTEM_CALL, "Failed to get FD settings fcntl: %s(%d)",
 			 strerror(errno), errno);
@@ -77,19 +64,19 @@ static void agentx_read(struct thread *t)
 	if (flags & O_NONBLOCK)
 		nonblock = true;
 	else
-		new_flags = fcntl(THREAD_FD(t), F_SETFL, flags | O_NONBLOCK);
+		new_flags = fcntl(EVENT_FD(t), F_SETFL, flags | O_NONBLOCK);
 
 	if (new_flags == -1)
 		flog_err(EC_LIB_SYSTEM_CALL, "Failed to set snmp fd non blocking: %s(%d)",
 			 strerror(errno), errno);
 
-	FD_ZERO(&fds);
-	FD_SET(THREAD_FD(t), &fds);
-	snmp_read(&fds);
+	netsnmp_large_fd_set_init(&lfds, FD_SETSIZE);
+	netsnmp_large_fd_setfd(t->u.fd, &lfds);
+	snmp_read2(&lfds);
 
 	/* Reset the flag */
 	if (!nonblock) {
-		new_flags = fcntl(THREAD_FD(t), F_SETFL, flags);
+		new_flags = fcntl(EVENT_FD(t), F_SETFL, flags);
 
 		if (new_flags == -1)
 			flog_err(
@@ -100,6 +87,7 @@ static void agentx_read(struct thread *t)
 
 	netsnmp_check_outstanding_agent_requests();
 	agentx_events_update();
+	netsnmp_large_fd_set_cleanup(&lfds);
 }
 
 static void agentx_events_update(void)
@@ -107,24 +95,24 @@ static void agentx_events_update(void)
 	int maxfd = 0;
 	int block = 1;
 	struct timeval timeout = {.tv_sec = 0, .tv_usec = 0};
-	fd_set fds;
+	netsnmp_large_fd_set lfds;
 	struct listnode *ln;
-	struct thread **thr;
+	struct event **thr;
 	int fd, thr_fd;
 
-	thread_cancel(&timeout_thr);
+	event_cancel(&timeout_thr);
 
-	FD_ZERO(&fds);
-	snmp_select_info(&maxfd, &fds, &timeout, &block);
+	netsnmp_large_fd_set_init(&lfds, FD_SETSIZE);
+	snmp_select_info2(&maxfd, &lfds, &timeout, &block);
 
 	if (!block) {
-		thread_add_timer_tv(agentx_tm, agentx_timeout, NULL, &timeout,
-				    &timeout_thr);
+		event_add_timer_tv(agentx_tm, agentx_timeout, NULL, &timeout,
+				   &timeout_thr);
 	}
 
 	ln = listhead(events);
 	thr = ln ? listgetdata(ln) : NULL;
-	thr_fd = thr ? THREAD_FD(*thr) : -1;
+	thr_fd = thr ? EVENT_FD(*thr) : -1;
 
 	/* "two-pointer" / two-list simultaneous iteration
 	 * ln/thr/thr_fd point to the next existing event listener to hit while
@@ -133,22 +121,22 @@ static void agentx_events_update(void)
 		/* caught up */
 		if (thr_fd == fd) {
 			struct listnode *nextln = listnextnode(ln);
-			if (!FD_ISSET(fd, &fds)) {
-				thread_cancel(thr);
+			if (!netsnmp_large_fd_is_set(fd, &lfds)) {
+				event_cancel(thr);
 				XFREE(MTYPE_TMP, thr);
 				list_delete_node(events, ln);
 			}
 			ln = nextln;
 			thr = ln ? listgetdata(ln) : NULL;
-			thr_fd = thr ? THREAD_FD(*thr) : -1;
+			thr_fd = thr ? EVENT_FD(*thr) : -1;
 		}
 		/* need listener, but haven't hit one where it would be */
-		else if (FD_ISSET(fd, &fds)) {
+		else if (netsnmp_large_fd_is_set(fd, &lfds)) {
 			struct listnode *newln;
-			thr = XCALLOC(MTYPE_TMP, sizeof(struct thread *));
 
+			thr = XCALLOC(MTYPE_TMP, sizeof(struct event *));
 			newln = listnode_add_before(events, ln, thr);
-			thread_add_read(agentx_tm, agentx_read, newln, fd, thr);
+			event_add_read(agentx_tm, agentx_read, newln, fd, thr);
 		}
 	}
 
@@ -157,11 +145,12 @@ static void agentx_events_update(void)
 	while (ln) {
 		struct listnode *nextln = listnextnode(ln);
 		thr = listgetdata(ln);
-		thread_cancel(thr);
+		event_cancel(thr);
 		XFREE(MTYPE_TMP, thr);
 		list_delete_node(events, ln);
 		ln = nextln;
 	}
+	netsnmp_large_fd_set_cleanup(&lfds);
 }
 
 /* AgentX node. */
@@ -259,7 +248,7 @@ bool smux_enabled(void)
 	return agentx_enabled;
 }
 
-void smux_init(struct thread_master *tm)
+void smux_init(struct event_loop *tm)
 {
 	agentx_tm = tm;
 

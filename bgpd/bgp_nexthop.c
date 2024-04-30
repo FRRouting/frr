@@ -1,27 +1,12 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* BGP nexthop scan
  * Copyright (C) 2000 Kunihiro Ishiguro
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
 
 #include "command.h"
-#include "thread.h"
+#include "frrevent.h"
 #include "prefix.h"
 #include "lib/json.h"
 #include "zclient.h"
@@ -46,6 +31,7 @@
 #include "bgpd/bgp_fsm.h"
 #include "bgpd/bgp_vty.h"
 #include "bgpd/bgp_rd.h"
+#include "bgpd/bgp_mplsvpn.h"
 
 DEFINE_MTYPE_STATIC(BGPD, MARTIAN_STRING, "BGP Martian Addr Intf String");
 
@@ -57,9 +43,9 @@ int bgp_nexthop_cache_compare(const struct bgp_nexthop_cache *a,
 	if (a->srte_color > b->srte_color)
 		return 1;
 
-	if (a->ifindex < b->ifindex)
+	if (a->ifindex_ipv6_ll < b->ifindex_ipv6_ll)
 		return -1;
-	if (a->ifindex > b->ifindex)
+	if (a->ifindex_ipv6_ll > b->ifindex_ipv6_ll)
 		return 1;
 
 	return prefix_cmp(&a->prefix, &b->prefix);
@@ -79,7 +65,7 @@ struct bgp_nexthop_cache *bnc_new(struct bgp_nexthop_cache_head *tree,
 	bnc = XCALLOC(MTYPE_BGP_NEXTHOP_CACHE,
 		      sizeof(struct bgp_nexthop_cache));
 	bnc->prefix = *prefix;
-	bnc->ifindex = ifindex;
+	bnc->ifindex_ipv6_ll = ifindex;
 	bnc->srte_color = srte_color;
 	bnc->tree = tree;
 	LIST_INIT(&(bnc->paths));
@@ -119,7 +105,7 @@ struct bgp_nexthop_cache *bnc_find(struct bgp_nexthop_cache_head *tree,
 
 	bnc.prefix = *prefix;
 	bnc.srte_color = srte_color;
-	bnc.ifindex = ifindex;
+	bnc.ifindex_ipv6_ll = ifindex;
 	return bgp_nexthop_cache_find(tree, &bnc);
 }
 
@@ -133,6 +119,9 @@ static void bgp_nexthop_cache_reset(struct bgp_nexthop_cache_head *tree)
 
 		while (!LIST_EMPTY(&(bnc->paths))) {
 			struct bgp_path_info *path = LIST_FIRST(&(bnc->paths));
+
+			bgp_mplsvpn_path_nh_label_unlink(path);
+			bgp_mplsvpn_path_nh_label_bind_unlink(path);
 
 			path_nh_map(path, bnc, false);
 		}
@@ -181,11 +170,7 @@ void bgp_tip_hash_init(struct bgp *bgp)
 
 void bgp_tip_hash_destroy(struct bgp *bgp)
 {
-	if (bgp->tip_hash == NULL)
-		return;
-	hash_clean(bgp->tip_hash, bgp_tip_hash_free);
-	hash_free(bgp->tip_hash);
-	bgp->tip_hash = NULL;
+	hash_clean_and_free(&bgp->tip_hash, bgp_tip_hash_free);
 }
 
 /* Add/Update Tunnel-IP entry of bgp martian next-hop table.
@@ -320,11 +305,7 @@ void bgp_address_init(struct bgp *bgp)
 
 void bgp_address_destroy(struct bgp *bgp)
 {
-	if (bgp->address_hash == NULL)
-		return;
-	hash_clean(bgp->address_hash, bgp_address_hash_free);
-	hash_free(bgp->address_hash);
-	bgp->address_hash = NULL;
+	hash_clean_and_free(&bgp->address_hash, bgp_address_hash_free);
 }
 
 static void bgp_address_add(struct bgp *bgp, struct connected *ifc,
@@ -404,6 +385,7 @@ void bgp_connected_add(struct bgp *bgp, struct connected *ifc)
 	struct bgp_connected_ref *bc;
 	struct listnode *node, *nnode;
 	struct peer *peer;
+	struct peer_connection *connection;
 
 	addr = ifc->address;
 
@@ -428,14 +410,14 @@ void bgp_connected_add(struct bgp *bgp, struct connected *ifc)
 		}
 
 		for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
-			if (peer->conf_if
-			    && (strcmp(peer->conf_if, ifc->ifp->name) == 0)
-			    && !peer_established(peer)
-			    && !CHECK_FLAG(peer->flags,
-					   PEER_FLAG_IFPEER_V6ONLY)) {
+			if (peer->conf_if &&
+			    (strcmp(peer->conf_if, ifc->ifp->name) == 0) &&
+			    !peer_established(peer->connection) &&
+			    !CHECK_FLAG(peer->flags, PEER_FLAG_IFPEER_V6ONLY)) {
+				connection = peer->connection;
 				if (peer_active(peer))
-					BGP_EVENT_ADD(peer, BGP_Stop);
-				BGP_EVENT_ADD(peer, BGP_Start);
+					BGP_EVENT_ADD(connection, BGP_Stop);
+				BGP_EVENT_ADD(connection, BGP_Start);
 			}
 		}
 	} else if (addr->family == AF_INET6) {
@@ -502,7 +484,9 @@ void bgp_connected_delete(struct bgp *bgp, struct connected *ifc)
 		XFREE(MTYPE_BGP_CONN, bc);
 		bgp_dest_set_bgp_connected_ref_info(dest, NULL);
 	}
-	bgp_dest_unlock_node(dest);
+
+	dest = bgp_dest_unlock_node(dest);
+	assert(dest);
 	bgp_dest_unlock_node(dest);
 }
 
@@ -613,7 +597,7 @@ bool bgp_multiaccess_check_v4(struct in_addr nexthop, struct peer *peer)
 
 	p.family = AF_INET;
 	p.prefixlen = IPV4_MAX_BITLEN;
-	p.u.prefix4 = peer->su.sin.sin_addr;
+	p.u.prefix4 = peer->connection->su.sin.sin_addr;
 
 	dest2 = bgp_node_match(peer->bgp->connected_table[AFI_IP], &p);
 	if (!dest2) {
@@ -646,7 +630,7 @@ bool bgp_multiaccess_check_v6(struct in6_addr nexthop, struct peer *peer)
 
 	p.family = AF_INET6;
 	p.prefixlen = IPV6_MAX_BITLEN;
-	p.u.prefix6 = peer->su.sin6.sin6_addr;
+	p.u.prefix6 = peer->connection->su.sin6.sin6_addr;
 
 	dest2 = bgp_node_match(peer->bgp->connected_table[AFI_IP6], &p);
 	if (!dest2) {
@@ -688,7 +672,7 @@ bool bgp_subgrp_multiaccess_check_v6(struct in6_addr nexthop,
 		if (paf->peer == exclude)
 			continue;
 
-		p.u.prefix6 = paf->peer->su.sin6.sin6_addr;
+		p.u.prefix6 = paf->peer->connection->su.sin6.sin6_addr;
 		dest2 = bgp_node_match(bgp->connected_table[AFI_IP6], &p);
 		if (dest1 == dest2) {
 			bgp_dest_unlock_node(dest1);
@@ -730,7 +714,7 @@ bool bgp_subgrp_multiaccess_check_v4(struct in_addr nexthop,
 		if (paf->peer == exclude)
 			continue;
 
-		p.u.prefix4 = paf->peer->su.sin.sin_addr;
+		p.u.prefix4 = paf->peer->connection->su.sin.sin_addr;
 
 		dest2 = bgp_node_match(bgp->connected_table[AFI_IP], &p);
 		if (dest1 == dest2) {
@@ -817,6 +801,7 @@ static void bgp_show_nexthop_paths(struct vty *vty, struct bgp *bgp,
 		safi = table->safi;
 		bgp_path = table->bgp;
 
+
 		if (json) {
 			json_path = json_object_new_object();
 			json_object_string_add(json_path, "afi", afi2str(afi));
@@ -826,7 +811,8 @@ static void bgp_show_nexthop_paths(struct vty *vty, struct bgp *bgp,
 						dest);
 			if (dest->pdest)
 				json_object_string_addf(
-					json_path, "rd", "%pRD",
+					json_path, "rd",
+					BGP_RD_AS_FORMAT(bgp->asnotation),
 					(struct prefix_rd *)bgp_dest_get_prefix(
 						dest->pdest));
 			json_object_string_add(
@@ -836,13 +822,14 @@ static void bgp_show_nexthop_paths(struct vty *vty, struct bgp *bgp,
 			json_object_array_add(paths, json_path);
 			continue;
 		}
-		if (dest->pdest)
-			vty_out(vty, "    %d/%d %pBD RD %pRD %s flags 0x%x\n",
-				afi, safi, dest,
+		if (dest->pdest) {
+			vty_out(vty, "    %d/%d %pBD RD ", afi, safi, dest);
+			vty_out(vty, BGP_RD_AS_FORMAT(bgp->asnotation),
 				(struct prefix_rd *)bgp_dest_get_prefix(
-					dest->pdest),
-				bgp_path->name_pretty, path->flags);
-		else
+					dest->pdest));
+			vty_out(vty, " %s flags 0x%x\n", bgp_path->name_pretty,
+				path->flags);
+		} else
 			vty_out(vty, "    %d/%d %pBD %s flags 0x%x\n",
 				afi, safi, dest, bgp_path->name_pretty, path->flags);
 	}
@@ -874,8 +861,9 @@ static void bgp_show_nexthops_detail(struct vty *vty, struct bgp *bgp,
 				json_object_string_add(
 					json_gate, "interfaceName",
 					ifindex2ifname(
-						bnc->ifindex ? bnc->ifindex
-							     : nexthop->ifindex,
+						bnc->ifindex_ipv6_ll
+							? bnc->ifindex_ipv6_ll
+							: nexthop->ifindex,
 						bgp->vrf_id));
 				break;
 			case NEXTHOP_TYPE_IPV4:
@@ -886,8 +874,9 @@ static void bgp_show_nexthops_detail(struct vty *vty, struct bgp *bgp,
 				json_object_string_add(
 					json_gate, "interfaceName",
 					ifindex2ifname(
-						bnc->ifindex ? bnc->ifindex
-							     : nexthop->ifindex,
+						bnc->ifindex_ipv6_ll
+							? bnc->ifindex_ipv6_ll
+							: nexthop->ifindex,
 						bgp->vrf_id));
 				break;
 			case NEXTHOP_TYPE_IPV4_IFINDEX:
@@ -896,8 +885,9 @@ static void bgp_show_nexthops_detail(struct vty *vty, struct bgp *bgp,
 				json_object_string_add(
 					json_gate, "interfaceName",
 					ifindex2ifname(
-						bnc->ifindex ? bnc->ifindex
-							     : nexthop->ifindex,
+						bnc->ifindex_ipv6_ll
+							? bnc->ifindex_ipv6_ll
+							: nexthop->ifindex,
 						bgp->vrf_id));
 				break;
 			case NEXTHOP_TYPE_BLACKHOLE:
@@ -928,29 +918,40 @@ static void bgp_show_nexthops_detail(struct vty *vty, struct bgp *bgp,
 		}
 		switch (nexthop->type) {
 		case NEXTHOP_TYPE_IPV6:
-			vty_out(vty, "  gate %pI6\n", &nexthop->gate.ipv6);
-			break;
 		case NEXTHOP_TYPE_IPV6_IFINDEX:
-			vty_out(vty, "  gate %pI6, if %s\n",
-				&nexthop->gate.ipv6,
-				ifindex2ifname(bnc->ifindex ? bnc->ifindex
-							    : nexthop->ifindex,
-					       bgp->vrf_id));
+			vty_out(vty, "  gate %pI6", &nexthop->gate.ipv6);
+			if (nexthop->type == NEXTHOP_TYPE_IPV6_IFINDEX &&
+			    bnc->ifindex_ipv6_ll)
+				vty_out(vty, ", if %s\n",
+					ifindex2ifname(bnc->ifindex_ipv6_ll,
+						       bgp->vrf_id));
+			else if (nexthop->ifindex)
+				vty_out(vty, ", if %s\n",
+					ifindex2ifname(nexthop->ifindex,
+						       bgp->vrf_id));
+			else
+				vty_out(vty, "\n");
 			break;
 		case NEXTHOP_TYPE_IPV4:
-			vty_out(vty, "  gate %pI4\n", &nexthop->gate.ipv4);
+		case NEXTHOP_TYPE_IPV4_IFINDEX:
+			vty_out(vty, "  gate %pI4", &nexthop->gate.ipv4);
+			if (nexthop->type == NEXTHOP_TYPE_IPV4_IFINDEX &&
+			    bnc->ifindex_ipv6_ll)
+				vty_out(vty, ", if %s\n",
+					ifindex2ifname(bnc->ifindex_ipv6_ll,
+						       bgp->vrf_id));
+			else if (nexthop->ifindex)
+				vty_out(vty, ", if %s\n",
+					ifindex2ifname(nexthop->ifindex,
+						       bgp->vrf_id));
+			else
+				vty_out(vty, "\n");
 			break;
 		case NEXTHOP_TYPE_IFINDEX:
 			vty_out(vty, "  if %s\n",
-				ifindex2ifname(bnc->ifindex ? bnc->ifindex
-							    : nexthop->ifindex,
-					       bgp->vrf_id));
-			break;
-		case NEXTHOP_TYPE_IPV4_IFINDEX:
-			vty_out(vty, "  gate %pI4, if %s\n",
-				&nexthop->gate.ipv4,
-				ifindex2ifname(bnc->ifindex ? bnc->ifindex
-							    : nexthop->ifindex,
+				ifindex2ifname(bnc->ifindex_ipv6_ll
+						       ? bnc->ifindex_ipv6_ll
+						       : nexthop->ifindex,
 					       bgp->vrf_id));
 			break;
 		case NEXTHOP_TYPE_BLACKHOLE:
@@ -971,6 +972,7 @@ static void bgp_show_nexthop(struct vty *vty, struct bgp *bgp,
 {
 	char buf[PREFIX2STR_BUFFER];
 	time_t tbuf;
+	char timebuf[32];
 	struct peer *peer;
 	json_object *json_last_update = NULL;
 	json_object *json_nexthop = NULL;
@@ -1069,14 +1071,14 @@ static void bgp_show_nexthop(struct vty *vty, struct bgp *bgp,
 			json_last_update = json_object_new_object();
 			json_object_int_add(json_last_update, "epoch", tbuf);
 			json_object_string_add(json_last_update, "string",
-					       ctime(&tbuf));
+					       ctime_r(&tbuf, timebuf));
 			json_object_object_add(json_nexthop, "lastUpdate",
 					       json_last_update);
 		} else {
 			json_object_int_add(json_nexthop, "lastUpdate", tbuf);
 		}
 	} else {
-		vty_out(vty, "  Last update: %s", ctime(&tbuf));
+		vty_out(vty, "  Last update: %s", ctime_r(&tbuf, timebuf));
 	}
 
 	/* show paths dependent on nexthop, if needed. */

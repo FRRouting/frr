@@ -1,4 +1,4 @@
-name: Add a conflict label is PR needs to rebase
+name: Add a conflict label if PR needs to rebase
 
 on:
   push:

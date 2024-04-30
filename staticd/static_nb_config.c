@@ -1,20 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Copyright (C) 2018        Vmware
  *                           Vishal Dhingra
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 #include <zebra.h>
 
@@ -31,6 +18,7 @@
 #include "static_vrf.h"
 #include "static_routes.h"
 #include "static_nb.h"
+#include "static_zebra.h"
 
 
 static int static_path_list_create(struct nb_cb_create_args *args)
@@ -46,8 +34,8 @@ static int static_path_list_create(struct nb_cb_create_args *args)
 	case NB_EV_VALIDATE:
 		vrf_dnode = yang_dnode_get_parent(args->dnode,
 						  "control-plane-protocol");
-		vrf = yang_dnode_get_string(vrf_dnode, "./vrf");
-		table_id = yang_dnode_get_uint32(args->dnode, "./table-id");
+		vrf = yang_dnode_get_string(vrf_dnode, "vrf");
+		table_id = yang_dnode_get_uint32(args->dnode, "table-id");
 
 		/*
 		 * TableId is not applicable for VRF. Consider the case of
@@ -68,8 +56,8 @@ static int static_path_list_create(struct nb_cb_create_args *args)
 		break;
 	case NB_EV_APPLY:
 		rn = nb_running_get_entry(args->dnode, NULL, true);
-		distance = yang_dnode_get_uint8(args->dnode, "./distance");
-		table_id = yang_dnode_get_uint32(args->dnode, "./table-id");
+		distance = yang_dnode_get_uint8(args->dnode, "distance");
+		table_id = yang_dnode_get_uint32(args->dnode, "table-id");
 		pn = static_add_path(rn, table_id, distance);
 		nb_running_set_entry(args->dnode, pn);
 	}
@@ -124,7 +112,7 @@ static int nexthop_iter_cb(const struct lyd_node *dnode, void *arg)
 	struct nexthop_iter *iter = arg;
 	enum static_nh_type nh_type;
 
-	nh_type = yang_dnode_get_enum(dnode, "./nh-type");
+	nh_type = yang_dnode_get_enum(dnode, "nh-type");
 
 	if (nh_type == STATIC_BLACKHOLE)
 		iter->blackhole = true;
@@ -147,7 +135,7 @@ static bool static_nexthop_create(struct nb_cb_create_args *args)
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
-		ifname = yang_dnode_get_string(args->dnode, "./interface");
+		ifname = yang_dnode_get_string(args->dnode, "interface");
 		if (ifname != NULL) {
 			if (strcasecmp(ifname, "Null0") == 0
 			    || strcasecmp(ifname, "reject") == 0
@@ -182,11 +170,14 @@ static bool static_nexthop_create(struct nb_cb_create_args *args)
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
-		yang_dnode_get_ip(&ipaddr, args->dnode, "./gateway");
-		nh_type = yang_dnode_get_enum(args->dnode, "./nh-type");
-		ifname = yang_dnode_get_string(args->dnode, "./interface");
-		nh_vrf = yang_dnode_get_string(args->dnode, "./vrf");
+		yang_dnode_get_ip(&ipaddr, args->dnode, "gateway");
+		nh_type = yang_dnode_get_enum(args->dnode, "nh-type");
+		ifname = yang_dnode_get_string(args->dnode, "interface");
+		nh_vrf = yang_dnode_get_string(args->dnode, "vrf");
 		pn = nb_running_get_entry(args->dnode, NULL, true);
+
+		if (strmatch(ifname, "(null)"))
+			ifname = "";
 
 		if (!static_add_nexthop_validate(nh_vrf, nh_type, &ipaddr))
 			flog_warn(
@@ -217,6 +208,98 @@ static bool static_nexthop_destroy(struct nb_cb_destroy_args *args)
 		static_delete_nexthop(nh);
 		break;
 	}
+
+	return NB_OK;
+}
+
+static int nexthop_srv6_segs_stack_entry_create(struct nb_cb_create_args *args)
+{
+	struct static_nexthop *nh;
+	uint32_t pos;
+	uint8_t index;
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	case NB_EV_APPLY:
+		nh = nb_running_get_entry(args->dnode, NULL, true);
+		pos = yang_get_list_pos(args->dnode);
+		if (!pos) {
+			flog_warn(EC_LIB_NB_CB_CONFIG_APPLY,
+				  "libyang returns invalid seg position");
+			return NB_ERR;
+		}
+		/* Mapping to array = list-index -1 */
+		index = pos - 1;
+		memset(&nh->snh_seg.seg[index], 0, sizeof(struct in6_addr));
+		nh->snh_seg.num_segs++;
+		break;
+	}
+
+	return NB_OK;
+}
+
+static int nexthop_srv6_segs_stack_entry_destroy(struct nb_cb_destroy_args *args)
+{
+	struct static_nexthop *nh;
+	uint32_t pos;
+	uint8_t index;
+	int old_num_segs;
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	case NB_EV_APPLY:
+		nh = nb_running_get_entry(args->dnode, NULL, true);
+		pos = yang_get_list_pos(args->dnode);
+		if (!pos) {
+			flog_warn(EC_LIB_NB_CB_CONFIG_APPLY,
+				  "libyang returns invalid seg position");
+			return NB_ERR;
+		}
+		index = pos - 1;
+		old_num_segs = nh->snh_seg.num_segs;
+		memset(&nh->snh_seg.seg[index], 0, sizeof(struct in6_addr));
+		nh->snh_seg.num_segs--;
+
+		if (old_num_segs != nh->snh_seg.num_segs)
+			nh->state = STATIC_START;
+		break;
+	}
+
+	return NB_OK;
+}
+
+static int static_nexthop_srv6_segs_modify(struct nb_cb_modify_args *args)
+{
+	struct static_nexthop *nh;
+	uint32_t pos;
+	uint8_t index;
+	struct in6_addr old_seg;
+	struct in6_addr cli_seg;
+
+	nh = nb_running_get_entry(args->dnode, NULL, true);
+	pos = yang_get_list_pos(lyd_parent(args->dnode));
+	if (!pos) {
+		flog_warn(EC_LIB_NB_CB_CONFIG_APPLY,
+			  "libyang returns invalid seg position");
+		return NB_ERR;
+	}
+	/* Mapping to array = list-index -1 */
+	index = pos - 1;
+
+	old_seg = nh->snh_seg.seg[index];
+	yang_dnode_get_ipv6(&cli_seg, args->dnode, NULL);
+
+	memcpy(&nh->snh_seg.seg[index], &cli_seg, sizeof(struct in6_addr));
+
+	if (memcmp(&old_seg, &nh->snh_seg.seg[index],
+		   sizeof(struct in6_addr)) != 0)
+		nh->state = STATIC_START;
 
 	return NB_OK;
 }
@@ -432,7 +515,7 @@ int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_pa
 	const struct lyd_node *mls_dnode;
 	uint32_t count;
 
-	mls_dnode = yang_dnode_get(args->dnode, "./mpls-label-stack");
+	mls_dnode = yang_dnode_get(args->dnode, "mpls-label-stack");
 	count = yang_get_list_elements_count(lyd_child(mls_dnode));
 
 	if (count > MPLS_MAX_LABELS) {
@@ -449,7 +532,7 @@ int routing_control_plane_protocols_name_validate(
 {
 	const char *name;
 
-	name = yang_dnode_get_string(args->dnode, "./name");
+	name = yang_dnode_get_string(args->dnode, "name");
 	if (!strmatch(name, "staticd")) {
 		snprintf(args->errmsg, args->errmsg_len,
 			"static routing supports only one instance with name staticd");
@@ -457,6 +540,48 @@ int routing_control_plane_protocols_name_validate(
 	}
 	return NB_OK;
 }
+
+/*
+ * XPath:
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol
+ */
+int routing_control_plane_protocols_staticd_create(struct nb_cb_create_args *args)
+{
+	struct static_vrf *svrf;
+	const char *vrf;
+
+	vrf = yang_dnode_get_string(args->dnode, "vrf");
+	svrf = static_vrf_alloc(vrf);
+	nb_running_set_entry(args->dnode, svrf);
+
+	return NB_OK;
+}
+
+int routing_control_plane_protocols_staticd_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	struct static_vrf *svrf;
+	struct route_table *stable;
+	struct route_node *rn;
+	afi_t afi;
+	safi_t safi;
+
+	svrf = nb_running_unset_entry(args->dnode);
+
+	FOREACH_AFI_SAFI (afi, safi) {
+		stable = svrf->stable[afi][safi];
+		if (!stable)
+			continue;
+
+		for (rn = route_top(stable); rn; rn = route_next(rn))
+			static_del_route(rn);
+	}
+
+	static_vrf_free(svrf);
+
+	return NB_OK;
+}
+
 /*
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-staticd:staticd/route-list
@@ -464,8 +589,7 @@ int routing_control_plane_protocols_name_validate(
 int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_create(
 	struct nb_cb_create_args *args)
 {
-	struct vrf *vrf;
-	struct static_vrf *s_vrf;
+	struct static_vrf *svrf;
 	struct route_node *rn;
 	const struct lyd_node *vrf_dnode;
 	struct prefix prefix;
@@ -476,15 +600,15 @@ int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_cr
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
-		yang_dnode_get_prefix(&prefix, args->dnode, "./prefix");
-		afi_safi = yang_dnode_get_string(args->dnode, "./afi-safi");
+		yang_dnode_get_prefix(&prefix, args->dnode, "prefix");
+		afi_safi = yang_dnode_get_string(args->dnode, "afi-safi");
 		yang_afi_safi_identity2value(afi_safi, &afi, &safi);
 		prefix_afi = family2afi(prefix.family);
 		if (afi != prefix_afi) {
 			flog_warn(
 				EC_LIB_NB_CB_CONFIG_VALIDATE,
 				"route node %s creation failed",
-				yang_dnode_get_string(args->dnode, "./prefix"));
+				yang_dnode_get_string(args->dnode, "prefix"));
 			return NB_ERR_VALIDATION;
 		}
 		break;
@@ -494,19 +618,18 @@ int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_cr
 	case NB_EV_APPLY:
 		vrf_dnode = yang_dnode_get_parent(args->dnode,
 						  "control-plane-protocol");
-		vrf = nb_running_get_entry(vrf_dnode, NULL, true);
-		s_vrf = vrf->info;
+		svrf = nb_running_get_entry(vrf_dnode, NULL, true);
 
-		yang_dnode_get_prefix(&prefix, args->dnode, "./prefix");
-		afi_safi = yang_dnode_get_string(args->dnode, "./afi-safi");
+		yang_dnode_get_prefix(&prefix, args->dnode, "prefix");
+		afi_safi = yang_dnode_get_string(args->dnode, "afi-safi");
 		yang_afi_safi_identity2value(afi_safi, &afi, &safi);
 
-		rn = static_add_route(afi, safi, &prefix, NULL, s_vrf);
-		if (vrf->vrf_id == VRF_UNKNOWN)
+		rn = static_add_route(afi, safi, &prefix, NULL, svrf);
+		if (!svrf->vrf || svrf->vrf->vrf_id == VRF_UNKNOWN)
 			snprintf(
 				args->errmsg, args->errmsg_len,
 				"Static Route to %s not installed currently because dependent config not fully available",
-				yang_dnode_get_string(args->dnode, "./prefix"));
+				yang_dnode_get_string(args->dnode, "prefix"));
 		nb_running_set_entry(args->dnode, rn);
 		break;
 	}
@@ -625,6 +748,60 @@ int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_pa
 	case NB_EV_APPLY:
 		if (static_nexthop_color_destroy(args) != NB_OK)
 			return NB_ERR;
+		break;
+	}
+	return NB_OK;
+}
+
+/*
+ * XPath:
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-staticd:staticd/route-list/path-list/frr-nexthops/nexthop/srv6-segs-stack/entry
+ */
+int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_path_list_frr_nexthops_nexthop_srv6_segs_stack_entry_create(
+	struct nb_cb_create_args *args)
+{
+	return nexthop_srv6_segs_stack_entry_create(args);
+}
+
+int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_path_list_frr_nexthops_nexthop_srv6_segs_stack_entry_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	return nexthop_srv6_segs_stack_entry_destroy(args);
+}
+
+/*
+ * XPath:
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-staticd:staticd/route-list/path-list/frr-nexthops/nexthop/srv6-segs-stack/entry/seg
+ */
+int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_path_list_frr_nexthops_nexthop_srv6_segs_stack_entry_seg_modify(
+	struct nb_cb_modify_args *args)
+{
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	case NB_EV_APPLY:
+		if (static_nexthop_srv6_segs_modify(args) != NB_OK)
+			return NB_ERR;
+		break;
+	}
+	return NB_OK;
+}
+
+int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_path_list_frr_nexthops_nexthop_srv6_segs_stack_entry_seg_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	/*
+	 * No operation is required in this call back.
+	 * nexthop_srv6_segs_stack_entry_destroy() will take care
+	 * to reset the seg vaue.
+	 */
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+	case NB_EV_APPLY:
 		break;
 	}
 	return NB_OK;
@@ -803,6 +980,17 @@ int route_next_hop_bfd_source_destroy(struct nb_cb_destroy_args *args)
 
 	sn = nb_running_get_entry(args->dnode, NULL, true);
 	static_next_hop_bfd_auto_source(sn);
+
+	/* NHT information are needed by BFD to automatically find the source
+	 *
+	 * Force zebra to resend the information to BFD by unregistering and
+	 * registering again NHT. The (...)/frr-nexthops/nexthop northbound
+	 * apply_finish function will trigger a call to static_install_nexthop()
+	 * that does a call to static_zebra_nht_register(nh, true);
+	 * static_zebra_nht_register(sn, false);
+	 */
+	static_zebra_nht_register(sn, false);
+
 	return NB_OK;
 }
 
@@ -879,7 +1067,7 @@ int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_sr
 		rn = nb_running_get_entry(args->dnode, NULL, true);
 		info = route_table_get_info(rn->table);
 		s_vrf = info->svrf;
-		yang_dnode_get_ipv6p(&src_prefix, args->dnode, "./src-prefix");
+		yang_dnode_get_ipv6p(&src_prefix, args->dnode, "src-prefix");
 		afi = family2afi(src_prefix.family);
 		src_rn =
 			static_add_route(afi, safi, &rn->p, &src_prefix, s_vrf);
@@ -1003,6 +1191,60 @@ int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_sr
 	case NB_EV_APPLY:
 		if (static_nexthop_color_destroy(args) != NB_OK)
 			return NB_ERR;
+		break;
+	}
+	return NB_OK;
+}
+
+/*
+ * XPath:
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-staticd:staticd/route-list/src-list/path-list/frr-nexthops/nexthop/srv6-segs-stack/entry
+ */
+int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_src_list_path_list_frr_nexthops_nexthop_srv6_segs_stack_entry_create(
+	struct nb_cb_create_args *args)
+{
+	return nexthop_srv6_segs_stack_entry_create(args);
+}
+
+int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_src_list_path_list_frr_nexthops_nexthop_srv6_segs_stack_entry_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	return nexthop_srv6_segs_stack_entry_destroy(args);
+}
+
+/*
+ * XPath:
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-staticd:staticd/route-list/src-list/path-list/frr-nexthops/nexthop/srv6-segs-stack/entry/seg
+ */
+int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_src_list_path_list_frr_nexthops_nexthop_srv6_segs_stack_entry_seg_modify(
+	struct nb_cb_modify_args *args)
+{
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	case NB_EV_APPLY:
+		if (static_nexthop_srv6_segs_modify(args) != NB_OK)
+			return NB_ERR;
+		break;
+	}
+	return NB_OK;
+}
+
+int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_src_list_path_list_frr_nexthops_nexthop_srv6_segs_stack_entry_seg_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	/*
+	 * No operation is required in this call back.
+	 * nexthop_mpls_seg_stack_entry_destroy() will take care
+	 * to reset the seg vaue.
+	 */
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+	case NB_EV_APPLY:
 		break;
 	}
 	return NB_OK;

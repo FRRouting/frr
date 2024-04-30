@@ -16,7 +16,7 @@ Add packages:
 
     pkg_add clang libcares python3
     pkg_add git autoconf-2.69p2 automake-1.15.1 libtool bison
-    pkg_add gmake json-c py-test py-sphinx libexecinfo
+    pkg_add gmake json-c py-test py-sphinx libexecinfo protobuf-c
 
 Select Python2.7 as default (required for pytest)
 
@@ -71,8 +71,8 @@ an example)
     export LDFLAGS="-L/usr/local/lib"
     export CPPFLAGS="-I/usr/local/include"
     ./configure \
-        --sysconfdir=/etc/frr \
-        --localstatedir=/var/frr \
+        --sysconfdir=/etc \
+        --localstatedir=/var \
         --enable-multipath=64 \
         --enable-user=_frr \
         --enable-group=_frr \

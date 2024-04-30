@@ -1,22 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 
 /* Interface function header.
  * Copyright (C) 1999 Kunihiro Ishiguro
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef _ZEBRA_INTERFACE_H
@@ -28,6 +13,7 @@
 #include "bitfield.h"
 
 #include "zebra/zebra_l2.h"
+#include "zebra/zebra_l2_bridge_if.h"
 #include "zebra/zebra_nhg_private.h"
 #include "zebra/zebra_router.h"
 #include "zebra/rtadv.h"
@@ -53,7 +39,6 @@ enum zebra_iftype {
 	ZEBRA_IF_MACVLAN,   /* MAC VLAN interface*/
 	ZEBRA_IF_VETH,      /* VETH interface*/
 	ZEBRA_IF_BOND,	    /* Bond */
-	ZEBRA_IF_BOND_SLAVE,	    /* Bond */
 	ZEBRA_IF_GRE,      /* GRE interface */
 };
 
@@ -127,6 +112,9 @@ struct zebra_if {
 
 	/* MPLS status. */
 	bool mpls;
+
+	/* MPLS configuration */
+	uint8_t mpls_config;
 
 	/* Linkdown status */
 	bool linkdown, linkdownv6;
@@ -213,8 +201,11 @@ struct zebra_if {
 	ifindex_t link_ifindex;
 	struct interface *link;
 
+#define INTERFACE_SPEED_ERROR_READ    -1
+#define INTERFACE_SPEED_ERROR_UNKNOWN -2
+
 	uint8_t speed_update_count;
-	struct thread *speed_update;
+	struct event *speed_update;
 
 	/*
 	 * Does this interface have a v6 to v4 ll neighbor entry
@@ -229,8 +220,6 @@ struct zebra_if {
 };
 
 DECLARE_HOOK(zebra_if_extra_info, (struct vty * vty, struct interface *ifp),
-	     (vty, ifp));
-DECLARE_HOOK(zebra_if_config_wr, (struct vty * vty, struct interface *ifp),
 	     (vty, ifp));
 
 #define IS_ZEBRA_IF_VRF(ifp)                                                   \
@@ -295,7 +284,6 @@ extern void if_refresh(struct interface *);
 extern void if_flags_update(struct interface *, uint64_t);
 extern int if_subnet_add(struct interface *, struct connected *);
 extern int if_subnet_delete(struct interface *, struct connected *);
-extern int ipv6_address_configured(struct interface *ifp);
 extern void if_handle_vrf_change(struct interface *ifp, vrf_id_t vrf_id);
 extern void zebra_if_update_link(struct interface *ifp, ifindex_t link_ifindex,
 				 ns_id_t ns_id);
@@ -305,22 +293,42 @@ extern void zebra_if_update_all_links(struct zebra_ns *zns);
  */
 extern int zebra_if_update_protodown_rc(struct interface *ifp, bool new_down,
 					uint32_t new_protodown_rc);
+
+extern void cli_show_legacy_admin_group(struct vty *vty,
+					const struct lyd_node *dnode,
+					bool show_defaults);
+extern void cli_show_affinity_mode(struct vty *vty,
+				   const struct lyd_node *dnode,
+				   bool show_defaults);
+extern void cli_show_affinity(struct vty *vty, const struct lyd_node *dnode,
+			      bool show_defaults);
+
 /**
  * Set protodown with single reason.
  */
 extern int zebra_if_set_protodown(struct interface *ifp, bool down,
 				  enum protodown_reasons new_reason);
-extern int if_ip_address_install(struct interface *ifp, struct prefix *prefix,
-				 const char *label, struct prefix *pp);
-extern int if_ipv6_address_install(struct interface *ifp, struct prefix *prefix,
-				   const char *label);
-extern int if_ip_address_uinstall(struct interface *ifp, struct prefix *prefix);
+extern void if_ip_address_install(struct interface *ifp, struct prefix *prefix,
+				  const char *label, struct prefix *pp);
+extern void if_ip_address_uninstall(struct interface *ifp,
+				    struct prefix *prefix, struct prefix *pp);
+extern void if_ipv6_address_install(struct interface *ifp,
+				    struct prefix *prefix);
+extern void if_ipv6_address_uninstall(struct interface *ifp,
+				      struct prefix *prefix);
 extern int if_shutdown(struct interface *ifp);
 extern int if_no_shutdown(struct interface *ifp);
+extern void if_arp(struct interface *ifp, bool enable);
 extern int if_multicast_set(struct interface *ifp);
 extern int if_multicast_unset(struct interface *ifp);
 extern int if_linkdetect(struct interface *ifp, bool detect);
 extern void if_addr_wakeup(struct interface *ifp);
+
+void link_param_cmd_set_uint32(struct interface *ifp, uint32_t *field,
+			       uint32_t type, uint32_t value);
+void link_param_cmd_set_float(struct interface *ifp, float *field,
+			      uint32_t type, float value);
+void link_param_cmd_unset(struct interface *ifp, uint32_t type);
 
 /* Nexthop group connected functions */
 extern void if_nhg_dependents_add(struct interface *ifp,

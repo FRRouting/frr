@@ -1,0 +1,5 @@
+{
+  "frr-zebra:evpn-mh": {
+    "df-preference": 32767
+  }
+}

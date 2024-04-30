@@ -1,21 +1,8 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * PIM for IPv6 FRR
  * Copyright (C) 2022  Vmware, Inc.
  *		       Mobashshera Rasool <mrasool@vmware.com>
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -90,7 +77,7 @@ DEFPY (ipv6_pim_spt_switchover_infinity,
 
 DEFPY (ipv6_pim_spt_switchover_infinity_plist,
        ipv6_pim_spt_switchover_infinity_plist_cmd,
-       "ipv6 pim spt-switchover infinity-and-beyond prefix-list WORD$plist",
+       "ipv6 pim spt-switchover infinity-and-beyond prefix-list PREFIXLIST6_NAME$plist",
        IPV6_STR
        PIM_STR
        "SPT-Switchover\n"
@@ -115,7 +102,7 @@ DEFPY (no_ipv6_pim_spt_switchover_infinity,
 
 DEFPY (no_ipv6_pim_spt_switchover_infinity_plist,
        no_ipv6_pim_spt_switchover_infinity_plist_cmd,
-       "no ipv6 pim spt-switchover infinity-and-beyond prefix-list WORD",
+       "no ipv6 pim spt-switchover infinity-and-beyond prefix-list PREFIXLIST6_NAME",
        NO_STR
        IPV6_STR
        PIM_STR
@@ -449,7 +436,7 @@ DEFPY (no_ipv6_pim_rp,
 
 DEFPY (ipv6_pim_rp_prefix_list,
        ipv6_pim_rp_prefix_list_cmd,
-       "ipv6 pim rp X:X::X:X$rp prefix-list WORD$plist",
+       "ipv6 pim rp X:X::X:X$rp prefix-list PREFIXLIST6_NAME$plist",
        IPV6_STR
        PIM_STR
        "Rendezvous Point\n"
@@ -462,7 +449,7 @@ DEFPY (ipv6_pim_rp_prefix_list,
 
 DEFPY (no_ipv6_pim_rp_prefix_list,
        no_ipv6_pim_rp_prefix_list_cmd,
-       "no ipv6 pim rp X:X::X:X$rp prefix-list WORD$plist",
+       "no ipv6 pim rp X:X::X:X$rp prefix-list PREFIXLIST6_NAME$plist",
        NO_STR
        IPV6_STR
        PIM_STR
@@ -552,6 +539,11 @@ DEFPY (interface_ipv6_mld_join,
        "Source address\n")
 {
 	char xpath[XPATH_MAXLEN];
+
+	if (!IN6_IS_ADDR_MULTICAST(&group)) {
+		vty_out(vty, "Invalid Multicast Address\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
 
 	if (source_str) {
 		if (IPV6_ADDR_SAME(&source, &in6addr_any)) {
@@ -751,7 +743,7 @@ DEFPY (interface_ipv6_mld_query_max_response_time,
        IPV6_STR
        IFACE_MLD_STR
        IFACE_MLD_QUERY_MAX_RESPONSE_TIME_STR
-       "Query response value in milliseconds\n")
+       "Query response value in deci-seconds\n")
 {
 	return gm_process_query_max_response_time_cmd(vty, qmrt_str);
 }

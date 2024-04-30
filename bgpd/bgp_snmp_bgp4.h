@@ -1,23 +1,9 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* BGP4-MIB SNMP support
  *
  * Using: http://www.circitor.fr/Mibs/Html/B/BGP4-MIB.php
  *
  * Copyright (C) 2022 Donatas Abraitis <donatas@opensourcerouting.org>
- *
- * This file is part of FRRouting (FRR).
- *
- * FRR is free software; you can redistribute it and/or modify it under the
- * terms of the GNU General Public License as published by the Free Software
- * Foundation; either version 2, or (at your option) any later version.
- *
- * FRR is distributed in the hope that it will be useful, but WITHOUT ANY
- * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
- * FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more
- * details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef _FRR_BGP_SNMP_BGP4_H_
@@ -83,8 +69,8 @@
 #define BGP4PATHATTRBEST 13
 #define BGP4PATHATTRUNKNOWN 14
 
-extern int bgpTrapEstablished(struct peer *peer);
-extern int bgpTrapBackwardTransition(struct peer *peer);
-extern int bgp_snmp_bgp4_init(struct thread_master *tm);
+extern int bgp4TrapEstablished(struct peer *peer);
+extern int bgp4TrapBackwardTransition(struct peer *peer);
+extern int bgp_snmp_bgp4_init(struct event_loop *tm);
 
 #endif /* _FRR_BGP_SNMP_BGP4_H_ */

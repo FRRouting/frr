@@ -1,30 +1,18 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Code for encoding/decoding FPM messages that are in netlink format.
  *
  * Copyright (C) 1997, 98, 99 Kunihiro Ishiguro
  * Copyright (C) 2012 by Open Source Routing.
  * Copyright (C) 2012 by Internet Systems Consortium, Inc. ("ISC")
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
 
 #ifdef HAVE_NETLINK
+
+#include <linux/rtnetlink.h>
+#include <linux/neighbour.h>
 
 #include "log.h"
 #include "rib.h"
@@ -267,20 +255,15 @@ static int netlink_route_info_fill(struct netlink_route_info *ri, int cmd,
 				   rib_dest_t *dest, struct route_entry *re)
 {
 	struct nexthop *nexthop;
-	struct rib_table_info *table_info =
-		rib_table_info(rib_dest_table(dest));
-	struct zebra_vrf *zvrf = table_info->zvrf;
 
 	memset(ri, 0, sizeof(*ri));
 
 	ri->prefix = rib_dest_prefix(dest);
 	ri->af = rib_dest_af(dest);
 
-	if (zvrf && zvrf->zns)
-		ri->nlmsg_pid = zvrf->zns->netlink_dplane_out.snl.nl_pid;
+	ri->nlmsg_pid = pid;
 
 	ri->nlmsg_type = cmd;
-	ri->rtm_table = table_info->table_id;
 	ri->rtm_protocol = RTPROT_UNSPEC;
 
 	/*
@@ -295,6 +278,8 @@ static int netlink_route_info_fill(struct netlink_route_info *ri, int cmd,
 		return 0;
 	}
 
+	ri->rtm_table = re->table;
+
 	ri->rtm_protocol = netlink_proto_from_route_type(re->type);
 	ri->rtm_type = RTN_UNICAST;
 	ri->metric = &re->metric;
@@ -304,6 +289,8 @@ static int netlink_route_info_fill(struct netlink_route_info *ri, int cmd,
 			break;
 
 		if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_RECURSIVE))
+			continue;
+		if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_DUPLICATE))
 			continue;
 
 		if (nexthop->type == NEXTHOP_TYPE_BLACKHOLE) {
@@ -315,7 +302,7 @@ static int netlink_route_info_fill(struct netlink_route_info *ri, int cmd,
 				ri->rtm_type = RTN_UNREACHABLE;
 				break;
 			case BLACKHOLE_NULL:
-			default:
+			case BLACKHOLE_UNSPEC:
 				ri->rtm_type = RTN_BLACKHOLE;
 				break;
 			}

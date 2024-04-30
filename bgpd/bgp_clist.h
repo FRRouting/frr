@@ -1,21 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* BGP Community list.
  * Copyright (C) 1999 Kunihiro Ishiguro
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef _QUAGGA_BGP_CLIST_H
@@ -79,9 +64,6 @@ struct community_entry {
 
 	/* Standard or expanded.  */
 	uint8_t style;
-
-	/* Any match.  */
-	bool any;
 
 	/* Sequence number. */
 	int64_t seq;
@@ -176,10 +158,17 @@ extern bool community_list_exact_match(struct community *com,
 				       struct community_list *list);
 extern bool lcommunity_list_exact_match(struct lcommunity *lcom,
 					struct community_list *list);
+extern bool community_list_any_match(struct community *com,
+				     struct community_list *list);
 extern struct community *
 community_list_match_delete(struct community *com, struct community_list *list);
+extern bool lcommunity_list_any_match(struct lcommunity *lcom,
+				      struct community_list *list);
 extern struct lcommunity *
 lcommunity_list_match_delete(struct lcommunity *lcom,
+			     struct community_list *list);
+extern struct ecommunity *
+ecommunity_list_match_delete(struct ecommunity *ecom,
 			     struct community_list *list);
 
 static inline uint32_t bgp_clist_hash_key(char *name)

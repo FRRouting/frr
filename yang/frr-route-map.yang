@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: BSD-2-Clause
 module frr-route-map {
   yang-version 1.1;
   namespace "http://frrouting.org/yang/route-map";
@@ -157,6 +158,18 @@ module frr-route-map {
     base rmap-set-type;
     description
       "Set prefix/route metric";
+  }
+
+  identity set-min-metric {
+    base rmap-set-type;
+    description
+      "Set minimum prefix/route metric";
+  }
+
+    identity set-max-metric {
+    base rmap-set-type;
+    description
+      "Set maximum prefix/route metric";
   }
 
   identity set-tag {
@@ -345,6 +358,39 @@ module frr-route-map {
           }
         }
 
+        case set-min-metric {
+          when "derived-from-or-self(../action, 'set-min-metric')";
+          choice minimun-metric-value {
+            description
+              "Mimimum metric to set or use";
+            case min-metric {
+              leaf min-metric {
+                type uint32 {
+                  range "0..4294967295";
+                }
+                description
+                  "Use the following mimumn metric value";
+              }
+            }
+          }
+        }
+
+        case set-max-metric {
+          when "derived-from-or-self(../action, 'set-max-metric')";
+          choice maximum-metric-value {
+            description
+              "Maximum metric to set or use";
+            case max-metric {
+              leaf max-metric {
+                type uint32 {
+                  range "0..4294967295";
+                }
+                description
+                  "Use the following maximum metric value";
+              }
+            }
+          }
+        }
         case set-tag {
           when "derived-from-or-self(../action, 'set-tag')";
           leaf tag {

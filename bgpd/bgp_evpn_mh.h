@@ -1,19 +1,8 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* EVPN header for multihoming procedures
  *
  * Copyright (C) 2019 Cumulus Networks
  * Anuradha Karuppiah
- *
- * This file is part of FRRouting.
- *
- * FRRouting is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * FRRouting is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
  *
  */
 
@@ -310,7 +299,7 @@ struct bgp_evpn_mh_info {
 	/* List of ESs with pending/periodic processing */
 	struct list *pend_es_list;
 	/* periodic timer for running background consistency checks */
-	struct thread *t_cons_check;
+	struct event *t_cons_check;
 
 	/* config knobs for optimizing or interop */
 	/* Generate EAD-EVI routes even if the ES is oper-down. This can be
@@ -397,11 +386,6 @@ static inline bool bgp_evpn_attr_is_proxy(struct attr *attr)
 static inline bool bgp_evpn_attr_is_local_es(struct attr *attr)
 {
 	return attr ? !!(attr->es_flags & ATTR_ES_IS_LOCAL) : false;
-}
-
-static inline uint32_t bgp_evpn_attr_get_df_pref(struct attr *attr)
-{
-	return (attr) ? attr->df_pref : 0;
 }
 
 static inline bool bgp_evpn_local_es_is_active(struct bgp_evpn_es *es)

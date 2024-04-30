@@ -1,20 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * PIM for Quagga
  * Copyright (C) 2008  Everton da Silva Marques
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef PIM_UPSTREAM_H
@@ -250,19 +237,19 @@ struct pim_upstream {
 
 	struct pim_up_mlag mlag;
 
-	struct thread *t_join_timer;
+	struct event *t_join_timer;
 
 	/*
 	 * RST(S,G)
 	 */
-	struct thread *t_rs_timer;
+	struct event *t_rs_timer;
 #define PIM_REGISTER_SUPPRESSION_PERIOD (60)
 #define PIM_REGISTER_PROBE_PERIOD        (5)
 
 	/*
 	 * KAT(S,G)
 	 */
-	struct thread *t_ka_timer;
+	struct event *t_ka_timer;
 #define PIM_KEEPALIVE_PERIOD  (210)
 #define PIM_RP_KEEPALIVE_PERIOD                                                \
 	(3 * router->register_suppress_time + router->register_probe_time)
@@ -270,7 +257,7 @@ struct pim_upstream {
 	/* on the RP we restart a timer to indicate if registers are being rxed
 	 * for
 	 * SG. This is needed by MSDP to determine its local SA cache */
-	struct thread *t_msdp_reg_timer;
+	struct event *t_msdp_reg_timer;
 #define PIM_MSDP_REG_RXED_PERIOD (3 * (1.5 * router->register_suppress_time))
 
 	int64_t state_transition; /* Record current state uptime */
@@ -396,4 +383,6 @@ uint32_t pim_up_mlag_local_cost(struct pim_upstream *up);
 uint32_t pim_up_mlag_peer_cost(struct pim_upstream *up);
 void pim_upstream_reeval_use_rpt(struct pim_instance *pim);
 int pim_upstream_could_register(struct pim_upstream *up);
+bool pim_sg_is_reevaluate_oil_req(struct pim_instance *pim,
+				  struct pim_upstream *up);
 #endif /* PIM_UPSTREAM_H */

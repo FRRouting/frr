@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# SPDX-License-Identifier: ISC
 
 #
 # test_ospf_gr_topo1.py
@@ -6,20 +7,6 @@
 #
 # Copyright (c) 2021 by
 # Network Device Education Foundation, Inc. ("NetDEF")
-#
-# Permission to use, copy, modify, and/or distribute this software
-# for any purpose with or without fee is hereby granted, provided
-# that the above copyright notice and this permission notice appear
-# in all copies.
-#
-# THE SOFTWARE IS PROVIDED "AS IS" AND NETDEF DISCLAIMS ALL WARRANTIES
-# WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
-# MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL NETDEF BE LIABLE FOR
-# ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY
-# DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS,
-# WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS
-# ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE
-# OF THIS SOFTWARE.
 #
 
 """
@@ -444,6 +431,144 @@ def test_gr_rt7():
     check_routers(exiting="rt7")
 
     start_router_daemons(tgen, "rt7", ["ospfd"])
+    check_routers(restarting="rt7")
+
+
+#
+# Test rt1 performing an unplanned graceful restart
+#
+def test_unplanned_gr_rt1():
+    logger.info("Test: verify rt1 performing an unplanned graceful restart")
+    tgen = get_topogen()
+
+    # Skip if previous fatal error condition is raised
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    kill_router_daemons(tgen, "rt1", ["ospfd"], save_config=False)
+    start_router_daemons(tgen, "rt1", ["ospfd"])
+
+    expect_grace_lsa(restarting="1.1.1.1", area="0.0.0.1", helper="rt2")
+    ensure_gr_is_in_zebra("rt1")
+    check_routers(restarting="rt1")
+
+
+#
+# Test rt2 performing an unplanned graceful restart
+#
+def test_unplanned_gr_rt2():
+    logger.info("Test: verify rt2 performing an unplanned graceful restart")
+    tgen = get_topogen()
+
+    # Skip if previous fatal error condition is raised
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    kill_router_daemons(tgen, "rt2", ["ospfd"], save_config=False)
+    start_router_daemons(tgen, "rt2", ["ospfd"])
+
+    expect_grace_lsa(restarting="2.2.2.2", area="0.0.0.1", helper="rt1")
+    expect_grace_lsa(restarting="2.2.2.2", area="0.0.0.0", helper="rt3")
+    ensure_gr_is_in_zebra("rt2")
+    check_routers(restarting="rt2")
+
+
+#
+# Test rt3 performing an unplanned graceful restart
+#
+def test_unplanned_gr_rt3():
+    logger.info("Test: verify rt3 performing an unplanned graceful restart")
+    tgen = get_topogen()
+
+    # Skip if previous fatal error condition is raised
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    kill_router_daemons(tgen, "rt3", ["ospfd"], save_config=False)
+    start_router_daemons(tgen, "rt3", ["ospfd"])
+
+    expect_grace_lsa(restarting="3.3.3.3", area="0.0.0.0", helper="rt2")
+    expect_grace_lsa(restarting="3.3.3.3", area="0.0.0.0", helper="rt4")
+    expect_grace_lsa(restarting="3.3.3.3", area="0.0.0.0", helper="rt6")
+    ensure_gr_is_in_zebra("rt3")
+    check_routers(restarting="rt3")
+
+
+#
+# Test rt4 performing an unplanned graceful restart
+#
+def test_unplanned_gr_rt4():
+    logger.info("Test: verify rt4 performing an unplanned graceful restart")
+    tgen = get_topogen()
+
+    # Skip if previous fatal error condition is raised
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    kill_router_daemons(tgen, "rt4", ["ospfd"], save_config=False)
+    start_router_daemons(tgen, "rt4", ["ospfd"])
+
+    expect_grace_lsa(restarting="4.4.4.4", area="0.0.0.0", helper="rt3")
+    expect_grace_lsa(restarting="4.4.4.4", area="0.0.0.2", helper="rt5")
+    ensure_gr_is_in_zebra("rt4")
+    check_routers(restarting="rt4")
+
+
+#
+# Test rt5 performing an unplanned graceful restart
+#
+def test_unplanned_gr_rt5():
+    logger.info("Test: verify rt5 performing an unplanned graceful restart")
+    tgen = get_topogen()
+
+    # Skip if previous fatal error condition is raised
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    kill_router_daemons(tgen, "rt5", ["ospfd"], save_config=False)
+    start_router_daemons(tgen, "rt5", ["ospfd"])
+
+    expect_grace_lsa(restarting="5.5.5.5", area="0.0.0.2", helper="rt4")
+    ensure_gr_is_in_zebra("rt5")
+    check_routers(restarting="rt5")
+
+
+#
+# Test rt6 performing an unplanned graceful restart
+#
+def test_unplanned_gr_rt6():
+    logger.info("Test: verify rt6 performing an unplanned graceful restart")
+    tgen = get_topogen()
+
+    # Skip if previous fatal error condition is raised
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    kill_router_daemons(tgen, "rt6", ["ospfd"], save_config=False)
+    start_router_daemons(tgen, "rt6", ["ospfd"])
+
+    expect_grace_lsa(restarting="6.6.6.6", area="0.0.0.0", helper="rt3")
+    expect_grace_lsa(restarting="6.6.6.6", area="0.0.0.3", helper="rt7")
+    ensure_gr_is_in_zebra("rt6")
+    check_routers(restarting="rt6")
+
+
+#
+# Test rt7 performing an unplanned graceful restart
+#
+def test_unplanned_gr_rt7():
+    logger.info("Test: verify rt7 performing a graceful restart")
+    tgen = get_topogen()
+
+    # Skip if previous fatal error condition is raised
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    kill_router_daemons(tgen, "rt7", ["ospfd"], save_config=False)
+    start_router_daemons(tgen, "rt7", ["ospfd"])
+
+    expect_grace_lsa(restarting="7.7.7.7", area="0.0.0.3", helper="rt6")
+    ensure_gr_is_in_zebra("rt7")
     check_routers(restarting="rt7")
 
 

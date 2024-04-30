@@ -22,7 +22,7 @@ Add packages:
       readline-devel texinfo net-snmp-devel groff pkgconfig \
       json-c-devel pam-devel bison flex pytest c-ares-devel \
       python-devel python-sphinx libcap-devel \
-      elfutils-libelf-devel libunwind-devel
+      elfutils-libelf-devel libunwind-devel protobuf-c-devel
 
 .. include:: building-libunwind-note.rst
 
@@ -58,10 +58,8 @@ an example.)
     ./configure \
         --bindir=/usr/bin \
         --sbindir=/usr/lib/frr \
-        --sysconfdir=/etc/frr \
         --libdir=/usr/lib/frr \
         --libexecdir=/usr/lib/frr \
-        --localstatedir=/var/run/frr \
         --with-moduledir=/usr/lib/frr/modules \
         --enable-snmp=agentx \
         --enable-multipath=64 \

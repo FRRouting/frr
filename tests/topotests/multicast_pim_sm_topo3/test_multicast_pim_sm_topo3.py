@@ -1,23 +1,10 @@
 #!/usr/bin/env python
+# SPDX-License-Identifier: ISC
 
 #
 # Copyright (c) 2020 by VMware, Inc. ("VMware")
 # Used Copyright (c) 2018 by Network Device Education Foundation,
 # Inc. ("NetDEF") in this file.
-#
-# Permission to use, copy, modify, and/or distribute this software
-# for any purpose with or without fee is hereby granted, provided
-# that the above copyright notice and this permission notice appear
-# in all copies.
-#
-# THE SOFTWARE IS PROVIDED "AS IS" AND VMWARE DISCLAIMS ALL WARRANTIES
-# WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
-# MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL VMWARE BE LIABLE FOR
-# ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY
-# DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS,
-# WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS
-# ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE
-# OF THIS SOFTWARE.
 #
 
 """
@@ -55,6 +42,8 @@ import time
 import datetime
 import pytest
 from time import sleep
+import json
+import functools
 
 pytestmark = pytest.mark.pimd
 
@@ -67,8 +56,8 @@ sys.path.append(os.path.join(CWD, "../lib/"))
 
 # pylint: disable=C0413
 # Import topogen and topotest helpers
-from lib.topogen import Topogen, get_topogen
-
+from lib import topotest
+from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.common_config import (
     start_topology,
     write_test_header,
@@ -1522,6 +1511,108 @@ def test_verify_remove_add_igmp_config_to_receiver_interface_p0(request):
             tgen, data["dut"], data["iif"], data["src_address"], IGMP_JOIN_RANGE_1
         )
         assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
+
+    # IGMP JSON verification
+    step("Verify IGMP group and source JSON for single interface and group")
+    router = tgen.gears["l1"]
+
+    reffile = os.path.join(CWD, "igmp_group_all_detail.json")
+    expected = json.loads(open(reffile).read())
+    test_func = functools.partial(
+        topotest.router_json_cmp,
+        router,
+        "show ip igmp vrf default groups detail json",
+        expected,
+    )
+    _, res = topotest.run_and_expect(test_func, None, count=60, wait=2)
+    assertmsg = "IGMP group detailed output on l1 for all interfaces and all groups is not as expected. Expected: {}".format(
+        expected
+    )
+    assert res is None, assertmsg
+
+    reffile = os.path.join(CWD, "igmp_single_if_group_all_brief.json")
+    expected = json.loads(open(reffile).read())
+    test_func = functools.partial(
+        topotest.router_json_cmp,
+        router,
+        "show ip igmp vrf default groups l1-i1-eth1 json",
+        expected,
+    )
+    _, res = topotest.run_and_expect(test_func, None, count=60, wait=2)
+    assertmsg = "IGMP group output on l1 for all groups in interface l1-i1-eth1 is not as expected. Expected: {}".format(
+        expected
+    )
+    assert res is None, assertmsg
+
+    reffile = os.path.join(CWD, "igmp_single_if_group_all_detail.json")
+    expected = json.loads(open(reffile).read())
+    test_func = functools.partial(
+        topotest.router_json_cmp,
+        router,
+        "show ip igmp vrf default groups l1-i1-eth1 detail json",
+        expected,
+    )
+    _, res = topotest.run_and_expect(test_func, None, count=60, wait=2)
+    assertmsg = "IGMP group detailed output on l1 for all groups in interface l1-i1-eth1 is not as expected. Expected: {}".format(
+        expected
+    )
+    assert res is None, assertmsg
+
+    reffile = os.path.join(CWD, "igmp_single_if_single_group_brief.json")
+    expected = json.loads(open(reffile).read())
+    test_func = functools.partial(
+        topotest.router_json_cmp,
+        router,
+        "show ip igmp vrf default groups l1-i1-eth1 225.1.1.5 json",
+        expected,
+    )
+    _, res = topotest.run_and_expect(test_func, None, count=60, wait=2)
+    assertmsg = "IGMP group output on l1 for interface l1-i1-eth1 and group 225.1.1.5 is not as expected. Expected: {}".format(
+        expected
+    )
+    assert res is None, assertmsg
+
+    reffile = os.path.join(CWD, "igmp_single_if_single_group_detail.json")
+    expected = json.loads(open(reffile).read())
+    test_func = functools.partial(
+        topotest.router_json_cmp,
+        router,
+        "show ip igmp vrf default groups l1-i1-eth1 225.1.1.5 detail json",
+        expected,
+    )
+    _, res = topotest.run_and_expect(test_func, None, count=60, wait=2)
+    assertmsg = "IGMP group detailed output on l1 for interface l1-i1-eth1 and group 225.1.1.5 is not as expected. Expected: {}".format(
+        expected
+    )
+    assert res is None, assertmsg
+
+    reffile = os.path.join(CWD, "igmp_source_single_if_group_all.json")
+    expected = json.loads(open(reffile).read())
+    test_func = functools.partial(
+        topotest.router_json_cmp,
+        router,
+        "show ip igmp sources l1-i1-eth1 json",
+        expected,
+    )
+    _, res = topotest.run_and_expect(test_func, None, count=60, wait=2)
+    assertmsg = "IGMP source output on l1 for interface l1-i1-eth1 is not as expected. Expected: {}".format(
+        expected
+    )
+    assert res is None, assertmsg
+
+    reffile = os.path.join(CWD, "igmp_source_single_if_single_group.json")
+    expected = json.loads(open(reffile).read())
+    test_func = functools.partial(
+        topotest.router_json_cmp,
+        router,
+        "show ip igmp sources l1-i1-eth1 225.1.1.4 json",
+        expected,
+    )
+    _, res = topotest.run_and_expect(test_func, None, count=60, wait=2)
+    assertmsg = "IGMP source output on l1 for interface l1-i1-eth1 and group 225.1.1.4 is not as expected. Expected: {}".format(
+        expected
+    )
+    assert res is None, assertmsg
 
     step(
         "Remove igmp 'no ip igmp' and 'no ip igmp version 2' from"

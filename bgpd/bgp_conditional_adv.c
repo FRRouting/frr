@@ -1,21 +1,8 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * BGP Conditional advertisement
  * Copyright (C) 2020  Samsung R&D Institute India - Bangalore.
  *			Madhurilatha Kuruganti
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -103,6 +90,7 @@ static void bgp_conditional_adv_routes(struct peer *peer, afi_t afi,
 
 	addpath_capable = bgp_addpath_encode_tx(peer, afi, safi);
 
+	SET_FLAG(subgrp->sflags, SUBGRP_STATUS_FORCE_UPDATES);
 	for (dest = bgp_table_top(table); dest; dest = bgp_route_next(dest)) {
 		dest_p = bgp_dest_get_prefix(dest);
 		assert(dest_p);
@@ -134,8 +122,9 @@ static void bgp_conditional_adv_routes(struct peer *peer, afi_t afi,
 			if (update_type == UPDATE_TYPE_ADVERTISE &&
 			    subgroup_announce_check(dest, pi, subgrp, dest_p,
 						    &attr, &advmap_attr)) {
-				bgp_adj_out_set_subgroup(dest, subgrp, &attr,
-							 pi);
+				if (!bgp_adj_out_set_subgroup(dest, subgrp,
+							      &attr, pi))
+					bgp_attr_flush(&attr);
 			} else {
 				/* If default originate is enabled for
 				 * the peer, do not send explicit
@@ -153,8 +142,9 @@ static void bgp_conditional_adv_routes(struct peer *peer, afi_t afi,
 					bgp_addpath_id_for_peer(
 						peer, afi, safi,
 						&pi->tx_addpath));
+
+				bgp_attr_flush(&advmap_attr);
 			}
-			bgp_attr_flush(&advmap_attr);
 		}
 	}
 	UNSET_FLAG(subgrp->sflags, SUBGRP_STATUS_TABLE_REPARSING);
@@ -163,7 +153,7 @@ static void bgp_conditional_adv_routes(struct peer *peer, afi_t afi,
 /* Handler of conditional advertisement timer event.
  * Each route in the condition-map is evaluated.
  */
-static void bgp_conditional_adv_timer(struct thread *t)
+static void bgp_conditional_adv_timer(struct event *t)
 {
 	afi_t afi;
 	safi_t safi;
@@ -178,11 +168,11 @@ static void bgp_conditional_adv_timer(struct thread *t)
 	route_map_result_t ret;
 	bool advmap_table_changed = false;
 
-	bgp = THREAD_ARG(t);
+	bgp = EVENT_ARG(t);
 	assert(bgp);
 
-	thread_add_timer(bm->master, bgp_conditional_adv_timer, bgp,
-			 bgp->condition_check_period, &bgp->t_condition_check);
+	event_add_timer(bm->master, bgp_conditional_adv_timer, bgp,
+			bgp->condition_check_period, &bgp->t_condition_check);
 
 	/* loop through each peer and check if we have peers with
 	 * advmap_table_change attribute set, to make sure we send
@@ -207,7 +197,7 @@ static void bgp_conditional_adv_timer(struct thread *t)
 		if (!CHECK_FLAG(peer->flags, PEER_FLAG_CONFIG_NODE))
 			continue;
 
-		if (!peer_established(peer))
+		if (!peer_established(peer->connection))
 			continue;
 
 		FOREACH_AFI_SAFI (afi, safi) {
@@ -341,9 +331,9 @@ void bgp_conditional_adv_enable(struct peer *peer, afi_t afi, safi_t safi)
 	}
 
 	/* Register for conditional routes polling timer */
-	if (!thread_is_scheduled(bgp->t_condition_check))
-		thread_add_timer(bm->master, bgp_conditional_adv_timer, bgp, 0,
-				 &bgp->t_condition_check);
+	if (!event_is_scheduled(bgp->t_condition_check))
+		event_add_timer(bm->master, bgp_conditional_adv_timer, bgp, 0,
+				&bgp->t_condition_check);
 }
 
 void bgp_conditional_adv_disable(struct peer *peer, afi_t afi, safi_t safi)
@@ -364,7 +354,7 @@ void bgp_conditional_adv_disable(struct peer *peer, afi_t afi, safi_t safi)
 	}
 
 	/* Last filter removed. So cancel conditional routes polling thread. */
-	THREAD_OFF(bgp->t_condition_check);
+	EVENT_OFF(bgp->t_condition_check);
 }
 
 static void peer_advertise_map_filter_update(struct peer *peer, afi_t afi,

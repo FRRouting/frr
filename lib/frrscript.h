@@ -1,20 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* Scripting foo
  * Copyright (C) 2020  NVIDIA Corporation
  * Quentin Young
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 #ifndef __FRRSCRIPT_H__
 #define __FRRSCRIPT_H__
@@ -194,6 +181,11 @@ void frrscript_fini(void);
 	} while (0)
 
 /*
+ * Noop function. Used below where we need a noop decoder for any type.
+ */
+void _lua_decode_noop(lua_State *, ...);
+
+/*
  * Maps the type of value to its encoder/decoder.
  * Add new mappings here.
  *
@@ -205,13 +197,14 @@ void frrscript_fini(void);
 #define ENCODE_ARGS_WITH_STATE(L, value)                                       \
 	_Generic((value), \
 int : lua_pushinteger,                                          \
-long long * : lua_pushintegerp,                                 \
+int * : lua_pushintegerp,                                       \
+long long : lua_pushinteger,                                    \
+long long * : lua_pushlonglongp,                                \
 struct prefix * : lua_pushprefix,                               \
 struct interface * : lua_pushinterface,                         \
 struct in_addr * : lua_pushinaddr,                              \
 struct in6_addr * : lua_pushin6addr,                            \
 union sockunion * : lua_pushsockunion,                          \
-time_t * : lua_pushtimet,                                       \
 char * : lua_pushstring_wrapper,                                \
 struct attr * : lua_pushattr,                                   \
 struct peer * : lua_pushpeer,                                   \
@@ -225,23 +218,16 @@ struct zebra_dplane_ctx * : lua_pushzebra_dplane_ctx            \
 
 #define DECODE_ARGS_WITH_STATE(L, value)                                       \
 	_Generic((value), \
-int : lua_decode_integer_noop,                                  \
-long long * : lua_decode_integerp,                              \
+int * : lua_decode_integerp,                                    \
+long long * : lua_decode_longlongp,                             \
 struct prefix * : lua_decode_prefix,                            \
 struct interface * : lua_decode_interface,                      \
 struct in_addr * : lua_decode_inaddr,                           \
 struct in6_addr * : lua_decode_in6addr,                         \
 union sockunion * : lua_decode_sockunion,                       \
-time_t * : lua_decode_timet,                                    \
 char * : lua_decode_stringp,                                    \
 struct attr * : lua_decode_attr,                                \
-struct peer * : lua_decode_noop,                                \
-const struct prefix * : lua_decode_noop,                        \
-const struct ipaddr * : lua_decode_noop,                        \
-const struct ethaddr * : lua_decode_noop,                       \
-const struct nexthop_group * : lua_decode_noop,                 \
-const struct nexthop * : lua_decode_noop,                       \
-struct zebra_dplane_ctx * : lua_decode_noop                     \
+default : _lua_decode_noop                                      \
 )((L), -1, (value))
 
 /*

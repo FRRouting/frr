@@ -151,6 +151,7 @@ by the parser.
                          : RANGE
                          : MAC
                          : MAC_PREFIX
+                         : ASNUM
    selector: "<" `selector_seq_seq` ">" `varname_token`
            : "{" `selector_seq_seq` "}" `varname_token`
            : "[" `selector_seq_seq` "]" `varname_token`
@@ -176,27 +177,29 @@ parser, but this is merely a dumb copy job.
 
 Here is a brief summary of the various token types along with examples.
 
-+-----------------+-------------------+-------------------------------------------------------------+
-| Token type      | Syntax            | Description                                                 |
-+=================+===================+=============================================================+
-| ``WORD``        | ``show ip bgp``   | Matches itself. In the given example every token is a WORD. |
-+-----------------+-------------------+-------------------------------------------------------------+
-| ``IPV4``        | ``A.B.C.D``       | Matches an IPv4 address.                                    |
-+-----------------+-------------------+-------------------------------------------------------------+
-| ``IPV6``        | ``X:X::X:X``      | Matches an IPv6 address.                                    |
-+-----------------+-------------------+-------------------------------------------------------------+
-| ``IPV4_PREFIX`` | ``A.B.C.D/M``     | Matches an IPv4 prefix in CIDR notation.                    |
-+-----------------+-------------------+-------------------------------------------------------------+
-| ``IPV6_PREFIX`` | ``X:X::X:X/M``    | Matches an IPv6 prefix in CIDR notation.                    |
-+-----------------+-------------------+-------------------------------------------------------------+
-| ``MAC``         | ``X:X:X:X:X:X``   | Matches a 48-bit mac address.                               |
-+-----------------+-------------------+-------------------------------------------------------------+
-| ``MAC_PREFIX``  | ``X:X:X:X:X:X/M`` | Matches a 48-bit mac address with a mask.                   |
-+-----------------+-------------------+-------------------------------------------------------------+
-| ``VARIABLE``    | ``FOOBAR``        | Matches anything.                                           |
-+-----------------+-------------------+-------------------------------------------------------------+
-| ``RANGE``       | ``(X-Y)``         | Matches numbers in the range X..Y inclusive.                |
-+-----------------+-------------------+-------------------------------------------------------------+
++-----------------+--------------------------+-------------------------------------------------------+
+| Token type      | Syntax                   | Description                                           |
++=================+==========================+=======================================================+
+| ``WORD``        | ``show ip bgp``          | Matches itself. In the example every token is a WORD. |
++-----------------+--------------------------+-------------------------------------------------------+
+| ``IPV4``        | ``A.B.C.D``              | Matches an IPv4 address.                              |
++-----------------+--------------------------+-------------------------------------------------------+
+| ``IPV6``        | ``X:X::X:X``             | Matches an IPv6 address.                              |
++-----------------+--------------------------+-------------------------------------------------------+
+| ``IPV4_PREFIX`` | ``A.B.C.D/M``            | Matches an IPv4 prefix in CIDR notation.              |
++-----------------+--------------------------+-------------------------------------------------------+
+| ``IPV6_PREFIX`` | ``X:X::X:X/M``           | Matches an IPv6 prefix in CIDR notation.              |
++-----------------+--------------------------+-------------------------------------------------------+
+| ``MAC``         | ``X:X:X:X:X:X``          | Matches a 48-bit mac address.                         |
++-----------------+--------------------------+-------------------------------------------------------+
+| ``MAC_PREFIX``  | ``X:X:X:X:X:X/M``        | Matches a 48-bit mac address with a mask.             |
++-----------------+--------------------------+-------------------------------------------------------+
+| ``VARIABLE``    | ``FOOBAR``               | Matches anything.                                     |
++-----------------+--------------------------+-------------------------------------------------------+
+| ``RANGE``       | ``(X-Y)``                | Matches numbers in the range X..Y inclusive.          |
++-----------------+--------------------------+-------------------------------------------------------+
+| ``ASNUM``       | ``<A.B|(1-4294967295)>`` | Matches an AS in plain or dot format.                 |
++-----------------+--------------------------+-------------------------------------------------------+
 
 When presented with user input, the parser will search over all defined
 commands in the current context to find a match. It is aware of the various
@@ -636,13 +639,14 @@ in order into ``*argv[]``. Before this happens the ``->arg`` field is set to
 point at the snippet of user input that matched it.
 
 For most nontrivial commands the handler function will need to determine which
-of the possible matching inputs was entered. Previously this was done by looking
-at the first few characters of input. This is now considered an anti-pattern and
-should be avoided. Instead, the ``->type`` or ``->text`` fields for this logic.
-The ``->type`` field can be used when the possible inputs differ in type. When
-the possible types are the same, use the ``->text`` field. This field has the
-full text of the corresponding token in the definition string and using it makes
-for much more readable code. An example is helpful.
+of the possible matching inputs was entered. Previously this was done by
+looking at the first few characters of input. This is now considered an
+anti-pattern and should be avoided. Instead, use the ``->type`` or ``->text``
+fields for this logic. The ``->type`` field can be used when the possible
+inputs differ in type. When the possible types are the same, use the ``->text``
+field. This field has the full text of the corresponding token in the
+definition string and using it makes for much more readable code. An example is
+helpful.
 
 Command definition:
 
@@ -651,9 +655,10 @@ Command definition:
    command <(1-10)|foo|BAR>
 
 In this example, the user may enter any one of:
-- an integer between 1 and 10
-- "foo"
-- anything at all
+
+* an integer between 1 and 10
+* "foo"
+* anything at all
 
 If the user enters "command f", then:
 
@@ -790,12 +795,12 @@ Adding a CLI Node
 
 To add a new CLI node, you should:
 
-- define a new numerical node constant
-- define a node structure in the relevant daemon
-- call ``install_node()`` in the relevant daemon
-- define and install the new node in vtysh
-- define corresponding node entry commands in daemon and vtysh
-- add a new entry to the ``ctx_keywords`` dictionary in ``tools/frr-reload.py``
+#. define a new numerical node constant
+#. define a node structure in the relevant daemon
+#. call ``install_node()`` in the relevant daemon
+#. define and install the new node in vtysh
+#. define corresponding node entry commands in daemon and vtysh
+#. add a new entry to the ``ctx_keywords`` dictionary in ``tools/frr-reload.py``
 
 Defining the numerical node constant
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

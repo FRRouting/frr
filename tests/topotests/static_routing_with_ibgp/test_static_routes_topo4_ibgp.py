@@ -1,23 +1,10 @@
 #!/usr/bin/python
+# SPDX-License-Identifier: ISC
 
 #
 # Copyright (c) 2020 by VMware, Inc. ("VMware")
 # Used Copyright (c) 2018 by Network Device Education Foundation,
 # Inc. ("NetDEF") in this file.
-#
-# Permission to use, copy, modify, and/or distribute this software
-# for any purpose with or without fee is hereby granted, provided
-# that the above copyright notice and this permission notice appear
-# in all copies.
-#
-# THE SOFTWARE IS PROVIDED "AS IS" AND VMWARE DISCLAIMS ALL WARRANTIES
-# WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
-# MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL VMWARE BE LIABLE FOR
-# ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY
-# DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS,
-# WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS
-# ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE
-# OF THIS SOFTWARE.
 #
 
 """
@@ -213,12 +200,12 @@ def test_static_routes_rmap_pfxlist_p0_tc7_ibgp(request):
         )
         clear_bgp(tgen, addr_type, "r2")
 
-    step(" All BGP nbrs are down as authentication is mismatch on both" " the sides")
+    step(" All BGP nbrs are down as authentication is mismatch on both  the sides")
 
     bgp_convergence = verify_bgp_convergence(tgen, topo, expected=False)
     assert (
         bgp_convergence is not True
-    ), "Testcase {} : " "Failed \n BGP nbrs must be down. Error: {}".format(
+    ), "Testcase {} :  Failed \n BGP nbrs must be down. Error: {}".format(
         tc_name, bgp_convergence
     )
 
@@ -265,7 +252,7 @@ def test_static_routes_rmap_pfxlist_p0_tc7_ibgp(request):
 
     step("All BGP nbrs are up as authentication is matched now")
     bgp_convergence = verify_bgp_convergence(tgen, topo)
-    assert bgp_convergence is True, "Testcase {} : Failed \n " "Error: {}".format(
+    assert bgp_convergence is True, "Testcase {} : Failed \n  Error: {}".format(
         tc_name, bgp_convergence
     )
 
@@ -315,7 +302,7 @@ def test_static_routes_rmap_pfxlist_p0_tc7_ibgp(request):
             "show ip prefix list"
         )
         result = verify_prefix_lists(tgen, input_dict_2)
-        assert result is not True, "Testcase {} : Failed \n" " Error: {}".format(
+        assert result is not True, "Testcase {} : Failed \n  Error: {}".format(
             tc_name, result
         )
 
@@ -418,7 +405,7 @@ def test_static_routes_rmap_pfxlist_p0_tc7_ibgp(request):
             tc_name, result
         )
 
-        step("Apply prefix list P1 on BGP neighbors 1 2 3 4 connected from " "frr r1")
+        step("Apply prefix list P1 on BGP neighbors 1 2 3 4 connected from  frr r1")
         # Configure prefix list to bgp neighbor
         input_dict_4 = {
             "r2": {
@@ -932,7 +919,7 @@ def test_static_routes_rmap_pfxlist_p0_tc7_ibgp(request):
         )
         assert (
             result4 is not True
-        ), "Testcase {} : Failed \n" "routes are still present \n Error: {}".format(
+        ), "Testcase {} : Failed \n routes are still present \n Error: {}".format(
             tc_name, result4
         )
 

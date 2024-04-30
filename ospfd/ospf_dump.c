@@ -1,22 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * OSPFd dump routine.
  * Copyright (C) 1999, 2000 Toshiaki Takada
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -24,7 +9,7 @@
 #include "lib/bfd.h"
 #include "monotime.h"
 #include "linklist.h"
-#include "thread.h"
+#include "frrevent.h"
 #include "prefix.h"
 #include "command.h"
 #include "stream.h"
@@ -148,13 +133,6 @@ const char *ospf_if_name_string(struct ospf_interface *oi)
 	return buf;
 }
 
-/* Display only the nbr state.*/
-void ospf_nbr_state_message(struct ospf_neighbor *nbr, char *buf, size_t size)
-{
-	snprintf(buf, size, "%s",
-		 lookup_msg(ospf_nsm_state_msg, nbr->state, NULL));
-}
-
 int ospf_nbr_ism_state(struct ospf_neighbor *nbr)
 {
 	int state;
@@ -257,7 +235,7 @@ const char *ospf_timeval_dump(struct timeval *t, char *buf, size_t size)
 	return buf;
 }
 
-const char *ospf_timer_dump(struct thread *t, char *buf, size_t size)
+const char *ospf_timer_dump(struct event *t, char *buf, size_t size)
 {
 	struct timeval result;
 	if (!t)

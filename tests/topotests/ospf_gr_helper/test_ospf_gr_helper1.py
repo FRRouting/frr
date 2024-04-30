@@ -1,23 +1,10 @@
 #!/usr/bin/python
+# SPDX-License-Identifier: ISC
 
 #
 # Copyright (c) 2021 by VMware, Inc. ("VMware")
 # Used Copyright (c) 2018 by Network Device Education Foundation, Inc.
 # ("NetDEF") in this file.
-#
-# Permission to use, copy, modify, and/or distribute this software
-# for any purpose with or without fee is hereby granted, provided
-# that the above copyright notice and this permission notice appear
-# in all copies.
-#
-# THE SOFTWARE IS PROVIDED "AS IS" AND VMWARE DISCLAIMS ALL WARRANTIES
-# WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
-# MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL VMWARE BE LIABLE FOR
-# ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY
-# DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS,
-# WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS
-# ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE
-# OF THIS SOFTWARE.
 #
 
 
@@ -132,7 +119,7 @@ def setup_module(mod):
         pytest.skip(tgen.errors)
 
     ospf_covergence = verify_ospf_neighbor(tgen, topo, lan=True)
-    assert ospf_covergence is True, "setup_module :Failed \n Error:" " {}".format(
+    assert ospf_covergence is True, "setup_module :Failed \n Error:  {}".format(
         ospf_covergence
     )
 
@@ -195,20 +182,20 @@ def test_ospf_gr_helper_tc1_p0(request):
     ospf_covergence = verify_ospf_neighbor(tgen, topo, lan=True)
     assert (
         ospf_covergence is True
-    ), "OSPF is not after reset config \n Error:" " {}".format(ospf_covergence)
+    ), "OSPF is not after reset config \n Error:  {}".format(ospf_covergence)
 
-    step("Verify that GR helper route is disabled by default to the in" "the DUT.")
+    step("Verify that GR helper route is disabled by default to the in the DUT.")
     input_dict = {
         "helperSupport": "Disabled",
         "strictLsaCheck": "Enabled",
-        "restartSupoort": "Planned and Unplanned Restarts",
+        "restartSupport": "Planned and Unplanned Restarts",
         "supportedGracePeriod": 1800,
     }
     dut = "r0"
     result = verify_ospf_gr_helper(tgen, topo, dut, input_dict)
     assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
-    step("Verify that DUT does not enter helper mode upon receiving the " "grace lsa.")
+    step("Verify that DUT does not enter helper mode upon receiving the  grace lsa.")
 
     # send grace lsa
     scapy_send_raw_packet(tgen, topo, "r1", intf1, pkt)
@@ -218,7 +205,7 @@ def test_ospf_gr_helper_tc1_p0(request):
     result = verify_ospf_gr_helper(tgen, topo, dut, input_dict, expected=False)
     assert (
         result is not True
-    ), "Testcase {} : Failed. DUT entered helper role " " \n Error: {}".format(
+    ), "Testcase {} : Failed. DUT entered helper role   \n Error: {}".format(
         tc_name, result
     )
 
@@ -233,7 +220,7 @@ def test_ospf_gr_helper_tc1_p0(request):
     input_dict = {
         "helperSupport": "Enabled",
         "strictLsaCheck": "Enabled",
-        "restartSupoort": "Planned and Unplanned Restarts",
+        "restartSupport": "Planned and Unplanned Restarts",
         "supportedGracePeriod": 1800,
     }
     dut = "r0"
@@ -247,7 +234,7 @@ def test_ospf_gr_helper_tc1_p0(request):
     assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     step("Perform GR in RR.")
-    step("Verify that DUT does enter helper mode upon receiving" " the grace lsa.")
+    step("Verify that DUT does enter helper mode upon receiving  the grace lsa.")
     input_dict = {"activeRestarterCnt": 1}
     gracelsa_sent = False
     repeat = 0
@@ -290,7 +277,7 @@ def test_ospf_gr_helper_tc1_p0(request):
     result = create_router_ospf(tgen, topo, ospf_gr_r0)
     assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
-    step("Verify that DUT does enter helper mode upon receiving" " the grace lsa.")
+    step("Verify that DUT does enter helper mode upon receiving  the grace lsa.")
     input_dict = {"activeRestarterCnt": 1}
     gracelsa_sent = False
     repeat = 0
@@ -319,7 +306,7 @@ def test_ospf_gr_helper_tc1_p0(request):
     result = create_router_ospf(tgen, topo, ospf_gr_r0)
     assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
-    step("Verify that GR helper router is disabled in the DUT for" " router id x.x.x.x")
+    step("Verify that GR helper router is disabled in the DUT for  router id x.x.x.x")
     input_dict = {"enabledRouterIds": [{"routerId": "1.1.1.1"}]}
     dut = "r0"
     result = verify_ospf_gr_helper(tgen, topo, dut, input_dict, expected=False)
@@ -356,7 +343,7 @@ def test_ospf_gr_helper_tc2_p0(request):
     ospf_covergence = verify_ospf_neighbor(tgen, topo, lan=True)
     assert (
         ospf_covergence is True
-    ), "OSPF is not after reset config \n Error:" " {}".format(ospf_covergence)
+    ), "OSPF is not after reset config \n Error:  {}".format(ospf_covergence)
     ospf_gr_r0 = {
         "r0": {"ospf": {"graceful-restart": {"helper enable": [], "opaque": True}}}
     }

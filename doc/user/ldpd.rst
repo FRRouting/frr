@@ -32,9 +32,7 @@ options (:ref:`common-invocation-options`).
 
 The *zebra* daemon must be running before *ldpd* is invoked.
 
-Configuration of *ldpd* is done in its configuration file
-:file:`ldpd.conf`.
-
+.. include:: config-include.rst
 
 .. _understanding-ldp:
 

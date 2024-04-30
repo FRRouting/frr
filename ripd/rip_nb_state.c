@@ -1,20 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Copyright (C) 2018  NetDEF, Inc.
  *                     Renato Westphal
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -220,7 +207,168 @@ struct yang_data *ripd_instance_state_routes_route_prefix_get_elem(
 	const struct route_node *rn = args->list_entry;
 	const struct rip_info *rinfo = listnode_head(rn->info);
 
+	assert(rinfo);
 	return yang_data_new_ipv4p(args->xpath, &rinfo->rp->p);
+}
+
+/*
+ * XPath: /frr-ripd:ripd/instance/state/routes/route/nexthops/nexthop
+ */
+const void *ripd_instance_state_routes_route_nexthops_nexthop_get_next(
+	struct nb_cb_get_next_args *args)
+{
+	const struct route_node *rn = args->parent_list_entry;
+	const struct listnode *node = args->list_entry;
+
+	assert(rn);
+	if (node)
+		return listnextnode(node);
+	assert(rn->info);
+	return listhead((struct list *)rn->info);
+}
+
+static inline const struct rip_info *get_rip_info(const void *info)
+{
+	return (const struct rip_info *)listgetdata(
+		(const struct listnode *)info);
+}
+
+/*
+ * XPath: /frr-ripd:ripd/instance/state/routes/route/nexthops/nexthop/nh-type
+ */
+struct yang_data *
+ripd_instance_state_routes_route_nexthops_nexthop_nh_type_get_elem(
+	struct nb_cb_get_elem_args *args)
+{
+	const struct rip_info *rinfo = get_rip_info(args->list_entry);
+
+	assert(rinfo);
+	return yang_data_new_enum(args->xpath, rinfo->nh.type);
+}
+
+/*
+ * XPath: /frr-ripd:ripd/instance/state/routes/route/nexthops/nexthop/protocol
+ */
+struct yang_data *
+ripd_instance_state_routes_route_nexthops_nexthop_protocol_get_elem(
+	struct nb_cb_get_elem_args *args)
+{
+	const struct rip_info *rinfo = get_rip_info(args->list_entry);
+
+	assert(rinfo);
+	return yang_data_new_enum(args->xpath, rinfo->type);
+}
+
+/*
+ * XPath: /frr-ripd:ripd/instance/state/routes/route/nexthops/nexthop/rip-type
+ */
+struct yang_data *
+ripd_instance_state_routes_route_nexthops_nexthop_rip_type_get_elem(
+	struct nb_cb_get_elem_args *args)
+{
+	const struct rip_info *rinfo = get_rip_info(args->list_entry);
+
+	assert(rinfo);
+	return yang_data_new_enum(args->xpath, rinfo->sub_type);
+}
+
+/*
+ * XPath: /frr-ripd:ripd/instance/state/routes/route/nexthops/nexthop/gateway
+ */
+struct yang_data *
+ripd_instance_state_routes_route_nexthops_nexthop_gateway_get_elem(
+	struct nb_cb_get_elem_args *args)
+{
+	const struct rip_info *rinfo = get_rip_info(args->list_entry);
+
+	if (rinfo->nh.type != NEXTHOP_TYPE_IPV4 &&
+	    rinfo->nh.type != NEXTHOP_TYPE_IPV4_IFINDEX)
+		return NULL;
+
+	return yang_data_new_ipv4(args->xpath, &rinfo->nh.gate.ipv4);
+}
+
+/*
+ * XPath: /frr-ripd:ripd/instance/state/routes/route/nexthops/nexthop/interface
+ */
+struct yang_data *
+ripd_instance_state_routes_route_nexthops_nexthop_interface_get_elem(
+	struct nb_cb_get_elem_args *args)
+{
+	const struct rip_info *rinfo = get_rip_info(args->list_entry);
+	const struct rip *rip = rip_info_get_instance(rinfo);
+
+	if (rinfo->nh.type != NEXTHOP_TYPE_IFINDEX &&
+	    rinfo->nh.type != NEXTHOP_TYPE_IPV4_IFINDEX)
+		return NULL;
+
+	return yang_data_new_string(
+		args->xpath,
+		ifindex2ifname(rinfo->nh.ifindex, rip->vrf->vrf_id));
+}
+
+/*
+ * XPath: /frr-ripd:ripd/instance/state/routes/route/nexthops/nexthop/from
+ */
+struct yang_data *
+ripd_instance_state_routes_route_nexthops_nexthop_from_get_elem(
+	struct nb_cb_get_elem_args *args)
+{
+	const struct rip_info *rinfo = get_rip_info(args->list_entry);
+
+	if (rinfo->type != ZEBRA_ROUTE_RIP || rinfo->sub_type != RIP_ROUTE_RTE)
+		return NULL;
+
+	return yang_data_new_ipv4(args->xpath, &rinfo->from);
+}
+
+/*
+ * XPath: /frr-ripd:ripd/instance/state/routes/route/nexthops/nexthop/tag
+ */
+struct yang_data *
+ripd_instance_state_routes_route_nexthops_nexthop_tag_get_elem(
+	struct nb_cb_get_elem_args *args)
+{
+	const struct rip_info *rinfo = get_rip_info(args->list_entry);
+
+	return yang_data_new_uint32(args->xpath, rinfo->tag);
+}
+
+/*
+ * XPath:
+ * /frr-ripd:ripd/instance/state/routes/route/nexthops/nexthop/external-metric
+ */
+struct yang_data *
+ripd_instance_state_routes_route_nexthops_nexthop_external_metric_get_elem(
+	struct nb_cb_get_elem_args *args)
+{
+	const struct rip_info *rinfo = get_rip_info(args->list_entry);
+
+	if ((rinfo->type == ZEBRA_ROUTE_RIP &&
+	     rinfo->sub_type == RIP_ROUTE_RTE) ||
+	    rinfo->metric == RIP_METRIC_INFINITY || rinfo->external_metric == 0)
+		return NULL;
+	return yang_data_new_uint32(args->xpath, rinfo->external_metric);
+}
+
+/*
+ * XPath:
+ * /frr-ripd:ripd/instance/state/routes/route/nexthops/nexthop/expire-time
+ */
+struct yang_data *
+ripd_instance_state_routes_route_nexthops_nexthop_expire_time_get_elem(
+	struct nb_cb_get_elem_args *args)
+{
+	const struct rip_info *rinfo = get_rip_info(args->list_entry);
+	struct event *event;
+
+	if ((event = rinfo->t_timeout) == NULL)
+		event = rinfo->t_garbage_collect;
+	if (!event)
+		return NULL;
+
+	return yang_data_new_uint32(args->xpath,
+				    event_timer_remain_second(event));
 }
 
 /*
@@ -236,9 +384,14 @@ struct yang_data *ripd_instance_state_routes_route_next_hop_get_elem(
 	case NEXTHOP_TYPE_IPV4:
 	case NEXTHOP_TYPE_IPV4_IFINDEX:
 		return yang_data_new_ipv4(args->xpath, &rinfo->nh.gate.ipv4);
-	default:
+	case NEXTHOP_TYPE_IFINDEX:
+	case NEXTHOP_TYPE_IPV6:
+	case NEXTHOP_TYPE_IPV6_IFINDEX:
+	case NEXTHOP_TYPE_BLACKHOLE:
 		return NULL;
 	}
+
+	assert(!"Reached end of function where we do not expect to reach");
 }
 
 /*
@@ -257,9 +410,14 @@ struct yang_data *ripd_instance_state_routes_route_interface_get_elem(
 		return yang_data_new_string(
 			args->xpath,
 			ifindex2ifname(rinfo->nh.ifindex, rip->vrf->vrf_id));
-	default:
+	case NEXTHOP_TYPE_IPV4:
+	case NEXTHOP_TYPE_IPV6:
+	case NEXTHOP_TYPE_IPV6_IFINDEX:
+	case NEXTHOP_TYPE_BLACKHOLE:
 		return NULL;
 	}
+
+	assert(!"Reached end of function where we do not expect to reach");
 }
 
 /*

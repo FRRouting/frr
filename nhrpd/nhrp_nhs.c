@@ -1,24 +1,20 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* NHRP NHC nexthop server functions (registration)
  * Copyright (c) 2014-2015 Timo Teräs
- *
- * This file is free software: you may copy, redistribute and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 2 of the License, or
- * (at your option) any later version.
  */
 
 #include "zebra.h"
 #include "zbuf.h"
 #include "memory.h"
-#include "thread.h"
+#include "frrevent.h"
 #include "nhrpd.h"
 #include "nhrp_protocol.h"
 
 DEFINE_MTYPE_STATIC(NHRPD, NHRP_NHS, "NHRP next hop server");
 DEFINE_MTYPE_STATIC(NHRPD, NHRP_REGISTRATION, "NHRP registration entries");
 
-static void nhrp_nhs_resolve(struct thread *t);
-static void nhrp_reg_send_req(struct thread *t);
+static void nhrp_nhs_resolve(struct event *t);
+static void nhrp_reg_send_req(struct event *t);
 
 static void nhrp_reg_reply(struct nhrp_reqid *reqid, void *arg)
 {
@@ -92,12 +88,12 @@ static void nhrp_reg_reply(struct nhrp_reqid *reqid, void *arg)
 	/* Success - schedule next registration, and route NHS */
 	r->timeout = 2;
 	holdtime = nifp->afi[nhs->afi].holdtime;
-	THREAD_OFF(r->t_register);
+	EVENT_OFF(r->t_register);
 
 	/* RFC 2332 5.2.3 - Registration is recommend to be renewed
 	 * every one third of holdtime */
-	thread_add_timer(master, nhrp_reg_send_req, r, holdtime / 3,
-			 &r->t_register);
+	event_add_timer(master, nhrp_reg_send_req, r, holdtime / 3,
+			&r->t_register);
 
 	r->proto_addr = p->dst_proto;
 	c = nhrp_cache_get(ifp, &p->dst_proto, 1);
@@ -107,9 +103,9 @@ static void nhrp_reg_reply(struct nhrp_reqid *reqid, void *arg)
 					  &cie_nbma_nhs);
 }
 
-static void nhrp_reg_timeout(struct thread *t)
+static void nhrp_reg_timeout(struct event *t)
 {
-	struct nhrp_registration *r = THREAD_ARG(t);
+	struct nhrp_registration *r = EVENT_ARG(t);
 	struct nhrp_cache *c;
 
 
@@ -137,7 +133,7 @@ static void nhrp_reg_timeout(struct thread *t)
 		}
 		r->timeout = 2;
 	}
-	thread_add_timer_msec(master, nhrp_reg_send_req, r, 10, &r->t_register);
+	event_add_timer_msec(master, nhrp_reg_send_req, r, 10, &r->t_register);
 }
 
 static void nhrp_reg_peer_notify(struct notifier_block *n, unsigned long cmd)
@@ -152,16 +148,16 @@ static void nhrp_reg_peer_notify(struct notifier_block *n, unsigned long cmd)
 	case NOTIFY_PEER_MTU_CHANGED:
 		debugf(NHRP_DEBUG_COMMON, "NHS: Flush timer for %pSU",
 		       &r->peer->vc->remote.nbma);
-		THREAD_OFF(r->t_register);
-		thread_add_timer_msec(master, nhrp_reg_send_req, r, 10,
-				      &r->t_register);
+		EVENT_OFF(r->t_register);
+		event_add_timer_msec(master, nhrp_reg_send_req, r, 10,
+				     &r->t_register);
 		break;
 	}
 }
 
-static void nhrp_reg_send_req(struct thread *t)
+static void nhrp_reg_send_req(struct event *t)
 {
-	struct nhrp_registration *r = THREAD_ARG(t);
+	struct nhrp_registration *r = EVENT_ARG(t);
 	struct nhrp_nhs *nhs = r->nhs;
 	struct interface *ifp = nhs->ifp;
 	struct nhrp_interface *nifp = ifp->info;
@@ -175,13 +171,13 @@ static void nhrp_reg_send_req(struct thread *t)
 	if (!nhrp_peer_check(r->peer, 2)) {
 		debugf(NHRP_DEBUG_COMMON, "NHS: Waiting link for %pSU",
 		       &r->peer->vc->remote.nbma);
-		thread_add_timer(master, nhrp_reg_send_req, r, 120,
-				 &r->t_register);
+		event_add_timer(master, nhrp_reg_send_req, r, 120,
+				&r->t_register);
 		return;
 	}
 
-	thread_add_timer(master, nhrp_reg_timeout, r, r->timeout,
-			 &r->t_register);
+	event_add_timer(master, nhrp_reg_timeout, r, r->timeout,
+			&r->t_register);
 
 	/* RFC2332 5.2.3 NHC uses it's own address as dst if NHS is unknown */
 	dst_proto = &nhs->proto_addr;
@@ -248,7 +244,7 @@ static void nhrp_reg_delete(struct nhrp_registration *r)
 	nhrp_peer_notify_del(r->peer, &r->peer_notifier);
 	nhrp_peer_unref(r->peer);
 	nhrp_reglist_del(&r->nhs->reglist_head, r);
-	THREAD_OFF(r->t_register);
+	EVENT_OFF(r->t_register);
 	XFREE(MTYPE_NHRP_REGISTRATION, r);
 }
 
@@ -273,13 +269,13 @@ static void nhrp_nhs_resolve_cb(struct resolver_query *q, const char *errstr,
 
 	if (n < 0) {
 		/* Failed, retry in a moment */
-		thread_add_timer(master, nhrp_nhs_resolve, nhs, 5,
-				 &nhs->t_resolve);
+		event_add_timer(master, nhrp_nhs_resolve, nhs, 5,
+				&nhs->t_resolve);
 		return;
 	}
 
-	thread_add_timer(master, nhrp_nhs_resolve, nhs, 2 * 60 * 60,
-			 &nhs->t_resolve);
+	event_add_timer(master, nhrp_nhs_resolve, nhs, 2 * 60 * 60,
+			&nhs->t_resolve);
 
 	frr_each (nhrp_reglist, &nhs->reglist_head, reg)
 		reg->mark = 1;
@@ -304,8 +300,8 @@ static void nhrp_nhs_resolve_cb(struct resolver_query *q, const char *errstr,
 		nhrp_reglist_add_tail(&nhs->reglist_head, reg);
 		nhrp_peer_notify_add(reg->peer, &reg->peer_notifier,
 				     nhrp_reg_peer_notify);
-		thread_add_timer_msec(master, nhrp_reg_send_req, reg, 50,
-				      &reg->t_register);
+		event_add_timer_msec(master, nhrp_reg_send_req, reg, 50,
+				     &reg->t_register);
 	}
 
 	frr_each_safe (nhrp_reglist, &nhs->reglist_head, reg)
@@ -313,9 +309,9 @@ static void nhrp_nhs_resolve_cb(struct resolver_query *q, const char *errstr,
 			nhrp_reg_delete(reg);
 }
 
-static void nhrp_nhs_resolve(struct thread *t)
+static void nhrp_nhs_resolve(struct event *t)
 {
-	struct nhrp_nhs *nhs = THREAD_ARG(t);
+	struct nhrp_nhs *nhs = EVENT_ARG(t);
 
 	resolver_resolve(&nhs->dns_resolve, AF_INET, VRF_DEFAULT,
 			 nhs->nbma_fqdn, nhrp_nhs_resolve_cb);
@@ -351,8 +347,8 @@ int nhrp_nhs_add(struct interface *ifp, afi_t afi, union sockunion *proto_addr,
 		.reglist_head = INIT_DLIST(nhs->reglist_head),
 	};
 	nhrp_nhslist_add_tail(&nifp->afi[afi].nhslist_head, nhs);
-	thread_add_timer_msec(master, nhrp_nhs_resolve, nhs, 1000,
-			      &nhs->t_resolve);
+	event_add_timer_msec(master, nhrp_nhs_resolve, nhs, 1000,
+			     &nhs->t_resolve);
 
 	return NHRP_OK;
 }
@@ -387,7 +383,7 @@ int nhrp_nhs_free(struct nhrp_interface *nifp, afi_t afi, struct nhrp_nhs *nhs)
 
 	frr_each_safe (nhrp_reglist, &nhs->reglist_head, r)
 		nhrp_reg_delete(r);
-	THREAD_OFF(nhs->t_resolve);
+	EVENT_OFF(nhs->t_resolve);
 	nhrp_nhslist_del(&nifp->afi[afi].nhslist_head, nhs);
 	free((void *)nhs->nbma_fqdn);
 	XFREE(MTYPE_NHRP_NHS, nhs);
@@ -424,6 +420,7 @@ void nhrp_nhs_terminate(void)
 				       &nifp->afi[afi].nhslist_head, nhs)
 				nhrp_nhs_free(nifp, afi, nhs);
 		}
+		nhrp_peer_interface_del(ifp);
 	}
 }
 

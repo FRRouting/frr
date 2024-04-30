@@ -1,23 +1,8 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * OSPF version 2  Neighbor State Machine
  *   From RFC2328 [OSPF Version 2]
  *   Copyright (C) 1999 Toshiaki Takada
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef _ZEBRA_OSPF_NSM_H
@@ -56,22 +41,22 @@
 #define OSPF_NSM_EVENT_MAX     14
 
 /* Macro for OSPF NSM timer turn on. */
-#define OSPF_NSM_TIMER_ON(T,F,V) thread_add_timer (master, (F), nbr, (V), &(T))
+#define OSPF_NSM_TIMER_ON(T, F, V) event_add_timer(master, (F), nbr, (V), &(T))
 
 /* Macro for OSPF NSM schedule event. */
 #define OSPF_NSM_EVENT_SCHEDULE(N, E)                                          \
-	thread_add_event(master, ospf_nsm_event, (N), (E), NULL)
+	event_add_event(master, ospf_nsm_event, (N), (E), NULL)
 
 /* Macro for OSPF NSM execute event. */
 #define OSPF_NSM_EVENT_EXECUTE(N, E)                                           \
-	thread_execute(master, ospf_nsm_event, (N), (E))
+	event_execute(master, ospf_nsm_event, (N), (E), NULL)
 
 /* Prototypes. */
-extern void ospf_nsm_event(struct thread *);
-extern void ospf_check_nbr_loading(struct ospf_neighbor *);
-extern int ospf_db_summary_isempty(struct ospf_neighbor *);
-extern int ospf_db_summary_count(struct ospf_neighbor *);
-extern void ospf_db_summary_clear(struct ospf_neighbor *);
+extern void ospf_nsm_event(struct event *e);
+extern void ospf_check_nbr_loading(struct ospf_neighbor *nbr);
+extern int ospf_db_summary_isempty(struct ospf_neighbor *nbr);
+extern int ospf_db_summary_count(struct ospf_neighbor *nbr);
+extern void ospf_db_summary_clear(struct ospf_neighbor *nbr);
 extern int nsm_should_adj(struct ospf_neighbor *nbr);
 DECLARE_HOOK(ospf_nsm_change,
 	     (struct ospf_neighbor * on, int state, int oldstate),

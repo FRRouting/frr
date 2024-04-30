@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: ISC
 /*	$OpenBSD$ */
 
 /*
@@ -5,18 +6,6 @@
  * Copyright (c) 2004, 2005 Claudio Jeker <claudio@openbsd.org>
  * Copyright (c) 2004 Esben Norby <norby@openbsd.org>
  * Copyright (c) 2003, 2004 Henning Brauer <henning@openbsd.org>
- *
- * Permission to use, copy, modify, and distribute this software for any
- * purpose with or without fee is hereby granted, provided that the above
- * copyright notice and this permission notice appear in all copies.
- *
- * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
- * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
- * ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
- * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
- * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
- * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
 #include <zebra.h>
@@ -41,8 +30,8 @@
 #include "libfrr.h"
 
 static void		 lde_shutdown(void);
-static void lde_dispatch_imsg(struct thread *thread);
-static void lde_dispatch_parent(struct thread *thread);
+static void lde_dispatch_imsg(struct event *thread);
+static void lde_dispatch_parent(struct event *thread);
 static __inline	int	 lde_nbr_compare(const struct lde_nbr *,
 			    const struct lde_nbr *);
 static struct lde_nbr	*lde_nbr_new(uint32_t, struct lde_nbr *);
@@ -98,7 +87,7 @@ static struct list *label_chunk_list;
 static struct listnode *current_label_chunk;
 
 /* Synchronous zclient to request labels */
-static struct zclient *zclient_sync;
+struct zclient *zclient_sync;
 
 /* SIGINT / SIGTERM handler. */
 static void
@@ -145,8 +134,8 @@ lde(void)
 		fatal(NULL);
 	imsg_init(&iev_main->ibuf, LDPD_FD_ASYNC);
 	iev_main->handler_read = lde_dispatch_parent;
-	thread_add_read(master, iev_main->handler_read, iev_main, iev_main->ibuf.fd,
-		        &iev_main->ev_read);
+	event_add_read(master, iev_main->handler_read, iev_main,
+		       iev_main->ibuf.fd, &iev_main->ev_read);
 	iev_main->handler_write = ldp_write_handler;
 
 	memset(&iev_main_sync_data, 0, sizeof(iev_main_sync_data));
@@ -156,9 +145,9 @@ lde(void)
 	/* create base configuration */
 	ldeconf = config_new_empty();
 
-	struct thread thread;
-	while (thread_fetch(master, &thread))
-		thread_call(&thread);
+	struct event thread;
+	while (event_fetch(master, &thread))
+		event_call(&thread);
 
 	/* NOTREACHED */
 	return;
@@ -243,9 +232,9 @@ lde_imsg_compose_ldpe(int type, uint32_t peerid, pid_t pid, void *data,
 }
 
 /* ARGSUSED */
-static void lde_dispatch_imsg(struct thread *thread)
+static void lde_dispatch_imsg(struct event *thread)
 {
-	struct imsgev		*iev = THREAD_ARG(thread);
+	struct imsgev *iev = EVENT_ARG(thread);
 	struct imsgbuf		*ibuf = &iev->ibuf;
 	struct imsg		 imsg;
 	struct lde_nbr		*ln;
@@ -272,8 +261,7 @@ static void lde_dispatch_imsg(struct thread *thread)
 		case IMSG_LABEL_MAPPING_FULL:
 			ln = lde_nbr_find(imsg.hdr.peerid);
 			if (ln == NULL) {
-				log_debug("%s: cannot find lde neighbor",
-				    __func__);
+				log_debug("%s: cannot find lde neighbor", __func__);
 				break;
 			}
 
@@ -284,15 +272,13 @@ static void lde_dispatch_imsg(struct thread *thread)
 		case IMSG_LABEL_RELEASE:
 		case IMSG_LABEL_WITHDRAW:
 		case IMSG_LABEL_ABORT:
-			if (imsg.hdr.len - IMSG_HEADER_SIZE !=
-			    sizeof(struct map))
+			if (imsg.hdr.len - IMSG_HEADER_SIZE != sizeof(struct map))
 				fatalx("lde_dispatch_imsg: wrong imsg len");
 			map = imsg.data;
 
 			ln = lde_nbr_find(imsg.hdr.peerid);
 			if (ln == NULL) {
-				log_debug("%s: cannot find lde neighbor",
-				    __func__);
+				log_debug("%s: cannot find lde neighbor", __func__);
 				break;
 			}
 
@@ -315,49 +301,45 @@ static void lde_dispatch_imsg(struct thread *thread)
 			}
 			break;
 		case IMSG_ADDRESS_ADD:
-			if (imsg.hdr.len - IMSG_HEADER_SIZE !=
-			    sizeof(struct lde_addr))
+			if (imsg.hdr.len - IMSG_HEADER_SIZE != sizeof(struct lde_addr))
 				fatalx("lde_dispatch_imsg: wrong imsg len");
 			lde_addr = imsg.data;
 
 			ln = lde_nbr_find(imsg.hdr.peerid);
 			if (ln == NULL) {
-				log_debug("%s: cannot find lde neighbor",
-				    __func__);
+				log_debug("%s: cannot find lde neighbor", __func__);
 				break;
 			}
+
 			if (lde_address_add(ln, lde_addr) < 0) {
 				log_debug("%s: cannot add address %s, it already exists", __func__,
 				    log_addr(lde_addr->af, &lde_addr->addr));
 			}
 			break;
 		case IMSG_ADDRESS_DEL:
-			if (imsg.hdr.len - IMSG_HEADER_SIZE !=
-			    sizeof(struct lde_addr))
+			if (imsg.hdr.len - IMSG_HEADER_SIZE != sizeof(struct lde_addr))
 				fatalx("lde_dispatch_imsg: wrong imsg len");
 			lde_addr = imsg.data;
 
 			ln = lde_nbr_find(imsg.hdr.peerid);
 			if (ln == NULL) {
-				log_debug("%s: cannot find lde neighbor",
-				    __func__);
+				log_debug("%s: cannot find lde neighbor", __func__);
 				break;
 			}
+
 			if (lde_address_del(ln, lde_addr) < 0) {
 				log_debug("%s: cannot delete address %s, it does not exist", __func__,
 				    log_addr(lde_addr->af, &lde_addr->addr));
 			}
 			break;
 		case IMSG_NOTIFICATION:
-			if (imsg.hdr.len - IMSG_HEADER_SIZE !=
-			    sizeof(struct notify_msg))
+			if (imsg.hdr.len - IMSG_HEADER_SIZE != sizeof(struct notify_msg))
 				fatalx("lde_dispatch_imsg: wrong imsg len");
 			nm = imsg.data;
 
 			ln = lde_nbr_find(imsg.hdr.peerid);
 			if (ln == NULL) {
-				log_debug("%s: cannot find lde neighbor",
-				    __func__);
+				log_debug("%s: cannot find lde neighbor", __func__);
 				break;
 			}
 
@@ -377,8 +359,7 @@ static void lde_dispatch_imsg(struct thread *thread)
 			}
 			break;
 		case IMSG_NEIGHBOR_UP:
-			if (imsg.hdr.len - IMSG_HEADER_SIZE !=
-			    sizeof(struct lde_nbr))
+			if (imsg.hdr.len - IMSG_HEADER_SIZE != sizeof(struct lde_nbr))
 				fatalx("lde_dispatch_imsg: wrong imsg len");
 
 			if (lde_nbr_find(imsg.hdr.peerid))
@@ -397,18 +378,15 @@ static void lde_dispatch_imsg(struct thread *thread)
 		case IMSG_CTL_SHOW_L2VPN_PW:
 			l2vpn_pw_ctl(imsg.hdr.pid);
 
-			lde_imsg_compose_ldpe(IMSG_CTL_END, 0,
-			    imsg.hdr.pid, NULL, 0);
+			lde_imsg_compose_ldpe(IMSG_CTL_END, 0, imsg.hdr.pid, NULL, 0);
 			break;
 		case IMSG_CTL_SHOW_L2VPN_BINDING:
 			l2vpn_binding_ctl(imsg.hdr.pid);
 
-			lde_imsg_compose_ldpe(IMSG_CTL_END, 0,
-			    imsg.hdr.pid, NULL, 0);
+			lde_imsg_compose_ldpe(IMSG_CTL_END, 0, imsg.hdr.pid, NULL, 0);
 			break;
 		default:
-			log_debug("%s: unexpected imsg %d", __func__,
-			    imsg.hdr.type);
+			log_debug("%s: unexpected imsg %d", __func__, imsg.hdr.type);
 			break;
 		}
 		imsg_free(&imsg);
@@ -417,14 +395,14 @@ static void lde_dispatch_imsg(struct thread *thread)
 		imsg_event_add(iev);
 	else {
 		/* this pipe is dead, so remove the event handlers and exit */
-		THREAD_OFF(iev->ev_read);
-		THREAD_OFF(iev->ev_write);
+		EVENT_OFF(iev->ev_read);
+		EVENT_OFF(iev->ev_write);
 		lde_shutdown();
 	}
 }
 
 /* ARGSUSED */
-static void lde_dispatch_parent(struct thread *thread)
+static void lde_dispatch_parent(struct event *thread)
 {
 	static struct ldpd_conf	*nconf;
 	struct iface		*iface, *niface;
@@ -437,7 +415,7 @@ static void lde_dispatch_parent(struct thread *thread)
 	struct kif		*kif;
 	struct kroute		*kr;
 	int			 fd;
-	struct imsgev		*iev = THREAD_ARG(thread);
+	struct imsgev *iev = EVENT_ARG(thread);
 	struct imsgbuf		*ibuf = &iev->ibuf;
 	ssize_t			 n;
 	int			 shut = 0;
@@ -463,8 +441,7 @@ static void lde_dispatch_parent(struct thread *thread)
 
 		switch (imsg.hdr.type) {
 		case IMSG_IFSTATUS:
-			if (imsg.hdr.len != IMSG_HEADER_SIZE +
-			    sizeof(struct kif))
+			if (imsg.hdr.len != IMSG_HEADER_SIZE + sizeof(struct kif))
 				fatalx("IFSTATUS imsg with wrong len");
 			kif = imsg.data;
 
@@ -492,18 +469,15 @@ static void lde_dispatch_parent(struct thread *thread)
 			}
 			break;
 		case IMSG_PW_UPDATE:
-			if (imsg.hdr.len != IMSG_HEADER_SIZE +
-			    sizeof(struct zapi_pw_status))
+			if (imsg.hdr.len != IMSG_HEADER_SIZE + sizeof(struct zapi_pw_status))
 				fatalx("PW_UPDATE imsg with wrong len");
 
 			if (l2vpn_pw_status_update(imsg.data) != 0)
-				log_warnx("%s: error updating PW status",
-				    __func__);
+				log_warnx("%s: error updating PW status", __func__);
 			break;
 		case IMSG_NETWORK_ADD:
 		case IMSG_NETWORK_UPDATE:
-			if (imsg.hdr.len != IMSG_HEADER_SIZE +
-			    sizeof(struct kroute)) {
+			if (imsg.hdr.len != IMSG_HEADER_SIZE + sizeof(struct kroute)) {
 				log_warnx("%s: wrong imsg len", __func__);
 				break;
 			}
@@ -527,9 +501,8 @@ static void lde_dispatch_parent(struct thread *thread)
 			switch (imsg.hdr.type) {
 			case IMSG_NETWORK_ADD:
 				lde_kernel_insert(&fec, kr->af, &kr->nexthop,
-				    kr->ifindex, kr->route_type,
-				    kr->route_instance,
-				    kr->flags & F_CONNECTED, NULL);
+				    kr->ifindex, kr->route_type, kr->route_instance,
+				    CHECK_FLAG(kr->flags, F_CONNECTED), NULL);
 				break;
 			case IMSG_NETWORK_UPDATE:
 				lde_kernel_update(&fec);
@@ -550,8 +523,8 @@ static void lde_dispatch_parent(struct thread *thread)
 				fatal(NULL);
 			imsg_init(&iev_ldpe->ibuf, fd);
 			iev_ldpe->handler_read = lde_dispatch_imsg;
-			thread_add_read(master, iev_ldpe->handler_read, iev_ldpe, iev_ldpe->ibuf.fd,
-					&iev_ldpe->ev_read);
+			event_add_read(master, iev_ldpe->handler_read, iev_ldpe,
+				       iev_ldpe->ibuf.fd, &iev_ldpe->ev_read);
 			iev_ldpe->handler_write = ldp_write_handler;
 			iev_ldpe->ev_write = NULL;
 			break;
@@ -567,8 +540,7 @@ static void lde_dispatch_parent(struct thread *thread)
 			ldp_agentx_enabled();
 			break;
 		case IMSG_RECONF_CONF:
-			if ((nconf = malloc(sizeof(struct ldpd_conf))) ==
-			    NULL)
+			if ((nconf = malloc(sizeof(struct ldpd_conf))) == NULL)
 				fatal(NULL);
 			memcpy(nconf, imsg.data, sizeof(struct ldpd_conf));
 
@@ -692,8 +664,7 @@ static void lde_dispatch_parent(struct thread *thread)
 			}
 			break;
 		default:
-			log_debug("%s: unexpected imsg %d", __func__,
-			    imsg.hdr.type);
+			log_debug("%s: unexpected imsg %d", __func__, imsg.hdr.type);
 			break;
 		}
 		imsg_free(&imsg);
@@ -702,8 +673,8 @@ static void lde_dispatch_parent(struct thread *thread)
 		imsg_event_add(iev);
 	else {
 		/* this pipe is dead, so remove the event handlers and exit */
-		THREAD_OFF(iev->ev_read);
-		THREAD_OFF(iev->ev_write);
+		EVENT_OFF(iev->ev_read);
+		EVENT_OFF(iev->ev_write);
 		lde_shutdown();
 	}
 }
@@ -719,7 +690,7 @@ static bool lde_fec_connected(const struct fec_node *fn)
 	struct fec_nh *fnh;
 
 	LIST_FOREACH(fnh, &fn->nexthops, entry)
-		if (fnh->flags & F_FEC_NH_CONNECTED)
+		if (CHECK_FLAG(fnh->flags, F_FEC_NH_CONNECTED))
 			return true;
 
 	return false;
@@ -730,7 +701,7 @@ static bool lde_fec_outside_mpls_network(const struct fec_node *fn)
 	struct fec_nh *fnh;
 
 	LIST_FOREACH(fnh, &fn->nexthops, entry)
-		if (!(fnh->flags & F_FEC_NH_NO_LDP))
+		if (!CHECK_FLAG(fnh->flags, F_FEC_NH_NO_LDP))
 			return false;
 
 	return true;
@@ -743,24 +714,26 @@ lde_update_label(struct fec_node *fn)
 	/* should we allocate a label for this fec? */
 	switch (fn->fec.type) {
 	case FEC_TYPE_IPV4:
-		if ((ldeconf->ipv4.flags & F_LDPD_AF_ALLOCHOSTONLY)
+		if (CHECK_FLAG(ldeconf->ipv4.flags, F_LDPD_AF_ALLOCHOSTONLY)
 		    && fn->fec.u.ipv4.prefixlen != IPV4_MAX_BITLEN)
 			return (NO_LABEL);
+
 		if (lde_acl_check(ldeconf->ipv4.acl_label_allocate_for,
 		    AF_INET, (union ldpd_addr *)&fn->fec.u.ipv4.prefix,
 		    fn->fec.u.ipv4.prefixlen) != FILTER_PERMIT)
 			return (NO_LABEL);
 		break;
 	case FEC_TYPE_IPV6:
-		if ((ldeconf->ipv6.flags & F_LDPD_AF_ALLOCHOSTONLY)
+		if (CHECK_FLAG(ldeconf->ipv6.flags, F_LDPD_AF_ALLOCHOSTONLY)
 		    && fn->fec.u.ipv6.prefixlen != IPV6_MAX_BITLEN)
 			return (NO_LABEL);
+
 		if (lde_acl_check(ldeconf->ipv6.acl_label_allocate_for,
 		    AF_INET6, (union ldpd_addr *)&fn->fec.u.ipv6.prefix,
 		    fn->fec.u.ipv6.prefixlen) != FILTER_PERMIT)
 			return (NO_LABEL);
 		break;
-	default:
+	case FEC_TYPE_PWID:
 		break;
 	}
 
@@ -775,22 +748,24 @@ lde_update_label(struct fec_node *fn)
 		/* choose implicit or explicit-null depending on configuration */
 		switch (fn->fec.type) {
 		case FEC_TYPE_IPV4:
-			if (!(ldeconf->ipv4.flags & F_LDPD_AF_EXPNULL))
+			if (!CHECK_FLAG(ldeconf->ipv4.flags, F_LDPD_AF_EXPNULL))
 				return (MPLS_LABEL_IMPLICIT_NULL);
+
 			if (lde_acl_check(ldeconf->ipv4.acl_label_expnull_for,
 			    AF_INET, (union ldpd_addr *)&fn->fec.u.ipv4.prefix,
 			    fn->fec.u.ipv4.prefixlen) != FILTER_PERMIT)
 				return (MPLS_LABEL_IMPLICIT_NULL);
 			return MPLS_LABEL_IPV4_EXPLICIT_NULL;
 		case FEC_TYPE_IPV6:
-			if (!(ldeconf->ipv6.flags & F_LDPD_AF_EXPNULL))
+			if (!CHECK_FLAG(ldeconf->ipv6.flags, F_LDPD_AF_EXPNULL))
 				return (MPLS_LABEL_IMPLICIT_NULL);
+
 			if (lde_acl_check(ldeconf->ipv6.acl_label_expnull_for,
 			    AF_INET6, (union ldpd_addr *)&fn->fec.u.ipv6.prefix,
 			    fn->fec.u.ipv6.prefixlen) != FILTER_PERMIT)
 				return (MPLS_LABEL_IMPLICIT_NULL);
 			return MPLS_LABEL_IPV6_EXPLICIT_NULL;
-		default:
+		case FEC_TYPE_PWID:
 			break;
 		}
 	}
@@ -814,7 +789,7 @@ lde_send_change_klabel(struct fec_node *fn, struct fec_nh *fnh)
 	 * Ordered Control: don't program label into HW until a
 	 * labelmap msg has been received from upstream router
 	 */
-	if (fnh->flags & F_FEC_NH_DEFER)
+	if (CHECK_FLAG(fnh->flags, F_FEC_NH_DEFER))
 		return;
 
 	switch (fn->fec.type) {
@@ -829,8 +804,7 @@ lde_send_change_klabel(struct fec_node *fn, struct fec_nh *fnh)
 		kr.remote_label = fnh->remote_label;
 		kr.route_type = fnh->route_type;
 		kr.route_instance = fnh->route_instance;
-		lde_imsg_compose_parent(IMSG_KLABEL_CHANGE, 0, &kr,
-		    sizeof(kr));
+		lde_imsg_compose_parent(IMSG_KLABEL_CHANGE, 0, &kr, sizeof(kr));
 		break;
 	case FEC_TYPE_IPV6:
 		memset(&kr, 0, sizeof(kr));
@@ -844,8 +818,7 @@ lde_send_change_klabel(struct fec_node *fn, struct fec_nh *fnh)
 		kr.route_type = fnh->route_type;
 		kr.route_instance = fnh->route_instance;
 
-		lde_imsg_compose_parent(IMSG_KLABEL_CHANGE, 0, &kr,
-		    sizeof(kr));
+		lde_imsg_compose_parent(IMSG_KLABEL_CHANGE, 0, &kr, sizeof(kr));
 		break;
 	case FEC_TYPE_PWID:
 		pw = (struct l2vpn_pw *) fn->data;
@@ -882,8 +855,7 @@ lde_send_delete_klabel(struct fec_node *fn, struct fec_nh *fnh)
 		kr.route_type = fnh->route_type;
 		kr.route_instance = fnh->route_instance;
 
-		lde_imsg_compose_parent(IMSG_KLABEL_DELETE, 0, &kr,
-		    sizeof(kr));
+		lde_imsg_compose_parent(IMSG_KLABEL_DELETE, 0, &kr, sizeof(kr));
 		break;
 	case FEC_TYPE_IPV6:
 		memset(&kr, 0, sizeof(kr));
@@ -897,8 +869,7 @@ lde_send_delete_klabel(struct fec_node *fn, struct fec_nh *fnh)
 		kr.route_type = fnh->route_type;
 		kr.route_instance = fnh->route_instance;
 
-		lde_imsg_compose_parent(IMSG_KLABEL_DELETE, 0, &kr,
-		    sizeof(kr));
+		lde_imsg_compose_parent(IMSG_KLABEL_DELETE, 0, &kr, sizeof(kr));
 		break;
 	case FEC_TYPE_PWID:
 		pw = (struct l2vpn_pw *) fn->data;
@@ -929,7 +900,7 @@ lde_fec2prefix(const struct fec *fec, struct prefix *prefix)
 		prefix->u.prefix6 = fec->u.ipv6.prefix;
 		prefix->prefixlen = fec->u.ipv6.prefixlen;
 		break;
-	default:
+	case FEC_TYPE_PWID:
 		prefix->family = AF_UNSPEC;
 		break;
 	}
@@ -978,7 +949,7 @@ lde_fec2map(struct fec *fec, struct map *map)
 		map->type = MAP_TYPE_PWID;
 		map->fec.pwid.type = fec->u.pwid.type;
 		map->fec.pwid.group_id = 0;
-		map->flags |= F_MAP_PW_ID;
+		SET_FLAG(map->flags, F_MAP_PW_ID);
 		map->fec.pwid.pwid = fec->u.pwid.pwid;
 		break;
 	}
@@ -1032,9 +1003,9 @@ lde_send_labelmapping(struct lde_nbr *ln, struct fec_node *fn, int single)
 	 * a labelmap message is received from downstream router
 	 * and don't send labelmap back to downstream router
 	 */
-	if (ldeconf->flags & F_LDPD_ORDERED_CONTROL) {
+	if (CHECK_FLAG(ldeconf->flags, F_LDPD_ORDERED_CONTROL)) {
 		LIST_FOREACH(fnh, &fn->nexthops, entry) {
-			if (fnh->flags & F_FEC_NH_DEFER)
+			if (CHECK_FLAG(fnh->flags, F_FEC_NH_DEFER))
 				continue;
 
 			if (lde_address_find(ln, fnh->af, &fnh->nexthop))
@@ -1072,9 +1043,11 @@ lde_send_labelmapping(struct lde_nbr *ln, struct fec_node *fn, int single)
 	case FEC_TYPE_IPV4:
 		if (!ln->v4_enabled)
 			return;
+
 		if (lde_acl_check(ldeconf->ipv4.acl_label_advertise_to,
 		    AF_INET, (union ldpd_addr *)&ln->id, 32) != FILTER_PERMIT)
 			return;
+
 		if (lde_acl_check(ldeconf->ipv4.acl_label_advertise_for,
 		    AF_INET, (union ldpd_addr *)&fn->fec.u.ipv4.prefix,
 		    fn->fec.u.ipv4.prefixlen) != FILTER_PERMIT)
@@ -1083,9 +1056,11 @@ lde_send_labelmapping(struct lde_nbr *ln, struct fec_node *fn, int single)
 	case FEC_TYPE_IPV6:
 		if (!ln->v6_enabled)
 			return;
+
 		if (lde_acl_check(ldeconf->ipv6.acl_label_advertise_to,
 		    AF_INET, (union ldpd_addr *)&ln->id, 32) != FILTER_PERMIT)
 			return;
+
 		if (lde_acl_check(ldeconf->ipv6.acl_label_advertise_for,
 		    AF_INET6, (union ldpd_addr *)&fn->fec.u.ipv6.prefix,
 		    fn->fec.u.ipv6.prefixlen) != FILTER_PERMIT)
@@ -1097,12 +1072,14 @@ lde_send_labelmapping(struct lde_nbr *ln, struct fec_node *fn, int single)
 			/* not the remote end of the pseudowire */
 			return;
 
-		map.flags |= F_MAP_PW_IFMTU;
+		SET_FLAG(map.flags, F_MAP_PW_IFMTU);
 		map.fec.pwid.ifmtu = pw->l2vpn->mtu;
-		if (pw->flags & F_PW_CWORD)
-			map.flags |= F_MAP_PW_CWORD;
-		if (pw->flags & F_PW_STATUSTLV) {
-			map.flags |= F_MAP_PW_STATUS;
+
+		if (CHECK_FLAG(pw->flags, F_PW_CWORD))
+			SET_FLAG(map.flags, F_MAP_PW_CWORD);
+
+		if (CHECK_FLAG(pw->flags, F_PW_STATUSTLV)) {
+			SET_FLAG(map.flags, F_MAP_PW_STATUS);
 			map.pw_status = pw->local_status;
 		}
 		break;
@@ -1160,8 +1137,8 @@ lde_send_labelwithdraw(struct lde_nbr *ln, struct fec_node *fn,
 				/* not the remote end of the pseudowire */
 				return;
 
-			if (pw->flags & F_PW_CWORD)
-				map.flags |= F_MAP_PW_CWORD;
+			if (CHECK_FLAG(pw->flags, F_PW_CWORD))
+				SET_FLAG(map.flags, F_MAP_PW_CWORD);
 			break;
 		}
 		map.label = fn->local_label;
@@ -1172,7 +1149,7 @@ lde_send_labelwithdraw(struct lde_nbr *ln, struct fec_node *fn,
 		map.st.status_code = st->status_code;
 		map.st.msg_id = st->msg_id;
 		map.st.msg_type = st->msg_type;
-		map.flags |= F_MAP_STATUS;
+		SET_FLAG(map.flags, F_MAP_STATUS);
 	}
 
 	/* SWd.1: send label withdraw. */
@@ -1195,10 +1172,10 @@ lde_send_labelwithdraw(struct lde_nbr *ln, struct fec_node *fn,
 			if (lde_wildcard_apply(wcard, &fn->fec, me) == 0)
 				continue;
 
-			lw = (struct lde_wdraw *)fec_find(&ln->sent_wdraw,
-			    &fn->fec);
+			lw = (struct lde_wdraw *)fec_find(&ln->sent_wdraw, &fn->fec);
 			if (lw == NULL)
 				lw = lde_wdraw_add(ln, fn);
+
 			lw->label = map.label;
 		}
 	}
@@ -1282,8 +1259,8 @@ lde_send_labelrelease(struct lde_nbr *ln, struct fec_node *fn,
 				/* not the remote end of the pseudowire */
 				return;
 
-			if (pw->flags & F_PW_CWORD)
-				map.flags |= F_MAP_PW_CWORD;
+			if (CHECK_FLAG(pw->flags, F_PW_CWORD))
+				SET_FLAG(map.flags, F_MAP_PW_CWORD);
 			break;
 		}
 	} else
@@ -1314,7 +1291,7 @@ lde_send_labelrequest(struct lde_nbr *ln, struct fec_node *fn,
 			if (!ln->v6_enabled)
 				return;
 			break;
-		default:
+		case FEC_TYPE_PWID:
 			fatalx("lde_send_labelrequest: unknown af");
 		}
 	} else
@@ -1344,8 +1321,7 @@ lde_send_labelrequest(struct lde_nbr *ln, struct fec_node *fn,
 		lde_imsg_compose_ldpe(IMSG_REQUEST_ADD,
 		    ln->peerid, 0, &map, sizeof(map));
 		if (single)
-			lde_imsg_compose_ldpe(IMSG_REQUEST_ADD_END,
-			    ln->peerid, 0, NULL, 0);
+			lde_imsg_compose_ldpe(IMSG_REQUEST_ADD_END, ln->peerid, 0, NULL, 0);
 
 		/* SLRq.4: record sent request */
 		RB_FOREACH(f, fec_tree, &ft) {
@@ -1397,7 +1373,7 @@ lde_send_notification_eol_prefix(struct lde_nbr *ln, int af)
 	nm.fec.type = MAP_TYPE_TYPED_WCARD;
 	nm.fec.fec.twcard.type = MAP_TYPE_PREFIX;
 	nm.fec.fec.twcard.u.prefix_af = af;
-	nm.flags |= F_NOTIF_FEC;
+	SET_FLAG(nm.flags, F_NOTIF_FEC);
 
 	lde_imsg_compose_ldpe(IMSG_NOTIFICATION_SEND, ln->peerid, 0,
 	    &nm, sizeof(nm));
@@ -1413,7 +1389,7 @@ lde_send_notification_eol_pwid(struct lde_nbr *ln, uint16_t pw_type)
 	nm.fec.type = MAP_TYPE_TYPED_WCARD;
 	nm.fec.fec.twcard.type = MAP_TYPE_PWID;
 	nm.fec.fec.twcard.u.pw_type = pw_type;
-	nm.flags |= F_NOTIF_FEC;
+	SET_FLAG(nm.flags, F_NOTIF_FEC);
 
 	lde_imsg_compose_ldpe(IMSG_NOTIFICATION_SEND, ln->peerid, 0,
 	    &nm, sizeof(nm));
@@ -1476,8 +1452,7 @@ lde_nbr_del(struct lde_nbr *ln)
 			switch (f->type) {
 			case FEC_TYPE_IPV4:
 			case FEC_TYPE_IPV6:
-				if (!lde_address_find(ln, fnh->af,
-				    &fnh->nexthop))
+				if (!lde_address_find(ln, fnh->af, &fnh->nexthop))
 					continue;
 
 				/*
@@ -1489,8 +1464,8 @@ lde_nbr_del(struct lde_nbr *ln)
 				 * to other neighbors for all fecs from neighbor
 				 * going down
 				 */
-				if (ldeconf->flags & F_LDPD_ORDERED_CONTROL) {
-					fnh->flags |= F_FEC_NH_DEFER;
+				if (CHECK_FLAG(ldeconf->flags, F_LDPD_ORDERED_CONTROL)) {
+					SET_FLAG(fnh->flags, F_FEC_NH_DEFER);
 
 					RB_FOREACH(lnbr, nbr_tree, &lde_nbrs) {
 						if (ln->peerid == lnbr->peerid)
@@ -1595,7 +1570,7 @@ lde_nbr_addr_update(struct lde_nbr *ln, struct lde_addr *lde_addr, int removed)
 			if (lde_addr->af != AF_INET6)
 				continue;
 			break;
-		default:
+		case FEC_TYPE_PWID:
 			continue;
 		}
 
@@ -1605,8 +1580,7 @@ lde_nbr_addr_update(struct lde_nbr *ln, struct lde_addr *lde_addr, int removed)
 			continue;
 
 		LIST_FOREACH(fnh, &fn->nexthops, entry) {
-			if (ldp_addrcmp(fnh->af, &fnh->nexthop,
-			    &lde_addr->addr))
+			if (ldp_addrcmp(fnh->af, &fnh->nexthop, &lde_addr->addr))
 				continue;
 
 			if (removed) {
@@ -1669,15 +1643,13 @@ lde_map_add(struct lde_nbr *ln, struct fec_node *fn, int sent)
 		RB_INSERT(lde_map_head, &fn->upstream, me);
 		me->head = &fn->upstream;
 		if (fec_insert(&ln->sent_map, &me->fec))
-			log_warnx("failed to add %s to sent map",
-			    log_fec(&me->fec));
+			log_warnx("failed to add %s to sent map", log_fec(&me->fec));
 			/* XXX on failure more cleanup is needed */
 	} else {
 		RB_INSERT(lde_map_head, &fn->downstream, me);
 		me->head = &fn->downstream;
 		if (fec_insert(&ln->recv_map, &me->fec))
-			log_warnx("failed to add %s to recv map",
-			    log_fec(&me->fec));
+			log_warnx("failed to add %s to recv map", log_fec(&me->fec));
 	}
 
 	return (me);
@@ -1714,8 +1686,7 @@ lde_map_pending_add(struct lde_nbr *ln, struct fec_node *fn)
 
 	*map = fn->fec;
 	if (fec_insert(&ln->sent_map_pending, map))
-		log_warnx("failed to add %s to sent map (pending)",
-		    log_fec(map));
+		log_warnx("failed to add %s to sent map (pending)", log_fec(map));
 
 	return (map);
 }
@@ -1773,8 +1744,7 @@ lde_wdraw_add(struct lde_nbr *ln, struct fec_node *fn)
 	lw->fec = fn->fec;
 
 	if (fec_insert(&ln->sent_wdraw, &lw->fec))
-		log_warnx("failed to add %s to sent wdraw",
-		    log_fec(&lw->fec));
+		log_warnx("failed to add %s to sent wdraw", log_fec(&lw->fec));
 
 	return (lw);
 }
@@ -1797,13 +1767,9 @@ lde_change_egress_label(int af)
 	RB_FOREACH(ln, nbr_tree, &lde_nbrs) {
 		lde_send_labelwithdraw_wcard(ln, MPLS_LABEL_IMPLICIT_NULL);
 		if (ln->v4_enabled)
-			lde_send_labelwithdraw_wcard(
-				ln,
-				MPLS_LABEL_IPV4_EXPLICIT_NULL);
+			lde_send_labelwithdraw_wcard(ln, MPLS_LABEL_IPV4_EXPLICIT_NULL);
 		if (ln->v6_enabled)
-			lde_send_labelwithdraw_wcard(
-				ln,
-				MPLS_LABEL_IPV6_EXPLICIT_NULL);
+			lde_send_labelwithdraw_wcard(ln, MPLS_LABEL_IPV6_EXPLICIT_NULL);
 	}
 
 	/* update label of connected routes */
@@ -1831,8 +1797,7 @@ lde_change_egress_label(int af)
 				lde_send_labelmapping(ln, fn, 0);
 	}
 	RB_FOREACH(ln, nbr_tree, &lde_nbrs)
-		lde_imsg_compose_ldpe(IMSG_MAPPING_ADD_END, ln->peerid, 0,
-		    NULL, 0);
+		lde_imsg_compose_ldpe(IMSG_MAPPING_ADD_END, ln->peerid, 0, NULL, 0);
 }
 
 void
@@ -1872,8 +1837,7 @@ lde_change_allocate_filter(int af)
 		if (fn->local_label != new_label) {
 			if (new_label == NO_LABEL)
 				RB_FOREACH(ln, nbr_tree, &lde_nbrs)
-					lde_send_labelwithdraw(ln, fn,
-					    NULL, NULL);
+					lde_send_labelwithdraw(ln, fn, NULL, NULL);
 
 			fn->local_label = new_label;
 			if (fn->local_label != NO_LABEL)
@@ -1881,6 +1845,7 @@ lde_change_allocate_filter(int af)
 					lde_send_labelmapping(ln, fn, 0);
 		}
 	}
+
 	RB_FOREACH(ln, nbr_tree, &lde_nbrs)
 		lde_imsg_compose_ldpe(IMSG_MAPPING_ADD_END, ln->peerid, 0,
 		    NULL, 0);
@@ -1926,34 +1891,30 @@ lde_change_advertise_filter(int af)
 				case AF_INET:
 					if (fn->fec.type != FEC_TYPE_IPV4)
 						continue;
-					prefix = (union ldpd_addr *)
-					    &fn->fec.u.ipv4.prefix;
+					prefix = (union ldpd_addr *)&fn->fec.u.ipv4.prefix;
 					plen = fn->fec.u.ipv4.prefixlen;
 					break;
 				case FEC_TYPE_IPV6:
 					if (fn->fec.type != FEC_TYPE_IPV6)
 						continue;
-					prefix = (union ldpd_addr *)
-					    &fn->fec.u.ipv6.prefix;
+					prefix = (union ldpd_addr *)&fn->fec.u.ipv6.prefix;
 					plen = fn->fec.u.ipv6.prefixlen;
 					break;
 				default:
 					continue;
 				}
+
 				if (lde_acl_check(acl_for_filter, af,
 				    prefix, plen) != FILTER_PERMIT) {
-					me = (struct lde_map *)fec_find(
-					    &ln->sent_map, &fn->fec);
+					me = (struct lde_map *)fec_find(&ln->sent_map, &fn->fec);
 					if (me)
 						/* fec filtered withdraw */
-						lde_send_labelwithdraw(ln, fn,
-						    NULL, NULL);
+						lde_send_labelwithdraw(ln, fn, NULL, NULL);
 				} else
 					/* fec allowed send map */
 					lde_send_labelmapping(ln, fn, 0);
 			}
-			lde_imsg_compose_ldpe(IMSG_MAPPING_ADD_END,
-			    ln->peerid, 0, NULL, 0);
+			lde_imsg_compose_ldpe(IMSG_MAPPING_ADD_END, ln->peerid, 0, NULL, 0);
 		}
 	}
 }
@@ -1999,13 +1960,12 @@ lde_change_accept_filter(int af)
 			RB_FOREACH(f, fec_tree, &ft) {
 				fn = (struct fec_node *)f;
 				if (fn->fec.type == type) {
-					me = (struct lde_map *)fec_find(
-					    &ln->recv_map, &fn->fec);
+					me = (struct lde_map *)fec_find(&ln->recv_map, &fn->fec);
 					if (me)
 						lde_map_del(ln, me, 0);
 				}
 			}
-		} else if (ln->flags & F_NBR_CAP_TWCARD) {
+		} else if (CHECK_FLAG(ln->flags, F_NBR_CAP_TWCARD)) {
 			/* This neighbor is allowed and supports type
 			 * wildcard so send a labelrequest
 			 * to get any new labels from neighbor
@@ -2018,15 +1978,13 @@ lde_change_accept_filter(int af)
 				case AF_INET:
 					if (fn->fec.type != FEC_TYPE_IPV4)
 						continue;
-					prefix = (union ldpd_addr *)
-					    &fn->fec.u.ipv4.prefix;
+					prefix = (union ldpd_addr *)&fn->fec.u.ipv4.prefix;
 					plen = fn->fec.u.ipv4.prefixlen;
 					break;
 				case AF_INET6:
 					if (fn->fec.type != FEC_TYPE_IPV6)
 						continue;
-					prefix = (union ldpd_addr *)
-					    &fn->fec.u.ipv6.prefix;
+					prefix = (union ldpd_addr *)&fn->fec.u.ipv6.prefix;
 					plen = fn->fec.u.ipv6.prefixlen;
 					break;
 				default:
@@ -2034,8 +1992,7 @@ lde_change_accept_filter(int af)
 				}
 				if (lde_acl_check(acl_for_filter, af,
 				    prefix, plen) != FILTER_PERMIT) {
-					me = (struct lde_map *)fec_find(
-					    &ln->recv_map, &fn->fec);
+					me = (struct lde_map *)fec_find(&ln->recv_map, &fn->fec);
 					if (me)
 						lde_map_del(ln, me, 0);
 				}
@@ -2043,8 +2000,7 @@ lde_change_accept_filter(int af)
 			lde_send_labelrequest_wcard(ln, af);
 		} else
 			/* Type Wildcard is not supported so restart session */
-			lde_imsg_compose_ldpe(IMSG_NBR_SHUTDOWN, ln->peerid, 0,
-			    NULL, 0);
+			lde_imsg_compose_ldpe(IMSG_NBR_SHUTDOWN, ln->peerid, 0, NULL, 0);
 	}
 }
 
@@ -2167,7 +2123,7 @@ lde_address_list_free(struct lde_nbr *ln)
 /*
  * Event callback used to retry the label-manager sync zapi session.
  */
-static void zclient_sync_retry(struct thread *thread)
+static void zclient_sync_retry(struct event *thread)
 {
 	zclient_sync_init();
 }
@@ -2179,12 +2135,8 @@ static void zclient_sync_retry(struct thread *thread)
  */
 static void zclient_sync_init(void)
 {
-	struct zclient_options options = zclient_options_default;
-
-	options.synchronous = true;
-
 	/* Initialize special zclient for synchronous message exchanges. */
-	zclient_sync = zclient_new(master, &options, NULL, 0);
+	zclient_sync = zclient_new(master, &zclient_options_sync, NULL, 0);
 	zclient_sync->sock = -1;
 	zclient_sync->redist_default = ZEBRA_ROUTE_LDP;
 	zclient_sync->session_id = 1; /* Distinguish from main session */
@@ -2222,7 +2174,7 @@ retry:
 	zclient_sync = NULL;
 
 	/* Retry using a timer */
-	thread_add_timer(master, zclient_sync_retry, NULL, 1, NULL);
+	event_add_timer(master, zclient_sync_retry, NULL, 1, NULL);
 }
 
 static void
@@ -2310,7 +2262,7 @@ lde_free_label(uint32_t label)
 	for (ALL_LIST_ELEMENTS_RO(label_chunk_list, node, label_chunk)) {
 		if (label <= label_chunk->end && label >= label_chunk->start) {
 			pos = 1ULL << (label - label_chunk->start);
-			label_chunk->used_mask &= ~pos;
+			UNSET_FLAG(label_chunk->used_mask, pos);
 			/* if nobody is using this chunk and it's not current_label_chunk, then free it */
 			if (!label_chunk->used_mask && (current_label_chunk != node)) {
 				if (lde_release_label_chunk(label_chunk->start, label_chunk->end) != 0)
@@ -2323,6 +2275,7 @@ lde_free_label(uint32_t label)
 			break;
 		}
 	}
+
 	return;
 }
 
@@ -2343,7 +2296,7 @@ lde_get_next_label(void)
 		size = label_chunk->end - label_chunk->start + 1;
 		for (i = 0, pos = 1; i < size; i++, pos <<= 1) {
 			if (!(pos & label_chunk->used_mask)) {
-				label_chunk->used_mask |= pos;
+				SET_FLAG(label_chunk->used_mask, pos);
 				label = label_chunk->start + i;
 				goto end;
 			}
@@ -2371,12 +2324,15 @@ lde_check_filter_af(int af, struct ldpd_af_conf *af_conf,
 {
 	if (strcmp(af_conf->acl_label_allocate_for, filter_name) == 0)
 		lde_change_allocate_filter(af);
+
 	if ((strcmp(af_conf->acl_label_advertise_to, filter_name) == 0)
 	    || (strcmp(af_conf->acl_label_advertise_for, filter_name) == 0))
 		lde_change_advertise_filter(af);
+
 	if ((strcmp(af_conf->acl_label_accept_for, filter_name) == 0)
 	    || (strcmp(af_conf->acl_label_accept_from, filter_name) == 0))
 		lde_change_accept_filter(af);
+
 	if (strcmp(af_conf->acl_label_expnull_for, filter_name) == 0)
 		lde_change_expnull_for_filter(af);
 }
@@ -2390,6 +2346,7 @@ void lde_route_update(struct iface *iface, int af)
 
 	/* update label of non-connected routes */
 	log_debug("update labels for interface %s", iface->name);
+
 	RB_FOREACH(f, fec_tree, &ft) {
 		fn = (struct fec_node *)f;
 		if (IS_MPLS_UNRESERVED_LABEL(fn->local_label))
@@ -2416,13 +2373,13 @@ void lde_route_update(struct iface *iface, int af)
 			 * may need new label. If no LDP configured
 			 * treat fec as a connected route
 			 */
-			if (fnh->flags & F_FEC_NH_CONNECTED)
+			if (CHECK_FLAG(fnh->flags, F_FEC_NH_CONNECTED))
 				break;
 
 			if (fnh->ifindex != iface->ifindex)
 				continue;
 
-			fnh->flags &= ~F_FEC_NH_NO_LDP;
+			UNSET_FLAG(fnh->flags, F_FEC_NH_NO_LDP);
 			if (IS_MPLS_RESERVED_LABEL(fn->local_label)) {
 				fn->local_label = NO_LABEL;
 				fn->local_label = lde_update_label(fn);
@@ -2434,6 +2391,7 @@ void lde_route_update(struct iface *iface, int af)
 			break;
 		}
 	}
+
 	RB_FOREACH(ln, nbr_tree, &lde_nbrs)
 		lde_imsg_compose_ldpe(IMSG_MAPPING_ADD_END, ln->peerid,
 		    0, NULL, 0);
@@ -2449,6 +2407,7 @@ void lde_route_update_release(struct iface *iface, int af)
 	/* update label of interfaces no longer running LDP */
 	log_debug("release all labels for interface %s af %s", iface->name,
 	    af == AF_INET ? "ipv4" : "ipv6");
+
 	RB_FOREACH(f, fec_tree, &ft) {
 		fn = (struct fec_node *)f;
 
@@ -2474,13 +2433,13 @@ void lde_route_update_release(struct iface *iface, int af)
 			 * removed from interface may need new label
 			 * and would be treated as a connected route
 			 */
-			if (fnh->flags & F_FEC_NH_CONNECTED)
+			if (CHECK_FLAG(fnh->flags, F_FEC_NH_CONNECTED))
 				break;
 
 			if (fnh->ifindex != iface->ifindex)
 				continue;
 
-			fnh->flags |= F_FEC_NH_NO_LDP;
+			SET_FLAG(fnh->flags, F_FEC_NH_NO_LDP);
 			RB_FOREACH(ln, nbr_tree, &lde_nbrs)
 				lde_send_labelwithdraw(ln, fn, NULL, NULL);
 			lde_free_label(fn->local_label);
@@ -2492,6 +2451,7 @@ void lde_route_update_release(struct iface *iface, int af)
 			break;
 		}
 	}
+
 	RB_FOREACH(ln, nbr_tree, &lde_nbrs)
 		lde_imsg_compose_ldpe(IMSG_MAPPING_ADD_END, ln->peerid,
 		    0, NULL, 0);
@@ -2509,6 +2469,7 @@ void lde_route_update_release_all(int af)
 	 */
 	log_debug("release all labels for address family %s",
 	    af == AF_INET ? "ipv4" : "ipv6");
+
 	RB_FOREACH(f, fec_tree, &ft) {
 		fn = (struct fec_node *)f;
 		switch (af) {
@@ -2528,7 +2489,7 @@ void lde_route_update_release_all(int af)
 			lde_send_labelwithdraw(ln, fn, NULL, NULL);
 
 		LIST_FOREACH(fnh, &fn->nexthops, entry) {
-			fnh->flags |= F_FEC_NH_NO_LDP;
+			SET_FLAG(fnh->flags, F_FEC_NH_NO_LDP);
 			lde_send_delete_klabel(fn, fnh);
 		}
 	}

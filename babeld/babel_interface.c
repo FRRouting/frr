@@ -1,23 +1,6 @@
+// SPDX-License-Identifier: MIT
 /*
 Copyright 2011 by Matthieu Boutier and Juliusz Chroboczek
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in
-all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-THE SOFTWARE.
 */
 
 #include <zebra.h>
@@ -66,7 +49,7 @@ static vector babel_enable_if;                 /* enable interfaces (by cmd). */
 
 int babel_ifp_up(struct interface *ifp)
 {
-    debugf(BABEL_DEBUG_IF, "receive a 'interface up'");
+    debugf(BABEL_DEBUG_IF, "receive an 'interface up'");
 
     interface_recalculate(ifp);
     return 0;
@@ -75,7 +58,7 @@ int babel_ifp_up(struct interface *ifp)
 int
 babel_ifp_down(struct interface *ifp)
 {
-    debugf(BABEL_DEBUG_IF, "receive a 'interface down'");
+    debugf(BABEL_DEBUG_IF, "receive an 'interface down'");
 
     if (ifp == NULL) {
         return 0;
@@ -87,7 +70,7 @@ babel_ifp_down(struct interface *ifp)
 
 int babel_ifp_create (struct interface *ifp)
 {
-    debugf(BABEL_DEBUG_IF, "receive a 'interface add'");
+    debugf(BABEL_DEBUG_IF, "receive an 'interface add'");
 
     interface_recalculate(ifp);
 
@@ -97,7 +80,7 @@ int babel_ifp_create (struct interface *ifp)
 int
 babel_ifp_destroy(struct interface *ifp)
 {
-    debugf(BABEL_DEBUG_IF, "receive a 'interface delete'");
+    debugf(BABEL_DEBUG_IF, "receive an 'interface delete'");
 
     if (IS_ENABLE(ifp))
         interface_reset(ifp);
@@ -112,7 +95,7 @@ babel_interface_address_add (ZAPI_CALLBACK_ARGS)
     struct connected *ifc;
     struct prefix *prefix;
 
-    debugf(BABEL_DEBUG_IF, "receive a 'interface address add'");
+    debugf(BABEL_DEBUG_IF, "receive an 'interface address add'");
 
     ifc = zebra_interface_address_read (ZEBRA_INTERFACE_ADDRESS_ADD,
                                         zclient->ibuf, vrf_id);
@@ -148,7 +131,7 @@ babel_interface_address_delete (ZAPI_CALLBACK_ARGS)
     struct connected *ifc;
     struct prefix *prefix;
 
-    debugf(BABEL_DEBUG_IF, "receive a 'interface address delete'");
+    debugf(BABEL_DEBUG_IF, "receive an 'interface address delete'");
 
     ifc = zebra_interface_address_read (ZEBRA_INTERFACE_ADDRESS_DELETE,
                                         zclient->ibuf, vrf_id);
@@ -295,17 +278,18 @@ static void
 babel_set_wired_internal(babel_interface_nfo *babel_ifp, int wired)
 {
     if(wired) {
-        babel_ifp->flags |= BABEL_IF_WIRED;
-        babel_ifp->flags |= BABEL_IF_SPLIT_HORIZON;
+        SET_FLAG(babel_ifp->flags, BABEL_IF_WIRED);
+        SET_FLAG(babel_ifp->flags, BABEL_IF_SPLIT_HORIZON);
         babel_ifp->cost = BABEL_DEFAULT_RXCOST_WIRED;
         babel_ifp->channel = BABEL_IF_CHANNEL_NONINTERFERING;
-        babel_ifp->flags &= ~BABEL_IF_LQ;
-    } else {
-        babel_ifp->flags &= ~BABEL_IF_WIRED;
-        babel_ifp->flags &= ~BABEL_IF_SPLIT_HORIZON;
+        UNSET_FLAG(babel_ifp->flags, BABEL_IF_LQ);
+    } 
+    else {
+        UNSET_FLAG(babel_ifp->flags, BABEL_IF_WIRED);
+        UNSET_FLAG(babel_ifp->flags, BABEL_IF_SPLIT_HORIZON);
         babel_ifp->cost = BABEL_DEFAULT_RXCOST_WIRELESS;
         babel_ifp->channel = BABEL_IF_CHANNEL_INTERFERING;
-        babel_ifp->flags |= BABEL_IF_LQ;
+        SET_FLAG(babel_ifp->flags, BABEL_IF_LQ);
     }
 
 }
@@ -595,7 +579,7 @@ interface_recalculate(struct interface *ifp)
         return -1;
     }
 
-    babel_ifp->flags |= BABEL_IF_IS_UP;
+    SET_FLAG(babel_ifp->flags, BABEL_IF_IS_UP);
 
     mtu = MIN(ifp->mtu, ifp->mtu6);
 
@@ -653,7 +637,7 @@ interface_recalculate(struct interface *ifp)
     debugf(BABEL_DEBUG_COMMON,
            "Upped interface %s (%s, cost=%d, channel=%d%s).",
            ifp->name,
-           (babel_ifp->flags & BABEL_IF_WIRED) ? "wired" : "wireless",
+           CHECK_FLAG(babel_ifp->flags, BABEL_IF_WIRED) ? "wired" : "wireless",
            babel_ifp->cost,
            babel_ifp->channel,
            babel_ifp->ipv4 ? ", IPv4" : "");
@@ -673,11 +657,12 @@ interface_reset(struct interface *ifp)
     struct ipv6_mreq mreq;
     babel_interface_nfo *babel_ifp = babel_get_if_nfo(ifp);
 
-    if (!(babel_ifp->flags & BABEL_IF_IS_UP))
+    if (!CHECK_FLAG(babel_ifp->flags, BABEL_IF_IS_UP))
         return 0;
 
     debugf(BABEL_DEBUG_IF, "interface reset: %s", ifp->name);
-    babel_ifp->flags &= ~BABEL_IF_IS_UP;
+
+    UNSET_FLAG(babel_ifp->flags, BABEL_IF_IS_UP);
 
     flush_interface_routes(ifp, 0);
     babel_ifp->buffered = 0;
@@ -706,9 +691,14 @@ interface_reset(struct interface *ifp)
 
     debugf(BABEL_DEBUG_COMMON,"Upped network %s (%s, cost=%d%s).",
            ifp->name,
-           (babel_ifp->flags & BABEL_IF_WIRED) ? "wired" : "wireless",
+           CHECK_FLAG(babel_ifp->flags, BABEL_IF_WIRED) ? "wired" : "wireless",
            babel_ifp->cost,
            babel_ifp->ipv4 ? ", IPv4" : "");
+
+    if (babel_ifp->ipv4 != NULL){
+		free(babel_ifp->ipv4);
+		babel_ifp->ipv4 = NULL;
+    }
 
     return 1;
 }
@@ -749,12 +739,11 @@ int
 is_interface_ll_address(struct interface *ifp, const unsigned char *address)
 {
     struct connected *connected;
-    struct listnode *node;
 
     if(!if_up(ifp))
         return 0;
 
-    FOR_ALL_INTERFACES_ADDRESSES(ifp, connected, node) {
+    frr_each (if_connected, ifp->connected, connected) {
 	    if (connected->address->family == AF_INET6
 		&& memcmp(&connected->address->u.prefix6, address,
 			  IPV6_MAX_BYTELEN)
@@ -1360,5 +1349,9 @@ babel_interface_allocate (void)
 static void
 babel_interface_free (babel_interface_nfo *babel_ifp)
 {
+    if (babel_ifp->ipv4){
+        free(babel_ifp->ipv4);
+        babel_ifp->ipv4 = NULL;
+    }
     XFREE(MTYPE_BABEL_IF, babel_ifp);
 }

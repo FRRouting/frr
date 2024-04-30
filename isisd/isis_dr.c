@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * IS-IS Rout(e)ing protocol - isis_dr.c
  *                             IS-IS designated router related routines
@@ -5,20 +6,6 @@
  * Copyright (C) 2001,2002   Sampo Saaristo
  *                           Tampere University of Technology
  *                           Institute of Communications Engineering
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public Licenseas published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful,but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 
@@ -26,7 +13,7 @@
 
 #include "log.h"
 #include "hash.h"
-#include "thread.h"
+#include "frrevent.h"
 #include "linklist.h"
 #include "vty.h"
 #include "stream.h"
@@ -61,9 +48,9 @@ const char *isis_disflag2string(int disflag)
 	return NULL; /* not reached */
 }
 
-void isis_run_dr(struct thread *thread)
+void isis_run_dr(struct event *thread)
 {
-	struct isis_circuit_arg *arg = THREAD_ARG(thread);
+	struct isis_circuit_arg *arg = EVENT_ARG(thread);
 
 	assert(arg);
 
@@ -224,8 +211,8 @@ int isis_dr_resign(struct isis_circuit *circuit, int level)
 
 	circuit->u.bc.is_dr[level - 1] = 0;
 	circuit->u.bc.run_dr_elect[level - 1] = 0;
-	THREAD_OFF(circuit->u.bc.t_run_dr[level - 1]);
-	THREAD_OFF(circuit->u.bc.t_refresh_pseudo_lsp[level - 1]);
+	EVENT_OFF(circuit->u.bc.t_run_dr[level - 1]);
+	EVENT_OFF(circuit->u.bc.t_refresh_pseudo_lsp[level - 1]);
 	circuit->lsp_regenerate_pending[level - 1] = 0;
 
 	memcpy(id, circuit->isis->sysid, ISIS_SYS_ID_LEN);
@@ -236,29 +223,27 @@ int isis_dr_resign(struct isis_circuit *circuit, int level)
 	if (level == 1) {
 		memset(circuit->u.bc.l1_desig_is, 0, ISIS_SYS_ID_LEN + 1);
 
-		thread_add_timer(master, send_l1_psnp, circuit,
-				 isis_jitter(circuit->psnp_interval[level - 1],
-					     PSNP_JITTER),
-				 &circuit->t_send_psnp[0]);
+		event_add_timer(master, send_l1_psnp, circuit,
+				isis_jitter(circuit->psnp_interval[level - 1],
+					    PSNP_JITTER),
+				&circuit->t_send_psnp[0]);
 	} else {
 		memset(circuit->u.bc.l2_desig_is, 0, ISIS_SYS_ID_LEN + 1);
 
-		thread_add_timer(master, send_l2_psnp, circuit,
-				 isis_jitter(circuit->psnp_interval[level - 1],
-					     PSNP_JITTER),
-				 &circuit->t_send_psnp[1]);
+		event_add_timer(master, send_l2_psnp, circuit,
+				isis_jitter(circuit->psnp_interval[level - 1],
+					    PSNP_JITTER),
+				&circuit->t_send_psnp[1]);
 	}
 
-	THREAD_OFF(circuit->t_send_csnp[level - 1]);
+	EVENT_OFF(circuit->t_send_csnp[level - 1]);
 
-	thread_add_timer(master, isis_run_dr,
-			 &circuit->level_arg[level - 1],
-			 2 * circuit->hello_interval[level - 1],
-			 &circuit->u.bc.t_run_dr[level - 1]);
+	event_add_timer(master, isis_run_dr, &circuit->level_arg[level - 1],
+			2 * circuit->hello_interval[level - 1],
+			&circuit->u.bc.t_run_dr[level - 1]);
 
 
-	thread_add_event(master, isis_event_dis_status_change, circuit, 0,
-			 NULL);
+	event_add_event(master, isis_event_dis_status_change, circuit, 0, NULL);
 
 	return ISIS_OK;
 }
@@ -289,10 +274,10 @@ int isis_dr_commence(struct isis_circuit *circuit, int level)
 		assert(circuit->circuit_id); /* must be non-zero */
 		lsp_generate_pseudo(circuit, 1);
 
-		thread_add_timer(master, send_l1_csnp, circuit,
-				 isis_jitter(circuit->csnp_interval[level - 1],
-					     CSNP_JITTER),
-				 &circuit->t_send_csnp[0]);
+		event_add_timer(master, send_l1_csnp, circuit,
+				isis_jitter(circuit->csnp_interval[level - 1],
+					    CSNP_JITTER),
+				&circuit->t_send_csnp[0]);
 
 	} else {
 		memcpy(old_dr, circuit->u.bc.l2_desig_is, ISIS_SYS_ID_LEN + 1);
@@ -309,18 +294,16 @@ int isis_dr_commence(struct isis_circuit *circuit, int level)
 		assert(circuit->circuit_id); /* must be non-zero */
 		lsp_generate_pseudo(circuit, 2);
 
-		thread_add_timer(master, send_l2_csnp, circuit,
-				 isis_jitter(circuit->csnp_interval[level - 1],
-					     CSNP_JITTER),
-				 &circuit->t_send_csnp[1]);
+		event_add_timer(master, send_l2_csnp, circuit,
+				isis_jitter(circuit->csnp_interval[level - 1],
+					    CSNP_JITTER),
+				&circuit->t_send_csnp[1]);
 	}
 
-	thread_add_timer(master, isis_run_dr,
-			 &circuit->level_arg[level - 1],
-			 2 * circuit->hello_interval[level - 1],
-			 &circuit->u.bc.t_run_dr[level - 1]);
-	thread_add_event(master, isis_event_dis_status_change, circuit, 0,
-			 NULL);
+	event_add_timer(master, isis_run_dr, &circuit->level_arg[level - 1],
+			2 * circuit->hello_interval[level - 1],
+			&circuit->u.bc.t_run_dr[level - 1]);
+	event_add_event(master, isis_event_dis_status_change, circuit, 0, NULL);
 
 	return ISIS_OK;
 }

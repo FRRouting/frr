@@ -1,22 +1,9 @@
 #!/usr/bin/env python
+# SPDX-License-Identifier: ISC
 
 #
 # Copyright (c) 2022 by
 # Donatas Abraitis <donatas@opensourcerouting.org>
-#
-# Permission to use, copy, modify, and/or distribute this software
-# for any purpose with or without fee is hereby granted, provided
-# that the above copyright notice and this permission notice appear
-# in all copies.
-#
-# THE SOFTWARE IS PROVIDED "AS IS" AND NETDEF DISCLAIMS ALL WARRANTIES
-# WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
-# MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL NETDEF BE LIABLE FOR
-# ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY
-# DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS,
-# WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS
-# ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE
-# OF THIS SOFTWARE.
 #
 
 """
@@ -95,7 +82,7 @@ def test_bgp_labeled_unicast_default_originate():
     _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
     assert result is None, "Failed to advertise default route for labeled-unicast"
 
-    def _bgp_check_received_routes():
+    def _bgp_check_received_ipv4_routes():
         output = json.loads(
             r2.vtysh_cmd("show bgp ipv4 labeled-unicast 0.0.0.0/0 json")
         )
@@ -107,14 +94,35 @@ def test_bgp_labeled_unicast_default_originate():
                     "community": {
                         "string": "65001:65001",
                     },
+                    "remoteLabel": 0,
                 }
             ]
         }
         return topotest.json_cmp(output, expected)
 
-    test_func = functools.partial(_bgp_check_received_routes)
+    test_func = functools.partial(_bgp_check_received_ipv4_routes)
     _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
-    assert result is None, "Failed to receive default route for labeled-unicast"
+    assert result is None, "Failed to receive IPv4 default route for labeled-unicast"
+
+    def _bgp_check_received_ipv6_routes():
+        output = json.loads(r2.vtysh_cmd("show bgp ipv6 labeled-unicast ::/0 json"))
+        expected = {
+            "paths": [
+                {
+                    "valid": True,
+                    "metric": 666,
+                    "community": {
+                        "string": "65001:65001",
+                    },
+                    "remoteLabel": 2,
+                }
+            ]
+        }
+        return topotest.json_cmp(output, expected)
+
+    test_func = functools.partial(_bgp_check_received_ipv6_routes)
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+    assert result is None, "Failed to receive IPv6 default route for labeled-unicast"
 
 
 if __name__ == "__main__":

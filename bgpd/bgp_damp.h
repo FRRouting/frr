@@ -1,21 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* BGP flap dampening
  * Copyright (C) 2001 IP Infusion Inc.
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef _QUAGGA_BGP_DAMP_H
@@ -80,7 +65,6 @@ struct bgp_damp_config {
 	/* Non-configurable parameters but fixed at implementation time.
 	 * To change this values, init_bgp_damp() should be modified.
 	 */
-	time_t tmax; /* Max time previous instability retained */
 	unsigned int reuse_list_size;  /* Number of reuse lists */
 	unsigned int reuse_index_size; /* Size of reuse index array */
 
@@ -90,8 +74,8 @@ struct bgp_damp_config {
 	unsigned int ceiling;		  /* Max value a penalty can attain */
 	unsigned int decay_rate_per_tick; /* Calculated from half-life */
 	unsigned int decay_array_size; /* Calculated using config parameters */
-	double scale_factor;
 	unsigned int reuse_scale_factor;
+	double scale_factor;
 
 	/* Decay array per-set based. */
 	double *decay_array;
@@ -102,15 +86,15 @@ struct bgp_damp_config {
 	/* Reuse list array per-set based. */
 	struct bgp_damp_info **reuse_list;
 	int reuse_offset;
+	safi_t safi;
 
 	/* All dampening information which is not on reuse list.  */
 	struct bgp_damp_info *no_reuse_list;
 
 	/* Reuse timer thread per-set base. */
-	struct thread *t_reuse;
+	struct event *t_reuse;
 
 	afi_t afi;
-	safi_t safi;
 };
 
 #define BGP_DAMP_NONE           0

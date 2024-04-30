@@ -1,27 +1,15 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Zebra Traffic Control (TC) interaction with the kernel using netlink.
  *
  * Copyright (C) 2022 Shichu Yang
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
 
 #ifdef HAVE_NETLINK
 
+#include <linux/rtnetlink.h>
 #include <linux/pkt_cls.h>
 #include <linux/pkt_sched.h>
 #include <netinet/if_ether.h>
@@ -173,7 +161,7 @@ static ssize_t netlink_qdisc_msg_encode(int cmd, struct zebra_dplane_ctx *ctx,
 		struct nlmsghdr n;
 		struct tcmsg t;
 		char buf[0];
-	} *req = (void *)data;
+	} *req = data;
 
 	if (datalen < sizeof(*req))
 		return 0;
@@ -249,7 +237,7 @@ static ssize_t netlink_tclass_msg_encode(int cmd, struct zebra_dplane_ctx *ctx,
 		struct nlmsghdr n;
 		struct tcmsg t;
 		char buf[0];
-	} *req = (void *)data;
+	} *req = data;
 
 	if (datalen < sizeof(*req))
 		return 0;
@@ -499,7 +487,7 @@ static ssize_t netlink_tfilter_msg_encode(int cmd, struct zebra_dplane_ctx *ctx,
 		struct nlmsghdr n;
 		struct tcmsg t;
 		char buf[0];
-	} *req = (void *)data;
+	} *req = data;
 
 	if (datalen < sizeof(*req))
 		return 0;
@@ -716,6 +704,8 @@ int netlink_qdisc_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 {
 	struct tcmsg *tcm;
 	struct zebra_tc_qdisc qdisc = {};
+	enum tc_qdisc_kind kind = TC_QDISC_UNSPEC;
+	const char *kind_str = "Unknown";
 
 	int len;
 	struct rtattr *tb[TCA_MAX + 1];
@@ -735,9 +725,11 @@ int netlink_qdisc_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 	tcm = NLMSG_DATA(h);
 	netlink_parse_rtattr(tb, TCA_MAX, TCA_RTA(tcm), len);
 
-	const char *kind_str = (const char *)RTA_DATA(tb[TCA_KIND]);
+	if (RTA_DATA(tb[TCA_KIND])) {
+		kind_str = (const char *)RTA_DATA(tb[TCA_KIND]);
 
-	enum tc_qdisc_kind kind = tc_qdisc_str2kind(kind_str);
+		kind = tc_qdisc_str2kind(kind_str);
+	}
 
 	qdisc.qdisc.ifindex = tcm->tcm_ifindex;
 
@@ -745,7 +737,8 @@ int netlink_qdisc_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 	case TC_QDISC_NOQUEUE:
 		/* "noqueue" is the default qdisc */
 		break;
-	default:
+	case TC_QDISC_HTB:
+	case TC_QDISC_UNSPEC:
 		break;
 	}
 

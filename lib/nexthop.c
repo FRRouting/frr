@@ -1,21 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* A generic nexthop structure
  * Copyright (C) 2013 Cumulus Networks, Inc.
- *
- * This file is part of Quagga.
- *
- * Quagga is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * Quagga is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 #include <zebra.h>
 
@@ -71,6 +56,7 @@ static int _nexthop_srv6_cmp(const struct nexthop *nh1,
 			     const struct nexthop *nh2)
 {
 	int ret = 0;
+	int i = 0;
 
 	if (!nh1->nh_srv6 && !nh2->nh_srv6)
 		return 0;
@@ -93,9 +79,26 @@ static int _nexthop_srv6_cmp(const struct nexthop *nh1,
 	if (ret != 0)
 		return ret;
 
-	ret = memcmp(&nh1->nh_srv6->seg6_segs,
-		     &nh2->nh_srv6->seg6_segs,
-		     sizeof(struct in6_addr));
+	if (!nh1->nh_srv6->seg6_segs && !nh2->nh_srv6->seg6_segs)
+		return 0;
+
+	if (!nh1->nh_srv6->seg6_segs && nh2->nh_srv6->seg6_segs)
+		return -1;
+
+	if (nh1->nh_srv6->seg6_segs && !nh2->nh_srv6->seg6_segs)
+		return 1;
+
+	if (nh1->nh_srv6->seg6_segs->num_segs !=
+	    nh2->nh_srv6->seg6_segs->num_segs)
+		return -1;
+
+	for (i = 0; i < nh1->nh_srv6->seg6_segs->num_segs; i++) {
+		ret = memcmp(&nh1->nh_srv6->seg6_segs->seg[i],
+			     &nh2->nh_srv6->seg6_segs->seg[i],
+			     sizeof(struct in6_addr));
+		if (ret != 0)
+			break;
+	}
 
 	return ret;
 }
@@ -170,7 +173,7 @@ static int _nexthop_cmp_no_labels(const struct nexthop *next1,
 		ret = _nexthop_gateway_cmp(next1, next2);
 		if (ret != 0)
 			return ret;
-		/* Intentional Fall-Through */
+		fallthrough;
 	case NEXTHOP_TYPE_IFINDEX:
 		if (next1->ifindex < next2->ifindex)
 			return -1;
@@ -292,7 +295,7 @@ int nexthop_cmp_basic(const struct nexthop *nh1,
 		ret = nexthop_g_addr_cmp(nh1->type, &nh1->gate, &nh2->gate);
 		if (ret != 0)
 			return ret;
-		/* Intentional Fall-Through */
+		fallthrough;
 	case NEXTHOP_TYPE_IFINDEX:
 		if (nh1->ifindex < nh2->ifindex)
 			return -1;
@@ -377,7 +380,7 @@ struct nexthop *nexthop_new(void)
 	 * The linux kernel does some weird stuff with adding +1 to
 	 * all nexthop weights it gets over netlink.
 	 * To handle this, just default everything to 1 right from
-	 * from the beginning so we don't have to special case
+	 * the beginning so we don't have to special case
 	 * default weights in the linux netlink code.
 	 *
 	 * 1 should be a valid on all platforms anyway.
@@ -583,15 +586,25 @@ void nexthop_del_srv6_seg6local(struct nexthop *nexthop)
 	if (!nexthop->nh_srv6)
 		return;
 
+	if (nexthop->nh_srv6->seg6local_action == ZEBRA_SEG6_LOCAL_ACTION_UNSPEC)
+		return;
+
 	nexthop->nh_srv6->seg6local_action = ZEBRA_SEG6_LOCAL_ACTION_UNSPEC;
 
-	if (sid_zero(&nexthop->nh_srv6->seg6_segs))
+	if (nexthop->nh_srv6->seg6_segs &&
+	    (nexthop->nh_srv6->seg6_segs->num_segs == 0 ||
+	     sid_zero(nexthop->nh_srv6->seg6_segs)))
+		XFREE(MTYPE_NH_SRV6, nexthop->nh_srv6->seg6_segs);
+
+	if (nexthop->nh_srv6->seg6_segs == NULL)
 		XFREE(MTYPE_NH_SRV6, nexthop->nh_srv6);
 }
 
-void nexthop_add_srv6_seg6(struct nexthop *nexthop,
-			   const struct in6_addr *segs)
+void nexthop_add_srv6_seg6(struct nexthop *nexthop, const struct in6_addr *segs,
+			   int num_segs)
 {
+	int i;
+
 	if (!segs)
 		return;
 
@@ -599,7 +612,22 @@ void nexthop_add_srv6_seg6(struct nexthop *nexthop,
 		nexthop->nh_srv6 = XCALLOC(MTYPE_NH_SRV6,
 					   sizeof(struct nexthop_srv6));
 
-	nexthop->nh_srv6->seg6_segs = *segs;
+	/* Enforce limit on srv6 seg stack size */
+	if (num_segs > SRV6_MAX_SIDS)
+		num_segs = SRV6_MAX_SIDS;
+
+	if (!nexthop->nh_srv6->seg6_segs) {
+		nexthop->nh_srv6->seg6_segs =
+			XCALLOC(MTYPE_NH_SRV6,
+				sizeof(struct seg6_seg_stack) +
+					num_segs * sizeof(struct in6_addr));
+	}
+
+	nexthop->nh_srv6->seg6_segs->num_segs = num_segs;
+
+	for (i = 0; i < num_segs; i++)
+		memcpy(&nexthop->nh_srv6->seg6_segs->seg[i], &segs[i],
+		       sizeof(struct in6_addr));
 }
 
 void nexthop_del_srv6_seg6(struct nexthop *nexthop)
@@ -607,12 +635,14 @@ void nexthop_del_srv6_seg6(struct nexthop *nexthop)
 	if (!nexthop->nh_srv6)
 		return;
 
-	memset(&nexthop->nh_srv6->seg6_segs, 0,
-	       sizeof(nexthop->nh_srv6->seg6_segs));
-
-	if (nexthop->nh_srv6->seg6local_action ==
-	    ZEBRA_SEG6_LOCAL_ACTION_UNSPEC)
-		XFREE(MTYPE_NH_SRV6, nexthop->nh_srv6);
+	if (nexthop->nh_srv6->seg6local_action == ZEBRA_SEG6_LOCAL_ACTION_UNSPEC &&
+			nexthop->nh_srv6->seg6_segs) {
+		memset(nexthop->nh_srv6->seg6_segs->seg, 0,
+		       sizeof(struct in6_addr) *
+			       nexthop->nh_srv6->seg6_segs->num_segs);
+		XFREE(MTYPE_NH_SRV6, nexthop->nh_srv6->seg6_segs);
+	}
+	XFREE(MTYPE_NH_SRV6, nexthop->nh_srv6);
 }
 
 const char *nexthop2str(const struct nexthop *nexthop, char *str, int size)
@@ -758,11 +788,32 @@ uint32_t nexthop_hash_quick(const struct nexthop *nexthop)
 	}
 
 	if (nexthop->nh_srv6) {
-		key = jhash_1word(nexthop->nh_srv6->seg6local_action, key);
-		key = jhash(&nexthop->nh_srv6->seg6local_ctx,
-			    sizeof(nexthop->nh_srv6->seg6local_ctx), key);
-		key = jhash(&nexthop->nh_srv6->seg6_segs,
-			    sizeof(nexthop->nh_srv6->seg6_segs), key);
+		int segs_num = 0;
+		int i = 0;
+
+		if (nexthop->nh_srv6->seg6local_action !=
+		    ZEBRA_SEG6_LOCAL_ACTION_UNSPEC) {
+			key = jhash_1word(nexthop->nh_srv6->seg6local_action,
+					  key);
+			key = jhash(&nexthop->nh_srv6->seg6local_ctx,
+				    sizeof(nexthop->nh_srv6->seg6local_ctx),
+				    key);
+			if (nexthop->nh_srv6->seg6_segs)
+				key = jhash(&nexthop->nh_srv6->seg6_segs->seg[0],
+					    sizeof(struct in6_addr), key);
+		} else {
+			if (nexthop->nh_srv6->seg6_segs) {
+				segs_num = nexthop->nh_srv6->seg6_segs->num_segs;
+				while (segs_num >= 1) {
+					key = jhash(&nexthop->nh_srv6->seg6_segs
+							    ->seg[i],
+						    sizeof(struct in6_addr),
+						    key);
+					segs_num -= 1;
+					i += 1;
+				}
+			}
+		}
 	}
 
 	return key;
@@ -812,6 +863,7 @@ void nexthop_copy_no_recurse(struct nexthop *copy,
 	memcpy(&copy->gate, &nexthop->gate, sizeof(nexthop->gate));
 	memcpy(&copy->src, &nexthop->src, sizeof(nexthop->src));
 	memcpy(&copy->rmap_src, &nexthop->rmap_src, sizeof(nexthop->rmap_src));
+	memcpy(&copy->rmac, &nexthop->rmac, sizeof(nexthop->rmac));
 	copy->rparent = rparent;
 	if (nexthop->nh_label)
 		nexthop_add_labels(copy, nexthop->nh_label_type,
@@ -824,9 +876,13 @@ void nexthop_copy_no_recurse(struct nexthop *copy,
 			nexthop_add_srv6_seg6local(copy,
 				nexthop->nh_srv6->seg6local_action,
 				&nexthop->nh_srv6->seg6local_ctx);
-		if (!sid_zero(&nexthop->nh_srv6->seg6_segs))
+		if (nexthop->nh_srv6->seg6_segs &&
+		    nexthop->nh_srv6->seg6_segs->num_segs &&
+		    !sid_zero(nexthop->nh_srv6->seg6_segs))
 			nexthop_add_srv6_seg6(copy,
-				&nexthop->nh_srv6->seg6_segs);
+					      &nexthop->nh_srv6->seg6_segs->seg[0],
+					      nexthop->nh_srv6->seg6_segs
+						      ->num_segs);
 	}
 }
 
@@ -947,6 +1003,8 @@ ssize_t printfrr_nhs(struct fbuf *buf, const struct nexthop *nexthop)
 		ret += bputs(buf, "blackhole");
 		break;
 	}
+
+	ret += bprintfrr(buf, " vrfid %u", nexthop->vrf_id);
 	return ret;
 }
 
@@ -1090,4 +1148,13 @@ static ssize_t printfrr_nh(struct fbuf *buf, struct printfrr_eargs *ea,
 		return ret;
 	}
 	return -1;
+}
+
+bool nexthop_is_ifindex_type(const struct nexthop *nh)
+{
+	if (nh->type == NEXTHOP_TYPE_IFINDEX ||
+	    nh->type == NEXTHOP_TYPE_IPV4_IFINDEX ||
+	    nh->type == NEXTHOP_TYPE_IPV6_IFINDEX)
+		return true;
+	return false;
 }

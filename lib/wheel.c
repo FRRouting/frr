@@ -1,25 +1,12 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Timer Wheel
  * Copyright (C) 2016 Cumulus Networks, Inc.
  * Donald Sharp
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 #include "zebra.h"
 #include "linklist.h"
-#include "thread.h"
+#include "frrevent.h"
 #include "memory.h"
 #include "wheel.h"
 #include "log.h"
@@ -29,9 +16,9 @@ DEFINE_MTYPE_STATIC(LIB, TIMER_WHEEL_LIST, "Timer Wheel Slot List");
 
 static int debug_timer_wheel = 0;
 
-static void wheel_timer_thread(struct thread *t);
+static void wheel_timer_thread(struct event *t);
 
-static void wheel_timer_thread_helper(struct thread *t)
+static void wheel_timer_thread_helper(struct event *t)
 {
 	struct listnode *node, *nextnode;
 	unsigned long long curr_slot;
@@ -39,7 +26,7 @@ static void wheel_timer_thread_helper(struct thread *t)
 	struct timer_wheel *wheel;
 	void *data;
 
-	wheel = THREAD_ARG(t);
+	wheel = EVENT_ARG(t);
 
 	wheel->curr_slot += wheel->slots_to_skip;
 
@@ -60,23 +47,23 @@ static void wheel_timer_thread_helper(struct thread *t)
 		slots_to_skip++;
 
 	wheel->slots_to_skip = slots_to_skip;
-	thread_add_timer_msec(wheel->master, wheel_timer_thread, wheel,
-			      wheel->nexttime * slots_to_skip, &wheel->timer);
+	event_add_timer_msec(wheel->master, wheel_timer_thread, wheel,
+			     wheel->nexttime * slots_to_skip, &wheel->timer);
 }
 
-static void wheel_timer_thread(struct thread *t)
+static void wheel_timer_thread(struct event *t)
 {
 	struct timer_wheel *wheel;
 
-	wheel = THREAD_ARG(t);
+	wheel = EVENT_ARG(t);
 
-	thread_execute(wheel->master, wheel_timer_thread_helper, wheel, 0);
+	event_execute(wheel->master, wheel_timer_thread_helper, wheel, 0, NULL);
 }
 
-struct timer_wheel *wheel_init(struct thread_master *master, int period,
-			       size_t slots, unsigned int (*slot_key)(const void *),
-			       void (*slot_run)(void *),
-			       const char *run_name)
+struct timer_wheel *wheel_init(struct event_loop *master, int period,
+			       size_t slots,
+			       unsigned int (*slot_key)(const void *),
+			       void (*slot_run)(void *), const char *run_name)
 {
 	struct timer_wheel *wheel;
 	size_t i;
@@ -98,8 +85,8 @@ struct timer_wheel *wheel_init(struct thread_master *master, int period,
 	for (i = 0; i < slots; i++)
 		wheel->wheel_slot_lists[i] = list_new();
 
-	thread_add_timer_msec(wheel->master, wheel_timer_thread, wheel,
-			      wheel->nexttime, &wheel->timer);
+	event_add_timer_msec(wheel->master, wheel_timer_thread, wheel,
+			     wheel->nexttime, &wheel->timer);
 
 	return wheel;
 }
@@ -112,7 +99,7 @@ void wheel_delete(struct timer_wheel *wheel)
 		list_delete(&wheel->wheel_slot_lists[i]);
 	}
 
-	THREAD_OFF(wheel->timer);
+	EVENT_OFF(wheel->timer);
 	XFREE(MTYPE_TIMER_WHEEL_LIST, wheel->wheel_slot_lists);
 	XFREE(MTYPE_TIMER_WHEEL, wheel->name);
 	XFREE(MTYPE_TIMER_WHEEL, wheel);

@@ -1,10 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* NHRP packet handling functions
  * Copyright (c) 2014-2015 Timo Teräs
- *
- * This file is free software: you may copy, redistribute and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 2 of the License, or
- * (at your option) any later version.
  */
 
 #ifdef HAVE_CONFIG_H
@@ -14,7 +10,7 @@
 #include <netinet/if_ether.h>
 #include "nhrpd.h"
 #include "zbuf.h"
-#include "thread.h"
+#include "frrevent.h"
 #include "hash.h"
 
 #include "nhrp_protocol.h"
@@ -274,7 +270,7 @@ int nhrp_ext_reply(struct zbuf *zb, struct nhrp_packet_header *hdr,
 	default:
 		if (type & NHRP_EXTENSION_FLAG_COMPULSORY)
 			goto err;
-	/* fallthru */
+		fallthrough;
 	case NHRP_EXTENSION_FORWARD_TRANSIT_NHS:
 	case NHRP_EXTENSION_REVERSE_TRANSIT_NHS:
 		/* Supported compulsory extensions, and any
@@ -290,9 +286,9 @@ err:
 	return -1;
 }
 
-static void nhrp_packet_recvraw(struct thread *t)
+static void nhrp_packet_recvraw(struct event *t)
 {
-	int fd = THREAD_FD(t), ifindex;
+	int fd = EVENT_FD(t), ifindex;
 	struct zbuf *zb;
 	struct interface *ifp;
 	struct nhrp_peer *p;
@@ -300,7 +296,7 @@ static void nhrp_packet_recvraw(struct thread *t)
 	uint8_t addr[64];
 	size_t len, addrlen;
 
-	thread_add_read(master, nhrp_packet_recvraw, 0, fd, NULL);
+	event_add_read(master, nhrp_packet_recvraw, 0, fd, NULL);
 
 	zb = zbuf_alloc(1500);
 	if (!zb)
@@ -340,6 +336,6 @@ err:
 
 int nhrp_packet_init(void)
 {
-	thread_add_read(master, nhrp_packet_recvraw, 0, os_socket(), NULL);
+	event_add_read(master, nhrp_packet_recvraw, 0, os_socket(), NULL);
 	return 0;
 }

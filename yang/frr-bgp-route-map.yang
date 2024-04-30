@@ -23,6 +23,10 @@ module frr-bgp-route-map {
     prefix rt-types;
   }
 
+  import frr-route-types {
+    prefix frr-route-types;
+  }
+
   organization
     "Free Range Routing";
   contact
@@ -168,6 +172,12 @@ module frr-bgp-route-map {
       "Match IPv6 next hop address";
   }
 
+  identity source-protocol {
+    base frr-route-map:rmap-match-type;
+    description
+      "Match protocol via which the route was learnt";
+  }
+
   identity distance {
     base frr-route-map:rmap-set-type;
     description
@@ -186,6 +196,12 @@ module frr-bgp-route-map {
       "Set BGP extended community attribute";
   }
 
+  identity set-extcommunity-nt {
+    base frr-route-map:rmap-set-type;
+    description
+      "Set BGP extended community attribute";
+  }
+
   identity set-extcommunity-soo {
     base frr-route-map:rmap-set-type;
     description
@@ -193,6 +209,12 @@ module frr-bgp-route-map {
   }
 
   identity set-extcommunity-lb {
+    base frr-route-map:rmap-set-type;
+    description
+      "Set BGP extended community attribute";
+  }
+
+identity set-extcommunity-color {
     base frr-route-map:rmap-set-type;
     description
       "Set BGP extended community attribute";
@@ -330,6 +352,12 @@ module frr-bgp-route-map {
       "Set BGP large community list (for deletion)";
   }
 
+  identity extended-comm-list-delete {
+    base frr-route-map:rmap-set-type;
+    description
+      "Set BGP extended community list (for deletion)";
+  }
+
   identity set-evpn-gateway-ip-ipv4 {
     base frr-route-map:rmap-set-type;
     description
@@ -351,9 +379,106 @@ module frr-bgp-route-map {
   grouping extcommunity-non-transitive-types {
     leaf two-octet-as-specific {
       type boolean;
+      default false;
       description
         "Non-Transitive Two-Octet AS-Specific Extended Community";
     }
+  }
+
+  typedef route-distinguisher {
+    type string {
+      pattern
+        '(0:(6553[0-5]|655[0-2][0-9]|65[0-4][0-9]{2}|'
+      +     '6[0-4][0-9]{3}|'
+      +     '[1-5][0-9]{4}|[1-9][0-9]{0,3}|0):(429496729[0-5]|'
+      +     '42949672[0-8][0-9]|'
+      +     '4294967[01][0-9]{2}|429496[0-6][0-9]{3}|'
+      +     '42949[0-5][0-9]{4}|'
+      +     '4294[0-8][0-9]{5}|429[0-3][0-9]{6}|'
+      +     '42[0-8][0-9]{7}|4[01][0-9]{8}|'
+      +     '[1-3][0-9]{9}|[1-9][0-9]{0,8}|0))|'
+      + '(1:((([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|'
+      +     '25[0-5])\.){3}([0-9]|[1-9][0-9]|'
+      +     '1[0-9]{2}|2[0-4][0-9]|25[0-5])):(6553[0-5]|'
+      +     '655[0-2][0-9]|'
+      +     '65[0-4][0-9]{2}|6[0-4][0-9]{3}|'
+      +     '[1-5][0-9]{4}|[1-9][0-9]{0,3}|0))|'
+      + '(2:(429496729[0-5]|42949672[0-8][0-9]|'
+      +     '4294967[01][0-9]{2}|'
+      +     '429496[0-6][0-9]{3}|42949[0-5][0-9]{4}|'
+      +     '4294[0-8][0-9]{5}|'
+      +     '429[0-3][0-9]{6}|42[0-8][0-9]{7}|4[01][0-9]{8}|'
+      +     '[1-3][0-9]{9}|[1-9][0-9]{0,8}|0):'
+      +     '(6553[0-5]|655[0-2][0-9]|65[0-4][0-9]{2}|'
+      +     '6[0-4][0-9]{3}|'
+      +     '[1-5][0-9]{4}|[1-9][0-9]{0,3}|0))|'
+      + '(6(:[a-fA-F0-9]{2}){6})|'
+      + '(([3-57-9a-fA-F]|[1-9a-fA-F][0-9a-fA-F]{1,3}):'
+      +     '[0-9a-fA-F]{1,12})|'
+      +  '((6553[0-5]|655[0-2][0-9]|65[0-4][0-9]{2}|'
+      +     '6[0-4][0-9]{3}|'
+      +     '[1-5][0-9]{4}|[1-9][0-9]{0,3}|0):(429496729[0-5]|'
+      +     '42949672[0-8][0-9]|'
+      +     '4294967[01][0-9]{2}|429496[0-6][0-9]{3}|'
+      +     '42949[0-5][0-9]{4}|'
+      +     '4294[0-8][0-9]{5}|429[0-3][0-9]{6}|'
+      +     '42[0-8][0-9]{7}|4[01][0-9]{8}|'
+      +     '[1-3][0-9]{9}|[1-9][0-9]{0,8}|0)|'
+      +  '((([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|'
+      +     '25[0-5])\.){3}([0-9]|[1-9][0-9]|'
+      +     '1[0-9]{2}|2[0-4][0-9]|25[0-5])):(6553[0-5]|'
+      +     '655[0-2][0-9]|'
+      +     '65[0-4][0-9]{2}|6[0-4][0-9]{3}|'
+      +     '[1-5][0-9]{4}|[1-9][0-9]{0,3}|0))|'
+      + '((429496729[0-5]|42949672[0-8][0-9]|'
+      +     '4294967[01][0-9]{2}|'
+      +     '429496[0-6][0-9]{3}|42949[0-5][0-9]{4}|'
+      +     '4294[0-8][0-9]{5}|'
+      +     '429[0-3][0-9]{6}|42[0-8][0-9]{7}|4[01][0-9]{8}|'
+      +     '[1-3][0-9]{9}|[1-9][0-9]{0,8}|0):'
+      +     '(6553[0-5]|655[0-2][0-9]|65[0-4][0-9]{2}|'
+      +     '6[0-4][0-9]{3}|'
+      +     '[1-5][0-9]{4}|[1-9][0-9]{0,3}|0))|'
+      +  '((6553[0-5]|655[0-2][0-9]|65[0-4][0-9]{2}|'
+      +     '6[0-4][0-9]{3}|'
+      +     '[1-5][0-9]{4}|[1-9][0-9]{0,3}|0).'
+      +  '(6553[0-5]|655[0-2][0-9]|65[0-4][0-9]{2}|'
+      +     '6[0-4][0-9]{3}|'
+      +     '[1-5][0-9]{4}|[1-9][0-9]{0,3}|0):'
+      +     '(429496729[0-5]|42949672[0-8][0-9]|'
+      +     '4294967[01][0-9]{2}|'
+      +     '429496[0-6][0-9]{3}|42949[0-5][0-9]{4}|'
+      +     '4294[0-8][0-9]{5}|'
+      +     '429[0-3][0-9]{6}|42[0-8][0-9]{7}|4[01][0-9]{8}|'
+      +     '[1-3][0-9]{9}|[1-9][0-9]{0,8}|0))';
+    }
+
+    description
+      "A Route Distinguisher is an 8-octet value used to
+       distinguish routes from different BGP VPNs (RFC 4364).
+       A Route Distinguisher will have the same format as a
+       Route Target as per RFC 4360 and will consist of
+       two or three fields: a 2-octet Type field, an administrator
+       field, and, optionally, an assigned number field.
+       According to the data formats for types 0, 1, 2, and 6 as
+       defined in RFC 4360, RFC 5668, and RFC 7432, the encoding
+       pattern is defined as:
+       0:2-octet-asn:4-octet-number
+       1:4-octet-ipv4addr:2-octet-number
+       2:4-octet-asn:2-octet-number
+       6:6-octet-mac-address
+       Additionally, a generic pattern is defined for future
+       route discriminator types:
+       2-octet-other-hex-number:6-octet-hex-number
+       Some valid examples are 0:100:100, 1:1.1.1.1:100,
+       2:1234567890:203, and 6:26:00:08:92:78:00.
+       The following route distinguisher with two fields are also
+       accepted : 10000:44 1.2.3.4:44.";
+    reference
+      "RFC 4360: BGP Extended Communities Attribute.
+       RFC 4364: BGP/MPLS IP Virtual Private Networks (VPNs).
+       RFC 5668: 4-Octet AS Specific BGP Extended Community.
+       RFC 7432: BGP MPLS-Based Ethernet VPN.";
   }
 
   typedef extcommunity-lb-type {
@@ -376,6 +501,43 @@ module frr-bgp-route-map {
     }
     description
       "ext-community link bandwidth types.";
+  }
+
+  typedef asn-type {
+    type union {
+      type uint32 {
+        range "1..4294967295";
+      }
+      type string {
+        pattern '(0|[1-9][0-9]{0,3}|[1-5][0-9]{4}|'
+        +  '6[0-4][0-9]{3}|65[0-4][0-9]{2}|'
+        +  '655[0-2][0-9]|6553[0-5])\.'
+        +  '(0|[1-9][0-9]{0,3}|[1-5][0-9]{4}|6[0-4][0-9]{3}|'
+        +  '65[0-4][0-9]{2}|655[0-2][0-9]|6553[0-5])' {
+          error-message "AS dot should be in the form [0..65535].[0..65535].";
+        }
+        pattern '^0\.0$' {
+          modifier "invert-match";
+          error-message "AS dot can't be equal to 0.0.";
+        }
+      }
+    }
+  }
+
+  typedef color-list {
+    type string {
+      pattern '((429496729[0-5]|42949672[0-8][0-9]|'
+      +	    '4294967[0-1][0-9]{2}|429496[0-6][0-9]{3}|'
+      +	    '42949[0-5][0-9]{4}|4294[0-8][0-9]{5}|'
+      +	    '429[0-3][0-9]{6}|42[0-8][0-9]{7}|'
+      +	    '4[0-1][0-9]{8}|[1-3][0-9]{9}|'
+      +	    '[1-9][0-9]{0,8})(\s*))+';
+    }
+    description
+      "The color-list type represent a set of colors of value (1..4294967295)
+       values are separated by white spaces";
+    reference
+      "RFC 9012 - The BGP Tunnel Encapsulation Attribute";
   }
 
   augment "/frr-route-map:lib/frr-route-map:route-map/frr-route-map:entry/frr-route-map:match-condition/frr-route-map:rmap-match-condition/frr-route-map:match-condition" {
@@ -598,7 +760,7 @@ module frr-bgp-route-map {
       description
         "Match eVPN route-distinguisher";
       leaf route-distinguisher {
-        type rt-types:route-distinguisher;
+        type route-distinguisher;
       }
     }
 
@@ -608,6 +770,7 @@ module frr-bgp-route-map {
         + "derived-from-or-self(/frr-route-map:lib/frr-route-map:route-map/frr-route-map:entry/frr-route-map:match-condition/frr-route-map:condition, 'frr-bgp-route-map:match-extcommunity')";
       container comm-list {
         leaf comm-list-name {
+          mandatory true;
           type bgp-filter:bgp-list-name;
         }
 
@@ -616,6 +779,13 @@ module frr-bgp-route-map {
           description
             "Do exact matching of communities";
         }
+
+        leaf comm-list-name-any {
+          type boolean;
+          description
+            "Do matching of any community";
+        }
+
       }
     }
 
@@ -636,6 +806,13 @@ module frr-bgp-route-map {
           "IPv6 address";
       }
     }
+
+    case source-protocol {
+      when "derived-from-or-self(../frr-route-map:condition, 'frr-bgp-route-map:source-protocol')";
+      leaf source-protocol {
+        type frr-route-types:frr-route-types;
+      }
+    }
   }
 
   augment "/frr-route-map:lib/frr-route-map:route-map/frr-route-map:entry/frr-route-map:set-action/frr-route-map:rmap-set-action/frr-route-map:set-action" {
@@ -643,7 +820,7 @@ module frr-bgp-route-map {
       when "derived-from-or-self(/frr-route-map:lib/frr-route-map:route-map/frr-route-map:entry/frr-route-map:set-action/frr-route-map:action, 'frr-bgp-route-map:distance')";
       leaf distance {
         type uint8 {
-          range "0..255";
+          range "1..255";
         }
       }
     }
@@ -669,6 +846,17 @@ module frr-bgp-route-map {
       }
     }
 
+    case extcommunity-nt {
+      when "derived-from-or-self(/frr-route-map:lib/frr-route-map:route-map/frr-route-map:entry/frr-route-map:set-action/frr-route-map:action, 'frr-bgp-route-map:set-extcommunity-nt')";
+      description
+        "Value of the ext-community";
+      leaf extcommunity-nt {
+        type string;
+        description
+          "Set BGP ext-community node-target attribute";
+      }
+    }
+
     case extcommunity-soo {
       when "derived-from-or-self(/frr-route-map:lib/frr-route-map:route-map/frr-route-map:entry/frr-route-map:set-action/frr-route-map:action, 'frr-bgp-route-map:set-extcommunity-soo')";
       description
@@ -686,11 +874,13 @@ module frr-bgp-route-map {
         description
           "Value of the ext-community.";
         leaf lb-type {
+          mandatory true;
           type frr-bgp-route-map:extcommunity-lb-type;
         }
 
         leaf bandwidth {
           when "../lb-type = 'explicit-bandwidth'";
+          mandatory true;
           type uint16 {
             range "1..25600";
           }
@@ -698,6 +888,19 @@ module frr-bgp-route-map {
             "Bandwidth value in Mbps";
         }
         uses extcommunity-non-transitive-types;
+      }
+    }
+
+   case extcommunity-color {
+      when "derived-from-or-self(/frr-route-map:lib/frr-route-map:route-map/frr-route-map:entry/frr-route-map:set-action/frr-route-map:action, 'frr-bgp-route-map:set-extcommunity-color')";
+      description
+        "Value of the ext-community";
+      leaf extcommunity-color {
+        type color-list;
+        description
+          "Set BGP ext-community color attribute with a list of colors";
+	reference
+	  "RFC9012";
       }
     }
 
@@ -908,17 +1111,15 @@ module frr-bgp-route-map {
       when "derived-from-or-self(/frr-route-map:lib/frr-route-map:route-map/frr-route-map:entry/frr-route-map:set-action/frr-route-map:action, 'frr-bgp-route-map:aggregator')";
       container aggregator {
         leaf aggregator-asn {
-          type uint32 {
-            range "1..4294967295";
-          }
+          type asn-type;
+          mandatory true;
           description
             "ASN of the aggregator";
         }
 
         leaf aggregator-address {
-          when "../aggregator-asn > 0 or "
-             + "../aggregator-asn <= 4294967295";
           type inet:ipv4-address;
+          mandatory true;
           description
             "IPv4 address of the aggregator";
         }
@@ -927,7 +1128,9 @@ module frr-bgp-route-map {
 
     case comm-list-name {
       when "derived-from-or-self(/frr-route-map:lib/frr-route-map:route-map/frr-route-map:entry/frr-route-map:set-action/frr-route-map:action, 'frr-bgp-route-map:comm-list-delete') or "
-        + "derived-from-or-self(/frr-route-map:lib/frr-route-map:route-map/frr-route-map:entry/frr-route-map:set-action/frr-route-map:action, 'frr-bgp-route-map:large-comm-list-delete')";
+        + "derived-from-or-self(/frr-route-map:lib/frr-route-map:route-map/frr-route-map:entry/frr-route-map:set-action/frr-route-map:action, 'frr-bgp-route-map:large-comm-list-delete') or "
+        + "derived-from-or-self(/frr-route-map:lib/frr-route-map:route-map/frr-route-map:entry/frr-route-map:set-action/frr-route-map:action,
+'frr-bgp-route-map:extended-comm-list-delete')";
       leaf comm-list-name {
         type bgp-filter:bgp-list-name;
       }

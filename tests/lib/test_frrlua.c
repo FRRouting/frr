@@ -1,20 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * frrlua unit tests
  * Copyright (C) 2021  Donald Lee
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -26,19 +13,28 @@ static void test_encode_decode(void)
 {
 	lua_State *L = luaL_newstate();
 
-	long long a = 123;
-	long long b = a;
+	int a = 123;
+	int b = a;
 
 	lua_pushintegerp(L, &a);
 	lua_decode_integerp(L, -1, &a);
 	assert(a == b);
 	assert(lua_gettop(L) == 0);
 
-	time_t time_a = 100;
-	time_t time_b = time_a;
+	long long ll_a = 123L;
+	long long ll_b = a;
 
-	lua_pushtimet(L, &time_a);
-	lua_decode_timet(L, -1, &time_a);
+	lua_pushlonglongp(L, &ll_a);
+	lua_decode_longlongp(L, -1, &ll_a);
+	assert(ll_a == ll_b);
+	assert(lua_gettop(L) == 0);
+
+	time_t time_a = 100;
+	time_t time_b;
+
+	lua_pushinteger(L, time_a);
+	time_b = lua_tointeger(L, -1);
+	lua_pop(L, 1);
 	assert(time_a == time_b);
 	assert(lua_gettop(L) == 0);
 

@@ -1,23 +1,9 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * BFD daemon northbound implementation.
  *
  * Copyright (C) 2019 Network Device Education Foundation, Inc. ("NetDEF")
  *                    Rafael Zalamena
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
- * 02110-1301 USA.
  */
 
 #include <zebra.h>
@@ -38,17 +24,17 @@ static void bfd_session_get_key(bool mhop, const struct lyd_node *dnode,
 	struct sockaddr_any psa, lsa;
 
 	/* Required destination parameter. */
-	strtosa(yang_dnode_get_string(dnode, "./dest-addr"), &psa);
+	strtosa(yang_dnode_get_string(dnode, "dest-addr"), &psa);
 
 	/* Get optional source address. */
 	memset(&lsa, 0, sizeof(lsa));
-	if (yang_dnode_exists(dnode, "./source-addr"))
-		strtosa(yang_dnode_get_string(dnode, "./source-addr"), &lsa);
+	if (yang_dnode_exists(dnode, "source-addr"))
+		strtosa(yang_dnode_get_string(dnode, "source-addr"), &lsa);
 
-	vrfname = yang_dnode_get_string(dnode, "./vrf");
+	vrfname = yang_dnode_get_string(dnode, "vrf");
 
 	if (!mhop) {
-		ifname = yang_dnode_get_string(dnode, "./interface");
+		ifname = yang_dnode_get_string(dnode, "interface");
 		if (strcmp(ifname, "*") == 0)
 			ifname = NULL;
 	}
@@ -67,7 +53,7 @@ static int session_iter_cb(const struct lyd_node *dnode, void *arg)
 	struct session_iter *iter = arg;
 	const char *ifname;
 
-	ifname = yang_dnode_get_string(dnode, "./interface");
+	ifname = yang_dnode_get_string(dnode, "interface");
 
 	if (strmatch(ifname, "*"))
 		iter->wildcard = true;
@@ -90,7 +76,7 @@ static int bfd_session_create(struct nb_cb_create_args *args, bool mhop)
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
-		yang_dnode_get_prefix(&p, args->dnode, "./dest-addr");
+		yang_dnode_get_prefix(&p, args->dnode, "dest-addr");
 
 		if (mhop) {
 			/*
@@ -111,7 +97,7 @@ static int bfd_session_create(struct nb_cb_create_args *args, bool mhop)
 		 * require interface name, otherwise we can't figure
 		 * which interface to use to send the packets.
 		 */
-		ifname = yang_dnode_get_string(args->dnode, "./interface");
+		ifname = yang_dnode_get_string(args->dnode, "interface");
 
 		if (p.family == AF_INET6 && IN6_IS_ADDR_LINKLOCAL(&p.u.prefix6)
 		    && strcmp(ifname, "*") == 0) {
@@ -126,8 +112,8 @@ static int bfd_session_create(struct nb_cb_create_args *args, bool mhop)
 
 		sess_dnode = yang_dnode_get_parent(args->dnode, "sessions");
 
-		dest = yang_dnode_get_string(args->dnode, "./dest-addr");
-		vrfname = yang_dnode_get_string(args->dnode, "./vrf");
+		dest = yang_dnode_get_string(args->dnode, "dest-addr");
+		vrfname = yang_dnode_get_string(args->dnode, "vrf");
 
 		yang_dnode_iterate(session_iter_cb, &iter, sess_dnode,
 				   "./single-hop[dest-addr='%s'][vrf='%s']",
@@ -289,7 +275,7 @@ int bfdd_bfd_profile_create(struct nb_cb_create_args *args)
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	name = yang_dnode_get_string(args->dnode, "./name");
+	name = yang_dnode_get_string(args->dnode, "name");
 	bp = bfd_profile_new(name);
 	nb_running_set_entry(args->dnode, bp);
 

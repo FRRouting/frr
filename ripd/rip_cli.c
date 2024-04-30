@@ -1,26 +1,14 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Copyright (C) 1997, 1998, 1999 Kunihiro Ishiguro <kunihiro@zebra.org>
  * Copyright (C) 2018  NetDEF, Inc.
  *                     Renato Westphal
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
 
 #include "if.h"
+#include "if_rmap.h"
 #include "vrf.h"
 #include "log.h"
 #include "prefix.h"
@@ -86,7 +74,7 @@ void cli_show_router_rip(struct vty *vty, const struct lyd_node *dnode,
 {
 	const char *vrf_name;
 
-	vrf_name = yang_dnode_get_string(dnode, "./vrf");
+	vrf_name = yang_dnode_get_string(dnode, "vrf");
 
 	vty_out(vty, "!\n");
 	vty_out(vty, "router rip");
@@ -95,17 +83,41 @@ void cli_show_router_rip(struct vty *vty, const struct lyd_node *dnode,
 	vty_out(vty, "\n");
 }
 
+void cli_show_end_router_rip(struct vty *vty, const struct lyd_node *dnode)
+{
+	vty_out(vty, "exit\n");
+}
+
 /*
  * XPath: /frr-ripd:ripd/instance/allow-ecmp
  */
-DEFPY_YANG (rip_allow_ecmp,
+DEFUN_YANG (rip_allow_ecmp,
        rip_allow_ecmp_cmd,
-       "[no] allow-ecmp",
-       NO_STR
-       "Allow Equal Cost MultiPath\n")
+       "allow-ecmp [" CMD_RANGE_STR(1, MULTIPATH_NUM) "]",
+       "Allow Equal Cost MultiPath\n"
+       "Number of paths\n")
 {
-	nb_cli_enqueue_change(vty, "./allow-ecmp", NB_OP_MODIFY,
-			      no ? "false" : "true");
+	int idx_number = 0;
+	char mpaths[3] = {};
+	uint32_t paths = MULTIPATH_NUM;
+
+	if (argv_find(argv, argc, CMD_RANGE_STR(1, MULTIPATH_NUM), &idx_number))
+		paths = strtol(argv[idx_number]->arg, NULL, 10);
+	snprintf(mpaths, sizeof(mpaths), "%u", paths);
+
+	nb_cli_enqueue_change(vty, "./allow-ecmp", NB_OP_MODIFY, mpaths);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFUN_YANG (no_rip_allow_ecmp,
+       no_rip_allow_ecmp_cmd,
+       "no allow-ecmp [" CMD_RANGE_STR(1, MULTIPATH_NUM) "]",
+       NO_STR
+       "Allow Equal Cost MultiPath\n"
+       "Number of paths\n")
+{
+	nb_cli_enqueue_change(vty, "./allow-ecmp", NB_OP_MODIFY, 0);
 
 	return nb_cli_apply_changes(vty, NULL);
 }
@@ -113,10 +125,14 @@ DEFPY_YANG (rip_allow_ecmp,
 void cli_show_rip_allow_ecmp(struct vty *vty, const struct lyd_node *dnode,
 			     bool show_defaults)
 {
-	if (!yang_dnode_get_bool(dnode, NULL))
-		vty_out(vty, " no");
+	uint8_t paths;
 
-	vty_out(vty, " allow-ecmp\n");
+	paths = yang_dnode_get_uint8(dnode, NULL);
+
+	if (!paths)
+		vty_out(vty, " no allow-ecmp\n");
+	else
+		vty_out(vty, " allow-ecmp %d\n", paths);
 }
 
 /*
@@ -245,11 +261,11 @@ void cli_show_rip_distance_source(struct vty *vty, const struct lyd_node *dnode,
 				  bool show_defaults)
 {
 	vty_out(vty, " distance %s %s",
-		yang_dnode_get_string(dnode, "./distance"),
-		yang_dnode_get_string(dnode, "./prefix"));
-	if (yang_dnode_exists(dnode, "./access-list"))
+		yang_dnode_get_string(dnode, "distance"),
+		yang_dnode_get_string(dnode, "prefix"));
+	if (yang_dnode_exists(dnode, "access-list"))
 		vty_out(vty, " %s",
-			yang_dnode_get_string(dnode, "./access-list"));
+			yang_dnode_get_string(dnode, "access-list"));
 	vty_out(vty, "\n");
 }
 
@@ -263,8 +279,13 @@ DEFPY_YANG (rip_neighbor,
        "Specify a neighbor router\n"
        "Neighbor address\n")
 {
-	nb_cli_enqueue_change(vty, "./explicit-neighbor",
-			      no ? NB_OP_DESTROY : NB_OP_CREATE, neighbor_str);
+	char xpath[XPATH_MAXLEN];
+
+	snprintf(xpath, sizeof(xpath), "./explicit-neighbor[.='%s']",
+		 neighbor_str);
+
+	nb_cli_enqueue_change(vty, xpath, no ? NB_OP_DESTROY : NB_OP_CREATE,
+			      NULL);
 
 	return nb_cli_apply_changes(vty, NULL);
 }
@@ -285,8 +306,12 @@ DEFPY_YANG (rip_network_prefix,
        "Enable routing on an IP network\n"
        "IP prefix <network>/<length>, e.g., 35.0.0.0/8\n")
 {
-	nb_cli_enqueue_change(vty, "./network",
-			      no ? NB_OP_DESTROY : NB_OP_CREATE, network_str);
+	char xpath[XPATH_MAXLEN];
+
+	snprintf(xpath, sizeof(xpath), "./network[.='%s']", network_str);
+
+	nb_cli_enqueue_change(vty, xpath, no ? NB_OP_DESTROY : NB_OP_CREATE,
+			      NULL);
 
 	return nb_cli_apply_changes(vty, NULL);
 }
@@ -307,8 +332,12 @@ DEFPY_YANG (rip_network_if,
        "Enable routing on an IP network\n"
        "Interface name\n")
 {
-	nb_cli_enqueue_change(vty, "./interface",
-			      no ? NB_OP_DESTROY : NB_OP_CREATE, network);
+	char xpath[XPATH_MAXLEN];
+
+	snprintf(xpath, sizeof(xpath), "./interface[.='%s']", network);
+
+	nb_cli_enqueue_change(vty, xpath, no ? NB_OP_DESTROY : NB_OP_CREATE,
+			      NULL);
 
 	return nb_cli_apply_changes(vty, NULL);
 }
@@ -352,12 +381,12 @@ void cli_show_rip_offset_list(struct vty *vty, const struct lyd_node *dnode,
 {
 	const char *interface;
 
-	interface = yang_dnode_get_string(dnode, "./interface");
+	interface = yang_dnode_get_string(dnode, "interface");
 
 	vty_out(vty, " offset-list %s %s %s",
-		yang_dnode_get_string(dnode, "./access-list"),
-		yang_dnode_get_string(dnode, "./direction"),
-		yang_dnode_get_string(dnode, "./metric"));
+		yang_dnode_get_string(dnode, "access-list"),
+		yang_dnode_get_string(dnode, "direction"),
+		yang_dnode_get_string(dnode, "metric"));
 	if (!strmatch(interface, "*"))
 		vty_out(vty, " %s", interface);
 	vty_out(vty, "\n");
@@ -402,16 +431,20 @@ DEFPY_YANG (rip_passive_interface,
 	bool passive_default =
 		yang_dnode_get_bool(vty->candidate_config->dnode, "%s%s",
 				    VTY_CURR_XPATH, "/passive-default");
+	char xpath[XPATH_MAXLEN];
+	enum nb_operation op;
 
 	if (passive_default) {
-		nb_cli_enqueue_change(vty, "./non-passive-interface",
-				      no ? NB_OP_CREATE : NB_OP_DESTROY,
-				      ifname);
+		snprintf(xpath, sizeof(xpath),
+			 "./non-passive-interface[.='%s']", ifname);
+		op = no ? NB_OP_CREATE : NB_OP_DESTROY;
 	} else {
-		nb_cli_enqueue_change(vty, "./passive-interface",
-				      no ? NB_OP_DESTROY : NB_OP_CREATE,
-				      ifname);
+		snprintf(xpath, sizeof(xpath), "./passive-interface[.='%s']",
+			 ifname);
+		op = no ? NB_OP_DESTROY : NB_OP_CREATE;
 	}
+
+	nb_cli_enqueue_change(vty, xpath, op, NULL);
 
 	return nb_cli_apply_changes(vty, NULL);
 }
@@ -465,13 +498,13 @@ void cli_show_rip_redistribute(struct vty *vty, const struct lyd_node *dnode,
 			       bool show_defaults)
 {
 	vty_out(vty, " redistribute %s",
-		yang_dnode_get_string(dnode, "./protocol"));
-	if (yang_dnode_exists(dnode, "./metric"))
+		yang_dnode_get_string(dnode, "protocol"));
+	if (yang_dnode_exists(dnode, "metric"))
 		vty_out(vty, " metric %s",
-			yang_dnode_get_string(dnode, "./metric"));
-	if (yang_dnode_exists(dnode, "./route-map"))
+			yang_dnode_get_string(dnode, "metric"));
+	if (yang_dnode_exists(dnode, "route-map"))
 		vty_out(vty, " route-map %s",
-			yang_dnode_get_string(dnode, "./route-map"));
+			yang_dnode_get_string(dnode, "route-map"));
 	vty_out(vty, "\n");
 }
 
@@ -485,8 +518,12 @@ DEFPY_YANG (rip_route,
        "RIP static route configuration\n"
        "IP prefix <network>/<length>\n")
 {
-	nb_cli_enqueue_change(vty, "./static-route",
-			      no ? NB_OP_DESTROY : NB_OP_CREATE, route_str);
+	char xpath[XPATH_MAXLEN];
+
+	snprintf(xpath, sizeof(xpath), "./static-route[.='%s']", route_str);
+
+	nb_cli_enqueue_change(vty, xpath, no ? NB_OP_DESTROY : NB_OP_CREATE,
+			      NULL);
 
 	return nb_cli_apply_changes(vty, NULL);
 }
@@ -540,9 +577,9 @@ void cli_show_rip_timers(struct vty *vty, const struct lyd_node *dnode,
 			 bool show_defaults)
 {
 	vty_out(vty, " timers basic %s %s %s\n",
-		yang_dnode_get_string(dnode, "./update-interval"),
-		yang_dnode_get_string(dnode, "./holddown-interval"),
-		yang_dnode_get_string(dnode, "./flush-interval"));
+		yang_dnode_get_string(dnode, "update-interval"),
+		yang_dnode_get_string(dnode, "holddown-interval"),
+		yang_dnode_get_string(dnode, "flush-interval"));
 }
 
 /*
@@ -581,7 +618,7 @@ void cli_show_rip_version(struct vty *vty, const struct lyd_node *dnode,
 	 * We have only one "version" command and three possible combinations of
 	 * send/receive values.
 	 */
-	switch (yang_dnode_get_enum(dnode, "./receive")) {
+	switch (yang_dnode_get_enum(dnode, "receive")) {
 	case RI_RIP_VERSION_1:
 		vty_out(vty, " version 1\n");
 		break;
@@ -592,6 +629,42 @@ void cli_show_rip_version(struct vty *vty, const struct lyd_node *dnode,
 		vty_out(vty, " no version\n");
 		break;
 	}
+}
+
+/*
+ * XPath: /frr-ripd:ripd/instance/default-bfd-profile
+ */
+DEFPY_YANG(rip_bfd_default_profile, rip_bfd_default_profile_cmd,
+	   "bfd default-profile BFDPROF$profile",
+	   "Bidirectional Forwarding Detection\n"
+	   "BFD default profile\n"
+	   "Profile name\n")
+{
+	nb_cli_enqueue_change(vty, "./default-bfd-profile", NB_OP_MODIFY,
+			      profile);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG(no_rip_bfd_default_profile, no_rip_bfd_default_profile_cmd,
+	   "no bfd default-profile [BFDPROF]",
+	   NO_STR
+	   "Bidirectional Forwarding Detection\n"
+	   "BFD default profile\n"
+	   "Profile name\n")
+{
+	nb_cli_enqueue_change(vty, "./default-bfd-profile", NB_OP_DESTROY,
+			      NULL);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+void cli_show_ripd_instance_default_bfd_profile(struct vty *vty,
+						const struct lyd_node *dnode,
+						bool show_defaults)
+{
+	vty_out(vty, " bfd default-profile %s\n",
+		yang_dnode_get_string(dnode, NULL));
 }
 
 /*
@@ -866,7 +939,7 @@ void cli_show_ip_rip_authentication_scheme(struct vty *vty,
 					   const struct lyd_node *dnode,
 					   bool show_defaults)
 {
-	switch (yang_dnode_get_enum(dnode, "./mode")) {
+	switch (yang_dnode_get_enum(dnode, "mode")) {
 	case RIP_NO_AUTH:
 		vty_out(vty, " no ip rip authentication mode\n");
 		break;
@@ -876,8 +949,8 @@ void cli_show_ip_rip_authentication_scheme(struct vty *vty,
 	case RIP_AUTH_MD5:
 		vty_out(vty, " ip rip authentication mode md5");
 		if (show_defaults
-		    || !yang_dnode_is_default(dnode, "./md5-auth-length")) {
-			if (yang_dnode_get_enum(dnode, "./md5-auth-length")
+		    || !yang_dnode_is_default(dnode, "md5-auth-length")) {
+			if (yang_dnode_get_enum(dnode, "md5-auth-length")
 			    == RIP_AUTH_MD5_SIZE)
 				vty_out(vty, " auth-length rfc");
 			else
@@ -993,86 +1066,196 @@ void cli_show_ip_rip_authentication_key_chain(struct vty *vty,
 }
 
 /*
- * XPath: /frr-ripd:clear-rip-route
+ * XPath: /frr-interface:lib/interface/frr-ripd:rip/bfd-monitoring/enable
  */
-DEFPY_YANG (clear_ip_rip,
-       clear_ip_rip_cmd,
-       "clear ip rip [vrf WORD]",
-       CLEAR_STR
-       IP_STR
-       "Clear IP RIP database\n"
-       VRF_CMD_HELP_STR)
+DEFPY_YANG(ip_rip_bfd, ip_rip_bfd_cmd, "[no] ip rip bfd",
+	   NO_STR IP_STR
+	   "Routing Information Protocol\n"
+	   "Enable BFD support\n")
 {
-	struct list *input;
-	int ret;
+	nb_cli_enqueue_change(vty, "./bfd-monitoring/enable", NB_OP_MODIFY,
+			      no ? "false" : "true");
 
-	input = list_new();
-	if (vrf) {
-		struct yang_data *yang_vrf;
+	return nb_cli_apply_changes(vty, "./frr-ripd:rip");
+}
 
-		yang_vrf = yang_data_new("/frr-ripd:clear-rip-route/input/vrf",
-					 vrf);
-		listnode_add(input, yang_vrf);
+void cli_show_ip_rip_bfd_enable(struct vty *vty, const struct lyd_node *dnode,
+				bool show_defaults)
+{
+	vty_out(vty, " ip rip bfd\n");
+}
+
+/*
+ * XPath: /frr-interface:lib/interface/frr-ripd:rip/bfd/profile
+ */
+DEFPY_YANG(ip_rip_bfd_profile, ip_rip_bfd_profile_cmd,
+	   "[no] ip rip bfd profile BFDPROF$profile",
+	   NO_STR IP_STR
+	   "Routing Information Protocol\n"
+	   "Enable BFD support\n"
+	   "Use a pre-configured profile\n"
+	   "Profile name\n")
+{
+	if (no)
+		nb_cli_enqueue_change(vty, "./bfd-monitoring/profile",
+				      NB_OP_DESTROY, NULL);
+	else
+		nb_cli_enqueue_change(vty, "./bfd-monitoring/profile",
+				      NB_OP_MODIFY, profile);
+
+	return nb_cli_apply_changes(vty, "./frr-ripd:rip");
+}
+
+DEFPY_YANG(no_ip_rip_bfd_profile, no_ip_rip_bfd_profile_cmd,
+	   "no ip rip bfd profile",
+	   NO_STR IP_STR
+	   "Routing Information Protocol\n"
+	   "Enable BFD support\n"
+	   "Use a pre-configured profile\n")
+{
+	nb_cli_enqueue_change(vty, "./bfd-monitoring/profile", NB_OP_DESTROY,
+			      NULL);
+	return nb_cli_apply_changes(vty, "./frr-ripd:rip");
+}
+
+void cli_show_ip_rip_bfd_profile(struct vty *vty, const struct lyd_node *dnode,
+				 bool show_defaults)
+{
+	vty_out(vty, " ip rip bfd profile %s\n",
+		yang_dnode_get_string(dnode, NULL));
+}
+
+DEFPY_YANG(
+	rip_distribute_list, rip_distribute_list_cmd,
+	"distribute-list ACCESSLIST4_NAME$name <in|out>$dir [WORD$ifname]",
+	"Filter networks in routing updates\n"
+	"Access-list name\n"
+	"Filter incoming routing updates\n"
+	"Filter outgoing routing updates\n"
+	"Interface name\n")
+{
+	char xpath[XPATH_MAXLEN];
+
+	snprintf(xpath, sizeof(xpath),
+		 "./distribute-list[interface='%s']/%s/access-list",
+		 ifname ? ifname : "", dir);
+	/* nb_cli_enqueue_change(vty, ".", NB_OP_CREATE, NULL); */
+	nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, name);
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG(
+	rip_distribute_list_prefix, rip_distribute_list_prefix_cmd,
+	"distribute-list prefix PREFIXLIST4_NAME$name <in|out>$dir [WORD$ifname]",
+	"Filter networks in routing updates\n"
+	"Specify a prefix list\n"
+	"Prefix-list name\n"
+	"Filter incoming routing updates\n"
+	"Filter outgoing routing updates\n"
+	"Interface name\n")
+{
+	char xpath[XPATH_MAXLEN];
+
+	snprintf(xpath, sizeof(xpath),
+		 "./distribute-list[interface='%s']/%s/prefix-list",
+		 ifname ? ifname : "", dir);
+	/* nb_cli_enqueue_change(vty, ".", NB_OP_CREATE, NULL); */
+	nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, name);
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG(no_rip_distribute_list,
+	   no_rip_distribute_list_cmd,
+	   "no distribute-list [ACCESSLIST4_NAME$name] <in|out>$dir [WORD$ifname]",
+	   NO_STR
+	   "Filter networks in routing updates\n"
+	   "Access-list name\n"
+	   "Filter incoming routing updates\n"
+	   "Filter outgoing routing updates\n"
+	   "Interface name\n")
+{
+	const struct lyd_node *value_node;
+	char xpath[XPATH_MAXLEN];
+
+	snprintf(xpath, sizeof(xpath),
+		 "./distribute-list[interface='%s']/%s/access-list",
+		 ifname ? ifname : "", dir);
+	/*
+	 * See if the user has specified specific list so check it exists.
+	 *
+	 * NOTE: Other FRR CLI commands do not do this sort of verification and
+	 * there may be an official decision not to.
+	 */
+	if (name) {
+		value_node = yang_dnode_getf(vty->candidate_config->dnode, "%s/%s",
+					     VTY_CURR_XPATH, xpath);
+		if (!value_node || strcmp(name, lyd_get_value(value_node))) {
+			vty_out(vty, "distribute list doesn't exist\n");
+			return CMD_WARNING_CONFIG_FAILED;
+		}
 	}
-
-	ret = nb_cli_rpc(vty, "/frr-ripd:clear-rip-route", input, NULL);
-
-	list_delete(&input);
-
-	return ret;
+	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFUN (rip_distribute_list,
-       rip_distribute_list_cmd,
-       "distribute-list [prefix] ACCESSLIST4_NAME <in|out> [WORD]",
-       "Filter networks in routing updates\n"
-       "Specify a prefix\n"
-       "Access-list name\n"
-       "Filter incoming routing updates\n"
-       "Filter outgoing routing updates\n"
-       "Interface name\n")
+DEFPY_YANG(no_rip_distribute_list_prefix,
+	   no_rip_distribute_list_prefix_cmd,
+	   "no distribute-list prefix [PREFIXLIST4_NAME$name] <in|out>$dir [WORD$ifname]",
+	   NO_STR
+	   "Filter networks in routing updates\n"
+	   "Specify a prefix list\n"
+	   "Prefix-list name\n"
+	   "Filter incoming routing updates\n"
+	   "Filter outgoing routing updates\n"
+	   "Interface name\n")
 {
-	const char *ifname = NULL;
-	int prefix = (argv[1]->type == WORD_TKN) ? 1 : 0;
+	const struct lyd_node *value_node;
+	char xpath[XPATH_MAXLEN];
 
-	if (argv[argc - 1]->type == VARIABLE_TKN)
-		ifname = argv[argc - 1]->arg;
-
-	return distribute_list_parser(prefix, true, argv[2 + prefix]->text,
-				      argv[1 + prefix]->arg, ifname);
+	snprintf(xpath, sizeof(xpath),
+		 "./distribute-list[interface='%s']/%s/prefix-list",
+		 ifname ? ifname : "", dir);
+	/*
+	 * See if the user has specified specific list so check it exists.
+	 *
+	 * NOTE: Other FRR CLI commands do not do this sort of verification and
+	 * there may be an official decision not to.
+	 */
+	if (name) {
+		value_node = yang_dnode_getf(vty->candidate_config->dnode, "%s/%s",
+					     VTY_CURR_XPATH, xpath);
+		if (!value_node || strcmp(name, lyd_get_value(value_node))) {
+			vty_out(vty, "distribute list doesn't exist\n");
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+	}
+	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFUN (rip_no_distribute_list,
-       rip_no_distribute_list_cmd,
-       "no distribute-list [prefix] ACCESSLIST4_NAME <in|out> [WORD]",
-       NO_STR
-       "Filter networks in routing updates\n"
-       "Specify a prefix\n"
-       "Access-list name\n"
-       "Filter incoming routing updates\n"
-       "Filter outgoing routing updates\n"
-       "Interface name\n")
-{
-	const char *ifname = NULL;
-	int prefix = (argv[2]->type == WORD_TKN) ? 1 : 0;
-
-	if (argv[argc - 1]->type == VARIABLE_TKN)
-		ifname = argv[argc - 1]->arg;
-
-	return distribute_list_no_parser(vty, prefix, true,
-					 argv[3 + prefix]->text,
-					 argv[2 + prefix]->arg, ifname);
-}
+/* RIP node structure. */
+static struct cmd_node rip_node = {
+	.name = "rip",
+	.node = RIP_NODE,
+	.parent_node = CONFIG_NODE,
+	.prompt = "%s(config-router)# ",
+	// .config_write = config_write_rip,
+};
 
 void rip_cli_init(void)
 {
+	install_node(&rip_node);
+
 	install_element(CONFIG_NODE, &router_rip_cmd);
 	install_element(CONFIG_NODE, &no_router_rip_cmd);
 
 	install_element(RIP_NODE, &rip_distribute_list_cmd);
-	install_element(RIP_NODE, &rip_no_distribute_list_cmd);
+	install_element(RIP_NODE, &rip_distribute_list_prefix_cmd);
+	install_element(RIP_NODE, &no_rip_distribute_list_cmd);
+	install_element(RIP_NODE, &no_rip_distribute_list_prefix_cmd);
 
 	install_element(RIP_NODE, &rip_allow_ecmp_cmd);
+	install_element(RIP_NODE, &no_rip_allow_ecmp_cmd);
 	install_element(RIP_NODE, &rip_default_information_originate_cmd);
 	install_element(RIP_NODE, &rip_default_metric_cmd);
 	install_element(RIP_NODE, &no_rip_default_metric_cmd);
@@ -1091,6 +1274,9 @@ void rip_cli_init(void)
 	install_element(RIP_NODE, &no_rip_timers_cmd);
 	install_element(RIP_NODE, &rip_version_cmd);
 	install_element(RIP_NODE, &no_rip_version_cmd);
+	install_element(RIP_NODE, &rip_bfd_default_profile_cmd);
+	install_element(RIP_NODE, &no_rip_bfd_default_profile_cmd);
+	install_default(RIP_NODE);
 
 	install_element(INTERFACE_NODE, &ip_rip_split_horizon_cmd);
 	install_element(INTERFACE_NODE, &ip_rip_v2_broadcast_cmd);
@@ -1105,6 +1291,132 @@ void rip_cli_init(void)
 	install_element(INTERFACE_NODE, &ip_rip_authentication_key_chain_cmd);
 	install_element(INTERFACE_NODE,
 			&no_ip_rip_authentication_key_chain_cmd);
+	install_element(INTERFACE_NODE, &ip_rip_bfd_cmd);
+	install_element(INTERFACE_NODE, &ip_rip_bfd_profile_cmd);
+	install_element(INTERFACE_NODE, &no_ip_rip_bfd_profile_cmd);
 
-	install_element(ENABLE_NODE, &clear_ip_rip_cmd);
+	if_rmap_init(RIP_NODE);
 }
+/* clang-format off */
+const struct frr_yang_module_info frr_ripd_cli_info = {
+	.name = "frr-ripd",
+	.ignore_cfg_cbs = true,
+	.nodes = {
+		{
+			.xpath = "/frr-ripd:ripd/instance",
+			.cbs.cli_show = cli_show_router_rip,
+			.cbs.cli_show_end = cli_show_end_router_rip,
+		},
+		{
+			.xpath = "/frr-ripd:ripd/instance/allow-ecmp",
+			.cbs.cli_show = cli_show_rip_allow_ecmp,
+		},
+		{
+			.xpath = "/frr-ripd:ripd/instance/default-information-originate",
+			.cbs.cli_show = cli_show_rip_default_information_originate,
+		},
+		{
+			.xpath = "/frr-ripd:ripd/instance/default-metric",
+			.cbs.cli_show = cli_show_rip_default_metric,
+		},
+		{
+			.xpath = "/frr-ripd:ripd/instance/distance/default",
+			.cbs.cli_show = cli_show_rip_distance,
+		},
+		{
+			.xpath = "/frr-ripd:ripd/instance/distance/source",
+			.cbs.cli_show = cli_show_rip_distance_source,
+		},
+		{
+			.xpath = "/frr-ripd:ripd/instance/explicit-neighbor",
+			.cbs.cli_show = cli_show_rip_neighbor,
+		},
+		{
+			.xpath = "/frr-ripd:ripd/instance/network",
+			.cbs.cli_show = cli_show_rip_network_prefix,
+		},
+		{
+			.xpath = "/frr-ripd:ripd/instance/interface",
+			.cbs.cli_show = cli_show_rip_network_interface,
+		},
+		{
+			.xpath = "/frr-ripd:ripd/instance/offset-list",
+			.cbs.cli_show = cli_show_rip_offset_list,
+		},
+		{
+			.xpath = "/frr-ripd:ripd/instance/passive-default",
+			.cbs.cli_show = cli_show_rip_passive_default,
+		},
+		{
+			.xpath = "/frr-ripd:ripd/instance/passive-interface",
+			.cbs.cli_show = cli_show_rip_passive_interface,
+		},
+		{
+			.xpath = "/frr-ripd:ripd/instance/non-passive-interface",
+			.cbs.cli_show = cli_show_rip_non_passive_interface,
+		},
+		{
+			.xpath = "/frr-ripd:ripd/instance/redistribute",
+			.cbs.cli_show = cli_show_rip_redistribute,
+		},
+		{
+			.xpath = "/frr-ripd:ripd/instance/if-route-maps/if-route-map",
+			.cbs.cli_show = cli_show_if_route_map,
+		},
+		{
+			.xpath = "/frr-ripd:ripd/instance/static-route",
+			.cbs.cli_show = cli_show_rip_route,
+		},
+		{
+			.xpath = "/frr-ripd:ripd/instance/timers",
+			.cbs.cli_show = cli_show_rip_timers,
+		},
+		{
+			.xpath = "/frr-ripd:ripd/instance/version",
+			.cbs.cli_show = cli_show_rip_version,
+		},
+		{
+			.xpath = "/frr-ripd:ripd/instance/default-bfd-profile",
+			.cbs.cli_show = cli_show_ripd_instance_default_bfd_profile,
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/frr-ripd:rip/split-horizon",
+			.cbs.cli_show = cli_show_ip_rip_split_horizon,
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/frr-ripd:rip/v2-broadcast",
+			.cbs.cli_show = cli_show_ip_rip_v2_broadcast,
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/frr-ripd:rip/version-receive",
+			.cbs.cli_show = cli_show_ip_rip_receive_version,
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/frr-ripd:rip/version-send",
+			.cbs.cli_show = cli_show_ip_rip_send_version,
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/frr-ripd:rip/authentication-scheme",
+			.cbs.cli_show = cli_show_ip_rip_authentication_scheme,
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/frr-ripd:rip/authentication-password",
+			.cbs.cli_show = cli_show_ip_rip_authentication_string,
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/frr-ripd:rip/authentication-key-chain",
+			.cbs.cli_show = cli_show_ip_rip_authentication_key_chain,
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/frr-ripd:rip/bfd-monitoring/enable",
+			.cbs.cli_show = cli_show_ip_rip_bfd_enable,
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/frr-ripd:rip/bfd-monitoring/profile",
+			.cbs.cli_show = cli_show_ip_rip_bfd_profile,
+		},
+		{
+			.xpath = NULL,
+		},
+	}
+};

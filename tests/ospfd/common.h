@@ -30,7 +30,7 @@ extern int topology_load(struct vty *vty, struct ospf_topology *topology,
 			 struct ospf_test_node *root, struct ospf *ospf);
 
 /* Global variables. */
-extern struct thread_master *master;
+extern struct event_loop *master;
 extern struct ospf_topology topo1;
 extern struct ospf_topology topo2;
 extern struct ospf_topology topo3;

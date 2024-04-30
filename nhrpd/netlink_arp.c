@@ -1,14 +1,14 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* NHRP netlink/neighbor table arpd code
  * Copyright (c) 2014-2016 Timo Teräs
- *
- * This file is free software: you may copy, redistribute and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 2 of the License, or
- * (at your option) any later version.
  */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
+#endif
+
+#ifdef GNU_LINUX
+#include <linux/rtnetlink.h>
 #endif
 
 #include <fcntl.h>
@@ -18,7 +18,7 @@
 #include <linux/neighbour.h>
 #include <linux/netfilter/nfnetlink_log.h>
 
-#include "thread.h"
+#include "frrevent.h"
 #include "stream.h"
 #include "prefix.h"
 #include "nhrpd.h"
@@ -27,7 +27,7 @@
 
 int netlink_nflog_group;
 static int netlink_log_fd = -1;
-static struct thread *netlink_log_thread;
+static struct event *netlink_log_thread;
 
 void netlink_update_binding(struct interface *ifp, union sockunion *proto,
 			    union sockunion *nbma)
@@ -100,10 +100,10 @@ static void netlink_log_indication(struct nlmsghdr *msg, struct zbuf *zb)
 	nhrp_peer_send_indication(ifp, htons(pkthdr->hw_protocol), &pktpl);
 }
 
-static void netlink_log_recv(struct thread *t)
+static void netlink_log_recv(struct event *t)
 {
 	uint8_t buf[ZNL_BUFFER_SIZE];
-	int fd = THREAD_FD(t);
+	int fd = EVENT_FD(t);
 	struct zbuf payload, zb;
 	struct nlmsghdr *n;
 
@@ -122,14 +122,14 @@ static void netlink_log_recv(struct thread *t)
 		}
 	}
 
-	thread_add_read(master, netlink_log_recv, 0, netlink_log_fd,
-			&netlink_log_thread);
+	event_add_read(master, netlink_log_recv, 0, netlink_log_fd,
+		       &netlink_log_thread);
 }
 
 void netlink_set_nflog_group(int nlgroup)
 {
 	if (netlink_log_fd >= 0) {
-		thread_cancel(&netlink_log_thread);
+		event_cancel(&netlink_log_thread);
 		close(netlink_log_fd);
 		netlink_log_fd = -1;
 	}
@@ -140,8 +140,8 @@ void netlink_set_nflog_group(int nlgroup)
 			return;
 
 		netlink_log_register(netlink_log_fd, nlgroup);
-		thread_add_read(master, netlink_log_recv, 0, netlink_log_fd,
-				&netlink_log_thread);
+		event_add_read(master, netlink_log_recv, 0, netlink_log_fd,
+			       &netlink_log_thread);
 	}
 }
 
@@ -154,6 +154,10 @@ int nhrp_neighbor_operation(ZAPI_CALLBACK_ARGS)
 	struct zapi_neigh_ip api = {};
 
 	zclient_neigh_ip_decode(zclient->ibuf, &api);
+
+	if (api.ip_len != IPV4_MAX_BYTELEN && api.ip_len != 0)
+		return 0;
+
 	if (api.ip_in.ipa_type == AF_UNSPEC)
 		return 0;
 	sockunion_family(&addr) = api.ip_in.ipa_type;
@@ -176,26 +180,30 @@ int nhrp_neighbor_operation(ZAPI_CALLBACK_ARGS)
 		return 0;
 	debugf(NHRP_DEBUG_KERNEL,
 	       "Netlink: %s %pSU dev %s lladdr %pSU nud 0x%x cache used %u type %u",
-	       (cmd == ZEBRA_NHRP_NEIGH_GET)
-	       ? "who-has"
-	       : (cmd == ZEBRA_NHRP_NEIGH_ADDED) ? "new-neigh"
-	       : "del-neigh",
+	       (cmd == ZEBRA_NEIGH_GET)	    ? "who-has"
+	       : (cmd == ZEBRA_NEIGH_ADDED) ? "new-neigh"
+					    : "del-neigh",
 	       &addr, ifp->name, &lladdr, ndm_state, c->used, c->cur.type);
-	if (cmd == ZEBRA_NHRP_NEIGH_GET) {
+	if (cmd == ZEBRA_NEIGH_GET) {
 		if (c->cur.type >= NHRP_CACHE_CACHED) {
 			nhrp_cache_set_used(c, 1);
 			debugf(NHRP_DEBUG_KERNEL,
 			       "Netlink: update binding for %pSU dev %s from c %pSU peer.vc.nbma %pSU to lladdr %pSU",
 			       &addr, ifp->name, &c->cur.remote_nbma_natoa,
 			       &c->cur.peer->vc->remote.nbma, &lladdr);
+
+			if (lladdr.sa.sa_family == AF_UNSPEC)
+				/* nothing from zebra, so use nhrp peer */
+				lladdr = c->cur.peer->vc->remote.nbma;
+
 			/* In case of shortcuts, nbma is given by lladdr, not
 			 * vc->remote.nbma.
 			 */
 			netlink_update_binding(ifp, &addr, &lladdr);
 		}
 	} else {
-		state = (cmd == ZEBRA_NHRP_NEIGH_ADDED) ? ndm_state
-			: ZEBRA_NEIGH_STATE_FAILED;
+		state = (cmd == ZEBRA_NEIGH_ADDED) ? ndm_state
+						   : ZEBRA_NEIGH_STATE_FAILED;
 		nhrp_cache_set_used(c, state == ZEBRA_NEIGH_STATE_REACHABLE);
 	}
 	return 0;

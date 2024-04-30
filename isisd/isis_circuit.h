@@ -1,23 +1,10 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * IS-IS Rout(e)ing protocol - isis_circuit.h
  *
  * Copyright (C) 2001,2002   Sampo Saaristo
  *                           Tampere University of Technology
  *                           Institute of Communications Engineering
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public Licenseas published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful,but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef ISIS_CIRCUIT_H
@@ -54,26 +41,35 @@ struct metric {
 struct isis_bcast_info {
 	uint8_t snpa[ETH_ALEN];		      /* SNPA of this circuit */
 	char run_dr_elect[ISIS_LEVELS];       /* Should we run dr election ? */
-	struct thread *t_run_dr[ISIS_LEVELS]; /* DR election thread */
-	struct thread *t_send_lan_hello[ISIS_LEVELS]; /* send LAN IIHs in this
-							 thread */
+	struct event *t_run_dr[ISIS_LEVELS];  /* DR election thread */
+	struct event *t_send_lan_hello[ISIS_LEVELS];  /* send LAN IIHs in this
+							  thread */
 	struct list *adjdb[ISIS_LEVELS];	      /* adjacency dbs */
 	struct list *lan_neighs[ISIS_LEVELS];     /* list of lx neigh snpa */
 	char is_dr[ISIS_LEVELS];		  /* Are we level x DR ? */
 	uint8_t l1_desig_is[ISIS_SYS_ID_LEN + 1]; /* level-1 DR */
 	uint8_t l2_desig_is[ISIS_SYS_ID_LEN + 1]; /* level-2 DR */
-	struct thread *t_refresh_pseudo_lsp[ISIS_LEVELS]; /* refresh pseudo-node
+	struct event *t_refresh_pseudo_lsp[ISIS_LEVELS]; /* refresh pseudo-node
 							     LSPs */
 };
 
 struct isis_p2p_info {
 	struct isis_adjacency *neighbor;
-	struct thread *t_send_p2p_hello; /* send P2P IIHs in this thread  */
+	struct event *t_send_p2p_hello; /* send P2P IIHs in this thread  */
 };
 
 struct isis_circuit_arg {
 	int level;
 	struct isis_circuit *circuit;
+};
+
+/*
+ * Hello padding types
+ */
+enum isis_hello_padding {
+	ISIS_HELLO_PADDING_ALWAYS,
+	ISIS_HELLO_PADDING_DISABLED,
+	ISIS_HELLO_PADDING_DURING_ADJACENCY_FORMATION
 };
 
 struct isis_circuit {
@@ -89,9 +85,9 @@ struct isis_circuit {
 	/*
 	 * Threads
 	 */
-	struct thread *t_read;
-	struct thread *t_send_csnp[ISIS_LEVELS];
-	struct thread *t_send_psnp[ISIS_LEVELS];
+	struct event *t_read;
+	struct event *t_send_csnp[ISIS_LEVELS];
+	struct event *t_send_psnp[ISIS_LEVELS];
 	struct isis_tx_queue *tx_queue;
 	struct isis_circuit_arg
 		level_arg[ISIS_LEVELS]; /* used as argument for threads */
@@ -113,7 +109,7 @@ struct isis_circuit {
 		struct isis_p2p_info p2p;
 	} u;
 	uint8_t priority[ISIS_LEVELS]; /* l1/2 IS configured priority */
-	int pad_hellos;     /* add padding to Hello PDUs ? */
+	enum isis_hello_padding pad_hellos; /* type of Hello PDUs padding */
 	char ext_domain;    /* externalDomain   (boolean) */
 	int lsp_regenerate_pending[ISIS_LEVELS];
 	uint64_t lsp_error_counter;

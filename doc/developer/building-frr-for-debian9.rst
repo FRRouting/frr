@@ -11,7 +11,8 @@ Add packages:
    sudo apt-get install git autoconf automake libtool make \
      libreadline-dev texinfo libjson-c-dev pkg-config bison flex \
      libc-ares-dev python3-dev python3-pytest python3-sphinx build-essential \
-     libsnmp-dev libcap-dev libelf-dev libunwind-dev
+     libsnmp-dev libcap-dev libelf-dev libunwind-dev \
+     libprotobuf-c-dev protobuf-c-compiler
 
 .. include:: building-libunwind-note.rst
 
@@ -46,9 +47,9 @@ an example.)
     cd frr
     ./bootstrap.sh
     ./configure \
-        --localstatedir=/var/opt/frr \
+        --sysconfdir=/etc \
+        --localstatedir=/var \
         --sbindir=/usr/lib/frr \
-        --sysconfdir=/etc/frr \
         --enable-multipath=64 \
         --enable-user=frr \
         --enable-group=frr \

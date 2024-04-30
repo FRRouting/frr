@@ -1,27 +1,12 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Zebra connect library for OSPFd
  * Copyright (C) 1997, 98, 99, 2000 Kunihiro Ishiguro, Toshiaki Takada
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
 
-#include "thread.h"
+#include "frrevent.h"
 #include "command.h"
 #include "network.h"
 #include "prefix.h"
@@ -35,6 +20,7 @@
 #include "log.h"
 #include "route_opaque.h"
 #include "lib/bfd.h"
+#include "lib/lib_errors.h"
 #include "nexthop.h"
 
 #include "ospfd/ospfd.h"
@@ -61,10 +47,10 @@ DEFINE_MTYPE_STATIC(OSPFD, OSPF_REDISTRIBUTE, "OSPF Redistriute");
 /* Zebra structure to hold current status. */
 struct zclient *zclient = NULL;
 /* and for the Synchronous connection to the Label Manager */
-static struct zclient *zclient_sync;
+struct zclient *zclient_sync;
 
 /* For registering threads. */
-extern struct thread_master *master;
+extern struct event_loop *master;
 
 /* Router-id update message from zebra. */
 static int ospf_router_id_update_zebra(ZAPI_CALLBACK_ARGS)
@@ -172,29 +158,6 @@ static int ospf_interface_link_params(ZAPI_CALLBACK_ARGS)
 
 	/* Update TE TLV */
 	ospf_mpls_te_update_if(ifp);
-
-	return 0;
-}
-
-/* VRF update for an interface. */
-static int ospf_interface_vrf_update(ZAPI_CALLBACK_ARGS)
-{
-	struct interface *ifp = NULL;
-	vrf_id_t new_vrf_id;
-
-	ifp = zebra_interface_vrf_update_read(zclient->ibuf, vrf_id,
-					      &new_vrf_id);
-	if (!ifp)
-		return 0;
-
-	if (IS_DEBUG_OSPF_EVENT)
-		zlog_debug(
-			"%s: Rx Interface %s VRF change vrf_id %u New vrf %s id %u",
-			__func__, ifp->name, vrf_id,
-			ospf_vrf_id_to_name(new_vrf_id), new_vrf_id);
-
-	/*if_update(ifp, ifp->name, strlen(ifp->name), new_vrf_id);*/
-	if_update_to_new_vrf(ifp, new_vrf_id);
 
 	return 0;
 }
@@ -524,10 +487,10 @@ bool ospf_external_default_routemap_apply_walk(struct ospf *ospf,
  * Function to originate or flush default after applying
  * route-map on all ei.
  */
-static void ospf_external_lsa_default_routemap_timer(struct thread *thread)
+static void ospf_external_lsa_default_routemap_timer(struct event *thread)
 {
 	struct list *ext_list;
-	struct ospf *ospf = THREAD_ARG(thread);
+	struct ospf *ospf = EVENT_ARG(thread);
 	struct prefix_ipv4 p;
 	int type;
 	int ret = 0;
@@ -594,8 +557,8 @@ void ospf_external_del(struct ospf *ospf, uint8_t type, unsigned short instance)
 	/*
 	 * Check if default needs to be flushed too.
 	 */
-	thread_add_event(master, ospf_external_lsa_default_routemap_timer, ospf,
-			 0, &ospf->t_default_routemap_timer);
+	event_add_event(master, ospf_external_lsa_default_routemap_timer, ospf,
+			0, &ospf->t_default_routemap_timer);
 }
 
 /* Update NHLFE for Prefix SID */
@@ -828,16 +791,16 @@ int ospf_is_type_redistributed(struct ospf *ospf, int type,
 			       unsigned short instance)
 {
 	return (DEFAULT_ROUTE_TYPE(type)
-			? vrf_bitmap_check(zclient->default_information[AFI_IP],
-					   ospf->vrf_id)
-			: ((instance
-			    && redist_check_instance(
+			? vrf_bitmap_check(
+				  &zclient->default_information[AFI_IP],
+				  ospf->vrf_id)
+			: ((instance &&
+			    redist_check_instance(
 				    &zclient->mi_redist[AFI_IP][type],
-				    instance))
-			   || (!instance
-			       && vrf_bitmap_check(
-				       zclient->redist[AFI_IP][type],
-				       ospf->vrf_id))));
+				    instance)) ||
+			   (!instance &&
+			    vrf_bitmap_check(&zclient->redist[AFI_IP][type],
+					     ospf->vrf_id))));
 }
 
 int ospf_redistribute_update(struct ospf *ospf, struct ospf_redist *red,
@@ -970,8 +933,8 @@ int ospf_redistribute_default_set(struct ospf *ospf, int originate, int mtype,
 		type_str = "always";
 		ospf->redistribute++;
 		ospf_external_add(ospf, DEFAULT_ROUTE, 0);
-		ospf_external_info_add(ospf, DEFAULT_ROUTE, 0, p, 0, nexthop,
-				       0);
+		ospf_external_info_add(ospf, DEFAULT_ROUTE, 0, p, 0, nexthop, 0,
+				       DEFAULT_DEFAULT_METRIC);
 		break;
 	}
 
@@ -1139,9 +1102,9 @@ static bool ospf_external_lsa_default_routemap_apply(struct ospf *ospf,
 		 * there are any other external info which can still trigger
 		 * default route origination else flush it.
 		 */
-		thread_add_event(master,
-				 ospf_external_lsa_default_routemap_timer, ospf,
-				 0, &ospf->t_default_routemap_timer);
+		event_add_event(master,
+				ospf_external_lsa_default_routemap_timer, ospf,
+				0, &ospf->t_default_routemap_timer);
 	}
 
 	return true;
@@ -1266,12 +1229,18 @@ static int ospf_zebra_gr_update(struct ospf *ospf, int command,
 
 int ospf_zebra_gr_enable(struct ospf *ospf, uint32_t stale_time)
 {
+	if (IS_DEBUG_OSPF_GR)
+		zlog_debug("Zebra enable GR [stale time %u]", stale_time);
+
 	return ospf_zebra_gr_update(ospf, ZEBRA_CLIENT_GR_CAPABILITIES,
 				    stale_time);
 }
 
 int ospf_zebra_gr_disable(struct ospf *ospf)
 {
+	if (IS_DEBUG_OSPF_GR)
+		zlog_debug("Zebra disable GR");
+
 	return ospf_zebra_gr_update(ospf, ZEBRA_CLIENT_GR_DISABLE, 0);
 }
 
@@ -1317,9 +1286,11 @@ static int ospf_zebra_read_route(ZAPI_CALLBACK_ARGS)
 		rt_type = DEFAULT_ROUTE;
 
 	if (IS_DEBUG_OSPF(zebra, ZEBRA_REDISTRIBUTE))
-		zlog_debug("%s: cmd %s from client %s: vrf_id %d, p %pFX",
-			   __func__, zserv_command_string(cmd),
-			   zebra_route_string(api.type), vrf_id, &api.prefix);
+		zlog_debug(
+			"%s: cmd %s from client %s: vrf_id %d, p %pFX, metric %d",
+			__func__, zserv_command_string(cmd),
+			zebra_route_string(api.type), vrf_id, &api.prefix,
+			api.metric);
 
 	if (cmd == ZEBRA_REDISTRIBUTE_ROUTE_ADD) {
 		/* XXX|HACK|TODO|FIXME:
@@ -1346,7 +1317,8 @@ static int ospf_zebra_read_route(ZAPI_CALLBACK_ARGS)
 							  p);
 
 		ei = ospf_external_info_add(ospf, rt_type, api.instance, p,
-					    ifindex, nexthop, api.tag);
+					    ifindex, nexthop, api.tag,
+					    api.metric);
 		if (ei == NULL) {
 			/* Nothing has changed, so nothing to do; return */
 			return 0;
@@ -1485,6 +1457,51 @@ static int ospf_zebra_read_route(ZAPI_CALLBACK_ARGS)
 	return 0;
 }
 
+void ospf_zebra_import_default_route(struct ospf *ospf, bool unreg)
+{
+	struct prefix prefix = {};
+	int command;
+
+	if (zclient->sock < 0) {
+		if (IS_DEBUG_OSPF(zebra, ZEBRA))
+			zlog_debug("  Not connected to Zebra");
+		return;
+	}
+
+	prefix.family = AF_INET;
+	prefix.prefixlen = 0;
+
+	if (unreg)
+		command = ZEBRA_NEXTHOP_UNREGISTER;
+	else
+		command = ZEBRA_NEXTHOP_REGISTER;
+
+	if (IS_DEBUG_OSPF(zebra, ZEBRA))
+		zlog_debug("%s: sending cmd %s for %pFX (vrf %u)", __func__,
+			   zserv_command_string(command), &prefix,
+			   ospf->vrf_id);
+
+	if (zclient_send_rnh(zclient, command, &prefix, SAFI_UNICAST, false,
+			     true, ospf->vrf_id) == ZCLIENT_SEND_FAILURE)
+		flog_err(EC_LIB_ZAPI_SOCKET, "%s: zclient_send_rnh() failed",
+			 __func__);
+}
+
+static void ospf_zebra_import_check_update(struct vrf *vrf, struct prefix *match,
+					   struct zapi_route *nhr)
+{
+	struct ospf *ospf = vrf->info;
+
+	if (ospf == NULL || !IS_OSPF_ASBR(ospf))
+		return;
+
+	if (match->family != AF_INET || match->prefixlen != 0 ||
+	    nhr->type == ZEBRA_ROUTE_OSPF)
+		return;
+
+	ospf->nssa_default_import_check.status = !!nhr->nexthop_num;
+	ospf_abr_nssa_type7_defaults(ospf);
+}
 
 int ospf_distribute_list_out_set(struct ospf *ospf, int type, const char *name)
 {
@@ -1525,14 +1542,14 @@ int ospf_distribute_list_out_unset(struct ospf *ospf, int type,
 }
 
 /* distribute-list update timer. */
-static void ospf_distribute_list_update_timer(struct thread *thread)
+static void ospf_distribute_list_update_timer(struct event *thread)
 {
 	struct route_node *rn;
 	struct external_info *ei;
 	struct route_table *rt;
 	struct ospf_lsa *lsa;
 	int type, default_refresh = 0;
-	struct ospf *ospf = THREAD_ARG(thread);
+	struct ospf *ospf = EVENT_ARG(thread);
 
 	if (ospf == NULL)
 		return;
@@ -1656,9 +1673,8 @@ void ospf_distribute_list_update(struct ospf *ospf, int type,
 		return;
 
 	/* Set timer. If timer is already started, this call does nothing. */
-	thread_add_timer_msec(master, ospf_distribute_list_update_timer, ospf,
-			      ospf->min_ls_interval,
-			      &ospf->t_distribute_update);
+	event_add_timer_msec(master, ospf_distribute_list_update_timer, ospf,
+			     ospf->min_ls_interval, &ospf->t_distribute_update);
 }
 
 /* If access-list is updated, apply some check. */
@@ -1802,7 +1818,7 @@ static void ospf_prefix_list_update(struct prefix_list *plist)
 			    && strcmp(PREFIX_NAME_OUT(area),
 				      prefix_list_name(plist))
 				       == 0) {
-				PREFIX_LIST_IN(area) = prefix_list_lookup(
+				PREFIX_LIST_OUT(area) = prefix_list_lookup(
 					AFI_IP, PREFIX_NAME_OUT(area));
 				abr_inv++;
 			}
@@ -2077,10 +2093,20 @@ int ospf_zebra_label_manager_connect(void)
 
 static void ospf_zebra_connected(struct zclient *zclient)
 {
+	struct ospf *ospf;
+	struct listnode *node;
+
 	/* Send the client registration */
 	bfd_client_sendmsg(zclient, ZEBRA_BFD_CLIENT_REGISTER, VRF_DEFAULT);
 
 	zclient_send_reg_requests(zclient, VRF_DEFAULT);
+
+	/* Activate graceful restart if configured. */
+	for (ALL_LIST_ELEMENTS_RO(om->ospf, node, ospf)) {
+		if (!ospf->gr_info.restart_support)
+			continue;
+		(void)ospf_zebra_gr_enable(ospf, ospf->gr_info.grace_period);
+	}
 }
 
 /*
@@ -2102,9 +2128,9 @@ static int ospf_opaque_msg_handler(ZAPI_CALLBACK_ARGS)
 
 	switch (info.type) {
 	case LINK_STATE_SYNC:
-		STREAM_GETC(s, dst.proto);
-		STREAM_GETW(s, dst.instance);
-		STREAM_GETL(s, dst.session_id);
+		dst.proto = info.src_proto;
+		dst.instance = info.src_instance;
+		dst.session_id = info.src_session_id;
 		dst.type = LINK_STATE_SYNC;
 		ret = ospf_te_sync_ted(dst);
 		break;
@@ -2144,7 +2170,6 @@ static zclient_handler *const ospf_handlers[] = {
 	[ZEBRA_INTERFACE_ADDRESS_ADD] = ospf_interface_address_add,
 	[ZEBRA_INTERFACE_ADDRESS_DELETE] = ospf_interface_address_delete,
 	[ZEBRA_INTERFACE_LINK_PARAMS] = ospf_interface_link_params,
-	[ZEBRA_INTERFACE_VRF_UPDATE] = ospf_interface_vrf_update,
 
 	[ZEBRA_REDISTRIBUTE_ROUTE_ADD] = ospf_zebra_read_route,
 	[ZEBRA_REDISTRIBUTE_ROUTE_DEL] = ospf_zebra_read_route,
@@ -2154,18 +2179,17 @@ static zclient_handler *const ospf_handlers[] = {
 	[ZEBRA_CLIENT_CLOSE_NOTIFY] = ospf_zebra_client_close_notify,
 };
 
-void ospf_zebra_init(struct thread_master *master, unsigned short instance)
+void ospf_zebra_init(struct event_loop *master, unsigned short instance)
 {
 	/* Allocate zebra structure. */
 	zclient = zclient_new(master, &zclient_options_default, ospf_handlers,
 			      array_size(ospf_handlers));
 	zclient_init(zclient, ZEBRA_ROUTE_OSPF, instance, &ospfd_privs);
 	zclient->zebra_connected = ospf_zebra_connected;
+	zclient->nexthop_update = ospf_zebra_import_check_update;
 
 	/* Initialize special zclient for synchronous message exchanges. */
-	struct zclient_options options = zclient_options_default;
-	options.synchronous = true;
-	zclient_sync = zclient_new(master, &options, NULL, 0);
+	zclient_sync = zclient_new(master, &zclient_options_sync, NULL, 0);
 	zclient_sync->sock = -1;
 	zclient_sync->redist_default = ZEBRA_ROUTE_OSPF;
 	zclient_sync->instance = instance;

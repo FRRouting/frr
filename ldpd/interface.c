@@ -1,21 +1,10 @@
+// SPDX-License-Identifier: ISC
 /*	$OpenBSD$ */
 
 /*
  * Copyright (c) 2013, 2016 Renato Westphal <renato@openbsd.org>
  * Copyright (c) 2005 Claudio Jeker <claudio@openbsd.org>
  * Copyright (c) 2004, 2005, 2008 Esben Norby <norby@openbsd.org>
- *
- * Permission to use, copy, modify, and distribute this software for any
- * purpose with or without fee is hereby granted, provided that the above
- * copyright notice and this permission notice appear in all copies.
- *
- * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
- * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
- * ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
- * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
- * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
- * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
 #include <zebra.h>
@@ -33,7 +22,7 @@ static struct if_addr	*if_addr_lookup(struct if_addr_head *, struct kaddr *);
 static int		 if_start(struct iface *, int);
 static int		 if_reset(struct iface *, int);
 static void		 if_update_af(struct iface_af *);
-static void if_hello_timer(struct thread *thread);
+static void if_hello_timer(struct event *thread);
 static void		 if_start_hello_timer(struct iface_af *);
 static void		 if_stop_hello_timer(struct iface_af *);
 static int		 if_join_ipv4_group(struct iface *, struct in_addr *);
@@ -43,7 +32,7 @@ static int		 if_leave_ipv6_group(struct iface *, struct in6_addr *);
 
 static int ldp_sync_fsm_init(struct iface *iface, int state);
 static int ldp_sync_act_iface_start_sync(struct iface *iface);
-static void iface_wait_for_ldp_sync_timer(struct thread *thread);
+static void iface_wait_for_ldp_sync_timer(struct event *thread);
 static void start_wait_for_ldp_sync_timer(struct iface *iface);
 static void stop_wait_for_ldp_sync_timer(struct iface *iface);
 static int ldp_sync_act_ldp_start_sync(struct iface *iface);
@@ -149,14 +138,13 @@ void
 if_update_info(struct iface *iface, struct kif *kif)
 {
 	/* get type */
-	if (kif->flags & IFF_POINTOPOINT)
+	if (CHECK_FLAG(kif->flags, IFF_POINTOPOINT))
 		iface->type = IF_TYPE_POINTOPOINT;
-	if (kif->flags & IFF_BROADCAST &&
-	    kif->flags & IFF_MULTICAST)
+	if (CHECK_FLAG(kif->flags, IFF_BROADCAST) &&
+	    CHECK_FLAG(kif->flags, IFF_MULTICAST))
 		iface->type = IF_TYPE_BROADCAST;
 
-	if (ldpd_process == PROC_LDP_ENGINE && iface->operative &&
-	    !kif->operative)
+	if (ldpd_process == PROC_LDP_ENGINE && iface->operative && !kif->operative)
 		ldp_sync_fsm(iface, LDP_SYNC_EVT_IFACE_SHUTDOWN);
 
 	/* get index and flags */
@@ -287,8 +275,7 @@ if_start(struct iface *iface, int af)
 	struct iface_af		*ia;
 	struct timeval		 now;
 
-	log_debug("%s: %s address-family %s", __func__, iface->name,
-	    af_name(af));
+	log_debug("%s: %s address-family %s", __func__, iface->name, af_name(af));
 
 	ia = iface_af_get(iface, af);
 
@@ -455,9 +442,9 @@ if_get_wait_for_sync_interval(void)
 
 /* timers */
 /* ARGSUSED */
-static void if_hello_timer(struct thread *thread)
+static void if_hello_timer(struct event *thread)
 {
-	struct iface_af		*ia = THREAD_ARG(thread);
+	struct iface_af *ia = EVENT_ARG(thread);
 
 	ia->hello_timer = NULL;
 	send_hello(HELLO_LINK, ia, NULL);
@@ -467,15 +454,15 @@ static void if_hello_timer(struct thread *thread)
 static void
 if_start_hello_timer(struct iface_af *ia)
 {
-	THREAD_OFF(ia->hello_timer);
-	thread_add_timer(master, if_hello_timer, ia, if_get_hello_interval(ia),
-			 &ia->hello_timer);
+	EVENT_OFF(ia->hello_timer);
+	event_add_timer(master, if_hello_timer, ia, if_get_hello_interval(ia),
+			&ia->hello_timer);
 }
 
 static void
 if_stop_hello_timer(struct iface_af *ia)
 {
-	THREAD_OFF(ia->hello_timer);
+	EVENT_OFF(ia->hello_timer);
 }
 
 struct ctl_iface *
@@ -544,7 +531,7 @@ ldp_sync_to_ctl(struct iface *iface)
 	ictl.timer_running = iface->ldp_sync.wait_for_sync_timer ? true : false;
 
 	ictl.wait_time_remaining =
-		thread_timer_remain_second(iface->ldp_sync.wait_for_sync_timer);
+		event_timer_remain_second(iface->ldp_sync.wait_for_sync_timer);
 
 	memset(&ictl.peer_ldp_id, 0, sizeof(ictl.peer_ldp_id));
 
@@ -571,8 +558,7 @@ if_join_ipv4_group(struct iface *iface, struct in_addr *addr)
 {
 	struct in_addr		 if_addr;
 
-	log_debug("%s: interface %s addr %pI4", __func__, iface->name,
-	    addr);
+	log_debug("%s: interface %s addr %pI4", __func__, iface->name, addr);
 
 	if_addr.s_addr = if_get_ipv4_addr(iface);
 
@@ -590,8 +576,7 @@ if_leave_ipv4_group(struct iface *iface, struct in_addr *addr)
 {
 	struct in_addr		 if_addr;
 
-	log_debug("%s: interface %s addr %pI4", __func__, iface->name,
-	    addr);
+	log_debug("%s: interface %s addr %pI4", __func__, iface->name, addr);
 
 	if_addr.s_addr = if_get_ipv4_addr(iface);
 
@@ -731,9 +716,9 @@ ldp_sync_act_iface_start_sync(struct iface *iface)
 	return (0);
 }
 
-static void iface_wait_for_ldp_sync_timer(struct thread *thread)
+static void iface_wait_for_ldp_sync_timer(struct event *thread)
 {
-	struct iface *iface = THREAD_ARG(thread);
+	struct iface *iface = EVENT_ARG(thread);
 
 	ldp_sync_fsm(iface, LDP_SYNC_EVT_LDP_SYNC_COMPLETE);
 }
@@ -743,15 +728,15 @@ static void start_wait_for_ldp_sync_timer(struct iface *iface)
 	if (iface->ldp_sync.wait_for_sync_timer)
 		return;
 
-	THREAD_OFF(iface->ldp_sync.wait_for_sync_timer);
-	thread_add_timer(master, iface_wait_for_ldp_sync_timer, iface,
+	EVENT_OFF(iface->ldp_sync.wait_for_sync_timer);
+	event_add_timer(master, iface_wait_for_ldp_sync_timer, iface,
 			if_get_wait_for_sync_interval(),
 			&iface->ldp_sync.wait_for_sync_timer);
 }
 
 static void stop_wait_for_ldp_sync_timer(struct iface *iface)
 {
-	THREAD_OFF(iface->ldp_sync.wait_for_sync_timer);
+	EVENT_OFF(iface->ldp_sync.wait_for_sync_timer);
 }
 
 static int

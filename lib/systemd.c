@@ -1,28 +1,14 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* lib/systemd Code
  * Copyright (C) 2016 Cumulus Networks, Inc.
  * Donald Sharp
- *
- * This file is part of Quagga.
- *
- * Quagga is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * Quagga is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
+#include <sys/stat.h>
 #include <sys/un.h>
 
-#include "thread.h"
+#include "frrevent.h"
 #include "systemd.h"
 #include "lib_errors.h"
 
@@ -78,18 +64,18 @@ void systemd_send_stopping(void)
 	systemd_send_information("STOPPING=1");
 }
 
-static struct thread_master *systemd_master = NULL;
+static struct event_loop *systemd_master = NULL;
 
-static void systemd_send_watchdog(struct thread *t)
+static void systemd_send_watchdog(struct event *t)
 {
 	systemd_send_information("WATCHDOG=1");
 
 	assert(watchdog_msec > 0);
-	thread_add_timer_msec(systemd_master, systemd_send_watchdog, NULL,
-			      watchdog_msec, NULL);
+	event_add_timer_msec(systemd_master, systemd_send_watchdog, NULL,
+			     watchdog_msec, NULL);
 }
 
-void systemd_send_started(struct thread_master *m)
+void systemd_send_started(struct event_loop *m)
 {
 	assert(m != NULL);
 

@@ -1,20 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Copyright (C) 2018        Volta Networks
  *                           Emanuele Di Pascale
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -147,6 +134,7 @@ void isis_notif_lsp_too_large(const struct isis_circuit *circuit,
 	const char *xpath = "/frr-isisd:lsp-too-large";
 	struct list *arguments = yang_data_list_new();
 	char xpath_arg[XPATH_MAXLEN];
+	char xpath_value[ISO_SYSID_STRLEN];
 	struct yang_data *data;
 	struct isis_area *area = circuit->area;
 
@@ -156,7 +144,8 @@ void isis_notif_lsp_too_large(const struct isis_circuit *circuit,
 	data = yang_data_new_uint32(xpath_arg, pdu_size);
 	listnode_add(arguments, data);
 	snprintf(xpath_arg, sizeof(xpath_arg), "%s/lsp-id", xpath);
-	data = yang_data_new_string(xpath_arg, rawlspid_print(lsp_id));
+	snprintfrr(xpath_value, ISO_SYSID_STRLEN, "%pLS", lsp_id);
+	data = yang_data_new_string(xpath_arg, xpath_value);
 	listnode_add(arguments, data);
 
 	hook_call(isis_hook_lsp_too_large, circuit, pdu_size, lsp_id);
@@ -193,11 +182,13 @@ void isis_notif_corrupted_lsp(const struct isis_area *area,
 	const char *xpath = "/frr-isisd:corrupted-lsp-detected";
 	struct list *arguments = yang_data_list_new();
 	char xpath_arg[XPATH_MAXLEN];
+	char xpath_value[ISO_SYSID_STRLEN];
 	struct yang_data *data;
 
 	notif_prep_instance_hdr(xpath, area, "default", arguments);
 	snprintf(xpath_arg, sizeof(xpath_arg), "%s/lsp-id", xpath);
-	data = yang_data_new_string(xpath_arg, rawlspid_print(lsp_id));
+	snprintfrr(xpath_value, ISO_SYSID_STRLEN, "%pLS", lsp_id);
+	data = yang_data_new_string(xpath_arg, xpath_value);
 	listnode_add(arguments, data);
 
 	hook_call(isis_hook_corrupted_lsp, area);
@@ -214,11 +205,13 @@ void isis_notif_lsp_exceed_max(const struct isis_area *area,
 	const char *xpath = "/frr-isisd:attempt-to-exceed-max-sequence";
 	struct list *arguments = yang_data_list_new();
 	char xpath_arg[XPATH_MAXLEN];
+	char xpath_value[ISO_SYSID_STRLEN];
 	struct yang_data *data;
 
 	notif_prep_instance_hdr(xpath, area, "default", arguments);
 	snprintf(xpath_arg, sizeof(xpath_arg), "%s/lsp-id", xpath);
-	data = yang_data_new_string(xpath_arg, rawlspid_print(lsp_id));
+	snprintfrr(xpath_value, ISO_SYSID_STRLEN, "%pLS", lsp_id);
+	data = yang_data_new_string(xpath_arg, xpath_value);
 	listnode_add(arguments, data);
 
 	hook_call(isis_hook_lsp_exceed_max, area, lsp_id);
@@ -312,6 +305,7 @@ void isis_notif_adj_state_change(const struct isis_adjacency *adj,
 	const char *xpath = "/frr-isisd:adjacency-state-change";
 	struct list *arguments = yang_data_list_new();
 	char xpath_arg[XPATH_MAXLEN];
+	char xpath_value[ISO_SYSID_STRLEN];
 	struct yang_data *data;
 	struct isis_circuit *circuit = adj->circuit;
 	struct isis_area *area = circuit->area;
@@ -325,7 +319,8 @@ void isis_notif_adj_state_change(const struct isis_adjacency *adj,
 		listnode_add(arguments, data);
 	}
 	snprintf(xpath_arg, sizeof(xpath_arg), "%s/neighbor-system-id", xpath);
-	data = yang_data_new_string(xpath_arg, sysid_print(adj->sysid));
+	snprintfrr(xpath_value, ISO_SYSID_STRLEN, "%pSY", adj->sysid);
+	data = yang_data_new_string(xpath_arg, xpath_value);
 	listnode_add(arguments, data);
 
 	snprintf(xpath_arg, sizeof(xpath_arg), "%s/state", xpath);
@@ -402,13 +397,15 @@ void isis_notif_lsp_received(const struct isis_circuit *circuit,
 	const char *xpath = "/frr-isisd:lsp-received";
 	struct list *arguments = yang_data_list_new();
 	char xpath_arg[XPATH_MAXLEN];
+	char xpath_value[ISO_SYSID_STRLEN];
 	struct yang_data *data;
 	struct isis_area *area = circuit->area;
 
 	notif_prep_instance_hdr(xpath, area, "default", arguments);
 	notif_prepr_iface_hdr(xpath, circuit, arguments);
 	snprintf(xpath_arg, sizeof(xpath_arg), "%s/lsp-id", xpath);
-	data = yang_data_new_string(xpath_arg, rawlspid_print(lsp_id));
+	snprintfrr(xpath_value, ISO_SYSID_STRLEN, "%pLS", lsp_id);
+	data = yang_data_new_string(xpath_arg, xpath_value);
 	listnode_add(arguments, data);
 	snprintf(xpath_arg, sizeof(xpath_arg), "%s/sequence", xpath);
 	data = yang_data_new_uint32(xpath_arg, seqno);
@@ -432,11 +429,13 @@ void isis_notif_lsp_gen(const struct isis_area *area, const uint8_t *lsp_id,
 	const char *xpath = "/frr-isisd:lsp-generation";
 	struct list *arguments = yang_data_list_new();
 	char xpath_arg[XPATH_MAXLEN];
+	char xpath_value[ISO_SYSID_STRLEN];
 	struct yang_data *data;
 
 	notif_prep_instance_hdr(xpath, area, "default", arguments);
 	snprintf(xpath_arg, sizeof(xpath_arg), "%s/lsp-id", xpath);
-	data = yang_data_new_string(xpath_arg, rawlspid_print(lsp_id));
+	snprintfrr(xpath_value, ISO_SYSID_STRLEN, "%pLS", lsp_id);
+	data = yang_data_new_string(xpath_arg, xpath_value);
 	listnode_add(arguments, data);
 	snprintf(xpath_arg, sizeof(xpath_arg), "%s/sequence", xpath);
 	data = yang_data_new_uint32(xpath_arg, seqno);
@@ -516,13 +515,15 @@ void isis_notif_lsp_error(const struct isis_circuit *circuit,
 	const char *xpath = "/frr-isisd:lsp-error-detected";
 	struct list *arguments = yang_data_list_new();
 	char xpath_arg[XPATH_MAXLEN];
+	char xpath_value[ISO_SYSID_STRLEN];
 	struct yang_data *data;
 	struct isis_area *area = circuit->area;
 
 	notif_prep_instance_hdr(xpath, area, "default", arguments);
 	notif_prepr_iface_hdr(xpath, circuit, arguments);
 	snprintf(xpath_arg, sizeof(xpath_arg), "%s/lsp-id", xpath);
-	data = yang_data_new_string(xpath_arg, rawlspid_print(lsp_id));
+	snprintfrr(xpath_value, ISO_SYSID_STRLEN, "%pLS", lsp_id);
+	data = yang_data_new_string(xpath_arg, xpath_value);
 	listnode_add(arguments, data);
 	snprintf(xpath_arg, sizeof(xpath_arg), "%s/raw-pdu", xpath);
 	data = yang_data_new_binary(xpath_arg, raw_pdu, raw_pdu_len);
@@ -543,13 +544,15 @@ void isis_notif_seqno_skipped(const struct isis_circuit *circuit,
 	const char *xpath = "/frr-isisd:sequence-number-skipped";
 	struct list *arguments = yang_data_list_new();
 	char xpath_arg[XPATH_MAXLEN];
+	char xpath_value[ISO_SYSID_STRLEN];
 	struct yang_data *data;
 	struct isis_area *area = circuit->area;
 
 	notif_prep_instance_hdr(xpath, area, "default", arguments);
 	notif_prepr_iface_hdr(xpath, circuit, arguments);
 	snprintf(xpath_arg, sizeof(xpath_arg), "%s/lsp-id", xpath);
-	data = yang_data_new_string(xpath_arg, rawlspid_print(lsp_id));
+	snprintfrr(xpath_value, ISO_SYSID_STRLEN, "%pLS", lsp_id);
+	data = yang_data_new_string(xpath_arg, xpath_value);
 	listnode_add(arguments, data);
 
 	hook_call(isis_hook_seqno_skipped, circuit, lsp_id);
@@ -566,13 +569,15 @@ void isis_notif_own_lsp_purge(const struct isis_circuit *circuit,
 	const char *xpath = "/frr-isisd:own-lsp-purge";
 	struct list *arguments = yang_data_list_new();
 	char xpath_arg[XPATH_MAXLEN];
+	char xpath_value[ISO_SYSID_STRLEN];
 	struct yang_data *data;
 	struct isis_area *area = circuit->area;
 
 	notif_prep_instance_hdr(xpath, area, "default", arguments);
 	notif_prepr_iface_hdr(xpath, circuit, arguments);
 	snprintf(xpath_arg, sizeof(xpath_arg), "%s/lsp-id", xpath);
-	data = yang_data_new_string(xpath_arg, rawlspid_print(lsp_id));
+	snprintfrr(xpath_value, ISO_SYSID_STRLEN, "%pLS", lsp_id);
+	data = yang_data_new_string(xpath_arg, xpath_value);
 	listnode_add(arguments, data);
 
 	hook_call(isis_hook_own_lsp_purge, circuit, lsp_id);

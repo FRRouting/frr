@@ -1,21 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* AS path related definitions.
  * Copyright (C) 1997, 98, 99 Kunihiro Ishiguro
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef _QUAGGA_BGP_ASPATH_H
@@ -23,6 +8,7 @@
 
 #include "lib/json.h"
 #include "bgpd/bgp_route.h"
+#include "bgpd/bgp_filter.h"
 
 /* AS path segment type.  */
 #define AS_SET                       1
@@ -72,20 +58,36 @@ struct aspath {
 	   and AS path regular expression match.  */
 	char *str;
 	unsigned short str_len;
+
+	/* AS notation used by string expression of AS path */
+	enum asnotation_mode asnotation;
 };
 
 #define ASPATH_STR_DEFAULT_LEN 32
+
+/* `set as-path exclude ASn' */
+struct aspath_exclude {
+	struct aspath *aspath;
+	bool exclude_all;
+	char *exclude_aspath_acl_name;
+	struct as_list *exclude_aspath_acl;
+};
 
 /* Prototypes. */
 extern void aspath_init(void);
 extern void aspath_finish(void);
 extern struct aspath *aspath_parse(struct stream *s, size_t length,
-				   int use32bit);
+				   int use32bit,
+				   enum asnotation_mode asnotation);
+
 extern struct aspath *aspath_dup(struct aspath *aspath);
 extern struct aspath *aspath_aggregate(struct aspath *as1, struct aspath *as2);
 extern struct aspath *aspath_prepend(struct aspath *as1, struct aspath *as2);
 extern struct aspath *aspath_filter_exclude(struct aspath *source,
 					    struct aspath *exclude_list);
+extern struct aspath *aspath_filter_exclude_all(struct aspath *source);
+extern struct aspath *aspath_filter_exclude_acl(struct aspath *source,
+						struct as_list *acl_list);
 extern struct aspath *aspath_add_seq_n(struct aspath *aspath, as_t asno,
 				       unsigned num);
 extern struct aspath *aspath_add_seq(struct aspath *aspath, as_t asno);
@@ -96,9 +98,10 @@ extern bool aspath_cmp_left(const struct aspath *aspath1,
 extern bool aspath_cmp_left_confed(const struct aspath *as1,
 				   const struct aspath *as2);
 extern struct aspath *aspath_delete_confed_seq(struct aspath *aspath);
-extern struct aspath *aspath_empty(void);
+extern struct aspath *aspath_empty(enum asnotation_mode asnotation);
 extern struct aspath *aspath_empty_get(void);
-extern struct aspath *aspath_str2aspath(const char *str);
+extern struct aspath *aspath_str2aspath(const char *str,
+					enum asnotation_mode asnotation);
 extern void aspath_str_update(struct aspath *as, bool make_json);
 extern void aspath_free(struct aspath *aspath);
 extern struct aspath *aspath_intern(struct aspath *aspath);
@@ -112,6 +115,9 @@ extern unsigned int aspath_get_last_as(struct aspath *aspath);
 extern int aspath_loop_check(struct aspath *aspath, as_t asno);
 extern int aspath_loop_check_confed(struct aspath *aspath, as_t asno);
 extern bool aspath_private_as_check(struct aspath *aspath);
+extern struct aspath *aspath_replace_regex_asn(struct aspath *aspath,
+					       struct as_list *acl_list,
+					       as_t our_asn);
 extern struct aspath *aspath_replace_specific_asn(struct aspath *aspath,
 						  as_t target_asn,
 						  as_t our_asn);

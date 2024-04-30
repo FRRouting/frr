@@ -1,20 +1,15 @@
+// SPDX-License-Identifier: ISC
 /*
  * Copyright (c) 2015-19  David Lamparter, for NetDEF, Inc.
- *
- * Permission to use, copy, modify, and distribute this software for any
- * purpose with or without fee is hereby granted, provided that the above
- * copyright notice and this permission notice appear in all copies.
- *
- * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
- * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
- * ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
- * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
- * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
- * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
 #include "zebra.h"
+#include <sys/stat.h>
+#include <fcntl.h>
+
+#ifdef HAVE_GLIBC_BACKTRACE
+#include <execinfo.h>
+#endif /* HAVE_GLIBC_BACKTRACE */
 
 #include <unistd.h>
 #include <sys/time.h>
@@ -43,9 +38,6 @@
 #ifdef __DragonFly__
 #include <sys/lwp.h>
 #endif
-#ifdef __APPLE__
-#include <mach/mach_traps.h>
-#endif
 
 #ifdef HAVE_LIBUNWIND
 #define UNW_LOCAL_ONLY
@@ -59,7 +51,7 @@
 #include "frrcu.h"
 #include "zlog.h"
 #include "libfrr_trace.h"
-#include "thread.h"
+#include "frrevent.h"
 
 DEFINE_MTYPE_STATIC(LIB, LOG_MESSAGE,  "log message");
 DEFINE_MTYPE_STATIC(LIB, LOG_TLSBUF,   "log thread-local buffer");
@@ -92,7 +84,7 @@ static struct zlog_targets_head zlog_targets;
 /* Global setting for buffered vs immediate output. The default is
  * per-pthread buffering.
  */
-static bool default_immediate;
+static bool zlog_default_immediate;
 
 /* cf. zlog.h for additional comments on this struct.
  *
@@ -453,7 +445,7 @@ static void vzlog_tls(struct zlog_tls *zlog_tls, const struct xref_logmsg *xref,
 	struct zlog_msg *msg;
 	char *buf;
 	bool ignoremsg = true;
-	bool immediate = default_immediate;
+	bool immediate = zlog_default_immediate;
 
 	/* avoid further processing cost if no target wants this message */
 	rcu_read_lock();
@@ -517,7 +509,7 @@ static void vzlog_tls(struct zlog_tls *zlog_tls, const struct xref_logmsg *xref,
 
 static void zlog_backtrace_msg(const struct xref_logmsg *xref, int prio)
 {
-	struct thread *tc = pthread_getspecific(thread_current);
+	struct event *tc = pthread_getspecific(thread_current);
 	const char *uid = xref->xref.xrefdata->uid;
 	bool found_thread = false;
 
@@ -974,7 +966,12 @@ struct zlog_target *zlog_target_replace(struct zlog_target *oldzt,
  */
 void zlog_set_immediate(bool set_p)
 {
-	default_immediate = set_p;
+	zlog_default_immediate = set_p;
+}
+
+bool zlog_get_immediate_mode(void)
+{
+	return zlog_default_immediate;
 }
 
 /* common init */

@@ -1,20 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * PIM for Quagga
  * Copyright (C) 2008  Everton da Silva Marques
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -24,7 +11,7 @@
 #include <time.h>
 
 #include "log.h"
-#include "thread.h"
+#include "frrevent.h"
 #include "lib_errors.h"
 
 #include "pim_time.h"
@@ -134,21 +121,21 @@ static int pim_time_hhmmss(char *buf, int buf_size, long sec)
 	return wr != 8;
 }
 
-void pim_time_timer_to_mmss(char *buf, int buf_size, struct thread *t_timer)
+void pim_time_timer_to_mmss(char *buf, int buf_size, struct event *t_timer)
 {
 	if (t_timer) {
 		pim_time_mmss(buf, buf_size,
-			      thread_timer_remain_second(t_timer));
+			      event_timer_remain_second(t_timer));
 	} else {
 		snprintf(buf, buf_size, "--:--");
 	}
 }
 
-void pim_time_timer_to_hhmmss(char *buf, int buf_size, struct thread *t_timer)
+void pim_time_timer_to_hhmmss(char *buf, int buf_size, struct event *t_timer)
 {
 	if (t_timer) {
 		pim_time_hhmmss(buf, buf_size,
-				thread_timer_remain_second(t_timer));
+				event_timer_remain_second(t_timer));
 	} else {
 		snprintf(buf, buf_size, "--:--:--");
 	}
@@ -169,9 +156,9 @@ void pim_time_uptime_begin(char *buf, int buf_size, int64_t now, int64_t begin)
 		snprintf(buf, buf_size, "--:--:--");
 }
 
-long pim_time_timer_remain_msec(struct thread *t_timer)
+long pim_time_timer_remain_msec(struct event *t_timer)
 {
 	/* no timer thread running means timer has expired: return 0 */
 
-	return t_timer ? thread_timer_remain_msec(t_timer) : 0;
+	return t_timer ? event_timer_remain_msec(t_timer) : 0;
 }

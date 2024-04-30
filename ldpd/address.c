@@ -1,19 +1,8 @@
+// SPDX-License-Identifier: ISC
 /*	$OpenBSD$ */
 
 /*
  * Copyright (c) 2009 Michele Marchetto <michele@openbsd.org>
- *
- * Permission to use, copy, modify, and distribute this software for any
- * purpose with or without fee is hereby granted, provided that the above
- * copyright notice and this permission notice appear in all copies.
- *
- * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
- * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
- * ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
- * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
- * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
- * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
 #include <zebra.h>
@@ -83,12 +72,13 @@ send_address(struct nbr *nbr, int af, struct if_addr_head *addr_list,
 		if ((buf = ibuf_open(size)) == NULL)
 			fatal(__func__);
 
-		err |= gen_ldp_hdr(buf, size);
+		SET_FLAG(err, gen_ldp_hdr(buf, size));
 		size -= LDP_HDR_SIZE;
-		err |= gen_msg_hdr(buf, msg_type, size);
+		SET_FLAG(err, gen_msg_hdr(buf, msg_type, size));
 		size -= LDP_MSG_SIZE;
-		err |= gen_address_list_tlv(buf, af, addr_list, tlv_addr_count);
+		SET_FLAG(err, gen_address_list_tlv(buf, af, addr_list, tlv_addr_count));
 		(void)size;
+
 		if (err) {
 			address_list_clr(addr_list);
 			ibuf_free(buf);
@@ -169,10 +159,12 @@ send_mac_withdrawal(struct nbr *nbr, struct map *fec, uint8_t *mac)
 
 	err = gen_ldp_hdr(buf, size);
 	size -= LDP_HDR_SIZE;
-	err |= gen_msg_hdr(buf, MSG_TYPE_ADDRWITHDRAW, size);
-	err |= gen_address_list_tlv(buf, AF_INET, NULL, 0);
-	err |= gen_fec_tlv(buf, fec);
-	err |= gen_mac_list_tlv(buf, mac);
+
+	SET_FLAG(err, gen_msg_hdr(buf, MSG_TYPE_ADDRWITHDRAW, size));
+	SET_FLAG(err, gen_address_list_tlv(buf, AF_INET, NULL, 0));
+	SET_FLAG(err, gen_fec_tlv(buf, fec));
+	SET_FLAG(err, gen_mac_list_tlv(buf, mac));
+
 	if (err) {
 		ibuf_free(buf);
 		return;
@@ -351,12 +343,14 @@ gen_address_list_tlv(struct ibuf *buf, int af, struct if_addr_head *addr_list,
 	}
 	alt.length = htons(sizeof(alt.family) + addr_size * tlv_addr_count);
 
-	err |= ibuf_add(buf, &alt, sizeof(alt));
+	SET_FLAG(err, ibuf_add(buf, &alt, sizeof(alt)));
+
 	if (addr_list == NULL)
 		return (err);
 
 	LIST_FOREACH(if_addr, addr_list, entry) {
-		err |= ibuf_add(buf, &if_addr->addr, addr_size);
+		SET_FLAG(err, ibuf_add(buf, &if_addr->addr, addr_size));
+
 		if (--tlv_addr_count == 0)
 			break;
 	}
@@ -376,7 +370,7 @@ gen_mac_list_tlv(struct ibuf *buf, uint8_t *mac)
 		tlv.length = htons(ETH_ALEN);
 	err = ibuf_add(buf, &tlv, sizeof(tlv));
 	if (mac)
-		err |= ibuf_add(buf, mac, ETH_ALEN);
+		SET_FLAG(err, ibuf_add(buf, mac, ETH_ALEN));
 
 	return (err);
 }

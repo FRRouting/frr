@@ -1,21 +1,10 @@
+// SPDX-License-Identifier: ISC
 /*	$OpenBSD$ */
 
 /*
  * Copyright (c) 2013, 2016 Renato Westphal <renato@openbsd.org>
  * Copyright (c) 2009 Michele Marchetto <michele@openbsd.org>
  * Copyright (c) 2004, 2005 Esben Norby <norby@openbsd.org>
- *
- * Permission to use, copy, modify, and distribute this software for any
- * purpose with or without fee is hereby granted, provided that the above
- * copyright notice and this permission notice appear in all copies.
- *
- * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
- * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
- * ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
- * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
- * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
- * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
 #ifndef _LDE_H_
@@ -143,7 +132,7 @@ struct label_chunk {
 extern struct ldpd_conf	*ldeconf;
 extern struct fec_tree	 ft;
 extern struct nbr_tree	 lde_nbrs;
-extern struct thread	*gc_timer;
+extern struct event *gc_timer;
 
 /* lde.c */
 void		 lde(void);
@@ -227,7 +216,7 @@ void		 lde_check_withdraw(struct map *, struct lde_nbr *);
 void		 lde_check_withdraw_wcard(struct map *, struct lde_nbr *);
 int		 lde_wildcard_apply(struct map *, struct fec *,
 		    struct lde_map *);
-void lde_gc_timer(struct thread *thread);
+void lde_gc_timer(struct event *thread);
 void		 lde_gc_start_timer(void);
 void		 lde_gc_stop_timer(void);
 

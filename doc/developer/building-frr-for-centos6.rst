@@ -46,7 +46,7 @@ Add packages:
    sudo yum install git autoconf automake libtool make \
       readline-devel texinfo net-snmp-devel groff pkgconfig \
       json-c-devel pam-devel flex epel-release c-ares-devel libcap-devel \
-      elfutils-libelf-devel
+      elfutils-libelf-devel protobuf-c-devel
 
 Install newer version of bison (CentOS 6 package source is too old) from CentOS
 7:
@@ -124,7 +124,7 @@ Install libyang and its dependencies:
    sudo yum install pcre-devel doxygen cmake
    git clone https://github.com/CESNET/libyang.git
    cd libyang
-   git checkout 090926a89d59a3c4000719505d563aaf6ac60f2
+   git checkout v2.1.128
    mkdir build ; cd build
    cmake -DENABLE_LYD_PRIV=ON -DCMAKE_INSTALL_PREFIX:PATH=/usr -D CMAKE_BUILD_TYPE:String="Release" ..
    make build-rpm
@@ -161,10 +161,8 @@ an example.)
     ./configure \
         --bindir=/usr/bin \
         --sbindir=/usr/lib/frr \
-        --sysconfdir=/etc/frr \
         --libdir=/usr/lib/frr \
         --libexecdir=/usr/lib/frr \
-        --localstatedir=/var/run/frr \
         --with-moduledir=/usr/lib/frr/modules \
         --disable-pimd \
         --enable-snmp=agentx \

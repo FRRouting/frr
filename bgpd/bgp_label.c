@@ -1,27 +1,12 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* BGP carrying label information
  * Copyright (C) 2013 Cumulus Networks, Inc.
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
 
 #include "command.h"
-#include "thread.h"
+#include "frrevent.h"
 #include "prefix.h"
 #include "zclient.h"
 #include "stream.h"
@@ -147,9 +132,8 @@ static void bgp_send_fec_register_label_msg(struct bgp_dest *dest, bool reg,
 		return;
 
 	if (BGP_DEBUG(labelpool, LABELPOOL))
-		zlog_debug("%s: FEC %sregister %pRN label_index=%u label=%u",
-			   __func__, reg ? "" : "un", bgp_dest_to_rnode(dest),
-			   label_index, label);
+		zlog_debug("%s: FEC %sregister %pBD label_index=%u label=%u",
+			   __func__, reg ? "" : "un", dest, label_index, label);
 	/* If the route node has a local_label assigned or the
 	 * path node has an MPLS SR label index allowing zebra to
 	 * derive the label, proceed with registration. */
@@ -210,11 +194,12 @@ int bgp_reg_for_label_callback(mpls_label_t new_label, void *labelid,
 		return -1;
 	}
 
-	bgp_dest_unlock_node(dest);
+	dest = bgp_dest_unlock_node(dest);
+	assert(dest);
 
 	if (BGP_DEBUG(labelpool, LABELPOOL))
-		zlog_debug("%s: FEC %pRN label=%u, allocated=%d", __func__,
-			   bgp_dest_to_rnode(dest), new_label, allocated);
+		zlog_debug("%s: FEC %pBD label=%u, allocated=%d", __func__,
+			   dest, new_label, allocated);
 
 	if (!allocated) {
 		/*
@@ -403,8 +388,6 @@ int bgp_nlri_parse_label(struct peer *peer, struct attr *attr,
 				EC_BGP_UPDATE_RCV,
 				"%s [Error] Update packet error (wrong label length 0)",
 				peer->host);
-			bgp_notify_send(peer, BGP_NOTIFY_UPDATE_ERR,
-					BGP_NOTIFY_UPDATE_INVAL_NETWORK);
 			return BGP_NLRI_PARSE_ERROR_LABEL_LENGTH;
 		}
 		p.prefixlen = prefixlen - BSIZE(llen);
@@ -414,8 +397,6 @@ int bgp_nlri_parse_label(struct peer *peer, struct attr *attr,
 			flog_err(EC_BGP_UPDATE_RCV,
 				 "%s [Error] Update packet error (wrong label length %d)",
 				 peer->host, prefixlen);
-			bgp_notify_send(peer, BGP_NOTIFY_UPDATE_ERR,
-					BGP_NOTIFY_UPDATE_INVAL_NETWORK);
 			return BGP_NLRI_PARSE_ERROR_LABEL_LENGTH;
 		}
 
@@ -472,7 +453,7 @@ int bgp_nlri_parse_label(struct peer *peer, struct attr *attr,
 				   safi, ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL,
 				   NULL, &label, 1, 0, NULL);
 		} else {
-			bgp_withdraw(peer, &p, addpath_id, attr, packet->afi,
+			bgp_withdraw(peer, &p, addpath_id, packet->afi,
 				     SAFI_UNICAST, ZEBRA_ROUTE_BGP,
 				     BGP_ROUTE_NORMAL, NULL, &label, 1, NULL);
 		}
@@ -488,4 +469,21 @@ int bgp_nlri_parse_label(struct peer *peer, struct attr *attr,
 	}
 
 	return BGP_NLRI_PARSE_OK;
+}
+
+bool bgp_labels_same(const mpls_label_t *tbl_a, const uint32_t num_labels_a,
+		     const mpls_label_t *tbl_b, const uint32_t num_labels_b)
+{
+	uint32_t i;
+
+	if (num_labels_a != num_labels_b)
+		return false;
+	if (num_labels_a == 0)
+		return true;
+
+	for (i = 0; i < num_labels_a; i++) {
+		if (tbl_a[i] != tbl_b[i])
+			return false;
+	}
+	return true;
 }

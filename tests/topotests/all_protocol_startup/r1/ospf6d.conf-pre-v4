@@ -1,9 +1,9 @@
 log file ospf6d.log
 !
-debug ospf6 lsa unknown
-debug ospf6 zebra
-debug ospf6 interface
-debug ospf6 neighbor
+!debug ospf6 lsa unknown
+!debug ospf6 zebra
+!debug ospf6 interface
+!debug ospf6 neighbor
 !
 interface r1-eth4
 !

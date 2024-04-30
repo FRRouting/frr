@@ -1,24 +1,11 @@
 #!/usr/bin/env python
+# SPDX-License-Identifier: ISC
 
 #
 # test_bgp_evpn_vxlan.py
 # Part of NetDEF Topology Tests
 #
 # Copyright (c) 2020 by Volta Networks
-#
-# Permission to use, copy, modify, and/or distribute this software
-# for any purpose with or without fee is hereby granted, provided
-# that the above copyright notice and this permission notice appear
-# in all copies.
-#
-# THE SOFTWARE IS PROVIDED "AS IS" AND NETDEF DISCLAIMS ALL WARRANTIES
-# WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
-# MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL NETDEF BE LIABLE FOR
-# ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY
-# DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS,
-# WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS
-# ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE
-# OF THIS SOFTWARE.
 #
 
 """
@@ -144,7 +131,6 @@ def teardown_module(mod):
 
 def show_vni_json_elide_ifindex(pe, vni, expected):
     output_json = pe.vtysh_cmd("show evpn vni {} json".format(vni), isjson=True)
-
     if "ifindex" in output_json:
         output_json.pop("ifindex")
 
@@ -178,6 +164,15 @@ def test_pe1_converge_evpn():
     _, result = topotest.run_and_expect(test_func, None, count=45, wait=1)
     assertmsg = '"{}" JSON output mismatches'.format(pe1.name)
 
+    # Let's ensure that the hosts have actually tried talking to
+    # each other.  Otherwise under certain startup conditions
+    # they may not actually do any l2 arp'ing and as such
+    # the bridges won't know about the hosts on their networks
+    host1 = tgen.gears["host1"]
+    host1.run("ping -c 1 10.10.1.56")
+    host2 = tgen.gears["host2"]
+    host2.run("ping -c 1 10.10.1.55")
+
     test_func = partial(
         check_vni_macs_present,
         tgen,
@@ -185,6 +180,7 @@ def test_pe1_converge_evpn():
         101,
         (("host1", "host1-eth0"), ("host2", "host2-eth0")),
     )
+
     _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
     if result:
         logger.warning("%s", result)
@@ -399,8 +395,8 @@ def test_ip_pe1_learn():
     host1 = tgen.gears["host1"]
     pe1 = tgen.gears["PE1"]
     pe2 = tgen.gears["PE2"]
-    pe2.vtysh_cmd("debug zebra vxlan")
-    pe2.vtysh_cmd("debug zebra kernel")
+    # pe2.vtysh_cmd("debug zebra vxlan")
+    # pe2.vtysh_cmd("debug zebra kernel")
     # lets populate that arp cache
     host1.run("ping -c1 10.10.1.1")
     ip_learn_test(tgen, host1, pe1, pe2, "10.10.1.55")
@@ -418,8 +414,8 @@ def test_ip_pe2_learn():
     host2 = tgen.gears["host2"]
     pe1 = tgen.gears["PE1"]
     pe2 = tgen.gears["PE2"]
-    pe1.vtysh_cmd("debug zebra vxlan")
-    pe1.vtysh_cmd("debug zebra kernel")
+    # pe1.vtysh_cmd("debug zebra vxlan")
+    # pe1.vtysh_cmd("debug zebra kernel")
     # lets populate that arp cache
     host2.run("ping -c1 10.10.1.3")
     ip_learn_test(tgen, host2, pe2, pe1, "10.10.1.56")

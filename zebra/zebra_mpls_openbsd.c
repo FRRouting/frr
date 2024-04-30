@@ -1,24 +1,11 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Copyright (C) 2016 by Open Source Routing.
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
+#include <sys/ioctl.h>
+#include <sys/uio.h>
 
 #ifdef OPEN_BSD
 
@@ -244,20 +231,18 @@ static int kernel_lsp_cmd(struct zebra_dplane_ctx *ctx)
 	const struct nexthop *nexthop = NULL;
 	unsigned int nexthop_num = 0;
 	int action;
+	enum dplane_op_e op;
 
-	switch (dplane_ctx_get_op(ctx)) {
-	case DPLANE_OP_LSP_DELETE:
+	op = dplane_ctx_get_op(ctx);
+
+	if (op == DPLANE_OP_LSP_DELETE)
 		action = RTM_DELETE;
-		break;
-	case DPLANE_OP_LSP_INSTALL:
+	else if (op == DPLANE_OP_LSP_INSTALL)
 		action = RTM_ADD;
-		break;
-	case DPLANE_OP_LSP_UPDATE:
+	else if (op == DPLANE_OP_LSP_UPDATE)
 		action = RTM_CHANGE;
-		break;
-	default:
+	else
 		return -1;
-	}
 
 	head = dplane_ctx_get_nhlfe_list(ctx);
 	frr_each(nhlfe_list_const, head, nhlfe) {
@@ -407,17 +392,14 @@ static enum zebra_dplane_result kmpw_uninstall(struct zebra_dplane_ctx *ctx)
 enum zebra_dplane_result kernel_pw_update(struct zebra_dplane_ctx *ctx)
 {
 	enum zebra_dplane_result result = ZEBRA_DPLANE_REQUEST_FAILURE;
+	enum dplane_op_e op;
 
-	switch (dplane_ctx_get_op(ctx)) {
-	case DPLANE_OP_PW_INSTALL:
+	op = dplane_ctx_get_op(ctx);
+
+	if (op == DPLANE_OP_PW_INSTALL)
 		result = kmpw_install(ctx);
-		break;
-	case DPLANE_OP_PW_UNINSTALL:
+	else if (op == DPLANE_OP_PW_UNINSTALL)
 		result = kmpw_uninstall(ctx);
-		break;
-	default:
-		break;
-	}
 
 	return result;
 }

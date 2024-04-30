@@ -14,18 +14,18 @@
 # not perform any action.  Note there is an "exit 1" if the main config
 # file does not exist.
 #
-# This script should be installed in  @CFG_SBIN@/frrcommon.sh
+# This script should be installed in  @e_sbindir@/frrcommon.sh
 
 # FRR_PATHSPACE is passed in from watchfrr
 suffix="${FRR_PATHSPACE:+/${FRR_PATHSPACE}}"
 nsopt="${FRR_PATHSPACE:+-N ${FRR_PATHSPACE}}"
 
 PATH=/bin:/usr/bin:/sbin:/usr/sbin
-D_PATH="@CFG_SBIN@" # /usr/lib/frr
-C_PATH="@CFG_SYSCONF@${suffix}" # /etc/frr
-V_PATH="@CFG_STATE@${suffix}" # /var/run/frr
-B_PATH="@CFG_BIN@"
-VTYSH="@vtysh_bin@" # /usr/bin/vtysh
+D_PATH="@e_sbindir@" # /usr/lib/frr
+C_PATH="@e_frr_sysconfdir@${suffix}" # /etc/frr
+V_PATH="@e_frr_runstatedir@${suffix}" # /var/run/frr
+B_PATH="@e_bindir@"
+VTYSH="@e_vtysh_bin@" # /usr/bin/vtysh
 FRR_USER="@enable_user@" # frr
 FRR_GROUP="@enable_group@" # frr
 FRR_VTY_GROUP="@enable_vty_group@" # frrvty
@@ -36,7 +36,7 @@ FRR_DEFAULT_PROFILE="@DFLT_NAME@" # traditional / datacenter
 # - keep zebra first
 # - watchfrr does NOT belong in this list
 
-DAEMONS="zebra bgpd ripd ripngd ospfd ospf6d isisd babeld pimd pim6d ldpd nhrpd eigrpd sharpd pbrd staticd bfdd fabricd vrrpd pathd"
+DAEMONS="zebra mgmtd bgpd ripd ripngd ospfd ospf6d isisd babeld pimd pim6d ldpd nhrpd eigrpd sharpd pbrd staticd bfdd fabricd vrrpd pathd"
 RELOAD_SCRIPT="$D_PATH/frr-reload.py"
 
 #
@@ -100,7 +100,7 @@ daemon_list() {
 	for daemon in $DAEMONS; do
 		eval cfg=\$$daemon
 		eval inst=\$${daemon}_instances
-		[ "$daemon" = zebra -o "$daemon" = staticd ] && cfg=yes
+		[ "$daemon" = zebra -o "$daemon" = staticd -o "$daemon" = mgmtd ] && cfg=yes
 		if [ -n "$cfg" -a "$cfg" != "no" -a "$cfg" != "0" ]; then
 			if ! daemon_prep "$daemon" "$inst"; then
 				continue
@@ -207,8 +207,8 @@ daemon_stop() {
 	[ -z "$fail" -a -z "$pid" ] && fail="pid file is empty"
 	[ -n "$fail" ] || kill -0 "$pid" 2>/dev/null || fail="pid $pid not running"
 
-	if [ -n "$fail" ] && [ "$2" != "--quiet" ]; then
-		log_failure_msg "Cannot stop $dmninst: $fail"
+	if [ -n "$fail" ]; then
+		[ "$2" = "--quiet" ] || log_failure_msg "Cannot stop $dmninst: $fail"
 		return 1
 	fi
 
@@ -220,11 +220,11 @@ daemon_stop() {
 		[ $(( cnt -= 1 )) -gt 0 ] || break
 	done
 	if kill -0 "$pid" 2>/dev/null; then
-		log_failure_msg "Failed to stop $dmninst, pid $pid still running"
+		[ "$2" = "--quiet" ] || log_failure_msg "Failed to stop $dmninst, pid $pid still running"
 		still_running=1
 		return 1
 	else
-		log_success_msg "Stopped $dmninst"
+		[ "$2" = "--quiet" ] || log_success_msg "Stopped $dmninst"
 		rm -f "$pidfile"
 		return 0
 	fi

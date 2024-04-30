@@ -1,20 +1,9 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Zebra neighbor table management
  *
  * Copyright (C) 2021 Nvidia
  * Anuradha Karuppiah
- *
- * This file is part of FRR.
- *
- * FRR is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * FRR is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
  */
 
 #ifndef _ZEBRA_NEIGH_H
@@ -54,6 +43,7 @@ struct zebra_neigh_info {
 extern void zebra_neigh_add(struct interface *ifp, struct ipaddr *ip,
 			    struct ethaddr *mac);
 extern void zebra_neigh_del(struct interface *ifp, struct ipaddr *ip);
+extern void zebra_neigh_del_all(struct interface *ifp);
 extern void zebra_neigh_show(struct vty *vty);
 extern void zebra_neigh_init(void);
 extern void zebra_neigh_terminate(void);

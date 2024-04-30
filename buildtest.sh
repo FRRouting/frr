@@ -1,10 +1,11 @@
 #!/bin/bash
+# SPDX-License-Identifier: NONE
 # written 2012-2013 by David Lamparter, placed in Public Domain.
 #
 # builds some git commit of FRR in some different configurations
 # usage: buildtest.sh [commit [configurations...]]
 
-basecfg="--prefix=/usr --enable-user=frr --enable-group=frr --enable-vty-group=frr --enable-configfile-mask=0660 --enable-logfile-mask=0640 --enable-vtysh --sysconfdir=/etc/frr --localstatedir=/var/run/frr --libdir=/usr/lib64/frr  --enable-rtadv --disable-static --enable-isisd --enable-multipath=0 --enable-pimd --enable-werror"
+basecfg="--prefix=/usr --enable-user=frr --enable-group=frr --enable-vty-group=frr --enable-configfile-mask=0660 --enable-logfile-mask=0640 --enable-vtysh --sysconfdir=/etc --localstatedir=/var --libdir=/usr/lib64/frr  --enable-rtadv --disable-static --enable-isisd --enable-multipath=0 --enable-pimd --enable-werror"
 
 configs_base="gcc|$basecfg"
 
@@ -36,9 +37,10 @@ trap errfunc ERR
 
 COMMITREF="$1"
 COMMITISH="`git rev-list --max-count=1 ${COMMITREF:-HEAD}`"
-TEMP="`mktemp -t -d frrbuild.XXXXXX`"
+TEMP="`mktemp -d -t frrbuild.XXXXXX`"
 BASE="`pwd`"
 CONFIGS="$2"
+MAKE="${MAKE:-make}"
 
 echo using temporary directory: $TEMP
 echo git commit used:
@@ -58,7 +60,7 @@ echo -e "\n\n\n\n\033[33;1mmaking dist tarball\033[m"
 mkdir build_dist
 cd build_dist
 ../source/configure
-make distdir=sdist dist-gzip
+${MAKE} distdir=sdist dist-gzip
 cd ..
 tar zxvf build_dist/sdist.tar.gz
 
@@ -78,9 +80,9 @@ for cfg in ${CONFIGS:-$defconfigs}; do
 	mkdir "$bdir"
 	cd "$bdir"
 	../sdist/configure $args
-	make -j5
-	make check
-	make DESTDIR="$TEMP/inst_$cfg" install
+	${MAKE} -j5
+	${MAKE} check
+	${MAKE} DESTDIR="$TEMP/inst_$cfg" install
 	cd ..
 done
 

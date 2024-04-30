@@ -1,28 +1,19 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* BGP message debug header.
  * Copyright (C) 1996, 97, 98 Kunihiro Ishiguro
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef _QUAGGA_BGP_DEBUG_H
 #define _QUAGGA_BGP_DEBUG_H
 
+#include "hook.h"
+#include "vty.h"
+
 #include "bgp_attr.h"
 #include "bgp_updgrp.h"
+
+DECLARE_HOOK(bgp_hook_config_write_debug, (struct vty *vty, bool running),
+	     (vty, running));
 
 /* sort of packet direction */
 #define DUMP_ON        1
@@ -111,6 +102,9 @@ extern struct list *bgp_debug_zebra_prefixes;
 
 struct bgp_debug_filter {
 	char *host;
+	char *plist_name;
+	struct prefix_list *plist_v4;
+	struct prefix_list *plist_v6;
 	struct prefix *p;
 };
 
@@ -124,6 +118,7 @@ struct bgp_debug_filter {
 #define BGP_DEBUG_UPDATE_IN           0x01
 #define BGP_DEBUG_UPDATE_OUT          0x02
 #define BGP_DEBUG_UPDATE_PREFIX       0x04
+#define BGP_DEBUG_UPDATE_DETAIL       0x08
 #define BGP_DEBUG_ZEBRA               0x01
 #define BGP_DEBUG_ALLOW_MARTIANS      0x01
 #define BGP_DEBUG_NHT                 0x01
@@ -138,9 +133,6 @@ struct bgp_debug_filter {
 #define BGP_DEBUG_PBR_ERROR           0x02
 #define BGP_DEBUG_EVPN_MH_ES          0x01
 #define BGP_DEBUG_EVPN_MH_RT          0x02
-
-#define BGP_DEBUG_PACKET_SEND         0x01
-#define BGP_DEBUG_PACKET_SEND_DETAIL  0x02
 
 #define BGP_DEBUG_GRACEFUL_RESTART     0x01
 

@@ -1,21 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * BFD daemon code
  * Copyright (C) 2018 Network Device Education Foundation, Inc. ("NetDEF")
- *
- * FRR is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * FRR is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with FRR; see the file COPYING.  If not, write to the Free
- * Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
- * 02111-1307, USA.
  */
 
 #include <zebra.h>
@@ -42,11 +28,11 @@
  * FRR related code.
  */
 DEFINE_MGROUP(BFDD, "Bidirectional Forwarding Detection Daemon");
-DEFINE_MTYPE(BFDD, BFDD_CONTROL, "long-lived control socket memory");
-DEFINE_MTYPE(BFDD, BFDD_NOTIFICATION, "short-lived control notification data");
+DEFINE_MTYPE(BFDD, BFDD_CONTROL, "control socket memory");
+DEFINE_MTYPE(BFDD, BFDD_NOTIFICATION, "control notification data");
 
 /* Master of threads. */
-struct thread_master *master;
+struct event_loop *master;
 
 /* BFDd privileges */
 static zebra_capabilities_t _caps_p[] = {ZCAP_BIND, ZCAP_SYS_ADMIN, ZCAP_NET_RAW};
@@ -89,6 +75,8 @@ static void sigterm_handler(void)
 
 	bfd_vrf_terminate();
 
+	bfdd_zclient_terminate();
+
 	/* Terminate and free() FRR related memory. */
 	frr_fini();
 
@@ -129,13 +117,20 @@ static const struct frr_yang_module_info *const bfdd_yang_modules[] = {
 	&frr_vrf_info,
 };
 
-FRR_DAEMON_INFO(bfdd, BFD, .vty_port = 2617,
-		.proghelp = "Implementation of the BFD protocol.",
-		.signals = bfd_signals, .n_signals = array_size(bfd_signals),
-		.privs = &bglobal.bfdd_privs,
-		.yang_modules = bfdd_yang_modules,
-		.n_yang_modules = array_size(bfdd_yang_modules),
+/* clang-format off */
+FRR_DAEMON_INFO(bfdd, BFD,
+	.vty_port = BFDD_VTY_PORT,
+	.proghelp = "Implementation of the BFD protocol.",
+
+	.signals = bfd_signals,
+	.n_signals = array_size(bfd_signals),
+
+	.privs = &bglobal.bfdd_privs,
+
+	.yang_modules = bfdd_yang_modules,
+	.n_yang_modules = array_size(bfdd_yang_modules),
 );
+/* clang-format on */
 
 #define OPTION_CTLSOCK 1001
 #define OPTION_DPLANEADDR 2000
@@ -347,8 +342,6 @@ int main(int argc, char *argv[])
 		    "      --bfdctl       Specify bfdd control socket\n"
 		    "      --dplaneaddr   Specify BFD data plane address\n");
 
-	snprintf(ctl_path, sizeof(ctl_path), BFDD_CONTROL_SOCKET,
-		 "", "");
 	while (true) {
 		opt = frr_getopt(argc, argv, NULL);
 		if (opt == EOF)
@@ -369,9 +362,8 @@ int main(int argc, char *argv[])
 		}
 	}
 
-	if (bfdd_di.pathspace && !ctlsockused)
-		snprintf(ctl_path, sizeof(ctl_path), BFDD_CONTROL_SOCKET,
-			 "/", bfdd_di.pathspace);
+	if (!ctlsockused)
+		snprintf(ctl_path, sizeof(ctl_path), BFDD_SOCK_NAME);
 
 	/* Initialize FRR infrastructure. */
 	master = frr_init();
@@ -389,8 +381,8 @@ int main(int argc, char *argv[])
 	/* Initialize zebra connection. */
 	bfdd_zclient_init(&bglobal.bfdd_privs);
 
-	thread_add_read(master, control_accept, NULL, bglobal.bg_csock,
-			&bglobal.bg_csockev);
+	event_add_read(master, control_accept, NULL, bglobal.bg_csock,
+		       &bglobal.bg_csockev);
 
 	/* Install commands. */
 	bfdd_vty_init();

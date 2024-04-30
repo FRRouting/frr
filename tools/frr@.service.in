@@ -17,10 +17,10 @@ WatchdogSec=60s
 RestartSec=5
 Restart=always
 LimitNOFILE=1024
-PIDFile=@CFG_STATE@/%I/watchfrr.pid
-ExecStart=@CFG_SBIN@/frrinit.sh start %I
-ExecStop=@CFG_SBIN@/frrinit.sh stop %I
-ExecReload=@CFG_SBIN@/frrinit.sh reload %I
+PIDFile=@e_frr_runstatedir@/%I/watchfrr.pid
+ExecStart=@e_sbindir@/frrinit.sh start %I
+ExecStop=@e_sbindir@/frrinit.sh stop %I
+ExecReload=@e_sbindir@/frrinit.sh reload %I
 
 [Install]
 WantedBy=multi-user.target

@@ -1,20 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Pull-driven write event handler
  * Copyright (C) 2019  David Lamparter
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef _WRITEPOLL_H
@@ -23,7 +10,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#include "thread.h"
+#include "frrevent.h"
 #include "stream.h"
 
 #ifdef __cplusplus
@@ -58,10 +45,10 @@ struct pullwr;
  * and released with pullwr_del().  This can be done from inside the callback,
  * the pullwr code holds no more references on it when calling err().
  */
-extern struct pullwr *_pullwr_new(struct thread_master *tm, int fd,
-		void *arg,
-		void (*fill)(void *, struct pullwr *),
-		void (*err)(void *, struct pullwr *, bool eof));
+extern struct pullwr *_pullwr_new(struct event_loop *tm, int fd, void *arg,
+				  void (*fill)(void *, struct pullwr *),
+				  void (*err)(void *, struct pullwr *,
+					      bool eof));
 extern void pullwr_del(struct pullwr *pullwr);
 
 /* type-checking wrapper.  makes sure fill() and err() take a first argument

@@ -1,21 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* Prefix list functions.
  * Copyright (C) 1999 Kunihiro Ishiguro
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published
- * by the Free Software Foundation; either version 2, or (at your
- * option) any later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -417,13 +402,54 @@ static void prefix_list_trie_del(struct prefix_list *plist,
 		}
 }
 
+/**
+ * Find duplicated prefix entry (same prefix but different entry) in prefix
+ * list.
+ */
+static bool prefix_list_entry_is_duplicated(struct prefix_list *list,
+					    struct prefix_list_entry *entry)
+{
+	size_t depth, maxdepth = list->master->trie_depth;
+	uint8_t byte, *bytes = entry->prefix.u.val;
+	size_t validbits = entry->prefix.prefixlen;
+	struct pltrie_table *table = list->trie;
+	struct prefix_list_entry *pentry;
+
+	for (depth = 0; validbits > PLC_BITS && depth < maxdepth - 1; depth++) {
+		byte = bytes[depth];
+		if (!table->entries[byte].next_table)
+			return NULL;
+
+		table = table->entries[byte].next_table;
+		validbits -= PLC_BITS;
+	}
+
+	byte = bytes[depth];
+	if (validbits > PLC_BITS)
+		pentry = table->entries[byte].final_chain;
+	else
+		pentry = table->entries[byte].up_chain;
+
+	for (; pentry; pentry = pentry->next_best) {
+		if (pentry == entry)
+			continue;
+		if (prefix_same(&pentry->prefix, &entry->prefix))
+			return true;
+	}
+
+	return false;
+}
 
 void prefix_list_entry_delete(struct prefix_list *plist,
 			      struct prefix_list_entry *pentry,
 			      int update_list)
 {
+	bool duplicate;
+
 	if (plist == NULL || pentry == NULL)
 		return;
+
+	duplicate = prefix_list_entry_is_duplicated(plist, pentry);
 
 	prefix_list_trie_del(plist, pentry);
 
@@ -436,8 +462,10 @@ void prefix_list_entry_delete(struct prefix_list *plist,
 	else
 		plist->tail = pentry->prev;
 
-	route_map_notify_pentry_dependencies(plist->name, pentry,
-					     RMAP_EVENT_PLIST_DELETED);
+	if (!duplicate)
+		route_map_notify_pentry_dependencies(plist->name, pentry,
+						     RMAP_EVENT_PLIST_DELETED);
+
 	prefix_list_entry_free(pentry);
 
 	plist->count--;
@@ -572,10 +600,13 @@ static void prefix_list_entry_add(struct prefix_list *plist,
 void prefix_list_entry_update_start(struct prefix_list_entry *ple)
 {
 	struct prefix_list *pl = ple->pl;
+	bool duplicate;
 
 	/* Not installed, nothing to do. */
 	if (!ple->installed)
 		return;
+
+	duplicate = prefix_list_entry_is_duplicated(pl, ple);
 
 	prefix_list_trie_del(pl, ple);
 
@@ -589,8 +620,9 @@ void prefix_list_entry_update_start(struct prefix_list_entry *ple)
 	else
 		pl->tail = ple->prev;
 
-	route_map_notify_pentry_dependencies(pl->name, ple,
-					     RMAP_EVENT_PLIST_DELETED);
+	if (!duplicate)
+		route_map_notify_pentry_dependencies(pl->name, ple,
+						     RMAP_EVENT_PLIST_DELETED);
 	pl->count--;
 
 	route_map_notify_dependencies(pl->name, RMAP_EVENT_PLIST_DELETED);
@@ -1197,7 +1229,7 @@ static int vty_clear_prefix_list(struct vty *vty, afi_t afi, const char *name,
 
 DEFPY (show_ip_prefix_list,
        show_ip_prefix_list_cmd,
-       "show ip prefix-list [WORD [seq$dseq (1-4294967295)$arg]] [json$uj]",
+       "show ip prefix-list [PREFIXLIST4_NAME$name [seq$dseq (1-4294967295)$arg]] [json$uj]",
        SHOW_STR
        IP_STR
        PREFIX_LIST_STR
@@ -1210,13 +1242,13 @@ DEFPY (show_ip_prefix_list,
 	if (dseq)
 		dtype = sequential_display;
 
-	return vty_show_prefix_list(vty, AFI_IP, prefix_list, arg_str, dtype,
+	return vty_show_prefix_list(vty, AFI_IP, name, arg_str, dtype,
 				    !!uj);
 }
 
 DEFPY (show_ip_prefix_list_prefix,
        show_ip_prefix_list_prefix_cmd,
-       "show ip prefix-list WORD A.B.C.D/M$prefix [longer$dl|first-match$dfm]",
+       "show ip prefix-list PREFIXLIST4_NAME$name A.B.C.D/M$prefix [longer$dl|first-match$dfm]",
        SHOW_STR
        IP_STR
        PREFIX_LIST_STR
@@ -1231,13 +1263,13 @@ DEFPY (show_ip_prefix_list_prefix,
 	else if (dfm)
 		dtype = first_match_display;
 
-	return vty_show_prefix_list_prefix(vty, AFI_IP, prefix_list, prefix_str,
+	return vty_show_prefix_list_prefix(vty, AFI_IP, name, prefix_str,
 					   dtype);
 }
 
 DEFPY (show_ip_prefix_list_summary,
        show_ip_prefix_list_summary_cmd,
-       "show ip prefix-list summary [WORD$prefix_list] [json$uj]",
+       "show ip prefix-list summary [PREFIXLIST4_NAME$name] [json$uj]",
        SHOW_STR
        IP_STR
        PREFIX_LIST_STR
@@ -1245,13 +1277,13 @@ DEFPY (show_ip_prefix_list_summary,
        "Name of a prefix list\n"
        JSON_STR)
 {
-	return vty_show_prefix_list(vty, AFI_IP, prefix_list, NULL,
+	return vty_show_prefix_list(vty, AFI_IP, name, NULL,
 				    summary_display, !!uj);
 }
 
 DEFPY (show_ip_prefix_list_detail,
        show_ip_prefix_list_detail_cmd,
-       "show ip prefix-list detail [WORD$prefix_list] [json$uj]",
+       "show ip prefix-list detail [PREFIXLIST4_NAME$name] [json$uj]",
        SHOW_STR
        IP_STR
        PREFIX_LIST_STR
@@ -1259,25 +1291,25 @@ DEFPY (show_ip_prefix_list_detail,
        "Name of a prefix list\n"
        JSON_STR)
 {
-	return vty_show_prefix_list(vty, AFI_IP, prefix_list, NULL,
+	return vty_show_prefix_list(vty, AFI_IP, name, NULL,
 				    detail_display, !!uj);
 }
 
 DEFPY (clear_ip_prefix_list,
        clear_ip_prefix_list_cmd,
-       "clear ip prefix-list [WORD [A.B.C.D/M$prefix]]",
+       "clear ip prefix-list [PREFIXLIST4_NAME$name [A.B.C.D/M$prefix]]",
        CLEAR_STR
        IP_STR
        PREFIX_LIST_STR
        "Name of a prefix list\n"
        "IP prefix <network>/<length>, e.g., 35.0.0.0/8\n")
 {
-	return vty_clear_prefix_list(vty, AFI_IP, prefix_list, prefix_str);
+	return vty_clear_prefix_list(vty, AFI_IP, name, prefix_str);
 }
 
 DEFPY (show_ipv6_prefix_list,
        show_ipv6_prefix_list_cmd,
-       "show ipv6 prefix-list [WORD [seq$dseq (1-4294967295)$arg]] [json$uj]",
+       "show ipv6 prefix-list [PREFIXLIST6_NAME$name [seq$dseq (1-4294967295)$arg]] [json$uj]",
        SHOW_STR
        IPV6_STR
        PREFIX_LIST_STR
@@ -1290,13 +1322,13 @@ DEFPY (show_ipv6_prefix_list,
 	if (dseq)
 		dtype = sequential_display;
 
-	return vty_show_prefix_list(vty, AFI_IP6, prefix_list, arg_str, dtype,
+	return vty_show_prefix_list(vty, AFI_IP6, name, arg_str, dtype,
 				    !!uj);
 }
 
 DEFPY (show_ipv6_prefix_list_prefix,
        show_ipv6_prefix_list_prefix_cmd,
-       "show ipv6 prefix-list WORD X:X::X:X/M$prefix [longer$dl|first-match$dfm]",
+       "show ipv6 prefix-list PREFIXLIST6_NAME$name X:X::X:X/M$prefix [longer$dl|first-match$dfm]",
        SHOW_STR
        IPV6_STR
        PREFIX_LIST_STR
@@ -1311,13 +1343,13 @@ DEFPY (show_ipv6_prefix_list_prefix,
 	else if (dfm)
 		dtype = first_match_display;
 
-	return vty_show_prefix_list_prefix(vty, AFI_IP6, prefix_list,
+	return vty_show_prefix_list_prefix(vty, AFI_IP6, name,
 					   prefix_str, dtype);
 }
 
 DEFPY (show_ipv6_prefix_list_summary,
        show_ipv6_prefix_list_summary_cmd,
-       "show ipv6 prefix-list summary [WORD$prefix-list] [json$uj]",
+       "show ipv6 prefix-list summary [PREFIXLIST6_NAME$name] [json$uj]",
        SHOW_STR
        IPV6_STR
        PREFIX_LIST_STR
@@ -1325,13 +1357,13 @@ DEFPY (show_ipv6_prefix_list_summary,
        "Name of a prefix list\n"
        JSON_STR)
 {
-	return vty_show_prefix_list(vty, AFI_IP6, prefix_list, NULL,
+	return vty_show_prefix_list(vty, AFI_IP6, name, NULL,
 				    summary_display, !!uj);
 }
 
 DEFPY (show_ipv6_prefix_list_detail,
        show_ipv6_prefix_list_detail_cmd,
-       "show ipv6 prefix-list detail [WORD$prefix-list] [json$uj]",
+       "show ipv6 prefix-list detail [PREFIXLIST6_NAME$name] [json$uj]",
        SHOW_STR
        IPV6_STR
        PREFIX_LIST_STR
@@ -1339,20 +1371,20 @@ DEFPY (show_ipv6_prefix_list_detail,
        "Name of a prefix list\n"
        JSON_STR)
 {
-	return vty_show_prefix_list(vty, AFI_IP6, prefix_list, NULL,
+	return vty_show_prefix_list(vty, AFI_IP6, name, NULL,
 				    detail_display, !!uj);
 }
 
 DEFPY (clear_ipv6_prefix_list,
        clear_ipv6_prefix_list_cmd,
-       "clear ipv6 prefix-list [WORD [X:X::X:X/M$prefix]]",
+       "clear ipv6 prefix-list [PREFIXLIST6_NAME$name [X:X::X:X/M$prefix]]",
        CLEAR_STR
        IPV6_STR
        PREFIX_LIST_STR
        "Name of a prefix list\n"
        "IPv6 prefix <network>/<length>, e.g., 3ffe::/16\n")
 {
-	return vty_clear_prefix_list(vty, AFI_IP6, prefix_list, prefix_str);
+	return vty_clear_prefix_list(vty, AFI_IP6, name, prefix_str);
 }
 
 DEFPY (debug_prefix_list_match,
@@ -1600,12 +1632,26 @@ static void plist_autocomplete(vector comps, struct cmd_token *token)
 	plist_autocomplete_afi(AFI_IP6, comps, token);
 }
 
+static void plist4_autocomplete(vector comps, struct cmd_token *token)
+{
+	plist_autocomplete_afi(AFI_IP, comps, token);
+}
+
+static void plist6_autocomplete(vector comps, struct cmd_token *token)
+{
+	plist_autocomplete_afi(AFI_IP6, comps, token);
+}
+
 static const struct cmd_variable_handler plist_var_handlers[] = {
 	{/* "prefix-list WORD" */
 	 .varname = "prefix_list",
 	 .completions = plist_autocomplete},
 	{.tokenname = "PREFIXLIST_NAME",
 	 .completions = plist_autocomplete},
+	{.tokenname = "PREFIXLIST4_NAME",
+	 .completions = plist4_autocomplete},
+	{.tokenname = "PREFIXLIST6_NAME",
+	 .completions = plist6_autocomplete},
 	{.completions = NULL}};
 
 

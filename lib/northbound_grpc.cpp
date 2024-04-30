@@ -1,21 +1,8 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 //
 // Copyright (c) 2021-2022, LabN Consulting, L.L.C
 // Copyright (C) 2019  NetDEF, Inc.
 //                     Renato Westphal
-//
-// This program is free software; you can redistribute it and/or modify it
-// under the terms of the GNU General Public License as published by the Free
-// Software Foundation; either version 2 of the License, or (at your option)
-// any later version.
-//
-// This program is distributed in the hope that it will be useful, but WITHOUT
-// ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-// FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
-// more details.
-//
-// You should have received a copy of the GNU General Public License along
-// with this program; see the file COPYING; if not, write to the Free Software
-// Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
 //
 
 #include <zebra.h>
@@ -25,7 +12,7 @@
 #include "log.h"
 #include "libfrr.h"
 #include "lib/version.h"
-#include "lib/thread.h"
+#include "frrevent.h"
 #include "command.h"
 #include "lib_errors.h"
 #include "northbound.h"
@@ -51,7 +38,7 @@
  */
 static bool nb_dbg_client_grpc = 0;
 
-static struct thread_master *main_master;
+static struct event_loop *main_master;
 
 static struct frr_pthread *fpt;
 
@@ -170,8 +157,7 @@ class RpcStateBase
 		 * state will either be MORE or FINISH. It will always be FINISH
 		 * for Unary RPCs.
 		 */
-		thread_add_event(main_master, c_callback, (void *)this, 0,
-				 NULL);
+		event_add_event(main_master, c_callback, (void *)this, 0, NULL);
 
 		pthread_mutex_lock(&this->cmux);
 		while (this->state == PROCESS)
@@ -194,11 +180,11 @@ class RpcStateBase
 	}
 
       protected:
-	virtual CallState run_mainthread(struct thread *thread) = 0;
+	virtual CallState run_mainthread(struct event *thread) = 0;
 
-	static void c_callback(struct thread *thread)
+	static void c_callback(struct event *thread)
 	{
-		auto _tag = static_cast<RpcStateBase *>(THREAD_ARG(thread));
+		auto _tag = static_cast<RpcStateBase *>(EVENT_ARG(thread));
 		/*
 		 * We hold the lock until the callback finishes and has updated
 		 * _tag->state, then we signal done and release.
@@ -263,7 +249,7 @@ template <typename Q, typename S> class UnaryRpcState : public RpcStateBase
 				     &copy->responder, cq, cq, copy);
 	}
 
-	CallState run_mainthread(struct thread *thread) override
+	CallState run_mainthread(struct event *thread) override
 	{
 		// Unary RPC are always finished, see "Unary" :)
 		grpc::Status status = this->callback(this);
@@ -315,7 +301,7 @@ class StreamRpcState : public RpcStateBase
 				      &copy->async_responder, cq, cq, copy);
 	}
 
-	CallState run_mainthread(struct thread *thread) override
+	CallState run_mainthread(struct event *thread) override
 	{
 		if (this->callback(this))
 			return MORE;
@@ -441,25 +427,11 @@ static struct lyd_node *get_dnode_config(const std::string &path)
 	return dnode;
 }
 
-static int get_oper_data_cb(const struct lysc_node *snode,
-			    struct yang_translator *translator,
-			    struct yang_data *data, void *arg)
-{
-	struct lyd_node *dnode = static_cast<struct lyd_node *>(arg);
-	int ret = yang_dnode_edit(dnode, data->xpath, data->value);
-	yang_data_free(data);
-
-	return (ret == 0) ? NB_OK : NB_ERR;
-}
-
 static struct lyd_node *get_dnode_state(const std::string &path)
 {
-	struct lyd_node *dnode = yang_dnode_new(ly_native_ctx, false);
-	if (nb_oper_data_iterate(path.c_str(), NULL, 0, get_oper_data_cb, dnode)
-	    != NB_OK) {
-		yang_dnode_free(dnode);
-		return NULL;
-	}
+	struct lyd_node *dnode = NULL;
+
+	(void)nb_oper_iterate_legacy(path.c_str(), NULL, 0, NULL, NULL, &dnode);
 
 	return dnode;
 }
@@ -837,8 +809,9 @@ HandleUnaryCommit(UnaryRpcState<frr::CommitRequest, frr::CommitResponse> *tag)
 	case frr::CommitRequest::PREPARE:
 		grpc_debug("`-> Performing PREPARE");
 		ret = nb_candidate_commit_prepare(
-			&context, candidate->config, comment.c_str(),
-			&candidate->transaction, errmsg, sizeof(errmsg));
+			context, candidate->config, comment.c_str(),
+			&candidate->transaction, false, false, errmsg,
+			sizeof(errmsg));
 		break;
 	case frr::CommitRequest::ABORT:
 		grpc_debug("`-> Performing ABORT");
@@ -853,7 +826,7 @@ HandleUnaryCommit(UnaryRpcState<frr::CommitRequest, frr::CommitResponse> *tag)
 		break;
 	case frr::CommitRequest::ALL:
 		grpc_debug("`-> Performing ALL");
-		ret = nb_candidate_commit(&context, candidate->config, true,
+		ret = nb_candidate_commit(context, candidate->config, true,
 					  comment.c_str(), &transaction_id,
 					  errmsg, sizeof(errmsg));
 		break;
@@ -1287,7 +1260,7 @@ static int frr_grpc_finish(void)
  * fork. This is done by scheduling this init function as an event task, since
  * the event loop doesn't run until after fork.
  */
-static void frr_grpc_module_very_late_init(struct thread *thread)
+static void frr_grpc_module_very_late_init(struct event *thread)
 {
 	const char *args = THIS_MODULE->load_args;
 	uint port = GRPC_DEFAULT_PORT;
@@ -1311,11 +1284,11 @@ error:
 	flog_err(EC_LIB_GRPC_INIT, "failed to initialize the gRPC module");
 }
 
-static int frr_grpc_module_late_init(struct thread_master *tm)
+static int frr_grpc_module_late_init(struct event_loop *tm)
 {
 	main_master = tm;
 	hook_register(frr_fini, frr_grpc_finish);
-	thread_add_event(tm, frr_grpc_module_very_late_init, NULL, 0, NULL);
+	event_add_event(tm, frr_grpc_module_very_late_init, NULL, 0, NULL);
 	return 0;
 }
 

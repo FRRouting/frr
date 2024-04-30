@@ -1,21 +1,8 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * ISIS SNMP support
  * Copyright (C) 2020 Volta Networks, Inc.
  *                    Aleksey Romanov
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 /*
@@ -272,11 +259,6 @@
 /* Declare static local variables for convenience. */
 SNMP_LOCAL_VARIABLES
 
-/* If ARRAY_SIZE is not available use a primitive substitution */
-#ifndef ARRAY_SIZE
-#define ARRAY_SIZE(x) (sizeof(x) / sizeof(x[0]))
-#endif
-
 /*
  * Define time function, it serves two purposes
  * 1. Uses unint32_t for unix time and encapsulates
@@ -438,7 +420,7 @@ static struct isis_func_to_prefix isis_func_to_prefix_arr[] = {
 	{isis_snmp_find_isadj_ipaddr, {ISIS_ISADJIPADDR_ENTRY}, 4},
 	{isis_snmp_find_isadj_prot_supp, {ISIS_ISADJPROTSUPP_ENTRY}, 4},
 };
-static size_t isis_func_to_prefix_count = ARRAY_SIZE(isis_func_to_prefix_arr);
+static size_t isis_func_to_prefix_count = array_size(isis_func_to_prefix_arr);
 
 static struct variable isis_var_arr[] = {
 	{ISIS_SYS_VERSION, INTEGER, RONLY, isis_snmp_find_sys_object},
@@ -567,7 +549,7 @@ static struct variable isis_var_arr[] = {
 	 isis_snmp_find_isadj_prot_supp},
 };
 
-static const size_t isis_var_count = ARRAY_SIZE(isis_var_arr);
+static const size_t isis_var_count = array_size(isis_var_arr);
 
 /* Minimal set of hard-coded data */
 #define ISIS_VERSION (1)
@@ -851,12 +833,12 @@ static int isis_snmp_conv_next(uint8_t *buf, size_t max_len, size_t *out_len,
  */
 static int isis_snmp_area_addr_lookup_exact(oid *oid_idx, size_t oid_idx_len,
 					    struct isis_area **ret_area,
-					    struct area_addr **ret_addr)
+					    struct iso_address **ret_addr)
 {
 	uint8_t cmp_buf[ISIS_SNMP_OSI_ADDR_LEN_MAX];
 	size_t addr_len;
 	struct isis_area *area = NULL;
-	struct area_addr *addr = NULL;
+	struct iso_address *addr = NULL;
 	struct listnode *addr_node;
 	struct isis *isis = isis_lookup_by_vrfid(VRF_DEFAULT);
 
@@ -898,15 +880,15 @@ static int isis_snmp_area_addr_lookup_exact(oid *oid_idx, size_t oid_idx_len,
 
 static int isis_snmp_area_addr_lookup_next(oid *oid_idx, size_t oid_idx_len,
 					   struct isis_area **ret_area,
-					   struct area_addr **ret_addr)
+					   struct iso_address **ret_addr)
 {
 	uint8_t cmp_buf[ISIS_SNMP_OSI_ADDR_LEN_MAX];
 	size_t addr_len;
 	int try_exact = 0;
 	struct isis_area *found_area = NULL;
 	struct isis_area *area = NULL;
-	struct area_addr *found_addr = NULL;
-	struct area_addr *addr = NULL;
+	struct iso_address *found_addr = NULL;
+	struct iso_address *addr = NULL;
 	struct listnode *addr_node;
 	struct isis *isis = isis_lookup_by_vrfid(VRF_DEFAULT);
 
@@ -1519,7 +1501,7 @@ static uint8_t *isis_snmp_find_man_area(struct variable *v, oid *name,
 					WriteMethod **write_method)
 {
 	int res;
-	struct area_addr *area_addr = NULL;
+	struct iso_address *area_addr = NULL;
 	oid *oid_idx;
 	size_t oid_idx_len;
 	size_t off = 0;
@@ -2174,7 +2156,10 @@ static uint8_t *isis_snmp_find_circ(struct variable *v, oid *name,
 		/*
 		 * return false if lan hellos must be padded
 		 */
-		if (circuit->pad_hellos)
+		if (circuit->pad_hellos == ISIS_HELLO_PADDING_ALWAYS ||
+		    (circuit->pad_hellos ==
+			     ISIS_HELLO_PADDING_DURING_ADJACENCY_FORMATION &&
+		     circuit->upadjcount[0] + circuit->upadjcount[1] == 0))
 			return SNMP_INTEGER(ISIS_SNMP_TRUTH_VALUE_FALSE);
 
 		return SNMP_INTEGER(ISIS_SNMP_TRUTH_VALUE_TRUE);
@@ -2500,6 +2485,11 @@ static uint8_t *isis_snmp_find_isadj(struct variable *v, oid *name,
 	uint32_t delta_ticks;
 	time_t now_time;
 
+	/* Ring buffer to print SNPA */
+#define FORMAT_BUF_COUNT 4
+	static char snpa[FORMAT_BUF_COUNT][ISO_SYSID_STRLEN];
+	static size_t cur_buf = 0;
+
 	*write_method = NULL;
 
 	if (*length <= v->namelen) {
@@ -2546,9 +2536,10 @@ static uint8_t *isis_snmp_find_isadj(struct variable *v, oid *name,
 		return SNMP_INTEGER(adj->threeway_state);
 
 	case ISIS_ISADJ_NEIGHSNPAADDRESS: {
-		const char *snpa = (char *)snpa_print(adj->snpa);
-		*var_len = strlen(snpa);
-		return (uint8_t *)snpa;
+		cur_buf = (cur_buf + 1) % FORMAT_BUF_COUNT;
+		snprintfrr(snpa[cur_buf], ISO_SYSID_STRLEN, "%pSY", adj->snpa);
+		*var_len = strlen(snpa[cur_buf]);
+		return (uint8_t *)snpa[cur_buf];
 	}
 
 	case ISIS_ISADJ_NEIGHSYSTYPE:
@@ -2807,7 +2798,7 @@ static uint8_t *isis_snmp_find_isadj_prot_supp(struct variable *v, oid *name,
 
 
 /* Register ISIS-MIB. */
-static int isis_snmp_init(struct thread_master *tm)
+static int isis_snmp_init(struct event_loop *tm)
 {
 	struct isis_func_to_prefix *h2f = isis_func_to_prefix_arr;
 	struct variable *v;
@@ -2869,7 +2860,7 @@ static int isis_snmp_db_overload_update(const struct isis_area *area)
 
 	/* Put in trap value */
 	snmp_varlist_add_variable(&notification_vars, isis_snmp_trap_var,
-				  ARRAY_SIZE(isis_snmp_trap_var), ASN_OBJECT_ID,
+				  array_size(isis_snmp_trap_var), ASN_OBJECT_ID,
 				  (uint8_t *)&isis_snmp_trap_val_db_overload,
 				  sizeof(isis_snmp_trap_val_db_overload));
 
@@ -2878,11 +2869,11 @@ static int isis_snmp_db_overload_update(const struct isis_area *area)
 
 	snmp_varlist_add_variable(
 		&notification_vars, isis_snmp_trap_data_var_sys_level_index,
-		ARRAY_SIZE(isis_snmp_trap_data_var_sys_level_index), INTEGER,
+		array_size(isis_snmp_trap_data_var_sys_level_index), INTEGER,
 		(uint8_t *)&val, sizeof(val));
 
 	/* Patch sys_level_state with proper index */
-	off = ARRAY_SIZE(isis_snmp_trap_data_var_sys_level_state) - 1;
+	off = array_size(isis_snmp_trap_data_var_sys_level_state) - 1;
 	isis_snmp_trap_data_var_sys_level_state[off] = val;
 
 	/* Prepare data */
@@ -2893,7 +2884,7 @@ static int isis_snmp_db_overload_update(const struct isis_area *area)
 
 	snmp_varlist_add_variable(
 		&notification_vars, isis_snmp_trap_data_var_sys_level_state,
-		ARRAY_SIZE(isis_snmp_trap_data_var_sys_level_state), INTEGER,
+		array_size(isis_snmp_trap_data_var_sys_level_state), INTEGER,
 		(uint8_t *)&val, sizeof(val));
 
 	send_v2trap(notification_vars);
@@ -2915,7 +2906,7 @@ static int isis_snmp_lsp_exceed_max_update(const struct isis_area *area,
 
 	/* Put in trap value */
 	snmp_varlist_add_variable(&notification_vars, isis_snmp_trap_var,
-				  ARRAY_SIZE(isis_snmp_trap_var), ASN_OBJECT_ID,
+				  array_size(isis_snmp_trap_var), ASN_OBJECT_ID,
 				  (uint8_t *)&isis_snmp_trap_val_lsp_exceed_max,
 				  sizeof(isis_snmp_trap_val_lsp_exceed_max));
 
@@ -2924,12 +2915,12 @@ static int isis_snmp_lsp_exceed_max_update(const struct isis_area *area,
 
 	snmp_varlist_add_variable(
 		&notification_vars, isis_snmp_trap_data_var_sys_level_index,
-		ARRAY_SIZE(isis_snmp_trap_data_var_sys_level_index), INTEGER,
+		array_size(isis_snmp_trap_data_var_sys_level_index), INTEGER,
 		(uint8_t *)&val, sizeof(val));
 
 	snmp_varlist_add_variable(
 		&notification_vars, isis_snmp_trap_data_var_pdu_lsp_id,
-		ARRAY_SIZE(isis_snmp_trap_data_var_pdu_lsp_id), STRING, lsp_id,
+		array_size(isis_snmp_trap_data_var_pdu_lsp_id), STRING, lsp_id,
 		ISIS_SYS_ID_LEN + 2);
 
 	send_v2trap(notification_vars);
@@ -2972,18 +2963,18 @@ static void isis_snmp_update_worker_a(const struct isis_circuit *circuit,
 	/* Put in trap value */
 	memcpy(var_name, isis_snmp_notifications,
 	       sizeof(isis_snmp_notifications));
-	var_count = ARRAY_SIZE(isis_snmp_notifications);
+	var_count = array_size(isis_snmp_notifications);
 	var_name[var_count++] = trap_id;
 
 	/* Put in trap value */
 	snmp_varlist_add_variable(&notification_vars, isis_snmp_trap_var,
-				  ARRAY_SIZE(isis_snmp_trap_var), ASN_OBJECT_ID,
+				  array_size(isis_snmp_trap_var), ASN_OBJECT_ID,
 				  (uint8_t *)var_name, var_count * sizeof(oid));
 
 	val = circuit->is_type;
 	snmp_varlist_add_variable(
 		&notification_vars, isis_snmp_trap_data_var_sys_level_index,
-		ARRAY_SIZE(isis_snmp_trap_data_var_sys_level_index), INTEGER,
+		array_size(isis_snmp_trap_data_var_sys_level_index), INTEGER,
 		(uint8_t *)&val, sizeof(val));
 
 	if (oid_a_len != 0) {
@@ -3002,7 +2993,7 @@ static void isis_snmp_update_worker_a(const struct isis_circuit *circuit,
 
 	snmp_varlist_add_variable(
 		&notification_vars, isis_snmp_trap_data_var_circ_if_index,
-		ARRAY_SIZE(isis_snmp_trap_data_var_circ_if_index), UNSIGNED32,
+		array_size(isis_snmp_trap_data_var_circ_if_index), UNSIGNED32,
 		(uint8_t *)&val, sizeof(val));
 
 
@@ -3052,18 +3043,18 @@ static void isis_snmp_update_worker_b(const struct isis_circuit *circuit,
 	/* Put in trap value */
 	memcpy(var_name, isis_snmp_notifications,
 	       sizeof(isis_snmp_notifications));
-	var_count = ARRAY_SIZE(isis_snmp_notifications);
+	var_count = array_size(isis_snmp_notifications);
 	var_name[var_count++] = trap_id;
 
 	/* Put in trap value */
 	snmp_varlist_add_variable(&notification_vars, isis_snmp_trap_var,
-				  ARRAY_SIZE(isis_snmp_trap_var), ASN_OBJECT_ID,
+				  array_size(isis_snmp_trap_var), ASN_OBJECT_ID,
 				  (uint8_t *)var_name, var_count * sizeof(oid));
 
 	val = circuit->is_type;
 	snmp_varlist_add_variable(
 		&notification_vars, isis_snmp_trap_data_var_sys_level_index,
-		ARRAY_SIZE(isis_snmp_trap_data_var_sys_level_index), INTEGER,
+		array_size(isis_snmp_trap_data_var_sys_level_index), INTEGER,
 		(uint8_t *)&val, sizeof(val));
 
 	if (circuit->interface == NULL)
@@ -3073,7 +3064,7 @@ static void isis_snmp_update_worker_b(const struct isis_circuit *circuit,
 
 	snmp_varlist_add_variable(
 		&notification_vars, isis_snmp_trap_data_var_circ_if_index,
-		ARRAY_SIZE(isis_snmp_trap_data_var_circ_if_index), UNSIGNED32,
+		array_size(isis_snmp_trap_data_var_circ_if_index), UNSIGNED32,
 		(uint8_t *)&val, sizeof(val));
 
 
@@ -3118,9 +3109,9 @@ static int isis_snmp_id_len_mismatch_update(const struct isis_circuit *circuit,
 	isis_snmp_update_worker_a(
 		circuit, ISIS_TRAP_ID_LEN_MISMATCH,
 		isis_snmp_trap_data_var_pdu_field_len,
-		ARRAY_SIZE(isis_snmp_trap_data_var_pdu_field_len), UNSIGNED32,
+		array_size(isis_snmp_trap_data_var_pdu_field_len), UNSIGNED32,
 		&val, sizeof(val), isis_snmp_trap_data_var_pdu_fragment,
-		ARRAY_SIZE(isis_snmp_trap_data_var_pdu_fragment), STRING,
+		array_size(isis_snmp_trap_data_var_pdu_fragment), STRING,
 		raw_pdu, raw_pdu_len);
 	return 0;
 }
@@ -3143,10 +3134,10 @@ isis_snmp_max_area_addr_mismatch_update(const struct isis_circuit *circuit,
 	isis_snmp_update_worker_a(
 		circuit, ISIS_TRAP_MAX_AREA_ADDR_MISMATCH,
 		isis_snmp_trap_data_var_pdu_max_area_addr,
-		ARRAY_SIZE(isis_snmp_trap_data_var_pdu_max_area_addr),
+		array_size(isis_snmp_trap_data_var_pdu_max_area_addr),
 		UNSIGNED32, &val, sizeof(val),
 		isis_snmp_trap_data_var_pdu_fragment,
-		ARRAY_SIZE(isis_snmp_trap_data_var_pdu_fragment), STRING,
+		array_size(isis_snmp_trap_data_var_pdu_fragment), STRING,
 		raw_pdu, raw_pdu_len);
 	return 0;
 }
@@ -3160,7 +3151,7 @@ static int isis_snmp_own_lsp_purge_update(const struct isis_circuit *circuit,
 	isis_snmp_update_worker_a(
 		circuit, ISIS_TRAP_OWN_LSP_PURGE, NULL, 0, STRING, NULL, 0,
 		isis_snmp_trap_data_var_pdu_lsp_id,
-		ARRAY_SIZE(isis_snmp_trap_data_var_pdu_lsp_id), STRING, lsp_id,
+		array_size(isis_snmp_trap_data_var_pdu_lsp_id), STRING, lsp_id,
 		ISIS_SYS_ID_LEN + 2);
 	return 0;
 }
@@ -3174,7 +3165,7 @@ static int isis_snmp_seqno_skipped_update(const struct isis_circuit *circuit,
 	isis_snmp_update_worker_a(
 		circuit, ISIS_TRAP_SEQNO_SKIPPED, NULL, 0, STRING, NULL, 0,
 		isis_snmp_trap_data_var_pdu_lsp_id,
-		ARRAY_SIZE(isis_snmp_trap_data_var_pdu_lsp_id), STRING, lsp_id,
+		array_size(isis_snmp_trap_data_var_pdu_lsp_id), STRING, lsp_id,
 		ISIS_SYS_ID_LEN + 2);
 	return 0;
 }
@@ -3193,7 +3184,7 @@ isis_snmp_authentication_type_failure_update(const struct isis_circuit *circuit,
 	isis_snmp_update_worker_a(
 		circuit, ISIS_TRAP_AUTHEN_TYPE_FAILURE, NULL, 0, STRING, NULL,
 		0, isis_snmp_trap_data_var_pdu_fragment,
-		ARRAY_SIZE(isis_snmp_trap_data_var_pdu_fragment), STRING,
+		array_size(isis_snmp_trap_data_var_pdu_fragment), STRING,
 		raw_pdu, raw_pdu_len);
 	return 0;
 }
@@ -3211,7 +3202,7 @@ isis_snmp_authentication_failure_update(const struct isis_circuit *circuit,
 	isis_snmp_update_worker_a(
 		circuit, ISIS_TRAP_AUTHEN_FAILURE, NULL, 0, STRING, NULL, 0,
 		isis_snmp_trap_data_var_pdu_fragment,
-		ARRAY_SIZE(isis_snmp_trap_data_var_pdu_fragment), STRING,
+		array_size(isis_snmp_trap_data_var_pdu_fragment), STRING,
 		raw_pdu, raw_pdu_len);
 	return 0;
 }
@@ -3233,9 +3224,9 @@ static int isis_snmp_version_skew_update(const struct isis_circuit *circuit,
 	isis_snmp_update_worker_b(
 		circuit, ISIS_TRAP_VERSION_SKEW,
 		isis_snmp_trap_data_var_pdu_proto_ver,
-		ARRAY_SIZE(isis_snmp_trap_data_var_pdu_proto_ver), UNSIGNED32,
+		array_size(isis_snmp_trap_data_var_pdu_proto_ver), UNSIGNED32,
 		&val, sizeof(val), isis_snmp_trap_data_var_pdu_fragment,
-		ARRAY_SIZE(isis_snmp_trap_data_var_pdu_fragment), STRING,
+		array_size(isis_snmp_trap_data_var_pdu_fragment), STRING,
 		raw_pdu, raw_pdu_len);
 	return 0;
 }
@@ -3258,7 +3249,7 @@ static int isis_snmp_area_mismatch_update(const struct isis_circuit *circuit,
 
 	/* Put in trap value */
 	snmp_varlist_add_variable(&notification_vars, isis_snmp_trap_var,
-				  ARRAY_SIZE(isis_snmp_trap_var), ASN_OBJECT_ID,
+				  array_size(isis_snmp_trap_var), ASN_OBJECT_ID,
 				  (uint8_t *)&isis_snmp_trap_val_area_mismatch,
 				  sizeof(isis_snmp_trap_val_area_mismatch));
 
@@ -3270,7 +3261,7 @@ static int isis_snmp_area_mismatch_update(const struct isis_circuit *circuit,
 
 	snmp_varlist_add_variable(
 		&notification_vars, isis_snmp_trap_data_var_circ_if_index,
-		ARRAY_SIZE(isis_snmp_trap_data_var_circ_if_index), UNSIGNED32,
+		array_size(isis_snmp_trap_data_var_circ_if_index), UNSIGNED32,
 		(uint8_t *)&val, sizeof(val));
 
 
@@ -3279,7 +3270,7 @@ static int isis_snmp_area_mismatch_update(const struct isis_circuit *circuit,
 
 	snmp_varlist_add_variable(
 		&notification_vars, isis_snmp_trap_data_var_pdu_fragment,
-		ARRAY_SIZE(isis_snmp_trap_data_var_pdu_fragment), STRING,
+		array_size(isis_snmp_trap_data_var_pdu_fragment), STRING,
 		raw_pdu, raw_pdu_len);
 
 	send_v2trap(notification_vars);
@@ -3302,7 +3293,7 @@ static int isis_snmp_reject_adjacency_update(const struct isis_circuit *circuit,
 	isis_snmp_update_worker_a(
 		circuit, ISIS_TRAP_REJ_ADJACENCY, NULL, 0, STRING, NULL, 0,
 		isis_snmp_trap_data_var_pdu_fragment,
-		ARRAY_SIZE(isis_snmp_trap_data_var_pdu_fragment), STRING,
+		array_size(isis_snmp_trap_data_var_pdu_fragment), STRING,
 		raw_pdu, raw_pdu_len);
 	return 0;
 }
@@ -3317,9 +3308,9 @@ static int isis_snmp_lsp_too_large_update(const struct isis_circuit *circuit,
 	isis_snmp_update_worker_b(
 		circuit, ISIS_TRAP_LSP_TOO_LARGE,
 		isis_snmp_trap_data_var_pdu_lsp_size,
-		ARRAY_SIZE(isis_snmp_trap_data_var_pdu_lsp_size), UNSIGNED32,
+		array_size(isis_snmp_trap_data_var_pdu_lsp_size), UNSIGNED32,
 		&pdu_size, sizeof(pdu_size), isis_snmp_trap_data_var_pdu_lsp_id,
-		ARRAY_SIZE(isis_snmp_trap_data_var_pdu_lsp_id), STRING, lsp_id,
+		array_size(isis_snmp_trap_data_var_pdu_lsp_id), STRING, lsp_id,
 		ISIS_SYS_ID_LEN + 2);
 	return 0;
 }
@@ -3344,9 +3335,9 @@ static int isis_snmp_adj_state_change_update(const struct isis_adjacency *adj)
 	isis_snmp_update_worker_b(
 		adj->circuit, ISIS_TRAP_ADJ_STATE_CHANGE,
 		isis_snmp_trap_data_var_pdu_lsp_id,
-		ARRAY_SIZE(isis_snmp_trap_data_var_pdu_lsp_id), STRING, lsp_id,
+		array_size(isis_snmp_trap_data_var_pdu_lsp_id), STRING, lsp_id,
 		ISIS_SYS_ID_LEN + 2, isis_snmp_trap_data_var_adj_state,
-		ARRAY_SIZE(isis_snmp_trap_data_var_adj_state), INTEGER, &val,
+		array_size(isis_snmp_trap_data_var_adj_state), INTEGER, &val,
 		sizeof(val));
 	return 0;
 }
@@ -3369,7 +3360,7 @@ static int isis_snmp_lsp_error_update(const struct isis_circuit *circuit,
 
 	/* Put in trap value */
 	snmp_varlist_add_variable(&notification_vars, isis_snmp_trap_var,
-				  ARRAY_SIZE(isis_snmp_trap_var), ASN_OBJECT_ID,
+				  array_size(isis_snmp_trap_var), ASN_OBJECT_ID,
 				  (uint8_t *)&isis_snmp_trap_val_lsp_error,
 				  sizeof(isis_snmp_trap_val_lsp_error));
 
@@ -3378,13 +3369,13 @@ static int isis_snmp_lsp_error_update(const struct isis_circuit *circuit,
 
 	snmp_varlist_add_variable(
 		&notification_vars, isis_snmp_trap_data_var_sys_level_index,
-		ARRAY_SIZE(isis_snmp_trap_data_var_sys_level_index), INTEGER,
+		array_size(isis_snmp_trap_data_var_sys_level_index), INTEGER,
 		(uint8_t *)&val, sizeof(val));
 
 
 	snmp_varlist_add_variable(
 		&notification_vars, isis_snmp_trap_data_var_pdu_lsp_id,
-		ARRAY_SIZE(isis_snmp_trap_data_var_pdu_lsp_id), STRING, lsp_id,
+		array_size(isis_snmp_trap_data_var_pdu_lsp_id), STRING, lsp_id,
 		ISIS_SYS_ID_LEN + 2);
 
 	/* Prepare data */
@@ -3395,7 +3386,7 @@ static int isis_snmp_lsp_error_update(const struct isis_circuit *circuit,
 
 	snmp_varlist_add_variable(
 		&notification_vars, isis_snmp_trap_data_var_circ_if_index,
-		ARRAY_SIZE(isis_snmp_trap_data_var_circ_if_index), UNSIGNED32,
+		array_size(isis_snmp_trap_data_var_circ_if_index), UNSIGNED32,
 		(uint8_t *)&val, sizeof(val));
 
 	/* Prepare data */
@@ -3404,7 +3395,7 @@ static int isis_snmp_lsp_error_update(const struct isis_circuit *circuit,
 
 	snmp_varlist_add_variable(
 		&notification_vars, isis_snmp_trap_data_var_pdu_fragment,
-		ARRAY_SIZE(isis_snmp_trap_data_var_pdu_fragment), STRING,
+		array_size(isis_snmp_trap_data_var_pdu_fragment), STRING,
 		raw_pdu, raw_pdu_len);
 
 	/* Prepare data */
@@ -3412,7 +3403,7 @@ static int isis_snmp_lsp_error_update(const struct isis_circuit *circuit,
 
 	snmp_varlist_add_variable(
 		&notification_vars, isis_snmp_trap_data_var_error_offset,
-		ARRAY_SIZE(isis_snmp_trap_data_var_error_offset), UNSIGNED32,
+		array_size(isis_snmp_trap_data_var_error_offset), UNSIGNED32,
 		(uint8_t *)&val, sizeof(val));
 
 	/* Prepare data */
@@ -3420,7 +3411,7 @@ static int isis_snmp_lsp_error_update(const struct isis_circuit *circuit,
 
 	snmp_varlist_add_variable(
 		&notification_vars, isis_snmp_trap_data_var_error_tlv_type,
-		ARRAY_SIZE(isis_snmp_trap_data_var_error_tlv_type), UNSIGNED32,
+		array_size(isis_snmp_trap_data_var_error_tlv_type), UNSIGNED32,
 		(uint8_t *)&val, sizeof(val));
 
 	send_v2trap(notification_vars);

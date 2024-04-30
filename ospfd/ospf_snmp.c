@@ -1,24 +1,9 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* OSPFv2 SNMP support
  * Copyright (C) 2005 6WIND <alain.ritoux@6wind.com>
  * Copyright (C) 2000 IP Infusion Inc.
  *
  * Written by Kunihiro Ishiguro <kunihiro@zebra.org>
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -921,7 +906,7 @@ static struct ospf_lsa *ospfLsdbLookup(struct variable *v, oid *name,
 		area = ospf_area_lookup_by_area_id(ospf, *area_id);
 		if (!area)
 			return NULL;
-		offset += IN_ADDR_SIZE;
+		offset++;
 
 		/* Type. */
 		*type = *offset;
@@ -929,7 +914,7 @@ static struct ospf_lsa *ospfLsdbLookup(struct variable *v, oid *name,
 
 		/* LS ID. */
 		oid2in_addr(offset, IN_ADDR_SIZE, ls_id);
-		offset += IN_ADDR_SIZE;
+		offset++;
 
 		/* Router ID. */
 		oid2in_addr(offset, IN_ADDR_SIZE, router_id);
@@ -986,7 +971,7 @@ static struct ospf_lsa *ospfLsdbLookup(struct variable *v, oid *name,
 			}
 
 			/* Router ID. */
-			offset += IN_ADDR_SIZE;
+			offset++;
 			offsetlen -= IN_ADDR_SIZE;
 			len = offsetlen;
 
@@ -1011,11 +996,11 @@ static struct ospf_lsa *ospfLsdbLookup(struct variable *v, oid *name,
 				/* Fill in value. */
 				offset = name + v->namelen;
 				oid_copy_in_addr(offset, area_id);
-				offset += IN_ADDR_SIZE;
+				offset++;
 				*offset = lsa->data->type;
 				offset++;
 				oid_copy_in_addr(offset, &lsa->data->id);
-				offset += IN_ADDR_SIZE;
+				offset++;
 				oid_copy_in_addr(offset,
 						 &lsa->data->adv_router);
 
@@ -1121,13 +1106,13 @@ static struct ospf_area_range *ospfAreaRangeLookup(struct variable *v,
 		if (!area)
 			return NULL;
 
-		offset += IN_ADDR_SIZE;
+		offset++;
 
 		/* Lookup area range. */
 		oid2in_addr(offset, IN_ADDR_SIZE, range_net);
 		p.prefix = *range_net;
 
-		return ospf_area_range_lookup(area, &p);
+		return ospf_area_range_lookup(area, area->ranges, &p);
 	} else {
 		/* Set OID offset for Area ID. */
 		offset = name + v->namelen;
@@ -1150,7 +1135,7 @@ static struct ospf_area_range *ospfAreaRangeLookup(struct variable *v,
 			return NULL;
 
 		do {
-			offset += IN_ADDR_SIZE;
+			offset++;
 			offsetlen -= IN_ADDR_SIZE;
 			len = offsetlen;
 
@@ -1172,7 +1157,7 @@ static struct ospf_area_range *ospfAreaRangeLookup(struct variable *v,
 				/* Fill in value. */
 				offset = name + v->namelen;
 				oid_copy_in_addr(offset, area_id);
-				offset += IN_ADDR_SIZE;
+				offset++;
 				oid_copy_in_addr(offset, range_net);
 
 				return range;
@@ -1363,7 +1348,7 @@ static int ospf_snmp_if_update(struct interface *ifp)
 	ifindex = 0;
 
 	/* Lookup first IPv4 address entry. */
-	for (ALL_LIST_ELEMENTS_RO(ifp->connected, node, ifc)) {
+	frr_each (if_connected, ifp->connected, ifc) {
 		p = CONNECTED_ID(ifc);
 
 		if (p->family == AF_INET) {
@@ -1411,11 +1396,10 @@ static int ospf_snmp_if_update(struct interface *ifp)
 
 static int ospf_snmp_is_if_have_addr(struct interface *ifp)
 {
-	struct listnode *nn;
 	struct connected *ifc;
 
 	/* Is this interface having any connected IPv4 address ? */
-	for (ALL_LIST_ELEMENTS_RO(ifp->connected, nn, ifc)) {
+	frr_each (if_connected, ifp->connected, ifc) {
 		if (CONNECTED_PREFIX(ifc)->family == AF_INET)
 			return 1;
 	}
@@ -1575,7 +1559,7 @@ static struct ospf_interface *ospfIfLookup(struct variable *v, oid *name,
 			*length = v->namelen + IN_ADDR_SIZE + 1;
 			offset = name + v->namelen;
 			oid_copy_in_addr(offset, ifaddr);
-			offset += IN_ADDR_SIZE;
+			offset++;
 			*offset = *ifindex;
 			return oi;
 		}
@@ -1719,7 +1703,7 @@ static struct ospf_interface *ospfIfMetricLookup(struct variable *v, oid *name,
 			*length = v->namelen + IN_ADDR_SIZE + 1 + 1;
 			offset = name + v->namelen;
 			oid_copy_in_addr(offset, ifaddr);
-			offset += IN_ADDR_SIZE;
+			offset++;
 			*offset = *ifindex;
 			offset++;
 			*offset = OSPF_SNMP_METRIC_VALUE;
@@ -2257,7 +2241,7 @@ static struct ospf_lsa *ospfExtLsdbLookup(struct variable *v, oid *name,
 
 		/* LS ID. */
 		oid2in_addr(offset, IN_ADDR_SIZE, ls_id);
-		offset += IN_ADDR_SIZE;
+		offset++;
 
 		/* Router ID. */
 		oid2in_addr(offset, IN_ADDR_SIZE, router_id);
@@ -2285,7 +2269,7 @@ static struct ospf_lsa *ospfExtLsdbLookup(struct variable *v, oid *name,
 
 		oid2in_addr(offset, len, ls_id);
 
-		offset += IN_ADDR_SIZE;
+		offset++;
 		offsetlen -= IN_ADDR_SIZE;
 
 		/* Router ID. */
@@ -2308,7 +2292,7 @@ static struct ospf_lsa *ospfExtLsdbLookup(struct variable *v, oid *name,
 			*offset = OSPF_AS_EXTERNAL_LSA;
 			offset++;
 			oid_copy_in_addr(offset, &lsa->data->id);
-			offset += IN_ADDR_SIZE;
+			offset++;
 			oid_copy_in_addr(offset, &lsa->data->adv_router);
 
 			return lsa;
@@ -2540,7 +2524,7 @@ static int ospf_snmp_ism_change(struct ospf_interface *oi, int state,
 }
 
 /* Register OSPF2-MIB. */
-static int ospf_snmp_init(struct thread_master *tm)
+static int ospf_snmp_init(struct event_loop *tm)
 {
 	ospf_snmp_iflist = list_new();
 	ospf_snmp_vl_table = route_table_init();

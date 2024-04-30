@@ -1,23 +1,9 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * pim_bsm.h: PIM BSM handling related
  *
  * Copyright (C) 2018-19 Vmware, Inc.
  * Saravanan K
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; see the file COPYING; if not, write to the
- * Free Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston,
- * MA 02110-1301 USA
  */
 
 #ifndef __PIM_BSM_H__
@@ -73,7 +59,7 @@ struct bsm_scope {
 	struct bsm_frags_head bsm_frags[1];
 
 	struct route_table *bsrp_table; /* group2rp mapping rcvd from BSR */
-	struct thread *bs_timer;	/* Boot strap timer */
+	struct event *bs_timer;		/* Boot strap timer */
 };
 
 /* BSM packet (= fragment) - this is stored as list in bsm_frags inside scope
@@ -117,7 +103,7 @@ struct bsm_rpinfo {
 	uint16_t rp_holdtime;           /* RP holdtime - g2rp timer value */
 	pim_addr rp_address;		/* RP Address */
 	struct bsgrp_node *bsgrp_node;  /* Back ptr to bsgrp_node */
-	struct thread *g2rp_timer;      /* Run only for elected RP node */
+	struct event *g2rp_timer;	/* Run only for elected RP node */
 };
 
 extern int pim_bsm_rpinfo_cmp(const struct bsm_rpinfo *a,

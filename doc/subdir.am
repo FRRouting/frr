@@ -99,6 +99,10 @@ EXTRA_DIST += \
 	doc/mpls/ospfd.conf \
 	doc/mpls/cli_summary.txt \
 	doc/mpls/opaque_lsa.txt \
+	doc/figures/cli-change-client.drawio \
+	doc/figures/cli-change-client.svg \
+	doc/figures/cli-change-mgmtd.drawio \
+	doc/figures/cli-change-mgmtd.svg \
 	doc/figures/cligraph.png \
 	doc/figures/cligraph.svg \
 	doc/figures/fig-normal-processing.dia \

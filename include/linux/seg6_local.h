@@ -1,14 +1,9 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  *  SR-IPv6 implementation
  *
  *  Author:
  *  David Lebrun <david.lebrun@uclouvain.be>
- *
- *
- *  This program is free software; you can redistribute it and/or
- *      modify it under the terms of the GNU General Public License
- *      as published by the Free Software Foundation; either version
- *      2 of the License, or (at your option) any later version.
  */
 
 #ifndef _LINUX_SEG6_LOCAL_H
@@ -28,6 +23,7 @@ enum {
 	SEG6_LOCAL_BPF,
 	SEG6_LOCAL_VRFTABLE,
 	SEG6_LOCAL_COUNTERS,
+	SEG6_LOCAL_FLAVORS,
 	__SEG6_LOCAL_MAX,
 };
 #define SEG6_LOCAL_MAX (__SEG6_LOCAL_MAX - 1)
@@ -109,5 +105,28 @@ enum {
 };
 
 #define SEG6_LOCAL_CNT_MAX (__SEG6_LOCAL_CNT_MAX - 1)
+
+/* SRv6 End* Flavor attributes */
+enum {
+	SEG6_LOCAL_FLV_UNSPEC,
+	SEG6_LOCAL_FLV_OPERATION,
+	SEG6_LOCAL_FLV_LCBLOCK_BITS,
+	SEG6_LOCAL_FLV_LCNODE_FN_BITS,
+	__SEG6_LOCAL_FLV_MAX,
+};
+
+#define SEG6_LOCAL_FLV_MAX (__SEG6_LOCAL_FLV_MAX - 1)
+
+/* Designed flavor operations for SRv6 End* Behavior */
+enum {
+	SEG6_LOCAL_FLV_OP_UNSPEC,
+	SEG6_LOCAL_FLV_OP_PSP,
+	SEG6_LOCAL_FLV_OP_USP,
+	SEG6_LOCAL_FLV_OP_USD,
+	SEG6_LOCAL_FLV_OP_NEXT_CSID,
+	__SEG6_LOCAL_FLV_OP_MAX
+};
+
+#define SEG6_LOCAL_FLV_OP_MAX (__SEG6_LOCAL_FLV_OP_MAX - 1)
 
 #endif

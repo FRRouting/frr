@@ -1,17 +1,6 @@
+// SPDX-License-Identifier: ISC
 /*
  * Copyright (c) 2015-21  David Lamparter, for NetDEF, Inc.
- *
- * Permission to use, copy, modify, and distribute this software for any
- * purpose with or without fee is hereby granted, provided that the above
- * copyright notice and this permission notice appear in all copies.
- *
- * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
- * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
- * ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
- * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
- * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
- * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
 /* when you work on this code, please install a fuzzer (e.g. AFL) and run
@@ -24,6 +13,9 @@
  */
 
 #include "zebra.h"
+#include <fcntl.h>
+
+#include "frrsendmmsg.h"
 
 #include "zlog_5424.h"
 
@@ -37,7 +29,7 @@
 #include "frr_pthread.h"
 #include "command.h"
 #include "monotime.h"
-#include "thread.h"
+#include "frrevent.h"
 
 #include "lib/version.h"
 #include "lib/lib_errors.h"
@@ -800,10 +792,10 @@ static void zlog_5424_cycle(struct zlog_cfg_5424 *zcf, int fd)
 	rcu_free(MTYPE_LOG_5424, oldt, zt.rcu_head);
 }
 
-static void zlog_5424_reconnect(struct thread *t)
+static void zlog_5424_reconnect(struct event *t)
 {
-	struct zlog_cfg_5424 *zcf = THREAD_ARG(t);
-	int fd = THREAD_FD(t);
+	struct zlog_cfg_5424 *zcf = EVENT_ARG(t);
+	int fd = EVENT_FD(t);
 	char dummy[256];
 	ssize_t ret;
 
@@ -811,8 +803,8 @@ static void zlog_5424_reconnect(struct thread *t)
 		ret = read(fd, dummy, sizeof(dummy));
 		if (ret > 0) {
 			/* logger is sending us something?!?! */
-			thread_add_read(t->master, zlog_5424_reconnect, zcf, fd,
-					&zcf->t_reconnect);
+			event_add_read(t->master, zlog_5424_reconnect, zcf, fd,
+				       &zcf->t_reconnect);
 			return;
 		}
 
@@ -888,10 +880,15 @@ static int zlog_5424_open(struct zlog_cfg_5424 *zcf, int sock_type)
 
 	switch (zcf->dst) {
 	case ZLOG_5424_DST_NONE:
-		break;
+		return -1;
 
 	case ZLOG_5424_DST_FD:
 		fd = dup(zcf->fd);
+		if (fd < 0) {
+			flog_err_sys(EC_LIB_SYSTEM_CALL,
+				     "failed to dup() log file descriptor: %m (FD limit too low?)");
+			return -1;
+		}
 
 		optlen = sizeof(sock_type);
 		if (!getsockopt(fd, SOL_SOCKET, SO_TYPE, &sock_type, &optlen)) {
@@ -902,7 +899,7 @@ static int zlog_5424_open(struct zlog_cfg_5424 *zcf, int sock_type)
 
 	case ZLOG_5424_DST_FIFO:
 		if (!zcf->filename)
-			break;
+			return -1;
 
 		if (!zcf->file_nocreate) {
 			frr_with_privs (lib_privs) {
@@ -915,15 +912,15 @@ static int zlog_5424_open(struct zlog_cfg_5424 *zcf, int sock_type)
 			if (err == 0)
 				do_chown = true;
 			else if (errno != EEXIST)
-				break;
+				return -1;
 		}
 
 		flags = O_NONBLOCK;
-		/* fallthru */
+		fallthrough;
 
 	case ZLOG_5424_DST_FILE:
 		if (!zcf->filename)
-			break;
+			return -1;
 
 		frr_with_privs (lib_privs) {
 			fd = open(zcf->filename, flags | O_WRONLY | O_APPEND |
@@ -935,7 +932,7 @@ static int zlog_5424_open(struct zlog_cfg_5424 *zcf, int sock_type)
 			flog_err_sys(EC_LIB_SYSTEM_CALL,
 				     "could not open log file %pSE: %m",
 				     zcf->filename);
-			break;
+			return -1;
 		}
 
 		frr_with_privs (lib_privs) {
@@ -963,11 +960,11 @@ static int zlog_5424_open(struct zlog_cfg_5424 *zcf, int sock_type)
 		flog_err_sys(EC_LIB_SYSTEM_CALL,
 			     "could not open or create log file %pSE: %m",
 			     zcf->filename);
-		break;
+		return -1;
 
 	case ZLOG_5424_DST_UNIX:
 		if (!zcf->filename)
-			break;
+			return -1;
 
 		memset(&sa, 0, sizeof(sa));
 		sa.sun_family = AF_UNIX;
@@ -999,6 +996,7 @@ static int zlog_5424_open(struct zlog_cfg_5424 *zcf, int sock_type)
 				"could not connect to log unix path %pSE: %m",
 				zcf->filename);
 			need_reconnect = true;
+			/* no return -1 here, trigger retry code below */
 		} else {
 			/* datagram sockets are connectionless, restarting
 			 * the receiver may lose some packets but will resume
@@ -1041,14 +1039,14 @@ static int zlog_5424_open(struct zlog_cfg_5424 *zcf, int sock_type)
 		assert(zcf->master);
 
 		if (fd != -1) {
-			thread_add_read(zcf->master, zlog_5424_reconnect, zcf,
-					fd, &zcf->t_reconnect);
+			event_add_read(zcf->master, zlog_5424_reconnect, zcf,
+				       fd, &zcf->t_reconnect);
 			zcf->reconn_backoff_cur = zcf->reconn_backoff;
 
 		} else {
-			thread_add_timer_msec(zcf->master, zlog_5424_reconnect,
-					      zcf, zcf->reconn_backoff_cur,
-					      &zcf->t_reconnect);
+			event_add_timer_msec(zcf->master, zlog_5424_reconnect,
+					     zcf, zcf->reconn_backoff_cur,
+					     &zcf->t_reconnect);
 
 			zcf->reconn_backoff_cur += zcf->reconn_backoff_cur / 2;
 			if (zcf->reconn_backoff_cur > zcf->reconn_backoff_max)
@@ -1064,7 +1062,7 @@ bool zlog_5424_apply_dst(struct zlog_cfg_5424 *zcf)
 {
 	int fd = -1;
 
-	thread_cancel(&zcf->t_reconnect);
+	event_cancel(&zcf->t_reconnect);
 
 	if (zcf->prio_min != ZLOG_DISABLED)
 		fd = zlog_5424_open(zcf, -1);
@@ -1117,7 +1115,7 @@ bool zlog_5424_rotate(struct zlog_cfg_5424 *zcf)
 		if (!zcf->active)
 			return true;
 
-		thread_cancel(&zcf->t_reconnect);
+		event_cancel(&zcf->t_reconnect);
 
 		/* need to retain the socket type because it also influences
 		 * other fields (packets) and we can't atomically swap these

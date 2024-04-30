@@ -11,6 +11,10 @@ module frr-zebra {
     prefix inet;
   }
 
+  import frr-affinity-map {
+    prefix frr-affinity-map;
+  }
+
   import frr-route-map {
     prefix frr-route-map;
   }
@@ -75,6 +79,16 @@ module frr-zebra {
   revision 2019-06-01 {
     description
       "Initial revision.";
+  }
+
+  feature ipv6-router-advertisements {
+    description
+      "Support for IPv6 Router Advertisements.";
+  }
+
+  feature ptm-bfd {
+    description
+      "Using an external PTM daemon that implements BFD.";
   }
 
   typedef unix-timestamp {
@@ -1931,19 +1945,23 @@ module frr-zebra {
     description
       "Extends interface model with Zebra-related parameters.";
     container zebra {
-      list ip-addrs {
-        key "address-family ip-prefix";
+      list ipv4-addrs {
+        key "ip prefix-length";
         description
-          "IP prefixes for an interface.";
-        uses frr-rt:address-family {
+          "The list of configured IPv4 addresses on the interface.";
+
+        leaf ip {
+          type inet:ipv4-address-no-zone;
           description
-            "Address family of the RIB.";
+            "The IPv4 address on the interface.";
         }
 
-        leaf ip-prefix {
-          type inet:ip-prefix;
+        leaf prefix-length {
+          type uint8 {
+            range "0..32";
+          }
           description
-            "IP address prefix.";
+            "The length of the subnet prefix.";
         }
 
         leaf label {
@@ -1951,12 +1969,57 @@ module frr-zebra {
           description
             "Optional string label for the address.";
         }
+      }
 
-        leaf ip4-peer {
-          when "derived-from-or-self(../address-family, 'frr-rt:ipv4')";
-          type inet:ipv4-prefix;
+      list ipv4-p2p-addrs {
+        key "ip peer-ip peer-prefix-length";
+        description
+          "The list of configured peer-to-peer IPv4 addresses on the interface.";
+
+        leaf ip {
+          type inet:ipv4-address-no-zone;
           description
-            "Peer prefix, for peer-to-peer interfaces.";
+            "The IPv4 address on the interface.";
+        }
+
+        leaf peer-ip {
+          type inet:ipv4-address-no-zone;
+          description
+            "Peer address.";
+        }
+
+        leaf peer-prefix-length {
+          type uint8 {
+            range "0..32";
+          }
+          description
+            "The length of the peer subnet prefix.";
+        }
+
+        leaf label {
+          type string;
+          description
+            "Optional string label for the address.";
+        }
+      }
+
+      list ipv6-addrs {
+        key "ip prefix-length";
+        description
+          "The list of configured IPv6 addresses on the interface.";
+
+        leaf ip {
+          type inet:ipv6-address-no-zone;
+          description
+            "The IPv6 address on the interface.";
+        }
+
+        leaf prefix-length {
+          type uint8 {
+            range "0..128";
+          }
+          description
+            "The length of the subnet prefix.";
         }
       }
 
@@ -1968,24 +2031,654 @@ module frr-zebra {
 
       leaf link-detect {
         type boolean;
+        default "true";
         description
           "Link-detection for the interface.";
       }
 
-      leaf shutdown {
+      leaf enabled {
         type boolean;
         description
           "Interface admin status.";
       }
 
+      leaf mpls {
+        type boolean;
+        description
+          "Interface MPLS status.";
+      }
+
       leaf bandwidth {
         type uint32 {
-          range "1..100000";
+          range "1..1000000";
         }
+        units "megabits/sec";
         description
           "Link bandwidth informational parameter, in megabits.";
       }
-      // TODO -- link-params for (experimental/partial TE use in IGP extensions)
+      container link-params {
+        presence "Activates link parameters on this interface.";
+        description
+          "link-params for Traffic-Engineering (TE) use in IGP extensions.";
+        leaf metric {
+          type uint32;
+          description
+            "Link metric for MPLS-TE purpose.";
+        }
+        leaf max-bandwidth {
+          type rt-types:bandwidth-ieee-float32;
+          description
+            "Maximum bandwidth.";
+        }
+        leaf max-reservable-bandwidth {
+          type rt-types:bandwidth-ieee-float32;
+          description
+            "Maximum reservable bandwidth.";
+        }
+        container unreserved-bandwidths {
+          description
+            "All unreserved bandwidths.";
+          list unreserved-bandwidth {
+            key "priority";
+            leaf priority {
+              type uint8 {
+                range "0 .. 7";
+              }
+              description
+                "Priority from 0 to 7.";
+            }
+            leaf unreserved-bandwidth {
+              type rt-types:bandwidth-ieee-float32;
+              mandatory true;
+              description
+                "Unreserved bandwidth.";
+            }
+            description
+              "List of unreserved bandwidths for different
+                priorities.";
+          }
+        }
+        leaf residual-bandwidth {
+          type rt-types:bandwidth-ieee-float32;
+          description
+            "Unidirectional residual bandwidth.";
+        }
+        leaf available-bandwidth {
+          type rt-types:bandwidth-ieee-float32;
+          description
+            "Unidirectional available bandwidth.";
+        }
+        leaf utilized-bandwidth {
+          type rt-types:bandwidth-ieee-float32;
+          description
+            "Unidirectional utilized bandwidth.";
+        }
+        choice admin-group-mode {
+          description "Admin-group mode";
+          case legacy {
+            description
+              "Legacy mode. Only support standard admin-group (RFC3630/5305/5329)";
+            leaf legacy-admin-group {
+              description "Admin-Group value";
+              type uint32;
+            }
+          }
+          case affinity {
+            container affinities {
+              leaf-list affinity {
+                type frr-affinity-map:affinity-map-ref;
+                max-elements "256";
+                must '../../affinity-mode != "standard" or /frr-affinity-map:lib/frr-affinity-map:affinity-maps/frr-affinity-map:affinity-map[frr-affinity-map:name=current()]/frr-affinity-map:value < 32' {
+                  error-message "Affinity bit-position must be less than 32 when used with standard affinity mode";
+                }
+                description
+                  "Array of Attribute Names";
+              }
+            }
+          }
+        }
+        leaf affinity-mode {
+          description
+            "Affinity mode";
+          default "extended";
+          type enumeration {
+              enum extended {
+              value 0;
+              description
+                "Extended Admin-Group only (RFC7308)";
+            }
+            enum standard {
+            value 1;
+              description
+                "Standard Admin-Group only (RFC3630/5305/5329)";
+            }
+            enum both {
+              value 2;
+              description
+                "Standard and extended Admin-Group";
+            }
+          }
+        }
+        container neighbor {
+          description "Remote ASBR information (RFC 5316 & RFC 5392)";
+          presence "Activates neighbor information on this interface.";
+          leaf remote-as {
+            type inet:as-number;
+            mandatory true;
+            description
+              "Remote AS Number (RFC 5316 & RFC 5392)";
+          }
+          leaf ipv4-remote-id {
+            type inet:ipv4-address;
+            mandatory true;
+            description
+              "IPv4 Remote ASBR ID (RFC 5316 & RFC 5392)";
+          }
+        }
+        leaf delay {
+          type uint32 {
+            range "0..16777215";
+          }
+          description
+            "Average Unidirectional Link Delay";
+        }
+        container min-max-delay {
+          description
+            "Min/Max Unidirectional Link Delay";
+          presence "Activates min/max delay.";
+          leaf delay-min {
+            type uint32 {
+              range "0..16777215";
+            }
+            must '. <= ../../delay' {
+              error-message "Min delay must be less than or equal to delay";
+            }
+            mandatory true;
+            description
+              "Min Delay";
+          }
+          leaf delay-max {
+            type uint32 {
+              range "0..16777215";
+            }
+            must '. >= ../../delay' {
+              error-message "Max delay must be greater than or equal to delay";
+            }
+            mandatory true;
+            description
+              "Max Delay";
+          }
+        }
+        leaf delay-variation {
+          type uint32 {
+            range "0..16777215";
+          }
+          description
+            "Unidirectional Delay Variation";
+        }
+        leaf packet-loss {
+          type decimal64 {
+            fraction-digits 6;
+            range "0..50.331642";
+          }
+          description
+            "Unidirectional Link Packet Loss";
+        }
+        // TODO -- other link-params options
+        // for (experimental/partial TE use in IGP extensions)
+      }
+      container evpn-mh {
+        description "EVPN multihoming configuration";
+        choice esi-choice {
+          description "ESI type";
+          container type-0 {
+            leaf esi {
+              type yang:hex-string {
+                length "29";
+              }
+              description
+                "10-octet ESI.";
+              }
+          }
+          container type-3 {
+            leaf system-mac {
+              type yang:mac-address;
+              description
+                "System MAC address.";
+            }
+            leaf local-discriminator {
+              type uint32 {
+                range "1..16777215";
+              }
+              description
+                "Local discriminator.";
+            }
+          }
+        }
+        leaf df-preference {
+          type uint16;
+          default "32767";
+          description
+            "Preference value used for DF election.";
+        }
+        leaf bypass {
+          type boolean;
+          default "false";
+          description
+            "Bypass mode.";
+        }
+        leaf uplink {
+          type boolean;
+          default "false";
+          description
+            "Uplink to the VxLAN core.";
+        }
+      }
+      container ipv6-router-advertisements {
+        if-feature "ipv6-router-advertisements";
+        description
+          "Support for IPv6 Router Advertisements.";
+        leaf send-advertisements {
+          type boolean;
+          default "false";
+          description
+            "A flag indicating whether or not the router sends
+            periodic Router Advertisements and responds to
+            Router Solicitations.";
+          reference
+            "RFC 4861: Neighbor Discovery for IP version 6 (IPv6)
+                       - AdvSendAdvertisements";
+        }
+        leaf max-rtr-adv-interval {
+          type uint32 {
+            range "70..1800000";
+          }
+          units "milliseconds";
+          default "600000";
+          description
+            "The maximum time allowed between sending unsolicited
+            multicast Router Advertisements from the interface.";
+          reference
+            "RFC 4861: Neighbor Discovery for IP version 6 (IPv6)
+                       - MaxRtrAdvInterval
+             RFC 6275: Mobility Support in IPv6";
+        }
+        // Setting this value is not yet supported by the actual code.
+        /*
+        leaf min-rtr-adv-interval {
+          type uint32 {
+            range "30..1350000";
+          }
+          units "milliseconds";
+          must ". <= 0.75 * ../max-rtr-adv-interval" {
+            description
+              "The value MUST NOT be greater than 75% of
+              'max-rtr-adv-interval'.";
+          }
+          description
+            "The minimum time allowed between sending unsolicited
+            multicast Router Advertisements from the interface.
+
+            The default value to be used operationally if this
+            leaf is not configured is determined as follows:
+
+            - if max-rtr-adv-interval >= 9 seconds, the default
+              value is 0.33 * max-rtr-adv-interval;
+
+            - otherwise, it is 0.75 * max-rtr-adv-interval.";
+          reference
+            "RFC 4861: Neighbor Discovery for IP version 6 (IPv6)
+                       - MaxRtrAdvInterval
+             RFC 6275: Mobility Support in IPv6";
+        }
+        */
+        leaf managed-flag {
+          type boolean;
+          default "false";
+          description
+            "The value to be placed in the 'Managed address
+            configuration' flag field in the Router
+            Advertisement.";
+          reference
+            "RFC 4861: Neighbor Discovery for IP version 6 (IPv6)
+                       - AdvManagedFlag";
+        }
+        leaf other-config-flag {
+          type boolean;
+          default "false";
+          description
+            "The value to be placed in the 'Other configuration'
+            flag field in the Router Advertisement.";
+          reference
+            "RFC 4861: Neighbor Discovery for IP version 6 (IPv6)
+                       - AdvOtherConfigFlag";
+        }
+        leaf home-agent-flag {
+          type boolean;
+          default "false";
+          description
+            "The value to be placed in the 'Home Agent'
+            flag field in the Router Advertisement.";
+          reference
+            "RFC 6275: Mobility Support in IPv6";
+        }
+        leaf link-mtu {
+          type uint32;
+          default "0";
+          description
+            "The value to be placed in MTU options sent by the
+            router.  A value of zero indicates that no MTU options
+            are sent.";
+          reference
+            "RFC 4861: Neighbor Discovery for IP version 6 (IPv6)
+                       - AdvLinkMTU";
+        }
+        leaf reachable-time {
+          type uint32 {
+            range "0..3600000";
+          }
+          units "milliseconds";
+          default "0";
+          description
+            "The value to be placed in the Reachable Time field in
+            the Router Advertisement messages sent by the router.
+            A value of zero means unspecified (by this router).";
+          reference
+            "RFC 4861: Neighbor Discovery for IP version 6 (IPv6)
+                       - AdvReachableTime";
+        }
+        leaf retrans-timer {
+          type uint32;
+          units "milliseconds";
+          default "0";
+          description
+            "The value to be placed in the Retrans Timer field in
+            the Router Advertisement messages sent by the router.
+            A value of zero means unspecified (by this router).";
+          reference
+            "RFC 4861: Neighbor Discovery for IP version 6 (IPv6)
+                       - AdvRetransTimer";
+        }
+        leaf cur-hop-limit {
+          type uint8;
+          description
+            "The value to be placed in the Cur Hop Limit field in
+            the Router Advertisement messages sent by the router.
+            A value of zero means unspecified (by this router).
+
+            If this parameter is not configured, the device SHOULD
+            use the IANA-specified value for the default IPv4
+            Time to Live (TTL) parameter that was in effect at the
+            time of implementation.";
+          reference
+            "RFC 3232: Assigned Numbers: RFC 1700 is Replaced by
+                       an On-line Database
+             RFC 4861: Neighbor Discovery for IP version 6 (IPv6)
+                       - AdvCurHopLimit
+             IANA: IP Parameters
+                   (https://www.iana.org/assignments/ip-parameters)";
+        }
+        leaf default-lifetime {
+          type uint16 {
+            range "0..9000";
+          }
+          units "seconds";
+          must ". = 0 or . * 1000 >= ../max-rtr-adv-interval" {
+            description
+              "The value MUST NOT be less than max-rtr-adv-interval.";
+          }
+          description
+            "The value to be placed in the Router Lifetime field of
+            Router Advertisements sent from the interface, in
+            seconds.  It MUST be either zero or between
+            max-rtr-adv-interval and 9000 seconds.  A value of zero
+            indicates that the router is not to be used as a
+            default router.  These limits may be overridden by
+            specific documents that describe how IPv6 operates over
+            different link layers.
+
+            If this parameter is not configured, the device SHOULD
+            use a value of 3 * max-rtr-adv-interval.";
+          reference
+            "RFC 4861: Neighbor Discovery for IP version 6 (IPv6)
+                       - AdvDefaultLifetime";
+        }
+        leaf fast-retransmit {
+          type boolean;
+          default "true";
+          description
+            "Allow sending unsolicited multicast Router Advertisements
+            more frequently than once every 3 seconds as required by
+            RFC 4861.";
+        }
+        leaf advertisement-interval-option {
+          type boolean;
+          default "false";
+          description
+            "Enable sending the Advertisement Interval Option in
+            Router Advertisements.";
+          reference
+            "RFC 6275: Mobility Support in IPv6";
+        }
+        leaf home-agent-preference {
+          type uint16;
+          description
+            "The value to be placed in the Home Agent Preference
+            field in the Router Advertisement messages sent by the
+            router.";
+          reference
+            "RFC 6275: Mobility Support in IPv6";
+        }
+        leaf home-agent-lifetime {
+          type uint16;
+          description
+            "The value to be placed in the Home Agent Lifetime
+            field in the Router Advertisement messages sent by the
+            router.";
+          reference
+            "RFC 6275: Mobility Support in IPv6";
+        }
+        leaf default-router-preference {
+          type enumeration {
+            enum high {
+              value 1; /* 01 */
+              description
+                "High preference.";
+            }
+            enum medium {
+              value 0; /* 00 */
+              description
+                "Medium preference.";
+            }
+            enum low {
+              value 3; /* 11 */
+              description
+                "Low preference.";
+            }
+          }
+          default "medium";
+          description
+            "The value to be placed in the Default Router
+            Preference field in the Router Advertisement messages
+            sent by the router.";
+          reference
+            "RFC 4191: Default Router Preferences and More-Specific
+                       Routes";
+        }
+        container prefix-list {
+          description
+            "Support for prefixes to be placed in Prefix
+            Information options in Router Advertisement messages
+            sent from the interface.
+
+            Prefixes that are advertised by default but do not
+            have their entries in the child 'prefix' list are
+            advertised with the default values of all parameters.
+
+            The link-local prefix SHOULD NOT be included in the
+            list of advertised prefixes.";
+          reference
+            "RFC 4861: Neighbor Discovery for IP version 6 (IPv6)
+                       - AdvPrefixList";
+          list prefix {
+            key "prefix-spec";
+            description
+              "Support for an advertised prefix entry.";
+            leaf prefix-spec {
+              type inet:ipv6-prefix;
+              description
+                "IPv6 address prefix.";
+            }
+            // FRR doesn't support 'no-advertise'. Keeping the code
+            // here for future reference.
+            /*
+            choice control-adv-prefixes {
+              default "advertise";
+              description
+                "Either (1) the prefix is explicitly removed from the
+                set of advertised prefixes or (2) the parameters with
+                which the prefix is advertised are specified (default
+                case).";
+              leaf no-advertise {
+                type empty;
+                description
+                  "The prefix will not be advertised.
+
+                  This can be used for removing the prefix from
+                  the default set of advertised prefixes.";
+              }
+              case advertise {
+            */
+                leaf valid-lifetime {
+                  type uint32;
+                  units "seconds";
+                  default "2592000";
+                  description
+                    "The value to be placed in the Valid Lifetime
+                    in the Prefix Information option.  The
+                    designated value of all 1's (0xffffffff)
+                      represents infinity.";
+                  reference
+                    "RFC 4861: Neighbor Discovery for IP version 6
+                              (IPv6) - AdvValidLifetime";
+                }
+                leaf on-link-flag {
+                  type boolean;
+                  default "true";
+                  description
+                    "The value to be placed in the on-link flag
+                    ('L-bit') field in the Prefix Information
+                    option.";
+                  reference
+                    "RFC 4861: Neighbor Discovery for IP version 6
+                              (IPv6) - AdvOnLinkFlag";
+                }
+                leaf preferred-lifetime {
+                  type uint32;
+                  units "seconds";
+                  must ". <= ../valid-lifetime" {
+                    description
+                      "This value MUST NOT be greater than
+                      valid-lifetime.";
+                  }
+                  default "604800";
+                  description
+                    "The value to be placed in the Preferred
+                    Lifetime in the Prefix Information option.
+                    The designated value of all 1's (0xffffffff)
+                    represents infinity.";
+                  reference
+                    "RFC 4861: Neighbor Discovery for IP version 6
+                              (IPv6) - AdvPreferredLifetime";
+                }
+                leaf autonomous-flag {
+                  type boolean;
+                  default "true";
+                  description
+                    "The value to be placed in the Autonomous Flag
+                    field in the Prefix Information option.";
+                  reference
+                    "RFC 4861: Neighbor Discovery for IP version 6
+                              (IPv6) - AdvAutonomousFlag";
+                }
+                leaf router-address-flag {
+                  type boolean;
+                  default "false";
+                  description
+                    "The value to be placed in the Router Address
+                    flag field in the Prefix Information option.";
+                  reference
+                    "RFC 6275: Mobility Support in IPv6";
+                }
+            /*
+              }
+            }
+            */
+            // This is closing brackets for `case advertise` and
+            // `choice control-adv-prefixes`.
+          }
+        }
+        container rdnss {
+          description
+            "A list of recursive DNS server addresses that are placed
+            in Recursive DNS Server (RDNSS) options in Router
+            Advertisement messages sent from the interface.";
+          reference
+            "RFC 8106: IPv6 Router Advertisement Options for DNS
+                       Configuration";
+          list rdnss-address {
+            key "address";
+            description
+              "Recursive DNS server address.";
+            leaf address {
+              type inet:ipv6-address;
+              description
+                "IPv6 address of a recursive DNS server.";
+            }
+            leaf lifetime {
+              type uint32;
+              units "seconds";
+              description
+                "The value that is placed in the Lifetime field in the
+                RDNSS option.  The designated value of all 1's
+                (0xffffffff) represents infinity.";
+            }
+          }
+        }
+        container dnssl {
+          description
+            "A list of domain names that are placed in DNS Search List (DNSSL)
+            options in Router Advertisement messages sent from the interface.";
+          reference
+            "RFC 8106: IPv6 Router Advertisement Options for DNS
+                       Configuration";
+          list dnssl-domain {
+            key "domain";
+            description
+              "Domain name for the search list.";
+            leaf domain {
+              type inet:domain-name;
+              description
+                "Domain name for the search list.";
+            }
+            leaf lifetime {
+              type uint32;
+              units "seconds";
+              description
+                "The value that is placed in the Lifetime field in the
+                DNSSL option.  The designated value of all 1's
+                (0xffffffff) represents infinity.";
+            }
+          }
+        }
+      }
+      leaf ptm-enable {
+        if-feature ptm-bfd;
+        type boolean;
+        default "true";
+        description
+          "Enable PTM on the interface.";
+      }
       container state {
         config false;
         description
@@ -2050,6 +2743,112 @@ module frr-zebra {
     container zebra {
       description
         "Zebra's vrf specific configuration and operational model.";
+
+      leaf router-id {
+        type yang:dotted-quad;
+        description
+          "A 32-bit number in the form of a dotted quad that is used by
+           some routing protocols identifying a router.";
+      }
+
+      leaf ipv6-router-id {
+        type inet:ipv6-address-no-zone;
+        description
+          "A 128-bit number in the form of an IPv6 address that is used by
+           some routing protocols identifying a router.";
+      }
+
+      list filter-protocol {
+        key "afi-safi protocol";
+        description
+          "Filter routing info exchanged between zebra and protocol.";
+        leaf afi-safi {
+          type identityref {
+            base frr-rt:afi-safi-type;
+          }
+          description
+            "AFI-SAFI type.";
+        }
+        leaf protocol {
+          // This should be identityref to frr-rt:control-plane-protocol someday
+          type string;
+          description
+            "The protocol to filter.";
+        }
+        leaf route-map {
+          type frr-route-map:route-map-ref;
+          mandatory true;
+          description
+            "A route-map to filter routes.";
+        }
+      }
+
+      list filter-nht {
+        key "afi-safi protocol";
+        description
+          "Filter next hop tracking route resolution.";
+        leaf afi-safi {
+          type identityref {
+            base frr-rt:afi-safi-type;
+          }
+          description
+            "AFI-SAFI type.";
+        }
+        leaf protocol {
+          // This should be identityref to frr-rt:control-plane-protocol someday
+          type string;
+          description
+            "The protocol to filter.";
+        }
+        leaf route-map {
+          type frr-route-map:route-map-ref;
+          mandatory true;
+          description
+            "A route-map to filter nexthops.";
+        }
+      }
+
+      leaf resolve-via-default {
+        type boolean;
+        description
+          "Resolve IPv4 nexthops via the default route. This is true by default
+           for traditional profile and false by default for datacenter profile.
+           Removing the leaf sets it back to the default value for the profile.";
+      }
+
+      leaf ipv6-resolve-via-default {
+        type boolean;
+        description
+          "Resolve IPv4 nexthops via the default route. This is true by default
+           for traditional profile and false by default for datacenter profile.
+           Removing the leaf sets it back to the default value for the profile.";
+      }
+
+      container netns {
+        description
+          "Configuration for netns VRF backend.";
+        container table-range {
+          presence "Activates table-range configuration.";
+          description
+            "The range of tables to use for this netns.";
+          leaf start {
+            type uint32;
+            mandatory true;
+            description
+              "The first table to use.";
+          }
+          leaf end {
+            type uint32;
+            mandatory true;
+            must ". >= ../start" {
+              error-message "End table must be greater than or equal to start table";
+            }
+            description
+              "The last table to use.";
+          }
+        }
+      }
+
       uses ribs;
 
       uses vrf-vni-mapping;
@@ -2154,6 +2953,22 @@ module frr-zebra {
       default "200";
       description
         "Limit on the number of updates queued to the dataplane subsystem.";
+    }
+    leaf ptm-enable {
+      if-feature ptm-bfd;
+      type boolean;
+      default "false";
+      description
+        "Enable PTM globally.";
+    }
+    leaf route-map-delay {
+      type uint32 {
+        range "0..600";
+      }
+      units "seconds";
+      default "5";
+      description
+        "Time to wait before route-map updates are processed.";
     }
     /*
      * Debug options

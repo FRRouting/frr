@@ -1,21 +1,8 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* Tracing
  *
  * Copyright (C) 2020  NVIDIA Corporation
  * Quentin Young
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #if !defined(_LIBFRR_TRACE_H_) || defined(TRACEPOINT_HEADER_MULTI_READ)
@@ -34,7 +21,7 @@
 #include <lttng/tracepoint.h>
 
 #include "hash.h"
-#include "thread.h"
+#include "frrevent.h"
 #include "memory.h"
 #include "linklist.h"
 #include "table.h"
@@ -86,8 +73,8 @@ TRACEPOINT_EVENT(
 TRACEPOINT_LOGLEVEL(frr_libfrr, hash_release, TRACE_INFO)
 
 #define THREAD_SCHEDULE_ARGS                                                   \
-	TP_ARGS(struct thread_master *, master, const char *, funcname,        \
-		const char *, schedfrom, int, fromln, struct thread **,        \
+	TP_ARGS(struct event_loop *, master, const char *, funcname,        \
+		const char *, schedfrom, int, fromln, struct event **,        \
 		thread_ptr, int, fd, int, val, void *, arg, long, time)
 
 TRACEPOINT_EVENT_CLASS(
@@ -116,9 +103,9 @@ THREAD_OPERATION_TRACEPOINT_INSTANCE(schedule_timer)
 THREAD_OPERATION_TRACEPOINT_INSTANCE(schedule_event)
 THREAD_OPERATION_TRACEPOINT_INSTANCE(schedule_read)
 THREAD_OPERATION_TRACEPOINT_INSTANCE(schedule_write)
-THREAD_OPERATION_TRACEPOINT_INSTANCE(thread_cancel)
-THREAD_OPERATION_TRACEPOINT_INSTANCE(thread_cancel_async)
-THREAD_OPERATION_TRACEPOINT_INSTANCE(thread_call)
+THREAD_OPERATION_TRACEPOINT_INSTANCE(event_cancel)
+THREAD_OPERATION_TRACEPOINT_INSTANCE(event_cancel_async)
+THREAD_OPERATION_TRACEPOINT_INSTANCE(event_call)
 
 TRACEPOINT_EVENT(
 	frr_libfrr,

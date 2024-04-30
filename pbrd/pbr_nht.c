@@ -1,21 +1,8 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * PBR-nht Code
  * Copyright (C) 2018 Cumulus Networks, Inc.
  *               Donald Sharp
- *
- * FRR is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * FRR is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 #include <zebra.h>
 
@@ -547,7 +534,9 @@ void pbr_nht_set_seq_nhg_data(struct pbr_map_sequence *pbrms,
 	case NEXTHOP_TYPE_IPV4:
 	case NEXTHOP_TYPE_IPV4_IFINDEX:
 		pbrms->family = AF_INET;
-	default:
+		break;
+	case NEXTHOP_TYPE_IFINDEX:
+	case NEXTHOP_TYPE_BLACKHOLE:
 		break;
 	}
 }
@@ -561,6 +550,7 @@ void pbr_nht_set_seq_nhg(struct pbr_map_sequence *pbrms, const char *name)
 		return;
 
 	pbrms->nhgrp_name = XSTRDUP(MTYPE_TMP, name);
+	pbrms->forwarding_type = PBR_FT_NEXTHOP_GROUP;
 
 	nhgc = nhgc_find(name);
 	if (!nhgc)
@@ -584,6 +574,7 @@ void pbr_nht_add_individual_nexthop(struct pbr_map_sequence *pbrms,
 		MTYPE_TMP,
 		pbr_nht_nexthop_make_name(pbrms->parent->name, PBR_NHC_NAMELEN,
 					  pbrms->seqno, buf));
+	pbrms->forwarding_type = PBR_FT_NEXTHOP_SINGLE;
 
 	nh = nexthop_new();
 	memcpy(nh, nhop, sizeof(*nh));
@@ -659,7 +650,15 @@ static void pbr_nht_release_individual_nexthop(struct pbr_map_sequence *pbrms)
 
 void pbr_nht_delete_individual_nexthop(struct pbr_map_sequence *pbrms)
 {
-	pbr_map_delete_nexthops(pbrms);
+	struct pbr_map *pbrm = pbrms->parent;
+
+	/* The idea here is to send a delete command to zebra only once,
+	 * and set 'valid' and 'installed' to false only when the last
+	 * rule is being deleted. In other words, the pbr common should be
+	 * updated only when the last rule is being updated or deleted.
+	 */
+	if (pbrm->seqnumbers->count == 1)
+		pbr_map_delete_nexthops(pbrms);
 
 	pbr_nht_release_individual_nexthop(pbrms);
 }
@@ -899,7 +898,7 @@ static void pbr_nht_individual_nexthop_update(struct pbr_nexthop_cache *pnhc,
 			pbr_nht_individual_nexthop_interface_update(pnhc, pnhi);
 			break;
 		}
-		/* Intentional fall thru */
+		fallthrough;
 	case NEXTHOP_TYPE_IPV4_IFINDEX:
 	case NEXTHOP_TYPE_IPV4:
 	case NEXTHOP_TYPE_IPV6:

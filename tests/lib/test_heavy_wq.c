@@ -1,19 +1,5 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
- * This file is part of Quagga.
- *
- * Quagga is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * Quagga is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 /* This programme shows the effects of 'heavy' long-running functions
@@ -27,7 +13,7 @@
  */
 #include <zebra.h>
 
-#include "thread.h"
+#include "frrevent.h"
 #include "vty.h"
 #include "command.h"
 #include "memory.h"
@@ -41,7 +27,7 @@ DEFINE_MGROUP(TEST_HEAVYWQ, "heavy-wq test");
 DEFINE_MTYPE_STATIC(TEST_HEAVYWQ, WQ_NODE, "heavy_wq_node");
 DEFINE_MTYPE_STATIC(TEST_HEAVYWQ, WQ_NODE_STR, "heavy_wq_node->str");
 
-extern struct thread_master *master;
+extern struct event_loop *master;
 static struct work_queue *heavy_wq;
 
 struct heavy_wq_node {
@@ -89,12 +75,6 @@ static wq_item_status slow_func(struct work_queue *wq, void *data)
 
 	for (j = 0; j < 300; j++)
 		x += sin(x) * j;
-
-	if ((hn->i % ITERS_LATER) == 0)
-		return WQ_RETRY_LATER;
-
-	if ((hn->i % ITERS_ERR) == 0)
-		return WQ_RETRY_NOW;
 
 	if ((hn->i % ITERS_PRINT) == 0)
 		printf("%s did %d, x = %g\n", hn->str, hn->i, x);

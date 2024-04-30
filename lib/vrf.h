@@ -1,22 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * VRF related header.
  * Copyright (C) 2014 6WIND S.A.
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published
- * by the Free Software Foundation; either version 2, or (at your
- * option) any later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef _ZEBRA_VRF_H
@@ -182,15 +167,14 @@ extern void *vrf_info_lookup(vrf_id_t);
 /*
  * VRF bit-map: maintaining flags, one bit per VRF ID
  */
-
 typedef void *vrf_bitmap_t;
 #define VRF_BITMAP_NULL     NULL
 
-extern vrf_bitmap_t vrf_bitmap_init(void);
-extern void vrf_bitmap_free(vrf_bitmap_t);
-extern void vrf_bitmap_set(vrf_bitmap_t, vrf_id_t);
-extern void vrf_bitmap_unset(vrf_bitmap_t, vrf_id_t);
-extern int vrf_bitmap_check(vrf_bitmap_t, vrf_id_t);
+extern void vrf_bitmap_init(vrf_bitmap_t *pbmap);
+extern void vrf_bitmap_free(vrf_bitmap_t *pbmap);
+extern void vrf_bitmap_set(vrf_bitmap_t *pbmap, vrf_id_t vrf_id);
+extern void vrf_bitmap_unset(vrf_bitmap_t *pbmap, vrf_id_t vrf_id);
+extern int vrf_bitmap_check(vrf_bitmap_t *pbmap, vrf_id_t vrf_id);
 
 /*
  * VRF initializer/destructor
@@ -216,6 +200,12 @@ extern void vrf_init(int (*create)(struct vrf *vrf),
 		     int (*enable)(struct vrf *vrf),
 		     int (*disable)(struct vrf *vrf),
 		     int (*destroy)(struct vrf *vrf));
+
+/*
+ * Iterate over custom VRFs and round up by processing the default VRF.
+ */
+typedef void (*vrf_iter_func)(struct vrf *vrf);
+extern void vrf_iterate(vrf_iter_func fnc);
 
 /*
  * Call vrf_terminate when the protocol is being shutdown
@@ -310,6 +300,7 @@ extern int vrf_enable(struct vrf *vrf);
 extern void vrf_delete(struct vrf *vrf);
 
 extern const struct frr_yang_module_info frr_vrf_info;
+extern const struct frr_yang_module_info frr_vrf_cli_info;
 
 #ifdef __cplusplus
 }

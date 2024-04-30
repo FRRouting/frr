@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: BSD-2-Clause
 module frr-isisd {
   yang-version 1.1;
   namespace "http://frrouting.org/yang/isisd";
@@ -113,6 +114,26 @@ module frr-isisd {
     description
       "This type defines the extended circuit ID
        associated with an interface.";
+  }
+
+  typedef hello-padding-type {
+    type enumeration {
+      enum "always" {
+        value 0;
+        description
+          "Add padding to all hello packets.";
+      }
+      enum "disabled" {
+        value 1;
+        description
+          "Do not add any padding to hello packets.";
+      } 
+      enum "during-adjacency-formation" {
+        value 2;
+        description
+          "Add padding to hello packets during adjacency formation only.";
+      }
+    }
   }
 
   typedef network-type {
@@ -604,10 +625,10 @@ module frr-isisd {
       description
         "Parameters related to IS-IS hello PDUs.";
       leaf padding {
-        type boolean;
-        default "true";
+        type hello-padding-type;
+        default "always";
         description
-          "Add padding to IS-IS hello PDUs.";
+          "Type of padding for IS-IS hello packets.";
       }
 
       container interval {
@@ -1168,6 +1189,13 @@ module frr-isisd {
           "Define the style of TLVs metric supported.";
       }
 
+      leaf advertise-high-metrics {
+        type boolean;
+        default "false";
+        description
+          "Advertise high metric value on all interfaces.";
+      }
+
       leaf purge-originator {
         type boolean;
         default "false";
@@ -1175,6 +1203,27 @@ module frr-isisd {
           "Use the RFC 6232 purge-originator.";
         reference
           "RFC6232";
+      }
+
+      leaf advertise-passive-only {
+        type boolean;
+        default "false";
+        description
+          "Advertise prefixes of passive interfaces only";
+      }
+
+      leaf admin-group-send-zero {
+        type boolean;
+        default "false";
+        description
+          "Allow sending the default admin-group value of 0x00000000";
+      }
+
+      leaf asla-legacy-flag {
+        type boolean;
+        default "false";
+        description
+          "Set the legacy flag (aka. L-FLAG) in the ASLA Sub-TLV.";
       }
 
       container lsp {
@@ -1446,9 +1495,32 @@ module frr-isisd {
               "IS-IS level into which the routes should be redistributed.";
           }
 
-          uses redistribute-attributes;
-        }
+          choice protocol-type {
+            case protocol-table {
+              when "./protocol = \"table\"";
+              list table {
+                key "table";
+                when "../protocol = \"table\"";
+                description
+                  "Routing table number";
 
+                leaf table {
+                  type uint16 {
+                     range "1..65535";
+                  }
+                  description
+                    "Routing table number.";
+                }
+
+                uses redistribute-attributes;
+              }
+            }
+            case protocol-other {
+              uses redistribute-attributes;
+            }
+          }
+
+        }
         list ipv6 {
           key "protocol level";
           description
@@ -1467,7 +1539,29 @@ module frr-isisd {
               "IS-IS level into which the routes should be redistributed.";
           }
 
-          uses redistribute-attributes;
+          choice protocol-type {
+            case protocol-table {
+              when "./protocol = \"table\"";
+              list table {
+                key "table";
+                when "../protocol = \"table\"";
+
+                leaf table {
+                  type uint16 {
+                     range "1..65535";
+                  }
+                  description
+                    "Routing table number.";
+                }
+
+                uses redistribute-attributes;
+              }
+            }
+            case protocol-other {
+              uses redistribute-attributes;
+            }
+          }
+
         }
       }
 
@@ -1559,6 +1653,13 @@ module frr-isisd {
           "Log changes to the IS-IS adjacencies in this area.";
       }
 
+      leaf log-pdu-drops {
+        type boolean;
+        default "false";
+        description
+          "Log any dropped PDUs in this area.";
+      }
+
       container mpls-te {
         presence "Present if MPLS-TE is enabled.";
         description
@@ -1578,6 +1679,107 @@ module frr-isisd {
           default "false";
           description
             "Export Link State informatin.";
+        }
+      }
+
+      container flex-algos {
+        description
+          "Flex-Algo Table";
+        list flex-algo {
+          key "flex-algo";
+          description
+            "Configuration for an IS-IS Flex-Algo";
+          leaf advertise-definition {
+            type boolean;
+            description
+              "If TRUE, Flex-Algo definition is advertised";
+          }
+          container affinity-include-alls {
+            description
+              "Set the include-all affinity";
+            leaf-list affinity-include-all {
+              type string;
+              max-elements "256";
+              description
+                "Array of Attribute Names";
+            }
+          }
+          container affinity-include-anies {
+            description
+              "Set the include-any affinity";
+            leaf-list affinity-include-any {
+              type string;
+              max-elements "256";
+              description
+                "Array of Attribute Names";
+            }
+          }
+          container affinity-exclude-anies {
+            description
+              "Set the exclude-any affinity";
+            leaf-list affinity-exclude-any {
+              type string;
+              max-elements "256";
+              description
+                "Array of Attribute Names";
+            }
+          }
+          leaf prefix-metric {
+            type empty;
+            description
+              "Use Flex-algo Prefix Metric";
+          }
+          leaf metric-type {
+            default "igp";
+            description
+              "Set the Flex-Algo metric-type";
+		    type enumeration {
+		      enum "igp" {
+		        value 0;
+			description
+			  "IGP Metric";
+		      }
+		      enum "min-uni-link-delay" {
+		        value 1;
+			description
+			  "RFC 8570 Sec 4.2 Min Unidirectional Link Delay";
+		      }
+		      enum "te-default" {
+		        value 2;
+			description
+			  "RFC 5305 Sec 3.7 Traffic Engineering Default Metric";
+		      }
+		    }
+          }
+          leaf priority {
+            type uint32 {
+              range "0..255";
+            }
+            description
+              "Set the Flex-Algo priority";
+          }
+          leaf dplane-sr-mpls {
+            type empty;
+            description
+	          "Advertise and participate in the Flex-Algo Segment-Routing MPLS data-plane";
+          }
+          leaf dplane-srv6 {
+            type empty;
+            description
+	          "Advertise and participate in the Flex-Algo Segment-Routing SRv6 data-plane";
+          }
+          leaf dplane-ip {
+            type empty;
+            description
+	          "Advertise and participate in the Flex-Algo IP data-plane";
+          }
+          leaf flex-algo {
+            type uint32 {
+              range "128..255";
+            }
+            description
+              "Flex-Algo";
+          }
         }
       }
 
@@ -1708,6 +1910,152 @@ module frr-isisd {
                 "Not a node SID";
             }
           }
+        }
+        container algorithm-prefix-sids {
+          description
+            "Algorithm SID Table";
+          list algorithm-prefix-sid {
+            key "prefix algo";
+            description
+              "Assign prefix SID for algorithm to an
+               interface, ISISPHPFlag will be rejected
+               if set to disable, ISISEXPLICITNULLFlag
+               will override the value of ISISPHPFlag";
+            leaf algo {
+              type uint32 {
+                range "128..255";
+              }
+              description
+                "Algorithm";
+            }
+            leaf prefix {
+              type inet:ip-prefix;
+              mandatory true;
+              description
+                "Connected prefix sid.";
+            }
+            leaf sid-value-type {
+              type enumeration {
+                enum "index" {
+                  value 0;
+                  description
+                    "The value will be interpreted as an index.";
+                }
+                enum "absolute" {
+                  value 1;
+                  description
+                    "The value will become interpreted as an absolute
+                     value.";
+                }
+              }
+              default "index";
+              description
+                "This leaf defines how value must be interpreted.";
+            }
+            leaf sid-value {
+              type uint32 {
+                range "0..1048575";
+              }
+              mandatory true;
+              description
+                "Value associated with prefix. The value must be
+                 interpreted in the context of sid-value-type.";
+            }
+            leaf last-hop-behavior {
+              type enumeration {
+                enum "explicit-null" {
+                  value 0;
+                  description
+                    "Use explicit-null for the SID.";
+                }
+                enum "no-php" {
+                  value 1;
+                  description
+                    "Do not use Penultimate Hop Popping (PHP)
+                     for the SID.";
+                }
+                enum "php" {
+                  value 2;
+                  description
+                    "Use PHP for the SID.";
+                }
+              }
+              default "php";
+              description
+                "Configure last hop behavior.";
+            }
+            leaf n-flag-clear {
+              type boolean;
+              default "false";
+              description
+                "Not a node SID";
+            }
+          }
+        }
+      }
+
+      container segment-routing-srv6 {
+        description
+          "Segment Routing over IPv6 (SRv6) global configuration.";
+        leaf enabled {
+          type boolean;
+          default "false";
+          description
+            "Enable IS-IS extensions to support Segment Routing over
+             IPv6 data plane (SRv6).";
+          reference
+            "RFC 9352";
+        }
+        leaf locator {
+          type string;
+          description
+            "SRv6 locator.";
+        }
+        container msd {
+          description
+            "SRv6 Maximum SRv6 SID Depths.";
+          container node-msd {
+            description
+              "SRv6 Node Maximum SRv6 SID Depths.";
+            leaf max-segs-left {
+              type uint8 {
+                range "0..255";
+              }
+              default 3;
+              description
+               "Maximum Segments Left MSD.";
+            }
+            leaf max-end-pop {
+              type uint8 {
+                range "0..255";
+              }
+              default 3;
+              description
+               "Maximum End Pop MSD.";
+            }
+            leaf max-h-encaps {
+              type uint8 {
+                range "0..255";
+              }
+              default 2;
+              description
+               "Maximum H.Encaps MSD.";
+            }
+            leaf max-end-d {
+              type uint8 {
+                range "0..255";
+              }
+              default 5;
+              description
+               "Maximum End D MSD.";
+            }
+          }
+        }
+        leaf interface {
+          type string;
+          description
+            "Dummy interface used to install SRv6 SIDs into the Linux data plane.";
+          default "sr0";
         }
       }
 

@@ -28,7 +28,7 @@ within the event system are variations on the term "thread". The primary
 datastructure that holds the state of an event loop in this system is called a
 "threadmaster". Events scheduled on the event loop - what would today be called
 an 'event' or 'task' in systems such as libevent - are called "threads" and the
-datastructure for them is ``struct thread``. To add to the confusion, these
+datastructure for them is ``struct event``. To add to the confusion, these
 "threads" have various types, one of which is "event". To hopefully avoid some
 of this confusion, this document refers to these "threads" as a 'task' except
 where the datastructures are explicitly named. When they are explicitly named,
@@ -46,8 +46,9 @@ implemented in FRR. This doc should be expanded and broken off into its own
 section. For now it provides basic information necessary to understand the
 interplay between the event system and kernel threads.
 
-The core event system is implemented in :file:`lib/thread.[ch]`. The primary
-structure is ``struct thread_master``, hereafter referred to as a
+The core event system is implemented in :file:`lib/event.c` and
+:file:`lib/frrevent.h`. The primary
+structure is ``struct event_loop``, hereafter referred to as a
 ``threadmaster``. A ``threadmaster`` is a global state object, or context, that
 holds all the tasks currently pending execution as well as statistics on tasks
 that have already executed. The event system is driven by adding tasks to this
@@ -57,47 +58,47 @@ execute. At initialization, a daemon will typically create one
 fetch each task and execute it.
 
 These tasks have various types corresponding to their general action. The types
-are given by integer macros in :file:`thread.h` and are:
+are given by integer macros in :file:`frrevent.h` and are:
 
-``THREAD_READ``
+``EVENT_READ``
    Task which waits for a file descriptor to become ready for reading and then
    executes.
 
-``THREAD_WRITE``
+``EVENT_WRITE``
    Task which waits for a file descriptor to become ready for writing and then
    executes.
 
-``THREAD_TIMER``
+``EVENT_TIMER``
    Task which executes after a certain amount of time has passed since it was
    scheduled.
 
-``THREAD_EVENT``
+``EVENT_EVENT``
    Generic task that executes with high priority and carries an arbitrary
    integer indicating the event type to its handler. These are commonly used to
    implement the finite state machines typically found in routing protocols.
 
-``THREAD_READY``
+``EVENT_READY``
    Type used internally for tasks on the ready queue.
 
-``THREAD_UNUSED``
-   Type used internally for ``struct thread`` objects that aren't being used.
-   The event system pools ``struct thread`` to avoid heap allocations; this is
+``EVENT_UNUSED``
+   Type used internally for ``struct event`` objects that aren't being used.
+   The event system pools ``struct event`` to avoid heap allocations; this is
    the type they have when they're in the pool.
 
-``THREAD_EXECUTE``
+``EVENT_EXECUTE``
    Just before a task is run its type is changed to this. This is used to show
-   ``X`` as the type in the output of :clicmd:`show thread cpu`.
+   ``X`` as the type in the output of :clicmd:`show event cpu`.
 
 The programmer never has to work with these types explicitly. Each type of task
 is created and queued via special-purpose functions (actually macros, but
 irrelevant for the time being) for the specific type. For example, to add a
-``THREAD_READ`` task, you would call
+``EVENT_READ`` task, you would call
 
 ::
 
-   thread_add_read(struct thread_master *master, int (*handler)(struct thread *), void *arg, int fd, struct thread **ref);
+   event_add_read(struct event_loop *master, int (*handler)(struct event *), void *arg, int fd, struct event **ref);
 
-The ``struct thread`` is then created and added to the appropriate internal
+The ``struct event`` is then created and added to the appropriate internal
 datastructure within the ``threadmaster``. Note that the ``READ`` and
 ``WRITE`` tasks are independent - a ``READ`` task only tests for
 readability, for example.
@@ -111,13 +112,13 @@ program. When no more tasks are available, the program dies. Typically at
 startup the first task added is an I/O task for VTYSH as well as any network
 sockets needed for peerings or IPC.
 
-To retrieve the next task to run the program calls ``thread_fetch()``.
-``thread_fetch()`` internally computes which task to execute next based on
-rudimentary priority logic. Events (type ``THREAD_EVENT``) execute with the
+To retrieve the next task to run the program calls ``event_fetch()``.
+``event_fetch()`` internally computes which task to execute next based on
+rudimentary priority logic. Events (type ``EVENT_EVENT``) execute with the
 highest priority, followed by expired timers and finally I/O tasks (type
-``THREAD_READ`` and ``THREAD_WRITE``). When scheduling a task a function and an
-arbitrary argument are provided. The task returned from ``thread_fetch()`` is
-then executed with ``thread_call()``.
+``EVENT_READ`` and ``EVENT_WRITE``). When scheduling a task a function and an
+arbitrary argument are provided. The task returned from ``event_fetch()`` is
+then executed with ``event_call()``.
 
 The following diagram illustrates a simplified version of this infrastructure.
 
@@ -133,25 +134,25 @@ illustrated at the bottom.
 
 Mapping the general names used in the figure to specific FRR functions:
 
-- ``task`` is ``struct thread *``
-- ``fetch`` is ``thread_fetch()``
-- ``exec()`` is ``thread_call``
-- ``cancel()`` is ``thread_cancel()``
-- ``schedule()`` is any of the various task-specific ``thread_add_*`` functions
+- ``task`` is ``struct event *``
+- ``fetch`` is ``event_fetch()``
+- ``exec()`` is ``event_call()``
+- ``cancel()`` is ``event_cancel()``
+- ``schedule()`` is any of the various task-specific ``event_add_*`` functions
 
 Adding tasks is done with various task-specific function-like macros. These
-macros wrap underlying functions in :file:`thread.c` to provide additional
+macros wrap underlying functions in :file:`event.c` to provide additional
 information added at compile time, such as the line number the task was
 scheduled from, that can be accessed at runtime for debugging, logging and
 informational purposes. Each task type has its own specific scheduling function
-that follow the naming convention ``thread_add_<type>``; see :file:`thread.h`
+that follow the naming convention ``event_add_<type>``; see :file:`frrevent.h`
 for details.
 
 There are some gotchas to keep in mind:
 
 - I/O tasks are keyed off the file descriptor associated with the I/O
   operation. This means that for any given file descriptor, only one of each
-  type of I/O task (``THREAD_READ`` and ``THREAD_WRITE``) can be scheduled. For
+  type of I/O task (``EVENT_READ`` and ``EVENT_WRITE``) can be scheduled. For
   example, scheduling two write tasks one after the other will overwrite the
   first task with the second, resulting in total loss of the first task and
   difficult bugs.
@@ -209,7 +210,8 @@ Kernel Thread Wrapper
 The basis for the integration of pthreads and the event system is a lightweight
 wrapper for both systems implemented in :file:`lib/frr_pthread.[ch]`. The
 header provides a core datastructure, ``struct frr_pthread``, that encapsulates
-structures from both POSIX threads and :file:`thread.[ch]`. In particular, this
+structures from both POSIX threads and :file:`event.c`, :file:`frrevent.h`.
+In particular, this
 datastructure has a pointer to a ``threadmaster`` that runs within the pthread.
 It also has fields for a name as well as start and stop functions that have
 signatures similar to the POSIX arguments for ``pthread_create()``.
@@ -217,18 +219,18 @@ signatures similar to the POSIX arguments for ``pthread_create()``.
 Calling ``frr_pthread_new()`` creates and registers a new ``frr_pthread``. The
 returned structure has a pre-initialized ``threadmaster``, and its ``start``
 and ``stop`` functions are initialized to defaults that will run a basic event
-loop with the given threadmaster. Calling ``frr_pthread_run`` starts the thread
+loop with the given threadmaster. Calling ``frr_pthread_run()`` starts the thread
 with the ``start`` function. From there, the model is the same as the regular
 event model. To schedule tasks on a particular pthread, simply use the regular
-:file:`thread.c` functions as usual and provide the ``threadmaster`` pointed to
+:file:`event.c` functions as usual and provide the ``threadmaster`` pointed to
 from the ``frr_pthread``. As part of implementing the wrapper, the
-:file:`thread.c` functions were made thread-safe. Consequently, it is safe to
+:file:`event.c` functions were made thread-safe. Consequently, it is safe to
 schedule events on a ``threadmaster`` belonging both to the calling thread as
 well as *any other pthread*. This serves as the basis for inter-thread
 communication and boils down to a slightly more complicated method of message
 passing, where the messages are the regular task events as used in the
 event-driven model. The only difference is thread cancellation, which requires
-calling ``thread_cancel_async()`` instead of ``thread_cancel`` to cancel a task
+calling ``event_cancel_async()`` instead of ``event_cancel()`` to cancel a task
 currently scheduled on a ``threadmaster`` belonging to a different pthread.
 This is necessary to avoid race conditions in the specific case where one
 pthread wants to guarantee that a task on another pthread is cancelled before
@@ -236,16 +238,16 @@ proceeding.
 
 In addition, the existing commands to show statistics and other information for
 tasks within the event driven model have been expanded to handle multiple
-pthreads; running :clicmd:`show thread cpu` will display the usual event
+pthreads; running :clicmd:`show event cpu` will display the usual event
 breakdown, but it will do so for each pthread running in the program. For
 example, :ref:`bgpd` runs a dedicated I/O pthread and shows the following
-output for :clicmd:`show thread cpu`:
+output for :clicmd:`show event cpu`:
 
 ::
 
-   frr# show thread cpu
+   frr# show event cpu
 
-   Thread statistics for bgpd:
+   Event statistics for bgpd:
 
    Showing statistics for pthread main
    ------------------------------------

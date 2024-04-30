@@ -1,19 +1,8 @@
+// SPDX-License-Identifier: ISC
 /*	$OpenBSD$ */
 
 /*
  * Copyright (c) 2009 Michele Marchetto <michele@openbsd.org>
- *
- * Permission to use, copy, modify, and distribute this software for any
- * purpose with or without fee is hereby granted, provided that the above
- * copyright notice and this permission notice appear in all copies.
- *
- * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
- * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
- * ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
- * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
- * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
- * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
 #include <zebra.h>
@@ -42,13 +31,13 @@ send_init(struct nbr *nbr)
 	if ((buf = ibuf_open(size)) == NULL)
 		fatal(__func__);
 
-	err |= gen_ldp_hdr(buf, size);
+	SET_FLAG(err, gen_ldp_hdr(buf, size));
 	size -= LDP_HDR_SIZE;
-	err |= gen_msg_hdr(buf, MSG_TYPE_INIT, size);
-	err |= gen_init_prms_tlv(buf, nbr);
-	err |= gen_cap_dynamic_tlv(buf);
-	err |= gen_cap_twcard_tlv(buf, 1);
-	err |= gen_cap_unotif_tlv(buf, 1);
+	SET_FLAG(err, gen_msg_hdr(buf, MSG_TYPE_INIT, size));
+	SET_FLAG(err, gen_init_prms_tlv(buf, nbr));
+	SET_FLAG(err, gen_cap_dynamic_tlv(buf));
+	SET_FLAG(err, gen_cap_twcard_tlv(buf, 1));
+	SET_FLAG(err, gen_cap_unotif_tlv(buf, 1));
 	if (err) {
 		ibuf_free(buf);
 		return;
@@ -132,62 +121,56 @@ recv_init(struct nbr *nbr, char *buf, uint16_t len)
 			return (-1);
 		case TLV_TYPE_DYNAMIC_CAP:
 			if (tlv_len != CAP_TLV_DYNAMIC_LEN) {
-				session_shutdown(nbr, S_BAD_TLV_LEN, msg.id,
-				    msg.type);
+				session_shutdown(nbr, S_BAD_TLV_LEN, msg.id, msg.type);
 				return (-1);
 			}
 
-			if (caps_rcvd & F_CAP_TLV_RCVD_DYNAMIC) {
-				session_shutdown(nbr, S_BAD_TLV_VAL, msg.id,
-				    msg.type);
+			if (CHECK_FLAG(caps_rcvd, F_CAP_TLV_RCVD_DYNAMIC)) {
+				session_shutdown(nbr, S_BAD_TLV_VAL, msg.id, msg.type);
 				return (-1);
 			}
-			caps_rcvd |= F_CAP_TLV_RCVD_DYNAMIC;
+			SET_FLAG(caps_rcvd, F_CAP_TLV_RCVD_DYNAMIC);
 
-			nbr->flags |= F_NBR_CAP_DYNAMIC;
+			SET_FLAG(nbr->flags, F_NBR_CAP_DYNAMIC);
 
 			log_debug("%s: lsr-id %pI4 announced the Dynamic Capability Announcement capability", __func__,
 			    &nbr->id);
 			break;
 		case TLV_TYPE_TWCARD_CAP:
 			if (tlv_len != CAP_TLV_TWCARD_LEN) {
-				session_shutdown(nbr, S_BAD_TLV_LEN, msg.id,
-				    msg.type);
+				session_shutdown(nbr, S_BAD_TLV_LEN, msg.id, msg.type);
 				return (-1);
 			}
 
-			if (caps_rcvd & F_CAP_TLV_RCVD_TWCARD) {
-				session_shutdown(nbr, S_BAD_TLV_VAL, msg.id,
-				    msg.type);
+			if (CHECK_FLAG(caps_rcvd, F_CAP_TLV_RCVD_TWCARD)) {
+				session_shutdown(nbr, S_BAD_TLV_VAL, msg.id, msg.type);
 				return (-1);
 			}
-			caps_rcvd |= F_CAP_TLV_RCVD_TWCARD;
+			SET_FLAG(caps_rcvd, F_CAP_TLV_RCVD_TWCARD);
 
-			nbr->flags |= F_NBR_CAP_TWCARD;
+			SET_FLAG(nbr->flags, F_NBR_CAP_TWCARD);
 
 			log_debug("%s: lsr-id %pI4 announced the Typed Wildcard FEC capability", __func__, &nbr->id);
 			break;
 		case TLV_TYPE_UNOTIF_CAP:
 			if (tlv_len != CAP_TLV_UNOTIF_LEN) {
-				session_shutdown(nbr, S_BAD_TLV_LEN, msg.id,
-				    msg.type);
+				session_shutdown(nbr, S_BAD_TLV_LEN, msg.id, msg.type);
 				return (-1);
 			}
 
-			if (caps_rcvd & F_CAP_TLV_RCVD_UNOTIF) {
-				session_shutdown(nbr, S_BAD_TLV_VAL, msg.id,
-				    msg.type);
+			if (CHECK_FLAG(caps_rcvd, F_CAP_TLV_RCVD_UNOTIF)) {
+				session_shutdown(nbr, S_BAD_TLV_VAL, msg.id, msg.type);
 				return (-1);
 			}
-			caps_rcvd |= F_CAP_TLV_RCVD_UNOTIF;
+			SET_FLAG(caps_rcvd, F_CAP_TLV_RCVD_UNOTIF);
 
-			nbr->flags |= F_NBR_CAP_UNOTIF;
+			SET_FLAG(nbr->flags, F_NBR_CAP_UNOTIF);
 
 			log_debug("%s: lsr-id %pI4 announced the Unrecognized Notification capability", __func__,
 			    &nbr->id);
 			break;
 		default:
-			if (!(ntohs(tlv.type) & UNKNOWN_FLAG))
+			if (!CHECK_FLAG(ntohs(tlv.type), UNKNOWN_FLAG))
 				send_notification_rtlvs(nbr, S_UNSSUPORTDCAP,
 				    msg.id, msg.type, tlv_type, tlv_len, buf);
 			/* ignore unknown tlv */
@@ -228,16 +211,16 @@ send_capability(struct nbr *nbr, uint16_t capability, int enable)
 	if ((buf = ibuf_open(size)) == NULL)
 		fatal(__func__);
 
-	err |= gen_ldp_hdr(buf, size);
+	SET_FLAG(err, gen_ldp_hdr(buf, size));
 	size -= LDP_HDR_SIZE;
-	err |= gen_msg_hdr(buf, MSG_TYPE_CAPABILITY, size);
+	SET_FLAG(err, gen_msg_hdr(buf, MSG_TYPE_CAPABILITY, size));
 
 	switch (capability) {
 	case TLV_TYPE_TWCARD_CAP:
-		err |= gen_cap_twcard_tlv(buf, enable);
+		SET_FLAG(err, gen_cap_twcard_tlv(buf, enable));
 		break;
 	case TLV_TYPE_UNOTIF_CAP:
-		err |= gen_cap_unotif_tlv(buf, enable);
+		SET_FLAG(err, gen_cap_unotif_tlv(buf, enable));
 		break;
 	case TLV_TYPE_DYNAMIC_CAP:
 		/*
@@ -246,9 +229,11 @@ send_capability(struct nbr *nbr, uint16_t capability, int enable)
 		 * Announcement Parameter in Capability messages sent to
 		 * its peers".
 		 */
-		/* FALLTHROUGH */
+		fatalx("send_capability: An LDP speaker MUST NOT include the Dynamic Capability Announcement Parameter");
+		break;
 	default:
 		fatalx("send_capability: unsupported capability");
+		break;
 	}
 
 	if (err) {
@@ -299,52 +284,47 @@ recv_capability(struct nbr *nbr, char *buf, uint16_t len)
 		switch (tlv_type) {
 		case TLV_TYPE_TWCARD_CAP:
 			if (tlv_len != CAP_TLV_TWCARD_LEN) {
-				session_shutdown(nbr, S_BAD_TLV_LEN, msg.id,
-				    msg.type);
+				session_shutdown(nbr, S_BAD_TLV_LEN, msg.id, msg.type);
 				return (-1);
 			}
 
-			if (caps_rcvd & F_CAP_TLV_RCVD_TWCARD) {
-				session_shutdown(nbr, S_BAD_TLV_VAL, msg.id,
-				    msg.type);
+			if (CHECK_FLAG(caps_rcvd, F_CAP_TLV_RCVD_TWCARD)) {
+				session_shutdown(nbr, S_BAD_TLV_VAL, msg.id, msg.type);
 				return (-1);
 			}
-			caps_rcvd |= F_CAP_TLV_RCVD_TWCARD;
+			SET_FLAG(caps_rcvd, F_CAP_TLV_RCVD_TWCARD);
 
 			memcpy(&reserved, buf, sizeof(reserved));
 			enable = reserved & STATE_BIT;
 			if (enable)
-				nbr->flags |= F_NBR_CAP_TWCARD;
+				SET_FLAG(nbr->flags, F_NBR_CAP_TWCARD);
 			else
-				nbr->flags &= ~F_NBR_CAP_TWCARD;
+				UNSET_FLAG(nbr->flags, F_NBR_CAP_TWCARD);
 
 			log_debug("%s: lsr-id %pI4 %s the Typed Wildcard FEC capability", __func__, &nbr->id,
 			    (enable) ? "announced" : "withdrew");
 			break;
 		case TLV_TYPE_UNOTIF_CAP:
 			if (tlv_len != CAP_TLV_UNOTIF_LEN) {
-				session_shutdown(nbr, S_BAD_TLV_LEN, msg.id,
-				    msg.type);
+				session_shutdown(nbr, S_BAD_TLV_LEN, msg.id, msg.type);
 				return (-1);
 			}
 
-			if (caps_rcvd & F_CAP_TLV_RCVD_UNOTIF) {
-				session_shutdown(nbr, S_BAD_TLV_VAL, msg.id,
-				    msg.type);
+			if (CHECK_FLAG(caps_rcvd, F_CAP_TLV_RCVD_UNOTIF)) {
+				session_shutdown(nbr, S_BAD_TLV_VAL, msg.id, msg.type);
 				return (-1);
 			}
-			caps_rcvd |= F_CAP_TLV_RCVD_UNOTIF;
+			SET_FLAG(caps_rcvd, F_CAP_TLV_RCVD_UNOTIF);
 
 			memcpy(&reserved, buf, sizeof(reserved));
 			enable = reserved & STATE_BIT;
 			if (enable)
-				nbr->flags |= F_NBR_CAP_UNOTIF;
+				SET_FLAG(nbr->flags, F_NBR_CAP_UNOTIF);
 			else
-				nbr->flags &= ~F_NBR_CAP_UNOTIF;
+				UNSET_FLAG(nbr->flags, F_NBR_CAP_UNOTIF);
 
 			log_debug("%s: lsr-id %pI4 %s the Unrecognized Notification capability", __func__,
-			    &nbr->id, (enable) ? "announced" :
-			    "withdrew");
+			    &nbr->id, (enable) ? "announced" : "withdrew");
 			break;
 		case TLV_TYPE_DYNAMIC_CAP:
 			/*
@@ -355,9 +335,9 @@ recv_capability(struct nbr *nbr, char *buf, uint16_t len)
 			 * parameter and process any other Capability Parameters
 			 * in the message".
 			 */
-			/* FALLTHROUGH */
+			fallthrough;
 		default:
-			if (!(ntohs(tlv.type) & UNKNOWN_FLAG))
+			if (!CHECK_FLAG(ntohs(tlv.type), UNKNOWN_FLAG))
 				send_notification_rtlvs(nbr, S_UNSSUPORTDCAP,
 				    msg.id, msg.type, tlv_type, tlv_len, buf);
 			/* ignore unknown tlv */

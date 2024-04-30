@@ -1,20 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Copyright (C) 2020  NetDEF, Inc.
  *                     Renato Westphal
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -368,6 +355,7 @@ bool isis_lfa_excise_node_check(const struct isis_spftree *spftree,
 
 struct tilfa_find_pnode_prefix_sid_args {
 	uint32_t sid_index;
+	int algorithm;
 };
 
 static int tilfa_find_pnode_prefix_sid_cb(const struct prefix *prefix,
@@ -381,15 +369,17 @@ static int tilfa_find_pnode_prefix_sid_cb(const struct prefix *prefix,
 	if (!subtlvs || subtlvs->prefix_sids.count == 0)
 		return LSP_ITER_CONTINUE;
 
-	psid = (struct isis_prefix_sid *)subtlvs->prefix_sids.head;
-
-	/* Require the node flag to be set. */
-	if (!CHECK_FLAG(psid->flags, ISIS_PREFIX_SID_NODE))
-		return LSP_ITER_CONTINUE;
-
-	args->sid_index = psid->value;
-
-	return LSP_ITER_STOP;
+	for (psid = (struct isis_prefix_sid *)subtlvs->prefix_sids.head; psid;
+	     psid = psid->next) {
+		/* Require the node flag to be set. */
+		if (!CHECK_FLAG(psid->flags, ISIS_PREFIX_SID_NODE))
+			continue;
+		if (psid->algorithm != args->algorithm)
+			continue;
+		args->sid_index = psid->value;
+		return LSP_ITER_STOP;
+	}
+	return LSP_ITER_CONTINUE;
 }
 
 /* Find Prefix-SID associated to a System ID. */
@@ -402,6 +392,8 @@ static uint32_t tilfa_find_pnode_prefix_sid(struct isis_spftree *spftree,
 	lsp = isis_root_system_lsp(spftree->lspdb, sysid);
 	if (!lsp)
 		return UINT32_MAX;
+
+	args.algorithm = spftree->algorithm;
 
 	args.sid_index = UINT32_MAX;
 	isis_lsp_iterate_ip_reach(lsp, spftree->family, spftree->mtid,
@@ -1111,7 +1103,8 @@ struct isis_spftree *isis_spf_reverse_run(const struct isis_spftree *spftree)
 	spftree_reverse = isis_spftree_new(
 		spftree->area, spftree->lspdb, spftree->sysid, spftree->level,
 		spftree->tree_id, SPF_TYPE_REVERSE,
-		F_SPFTREE_NO_ADJACENCIES | F_SPFTREE_NO_ROUTES);
+		F_SPFTREE_NO_ADJACENCIES | F_SPFTREE_NO_ROUTES,
+		spftree->algorithm);
 	isis_run_spf(spftree_reverse);
 
 	return spftree_reverse;
@@ -1207,7 +1200,8 @@ struct isis_spftree *isis_tilfa_compute(struct isis_area *area,
 	/* Create post-convergence SPF tree. */
 	spftree_pc = isis_spftree_new(area, spftree->lspdb, spftree->sysid,
 				      spftree->level, spftree->tree_id,
-				      SPF_TYPE_TI_LFA, spftree->flags);
+				      SPF_TYPE_TI_LFA, spftree->flags,
+				      spftree->algorithm);
 	spftree_pc->lfa.old.spftree = spftree;
 	spftree_pc->lfa.old.spftree_reverse = spftree_reverse;
 	spftree_pc->lfa.protected_resource = *resource;
@@ -1255,7 +1249,8 @@ int isis_spf_run_neighbors(struct isis_spftree *spftree)
 		adj_node->lfa.spftree = isis_spftree_new(
 			spftree->area, spftree->lspdb, adj_node->sysid,
 			spftree->level, spftree->tree_id, SPF_TYPE_FORWARD,
-			F_SPFTREE_NO_ADJACENCIES | F_SPFTREE_NO_ROUTES);
+			F_SPFTREE_NO_ADJACENCIES | F_SPFTREE_NO_ROUTES,
+			spftree->algorithm);
 		isis_run_spf(adj_node->lfa.spftree);
 	}
 
@@ -1401,9 +1396,9 @@ static struct rlfa *rlfa_lookup(struct isis_spftree *spftree,
 	return rlfa_tree_find(&spftree->lfa.remote.rlfas, &s);
 }
 
-static void isis_area_verify_routes_cb(struct thread *thread)
+static void isis_area_verify_routes_cb(struct event *thread)
 {
-	struct isis_area *area = THREAD_ARG(thread);
+	struct isis_area *area = EVENT_ARG(thread);
 
 	if (IS_DEBUG_LFA)
 		zlog_debug("ISIS-LFA: updating RLFAs in the RIB");
@@ -1479,8 +1474,8 @@ int isis_rlfa_activate(struct isis_spftree *spftree, struct rlfa *rlfa,
 		if (ldp_label == MPLS_INVALID_LABEL) {
 			if (IS_DEBUG_LFA)
 				zlog_debug(
-					"ISIS-LFA: failed to activate RLFA: missing LDP label to reach PQ node through %s",
-					sysid_print(vadj->sadj->id));
+					"ISIS-LFA: failed to activate RLFA: missing LDP label to reach PQ node through %pSY",
+					vadj->sadj->id);
 			return -1;
 		}
 
@@ -1519,9 +1514,9 @@ int isis_rlfa_activate(struct isis_spftree *spftree, struct rlfa *rlfa,
 			  spftree->route_table_backup);
 	spftree->lfa.protection_counters.rlfa[vertex->N.ip.priority] += 1;
 
-	THREAD_OFF(area->t_rlfa_rib_update);
-	thread_add_timer(master, isis_area_verify_routes_cb, area, 2,
-			 &area->t_rlfa_rib_update);
+	EVENT_OFF(area->t_rlfa_rib_update);
+	event_add_timer(master, isis_area_verify_routes_cb, area, 2,
+			&area->t_rlfa_rib_update);
 
 	return 0;
 }
@@ -1538,9 +1533,9 @@ void isis_rlfa_deactivate(struct isis_spftree *spftree, struct rlfa *rlfa)
 	isis_route_delete(area, rn, spftree->route_table_backup);
 	spftree->lfa.protection_counters.rlfa[vertex->N.ip.priority] -= 1;
 
-	THREAD_OFF(area->t_rlfa_rib_update);
-	thread_add_timer(master, isis_area_verify_routes_cb, area, 2,
-			 &area->t_rlfa_rib_update);
+	EVENT_OFF(area->t_rlfa_rib_update);
+	event_add_timer(master, isis_area_verify_routes_cb, area, 2,
+			&area->t_rlfa_rib_update);
 }
 
 void isis_rlfa_list_init(struct isis_spftree *spftree)
@@ -1735,7 +1730,8 @@ struct isis_spftree *isis_rlfa_compute(struct isis_area *area,
 	/* Create post-convergence SPF tree. */
 	spftree_pc = isis_spftree_new(area, spftree->lspdb, spftree->sysid,
 				      spftree->level, spftree->tree_id,
-				      SPF_TYPE_RLFA, spftree->flags);
+				      SPF_TYPE_RLFA, spftree->flags,
+				      spftree->algorithm);
 	spftree_pc->lfa.old.spftree = spftree;
 	spftree_pc->lfa.old.spftree_reverse = spftree_reverse;
 	spftree_pc->lfa.remote.max_metric = max_metric;

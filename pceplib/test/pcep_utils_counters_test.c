@@ -1,20 +1,8 @@
+// SPDX-License-Identifier: LGPL-2.1-or-later
 /*
  * This file is part of the PCEPlib, a PCEP protocol library.
  *
  * Copyright (C) 2020 Volta Networks https://voltanet.io/
- *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Lesser General Public
- * License as published by the Free Software Foundation; either
- * version 2 of the License, or (at your option) any later version.
- *
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public License
- * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *
  * Author : Brady Johnson <brady@voltanet.io>
  *
@@ -34,7 +22,7 @@
 #include "pcep_utils_counters_test.h"
 
 
-void test_create_counters_group()
+void test_create_counters_group(void)
 {
 	const char group_name[] = "group";
 	uint16_t num_subgroups = 10;
@@ -57,7 +45,7 @@ void test_create_counters_group()
 	delete_counters_group(group);
 }
 
-void test_create_counters_subgroup()
+void test_create_counters_subgroup(void)
 {
 	const char subgroup_name[] = "subgroup";
 	uint16_t subgroup_id = 10;
@@ -89,7 +77,7 @@ void test_create_counters_subgroup()
 	delete_counters_subgroup(subgroup);
 }
 
-void test_add_counters_subgroup()
+void test_add_counters_subgroup(void)
 {
 	struct counters_group *group = create_counters_group("group", 1);
 	struct counters_subgroup *subgroup1 =
@@ -114,27 +102,29 @@ void test_add_counters_subgroup()
 	delete_counters_subgroup(subgroup2);
 }
 
-void test_create_subgroup_counter()
+void test_create_subgroup_counter(void)
 {
 	uint16_t counter_id = 1;
 	char counter_name[] = "my counter";
+	char counter_name_json[] = "myCounter";
 	struct counters_subgroup *subgroup =
 		create_counters_subgroup("subgroup", 1, 2);
 
-	CU_ASSERT_FALSE(
-		create_subgroup_counter(NULL, counter_id, counter_name));
+	CU_ASSERT_FALSE(create_subgroup_counter(NULL, counter_id, counter_name,
+						counter_name_json));
 	CU_ASSERT_FALSE(create_subgroup_counter(subgroup, counter_id + 1,
-						counter_name));
-	CU_ASSERT_FALSE(create_subgroup_counter(subgroup, counter_id, NULL));
+						counter_name, counter_name_json));
+	CU_ASSERT_FALSE(
+		create_subgroup_counter(subgroup, counter_id, NULL, NULL));
 	CU_ASSERT_EQUAL(subgroup->num_counters, 0);
-	CU_ASSERT_TRUE(
-		create_subgroup_counter(subgroup, counter_id, counter_name));
+	CU_ASSERT_TRUE(create_subgroup_counter(subgroup, counter_id,
+					       counter_name, counter_name_json));
 	CU_ASSERT_EQUAL(subgroup->num_counters, 1);
 
 	delete_counters_subgroup(subgroup);
 }
 
-void test_delete_counters_group()
+void test_delete_counters_group(void)
 {
 	struct counters_group *group = create_counters_group("group", 1);
 
@@ -142,7 +132,7 @@ void test_delete_counters_group()
 	CU_ASSERT_TRUE(delete_counters_group(group));
 }
 
-void test_delete_counters_subgroup()
+void test_delete_counters_subgroup(void)
 {
 	struct counters_subgroup *subgroup =
 		create_counters_subgroup("subgroup", 1, 1);
@@ -151,14 +141,14 @@ void test_delete_counters_subgroup()
 	CU_ASSERT_TRUE(delete_counters_subgroup(subgroup));
 }
 
-void test_reset_group_counters()
+void test_reset_group_counters(void)
 {
 	uint16_t subgroup_id = 1;
 	uint16_t counter_id = 1;
 	struct counters_group *group = create_counters_group("group", 10);
 	struct counters_subgroup *subgroup =
 		create_counters_subgroup("subgroup", subgroup_id, 10);
-	create_subgroup_counter(subgroup, counter_id, "counter");
+	create_subgroup_counter(subgroup, counter_id, "counter", "counter");
 	add_counters_subgroup(group, subgroup);
 
 	struct counter *counter = subgroup->counters[counter_id];
@@ -171,12 +161,12 @@ void test_reset_group_counters()
 	delete_counters_group(group);
 }
 
-void test_reset_subgroup_counters()
+void test_reset_subgroup_counters(void)
 {
 	uint16_t counter_id = 1;
 	struct counters_subgroup *subgroup =
 		create_counters_subgroup("subgroup", 1, 10);
-	create_subgroup_counter(subgroup, counter_id, "counter");
+	create_subgroup_counter(subgroup, counter_id, "counter", "counter");
 
 	struct counter *counter = subgroup->counters[counter_id];
 	counter->counter_value = 100;
@@ -188,14 +178,14 @@ void test_reset_subgroup_counters()
 	delete_counters_subgroup(subgroup);
 }
 
-void test_increment_counter()
+void test_increment_counter(void)
 {
 	uint16_t subgroup_id = 1;
 	uint16_t counter_id = 1;
 	struct counters_group *group = create_counters_group("group", 10);
 	struct counters_subgroup *subgroup =
 		create_counters_subgroup("subgroup", subgroup_id, 10);
-	create_subgroup_counter(subgroup, counter_id, "counter");
+	create_subgroup_counter(subgroup, counter_id, "counter", "counter");
 	add_counters_subgroup(group, subgroup);
 
 	struct counter *counter = subgroup->counters[counter_id];
@@ -211,13 +201,13 @@ void test_increment_counter()
 	delete_counters_group(group);
 }
 
-void test_increment_subgroup_counter()
+void test_increment_subgroup_counter(void)
 {
 	int counter_id = 1;
 	uint32_t counter_value = 100;
 	struct counters_subgroup *subgroup =
 		create_counters_subgroup("subgroup", 1, 10);
-	create_subgroup_counter(subgroup, counter_id, "counter");
+	create_subgroup_counter(subgroup, counter_id, "counter", "counter");
 
 	struct counter *counter = subgroup->counters[counter_id];
 	counter->counter_value = counter_value;
@@ -230,14 +220,14 @@ void test_increment_subgroup_counter()
 	delete_counters_subgroup(subgroup);
 }
 
-void test_dump_counters_group_to_log()
+void test_dump_counters_group_to_log(void)
 {
 	uint16_t subgroup_id = 1;
 	uint16_t counter_id = 1;
 	struct counters_group *group = create_counters_group("group", 10);
 	struct counters_subgroup *subgroup =
 		create_counters_subgroup("subgroup", subgroup_id, 10);
-	create_subgroup_counter(subgroup, counter_id, "counter");
+	create_subgroup_counter(subgroup, counter_id, "counter", "counter");
 	add_counters_subgroup(group, subgroup);
 
 	CU_ASSERT_FALSE(dump_counters_group_to_log(NULL));
@@ -246,13 +236,13 @@ void test_dump_counters_group_to_log()
 	delete_counters_group(group);
 }
 
-void test_dump_counters_subgroup_to_log()
+void test_dump_counters_subgroup_to_log(void)
 {
 	uint16_t subgroup_id = 1;
 	uint16_t counter_id = 1;
 	struct counters_subgroup *subgroup =
 		create_counters_subgroup("subgroup", subgroup_id, 10);
-	create_subgroup_counter(subgroup, counter_id, "counter");
+	create_subgroup_counter(subgroup, counter_id, "counter", "counter");
 
 	CU_ASSERT_FALSE(dump_counters_subgroup_to_log(NULL));
 	CU_ASSERT_TRUE(dump_counters_subgroup_to_log(subgroup));

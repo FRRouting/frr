@@ -1,20 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * PIMv6 MLD querier
  * Copyright (C) 2021-2022  David Lamparter for NetDEF, Inc.
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef PIM6_MLD_H
@@ -23,7 +10,7 @@
 #include "typesafe.h"
 #include "pim_addr.h"
 
-struct thread;
+struct event;
 struct pim_instance;
 struct gm_packet_sg;
 struct gm_if;
@@ -48,6 +35,21 @@ enum gm_sg_state {
 	GM_SG_NOPRUNE,
 	GM_SG_NOPRUNE_EXPIRING,
 };
+
+/* If the timer gm_t_sg_expire is started without a leave message being received,
+ * the sg->state should be moved to expiring states.
+ * When the timer expires, we do not expect the state to be in join state.
+ * If a JOIN message is received while the timer is running,
+ * the state will be moved to JOIN and this timer will be switched off.
+ * Hence the below state transition is done.
+ */
+#define GM_UPDATE_SG_STATE(sg)                                                 \
+	do {                                                                   \
+		if (sg->state == GM_SG_JOIN)                                   \
+			sg->state = GM_SG_JOIN_EXPIRING;                       \
+		else if (sg->state == GM_SG_NOPRUNE)                           \
+			sg->state = GM_SG_NOPRUNE_EXPIRING;                    \
+	} while (0)
 
 static inline bool gm_sg_state_want_join(enum gm_sg_state state)
 {
@@ -78,14 +80,14 @@ struct gm_sg {
 	 * (implies we haven't received any report yet, since it's cancelled
 	 * by that)
 	 */
-	struct thread *t_sg_expire;
+	struct event *t_sg_expire;
 
 	/* last-member-left triggered queries (group/group-source specific)
 	 *
 	 * this timer will be running even if we aren't the elected querier,
 	 * in case the election result changes midway through.
 	 */
-	struct thread *t_sg_query;
+	struct event *t_sg_query;
 
 	/* we must keep sending (QRV) queries even if we get a positive
 	 * response, to make sure other routers are updated.  query_sbit
@@ -241,7 +243,7 @@ struct gm_grp_pending {
 	pim_addr grp;
 
 	struct timeval query;
-	struct thread *t_expire;
+	struct event *t_expire;
 };
 
 /* guaranteed MTU for IPv6 is 1280 bytes.  IPv6 header is 40 bytes, MLDv2
@@ -262,7 +264,7 @@ struct gm_gsq_pending {
 	struct gm_gsq_pends_item itm;
 
 	struct gm_if *iface;
-	struct thread *t_send;
+	struct event *t_send;
 
 	pim_addr grp;
 	bool s_bit;
@@ -315,7 +317,7 @@ struct gm_if_stats {
 struct gm_if {
 	struct interface *ifp;
 	struct pim_instance *pim;
-	struct thread *t_query, *t_other_querier, *t_expire;
+	struct event *t_query, *t_other_querier, *t_expire;
 
 	bool stopping;
 

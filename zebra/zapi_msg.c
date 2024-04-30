@@ -1,23 +1,12 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Zebra API message creation & consumption.
  * Portions:
  *   Copyright (C) 1997-1999  Kunihiro Ishiguro
  *   Copyright (C) 2015-2018  Cumulus Networks, Inc.
  *   et al.
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
+ *   Copyright (c) 2021 The MITRE Corporation.
+ *   Copyright (c) 2023 LabN Consulting, L.L.C.
  */
 
 #include <zebra.h>
@@ -35,6 +24,7 @@
 #include "lib/vrf.h"
 #include "lib/libfrr.h"
 #include "lib/lib_errors.h"
+#include "lib/frrdistance.h"
 
 #include "zebra/zebra_router.h"
 #include "zebra/rib.h"
@@ -74,7 +64,7 @@ static void zserv_encode_interface(struct stream *s, struct interface *ifp)
 	/* Interface information. */
 	struct zebra_if *zif = ifp->info;
 
-	stream_put(s, ifp->name, INTERFACE_NAMSIZ);
+	stream_put(s, ifp->name, IFNAMSIZ);
 	stream_putl(s, ifp->ifindex);
 	stream_putc(s, ifp->status);
 	stream_putq(s, ifp->flags);
@@ -82,6 +72,7 @@ static void zserv_encode_interface(struct stream *s, struct interface *ifp)
 	stream_putc(s, ifp->ptm_status);
 	stream_putl(s, ifp->metric);
 	stream_putl(s, ifp->speed);
+	stream_putl(s, ifp->txqlen);
 	stream_putl(s, ifp->mtu);
 	stream_putl(s, ifp->mtu6);
 	stream_putl(s, ifp->bandwidth);
@@ -141,7 +132,7 @@ static int zserv_encode_nexthop(struct stream *s, struct nexthop *nexthop)
 	case NEXTHOP_TYPE_IFINDEX:
 		stream_putl(s, nexthop->ifindex);
 		break;
-	default:
+	case NEXTHOP_TYPE_BLACKHOLE:
 		/* do nothing */
 		break;
 	}
@@ -424,7 +415,7 @@ int zsend_interface_addresses(struct zserv *client, struct interface *ifp)
 	struct nbr_connected *nc;
 
 	/* Send interface addresses. */
-	for (ALL_LIST_ELEMENTS(ifp->connected, cnode, cnnode, c)) {
+	frr_each (if_connected, ifp->connected, c) {
 		if (!CHECK_FLAG(c->conf, ZEBRA_IFC_REAL))
 			continue;
 
@@ -443,27 +434,6 @@ int zsend_interface_addresses(struct zserv *client, struct interface *ifp)
 	}
 
 	return 0;
-}
-
-/* Notify client about interface moving from one VRF to another.
- * Whether client is interested in old and new VRF is checked by caller.
- */
-int zsend_interface_vrf_update(struct zserv *client, struct interface *ifp,
-			       vrf_id_t vrf_id)
-{
-	struct stream *s = stream_new(ZEBRA_MAX_PACKET_SIZ);
-
-	zclient_create_header(s, ZEBRA_INTERFACE_VRF_UPDATE, ifp->vrf->vrf_id);
-
-	/* Fill in the name of the interface and its new VRF (id) */
-	stream_put(s, ifp->name, INTERFACE_NAMSIZ);
-	stream_putl(s, vrf_id);
-
-	/* Write packet size. */
-	stream_putw_at(s, 0, stream_get_endp(s));
-
-	client->if_vrfchg_cnt++;
-	return zserv_send_message(client, s);
 }
 
 /* Add new nbr connected IPv6 address */
@@ -541,7 +511,7 @@ int zsend_interface_update(int cmd, struct zserv *client, struct interface *ifp)
 
 int zsend_redistribute_route(int cmd, struct zserv *client,
 			     const struct route_node *rn,
-			     const struct route_entry *re)
+			     const struct route_entry *re, bool is_table_direct)
 {
 	struct zapi_route api;
 	struct zapi_nexthop *api_nh;
@@ -557,7 +527,11 @@ int zsend_redistribute_route(int cmd, struct zserv *client,
 	api.vrf_id = re->vrf_id;
 	api.type = re->type;
 	api.safi = SAFI_UNICAST;
-	api.instance = re->instance;
+	if (is_table_direct) {
+		api.instance = re->table;
+		api.type = ZEBRA_ROUTE_TABLE_DIRECT;
+	} else
+		api.instance = re->instance;
 	api.flags = re->flags;
 
 	afi = family2afi(p->family);
@@ -574,7 +548,9 @@ int zsend_redistribute_route(int cmd, struct zserv *client,
 		else
 			client->redist_v6_del_cnt++;
 		break;
-	default:
+	case AFI_L2VPN:
+	case AFI_MAX:
+	case AFI_UNSPEC:
 		break;
 	}
 
@@ -622,7 +598,10 @@ int zsend_redistribute_route(int cmd, struct zserv *client,
 
 	/* Attributes. */
 	SET_FLAG(api.message, ZAPI_MESSAGE_DISTANCE);
-	api.distance = re->distance;
+	if (is_table_direct)
+		api.distance = ZEBRA_TABLEDIRECT_DISTANCE_DEFAULT;
+	else
+		api.distance = re->distance;
 	SET_FLAG(api.message, ZAPI_MESSAGE_METRIC);
 	api.metric = re->metric;
 	if (re->tag) {
@@ -856,12 +835,14 @@ void zsend_rule_notify_owner(const struct zebra_dplane_ctx *ctx,
 
 	s = stream_new(ZEBRA_MAX_PACKET_SIZ);
 
-	zclient_create_header(s, ZEBRA_RULE_NOTIFY_OWNER, VRF_DEFAULT);
+	zclient_create_header(s, ZEBRA_RULE_NOTIFY_OWNER,
+			      dplane_ctx_rule_get_vrfid(ctx));
+
 	stream_put(s, &note, sizeof(note));
 	stream_putl(s, dplane_ctx_rule_get_seq(ctx));
 	stream_putl(s, dplane_ctx_rule_get_priority(ctx));
 	stream_putl(s, dplane_ctx_rule_get_unique(ctx));
-	stream_put(s, dplane_ctx_rule_get_ifname(ctx), INTERFACE_NAMSIZ);
+	stream_put(s, dplane_ctx_rule_get_ifname(ctx), IFNAMSIZ);
 
 	stream_putw_at(s, 0, stream_get_endp(s));
 
@@ -987,9 +968,9 @@ void zsend_ipset_entry_notify_owner(const struct zebra_dplane_ctx *ctx,
 	zserv_send_message(client, s);
 }
 
-void zsend_nhrp_neighbor_notify(int cmd, struct interface *ifp,
-				struct ipaddr *ipaddr, int ndm_state,
-				union sockunion *link_layer_ipv4)
+void zsend_neighbor_notify(int cmd, struct interface *ifp,
+			   struct ipaddr *ipaddr, int ndm_state,
+			   union sockunion *link_layer_ipv4, int ip_len)
 {
 	struct stream *s;
 	struct listnode *node, *nnode;
@@ -1006,13 +987,13 @@ void zsend_nhrp_neighbor_notify(int cmd, struct interface *ifp,
 	       family2addrsize(sockunion_family(&ip)));
 
 	for (ALL_LIST_ELEMENTS(zrouter.client_list, node, nnode, client)) {
-		if (!vrf_bitmap_check(client->nhrp_neighinfo[afi],
+		if (!vrf_bitmap_check(&client->neighinfo[afi],
 				      ifp->vrf->vrf_id))
 			continue;
 
 		s = stream_new(ZEBRA_MAX_PACKET_SIZ);
 		zclient_neigh_ip_encode(s, cmd, &ip, link_layer_ipv4, ifp,
-					ndm_state);
+					ndm_state, ip_len);
 		stream_putw_at(s, 0, stream_get_endp(s));
 		zserv_send_message(client, s);
 	}
@@ -1027,7 +1008,7 @@ int zsend_router_id_update(struct zserv *client, afi_t afi, struct prefix *p,
 	struct stream *s;
 
 	/* Check this client need interface information. */
-	if (!vrf_bitmap_check(client->ridinfo[afi], vrf_id))
+	if (!vrf_bitmap_check(&client->ridinfo[afi], vrf_id))
 		return 0;
 
 	s = stream_new(ZEBRA_MAX_PACKET_SIZ);
@@ -1055,7 +1036,7 @@ int zsend_pw_update(struct zserv *client, struct zebra_pw *pw)
 	struct stream *s = stream_new(ZEBRA_MAX_PACKET_SIZ);
 
 	zclient_create_header(s, ZEBRA_PW_STATUS_UPDATE, pw->vrf_id);
-	stream_write(s, pw->ifname, INTERFACE_NAMSIZ);
+	stream_write(s, pw->ifname, IFNAMSIZ);
 	stream_putl(s, pw->ifindex);
 	stream_putl(s, pw->status);
 
@@ -1347,9 +1328,7 @@ static void zread_fec_register(ZAPI_HANDLER_ARGS)
 	uint32_t label_index = MPLS_INVALID_LABEL_INDEX;
 
 	s = msg;
-	zvrf = vrf_info_lookup(VRF_DEFAULT);
-	if (!zvrf)
-		return;
+	zvrf = zebra_vrf_lookup_by_id(VRF_DEFAULT);
 
 	/*
 	 * The minimum amount of data that can be sent for one fec
@@ -1410,9 +1389,7 @@ static void zread_fec_unregister(ZAPI_HANDLER_ARGS)
 	uint16_t flags;
 
 	s = msg;
-	zvrf = vrf_info_lookup(VRF_DEFAULT);
-	if (!zvrf)
-		return;
+	zvrf = zebra_vrf_lookup_by_id(VRF_DEFAULT);
 
 	/*
 	 * The minimum amount of data that can be sent for one
@@ -1571,7 +1548,6 @@ static struct nexthop *nexthop_from_zapi(const struct zapi_nexthop *api_nh,
 					 uint16_t backup_nexthop_num)
 {
 	struct nexthop *nexthop = NULL;
-	struct ipaddr vtep_ip;
 	struct interface *ifp;
 	int i;
 	char nhbuf[INET6_ADDRSTRLEN] = "";
@@ -1607,13 +1583,8 @@ static struct nexthop *nexthop_from_zapi(const struct zapi_nexthop *api_nh,
 		 * the nexthop and associated MAC need to be installed.
 		 */
 		if (CHECK_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_EVPN)) {
-			memset(&vtep_ip, 0, sizeof(vtep_ip));
-			vtep_ip.ipa_type = IPADDR_V4;
-			memcpy(&(vtep_ip.ipaddr_v4), &(api_nh->gate.ipv4),
-			       sizeof(struct in_addr));
-			zebra_rib_queue_evpn_route_add(
-				api_nh->vrf_id, &api_nh->rmac, &vtep_ip, p);
 			SET_FLAG(nexthop->flags, NEXTHOP_FLAG_EVPN);
+			nexthop->rmac = api_nh->rmac;
 		}
 		break;
 	case NEXTHOP_TYPE_IPV6:
@@ -1641,13 +1612,8 @@ static struct nexthop *nexthop_from_zapi(const struct zapi_nexthop *api_nh,
 		 * the nexthop and associated MAC need to be installed.
 		 */
 		if (CHECK_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_EVPN)) {
-			memset(&vtep_ip, 0, sizeof(vtep_ip));
-			vtep_ip.ipa_type = IPADDR_V6;
-			memcpy(&vtep_ip.ipaddr_v6, &(api_nh->gate.ipv6),
-			       sizeof(struct in6_addr));
-			zebra_rib_queue_evpn_route_add(
-				api_nh->vrf_id, &api_nh->rmac, &vtep_ip, p);
 			SET_FLAG(nexthop->flags, NEXTHOP_FLAG_EVPN);
+			nexthop->rmac = api_nh->rmac;
 		}
 		break;
 	case NEXTHOP_TYPE_BLACKHOLE:
@@ -1721,10 +1687,14 @@ static bool zapi_read_nexthops(struct zserv *client, struct prefix *p,
 			       struct nexthop_group **png,
 			       struct nhg_backup_info **pbnhg)
 {
+	struct zapi_nexthop *znh;
 	struct nexthop_group *ng = NULL;
 	struct nhg_backup_info *bnhg = NULL;
 	uint16_t i;
 	struct nexthop *last_nh = NULL;
+	bool same_weight = true;
+	uint64_t max_weight = 0;
+	uint64_t tmp;
 
 	assert(!(png && pbnhg));
 
@@ -1737,6 +1707,41 @@ static bool zapi_read_nexthops(struct zserv *client, struct prefix *p,
 				   backup_nh_num);
 
 		bnhg = zebra_nhg_backup_alloc();
+	}
+
+	for (i = 0; i < nexthop_num; i++) {
+		znh = &nhops[i];
+
+		if (max_weight < znh->weight) {
+			if (i != 0 || znh->weight != 1)
+				same_weight = false;
+
+			max_weight = znh->weight;
+		}
+	}
+
+	/*
+	 * Let's convert the weights to a scaled value
+	 * between 1 and zrouter.nexthop_weight_scale_value
+	 * This is a simple application of a ratio:
+	 * scaled_weight/zrouter.nexthop_weight_scale_value = 
+         * weight/max_weight
+	 * This translates to:
+	 * scaled_weight = weight * zrouter.nexthop_weight_scale_value
+	 *                 -------------------------------------------
+	 *                           max_weight
+	 *
+	 * This same formula is applied to both the nexthops
+	 * and the backup nexthops
+	 */
+	if (!same_weight) {
+		for (i = 0; i < nexthop_num; i++) {
+			znh = &nhops[i];
+
+			tmp = (uint64_t)znh->weight *
+				zrouter.nexthop_weight_scale_value;
+			znh->weight = MAX(1, ((uint32_t)(tmp / max_weight)));
+		}
 	}
 
 	/*
@@ -1781,13 +1786,19 @@ static bool zapi_read_nexthops(struct zserv *client, struct prefix *p,
 			nexthop->srte_color = api_nh->srte_color;
 		}
 
-		/* MPLS labels for BGP-LU or Segment Routing */
+		/* Labels for MPLS BGP-LU or Segment Routing or EVPN */
 		if (CHECK_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_LABEL)
 		    && api_nh->type != NEXTHOP_TYPE_IFINDEX
 		    && api_nh->type != NEXTHOP_TYPE_BLACKHOLE
 		    && api_nh->label_num > 0) {
 
-			label_type = lsp_type_from_re_type(client->proto);
+			/* If label type was passed, use it */
+			if (api_nh->label_type)
+				label_type = api_nh->label_type;
+			else
+				label_type =
+					lsp_type_from_re_type(client->proto);
+
 			nexthop_add_labels(nexthop, label_type,
 					   api_nh->label_num,
 					   &api_nh->labels[0]);
@@ -1811,7 +1822,8 @@ static bool zapi_read_nexthops(struct zserv *client, struct prefix *p,
 			if (IS_ZEBRA_DEBUG_RECV)
 				zlog_debug("%s: adding seg6", __func__);
 
-			nexthop_add_srv6_seg6(nexthop, &api_nh->seg6_segs);
+			nexthop_add_srv6_seg6(nexthop, &api_nh->seg6_segs[0],
+					      api_nh->seg_num);
 		}
 
 		if (IS_ZEBRA_DEBUG_RECV) {
@@ -1825,7 +1837,7 @@ static bool zapi_read_nexthops(struct zserv *client, struct prefix *p,
 				mpls_label2str(nexthop->nh_label->num_labels,
 					       nexthop->nh_label->label,
 					       labelbuf, sizeof(labelbuf),
-					       false);
+					       nexthop->nh_label_type, false);
 			}
 
 			zlog_debug("%s: nh=%s, vrf_id=%d %s",
@@ -1947,20 +1959,21 @@ static void zread_nhg_del(ZAPI_HANDLER_ARGS)
 		return;
 	}
 
-	/*
-	 * Delete the received nhg id
-	 */
-	nhe = zebra_nhg_proto_del(api_nhg.id, api_nhg.proto);
+	/* Create a temporary nhe */
+	nhe = zebra_nhg_alloc();
+	nhe->id = api_nhg.id;
+	nhe->type = api_nhg.proto;
+	nhe->zapi_instance = client->instance;
+	nhe->zapi_session = client->session_id;
 
-	if (nhe) {
-		zebra_nhg_decrement_ref(nhe);
-		zsend_nhg_notify(api_nhg.proto, client->instance,
-				 client->session_id, api_nhg.id,
-				 ZAPI_NHG_REMOVED);
-	} else
-		zsend_nhg_notify(api_nhg.proto, client->instance,
-				 client->session_id, api_nhg.id,
-				 ZAPI_NHG_REMOVE_FAIL);
+	/* Sanity check - Empty nexthop and group */
+	nhe->nhg.nexthop = NULL;
+
+	/* Enqueue to workqueue for processing */
+	rib_queue_nhe_del(nhe);
+
+	/* Stats */
+	client->nhg_del_cnt++;
 }
 
 static void zread_nhg_add(ZAPI_HANDLER_ARGS)
@@ -1969,7 +1982,7 @@ static void zread_nhg_add(ZAPI_HANDLER_ARGS)
 	struct zapi_nhg api_nhg = {};
 	struct nexthop_group *nhg = NULL;
 	struct nhg_backup_info *bnhg = NULL;
-	struct nhg_hash_entry *nhe;
+	struct nhg_hash_entry *nhe, *nhe_tmp;
 
 	s = msg;
 	if (zapi_nhg_decode(s, hdr->command, &api_nhg) < 0) {
@@ -2027,6 +2040,12 @@ static void zread_nhg_add(ZAPI_HANDLER_ARGS)
 	nexthop_group_delete(&nhg);
 	zebra_nhg_backup_free(&bnhg);
 
+	/* Stats */
+	nhe_tmp = zebra_nhg_lookup_id(api_nhg.id);
+	if (nhe_tmp)
+		client->nhg_upd8_cnt++;
+	else
+		client->nhg_add_cnt++;
 }
 
 static void zread_route_add(ZAPI_HANDLER_ARGS)
@@ -2245,17 +2264,18 @@ static void zread_nexthop_lookup_mrib(ZAPI_HANDLER_ARGS)
 {
 	struct ipaddr addr;
 	struct route_entry *re = NULL;
+	union g_addr gaddr;
 
 	STREAM_GET_IPADDR(msg, &addr);
 
 	switch (addr.ipa_type) {
 	case IPADDR_V4:
-		re = rib_match_ipv4_multicast(zvrf_id(zvrf), addr.ipaddr_v4,
-					      NULL);
+		gaddr.ipv4 = addr.ipaddr_v4;
+		re = rib_match_multicast(AFI_IP, zvrf_id(zvrf), &gaddr, NULL);
 		break;
 	case IPADDR_V6:
-		re = rib_match_ipv6_multicast(zvrf_id(zvrf), addr.ipaddr_v6,
-					      NULL);
+		gaddr.ipv6 = addr.ipaddr_v6;
+		re = rib_match_multicast(AFI_IP6, zvrf_id(zvrf), &gaddr, NULL);
 		break;
 	case IPADDR_NONE:
 		/* ??? */
@@ -2285,7 +2305,7 @@ static void zread_router_id_add(ZAPI_HANDLER_ARGS)
 	}
 
 	/* Router-id information is needed. */
-	vrf_bitmap_set(client->ridinfo[afi], zvrf_id(zvrf));
+	vrf_bitmap_set(&client->ridinfo[afi], zvrf_id(zvrf));
 
 	router_id_get(afi, &p, zvrf);
 
@@ -2321,7 +2341,7 @@ static void zread_router_id_delete(ZAPI_HANDLER_ARGS)
 		goto stream_failure;
 	}
 
-	vrf_bitmap_unset(client->ridinfo[afi], zvrf_id(zvrf));
+	vrf_bitmap_unset(&client->ridinfo[afi], zvrf_id(zvrf));
 
 stream_failure:
 	return;
@@ -2336,7 +2356,7 @@ static void zsend_capabilities(struct zserv *client, struct zebra_vrf *zvrf)
 	stream_putc(s, mpls_enabled);
 	stream_putl(s, zrouter.multipath_num);
 	stream_putc(s, zebra_mlag_get_role());
-
+	stream_putc(s, zrouter.v6_with_v4_nexthop);
 	stream_putw_at(s, 0, stream_get_endp(s));
 	zserv_send_message(client, s);
 }
@@ -2347,7 +2367,7 @@ void zsend_capabilities_all_clients(void)
 	struct zebra_vrf *zvrf;
 	struct zserv *client;
 
-	zvrf = vrf_info_lookup(VRF_DEFAULT);
+	zvrf = zebra_vrf_lookup_by_id(VRF_DEFAULT);
 	for (ALL_LIST_ELEMENTS(zrouter.client_list, node, nnode, client)) {
 		/* Do not send unsolicited messages to synchronous clients. */
 		if (client->synchronous)
@@ -2363,23 +2383,19 @@ static void zread_hello(ZAPI_HANDLER_ARGS)
 	/* type of protocol (lib/zebra.h) */
 	uint8_t proto;
 	unsigned short instance;
-	uint8_t notify;
 	uint8_t synchronous;
 	uint32_t session_id;
 
 	STREAM_GETC(msg, proto);
 	STREAM_GETW(msg, instance);
 	STREAM_GETL(msg, session_id);
-	STREAM_GETC(msg, notify);
 	STREAM_GETC(msg, synchronous);
-	if (notify)
-		client->notify_owner = true;
 
 	if (synchronous)
 		client->synchronous = true;
 
 	/* accept only dynamic routing protocols */
-	if ((proto < ZEBRA_ROUTE_MAX) && (proto > ZEBRA_ROUTE_CONNECT)) {
+	if ((proto < ZEBRA_ROUTE_MAX) && (proto > ZEBRA_ROUTE_LOCAL)) {
 		zlog_notice(
 			"client %d says hello and bids fair to announce only %s routes vrf=%u",
 			client->sock, zebra_route_string(proto),
@@ -2411,10 +2427,11 @@ static void zread_vrf_unregister(ZAPI_HANDLER_ARGS)
 
 	for (afi = AFI_IP; afi < AFI_MAX; afi++) {
 		for (i = 0; i < ZEBRA_ROUTE_MAX; i++)
-			vrf_bitmap_unset(client->redist[afi][i], zvrf_id(zvrf));
-		vrf_bitmap_unset(client->redist_default[afi], zvrf_id(zvrf));
-		vrf_bitmap_unset(client->ridinfo[afi], zvrf_id(zvrf));
-		vrf_bitmap_unset(client->nhrp_neighinfo[afi], zvrf_id(zvrf));
+			vrf_bitmap_unset(&client->redist[afi][i],
+					 zvrf_id(zvrf));
+		vrf_bitmap_unset(&client->redist_default[afi], zvrf_id(zvrf));
+		vrf_bitmap_unset(&client->ridinfo[afi], zvrf_id(zvrf));
+		vrf_bitmap_unset(&client->neighinfo[afi], zvrf_id(zvrf));
 	}
 }
 
@@ -2994,7 +3011,7 @@ static void zread_srv6_manager_request(ZAPI_HANDLER_ARGS)
 static void zread_pseudowire(ZAPI_HANDLER_ARGS)
 {
 	struct stream *s;
-	char ifname[INTERFACE_NAMSIZ];
+	char ifname[IFNAMSIZ];
 	ifindex_t ifindex;
 	int type;
 	int af;
@@ -3010,8 +3027,8 @@ static void zread_pseudowire(ZAPI_HANDLER_ARGS)
 	s = msg;
 
 	/* Get data. */
-	STREAM_GET(ifname, s, INTERFACE_NAMSIZ);
-	ifname[INTERFACE_NAMSIZ - 1] = '\0';
+	STREAM_GET(ifname, s, IFNAMSIZ);
+	ifname[IFNAMSIZ - 1] = '\0';
 	STREAM_GETL(s, ifindex);
 	STREAM_GETL(s, type);
 	STREAM_GETL(s, af);
@@ -3107,6 +3124,28 @@ stream_failure:
 }
 
 
+static void zread_interface_set_arp(ZAPI_HANDLER_ARGS)
+{
+	struct stream *s = msg;
+	struct interface *ifp;
+	bool arp_enable;
+	vrf_id_t vrf_id = zvrf->vrf->vrf_id;
+	int ifindex;
+
+	STREAM_GETL(s, ifindex);
+	STREAM_GETC(s, arp_enable);
+	ifp = if_lookup_by_index(ifindex, vrf_id);
+
+	if (!ifp)
+		return;
+
+	if_arp(ifp, arp_enable);
+
+stream_failure:
+	return;
+}
+
+
 static void zread_vrf_label(ZAPI_HANDLER_ARGS)
 {
 	struct interface *ifp;
@@ -3189,7 +3228,6 @@ static inline void zread_rule(ZAPI_HANDLER_ARGS)
 	struct zebra_pbr_rule zpr;
 	struct stream *s;
 	uint32_t total, i;
-	char ifname[INTERFACE_NAMSIZ + 1] = {};
 
 	s = msg;
 	STREAM_GETL(s, total);
@@ -3199,59 +3237,38 @@ static inline void zread_rule(ZAPI_HANDLER_ARGS)
 
 		zpr.sock = client->sock;
 		zpr.rule.vrf_id = hdr->vrf_id;
-		STREAM_GETL(s, zpr.rule.seq);
-		STREAM_GETL(s, zpr.rule.priority);
-		STREAM_GETL(s, zpr.rule.unique);
-		STREAM_GETC(s, zpr.rule.filter.ip_proto);
-		STREAM_GETC(s, zpr.rule.filter.src_ip.family);
-		STREAM_GETC(s, zpr.rule.filter.src_ip.prefixlen);
-		STREAM_GET(&zpr.rule.filter.src_ip.u.prefix, s,
-			   prefix_blen(&zpr.rule.filter.src_ip));
-		STREAM_GETW(s, zpr.rule.filter.src_port);
-		STREAM_GETC(s, zpr.rule.filter.dst_ip.family);
-		STREAM_GETC(s, zpr.rule.filter.dst_ip.prefixlen);
-		STREAM_GET(&zpr.rule.filter.dst_ip.u.prefix, s,
-			   prefix_blen(&zpr.rule.filter.dst_ip));
-		STREAM_GETW(s, zpr.rule.filter.dst_port);
-		STREAM_GETC(s, zpr.rule.filter.dsfield);
-		STREAM_GETL(s, zpr.rule.filter.fwmark);
 
-		STREAM_GETL(s, zpr.rule.action.queue_id);
-		STREAM_GETW(s, zpr.rule.action.vlan_id);
-		STREAM_GETW(s, zpr.rule.action.vlan_flags);
-		STREAM_GETW(s, zpr.rule.action.pcp);
+		if (!zapi_pbr_rule_decode(s, &zpr.rule))
+			goto stream_failure;
 
-		STREAM_GETL(s, zpr.rule.action.table);
-		STREAM_GET(ifname, s, INTERFACE_NAMSIZ);
+		strlcpy(zpr.ifname, zpr.rule.ifname, sizeof(zpr.ifname));
 
-		strlcpy(zpr.ifname, ifname, sizeof(zpr.ifname));
-		strlcpy(zpr.rule.ifname, ifname, sizeof(zpr.rule.ifname));
+		if ((zpr.rule.family != AF_INET) &&
+		    (zpr.rule.family != AF_INET6)) {
+			zlog_warn("Unsupported PBR source IP family: %s (%hhu)",
+				  family2str(zpr.rule.family), zpr.rule.family);
+			return;
+		}
 
-		if (!is_default_prefix(&zpr.rule.filter.src_ip))
-			zpr.rule.filter.filter_bm |= PBR_FILTER_SRC_IP;
+		/*
+		 * Fixup filter src/dst IP addresses if they are unset
+		 * because the netlink code currently obtains address family
+		 * from them. Address family is used to specify which
+		 * kernel database to use when adding/deleting rule.
+		 *
+		 * TBD: propagate zpr.rule.family into dataplane and
+		 * netlink code so they can stop using filter src/dst addrs.
+		 */
+		if (!CHECK_FLAG(zpr.rule.filter.filter_bm, PBR_FILTER_SRC_IP))
+			zpr.rule.filter.src_ip.family = zpr.rule.family;
+		if (!CHECK_FLAG(zpr.rule.filter.filter_bm, PBR_FILTER_DST_IP))
+			zpr.rule.filter.dst_ip.family = zpr.rule.family;
 
-		if (!is_default_prefix(&zpr.rule.filter.dst_ip))
-			zpr.rule.filter.filter_bm |= PBR_FILTER_DST_IP;
-
-		if (zpr.rule.filter.src_port)
-			zpr.rule.filter.filter_bm |= PBR_FILTER_SRC_PORT;
-
-		if (zpr.rule.filter.dst_port)
-			zpr.rule.filter.filter_bm |= PBR_FILTER_DST_PORT;
-
-		if (zpr.rule.filter.dsfield)
-			zpr.rule.filter.filter_bm |= PBR_FILTER_DSFIELD;
-
-		if (zpr.rule.filter.ip_proto)
-			zpr.rule.filter.filter_bm |= PBR_FILTER_IP_PROTOCOL;
-
-		if (zpr.rule.filter.fwmark)
-			zpr.rule.filter.filter_bm |= PBR_FILTER_FWMARK;
-
+		/* TBD delete below block when netlink code gets family from zpr.rule.family */
 		if (!(zpr.rule.filter.src_ip.family == AF_INET
 		      || zpr.rule.filter.src_ip.family == AF_INET6)) {
 			zlog_warn(
-				"Unsupported PBR source IP family: %s (%hhu)",
+				"Unsupported PBR source IP family: %s (%u)",
 				family2str(zpr.rule.filter.src_ip.family),
 				zpr.rule.filter.src_ip.family);
 			return;
@@ -3259,11 +3276,12 @@ static inline void zread_rule(ZAPI_HANDLER_ARGS)
 		if (!(zpr.rule.filter.dst_ip.family == AF_INET
 		      || zpr.rule.filter.dst_ip.family == AF_INET6)) {
 			zlog_warn(
-				"Unsupported PBR destination IP family: %s (%hhu)",
+				"Unsupported PBR destination IP family: %s (%u)",
 				family2str(zpr.rule.filter.dst_ip.family),
 				zpr.rule.filter.dst_ip.family);
 			return;
 		}
+		/* TBD delete above block when netlink code gets family from zpr.rule.family */
 
 
 		zpr.vrf_id = zvrf->vrf->vrf_id;
@@ -3428,7 +3446,10 @@ static inline void zread_tc_filter(ZAPI_HANDLER_ARGS)
 			STREAM_GETL(s, filter.filter.u.flower.classid);
 			break;
 		}
-		default:
+		case TC_FILTER_BPF:
+		case TC_FILTER_FLOW:
+		case TC_FILTER_U32:
+		case TC_FILTER_UNSPEC:
 			break;
 		}
 
@@ -3515,7 +3536,7 @@ static inline void zread_ipset_entry(ZAPI_HANDLER_ARGS)
 		if (zpi.src_port_max != 0)
 			zpi.filter_bm |= PBR_FILTER_SRC_PORT_RANGE;
 		if (zpi.proto != 0)
-			zpi.filter_bm |= PBR_FILTER_PROTO;
+			zpi.filter_bm |= PBR_FILTER_IP_PROTOCOL;
 
 		if (!(zpi.dst.family == AF_INET
 		      || zpi.dst.family == AF_INET6)) {
@@ -3564,7 +3585,7 @@ static inline void zebra_neigh_register(ZAPI_HANDLER_ARGS)
 			afi);
 		goto stream_failure;
 	}
-	vrf_bitmap_set(client->nhrp_neighinfo[afi], zvrf_id(zvrf));
+	vrf_bitmap_set(&client->neighinfo[afi], zvrf_id(zvrf));
 stream_failure:
 	return;
 }
@@ -3580,7 +3601,7 @@ static inline void zebra_neigh_unregister(ZAPI_HANDLER_ARGS)
 			afi);
 		goto stream_failure;
 	}
-	vrf_bitmap_unset(client->nhrp_neighinfo[afi], zvrf_id(zvrf));
+	vrf_bitmap_unset(&client->neighinfo[afi], zvrf_id(zvrf));
 stream_failure:
 	return;
 }
@@ -3906,6 +3927,7 @@ void (*const zserv_handlers[])(ZAPI_HANDLER_ARGS) = {
 	[ZEBRA_REMOTE_MACIP_DEL] = zebra_vxlan_remote_macip_del,
 	[ZEBRA_DUPLICATE_ADDR_DETECTION] = zebra_vxlan_dup_addr_detection,
 	[ZEBRA_INTERFACE_SET_MASTER] = zread_interface_set_master,
+	[ZEBRA_INTERFACE_SET_ARP] = zread_interface_set_arp,
 	[ZEBRA_PW_ADD] = zread_pseudowire,
 	[ZEBRA_PW_DELETE] = zread_pseudowire,
 	[ZEBRA_PW_SET] = zread_pseudowire,
@@ -3937,8 +3959,8 @@ void (*const zserv_handlers[])(ZAPI_HANDLER_ARGS) = {
 	[ZEBRA_EVPN_REMOTE_NH_DEL] = zebra_evpn_proc_remote_nh,
 	[ZEBRA_NEIGH_IP_ADD] = zebra_neigh_ip_add,
 	[ZEBRA_NEIGH_IP_DEL] = zebra_neigh_ip_del,
-	[ZEBRA_NHRP_NEIGH_REGISTER] = zebra_neigh_register,
-	[ZEBRA_NHRP_NEIGH_UNREGISTER] = zebra_neigh_unregister,
+	[ZEBRA_NEIGH_REGISTER] = zebra_neigh_register,
+	[ZEBRA_NEIGH_UNREGISTER] = zebra_neigh_unregister,
 	[ZEBRA_CONFIGURE_ARP] = zebra_configure_arp,
 	[ZEBRA_GRE_GET] = zebra_gre_get,
 	[ZEBRA_GRE_SOURCE_SET] = zebra_gre_source_set,
@@ -3983,8 +4005,7 @@ void zserv_handle_commands(struct zserv *client, struct stream_fifo *fifo)
 		hdr.length -= ZEBRA_HEADER_SIZE;
 
 		/* Before checking for a handler function, check for
-		 * special messages that are handled in another module;
-		 * we'll treat these as opaque.
+		 * special messages that are handled the 'opaque zapi' module.
 		 */
 		if (zebra_opaque_handles_msgid(hdr.command)) {
 			/* Reset message buffer */

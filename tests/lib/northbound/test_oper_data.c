@@ -1,25 +1,13 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Copyright (C) 2018  NetDEF, Inc.
  *                     Renato Westphal
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
+#include <sys/stat.h>
 
-#include "thread.h"
+#include "frrevent.h"
 #include "vty.h"
 #include "command.h"
 #include "memory.h"
@@ -27,7 +15,7 @@
 #include "log.h"
 #include "northbound.h"
 
-static struct thread_master *master;
+static struct event_loop *master;
 
 struct troute {
 	struct prefix_ipv4 prefix;
@@ -212,6 +200,25 @@ static struct yang_data *frr_test_module_vrfs_vrf_routes_route_active_get_elem(
 	return NULL;
 }
 
+
+/*
+ * XPath: /frr-test-module:frr-test-module/c1value
+ */
+static struct yang_data *
+frr_test_module_c1value_get_elem(struct nb_cb_get_elem_args *args)
+{
+	return yang_data_new_uint8(args->xpath, 21);
+}
+
+/*
+ * XPath: /frr-test-module:frr-test-module/c2cont/c2value
+ */
+static struct yang_data *
+frr_test_module_c2cont_c2value_get_elem(struct nb_cb_get_elem_args *args)
+{
+	return yang_data_new_uint32(args->xpath, 0xAB010203);
+}
+
 /* clang-format off */
 const struct frr_yang_module_info frr_test_module_info = {
 	.name = "frr-test-module",
@@ -254,6 +261,14 @@ const struct frr_yang_module_info frr_test_module_info = {
 		{
 			.xpath = "/frr-test-module:frr-test-module/vrfs/vrf/routes/route/active",
 			.cbs.get_elem = frr_test_module_vrfs_vrf_routes_route_active_get_elem,
+		},
+		{
+			.xpath = "/frr-test-module:frr-test-module/c1value",
+			.cbs.get_elem = frr_test_module_c1value_get_elem,
+		},
+		{
+			.xpath = "/frr-test-module:frr-test-module/c2cont/c2value",
+			.cbs.get_elem = frr_test_module_c2cont_c2value_get_elem,
 		},
 		{
 			.xpath = NULL,
@@ -364,7 +379,7 @@ static void vty_do_exit(int isexit)
 	vty_terminate();
 	nb_terminate();
 	yang_terminate();
-	thread_master_free(master);
+	event_master_free(master);
 
 	log_memstats(stderr, "test-nb-oper-data");
 	if (!isexit)
@@ -374,7 +389,7 @@ static void vty_do_exit(int isexit)
 /* main routine. */
 int main(int argc, char **argv)
 {
-	struct thread thread;
+	struct event thread;
 	unsigned int num_vrfs = 2;
 	unsigned int num_interfaces = 4;
 	unsigned int num_routes = 6;
@@ -390,7 +405,7 @@ int main(int argc, char **argv)
 	umask(0027);
 
 	/* master init. */
-	master = thread_master_create(NULL);
+	master = event_master_create(NULL);
 
 	zlog_aux_init("NONE: ", ZLOG_DISABLED);
 
@@ -408,8 +423,8 @@ int main(int argc, char **argv)
 	vty_stdio(vty_do_exit);
 
 	/* Fetch next active thread. */
-	while (thread_fetch(master, &thread))
-		thread_call(&thread);
+	while (event_fetch(master, &thread))
+		event_call(&thread);
 
 	/* Not reached. */
 	exit(0);

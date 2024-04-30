@@ -1,23 +1,12 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Pull-driven write event handler
  * Copyright (C) 2019  David Lamparter
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include "zebra.h"
+
+#include <sys/ioctl.h>
 
 #include "pullwr.h"
 #include "memory.h"
@@ -29,9 +18,9 @@
 
 struct pullwr {
 	int fd;
-	struct thread_master *tm;
+	struct event_loop *tm;
 	/* writer == NULL <=> we're idle */
-	struct thread *writer;
+	struct event *writer;
 
 	void *arg;
 	void (*fill)(void *, struct pullwr *);
@@ -51,12 +40,11 @@ struct pullwr {
 DEFINE_MTYPE_STATIC(LIB, PULLWR_HEAD, "pull-driven write controller");
 DEFINE_MTYPE_STATIC(LIB, PULLWR_BUF,  "pull-driven write buffer");
 
-static void pullwr_run(struct thread *t);
+static void pullwr_run(struct event *t);
 
-struct pullwr *_pullwr_new(struct thread_master *tm, int fd,
-		void *arg,
-		void (*fill)(void *, struct pullwr *),
-		void (*err)(void *, struct pullwr *, bool))
+struct pullwr *_pullwr_new(struct event_loop *tm, int fd, void *arg,
+			   void (*fill)(void *, struct pullwr *),
+			   void (*err)(void *, struct pullwr *, bool))
 {
 	struct pullwr *pullwr;
 
@@ -75,7 +63,7 @@ struct pullwr *_pullwr_new(struct thread_master *tm, int fd,
 
 void pullwr_del(struct pullwr *pullwr)
 {
-	THREAD_OFF(pullwr->writer);
+	EVENT_OFF(pullwr->writer);
 
 	XFREE(MTYPE_PULLWR_BUF, pullwr->buffer);
 	XFREE(MTYPE_PULLWR_HEAD, pullwr);
@@ -93,7 +81,7 @@ void pullwr_bump(struct pullwr *pullwr)
 	if (pullwr->writer)
 		return;
 
-	thread_add_timer(pullwr->tm, pullwr_run, pullwr, 0, &pullwr->writer);
+	event_add_timer(pullwr->tm, pullwr_run, pullwr, 0, &pullwr->writer);
 }
 
 static size_t pullwr_iov(struct pullwr *pullwr, struct iovec *iov)
@@ -189,9 +177,9 @@ void pullwr_write(struct pullwr *pullwr, const void *data, size_t len)
 	pullwr_bump(pullwr);
 }
 
-static void pullwr_run(struct thread *t)
+static void pullwr_run(struct event *t)
 {
-	struct pullwr *pullwr = THREAD_ARG(t);
+	struct pullwr *pullwr = EVENT_ARG(t);
 	struct iovec iov[2];
 	size_t niov, lastvalid;
 	ssize_t nwr;
@@ -219,7 +207,7 @@ static void pullwr_run(struct thread *t)
 		if (pullwr->valid == 0) {
 			/* we made a fill() call above that didn't feed any
 			 * data in, and we have nothing more queued, so we go
-			 * into idle, i.e. no calling thread_add_write()
+			 * into idle, i.e. no calling event_add_write()
 			 */
 			pullwr_resize(pullwr, 0);
 			return;
@@ -250,7 +238,7 @@ static void pullwr_run(struct thread *t)
 	 * is full and we go wait until it's available for writing again.
 	 */
 
-	thread_add_write(pullwr->tm, pullwr_run, pullwr, pullwr->fd,
+	event_add_write(pullwr->tm, pullwr_run, pullwr, pullwr->fd,
 			&pullwr->writer);
 
 	/* if we hit the time limit, just keep the buffer, we'll probably need

@@ -1,20 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Zebra SRv6 definitions
  * Copyright (C) 2020  Hiroki Shirokura, LINE Corporation
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef _ZEBRA_SRV6_H
@@ -32,6 +19,9 @@
 /* SRv6 instance structure. */
 struct zebra_srv6 {
 	struct list *locators;
+
+	/* Source address for SRv6 encapsulation */
+	struct in6_addr encap_src_addr;
 };
 
 /* declare hooks for the basic API, so that it can be specialized or served
@@ -65,6 +55,7 @@ void zebra_notify_srv6_locator_add(struct srv6_locator *locator);
 void zebra_notify_srv6_locator_delete(struct srv6_locator *locator);
 
 extern void zebra_srv6_init(void);
+extern void zebra_srv6_terminate(void);
 extern struct zebra_srv6 *zebra_srv6_get_default(void);
 extern bool zebra_srv6_is_enable(void);
 
@@ -79,5 +70,8 @@ extern void srv6_manager_release_locator_chunk_call(struct zserv *client,
 						    vrf_id_t vrf_id);
 extern int srv6_manager_client_disconnect_cb(struct zserv *client);
 extern int release_daemon_srv6_locator_chunks(struct zserv *client);
+
+extern void zebra_srv6_encap_src_addr_set(struct in6_addr *src_addr);
+extern void zebra_srv6_encap_src_addr_unset(void);
 
 #endif /* _ZEBRA_SRV6_H */

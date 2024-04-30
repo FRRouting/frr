@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: ISC
 /*	$OpenBSD$ */
 
 /*
@@ -5,18 +6,6 @@
  * Copyright (c) 2005 Claudio Jeker <claudio@openbsd.org>
  * Copyright (c) 2004, 2008 Esben Norby <norby@openbsd.org>
  * Copyright (c) 2003, 2004 Henning Brauer <henning@openbsd.org>
- *
- * Permission to use, copy, modify, and distribute this software for any
- * purpose with or without fee is hereby granted, provided that the above
- * copyright notice and this permission notice appear in all copies.
- *
- * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
- * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
- * ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
- * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
- * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
- * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
 #include <zebra.h>
@@ -36,10 +25,10 @@
 #include "libfrr.h"
 
 static void	 ldpe_shutdown(void);
-static void ldpe_dispatch_main(struct thread *thread);
-static void ldpe_dispatch_lde(struct thread *thread);
+static void ldpe_dispatch_main(struct event *thread);
+static void ldpe_dispatch_lde(struct event *thread);
 #ifdef __OpenBSD__
-static void ldpe_dispatch_pfkey(struct thread *thread);
+static void ldpe_dispatch_pfkey(struct event *thread);
 #endif
 static void	 ldpe_setup_sockets(int, int, int, int);
 static void	 ldpe_close_sockets(int);
@@ -55,7 +44,7 @@ static struct imsgev    iev_main_data;
 static struct imsgev	*iev_main, *iev_main_sync;
 static struct imsgev	*iev_lde;
 #ifdef __OpenBSD__
-static struct thread	*pfkey_ev;
+static struct event *pfkey_ev;
 #endif
 
 /* ldpe privileges */
@@ -122,8 +111,8 @@ ldpe(void)
 		fatal(NULL);
 	imsg_init(&iev_main->ibuf, LDPD_FD_ASYNC);
 	iev_main->handler_read = ldpe_dispatch_main;
-	thread_add_read(master, iev_main->handler_read, iev_main, iev_main->ibuf.fd,
-		        &iev_main->ev_read);
+	event_add_read(master, iev_main->handler_read, iev_main,
+		       iev_main->ibuf.fd, &iev_main->ev_read);
 	iev_main->handler_write = ldp_write_handler;
 
 	memset(&iev_main_data, 0, sizeof(iev_main_data));
@@ -133,9 +122,9 @@ ldpe(void)
 	/* create base configuration */
 	leconf = config_new_empty();
 
-	struct thread thread;
-	while (thread_fetch(master, &thread))
-		thread_call(&thread);
+	struct event thread;
+	while (event_fetch(master, &thread))
+		event_call(&thread);
 
 	/* NOTREACHED */
 	return;
@@ -148,8 +137,8 @@ ldpe_init(struct ldpd_init *init)
 	/* This socket must be open before dropping privileges. */
 	global.pfkeysock = pfkey_init();
 	if (sysdep.no_pfkey == 0) {
-		thread_add_read(master, ldpe_dispatch_pfkey, NULL, global.pfkeysock,
-				&pfkey_ev);
+		event_add_read(master, ldpe_dispatch_pfkey, NULL,
+			       global.pfkeysock, &pfkey_ev);
 	}
 #endif
 
@@ -211,7 +200,7 @@ ldpe_shutdown(void)
 
 #ifdef __OpenBSD__
 	if (sysdep.no_pfkey == 0) {
-		THREAD_OFF(pfkey_ev);
+		EVENT_OFF(pfkey_ev);
 		close(global.pfkeysock);
 	}
 #endif
@@ -268,12 +257,11 @@ ldpe_imsg_compose_lde(int type, uint32_t peerid, pid_t pid, void *data,
 {
 	if (iev_lde->ibuf.fd == -1)
 		return (0);
-	return (imsg_compose_event(iev_lde, type, peerid, pid, -1,
-	    data, datalen));
+	return (imsg_compose_event(iev_lde, type, peerid, pid, -1, data, datalen));
 }
 
 /* ARGSUSED */
-static void ldpe_dispatch_main(struct thread *thread)
+static void ldpe_dispatch_main(struct event *thread)
 {
 	static struct ldpd_conf	*nconf;
 	struct iface		*niface;
@@ -284,7 +272,7 @@ static void ldpe_dispatch_main(struct thread *thread)
 	struct l2vpn_pw		*pw, *npw;
 	struct imsg		 imsg;
 	int			 fd;
-	struct imsgev		*iev = THREAD_ARG(thread);
+	struct imsgev *iev = EVENT_ARG(thread);
 	struct imsgbuf		*ibuf = &iev->ibuf;
 	struct iface		*iface = NULL;
 	struct kif		*kif;
@@ -320,8 +308,7 @@ static void ldpe_dispatch_main(struct thread *thread)
 
 		switch (imsg.hdr.type) {
 		case IMSG_IFSTATUS:
-			if (imsg.hdr.len != IMSG_HEADER_SIZE +
-			    sizeof(struct kif))
+			if (imsg.hdr.len != IMSG_HEADER_SIZE + sizeof(struct kif))
 				fatalx("IFSTATUS imsg with wrong len");
 			kif = imsg.data;
 
@@ -347,15 +334,13 @@ static void ldpe_dispatch_main(struct thread *thread)
 			}
 			break;
 		case IMSG_NEWADDR:
-			if (imsg.hdr.len != IMSG_HEADER_SIZE +
-			    sizeof(struct kaddr))
+			if (imsg.hdr.len != IMSG_HEADER_SIZE + sizeof(struct kaddr))
 				fatalx("NEWADDR imsg with wrong len");
 
 			if_addr_add(imsg.data);
 			break;
 		case IMSG_DELADDR:
-			if (imsg.hdr.len != IMSG_HEADER_SIZE +
-			    sizeof(struct kaddr))
+			if (imsg.hdr.len != IMSG_HEADER_SIZE + sizeof(struct kaddr))
 				fatalx("DELADDR imsg with wrong len");
 
 			if_addr_del(imsg.data);
@@ -374,14 +359,13 @@ static void ldpe_dispatch_main(struct thread *thread)
 				fatal(NULL);
 			imsg_init(&iev_lde->ibuf, fd);
 			iev_lde->handler_read = ldpe_dispatch_lde;
-			thread_add_read(master, iev_lde->handler_read, iev_lde, iev_lde->ibuf.fd,
-					&iev_lde->ev_read);
+			event_add_read(master, iev_lde->handler_read, iev_lde,
+				       iev_lde->ibuf.fd, &iev_lde->ev_read);
 			iev_lde->handler_write = ldp_write_handler;
 			iev_lde->ev_write = NULL;
 			break;
 		case IMSG_INIT:
-			if (imsg.hdr.len != IMSG_HEADER_SIZE +
-			    sizeof(struct ldpd_init))
+			if (imsg.hdr.len != IMSG_HEADER_SIZE + sizeof(struct ldpd_init))
 				fatalx("INIT imsg with wrong len");
 
 			memcpy(&init, imsg.data, sizeof(init));
@@ -409,14 +393,11 @@ static void ldpe_dispatch_main(struct thread *thread)
 			disc_socket = -1;
 			edisc_socket = -1;
 			session_socket = -1;
-			if ((ldp_af_conf_get(leconf, af))->flags &
-			    F_LDPD_AF_ENABLED)
-				ldpe_imsg_compose_parent(IMSG_REQUEST_SOCKETS,
-				    af, NULL, 0);
+			if (CHECK_FLAG((ldp_af_conf_get(leconf, af))->flags, F_LDPD_AF_ENABLED))
+				ldpe_imsg_compose_parent(IMSG_REQUEST_SOCKETS, af, NULL, 0);
 			break;
 		case IMSG_SOCKET_NET:
-			if (imsg.hdr.len != IMSG_HEADER_SIZE +
-			    sizeof(enum socket_type))
+			if (imsg.hdr.len != IMSG_HEADER_SIZE + sizeof(enum socket_type))
 				fatalx("SOCKET_NET imsg with wrong len");
 			socket_type = imsg.data;
 
@@ -445,15 +426,13 @@ static void ldpe_dispatch_main(struct thread *thread)
 				break;
 			}
 
-			ldpe_setup_sockets(af, disc_socket, edisc_socket,
-			    session_socket);
+			ldpe_setup_sockets(af, disc_socket, edisc_socket, session_socket);
 			if_update_all(af);
 			tnbr_update_all(af);
 			RB_FOREACH(nbr, nbr_id_head, &nbrs_by_id) {
 				if (nbr->af != af)
 					continue;
-				nbr->laddr = (ldp_af_conf_get(leconf,
-				    af))->trans_addr;
+				nbr->laddr = (ldp_af_conf_get(leconf, af))->trans_addr;
 #ifdef __OpenBSD__
 				nbrp = nbr_params_find(leconf, nbr->id);
 				if (nbrp) {
@@ -467,8 +446,7 @@ static void ldpe_dispatch_main(struct thread *thread)
 			}
 			break;
 		case IMSG_RTRID_UPDATE:
-			memcpy(&global.rtr_id, imsg.data,
-			    sizeof(global.rtr_id));
+			memcpy(&global.rtr_id, imsg.data, sizeof(global.rtr_id));
 			if (leconf->rtr_id.s_addr == INADDR_ANY) {
 				ldpe_reset_nbrs(AF_UNSPEC);
 			}
@@ -476,8 +454,7 @@ static void ldpe_dispatch_main(struct thread *thread)
 			tnbr_update_all(AF_UNSPEC);
 			break;
 		case IMSG_RECONF_CONF:
-			if ((nconf = malloc(sizeof(struct ldpd_conf))) ==
-			    NULL)
+			if ((nconf = malloc(sizeof(struct ldpd_conf))) == NULL)
 				fatal(NULL);
 			memcpy(nconf, imsg.data, sizeof(struct ldpd_conf));
 
@@ -557,16 +534,13 @@ static void ldpe_dispatch_main(struct thread *thread)
 			memcpy(&ldp_debug, imsg.data, sizeof(ldp_debug));
 			break;
 		case IMSG_FILTER_UPDATE:
-			if (imsg.hdr.len != IMSG_HEADER_SIZE +
-			    sizeof(struct ldp_access)) {
+			if (imsg.hdr.len != IMSG_HEADER_SIZE + sizeof(struct ldp_access)) {
 				log_warnx("%s: wrong imsg len", __func__);
 				break;
 			}
 			laccess = imsg.data;
-			ldpe_check_filter_af(AF_INET, &leconf->ipv4,
-				laccess->name);
-			ldpe_check_filter_af(AF_INET6, &leconf->ipv6,
-				laccess->name);
+			ldpe_check_filter_af(AF_INET, &leconf->ipv4, laccess->name);
+			ldpe_check_filter_af(AF_INET6, &leconf->ipv6, laccess->name);
 			break;
 		case IMSG_LDP_SYNC_IF_STATE_REQUEST:
 			if (imsg.hdr.len != IMSG_HEADER_SIZE +
@@ -616,8 +590,7 @@ static void ldpe_dispatch_main(struct thread *thread)
 			}
 			break;
 		default:
-			log_debug("%s: error handling imsg %d",
-			    __func__, imsg.hdr.type);
+			log_debug("%s: error handling imsg %d", __func__, imsg.hdr.type);
 			break;
 		}
 		imsg_free(&imsg);
@@ -626,16 +599,16 @@ static void ldpe_dispatch_main(struct thread *thread)
 		imsg_event_add(iev);
 	else {
 		/* this pipe is dead, so remove the event handlers and exit */
-		THREAD_OFF(iev->ev_read);
-		THREAD_OFF(iev->ev_write);
+		EVENT_OFF(iev->ev_read);
+		EVENT_OFF(iev->ev_write);
 		ldpe_shutdown();
 	}
 }
 
 /* ARGSUSED */
-static void ldpe_dispatch_lde(struct thread *thread)
+static void ldpe_dispatch_lde(struct event *thread)
 {
-	struct imsgev		*iev = THREAD_ARG(thread);
+	struct imsgev *iev = EVENT_ARG(thread);
 	struct imsgbuf		*ibuf = &iev->ibuf;
 	struct imsg		 imsg;
 	struct map		*map;
@@ -661,8 +634,7 @@ static void ldpe_dispatch_lde(struct thread *thread)
 		case IMSG_RELEASE_ADD:
 		case IMSG_REQUEST_ADD:
 		case IMSG_WITHDRAW_ADD:
-			if (imsg.hdr.len - IMSG_HEADER_SIZE !=
-			    sizeof(struct map))
+			if (imsg.hdr.len - IMSG_HEADER_SIZE != sizeof(struct map))
 				fatalx("invalid size of map request");
 			map = imsg.data;
 
@@ -717,8 +689,7 @@ static void ldpe_dispatch_lde(struct thread *thread)
 			}
 			break;
 		case IMSG_NOTIFICATION_SEND:
-			if (imsg.hdr.len - IMSG_HEADER_SIZE !=
-			    sizeof(struct notify_msg))
+			if (imsg.hdr.len - IMSG_HEADER_SIZE != sizeof(struct notify_msg))
 				fatalx("invalid size of OE request");
 			nm = imsg.data;
 
@@ -752,8 +723,7 @@ static void ldpe_dispatch_lde(struct thread *thread)
 			session_shutdown(nbr,S_SHUTDOWN,0,0);
 			break;
 		default:
-			log_debug("%s: error handling imsg %d",
-			    __func__, imsg.hdr.type);
+			log_debug("%s: error handling imsg %d", __func__, imsg.hdr.type);
 			break;
 		}
 		imsg_free(&imsg);
@@ -762,20 +732,20 @@ static void ldpe_dispatch_lde(struct thread *thread)
 		imsg_event_add(iev);
 	else {
 		/* this pipe is dead, so remove the event handlers and exit */
-		THREAD_OFF(iev->ev_read);
-		THREAD_OFF(iev->ev_write);
+		EVENT_OFF(iev->ev_read);
+		EVENT_OFF(iev->ev_write);
 		ldpe_shutdown();
 	}
 }
 
 #ifdef __OpenBSD__
 /* ARGSUSED */
-static void ldpe_dispatch_pfkey(struct thread *thread)
+static void ldpe_dispatch_pfkey(struct event *thread)
 {
-	int	 fd = THREAD_FD(thread);
+	int fd = EVENT_FD(thread);
 
-	thread_add_read(master, ldpe_dispatch_pfkey, NULL, global.pfkeysock,
-			&pfkey_ev);
+	event_add_read(master, ldpe_dispatch_pfkey, NULL, global.pfkeysock,
+		       &pfkey_ev);
 
 	if (pfkey_read(fd, NULL) == -1)
 		fatal("pfkey_read failed, exiting...");
@@ -792,13 +762,13 @@ ldpe_setup_sockets(int af, int disc_socket, int edisc_socket,
 
 	/* discovery socket */
 	af_global->ldp_disc_socket = disc_socket;
-	thread_add_read(master, disc_recv_packet, &af_global->disc_ev, af_global->ldp_disc_socket,
-			&af_global->disc_ev);
+	event_add_read(master, disc_recv_packet, &af_global->disc_ev,
+		       af_global->ldp_disc_socket, &af_global->disc_ev);
 
 	/* extended discovery socket */
 	af_global->ldp_edisc_socket = edisc_socket;
-	thread_add_read(master, disc_recv_packet, &af_global->edisc_ev, af_global->ldp_edisc_socket,
-			&af_global->edisc_ev);
+	event_add_read(master, disc_recv_packet, &af_global->edisc_ev,
+		       af_global->ldp_edisc_socket, &af_global->edisc_ev);
 
 	/* session socket */
 	af_global->ldp_session_socket = session_socket;
@@ -813,14 +783,14 @@ ldpe_close_sockets(int af)
 	af_global = ldp_af_global_get(&global, af);
 
 	/* discovery socket */
-	THREAD_OFF(af_global->disc_ev);
+	EVENT_OFF(af_global->disc_ev);
 	if (af_global->ldp_disc_socket != -1) {
 		close(af_global->ldp_disc_socket);
 		af_global->ldp_disc_socket = -1;
 	}
 
 	/* extended discovery socket */
-	THREAD_OFF(af_global->edisc_ev);
+	EVENT_OFF(af_global->edisc_ev);
 	if (af_global->ldp_edisc_socket != -1) {
 		close(af_global->ldp_edisc_socket);
 		af_global->ldp_edisc_socket = -1;
@@ -871,7 +841,7 @@ ldpe_remove_dynamic_tnbrs(int af)
 		if (tnbr->af != af)
 			continue;
 
-		tnbr->flags &= ~F_TNBR_DYNAMIC;
+		UNSET_FLAG(tnbr->flags, F_TNBR_DYNAMIC);
 		tnbr_check(leconf, tnbr);
 	}
 }

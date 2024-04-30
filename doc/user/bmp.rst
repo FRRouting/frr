@@ -36,8 +36,8 @@ The `BMP` implementation in FRR has the following properties:
   successfully.  OPEN messages for failed sessions cannot currently be
   mirrored.
 
-- **route monitoring** is available for IPv4 and IPv6 AFIs, unicast and
-  multicast SAFIs.  Other SAFIs (VPN, Labeled-Unicast, Flowspec, etc.) are not
+- **route monitoring** is available for IPv4 and IPv6 AFIs, unicast, multicast,
+  EVPN and VPN SAFIs. Other SAFIs (VPN, Labeled-Unicast, Flowspec, etc.) are not
   currently supported.
 
 - monitoring peers that have BGP **add-path** enabled on the session will
@@ -146,10 +146,10 @@ associated with a particular ``bmp targets``:
    Send BMP Statistics (counter) messages at the specified interval (in
    milliseconds.)
 
-.. clicmd:: bmp monitor AFI SAFI <pre-policy|post-policy>
+.. clicmd:: bmp monitor AFI SAFI <pre-policy|post-policy|loc-rib>
 
    Perform Route Monitoring for the specified AFI and SAFI.  Only IPv4 and
-   IPv6 are currently valid for AFI. SAFI valid values are currently 
+   IPv6 are currently valid for AFI. SAFI valid values are currently
    unicast, multicast, evpn and vpn.
    Other AFI/SAFI combinations may be added in the future.
 

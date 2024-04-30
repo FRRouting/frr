@@ -1,22 +1,8 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * PIM for FRR - PIM Instance
  * Copyright (C) 2017 Cumulus Networks, Inc.
  * Donald Sharp
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; see the file COPYING; if not, write to the
- * Free Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston,
- * MA 02110-1301 USA
  */
 #include <zebra.h>
 
@@ -59,11 +45,7 @@ static void pim_instance_terminate(struct pim_instance *pim)
 	pim_bsm_proc_free(pim);
 
 	/* Traverse and cleanup rpf_hash */
-	if (pim->rpf_hash) {
-		hash_clean(pim->rpf_hash, (void *)pim_rp_list_hash_clean);
-		hash_free(pim->rpf_hash);
-		pim->rpf_hash = NULL;
-	}
+	hash_clean_and_free(&pim->rpf_hash, (void *)pim_rp_list_hash_clean);
 
 	pim_if_terminate(pim);
 
@@ -196,6 +178,8 @@ static int pim_vrf_enable(struct vrf *vrf)
 
 	zlog_debug("%s: for %s %u", __func__, vrf->name, vrf->vrf_id);
 
+	pim_mroute_socket_enable(pim);
+
 	FOR_ALL_INTERFACES (vrf, ifp) {
 		if (!ifp->info)
 			continue;
@@ -203,8 +187,6 @@ static int pim_vrf_enable(struct vrf *vrf)
 		pim_if_create_pimreg(pim);
 		break;
 	}
-
-	pim_mroute_socket_enable(pim);
 
 	return 0;
 }

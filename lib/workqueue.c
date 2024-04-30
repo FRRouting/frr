@@ -1,27 +1,12 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Quagga Work Queue Support.
  *
  * Copyright (C) 2005 Sun Microsystems, Inc.
- *
- * This file is part of GNU Zebra.
- *
- * Quagga is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * Quagga is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
-#include "thread.h"
+#include "frrevent.h"
 #include "memory.h"
 #include "workqueue.h"
 #include "linklist.h"
@@ -57,6 +42,15 @@ static void work_queue_item_free(struct work_queue_item *item)
 	return;
 }
 
+static inline void work_queue_item_dequeue(struct work_queue *wq,
+					   struct work_queue_item *item)
+{
+	assert(wq->item_count > 0);
+
+	wq->item_count--;
+	STAILQ_REMOVE(&wq->items, item, work_queue_item, wq);
+}
+
 static void work_queue_item_remove(struct work_queue *wq,
 				   struct work_queue_item *item)
 {
@@ -74,8 +68,7 @@ static void work_queue_item_remove(struct work_queue *wq,
 }
 
 /* create new work queue */
-struct work_queue *work_queue_new(struct thread_master *m,
-				  const char *queue_name)
+struct work_queue *work_queue_new(struct event_loop *m, const char *queue_name)
 {
 	struct work_queue *new;
 
@@ -93,7 +86,7 @@ struct work_queue *work_queue_new(struct thread_master *m,
 
 	/* Default values, can be overridden by caller */
 	new->spec.hold = WORK_QUEUE_DEFAULT_HOLD;
-	new->spec.yield = THREAD_YIELD_TIME_SLOT;
+	new->spec.yield = EVENT_YIELD_TIME_SLOT;
 	new->spec.retry = WORK_QUEUE_DEFAULT_RETRY;
 
 	return new;
@@ -103,7 +96,7 @@ void work_queue_free_and_null(struct work_queue **wqp)
 {
 	struct work_queue *wq = *wqp;
 
-	THREAD_OFF(wq->thread);
+	EVENT_OFF(wq->thread);
 
 	while (!work_queue_empty(wq)) {
 		struct work_queue_item *item = work_queue_last_item(wq);
@@ -121,32 +114,39 @@ void work_queue_free_and_null(struct work_queue **wqp)
 
 bool work_queue_is_scheduled(struct work_queue *wq)
 {
-	return thread_is_scheduled(wq->thread);
+	return event_is_scheduled(wq->thread);
 }
 
 static int work_queue_schedule(struct work_queue *wq, unsigned int delay)
 {
 	/* if appropriate, schedule work queue thread */
 	if (CHECK_FLAG(wq->flags, WQ_UNPLUGGED) &&
-	    !thread_is_scheduled(wq->thread) && !work_queue_empty(wq)) {
+	    !event_is_scheduled(wq->thread) && !work_queue_empty(wq)) {
 		/* Schedule timer if there's a delay, otherwise just schedule
 		 * as an 'event'
 		 */
 		if (delay > 0) {
-			thread_add_timer_msec(wq->master, work_queue_run, wq,
-					      delay, &wq->thread);
-			thread_ignore_late_timer(wq->thread);
+			event_add_timer_msec(wq->master, work_queue_run, wq,
+					     delay, &wq->thread);
+			event_ignore_late_timer(wq->thread);
 		} else
-			thread_add_event(wq->master, work_queue_run, wq, 0,
-					 &wq->thread);
+			event_add_event(wq->master, work_queue_run, wq, 0,
+					&wq->thread);
 
 		/* set thread yield time, if needed */
-		if (thread_is_scheduled(wq->thread) &&
-		    wq->spec.yield != THREAD_YIELD_TIME_SLOT)
-			thread_set_yield_time(wq->thread, wq->spec.yield);
+		if (event_is_scheduled(wq->thread) &&
+		    wq->spec.yield != EVENT_YIELD_TIME_SLOT)
+			event_set_yield_time(wq->thread, wq->spec.yield);
 		return 1;
 	} else
 		return 0;
+}
+
+static inline void work_queue_item_enqueue(struct work_queue *wq,
+					   struct work_queue_item *item)
+{
+	STAILQ_INSERT_TAIL(&wq->items, item, wq);
+	wq->item_count++;
 }
 
 void work_queue_add(struct work_queue *wq, void *data)
@@ -213,7 +213,7 @@ void workqueue_cmd_init(void)
  */
 void work_queue_plug(struct work_queue *wq)
 {
-	THREAD_OFF(wq->thread);
+	EVENT_OFF(wq->thread);
 
 	UNSET_FLAG(wq->flags, WQ_UNPLUGGED);
 }
@@ -233,7 +233,7 @@ void work_queue_unplug(struct work_queue *wq)
  * will reschedule itself if required,
  * otherwise work_queue_item_add
  */
-void work_queue_run(struct thread *thread)
+void work_queue_run(struct event *thread)
 {
 	struct work_queue *wq;
 	struct work_queue_item *item, *titem;
@@ -241,7 +241,7 @@ void work_queue_run(struct thread *thread)
 	unsigned int cycles = 0;
 	char yielded = 0;
 
-	wq = THREAD_ARG(thread);
+	wq = EVENT_ARG(thread);
 
 	assert(wq);
 
@@ -281,17 +281,14 @@ void work_queue_run(struct thread *thread)
 		do {
 			ret = wq->spec.workfunc(wq, item->data);
 			item->ran++;
-		} while ((ret == WQ_RETRY_NOW)
-			 && (item->ran < wq->spec.max_retries));
+		} while (item->ran < wq->spec.max_retries);
 
 		switch (ret) {
 		case WQ_QUEUE_BLOCKED: {
 			/* decrement item->ran again, cause this isn't an item
-			 * specific error, and fall through to WQ_RETRY_LATER
+			 * specific error, and retry later
 			 */
 			item->ran--;
-		}
-		case WQ_RETRY_LATER: {
 			goto stats;
 		}
 		case WQ_REQUEUE: {
@@ -311,10 +308,6 @@ void work_queue_run(struct thread *thread)
 				titem = item;
 			break;
 		}
-		case WQ_RETRY_NOW:
-		/* a RETRY_NOW that gets here has exceeded max_tries, same as
-		 * ERROR */
-		/* fallthru */
 		case WQ_SUCCESS:
 		default: {
 			work_queue_item_remove(wq, item);
@@ -326,8 +319,8 @@ void work_queue_run(struct thread *thread)
 		cycles++;
 
 		/* test if we should yield */
-		if (!(cycles % wq->cycles.granularity)
-		    && thread_should_yield(thread)) {
+		if (!(cycles % wq->cycles.granularity) &&
+		    event_should_yield(thread)) {
 			yielded = 1;
 			goto stats;
 		}
@@ -366,8 +359,7 @@ stats:
 
 	/* Is the queue done yet? If it is, call the completion callback. */
 	if (!work_queue_empty(wq)) {
-		if (ret == WQ_RETRY_LATER ||
-		    ret == WQ_QUEUE_BLOCKED)
+		if (ret == WQ_QUEUE_BLOCKED)
 			work_queue_schedule(wq, wq->spec.retry);
 		else
 			work_queue_schedule(wq, 0);

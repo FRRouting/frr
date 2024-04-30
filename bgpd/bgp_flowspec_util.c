@@ -1,21 +1,8 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* BGP FlowSpec Utilities
  * Portions:
  *     Copyright (C) 2017 ChinaTelecom SDN Group
  *     Copyright (C) 2018 6WIND
- *
- * FRRouting is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * FRRouting is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include "zebra.h"
@@ -198,16 +185,23 @@ int bgp_flowspec_ip_address(enum bgp_flowspec_util_nlri_t type,
 		offset++;
 	}
 	/* Prefix length check. */
-	if (prefix_local.prefixlen > prefix_blen(&prefix_local) * 8)
+	if (prefix_local.prefixlen > prefix_blen(&prefix_local) * 8) {
 		*error = -1;
+		return offset;
+	}
 	/* When packet overflow occur return immediately. */
-	if (psize + offset > max_len)
+	if (psize + offset > max_len) {
 		*error = -1;
+		return offset;
+	}
 	/* Defensive coding, double-check
 	 * the psize fits in a struct prefix
 	 */
-	if (psize > (ssize_t)sizeof(prefix_local.u))
+	if (psize > (ssize_t)sizeof(prefix_local.u)) {
 		*error = -1;
+		return offset;
+	}
+
 	memcpy(&prefix_local.u.prefix, &nlri_ptr[offset], psize);
 	offset += psize;
 	switch (type) {
@@ -231,7 +225,7 @@ int bgp_flowspec_ip_address(enum bgp_flowspec_util_nlri_t type,
 			prefix_copy(prefix, &prefix_local);
 		break;
 	case BGP_FLOWSPEC_VALIDATE_ONLY:
-	default:
+	case BGP_FLOWSPEC_RETURN_JSON:
 		break;
 	}
 	return offset;
@@ -326,7 +320,7 @@ int bgp_flowspec_op_decode(enum bgp_flowspec_util_nlri_t type,
 			mval++;
 			break;
 		case BGP_FLOWSPEC_VALIDATE_ONLY:
-		default:
+		case BGP_FLOWSPEC_RETURN_JSON:
 			/* no action */
 			break;
 		}
@@ -365,8 +359,10 @@ int bgp_flowspec_bitmask_decode(enum bgp_flowspec_util_nlri_t type,
 
 	*error = 0;
 	do {
-		if (loop > BGP_PBR_MATCH_VAL_MAX)
+		if (loop > BGP_PBR_MATCH_VAL_MAX) {
 			*error = -2;
+			return offset;
+		}
 		hex2bin(&nlri_ptr[offset], op);
 		/* if first element, AND bit can not be set */
 		if (op[1] == 1 && loop == 0)
@@ -436,7 +432,7 @@ int bgp_flowspec_bitmask_decode(enum bgp_flowspec_util_nlri_t type,
 			mval++;
 			break;
 		case BGP_FLOWSPEC_VALIDATE_ONLY:
-		default:
+		case BGP_FLOWSPEC_RETURN_JSON:
 			/* no action */
 			break;
 		}

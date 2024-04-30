@@ -1,20 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Copyright (C) 2020  Cumulus Networks, Inc.
  * Chirag Shah
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -25,6 +12,8 @@
 #include "zebra/zebra_router.h"
 #include "zebra/debug.h"
 #include "printfrr.h"
+#include "zebra/zebra_vxlan.h"
+#include "zebra/zebra_vxlan_if.h"
 
 /*
  * XPath: /frr-interface:lib/interface/frr-zebra:zebra/state/up-count
@@ -101,15 +90,18 @@ lib_interface_zebra_state_vni_id_get_elem(struct nb_cb_get_elem_args *args)
 {
 	const struct interface *ifp = args->list_entry;
 	struct zebra_if *zebra_if;
-	struct zebra_l2info_vxlan *vxlan_info;
+	struct zebra_vxlan_vni *vni;
 
 	if (!IS_ZEBRA_IF_VXLAN(ifp))
 		return NULL;
 
 	zebra_if = ifp->info;
-	vxlan_info = &zebra_if->l2info.vxl;
 
-	return yang_data_new_uint32(args->xpath, vxlan_info->vni);
+	if (!IS_ZEBRA_VXLAN_IF_VNI(zebra_if))
+		return NULL;
+
+	vni = zebra_vxlan_if_vni_find(zebra_if, 0);
+	return yang_data_new_uint32(args->xpath, vni->vni);
 }
 
 /*
@@ -139,15 +131,18 @@ lib_interface_zebra_state_mcast_group_get_elem(struct nb_cb_get_elem_args *args)
 {
 	const struct interface *ifp = args->list_entry;
 	struct zebra_if *zebra_if;
-	struct zebra_l2info_vxlan *vxlan_info;
+	struct zebra_vxlan_vni *vni;
 
 	if (!IS_ZEBRA_IF_VXLAN(ifp))
 		return NULL;
 
 	zebra_if = ifp->info;
-	vxlan_info = &zebra_if->l2info.vxl;
 
-	return yang_data_new_ipv4(args->xpath, &vxlan_info->mcast_grp);
+	if (!IS_ZEBRA_VXLAN_IF_VNI(zebra_if))
+		return NULL;
+
+	vni = zebra_vxlan_if_vni_find(zebra_if, 0);
+	return yang_data_new_ipv4(args->xpath, &vni->mcast_grp);
 }
 
 const void *lib_vrf_zebra_ribs_rib_get_next(struct nb_cb_get_next_args *args)
@@ -161,6 +156,8 @@ const void *lib_vrf_zebra_ribs_rib_get_next(struct nb_cb_get_next_args *args)
 	safi_t safi;
 
 	zvrf = zebra_vrf_lookup_by_id(vrf->vrf_id);
+	if (!zvrf)
+		return NULL;
 
 	if (args->list_entry == NULL) {
 		afi = AFI_IP;
@@ -172,7 +169,8 @@ const void *lib_vrf_zebra_ribs_rib_get_next(struct nb_cb_get_next_args *args)
 	} else {
 		zrt = RB_NEXT(zebra_router_table_head, zrt);
 		/* vrf_id/ns_id do not match, only walk for the given VRF */
-		while (zrt && zrt->ns_id != zvrf->zns->ns_id)
+		while (zrt && (zrt->tableid != zvrf->table_id ||
+			       zrt->ns_id != zvrf->zns->ns_id))
 			zrt = RB_NEXT(zebra_router_table_head, zrt);
 	}
 
@@ -203,6 +201,8 @@ lib_vrf_zebra_ribs_rib_lookup_entry(struct nb_cb_lookup_entry_args *args)
 	uint32_t table_id = 0;
 
 	zvrf = zebra_vrf_lookup_by_id(vrf->vrf_id);
+	if (!zvrf)
+		return NULL;
 
 	yang_afi_safi_identity2value(args->keys->key[0], &afi, &safi);
 	table_id = yang_str2uint32(args->keys->key[1]);
@@ -211,6 +211,28 @@ lib_vrf_zebra_ribs_rib_lookup_entry(struct nb_cb_lookup_entry_args *args)
 		table_id = zvrf->table_id;
 
 	return zebra_router_find_zrt(zvrf, table_id, afi, safi);
+}
+
+const void *
+lib_vrf_zebra_ribs_rib_lookup_next(struct nb_cb_lookup_entry_args *args)
+{
+	struct vrf *vrf = (struct vrf *)args->parent_list_entry;
+	struct zebra_vrf *zvrf;
+	afi_t afi;
+	safi_t safi;
+	uint32_t table_id = 0;
+
+	zvrf = zebra_vrf_lookup_by_id(vrf->vrf_id);
+	if (!zvrf)
+		return NULL;
+
+	yang_afi_safi_identity2value(args->keys->key[0], &afi, &safi);
+	table_id = yang_str2uint32(args->keys->key[1]);
+	/* table_id 0 assume vrf's table_id. */
+	if (!table_id)
+		table_id = zvrf->table_id;
+
+	return zebra_router_find_next_zrt(zvrf, table_id, afi, safi);
 }
 
 /*
@@ -281,6 +303,25 @@ lib_vrf_zebra_ribs_rib_route_lookup_entry(struct nb_cb_lookup_entry_args *args)
 	yang_str2prefix(args->keys->key[0], &p);
 
 	rn = route_node_lookup(zrt->table, &p);
+
+	if (!rn)
+		return NULL;
+
+	route_unlock_node(rn);
+
+	return rn;
+}
+
+const void *
+lib_vrf_zebra_ribs_rib_route_lookup_next(struct nb_cb_lookup_entry_args *args)
+{
+	const struct zebra_router_table *zrt = args->parent_list_entry;
+	struct prefix p;
+	struct route_node *rn;
+
+	yang_str2prefix(args->keys->key[0], &p);
+
+	rn = route_table_get_next(zrt->table, &p);
 
 	if (!rn)
 		return NULL;
@@ -706,7 +747,7 @@ lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_nexthop_nh_type_get_elem(
 	case NEXTHOP_TYPE_IPV6_IFINDEX:
 		return yang_data_new_string(args->xpath, "ip6-ifindex");
 		break;
-	default:
+	case NEXTHOP_TYPE_BLACKHOLE:
 		break;
 	}
 
@@ -844,6 +885,58 @@ lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_nexthop_color_get_elem(
 
 	return NULL;
 }
+
+/*
+ * XPath:
+ * /frr-vrf:lib/vrf/frr-zebra:zebra/ribs/rib/route/route-entry/nexthop-group/nexthop/srv6-segs-stack/entry
+ */
+const void *
+lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_nexthop_srv6_segs_stack_entry_get_next(
+	struct nb_cb_get_next_args *args)
+{
+	/* TODO: implement me. */
+	return NULL;
+}
+
+int lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_nexthop_srv6_segs_stack_entry_get_keys(
+	struct nb_cb_get_keys_args *args)
+{
+	/* TODO: implement me. */
+	return NB_OK;
+}
+
+const void *
+lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_nexthop_srv6_segs_stack_entry_lookup_entry(
+	struct nb_cb_lookup_entry_args *args)
+{
+	/* TODO: implement me. */
+	return NULL;
+}
+
+/*
+ * XPath:
+ * /frr-vrf:lib/vrf/frr-zebra:zebra/ribs/rib/route/route-entry/nexthop-group/nexthop/srv6-segs-stack/entry/id
+ */
+struct yang_data *
+lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_nexthop_srv6_segs_stack_entry_id_get_elem(
+	struct nb_cb_get_elem_args *args)
+{
+	/* TODO: implement me. */
+	return NULL;
+}
+
+/*
+ * XPath:
+ * /frr-vrf:lib/vrf/frr-zebra:zebra/ribs/rib/route/route-entry/nexthop-group/nexthop/srv6-segs-stack/entry/seg
+ */
+struct yang_data *
+lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_nexthop_srv6_segs_stack_entry_seg_get_elem(
+	struct nb_cb_get_elem_args *args)
+{
+	/* TODO: implement me. */
+	return NULL;
+}
+
 
 /*
  * XPath:

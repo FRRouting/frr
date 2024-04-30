@@ -29,13 +29,3 @@ noinst_HEADERS += \
 vtysh_vtysh_LDADD = lib/libfrr.la $(LIBCAP) $(LIBREADLINE) $(LIBS) $(LIBPAM)
 
 EXTRA_DIST += vtysh/daemons.pl
-
-BUILT_SOURCES += vtysh/vtysh_daemons.h
-
-# force vtysh_daemons.h
-$(vtysh_vtysh_OBJECTS): vtysh/vtysh_daemons.h
-
-CLEANFILES += vtysh/vtysh_daemons.h
-vtysh/vtysh_daemons.h:
-	@$(MKDIR_P) vtysh
-	$(PERL) $(top_srcdir)/vtysh/daemons.pl $(vtysh_daemons) > vtysh/vtysh_daemons.h

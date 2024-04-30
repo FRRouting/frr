@@ -1,23 +1,10 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Zebra API message creation & consumption.
  * Portions:
  *   Copyright (C) 1997-1999  Kunihiro Ishiguro
  *   Copyright (C) 2015-2018  Cumulus Networks, Inc.
  *   et al.
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include "lib/if.h"
@@ -66,12 +53,11 @@ extern int zsend_interface_update(int cmd, struct zserv *client,
 				  struct interface *ifp);
 extern int zsend_redistribute_route(int cmd, struct zserv *zclient,
 				    const struct route_node *rn,
-				    const struct route_entry *re);
+				    const struct route_entry *re,
+				    bool is_table_direct);
 
 extern int zsend_router_id_update(struct zserv *zclient, afi_t afi,
 				  struct prefix *p, vrf_id_t vrf_id);
-extern int zsend_interface_vrf_update(struct zserv *zclient,
-				      struct interface *ifp, vrf_id_t vrf_id);
 extern int zsend_interface_link_params(struct zserv *zclient,
 				       struct interface *ifp);
 extern int zsend_pw_update(struct zserv *client, struct zebra_pw *pw);
@@ -105,9 +91,9 @@ extern int zsend_label_manager_connect_response(struct zserv *client,
 extern int zsend_sr_policy_notify_status(uint32_t color,
 					 struct ipaddr *endpoint, char *name,
 					 int status);
-extern void zsend_nhrp_neighbor_notify(int cmd, struct interface *ifp,
-				       struct ipaddr *ipaddr, int ndm_state,
-				       union sockunion *link_layer_ipv4);
+extern void zsend_neighbor_notify(int cmd, struct interface *ifp,
+				  struct ipaddr *ipaddr, int ndm_state,
+				  union sockunion *link_layer_ipv4, int ip_len);
 
 extern int zsend_client_close_notify(struct zserv *client,
 				     struct zserv *closed_client);

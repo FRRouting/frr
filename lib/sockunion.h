@@ -1,31 +1,19 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Socket union header.
  * Copyright (c) 1997 Kunihiro Ishiguro
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef _ZEBRA_SOCKUNION_H
 #define _ZEBRA_SOCKUNION_H
 
+#include "compiler.h"
+
 #include "privs.h"
 #include "if.h"
 #include <sys/un.h>
 #ifdef __OpenBSD__
+#include <net/route.h>
 #include <netmpls/mpls.h>
 #endif
 
@@ -42,7 +30,39 @@ union sockunion {
 	struct sockaddr_mpls smpls;
 	struct sockaddr_rtlabel rtlabel;
 #endif
+
+	/* sockaddr_storage is guaranteed to be larger than the others */
+	struct sockaddr_storage sa_storage;
 };
+
+/* clang-format off */
+/* for functions that want to accept any sockaddr pointer without casts */
+union sockaddrptr {
+	uniontype(sockaddrptr, union sockunion, su)
+	uniontype(sockaddrptr, struct sockaddr, sa)
+	uniontype(sockaddrptr, struct sockaddr_in, sin)
+	uniontype(sockaddrptr, struct sockaddr_in6, sin6)
+	uniontype(sockaddrptr, struct sockaddr_un, sun)
+#ifdef __OpenBSD__
+	uniontype(sockaddrptr, struct sockaddr_mpls, smpls)
+	uniontype(sockaddrptr, struct sockaddr_rtlabel, rtlabel)
+#endif
+	uniontype(sockaddrptr, struct sockaddr_storage, sa_storage)
+} TRANSPARENT_UNION;
+
+union sockaddrconstptr {
+	uniontype(sockaddrconstptr, const union sockunion, su)
+	uniontype(sockaddrconstptr, const struct sockaddr, sa)
+	uniontype(sockaddrconstptr, const struct sockaddr_in, sin)
+	uniontype(sockaddrconstptr, const struct sockaddr_in6, sin6)
+	uniontype(sockaddrconstptr, const struct sockaddr_un, sun)
+#ifdef __OpenBSD__
+	uniontype(sockaddrconstptr, const struct sockaddr_mpls, smpls)
+	uniontype(sockaddrconstptr, const struct sockaddr_rtlabel, rtlabel)
+#endif
+	uniontype(sockaddrconstptr, const struct sockaddr_storage, sa_storage)
+} TRANSPARENT_UNION;
+/* clang-format on */
 
 enum connect_result { connect_error, connect_success, connect_in_progress };
 

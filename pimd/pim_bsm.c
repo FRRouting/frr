@@ -1,23 +1,9 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * pim_bsm.c: PIM BSM handling routines
  *
  * Copyright (C) 2018-19 Vmware, Inc.
  * Saravanan K
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; see the file COPYING; if not, write to the
- * Free Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston,
- * MA 02110-1301 USA
  */
 
 #ifdef HAVE_CONFIG_H
@@ -68,7 +54,7 @@ void pim_bsm_write_config(struct vty *vty, struct interface *ifp)
 
 static void pim_bsm_rpinfo_free(struct bsm_rpinfo *bsrp_info)
 {
-	THREAD_OFF(bsrp_info->g2rp_timer);
+	EVENT_OFF(bsrp_info->g2rp_timer);
 	XFREE(MTYPE_PIM_BSRP_INFO, bsrp_info);
 }
 
@@ -154,15 +140,15 @@ static struct bsgrp_node *pim_bsm_new_bsgrp_node(struct route_table *rt,
 	return bsgrp;
 }
 
-static void pim_on_bs_timer(struct thread *t)
+static void pim_on_bs_timer(struct event *t)
 {
 	struct route_node *rn;
 	struct bsm_scope *scope;
 	struct bsgrp_node *bsgrp_node;
 	struct bsm_rpinfo *bsrp;
 
-	scope = THREAD_ARG(t);
-	THREAD_OFF(scope->bs_timer);
+	scope = EVENT_ARG(t);
+	EVENT_OFF(scope->bs_timer);
 
 	if (PIM_DEBUG_BSM)
 		zlog_debug("%s: Bootstrap Timer expired for scope: %d",
@@ -202,7 +188,7 @@ static void pim_bs_timer_stop(struct bsm_scope *scope)
 	if (PIM_DEBUG_BSM)
 		zlog_debug("%s : BS timer being stopped of sz: %d", __func__,
 			   scope->sz_id);
-	THREAD_OFF(scope->bs_timer);
+	EVENT_OFF(scope->bs_timer);
 }
 
 static void pim_bs_timer_start(struct bsm_scope *scope, int bs_timeout)
@@ -212,13 +198,13 @@ static void pim_bs_timer_start(struct bsm_scope *scope, int bs_timeout)
 			zlog_debug("%s : Invalid scope(NULL).", __func__);
 		return;
 	}
-	THREAD_OFF(scope->bs_timer);
+	EVENT_OFF(scope->bs_timer);
 	if (PIM_DEBUG_BSM)
 		zlog_debug(
 			"%s : starting bs timer for scope %d with timeout %d secs",
 			__func__, scope->sz_id, bs_timeout);
-	thread_add_timer(router->master, pim_on_bs_timer, scope, bs_timeout,
-			 &scope->bs_timer);
+	event_add_timer(router->master, pim_on_bs_timer, scope, bs_timeout,
+			&scope->bs_timer);
 }
 
 static inline void pim_bs_timer_restart(struct bsm_scope *scope, int bs_timeout)
@@ -270,7 +256,7 @@ static bool is_hold_time_elapsed(void *data)
 		return true;
 }
 
-static void pim_on_g2rp_timer(struct thread *t)
+static void pim_on_g2rp_timer(struct event *t)
 {
 	struct bsm_rpinfo *bsrp;
 	struct bsm_rpinfo *bsrp_node;
@@ -281,8 +267,8 @@ static void pim_on_g2rp_timer(struct thread *t)
 	uint16_t elapse;
 	pim_addr bsrp_addr;
 
-	bsrp = THREAD_ARG(t);
-	THREAD_OFF(bsrp->g2rp_timer);
+	bsrp = EVENT_ARG(t);
+	EVENT_OFF(bsrp->g2rp_timer);
 	bsgrp_node = bsrp->bsgrp_node;
 
 	/* elapse time is the hold time of expired node */
@@ -344,15 +330,15 @@ static void pim_g2rp_timer_start(struct bsm_rpinfo *bsrp, int hold_time)
 			zlog_debug("%s : Invalid brsp(NULL).", __func__);
 		return;
 	}
-	THREAD_OFF(bsrp->g2rp_timer);
+	EVENT_OFF(bsrp->g2rp_timer);
 	if (PIM_DEBUG_BSM)
 		zlog_debug(
 			"%s : starting g2rp timer for grp: %pFX - rp: %pPAs with timeout  %d secs(Actual Hold time : %d secs)",
 			__func__, &bsrp->bsgrp_node->group, &bsrp->rp_address,
 			hold_time, bsrp->rp_holdtime);
 
-	thread_add_timer(router->master, pim_on_g2rp_timer, bsrp, hold_time,
-			 &bsrp->g2rp_timer);
+	event_add_timer(router->master, pim_on_g2rp_timer, bsrp, hold_time,
+			&bsrp->g2rp_timer);
 }
 
 static inline void pim_g2rp_timer_restart(struct bsm_rpinfo *bsrp,
@@ -371,7 +357,7 @@ static void pim_g2rp_timer_stop(struct bsm_rpinfo *bsrp)
 			   __func__, &bsrp->bsgrp_node->group,
 			   &bsrp->rp_address);
 
-	THREAD_OFF(bsrp->g2rp_timer);
+	EVENT_OFF(bsrp->g2rp_timer);
 }
 
 static bool is_hold_time_zero(void *data)

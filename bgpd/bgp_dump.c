@@ -1,31 +1,17 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* BGP-4 dump routine
  * Copyright (C) 1999 Kunihiro Ishiguro
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
+#include <sys/stat.h>
 
 #include "log.h"
 #include "stream.h"
 #include "sockunion.h"
 #include "command.h"
 #include "prefix.h"
-#include "thread.h"
+#include "frrevent.h"
 #include "linklist.h"
 #include "queue.h"
 #include "memory.h"
@@ -84,11 +70,11 @@ struct bgp_dump {
 
 	char *interval_str;
 
-	struct thread *t_interval;
+	struct event *t_interval;
 };
 
 static int bgp_dump_unset(struct bgp_dump *bgp_dump);
-static void bgp_dump_interval_func(struct thread *);
+static void bgp_dump_interval_func(struct event *);
 
 /* BGP packet dump output buffer. */
 struct stream *bgp_dump_obuf;
@@ -169,13 +155,13 @@ static int bgp_dump_interval_add(struct bgp_dump *bgp_dump, int interval)
 			interval = interval
 				   - secs_into_day % interval; /* always > 0 */
 		}
-		thread_add_timer(bm->master, bgp_dump_interval_func, bgp_dump,
-				 interval, &bgp_dump->t_interval);
+		event_add_timer(bm->master, bgp_dump_interval_func, bgp_dump,
+				interval, &bgp_dump->t_interval);
 	} else {
 		/* One-off dump: execute immediately, don't affect any scheduled
 		 * dumps */
-		thread_add_event(bm->master, bgp_dump_interval_func, bgp_dump,
-				 0, &bgp_dump->t_interval);
+		event_add_event(bm->master, bgp_dump_interval_func, bgp_dump, 0,
+				&bgp_dump->t_interval);
 	}
 
 	return 0;
@@ -261,14 +247,15 @@ static void bgp_dump_routes_index_table(struct bgp *bgp)
 
 	/* Walk down all peers */
 	for (ALL_LIST_ELEMENTS_RO(bgp->peer, node, peer)) {
+		int family = sockunion_family(&peer->connection->su);
 
 		/* Peer's type */
-		if (sockunion_family(&peer->su) == AF_INET) {
+		if (family == AF_INET) {
 			stream_putc(
 				obuf,
 				TABLE_DUMP_V2_PEER_INDEX_TABLE_AS4
 					+ TABLE_DUMP_V2_PEER_INDEX_TABLE_IP);
-		} else if (sockunion_family(&peer->su) == AF_INET6) {
+		} else if (family == AF_INET6) {
 			stream_putc(
 				obuf,
 				TABLE_DUMP_V2_PEER_INDEX_TABLE_AS4
@@ -279,10 +266,13 @@ static void bgp_dump_routes_index_table(struct bgp *bgp)
 		stream_put_in_addr(obuf, &peer->remote_id);
 
 		/* Peer's IP address */
-		if (sockunion_family(&peer->su) == AF_INET) {
-			stream_put_in_addr(obuf, &peer->su.sin.sin_addr);
-		} else if (sockunion_family(&peer->su) == AF_INET6) {
-			stream_write(obuf, (uint8_t *)&peer->su.sin6.sin6_addr,
+		if (family == AF_INET) {
+			stream_put_in_addr(obuf,
+					   &peer->connection->su.sin.sin_addr);
+		} else if (family == AF_INET6) {
+			stream_write(obuf,
+				     (uint8_t *)&peer->connection->su.sin6
+					     .sin6_addr,
 				     IPV6_MAX_BYTELEN);
 		}
 
@@ -443,10 +433,10 @@ static unsigned int bgp_dump_routes_func(int afi, int first_run,
 	return seq;
 }
 
-static void bgp_dump_interval_func(struct thread *t)
+static void bgp_dump_interval_func(struct event *t)
 {
 	struct bgp_dump *bgp_dump;
-	bgp_dump = THREAD_ARG(t);
+	bgp_dump = EVENT_ARG(t);
 
 	/* Reschedule dump even if file couldn't be opened this time... */
 	if (bgp_dump_open_file(bgp_dump) != NULL) {
@@ -483,24 +473,26 @@ static void bgp_dump_common(struct stream *obuf, struct peer *peer,
 		stream_putw(obuf, peer->local_as);
 	}
 
-	if (peer->su.sa.sa_family == AF_INET) {
+	if (peer->connection->su.sa.sa_family == AF_INET) {
 		stream_putw(obuf, peer->ifp ? peer->ifp->ifindex : 0);
 		stream_putw(obuf, AFI_IP);
 
-		stream_put(obuf, &peer->su.sin.sin_addr, IPV4_MAX_BYTELEN);
+		stream_put(obuf, &peer->connection->su.sin.sin_addr,
+			   IPV4_MAX_BYTELEN);
 
 		if (peer->su_local)
 			stream_put(obuf, &peer->su_local->sin.sin_addr,
 				   IPV4_MAX_BYTELEN);
 		else
 			stream_put(obuf, empty, IPV4_MAX_BYTELEN);
-	} else if (peer->su.sa.sa_family == AF_INET6) {
+	} else if (peer->connection->su.sa.sa_family == AF_INET6) {
 		/* Interface Index and Address family. */
 		stream_putw(obuf, peer->ifp ? peer->ifp->ifindex : 0);
 		stream_putw(obuf, AFI_IP6);
 
 		/* Source IP Address and Destination IP Address. */
-		stream_put(obuf, &peer->su.sin6.sin6_addr, IPV6_MAX_BYTELEN);
+		stream_put(obuf, &peer->connection->su.sin6.sin6_addr,
+			   IPV6_MAX_BYTELEN);
 
 		if (peer->su_local)
 			stream_put(obuf, &peer->su_local->sin6.sin6_addr,
@@ -527,8 +519,8 @@ int bgp_dump_state(struct peer *peer)
 			bgp_dump_all.type);
 	bgp_dump_common(obuf, peer, 1); /* force this in as4speak*/
 
-	stream_putw(obuf, peer->ostatus);
-	stream_putw(obuf, peer->status);
+	stream_putw(obuf, peer->connection->ostatus);
+	stream_putw(obuf, peer->connection->status);
 
 	/* Set length. */
 	bgp_dump_set_size(obuf, MSG_PROTOCOL_BGP4MP);
@@ -547,10 +539,10 @@ static void bgp_dump_packet_func(struct bgp_dump *bgp_dump, struct peer *peer,
 	/* If dump file pointer is disabled return immediately. */
 	if (bgp_dump->fp == NULL)
 		return;
-	if (peer->su.sa.sa_family == AF_INET) {
+	if (peer->connection->su.sa.sa_family == AF_INET) {
 		addpath_capable =
 			bgp_addpath_encode_rx(peer, AFI_IP, SAFI_UNICAST);
-	} else if (peer->su.sa.sa_family == AF_INET6) {
+	} else if (peer->connection->su.sa.sa_family == AF_INET6) {
 		addpath_capable =
 			bgp_addpath_encode_rx(peer, AFI_IP6, SAFI_UNICAST);
 	}
@@ -706,7 +698,7 @@ static int bgp_dump_unset(struct bgp_dump *bgp_dump)
 	}
 
 	/* Removing interval event. */
-	THREAD_OFF(bgp_dump->t_interval);
+	EVENT_OFF(bgp_dump->t_interval);
 
 	bgp_dump->interval = 0;
 

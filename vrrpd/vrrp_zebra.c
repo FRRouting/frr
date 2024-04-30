@@ -1,21 +1,8 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * VRRP Zebra interfacing.
  * Copyright (C) 2018-2019 Cumulus Networks, Inc.
  * Quentin Young
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 #include <zebra.h>
 
@@ -49,11 +36,10 @@ static void vrrp_zebra_debug_if_dump_address(struct interface *ifp,
 					     const char *func)
 {
 	struct connected *ifc;
-	struct listnode *node;
 
 	DEBUGD(&vrrp_dbg_zebra, "%s: interface %s addresses:", func, ifp->name);
 
-	for (ALL_LIST_ELEMENTS_RO(ifp->connected, node, ifc)) {
+	frr_each (if_connected, ifp->connected, ifc) {
 		struct prefix *p = ifc->address;
 
 		DEBUGD(&vrrp_dbg_zebra, "%s: interface %s address %pFX %s",
@@ -196,8 +182,10 @@ static zclient_handler *const vrrp_handlers[] = {
 
 void vrrp_zebra_init(void)
 {
-	if_zapi_callbacks(vrrp_ifp_create, vrrp_ifp_up,
-			  vrrp_ifp_down, vrrp_ifp_destroy);
+	hook_register_prio(if_real, 0, vrrp_ifp_create);
+	hook_register_prio(if_up, 0, vrrp_ifp_up);
+	hook_register_prio(if_down, 0, vrrp_ifp_down);
+	hook_register_prio(if_unreal, 0, vrrp_ifp_destroy);
 
 	/* Socket for receiving updates from Zebra daemon */
 	zclient = zclient_new(master, &zclient_options_default, vrrp_handlers,

@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Test srcdest table for correctness.
  *
@@ -5,20 +6,6 @@
  *                       Open Source Routing / NetDEF Inc.
  *
  * This file is part of FRRouting (FRR)
- *
- * FRR is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * FRR is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -37,7 +24,7 @@
 #define s6_addr32 __u6_addr.__u6_addr32
 #endif /*s6_addr32*/
 
-struct thread_master *master;
+struct event_loop *master;
 
 /* This structure is copied from lib/srcdest_table.c to which it is
  * private as far as other parts of Quagga are concerned.
@@ -134,8 +121,7 @@ static struct test_state *test_state_new(void)
 static void test_state_free(struct test_state *test)
 {
 	route_table_finish(test->table);
-	hash_clean(test->log, log_free);
-	hash_free(test->log);
+	hash_clean_and_free(&test->log, log_free);
 	XFREE(MTYPE_TMP, test);
 }
 

@@ -1,21 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* BGP scripting foo
  * Copyright (C) 2020  NVIDIA Corporation
  * Quentin Young
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; see the file COPYING; if not, write to the
- * Free Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston,
- * MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -40,15 +26,16 @@ void lua_pushpeer(lua_State *L, const struct peer *peer)
 	lua_setfield(L, -2, "remote_id");
 	lua_pushinaddr(L, &peer->local_id);
 	lua_setfield(L, -2, "local_id");
-	lua_pushstring(L, lookup_msg(bgp_status_msg, peer->status, NULL));
+	lua_pushstring(L, lookup_msg(bgp_status_msg, peer->connection->status,
+				     NULL));
 	lua_setfield(L, -2, "state");
 	lua_pushstring(L, peer->desc ? peer->desc : "");
 	lua_setfield(L, -2, "description");
-	lua_pushtimet(L, &peer->uptime);
+	lua_pushinteger(L, peer->uptime);
 	lua_setfield(L, -2, "uptime");
-	lua_pushtimet(L, &peer->readtime);
+	lua_pushinteger(L, peer->readtime);
 	lua_setfield(L, -2, "last_readtime");
-	lua_pushtimet(L, &peer->resettime);
+	lua_pushinteger(L, peer->resettime);
 	lua_setfield(L, -2, "last_resettime");
 	lua_pushsockunion(L, peer->su_local);
 	lua_setfield(L, -2, "local_address");
@@ -163,7 +150,8 @@ void lua_decode_attr(lua_State *L, int idx, struct attr *attr)
 	attr->nh_ifindex = lua_tointeger(L, -1);
 	lua_pop(L, 1);
 	lua_getfield(L, idx, "aspath");
-	attr->aspath = aspath_str2aspath(lua_tostring(L, -1));
+	attr->aspath = aspath_str2aspath(lua_tostring(L, -1),
+					 bgp_get_asnotation(NULL));
 	lua_pop(L, 1);
 	lua_getfield(L, idx, "localpref");
 	attr->local_pref = lua_tointeger(L, -1);

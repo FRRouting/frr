@@ -1,20 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Copyright (C) 2016-2019 Cumulus Networks, Inc.
  * Donald Sharp, Quentin Young
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 #ifndef __FRRLUA_H__
 #define __FRRLUA_H__
@@ -113,21 +100,6 @@ void lua_pushethaddr(lua_State *L, const struct ethaddr *addr);
 void *lua_toin6addr(lua_State *L, int idx);
 
 /*
- * Converts a time_t to a Lua value and pushes it on the stack.
- */
-void lua_pushtimet(lua_State *L, const time_t *time);
-
-void lua_decode_timet(lua_State *L, int idx, time_t *time);
-
-/*
- * Converts the Lua value at idx to a time_t.
- *
- * Returns:
- *    time_t allocated with MTYPE_TMP.
- */
-void *lua_totimet(lua_State *L, int idx);
-
-/*
  * Converts a sockunion to a Lua value and pushes it on the stack.
  */
 void lua_pushsockunion(lua_State *L, const union sockunion *su);
@@ -149,9 +121,9 @@ void lua_pushnexthop(lua_State *L, const struct nexthop *nexthop);
 /*
  * Converts an int to a Lua value and pushes it on the stack.
  */
-void lua_pushintegerp(lua_State *L, const long long *num);
+void lua_pushintegerp(lua_State *L, const int *num);
 
-void lua_decode_integerp(lua_State *L, int idx, long long *num);
+void lua_decode_integerp(lua_State *L, int idx, int *num);
 
 /*
  * Converts the Lua value at idx to an int.
@@ -160,6 +132,21 @@ void lua_decode_integerp(lua_State *L, int idx, long long *num);
  *    int allocated with MTYPE_TMP.
  */
 void *lua_tointegerp(lua_State *L, int idx);
+
+/*
+ * Converts a long long to a Lua value and pushes it on the stack.
+ */
+void lua_pushlonglongp(lua_State *L, const long long *num);
+
+void lua_decode_longlongp(lua_State *L, int idx, long long *num);
+
+/*
+ * Converts the Lua value at idx to a long long.
+ *
+ * Returns:
+ *    long long allocated with MTYPE_TMP.
+ */
+void *lua_tolonglongp(lua_State *L, int idx);
 
 void lua_decode_stringp(lua_State *L, int idx, char *str);
 
@@ -170,13 +157,6 @@ void lua_decode_stringp(lua_State *L, int idx, char *str);
  * allocated with MTYPE_TMP and the caller is responsible for freeing it.
  */
 void *lua_tostringp(lua_State *L, int idx);
-
-/*
- * No-op decoders
- */
-void lua_decode_noop(lua_State *L, int idx, const void *ptr);
-
-void lua_decode_integer_noop(lua_State *L, int idx, int i);
 
 /*
  * Retrieve an integer from table on the top of the stack.

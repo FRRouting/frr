@@ -1,21 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Copyright (C) 2003 Yasuhiro Ohara
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -282,7 +267,8 @@ int ospf6_num_nexthops(struct list *nh_list)
 	return (listcount(nh_list));
 }
 
-void ospf6_add_nexthop(struct list *nh_list, int ifindex, struct in6_addr *addr)
+void ospf6_add_nexthop(struct list *nh_list, int ifindex,
+		       const struct in6_addr *addr)
 {
 	struct ospf6_nexthop *nh;
 	struct ospf6_nexthop nh_match;
@@ -377,7 +363,7 @@ void ospf6_route_zebra_copy_nexthops(struct ospf6_route *route,
 
 			case NEXTHOP_TYPE_IPV6_IFINDEX:
 				nexthops[i].ifindex = nh->ifindex;
-				/* FALLTHROUGH */
+				fallthrough;
 			case NEXTHOP_TYPE_IPV6:
 				nexthops[i].gate.ipv6 = nh->address;
 				break;
@@ -553,6 +539,10 @@ int ospf6_route_cmp(struct ospf6_route *ra, struct ospf6_route *rb)
 
 	if (ra->path.area_id != rb->path.area_id)
 		return (ntohl(ra->path.area_id) - ntohl(rb->path.area_id));
+
+	if ((ra->prefix_options & OSPF6_PREFIX_OPTION_LA)
+	    != (rb->prefix_options & OSPF6_PREFIX_OPTION_LA))
+		return ra->prefix_options & OSPF6_PREFIX_OPTION_LA ? -1 : 1;
 
 	return 0;
 }

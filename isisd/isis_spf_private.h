@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * IS-IS Rout(e)ing protocol                  - isis_spf_private.h
  *
@@ -5,20 +6,6 @@
  *                           Tampere University of Technology
  *                           Institute of Communications Engineering
  * Copyright (C) 2017        Christian Franke <chris@opensourcerouting.org>
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public Licenseas published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful,but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 #ifndef ISIS_SPF_PRIVATE_H
 #define ISIS_SPF_PRIVATE_H
@@ -362,11 +349,16 @@ struct isis_spftree {
 			uint32_t total[SPF_PREFIX_PRIO_MAX];
 		} protection_counters;
 	} lfa;
+	uint8_t algorithm;
 	uint8_t flags;
 };
 #define F_SPFTREE_HOPCOUNT_METRIC 0x01
 #define F_SPFTREE_NO_ROUTES 0x02
 #define F_SPFTREE_NO_ADJACENCIES 0x04
+#ifndef FABRICD
+/* flex-algo */
+#define F_SPFTREE_DISABLED 0x08
+#endif /* ifndef FABRICD */
 
 __attribute__((__unused__))
 static void isis_vertex_id_init(struct isis_vertex *vertex, const void *id,

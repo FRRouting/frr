@@ -1,13 +1,5 @@
 #include "log.h"
 
-#if defined(__GNUC__) && (__GNUC__ >= 3)
-#define likely(_x) __builtin_expect(!!(_x), 1)
-#define unlikely(_x) __builtin_expect(!!(_x), 0)
-#else
-#define likely(_x) !!(_x)
-#define unlikely(_x) !!(_x)
-#endif
-
 #define NHRP_DEBUG_COMMON	(1 << 0)
 #define NHRP_DEBUG_KERNEL	(1 << 1)
 #define NHRP_DEBUG_IF		(1 << 2)

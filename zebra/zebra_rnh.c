@@ -1,21 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* Zebra next hop tracking code
  * Copyright (C) 2013 Cumulus Networks, Inc.
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -28,7 +13,7 @@
 #include "log.h"
 #include "sockunion.h"
 #include "linklist.h"
-#include "thread.h"
+#include "frrevent.h"
 #include "workqueue.h"
 #include "prefix.h"
 #include "routemap.h"
@@ -341,7 +326,7 @@ void zebra_register_rnh_pseudowire(vrf_id_t vrf_id, struct zebra_pw *pw,
 
 	*nht_exists = false;
 
-	zvrf = vrf_info_lookup(vrf_id);
+	zvrf = zebra_vrf_lookup_by_id(vrf_id);
 	if (!zvrf)
 		return;
 
@@ -528,10 +513,14 @@ static bool rnh_check_re_nexthops(const struct route_entry *re,
 		goto done;
 	}
 
-	/* Some special checks if registration asked for them. */
+	/*
+	 * Some special checks if registration asked for them.
+	 * LOCAL routes are by their definition not CONNECTED
+	 * and as such should not be considered here
+	 */
 	if (CHECK_FLAG(rnh->flags, ZEBRA_NHT_CONNECTED)) {
-		if ((re->type == ZEBRA_ROUTE_CONNECT)
-		    || (re->type == ZEBRA_ROUTE_STATIC))
+		if ((re->type == ZEBRA_ROUTE_CONNECT) ||
+		    (re->type == ZEBRA_ROUTE_STATIC))
 			ret = true;
 		if (re->type == ZEBRA_ROUTE_NHRP) {
 
@@ -1283,6 +1272,7 @@ void show_nexthop_json_helper(json_object *json_nexthop,
 	json_object *json_backups = NULL;
 	json_object *json_seg6local = NULL;
 	json_object *json_seg6 = NULL;
+	json_object *json_segs = NULL;
 	int i;
 
 	json_object_int_add(json_nexthop, "flags", nexthop->flags);
@@ -1401,7 +1391,8 @@ void show_nexthop_json_helper(json_object *json_nexthop,
 			json_object_string_addf(json_nexthop, "source", "%pI6",
 						&nexthop->src.ipv6);
 		break;
-	default:
+	case NEXTHOP_TYPE_IFINDEX:
+	case NEXTHOP_TYPE_BLACKHOLE:
 		break;
 	}
 
@@ -1412,8 +1403,14 @@ void show_nexthop_json_helper(json_object *json_nexthop,
 		     label_index < nexthop->nh_label->num_labels; label_index++)
 			json_object_array_add(
 				json_labels,
-				json_object_new_int(
-					nexthop->nh_label->label[label_index]));
+				json_object_new_int((
+					(nexthop->nh_label_type ==
+					 ZEBRA_LSP_EVPN)
+						? label2vni(
+							  &nexthop->nh_label->label
+								   [label_index])
+						: nexthop->nh_label->label
+							  [label_index])));
 
 		json_object_object_add(json_nexthop, "labels", json_labels);
 	}
@@ -1433,11 +1430,31 @@ void show_nexthop_json_helper(json_object *json_nexthop,
 				nexthop->nh_srv6->seg6local_action));
 		json_object_object_add(json_nexthop, "seg6local",
 				       json_seg6local);
-
-		json_seg6 = json_object_new_object();
-		json_object_string_addf(json_seg6, "segs", "%pI6",
-					&nexthop->nh_srv6->seg6_segs);
-		json_object_object_add(json_nexthop, "seg6", json_seg6);
+		if (nexthop->nh_srv6->seg6_segs &&
+		    nexthop->nh_srv6->seg6_segs->num_segs == 1) {
+			json_seg6 = json_object_new_object();
+			json_object_string_addf(json_seg6, "segs", "%pI6",
+						&nexthop->nh_srv6->seg6_segs
+							 ->seg[0]);
+			json_object_object_add(json_nexthop, "seg6", json_seg6);
+		} else {
+			if (nexthop->nh_srv6->seg6_segs) {
+				json_segs = json_object_new_array();
+				for (int seg_idx = 0;
+				     seg_idx <
+				     nexthop->nh_srv6->seg6_segs->num_segs;
+				     seg_idx++)
+					json_object_array_add(
+						json_segs,
+						json_object_new_stringf(
+							"%pI6",
+							&nexthop->nh_srv6
+								 ->seg6_segs
+								 ->seg[seg_idx]));
+				json_object_object_add(json_nexthop, "seg6",
+						       json_segs);
+			}
+		}
 	}
 }
 
@@ -1448,7 +1465,9 @@ void show_route_nexthop_helper(struct vty *vty, const struct route_entry *re,
 			       const struct nexthop *nexthop)
 {
 	char buf[MPLS_LABEL_STRLEN];
-	int i;
+	char seg_buf[SRV6_SEG_STRLEN];
+	struct seg6_segs segs;
+	uint8_t i;
 
 	switch (nexthop->type) {
 	case NEXTHOP_TYPE_IPV4:
@@ -1523,7 +1542,8 @@ void show_route_nexthop_helper(struct vty *vty, const struct route_entry *re,
 		if (!IPV6_ADDR_SAME(&nexthop->src.ipv6, &in6addr_any))
 			vty_out(vty, ", src %pI6", &nexthop->src.ipv6);
 		break;
-	default:
+	case NEXTHOP_TYPE_IFINDEX:
+	case NEXTHOP_TYPE_BLACKHOLE:
 		break;
 	}
 
@@ -1532,18 +1552,30 @@ void show_route_nexthop_helper(struct vty *vty, const struct route_entry *re,
 		vty_out(vty, ", label %s",
 			mpls_label2str(nexthop->nh_label->num_labels,
 				       nexthop->nh_label->label, buf,
-				       sizeof(buf), 1));
+				       sizeof(buf), nexthop->nh_label_type, 1));
 	}
 
 	if (nexthop->nh_srv6) {
 		seg6local_context2str(buf, sizeof(buf),
 				      &nexthop->nh_srv6->seg6local_ctx,
 				      nexthop->nh_srv6->seg6local_action);
-		vty_out(vty, ", seg6local %s %s",
-			seg6local_action2str(
-				nexthop->nh_srv6->seg6local_action),
-			buf);
-		vty_out(vty, ", seg6 %pI6", &nexthop->nh_srv6->seg6_segs);
+		if (nexthop->nh_srv6->seg6local_action !=
+		    ZEBRA_SEG6_LOCAL_ACTION_UNSPEC)
+			vty_out(vty, ", seg6local %s %s",
+				seg6local_action2str(
+					nexthop->nh_srv6->seg6local_action),
+				buf);
+		if (nexthop->nh_srv6->seg6_segs &&
+		    IPV6_ADDR_CMP(&nexthop->nh_srv6->seg6_segs->seg[0],
+				  &in6addr_any)) {
+			segs.num_segs = nexthop->nh_srv6->seg6_segs->num_segs;
+			for (i = 0; i < segs.num_segs; i++)
+				memcpy(&segs.segs[i],
+				       &nexthop->nh_srv6->seg6_segs->seg[i],
+				       sizeof(struct in6_addr));
+			snprintf_seg6_segs(seg_buf, SRV6_SEG_STRLEN, &segs);
+			vty_out(vty, ", seg6 %s", seg_buf);
+		}
 	}
 
 	if (nexthop->weight)

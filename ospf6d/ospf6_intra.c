@@ -1,28 +1,13 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Copyright (C) 2003 Yasuhiro Ohara
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
 
 #include "log.h"
 #include "linklist.h"
-#include "thread.h"
+#include "frrevent.h"
 #include "memory.h"
 #include "if.h"
 #include "prefix.h"
@@ -102,7 +87,7 @@ static int ospf6_router_lsa_show(struct vty *vty, struct ospf6_lsa *lsa,
 	char buf[32], name[32], bits[16], options[32];
 	struct ospf6_router_lsa *router_lsa;
 	struct ospf6_router_lsdesc *lsdesc;
-	json_object *json_arr;
+	json_object *json_arr = NULL;
 	json_object *json_loop;
 
 	router_lsa =
@@ -224,7 +209,7 @@ int ospf6_router_is_stub_router(struct ospf6_lsa *lsa)
 	return OSPF6_NOT_STUB_ROUTER;
 }
 
-void ospf6_router_lsa_originate(struct thread *thread)
+void ospf6_router_lsa_originate(struct event *thread)
 {
 	struct ospf6_area *oa;
 
@@ -243,7 +228,7 @@ void ospf6_router_lsa_originate(struct thread *thread)
 	uint32_t router;
 	int count;
 
-	oa = (struct ospf6_area *)THREAD_ARG(thread);
+	oa = (struct ospf6_area *)EVENT_ARG(thread);
 
 	if (oa->ospf6->gr_info.restart_in_progress) {
 		if (IS_DEBUG_OSPF6_GR)
@@ -336,13 +321,14 @@ void ospf6_router_lsa_originate(struct thread *thread)
 		}
 
 		/* Point-to-Point interfaces */
-		if (oi->type == OSPF_IFTYPE_POINTOPOINT) {
+		if (oi->type == OSPF_IFTYPE_POINTOPOINT
+		    || oi->type == OSPF_IFTYPE_POINTOMULTIPOINT) {
 			for (ALL_LIST_ELEMENTS_RO(oi->neighbor_list, j, on)) {
 				if (on->state != OSPF6_NEIGHBOR_FULL)
 					continue;
 
 				lsdesc->type = OSPF6_ROUTER_LSDESC_POINTTOPOINT;
-				lsdesc->metric = htons(oi->cost);
+				lsdesc->metric = htons(ospf6_neighbor_cost(on));
 				lsdesc->interface_id =
 					htonl(oi->interface->ifindex);
 				lsdesc->neighbor_interface_id =
@@ -475,7 +461,7 @@ static int ospf6_network_lsa_show(struct vty *vty, struct ospf6_lsa *lsa,
 	struct ospf6_network_lsa *network_lsa;
 	struct ospf6_network_lsdesc *lsdesc;
 	char buf[128], options[32];
-	json_object *json_arr;
+	json_object *json_arr = NULL;
 
 	network_lsa =
 		(struct ospf6_network_lsa *)((caddr_t)lsa->header
@@ -509,7 +495,7 @@ static int ospf6_network_lsa_show(struct vty *vty, struct ospf6_lsa *lsa,
 	return 0;
 }
 
-void ospf6_network_lsa_originate(struct thread *thread)
+void ospf6_network_lsa_originate(struct event *thread)
 {
 	struct ospf6_interface *oi;
 
@@ -525,7 +511,7 @@ void ospf6_network_lsa_originate(struct thread *thread)
 	struct listnode *i;
 	uint16_t type;
 
-	oi = (struct ospf6_interface *)THREAD_ARG(thread);
+	oi = (struct ospf6_interface *)EVENT_ARG(thread);
 
 	/* The interface must be enabled until here. A Network-LSA of a
 	   disabled interface (but was once enabled) should be flushed
@@ -761,7 +747,7 @@ static int ospf6_link_lsa_show(struct vty *vty, struct ospf6_lsa *lsa,
 	return 0;
 }
 
-void ospf6_link_lsa_originate(struct thread *thread)
+void ospf6_link_lsa_originate(struct event *thread)
 {
 	struct ospf6_interface *oi;
 
@@ -773,7 +759,7 @@ void ospf6_link_lsa_originate(struct thread *thread)
 	struct ospf6_route *route;
 	struct ospf6_prefix *op;
 
-	oi = (struct ospf6_interface *)THREAD_ARG(thread);
+	oi = (struct ospf6_interface *)EVENT_ARG(thread);
 
 	assert(oi->area);
 
@@ -997,7 +983,7 @@ static int ospf6_intra_prefix_lsa_show(struct vty *vty, struct ospf6_lsa *lsa,
 	return 0;
 }
 
-void ospf6_intra_prefix_lsa_originate_stub(struct thread *thread)
+void ospf6_intra_prefix_lsa_originate_stub(struct event *thread)
 {
 	struct ospf6_area *oa;
 
@@ -1016,7 +1002,7 @@ void ospf6_intra_prefix_lsa_originate_stub(struct thread *thread)
 	struct ospf6_route_table *route_advertise;
 	int ls_id = 0;
 
-	oa = (struct ospf6_area *)THREAD_ARG(thread);
+	oa = (struct ospf6_area *)EVENT_ARG(thread);
 
 	if (oa->ospf6->gr_info.restart_in_progress) {
 		if (IS_DEBUG_OSPF6_GR)
@@ -1083,6 +1069,7 @@ void ospf6_intra_prefix_lsa_originate_stub(struct thread *thread)
 
 		if (oi->state != OSPF6_INTERFACE_LOOPBACK
 		    && oi->state != OSPF6_INTERFACE_POINTTOPOINT
+		    && oi->state != OSPF6_INTERFACE_POINTTOMULTIPOINT
 		    && full_count != 0) {
 			if (IS_OSPF6_DEBUG_ORIGINATE(INTRA_PREFIX))
 				zlog_debug("  Interface %s is not stub, ignore",
@@ -1232,7 +1219,7 @@ void ospf6_intra_prefix_lsa_originate_stub(struct thread *thread)
 }
 
 
-void ospf6_intra_prefix_lsa_originate_transit(struct thread *thread)
+void ospf6_intra_prefix_lsa_originate_transit(struct event *thread)
 {
 	struct ospf6_interface *oi;
 
@@ -1252,7 +1239,7 @@ void ospf6_intra_prefix_lsa_originate_transit(struct thread *thread)
 	char *start, *end, *current;
 	uint16_t type;
 
-	oi = (struct ospf6_interface *)THREAD_ARG(thread);
+	oi = (struct ospf6_interface *)EVENT_ARG(thread);
 
 	assert(oi->area);
 

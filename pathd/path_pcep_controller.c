@@ -1,19 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Copyright (C) 2020  NetDEF, Inc.
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -22,7 +9,6 @@
 #include "command.h"
 #include "libfrr.h"
 #include "printfrr.h"
-#include "lib/version.h"
 #include "northbound.h"
 #include "frr_pthread.h"
 #include "jhash.h"
@@ -92,28 +78,28 @@ struct get_pcep_session_args {
 
 /* Internal Functions Called From Main Thread */
 static int pcep_ctrl_halt_cb(struct frr_pthread *fpt, void **res);
-static void pcep_refine_path_event_cb(struct thread *thread);
+static void pcep_refine_path_event_cb(struct event *thread);
 
 /* Internal Functions Called From Controller Thread */
-static void pcep_thread_finish_event_handler(struct thread *thread);
+static void pcep_thread_finish_event_handler(struct event *thread);
 
 /* Controller Thread Timer Handler */
 static int schedule_thread_timer(struct ctrl_state *ctrl_state, int pcc_id,
 				 enum pcep_ctrl_timer_type timer_type,
 				 enum pcep_ctrl_timeout_type timeout_type,
 				 uint32_t delay, void *payload,
-				 struct thread **thread);
+				 struct event **thread);
 static int schedule_thread_timer_with_cb(
 	struct ctrl_state *ctrl_state, int pcc_id,
 	enum pcep_ctrl_timer_type timer_type,
 	enum pcep_ctrl_timeout_type timeout_type, uint32_t delay, void *payload,
-	struct thread **thread, pcep_ctrl_thread_callback timer_cb);
-static void pcep_thread_timer_handler(struct thread *thread);
+	struct event **thread, pcep_ctrl_thread_callback timer_cb);
+static void pcep_thread_timer_handler(struct event *thread);
 
 /* Controller Thread Socket read/write Handler */
 static int schedule_thread_socket(struct ctrl_state *ctrl_state, int pcc_id,
 				  enum pcep_ctrl_socket_type type, bool is_read,
-				  void *payload, int fd, struct thread **thread,
+				  void *payload, int fd, struct event **thread,
 				  pcep_ctrl_thread_callback cb);
 
 /* Controller Thread Event Handler */
@@ -124,7 +110,7 @@ static int send_to_thread_with_cb(struct ctrl_state *ctrl_state, int pcc_id,
 				  enum pcep_ctrl_event_type type,
 				  uint32_t sub_type, void *payload,
 				  pcep_ctrl_thread_callback event_cb);
-static void pcep_thread_event_handler(struct thread *thread);
+static void pcep_thread_event_handler(struct event *thread);
 static int pcep_thread_event_update_pcc_options(struct ctrl_state *ctrl_state,
 						struct pcc_opts *opts);
 static int pcep_thread_event_update_pce_options(struct ctrl_state *ctrl_state,
@@ -149,7 +135,7 @@ pcep_thread_path_refined_event(struct ctrl_state *ctrl_state,
 /* Main Thread Event Handler */
 static int send_to_main(struct ctrl_state *ctrl_state, int pcc_id,
 			enum pcep_main_event_type type, void *payload);
-static void pcep_main_event_handler(struct thread *thread);
+static void pcep_main_event_handler(struct event *thread);
 
 /* Helper functions */
 static void set_ctrl_state(struct frr_pthread *fpt,
@@ -166,7 +152,7 @@ static const char *timeout_type_name(enum pcep_ctrl_timeout_type type);
 
 /* ------------ API Functions Called from Main Thread ------------ */
 
-int pcep_ctrl_initialize(struct thread_master *main_thread,
+int pcep_ctrl_initialize(struct event_loop *main_thread,
 			 struct frr_pthread **fpt,
 			 pcep_main_event_handler_t event_handler)
 {
@@ -333,16 +319,16 @@ int pcep_ctrl_send_error(struct frr_pthread *fpt, int pcc_id,
 
 int pcep_ctrl_halt_cb(struct frr_pthread *fpt, void **res)
 {
-	thread_add_event(fpt->master, pcep_thread_finish_event_handler,
-			 (void *)fpt, 0, NULL);
+	event_add_event(fpt->master, pcep_thread_finish_event_handler,
+			(void *)fpt, 0, NULL);
 	pthread_join(fpt->thread, res);
 
 	return 0;
 }
 
-void pcep_refine_path_event_cb(struct thread *thread)
+void pcep_refine_path_event_cb(struct event *thread)
 {
-	struct pcep_refine_path_event_data *data = THREAD_ARG(thread);
+	struct pcep_refine_path_event_data *data = EVENT_ARG(thread);
 	assert(data != NULL);
 	struct ctrl_state *ctrl_state = data->ctrl_state;
 	struct path *path = data->path;
@@ -391,20 +377,20 @@ void pcep_thread_remove_candidate_path_segments(struct ctrl_state *ctrl_state,
 
 void pcep_thread_schedule_sync_best_pce(struct ctrl_state *ctrl_state,
 					int pcc_id, int delay,
-					struct thread **thread)
+					struct event **thread)
 {
 
 	schedule_thread_timer(ctrl_state, pcc_id, TM_CALCULATE_BEST_PCE,
 			      TO_UNDEFINED, delay, NULL, thread);
 }
 
-void pcep_thread_cancel_timer(struct thread **thread)
+void pcep_thread_cancel_timer(struct event **thread)
 {
 	if (thread == NULL || *thread == NULL) {
 		return;
 	}
 
-	struct pcep_ctrl_timer_data *data = THREAD_ARG(*thread);
+	struct pcep_ctrl_timer_data *data = EVENT_ARG(*thread);
 	PCEP_DEBUG("Timer %s / %s canceled", timer_type_name(data->timer_type),
 		   timeout_type_name(data->timeout_type));
 	if (data != NULL) {
@@ -412,14 +398,14 @@ void pcep_thread_cancel_timer(struct thread **thread)
 	}
 
 	if ((*thread)->master->owner == pthread_self()) {
-		thread_cancel(thread);
+		event_cancel(thread);
 	} else {
-		thread_cancel_async((*thread)->master, thread, NULL);
+		event_cancel_async((*thread)->master, thread, NULL);
 	}
 }
 
 void pcep_thread_schedule_reconnect(struct ctrl_state *ctrl_state, int pcc_id,
-				    int retry_count, struct thread **thread)
+				    int retry_count, struct event **thread)
 {
 	uint32_t delay = backoff_delay(MAX_RECONNECT_DELAY, 1, retry_count);
 	PCEP_DEBUG("Schedule RECONNECT_PCC for %us (retry %u)", delay,
@@ -431,7 +417,7 @@ void pcep_thread_schedule_reconnect(struct ctrl_state *ctrl_state, int pcc_id,
 void pcep_thread_schedule_timeout(struct ctrl_state *ctrl_state, int pcc_id,
 				  enum pcep_ctrl_timeout_type timeout_type,
 				  uint32_t delay, void *param,
-				  struct thread **thread)
+				  struct event **thread)
 {
 	assert(timeout_type > TO_UNDEFINED);
 	assert(timeout_type < TO_MAX);
@@ -443,7 +429,7 @@ void pcep_thread_schedule_timeout(struct ctrl_state *ctrl_state, int pcc_id,
 
 void pcep_thread_schedule_pceplib_timer(struct ctrl_state *ctrl_state,
 					int delay, void *payload,
-					struct thread **thread,
+					struct event **thread,
 					pcep_ctrl_thread_callback timer_cb)
 {
 	PCEP_DEBUG("Schedule PCEPLIB_TIMER for %us", delay);
@@ -454,7 +440,7 @@ void pcep_thread_schedule_pceplib_timer(struct ctrl_state *ctrl_state,
 
 void pcep_thread_schedule_session_timeout(struct ctrl_state *ctrl_state,
 					  int pcc_id, int delay,
-					  struct thread **thread)
+					  struct event **thread)
 {
 	PCEP_DEBUG("Schedule session_timeout interval for %us", delay);
 	schedule_thread_timer(ctrl_state, pcc_id, TM_SESSION_TIMEOUT_PCC,
@@ -483,8 +469,8 @@ int pcep_thread_refine_path(struct ctrl_state *ctrl_state, int pcc_id,
 	data->continue_lsp_update_handler = cb;
 	data->payload = payload;
 
-	thread_add_event(ctrl_state->main, pcep_refine_path_event_cb,
-			 (void *)data, 0, NULL);
+	event_add_event(ctrl_state->main, pcep_refine_path_event_cb,
+			(void *)data, 0, NULL);
 	return 0;
 }
 
@@ -507,10 +493,10 @@ void pcep_thread_path_refined_event(struct ctrl_state *ctrl_state,
 
 /* ------------ Internal Functions Called From Controller Thread ------------ */
 
-void pcep_thread_finish_event_handler(struct thread *thread)
+void pcep_thread_finish_event_handler(struct event *thread)
 {
 	int i;
-	struct frr_pthread *fpt = THREAD_ARG(thread);
+	struct frr_pthread *fpt = EVENT_ARG(thread);
 	struct ctrl_state *ctrl_state = fpt->data;
 
 	assert(ctrl_state != NULL);
@@ -535,7 +521,7 @@ int schedule_thread_timer_with_cb(struct ctrl_state *ctrl_state, int pcc_id,
 				  enum pcep_ctrl_timer_type timer_type,
 				  enum pcep_ctrl_timeout_type timeout_type,
 				  uint32_t delay, void *payload,
-				  struct thread **thread,
+				  struct event **thread,
 				  pcep_ctrl_thread_callback timer_cb)
 {
 	assert(thread != NULL);
@@ -549,8 +535,8 @@ int schedule_thread_timer_with_cb(struct ctrl_state *ctrl_state, int pcc_id,
 	data->pcc_id = pcc_id;
 	data->payload = payload;
 
-	thread_add_timer(ctrl_state->self, timer_cb, (void *)data, delay,
-			 thread);
+	event_add_timer(ctrl_state->self, timer_cb, (void *)data, delay,
+			thread);
 
 	return 0;
 }
@@ -558,17 +544,17 @@ int schedule_thread_timer_with_cb(struct ctrl_state *ctrl_state, int pcc_id,
 int schedule_thread_timer(struct ctrl_state *ctrl_state, int pcc_id,
 			  enum pcep_ctrl_timer_type timer_type,
 			  enum pcep_ctrl_timeout_type timeout_type,
-			  uint32_t delay, void *payload, struct thread **thread)
+			  uint32_t delay, void *payload, struct event **thread)
 {
 	return schedule_thread_timer_with_cb(ctrl_state, pcc_id, timer_type,
 					     timeout_type, delay, payload,
 					     thread, pcep_thread_timer_handler);
 }
 
-void pcep_thread_timer_handler(struct thread *thread)
+void pcep_thread_timer_handler(struct event *thread)
 {
 	/* data unpacking */
-	struct pcep_ctrl_timer_data *data = THREAD_ARG(thread);
+	struct pcep_ctrl_timer_data *data = EVENT_ARG(thread);
 	assert(data != NULL);
 	struct ctrl_state *ctrl_state = data->ctrl_state;
 	assert(ctrl_state != NULL);
@@ -603,16 +589,18 @@ void pcep_thread_timer_handler(struct thread *thread)
 		pcep_thread_remove_candidate_path_segments(ctrl_state,
 							   pcc_state);
 		break;
-	default:
+	case TM_PCEPLIB_TIMER:
+	case TM_UNDEFINED:
+	case TM_MAX:
 		flog_warn(EC_PATH_PCEP_RECOVERABLE_INTERNAL_ERROR,
 			  "Unknown controller timer triggered: %u", timer_type);
 		break;
 	}
 }
 
-void pcep_thread_pcep_event(struct thread *thread)
+void pcep_thread_pcep_event(struct event *thread)
 {
-	struct pcep_ctrl_event_data *data = THREAD_ARG(thread);
+	struct pcep_ctrl_event_data *data = EVENT_ARG(thread);
 	assert(data != NULL);
 	struct ctrl_state *ctrl_state = data->ctrl_state;
 	pcep_event *event = data->payload;
@@ -636,7 +624,7 @@ void pcep_thread_pcep_event(struct thread *thread)
 
 int schedule_thread_socket(struct ctrl_state *ctrl_state, int pcc_id,
 			   enum pcep_ctrl_socket_type type, bool is_read,
-			   void *payload, int fd, struct thread **thread,
+			   void *payload, int fd, struct event **thread,
 			   pcep_ctrl_thread_callback socket_cb)
 {
 	assert(thread != NULL);
@@ -652,11 +640,11 @@ int schedule_thread_socket(struct ctrl_state *ctrl_state, int pcc_id,
 	data->payload = payload;
 
 	if (is_read) {
-		thread_add_read(ctrl_state->self, socket_cb, (void *)data, fd,
-				thread);
+		event_add_read(ctrl_state->self, socket_cb, (void *)data, fd,
+			       thread);
 	} else {
-		thread_add_write(ctrl_state->self, socket_cb, (void *)data, fd,
-				 thread);
+		event_add_write(ctrl_state->self, socket_cb, (void *)data, fd,
+				thread);
 	}
 
 	return 0;
@@ -668,7 +656,7 @@ int pcep_thread_socket_write(void *fpt, void **thread, int fd, void *payload,
 	struct ctrl_state *ctrl_state = ((struct frr_pthread *)fpt)->data;
 
 	return schedule_thread_socket(ctrl_state, 0, SOCK_PCEPLIB, false,
-				      payload, fd, (struct thread **)thread,
+				      payload, fd, (struct event **)thread,
 				      socket_cb);
 }
 
@@ -678,7 +666,7 @@ int pcep_thread_socket_read(void *fpt, void **thread, int fd, void *payload,
 	struct ctrl_state *ctrl_state = ((struct frr_pthread *)fpt)->data;
 
 	return schedule_thread_socket(ctrl_state, 0, SOCK_PCEPLIB, true,
-				      payload, fd, (struct thread **)thread,
+				      payload, fd, (struct event **)thread,
 				      socket_cb);
 }
 
@@ -714,15 +702,15 @@ int send_to_thread_with_cb(struct ctrl_state *ctrl_state, int pcc_id,
 	data->pcc_id = pcc_id;
 	data->payload = payload;
 
-	thread_add_event(ctrl_state->self, event_cb, (void *)data, 0, NULL);
+	event_add_event(ctrl_state->self, event_cb, (void *)data, 0, NULL);
 
 	return 0;
 }
 
-void pcep_thread_event_handler(struct thread *thread)
+void pcep_thread_event_handler(struct event *thread)
 {
 	/* data unpacking */
-	struct pcep_ctrl_event_data *data = THREAD_ARG(thread);
+	struct pcep_ctrl_event_data *data = EVENT_ARG(thread);
 	assert(data != NULL);
 	struct ctrl_state *ctrl_state = data->ctrl_state;
 	assert(ctrl_state != NULL);
@@ -823,7 +811,7 @@ void pcep_thread_event_handler(struct thread *thread)
 		pcep_pcc_send_error(ctrl_state, pcc_state, error,
 				    (bool)sub_type);
 		break;
-	default:
+	case EV_PCEPLIB_EVENT:
 		flog_warn(EC_PATH_PCEP_RECOVERABLE_INTERNAL_ERROR,
 			  "Unexpected event received in controller thread: %u",
 			  type);
@@ -976,15 +964,15 @@ int send_to_main(struct ctrl_state *ctrl_state, int pcc_id,
 	data->pcc_id = pcc_id;
 	data->payload = payload;
 
-	thread_add_event(ctrl_state->main, pcep_main_event_handler,
-			 (void *)data, 0, NULL);
+	event_add_event(ctrl_state->main, pcep_main_event_handler, (void *)data,
+			0, NULL);
 	return 0;
 }
 
-void pcep_main_event_handler(struct thread *thread)
+void pcep_main_event_handler(struct event *thread)
 {
 	/* data unpacking */
-	struct pcep_main_event_data *data = THREAD_ARG(thread);
+	struct pcep_main_event_data *data = EVENT_ARG(thread);
 	assert(data != NULL);
 	pcep_main_event_handler_t handler = data->handler;
 	enum pcep_main_event_type type = data->type;
@@ -1074,10 +1062,16 @@ const char *timer_type_name(enum pcep_ctrl_timer_type type)
 		return "PCEPLIB_TIMER";
 	case TM_TIMEOUT:
 		return "TIMEOUT";
-	default:
+	case TM_CALCULATE_BEST_PCE:
+		return "BEST_PCE";
+	case TM_SESSION_TIMEOUT_PCC:
+		return "TIMEOUT_PCC";
+	case TM_MAX:
 		return "UNKNOWN";
 	}
-};
+
+	assert(!"Reached end of function where we did not expect to");
+}
 
 const char *timeout_type_name(enum pcep_ctrl_timeout_type type)
 {
@@ -1086,7 +1080,9 @@ const char *timeout_type_name(enum pcep_ctrl_timeout_type type)
 		return "UNDEFINED";
 	case TO_COMPUTATION_REQUEST:
 		return "COMPUTATION_REQUEST";
-	default:
+	case TO_MAX:
 		return "UNKNOWN";
 	}
+
+	assert(!"Reached end of function where we did not expect to");
 }

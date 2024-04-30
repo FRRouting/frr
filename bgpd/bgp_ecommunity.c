@@ -1,21 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* BGP Extended Communities Attribute
  * Copyright (C) 2000 Kunihiro Ishiguro <kunihiro@zebra.org>
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -370,6 +355,22 @@ bool ecommunity_cmp(const void *arg1, const void *arg2)
 			  ecom1->unit_size) == 0);
 }
 
+static void ecommunity_color_str(char *buf, size_t bufsz, uint8_t *ptr)
+{
+	/*
+	 *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+	 *  | 0x03         | Sub-Type(0x0b) |    Flags                      |
+	 *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+	 *  |                          Color Value                          |
+	 *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+	 */
+	uint32_t colorid;
+
+	memcpy(&colorid, ptr + 3, 4);
+	colorid = ntohl(colorid);
+	snprintf(buf, bufsz, "Color:%d", colorid);
+}
+
 /* Initialize Extended Comminities related hash. */
 void ecommunity_init(void)
 {
@@ -379,16 +380,16 @@ void ecommunity_init(void)
 
 void ecommunity_finish(void)
 {
-	hash_clean(ecomhash, (void (*)(void *))ecommunity_hash_free);
-	hash_free(ecomhash);
-	ecomhash = NULL;
+	hash_clean_and_free(&ecomhash, (void (*)(void *))ecommunity_hash_free);
 }
 
 /* Extended Communities token enum. */
 enum ecommunity_token {
 	ecommunity_token_unknown = 0,
 	ecommunity_token_rt,
+	ecommunity_token_nt,
 	ecommunity_token_soo,
+	ecommunity_token_color,
 	ecommunity_token_val,
 	ecommunity_token_rt6,
 	ecommunity_token_val6,
@@ -432,6 +433,58 @@ static void ecommunity_origin_validation_state_str(char *buf, size_t bufsz,
 	(void)ptr; /* consume value */
 }
 
+bool ecommunity_node_target_match(struct ecommunity *ecom,
+				  struct in_addr *local_id)
+{
+	uint32_t i;
+	bool match = false;
+
+	if (!ecom || !ecom->size)
+		return NULL;
+
+	for (i = 0; i < ecom->size; i++) {
+		const uint8_t *pnt;
+		uint8_t type, sub_type;
+
+		pnt = (ecom->val + (i * ECOMMUNITY_SIZE));
+		type = *pnt++;
+		sub_type = *pnt++;
+
+		if (type == ECOMMUNITY_ENCODE_IP &&
+		    sub_type == ECOMMUNITY_NODE_TARGET) {
+			/* Node Target ID is encoded as A.B.C.D:0 */
+			if (IPV4_ADDR_SAME((struct in_addr *)pnt, local_id))
+				match = true;
+			(void)pnt;
+		}
+	}
+
+	return match;
+}
+
+static void ecommunity_node_target_str(char *buf, size_t bufsz, uint8_t *ptr,
+				       int format)
+{
+	/*
+	 *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+	 *  | 0x01 or 0x41 | Sub-Type(0x09) |    Target BGP Identifier      |
+	 *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+	 *  | Target BGP Identifier (cont.) |           Reserved            |
+	 *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+	 */
+	struct in_addr node_id = {};
+
+	IPV4_ADDR_COPY(&node_id, (struct in_addr *)ptr);
+
+
+	snprintfrr(buf, bufsz, "%s%pI4%s",
+		   format == ECOMMUNITY_FORMAT_COMMUNITY_LIST ? "nt " : "NT:",
+		   &node_id,
+		   format == ECOMMUNITY_FORMAT_COMMUNITY_LIST ? ":0" : "");
+
+	(void)ptr; /* consume value */
+}
+
 static int ecommunity_encode_internal(uint8_t type, uint8_t sub_type,
 				      int trans, as_t as,
 				      struct in_addr *ip,
@@ -463,28 +516,22 @@ static int ecommunity_encode_internal(uint8_t type, uint8_t sub_type,
 		eval->val[0] |= ECOMMUNITY_FLAG_NON_TRANSITIVE;
 	eval->val[1] = sub_type;
 	if (type == ECOMMUNITY_ENCODE_AS) {
-		eval->val[2] = (as >> 8) & 0xff;
-		eval->val[3] = as & 0xff;
-		eval->val[4] = (val >> 24) & 0xff;
-		eval->val[5] = (val >> 16) & 0xff;
-		eval->val[6] = (val >> 8) & 0xff;
-		eval->val[7] = val & 0xff;
+		encode_route_target_as(as, val, eval, trans);
 	} else if (type == ECOMMUNITY_ENCODE_IP) {
-		memcpy(&eval->val[2], ip, sizeof(struct in_addr));
-		eval->val[6] = (val >> 8) & 0xff;
-		eval->val[7] = val & 0xff;
+		if (sub_type == ECOMMUNITY_NODE_TARGET)
+			encode_node_target(ip, eval, trans);
+		else
+			encode_route_target_ip(ip, val, eval, trans);
 	} else if (type == ECOMMUNITY_ENCODE_TRANS_EXP &&
 		   sub_type == ECOMMUNITY_FLOWSPEC_REDIRECT_IPV6) {
 		memcpy(&eval6->val[2], ip6, sizeof(struct in6_addr));
 		eval6->val[18] = (val >> 8) & 0xff;
 		eval6->val[19] = val & 0xff;
+	} else if (type == ECOMMUNITY_ENCODE_OPAQUE &&
+		   sub_type == ECOMMUNITY_COLOR) {
+		encode_color(val, eval);
 	} else {
-		eval->val[2] = (as >> 24) & 0xff;
-		eval->val[3] = (as >> 16) & 0xff;
-		eval->val[4] = (as >> 8) & 0xff;
-		eval->val[5] = as & 0xff;
-		eval->val[6] = (val >> 8) & 0xff;
-		eval->val[7] = val & 0xff;
+		encode_route_target_as4(as, val, eval, trans);
 	}
 
 	return 0;
@@ -503,9 +550,8 @@ static int ecommunity_encode(uint8_t type, uint8_t sub_type, int trans, as_t as,
 }
 
 /* Get next Extended Communities token from the string. */
-static const char *ecommunity_gettoken(const char *str,
-				       void *eval_ptr,
-				       enum ecommunity_token *token)
+static const char *ecommunity_gettoken(const char *str, void *eval_ptr,
+				       enum ecommunity_token *token, int type)
 {
 	int ret;
 	int dot = 0;
@@ -517,10 +563,15 @@ static const char *ecommunity_gettoken(const char *str,
 	struct in6_addr ip6;
 	as_t as = 0;
 	uint32_t val = 0;
-	uint8_t ecomm_type;
+	uint32_t val_color = 0;
+	uint8_t ecomm_type = 0;
+	uint8_t sub_type = 0;
 	char buf[INET_ADDRSTRLEN + 1];
 	struct ecommunity_val *eval = (struct ecommunity_val *)eval_ptr;
 	uint64_t tmp_as = 0;
+	static const char str_color[5] = "color";
+	const char *ptr_color;
+	bool val_color_set = false;
 
 	/* Skip white space. */
 	while (isspace((unsigned char)*p)) {
@@ -532,40 +583,49 @@ static const char *ecommunity_gettoken(const char *str,
 	if (*p == '\0')
 		return NULL;
 
-	/* "rt" and "soo" keyword parse. */
-	if (!isdigit((unsigned char)*p)) {
-		/* "rt" match check.  */
-		if (tolower((unsigned char)*p) == 'r') {
+	/* "rt", "nt", "soo", and "color" keyword parse. */
+	/* "rt" */
+	if (tolower((unsigned char)*p) == 'r') {
+		p++;
+		if (tolower((unsigned char)*p) == 't') {
 			p++;
-			if (tolower((unsigned char)*p) == 't') {
-				p++;
-				if (*p != '\0' && tolower((int)*p) == '6')
-					*token = ecommunity_token_rt6;
-				else
-					*token = ecommunity_token_rt;
-				return p;
-			}
-			if (isspace((unsigned char)*p) || *p == '\0') {
+			if (*p != '\0' && tolower((int)*p) == '6')
+				*token = ecommunity_token_rt6;
+			else
 				*token = ecommunity_token_rt;
-				return p;
-			}
-			goto error;
+			return p;
 		}
-		/* "soo" match check.  */
-		else if (tolower((unsigned char)*p) == 's') {
+		if (isspace((unsigned char)*p) || *p == '\0') {
+			*token = ecommunity_token_rt;
+			return p;
+		}
+		goto error;
+	}
+
+	/* "nt" */
+	if (tolower((unsigned char)*p) == 'n') {
+		p++;
+		if (tolower((unsigned char)*p) == 't') {
+			p++;
+			*token = ecommunity_token_nt;
+			return p;
+		}
+		if (isspace((unsigned char)*p) || *p == '\0') {
+			*token = ecommunity_token_nt;
+			return p;
+		}
+		goto error;
+	}
+
+	/* "soo" */
+	if (tolower((unsigned char)*p) == 's') {
+		p++;
+		if (tolower((unsigned char)*p) == 'o') {
 			p++;
 			if (tolower((unsigned char)*p) == 'o') {
 				p++;
-				if (tolower((unsigned char)*p) == 'o') {
-					p++;
-					*token = ecommunity_token_soo;
-					return p;
-				}
-				if (isspace((unsigned char)*p) || *p == '\0') {
-					*token = ecommunity_token_soo;
-					return p;
-				}
-				goto error;
+				*token = ecommunity_token_soo;
+				return p;
 			}
 			if (isspace((unsigned char)*p) || *p == '\0') {
 				*token = ecommunity_token_soo;
@@ -573,9 +633,29 @@ static const char *ecommunity_gettoken(const char *str,
 			}
 			goto error;
 		}
+		if (isspace((unsigned char)*p) || *p == '\0') {
+			*token = ecommunity_token_soo;
+			return p;
+		}
 		goto error;
 	}
 
+	/* "color" */
+	if (tolower((unsigned char)*p) == 'c') {
+		ptr_color = &str_color[0];
+		for (unsigned int i = 0; i < 5; i++) {
+			if (tolower((unsigned char)*p) != *ptr_color)
+				break;
+
+			p++;
+			ptr_color++;
+		}
+		if (isspace((unsigned char)*p) || *p == '\0') {
+			*token = ecommunity_token_color;
+			return p;
+		}
+		goto error;
+	}
 	/* What a mess, there are several possibilities:
 	 *
 	 * a) A.B.C.D:MN
@@ -676,17 +756,24 @@ static const char *ecommunity_gettoken(const char *str,
 		} else {
 			digit = 1;
 
-			/* We're past the IP/ASN part */
+			/* We're past the IP/ASN part,
+			 * or we have a color
+			 */
 			if (separator) {
 				val *= 10;
 				val += (*p - '0');
+				val_color_set = false;
+			} else {
+				val_color *= 10;
+				val_color += (*p - '0');
+				val_color_set = true;
 			}
 		}
 		p++;
 	}
 
 	/* Low digit part must be there. */
-	if (!digit || !separator)
+	if (!digit && (!separator || !val_color_set))
 		goto error;
 
 	/* Encode result into extended community.  */
@@ -694,9 +781,15 @@ static const char *ecommunity_gettoken(const char *str,
 		ecomm_type = ECOMMUNITY_ENCODE_IP;
 	else if (as > BGP_AS_MAX)
 		ecomm_type = ECOMMUNITY_ENCODE_AS4;
-	else
+	else if (as > 0)
 		ecomm_type = ECOMMUNITY_ENCODE_AS;
-	if (ecommunity_encode(ecomm_type, 0, 1, as, ip, val, eval))
+	else if (val_color) {
+		ecomm_type = ECOMMUNITY_ENCODE_OPAQUE;
+		sub_type = ECOMMUNITY_COLOR;
+		val = val_color;
+	}
+
+	if (ecommunity_encode(ecomm_type, sub_type, 1, as, ip, val, eval))
 		goto error;
 	*token = ecommunity_token_val;
 	return p;
@@ -717,11 +810,13 @@ static struct ecommunity *ecommunity_str2com_internal(const char *str, int type,
 
 	if (is_ipv6_extcomm)
 		token = ecommunity_token_rt6;
-	while ((str = ecommunity_gettoken(str, (void *)&eval, &token))) {
+	while ((str = ecommunity_gettoken(str, (void *)&eval, &token, type))) {
 		switch (token) {
 		case ecommunity_token_rt:
+		case ecommunity_token_nt:
 		case ecommunity_token_rt6:
 		case ecommunity_token_soo:
+		case ecommunity_token_color:
 			if (!keyword_included || keyword) {
 				if (ecom)
 					ecommunity_free(&ecom);
@@ -730,12 +825,14 @@ static struct ecommunity *ecommunity_str2com_internal(const char *str, int type,
 			keyword = 1;
 
 			if (token == ecommunity_token_rt ||
-			    token == ecommunity_token_rt6) {
+			    token == ecommunity_token_rt6)
 				type = ECOMMUNITY_ROUTE_TARGET;
-			}
-			if (token == ecommunity_token_soo) {
+			if (token == ecommunity_token_soo)
 				type = ECOMMUNITY_SITE_ORIGIN;
-			}
+			if (token == ecommunity_token_nt)
+				type = ECOMMUNITY_NODE_TARGET;
+			if (token == ecommunity_token_color)
+				type = ECOMMUNITY_COLOR;
 			break;
 		case ecommunity_token_val:
 			if (keyword_included) {
@@ -945,27 +1042,55 @@ static int ecommunity_lb_str(char *buf, size_t bufsz, const uint8_t *pnt,
 	return len;
 }
 
+bool ecommunity_has_route_target(struct ecommunity *ecom)
+{
+	uint32_t i;
+	uint8_t *pnt;
+	uint8_t type = 0;
+	uint8_t sub_type = 0;
+
+	if (!ecom)
+		return false;
+	for (i = 0; i < ecom->size; i++) {
+		/* Retrieve value field */
+		pnt = ecom->val + (i * ecom->unit_size);
+
+		/* High-order octet is the type */
+		type = *pnt++;
+
+		if (type == ECOMMUNITY_ENCODE_AS ||
+		    type == ECOMMUNITY_ENCODE_IP ||
+		    type == ECOMMUNITY_ENCODE_AS4) {
+			/* Low-order octet of type. */
+			sub_type = *pnt++;
+			if (sub_type == ECOMMUNITY_ROUTE_TARGET)
+				return true;
+		}
+	}
+	return false;
+}
+
 /* Convert extended community attribute to string.
-
-   Due to historical reason of industry standard implementation, there
-   are three types of format.
-
-   route-map set extcommunity format
-	"rt 100:1 100:2soo 100:3"
-
-   extcommunity-list
-	"rt 100:1 rt 100:2 soo 100:3show [ip] bgp" and extcommunity-list regular expression matching
-	"RT:100:1 RT:100:2 SoO:100:3"
-
-   For each formath please use below definition for format:
-
-   ECOMMUNITY_FORMAT_ROUTE_MAP
-   ECOMMUNITY_FORMAT_COMMUNITY_LIST
-   ECOMMUNITY_FORMAT_DISPLAY
-
-   Filter is added to display only ECOMMUNITY_ROUTE_TARGET in some cases.
-   0 value displays all
-*/
+ * Due to historical reason of industry standard implementation, there
+ * are three types of format:
+ *
+ * route-map set extcommunity format:
+ *     "rt 100:1 100:2soo 100:3"
+ *
+ * extcommunity-list:
+ *     "rt 100:1 rt 100:2 soo 100:3"
+ *
+ * show bgp:
+ *     "RT:100:1 RT:100:2 SoO:100:3"
+ *
+ * For each format please use below definition for format:
+ *     ECOMMUNITY_FORMAT_ROUTE_MAP
+ *     ECOMMUNITY_FORMAT_COMMUNITY_LIST
+ *     ECOMMUNITY_FORMAT_DISPLAY
+ *
+ * Filter is added to display only ECOMMUNITY_ROUTE_TARGET in some cases.
+ * 0 value displays all.
+ */
 char *ecommunity_ecom2str(struct ecommunity *ecom, int format, int filter)
 {
 	uint32_t i;
@@ -1017,6 +1142,11 @@ char *ecommunity_ecom2str(struct ecommunity *ecom, int format, int filter)
 					ecommunity_lb_str(
 						encbuf, sizeof(encbuf), pnt,
 						ecom->disable_ieee_floating);
+				} else if (sub_type == ECOMMUNITY_NODE_TARGET &&
+					   type == ECOMMUNITY_ENCODE_IP) {
+					ecommunity_node_target_str(
+						encbuf, sizeof(encbuf), pnt,
+						format);
 				} else
 					unk_ecom = 1;
 			} else {
@@ -1037,6 +1167,9 @@ char *ecommunity_ecom2str(struct ecommunity *ecom, int format, int filter)
 			} else if (*pnt == ECOMMUNITY_EVPN_SUBTYPE_DEF_GW) {
 				strlcpy(encbuf, "Default Gateway",
 					sizeof(encbuf));
+			} else if (*pnt == ECOMMUNITY_COLOR) {
+				ecommunity_color_str(encbuf, sizeof(encbuf),
+						     pnt);
 			} else {
 				unk_ecom = 1;
 			}
@@ -1226,6 +1359,13 @@ char *ecommunity_ecom2str(struct ecommunity *ecom, int format, int filter)
 						  ecom->disable_ieee_floating);
 			else
 				unk_ecom = 1;
+		} else if (type == ECOMMUNITY_ENCODE_IP_NON_TRANS) {
+			sub_type = *pnt++;
+			if (sub_type == ECOMMUNITY_NODE_TARGET)
+				ecommunity_node_target_str(
+					encbuf, sizeof(encbuf), pnt, format);
+			else
+				unk_ecom = 1;
 		} else if (type == ECOMMUNITY_ENCODE_OPAQUE_NON_TRANS) {
 			sub_type = *pnt++;
 			if (sub_type == ECOMMUNITY_ORIGIN_VALIDATION_STATE)
@@ -1296,6 +1436,29 @@ bool ecommunity_match(const struct ecommunity *ecom1,
 	else
 		return false;
 }
+
+/* return last occurence of color */
+/* it will be the greatest color value */
+extern uint32_t ecommunity_select_color(const struct ecommunity *ecom)
+{
+
+	uint32_t aux_color = 0;
+	uint8_t *p;
+	uint32_t c = 0;
+
+	/* If the value already exists in the structure return 0.  */
+
+	for (p = ecom->val; c < ecom->size; p += ecom->unit_size, c++) {
+		if (p == NULL)
+			break;
+
+		if (p[0] == ECOMMUNITY_ENCODE_OPAQUE &&
+		    p[1] == ECOMMUNITY_COLOR)
+			ptr_get_be32((const uint8_t *)&p[4], &aux_color);
+	}
+	return aux_color;
+}
+
 
 /* return first occurence of type */
 extern struct ecommunity_val *ecommunity_lookup(const struct ecommunity *ecom,
@@ -1446,8 +1609,8 @@ int ecommunity_fill_pbr_action(struct ecommunity_val *ecom_eval,
 		 * in the 'Network Address of Next- Hop'
 		 * field of the associated MP_REACH_NLRI.
 		 */
-		struct ecommunity_ip *ip_ecom = (struct ecommunity_ip *)
-			ecom_eval + 2;
+		struct ecommunity_ip *ip_ecom =
+			(struct ecommunity_ip *)&ecom_eval->val[2];
 
 		api->u.zr.redirect_ip_v4 = ip_ecom->ip;
 	} else
@@ -1708,4 +1871,19 @@ struct ecommunity *ecommunity_replace_linkbw(as_t as, struct ecommunity *ecom,
 	ecommunity_add_val(new, &lb_eval, true, true);
 
 	return new;
+}
+
+bool soo_in_ecom(struct ecommunity *ecom, struct ecommunity *soo)
+{
+	if (ecom && soo) {
+		if ((ecommunity_lookup(ecom, ECOMMUNITY_ENCODE_AS,
+				       ECOMMUNITY_SITE_ORIGIN) ||
+		     ecommunity_lookup(ecom, ECOMMUNITY_ENCODE_AS4,
+				       ECOMMUNITY_SITE_ORIGIN) ||
+		     ecommunity_lookup(ecom, ECOMMUNITY_ENCODE_IP,
+				       ECOMMUNITY_SITE_ORIGIN)) &&
+		    ecommunity_include(ecom, soo))
+			return true;
+	}
+	return false;
 }

@@ -1,21 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * BFD daemon code
  * Copyright (C) 2018 Network Device Education Foundation, Inc. ("NetDEF")
- *
- * FRR is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * FRR is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with FRR; see the file COPYING.  If not, write to the Free
- * Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
- * 02111-1307, USA.
  */
 
 #include <zebra.h>
@@ -227,6 +213,8 @@ static struct json_object *__display_peer_json(struct bfd_session *bs)
 	uint32_t avg = 0;
 	uint32_t max = 0;
 
+	if (bs->key.ifname[0])
+		json_object_string_add(jo, "interface", bs->key.ifname);
 	json_object_int_add(jo, "id", bs->discrs.my_discr);
 	json_object_int_add(jo, "remote-id", bs->discrs.remote_discr);
 	json_object_boolean_add(jo, "passive-mode",
@@ -260,6 +248,10 @@ static struct json_object *__display_peer_json(struct bfd_session *bs)
 	json_object_string_add(jo, "diagnostic", diag2str(bs->local_diag));
 	json_object_string_add(jo, "remote-diagnostic",
 			       diag2str(bs->remote_diag));
+	if (CHECK_FLAG(bs->flags, BFD_SESS_FLAG_CONFIG))
+		json_object_string_add(jo, "type", "configured");
+	else
+		json_object_string_add(jo, "type", "dynamic");
 
 	json_object_int_add(jo, "receive-interval",
 			    bs->timers.required_min_rx / 1000);

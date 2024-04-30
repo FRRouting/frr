@@ -1,21 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Copyright (C) 1999 Yasuhiro Ohara
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -24,7 +9,7 @@
 #include <stdlib.h>
 
 #include "getopt.h"
-#include "thread.h"
+#include "frrevent.h"
 #include "log.h"
 #include "command.h"
 #include "vty.h"
@@ -53,8 +38,13 @@
 /* Default configuration file name for ospf6d. */
 #define OSPF6_DEFAULT_CONFIG       "ospf6d.conf"
 
-/* Default port values. */
-#define OSPF6_VTY_PORT             2606
+/* GR and auth trailer persistent state */
+#define OSPF6D_STATE_NAME	 "%s/ospf6d.json", frr_libstatedir
+#define OSPF6D_COMPAT_STATE_NAME "%s/ospf6d-gr.json", frr_runstatedir
+/* for extra confusion, "ospf6d-at-seq-no.dat" is handled directly in
+ * ospf6_auth_trailer.c;  the alternative would be somehow merging JSON which
+ * is excessive for just supporting a legacy compatibility file location
+ */
 
 /* ospf6d privileges */
 zebra_capabilities_t _caps_p[] = {ZCAP_NET_RAW, ZCAP_BIND, ZCAP_SYS_ADMIN};
@@ -77,7 +67,7 @@ struct zebra_privs_t ospf6d_privs = {
 struct option longopts[] = {{0}};
 
 /* Master of threads. */
-struct thread_master *master;
+struct event_loop *master;
 
 static void __attribute__((noreturn)) ospf6_exit(int status)
 {
@@ -118,7 +108,11 @@ static void __attribute__((noreturn)) ospf6_exit(int status)
 		zclient_free(zclient);
 	}
 
+	ospf6_master_delete();
+
 	frr_fini();
+
+	keychain_terminate();
 	exit(status);
 }
 
@@ -177,16 +171,57 @@ static const struct frr_yang_module_info *const ospf6d_yang_modules[] = {
 	&frr_ospf6_route_map_info,
 };
 
-FRR_DAEMON_INFO(ospf6d, OSPF6, .vty_port = OSPF6_VTY_PORT,
+/* actual paths filled in main() */
+static char state_path[512];
+static char state_compat_path[512];
+static char *state_paths[] = {
+	state_path,
+	state_compat_path,
+	NULL,
+};
 
-		.proghelp = "Implementation of the OSPFv3 routing protocol.",
+/* clang-format off */
+FRR_DAEMON_INFO(ospf6d, OSPF6,
+	.vty_port = OSPF6_VTY_PORT,
+	.proghelp = "Implementation of the OSPFv3 routing protocol.",
 
-		.signals = ospf6_signals,
-		.n_signals = array_size(ospf6_signals),
+	.signals = ospf6_signals,
+	.n_signals = array_size(ospf6_signals),
 
-		.privs = &ospf6d_privs, .yang_modules = ospf6d_yang_modules,
-		.n_yang_modules = array_size(ospf6d_yang_modules),
+	.privs = &ospf6d_privs,
+
+	.yang_modules = ospf6d_yang_modules,
+	.n_yang_modules = array_size(ospf6d_yang_modules),
+
+	.state_paths = state_paths,
 );
+/* clang-format on */
+
+/* Max wait time for config to load before accepting hellos */
+#define OSPF6_PRE_CONFIG_MAX_WAIT_SECONDS 600
+
+static void ospf6_config_finish(struct event *t)
+{
+	zlog_err("OSPF6 configuration end timer expired after %d seconds.",
+		 OSPF6_PRE_CONFIG_MAX_WAIT_SECONDS);
+}
+
+static void ospf6_config_start(void)
+{
+	if (IS_OSPF6_DEBUG_EVENT)
+		zlog_debug("ospf6d config start received");
+	EVENT_OFF(t_ospf6_cfg);
+	event_add_timer(master, ospf6_config_finish, NULL,
+			OSPF6_PRE_CONFIG_MAX_WAIT_SECONDS, &t_ospf6_cfg);
+}
+
+static void ospf6_config_end(void)
+{
+	if (IS_OSPF6_DEBUG_EVENT)
+		zlog_debug("ospf6d config end received");
+
+	EVENT_OFF(t_ospf6_cfg);
+}
 
 /* Main routine of ospf6d. Treatment of argument and starting ospf finite
    state machine is handled here. */
@@ -218,6 +253,10 @@ int main(int argc, char *argv[], char *envp[])
 		exit(1);
 	}
 
+	snprintf(state_path, sizeof(state_path), OSPF6D_STATE_NAME);
+	snprintf(state_compat_path, sizeof(state_compat_path),
+		 OSPF6D_COMPAT_STATE_NAME);
+
 	/* OSPF6 master init. */
 	ospf6_master_init(frr_init());
 
@@ -231,6 +270,9 @@ int main(int argc, char *argv[], char *envp[])
 
 	/* initialize ospf6 */
 	ospf6_init(master);
+
+	/* Configuration processing callback initialization. */
+	cmd_init_config_callbacks(ospf6_config_start, ospf6_config_end);
 
 	frr_config_fork();
 	frr_run(master);

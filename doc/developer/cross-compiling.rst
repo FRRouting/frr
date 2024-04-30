@@ -239,9 +239,9 @@ the last thing to actually build is FRR itself:
       --host=${HOST_ARCH} \
       --with-sysroot=/usr/${HOST_ARCH} \
       --with-clippy=./build-clippy/lib/clippy \
-      --sysconfdir=/etc/frr \
+      --sysconfdir=/etc \
+      --localstatedir=/var \
       --sbindir="\${prefix}/lib/frr" \
-      --localstatedir=/var/run/frr \
       --prefix=/usr \
       --enable-user=frr \
       --enable-group=frr \

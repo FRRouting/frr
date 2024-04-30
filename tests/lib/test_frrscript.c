@@ -1,20 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * frrscript unit tests
  * Copyright (C) 2021  Donald Lee
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -45,7 +32,7 @@ int main(int argc, char **argv)
 	assert(result == 0);
 	result = frrscript_call(fs, "bar", ("a", &a), ("b", &b));
 	assert(result == 0);
-	long long *cptr = frrscript_get_result(fs, "bar", "c", lua_tointegerp);
+	long long *cptr = frrscript_get_result(fs, "bar", "c", lua_tolonglongp);
 
 	/* a should not occur in the returned table in script */
 	assert(a == 100);
@@ -60,7 +47,7 @@ int main(int argc, char **argv)
 	result = frrscript_call(fs, "fact", ("n", &n));
 	assert(result == 0);
 	long long *ansptr =
-		frrscript_get_result(fs, "fact", "ans", lua_tointegerp);
+		frrscript_get_result(fs, "fact", "ans", lua_tolonglongp);
 	assert(*ansptr == 120);
 
 	/* check consecutive call + get_result without re-loading */

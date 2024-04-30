@@ -1,20 +1,8 @@
+// SPDX-License-Identifier: LGPL-2.1-or-later
 /*
  * This file is part of the PCEPlib, a PCEP protocol library.
  *
  * Copyright (C) 2020 Volta Networks https://voltanet.io/
- *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Lesser General Public
- * License as published by the Free Software Foundation; either
- * version 2 of the License, or (at your option) any later version.
- *
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public License
- * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *
  * Author : Brady Johnson <brady@voltanet.io>
  *
@@ -923,12 +911,13 @@ uint16_t pcep_encode_obj_ro(struct pcep_object_header *hdr,
 				index += LENGTH_10WORDS;
 				break;
 
-			default:
+			case PCEP_SR_SUBOBJ_NAI_ABSENT:
+			case PCEP_SR_SUBOBJ_NAI_UNKNOWN:
 				break;
 			}
 		} break;
 
-		default:
+		case RO_SUBOBJ_UNKNOWN:
 			break;
 		}
 	}
@@ -1712,7 +1701,7 @@ struct pcep_object_header *pcep_decode_obj_ro(struct pcep_object_header *hdr,
 			} break;
 
 			case PCEP_SR_SUBOBJ_NAI_ABSENT:
-			default:
+			case PCEP_SR_SUBOBJ_NAI_UNKNOWN:
 				break;
 			}
 		} break;

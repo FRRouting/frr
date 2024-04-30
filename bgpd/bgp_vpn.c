@@ -1,21 +1,8 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* VPN Related functions
  * Copyright (C) 2017 6WIND
  *
  * This file is part of FRRouting
- *
- * FRRouting is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * FRRouting is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -43,8 +30,6 @@ int show_adj_route_vpn(struct vty *vty, struct peer *peer,
 	int rd_header;
 	int header = 1;
 	json_object *json = NULL;
-	json_object *json_scode = NULL;
-	json_object *json_ocode = NULL;
 	json_object *json_adv = NULL;
 	json_object *json_routes = NULL;
 	char rd_str[BUFSIZ];
@@ -60,21 +45,8 @@ int show_adj_route_vpn(struct vty *vty, struct peer *peer,
 	}
 
 	if (use_json) {
-		json_scode = json_object_new_object();
-		json_ocode = json_object_new_object();
 		json = json_object_new_object();
 		json_adv = json_object_new_object();
-
-		json_object_string_add(json_scode, "suppressed", "s");
-		json_object_string_add(json_scode, "damped", "d");
-		json_object_string_add(json_scode, "history", "h");
-		json_object_string_add(json_scode, "valid", "*");
-		json_object_string_add(json_scode, "best", ">");
-		json_object_string_add(json_scode, "internal", "i");
-
-		json_object_string_add(json_ocode, "igp", "i");
-		json_object_string_add(json_ocode, "egp", "e");
-		json_object_string_add(json_ocode, "incomplete", "?");
 	}
 
 	for (dest = bgp_table_top(bgp->rib[afi][safi]); dest;
@@ -130,12 +102,6 @@ int show_adj_route_vpn(struct vty *vty, struct peer *peer,
 					json_object_int_add(
 						json, "localAS",
 						bgp->as);
-					json_object_object_add(json,
-							       "bgpStatusCodes",
-							       json_scode);
-					json_object_object_add(json,
-							       "bgpOriginCodes",
-							       json_ocode);
 				} else {
 					vty_out(vty,
 						"BGP table version is 0, local router ID is %pI4\n",

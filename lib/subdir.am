@@ -7,8 +7,13 @@ lib_libfrr_la_LDFLAGS = $(LIB_LDFLAGS) -version-info 0:0:0 -Xlinker -e_libfrr_ve
 lib_libfrr_la_LIBADD = $(LIBCAP) $(UNWIND_LIBS) $(LIBYANG_LIBS) $(LUA_LIB) $(UST_LIBS) $(LIBCRYPT) $(LIBDL) $(LIBM)
 
 lib_libfrr_la_SOURCES = \
+	lib/admin_group.c \
+	lib/affinitymap.c \
+	lib/affinitymap_cli.c \
+	lib/affinitymap_northbound.c \
 	lib/agg_table.c \
 	lib/atomlist.c \
+	lib/asn.c \
 	lib/base64.c \
 	lib/bfd.c \
 	lib/buffer.c \
@@ -20,6 +25,7 @@ lib_libfrr_la_SOURCES = \
 	lib/command_parse.y \
 	lib/cspf.c \
 	lib/csv.c \
+	lib/darr.c \
 	lib/debug.c \
 	lib/defaults.c \
 	lib/distribute.c \
@@ -28,13 +34,12 @@ lib_libfrr_la_SOURCES = \
 	lib/filter.c \
 	lib/filter_cli.c \
 	lib/filter_nb.c \
+	lib/flex_algo.c \
 	lib/frrcu.c \
 	lib/frrlua.c \
 	lib/frrscript.c \
 	lib/frr_pthread.c \
 	lib/frrstr.c \
-	lib/getopt.c \
-	lib/getopt1.c \
 	lib/grammar_sandbox.c \
 	lib/graph.c \
 	lib/hash.c \
@@ -44,6 +49,7 @@ lib_libfrr_la_SOURCES = \
 	lib/if_rmap.c \
 	lib/imsg-buffer.c \
 	lib/imsg.c \
+	lib/iso.c \
 	lib/jhash.c \
 	lib/json.c \
 	lib/keychain.c \
@@ -59,6 +65,10 @@ lib_libfrr_la_SOURCES = \
 	lib/log_vty.c \
 	lib/md5.c \
 	lib/memory.c \
+	lib/mgmt_be_client.c \
+	lib/mgmt_fe_client.c \
+	lib/mgmt_msg.c \
+	lib/mgmt_msg_native.c \
 	lib/mlag.c \
 	lib/module.c \
 	lib/mpls.c \
@@ -71,6 +81,7 @@ lib_libfrr_la_SOURCES = \
 	lib/northbound.c \
 	lib/northbound_cli.c \
 	lib/northbound_db.c \
+	lib/northbound_oper.c \
 	lib/ntop.c \
 	lib/openbsd-tree.c \
 	lib/pid_output.c \
@@ -92,6 +103,7 @@ lib_libfrr_la_SOURCES = \
 	lib/sockopt.c \
 	lib/sockunion.c \
 	lib/spf_backoff.c \
+	lib/segment_routing.c \
 	lib/srcdest_table.c \
 	lib/stream.c \
 	lib/strformat.c \
@@ -100,7 +112,7 @@ lib_libfrr_la_SOURCES = \
 	lib/systemd.c \
 	lib/table.c \
 	lib/termtable.c \
-	lib/thread.c \
+	lib/event.c \
 	lib/typerb.c \
 	lib/typesafe.c \
 	lib/vector.c \
@@ -127,7 +139,9 @@ lib_libfrr_la_SOURCES = \
 	# end
 
 nodist_lib_libfrr_la_SOURCES = \
+	yang/frr-affinity-map.yang.c \
 	yang/frr-filter.yang.c \
+	yang/frr-if-rmap.yang.c \
 	yang/frr-interface.yang.c \
 	yang/frr-route-map.yang.c \
 	yang/frr-route-types.yang.c \
@@ -140,27 +154,51 @@ nodist_lib_libfrr_la_SOURCES = \
 	yang/frr-module-translator.yang.c \
 	# end
 
+# Add logic to build mgmt.proto
+lib_libfrr_la_LIBADD += $(PROTOBUF_C_LIBS)
+
+BUILT_SOURCES += \
+	lib/mgmt.pb-c.c \
+	lib/mgmt.pb-c.h \
+	# end
+
+CLEANFILES += \
+	lib/mgmt.pb-c.h \
+	lib/mgmt.pb-c.c \
+	# end
+
+lib_libfrr_la_SOURCES += \
+	lib/mgmt.pb-c.c \
+	#end
+
 if SQLITE3
 lib_libfrr_la_LIBADD += $(SQLITE3_LIBS)
 lib_libfrr_la_SOURCES += lib/db.c
 endif
 
 clippy_scan += \
+	lib/affinitymap_cli.c \
 	lib/if.c \
 	lib/filter_cli.c \
+	lib/if_rmap.c \
 	lib/log_vty.c \
+	lib/mgmt_be_client.c \
+	lib/mgmt_fe_client.c \
 	lib/nexthop_group.c \
 	lib/northbound_cli.c \
 	lib/plist.c \
 	lib/routemap.c \
 	lib/routemap_cli.c \
-	lib/thread.c \
+	lib/event.c \
 	lib/vty.c \
 	lib/zlog_5424_cli.c \
 	# end
 
 pkginclude_HEADERS += \
+	lib/admin_group.h \
+	lib/affinitymap.h \
 	lib/agg_table.h \
+	lib/asn.h \
 	lib/atomlist.h \
 	lib/base64.h \
 	lib/bfd.h \
@@ -174,20 +212,23 @@ pkginclude_HEADERS += \
 	lib/compiler.h \
 	lib/cspf.h \
 	lib/csv.h \
+	lib/darr.h \
 	lib/db.h \
 	lib/debug.h \
 	lib/defaults.h \
 	lib/distribute.h \
 	lib/ferr.h \
 	lib/filter.h \
+	lib/flex_algo.h \
 	lib/freebsd-queue.h \
+	lib/frrdistance.h \
 	lib/frrlua.h \
 	lib/frrscript.h \
 	lib/frr_pthread.h \
 	lib/frratomic.h \
 	lib/frrcu.h \
+	lib/frrsendmmsg.h \
 	lib/frrstr.h \
-	lib/getopt.h \
 	lib/graph.h \
 	lib/hash.h \
 	lib/hook.h \
@@ -197,6 +238,7 @@ pkginclude_HEADERS += \
 	lib/if_rmap.h \
 	lib/imsg.h \
 	lib/ipaddr.h \
+	lib/iso.h \
 	lib/jhash.h \
 	lib/json.h \
 	lib/keychain.h \
@@ -212,6 +254,13 @@ pkginclude_HEADERS += \
 	lib/log_vty.h \
 	lib/md5.h \
 	lib/memory.h \
+	lib/mgmt.pb-c.h \
+	lib/mgmt_be_client.h \
+	lib/mgmt_defines.h \
+	lib/mgmt_fe_client.h \
+	lib/mgmt_msg.h \
+	lib/mgmt_msg_native.h \
+	lib/mgmt_pb.h \
 	lib/module.h \
 	lib/monotime.h \
 	lib/mpls.h \
@@ -247,13 +296,14 @@ pkginclude_HEADERS += \
 	lib/sockopt.h \
 	lib/sockunion.h \
 	lib/spf_backoff.h \
+	lib/segment_routing.h \
 	lib/srcdest_table.h \
 	lib/srte.h \
 	lib/stream.h \
 	lib/systemd.h \
 	lib/table.h \
 	lib/termtable.h \
-	lib/thread.h \
+	lib/frrevent.h \
 	lib/trace.h \
 	lib/typerb.h \
 	lib/typesafe.h \
@@ -490,11 +540,21 @@ EXTRA_DIST += \
 BUILT_SOURCES += \
 	lib/gitversion.h \
 	lib/route_types.h \
+	lib/vtysh_daemons.h \
 	# end
 
 ## force route_types.h
 $(lib_clippy_OBJECTS): lib/route_types.h
 $(lib_libfrr_la_OBJECTS): lib/route_types.h
+
+# force lib_daemons.h
+$(lib_libfrr_la_OBJECTS): lib/vtysh_daemons.h
+
+CLEANFILES += lib/vtysh_daemons.h
+lib/vtysh_daemons.h:
+	@$(MKDIR_P) lib
+	$(PERL) $(top_srcdir)/vtysh/daemons.pl $(vtysh_daemons) > lib/vtysh_daemons.h
+
 
 AM_YFLAGS = -d -Dapi.prefix=@BISON_OPENBRACE@cmd_yy@BISON_CLOSEBRACE@ @BISON_VERBOSE@
 

@@ -1,20 +1,7 @@
 #!/usr/bin/env python
+# SPDX-License-Identifier: GPL-2.0-or-later
 
 # Copyright 2017, LabN Consulting, L.L.C.
-#
-# This program is free software; you can redistribute it and/or
-# modify it under the terms of the GNU General Public License
-# as published by the Free Software Foundation; either version 2
-# of the License, or (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License along
-# with this program; see the file COPYING; if not, write to the Free Software
-# Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
 
 import os
 import re
@@ -190,7 +177,17 @@ Total %-4d                                                           %-4d %d\n\
             self.log("unable to read: " + tstFile)
             sys.exit(1)
 
-    def command(self, target, command, regexp, op, result, returnJson, startt=None, force_result=False):
+    def command(
+        self,
+        target,
+        command,
+        regexp,
+        op,
+        result,
+        returnJson,
+        startt=None,
+        force_result=False,
+    ):
         global net
         if op == "jsoncmp_pass" or op == "jsoncmp_fail":
             returnJson = True
@@ -339,7 +336,9 @@ Total %-4d                                                           %-4d %d\n\
             if strict and (wait_count == 1):
                 force_result = True
 
-            found = self.command(target, command, regexp, op, result, returnJson, startt, force_result)
+            found = self.command(
+                target, command, regexp, op, result, returnJson, startt, force_result
+            )
             if found is not False:
                 break
 
@@ -354,6 +353,7 @@ Total %-4d                                                           %-4d %d\n\
 
 # initialized by luStart
 LUtil = None
+
 
 # entry calls
 def luStart(
@@ -467,6 +467,7 @@ def luShowFail():
     sf.close()
     if printed > 0:
         logger.error("See %s for details of errors" % LUtil.fout_name)
+
 
 #
 # Sets default wait type for luCommand(op="wait) (may be overridden by

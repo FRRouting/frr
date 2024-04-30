@@ -1,20 +1,8 @@
+// SPDX-License-Identifier: LGPL-2.1-or-later
 /*
  * This file is part of the PCEPlib, a PCEP protocol library.
  *
  * Copyright (C) 2020 Volta Networks https://voltanet.io/
- *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Lesser General Public
- * License as published by the Free Software Foundation; either
- * version 2 of the License, or (at your option) any later version.
- *
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public License
- * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *
  * Author : Brady Johnson <brady@voltanet.io>
  *
@@ -151,7 +139,8 @@ clone_counters_subgroup(struct counters_subgroup *subgroup,
 		if (counter != NULL) {
 			create_subgroup_counter(cloned_subgroup,
 						counter->counter_id,
-						counter->counter_name);
+						counter->counter_name,
+						counter->counter_name_json);
 		}
 	}
 
@@ -192,7 +181,8 @@ bool add_counters_subgroup(struct counters_group *group,
 }
 
 bool create_subgroup_counter(struct counters_subgroup *subgroup,
-			     uint32_t counter_id, const char *counter_name)
+			     uint32_t counter_id, const char *counter_name,
+			     const char *counter_name_json)
 {
 	if (subgroup == NULL) {
 		pcep_log(
@@ -224,7 +214,9 @@ bool create_subgroup_counter(struct counters_subgroup *subgroup,
 	counter->counter_id = counter_id;
 	strlcpy(counter->counter_name, counter_name,
 		sizeof(counter->counter_name));
-
+	if (counter_name_json)
+		strlcpy(counter->counter_name_json, counter_name_json,
+			sizeof(counter->counter_name_json));
 	subgroup->num_counters++;
 	subgroup->counters[counter->counter_id] = counter;
 

@@ -1,19 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* zebra table Manager for routing table identifier management
  * Copyright (C) 2018 6WIND
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef _TABLE_MANAGER_H
@@ -22,7 +9,7 @@
 #include <stdint.h>
 
 #include "lib/linklist.h"
-#include "lib/thread.h"
+#include "frrevent.h"
 #include "lib/ns.h"
 
 #include "zebra/zserv.h"
@@ -30,6 +17,22 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+/* routing table identifiers
+ *
+ */
+#if !defined(GNU_LINUX)
+/* BSD systems
+ */
+#else
+/* Linux Systems
+ */
+#define RT_TABLE_ID_LOCAL   255
+#define RT_TABLE_ID_MAIN    254
+#define RT_TABLE_ID_DEFAULT 253
+#define RT_TABLE_ID_COMPAT  252
+#define RT_TABLE_ID_UNSPEC  0
+#endif /* !def(GNU_LINUX) */
 
 /*
  * Table chunk struct
@@ -69,8 +72,8 @@ int release_table_chunk(uint8_t proto, uint16_t instance, uint32_t start,
 			uint32_t end, struct zebra_vrf *zvrf);
 int release_daemon_table_chunks(struct zserv *client);
 void table_manager_disable(struct zebra_vrf *zvrf);
-int table_manager_range(struct vty *vty, bool add, struct zebra_vrf *zvrf,
-			const char *min, const char *max);
+void table_manager_range(bool add, struct zebra_vrf *zvrf, uint32_t start,
+			 uint32_t end);
 
 #ifdef __cplusplus
 }

@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * This is an implementation of PIM MLAG Functionality
  *
@@ -6,20 +7,6 @@
  * Author: sathesh Kumar karra <sathk@cumulusnetworks.com>
  *
  * Copyright (C) 2019 Cumulus Networks http://www.cumulusnetworks.com
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 #include <zebra.h>
 
@@ -447,7 +434,7 @@ static void pim_mlag_up_local_add_send(struct pim_instance *pim,
 	stream_putc(s, !(PIM_UPSTREAM_FLAG_TEST_MLAG_NON_DF(up->flags)));
 	stream_putl(s, vrf->vrf_id);
 	/* XXX - this field is a No-op for VXLAN*/
-	stream_put(s, NULL, INTERFACE_NAMSIZ);
+	stream_put(s, NULL, IFNAMSIZ);
 
 	stream_fifo_push_safe(router->mlag_fifo, s);
 	pim_mlag_signal_zpthread();
@@ -480,7 +467,7 @@ static void pim_mlag_up_local_del_send(struct pim_instance *pim,
 	stream_putl(s, MLAG_OWNER_VXLAN);
 	stream_putl(s, vrf->vrf_id);
 	/* XXX - this field is a No-op for VXLAN */
-	stream_put(s, NULL, INTERFACE_NAMSIZ);
+	stream_put(s, NULL, IFNAMSIZ);
 
 	/* XXX - is this the the most optimal way to do things */
 	stream_fifo_push_safe(router->mlag_fifo, s);
@@ -871,7 +858,11 @@ int pim_zebra_mlag_handle_msg(int cmd, struct zclient *zclient,
 			pim_mlag_process_mroute_del(msg);
 		}
 	} break;
-	default:
+	case MLAG_MSG_NONE:
+	case MLAG_REGISTER:
+	case MLAG_DEREGISTER:
+	case MLAG_DUMP:
+	case MLAG_PIM_CFG_DUMP:
 		break;
 	}
 	return 0;
@@ -930,7 +921,7 @@ int pim_zebra_mlag_process_down(ZAPI_CALLBACK_ARGS)
 	return 0;
 }
 
-static void pim_mlag_register_handler(struct thread *thread)
+static void pim_mlag_register_handler(struct event *thread)
 {
 	uint32_t bit_mask = 0;
 
@@ -961,11 +952,11 @@ void pim_mlag_register(void)
 
 	router->mlag_process_register = true;
 
-	thread_add_event(router->master, pim_mlag_register_handler, NULL, 0,
-			 NULL);
+	event_add_event(router->master, pim_mlag_register_handler, NULL, 0,
+			NULL);
 }
 
-static void pim_mlag_deregister_handler(struct thread *thread)
+static void pim_mlag_deregister_handler(struct event *thread)
 {
 	if (!zclient)
 		return;
@@ -989,8 +980,8 @@ void pim_mlag_deregister(void)
 
 	router->mlag_process_register = false;
 
-	thread_add_event(router->master, pim_mlag_deregister_handler, NULL, 0,
-			 NULL);
+	event_add_event(router->master, pim_mlag_deregister_handler, NULL, 0,
+			NULL);
 }
 
 void pim_if_configure_mlag_dualactive(struct pim_interface *pim_ifp)

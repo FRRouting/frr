@@ -1,22 +1,9 @@
 #!/usr/bin/env python
+# SPDX-License-Identifier: ISC
 #
 # Copyright (c) 2020 by VMware, Inc. ("VMware")
 # Used Copyright (c) 2018 by Network Device Education Foundation, Inc. ("NetDEF")
 # in this file.
-#
-# Permission to use, copy, modify, and/or distribute this software
-# for any purpose with or without fee is hereby granted, provided
-# that the above copyright notice and this permission notice appear
-# in all copies.
-#
-# THE SOFTWARE IS PROVIDED "AS IS" AND VMWARE DISCLAIMS ALL WARRANTIES
-# WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
-# MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL VMWARE BE LIABLE FOR
-# ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY
-# DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS,
-# WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS
-# ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE
-# OF THIS SOFTWARE.
 #
 
 """
@@ -71,7 +58,6 @@ from lib.common_config import (
     step,
     write_test_header,
     write_test_footer,
-    generate_support_bundle,
 )
 
 # Required to instantiate the topology builder class.
@@ -290,8 +276,6 @@ def test_evpn_gateway_ip_basic_topo(request):
 
     result, assertmsg = evpn_gateway_ip_show_op_check("base")
 
-    if result is not None:
-        generate_support_bundle()
     assert result is None, assertmsg
 
     write_test_footer(tc_name)
@@ -332,8 +316,6 @@ def test_evpn_gateway_ip_flap_rt5(request):
     )
 
     result, assertmsg = evpn_gateway_ip_show_op_check("no_rt5")
-    if result is not None:
-        generate_support_bundle()
     assert result is None, assertmsg
 
     step("Advertise type-5 routes again")
@@ -352,8 +334,6 @@ def test_evpn_gateway_ip_flap_rt5(request):
     )
 
     result, assertmsg = evpn_gateway_ip_show_op_check("base")
-    if result is not None:
-        generate_support_bundle()
 
     assert result is None, assertmsg
 
@@ -384,8 +364,6 @@ def test_evpn_gateway_ip_flap_rt2(request):
     pe1.cmd_raises("ip link set dev vxlan100 down")
 
     result, assertmsg = evpn_gateway_ip_show_op_check("no_rt2")
-    if result is not None:
-        generate_support_bundle()
     assert result is None, assertmsg
 
     step("Bring up VxLAN interface at PE1 and advertise type-2 routes again")
@@ -393,8 +371,6 @@ def test_evpn_gateway_ip_flap_rt2(request):
     pe1.cmd_raises("ip link set dev vxlan100 up")
 
     result, assertmsg = evpn_gateway_ip_show_op_check("base")
-    if result is not None:
-        generate_support_bundle()
     assert result is None, assertmsg
 
     write_test_footer(tc_name)

@@ -1,4 +1,4 @@
-BGP router identifier 192.168.0.1, local AS number 100 vrf-id 0
+BGP router identifier 192.168.0.1, local AS number 100 VRF default vrf-id 0
 BGP table version 1
 RIB entries 1, using XXXX bytes of memory
 Peers 2, using XXXX KiB of memory

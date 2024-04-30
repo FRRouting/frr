@@ -488,12 +488,6 @@ match *exactly*.
 In the above example, we defined encoders/decoders for a value of
 ``struct prefix *``, but not ``struct prefix`` or ``const struct prefix *``.
 
-``const`` values are a special case. We want to use them in our Lua scripts
-but not modify them, so creating a decoder for them would be meaningless.
-But we still need a decoder for the type of value so that the compiler will be
-satisfied.
-For that, use ``lua_decode_noop``:
-
 .. code-block:: diff
 
      #define DECODE_ARGS_WITH_STATE(L, value) \

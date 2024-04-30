@@ -1,20 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* Scripting foo
  * Copyright (C) 2020  NVIDIA Corporation
  * Quentin Young
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 #include <zebra.h>
 
@@ -37,6 +24,8 @@ DEFINE_MTYPE_STATIC(LIB, SCRIPT, "Scripting");
  */
 
 struct frrscript_names_head frrscript_names_hash;
+
+void _lua_decode_noop(lua_State *L, ...) {}
 
 /*
  * Wrapper for frrscript_names_add
@@ -146,9 +135,6 @@ struct frrscript_codec frrscript_codecs_lib[] = {
 	{.typename = "sockunion",
 	 .encoder = (encoder_func)lua_pushsockunion,
 	 .decoder = lua_tosockunion},
-	{.typename = "time_t",
-	 .encoder = (encoder_func)lua_pushtimet,
-	 .decoder = lua_totimet},
 	{}};
 
 /* Type codecs */
@@ -411,8 +397,7 @@ fail:
 
 void frrscript_delete(struct frrscript *fs)
 {
-	hash_clean(fs->lua_function_hash, lua_function_free);
-	hash_free(fs->lua_function_hash);
+	hash_clean_and_free(&fs->lua_function_hash, lua_function_free);
 	XFREE(MTYPE_SCRIPT, fs->name);
 	XFREE(MTYPE_SCRIPT, fs);
 }
@@ -430,8 +415,7 @@ void frrscript_init(const char *sd)
 
 void frrscript_fini(void)
 {
-	hash_clean(codec_hash, codec_free);
-	hash_free(codec_hash);
+	hash_clean_and_free(&codec_hash, codec_free);
 
 	frrscript_names_destroy();
 }

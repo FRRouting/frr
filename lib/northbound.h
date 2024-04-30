@@ -1,26 +1,13 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Copyright (C) 2018  NetDEF, Inc.
  *                     Renato Westphal
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef _FRR_NORTHBOUND_H_
 #define _FRR_NORTHBOUND_H_
 
-#include "thread.h"
+#include "frrevent.h"
 #include "hook.h"
 #include "linklist.h"
 #include "openbsd-tree.h"
@@ -34,6 +21,39 @@ extern "C" {
 /* Forward declaration(s). */
 struct vty;
 struct debug;
+
+struct nb_yang_xpath_tag {
+	uint32_t ns;
+	uint32_t id;
+};
+
+struct nb_yang_value {
+	struct lyd_value value;
+	LY_DATA_TYPE value_type;
+	uint8_t value_flags;
+};
+
+struct nb_yang_xpath_elem {
+	struct nb_yang_xpath_tag tag;
+	struct nb_yang_value val;
+};
+
+#define NB_MAX_NUM_KEYS UINT8_MAX
+#define NB_MAX_NUM_XPATH_TAGS UINT8_MAX
+
+struct nb_yang_xpath {
+	uint8_t length;
+	struct {
+		uint8_t num_keys;
+		struct nb_yang_xpath_elem keys[NB_MAX_NUM_KEYS];
+	} tags[NB_MAX_NUM_XPATH_TAGS];
+};
+
+#define NB_YANG_XPATH_KEY(__xpath, __indx1, __indx2)                           \
+	((__xpath->num_tags > __indx1) &&                                      \
+			 (__xpath->tags[__indx1].num_keys > __indx2)           \
+		 ? &__xpath->tags[__indx1].keys[__indx2]                       \
+		 : NULL)
 
 /* Northbound events. */
 enum nb_event {
@@ -63,22 +83,23 @@ enum nb_event {
 };
 
 /*
- * Northbound operations.
+ * Northbound callback operations.
  *
  * Refer to the documentation comments of nb_callbacks for more details.
  */
-enum nb_operation {
-	NB_OP_CREATE,
-	NB_OP_MODIFY,
-	NB_OP_DESTROY,
-	NB_OP_MOVE,
-	NB_OP_PRE_VALIDATE,
-	NB_OP_APPLY_FINISH,
-	NB_OP_GET_ELEM,
-	NB_OP_GET_NEXT,
-	NB_OP_GET_KEYS,
-	NB_OP_LOOKUP_ENTRY,
-	NB_OP_RPC,
+enum nb_cb_operation {
+	NB_CB_CREATE,
+	NB_CB_MODIFY,
+	NB_CB_DESTROY,
+	NB_CB_MOVE,
+	NB_CB_PRE_VALIDATE,
+	NB_CB_APPLY_FINISH,
+	NB_CB_GET_ELEM,
+	NB_CB_GET_NEXT,
+	NB_CB_GET_KEYS,
+	NB_CB_LOOKUP_ENTRY,
+	NB_CB_RPC,
+	NB_CB_NOTIFY,
 };
 
 union nb_resource {
@@ -264,6 +285,18 @@ struct nb_cb_rpc_args {
 
 	/* Size of errmsg. */
 	size_t errmsg_len;
+};
+
+struct nb_cb_notify_args {
+	/* XPath of the notification. */
+	const char *xpath;
+
+	/*
+	 * libyang data node representing the notification. If the notification
+	 * is not top-level, it still points to the notification node, but it's
+	 * part of the full data tree with all its parents.
+	 */
+	struct lyd_node *dnode;
 };
 
 /*
@@ -459,6 +492,22 @@ struct nb_callbacks {
 	const void *(*lookup_entry)(struct nb_cb_lookup_entry_args *args);
 
 	/*
+	 * Operational data callback for YANG lists.
+	 *
+	 * The callback function should return the next list entry that would
+	 * follow a list entry with the keys given as a parameter. Keyless
+	 * lists don't need to implement this  callback.
+	 *
+	 * args
+	 *    Refer to the documentation comments of nb_cb_lookup_entry_args for
+	 *    details.
+	 *
+	 * Returns:
+	 *    Pointer to the list entry if found, or NULL if not found.
+	 */
+	const void *(*lookup_next)(struct nb_cb_lookup_entry_args *args);
+
+	/*
 	 * RPC and action callback.
 	 *
 	 * Both 'input' and 'output' are lists of 'yang_data' structures. The
@@ -472,6 +521,17 @@ struct nb_callbacks {
 	 *    NB_OK on success, NB_ERR otherwise.
 	 */
 	int (*rpc)(struct nb_cb_rpc_args *args);
+
+	/*
+	 * Notification callback.
+	 *
+	 * The callback is called when a YANG notification is received.
+	 *
+	 * args
+	 *    Refer to the documentation comments of nb_cb_notify_args for
+	 *    details.
+	 */
+	void (*notify)(struct nb_cb_notify_args *args);
 
 	/*
 	 * Optional callback to compare the data nodes when printing
@@ -571,6 +631,8 @@ struct nb_node {
 #define F_NB_NODE_CONFIG_ONLY 0x01
 /* The YANG list doesn't contain key leafs. */
 #define F_NB_NODE_KEYLESS_LIST 0x02
+/* Ignore config callbacks for this node */
+#define F_NB_NODE_IGNORE_CFG_CBS 0x04
 
 /*
  * HACK: old gcc versions (< 5.x) have a bug that prevents C99 flexible arrays
@@ -582,6 +644,21 @@ struct nb_node {
 struct frr_yang_module_info {
 	/* YANG module name. */
 	const char *name;
+
+	/*
+	 * Ignore configuration callbacks for this module. Set this to true to
+	 * load module with only CLI-related callbacks. This is useful for
+	 * modules loaded in mgmtd.
+	 */
+	bool ignore_cfg_cbs;
+
+	/*
+	 * The NULL-terminated list of supported features.
+	 * Features are defined with "feature" statements in the YANG model.
+	 * Use ["*", NULL] to enable all features.
+	 * Use NULL to disable all features.
+	 */
+	const char **features;
 
 	/* Northbound callbacks. */
 	const struct {
@@ -610,6 +687,7 @@ enum nb_error {
 	NB_ERR_VALIDATION,
 	NB_ERR_RESOURCE,
 	NB_ERR_INCONSISTENCY,
+	NB_YIELD,
 };
 
 /* Default priority. */
@@ -626,6 +704,8 @@ enum nb_client {
 	NB_CLIENT_SYSREPO,
 	NB_CLIENT_GRPC,
 	NB_CLIENT_PCEP,
+	NB_CLIENT_MGMTD_SERVER,
+	NB_CLIENT_MGMTD_BE,
 };
 
 /* Northbound context. */
@@ -635,34 +715,12 @@ struct nb_context {
 
 	/* Northbound user (can be NULL). */
 	const void *user;
-
-	/* Client-specific data. */
-#if 0
-	union {
-		struct {
-		} cli;
-		struct {
-		} confd;
-		struct {
-		} sysrepo;
-		struct {
-		} grpc;
-		struct {
-		} pcep;
-	} client_data;
-#endif
-};
-
-/* Northbound configuration. */
-struct nb_config {
-	struct lyd_node *dnode;
-	uint32_t version;
 };
 
 /* Northbound configuration callback. */
 struct nb_config_cb {
 	RB_ENTRY(nb_config_cb) entry;
-	enum nb_operation operation;
+	enum nb_cb_operation operation;
 	uint32_t seq;
 	const struct nb_node *nb_node;
 	const struct lyd_node *dnode;
@@ -679,10 +737,36 @@ struct nb_config_change {
 
 /* Northbound configuration transaction. */
 struct nb_transaction {
-	struct nb_context *context;
+	struct nb_context context;
 	char comment[80];
 	struct nb_config *config;
 	struct nb_config_cbs changes;
+};
+
+/* Northbound configuration. */
+struct nb_config {
+	struct lyd_node *dnode;
+	uint32_t version;
+};
+
+/*
+ * Northbound operations. The semantics of operations is explained in RFC 8072,
+ * section 2.5: https://datatracker.ietf.org/doc/html/rfc8072#section-2.5.
+ */
+enum nb_operation {
+	NB_OP_CREATE_EXCL,	/* "create" */
+	NB_OP_CREATE,		/* "merge" - kept for backward compatibility */
+	NB_OP_MODIFY,		/* "merge" */
+	NB_OP_DESTROY,		/* "remove" */
+	NB_OP_DELETE,		/* "delete" */
+	NB_OP_REPLACE,		/* "replace" */
+	NB_OP_MOVE,		/* "move" */
+};
+
+struct nb_cfg_change {
+	char xpath[XPATH_MAXLEN];
+	enum nb_operation operation;
+	const char *value;
 };
 
 /* Callback function used by nb_oper_data_iterate(). */
@@ -690,12 +774,37 @@ typedef int (*nb_oper_data_cb)(const struct lysc_node *snode,
 			       struct yang_translator *translator,
 			       struct yang_data *data, void *arg);
 
+/**
+ * nb_oper_data_finish_cb() - finish a portion or all of a oper data walk.
+ * @tree - r/o copy of the tree created during this portion of the walk.
+ * @arg - finish arg passed to nb_op_iterate_yielding.
+ * @ret - NB_OK if done with walk, NB_YIELD if done with portion, otherwise an
+ *        error.
+ *
+ * If nb_op_iterate_yielding() was passed with @should_batch set then this
+ * callback will be invoked during each portion (batch) of the walk.
+ *
+ * The @tree is read-only and should not be modified or freed.
+ *
+ * If this function returns anything but NB_OK then the walk will be terminated.
+ * and this function will not be called again regardless of if @ret was
+ * `NB_YIELD` or not.
+ *
+ * Return: NB_OK to continue or complete the walk normally, otherwise an error
+ * to immediately terminate the walk.
+ */
+/* Callback function used by nb_oper_data_iter_yielding(). */
+typedef enum nb_error (*nb_oper_data_finish_cb)(const struct lyd_node *tree,
+						void *arg, enum nb_error ret);
+
 /* Iterate over direct child nodes only. */
 #define NB_OPER_DATA_ITER_NORECURSE 0x0001
 
 /* Hooks. */
 DECLARE_HOOK(nb_notification_send, (const char *xpath, struct list *arguments),
 	     (xpath, arguments));
+DECLARE_HOOK(nb_notification_tree_send,
+	     (const char *xpath, const struct lyd_node *tree), (xpath, tree));
 DECLARE_HOOK(nb_client_debug_config_write, (struct vty *vty), (vty));
 DECLARE_HOOK(nb_client_debug_set_all, (uint32_t flags, bool set), (flags, set));
 
@@ -703,6 +812,7 @@ DECLARE_HOOK(nb_client_debug_set_all, (uint32_t flags, bool set), (flags, set));
 extern struct debug nb_dbg_cbs_config;
 extern struct debug nb_dbg_cbs_state;
 extern struct debug nb_dbg_cbs_rpc;
+extern struct debug nb_dbg_cbs_notify;
 extern struct debug nb_dbg_notif;
 extern struct debug nb_dbg_events;
 extern struct debug nb_dbg_libyang;
@@ -723,9 +833,16 @@ extern int nb_callback_get_keys(const struct nb_node *nb_node,
 extern const void *nb_callback_lookup_entry(const struct nb_node *nb_node,
 					    const void *parent_list_entry,
 					    const struct yang_list_keys *keys);
+extern const void *nb_callback_lookup_node_entry(struct lyd_node *node,
+						 const void *parent_list_entry);
+extern const void *nb_callback_lookup_next(const struct nb_node *nb_node,
+					   const void *parent_list_entry,
+					   const struct yang_list_keys *keys);
 extern int nb_callback_rpc(const struct nb_node *nb_node, const char *xpath,
 			   const struct list *input, struct list *output,
 			   char *errmsg, size_t errmsg_len);
+extern void nb_callback_notify(const struct nb_node *nb_node, const char *xpath,
+			       struct lyd_node *dnode);
 
 /*
  * Create a northbound node for all YANG schema nodes.
@@ -747,6 +864,14 @@ void nb_nodes_delete(void);
  *    Pointer to northbound node if found, NULL otherwise.
  */
 extern struct nb_node *nb_node_find(const char *xpath);
+
+/**
+ * nb_nodes_find() - find the NB nodes corresponding to complex xpath.
+ * @xpath: XPath to search for (with or without predicates).
+ *
+ * Return: a dynamic array (darr) of `struct nb_node *`s.
+ */
+extern struct nb_node **nb_nodes_find(const char *xpath);
 
 extern void nb_node_set_dependency_cbs(const char *dependency_xpath,
 				       const char *dependant_xpath,
@@ -822,6 +947,32 @@ extern void nb_config_replace(struct nb_config *config_dst,
 			      bool preserve_source);
 
 /*
+ * Return a human-readable string representing a northbound operation.
+ *
+ * operation
+ *    Northbound operation.
+ *
+ * Returns:
+ *    String representation of the given northbound operation.
+ */
+extern const char *nb_operation_name(enum nb_operation operation);
+
+/*
+ * Validate if the northbound operation is allowed for the given node.
+ *
+ * nb_node
+ *    Northbound node.
+ *
+ * operation
+ *    Operation we want to check.
+ *
+ * Returns:
+ *    true if the operation is allowed, false otherwise.
+ */
+extern bool nb_is_operation_allowed(struct nb_node *nb_node,
+				    enum nb_operation oper);
+
+/*
  * Edit a candidate configuration.
  *
  * candidate
@@ -845,7 +996,6 @@ extern void nb_config_replace(struct nb_config *config_dst,
  *
  * Returns:
  *    - NB_OK on success.
- *    - NB_ERR_NOT_FOUND when the element to be deleted was not found.
  *    - NB_ERR for other errors.
  */
 extern int nb_candidate_edit(struct nb_config *candidate,
@@ -853,6 +1003,22 @@ extern int nb_candidate_edit(struct nb_config *candidate,
 			     enum nb_operation operation, const char *xpath,
 			     const struct yang_data *previous,
 			     const struct yang_data *data);
+
+/*
+ * Create diff for configuration.
+ *
+ * dnode
+ *    Pointer to a libyang data node containing the configuration data. If NULL
+ *    is given, an empty configuration will be created.
+ *
+ * seq
+ *    Returns sequence number assigned to the specific change.
+ *
+ * changes
+ *    Northbound config callback head.
+ */
+extern void nb_config_diff_created(const struct lyd_node *dnode, uint32_t *seq,
+				   struct nb_config_cbs *changes);
 
 /*
  * Check if a candidate configuration is outdated and needs to be updated.
@@ -864,6 +1030,144 @@ extern int nb_candidate_edit(struct nb_config *candidate,
  *    true if the candidate is outdated, false otherwise.
  */
 extern bool nb_candidate_needs_update(const struct nb_config *candidate);
+
+/*
+ * Edit candidate configuration changes.
+ *
+ * candidate_config
+ *    Candidate configuration to edit.
+ *
+ * cfg_changes
+ *    Northbound config changes.
+ *
+ * num_cfg_changes
+ *    Number of config changes.
+ *
+ * xpath_base
+ *    Base xpath for config.
+ *
+ * in_backend
+ *    Specify whether the changes are being applied in the backend or not.
+ *
+ * err_buf
+ *    Buffer to store human-readable error message in case of error.
+ *
+ * err_bufsize
+ *    Size of err_buf.
+ *
+ * error
+ *    TRUE on error, FALSE on success
+ */
+extern void nb_candidate_edit_config_changes(struct nb_config *candidate_config,
+					     struct nb_cfg_change cfg_changes[],
+					     size_t num_cfg_changes,
+					     const char *xpath_base,
+					     bool in_backend, char *err_buf,
+					     int err_bufsize, bool *error);
+
+
+extern void nb_config_diff_add_change(struct nb_config_cbs *changes,
+				      enum nb_cb_operation operation,
+				      uint32_t *seq,
+				      const struct lyd_node *dnode);
+/*
+ * Delete candidate configuration changes.
+ *
+ * changes
+ *    Northbound config changes.
+ */
+extern void nb_config_diff_del_changes(struct nb_config_cbs *changes);
+
+/*
+ * Create candidate diff and validate on yang tree
+ *
+ * context
+ *    Context of the northbound transaction.
+ *
+ * candidate
+ *    Candidate DB configuration.
+ *
+ * changes
+ *    Northbound config changes.
+ *
+ * errmsg
+ *    Buffer to store human-readable error message in case of error.
+ *
+ * errmsg_len
+ *    Size of errmsg.
+ *
+ * Returns:
+ *    NB_OK on success, NB_ERR_VALIDATION otherwise
+ */
+extern int nb_candidate_diff_and_validate_yang(struct nb_context *context,
+					       struct nb_config *candidate,
+					       struct nb_config_cbs *changes,
+					       char *errmsg, size_t errmsg_len);
+
+/*
+ * Calculate the delta between two different configurations.
+ *
+ * reference
+ *    Running DB config changes to be compared against.
+ *
+ * incremental
+ *    Candidate DB config changes that will be compared against reference.
+ *
+ * changes
+ *    Will hold the final diff generated.
+ *
+ */
+extern void nb_config_diff(const struct nb_config *reference,
+			   const struct nb_config *incremental,
+			   struct nb_config_cbs *changes);
+
+/*
+ * Perform YANG syntactic and semantic validation.
+ *
+ * WARNING: lyd_validate() can change the configuration as part of the
+ * validation process.
+ *
+ * candidate
+ *    Candidate DB configuration.
+ *
+ * errmsg
+ *    Buffer to store human-readable error message in case of error.
+ *
+ * errmsg_len
+ *    Size of errmsg.
+ *
+ * Returns:
+ *    NB_OK on success, NB_ERR_VALIDATION otherwise
+ */
+extern int nb_candidate_validate_yang(struct nb_config *candidate,
+				      bool no_state, char *errmsg,
+				      size_t errmsg_len);
+
+/*
+ * Perform code-level validation using the northbound callbacks.
+ *
+ * context
+ *    Context of the northbound transaction.
+ *
+ * candidate
+ *    Candidate DB configuration.
+ *
+ * changes
+ *    Northbound config changes.
+ *
+ * errmsg
+ *    Buffer to store human-readable error message in case of error.
+ *
+ * errmsg_len
+ *    Size of errmsg.
+ *
+ * Returns:
+ *    NB_OK on success, NB_ERR_VALIDATION otherwise
+ */
+extern int nb_candidate_validate_code(struct nb_context *context,
+				      struct nb_config *candidate,
+				      struct nb_config_cbs *changes,
+				      char *errmsg, size_t errmsg_len);
 
 /*
  * Update a candidate configuration by rebasing the changes on top of the latest
@@ -924,6 +1228,12 @@ extern int nb_candidate_validate(struct nb_context *context,
  *    nb_candidate_commit_abort() or committed using
  *    nb_candidate_commit_apply().
  *
+ * skip_validate
+ *    TRUE to skip commit validation, FALSE otherwise.
+ *
+ * ignore_zero_change
+ *    TRUE to ignore if zero changes, FALSE otherwise.
+ *
  * errmsg
  *    Buffer to store human-readable error message in case of error.
  *
@@ -940,11 +1250,13 @@ extern int nb_candidate_validate(struct nb_context *context,
  *      the candidate configuration.
  *    - NB_ERR for other errors.
  */
-extern int nb_candidate_commit_prepare(struct nb_context *context,
+extern int nb_candidate_commit_prepare(struct nb_context context,
 				       struct nb_config *candidate,
 				       const char *comment,
 				       struct nb_transaction **transaction,
-				       char *errmsg, size_t errmsg_len);
+				       bool skip_validate,
+				       bool ignore_zero_change, char *errmsg,
+				       size_t errmsg_len);
 
 /*
  * Abort a previously created configuration transaction, releasing all resources
@@ -1027,7 +1339,7 @@ extern void nb_candidate_commit_apply(struct nb_transaction *transaction,
  *      the candidate configuration.
  *    - NB_ERR for other errors.
  */
-extern int nb_candidate_commit(struct nb_context *context,
+extern int nb_candidate_commit(struct nb_context context,
 			       struct nb_config *candidate,
 			       bool save_transaction, const char *comment,
 			       uint32_t *transaction_id, char *errmsg,
@@ -1079,7 +1391,7 @@ extern int nb_running_unlock(enum nb_client client, const void *user);
 extern int nb_running_lock_check(enum nb_client client, const void *user);
 
 /*
- * Iterate over operational data.
+ * Iterate over operational data -- deprecated.
  *
  * xpath
  *    Data path of the YANG data we want to iterate over.
@@ -1090,21 +1402,60 @@ extern int nb_running_lock_check(enum nb_client client, const void *user);
  * flags
  *    NB_OPER_DATA_ITER_ flags to control how the iteration is performed.
  *
+ * should_batch
+ *    Should call finish cb with partial results (i.e., creating batches)
+ *
  * cb
  *    Function to call with each data node.
  *
  * arg
  *    Arbitrary argument passed as the fourth parameter in each call to 'cb'.
  *
+ * tree
+ *    If non-NULL will contain the data tree built from the walk.
+ *
  * Returns:
  *    NB_OK on success, NB_ERR otherwise.
  */
-extern int nb_oper_data_iterate(const char *xpath,
-				struct yang_translator *translator,
-				uint32_t flags, nb_oper_data_cb cb, void *arg);
+extern enum nb_error nb_oper_iterate_legacy(const char *xpath,
+					    struct yang_translator *translator,
+					    uint32_t flags, nb_oper_data_cb cb,
+					    void *arg, struct lyd_node **tree);
+
+/**
+ * nb_oper_walk() - walk the schema building operational state.
+ * @xpath -
+ * @translator -
+ * @flags -
+ * @should_batch - should allow yielding and processing portions of the tree.
+ * @cb - callback invoked for each non-list, non-container node.
+ * @arg - arg to pass to @cb.
+ * @finish - function to call when done with portion or all of walk.
+ * @finish_arg - arg to pass to @finish.
+ *
+ * Return: walk - a cookie that can be used to cancel the walk.
+ */
+extern void *nb_oper_walk(const char *xpath, struct yang_translator *translator,
+			  uint32_t flags, bool should_batch, nb_oper_data_cb cb,
+			  void *arg, nb_oper_data_finish_cb finish,
+			  void *finish_arg);
+
+/**
+ * nb_oper_cancel_walk() - cancel the in progress walk.
+ * @walk - value returned from nb_op_iterate_yielding()
+ *
+ * Should only be called on an in-progress walk. It is invalid to cancel and
+ * already finished walk. The walks `finish` callback will not be called.
+ */
+extern void nb_oper_cancel_walk(void *walk);
+
+/**
+ * nb_op_cancel_all_walks() - cancel all in progress walks.
+ */
+extern void nb_oper_cancel_all_walks(void);
 
 /*
- * Validate if the northbound operation is valid for the given node.
+ * Validate if the northbound callback operation is valid for the given node.
  *
  * operation
  *    Operation we want to check.
@@ -1115,10 +1466,14 @@ extern int nb_oper_data_iterate(const char *xpath,
  * Returns:
  *    true if the operation is valid, false otherwise.
  */
-extern bool nb_operation_is_valid(enum nb_operation operation,
-				  const struct lysc_node *snode);
+extern bool nb_cb_operation_is_valid(enum nb_cb_operation operation,
+				     const struct lysc_node *snode);
 
 /*
+ * DEPRECATED: This call and infra should no longer be used. Instead,
+ * the mgmtd supported tree based call `nb_notification_tree_send` should be
+ * used instead
+ *
  * Send a YANG notification. This is a no-op unless the 'nb_notification_send'
  * hook was registered by a northbound plugin.
  *
@@ -1133,6 +1488,22 @@ extern bool nb_operation_is_valid(enum nb_operation operation,
  *    NB_OK on success, NB_ERR otherwise.
  */
 extern int nb_notification_send(const char *xpath, struct list *arguments);
+
+/*
+ * Send a YANG notification from a backend . This is a no-op unless th
+ * 'nb_notification_tree_send' hook was registered by a northbound plugin.
+ *
+ * xpath
+ *    XPath of the YANG notification.
+ *
+ * tree
+ *    The libyang tree for the notification.
+ *
+ * Returns:
+ *    NB_OK on success, NB_ERR otherwise.
+ */
+extern int nb_notification_tree_send(const char *xpath,
+				     const struct lyd_node *tree);
 
 /*
  * Associate a user pointer to a configuration node.
@@ -1240,15 +1611,15 @@ extern void *nb_running_get_entry_non_rec(const struct lyd_node *dnode,
 extern const char *nb_event_name(enum nb_event event);
 
 /*
- * Return a human-readable string representing a northbound operation.
+ * Return a human-readable string representing a northbound callback operation.
  *
  * operation
- *    Northbound operation.
+ *    Northbound callback operation.
  *
  * Returns:
- *    String representation of the given northbound operation.
+ *    String representation of the given northbound callback operation.
  */
-extern const char *nb_operation_name(enum nb_operation operation);
+extern const char *nb_cb_operation_name(enum nb_cb_operation operation);
 
 /*
  * Return a human-readable string representing a northbound error.
@@ -1299,7 +1670,7 @@ void nb_validate_callbacks(void);
  * db_enabled
  *    Set this to record the transactions in the transaction log.
  */
-extern void nb_init(struct thread_master *tm,
+extern void nb_init(struct event_loop *tm,
 		    const struct frr_yang_module_info *const modules[],
 		    size_t nmodules, bool db_enabled);
 
@@ -1308,6 +1679,9 @@ extern void nb_init(struct thread_master *tm,
  * is exiting.
  */
 extern void nb_terminate(void);
+
+extern void nb_oper_init(struct event_loop *loop);
+extern void nb_oper_terminate(void);
 
 #ifdef __cplusplus
 }

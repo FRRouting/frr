@@ -185,9 +185,11 @@ Route Map Match Command
 
    Matches the specified `local-preference`.
 
-.. clicmd:: match community COMMUNITY_LIST
+.. clicmd:: match community COMMUNITY_LIST [<exact-match|any>]
 
-   Matches the specified  `community_list`
+   Matches the specified  `community_list`. ``exact-match`` specifies to
+   do the exact matching of the communities, while ``any`` - can match any
+   community specified in COMMUNITY_LIST.
 
 .. clicmd:: match peer IPV4_ADDR
 
@@ -212,7 +214,7 @@ Route Map Match Command
 
 .. clicmd:: match source-protocol PROTOCOL_NAME
 
-  This is a ZEBRA specific match command.  Matches the
+  This is a ZEBRA and BGP specific match command.  Matches the
   originating protocol specified.
 
 .. clicmd:: match source-instance NUMBER
@@ -294,9 +296,9 @@ Route Map Set Command
 
    Subtract the BGP local preference from an existing `local_pref`.
 
-.. clicmd:: set distance DISTANCE
+.. clicmd:: set distance (1-255)
 
-   Set the Administrative distance to DISTANCE to use for the route.
+   Set the Administrative distance to use for the route.
    This is only locally significant and will not be dispersed to peers.
 
 .. clicmd:: set weight WEIGHT
@@ -305,10 +307,18 @@ Route Map Set Command
 
 .. clicmd:: set metric <[+|-](1-4294967295)|rtt|+rtt|-rtt>
 
-   Set the BGP attribute MED to a specific value. Use `+`/`-` to add or subtract
-   the specified value to/from the MED. Use `rtt` to set the MED to the round
-   trip time or `+rtt`/`-rtt` to add/subtract the round trip time to/from the
-   MED.
+   Set the route metric. When used with BGP, set the BGP attribute MED to a
+   specific value. Use `+`/`-` to add or subtract the specified value to/from
+   the existing/MED. Use `rtt` to set the MED to the round trip time or
+   `+rtt`/`-rtt` to add/subtract the round trip time to/from the MED.
+
+.. clicmd:: set min-metric <(0-4294967295)>
+
+   Set the minimum meric for the route.
+
+.. clicmd:: set max-metric <(0-4294967295)>
+
+   Set the maximum meric for the route.
 
 .. clicmd:: set aigp-metric <igp-metric|(1-4294967295)>
 
@@ -326,6 +336,10 @@ Route Map Set Command
 .. clicmd:: set community COMMUNITY
 
    Set the BGP community attribute.
+
+.. clicmd:: set extended-comm-list <EXTCOMMUNITY_LIST_NAME> delete
+
+   Set BGP extended community list for deletion.
 
 .. clicmd:: set ipv6 next-hop local IPV6_ADDRESS
 
@@ -366,13 +380,13 @@ Route Map Exit Action Command
 
 .. clicmd:: on-match next
 
-.. clicmd:: continue
-
    Proceed on to the next entry in the route-map.
 
-.. clicmd:: on-match goto N
+.. clicmd:: continue (1-65535)
 
-.. clicmd:: continue N
+   Proceed to the specified sequence in the route-map.
+
+.. clicmd:: on-match goto N
 
    Proceed processing the route-map at the first entry whose order is >= N
 

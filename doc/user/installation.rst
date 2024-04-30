@@ -234,10 +234,9 @@ options from the list below.
    assigned to the realm. See the tc man page.  This option is currently not
    compatible with the usage of nexthop groups in the linux kernel itself.
 
-.. option:: --disable-irdp
+.. option:: --enable-irdp
 
-   Disable IRDP server support.  This is enabled by default if we have
-   both `struct in_pktinfo` and `struct icmphdr` available to us.
+   Enable IRDP server support. This is deprecated.
 
 .. option:: --disable-rtadv
 
@@ -351,20 +350,6 @@ options from the list below.
 
    Use libpam for PAM support in vtysh.
 
-.. option:: --enable-time-check XXX
-
-   This option is deprecated as it was replaced by the
-   :clicmd:`service cputime-stats` CLI command, which may be adjusted at
-   runtime rather than being a compile-time setting.  See there for further
-   detail.
-
-.. option:: --disable-cpu-time
-
-   This option is deprecated as it was replaced by the
-   :clicmd:`service cputime-warning NNN` CLI command, which may be adjusted at
-   runtime rather than being a compile-time setting.  See there for further
-   detail.
-
 .. option:: --enable-pcreposix
 
    Turn on the usage of PCRE Posix libs for regex functionality.
@@ -390,19 +375,38 @@ and the configuration files in :file:`/usr/local/etc`. The :file:`/usr/local/`
 installation prefix and other directories may be changed using the following
 options to the configuration script.
 
+.. option:: --enable-ccls
+
+   Enable the creation of a :file:`.ccls` file in the top level source
+   directory.
+
+   Some development environments (e.g., LSP server within emacs, et al.) can
+   utilize :clicmd:`ccls` to provide highly sophisticated IDE features (e.g.,
+   semantically accurate jump-to definition/reference, and even code
+   refactoring). The `--enable-ccls` causes :file:`configure` to generate a
+   configuration for the :clicmd:`ccls` command, based on the configured
+   FRR build environment.
+
 .. option:: --prefix <prefix>
 
    Install architecture-independent files in `prefix` [/usr/local].
 
 .. option:: --sysconfdir <dir>
 
-   Look for configuration files in `dir` [`prefix`/etc]. Note that sample
-   configuration files will be installed here.
+   Look for configuration files in `dir`/frr [`prefix`/etc]. Note that sample
+   configuration files will be installed here.  Should be ``/etc`` unless
+   your platform splits package configuration locations.
 
 .. option:: --localstatedir <dir>
 
-   Configure zebra to use `dir` for local state files, such as pid files and
-   unix sockets.
+   Configure base directory for local state.  Indirectly controls
+   ``--runstatedir``.  Should be ``/var`` in most cases.
+
+.. option:: --runstatedir <dir>
+
+   Configure FRR to use `dir`/frr for local state files, such as pid files and
+   unix sockets.  Should be ``/var/run`` (default through ``--localstatedir``)
+   or ``/run`` in most cases.
 
 .. option:: --with-scriptdir <dir>
 
@@ -581,9 +585,9 @@ the options you chose:
 
    ./configure \
        --prefix=/usr \
-       --localstatedir=/var/run/frr \
+       --sysconfdir=/etc \
+       --localstatedir=/var \
        --sbindir=/usr/lib/frr \
-       --sysconfdir=/etc/frr \
        --enable-pimd \
        --enable-watchfrr \
        ...

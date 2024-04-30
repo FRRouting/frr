@@ -1,25 +1,13 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * ASCII table generator.
  * Copyright (C) 2017  Cumulus Networks
  * Quentin Young
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 #include <zebra.h>
 #include <stdio.h>
 
+#include "lib/json.h"
 #include "printfrr.h"
 #include "memory.h"
 #include "termtable.h"
@@ -497,4 +485,46 @@ char *ttable_dump(struct ttable *tt, const char *newline)
 	XFREE(MTYPE_TTABLE, right);
 
 	return buf;
+}
+
+/* Crude conversion from ttable to json array.
+ * Assume that the first row has column headings.
+ *
+ * Formats are:
+ *   d	int32
+ *   f	double
+ *   l	int64
+ *   s	string (default)
+ */
+json_object *ttable_json(struct ttable *tt, const char *const formats)
+{
+	struct ttable_cell *row; /* iteration pointers */
+	json_object *json = NULL;
+
+	json = json_object_new_array();
+
+	for (int i = 1; i < tt->nrows; i++) {
+		json_object *jobj;
+		json_object *val;
+
+		row = tt->table[i];
+		jobj = json_object_new_object();
+		json_object_array_add(json, jobj);
+		for (int j = 0; j < tt->ncols; j++) {
+			switch (formats[j]) {
+			case 'd':
+			case 'l':
+				val = json_object_new_int64(atol(row[j].text));
+				break;
+			case 'f':
+				val = json_object_new_double(atof(row[j].text));
+				break;
+			default:
+				val = json_object_new_string(row[j].text);
+			}
+			json_object_object_add(jobj, tt->table[0][j].text, val);
+		}
+	}
+
+	return json;
 }

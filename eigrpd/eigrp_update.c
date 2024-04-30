@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * EIGRP Sending and Receiving EIGRP Update Packets.
  * Copyright (C) 2013-2016
@@ -11,27 +12,11 @@
  *   Tomas Hvorkovy
  *   Martin Kontsek
  *   Lukas Koribsky
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
 
-#include "thread.h"
+#include "frrevent.h"
 #include "memory.h"
 #include "linklist.h"
 #include "prefix.h"
@@ -857,9 +842,6 @@ static void eigrp_update_send_GR_part(struct eigrp_neighbor *nbr)
 			eigrp_fsm_event(&fsm_msg);
 		}
 
-		/* NULL the pointer */
-		dest_addr = NULL;
-
 		/* delete processed prefix from list */
 		listnode_delete(prefixes, pe);
 
@@ -910,19 +892,19 @@ static void eigrp_update_send_GR_part(struct eigrp_neighbor *nbr)
  *
  * Uses nbr_gr_packet_type and t_nbr_send_gr from neighbor.
  */
-void eigrp_update_send_GR_thread(struct thread *thread)
+void eigrp_update_send_GR_thread(struct event *thread)
 {
 	struct eigrp_neighbor *nbr;
 
 	/* get argument from thread */
-	nbr = THREAD_ARG(thread);
+	nbr = EVENT_ARG(thread);
 	/* remove this thread pointer */
 
 	/* if there is packet waiting in queue,
 	 * schedule this thread again with small delay */
 	if (nbr->retrans_queue->count > 0) {
-		thread_add_timer_msec(master, eigrp_update_send_GR_thread, nbr,
-				      10, &nbr->t_nbr_send_gr);
+		event_add_timer_msec(master, eigrp_update_send_GR_thread, nbr,
+				     10, &nbr->t_nbr_send_gr);
 		return;
 	}
 
@@ -931,7 +913,7 @@ void eigrp_update_send_GR_thread(struct thread *thread)
 
 	/* if it wasn't last chunk, schedule this thread again */
 	if (nbr->nbr_gr_packet_type != EIGRP_PACKET_PART_LAST) {
-		thread_execute(master, eigrp_update_send_GR_thread, nbr, 0);
+		event_execute(master, eigrp_update_send_GR_thread, nbr, 0, NULL);
 	}
 }
 
@@ -997,7 +979,7 @@ void eigrp_update_send_GR(struct eigrp_neighbor *nbr, enum GR_type gr_type,
 	/* indicate, that this is first GR Update packet chunk */
 	nbr->nbr_gr_packet_type = EIGRP_PACKET_PART_FIRST;
 	/* execute packet sending in thread */
-	thread_execute(master, eigrp_update_send_GR_thread, nbr, 0);
+	event_execute(master, eigrp_update_send_GR_thread, nbr, 0, NULL);
 }
 
 /**

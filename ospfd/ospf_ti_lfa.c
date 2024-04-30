@@ -1,23 +1,8 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * OSPF TI-LFA
  * Copyright (C) 2020  NetDEF, Inc.
  *                     Sascha Kattelmann
- *
- * This file is part of FRR.
- *
- * FRR is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * FRR is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -79,6 +64,7 @@ ospf_ti_lfa_find_p_node(struct vertex *pc_node, struct p_space *p_space,
 	struct vertex_parent *pc_vertex_parent;
 
 	curr_node = listnode_lookup(q_space->pc_path, pc_node);
+	assert(curr_node);
 	pc_node_parent = listgetdata(curr_node->next);
 
 	q_space->p_node_info->type = OSPF_TI_LFA_UNDEFINED_NODE;
@@ -120,6 +106,7 @@ static void ospf_ti_lfa_find_q_node(struct vertex *pc_node,
 	struct vertex_parent *pc_vertex_parent;
 
 	curr_node = listnode_lookup(q_space->pc_path, pc_node);
+	assert(curr_node);
 	next_node = curr_node->next;
 	pc_node_parent = listgetdata(next_node);
 	pc_vertex_parent =
@@ -234,7 +221,7 @@ static struct list *ospf_ti_lfa_cut_out_pc_path(struct list *pc_vertex_list,
 	current_listnode = listnode_lookup(pc_path, current_vertex);
 
 	/* Note that the post-convergence paths are reversed. */
-	for (;;) {
+	while (current_listnode) {
 		current_vertex = listgetdata(current_listnode);
 		listnode_add(inner_pc_path, current_vertex);
 
@@ -283,6 +270,7 @@ static void ospf_ti_lfa_generate_inner_label_stack(
 	end_label = MPLS_INVALID_LABEL;
 	if (p_node_info->node->id.s_addr == p_space->root->id.s_addr) {
 		pc_p_node = listnode_lookup(q_space->pc_path, p_space->pc_spf);
+		assert(pc_p_node);
 		start_vertex = listgetdata(pc_p_node->prev);
 		start_label = ospf_sr_get_adj_sid_by_id(&p_node_info->node->id,
 							&start_vertex->id);
@@ -290,6 +278,7 @@ static void ospf_ti_lfa_generate_inner_label_stack(
 	if (q_node_info->node->id.s_addr == q_space->root->id.s_addr) {
 		pc_q_node = listnode_lookup(q_space->pc_path,
 					    listnode_head(q_space->pc_path));
+		assert(pc_q_node);
 		end_vertex = listgetdata(pc_q_node->next);
 		end_label = ospf_sr_get_adj_sid_by_id(&end_vertex->id,
 						      &q_node_info->node->id);
@@ -705,6 +694,7 @@ static void ospf_ti_lfa_generate_q_spaces(struct ospf_area *area,
 			__func__, &p_space->root->id, &q_space->root->id,
 			res_buf);
 
+		list_delete(&q_space->vertex_list);
 		XFREE(MTYPE_OSPF_Q_SPACE, q_space->p_node_info);
 		XFREE(MTYPE_OSPF_Q_SPACE, q_space->q_node_info);
 		XFREE(MTYPE_OSPF_Q_SPACE, q_space);
@@ -725,7 +715,7 @@ static void ospf_ti_lfa_generate_q_spaces(struct ospf_area *area,
 	if (q_space->label_stack) {
 		mpls_label2str(q_space->label_stack->num_labels,
 			       q_space->label_stack->label, label_buf,
-			       MPLS_LABEL_STRLEN, true);
+			       MPLS_LABEL_STRLEN, 0, true);
 		zlog_info(
 			"%s: Generated label stack %s for root %pI4 and destination %pI4 for %s",
 			__func__, label_buf, &p_space->root->id,
@@ -1050,7 +1040,7 @@ void ospf_ti_lfa_insert_backup_paths(struct ospf_area *area,
 					path->srni.backup_label_stack
 						->num_labels,
 					path->srni.backup_label_stack->label,
-					label_buf, MPLS_LABEL_STRLEN, true);
+					label_buf, MPLS_LABEL_STRLEN, 0, true);
 				if (IS_DEBUG_OSPF_TI_LFA)
 					zlog_debug(
 						"%s: inserted backup path %s for prefix %pFX, router id %pI4 and nexthop %pI4.",
@@ -1093,6 +1083,7 @@ void ospf_ti_lfa_free_p_spaces(struct ospf_area *area)
 
 		q_spaces_fini(p_space->q_spaces);
 		XFREE(MTYPE_OSPF_Q_SPACE, p_space->q_spaces);
+		XFREE(MTYPE_OSPF_P_SPACE, p_space);
 	}
 
 	p_spaces_fini(area->p_spaces);

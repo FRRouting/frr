@@ -1,22 +1,9 @@
 #!/usr/bin/env python
+# SPDX-License-Identifier: ISC
 
 #
 # Copyright (c) 2022 by
 # Donatas Abraitis <donatas@opensourcerouting.org>
-#
-# Permission to use, copy, modify, and/or distribute this software
-# for any purpose with or without fee is hereby granted, provided
-# that the above copyright notice and this permission notice appear
-# in all copies.
-#
-# THE SOFTWARE IS PROVIDED "AS IS" AND NETDEF DISCLAIMS ALL WARRANTIES
-# WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
-# MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL NETDEF BE LIABLE FOR
-# ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY
-# DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS,
-# WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS
-# ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE
-# OF THIS SOFTWARE.
 #
 
 """
@@ -52,11 +39,14 @@ pytestmark = [pytest.mark.bgpd]
 
 
 def build_topo(tgen):
-    for routern in range(1, 3):
+    for routern in range(1, 4):
         tgen.add_router("r{}".format(routern))
 
     switch = tgen.add_switch("s1")
     switch.add_link(tgen.gears["r1"])
+    switch.add_link(tgen.gears["r2"])
+    switch = tgen.add_switch("s2")
+    switch.add_link(tgen.gears["r3"])
     switch.add_link(tgen.gears["r2"])
 
 
@@ -108,10 +98,39 @@ def test_bgp_comm_list_match():
         }
         return topotest.json_cmp(output, expected)
 
-    step("Initial BGP converge")
+    step("Initial BGP converge between R1 and R2")
     test_func = functools.partial(_bgp_converge)
     _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
     assert result is None, "Failed to filter BGP UPDATES with community-list on R2"
+
+
+def test_bgp_comm_list_match_any():
+    tgen = get_topogen()
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    router = tgen.gears["r3"]
+
+    def _bgp_converge():
+        output = json.loads(
+            router.vtysh_cmd(
+                "show bgp ipv4 unicast neighbors 192.168.1.2 filtered-routes json"
+            )
+        )
+        expected = {
+            "receivedRoutes": {
+                "172.16.255.4/32": {
+                    "path": "65002 65001",
+                },
+            }
+        }
+        return topotest.json_cmp(output, expected)
+
+    step("Initial BGP converge between R3 and R2")
+    test_func = functools.partial(_bgp_converge)
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+    assert result is None, "Failed to filter BGP UPDATES with community-list on R3"
 
 
 if __name__ == "__main__":

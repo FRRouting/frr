@@ -1,0 +1,190 @@
+{
+  "default": {
+    "vrfName": "default",
+    "routerId": "192.0.2.1",
+    "defaultLocPrf": 100,
+    "localAS": 65500,
+    "routes": {
+      "10.204.0.0/24": [
+        {
+          "pathFrom": "external",
+          "prefix": "10.204.0.0",
+          "prefixLen": 24,
+          "network": "10.204.0.0/24",
+          "metric": 0,
+          "locPrf": 100,
+          "weight": 0,
+          "peerId": "(unspec)",
+          "path": "",
+          "origin": "incomplete",
+          "announceNexthopSelf": true,
+          "nhVrfName": "default",
+          "nexthops": [
+            {
+              "ip": "10.125.0.2",
+              "hostname": "r1",
+              "afi": "ipv4",
+              "used": true
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "vrf1": {
+    "vrfName": "vrf1",
+    "routerId": "192.0.2.1",
+    "defaultLocPrf": 100,
+    "localAS": 65500,
+    "routes": {
+      "10.101.0.0/24": [
+        {
+          "valid": true,
+          "bestpath": true,
+          "selectionReason": "First path received",
+          "pathFrom": "external",
+          "prefix": "10.101.0.0",
+          "prefixLen": 24,
+          "network": "10.101.0.0/24",
+          "metric": 0,
+          "weight": 32768,
+          "peerId": "(unspec)",
+          "path": "",
+          "origin": "incomplete",
+          "nexthops": [
+            {
+              "ip": "0.0.0.0",
+              "hostname": "r1",
+              "afi": "ipv4",
+              "used": true
+            }
+          ]
+        }
+      ],
+      "10.201.0.0/24": [
+        {
+          "pathFrom": "external",
+          "prefix": "10.201.0.0",
+          "prefixLen": 24,
+          "network": "10.201.0.0/24",
+          "metric": 0,
+          "locPrf": 100,
+          "weight": 0,
+          "peerId": "(unspec)",
+          "path": "",
+          "origin": "incomplete",
+          "announceNexthopSelf": true,
+          "nhVrfName": "default",
+          "nexthops": [
+            {
+              "ip": "10.125.0.2",
+              "hostname": "r1",
+              "afi": "ipv4",
+              "used": true
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "vrf3": {
+    "vrfName": "vrf3",
+    "routerId": "192.0.2.1",
+    "defaultLocPrf": 100,
+    "localAS": 65500,
+    "routes": {
+      "10.103.0.0/24": [
+        {
+          "valid": true,
+          "bestpath": true,
+          "selectionReason": "First path received",
+          "pathFrom": "external",
+          "prefix": "10.103.0.0",
+          "prefixLen": 24,
+          "network": "10.103.0.0/24",
+          "metric": 0,
+          "weight": 32768,
+          "peerId": "(unspec)",
+          "path": "",
+          "origin": "incomplete",
+          "nexthops": [
+            {
+              "ip": "0.0.0.0",
+              "hostname": "r1",
+              "afi": "ipv4",
+              "used": true
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "vrf4": {
+    "vrfName": "vrf4",
+    "routerId": "192.0.2.1",
+    "defaultLocPrf": 100,
+    "localAS": 65500,
+    "routes": {
+      "10.103.0.0/24": [
+        {
+          "valid": true,
+          "bestpath": true,
+          "selectionReason": "First path received",
+          "pathFrom": "external",
+          "prefix": "10.103.0.0",
+          "prefixLen": 24,
+          "network": "10.103.0.0/24",
+          "metric": 0,
+          "weight": 32768,
+          "peerId": "(unspec)",
+          "path": "",
+          "origin": "incomplete",
+          "announceNexthopSelf": true,
+          "nhVrfName": "vrf3",
+          "nexthops": [
+            {
+              "ip": "0.0.0.0",
+              "hostname": "r1",
+              "afi": "ipv4",
+              "used": true
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "vrf2": {
+    "vrfName": "vrf2",
+    "routerId": "192.0.2.1",
+    "defaultLocPrf": 100,
+    "localAS": 65500,
+    "routes": {
+      "10.101.0.0/24": [
+        {
+          "valid": true,
+          "bestpath": true,
+          "selectionReason": "First path received",
+          "pathFrom": "external",
+          "prefix": "10.101.0.0",
+          "prefixLen": 24,
+          "network": "10.101.0.0/24",
+          "metric": 0,
+          "weight": 32768,
+          "peerId": "(unspec)",
+          "path": "",
+          "origin": "incomplete",
+          "announceNexthopSelf": true,
+          "nhVrfName": "vrf1",
+          "nexthops": [
+            {
+              "ip": "0.0.0.0",
+              "hostname": "r1",
+              "afi": "ipv4",
+              "used": true
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

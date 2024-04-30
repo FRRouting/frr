@@ -1,21 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* BGP Large Communities Attribute
  *
  * Copyright (C) 2016 Keyur Patel <keyur@arrcus.com>
- *
- * This file is part of FRRouting (FRR).
- *
- * FRR is free software; you can redistribute it and/or modify it under the
- * terms of the GNU General Public License as published by the Free Software
- * Foundation; either version 2, or (at your option) any later version.
- *
- * FRR is distributed in the hope that it will be useful, but WITHOUT ANY
- * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
- * FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more
- * details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -360,9 +346,7 @@ void lcommunity_init(void)
 
 void lcommunity_finish(void)
 {
-	hash_clean(lcomhash, (void (*)(void *))lcommunity_hash_free);
-	hash_free(lcomhash);
-	lcomhash = NULL;
+	hash_clean_and_free(&lcomhash, (void (*)(void *))lcommunity_hash_free);
 }
 
 /* Get next Large Communities token from the string.

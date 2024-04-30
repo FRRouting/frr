@@ -1,21 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* OSPFv3 SNMP support
  * Copyright (C) 2004 Yasuhiro Ohara
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -712,8 +697,8 @@ static uint8_t *ospfv3GeneralGroup(struct variable *v, oid *name,
 	case OSPFv3REFERENCEBANDWIDTH:
 		if (ospf6)
 			return SNMP_INTEGER(ospf6->ref_bandwidth);
-	/* Otherwise, like for "not implemented". */
-	/* fallthru */
+		/* Otherwise, like for "not implemented". */
+		return NULL;
 	case OSPFv3RESTARTSUPPORT:
 	case OSPFv3RESTARTINTERVAL:
 	case OSPFv3RESTARTSTRICTLSACHECKING:
@@ -1141,6 +1126,8 @@ static uint8_t *ospfv3IfEntry(struct variable *v, oid *name, size_t *length,
 			return SNMP_INTEGER(1);
 		else if (oi->type == OSPF_IFTYPE_POINTOPOINT)
 			return SNMP_INTEGER(3);
+		else if (oi->type == OSPF_IFTYPE_POINTOMULTIPOINT)
+			return SNMP_INTEGER(5);
 		else
 			break; /* Unknown, don't put anything */
 	case OSPFv3IFADMINSTATUS:
@@ -1382,6 +1369,7 @@ static int ospf6TrapIfStateChange(struct ospf6_interface *oi, int next_state,
 
 	/* Terminal state or regression */
 	if ((next_state != OSPF6_INTERFACE_POINTTOPOINT)
+	    && (next_state != OSPF6_INTERFACE_POINTTOMULTIPOINT)
 	    && (next_state != OSPF6_INTERFACE_DROTHER)
 	    && (next_state != OSPF6_INTERFACE_BDR)
 	    && (next_state != OSPF6_INTERFACE_DR) && (next_state >= prev_state))
@@ -1398,7 +1386,7 @@ static int ospf6TrapIfStateChange(struct ospf6_interface *oi, int next_state,
 }
 
 /* Register OSPFv3-MIB. */
-static int ospf6_snmp_init(struct thread_master *master)
+static int ospf6_snmp_init(struct event_loop *master)
 {
 	smux_init(master);
 	REGISTER_MIB("OSPFv3MIB", ospfv3_variables, variable, ospfv3_oid);

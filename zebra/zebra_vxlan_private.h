@@ -1,24 +1,8 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Zebra VxLAN (EVPN) Data structures and definitions
  * These are "internal" to this function.
  * Copyright (C) 2016, 2017 Cumulus Networks, Inc.
- *
- * This file is part of FRR.
- *
- * FRR is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * FRR is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with FRR; see the file COPYING.  If not, write to the Free
- * Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
- * 02111-1307, USA.
  */
 
 #ifndef _ZEBRA_VXLAN_PRIVATE_H
@@ -29,6 +13,7 @@
 #include "if.h"
 #include "linklist.h"
 #include "zebra_vxlan.h"
+#include "zebra_vxlan_if.h"
 #include "zebra_evpn.h"
 #include "zebra_evpn_mac.h"
 
@@ -50,6 +35,10 @@ struct zebra_l3vni {
 	uint32_t filter;
 #define PREFIX_ROUTES_ONLY	(1 << 0) /* l3-vni used for prefix routes only */
 
+	/* Corresponding Bridge information */
+	vlanid_t vid;
+	struct interface *bridge_if;
+
 	/* Local IP */
 	struct in_addr local_vtep_ip;
 
@@ -70,6 +59,10 @@ struct zebra_l3vni {
 	/* list of remote vtep-ip neigh */
 	struct hash *nh_table;
 };
+
+#define IS_ZL3VNI_SVD_BACKED(zl3vni)                                           \
+	(zl3vni->vxlan_if && zl3vni->vxlan_if->info &&                         \
+	 IS_ZEBRA_VXLAN_IF_SVD((struct zebra_if *)zl3vni->vxlan_if->info))
 
 /* get the vx-intf name for l3vni */
 static inline const char *zl3vni_vxlan_if_name(struct zebra_l3vni *zl3vni)
@@ -260,5 +253,12 @@ extern void zebra_vxlan_sync_mac_dp_install(struct zebra_mac *mac,
 					    bool force_clear_static,
 					    const char *caller);
 extern bool zebra_evpn_do_dup_addr_detect(struct zebra_vrf *zvrf);
+extern void zebra_vxlan_sg_ref(struct in_addr local_vtep_ip,
+			       struct in_addr mcast_grp);
+extern void zebra_vxlan_sg_deref(struct in_addr local_vtep_ip,
+				 struct in_addr mcast_grp);
+extern void zebra_vxlan_process_l3vni_oper_up(struct zebra_l3vni *zl3vni);
+extern void zebra_vxlan_process_l3vni_oper_down(struct zebra_l3vni *zl3vni);
+extern int zebra_evpn_vxlan_del(struct zebra_evpn *zevpn);
 
 #endif /* _ZEBRA_VXLAN_PRIVATE_H */

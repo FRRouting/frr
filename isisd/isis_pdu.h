@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * IS-IS Rout(e)ing protocol - isis_pdu.h
  *                             PDU processing
@@ -5,20 +6,6 @@
  * Copyright (C) 2001,2002   Sampo Saaristo
  *                           Tampere University of Technology
  *                           Institute of Communications Engineering
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public Licenseas published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful,but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef _ZEBRA_ISIS_PDU_H
@@ -195,7 +182,7 @@ struct isis_partial_seqnum_hdr {
 /*
  * Function for receiving IS-IS PDUs
  */
-void isis_receive(struct thread *thread);
+void isis_receive(struct event *thread);
 
 /*
  * calling arguments for snp_process ()
@@ -210,13 +197,15 @@ void isis_receive(struct thread *thread);
  */
 void send_hello_sched(struct isis_circuit *circuit, int level, long delay);
 int send_csnp(struct isis_circuit *circuit, int level);
-void send_l1_csnp(struct thread *thread);
-void send_l2_csnp(struct thread *thread);
-void send_l1_psnp(struct thread *thread);
-void send_l2_psnp(struct thread *thread);
+void send_l1_csnp(struct event *thread);
+void send_l2_csnp(struct event *thread);
+void send_l1_psnp(struct event *thread);
+void send_l2_psnp(struct event *thread);
 void send_lsp(struct isis_circuit *circuit,
 	      struct isis_lsp *lsp, enum isis_tx_type tx_type);
 void fill_fixed_hdr(uint8_t pdu_type, struct stream *stream);
 int send_hello(struct isis_circuit *circuit, int level);
 int isis_handle_pdu(struct isis_circuit *circuit, uint8_t *ssnpa);
+void isis_log_pdu_drops(struct isis_area *area, const char *pdu_type);
+
 #endif /* _ZEBRA_ISIS_PDU_H */

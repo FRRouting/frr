@@ -1,27 +1,15 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Copyright (C) 2003 Yasuhiro Ohara
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef OSPF6_NEIGHBOR_H
 #define OSPF6_NEIGHBOR_H
 
+#include "typesafe.h"
 #include "hook.h"
+
+#include "ospf6_message.h"
 
 /* Forward declaration(s). */
 struct ospf6_area;
@@ -51,7 +39,7 @@ struct ospf6_helper_info {
 	 * helper until this timer until
 	 * this timer expires.
 	 */
-	struct thread *t_grace_timer;
+	struct event *t_grace_timer;
 
 	/* Helper status */
 	uint32_t gr_helper_status;
@@ -67,6 +55,8 @@ struct ospf6_helper_info {
 	uint32_t rejected_reason;
 };
 
+struct ospf6_if_p2xp_neighcfg;
+
 /* Neighbor structure */
 struct ospf6_neighbor {
 	/* Neighbor Router ID String */
@@ -74,6 +64,11 @@ struct ospf6_neighbor {
 
 	/* OSPFv3 Interface this neighbor belongs to */
 	struct ospf6_interface *ospf6_if;
+
+	/* P2P/P2MP config for this neighbor.
+	 * can be NULL if not explicitly configured!
+	 */
+	struct ospf6_if_p2xp_neighcfg *p2xp_cfg;
 
 	/* Neighbor state */
 	uint8_t state;
@@ -126,18 +121,19 @@ struct ospf6_neighbor {
 	struct ospf6_lsa *last_ls_req;
 
 	/* Inactivity timer */
-	struct thread *inactivity_timer;
+	struct event *inactivity_timer;
 
 	/* Timer to release the last dbdesc packet */
-	struct thread *last_dbdesc_release_timer;
+	struct event *last_dbdesc_release_timer;
 
 	/* Thread for sending message */
-	struct thread *thread_send_dbdesc;
-	struct thread *thread_send_lsreq;
-	struct thread *thread_send_lsupdate;
-	struct thread *thread_send_lsack;
-	struct thread *thread_exchange_done;
-	struct thread *thread_adj_ok;
+	struct event *thread_send_dbdesc;
+	struct event *thread_send_lsreq;
+	struct event *thread_send_lsupdate;
+	struct event *thread_send_lsack;
+	struct event *thread_exchange_done;
+	struct event *thread_adj_ok;
+	struct event *event_loading_done;
 
 	/* BFD information */
 	struct bfd_session_params *bfd_session;
@@ -204,21 +200,31 @@ struct ospf6_neighbor *ospf6_neighbor_create(uint32_t router_id,
 					     struct ospf6_interface *oi);
 void ospf6_neighbor_delete(struct ospf6_neighbor *on);
 
+void ospf6_neighbor_lladdr_set(struct ospf6_neighbor *on,
+			       const struct in6_addr *addr);
+struct ospf6_if_p2xp_neighcfg *ospf6_if_p2xp_find(struct ospf6_interface *oi,
+						  const struct in6_addr *addr);
+void ospf6_if_p2xp_up(struct ospf6_interface *oi);
+
+uint32_t ospf6_neighbor_cost(struct ospf6_neighbor *on);
+
 /* Neighbor event */
-extern void hello_received(struct thread *thread);
-extern void twoway_received(struct thread *thread);
-extern void negotiation_done(struct thread *thread);
-extern void exchange_done(struct thread *thread);
-extern void loading_done(struct thread *thread);
-extern void adj_ok(struct thread *thread);
-extern void seqnumber_mismatch(struct thread *thread);
-extern void bad_lsreq(struct thread *thread);
-extern void oneway_received(struct thread *thread);
-extern void inactivity_timer(struct thread *thread);
+extern void hello_received(struct event *thread);
+extern void twoway_received(struct event *thread);
+extern void negotiation_done(struct event *thread);
+extern void exchange_done(struct event *thread);
+extern void loading_done(struct event *thread);
+extern void adj_ok(struct event *thread);
+extern void seqnumber_mismatch(struct event *thread);
+extern void bad_lsreq(struct event *thread);
+extern void oneway_received(struct event *thread);
+extern void inactivity_timer(struct event *thread);
 extern void ospf6_check_nbr_loading(struct ospf6_neighbor *on);
 
 extern void ospf6_neighbor_init(void);
 extern int config_write_ospf6_debug_neighbor(struct vty *vty);
+extern int config_write_ospf6_p2xp_neighbor(struct vty *vty,
+					    struct ospf6_interface *oi);
 extern void install_element_ospf6_debug_neighbor(void);
 
 DECLARE_HOOK(ospf6_neighbor_change,

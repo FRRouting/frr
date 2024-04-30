@@ -9,7 +9,6 @@ man8 += $(MANBUILD)/frr-ripngd.8
 endif
 
 ripngd_ripngd_SOURCES = \
-	ripngd/ripng_cli.c \
 	ripngd/ripng_debug.c \
 	ripngd/ripng_interface.c \
 	ripngd/ripng_nexthop.c \
@@ -28,6 +27,7 @@ ripngd_ripngd_SOURCES = \
 
 clippy_scan += \
 	ripngd/ripng_cli.c \
+	ripngd/ripngd.c \
 	# end
 
 noinst_HEADERS += \
