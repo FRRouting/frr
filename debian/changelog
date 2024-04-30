@@ -1,3 +1,10 @@
+frr (8.4.4-1.1) unstable; urgency=high
+
+  * Non-maintainer upload by the Security Team.
+  * Upstream fixes for CVE-2023-38802, CVE-2023-41358, CVE-2023-41360
+
+ -- Aron Xu <aron@debian.org>  Fri, 01 Sep 2023 16:57:41 +0800
+
 frr (8.4.4-1) unstable; urgency=medium
 
   * new upstream release FRR 8.4.4
