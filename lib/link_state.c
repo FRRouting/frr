@@ -140,6 +140,12 @@ int ls_node_same(struct ls_node *n1, struct ls_node *n2)
 		if (CHECK_FLAG(n1->flags, LS_NODE_MSD) && (n1->msd != n2->msd))
 			return 0;
 	}
+	if (CHECK_FLAG(n1->flags, LS_NODE_SRV6)) {
+		if (n1->srv6_cap_flags != n2->srv6_cap_flags)
+			return 0;
+		if (memcmp(&n1->srv6_msd, &n2->srv6_msd, sizeof(n1->srv6_msd)))
+			return 0;
+	}
 
 	/* OK, n1 & n2 are equal */
 	return 1;
@@ -318,6 +324,23 @@ int ls_attributes_same(struct ls_attributes *l1, struct ls_attributes *l2)
 		    && (i < ADJ_PRI_IPV6)
 		    && (!IPV4_ADDR_SAME(&l1->adj_sid[i].neighbor.addr,
 					&l2->adj_sid[i].neighbor.addr)))
+			return 0;
+	}
+	for (int i = 0; i < ADJ_SRV6_MAX; i++) {
+		if (!CHECK_FLAG(l1->flags, (LS_ATTR_ADJ_SRV6SID << i)))
+			continue;
+		if (memcmp(&l1->adj_srv6_sid[i].sid, &l2->adj_srv6_sid[i].sid,
+			   sizeof(struct in6_addr)) ||
+		    (l1->adj_srv6_sid[i].flags != l2->adj_srv6_sid[i].flags) ||
+		    (l1->adj_srv6_sid[i].weight != l2->adj_srv6_sid[i].weight) ||
+		    (l1->adj_srv6_sid[i].endpoint_behavior !=
+		     l2->adj_srv6_sid[i].endpoint_behavior))
+			return 0;
+		if (((l1->adv.origin == ISIS_L1) ||
+		     (l1->adv.origin == ISIS_L2)) &&
+		    (memcmp(&l1->adj_srv6_sid[i].neighbor.sysid,
+			    &l2->adj_srv6_sid[i].neighbor.sysid,
+			    ISO_SYS_ID_LEN) != 0))
 			return 0;
 	}
 	if (CHECK_FLAG(l1->flags, LS_ATTR_SRLG)
@@ -1298,6 +1321,26 @@ static struct ls_attributes *ls_parse_attributes(struct stream *s)
 		STREAM_GET(attr->adj_sid[ADJ_BCK_IPV6].neighbor.sysid, s,
 			   ISO_SYS_ID_LEN);
 	}
+	if (CHECK_FLAG(attr->flags, LS_ATTR_ADJ_SRV6SID)) {
+		STREAM_GET(&attr->adj_srv6_sid[ADJ_SRV6_PRI_IPV6].sid, s,
+			   sizeof(struct in6_addr));
+		STREAM_GETC(s, attr->adj_srv6_sid[ADJ_SRV6_PRI_IPV6].flags);
+		STREAM_GETC(s, attr->adj_srv6_sid[ADJ_SRV6_PRI_IPV6].weight);
+		STREAM_GETW(s, attr->adj_srv6_sid[ADJ_SRV6_PRI_IPV6]
+				       .endpoint_behavior);
+		STREAM_GET(attr->adj_srv6_sid[ADJ_SRV6_PRI_IPV6].neighbor.sysid,
+			   s, ISO_SYS_ID_LEN);
+	}
+	if (CHECK_FLAG(attr->flags, LS_ATTR_BCK_ADJ_SRV6SID)) {
+		STREAM_GET(&attr->adj_srv6_sid[ADJ_SRV6_BCK_IPV6].sid, s,
+			   sizeof(struct in6_addr));
+		STREAM_GETC(s, attr->adj_srv6_sid[ADJ_SRV6_BCK_IPV6].flags);
+		STREAM_GETC(s, attr->adj_srv6_sid[ADJ_SRV6_BCK_IPV6].weight);
+		STREAM_GETW(s, attr->adj_srv6_sid[ADJ_SRV6_BCK_IPV6]
+				       .endpoint_behavior);
+		STREAM_GET(attr->adj_srv6_sid[ADJ_SRV6_BCK_IPV6].neighbor.sysid,
+			   s, ISO_SYS_ID_LEN);
+	}
 	if (CHECK_FLAG(attr->flags, LS_ATTR_SRLG)) {
 		STREAM_GETC(s, len);
 		attr->srlgs = XCALLOC(MTYPE_LS_DB, len*sizeof(uint32_t));
@@ -1530,6 +1573,28 @@ static int ls_format_attributes(struct stream *s, struct ls_attributes *attr)
 		stream_putc(s, attr->adj_sid[ADJ_BCK_IPV6].flags);
 		stream_putc(s, attr->adj_sid[ADJ_BCK_IPV6].weight);
 		stream_put(s, attr->adj_sid[ADJ_BCK_IPV6].neighbor.sysid,
+			   ISO_SYS_ID_LEN);
+	}
+	if (CHECK_FLAG(attr->flags, LS_ATTR_ADJ_SRV6SID)) {
+		stream_put(s, &attr->adj_srv6_sid[ADJ_SRV6_PRI_IPV6].sid,
+			   sizeof(struct in6_addr));
+		stream_putc(s, attr->adj_srv6_sid[ADJ_SRV6_PRI_IPV6].flags);
+		stream_putc(s, attr->adj_srv6_sid[ADJ_SRV6_PRI_IPV6].weight);
+		stream_putw(s, attr->adj_srv6_sid[ADJ_SRV6_PRI_IPV6]
+				       .endpoint_behavior);
+		stream_put(s,
+			   attr->adj_srv6_sid[ADJ_SRV6_PRI_IPV6].neighbor.sysid,
+			   ISO_SYS_ID_LEN);
+	}
+	if (CHECK_FLAG(attr->flags, LS_ATTR_BCK_ADJ_SRV6SID)) {
+		stream_put(s, &attr->adj_srv6_sid[ADJ_SRV6_BCK_IPV6].sid,
+			   sizeof(struct in6_addr));
+		stream_putc(s, attr->adj_srv6_sid[ADJ_SRV6_BCK_IPV6].flags);
+		stream_putc(s, attr->adj_srv6_sid[ADJ_SRV6_BCK_IPV6].weight);
+		stream_putw(s, attr->adj_srv6_sid[ADJ_SRV6_BCK_IPV6]
+				       .endpoint_behavior);
+		stream_put(s,
+			   attr->adj_srv6_sid[ADJ_SRV6_BCK_IPV6].neighbor.sysid,
 			   ISO_SYS_ID_LEN);
 	}
 	if (CHECK_FLAG(attr->flags, LS_ATTR_SRLG)) {
@@ -2351,6 +2416,24 @@ static void ls_show_edge_vty(struct ls_edge *edge, struct vty *vty,
 			  attr->adj_sid[ADJ_BCK_IPV6].flags,
 			  attr->adj_sid[ADJ_BCK_IPV6].weight);
 	}
+	if (CHECK_FLAG(attr->flags, LS_ATTR_ADJ_SRV6SID)) {
+		sbuf_push(&sbuf, 4, "IPv6 Adjacency-SRV6-SID: %pI6",
+			  &attr->adj_srv6_sid[ADJ_SRV6_PRI_IPV6].sid);
+		sbuf_push(&sbuf, 0,
+			  "\tFlags: 0x%x\tWeight: 0x%x\tbehavior: 0x%x\n",
+			  attr->adj_srv6_sid[ADJ_SRV6_PRI_IPV6].flags,
+			  attr->adj_srv6_sid[ADJ_SRV6_PRI_IPV6].weight,
+			  attr->adj_srv6_sid[ADJ_SRV6_PRI_IPV6].endpoint_behavior);
+	}
+	if (CHECK_FLAG(attr->flags, LS_ATTR_BCK_ADJ_SRV6SID)) {
+		sbuf_push(&sbuf, 4, "IPv6 Bck. Adjacency-SRV6-SID: %pI6",
+			  &attr->adj_srv6_sid[ADJ_SRV6_BCK_IPV6].sid);
+		sbuf_push(&sbuf, 0,
+			  "\tFlags: 0x%x\tWeight: 0x%x\tbehavior: 0x%x\n",
+			  attr->adj_srv6_sid[ADJ_SRV6_BCK_IPV6].flags,
+			  attr->adj_srv6_sid[ADJ_SRV6_BCK_IPV6].weight,
+			  attr->adj_srv6_sid[ADJ_SRV6_BCK_IPV6].endpoint_behavior);
+	}
 	if (CHECK_FLAG(attr->flags, LS_ATTR_SRLG)) {
 		sbuf_push(&sbuf, 4, "SRLGs: %d", attr->srlg_len);
 		for (int i = 1; i < attr->srlg_len; i++) {
@@ -2372,7 +2455,7 @@ static void ls_show_edge_json(struct ls_edge *edge, struct json_object *json)
 	struct ls_attributes *attr;
 	struct json_object *jte, *jbw, *jobj, *jsr = NULL, *jsrlg, *js_ext_ag,
 					      *js_ext_ag_arr_word,
-					      *js_ext_ag_arr_bit;
+					      *js_ext_ag_arr_bit, *jsrv6 = NULL;
 	char buf[INET6_BUFSIZ];
 	char buf_ag[strlen("0xffffffff") + 1];
 	uint32_t bitmap;
@@ -2555,6 +2638,45 @@ static void ls_show_edge_json(struct ls_edge *edge, struct json_object *json)
 		json_object_string_add(jobj, "flags", buf);
 		json_object_int_add(jobj, "weight",
 				    attr->adj_sid[ADJ_BCK_IPV6].weight);
+		json_object_array_add(jsr, jobj);
+	}
+	if (CHECK_FLAG(attr->flags, LS_ATTR_ADJ_SRV6SID)) {
+		jsrv6 = json_object_new_array();
+		json_object_object_add(json, "segment-routing-ipv6", jsrv6);
+		jobj = json_object_new_object();
+		snprintfrr(buf, INET6_BUFSIZ, "%pI6",
+			   &attr->adj_srv6_sid[ADJ_SRV6_PRI_IPV6].sid);
+		json_object_string_add(jobj, "adj-sid", buf);
+		snprintfrr(buf, 6, "0x%x",
+			   attr->adj_srv6_sid[ADJ_SRV6_PRI_IPV6].flags);
+		json_object_string_add(jobj, "flags", buf);
+		json_object_int_add(jobj, "weight",
+				    attr->adj_srv6_sid[ADJ_SRV6_PRI_IPV6].weight);
+		snprintfrr(buf, 6, "0x%x",
+			   attr->adj_srv6_sid[ADJ_SRV6_PRI_IPV6]
+				   .endpoint_behavior);
+		json_object_string_add(jobj, "endpoint-behavior", buf);
+		json_object_array_add(jsr, jobj);
+	}
+	if (CHECK_FLAG(attr->flags, LS_ATTR_BCK_ADJ_SRV6SID)) {
+		if (!jsrv6) {
+			jsrv6 = json_object_new_array();
+			json_object_object_add(json, "segment-routing-ipv6",
+					       jsrv6);
+		}
+		jobj = json_object_new_object();
+		snprintfrr(buf, INET6_BUFSIZ, "%pI6",
+			   &attr->adj_srv6_sid[ADJ_SRV6_BCK_IPV6].sid);
+		json_object_string_add(jobj, "adj-sid", buf);
+		snprintfrr(buf, 6, "0x%x",
+			   attr->adj_srv6_sid[ADJ_SRV6_BCK_IPV6].flags);
+		json_object_string_add(jobj, "flags", buf);
+		json_object_int_add(jobj, "weight",
+				    attr->adj_srv6_sid[ADJ_SRV6_BCK_IPV6].weight);
+		snprintfrr(buf, 6, "0x%x",
+			   attr->adj_srv6_sid[ADJ_SRV6_BCK_IPV6]
+				   .endpoint_behavior);
+		json_object_string_add(jobj, "endpoint-behavior", buf);
 		json_object_array_add(jsr, jobj);
 	}
 }

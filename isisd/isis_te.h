@@ -69,9 +69,10 @@ typedef enum _status_t { disable, enable, learn } status_t;
 /* Mode for Inter-AS LSP */ /* TODO: Check how if LSP is flooded in RFC5316 */
 typedef enum _interas_mode_t { off, region, as, emulate } interas_mode_t;
 
-#define IS_EXT_TE(e)    (e && e->status != 0			\
-			   && e->status != EXT_ADJ_SID		\
-			   && e->status != EXT_LAN_ADJ_SID)
+#define IS_EXT_TE(e)                                                           \
+	(e && e->status != 0 && e->status != EXT_ADJ_SID &&                    \
+	 e->status != EXT_LAN_ADJ_SID && e->status != EXT_SRV6_ENDX_SID &&     \
+	 e->status != EXT_SRV6_LAN_ENDX_SID)
 #define IS_MPLS_TE(a)	(a && a->status == enable)
 #define IS_EXPORT_TE(a) (a->export)
 

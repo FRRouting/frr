@@ -106,6 +106,7 @@ extern int ls_node_id_same(struct ls_node_id i1, struct ls_node_id i2);
 #define LS_NODE_SR		0x0040
 #define LS_NODE_SRLB		0x0080
 #define LS_NODE_MSD		0x0100
+#define LS_NODE_SRV6		0x0200
 
 /* Link State Node structure */
 struct ls_node {
@@ -128,6 +129,14 @@ struct ls_node {
 	} srlb;
 	uint8_t algo[LIB_LS_SR_ALGO_COUNT]; /* Segment Routing Algorithms */
 	uint8_t msd;			/* Maximum Stack Depth */
+
+	uint16_t srv6_cap_flags; /* draft-ietf-idr-bgpls-srv6-ext, 3.1., flags field */
+	struct ls_srv6_msd { /* draft-ietf-idr-bgpls-srv6-ext, 3.2. */
+		uint8_t max_seg_left_msd;
+		uint8_t max_end_pop_msd;
+		uint8_t max_h_encaps_msd;
+		uint8_t max_end_d_msd;
+	} srv6_msd;
 };
 
 /* Link State flags to indicate which Attribute parameters are valid */
@@ -161,6 +170,8 @@ struct ls_node {
 #define LS_ATTR_BCK_ADJ_SID6	0x08000000
 #define LS_ATTR_SRLG		0x10000000
 #define LS_ATTR_EXT_ADM_GRP 0x20000000
+#define LS_ATTR_ADJ_SRV6SID	0x40000000
+#define LS_ATTR_BCK_ADJ_SRV6SID 0x80000000
 
 /* Link State Attributes */
 struct ls_attributes {
@@ -209,6 +220,18 @@ struct ls_attributes {
 			uint8_t sysid[ISO_SYS_ID_LEN]; /* or Sys-ID for ISIS */
 		} neighbor;
 	} adj_sid[4];		/* IPv4/IPv6 & Primary/Backup (LAN)-Adj. SID */
+#define ADJ_SRV6_PRI_IPV6 0
+#define ADJ_SRV6_BCK_IPV6 1
+#define ADJ_SRV6_MAX	  2
+	struct ls_srv6_adjacency {	    /* Adjacency SID for IS-IS */
+		struct in6_addr sid;	    /* SID as IPv6 address */
+		uint8_t flags;		    /* Flags */
+		uint8_t weight;		    /* Administrative weight */
+		uint16_t endpoint_behavior; /* Endpoint Behavior */
+		union {
+			uint8_t sysid[ISO_SYS_ID_LEN]; /* Sys-ID for ISIS */
+		} neighbor;
+	} adj_srv6_sid[2];
 	uint32_t *srlgs;	/* List of Shared Risk Link Group */
 	uint8_t srlg_len;	/* number of SRLG in the list */
 };

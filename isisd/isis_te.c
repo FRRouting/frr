@@ -488,6 +488,10 @@ void isis_link_params_update(struct isis_circuit *circuit,
 			ext->status = EXT_ADJ_SID;
 		else if (IS_SUBTLV(ext, EXT_LAN_ADJ_SID))
 			ext->status = EXT_LAN_ADJ_SID;
+		else if (IS_SUBTLV(ext, EXT_SRV6_LAN_ENDX_SID))
+			ext->status = EXT_SRV6_LAN_ENDX_SID;
+		else if (IS_SUBTLV(ext, EXT_SRV6_ENDX_SID))
+			ext->status = EXT_SRV6_ENDX_SID;
 		else
 			ext->status = 0;
 	}
@@ -793,6 +797,12 @@ static struct ls_vertex *lsp_to_vertex(struct ls_ted *ted, struct isis_lsp *lsp)
 				lnode.msd = cap->msd;
 				SET_FLAG(lnode.flags, LS_NODE_MSD);
 			}
+			if (cap->srv6_cap.is_srv6_capable) {
+				SET_FLAG(lnode.flags, LS_NODE_SRV6);
+				lnode.srv6_cap_flags = cap->srv6_cap.flags;
+				memcpy(&lnode.srv6_msd, &cap->srv6_msd,
+				       sizeof(struct isis_srv6_msd));
+			}
 		}
 	}
 
@@ -1048,7 +1058,51 @@ static struct ls_attributes *get_attributes(struct ls_node_id adv,
 			}
 		}
 	}
+	if (CHECK_FLAG(tlvs->status, EXT_SRV6_ENDX_SID)) {
+		struct isis_srv6_endx_sid_subtlv *endx =
+			(struct isis_srv6_endx_sid_subtlv *)
+				tlvs->srv6_endx_sid.head;
+		int i;
 
+		for (; endx; endx = endx->next) {
+			if (endx->flags & EXT_SUBTLV_LINK_SRV6_ENDX_SID_BFLG) {
+				i = 1;
+				SET_FLAG(attr->flags, LS_ATTR_BCK_ADJ_SRV6SID);
+			} else {
+				i = 0;
+				SET_FLAG(attr->flags, LS_ATTR_ADJ_SRV6SID);
+			}
+			attr->adj_srv6_sid[i].flags = endx->flags;
+			attr->adj_srv6_sid[i].weight = endx->weight;
+			memcpy(&attr->adj_srv6_sid[i].sid, &endx->sid,
+			       sizeof(struct in6_addr));
+			attr->adj_srv6_sid[i].endpoint_behavior = endx->behavior;
+		}
+	}
+	if (CHECK_FLAG(tlvs->status, EXT_SRV6_LAN_ENDX_SID)) {
+		struct isis_srv6_lan_endx_sid_subtlv *lendx =
+			(struct isis_srv6_lan_endx_sid_subtlv *)
+				tlvs->srv6_lan_endx_sid.head;
+		int i;
+
+		for (; lendx; lendx = lendx->next) {
+			if (lendx->flags & EXT_SUBTLV_LINK_SRV6_ENDX_SID_BFLG) {
+				i = 1;
+				SET_FLAG(attr->flags, LS_ATTR_BCK_ADJ_SRV6SID);
+			} else {
+				i = 0;
+				SET_FLAG(attr->flags, LS_ATTR_ADJ_SRV6SID);
+			}
+			memcpy(&attr->adj_srv6_sid[i].neighbor.sysid,
+			       &lendx->neighbor_id, ISIS_SYS_ID_LEN);
+			attr->adj_srv6_sid[i].flags = lendx->flags;
+			attr->adj_srv6_sid[i].weight = lendx->weight;
+			memcpy(&attr->adj_srv6_sid[i].sid, &lendx->sid,
+			       sizeof(struct in6_addr));
+			attr->adj_srv6_sid[i].endpoint_behavior =
+				lendx->behavior;
+		}
+	}
 	return attr;
 }
 
