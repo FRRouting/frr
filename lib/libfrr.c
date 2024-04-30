@@ -789,7 +789,7 @@ struct thread_master *frr_init(void)
 #ifdef HAVE_SQLITE3
 	if (!di->db_file)
 		di->db_file = dbfile_default;
-	db_init(di->db_file);
+	db_init("%s", di->db_file);
 #endif
 
 	if (di->flags & FRR_LIMITED_CLI)

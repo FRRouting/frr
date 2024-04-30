@@ -61,6 +61,8 @@ struct ipaddr {
 #define IPADDRSZ(p)                                                            \
 	(IS_IPADDR_V4((p)) ? sizeof(struct in_addr) : sizeof(struct in6_addr))
 
+#define IPADDR_STRING_SIZE 46
+
 static inline int ipaddr_family(const struct ipaddr *ip)
 {
 	switch (ip->ipa_type) {

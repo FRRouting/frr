@@ -4,29 +4,6 @@
 
 if ZEBRA
 sbin_PROGRAMS += zebra/zebra
-vtysh_scan += \
-	zebra/debug.c \
-	zebra/interface.c \
-	zebra/router-id.c \
-	zebra/rtadv.c \
-	zebra/zebra_gr.c \
-	zebra/zebra_mlag_vty.c \
-	zebra/zebra_evpn_mh.c \
-	zebra/zebra_mpls_vty.c \
-	zebra/zebra_srv6_vty.c \
-	zebra/zebra_ptm.c \
-	zebra/zebra_pw.c \
-	zebra/zebra_routemap.c \
-	zebra/zebra_vty.c \
-	zebra/zserv.c \
-	zebra/zebra_vrf.c \
-	zebra/dpdk/zebra_dplane_dpdk_vty.c \
-	# end
-
-# can be loaded as DSO - always include for vtysh
-vtysh_scan += zebra/irdp_interface.c
-vtysh_scan += zebra/zebra_fpm.c
-
 vtysh_daemons += zebra
 
 if IRDP
@@ -123,6 +100,7 @@ zebra_zebra_SOURCES = \
 	zebra/zebra_routemap_nb_config.c \
 	zebra/zebra_script.c \
 	zebra/zebra_srte.c \
+	zebra/zebra_tc.c \
 	zebra/zebra_trace.c \
 	zebra/zebra_vrf.c \
 	zebra/zebra_vty.c \
@@ -198,6 +176,7 @@ noinst_HEADERS += \
 	zebra/zebra_router.h \
 	zebra/zebra_script.h \
 	zebra/zebra_srte.h \
+	zebra/zebra_tc.h \
 	zebra/zebra_trace.h \
 	zebra/zebra_vrf.h \
 	zebra/zebra_vxlan.h \
@@ -255,8 +234,6 @@ module_LTLIBRARIES += zebra/dplane_fpm_nl.la
 zebra_dplane_fpm_nl_la_SOURCES = zebra/dplane_fpm_nl.c
 zebra_dplane_fpm_nl_la_LDFLAGS = $(MODULE_LDFLAGS)
 zebra_dplane_fpm_nl_la_LIBADD  =
-
-vtysh_scan += zebra/dplane_fpm_nl.c
 endif
 
 if NETLINK_DEBUG

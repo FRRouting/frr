@@ -1273,13 +1273,15 @@ static int rfapi_open_inner(struct rfapi_descriptor *rfd, struct bgp *bgp,
 	}
 
 	{ /* base code assumes have valid host pointer */
-		char buf[BUFSIZ];
+		char buf[INET6_ADDRSTRLEN];
 		buf[0] = 0;
 
 		if (rfd->vn_addr.addr_family == AF_INET) {
-			inet_ntop(AF_INET, &rfd->vn_addr.addr.v4, buf, BUFSIZ);
+			inet_ntop(AF_INET, &rfd->vn_addr.addr.v4, buf,
+				  sizeof(buf));
 		} else if (rfd->vn_addr.addr_family == AF_INET6) {
-			inet_ntop(AF_INET6, &rfd->vn_addr.addr.v6, buf, BUFSIZ);
+			inet_ntop(AF_INET6, &rfd->vn_addr.addr.v6, buf,
+				  sizeof(buf));
 		}
 		rfd->peer->host = XSTRDUP(MTYPE_BGP_PEER_HOST, buf);
 	}
@@ -3174,13 +3176,17 @@ DEFUN (debug_rfapi_unregister_vn_un,
        "debug rfapi-dev unregister vn <A.B.C.D|X:X::X:X> un <A.B.C.D|X:X::X:X> prefix <A.B.C.D/M|X:X::X:X/M> [kill]",
        DEBUG_STR
        DEBUG_RFAPI_STR
-       "rfapi_register\n"
+       "rfapi_unregister\n"
        "indicate vn addr follows\n"
+       "virtual network interface address\n"
        "virtual network interface address\n"
        "indicate xt addr follows\n"
        "underlay network interface address\n"
+       "underlay network interface address\n"
        "prefix to remove\n"
-       "Remove without holddown")
+       "prefix to remove\n"
+       "prefix to remove\n"
+       "Remove without holddown\n")
 {
 	struct rfapi_ip_addr vn;
 	struct rfapi_ip_addr un;
@@ -3194,7 +3200,6 @@ DEFUN (debug_rfapi_unregister_vn_un,
 	 */
 	if ((rc = rfapiCliGetRfapiIpAddr(vty, argv[4]->arg, &vn)))
 		return rc;
-
 
 	/*
 	 * Get UN addr

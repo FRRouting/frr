@@ -139,6 +139,10 @@ March/July/November.  Walking backwards from this date:
    version. Once the release is done, whatever updates we make to changelog
    files on the release branch need to be cherry-picked to the master branch.
 
+   Update essential dates in advance for reference table (below) when
+   the next freeze, dev/X.Y, RC, and release phases are scheduled. This should
+   go in the ``master`` branch.
+
  - 2 weeks earlier, a ``frr-X.Y-rc`` release candidate is tagged.
 
      .. code-block:: console
@@ -163,14 +167,28 @@ as early as possible, i.e. the first 2-week window.
 For reference, the expected release schedule according to the above is:
 
 +---------+------------+------------+------------+------------+------------+
-| Release | 2022-07-05 | 2022-11-01 | 2023-03-07 | 2023-07-04 | 2023-10-31 |
+| Release | 2023-03-07 | 2023-07-04 | 2023-10-31 | 2024-02-27 | 2024-06-25 |
 +---------+------------+------------+------------+------------+------------+
-| RC      | 2022-06-21 | 2022-10-18 | 2023-02-21 | 2023-06-20 | 2023-10-17 |
+| RC      | 2023-02-21 | 2023-06-20 | 2023-10-17 | 2024-02-13 | 2024-06-11 |
 +---------+------------+------------+------------+------------+------------+
-| dev/X.Y | 2022-06-07 | 2022-10-04 | 2023-02-07 | 2023-06-06 | 2023-10-03 |
+| dev/X.Y | 2023-02-07 | 2023-06-06 | 2023-10-03 | 2024-01-30 | 2024-05-28 |
 +---------+------------+------------+------------+------------+------------+
-| freeze  | 2022-05-24 | 2022-09-20 | 2023-01-24 | 2023-05-23 | 2023-09-19 |
+| freeze  | 2023-01-24 | 2023-05-23 | 2023-09-19 | 2024-01-16 | 2024-05-14 |
 +---------+------------+------------+------------+------------+------------+
+
+Here is the hint on how to get the dates easily:
+
+   .. code-block:: console
+
+      ~$ # Last freeze date was 2023-09-19
+      ~$ date +%F --date='2023-09-19 +119 days' # Next freeze date
+      2024-01-16
+      ~$ date +%F --date='2024-01-16 +14 days'  # Next dev/X.Y date
+      2024-01-30
+      ~$ date +%F --date='2024-01-30 +14 days'  # Next RC date
+      2024-02-13
+      ~$ date +%F --date='2024-02-13 +14 days'  # Next Release date
+      2024-02-27
 
 Each release is managed by one or more volunteer release managers from the FRR
 community.  These release managers are expected to handle the branch for a period
@@ -290,6 +308,21 @@ your changes is usually not required and will be added based on your commit
 messages by the maintainers. However, you are free to include an update to the
 changelog with some better description.
 
+Accords: non-code community consensus
+=====================================
+
+The FRR repository has a place for "accords" - these are items of
+consideration for FRR that influence how we work as a community, but either
+haven't resulted in code *yet*, or may *never* result in code being written.
+They are placed in the ``doc/accords/`` directory.
+
+The general idea is to simply pass small blurbs of text through our normal PR
+procedures, giving them the same visibility, comment and review mechanisms as
+code PRs - and changing them later is another PR.  Please refer to the README
+file in ``doc/accords/`` for further details.  The file names of items in that
+directory are hopefully helpful in determining whether some of them might be
+relevant to your work.
+
 Submitting Patches and Enhancements
 ===================================
 
@@ -308,6 +341,46 @@ The title of the pull request should provide a high level technical
 summary of the included patches.  The description should provide
 additional details that will help the reviewer to understand the context
 of the included patches.
+
+Squash commits
+--------------
+
+Before merging make sure a PR has squashed the following kinds of commits:
+
+- Fixes/review feedback
+- Typos
+- Merges and rebases
+- Work in progress
+
+This helps to automatically generate human-readable changelog messages.
+
+Commit Guidelines
+-----------------
+
+There is a built-in commit linter. Basic rules:
+
+- Commit messages must be prefixed with the name of the changed subsystem, followed
+  by a colon and a space and start with an imperative verb.
+
+   `Check <https://github.com/FRRouting/frr/tree/master/.github/commitlint.config.js>`_ all
+   the supported subsystems.
+
+- Commit messages must start with a capital letter
+- Commit messages must not end with a period ``.``
+
+Why was my pull request closed?
+-------------------------------
+
+Pull requests older than 180 days will be closed. Exceptions can be made for
+pull requests that have active review comments, or that are awaiting other
+dependent pull requests. Closed pull requests are easy to recreate, and little
+work is lost by closing a pull request that subsequently needs to be reopened.
+
+We want to limit the total number of pull requests in flight to:
+
+- Maintain a clean project
+- Remove old pull requests that would be difficult to rebase as the underlying code has changed over time
+- Encourage code velocity
 
 .. _license-for-contributions:
 
@@ -1275,6 +1348,8 @@ is to correctly set up `LD_LIBRARY_PATH` so that libraries from the build tree
 are used.  (On some systems, `libtool` is also available from PATH, but this is
 not always the case.)
 
+.. _cli-workflow:
+
 CLI changes
 -----------
 
@@ -1341,9 +1416,23 @@ the development mailing list / public Slack instance.
 JSON Output
 ^^^^^^^^^^^
 
-* All JSON keys are to be camelCased, with no spaces
+New JSON output in FRR needs to be backed by schema, in particular a YANG model.
+When adding new JSON, first search for an existing YANG model, either in FRR or
+a standard model (e.g., IETF) and use that model as the basis for any JSON
+structure and *especially* for key names and canonical values formats.
+
+If no YANG model exists to support the JSON then an FRR YANG model needs to be
+added to or created to support the JSON format.
+
+* All JSON keys are to be ``camelCased``, with no spaces. YANG modules almost
+  always use ``kebab-case`` (i.e., all lower case with hyphens to separate
+  words), so these identifiers need to be mapped to ``camelCase`` by removing
+  the hyphen (or symbol) and capitalizing the following letter, for
+  example "router-id" becomes "routerId"
 * Commands which output JSON should produce ``{}`` if they have nothing to
   display
+* In general JSON commands include a ``json`` keyword typically at the end of
+  the CLI command (e.g., ``show ip ospf json``)
 
 Use of const
 ^^^^^^^^^^^^

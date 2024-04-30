@@ -299,7 +299,7 @@ int pim_process_no_rp_kat_cmd(struct vty *vty)
 		sizeof(rs_timer_xpath));
 
 	/* RFC4601 */
-	v = yang_dnode_get_uint16(vty->candidate_config->dnode,
+	v = yang_dnode_get_uint16(vty->candidate_config->dnode, "%s",
 				  rs_timer_xpath);
 	v = 3 * v + PIM_REGISTER_PROBE_TIME_DEFAULT;
 	if (v > UINT16_MAX)
@@ -688,7 +688,7 @@ int pim_process_no_rp_plist_cmd(struct vty *vty, const char *rp_str,
 		return NB_OK;
 	}
 
-	plist = yang_dnode_get_string(plist_dnode, plist_xpath);
+	plist = yang_dnode_get_string(plist_dnode, "%s", plist_xpath);
 	if (strcmp(prefix_list, plist)) {
 		vty_out(vty, "%% Unable to find specified RP\n");
 		return NB_OK;
@@ -1140,41 +1140,23 @@ void pim_show_state(struct pim_instance *pim, struct vty *vty,
 				json_ifp_in = json_object_new_object();
 				json_object_object_add(json_source, in_ifname,
 						       json_ifp_in);
-				json_object_int_add(json_source, "Installed",
-						    c_oil->installed);
 				json_object_int_add(json_source, "installed",
 						    c_oil->installed);
 				json_object_boolean_add(json_source, "isRpt",
 							isRpt);
-				json_object_int_add(json_source, "RefCount",
-						    c_oil->oil_ref_count);
 				json_object_int_add(json_source, "refCount",
 						    c_oil->oil_ref_count);
-				json_object_int_add(json_source, "OilListSize",
-						    c_oil->oil_size);
 				json_object_int_add(json_source, "oilListSize",
 						    c_oil->oil_size);
 				json_object_int_add(
-					json_source, "OilRescan",
-					c_oil->oil_inherited_rescan);
-				json_object_int_add(
 					json_source, "oilRescan",
 					c_oil->oil_inherited_rescan);
-				json_object_int_add(json_source, "LastUsed",
-						    c_oil->cc.lastused);
 				json_object_int_add(json_source, "lastUsed",
 						    c_oil->cc.lastused);
-				json_object_int_add(json_source, "PacketCount",
-						    c_oil->cc.pktcnt);
 				json_object_int_add(json_source, "packetCount",
 						    c_oil->cc.pktcnt);
-				json_object_int_add(json_source, "ByteCount",
-						    c_oil->cc.bytecnt);
 				json_object_int_add(json_source, "byteCount",
 						    c_oil->cc.bytecnt);
-				json_object_int_add(json_source,
-						    "WrongInterface",
-						    c_oil->cc.wrong_if);
 				json_object_int_add(json_source,
 						    "wrongInterface",
 						    c_oil->cc.wrong_if);
@@ -1416,7 +1398,7 @@ void pim_show_upstream(struct pim_instance *pim, struct vty *vty,
 
 			nbr = pim_neighbor_find(
 				up->rpf.source_nexthop.interface,
-				up->rpf.rpf_addr);
+				up->rpf.rpf_addr, false);
 			if (nbr)
 				pim_time_timer_to_hhmmss(join_timer,
 							 sizeof(join_timer),
@@ -1728,14 +1710,8 @@ static void pim_show_join_helper(struct pim_interface *pim_ifp,
 		json_object_string_add(
 			json_row, "channelJoinName",
 			pim_ifchannel_ifjoin_name(ch->ifjoin_state, ch->flags));
-		if (PIM_IF_FLAG_TEST_S_G_RPT(ch->flags)) {
-#if CONFDATE > 20230131
-			CPP_NOTICE(
-				"Remove JSON object commands with keys starting with capital")
-#endif
-			json_object_int_add(json_row, "SGRpt", 1);
+		if (PIM_IF_FLAG_TEST_S_G_RPT(ch->flags))
 			json_object_int_add(json_row, "sgRpt", 1);
-		}
 		if (PIM_IF_FLAG_TEST_PROTO_PIM(ch->flags))
 			json_object_int_add(json_row, "protocolPim", 1);
 		if (PIM_IF_FLAG_TEST_PROTO_IGMP(ch->flags))
@@ -2824,21 +2800,35 @@ static int pim_print_vty_pnc_cache_walkcb(struct hash_bucket *bucket, void *arg)
 	struct nexthop *nh_node = NULL;
 	ifindex_t first_ifindex;
 	struct interface *ifp = NULL;
+	struct ttable *tt = NULL;
+	char *table = NULL;
+
+	/* Prepare table. */
+	tt = ttable_new(&ttable_styles[TTSTYLE_BLANK]);
+	ttable_add_row(tt, "Address|Interface|Nexthop");
+	tt->style.cell.rpad = 2;
+	tt->style.corner = '+';
+	ttable_restyle(tt);
 
 	for (nh_node = pnc->nexthop; nh_node; nh_node = nh_node->next) {
 		first_ifindex = nh_node->ifindex;
 
 		ifp = if_lookup_by_index(first_ifindex, pim->vrf->vrf_id);
 
-		vty_out(vty, "%-15pPA ", &pnc->rpf.rpf_addr);
-		vty_out(vty, "%-16s ", ifp ? ifp->name : "NULL");
 #if PIM_IPV == 4
-		vty_out(vty, "%pI4 ", &nh_node->gate.ipv4);
+		ttable_add_row(tt, "%pPA|%s|%pI4", &pnc->rpf.rpf_addr,
+			       ifp ? ifp->name : "NULL", &nh_node->gate.ipv4);
 #else
-		vty_out(vty, "%pI6 ", &nh_node->gate.ipv6);
+		ttable_add_row(tt, "%pPA|%s|%pI6", &pnc->rpf.rpf_addr,
+			       ifp ? ifp->name : "NULL", &nh_node->gate.ipv6);
 #endif
-		vty_out(vty, "\n");
 	}
+	/* Dump the generated table. */
+	table = ttable_dump(tt, "\n");
+	vty_out(vty, "%s\n", table);
+	XFREE(MTYPE_TMP, table);
+	ttable_del(tt);
+
 	return CMD_SUCCESS;
 }
 
@@ -2966,8 +2956,6 @@ void pim_show_nexthop(struct pim_instance *pim, struct vty *vty, bool uj)
 	} else {
 		vty_out(vty, "Number of registered addresses: %lu\n",
 			pim->rpf_hash->count);
-		vty_out(vty, "Address         Interface        Nexthop\n");
-		vty_out(vty, "---------------------------------------------\n");
 	}
 
 	if (uj) {
@@ -3428,6 +3416,66 @@ int pim_process_ssmpingd_cmd(struct vty *vty, enum nb_operation operation,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
+int pim_process_bsm_cmd(struct vty *vty)
+{
+	const struct lyd_node *gm_enable_dnode;
+
+	gm_enable_dnode = yang_dnode_getf(vty->candidate_config->dnode,
+					  FRR_GMP_ENABLE_XPATH, VTY_CURR_XPATH,
+					  FRR_PIM_AF_XPATH_VAL);
+	if (!gm_enable_dnode)
+		nb_cli_enqueue_change(vty, "./pim-enable", NB_OP_MODIFY,
+				      "true");
+	else {
+		if (!yang_dnode_get_bool(gm_enable_dnode, "."))
+			nb_cli_enqueue_change(vty, "./pim-enable", NB_OP_MODIFY,
+					      "true");
+	}
+
+	nb_cli_enqueue_change(vty, "./bsm", NB_OP_MODIFY, "true");
+
+	return nb_cli_apply_changes(vty, FRR_PIM_INTERFACE_XPATH,
+				    FRR_PIM_AF_XPATH_VAL);
+}
+
+int pim_process_no_bsm_cmd(struct vty *vty)
+{
+	nb_cli_enqueue_change(vty, "./bsm", NB_OP_MODIFY, "false");
+
+	return nb_cli_apply_changes(vty, FRR_PIM_INTERFACE_XPATH,
+				    FRR_PIM_AF_XPATH_VAL);
+}
+
+int pim_process_unicast_bsm_cmd(struct vty *vty)
+{
+	const struct lyd_node *gm_enable_dnode;
+
+	gm_enable_dnode = yang_dnode_getf(vty->candidate_config->dnode,
+					  FRR_GMP_ENABLE_XPATH, VTY_CURR_XPATH,
+					  FRR_PIM_AF_XPATH_VAL);
+	if (!gm_enable_dnode)
+		nb_cli_enqueue_change(vty, "./pim-enable", NB_OP_MODIFY,
+				      "true");
+	else {
+		if (!yang_dnode_get_bool(gm_enable_dnode, "."))
+			nb_cli_enqueue_change(vty, "./pim-enable", NB_OP_MODIFY,
+					      "true");
+	}
+
+	nb_cli_enqueue_change(vty, "./unicast-bsm", NB_OP_MODIFY, "true");
+
+	return nb_cli_apply_changes(vty, FRR_PIM_INTERFACE_XPATH,
+				    FRR_PIM_AF_XPATH_VAL);
+}
+
+int pim_process_no_unicast_bsm_cmd(struct vty *vty)
+{
+	nb_cli_enqueue_change(vty, "./unicast-bsm", NB_OP_MODIFY, "false");
+
+	return nb_cli_apply_changes(vty, FRR_PIM_INTERFACE_XPATH,
+				    FRR_PIM_AF_XPATH_VAL);
+}
+
 static void show_scan_oil_stats(struct pim_instance *pim, struct vty *vty,
 				time_t now)
 {
@@ -3714,8 +3762,6 @@ void show_mroute(struct pim_instance *pim, struct vty *vty, pim_sgaddr *sg,
 					    c_oil->oil_ref_count);
 			json_object_int_add(json_source, "oilSize",
 					    c_oil->oil_size);
-			json_object_int_add(json_source, "OilInheritedRescan",
-					    c_oil->oil_inherited_rescan);
 			json_object_int_add(json_source, "oilInheritedRescan",
 					    c_oil->oil_inherited_rescan);
 			json_object_string_add(json_source, "iif", in_ifname);
@@ -5194,4 +5240,450 @@ void clear_pim_interfaces(struct pim_instance *pim)
 		if (ifp->info)
 			pim_neighbor_delete_all(ifp, "interface cleared");
 	}
+}
+
+void pim_show_bsr(struct pim_instance *pim, struct vty *vty, bool uj)
+{
+	char uptime[10];
+	char last_bsm_seen[10];
+	time_t now;
+	char bsr_state[20];
+	json_object *json = NULL;
+
+	if (pim_addr_is_any(pim->global_scope.current_bsr)) {
+		pim_time_uptime(uptime, sizeof(uptime),
+				pim->global_scope.current_bsr_first_ts);
+		pim_time_uptime(last_bsm_seen, sizeof(last_bsm_seen),
+				pim->global_scope.current_bsr_last_ts);
+	}
+
+	else {
+		now = pim_time_monotonic_sec();
+		pim_time_uptime(uptime, sizeof(uptime),
+				(now - pim->global_scope.current_bsr_first_ts));
+		pim_time_uptime(last_bsm_seen, sizeof(last_bsm_seen),
+				now - pim->global_scope.current_bsr_last_ts);
+	}
+
+	switch (pim->global_scope.state) {
+	case NO_INFO:
+		strlcpy(bsr_state, "NO_INFO", sizeof(bsr_state));
+		break;
+	case ACCEPT_ANY:
+		strlcpy(bsr_state, "ACCEPT_ANY", sizeof(bsr_state));
+		break;
+	case ACCEPT_PREFERRED:
+		strlcpy(bsr_state, "ACCEPT_PREFERRED", sizeof(bsr_state));
+		break;
+	default:
+		strlcpy(bsr_state, "", sizeof(bsr_state));
+	}
+
+
+	if (uj) {
+		json = json_object_new_object();
+		json_object_string_addf(json, "bsr", "%pPA",
+					&pim->global_scope.current_bsr);
+		json_object_int_add(json, "priority",
+				    pim->global_scope.current_bsr_prio);
+		json_object_int_add(json, "fragmentTag",
+				    pim->global_scope.bsm_frag_tag);
+		json_object_string_add(json, "state", bsr_state);
+		json_object_string_add(json, "upTime", uptime);
+		json_object_string_add(json, "lastBsmSeen", last_bsm_seen);
+	}
+
+	else {
+		vty_out(vty, "PIMv2 Bootstrap information\n");
+		vty_out(vty, "Current preferred BSR address: %pPA\n",
+			&pim->global_scope.current_bsr);
+		vty_out(vty,
+			"Priority        Fragment-Tag       State           UpTime\n");
+		vty_out(vty, "  %-12d    %-12d    %-13s    %7s\n",
+			pim->global_scope.current_bsr_prio,
+			pim->global_scope.bsm_frag_tag, bsr_state, uptime);
+		vty_out(vty, "Last BSM seen: %s\n", last_bsm_seen);
+	}
+
+	if (uj)
+		vty_json(vty, json);
+}
+
+int pim_show_bsr_helper(const char *vrf, struct vty *vty, bool uj)
+{
+	struct pim_instance *pim;
+	struct vrf *v;
+
+	v = vrf_lookup_by_name(vrf ? vrf : VRF_DEFAULT_NAME);
+
+	if (!v)
+		return CMD_WARNING;
+
+	pim = pim_get_pim_instance(v->vrf_id);
+
+	if (!pim) {
+		vty_out(vty, "%% Unable to find pim instance\n");
+		return CMD_WARNING;
+	}
+
+	pim_show_bsr(v->info, vty, uj);
+
+	return CMD_SUCCESS;
+}
+
+/*Display the group-rp mappings */
+static void pim_show_group_rp_mappings_info(struct pim_instance *pim,
+					    struct vty *vty, bool uj)
+{
+	struct bsgrp_node *bsgrp;
+	struct bsm_rpinfo *bsm_rp;
+	struct route_node *rn;
+	json_object *json = NULL;
+	json_object *json_group = NULL;
+	json_object *json_row = NULL;
+	struct ttable *tt = NULL;
+
+	if (uj) {
+		json = json_object_new_object();
+		json_object_string_addf(json, "BSR Address", "%pPA",
+					&pim->global_scope.current_bsr);
+	} else
+		vty_out(vty, "BSR Address  %pPA\n",
+			&pim->global_scope.current_bsr);
+
+	for (rn = route_top(pim->global_scope.bsrp_table); rn;
+	     rn = route_next(rn)) {
+		bsgrp = (struct bsgrp_node *)rn->info;
+
+		if (!bsgrp)
+			continue;
+
+		char grp_str[PREFIX_STRLEN];
+
+		prefix2str(&bsgrp->group, grp_str, sizeof(grp_str));
+
+		if (uj) {
+			json_object_object_get_ex(json, grp_str, &json_group);
+			if (!json_group) {
+				json_group = json_object_new_object();
+				json_object_object_add(json, grp_str,
+						       json_group);
+			}
+		} else {
+			vty_out(vty, "Group Address %pFX\n", &bsgrp->group);
+			vty_out(vty, "--------------------------\n");
+			/* Prepare table. */
+			tt = ttable_new(&ttable_styles[TTSTYLE_BLANK]);
+			ttable_add_row(tt, "Rp Address|priority|Holdtime|Hash");
+			tt->style.cell.rpad = 2;
+			tt->style.corner = '+';
+			ttable_restyle(tt);
+
+			ttable_add_row(tt, "%s|%c|%c|%c", "(ACTIVE)", ' ', ' ',
+				       ' ');
+		}
+
+		frr_each (bsm_rpinfos, bsgrp->bsrp_list, bsm_rp) {
+			if (uj) {
+				json_row = json_object_new_object();
+				json_object_string_addf(json_row, "Rp Address",
+							"%pPA",
+							&bsm_rp->rp_address);
+				json_object_int_add(json_row, "Rp HoldTime",
+						    bsm_rp->rp_holdtime);
+				json_object_int_add(json_row, "Rp Priority",
+						    bsm_rp->rp_prio);
+				json_object_int_add(json_row, "Hash Val",
+						    bsm_rp->hash);
+				json_object_object_addf(json_group, json_row,
+							"%pPA",
+							&bsm_rp->rp_address);
+
+			} else {
+				ttable_add_row(
+					tt, "%pPA|%u|%u|%u",
+					&bsm_rp->rp_address, bsm_rp->rp_prio,
+					bsm_rp->rp_holdtime, bsm_rp->hash);
+			}
+		}
+		/* Dump the generated table. */
+		if (tt) {
+			char *table = NULL;
+
+			table = ttable_dump(tt, "\n");
+			vty_out(vty, "%s\n", table);
+			XFREE(MTYPE_TMP, table);
+			ttable_del(tt);
+			tt = NULL;
+		}
+		if (!bsm_rpinfos_count(bsgrp->bsrp_list) && !uj)
+			vty_out(vty, "Active List is empty.\n");
+
+		if (uj) {
+			json_object_int_add(json_group, "Pending RP count",
+					    bsgrp->pend_rp_cnt);
+		} else {
+			vty_out(vty, "(PENDING)\n");
+			vty_out(vty, "Pending RP count :%d\n",
+				bsgrp->pend_rp_cnt);
+			if (bsgrp->pend_rp_cnt) {
+				/* Prepare table. */
+				tt = ttable_new(&ttable_styles[TTSTYLE_BLANK]);
+				ttable_add_row(
+					tt,
+					"Rp Address|priority|Holdtime|Hash");
+				tt->style.cell.rpad = 2;
+				tt->style.corner = '+';
+				ttable_restyle(tt);
+			}
+		}
+
+		frr_each (bsm_rpinfos, bsgrp->partial_bsrp_list, bsm_rp) {
+			if (uj) {
+				json_row = json_object_new_object();
+				json_object_string_addf(json_row, "Rp Address",
+							"%pPA",
+							&bsm_rp->rp_address);
+				json_object_int_add(json_row, "Rp HoldTime",
+						    bsm_rp->rp_holdtime);
+				json_object_int_add(json_row, "Rp Priority",
+						    bsm_rp->rp_prio);
+				json_object_int_add(json_row, "Hash Val",
+						    bsm_rp->hash);
+				json_object_object_addf(json_group, json_row,
+							"%pPA",
+							&bsm_rp->rp_address);
+			} else {
+				ttable_add_row(
+					tt, "%pPA|%u|%u|%u",
+					&bsm_rp->rp_address, bsm_rp->rp_prio,
+					bsm_rp->rp_holdtime, bsm_rp->hash);
+			}
+		}
+		/* Dump the generated table. */
+		if (tt) {
+			char *table = NULL;
+
+			table = ttable_dump(tt, "\n");
+			vty_out(vty, "%s\n", table);
+			XFREE(MTYPE_TMP, table);
+			ttable_del(tt);
+		}
+		if (!bsm_rpinfos_count(bsgrp->partial_bsrp_list) && !uj)
+			vty_out(vty, "Partial List is empty\n");
+
+		if (!uj)
+			vty_out(vty, "\n");
+	}
+
+	if (uj)
+		vty_json(vty, json);
+}
+
+int pim_show_group_rp_mappings_info_helper(const char *vrf, struct vty *vty,
+					   bool uj)
+{
+	struct pim_instance *pim;
+	struct vrf *v;
+
+	v = vrf_lookup_by_name(vrf ? vrf : VRF_DEFAULT_NAME);
+
+	if (!v)
+		return CMD_WARNING;
+
+	pim = v->info;
+
+	if (!pim) {
+		vty_out(vty, "%% Unable to find pim instance\n");
+		return CMD_WARNING;
+	}
+
+	pim_show_group_rp_mappings_info(v->info, vty, uj);
+
+	return CMD_SUCCESS;
+}
+
+/* Display the bsm database details */
+static void pim_show_bsm_db(struct pim_instance *pim, struct vty *vty, bool uj)
+{
+	int count = 0;
+	int fragment = 1;
+	struct bsm_frag *bsfrag;
+	json_object *json = NULL;
+	json_object *json_group = NULL;
+	json_object *json_row = NULL;
+
+	count = bsm_frags_count(pim->global_scope.bsm_frags);
+
+	if (uj) {
+		json = json_object_new_object();
+		json_object_int_add(json, "Number of the fragments", count);
+	} else {
+		vty_out(vty, "Scope Zone: Global\n");
+		vty_out(vty, "Number of the fragments: %d\n", count);
+		vty_out(vty, "\n");
+	}
+
+	frr_each (bsm_frags, pim->global_scope.bsm_frags, bsfrag) {
+		char grp_str[PREFIX_STRLEN];
+		struct bsmmsg_grpinfo *group;
+		struct bsmmsg_rpinfo *bsm_rpinfo;
+		struct prefix grp;
+		struct bsm_hdr *hdr;
+		pim_addr bsr_addr;
+		uint32_t offset = 0;
+		uint8_t *buf;
+		uint32_t len = 0;
+		uint32_t frag_rp_cnt = 0;
+
+		buf = bsfrag->data;
+		len = bsfrag->size;
+
+		/* skip pim header */
+		buf += PIM_MSG_HEADER_LEN;
+		len -= PIM_MSG_HEADER_LEN;
+
+		hdr = (struct bsm_hdr *)buf;
+		/* NB: bshdr->bsr_addr.addr is packed/unaligned => memcpy */
+		memcpy(&bsr_addr, &hdr->bsr_addr.addr, sizeof(bsr_addr));
+
+		/* BSM starts with bsr header */
+		buf += sizeof(struct bsm_hdr);
+		len -= sizeof(struct bsm_hdr);
+
+		if (uj) {
+			json_object_string_addf(json, "BSR address", "%pPA",
+						&bsr_addr);
+			json_object_int_add(json, "BSR priority",
+					    hdr->bsr_prio);
+			json_object_int_add(json, "Hashmask Length",
+					    hdr->hm_len);
+			json_object_int_add(json, "Fragment Tag",
+					    ntohs(hdr->frag_tag));
+		} else {
+			vty_out(vty, "BSM Fragment : %d\n", fragment);
+			vty_out(vty, "------------------\n");
+			vty_out(vty, "%-15s %-15s %-15s %-15s\n", "BSR-Address",
+				"BSR-Priority", "Hashmask-len", "Fragment-Tag");
+			vty_out(vty, "%-15pPA %-15d %-15d %-15d\n", &bsr_addr,
+				hdr->bsr_prio, hdr->hm_len,
+				ntohs(hdr->frag_tag));
+		}
+
+		vty_out(vty, "\n");
+
+		while (offset < len) {
+			group = (struct bsmmsg_grpinfo *)buf;
+
+			if (group->group.family == PIM_MSG_ADDRESS_FAMILY_IPV4)
+				grp.family = AF_INET;
+			else if (group->group.family ==
+				 PIM_MSG_ADDRESS_FAMILY_IPV6)
+				grp.family = AF_INET6;
+
+			grp.prefixlen = group->group.mask;
+#if PIM_IPV == 4
+			grp.u.prefix4 = group->group.addr;
+#else
+			grp.u.prefix6 = group->group.addr;
+#endif
+
+			prefix2str(&grp, grp_str, sizeof(grp_str));
+
+			buf += sizeof(struct bsmmsg_grpinfo);
+			offset += sizeof(struct bsmmsg_grpinfo);
+
+			if (uj) {
+				json_object_object_get_ex(json, grp_str,
+							  &json_group);
+				if (!json_group) {
+					json_group = json_object_new_object();
+					json_object_int_add(json_group,
+							    "Rp Count",
+							    group->rp_count);
+					json_object_int_add(
+						json_group, "Fragment Rp count",
+						group->frag_rp_count);
+					json_object_object_add(json, grp_str,
+							       json_group);
+				}
+			} else {
+				vty_out(vty, "Group : %s\n", grp_str);
+				vty_out(vty, "-------------------\n");
+				vty_out(vty, "Rp Count:%d\n", group->rp_count);
+				vty_out(vty, "Fragment Rp Count : %d\n",
+					group->frag_rp_count);
+			}
+
+			frag_rp_cnt = group->frag_rp_count;
+
+			if (!frag_rp_cnt)
+				continue;
+
+			if (!uj)
+				vty_out(vty,
+					"RpAddress     HoldTime     Priority\n");
+
+			while (frag_rp_cnt--) {
+				pim_addr rp_addr;
+
+				bsm_rpinfo = (struct bsmmsg_rpinfo *)buf;
+				/* unaligned, again */
+				memcpy(&rp_addr, &bsm_rpinfo->rpaddr.addr,
+				       sizeof(rp_addr));
+
+				buf += sizeof(struct bsmmsg_rpinfo);
+				offset += sizeof(struct bsmmsg_rpinfo);
+
+				if (uj) {
+					json_row = json_object_new_object();
+					json_object_string_addf(
+						json_row, "Rp Address", "%pPA",
+						&rp_addr);
+					json_object_int_add(
+						json_row, "Rp HoldTime",
+						ntohs(bsm_rpinfo->rp_holdtime));
+					json_object_int_add(json_row,
+							    "Rp Priority",
+							    bsm_rpinfo->rp_pri);
+					json_object_object_addf(
+						json_group, json_row, "%pPA",
+						&rp_addr);
+				} else {
+					vty_out(vty, "%-15pPA %-12d %d\n",
+						&rp_addr,
+						ntohs(bsm_rpinfo->rp_holdtime),
+						bsm_rpinfo->rp_pri);
+				}
+			}
+			vty_out(vty, "\n");
+		}
+
+		fragment++;
+	}
+
+	if (uj)
+		vty_json(vty, json);
+}
+
+int pim_show_bsm_db_helper(const char *vrf, struct vty *vty, bool uj)
+{
+	struct pim_instance *pim;
+	struct vrf *v;
+
+	v = vrf_lookup_by_name(vrf ? vrf : VRF_DEFAULT_NAME);
+
+	if (!v)
+		return CMD_WARNING;
+
+	pim = v->info;
+
+	if (!pim) {
+		vty_out(vty, "%% Unable to find pim instance\n");
+		return CMD_WARNING;
+	}
+
+	pim_show_bsm_db(v->info, vty, uj);
+
+	return CMD_SUCCESS;
 }

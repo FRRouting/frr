@@ -226,8 +226,8 @@ static PyObject *graph_to_pyobj(struct wrap_graph *wgraph,
 			wrap->type = "???";
 		}
 
-		wrap->deprecated = (tok->attr == CMD_ATTR_DEPRECATED);
-		wrap->hidden = (tok->attr == CMD_ATTR_HIDDEN);
+		wrap->deprecated = !!(tok->attr & CMD_ATTR_DEPRECATED);
+		wrap->hidden = !!(tok->attr & CMD_ATTR_HIDDEN);
 		wrap->text = tok->text;
 		wrap->desc = tok->desc;
 		wrap->varname = tok->varname;
@@ -351,6 +351,12 @@ PyMODINIT_FUNC command_py_init(void)
 
 	pymod = modcreate();
 	if (!pymod)
+		initret(NULL);
+
+	if (PyModule_AddIntMacro(pymod, CMD_ATTR_YANG)
+	    || PyModule_AddIntMacro(pymod, CMD_ATTR_HIDDEN)
+	    || PyModule_AddIntMacro(pymod, CMD_ATTR_DEPRECATED)
+	    || PyModule_AddIntMacro(pymod, CMD_ATTR_NOSH))
 		initret(NULL);
 
 	Py_INCREF(&typeobj_graph_node);

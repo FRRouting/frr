@@ -110,6 +110,13 @@ module frr-vrrpd {
          address is not owned by the router interface";
     }
 
+    leaf checksum-with-ipv4-pseudoheader {
+      type boolean;
+      default "true";
+      description
+        "Enabled if VRRPv3 checksum for IPv4 involves pseudoheader";
+    }
+
     leaf advertisement-interval {
       type uint16 {
         range "1..4095";

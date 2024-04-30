@@ -53,6 +53,7 @@
 #include "zebra/zebra_evpn_mh.h"
 #include "zebra/rt.h"
 #include "zebra/zebra_pbr.h"
+#include "zebra/zebra_tc.h"
 #include "zebra/table_manager.h"
 #include "zebra/zapi_msg.h"
 #include "zebra/zebra_errors.h"
@@ -133,8 +134,6 @@ static int zserv_encode_nexthop(struct stream *s, struct nexthop *nexthop)
 		stream_putl(s, nexthop->ifindex);
 		break;
 	case NEXTHOP_TYPE_IPV6:
-		stream_put(s, &nexthop->gate.ipv6, 16);
-		break;
 	case NEXTHOP_TYPE_IPV6_IFINDEX:
 		stream_put(s, &nexthop->gate.ipv6, 16);
 		stream_putl(s, nexthop->ifindex);
@@ -231,11 +230,6 @@ int zsend_vrf_delete(struct zserv *client, struct zebra_vrf *zvrf)
 int zsend_interface_link_params(struct zserv *client, struct interface *ifp)
 {
 	struct stream *s = stream_new(ZEBRA_MAX_PACKET_SIZ);
-
-	if (!ifp->link_params) {
-		stream_free(s);
-		return 0;
-	}
 
 	zclient_create_header(s, ZEBRA_INTERFACE_LINK_PARAMS, ifp->vrf->vrf_id);
 
@@ -1885,6 +1879,10 @@ static int zapi_nhg_decode(struct stream *s, int cmd, struct zapi_nhg *api_nhg)
 	if (cmd == ZEBRA_NHG_DEL)
 		goto done;
 
+	STREAM_GETW(s, api_nhg->resilience.buckets);
+	STREAM_GETL(s, api_nhg->resilience.idle_timer);
+	STREAM_GETL(s, api_nhg->resilience.unbalanced_timer);
+
 	/* Nexthops */
 	STREAM_GETW(s, api_nhg->nexthop_num);
 
@@ -2008,6 +2006,8 @@ static void zread_nhg_add(ZAPI_HANDLER_ARGS)
 	/* Take over the list(s) of nexthops */
 	nhe->nhg.nexthop = nhg->nexthop;
 	nhg->nexthop = NULL;
+
+	nhe->nhg.nhgr = api_nhg.resilience;
 
 	if (bnhg) {
 		nhe->backup_info = bnhg;
@@ -2611,8 +2611,10 @@ static void zread_sr_policy_set(ZAPI_HANDLER_ARGS)
 		return;
 
 	policy = zebra_sr_policy_find(zp.color, &zp.endpoint);
-	if (!policy)
+	if (!policy) {
 		policy = zebra_sr_policy_add(zp.color, &zp.endpoint, zp.name);
+		policy->sock = client->sock;
+	}
 	/* TODO: per-VRF list of SR-TE policies. */
 	policy->zvrf = zvrf;
 
@@ -2715,6 +2717,7 @@ int zsend_srv6_manager_get_locator_chunk_response(struct zserv *client,
 	chunk.keep = 0;
 	chunk.proto = client->proto;
 	chunk.instance = client->instance;
+	chunk.flags = loc->flags;
 
 	zclient_create_header(s, ZEBRA_SRV6_MANAGER_GET_LOCATOR_CHUNK, vrf_id);
 	zapi_srv6_locator_chunk_encode(s, &chunk);
@@ -3274,6 +3277,171 @@ stream_failure:
 	return;
 }
 
+static inline void zread_tc_qdisc(ZAPI_HANDLER_ARGS)
+{
+	struct zebra_tc_qdisc qdisc;
+	struct stream *s;
+	uint32_t total, i;
+
+	s = msg;
+	STREAM_GETL(s, total);
+
+	for (i = 0; i < total; i++) {
+		memset(&qdisc, 0, sizeof(qdisc));
+
+		qdisc.sock = client->sock;
+		STREAM_GETL(s, qdisc.qdisc.ifindex);
+		STREAM_GETL(s, qdisc.qdisc.kind);
+
+		if (hdr->command == ZEBRA_TC_QDISC_INSTALL)
+			zebra_tc_qdisc_install(&qdisc);
+		else
+			zebra_tc_qdisc_uninstall(&qdisc);
+	}
+
+stream_failure:
+	return;
+}
+
+static inline void zread_tc_class(ZAPI_HANDLER_ARGS)
+{
+	struct zebra_tc_class class;
+	struct stream *s;
+	uint32_t total, i;
+
+	s = msg;
+	STREAM_GETL(s, total);
+
+	for (i = 0; i < total; i++) {
+		memset(&class, 0, sizeof(class));
+
+		class.sock = client->sock;
+		STREAM_GETL(s, class.class.ifindex);
+		STREAM_GETL(s, class.class.handle);
+		STREAM_GETL(s, class.class.kind);
+		STREAM_GETQ(s, class.class.u.htb.rate);
+		STREAM_GETQ(s, class.class.u.htb.ceil);
+
+		if (hdr->command == ZEBRA_TC_CLASS_ADD)
+			zebra_tc_class_add(&class);
+		else
+			zebra_tc_class_delete(&class);
+	}
+
+stream_failure:
+	return;
+}
+
+static inline void zread_tc_filter(ZAPI_HANDLER_ARGS)
+{
+	struct zebra_tc_filter filter;
+	struct stream *s;
+	uint32_t total, i;
+
+	s = msg;
+	STREAM_GETL(s, total);
+
+	for (i = 0; i < total; i++) {
+		memset(&filter, 0, sizeof(filter));
+
+		filter.sock = client->sock;
+		STREAM_GETL(s, filter.filter.ifindex);
+		STREAM_GETL(s, filter.filter.handle);
+		STREAM_GETL(s, filter.filter.priority);
+		STREAM_GETL(s, filter.filter.protocol);
+		STREAM_GETL(s, filter.filter.kind);
+		switch (filter.filter.kind) {
+		case TC_FILTER_FLOWER: {
+			STREAM_GETL(s, filter.filter.u.flower.filter_bm);
+			uint32_t filter_bm = filter.filter.u.flower.filter_bm;
+
+			if (filter_bm & TC_FLOWER_IP_PROTOCOL)
+				STREAM_GETC(s, filter.filter.u.flower.ip_proto);
+			if (filter_bm & TC_FLOWER_SRC_IP) {
+				STREAM_GETC(
+					s,
+					filter.filter.u.flower.src_ip.family);
+				STREAM_GETC(s, filter.filter.u.flower.src_ip
+						       .prefixlen);
+				STREAM_GET(
+					&filter.filter.u.flower.src_ip.u.prefix,
+					s,
+					prefix_blen(&filter.filter.u.flower
+							     .src_ip));
+
+				if (!(filter.filter.u.flower.src_ip.family ==
+					      AF_INET ||
+				      filter.filter.u.flower.src_ip.family ==
+					      AF_INET6)) {
+					zlog_warn(
+						"Unsupported TC source IP family: %s (%hhu)",
+						family2str(
+							filter.filter.u.flower
+								.src_ip.family),
+						filter.filter.u.flower.src_ip
+							.family);
+					return;
+				}
+			}
+			if (filter_bm & TC_FLOWER_SRC_PORT) {
+				STREAM_GETW(
+					s, filter.filter.u.flower.src_port_min);
+				STREAM_GETW(
+					s, filter.filter.u.flower.src_port_max);
+			}
+			if (filter_bm & TC_FLOWER_DST_IP) {
+				STREAM_GETC(
+					s,
+					filter.filter.u.flower.dst_ip.family);
+				STREAM_GETC(s, filter.filter.u.flower.dst_ip
+						       .prefixlen);
+				STREAM_GET(
+					&filter.filter.u.flower.dst_ip.u.prefix,
+					s,
+					prefix_blen(&filter.filter.u.flower
+							     .dst_ip));
+				if (!(filter.filter.u.flower.dst_ip.family ==
+					      AF_INET ||
+				      filter.filter.u.flower.dst_ip.family ==
+					      AF_INET6)) {
+					zlog_warn(
+						"Unsupported TC destination IP family: %s (%hhu)",
+						family2str(
+							filter.filter.u.flower
+								.dst_ip.family),
+						filter.filter.u.flower.dst_ip
+							.family);
+					return;
+				}
+			}
+			if (filter_bm & TC_FLOWER_DST_PORT) {
+				STREAM_GETW(
+					s, filter.filter.u.flower.dst_port_min);
+				STREAM_GETW(
+					s, filter.filter.u.flower.dst_port_max);
+			}
+			if (filter_bm & TC_FLOWER_DSFIELD) {
+				STREAM_GETC(s, filter.filter.u.flower.dsfield);
+				STREAM_GETC(
+					s, filter.filter.u.flower.dsfield_mask);
+			}
+			STREAM_GETL(s, filter.filter.u.flower.classid);
+			break;
+		}
+		default:
+			break;
+		}
+
+		if (hdr->command == ZEBRA_TC_FILTER_ADD)
+			zebra_tc_filter_add(&filter);
+		else
+			zebra_tc_filter_delete(&filter);
+	}
+
+stream_failure:
+	return;
+}
+
 static inline void zread_ipset(ZAPI_HANDLER_ARGS)
 {
 	struct zebra_pbr_ipset zpi;
@@ -3534,7 +3702,7 @@ static inline void zebra_neigh_ip_del(ZAPI_HANDLER_ARGS)
 static inline void zread_iptable(ZAPI_HANDLER_ARGS)
 {
 	struct zebra_pbr_iptable *zpi =
-		XCALLOC(MTYPE_TMP, sizeof(struct zebra_pbr_iptable));
+		XCALLOC(MTYPE_PBR_OBJ, sizeof(struct zebra_pbr_iptable));
 	struct stream *s;
 
 	s = msg;
@@ -3774,6 +3942,12 @@ void (*const zserv_handlers[])(ZAPI_HANDLER_ARGS) = {
 	[ZEBRA_CONFIGURE_ARP] = zebra_configure_arp,
 	[ZEBRA_GRE_GET] = zebra_gre_get,
 	[ZEBRA_GRE_SOURCE_SET] = zebra_gre_source_set,
+	[ZEBRA_TC_QDISC_INSTALL] = zread_tc_qdisc,
+	[ZEBRA_TC_QDISC_UNINSTALL] = zread_tc_qdisc,
+	[ZEBRA_TC_CLASS_ADD] = zread_tc_class,
+	[ZEBRA_TC_CLASS_DELETE] = zread_tc_class,
+	[ZEBRA_TC_FILTER_ADD] = zread_tc_filter,
+	[ZEBRA_TC_FILTER_DELETE] = zread_tc_filter,
 };
 
 /*

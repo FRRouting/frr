@@ -73,10 +73,11 @@ enum cmd_token_type {
 #define IS_VARYING_TOKEN(x) ((x) >= VARIABLE_TKN && (x) < FORK_TKN)
 
 /* Command attributes */
-enum { CMD_ATTR_NORMAL,
-       CMD_ATTR_DEPRECATED,
-       CMD_ATTR_HIDDEN,
-       CMD_ATTR_YANG,
+enum {
+	CMD_ATTR_YANG = (1 << 0),
+	CMD_ATTR_HIDDEN = (1 << 1),
+	CMD_ATTR_DEPRECATED = (1 << 2),
+	CMD_ATTR_NOSH = (1 << 3),
 };
 
 enum varname_src {

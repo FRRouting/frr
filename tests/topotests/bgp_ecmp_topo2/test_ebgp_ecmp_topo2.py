@@ -90,7 +90,7 @@ def setup_module(mod):
     # Required linux kernel version for this suite to run.
     result = required_linux_kernel_version("4.15")
     if result is not True:
-        pytest.skip("Kernel requirements are not met")
+        pytest.skip("Kernel requirements are not met, kernel version should be >=4.15")
 
     testsuite_run_time = time.asctime(time.localtime(time.time()))
     logger.info("Testsuite start time: {}".format(testsuite_run_time))
@@ -436,7 +436,9 @@ def test_ecmp_remove_redistribute_static(request):
         )
         assert (
             result is not True
-        ), "Testcase {} : Failed \n Routes still" " present in RIB".format(tc_name)
+        ), "Testcase {} : Failed \n Expected: Routes still present in {} RIB. Found: {}".format(
+            tc_name, dut, result
+        )
 
     logger.info("Enable redistribute static")
     input_dict_2 = {
@@ -621,7 +623,9 @@ def test_ecmp_remove_static_route(request):
         )
         assert (
             result is not True
-        ), "Testcase {} : Failed \n Routes still" " present in RIB".format(tc_name)
+        ), "Testcase {} : Failed \n  Expected: Routes still present in {} RIB. Found: {}".format(
+            tc_name, dut, result
+        )
 
     for addr_type in ADDR_TYPES:
         # Enable static routes
@@ -727,7 +731,9 @@ def test_ecmp_remove_nw_advertise(request):
         )
         assert (
             result is not True
-        ), "Testcase {} : Failed \n Routes still" " present in RIB".format(tc_name)
+        ), "Testcase {} : Failed \n  Expected: Routes still present in {} RIB. Found: {}".format(
+            tc_name, dut, result
+        )
 
     static_or_nw(tgen, topo, tc_name, "advertise_nw", "r2")
     for addr_type in ADDR_TYPES:

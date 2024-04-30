@@ -6,18 +6,6 @@ if OSPFD
 noinst_LIBRARIES += ospfd/libfrrospf.a
 noinst_LIBRARIES += ospfd/libfrrospfclient.a
 sbin_PROGRAMS += ospfd/ospfd
-vtysh_scan += \
-	ospfd/ospf_bfd.c \
-	ospfd/ospf_dump.c \
-	ospfd/ospf_gr.c \
-	ospfd/ospf_ldp_sync.c \
-	ospfd/ospf_opaque.c \
-	ospfd/ospf_ri.c \
-	ospfd/ospf_routemap.c \
-	ospfd/ospf_te.c \
-	ospfd/ospf_sr.c \
-	ospfd/ospf_vty.c \
-	# end
 vtysh_daemons += ospfd
 if SNMP
 module_LTLIBRARIES += ospfd/ospfd_snmp.la

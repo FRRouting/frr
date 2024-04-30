@@ -365,19 +365,9 @@ static int mtrace_un_forward_packet(struct pim_instance *pim, struct ip *ip_hdr,
 	if (ip_hdr->ip_ttl-- <= 1)
 		return -1;
 
-	ip_hdr->ip_sum = in_cksum(ip_hdr, ip_hdr->ip_hl * 4);
-
-	fd = pim_socket_raw(IPPROTO_RAW);
-
-	if (fd < 0)
-		return -1;
-
-	pim_socket_ip_hdr(fd);
-
 	if (interface == NULL) {
 		memset(&nexthop, 0, sizeof(nexthop));
 		if (!pim_nexthop_lookup(pim, &nexthop, ip_hdr->ip_dst, 0)) {
-			close(fd);
 			if (PIM_DEBUG_MTRACE)
 				zlog_debug(
 					"Dropping mtrace packet, no route to destination");
@@ -388,6 +378,15 @@ static int mtrace_un_forward_packet(struct pim_instance *pim, struct ip *ip_hdr,
 	} else {
 		if_out = interface;
 	}
+
+	ip_hdr->ip_sum = in_cksum(ip_hdr, ip_hdr->ip_hl * 4);
+
+	fd = pim_socket_raw(IPPROTO_RAW);
+
+	if (fd < 0)
+		return -1;
+
+	pim_socket_ip_hdr(fd);
 
 	ret = pim_socket_bind(fd, if_out);
 
@@ -770,7 +769,8 @@ int igmp_mtrace_recv_qry_req(struct gm_sock *igmp, struct ip *ip_hdr,
 	}
 
 	/* 6.2.2 8. If this router is the Rendez-vous Point */
-	if (pim_rp_i_am_rp(pim, mtracep->grp_addr)) {
+	if (mtracep->grp_addr.s_addr != INADDR_ANY &&
+	    pim_rp_i_am_rp(pim, mtracep->grp_addr)) {
 		mtrace_rsp_set_fwd_code(rspp, MTRACE_FWD_CODE_REACHED_RP);
 		/* 7.7.1. PIM-SM ...RP has not performed source-specific join */
 		if (rspp->src_mask == MTRACE_SRC_MASK_GROUP)

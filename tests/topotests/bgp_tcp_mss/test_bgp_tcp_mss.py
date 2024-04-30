@@ -153,7 +153,7 @@ def test_bgp_tcp_mss():
         "Verify if TCP MSS value is synced with neighbor in {}".format(router1.name)
     )
     test_func = functools.partial(_bgp_check_neighbor_tcp_mss, router1, "192.168.255.2")
-    success, result = topotest.run_and_expect(test_func, None, count=3, wait=0.5)
+    success, result = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
     assert (
         result is None
     ), 'Failed to sync TCP MSS value over BGP session in "{}"'.format(router1.name)
@@ -163,7 +163,7 @@ def test_bgp_tcp_mss():
         "Verify if TCP MSS value is synced with neighbor in {}".format(router2.name)
     )
     test_func = functools.partial(_bgp_check_neighbor_tcp_mss, router2, "192.168.255.1")
-    success, result = topotest.run_and_expect(test_func, None, count=3, wait=0.5)
+    success, result = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
     assert (
         result is None
     ), 'Failed to sync TCP MSS value over BGP session in "{}"'.format(router2.name)

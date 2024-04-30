@@ -85,20 +85,20 @@ def test_bgp_sender_as_path_loop_detection():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    router = tgen.gears["r2"]
+    r2 = tgen.gears["r2"]
 
-    def _bgp_converge(router):
-        output = json.loads(router.vtysh_cmd("show ip bgp neighbor 192.168.255.2 json"))
+    def _bgp_converge():
+        output = json.loads(r2.vtysh_cmd("show ip bgp neighbor 192.168.255.2 json"))
         expected = {
             "192.168.255.2": {
                 "bgpState": "Established",
-                "addressFamilyInfo": {"ipv4Unicast": {"acceptedPrefixCounter": 2}},
+                "addressFamilyInfo": {"ipv4Unicast": {"acceptedPrefixCounter": 3}},
             }
         }
         return topotest.json_cmp(output, expected)
 
-    def _bgp_has_route_from_r1(router):
-        output = json.loads(router.vtysh_cmd("show ip bgp 172.16.255.254/32 json"))
+    def _bgp_has_route_from_r1():
+        output = json.loads(r2.vtysh_cmd("show ip bgp 172.16.255.253/32 json"))
         expected = {
             "paths": [
                 {
@@ -111,31 +111,35 @@ def test_bgp_sender_as_path_loop_detection():
         }
         return topotest.json_cmp(output, expected)
 
-    def _bgp_suppress_route_to_r3(router):
+    def _bgp_suppress_route_to_r1():
         output = json.loads(
-            router.vtysh_cmd(
-                "show ip bgp neighbor 192.168.254.2 advertised-routes json"
-            )
+            r2.vtysh_cmd("show ip bgp neighbor 192.168.255.2 advertised-routes json")
         )
         expected = {"totalPrefixCounter": 0}
         return topotest.json_cmp(output, expected)
 
-    test_func = functools.partial(_bgp_converge, router)
-    success, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+    def _bgp_suppress_route_to_r3():
+        output = json.loads(
+            r2.vtysh_cmd("show ip bgp neighbor 192.168.254.2 advertised-routes json")
+        )
+        expected = {"totalPrefixCounter": 2}
+        return topotest.json_cmp(output, expected)
 
-    assert result is None, 'Failed bgp convergence in "{}"'.format(router)
+    test_func = functools.partial(_bgp_converge)
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=0.5)
+    assert result is None, "Failed bgp to convergence"
 
-    test_func = functools.partial(_bgp_has_route_from_r1, router)
-    success, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+    test_func = functools.partial(_bgp_has_route_from_r1)
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=0.5)
+    assert result is None, "Failed to see a route from r1"
 
-    assert result is None, 'Failed to see a route from r1 in "{}"'.format(router)
+    test_func = functools.partial(_bgp_suppress_route_to_r3)
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=0.5)
+    assert result is None, "Route 172.16.255.253/32 should not be sent to r3 from r2"
 
-    test_func = functools.partial(_bgp_suppress_route_to_r3, router)
-    success, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
-
-    assert (
-        result is None
-    ), 'Route 172.16.255.254/32 should not be sent to r3 "{}"'.format(router)
+    test_func = functools.partial(_bgp_suppress_route_to_r1)
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=0.5)
+    assert result is None, "Routes should not be sent to r1 from r2"
 
 
 if __name__ == "__main__":

@@ -1,0 +1,529 @@
+{
+   "address_types": [
+      "ipv4",
+      "ipv6"
+   ],
+   "ipv4base": "10.0.0.0",
+   "ipv4mask": 30,
+   "ipv6base": "fd00::",
+   "ipv6mask": 64,
+   "link_ip_start": {
+      "ipv4": "10.0.0.0",
+      "v4mask": 30,
+      "ipv6": "fd00::",
+      "v6mask": 64
+   },
+   "lo_prefix": {
+      "ipv4": "1.0.",
+      "v4mask": 32,
+      "ipv6": "2001:DB8:F::",
+      "v6mask": 128
+   },
+   "routers": {
+      "r1": {
+         "links": {
+            "lo": {
+               "ipv4": "auto",
+               "ipv6": "auto",
+               "type": "loopback",
+               "vrf": "GREEN"
+            },
+            "r2": {
+               "ipv4": "auto",
+               "ipv6": "auto",
+               "vrf": "GREEN"
+            },
+            "r3": {
+               "ipv4": "auto",
+               "ipv6": "auto",
+               "vrf": "GREEN"
+            }
+         },
+         "bgp": [
+            {
+               "local_as": "100",
+               "vrf": "GREEN",
+               "address_family": {
+                  "ipv4": {
+                     "unicast": {
+                        "neighbor": {
+                           "r2": {
+                              "dest_link": {
+                                 "r1": {}
+                              }
+                           },
+                           "r3": {
+                              "dest_link": {
+                                 "r1": {}
+                              }
+                           }
+                        },
+                        "redistribute": [
+                           {
+                              "redist_type": "static"
+                           },
+                           {
+                              "redist_type": "connected"
+                           }
+                        ]
+                     }
+                  },
+                  "ipv6": {
+                     "unicast": {
+                        "neighbor": {
+                           "r2": {
+                              "dest_link": {
+                                 "r1": {}
+                              }
+                           },
+                           "r3": {
+                              "dest_link": {
+                                 "r1": {}
+                              }
+                           }
+                        },
+                        "redistribute": [
+                           {
+                              "redist_type": "static"
+                           },
+                           {
+                              "redist_type": "connected"
+                           }
+                        ]
+                     }
+                  }
+               }
+            }
+         ],
+         "vrfs": [
+            {
+               "name": "GREEN",
+               "id": "1"
+            }
+         ]
+      },
+      "r2": {
+         "links": {
+            "lo": {
+               "ipv4": "auto",
+               "ipv6": "auto",
+               "type": "loopback",
+               "vrf": "GREEN"
+            },
+            "r1": {
+               "ipv4": "auto",
+               "ipv6": "auto",
+               "vrf": "GREEN"
+            },
+            "r3": {
+               "ipv4": "auto",
+               "ipv6": "auto",
+               "vrf": "GREEN"
+            }
+         },
+         "bgp": [
+            {
+               "local_as": "100",
+               "vrf": "GREEN",
+               "address_family": {
+                  "ipv4": {
+                     "unicast": {
+                        "neighbor": {
+                           "r1": {
+                              "dest_link": {
+                                 "r2": {}
+                              }
+                           },
+                           "r3": {
+                              "dest_link": {
+                                 "r2": {}
+                              }
+                           }
+                        },
+                        "redistribute": [
+                           {
+                              "redist_type": "static"
+                           },
+                           {
+                              "redist_type": "connected"
+                           }
+                        ]
+                     }
+                  },
+                  "ipv6": {
+                     "unicast": {
+                        "neighbor": {
+                           "r1": {
+                              "dest_link": {
+                                 "r2": {}
+                              }
+                           },
+                           "r3": {
+                              "dest_link": {
+                                 "r2": {}
+                              }
+                           }
+                        },
+                        "redistribute": [
+                           {
+                              "redist_type": "static"
+                           },
+                           {
+                              "redist_type": "connected"
+                           }
+                        ]
+                     }
+                  }
+               }
+            }
+         ],
+         "vrfs": [
+            {
+               "name": "GREEN",
+               "id": "1"
+            }
+         ]
+      },
+      "r3": {
+         "links": {
+            "lo": {
+               "ipv4": "auto",
+               "ipv6": "auto",
+               "type": "loopback",
+               "vrf": "GREEN"
+            },
+            "r1": {
+               "ipv4": "auto",
+               "ipv6": "auto",
+               "vrf": "GREEN"
+            },
+            "r2": {
+               "ipv4": "auto",
+               "ipv6": "auto",
+               "vrf": "GREEN"
+            },
+            "r4": {
+               "ipv4": "auto",
+               "ipv6": "auto"
+            },
+            "r5": {
+               "ipv4": "auto",
+               "ipv6": "auto",
+               "vrf": "RED"
+            },
+            "r4-link1": {
+               "ipv4": "auto",
+               "ipv6": "auto"
+            },
+            "r4-link2": {
+               "ipv4": "auto",
+               "ipv6": "auto"
+            },
+            "r4-link3": {
+               "ipv4": "auto",
+               "ipv6": "auto"
+            },
+            "r4-link4": {
+               "ipv4": "auto",
+               "ipv6": "auto"
+            },
+            "r4-link5": {
+               "ipv4": "auto",
+               "ipv6": "auto"
+            },
+            "r4-link6": {
+               "ipv4": "auto",
+               "ipv6": "auto"
+            },
+            "r4-link7": {
+               "ipv4": "auto",
+               "ipv6": "auto"
+            }
+         },
+         "bgp": [
+            {
+               "local_as": "100",
+               "address_family": {
+                  "ipv4": {
+                     "unicast": {
+                        "neighbor": {
+                           "r4": {
+                              "dest_link": {
+                                 "r3": {},
+                                 "r3-link1": {},
+                                 "r3-link2": {},
+                                 "r3-link3": {},
+                                 "r3-link4": {},
+                                 "r3-link5": {},
+                                 "r3-link6": {},
+                                 "r3-link7": {}
+                              }
+                           }
+                        }
+                     }
+                  },
+                  "ipv6": {
+                     "unicast": {
+                        "neighbor": {
+                           "r4": {
+                              "dest_link": {
+                                 "r3": {},
+                                 "r3-link1": {},
+                                 "r3-link2": {},
+                                 "r3-link3": {},
+                                 "r3-link4": {},
+                                 "r3-link5": {},
+                                 "r3-link6": {},
+                                 "r3-link7": {}
+                              }
+                           }
+                        }
+                     }
+                  }
+               }
+            },
+            {
+               "local_as": "100",
+               "vrf": "GREEN",
+               "address_family": {
+                  "ipv4": {
+                     "unicast": {
+                        "neighbor": {
+                           "r1": {
+                              "dest_link": {
+                                 "r3": {}
+                              }
+                           },
+                           "r2": {
+                              "dest_link": {
+                                 "r3": {}
+                              }
+                           }
+                        }
+                     }
+                  },
+                  "ipv6": {
+                     "unicast": {
+                        "neighbor": {
+                           "r1": {
+                              "dest_link": {
+                                 "r3": {}
+                              }
+                           },
+                           "r2": {
+                              "dest_link": {
+                                 "r3": {}
+                              }
+                           }
+                        }
+                     }
+                  }
+               }
+            },
+            {
+               "local_as": "100",
+               "vrf": "RED",
+               "address_family": {
+                  "ipv4": {
+                     "unicast": {
+                        "neighbor": {
+                           "r5": {
+                              "dest_link": {
+                                 "r3": {}
+                              }
+                           }
+                        }
+                     }
+                  },
+                  "ipv6": {
+                     "unicast": {
+                        "neighbor": {
+                           "r5": {
+                              "dest_link": {
+                                 "r3": {}
+                              }
+                           }
+                        }
+                     }
+                  }
+               }
+            }
+         ],
+         "vrfs": [
+            {
+               "name": "RED",
+               "id": "1"
+            },
+            {
+               "name": "GREEN",
+               "id": "2"
+            }
+         ]
+      },
+      "r4": {
+         "links": {
+            "lo": {
+               "ipv4": "auto",
+               "ipv6": "auto",
+               "type": "loopback"
+            },
+            "r3": {
+               "ipv4": "auto",
+               "ipv6": "auto"
+            },
+            "r3-link1": {
+               "ipv4": "auto",
+               "ipv6": "auto"
+            },
+            "r3-link2": {
+               "ipv4": "auto",
+               "ipv6": "auto"
+            },
+            "r3-link3": {
+               "ipv4": "auto",
+               "ipv6": "auto"
+            },
+            "r3-link4": {
+               "ipv4": "auto",
+               "ipv6": "auto"
+            },
+            "r3-link5": {
+               "ipv4": "auto",
+               "ipv6": "auto"
+            },
+            "r3-link6": {
+               "ipv4": "auto",
+               "ipv6": "auto"
+            },
+            "r3-link7": {
+               "ipv4": "auto",
+               "ipv6": "auto"
+            }
+         },
+         "bgp": [{
+            "local_as": "200",
+            "address_family": {
+               "ipv4": {
+                  "unicast": {
+                     "neighbor": {
+                        "r3": {
+                           "dest_link": {
+                              "r4": {},
+                              "r4-link1": {},
+                              "r4-link2": {},
+                              "r4-link3": {},
+                              "r4-link4": {},
+                              "r4-link5": {},
+                              "r4-link6": {},
+                              "r4-link7": {}
+                           }
+                        }
+                     },
+                     "redistribute": [
+                        {
+                           "redist_type": "static"
+                        },
+                        {
+                           "redist_type": "connected"
+                        }
+                     ]
+                  }
+               },
+               "ipv6": {
+                  "unicast": {
+                     "neighbor": {
+                        "r3": {
+                           "dest_link": {
+                              "r4": {},
+                              "r4-link1": {},
+                              "r4-link2": {},
+                              "r4-link3": {},
+                              "r4-link4": {},
+                              "r4-link5": {},
+                              "r4-link6": {},
+                              "r4-link7": {}
+                           }
+                        }
+                     },
+                     "redistribute": [
+                        {
+                           "redist_type": "static"
+                        },
+                        {
+                           "redist_type": "connected"
+                        }
+                     ]
+                  }
+               }
+            }
+         }]
+      },
+      "r5": {
+         "links": {
+            "lo": {
+               "ipv4": "auto",
+               "ipv6": "auto",
+               "type": "loopback",
+               "vrf": "RED"
+            },
+            "r3": {
+               "ipv4": "auto",
+               "ipv6": "auto",
+               "vrf": "RED"
+            }
+         },
+         "bgp": [
+            {
+               "local_as": "300",
+               "vrf":"RED",
+               "address_family": {
+                  "ipv4": {
+                     "unicast": {
+                        "neighbor": {
+                           "r3": {
+                              "dest_link": {
+                                 "r5": {}
+                              }
+                           }
+                        },
+                        "redistribute": [
+                           {
+                              "redist_type": "static"
+                           },
+                           {
+                              "redist_type": "connected"
+                           }
+                        ]
+                     }
+                  },
+                  "ipv6": {
+                     "unicast": {
+                        "neighbor": {
+                           "r3": {
+                              "dest_link": {
+                                 "r5": {}
+                              }
+                           }
+                        },
+                        "redistribute": [
+                           {
+                              "redist_type": "static"
+                           },
+                           {
+                              "redist_type": "connected"
+                           }
+                        ]
+                     }
+                  }
+               }
+            }
+         ],
+         "vrfs": [
+            {
+               "name": "RED",
+               "id": "1"
+            }
+         ]
+      }
+   }
+}

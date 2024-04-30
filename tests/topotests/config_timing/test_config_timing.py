@@ -161,8 +161,17 @@ def test_static_timing():
 
         return tot_delta
 
+
     # Number of static routes
-    prefix_count = 10000
+    router = tgen.gears["r1"]
+    output = router.run("vtysh -h | grep address-sanitizer")
+    if output == "":
+        logger.info("No Address Sanitizer, generating 10000 routes")
+        prefix_count = 10000
+    else:
+        logger.info("Address Sanitizer build, only testing 50 routes")
+        prefix_count = 50
+
     prefix_base = [
         [u"10.0.0.0/8", u"11.0.0.0/8"],
         [u"2100:1111:2220::/44", u"2100:3333:4440::/44"],

@@ -1,0 +1,12 @@
+{
+    "path-list": {
+        "ipv4-multicast": [],
+        "ipv4-unicast": [],
+        "ipv6-unicast": [
+            {
+                "prefix": "2001:db8:5::\/64",
+                "vrf": "default",
+                "installed": false
+            }
+        ]
+    }}

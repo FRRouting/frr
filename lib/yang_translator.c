@@ -341,8 +341,12 @@ yang_translate_xpath(const struct yang_translator *translator, int dir,
 	if (!mapping)
 		return YANG_TRANSLATE_NOTFOUND;
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wformat-nonliteral"
+	/* processing format strings from mapping node... */
 	n = sscanf(xpath, mapping->xpath_from_fmt, keys[0], keys[1], keys[2],
 		   keys[3]);
+#pragma GCC diagnostic pop
 	if (n < 0) {
 		flog_warn(EC_LIB_YANG_TRANSLATION_ERROR,
 			  "%s: sscanf() failed: %s", __func__,
@@ -350,8 +354,12 @@ yang_translate_xpath(const struct yang_translator *translator, int dir,
 		return YANG_TRANSLATE_FAILURE;
 	}
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wformat-nonliteral"
+	/* processing format strings from mapping node... */
 	snprintf(xpath, xpath_len, mapping->xpath_to_fmt, keys[0], keys[1],
 		 keys[2], keys[3]);
+#pragma GCC diagnostic pop
 
 	return YANG_TRANSLATE_SUCCESS;
 }

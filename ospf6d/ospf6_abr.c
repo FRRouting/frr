@@ -1322,7 +1322,7 @@ void ospf6_abr_examin_summary(struct ospf6_lsa *lsa, struct ospf6_area *oa)
 			ospf6_copy_nexthops(tmp_route->nh_list,
 					    o_path->nh_list);
 
-			if (ospf6_route_cmp_nexthops(tmp_route, route) != 0) {
+			if (!ospf6_route_cmp_nexthops(tmp_route, route)) {
 				/* adv. router exists in the list, update nhs */
 				list_delete_all_node(o_path->nh_list);
 				ospf6_copy_nexthops(o_path->nh_list,

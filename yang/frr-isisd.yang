@@ -881,6 +881,9 @@ module frr-isisd {
           description
             "This leaf describes the state of the interface.";
         }
+
+        uses adjacency-sids;
+        uses lan-adjacency-sids;
       }
     }
   }
@@ -1004,6 +1007,76 @@ module frr-isisd {
     }
   }
 
+  grouping adjacency-sids {
+    description
+      "IS-IS segment routing adjacency SID grouping.";
+    container adjacency-sids {
+      description
+        "This container lists the information of adjacency SID.";
+      list adjacency-sid {
+        leaf af {
+          type uint8;
+          description
+            "This leaf describes the protocol-family associated with the
+              adjacency SID.";
+        }
+
+        leaf value {
+          type uint32;
+          description
+            "This leaf describes the value of adjacency SID.";
+        }
+
+        leaf weight {
+          type uint8;
+          description
+            "This leaf describes the weight of the adjacency SID.";
+        }
+
+        leaf protection-requested {
+          type boolean;
+          description
+            "This leaf describes if the adjacency SID must be protected.";
+        }
+      }
+    }
+  }
+
+  grouping lan-adjacency-sids {
+    description
+      "IS-IS segment routing LAN adjacency SID grouping.";
+    container lan-adjacency-sids {
+      description
+        "This container lists the information of LAN adjacency SID.";
+      list lan-adjacency-sid {
+        leaf af {
+          type uint8;
+          description
+            "This leaf describes the protocol-family associated with the
+              LAN adjacency SID.";
+        }
+
+        leaf value {
+          type uint32;
+          description
+            "This leaf describes the value of LAN adjacency SID.";
+        }
+
+        leaf weight {
+          type uint8;
+          description
+            "This leaf describes the weight of the LAN adjacency SID.";
+        }
+
+        leaf protection-requested {
+          type boolean;
+          description
+            "This leaf describes if the LAN adjacency SID must be protected.";
+        }
+      }
+    }
+  }
+
   container isis {
     description
       "Configuration of the IS-IS routing daemon.";
@@ -1066,11 +1139,25 @@ module frr-isisd {
           "If true, identify as L1/L2 router for inter-area traffic.";
       }
 
-      leaf overload {
-        type boolean;
-        default "false";
+      container overload {
         description
-          "If true, avoid any transit traffic.";
+          "Overload bit configuration.";
+        leaf enabled {
+          type boolean;
+          default "false";
+          description
+            "If true, avoid any transit traffic.";
+        }
+
+        leaf on-startup {
+          type uint32 {
+            range "0..86400";
+          }
+          units "seconds";
+          default "0";
+          description
+            "The duration the overload bit should be set on startup.";
+        }
       }
 
       leaf metric-style {

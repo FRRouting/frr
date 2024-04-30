@@ -75,4 +75,9 @@ extern void sharp_install_seg6local_route_helper(struct prefix *p,
 
 extern int sharp_zebra_send_interface_protodown(struct interface *ifp,
 						bool down);
+extern int sharp_zebra_send_tc_filter_rate(struct interface *ifp,
+					   const struct prefix *source,
+					   const struct prefix *destination,
+					   uint8_t ip_proto, uint16_t src_port,
+					   uint16_t dst_port, uint64_t rate);
 #endif

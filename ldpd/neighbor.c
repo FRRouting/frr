@@ -359,8 +359,7 @@ nbr_find_ldpid(uint32_t lsr_id)
 	return (RB_FIND(nbr_id_head, &nbrs_by_id, &n));
 }
 
-struct nbr *
-nbr_get_first_ldpid()
+struct nbr *nbr_get_first_ldpid(void)
 {
 	return (RB_MIN(nbr_id_head, &nbrs_by_id));
 }

@@ -29,9 +29,7 @@
 #include "debug.h"
 #include "zapi_msg.h"
 
-#ifndef VTYSH_EXTRACT_PL
 #include "zebra/zebra_mlag_vty_clippy.c"
-#endif
 
 DEFUN_HIDDEN (show_mlag,
 	      show_mlag_cmd,

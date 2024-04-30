@@ -207,7 +207,7 @@ def test_bgp_fast_reconvergence():
         test_func = partial(
             topotest.router_json_cmp, router, "show ip bgp json", expected
         )
-        _, res = topotest.run_and_expect(test_func, None, count=3, wait=1)
+        _, res = topotest.run_and_expect(test_func, None, count=5, wait=1)
         assertmsg = "{}: bgp did not converge".format(router.name)
         assert res is None, assertmsg
 

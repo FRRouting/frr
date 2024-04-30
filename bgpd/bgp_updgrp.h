@@ -88,6 +88,8 @@ typedef struct {
 #define BPKT_ATTRVEC_FLAGS_RMAP_IPV4_NH_CHANGED   (1 << 4)
 #define BPKT_ATTRVEC_FLAGS_RMAP_IPV6_GNH_CHANGED  (1 << 5)
 #define BPKT_ATTRVEC_FLAGS_RMAP_IPV6_LNH_CHANGED  (1 << 6)
+#define BPKT_ATTRVEC_FLAGS_RMAP_VPNV4_NH_CHANGED  (1 << 7)
+#define BPKT_ATTRVEC_FLAGS_RMAP_VPNV6_GNH_CHANGED (1 << 8)
 
 typedef struct bpacket_attr_vec_arr {
 	bpacket_attr_vec entries[BGP_ATTR_VEC_MAX];
@@ -302,6 +304,8 @@ struct updwalk_context {
 	updgrp_walkcb cb;
 	void *context;
 	uint8_t flags;
+	bool uj;
+	json_object *json_updategrps;
 
 #define UPDWALK_FLAGS_ADVQUEUE   (1 << 0)
 #define UPDWALK_FLAGS_ADVERTISED (1 << 1)
@@ -363,7 +367,7 @@ extern void update_bgp_group_init(struct bgp *);
 extern void udpate_bgp_group_free(struct bgp *);
 
 extern void update_group_show(struct bgp *bgp, afi_t afi, safi_t safi,
-			      struct vty *vty, uint64_t subgrp_id);
+			      struct vty *vty, uint64_t subgrp_id, bool uj);
 extern void update_group_show_stats(struct bgp *bgp, struct vty *vty);
 extern void update_group_adjust_peer(struct peer_af *paf);
 extern int update_group_adjust_soloness(struct peer *peer, int set);
@@ -472,6 +476,8 @@ extern void update_bgp_group_free(struct bgp *bgp);
 extern bool bgp_addpath_encode_tx(struct peer *peer, afi_t afi, safi_t safi);
 extern bool bgp_check_selected(struct bgp_path_info *bpi, struct peer *peer,
 			       bool addpath_capable, afi_t afi, safi_t safi);
+extern bool bgp_addpath_capable(struct bgp_path_info *bpi, struct peer *peer,
+				afi_t afi, safi_t safi);
 
 /*
  * Inline functions

@@ -211,16 +211,10 @@ static void bgp_process_mac_rescan_table(struct bgp *bgp, struct peer *peer,
 
 			memcpy(&evpn, bgp_attr_get_evpn_overlay(pi->attr),
 			       sizeof(evpn));
-			int32_t ret = bgp_update(peer, p,
-						 pi->addpath_rx_id,
-						 pi->attr, AFI_L2VPN, SAFI_EVPN,
-						 ZEBRA_ROUTE_BGP,
-						 BGP_ROUTE_NORMAL, &prd,
-						 label_pnt, num_labels,
-						 1, evpn);
-
-			if (ret < 0)
-				bgp_dest_unlock_node(dest);
+			bgp_update(peer, p, pi->addpath_rx_id, pi->attr,
+				   AFI_L2VPN, SAFI_EVPN, ZEBRA_ROUTE_BGP,
+				   BGP_ROUTE_NORMAL, &prd, label_pnt,
+				   num_labels, 1, evpn);
 		}
 	}
 }
@@ -242,19 +236,18 @@ static void bgp_mac_rescan_evpn_table(struct bgp *bgp, struct ethaddr *macaddr)
 		if (!peer_established(peer))
 			continue;
 
-		if (CHECK_FLAG(peer->af_flags[afi][safi],
-			       PEER_FLAG_SOFT_RECONFIG)) {
-			if (bgp_debug_update(peer, NULL, NULL, 1))
-				zlog_debug("Processing EVPN MAC interface change on peer %s (inbound, soft-reconfig)",
-					   peer->host);
+		if (bgp_debug_update(peer, NULL, NULL, 1))
+			zlog_debug(
+				"Processing EVPN MAC interface change on peer %s %s",
+				peer->host,
+				CHECK_FLAG(peer->af_flags[afi][safi],
+					   PEER_FLAG_SOFT_RECONFIG)
+					? "(inbound, soft-reconfig)"
+					: "");
 
-			bgp_soft_reconfig_in(peer, afi, safi);
-		} else {
+		if (!bgp_soft_reconfig_in(peer, afi, safi)) {
 			struct bgp_table *table = bgp->rib[afi][safi];
 
-			if (bgp_debug_update(peer, NULL, NULL, 1))
-				zlog_debug("Processing EVPN MAC interface change on peer %s",
-					   peer->host);
 			bgp_process_mac_rescan_table(bgp, peer, table, macaddr);
 		}
 	}

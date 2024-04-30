@@ -578,7 +578,7 @@ cause great confusion.
 
 .. clicmd:: show ip pim bsm-database
 
-   Display all fragments ofstored bootstrap message in user readable format.
+   Display all fragments of stored bootstrap message in user readable format.
 
 .. clicmd:: mtrace A.B.C.D [A.B.C.D]
 

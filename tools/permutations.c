@@ -80,8 +80,7 @@ void permute(struct graph_node *start)
 	for (unsigned int i = 0; i < vector_active(start->to); i++) {
 		struct graph_node *gn = vector_slot(start->to, i);
 		struct cmd_token *tok = gn->data;
-		if (tok->attr == CMD_ATTR_HIDDEN
-		    || tok->attr == CMD_ATTR_DEPRECATED)
+		if (tok->attr & CMD_ATTR_HIDDEN)
 			continue;
 		else if (tok->type == END_TKN || gn == start) {
 			fprintf(stdout, " ");

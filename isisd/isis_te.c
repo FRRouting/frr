@@ -66,6 +66,8 @@
 
 DEFINE_MTYPE_STATIC(ISISD, ISIS_MPLS_TE,    "ISIS MPLS_TE parameters");
 
+static void isis_mpls_te_circuit_ip_update(struct isis_circuit *circuit);
+
 /*------------------------------------------------------------------------*
  * Following are control functions for MPLS-TE parameters management.
  *------------------------------------------------------------------------*/
@@ -111,9 +113,13 @@ void isis_mpls_te_create(struct isis_area *area)
 	if (area->mta->ted)
 		isis_te_init_ted(area);
 
-	/* Update Extended TLVs according to Interface link parameters */
-	for (ALL_LIST_ELEMENTS_RO(area->circuit_list, node, circuit))
+	/* Update Extended TLVs according to Interface link parameters
+	 * and neighbor IP addresses
+	 */
+	for (ALL_LIST_ELEMENTS_RO(area->circuit_list, node, circuit)) {
 		isis_link_params_update(circuit, circuit->interface);
+		isis_mpls_te_circuit_ip_update(circuit);
+	}
 }
 
 /**
@@ -132,7 +138,7 @@ void isis_mpls_te_disable(struct isis_area *area)
 	area->mta->status = disable;
 
 	/* Remove Link State Database */
-	ls_ted_del_all(&area->mta->ted);
+	ls_ted_clean(area->mta->ted);
 
 	/* Disable Extended SubTLVs on all circuit */
 	for (ALL_LIST_ELEMENTS_RO(area->circuit_list, node, circuit)) {
@@ -336,15 +342,11 @@ void isis_link_params_update(struct isis_circuit *circuit,
 	return;
 }
 
-static int isis_mpls_te_adj_ip_enabled(struct isis_adjacency *adj, int family,
-				       bool global)
+static int _isis_mpls_te_adj_ip_enabled(struct isis_adjacency *adj, int family,
+					bool global)
 {
 	struct isis_circuit *circuit;
 	struct isis_ext_subtlvs *ext;
-
-	/* Sanity Check */
-	if (!adj || !adj->circuit)
-		return 0;
 
 	circuit = adj->circuit;
 
@@ -366,6 +368,12 @@ static int isis_mpls_te_adj_ip_enabled(struct isis_adjacency *adj, int family,
 		}
 		break;
 	case AF_INET6:
+		/* Nothing to do for link-local addresses - ie. not global.
+		 * https://datatracker.ietf.org/doc/html/rfc6119#section-3.1.1
+		 * Because the IPv6 traffic engineering TLVs present in LSPs are
+		 * propagated across networks, they MUST NOT use link-local
+		 * addresses.
+		 */
 		if (!global)
 			return 0;
 
@@ -381,21 +389,31 @@ static int isis_mpls_te_adj_ip_enabled(struct isis_adjacency *adj, int family,
 		return 0;
 	}
 
-	/* Update LSP */
-	lsp_regenerate_schedule(circuit->area, circuit->is_type, 0);
-
 	return 0;
 }
 
-static int isis_mpls_te_adj_ip_disabled(struct isis_adjacency *adj, int family,
-					bool global)
+static int isis_mpls_te_adj_ip_enabled(struct isis_adjacency *adj, int family,
+				       bool global)
+{
+	int ret;
+
+	/* Sanity Check */
+	if (!adj || !adj->circuit)
+		return 0;
+
+	ret = _isis_mpls_te_adj_ip_enabled(adj, family, global);
+
+	/* Update LSP */
+	lsp_regenerate_schedule(adj->circuit->area, adj->circuit->is_type, 0);
+
+	return ret;
+}
+
+static int _isis_mpls_te_adj_ip_disabled(struct isis_adjacency *adj, int family,
+					 bool global)
 {
 	struct isis_circuit *circuit;
 	struct isis_ext_subtlvs *ext;
-
-	/* Sanity Check */
-	if (!adj || !adj->circuit || !adj->circuit->ext)
-		return 0;
 
 	circuit = adj->circuit;
 
@@ -422,11 +440,58 @@ static int isis_mpls_te_adj_ip_disabled(struct isis_adjacency *adj, int family,
 		return 0;
 	}
 
-	/* Update LSP */
-	lsp_regenerate_schedule(circuit->area, circuit->is_type, 0);
-
 	return 0;
 }
+
+static int isis_mpls_te_adj_ip_disabled(struct isis_adjacency *adj, int family,
+					bool global)
+{
+	int ret;
+
+	/* Sanity Check */
+	if (!adj || !adj->circuit || !adj->circuit->ext)
+		return 0;
+
+	ret = _isis_mpls_te_adj_ip_disabled(adj, family, global);
+
+	/* Update LSP */
+	lsp_regenerate_schedule(adj->circuit->area, adj->circuit->is_type, 0);
+
+	return ret;
+}
+
+static void isis_mpls_te_circuit_ip_update(struct isis_circuit *circuit)
+{
+	struct isis_adjacency *adj;
+
+	/* https://datatracker.ietf.org/doc/html/rfc6119#section-3.2.3
+	 * This sub-TLV of the Extended IS Reachability TLV is used for point-
+	 * to-point links
+	 */
+	if (circuit->circ_type != CIRCUIT_T_P2P)
+		return;
+
+	adj = circuit->u.p2p.neighbor;
+
+	if (!adj)
+		return;
+
+	/* Nothing to do for link-local addresses.
+	 * https://datatracker.ietf.org/doc/html/rfc6119#section-3.1.1
+	 * Because the IPv6 traffic engineering TLVs present in LSPs are
+	 * propagated across networks, they MUST NOT use link-local addresses.
+	 */
+	if (adj->ipv4_address_count > 0)
+		_isis_mpls_te_adj_ip_enabled(adj, AF_INET, false);
+	else
+		_isis_mpls_te_adj_ip_disabled(adj, AF_INET, false);
+
+	if (adj->global_ipv6_count > 0)
+		_isis_mpls_te_adj_ip_enabled(adj, AF_INET6, true);
+	else
+		_isis_mpls_te_adj_ip_disabled(adj, AF_INET6, true);
+}
+
 
 int isis_mpls_te_update(struct interface *ifp)
 {

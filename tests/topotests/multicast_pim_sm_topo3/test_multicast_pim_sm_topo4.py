@@ -136,7 +136,7 @@ def setup_module(mod):
     # Required linux kernel version for this suite to run.
     result = required_linux_kernel_version("4.19")
     if result is not True:
-        pytest.skip("Kernel requirements are not met")
+        pytest.skip("Kernel version should be >= 4.19")
 
     testsuite_run_time = time.asctime(time.localtime(time.time()))
     logger.info("Testsuite start time: {}".format(testsuite_run_time))
@@ -151,12 +151,9 @@ def setup_module(mod):
     topo = tgen.json_topo
     # ... and here it calls Mininet initialization functions.
 
-    # get list of daemons needs to be started for this suite.
-    daemons = topo_daemons(tgen, topo)
-
     # Starting topology, create tmp files which are loaded to routers
     #  to start daemons and then start routers
-    start_topology(tgen, daemons)
+    start_topology(tgen)
 
     # Don"t run this test if we have any failure.
     if tgen.routers_have_failure():
@@ -427,9 +424,8 @@ def test_mroute_when_RP_reachable_default_route_p2(request):
         )
         assert result is not True, (
             "Testcase {} : Failed \n "
-            "mroutes(S,G) are present after delete of static routes on c1 \n Error: {}".format(
-                tc_name, result
-            )
+            "Expected: [{}]: mroute (S, G) should not be present in mroute table \n "
+            "Found: {}".format(tc_name, data["dut"], result)
         )
 
         result = verify_upstream_iif(
@@ -442,9 +438,8 @@ def test_mroute_when_RP_reachable_default_route_p2(request):
         )
         assert result is not True, (
             "Testcase {} : Failed \n "
-            "upstream is present after delete of static routes on c1 \n Error: {}".format(
-                tc_name, result
-            )
+            "Expected: [{}]: Upstream IIF interface {} should not be present\n "
+            "Found: {}".format(tc_name, data["dut"], data["iif"], result)
         )
 
     for data in input_dict_starg:
@@ -459,9 +454,8 @@ def test_mroute_when_RP_reachable_default_route_p2(request):
         )
         assert result is not True, (
             "Testcase {} : Failed \n "
-            "mroutes(*,G) are present after delete of static routes on c1 \n Error: {}".format(
-                tc_name, result
-            )
+            "Expected: [{}]: mroute (S, G) should not be present in mroute table \n "
+            "Found: {}".format(tc_name, data["dut"], result)
         )
 
         result = verify_upstream_iif(
@@ -474,9 +468,8 @@ def test_mroute_when_RP_reachable_default_route_p2(request):
         )
         assert result is not True, (
             "Testcase {} : Failed \n "
-            "upstream is present after delete of static routes on c1 \n Error: {}".format(
-                tc_name, result
-            )
+            "Expected: [{}]: Upstream IIF interface {} should not be present\n "
+            "Found: {}".format(tc_name, data["dut"], data["iif"], result)
         )
 
     step("Configure default routes on c2")
@@ -502,9 +495,9 @@ def test_mroute_when_RP_reachable_default_route_p2(request):
     )
     assert result is not True, (
         "Testcase {} : Failed \n "
-        "RP info is unknown after removing static route from c2 \n Error: {}".format(
-            tc_name, result
-        )
+        "Expected: [{}]: RP Info should not be Unknown after removing static"
+        " route from c2 \n"
+        "Found: {}".format(tc_name, data["dut"], result)
     )
 
     step("Verify (s,g) populated after adding default route ")
@@ -723,10 +716,10 @@ def test_mroute_with_RP_default_route_all_nodes_p2(request):
             data["oil"],
             expected=False,
         )
-        assert (
-            result is not True
-        ), "Testcase {} : Failed \n " "mroutes are still present \n Error: {}".format(
-            tc_name, result
+        assert result is not True, (
+            "Testcase {} : Failed \n "
+            "Expected: [{}]: mroute (S, G) should not be present in mroute table \n "
+            "Found: {}".format(tc_name, data["dut"], result)
         )
 
         result = verify_upstream_iif(
@@ -737,10 +730,10 @@ def test_mroute_with_RP_default_route_all_nodes_p2(request):
             IGMP_JOIN_RANGE_1,
             expected=False,
         )
-        assert (
-            result is not True
-        ), "Testcase {} : Failed \n " "upstream is still present \n Error: {}".format(
-            tc_name, result
+        assert result is not True, (
+            "Testcase {} : Failed \n "
+            "Expected: [{}]: Upstream IIF interface {} should not be present\n "
+            "Found: {}".format(tc_name, data["dut"], data["iif"], result)
         )
 
     step("Configure default routes on all the nodes")
@@ -780,9 +773,9 @@ def test_mroute_with_RP_default_route_all_nodes_p2(request):
     )
     assert result is not True, (
         "Testcase {} : Failed \n "
-        "RP info is unknown after removing static route from c2 \n Error: {}".format(
-            tc_name, result
-        )
+        "Expected: [{}]: RP Info should not be Unknown after removing static"
+        " route from c2 \n"
+        "Found: {}".format(tc_name, data["dut"], result)
     )
 
     step("Verify (s,g) populated after adding default route ")

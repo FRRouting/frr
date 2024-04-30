@@ -74,7 +74,7 @@ static uint32_t list_hash(const struct item *a)
 {
 #ifdef SHITTY_HASH
 	/* crappy hash to get some hash collisions */
-	return a->val ^ (a->val << 29) ^ 0x55AA0000U;
+	return (a->val & 0xFF) ^ (a->val << 29) ^ 0x55AA0000U;
 #else
 	return jhash_1word(a->val, 0xdeadbeef);
 #endif

@@ -23,6 +23,7 @@
 
 #include "lib/json.h"
 #include "bgpd/bgp_route.h"
+#include "bgpd/bgp_attr.h"
 
 /* Communities attribute.  */
 struct community {
@@ -108,5 +109,31 @@ extern void bgp_remove_community_from_aggregate(struct bgp_aggregate *aggregate,
 extern void bgp_remove_comm_from_aggregate_hash(struct bgp_aggregate *aggregate,
 						struct community *community);
 extern void bgp_aggr_community_remove(void *arg);
+
+/* This implies that when propagating routes into a VRF, the ACCEPT_OWN
+ * community SHOULD NOT be propagated.
+ */
+static inline void community_strip_accept_own(struct attr *attr)
+{
+	struct community *old_com = bgp_attr_get_community(attr);
+	struct community *new_com = NULL;
+	uint32_t val = COMMUNITY_ACCEPT_OWN;
+
+	if (old_com && community_include(old_com, val)) {
+		new_com = community_dup(old_com);
+		val = htonl(val);
+		community_del_val(new_com, &val);
+
+		if (!old_com->refcnt)
+			community_free(&old_com);
+
+		if (!new_com->size) {
+			community_free(&new_com);
+			bgp_attr_set_community(attr, NULL);
+		} else {
+			bgp_attr_set_community(attr, new_com);
+		}
+	}
+}
 
 #endif /* _QUAGGA_BGP_COMMUNITY_H */

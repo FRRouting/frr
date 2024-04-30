@@ -42,6 +42,10 @@ THE SOFTWARE.
 #include "xroute.h"
 #include "babel_errors.h"
 
+#ifndef VTYSH_EXTRACT_PL
+#include "babeld/babel_interface_clippy.c"
+#endif
+
 DEFINE_MTYPE_STATIC(BABELD, BABEL_IF, "Babel Interface");
 
 #define IS_ENABLE(ifp) (babel_enable_if_lookup(ifp->name) >= 0)
@@ -307,9 +311,10 @@ babel_set_wired_internal(babel_interface_nfo *babel_ifp, int wired)
 }
 
 /* [Interface Command] Tell the interface is wire. */
-DEFUN (babel_set_wired,
+DEFPY (babel_set_wired,
        babel_set_wired_cmd,
-       "babel wired",
+       "[no] babel wired",
+       NO_STR
        "Babel interface commands\n"
        "Enable wired optimizations\n")
 {
@@ -319,14 +324,15 @@ DEFUN (babel_set_wired,
     babel_ifp = babel_get_if_nfo(ifp);
 
     assert (babel_ifp != NULL);
-    babel_set_wired_internal(babel_ifp, 1);
+    babel_set_wired_internal(babel_ifp, no ? 0 : 1);
     return CMD_SUCCESS;
 }
 
 /* [Interface Command] Tell the interface is wireless (default). */
-DEFUN (babel_set_wireless,
+DEFPY (babel_set_wireless,
        babel_set_wireless_cmd,
-       "babel wireless",
+       "[no] babel wireless",
+       NO_STR
        "Babel interface commands\n"
        "Disable wired optimizations (assume wireless)\n")
 {
@@ -336,14 +342,15 @@ DEFUN (babel_set_wireless,
     babel_ifp = babel_get_if_nfo(ifp);
 
     assert (babel_ifp != NULL);
-    babel_set_wired_internal(babel_ifp, 0);
+    babel_set_wired_internal(babel_ifp, no ? 1 : 0);
     return CMD_SUCCESS;
 }
 
 /* [Interface Command] Enable split horizon. */
-DEFUN (babel_split_horizon,
+DEFPY (babel_split_horizon,
        babel_split_horizon_cmd,
-       "babel split-horizon",
+       "[no] babel split-horizon",
+       NO_STR
        "Babel interface commands\n"
        "Enable split horizon processing\n")
 {
@@ -353,175 +360,154 @@ DEFUN (babel_split_horizon,
     babel_ifp = babel_get_if_nfo(ifp);
 
     assert (babel_ifp != NULL);
-    babel_ifp->flags |= BABEL_IF_SPLIT_HORIZON;
-    return CMD_SUCCESS;
-}
-
-/* [Interface Command] Disable split horizon (default). */
-DEFUN (no_babel_split_horizon,
-       no_babel_split_horizon_cmd,
-       "no babel split-horizon",
-       NO_STR
-       "Babel interface commands\n"
-       "Disable split horizon processing\n")
-{
-    VTY_DECLVAR_CONTEXT(interface, ifp);
-    babel_interface_nfo *babel_ifp;
-
-    babel_ifp = babel_get_if_nfo(ifp);
-
-    assert (babel_ifp != NULL);
-    babel_ifp->flags &= ~BABEL_IF_SPLIT_HORIZON;
+    if (!no)
+        SET_FLAG(babel_ifp->flags, BABEL_IF_SPLIT_HORIZON);
+    else
+        UNSET_FLAG(babel_ifp->flags, BABEL_IF_SPLIT_HORIZON);
     return CMD_SUCCESS;
 }
 
 /* [Interface Command]. */
-DEFUN (babel_set_hello_interval,
+DEFPY (babel_set_hello_interval,
        babel_set_hello_interval_cmd,
-       "babel hello-interval (20-655340)",
+       "[no] babel hello-interval (20-655340)",
+       NO_STR
        "Babel interface commands\n"
        "Time between scheduled hellos\n"
        "Milliseconds\n")
 {
     VTY_DECLVAR_CONTEXT(interface, ifp);
     babel_interface_nfo *babel_ifp;
-    int interval;
-
-    interval = strtoul(argv[2]->arg, NULL, 10);
 
     babel_ifp = babel_get_if_nfo(ifp);
     assert (babel_ifp != NULL);
 
-    babel_ifp->hello_interval = interval;
+    babel_ifp->hello_interval = no ?
+        BABEL_DEFAULT_HELLO_INTERVAL : hello_interval;
     return CMD_SUCCESS;
 }
 
 /* [Interface Command]. */
-DEFUN (babel_set_update_interval,
+DEFPY (babel_set_update_interval,
        babel_set_update_interval_cmd,
-       "babel update-interval (20-655340)",
+       "[no] babel update-interval (20-655340)",
+       NO_STR
        "Babel interface commands\n"
        "Time between scheduled updates\n"
        "Milliseconds\n")
 {
     VTY_DECLVAR_CONTEXT(interface, ifp);
     babel_interface_nfo *babel_ifp;
-    int interval;
-
-    interval = strtoul(argv[2]->arg, NULL, 10);
 
     babel_ifp = babel_get_if_nfo(ifp);
     assert (babel_ifp != NULL);
 
-    babel_ifp->update_interval = interval;
+    babel_ifp->update_interval = no ?
+        BABEL_DEFAULT_UPDATE_INTERVAL : update_interval;
     return CMD_SUCCESS;
 }
 
-DEFUN (babel_set_rxcost,
+DEFPY (babel_set_rxcost,
        babel_set_rxcost_cmd,
-       "babel rxcost (1-65534)",
+       "[no] babel rxcost (1-65534)",
+       NO_STR
        "Babel interface commands\n"
        "Rxcost multiplier\n"
        "Units\n")
 {
     VTY_DECLVAR_CONTEXT(interface, ifp);
     babel_interface_nfo *babel_ifp;
-    int rxcost;
-
-    rxcost = strtoul(argv[2]->arg, NULL, 10);
 
     babel_ifp = babel_get_if_nfo(ifp);
     assert (babel_ifp != NULL);
+
+    if (no)
+        rxcost = CHECK_FLAG(babel_ifp->flags, BABEL_IF_WIRED) ?
+            BABEL_DEFAULT_RXCOST_WIRED : BABEL_DEFAULT_RXCOST_WIRELESS;
 
     babel_ifp->cost = rxcost;
     return CMD_SUCCESS;
 }
 
-DEFUN (babel_set_rtt_decay,
+DEFPY (babel_set_rtt_decay,
        babel_set_rtt_decay_cmd,
-       "babel rtt-decay (1-256)",
+       "[no] babel rtt-decay (1-256)",
+       NO_STR
        "Babel interface commands\n"
        "Decay factor for exponential moving average of RTT samples\n"
        "Units of 1/256\n")
 {
     VTY_DECLVAR_CONTEXT(interface, ifp);
     babel_interface_nfo *babel_ifp;
-    int decay;
-
-    decay = strtoul(argv[2]->arg, NULL, 10);
 
     babel_ifp = babel_get_if_nfo(ifp);
     assert (babel_ifp != NULL);
 
-    babel_ifp->rtt_decay = decay;
+    babel_ifp->rtt_decay = no ? BABEL_DEFAULT_RTT_DECAY : rtt_decay;
     return CMD_SUCCESS;
 }
 
-DEFUN (babel_set_rtt_min,
+DEFPY (babel_set_rtt_min,
        babel_set_rtt_min_cmd,
-       "babel rtt-min (1-65535)",
+       "[no] babel rtt-min (1-65535)",
+       NO_STR
        "Babel interface commands\n"
        "Minimum RTT starting for increasing cost\n"
        "Milliseconds\n")
 {
     VTY_DECLVAR_CONTEXT(interface, ifp);
     babel_interface_nfo *babel_ifp;
-    int rtt;
-
-    rtt = strtoul(argv[2]->arg, NULL, 10);
 
     babel_ifp = babel_get_if_nfo(ifp);
     assert (babel_ifp != NULL);
 
     /* The value is entered in milliseconds but stored as microseconds. */
-    babel_ifp->rtt_min = rtt * 1000;
+    babel_ifp->rtt_min = no ? BABEL_DEFAULT_RTT_MIN : rtt_min * 1000;
     return CMD_SUCCESS;
 }
 
-DEFUN (babel_set_rtt_max,
+DEFPY (babel_set_rtt_max,
        babel_set_rtt_max_cmd,
-       "babel rtt-max (1-65535)",
+       "[no] babel rtt-max (1-65535)",
+       NO_STR
        "Babel interface commands\n"
        "Maximum RTT\n"
        "Milliseconds\n")
 {
     VTY_DECLVAR_CONTEXT(interface, ifp);
     babel_interface_nfo *babel_ifp;
-    int rtt;
-
-    rtt = strtoul(argv[2]->arg, NULL, 10);
 
     babel_ifp = babel_get_if_nfo(ifp);
     assert (babel_ifp != NULL);
 
     /* The value is entered in milliseconds but stored as microseconds. */
-    babel_ifp->rtt_max = rtt * 1000;
+    babel_ifp->rtt_max = no ? BABEL_DEFAULT_RTT_MAX : rtt_max * 1000;
     return CMD_SUCCESS;
 }
 
-DEFUN (babel_set_max_rtt_penalty,
+DEFPY (babel_set_max_rtt_penalty,
        babel_set_max_rtt_penalty_cmd,
-       "babel max-rtt-penalty (0-65535)",
+       "[no] babel max-rtt-penalty (0-65535)",
+       NO_STR
        "Babel interface commands\n"
        "Maximum additional cost due to RTT\n"
        "Milliseconds\n")
 {
   VTY_DECLVAR_CONTEXT(interface, ifp);
     babel_interface_nfo *babel_ifp;
-    int penalty;
-
-    penalty = strtoul(argv[2]->arg, NULL, 10);
 
     babel_ifp = babel_get_if_nfo(ifp);
     assert (babel_ifp != NULL);
 
-    babel_ifp->max_rtt_penalty = penalty;
+    babel_ifp->max_rtt_penalty = no ?
+        BABEL_DEFAULT_MAX_RTT_PENALTY : max_rtt_penalty;
     return CMD_SUCCESS;
 }
 
-DEFUN (babel_set_enable_timestamps,
+DEFPY (babel_set_enable_timestamps,
        babel_set_enable_timestamps_cmd,
-       "babel enable-timestamps",
+       "[no] babel enable-timestamps",
+       NO_STR
        "Babel interface commands\n"
        "Enable timestamps\n")
 {
@@ -530,54 +516,24 @@ DEFUN (babel_set_enable_timestamps,
 
     babel_ifp = babel_get_if_nfo(ifp);
     assert (babel_ifp != NULL);
-
-    babel_ifp->flags |= BABEL_IF_TIMESTAMPS;
+    if (!no)
+        SET_FLAG(babel_ifp->flags, BABEL_IF_TIMESTAMPS);
+    else
+        UNSET_FLAG(babel_ifp->flags, BABEL_IF_TIMESTAMPS);
     return CMD_SUCCESS;
 }
 
-DEFUN (no_babel_set_enable_timestamps,
-       no_babel_set_enable_timestamps_cmd,
-       "no babel enable-timestamps",
+DEFPY (babel_set_channel,
+       babel_set_channel_cmd,
+       "[no] babel channel <(1-254)$ch|interfering$interfering|"
+       "noninterfering$noninterfering>",
        NO_STR
        "Babel interface commands\n"
-       "Disable timestamps\n")
-{
-    VTY_DECLVAR_CONTEXT(interface, ifp);
-    babel_interface_nfo *babel_ifp;
-
-    babel_ifp = babel_get_if_nfo(ifp);
-    assert (babel_ifp != NULL);
-
-    babel_ifp->flags &= ~BABEL_IF_TIMESTAMPS;
-    return CMD_SUCCESS;
-}
-
-DEFUN (babel_set_channel,
-       babel_set_channel_cmd,
-       "babel channel (1-254)",
-       "Babel interface commands\n"
        "Channel number for diversity routing\n"
-       "Number\n")
-{
-    VTY_DECLVAR_CONTEXT(interface, ifp);
-    babel_interface_nfo *babel_ifp;
-    int channel;
-
-    channel = strtoul(argv[2]->arg, NULL, 10);
-
-    babel_ifp = babel_get_if_nfo(ifp);
-    assert (babel_ifp != NULL);
-
-    babel_ifp->channel = channel;
-    return CMD_SUCCESS;
-}
-
-DEFUN (babel_set_channel_interfering,
-       babel_set_channel_interfering_cmd,
-       "babel channel interfering",
-       "Babel interface commands\n"
-       "Channel number for diversity routing\n"
-       "Mark channel as interfering\n")
+       "Number\n"
+       "Mark channel as interfering\n"
+       "Mark channel as noninterfering\n"
+       )
 {
     VTY_DECLVAR_CONTEXT(interface, ifp);
     babel_interface_nfo *babel_ifp;
@@ -585,24 +541,15 @@ DEFUN (babel_set_channel_interfering,
     babel_ifp = babel_get_if_nfo(ifp);
     assert (babel_ifp != NULL);
 
-    babel_ifp->channel = BABEL_IF_CHANNEL_INTERFERING;
-    return CMD_SUCCESS;
-}
+    if (no)
+        ch = CHECK_FLAG(babel_ifp->flags, BABEL_IF_WIRED) ?
+            BABEL_IF_CHANNEL_NONINTERFERING : BABEL_IF_CHANNEL_INTERFERING;
+    else if (interfering)
+        ch = BABEL_IF_CHANNEL_INTERFERING;
+    else if (noninterfering)
+        ch = BABEL_IF_CHANNEL_NONINTERFERING;
 
-DEFUN (babel_set_channel_noninterfering,
-       babel_set_channel_noninterfering_cmd,
-       "babel channel noninterfering",
-       "Babel interface commands\n"
-       "Channel number for diversity routing\n"
-       "Mark channel as noninterfering\n")
-{
-    VTY_DECLVAR_CONTEXT(interface, ifp);
-    babel_interface_nfo *babel_ifp;
-
-    babel_ifp = babel_get_if_nfo(ifp);
-    assert (babel_ifp != NULL);
-
-    babel_ifp->channel = BABEL_IF_CHANNEL_NONINTERFERING;
+    babel_ifp->channel = ch;
     return CMD_SUCCESS;
 }
 
@@ -685,15 +632,15 @@ interface_recalculate(struct interface *ifp)
 
     rc = setsockopt(protocol_socket, IPPROTO_IPV6, IPV6_JOIN_GROUP,
                     (char*)&mreq, sizeof(mreq));
-    if(rc < 0) {
-        flog_err_sys(EC_LIB_SOCKET,
-		  "setsockopt(IPV6_JOIN_GROUP) on interface '%s': %s",
-                  ifp->name, safe_strerror(errno));
-        /* This is probably due to a missing link-local address,
-         so down this interface, and wait until the main loop
-         tries to up it again. */
-        interface_reset(ifp);
-        return -1;
+    if (rc < 0 && errno != EADDRINUSE) {
+	    flog_err_sys(EC_LIB_SOCKET,
+			 "setsockopt(IPV6_JOIN_GROUP) on interface '%s': %s",
+			 ifp->name, safe_strerror(errno));
+	    /* This is probably due to a missing link-local address,
+	     so down this interface, and wait until the main loop
+	     tries to up it again. */
+	    interface_reset(ifp);
+	    return -1;
     }
 
     set_timeout(&babel_ifp->hello_timeout, babel_ifp->hello_interval);
@@ -1239,7 +1186,6 @@ babel_if_init(void)
     install_element(BABEL_NODE, &babel_network_cmd);
     install_element(BABEL_NODE, &no_babel_network_cmd);
     install_element(INTERFACE_NODE, &babel_split_horizon_cmd);
-    install_element(INTERFACE_NODE, &no_babel_split_horizon_cmd);
     install_element(INTERFACE_NODE, &babel_set_wired_cmd);
     install_element(INTERFACE_NODE, &babel_set_wireless_cmd);
     install_element(INTERFACE_NODE, &babel_set_hello_interval_cmd);
@@ -1251,9 +1197,6 @@ babel_if_init(void)
     install_element(INTERFACE_NODE, &babel_set_rtt_max_cmd);
     install_element(INTERFACE_NODE, &babel_set_max_rtt_penalty_cmd);
     install_element(INTERFACE_NODE, &babel_set_enable_timestamps_cmd);
-    install_element(INTERFACE_NODE, &no_babel_set_enable_timestamps_cmd);
-    install_element(INTERFACE_NODE, &babel_set_channel_interfering_cmd);
-    install_element(INTERFACE_NODE, &babel_set_channel_noninterfering_cmd);
 
     /* "show babel ..." commands */
     install_element(VIEW_NODE, &show_babel_interface_cmd);

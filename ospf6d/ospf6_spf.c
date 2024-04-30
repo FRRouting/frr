@@ -325,7 +325,7 @@ static void ospf6_nexthop_calc(struct ospf6_vertex *w, struct ospf6_vertex *v,
 static int ospf6_spf_install(struct ospf6_vertex *v,
 			     struct ospf6_route_table *result_table)
 {
-	struct ospf6_route *route, *parent_route;
+	struct ospf6_route *route;
 	struct ospf6_vertex *prev;
 
 	if (IS_OSPF6_DEBUG_SPF(PROCESS))
@@ -345,7 +345,12 @@ static int ospf6_spf_install(struct ospf6_vertex *v,
 			zlog_debug(
 				"  another path found to route %pFX lsa %s, merge",
 				&route->prefix, v->lsa->name);
-		ospf6_spf_merge_nexthops_to_route(route, v);
+
+		/* merging the parent's nexthop information to the child's
+		 * if the parent is not the root of the tree.
+		 */
+		if (!ospf6_merge_parents_nh_to_child(v, route, result_table))
+			ospf6_spf_merge_nexthops_to_route(route, v);
 
 		prev = (struct ospf6_vertex *)route->route_option;
 		assert(prev->hops <= v->hops);
@@ -411,13 +416,7 @@ static int ospf6_spf_install(struct ospf6_vertex *v,
 	 * installed,
 	 * its parent's route's nexthops have already been installed.
 	 */
-	if (v->parent && v->parent->hops) {
-		parent_route =
-			ospf6_route_lookup(&v->parent->vertex_id, result_table);
-		if (parent_route) {
-			ospf6_route_merge_nexthops(route, parent_route);
-		}
-	}
+	ospf6_merge_parents_nh_to_child(v, route, result_table);
 
 	if (v->parent)
 		listnode_add_sort(v->parent->child_list, v);
@@ -1289,4 +1288,21 @@ void ospf6_ase_calculate_timer_add(struct ospf6 *ospf6)
 
 	thread_add_timer(master, ospf6_ase_calculate_timer, ospf6,
 			 OSPF6_ASE_CALC_INTERVAL, &ospf6->t_ase_calc);
+}
+
+bool ospf6_merge_parents_nh_to_child(struct ospf6_vertex *v,
+				     struct ospf6_route *route,
+				     struct ospf6_route_table *result_table)
+{
+	struct ospf6_route *parent_route;
+
+	if (v->parent && v->parent->hops) {
+		parent_route =
+			ospf6_route_lookup(&v->parent->vertex_id, result_table);
+		if (parent_route) {
+			ospf6_route_merge_nexthops(route, parent_route);
+			return true;
+		}
+	}
+	return false;
 }

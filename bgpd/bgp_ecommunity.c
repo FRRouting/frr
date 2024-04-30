@@ -720,6 +720,7 @@ static struct ecommunity *ecommunity_str2com_internal(const char *str, int type,
 	while ((str = ecommunity_gettoken(str, (void *)&eval, &token))) {
 		switch (token) {
 		case ecommunity_token_rt:
+		case ecommunity_token_rt6:
 		case ecommunity_token_soo:
 			if (!keyword_included || keyword) {
 				if (ecom)
@@ -767,7 +768,6 @@ static struct ecommunity *ecommunity_str2com_internal(const char *str, int type,
 						    ecom->unit_size);
 			break;
 		case ecommunity_token_unknown:
-		default:
 			if (ecom)
 				ecommunity_free(&ecom);
 			return NULL;
@@ -1009,13 +1009,8 @@ char *ecommunity_ecom2str(struct ecommunity *ecom, int format, int filter)
 				    type == ECOMMUNITY_ENCODE_IP) {
 					struct in_addr *ipv4 =
 						(struct in_addr *)pnt;
-					char ipv4str[INET_ADDRSTRLEN];
-
-					inet_ntop(AF_INET, ipv4,
-						  ipv4str,
-						  INET_ADDRSTRLEN);
-					snprintf(encbuf, sizeof(encbuf),
-						 "NH:%s:%d", ipv4str, pnt[5]);
+					snprintfrr(encbuf, sizeof(encbuf),
+						   "NH:%pI4:%d", ipv4, pnt[5]);
 				} else if (sub_type ==
 					   ECOMMUNITY_LINK_BANDWIDTH &&
 					   type == ECOMMUNITY_ENCODE_AS) {

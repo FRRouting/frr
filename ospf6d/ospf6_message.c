@@ -28,6 +28,7 @@
 #include "linklist.h"
 #include "lib_errors.h"
 #include "checksum.h"
+#include "network.h"
 
 #include "ospf6_proto.h"
 #include "ospf6_lsa.h"
@@ -2026,6 +2027,9 @@ static void ospf6_auth_trailer_copy_keychain_key(struct ospf6_interface *oi)
 			 * these values
 			 */
 			oi->at_data.hash_algo = key->hash_algo;
+			if (oi->at_data.auth_key)
+				XFREE(MTYPE_OSPF6_AUTH_MANUAL_KEY,
+				      oi->at_data.auth_key);
 			oi->at_data.auth_key = XSTRDUP(
 				MTYPE_OSPF6_AUTH_MANUAL_KEY, key->string);
 			oi->at_data.key_id = key->index;
@@ -2308,7 +2312,7 @@ static uint16_t ospf6_make_dbdesc(struct ospf6_neighbor *on, struct stream *s)
 	/* if this is initial one, initialize sequence number for DbDesc */
 	if (CHECK_FLAG(on->dbdesc_bits, OSPF6_DBDESC_IBIT)
 	    && (on->dbdesc_seqnum == 0)) {
-		on->dbdesc_seqnum = monotime(NULL);
+		on->dbdesc_seqnum = frr_sequence32_next();
 	}
 
 	/* reserved */

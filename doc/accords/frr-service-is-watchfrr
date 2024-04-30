@@ -1,0 +1,16 @@
+The "FRR" service unit is watchfrr
+==================================
+
+
+"FRR" on the distribution/OS level is one service (generally called "frr").
+Exposing individual daemons (zebra, staticd, bgpd, ...) as service units does
+not match FRR's internal expectations.
+
+At some future point, watchfrr will add functionality to receive "router bgp",
+"router ospf" etc. commands (or their YANG variants) and automatically start
+the required daemons.  In particular with multi-instance setups, this will
+simplify config (no more mucking around /etc/frr/daemons - if watchfrr
+understands which daemons are needed by a given config, the daemons file is
+pointless.)
+
+This to some degree assumes an "integrated-config world".

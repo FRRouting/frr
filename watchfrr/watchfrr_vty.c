@@ -125,6 +125,8 @@ DEFUN_NOSH (show_debugging_watchfrr,
             DEBUG_STR
             WATCHFRR_STR)
 {
+	cmd_show_lib_debugs(vty);
+
 	return CMD_SUCCESS;
 }
 
@@ -151,9 +153,7 @@ DEFUN_NOSH (show_logging,
 	return CMD_SUCCESS;
 }
 
-#ifndef VTYSH_EXTRACT_PL
 #include "watchfrr/watchfrr_vty_clippy.c"
-#endif
 
 DEFPY (watchfrr_ignore_daemon,
        watchfrr_ignore_daemon_cmd,

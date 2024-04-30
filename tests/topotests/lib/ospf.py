@@ -1533,11 +1533,11 @@ def verify_ospf_summary(tgen, topo, dut, input_dict, ospf=None, expected=True):
     -----
     input_dict = {
         "11.0.0.0/8": {
-            "Summary address": "11.0.0.0/8",
-            "Metric-type": "E2",
-            "Metric": 20,
-            "Tag": 0,
-            "External route count": 5
+            "summaryAddress": "11.0.0.0/8",
+            "metricType": "E2",
+            "metric": 20,
+            "tag": 0,
+            "externalRouteCount": 5
         }
     }
     result = verify_ospf_summary(tgen, topo, dut, input_dict)
@@ -1586,7 +1586,7 @@ def verify_ospf_summary(tgen, topo, dut, input_dict, ospf=None, expected=True):
     for ospf_summ, summ_data in ospf_summary_data.items():
         if ospf_summ not in show_ospf_json:
             continue
-        summary = ospf_summary_data[ospf_summ]["Summary address"]
+        summary = ospf_summary_data[ospf_summ]["summaryAddress"]
 
         if summary in show_ospf_json:
             for summ in summ_data:

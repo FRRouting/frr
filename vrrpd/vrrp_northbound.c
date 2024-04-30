@@ -602,6 +602,26 @@ lib_interface_vrrp_vrrp_group_shutdown_modify(struct nb_cb_modify_args *args)
 	return NB_OK;
 }
 
+/*
+ * XPath: /frr-interface:lib/interface/frr-vrrpd:vrrp/vrrp-group/checksum-with-
+ *        ipv4-pseudoheader
+ */
+static int lib_interface_vrrp_vrrp_group_checksum_with_ipv4_pseudoheader_modify(
+	struct nb_cb_modify_args *args)
+{
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	struct vrrp_vrouter *vr;
+	bool checksum_with_ipv4_ph;
+
+	vr = nb_running_get_entry(args->dnode, NULL, true);
+	checksum_with_ipv4_ph = yang_dnode_get_bool(args->dnode, NULL);
+	vr->checksum_with_ipv4_pseudoheader = checksum_with_ipv4_ph;
+
+	return NB_OK;
+}
+
 /* clang-format off */
 const struct frr_yang_module_info frr_vrrpd_info = {
 	.name = "frr-vrrpd",
@@ -641,6 +661,13 @@ const struct frr_yang_module_info frr_vrrpd_info = {
 			.xpath = "/frr-interface:lib/interface/frr-vrrpd:vrrp/vrrp-group/accept-mode",
 			.cbs = {
 				.modify = lib_interface_vrrp_vrrp_group_accept_mode_modify,
+			}
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/frr-vrrpd:vrrp/vrrp-group/checksum-with-ipv4-pseudoheader",
+			.cbs = {
+				.modify = lib_interface_vrrp_vrrp_group_checksum_with_ipv4_pseudoheader_modify,
+				.cli_show = cli_show_checksum_with_ipv4_pseudoheader,
 			}
 		},
 		{

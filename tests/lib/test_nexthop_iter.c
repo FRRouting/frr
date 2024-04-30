@@ -41,6 +41,7 @@ static void str_append(char **buf, const char *repr)
 	}
 }
 
+PRINTFRR(2, 3)
 static void str_appendf(char **buf, const char *format, ...)
 {
 	va_list ap;

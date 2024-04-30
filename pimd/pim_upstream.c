@@ -46,7 +46,6 @@
 #include "pim_oil.h"
 #include "pim_macro.h"
 #include "pim_rp.h"
-#include "pim_br.h"
 #include "pim_register.h"
 #include "pim_msdp.h"
 #include "pim_jp_agg.h"
@@ -341,7 +340,7 @@ static void join_timer_stop(struct pim_upstream *up)
 
 	if (up->rpf.source_nexthop.interface)
 		nbr = pim_neighbor_find(up->rpf.source_nexthop.interface,
-					up->rpf.rpf_addr);
+					up->rpf.rpf_addr, true);
 
 	if (nbr)
 		pim_jp_agg_remove_group(nbr->upstream_jp_agg, up, nbr);
@@ -355,7 +354,7 @@ void join_timer_start(struct pim_upstream *up)
 
 	if (up->rpf.source_nexthop.interface) {
 		nbr = pim_neighbor_find(up->rpf.source_nexthop.interface,
-					up->rpf.rpf_addr);
+					up->rpf.rpf_addr, true);
 
 		if (PIM_DEBUG_PIM_EVENTS) {
 			zlog_debug(
@@ -447,7 +446,8 @@ void pim_upstream_join_suppress(struct pim_upstream *up, pim_addr rpf,
 	else {
 		/* Remove it from jp agg from the nbr for suppression */
 		nbr = pim_neighbor_find(up->rpf.source_nexthop.interface,
-					up->rpf.rpf_addr);
+					up->rpf.rpf_addr, true);
+
 		if (nbr) {
 			join_timer_remain_msec =
 				pim_time_timer_remain_msec(nbr->jp_timer);
@@ -499,7 +499,8 @@ void pim_upstream_join_timer_decrease_to_t_override(const char *debug_label,
 		struct pim_neighbor *nbr;
 
 		nbr = pim_neighbor_find(up->rpf.source_nexthop.interface,
-					up->rpf.rpf_addr);
+					up->rpf.rpf_addr, true);
+
 		if (nbr)
 			join_timer_remain_msec =
 				pim_time_timer_remain_msec(nbr->jp_timer);
@@ -1422,8 +1423,8 @@ struct pim_upstream *pim_upstream_keep_alive_timer_proc(
 	}
 
 	if (I_am_RP(pim, up->sg.grp)) {
-		pim_br_clear_pmbr(&up->sg);
 		/*
+		 * Handle Border Router
 		 * We need to do more here :)
 		 * But this is the start.
 		 */

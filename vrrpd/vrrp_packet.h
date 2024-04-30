@@ -131,7 +131,7 @@ struct vrrp_pkt {
 ssize_t vrrp_pkt_adver_build(struct vrrp_pkt **pkt, struct ipaddr *src,
 			     uint8_t version, uint8_t vrid, uint8_t prio,
 			     uint16_t max_adver_int, uint8_t numip,
-			     struct ipaddr **ips);
+			     struct ipaddr **ips, bool ipv4_ph);
 
 /* free memory allocated by vrrp_pkt_adver_build's pkt arg */
 void vrrp_pkt_free(struct vrrp_pkt *pkt);
@@ -195,9 +195,9 @@ size_t vrrp_pkt_adver_dump(char *buf, size_t buflen, struct vrrp_pkt *pkt);
  * Returns:
  *    Size of VRRP packet, or -1 upon error
  */
-ssize_t vrrp_pkt_parse_datagram(int family, int version, struct msghdr *m,
-				size_t read, struct ipaddr *src,
-				struct vrrp_pkt **pkt, char *errmsg,
-				size_t errmsg_len);
+ssize_t vrrp_pkt_parse_datagram(int family, int version, bool ipv4_ph,
+				struct msghdr *m, size_t read,
+				struct ipaddr *src, struct vrrp_pkt **pkt,
+				char *errmsg, size_t errmsg_len);
 
 #endif /* __VRRP_PACKET_H__ */

@@ -369,6 +369,13 @@ extern void zserv_release_client(struct zserv *client);
 extern void zserv_close_client(struct zserv *client);
 
 /*
+ * Free memory for a zserv client object - note that this does not
+ * clean up the internal allocations associated with the zserv client,
+ * this just free the struct's memory.
+ */
+void zserv_client_delete(struct zserv *client);
+
+/*
  * Log a ZAPI message hexdump.
  *
  * errmsg

@@ -203,7 +203,16 @@ def test_route_map_usage():
     r1.vtysh_cmd("conf\nip route 10.100.100.100/32 192.168.216.3")
     r1.vtysh_cmd("conf\nip route 10.100.100.101/32 10.0.0.44")
     r1.vtysh_cmd("sharp install route 10.0.0.0 nexthop 192.168.216.3 500")
-    sleep(4)
+
+    def check_initial_routes_installed(router):
+        output = json.loads(router.vtysh_cmd("show ip route summ json"))
+        expected = {
+            "routes": [{"type": "static", "rib": 2}, {"type": "sharp", "rib": 500}]
+        }
+        return topotest.json_cmp(output, expected)
+
+    test_func = partial(check_initial_routes_installed, r1)
+    success, result = topotest.run_and_expect(test_func, None, count=40, wait=1)
 
     static_rmapfile = "%s/r1/static_rmap.ref" % (thisDir)
     expected = open(static_rmapfile).read().rstrip()

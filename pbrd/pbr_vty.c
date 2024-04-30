@@ -36,9 +36,7 @@
 #include "pbrd/pbr_zebra.h"
 #include "pbrd/pbr_vty.h"
 #include "pbrd/pbr_debug.h"
-#ifndef VTYSH_EXTRACT_PL
 #include "pbrd/pbr_vty_clippy.c"
-#endif
 
 DEFUN_NOSH(pbr_map, pbr_map_cmd, "pbr-map PBRMAP seq (1-700)",
 	   "Create pbr-map or enter pbr-map command mode\n"
@@ -1242,6 +1240,8 @@ DEFUN_NOSH(show_debugging_pbr,
 	vty_out(vty, "PBR debugging status:\n");
 
 	pbr_debug_config_write_helper(vty, false);
+
+	cmd_show_lib_debugs(vty);
 
 	return CMD_SUCCESS;
 }

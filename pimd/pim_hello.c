@@ -290,7 +290,7 @@ int pim_hello_recv(struct interface *ifp, pim_addr src_addr, uint8_t *tlv_buf,
 	  New neighbor?
 	*/
 
-	neigh = pim_neighbor_find(ifp, src_addr);
+	neigh = pim_neighbor_find(ifp, src_addr, false);
 	if (!neigh) {
 		/* Add as new neighbor */
 
@@ -389,8 +389,10 @@ int pim_hello_build_tlv(struct interface *ifp, uint8_t *tlv_buf,
 	uint8_t *curr = tlv_buf;
 	uint8_t *pastend = tlv_buf + tlv_buf_size;
 	uint8_t *tmp;
+#if PIM_IPV == 4
 	struct pim_interface *pim_ifp = ifp->info;
 	struct pim_instance *pim = pim_ifp->pim;
+#endif
 
 	/*
 	 * Append options
@@ -452,19 +454,20 @@ int pim_hello_build_tlv(struct interface *ifp, uint8_t *tlv_buf,
 
 	/* Secondary Address List */
 	if (ifp->connected->count) {
-		curr = pim_tlv_append_addrlist_ucast(curr, pastend,
-						     ifp->connected, AF_INET);
+		curr = pim_tlv_append_addrlist_ucast(curr, pastend, ifp,
+						     PIM_AF);
 		if (!curr) {
 			if (PIM_DEBUG_PIM_HELLO) {
 				zlog_debug(
-					"%s: could not set PIM hello v4 Secondary Address List option for interface %s",
-					__func__, ifp->name);
+					"%s: could not set PIM hello %s Secondary Address List option for interface %s",
+					__func__, PIM_AF_NAME, ifp->name);
 			}
 			return -4;
 		}
+#if PIM_IPV == 4
 		if (pim->send_v6_secondary) {
-			curr = pim_tlv_append_addrlist_ucast(
-				curr, pastend, ifp->connected, AF_INET6);
+			curr = pim_tlv_append_addrlist_ucast(curr, pastend, ifp,
+							     AF_INET6);
 			if (!curr) {
 				if (PIM_DEBUG_PIM_HELLO) {
 					zlog_debug(
@@ -474,6 +477,7 @@ int pim_hello_build_tlv(struct interface *ifp, uint8_t *tlv_buf,
 				return -4;
 			}
 		}
+#endif
 	}
 
 	return curr - tlv_buf;

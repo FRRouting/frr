@@ -5,27 +5,6 @@
 if OSPF6D
 noinst_LIBRARIES += ospf6d/libospf6.a
 sbin_PROGRAMS += ospf6d/ospf6d
-vtysh_scan += \
-	ospf6d/ospf6_nssa.c \
-	ospf6d/ospf6_abr.c \
-	ospf6d/ospf6_asbr.c \
-	ospf6d/ospf6_area.c \
-	ospf6d/ospf6_bfd.c \
-	ospf6d/ospf6_flood.c \
-	ospf6d/ospf6_gr.c \
-	ospf6d/ospf6_gr_helper.c \
-	ospf6d/ospf6_interface.c \
-	ospf6d/ospf6_intra.c \
-	ospf6d/ospf6_lsa.c \
-	ospf6d/ospf6_message.c \
-	ospf6d/ospf6_neighbor.c \
-	ospf6d/ospf6_route.c \
-	ospf6d/ospf6_spf.c \
-	ospf6d/ospf6_top.c \
-	ospf6d/ospf6_zebra.c \
-	ospf6d/ospf6d.c \
-	ospf6d/ospf6_auth_trailer.c \
-	# end
 vtysh_daemons += ospf6d
 if SNMP
 module_LTLIBRARIES += ospf6d/ospf6d_snmp.la

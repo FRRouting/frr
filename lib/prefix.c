@@ -138,6 +138,23 @@ afi_t family2afi(int family)
 	return 0;
 }
 
+const char *afi2str_lower(afi_t afi)
+{
+	switch (afi) {
+	case AFI_IP:
+		return "ipv4";
+	case AFI_IP6:
+		return "ipv6";
+	case AFI_L2VPN:
+		return "l2vpn";
+	case AFI_MAX:
+	case AFI_UNSPEC:
+		return "bad-value";
+	}
+
+	assert(!"Reached end of function we should never reach");
+}
+
 const char *afi2str(afi_t afi)
 {
 	switch (afi) {
@@ -1404,6 +1421,63 @@ bool ipv4_unicast_valid(const struct in_addr *addr)
 	return true;
 }
 
+static int ipaddr2prefix(const struct ipaddr *ip, uint16_t prefixlen,
+			 struct prefix *p)
+{
+	switch (ip->ipa_type) {
+	case (IPADDR_V4):
+		p->family = AF_INET;
+		p->u.prefix4 = ip->ipaddr_v4;
+		p->prefixlen = prefixlen;
+		break;
+	case (IPADDR_V6):
+		p->family = AF_INET6;
+		p->u.prefix6 = ip->ipaddr_v6;
+		p->prefixlen = prefixlen;
+		break;
+	case (IPADDR_NONE):
+		p->family = AF_UNSPEC;
+		break;
+	}
+
+	return 0;
+}
+
+/*
+ * Convert type-2 and type-5 evpn route prefixes into the more
+ * general ipv4/ipv6 prefix types so we can match prefix lists
+ * and such.
+ */
+int evpn_prefix2prefix(const struct prefix *evpn, struct prefix *to)
+{
+	const struct evpn_addr *addr;
+
+	if (evpn->family != AF_EVPN)
+		return -1;
+
+	addr = &evpn->u.prefix_evpn;
+
+	switch (addr->route_type) {
+	case BGP_EVPN_MAC_IP_ROUTE:
+		if (IS_IPADDR_V4(&addr->macip_addr.ip))
+			ipaddr2prefix(&addr->macip_addr.ip, 32, to);
+		else if (IS_IPADDR_V6(&addr->macip_addr.ip))
+			ipaddr2prefix(&addr->macip_addr.ip, 128, to);
+		else
+			return -1; /* mac only? */
+
+		break;
+	case BGP_EVPN_IP_PREFIX_ROUTE:
+		ipaddr2prefix(&addr->prefix_addr.ip,
+			      addr->prefix_addr.ip_prefix_length, to);
+		break;
+	default:
+		return -1;
+	}
+
+	return 0;
+}
+
 printfrr_ext_autoreg_p("EA", printfrr_ea);
 static ssize_t printfrr_ea(struct fbuf *buf, struct printfrr_eargs *ea,
 			   const void *ptr)
@@ -1432,7 +1506,7 @@ static ssize_t printfrr_ia(struct fbuf *buf, struct printfrr_eargs *ea,
 		ea->fmt++;
 	}
 
-	if (!ipa)
+	if (!ipa || !ipa->ipa_type)
 		return bputs(buf, "(null)");
 
 	if (use_star) {

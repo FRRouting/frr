@@ -386,6 +386,18 @@ extern void stream_fifo_free(struct stream_fifo *fifo);
  * bit), for 64-bit values (you need to cast them anyway), and neither for
  * encoding (because it's downcasted.)
  */
+static inline const uint8_t *ptr_get_be64(const uint8_t *ptr, uint64_t *out)
+{
+	uint32_t tmp1, tmp2;
+
+	memcpy(&tmp1, ptr, sizeof(tmp1));
+	memcpy(&tmp2, ptr + sizeof(tmp1), sizeof(tmp1));
+
+	*out = (((uint64_t)ntohl(tmp1)) << 32) | ntohl(tmp2);
+
+	return ptr + 8;
+}
+
 static inline const uint8_t *ptr_get_be32(const uint8_t *ptr, uint32_t *out)
 {
 	uint32_t tmp;

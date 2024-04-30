@@ -24,6 +24,7 @@
 
 #include "lib/command.h"
 #include "lib/debug.h"
+#include "lib/bfd.h"
 
 #include "static_debug.h"
 
@@ -35,15 +36,18 @@
 /* clang-format off */
 struct debug static_dbg_events = {0, "Staticd events"};
 struct debug static_dbg_route = {0, "Staticd route"};
+struct debug static_dbg_bfd = {0, "Staticd bfd"};
 
 struct debug *static_debug_arr[] =  {
 	&static_dbg_events,
-	&static_dbg_route
+	&static_dbg_route,
+	&static_dbg_bfd
 };
 
 const char *static_debugs_conflines[] = {
 	"debug static events",
-	"debug static route"
+	"debug static route",
+	"debug static bfd"
 };
 /* clang-format on */
 
@@ -105,7 +109,8 @@ int static_debug_status_write(struct vty *vty)
  *    Debug general internal events
  *
  */
-void static_debug_set(int vtynode, bool onoff, bool events, bool route)
+void static_debug_set(int vtynode, bool onoff, bool events, bool route,
+		      bool bfd)
 {
 	uint32_t mode = DEBUG_NODE2MODE(vtynode);
 
@@ -113,6 +118,10 @@ void static_debug_set(int vtynode, bool onoff, bool events, bool route)
 		DEBUG_MODE_SET(&static_dbg_events, mode, onoff);
 	if (route)
 		DEBUG_MODE_SET(&static_dbg_route, mode, onoff);
+	if (bfd) {
+		DEBUG_MODE_SET(&static_dbg_bfd, mode, onoff);
+		bfd_protocol_integration_set_debug(onoff);
+	}
 }
 
 /*

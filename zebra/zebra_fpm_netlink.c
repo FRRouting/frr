@@ -253,14 +253,7 @@ static int netlink_route_info_add_nh(struct netlink_route_info *ri,
  */
 static uint8_t netlink_proto_from_route_type(int type)
 {
-	switch (type) {
-	case ZEBRA_ROUTE_KERNEL:
-	case ZEBRA_ROUTE_CONNECT:
-		return RTPROT_KERNEL;
-
-	default:
-		return RTPROT_ZEBRA;
-	}
+	return zebra2proto(type);
 }
 
 /*
@@ -511,7 +504,7 @@ static int netlink_route_info_encode(struct netlink_route_info *ri,
 done:
 
 	if (ri->pref_src) {
-		nl_attr_put(&req->n, in_buf_len, RTA_PREFSRC, &ri->pref_src,
+		nl_attr_put(&req->n, in_buf_len, RTA_PREFSRC, ri->pref_src,
 			    bytelen);
 	}
 
@@ -539,10 +532,15 @@ static void zfpm_log_route_info(struct netlink_route_info *ri,
 	for (i = 0; i < ri->num_nhs; i++) {
 		nhi = &ri->nhs[i];
 
-		if (ri->af == AF_INET)
-			inet_ntop(AF_INET, &nhi->gateway, buf, sizeof(buf));
-		else
-			inet_ntop(AF_INET6, &nhi->gateway, buf, sizeof(buf));
+		if (nhi->gateway) {
+			if (ri->af == AF_INET)
+				inet_ntop(AF_INET, nhi->gateway, buf,
+					  sizeof(buf));
+			else
+				inet_ntop(AF_INET6, nhi->gateway, buf,
+					  sizeof(buf));
+		} else
+			strlcpy(buf, "none", sizeof(buf));
 
 		zfpm_debug("  Intf: %u, Gateway: %s, Recursive: %s, Type: %s, Encap type: %s",
 			   nhi->if_index, buf, nhi->recursive ? "yes" : "no",

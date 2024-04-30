@@ -5,16 +5,6 @@
 if ISISD
 noinst_LIBRARIES += isisd/libisis.a
 sbin_PROGRAMS += isisd/isisd
-vtysh_scan += \
-	isisd/isis_cli.c \
-	isisd/isis_ldp_sync.c \
-	isisd/isis_redist.c \
-	isisd/isis_spf.c \
-	isisd/isis_te.c \
-	isisd/isis_sr.c \
-	isisd/isis_vty_fabricd.c \
-	isisd/isisd.c \
-	# end
 vtysh_daemons += isisd
 if SNMP
 module_LTLIBRARIES += isisd/isisd_snmp.la
@@ -25,18 +15,6 @@ endif
 if FABRICD
 noinst_LIBRARIES += isisd/libfabric.a
 sbin_PROGRAMS += isisd/fabricd
-if !ISISD
-vtysh_scan += \
-	isisd/isis_cli.c \
-	isisd/isis_ldp_sync.c \
-	isisd/isis_redist.c \
-	isisd/isis_spf.c \
-	isisd/isis_te.c \
-	isisd/isis_sr.c \
-	isisd/isis_vty_fabricd.c \
-	isisd/isisd.c \
-	# end
-endif
 vtysh_daemons += fabricd
 endif
 

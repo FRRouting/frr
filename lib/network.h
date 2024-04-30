@@ -82,6 +82,24 @@ extern float ntohf(float);
 #endif
 
 /**
+ * Generate a sequence number using monotonic clock with a same second call
+ * protection to help guarantee a unique incremental sequence number that never
+ * goes back (except when wrapping/overflow).
+ *
+ * **NOTE** this function is not thread safe since it uses `static` variable.
+ *
+ * This function and `frr_sequence32_next` should be used to initialize
+ * sequence numbers without directly calling other `time_t` returning
+ * functions because of `time_t` truncation warnings.
+ *
+ * \returns `uint64_t` number based on the monotonic clock.
+ */
+extern uint64_t frr_sequence_next(void);
+
+/** Same as `frr_sequence_next` but returns truncated number. */
+extern uint32_t frr_sequence32_next(void);
+
+/**
  * Helper function that returns a random long value. The main purpose of
  * this function is to hide a `random()` call that gets flagged by coverity
  * scan and put it into one place.

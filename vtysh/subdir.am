@@ -20,7 +20,6 @@ vtysh_vtysh_SOURCES = \
 nodist_vtysh_vtysh_SOURCES = \
 	vtysh/vtysh_cmd.c \
 	# end
-CLEANFILES += vtysh/vtysh_cmd.c
 
 noinst_HEADERS += \
 	vtysh/vtysh.h \
@@ -38,24 +37,5 @@ $(vtysh_vtysh_OBJECTS): vtysh/vtysh_daemons.h
 
 CLEANFILES += vtysh/vtysh_daemons.h
 vtysh/vtysh_daemons.h:
+	@$(MKDIR_P) vtysh
 	$(PERL) $(top_srcdir)/vtysh/daemons.pl $(vtysh_daemons) > vtysh/vtysh_daemons.h
-
-AM_V_EXTRACT = $(am__v_EXTRACT_$(V))
-am__v_EXTRACT_ = $(am__v_EXTRACT_$(AM_DEFAULT_VERBOSITY))
-am__v_EXTRACT_0 = @echo "  EXTRACT " $@;
-am__v_EXTRACT_1 =
-
-if ISISD
-HAVE_ISISD = --have-isisd
-else
-HAVE_ISISD =
-endif
-
-if FABRICD
-HAVE_FABRICD = --have-fabricd
-else
-HAVE_FABRICD =
-endif
-
-vtysh/vtysh_cmd.c: vtysh/extract.pl $(vtysh_scan)
-	$(AM_V_EXTRACT) $^ $(HAVE_ISISD) $(HAVE_FABRICD) > vtysh/vtysh_cmd.c

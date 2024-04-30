@@ -1057,8 +1057,9 @@ static void show_node(struct vty *vty, struct isis_area *area, int level)
 }
 
 DEFUN(show_sr_node, show_sr_node_cmd,
-      "show isis segment-routing node",
-      SHOW_STR PROTO_HELP
+      "show " PROTO_NAME " segment-routing node",
+      SHOW_STR
+      PROTO_HELP
       "Segment-Routing\n"
       "Segment-Routing node\n")
 {

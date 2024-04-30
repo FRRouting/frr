@@ -605,12 +605,13 @@ static void gmtime_assafe(time_t ts, struct tm *res)
 	if (ts >= 306) /* Jan 1 of next year */
 		res->tm_year++;
 
-	static unsigned int months[13] = {
+	static time_t months[13] = {
 		0, 31, 61, 92, 122, 153, 184, 214, 245, 275, 306, 337, 365,
 	};
+	const size_t month_max = array_size(months) - 1;
 
-	for (size_t i = 0; i < array_size(months); i++) {
-		if ((unsigned int)ts < months[i + 1]) {
+	for (size_t i = 0; i < month_max; i++) {
+		if (ts < months[i + 1]) {
 			res->tm_mon = ((i + 2) % 12);
 			res->tm_mday = 1 + ts - months[i];
 			break;

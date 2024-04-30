@@ -348,6 +348,7 @@ DECLARE_QOBJ_TYPE(route_map);
 	(strmatch(A, "frr-bgp-route-map:set-origin"))
 #define IS_SET_ATOMIC_AGGREGATE(A)                                             \
 	(strmatch(A, "frr-bgp-route-map:atomic-aggregate"))
+#define IS_SET_AIGP_METRIC(A) (strmatch(A, "frr-bgp-route-map:aigp-metric"))
 #define IS_SET_ORIGINATOR_ID(A)                                                \
 	(strmatch(A, "frr-bgp-route-map:originator-id"))
 #define IS_SET_COMM_LIST_DEL(A)                                                \
@@ -1014,6 +1015,8 @@ extern void route_map_optimization_disabled_show(struct vty *vty,
 						 const struct lyd_node *dnode,
 						 bool show_defaults);
 extern void route_map_cli_init(void);
+
+extern void route_map_show_debug(struct vty *vty);
 
 #ifdef __cplusplus
 }

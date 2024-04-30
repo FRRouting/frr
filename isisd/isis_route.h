@@ -86,4 +86,9 @@ void isis_route_invalidate_table(struct isis_area *area,
 void isis_route_node_cleanup(struct route_table *table,
 			     struct route_node *node);
 
+void isis_route_switchover_nexthop(struct isis_area *area,
+				   struct route_table *table, int family,
+				   union g_addr *nexthop_addr,
+				   ifindex_t ifindex);
+
 #endif /* _ZEBRA_ISIS_ROUTE_H */

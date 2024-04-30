@@ -4,11 +4,6 @@
 
 if RIPD
 sbin_PROGRAMS += ripd/ripd
-vtysh_scan += \
-	ripd/rip_cli.c \
-	ripd/rip_debug.c \
-	ripd/ripd.c \
-	# end
 vtysh_daemons += ripd
 
 if SNMP

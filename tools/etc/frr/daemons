@@ -91,6 +91,11 @@ pathd_options="  -A 127.0.0.1"
 #
 #MAX_FDS=1024
 
+# Uncomment this option if you want to run FRR as a non-root user. Note that
+# you should know what you are doing since most of the daemons need root
+# to work. This could be useful if you want to run FRR in a container
+# for instance.
+# FRR_NO_ROOT="yes"
 
 # For any daemon, you can specify a "wrap" command to start instead of starting
 # the daemon directly. This will simply be prepended to the daemon invocation.

@@ -3258,9 +3258,7 @@ int zebra_evpn_mh_if_write(struct vty *vty, struct interface *ifp)
 	return 0;
 }
 
-#ifndef VTYSH_EXTRACT_PL
 #include "zebra/zebra_evpn_mh_clippy.c"
-#endif
 /* CLI for setting an ES in bypass mode */
 DEFPY_HIDDEN(zebra_evpn_es_bypass, zebra_evpn_es_bypass_cmd,
 	     "[no] evpn mh bypass",

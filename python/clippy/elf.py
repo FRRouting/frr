@@ -16,7 +16,7 @@
 # with this program; see the file COPYING; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
 
-'''
+"""
 Wrapping layer and additional utility around _clippy.ELFFile.
 
 Essentially, the C bits have the low-level ELF access bits that should be
@@ -28,7 +28,7 @@ across architecture, word size and even endianness boundaries.  Both the C
 module (through GElf_*) and this code (cf. struct.unpack format mangling
 in ELFDissectStruct) will take appropriate measures to flip and resize
 fields as needed.
-'''
+"""
 
 import struct
 from collections import OrderedDict
@@ -40,16 +40,18 @@ from _clippy import ELFFile, ELFAccessError
 # data access
 #
 
+
 class ELFNull(object):
-    '''
+    """
     NULL pointer, returned instead of ELFData
-    '''
+    """
+
     def __init__(self):
         self.symname = None
         self._dstsect = None
 
     def __repr__(self):
-        return '<ptr: NULL>'
+        return "<ptr: NULL>"
 
     def __hash__(self):
         return hash(None)
@@ -57,33 +59,37 @@ class ELFNull(object):
     def get_string(self):
         return None
 
+
 class ELFUnresolved(object):
-    '''
+    """
     Reference to an unresolved external symbol, returned instead of ELFData
 
     :param symname: name of the referenced symbol
     :param addend:  offset added to the symbol, normally zero
-    '''
+    """
+
     def __init__(self, symname, addend):
         self.addend = addend
         self.symname = symname
         self._dstsect = None
 
     def __repr__(self):
-        return '<unresolved: %s+%d>' % (self.symname, self.addend)
+        return "<unresolved: %s+%d>" % (self.symname, self.addend)
 
     def __hash__(self):
         return hash((self.symname, self.addend))
 
+
 class ELFData(object):
-    '''
+    """
     Actual data somewhere in the ELF file.
 
     :type dstsect:  ELFSubset
     :param dstsect: container data area (section or entire file)
     :param dstoffs: byte offset into dstsect
     :param dstlen:  byte size of object, or None if unknown, open-ended or string
-    '''
+    """
+
     def __init__(self, dstsect, dstoffs, dstlen):
         self._dstsect = dstsect
         self._dstoffs = dstoffs
@@ -91,62 +97,78 @@ class ELFData(object):
         self.symname = None
 
     def __repr__(self):
-        return '<ptr: %s+0x%05x/%d>' % (self._dstsect.name, self._dstoffs, self._dstlen or -1)
+        return "<ptr: %s+0x%05x/%d>" % (
+            self._dstsect.name,
+            self._dstoffs,
+            self._dstlen or -1,
+        )
 
     def __hash__(self):
         return hash((self._dstsect, self._dstoffs))
 
     def get_string(self):
-        '''
+        """
         Interpret as C string / null terminated UTF-8 and get the actual text.
-        '''
+        """
         try:
-            return self._dstsect[self._dstoffs:str].decode('UTF-8')
+            return self._dstsect[self._dstoffs : str].decode("UTF-8")
         except:
-            import pdb; pdb.set_trace()
+            import pdb
+
+            pdb.set_trace()
 
     def get_data(self, reflen):
-        '''
+        """
         Interpret as some structure (and check vs. expected length)
 
         :param reflen: expected size of the object, compared against actual
             size (which is only known in rare cases, mostly when directly
             accessing a symbol since symbols have their destination object
             size recorded)
-        '''
+        """
         if self._dstlen is not None and self._dstlen != reflen:
-            raise ValueError('symbol size mismatch (got %d, expected %d)' % (self._dstlen, reflen))
-        return self._dstsect[self._dstoffs:self._dstoffs+reflen]
+            raise ValueError(
+                "symbol size mismatch (got %d, expected %d)" % (self._dstlen, reflen)
+            )
+        return self._dstsect[self._dstoffs : self._dstoffs + reflen]
 
     def offset(self, offs, within_symbol=False):
-        '''
+        """
         Get another ELFData at an offset
 
         :param offs:          byte offset, can be negative (e.g. in container_of)
         :param within_symbol: retain length information
-        '''
+        """
         if self._dstlen is None or not within_symbol:
             return ELFData(self._dstsect, self._dstoffs + offs, None)
         else:
             return ELFData(self._dstsect, self._dstoffs + offs, self._dstlen - offs)
 
+
 #
 # dissection data items
 #
 
+
 class ELFDissectData(object):
-    '''
+    """
     Common bits for ELFDissectStruct and ELFDissectUnion
-    '''
+    """
+
+    def __init__(self):
+        self._data = None
+        self.elfclass = None
 
     def __len__(self):
-        '''
+        """
         Used for boolean evaluation, e.g. "if struct: ..."
-        '''
-        return not (isinstance(self._data, ELFNull) or isinstance(self._data, ELFUnresolved))
+        """
+        return not (
+            isinstance(self._data, ELFNull) or isinstance(self._data, ELFUnresolved)
+        )
 
     def container_of(self, parent, fieldname):
-        '''
+        """
         Assume this struct is embedded in a larger struct and get at the larger
 
         Python ``self.container_of(a, b)`` = C ``container_of(self, a, b)``
@@ -154,25 +176,26 @@ class ELFDissectData(object):
         :param parent:    class (not instance) of the larger struct
         :param fieldname: fieldname that refers back to this
         :returns:         instance of parent, with fieldname set to this object
-        '''
+        """
         offset = 0
-        if not hasattr(parent, '_efields'):
+        if not hasattr(parent, "_efields"):
             parent._setup_efields()
 
         for field in parent._efields[self.elfclass]:
             if field[0] == fieldname:
                 break
             spec = field[1]
-            if spec == 'P':
-                spec = 'I' if self.elfclass == 32 else 'Q'
+            if spec == "P":
+                spec = "I" if self.elfclass == 32 else "Q"
             offset += struct.calcsize(spec)
         else:
-            raise AttributeError('%r not found in %r.fields' % (fieldname, parent))
+            raise AttributeError("%r not found in %r.fields" % (fieldname, parent))
 
-        return parent(self._data.offset(-offset), replace = {fieldname: self})
+        return parent(self._data.offset(-offset), replace={fieldname: self})
+
 
 class ELFDissectStruct(ELFDissectData):
-    '''
+    """
     Decode and provide access to a struct somewhere in the ELF file
 
     Handles pointers and strings somewhat nicely.  Create a subclass for each
@@ -205,30 +228,31 @@ class ELFDissectStruct(ELFDissectData):
     .. attribute:: fieldrename
 
        Dictionary to rename fields, useful if fields comes from tiabwarfo.py.
-    '''
+    """
 
     class Pointer(object):
-        '''
+        """
         Quick wrapper for pointers to further structs
 
         This is just here to avoid going into infinite loops when loading
         structs that have pointers to each other (e.g. struct xref <-->
         struct xrefdata.)  The pointer destination is only instantiated when
         actually accessed.
-        '''
+        """
+
         def __init__(self, cls, ptr):
             self.cls = cls
             self.ptr = ptr
 
         def __repr__(self):
-            return '<Pointer:%s %r>' % (self.cls.__name__, self.ptr)
+            return "<Pointer:%s %r>" % (self.cls.__name__, self.ptr)
 
         def __call__(self):
             if isinstance(self.ptr, ELFNull):
                 return None
             return self.cls(self.ptr)
 
-    def __new__(cls, dataptr, parent = None, replace = None):
+    def __new__(cls, dataptr, parent=None, replace=None):
         if dataptr._dstsect is None:
             return super().__new__(cls)
 
@@ -239,19 +263,19 @@ class ELFDissectStruct(ELFDissectData):
         dataptr._dstsect._pointers[(cls, dataptr)] = obj
         return obj
 
-    replacements = 'lLnN'
+    replacements = "lLnN"
 
     @classmethod
     def _preproc_structspec(cls, elfclass, spec):
         elfbits = elfclass
 
-        if hasattr(spec, 'calcsize'):
-            spec = '%ds' % (spec.calcsize(elfclass),)
+        if hasattr(spec, "calcsize"):
+            spec = "%ds" % (spec.calcsize(elfclass),)
 
         if elfbits == 32:
-            repl = ['i', 'I']
+            repl = ["i", "I"]
         else:
-            repl = ['q', 'Q']
+            repl = ["q", "Q"]
         for c in cls.replacements:
             spec = spec.replace(c, repl[int(c.isupper())])
         return spec
@@ -269,8 +293,8 @@ class ELFDissectStruct(ELFDissectData):
                 size += struct.calcsize(newf[1])
             cls._esize[elfclass] = size
 
-    def __init__(self, dataptr, parent = None, replace = None):
-        if not hasattr(self.__class__, '_efields'):
+    def __init__(self, dataptr, parent=None, replace=None):
+        if not hasattr(self.__class__, "_efields"):
             self._setup_efields()
 
         self._fdata = None
@@ -290,12 +314,12 @@ class ELFDissectStruct(ELFDissectData):
         # need to correlate output from struct.unpack with extra metadata
         # about the particular fields, so note down byte offsets (in locs)
         # and tuple indices of pointers (in ptrs)
-        pspec = ''
+        pspec = ""
         locs = {}
         ptrs = set()
 
         for idx, spec in enumerate(pspecl):
-            if spec == 'P':
+            if spec == "P":
                 ptrs.add(idx)
                 spec = self._elfsect.ptrtype
 
@@ -326,7 +350,9 @@ class ELFDissectStruct(ELFDissectData):
                 self._fdata[name] = replace[name]
                 continue
 
-            if isinstance(self.fields[i][1], type) and issubclass(self.fields[i][1], ELFDissectData):
+            if isinstance(self.fields[i][1], type) and issubclass(
+                self.fields[i][1], ELFDissectData
+            ):
                 dataobj = self.fields[i][1](dataptr.offset(locs[i]), self)
                 self._fdata[name] = dataobj
                 continue
@@ -353,35 +379,41 @@ class ELFDissectStruct(ELFDissectData):
 
     def __repr__(self):
         if not isinstance(self._data, ELFData):
-            return '<%s: %r>' % (self.__class__.__name__, self._data)
-        return '<%s: %s>' % (self.__class__.__name__,
-                ', '.join(['%s=%r' % t for t in self._fdata.items()]))
+            return "<%s: %r>" % (self.__class__.__name__, self._data)
+        return "<%s: %s>" % (
+            self.__class__.__name__,
+            ", ".join(["%s=%r" % t for t in self._fdata.items()]),
+        )
 
     @classmethod
     def calcsize(cls, elfclass):
-        '''
+        """
         Sum up byte size of this struct
 
         Wraps struct.calcsize with some extra features.
-        '''
-        if not hasattr(cls, '_efields'):
+        """
+        if not hasattr(cls, "_efields"):
             cls._setup_efields()
 
-        pspec = ''.join([f[1] for f in cls._efields[elfclass]])
+        pspec = "".join([f[1] for f in cls._efields[elfclass]])
 
-        ptrtype = 'I' if elfclass == 32 else 'Q'
-        pspec = pspec.replace('P', ptrtype)
+        ptrtype = "I" if elfclass == 32 else "Q"
+        pspec = pspec.replace("P", ptrtype)
 
         return struct.calcsize(pspec)
 
+
 class ELFDissectUnion(ELFDissectData):
-    '''
+    """
     Decode multiple structs in the same place.
 
     Not currently used (and hence not tested.)  Worked at some point but not
     needed anymore and may be borked now.  Remove this comment when using.
-    '''
-    def __init__(self, dataptr, parent = None):
+    """
+
+    members = {}
+
+    def __init__(self, dataptr, parent=None):
         self._dataptr = dataptr
         self._parent = parent
         self.members = []
@@ -391,31 +423,44 @@ class ELFDissectUnion(ELFDissectData):
             setattr(self, name, item)
 
     def __repr__(self):
-        return '<%s: %s>' % (self.__class__.__name__, ', '.join([repr(i) for i in self.members]))
+        return "<%s: %s>" % (
+            self.__class__.__name__,
+            ", ".join([repr(i) for i in self.members]),
+        )
 
     @classmethod
     def calcsize(cls, elfclass):
         return max([member.calcsize(elfclass) for name, member in cls.members])
 
+
 #
 # wrappers for spans of ELF data
 #
 
+
 class ELFSubset(object):
-    '''
+    """
     Common abstract base for section-level and file-level access.
-    '''
+    """
 
     def __init__(self):
         super().__init__()
 
+        self.name = None
+        self._obj = None
+        self._elffile = None
+        self.ptrtype = None
+        self.endian = None
         self._pointers = WeakValueDictionary()
+
+    def _wrap_data(self, data, dstsect):
+        raise NotImplementedError()
 
     def __hash__(self):
         return hash(self.name)
 
     def __getitem__(self, k):
-        '''
+        """
         Read data from slice
 
         Subscript **must** be a slice; a simple index will not return a byte
@@ -425,22 +470,22 @@ class ELFSubset(object):
         - `this[123:456]` - extract specific range
         - `this[123:str]` - extract until null byte.  The slice stop value is
             the `str` type (or, technically, `unicode`.)
-        '''
+        """
         return self._obj[k]
 
     def getreloc(self, offset):
-        '''
+        """
         Check for a relocation record at the specified offset.
-        '''
+        """
         return self._obj.getreloc(offset)
 
-    def iter_data(self, scls, slice_ = slice(None)):
-        '''
+    def iter_data(self, scls, slice_=slice(None)):
+        """
         Assume an array of structs present at a particular slice and decode
 
         :param scls:   ELFDissectData subclass for the struct
         :param slice_: optional range specification
-        '''
+        """
         size = scls.calcsize(self._elffile.elfclass)
 
         offset = slice_.start or 0
@@ -453,7 +498,7 @@ class ELFSubset(object):
             offset += size
 
     def pointer(self, offset):
-        '''
+        """
         Try to dereference a pointer value
 
         This checks whether there's a relocation at the given offset and
@@ -463,10 +508,12 @@ class ELFSubset(object):
         :param offset: byte offset from beginning of section,
             or virtual address in file
         :returns:      ELFData wrapping pointed-to object
-        '''
+        """
 
         ptrsize = struct.calcsize(self.ptrtype)
-        data = struct.unpack(self.endian + self.ptrtype, self[offset:offset + ptrsize])[0]
+        data = struct.unpack(
+            self.endian + self.ptrtype, self[offset : offset + ptrsize]
+        )[0]
 
         reloc = self.getreloc(offset)
         dstsect = None
@@ -497,14 +544,15 @@ class ELFSubset(object):
         # wrap_data is different between file & section
         return self._wrap_data(data, dstsect)
 
+
 class ELFDissectSection(ELFSubset):
-    '''
+    """
     Access the contents of an ELF section like ``.text`` or ``.data``
 
     :param elfwrap: ELFDissectFile wrapper for the file
     :param idx:     section index in section header table
     :param section: section object from C module
-    '''
+    """
 
     def __init__(self, elfwrap, idx, section):
         super().__init__()
@@ -524,8 +572,9 @@ class ELFDissectSection(ELFSubset):
         dstsect = self._elfwrap.get_section(dstsect.idx)
         return ELFData(dstsect, offs, None)
 
+
 class ELFDissectFile(ELFSubset):
-    '''
+    """
     Access the contents of an ELF file.
 
     Note that offsets for array subscript and relocation/pointer access are
@@ -537,7 +586,7 @@ class ELFDissectFile(ELFSubset):
     address like 0x400000 on x86.
 
     :param filename: ELF file to open
-    '''
+    """
 
     def __init__(self, filename):
         super().__init__()
@@ -546,8 +595,8 @@ class ELFDissectFile(ELFSubset):
         self._elffile = self._obj = ELFFile(filename)
         self._sections = {}
 
-        self.ptrtype = 'I' if self._elffile.elfclass == 32 else 'Q'
-        self.endian = '>' if self._elffile.bigendian else '<'
+        self.ptrtype = "I" if self._elffile.elfclass == 32 else "Q"
+        self.endian = ">" if self._elffile.bigendian else "<"
 
     @property
     def _elfwrap(self):
@@ -557,9 +606,9 @@ class ELFDissectFile(ELFSubset):
         return ELFData(self, data, None)
 
     def get_section(self, secname):
-        '''
+        """
         Look up section by name or index
-        '''
+        """
         if isinstance(secname, int):
             sh_idx = secname
             section = self._elffile.get_section_idx(secname)

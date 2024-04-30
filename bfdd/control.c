@@ -435,6 +435,15 @@ static void control_read(struct thread *t)
 		return;
 	}
 
+#define FRR_BFD_MAXLEN 10 * 1024
+
+	if (plen > FRR_BFD_MAXLEN) {
+		zlog_debug("%s: client closed, invalid message length: %d",
+			   __func__, bcm.bcm_length);
+		control_free(bcs);
+		return;
+	}
+
 	if (bcm.bcm_ver != BMV_VERSION_1) {
 		zlog_debug("%s: client closed due bad version: %d", __func__,
 			   bcm.bcm_ver);

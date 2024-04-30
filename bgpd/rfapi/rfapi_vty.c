@@ -322,6 +322,7 @@ int rfapiDebugPrintf(void *dummy, const char *format, ...)
 	return 0;
 }
 
+PRINTFRR(2, 3)
 static int rfapiStdioPrintf(void *stream, const char *format, ...)
 {
 	FILE *file = NULL;
@@ -411,9 +412,10 @@ void rfapi_vty_out_vncinfo(struct vty *vty, const struct prefix *p,
 
 		if (!rfapiGetVncTunnelUnAddr(bpi->attr, &pfx_un)) {
 			char buf[BUFSIZ];
+
 			vty_out(vty, "UN=%s",
 				inet_ntop(pfx_un.family, pfx_un.u.val, buf,
-					  BUFSIZ));
+					  sizeof(buf)));
 		}
 	}
 
@@ -432,11 +434,7 @@ void rfapi_vty_out_vncinfo(struct vty *vty, const struct prefix *p,
 				decode_label(&bpi->extra->label[0]));
 
 		if (bpi->extra->num_sids) {
-			char buf[BUFSIZ];
-
-			vty_out(vty, " sid=%s",
-				inet_ntop(AF_INET6, &bpi->extra->sid[0].sid,
-					  buf, sizeof(buf)));
+			vty_out(vty, " sid=%pI6", &bpi->extra->sid[0].sid);
 
 			if (bpi->extra->sid[0].loc_block_len != 0) {
 				vty_out(vty, " sid_structure=[%d,%d,%d,%d]",
@@ -466,7 +464,6 @@ void rfapiPrintAttrPtrs(void *stream, struct attr *attr)
 	const char *vty_newline;
 	struct transit *transit;
 	struct cluster_list *cluster;
-	char buf[BUFSIZ];
 	struct ecommunity *ecomm;
 	struct community *comm;
 
@@ -478,8 +475,7 @@ void rfapiPrintAttrPtrs(void *stream, struct attr *attr)
 		return;
 
 	/* IPv4 Nexthop */
-	inet_ntop(AF_INET, &attr->nexthop, buf, BUFSIZ);
-	fp(out, "  nexthop=%s%s", buf, HVTYNL);
+	fp(out, "  nexthop=%pI4%s", &attr->nexthop, HVTYNL);
 
 	fp(out, "  aspath=%p, refcnt=%d%s", attr->aspath,
 	   (attr->aspath ? attr->aspath->refcnt : 0), HVTYNL);
@@ -571,15 +567,12 @@ void rfapiPrintBi(void *stream, struct bgp_path_info *bpi)
 
 	/* Nexthop */
 	if (af == AF_INET) {
-		r = snprintf(p, REMAIN, "%s",
-			     inet_ntop(AF_INET,
-				       &bpi->attr->mp_nexthop_global_in, buf,
-				       BUFSIZ));
+		r = snprintfrr(p, REMAIN, "%pI4",
+			       &bpi->attr->mp_nexthop_global_in);
 		INCP;
 	} else if (af == AF_INET6) {
-		r = snprintf(p, REMAIN, "%s",
-			     inet_ntop(AF_INET6, &bpi->attr->mp_nexthop_global,
-				       buf, BUFSIZ));
+		r = snprintfrr(p, REMAIN, "%pI6",
+			       &bpi->attr->mp_nexthop_global);
 		INCP;
 	} else {
 		r = snprintf(p, REMAIN, "?");
@@ -590,9 +583,9 @@ void rfapiPrintBi(void *stream, struct bgp_path_info *bpi)
 	 * VNC tunnel subtlv, if present, contains UN address
 	 */
 	if (!rfapiGetVncTunnelUnAddr(bpi->attr, &pfx_un)) {
-		r = snprintf(
-			p, REMAIN, " un=%s",
-			inet_ntop(pfx_un.family, pfx_un.u.val, buf, BUFSIZ));
+		r = snprintf(p, REMAIN, " un=%s",
+			     inet_ntop(pfx_un.family, pfx_un.u.val, buf,
+				       sizeof(buf)));
 		INCP;
 	}
 
@@ -719,7 +712,8 @@ char *rfapiMonitorVpn2Str(struct rfapi_monitor_vpn *m, char *buf, int size)
 	rc = snprintf(buf, size,
 		      "m=%p, next=%p, rfd=%p(vn=%s un=%s), p=%s/%d, node=%p", m,
 		      m->next, m->rfd, buf_vn, buf_un,
-		      inet_ntop(m->p.family, &m->p.u.prefix, buf_pfx, BUFSIZ),
+		      inet_ntop(m->p.family, &m->p.u.prefix, buf_pfx,
+				sizeof(buf_pfx)),
 		      m->p.prefixlen, m->node);
 	buf[size - 1] = 0;
 	if (rc >= size)
@@ -800,9 +794,9 @@ void rfapiShowImportTable(void *stream, const char *label, struct agg_table *rt,
 		const struct prefix *p = agg_node_get_prefix(rn);
 
 		if (p->family == AF_ETHERNET) {
-			rfapiEthAddr2Str(&p->u.prefix_eth, buf, BUFSIZ);
+			rfapiEthAddr2Str(&p->u.prefix_eth, buf, sizeof(buf));
 		} else {
-			inet_ntop(p->family, &p->u.prefix, buf, BUFSIZ);
+			inet_ntop(p->family, &p->u.prefix, buf, sizeof(buf));
 		}
 
 		fp(out, "%s/%d @%p #%d%s", buf, p->prefixlen, rn,
@@ -933,7 +927,7 @@ int rfapiShowVncQueries(void *stream, struct prefix *pfx_match)
 					buf_remain, BUFSIZ);
 				fp(out, " %-15s %-10s\n",
 				   inet_ntop(m->p.family, &m->p.u.prefix,
-					     buf_pfx, BUFSIZ),
+					     buf_pfx, sizeof(buf_pfx)),
 				   buf_remain);
 			}
 		}
@@ -1052,9 +1046,10 @@ static int rfapiPrintRemoteRegBi(struct bgp *bgp, void *stream,
 	 * Prefix
 	 */
 	buf_pfx[0] = 0;
-	snprintf(buf_pfx, sizeof(buf_pfx), "%s/%d",
-		 rfapi_ntop(p->family, &p->u.prefix, buf_ntop, BUFSIZ),
-		 p->prefixlen);
+	snprintf(
+		buf_pfx, sizeof(buf_pfx), "%s/%d",
+		rfapi_ntop(p->family, &p->u.prefix, buf_ntop, sizeof(buf_ntop)),
+		p->prefixlen);
 	buf_pfx[BUFSIZ - 1] = 0;
 	nlines++;
 
@@ -1065,7 +1060,7 @@ static int rfapiPrintRemoteRegBi(struct bgp *bgp, void *stream,
 	if (!rfapiGetUnAddrOfVpnBi(bpi, &pfx_un)) {
 		snprintf(buf_un, sizeof(buf_un), "%s",
 			 inet_ntop(pfx_un.family, &pfx_un.u.prefix, buf_ntop,
-				   BUFSIZ));
+				   sizeof(buf_ntop)));
 	}
 
 	bgp_attr_extcom_tunnel_type(bpi->attr, &tun_type);
@@ -1079,7 +1074,7 @@ static int rfapiPrintRemoteRegBi(struct bgp *bgp, void *stream,
 		 */
 		snprintf(buf_un, sizeof(buf_un), "%s",
 			 inet_ntop(pfx_vn.family, &pfx_vn.u.prefix, buf_ntop,
-				   BUFSIZ));
+				   sizeof(buf_ntop)));
 		if (bpi->extra) {
 			uint32_t l = decode_label(&bpi->extra->label[0]);
 			snprintf(buf_vn, sizeof(buf_vn), "Label: %d", l);
@@ -1090,7 +1085,7 @@ static int rfapiPrintRemoteRegBi(struct bgp *bgp, void *stream,
 	} else {
 		snprintf(buf_vn, sizeof(buf_vn), "%s",
 			 inet_ntop(pfx_vn.family, &pfx_vn.u.prefix, buf_ntop,
-				   BUFSIZ));
+				   sizeof(buf_ntop)));
 	}
 	buf_vn[BUFSIZ - 1] = 0;
 	buf_un[BUFSIZ - 1] = 0;

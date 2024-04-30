@@ -1529,7 +1529,7 @@ static uint8_t *mplsL3vpnRteTable(struct variable *v, oid name[],
 	char vrf_name[VRF_NAMSIZ];
 	struct bgp *l3vpn_bgp;
 	struct bgp_dest *dest;
-	struct bgp_path_info *pi;
+	struct bgp_path_info *pi, *bpi_ultimate;
 	const struct prefix *p;
 	uint16_t policy = 0;
 
@@ -1544,6 +1544,8 @@ static uint8_t *mplsL3vpnRteTable(struct variable *v, oid name[],
 
 	if (!pi)
 		return NULL;
+
+	bpi_ultimate = bgp_get_imported_bpi_ultimate(pi);
 
 	p = bgp_dest_get_prefix(dest);
 
@@ -1661,8 +1663,8 @@ static uint8_t *mplsL3vpnRteTable(struct variable *v, oid name[],
 	case MPLSL3VPNVRFRTEINETCIDRNEXTHOPAS:
 		return SNMP_INTEGER(pi->peer ? pi->peer->as : 0);
 	case MPLSL3VPNVRFRTEINETCIDRMETRIC1:
-		if (pi->extra)
-			return SNMP_INTEGER(pi->extra->igpmetric);
+		if (bpi_ultimate->extra)
+			return SNMP_INTEGER(bpi_ultimate->extra->igpmetric);
 		else
 			return SNMP_INTEGER(0);
 	case MPLSL3VPNVRFRTEINETCIDRMETRIC2:

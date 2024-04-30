@@ -36,6 +36,8 @@
 #include "json.h"
 #include "jhash.h"
 
+#include "lib/routemap_clippy.c"
+
 DEFINE_MTYPE_STATIC(LIB, ROUTE_MAP, "Route map");
 DEFINE_MTYPE(LIB, ROUTE_MAP_NAME, "Route map name");
 DEFINE_MTYPE_STATIC(LIB, ROUTE_MAP_INDEX, "Route map index");
@@ -1815,7 +1817,24 @@ route_map_get_index(struct route_map *map, const struct prefix *prefix,
 	struct route_map_index *index = NULL, *best_index = NULL;
 	struct route_map_index *head_index = NULL;
 	struct route_table *table = NULL;
-	unsigned char family = prefix->family;
+	struct prefix conv;
+	unsigned char family;
+
+	/*
+	 * Handling for matching evpn_routes in the prefix table.
+	 *
+	 * We convert type2/5 prefix to ipv4/6 prefix to do longest
+	 * prefix matching on.
+	 */
+	if (prefix->family == AF_EVPN) {
+		if (evpn_prefix2prefix(prefix, &conv) != 0)
+			return NULL;
+
+		prefix = &conv;
+	}
+
+
+	family = prefix->family;
 
 	if (family == AF_INET)
 		table = map->ipv4_prefix_table;
@@ -3080,27 +3099,24 @@ static void clear_route_map_helper(struct route_map *map)
 		index->applied_clear = index->applied;
 }
 
-DEFUN (rmap_clear_counters,
+DEFPY (rmap_clear_counters,
        rmap_clear_counters_cmd,
-       "clear route-map counters [WORD]",
+       "clear route-map counters [RMAP_NAME$rmapname]",
        CLEAR_STR
        "route-map information\n"
        "counters associated with the specified route-map\n"
        "route-map name\n")
 {
-	int idx_word = 2;
 	struct route_map *map;
 
-	const char *name = (argc == 3 ) ? argv[idx_word]->arg : NULL;
-
-	if (name) {
-		map = route_map_lookup_by_name(name);
+	if (rmapname) {
+		map = route_map_lookup_by_name(rmapname);
 
 		if (map)
 			clear_route_map_helper(map);
 		else {
 			vty_out(vty, "%s: 'route-map %s' not found\n",
-				frr_protonameinst, name);
+				frr_protonameinst, rmapname);
 			return CMD_SUCCESS;
 		}
 	} else {
@@ -3168,6 +3184,12 @@ static struct cmd_node rmap_debug_node = {
 	.prompt = "",
 	.config_write = rmap_config_write_debug,
 };
+
+void route_map_show_debug(struct vty *vty)
+{
+	if (rmap_debug)
+		vty_out(vty, "debug route-map\n");
+}
 
 /* Configuration write function. */
 static int rmap_config_write_debug(struct vty *vty)

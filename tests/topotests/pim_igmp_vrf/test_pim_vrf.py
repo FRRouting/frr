@@ -166,6 +166,11 @@ def setup_module(module):
     tgen = Topogen(build_topo, module.__name__)
     tgen.start_topology()
 
+    # Required linux kernel version for this suite to run.
+    result = required_linux_kernel_version("4.19")
+    if result is not True:
+        pytest.skip("Kernel requirements are not met")
+
     vrf_setup_cmds = [
         "ip link add name blue type vrf table 11",
         "ip link add name red type vrf table 12",
@@ -209,11 +214,6 @@ def teardown_module(module):
 def test_ospf_convergence():
     "Test for OSPFv2 convergence"
     tgen = get_topogen()
-
-    # Required linux kernel version for this suite to run.
-    result = required_linux_kernel_version("4.15")
-    if result is not True:
-        pytest.skip("Kernel requirements are not met")
 
     # iproute2 needs to support VRFs for this suite to run.
     if not iproute2_is_vrf_capable():

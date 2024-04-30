@@ -106,7 +106,7 @@ def test_bgp_route():
         "show ip route 50.0.0.0 json",
         expected,
     )
-    _, result = topotest.run_and_expect(test_func, None, count=3, wait=0.5)
+    _, result = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
     assertmsg = '"r3" JSON output mismatches'
     assert result is None, assertmsg
 
@@ -118,8 +118,9 @@ def test_bgp_route():
         r3,
         "show ip route 10.0.0.3 json",
         expected,
-        )
-    _, result = topotest.run_and_expect(test_func, None, count=3, wait=0.5)
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+
 
 def test_bgp_better_admin_won():
     "A better Admin distance protocol may come along and knock us out"

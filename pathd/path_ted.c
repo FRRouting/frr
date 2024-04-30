@@ -29,9 +29,7 @@
 #include "pathd/path_errors.h"
 #include "pathd/path_ted.h"
 
-#ifndef VTYSH_EXTRACT_PL
 #include "pathd/path_ted_clippy.c"
-#endif
 
 static struct ls_ted *path_ted_create_ted(void);
 static void path_ted_register_vty(void);
@@ -162,7 +160,7 @@ bool path_ted_is_initialized(void)
  *
  * @return		Ptr to ted or NULL
  */
-struct ls_ted *path_ted_create_ted()
+struct ls_ted *path_ted_create_ted(void)
 {
 	struct ls_ted *ted = ls_ted_new(TED_KEY, TED_NAME, TED_ASN);
 
@@ -488,6 +486,12 @@ int path_ted_cli_debug_config_write(struct vty *vty)
 		return 1;
 	}
 	return 0;
+}
+
+void path_ted_show_debugging(struct vty *vty)
+{
+	if (DEBUG_FLAGS_CHECK(&ted_state_g.dbg, PATH_TED_DEBUG_BASIC))
+		vty_out(vty, "  Path TED debugging is on\n");
 }
 
 int path_ted_cli_debug_set_all(uint32_t flags, bool set)

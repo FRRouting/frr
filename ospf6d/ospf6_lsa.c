@@ -46,9 +46,7 @@
 #include "ospf6_flood.h"
 #include "ospf6d.h"
 
-#ifndef VTYSH_EXTRACT_PL
 #include "ospf6d/ospf6_lsa_clippy.c"
-#endif
 
 DEFINE_MTYPE_STATIC(OSPF6D, OSPF6_LSA,         "OSPF6 LSA");
 DEFINE_MTYPE_STATIC(OSPF6D, OSPF6_LSA_HEADER,  "OSPF6 LSA header");
@@ -85,11 +83,7 @@ static int ospf6_unknown_lsa_show(struct vty *vty, struct ospf6_lsa *lsa,
 	start = (uint8_t *)lsa->header + sizeof(struct ospf6_lsa_header);
 	end = (uint8_t *)lsa->header + ntohs(lsa->header->length);
 
-#if CONFDATE > 20230131
-CPP_NOTICE("Remove JSON object commands with keys starting with capital")
-#endif
 	if (use_json) {
-		json_object_string_add(json_obj, "LsaType", "unknown");
 		json_object_string_add(json_obj, "lsaType", "unknown");
 	} else {
 		vty_out(vty, "        Unknown contents:\n");

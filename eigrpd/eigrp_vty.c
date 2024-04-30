@@ -55,9 +55,7 @@
 #include "eigrpd/eigrp_dump.h"
 #include "eigrpd/eigrp_const.h"
 
-#ifndef VTYSH_EXTRACT_PL
 #include "eigrpd/eigrp_vty_clippy.c"
-#endif
 
 static void eigrp_vty_display_prefix_entry(struct vty *vty, struct eigrp *eigrp,
 					   struct eigrp_prefix_descriptor *pe,

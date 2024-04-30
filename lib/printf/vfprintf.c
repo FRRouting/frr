@@ -504,14 +504,20 @@ reswitch:	switch (ch) {
 				fmt[4] = ch;
 				fmt[5] = '\0';
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wformat-nonliteral"
 				snprintf(buf, sizeof(buf), fmt, prec, arg);
+#pragma GCC diagnostic pop
 			} else {
 				double arg = GETARG(double);
 				char fmt[5] = "%.*";
 				fmt[3] = ch;
 				fmt[4] = '\0';
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wformat-nonliteral"
 				snprintf(buf, sizeof(buf), fmt, prec, arg);
+#pragma GCC diagnostic pop
 			}
 			cp = buf;
 			/* for proper padding */

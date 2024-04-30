@@ -689,7 +689,7 @@ static void pim_if_addr_del_pim(struct connected *ifc)
 {
 	struct pim_interface *pim_ifp = ifc->ifp->info;
 
-	if (ifc->address->family != AF_INET) {
+	if (ifc->address->family != PIM_AF) {
 		/* non-IPv4 address */
 		return;
 	}
@@ -843,7 +843,7 @@ void pim_if_addr_del_all(struct interface *ifp)
 	for (ALL_LIST_ELEMENTS(ifp->connected, node, nextnode, ifc)) {
 		struct prefix *p = ifc->address;
 
-		if (p->family != AF_INET)
+		if (p->family != PIM_AF)
 			continue;
 
 		pim_if_addr_del(ifc, 1 /* force_prim_as_any=true */);
@@ -1546,8 +1546,10 @@ void pim_if_create_pimreg(struct pim_instance *pim)
 					       pim->vrf->name);
 		pim->regiface->ifindex = PIM_OIF_PIM_REGISTER_VIF;
 
-		pim_if_new(pim->regiface, false, false, true,
-			false /*vxlan_term*/);
+		if (!pim->regiface->info)
+			pim_if_new(pim->regiface, false, false, true,
+				   false /*vxlan_term*/);
+
 		/*
 		 * On vrf moves we delete the interface if there
 		 * is nothing going on with it.  We cannot have

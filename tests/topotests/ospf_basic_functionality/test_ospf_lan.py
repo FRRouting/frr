@@ -49,7 +49,6 @@ from lib.common_config import (
     shutdown_bringup_interface,
     stop_router,
     start_router,
-    topo_daemons,
 )
 from lib.topolog import logger
 from lib.topojson import build_config_from_json
@@ -116,12 +115,9 @@ def setup_module(mod):
     topo = tgen.json_topo
     # ... and here it calls Mininet initialization functions.
 
-    # get list of daemons needs to be started for this suite.
-    daemons = topo_daemons(tgen, topo)
-
     # Starting topology, create tmp files which are loaded to routers
     #  to start daemons and then start routers
-    start_topology(tgen, daemons)
+    start_topology(tgen)
 
     # Creating configuration from JSON
     build_config_from_json(tgen, topo)
@@ -147,7 +143,7 @@ def teardown_module():
 
     try:
         # Stop toplogy and Remove tmp files
-        tgen.stop_topology
+        tgen.stop_topology()
 
     except OSError:
         # OSError exception is raised when mininet tries to stop switch

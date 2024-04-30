@@ -1853,6 +1853,15 @@ void isis_spf_invalidate_routes(struct isis_spftree *tree)
 	tree->route_table_backup->cleanup = isis_route_node_cleanup;
 }
 
+void isis_spf_switchover_routes(struct isis_area *area,
+				struct isis_spftree **trees, int family,
+				union g_addr *nexthop_ip, ifindex_t ifindex,
+				int level)
+{
+	isis_route_switchover_nexthop(area, trees[level - 1]->route_table,
+				      family, nexthop_ip, ifindex);
+}
+
 static void isis_run_spf_cb(struct thread *thread)
 {
 	struct isis_spf_run *run = THREAD_ARG(thread);
@@ -1924,9 +1933,19 @@ void isis_spf_timer_free(void *run)
 int _isis_spf_schedule(struct isis_area *area, int level,
 		       const char *func, const char *file, int line)
 {
-	struct isis_spftree *spftree = area->spftree[SPFTREE_IPV4][level - 1];
-	time_t now = monotime(NULL);
-	int diff = now - spftree->last_run_monotime;
+	struct isis_spftree *spftree;
+	time_t now;
+	long tree_diff, diff;
+	int tree;
+
+	now = monotime(NULL);
+	diff = 0;
+	for (tree = SPFTREE_IPV4; tree < SPFTREE_COUNT; tree++) {
+		spftree = area->spftree[tree][level - 1];
+		tree_diff = difftime(now - spftree->last_run_monotime, 0);
+		if (tree_diff != now && (diff == 0 || tree_diff < diff))
+			diff = tree_diff;
+	}
 
 	if (CHECK_FLAG(im->options, F_ISIS_UNIT_TEST))
 		return 0;
@@ -1936,7 +1955,7 @@ int _isis_spf_schedule(struct isis_area *area, int level,
 
 	if (IS_DEBUG_SPF_EVENTS) {
 		zlog_debug(
-			"ISIS-SPF (%s) L%d SPF schedule called, lastrun %d sec ago Caller: %s %s:%d",
+			"ISIS-SPF (%s) L%d SPF schedule called, lastrun %ld sec ago Caller: %s %s:%d",
 			area->area_tag, level, diff, func, file, line);
 	}
 
@@ -2695,12 +2714,14 @@ void isis_spf_init(void)
 
 void isis_spf_print(struct isis_spftree *spftree, struct vty *vty)
 {
+	uint64_t last_run_duration = spftree->last_run_duration;
+
 	vty_out(vty, "      last run elapsed  : ");
 	vty_out_timestr(vty, spftree->last_run_timestamp);
 	vty_out(vty, "\n");
 
-	vty_out(vty, "      last run duration : %u usec\n",
-		(uint32_t)spftree->last_run_duration);
+	vty_out(vty, "      last run duration : %" PRIu64 " usec\n",
+		last_run_duration);
 
 	vty_out(vty, "      run count         : %u\n", spftree->runcount);
 }

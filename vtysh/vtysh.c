@@ -2759,6 +2759,15 @@ static char *do_prepend(struct vty *vty, struct cmd_token **argv, int argc)
 	return frrstr_join(argstr, argc + off, " ");
 }
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wformat-nonliteral"
+/* 'headline' is a format string with a %s for the daemon name
+ *
+ * Also for some reason GCC emits the warning on the end of the function
+ * (optimization maybe?) rather than on the vty_out line, so this pragma
+ * wraps the entire function rather than just the vty_out line.
+ */
+
 static int show_per_daemon(struct vty *vty, struct cmd_token **argv, int argc,
 			   const char *headline)
 {
@@ -2777,6 +2786,7 @@ static int show_per_daemon(struct vty *vty, struct cmd_token **argv, int argc,
 
 	return ret;
 }
+#pragma GCC diagnostic pop
 
 static int show_one_daemon(struct vty *vty, struct cmd_token **argv, int argc,
 			   const char *name)
@@ -2951,7 +2961,7 @@ DEFUN_HIDDEN (show_config_running,
        show_config_running_cmd,
        "show configuration running\
           [<json|xml> [translate WORD]]\
-          [with-defaults]" DAEMONS_LIST,
+          [with-defaults] " DAEMONS_LIST,
        SHOW_STR
        "Configuration information\n"
        "Running configuration\n"
@@ -2972,7 +2982,7 @@ DEFUN (show_yang_operational_data,
 	   format <json|xml>\
 	   |translate WORD\
 	   |with-config\
-	 }]" DAEMONS_LIST,
+	 }] " DAEMONS_LIST,
        SHOW_STR
        "YANG information\n"
        "Show YANG operational data\n"
@@ -3410,6 +3420,30 @@ int vtysh_write_config_integrated(void)
 		return CMD_WARNING;
 
 	printf("[OK]\n");
+	return CMD_SUCCESS;
+}
+
+DEFUN_HIDDEN(start_config, start_config_cmd, "XFRR_start_configuration",
+	     "The Beginning of Configuration\n")
+{
+	unsigned int i;
+	char line[] = "XFRR_start_configuration";
+
+	for (i = 0; i < array_size(vtysh_client); i++)
+		vtysh_client_execute(&vtysh_client[i], line);
+
+	return CMD_SUCCESS;
+}
+
+DEFUN_HIDDEN(end_config, end_config_cmd, "XFRR_end_configuration",
+	     "The End of Configuration\n")
+{
+	unsigned int i;
+	char line[] = "XFRR_end_configuration";
+
+	for (i = 0; i < array_size(vtysh_client); i++)
+		vtysh_client_execute(&vtysh_client[i], line);
+
 	return CMD_SUCCESS;
 }
 
@@ -3915,6 +3949,12 @@ DEFUN (vtysh_ping,
 	return CMD_SUCCESS;
 }
 
+DEFUN(vtysh_motd, vtysh_motd_cmd, "show motd", SHOW_STR "Show motd\n")
+{
+	vty_hello(vty);
+	return CMD_SUCCESS;
+}
+
 ALIAS(vtysh_ping, vtysh_ping_ip_cmd, "ping ip WORD",
       "Send echo messages\n"
       "IP echo\n"
@@ -3974,6 +4014,9 @@ DEFUN (vtysh_traceroute6,
 	return CMD_SUCCESS;
 }
 
+#if CONFDATE > 20240201
+CPP_NOTICE("Remove HAVE_SHELL_ACCESS and it's documentation");
+#endif
 #if defined(HAVE_SHELL_ACCESS)
 DEFUN (vtysh_telnet,
        vtysh_telnet_cmd,
@@ -4323,7 +4366,11 @@ char *vtysh_prompt(void)
 {
 	static char buf[512];
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wformat-nonliteral"
+	/* prompt formatting has a %s in the cmd_node prompt string. */
 	snprintf(buf, sizeof(buf), cmd_prompt(vty->node), cmd_hostname_get());
+#pragma GCC diagnostic pop
 	return buf;
 }
 
@@ -4870,6 +4917,9 @@ void vtysh_init_vty(void)
 	/* "write memory" command. */
 	install_element(ENABLE_NODE, &vtysh_write_memory_cmd);
 
+	install_element(CONFIG_NODE, &start_config_cmd);
+	install_element(CONFIG_NODE, &end_config_cmd);
+
 	install_element(CONFIG_NODE, &vtysh_terminal_paginate_cmd);
 	install_element(VIEW_NODE, &vtysh_terminal_paginate_cmd);
 	install_element(VIEW_NODE, &vtysh_terminal_length_cmd);
@@ -4880,6 +4930,7 @@ void vtysh_init_vty(void)
 	install_element(VIEW_NODE, &no_vtysh_terminal_monitor_cmd);
 
 	install_element(VIEW_NODE, &vtysh_ping_cmd);
+	install_element(VIEW_NODE, &vtysh_motd_cmd);
 	install_element(VIEW_NODE, &vtysh_ping_ip_cmd);
 	install_element(VIEW_NODE, &vtysh_traceroute_cmd);
 	install_element(VIEW_NODE, &vtysh_traceroute_ip_cmd);

@@ -314,7 +314,8 @@ options from the list below.
 
    Turn on the ability of FRR to access some shell options( telnet/ssh/bash/etc. )
    from vtysh itself.  This option is considered extremely unsecure and should only
-   be considered for usage if you really really know what you are doing.
+   be considered for usage if you really really know what you are doing.  This
+   option is deprecated and will be removed on Feb 1, 2024.
 
 .. option:: --enable-gcov
 
@@ -367,6 +368,13 @@ options from the list below.
 .. option:: --enable-pcreposix
 
    Turn on the usage of PCRE Posix libs for regex functionality.
+
+.. option:: --enable-pcre2posix
+
+   Turn on the usage of PCRE2 Posix libs for regex functionality.
+
+   PCRE2 versions <= 10.31 work a bit differently. We suggest using at least
+   >= 10.36.
 
 .. option:: --enable-rpath
 

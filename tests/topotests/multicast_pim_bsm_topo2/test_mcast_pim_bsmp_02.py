@@ -67,7 +67,6 @@ from lib.common_config import (
     reset_config_on_routers,
     run_frr_cmd,
     required_linux_kernel_version,
-    topo_daemons,
     verify_rib,
 )
 
@@ -132,7 +131,7 @@ def setup_module(mod):
     # Required linux kernel version for this suite to run.
     result = required_linux_kernel_version("4.15")
     if result is not True:
-        pytest.skip("Kernel requirements are not met")
+        pytest.skip("Kernel version should be >= 4.15")
 
     testsuite_run_time = time.asctime(time.localtime(time.time()))
     logger.info("Testsuite start time: {}".format(testsuite_run_time))
@@ -148,12 +147,9 @@ def setup_module(mod):
     topo = tgen.json_topo
     # ... and here it calls Mininet initialization functions.
 
-    # get list of daemons needs to be started for this suite.
-    daemons = topo_daemons(tgen, topo)
-
     # Starting topology, create tmp files which are loaded to routers
     #  to start daemons and then start routers
-    start_topology(tgen, daemons)
+    start_topology(tgen)
 
     # Don"t run this test if we have any failure.
     if tgen.routers_have_failure():
@@ -459,10 +455,10 @@ def test_starg_mroute_p0(request):
     result = verify_mroutes(
         tgen, dut, src_addr, GROUP_ADDRESS, iif, oil, retry_timeout=20, expected=False
     )
-    assert (
-        result is not True
-    ), "Testcase {} : Failed \n " "mroute installed in l1 \n Error: {}".format(
-        tc_name, result
+    assert result is not True, (
+        "Testcase {} : Failed \n "
+        "Expected: [{}]: mroute (S, G) should not be installed \n "
+        "Found: {}".format(tc_name, dut, result)
     )
 
     # Send BSM again to configure rp
@@ -806,10 +802,10 @@ def test_BSR_election_p0(request):
     # Verify bsr state in FHR
     step("Verify if b2 is not chosen as bsr in f1")
     result = verify_pim_bsr(tgen, topo, "f1", bsr_ip2, expected=False)
-    assert (
-        result is not True
-    ), "Testcase {} : Failed \n " "b2 is chosen as bsr in f1 \n Error: {}".format(
-        tc_name, result
+    assert result is not True, (
+        "Testcase {} : Failed \n "
+        "Expected: [{}]: b2 should not be chosen as bsr \n "
+        "Found: {}".format(tc_name, "f1", result)
     )
 
     # Verify if b1 is still chosen as bsr

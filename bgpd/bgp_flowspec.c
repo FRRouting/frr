@@ -103,7 +103,6 @@ int bgp_nlri_parse_flowspec(struct peer *peer, struct attr *attr,
 	safi_t safi;
 	int psize = 0;
 	struct prefix p;
-	int ret;
 	void *temp;
 
 	/* Start processing the NLRI - there may be multiple in the MP_REACH */
@@ -204,21 +203,13 @@ int bgp_nlri_parse_flowspec(struct peer *peer, struct attr *attr,
 		}
 		/* Process the route. */
 		if (!withdraw)
-			ret = bgp_update(peer, &p, 0, attr,
-					 afi, safi,
-					 ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL,
-					 NULL, NULL, 0, 0, NULL);
+			bgp_update(peer, &p, 0, attr, afi, safi,
+				   ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL, NULL,
+				   NULL, 0, 0, NULL);
 		else
-			ret = bgp_withdraw(peer, &p, 0, attr,
-					   afi, safi,
-					   ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL,
-					   NULL, NULL, 0, NULL);
-		if (ret) {
-			flog_err(EC_BGP_FLOWSPEC_INSTALLATION,
-				 "Flowspec NLRI failed to be %s.",
-				 attr ? "added" : "withdrawn");
-			return BGP_NLRI_PARSE_ERROR;
-		}
+			bgp_withdraw(peer, &p, 0, attr, afi, safi,
+				     ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL, NULL,
+				     NULL, 0, NULL);
 	}
 	return BGP_NLRI_PARSE_OK;
 }

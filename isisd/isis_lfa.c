@@ -1836,7 +1836,7 @@ static bool clfa_loop_free_check(struct isis_spftree *spftree,
 				 struct isis_vertex *vertex_S_D,
 				 struct isis_spf_adj *sadj_primary,
 				 struct isis_spf_adj *sadj_N,
-				 uint32_t *lfa_metric)
+				 uint32_t *path_metric)
 {
 	struct isis_spf_node *node_N;
 	uint32_t dist_N_D;
@@ -1882,7 +1882,7 @@ static bool clfa_loop_free_check(struct isis_spftree *spftree,
 			   dist_N_S, dist_S_D);
 
 	if (dist_N_D < (dist_N_S + dist_S_D)) {
-		*lfa_metric = sadj_N->metric + dist_N_D;
+		*path_metric = sadj_N->metric + dist_N_D;
 		return true;
 	}
 
@@ -2082,7 +2082,7 @@ void isis_lfa_compute(struct isis_area *area, struct isis_circuit *circuit,
 		      struct isis_spftree *spftree,
 		      struct lfa_protected_resource *resource)
 {
-	struct isis_vertex *vertex;
+	struct isis_vertex *vertex, *parent_vertex;
 	struct listnode *vnode, *snode;
 	int level = spftree->level;
 
@@ -2099,7 +2099,7 @@ void isis_lfa_compute(struct isis_area *area, struct isis_circuit *circuit,
 		struct isis_vertex_adj *vadj_primary;
 		struct isis_spf_adj *sadj_primary;
 		bool allow_ecmp;
-		uint32_t best_metric = UINT32_MAX;
+		uint32_t prefix_metric, best_metric = UINT32_MAX;
 		char buf[VID2STR_BUFFER];
 
 		if (!VTYPE_IP(vertex->type))
@@ -2133,6 +2133,9 @@ void isis_lfa_compute(struct isis_area *area, struct isis_circuit *circuit,
 		vadj_primary = listnode_head(vertex->Adj_N);
 		sadj_primary = vadj_primary->sadj;
 
+		parent_vertex = listnode_head(vertex->parents);
+		prefix_metric = vertex->d_N - parent_vertex->d_N;
+
 		/*
 		 * Loop over list of SPF adjacencies and compute a list of
 		 * preliminary LFAs.
@@ -2140,7 +2143,7 @@ void isis_lfa_compute(struct isis_area *area, struct isis_circuit *circuit,
 		lfa_list = list_new();
 		lfa_list->del = isis_vertex_adj_free;
 		for (ALL_LIST_ELEMENTS_RO(spftree->sadj_list, snode, sadj_N)) {
-			uint32_t lfa_metric;
+			uint32_t lfa_metric, path_metric;
 			struct isis_vertex_adj *lfa;
 			struct isis_prefix_sid *psid = NULL;
 			bool last_hop = false;
@@ -2190,7 +2193,7 @@ void isis_lfa_compute(struct isis_area *area, struct isis_circuit *circuit,
 
 			/* Check loop-free criterion. */
 			if (!clfa_loop_free_check(spftree, vertex, sadj_primary,
-						  sadj_N, &lfa_metric)) {
+						  sadj_N, &path_metric)) {
 				if (IS_DEBUG_LFA)
 					zlog_debug(
 						"ISIS-LFA: LFA condition not met for %s",
@@ -2198,6 +2201,7 @@ void isis_lfa_compute(struct isis_area *area, struct isis_circuit *circuit,
 				continue;
 			}
 
+			lfa_metric = path_metric + prefix_metric;
 			if (lfa_metric < best_metric)
 				best_metric = lfa_metric;
 
@@ -2208,7 +2212,7 @@ void isis_lfa_compute(struct isis_area *area, struct isis_circuit *circuit,
 
 			if (vertex->N.ip.sr.present) {
 				psid = &vertex->N.ip.sr.sid;
-				if (lfa_metric == sadj_N->metric)
+				if (path_metric == sadj_N->metric)
 					last_hop = true;
 			}
 			lfa = isis_vertex_adj_add(spftree, vertex, lfa_list,

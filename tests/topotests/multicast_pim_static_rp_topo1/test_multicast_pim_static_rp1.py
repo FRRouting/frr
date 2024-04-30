@@ -128,7 +128,6 @@ from lib.common_config import (
     kill_router_daemons,
     start_router_daemons,
     create_static_routes,
-    topo_daemons,
 )
 from lib.pim import (
     create_pim_config,
@@ -223,12 +222,9 @@ def setup_module(mod):
 
     # ... and here it calls Mininet initialization functions.
 
-    # get list of daemons needs to be started for this suite.
-    daemons = topo_daemons(tgen, TOPO)
-
     # Starting topology, create tmp files which are loaded to routers
     #  to start daemons and then start routers
-    start_topology(tgen, daemons)
+    start_topology(tgen)
 
     # Don"t run this test if we have any failure.
     if tgen.routers_have_failure():
@@ -540,8 +536,9 @@ def test_RP_configured_as_LHR_1_p1(request):
     )
     assert result is not True, (
         "Testcase {} : Failed \n "
-        "r3: (S, G) upstream join state is joined and join"
-        " timer is running \n Error: {}".format(tc_name, result)
+        "Expected: [{}]: Upstream Join State should not be Joined and "
+        "join timer should not run\n "
+        "Found: {}".format(tc_name, dut, result)
     )
 
     step("r3: Verify (S, G) ip mroutes")
@@ -745,9 +742,9 @@ def test_RP_configured_as_LHR_2_p1(request):
     )
     assert result is not True, (
         "Testcase {} : Failed \n "
-        "r3: (S,G) upstream state is joined and join timer is running\n Error: {}".format(
-            tc_name, result
-        )
+        "Expected: [{}]: Upstream Join State should not be Joined and "
+        "join timer should not run\n "
+        "Found: {}".format(tc_name, dut, result)
     )
 
     step("r3: Verify (S, G) ip mroutes")
@@ -951,9 +948,9 @@ def test_RP_configured_as_FHR_1_p1(request):
     )
     assert result is not True, (
         "Testcase {} : Failed \n "
-        "r3: (S,G) upstream state is joined and join timer is running\n Error: {}".format(
-            tc_name, result
-        )
+        "Expected: [{}]: Upstream Join State should not be Joined and "
+        "join timer should not run\n "
+        "Found: {}".format(tc_name, dut, result)
     )
 
     step("r3: Verify (S, G) ip mroutes")
@@ -1158,9 +1155,9 @@ def test_RP_configured_as_FHR_2_p2(request):
     )
     assert result is not True, (
         "Testcase {} : Failed \n "
-        "r3: (S,G) upstream state is joined and join timer is running\n Error: {}".format(
-            tc_name, result
-        )
+        "Expected: [{}]: Upstream Join State should not be Joined and "
+        "join timer should not run\n "
+        "Found: {}".format(tc_name, dut, result)
     )
 
     step("r3: Verify (S, G) ip mroutes")
@@ -1283,9 +1280,9 @@ def test_SPT_RPT_path_different_p1(request):
     )
     assert result is not True, (
         "Testcase {} : Failed \n "
-        "r3: (S,G) upstream state is joined and join timer is running\n Error: {}".format(
-            tc_name, result
-        )
+        "Expected: [{}]: Upstream Join State should not be Joined and "
+        "join timer should not run\n "
+        "Found: {}".format(tc_name, dut, result)
     )
 
     step("r3: Verify (S, G) ip mroutes")
@@ -1307,9 +1304,9 @@ def test_SPT_RPT_path_different_p1(request):
     )
     assert result is not True, (
         "Testcase {} : Failed \n "
-        "r2: (S,G) upstream state is joined and join timer is running\n Error: {}".format(
-            tc_name, result
-        )
+        "Expected: [{}]: Upstream Join State should not be Joined and "
+        "join timer should not run\n "
+        "Found: {}".format(tc_name, dut, result)
     )
 
     step("r2: Verify (S, G) ip mroutes")
@@ -1415,8 +1412,6 @@ def test_clear_pim_configuration_p1(request):
     # tgen.mininet_cli()
 
     write_test_footer(tc_name)
-
-
 
 
 if __name__ == "__main__":

@@ -470,7 +470,8 @@ class LinuxNamespace(Commander):
 
         nslist = []
         cmd = ["/usr/bin/unshare"]
-        flags = "-"
+        flags = ""
+        self.a_flags = []
         self.ifnetns = {}
 
         if cgroup:
@@ -487,6 +488,7 @@ class LinuxNamespace(Commander):
             flags += "n"
         if pid:
             nslist.append("pid")
+            flags += "f"
             flags += "p"
             cmd.append("--mount-proc")
         if time:
@@ -499,9 +501,17 @@ class LinuxNamespace(Commander):
             cmd.append("--keep-caps")
         if uts:
             nslist.append("uts")
-            cmd.append("--uts")
+            flags += "u"
 
-        cmd.append(flags)
+        if flags:
+            aflags = flags.replace("f", "")
+            if aflags:
+                self.a_flags = ["-" + x for x in aflags]
+            cmd.extend(["-" + x for x in flags])
+
+        if pid:
+            cmd.append(commander.get_exec_path("tini"))
+            cmd.append("-vvv")
         cmd.append("/bin/cat")
 
         # Using cat and a stdin PIPE is nice as it will exit when we do. However, we
@@ -516,7 +526,8 @@ class LinuxNamespace(Commander):
             stdin=subprocess.PIPE,
             stdout=open("/dev/null", "w"),
             stderr=open("/dev/null", "w"),
-            preexec_fn=os.setsid,  # detach from pgid so signals don't propogate
+            text=True,
+            start_new_session=True,  # detach from pgid so signals don't propagate
             shell=False,
         )
         self.p = p
@@ -550,7 +561,7 @@ class LinuxNamespace(Commander):
         assert not nslist, "unshare never unshared!"
 
         # Set pre-command based on our namespace proc
-        self.base_pre_cmd = ["/usr/bin/nsenter", "-a", "-t", str(self.pid)]
+        self.base_pre_cmd = ["/usr/bin/nsenter", *self.a_flags, "-t", str(self.pid)]
         if not pid:
             self.base_pre_cmd.append("-F")
         self.set_pre_cmd(self.base_pre_cmd + ["--wd=" + self.cwd])
@@ -743,7 +754,7 @@ class SharedNamespace(Commander):
     An object that executes commands in an existing pid's linux namespace
     """
 
-    def __init__(self, name, pid, logger=None):
+    def __init__(self, name, pid, aflags=("-a",), logger=None):
         """
         Share a linux namespace.
 
@@ -757,10 +768,11 @@ class SharedNamespace(Commander):
 
         self.pid = pid
         self.intfs = []
+        self.a_flags = aflags
 
         # Set pre-command based on our namespace proc
         self.set_pre_cmd(
-            ["/usr/bin/nsenter", "-a", "-t", str(self.pid), "--wd=" + self.cwd]
+            ["/usr/bin/nsenter", *self.a_flags, "-t", str(self.pid), "--wd=" + self.cwd]
         )
 
     def __str__(self):
@@ -769,7 +781,9 @@ class SharedNamespace(Commander):
     def set_cwd(self, cwd):
         # Set pre-command based on our namespace proc
         self.logger.debug("%s: new CWD %s", self, cwd)
-        self.set_pre_cmd(["/usr/bin/nsenter", "-a", "-t", str(self.pid), "--wd=" + cwd])
+        self.set_pre_cmd(
+            ["/usr/bin/nsenter", *self.a_flags, "-t", str(self.pid), "--wd=" + cwd]
+        )
 
     def register_interface(self, ifname):
         if ifname not in self.intfs:
@@ -800,7 +814,7 @@ class Bridge(SharedNamespace):
             self.brid = "br{}".format(self.brid_ord)
             name = self.brid
 
-        super(Bridge, self).__init__(name, unet.pid, logger)
+        super(Bridge, self).__init__(name, unet.pid, aflags=unet.a_flags, logger=logger)
 
         self.logger.debug("Bridge: Creating")
 

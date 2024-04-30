@@ -90,16 +90,6 @@ struct timer_wheel *wheel_init(struct thread_master *master, int period,
 void wheel_delete(struct timer_wheel *);
 
 /*
- * Pause the Wheel from running
- */
-int wheel_stop(struct timer_wheel *wheel);
-
-/*
- * Start the wheel running again
- */
-int wheel_start(struct timer_wheel *wheel);
-
-/*
  * wheel - The Timer wheel being modified
  * item - The generic data structure that will be handed
  *        to the slot_run function.

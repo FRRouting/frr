@@ -122,3 +122,24 @@ float ntohf(float net)
 {
 	return htonf(net);
 }
+
+uint64_t frr_sequence_next(void)
+{
+	static uint64_t last_sequence;
+	struct timespec ts;
+
+	(void)clock_gettime(CLOCK_MONOTONIC, &ts);
+	if (last_sequence == (uint64_t)ts.tv_sec) {
+		last_sequence++;
+		return last_sequence;
+	}
+
+	last_sequence = ts.tv_sec;
+	return last_sequence;
+}
+
+uint32_t frr_sequence32_next(void)
+{
+	/* coverity[Y2K38_SAFETY] */
+	return (uint32_t)frr_sequence_next();
+}

@@ -162,6 +162,18 @@ is in a vrf, enter the interface command with the vrf keyword at the end.
 
    Disable sending and receiving pim control packets on the interface.
 
+.. clicmd:: ipv6 pim bsm
+
+   Tell pim that we would like to use this interface to process bootstrap
+   messages. This is enabled by default. 'no' form of this command is used to
+   restrict bsm messages on this interface.
+
+.. clicmd:: ipv6 pim unicast-bsm
+
+   Tell pim that we would like to allow interface to process unicast bootstrap
+   messages. This is enabled by default. 'no' form of this command is used to
+   restrict processing of unicast bsm messages on this interface.
+
 .. clicmd:: ipv6 mld
 
    Tell pim to receive MLD reports and Query on this interface. The default
@@ -373,6 +385,18 @@ General multicast routing state
    Display total number of S,G mroutes and number of S,G mroutes
    installed into the kernel for all vrfs.
 
+.. clicmd:: show ipv6 pim bsr
+
+   Display current bsr, its uptime and last received bsm age.
+
+.. clicmd:: show ipv6 pim bsrp-info
+
+   Display group-to-rp mappings received from E-BSR.
+
+.. clicmd:: show ipv6 pim bsm-database
+
+   Display all fragments of stored bootstrap message in user readable format.
+
 PIMv6 Clear Commands
 ====================
 
@@ -416,6 +440,10 @@ configure CLI mode. If you specify debug commands in the configuration cli
 mode, the debug commands can be persistent across restarts of the FRR pim6d if
 the config was written out.
 
+.. clicmd:: debug mld
+
+   This turns on debugging for MLD protocol activity.
+
 .. clicmd:: debug pimv6 events
 
    This turns on debugging for PIMv6 system events. Especially timers.
@@ -456,3 +484,19 @@ the config was written out.
 .. clicmd:: debug mroute6 detail
 
    This turns on detailed debugging for PIMv6 interaction with kernel MFC cache.
+
+.. clicmd:: debug mld events
+
+   This turns on debugging for MLD system events.
+
+.. clicmd:: debug mld packets
+
+   This turns on information about MLD protocol packets handling.
+
+.. clicmd:: debug mld trace [detail]
+
+   This traces mld code and how it is running. 
+
+.. clicmd:: debug pimv6 bsm
+
+   This turns on debugging for BSR message processing.

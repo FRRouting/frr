@@ -157,7 +157,7 @@ def setup_module(mod):
     # Required linux kernel version for this suite to run.
     result = required_linux_kernel_version("4.16")
     if result is not True:
-        pytest.skip("Kernel requirements are not met")
+        pytest.skip("Kernel requirements are not met, kernel version should be >=4.16")
 
     global ADDR_TYPES
 
@@ -420,10 +420,10 @@ def test_BGP_GR_TC_23_p1(request):
         result = verify_eor(
             tgen, topo, addr_type, input_dict, dut="r1", peer="r2", expected=False
         )
-        assert (
-            result is not True
-        ), "Testcase {} : Failed \n " "r1: EOR is set to True\n Error: {}".format(
-            tc_name, result
+        assert result is not True, (
+            "Testcase {} : Failed \n "
+            "Expected: EOR should not be set to True in r2\n"
+            "Found: {}".format(tc_name, result)
         )
 
         # Verifying BGP RIB routes received from router R1
@@ -547,19 +547,17 @@ def test_BGP_GR_20_p1(request):
         result = verify_bgp_rib(tgen, addr_type, dut, input_dict_1, expected=False)
         assert result is not True, (
             "Testcase {} : Failed \n "
-            "r3: routes are still present in BGP RIB\n Error: {}".format(
-                tc_name, result
-            )
+            "Expected: Routes should not be present in {} BGP RIB \n "
+            "Found: {}".format(tc_name, dut, result)
         )
-        logger.info(" Expected behavior: {}".format(result))
 
         # Verifying RIB routes before shutting down BGPd daemon
         result = verify_rib(tgen, addr_type, dut, input_dict_1, expected=False)
         assert result is not True, (
             "Testcase {} : Failed \n "
-            "r3: routes are still present in ZEBRA\n Error: {}".format(tc_name, result)
+            "Expected: Routes should not be present in {} FIB \n "
+            "Found: {}".format(tc_name, dut, result)
         )
-        logger.info(" Expected behavior: {}".format(result))
 
     # Start BGPd daemon on R1
     start_router_daemons(tgen, "r1", ["bgpd"])

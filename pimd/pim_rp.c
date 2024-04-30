@@ -1079,6 +1079,14 @@ struct pim_rpf *pim_rp_g(struct pim_instance *pim, pim_addr group)
 	if (rp_info) {
 		pim_addr nht_p;
 
+		if (pim_addr_is_any(rp_info->rp.rpf_addr)) {
+			if (PIM_DEBUG_PIM_NHT_RP)
+				zlog_debug(
+					"%s: Skipping NHT Register since RP is not configured for the group %pPA",
+					__func__, &group);
+			return &rp_info->rp;
+		}
+
 		/* Register addr with Zebra NHT */
 		nht_p = rp_info->rp.rpf_addr;
 		if (PIM_DEBUG_PIM_NHT_RP)

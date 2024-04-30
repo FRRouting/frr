@@ -106,6 +106,11 @@ convention. Please do not scatter individual CLI commands in the middle of
 source files; instead expose the necessary functions in a header and place the
 command definition in a ``*_vty.[ch]`` file.
 
+.. note::
+
+   Please see :ref:`cli-workflow` for requirements when creating CLI commands
+   (e.g., JSON structure and formatting).
+
 Definition Grammar
 ^^^^^^^^^^^^^^^^^^
 FRR uses its own grammar for defining CLI commands. The grammar draws from
@@ -453,9 +458,7 @@ all DEFPY statements**:
    /* GPL header */
    #include ...
    ...
-   #ifndef VTYSH_EXTRACT_PL
    #include "daemon/filename_clippy.c"
-   #endif
 
    DEFPY(...)
    DEFPY(...)

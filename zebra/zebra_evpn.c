@@ -1327,11 +1327,11 @@ static void zebra_evpn_process_sync_macip_add(struct zebra_evpn *zevpn,
 					      uint8_t flags, uint32_t seq,
 					      const esi_t *esi)
 {
-	struct sync_mac_ip_ctx ctx;
 	char ipbuf[INET6_ADDRSTRLEN];
 	bool sticky;
 	bool remote_gw;
 	struct zebra_neigh *n = NULL;
+	struct zebra_mac *mac = NULL;
 
 	sticky = !!CHECK_FLAG(flags, ZEBRA_MACIP_TYPE_STICKY);
 	remote_gw = !!CHECK_FLAG(flags, ZEBRA_MACIP_TYPE_GW);
@@ -1352,22 +1352,30 @@ static void zebra_evpn_process_sync_macip_add(struct zebra_evpn *zevpn,
 		return;
 	}
 
-	if (ipa_len) {
+	if (!ipa_len) {
+		/* MAC update */
+		(void)zebra_evpn_proc_sync_mac_update(zevpn, macaddr, ipa_len,
+						      ipaddr, flags, seq, esi);
+	} else {
+		/* MAC-IP update */
+		mac = zebra_evpn_mac_lookup(zevpn, macaddr);
+		if (!mac) {
+			mac = zebra_evpn_proc_sync_mac_update(zevpn, macaddr,
+							      ipa_len, ipaddr,
+							      flags, seq, esi);
+		}
+		if (!mac)
+			return;
+
 		n = zebra_evpn_neigh_lookup(zevpn, ipaddr);
 		if (n
 		    && !zebra_evpn_neigh_is_bgp_seq_ok(zevpn, n, macaddr, seq,
 						       true))
 			return;
+
+		zebra_evpn_proc_sync_neigh_update(zevpn, n, ipa_len, ipaddr,
+						  flags, seq, esi, mac);
 	}
-
-	memset(&ctx, 0, sizeof(ctx));
-	ctx.mac = zebra_evpn_proc_sync_mac_update(
-		zevpn, macaddr, ipa_len, ipaddr, flags, seq, esi, &ctx);
-	if (ctx.ignore_macip || !ctx.mac || !ipa_len)
-		return;
-
-	zebra_evpn_proc_sync_neigh_update(zevpn, n, ipa_len, ipaddr, flags, seq,
-					  esi, &ctx);
 }
 
 /************************** remote mac-ip handling **************************/
@@ -1452,14 +1460,30 @@ void zebra_evpn_rem_macip_add(vni_t vni, const struct ethaddr *macaddr,
 	}
 
 	zvrf = zebra_vrf_get_evpn();
-	if (zebra_evpn_mac_remote_macip_add(zevpn, zvrf, macaddr, ipa_len,
-					    ipaddr, &mac, vtep_ip, flags, seq,
-					    esi)
-	    != 0)
+	if (!zvrf)
 		return;
 
-	zebra_evpn_neigh_remote_macip_add(zevpn, zvrf, ipaddr, mac, vtep_ip,
-					  flags, seq);
+	if (!ipa_len) {
+		/* MAC update */
+		zebra_evpn_mac_remote_macip_add(zevpn, zvrf, macaddr, vtep_ip,
+						flags, seq, esi);
+	} else {
+		/* MAC-IP update
+		 * Add auto MAC if it doesn't exist.
+		 */
+		mac = zebra_evpn_mac_lookup(zevpn, macaddr);
+		if (!mac) {
+			mac = zebra_evpn_mac_add_auto(zevpn, macaddr);
+
+			if (IS_ZEBRA_DEBUG_VXLAN)
+				zlog_debug(
+					"Neigh %pIA: MAC %pEA not found, Auto MAC created",
+					ipaddr, macaddr);
+		}
+
+		zebra_evpn_neigh_remote_macip_add(zevpn, zvrf, ipaddr, mac,
+						  vtep_ip, flags, seq);
+	}
 }
 
 /* Process a remote MACIP delete from BGP. */
@@ -1504,7 +1528,7 @@ void zebra_evpn_rem_macip_del(vni_t vni, const struct ethaddr *macaddr,
 
 	if (n && !mac) {
 		zlog_warn(
-			"Failed to locate MAC %pEA for neigh %pIA VNI %u upon remote MACIP DEL",
+			"Failed to locate MAC %pEA for Neigh %pIA VNI %u upon remote MACIP DEL",
 			macaddr, ipaddr, vni);
 		return;
 	}
@@ -1512,8 +1536,13 @@ void zebra_evpn_rem_macip_del(vni_t vni, const struct ethaddr *macaddr,
 	/* If the remote mac or neighbor doesn't exist there is nothing
 	 * more to do. Otherwise, uninstall the entry and then remove it.
 	 */
-	if (!mac && !n)
+	if (!mac && !n) {
+		if (IS_ZEBRA_DEBUG_VXLAN)
+			zlog_debug(
+				"Failed to locate MAC %pEA & Neigh %pIA VNI %u upon remote MACIP DEL",
+				macaddr, ipaddr, vni);
 		return;
+	}
 
 	zvrf = zevpn->vxlan_if->vrf->info;
 

@@ -33,6 +33,7 @@
 #include "filter.h"
 #include "command.h"
 #include "srv6.h"
+#include "frrstr.h"
 
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_attr.h"
@@ -73,7 +74,6 @@ static const struct message attr_str[] = {
 	{BGP_ATTR_EXT_COMMUNITIES, "EXT_COMMUNITIES"},
 	{BGP_ATTR_AS4_PATH, "AS4_PATH"},
 	{BGP_ATTR_AS4_AGGREGATOR, "AS4_AGGREGATOR"},
-	{BGP_ATTR_AS_PATHLIMIT, "AS_PATHLIMIT"},
 	{BGP_ATTR_PMSI_TUNNEL, "PMSI_TUNNEL_ATTRIBUTE"},
 	{BGP_ATTR_ENCAP, "ENCAP"},
 	{BGP_ATTR_OTC, "OTC"},
@@ -83,6 +83,7 @@ static const struct message attr_str[] = {
 	{BGP_ATTR_LARGE_COMMUNITIES, "LARGE_COMMUNITY"},
 	{BGP_ATTR_PREFIX_SID, "PREFIX_SID"},
 	{BGP_ATTR_IPV6_EXT_COMMUNITIES, "IPV6_EXT_COMMUNITIES"},
+	{BGP_ATTR_AIGP, "AIGP"},
 	{0}};
 
 static const struct message attr_flag_str[] = {
@@ -448,6 +449,110 @@ static void transit_unintern(struct transit **transit)
 	}
 }
 
+static bool bgp_attr_aigp_get_tlv_metric(uint8_t *pnt, int length,
+					 uint64_t *aigp)
+{
+	uint8_t *data = pnt;
+	uint8_t tlv_type;
+	uint16_t tlv_length;
+
+	while (length) {
+		tlv_type = *data;
+		ptr_get_be16(data + 1, &tlv_length);
+		(void)data;
+
+		/* The value field of the AIGP TLV is always 8 octets
+		 * long and its value is interpreted as an unsigned 64-bit
+		 * integer.
+		 */
+		if (tlv_type == BGP_AIGP_TLV_METRIC) {
+			(void)ptr_get_be64(data + 3, aigp);
+
+			/* If an AIGP attribute is received and its first AIGP
+			 * TLV contains the maximum value 0xffffffffffffffff,
+			 * the attribute SHOULD be considered to be malformed
+			 * and SHOULD be discarded as specified in this section.
+			 */
+			if (*aigp == BGP_AIGP_TLV_METRIC_MAX) {
+				zlog_err("Bad AIGP TLV (%s) length: %llu",
+					 BGP_AIGP_TLV_METRIC_DESC,
+					 BGP_AIGP_TLV_METRIC_MAX);
+				return false;
+			}
+
+			return true;
+		}
+
+		data += tlv_length;
+		length -= tlv_length;
+	}
+
+	return false;
+}
+
+static uint64_t bgp_aigp_metric_total(struct bgp_path_info *bpi)
+{
+	uint64_t aigp = bgp_attr_get_aigp_metric(bpi->attr);
+
+	if (bpi->nexthop)
+		return aigp + bpi->nexthop->metric;
+	else
+		return aigp;
+}
+
+static void stream_put_bgp_aigp_tlv_metric(struct stream *s,
+					   struct bgp_path_info *bpi)
+{
+	stream_putc(s, BGP_AIGP_TLV_METRIC);
+	stream_putw(s, BGP_AIGP_TLV_METRIC_LEN);
+	stream_putq(s, bgp_aigp_metric_total(bpi));
+}
+
+static bool bgp_attr_aigp_valid(uint8_t *pnt, int length)
+{
+	uint8_t *data = pnt;
+	uint8_t tlv_type;
+	uint16_t tlv_length;
+
+	if (length < 3) {
+		zlog_err("Bad AIGP attribute length (MUST be minimum 3): %u",
+			 length);
+		return false;
+	}
+
+	while (length) {
+		tlv_type = *data;
+		ptr_get_be16(data + 1, &tlv_length);
+		(void)data;
+
+		if (length < tlv_length) {
+			zlog_err(
+				"Bad AIGP attribute length: %u, but TLV length: %u",
+				length, tlv_length);
+			return false;
+		}
+
+		if (tlv_length < 3) {
+			zlog_err("Bad AIGP TLV length (MUST be minimum 3): %u",
+				 tlv_length);
+			return false;
+		}
+
+		/* AIGP TLV, Length: 11 */
+		if (tlv_type == BGP_AIGP_TLV_METRIC &&
+		    tlv_length != BGP_AIGP_TLV_METRIC_LEN) {
+			zlog_err("Bad AIGP TLV (%s) length: %u",
+				 BGP_AIGP_TLV_METRIC_DESC, tlv_length);
+			return false;
+		}
+
+		data += tlv_length;
+		length -= tlv_length;
+	}
+
+	return true;
+}
+
 static void *srv6_l3vpn_hash_alloc(void *p)
 {
 	return p;
@@ -702,6 +807,7 @@ unsigned int attrhash_key_make(const void *p)
 	MIX(attr->nh_type);
 	MIX(attr->bh_type);
 	MIX(attr->otc);
+	MIX(bgp_attr_get_aigp_metric(attr));
 
 	return key;
 }
@@ -736,6 +842,8 @@ bool attrhash_cmp(const void *p1, const void *p2)
 			       == bgp_attr_get_cluster(attr2)
 		    && bgp_attr_get_transit(attr1)
 			       == bgp_attr_get_transit(attr2)
+		    && bgp_attr_get_aigp_metric(attr1)
+			       == bgp_attr_get_aigp_metric(attr2)
 		    && attr1->rmap_table_id == attr2->rmap_table_id
 		    && (attr1->encap_tunneltype == attr2->encap_tunneltype)
 		    && encap_same(attr1->encap_subtlvs, attr2->encap_subtlvs)
@@ -796,20 +904,20 @@ static void attrhash_finish(void)
 static void attr_show_all_iterator(struct hash_bucket *bucket, struct vty *vty)
 {
 	struct attr *attr = bucket->data;
-	char sid_str[BUFSIZ];
+	struct in6_addr *sid = NULL;
+
+	if (attr->srv6_l3vpn)
+		sid = &attr->srv6_l3vpn->sid;
+	else if (attr->srv6_vpn)
+		sid = &attr->srv6_vpn->sid;
 
 	vty_out(vty, "attr[%ld] nexthop %pI4\n", attr->refcnt, &attr->nexthop);
 
-	sid_str[0] = '\0';
-	if (attr->srv6_l3vpn)
-		inet_ntop(AF_INET6, &attr->srv6_l3vpn->sid, sid_str, BUFSIZ);
-	else if (attr->srv6_vpn)
-		inet_ntop(AF_INET6, &attr->srv6_vpn->sid, sid_str, BUFSIZ);
-
 	vty_out(vty,
-		"\tflags: %" PRIu64" distance: %u med: %u local_pref: %u origin: %u weight: %u label: %u sid: %s\n",
+		"\tflags: %" PRIu64
+		" distance: %u med: %u local_pref: %u origin: %u weight: %u label: %u sid: %pI6\n",
 		attr->flag, attr->distance, attr->med, attr->local_pref,
-		attr->origin, attr->weight, attr->label, sid_str);
+		attr->origin, attr->weight, attr->label, sid);
 }
 
 void attr_show_all(struct vty *vty)
@@ -1387,6 +1495,7 @@ const uint8_t attr_flags_values[] = {
 	[BGP_ATTR_PREFIX_SID] = BGP_ATTR_FLAG_OPTIONAL | BGP_ATTR_FLAG_TRANS,
 	[BGP_ATTR_IPV6_EXT_COMMUNITIES] =
 		BGP_ATTR_FLAG_OPTIONAL | BGP_ATTR_FLAG_TRANS,
+	[BGP_ATTR_AIGP] = BGP_ATTR_FLAG_OPTIONAL,
 };
 static const size_t attr_flags_values_max = array_size(attr_flags_values) - 1;
 
@@ -1645,12 +1754,9 @@ enum bgp_attr_parse_ret bgp_attr_nexthop_valid(struct peer *peer,
 
 	if (ipv4_martian(&attr->nexthop) && !bgp->allow_martian) {
 		uint8_t data[7]; /* type(2) + length(1) + nhop(4) */
-		char buf[INET_ADDRSTRLEN];
 
-		inet_ntop(AF_INET, &attr->nexthop.s_addr, buf,
-			  INET_ADDRSTRLEN);
-		flog_err(EC_BGP_ATTR_MARTIAN_NH, "Martian nexthop %s",
-			 buf);
+		flog_err(EC_BGP_ATTR_MARTIAN_NH, "Martian nexthop %pI4",
+			 &attr->nexthop);
 		data[0] = BGP_ATTR_FLAG_TRANS;
 		data[1] = BGP_ATTR_NEXT_HOP;
 		data[2] = BGP_ATTR_NHLEN_IPV4;
@@ -1753,6 +1859,7 @@ stream_failure:
 /* Atomic aggregate. */
 static int bgp_attr_atomic(struct bgp_attr_parser_args *args)
 {
+	struct peer *const peer = args->peer;
 	struct attr *const attr = args->attr;
 	const bgp_size_t length = args->length;
 
@@ -1765,8 +1872,20 @@ static int bgp_attr_atomic(struct bgp_attr_parser_args *args)
 					  args->total);
 	}
 
+	if (peer->discard_attrs[args->type])
+		goto atomic_ignore;
+
 	/* Set atomic aggregate flag. */
 	attr->flag |= ATTR_FLAG_BIT(BGP_ATTR_ATOMIC_AGGREGATE);
+
+	return BGP_ATTR_PARSE_PROCEED;
+
+atomic_ignore:
+	stream_forward_getp(peer->curr, length);
+
+	if (bgp_debug_update(peer, NULL, NULL, 1))
+		zlog_debug("%pBP: Ignoring attribute %s", peer,
+			   lookup_msg(attr_str, args->type, NULL));
 
 	return BGP_ATTR_PARSE_PROCEED;
 }
@@ -1794,6 +1913,9 @@ static int bgp_attr_aggregator(struct bgp_attr_parser_args *args)
 					  args->total);
 	}
 
+	if (peer->discard_attrs[args->type])
+		goto aggregator_ignore;
+
 	if (CHECK_FLAG(peer->cap, PEER_CAP_AS4_RCV))
 		aggregator_as = stream_getl(peer->curr);
 	else
@@ -1820,6 +1942,15 @@ static int bgp_attr_aggregator(struct bgp_attr_parser_args *args)
 	}
 
 	return BGP_ATTR_PARSE_PROCEED;
+
+aggregator_ignore:
+	stream_forward_getp(peer->curr, length);
+
+	if (bgp_debug_update(peer, NULL, NULL, 1))
+		zlog_debug("%pBP: Ignoring attribute %s", peer,
+			   lookup_msg(attr_str, args->type, NULL));
+
+	return BGP_ATTR_PARSE_PROCEED;
 }
 
 /* New Aggregator attribute */
@@ -1839,6 +1970,9 @@ bgp_attr_as4_aggregator(struct bgp_attr_parser_args *args,
 		return bgp_attr_malformed(args, BGP_NOTIFY_UPDATE_ATTR_LENG_ERR,
 					  0);
 	}
+
+	if (peer->discard_attrs[args->type])
+		goto as4_aggregator_ignore;
 
 	aggregator_as = stream_getl(peer->curr);
 
@@ -1861,6 +1995,15 @@ bgp_attr_as4_aggregator(struct bgp_attr_parser_args *args,
 	} else {
 		attr->flag |= ATTR_FLAG_BIT(BGP_ATTR_AS4_AGGREGATOR);
 	}
+
+	return BGP_ATTR_PARSE_PROCEED;
+
+as4_aggregator_ignore:
+	stream_forward_getp(peer->curr, length);
+
+	if (bgp_debug_update(peer, NULL, NULL, 1))
+		zlog_debug("%pBP: Ignoring attribute %s", peer,
+			   lookup_msg(attr_str, args->type, NULL));
 
 	return BGP_ATTR_PARSE_PROCEED;
 }
@@ -1982,6 +2125,9 @@ bgp_attr_community(struct bgp_attr_parser_args *args)
 					  args->total);
 	}
 
+	if (peer->discard_attrs[args->type])
+		goto community_ignore;
+
 	bgp_attr_set_community(
 		attr,
 		community_parse((uint32_t *)stream_pnt(peer->curr), length));
@@ -1995,6 +2141,15 @@ bgp_attr_community(struct bgp_attr_parser_args *args)
 	if (!bgp_attr_get_community(attr))
 		return bgp_attr_malformed(args, BGP_NOTIFY_UPDATE_OPT_ATTR_ERR,
 					  args->total);
+
+	return BGP_ATTR_PARSE_PROCEED;
+
+community_ignore:
+	stream_forward_getp(peer->curr, length);
+
+	if (bgp_debug_update(peer, NULL, NULL, 1))
+		zlog_debug("%pBP: Ignoring attribute %s", peer,
+			   lookup_msg(attr_str, args->type, NULL));
 
 	return BGP_ATTR_PARSE_PROCEED;
 }
@@ -2020,9 +2175,21 @@ bgp_attr_originator_id(struct bgp_attr_parser_args *args)
 					  args->total);
 	}
 
+	if (peer->discard_attrs[args->type])
+		goto originator_id_ignore;
+
 	attr->originator_id.s_addr = stream_get_ipv4(peer->curr);
 
 	attr->flag |= ATTR_FLAG_BIT(BGP_ATTR_ORIGINATOR_ID);
+
+	return BGP_ATTR_PARSE_PROCEED;
+
+originator_id_ignore:
+	stream_forward_getp(peer->curr, length);
+
+	if (bgp_debug_update(peer, NULL, NULL, 1))
+		zlog_debug("%pBP: Ignoring attribute %s", peer,
+			   lookup_msg(attr_str, args->type, NULL));
 
 	return BGP_ATTR_PARSE_PROCEED;
 }
@@ -2047,6 +2214,9 @@ bgp_attr_cluster_list(struct bgp_attr_parser_args *args)
 					  args->total);
 	}
 
+	if (peer->discard_attrs[args->type])
+		goto cluster_list_ignore;
+
 	bgp_attr_set_cluster(
 		attr, cluster_parse((struct in_addr *)stream_pnt(peer->curr),
 				    length));
@@ -2055,6 +2225,15 @@ bgp_attr_cluster_list(struct bgp_attr_parser_args *args)
 	stream_forward_getp(peer->curr, length);
 
 	attr->flag |= ATTR_FLAG_BIT(BGP_ATTR_CLUSTER_LIST);
+
+	return BGP_ATTR_PARSE_PROCEED;
+
+cluster_list_ignore:
+	stream_forward_getp(peer->curr, length);
+
+	if (bgp_debug_update(peer, NULL, NULL, 1))
+		zlog_debug("%pBP: Ignoring attribute %s", peer,
+			   lookup_msg(attr_str, args->type, NULL));
 
 	return BGP_ATTR_PARSE_PROCEED;
 }
@@ -2316,6 +2495,9 @@ bgp_attr_large_community(struct bgp_attr_parser_args *args)
 					  args->total);
 	}
 
+	if (peer->discard_attrs[args->type])
+		goto large_community_ignore;
+
 	bgp_attr_set_lcommunity(
 		attr, lcommunity_parse(stream_pnt(peer->curr), length));
 	/* XXX: fix ecommunity_parse to use stream API */
@@ -2324,6 +2506,15 @@ bgp_attr_large_community(struct bgp_attr_parser_args *args)
 	if (!bgp_attr_get_lcommunity(attr))
 		return bgp_attr_malformed(args, BGP_NOTIFY_UPDATE_OPT_ATTR_ERR,
 					  args->total);
+
+	return BGP_ATTR_PARSE_PROCEED;
+
+large_community_ignore:
+	stream_forward_getp(peer->curr, length);
+
+	if (bgp_debug_update(peer, NULL, NULL, 1))
+		zlog_debug("%pBP: Ignoring attribute %s", peer,
+			   lookup_msg(attr_str, args->type, NULL));
 
 	return BGP_ATTR_PARSE_PROCEED;
 }
@@ -2417,6 +2608,9 @@ bgp_attr_ipv6_ext_communities(struct bgp_attr_parser_args *args)
 					  args->total);
 	}
 
+	if (peer->discard_attrs[args->type])
+		goto ipv6_ext_community_ignore;
+
 	ipv6_ecomm = ecommunity_parse_ipv6(
 		stream_pnt(peer->curr), length,
 		CHECK_FLAG(peer->flags,
@@ -2429,6 +2623,15 @@ bgp_attr_ipv6_ext_communities(struct bgp_attr_parser_args *args)
 	if (!ipv6_ecomm)
 		return bgp_attr_malformed(args, BGP_NOTIFY_UPDATE_OPT_ATTR_ERR,
 					  args->total);
+
+	return BGP_ATTR_PARSE_PROCEED;
+
+ipv6_ext_community_ignore:
+	stream_forward_getp(peer->curr, length);
+
+	if (bgp_debug_update(peer, NULL, NULL, 1))
+		zlog_debug("%pBP: Ignoring attribute %s", peer,
+			   lookup_msg(attr_str, args->type, NULL));
 
 	return BGP_ATTR_PARSE_PROCEED;
 }
@@ -2608,6 +2811,18 @@ bgp_attr_srv6_service_data(struct bgp_attr_parser_args *args)
 	}
 
 	if (type == BGP_PREFIX_SID_SRV6_L3_SERVICE_SID_STRUCTURE) {
+		if (STREAM_READABLE(peer->curr) <
+		    BGP_PREFIX_SID_SRV6_L3_SERVICE_SID_STRUCTURE_LENGTH) {
+			flog_err(
+				EC_BGP_ATTR_LEN,
+				"Malformed SRv6 Service Data Sub-Sub-TLV attribute - insufficient data (need %u, have %zu remaining in UPDATE)",
+				BGP_PREFIX_SID_SRV6_L3_SERVICE_SID_STRUCTURE_LENGTH,
+				STREAM_READABLE(peer->curr));
+			return bgp_attr_malformed(
+				args, BGP_NOTIFY_UPDATE_ATTR_LENG_ERR,
+				args->total);
+		}
+
 		loc_block_len = stream_getc(peer->curr);
 		loc_node_len = stream_getc(peer->curr);
 		func_len = stream_getc(peer->curr);
@@ -2657,7 +2872,6 @@ bgp_attr_srv6_service(struct bgp_attr_parser_args *args)
 	uint16_t length, endpoint_behavior;
 	size_t headersz = sizeof(type) + sizeof(length);
 	enum bgp_attr_parse_ret err;
-	char buf[BUFSIZ];
 
 	if (STREAM_READABLE(peer->curr) < headersz) {
 		flog_err(
@@ -2681,6 +2895,17 @@ bgp_attr_srv6_service(struct bgp_attr_parser_args *args)
 	}
 
 	if (type == BGP_PREFIX_SID_SRV6_L3_SERVICE_SID_INFO) {
+		if (STREAM_READABLE(peer->curr) <
+		    BGP_PREFIX_SID_SRV6_L3_SERVICE_SID_INFO_LENGTH) {
+			flog_err(
+				EC_BGP_ATTR_LEN,
+				"Malformed SRv6 Service Sub-TLV attribute - insufficent data (need %d for attribute data, have %zu remaining in UPDATE)",
+				BGP_PREFIX_SID_SRV6_L3_SERVICE_SID_INFO_LENGTH,
+				STREAM_READABLE(peer->curr));
+			return bgp_attr_malformed(
+				args, BGP_NOTIFY_UPDATE_ATTR_LENG_ERR,
+				args->total);
+		}
 		stream_getc(peer->curr);
 		stream_get(&ipv6_sid, peer->curr, sizeof(ipv6_sid));
 		sid_flags = stream_getc(peer->curr);
@@ -2688,12 +2913,11 @@ bgp_attr_srv6_service(struct bgp_attr_parser_args *args)
 		stream_getc(peer->curr);
 
 		/* Log SRv6 Service Sub-TLV */
-		if (BGP_DEBUG(vpn, VPN_LEAK_LABEL)) {
-			inet_ntop(AF_INET6, &ipv6_sid, buf, sizeof(buf));
+		if (BGP_DEBUG(vpn, VPN_LEAK_LABEL))
 			zlog_debug(
-				"%s: srv6-l3-srv sid %s, sid-flags 0x%02x, end-behaviour 0x%04x",
-				__func__, buf, sid_flags, endpoint_behavior);
-		}
+				"%s: srv6-l3-srv sid %pI6, sid-flags 0x%02x, end-behaviour 0x%04x",
+				__func__, &ipv6_sid, sid_flags,
+				endpoint_behavior);
 
 		/* Configure from Info */
 		if (attr->srv6_l3vpn) {
@@ -2754,7 +2978,6 @@ bgp_attr_psid_sub(uint8_t type, uint16_t length,
 	uint32_t srgb_range;
 	int srgb_count;
 	uint8_t sid_type, sid_flags;
-	char buf[BUFSIZ];
 
 	/*
 	 * Check that we actually have at least as much data as
@@ -2873,12 +3096,10 @@ bgp_attr_psid_sub(uint8_t type, uint16_t length,
 			   sizeof(ipv6_sid)); /* sid_value */
 
 		/* Log VPN-SID Sub-TLV */
-		if (BGP_DEBUG(vpn, VPN_LEAK_LABEL)) {
-			inet_ntop(AF_INET6, &ipv6_sid, buf, sizeof(buf));
+		if (BGP_DEBUG(vpn, VPN_LEAK_LABEL))
 			zlog_debug(
-				"%s: vpn-sid: sid %s, sid-type 0x%02x sid-flags 0x%02x",
-				__func__, buf, sid_type, sid_flags);
-		}
+				"%s: vpn-sid: sid %pI6, sid-type 0x%02x sid-flags 0x%02x",
+				__func__, &ipv6_sid, sid_type, sid_flags);
 
 		/* Configure from Info */
 		if (attr->srv6_vpn) {
@@ -3032,6 +3253,52 @@ bgp_attr_pmsi_tunnel(struct bgp_attr_parser_args *args)
 	return BGP_ATTR_PARSE_PROCEED;
 }
 
+/* AIGP attribute (rfc7311) */
+static enum bgp_attr_parse_ret bgp_attr_aigp(struct bgp_attr_parser_args *args)
+{
+	struct peer *const peer = args->peer;
+	struct attr *const attr = args->attr;
+	const bgp_size_t length = args->length;
+	uint8_t *s = stream_pnt(peer->curr);
+	uint64_t aigp = 0;
+
+	/* If an AIGP attribute is received on a BGP session for which
+	 * AIGP_SESSION is disabled, the attribute MUST be treated exactly
+	 * as if it were an unrecognized non-transitive attribute.
+	 * That is, it "MUST be quietly ignored and not passed along to
+	 * other BGP peers".
+	 * For Internal BGP (IBGP) sessions, and for External BGP (EBGP)
+	 * sessions between members of the same BGP Confederation,
+	 * the default value of AIGP_SESSION SHOULD be "enabled".
+	 */
+	if (peer->sort == BGP_PEER_EBGP &&
+	    !CHECK_FLAG(peer->flags, PEER_FLAG_AIGP)) {
+		zlog_warn(
+			"%pBP received AIGP attribute, but eBGP peer do not support it",
+			peer);
+		goto aigp_ignore;
+	}
+
+	if (peer->discard_attrs[args->type])
+		goto aigp_ignore;
+
+	if (!bgp_attr_aigp_valid(s, length))
+		goto aigp_ignore;
+
+	/* Extract AIGP Metric TLV */
+	if (bgp_attr_aigp_get_tlv_metric(s, length, &aigp))
+		bgp_attr_set_aigp_metric(attr, aigp);
+
+aigp_ignore:
+	stream_forward_getp(peer->curr, length);
+
+	if (bgp_debug_update(peer, NULL, NULL, 1))
+		zlog_debug("%pBP: Ignoring attribute %s", peer,
+			   lookup_msg(attr_str, args->type, NULL));
+
+	return BGP_ATTR_PARSE_PROCEED;
+}
+
 /* OTC attribute. */
 static enum bgp_attr_parse_ret bgp_attr_otc(struct bgp_attr_parser_args *args)
 {
@@ -3047,6 +3314,9 @@ static enum bgp_attr_parse_ret bgp_attr_otc(struct bgp_attr_parser_args *args)
 					  args->total);
 	}
 
+	if (peer->discard_attrs[args->type])
+		goto otc_ignore;
+
 	attr->otc = stream_getl(peer->curr);
 	if (!attr->otc) {
 		flog_err(EC_BGP_ATTR_MAL_AS_PATH, "OTC attribute value is 0");
@@ -3055,6 +3325,15 @@ static enum bgp_attr_parse_ret bgp_attr_otc(struct bgp_attr_parser_args *args)
 	}
 
 	attr->flag |= ATTR_FLAG_BIT(BGP_ATTR_OTC);
+
+	return BGP_ATTR_PARSE_PROCEED;
+
+otc_ignore:
+	stream_forward_getp(peer->curr, length);
+
+	if (bgp_debug_update(peer, NULL, NULL, 1))
+		zlog_debug("%pBP: Ignoring attribute %s", peer,
+			   lookup_msg(attr_str, args->type, NULL));
 
 	return BGP_ATTR_PARSE_PROCEED;
 }
@@ -3079,6 +3358,14 @@ bgp_attr_unknown(struct bgp_attr_parser_args *args)
 
 	/* Forward read pointer of input stream. */
 	stream_forward_getp(peer->curr, length);
+
+	if (peer->discard_attrs[type]) {
+		if (bgp_debug_update(peer, NULL, NULL, 1))
+			zlog_debug("%pBP: Ignoring attribute %s", peer,
+				   lookup_msg(attr_str, args->type, NULL));
+
+		return BGP_ATTR_PARSE_PROCEED;
+	}
 
 	/* If any of the mandatory well-known attributes are not recognized,
 	   then the Error Subcode is set to Unrecognized Well-known
@@ -3410,6 +3697,9 @@ enum bgp_attr_parse_ret bgp_attr_parse(struct peer *peer, struct attr *attr,
 		case BGP_ATTR_OTC:
 			ret = bgp_attr_otc(&attr_args);
 			break;
+		case BGP_ATTR_AIGP:
+			ret = bgp_attr_aigp(&attr_args);
+			break;
 		default:
 			ret = bgp_attr_unknown(&attr_args);
 			break;
@@ -3689,7 +3979,10 @@ size_t bgp_packet_mpattr_start(struct stream *s, struct peer *peer, afi_t afi,
 				stream_putc(s, attr->mp_nexthop_len);
 				stream_put_ipv4(s, attr->nexthop.s_addr);
 			}
-		default:
+			break;
+		case SAFI_UNSPEC:
+		case SAFI_MAX:
+			assert(!"SAFI's UNSPEC or MAX being specified are a DEV ESCAPE");
 			break;
 		}
 		break;
@@ -3714,22 +4007,20 @@ size_t bgp_packet_mpattr_start(struct stream *s, struct peer *peer, afi_t afi,
 			}
 		} break;
 		case SAFI_MPLS_VPN: {
-			if (attr->mp_nexthop_len
-				   == BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL) {
-				stream_putc(s, 48);
-				stream_putl(s, 0); /* RD = 0, per RFC */
-				stream_putl(s, 0);
-				stream_put(s, &attr->mp_nexthop_global,
-					   IPV6_MAX_BYTELEN);
+			if (attr->mp_nexthop_len ==
+			    BGP_ATTR_NHLEN_VPNV6_GLOBAL_AND_LL)
+				stream_putc(s, attr->mp_nexthop_len);
+			else
+				stream_putc(s, BGP_ATTR_NHLEN_VPNV6_GLOBAL);
+			stream_putl(s, 0); /* RD = 0, per RFC */
+			stream_putl(s, 0);
+			stream_put(s, &attr->mp_nexthop_global,
+				   IPV6_MAX_BYTELEN);
+			if (attr->mp_nexthop_len ==
+			    BGP_ATTR_NHLEN_VPNV6_GLOBAL_AND_LL) {
 				stream_putl(s, 0); /* RD = 0, per RFC */
 				stream_putl(s, 0);
 				stream_put(s, &attr->mp_nexthop_local,
-					   IPV6_MAX_BYTELEN);
-			} else {
-				stream_putc(s, 24);
-				stream_putl(s, 0); /* RD = 0, per RFC */
-				stream_putl(s, 0);
-				stream_put(s, &attr->mp_nexthop_global,
 					   IPV6_MAX_BYTELEN);
 			}
 		} break;
@@ -3740,16 +4031,23 @@ size_t bgp_packet_mpattr_start(struct stream *s, struct peer *peer, afi_t afi,
 			break;
 		case SAFI_FLOWSPEC:
 			stream_putc(s, 0); /* no nexthop for flowspec */
-		default:
+			break;
+		case SAFI_UNSPEC:
+		case SAFI_MAX:
+			assert(!"SAFI's UNSPEC or MAX being specified are a DEV ESCAPE");
 			break;
 		}
 		break;
-	default:
+	case AFI_L2VPN:
 		if (safi != SAFI_FLOWSPEC)
 			flog_err(
 				EC_BGP_ATTR_NH_SEND_LEN,
 				"Bad nexthop when sending to %s, AFI %u SAFI %u nhlen %d",
 				peer->host, afi, safi, attr->mp_nexthop_len);
+		break;
+	case AFI_UNSPEC:
+	case AFI_MAX:
+		assert(!"DEV ESCAPE: AFI_UNSPEC or AFI_MAX should not be used here");
 		break;
 	}
 
@@ -3764,7 +4062,12 @@ void bgp_packet_mpattr_prefix(struct stream *s, afi_t afi, safi_t safi,
 			      uint32_t num_labels, bool addpath_capable,
 			      uint32_t addpath_tx_id, struct attr *attr)
 {
-	if (safi == SAFI_MPLS_VPN) {
+	switch (safi) {
+	case SAFI_UNSPEC:
+	case SAFI_MAX:
+		assert(!"Dev escape usage of SAFI_UNSPEC or MAX");
+		break;
+	case SAFI_MPLS_VPN:
 		if (addpath_capable)
 			stream_putl(s, addpath_tx_id);
 		/* Label, RD, Prefix write. */
@@ -3772,33 +4075,74 @@ void bgp_packet_mpattr_prefix(struct stream *s, afi_t afi, safi_t safi,
 		stream_put(s, label, BGP_LABEL_BYTES);
 		stream_put(s, prd->val, 8);
 		stream_put(s, &p->u.prefix, PSIZE(p->prefixlen));
-	} else if (afi == AFI_L2VPN && safi == SAFI_EVPN) {
-		/* EVPN prefix - contents depend on type */
-		bgp_evpn_encode_prefix(s, p, prd, label, num_labels, attr,
-				       addpath_capable, addpath_tx_id);
-	} else if (safi == SAFI_LABELED_UNICAST) {
+		break;
+	case SAFI_EVPN:
+		if (afi == AFI_L2VPN)
+			/* EVPN prefix - contents depend on type */
+			bgp_evpn_encode_prefix(s, p, prd, label, num_labels,
+					       attr, addpath_capable,
+					       addpath_tx_id);
+		else
+			assert(!"Add encoding bits here for other AFI's");
+		break;
+	case SAFI_LABELED_UNICAST:
 		/* Prefix write with label. */
 		stream_put_labeled_prefix(s, p, label, addpath_capable,
 					  addpath_tx_id);
-	} else if (safi == SAFI_FLOWSPEC) {
+		break;
+	case SAFI_FLOWSPEC:
 		stream_putc(s, p->u.prefix_flowspec.prefixlen);
 		stream_put(s, (const void *)p->u.prefix_flowspec.ptr,
 			   p->u.prefix_flowspec.prefixlen);
-	} else
+		break;
+
+	case SAFI_UNICAST:
+	case SAFI_MULTICAST:
 		stream_put_prefix_addpath(s, p, addpath_capable, addpath_tx_id);
+		break;
+	case SAFI_ENCAP:
+		assert(!"Please add proper encoding of SAFI_ENCAP");
+		break;
+	}
 }
 
 size_t bgp_packet_mpattr_prefix_size(afi_t afi, safi_t safi,
 				     const struct prefix *p)
 {
 	int size = PSIZE(p->prefixlen);
-	if (safi == SAFI_MPLS_VPN)
+
+	switch (safi) {
+	case SAFI_UNSPEC:
+	case SAFI_MAX:
+		assert(!"Attempting to figure size for a SAFI_UNSPEC/SAFI_MAX this is a DEV ESCAPE");
+		break;
+	case SAFI_UNICAST:
+	case SAFI_MULTICAST:
+		break;
+	case SAFI_MPLS_VPN:
 		size += 88;
-	else if (safi == SAFI_LABELED_UNICAST)
+		break;
+	case SAFI_ENCAP:
+		/* This has to be wrong, but I don't know what to put here */
+		assert(!"Do we try to use this?");
+		break;
+	case SAFI_LABELED_UNICAST:
 		size += BGP_LABEL_BYTES;
-	else if (afi == AFI_L2VPN && safi == SAFI_EVPN)
-		size += 232; // TODO: Maximum possible for type-2, type-3 and
-			     // type-5
+		break;
+	case SAFI_EVPN:
+		/*
+		 * TODO: Maximum possible for type-2, type-3 and type-5
+		 */
+		if (afi == AFI_L2VPN)
+			size += 232;
+		else
+			assert(!"Attempting to figure size for SAFI_EVPN and !AFI_L2VPN and FRR will not have the proper values");
+		break;
+	case SAFI_FLOWSPEC:
+		size = ((struct prefix_fs *)p)->prefix.prefixlen;
+		break;
+	}
+
 	return size;
 }
 
@@ -3929,7 +4273,8 @@ bgp_size_t bgp_packet_attribute(struct bgp *bgp, struct peer *peer,
 				struct prefix *p, afi_t afi, safi_t safi,
 				struct peer *from, struct prefix_rd *prd,
 				mpls_label_t *label, uint32_t num_labels,
-				bool addpath_capable, uint32_t addpath_tx_id)
+				bool addpath_capable, uint32_t addpath_tx_id,
+				struct bgp_path_info *bpi)
 {
 	size_t cp;
 	size_t aspath_sizep;
@@ -4346,7 +4691,9 @@ bgp_size_t bgp_packet_attribute(struct bgp *bgp, struct peer *peer,
 			stream_put(s, &attr->srv6_l3vpn->sid,
 				   sizeof(attr->srv6_l3vpn->sid)); /* sid */
 			stream_putc(s, 0);      /* sid_flags */
-			stream_putw(s, 0xffff); /* endpoint */
+			stream_putw(s,
+				    attr->srv6_l3vpn
+					    ->endpoint_behavior); /* endpoint */
 			stream_putc(s, 0);      /* reserved */
 			stream_putc(
 				s,
@@ -4452,6 +4799,22 @@ bgp_size_t bgp_packet_attribute(struct bgp *bgp, struct peer *peer,
 		stream_putl(s, attr->otc);
 	}
 
+	/* AIGP */
+	if (bpi && attr->flag & ATTR_FLAG_BIT(BGP_ATTR_AIGP) &&
+	    (CHECK_FLAG(peer->flags, PEER_FLAG_AIGP) ||
+	     peer->sort != BGP_PEER_EBGP)) {
+		/* At the moment only AIGP Metric TLV exists for AIGP
+		 * attribute. If more comes in, do not forget to update
+		 * attr_len variable to include new ones.
+		 */
+		uint8_t attr_len = BGP_AIGP_TLV_METRIC_LEN;
+
+		stream_putc(s, BGP_ATTR_FLAG_OPTIONAL);
+		stream_putc(s, BGP_ATTR_AIGP);
+		stream_putc(s, attr_len);
+		stream_put_bgp_aigp_tlv_metric(s, bpi);
+	}
+
 	/* Unknown transit attribute. */
 	struct transit *transit = bgp_attr_get_transit(attr);
 
@@ -4535,7 +4898,7 @@ void bgp_attr_finish(void)
 }
 
 /* Make attribute packet. */
-void bgp_dump_routes_attr(struct stream *s, struct attr *attr,
+void bgp_dump_routes_attr(struct stream *s, struct bgp_path_info *bpi,
 			  const struct prefix *prefix)
 {
 	unsigned long cp;
@@ -4544,6 +4907,7 @@ void bgp_dump_routes_attr(struct stream *s, struct attr *attr,
 	struct aspath *aspath;
 	bool addpath_capable = false;
 	uint32_t addpath_tx_id = 0;
+	struct attr *attr = bpi->attr;
 
 	/* Remember current pointer. */
 	cp = stream_get_endp(s);
@@ -4707,7 +5071,91 @@ void bgp_dump_routes_attr(struct stream *s, struct attr *attr,
 		stream_putl(s, attr->otc);
 	}
 
+	/* AIGP */
+	if (attr->flag & ATTR_FLAG_BIT(BGP_ATTR_AIGP)) {
+		/* At the moment only AIGP Metric TLV exists for AIGP
+		 * attribute. If more comes in, do not forget to update
+		 * attr_len variable to include new ones.
+		 */
+		uint8_t attr_len = BGP_AIGP_TLV_METRIC_LEN;
+
+		stream_putc(s, BGP_ATTR_FLAG_OPTIONAL | BGP_ATTR_FLAG_TRANS);
+		stream_putc(s, BGP_ATTR_AIGP);
+		stream_putc(s, attr_len);
+		stream_put_bgp_aigp_tlv_metric(s, bpi);
+	}
+
 	/* Return total size of attribute. */
 	len = stream_get_endp(s) - cp - 2;
 	stream_putw_at(s, cp, len);
+}
+
+void bgp_path_attribute_discard_vty(struct vty *vty, struct peer *peer,
+				    const char *discard_attrs, bool set)
+{
+	int i, num_attributes;
+	char **attributes;
+	afi_t afi;
+	safi_t safi;
+
+
+	/* If `no` command specified without arbitrary attributes,
+	 * then flush all.
+	 */
+	if (!discard_attrs) {
+		for (i = 0; i < BGP_ATTR_MAX; i++)
+			peer->discard_attrs[i] = false;
+		goto discard_soft_clear;
+	}
+
+	if (discard_attrs) {
+		frrstr_split(discard_attrs, " ", &attributes, &num_attributes);
+
+		if (set)
+			for (i = 0; i < BGP_ATTR_MAX; i++)
+				peer->discard_attrs[i] = false;
+
+		for (i = 0; i < num_attributes; i++) {
+			uint8_t attr_num = strtoul(attributes[i], NULL, 10);
+
+			XFREE(MTYPE_TMP, attributes[i]);
+
+			/* Some of the attributes, just can't be ignored. */
+			if (attr_num == BGP_ATTR_ORIGIN ||
+			    attr_num == BGP_ATTR_AS_PATH ||
+			    attr_num == BGP_ATTR_NEXT_HOP ||
+			    attr_num == BGP_ATTR_MULTI_EXIT_DISC ||
+			    attr_num == BGP_ATTR_MP_REACH_NLRI ||
+			    attr_num == BGP_ATTR_MP_UNREACH_NLRI ||
+			    attr_num == BGP_ATTR_EXT_COMMUNITIES) {
+				vty_out(vty,
+					"%% Can't discard path-attribute %s, ignoring.\n",
+					lookup_msg(attr_str, attr_num, NULL));
+				continue;
+			}
+
+			/* Ignore local-pref, originator-id, cluster-list only
+			 * for eBGP.
+			 */
+			if (peer->sort != BGP_PEER_EBGP &&
+			    (attr_num == BGP_ATTR_LOCAL_PREF ||
+			     attr_num == BGP_ATTR_ORIGINATOR_ID ||
+			     attr_num == BGP_ATTR_CLUSTER_LIST)) {
+				vty_out(vty,
+					"%% Can discard path-attribute %s only for eBGP, ignoring.\n",
+					lookup_msg(attr_str, attr_num, NULL));
+				continue;
+			}
+
+			peer->discard_attrs[attr_num] = set;
+		}
+		XFREE(MTYPE_TMP, attributes);
+	discard_soft_clear:
+		/* Configuring path attributes to be discarded will trigger
+		 * an inbound Route Refresh to ensure that the routing table
+		 * is up to date.
+		 */
+		FOREACH_AFI_SAFI (afi, safi)
+			peer_clear_soft(peer, afi, safi, BGP_CLEAR_SOFT_IN);
+	}
 }

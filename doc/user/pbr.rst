@@ -32,26 +32,8 @@ Nexthop Groups
 
 Nexthop groups are a way to encapsulate ECMP information together.  It's a
 listing of ECMP nexthops used to forward packets for when a pbr-map is matched.
-
-.. clicmd:: nexthop-group NAME
-
-   Create a nexthop-group with an associated NAME.  This will put you into a
-   sub-mode where you can specify individual nexthops.  To exit this mode type
-   exit or end as per normal conventions for leaving a sub-mode.
-
-.. clicmd:: nexthop [A.B.C.D|X:X::X:XX] [interface [onlink]] [nexthop-vrf NAME] [label LABELS]
-
-   Create a v4 or v6 nexthop.  All normal rules for creating nexthops that you
-   are used to are allowed here.  The syntax was intentionally kept the same as
-   creating nexthops as you would for static routes.
-
-.. clicmd:: pbr table range (10000-4294966272) (10000-4294966272)
-
-   Set or unset the range used to assign numeric table ID's to new
-   nexthop-group tables. Existing tables will not be modified to fit in this
-   range, so it is recommended to configure this before adding nexthop groups.
-
-   .. seealso:: :ref:`pbr-details`
+For detailed instructions on how to specify a nexthop group on the CLI, see
+the nexthop-groups section.
 
 Showing Nexthop Group Information
 ---------------------------------
@@ -301,6 +283,15 @@ causes the policy to be installed into the kernel.
    | valid  | Is the map well-formed?    | Boolean |
    +--------+----------------------------+---------+
 
+.. clicmd:: pbr table range (10000-4294966272) (10000-4294966272)
+
+   Set or unset the range used to assign numeric table ID's to new
+   nexthop-group tables. Existing tables will not be modified to fit in this
+   range, so it is recommended to configure this before adding nexthop groups.
+
+   .. seealso:: :ref:`pbr-details`
+
+
 .. _pbr-debugs:
 
 PBR Debugs
@@ -309,10 +300,6 @@ PBR Debugs
 .. clicmd:: debug pbr events|map|nht|zebra
 
    Debug pbr in pbrd daemon. You specify what types of debugs to turn on.
-
-.. clicmd:: debug zebra pbr
-
-   Debug pbr in zebra daemon.
 
 .. _pbr-details:
 

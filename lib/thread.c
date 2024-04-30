@@ -102,9 +102,7 @@ unsigned long cputime_threshold = CONSUMED_TIME_CHECK;
 unsigned long walltime_threshold = CONSUMED_TIME_CHECK;
 
 /* CLI start ---------------------------------------------------------------- */
-#ifndef VTYSH_EXTRACT_PL
 #include "lib/thread_clippy.c"
-#endif
 
 static unsigned int cpu_record_hash_key(const struct cpu_thread_history *a)
 {

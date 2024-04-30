@@ -278,8 +278,10 @@ void bgp_mp_list_add(struct list *mp_list, struct bgp_path_info *mpinfo)
 static struct bgp_path_info_mpath *bgp_path_info_mpath_new(void)
 {
 	struct bgp_path_info_mpath *new_mpath;
+
 	new_mpath = XCALLOC(MTYPE_BGP_MPATH_INFO,
 			    sizeof(struct bgp_path_info_mpath));
+
 	return new_mpath;
 }
 
@@ -313,8 +315,6 @@ bgp_path_info_mpath_get(struct bgp_path_info *path)
 
 	if (!path->mpath) {
 		mpath = bgp_path_info_mpath_new();
-		if (!mpath)
-			return NULL;
 		path->mpath = mpath;
 		mpath->mp_info = path;
 	}
@@ -567,7 +567,7 @@ void bgp_path_info_mpath_update(struct bgp *bgp, struct bgp_dest *dest,
 
 	if (debug)
 		zlog_debug(
-			"%pRN(%s): starting mpath update, newbest %s num candidates %d old-mpath-count %d old-cum-bw u%" PRIu64,
+			"%pRN(%s): starting mpath update, newbest %s num candidates %d old-mpath-count %d old-cum-bw %" PRIu64,
 			bgp_dest_to_rnode(dest), bgp->name_pretty,
 			new_best ? new_best->peer->host : "NONE",
 			mp_list ? listcount(mp_list) : 0, old_mpath_count,
@@ -750,7 +750,7 @@ void bgp_path_info_mpath_update(struct bgp *bgp, struct bgp_dest *dest,
 
 		if (debug)
 			zlog_debug(
-				"%pRN(%s): New mpath count (incl newbest) %d mpath-change %s all_paths_lb %d cum_bw u%" PRIu64,
+				"%pRN(%s): New mpath count (incl newbest) %d mpath-change %s all_paths_lb %d cum_bw %" PRIu64,
 				bgp_dest_to_rnode(dest), bgp->name_pretty,
 				mpath_count, mpath_changed ? "YES" : "NO",
 				all_paths_lb, cum_bw);

@@ -77,7 +77,11 @@ log_warn(const char *emsg, ...)
 			vlog(LOG_ERR, emsg, ap);
 			logit(LOG_ERR, "%s", strerror(errno));
 		} else {
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wformat-nonliteral"
+			/* format extended above */
 			vlog(LOG_ERR, nfmt, ap);
+#pragma GCC diagnostic pop
 			free(nfmt);
 		}
 		va_end(ap);

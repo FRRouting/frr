@@ -65,9 +65,7 @@ static void ospf6_asbr_redistribute_set(struct ospf6 *ospf6, int type);
 static void ospf6_asbr_redistribute_unset(struct ospf6 *ospf6,
 					  struct ospf6_redist *red, int type);
 
-#ifndef VTYSH_EXTRACT_PL
 #include "ospf6d/ospf6_asbr_clippy.c"
-#endif
 
 unsigned char conf_debug_ospf6_asbr = 0;
 
@@ -1587,7 +1585,11 @@ ospf6_asbr_summary_remove_lsa_and_route(struct ospf6 *ospf6,
 			zlog_debug(
 				"%s: Remove the blackhole route",
 				__func__);
+
 		ospf6_zebra_route_update_remove(aggr->route, ospf6);
+		if (aggr->route->route_option)
+			XFREE(MTYPE_OSPF6_EXTERNAL_INFO,
+			      aggr->route->route_option);
 		ospf6_route_delete(aggr->route);
 		aggr->route = NULL;
 	}
@@ -2206,10 +2208,10 @@ static const struct route_map_rule_cmd ospf6_routemap_rule_set_tag_cmd = {
 /* add "set metric-type" */
 DEFUN_YANG (ospf6_routemap_set_metric_type, ospf6_routemap_set_metric_type_cmd,
       "set metric-type <type-1|type-2>",
-      "Set value\n"
-      "Type of metric\n"
-      "OSPF6 external type 1 metric\n"
-      "OSPF6 external type 2 metric\n")
+       SET_STR
+       "Type of metric for destination routing protocol\n"
+       "OSPF[6] external type 1 metric\n"
+       "OSPF[6] external type 2 metric\n")
 {
 	char *ext = argv[2]->text;
 
@@ -2228,10 +2230,10 @@ DEFUN_YANG (ospf6_routemap_set_metric_type, ospf6_routemap_set_metric_type_cmd,
 DEFUN_YANG (ospf6_routemap_no_set_metric_type, ospf6_routemap_no_set_metric_type_cmd,
       "no set metric-type [<type-1|type-2>]",
       NO_STR
-      "Set value\n"
-      "Type of metric\n"
-      "OSPF6 external type 1 metric\n"
-      "OSPF6 external type 2 metric\n")
+      SET_STR
+      "Type of metric for destination routing protocol\n"
+      "OSPF[6] external type 1 metric\n"
+      "OSPF[6] external type 2 metric\n")
 {
 	const char *xpath =
 		"./set-action[action='frr-ospf-route-map:metric-type']";
@@ -2738,7 +2740,12 @@ ospf6_summary_add_aggr_route_and_blackhole(struct ospf6 *ospf6,
 					   struct ospf6_external_aggr_rt *aggr)
 {
 	struct ospf6_route *rt_aggr;
+	struct ospf6_route *old_rt = NULL;
 	struct ospf6_external_info *info;
+
+	/* Check if a route is already present. */
+	if (aggr->route)
+		old_rt = aggr->route;
 
 	/* Create summary route and save it. */
 	rt_aggr = ospf6_route_create(ospf6);
@@ -2757,6 +2764,16 @@ ospf6_summary_add_aggr_route_and_blackhole(struct ospf6 *ospf6,
 
 	/* Add next-hop to Null interface. */
 	ospf6_add_route_nexthop_blackhole(rt_aggr);
+
+	/* Free the old route, if any. */
+	if (old_rt) {
+		ospf6_zebra_route_update_remove(old_rt, ospf6);
+
+		if (old_rt->route_option)
+			XFREE(MTYPE_OSPF6_EXTERNAL_INFO, old_rt->route_option);
+
+		ospf6_route_delete(old_rt);
+	}
 
 	ospf6_zebra_route_update_add(rt_aggr, ospf6);
 }
@@ -3026,8 +3043,8 @@ static void ospf6_aggr_handle_external_info(void *data)
 	(void)ospf6_originate_type5_type7_lsas(rt, ospf6);
 }
 
-static void
-ospf6_asbr_summary_config_delete(struct ospf6 *ospf6, struct route_node *rn)
+void ospf6_asbr_summary_config_delete(struct ospf6 *ospf6,
+				      struct route_node *rn)
 {
 	struct ospf6_external_aggr_rt *aggr = rn->info;
 
@@ -3168,14 +3185,6 @@ void ospf6_external_aggregator_free(struct ospf6_external_aggr_rt *aggr)
 	if (OSPF6_EXTERNAL_RT_COUNT(aggr))
 		hash_clean(aggr->match_extnl_hash,
 			ospf6_aggr_unlink_external_info);
-
-	if (aggr->route) {
-		if (aggr->route->route_option)
-			XFREE(MTYPE_OSPF6_EXTERNAL_INFO,
-			      aggr->route->route_option);
-
-		ospf6_route_delete(aggr->route);
-	}
 
 	if (IS_OSPF6_DEBUG_AGGR)
 		zlog_debug("%s: Release the aggregator Address(%pFX)",

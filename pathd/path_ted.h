@@ -101,6 +101,7 @@ int path_ted_segment_list_refresh(void);
 
 /* TED configuration functions */
 uint32_t path_ted_config_write(struct vty *vty);
+void path_ted_show_debugging(struct vty *vty);
 
 /* TED util functions */
 /* clang-format off */

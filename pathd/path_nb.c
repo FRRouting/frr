@@ -310,7 +310,7 @@ void iter_objfun_prefs(const struct lyd_node *dnode, const char* path,
 	struct of_cb_args args = {0};
 	struct of_cb_pref *p;
 
-	yang_dnode_iterate(iter_objfun_cb, &args, dnode, path);
+	yang_dnode_iterate(iter_objfun_cb, &args, dnode, "%s", path);
 	for (p = args.first; p != NULL; p = p->next)
 		fun(p->type, arg);
 }

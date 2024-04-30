@@ -37,9 +37,7 @@
 #include "ospf6_interface.h"
 #include "ospf6d.h"
 #include "ospf6_zebra.h"
-#ifndef VTYSH_EXTRACT_PL
 #include "ospf6d/ospf6_route_clippy.c"
-#endif
 
 DEFINE_MTYPE_STATIC(OSPF6D, OSPF6_ROUTE,   "OSPF6 route");
 DEFINE_MTYPE_STATIC(OSPF6D, OSPF6_ROUTE_TABLE, "OSPF6 route table");
@@ -248,7 +246,10 @@ void ospf6_merge_nexthops(struct list *dst, struct list *src)
 	}
 }
 
-int ospf6_route_cmp_nexthops(struct ospf6_route *a, struct ospf6_route *b)
+/*
+ * If the nexthops are the same return true
+ */
+bool ospf6_route_cmp_nexthops(struct ospf6_route *a, struct ospf6_route *b)
 {
 	struct listnode *anode, *bnode;
 	struct ospf6_nexthop *anh, *bnh;
@@ -266,14 +267,14 @@ int ospf6_route_cmp_nexthops(struct ospf6_route *a, struct ospf6_route *b)
 				/* Currnet List A element not found List B
 				 * Non-Identical lists return */
 				if (identical == false)
-					return 1;
+					return false;
 			}
-			return 0;
+			return true;
 		} else
-			return 1;
+			return false;
 	}
 	/* One of the routes doesn't exist ? */
-	return (1);
+	return false;
 }
 
 int ospf6_num_nexthops(struct list *nh_list)
@@ -579,12 +580,7 @@ ospf6_route_lookup_identical(struct ospf6_route *route,
 
 	for (target = ospf6_route_lookup(&route->prefix, table); target;
 	     target = target->next) {
-		if (target->type == route->type
-		    && prefix_same(&target->prefix, &route->prefix)
-		    && target->path.type == route->path.type
-		    && target->path.cost == route->path.cost
-		    && target->path.u.cost_e2 == route->path.u.cost_e2
-		    && ospf6_route_cmp_nexthops(target, route) == 0)
+		if (ospf6_route_is_identical(target, route))
 			return target;
 	}
 	return NULL;
@@ -1381,7 +1377,7 @@ static void ospf6_route_show_table_summary(struct vty *vty,
 	struct ospf6_route *route, *prev = NULL;
 	int i, pathtype[OSPF6_PATH_TYPE_MAX];
 	unsigned int number = 0;
-	int nh_count = 0, nhinval = 0, ecmp = 0;
+	int nh_count = 0, ecmp = 0;
 	int alternative = 0, destination = 0;
 	char path_str[30];
 
@@ -1395,9 +1391,7 @@ static void ospf6_route_show_table_summary(struct vty *vty,
 		else
 			alternative++;
 		nh_count = ospf6_num_nexthops(route->nh_list);
-		if (!nh_count)
-			nhinval++;
-		else if (nh_count > 1)
+		if (nh_count > 1)
 			ecmp++;
 		pathtype[route->path.type]++;
 		number++;

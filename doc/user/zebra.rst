@@ -68,7 +68,7 @@ Besides the common invocation options (:ref:`common-invocation-options`), the
    option and we will use Route Replace Semantics instead of delete
    than add.
 
-.. option:: --asic-offload [notify_on_offload|notify_on_ack]
+.. option:: --asic-offload=[notify_on_offload|notify_on_ack]
 
    The linux kernel has the ability to use asic-offload ( see switchdev
    development ).  When the operator knows that FRR will be working in
@@ -76,10 +76,11 @@ Besides the common invocation options (:ref:`common-invocation-options`), the
    code only supports asynchronous notification of the offload state.
    In other words the initial ACK received for linux kernel installation
    does not give zebra any data about what the state of the offload
-   is.  This option takes the optional paramegers notify_on_offload
+   is.  This option takes the optional parameters notify_on_offload
    or notify_on_ack.  This signals to zebra to notify upper level
    protocols about route installation/update on ack received from
    the linux kernel or from offload notification.
+
 
 .. option:: -s <SIZE>, --nl-bufsize <SIZE>
 
@@ -296,7 +297,7 @@ the default route.
    Allow IPv6 nexthop tracking to resolve via the default route. This parameter
    is configured per-VRF, so the command is also available in the VRF subnode.
 
-.. clicmd:: show ip nht [vrf NAME] [A.B.C.D|X:X::X:X] [mrib]
+.. clicmd:: show ip nht [vrf NAME] [A.B.C.D|X:X::X:X] [mrib] [json]
 
    Show nexthop tracking status for address resolution.  If vrf is not specified
    then display the default vrf.  If ``all`` is specified show all vrf address
@@ -305,6 +306,17 @@ the default route.
    indicates that the operator wants to see the multicast rib address resolution
    table.  An alternative form of the command is ``show ip import-check`` and this
    form of the command is deprecated at this point in time.
+   User can get that information as JSON string when ``json`` key word
+   at the end of cli is presented.
+
+.. clicmd:: show ip nht route-map [vrf <NAME|all>] [json]
+
+   This command displays route-map attach point to nexthop tracking and
+   displays list of protocol with its applied route-map.
+   When zebra considers sending NHT resoultion, the nofification only
+   sent to appropriate client protocol only after applying route-map filter.
+   User can get that information as JSON format when ``json`` keyword
+   at the end of cli is presented.
 
 PBR dataplane programming
 =========================
@@ -745,7 +757,7 @@ and this section also helps that case.
    Create a new locator. If the name of an existing locator is specified,
    move to specified locator's configuration node to change the settings it.
 
-.. clicmd:: prefix X:X::X:X/M [func-bits 32]
+.. clicmd:: prefix X:X::X:X/M [func-bits (0-64)] [block-len 40] [node-len 24]
 
    Set the ipv6 prefix block of the locator. SRv6 locator is defined by
    RFC8986. The actual routing protocol specifies the locator and allocates a
@@ -764,9 +776,32 @@ and this section also helps that case.
    configure the locator's prefix as ``2001:db8:1:1::/64``, then default SID
    will be ``2001:db8:1:1:1::``)
 
+   This command takes three optional parameters: ``func-bits``, ``block-len``
+   and ``node-len``. These parameters allow users to set the format for the SIDs
+   allocated from the SRv6 Locator. SID Format is defined in RFC 8986.
+
+   According to RFC 8986, an SRv6 SID consists of BLOCK:NODE:FUNCTION:ARGUMENT,
+   where BLOCK is the SRv6 SID block (i.e., the IPv6 prefix allocated for SRv6
+   SIDs by the operator), NODE is the identifier of the parent node instantiating
+   the SID, FUNCTION identifies the local behavior associated to the SID and
+   ARGUMENT encodes additional information used to process the behavior.
+   BLOCK and NODE make up the SRv6 Locator.
+
    The function bits range is 16bits by default.  If operator want to change
    function bits range, they can configure with ``func-bits``
    option.
+
+   The ``block-len`` and ``node-len`` parameters allow the user to configure the
+   length of the SRv6 SID block and SRv6 SID node, respectively. Both the lengths
+   are expressed in bits.
+
+   ``block-len``, ``node-len`` and ``func-bits`` may be any value as long as
+   ``block-len+node-len = locator-len`` and ``block-len+node-len+func-bits <= 128``.
+
+   When both ``block-len`` and ``node-len`` are omitted, the following default
+   values are used: ``block-len = 24``, ``node-len = prefix-len-24``.
+
+   If only one parameter is omitted, the other parameter is derived from the first.
 
 ::
 
@@ -784,6 +819,36 @@ and this section also helps that case.
      locators
       locator loc1
        prefix 2001:db8:1:1::/64
+      !
+   ...
+
+.. clicmd:: behavior usid
+
+   Specify the SRv6 locator as a Micro-segment (uSID) locator. When a locator is
+   specified as a uSID locator, all the SRv6 SIDs allocated from the locator by the routing
+   protocols are bound to the SRv6 uSID behaviors. For example, if you configure BGP to use
+   a locator specified as a uSID locator, BGP instantiates and advertises SRv6 uSID behaviors
+   (e.g., ``uDT4`` / ``uDT6`` / ``uDT46``) instead of classic SRv6 behaviors
+   (e.g., ``End.DT4`` / ``End.DT6`` / ``End.DT46``).
+
+::
+
+   router# configure terminal
+   router(config)# segment-routinig
+   router(config-sr)# srv6
+   router(config-srv6)# locators
+   router(config-srv6-locators)# locator loc1
+   router(config-srv6-locator)# prefix fc00:0:1::/48 block-len 32 node-len 16 func-bits 16
+   router(config-srv6-locator)# behavior usid
+
+   router(config-srv6-locator)# show run
+   ...
+   segment-routing
+    srv6
+     locators
+      locator loc1
+       prefix fc00:0:1::/48
+       behavior usid
       !
    ...
 
@@ -1286,7 +1351,7 @@ zebra Terminal Mode Commands
    total number of route nodes in the table.  Which will be higher than
    the actual number of routes that are held.
 
-.. clicmd:: show nexthop-group rib [ID] [vrf NAME] [singleton [ip|ip6]] [type]
+.. clicmd:: show nexthop-group rib [ID] [vrf NAME] [singleton [ip|ip6]] [type] [json]
 
    Display nexthop groups created by zebra.  The [vrf NAME] option
    is only meaningful if you have started zebra with the --vrfwnetns

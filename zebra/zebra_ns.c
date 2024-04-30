@@ -34,6 +34,7 @@
 #include "zebra_netns_notify.h"
 #include "zebra_netns_id.h"
 #include "zebra_pbr.h"
+#include "zebra_tc.h"
 #include "rib.h"
 #include "table_manager.h"
 #include "zebra_errors.h"
@@ -127,6 +128,7 @@ int zebra_ns_enable(ns_id_t ns_id, void **info)
 	interface_list(zns);
 	route_read(zns);
 	kernel_read_pbr_rules(zns);
+	kernel_read_tc_qdisc(zns);
 
 	return 0;
 }
@@ -136,7 +138,9 @@ int zebra_ns_enable(ns_id_t ns_id, void **info)
  */
 static int zebra_ns_disable_internal(struct zebra_ns *zns, bool complete)
 {
-	route_table_finish(zns->if_table);
+	if (zns->if_table)
+		route_table_finish(zns->if_table);
+	zns->if_table = NULL;
 
 	zebra_dplane_ns_enable(zns, false /*Disable*/);
 

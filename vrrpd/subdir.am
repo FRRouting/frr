@@ -4,7 +4,6 @@
 
 if VRRPD
 sbin_PROGRAMS += vrrpd/vrrpd
-vtysh_scan += vrrpd/vrrp_vty.c
 vtysh_daemons += vrrpd
 man8 += $(MANBUILD)/frr-vrrpd.8
 endif

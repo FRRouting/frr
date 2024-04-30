@@ -36,6 +36,9 @@
 extern "C" {
 #endif
 
+/* Memory type for PBR objects. */
+DECLARE_MTYPE(PBR_OBJ);
+
 struct zebra_pbr_action {
 	afi_t afi;
 

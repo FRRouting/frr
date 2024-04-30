@@ -31,7 +31,7 @@
 #include "pcep_utils_logging.h"
 #include "pcep_utils_memory.h"
 
-double_linked_list *dll_initialize()
+double_linked_list *dll_initialize(void)
 {
 	double_linked_list *handle =
 		pceplib_malloc(PCEPLIB_INFRA, sizeof(double_linked_list));

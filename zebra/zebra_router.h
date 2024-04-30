@@ -172,6 +172,10 @@ struct zebra_router {
 
 	struct hash *iptable_hash;
 
+	struct hash *qdisc_hash;
+	struct hash *class_hash;
+	struct hash *filter_hash;
+
 	/* A sequence number used for tracking routes */
 	_Atomic uint32_t sequence_num;
 
@@ -219,6 +223,14 @@ struct zebra_router {
 	 */
 	bool asic_offloaded;
 	bool notify_on_ack;
+
+	/*
+	 * If the asic is notifying us about successful nexthop
+	 * allocation/control.  Some developers have made their
+	 * asic take control of how many nexthops/ecmp they can
+	 * have and will report what is successfull or not
+	 */
+	bool asic_notification_nexthop_control;
 
 	bool supports_nhgs;
 

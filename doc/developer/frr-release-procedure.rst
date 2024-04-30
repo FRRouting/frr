@@ -235,6 +235,9 @@ Stage 3 - Publish
 #. Deploy the updated ``frr-www`` on the frrouting.org web server and verify
    that the announcement text is visible.
 
+#. Update readthedocs.org (Default Version) for https://docs.frrouting.org to
+   be the version of this latest release.
+
 #. Send an email to ``announce@lists.frrouting.org``. The text of this email
    should include text as appropriate from the GitHub release and a link to the
    GitHub release, Debian repository, and RPM repository.

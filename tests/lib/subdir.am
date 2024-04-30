@@ -93,7 +93,7 @@ tests_lib_cli_test_commands_LDADD = $(ALL_TESTS_LDADD)
 nodist_tests_lib_cli_test_commands_SOURCES = tests/lib/cli/test_commands_defun.c
 tests_lib_cli_test_commands_SOURCES = tests/lib/cli/test_commands.c tests/helpers/c/prng.c
 tests/lib/cli/test_commands_defun.c: vtysh/vtysh_cmd.c
-	@mkdir -p tests/lib/cli
+	@$(MKDIR_P) tests/lib/cli
 	$(AM_V_GEN)sed \
 		-e 's%"vtysh/vtysh\.h"%"tests/helpers/c/tests.h"%' \
 		-e 's/vtysh_init_cmd/test_init_cmd/' \

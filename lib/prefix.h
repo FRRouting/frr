@@ -301,22 +301,6 @@ struct prefix_sg {
 	struct in_addr grp;
 };
 
-/* helper to get type safety/avoid casts on calls
- * (w/o this, functions accepting all prefix types need casts on the caller
- * side, which strips type safety since the cast will accept any pointer
- * type.)
- */
-#ifndef __cplusplus
-#define prefixtype(uname, typename, fieldname) \
-	typename *fieldname;
-#define TRANSPARENT_UNION __attribute__((transparent_union))
-#else
-#define prefixtype(uname, typename, fieldname) \
-	typename *fieldname; \
-	uname(typename *x) { this->fieldname = x; }
-#define TRANSPARENT_UNION
-#endif
-
 union prefixptr {
 	prefixtype(prefixptr, struct prefix,      p)
 	prefixtype(prefixptr, struct prefix_ipv4, p4)
@@ -414,6 +398,7 @@ extern afi_t family2afi(int);
 extern const char *family2str(int family);
 extern const char *safi2str(safi_t safi);
 extern const char *afi2str(afi_t afi);
+extern const char *afi2str_lower(afi_t afi);
 
 static inline afi_t prefix_afi(union prefixconstptr pu)
 {
@@ -510,6 +495,7 @@ extern char *esi_to_str(const esi_t *esi, char *buf, int size);
 extern char *evpn_es_df_alg2str(uint8_t df_alg, char *buf, int buf_len);
 extern void prefix_evpn_hexdump(const struct prefix_evpn *p);
 extern bool ipv4_unicast_valid(const struct in_addr *addr);
+extern int evpn_prefix2prefix(const struct prefix *evpn, struct prefix *to);
 
 static inline int ipv6_martian(const struct in6_addr *addr)
 {

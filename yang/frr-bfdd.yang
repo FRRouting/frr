@@ -242,6 +242,36 @@ module frr-bfdd {
     }
   }
 
+  grouping bfd-monitoring {
+    description
+      "BFD monitoring template for protocol integration.";
+
+    leaf source {
+      type inet:ip-address;
+      description
+        "Source address to use for liveness check.
+
+         When source is not set and multi-hop is `false` the source
+         address will be `0.0.0.0` (any).
+
+         When source is not set and multi-hop is `true` the source
+         address will be automatic selected through Next Hop Tracking (NHT).";
+    }
+
+    leaf multi-hop {
+      description
+        "Use multi hop session instead of single hop.";
+      type boolean;
+      default false;
+    }
+
+    leaf profile {
+      description
+        "BFD pre configured profile.";
+      type frr-bfdd:profile-ref;
+    }
+  }
+
   grouping session-states {
     /*
      * Local settings.

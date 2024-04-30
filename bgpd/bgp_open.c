@@ -357,6 +357,7 @@ static void bgp_capability_orf_not_support(struct peer *peer, iana_afi_t afi,
 }
 
 static const struct message orf_type_str[] = {
+	{ORF_TYPE_RESERVED, "Reserved"},
 	{ORF_TYPE_PREFIX, "Prefixlist"},
 	{ORF_TYPE_PREFIX_OLD, "Prefixlist (old)"},
 	{0}};
@@ -433,6 +434,12 @@ static int bgp_capability_orf_entry(struct peer *peer,
 		switch (hdr->code) {
 		case CAPABILITY_CODE_ORF:
 			switch (type) {
+			case ORF_TYPE_RESERVED:
+				if (bgp_debug_neighbor_events(peer))
+					zlog_debug(
+						"%s Addr-family %d/%d has reserved ORF type, ignoring",
+						peer->host, afi, safi);
+				break;
 			case ORF_TYPE_PREFIX:
 				break;
 			default:
@@ -443,6 +450,12 @@ static int bgp_capability_orf_entry(struct peer *peer,
 			break;
 		case CAPABILITY_CODE_ORF_OLD:
 			switch (type) {
+			case ORF_TYPE_RESERVED:
+				if (bgp_debug_neighbor_events(peer))
+					zlog_debug(
+						"%s Addr-family %d/%d has reserved ORF type, ignoring",
+						peer->host, afi, safi);
+				break;
 			case ORF_TYPE_PREFIX_OLD:
 				break;
 			default:
@@ -1128,13 +1141,6 @@ static int bgp_capability_parse(struct peer *peer, size_t length,
 	return 0;
 }
 
-static int bgp_auth_parse(struct peer *peer, size_t length)
-{
-	bgp_notify_send(peer, BGP_NOTIFY_OPEN_ERR,
-			BGP_NOTIFY_OPEN_AUTH_FAILURE);
-	return -1;
-}
-
 static bool strict_capability_same(struct peer *peer)
 {
 	int i, j;
@@ -1338,17 +1344,11 @@ int bgp_open_option_parse(struct peer *peer, uint16_t length,
 			zlog_debug(
 				"%s rcvd OPEN w/ optional parameter type %u (%s) len %u",
 				peer->host, opt_type,
-				opt_type == BGP_OPEN_OPT_AUTH
-					? "Authentication"
-					: opt_type == BGP_OPEN_OPT_CAP
-						  ? "Capability"
-						  : "Unknown",
+				opt_type == BGP_OPEN_OPT_CAP ? "Capability"
+							     : "Unknown",
 				opt_length);
 
 		switch (opt_type) {
-		case BGP_OPEN_OPT_AUTH:
-			ret = bgp_auth_parse(peer, opt_length);
-			break;
 		case BGP_OPEN_OPT_CAP:
 			ret = bgp_capability_parse(peer, opt_length,
 						   mp_capability, &error);
@@ -1657,7 +1657,7 @@ uint16_t bgp_open_capability(struct stream *s, struct peer *peer,
 	iana_safi_t pkt_safi = IANA_SAFI_UNICAST;
 	as_t local_as;
 	uint8_t afi_safi_count = 0;
-	int adv_addpath_tx = 0;
+	bool adv_addpath_tx = false;
 
 	/* Non-Ext OP Len. */
 	cp = stream_get_endp(s);
@@ -1796,7 +1796,17 @@ uint16_t bgp_open_capability(struct stream *s, struct peer *peer,
 			 * will use it is
 			 * configured */
 			if (peer->addpath_type[afi][safi] != BGP_ADDPATH_NONE)
-				adv_addpath_tx = 1;
+				adv_addpath_tx = true;
+
+			/* If we have enabled labeled unicast, we MUST check
+			 * against unicast SAFI because addpath IDs are
+			 * allocated under unicast SAFI, the same as the RIB
+			 * is managed in unicast SAFI.
+			 */
+			if (safi == SAFI_LABELED_UNICAST)
+				if (peer->addpath_type[afi][SAFI_UNICAST] !=
+				    BGP_ADDPATH_NONE)
+					adv_addpath_tx = true;
 		}
 	}
 
@@ -1837,6 +1847,10 @@ uint16_t bgp_open_capability(struct stream *s, struct peer *peer,
 				SET_FLAG(flags, BGP_ADDPATH_TX);
 				SET_FLAG(peer->af_cap[afi][safi],
 					 PEER_CAP_ADDPATH_AF_TX_ADV);
+				if (safi == SAFI_LABELED_UNICAST)
+					SET_FLAG(
+						peer->af_cap[afi][SAFI_UNICAST],
+						PEER_CAP_ADDPATH_AF_TX_ADV);
 			} else {
 				UNSET_FLAG(peer->af_cap[afi][safi],
 					   PEER_CAP_ADDPATH_AF_TX_ADV);
