@@ -1446,11 +1446,11 @@ int bgp_peer_gr_init(struct peer *peer)
 	{
 	/*	PEER_GLOBAL_INHERIT Mode	*/
 	/* Event-> */ /* PEER_GR_CMD */		/* NO_PEER_GR_CMD */
-		{ PEER_GR, bgp_peer_gr_action }, { PEER_INVALID, NULL },
+		{ PEER_GR, bgp_peer_gr_action }, { PEER_GLOBAL_INHERIT, NULL },
 	/* Event-> */ /* PEER_DISABLE_CMD */     /* NO_PEER_DISABLE_CMD */
-		{ PEER_DISABLE, bgp_peer_gr_action}, { PEER_INVALID, NULL },
+		{ PEER_DISABLE, bgp_peer_gr_action }, { PEER_GLOBAL_INHERIT, NULL },
 	/* Event-> */ /* PEER_HELPER_cmd */     /* NO_PEER_HELPER_CMD */
-		{ PEER_HELPER, bgp_peer_gr_action }, { PEER_INVALID, NULL }
+		{ PEER_HELPER, bgp_peer_gr_action }, { PEER_GLOBAL_INHERIT, NULL }
 	}
 	};
 	memcpy(&peer->PEER_GR_FSM, local_Peer_GR_FSM,
