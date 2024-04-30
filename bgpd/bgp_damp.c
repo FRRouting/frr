@@ -211,8 +211,7 @@ static void bgp_reuse_timer(struct event *t)
 
 			if (bdi->penalty <= bdc->reuse_limit / 2.0) {
 				bgp_reuselist_del(&plist, bdi);
-				bgp_damp_info_free(bdi, bdc, 1, bdi->afi,
-						   bdi->safi);
+				bgp_damp_info_free(bdi, 1);
 			} else {
 				bdi->index = BGP_DAMP_NO_REUSE_LIST_INDEX;
 				bgp_reuselist_switch(&plist, bdi,
@@ -360,16 +359,15 @@ int bgp_damp_update(struct bgp_path_info *path, struct bgp_dest *dest,
 		bdi->t_updated = t_now;
 	else {
 		bgp_damp_info_unclaim(bdi);
-		bgp_damp_info_free(bdi, bdc, 0, afi, safi);
+		bgp_damp_info_free(bdi, 0);
 	}
 
 	return status;
 }
 
-void bgp_damp_info_free(struct bgp_damp_info *bdi, struct bgp_damp_config *bdc,
-			int withdraw, afi_t afi, safi_t safi)
+void bgp_damp_info_free(struct bgp_damp_info *bdi, int withdraw)
 {
-	assert(bdc && bdi);
+	assert(bdi);
 
 	if (bdi->path == NULL) {
 		XFREE(MTYPE_BGP_DAMP_INFO, bdi);
@@ -380,10 +378,8 @@ void bgp_damp_info_free(struct bgp_damp_info *bdi, struct bgp_damp_config *bdc,
 	bgp_path_info_unset_flag(bdi->dest, bdi->path,
 				 BGP_PATH_HISTORY | BGP_PATH_DAMPED);
 
-	if (bdi->lastrecord == BGP_RECORD_WITHDRAW && withdraw) {
+	if (bdi->lastrecord == BGP_RECORD_WITHDRAW && withdraw)
 		bgp_path_info_delete(bdi->dest, bdi->path);
-		bgp_process(bdi->path->peer->bgp, bdi->dest, bdi->path, afi, safi);
-	}
 
 	XFREE(MTYPE_BGP_DAMP_INFO, bdi);
 }
@@ -500,13 +496,13 @@ void bgp_damp_info_clean(struct bgp *bgp, struct bgp_damp_config *bdc,
 					    bdi->safi);
 			}
 			bgp_reuselist_del(list, bdi);
-			bgp_damp_info_free(bdi, bdc, 1, afi, safi);
+			bgp_damp_info_free(bdi, 1);
 		}
 	}
 
 	while ((bdi = SLIST_FIRST(&bdc->no_reuse_list)) != NULL) {
 		bgp_reuselist_del(&bdc->no_reuse_list, bdi);
-		bgp_damp_info_free(bdi, bdc, 1, afi, safi);
+		bgp_damp_info_free(bdi, 1);
 	}
 
 	/* Free decay array */
