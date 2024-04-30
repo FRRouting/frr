@@ -66,6 +66,8 @@ static GTY(()) tree local_pid_t_node;
 static GTY(()) tree local_uid_t_node;
 static GTY(()) tree local_gid_t_node;
 static GTY(()) tree local_time_t_node;
+static GTY(()) tree local_suseconds_t_node;
+static GTY(()) tree local_suseconds64_t_node;
 
 static GTY(()) tree local_socklen_t_node;
 static GTY(()) tree local_in_addr_t_node;
@@ -85,6 +87,8 @@ static struct type_special {
   { &local_uid_t_node,		NULL,			&local_uid_t_node, },
   { &local_gid_t_node,		NULL,			&local_gid_t_node, },
   { &local_time_t_node,		NULL,			&local_time_t_node, },
+  { &local_suseconds_t_node,	NULL,			&local_suseconds_t_node, },
+  { &local_suseconds64_t_node,	NULL,			&local_suseconds64_t_node, },
   { NULL,			NULL,			NULL, }
 };
 
@@ -4176,6 +4180,8 @@ handle_finish_parse (void *event_data, void *data)
   setup_type ("uid_t", &local_uid_t_node);
   setup_type ("gid_t", &local_gid_t_node);
   setup_type ("time_t", &local_time_t_node);
+  setup_type ("__suseconds_t", &local_suseconds_t_node);
+  setup_type ("__suseconds64_t", &local_suseconds64_t_node);
 
   setup_type ("socklen_t", &local_socklen_t_node);
   setup_type ("in_addr_t", &local_in_addr_t_node);
