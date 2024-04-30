@@ -29,6 +29,17 @@ static int path_zebra_opaque_msg_handler(ZAPI_CALLBACK_ARGS);
 struct zclient *zclient;
 static struct zclient *zclient_sync;
 
+/* Event to retry synch zapi setup for label-manager */
+static struct event *t_sync_connect;
+
+enum path_sync_level {
+	PATH_SYNC_NONE = 0,
+	PATH_SYNC_CONN,
+	PATH_SYNC_HELLO,
+	PATH_SYNC_DONE
+};
+static enum path_sync_level path_sync_client_level;
+
 /* Global Variables */
 bool g_has_router_id_v4 = false;
 bool g_has_router_id_v6 = false;
@@ -236,26 +247,48 @@ void path_zebra_release_label(mpls_label_t label)
 		zlog_warn("%s: error releasing label range!", __func__);
 }
 
-static void path_zebra_label_manager_connect(void)
+/*
+ * Initialize and connect the synchronous zclient session for the
+ * label-manager. This is prepared to retry on error.
+ */
+static void path_zebra_label_manager_connect(struct event *event)
 {
-	/* Connect to label manager. */
-	while (zclient_socket_connect(zclient_sync) < 0) {
-		zlog_warn("%s: error connecting synchronous zclient!",
-			  __func__);
-		sleep(1);
+	if (path_sync_client_level == PATH_SYNC_NONE) {
+		/* Connect to label manager. */
+		if (zclient_socket_connect(zclient_sync) < 0) {
+			zlog_warn("%s: error connecting synchronous zclient!",
+				  __func__);
+			event_add_timer(master, path_zebra_label_manager_connect,
+					NULL, 1, &t_sync_connect);
+			return;
+		}
+		set_nonblocking(zclient_sync->sock);
+
+		path_sync_client_level = PATH_SYNC_CONN;
 	}
-	set_nonblocking(zclient_sync->sock);
 
 	/* Send hello to notify zebra this is a synchronous client */
-	while (zclient_send_hello(zclient_sync) < 0) {
-		zlog_warn("%s: Error sending hello for synchronous zclient!",
-			  __func__);
-		sleep(1);
+	if (path_sync_client_level == PATH_SYNC_CONN) {
+		if (zclient_send_hello(zclient_sync) == ZCLIENT_SEND_FAILURE) {
+			zlog_warn("%s: Error sending hello for synchronous zclient!",
+				  __func__);
+			event_add_timer(master, path_zebra_label_manager_connect,
+					NULL, 1, &t_sync_connect);
+			return;
+		}
+
+		path_sync_client_level = PATH_SYNC_HELLO;
 	}
 
-	while (lm_label_manager_connect(zclient_sync, 0) != 0) {
-		zlog_warn("%s: error connecting to label manager!", __func__);
-		sleep(1);
+	if (path_sync_client_level == PATH_SYNC_HELLO) {
+		if (lm_label_manager_connect(zclient_sync, 0) != 0) {
+			zlog_warn("%s: error connecting to label manager!",
+				  __func__);
+			event_add_timer(master, path_zebra_label_manager_connect,
+					NULL, 1, &t_sync_connect);
+			return;
+		}
+		path_sync_client_level = PATH_SYNC_DONE;
 	}
 }
 
@@ -334,13 +367,15 @@ void path_zebra_init(struct event_loop *master)
 	zclient_sync->privs = &pathd_privs;
 
 	/* Connect to the LM. */
-	path_zebra_label_manager_connect();
+	t_sync_connect = NULL;
+	path_zebra_label_manager_connect(NULL);
 }
 
 void path_zebra_stop(void)
 {
 	zclient_stop(zclient);
 	zclient_free(zclient);
+	event_cancel(&t_sync_connect);
 	zclient_stop(zclient_sync);
 	zclient_free(zclient_sync);
 }
