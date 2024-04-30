@@ -56,6 +56,7 @@ override_dh_auto_configure:
 		--with-libpam \
 		--enable-doc \
 		--enable-doc-html \
+		--enable-irdp \
 		--enable-snmp \
 		--enable-fpm \
 		--disable-protobuf \

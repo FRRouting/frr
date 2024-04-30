@@ -1,3 +1,13 @@
+frr (10.0-0.1) unstable; urgency=medium
+
+  * Non-maintainer upload.
+  * New upstream release.
+  * Bumping libyang2 build-depends to required version.
+  * Removing CVE-2024-27913.patch, included upstream.
+  * Adding now explicit configure flag to keep enabled building zebra_irdp.
+
+ -- Daniel Baumann <daniel.baumann@progress-linux.org>  Sat, 27 Apr 2024 05:46:52 +0200
+
 frr (9.1-0.1) unstable; urgency=high
 
   * Non-maintainer upload.
