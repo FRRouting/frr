@@ -619,6 +619,11 @@ static void netlink_install_filter(int sock, uint32_t pid, uint32_t dplane_pid)
 			     safe_strerror(errno));
 }
 
+/*
+ * Please note, the assumption with this function is that the
+ * flags passed in that are bit masked with type, we are implicitly
+ * assuming that this is handling the NLA_F_NESTED ilk.
+ */
 void netlink_parse_rtattr_flags(struct rtattr **tb, int max, struct rtattr *rta,
 				int len, unsigned short flags)
 {
@@ -638,8 +643,19 @@ void netlink_parse_rtattr(struct rtattr **tb, int max, struct rtattr *rta,
 {
 	memset(tb, 0, sizeof(struct rtattr *) * (max + 1));
 	while (RTA_OK(rta, len)) {
-		if (rta->rta_type <= max)
-			tb[rta->rta_type] = rta;
+		/*
+		 * The type may be &'ed with NLA_F_NESTED
+		 * which puts data in the upper 8 bits of the
+		 * rta_type.  Mask it off and save the actual
+		 * underlying value to be placed into the array.
+		 * This way we don't accidently crash in the future
+		 * when the kernel sends us new data and we try
+		 * to write well beyond the end of the array.
+		 */
+		uint16_t type = rta->rta_type & NLA_TYPE_MASK;
+
+		if (type <= max)
+			tb[type] = rta;
 		rta = RTA_NEXT(rta, len);
 	}
 }

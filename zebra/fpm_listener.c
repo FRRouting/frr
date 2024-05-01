@@ -344,17 +344,19 @@ static int parse_rtattrs_(struct rtattr *rta, size_t len, struct rtattr **rtas,
 	memset(rtas, 0, num_rtas * sizeof(rtas[0]));
 
 	for (; len > 0; rta = RTA_NEXT(rta, len)) {
+		uint16_t type = rta->rta_type & NLA_TYPE_MASK;
+
 		if (!RTA_OK(rta, len)) {
 			*err_msg = "Malformed rta";
 			return 0;
 		}
 
-		if (rta->rta_type >= num_rtas) {
+		if (type >= num_rtas) {
 			warn("Unknown rtattr type %d", rta->rta_type);
 			continue;
 		}
 
-		rtas[rta->rta_type] = rta;
+		rtas[type] = rta;
 	}
 
 	return 1;
