@@ -31,10 +31,12 @@ pytestmark = [pytest.mark.bgpd]
 
 def build_topo(tgen):
     r1 = tgen.add_router("r1")
-    peer1 = tgen.add_exabgp_peer("peer1", ip="10.0.0.2", defaultRoute="via 10.0.0.1")
+    r2 = tgen.add_router("r2")
+    peer1 = tgen.add_exabgp_peer("peer1", ip="10.0.0.254", defaultRoute="via 10.0.0.1")
 
     switch = tgen.add_switch("s1")
     switch.add_link(r1)
+    switch.add_link(r2)
     switch.add_link(peer1)
 
 
@@ -42,10 +44,10 @@ def setup_module(mod):
     tgen = Topogen(build_topo, mod.__name__)
     tgen.start_topology()
 
-    router = tgen.gears["r1"]
-    router.load_config(TopoRouter.RD_ZEBRA, os.path.join(CWD, "r1/zebra.conf"))
-    router.load_config(TopoRouter.RD_BGP, os.path.join(CWD, "r1/bgpd.conf"))
-    router.start()
+    for _, (rname, router) in enumerate(tgen.routers().items(), 1):
+        router.load_frr_config(os.path.join(CWD, "{}/frr.conf".format(rname)))
+
+    tgen.start_router()
 
     peer = tgen.gears["peer1"]
     peer.start(os.path.join(CWD, "peer1"), os.path.join(CWD, "exabgp.env"))
@@ -63,6 +65,7 @@ def test_bgp_path_attribute_discard():
         pytest.skip(tgen.errors)
 
     r1 = tgen.gears["r1"]
+    r2 = tgen.gears["r2"]
 
     def _bgp_converge():
         output = json.loads(r1.vtysh_cmd("show bgp ipv4 unicast json detail"))
@@ -103,7 +106,7 @@ def test_bgp_path_attribute_discard():
         """
     configure terminal
         router bgp
-            neighbor 10.0.0.2 path-attribute discard 6 8
+            neighbor 10.0.0.254 path-attribute discard 6 8
     """
     )
 
@@ -138,6 +141,28 @@ def test_bgp_path_attribute_discard():
     assert (
         result is None
     ), "Failed to discard path attributes (atomic-aggregate, community)"
+
+    def _bgp_check_if_aigp_invalid_attribute_discarded():
+        output = json.loads(r2.vtysh_cmd("show bgp ipv4 unicast json detail"))
+        expected = {
+            "routes": {
+                "192.168.100.101/32": {
+                    "paths": [
+                        {
+                            "valid": True,
+                            "aigpMetric": None,
+                        }
+                    ],
+                },
+            }
+        }
+        return topotest.json_cmp(output, expected)
+
+    test_func = functools.partial(_bgp_check_if_aigp_invalid_attribute_discarded)
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=0.5)
+    assert (
+        result is None
+    ), "Failed to discard AIGP invalid path attribute (iBGP session)"
 
 
 def test_memory_leak():
