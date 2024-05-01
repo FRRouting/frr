@@ -455,6 +455,12 @@ _Static_assert(sizeof(_uint64_t) == 8 && sizeof(_int64_t) == 8,
 #define unlikely(_x) !!(_x)
 #endif
 
+#ifdef __MACH__
+#define _DATA_SECTION(name) __attribute__((section("__DATA," name)))
+#else
+#define _DATA_SECTION(name) __attribute__((section(".data." name)))
+#endif
+
 #ifdef __cplusplus
 }
 #endif
