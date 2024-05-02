@@ -62,7 +62,8 @@ def disable_debug(router):
     router.vtysh_cmd("no debug northbound callbacks configuration")
 
 
-def do_oper_test(tgen, query_results):
+@retry(retry_timeout=30, initial_wait=1)
+def _do_oper_test(tgen, qr):
     r1 = tgen.gears["r1"].net
 
     qcmd = (
@@ -73,50 +74,55 @@ def do_oper_test(tgen, query_results):
         r"""| sed -e 's/"if-index": [0-9][0-9]*/"if-index": "rubout"/'"""
         r"""| sed -e 's/"id": [0-9][0-9]*/"id": "rubout"/'"""
     )
-
-    doreset = True
+    # Don't use this for now.
     dd_json_cmp = None
-    for qr in query_results:
-        step(f"Perform query '{qr[0]}'", reset=doreset)
-        if doreset:
-            doreset = False
-        expected = open(qr[1], encoding="ascii").read()
-        output = r1.cmd_nostatus(qcmd.format(qr[0], qr[2] if len(qr) > 2 else ""))
 
-        try:
-            ojson = json.loads(output)
-        except json.decoder.JSONDecodeError as error:
-            logging.error("Error decoding json: %s\noutput:\n%s", error, output)
-            raise
+    expected = open(qr[1], encoding="ascii").read()
+    output = r1.cmd_nostatus(qcmd.format(qr[0], qr[2] if len(qr) > 2 else ""))
 
-        try:
-            ejson = json.loads(expected)
-        except json.decoder.JSONDecodeError as error:
-            logging.error(
-                "Error decoding json exp result: %s\noutput:\n%s", error, expected
+    try:
+        ojson = json.loads(output)
+    except json.decoder.JSONDecodeError as error:
+        logging.error("Error decoding json: %s\noutput:\n%s", error, output)
+        raise
+
+    try:
+        ejson = json.loads(expected)
+    except json.decoder.JSONDecodeError as error:
+        logging.error(
+            "Error decoding json exp result: %s\noutput:\n%s", error, expected
+        )
+        raise
+
+    if dd_json_cmp:
+        cmpout = json_cmp(ojson, ejson, exact_match=True)
+        if cmpout:
+            logging.warning(
+                "-------DIFF---------\n%s\n---------DIFF----------",
+                pprint.pformat(cmpout),
             )
-            raise
+    else:
+        cmpout = tt_json_cmp(ojson, ejson, exact=True)
+        if cmpout:
+            logging.warning(
+                "-------EXPECT--------\n%s\n------END-EXPECT------",
+                json.dumps(ejson, indent=4),
+            )
+            logging.warning(
+                "--------GOT----------\n%s\n-------END-GOT--------",
+                json.dumps(ojson, indent=4),
+            )
 
-        if dd_json_cmp:
-            cmpout = json_cmp(ojson, ejson, exact_match=True)
-            if cmpout:
-                logging.warning(
-                    "-------DIFF---------\n%s\n---------DIFF----------",
-                    pprint.pformat(cmpout),
-                )
-        else:
-            cmpout = tt_json_cmp(ojson, ejson, exact=True)
-            if cmpout:
-                logging.warning(
-                    "-------EXPECT--------\n%s\n------END-EXPECT------",
-                    json.dumps(ejson, indent=4),
-                )
-                logging.warning(
-                    "--------GOT----------\n%s\n-------END-GOT--------",
-                    json.dumps(ojson, indent=4),
-                )
+    assert cmpout is None
 
-        assert cmpout is None
+
+def do_oper_test(tgen, query_results):
+    reset = True
+    for qr in query_results:
+        step(f"Perform query '{qr[0]}'", reset=reset)
+        if reset:
+            reset = False
+        _do_oper_test(tgen, qr)
 
 
 def get_ip_networks(super_prefix, count):
