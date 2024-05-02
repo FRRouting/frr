@@ -22,7 +22,7 @@ import argparse
 
 from clippy.uidhash import uidhash
 from clippy.elf import *
-from clippy import frr_top_src, CmdAttr
+from clippy import frr_top_src, CmdAttr, elf_notes
 from tiabwarfo import FieldApplicator
 from xref2vtysh import CommandEntry
 
@@ -327,6 +327,7 @@ class Xrelfo(dict):
             }
         )
         self._xrefs = []
+        self.note_warn = False
 
     def load_file(self, filename):
         orig_filename = filename
@@ -395,6 +396,15 @@ class Xrelfo(dict):
             ptrs = edf.iter_data(XrefPtr, slice(start, end))
 
         else:
+            if elf_notes:
+                self.note_warn = True
+                sys.stderr.write(
+                    """%s: warning: binary has no FRRouting.XREF note
+%s-   one of FRR_MODULE_SETUP, FRR_DAEMON_INFO or XREF_SETUP must be used
+"""
+                    % (orig_filename, orig_filename)
+                )
+
             xrefarray = edf.get_section("xref_array")
             if xrefarray is None:
                 raise ValueError("file has neither xref note nor xref_array section")
@@ -470,6 +480,9 @@ def _main(args):
             errors += 1
             sys.stderr.write("while processing %s:\n" % (fn))
             traceback.print_exc()
+
+    if xrelfo.note_warn and args.Werror:
+        errors += 1
 
     for option in dir(args):
         if option.startswith("W") and option != "Werror":
