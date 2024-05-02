@@ -455,9 +455,9 @@ void ospf6_interface_connected_route_update(struct interface *ifp)
 			}
 		}
 
-		if (oi->state == OSPF6_INTERFACE_LOOPBACK ||
-		    oi->state == OSPF6_INTERFACE_POINTTOMULTIPOINT ||
-		    oi->state == OSPF6_INTERFACE_POINTTOPOINT) {
+		if (oi->type == OSPF_IFTYPE_LOOPBACK ||
+		    oi->type == OSPF_IFTYPE_POINTOMULTIPOINT ||
+		    oi->type == OSPF_IFTYPE_POINTOPOINT) {
 			struct ospf6_route *la_route;
 
 			la_route = ospf6_route_create(oi->area->ospf6);
@@ -475,10 +475,10 @@ void ospf6_interface_connected_route_update(struct interface *ifp)
 			ospf6_route_add(la_route, oi->route_connected);
 		}
 
-		if (oi->state == OSPF6_INTERFACE_POINTTOMULTIPOINT &&
+		if (oi->type == OSPF_IFTYPE_POINTOMULTIPOINT &&
 		    !oi->p2xp_connected_pfx_include)
 			continue;
-		if (oi->state == OSPF6_INTERFACE_POINTTOPOINT &&
+		if (oi->type == OSPF_IFTYPE_POINTOPOINT &&
 		    oi->p2xp_connected_pfx_exclude)
 			continue;
 
@@ -792,8 +792,8 @@ void interface_up(struct event *thread)
 		return;
 	}
 
-	/* Recompute cost */
-	ospf6_interface_recalculate_cost(oi);
+	/* Recompute cost & update connected LSAs */
+	ospf6_interface_force_recalculate_cost(oi);
 
 	/* if already enabled, do nothing */
 	if (oi->state > OSPF6_INTERFACE_DOWN) {
@@ -2644,13 +2644,14 @@ DEFUN (ipv6_ospf6_network,
 
 DEFUN (no_ipv6_ospf6_network,
        no_ipv6_ospf6_network_cmd,
-       "no ipv6 ospf6 network [<broadcast|point-to-point>]",
+       "no ipv6 ospf6 network [<broadcast|point-to-point|point-to-multipoint>]",
        NO_STR
        IP6_STR
        OSPF6_STR
        "Set default network type\n"
        "Specify OSPF6 broadcast network\n"
-       "Specify OSPF6 point-to-point network\n")
+       "Specify OSPF6 point-to-point network\n"
+       "Specify OSPF6 point-to-multipoint network\n")
 {
 	VTY_DECLVAR_CONTEXT(interface, ifp);
 	struct ospf6_interface *oi;
