@@ -58,7 +58,7 @@ static void sighup(void)
 static void sigint(void)
 {
 	zlog_notice("Terminating on signal");
-	zlog_notice("Unregisterfrom opaque,etc ");
+	zlog_notice("Unregister from opaque,etc ");
 	pathd_shutdown();
 
 	exit(0);
