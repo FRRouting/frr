@@ -15,10 +15,38 @@
 DEFINE_KOOH(zserv_client_close, (struct zserv * client), (client));
 unsigned long zebra_debug_packet = 0;
 
+/* current sysctl platform_labels value */
+uint32_t label_manager_platform_value;
+/* max label value needed for label input: input labels for swapping and popped labels */
+uint32_t label_manager_platform_max_input;
+static bool platform_auto; /* configured auto platform_labels */
+
 struct zebra_router zrouter = {
 	.multipath_num = MULTIPATH_NUM,
 	.ipv4_multicast_mode = MCAST_NO_CONFIG,
 };
+
+/*
+ * Returns true if label manager controls the
+ * mpls max label value to support.
+ */
+bool zebra_mpls_is_platform_auto_enabled(void)
+{
+	return platform_auto;
+}
+
+void zebra_mpls_platform_labels_update()
+{
+	uint32_t platform_labels_new;
+
+	platform_labels_new = MPLS_LABEL_MAX;
+
+	if (label_manager_platform_value == platform_labels_new)
+		/* no need to update sysctl platform_labels */
+		return;
+
+	label_manager_platform_value = platform_labels_new;
+}
 
 struct zserv *zserv_find_client_session(uint8_t proto, unsigned short instance,
 					uint32_t session_id)
