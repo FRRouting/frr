@@ -15839,42 +15839,38 @@ static int bgp_clear_damp_route(struct vty *vty, const char *view_name,
 		}
 	} else {
 		dest = bgp_node_match(bgp->rib[afi][safi], &match);
-		if (dest != NULL) {
-			const struct prefix *dest_p = bgp_dest_get_prefix(dest);
+		if (!dest)
+			return CMD_SUCCESS;
 
-			if (!prefix_check
-			    || dest_p->prefixlen == match.prefixlen) {
-				pi = bgp_dest_get_bgp_path_info(dest);
-				while (pi) {
-					if (pi->extra && pi->extra->damp_info) {
-						pi_temp = pi->next;
-						struct bgp_damp_info *bdi =
-							pi->extra->damp_info;
-						if (bdi->lastrecord
-						    == BGP_RECORD_UPDATE) {
-							bgp_aggregate_increment(
-								bgp,
-								bgp_dest_get_prefix(
-									bdi->dest),
-								bdi->path,
-								bdi->afi,
-								bdi->safi);
-							bgp_process(bgp,
-								    bdi->dest,
-								    bdi->path,
-								    bdi->afi,
-								    bdi->safi);
-						}
-						bgp_damp_info_free(pi->extra->damp_info,
-								   NULL, 1);
-						pi = pi_temp;
-					} else
-						pi = pi->next;
-				}
+		const struct prefix *dest_p = bgp_dest_get_prefix(dest);
+
+		if (prefix_check || dest_p->prefixlen != match.prefixlen)
+			return CMD_SUCCESS;
+
+		pi = bgp_dest_get_bgp_path_info(dest);
+		while (pi) {
+			if (!(pi->extra && pi->extra->damp_info)) {
+				pi = pi->next;
+				continue;
 			}
 
-			bgp_dest_unlock_node(dest);
+			pi_temp = pi->next;
+			struct bgp_damp_info *bdi = pi->extra->damp_info;
+
+			if (bdi->lastrecord != BGP_RECORD_UPDATE)
+				continue;
+
+			bgp_aggregate_increment(bgp,
+						bgp_dest_get_prefix(bdi->dest),
+						bdi->path, bdi->afi, bdi->safi);
+			bgp_process(bgp, bdi->dest, bdi->path, bdi->afi,
+				    bdi->safi);
+
+			bgp_damp_info_free(pi->extra->damp_info, NULL, 1);
+			pi = pi_temp;
 		}
+
+		bgp_dest_unlock_node(dest);
 	}
 
 	return CMD_SUCCESS;
