@@ -10,3 +10,8 @@
 /*
  * Main file for the fpm_pb library.
  */
+
+#include "config.h"
+#include "xref.h"
+
+XREF_SETUP();

@@ -16,6 +16,7 @@ clippy_scan += \
 
 lib_LTLIBRARIES += mgmtd/libmgmt_be_nb.la
 mgmtd_libmgmt_be_nb_la_SOURCES = \
+	mgmtd/mgmt_be_nb.c \
 	zebra/zebra_cli.c \
 	# end
 nodist_mgmtd_libmgmt_be_nb_la_SOURCES = \
