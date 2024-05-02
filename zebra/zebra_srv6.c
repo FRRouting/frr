@@ -2279,6 +2279,8 @@ static int srv6_manager_get_sid_internal(struct zebra_srv6_sid **sid,
 					 const char *locator_name)
 {
 	int ret = -1;
+	struct listnode *node;
+	struct zserv *c;
 	char buf[256];
 
 	if (IS_ZEBRA_DEBUG_PACKET)
@@ -2291,6 +2293,10 @@ static int srv6_manager_get_sid_internal(struct zebra_srv6_sid **sid,
 		zlog_warn("%s: not got SRv6 SID for ctx %s, sid_value=%pI6, locator_name=%s",
 			  __func__, srv6_sid_ctx2str(buf, sizeof(buf), ctx),
 			  sid_value, locator_name);
+
+		/* Notify client about SID alloc failure */
+		zsend_srv6_sid_notify(client, ctx, NULL, 0, 0,
+				      ZAPI_SRV6_SID_FAIL_ALLOC);
 	} else if (ret == 0) {
 		if (IS_ZEBRA_DEBUG_PACKET)
 			zlog_debug("%s: got existing SRv6 SID for ctx %s: sid_value=%pI6 (func=%u) (proto=%u, instance=%u, sessionId=%u), notify client",
@@ -2300,6 +2306,10 @@ static int srv6_manager_get_sid_internal(struct zebra_srv6_sid **sid,
 				   client->instance, client->session_id);
 		if (!listnode_lookup((*sid)->client_list, client))
 			listnode_add((*sid)->client_list, client);
+
+		zsend_srv6_sid_notify(client, ctx, &(*sid)->value, (*sid)->func,
+				      (*sid)->wide_func,
+				      ZAPI_SRV6_SID_ALLOCATED);
 	} else {
 		if (IS_ZEBRA_DEBUG_PACKET)
 			zlog_debug("%s: got new SRv6 SID for ctx %s: sid_value=%pI6 (func=%u) (proto=%u, instance=%u, sessionId=%u), notifying all clients",
@@ -2309,6 +2319,11 @@ static int srv6_manager_get_sid_internal(struct zebra_srv6_sid **sid,
 				   client->instance, client->session_id);
 		if (!listnode_lookup((*sid)->client_list, client))
 			listnode_add((*sid)->client_list, client);
+
+		for (ALL_LIST_ELEMENTS_RO((*sid)->client_list, node, c))
+			zsend_srv6_sid_notify(c, ctx, &(*sid)->value,
+					      (*sid)->func, (*sid)->wide_func,
+					      ZAPI_SRV6_SID_ALLOCATED);
 	}
 
 	return ret;
@@ -2381,6 +2396,13 @@ static int srv6_manager_release_sid_internal(struct zserv *client,
 	if (IS_ZEBRA_DEBUG_PACKET)
 		zlog_debug("%s: no SID associated with ctx %s", __func__,
 			   srv6_sid_ctx2str(buf, sizeof(buf), ctx));
+
+	if (ret == 0)
+		zsend_srv6_sid_notify(client, ctx, NULL, 0, 0,
+				      ZAPI_SRV6_SID_RELEASED);
+	else
+		zsend_srv6_sid_notify(client, ctx, NULL, 0, 0,
+				      ZAPI_SRV6_SID_FAIL_RELEASE);
 
 	return ret;
 }

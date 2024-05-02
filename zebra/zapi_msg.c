@@ -999,6 +999,39 @@ void zsend_neighbor_notify(int cmd, struct interface *ifp,
 	}
 }
 
+void zsend_srv6_sid_notify(struct zserv *client, const struct srv6_sid_ctx *ctx,
+			   struct in6_addr *sid_value, uint32_t func,
+			   uint32_t wide_func, enum zapi_srv6_sid_notify note)
+{
+	struct stream *s;
+	uint16_t cmd = ZEBRA_SRV6_SID_NOTIFY;
+	char buf[256];
+
+	if (IS_ZEBRA_DEBUG_PACKET)
+		zlog_debug("%s: notifying %s ctx %s sid %pI6 note %s (proto=%u, instance=%u, sessionId=%u)",
+			   __func__, zserv_command_string(cmd),
+			   srv6_sid_ctx2str(buf, sizeof(buf), ctx), sid_value,
+			   zapi_srv6_sid_notify2str(note), client->proto,
+			   client->instance, client->session_id);
+
+	s = stream_new(ZEBRA_MAX_PACKET_SIZ);
+
+	zclient_create_header(s, cmd, VRF_DEFAULT);
+	/* Notification type (e.g. ZAPI_SRV6_SID_ALLOCATED, ZAPI_SRV6_SID_FAIL_ALLOC, ...) */
+	stream_put(s, &note, sizeof(note));
+	/* Context associated with the SRv6 SID */
+	stream_put(s, ctx, sizeof(struct srv6_sid_ctx));
+	/* SRv6 SID value (i.e. IPv6 address) */
+	stream_put(s, sid_value, sizeof(struct in6_addr));
+	/* SRv6 SID function */
+	stream_putl(s, func);
+	/* SRv6 wide SID function */
+	stream_putl(s, wide_func);
+	stream_putw_at(s, 0, stream_get_endp(s));
+
+	zserv_send_message(client, s);
+}
+
 
 /* Router-id is updated. Send ZEBRA_ROUTER_ID_UPDATE to client. */
 int zsend_router_id_update(struct zserv *client, afi_t afi, struct prefix *p,
