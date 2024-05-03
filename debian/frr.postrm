@@ -5,6 +5,7 @@ rm -f /etc/frr/.pkg.frr.nointegrated
 
 if [ "$1" = "purge" ]; then
 	rm -rf /run/frr || true
+	rm -rf /var/lib/frr || true
 
 	# "purge" does not remove logfiles.  therefore we shouldn't delete
 	# the "frr" user/group since that would leave files with "dangling"

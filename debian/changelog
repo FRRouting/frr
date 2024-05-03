@@ -2,6 +2,7 @@ frr (10.0-2) UNRELEASED; urgency=medium
 
   * fix build on hppa
   * only use libunwind on architectures where it is available
+  * remove /var/lib/frr on purge
 
  -- David Lamparter <equinox-debian@diac24.net>  Fri, 03 May 2024 12:51:03 +0200
 
