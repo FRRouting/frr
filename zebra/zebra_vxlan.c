@@ -1763,9 +1763,9 @@ static int svd_remote_nh_add(struct zebra_l3vni *zl3vni,
 
 	} else if (memcmp(&nh->emac, rmac, ETH_ALEN) != 0) {
 		if (IS_ZEBRA_DEBUG_VXLAN)
-			zlog_debug(
-				"SVD RMAC change(%pEA --> %pEA) for nexthop %pIA, prefix %pFX",
-				&nh->emac, rmac, vtep_ip, host_prefix);
+			zlog_debug("SVD RMAC change(%pEA --> %pEA) for nexthop %pIA, prefix %pFX refcnt %u",
+				   &nh->emac, rmac, vtep_ip, host_prefix,
+				   nh->refcnt);
 
 		memcpy(&nh->emac, rmac, ETH_ALEN);
 		/* install (update) the nh neigh in kernel */
@@ -2473,11 +2473,26 @@ static void zl3vni_del_rmac_hash_entry(struct hash_bucket *bucket, void *ctx)
 /* delete and uninstall nh hash entry */
 static void zl3vni_del_nh_hash_entry(struct hash_bucket *bucket, void *ctx)
 {
-	struct zebra_neigh *n = NULL;
+	struct zebra_neigh *n = NULL, *svd_nh = NULL;
 	struct zebra_l3vni *zl3vni = NULL;
 
 	n = (struct zebra_neigh *)bucket->data;
 	zl3vni = (struct zebra_l3vni *)ctx;
+
+	/* remove SVD based remote nexthop neigh entry */
+	svd_nh = svd_nh_lookup(&n->ip);
+	if (svd_nh) {
+		svd_nh->refcnt--;
+		if (IS_ZEBRA_DEBUG_VXLAN)
+			zlog_debug("%s L3VNI %u remove svd nh %pIA refcnt %u",
+				   __func__, zl3vni->vni, &n->ip,
+				   svd_nh->refcnt);
+		if (svd_nh->refcnt == 0) {
+			svd_nh_uninstall(zl3vni, svd_nh);
+			svd_nh_del(svd_nh);
+		}
+	}
+
 	zl3vni_nh_uninstall(zl3vni, n);
 	zl3vni_nh_del(zl3vni, n);
 }
