@@ -1,6 +1,6 @@
 frr (10.0-2) UNRELEASED; urgency=medium
 
-  *
+  * fix build on hppa
 
  -- David Lamparter <equinox-debian@diac24.net>  Fri, 03 May 2024 12:51:03 +0200
 

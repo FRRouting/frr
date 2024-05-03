@@ -1,0 +1,72 @@
+From 3ca60d00b1a3ca3822db5fcf6ba46cf3ac0a6b0b Mon Sep 17 00:00:00 2001
+From: David Lamparter <equinox@opensourcerouting.org>
+Date: Thu, 2 May 2024 10:55:11 +0200
+Subject: [PATCH] *: add XREF_SETUP() to libraries and utilites
+
+This is theoretically not needed if neither DEFUNs nor zlog_* calls are
+used, except I'm about to turn it into a build error to catch the cases
+where it _is_ necessary.  Which is libmgmt_be_nb.la in this case, where
+it causes build failures on hppa.
+
+Signed-off-by: David Lamparter <equinox@opensourcerouting.org>
+---
+ fpm/fpm_pb.c         | 5 +++++
+ mgmtd/mgmt_be_nb.c   | 6 ++++++
+ mgmtd/subdir.am      | 1 +
+ qpb/qpb.c            | 5 +++++
+ 4 files changed, 17 insertions(+)
+ create mode 100644 mgmtd/mgmt_be_nb.c
+
+diff --git a/fpm/fpm_pb.c b/fpm/fpm_pb.c
+index e4c9395a84a6..0e8f618c4d3c 100644
+--- a/fpm/fpm_pb.c
++++ b/fpm/fpm_pb.c
+@@ -10,3 +10,8 @@
+ /*
+  * Main file for the fpm_pb library.
+  */
++
++#include "config.h"
++#include "xref.h"
++
++XREF_SETUP();
+diff --git a/mgmtd/mgmt_be_nb.c b/mgmtd/mgmt_be_nb.c
+new file mode 100644
+index 000000000000..613272d40728
+--- /dev/null
++++ b/mgmtd/mgmt_be_nb.c
+@@ -0,0 +1,6 @@
++// SPDX-License-Identifier: GPL-2.0-or-later
++
++#include "config.h"
++#include "xref.h"
++
++XREF_SETUP();
+diff --git a/mgmtd/subdir.am b/mgmtd/subdir.am
+index 5182c4a47d37..14544c4f0507 100644
+--- a/mgmtd/subdir.am
++++ b/mgmtd/subdir.am
+@@ -16,6 +16,7 @@ clippy_scan += \
+ 
+ lib_LTLIBRARIES += mgmtd/libmgmt_be_nb.la
+ mgmtd_libmgmt_be_nb_la_SOURCES = \
++	mgmtd/mgmt_be_nb.c \
+ 	zebra/zebra_cli.c \
+ 	# end
+ nodist_mgmtd_libmgmt_be_nb_la_SOURCES = \
+diff --git a/qpb/qpb.c b/qpb/qpb.c
+index 63454f115666..625817857819 100644
+--- a/qpb/qpb.c
++++ b/qpb/qpb.c
+@@ -10,3 +10,8 @@
+ /*
+  * Main file for the qpb library.
+  */
++
++#include "config.h"
++#include "xref.h"
++
++XREF_SETUP();
+-- 
+2.43.0
+
