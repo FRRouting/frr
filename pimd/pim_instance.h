@@ -60,7 +60,9 @@ enum pim_mlag_flags {
 	/* initial dump of data done post peerlink flap */
 	PIM_MLAGF_PEER_REPLAY_DONE = (1 << 3),
 	/* zebra is up on the peer */
-	PIM_MLAGF_PEER_ZEBRA_UP = (1 << 4)
+	PIM_MLAGF_PEER_ZEBRA_UP = (1 << 4),
+	/* Local MLAGD session is not up*/
+	PIM_MLAGF_PEER_ZEBRA_UP_NOTIFY_RECEIVE_PENDING = (1 << 5)
 };
 
 struct pim_router {
