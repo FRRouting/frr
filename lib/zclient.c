@@ -3447,7 +3447,7 @@ int srv6_manager_release_sid(struct zclient *zclient,
 /*
  * Asynchronous label chunk request
  *
- * @param zclient Zclient used to connect to label manager (zebra)
+ * @param zclient The zclient used to connect to label manager (zebra)
  * @param keep Avoid garbage collection
  * @param chunk_size Amount of labels requested
  * @param base Base for the label chunk. if MPLS_LABEL_BASE_ANY we do not care
