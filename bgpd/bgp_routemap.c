@@ -5882,10 +5882,11 @@ DEFUN_YANG (set_table_id,
 
 DEFUN_YANG (no_set_table_id,
 	    no_set_table_id_cmd,
-	    "no set table",
+	    "no set table [(1-4294967295)]",
 	    NO_STR
 	    SET_STR
-	    "export route to non-main kernel table\n")
+	    "export route to non-main kernel table\n"
+	    "Kernel routing table id\n")
 {
 	const char *xpath = "./set-action[action='frr-bgp-route-map:table']";
 	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
