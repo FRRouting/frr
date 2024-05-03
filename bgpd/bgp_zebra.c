@@ -3408,6 +3408,9 @@ static int bgp_zebra_process_srv6_locator_delete(ZAPI_CALLBACK_ARGS)
 	struct in6_addr *tovpn_sid;
 	struct prefix_ipv6 tmp_prefi;
 
+	if (!bgp)
+		return 0;
+
 	if (zapi_srv6_locator_decode(zclient->ibuf, &loc) < 0)
 		return -1;
 
