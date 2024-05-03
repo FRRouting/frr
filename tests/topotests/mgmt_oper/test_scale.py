@@ -52,7 +52,6 @@ def test_oper_simple(tgen):
 
     r1 = tgen.gears["r1"].net
 
-    time.sleep(2)
     count = 20 * 1000
 
     vrf = None  # "red"

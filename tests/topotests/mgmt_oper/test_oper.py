@@ -95,7 +95,6 @@ def test_oper(tgen):
     check_kernel_32(r1, "12.12.12.12", 1, "")
     check_kernel_32(r1, "13.13.13.13", 1, "red")
     check_kernel_32(r1, "14.14.14.14", 1, "red")
-    time.sleep(2)
     do_oper_test(tgen, query_results)
 
 
