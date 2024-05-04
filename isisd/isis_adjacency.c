@@ -726,13 +726,13 @@ void isis_adj_print_vty(struct isis_adjacency *adj, struct vty *vty,
 		now = time(NULL);
 		if (adj->last_upd) {
 			if (adj->last_upd + adj->hold_time < now)
-				vty_out(vty, " Expiring");
+				vty_out(vty, " Expiring ");
 			else
 				vty_out(vty, " %-9llu",
 					(unsigned long long)adj->last_upd
 						+ adj->hold_time - now);
 		} else
-			vty_out(vty, "-        ");
+			vty_out(vty, " -        ");
 		vty_out(vty, "%-10pSY", adj->snpa);
 		vty_out(vty, "\n");
 	}

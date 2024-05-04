@@ -1318,7 +1318,7 @@ static void isis_neighbor_common_vty(struct vty *vty, const char *id,
 
 		if (detail == ISIS_UI_LEVEL_BRIEF)
 			vty_out(vty,
-				"  System Id           Interface   L  State        Holdtime SNPA\n");
+				" System Id           Interface   L  State         Holdtime SNPA\n");
 
 		for (ALL_LIST_ELEMENTS_RO(area->circuit_list, cnode, circuit)) {
 			if (circuit->circ_type == CIRCUIT_T_BROADCAST) {
