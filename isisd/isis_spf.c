@@ -2469,37 +2469,33 @@ DEFUN(show_isis_topology, show_isis_topology_cmd,
 	}
 	ISIS_FIND_VRF_ARGS(argv, argc, idx_vrf, vrf_name, all_vrf);
 
-	if (vrf_name) {
-		if (all_vrf) {
-			for (ALL_LIST_ELEMENTS_RO(im->isis, node, isis)) {
-				if (all_algorithm) {
-					for (algorithm = SR_ALGORITHM_FLEX_MIN;
-					     algorithm <= SR_ALGORITHM_FLEX_MAX;
-					     algorithm++)
-						show_isis_topology_common(
-							vty, levels, isis,
-							(uint8_t)algorithm);
-				} else {
+	if (all_vrf) {
+		for (ALL_LIST_ELEMENTS_RO(im->isis, node, isis)) {
+			if (all_algorithm) {
+				for (algorithm = SR_ALGORITHM_FLEX_MIN;
+				     algorithm <= SR_ALGORITHM_FLEX_MAX;
+				     algorithm++)
 					show_isis_topology_common(
 						vty, levels, isis,
 						(uint8_t)algorithm);
-				}
-			}
-			return CMD_SUCCESS;
-		}
-		isis = isis_lookup_by_vrfname(vrf_name);
-		if (isis == NULL)
-			return CMD_SUCCESS;
-		if (all_algorithm) {
-			for (algorithm = SR_ALGORITHM_FLEX_MIN;
-			     algorithm <= SR_ALGORITHM_FLEX_MAX; algorithm++) {
+			} else {
 				show_isis_topology_common(vty, levels, isis,
 							  (uint8_t)algorithm);
 			}
-		} else
+		}
+		return CMD_SUCCESS;
+	}
+	isis = isis_lookup_by_vrfname(vrf_name);
+	if (isis == NULL)
+		return CMD_SUCCESS;
+	if (all_algorithm) {
+		for (algorithm = SR_ALGORITHM_FLEX_MIN;
+		     algorithm <= SR_ALGORITHM_FLEX_MAX; algorithm++) {
 			show_isis_topology_common(vty, levels, isis,
 						  (uint8_t)algorithm);
-	}
+		}
+	} else
+		show_isis_topology_common(vty, levels, isis, (uint8_t)algorithm);
 
 	return CMD_SUCCESS;
 }
@@ -2672,17 +2668,14 @@ DEFUN(show_isis_flex_algo, show_isis_flex_algo_cmd,
 
 	ISIS_FIND_VRF_ARGS(argv, argc, idx_vrf, vrf_name, all_vrf);
 
-	if (vrf_name) {
-		if (all_vrf) {
-			for (ALL_LIST_ELEMENTS_RO(im->isis, node, isis))
-				show_isis_flex_algo_common(vty, isis,
-							   flex_algo);
-			return CMD_SUCCESS;
-		}
-		isis = isis_lookup_by_vrfname(vrf_name);
-		if (isis != NULL)
+	if (all_vrf) {
+		for (ALL_LIST_ELEMENTS_RO(im->isis, node, isis))
 			show_isis_flex_algo_common(vty, isis, flex_algo);
+		return CMD_SUCCESS;
 	}
+	isis = isis_lookup_by_vrfname(vrf_name);
+	if (isis != NULL)
+		show_isis_flex_algo_common(vty, isis, flex_algo);
 
 	return CMD_SUCCESS;
 }
@@ -3140,34 +3133,8 @@ DEFUN(show_isis_route, show_isis_route_cmd,
 	if (uj)
 		json = json_object_new_array();
 
-	if (vrf_name) {
-		if (all_vrf) {
-			for (ALL_LIST_ELEMENTS_RO(im->isis, node, isis)) {
-				if (all_algorithm)
-					show_isis_route_all_algos(vty, levels,
-								  isis,
-								  prefix_sid,
-								  backup,
-								  uj ? &json_vrf
-								     : NULL);
-				else
-					show_isis_route_common(vty, levels,
-							       isis, prefix_sid,
-							       backup, algorithm,
-							       uj ? &json_vrf
-								  : NULL);
-				if (uj) {
-					json_object_object_add(
-						json_vrf, "vrf_id",
-						json_object_new_int(
-							isis->vrf_id));
-					json_object_array_add(json, json_vrf);
-				}
-			}
-			goto out;
-		}
-		isis = isis_lookup_by_vrfname(vrf_name);
-		if (isis != NULL) {
+	if (all_vrf) {
+		for (ALL_LIST_ELEMENTS_RO(im->isis, node, isis)) {
 			if (all_algorithm)
 				show_isis_route_all_algos(vty, levels, isis,
 							  prefix_sid, backup,
@@ -3178,11 +3145,27 @@ DEFUN(show_isis_route, show_isis_route_cmd,
 						       algorithm,
 						       uj ? &json_vrf : NULL);
 			if (uj) {
-				json_object_object_add(
-					json_vrf, "vrf_id",
-					json_object_new_int(isis->vrf_id));
+				json_object_object_add(json_vrf, "vrf_id",
+						       json_object_new_int(
+							       isis->vrf_id));
 				json_object_array_add(json, json_vrf);
 			}
+		}
+		goto out;
+	}
+	isis = isis_lookup_by_vrfname(vrf_name);
+	if (isis != NULL) {
+		if (all_algorithm)
+			show_isis_route_all_algos(vty, levels, isis, prefix_sid,
+						  backup, uj ? &json_vrf : NULL);
+		else
+			show_isis_route_common(vty, levels, isis, prefix_sid,
+					       backup, algorithm,
+					       uj ? &json_vrf : NULL);
+		if (uj) {
+			json_object_object_add(json_vrf, "vrf_id",
+					       json_object_new_int(isis->vrf_id));
+			json_object_array_add(json, json_vrf);
 		}
 	}
 
@@ -3395,16 +3378,14 @@ DEFUN(show_isis_frr_summary, show_isis_frr_summary_cmd,
 	}
 	ISIS_FIND_VRF_ARGS(argv, argc, idx, vrf_name, all_vrf);
 
-	if (vrf_name) {
-		if (all_vrf) {
-			for (ALL_LIST_ELEMENTS_RO(im->isis, node, isis))
-				show_isis_frr_summary_common(vty, levels, isis);
-			return CMD_SUCCESS;
-		}
-		isis = isis_lookup_by_vrfname(vrf_name);
-		if (isis != NULL)
+	if (all_vrf) {
+		for (ALL_LIST_ELEMENTS_RO(im->isis, node, isis))
 			show_isis_frr_summary_common(vty, levels, isis);
+		return CMD_SUCCESS;
 	}
+	isis = isis_lookup_by_vrfname(vrf_name);
+	if (isis != NULL)
+		show_isis_frr_summary_common(vty, levels, isis);
 
 	return CMD_SUCCESS;
 }
