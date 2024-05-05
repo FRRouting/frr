@@ -704,10 +704,14 @@ static void p2xp_neigh_refresh(struct ospf6_neighbor *on, uint32_t prev_cost)
 #include "ospf6d/ospf6_neighbor_clippy.c"
 #endif
 
-DEFPY(ipv6_ospf6_p2xp_neigh, ipv6_ospf6_p2xp_neigh_cmd,
-      "[no] ipv6 ospf6 neighbor X:X::X:X",
-      NO_STR IP6_STR OSPF6_STR "Configure static neighbor\n"
-			       "Neighbor link-local address\n")
+DEFPY (ipv6_ospf6_p2xp_neigh,
+       ipv6_ospf6_p2xp_neigh_cmd,
+       "[no] ipv6 ospf6 neighbor X:X::X:X",
+       NO_STR
+       IP6_STR
+       OSPF6_STR
+       "Configure static neighbor\n"
+       "Neighbor link-local address\n")
 {
 	VTY_DECLVAR_CONTEXT(interface, ifp);
 	struct ospf6_interface *oi = ifp->info;
@@ -745,12 +749,16 @@ DEFPY(ipv6_ospf6_p2xp_neigh, ipv6_ospf6_p2xp_neigh_cmd,
 	return CMD_SUCCESS;
 }
 
-DEFPY(ipv6_ospf6_p2xp_neigh_cost, ipv6_ospf6_p2xp_neigh_cost_cmd,
-      "[no] ipv6 ospf6 neighbor X:X::X:X cost (1-65535)",
-      NO_STR IP6_STR OSPF6_STR "Configure static neighbor\n"
-			       "Neighbor link-local address\n"
-			       "Outgoing metric for this neighbor\n"
-			       "Outgoing metric for this neighbor\n")
+DEFPY (ipv6_ospf6_p2xp_neigh_cost,
+       ipv6_ospf6_p2xp_neigh_cost_cmd,
+       "[no] ipv6 ospf6 neighbor X:X::X:X cost (1-65535)",
+       NO_STR
+       IP6_STR
+       OSPF6_STR
+       "Configure static neighbor\n"
+       "Neighbor link-local address\n"
+       "Outgoing metric for this neighbor\n"
+       "Outgoing metric for this neighbor\n")
 {
 	VTY_DECLVAR_CONTEXT(interface, ifp);
 	struct ospf6_interface *oi = ifp->info;
@@ -821,13 +829,16 @@ static void p2xp_unicast_hello_send(struct event *event)
 	ospf6_hello_send_addr(oi, &p2xp_cfg->addr);
 }
 
-DEFPY(ipv6_ospf6_p2xp_neigh_poll_interval,
-      ipv6_ospf6_p2xp_neigh_poll_interval_cmd,
-      "[no] ipv6 ospf6 neighbor X:X::X:X poll-interval (1-65535)",
-      NO_STR IP6_STR OSPF6_STR "Configure static neighbor\n"
-			       "Neighbor link-local address\n"
-			       "Send unicast hellos to neighbor when down\n"
-			       "Unicast hello interval when down (seconds)\n")
+DEFPY (ipv6_ospf6_p2xp_neigh_poll_interval,
+       ipv6_ospf6_p2xp_neigh_poll_interval_cmd,
+       "[no] ipv6 ospf6 neighbor X:X::X:X poll-interval (1-65535)",
+       NO_STR
+       IP6_STR
+       OSPF6_STR
+       "Configure static neighbor\n"
+       "Neighbor link-local address\n"
+       "Send unicast hellos to neighbor when down\n"
+       "Unicast hello interval when down (seconds)\n")
 {
 	VTY_DECLVAR_CONTEXT(interface, ifp);
 	struct ospf6_interface *oi = ifp->info;
@@ -1338,13 +1349,18 @@ static void ospf6_neighbor_show_detail_common(struct vty *vty,
 	}
 }
 
-DEFUN(show_ipv6_ospf6_neighbor, show_ipv6_ospf6_neighbor_cmd,
+DEFUN(show_ipv6_ospf6_neighbor,
+      show_ipv6_ospf6_neighbor_cmd,
       "show ipv6 ospf6 [vrf <NAME|all>] neighbor [<detail|drchoice>] [json]",
-      SHOW_STR IP6_STR OSPF6_STR VRF_CMD_HELP_STR
+      SHOW_STR
+      IP6_STR
+      OSPF6_STR
+      VRF_CMD_HELP_STR
       "All VRFs\n"
       "Neighbor list\n"
       "Display details\n"
-      "Display DR choices\n" JSON_STR)
+      "Display DR choices\n"
+      JSON_STR)
 {
 	struct ospf6 *ospf6;
 	struct listnode *node;
@@ -1413,12 +1429,17 @@ static int ospf6_neighbor_show_common(struct vty *vty, int argc,
 	return CMD_SUCCESS;
 }
 
-DEFUN(show_ipv6_ospf6_neighbor_one, show_ipv6_ospf6_neighbor_one_cmd,
+DEFUN(show_ipv6_ospf6_neighbor_one,
+      show_ipv6_ospf6_neighbor_one_cmd,
       "show ipv6 ospf6 [vrf <NAME|all>] neighbor A.B.C.D [json]",
-      SHOW_STR IP6_STR OSPF6_STR VRF_CMD_HELP_STR
+      SHOW_STR
+      IP6_STR
+      OSPF6_STR
+      VRF_CMD_HELP_STR
       "All VRFs\n"
       "Neighbor list\n"
-      "Specify Router-ID as IPv4 address notation\n" JSON_STR)
+      "Specify Router-ID as IPv4 address notation\n"
+      JSON_STR)
 {
 	int idx_ipv4 = 4;
 	struct ospf6 *ospf6;
@@ -1458,11 +1479,14 @@ void ospf6_neighbor_init(void)
 			&ipv6_ospf6_p2xp_neigh_poll_interval_cmd);
 }
 
-DEFUN(debug_ospf6_neighbor, debug_ospf6_neighbor_cmd,
-      "debug ospf6 neighbor [<state|event>]",
-      DEBUG_STR OSPF6_STR "Debug OSPFv3 Neighbor\n"
-			  "Debug OSPFv3 Neighbor State Change\n"
-			  "Debug OSPFv3 Neighbor Event\n")
+DEFUN (debug_ospf6_neighbor,
+       debug_ospf6_neighbor_cmd,
+       "debug ospf6 neighbor [<state|event>]",
+       DEBUG_STR
+       OSPF6_STR
+       "Debug OSPFv3 Neighbor\n"
+       "Debug OSPFv3 Neighbor State Change\n"
+       "Debug OSPFv3 Neighbor Event\n")
 {
 	int idx_type = 3;
 	unsigned char level = 0;
@@ -1480,11 +1504,15 @@ DEFUN(debug_ospf6_neighbor, debug_ospf6_neighbor_cmd,
 }
 
 
-DEFUN(no_debug_ospf6_neighbor, no_debug_ospf6_neighbor_cmd,
-      "no debug ospf6 neighbor [<state|event>]",
-      NO_STR DEBUG_STR OSPF6_STR "Debug OSPFv3 Neighbor\n"
-				 "Debug OSPFv3 Neighbor State Change\n"
-				 "Debug OSPFv3 Neighbor Event\n")
+DEFUN (no_debug_ospf6_neighbor,
+       no_debug_ospf6_neighbor_cmd,
+       "no debug ospf6 neighbor [<state|event>]",
+       NO_STR
+       DEBUG_STR
+       OSPF6_STR
+       "Debug OSPFv3 Neighbor\n"
+       "Debug OSPFv3 Neighbor State Change\n"
+       "Debug OSPFv3 Neighbor Event\n")
 {
 	int idx_type = 4;
 	unsigned char level = 0;
@@ -1502,8 +1530,12 @@ DEFUN(no_debug_ospf6_neighbor, no_debug_ospf6_neighbor_cmd,
 }
 
 
-DEFUN(no_debug_ospf6, no_debug_ospf6_cmd, "no debug ospf6",
-      NO_STR DEBUG_STR OSPF6_STR)
+DEFUN (no_debug_ospf6,
+       no_debug_ospf6_cmd,
+       "no debug ospf6",
+       NO_STR
+       DEBUG_STR
+       OSPF6_STR)
 {
 	unsigned int i;
 
