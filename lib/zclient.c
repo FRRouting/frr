@@ -1125,6 +1125,10 @@ int zapi_srv6_locator_encode(struct stream *s, const struct srv6_locator *l)
 	stream_put(s, l->name, strlen(l->name));
 	stream_putw(s, l->prefix.prefixlen);
 	stream_put(s, &l->prefix.prefix, sizeof(l->prefix.prefix));
+	stream_putc(s, l->block_bits_length);
+	stream_putc(s, l->node_bits_length);
+	stream_putc(s, l->function_bits_length);
+	stream_putc(s, l->argument_bits_length);
 	stream_putc(s, l->flags);
 	return 0;
 }
@@ -1141,6 +1145,10 @@ int zapi_srv6_locator_decode(struct stream *s, struct srv6_locator *l)
 	STREAM_GETW(s, l->prefix.prefixlen);
 	STREAM_GET(&l->prefix.prefix, s, sizeof(l->prefix.prefix));
 	l->prefix.family = AF_INET6;
+	STREAM_GETC(s, l->block_bits_length);
+	STREAM_GETC(s, l->node_bits_length);
+	STREAM_GETC(s, l->function_bits_length);
+	STREAM_GETC(s, l->argument_bits_length);
 	STREAM_GETC(s, l->flags);
 	return 0;
 
