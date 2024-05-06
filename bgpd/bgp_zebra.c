@@ -3338,7 +3338,7 @@ static int bgp_ifp_create(struct interface *ifp)
 	bgp_update_interface_nbrs(bgp, ifp, ifp);
 	hook_call(bgp_vrf_status_changed, bgp, ifp);
 
-	if (bgp_get_default() && if_is_loopback(ifp)) {
+	if (bgp_get_default() && if_is_loopback_exact(ifp)) {
 		vpn_leak_zebra_vrf_label_update(bgp, AFI_IP);
 		vpn_leak_zebra_vrf_label_update(bgp, AFI_IP6);
 		vpn_leak_zebra_vrf_sid_update(bgp, AFI_IP);
