@@ -3187,11 +3187,11 @@ static int bgp_zebra_process_srv6_locator_add(ZAPI_CALLBACK_ARGS)
 	struct bgp *bgp = bgp_get_default();
 	const char *loc_name = bgp->srv6_locator_name;
 
-	if (zapi_srv6_locator_decode(zclient->ibuf, &loc) < 0)
-		return -1;
-
 	if (!bgp || !bgp->srv6_enabled)
 		return 0;
+
+	if (zapi_srv6_locator_decode(zclient->ibuf, &loc) < 0)
+		return -1;
 
 	if (bgp_zebra_srv6_manager_get_locator_chunk(loc_name) < 0)
 		return -1;
@@ -3209,6 +3209,9 @@ static int bgp_zebra_process_srv6_locator_delete(ZAPI_CALLBACK_ARGS)
 	struct bgp *bgp_vrf;
 	struct in6_addr *tovpn_sid;
 	struct prefix_ipv6 tmp_prefi;
+
+	if (!bgp)
+		return 0;
 
 	if (zapi_srv6_locator_decode(zclient->ibuf, &loc) < 0)
 		return -1;
