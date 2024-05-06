@@ -885,21 +885,6 @@ nbr_connected_log(struct nbr_connected *connected, char *str)
 	zlog_info("%s", logbuf);
 }
 
-/* If two connected address has same prefix return 1. */
-static int connected_same_prefix(const struct prefix *p1,
-				 const struct prefix *p2)
-{
-	if (p1->family == p2->family) {
-		if (p1->family == AF_INET
-		    && IPV4_ADDR_SAME(&p1->u.prefix4, &p2->u.prefix4))
-			return 1;
-		if (p1->family == AF_INET6
-		    && IPV6_ADDR_SAME(&p1->u.prefix6, &p2->u.prefix6))
-			return 1;
-	}
-	return 0;
-}
-
 /* count the number of connected addresses that are in the given family */
 unsigned int connected_count_by_family(struct interface *ifp, int family)
 {
@@ -919,7 +904,7 @@ struct connected *connected_lookup_prefix_exact(struct interface *ifp,
 	struct connected *ifc;
 
 	frr_each (if_connected, ifp->connected, ifc) {
-		if (connected_same_prefix(ifc->address, p))
+		if (prefix_same(ifc->address, p))
 			return ifc;
 	}
 	return NULL;
@@ -932,7 +917,7 @@ struct connected *connected_delete_by_prefix(struct interface *ifp,
 
 	/* In case of same prefix come, replace it with new one. */
 	frr_each_safe (if_connected, ifp->connected, ifc) {
-		if (connected_same_prefix(ifc->address, p)) {
+		if (prefix_same(ifc->address, p)) {
 			if_connected_del(ifp->connected, ifc);
 			return ifc;
 		}
