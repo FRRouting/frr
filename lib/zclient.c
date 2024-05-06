@@ -2133,6 +2133,30 @@ stream_failure:
 	return false;
 }
 
+bool zapi_srv6_sid_notify_decode(struct stream *s, struct srv6_sid_ctx *ctx,
+				 struct in6_addr *sid_value, uint32_t *func,
+				 uint32_t *wide_func,
+				 enum zapi_srv6_sid_notify *note)
+{
+	uint32_t f, wf;
+
+	STREAM_GET(note, s, sizeof(*note));
+	STREAM_GET(ctx, s, sizeof(struct srv6_sid_ctx));
+	STREAM_GET(sid_value, s, sizeof(struct in6_addr));
+	STREAM_GETL(s, f);
+	STREAM_GETL(s, wf);
+
+	if (func)
+		*func = f;
+	if (wide_func)
+		*wide_func = wf;
+
+	return true;
+
+stream_failure:
+	return false;
+}
+
 struct nexthop *nexthop_from_zapi_nexthop(const struct zapi_nexthop *znh)
 {
 	struct nexthop *n = nexthop_new();
