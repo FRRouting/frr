@@ -1556,8 +1556,9 @@ static enum nb_error nb_op_yield(struct nb_op_yield_state *ys)
 	unsigned long min_us = MAX(1, NB_OP_WALK_INTERVAL_US / 50000);
 	struct timeval tv = { .tv_sec = 0, .tv_usec = min_us };
 
-	DEBUGD(&nb_dbg_events, "NB oper-state: yielding %s for %lus (should_batch %d)",
-	       ys->xpath, tv.tv_usec, ys->should_batch);
+	DEBUGD(&nb_dbg_events,
+	       "NB oper-state: yielding %s for %lldus (should_batch %d)",
+	       ys->xpath, (long long)tv.tv_usec, ys->should_batch);
 
 	if (ys->should_batch) {
 		/*
