@@ -152,6 +152,8 @@ DECLARE_MTYPE(MSG_NATIVE_GET_DATA);
 DECLARE_MTYPE(MSG_NATIVE_NOTIFY);
 DECLARE_MTYPE(MSG_NATIVE_EDIT);
 DECLARE_MTYPE(MSG_NATIVE_EDIT_REPLY);
+DECLARE_MTYPE(MSG_NATIVE_RPC);
+DECLARE_MTYPE(MSG_NATIVE_RPC_REPLY);
 
 /*
  * Native message codes
@@ -163,6 +165,8 @@ DECLARE_MTYPE(MSG_NATIVE_EDIT_REPLY);
 #define MGMT_MSG_CODE_NOTIFY	4
 #define MGMT_MSG_CODE_EDIT	 5
 #define MGMT_MSG_CODE_EDIT_REPLY 6
+#define MGMT_MSG_CODE_RPC	 7
+#define MGMT_MSG_CODE_RPC_REPLY	 8
 
 /*
  * Datastores
@@ -377,6 +381,42 @@ _Static_assert(sizeof(struct mgmt_msg_edit_reply) ==
 		       offsetof(struct mgmt_msg_edit_reply, data),
 	       "Size mismatch");
 
+/**
+ * struct mgmt_msg_rpc - RPC/action request.
+ *
+ * @request_type: ``LYD_FORMAT`` for the @data.
+ * @data: the xpath followed by the tree data for the operation.
+ */
+struct mgmt_msg_rpc {
+	struct mgmt_msg_header;
+	uint8_t request_type;
+	uint8_t resv2[7];
+
+	alignas(8) char data[];
+};
+
+_Static_assert(sizeof(struct mgmt_msg_rpc) ==
+		       offsetof(struct mgmt_msg_rpc, data),
+	       "Size mismatch");
+
+/**
+ * struct mgmt_msg_rpc_reply - RPC/action reply.
+ *
+ * @result_type: ``LYD_FORMAT`` for the @data.
+ * @data: the tree data for the reply.
+ */
+struct mgmt_msg_rpc_reply {
+	struct mgmt_msg_header;
+	uint8_t result_type;
+	uint8_t resv2[7];
+
+	alignas(8) char data[];
+};
+
+_Static_assert(sizeof(struct mgmt_msg_rpc_reply) ==
+		       offsetof(struct mgmt_msg_rpc_reply, data),
+	       "Size mismatch");
+
 /*
  * Validate that the message ends in a NUL terminating byte
  */
@@ -569,7 +609,10 @@ extern int vmgmt_msg_native_send_error(struct msg_conn *conn,
 		const char *__s = NULL;                                        \
 		if (msg->vsplit && msg->vsplit <= __len &&                     \
 		    msg->data[msg->vsplit - 1] == 0) {                         \
-			(__data) = msg->data + msg->vsplit;                    \
+			if (msg->vsplit < __len)                               \
+				(__data) = msg->data + msg->vsplit;            \
+			else                                                   \
+				(__data) = NULL;                               \
 			__s = msg->data;                                       \
 		}                                                              \
 		__s;                                                           \

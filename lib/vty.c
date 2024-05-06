@@ -3843,6 +3843,26 @@ static int vty_mgmt_edit_result_notified(struct mgmt_fe_client *client,
 	return 0;
 }
 
+static int vty_mgmt_rpc_result_notified(struct mgmt_fe_client *client,
+					uintptr_t user_data, uint64_t client_id,
+					uint64_t session_id,
+					uintptr_t session_ctx, uint64_t req_id,
+					const char *result)
+{
+	struct vty *vty = (struct vty *)session_ctx;
+
+	debug_fe_client("RPC request for client 0x%" PRIx64 " req-id %" PRIu64
+			" was successful",
+			client_id, req_id);
+
+	if (result)
+		vty_out(vty, "%s\n", result);
+
+	vty_mgmt_resume_response(vty, CMD_SUCCESS);
+
+	return 0;
+}
+
 static int vty_mgmt_error_notified(struct mgmt_fe_client *client,
 				   uintptr_t user_data, uint64_t client_id,
 				   uint64_t session_id, uintptr_t session_ctx,
@@ -3885,6 +3905,7 @@ static struct mgmt_fe_client_cbs mgmt_cbs = {
 	.get_data_notify = vty_mgmt_get_data_result_notified,
 	.get_tree_notify = vty_mgmt_get_tree_result_notified,
 	.edit_notify = vty_mgmt_edit_result_notified,
+	.rpc_notify = vty_mgmt_rpc_result_notified,
 	.error_notify = vty_mgmt_error_notified,
 
 };
@@ -4158,6 +4179,25 @@ int vty_mgmt_send_edit_req(struct vty *vty, uint8_t datastore,
 	}
 
 	vty->mgmt_req_pending_cmd = "MESSAGE_EDIT_REQ";
+
+	return 0;
+}
+
+int vty_mgmt_send_rpc_req(struct vty *vty, LYD_FORMAT request_type,
+			  const char *xpath, const char *data)
+{
+	vty->mgmt_req_id++;
+
+	if (mgmt_fe_send_rpc_req(mgmt_fe_client, vty->mgmt_session_id,
+				 vty->mgmt_req_id, request_type, xpath, data)) {
+		zlog_err("Failed to send RPC to MGMTD session-id: %" PRIu64
+			 " req-id %" PRIu64 ".",
+			 vty->mgmt_session_id, vty->mgmt_req_id);
+		vty_out(vty, "Failed to send RPC to MGMTD!\n");
+		return -1;
+	}
+
+	vty->mgmt_req_pending_cmd = "MESSAGE_RPC_REQ";
 
 	return 0;
 }

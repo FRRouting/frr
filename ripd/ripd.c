@@ -3254,38 +3254,6 @@ DEFUN (show_ip_rip_status,
 	return CMD_SUCCESS;
 }
 
-#include "ripd/ripd_clippy.c"
-
-/*
- * XPath: /frr-ripd:clear-rip-route
- */
-DEFPY_YANG (clear_ip_rip,
-       clear_ip_rip_cmd,
-       "clear ip rip [vrf WORD]",
-       CLEAR_STR
-       IP_STR
-       "Clear IP RIP database\n"
-       VRF_CMD_HELP_STR)
-{
-	struct list *input;
-	int ret;
-
-	input = list_new();
-	if (vrf) {
-		struct yang_data *yang_vrf;
-
-		yang_vrf = yang_data_new("/frr-ripd:clear-rip-route/input/vrf",
-					 vrf);
-		listnode_add(input, yang_vrf);
-	}
-
-	ret = nb_cli_rpc(vty, "/frr-ripd:clear-rip-route", input, NULL);
-
-	list_delete(&input);
-
-	return ret;
-}
-
 /* Distribute-list update functions. */
 static void rip_distribute_update(struct distribute_ctx *ctx,
 				  struct distribute *dist)
@@ -3660,7 +3628,6 @@ void rip_init(void)
 	/* Install rip commands. */
 	install_element(VIEW_NODE, &show_ip_rip_cmd);
 	install_element(VIEW_NODE, &show_ip_rip_status_cmd);
-	install_element(ENABLE_NODE, &clear_ip_rip_cmd);
 
 	/* Debug related init. */
 	rip_debug_init();

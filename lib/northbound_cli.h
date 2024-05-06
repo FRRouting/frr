@@ -80,7 +80,23 @@ extern int nb_cli_apply_changes(struct vty *vty, const char *xpath_base_fmt,
 				...) PRINTFRR(2, 3);
 
 /*
- * Execute a YANG RPC or Action.
+ * Add an input child node for an RPC or an action.
+ *
+ * vty
+ *    The vty context.
+ *
+ * xpath
+ *    XPath of the child being added, relative to the input container.
+ *
+ * value
+ *    Value of the child being added. Can be NULL for containers and leafs of
+ *    type 'empty'.
+ */
+extern int nb_cli_rpc_enqueue(struct vty *vty, const char *xpath,
+			      const char *value);
+
+/*
+ * Execute a YANG RPC or Action using the enqueued input parameters.
  *
  * vty
  *    The vty terminal to dump any error.
@@ -88,20 +104,16 @@ extern int nb_cli_apply_changes(struct vty *vty, const char *xpath_base_fmt,
  * xpath
  *    XPath of the YANG RPC or Action node.
  *
- * input
- *    List of 'yang_data' structures containing the RPC input parameters. It
- *    can be set to NULL when there are no input parameters.
- *
- * output
- *    List of 'yang_data' structures used to retrieve the RPC output parameters.
- *    It can be set to NULL when it's known that the given YANG RPC or Action
- *    doesn't have any output parameters.
+ * output_p
+ *    A pointer to the libyang data node that will hold the output data tree.
+ *    It can be set to NULL if the caller is not interested in processing the
+ *    output. The caller is responsible for freeing the output data tree.
  *
  * Returns:
  *    CMD_SUCCESS on success, CMD_WARNING otherwise.
  */
-extern int nb_cli_rpc(struct vty *vty, const char *xpath, struct list *input,
-		      struct list *output);
+extern int nb_cli_rpc(struct vty *vty, const char *xpath,
+		      struct lyd_node **output_p);
 
 /*
  * Show CLI commands associated to the given YANG data node.

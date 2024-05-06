@@ -932,14 +932,22 @@ static int nb_candidate_edit_tree_add(struct nb_config *candidate,
 		/* if replace failed, restore the original node */
 		if (existing) {
 			if (root) {
+				/* Restoring the whole config. */
 				candidate->dnode = existing;
+			} else if (ex_parent) {
+				/*
+				 * Restoring a nested node. Insert it as a
+				 * child.
+				 */
+				lyd_insert_child(ex_parent, existing);
 			} else {
-				if (ex_parent)
-					lyd_insert_child(ex_parent, existing);
-				else
-					lyd_insert_sibling(candidate->dnode,
-							   existing,
-							   &candidate->dnode);
+				/*
+				 * Restoring a top-level node. Insert it as a
+				 * sibling to candidate->dnode to make sure
+				 * the linkage is correct.
+				 */
+				lyd_insert_sibling(candidate->dnode, existing,
+						   &candidate->dnode);
 			}
 		}
 		yang_print_errors(ly_native_ctx, errmsg, errmsg_len);
@@ -1820,13 +1828,10 @@ const void *nb_callback_lookup_next(const struct nb_node *nb_node,
 }
 
 int nb_callback_rpc(const struct nb_node *nb_node, const char *xpath,
-		    const struct list *input, struct list *output, char *errmsg,
-		    size_t errmsg_len)
+		    const struct lyd_node *input, struct lyd_node *output,
+		    char *errmsg, size_t errmsg_len)
 {
 	struct nb_cb_rpc_args args = {};
-
-	if (CHECK_FLAG(nb_node->flags, F_NB_NODE_IGNORE_CFG_CBS))
-		return 0;
 
 	DEBUGD(&nb_dbg_cbs_rpc, "northbound RPC: %s", xpath);
 

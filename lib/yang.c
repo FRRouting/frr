@@ -653,6 +653,16 @@ void yang_dnode_free(struct lyd_node *dnode)
 	lyd_free_all(dnode);
 }
 
+void yang_dnode_rpc_output_add(struct lyd_node *output, const char *xpath,
+			       const char *value)
+{
+	LY_ERR err;
+
+	err = lyd_new_path(output, ly_native_ctx, xpath, value,
+			   LYD_NEW_PATH_OUTPUT | LYD_NEW_PATH_UPDATE, NULL);
+	assert(err == LY_SUCCESS);
+}
+
 struct yang_data *yang_data_new(const char *xpath, const char *value)
 {
 	struct yang_data *data;
@@ -761,6 +771,63 @@ LY_ERR yang_parse_notification(const char *xpath, LYD_FORMAT format,
 	}
 	*notif = set->dnodes[0];
 	ly_set_free(set, NULL);
+	return LY_SUCCESS;
+}
+
+LY_ERR yang_parse_rpc(const char *xpath, LYD_FORMAT format, const char *data,
+		      bool reply, struct lyd_node **rpc)
+{
+	const struct lysc_node *snode;
+	struct lyd_node *parent = NULL;
+	struct ly_in *in = NULL;
+	LY_ERR err;
+
+	snode = lys_find_path(ly_native_ctx, NULL, xpath, 0);
+	if (!snode) {
+		zlog_err("Failed to find RPC/action schema node: %s", xpath);
+		return LY_ENOTFOUND;
+	}
+
+	/* If it's an action, create its parent */
+	if (snode->nodetype == LYS_ACTION) {
+		char *parent_xpath = XSTRDUP(MTYPE_TMP, xpath);
+
+		if (yang_xpath_pop_node(parent_xpath) != NB_OK) {
+			XFREE(MTYPE_TMP, parent_xpath);
+			zlog_err("Invalid action xpath: %s", xpath);
+			return LY_EINVAL;
+		}
+
+		err = lyd_new_path2(NULL, ly_native_ctx, parent_xpath, NULL, 0,
+				    0, 0, NULL, &parent);
+		XFREE(MTYPE_TMP, parent_xpath);
+		if (err) {
+			zlog_err("Failed to create parent node for action: %s",
+				 ly_last_errmsg());
+			return err;
+		}
+	} else if (snode->nodetype != LYS_RPC) {
+		zlog_err("Schema node is not an RPC/action: %s", xpath);
+		return LY_EINVAL;
+	}
+
+	err = ly_in_new_memory(data, &in);
+	if (err) {
+		lyd_free_all(parent);
+		zlog_err("Failed to initialize ly_in: %s", ly_last_errmsg());
+		return err;
+	}
+
+	err = lyd_parse_op(ly_native_ctx, parent, in, format,
+			   reply ? LYD_TYPE_REPLY_YANG : LYD_TYPE_RPC_YANG,
+			   NULL, rpc);
+	ly_in_free(in, 0);
+	if (err) {
+		lyd_free_all(parent);
+		zlog_err("Failed to parse RPC/action: %s", ly_last_errmsg());
+		return err;
+	}
+
 	return LY_SUCCESS;
 }
 

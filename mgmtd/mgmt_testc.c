@@ -18,6 +18,7 @@
 /* ---------------- */
 
 static void async_notification(struct nb_cb_notify_args *args);
+static int rpc_callback(struct nb_cb_rpc_args *args);
 
 static void sigusr1(void);
 static void sigint(void);
@@ -87,6 +88,10 @@ static const struct frr_yang_module_info frr_ripd_info = {
 			.cbs.notify = async_notification,
 		},
 		{
+			.xpath = "/frr-ripd:clear-rip-route",
+			.cbs.rpc = rpc_callback,
+		},
+		{
 			.xpath = NULL,
 		}
 	}
@@ -113,6 +118,7 @@ FRR_DAEMON_INFO(mgmtd_testc, MGMTD_TESTC,
 /* clang-format on */
 
 const char **__notif_xpaths;
+const char **__rpc_xpaths;
 
 struct mgmt_be_client_cbs __client_cbs = {};
 struct event *event_timeout;
@@ -134,6 +140,7 @@ static void quit(int exit_code)
 {
 	EVENT_OFF(event_timeout);
 	darr_free(__client_cbs.notif_xpaths);
+	darr_free(__client_cbs.rpc_xpaths);
 
 	frr_fini();
 
@@ -152,6 +159,12 @@ static void timeout(struct event *event)
 	quit(1);
 }
 
+static void success(struct event *event)
+{
+	zlog_notice("Success, exiting");
+	quit(0);
+}
+
 static void async_notification(struct nb_cb_notify_args *args)
 {
 	zlog_notice("Received YANG notification");
@@ -161,6 +174,23 @@ static void async_notification(struct nb_cb_notify_args *args)
 
 	if (o_notif_count && !--o_notif_count)
 		quit(0);
+}
+
+static int rpc_callback(struct nb_cb_rpc_args *args)
+{
+	const char *vrf = NULL;
+
+	zlog_notice("Received YANG RPC");
+
+	if (yang_dnode_exists(args->input, "vrf"))
+		vrf = yang_dnode_get_string(args->input, "vrf");
+
+	printf("{\"frr-ripd:clear-rip-route\": {\"vrf\": \"%s\"}}\n", vrf);
+
+	event_cancel(&event_timeout);
+	event_add_timer(master, success, NULL, 1, NULL);
+
+	return 0;
 }
 
 int main(int argc, char **argv)
@@ -216,6 +246,10 @@ int main(int argc, char **argv)
 		__client_cbs.notif_xpaths = __notif_xpaths;
 		__client_cbs.nnotif_xpaths = darr_len(__notif_xpaths);
 	}
+
+	darr_push(__rpc_xpaths, "/frr-ripd:clear-rip-route");
+	__client_cbs.rpc_xpaths = __rpc_xpaths;
+	__client_cbs.nrpc_xpaths = darr_len(__rpc_xpaths);
 
 	mgmt_be_client = mgmt_be_client_create("mgmtd-testc", &__client_cbs, 0,
 					       master);

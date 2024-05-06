@@ -120,6 +120,12 @@ struct mgmt_fe_client_cbs {
 			   uintptr_t session_ctx, uint64_t req_id,
 			   const char *xpath);
 
+	/* Called when RPC result is returned */
+	int (*rpc_notify)(struct mgmt_fe_client *client, uintptr_t user_data,
+			  uint64_t client_id, uint64_t session_id,
+			  uintptr_t session_ctx, uint64_t req_id,
+			  const char *result);
+
 	/* Called with asynchronous notifications from backends */
 	int (*async_notification)(struct mgmt_fe_client *client,
 				  uintptr_t user_data, uint64_t client_id,
@@ -453,6 +459,35 @@ extern int mgmt_fe_send_edit_req(struct mgmt_fe_client *client,
 				 uint8_t datastore, LYD_FORMAT request_type,
 				 uint8_t flags, uint8_t operation,
 				 const char *xpath, const char *data);
+
+/*
+ * Send RPC request to MGMTD daemon.
+ *
+ * client
+ *    Client object.
+ *
+ * session_id
+ *    Client session ID.
+ *
+ * req_id
+ *    Client request ID.
+ *
+ * result_type
+ *    The LYD_FORMAT of the result.
+ *
+ * xpath
+ *    the xpath of the RPC.
+ *
+ * data
+ *    the data tree.
+ *
+ * Returns:
+ *    0 on success, otherwise msg_conn_send_msg() return values.
+ */
+extern int mgmt_fe_send_rpc_req(struct mgmt_fe_client *client,
+				uint64_t session_id, uint64_t req_id,
+				LYD_FORMAT request_type, const char *xpath,
+				const char *data);
 
 /*
  * Destroy library and cleanup everything.

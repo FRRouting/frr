@@ -68,12 +68,11 @@ static void clear_rip_route(struct rip *rip)
 int clear_rip_route_rpc(struct nb_cb_rpc_args *args)
 {
 	struct rip *rip;
-	struct yang_data *yang_vrf;
 
-	yang_vrf = yang_data_list_find(args->input, "%s/%s", args->xpath,
-				       "input/vrf");
-	if (yang_vrf) {
-		rip = rip_lookup_by_vrf_name(yang_vrf->value);
+	if (args->input && yang_dnode_exists(args->input, "vrf")) {
+		const char *name = yang_dnode_get_string(args->input, "vrf");
+
+		rip = rip_lookup_by_vrf_name(name);
 		if (rip)
 			clear_rip_route(rip);
 	} else {

@@ -274,11 +274,11 @@ struct nb_cb_rpc_args {
 	/* XPath of the YANG RPC or action. */
 	const char *xpath;
 
-	/* Read-only list of input parameters. */
-	const struct list *input;
+	/* Read-only "input" tree of the RPC/action. */
+	const struct lyd_node *input;
 
-	/* List of output parameters to be populated by the callback. */
-	struct list *output;
+	/* The "output" tree of the RPC/action to be populated by the callback. */
+	struct lyd_node *output;
 
 	/* Buffer to store human-readable error message in case of error. */
 	char *errmsg;
@@ -833,7 +833,7 @@ extern const void *nb_callback_lookup_next(const struct nb_node *nb_node,
 					   const void *parent_list_entry,
 					   const struct yang_list_keys *keys);
 extern int nb_callback_rpc(const struct nb_node *nb_node, const char *xpath,
-			   const struct list *input, struct list *output,
+			   const struct lyd_node *input, struct lyd_node *output,
 			   char *errmsg, size_t errmsg_len);
 extern void nb_callback_notify(const struct nb_node *nb_node, const char *xpath,
 			       struct lyd_node *dnode);
