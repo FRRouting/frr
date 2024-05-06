@@ -20,6 +20,7 @@ from _clippy import (
     CMD_ATTR_HIDDEN,
     CMD_ATTR_DEPRECATED,
     CMD_ATTR_NOSH,
+    elf_notes,
 )
 
 

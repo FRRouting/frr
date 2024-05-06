@@ -36,6 +36,8 @@
 #include "fpm/fpm.h"
 #include "lib/libfrr.h"
 
+XREF_SETUP();
+
 struct glob {
 	int server_sock;
 	int sock;

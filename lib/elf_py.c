@@ -1358,6 +1358,15 @@ bool elf_py_init(PyObject *pymod)
 	(void)methods_elfpy;
 #endif
 
+#if defined(HAVE_GELF_GETNOTE) && defined(HAVE_ELF_GETDATA_RAWCHUNK)
+	PyObject *elf_notes = Py_True;
+#else
+	PyObject *elf_notes = Py_False;
+#endif
+	Py_INCREF(elf_notes);
+	if (PyModule_AddObject(pymod, "elf_notes", elf_notes))
+		Py_DECREF(elf_notes);
+
 	ELFFormatError = PyErr_NewException("_clippy.ELFFormatError",
 					    PyExc_ValueError, NULL);
 	PyModule_AddObject(pymod, "ELFFormatError", ELFFormatError);
