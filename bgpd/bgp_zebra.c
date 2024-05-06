@@ -243,7 +243,7 @@ static int bgp_ifp_up(struct interface *ifp)
 		vpn_leak_zebra_vrf_label_update(bgp, AFI_IP6);
 		vpn_leak_zebra_vrf_sid_update(bgp, AFI_IP);
 		vpn_leak_zebra_vrf_sid_update(bgp, AFI_IP6);
-		vpn_leak_postchange_all();
+		vpn_leak_postchange_all(true);
 	}
 
 	return 0;
@@ -298,7 +298,7 @@ static int bgp_ifp_down(struct interface *ifp)
 		vpn_leak_zebra_vrf_label_withdraw(bgp, AFI_IP6);
 		vpn_leak_zebra_vrf_sid_withdraw(bgp, AFI_IP);
 		vpn_leak_zebra_vrf_sid_withdraw(bgp, AFI_IP6);
-		vpn_leak_postchange_all();
+		vpn_leak_postchange_all(true);
 	}
 
 	return 0;
@@ -3367,7 +3367,7 @@ static int bgp_ifp_create(struct interface *ifp)
 		vpn_leak_zebra_vrf_label_update(bgp, AFI_IP6);
 		vpn_leak_zebra_vrf_sid_update(bgp, AFI_IP);
 		vpn_leak_zebra_vrf_sid_update(bgp, AFI_IP6);
-		vpn_leak_postchange_all();
+		vpn_leak_postchange_all(true);
 	}
 
 	return 0;
@@ -3399,7 +3399,7 @@ static int bgp_zebra_process_srv6_locator_chunk(ZAPI_CALLBACK_ARGS)
 	}
 
 	listnode_add(bgp->srv6_locator_chunks, chunk);
-	vpn_leak_postchange_all();
+	vpn_leak_postchange_all(true);
 	return 0;
 }
 
@@ -3499,7 +3499,7 @@ static int bgp_zebra_process_srv6_locator_delete(ZAPI_CALLBACK_ARGS)
 		}
 	}
 
-	vpn_leak_postchange_all();
+	vpn_leak_postchange_all(false);
 
 	/* refresh tovpn_sid_locator */
 	for (ALL_LIST_ELEMENTS_RO(bm->bgp, node, bgp_vrf)) {
@@ -3697,7 +3697,8 @@ static bool bgp_zebra_label_manager_connect(void)
 
 	/* tell BGP L3VPN that label manager is available */
 	if (bgp_get_default())
-		vpn_leak_postchange_all();
+		vpn_leak_postchange_all(false);
+
 	return true;
 }
 

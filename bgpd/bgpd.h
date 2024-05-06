@@ -172,6 +172,9 @@ struct bgp_master {
 	/* DSCP value for TCP sessions */
 	uint8_t tcp_dscp;
 
+	/* L3VPN processing thread */
+	struct event *t_vpn_leak_postchange;
+
 #define BM_DEFAULT_Q_LIMIT 10000
 	uint32_t inq_limit;
 	uint32_t outq_limit;
