@@ -462,10 +462,14 @@ To do so, it defines a set of Flex-Algo Definitions (FAD) which
 have the following characteristics:
 
 - a numeric identifier (ID) between 128 and 255 inclusive
+
 - a set of constraints (basically, include or exclude a certain given set of
 	links, designated by a admin-group)
+
 - the calculation type (only the `Shortest-Path-First` is currently supported)
+
 - the metric type (only the IGP inherited metric type is currently supported)
+
 - some additional flags (not supported for the moment).
 
 A subset of routers advertises the Flex-Algo Definitions (FAD) to the other
@@ -475,13 +479,18 @@ rules:
 
 - If a locally configured FAD is not advertised to the area, the router does not
 	participate in the particular flex algorithm.
+
 - If a given flex algorithm is running, the participation in this particular
 	flex algorithm stops when its advertisements are over.
+
 - A router includes its own FAD in the election process if and only if it is
 	advertised to the other routers.
+
 - If only one router advertises the FAD, the FAD is elected.
+
 - If several FADs are advertised with different priorities, the one with the
 	highest priority value is selected.
+
 - If there are multiple advertisements of the FAD with the same highest
 	priority, the FAD of the router with the highest IS-IS system-ID is
 	selected.
@@ -497,14 +506,10 @@ which flex algorithm they must use for a given packet.
 The following commands configure Flex-Algo at the 'router isis' configuration
 level. Segment-Routing prefixes must be configured for the Flex-Algo.
 
-.. clicmd:: flexible-algorithm (128-255)
+.. clicmd:: flex-algo (128-255)
 
    Add a Flex-Algo Definition (FAD) and enter the FAD configuration
    level. The algorithm ID value is in the range of 128 to 255 inclusive.
-
-.. clicmd:: no flexible-algorithm (128-255)
-
-   Unconfigure a Flex-Algo Definition.
 
 .. clicmd:: affinity-map NAME bit-position (0-255)
 
@@ -517,7 +522,7 @@ level. Segment-Routing prefixes must be configured for the Flex-Algo.
    admin-group 'bit-position' is set 1, else it is set to 0.
 
 The following commands configure Flex-Algo at the 'router isis' and
-'flexible-algorithm (128-255)' configuration level.
+'flex-algo (128-255)' configuration level.
 
 .. clicmd:: advertise-definition
 
