@@ -246,6 +246,17 @@ struct srv6_sid_format {
 };
 DECLARE_QOBJ_TYPE(srv6_sid_format);
 
+/* Context for an SRv6 SID */
+struct srv6_sid_ctx {
+	/* Behavior associated with the SID */
+	enum seg6local_action_t behavior;
+
+	/* Behavior-specific attributes */
+	struct in_addr nh4;
+	struct in6_addr nh6;
+	vrf_id_t vrf_id;
+};
+
 static inline const char *seg6_mode2str(enum seg6_mode_t mode)
 {
 	switch (mode) {
@@ -309,6 +320,54 @@ const char *seg6local_context2str(char *str, size_t size,
 				  const struct seg6local_context *ctx,
 				  uint32_t action);
 
+static inline const char *srv6_sid_ctx2str(char *str, size_t size,
+					   const struct srv6_sid_ctx *ctx)
+{
+	int len = 0;
+
+	len += snprintf(str + len, size - len, "%s",
+			seg6local_action2str(ctx->behavior));
+
+	switch (ctx->behavior) {
+	case ZEBRA_SEG6_LOCAL_ACTION_UNSPEC:
+		break;
+
+	case ZEBRA_SEG6_LOCAL_ACTION_END:
+		len += snprintf(str + len, size - len, " USP");
+		break;
+
+	case ZEBRA_SEG6_LOCAL_ACTION_END_X:
+	case ZEBRA_SEG6_LOCAL_ACTION_END_DX6:
+		len += snprintfrr(str + len, size - len, " nh6 %pI6", &ctx->nh6);
+		break;
+
+	case ZEBRA_SEG6_LOCAL_ACTION_END_DX4:
+		len += snprintfrr(str + len, size - len, " nh4 %pI4", &ctx->nh4);
+		break;
+
+	case ZEBRA_SEG6_LOCAL_ACTION_END_T:
+	case ZEBRA_SEG6_LOCAL_ACTION_END_DT6:
+	case ZEBRA_SEG6_LOCAL_ACTION_END_DT4:
+	case ZEBRA_SEG6_LOCAL_ACTION_END_DT46:
+		len += snprintf(str + len, size - len, " vrf_id %u",
+				ctx->vrf_id);
+		break;
+
+	case ZEBRA_SEG6_LOCAL_ACTION_END_DX2:
+	case ZEBRA_SEG6_LOCAL_ACTION_END_B6:
+	case ZEBRA_SEG6_LOCAL_ACTION_END_B6_ENCAP:
+	case ZEBRA_SEG6_LOCAL_ACTION_END_BM:
+	case ZEBRA_SEG6_LOCAL_ACTION_END_S:
+	case ZEBRA_SEG6_LOCAL_ACTION_END_AS:
+	case ZEBRA_SEG6_LOCAL_ACTION_END_AM:
+	case ZEBRA_SEG6_LOCAL_ACTION_END_BPF:
+	default:
+		len += snprintf(str + len, size - len, " unknown(%s)", __func__);
+	}
+
+	return str;
+}
+
 int snprintf_seg6_segs(char *str,
 		size_t size, const struct seg6_segs *segs);
 
@@ -328,6 +387,12 @@ srv6_locator_chunk_detailed_json(const struct srv6_locator_chunk *chunk);
 extern struct srv6_sid_format *srv6_sid_format_alloc(const char *name);
 extern void srv6_sid_format_free(struct srv6_sid_format *format);
 extern void delete_srv6_sid_format(void *format);
+
+extern struct srv6_sid_ctx *srv6_sid_ctx_alloc(enum seg6local_action_t behavior,
+					       struct in_addr *nh4,
+					       struct in6_addr *nh6,
+					       vrf_id_t vrf_id);
+extern void srv6_sid_ctx_free(struct srv6_sid_ctx *ctx);
 
 #ifdef __cplusplus
 }
