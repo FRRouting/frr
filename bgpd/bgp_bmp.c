@@ -391,11 +391,11 @@ static int bmp_send_initiation(struct bmp *bmp)
 
 	bmp_common_hdr(s, BMP_VERSION_3, BMP_TYPE_INITIATION);
 
-#define BMP_INFO_TYPE_SYSDESCR	1
-#define BMP_INFO_TYPE_SYSNAME	2
-	bmp_put_info_tlv(s, BMP_INFO_TYPE_SYSDESCR,
-			FRR_FULL_NAME " " FRR_VER_SHORT);
-	bmp_put_info_tlv(s, BMP_INFO_TYPE_SYSNAME, cmd_hostname_get());
+#define BMP_INIT_INFO_TYPE_SYSDESCR 1
+#define BMP_INIT_INFO_TYPE_SYSNAME  2
+	bmp_put_info_tlv(s, BMP_INIT_INFO_TYPE_SYSDESCR,
+			 FRR_FULL_NAME " " FRR_VER_SHORT);
+	bmp_put_info_tlv(s, BMP_INIT_INFO_TYPE_SYSNAME, cmd_hostname_get());
 
 	len = stream_get_endp(s);
 	stream_putl_at(s, BMP_LENGTH_POS, len); /* message length is set. */
@@ -438,6 +438,7 @@ static struct stream *bmp_peerstate(struct peer *peer, bool down)
 	monotime_to_realtime(&uptime, &uptime_real);
 
 #define BGP_BMP_MAX_PACKET_SIZE	1024
+#define BMP_PEERUP_INFO_TYPE_STRING 0
 	s = stream_new(BGP_MAX_PACKET_SIZE);
 
 	if (peer_established(peer->connection) && !down) {
@@ -493,7 +494,8 @@ static struct stream *bmp_peerstate(struct peer *peer, bool down)
 		}
 
 		if (peer->desc)
-			bmp_put_info_tlv(s, 0, peer->desc);
+			bmp_put_info_tlv(s, BMP_PEERUP_INFO_TYPE_STRING,
+					 peer->desc);
 	} else {
 		uint8_t type;
 		size_t type_pos;
