@@ -1690,29 +1690,25 @@ DEFUN(show_isis_mpls_te_router,
 		return CMD_SUCCESS;
 	}
 	ISIS_FIND_VRF_ARGS(argv, argc, idx_vrf, vrf_name, all_vrf);
-	if (vrf_name) {
-		if (all_vrf) {
-			for (ALL_LIST_ELEMENTS_RO(im->isis, inode, isis)) {
-				for (ALL_LIST_ELEMENTS_RO(isis->area_list,
-							  anode, area)) {
-					if (!IS_MPLS_TE(area->mta))
-						continue;
 
-					show_router_id(vty, area);
-				}
-			}
-			return 0;
-		}
-		isis = isis_lookup_by_vrfname(vrf_name);
-		if (isis != NULL) {
-			for (ALL_LIST_ELEMENTS_RO(isis->area_list, anode,
-						  area)) {
-
+	if (all_vrf) {
+		for (ALL_LIST_ELEMENTS_RO(im->isis, inode, isis)) {
+			for (ALL_LIST_ELEMENTS_RO(isis->area_list, anode, area)) {
 				if (!IS_MPLS_TE(area->mta))
 					continue;
 
 				show_router_id(vty, area);
 			}
+		}
+		return 0;
+	}
+	isis = isis_lookup_by_vrfname(vrf_name);
+	if (isis != NULL) {
+		for (ALL_LIST_ELEMENTS_RO(isis->area_list, anode, area)) {
+			if (!IS_MPLS_TE(area->mta))
+				continue;
+
+			show_router_id(vty, area);
 		}
 	}
 
@@ -2162,19 +2158,18 @@ DEFUN(show_isis_mpls_te_db,
 	int rc = CMD_WARNING;
 
 	ISIS_FIND_VRF_ARGS(argv, argc, idx_vrf, vrf_name, all_vrf);
-	if (vrf_name) {
-		if (all_vrf) {
-			for (ALL_LIST_ELEMENTS_RO(im->isis, node, isis)) {
-				rc = show_isis_ted(vty, argv, argc, isis);
-				if (rc != CMD_SUCCESS)
-					return rc;
-			}
-			return CMD_SUCCESS;
-		}
-		isis = isis_lookup_by_vrfname(vrf_name);
-		if (isis)
+
+	if (all_vrf) {
+		for (ALL_LIST_ELEMENTS_RO(im->isis, node, isis)) {
 			rc = show_isis_ted(vty, argv, argc, isis);
+			if (rc != CMD_SUCCESS)
+				return rc;
+		}
+		return CMD_SUCCESS;
 	}
+	isis = isis_lookup_by_vrfname(vrf_name);
+	if (isis)
+		rc = show_isis_ted(vty, argv, argc, isis);
 
 	return rc;
 }
