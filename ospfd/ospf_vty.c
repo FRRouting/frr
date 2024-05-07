@@ -8591,6 +8591,8 @@ DEFUN(ip_ospf_network, ip_ospf_network_cmd,
 			IF_DEF_PARAMS(ifp)->ptp_dmvpn = 1;
 	}
 
+	IF_DEF_PARAMS(ifp)->type_cfg = true;
+
 	if (IF_DEF_PARAMS(ifp)->type == old_type &&
 	    IF_DEF_PARAMS(ifp)->ptp_dmvpn == old_ptp_dmvpn &&
 	    IF_DEF_PARAMS(ifp)->p2mp_delay_reflood == old_p2mp_delay_reflood)
@@ -8654,6 +8656,7 @@ DEFUN (no_ip_ospf_network,
 	struct route_node *rn;
 
 	IF_DEF_PARAMS(ifp)->type = ospf_default_iftype(ifp);
+	IF_DEF_PARAMS(ifp)->type_cfg = false;
 	IF_DEF_PARAMS(ifp)->ptp_dmvpn = 0;
 	IF_DEF_PARAMS(ifp)->p2mp_delay_reflood =
 		OSPF_P2MP_DELAY_REFLOOD_DEFAULT;
@@ -12211,25 +12214,21 @@ static int config_write_interface_one(struct vty *vty, struct vrf *vrf)
 
 		do {
 			/* Interface Network print. */
-			if (OSPF_IF_PARAM_CONFIGURED(params, type)
-			    && params->type != OSPF_IFTYPE_LOOPBACK) {
-				if (params->type != ospf_default_iftype(ifp)) {
-					vty_out(vty, " ip ospf network %s",
-						ospf_int_type_str
-							[params->type]);
-					if (params->type
-						    == OSPF_IFTYPE_POINTOPOINT
-					    && params->ptp_dmvpn)
-						vty_out(vty, " dmvpn");
-					if (params->type ==
-						    OSPF_IFTYPE_POINTOMULTIPOINT &&
-					    params->p2mp_delay_reflood)
-						vty_out(vty, " delay-reflood");
-					if (params != IF_DEF_PARAMS(ifp) && rn)
-						vty_out(vty, " %pI4",
-							&rn->p.u.prefix4);
-					vty_out(vty, "\n");
-				}
+			if (OSPF_IF_PARAM_CONFIGURED(params, type) &&
+			    params->type != OSPF_IFTYPE_LOOPBACK &&
+			    params->type_cfg) {
+				vty_out(vty, " ip ospf network %s",
+					ospf_int_type_str[params->type]);
+				if (params->type == OSPF_IFTYPE_POINTOPOINT &&
+				    params->ptp_dmvpn)
+					vty_out(vty, " dmvpn");
+				if (params->type ==
+					    OSPF_IFTYPE_POINTOMULTIPOINT &&
+				    params->p2mp_delay_reflood)
+					vty_out(vty, " delay-reflood");
+				if (params != IF_DEF_PARAMS(ifp) && rn)
+					vty_out(vty, " %pI4", &rn->p.u.prefix4);
+				vty_out(vty, "\n");
 			}
 
 			/* OSPF interface authentication print */
