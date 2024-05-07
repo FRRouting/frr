@@ -396,6 +396,7 @@ void bgp_connected_add(struct bgp *bgp, struct connected *ifc)
 		if (prefix_ipv4_any((struct prefix_ipv4 *)&p))
 			return;
 
+		bgp_static_valid_change(bgp, &p, true);
 		bgp_address_add(bgp, ifc, addr);
 
 		dest = bgp_node_get(bgp->connected_table[AFI_IP], &p);
@@ -429,6 +430,7 @@ void bgp_connected_add(struct bgp *bgp, struct connected *ifc)
 		if (IN6_IS_ADDR_LINKLOCAL(&p.u.prefix6))
 			return;
 
+		bgp_static_valid_change(bgp, &p, true);
 		bgp_address_add(bgp, ifc, addr);
 
 		dest = bgp_node_get(bgp->connected_table[AFI_IP6], &p);
@@ -460,7 +462,9 @@ void bgp_connected_delete(struct bgp *bgp, struct connected *ifc)
 		if (prefix_ipv4_any((struct prefix_ipv4 *)&p))
 			return;
 
+		bgp_static_valid_change(bgp, &p, false);
 		bgp_address_del(bgp, ifc, addr);
+		
 
 		dest = bgp_node_lookup(bgp->connected_table[AFI_IP], &p);
 	} else if (addr->family == AF_INET6) {
@@ -470,6 +474,7 @@ void bgp_connected_delete(struct bgp *bgp, struct connected *ifc)
 		if (IN6_IS_ADDR_LINKLOCAL(&p.u.prefix6))
 			return;
 
+		bgp_static_valid_change(bgp, &p, false);
 		bgp_address_del(bgp, ifc, addr);
 
 		dest = bgp_node_lookup(bgp->connected_table[AFI_IP6], &p);

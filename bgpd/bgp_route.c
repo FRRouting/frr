@@ -6968,6 +6968,57 @@ void bgp_static_withdraw(struct bgp *bgp, const struct prefix *p, afi_t afi,
 	bgp_dest_unlock_node(dest);
 }
 
+void bgp_static_path_valid_update(struct bgp *bgp, afi_t afi, safi_t safi, const struct prefix *p, bool valid) {
+	struct bgp_dest *dest;
+	struct bgp_path_info *pi;
+
+	dest = bgp_afi_node_lookup(bgp->rib[afi][safi], afi, safi, p, NULL);
+	if (!dest) {
+		return;
+	}
+	for (pi = bgp_dest_get_bgp_path_info(dest); pi; pi = pi->next) {
+		if (pi->peer == bgp->peer_self && pi->type == ZEBRA_ROUTE_BGP && pi->sub_type == BGP_ROUTE_STATIC)
+			break;
+	}
+
+	if (pi) {
+		if (valid) {
+			bgp_path_info_set_flag(dest, pi, BGP_PATH_VALID);
+			bgp_aggregate_increment(bgp, p, pi, afi, safi);
+		} else {
+			bgp_path_info_unset_flag(dest, pi, BGP_PATH_VALID);
+			bgp_aggregate_decrement(bgp, p, pi, afi, safi);
+		}
+		bgp_process(bgp, dest, afi, safi);
+	}
+}
+
+void bgp_static_valid_change(struct bgp *bgp, const struct prefix *p, bool valid)
+{
+	afi_t afi;
+	safi_t safi;
+	struct bgp_dest *dest;
+	struct bgp_dest *rm;
+	struct bgp_table *table;
+
+	FOREACH_AFI_SAFI (afi, safi) {
+		dest = bgp_node_lookup(bgp->route[afi][safi], p);
+		if (!dest)
+			continue;
+		if (!bgp_dest_has_bgp_path_info_data(dest))
+			continue;
+
+		if ((safi == SAFI_MPLS_VPN) || (safi == SAFI_ENCAP) || (safi == SAFI_EVPN)) {
+			table = bgp_dest_get_bgp_table_info(dest);
+			for (rm = bgp_table_top(table); rm; rm = bgp_route_next(rm)) {
+				bgp_static_path_valid_update(bgp, afi, safi, bgp_dest_get_prefix(rm), valid);
+			}
+		} else {
+			bgp_static_path_valid_update(bgp, afi, safi, bgp_dest_get_prefix(dest), valid);
+		}
+	}
+}
+
 /* Configure static BGP network.  When user don't run zebra, static
    route should be installed as valid.  */
 int bgp_static_set(struct vty *vty, bool negate, const char *ip_str,
