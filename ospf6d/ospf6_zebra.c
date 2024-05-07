@@ -289,7 +289,7 @@ static int ospf6_zebra_read_route(ZAPI_CALLBACK_ARGS)
 	if (cmd == ZEBRA_REDISTRIBUTE_ROUTE_ADD)
 		ospf6_asbr_redistribute_add(api.type, ifindex, &api.prefix,
 					    api.nexthop_num, nexthop, api.tag,
-					    ospf6);
+					    ospf6, api.metric);
 	else
 		ospf6_asbr_redistribute_remove(api.type, ifindex, &api.prefix,
 					       ospf6);

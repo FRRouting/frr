@@ -14,6 +14,7 @@
 #include "table.h"
 #include "plist.h"
 #include "frrevent.h"
+#include "frrstr.h"
 #include "linklist.h"
 #include "lib/northbound_cli.h"
 
@@ -1426,10 +1427,9 @@ static void ospf6_external_lsa_fwd_addr_set(struct ospf6 *ospf6,
 }
 
 void ospf6_asbr_redistribute_add(int type, ifindex_t ifindex,
-				 struct prefix *prefix,
-				 unsigned int nexthop_num,
-				 const struct in6_addr *nexthop,
-				 route_tag_t tag, struct ospf6 *ospf6)
+				 struct prefix *prefix, unsigned int nexthop_num,
+				 const struct in6_addr *nexthop, route_tag_t tag,
+				 struct ospf6 *ospf6, uint32_t metric)
 {
 	route_map_result_t ret;
 	struct ospf6_route troute;
@@ -1472,6 +1472,7 @@ void ospf6_asbr_redistribute_add(int type, ifindex_t ifindex,
 	if (ROUTEMAP(red)) {
 		troute.route_option = &tinfo;
 		troute.ospf6 = ospf6;
+		troute.path.redistribute_cost = metric;
 		tinfo.ifindex = ifindex;
 		tinfo.tag = tag;
 
@@ -1924,7 +1925,7 @@ static void ospf6_redistribute_default_set(struct ospf6 *ospf6, int originate)
 	case DEFAULT_ORIGINATE_ALWAYS:
 		ospf6_asbr_redistribute_add(DEFAULT_ROUTE, 0,
 					    (struct prefix *)&p, 0, &nexthop, 0,
-					    ospf6);
+					    ospf6, 0);
 		break;
 	}
 }
@@ -2153,25 +2154,81 @@ static const struct route_map_rule_cmd
 	ospf6_routemap_rule_set_metric_type_free,
 };
 
+struct ospf6_metric {
+	enum { metric_increment, metric_decrement, metric_absolute } type;
+	bool used;
+	uint32_t metric;
+};
+
 static enum route_map_cmd_result_t
 ospf6_routemap_rule_set_metric(void *rule, const struct prefix *prefix,
 			       void *object)
 {
-	char *metric = rule;
-	struct ospf6_route *route = object;
+	struct ospf6_metric *metric;
+	struct ospf6_route *route;
 
-	route->path.cost = atoi(metric);
+	/* Fetch routemap's rule information. */
+	metric = rule;
+	route = object;
+
+	/* Set metric out value. */
+	if (!metric->used)
+		return RMAP_OKAY;
+
+	if (route->path.redistribute_cost > OSPF6_EXT_PATH_METRIC_MAX)
+		route->path.redistribute_cost = OSPF6_EXT_PATH_METRIC_MAX;
+
+	if (metric->type == metric_increment) {
+		route->path.cost = route->path.redistribute_cost +
+				   metric->metric;
+
+		/* Check overflow */
+		if (route->path.cost > OSPF6_EXT_PATH_METRIC_MAX ||
+		    route->path.cost < metric->metric)
+			route->path.cost = OSPF6_EXT_PATH_METRIC_MAX;
+	} else if (metric->type == metric_decrement) {
+		route->path.cost = route->path.redistribute_cost -
+				   metric->metric;
+
+		/* Check overflow */
+		if (route->path.cost == 0 ||
+		    route->path.cost > route->path.redistribute_cost)
+			route->path.cost = 1;
+	} else if (metric->type == metric_absolute)
+		route->path.cost = metric->metric;
+
 	return RMAP_OKAY;
 }
 
 static void *ospf6_routemap_rule_set_metric_compile(const char *arg)
 {
-	uint32_t metric;
-	char *endp;
-	metric = strtoul(arg, &endp, 0);
-	if (metric > OSPF_LS_INFINITY || *endp != '\0')
-		return NULL;
-	return XSTRDUP(MTYPE_ROUTE_MAP_COMPILED, arg);
+	struct ospf6_metric *metric;
+
+	metric = XCALLOC(MTYPE_ROUTE_MAP_COMPILED, sizeof(*metric));
+	metric->used = false;
+
+	if (all_digit(arg))
+		metric->type = metric_absolute;
+
+	if ((arg[0] == '+') && all_digit(arg + 1)) {
+		metric->type = metric_increment;
+		arg++;
+	}
+
+	if ((arg[0] == '-') && all_digit(arg + 1)) {
+		metric->type = metric_decrement;
+		arg++;
+	}
+
+	metric->metric = strtoul(arg, NULL, 10);
+
+	if (metric->metric > OSPF6_EXT_PATH_METRIC_MAX)
+		metric->metric = OSPF6_EXT_PATH_METRIC_MAX;
+
+	if (metric->metric)
+		metric->used = true;
+
+	return metric;
 }
 
 static void ospf6_routemap_rule_set_metric_free(void *rule)
