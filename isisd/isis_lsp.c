@@ -822,15 +822,24 @@ int lsp_print_all(struct vty *vty, struct json_object *json,
 {
 	struct isis_lsp *lsp;
 	int lsp_count = 0;
+	struct json_object *lsp_json = NULL;
 
 	if (detail == ISIS_UI_LEVEL_BRIEF) {
 		frr_each (lspdb, head, lsp) {
-			lsp_print_common(lsp, vty, json, dynhost, isis);
+			if (json) {
+				lsp_json = json_object_new_object();
+				json_object_array_add(json, lsp_json);
+			}
+			lsp_print_common(lsp, vty, lsp_json, dynhost, isis);
 			lsp_count++;
 		}
 	} else if (detail == ISIS_UI_LEVEL_DETAIL) {
 		frr_each (lspdb, head, lsp) {
-			lsp_print_detail(lsp, vty, json, dynhost, isis);
+			if (json) {
+				lsp_json = json_object_new_object();
+				json_object_array_add(json, lsp_json);
+			}
+			lsp_print_detail(lsp, vty, lsp_json, dynhost, isis);
 			lsp_count++;
 		}
 	}
