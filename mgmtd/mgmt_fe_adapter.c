@@ -1443,20 +1443,14 @@ static void fe_adapter_handle_rpc(struct mgmt_fe_session_ctx *session,
 		return;
 	}
 
-	if (snode->nodetype == LYS_RPC)
-		clients =
-			mgmt_be_interested_clients(xpath,
-						   MGMT_BE_XPATH_SUBSCR_TYPE_RPC);
-	else if (snode->nodetype == LYS_ACTION)
-		clients =
-			mgmt_be_interested_clients(xpath,
-						   MGMT_BE_XPATH_SUBSCR_TYPE_CFG);
-	else {
+	if (snode->nodetype != LYS_RPC && snode->nodetype != LYS_ACTION) {
 		fe_adapter_send_error(session, req_id, false, -EINVAL,
 				      "Not an RPC or action path: %s", xpath);
 		return;
 	}
 
+	clients = mgmt_be_interested_clients(xpath,
+					     MGMT_BE_XPATH_SUBSCR_TYPE_RPC);
 	if (!clients) {
 		__dbg("No backends implement xpath: %s for txn-id: %" PRIu64
 		      " session-id: %" PRIu64,
