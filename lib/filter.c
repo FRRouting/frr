@@ -458,7 +458,6 @@ static int filter_show(struct vty *vty, const char *name, afi_t afi,
 	struct filter_cisco *filter;
 	bool first;
 	json_object *json = NULL;
-	json_object *json_proto = NULL;
 
 	master = access_master_get(afi);
 	if (master == NULL) {
@@ -469,12 +468,7 @@ static int filter_show(struct vty *vty, const char *name, afi_t afi,
 
 	if (use_json)
 		json = json_object_new_object();
-
-	/* Print the name of the protocol */
-	if (json) {
-		json_proto = json_object_new_object();
-		json_object_object_add(json, frr_protoname, json_proto);
-	} else
+	else
 		vty_out(vty, "%s:\n", frr_protoname);
 
 	for (access = master->str.head; access; access = access->next) {
@@ -496,7 +490,7 @@ static int filter_show(struct vty *vty, const char *name, afi_t afi,
 
 				if (json) {
 					json_acl = json_object_new_object();
-					json_object_object_add(json_proto,
+					json_object_object_add(json,
 							       access->name,
 							       json_acl);
 
@@ -596,7 +590,7 @@ DEFUN (show_mac_access_list_name,
 	return filter_show(vty, argv[3]->arg, AFI_L2VPN, false);
 }
 
-DEFUN (show_ip_access_list,
+DEFUN_NOSH (show_ip_access_list,
        show_ip_access_list_cmd,
        "show ip access-list [json]",
        SHOW_STR
@@ -608,7 +602,7 @@ DEFUN (show_ip_access_list,
 	return filter_show(vty, NULL, AFI_IP, uj);
 }
 
-DEFUN (show_ip_access_list_name,
+DEFUN_NOSH (show_ip_access_list_name,
        show_ip_access_list_name_cmd,
        "show ip access-list ACCESSLIST4_NAME [json]",
        SHOW_STR
@@ -622,7 +616,7 @@ DEFUN (show_ip_access_list_name,
 	return filter_show(vty, argv[idx_acl]->arg, AFI_IP, uj);
 }
 
-DEFUN (show_ipv6_access_list,
+DEFUN_NOSH (show_ipv6_access_list,
        show_ipv6_access_list_cmd,
        "show ipv6 access-list [json]",
        SHOW_STR
@@ -634,7 +628,7 @@ DEFUN (show_ipv6_access_list,
 	return filter_show(vty, NULL, AFI_IP6, uj);
 }
 
-DEFUN (show_ipv6_access_list_name,
+DEFUN_NOSH (show_ipv6_access_list_name,
        show_ipv6_access_list_name_cmd,
        "show ipv6 access-list ACCESSLIST6_NAME [json]",
        SHOW_STR

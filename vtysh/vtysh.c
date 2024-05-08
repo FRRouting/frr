@@ -3628,6 +3628,104 @@ DEFPY (show_ipv6_prefix_list_detail,
 	return CMD_SUCCESS;
 }
 
+static void show_access_list_send(afi_t afi, const char *access_list, bool json)
+{
+	unsigned int i;
+	bool first = true;
+	char command_line[128];
+
+	if (afi == AFI_IP)
+		snprintf(command_line, sizeof(command_line),
+			 "do show ip access-list ");
+	else if (afi == AFI_IP6)
+		snprintf(command_line, sizeof(command_line),
+			 "do show ipv6 access-list ");
+	if (access_list)
+		strlcat(command_line, access_list, sizeof(command_line));
+	if (json) {
+		strlcat(command_line, " json", sizeof(command_line));
+		vty_out(vty, "{");
+	}
+
+	for (i = 0; i < array_size(vtysh_client); i++) {
+		const struct vtysh_client *client = &vtysh_client[i];
+		bool is_connected = true;
+
+		if (!CHECK_FLAG(client->flag, VTYSH_ACCESS_LIST_SHOW))
+			continue;
+
+		for (; client; client = client->next)
+			if (client->fd < 0)
+				is_connected = false;
+
+		if (!is_connected)
+			continue;
+
+		if (json && !first)
+			vty_out(vty, ",");
+		else
+			first = false;
+
+		if (json)
+			vty_out(vty, "\"%s\":", vtysh_client[i].name);
+
+		vtysh_client_execute_name(vtysh_client[i].name, command_line);
+	}
+
+	if (json)
+		vty_out(vty, "}\n");
+}
+
+DEFPY (show_ip_access_list,
+       show_ip_access_list_cmd,
+       "show ip access-list [json$uj]",
+       SHOW_STR
+       IP_STR
+       "List IP access lists\n"
+       JSON_STR)
+{
+	show_access_list_send(AFI_IP, NULL, !!uj);
+	return CMD_SUCCESS;
+}
+
+DEFPY (show_ip_access_list_name,
+       show_ip_access_list_name_cmd,
+       "show ip access-list ACCESSLIST4_NAME$name [json$uj]",
+       SHOW_STR
+       IP_STR
+       "List IP access lists\n"
+       "IP access-list name\n"
+       JSON_STR)
+{
+	show_access_list_send(AFI_IP, name, !!uj);
+	return CMD_SUCCESS;
+}
+
+DEFPY (show_ipv6_access_list,
+       show_ipv6_access_list_cmd,
+       "show ipv6 access-list [json$uj]",
+       SHOW_STR
+       IPV6_STR
+       "List IPv6 access lists\n"
+       JSON_STR)
+{
+	show_access_list_send(AFI_IP6, NULL, !!uj);
+	return CMD_SUCCESS;
+}
+
+DEFPY (show_ipv6_access_list_name,
+       show_ipv6_access_list_name_cmd,
+       "show ipv6 access-list ACCESSLIST6_NAME$name [json$uj]",
+       SHOW_STR
+       IPV6_STR
+       "List IPv6 access lists\n"
+       "IPv6 access-list name\n"
+       JSON_STR)
+{
+	show_access_list_send(AFI_IP6, name, !!uj);
+	return CMD_SUCCESS;
+}
+
 DEFUN (vtysh_integrated_config,
        vtysh_integrated_config_cmd,
        "service integrated-vtysh-config",
@@ -5234,6 +5332,10 @@ void vtysh_init_vty(void)
 	install_element(ENABLE_NODE, &show_ipv6_prefix_list_cmd);
 	install_element(ENABLE_NODE, &show_ipv6_prefix_list_summary_cmd);
 	install_element(ENABLE_NODE, &show_ipv6_prefix_list_detail_cmd);
+	install_element(ENABLE_NODE, &show_ip_access_list_cmd);
+	install_element(ENABLE_NODE, &show_ip_access_list_name_cmd);
+	install_element(ENABLE_NODE, &show_ipv6_access_list_cmd);
+	install_element(ENABLE_NODE, &show_ipv6_access_list_name_cmd);
 
 	/* "write terminal" command. */
 	install_element(ENABLE_NODE, &vtysh_write_terminal_cmd);
