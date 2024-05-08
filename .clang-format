@@ -207,4 +207,21 @@ SpacesInSquareBrackets: false
 Standard: Cpp03
 TabWidth: 8
 UseTab: Always
+WhitespaceSensitiveMacros:
+  - "DEFPY"
+  - "DEFPY_HIDDEN"
+  - "DEFPY_NOSH"
+  - "DEFPY_YANG"
+  - "DEFPY_YANG_HIDDEN"
+  - "DEFPY_YANG_NOSH"
+  - "DEFSH"
+  - "DEFSH_HIDDEN"
+  - "DEFUN"
+  - "DEFUN_HIDDEN"
+  - "DEFUN_NOSH"
+  - "DEFUN_YANG"
+  - "DEFUN_YANG_HIDDEN"
+  - "DEFUN_YANG_NOSH"
+  - "DEFUNSH"
+  - "DEFUNSH_HIDDEN"
 ...
