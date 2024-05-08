@@ -2695,8 +2695,10 @@ int mgmt_txn_notify_error(struct mgmt_be_client_adapter *adapter,
 	case MGMTD_TXN_PROC_RPC:
 		rpc = txn_req->req.rpc;
 		rpc->recv_clients |= (1u << id);
-		rpc->errstr = XSTRDUP(MTYPE_MGMTD_ERR, errstr);
-
+		if (errstr) {
+			XFREE(MTYPE_MGMTD_ERR, rpc->errstr);
+			rpc->errstr = XSTRDUP(MTYPE_MGMTD_ERR, errstr);
+		}
 		/* check if done yet */
 		if (rpc->recv_clients != rpc->sent_clients)
 			return 0;
@@ -2798,8 +2800,9 @@ int mgmt_txn_notify_rpc_reply(struct mgmt_be_client_adapter *adapter,
 	struct mgmt_txn_ctx *txn = mgmt_txn_id2ctx(txn_id);
 	struct mgmt_txn_req *txn_req;
 	struct txn_req_rpc *rpc;
+	struct lyd_node *tree;
 	size_t data_len = msg_len - sizeof(*reply_msg);
-	LY_ERR err;
+	LY_ERR err = LY_SUCCESS;
 
 	if (!txn) {
 		__log_err("RPC reply from %s for a missing txn-id %" PRIu64,
@@ -2820,21 +2823,33 @@ int mgmt_txn_notify_rpc_reply(struct mgmt_be_client_adapter *adapter,
 
 	rpc = txn_req->req.rpc;
 
-	/* we don't expect more than one daemon to provide output for an RPC */
-	if (!rpc->client_results && data_len > 0) {
+	tree = NULL;
+	if (data_len)
 		err = yang_parse_rpc(rpc->xpath, reply_msg->result_type,
-				     reply_msg->data, true,
-				     &rpc->client_results);
+				     reply_msg->data, true, &tree);
+	if (err) {
+		__log_err("RPC reply from %s for txn-id %" PRIu64
+			  " req_id %" PRIu64 " error parsing result of type %u: %s",
+			  adapter->name, txn_id, req_id, reply_msg->result_type,
+			  ly_strerrcode(err));
+	}
+	if (!err && tree) {
+		if (!rpc->client_results)
+			rpc->client_results = tree;
+		else
+			err = lyd_merge_siblings(&rpc->client_results, tree,
+						 LYD_MERGE_DESTRUCT);
 		if (err) {
 			__log_err("RPC reply from %s for txn-id %" PRIu64
-				  " req_id %" PRIu64
-				  " error parsing result of type %u",
+				  " req_id %" PRIu64 " error merging result: %s",
 				  adapter->name, txn_id, req_id,
-				  reply_msg->result_type);
-			rpc->errstr =
-				XSTRDUP(MTYPE_MGMTD_ERR,
-					"Cannot parse result from the backend");
+				  ly_strerrcode(err));
 		}
+	}
+	if (err) {
+		XFREE(MTYPE_MGMTD_ERR, rpc->errstr);
+		rpc->errstr = XSTRDUP(MTYPE_MGMTD_ERR,
+				      "Cannot parse result from the backend");
 	}
 
 	rpc->recv_clients |= (1u << id);
