@@ -1518,11 +1518,20 @@ static bool bgp_attr_flag_invalid(struct bgp_attr_parser_args *args)
 	uint8_t mask = BGP_ATTR_FLAG_EXTLEN;
 	const uint8_t flags = args->flags;
 	const uint8_t attr_code = args->type;
+	struct peer *peer = args->peer;
 
 	/* there may be attributes we don't know about */
 	if (attr_code > attr_flags_values_max)
 		return false;
 	if (attr_flags_values[attr_code] == 0)
+		return false;
+
+	/* If `neighbor X path-attribute <discard|treat-as-withdraw>` is
+	 * configured, then ignore checking optional, trasitive flags.
+	 * The attribute/route will be discarded/withdrawned later instead
+	 * of dropping the session.
+	 */
+	if (peer->discard_attrs[attr_code] || peer->withdraw_attrs[attr_code])
 		return false;
 
 	/* RFC4271, "For well-known attributes, the Transitive bit MUST be set
