@@ -1537,7 +1537,6 @@ bgp_zebra_announce_actual(struct bgp_dest *dest, struct bgp_path_info *info,
 	route_tag_t tag;
 	bool is_add;
 	uint32_t nhg_id = 0;
-	uint32_t recursion_flag = 0;
 	struct bgp_table *table = bgp_dest_table(dest);
 	const struct prefix *p = bgp_dest_get_prefix(dest);
 
@@ -1655,11 +1654,8 @@ bgp_zebra_announce_actual(struct bgp_dest *dest, struct bgp_path_info *info,
 			api.metric, api.tag, api.nexthop_num, nhg_id);
 		bgp_debug_zebra_nh(&api);
 
-		if (CHECK_FLAG(api.flags, ZEBRA_FLAG_ALLOW_RECURSION))
-			recursion_flag = 1;
-
 		zlog_debug("%s: %pFX: announcing to zebra (recursion %sset)",
-			   __func__, p, (recursion_flag ? "" : "NOT "));
+			   __func__, p, (allow_recursion ? "" : "NOT "));
 	}
 	return zclient_route_send(is_add ? ZEBRA_ROUTE_ADD : ZEBRA_ROUTE_DELETE,
 				  zclient, &api);
