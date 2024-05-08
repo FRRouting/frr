@@ -783,6 +783,8 @@ extern void bgp_static_update(struct bgp *bgp, const struct prefix *p,
 extern void bgp_static_withdraw(struct bgp *bgp, const struct prefix *p,
 				afi_t afi, safi_t safi, struct prefix_rd *prd);
 
+void bgp_static_valid_change(struct bgp *bgp, const struct prefix *p, bool valid);
+
 extern int bgp_static_set(struct vty *vty, bool negate, const char *ip_str,
 			  const char *rd_str, const char *label_str, afi_t afi,
 			  safi_t safi, const char *rmap, int backdoor,
