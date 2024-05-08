@@ -136,7 +136,7 @@ functionality.
    range is very large for compatibility with other protocols. For RIPng, valid
    metric values are from 1 to 16.
 
-.. clicmd:: set tag (1-4294967295)
+.. clicmd:: set tag <untagged|(1-4294967295)>
 
    Set a tag on the matched route.
 
