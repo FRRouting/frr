@@ -141,6 +141,21 @@ struct srv6_locator_chunk *srv6_locator_chunk_alloc(void)
 	return chunk;
 }
 
+void srv6_locator_copy(struct srv6_locator *copy,
+		       const struct srv6_locator *locator)
+{
+	strlcpy(copy->name, locator->name, sizeof(locator->name));
+	copy->prefix = locator->prefix;
+	copy->block_bits_length = locator->block_bits_length;
+	copy->node_bits_length = locator->node_bits_length;
+	copy->function_bits_length = locator->function_bits_length;
+	copy->argument_bits_length = locator->argument_bits_length;
+	copy->algonum = locator->algonum;
+	copy->current = locator->current;
+	copy->status_up = locator->status_up;
+	copy->flags = locator->flags;
+}
+
 void srv6_locator_free(struct srv6_locator *locator)
 {
 	if (locator) {
