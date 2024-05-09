@@ -5,6 +5,7 @@ endif
 mlag_libmlag_pb_la_LDFLAGS = $(LIB_LDFLAGS) -version-info 0:0:0
 mlag_libmlag_pb_la_CPPFLAGS = $(AM_CPPFLAGS) $(PROTOBUF_C_CFLAGS)
 mlag_libmlag_pb_la_SOURCES = \
+	mlag/mlag_pb.c \
 	# end
 
 nodist_mlag_libmlag_pb_la_SOURCES = \
