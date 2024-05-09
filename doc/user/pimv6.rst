@@ -135,7 +135,7 @@ is in a vrf, enter the interface command with the vrf keyword at the end.
    command will not do anything if you do not have the underlying ability
    of a mlag implementation.
 
-.. clicmd:: ipv6 pim drpriority (1-4294967295)
+.. clicmd:: ipv6 pim drpriority (0-4294967295)
 
    Set the DR Priority for the interface. This command is useful to allow the
    user to influence what node becomes the DR for a lan segment.

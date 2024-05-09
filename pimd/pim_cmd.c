@@ -3953,7 +3953,7 @@ DEFUN (interface_no_ip_igmp_last_member_query_interval,
 
 DEFUN (interface_ip_pim_drprio,
        interface_ip_pim_drprio_cmd,
-       "ip pim drpriority (1-4294967295)",
+       "ip pim drpriority (0-4294967295)",
        IP_STR
        PIM_STR
        "Set the Designated Router Election Priority\n"
@@ -3966,7 +3966,7 @@ DEFUN (interface_ip_pim_drprio,
 
 DEFUN (interface_no_ip_pim_drprio,
        interface_no_ip_pim_drprio_cmd,
-       "no ip pim drpriority [(1-4294967295)]",
+       "no ip pim drpriority [(0-4294967295)]",
        NO_STR
        IP_STR
        PIM_STR

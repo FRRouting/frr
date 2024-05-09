@@ -1687,6 +1687,8 @@ const char *pim_reg_state2str(enum pim_reg_state reg_state, char *state_str,
 	return state_str;
 }
 
+static void pim_upstream_start_register_stop_timer(struct pim_upstream *up);
+
 static void pim_upstream_register_stop_timer(struct event *t)
 {
 	struct pim_interface *pim_ifp;
@@ -1734,7 +1736,7 @@ static void pim_upstream_register_stop_timer(struct event *t)
 			return;
 		}
 		up->reg_state = PIM_REG_JOIN_PENDING;
-		pim_upstream_start_register_stop_timer(up, 1);
+		pim_upstream_start_register_stop_timer(up);
 
 		if (((up->channel_oil->cc.lastused / 100)
 		     > pim->keep_alive_time)
@@ -1752,31 +1754,56 @@ static void pim_upstream_register_stop_timer(struct event *t)
 	}
 }
 
-void pim_upstream_start_register_stop_timer(struct pim_upstream *up,
-					    int null_register)
+static void pim_upstream_start_register_stop_timer(struct pim_upstream *up)
 {
 	uint32_t time;
 
 	EVENT_OFF(up->t_rs_timer);
 
-	if (!null_register) {
-		uint32_t lower = (0.5 * router->register_suppress_time);
-		uint32_t upper = (1.5 * router->register_suppress_time);
-		time = lower + (frr_weak_random() % (upper - lower + 1));
-		/* Make sure we don't wrap around */
-		if (time >= router->register_probe_time)
-			time -= router->register_probe_time;
-		else
-			time = 0;
-	} else
-		time = router->register_probe_time;
+	time = router->register_probe_time;
 
-	if (PIM_DEBUG_PIM_TRACE) {
-		zlog_debug(
-			"%s: (S,G)=%s Starting upstream register stop timer %d",
-			__func__, up->sg_str, time);
-	}
+	if (PIM_DEBUG_PIM_TRACE)
+		zlog_debug("%s: (S,G)=%s Starting upstream register stop timer %d",
+			   __func__, up->sg_str, time);
 	event_add_timer(router->master, pim_upstream_register_stop_timer, up,
+			time, &up->t_rs_timer);
+}
+
+static void pim_upstream_register_probe_timer(struct event *t)
+{
+	struct pim_upstream *up = EVENT_ARG(t);
+
+	if (!up->rpf.source_nexthop.interface ||
+	    !up->rpf.source_nexthop.interface->info) {
+		if (PIM_DEBUG_PIM_REG)
+			zlog_debug("cannot send Null register for %pSG, no path to RP",
+				   &up->sg);
+	} else
+		pim_null_register_send(up);
+
+	pim_upstream_start_register_stop_timer(up);
+}
+
+void pim_upstream_start_register_probe_timer(struct pim_upstream *up)
+{
+	uint32_t time;
+
+	EVENT_OFF(up->t_rs_timer);
+
+	uint32_t lower = (0.5 * router->register_suppress_time);
+	uint32_t upper = (1.5 * router->register_suppress_time);
+	time = lower + (frr_weak_random() % (upper - lower + 1));
+	/* Make sure we don't wrap around */
+	if (time >= router->register_probe_time)
+		time -= router->register_probe_time;
+	else
+		time = 0;
+
+	if (PIM_DEBUG_PIM_TRACE)
+		zlog_debug("%s: (S,G)=%s Starting upstream register stop null probe timer %d",
+			   __func__, up->sg_str, time);
+
+	event_add_timer(router->master, pim_upstream_register_probe_timer, up,
 			time, &up->t_rs_timer);
 }
 

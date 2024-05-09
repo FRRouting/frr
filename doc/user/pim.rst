@@ -211,7 +211,7 @@ is in a vrf, enter the interface command with the vrf keyword at the end.
    messages. This is enabled by default. 'no' form of this command is used to
    restrict processing of unicast bsm messages on this interface.
 
-.. clicmd:: ip pim drpriority (1-4294967295)
+.. clicmd:: ip pim drpriority (0-4294967295)
 
    Set the DR Priority for the interface. This command is useful to allow the
    user to influence what node becomes the DR for a lan segment.
