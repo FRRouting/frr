@@ -422,9 +422,7 @@ module frr-pim {
     }
 
     leaf dr-priority {
-      type uint32 {
-        range "1..max";
-      }
+      type uint32;
       default 1;
       description
         "DR (Designated Router) priority";
