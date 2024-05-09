@@ -318,25 +318,23 @@ static struct in6_addr srv6_locator_request_sid(struct isis_area *area,
  * @param area		IS-IS area
  * @param locator	SRv6 locator
  * @param behavior	SRv6 Endpoint Behavior bound to the SID
+ * @param sid_value	SRv6 SID value
  *
  * @result the allocated SID on success, NULL otherwise
  */
 struct isis_srv6_sid *
 isis_srv6_sid_alloc(struct isis_area *area, struct srv6_locator *locator,
-		    enum srv6_endpoint_behavior_codepoint behavior, int sid_func)
+		    enum srv6_endpoint_behavior_codepoint behavior,
+		    struct in6_addr *sid_value)
 {
 	struct isis_srv6_sid *sid = NULL;
 
-	if (!area || !locator)
+	if (!area || !locator || !sid_value)
 		return NULL;
 
 	sid = XCALLOC(MTYPE_ISIS_SRV6_SID, sizeof(struct isis_srv6_sid));
 
-	sid->sid = srv6_locator_request_sid(area, locator, sid_func);
-	if (IPV6_ADDR_SAME(&sid->sid, &in6addr_any)) {
-		isis_srv6_sid_free(sid);
-		return NULL;
-	}
+	sid->sid = *sid_value;
 
 	sid->behavior = behavior;
 	sid->structure.loc_block_len = locator->block_bits_length;
@@ -379,9 +377,10 @@ void isis_area_delete_backup_srv6_endx_sids(struct isis_area *area, int level)
  * @param adj	   IS-IS Adjacency
  * @param backup   True to initialize backup Adjacency SID
  * @param nexthops List of backup nexthops (for backup End.X SIDs only)
+ * @param sid_value SID value associated to be associated with the adjacency
  */
 void srv6_endx_sid_add_single(struct isis_adjacency *adj, bool backup,
-			      struct list *nexthops)
+			      struct list *nexthops, struct in6_addr *sid_value)
 {
 	struct isis_circuit *circuit = adj->circuit;
 	struct isis_area *area = circuit->area;
@@ -428,11 +427,7 @@ void srv6_endx_sid_add_single(struct isis_adjacency *adj, bool backup,
 	sra->structure.arg_len = locator->argument_bits_length;
 	sra->nexthop = nexthop;
 
-	sra->sid = srv6_locator_request_sid(area, locator, -1);
-	if (IPV6_ADDR_SAME(&sra->sid, &in6addr_any)) {
-		XFREE(MTYPE_ISIS_SRV6_INFO, sra);
-		return;
-	}
+	sra->sid = *sid_value;
 
 	switch (circuit->circ_type) {
 	/* SRv6 LAN End.X SID for Broadcast interface section #8.2 */
@@ -504,9 +499,9 @@ void srv6_endx_sid_add_single(struct isis_adjacency *adj, bool backup,
  *
  * @param adj	  IS-IS Adjacency
  */
-void srv6_endx_sid_add(struct isis_adjacency *adj)
+void srv6_endx_sid_add(struct isis_adjacency *adj, struct in6_addr *sid_value)
 {
-	srv6_endx_sid_add_single(adj, false, NULL);
+	srv6_endx_sid_add_single(adj, false, NULL, sid_value);
 }
 
 /**
@@ -609,7 +604,7 @@ static int srv6_adj_ip_enabled(struct isis_adjacency *adj, int family,
 	    family != AF_INET6)
 		return 0;
 
-	srv6_endx_sid_add(adj);
+	isis_zebra_request_srv6_sid_endx(adj);
 
 	return 0;
 }
