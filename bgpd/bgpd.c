@@ -1473,6 +1473,29 @@ static void bgp_srv6_init(struct bgp *bgp)
 
 static void bgp_srv6_cleanup(struct bgp *bgp)
 {
+	for (afi_t afi = AFI_IP; afi < AFI_MAX; afi++) {
+		if (bgp->vpn_policy[afi].tovpn_sid_locator != NULL)
+			srv6_locator_chunk_free(
+				&bgp->vpn_policy[afi].tovpn_sid_locator);
+		if (bgp->vpn_policy[afi].tovpn_zebra_vrf_sid_last_sent != NULL)
+			XFREE(MTYPE_BGP_SRV6_SID,
+			      bgp->vpn_policy[afi].tovpn_zebra_vrf_sid_last_sent);
+		if (bgp->vpn_policy[afi].tovpn_sid != NULL) {
+			sid_unregister(bgp, bgp->vpn_policy[afi].tovpn_sid);
+			XFREE(MTYPE_BGP_SRV6_SID,
+			      bgp->vpn_policy[afi].tovpn_sid);
+		}
+	}
+
+	if (bgp->tovpn_sid_locator != NULL)
+		srv6_locator_chunk_free(&bgp->tovpn_sid_locator);
+	if (bgp->tovpn_zebra_vrf_sid_last_sent != NULL)
+		XFREE(MTYPE_BGP_SRV6_SID, bgp->tovpn_zebra_vrf_sid_last_sent);
+	if (bgp->tovpn_sid != NULL) {
+		sid_unregister(bgp, bgp->tovpn_sid);
+		XFREE(MTYPE_BGP_SRV6_SID, bgp->tovpn_sid);
+	}
+
 	if (bgp->srv6_locator_chunks)
 		list_delete(&bgp->srv6_locator_chunks);
 	if (bgp->srv6_functions)
@@ -4136,18 +4159,6 @@ void bgp_free(struct bgp *bgp)
 		if (bgp->vpn_policy[afi].tovpn_rd_pretty)
 			XFREE(MTYPE_BGP_NAME,
 			      bgp->vpn_policy[afi].tovpn_rd_pretty);
-		if (bgp->vpn_policy[afi].tovpn_sid_locator != NULL)
-			srv6_locator_chunk_free(
-				&bgp->vpn_policy[afi].tovpn_sid_locator);
-		if (bgp->vpn_policy[afi].tovpn_zebra_vrf_sid_last_sent != NULL)
-			XFREE(MTYPE_BGP_SRV6_SID,
-			      bgp->vpn_policy[afi]
-				      .tovpn_zebra_vrf_sid_last_sent);
-		if (bgp->vpn_policy[afi].tovpn_sid != NULL) {
-			sid_unregister(bgp, bgp->vpn_policy[afi].tovpn_sid);
-			XFREE(MTYPE_BGP_SRV6_SID,
-			      bgp->vpn_policy[afi].tovpn_sid);
-		}
 	}
 	bgp_srv6_cleanup(bgp);
 	bgp_confederation_id_unset(bgp);
