@@ -102,6 +102,7 @@ bool isis_srv6_locator_unset(struct isis_area *area)
 	struct srv6_locator_chunk *chunk;
 	struct isis_srv6_sid *sid;
 	struct srv6_adjacency *sra;
+	struct srv6_sid_ctx ctx = {};
 
 	if (strncmp(area->srv6db.config.srv6_locator_name, "",
 		    sizeof(area->srv6db.config.srv6_locator_name)) == 0) {
@@ -120,13 +121,31 @@ bool isis_srv6_locator_unset(struct isis_area *area)
 		 * Zebra */
 		isis_zebra_srv6_sid_uninstall(area, sid);
 
+		/*
+		 * Inform the SID Manager that IS-IS will no longer use the SID, so
+		 * that the SID Manager can remove the SID context ownership from IS-IS
+		 * and release/free the SID context if it is not yes by other protocols.
+		 */
+		ctx.behavior = ZEBRA_SEG6_LOCAL_ACTION_END;
+		isis_zebra_release_srv6_sid(&ctx);
+
 		listnode_delete(area->srv6db.srv6_sids, sid);
 		isis_srv6_sid_free(sid);
 	}
 
 	/* Uninstall all local Adjacency-SIDs. */
-	for (ALL_LIST_ELEMENTS(area->srv6db.srv6_endx_sids, node, nnode, sra))
+	for (ALL_LIST_ELEMENTS(area->srv6db.srv6_endx_sids, node, nnode, sra)) {
+		/*
+		 * Inform the SID Manager that IS-IS will no longer use the SID, so
+		 * that the SID Manager can remove the SID context ownership from IS-IS
+		 * and release/free the SID context if it is not yes by other protocols.
+		 */
+		ctx.behavior = ZEBRA_SEG6_LOCAL_ACTION_END_X;
+		ctx.nh6 = sra->nexthop;
+		isis_zebra_release_srv6_sid(&ctx);
+
 		srv6_endx_sid_del(sra);
+	}
 
 	/* Inform Zebra that we are releasing the SRv6 locator */
 	ret = isis_zebra_srv6_manager_release_locator_chunk(
