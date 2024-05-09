@@ -1535,6 +1535,151 @@ void isis_zebra_release_srv6_sid(const struct srv6_sid_ctx *ctx)
 	}
 }
 
+static int isis_zebra_srv6_sid_notify(ZAPI_CALLBACK_ARGS)
+{
+	struct isis *isis = isis_lookup_by_vrfid(VRF_DEFAULT);
+	struct srv6_sid_ctx ctx;
+	struct in6_addr sid_addr;
+	enum zapi_srv6_sid_notify note;
+	uint32_t sid_func;
+	struct isis_area *area;
+	struct listnode *node, *nnode, *n;
+	char buf[256];
+	struct srv6_locator *locator;
+	struct prefix_ipv6 tmp_prefix;
+	struct srv6_adjacency *sra;
+	enum srv6_endpoint_behavior_codepoint behavior;
+	struct isis_srv6_sid *sid;
+	struct isis_adjacency *adj;
+
+	if (!isis)
+		return -1;
+
+	/* Decode the received notification message */
+	if (!zapi_srv6_sid_notify_decode(zclient->ibuf, &ctx, &sid_addr,
+					 &sid_func, NULL, &note)) {
+		zlog_err("%s : error in msg decode", __func__);
+		return -1;
+	}
+
+	sr_debug("%s: received SRv6 SID notify: ctx %s sid_value %pI6 sid_func %u note %s",
+		 __func__, srv6_sid_ctx2str(buf, sizeof(buf), &ctx), &sid_addr,
+		 sid_func, zapi_srv6_sid_notify2str(note));
+
+	for (ALL_LIST_ELEMENTS_RO(isis->area_list, node, area)) {
+		if (!area->srv6db.config.enabled || !area->srv6db.srv6_locator)
+			continue;
+
+		locator = area->srv6db.srv6_locator;
+
+		/* Verify that the received SID belongs to the configured locator */
+		if (note == ZAPI_SRV6_SID_ALLOCATED) {
+			tmp_prefix.family = AF_INET6;
+			tmp_prefix.prefixlen = IPV6_MAX_BITLEN;
+			tmp_prefix.prefix = sid_addr;
+
+			if (!prefix_match((struct prefix *)&locator->prefix,
+					  (struct prefix *)&tmp_prefix)) {
+				sr_debug("%s : ignoring SRv6 SID notify: locator (area %s) does not match",
+					 __func__, area->area_tag);
+				continue;
+			}
+		}
+
+		/* Handle notification */
+		switch (note) {
+		case ZAPI_SRV6_SID_ALLOCATED:
+			sr_debug("SRv6 SID %pI6 %s ALLOCATED", &sid_addr,
+				 srv6_sid_ctx2str(buf, sizeof(buf), &ctx));
+
+			if (ctx.behavior == ZEBRA_SEG6_LOCAL_ACTION_END) {
+				/* Remove old End SIDs, if any */
+				for (ALL_LIST_ELEMENTS(area->srv6db.srv6_sids,
+						       node, nnode, sid)) {
+					isis_zebra_srv6_sid_uninstall(area, sid);
+					listnode_delete(area->srv6db.srv6_sids,
+							sid);
+				}
+
+				/* Allocate new SRv6 End SID */
+				behavior =
+					(CHECK_FLAG(locator->flags,
+						    SRV6_LOCATOR_USID))
+						? SRV6_ENDPOINT_BEHAVIOR_END_NEXT_CSID
+						: SRV6_ENDPOINT_BEHAVIOR_END;
+				sid = isis_srv6_sid_alloc(area,
+							  area->srv6db
+								  .srv6_locator,
+							  behavior, &sid_addr);
+				if (!sid) {
+					zlog_warn("%s: isis_srv6_sid_alloc failed",
+						  __func__);
+					return -1;
+				}
+
+				/*
+				 * Install the new SRv6 End SID in the forwarding plane through
+				 * Zebra
+				 */
+				isis_zebra_srv6_sid_install(area, sid);
+
+				/* Store the SID */
+				listnode_add(area->srv6db.srv6_sids, sid);
+
+			} else if (ctx.behavior ==
+				   ZEBRA_SEG6_LOCAL_ACTION_END_X) {
+				for (ALL_LIST_ELEMENTS_RO(area->adjacency_list,
+							  n, adj)) {
+					/* Check if the End.X SID is for this adjacecny */
+					if (adj->ll_ipv6_count == 0 ||
+					    memcmp(&adj->ll_ipv6_addrs[0],
+						   &ctx.nh6,
+						   sizeof(struct in6_addr)) != 0)
+						continue;
+
+					/* Remove old End.X SIDs, if any */
+					for (ALL_LIST_ELEMENTS(adj->srv6_endx_sids,
+							       node, nnode, sra))
+						srv6_endx_sid_del(sra);
+
+					/* Allocate new End.X SID for the adjacency */
+					srv6_endx_sid_add_single(adj, false,
+								 NULL,
+								 &sid_addr);
+				}
+			} else {
+				zlog_warn("%s: unsupported behavior %u",
+					  __func__, ctx.behavior);
+				return -1;
+			}
+			break;
+		case ZAPI_SRV6_SID_RELEASED:
+			sr_debug("SRv6 SID %pI6 %s: RELEASED", &sid_addr,
+				 srv6_sid_ctx2str(buf, sizeof(buf), &ctx));
+			break;
+		case ZAPI_SRV6_SID_FAIL_ALLOC:
+			sr_debug("SRv6 SID %pI6 %s: Failed to allocate",
+				 &sid_addr,
+				 srv6_sid_ctx2str(buf, sizeof(buf), &ctx));
+
+			/* Error will be logged by zebra module */
+			break;
+		case ZAPI_SRV6_SID_FAIL_RELEASE:
+			zlog_warn("%s: SRv6 SID %pI6 %s failure to release",
+				  __func__, &sid_addr,
+				  srv6_sid_ctx2str(buf, sizeof(buf), &ctx));
+
+			/* Error will be logged by zebra module */
+			break;
+		}
+
+		/* Regenerate LSPs to advertise the new locator and the SID */
+		lsp_regenerate_schedule(area, area->is_type, 0);
+	}
+
+	return 0;
+}
+
 static zclient_handler *const isis_handlers[] = {
 	[ZEBRA_ROUTER_ID_UPDATE] = isis_router_id_update_zebra,
 	[ZEBRA_INTERFACE_ADDRESS_ADD] = isis_zebra_if_address_add,
@@ -1551,6 +1696,7 @@ static zclient_handler *const isis_handlers[] = {
 		isis_zebra_process_srv6_locator_chunk,
 	[ZEBRA_SRV6_LOCATOR_ADD] = isis_zebra_process_srv6_locator_add,
 	[ZEBRA_SRV6_LOCATOR_DELETE] = isis_zebra_process_srv6_locator_delete,
+	[ZEBRA_SRV6_SID_NOTIFY] = isis_zebra_srv6_sid_notify,
 };
 
 void isis_zebra_init(struct event_loop *master, int instance)
