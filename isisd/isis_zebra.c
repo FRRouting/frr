@@ -645,6 +645,40 @@ int isis_zebra_request_label_range(uint32_t base, uint32_t chunk_size)
 }
 
 /**
+ * Request an End.X SID for an IS-IS adjacency.
+ *
+ * @param adj	   IS-IS Adjacency
+ */
+void isis_zebra_request_srv6_sid_endx(struct isis_adjacency *adj)
+{
+	struct isis_circuit *circuit = adj->circuit;
+	struct isis_area *area = circuit->area;
+	struct in6_addr nexthop;
+	struct srv6_sid_ctx ctx = {};
+	struct in6_addr sid_value = {};
+	bool ret;
+
+	if (!area || !area->srv6db.srv6_locator)
+		return;
+
+	/* Determine nexthop IP address */
+	if (!circuit->ipv6_router || !adj->ll_ipv6_count)
+		return;
+
+	nexthop = adj->ll_ipv6_addrs[0];
+
+	ctx.behavior = ZEBRA_SEG6_LOCAL_ACTION_END_X;
+	ctx.nh6 = nexthop;
+	ret = isis_zebra_request_srv6_sid(&ctx, &sid_value,
+					  area->srv6db.config.srv6_locator_name);
+	if (!ret) {
+		zlog_err("%s: not allocated new End.X SID for IS-IS area %s",
+			 __func__, area->area_tag);
+		return;
+	}
+}
+
+/**
  * Release Label Range to the Label Manager.
  *
  * @param start		start of label range to release
@@ -1384,6 +1418,69 @@ int isis_zebra_srv6_manager_get_locator(const char *name)
 	 * result
 	 */
 	return srv6_manager_get_locator(zclient, name);
+}
+
+/**
+ * Ask the SRv6 Manager (zebra) to allocate a SID.
+ *
+ * Optionally, it is possible to provide an IPv6 address (sid_value parameter).
+ *
+ * When sid_value is provided, the SRv6 Manager allocates the requested SID
+ * address, if the request can be satisfied (explicit allocation).
+ *
+ * When sid_value is not provided, the SRv6 Manager allocates any available SID
+ * from the provided locator (dynamic allocation).
+ *
+ * @param ctx Context to be associated with the request SID
+ * @param sid_value IPv6 address to be associated with the requested SID (optional)
+ * @param locator_name Name of the locator from which the SID must be allocated
+ */
+bool isis_zebra_request_srv6_sid(const struct srv6_sid_ctx *ctx,
+				 struct in6_addr *sid_value,
+				 const char *locator_name)
+{
+	int ret;
+
+	if (!ctx || !locator_name)
+		return false;
+
+	/*
+	 * Send the Get SRv6 SID request to the SRv6 Manager and check the
+	 * result
+	 */
+	ret = srv6_manager_get_sid(zclient, ctx, sid_value, locator_name, NULL);
+	if (ret < 0) {
+		zlog_warn("%s: error getting SRv6 SID!", __func__);
+		return false;
+	}
+
+	return true;
+}
+
+/**
+ * Ask the SRv6 Manager (zebra) to release a previously allocated SID.
+ *
+ * This function is used to tell the SRv6 Manager that IS-IS no longer intends
+ * to use the SID.
+ *
+ * @param ctx Context to be associated with the SID to be released
+ */
+void isis_zebra_release_srv6_sid(const struct srv6_sid_ctx *ctx)
+{
+	int ret;
+
+	if (!ctx)
+		return;
+
+	/*
+	 * Send the Release SRv6 SID request to the SRv6 Manager and check the
+	 * result
+	 */
+	ret = srv6_manager_release_sid(zclient, ctx);
+	if (ret < 0) {
+		zlog_warn("%s: error releasing SRv6 SID!", __func__);
+		return;
+	}
 }
 
 static zclient_handler *const isis_handlers[] = {
