@@ -534,6 +534,12 @@ const char *rtm_rta2str(int type)
 		return "NH_ID";
 	case RTA_EXPIRES:
 		return "EXPIRES";
+	case RTA_VIA:
+		return "VIA";
+	case RTA_ENCAP_TYPE:
+		return "RTA_ENCAP_TYPE";
+	case RTA_ENCAP:
+		return "RTA_ENCAP";
 	default:
 		return "UNKNOWN";
 	}
