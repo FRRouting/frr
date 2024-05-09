@@ -32,7 +32,7 @@ frr_top_src = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # not quite obvious...
 
 daemon_flags = {
-    "lib/agentx.c": "VTYSH_ISISD|VTYSH_RIPD|VTYSH_OSPFD|VTYSH_OSPF6D|VTYSH_BGPD|VTYSH_ZEBRA",
+    "lib/libagentx.c": "VTYSH_ISISD|VTYSH_RIPD|VTYSH_OSPFD|VTYSH_OSPF6D|VTYSH_BGPD|VTYSH_ZEBRA",
     "lib/filter.c": "VTYSH_ACL_SHOW",
     "lib/filter_cli.c": "VTYSH_ACL_CONFIG",
     "lib/if.c": "VTYSH_INTERFACE",

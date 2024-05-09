@@ -22,12 +22,13 @@
 #include "hook.h"
 #include "libfrr.h"
 #include "xref.h"
+#include "lib/libagentx.h"
 
 XREF_SETUP();
 
 DEFINE_HOOK(agentx_enabled, (), ());
 
-static bool agentx_enabled = false;
+//bool agentx_enabled = false;
 
 static struct event_loop *agentx_tm;
 static struct event *timeout_thr = NULL;
@@ -153,15 +154,6 @@ static void agentx_events_update(void)
 	netsnmp_large_fd_set_cleanup(&lfds);
 }
 
-/* AgentX node. */
-static int config_write_agentx(struct vty *vty);
-static struct cmd_node agentx_node = {
-	.name = "smux",
-	.node = SMUX_NODE,
-	.prompt = "",
-	.config_write = config_write_agentx,
-};
-
 /* Logging NetSNMP messages */
 static int agentx_log_callback(int major, int minor, void *serverarg,
 			       void *clientarg)
@@ -201,17 +193,7 @@ static int agentx_log_callback(int major, int minor, void *serverarg,
 	return SNMP_ERR_NOERROR;
 }
 
-static int config_write_agentx(struct vty *vty)
-{
-	if (agentx_enabled)
-		vty_out(vty, "agentx\n");
-	return 1;
-}
-
-DEFUN (agentx_enable,
-       agentx_enable_cmd,
-       "agentx",
-       "SNMP AgentX protocol settings\n")
+static int agentx_cli_on(void)
 {
 	if (!agentx_enabled) {
 		init_snmp(FRR_SMUX_NAME);
@@ -221,19 +203,14 @@ DEFUN (agentx_enable,
 		hook_call(agentx_enabled);
 	}
 
-	return CMD_SUCCESS;
+	return 1;
 }
 
-DEFUN (no_agentx,
-       no_agentx_cmd,
-       "no agentx",
-       NO_STR
-       "SNMP AgentX protocol settings\n")
+static int agentx_cli_off(void)
 {
 	if (!agentx_enabled)
-		return CMD_SUCCESS;
-	vty_out(vty, "SNMP AgentX support cannot be disabled once enabled\n");
-	return CMD_WARNING_CONFIG_FAILED;
+		return 1;
+	return 0;
 }
 
 static int smux_disable(void)
@@ -252,16 +229,15 @@ void smux_init(struct event_loop *tm)
 {
 	agentx_tm = tm;
 
+	hook_register(agentx_cli_enabled, agentx_cli_on);
+	hook_register(agentx_cli_disabled, agentx_cli_off);
+
 	netsnmp_enable_subagent();
 	snmp_disable_log();
 	snmp_enable_calllog();
 	snmp_register_callback(SNMP_CALLBACK_LIBRARY, SNMP_CALLBACK_LOGGING,
 			       agentx_log_callback, NULL);
 	init_agent(FRR_SMUX_NAME);
-
-	install_node(&agentx_node);
-	install_element(CONFIG_NODE, &agentx_enable_cmd);
-	install_element(CONFIG_NODE, &no_agentx_cmd);
 
 	hook_register(frr_early_fini, smux_disable);
 }

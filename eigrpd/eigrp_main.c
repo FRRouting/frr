@@ -36,6 +36,7 @@
 #include "distribute.h"
 #include "libfrr.h"
 #include "routemap.h"
+#include "libagentx.h"
 //#include "if_rmap.h"
 
 #include "eigrpd/eigrp_structs.h"
@@ -178,9 +179,11 @@ int main(int argc, char **argv, char **envp)
 
 	/* EIGRP master init. */
 	eigrp_master_init();
+
 	eigrp_om->master = frr_init();
 	master = eigrp_om->master;
 
+	libagentx_init();
 	eigrp_error_init();
 	eigrp_vrf_init();
 	vrf_init(NULL, NULL, NULL, NULL);

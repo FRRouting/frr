@@ -36,6 +36,7 @@
 #include "libfrr.h"
 #include "lib_errors.h"
 #include "zlog_recirculate.h"
+#include "libagentx.h"
 
 static void		 ldpd_shutdown(void);
 static pid_t		 start_child(enum ldpd_process, char *, int, int, int);
@@ -370,6 +371,7 @@ main(int argc, char *argv[])
 	zlog_recirculate_subscribe(master, pipe_lde_log[0]);
 	zlog_recirculate_subscribe(master, pipe_ldpe_log[0]);
 
+	libagentx_init();
 	vrf_init(NULL, NULL, NULL, NULL);
 	access_list_init();
 	ldp_vty_init();
