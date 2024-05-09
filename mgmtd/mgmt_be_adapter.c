@@ -1073,6 +1073,11 @@ void mgmt_be_xpath_register_write(struct vty *vty)
 	darr_foreach_p (be_oper_xpath_map, map)
 		be_show_xpath_register(vty, map);
 
+	vty_out(vty, "\nMGMTD Backend NOTIFY XPath Registry: Count: %u\n",
+		darr_len(be_notif_xpath_map));
+	darr_foreach_p (be_notif_xpath_map, map)
+		be_show_xpath_register(vty, map);
+
 	vty_out(vty, "\nMGMTD Backend RPC XPath Registry: Count: %u\n",
 		darr_len(be_rpc_xpath_map));
 	darr_foreach_p (be_rpc_xpath_map, map)
@@ -1083,21 +1088,25 @@ void mgmt_be_show_xpath_registries(struct vty *vty, const char *xpath)
 {
 	enum mgmt_be_client_id id;
 	struct mgmt_be_client_adapter *adapter;
-	uint64_t cclients, oclients, rclients, combined;
+	uint64_t cclients, nclients, oclients, rclients, combined;
 
 	cclients = mgmt_be_interested_clients(xpath,
 					      MGMT_BE_XPATH_SUBSCR_TYPE_CFG);
 	oclients = mgmt_be_interested_clients(xpath,
 					      MGMT_BE_XPATH_SUBSCR_TYPE_OPER);
+	nclients = mgmt_be_interested_clients(xpath,
+					      MGMT_BE_XPATH_SUBSCR_TYPE_NOTIF);
 	rclients = mgmt_be_interested_clients(xpath,
 					      MGMT_BE_XPATH_SUBSCR_TYPE_RPC);
-	combined = cclients | oclients;
+	combined = cclients | nclients | oclients | rclients;
 
 	vty_out(vty, "XPath: '%s'\n", xpath);
 	FOREACH_BE_CLIENT_BITS (id, combined) {
-		vty_out(vty, "  -- Client: '%s'\tconfig:%d oper:%d rpc:%d\n",
+		vty_out(vty,
+			"  -- Client: '%s'\tconfig:%d notify:%d oper:%d rpc:%d\n",
 			mgmt_be_client_id2name(id), IS_IDBIT_SET(cclients, id),
-			IS_IDBIT_SET(oclients, id), IS_IDBIT_SET(rclients, id));
+			IS_IDBIT_SET(nclients, id), IS_IDBIT_SET(oclients, id),
+			IS_IDBIT_SET(rclients, id));
 		adapter = mgmt_be_get_adapter_by_id(id);
 		if (adapter)
 			vty_out(vty, "    -- Adapter: %p\n", adapter);
