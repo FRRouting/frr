@@ -35,6 +35,11 @@
 #include "qobj.h"
 #include "libfrr.h"
 #include "lib_errors.h"
+<<<<<<< HEAD
+=======
+#include "zlog_recirculate.h"
+#include "libagentx.h"
+>>>>>>> 73ad64a6f (*: Modify agentx to be allowed to be called)
 
 static void		 ldpd_shutdown(void);
 static pid_t		 start_child(enum ldpd_process, char *, int, int);
@@ -351,6 +356,7 @@ main(int argc, char *argv[])
 
 	master = frr_init();
 
+	libagentx_init();
 	vrf_init(NULL, NULL, NULL, NULL);
 	access_list_init();
 	ldp_vty_init();

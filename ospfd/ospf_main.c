@@ -28,6 +28,7 @@
 #include "libfrr.h"
 #include "routemap.h"
 #include "keychain.h"
+#include "libagentx.h"
 
 #include "ospfd/ospfd.h"
 #include "ospfd/ospf_interface.h"
@@ -252,6 +253,7 @@ int main(int argc, char **argv)
 	master = om->master;
 
 	/* Library inits. */
+	libagentx_init();
 	ospf_debug_init();
 	ospf_vrf_init();
 

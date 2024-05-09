@@ -26,6 +26,7 @@
 #include "bfd.h"
 #include "libfrr.h"
 #include "ns.h"
+#include "libagentx.h"
 
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_attr.h"
@@ -514,7 +515,9 @@ int main(int argc, char **argv)
 		bgp_option_set(BGP_OPT_NO_ZEBRA);
 	bgp_error_init();
 	/* Initializations. */
+	libagentx_init();
 	bgp_vrf_init();
+
 
 #ifdef HAVE_SCRIPTING
 	bgp_script_init();

@@ -28,6 +28,7 @@
 #include "libfrr.h"
 #include "routemap.h"
 #include "affinitymap.h"
+#include "libagentx.h"
 
 #include "isisd/isis_affinitymap.h"
 #include "isisd/isis_constants.h"
@@ -307,6 +308,7 @@ int main(int argc, char **argv, char **envp)
 	/*
 	 *  initializations
 	 */
+	libagentx_init();
 	cmd_init_config_callbacks(isis_config_start, isis_config_end);
 	isis_error_init();
 	access_list_init();
