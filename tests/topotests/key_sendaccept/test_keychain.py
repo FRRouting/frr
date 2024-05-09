@@ -62,7 +62,7 @@ def test_send_accept(tgen):
 key chain kc
  key 1
   key-string theSecret
-  crypto-algorithm md5
+  cryptographic-algorithm hmac-sha-256
  exit
 exit
 """
@@ -74,7 +74,7 @@ exit
 key chain kc
  key 1
   key-string theSecret
-  crypto-algorithm md5
+  cryptographic-algorithm hmac-sha-256
   send-lifetime 00:00:00 Jan 1 2024 infinite
   accept-lifetime 00:00:00 Jan 1 2024 infinite
  exit
@@ -101,7 +101,7 @@ exit
 key chain kc
  key 2
   key-string theSecret
-  crypto-algorithm md5
+  cryptographic-algorithm hmac-sha-256
   send-lifetime 00:00:00 Jan 1 2024 duration {secs_in_10_years}
   accept-lifetime 00:00:00 Jan 1 2024 duration {secs_in_10_years}
  exit
@@ -127,7 +127,7 @@ exit
 key chain kc
  key 3
   key-string theSecret
-  crypto-algorithm md5
+  cryptographic-algorithm hmac-sha-256
   send-lifetime   00:00:00 Jan 1 2024  23:59:59 Dec 31 2034
   accept-lifetime 00:00:00 Jan 1 2024  23:59:59 Dec 31 2034
  exit
