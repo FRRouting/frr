@@ -3518,10 +3518,10 @@ int isis_instance_segment_routing_srv6_locator_modify(
 	sr_debug("Configured SRv6 locator %s for IS-IS area %s", loc_name,
 		 area->area_tag);
 
-	sr_debug("Trying to get a chunk from locator %s for IS-IS area %s",
-		 loc_name, area->area_tag);
+	sr_debug("Trying to get locator %s for IS-IS area %s", loc_name,
+		 area->area_tag);
 
-	if (isis_zebra_srv6_manager_get_locator_chunk(loc_name) < 0)
+	if (isis_zebra_srv6_manager_get_locator(loc_name) < 0)
 		return NB_ERR;
 
 	return NB_OK;

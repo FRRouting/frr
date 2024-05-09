@@ -146,6 +146,10 @@ bool isis_srv6_locator_unset(struct isis_area *area)
 		srv6_locator_chunk_free(&chunk);
 	}
 
+	/* Clear locator */
+	srv6_locator_free(area->srv6db.srv6_locator);
+	area->srv6db.srv6_locator = NULL;
+
 	/* Clear locator name */
 	memset(area->srv6db.config.srv6_locator_name, 0,
 	       sizeof(area->srv6db.config.srv6_locator_name));
@@ -235,16 +239,16 @@ static bool sid_exist(struct isis_area *area, const struct in6_addr *sid)
  * Request a SID from the SRv6 locator.
  *
  * @param area		IS-IS area
- * @param chunk		SRv6 locator chunk
+ * @param locator	SRv6 locator
  * @param sid_func	The FUNCTION part of the SID to be allocated (a negative
  * number will allocate the first available SID)
  *
  * @return	First available SID on success or in6addr_any if the SRv6
- * locator chunk is full
+ * locator is full
  */
-static struct in6_addr
-srv6_locator_request_sid(struct isis_area *area,
-			 struct srv6_locator_chunk *chunk, int sid_func)
+static struct in6_addr srv6_locator_request_sid(struct isis_area *area,
+						struct srv6_locator *locator,
+						int sid_func)
 {
 	struct in6_addr sid;
 	uint8_t offset = 0;
@@ -252,22 +256,22 @@ srv6_locator_request_sid(struct isis_area *area,
 	uint32_t func_max;
 	bool allocated = false;
 
-	if (!area || !chunk)
+	if (!area || !locator)
 		return in6addr_any;
 
 	sr_debug("ISIS-SRv6 (%s): requested new SID from locator %s",
-		 area->area_tag, chunk->locator_name);
+		 area->area_tag, locator->name);
 
 	/* Let's build the SID, step by step. A SID has the following structure
 	(defined in RFC 8986): LOCATOR:FUNCTION:ARGUMENT.*/
 
 	/* First, we encode the LOCATOR in the L most significant bits. */
-	sid = chunk->prefix.prefix;
+	sid = locator->prefix.prefix;
 
 	/* The next part of the SID is the FUNCTION. Let's compute the length
 	 * and the offset of the FUNCTION in the SID */
-	func_len = chunk->function_bits_length;
-	offset = chunk->block_bits_length + chunk->node_bits_length;
+	func_len = locator->function_bits_length;
+	offset = locator->block_bits_length + locator->node_bits_length;
 
 	/* Then, encode the FUNCTION */
 	if (sid_func >= 0) {
@@ -298,7 +302,7 @@ srv6_locator_request_sid(struct isis_area *area,
 	if (!allocated) {
 		/* We ran out of available SIDs */
 		zlog_warn("ISIS-SRv6 (%s): no SIDs available in locator %s",
-			  area->area_tag, chunk->locator_name);
+			  area->area_tag, locator->name);
 		return in6addr_any;
 	}
 
@@ -312,35 +316,34 @@ srv6_locator_request_sid(struct isis_area *area,
  * Allocate an SRv6 SID from an SRv6 locator.
  *
  * @param area		IS-IS area
- * @param chunk		SRv6 locator chunk
+ * @param locator	SRv6 locator
  * @param behavior	SRv6 Endpoint Behavior bound to the SID
  *
  * @result the allocated SID on success, NULL otherwise
  */
 struct isis_srv6_sid *
-isis_srv6_sid_alloc(struct isis_area *area, struct srv6_locator_chunk *chunk,
-		    enum srv6_endpoint_behavior_codepoint behavior,
-		    int sid_func)
+isis_srv6_sid_alloc(struct isis_area *area, struct srv6_locator *locator,
+		    enum srv6_endpoint_behavior_codepoint behavior, int sid_func)
 {
 	struct isis_srv6_sid *sid = NULL;
 
-	if (!area || !chunk)
+	if (!area || !locator)
 		return NULL;
 
 	sid = XCALLOC(MTYPE_ISIS_SRV6_SID, sizeof(struct isis_srv6_sid));
 
-	sid->sid = srv6_locator_request_sid(area, chunk, sid_func);
+	sid->sid = srv6_locator_request_sid(area, locator, sid_func);
 	if (IPV6_ADDR_SAME(&sid->sid, &in6addr_any)) {
 		isis_srv6_sid_free(sid);
 		return NULL;
 	}
 
 	sid->behavior = behavior;
-	sid->structure.loc_block_len = chunk->block_bits_length;
-	sid->structure.loc_node_len = chunk->node_bits_length;
-	sid->structure.func_len = chunk->function_bits_length;
-	sid->structure.arg_len = chunk->argument_bits_length;
-	sid->locator = chunk;
+	sid->structure.loc_block_len = locator->block_bits_length;
+	sid->structure.loc_node_len = locator->node_bits_length;
+	sid->structure.func_len = locator->function_bits_length;
+	sid->structure.arg_len = locator->argument_bits_length;
+	sid->locator = locator;
 	sid->area = area;
 
 	return sid;
@@ -387,11 +390,10 @@ void srv6_endx_sid_add_single(struct isis_adjacency *adj, bool backup,
 	struct isis_srv6_lan_endx_sid_subtlv *ladj_sid;
 	struct in6_addr nexthop;
 	uint8_t flags = 0;
-	struct srv6_locator_chunk *chunk;
+	struct srv6_locator *locator;
 	uint32_t behavior;
 
-	if (!area || !area->srv6db.srv6_locator_chunks ||
-	    list_isempty(area->srv6db.srv6_locator_chunks))
+	if (!area || !area->srv6db.srv6_locator)
 		return;
 
 	sr_debug("ISIS-SRv6 (%s): Add %s End.X SID", area->area_tag,
@@ -401,10 +403,7 @@ void srv6_endx_sid_add_single(struct isis_adjacency *adj, bool backup,
 	if (!circuit->ipv6_router || !adj->ll_ipv6_count)
 		return;
 
-	chunk = (struct srv6_locator_chunk *)listgetdata(
-		listhead(area->srv6db.srv6_locator_chunks));
-	if (!chunk)
-		return;
+	locator = area->srv6db.srv6_locator;
 
 	nexthop = adj->ll_ipv6_addrs[0];
 
@@ -415,21 +414,21 @@ void srv6_endx_sid_add_single(struct isis_adjacency *adj, bool backup,
 	if (circuit->ext == NULL)
 		circuit->ext = isis_alloc_ext_subtlvs();
 
-	behavior = (CHECK_FLAG(chunk->flags, SRV6_LOCATOR_USID))
+	behavior = (CHECK_FLAG(locator->flags, SRV6_LOCATOR_USID))
 			   ? SRV6_ENDPOINT_BEHAVIOR_END_X_NEXT_CSID
 			   : SRV6_ENDPOINT_BEHAVIOR_END_X;
 
 	sra = XCALLOC(MTYPE_ISIS_SRV6_INFO, sizeof(*sra));
 	sra->type = backup ? ISIS_SRV6_ADJ_BACKUP : ISIS_SRV6_ADJ_NORMAL;
 	sra->behavior = behavior;
-	sra->locator = chunk;
-	sra->structure.loc_block_len = chunk->block_bits_length;
-	sra->structure.loc_node_len = chunk->node_bits_length;
-	sra->structure.func_len = chunk->function_bits_length;
-	sra->structure.arg_len = chunk->argument_bits_length;
+	sra->locator = locator;
+	sra->structure.loc_block_len = locator->block_bits_length;
+	sra->structure.loc_node_len = locator->node_bits_length;
+	sra->structure.func_len = locator->function_bits_length;
+	sra->structure.arg_len = locator->argument_bits_length;
 	sra->nexthop = nexthop;
 
-	sra->sid = srv6_locator_request_sid(area, chunk, -1);
+	sra->sid = srv6_locator_request_sid(area, locator, -1);
 	if (IPV6_ADDR_SAME(&sra->sid, &in6addr_any)) {
 		XFREE(MTYPE_ISIS_SRV6_INFO, sra);
 		return;
@@ -831,6 +830,9 @@ void isis_srv6_area_term(struct isis_area *area)
 	for (ALL_LIST_ELEMENTS(srv6db->srv6_locator_chunks, node, nnode, chunk))
 		srv6_locator_chunk_free(&chunk);
 	list_delete(&srv6db->srv6_locator_chunks);
+
+	srv6_locator_free(area->srv6db.srv6_locator);
+	area->srv6db.srv6_locator = NULL;
 
 	/* Free SRv6 SIDs list */
 	list_delete(&srv6db->srv6_sids);

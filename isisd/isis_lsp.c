@@ -1222,17 +1222,11 @@ static void lsp_build(struct isis_lsp *lsp, struct isis_area *area)
 	}
 
 	/* Add SRv6 Locator TLV. */
-	if (area->srv6db.config.enabled &&
-	    !list_isempty(area->srv6db.srv6_locator_chunks)) {
+	if (area->srv6db.config.enabled && area->srv6db.srv6_locator) {
 		struct isis_srv6_locator locator = {};
-		struct srv6_locator_chunk *chunk;
-
-		/* TODO: support more than one locator */
-		chunk = (struct srv6_locator_chunk *)listgetdata(
-			listhead(area->srv6db.srv6_locator_chunks));
 
 		locator.metric = 0;
-		locator.prefix = chunk->prefix;
+		locator.prefix = area->srv6db.srv6_locator->prefix;
 		locator.flags = 0;
 		locator.algorithm = 0;
 
@@ -1252,7 +1246,8 @@ static void lsp_build(struct isis_lsp *lsp, struct isis_area *area)
 
 		isis_tlvs_add_ipv6_reach(lsp->tlvs,
 					 isis_area_ipv6_topology(area),
-					 &chunk->prefix, 0, false, NULL);
+					 &area->srv6db.srv6_locator->prefix, 0,
+					 false, NULL);
 	}
 
 	/* IPv4 address and TE router ID TLVs.

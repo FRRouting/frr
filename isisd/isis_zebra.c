@@ -1369,6 +1369,9 @@ static int isis_zebra_process_srv6_locator_delete(ZAPI_CALLBACK_ARGS)
 			}
 		}
 
+		srv6_locator_free(area->srv6db.srv6_locator);
+		area->srv6db.srv6_locator = NULL;
+
 		/* Regenerate LSPs to advertise that the locator no longer
 		 * exists */
 		lsp_regenerate_schedule(area, area->is_type, 0);
