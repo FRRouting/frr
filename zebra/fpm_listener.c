@@ -432,7 +432,7 @@ static int parse_multipath_attr(struct netlink_msg_ctx *ctx,
 		uint32_t vxlan_vni;
 		uint16_t encap_type;
 
-		if (!RTNH_OK(rtnh, len)) {
+		if (!RTNH_OK(rtnh, (long)len)) {
 			netlink_msg_ctx_set_err(ctx, "Malformed nh");
 			return 0;
 		}
