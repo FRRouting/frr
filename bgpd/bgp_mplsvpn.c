@@ -606,8 +606,8 @@ int vpn_leak_label_callback(
 	return 0;
 }
 
-static void sid_register(struct bgp *bgp, const struct in6_addr *sid,
-			 const char *locator_name)
+void sid_register(struct bgp *bgp, const struct in6_addr *sid,
+		  const char *locator_name)
 {
 	struct bgp_srv6_function *func;
 	func = XCALLOC(MTYPE_BGP_SRV6_FUNCTION,
