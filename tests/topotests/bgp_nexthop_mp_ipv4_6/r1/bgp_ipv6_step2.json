@@ -1,0 +1,90 @@
+{
+  "routes": {
+    "fd00:100::/64": [
+      {
+        "valid": true,
+        "bestpath": true,
+        "path": "",
+        "nexthops": [
+          {
+            "ip": "::",
+            "afi": "ipv6",
+            "used": true
+          }
+        ]
+      }
+    ],
+    "fd00:700::/64": [
+      {
+        "valid": true,
+        "multipath": true,
+        "path": "65000 65700",
+        "nexthops": [
+          {
+            "ip": "fd00:0:2::3",
+            "afi": "ipv6",
+            "scope": "global"
+          },
+          {
+            "afi": "ipv6",
+            "scope": "link-local",
+            "used": true
+          }
+        ]
+      },
+      {
+        "valid": true,
+        "bestpath": true,
+        "path": "65000 65700",
+        "nexthops": [
+          {
+            "ip": "fd00:0:1::2",
+            "afi": "ipv6",
+            "scope": "global"
+          },
+          {
+            "afi": "ipv6",
+            "scope": "link-local",
+            "used": true
+          }
+        ]
+      }
+    ],
+    "fd00:800::/64": [
+      {
+        "valid": true,
+        "multipath": true,
+        "path": "65000 65800",
+        "nexthops": [
+          {
+            "ip": "fd00:0:2::3",
+            "afi": "ipv6",
+            "scope": "global"
+          },
+          {
+            "afi": "ipv6",
+            "scope": "link-local",
+            "used": true
+          }
+        ]
+      },
+      {
+        "valid": true,
+        "bestpath": true,
+        "path": "65000 65800",
+        "nexthops": [
+          {
+            "ip": "fd00:0:1::2",
+            "afi": "ipv6",
+            "scope": "global"
+          },
+          {
+            "afi": "ipv6",
+            "scope": "link-local",
+            "used": true
+          }
+        ]
+      }
+    ]
+  }
+}
