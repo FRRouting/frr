@@ -31,6 +31,7 @@
 
 #include <linux/netlink.h>
 #include <linux/rtnetlink.h>
+#include <linux/if_link.h>
 
 #include "rt_netlink.h"
 #include "fpm/fpm.h"
@@ -42,6 +43,7 @@ struct glob {
 	int server_sock;
 	int sock;
 	bool reflect;
+	bool dump_hex;
 };
 
 struct glob glob_space;
@@ -292,6 +294,8 @@ netlink_prot_to_s(unsigned char prot)
 struct netlink_nh {
 	struct rtattr *gateway;
 	int if_index;
+	uint16_t encap_type;
+	uint32_t vxlan_vni;
 };
 
 struct netlink_msg_ctx {
@@ -341,7 +345,7 @@ static inline void netlink_msg_ctx_set_err(struct netlink_msg_ctx *ctx,
  * parse_rtattrs_
  */
 static int parse_rtattrs_(struct rtattr *rta, size_t len, struct rtattr **rtas,
-		   int num_rtas, const char **err_msg)
+			  uint16_t num_rtas, const char **err_msg)
 {
 	memset(rtas, 0, num_rtas * sizeof(rtas[0]));
 
@@ -387,7 +391,8 @@ static int parse_rtattrs(struct netlink_msg_ctx *ctx, struct rtattr *rta,
  * netlink_msg_ctx_add_nh
  */
 static int netlink_msg_ctx_add_nh(struct netlink_msg_ctx *ctx, int if_index,
-				  struct rtattr *gateway)
+				  struct rtattr *gateway, uint16_t encap_type,
+				  uint32_t vxlan_vni)
 {
 	struct netlink_nh *nh;
 
@@ -400,6 +405,9 @@ static int netlink_msg_ctx_add_nh(struct netlink_msg_ctx *ctx, int if_index,
 
 	nh->gateway = gateway;
 	nh->if_index = if_index;
+
+	nh->encap_type = encap_type;
+	nh->vxlan_vni = vxlan_vni;
 	return 1;
 }
 
@@ -412,6 +420,7 @@ static int parse_multipath_attr(struct netlink_msg_ctx *ctx,
 	size_t len;
 	struct rtnexthop *rtnh;
 	struct rtattr *rtattrs[RTA_MAX + 1];
+	struct rtattr *tb[RTA_MAX + 1];
 	struct rtattr *gateway;
 	const char *err_msg;
 
@@ -420,6 +429,8 @@ static int parse_multipath_attr(struct netlink_msg_ctx *ctx,
 
 	for (; len > 0;
 	     len -= NLMSG_ALIGN(rtnh->rtnh_len), rtnh = RTNH_NEXT(rtnh)) {
+		uint32_t vxlan_vni;
+		uint16_t encap_type;
 
 		if (!RTNH_OK(rtnh, len)) {
 			netlink_msg_ctx_set_err(ctx, "Malformed nh");
@@ -443,7 +454,27 @@ static int parse_multipath_attr(struct netlink_msg_ctx *ctx,
 		}
 
 		gateway = rtattrs[RTA_GATEWAY];
-		netlink_msg_ctx_add_nh(ctx, rtnh->rtnh_ifindex, gateway);
+		memset(tb, 0, sizeof(tb));
+		if (rtattrs[RTA_ENCAP]) {
+			parse_rtattrs_(RTA_DATA(rtattrs[RTA_ENCAP]),
+				       rtattrs[RTA_ENCAP]->rta_len -
+					       sizeof(struct rtattr),
+				       tb, ARRAY_SIZE(tb), &err_msg);
+		}
+
+		if (rtattrs[RTA_ENCAP_TYPE])
+			encap_type =
+				*(uint16_t *)RTA_DATA(rtattrs[RTA_ENCAP_TYPE]);
+		else
+			encap_type = 0;
+
+		if (tb[0])
+			vxlan_vni = *(uint32_t *)RTA_DATA(tb[0]);
+		else
+			vxlan_vni = 0;
+
+		netlink_msg_ctx_add_nh(ctx, rtnh->rtnh_ifindex, gateway,
+				       encap_type, vxlan_vni);
 	}
 
 	return 1;
@@ -485,11 +516,33 @@ static int parse_route_msg(struct netlink_msg_ctx *ctx)
 	gateway = rtattrs[RTA_GATEWAY];
 	oif = rtattrs[RTA_OIF];
 	if (gateway || oif) {
+		struct rtattr *tb[RTA_MAX + 1] = { 0 };
+		uint16_t encap_type = 0;
+		uint32_t vxlan_vni = 0;
+
 		if_index = 0;
 		if (oif)
 			if_index = *((int *)RTA_DATA(oif));
 
-		netlink_msg_ctx_add_nh(ctx, if_index, gateway);
+
+		if (rtattrs[RTA_ENCAP]) {
+			const char *err_msg;
+
+			parse_rtattrs_(RTA_DATA(rtattrs[RTA_ENCAP]),
+				       rtattrs[RTA_ENCAP]->rta_len -
+					       sizeof(struct rtattr),
+				       tb, ARRAY_SIZE(tb), &err_msg);
+		}
+
+		if (rtattrs[RTA_ENCAP_TYPE])
+			encap_type =
+				*(uint16_t *)RTA_DATA(rtattrs[RTA_ENCAP_TYPE]);
+
+		if (tb[0])
+			vxlan_vni = *(uint32_t *)RTA_DATA(tb[0]);
+
+		netlink_msg_ctx_add_nh(ctx, if_index, gateway, encap_type,
+				       vxlan_vni);
 	}
 
 	rtattr = rtattrs[RTA_MULTIPATH];
@@ -557,6 +610,11 @@ static int netlink_msg_ctx_snprint(struct netlink_msg_ctx *ctx, char *buf,
 			cur += snprintf(cur, end - cur, " via interface %d",
 					nh->if_index);
 		}
+
+		if (nh->encap_type)
+			cur += snprintf(cur, end - cur,
+					", Encap Type: %u Vxlan vni %u",
+					nh->encap_type, nh->vxlan_vni);
 	}
 
 	return cur - buf;
@@ -573,6 +631,51 @@ static void print_netlink_msg_ctx(struct netlink_msg_ctx *ctx)
 	printf("%s\n", buf);
 }
 
+static void fpm_listener_hexdump(const void *mem, size_t len)
+{
+	char line[64];
+	const uint8_t *src = mem;
+	const uint8_t *end = src + len;
+
+	if (!glob->dump_hex)
+		return;
+
+	if (len == 0) {
+		printf("%016lx: (zero length / no data)\n", (long)src);
+		return;
+	}
+
+	while (src < end) {
+		struct fbuf fb = {
+			.buf = line,
+			.pos = line,
+			.len = sizeof(line),
+		};
+		const uint8_t *lineend = src + 8;
+		uint32_t line_bytes = 0;
+
+		printf("%016lx: ", (long)src);
+
+		while (src < lineend && src < end) {
+			printf("%02x ", *src++);
+			line_bytes++;
+		}
+		if (line_bytes < 8)
+			printf("%*s", (8 - line_bytes) * 3, "");
+
+		src -= line_bytes;
+		while (src < lineend && src < end && fb.pos < fb.buf + fb.len) {
+			uint8_t byte = *src++;
+
+			if (isprint(byte))
+				*fb.pos++ = byte;
+			else
+				*fb.pos++ = '.';
+		}
+		printf("\n");
+	}
+}
+
 /*
  * parse_netlink_msg
  */
@@ -582,6 +685,7 @@ static void parse_netlink_msg(char *buf, size_t buf_len, fpm_msg_hdr_t *fpm)
 	struct nlmsghdr *hdr;
 	unsigned int len;
 
+	fpm_listener_hexdump(buf, buf_len);
 	ctx = &ctx_space;
 
 	hdr = (struct nlmsghdr *)buf;
@@ -667,13 +771,16 @@ int main(int argc, char **argv)
 
 	memset(glob, 0, sizeof(*glob));
 
-	while ((r = getopt(argc, argv, "rd")) != -1) {
+	while ((r = getopt(argc, argv, "rdv")) != -1) {
 		switch (r) {
 		case 'r':
 			glob->reflect = true;
 			break;
 		case 'd':
 			fork_daemon = true;
+			break;
+		case 'v':
+			glob->dump_hex = true;
 			break;
 		}
 	}

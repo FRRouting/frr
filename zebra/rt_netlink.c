@@ -1891,6 +1891,36 @@ static inline bool _netlink_set_tag(struct nlmsghdr *n, unsigned int maxlen,
 	return true;
 }
 
+/*
+ * The function returns true if the attribute could be added
+ * to the message, otherwise false is returned.
+ */
+static int netlink_route_nexthop_encap(bool fpm, struct nlmsghdr *n,
+				       size_t nlen, const struct nexthop *nh)
+{
+	struct rtattr *nest;
+
+	if (!fpm)
+		return true;
+
+	switch (nh->nh_encap_type) {
+	case NET_VXLAN:
+		if (!nl_attr_put16(n, nlen, RTA_ENCAP_TYPE, nh->nh_encap_type))
+			return false;
+
+		nest = nl_attr_nest(n, nlen, RTA_ENCAP);
+		if (!nest)
+			return false;
+
+		if (!nl_attr_put32(n, nlen, 0 /* VXLAN_VNI */, nh->nh_encap.vni))
+			return false;
+		nl_attr_nest_end(n, nest);
+		break;
+	}
+
+	return true;
+}
+
 /* This function takes a nexthop as argument and
  * appends to the given netlink msg. If the nexthop
  * defines a preferred source, the src parameter
@@ -1909,10 +1939,13 @@ static inline bool _netlink_set_tag(struct nlmsghdr *n, unsigned int maxlen,
  * The function returns true if the nexthop could be added
  * to the message, otherwise false is returned.
  */
-static bool _netlink_route_build_multipath(
-	const struct prefix *p, const char *routedesc, int bytelen,
-	const struct nexthop *nexthop, struct nlmsghdr *nlmsg, size_t req_size,
-	struct rtmsg *rtmsg, const union g_addr **src, route_tag_t tag)
+static bool _netlink_route_build_multipath(const struct prefix *p,
+					   const char *routedesc, int bytelen,
+					   const struct nexthop *nexthop,
+					   struct nlmsghdr *nlmsg,
+					   size_t req_size, struct rtmsg *rtmsg,
+					   const union g_addr **src,
+					   route_tag_t tag, bool fpm)
 {
 	char label_buf[256];
 	struct vrf *vrf;
@@ -2020,6 +2053,13 @@ static bool _netlink_route_build_multipath(
 	if (!_netlink_set_tag(nlmsg, req_size, tag))
 		return false;
 
+	/*
+	 * Add encapsulation information when installing via
+	 * FPM.
+	 */
+	if (!netlink_route_nexthop_encap(fpm, nlmsg, req_size, nexthop))
+		return false;
+
 	nl_attr_rtnh_end(nlmsg, rtnh);
 	return true;
 }
@@ -2054,7 +2094,7 @@ _netlink_mpls_build_multipath(const struct prefix *p, const char *routedesc,
 	bytelen = (family == AF_INET ? 4 : 16);
 	return _netlink_route_build_multipath(p, routedesc, bytelen,
 					      nhlfe->nexthop, nlmsg, req_size,
-					      rtmsg, src, 0);
+					      rtmsg, src, 0, false);
 }
 
 static void _netlink_mpls_debug(int cmd, uint32_t label, const char *routedesc)
@@ -2147,34 +2187,6 @@ static bool nexthop_set_src(const struct nexthop *nexthop, int family,
 	}
 
 	return false;
-}
-
-/*
- * The function returns true if the attribute could be added
- * to the message, otherwise false is returned.
- */
-static int netlink_route_nexthop_encap(struct nlmsghdr *n, size_t nlen,
-				       struct nexthop *nh)
-{
-	struct rtattr *nest;
-
-	switch (nh->nh_encap_type) {
-	case NET_VXLAN:
-		if (!nl_attr_put16(n, nlen, RTA_ENCAP_TYPE, nh->nh_encap_type))
-			return false;
-
-		nest = nl_attr_nest(n, nlen, RTA_ENCAP);
-		if (!nest)
-			return false;
-
-		if (!nl_attr_put32(n, nlen, 0 /* VXLAN_VNI */,
-				   nh->nh_encap.vni))
-			return false;
-		nl_attr_nest_end(n, nest);
-		break;
-	}
-
-	return true;
 }
 
 /*
@@ -2431,12 +2443,10 @@ ssize_t netlink_route_multipath_msg_encode(int cmd, struct zebra_dplane_ctx *ctx
 				 * Add encapsulation information when
 				 * installing via FPM.
 				 */
-				if (fpm) {
-					if (!netlink_route_nexthop_encap(&req->n,
-									 datalen,
-									 nexthop))
-						return 0;
-				}
+				if (!netlink_route_nexthop_encap(fpm, &req->n,
+								 datalen,
+								 nexthop))
+					return 0;
 
 				nexthop_num++;
 				break;
@@ -2481,21 +2491,15 @@ ssize_t netlink_route_multipath_msg_encode(int cmd, struct zebra_dplane_ctx *ctx
 						    : "multipath";
 				nexthop_num++;
 
-				if (!_netlink_route_build_multipath(
-					    p, routedesc, bytelen, nexthop,
-					    &req->n, datalen, &req->r, &src1,
-					    tag))
+				if (!_netlink_route_build_multipath(p, routedesc,
+								    bytelen,
+								    nexthop,
+								    &req->n,
+								    datalen,
+								    &req->r,
+								    &src1, tag,
+								    fpm))
 					return 0;
-
-				/*
-				 * Add encapsulation information when installing via
-				 * FPM.
-				 */
-				if (fpm) {
-					if (!netlink_route_nexthop_encap(
-						    &req->n, datalen, nexthop))
-						return 0;
-				}
 
 				if (!setsrc && src1) {
 					if (p->family == AF_INET)
