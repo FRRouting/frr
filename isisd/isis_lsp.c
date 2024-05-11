@@ -442,47 +442,6 @@ void set_overload_on_start_timer(struct event *thread)
 		isis_area_overload_bit_set(area, false);
 }
 
-static void isis_reset_attach_bit(struct isis_adjacency *adj)
-{
-	struct isis_area *area = adj->circuit->area;
-	struct lspdb_head *head;
-	struct isis_lsp *lsp;
-	uint8_t lspid[ISIS_SYS_ID_LEN + 2];
-
-	/*
-	 * If an L2 adjacency changed its state in L-1-2 area, we have to:
-	 * - set the attached bit in L1 LSPs if it's the first L2 adjacency
-	 * - remove the attached bit in L1 LSPs if it's the last L2 adjacency
-	 */
-
-	if (area->is_type != IS_LEVEL_1_AND_2 || adj->level == ISIS_ADJ_LEVEL1)
-		return;
-
-	if (!area->attached_bit_send)
-		return;
-
-	head = &area->lspdb[IS_LEVEL_1 - 1];
-	memset(lspid, 0, ISIS_SYS_ID_LEN + 2);
-	memcpy(lspid, area->isis->sysid, ISIS_SYS_ID_LEN);
-
-	lsp = lsp_search(head, lspid);
-	if (!lsp)
-		return;
-
-	if (adj->adj_state == ISIS_ADJ_UP
-	    && !(lsp->hdr.lsp_bits & LSPBIT_ATT)) {
-		sched_debug("ISIS (%s): adj going up regenerate lsp-bits",
-			    area->area_tag);
-		lsp_regenerate_schedule(area, IS_LEVEL_1, 0);
-	} else if (adj->adj_state == ISIS_ADJ_DOWN
-		   && (lsp->hdr.lsp_bits & LSPBIT_ATT)
-		   && !isis_level2_adj_up(area)) {
-		sched_debug("ISIS (%s): adj going down regenerate lsp-bits",
-			    area->area_tag);
-		lsp_regenerate_schedule(area, IS_LEVEL_1, 0);
-	}
-}
-
 static uint8_t lsp_bits_generate(int level, int overload_bit, int attached_bit,
 				 struct isis_area *area)
 {
@@ -2353,11 +2312,6 @@ void _lsp_flood(struct isis_lsp *lsp, struct isis_circuit *circuit,
 static int lsp_handle_adj_state_change(struct isis_adjacency *adj)
 {
 	lsp_regenerate_schedule(adj->circuit->area, IS_LEVEL_1 | IS_LEVEL_2, 0);
-
-	/* when an adjacency state changes determine if we need to
-	 * change attach_bits in other area's LSPs
-	 */
-	isis_reset_attach_bit(adj);
 
 	return 0;
 }
