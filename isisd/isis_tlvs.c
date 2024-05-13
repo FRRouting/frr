@@ -6771,7 +6771,6 @@ void isis_tlvs_add_extended_ip_reach(struct isis_tlvs *tlvs,
 	apply_mask_ipv4(&r->prefix);
 
 	if (pcfgs) {
-		r->subtlvs = isis_alloc_subtlvs(ISIS_CONTEXT_SUBTLV_IP_REACH);
 		for (int i = 0; i < SR_ALGORITHM_COUNT; i++) {
 			struct isis_prefix_sid *psid;
 			struct sr_prefix_cfg *pcfg = pcfgs[i];
@@ -6781,6 +6780,10 @@ void isis_tlvs_add_extended_ip_reach(struct isis_tlvs *tlvs,
 
 			psid = XCALLOC(MTYPE_ISIS_SUBTLV, sizeof(*psid));
 			isis_sr_prefix_cfg2subtlv(pcfg, external, psid);
+
+			if (!r->subtlvs)
+				r->subtlvs = isis_alloc_subtlvs(
+					ISIS_CONTEXT_SUBTLV_IP_REACH);
 			append_item(&r->subtlvs->prefix_sids,
 				    (struct isis_item *)psid);
 		}
@@ -6799,7 +6802,6 @@ void isis_tlvs_add_ipv6_reach(struct isis_tlvs *tlvs, uint16_t mtid,
 	memcpy(&r->prefix, dest, sizeof(*dest));
 	apply_mask_ipv6(&r->prefix);
 	if (pcfgs) {
-		r->subtlvs = isis_alloc_subtlvs(ISIS_CONTEXT_SUBTLV_IP_REACH);
 		for (int i = 0; i < SR_ALGORITHM_COUNT; i++) {
 			struct isis_prefix_sid *psid;
 			struct sr_prefix_cfg *pcfg = pcfgs[i];
@@ -6809,6 +6811,10 @@ void isis_tlvs_add_ipv6_reach(struct isis_tlvs *tlvs, uint16_t mtid,
 
 			psid = XCALLOC(MTYPE_ISIS_SUBTLV, sizeof(*psid));
 			isis_sr_prefix_cfg2subtlv(pcfg, external, psid);
+
+			if (!r->subtlvs)
+				r->subtlvs = isis_alloc_subtlvs(
+					ISIS_CONTEXT_SUBTLV_IPV6_REACH);
 			append_item(&r->subtlvs->prefix_sids,
 				    (struct isis_item *)psid);
 		}
