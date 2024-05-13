@@ -972,12 +972,12 @@ void bgp_nexthop_update(struct vrf *vrf, struct prefix *match,
 	 * which should provide a better infrastructure to solve this issue in
 	 * a more efficient and elegant way.
 	 */
-	if (nhr->srte_color == 0 && bnc_nhc) {
+	if (nhr->srte_color == 0) {
 		struct bgp_nexthop_cache *bnc_iter;
 
 		frr_each (bgp_nexthop_cache, &bgp->nexthop_cache_table[afi],
 			  bnc_iter) {
-			if (!prefix_same(&bnc_nhc->prefix, &bnc_iter->prefix) ||
+			if (!prefix_same(match, &bnc_iter->prefix) ||
 			    bnc_iter->srte_color == 0 ||
 			    CHECK_FLAG(bnc_iter->flags, BGP_NEXTHOP_VALID))
 				continue;
