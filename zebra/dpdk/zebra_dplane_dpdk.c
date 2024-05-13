@@ -52,7 +52,7 @@ void zd_dpdk_stat_show(struct vty *vty)
 static void zd_dpdk_flow_stat_show(struct vty *vty, int in_ifindex,
 				   intptr_t dp_flow_ptr)
 {
-	struct rte_flow_action_count count = {.shared = 0, .id = 0};
+	struct rte_flow_action_count count = { .id = 0 };
 	const struct rte_flow_action actions[] = {
 		{
 			.type = RTE_FLOW_ACTION_TYPE_COUNT,
@@ -498,9 +498,11 @@ static void zd_dpdk_port_show_entry(struct zd_dpdk_port *dport, struct vty *vty,
 	if (detail) {
 		vty_out(vty, "DPDK port: %u\n", dport->port_id);
 		vty_out(vty, " Device: %s\n",
-			dev_info->device ? dev_info->device->name : "-");
+			dev_info->device ? rte_dev_name(dev_info->device) : "-");
 		vty_out(vty, " Driver: %s\n",
-			dev_info->driver_name ? dev_info->driver_name : "-");
+			dev_info->driver_name ? rte_driver_name(rte_dev_driver(
+							dev_info->device))
+					      : "-");
 		vty_out(vty, " Interface: %s (%d)\n",
 			ifindex2ifname(dev_info->if_index, VRF_DEFAULT),
 			dev_info->if_index);
@@ -510,9 +512,8 @@ static void zd_dpdk_port_show_entry(struct zd_dpdk_port *dport, struct vty *vty,
 			dev_info->switch_info.port_id);
 		vty_out(vty, "\n");
 	} else {
-		vty_out(vty, "%-4u %-16s %-16s %-16d %s,%u,%u\n",
-			dport->port_id,
-			dev_info->device ? dev_info->device->name : "-",
+		vty_out(vty, "%-4u %-16s %-16s %-16d %s,%u,%u\n", dport->port_id,
+			dev_info->device ? rte_dev_name(dev_info->device) : "-",
 			ifindex2ifname(dev_info->if_index, VRF_DEFAULT),
 			dev_info->if_index, dev_info->switch_info.name,
 			dev_info->switch_info.domain_id,
@@ -595,13 +596,15 @@ static void zd_dpdk_port_init(void)
 		}
 		SET_FLAG(dport->flags, ZD_DPDK_PORT_FLAG_INITED);
 		if (IS_ZEBRA_DEBUG_DPLANE_DPDK)
-			zlog_debug(
-				"port %u, dev %s, ifI %d, sw_name %s, sw_domain %u, sw_port %u",
-				port_id,
-				dev_info->device ? dev_info->device->name : "-",
-				dev_info->if_index, dev_info->switch_info.name,
-				dev_info->switch_info.domain_id,
-				dev_info->switch_info.port_id);
+			zlog_debug("port %u, dev %s, ifI %d, sw_name %s, sw_domain %u, sw_port %u",
+				   port_id,
+				   dev_info->device
+					   ? rte_dev_name(dev_info->device)
+					   : "-",
+				   dev_info->if_index,
+				   dev_info->switch_info.name,
+				   dev_info->switch_info.domain_id,
+				   dev_info->switch_info.port_id);
 		if (rte_flow_isolate(port_id, 1, &error)) {
 			if (IS_ZEBRA_DEBUG_DPLANE_DPDK)
 				zlog_debug(
@@ -635,7 +638,7 @@ static int zd_dpdk_init(void)
 	zd_dpdk_vty_init();
 
 	frr_with_privs (&zserv_privs) {
-		rc = rte_eal_init(array_size(argv), argv);
+		rc = rte_eal_init(array_size(argv), (char **)argv);
 	}
 	if (rc < 0) {
 		zlog_warn("EAL init failed %s", rte_strerror(rte_errno));
