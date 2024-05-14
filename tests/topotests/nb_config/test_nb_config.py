@@ -50,7 +50,7 @@ def test_access_list_config_ordering(tgen):
     output = r1.vtysh_cmd("show ip access-list test json")
     got = json.loads(output)
     expected = json.loads(
-        '{"ZEBRA":{"test":{"type":"Standard", "addressFamily":"IPv4", "rules":[{"sequenceNumber":1, "filterType":"permit", "address":"10.0.0.1", "mask":"0.0.0.0"}]}}}'
+        '{"zebra":{"test":{"type":"Standard", "addressFamily":"IPv4", "rules":[{"sequenceNumber":1, "filterType":"permit", "address":"10.0.0.1", "mask":"0.0.0.0"}]}}}'
     )
     result = json_cmp(got, expected)
     assert result is None
@@ -63,7 +63,7 @@ def test_access_list_config_ordering(tgen):
     output = r1.vtysh_cmd("show ip access-list test json")
     got = json.loads(output)
     expected = json.loads(
-        '{"ZEBRA":{"test":{"type":"Zebra", "addressFamily":"IPv4", "rules":[{"sequenceNumber":1, "filterType":"permit", "prefix":"10.0.0.0/8", "exact-match":false}]}}}'
+        '{"zebra":{"test":{"type":"Zebra", "addressFamily":"IPv4", "rules":[{"sequenceNumber":1, "filterType":"permit", "prefix":"10.0.0.0/8", "exact-match":false}]}}}'
     )
     result = json_cmp(got, expected)
     assert result is None

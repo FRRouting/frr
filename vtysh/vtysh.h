@@ -68,6 +68,10 @@ extern struct event_loop *master;
 	VTYSH_ZEBRA | VTYSH_RIPD | VTYSH_RIPNGD | VTYSH_OSPFD | VTYSH_OSPF6D | \
 		VTYSH_BGPD | VTYSH_ISISD | VTYSH_PIMD | VTYSH_EIGRPD |         \
 		VTYSH_FABRICD
+#define VTYSH_ACCESS_LIST_SHOW                                                 \
+	VTYSH_ZEBRA | VTYSH_RIPD | VTYSH_RIPNGD | VTYSH_OSPFD | VTYSH_OSPF6D | \
+		VTYSH_BGPD | VTYSH_ISISD | VTYSH_PIMD | VTYSH_EIGRPD |         \
+		VTYSH_FABRICD
 #define VTYSH_PREFIX_LIST_SHOW                                                 \
 	VTYSH_ZEBRA | VTYSH_RIPD | VTYSH_RIPNGD | VTYSH_OSPFD | VTYSH_OSPF6D | \
 		VTYSH_BGPD | VTYSH_ISISD | VTYSH_PIMD | VTYSH_EIGRPD |         \
