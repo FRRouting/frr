@@ -438,7 +438,13 @@ static int bgp_interface_address_delete(ZAPI_CALLBACK_ARGS)
 			if (!IN6_IS_ADDR_LINKLOCAL(&addr->u.prefix6) &&
 			    memcmp(&peer->nexthop.v6_global, &addr->u.prefix6, IPV6_MAX_BYTELEN) ==
 				    0) {
-				memset(&peer->nexthop.v6_global, 0, IPV6_MAX_BYTELEN);
+				/*
+				 * When the global v6 address of the interface
+				 * is being deleted, Use link-local address as a
+				 * next hop. This applies to both unnumbered and
+				 * numbered interfaces
+				 */
+				IPV6_ADDR_COPY(&peer->nexthop.v6_global, &peer->nexthop.v6_local);
 				FOREACH_AFI_SAFI (afi, safi)
 					bgp_announce_route(peer, afi, safi,
 							   true);
