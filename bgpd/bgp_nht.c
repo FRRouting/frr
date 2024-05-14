@@ -978,8 +978,7 @@ void bgp_nexthop_update(struct vrf *vrf, struct prefix *match,
 		frr_each (bgp_nexthop_cache, &bgp->nexthop_cache_table[afi],
 			  bnc_iter) {
 			if (!prefix_same(match, &bnc_iter->prefix) ||
-			    bnc_iter->srte_color == 0 ||
-			    CHECK_FLAG(bnc_iter->flags, BGP_NEXTHOP_VALID))
+			    bnc_iter->srte_color == 0)
 				continue;
 
 			bgp_process_nexthop_update(bnc_iter, nhr, false);
