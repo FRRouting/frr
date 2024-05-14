@@ -693,7 +693,7 @@ static void parse_netlink_msg(char *buf, size_t buf_len, fpm_msg_hdr_t *fpm)
 	for (; NLMSG_OK(hdr, len); hdr = NLMSG_NEXT(hdr, len)) {
 
 		netlink_msg_ctx_init(ctx);
-		ctx->hdr = (struct nlmsghdr *)buf;
+		ctx->hdr = hdr;
 
 		switch (hdr->nlmsg_type) {
 
