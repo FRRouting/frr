@@ -2369,6 +2369,14 @@ ssize_t netlink_route_multipath_msg_encode(int cmd, struct zebra_dplane_ctx *ctx
 				break;
 
 			setsrc = nexthop_set_src(nexthop, p->family, &src);
+			if (setsrc && IS_ZEBRA_DEBUG_KERNEL) {
+				if (p->family == AF_INET)
+					zlog_debug("%s: %pFX set src %pI4",
+						   __func__, p, &src.ipv4);
+				else if (p->family == AF_INET6)
+					zlog_debug("%s: %pFX set src %pI6",
+						   __func__, p, &src.ipv6);
+			}
 		}
 
 		if (setsrc) {
@@ -2411,6 +2419,16 @@ ssize_t netlink_route_multipath_msg_encode(int cmd, struct zebra_dplane_ctx *ctx
 
 				setsrc = nexthop_set_src(nexthop, p->family,
 							 &src);
+				if (setsrc && IS_ZEBRA_DEBUG_KERNEL) {
+					if (p->family == AF_INET)
+						zlog_debug("%s: %pFX set src %pI4",
+							   __func__, p,
+							   &src.ipv4);
+					else if (p->family == AF_INET6)
+						zlog_debug("%s: %pFX set src %pI6",
+							   __func__, p,
+							   &src.ipv6);
+				}
 				continue;
 			}
 
@@ -2472,6 +2490,16 @@ ssize_t netlink_route_multipath_msg_encode(int cmd, struct zebra_dplane_ctx *ctx
 
 				setsrc = nexthop_set_src(nexthop, p->family,
 							 &src);
+				if (setsrc && IS_ZEBRA_DEBUG_KERNEL) {
+					if (p->family == AF_INET)
+						zlog_debug("%s: %pFX set src %pI4",
+							   __func__, p,
+							   &src.ipv4);
+					else if (p->family == AF_INET6)
+						zlog_debug("%s: %pFX set src %pI6",
+							   __func__, p,
+							   &src.ipv6);
+				}
 				continue;
 			}
 

@@ -1266,6 +1266,7 @@ failure:
  */
 void show_nexthop_json_helper(json_object *json_nexthop,
 			      const struct nexthop *nexthop,
+			      const struct route_node *rn,
 			      const struct route_entry *re)
 {
 	json_object *json_labels = NULL;
@@ -1381,13 +1382,24 @@ void show_nexthop_json_helper(json_object *json_nexthop,
 	switch (nexthop->type) {
 	case NEXTHOP_TYPE_IPV4:
 	case NEXTHOP_TYPE_IPV4_IFINDEX:
-		if (nexthop->src.ipv4.s_addr)
+		if (nexthop->rmap_src.ipv4.s_addr)
+			json_object_string_addf(json_nexthop, "rmapSource",
+						"%pI4", &nexthop->rmap_src.ipv4);
+		else if (nexthop->src.ipv4.s_addr)
 			json_object_string_addf(json_nexthop, "source", "%pI4",
 						&nexthop->src.ipv4);
 		break;
 	case NEXTHOP_TYPE_IPV6:
 	case NEXTHOP_TYPE_IPV6_IFINDEX:
-		if (!IPV6_ADDR_SAME(&nexthop->src.ipv6, &in6addr_any))
+		/* Allow for 5549 ipv4 prefix with ipv6 nexthop */
+		if (rn && rn->p.family == AF_INET &&
+		    nexthop->rmap_src.ipv4.s_addr)
+			json_object_string_addf(json_nexthop, "rmapSource",
+						"%pI4", &nexthop->rmap_src.ipv4);
+		else if (!IPV6_ADDR_SAME(&nexthop->rmap_src.ipv6, &in6addr_any))
+			json_object_string_addf(json_nexthop, "rmapSource",
+						"%pI6", &nexthop->rmap_src.ipv6);
+		else if (!IPV6_ADDR_SAME(&nexthop->src.ipv6, &in6addr_any))
 			json_object_string_addf(json_nexthop, "source", "%pI6",
 						&nexthop->src.ipv6);
 		break;
@@ -1461,13 +1473,15 @@ void show_nexthop_json_helper(json_object *json_nexthop,
 /*
  * Helper for nexthop output, used in the 'show ip route' path
  */
-void show_route_nexthop_helper(struct vty *vty, const struct route_entry *re,
+void show_route_nexthop_helper(struct vty *vty, const struct route_node *rn,
+			       const struct route_entry *re,
 			       const struct nexthop *nexthop)
 {
 	char buf[MPLS_LABEL_STRLEN];
 	char seg_buf[SRV6_SEG_STRLEN];
 	struct seg6_segs segs;
 	uint8_t i;
+	bool src_p = false;
 
 	switch (nexthop->type) {
 	case NEXTHOP_TYPE_IPV4:
@@ -1529,8 +1543,14 @@ void show_route_nexthop_helper(struct vty *vty, const struct route_entry *re,
 	switch (nexthop->type) {
 	case NEXTHOP_TYPE_IPV4:
 	case NEXTHOP_TYPE_IPV4_IFINDEX:
-		if (nexthop->src.ipv4.s_addr) {
+		if (nexthop->rmap_src.ipv4.s_addr) {
+			vty_out(vty, ", rmapsrc %pI4", &nexthop->rmap_src.ipv4);
+			src_p = true;
+		} else if (nexthop->src.ipv4.s_addr) {
 			vty_out(vty, ", src %pI4", &nexthop->src.ipv4);
+			src_p = true;
+		}
+		if (src_p) {
 			/* SR-TE information */
 			if (nexthop->srte_color)
 				vty_out(vty, ", SR-TE color %u",
@@ -1539,7 +1559,13 @@ void show_route_nexthop_helper(struct vty *vty, const struct route_entry *re,
 		break;
 	case NEXTHOP_TYPE_IPV6:
 	case NEXTHOP_TYPE_IPV6_IFINDEX:
-		if (!IPV6_ADDR_SAME(&nexthop->src.ipv6, &in6addr_any))
+		/* Allow for 5549 ipv4 prefix with ipv6 nexthop */
+		if (rn && rn->p.family == AF_INET &&
+		    nexthop->rmap_src.ipv4.s_addr)
+			vty_out(vty, ", rmapsrc %pI4", &nexthop->rmap_src.ipv4);
+		else if (!IPV6_ADDR_SAME(&nexthop->rmap_src.ipv6, &in6addr_any))
+			vty_out(vty, ", rmapsrc %pI6", &nexthop->rmap_src.ipv6);
+		else if (!IPV6_ADDR_SAME(&nexthop->src.ipv6, &in6addr_any))
 			vty_out(vty, ", src %pI6", &nexthop->src.ipv6);
 		break;
 	case NEXTHOP_TYPE_IFINDEX:
@@ -1644,9 +1670,10 @@ static void print_rnh(struct route_node *rn, struct vty *vty, json_object *json)
 				json_object_array_add(json_nexthop_array,
 						      json_nexthop);
 				show_nexthop_json_helper(json_nexthop, nexthop,
-							 NULL);
+							 rn, NULL);
 			} else {
-				show_route_nexthop_helper(vty, NULL, nexthop);
+				show_route_nexthop_helper(vty, rn, NULL,
+							  nexthop);
 				vty_out(vty, "\n");
 			}
 		}
