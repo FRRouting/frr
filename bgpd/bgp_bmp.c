@@ -2496,7 +2496,7 @@ DEFPY(bmp_stats_send_experimental,
 {
 	VTY_DECLVAR_CONTEXT_SUB(bmp_targets, bt);
 
-	bt->stats_send_experimental = !!no;
+	bt->stats_send_experimental = !no;
 
 	return CMD_SUCCESS;
 }
