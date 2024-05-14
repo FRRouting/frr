@@ -77,13 +77,17 @@ static void vty_show_ip_route_summary_prefix(struct vty *vty,
 					     bool use_json);
 /* Helper api to format a nexthop in the 'detailed' output path. */
 static void show_nexthop_detail_helper(struct vty *vty,
+				       const struct route_node *rn,
 				       const struct route_entry *re,
 				       const struct nexthop *nexthop,
 				       bool is_backup);
 
 static void show_ip_route_dump_vty(struct vty *vty, struct route_table *table);
-static void show_ip_route_nht_dump(struct vty *vty, struct nexthop *nexthop,
-				   struct route_entry *re, unsigned int num);
+static void show_ip_route_nht_dump(struct vty *vty,
+				   const struct nexthop *nexthop,
+				   const struct route_node *rn,
+				   const struct route_entry *re,
+				   unsigned int num);
 
 DEFUN (ip_multicast_mode,
        ip_multicast_mode_cmd,
@@ -253,7 +257,7 @@ static char re_status_output_char(const struct route_entry *re,
 /*
  * Show backup nexthop info, in the 'detailed' output path
  */
-static void show_nh_backup_helper(struct vty *vty,
+static void show_nh_backup_helper(struct vty *vty, const struct route_node *rn,
 				  const struct route_entry *re,
 				  const struct nexthop *nexthop)
 {
@@ -283,7 +287,7 @@ static void show_nh_backup_helper(struct vty *vty,
 		temp = backup;
 		while (backup) {
 			vty_out(vty, "  ");
-			show_nexthop_detail_helper(vty, re, backup,
+			show_nexthop_detail_helper(vty, rn, re, backup,
 						   true /*backup*/);
 			vty_out(vty, "\n");
 
@@ -304,11 +308,11 @@ static void show_nh_backup_helper(struct vty *vty,
  * output path.
  */
 static void show_nexthop_detail_helper(struct vty *vty,
+				       const struct route_node *rn,
 				       const struct route_entry *re,
 				       const struct nexthop *nexthop,
 				       bool is_backup)
 {
-	char addrstr[32];
 	char buf[MPLS_LABEL_STRLEN];
 	int i;
 
@@ -392,23 +396,21 @@ static void show_nexthop_detail_helper(struct vty *vty,
 	switch (nexthop->type) {
 	case NEXTHOP_TYPE_IPV4:
 	case NEXTHOP_TYPE_IPV4_IFINDEX:
-		if (nexthop->src.ipv4.s_addr) {
-			if (inet_ntop(AF_INET, &nexthop->src.ipv4,
-				      addrstr, sizeof(addrstr)))
-				vty_out(vty, ", src %s",
-					addrstr);
-		}
+		if (nexthop->rmap_src.ipv4.s_addr)
+			vty_out(vty, ", rmapsrc %pI4", &nexthop->rmap_src.ipv4);
+		else if (nexthop->src.ipv4.s_addr)
+			vty_out(vty, ", src %pI4", &nexthop->src.ipv4);
 		break;
 
 	case NEXTHOP_TYPE_IPV6:
 	case NEXTHOP_TYPE_IPV6_IFINDEX:
-		if (!IPV6_ADDR_SAME(&nexthop->src.ipv6,
-				    &in6addr_any)) {
-			if (inet_ntop(AF_INET6, &nexthop->src.ipv6,
-				      addrstr, sizeof(addrstr)))
-				vty_out(vty, ", src %s",
-					addrstr);
-		}
+		/* Allow for 5549 ipv4 prefix with ipv6 nexthop */
+		if (rn->p.family == AF_INET && nexthop->rmap_src.ipv4.s_addr)
+			vty_out(vty, ", rmapsrc %pI4", &nexthop->rmap_src.ipv4);
+		else if (!IPV6_ADDR_SAME(&nexthop->rmap_src.ipv6, &in6addr_any))
+			vty_out(vty, ", rmapsrc %pI6", &nexthop->rmap_src.ipv6);
+		else if (!IPV6_ADDR_SAME(&nexthop->src.ipv6, &in6addr_any))
+			vty_out(vty, ", src %pI6", &nexthop->src.ipv6);
 		break;
 
 	case NEXTHOP_TYPE_IFINDEX:
@@ -592,13 +594,13 @@ static void vty_show_ip_route_detail(struct vty *vty, struct route_node *rn,
 
 		for (ALL_NEXTHOPS(re->nhe->nhg, nexthop)) {
 			/* Use helper to format each nexthop */
-			show_nexthop_detail_helper(vty, re, nexthop,
+			show_nexthop_detail_helper(vty, rn, re, nexthop,
 						   false /*not backup*/);
 			vty_out(vty, "\n");
 
 			/* Include backup(s), if present */
 			if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_HAS_BACKUP))
-				show_nh_backup_helper(vty, re, nexthop);
+				show_nh_backup_helper(vty, rn, re, nexthop);
 		}
 		zebra_show_ip_route_opaque(vty, re, NULL);
 
@@ -705,8 +707,7 @@ static void vty_show_ip_route(struct vty *vty, struct route_node *rn,
 
 		for (ALL_NEXTHOPS_PTR(nhg, nexthop)) {
 			json_nexthop = json_object_new_object();
-			show_nexthop_json_helper(json_nexthop,
-						 nexthop, re);
+			show_nexthop_json_helper(json_nexthop, nexthop, rn, re);
 
 			json_object_array_add(json_nexthops,
 					      json_nexthop);
@@ -726,8 +727,8 @@ static void vty_show_ip_route(struct vty *vty, struct route_node *rn,
 			for (ALL_NEXTHOPS_PTR(nhg, nexthop)) {
 				json_nexthop = json_object_new_object();
 
-				show_nexthop_json_helper(json_nexthop,
-							 nexthop, re);
+				show_nexthop_json_helper(json_nexthop, nexthop,
+							 rn, re);
 				json_object_array_add(json_nexthops,
 						      json_nexthop);
 			}
@@ -792,7 +793,7 @@ static void vty_show_ip_route(struct vty *vty, struct route_node *rn,
 				len - 3 + (2 * nexthop_level(nexthop)), ' ');
 		}
 
-		show_route_nexthop_helper(vty, re, nexthop);
+		show_route_nexthop_helper(vty, rn, re, nexthop);
 		vty_out(vty, ", %s\n", up_str);
 	}
 
@@ -823,7 +824,7 @@ static void vty_show_ip_route(struct vty *vty, struct route_node *rn,
 		vty_out(vty, "  b%c %*c",
 			(star_p ? '*' : ' '),
 			len - 3 + (2 * nexthop_level(nexthop)),	' ');
-		show_route_nexthop_helper(vty, re, nexthop);
+		show_route_nexthop_helper(vty, rn, re, nexthop);
 		vty_out(vty, "\n");
 	}
 
@@ -1264,14 +1265,15 @@ static void show_nexthop_group_out(struct vty *vty, struct nhg_hash_entry *nhe,
 	for (ALL_NEXTHOPS(nhe->nhg, nexthop)) {
 		if (json_nexthop_array) {
 			json_nexthops = json_object_new_object();
-			show_nexthop_json_helper(json_nexthops, nexthop, NULL);
+			show_nexthop_json_helper(json_nexthops, nexthop, NULL,
+						 NULL);
 		} else {
 			if (!CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_RECURSIVE))
 				vty_out(vty, "          ");
 			else
 				/* Make recursive nexthops a bit more clear */
 				vty_out(vty, "       ");
-			show_route_nexthop_helper(vty, NULL, nexthop);
+			show_route_nexthop_helper(vty, NULL, NULL, nexthop);
 		}
 
 		if (nhe->backup_info == NULL || nhe->backup_info->nhe == NULL) {
@@ -1329,7 +1331,7 @@ static void show_nexthop_group_out(struct vty *vty, struct nhg_hash_entry *nhe,
 			if (json_backup_nexthop_array) {
 				json_backup_nexthops = json_object_new_object();
 				show_nexthop_json_helper(json_backup_nexthops,
-							 nexthop, NULL);
+							 nexthop, NULL, NULL);
 				json_object_array_add(json_backup_nexthop_array,
 						      json_backup_nexthops);
 			} else {
@@ -1342,7 +1344,8 @@ static void show_nexthop_group_out(struct vty *vty, struct nhg_hash_entry *nhe,
 					 * clear
 					 */
 					vty_out(vty, "       ");
-				show_route_nexthop_helper(vty, NULL, nexthop);
+				show_route_nexthop_helper(vty, NULL, NULL,
+							  nexthop);
 				vty_out(vty, "\n");
 			}
 		}
@@ -2068,8 +2071,11 @@ DEFUN_HIDDEN (show_route_zebra_dump,
 	return CMD_SUCCESS;
 }
 
-static void show_ip_route_nht_dump(struct vty *vty, struct nexthop *nexthop,
-				   struct route_entry *re, unsigned int num)
+static void show_ip_route_nht_dump(struct vty *vty,
+				   const struct nexthop *nexthop,
+				   const struct route_node *rn,
+				   const struct route_entry *re,
+				   unsigned int num)
 {
 
 	char buf[SRCDEST2STR_BUFFER];
@@ -2093,10 +2099,12 @@ static void show_ip_route_nht_dump(struct vty *vty, struct nexthop *nexthop,
 					       nexthop->vrf_id));
 		}
 
-		if (nexthop->src.ipv4.s_addr
-		    && (inet_ntop(AF_INET, &nexthop->src.ipv4, buf,
-				  sizeof(buf))))
-			vty_out(vty, "      source: %s\n", buf);
+		if (nexthop->rmap_src.ipv4.s_addr)
+			vty_out(vty, "      rmapsrc: %pI4\n",
+				&nexthop->rmap_src.ipv4);
+		else if (nexthop->src.ipv4.s_addr)
+			vty_out(vty, "      source: %pI4\n",
+				&nexthop->src.ipv4.s_addr);
 		break;
 	case NEXTHOP_TYPE_IPV6:
 	case NEXTHOP_TYPE_IPV6_IFINDEX:
@@ -2113,11 +2121,15 @@ static void show_ip_route_nht_dump(struct vty *vty, struct nexthop *nexthop,
 					       nexthop->vrf_id));
 		}
 
-		if (!IPV6_ADDR_SAME(&nexthop->src.ipv6, &in6addr_any)) {
-			if (inet_ntop(AF_INET6, &nexthop->src.ipv6, buf,
-				      sizeof(buf)))
-				vty_out(vty, "      source: %s\n", buf);
-		}
+		/* Allow for 5549 ipv4 prefix with ipv6 nexthop */
+		if (rn->p.family == AF_INET && nexthop->rmap_src.ipv4.s_addr)
+			vty_out(vty, "      rmapsrc: %pI4\n",
+				&nexthop->rmap_src.ipv4);
+		else if (!IPV6_ADDR_SAME(&nexthop->rmap_src.ipv6, &in6addr_any))
+			vty_out(vty, "      rmapsrc: %pI6\n",
+				&nexthop->rmap_src.ipv6);
+		else if (!IPV6_ADDR_SAME(&nexthop->src.ipv6, &in6addr_any))
+			vty_out(vty, "      source: %pI6\n", &nexthop->src.ipv6);
 		break;
 	case NEXTHOP_TYPE_IFINDEX:
 		vty_out(vty,
@@ -2209,7 +2221,7 @@ static void show_ip_route_dump_vty(struct vty *vty, struct route_table *table)
 
 			for (ALL_NEXTHOPS_PTR(&(re->nhe->nhg), nexthop)) {
 				nexthop_num++;
-				show_ip_route_nht_dump(vty, nexthop, re,
+				show_ip_route_nht_dump(vty, nexthop, rn, re,
 						       nexthop_num);
 			}
 
