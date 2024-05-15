@@ -1371,7 +1371,6 @@ void nexthop_vty_helper(struct vty *vty, const struct nexthop *nexthop,
 	char seg_buf[SRV6_SEG_STRLEN];
 	struct seg6_segs segs;
 	uint8_t i;
-	bool src_p = false;
 
 	switch (nexthop->type) {
 	case NEXTHOP_TYPE_IPV4:
@@ -1433,19 +1432,10 @@ void nexthop_vty_helper(struct vty *vty, const struct nexthop *nexthop,
 	switch (nexthop->type) {
 	case NEXTHOP_TYPE_IPV4:
 	case NEXTHOP_TYPE_IPV4_IFINDEX:
-		if (nexthop->rmap_src.ipv4.s_addr) {
+		if (nexthop->rmap_src.ipv4.s_addr)
 			vty_out(vty, ", rmapsrc %pI4", &nexthop->rmap_src.ipv4);
-			src_p = true;
-		} else if (nexthop->src.ipv4.s_addr) {
+		else if (nexthop->src.ipv4.s_addr)
 			vty_out(vty, ", src %pI4", &nexthop->src.ipv4);
-			src_p = true;
-		}
-		if (src_p) {
-			/* SR-TE information */
-			if (nexthop->srte_color)
-				vty_out(vty, ", SR-TE color %u",
-					nexthop->srte_color);
-		}
 		break;
 	case NEXTHOP_TYPE_IPV6:
 	case NEXTHOP_TYPE_IPV6_IFINDEX:
@@ -1461,6 +1451,10 @@ void nexthop_vty_helper(struct vty *vty, const struct nexthop *nexthop,
 	case NEXTHOP_TYPE_BLACKHOLE:
 		break;
 	}
+
+	/* SR-TE information */
+	if (nexthop->srte_color)
+		vty_out(vty, ", SR-TE color %u", nexthop->srte_color);
 
 	/* Label information */
 	if (nexthop->nh_label && nexthop->nh_label->num_labels) {
