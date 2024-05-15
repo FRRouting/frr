@@ -16,6 +16,7 @@
 #include "printfrr.h"
 #include "lib_errors.h"
 
+#include "ospf6_proto.h"
 #include "ospf6d/ospf6_lsa.h"
 #include "ospf6d/ospf6_lsdb.h"
 #include "ospf6d/ospf6_route.h"
