@@ -13,10 +13,13 @@ extern in_addr_t conf_debug_ospf6_brouter_specific_area_id;
 #define OSPF6_DEBUG_BROUTER_SUMMARY         0x01
 #define OSPF6_DEBUG_BROUTER_SPECIFIC_ROUTER 0x02
 #define OSPF6_DEBUG_BROUTER_SPECIFIC_AREA   0x04
+
 #define OSPF6_DEBUG_BROUTER_ON()                                               \
 	(conf_debug_ospf6_brouter |= OSPF6_DEBUG_BROUTER_SUMMARY)
+
 #define OSPF6_DEBUG_BROUTER_OFF()                                              \
 	(conf_debug_ospf6_brouter &= ~OSPF6_DEBUG_BROUTER_SUMMARY)
+
 #define IS_OSPF6_DEBUG_BROUTER                                                 \
 	(conf_debug_ospf6_brouter & OSPF6_DEBUG_BROUTER_SUMMARY)
 
@@ -26,14 +29,17 @@ extern in_addr_t conf_debug_ospf6_brouter_specific_area_id;
 		conf_debug_ospf6_brouter |=                                    \
 			OSPF6_DEBUG_BROUTER_SPECIFIC_ROUTER;                   \
 	} while (0)
+
 #define OSPF6_DEBUG_BROUTER_SPECIFIC_ROUTER_OFF()                              \
 	do {                                                                   \
 		conf_debug_ospf6_brouter_specific_router_id = 0;               \
 		conf_debug_ospf6_brouter &=                                    \
 			~OSPF6_DEBUG_BROUTER_SPECIFIC_ROUTER;                  \
 	} while (0)
+
 #define IS_OSPF6_DEBUG_BROUTER_SPECIFIC_ROUTER                                 \
 	(conf_debug_ospf6_brouter & OSPF6_DEBUG_BROUTER_SPECIFIC_ROUTER)
+
 #define IS_OSPF6_DEBUG_BROUTER_SPECIFIC_ROUTER_ID(router_id)                   \
 	(IS_OSPF6_DEBUG_BROUTER_SPECIFIC_ROUTER                                \
 	 && conf_debug_ospf6_brouter_specific_router_id == (router_id))
@@ -43,14 +49,17 @@ extern in_addr_t conf_debug_ospf6_brouter_specific_area_id;
 		conf_debug_ospf6_brouter_specific_area_id = (area_id);         \
 		conf_debug_ospf6_brouter |= OSPF6_DEBUG_BROUTER_SPECIFIC_AREA; \
 	} while (0)
+
 #define OSPF6_DEBUG_BROUTER_SPECIFIC_AREA_OFF()                                \
 	do {                                                                   \
 		conf_debug_ospf6_brouter_specific_area_id = 0;                 \
 		conf_debug_ospf6_brouter &=                                    \
 			~OSPF6_DEBUG_BROUTER_SPECIFIC_AREA;                    \
 	} while (0)
+
 #define IS_OSPF6_DEBUG_BROUTER_SPECIFIC_AREA                                   \
 	(conf_debug_ospf6_brouter & OSPF6_DEBUG_BROUTER_SPECIFIC_AREA)
+
 #define IS_OSPF6_DEBUG_BROUTER_SPECIFIC_AREA_ID(area_id)                       \
 	(IS_OSPF6_DEBUG_BROUTER_SPECIFIC_AREA                                  \
 	 && conf_debug_ospf6_brouter_specific_area_id == (area_id))
@@ -68,10 +77,13 @@ enum stub_router_mode {
 		 : 0)
 #define ROUTER_LSDESC_GET_METRIC(x)                                            \
 	(ntohs(((struct ospf6_router_lsdesc *)(x))->metric))
+
 #define ROUTER_LSDESC_GET_IFID(x)                                              \
 	(ntohl(((struct ospf6_router_lsdesc *)(x))->interface_id))
+
 #define ROUTER_LSDESC_GET_NBR_IFID(x)                                          \
 	(ntohl(((struct ospf6_router_lsdesc *)(x))->neighbor_interface_id))
+
 #define ROUTER_LSDESC_GET_NBR_ROUTERID(x)                                      \
 	(((struct ospf6_router_lsdesc *)(x))->neighbor_router_id)
 
@@ -82,18 +94,21 @@ enum stub_router_mode {
 			event_add_event(master, ospf6_router_lsa_originate,    \
 					oa, 0, &(oa)->thread_router_lsa);      \
 	} while (0)
+
 #define OSPF6_NETWORK_LSA_SCHEDULE(oi)                                         \
 	do {                                                                   \
 		if (!CHECK_FLAG((oi)->flag, OSPF6_INTERFACE_DISABLE))          \
 			event_add_event(master, ospf6_network_lsa_originate,   \
 					oi, 0, &(oi)->thread_network_lsa);     \
 	} while (0)
+
 #define OSPF6_LINK_LSA_SCHEDULE(oi)                                            \
 	do {                                                                   \
 		if (!CHECK_FLAG((oi)->flag, OSPF6_INTERFACE_DISABLE))          \
 			event_add_event(master, ospf6_link_lsa_originate, oi,  \
 					0, &(oi)->thread_link_lsa);            \
 	} while (0)
+
 #define OSPF6_INTRA_PREFIX_LSA_SCHEDULE_STUB(oa)                               \
 	do {                                                                   \
 		if (CHECK_FLAG((oa)->flag, OSPF6_AREA_ENABLE))                 \
@@ -101,6 +116,7 @@ enum stub_router_mode {
 				master, ospf6_intra_prefix_lsa_originate_stub, \
 				oa, 0, &(oa)->thread_intra_prefix_lsa);        \
 	} while (0)
+
 #define OSPF6_INTRA_PREFIX_LSA_SCHEDULE_TRANSIT(oi)                            \
 	do {                                                                   \
 		if (!CHECK_FLAG((oi)->flag, OSPF6_INTERFACE_DISABLE))          \
