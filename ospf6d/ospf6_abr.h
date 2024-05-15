@@ -17,22 +17,6 @@ extern unsigned char conf_debug_ospf6_abr;
 #define OSPF6_DEBUG_ABR_OFF() (conf_debug_ospf6_abr = 0)
 #define IS_OSPF6_DEBUG_ABR (conf_debug_ospf6_abr)
 
-/* Inter-Area-Prefix-LSA */
-#define OSPF6_INTER_PREFIX_LSA_MIN_SIZE        4U /* w/o IPv6 prefix */
-struct ospf6_inter_prefix_lsa {
-	uint32_t metric;
-	struct ospf6_prefix prefix;
-};
-
-/* Inter-Area-Router-LSA */
-#define OSPF6_INTER_ROUTER_LSA_FIX_SIZE       12U
-struct ospf6_inter_router_lsa {
-	uint8_t mbz;
-	uint8_t options[3];
-	uint32_t metric;
-	uint32_t router_id;
-};
-
 #define OSPF6_ABR_SUMMARY_METRIC(E)                                            \
 	(ntohl((E)->metric & htonl(OSPF6_EXT_PATH_METRIC_MAX)))
 #define OSPF6_ABR_SUMMARY_METRIC_SET(E, C)                                     \
