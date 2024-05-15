@@ -59,7 +59,19 @@
 #define OSPF6_LSTYPE_LINK             0x0008
 #define OSPF6_LSTYPE_INTRA_PREFIX     0x2009
 #define OSPF6_LSTYPE_GRACE_LSA	      0x000b
-#define OSPF6_LSTYPE_SIZE             0x000c
+
+/* Extended LSA types from RFC 8362 */
+#define OSPF6_LSTYPE_E_ROUTER         (0x20 + OSPF6_LSTYPE_ROUTER)
+#define OSPF6_LSTYPE_E_NETWORK        (0x20 + OSPF6_LSTYPE_NETWORK)
+#define OSPF6_LSTYPE_E_INTER_PREFIX   (0x20 + OSPF6_LSTYPE_INTER_PREFIX)
+#define OSPF6_LSTYPE_E_INTER_ROUTER   (0x20 + OSPF6_LSTYPE_INTER_ROUTER)
+#define OSPF6_LSTYPE_E_AS_EXTERNAL    (0x20 + OSPF6_LSTYPE_AS_EXTERNAL)
+/* 0x20 + OSPF6_LSTYPE_GROUP_MEMBERSHIP is unused, not to be allocated */
+#define OSPF6_LSTYPE_E_TYPE_7         (0x20 + OSPF6_LSTYPE_TYPE_7)
+#define OSPF6_LSTYPE_E_LINK           (0x20 + OSPF6_LSTYPE_LINK)
+#define OSPF6_LSTYPE_E_INTRA_PREFIX   (0x20 + OSPF6_LSTYPE_INTRA_PREFIX)
+
+#define OSPF6_LSTYPE_SIZE             0x002c /* End of sparse lookup table */
 
 /* Masks for LS Type : RFC 2740 A.4.2.1 "LS type" */
 #define OSPF6_LSTYPE_UBIT_MASK        0x8000
@@ -124,6 +136,12 @@ struct ospf6_router_lsa {
 	/* followed by ospf6_router_lsdesc(s) */
 };
 
+/* Extended Router-LSA (RFC 8362)
+ * struct ospf6_e_router_lsa is optionally followed by struct tlv_router_link
+ * Router-Link TLV (RFC 8362)
+ */
+#define ospf6_e_router_lsa ospf6_router_lsa
+
 /* Link State Description in Router-LSA */
 #define OSPF6_ROUTER_LSDESC_FIX_SIZE          16U
 struct ospf6_router_lsdesc {
@@ -148,6 +166,13 @@ struct ospf6_network_lsa {
 	/* followed by ospf6_network_lsdesc(s) */
 };
 
+/* E-Network-LSA (RFC 8362)
+ * struct ospf6_e_network_lsa is followed by Attached-Routers TLV.
+ * If the TLV is not included in the LSA, the LSA is malformed.
+ * If multiple TLVs are included, those subsequent to the first MUST be ignored.
+ */
+#define ospf6_e_network_lsa ospf6_network_lsa
+
 /* Link State Description in Network-LSA */
 #define OSPF6_NETWORK_LSDESC_FIX_SIZE          4U
 struct ospf6_network_lsdesc {
@@ -163,6 +188,11 @@ struct ospf6_inter_prefix_lsa {
 	struct ospf6_prefix prefix;
 };
 
+/* E-Inter-Area-Prefix-LSA (RFC 8362)
+ * MUST be followed by a single Inter-Area-Prefix TLV
+ */
+#define ospf6_e_inter_prefix_lsa ospf6_inter_prefix_lsa
+
 /* Inter-Area-Router-LSA */
 #define OSPF6_INTER_ROUTER_LSA_FIX_SIZE       12U
 struct ospf6_inter_router_lsa {
@@ -171,6 +201,11 @@ struct ospf6_inter_router_lsa {
 	uint32_t metric;
 	uint32_t router_id;
 };
+
+/* E-Inter-Area-Router-LSA
+ * MUST be followed by a single Inter-Area-Router TLV
+ */
+#define ospf6_e_inter_router_lsa ospf6_inter_router_lsa
 
 /* AS-External-LSA */
 #define OSPF6_AS_EXTERNAL_LSA_MIN_SIZE         4U /* w/o IPv6 prefix */
@@ -182,6 +217,11 @@ struct ospf6_as_external_lsa {
 	/* followed by none or one external route tag */
 	/* followed by none or one referenced LS-ID */
 };
+
+/* E-AS-External-LSA
+ * MUST contain a single External-Prefix TLV
+ */
+#define ospf6_e_as_external_lsa ospf6_as_external_lsa
 
 /* FIXME: move nssa lsa here. */
 
@@ -195,6 +235,15 @@ struct ospf6_link_lsa {
 	/* followed by ospf6 prefix(es) */
 };
 
+/* E-Link-LSA
+ * struct ospf6_e_link_lsa is followed by any of:
+ * Intra-Area-Prefix TLV (zero or many MAY be included),
+ * IPv6 Link-Local Address TLV (one SHOULD be included, >1 MUST be ignored),
+ * IPv4 Link-Local Address TLV (one SHOULD be included, >1 MUST be ignored),
+ * one of IPv4/IPv6 lladdr MUST be included.
+ */
+#define ospf6_e_link_lsa ospf6_link_lsa
+
 /* Intra-Area-Prefix-LSA */
 #define OSPF6_INTRA_PREFIX_LSA_MIN_SIZE       12U /* w/o 1st IPv6 prefix */
 struct ospf6_intra_prefix_lsa {
@@ -204,6 +253,12 @@ struct ospf6_intra_prefix_lsa {
 	in_addr_t ref_adv_router;
 	/* followed by ospf6 prefix(es) */
 };
+
+/* E-Intra-Area-Prefix-LSA
+ * Like Intra-Area-Prefix-LSA, except Referenced LS Type MUST be
+ * E-Router-LSA (0xA021) or an E-Network-LSA (0xA022)
+ */
+#define ospf6_e_intra_prefix_lsa ospf6_intra_prefix_lsa
 
 struct ospf6_lsa {
 	char name[64]; /* dump string */
