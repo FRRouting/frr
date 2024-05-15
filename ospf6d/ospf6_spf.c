@@ -16,11 +16,11 @@
 #include "frrevent.h"
 #include "lib_errors.h"
 
+#include "ospf6_proto.h"
 #include "ospf6_lsa.h"
 #include "ospf6_lsdb.h"
 #include "ospf6_route.h"
 #include "ospf6_area.h"
-#include "ospf6_proto.h"
 #include "ospf6_abr.h"
 #include "ospf6_asbr.h"
 #include "ospf6_spf.h"
