@@ -703,6 +703,7 @@ static void isis_spf_add_local(struct isis_spftree *spftree,
 		} else { /* vertex->d_N > cost */
 			/*         f) */
 			isis_vertex_queue_delete(&spftree->tents, vertex);
+			hash_release(spftree->prefix_sids, vertex);
 			isis_vertex_del(vertex);
 		}
 	}
@@ -808,6 +809,7 @@ static void process_N(struct isis_spftree *spftree, enum vertextype vtype,
 			/*      4) */
 		} else {
 			isis_vertex_queue_delete(&spftree->tents, vertex);
+			hash_release(spftree->prefix_sids, vertex);
 			isis_vertex_del(vertex);
 		}
 	}
