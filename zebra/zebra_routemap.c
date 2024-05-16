@@ -299,8 +299,7 @@ int ip_protocol_rm_add(struct zebra_vrf *zvrf, const char *rmap, int rtype,
 		route_map_lookup_by_name(PROTO_RM_NAME(zvrf, afi, rtype));
 	route_map_counter_increment(PROTO_RM_MAP(zvrf, afi, rtype));
 
-	if (PROTO_RM_MAP(zvrf, afi, rtype)) {
-
+	if (PROTO_RM_NAME(zvrf, afi, rtype)) {
 		if (IS_ZEBRA_DEBUG_RIB_DETAILED)
 			zlog_debug(
 				"%u: IPv4 Routemap config for protocol %d scheduling RIB processing",
@@ -326,7 +325,7 @@ int ip_protocol_rm_del(struct zebra_vrf *zvrf, const char *rmap, int rtype,
 	if (!rmap || strcmp(rmap, PROTO_RM_NAME(zvrf, afi, rtype)) == 0) {
 
 		route_map_counter_decrement(PROTO_RM_MAP(zvrf, afi, rtype));
-		if (PROTO_RM_MAP(zvrf, afi, rtype)) {
+		if (PROTO_RM_NAME(zvrf, afi, rtype)) {
 			if (IS_ZEBRA_DEBUG_RIB_DETAILED)
 				zlog_debug(
 					"%u: IPv4 Routemap unconfig for protocol %d, scheduling RIB processing",
