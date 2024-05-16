@@ -131,19 +131,13 @@ The following commands are available for independent of a specific cache server.
 
    The default value is 600 seconds.
 
-.. clicmd:: rpki cache (A.B.C.D|WORD) PORT [SSH_USERNAME] [SSH_PRIVKEY_PATH] [KNOWN_HOSTS_PATH] [source A.B.C.D] preference (1-255)
+.. clicmd:: rpki cache tcp HOST PORT [source A.B.C.D] preference (1-255)
 
+   Add a TCP cache server to the socket.
 
-   Add a cache server to the socket. By default, the connection between router
-   and cache server is based on plain TCP. Protecting the connection between
-   router and cache server by SSH is optional. Deleting a socket removes the
-   associated cache server and terminates the existing connection.
+.. clicmd:: rpki cache ssh HOST PORT SSH_USERNAME SSH_PRIVKEY_PATH [SERVER_PUBKEY] [source A.B.C.D] preference (1-255)
 
-   A.B.C.D|WORD
-      Address of the cache server.
-
-   PORT
-      Port number to connect to the cache server
+   Add a SSH cache server to the socket.
 
    SSH_USERNAME
       SSH username to establish an SSH connection to the cache server.
@@ -151,14 +145,13 @@ The following commands are available for independent of a specific cache server.
    SSH_PRIVKEY_PATH
       Local path that includes the private key file of the router.
 
-   KNOWN_HOSTS_PATH
+   SERVER_PUBKEY
       Local path that includes the known hosts file. The default value depends
       on the configuration of the operating system environment, usually
       :file:`~/.ssh/known_hosts`.
 
    source A.B.C.D
       Source address of the RPKI connection to access cache server.
-
 
 .. _validating-bgp-updates:
 
@@ -267,9 +260,9 @@ RPKI Configuration Example
      rpki polling_period 1000
      rpki timeout 10
       ! SSH Example:
-      rpki cache example.com 22 rtr-ssh ./ssh_key/id_rsa preference 1
+      rpki cache ssh example.com 22 rtr-ssh ./ssh_key/id_rsa preference 1
       ! TCP Example:
-      rpki cache rpki-validator.realmv6.org 8282 preference 2
+      rpki cache tcp rpki-validator.realmv6.org 8282 preference 2
       exit
     !
     exit-vrf
@@ -278,9 +271,9 @@ RPKI Configuration Example
     rpki polling_period 1000
     rpki timeout 10
      ! SSH Example:
-     rpki cache example.com source 198.51.100.223 22 rtr-ssh ./ssh_key/id_rsa preference 1
+     rpki cache ssh example.com source 198.51.100.223 22 rtr-ssh ./ssh_key/id_rsa preference 1
      ! TCP Example:
-     rpki cache rpki-validator.realmv6.org 8282 preference 2
+     rpki cache tcp rpki-validator.realmv6.org 8282 preference 2
      exit
    !
    router bgp 65001
