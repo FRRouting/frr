@@ -1154,3 +1154,346 @@ bool nexthop_is_blackhole(const struct nexthop *nh)
 {
 	return nh->type == NEXTHOP_TYPE_BLACKHOLE;
 }
+
+/*
+ * Render a nexthop into a json object; the caller allocates and owns
+ * the json object memory.
+ */
+void nexthop_json_helper(json_object *json_nexthop,
+			 const struct nexthop *nexthop, bool display_vrfid,
+			 uint8_t rn_family)
+{
+	json_object *json_labels = NULL;
+	json_object *json_backups = NULL;
+	json_object *json_seg6local = NULL;
+	json_object *json_seg6 = NULL;
+	json_object *json_segs = NULL;
+	int i;
+
+	json_object_int_add(json_nexthop, "flags", nexthop->flags);
+
+	if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_DUPLICATE))
+		json_object_boolean_true_add(json_nexthop, "duplicate");
+
+	if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB))
+		json_object_boolean_true_add(json_nexthop, "fib");
+
+	switch (nexthop->type) {
+	case NEXTHOP_TYPE_IPV4:
+	case NEXTHOP_TYPE_IPV4_IFINDEX:
+		json_object_string_addf(json_nexthop, "ip", "%pI4",
+					&nexthop->gate.ipv4);
+		json_object_string_add(json_nexthop, "afi", "ipv4");
+
+		if (nexthop->ifindex) {
+			json_object_int_add(json_nexthop, "interfaceIndex",
+					    nexthop->ifindex);
+			json_object_string_add(json_nexthop, "interfaceName",
+					       ifindex2ifname(nexthop->ifindex,
+							      nexthop->vrf_id));
+		}
+		break;
+	case NEXTHOP_TYPE_IPV6:
+	case NEXTHOP_TYPE_IPV6_IFINDEX:
+		json_object_string_addf(json_nexthop, "ip", "%pI6",
+					&nexthop->gate.ipv6);
+		json_object_string_add(json_nexthop, "afi", "ipv6");
+
+		if (nexthop->ifindex) {
+			json_object_int_add(json_nexthop, "interfaceIndex",
+					    nexthop->ifindex);
+			json_object_string_add(json_nexthop, "interfaceName",
+					       ifindex2ifname(nexthop->ifindex,
+							      nexthop->vrf_id));
+		}
+		break;
+
+	case NEXTHOP_TYPE_IFINDEX:
+		json_object_boolean_true_add(json_nexthop, "directlyConnected");
+		json_object_int_add(json_nexthop, "interfaceIndex",
+				    nexthop->ifindex);
+		json_object_string_add(json_nexthop, "interfaceName",
+				       ifindex2ifname(nexthop->ifindex,
+						      nexthop->vrf_id));
+		break;
+	case NEXTHOP_TYPE_BLACKHOLE:
+		json_object_boolean_true_add(json_nexthop, "unreachable");
+		switch (nexthop->bh_type) {
+		case BLACKHOLE_REJECT:
+			json_object_boolean_true_add(json_nexthop, "reject");
+			break;
+		case BLACKHOLE_ADMINPROHIB:
+			json_object_boolean_true_add(json_nexthop,
+						     "adminProhibited");
+			break;
+		case BLACKHOLE_NULL:
+			json_object_boolean_true_add(json_nexthop, "blackhole");
+			break;
+		case BLACKHOLE_UNSPEC:
+			break;
+		}
+		break;
+	}
+
+	/* This nexthop is a resolver for the parent nexthop.
+	 * Set resolver flag for better clarity and delimiter
+	 * in flat list of nexthops in json.
+	 */
+	if (nexthop->rparent)
+		json_object_boolean_true_add(json_nexthop, "resolver");
+
+	if (display_vrfid)
+		json_object_string_add(json_nexthop, "vrf",
+				       vrf_id_to_name(nexthop->vrf_id));
+	if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_DUPLICATE))
+		json_object_boolean_true_add(json_nexthop, "duplicate");
+
+	if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE))
+		json_object_boolean_true_add(json_nexthop, "active");
+
+	if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ONLINK))
+		json_object_boolean_true_add(json_nexthop, "onLink");
+
+	if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_LINKDOWN))
+		json_object_boolean_true_add(json_nexthop, "linkDown");
+
+	if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_RECURSIVE))
+		json_object_boolean_true_add(json_nexthop, "recursive");
+
+	if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_HAS_BACKUP)) {
+		json_backups = json_object_new_array();
+		for (i = 0; i < nexthop->backup_num; i++) {
+			json_object_array_add(json_backups,
+					      json_object_new_int(
+						      nexthop->backup_idx[i]));
+		}
+
+		json_object_object_add(json_nexthop, "backupIndex",
+				       json_backups);
+	}
+
+	switch (nexthop->type) {
+	case NEXTHOP_TYPE_IPV4:
+	case NEXTHOP_TYPE_IPV4_IFINDEX:
+		if (nexthop->rmap_src.ipv4.s_addr)
+			json_object_string_addf(json_nexthop, "rmapSource",
+						"%pI4", &nexthop->rmap_src.ipv4);
+		else if (nexthop->src.ipv4.s_addr)
+			json_object_string_addf(json_nexthop, "source", "%pI4",
+						&nexthop->src.ipv4);
+		break;
+	case NEXTHOP_TYPE_IPV6:
+	case NEXTHOP_TYPE_IPV6_IFINDEX:
+		/* Allow for 5549 ipv4 prefix with ipv6 nexthop */
+		if (rn_family == AF_INET && nexthop->rmap_src.ipv4.s_addr)
+			json_object_string_addf(json_nexthop, "rmapSource",
+						"%pI4", &nexthop->rmap_src.ipv4);
+		else if (!IPV6_ADDR_SAME(&nexthop->rmap_src.ipv6, &in6addr_any))
+			json_object_string_addf(json_nexthop, "rmapSource",
+						"%pI6", &nexthop->rmap_src.ipv6);
+		else if (!IPV6_ADDR_SAME(&nexthop->src.ipv6, &in6addr_any))
+			json_object_string_addf(json_nexthop, "source", "%pI6",
+						&nexthop->src.ipv6);
+		break;
+	case NEXTHOP_TYPE_IFINDEX:
+	case NEXTHOP_TYPE_BLACKHOLE:
+		break;
+	}
+
+	if (nexthop->nh_label && nexthop->nh_label->num_labels) {
+		json_labels = json_object_new_array();
+
+		for (int label_index = 0;
+		     label_index < nexthop->nh_label->num_labels; label_index++)
+			json_object_array_add(
+				json_labels,
+				json_object_new_int((
+					(nexthop->nh_label_type == ZEBRA_LSP_EVPN)
+						? label2vni(
+							  &nexthop->nh_label->label
+								   [label_index])
+						: nexthop->nh_label
+							  ->label[label_index])));
+
+		json_object_object_add(json_nexthop, "labels", json_labels);
+	}
+
+	if (nexthop->weight)
+		json_object_int_add(json_nexthop, "weight", nexthop->weight);
+
+	if (nexthop->srte_color)
+		json_object_int_add(json_nexthop, "srteColor",
+				    nexthop->srte_color);
+
+	if (nexthop->nh_srv6) {
+		json_seg6local = json_object_new_object();
+		json_object_string_add(json_seg6local, "action",
+				       seg6local_action2str(
+					       nexthop->nh_srv6
+						       ->seg6local_action));
+		json_object_object_add(json_nexthop, "seg6local",
+				       json_seg6local);
+		if (nexthop->nh_srv6->seg6_segs &&
+		    nexthop->nh_srv6->seg6_segs->num_segs == 1) {
+			json_seg6 = json_object_new_object();
+			json_object_string_addf(json_seg6, "segs", "%pI6",
+						&nexthop->nh_srv6->seg6_segs
+							 ->seg[0]);
+			json_object_object_add(json_nexthop, "seg6", json_seg6);
+		} else {
+			if (nexthop->nh_srv6->seg6_segs) {
+				json_segs = json_object_new_array();
+				for (int seg_idx = 0;
+				     seg_idx <
+				     nexthop->nh_srv6->seg6_segs->num_segs;
+				     seg_idx++)
+					json_object_array_add(
+						json_segs,
+						json_object_new_stringf(
+							"%pI6",
+							&nexthop->nh_srv6
+								 ->seg6_segs
+								 ->seg[seg_idx]));
+				json_object_object_add(json_nexthop, "seg6",
+						       json_segs);
+			}
+		}
+	}
+}
+
+/*
+ * Helper for nexthop output
+ */
+void nexthop_vty_helper(struct vty *vty, const struct nexthop *nexthop,
+			bool display_vrfid, uint8_t rn_family)
+{
+	char buf[MPLS_LABEL_STRLEN];
+	char seg_buf[SRV6_SEG_STRLEN];
+	struct seg6_segs segs;
+	uint8_t i;
+
+	switch (nexthop->type) {
+	case NEXTHOP_TYPE_IPV4:
+	case NEXTHOP_TYPE_IPV4_IFINDEX:
+		vty_out(vty, " via %pI4", &nexthop->gate.ipv4);
+		if (nexthop->ifindex)
+			vty_out(vty, ", %s",
+				ifindex2ifname(nexthop->ifindex,
+					       nexthop->vrf_id));
+		break;
+	case NEXTHOP_TYPE_IPV6:
+	case NEXTHOP_TYPE_IPV6_IFINDEX:
+		vty_out(vty, " via %s",
+			inet_ntop(AF_INET6, &nexthop->gate.ipv6, buf,
+				  sizeof(buf)));
+		if (nexthop->ifindex)
+			vty_out(vty, ", %s",
+				ifindex2ifname(nexthop->ifindex,
+					       nexthop->vrf_id));
+		break;
+
+	case NEXTHOP_TYPE_IFINDEX:
+		vty_out(vty, " is directly connected, %s",
+			ifindex2ifname(nexthop->ifindex, nexthop->vrf_id));
+		break;
+	case NEXTHOP_TYPE_BLACKHOLE:
+		vty_out(vty, " unreachable");
+		switch (nexthop->bh_type) {
+		case BLACKHOLE_REJECT:
+			vty_out(vty, " (ICMP unreachable)");
+			break;
+		case BLACKHOLE_ADMINPROHIB:
+			vty_out(vty, " (ICMP admin-prohibited)");
+			break;
+		case BLACKHOLE_NULL:
+			vty_out(vty, " (blackhole)");
+			break;
+		case BLACKHOLE_UNSPEC:
+			break;
+		}
+		break;
+	}
+
+	if (display_vrfid)
+		vty_out(vty, " (vrf %s)", vrf_id_to_name(nexthop->vrf_id));
+
+	if (!CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE))
+		vty_out(vty, " inactive");
+
+	if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ONLINK))
+		vty_out(vty, " onlink");
+
+	if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_LINKDOWN))
+		vty_out(vty, " linkdown");
+
+	if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_RECURSIVE))
+		vty_out(vty, " (recursive)");
+
+	switch (nexthop->type) {
+	case NEXTHOP_TYPE_IPV4:
+	case NEXTHOP_TYPE_IPV4_IFINDEX:
+		if (nexthop->rmap_src.ipv4.s_addr)
+			vty_out(vty, ", rmapsrc %pI4", &nexthop->rmap_src.ipv4);
+		else if (nexthop->src.ipv4.s_addr)
+			vty_out(vty, ", src %pI4", &nexthop->src.ipv4);
+		break;
+	case NEXTHOP_TYPE_IPV6:
+	case NEXTHOP_TYPE_IPV6_IFINDEX:
+		/* Allow for 5549 ipv4 prefix with ipv6 nexthop */
+		if (rn_family == AF_INET && nexthop->rmap_src.ipv4.s_addr)
+			vty_out(vty, ", rmapsrc %pI4", &nexthop->rmap_src.ipv4);
+		else if (!IPV6_ADDR_SAME(&nexthop->rmap_src.ipv6, &in6addr_any))
+			vty_out(vty, ", rmapsrc %pI6", &nexthop->rmap_src.ipv6);
+		else if (!IPV6_ADDR_SAME(&nexthop->src.ipv6, &in6addr_any))
+			vty_out(vty, ", src %pI6", &nexthop->src.ipv6);
+		break;
+	case NEXTHOP_TYPE_IFINDEX:
+	case NEXTHOP_TYPE_BLACKHOLE:
+		break;
+	}
+
+	/* SR-TE information */
+	if (nexthop->srte_color)
+		vty_out(vty, ", SR-TE color %u", nexthop->srte_color);
+
+	/* Label information */
+	if (nexthop->nh_label && nexthop->nh_label->num_labels) {
+		vty_out(vty, ", label %s",
+			mpls_label2str(nexthop->nh_label->num_labels,
+				       nexthop->nh_label->label, buf,
+				       sizeof(buf), nexthop->nh_label_type, 1));
+	}
+
+	if (nexthop->nh_srv6) {
+		seg6local_context2str(buf, sizeof(buf),
+				      &nexthop->nh_srv6->seg6local_ctx,
+				      nexthop->nh_srv6->seg6local_action);
+		if (nexthop->nh_srv6->seg6local_action !=
+		    ZEBRA_SEG6_LOCAL_ACTION_UNSPEC)
+			vty_out(vty, ", seg6local %s %s",
+				seg6local_action2str(
+					nexthop->nh_srv6->seg6local_action),
+				buf);
+		if (nexthop->nh_srv6->seg6_segs &&
+		    IPV6_ADDR_CMP(&nexthop->nh_srv6->seg6_segs->seg[0],
+				  &in6addr_any)) {
+			segs.num_segs = nexthop->nh_srv6->seg6_segs->num_segs;
+			for (i = 0; i < segs.num_segs; i++)
+				memcpy(&segs.segs[i],
+				       &nexthop->nh_srv6->seg6_segs->seg[i],
+				       sizeof(struct in6_addr));
+			snprintf_seg6_segs(seg_buf, SRV6_SEG_STRLEN, &segs);
+			vty_out(vty, ", seg6 %s", seg_buf);
+		}
+	}
+
+	if (nexthop->weight)
+		vty_out(vty, ", weight %u", nexthop->weight);
+
+	if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_HAS_BACKUP)) {
+		vty_out(vty, ", backup %d", nexthop->backup_idx[0]);
+
+		for (i = 1; i < nexthop->backup_num; i++)
+			vty_out(vty, ",%d", nexthop->backup_idx[i]);
+	}
+}
