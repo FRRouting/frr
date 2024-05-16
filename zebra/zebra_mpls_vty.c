@@ -247,7 +247,7 @@ DEFUN (mpls_label_bind,
 
 DEFUN (no_mpls_label_bind,
        no_mpls_label_bind_cmd,
-       "no mpls label bind <A.B.C.D/M|X:X::X:X/M> [<(16-1048575)|implicit-null>]",
+       "no mpls label bind <A.B.C.D/M|X:X::X:X/M> [<(16-1048575)|implicit-null|explicit-null>]",
        NO_STR
        MPLS_STR
        "Label configuration\n"
@@ -255,7 +255,8 @@ DEFUN (no_mpls_label_bind,
        "IPv4 prefix\n"
        "IPv6 prefix\n"
        "MPLS Label to bind\n"
-       "Use Implicit-Null Label\n")
+       "Use Implicit-Null Label\n"
+       "Use Explicit-Null Label\n")
 {
 	return zebra_mpls_bind(vty, 0, argv[4]->arg, NULL);
 }
