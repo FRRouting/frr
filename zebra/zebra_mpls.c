@@ -2634,8 +2634,16 @@ int zebra_mpls_write_fec_config(struct vty *vty, struct zebra_vrf *zvrf)
 				continue;
 
 			write = 1;
-			vty_out(vty, "mpls label bind %pFX %s\n", &rn->p,
-				label2str(fec->label, 0, lstr, BUFSIZ));
+
+			if (fec->label == MPLS_LABEL_IPV4_EXPLICIT_NULL ||
+			    fec->label == MPLS_LABEL_IPV6_EXPLICIT_NULL)
+				strlcpy(lstr, "explicit-null", sizeof(lstr));
+			else if (fec->label == MPLS_LABEL_IMPLICIT_NULL)
+				strlcpy(lstr, "implicit-null", sizeof(lstr));
+			else
+				snprintf(lstr, sizeof(lstr), "%d", fec->label);
+
+			vty_out(vty, "mpls label bind %pFX %s\n", &rn->p, lstr);
 		}
 	}
 
