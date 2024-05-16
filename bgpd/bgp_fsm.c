@@ -1797,6 +1797,11 @@ bgp_connect_success_w_delayopen(struct peer *peer)
 /* TCP connect fail */
 static enum bgp_fsm_state_progress bgp_connect_fail(struct peer *peer)
 {
+<<<<<<< HEAD
+=======
+	struct peer *peer = connection->peer;
+
+>>>>>>> e446308d7 (bgpd: fix dynamic peer graceful restart race condition)
 	if (peer_dynamic_neighbor_no_nsf(peer)) {
 		if (bgp_debug_neighbor_events(peer))
 			zlog_debug("%s (dynamic neighbor) deleted (%s)",
