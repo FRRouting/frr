@@ -9,16 +9,18 @@
 test_basic_grpc.py: Test Basic gRPC.
 """
 
+import json
 import logging
 import os
+import re
 import sys
 
 import pytest
-
 from lib.common_config import step
 from lib.micronet import commander
 from lib.topogen import Topogen, TopoRouter
 from lib.topolog import logger
+from lib.topotest import json_cmp
 
 CWD = os.path.dirname(os.path.realpath(__file__))
 
@@ -28,6 +30,7 @@ GRPCP_BFDD = 50053
 GRPCP_ISISD = 50054
 GRPCP_OSPFD = 50055
 GRPCP_PIMD = 50056
+GRPCP_MGMTD = 50057
 
 pytestmark = [
     pytest.mark.mgmtd,
@@ -59,11 +62,14 @@ def tgen(request):
 
     for rname, router in router_list.items():
         router.load_config(TopoRouter.RD_ZEBRA, "zebra.conf", f"-M grpc:{GRPCP_ZEBRA}")
-        router.load_config(TopoRouter.RD_STATIC, None, f"-M grpc:{GRPCP_STATICD}")
-        # router.load_config(TopoRouter.RD_BFD, None, f"-M grpc:{GRPCP_BFDD}")
+        router.load_config(TopoRouter.RD_STATIC, "", f"-M grpc:{GRPCP_STATICD}")
+        # router.load_config(TopoRouter.RD_BFDD, "", f"-M grpc:{GRPCP_BFDD}")
         # router.load_config(TopoRouter.RD_ISIS, None, f"-M grpc:{GRPCP_ISISD}")
         # router.load_config(TopoRouter.RD_OSPF, None, f"-M grpc:{GRPCP_OSPFD}")
         # router.load_config(TopoRouter.RD_PIM, None, f"-M grpc:{GRPCP_PIMD}")
+
+        # This doesn't work yet...
+        # router.load_config(TopoRouter.RD_MGMTD, "", f"-M grpc:{GRPCP_MGMTD}")
 
     tgen.start_router()
     yield tgen
@@ -94,40 +100,94 @@ def run_grpc_client(r, port, commands):
 
 
 def test_connectivity(tgen):
-    r1 = tgen.gears["r1"]
-    output = r1.cmd_raises("ping -c1 192.168.1.2")
-    logging.info("ping output: %s", output)
+    tgen.gears["r1"].cmd_raises("ping -c1 192.168.1.2")
 
 
 def test_capabilities(tgen):
     r1 = tgen.gears["r1"]
-    output = run_grpc_client(r1, GRPCP_ZEBRA, "GETCAP")
-    logging.info("grpc output: %s", output)
+    output = run_grpc_client(r1, GRPCP_STATICD, "GETCAP")
+    logging.debug("grpc output: %s", output)
+
+    modules = sorted(re.findall('name: "([^"]+)"', output))
+    expected = ["frr-interface", "frr-routing", "frr-staticd", "frr-vrf"]
+    assert modules == expected
+
+    encodings = sorted(re.findall("supported_encodings: (.*)", output))
+    expected = ["JSON", "XML"]
+    assert encodings == expected
 
 
 def test_get_config(tgen):
     nrepeat = 5
     r1 = tgen.gears["r1"]
 
-    step("'GET' interface config 10 times, once per invocation")
+    step("'GET' interface config and state 10 times, once per invocation")
 
     for i in range(0, nrepeat):
-        output = run_grpc_client(r1, GRPCP_ZEBRA, "GET,/frr-interface:lib")
-        logging.info("[iteration %s]: grpc GET output: %s", i, output)
+        output = run_grpc_client(r1, GRPCP_ZEBRA, "GET-CONFIG,/frr-interface:lib")
+        logging.debug("[iteration %s]: grpc GET output: %s", i, output)
 
     step(f"'GET' YANG {nrepeat} times in one invocation")
-    commands = ["GET,/frr-interface:lib" for _ in range(0, 10)]
+    commands = ["GET-CONFIG,/frr-interface:lib" for _ in range(0, 10)]
     output = run_grpc_client(r1, GRPCP_ZEBRA, commands)
-    logging.info("grpc GET*{%d} output: %s", nrepeat, output)
+    logging.debug("grpc GET*{%d} output: %s", nrepeat, output)
+
+    output = run_grpc_client(r1, GRPCP_ZEBRA, commands[0])
+    out_json = json.loads(output)
+    expect = json.loads(
+        """{
+  "frr-interface:lib": {
+    "interface": [
+      {
+        "name": "r1-eth0",
+        "frr-zebra:zebra": {
+          "ipv4-addrs": [
+            {
+              "ip": "192.168.1.1",
+              "prefix-length": 24
+            }
+          ],
+          "evpn-mh": {},
+          "ipv6-router-advertisements": {}
+        }
+      }
+    ]
+  },
+  "frr-zebra:zebra": {
+    "import-kernel-table": {}
+  }
+} """
+    )
+    result = json_cmp(out_json, expect, exact=True)
+    assert result is None
 
 
 def test_get_vrf_config(tgen):
     r1 = tgen.gears["r1"]
 
-    step("'GET' get VRF config")
+    step("'GET' VRF config and state")
 
-    output = run_grpc_client(r1, GRPCP_ZEBRA, "GET,/frr-vrf:lib")
-    logging.info("grpc GET /frr-vrf:lib output: %s", output)
+    output = run_grpc_client(r1, GRPCP_STATICD, "GET,/frr-vrf:lib")
+    logging.debug("grpc GET /frr-vrf:lib output: %s", output)
+    out_json = json.loads(output)
+    expect = json.loads(
+        """{
+  "frr-vrf:lib": {
+    "vrf": [
+      {
+        "name": "default",
+        "state": {
+          "id": 0,
+          "active": true
+        }
+      }
+    ]
+  }
+}
+    """
+    )
+    result = json_cmp(out_json, expect, exact=True)
+    assert result is None
 
 
 def test_shutdown_checks(tgen):
