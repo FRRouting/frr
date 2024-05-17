@@ -4152,11 +4152,13 @@ int bgp_delete(struct bgp *bgp)
 	struct bgp_dest *dest = NULL;
 	struct graceful_restart_info *gr_info;
 	struct bgp *bgp_default = bgp_get_default();
+	uint32_t ann_count = zebra_announce_count(&bm->zebra_announce_head);
 
 	assert(bgp);
 
-	while (zebra_announce_count(&bm->zebra_announce_head)) {
+	while (ann_count) {
 		dest = zebra_announce_pop(&bm->zebra_announce_head);
+		ann_count--;
 		if (dest->za_bgp_pi->peer->bgp == bgp) {
 			bgp_path_info_unlock(dest->za_bgp_pi);
 			bgp_dest_unlock_node(dest);
