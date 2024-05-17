@@ -1,6 +1,5 @@
 {
   "vrfName": "default",
-  "tableVersion": 2,
   "routerId": "192.0.2.1",
   "defaultLocPrf": 100,
   "localAS": 1,
