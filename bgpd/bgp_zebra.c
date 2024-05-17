@@ -2021,11 +2021,9 @@ static void bgp_zebra_buffer_write_ready(void)
  *                                     save new pi, mark as going to be
  *                                     withdrawan, remove install flag
  *
- *    Withdrawal       Install         Special case, send withdrawal immediately
- *                                     Leave dest on list, release old pi,
+ *    Withdrawal       Install         Leave dest on list, release old pi,
  *                                     save new pi, mark as going to be
- *                                     installed.  <see note about evpn
- *                                     in bgp_route.c in bgp_process_main_one>
+ *                                     installed.
  *    Withdrawal       Withdrawal      Leave dest on list, release old pi,
  *                                     save new pi, mark as going to be
  *                                     withdrawn.
@@ -2080,9 +2078,6 @@ void bgp_zebra_route_install(struct bgp_dest *dest, struct bgp_path_info *info,
 		dest->za_bgp_pi = info;
 	} else if (CHECK_FLAG(dest->flags, BGP_NODE_SCHEDULE_FOR_DELETE)) {
 		assert(dest->za_bgp_pi);
-		if (install & !is_evpn)
-			bgp_zebra_withdraw_actual(dest, dest->za_bgp_pi, bgp);
-
 		bgp_path_info_unlock(dest->za_bgp_pi);
 		bgp_path_info_lock(info);
 		dest->za_bgp_pi = info;
