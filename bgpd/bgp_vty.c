@@ -21715,9 +21715,6 @@ static const char *community_direct_str(int direct)
 static void community_list_perror(struct vty *vty, int ret)
 {
 	switch (ret) {
-	case COMMUNITY_LIST_ERR_CANT_FIND_LIST:
-		vty_out(vty, "%% Can't find community-list\n");
-		break;
 	case COMMUNITY_LIST_ERR_MALFORMED_VAL:
 		vty_out(vty, "%% Malformed community-list value\n");
 		break;

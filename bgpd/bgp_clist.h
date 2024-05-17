@@ -109,11 +109,9 @@ struct community_list_handler {
 };
 
 /* Error code of community-list.  */
-#define COMMUNITY_LIST_ERR_CANT_FIND_LIST        -1
-#define COMMUNITY_LIST_ERR_MALFORMED_VAL         -2
-#define COMMUNITY_LIST_ERR_STANDARD_CONFLICT     -3
-#define COMMUNITY_LIST_ERR_EXPANDED_CONFLICT     -4
-
+#define COMMUNITY_LIST_ERR_MALFORMED_VAL     -1
+#define COMMUNITY_LIST_ERR_STANDARD_CONFLICT -2
+#define COMMUNITY_LIST_ERR_EXPANDED_CONFLICT -3
 /* Handler.  */
 extern struct community_list_handler *bgp_clist;
 
