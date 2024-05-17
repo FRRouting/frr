@@ -1779,7 +1779,7 @@ bgp_connect_fail(struct peer_connection *connection)
 {
 	struct peer *peer = connection->peer;
 
-	if (peer_dynamic_neighbor(peer)) {
+	if (peer_dynamic_neighbor_no_nsf(peer)) {
 		if (bgp_debug_neighbor_events(peer))
 			zlog_debug("%s (dynamic neighbor) deleted (%s)",
 				   peer->host, __func__);
