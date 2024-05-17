@@ -904,9 +904,9 @@ int community_list_set(struct community_list_handler *ch, const char *name,
 }
 
 /* Unset community-list */
-int community_list_unset(struct community_list_handler *ch, const char *name,
-			 const char *str, const char *seq, int direct,
-			 int style)
+void community_list_unset(struct community_list_handler *ch, const char *name,
+			  const char *str, const char *seq, int direct,
+			  int style)
 {
 	struct community_list_master *cm = NULL;
 	struct community_entry *entry = NULL;
@@ -916,14 +916,14 @@ int community_list_unset(struct community_list_handler *ch, const char *name,
 	/* Lookup community list.  */
 	list = community_list_lookup(ch, name, 0, COMMUNITY_LIST_MASTER);
 	if (list == NULL)
-		return COMMUNITY_LIST_ERR_CANT_FIND_LIST;
+		return;
 
 	cm = community_list_master_lookup(ch, COMMUNITY_LIST_MASTER);
 	/* Delete all of entry belongs to this community-list.  */
 	if (!str) {
 		community_list_delete(cm, list);
 		route_map_notify_dependencies(name, RMAP_EVENT_CLIST_DELETED);
-		return 0;
+		return;
 	}
 
 	if (style == COMMUNITY_LIST_STANDARD)
@@ -936,12 +936,10 @@ int community_list_unset(struct community_list_handler *ch, const char *name,
 		entry = community_list_entry_lookup(list, str, direct);
 
 	if (!entry)
-		return COMMUNITY_LIST_ERR_CANT_FIND_LIST;
+		return;
 
 	community_list_entry_delete(cm, list, entry);
 	route_map_notify_dependencies(name, RMAP_EVENT_CLIST_DELETED);
-
-	return 0;
 }
 
 bool lcommunity_list_any_match(struct lcommunity *lcom,
@@ -1172,9 +1170,9 @@ int lcommunity_list_set(struct community_list_handler *ch, const char *name,
 
 /* Unset community-list.  When str is NULL, delete all of
    community-list entry belongs to the specified name.  */
-int lcommunity_list_unset(struct community_list_handler *ch, const char *name,
-			  const char *str, const char *seq, int direct,
-			  int style)
+void lcommunity_list_unset(struct community_list_handler *ch, const char *name,
+			   const char *str, const char *seq, int direct,
+			   int style)
 {
 	struct community_list_master *cm = NULL;
 	struct community_entry *entry = NULL;
@@ -1185,14 +1183,14 @@ int lcommunity_list_unset(struct community_list_handler *ch, const char *name,
 	/* Lookup community list.  */
 	list = community_list_lookup(ch, name, 0, LARGE_COMMUNITY_LIST_MASTER);
 	if (list == NULL)
-		return COMMUNITY_LIST_ERR_CANT_FIND_LIST;
+		return;
 
 	cm = community_list_master_lookup(ch, LARGE_COMMUNITY_LIST_MASTER);
 	/* Delete all of entry belongs to this community-list.  */
 	if (!str) {
 		community_list_delete(cm, list);
 		route_map_notify_dependencies(name, RMAP_EVENT_LLIST_DELETED);
-		return 0;
+		return;
 	}
 
 	if (style == LARGE_COMMUNITY_LIST_STANDARD)
@@ -1201,7 +1199,7 @@ int lcommunity_list_unset(struct community_list_handler *ch, const char *name,
 		regex = bgp_regcomp(str);
 
 	if (!lcom && !regex)
-		return COMMUNITY_LIST_ERR_MALFORMED_VAL;
+		return;
 
 	if (lcom)
 		entry = community_list_entry_lookup(list, lcom, direct);
@@ -1214,12 +1212,10 @@ int lcommunity_list_unset(struct community_list_handler *ch, const char *name,
 		bgp_regex_free(regex);
 
 	if (!entry)
-		return COMMUNITY_LIST_ERR_CANT_FIND_LIST;
+		return;
 
 	community_list_entry_delete(cm, list, entry);
 	route_map_notify_dependencies(name, RMAP_EVENT_LLIST_DELETED);
-
-	return 0;
 }
 
 /* Set extcommunity-list.  */
@@ -1299,9 +1295,9 @@ int extcommunity_list_set(struct community_list_handler *ch, const char *name,
  * When str is NULL, delete all extcommunity-list entries belonging to the
  * specified name.
  */
-int extcommunity_list_unset(struct community_list_handler *ch, const char *name,
-			    const char *str, const char *seq, int direct,
-			    int style)
+void extcommunity_list_unset(struct community_list_handler *ch,
+			     const char *name, const char *str, const char *seq,
+			     int direct, int style)
 {
 	struct community_list_master *cm = NULL;
 	struct community_entry *entry = NULL;
@@ -1311,14 +1307,14 @@ int extcommunity_list_unset(struct community_list_handler *ch, const char *name,
 	/* Lookup extcommunity list.  */
 	list = community_list_lookup(ch, name, 0, EXTCOMMUNITY_LIST_MASTER);
 	if (list == NULL)
-		return COMMUNITY_LIST_ERR_CANT_FIND_LIST;
+		return;
 
 	cm = community_list_master_lookup(ch, EXTCOMMUNITY_LIST_MASTER);
 	/* Delete all of entry belongs to this extcommunity-list.  */
 	if (!str) {
 		community_list_delete(cm, list);
 		route_map_notify_dependencies(name, RMAP_EVENT_ECLIST_DELETED);
-		return 0;
+		return;
 	}
 
 	if (style == EXTCOMMUNITY_LIST_STANDARD)
@@ -1331,12 +1327,10 @@ int extcommunity_list_unset(struct community_list_handler *ch, const char *name,
 		entry = community_list_entry_lookup(list, str, direct);
 
 	if (!entry)
-		return COMMUNITY_LIST_ERR_CANT_FIND_LIST;
+		return;
 
 	community_list_entry_delete(cm, list, entry);
 	route_map_notify_dependencies(name, RMAP_EVENT_ECLIST_DELETED);
-
-	return 0;
 }
 
 /* Initializa community-list.  Return community-list handler.  */
