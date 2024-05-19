@@ -1616,13 +1616,13 @@ static int _nh_install(struct zebra_l3vni *zl3vni, struct interface *ifp,
 	if (zl3vni && !is_l3vni_oper_up(zl3vni))
 		return -1;
 
-	if (!(n->flags & ZEBRA_NEIGH_REMOTE)
-	    || !(n->flags & ZEBRA_NEIGH_REMOTE_NH))
+	if (!CHECK_FLAG(n->flags, ZEBRA_NEIGH_REMOTE)
+	    || !CHECK_FLAG(n->flags, ZEBRA_NEIGH_REMOTE_NH))
 		return 0;
 
 	flags = DPLANE_NTF_EXT_LEARNED;
-	if (n->flags & ZEBRA_NEIGH_ROUTER_FLAG)
-		flags |= DPLANE_NTF_ROUTER;
+	if (CHECK_FLAG(n->flags, ZEBRA_NEIGH_ROUTER_FLAG))
+		SET_FLAG(flags, DPLANE_NTF_ROUTER);
 
 	dplane_rem_neigh_add(ifp, &n->ip, &n->emac, flags,
 			     false /*was_static*/);
@@ -1635,8 +1635,8 @@ static int _nh_install(struct zebra_l3vni *zl3vni, struct interface *ifp,
  */
 static int _nh_uninstall(struct interface *ifp, struct zebra_neigh *n)
 {
-	if (!(n->flags & ZEBRA_NEIGH_REMOTE)
-	    || !(n->flags & ZEBRA_NEIGH_REMOTE_NH))
+	if (!CHECK_FLAG(n->flags, ZEBRA_NEIGH_REMOTE)
+	    || !CHECK_FLAG(n->flags, ZEBRA_NEIGH_REMOTE_NH))
 		return 0;
 
 	if (!ifp || !if_is_operative(ifp))
@@ -1835,7 +1835,7 @@ static int zl3vni_local_nh_add_update(struct zebra_l3vni *zl3vni,
 	/* all next hop neigh are remote and installed by frr.
 	 * If the kernel has aged this entry, re-install.
 	 */
-	if (state & NUD_STALE)
+	if (CHECK_FLAG(state, NUD_STALE))
 		zl3vni_nh_install(zl3vni, n);
 #endif
 	return 0;
