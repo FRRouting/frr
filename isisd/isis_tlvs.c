@@ -5912,9 +5912,24 @@ static void format_items_(uint16_t mtid, enum isis_tlv_context context,
 			  int indent)
 {
 	struct isis_item *i;
+	struct json_object *item_arr_json = NULL;
 
-	for (i = items->head; i; i = i->next)
-		format_item(mtid, context, type, i, buf, json, indent);
+	if (json && items->count) {
+		char item_tlv_type[16] = { 0 };
+
+		snprintf(item_tlv_type, sizeof(item_tlv_type), "tlv-%d", type);
+		item_arr_json = json_object_new_array();
+		json_object_object_add(json, item_tlv_type, item_arr_json);
+	}
+	for (i = items->head; i; i = i->next) {
+		struct json_object *item_json = NULL;
+
+		if (json && item_arr_json) {
+			item_json = json_object_new_object();
+			json_object_array_add(item_arr_json, item_json);
+		}
+		format_item(mtid, context, type, i, buf, item_json, indent);
+	}
 }
 
 static void free_item(enum isis_tlv_context tlv_context,
