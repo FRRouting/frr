@@ -1453,28 +1453,40 @@ To program the PBR rules as rte_flows you additionally need to configure
 zebra Terminal Mode Commands
 ============================
 
-.. clicmd:: show ip route
+.. clicmd:: show [ip|ipv6] route
 
    Display current routes which zebra holds in its database.
 
 ::
 
     Router# show ip route
-    Codes: K - kernel route, C - connected, S - static, R - RIP,
-     B - BGP * - FIB route.
+    Codes: K - kernel route, C - connected, L - local, S - static,
+           R - RIP, O - OSPF, I - IS-IS, B - BGP, E - EIGRP, N - NHRP,
+           T - Table, v - VNC, V - VNC-Direct, A - Babel, D - SHARP,
+           F - PBR, f - OpenFabric, t - Table-Direct,
+           > - selected route, * - FIB route, q - queued, r - rejected, b - backup
+           t - trapped, o - offload failure
 
-    K* 0.0.0.0/0        203.181.89.241
-    S  0.0.0.0/0        203.181.89.1
-    C* 127.0.0.0/8      lo
-    C* 203.181.89.240/28      eth0
+    K>* 0.0.0.0/0 [0/100] via 192.168.119.1, enp13s0, 00:30:22
+    S>  4.5.6.7/32 [1/0] via 192.168.119.1 (recursive), weight 1, 00:30:22
+      *                    via 192.168.119.1, enp13s0, weight 1, 00:30:22
+    K>* 169.254.0.0/16 [0/1000] is directly connected, virbr2 linkdown, 00:30:22
+    L>* 192.168.119.205/32 is directly connected, enp13s0, 00:30:22
 
-
-.. clicmd:: show ipv6 route
 
 .. clicmd:: show [ip|ipv6] route [PREFIX] [nexthop-group]
 
    Display detailed information about a route. If [nexthop-group] is
    included, it will display the nexthop group ID the route is using as well.
+
+.. clicmd:: show [ip|ipv6] route summary
+
+   Display summary information about routes received from each protocol.
+   This command displays the entries received from each route and as such
+   this total can be more than the actual number of FIB routes.  Finally
+   due to the way that linux supports local and connected routes the FIB
+   total may not be exactly what is shown in the equivalent `ip route show`
+   command to see the state of the linux kernel.
 
 .. clicmd:: show interface [NAME] [{vrf VRF|brief}] [json]
 
