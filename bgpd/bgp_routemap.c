@@ -5200,27 +5200,23 @@ DEFPY_YANG (match_peer,
 
 	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
 
-	if (addrv4_str) {
-		snprintf(
-			xpath_value, sizeof(xpath_value),
-			"%s/rmap-match-condition/frr-bgp-route-map:peer-ipv4-address",
-			xpath);
-		nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY,
-				      addrv4_str);
-	} else if (addrv6_str) {
-		snprintf(
-			xpath_value, sizeof(xpath_value),
-			"%s/rmap-match-condition/frr-bgp-route-map:peer-ipv6-address",
-			xpath);
-		nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY,
-				      addrv6_str);
-	} else {
-		snprintf(
-			xpath_value, sizeof(xpath_value),
-			"%s/rmap-match-condition/frr-bgp-route-map:peer-interface",
-			xpath);
-		nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, intf);
-	}
+	snprintf(xpath_value, sizeof(xpath_value),
+		 "%s/rmap-match-condition/frr-bgp-route-map:peer-ipv4-address",
+		 xpath);
+	nb_cli_enqueue_change(vty, xpath_value,
+			      addrv4_str ? NB_OP_MODIFY : NB_OP_DESTROY,
+			      addrv4_str);
+	snprintf(xpath_value, sizeof(xpath_value),
+		 "%s/rmap-match-condition/frr-bgp-route-map:peer-ipv6-address",
+		 xpath);
+	nb_cli_enqueue_change(vty, xpath_value,
+			      addrv6_str ? NB_OP_MODIFY : NB_OP_DESTROY,
+			      addrv6_str);
+	snprintf(xpath_value, sizeof(xpath_value),
+		 "%s/rmap-match-condition/frr-bgp-route-map:peer-interface",
+		 xpath);
+	nb_cli_enqueue_change(vty, xpath_value,
+			      intf ? NB_OP_MODIFY : NB_OP_DESTROY, intf);
 
 	return nb_cli_apply_changes(vty, NULL);
 }
