@@ -3821,7 +3821,8 @@ int lib_interface_isis_circuit_type_modify(struct nb_cb_modify_args *args)
 	case NB_EV_APPLY:
 		circuit = nb_running_get_entry(args->dnode, NULL, true);
 		circuit->is_type_config = circ_type;
-		isis_circuit_is_type_set(circuit, circ_type);
+		if (!circuit->area || circuit->area->is_type == IS_LEVEL_1_AND_2)
+			isis_circuit_is_type_set(circuit, circ_type);
 		break;
 	}
 
