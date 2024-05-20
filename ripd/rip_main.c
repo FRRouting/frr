@@ -23,6 +23,7 @@
 #include "routemap.h"
 #include "bfd.h"
 #include "mgmt_be_client.h"
+#include "libagentx.h"
 
 #include "ripd/ripd.h"
 #include "ripd/rip_bfd.h"
@@ -190,6 +191,7 @@ int main(int argc, char **argv)
 	master = frr_init();
 
 	/* Library initialization. */
+	libagentx_init();
 	rip_error_init();
 	keychain_init_new(true);
 	rip_vrf_init();

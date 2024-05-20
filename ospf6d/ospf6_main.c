@@ -24,6 +24,7 @@
 #include "vrf.h"
 #include "bfd.h"
 #include "libfrr.h"
+#include "libagentx.h"
 
 #include "ospf6d.h"
 #include "ospf6_top.h"
@@ -266,6 +267,7 @@ int main(int argc, char *argv[], char *envp[])
 	/* thread master */
 	master = om6->master;
 
+	libagentx_init();
 	keychain_init();
 	ospf6_vrf_init();
 	access_list_init();

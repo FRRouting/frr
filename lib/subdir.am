@@ -58,6 +58,7 @@ lib_libfrr_la_SOURCES = \
 	lib/ldp_sync.c \
 	lib/lib_errors.c \
 	lib/lib_vty.c \
+	lib/libagentx.c \
 	lib/libfrr.c \
 	lib/libfrr_trace.c \
 	lib/linklist.c \
@@ -252,6 +253,7 @@ pkginclude_HEADERS += \
 	lib/ldp_sync.h \
 	lib/lib_errors.h \
 	lib/lib_vty.h \
+	lib/libagentx.h \
 	lib/libfrr.h \
 	lib/libfrr_trace.h \
 	lib/libospf.h \
