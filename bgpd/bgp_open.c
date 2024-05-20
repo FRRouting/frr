@@ -939,8 +939,8 @@ static int bgp_capability_software_version(struct peer *peer,
 		peer->soft_version = XSTRDUP(MTYPE_BGP_SOFT_VERSION, str);
 
 		if (bgp_debug_neighbor_events(peer))
-			zlog_debug("%s sent Software Version: %s", peer->host,
-				   peer->soft_version);
+			zlog_debug("%s received Software Version: %s",
+				   peer->host, peer->soft_version);
 	}
 
 	return 0;
