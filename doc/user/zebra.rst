@@ -1479,6 +1479,15 @@ zebra Terminal Mode Commands
    Display detailed information about a route. If [nexthop-group] is
    included, it will display the nexthop group ID the route is using as well.
 
+.. clicmd:: show [ip|ipv6] route summary
+
+   Display summary information about routes received from each protocol.
+   This command displays the entries received from each route and as such
+   this total can be more than the actual number of FIB routes.  Finally
+   due to the way that linux supports local and connected routes the FIB
+   total may not be exactly what is shown in the equivalent `ip route show`
+   command to see the state of the linux kernel.
+
 .. clicmd:: show interface [NAME] [{vrf VRF|brief}] [json]
 
 .. clicmd:: show interface [NAME] [{vrf all|brief}] [json]
