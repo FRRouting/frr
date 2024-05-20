@@ -63,10 +63,10 @@ struct ospf6 *ospf6_get_by_lsdb(struct ospf6_lsa *lsa)
 static int ospf6_unknown_lsa_show(struct vty *vty, struct ospf6_lsa *lsa,
 				  json_object *json_obj, bool use_json)
 {
-	uint8_t *start, *end, *current;
+	char *start, *end, *current;
 
-	start = (uint8_t *)lsa->header + sizeof(struct ospf6_lsa_header);
-	end = (uint8_t *)lsa->header + ntohs(lsa->header->length);
+	start = ospf6_lsa_header_end(lsa->header);
+	end = (char *)lsa->header + ntohs(lsa->header->length);
 
 	if (use_json) {
 		json_object_string_add(json_obj, "lsaType", "unknown");
@@ -234,8 +234,8 @@ int ospf6_lsa_is_changed(struct ospf6_lsa *lsa1, struct ospf6_lsa *lsa2)
 	if (length <= 0)
 		return 0;
 
-	return memcmp(OSPF6_LSA_HEADER_END(lsa1->header),
-		      OSPF6_LSA_HEADER_END(lsa2->header), length);
+	return memcmp(ospf6_lsa_header_end(lsa1->header),
+		      ospf6_lsa_header_end(lsa2->header), length);
 }
 
 /* ospf6 age functions */

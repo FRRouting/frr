@@ -102,9 +102,8 @@ struct ospf6_lsa *ospf6_as_external_lsa_originate(struct ospf6_route *route,
 	/* prepare buffer */
 	memset(buffer, 0, sizeof(buffer));
 	lsa_header = (struct ospf6_lsa_header *)buffer;
-	as_external_lsa = (struct ospf6_as_external_lsa
-				   *)((caddr_t)lsa_header
-				      + sizeof(struct ospf6_lsa_header));
+	as_external_lsa = (struct ospf6_as_external_lsa *)ospf6_lsa_header_end(
+		lsa_header);
 	p = (caddr_t)((caddr_t)as_external_lsa
 		      + sizeof(struct ospf6_as_external_lsa));
 
@@ -217,7 +216,7 @@ static route_tag_t ospf6_as_external_lsa_get_tag(struct ospf6_lsa *lsa)
 	if (!lsa)
 		return 0;
 
-	external = (struct ospf6_as_external_lsa *)OSPF6_LSA_HEADER_END(
+	external = (struct ospf6_as_external_lsa *)ospf6_lsa_header_end(
 		lsa->header);
 
 	if (!CHECK_FLAG(external->bits_metric, OSPF6_ASBR_BIT_T))
@@ -521,7 +520,7 @@ void ospf6_asbr_lsa_add(struct ospf6_lsa *lsa)
 	type = ntohs(lsa->header->type);
 	oa = lsa->lsdb->data;
 
-	external = (struct ospf6_as_external_lsa *)OSPF6_LSA_HEADER_END(
+	external = (struct ospf6_as_external_lsa *)ospf6_lsa_header_end(
 		lsa->header);
 
 	if (IS_OSPF6_DEBUG_EXAMIN(AS_EXTERNAL))
@@ -726,7 +725,7 @@ void ospf6_asbr_lsa_remove(struct ospf6_lsa *lsa,
 	int type;
 	bool debug = false;
 
-	external = (struct ospf6_as_external_lsa *)OSPF6_LSA_HEADER_END(
+	external = (struct ospf6_as_external_lsa *)ospf6_lsa_header_end(
 		lsa->header);
 
 	if (IS_OSPF6_DEBUG_EXAMIN(AS_EXTERNAL) || (IS_OSPF6_DEBUG_NSSA))
@@ -2425,7 +2424,7 @@ static char *ospf6_as_external_lsa_get_prefix_str(struct ospf6_lsa *lsa,
 	char tbuf[16];
 
 	if (lsa) {
-		external = (struct ospf6_as_external_lsa *)OSPF6_LSA_HEADER_END(
+		external = (struct ospf6_as_external_lsa *)ospf6_lsa_header_end(
 			lsa->header);
 
 		if (pos == 0) {
@@ -2460,7 +2459,7 @@ static int ospf6_as_external_lsa_show(struct vty *vty, struct ospf6_lsa *lsa,
 	char buf[64];
 
 	assert(lsa->header);
-	external = (struct ospf6_as_external_lsa *)OSPF6_LSA_HEADER_END(
+	external = (struct ospf6_as_external_lsa *)ospf6_lsa_header_end(
 		lsa->header);
 
 	/* bits */
@@ -3028,8 +3027,8 @@ ospf6_originate_summary_lsa(struct ospf6 *ospf6,
 			return;
 		}
 
-		external = (struct ospf6_as_external_lsa *)OSPF6_LSA_HEADER_END
-					(aggr_lsa->header);
+		external = (struct ospf6_as_external_lsa *)ospf6_lsa_header_end(
+			aggr_lsa->header);
 		metric = (unsigned long)OSPF6_ASBR_METRIC(external);
 		tag = ospf6_as_external_lsa_get_tag(aggr_lsa);
 		mtype = CHECK_FLAG(external->bits_metric,
@@ -3177,8 +3176,7 @@ ospf6_handle_external_aggr_modify(struct ospf6 *ospf6,
 		return OSPF6_FAILURE;
 	}
 
-	asel = (struct ospf6_as_external_lsa *)
-		OSPF6_LSA_HEADER_END(lsa->header);
+	asel = (struct ospf6_as_external_lsa *)ospf6_lsa_header_end(lsa->header);
 	metric = (unsigned long)OSPF6_ASBR_METRIC(asel);
 	tag = ospf6_as_external_lsa_get_tag(lsa);
 	mtype = CHECK_FLAG(asel->bits_metric,
@@ -3367,9 +3365,8 @@ static void ospf6_handle_aggregated_exnl_rt(struct ospf6 *ospf6,
 	lsa = ospf6_lsdb_lookup(htons(OSPF6_LSTYPE_AS_EXTERNAL),
 				htonl(info->id), ospf6->router_id, ospf6->lsdb);
 	if (lsa) {
-		ext_lsa = (struct ospf6_as_external_lsa
-			*)((char *)(lsa->header)
-			+ sizeof(struct ospf6_lsa_header));
+		ext_lsa = (struct ospf6_as_external_lsa *)ospf6_lsa_header_end(
+			lsa->header);
 
 		if (rt->prefix.prefixlen != ext_lsa->prefix.prefix_length)
 			return;
