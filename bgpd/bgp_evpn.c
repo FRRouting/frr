@@ -6317,9 +6317,11 @@ struct bgpevpn *bgp_evpn_new(struct bgp *bgp, vni_t vni,
 void bgp_evpn_free(struct bgp *bgp, struct bgpevpn *vpn)
 {
 	struct bgp_dest *dest = NULL;
+	uint32_t ann_count = zebra_announce_count(&bm->zebra_announce_head);
 
-	while (zebra_announce_count(&bm->zebra_announce_head)) {
+	while (ann_count) {
 		dest = zebra_announce_pop(&bm->zebra_announce_head);
+		ann_count--;
 		if (dest->za_vpn == vpn) {
 			bgp_path_info_unlock(dest->za_bgp_pi);
 			bgp_dest_unlock_node(dest);
