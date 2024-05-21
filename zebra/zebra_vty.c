@@ -3847,7 +3847,6 @@ DEFUN (show_zebra,
 {
 	struct vrf *vrf;
 	struct ttable *table = ttable_new(&ttable_styles[TTSTYLE_BLANK]);
-	char *out;
 
 	ttable_rowseps(table, 0, BOTTOM, true, '-');
 	ttable_add_row(table, "OS|%s(%s)", cmd_system_get(), cmd_release_get());
@@ -3916,11 +3915,8 @@ DEFUN (show_zebra,
 	ttable_add_row(table, "v6 Default MC Forwarding|%s",
 		       zrouter.default_mc_forwardingv6 ? "On" : "Off");
 
-	out = ttable_dump(table, "\n");
-	vty_out(vty, "%s\n", out);
-	XFREE(MTYPE_TMP, out);
+	ttable_vty_finish(vty, &table, "\n", NULL);
 
-	ttable_del(table);
 	vty_out(vty,
 		"                            Route      Route      Neighbor   LSP        LSP\n");
 	vty_out(vty,

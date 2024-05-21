@@ -1163,7 +1163,6 @@ void pim_rp_show_information(struct pim_instance *pim, struct prefix *range,
 	struct rp_info *prev_rp_info = NULL;
 	struct listnode *node;
 	struct ttable *tt = NULL;
-	char *table = NULL;
 	char source[7];
 	char grp[INET6_ADDRSTRLEN];
 
@@ -1268,13 +1267,9 @@ void pim_rp_show_information(struct pim_instance *pim, struct prefix *range,
 		prev_rp_info = rp_info;
 	}
 
-	/* Dump the generated table. */
-	if (!json) {
-		table = ttable_dump(tt, "\n");
-		vty_out(vty, "%s\n", table);
-		XFREE(MTYPE_TMP, table);
-		ttable_del(tt);
-	} else {
+	if (!json)
+		ttable_vty_finish(vty, &tt, "\n", NULL);
+	else {
 		if (prev_rp_info && json_rp_rows)
 			json_object_object_addf(json, json_rp_rows, "%pPA",
 						&prev_rp_info->rp.rpf_addr);

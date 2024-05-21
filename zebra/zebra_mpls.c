@@ -3790,13 +3790,7 @@ void zebra_mpls_print_lsp_table(struct vty *vty, struct zebra_vrf *zvrf,
 			}
 		}
 
-		/* Dump the generated table. */
-		if (tt->nrows > 1) {
-			char *table = ttable_dump(tt, "\n");
-			vty_out(vty, "%s\n", table);
-			XFREE(MTYPE_TMP, table);
-		}
-		ttable_del(tt);
+		ttable_vty_finish(vty, &tt, "\n", NULL);
 	}
 
 	list_delete(&lsp_list);

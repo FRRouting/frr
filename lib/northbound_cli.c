@@ -1374,17 +1374,8 @@ static int nb_cli_show_transactions(struct vty *vty)
 		return CMD_WARNING;
 	}
 
-	/* Dump the generated table. */
-	if (tt->nrows > 1) {
-		char *table;
-
-		table = ttable_dump(tt, "\n");
-		vty_out(vty, "%s\n", table);
-		XFREE(MTYPE_TMP, table);
-	} else
-		vty_out(vty, "No configuration transactions to display.\n\n");
-
-	ttable_del(tt);
+	ttable_vty_finish(vty, &tt, "\n",
+			  "No configuration transactions to display.\n\n");
 
 	return CMD_SUCCESS;
 }
@@ -1653,19 +1644,10 @@ DEFPY (show_yang_module,
 			       module->ns);
 	}
 
-	/* Dump the generated table. */
-	if (tt->nrows > 1) {
-		char *table;
-
+	if (tt->nrows > 1)
 		vty_out(vty, " Flags: I - Implemented, D - Deviated\n\n");
 
-		table = ttable_dump(tt, "\n");
-		vty_out(vty, "%s\n", table);
-		XFREE(MTYPE_TMP, table);
-	} else
-		vty_out(vty, "No YANG modules to display.\n\n");
-
-	ttable_del(tt);
+	ttable_vty_finish(vty, &tt, "\n", "No YANG modules to display.\n\n");
 
 	return CMD_SUCCESS;
 }
@@ -1765,17 +1747,8 @@ DEFPY (show_yang_module_translator,
 		}
 	}
 
-	/* Dump the generated table. */
-	if (tt->nrows > 1) {
-		char *table;
-
-		table = ttable_dump(tt, "\n");
-		vty_out(vty, "%s\n", table);
-		XFREE(MTYPE_TMP, table);
-	} else
-		vty_out(vty, "No YANG module translators to display.\n\n");
-
-	ttable_del(tt);
+	ttable_vty_finish(vty, &tt, "\n",
+			  "No YANG module translators to display.\n\n");
 
 	return CMD_SUCCESS;
 }
