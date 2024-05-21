@@ -3026,7 +3026,7 @@ void zebra_evpn_es_if_oper_state_change(struct zebra_if *zif, bool up)
 }
 
 static char *zebra_evpn_es_vtep_str(char *vtep_str, struct zebra_evpn_es *es,
-				    uint8_t vtep_str_size)
+				    size_t vtep_str_size)
 {
 	struct zebra_evpn_es_vtep *zvtep;
 	struct listnode	*node;

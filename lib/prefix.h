@@ -52,10 +52,10 @@ typedef enum {
 /* Maximum number of VTEPs per-ES -
  * XXX - temporary limit for allocating strings etc.
  */
-#define ES_VTEP_MAX_CNT 10
-#define ES_VTEP_LIST_STR_SZ (ES_VTEP_MAX_CNT * 16)
+#define ES_VTEP_MAX_CNT	    10
+#define ES_VTEP_LIST_STR_SZ (ES_VTEP_MAX_CNT * IPADDR_STRING_SIZE)
 
-#define ETHER_ADDR_STRLEN (3*ETH_ALEN)
+#define ETHER_ADDR_STRLEN (3 * ETH_ALEN)
 /*
  * there isn't a portable ethernet address type. We define our
  * own to simplify internal handling
