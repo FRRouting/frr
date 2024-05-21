@@ -492,8 +492,23 @@ static void format_item_ext_subtlvs(struct isis_ext_subtlvs *exts,
 
 	if (IS_SUBTLV(exts, EXT_EXTEND_ADM_GRP) &&
 	    admin_group_nb_words(&exts->ext_admin_group) != 0) {
-		if (!json) {
-			/* TODO json after fix show database detail json */
+		if (json) {
+			struct json_object *ext_adm_grp_json;
+			size_t i;
+			ext_adm_grp_json = json_object_new_object();
+			json_object_object_add(json, "extendedAdminGroup",
+					       ext_adm_grp_json);
+			for (i = 0;
+			     i < admin_group_nb_words(&exts->ext_admin_group);
+			     i++) {
+				snprintfrr(cnt_buf, sizeof(cnt_buf), "%lu",
+					   (unsigned long)i);
+				json_object_string_addf(ext_adm_grp_json,
+							cnt_buf, "0x%x",
+							exts->ext_admin_group
+								.bitmap.data[i]);
+			}
+		} else {
 			sbuf_push(buf, indent, "Ext Admin Group: %s\n",
 				  admin_group_string(
 					  admin_group_buf,
