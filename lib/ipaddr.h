@@ -172,9 +172,11 @@ static inline bool ipaddr_is_same(const struct ipaddr *ip1,
 	return ipaddr_cmp(ip1, ip2) == 0;
 }
 
+/* clang-format off */
 #ifdef _FRR_ATTRIBUTE_PRINTFRR
 #pragma FRR printfrr_ext "%pIA"  (struct ipaddr *)
 #endif
+/* clang-format on */
 
 #ifdef __cplusplus
 }
