@@ -135,7 +135,7 @@ The following commands are available for independent of a specific cache server.
 
    Add a TCP cache server to the socket.
 
-.. clicmd:: rpki cache ssh HOST PORT SSH_USERNAME SSH_PRIVKEY_PATH [SERVER_PUBKEY] [source A.B.C.D] preference (1-255)
+.. clicmd:: rpki cache ssh HOST PORT SSH_USERNAME SSH_PRIVKEY_PATH [KNOWN_HOSTS_PATH] [source A.B.C.D] preference (1-255)
 
    Add a SSH cache server to the socket.
 
@@ -145,7 +145,7 @@ The following commands are available for independent of a specific cache server.
    SSH_PRIVKEY_PATH
       Local path that includes the private key file of the router.
 
-   SERVER_PUBKEY
+   KNOWN_HOSTS_PATH
       Local path that includes the known hosts file. The default value depends
       on the configuration of the operating system environment, usually
       :file:`~/.ssh/known_hosts`.

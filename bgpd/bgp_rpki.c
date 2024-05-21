@@ -1922,7 +1922,7 @@ DEFUN (no_rpki_retry_interval,
 CPP_NOTICE("Remove rpki_cache_cmd")
 #endif
 DEFPY(rpki_cache, rpki_cache_cmd,
-      "rpki cache <A.B.C.D|WORD> <TCPPORT|(1-65535)$sshport SSH_UNAME SSH_PRIVKEY [SERVER_PUBKEY]> [source <A.B.C.D>$bindaddr] preference (1-255)",
+      "rpki cache <A.B.C.D|WORD> <TCPPORT|(1-65535)$sshport SSH_UNAME SSH_PRIVKEY [KNOWN_HOSTS_PATH]> [source <A.B.C.D>$bindaddr] preference (1-255)",
       RPKI_OUTPUT_STRING
       "Install a cache server to current group\n"
       "IP address of cache server\n"
@@ -1931,7 +1931,7 @@ DEFPY(rpki_cache, rpki_cache_cmd,
       "SSH port number\n"
       "SSH user name\n"
       "Path to own SSH private key\n"
-      "Path to Public key of cache server\n"
+      "Path to the known hosts file\n"
       "Configure source IP address of RPKI connection\n"
       "Define a Source IP Address\n"
       "Preference of the cache server\n"
@@ -1970,7 +1970,7 @@ DEFPY(rpki_cache, rpki_cache_cmd,
 	if (ssh_uname) {
 #if defined(FOUND_SSH)
 		return_value = add_ssh_cache(rpki_vrf, cache, sshport, ssh_uname,
-					     ssh_privkey, server_pubkey,
+					     ssh_privkey, known_hosts_path,
 					     preference, bindaddr_str);
 #else
 		return_value = SUCCESS;
@@ -2050,7 +2050,7 @@ DEFPY(rpki_cache_tcp, rpki_cache_tcp_cmd,
 }
 
 DEFPY(rpki_cache_ssh, rpki_cache_ssh_cmd,
-      "rpki cache ssh <A.B.C.D|WORD>$cache (1-65535)$sshport SSH_UNAME SSH_PRIVKEY [SERVER_PUBKEY] [source <A.B.C.D>$bindaddr] preference (1-255)",
+      "rpki cache ssh <A.B.C.D|WORD>$cache (1-65535)$sshport SSH_UNAME SSH_PRIVKEY [KNOWN_HOSTS_PATH] [source <A.B.C.D>$bindaddr] preference (1-255)",
       RPKI_OUTPUT_STRING
       "Install a cache server to current group\n"
       "Use SSH\n"
@@ -2059,7 +2059,7 @@ DEFPY(rpki_cache_ssh, rpki_cache_ssh_cmd,
       "SSH port number\n"
       "SSH user name\n"
       "Path to own SSH private key\n"
-      "Path to Public key of cache server\n"
+      "Path to the known hosts file\n"
       "Configure source IP address of RPKI connection\n"
       "Define a Source IP Address\n"
       "Preference of the cache server\n"
@@ -2096,7 +2096,7 @@ DEFPY(rpki_cache_ssh, rpki_cache_ssh_cmd,
 
 #if defined(FOUND_SSH)
 	return_value = add_ssh_cache(rpki_vrf, cache, sshport, ssh_uname,
-				     ssh_privkey, server_pubkey, preference,
+				     ssh_privkey, known_hosts_path, preference,
 				     bindaddr_str);
 #else
 	return_value = SUCCESS;
@@ -2117,7 +2117,7 @@ DEFPY(rpki_cache_ssh, rpki_cache_ssh_cmd,
 
 DEFPY (no_rpki_cache,
        no_rpki_cache_cmd,
-       "no rpki cache <tcp|ssh> <A.B.C.D|WORD> <TCPPORT|(1-65535)$sshport SSH_UNAME SSH_PRIVKEY [SERVER_PUBKEY]> [source <A.B.C.D>$bindaddr] preference (1-255)",
+       "no rpki cache <tcp|ssh> <A.B.C.D|WORD> <TCPPORT|(1-65535)$sshport SSH_UNAME SSH_PRIVKEY [KNOWN_HOSTS_PATH]> [source <A.B.C.D>$bindaddr] preference (1-255)",
        NO_STR
        RPKI_OUTPUT_STRING
        "Install a cache server to current group\n"
@@ -2129,7 +2129,7 @@ DEFPY (no_rpki_cache,
        "SSH port number\n"
        "SSH user name\n"
        "Path to own SSH private key\n"
-       "Path to Public key of cache server\n"
+       "Path to the known hosts file\n"
        "Configure source IP address of RPKI connection\n"
        "Define a Source IP Address\n"
        "Preference of the cache server\n"
