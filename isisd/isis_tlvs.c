@@ -348,9 +348,120 @@ copy_item_ext_subtlvs(struct isis_ext_subtlvs *exts, uint16_t mtid)
 }
 
 static void format_item_asla_subtlvs(struct isis_asla_subtlvs *asla,
+				     struct json_object *ext_json,
 				     struct sbuf *buf, int indent)
 {
 	char admin_group_buf[ADMIN_GROUP_PRINT_MAX_SIZE];
+	struct json_object *json;
+	char cnt_buf[255];
+	size_t i;
+	int j;
+
+	if (ext_json) {
+		json = json_object_new_object();
+		json_object_object_add(ext_json, "asla", json);
+		json_object_boolean_add(json, "legacyFlag", asla->legacy);
+		json_object_string_addf(json, "standardApp", "0x%02x",
+					asla->standard_apps);
+		if (IS_SUBTLV(asla, EXT_ADM_GRP))
+			json_object_string_addf(json, "adminGroup", "0x%x",
+						asla->admin_group);
+		if (IS_SUBTLV(asla, EXT_EXTEND_ADM_GRP) &&
+		    admin_group_nb_words(&asla->ext_admin_group) != 0) {
+			struct json_object *ext_adm_grp_json;
+
+			ext_adm_grp_json = json_object_new_object();
+			json_object_object_add(json, "extendedAdminGroup",
+					       ext_adm_grp_json);
+			for (i = 0;
+			     i < admin_group_nb_words(&asla->ext_admin_group);
+			     i++) {
+				snprintfrr(cnt_buf, sizeof(cnt_buf), "%lu",
+					   (unsigned long)i);
+				json_object_string_addf(ext_adm_grp_json,
+							cnt_buf, "0x%x",
+							asla->ext_admin_group
+								.bitmap.data[i]);
+			}
+		}
+		if (IS_SUBTLV(asla, EXT_MAX_BW))
+			json_object_string_addf(json, "maxBandwithBytesSec",
+						"%g", asla->max_bw);
+		if (IS_SUBTLV(asla, EXT_MAX_RSV_BW))
+			json_object_string_addf(json, "maxResBandwithBytesSec",
+						"%g", asla->max_rsv_bw);
+		if (IS_SUBTLV(asla, EXT_UNRSV_BW)) {
+			struct json_object *unrsv_json =
+				json_object_new_object();
+
+			json_object_object_add(json, "unrsvBandwithBytesSec",
+					       unrsv_json);
+			for (j = 0; j < MAX_CLASS_TYPE; j += 1) {
+				snprintfrr(cnt_buf, sizeof(cnt_buf), "%d", j);
+				json_object_string_addf(unrsv_json, cnt_buf,
+							"%g", asla->unrsv_bw[j]);
+			}
+		}
+		if (IS_SUBTLV(asla, EXT_TE_METRIC))
+			json_object_int_add(json, "teMetric", asla->te_metric);
+
+		/* Extended metrics */
+		if (IS_SUBTLV(asla, EXT_DELAY)) {
+			struct json_object *avg_json;
+
+			avg_json = json_object_new_object();
+			json_object_object_add(json, "avgDelay", avg_json);
+			json_object_string_add(avg_json, "delay",
+					       IS_ANORMAL(asla->delay)
+						       ? "Anomalous"
+						       : "Normal");
+			json_object_int_add(avg_json, "microSec", asla->delay);
+		}
+		if (IS_SUBTLV(asla, EXT_MM_DELAY)) {
+			struct json_object *avg_json;
+
+			avg_json = json_object_new_object();
+			json_object_object_add(json, "maxMinDelay", avg_json);
+			json_object_string_add(avg_json, "delay",
+					       IS_ANORMAL(asla->min_delay)
+						       ? "Anomalous"
+						       : "Normal");
+			json_object_string_addf(avg_json, "microSec", "%u / %u",
+						asla->min_delay & TE_EXT_MASK,
+						asla->max_delay & TE_EXT_MASK);
+		}
+		if (IS_SUBTLV(asla, EXT_DELAY_VAR))
+			json_object_int_add(json, "delayVariationMicroSec",
+					    asla->delay_var & TE_EXT_MASK);
+		if (IS_SUBTLV(asla, EXT_PKT_LOSS)) {
+			struct json_object *link_json;
+
+			link_json = json_object_new_object();
+			json_object_object_add(json, "linkPacketLoss",
+					       link_json);
+			json_object_string_add(link_json, "loss",
+					       IS_ANORMAL(asla->pkt_loss)
+						       ? "Anomalous"
+						       : "Normal");
+			json_object_string_addf(link_json, "percentage", "%g",
+						(float)((asla->pkt_loss &
+							 TE_EXT_MASK) *
+							LOSS_PRECISION));
+		}
+		if (IS_SUBTLV(asla, EXT_RES_BW))
+			json_object_string_addf(json,
+						"unidirResidualBandBytesSec",
+						"%g", (asla->res_bw));
+		if (IS_SUBTLV(asla, EXT_AVA_BW))
+			json_object_string_addf(json,
+						"unidirAvailableBandBytesSec",
+						"%g", (asla->ava_bw));
+		if (IS_SUBTLV(asla, EXT_USE_BW))
+			json_object_string_addf(json,
+						"unidirUtilizedBandBytesSec",
+						"%g", (asla->use_bw));
+		return;
+	}
 
 	sbuf_push(buf, indent, "Application Specific Link Attributes:\n");
 	sbuf_push(buf, indent + 2,
@@ -1399,7 +1510,7 @@ static void format_item_ext_subtlvs(struct isis_ext_subtlvs *exts,
 			}
 	}
 	for (ALL_LIST_ELEMENTS_RO(exts->aslas, node, asla))
-		format_item_asla_subtlvs(asla, buf, indent);
+		format_item_asla_subtlvs(asla, json, buf, indent);
 }
 
 static void free_item_ext_subtlvs(struct  isis_ext_subtlvs *exts)
