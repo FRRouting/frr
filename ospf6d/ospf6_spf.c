@@ -207,7 +207,7 @@ static char *ospf6_lsdesc_backlink(struct ospf6_lsa *lsa, caddr_t lsdesc,
 			? sizeof(struct ospf6_router_lsdesc)
 			: sizeof(struct ospf6_network_lsdesc));
 	for (backlink = ospf6_lsa_header_end(lsa->header) + 4;
-	     backlink + size <= OSPF6_LSA_END(lsa->header); backlink += size) {
+	     backlink + size <= ospf6_lsa_end(lsa->header); backlink += size) {
 		assert(!(OSPF6_LSA_IS_TYPE(NETWORK, lsa)
 			 && VERTEX_IS_TYPE(NETWORK, v)));
 
@@ -511,7 +511,7 @@ void ospf6_spf_calculation(uint32_t router_id,
 				? sizeof(struct ospf6_router_lsdesc)
 				: sizeof(struct ospf6_network_lsdesc));
 		for (lsdesc = ospf6_lsa_header_end(v->lsa->header) + 4;
-		     lsdesc + size <= OSPF6_LSA_END(v->lsa->header);
+		     lsdesc + size <= ospf6_lsa_end(v->lsa->header);
 		     lsdesc += size) {
 			lsa = ospf6_lsdesc_lsa(lsdesc, v);
 			if (lsa == NULL)

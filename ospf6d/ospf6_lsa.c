@@ -66,7 +66,7 @@ static int ospf6_unknown_lsa_show(struct vty *vty, struct ospf6_lsa *lsa,
 	char *start, *end, *current;
 
 	start = ospf6_lsa_header_end(lsa->header);
-	end = (char *)lsa->header + ntohs(lsa->header->length);
+	end = ospf6_lsa_end(lsa->header);
 
 	if (use_json) {
 		json_object_string_add(json_obj, "lsaType", "unknown");
@@ -548,7 +548,7 @@ void ospf6_lsa_show_dump(struct vty *vty, struct ospf6_lsa *lsa,
 	json_object *json = NULL;
 
 	start = (uint8_t *)lsa->header;
-	end = (uint8_t *)lsa->header + ntohs(lsa->header->length);
+	end = (uint8_t *)ospf6_lsa_end(lsa->header);
 
 	if (use_json) {
 		json = json_object_new_object();

@@ -88,12 +88,15 @@ struct ospf6_lsa_header {
 };
 
 #define OSPF6_LSA_SIZE(h) (ntohs(((struct ospf6_lsa_header *)(h))->length))
-#define OSPF6_LSA_END(h)                                                       \
-	((caddr_t)(h) + ntohs(((struct ospf6_lsa_header *)(h))->length))
 
 static inline char *ospf6_lsa_header_end(struct ospf6_lsa_header *header)
 {
 	return (char *)header + sizeof(struct ospf6_lsa_header);
+}
+
+static inline char *ospf6_lsa_end(struct ospf6_lsa_header *header)
+{
+	return (char *)header + ntohs(header->length);
 }
 
 #define OSPF6_LSA_IS_TYPE(t, L)                                                \

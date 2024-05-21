@@ -705,7 +705,8 @@ static int ospf6_link_lsa_show(struct vty *vty, struct ospf6_lsa *lsa,
 	}
 
 	start = (char *)link_lsa + sizeof(struct ospf6_link_lsa);
-	end = (char *)lsa->header + ntohs(lsa->header->length);
+	end = ospf6_lsa_end(lsa->header);
+
 	for (current = start; current < end;
 	     current += OSPF6_PREFIX_SIZE(prefix)) {
 		prefix = (struct ospf6_prefix *)current;
@@ -864,7 +865,7 @@ static char *ospf6_intra_prefix_lsa_get_prefix_str(struct ospf6_lsa *lsa,
 
 		start = (char *)intra_prefix_lsa
 			+ sizeof(struct ospf6_intra_prefix_lsa);
-		end = (char *)lsa->header + ntohs(lsa->header->length);
+		end = ospf6_lsa_end(lsa->header);
 		current = start;
 
 		while (current + sizeof(struct ospf6_prefix) <= end) {
@@ -935,7 +936,8 @@ static int ospf6_intra_prefix_lsa_show(struct vty *vty, struct ospf6_lsa *lsa,
 
 	start = (char *)intra_prefix_lsa
 		+ sizeof(struct ospf6_intra_prefix_lsa);
-	end = (char *)lsa->header + ntohs(lsa->header->length);
+	end = ospf6_lsa_end(lsa->header);
+
 	for (current = start; current < end;
 	     current += OSPF6_PREFIX_SIZE(prefix)) {
 		prefix = (struct ospf6_prefix *)current;
@@ -1315,7 +1317,8 @@ void ospf6_intra_prefix_lsa_originate_transit(struct event *thread)
 
 		prefix_num = (unsigned short)ntohl(link_lsa->prefix_num);
 		start = (char *)link_lsa + sizeof(struct ospf6_link_lsa);
-		end = (char *)lsa->header + ntohs(lsa->header->length);
+		end = ospf6_lsa_end(lsa->header);
+
 		for (current = start; current < end && prefix_num;
 		     current += OSPF6_PREFIX_SIZE(op)) {
 			op = (struct ospf6_prefix *)current;
@@ -1770,7 +1773,7 @@ void ospf6_intra_prefix_lsa_add(struct ospf6_lsa *lsa)
 	prefix_num = ntohs(intra_prefix_lsa->prefix_num);
 	start = (caddr_t)intra_prefix_lsa
 		+ sizeof(struct ospf6_intra_prefix_lsa);
-	end = OSPF6_LSA_END(lsa->header);
+	end = ospf6_lsa_end(lsa->header);
 	for (current = start; current < end; current += OSPF6_PREFIX_SIZE(op)) {
 		op = (struct ospf6_prefix *)current;
 		if (prefix_num == 0)
@@ -1974,7 +1977,7 @@ void ospf6_intra_prefix_lsa_remove(struct ospf6_lsa *lsa)
 	prefix_num = ntohs(intra_prefix_lsa->prefix_num);
 	start = (caddr_t)intra_prefix_lsa
 		+ sizeof(struct ospf6_intra_prefix_lsa);
-	end = OSPF6_LSA_END(lsa->header);
+	end = ospf6_lsa_end(lsa->header);
 	for (current = start; current < end; current += OSPF6_PREFIX_SIZE(op)) {
 		op = (struct ospf6_prefix *)current;
 		if (prefix_num == 0)
