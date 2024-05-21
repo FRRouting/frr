@@ -175,7 +175,7 @@ extern int stream_putq(struct stream *, uint64_t);
 extern int stream_putq_at(struct stream *, size_t, uint64_t);
 extern int stream_put_ipv4(struct stream *, uint32_t);
 extern int stream_put_in_addr(struct stream *s, const struct in_addr *addr);
-extern bool stream_put_ipaddr(struct stream *s, struct ipaddr *ip);
+extern bool stream_put_ipaddr(struct stream *s, const struct ipaddr *ip);
 extern int stream_put_in_addr_at(struct stream *s, size_t putp,
 				 const struct in_addr *addr);
 extern int stream_put_in6_addr_at(struct stream *s, size_t putp,
