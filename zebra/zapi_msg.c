@@ -727,7 +727,7 @@ int route_notify_internal_prefix(const struct prefix *p, int type,
 				 uint16_t instance, vrf_id_t vrf_id,
 				 uint32_t table_id,
 				 enum zapi_route_notify_owner note, afi_t afi,
-				 safi_t safi)
+				 safi_t safi, struct stream_fifo *out_fifo)
 {
 	struct zserv *client;
 	struct stream *s;
@@ -771,7 +771,10 @@ int route_notify_internal_prefix(const struct prefix *p, int type,
 
 	stream_putw_at(s, 0, stream_get_endp(s));
 
-	return zserv_send_message(client, s);
+	if (out_fifo == NULL)
+		return zserv_send_message(client, s);
+	stream_fifo_push(out_fifo, s);
+	return 1;
 }
 
 static int route_notify_internal(const struct route_node *rn, int type,
@@ -781,7 +784,7 @@ static int route_notify_internal(const struct route_node *rn, int type,
 				 safi_t safi)
 {
 	return route_notify_internal_prefix(&rn->p, type, instance, vrf_id,
-					    table_id, note, afi, safi);
+					    table_id, note, afi, safi, false);
 }
 
 int zsend_route_notify_owner(const struct route_node *rn,

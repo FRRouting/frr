@@ -114,7 +114,8 @@ extern int route_notify_internal_prefix(const struct prefix *p, int type,
 					uint16_t instance, vrf_id_t vrf_id,
 					uint32_t table_id,
 					enum zapi_route_notify_owner note,
-					afi_t afi, safi_t safi);
+					afi_t afi, safi_t safi,
+					struct stream_fifo *out_fifo);
 #ifdef __cplusplus
 }
 #endif

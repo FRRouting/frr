@@ -57,6 +57,8 @@ DEFINE_MTYPE_STATIC(ZEBRA, RIB_DEST,       "RIB destination");
 DEFINE_MTYPE_STATIC(ZEBRA, RIB_UPDATE_CTX, "Rib update context object");
 DEFINE_MTYPE_STATIC(ZEBRA, WQ_WRAPPER, "WQ wrapper");
 DEFINE_MTYPE_STATIC(ZEBRA, ROUTE_NOTIFY_JOB_OWNER_CTX, "Route Notify Job Owner");
+DEFINE_MTYPE_STATIC(ZEBRA, PROCESS_NOTIFY_CLIENT_LIST,
+		    "Process Notify Client List");
 
 /*
  * Event, list, and mutex for delivery of dataplane results
@@ -256,10 +258,27 @@ DECLARE_DLIST(zebra_route_notify_job_owner_list,
 
 static struct event *t_zebra_route_notify_job_owner_list;
 
+/* intermediate structures used to gather messages per client before sending it */
+PREDECL_DLIST(zebra_process_notify_client_list);
+
+struct zebra_process_notify_client_ctx {
+	uint16_t num_msgs;
+	int instance;
+	int type;
+	struct zserv *zclient;
+	struct stream_fifo out_fifo;
+	/* Embedded list linkage */
+	struct zebra_process_notify_client_list_item pnc_entries;
+};
+DECLARE_DLIST(zebra_process_notify_client_list,
+	      struct zebra_process_notify_client_ctx, pnc_entries);
+
 /* statistics information about how notifications are sent */
 static uint32_t zebra_route_notify_job_owner_list_num;
 static uint32_t zebra_route_notify_job_owner_list_processed;
 static uint32_t zebra_route_notify_job_owner_list_max_batch;
+static uint32_t zebra_process_notify_client_list_num;
+static uint32_t zebra_process_notify_client_list_processed;
 
 static void rib_addnode(struct route_node *rn, struct route_entry *re,
 			int process);
@@ -4833,6 +4852,11 @@ static void zebra_route_process_notify_thread_loop(struct event *event)
 	struct zebra_route_notify_job_owner_list_head ctxlist;
 	struct zebra_route_notify_job_owner_ctx *ctx;
 	uint32_t count = 0;
+	struct zebra_process_notify_client_list_head client_list;
+	struct zebra_process_notify_client_ctx *client;
+	struct zserv *zclient;
+
+	zebra_process_notify_client_list_init(&client_list);
 
 	do {
 		zebra_route_notify_job_owner_list_init(&ctxlist);
@@ -4850,18 +4874,60 @@ static void zebra_route_process_notify_thread_loop(struct event *event)
 			break;
 		while (ctx) {
 			zebra_route_notify_job_owner_list_processed++;
-			count++;
-			route_notify_internal_prefix(&ctx->prefix, ctx->type,
-						     ctx->instance, ctx->vrf_id,
-						     ctx->table, ctx->note,
-						     ctx->afi, ctx->safi);
+			zclient = zserv_find_client(ctx->type, ctx->instance);
+			if (zclient && zclient->notify_owner) {
+				frr_each_safe (zebra_process_notify_client_list,
+					       &client_list, client) {
+					if (client->type == ctx->type &&
+					    client->instance == ctx->instance)
+						break;
+				}
+				if (!client) {
+					client = XCALLOC(
+						MTYPE_PROCESS_NOTIFY_CLIENT_LIST,
+						sizeof(struct zebra_process_notify_client_ctx));
+					stream_fifo_init(&client->out_fifo);
+					client->instance = ctx->instance;
+					client->type = ctx->type;
+					client->zclient = zclient;
+					zebra_process_notify_client_list_add_tail(
+						&client_list, client);
+				}
+				route_notify_internal_prefix(&ctx->prefix,
+							     ctx->type,
+							     ctx->instance,
+							     ctx->vrf_id,
+							     ctx->table,
+							     ctx->note,
+							     ctx->afi, ctx->safi,
+							     &client->out_fifo);
+				client->num_msgs++;
+				count++;
+				zebra_process_notify_client_list_num++;
+				if (client->num_msgs == 20) {
+					zserv_send_batch(zclient,
+							 &client->out_fifo);
+					zebra_process_notify_client_list_processed++;
+					client->num_msgs = 0;
+				}
+			}
 			XFREE(MTYPE_ROUTE_NOTIFY_JOB_OWNER_CTX, ctx);
 			ctx = zebra_route_notify_job_owner_list_pop(&ctxlist);
 		}
 	} while (1);
 
-	if (count > zebra_route_notify_job_owner_list_max_batch) {
+	if (count > zebra_route_notify_job_owner_list_max_batch)
 		zebra_route_notify_job_owner_list_max_batch = count;
+
+	while ((client = zebra_process_notify_client_list_pop(&client_list)) !=
+	       NULL) {
+		if (client->num_msgs) {
+			zserv_send_batch(client->zclient, &client->out_fifo);
+			zebra_process_notify_client_list_processed++;
+			client->num_msgs = 0;
+		}
+		stream_fifo_deinit(&client->out_fifo);
+		XFREE(MTYPE_PROCESS_NOTIFY_CLIENT_LIST, client);
 	}
 }
 
