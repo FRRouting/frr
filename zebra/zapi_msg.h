@@ -66,7 +66,8 @@ extern int zsend_route_notify_owner(const struct route_node *rn,
 				    enum zapi_route_notify_owner note,
 				    afi_t afi, safi_t safi);
 extern int zsend_route_notify_owner_ctx(const struct zebra_dplane_ctx *ctx,
-					enum zapi_route_notify_owner note);
+					enum zapi_route_notify_owner note,
+					bool enqueue_to_list);
 
 extern void zsend_rule_notify_owner(const struct zebra_dplane_ctx *ctx,
 				    enum zapi_rule_notify_owner note);
@@ -109,7 +110,11 @@ extern int zsend_zebra_srv6_locator_delete(struct zserv *client,
 					   struct srv6_locator *loc);
 extern int zsend_srv6_manager_get_locator_chunk_response(struct zserv *client,
 		vrf_id_t vrf_id, struct srv6_locator *loc);
-
+extern int route_notify_internal_prefix(const struct prefix *p, int type,
+					uint16_t instance, vrf_id_t vrf_id,
+					uint32_t table_id,
+					enum zapi_route_notify_owner note,
+					afi_t afi, safi_t safi);
 #ifdef __cplusplus
 }
 #endif

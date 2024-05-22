@@ -723,7 +723,7 @@ int zsend_nhg_notify(uint16_t type, uint16_t instance, uint32_t session_id,
  * Common utility send route notification, called from a path using a
  * route_entry and from a path using a dataplane context.
  */
-static int route_notify_internal(const struct route_node *rn, int type,
+int route_notify_internal_prefix(const struct prefix *p, int type,
 				 uint16_t instance, vrf_id_t vrf_id,
 				 uint32_t table_id,
 				 enum zapi_route_notify_owner note, afi_t afi,
@@ -736,17 +736,15 @@ static int route_notify_internal(const struct route_node *rn, int type,
 	client = zserv_find_client(type, instance);
 	if (!client || !client->notify_owner) {
 		if (IS_ZEBRA_DEBUG_PACKET)
-			zlog_debug(
-				"Not Notifying Owner: %s about prefix %pRN(%u) %d vrf: %u",
-				zebra_route_string(type), rn, table_id, note,
-				vrf_id);
+			zlog_debug("Not Notifying Owner: %s about prefix %pFX(%u) %d vrf: %u",
+				   zebra_route_string(type), p, table_id, note,
+				   vrf_id);
 		return 0;
 	}
 
 	if (IS_ZEBRA_DEBUG_PACKET)
-		zlog_debug(
-			"Notifying Owner: %s about prefix %pRN(%u) %d vrf: %u",
-			zebra_route_string(type), rn, table_id, note, vrf_id);
+		zlog_debug("Notifying Owner: %s about prefix %pFX(%u) %d vrf: %u",
+			   zebra_route_string(type), p, table_id, note, vrf_id);
 
 	/* We're just allocating a small-ish buffer here, since we only
 	 * encode a small amount of data.
@@ -759,11 +757,11 @@ static int route_notify_internal(const struct route_node *rn, int type,
 
 	stream_put(s, &note, sizeof(note));
 
-	stream_putc(s, rn->p.family);
+	stream_putc(s, p->family);
 
-	blen = prefix_blen(&rn->p);
-	stream_putc(s, rn->p.prefixlen);
-	stream_put(s, &rn->p.u.prefix, blen);
+	blen = prefix_blen(p);
+	stream_putc(s, p->prefixlen);
+	stream_put(s, &p->u.prefix, blen);
 
 	stream_putl(s, table_id);
 
@@ -774,6 +772,16 @@ static int route_notify_internal(const struct route_node *rn, int type,
 	stream_putw_at(s, 0, stream_get_endp(s));
 
 	return zserv_send_message(client, s);
+}
+
+static int route_notify_internal(const struct route_node *rn, int type,
+				 uint16_t instance, vrf_id_t vrf_id,
+				 uint32_t table_id,
+				 enum zapi_route_notify_owner note, afi_t afi,
+				 safi_t safi)
+{
+	return route_notify_internal_prefix(&rn->p, type, instance, vrf_id,
+					    table_id, note, afi, safi);
 }
 
 int zsend_route_notify_owner(const struct route_node *rn,
@@ -789,16 +797,23 @@ int zsend_route_notify_owner(const struct route_node *rn,
  * Route-owner notification using info from dataplane update context.
  */
 int zsend_route_notify_owner_ctx(const struct zebra_dplane_ctx *ctx,
-				 enum zapi_route_notify_owner note)
+				 enum zapi_route_notify_owner note,
+				 bool enqueue_to_list)
 {
-	int result;
+	int result = 0;
 	struct route_node *rn = rib_find_rn_from_ctx(ctx);
 
-	result = route_notify_internal(
-		rn, dplane_ctx_get_type(ctx), dplane_ctx_get_instance(ctx),
-		dplane_ctx_get_vrf(ctx), dplane_ctx_get_table(ctx), note,
-		dplane_ctx_get_afi(ctx), dplane_ctx_get_safi(ctx));
-
+	if (enqueue_to_list) {
+		zebra_route_notify_job_owner_list_enqueue(rn, ctx, note);
+	} else {
+		rn = rib_find_rn_from_ctx(ctx);
+		result = route_notify_internal(rn, dplane_ctx_get_type(ctx),
+					       dplane_ctx_get_instance(ctx),
+					       dplane_ctx_get_vrf(ctx),
+					       dplane_ctx_get_table(ctx), note,
+					       dplane_ctx_get_afi(ctx),
+					       dplane_ctx_get_safi(ctx));
+	}
 	route_unlock_node(rn);
 
 	return result;
