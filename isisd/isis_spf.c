@@ -3123,8 +3123,7 @@ DEFUN(show_isis_route, show_isis_route_cmd,
 #ifndef FABRICD
 	if (argv_find(argv, argc, "algorithm", &idx)) {
 		if (argv_find(argv, argc, "(128-255)", &idx))
-			algorithm = (uint8_t)strtoul(argv[idx + 1]->arg, NULL,
-						     10);
+			algorithm = (uint8_t)strtoul(argv[idx]->arg, NULL, 10);
 		else
 			all_algorithm = true;
 	}
