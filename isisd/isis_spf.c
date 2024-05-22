@@ -2425,9 +2425,6 @@ static void show_isis_topology_common(struct vty *vty, int levels,
 		return;
 
 	for (ALL_LIST_ELEMENTS_RO(isis->area_list, node, area)) {
-		vty_out(vty,
-			"Area %s:", area->area_tag ? area->area_tag : "null");
-
 #ifndef FABRICD
 		/*
 		 * The shapes of the flex algo spftree 2-dimensional array
@@ -2442,7 +2439,12 @@ static void show_isis_topology_common(struct vty *vty, int levels,
 			fa_data = (struct isis_flex_algo_data *)fa->data;
 		} else
 			fa_data = NULL;
+#endif /* ifndef FABRICD */
 
+		vty_out(vty,
+			"Area %s:", area->area_tag ? area->area_tag : "null");
+
+#ifndef FABRICD
 		if (algo != SR_ALGORITHM_SPF)
 			vty_out(vty, " Algorithm %hhu\n", algo);
 		else
