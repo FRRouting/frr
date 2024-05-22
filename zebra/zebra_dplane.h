@@ -1075,6 +1075,7 @@ void dplane_set_in_queue_limit(uint32_t limit, bool set);
 
 /* Retrieve the current queue depth of incoming, unprocessed updates */
 uint32_t dplane_get_in_queue_len(void);
+void dplane_sub_in_queue_len(uint32_t counter);
 
 /*
  * Vty/cli apis

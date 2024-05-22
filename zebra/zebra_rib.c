@@ -4806,6 +4806,7 @@ static void rib_process_dplane_results(struct event *thread)
 	struct zebra_dplane_ctx *ctx;
 	struct dplane_ctx_list_head ctxlist;
 	bool shut_p = false;
+	uint32_t counter = 0;
 
 #ifdef HAVE_SCRIPTING
 	char *script_name =
@@ -4970,10 +4971,12 @@ static void rib_process_dplane_results(struct event *thread)
 			} /* Dispatch by op code */
 
 			dplane_ctx_fini(&ctx);
+			counter++;
 			ctx = dplane_ctx_dequeue(&ctxlist);
 		}
 
 	} while (1);
+	dplane_sub_in_queue_len(counter);
 
 #ifdef HAVE_SCRIPTING
 	if (fs)
