@@ -1022,6 +1022,7 @@ static uint32_t filter_type_to_flag(enum affinity_filter_type type)
 	}
 
 	assert(!"Reached end of function we should never hit");
+	return 0;
 }
 
 static const char *filter_type_name(enum affinity_filter_type type)
@@ -1038,6 +1039,7 @@ static const char *filter_type_name(enum affinity_filter_type type)
 	}
 
 	assert(!"Reached end of function we should never hit");
+	return "unknown";
 }
 
 /**
@@ -1269,6 +1271,7 @@ const char *srte_origin2str(enum srte_protocol_origin origin)
 	}
 
 	assert(!"Reached end of function we should never hit");
+	return "Unknown";
 }
 
 void path_policy_show_debugging(struct vty *vty)
