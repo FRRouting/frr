@@ -654,6 +654,7 @@ static const char *str_from_afi(afi_t afi)
 	}
 
 	assert(!"Reached end of function we should never reach");
+	return "bad-value";
 }
 
 static const char *str_from_attr_type(enum test_peer_attr_type at)

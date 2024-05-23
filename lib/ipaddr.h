@@ -60,6 +60,7 @@ static inline int ipaddr_family(const struct ipaddr *ip)
 	}
 
 	assert(!"Reached end of function where we should never hit");
+	return AF_UNSPEC;
 }
 
 static inline int str2ipaddr(const char *str, struct ipaddr *ip)
@@ -150,6 +151,7 @@ static inline int ipaddr_cmp(const struct ipaddr *a, const struct ipaddr *b)
 	}
 
 	assert(!"Reached end of function we should never hit");
+	return 0;
 }
 
 static inline bool ipaddr_is_zero(const struct ipaddr *ip)

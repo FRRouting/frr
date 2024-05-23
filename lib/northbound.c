@@ -1058,6 +1058,7 @@ const char *nb_operation_name(enum nb_operation operation)
 	}
 
 	assert(!"Reached end of function we should never hit");
+	return "unknown";
 }
 
 bool nb_is_operation_allowed(struct nb_node *nb_node, enum nb_operation oper)
@@ -2560,6 +2561,7 @@ const char *nb_event_name(enum nb_event event)
 	}
 
 	assert(!"Reached end of function we should never hit");
+	return "unknown";
 }
 
 const char *nb_cb_operation_name(enum nb_cb_operation operation)
@@ -2592,6 +2594,7 @@ const char *nb_cb_operation_name(enum nb_cb_operation operation)
 	}
 
 	assert(!"Reached end of function we should never hit");
+	return "unknown";
 }
 
 const char *nb_err_name(enum nb_error error)
@@ -2618,6 +2621,7 @@ const char *nb_err_name(enum nb_error error)
 	}
 
 	assert(!"Reached end of function we should never hit");
+	return "unknown";
 }
 
 const char *nb_client_name(enum nb_client client)
@@ -2640,6 +2644,7 @@ const char *nb_client_name(enum nb_client client)
 	}
 
 	assert(!"Reached end of function we should never hit");
+	return "unknown";
 }
 
 static void nb_load_callbacks(const struct frr_yang_module_info *module)

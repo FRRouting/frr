@@ -3802,6 +3802,7 @@ rfapiBgpInfoFilteredImportFunction(safi_t safi)
 	}
 
 	assert(!"Reached end of function when we were not expecting to");
+	return rfapiBgpInfoFilteredImportBadSafi;
 }
 
 void rfapiProcessUpdate(struct peer *peer,
