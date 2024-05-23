@@ -742,7 +742,8 @@ static void zlog_5424_cycle(struct zlog_cfg_5424 *zcf, int fd)
 		/* all of this is swapped in by zlog_target_replace() below,
 		 * the old target is RCU-freed afterwards.
 		 */
-		zt = zlog_target_clone(MTYPE_LOG_5424, &zcf->active->zt,
+		zt = zlog_target_clone(MTYPE_LOG_5424,
+				       zcf->active ? &zcf->active->zt : NULL,
 				       sizeof(*zlt));
 		zlt = container_of(zt, struct zlt_5424, zt);
 

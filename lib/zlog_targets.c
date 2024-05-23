@@ -208,7 +208,8 @@ static bool zlog_file_cycle(struct zlog_cfg_file *zcf)
 			break;
 		}
 
-		zt = zlog_target_clone(MTYPE_LOG_FD, &zcf->active->zt,
+		zt = zlog_target_clone(MTYPE_LOG_FD,
+				       zcf->active ? &zcf->active->zt : NULL,
 				       sizeof(*zlt));
 		zlt = container_of(zt, struct zlt_fd, zt);
 
@@ -551,7 +552,7 @@ void zlog_syslog_set_prio_min(int prio_min)
 
 		if (syslog_prio_min != ZLOG_DISABLED) {
 			newztc = zlog_target_clone(MTYPE_LOG_SYSL,
-						   &zlt_syslog->zt,
+						   zlt_syslog ? &zlt_syslog->zt : NULL,
 						   sizeof(*newzt));
 			newzt = container_of(newztc, struct zlt_syslog, zt);
 			newzt->zt.prio_min = prio_min;
@@ -561,7 +562,7 @@ void zlog_syslog_set_prio_min(int prio_min)
 		}
 
 		zlog_target_free(MTYPE_LOG_SYSL,
-				 zlog_target_replace(&zlt_syslog->zt,
+				 zlog_target_replace(zlt_syslog ? &zlt_syslog->zt : NULL,
 						     &newzt->zt));
 
 		zlt_syslog = newzt;
