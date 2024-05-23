@@ -3406,6 +3406,22 @@ static void bgp_dynamic_capability_orf(uint8_t *pnt, int action,
 	}
 }
 
+static void bgp_dynamic_capability_role(uint8_t *pnt, int action,
+					struct peer *peer)
+{
+	uint8_t role;
+
+	if (action == CAPABILITY_ACTION_SET) {
+		SET_FLAG(peer->cap, PEER_CAP_ROLE_RCV);
+		memcpy(&role, pnt + 3, sizeof(role));
+
+		peer->remote_role = role;
+	} else {
+		UNSET_FLAG(peer->cap, PEER_CAP_ROLE_RCV);
+		peer->remote_role = ROLE_UNDEFINED;
+	}
+}
+
 static void bgp_dynamic_capability_fqdn(uint8_t *pnt, int action,
 					struct capability_header *hdr,
 					struct peer *peer)
@@ -3775,6 +3791,46 @@ static int bgp_capability_msg_parse(struct peer *peer, uint8_t *pnt,
 
 		capability = lookup_msg(capcode_str, hdr->code, "Unknown");
 
+		/* Length sanity check, type-specific, for known capabilities */
+		switch (hdr->code) {
+		case CAPABILITY_CODE_MP:
+		case CAPABILITY_CODE_REFRESH:
+		case CAPABILITY_CODE_ORF:
+		case CAPABILITY_CODE_RESTART:
+		case CAPABILITY_CODE_AS4:
+		case CAPABILITY_CODE_ADDPATH:
+		case CAPABILITY_CODE_DYNAMIC:
+		case CAPABILITY_CODE_ENHE:
+		case CAPABILITY_CODE_FQDN:
+		case CAPABILITY_CODE_ENHANCED_RR:
+		case CAPABILITY_CODE_EXT_MESSAGE:
+		case CAPABILITY_CODE_ROLE:
+		case CAPABILITY_CODE_SOFT_VERSION:
+		case CAPABILITY_CODE_PATHS_LIMIT:
+			if (hdr->length < cap_minsizes[hdr->code]) {
+				zlog_info("%pBP: %s Capability length error: got %u, expected at least %u",
+					  peer, capability, hdr->length,
+					  (unsigned int)cap_minsizes[hdr->code]);
+				bgp_notify_send(peer->connection,
+						BGP_NOTIFY_OPEN_ERR,
+						BGP_NOTIFY_OPEN_MALFORMED_ATTR);
+				goto done;
+			}
+			if (hdr->length &&
+			    hdr->length % cap_modsizes[hdr->code] != 0) {
+				zlog_info("%pBP %s Capability length error: got %u, expected a multiple of %u",
+					  peer, capability, hdr->length,
+					  (unsigned int)cap_modsizes[hdr->code]);
+				bgp_notify_send(peer->connection,
+						BGP_NOTIFY_OPEN_ERR,
+						BGP_NOTIFY_OPEN_MALFORMED_ATTR);
+				goto done;
+			}
+			break;
+		default:
+			break;
+		}
+
 		switch (hdr->code) {
 		case CAPABILITY_CODE_SOFT_VERSION:
 			bgp_dynamic_capability_software_version(pnt, action,
@@ -3832,15 +3888,6 @@ static int bgp_capability_msg_parse(struct peer *peer, uint8_t *pnt,
 			}
 			break;
 		case CAPABILITY_CODE_RESTART:
-			if ((hdr->length - 2) % 4) {
-				zlog_err("%pBP: Received invalid Graceful-Restart capability length %d",
-					 peer, hdr->length);
-				bgp_notify_send(peer->connection,
-						BGP_NOTIFY_CEASE,
-						BGP_NOTIFY_SUBCODE_UNSPECIFIC);
-				goto done;
-			}
-
 			bgp_dynamic_capability_graceful_restart(pnt, action,
 								hdr, peer);
 			break;
@@ -3868,26 +3915,7 @@ static int bgp_capability_msg_parse(struct peer *peer, uint8_t *pnt,
 		case CAPABILITY_CODE_EXT_MESSAGE:
 			break;
 		case CAPABILITY_CODE_ROLE:
-			if (hdr->length != CAPABILITY_CODE_ROLE_LEN) {
-				zlog_err("%pBP: Capability (%s) length error",
-					 peer, capability);
-				bgp_notify_send(peer->connection,
-						BGP_NOTIFY_CEASE,
-						BGP_NOTIFY_SUBCODE_UNSPECIFIC);
-				goto done;
-			}
-
-			uint8_t role;
-
-			if (action == CAPABILITY_ACTION_SET) {
-				SET_FLAG(peer->cap, PEER_CAP_ROLE_RCV);
-				memcpy(&role, pnt + 3, sizeof(role));
-
-				peer->remote_role = role;
-			} else {
-				UNSET_FLAG(peer->cap, PEER_CAP_ROLE_RCV);
-				peer->remote_role = ROLE_UNDEFINED;
-			}
+			bgp_dynamic_capability_role(pnt, action, peer);
 			break;
 		default:
 			flog_warn(EC_BGP_UNRECOGNIZED_CAPABILITY,
