@@ -175,7 +175,7 @@ static struct stream *bgp_update_packet_eor(struct peer *peer, afi_t afi,
 		zlog_debug("send End-of-RIB for %s to %s",
 			   get_afi_safi_str(afi, safi, false), peer->host);
 
-	s = stream_new(peer->max_packet_size);
+	s = stream_new(atomic_load_explicit(&peer->max_packet_size, memory_order_relaxed));
 
 	/* Make BGP update packet. */
 	bgp_packet_set_marker(s, BGP_MSG_UPDATE);
@@ -922,7 +922,7 @@ static void bgp_notify_send_internal(struct peer_connection *connection,
 	/* ============================================== */
 
 	/* Allocate new stream. */
-	s = stream_new(peer->max_packet_size);
+	s = stream_new(atomic_load_explicit(&peer->max_packet_size, memory_order_relaxed));
 
 	/* Make notify packet. */
 	bgp_packet_set_marker(s, BGP_MSG_NOTIFY);
@@ -963,7 +963,7 @@ static void bgp_notify_send_internal(struct peer_connection *connection,
 	 */
 	if (use_curr && peer->curr) {
 		size_t packetsize = stream_get_endp(peer->curr);
-		assert(packetsize <= peer->max_packet_size);
+		assert(packetsize <= atomic_load_explicit(&peer->max_packet_size, memory_order_relaxed));
 		if (peer->last_reset_cause)
 			stream_free(peer->last_reset_cause);
 		peer->last_reset_cause = stream_dup(peer->curr);
@@ -1113,7 +1113,7 @@ void bgp_route_refresh_send(struct peer *peer, afi_t afi, safi_t safi,
 	/* Convert AFI, SAFI to values for packet. */
 	bgp_map_afi_safi_int2iana(afi, safi, &pkt_afi, &pkt_safi);
 
-	s = stream_new(peer->max_packet_size);
+	s = stream_new(atomic_load_explicit(&peer->max_packet_size, memory_order_relaxed));
 
 	/* Make BGP update packet. */
 	if (CHECK_FLAG(peer->cap, PEER_CAP_REFRESH_RCV))
@@ -1233,7 +1233,7 @@ void bgp_capability_send(struct peer *peer, afi_t afi, safi_t safi,
 	/* Convert AFI, SAFI to values for packet. */
 	bgp_map_afi_safi_int2iana(afi, safi, &pkt_afi, &pkt_safi);
 
-	s = stream_new(peer->max_packet_size);
+	s = stream_new(atomic_load_explicit(&peer->max_packet_size, memory_order_relaxed));
 
 	/* Make BGP update packet. */
 	bgp_packet_set_marker(s, BGP_MSG_CAPABILITY);

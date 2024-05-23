@@ -1551,7 +1551,8 @@ struct peer *peer_new(struct bgp *bgp)
 	peer->local_role = ROLE_UNDEFINED;
 	peer->remote_role = ROLE_UNDEFINED;
 	peer->password = NULL;
-	peer->max_packet_size = BGP_STANDARD_MESSAGE_MAX_PACKET_SIZE;
+	atomic_store_explicit(&peer->max_packet_size, BGP_STANDARD_MESSAGE_MAX_PACKET_SIZE,
+			    memory_order_relaxed);
 
 	/* Set default flags. */
 	FOREACH_AFI_SAFI (afi, safi) {
@@ -1646,7 +1647,7 @@ void peer_xfer_config(struct peer *peer_dst, struct peer *peer_src)
 	peer_dst->rmap_type = peer_src->rmap_type;
 	peer_dst->local_role = peer_src->local_role;
 
-	peer_dst->max_packet_size = peer_src->max_packet_size;
+	atomic_store_explicit(&peer_dst->max_packet_size, atomic_load_explicit(&peer_src->max_packet_size, memory_order_relaxed), memory_order_relaxed);
 
 	/* Timers */
 	peer_dst->holdtime = peer_src->holdtime;

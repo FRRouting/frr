@@ -1868,7 +1868,7 @@ struct peer {
 	char *domainname;
 
 	/* Extended Message Support */
-	uint16_t max_packet_size;
+	_Atomic uint16_t max_packet_size;
 
 	/* Conditional advertisement */
 	bool advmap_config_change[AFI_MAX][SAFI_MAX];
