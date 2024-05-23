@@ -251,17 +251,25 @@ int yang_snodes_iterate(const struct lys_module *module, yang_iterate_cb cb,
 			if (ret == YANG_ITER_STOP)
 				return ret;
 		}
-		LY_LIST_FOR (&module_iter->compiled->rpcs->node, snode) {
-			ret = yang_snodes_iterate_subtree(snode, module, cb,
-							  flags, arg);
-			if (ret == YANG_ITER_STOP)
-				return ret;
+		if (module_iter->compiled->rpcs) {
+			LY_LIST_FOR (&module_iter->compiled->rpcs->node, snode) {
+				ret = yang_snodes_iterate_subtree(snode, module,
+								  cb, flags,
+								  arg);
+				if (ret == YANG_ITER_STOP)
+					return ret;
+			}
 		}
-		LY_LIST_FOR (&module_iter->compiled->notifs->node, snode) {
-			ret = yang_snodes_iterate_subtree(snode, module, cb,
-							  flags, arg);
-			if (ret == YANG_ITER_STOP)
-				return ret;
+
+		if (module_iter->compiled->notifs) {
+			LY_LIST_FOR (&module_iter->compiled->notifs->node,
+				     snode) {
+				ret = yang_snodes_iterate_subtree(snode, module,
+								  cb, flags,
+								  arg);
+				if (ret == YANG_ITER_STOP)
+					return ret;
+			}
 		}
 	}
 
