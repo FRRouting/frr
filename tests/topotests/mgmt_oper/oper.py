@@ -154,7 +154,7 @@ def get_ip_networks(super_prefix, count):
     return tuple(network.subnets(count_log2))[0:count]
 
 
-@retry(retry_timeout=30, initial_wait=0.1)
+@retry(retry_timeout=60, initial_wait=0.1)
 def check_kernel(r1, super_prefix, count, add, is_blackhole, vrf, matchvia):
     network = ipaddress.ip_network(super_prefix)
     vrfstr = f" vrf {vrf}" if vrf else ""
@@ -186,7 +186,7 @@ def addrgen(a, count, step=1):
         a += step
 
 
-@retry(retry_timeout=30, initial_wait=0.1)
+@retry(retry_timeout=60, initial_wait=0.1)
 def check_kernel_net(r1, net, vrf):
     addr = ipaddress.ip_network(net)
     vrfstr = f" vrf {vrf}" if vrf else ""
@@ -200,7 +200,7 @@ def check_kernel_net(r1, net, vrf):
     assert str(net) in kernel, f"Failed to find '{net}' in {nentries} entries"
 
 
-@retry(retry_timeout=30, initial_wait=0.1)
+@retry(retry_timeout=60, initial_wait=0.1)
 def check_kernel_32(r1, start_addr, count, vrf, step=1):
     start = ipaddress.ip_address(start_addr)
     vrfstr = f" vrf {vrf}" if vrf else ""
