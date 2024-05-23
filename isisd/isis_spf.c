@@ -2357,10 +2357,12 @@ static void show_isis_topology_common(struct vty *vty, int levels,
 			fa_data = (struct isis_flex_algo_data *)fa->data;
 		} else
 			fa_data = NULL;
+#endif /* ifndef FABRICD */
 
 		vty_out(vty,
 			"Area %s:", area->area_tag ? area->area_tag : "null");
 
+#ifndef FABRICD
 		if (algo != SR_ALGORITHM_SPF)
 			vty_out(vty, " Algorithm %hhu\n", algo);
 		else
@@ -3123,8 +3125,7 @@ DEFUN(show_isis_route, show_isis_route_cmd,
 #ifndef FABRICD
 	if (argv_find(argv, argc, "algorithm", &idx)) {
 		if (argv_find(argv, argc, "(128-255)", &idx))
-			algorithm = (uint8_t)strtoul(argv[idx + 1]->arg, NULL,
-						     10);
+			algorithm = (uint8_t)strtoul(argv[idx]->arg, NULL, 10);
 		else
 			all_algorithm = true;
 	}

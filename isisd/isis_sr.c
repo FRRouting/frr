@@ -1020,8 +1020,6 @@ static void show_node(struct vty *vty, struct isis_area *area, int level,
 	struct ttable *tt;
 	char buf[128];
 
-	vty_out(vty, " IS-IS %s SR-Nodes:\n\n", circuit_t2string(level));
-
 	/* Prepare table. */
 	tt = ttable_new(&ttable_styles[TTSTYLE_BLANK]);
 	ttable_add_row(tt, "System ID|SRGB|SRLB|Algorithm|MSD");
@@ -1061,6 +1059,8 @@ static void show_node(struct vty *vty, struct isis_area *area, int level,
 	/* Dump the generated table. */
 	if (tt->nrows > 1) {
 		char *table;
+
+		vty_out(vty, " IS-IS %s SR-Nodes:\n\n", circuit_t2string(level));
 
 		table = ttable_dump(tt, "\n");
 		vty_out(vty, "%s\n", table);
