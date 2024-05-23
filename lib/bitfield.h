@@ -83,11 +83,11 @@ DECLARE_MTYPE(BITFIELD);
  * return an id to bitfield v
  */
 #define bf_release_index(v, id)                                                \
-	(v).data[bf_index(id)] &= ~(1 << (bf_offset(id)))
+	(v).data[bf_index(id)] &= ~(1U << (bf_offset(id)))
 
 /* check if an id is in use */
 #define bf_test_index(v, id)                                                \
-	((v).data[bf_index(id)] & (1 << (bf_offset(id))))
+	((v).data[bf_index(id)] & (1U << (bf_offset(id))))
 
 /* check if the bit field has been setup */
 #define bf_is_inited(v) ((v).data)
@@ -110,7 +110,7 @@ DECLARE_MTYPE(BITFIELD);
 #define bf_set_bit(v, b)                                                       \
 	do {                                                                   \
 		size_t w = bf_index(b);                                        \
-		(v).data[w] |= 1 << (bf_offset(b));                            \
+		(v).data[w] |= 1U << (bf_offset(b));	\
 		(v).n += ((v).data[w] == WORD_MAX);                            \
 		if ((v).n == (v).m) {                                          \
 			(v).m = (v).m + 1;                                     \
