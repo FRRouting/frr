@@ -10755,10 +10755,11 @@ DEFUN (ospf_route_aggregation_timer,
 
 DEFPY (show_ip_ospf_gr_helper,
        show_ip_ospf_gr_helper_cmd,
-       "show ip ospf [vrf <NAME|all>] graceful-restart helper [detail] [json]",
+       "show ip ospf [{(1-65535)$instance|vrf <NAME|all>}] graceful-restart helper [detail] [json]",
        SHOW_STR
        IP_STR
        "OSPF information\n"
+       "Instance ID\n"
        VRF_CMD_HELP_STR
        "All VRFs\n"
        "OSPF Graceful Restart\n"
@@ -10779,7 +10780,19 @@ DEFPY (show_ip_ospf_gr_helper,
 	int inst = 0;
 	bool detail = false;
 
+	if (instance && instance != ospf_instance)
+		return CMD_NOT_MY_INSTANCE;
+
+	ospf = ospf_lookup_instance(instance);
+	if (!ospf || !ospf->oi_running)
+		return CMD_SUCCESS;
+
 	OSPF_FIND_VRF_ARGS(argv, argc, idx_vrf, vrf_name, all_vrf);
+
+	if (instance && vrf_name) {
+		vty_out(vty, "%% VRF is not supported in instance mode\n");
+		return CMD_WARNING;
+	}
 
 	if (argv_find(argv, argc, "detail", &idx))
 		detail = true;
