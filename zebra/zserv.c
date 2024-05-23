@@ -1092,6 +1092,10 @@ static void zebra_show_client_detail(struct vty *vty, struct zserv *client)
 		client->v4_route_upd8_cnt, client->v4_route_del_cnt);
 	vty_out(vty, "IPv6        %-12u%-12u%-12u\n", client->v6_route_add_cnt,
 		client->v6_route_upd8_cnt, client->v6_route_del_cnt);
+	vty_out(vty, "IPv4 NHG    %-12u%-12u%-12u\n",
+		client->v4_route_nhg_add_cnt, 0, 0);
+	vty_out(vty, "IPv6 NHG    %-12u%-12u%-12u\n",
+		client->v6_route_nhg_add_cnt, 0, 0);
 	vty_out(vty, "Redist:v4   %-12u%-12u%-12u\n", client->redist_v4_add_cnt,
 		0, client->redist_v4_del_cnt);
 	vty_out(vty, "Redist:v6   %-12u%-12u%-12u\n", client->redist_v6_add_cnt,

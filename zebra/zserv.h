@@ -142,6 +142,8 @@ struct zserv {
 	uint32_t redist_v4_del_cnt;
 	uint32_t redist_v6_add_cnt;
 	uint32_t redist_v6_del_cnt;
+	uint32_t v4_route_nhg_add_cnt;
+	uint32_t v6_route_nhg_add_cnt;
 	uint32_t v4_route_add_cnt;
 	uint32_t v4_route_upd8_cnt;
 	uint32_t v4_route_del_cnt;

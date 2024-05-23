@@ -2162,7 +2162,12 @@ static void zread_route_add(ZAPI_HANDLER_ARGS)
 	 * if this is a new/unknown nhe, a new copy will be allocated
 	 * and stored.
 	 */
-	if (!re->nhe_id) {
+	if (re->nhe_id) {
+		if (api.prefix.family == AF_INET)
+			client->v4_route_nhg_add_cnt++;
+		else
+			client->v6_route_nhg_add_cnt++;
+	} else {
 		zebra_nhe_init(&nhe, afi, ng->nexthop);
 		nhe.nhg.nexthop = ng->nexthop;
 		nhe.backup_info = bnhg;
