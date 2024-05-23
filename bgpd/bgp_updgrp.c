@@ -69,6 +69,8 @@ static void sync_init(struct update_subgroup *subgrp,
 		      struct update_group *updgrp)
 {
 	struct peer *peer = UPDGRP_PEER(updgrp);
+	uint16_t max_packet_size = atomic_load_explicit(&peer->max_packet_size,
+						       memory_order_relaxed);
 
 	subgrp->sync =
 		XCALLOC(MTYPE_BGP_SYNCHRONISE, sizeof(struct bgp_synchronize));
@@ -93,9 +95,9 @@ static void sync_init(struct update_subgroup *subgrp,
 	 * bounds
 	 * checking for every single attribute as we construct an UPDATE.
 	 */
-	subgrp->work = stream_new(peer->max_packet_size
+	subgrp->work = stream_new(max_packet_size
 				  + BGP_MAX_PACKET_SIZE_OVERFLOW);
-	subgrp->scratch = stream_new(peer->max_packet_size);
+	subgrp->scratch = stream_new(max_packet_size);
 }
 
 static void sync_delete(struct update_subgroup *subgrp)
@@ -134,7 +136,9 @@ static void conf_copy(struct peer *dst, struct peer *src, afi_t afi,
 	dst->flags = src->flags;
 	dst->af_flags[afi][safi] = src->af_flags[afi][safi];
 	dst->pmax_out[afi][safi] = src->pmax_out[afi][safi];
-	dst->max_packet_size = src->max_packet_size;
+	atomic_store_explicit(&dst->max_packet_size,
+			    atomic_load_explicit(&src->max_packet_size, memory_order_relaxed),
+			    memory_order_relaxed);
 	XFREE(MTYPE_BGP_PEER_HOST, dst->host);
 
 	dst->host = XSTRDUP(MTYPE_BGP_PEER_HOST, src->host);
@@ -356,7 +360,8 @@ static unsigned int updgrp_hash_key_make(const void *p)
 			  key);
 	key = jhash_1word(peer->v_routeadv, key);
 	key = jhash_1word(peer->change_local_as, key);
-	key = jhash_1word(peer->max_packet_size, key);
+	key = jhash_1word(atomic_load_explicit(&peer->max_packet_size, memory_order_relaxed),
+			  key);
 	key = jhash_1word(peer->pmax_out[afi][safi], key);
 
 
@@ -473,7 +478,7 @@ static unsigned int updgrp_hash_key_make(const void *p)
 			   peer->addpath_paths_limit[afi][safi].receive);
 		zlog_debug(
 			"%pBP Update Group Hash: max packet size: %u pmax_out: %u Peer Group: %s rmap out: %s",
-			peer, peer->max_packet_size, peer->pmax_out[afi][safi],
+			peer, atomic_load_explicit(&peer->max_packet_size, memory_order_relaxed), peer->pmax_out[afi][safi],
 			peer->group ? peer->group->name : "(NONE)",
 			ROUTE_MAP_OUT_NAME(filter) ? ROUTE_MAP_OUT_NAME(filter)
 						   : "(NONE)");
@@ -924,7 +929,8 @@ static int update_group_show_walkcb(struct update_group *updgrp, void *arg)
 					: "");
 			if (peer)
 				vty_out(vty, "    Max packet size: %d\n",
-					peer->max_packet_size);
+					atomic_load_explicit(&peer->max_packet_size,
+							     memory_order_relaxed));
 		}
 		if (subgrp->peer_count > 0) {
 			if (ctx->uj) {

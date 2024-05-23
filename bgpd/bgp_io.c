@@ -183,7 +183,8 @@ static int read_ibuf_work(struct peer_connection *connection)
 	pktsize = ntohs(pktsize);
 
 	/* if this fails we are seriously screwed */
-	assert(pktsize <= connection->peer->max_packet_size);
+	assert(pktsize <= atomic_load_explicit(&connection->peer->max_packet_size,
+					       memory_order_relaxed));
 
 	/*
 	 * If we have that much data, chuck it into its own
@@ -561,6 +562,7 @@ static bool validate_header(struct peer_connection *connection)
 	uint16_t size;
 	uint8_t type;
 	struct ringbuf *pkt = connection->ibuf_work;
+	uint32_t max_packet_size;
 
 	static const uint8_t m_correct[BGP_MARKER_SIZE] = {
 		0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
@@ -598,7 +600,9 @@ static bool validate_header(struct peer_connection *connection)
 	}
 
 	/* Minimum packet length check. */
-	if ((size < BGP_HEADER_SIZE) || (size > peer->max_packet_size)
+	max_packet_size = atomic_load_explicit(&peer->max_packet_size,
+					       memory_order_relaxed);
+	if ((size < BGP_HEADER_SIZE) || (size > max_packet_size)
 	    || (type == BGP_MSG_OPEN && size < BGP_MSG_OPEN_MIN_SIZE)
 	    || (type == BGP_MSG_UPDATE && size < BGP_MSG_UPDATE_MIN_SIZE)
 	    || (type == BGP_MSG_NOTIFY && size < BGP_MSG_NOTIFY_MIN_SIZE)
