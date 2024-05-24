@@ -3952,8 +3952,8 @@ int bgp_capability_receive(struct peer_connection *connection,
 	if (bgp_debug_neighbor_events(peer))
 		zlog_debug("%s rcv CAPABILITY", peer->host);
 
-	/* If peer does not have the capability, send notification. */
-	if (!CHECK_FLAG(peer->cap, PEER_CAP_DYNAMIC_ADV)) {
+	if (!CHECK_FLAG(peer->cap, PEER_CAP_DYNAMIC_ADV) ||
+	    !CHECK_FLAG(peer->cap, PEER_CAP_DYNAMIC_RCV)) {
 		flog_err(EC_BGP_NO_CAP,
 			 "%s [Error] BGP dynamic capability is not enabled",
 			 peer->host);
