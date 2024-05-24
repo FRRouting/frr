@@ -1739,6 +1739,7 @@ DEFPY (show_route,
        "Nexthop Group Information\n")
 {
 	afi_t afi = ipv4 ? AFI_IP : AFI_IP6;
+	bool first_vrf_json = true;
 	struct vrf *vrf;
 	int type = 0;
 	struct zebra_vrf *zvrf;
@@ -1770,7 +1771,9 @@ DEFPY (show_route,
 			if ((zvrf = vrf->info) == NULL
 			    || (zvrf->table[afi][SAFI_UNICAST] == NULL))
 				continue;
-
+			if (json)
+				vty_json_key(vty, zvrf_name(zvrf),
+					     &first_vrf_json);
 			if (table_all)
 				do_show_ip_route_all(vty, zvrf, afi, !!fib,
 						     !!json, tag,
@@ -1786,6 +1789,8 @@ DEFPY (show_route,
 						 ospf_instance_id, table, !!ng,
 						 &ctx);
 		}
+		if (json)
+			vty_json_close(vty, first_vrf_json);
 	} else {
 		vrf_id_t vrf_id = VRF_DEFAULT;
 
