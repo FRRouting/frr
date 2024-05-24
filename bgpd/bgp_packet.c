@@ -3433,7 +3433,7 @@ static void bgp_dynamic_capability_fqdn(uint8_t *pnt, int action,
 
 	if (action == CAPABILITY_ACTION_SET) {
 		/* hostname */
-		if (data + 1 > end) {
+		if (data + 1 >= end) {
 			zlog_err("%pBP: Received invalid FQDN capability (host name length)",
 				 peer);
 			return;
@@ -3463,7 +3463,7 @@ static void bgp_dynamic_capability_fqdn(uint8_t *pnt, int action,
 			peer->hostname = XSTRDUP(MTYPE_BGP_PEER_HOST, str);
 		}
 
-		if (data + 1 > end) {
+		if (data + 1 >= end) {
 			zlog_err("%pBP: Received invalid FQDN capability (domain name length)",
 				 peer);
 			return;
