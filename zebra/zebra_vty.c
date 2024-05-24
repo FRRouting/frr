@@ -869,9 +869,9 @@ static void do_show_route_helper(struct vty *vty, struct zebra_vrf *zvrf,
 {
 	struct route_node *rn;
 	struct route_entry *re;
+	bool first_json = true;
 	int first = 1;
 	rib_dest_t *dest;
-	json_object *json = NULL;
 	json_object *json_prefix = NULL;
 	uint32_t addr;
 	char buf[BUFSIZ];
@@ -886,9 +886,6 @@ static void do_show_route_helper(struct vty *vty, struct zebra_vrf *zvrf,
 	 *   => display the common header if at least one entry is found
 	 *   => display the VRF and table if specific
 	 */
-
-	if (use_json)
-		json = json_object_new_object();
 
 	/* Show all routes. */
 	for (rn = route_top(table); rn; rn = srcdest_route_next(rn)) {
@@ -962,17 +959,15 @@ static void do_show_route_helper(struct vty *vty, struct zebra_vrf *zvrf,
 
 		if (json_prefix) {
 			prefix2str(&rn->p, buf, sizeof(buf));
-			json_object_object_add(json, buf, json_prefix);
+			vty_json_key(vty, buf, &first_json);
+			vty_json_no_pretty(vty, json_prefix);
+
 			json_prefix = NULL;
 		}
 	}
 
-	/*
-	 * This is an extremely expensive operation at scale
-	 * and non-pretty reduces memory footprint significantly.
-	 */
 	if (use_json)
-		vty_json_no_pretty(vty, json);
+		vty_json_close(vty, first_json);
 }
 
 static void do_show_ip_route_all(struct vty *vty, struct zebra_vrf *zvrf,
