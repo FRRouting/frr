@@ -37,6 +37,7 @@
                               "vrf": "rubout",
                               "gateway": "",
                               "interface": "r1-eth0",
+                              "pm": false,
                               "active": [null],
                               "fib": [null]
                             }
@@ -65,6 +66,7 @@
                               "vrf": "rubout",
                               "gateway": "",
                               "interface": "r1-eth0",
+                              "pm": false,
                               "active": [null],
                               "fib": [null]
                             }
@@ -93,6 +95,7 @@
                               "vrf": "rubout",
                               "gateway": "",
                               "interface": "r1-eth1",
+                              "pm": false,
                               "active": [null],
                               "fib": [null]
                             }
@@ -121,6 +124,7 @@
                               "vrf": "rubout",
                               "gateway": "",
                               "interface": "r1-eth1",
+                              "pm": false,
                               "active": [null],
                               "fib": [null]
                             }
@@ -149,6 +153,7 @@
                               "vrf": "rubout",
                               "gateway": "",
                               "interface": " ",
+                              "pm": false,
                               "bh-type": "null",
                               "active": [null],
                               "fib": [null],
@@ -179,6 +184,7 @@
                               "vrf": "rubout",
                               "gateway": "1.1.1.2",
                               "interface": "r1-eth0",
+                              "pm": false,
                               "active": [null],
                               "fib": [null],
                               "weight": 1
@@ -208,6 +214,7 @@
                               "vrf": "rubout",
                               "gateway": "2.2.2.2",
                               "interface": "r1-eth1",
+                              "pm": false,
                               "active": [null],
                               "fib": [null],
                               "weight": 1
@@ -244,6 +251,7 @@
                               "vrf": "rubout",
                               "gateway": "",
                               "interface": "r1-eth0",
+                              "pm": false,
                               "active": [null],
                               "fib": [null]
                             }
@@ -270,6 +278,7 @@
                               "vrf": "rubout",
                               "gateway": "",
                               "interface": "r1-eth0",
+                              "pm": false,
                               "active": [null],
                               "fib": [null]
                             }
@@ -296,6 +305,7 @@
                               "vrf": "rubout",
                               "gateway": "",
                               "interface": "r1-eth1",
+                              "pm": false,
                               "active": [null],
                               "fib": [null]
                             }
@@ -322,6 +332,7 @@
                               "vrf": "rubout",
                               "gateway": "",
                               "interface": "r1-eth1",
+                              "pm": false,
                               "active": [null],
                               "fib": [null]
                             }
@@ -359,6 +370,7 @@
                               "vrf": "rubout",
                               "gateway": "",
                               "interface": "r1-eth0",
+                              "pm": false,
                               "active": [null],
                               "fib": [null]
                             }
@@ -387,6 +399,7 @@
                               "vrf": "rubout",
                               "gateway": "",
                               "interface": "r1-eth0",
+                              "pm": false,
                               "active": [null],
                               "fib": [null]
                             }
@@ -415,6 +428,7 @@
                               "vrf": "rubout",
                               "gateway": "",
                               "interface": "r1-eth1",
+                              "pm": false,
                               "active": [null],
                               "fib": [null]
                             }
@@ -443,6 +457,7 @@
                               "vrf": "rubout",
                               "gateway": "",
                               "interface": "r1-eth1",
+                              "pm": false,
                               "active": [null],
                               "fib": [null]
                             }
@@ -478,6 +493,7 @@
                               "vrf": "rubout",
                               "gateway": "",
                               "interface": "r1-eth0",
+                              "pm": false,
                               "active": [null],
                               "fib": [null]
                             }
@@ -504,6 +520,7 @@
                               "vrf": "rubout",
                               "gateway": "",
                               "interface": "r1-eth0",
+                              "pm": false,
                               "active": [null],
                               "fib": [null]
                             }
@@ -530,6 +547,7 @@
                               "vrf": "rubout",
                               "gateway": "",
                               "interface": "r1-eth1",
+                              "pm": false,
                               "active": [null],
                               "fib": [null]
                             }
@@ -556,6 +574,7 @@
                               "vrf": "rubout",
                               "gateway": "",
                               "interface": "r1-eth1",
+                              "pm": false,
                               "active": [null],
                               "fib": [null]
                             }
@@ -606,6 +625,7 @@
                               "vrf": "rubout",
                               "gateway": "",
                               "interface": "r1-eth2",
+                              "pm": false,
                               "active": [null],
                               "fib": [null]
                             }
@@ -634,6 +654,7 @@
                               "vrf": "rubout",
                               "gateway": "",
                               "interface": "r1-eth2",
+                              "pm": false,
                               "active": [null],
                               "fib": [null]
                             }
@@ -662,6 +683,7 @@
                               "vrf": "rubout",
                               "gateway": "",
                               "interface": "r1-eth3",
+                              "pm": false,
                               "active": [null],
                               "fib": [null]
                             }
@@ -690,6 +712,7 @@
                               "vrf": "rubout",
                               "gateway": "",
                               "interface": "r1-eth3",
+                              "pm": false,
                               "active": [null],
                               "fib": [null]
                             }
@@ -718,6 +741,7 @@
                               "vrf": "rubout",
                               "gateway": "",
                               "interface": " ",
+                              "pm": false,
                               "bh-type": "null",
                               "active": [null],
                               "fib": [null],
@@ -748,6 +772,7 @@
                               "vrf": "rubout",
                               "gateway": "3.3.3.2",
                               "interface": "r1-eth2",
+                              "pm": false,
                               "active": [null],
                               "fib": [null],
                               "weight": 1
@@ -777,6 +802,7 @@
                               "vrf": "rubout",
                               "gateway": "4.4.4.2",
                               "interface": "r1-eth3",
+                              "pm": false,
                               "active": [null],
                               "fib": [null],
                               "weight": 1
@@ -813,6 +839,7 @@
                               "vrf": "rubout",
                               "gateway": "",
                               "interface": "r1-eth2",
+                              "pm": false,
                               "active": [null],
                               "fib": [null]
                             }
@@ -839,6 +866,7 @@
                               "vrf": "rubout",
                               "gateway": "",
                               "interface": "r1-eth2",
+                              "pm": false,
                               "active": [null],
                               "fib": [null]
                             }
@@ -865,6 +893,7 @@
                               "vrf": "rubout",
                               "gateway": "",
                               "interface": "r1-eth3",
+                              "pm": false,
                               "active": [null],
                               "fib": [null]
                             }
@@ -891,6 +920,7 @@
                               "vrf": "rubout",
                               "gateway": "",
                               "interface": "r1-eth3",
+                              "pm": false,
                               "active": [null],
                               "fib": [null]
                             }
@@ -928,6 +958,7 @@
                               "vrf": "rubout",
                               "gateway": "",
                               "interface": "r1-eth2",
+                              "pm": false,
                               "active": [null],
                               "fib": [null]
                             }
@@ -956,6 +987,7 @@
                               "vrf": "rubout",
                               "gateway": "",
                               "interface": "r1-eth2",
+                              "pm": false,
                               "active": [null],
                               "fib": [null]
                             }
@@ -984,6 +1016,7 @@
                               "vrf": "rubout",
                               "gateway": "",
                               "interface": "r1-eth3",
+                              "pm": false,
                               "active": [null],
                               "fib": [null]
                             }
@@ -1012,6 +1045,7 @@
                               "vrf": "rubout",
                               "gateway": "",
                               "interface": "r1-eth3",
+                              "pm": false,
                               "active": [null],
                               "fib": [null]
                             }
@@ -1047,6 +1081,7 @@
                               "vrf": "rubout",
                               "gateway": "",
                               "interface": "r1-eth2",
+                              "pm": false,
                               "active": [null],
                               "fib": [null]
                             }
@@ -1073,6 +1108,7 @@
                               "vrf": "rubout",
                               "gateway": "",
                               "interface": "r1-eth2",
+                              "pm": false,
                               "active": [null],
                               "fib": [null]
                             }
@@ -1099,6 +1135,7 @@
                               "vrf": "rubout",
                               "gateway": "",
                               "interface": "r1-eth3",
+                              "pm": false,
                               "active": [null],
                               "fib": [null]
                             }
@@ -1125,6 +1162,7 @@
                               "vrf": "rubout",
                               "gateway": "",
                               "interface": "r1-eth3",
+                              "pm": false,
                               "active": [null],
                               "fib": [null]
                             }

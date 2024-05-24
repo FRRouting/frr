@@ -37,6 +37,7 @@
                               "vrf": "rubout",
                               "gateway": "",
                               "interface": "r1-eth1",
+                              "pm": false,
                               "active": [null],
                               "fib": [null]
                             }
@@ -65,6 +66,7 @@
                               "vrf": "rubout",
                               "gateway": "",
                               "interface": "r1-eth1",
+                              "pm": false,
                               "active": [null],
                               "fib": [null]
                             }
@@ -100,6 +102,7 @@
                               "vrf": "rubout",
                               "gateway": "",
                               "interface": "r1-eth1",
+                              "pm": false,
                               "active": [null],
                               "fib": [null]
                             }
@@ -126,6 +129,7 @@
                               "vrf": "rubout",
                               "gateway": "",
                               "interface": "r1-eth1",
+                              "pm": false,
                               "active": [null],
                               "fib": [null]
                             }

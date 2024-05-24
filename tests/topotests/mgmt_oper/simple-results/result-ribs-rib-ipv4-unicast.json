@@ -33,6 +33,7 @@
                               "vrf": "rubout",
                               "gateway": "",
                               "interface": "r1-eth0",
+                              "pm": false,
                               "active": [null],
                               "fib": [null]
                             }
@@ -61,6 +62,7 @@
                               "vrf": "rubout",
                               "gateway": "",
                               "interface": "r1-eth0",
+                              "pm": false,
                               "active": [null],
                               "fib": [null]
                             }
@@ -89,6 +91,7 @@
                               "vrf": "rubout",
                               "gateway": "1.1.1.2",
                               "interface": "r1-eth0",
+                              "pm": false,
                               "active": [null],
                               "fib": [null],
                               "weight": 1

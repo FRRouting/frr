@@ -30,6 +30,7 @@
                               "vrf": "rubout",
                               "gateway": "",
                               "interface": "r1-eth0",
+                              "pm": false,
                               "active": [null],
                               "fib": [null]
                             }
