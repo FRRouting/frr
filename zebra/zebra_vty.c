@@ -60,8 +60,8 @@ struct route_show_ctx {
 };
 
 static int do_show_ip_route(struct vty *vty, const char *vrf_name, afi_t afi,
-			    safi_t safi, bool use_fib, json_object *vrf_json,
-			    bool use_json, route_tag_t tag,
+			    safi_t safi, bool use_fib, bool use_json,
+			    route_tag_t tag,
 			    const struct prefix *longer_prefix_p,
 			    bool supernets_only, int type,
 			    unsigned short ospf_instance_id, uint32_t tableid,
@@ -153,8 +153,8 @@ DEFPY (show_ip_rpf,
 	};
 
 	return do_show_ip_route(vty, VRF_DEFAULT_NAME, ip ? AFI_IP : AFI_IP6,
-				SAFI_MULTICAST, false, NULL, uj, 0, NULL, false,
-				0, 0, 0, false, &ctx);
+				SAFI_MULTICAST, false, uj, 0, NULL, false, 0, 0,
+				0, false, &ctx);
 }
 
 DEFPY (show_ip_rpf_addr,
@@ -858,13 +858,14 @@ static void vty_show_ip_route_detail_json(struct vty *vty,
 	vty_json(vty, json);
 }
 
-static void
-do_show_route_helper(struct vty *vty, struct zebra_vrf *zvrf,
-		     struct route_table *table, afi_t afi, bool use_fib,
-		     json_object *vrf_json, route_tag_t tag,
-		     const struct prefix *longer_prefix_p, bool supernets_only,
-		     int type, unsigned short ospf_instance_id, bool use_json,
-		     uint32_t tableid, bool show_ng, struct route_show_ctx *ctx)
+static void do_show_route_helper(struct vty *vty, struct zebra_vrf *zvrf,
+				 struct route_table *table, afi_t afi,
+				 bool use_fib, route_tag_t tag,
+				 const struct prefix *longer_prefix_p,
+				 bool supernets_only, int type,
+				 unsigned short ospf_instance_id, bool use_json,
+				 uint32_t tableid, bool show_ng,
+				 struct route_show_ctx *ctx)
 {
 	struct route_node *rn;
 	struct route_entry *re;
@@ -886,7 +887,7 @@ do_show_route_helper(struct vty *vty, struct zebra_vrf *zvrf,
 	 *   => display the VRF and table if specific
 	 */
 
-	if (use_json && !vrf_json)
+	if (use_json)
 		json = json_object_new_object();
 
 	/* Show all routes. */
@@ -961,11 +962,7 @@ do_show_route_helper(struct vty *vty, struct zebra_vrf *zvrf,
 
 		if (json_prefix) {
 			prefix2str(&rn->p, buf, sizeof(buf));
-			if (!vrf_json)
-				json_object_object_add(json, buf, json_prefix);
-			else
-				json_object_object_add(vrf_json, buf,
-						       json_prefix);
+			json_object_object_add(json, buf, json_prefix);
 			json_prefix = NULL;
 		}
 	}
@@ -974,15 +971,13 @@ do_show_route_helper(struct vty *vty, struct zebra_vrf *zvrf,
 	 * This is an extremely expensive operation at scale
 	 * and non-pretty reduces memory footprint significantly.
 	 */
-	if (use_json && !vrf_json) {
+	if (use_json)
 		vty_json_no_pretty(vty, json);
-		json = NULL;
-	}
 }
 
 static void do_show_ip_route_all(struct vty *vty, struct zebra_vrf *zvrf,
-				 afi_t afi, bool use_fib, json_object *vrf_json,
-				 bool use_json, route_tag_t tag,
+				 afi_t afi, bool use_fib, bool use_json,
+				 route_tag_t tag,
 				 const struct prefix *longer_prefix_p,
 				 bool supernets_only, int type,
 				 unsigned short ospf_instance_id, bool show_ng,
@@ -1002,15 +997,15 @@ static void do_show_ip_route_all(struct vty *vty, struct zebra_vrf *zvrf,
 			continue;
 
 		do_show_ip_route(vty, zvrf_name(zvrf), afi, SAFI_UNICAST,
-				 use_fib, vrf_json, use_json, tag,
-				 longer_prefix_p, supernets_only, type,
-				 ospf_instance_id, zrt->tableid, show_ng, ctx);
+				 use_fib, use_json, tag, longer_prefix_p,
+				 supernets_only, type, ospf_instance_id,
+				 zrt->tableid, show_ng, ctx);
 	}
 }
 
 static int do_show_ip_route(struct vty *vty, const char *vrf_name, afi_t afi,
-			    safi_t safi, bool use_fib, json_object *vrf_json,
-			    bool use_json, route_tag_t tag,
+			    safi_t safi, bool use_fib, bool use_json,
+			    route_tag_t tag,
 			    const struct prefix *longer_prefix_p,
 			    bool supernets_only, int type,
 			    unsigned short ospf_instance_id, uint32_t tableid,
@@ -1045,7 +1040,7 @@ static int do_show_ip_route(struct vty *vty, const char *vrf_name, afi_t afi,
 		return CMD_SUCCESS;
 	}
 
-	do_show_route_helper(vty, zvrf, table, afi, use_fib, vrf_json, tag,
+	do_show_route_helper(vty, zvrf, table, afi, use_fib, tag,
 			     longer_prefix_p, supernets_only, type,
 			     ospf_instance_id, use_json, tableid, show_ng, ctx);
 
@@ -1750,7 +1745,6 @@ DEFPY (show_route,
 	struct route_show_ctx ctx = {
 		.multi = vrf_all || table_all,
 	};
-	json_object *root_json = NULL;
 
 	if (!vrf_is_backend_netns()) {
 		if ((vrf_all || vrf_name) && (table || table_all)) {
@@ -1772,42 +1766,25 @@ DEFPY (show_route,
 	}
 
 	if (vrf_all) {
-		if (!!json)
-			root_json = json_object_new_object();
 		RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
-			json_object *vrf_json = NULL;
-
 			if ((zvrf = vrf->info) == NULL
 			    || (zvrf->table[afi][SAFI_UNICAST] == NULL))
 				continue;
 
-			if (!!json)
-				vrf_json = json_object_new_object();
-
 			if (table_all)
 				do_show_ip_route_all(vty, zvrf, afi, !!fib,
-						     vrf_json, !!json, tag,
+						     !!json, tag,
 						     prefix_str ? prefix : NULL,
 						     !!supernets_only, type,
 						     ospf_instance_id, !!ng,
 						     &ctx);
 			else
 				do_show_ip_route(vty, zvrf_name(zvrf), afi,
-						 SAFI_UNICAST, !!fib, vrf_json,
-						 !!json, tag,
-						 prefix_str ? prefix : NULL,
+						 SAFI_UNICAST, !!fib, !!json,
+						 tag, prefix_str ? prefix : NULL,
 						 !!supernets_only, type,
 						 ospf_instance_id, table, !!ng,
 						 &ctx);
-
-			if (!!json)
-				json_object_object_add(root_json,
-						       zvrf_name(zvrf),
-						       vrf_json);
-		}
-		if (!!json) {
-			vty_json_no_pretty(vty, root_json);
-			root_json = NULL;
 		}
 	} else {
 		vrf_id_t vrf_id = VRF_DEFAULT;
@@ -1823,13 +1800,13 @@ DEFPY (show_route,
 			return CMD_SUCCESS;
 
 		if (table_all)
-			do_show_ip_route_all(vty, zvrf, afi, !!fib, NULL, !!json,
-					     tag, prefix_str ? prefix : NULL,
+			do_show_ip_route_all(vty, zvrf, afi, !!fib, !!json, tag,
+					     prefix_str ? prefix : NULL,
 					     !!supernets_only, type,
 					     ospf_instance_id, !!ng, &ctx);
 		else
 			do_show_ip_route(vty, vrf->name, afi, SAFI_UNICAST,
-					 !!fib, NULL, !!json, tag,
+					 !!fib, !!json, tag,
 					 prefix_str ? prefix : NULL,
 					 !!supernets_only, type,
 					 ospf_instance_id, table, !!ng, &ctx);
