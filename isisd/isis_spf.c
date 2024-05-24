@@ -2208,7 +2208,8 @@ int _isis_spf_schedule(struct isis_area *area, int level,
 		/* Need to call schedule function also if spf delay is running
 		 * to
 		 * restart holdoff timer - compare
-		 * draft-ietf-rtgwg-backoff-algo-04 */
+		 * draft-ietf-rtgwg-backoff-algo-04
+		 */
 		long delay =
 			spf_backoff_schedule(area->spf_delay_ietf[level - 1]);
 		if (area->spf_timer[level - 1])
