@@ -1153,6 +1153,18 @@ char *ecommunity_ecom2str(struct ecommunity *ecom, int format, int filter)
 		/* Retrieve value field */
 		pnt = ecom->val + (i * ecom->unit_size);
 
+		uint8_t *data = pnt;
+		uint8_t *end = data + ecom->unit_size;
+		size_t len = end - data;
+
+		/* Sanity check for extended communities lenght, to avoid
+		 * overrun when dealing with bits, e.g. ptr_get_be64().
+		 */
+		if (len < ecom->unit_size) {
+			unk_ecom = true;
+			goto unknown;
+		}
+
 		/* High-order octet is the type */
 		type = *pnt++;
 
@@ -1420,6 +1432,7 @@ char *ecommunity_ecom2str(struct ecommunity *ecom, int format, int filter)
 			unk_ecom = true;
 		}
 
+unknown:
 		if (unk_ecom)
 			snprintf(encbuf, sizeof(encbuf), "UNK:%d, %d", type,
 				 sub_type);
