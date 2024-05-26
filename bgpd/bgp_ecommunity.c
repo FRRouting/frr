@@ -1048,12 +1048,16 @@ static int ecommunity_lb_str(char *buf, size_t bufsz, const uint8_t *pnt,
 	return len;
 }
 
-static int ipv6_ecommunity_lb_str(char *buf, size_t bufsz, const uint8_t *pnt)
+static int ipv6_ecommunity_lb_str(char *buf, size_t bufsz, const uint8_t *pnt,
+				  size_t length)
 {
 	int len = 0;
-	as_t as;
-	uint64_t bw;
+	as_t as = 0;
+	uint64_t bw = 0;
 	char bps_buf[20] = { 0 };
+
+	if (length < IPV6_ECOMMUNITY_SIZE)
+		goto done;
 
 	pnt += 2; /* Reserved */
 	pnt = ptr_get_be64(pnt, &bw);
@@ -1071,6 +1075,7 @@ static int ipv6_ecommunity_lb_str(char *buf, size_t bufsz, const uint8_t *pnt)
 	else
 		snprintfrr(bps_buf, sizeof(bps_buf), "%" PRIu64 " bps", bw * 8);
 
+done:
 	len = snprintfrr(buf, bufsz, "LB:%u:%" PRIu64 " (%s)", as, bw, bps_buf);
 	return len;
 }
@@ -1192,7 +1197,7 @@ char *ecommunity_ecom2str(struct ecommunity *ecom, int format, int filter)
 					   type == ECOMMUNITY_ENCODE_AS4) {
 					ipv6_ecommunity_lb_str(encbuf,
 							       sizeof(encbuf),
-							       pnt);
+							       pnt, len);
 				} else if (sub_type == ECOMMUNITY_NODE_TARGET &&
 					   type == ECOMMUNITY_ENCODE_IP) {
 					ecommunity_node_target_str(
@@ -1410,7 +1415,7 @@ char *ecommunity_ecom2str(struct ecommunity *ecom, int format, int filter)
 						  ecom->disable_ieee_floating);
 			else if (sub_type == ECOMMUNITY_EXTENDED_LINK_BANDWIDTH)
 				ipv6_ecommunity_lb_str(encbuf, sizeof(encbuf),
-						       pnt);
+						       pnt, len);
 			else
 				unk_ecom = true;
 		} else if (type == ECOMMUNITY_ENCODE_IP_NON_TRANS) {
