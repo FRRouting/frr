@@ -109,11 +109,9 @@ struct community_list_handler {
 };
 
 /* Error code of community-list.  */
-#define COMMUNITY_LIST_ERR_CANT_FIND_LIST        -1
-#define COMMUNITY_LIST_ERR_MALFORMED_VAL         -2
-#define COMMUNITY_LIST_ERR_STANDARD_CONFLICT     -3
-#define COMMUNITY_LIST_ERR_EXPANDED_CONFLICT     -4
-
+#define COMMUNITY_LIST_ERR_MALFORMED_VAL     -1
+#define COMMUNITY_LIST_ERR_STANDARD_CONFLICT -2
+#define COMMUNITY_LIST_ERR_EXPANDED_CONFLICT -3
 /* Handler.  */
 extern struct community_list_handler *bgp_clist;
 
@@ -124,22 +122,22 @@ extern void community_list_terminate(struct community_list_handler *ch);
 extern int community_list_set(struct community_list_handler *ch,
 			      const char *name, const char *str,
 			      const char *seq, int direct, int style);
-extern int community_list_unset(struct community_list_handler *ch,
-				const char *name, const char *str,
-				const char *seq, int direct, int style);
+extern void community_list_unset(struct community_list_handler *ch,
+				 const char *name, const char *str,
+				 const char *seq, int direct, int style);
 extern int extcommunity_list_set(struct community_list_handler *ch,
 				 const char *name, const char *str,
 				 const char *seq, int direct, int style);
-extern int extcommunity_list_unset(struct community_list_handler *ch,
-				   const char *name, const char *str,
-				   const char *seq, int direct, int style);
+extern void extcommunity_list_unset(struct community_list_handler *ch,
+				    const char *name, const char *str,
+				    const char *seq, int direct, int style);
 extern int lcommunity_list_set(struct community_list_handler *ch,
 			       const char *name, const char *str,
 			       const char *seq, int direct, int style);
 extern bool lcommunity_list_valid(const char *community, int style);
-extern int lcommunity_list_unset(struct community_list_handler *ch,
-				 const char *name, const char *str,
-				 const char *seq, int direct, int style);
+extern void lcommunity_list_unset(struct community_list_handler *ch,
+				  const char *name, const char *str,
+				  const char *seq, int direct, int style);
 
 extern struct community_list_master *
 community_list_master_lookup(struct community_list_handler *ch, int master);
