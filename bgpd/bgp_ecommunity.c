@@ -1143,7 +1143,7 @@ char *ecommunity_ecom2str(struct ecommunity *ecom, int format, int filter)
 	char encbuf[128];
 
 	for (i = 0; i < ecom->size; i++) {
-		int unk_ecom = 0;
+		bool unk_ecom = false;
 		memset(encbuf, 0x00, sizeof(encbuf));
 
 		/* Space between each value.  */
@@ -1187,7 +1187,7 @@ char *ecommunity_ecom2str(struct ecommunity *ecom, int format, int filter)
 						encbuf, sizeof(encbuf), pnt,
 						format);
 				} else
-					unk_ecom = 1;
+					unk_ecom = true;
 			} else {
 				ecommunity_rt_soo_str(encbuf, sizeof(encbuf),
 						      pnt, type, sub_type,
@@ -1210,7 +1210,7 @@ char *ecommunity_ecom2str(struct ecommunity *ecom, int format, int filter)
 				ecommunity_color_str(encbuf, sizeof(encbuf),
 						     pnt);
 			} else {
-				unk_ecom = 1;
+				unk_ecom = true;
 			}
 		} else if (type == ECOMMUNITY_ENCODE_EVPN) {
 			if (filter == ECOMMUNITY_ROUTE_TARGET)
@@ -1303,14 +1303,14 @@ char *ecommunity_ecom2str(struct ecommunity *ecom, int format, int filter)
 						 "DF: (alg: %u, pref: %u)", alg,
 						 pref);
 			} else
-				unk_ecom = 1;
+				unk_ecom = true;
 		} else if (type == ECOMMUNITY_ENCODE_REDIRECT_IP_NH) {
 			sub_type = *pnt++;
 			if (sub_type == ECOMMUNITY_REDIRECT_IP_NH) {
 				snprintf(encbuf, sizeof(encbuf),
 					 "FS:redirect IP 0x%x", *(pnt + 5));
 			} else
-				unk_ecom = 1;
+				unk_ecom = true;
 		} else if (type == ECOMMUNITY_ENCODE_TRANS_EXP ||
 			   type == ECOMMUNITY_EXTENDED_COMMUNITY_PART_2 ||
 			   type == ECOMMUNITY_EXTENDED_COMMUNITY_PART_3) {
@@ -1357,7 +1357,7 @@ char *ecommunity_ecom2str(struct ecommunity *ecom, int format, int filter)
 				snprintf(encbuf, sizeof(encbuf),
 					 "FS:redirect VRF %s", buf);
 			} else if (type != ECOMMUNITY_ENCODE_TRANS_EXP)
-				unk_ecom = 1;
+				unk_ecom = true;
 			else if (sub_type == ECOMMUNITY_TRAFFIC_ACTION) {
 				char action[64];
 
@@ -1390,7 +1390,7 @@ char *ecommunity_ecom2str(struct ecommunity *ecom, int format, int filter)
 				snprintf(encbuf, sizeof(encbuf),
 					 "FS:marking %u", *(pnt + 5));
 			} else
-				unk_ecom = 1;
+				unk_ecom = true;
 		} else if (type == ECOMMUNITY_ENCODE_AS_NON_TRANS) {
 			sub_type = *pnt++;
 			if (sub_type == ECOMMUNITY_LINK_BANDWIDTH)
@@ -1400,24 +1400,24 @@ char *ecommunity_ecom2str(struct ecommunity *ecom, int format, int filter)
 				ipv6_ecommunity_lb_str(encbuf, sizeof(encbuf),
 						       pnt);
 			else
-				unk_ecom = 1;
+				unk_ecom = true;
 		} else if (type == ECOMMUNITY_ENCODE_IP_NON_TRANS) {
 			sub_type = *pnt++;
 			if (sub_type == ECOMMUNITY_NODE_TARGET)
 				ecommunity_node_target_str(
 					encbuf, sizeof(encbuf), pnt, format);
 			else
-				unk_ecom = 1;
+				unk_ecom = true;
 		} else if (type == ECOMMUNITY_ENCODE_OPAQUE_NON_TRANS) {
 			sub_type = *pnt++;
 			if (sub_type == ECOMMUNITY_ORIGIN_VALIDATION_STATE)
 				ecommunity_origin_validation_state_str(
 					encbuf, sizeof(encbuf), pnt);
 			else
-				unk_ecom = 1;
+				unk_ecom = true;
 		} else {
 			sub_type = *pnt++;
-			unk_ecom = 1;
+			unk_ecom = true;
 		}
 
 		if (unk_ecom)
