@@ -46,6 +46,7 @@ The version of protobuf package that is installed on your system will determine
 which versions of the python protobuf packages you need to install.
 
 .. code:: shell
+
    # - Either - For protobuf version <= 3.12
    python3 -m pip install 'protobuf<4'
 
