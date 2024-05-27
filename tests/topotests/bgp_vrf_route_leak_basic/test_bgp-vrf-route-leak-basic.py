@@ -338,6 +338,21 @@ interface EVA
     result, diff = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
     assert result, "BGP VRF DONNA check failed:\n{}".format(diff)
 
+    """
+    Check that "show ip route vrf DONNA json" and the JSON at key "DONNA" of
+    "show ip route vrf all json" gives the same result.
+    """
+
+    def check_vrf_table(router, vrf, expect):
+        output = router.vtysh_cmd("show ip route vrf all json", isjson=True)
+        vrf_table = output.get(vrf, {})
+
+        return topotest.json_cmp(vrf_table, expect)
+
+    test_func = partial(check_vrf_table, r1, "DONNA", expect)
+    result, diff = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+    assert result, "BGP VRF DONNA check failed:\n{}".format(diff)
+
 
 def test_vrf_route_leak_donna_after_eva_up():
     logger.info("Ensure that route states change after EVA interface goes up")
