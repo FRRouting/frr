@@ -390,6 +390,21 @@ int vty_json_no_pretty(struct vty *vty, struct json_object *json)
 	return vty_json_helper(vty, json, JSON_C_TO_STRING_NOSLASHESCAPE);
 }
 
+
+void vty_json_key(struct vty *vty, const char *key, bool *first_key)
+{
+	vty_out(vty, "%s\"%s\":", *first_key ? "{" : ",", key);
+	*first_key = false;
+}
+
+void vty_json_close(struct vty *vty, bool first_key)
+{
+	if (first_key)
+		/* JSON was not opened */
+		vty_out(vty, "{");
+	vty_out(vty, "}\n");
+}
+
 void vty_json_empty(struct vty *vty, struct json_object *json)
 {
 	json_object *jsonobj = json;
