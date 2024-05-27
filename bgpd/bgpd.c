@@ -3872,6 +3872,9 @@ void bgp_instance_down(struct bgp *bgp)
 	struct listnode *node;
 	struct listnode *next;
 
+	/* Cleanup evpn instance state */
+	bgp_evpn_instance_down(bgp);
+
 	/* Stop timers. */
 	if (bgp->t_rmap_def_originate_eval)
 		EVENT_OFF(bgp->t_rmap_def_originate_eval);

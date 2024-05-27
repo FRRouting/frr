@@ -6972,6 +6972,17 @@ int bgp_evpn_local_l3vni_del(vni_t l3vni, vrf_id_t vrf_id)
 }
 
 /*
+ * When bgp instance goes down also clean up what might have been left over
+ * from evpn.
+ */
+void bgp_evpn_instance_down(struct bgp *bgp)
+{
+	/* If we have a stale local vni, delete it */
+	if (bgp->l3vni)
+		bgp_evpn_local_l3vni_del(bgp->l3vni, bgp->vrf_id);
+}
+
+/*
  * Handle del of a local VNI.
  */
 int bgp_evpn_local_vni_del(struct bgp *bgp, vni_t vni)
