@@ -112,5 +112,7 @@ extern as_t peek_for_as4_capability(struct peer *peer, uint16_t length);
 extern const struct message capcode_str[];
 extern const struct message orf_type_str[];
 extern const struct message orf_mode_str[];
+extern const size_t cap_minsizes[];
+extern const size_t cap_modsizes[];
 
 #endif /* _QUAGGA_BGP_OPEN_H */
