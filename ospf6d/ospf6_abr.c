@@ -1350,9 +1350,10 @@ void ospf6_abr_examin_summary(struct ospf6_lsa *lsa, struct ospf6_area *oa)
 	 * does not match with the new entry then add the new route
 	 */
 	if (old_entry_updated == false) {
-		if ((old == NULL) || (old->type != route->type)
-		    || (old->path.type != route->path.type)
-		    || (old->path.cost != route->path.cost))
+		if ((old == NULL) || (old->type != route->type) ||
+		    (old->path.type != route->path.type) ||
+		    (old->path.cost != route->path.cost) ||
+		    (old->path.router_bits != route->path.router_bits))
 			add_route = true;
 	}
 
