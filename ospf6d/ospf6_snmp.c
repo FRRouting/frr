@@ -1017,7 +1017,7 @@ static uint8_t *ospfv3WwLsdbEntry(struct variable *v, oid *name, size_t *length,
 	case OSPFv3WWLSDBCHECKSUM:
 		return SNMP_INTEGER(ntohs(lsa->header->checksum));
 	case OSPFv3WWLSDBADVERTISEMENT:
-		*var_len = ntohs(lsa->header->length);
+		*var_len = ospf6_lsa_size(lsa->header);
 		return (uint8_t *)lsa->header;
 	case OSPFv3WWLSDBTYPEKNOWN:
 		return SNMP_INTEGER(OSPF6_LSA_IS_KNOWN(lsa->header->type)

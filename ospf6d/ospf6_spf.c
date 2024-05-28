@@ -187,7 +187,7 @@ static struct ospf6_lsa *ospf6_lsdesc_lsa(caddr_t lsdesc,
 		inet_ntop(AF_INET, &adv_router, abuf, sizeof(abuf));
 		if (lsa)
 			zlog_debug("  Link to: %s len %u, V %s", lsa->name,
-				   ntohs(lsa->header->length), v->name);
+				   ospf6_lsa_size(lsa->header), v->name);
 		else
 			zlog_debug("  Link to: [%s Id:%s Adv:%s] No LSA , V %s",
 				   ospf6_lstype_name(type), ibuf, abuf,
@@ -1011,7 +1011,7 @@ struct ospf6_lsa *ospf6_create_single_router_lsa(struct ospf6_area *area,
 			continue;
 		}
 		lsa_header = rtr_lsa->header;
-		total_lsa_length += (ntohs(lsa_header->length) - lsa_length);
+		total_lsa_length += (ospf6_lsa_size(lsa_header) - lsa_length);
 		num_lsa++;
 		rtr_lsa = ospf6_lsdb_next(end, rtr_lsa);
 	}
@@ -1044,11 +1044,11 @@ struct ospf6_lsa *ospf6_create_single_router_lsa(struct ospf6_area *area,
 	if (!OSPF6_LSA_IS_MAXAGE(rtr_lsa)) {
 		/* Append first Link State ID LSA */
 		lsa_header = rtr_lsa->header;
-		memcpy(new_header, lsa_header, ntohs(lsa_header->length));
+		memcpy(new_header, lsa_header, ospf6_lsa_size(lsa_header));
 		/* Assign new lsa length as aggregated length. */
 		((struct ospf6_lsa_header *)new_header)->length =
 			htons(total_lsa_length);
-		new_header += ntohs(lsa_header->length);
+		new_header += ospf6_lsa_size(lsa_header);
 		num_lsa--;
 	}
 
@@ -1066,17 +1066,16 @@ struct ospf6_lsa *ospf6_create_single_router_lsa(struct ospf6_area *area,
 			lsd = ospf6_lsa_header_end(rtr_lsa->header) + 4;
 			interface_id = ROUTER_LSDESC_GET_IFID(lsd);
 			inet_ntop(AF_INET, &interface_id, ifbuf, sizeof(ifbuf));
-			zlog_debug(
-				"%s: Next Router LSA %s to aggreat with len %u interface_id %s",
-				__func__, rtr_lsa->name,
-				ntohs(lsa_header->length), ifbuf);
+			zlog_debug("%s: Next Router LSA %s to aggreat with len %u interface_id %s",
+				   __func__, rtr_lsa->name,
+				   ospf6_lsa_size(lsa_header), ifbuf);
 		}
 
 		/* Append Next Link State ID LSA */
 		lsa_header = rtr_lsa->header;
 		memcpy(new_header, (ospf6_lsa_header_end(rtr_lsa->header) + 4),
-		       (ntohs(lsa_header->length) - lsa_length));
-		new_header += (ntohs(lsa_header->length) - lsa_length);
+		       (ospf6_lsa_size(lsa_header) - lsa_length));
+		new_header += (ospf6_lsa_size(lsa_header) - lsa_length);
 		num_lsa--;
 
 		rtr_lsa = ospf6_lsdb_next(end, rtr_lsa);
@@ -1091,8 +1090,8 @@ struct ospf6_lsa *ospf6_create_single_router_lsa(struct ospf6_area *area,
 	if (IS_OSPF6_DEBUG_SPF(PROCESS))
 		zlog_debug("%s: LSA %s id %u type 0%x len %u num_lsa %u",
 			   __func__, lsa->name, ntohl(lsa->header->id),
-			   ntohs(lsa->header->type), ntohs(lsa->header->length),
-			   num_lsa);
+			   ntohs(lsa->header->type),
+			   ospf6_lsa_size(lsa->header), num_lsa);
 
 	return lsa;
 }
