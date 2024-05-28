@@ -607,7 +607,7 @@ def test_ospf_show_p1(request):
                 "r0": {
                     "ospf": {
                         "ifUp": True,
-                        "ifFlags": "<UP,BROADCAST,RUNNING,MULTICAST>",
+                        "ifFlags": "<UP,LOWER_UP,BROADCAST,RUNNING,MULTICAST>",
                         "ospfEnabled": True,
                         "ipAddressPrefixlen": 24,
                         "ospfIfType": "Broadcast",
