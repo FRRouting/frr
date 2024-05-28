@@ -221,12 +221,12 @@ void ospf6_lsupdate_print(struct ospf6_header *oh, int action)
 	     && action == OSPF6_ACTION_RECV)
 	    || (IS_OSPF6_DEBUG_MESSAGE(oh->type, SEND)
 		&& action == OSPF6_ACTION_SEND)) {
-
-		for (p = (char *)((caddr_t)lsupdate
-				  + sizeof(struct ospf6_lsupdate));
-		     p < OSPF6_MESSAGE_END(oh)
-		     && p + OSPF6_LSA_SIZE(p) <= OSPF6_MESSAGE_END(oh);
-		     p += OSPF6_LSA_SIZE(p)) {
+		for (p = (char *)((caddr_t)lsupdate +
+				  sizeof(struct ospf6_lsupdate));
+		     p < OSPF6_MESSAGE_END(oh) &&
+		     p + ospf6_lsa_size((struct ospf6_lsa_header *)p) <=
+			     OSPF6_MESSAGE_END(oh);
+		     p += ospf6_lsa_size((struct ospf6_lsa_header *)p)) {
 			ospf6_lsa_header_print_raw(
 				(struct ospf6_lsa_header *)p);
 		}
@@ -1414,7 +1414,7 @@ ospf6_lsaseq_examin(struct ospf6_lsa_header *lsah, /* start of buffered data */
 			return MSG_NG;
 		}
 		/* save on ntohs() calls here and in the LSA validator */
-		lsalen = OSPF6_LSA_SIZE(lsah);
+		lsalen = ospf6_lsa_size(lsah);
 		if (lsalen < OSPF6_LSA_HEADER_SIZE) {
 			zlog_warn(
 				"%s: malformed LSA header #%u, declared length is %u B",
@@ -1646,9 +1646,10 @@ static void ospf6_lsupdate_recv(struct in6_addr *src, struct in6_addr *dst,
 
 	/* Process LSAs */
 	for (p = (char *)((caddr_t)lsupdate + sizeof(struct ospf6_lsupdate));
-	     p < OSPF6_MESSAGE_END(oh)
-	     && p + OSPF6_LSA_SIZE(p) <= OSPF6_MESSAGE_END(oh);
-	     p += OSPF6_LSA_SIZE(p)) {
+	     p < OSPF6_MESSAGE_END(oh) &&
+	     p + ospf6_lsa_size((struct ospf6_lsa_header *)p) <=
+		     OSPF6_MESSAGE_END(oh);
+	     p += ospf6_lsa_size((struct ospf6_lsa_header *)p)) {
 		ospf6_receive_lsa(on, (struct ospf6_lsa_header *)p);
 	}
 
@@ -2702,7 +2703,7 @@ static uint16_t ospf6_make_lsupdate_list(struct ospf6_neighbor *on,
 	stream_forward_endp((*op)->s, OSPF6_LS_UPD_MIN_SIZE);
 
 	for (ALL_LSDB(on->lsupdate_list, lsa, lsanext)) {
-		if ((length + OSPF6_LSA_SIZE(lsa->header) + OSPF6_HEADER_SIZE) >
+		if ((length + ospf6_lsa_size(lsa->header) + OSPF6_HEADER_SIZE) >
 		    ospf6_packet_max(on->ospf6_if)) {
 			ospf6_fill_header(on->ospf6_if, (*op)->s,
 					  length + OSPF6_HEADER_SIZE);
@@ -2719,9 +2720,9 @@ static uint16_t ospf6_make_lsupdate_list(struct ospf6_neighbor *on,
 			stream_forward_endp((*op)->s, OSPF6_LS_UPD_MIN_SIZE);
 		}
 		ospf6_lsa_age_update_to_send(lsa, on->ospf6_if->transdelay);
-		stream_put((*op)->s, lsa->header, OSPF6_LSA_SIZE(lsa->header));
+		stream_put((*op)->s, lsa->header, ospf6_lsa_size(lsa->header));
 		(*lsa_cnt)++;
-		length += OSPF6_LSA_SIZE(lsa->header);
+		length += ospf6_lsa_size(lsa->header);
 		assert(lsa->lock == 2);
 		ospf6_lsdb_remove(lsa, on->lsupdate_list);
 	}
@@ -2739,7 +2740,7 @@ static uint16_t ospf6_make_ls_retrans_list(struct ospf6_neighbor *on,
 	stream_forward_endp((*op)->s, OSPF6_LS_UPD_MIN_SIZE);
 
 	for (ALL_LSDB(on->retrans_list, lsa, lsanext)) {
-		if ((length + OSPF6_LSA_SIZE(lsa->header) + OSPF6_HEADER_SIZE) >
+		if ((length + ospf6_lsa_size(lsa->header) + OSPF6_HEADER_SIZE) >
 		    ospf6_packet_max(on->ospf6_if)) {
 			ospf6_fill_header(on->ospf6_if, (*op)->s,
 					  length + OSPF6_HEADER_SIZE);
@@ -2763,9 +2764,9 @@ static uint16_t ospf6_make_ls_retrans_list(struct ospf6_neighbor *on,
 			stream_forward_endp((*op)->s, OSPF6_LS_UPD_MIN_SIZE);
 		}
 		ospf6_lsa_age_update_to_send(lsa, on->ospf6_if->transdelay);
-		stream_put((*op)->s, lsa->header, OSPF6_LSA_SIZE(lsa->header));
+		stream_put((*op)->s, lsa->header, ospf6_lsa_size(lsa->header));
 		(*lsa_cnt)++;
-		length += OSPF6_LSA_SIZE(lsa->header);
+		length += ospf6_lsa_size(lsa->header);
 	}
 	return length;
 }
@@ -2849,9 +2850,9 @@ int ospf6_lsupdate_send_neighbor_now(struct ospf6_neighbor *on,
 	/* skip over fixed header */
 	stream_forward_endp(op->s, OSPF6_LS_UPD_MIN_SIZE);
 	ospf6_lsa_age_update_to_send(lsa, on->ospf6_if->transdelay);
-	stream_put(op->s, lsa->header, OSPF6_LSA_SIZE(lsa->header));
-	length = OSPF6_HEADER_SIZE + OSPF6_LS_UPD_MIN_SIZE
-		 + OSPF6_LSA_SIZE(lsa->header);
+	stream_put(op->s, lsa->header, ospf6_lsa_size(lsa->header));
+	length = OSPF6_HEADER_SIZE + OSPF6_LS_UPD_MIN_SIZE +
+		 ospf6_lsa_size(lsa->header);
 	ospf6_fill_header(on->ospf6_if, op->s, length);
 	ospf6_fill_lsupdate_header(op->s, 1);
 	op->length = length;
@@ -2877,7 +2878,7 @@ static uint16_t ospf6_make_lsupdate_interface(struct ospf6_interface *oi,
 	stream_forward_endp((*op)->s, OSPF6_LS_UPD_MIN_SIZE);
 
 	for (ALL_LSDB(oi->lsupdate_list, lsa, lsanext)) {
-		if (length + OSPF6_LSA_SIZE(lsa->header) + OSPF6_HEADER_SIZE >
+		if (length + ospf6_lsa_size(lsa->header) + OSPF6_HEADER_SIZE >
 		    ospf6_packet_max(oi)) {
 			ospf6_fill_header(oi, (*op)->s,
 					  length + OSPF6_HEADER_SIZE);
@@ -2895,9 +2896,9 @@ static uint16_t ospf6_make_lsupdate_interface(struct ospf6_interface *oi,
 		}
 
 		ospf6_lsa_age_update_to_send(lsa, oi->transdelay);
-		stream_put((*op)->s, lsa->header, OSPF6_LSA_SIZE(lsa->header));
+		stream_put((*op)->s, lsa->header, ospf6_lsa_size(lsa->header));
 		(*lsa_cnt)++;
-		length += OSPF6_LSA_SIZE(lsa->header);
+		length += ospf6_lsa_size(lsa->header);
 
 		assert(lsa->lock == 2);
 		ospf6_lsdb_remove(lsa, oi->lsupdate_list);
