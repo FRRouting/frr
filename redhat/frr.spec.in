@@ -30,6 +30,7 @@
 %{!?with_rtadv:         %global  with_rtadv         1 }
 %{!?with_watchfrr:      %global  with_watchfrr      1 }
 %{!?with_pathd:         %global  with_pathd         1 }
+%{!?with_grpc:          %global  with_grpc          0 }
 
 # user and group
 %{!?frr_user:           %global  frr_user           frr }
@@ -201,6 +202,12 @@ BuildRequires:  python3-devel
 BuildRequires:  python3-sphinx
 %endif
 %endif
+%if %{with_grpc}
+BuildRequires:  grpc-devel >= 1.16.1
+BuildRequires:  protobuf-devel >= 3.6.1
+BuildRequires:  protobuf-compiler >= 3.6.1
+BuildRequires:  protobuf-c-devel
+%endif
 %if 0%{?rhel} > 7
 #platform-python-devel is needed for /usr/bin/pathfix.py
 BuildRequires:  platform-python-devel
@@ -300,6 +307,17 @@ Adds SNMP support to FRR's daemons by attaching to net-snmp's snmpd
 through the AgentX protocol.  Provides read-only access to current
 routing state through standard SNMP MIBs.
 
+
+%if %{with_grpc}
+%package grpc
+Summary: GRPC support for FRR daemons
+Group: System Environment/Daemons
+License: GPLv3+
+Requires: %{name} = %{version}-%{release}
+
+%description grpc
+Adds GRPC support to the individual FRR daemons.
+%endif
 
 %prep
 %setup -q -n frr-%{frrversion}
@@ -424,6 +442,11 @@ routing state through standard SNMP MIBs.
     --enable-pathd \
 %else
     --disable-pathd \
+%endif
+%if %{with_grpc}
+    --enable-grpc \
+%else
+    --disable-grpc \
 %endif
     --enable-snmp
     # end
@@ -782,6 +805,12 @@ sed -i 's/ -M rpki//' %{_sysconfdir}/frr/daemons
 %{_libdir}/libfrrsnmp.so*
 %{_libdir}/frr/modules/*snmp.so
 
+
+%if %{with_grpc}
+%files grpc
+%{_libdir}/libfrrgrpc_pb.*
+%{_libdir}/frr/modules/grpc.so
+%endif
 
 %files devel
 %{_libdir}/lib*.so
