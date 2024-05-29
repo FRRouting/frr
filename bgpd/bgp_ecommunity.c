@@ -1048,12 +1048,16 @@ static int ecommunity_lb_str(char *buf, size_t bufsz, const uint8_t *pnt,
 	return len;
 }
 
-static int ipv6_ecommunity_lb_str(char *buf, size_t bufsz, const uint8_t *pnt)
+static int ipv6_ecommunity_lb_str(char *buf, size_t bufsz, const uint8_t *pnt,
+				  size_t length)
 {
 	int len = 0;
-	as_t as;
-	uint64_t bw;
+	as_t as = 0;
+	uint64_t bw = 0;
 	char bps_buf[20] = { 0 };
+
+	if (length < IPV6_ECOMMUNITY_SIZE)
+		goto done;
 
 	pnt += 2; /* Reserved */
 	pnt = ptr_get_be64(pnt, &bw);
@@ -1071,6 +1075,7 @@ static int ipv6_ecommunity_lb_str(char *buf, size_t bufsz, const uint8_t *pnt)
 	else
 		snprintfrr(bps_buf, sizeof(bps_buf), "%" PRIu64 " bps", bw * 8);
 
+done:
 	len = snprintfrr(buf, bufsz, "LB:%u:%" PRIu64 " (%s)", as, bw, bps_buf);
 	return len;
 }
@@ -1143,7 +1148,7 @@ char *ecommunity_ecom2str(struct ecommunity *ecom, int format, int filter)
 	char encbuf[128];
 
 	for (i = 0; i < ecom->size; i++) {
-		int unk_ecom = 0;
+		bool unk_ecom = false;
 		memset(encbuf, 0x00, sizeof(encbuf));
 
 		/* Space between each value.  */
@@ -1152,6 +1157,18 @@ char *ecommunity_ecom2str(struct ecommunity *ecom, int format, int filter)
 
 		/* Retrieve value field */
 		pnt = ecom->val + (i * ecom->unit_size);
+
+		uint8_t *data = pnt;
+		uint8_t *end = data + ecom->unit_size;
+		size_t len = end - data;
+
+		/* Sanity check for extended communities lenght, to avoid
+		 * overrun when dealing with bits, e.g. ptr_get_be64().
+		 */
+		if (len < ecom->unit_size) {
+			unk_ecom = true;
+			goto unknown;
+		}
 
 		/* High-order octet is the type */
 		type = *pnt++;
@@ -1180,14 +1197,14 @@ char *ecommunity_ecom2str(struct ecommunity *ecom, int format, int filter)
 					   type == ECOMMUNITY_ENCODE_AS4) {
 					ipv6_ecommunity_lb_str(encbuf,
 							       sizeof(encbuf),
-							       pnt);
+							       pnt, len);
 				} else if (sub_type == ECOMMUNITY_NODE_TARGET &&
 					   type == ECOMMUNITY_ENCODE_IP) {
 					ecommunity_node_target_str(
 						encbuf, sizeof(encbuf), pnt,
 						format);
 				} else
-					unk_ecom = 1;
+					unk_ecom = true;
 			} else {
 				ecommunity_rt_soo_str(encbuf, sizeof(encbuf),
 						      pnt, type, sub_type,
@@ -1210,7 +1227,7 @@ char *ecommunity_ecom2str(struct ecommunity *ecom, int format, int filter)
 				ecommunity_color_str(encbuf, sizeof(encbuf),
 						     pnt);
 			} else {
-				unk_ecom = 1;
+				unk_ecom = true;
 			}
 		} else if (type == ECOMMUNITY_ENCODE_EVPN) {
 			if (filter == ECOMMUNITY_ROUTE_TARGET)
@@ -1303,14 +1320,14 @@ char *ecommunity_ecom2str(struct ecommunity *ecom, int format, int filter)
 						 "DF: (alg: %u, pref: %u)", alg,
 						 pref);
 			} else
-				unk_ecom = 1;
+				unk_ecom = true;
 		} else if (type == ECOMMUNITY_ENCODE_REDIRECT_IP_NH) {
 			sub_type = *pnt++;
 			if (sub_type == ECOMMUNITY_REDIRECT_IP_NH) {
 				snprintf(encbuf, sizeof(encbuf),
 					 "FS:redirect IP 0x%x", *(pnt + 5));
 			} else
-				unk_ecom = 1;
+				unk_ecom = true;
 		} else if (type == ECOMMUNITY_ENCODE_TRANS_EXP ||
 			   type == ECOMMUNITY_EXTENDED_COMMUNITY_PART_2 ||
 			   type == ECOMMUNITY_EXTENDED_COMMUNITY_PART_3) {
@@ -1357,7 +1374,7 @@ char *ecommunity_ecom2str(struct ecommunity *ecom, int format, int filter)
 				snprintf(encbuf, sizeof(encbuf),
 					 "FS:redirect VRF %s", buf);
 			} else if (type != ECOMMUNITY_ENCODE_TRANS_EXP)
-				unk_ecom = 1;
+				unk_ecom = true;
 			else if (sub_type == ECOMMUNITY_TRAFFIC_ACTION) {
 				char action[64];
 
@@ -1390,7 +1407,7 @@ char *ecommunity_ecom2str(struct ecommunity *ecom, int format, int filter)
 				snprintf(encbuf, sizeof(encbuf),
 					 "FS:marking %u", *(pnt + 5));
 			} else
-				unk_ecom = 1;
+				unk_ecom = true;
 		} else if (type == ECOMMUNITY_ENCODE_AS_NON_TRANS) {
 			sub_type = *pnt++;
 			if (sub_type == ECOMMUNITY_LINK_BANDWIDTH)
@@ -1398,28 +1415,29 @@ char *ecommunity_ecom2str(struct ecommunity *ecom, int format, int filter)
 						  ecom->disable_ieee_floating);
 			else if (sub_type == ECOMMUNITY_EXTENDED_LINK_BANDWIDTH)
 				ipv6_ecommunity_lb_str(encbuf, sizeof(encbuf),
-						       pnt);
+						       pnt, len);
 			else
-				unk_ecom = 1;
+				unk_ecom = true;
 		} else if (type == ECOMMUNITY_ENCODE_IP_NON_TRANS) {
 			sub_type = *pnt++;
 			if (sub_type == ECOMMUNITY_NODE_TARGET)
 				ecommunity_node_target_str(
 					encbuf, sizeof(encbuf), pnt, format);
 			else
-				unk_ecom = 1;
+				unk_ecom = true;
 		} else if (type == ECOMMUNITY_ENCODE_OPAQUE_NON_TRANS) {
 			sub_type = *pnt++;
 			if (sub_type == ECOMMUNITY_ORIGIN_VALIDATION_STATE)
 				ecommunity_origin_validation_state_str(
 					encbuf, sizeof(encbuf), pnt);
 			else
-				unk_ecom = 1;
+				unk_ecom = true;
 		} else {
 			sub_type = *pnt++;
-			unk_ecom = 1;
+			unk_ecom = true;
 		}
 
+unknown:
 		if (unk_ecom)
 			snprintf(encbuf, sizeof(encbuf), "UNK:%d, %d", type,
 				 sub_type);
