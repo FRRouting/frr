@@ -73,6 +73,16 @@ def test_zebra_seg6_routes():
             return False
         return topotest.json_cmp(output, expected)
 
+    def check_connected(router, dest, expected):
+        logger.info("Checking for connected")
+        output = json.loads(router.vtysh_cmd("show ipv6 route {} json".format(dest)))
+        return topotest.json_cmp(output, expected)
+
+    expected = open_json_file(os.path.join(CWD, "{}/routes_setup.json".format("r1")))
+    test_func = partial(check_connected, r1, "2001::/64", expected)
+    success, result = topotest.run_and_expect(test_func, None, count=20, wait=1)
+    assert result is None, "Failed to fully setup connected routes needed"
+
     manifests = open_json_file(os.path.join(CWD, "{}/routes.json".format("r1")))
     for manifest in manifests:
         dest = manifest["in"]["dest"]
