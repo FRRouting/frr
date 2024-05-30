@@ -28,6 +28,7 @@ XREF_SETUP();
 DEFINE_HOOK(agentx_enabled, (), ());
 
 static bool agentx_enabled = false;
+static int agentx_send_without_read = 0;
 
 static struct event_loop *agentx_tm;
 static struct event *timeout_thr = NULL;
@@ -43,40 +44,36 @@ static void agentx_timeout(struct event *t)
 	agentx_events_update();
 }
 
-static void agentx_read(struct event *t)
+static int agentx_read_now(int fd)
 {
 	netsnmp_large_fd_set lfds;
 	int flags, new_flags = 0;
 	int nonblock = false;
-	struct listnode *ln = EVENT_ARG(t);
-	struct event **thr = listgetdata(ln);
-	XFREE(MTYPE_TMP, thr);
-	list_delete_node(events, ln);
 
 	/* fix for non blocking socket */
-	flags = fcntl(EVENT_FD(t), F_GETFL, 0);
+	flags = fcntl(fd, F_GETFL, 0);
 	if (-1 == flags) {
 		flog_err(EC_LIB_SYSTEM_CALL, "Failed to get FD settings fcntl: %s(%d)",
 			 strerror(errno), errno);
-		return;
+		return -1;
 	}
 
 	if (flags & O_NONBLOCK)
 		nonblock = true;
 	else
-		new_flags = fcntl(EVENT_FD(t), F_SETFL, flags | O_NONBLOCK);
+		new_flags = fcntl(fd, F_SETFL, flags | O_NONBLOCK);
 
 	if (new_flags == -1)
 		flog_err(EC_LIB_SYSTEM_CALL, "Failed to set snmp fd non blocking: %s(%d)",
 			 strerror(errno), errno);
 
 	netsnmp_large_fd_set_init(&lfds, FD_SETSIZE);
-	netsnmp_large_fd_setfd(t->u.fd, &lfds);
+	netsnmp_large_fd_setfd(fd, &lfds);
 	snmp_read2(&lfds);
 
 	/* Reset the flag */
 	if (!nonblock) {
-		new_flags = fcntl(EVENT_FD(t), F_SETFL, flags);
+		new_flags = fcntl(fd, F_SETFL, flags);
 
 		if (new_flags == -1)
 			flog_err(
@@ -86,8 +83,26 @@ static void agentx_read(struct event *t)
 	}
 
 	netsnmp_check_outstanding_agent_requests();
-	agentx_events_update();
 	netsnmp_large_fd_set_cleanup(&lfds);
+
+	return 0;
+}
+
+static void agentx_read(struct event *t)
+{
+	struct listnode *ln = EVENT_ARG(t);
+	int res = 0;
+	struct event **thr = listgetdata(ln);
+
+	XFREE(MTYPE_TMP, thr);
+	list_delete_node(events, ln);
+
+	res = agentx_read_now(EVENT_FD(t));
+	if (res)
+		return;
+
+	agentx_send_without_read = 0;
+	agentx_events_update();
 }
 
 static void agentx_events_update(void)
@@ -98,6 +113,7 @@ static void agentx_events_update(void)
 	netsnmp_large_fd_set lfds;
 	struct listnode *ln;
 	struct event **thr;
+	struct listnode *newln;
 	int fd, thr_fd;
 
 	event_cancel(&timeout_thr);
@@ -126,19 +142,24 @@ static void agentx_events_update(void)
 				XFREE(MTYPE_TMP, thr);
 				list_delete_node(events, ln);
 			}
+			else
+				if (agentx_send_without_read > 100) {
+					agentx_read_now(thr_fd);
+				}
 			ln = nextln;
 			thr = ln ? listgetdata(ln) : NULL;
 			thr_fd = thr ? EVENT_FD(*thr) : -1;
 		}
 		/* need listener, but haven't hit one where it would be */
 		else if (netsnmp_large_fd_is_set(fd, &lfds)) {
-			struct listnode *newln;
 
 			thr = XCALLOC(MTYPE_TMP, sizeof(struct event *));
 			newln = listnode_add_before(events, ln, thr);
 			event_add_read(agentx_tm, agentx_read, newln, fd, thr);
 		}
 	}
+	if (agentx_send_without_read>100)
+		agentx_send_without_read = 0;
 
 	/* leftover event listeners at this point have fd > maxfd, delete them
 	 */
@@ -392,6 +413,7 @@ int smux_trap_multi_index(struct variable *vp, size_t vp_len, const oid *ename,
 
 	send_v2trap(notification_vars);
 	snmp_free_varbind(notification_vars);
+	agentx_send_without_read++;
 	agentx_events_update();
 	return 1;
 }
