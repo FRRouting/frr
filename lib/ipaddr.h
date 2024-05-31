@@ -40,8 +40,9 @@ struct ipaddr {
 #define IS_IPADDR_V4(p)   ((p)->ipa_type == IPADDR_V4)
 #define IS_IPADDR_V6(p)   ((p)->ipa_type == IPADDR_V6)
 
-#define SET_IPADDR_V4(p)  (p)->ipa_type = IPADDR_V4
-#define SET_IPADDR_V6(p)  (p)->ipa_type = IPADDR_V6
+#define SET_IPADDR_NONE(p) ((p)->ipa_type = IPADDR_NONE)
+#define SET_IPADDR_V4(p)   ((p)->ipa_type = IPADDR_V4)
+#define SET_IPADDR_V6(p)   ((p)->ipa_type = IPADDR_V6)
 
 #define IPADDRSZ(p)                                                            \
 	(IS_IPADDR_V4((p)) ? sizeof(struct in_addr) : sizeof(struct in6_addr))
