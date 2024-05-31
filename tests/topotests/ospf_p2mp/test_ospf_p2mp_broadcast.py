@@ -9,6 +9,7 @@
 
 import os
 import sys
+from time import sleep
 from functools import partial
 import pytest
 
@@ -113,7 +114,9 @@ def teardown_module():
     tgen.stop_topology()
 
 
-def verify_p2mp_interface(tgen, router, nbr_cnt, nbr_adj_cnt, nbr_filter):
+def verify_p2mp_interface(
+    tgen, router, nbr_cnt, nbr_adj_cnt, delay_reflood, nbr_filter
+):
     "Verify the P2MP Configuration and interface settings"
 
     topo_router = tgen.gears[router]
@@ -147,7 +150,7 @@ def verify_p2mp_interface(tgen, router, nbr_cnt, nbr_adj_cnt, nbr_filter):
                 "nbrCount": nbr_cnt,
                 "nbrAdjacentCount": nbr_adj_cnt,
                 "prefixSuppression": False,
-                "p2mpDelayReflood": False,
+                "p2mpDelayReflood": delay_reflood,
                 "nbrFilterPrefixList": nbr_filter,
             }
         }
@@ -280,7 +283,7 @@ def test_p2mp_broadcast_interface():
         pytest.skip("Skipped because of router(s) failure")
 
     step("Verify router r1 interface r1-eth0 p2mp configuration")
-    verify_p2mp_interface(tgen, "r1", 3, 3, "N/A")
+    verify_p2mp_interface(tgen, "r1", 3, 3, False, "N/A")
 
     step("Verify router r1 p2mp interface r1-eth0 neighbors")
     verify_p2mp_neighbor(
@@ -305,7 +308,7 @@ def test_p2mp_broadcast_interface():
 
     step("Verify router r1 interface r1-eth0 p2mp configuration application")
     r1.vtysh_cmd("conf t\ninterface r1-eth0\nip ospf network point-to-multipoint")
-    verify_p2mp_interface(tgen, "r1", 3, 3, "N/A")
+    verify_p2mp_interface(tgen, "r1", 3, 3, False, "N/A")
 
     step("Verify restablishment of r1-eth0 p2mp neighbors")
     verify_p2mp_neighbor(
@@ -324,14 +327,14 @@ def test_p2mp_broadcast_interface():
     verify_p2mp_route(tgen, "r1", "10.1.4.0/24", 24, "10.1.0.4", "r1-eth0")
 
 
-def test_p2mp_broadcast_neighbor_filter():
+def p2mp_broadcast_neighbor_filter_common(delay_reflood):
     tgen = get_topogen()
 
     if tgen.routers_have_failure():
         pytest.skip("Skipped because of router(s) failure")
 
     step("Verify router r1 interface r1-eth0 p2mp configuration")
-    verify_p2mp_interface(tgen, "r1", 3, 3, "N/A")
+    verify_p2mp_interface(tgen, "r1", 3, 3, delay_reflood, "N/A")
 
     step("Verify router r1 p2mp interface r1-eth0 neighbors")
     verify_p2mp_neighbor(
@@ -362,7 +365,7 @@ def test_p2mp_broadcast_neighbor_filter():
     assert neighbor_filter_cfg == " ip ospf neighbor-filter nbr-filter", assertmsg
 
     step("Verify non-existent neighbor-filter is not applied to r1 interfaces")
-    verify_p2mp_interface(tgen, "r1", 3, 3, "N/A")
+    verify_p2mp_interface(tgen, "r1", 3, 3, delay_reflood, "N/A")
 
     step("Add nbr-filter prefix-list configuration to r1")
     r1.vtysh_cmd("conf t\nip prefix-list nbr-filter seq 200 permit any")
@@ -370,7 +373,7 @@ def test_p2mp_broadcast_neighbor_filter():
     step(
         "Verify neighbor-filter is now applied to r1 interface and neighbors still adjacent"
     )
-    verify_p2mp_interface(tgen, "r1", 3, 3, "nbr-filter")
+    verify_p2mp_interface(tgen, "r1", 3, 3, delay_reflood, "nbr-filter")
 
     step("Add nbr-filter prefix-list configuration to block r4")
     r1.vtysh_cmd("conf t\nip prefix-list nbr-filter seq 10 deny 10.1.0.4/32")
@@ -378,7 +381,7 @@ def test_p2mp_broadcast_neighbor_filter():
     step(
         "Verify neighbor-filter is now applied to r1 interface and r4 is no longer adjacent"
     )
-    verify_p2mp_interface(tgen, "r1", 2, 2, "nbr-filter")
+    verify_p2mp_interface(tgen, "r1", 2, 2, delay_reflood, "nbr-filter")
     verify_p2mp_neighbor_missing(tgen, "r1", "4.4.4.4")
 
     step("Verify route to r4 subnet is now through r2")
@@ -390,7 +393,7 @@ def test_p2mp_broadcast_neighbor_filter():
     step(
         "Verify neighbor-filter is now applied to r1 interface and r2 is no longer adjacent"
     )
-    verify_p2mp_interface(tgen, "r1", 1, 1, "nbr-filter")
+    verify_p2mp_interface(tgen, "r1", 1, 1, delay_reflood, "nbr-filter")
     verify_p2mp_neighbor_missing(tgen, "r1", "2.2.2.2")
 
     step("Verify route to r4 and r2 subnet are now through r3")
@@ -406,24 +409,105 @@ def test_p2mp_broadcast_neighbor_filter():
     assert rc, assertmsg
 
     step("Verify interface neighbor-filter is removed and neighbors present")
-    verify_p2mp_interface(tgen, "r1", 3, 3, "N/A")
+    verify_p2mp_interface(tgen, "r1", 3, 3, delay_reflood, "N/A")
 
     step("Add neighbor filter configuration and verify neighbors are filtered")
     r1.vtysh_cmd("conf t\ninterface r1-eth0\nip ospf neighbor-filter nbr-filter")
-    verify_p2mp_interface(tgen, "r1", 1, 1, "nbr-filter")
+    verify_p2mp_interface(tgen, "r1", 1, 1, delay_reflood, "nbr-filter")
     verify_p2mp_neighbor_missing(tgen, "r1", "2.2.2.2")
     verify_p2mp_neighbor_missing(tgen, "r1", "4.4.4.4")
 
     step("Remove nbr-filter prefix-list configuration to block r2 and verify neighbor")
     r1.vtysh_cmd("conf t\nno ip prefix-list nbr-filter seq 20")
-    verify_p2mp_interface(tgen, "r1", 2, 2, "nbr-filter")
+    verify_p2mp_interface(tgen, "r1", 2, 2, delay_reflood, "nbr-filter")
     verify_p2mp_neighbor(
         tgen, "r1", "2.2.2.2", "Full/DROther", "10.1.0.2", "r1-eth0:10.1.0.1"
     )
 
     step("Delete nbr-filter prefix-list and verify neighbors are present")
     r1.vtysh_cmd("conf t\nno ip prefix-list nbr-filter")
-    verify_p2mp_interface(tgen, "r1", 3, 3, "N/A")
+    verify_p2mp_interface(tgen, "r1", 3, 3, delay_reflood, "N/A")
+
+
+def test_p2mp_broadcast_neighbor_filter():
+    p2mp_broadcast_neighbor_filter_common(False)
+
+
+def test_p2mp_broadcast_neighbor_filter_delay_reflood():
+    tgen = get_topogen()
+
+    if tgen.routers_have_failure():
+        pytest.skip("Skipped because of router(s) failure")
+
+    step("Modify router r1 interface r1-eth0 p2mp delay-reflood configuration")
+    r1 = tgen.gears["r1"]
+    r1.vtysh_cmd(
+        "conf t\ninterface r1-eth0\nip ospf network point-to-multipoint delay-reflood"
+    )
+    verify_p2mp_interface(tgen, "r1", 3, 3, True, "N/A")
+
+    step("Modify router r2 interface r2-eth0 p2mp delay-reflood configuration")
+    r2 = tgen.gears["r2"]
+    r2.vtysh_cmd(
+        "conf t\ninterface r2-eth0\nip ospf network point-to-multipoint delay-reflood"
+    )
+
+    step("Modify router r3 interface r3-eth0 p2mp delay-reflood configuration")
+    r3 = tgen.gears["r3"]
+    r3.vtysh_cmd(
+        "conf t\ninterface r3-eth0\nip ospf network point-to-multipoint delay-reflood"
+    )
+
+    step("Modify router r4 interface r4-eth0 p2mp delay-reflood configuration")
+    r4 = tgen.gears["r4"]
+    r4.vtysh_cmd(
+        "conf t\ninterface r4-eth0\nip ospf network point-to-multipoint delay-reflood"
+    )
+
+    p2mp_broadcast_neighbor_filter_common(True)
+
+    step("Recreate a partial P2MP mesh with neighbor filters")
+    step("Add nbr-filter prefix-list configuration to block r4")
+    r1.vtysh_cmd("conf t\nip prefix-list nbr-filter seq 30 permit any")
+    r1.vtysh_cmd("conf t\nip prefix-list nbr-filter seq 10 deny 10.1.0.3/32")
+    r1.vtysh_cmd("conf t\nip prefix-list nbr-filter seq 20 deny 10.1.0.4/32")
+    r1.vtysh_cmd("conf t\ninterface r1-eth0\nip ospf neighbor-filter nbr-filter")
+
+    r2.vtysh_cmd("conf t\nip prefix-list nbr-filter seq 30 permit any")
+    r2.vtysh_cmd("conf t\nip prefix-list nbr-filter seq 10 deny 10.1.0.4/32")
+    r2.vtysh_cmd("conf t\ninterface r2-eth0\nip ospf neighbor-filter nbr-filter")
+
+    r3.vtysh_cmd("conf t\nip prefix-list nbr-filter seq 30 permit any")
+    r3.vtysh_cmd("conf t\nip prefix-list nbr-filter seq 10 deny 10.1.0.1/32")
+    r3.vtysh_cmd("conf t\ninterface r3-eth0\nip ospf neighbor-filter nbr-filter")
+
+    r4.vtysh_cmd("conf t\nip prefix-list nbr-filter seq 30 permit any")
+    r4.vtysh_cmd("conf t\nip prefix-list nbr-filter seq 10 deny 10.1.0.1/32")
+    r4.vtysh_cmd("conf t\nip prefix-list nbr-filter seq 20 deny 10.1.0.2/32")
+    r4.vtysh_cmd("conf t\ninterface r4-eth0\nip ospf neighbor-filter nbr-filter")
+
+    step(
+        "Add redistribution and spaced static routes to r1 to test delay flood retransmission"
+    )
+    r1.vtysh_cmd("conf t\nrouter ospf\nredistribute static")
+    r1.vtysh_cmd("conf t\nip route 20.1.1.1/32 null0")
+    sleep(1)
+    r1.vtysh_cmd("conf t\nip route 20.1.1.2/32 null0")
+    sleep(1)
+    r1.vtysh_cmd("conf t\nip route 20.1.1.3/32 null0")
+    sleep(1)
+    r1.vtysh_cmd("conf t\nip route 20.1.1.4/32 null0")
+    sleep(1)
+    r1.vtysh_cmd("conf t\nip route 20.1.1.5/32 null0")
+    sleep(1)
+
+    step(
+        "Verify the routes are installed on r1 with delay-reflood in P2MP partial mesh"
+    )
+    verify_p2mp_route(tgen, "r4", "20.1.1.1/32", 32, "10.1.0.3", "r4-eth0")
+    verify_p2mp_route(tgen, "r4", "20.1.1.2/32", 32, "10.1.0.3", "r4-eth0")
+    verify_p2mp_route(tgen, "r4", "20.1.1.3/32", 32, "10.1.0.3", "r4-eth0")
+    verify_p2mp_route(tgen, "r4", "20.1.1.4/32", 32, "10.1.0.3", "r4-eth0")
 
 
 def test_memory_leak():

@@ -292,54 +292,66 @@ void ospf_ls_req_event(struct ospf_neighbor *nbr)
 	event_add_event(master, ospf_ls_req_timer, nbr, 0, &nbr->t_ls_req);
 }
 
-/* Cyclic timer function.  Fist registered in ospf_nbr_new () in
-   ospf_neighbor.c  */
-void ospf_ls_upd_timer(struct event *thread)
+/*
+ * OSPF neighbor link state retransmission timer handler. Unicast
+ * unacknowledged LSAs to the neigbhors.
+ */
+void ospf_ls_rxmt_timer(struct event *thread)
 {
 	struct ospf_neighbor *nbr;
+	int retransmit_interval, retransmit_window, rxmt_lsa_count = 0;
 
 	nbr = EVENT_ARG(thread);
-	nbr->t_ls_upd = NULL;
+	nbr->t_ls_rxmt = NULL;
+	retransmit_interval = nbr->v_ls_rxmt;
+	retransmit_window = OSPF_IF_PARAM(nbr->oi, retransmit_window);
 
 	/* Send Link State Update. */
 	if (ospf_ls_retransmit_count(nbr) > 0) {
+		struct ospf_lsa_list_entry *ls_rxmt_list_entry;
+		struct timeval current_time, latest_rxmt_time, next_rxmt_time;
+		struct timeval rxmt_interval = { retransmit_interval, 0 };
+		struct timeval rxmt_window;
 		struct list *update;
-		struct ospf_lsdb *lsdb;
-		int i;
-		int retransmit_interval;
 
-		retransmit_interval =
-			OSPF_IF_PARAM(nbr->oi, retransmit_interval);
+		/*
+		 * Set the retransmission window based on the configured value
+		 * in milliseconds.
+		 */
+		rxmt_window.tv_sec = retransmit_window / 1000;
+		rxmt_window.tv_usec = (retransmit_window % 1000) * 1000;
 
-		lsdb = &nbr->ls_rxmt;
+		/*
+		 * Calculate the latest retransmit time for LSAs transmited in
+		 * this timer pass by adding the retransmission window to the
+		 * current time. Calculate the next retransmission time by adding
+		 * the retransmit interval to the current time.
+		 */
+		monotime(&current_time);
+		timeradd(&current_time, &rxmt_window, &latest_rxmt_time);
+		timeradd(&current_time, &rxmt_interval, &next_rxmt_time);
+
 		update = list_new();
+		while ((ls_rxmt_list_entry =
+				ospf_lsa_list_first(&nbr->ls_rxmt_list))) {
+			if (timercmp(&ls_rxmt_list_entry->list_entry_time,
+				     &latest_rxmt_time, >))
+				break;
 
-		for (i = OSPF_MIN_LSA; i < OSPF_MAX_LSA; i++) {
-			struct route_table *table = lsdb->type[i].db;
-			struct route_node *rn;
+			listnode_add(update, ls_rxmt_list_entry->lsa);
+			rxmt_lsa_count++;
 
-			for (rn = route_top(table); rn; rn = route_next(rn)) {
-				struct ospf_lsa *lsa;
-
-				if ((lsa = rn->info) != NULL) {
-					/* Don't retransmit an LSA if we
-					  received it within
-					  the last RxmtInterval seconds - this
-					  is to allow the
-					  neighbour a chance to acknowledge the
-					  LSA as it may
-					  have ben just received before the
-					  retransmit timer
-					  fired.  This is a small tweak to what
-					  is in the RFC,
-					  but it will cut out out a lot of
-					  retransmit traffic
-					  - MAG */
-					if (monotime_since(&lsa->tv_recv, NULL)
-					    >= retransmit_interval * 1000000LL)
-						listnode_add(update, rn->info);
-				}
-			}
+			/*
+			 * Set the next retransmit time for the LSA and move it
+			 * to the end of the neighbor's retransmission list.
+			 */
+			ls_rxmt_list_entry->list_entry_time = next_rxmt_time;
+			ospf_lsa_list_del(&nbr->ls_rxmt_list,
+					  ls_rxmt_list_entry);
+			ospf_lsa_list_add_tail(&nbr->ls_rxmt_list,
+					       ls_rxmt_list_entry);
+			nbr->ls_rxmt_lsa++;
+			nbr->oi->ls_rxmt_lsa++;
 		}
 
 		if (listcount(update) > 0)
@@ -348,8 +360,13 @@ void ospf_ls_upd_timer(struct event *thread)
 		list_delete(&update);
 	}
 
+	if (IS_DEBUG_OSPF_EVENT)
+		zlog_debug("RXmtL(%lu) NBR(%pI4(%s)) timer event - sent %u LSAs",
+			   ospf_ls_retransmit_count(nbr), &nbr->router_id,
+			   ospf_get_name(nbr->oi->ospf), rxmt_lsa_count);
+
 	/* Set LS Update retransmission timer. */
-	OSPF_NSM_TIMER_ON(nbr->t_ls_upd, ospf_ls_upd_timer, nbr->v_ls_upd);
+	ospf_ls_retransmit_set_timer(nbr);
 }
 
 void ospf_ls_ack_timer(struct event *thread)
