@@ -166,6 +166,12 @@ static inline bool ipaddr_is_zero(const struct ipaddr *ip)
 	return true;
 }
 
+static inline bool ipaddr_is_same(const struct ipaddr *ip1,
+				  const struct ipaddr *ip2)
+{
+	return ipaddr_cmp(ip1, ip2) == 0;
+}
+
 #ifdef _FRR_ATTRIBUTE_PRINTFRR
 #pragma FRR printfrr_ext "%pIA"  (struct ipaddr *)
 #endif
