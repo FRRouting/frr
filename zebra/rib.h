@@ -633,6 +633,7 @@ extern void
 zebra_route_notify_job_owner_list_enqueue(struct route_node *rn,
 					  const struct zebra_dplane_ctx *ctx,
 					  enum zapi_route_notify_owner note);
+extern void zebra_route_notification_information_display(struct vty *vty);
 
 extern pid_t pid;
 

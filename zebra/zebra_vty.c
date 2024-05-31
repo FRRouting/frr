@@ -4152,6 +4152,18 @@ DEFUN (zebra_show_routing_tables_summary,
 	return CMD_SUCCESS;
 }
 
+/* Display route notification information */
+DEFUN(show_debugging_route_notification,
+      show_debugging_route_notification_cmd,
+      "show debugging route-notification",
+      SHOW_STR
+      DEBUG_STR
+      "Display route notification information\n")
+{
+	zebra_route_notification_information_display(vty);
+	return CMD_SUCCESS;
+}
+
 /* Table configuration write function. */
 static int config_write_table(struct vty *vty)
 {
@@ -4475,4 +4487,5 @@ void zebra_vty_init(void)
 #endif /* HAVE_SCRIPTING */
 
 	install_element(VIEW_NODE, &zebra_show_routing_tables_summary_cmd);
+	install_element(VIEW_NODE, &show_debugging_route_notification_cmd);
 }

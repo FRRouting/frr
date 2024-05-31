@@ -5319,3 +5319,15 @@ struct route_table *rib_tables_iter_next(rib_tables_iter_t *iter)
 
 	return table;
 }
+
+void zebra_route_notification_information_display(struct vty *vty)
+{
+	vty_out(vty,
+		"Route notify owner list count %u, processed %u, max per batch %u\n",
+		zebra_route_notify_job_owner_list_num,
+		zebra_route_notify_job_owner_list_processed,
+		zebra_route_notify_job_owner_list_max_batch);
+	vty_out(vty, "Process Notify Client list count %u, processed %u\n",
+		zebra_process_notify_client_list_num,
+		zebra_process_notify_client_list_processed);
+}
