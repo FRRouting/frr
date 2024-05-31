@@ -10,36 +10,46 @@ import argparse
 import logging
 import os
 import sys
+import tempfile
 
 import pytest
 
 CWD = os.path.dirname(os.path.realpath(__file__))
 
-# This is painful but works if you have installed grpc and grpc_tools would be *way*
-# better if we actually built and installed these but ... python packaging.
 try:
-    import grpc_tools
+    # Make sure we don't run-into ourselves in parallel operating environment
+    tmpdir = tempfile.mkdtemp(prefix="grpc-client-")
 
-    import grpc
+    # This is painful but works if you have installed grpc and grpc_tools would be *way*
+    # better if we actually built and installed these but ... python packaging.
+    try:
+        import grpc_tools
+        from munet.base import commander
 
-    sys.path.append(os.path.dirname(CWD))
-    from munet.base import commander
+        import grpc
 
-    commander.cmd_raises(f"cp {CWD}/../../../grpc/frr-northbound.proto .")
-    commander.cmd_raises(
-        "python3 -m grpc_tools.protoc --python_out=. --grpc_python_out=. -I . frr-northbound.proto"
-    )
-except Exception as error:
-    logging.error("can't create proto definition modules %s", error)
-    raise
+        commander.cmd_raises(f"cp {CWD}/../../../grpc/frr-northbound.proto .")
+        commander.cmd_raises(
+            "python3 -m grpc_tools.protoc"
+            f" --python_out={tmpdir} --grpc_python_out={tmpdir}"
+            f" -I {CWD}/../../../grpc frr-northbound.proto"
+        )
+    except Exception as error:
+        logging.error("can't create proto definition modules %s", error)
+        raise
 
-try:
-    sys.path[0:0] = "."
-    import frr_northbound_pb2
-    import frr_northbound_pb2_grpc
-except Exception as error:
-    logging.error("can't import proto definition modules %s", error)
-    raise
+    try:
+        sys.path[0:0] = [tmpdir]
+        print(sys.path)
+        import frr_northbound_pb2
+        import frr_northbound_pb2_grpc
+
+        sys.path = sys.path[1:]
+    except Exception as error:
+        logging.error("can't import proto definition modules %s", error)
+        raise
+finally:
+    commander.cmd_nostatus(f"rm -rf {tmpdir}")
 
 
 class GRPCClient:

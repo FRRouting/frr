@@ -262,7 +262,7 @@ def main():
                 capture_output=True,
             )
         except subprocess.CalledProcessError:
-            print(f"{docker_bin} container '{contid}' does not exist")
+            logging.critical(f"{docker_bin} container '{contid}' does not exist")
             sys.exit(1)
         # If you need container info someday...
         # cont_info = json.loads(p.stdout)
@@ -278,7 +278,7 @@ def main():
     if scount and args.results and not os.path.exists(args.results):
         if not contid:
             if not os.path.exists(cppath):
-                print(f"'{cppath}' doesn't exist to save")
+                logging.critical(f"'{cppath}' doesn't exist to save")
                 sys.exit(1)
             if args.save_xml:
                 subprocess.run(["cp", cppath, args.results])
@@ -294,7 +294,7 @@ def main():
                     capture_output=True,
                 )
             except subprocess.CalledProcessError as error:
-                print(f"Can't {docker_bin} cp '{cppath}': %s", str(error))
+                logging.critical(f"Can't {docker_bin} cp '{cppath}': %s", str(error))
                 sys.exit(1)
 
         if "SUDO_USER" in os.environ:
@@ -303,7 +303,7 @@ def main():
         # User doesn't want to save results just use them inplace
         if not contid:
             if not os.path.exists(cppath):
-                print(f"'{cppath}' doesn't exist")
+                logging.critical(f"'{cppath}' doesn't exist")
                 sys.exit(1)
             args.results = cppath
         else:
@@ -321,7 +321,7 @@ def main():
                     capture_output=True,
                 )
             except subprocess.CalledProcessError as error:
-                print(f"Can't {docker_bin} cp '{cppath}': %s", str(error))
+                logging.critical(f"Can't {docker_bin} cp '{cppath}': %s", str(error))
                 sys.exit(1)
             args.results = tresname
 

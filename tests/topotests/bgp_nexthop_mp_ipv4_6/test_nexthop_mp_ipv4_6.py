@@ -32,7 +32,7 @@ pytestmark = [pytest.mark.bgpd, pytest.mark.isisd]
 
 
 def build_topo(tgen):
-    """
+    r"""
                  +---+
                  | h1|
                  +---+

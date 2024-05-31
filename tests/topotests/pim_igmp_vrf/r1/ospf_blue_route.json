@@ -1,0 +1,54 @@
+{
+  "blue": {
+    "vrfName": "blue",
+    "192.168.0.1/32": {
+      "routeType": "N",
+      "transit": false,
+      "cost": 0,
+      "area": "0.0.0.0",
+      "nexthops": [
+        {
+          "ip": " ",
+          "directlyAttachedTo": "blue"
+        }
+      ]
+    },
+    "192.168.0.11/32": {
+      "routeType": "N",
+      "transit": false,
+      "cost": 10,
+      "area": "0.0.0.0",
+      "nexthops": [
+        {
+          "ip": "192.168.101.11",
+          "via": "r1-eth1",
+          "advertisedRouter": "192.168.0.11"
+        }
+      ]
+    },
+    "192.168.100.0/24": {
+      "routeType": "N",
+      "transit": false,
+      "cost": 10,
+      "area": "0.0.0.0",
+      "nexthops": [
+        {
+          "ip": " ",
+          "directlyAttachedTo": "r1-eth0"
+        }
+      ]
+    },
+    "192.168.101.0/24": {
+      "routeType": "N",
+      "transit": true,
+      "cost": 10,
+      "area": "0.0.0.0",
+      "nexthops": [
+        {
+          "ip": " ",
+          "directlyAttachedTo": "r1-eth1"
+        }
+      ]
+    }
+  }
+}
