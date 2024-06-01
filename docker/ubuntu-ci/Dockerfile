@@ -23,13 +23,17 @@ RUN apt update && apt upgrade -y && \
             libreadline-dev \
             libsnmp-dev \
             libsqlite3-dev \
+            lsb-release \
             libtool \
+            lcov \
             make \
             perl \
             pkg-config \
             python3-dev \
             python3-sphinx \
+            screen \
             texinfo \
+            tmux \
     && \
     # Protobuf build requirements
     apt-get install -y \
@@ -89,18 +93,14 @@ RUN groupadd -r -g 92 frr && \
       echo 'frr ALL = NOPASSWD: ALL' | tee /etc/sudoers.d/frr && \
       mkdir -p /home/frr && chown frr.frr /home/frr
 
-USER frr:frr
+# Install FRR built packages
+RUN mkdir -p /etc/apt/keyrings && \
+    curl -s -o /etc/apt/keyrings/frrouting.gpg https://deb.frrouting.org/frr/keys.gpg && \
+    echo deb '[signed-by=/etc/apt/keyrings/frrouting.gpg]' https://deb.frrouting.org/frr \
+        $(lsb_release -s -c) "frr-stable" > /etc/apt/sources.list.d/frr.list && \
+    apt-get update && apt-get install -y librtr-dev libyang2-dev libyang2-tools
 
-# build and install libyang2
-RUN cd && pwd && ls -al && \
-    git clone https://github.com/CESNET/libyang.git && \
-    cd libyang && \
-    git checkout v2.1.128 && \
-    mkdir build; cd build && \
-    cmake -DCMAKE_INSTALL_PREFIX:PATH=/usr \
-          -DCMAKE_BUILD_TYPE:String="Release" .. && \
-    make -j $(nproc) && \
-    sudo make install
+USER frr:frr
 
 COPY --chown=frr:frr . /home/frr/frr/
 
@@ -111,6 +111,10 @@ RUN cd ~/frr && \
        --sysconfdir=/etc \
        --localstatedir=/var \
        --sbindir=/usr/lib/frr \
+       --enable-gcov \
+       --enable-dev-build \
+       --enable-mgmtd-test-be-client \
+       --enable-rpki \
        --enable-sharpd \
        --enable-multipath=64 \
        --enable-user=frr \
