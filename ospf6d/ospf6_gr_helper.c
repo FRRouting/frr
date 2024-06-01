@@ -176,6 +176,7 @@ static int ospf6_extract_grace_lsa_fields(struct ospf6_lsa *lsa,
 				return OSPF6_FAILURE;
 			break;
 		default:
+			sum += TLV_SIZE(tlvh);
 			if (IS_DEBUG_OSPF6_GR)
 				zlog_debug("%s, Ignoring unknown TLV type:%d",
 					   __func__, ntohs(tlvh->type));
