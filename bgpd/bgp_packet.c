@@ -560,40 +560,37 @@ void bgp_generate_updgrp_packets(struct event *thread)
 					}
 				}
 
-				if (CHECK_FLAG(peer->cap,
-					       PEER_CAP_RESTART_RCV)) {
-					if (!(PAF_SUBGRP(paf))->t_coalesce
-					    && peer->afc_nego[afi][safi]
-					    && peer->synctime
-					    && !CHECK_FLAG(
-						    peer->af_sflags[afi][safi],
-						    PEER_STATUS_EOR_SEND)) {
-						/* If EOR is disabled,
-						 * the message is  not sent
-						 */
-						if (BGP_SEND_EOR(peer->bgp, afi,
-								 safi)) {
-							SET_FLAG(
-								peer->af_sflags
-									[afi]
-									[safi],
-								PEER_STATUS_EOR_SEND);
+				/* rfc4724 says:
+				 *   Although the End-of-RIB marker is
+				 *   specified for the purpose of BGP
+				 *   graceful restart, it is noted that
+				 *   the generation of such a marker upon
+				 *   completion of the initial update would
+				 *   be useful for routing convergence in
+				 *   general, and thus the practice is
+				 *   recommended.
+				 */
+				if (!(PAF_SUBGRP(paf))->t_coalesce &&
+				    peer->afc_nego[afi][safi] &&
+				    peer->synctime &&
+				    !CHECK_FLAG(peer->af_sflags[afi][safi],
+						PEER_STATUS_EOR_SEND)) {
+					/* If EOR is disabled, the message is
+					 * not sent.
+					 */
+					if (!BGP_SEND_EOR(peer->bgp, afi, safi))
+						continue;
 
-							/* Update EOR
-							 * send time
-							 */
-							peer->eor_stime[afi]
-								       [safi] =
-								monotime(NULL);
+					SET_FLAG(peer->af_sflags[afi][safi],
+						 PEER_STATUS_EOR_SEND);
 
-							BGP_UPDATE_EOR_PKT(
-								peer, afi, safi,
-								s);
-							bgp_process_pending_refresh(
-								peer, afi,
-								safi);
-						}
-					}
+					/* Update EOR send time */
+					peer->eor_stime[afi][safi] =
+						monotime(NULL);
+
+					BGP_UPDATE_EOR_PKT(peer, afi, safi, s);
+					bgp_process_pending_refresh(peer, afi,
+								    safi);
 				}
 				continue;
 			}
