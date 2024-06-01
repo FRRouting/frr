@@ -457,8 +457,6 @@ struct gm_source *igmp_get_source_by_addr(struct gm_group *group,
 
 	listnode_add(group->group_source_list, src);
 
-	/* Any source (*,G) is forwarded only if mode is EXCLUDE {empty} */
-	igmp_anysource_forward_stop(group);
 	return src;
 }
 
