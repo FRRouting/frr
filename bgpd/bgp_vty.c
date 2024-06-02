@@ -1760,10 +1760,10 @@ DEFPY (bgp_session_dscp,
        bgp_session_dscp_cmd,
        "bgp session-dscp (0-63)$dscp",
        BGP_STR
-       "Override default (C6) bgp TCP session DSCP value\n"
-       "Manually configured dscp parameter\n")
+       "Override default (CS6) DSCP for BGP connections\n"
+       "Manually configured DSCP value\n")
 {
-	bm->tcp_dscp = dscp << 2;
+	bm->ip_tos = dscp << 2;
 
 	return CMD_SUCCESS;
 }
@@ -1773,10 +1773,10 @@ DEFPY (no_bgp_session_dscp,
        "no bgp session-dscp [(0-63)]",
        NO_STR
        BGP_STR
-       "Override default (C6) bgp TCP session DSCP value\n"
-       "Manually configured dscp parameter\n")
+       "Override default (CS6) DSCP for BGP connections\n"
+       "Manually configured DSCP value\n")
 {
-	bm->tcp_dscp = IPTOS_PREC_INTERNETCONTROL;
+	bm->ip_tos = IPTOS_PREC_INTERNETCONTROL;
 
 	return CMD_SUCCESS;
 }
@@ -19191,9 +19191,9 @@ int bgp_config_write(struct vty *vty)
 	if (CHECK_FLAG(bm->flags, BM_FLAG_SEND_EXTRA_DATA_TO_ZEBRA))
 		vty_out(vty, "bgp send-extra-data zebra\n");
 
-	/* BGP session DSCP value */
-	if (bm->tcp_dscp != IPTOS_PREC_INTERNETCONTROL)
-		vty_out(vty, "bgp session-dscp %u\n", bm->tcp_dscp >> 2);
+	/* DSCP value for outgoing packets in BGP connections */
+	if (bm->ip_tos != IPTOS_PREC_INTERNETCONTROL)
+		vty_out(vty, "bgp session-dscp %u\n", bm->ip_tos >> 2);
 
 	/* BGP InQ limit */
 	if (bm->inq_limit != BM_DEFAULT_Q_LIMIT)

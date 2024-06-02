@@ -8375,7 +8375,7 @@ void bgp_master_init(struct event_loop *master, const int buffer_size,
 	bm->terminating = false;
 	bm->socket_buffer = buffer_size;
 	bm->wait_for_fib = false;
-	bm->tcp_dscp = IPTOS_PREC_INTERNETCONTROL;
+	bm->ip_tos = IPTOS_PREC_INTERNETCONTROL;
 	bm->inq_limit = BM_DEFAULT_Q_LIMIT;
 	bm->outq_limit = BM_DEFAULT_Q_LIMIT;
 	bm->t_bgp_sync_label_manager = NULL;

@@ -4933,8 +4933,8 @@ setting.
 
 .. clicmd:: bgp session-dscp (0-63)
 
-This command allows bgp to control, at a global level, the TCP dscp values
-in the TCP header.
+This command allows the BGP daemon to control, at a global level, the DSCP value
+used in outgoing packets for each BGP connection.
 
 .. _bgp-suppress-fib:
 

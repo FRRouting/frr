@@ -166,8 +166,8 @@ struct bgp_master {
 
 	bool terminating;	/* global flag that sigint terminate seen */
 
-	/* DSCP value for TCP sessions */
-	uint8_t tcp_dscp;
+	/* TOS value for outgoing packets in BGP connections */
+	uint8_t ip_tos;
 
 #define BM_DEFAULT_Q_LIMIT 10000
 	uint32_t inq_limit;
