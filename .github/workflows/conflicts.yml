@@ -1,9 +1,8 @@
 name: Add a conflict label if PR needs to rebase
 
 on:
-  push:
   pull_request_target:
-    types: [synchronize]
+    types: [opened, reopened, synchronize]
 
 jobs:
   conflicts:
