@@ -3721,7 +3721,8 @@ void vpn_leak_postchange_all(void)
 	struct bgp *bgp;
 	struct bgp *bgp_default = bgp_get_default();
 
-	assert(bgp_default);
+	if (!bgp_default)
+		return;
 
 	/* First, do any exporting from VRFs to the single VPN RIB */
 	for (ALL_LIST_ELEMENTS_RO(bm->bgp, next, bgp)) {
