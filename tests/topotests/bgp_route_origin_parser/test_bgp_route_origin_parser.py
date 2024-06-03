@@ -33,8 +33,12 @@ def build_topo(tgen):
 def setup_module(mod):
     tgen = Topogen(build_topo, mod.__name__)
     tgen.start_topology()
+
     pe1 = tgen.gears["pe1"]
-    pe1.load_config(TopoRouter.RD_BGP, os.path.join(CWD, "pe1/bgpd.conf"))
+    daemon_file = "{}/pe1/bgpd.conf".format(CWD)
+    if os.path.isfile(daemon_file):
+        pe1.load_config(TopoRouter.RD_BGP, daemon_file)
+
     tgen.start_router()
 
 

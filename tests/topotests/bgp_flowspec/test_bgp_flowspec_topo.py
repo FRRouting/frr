@@ -95,13 +95,16 @@ def setup_module(module):
 
     # Get r1 reference and run Daemons
     logger.info("Launching BGP and ZEBRA on r1")
+
     router = tgen.gears["r1"]
-    router.load_config(
-        TopoRouter.RD_ZEBRA, os.path.join(CWD, "{}/zebra.conf".format("r1"))
-    )
-    router.load_config(
-        TopoRouter.RD_BGP, os.path.join(CWD, "{}/bgpd.conf".format("r1"))
-    )
+    daemon_file = "{}/r1/zebra.conf".format(CWD)
+    if os.path.isfile(daemon_file):
+        router.load_config(TopoRouter.RD_ZEBRA, daemon_file)
+
+    daemon_file = "{}/r1/bgpd.conf".format(CWD)
+    if os.path.isfile(daemon_file):
+        router.load_config(TopoRouter.RD_BGP, daemon_file)
+
     router.start()
 
     peer_list = tgen.exabgp_peers()

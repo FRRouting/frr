@@ -119,24 +119,25 @@ def setup_module(mod):
     logger.info("setup_module")
 
     for rname, router in tgen.routers().items():
-        router.load_config(
-            TopoRouter.RD_ZEBRA, os.path.join(CWD, "{}/zebra.conf".format(rname))
-        )
+        daemon_file = "{}/{}/zebra.conf".format(CWD, rname)
+        if os.path.isfile(daemon_file):
+            router.load_config(TopoRouter.RD_ZEBRA, daemon_file)
+
         if "h" in rname:
             # hosts
             continue
 
-        router.load_config(
-            TopoRouter.RD_BGP, os.path.join(CWD, "{}/bgpd.conf".format(rname))
-        )
+        daemon_file = "{}/{}/bgpd.conf".format(CWD, rname)
+        if os.path.isfile(daemon_file):
+            router.load_config(TopoRouter.RD_BGP, daemon_file)
 
         if rname in ["r1", "r7", "r8", "rs1"]:
             # external routers
             continue
 
-        router.load_config(
-            TopoRouter.RD_ISIS, os.path.join(CWD, "{}/isisd.conf".format(rname))
-        )
+        daemon_file = "{}/{}/isisd.conf".format(CWD, rname)
+        if os.path.isfile(daemon_file):
+            router.load_config(TopoRouter.RD_ISIS, daemon_file)
 
     # Initialize all routers.
     tgen.start_router()

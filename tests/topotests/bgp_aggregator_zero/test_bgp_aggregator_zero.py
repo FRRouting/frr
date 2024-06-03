@@ -41,12 +41,21 @@ def setup_module(mod):
     tgen.start_topology()
 
     router = tgen.gears["r1"]
-    router.load_config(TopoRouter.RD_ZEBRA, os.path.join(CWD, "r1/zebra.conf"))
-    router.load_config(TopoRouter.RD_BGP, os.path.join(CWD, "r1/bgpd.conf"))
+    daemon_file = "{}/r1/zebra.conf".format(CWD)
+    if os.path.isfile(daemon_file):
+        router.load_config(TopoRouter.RD_ZEBRA, daemon_file)
+
+    daemon_file = "{}/r1/bgpd.conf".format(CWD)
+    if os.path.isfile(daemon_file):
+        router.load_config(TopoRouter.RD_BGP, daemon_file)
+
     router.start()
 
     peer = tgen.gears["peer1"]
-    peer.start(os.path.join(CWD, "peer1"), os.path.join(CWD, "exabgp.env"))
+    env_file = "{}/exabgp.env".format(CWD)
+	peer_dir = "{}/peer1".format(CWD)
+    if os.path.exists(peer_dir) and os.path.isfile(env_file):
+        peer.start(peer_dir, env_file)
 
 
 def teardown_module(mod):

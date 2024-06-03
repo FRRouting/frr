@@ -42,8 +42,15 @@ def setup_module(mod):
     router.cmd_raises("ip link set up dev vrf1")
     router.cmd_raises("ip link add vrf2 type vrf table 20")
     router.cmd_raises("ip link set up dev vrf2")
-    router.load_config(TopoRouter.RD_ZEBRA, os.path.join(CWD, "r1/zebra.conf"))
-    router.load_config(TopoRouter.RD_BGP, os.path.join(CWD, "r1/bgpd.conf"))
+
+    daemon_file = "{}/r1/zebra.conf".format(CWD)
+    if os.path.isfile(daemon_file):
+        router.load_config(TopoRouter.RD_ZEBRA, daemon_file)
+
+    daemon_file = "{}/r1/bgpd.conf".format(CWD)
+    if os.path.isfile(daemon_file):
+        router.load_config(TopoRouter.RD_BGP, daemon_file)
+
     router.start()
 
 

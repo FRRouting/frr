@@ -80,12 +80,14 @@ def setup_module(module):
     # Starting Routers
     router_list = tgen.routers()
     for rname, router in router_list.items():
-        router.load_config(
-            TopoRouter.RD_ZEBRA, os.path.join(CWD, "{}/zebra.conf".format(rname))
-        )
-        router.load_config(
-            TopoRouter.RD_BGP, os.path.join(CWD, "{}/bgpd.conf".format(rname))
-        )
+        daemon_file = "{}/{}/zebra.conf".format(CWD, rname)
+        if os.path.isfile(daemon_file):
+            router.load_config(TopoRouter.RD_ZEBRA, daemon_file)
+
+        daemon_file = "{}/{}/bgpd.conf".format(CWD, rname)
+        if os.path.isfile(daemon_file):
+            router.load_config(TopoRouter.RD_BGP, daemon_file)
+
         router.start()
 
     # Starting Hosts and init ExaBGP on each of them

@@ -160,15 +160,18 @@ def setup_module(mod):
     ## Load FRR config on all nodes and start topo
     router_list = tgen.routers()
     for rname, router in router_list.items():
-        router.load_config(
-            TopoRouter.RD_ZEBRA, os.path.join(CWD, "{}/zebra.conf".format(rname))
-        )
-        router.load_config(
-            TopoRouter.RD_OSPF, os.path.join(CWD, "{}/ospfd.conf".format(rname))
-        )
-        router.load_config(
-            TopoRouter.RD_BGP, os.path.join(CWD, "{}/bgpd.conf".format(rname))
-        )
+        daemon_file = "{}/{}/zebra.conf".format(CWD, rname)
+        if os.path.isfile(daemon_file):
+            router.load_config(TopoRouter.RD_ZEBRA, daemon_file)
+
+        daemon_file = "{}/{}/ospfd.conf".format(CWD, rname)
+        if os.path.isfile(daemon_file):
+            router.load_config(TopoRouter.RD_OSPF, daemon_file)
+
+        daemon_file = "{}/{}/bgpd.conf".format(CWD, rname)
+        if os.path.isfile(daemon_file):
+            router.load_config(TopoRouter.RD_BGP, daemon_file)
+
     tgen.start_router()
 
 

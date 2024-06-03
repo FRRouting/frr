@@ -144,22 +144,25 @@ def setup_module(mod):
 
     # For all registered routers, load the zebra configuration file
     for rname, router in router_list.items():
-        router.load_config(
-            TopoRouter.RD_ZEBRA, os.path.join(CWD, "{}/zebra.conf".format(rname))
-        )
-        router.load_config(
-            TopoRouter.RD_ISIS, os.path.join(CWD, "{}/isisd.conf".format(rname))
-        )
-        router.load_config(
-            TopoRouter.RD_BGP,
-            os.path.join(CWD, "{}/bgpd.conf".format(rname)),
-            "-M snmp",
-        )
-        router.load_config(
-            TopoRouter.RD_SNMP,
-            os.path.join(CWD, "{}/snmpd.conf".format(rname)),
-            "-Le -Ivacm_conf,usmConf,iquery -V -DAgentX,trap",
-        )
+        daemon_file = "{}/{}/zebra.conf".format(CWD, rname)
+        if os.path.isfile(daemon_file):
+            router.load_config(TopoRouter.RD_ZEBRA, daemon_file)
+
+        daemon_file = "{}/{}/isisd.conf".format(CWD, rname)
+        if os.path.isfile(daemon_file):
+            router.load_config(TopoRouter.RD_ISIS, daemon_file)
+
+        daemon_file = "{}/{}/bgpd.conf".format(CWD, rname)
+        if os.path.isfile(daemon_file):
+            router.load_config(TopoRouter.RD_BGP, daemon_file, "-M snmp",)
+
+        daemon_file = "{}/{}/snmpd.conf".format(CWD, rname)
+        if os.path.isfile(daemon_file):
+            router.load_config(
+                TopoRouter.RD_SNMP,
+                daemon_file,
+                "-Le -Ivacm_conf,usmConf,iquery -V -DAgentX,trap",
+            )
 
     # After loading the configurations, this function loads configured daemons.
     tgen.start_router()

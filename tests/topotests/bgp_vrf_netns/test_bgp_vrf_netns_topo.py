@@ -95,14 +95,18 @@ def setup_module(module):
 
     # run daemons
     router.load_config(TopoRouter.RD_MGMTD, None, "--vrfwnetns")
-    router.load_config(
-        TopoRouter.RD_ZEBRA,
-        os.path.join(CWD, "{}/zebra.conf".format("r1")),
-        "--vrfwnetns",
-    )
-    router.load_config(
-        TopoRouter.RD_BGP, os.path.join(CWD, "{}/bgpd.conf".format("r1"))
-    )
+
+    daemon_file = "{}/r1/zebra.conf".format(CWD)
+    if os.path.isfile(daemon_file):
+        router.load_config(
+            TopoRouter.RD_ZEBRA,
+            daemon_file,
+            "--vrfwnetns",
+        )
+
+    daemon_file = "{}/r1/bgpd.conf".format(CWD)
+    if os.path.isfile(daemon_file):
+      router.load_config(TopoRouter.RD_BGP, daemon_file)
 
     logger.info("Launching BGP and ZEBRA")
     # BGP and ZEBRA start without underlying VRF
@@ -111,10 +115,13 @@ def setup_module(module):
     logger.info("starting exaBGP on peer1")
     peer_list = tgen.exabgp_peers()
     for pname, peer in peer_list.items():
-        peer_dir = os.path.join(CWD, pname)
-        env_file = os.path.join(CWD, "exabgp.env")
+        peer_dir = "{}/{}".format(CWD, pname)
+        env_file = "{}/exabgp.env".format(CWD)
         logger.info("Running ExaBGP peer")
-        peer.start(peer_dir, env_file)
+
+        if os.path.exists(peer_dir) and os.path.isfile(env_file):
+            peer.start(peer_dir, env_file)
+
         logger.info(pname)
 
 

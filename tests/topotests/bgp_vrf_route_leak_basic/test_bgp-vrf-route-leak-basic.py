@@ -43,13 +43,17 @@ def setup_module(mod):
 
     # For all registered routers, load the zebra configuration file
     for rname, router in tgen.routers().items():
-        router.run("/bin/bash {}/setup_vrfs".format(CWD))
-        router.load_config(
-            TopoRouter.RD_ZEBRA, os.path.join(CWD, "{}/zebra.conf".format(rname))
-        )
-        router.load_config(
-            TopoRouter.RD_BGP, os.path.join(CWD, "{}/bgpd.conf".format(rname))
-        )
+        vrfs_file = "/bin/bash {}/setup_vrfs".format(CWD)
+        if os.path.isfile(vrfs_file):
+            router.run(vrfs_file)
+
+        daemon_file = "{}/{}/zebra.conf".format(CWD, rname)
+        if os.path.isfile(daemon_file):
+            router.load_config(TopoRouter.RD_ZEBRA, daemon_file)
+
+        daemon_file = "{}/{}/bgpd.conf".format(CWD, rname)
+        if os.path.isfile(daemon_file):
+            router.load_config(TopoRouter.RD_BGP, daemon_file)
 
     # After loading the configurations, this function loads configured daemons.
     tgen.start_router()

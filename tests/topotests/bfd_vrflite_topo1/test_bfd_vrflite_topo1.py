@@ -80,12 +80,13 @@ def setup_module(mod):
         router.net.attach_iface_to_l3vrf(rname + "-eth0", "vrf3")
 
     for rname, router in router_list.items():
-        router.load_config(
-            TopoRouter.RD_ZEBRA, os.path.join(CWD, "{}/zebra.conf".format(rname))
-        )
-        router.load_config(
-            TopoRouter.RD_BFD, os.path.join(CWD, "{}/bfdd.conf".format(rname))
-        )
+        daemon_file = "{}/{}/zebra.conf".format(CWD, rname)
+        if os.path.isfile(daemon_file):
+            router.load_config(TopoRouter.RD_ZEBRA, daemon_file)
+
+        daemon_file = "{}/{}/bfdd.conf".format(CWD, rname)
+        if os.path.isfile(daemon_file):
+            router.load_config(TopoRouter.RD_BFD, daemon_file)
 
     # Initialize all routers.
     tgen.start_router()

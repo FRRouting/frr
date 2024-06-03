@@ -139,13 +139,14 @@ def setup_module(mod):
     _populate_iface()
 
     for rname, router in router_list.items():
-        router.load_config(
-            TopoRouter.RD_ZEBRA, os.path.join(CWD, "{}/zebra.conf".format(rname))
-        )
+        daemon_file = "{}/{}/zebra.conf".format(CWD, rname)
+        if os.path.isfile(daemon_file):
+            router.load_config(TopoRouter.RD_ZEBRA, daemon_file)
+
         if rname in ("r1", "r2", "r3", "rr100", "rs200"):
-            router.load_config(
-                TopoRouter.RD_BGP, os.path.join(CWD, "{}/bgpd.conf".format(rname))
-            )
+            daemon_file = "{}/{}/bgpd.conf".format(CWD, rname)
+            if os.path.isfile(daemon_file):
+                router.load_config(TopoRouter.RD_BGP, daemon_file)
 
     # Initialize all routers.
     tgen.start_router()

@@ -110,10 +110,13 @@ def setup_module(mod):
     router_list = tgen.routers()
 
     for i, (rname, router) in enumerate(router_list.items(), 1):
-        router.load_config(
-            TopoRouter.RD_ZEBRA, os.path.join(CWD, f"{rname}/zebra.conf")
-        )
-        router.load_config(TopoRouter.RD_BGP, os.path.join(CWD, f"{rname}/bgpd.conf"))
+        daemon_file = "{}/{}/zebra.conf".format(CWD, rname)
+        if os.path.isfile(daemon_file):
+            router.load_config(TopoRouter.RD_ZEBRA, daemon_file)
+
+        daemon_file = "{}/{}/bgpd.conf".format(CWD, rname)
+        if os.path.isfile(daemon_file):
+            router.load_config(TopoRouter.RD_BGP, daemon_file)
 
     tgen.start_router()
 

@@ -56,13 +56,17 @@ def setup_module(mod):
     tgen = Topogen(build_topo, mod.__name__)
     tgen.start_topology()
     for rname, router in tgen.routers().items():
-        router.run("/bin/bash {}/{}/setup.sh".format(CWD, rname))
-        router.load_config(
-            TopoRouter.RD_ZEBRA, os.path.join(CWD, "{}/zebra.conf".format(rname))
-        )
-        router.load_config(
-            TopoRouter.RD_BGP, os.path.join(CWD, "{}/bgpd.conf".format(rname))
-        )
+        script_file = "/bin/bash {}/{}/setup.sh".format(CWD, rname)
+        if os.path.isfile(script_file):
+            router.run(script_file)
+
+        daemon_file = "{}/{}/zebra.conf".format(CWD, rname)
+        if os.path.isfile(daemon_file):
+            router.load_config(TopoRouter.RD_ZEBRA, daemon_file)
+
+        daemon_file = "{}/{}/bgpd.conf".format(CWD, rname)
+        if os.path.isfile(daemon_file):
+            router.load_config(TopoRouter.RD_BGP, daemon_file)
 
     tgen.gears["r1"].run("sysctl net.vrf.strict_mode=1")
     tgen.gears["r1"].run("ip link add vrf10 type vrf table 10")

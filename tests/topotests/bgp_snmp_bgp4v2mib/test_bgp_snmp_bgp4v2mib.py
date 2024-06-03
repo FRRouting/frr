@@ -52,26 +52,30 @@ def setup_module(mod):
     tgen.start_topology()
 
     for rname, router in tgen.routers().items():
-        router.load_config(
-            TopoRouter.RD_ZEBRA, os.path.join(CWD, "{}/zebra.conf".format(rname))
-        )
-        router.load_config(
-            TopoRouter.RD_BGP,
-            os.path.join(CWD, "{}/bgpd.conf".format(rname)),
-            "-M snmp",
-        )
+        daemon_file = "{}/{}/zebra.conf".format(CWD, rname)
+        if os.path.isfile(daemon_file):
+            router.load_config(TopoRouter.RD_ZEBRA, daemon_file)
+
+        daemon_file = "{}/{}/bgpd.conf".format(CWD, rname)
+        if os.path.isfile(daemon_file):
+            router.load_config(TopoRouter.RD_BGP, daemon_file, "-M snmp",)
 
     r2 = tgen.gears["r2"]
-    r2.load_config(
-        TopoRouter.RD_SNMP,
-        os.path.join(CWD, "{}/snmpd.conf".format(r2.name)),
-        "-Le -Ivacm_conf,usmConf,iquery -V -DAgentX",
-    )
-    r2.load_config(
-        TopoRouter.RD_TRAP,
-        os.path.join(CWD, "{}/snmptrapd.conf".format(r2.name)),
-        " -On -OQ ",
-    )
+    daemon_file = "{}/{}/snmpd.conf".format(CWD, r2.name)
+    if os.path.isfile(daemon_file):
+        r2.load_config(
+            TopoRouter.RD_SNMP,
+            daemon_file,
+            "-Le -Ivacm_conf,usmConf,iquery -V -DAgentX",
+        )
+
+    daemon_file = "{}/{}/snmptrapd.conf".format(CWD, r2.name)
+    if os.path.isfile(daemon_file):
+        r2.load_config(
+            TopoRouter.RD_TRAP,
+            daemon_file,
+            " -On -OQ ",
+        )
 
     tgen.start_router()
 

@@ -107,12 +107,13 @@ def setup_module(mod):
     tgen.start_topology()
     router_list = tgen.routers()
     for i, (rname, router) in enumerate(tgen.routers().items(), 1):
-        router.load_config(
-            TopoRouter.RD_ZEBRA, os.path.join(CWD, "{}/zebra.conf".format(rname))
-        )
-        router.load_config(
-            TopoRouter.RD_BGP, os.path.join(CWD, "{}/bgpd.conf".format(rname))
-        )
+        daemon_file = "{}/{}/zebra.conf".format(CWD, rname)
+        if os.path.isfile(daemon_file):
+            router.load_config(TopoRouter.RD_ZEBRA, daemon_file)
+
+        daemon_file = "{}/{}/bgpd.conf".format(CWD, rname)
+        if os.path.isfile(daemon_file):
+            router.load_config(TopoRouter.RD_BGP, daemon_file)
 
     tgen.gears["r1"].run("modprobe vrf")
     tgen.gears["r1"].run("ip link add vrf10 type vrf table 10")

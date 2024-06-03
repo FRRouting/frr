@@ -55,13 +55,25 @@ def setup_module(mod):
     tgen.start_topology()
 
     r1 = tgen.gears["r1"]
-    r1.load_config(TopoRouter.RD_ZEBRA, os.path.join(CWD, "r1/zebra.conf"))
-    r1.load_config(TopoRouter.RD_BGP, os.path.join(CWD, "r1/bgpd.conf"))
+    daemon_file = "{}/r1/zebra.conf".format(CWD)
+    if os.path.isfile(daemon_file):
+        r1.load_config(TopoRouter.RD_ZEBRA, daemon_file)
+
+    daemon_file = "{}/r1/bgpd.conf".format(CWD)
+    if os.path.isfile(daemon_file):
+        r1.load_config(TopoRouter.RD_BGP, daemon_file)
+
     r1.start()
 
     r2 = tgen.gears["r2"]
-    r2.load_config(TopoRouter.RD_ZEBRA, os.path.join(CWD, "r2/zebra.conf"))
-    r2.load_config(TopoRouter.RD_BGP, os.path.join(CWD, "r2/bgpd.conf"))
+    daemon_file = "{}/r2/zebra.conf".format(CWD)
+    if os.path.isfile(daemon_file):
+        r2.load_config(TopoRouter.RD_ZEBRA, daemon_file)
+
+    daemon_file = "{}/r2/bgpd.conf".format(CWD)
+    if os.path.isfile(daemon_file):
+        r2.load_config(TopoRouter.RD_BGP, daemon_file)
+
     r2.start()
 
 
