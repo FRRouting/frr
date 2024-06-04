@@ -6,6 +6,9 @@
  */
 
 #include "config.h"
+#include "xref.h"
+
+XREF_SETUP();
 
 /* Only used with netlink, for now */
 #ifdef HAVE_NETLINK
@@ -36,8 +39,19 @@ void netlink_parse_rtattr(struct rtattr **tb, int max, struct rtattr *rta,
 {
 	memset(tb, 0, sizeof(struct rtattr *) * (max + 1));
 	while (RTA_OK(rta, len)) {
-		if (rta->rta_type <= max)
-			tb[rta->rta_type] = rta;
+		/*
+		 * The type may be &'ed with NLA_F_NESTED
+		 * which puts data in the upper 8 bits of the
+		 * rta_type.  Mask it off and save the actual
+		 * underlying value to be placed into the array.
+		 * This way we don't accidently crash in the future
+		 * when the kernel sends us new data and we try
+		 * to write well beyond the end of the array.
+		 */
+		uint16_t type = rta->rta_type & NLA_TYPE_MASK;
+
+		if (type <= max)
+			tb[type] = rta;
 		rta = RTA_NEXT(rta, len);
 	}
 }
@@ -86,6 +100,8 @@ bool nl_attr_put(struct nlmsghdr *n, unsigned int maxlen, int type,
 
 	if (data)
 		memcpy(RTA_DATA(rta), data, alen);
+	else
+		assert(alen == 0);
 
 	n->nlmsg_len = NLMSG_ALIGN(n->nlmsg_len) + RTA_ALIGN(len);
 
@@ -108,6 +124,12 @@ bool nl_attr_put32(struct nlmsghdr *n, unsigned int maxlen, int type,
 		   uint32_t data)
 {
 	return nl_attr_put(n, maxlen, type, &data, sizeof(uint32_t));
+}
+
+bool nl_attr_put64(struct nlmsghdr *n, unsigned int maxlen, int type,
+		   uint64_t data)
+{
+	return nl_attr_put(n, maxlen, type, &data, sizeof(uint64_t));
 }
 
 struct rtattr *nl_attr_nest(struct nlmsghdr *n, unsigned int maxlen, int type)
