@@ -176,6 +176,7 @@ DECLARE_MTYPE(MSG_NATIVE_RPC_REPLY);
 #define MGMT_MSG_CODE_EDIT_REPLY 6 /* Public API */
 #define MGMT_MSG_CODE_RPC	 7 /* Public API */
 #define MGMT_MSG_CODE_RPC_REPLY	 8 /* Public API */
+#define MGMT_MSG_CODE_NOTIFY_SELECT 9 /* Public API */
 
 /*
  * Datastores
@@ -424,6 +425,27 @@ struct mgmt_msg_rpc_reply {
 
 _Static_assert(sizeof(struct mgmt_msg_rpc_reply) ==
 		       offsetof(struct mgmt_msg_rpc_reply, data),
+	       "Size mismatch");
+
+/**
+ * struct mgmt_msg_notify_select - Add notification selectors for FE client.
+ *
+ * Add xpath prefix notification selectors to limit the notifications sent
+ * to the front-end client.
+ *
+ * @selectors: the xpath prefixes to selectors notifications through.
+ * @repalce: if true replace existing selectors with `selectors`.
+ */
+struct mgmt_msg_notify_select {
+	struct mgmt_msg_header;
+	uint8_t replace;
+	uint8_t resv2[7];
+
+	alignas(8) char selectors[];
+};
+
+_Static_assert(sizeof(struct mgmt_msg_notify_select) ==
+		       offsetof(struct mgmt_msg_notify_select, selectors),
 	       "Size mismatch");
 
 /*
