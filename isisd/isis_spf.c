@@ -1262,7 +1262,7 @@ static int isis_spf_preload_tent_ip_reach_cb(const struct prefix *prefix,
 	struct isis_vertex *parent = args->parent;
 	struct prefix_pair ip_info;
 	enum vertextype vtype;
-	bool has_valid_psid = false, transition = false;
+	bool has_valid_psid = false;
 
 	if (external)
 		return LSP_ITER_CONTINUE;
@@ -1272,17 +1272,10 @@ static int isis_spf_preload_tent_ip_reach_cb(const struct prefix *prefix,
 	prefix_copy(&ip_info.dest, prefix);
 	apply_mask(&ip_info.dest);
 
-	if (prefix->family == AF_INET) {
+	if (prefix->family == AF_INET)
 		vtype = VTYPE_IPREACH_INTERNAL;
-
-		if (spftree->area->newmetric)
-			vtype = VTYPE_IPREACH_TE;
-
-		if (spftree->area->oldmetric && spftree->area->newmetric)
-			transition = true;
-	} else {
+	else
 		vtype = VTYPE_IP6REACH_INTERNAL;
-	}
 
 	/* Parse list of Prefix-SID subTLVs if SR is enabled */
 	if (spftree->area->srdb.enabled && subtlvs) {
@@ -1297,11 +1290,6 @@ static int isis_spf_preload_tent_ip_reach_cb(const struct prefix *prefix,
 			has_valid_psid = true;
 			isis_spf_add_local(spftree, vtype, &ip_info, NULL, 0,
 					   psid, parent);
-			if (transition)
-				isis_spf_add_local(spftree,
-						   VTYPE_IPREACH_INTERNAL,
-						   &ip_info, NULL, 0, psid,
-						   parent);
 
 			/*
 			 * Stop the Prefix-SID iteration since we only support
@@ -1310,13 +1298,9 @@ static int isis_spf_preload_tent_ip_reach_cb(const struct prefix *prefix,
 			break;
 		}
 	}
-	if (!has_valid_psid) {
+	if (!has_valid_psid)
 		isis_spf_add_local(spftree, vtype, &ip_info, NULL, 0, NULL,
 				   parent);
-		if (transition)
-			isis_spf_add_local(spftree, VTYPE_IPREACH_INTERNAL,
-					   &ip_info, NULL, 0, NULL, parent);
-	}
 
 	return LSP_ITER_CONTINUE;
 }
