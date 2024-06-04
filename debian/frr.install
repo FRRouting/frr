@@ -11,6 +11,7 @@ usr/lib/*/frr/libfrrospfapiclient.*
 usr/lib/*/frr/libmgmt_be_nb.*
 usr/lib/*/frr/modules/bgpd_bmp.so
 usr/lib/*/frr/modules/dplane_fpm_nl.so
+usr/lib/*/frr/modules/netlink_parser.so
 usr/lib/*/frr/modules/zebra_cumulus_mlag.so
 usr/lib/*/frr/modules/zebra_fpm.so
 usr/lib/*/frr/modules/pathd_pcep.so
