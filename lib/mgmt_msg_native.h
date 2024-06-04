@@ -4,6 +4,15 @@
  *
  * Copyright (c) 2023, LabN Consulting, L.L.C.
  *
+ * Public APIs:
+ *
+ * The message type codes and corresponding message data definitions for
+ * front-end client messages represent a public API, as such any changes should
+ * only be made according to backward compatible principles (basically never,
+ * just use a new message type). Back-end clients being always compiled with FRR
+ * can be updated (although one should take care in modifying BE messages as it
+ * could impact private back-end client implementations which will then need to
+ * be updated by their owners).
  */
 
 #ifndef _FRR_MGMT_MSG_NATIVE_H_
@@ -158,15 +167,15 @@ DECLARE_MTYPE(MSG_NATIVE_RPC_REPLY);
 /*
  * Native message codes
  */
-#define MGMT_MSG_CODE_ERROR	0
-#define MGMT_MSG_CODE_GET_TREE	1
-#define MGMT_MSG_CODE_TREE_DATA 2
-#define MGMT_MSG_CODE_GET_DATA	3
-#define MGMT_MSG_CODE_NOTIFY	4
-#define MGMT_MSG_CODE_EDIT	 5
-#define MGMT_MSG_CODE_EDIT_REPLY 6
-#define MGMT_MSG_CODE_RPC	 7
-#define MGMT_MSG_CODE_RPC_REPLY	 8
+#define MGMT_MSG_CODE_ERROR	 0 /* Public API */
+#define MGMT_MSG_CODE_GET_TREE	 1 /* BE only, non-public API */
+#define MGMT_MSG_CODE_TREE_DATA	 2 /* Public API */
+#define MGMT_MSG_CODE_GET_DATA	 3 /* Public API */
+#define MGMT_MSG_CODE_NOTIFY	 4 /* Public API */
+#define MGMT_MSG_CODE_EDIT	 5 /* Public API */
+#define MGMT_MSG_CODE_EDIT_REPLY 6 /* Public API */
+#define MGMT_MSG_CODE_RPC	 7 /* Public API */
+#define MGMT_MSG_CODE_RPC_REPLY	 8 /* Public API */
 
 /*
  * Datastores
