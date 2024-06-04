@@ -779,6 +779,7 @@ fi
 %{_libdir}/libfrrfpm_pb.so*
 %{_libdir}/libmgmt_be_nb.so*
 %{_libdir}/libmlag_pb.so*
+%{_libdir}/frr/modules/netlink_parser.so
 %{_bindir}/*
 %config(noreplace) %{configdir}/[!v]*.conf*
 %config(noreplace) %attr(750,%{frr_user},%{frr_user}) %{configdir}/daemons
