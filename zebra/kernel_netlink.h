@@ -31,6 +31,17 @@ struct zebra_ns;
 #define RTM_NHA(h)                                                             \
 	((struct rtattr *)(((char *)(h)) + NLMSG_ALIGN(sizeof(struct nhmsg))))
 
+#ifndef NLMSG_TAIL
+#define NLMSG_TAIL(nmsg)                                                       \
+	((struct rtattr *)(((uint8_t *)(nmsg))                                 \
+			   + NLMSG_ALIGN((nmsg)->nlmsg_len)))
+#endif
+
+#ifndef RTA_TAIL
+#define RTA_TAIL(rta)                                                          \
+	((struct rtattr *)(((uint8_t *)(rta)) + RTA_ALIGN((rta)->rta_len)))
+#endif
+
 
 #define NL_RCV_PKT_BUF_SIZE     (34 * 1024)
 #define NL_PKT_BUF_SIZE         8192
@@ -93,10 +104,51 @@ extern void netlink_parse_rtattr_flags(struct rtattr **tb, int max,
 				 unsigned short flags);
 extern void netlink_parse_rtattr_nested(struct rtattr **tb, int max,
 					struct rtattr *rta);
+
+/*
+ * nl_addraw_l copies raw form the netlink message buffer into netlink
+ * message header pointer. It ensures the aligned data buffer does not
+ * override past max length.
+ * return value is 0 if its successful
+ */
+extern bool nl_addraw_l(struct nlmsghdr *n, unsigned int maxlen,
+			const void *data, unsigned int len);
+/*
+ * nl_rta_put - add an additional optional attribute(rtattr) to the
+ * Netlink message buffer.
+ *
+ * Returns true if the attribute could be added to the message (fits into the
+ * buffer), otherwise false is returned.
+ */
+extern bool nl_rta_put(struct rtattr *rta, unsigned int maxlen, int type,
+		       const void *data, int alen);
+extern bool nl_rta_put16(struct rtattr *rta, unsigned int maxlen, int type,
+			 uint16_t data);
+extern bool nl_rta_put64(struct rtattr *rta, unsigned int maxlen, int type,
+			 uint64_t data);
+/*
+ * nl_rta_nest - start an additional optional attribute (rtattr) nest.
+ *
+ * Returns a valid pointer to the beginning of the nest if the attribute
+ * describing the nest could be added to the message (fits into the buffer),
+ * otherwise NULL is returned.
+ */
+extern struct rtattr *nl_rta_nest(struct rtattr *rta, unsigned int maxlen,
+				  int type);
+/*
+ * nl_rta_nest_end - finalize nesting of an aditionl optionl attributes.
+ *
+ * Updates the length field of the attribute header to include the appeneded
+ * attributes. Returns a total length of the Netlink message.
+ */
+extern int nl_rta_nest_end(struct rtattr *rta, struct rtattr *nest);
 extern const char *nl_msg_type_to_str(uint16_t msg_type);
 extern const char *nl_rtproto_to_str(uint8_t rtproto);
 extern const char *nl_family_to_str(uint8_t family);
 extern const char *nl_rttype_to_str(uint8_t rttype);
+
+void netlink_parse_nlattr(struct nlattr **tb, int max, struct nlattr *nla,
+			  int len);
 
 extern int netlink_parse_info(int (*filter)(struct nlmsghdr *, ns_id_t, int),
 			      struct nlsock *nl,
