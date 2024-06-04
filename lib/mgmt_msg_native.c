@@ -6,6 +6,7 @@
  *
  */
 #include <zebra.h>
+#include "darr.h"
 #include "mgmt_msg_native.h"
 
 DEFINE_MGROUP(MSG_NATIVE, "Native message allocations");
@@ -49,4 +50,21 @@ int vmgmt_msg_native_send_error(struct msg_conn *conn, uint64_t sess_or_txn_id,
 	ret = mgmt_msg_native_send_msg(conn, msg, short_circuit_ok);
 	mgmt_msg_native_free_msg(msg);
 	return ret;
+}
+
+const char **_mgmt_msg_native_strings_decode(const void *_sdata, int sdlen)
+{
+	const char *sdata = _sdata;
+	const char **strings = NULL;
+	int len;
+
+	if (sdata[sdlen - 1] != 0)
+		return NULL;
+
+	for (; sdlen; sdata += len, sdlen -= len) {
+		*darr_append(strings) = darr_strdup(sdata);
+		len = 1 + darr_strlen(strings[darr_lasti(strings)]);
+	}
+
+	return strings;
 }

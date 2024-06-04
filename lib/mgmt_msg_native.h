@@ -525,6 +525,25 @@ extern int vmgmt_msg_native_send_error(struct msg_conn *conn,
 	})
 
 /**
+ * mgmt_msg_native_add_str() - Append [another] string to the msg.
+ * @msg: (IN/OUT) Pointer to the native message, variable may be updated.
+ * @s: string to append.
+ *
+ * Append string @s to the native message @msg. @msg is assumed to have a
+ * sequence of NUL-terminated strings at the end of it. This function appends
+ * the string @s and it's NUL terminating octet to the message.
+ *
+ * NOTE: Be aware @msg pointer may change as a result of reallocating the
+ * message to fit the new data. Any other pointers into the old message should
+ * be discarded.
+ */
+#define mgmt_msg_native_add_str(msg, s)                                        \
+	do {                                                                   \
+		int __len = strlen(s) + 1;                                     \
+		mgmt_msg_native_append(msg, s, __len);                         \
+	} while (0)
+
+/**
  * mgmt_msg_native_send_msg(msg, short_circuit_ok) - Send a native msg.
  * @conn: the mgmt_msg connection.
  * @msg: the native message.
@@ -688,6 +707,27 @@ extern int vmgmt_msg_native_send_error(struct msg_conn *conn,
  */
 #define mgmt_msg_native_data_len_decode(msg, msglen)                           \
 	((msglen) - sizeof(*msg) - msg->vsplit)
+
+/**
+ * mgmt_msg_native_strings_decode() - Get dynamic array of str ptrs from the msg.
+ * @msg: Pointer to the native message.
+ * @msglen: Length of the message.
+ * @sdata: pointer to the variable length string data at end of @msg.
+ *
+ * Given a pointer to a sequence of NUL-terminated strings allocate
+ * and return a dynamic array of dynamic array strings. This function
+ * can be used to decode a message that was built using
+ * mgmt_msg_native_add_str().
+ *
+ * Return: a dynamic array (darr) of string pointers, or NULL if the message
+ * is corrupt.
+ */
+#define mgmt_msg_native_strings_decode(msg, msg_len, sdata)                    \
+	_mgmt_msg_native_strings_decode(sdata,                                 \
+					(msg_len) - ((sdata) - (char *)(msg)))
+
+extern const char **_mgmt_msg_native_strings_decode(const void *sdata,
+						    int sdlen);
 
 #ifdef __cplusplus
 }
