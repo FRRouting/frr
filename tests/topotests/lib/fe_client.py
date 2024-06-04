@@ -18,6 +18,8 @@ import sys
 import time
 from pathlib import Path
 
+from munet.base import Timeout
+
 CWD = os.path.dirname(os.path.realpath(__file__))
 
 # This is painful but works if you have installed protobuf would be better if we
@@ -80,6 +82,8 @@ GET_DATA_FLAG_EXACT = 0x4
 MSG_NOTIFY_FMT = "=B7x"
 NOTIFY_FIELD_RESULT_TYPE = 0
 
+MSG_NOTIFY_SELECT_FMT = "=B7x"
+
 #
 # Native message codes
 #
@@ -88,6 +92,7 @@ MSG_CODE_ERROR = 0
 MSG_CODE_TREE_DATA = 2
 MSG_CODE_GET_DATA = 3
 MSG_CODE_NOTIFY = 4
+MSG_CODE_NOTIFY_SELECT = 9
 
 msg_native_formats = {
     MSG_CODE_ERROR: MSG_ERROR_FMT,
@@ -95,6 +100,7 @@ msg_native_formats = {
     MSG_CODE_TREE_DATA: MSG_TREE_DATA_FMT,
     MSG_CODE_GET_DATA: MSG_GET_DATA_FMT,
     MSG_CODE_NOTIFY: MSG_NOTIFY_FMT,
+    MSG_CODE_NOTIFY_SELECT: MSG_NOTIFY_SELECT_FMT,
 }
 
 
@@ -308,17 +314,22 @@ class Session:
         logging.debug("Received GET: %s: %s", mfixed, mdata)
         return result
 
-    # def subscribe(self, notif_xpath):
-    #     # Create the message
-    #     mdata, req_id = self.get_native_msg_header(MSG_CODE_SUBSCRIBE)
-    #     mdata += struct.pack(MSG_SUBSCRIBE_FMT, MSG_FORMAT_JSON)
-    #     mdata += notif_xpath.encode("utf-8") + b"\x00"
+    def add_notify_select(self, replace, notif_xpaths):
+        # Create the message
+        mdata, req_id = self.get_native_msg_header(MSG_CODE_NOTIFY_SELECT)
+        mdata += struct.pack(MSG_NOTIFY_SELECT_FMT, replace)
 
-    #     self.send_native_msg(mdata)
-    #     logging.debug("Sent SUBSCRIBE")
+        for xpath in notif_xpaths:
+            mdata += xpath.encode("utf-8") + b"\x00"
+
+        self.send_native_msg(mdata)
+        logging.debug("Sent NOTIFY_SELECT")
 
     def recv_notify(self, xpaths=None):
-        while True:
+        if xpaths:
+            self.add_notify_select(True, xpaths)
+
+        for remaining in Timeout(60):
             logging.debug("Waiting for Notify Message")
             mhdr, mfixed, mdata = self.recv_native_msg()
             if mhdr[HDR_FIELD_CODE] == MSG_CODE_NOTIFY:
@@ -328,19 +339,11 @@ class Session:
 
             vsplit = mhdr[HDR_FIELD_VSPLIT]
             assert mdata[vsplit - 1] == 0
-            xpath = mdata[: vsplit - 1].decode("utf-8")
-
             assert mdata[-1] == 0
-            result = mdata[vsplit:-1].decode("utf-8")
-
-            if not xpaths:
-                return result
-            js = json.loads(result)
-            key = [x for x in js.keys()][0]
-            for xpath in xpaths:
-                if key.startswith(xpath):
-                    return result
-            logging.debug("'%s' didn't match xpath filters", key)
+            # xpath = mdata[: vsplit - 1].decode("utf-8")
+            return mdata[vsplit:-1].decode("utf-8")
+        else:
+            raise TimeoutError("Timeout waiting for notifications")
 
 
 def __parse_args():
@@ -381,6 +384,8 @@ def __server_connect(spath):
         logging.warn("retry server connection in .5s (%s)", os.strerror(ec))
         time.sleep(0.5)
     logging.info("Connected to server on %s", spath)
+    # Set a timeout of 5 minutes for socket operations.
+    sock.settimeout(60 * 5)
     return sock
 
 
@@ -412,8 +417,12 @@ def main():
         __main()
     except KeyboardInterrupt:
         logging.info("Exiting")
+    except TimeoutError as error:
+        logging.error("Timeout: %s", error)
+        sys.exit(2)
     except Exception as error:
         logging.error("Unexpected error exiting: %s", error, exc_info=True)
+        sys.exit(1)
 
 
 if __name__ == "__main__":
