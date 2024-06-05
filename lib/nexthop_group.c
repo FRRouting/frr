@@ -258,6 +258,7 @@ void nexthop_group_copy(struct nexthop_group *to,
 			const struct nexthop_group *from)
 {
 	to->nhgr = from->nhgr;
+	to->flags = from->flags;
 	/* Copy everything, including recursive info */
 	copy_nexthops(&to->nexthop, from->nexthop, NULL);
 }
