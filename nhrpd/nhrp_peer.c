@@ -45,7 +45,8 @@ static void nhrp_peer_check_delete(struct nhrp_peer *p)
 
 	EVENT_OFF(p->t_fallback);
 	EVENT_OFF(p->t_timer);
-	hash_release(nifp->peer_hash, p);
+	if (nifp->peer_hash)
+		hash_release(nifp->peer_hash, p);
 	nhrp_interface_notify_del(p->ifp, &p->ifp_notifier);
 	nhrp_vc_notify_del(p->vc, &p->vc_notifier);
 	XFREE(MTYPE_NHRP_PEER, p);
