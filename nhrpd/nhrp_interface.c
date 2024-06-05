@@ -99,6 +99,8 @@ static int nhrp_if_delete_hook(struct interface *ifp)
 		free(nifp->ipsec_fallback_profile);
 	if (nifp->source)
 		free(nifp->source);
+	if (nifp->auth_token)
+		zbuf_free(nifp->auth_token);
 
 	XFREE(MTYPE_NHRP_IF, ifp->info);
 	return 0;

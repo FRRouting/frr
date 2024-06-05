@@ -467,7 +467,7 @@ DEFPY(if_nhrp_authentication, if_nhrp_authentication_cmd,
       AFI_CMD "nhrp authentication PASSWORD$password",
       AFI_STR
       NHRP_STR
-      "Specify plaint text password used for authenticantion\n"
+      "Specify plain text password used for authenticantion\n"
       "Password, plain text, limited to 8 characters\n")
 {
 	VTY_DECLVAR_CONTEXT(interface, ifp);
@@ -490,8 +490,6 @@ DEFPY(if_nhrp_authentication, if_nhrp_authentication_cmd,
 	auth->type = htonl(NHRP_AUTHENTICATION_PLAINTEXT);
 	memcpy(auth->secret, password, pass_len);
 
-	// XXX RFC: reset active (non-authorized) connections?
-	/* vty_out(vty, "NHRP passwd (%s:%s)", nifp->ifp->name, auth->secret); */
 	return CMD_SUCCESS;
 }
 
@@ -501,11 +499,12 @@ DEFPY(if_no_nhrp_authentication, if_no_nhrp_authentication_cmd,
       NO_STR
       AFI_STR
       NHRP_STR
-      "Reset password used for authentication\n"
-      "Password, plain text\n")
+      "Specify plain text password used for authenticantion\n"
+	  "Password, plain text, limited to 8 characters\n")
 {
 	VTY_DECLVAR_CONTEXT(interface, ifp);
 	struct nhrp_interface *nifp = ifp->info;
+
 	if (nifp->auth_token)
 		zbuf_free(nifp->auth_token);
 	return CMD_SUCCESS;
