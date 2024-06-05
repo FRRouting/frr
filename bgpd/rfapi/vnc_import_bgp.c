@@ -414,7 +414,7 @@ static void vnc_import_bgp_add_route_mode_resolve_nve_one_bi(
 	uint32_t lifetime;
 	uint32_t *plifetime;
 	struct bgp_attr_encap_subtlv *encaptlvs;
-	uint32_t label = MPLS_INVALID_LABEL;
+	uint32_t label;
 
 	struct rfapi_un_option optary[3];
 	struct rfapi_un_option *opt = NULL;
@@ -472,6 +472,8 @@ static void vnc_import_bgp_add_route_mode_resolve_nve_one_bi(
 
 	if (bgp_path_info_num_labels(bpi))
 		label = decode_label(&bpi->extra->label[0]);
+	else
+		label = MPLS_INVALID_LABEL;
 
 	add_vnc_route(&vncHDResolveNve, bgp, SAFI_MPLS_VPN,
 		      prefix,	       /* unicast route prefix */
@@ -1679,7 +1681,7 @@ static void vnc_import_bgp_exterior_add_route_it(
 			     bpi_interior = bpi_interior->next) {
 				struct prefix_rd *prd;
 				struct attr new_attr;
-				uint32_t label = MPLS_INVALID_LABEL;
+				uint32_t label;
 
 				if (!is_usable_interior_route(bpi_interior))
 					continue;
@@ -1696,16 +1698,17 @@ static void vnc_import_bgp_exterior_add_route_it(
 				 */
 				have_usable_route = 1;
 
-				if (bpi_interior->extra) {
+				if (bpi_interior->extra)
 					prd = &bpi_interior->extra->vnc->vnc
 						       .import.rd;
-					if (bgp_path_info_num_labels(
-						    bpi_interior))
-						label = decode_label(
-							&bpi_interior->extra
-								 ->label[0]);
-				} else
+				else
 					prd = NULL;
+
+				if (bgp_path_info_num_labels(bpi_interior))
+					label = decode_label(
+						&bpi_interior->extra->label[0]);
+				else
+					label = MPLS_INVALID_LABEL;
 
 				/* use local_pref from unicast route */
 				memset(&new_attr, 0, sizeof(new_attr));
@@ -1855,7 +1858,7 @@ void vnc_import_bgp_exterior_del_route(
 			for (bpi_interior = rn->info; bpi_interior;
 			     bpi_interior = bpi_interior->next) {
 				struct prefix_rd *prd;
-				uint32_t label = MPLS_INVALID_LABEL;
+				uint32_t label;
 
 				if (!is_usable_interior_route(bpi_interior))
 					continue;
@@ -1868,16 +1871,17 @@ void vnc_import_bgp_exterior_del_route(
 				 */
 				have_usable_route = 1;
 
-				if (bpi_interior->extra) {
+				if (bpi_interior->extra)
 					prd = &bpi_interior->extra->vnc->vnc
 						       .import.rd;
-					if (bgp_path_info_num_labels(
-						    bpi_interior))
-						label = decode_label(
-							&bpi_interior->extra
-								 ->label[0]);
-				} else
+				else
 					prd = NULL;
+
+				if (bgp_path_info_num_labels(bpi_interior))
+					label = decode_label(
+						&bpi_interior->extra->label[0]);
+				else
+					label = MPLS_INVALID_LABEL;
 
 				rfapiBgpInfoFilteredImportVPN(
 					it, FIF_ACTION_KILL, bpi_interior->peer,
@@ -2014,18 +2018,21 @@ void vnc_import_bgp_exterior_add_route_interior(
 
 			struct prefix_rd *prd;
 			struct attr new_attr;
-			uint32_t label = MPLS_INVALID_LABEL;
+			uint32_t label;
 
 			assert(bpi_exterior);
 			assert(pfx_exterior);
 
-			if (bpi_interior->extra) {
+			if (bpi_interior->extra)
 				prd = &bpi_interior->extra->vnc->vnc.import.rd;
-				if (bgp_path_info_num_labels(bpi_interior))
-					label = decode_label(
-						&bpi_interior->extra->label[0]);
-			} else
+			else
 				prd = NULL;
+
+			if (bgp_path_info_num_labels(bpi_interior))
+				label = decode_label(
+					&bpi_interior->extra->label[0]);
+			else
+				label = MPLS_INVALID_LABEL;
 
 			/* use local_pref from unicast route */
 			memset(&new_attr, 0, sizeof(struct attr));
@@ -2105,7 +2112,7 @@ void vnc_import_bgp_exterior_add_route_interior(
 				struct bgp_path_info *bpi;
 				struct prefix_rd *prd;
 				struct attr new_attr;
-				uint32_t label = MPLS_INVALID_LABEL;
+				uint32_t label;
 
 				/* do pull-down */
 
@@ -2132,16 +2139,17 @@ void vnc_import_bgp_exterior_add_route_interior(
 				 * parent routes.
 				 */
 				for (bpi = par->info; bpi; bpi = bpi->next) {
-
-					if (bpi->extra) {
+					if (bpi->extra)
 						prd = &bpi->extra->vnc->vnc
 							       .import.rd;
-						if (bgp_path_info_num_labels(bpi))
-							label = decode_label(
-								&bpi->extra->label
-									 [0]);
-					} else
+					else
 						prd = NULL;
+
+					if (bgp_path_info_num_labels(bpi))
+						label = decode_label(
+							&bpi->extra->label[0]);
+					else
+						label = MPLS_INVALID_LABEL;
 
 					rfapiBgpInfoFilteredImportVPN(
 						it, FIF_ACTION_KILL, bpi->peer,
@@ -2157,16 +2165,17 @@ void vnc_import_bgp_exterior_add_route_interior(
 				 * Add constructed exterior routes based on
 				 * the new interior route at longer prefix.
 				 */
-				if (bpi_interior->extra) {
+				if (bpi_interior->extra)
 					prd = &bpi_interior->extra->vnc->vnc
 						       .import.rd;
-					if (bgp_path_info_num_labels(
-						    bpi_interior))
-						label = decode_label(
-							&bpi_interior->extra
-								 ->label[0]);
-				} else
+				else
 					prd = NULL;
+
+				if (bgp_path_info_num_labels(bpi_interior))
+					label = decode_label(
+						&bpi_interior->extra->label[0]);
+				else
+					label = MPLS_INVALID_LABEL;
 
 				/* use local_pref from unicast route */
 				memset(&new_attr, 0, sizeof(struct attr));
@@ -2250,7 +2259,7 @@ void vnc_import_bgp_exterior_add_route_interior(
 
 			struct prefix_rd *prd;
 			struct attr new_attr;
-			uint32_t label = MPLS_INVALID_LABEL;
+			uint32_t label;
 
 			/* do pull-down */
 
@@ -2279,13 +2288,16 @@ void vnc_import_bgp_exterior_add_route_interior(
 			 * Add constructed exterior routes based on the
 			 * new interior route at the longer prefix.
 			 */
-			if (bpi_interior->extra) {
+			if (bpi_interior->extra)
 				prd = &bpi_interior->extra->vnc->vnc.import.rd;
-				if (bgp_path_info_num_labels(bpi_interior))
-					label = decode_label(
-						&bpi_interior->extra->label[0]);
-			} else
+			else
 				prd = NULL;
+
+			if (bgp_path_info_num_labels(bpi_interior))
+				label = decode_label(
+					&bpi_interior->extra->label[0]);
+			else
+				label = MPLS_INVALID_LABEL;
 
 			/* use local_pref from unicast route */
 			memset(&new_attr, 0, sizeof(struct attr));
@@ -2386,15 +2398,17 @@ void vnc_import_bgp_exterior_del_route_interior(
 				&cursor)) {
 
 		struct prefix_rd *prd;
-		uint32_t label = MPLS_INVALID_LABEL;
+		uint32_t label;
 
-		if (bpi_interior->extra) {
+		if (bpi_interior->extra)
 			prd = &bpi_interior->extra->vnc->vnc.import.rd;
-			if (bgp_path_info_num_labels(bpi_interior))
-				label = decode_label(
-					&bpi_interior->extra->label[0]);
-		} else
+		else
 			prd = NULL;
+
+		if (bgp_path_info_num_labels(bpi_interior))
+			label = decode_label(&bpi_interior->extra->label[0]);
+		else
+			label = MPLS_INVALID_LABEL;
 
 		rfapiBgpInfoFilteredImportVPN(
 			it, FIF_ACTION_KILL, bpi_interior->peer, NULL, /* rfd */
@@ -2462,18 +2476,21 @@ void vnc_import_bgp_exterior_del_route_interior(
 
 				struct prefix_rd *prd;
 				struct attr new_attr;
-				uint32_t label = MPLS_INVALID_LABEL;
+				uint32_t label;
 
 				if (bpi->type == ZEBRA_ROUTE_BGP_DIRECT_EXT)
 					continue;
 
-				if (bpi->extra) {
+				if (bpi->extra)
 					prd = &bpi->extra->vnc->vnc.import.rd;
-					if (bgp_path_info_num_labels(bpi))
-						label = decode_label(
-							&bpi->extra->label[0]);
-				} else
+				else
 					prd = NULL;
+
+				if (bgp_path_info_num_labels(bpi))
+					label = decode_label(
+						&bpi->extra->label[0]);
+				else
+					label = MPLS_INVALID_LABEL;
 
 				/* use local_pref from unicast route */
 				memset(&new_attr, 0, sizeof(new_attr));
