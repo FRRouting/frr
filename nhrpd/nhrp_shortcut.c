@@ -19,7 +19,8 @@ DEFINE_MTYPE_STATIC(NHRPD, NHRP_SHORTCUT, "NHRP shortcut");
 static struct route_table *shortcut_rib[AFI_MAX];
 
 static void nhrp_shortcut_do_purge(struct event *t);
-static void nhrp_shortcut_delete(struct nhrp_shortcut *s);
+static void nhrp_shortcut_delete(struct nhrp_shortcut *s,
+				 void *arg __attribute__((__unused__)));
 static void nhrp_shortcut_send_resolution_req(struct nhrp_shortcut *s);
 
 static void nhrp_shortcut_check_use(struct nhrp_shortcut *s)
@@ -72,7 +73,7 @@ static void nhrp_shortcut_cache_notify(struct notifier_block *n,
 			s->route_installed = 0;
 		}
 		if (cmd == NOTIFY_CACHE_DELETE)
-			nhrp_shortcut_delete(s);
+			nhrp_shortcut_delete(s, NULL);
 		break;
 	}
 }
@@ -132,7 +133,8 @@ static void nhrp_shortcut_update_binding(struct nhrp_shortcut *s,
 	}
 }
 
-static void nhrp_shortcut_delete(struct nhrp_shortcut *s)
+static void nhrp_shortcut_delete(struct nhrp_shortcut *s,
+				 void *arg __attribute__((__unused__)))
 {
 	struct route_node *rn;
 	afi_t afi = family2afi(PREFIX_FAMILY(s->p));
@@ -158,7 +160,7 @@ static void nhrp_shortcut_do_purge(struct event *t)
 {
 	struct nhrp_shortcut *s = EVENT_ARG(t);
 	s->t_timer = NULL;
-	nhrp_shortcut_delete(s);
+	nhrp_shortcut_delete(s, NULL);
 }
 
 static struct nhrp_shortcut *nhrp_shortcut_get(struct prefix *p)
@@ -469,6 +471,8 @@ void nhrp_shortcut_init(void)
 
 void nhrp_shortcut_terminate(void)
 {
+	nhrp_shortcut_foreach(AFI_IP, nhrp_shortcut_delete, NULL);
+	nhrp_shortcut_foreach(AFI_IP6, nhrp_shortcut_delete, NULL);
 	route_table_finish(shortcut_rib[AFI_IP]);
 	route_table_finish(shortcut_rib[AFI_IP6]);
 }
