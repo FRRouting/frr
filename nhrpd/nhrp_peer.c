@@ -730,7 +730,7 @@ static void nhrp_handle_registration_request(struct nhrp_packet_parser *p)
 		}
 	}
 
-	// auth ext was validated and copied from the request
+	/* auth ext was validated and copied from the request */
 	nhrp_packet_complete_auth(zb, hdr, ifp, false);
 	nhrp_peer_send(p->peer, zb);
 err:
@@ -1064,7 +1064,6 @@ static void nhrp_peer_forward(struct nhrp_peer *p,
 		nhrp_ext_complete(zb, dst);
 	}
 
-	// XXX: auth already handled ???
 	nhrp_packet_complete_auth(zb, hdr, pp->ifp, false);
 	nhrp_peer_send(p, zb);
 	zbuf_free(zb);
@@ -1121,24 +1120,26 @@ static int nhrp_packet_send_error(struct nhrp_packet_parser *pp,
 		dst_proto = pp->src_proto;
 	}
 	/* Create reply */
-	zb = zbuf_alloc(1500); // XXX: hardcode -> calculation routine
+	zb = zbuf_alloc(1500);
 	hdr = nhrp_packet_push(zb, NHRP_PACKET_ERROR_INDICATION, &pp->src_nbma,
 			       &src_proto, &dst_proto);
 
-	hdr->u.error.code = indication_code;
+	hdr->u.error.code = htons(indication_code);
 	hdr->u.error.offset = htons(offset);
 	hdr->flags = pp->hdr->flags;
-	hdr->hop_count = 0; // XXX: cisco returns 255
+	hdr->hop_count = 0; /* XXX: cisco returns 255 */
 
 	/* Payload is the packet causing error */
 	/* Don`t add extension according to RFC */
-	/* wireshark gives bad checksum, without exts */
-	// pp->hdr->checksum = nhrp_packet_calculate_checksum(zbuf_used(&pp->payload))
 	zbuf_put(zb, pp->hdr, sizeof(*pp->hdr));
-	zbuf_copy(zb, &pp->payload, zbuf_used(&pp->payload));
+	zbuf_put(zb, sockunion_get_addr(&pp->src_nbma),
+		 hdr->src_nbma_address_len);
+	zbuf_put(zb, sockunion_get_addr(&pp->src_proto),
+		 hdr->src_protocol_address_len);
+	zbuf_put(zb, sockunion_get_addr(&pp->dst_proto),
+		 hdr->dst_protocol_address_len);
 	nhrp_packet_complete_auth(zb, hdr, pp->ifp, false);
 
-	/* nhrp_packet_debug(zb, "SEND_ERROR"); */
 	nhrp_peer_send(pp->peer, zb);
 	zbuf_free(zb);
 	return 0;
@@ -1151,8 +1152,7 @@ static bool nhrp_connection_authorized(struct nhrp_packet_parser *pp)
 	struct zbuf *auth = nifp->auth_token;
 	struct nhrp_extension_header *ext;
 	struct zbuf *extensions, pl;
-	int cmp = 0;
-
+	int cmp = 1;
 
 	extensions = zbuf_alloc(zbuf_used(&pp->extensions));
 	zbuf_copy_peek(extensions, &pp->extensions, zbuf_used(&pp->extensions));
@@ -1164,7 +1164,14 @@ static bool nhrp_connection_authorized(struct nhrp_packet_parser *pp)
 					   auth->buf;
 			debugf(NHRP_DEBUG_COMMON,
 			       "Processing Authentication Extension for (%s:%s|%d)",
-			       auth_ext->secret, (const char *)pl.buf, cmp);
+			       auth_ext->secret,
+			       ((struct nhrp_cisco_authentication_extension *)
+					pl.buf)
+				       ->secret,
+			       cmp);
+			break;
+		default:
+			/* Ignoring all received extensions except Authentication*/
 			break;
 		}
 	}
