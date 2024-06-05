@@ -654,14 +654,6 @@ static void fpm_read(struct event *t)
 		hdr_available_bytes = fpm.msg_len - FPM_MSG_HDR_LEN;
 		available_bytes -= hdr_available_bytes;
 
-		/* Sanity check: must be at least header size. */
-		if (hdr->nlmsg_len < sizeof(*hdr)) {
-			zlog_warn(
-				"%s: [seq=%u] invalid message length %u (< %zu)",
-				__func__, hdr->nlmsg_seq, hdr->nlmsg_len,
-				sizeof(*hdr));
-			continue;
-		}
 		if (hdr->nlmsg_len > fpm.msg_len) {
 			zlog_warn(
 				"%s: Received a inner header length of %u that is greater than the fpm total length of %u",
@@ -691,6 +683,14 @@ static void fpm_read(struct event *t)
 
 		switch (hdr->nlmsg_type) {
 		case RTM_NEWROUTE:
+			/* Sanity check: need at least route msg header size. */
+			if (hdr->nlmsg_len < sizeof(struct rtmsg)) {
+				zlog_warn("%s: [seq=%u] invalid message length %u (< %zu)",
+					  __func__, hdr->nlmsg_seq,
+					  hdr->nlmsg_len, sizeof(struct rtmsg));
+				break;
+			}
+
 			ctx = dplane_ctx_alloc();
 			dplane_ctx_route_init(ctx, DPLANE_OP_ROUTE_NOTIFY, NULL,
 					      NULL);
