@@ -88,7 +88,7 @@ Configuring NHRP
 
    Enables Cisco style authentication on NHRP packets. This embeds the
    plaintext password to the outgoing NHRP packets.
-   Maximum length of the is 8 characters.
+   Maximum length of the password is 8 characters.
 
 .. clicmd:: ip nhrp map A.B.C.D|X:X::X:X A.B.C.D|local
 
