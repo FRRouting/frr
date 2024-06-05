@@ -2387,8 +2387,11 @@ static int nexthop_active(struct nexthop *nexthop, struct nhg_hash_entry *nhe,
 		 * if specified) - i.e., we cannot have a nexthop NH1 is
 		 * resolved by a route NH1. The exception is if the route is a
 		 * host route.
+		 * A test on 'top' is done, because the 'top' prefix is not known
+		 * when 'nexthop_active()' is called from 'zebra_nhg_proto_add()'.
+		 * The 'match againts oursleves' test will have to be done at protocol level.
 		 */
-		if (prefix_same(&rn->p, top))
+		if (top && prefix_same(&rn->p, top))
 			if (((afi == AFI_IP)
 			     && (rn->p.prefixlen != IPV4_MAX_BITLEN))
 			    || ((afi == AFI_IP6)
@@ -3599,7 +3602,7 @@ struct nhg_hash_entry *zebra_nhg_proto_add(struct nhg_hash_entry *nhe, struct ne
 	struct nexthop *newhop;
 	bool replace = false;
 	int ret = 0, type;
-	uint32_t id, session;
+	uint32_t id, session, flags = 0;
 	uint16_t instance;
 
 	id = nhe->id;
@@ -3647,14 +3650,15 @@ struct nhg_hash_entry *zebra_nhg_proto_add(struct nhg_hash_entry *nhe, struct ne
 			return NULL;
 		}
 
-		if (!newhop->ifindex) {
-			if (IS_ZEBRA_DEBUG_NHG)
-				zlog_debug(
-					"%s: id %u, nexthop without ifindex is not supported",
-					__func__, id);
-			return NULL;
-		}
-		SET_FLAG(newhop->flags, NEXTHOP_FLAG_ACTIVE);
+		if (CHECK_FLAG(nhg->flags, NEXTHOP_GROUP_ALLOW_RECURSION))
+			/* Tell zebra that the route may be recursively resolved */
+			flags = ZEBRA_FLAG_ALLOW_RECURSION;
+
+		if (newhop->ifindex ||
+		    nexthop_active(newhop, nhe, NULL, type, flags, NULL, newhop->vrf_id))
+			SET_FLAG(newhop->flags, NEXTHOP_FLAG_ACTIVE);
+		else
+			UNSET_FLAG(newhop->flags, NEXTHOP_FLAG_ACTIVE);
 	}
 
 	zebra_nhe_init(&lookup, afi, nhg->nexthop);
