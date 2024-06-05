@@ -2196,7 +2196,7 @@ void zebra_mpls_process_dplane_notify(struct zebra_dplane_ctx *ctx)
 /*
  * Install dynamic LSP entry.
  */
-int zebra_mpls_lsp_install(struct zebra_vrf *zvrf, struct route_node *rn,
+void zebra_mpls_lsp_install(struct zebra_vrf *zvrf, struct route_node *rn,
 			   struct route_entry *re)
 {
 	struct route_table *table;
@@ -2204,23 +2204,20 @@ int zebra_mpls_lsp_install(struct zebra_vrf *zvrf, struct route_node *rn,
 
 	table = zvrf->fec_table[family2afi(PREFIX_FAMILY(&rn->p))];
 	if (!table)
-		return -1;
+		return;
 
 	/* See if there is a configured label binding for this FEC. */
 	fec = fec_find(table, &rn->p);
 	if (!fec || fec->label == MPLS_INVALID_LABEL)
-		return 0;
+		return;
 
 	/* We cannot install a label forwarding entry if local label is the
 	 * implicit-null label.
 	 */
 	if (fec->label == MPLS_LABEL_IMPLICIT_NULL)
-		return 0;
+		return;
 
-	if (lsp_install(zvrf, fec->label, rn, re))
-		return -1;
-
-	return 0;
+	lsp_install(zvrf, fec->label, rn, re);
 }
 
 /*

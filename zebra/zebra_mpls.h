@@ -146,7 +146,7 @@ int zebra_mpls_write_label_block_config(struct vty *vty, struct zebra_vrf *vrf);
 /*
  * Install dynamic LSP entry.
  */
-int zebra_mpls_lsp_install(struct zebra_vrf *zvrf, struct route_node *rn,
+void zebra_mpls_lsp_install(struct zebra_vrf *zvrf, struct route_node *rn,
 			   struct route_entry *re);
 
 /*
