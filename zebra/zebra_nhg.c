@@ -3503,6 +3503,7 @@ struct nhg_hash_entry *zebra_nhg_proto_add(struct nhg_hash_entry *nhe,
 	lookup.nhg.nhgr = nhg->nhgr;
 	lookup.id = id;
 	lookup.type = type;
+	lookup.nhg.flags = nhg->flags;
 
 	old = zebra_nhg_lookup_id(id);
 
