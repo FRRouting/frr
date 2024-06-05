@@ -4102,6 +4102,10 @@ The following are available in the top level *enable* mode:
 
    Clear all peers.
 
+.. clicmd:: clear bgp ipv4|ipv6 ASNUM
+
+   Clear peers with the AS number in plain or dotted format.
+
 .. clicmd:: clear bgp ipv4|ipv6 \*
 
    Clear all peers with this address-family activated.
