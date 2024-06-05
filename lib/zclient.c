@@ -1184,6 +1184,8 @@ static int zapi_nhg_encode(struct stream *s, int cmd, struct zapi_nhg *api_nhg)
 	stream_putl(s, api_nhg->resilience.idle_timer);
 	stream_putl(s, api_nhg->resilience.unbalanced_timer);
 
+	stream_putc(s, api_nhg->flags);
+
 	if (cmd == ZEBRA_NHG_ADD) {
 		/* Nexthops */
 		zapi_nexthop_group_sort(api_nhg->nexthops,
