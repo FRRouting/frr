@@ -799,7 +799,90 @@ sed -i 's/ -M rpki//' %{_sysconfdir}/frr/daemons
 
 %changelog
 
-* Fri Dec 01 2023 Martin Winter <mwinter@opensourcerouting.org> - %{version}
+* Thu Jun 06 2024 Martin Winter <mwinter@opensourcerouting.org> - %{version}
+
+* Thu Jun 06 2024 Jafar Al-Gharaibeh <jafar@atcorp.com> - 9.0.3
+- bgpd
+-    "default-originate" shouldn't withdraw non-default routes
+-    Arrange peer notification to after zebra announce
+-    Convert the bgp_advertise_attr->adv to a fifo
+-    Ensure community data is freed in some cases.
+-    Ensure that the correct aspath is free'd
+-    Fix `match peer` when switching between ipv4/ipv6/interface
+-    Fix display when using `missing-as-worst`
+-    Fix error handling when receiving bgp prefix sid attribute
+-    Fix format overflow for graceful-restart debug logs
+-    Fix route-map match probability deconfiguration callback
+-    Fix srv6 memory leak detection
+-    Include unsuppress-map as a valid outgoing policy
+-    Note when receiving but not understanding a route notification
+-    Prevent from one more cve triggering this place
+-    Set correct ttl for the dynamic neighbor peers
+-    Update default-originate route-map actual map structure
+- doc
+-    Add param range for graceful-restart helper supported-grace-time
+- isisd
+-    Fix dislaying lsp id
+-    Fix heap-after-free with prefix sid
+-    Fix ip/ipv6 reachability tlvs
+- lib
+-    Check for not being a blackhole route
+-    Do not convert evpn prefixes into ipv4/ipv6 if not needed
+-    Replace deprecated ares_gethostbyname
+-    Replace deprecated ares_process()
+- nhrpd
+-    Fix nhrp_peer leak
+-    Fix race condition
+- ospf6d
+-    Ospfv3 route change comparision fixed for asbr-only change
+-    Prevent heap-buffer-overflow with unknown type
+- ospfd
+-    Add support for "no router-info [<area|as>] command"
+-    Can not delete "segment-routing node-msd" when sr if off
+-    Correct lsa parser which fulfill the ted
+-    Correct opaque lsa extended parser
+-    Correct sid check size
+-    Fix ospf dead-interval minimal hello-multiplier param range
+-    Fix the bug where ip_ospf_dead-interval_minimal_hello-multiplier did not reset hello timer
+-    Protect call to get_edge() in ospf_te.c
+-    Solved crash in ospf te parsing
+-    Solved crash in ri parsing with ospf te
+- pbrd
+-    Fix map seq installed flag in json
+-    Fix pbr handling for last rule deletion
+- pimd
+-    Fix crash unconfiguring rp keepalive timer
+-    Fix crash when configuring ssmpingd
+-    Fix dr-priority range
+-    Fix null register before aging out reg-stop
+-    Fix order of operations for evaluating join
+-    Re-evaluated s,g oils upon rp changes and for empty sg upstream oils
+-    Fix crash when mixing ssm/any-source joins
+- staticd
+-    Fix changing to source auto in bfd monitor
+- tests
+-    Check for 0.0.0.0/1 in bgp_default_route
+-    Update ospf te topotests
+- tools
+-    Always append "exit" in frr-reload.py
+-    Apply black formatting for tools/frr-reload.py
+-    Fix frr-reload multiple no description cmds
+-    Fix key chain reload removal
+-    Fix ospf area stub summary in frr-reload
+-    Fix pim interface config deletion
+-    Use error log level when failing to execute commands via frr-reload.py
+- topotests
+-    Redispatch tests in bfd_topo3
+-    Test wrong bfd source in bfd_topo3
+- vtysh
+-    Show `ip ospf network ...` even if it's not the same as the interface type
+- zebra
+-    Add missing whitespace when printing route entry status
+-    Deny the routes if ip protocol cli refers to an undefined rmap
+-    Fix crash if macvlan link in another netns
+-    Fix crash on macvlan link down/up
+-    Fix nhg out of sync between zebra and kernel
+-    The dplane_fpm_nl return path leaks memory
 
 * Fri Dec 01 2023 Donatas Abraitis <donatas@opensourcerouting.org> - 9.0.2
 - bgpd
