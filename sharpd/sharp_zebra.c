@@ -529,6 +529,10 @@ void nhg_add(uint32_t id, const struct nexthop_group *nhg,
 	api_nhg.id = id;
 
 	api_nhg.flags = nhg->flags;
+
+	if (CHECK_FLAG(nhg->message, NEXTHOP_GROUP_MESSAGE_SRTE))
+		SET_FLAG(api_nhg.message, ZAPI_MESSAGE_SRTE);
+
 	api_nhg.resilience = nhg->nhgr;
 
 	for (ALL_NEXTHOPS_PTR(nhg, nh)) {

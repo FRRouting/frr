@@ -2075,6 +2075,8 @@ static void zread_nhg_add(ZAPI_HANDLER_ARGS)
 	nhe->id = api_nhg.id;
 	nhe->type = api_nhg.proto;
 	nhe->nhg.flags = api_nhg.flags;
+	if (CHECK_FLAG(api_nhg.message, ZAPI_MESSAGE_SRTE))
+		SET_FLAG(nhe->nhg.message, NEXTHOP_GROUP_MESSAGE_SRTE);
 	nhe->zapi_instance = client->instance;
 	nhe->zapi_session = client->session_id;
 
