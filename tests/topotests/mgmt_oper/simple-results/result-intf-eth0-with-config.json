@@ -3,6 +3,7 @@
 		"interface": [
 			{
 				"name": "r1-eth0",
+				"fake-vrflite": "default",
 				"vrf": "default",
 				"description": "r1-eth0-desc",
 				"state": {

@@ -1214,6 +1214,8 @@ DEFPY_YANG_NOSH (interface,
 	} else {
 		snprintf(xpath_list, XPATH_MAXLEN,
 			 "/frr-interface:lib/interface[name='%s']", ifname);
+		nb_cli_enqueue_change(vty, "./fake-vrflite", NB_OP_MODIFY,
+				      vrf_name ?: VRF_DEFAULT_NAME);
 	}
 
 	nb_cli_enqueue_change(vty, ".", NB_OP_CREATE, NULL);
@@ -1313,8 +1315,12 @@ static void cli_show_interface(struct vty *vty, const struct lyd_node *dnode,
 			vty_out(vty, " vrf %s", vrfname);
 	} else {
 		const char *ifname = yang_dnode_get_string(dnode, "name");
+		const char *vrfname = yang_dnode_get_string(dnode,
+							    "fake-vrflite");
 
 		vty_out(vty, "interface %s", ifname);
+		if (!strmatch(vrfname, VRF_DEFAULT_NAME))
+			vty_out(vty, " vrf %s", vrfname);
 	}
 
 	vty_out(vty, "\n");
@@ -1611,6 +1617,14 @@ lib_interface_lookup_entry(struct nb_cb_lookup_entry_args *args)
 }
 
 /*
+ * XPath: /frr-interface:lib/interface/fake-vrflite
+ */
+static int lib_interface_fake_vrflite_modify(struct nb_cb_modify_args *args)
+{
+	return NB_OK;
+}
+
+/*
  * XPath: /frr-interface:lib/interface/description
  */
 static int lib_interface_description_modify(struct nb_cb_modify_args *args)
@@ -1759,6 +1773,12 @@ const struct frr_yang_module_info frr_interface_info = {
 				.get_next = lib_interface_get_next,
 				.get_keys = lib_interface_get_keys,
 				.lookup_entry = lib_interface_lookup_entry,
+			},
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/fake-vrflite",
+			.cbs = {
+				.modify = lib_interface_fake_vrflite_modify,
 			},
 		},
 		{

@@ -299,6 +299,13 @@ module frr-interface {
           "Interface name.";
       }
 
+      leaf fake-vrflite {
+        type string;
+        default "default";
+        description
+          "fake VRF-Lite. Only for show running backward compatibility with YAMS state.";
+      }
+
       leaf vrf {
         type frr-vrf:vrf-ref;
         description

@@ -3,6 +3,7 @@
 		"interface": [
 			{
 				"name": "r1-eth0",
+				"fake-vrflite": "default",
 				"description": "r1-eth0-desc",
 				"frr-zebra:zebra": {
 					"ipv4-addrs": [
