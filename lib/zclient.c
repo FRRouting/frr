@@ -1184,6 +1184,7 @@ static int zapi_nhg_encode(struct stream *s, int cmd, struct zapi_nhg *api_nhg)
 	stream_putl(s, api_nhg->resilience.idle_timer);
 	stream_putl(s, api_nhg->resilience.unbalanced_timer);
 
+	stream_putl(s, api_nhg->message);
 	stream_putc(s, api_nhg->flags);
 
 	if (cmd == ZEBRA_NHG_ADD) {
@@ -1194,14 +1195,15 @@ static int zapi_nhg_encode(struct stream *s, int cmd, struct zapi_nhg *api_nhg)
 		stream_putw(s, api_nhg->nexthop_num);
 
 		for (i = 0; i < api_nhg->nexthop_num; i++)
-			zapi_nexthop_encode(s, &api_nhg->nexthops[i], 0, 0);
+			zapi_nexthop_encode(s, &api_nhg->nexthops[i], 0,
+					    api_nhg->message);
 
 		/* Backup nexthops */
 		stream_putw(s, api_nhg->backup_nexthop_num);
 
 		for (i = 0; i < api_nhg->backup_nexthop_num; i++)
 			zapi_nexthop_encode(s, &api_nhg->backup_nexthops[i], 0,
-					    0);
+					    api_nhg->message);
 	}
 
 	stream_putw_at(s, 0, stream_get_endp(s));

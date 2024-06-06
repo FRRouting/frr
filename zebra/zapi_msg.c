@@ -1954,6 +1954,7 @@ static int zapi_nhg_decode(struct stream *s, int cmd, struct zapi_nhg *api_nhg)
 	STREAM_GETL(s, api_nhg->resilience.idle_timer);
 	STREAM_GETL(s, api_nhg->resilience.unbalanced_timer);
 
+	STREAM_GETL(s, api_nhg->message);
 	STREAM_GETC(s, api_nhg->flags);
 
 	/* Nexthops */
@@ -1971,7 +1972,7 @@ static int zapi_nhg_decode(struct stream *s, int cmd, struct zapi_nhg *api_nhg)
 	for (i = 0; i < api_nhg->nexthop_num; i++) {
 		znh = &((api_nhg->nexthops)[i]);
 
-		if (zapi_nexthop_decode(s, znh, 0, 0) != 0) {
+		if (zapi_nexthop_decode(s, znh, 0, api_nhg->message) != 0) {
 			flog_warn(EC_ZEBRA_NEXTHOP_CREATION_FAILED,
 				  "%s: Nexthop creation failed", __func__);
 			return -1;
@@ -1987,7 +1988,7 @@ static int zapi_nhg_decode(struct stream *s, int cmd, struct zapi_nhg *api_nhg)
 	for (i = 0; i < api_nhg->backup_nexthop_num; i++) {
 		znh = &((api_nhg->backup_nexthops)[i]);
 
-		if (zapi_nexthop_decode(s, znh, 0, 0) != 0) {
+		if (zapi_nexthop_decode(s, znh, 0, api_nhg->message) != 0) {
 			flog_warn(EC_ZEBRA_NEXTHOP_CREATION_FAILED,
 				  "%s: Backup Nexthop creation failed",
 				  __func__);
@@ -2053,13 +2054,12 @@ static void zread_nhg_add(ZAPI_HANDLER_ARGS)
 		return;
 	}
 
-	if ((!zapi_read_nexthops(client, NULL, api_nhg.nexthops, 0, 0,
-				 api_nhg.nexthop_num,
-				 api_nhg.backup_nexthop_num, &nhg, NULL))
-	    || (!zapi_read_nexthops(client, NULL, api_nhg.backup_nexthops, 0, 0,
-				    api_nhg.backup_nexthop_num,
-				    api_nhg.backup_nexthop_num, NULL, &bnhg))) {
-
+	if ((!zapi_read_nexthops(client, NULL, api_nhg.nexthops, 0,
+				 api_nhg.message, api_nhg.nexthop_num,
+				 api_nhg.backup_nexthop_num, &nhg, NULL)) ||
+	    (!zapi_read_nexthops(client, NULL, api_nhg.backup_nexthops, 0, 0,
+				 api_nhg.backup_nexthop_num,
+				 api_nhg.backup_nexthop_num, NULL, &bnhg))) {
 		flog_warn(EC_ZEBRA_NEXTHOP_CREATION_FAILED,
 			  "%s: Nexthop Group Creation failed", __func__);
 
