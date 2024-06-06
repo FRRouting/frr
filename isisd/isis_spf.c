@@ -3074,7 +3074,7 @@ DEFUN(show_isis_route, show_isis_route_cmd,
 #ifndef FABRICD
       " [<level-1|level-2>]"
 #endif /* ifndef FABRICD */
-      " [<prefix-sid|backup>]"
+      " [prefix-sid] [backup]"
 #ifndef FABRICD
       " [algorithm [(128-255)]]"
 #endif /* ifndef FABRICD */
