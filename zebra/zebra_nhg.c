@@ -2862,21 +2862,6 @@ static uint32_t nexthop_list_active_update(struct route_node *rn,
 }
 
 
-static uint32_t proto_nhg_nexthop_active_update(struct nexthop_group *nhg)
-{
-	struct nexthop *nh;
-	uint32_t curr_active = 0;
-
-	/* Assume all active for now */
-
-	for (nh = nhg->nexthop; nh; nh = nh->next) {
-		SET_FLAG(nh->flags, NEXTHOP_FLAG_ACTIVE);
-		curr_active++;
-	}
-
-	return curr_active;
-}
-
 static uint32_t nexthop_active_update_common(struct route_node *rn,
 					     struct route_entry *re,
 					     struct nhg_hash_entry *curr_nhe)
@@ -2947,7 +2932,7 @@ int nexthop_active_update(struct route_node *rn, struct route_entry *re)
 	uint32_t curr_active;
 
 	if (PROTO_OWNED(re->nhe))
-		return proto_nhg_nexthop_active_update(&re->nhe->nhg);
+		return nexthop_active_update_common(rn, re, re->nhe);
 
 	/* Make a local copy of the existing nhe, so we don't work on/modify
 	 * the shared nhe.
