@@ -793,7 +793,61 @@ sed -i 's/ -M rpki//' %{_sysconfdir}/frr/daemons
 
 %changelog
 
-* Fri Dec 01 2023 Martin Winter <mwinter@opensourcerouting.org> - %{version}
+* Thu Jun 06 2024 Martin Winter <mwinter@opensourcerouting.org> - %{version}
+
+* Thu Jun 06 2024 Jafar Al-Gharaibeh <jafar@atcorp.com> - 8.5.5
+- bgpd
+-    "default-originate" shouldn't withdraw non-default routes
+-    Ensure community data is freed in some cases.
+-    Ensure that the correct aspath is free'd
+-    Fix error handling when receiving bgp prefix sid attribute
+-    Fix format overflow for graceful-restart debug logs
+-    Fix null argument warning
+-    Include unsuppress-map as a valid outgoing policy
+-    Make `suppress-fib-pending` clear peering
+-    Prevent from one more cve triggering this place
+- doc
+-    Add param range for graceful-restart helper supported-grace-time
+- isisd
+-    Fix heap-after-free with prefix sid
+-    Need to link directly against libyang
+- lib
+-    Check for not being a blackhole route
+-    Do not convert evpn prefixes into ipv4/ipv6 if not needed
+- nhrpd
+-    Fix nhrp_peer leak
+-    Fix race condition
+-    Fix core dump on shutdown
+- ospf6d
+-    Ospfv3 route change comparision fixed for asbr-only change
+-    Prevent heap-buffer-overflow with unknown type
+- ospfd
+-    Correct opaque lsa extended parser
+-    Fix ospf dead-interval minimal hello-multiplier param range
+-    Fix the bug where ip_ospf_dead-interval_minimal_hello-multiplier did not reset hello timer
+-    Protect call to get_edge() in ospf_te.c
+-    Solved crash in ri parsing with ospf te
+- pbrd
+-    Fix pbr handling for last rule deletion
+- pimd
+-    Fix crash unconfiguring rp keepalive timer
+-    Fix crash when configuring ssmpingd
+-    Fix dr-priority range
+-    Fix null register before aging out reg-stop
+-    Fix order of operations for evaluating join
+-    Re-evaluated s,g oils upon rp changes and for empty sg upstream oils
+-    Fix crash when mixing ssm/any-source joins
+- tests
+-    Check for 0.0.0.0/1 in bgp_default_route
+- vtysh
+-    Show `ip ospf network ...` even if it's not the same as the interface type
+- zebra
+-    Deny the routes if ip protocol cli refers to an undefined rmap
+-    Fix crash if macvlan link in another netns
+-    Fix nhg out of sync between zebra and kernel
+-    Re-install dependent nhgs on interface up
+-    Re-install nhg on interface up
+-    The dplane_fpm_nl return path leaks memory
 
 * Fri Dec 01 2023 Donatas Abraitis <donatas@opensourcerouting.org> - 8.5.4
 - bgpd
