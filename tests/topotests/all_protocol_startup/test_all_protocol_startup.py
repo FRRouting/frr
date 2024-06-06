@@ -19,6 +19,7 @@ import re
 import sys
 import pytest
 import glob
+from functools import partial
 from time import sleep
 
 pytestmark = [
@@ -108,6 +109,7 @@ def setup_module(module):
         net["r{}".format(i)].loadConf("nhrpd", "{}/r{}/nhrpd.conf".format(thisDir, i))
         net["r{}".format(i)].loadConf("babeld", "{}/r{}/babeld.conf".format(thisDir, i))
         net["r{}".format(i)].loadConf("pbrd", "{}/r{}/pbrd.conf".format(thisDir, i))
+        net["r{}".format(i)].loadConf("pathd", "{}/r{}/pathd.conf".format(thisDir, i))
         tgen.gears["r{}".format(i)].start()
 
     # For debugging after starting FRR daemons, uncomment the next line
@@ -550,6 +552,44 @@ def verify_nexthop_group(nhg_id, recursive=False, ecmp=0):
         )
 
 
+def check_show_nexthop_group_nexthops(nhg_id, nexthop, srte_color=None, labels=None):
+    net = get_topogen().net
+
+    try:
+        joutput = json.loads(
+            net["r1"].cmd('vtysh -c "show nexthop-group rib {} json"'.format(nhg_id))
+        )
+    except:
+        joutput = []
+    jnexthops = joutput[str(nhg_id)]["nexthops"]
+    for jnexthop in jnexthops:
+        if "recursive" in jnexthop.keys():
+            if "srteColor" in jnexthop.keys():
+                if srte_color is not None and jnexthop["srteColor"] != srte_color:
+                    return f'nexthop IP {jnexthop["ip"]}, srteColor not colored {jnexthop["srteColor"]}'
+                continue
+            elif srte_color is None:
+                continue
+            return f'nexthop IP {jnexthop["ip"]}, srteColor expected'
+        # recursive nexthop
+        if "ip" in jnexthop.keys():
+            if nexthop is None:
+                return f'unexpected nexthop IP address present : {jnexthop["ip"]}'
+            if jnexthop["ip"] != nexthop:
+                return f'unexpected nexthop IP address in nexthop : {jnexthop["ip"]}'
+        elif nexthop is not None:
+            return f"unexpected nexthop IP address not present"
+
+        if "labels" in jnexthop.keys():
+            if labels == None:
+                return f'unexpected label in nexthop present: {jnexthop["labels"]}'
+            if jnexthop["labels"] != labels:
+                return f'unexpected label in nexthop present: {jnexthop["labels"]}'
+        elif labels is not None:
+            return f"unexpected label in nexthop not present"
+    return None
+
+
 def verify_route_nexthop_group(route_str, recursive=False, ecmp=0):
     global fatal_error
 
@@ -741,6 +781,106 @@ def test_nexthop_groups():
     )
 
     verify_nexthop_group_inactive(nhg_id)
+
+    ## Colored nexthop test
+    # create a non colored nexthop, and expect that the nexthop is steered by default
+    net["r1"].cmd(
+        'vtysh -c "configure terminal" \
+        -c "nexthop-group TESTSRTE" \
+        -c "allow-recursion" \
+        -c "nexthop 172.31.0.200"'
+    )
+
+    net["r1"].cmd(
+        'vtysh -c "sharp install routes 10.10.10.10 nexthop-group TESTSRTE 1"'
+    )
+
+    nhg_id = route_get_nhg_id("10.10.10.10/32")
+    verify_nexthop_group(nhg_id)
+    # Use the json output to check the nexthops validity
+    # - main nexthop has no srteColor, and ip set to 172.31.0.200
+    # - recursive nexthop has no label values and recurses to 192.168.0.44, as per static route:
+    #    ip route 172.31.0.200/32 192.168.0.44
+    test_func = partial(
+        check_show_nexthop_group_nexthops, nhg_id, nexthop="192.168.0.44"
+    )
+    success, _ = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+    assert (
+        success
+    ), "r1, route to 10.10.10.10 nexthop 172.31.0.200 with no SRTE color, nexthop not expected"
+
+    ## register to nexthop tracking events to 172.31.0.200 color 1
+    net["r1"].cmd('vtysh -c "sharp watch nexthop 172.31.0.200 color 1"')
+
+    ## modify nexthop-group to use the color, and expect that the nexthop is steered by pathd
+    net["r1"].cmd(
+        'vtysh -c "configure terminal" \
+        -c "nexthop-group TESTSRTE" \
+        -c "allow-recursion" \
+        -c "nexthop 172.31.0.200 color 1"'
+    )
+
+    # Use the json output to check the nexthops validity
+    # - main nexthop has srteColor=1
+    # - recursive nexthop has ip set to 192.168.0.209 as per lsp entry:
+    #    mpls lsp 400 192.168.0.209 500
+    # - recursive nexthop has label [400, 500] values as per pathd segment-list
+    test_func = partial(
+        check_show_nexthop_group_nexthops,
+        nhg_id,
+        nexthop="192.168.0.209",
+        srte_color=1,
+        labels=[400, 600],
+    )
+    success, _ = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+    assert (
+        success
+    ), "r1, route to 10.10.10.10 nexthop 172.31.0.200 SRTE color 1, nexthop not expected"
+
+    # remove srte policy
+    output = net["r1"].cmd(
+        'vtysh -c "configure terminal" \
+        -c "segment-routing" \
+        -c "traffic-eng" \
+        -c "no policy color 1 endpoint 172.31.0.200"'
+    )
+
+    # Use the json output to check the nexthops validity
+    # - main nexthop has srteColor=1, and ip set to 172.31.0.200
+    # - recursive nexthop has no label values
+    test_func = partial(
+        check_show_nexthop_group_nexthops,
+        nhg_id,
+        nexthop="192.168.0.44",
+        srte_color=1,
+        labels=None,
+    )
+    success, _ = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+    assert (
+        success
+    ), "r1, route to 10.10.10.10 nexthop 172.31.0.200 SRTE color 1, nexthop not expected"
+
+    ## modify nexthop-group to not use the color, and expect that the nexthop is steered by staticd
+    net["r1"].cmd(
+        'vtysh -c "configure terminal" \
+        -c "nexthop-group TESTSRTE" \
+        -c "allow-recursion" \
+        -c "nexthop 172.31.0.200"'
+    )
+
+    # Use the json output to check the nexthops validity
+    # - main nexthop has no srteColor, and ip set to 172.31.0.200
+    # - recursive nexthop has no label values and recurses to 192.168.0.44, as per static route:
+    #    ip route 172.31.0.200/32 192.168.0.44
+    test_func = partial(
+        check_show_nexthop_group_nexthops, nhg_id, nexthop="192.168.0.44"
+    )
+    success, _ = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+    assert (
+        success
+    ), "r1, route to 10.10.10.10 nexthop 172.31.0.200 with no SRTE color, nexthop not expected"
+
+    net["r1"].cmd('vtysh -c "sharp remove routes 10.10.10.10 1"')
 
     ## Remove all NHG routes
 
