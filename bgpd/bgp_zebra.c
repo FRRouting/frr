@@ -1273,7 +1273,7 @@ static void bgp_zebra_announce_parse_nexthop(
 	struct bgp_path_info local_info;
 	struct bgp_path_info *mpinfo_cp = &local_info;
 	mpls_label_t *labels;
-	uint32_t num_labels = 0;
+	uint8_t num_labels = 0;
 	mpls_label_t nh_label;
 	int nh_othervrf = 0;
 	bool nh_updated = false;
@@ -1301,8 +1301,6 @@ static void bgp_zebra_announce_parse_nexthop(
 	}
 
 	for (; mpinfo; mpinfo = bgp_path_info_mpath_next(mpinfo)) {
-		labels = NULL;
-		num_labels = 0;
 		uint64_t nh_weight;
 		bool is_evpn;
 		bool is_parent_evpn;
@@ -1341,15 +1339,14 @@ static void bgp_zebra_announce_parse_nexthop(
 		api_nh->srte_color = bgp_attr_get_color(info->attr);
 
 		if (bgp_debug_zebra(&api->prefix)) {
-			if (mpinfo->extra) {
+			if (bgp_path_info_num_labels(mpinfo)) {
 				zlog_debug("%s: p=%pFX, bgp_is_valid_label: %d",
 					   __func__, p,
 					   bgp_is_valid_label(
-						   &mpinfo->extra->label[0]));
+						   &mpinfo->extra->labels
+							    ->label[0]));
 			} else {
-				zlog_debug(
-					"%s: p=%pFX, extra is NULL, no label",
-					__func__, p);
+				zlog_debug("%s: p=%pFX, no label", __func__, p);
 			}
 		}
 
@@ -1415,13 +1412,10 @@ static void bgp_zebra_announce_parse_nexthop(
 		     mpinfo->peer->sort == BGP_PEER_CONFED))
 			*allow_recursion = true;
 
-		if (mpinfo->extra) {
-			labels = mpinfo->extra->label;
-			num_labels = mpinfo->extra->num_labels;
-		}
+		num_labels = bgp_path_info_num_labels(mpinfo);
+		labels = num_labels ? mpinfo->extra->labels->label : NULL;
 
-		if (labels && (num_labels > 0) &&
-		    (is_evpn || bgp_is_valid_label(&labels[0]))) {
+		if (num_labels && (is_evpn || bgp_is_valid_label(&labels[0]))) {
 			enum lsp_types_t nh_label_type = ZEBRA_LSP_NONE;
 
 			if (is_evpn) {
@@ -4112,8 +4106,7 @@ int bgp_zebra_srv6_manager_release_locator_chunk(const char *name)
 void bgp_zebra_send_nexthop_label(int cmd, mpls_label_t label,
 				  ifindex_t ifindex, vrf_id_t vrf_id,
 				  enum lsp_types_t ltype, struct prefix *p,
-				  uint32_t num_labels,
-				  mpls_label_t out_labels[])
+				  uint8_t num_labels, mpls_label_t out_labels[])
 {
 	struct zapi_labels zl = {};
 	struct zapi_nexthop *znh;

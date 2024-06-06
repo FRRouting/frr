@@ -69,11 +69,6 @@ enum bgp_show_adj_route_type {
 #define BGP_SHOW_HEADER "     Network          Next Hop            Metric LocPrf Weight Path\n"
 #define BGP_SHOW_HEADER_WIDE "     Network                                      Next Hop                                  Metric LocPrf Weight Path\n"
 
-/* Maximum number of labels we can process or send with a prefix. We
- * really do only 1 for MPLS (BGP-LU) but we can do 2 for EVPN-VxLAN.
- */
-#define BGP_MAX_LABELS 2
-
 /* Maximum number of sids we can process or send with a prefix. */
 #define BGP_MAX_SIDS 6
 
@@ -237,8 +232,7 @@ struct bgp_path_info_extra {
 	uint32_t igpmetric;
 
 	/* MPLS label(s) - VNI(s) for EVPN-VxLAN  */
-	mpls_label_t label[BGP_MAX_LABELS];
-	uint32_t num_labels;
+	struct bgp_labels *labels;
 
 	/* timestamp of the rib installation */
 	time_t bgp_rib_uptime;
@@ -753,12 +747,16 @@ extern void bgp_path_info_delete(struct bgp_dest *dest,
 				 struct bgp_path_info *pi);
 extern struct bgp_path_info_extra *
 bgp_path_info_extra_get(struct bgp_path_info *path);
+extern bool bgp_path_info_has_valid_label(const struct bgp_path_info *path);
+extern uint8_t bgp_path_info_num_labels(const struct bgp_path_info *pi);
 extern void bgp_path_info_set_flag(struct bgp_dest *dest,
 				   struct bgp_path_info *path, uint32_t flag);
 extern void bgp_path_info_unset_flag(struct bgp_dest *dest,
 				     struct bgp_path_info *path, uint32_t flag);
 extern void bgp_path_info_path_with_addpath_rx_str(struct bgp_path_info *pi,
 						   char *buf, size_t buf_len);
+extern bool bgp_path_info_labels_same(const struct bgp_path_info *bpi,
+				      const mpls_label_t *label, uint32_t n);
 
 extern int bgp_nlri_parse_ip(struct peer *, struct attr *, struct bgp_nlri *);
 
@@ -795,12 +793,12 @@ extern void bgp_update(struct peer *peer, const struct prefix *p,
 		       uint32_t addpath_id, struct attr *attr, afi_t afi,
 		       safi_t safi, int type, int sub_type,
 		       struct prefix_rd *prd, mpls_label_t *label,
-		       uint32_t num_labels, int soft_reconfig,
+		       uint8_t num_labels, int soft_reconfig,
 		       struct bgp_route_evpn *evpn);
 extern void bgp_withdraw(struct peer *peer, const struct prefix *p,
 			 uint32_t addpath_id, afi_t afi, safi_t safi, int type,
 			 int sub_type, struct prefix_rd *prd,
-			 mpls_label_t *label, uint32_t num_labels,
+			 mpls_label_t *label, uint8_t num_labels,
 			 struct bgp_route_evpn *evpn);
 
 /* for bgp_nexthop and bgp_damp */

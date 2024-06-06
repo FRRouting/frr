@@ -18,6 +18,7 @@
 #include "bgpd/bgp_vty.h"
 #include "bgpd/bgp_zebra.h"
 #include "bgpd/bgp_network.h"
+#include "bgpd/bgp_label.h"
 
 #ifdef ENABLE_BGP_VNC
 #include "bgpd/rfapi/rfapi_backend.h"
@@ -1374,6 +1375,7 @@ static void bgp_shutdown(void)
 	bgp_route_finish();
 	bgp_route_map_terminate();
 	bgp_attr_finish();
+	bgp_labels_finish();
 	bgp_pthreads_finish();
 	access_list_add_hook(NULL);
 	access_list_delete_hook(NULL);

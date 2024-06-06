@@ -358,6 +358,7 @@ int bgp_evpn_mh_route_update(struct bgp *bgp, struct bgp_evpn_es *es,
 	struct bgp_path_info *tmp_pi = NULL;
 	struct bgp_path_info *local_pi = NULL;  /* local route entry if any */
 	struct bgp_path_info *remote_pi = NULL; /* remote route entry if any */
+	struct bgp_labels bgp_labels = {};
 	struct attr *attr_new = NULL;
 	struct prefix_evpn *evp;
 
@@ -404,11 +405,16 @@ int bgp_evpn_mh_route_update(struct bgp *bgp, struct bgp_evpn_es *es,
 
 		if (evp->prefix.route_type == BGP_EVPN_AD_ROUTE) {
 			bgp_path_info_extra_get(tmp_pi);
-			tmp_pi->extra->num_labels = 1;
+			bgp_labels.num_labels = 1;
 			if (vpn)
-				vni2label(vpn->vni, &tmp_pi->extra->label[0]);
-			else
-				tmp_pi->extra->label[0] = 0;
+				vni2label(vpn->vni, &bgp_labels.label[0]);
+			if (!bgp_path_info_labels_same(tmp_pi,
+						       &bgp_labels.label[0],
+						       bgp_labels.num_labels)) {
+				bgp_labels_unintern(&tmp_pi->extra->labels);
+				tmp_pi->extra->labels =
+					bgp_labels_intern(&bgp_labels);
+			}
 		}
 
 		/* add the newly created path to the route-node */

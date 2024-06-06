@@ -225,6 +225,9 @@ static __attribute__((__noreturn__)) void bgp_exit(int status)
 	/* reverse bgp_attr_init */
 	bgp_attr_finish();
 
+	/* reverse bgp_labels_init */
+	bgp_labels_finish();
+
 	/* stop pthreads */
 	bgp_pthreads_finish();
 

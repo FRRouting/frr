@@ -14,6 +14,7 @@
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_mac.h"
 #include "bgpd/bgp_memory.h"
+#include "bgpd/bgp_label.h"
 #include "bgpd/bgp_route.h"
 #include "bgpd/bgp_packet.h"
 #include "bgpd/bgp_rd.h"
@@ -125,6 +126,8 @@ static void bgp_process_mac_rescan_table(struct bgp *bgp, struct peer *peer,
 {
 	struct bgp_dest *pdest, *dest;
 	struct bgp_path_info *pi;
+	uint8_t num_labels;
+	mpls_label_t *label_pnt;
 
 	for (pdest = bgp_table_top(table); pdest;
 	     pdest = bgp_route_next(pdest)) {
@@ -140,8 +143,6 @@ static void bgp_process_mac_rescan_table(struct bgp *bgp, struct peer *peer,
 			const struct prefix *p = bgp_dest_get_prefix(dest);
 			struct prefix_evpn *pevpn = (struct prefix_evpn *)dest;
 			struct prefix_rd prd;
-			uint32_t num_labels = 0;
-			mpls_label_t *label_pnt = NULL;
 			struct bgp_route_evpn *evpn;
 
 			if (pevpn->family == AF_EVPN
@@ -169,10 +170,9 @@ static void bgp_process_mac_rescan_table(struct bgp *bgp, struct peer *peer,
 			    && !dest_affected)
 				continue;
 
-			if (pi->extra)
-				num_labels = pi->extra->num_labels;
-			if (num_labels)
-				label_pnt = &pi->extra->label[0];
+			num_labels = bgp_path_info_num_labels(pi);
+			label_pnt = num_labels ? &pi->extra->labels->label[0]
+					       : NULL;
 
 			prd.family = AF_UNSPEC;
 			prd.prefixlen = 64;

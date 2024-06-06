@@ -964,50 +964,6 @@ void transpose_sid(struct in6_addr *sid, uint32_t label, uint8_t offset,
 	}
 }
 
-static bool labels_same(struct bgp_path_info *bpi, mpls_label_t *label,
-			uint32_t n)
-{
-	if (!bpi->extra) {
-		if (!n)
-			return true;
-		else
-			return false;
-	}
-
-	return bgp_labels_same((const mpls_label_t *)bpi->extra->label,
-			       bpi->extra->num_labels,
-			       (const mpls_label_t *)label, n);
-}
-
-/*
- * make encoded route labels match specified encoded label set
- */
-static void setlabels(struct bgp_path_info *bpi,
-		      mpls_label_t *label, /* array of labels */
-		      uint32_t num_labels)
-{
-	if (num_labels)
-		assert(label);
-	assert(num_labels <= BGP_MAX_LABELS);
-
-	if (!num_labels) {
-		if (bpi->extra)
-			bpi->extra->num_labels = 0;
-		return;
-	}
-
-	struct bgp_path_info_extra *extra = bgp_path_info_extra_get(bpi);
-	uint32_t i;
-
-	for (i = 0; i < num_labels; ++i) {
-		extra->label[i] = label[i];
-		if (!bgp_is_valid_label(&label[i])) {
-			bgp_set_valid_label(&extra->label[i]);
-		}
-	}
-	extra->num_labels = num_labels;
-}
-
 static bool leak_update_nexthop_valid(struct bgp *to_bgp, struct bgp_dest *bn,
 				      struct attr *new_attr, afi_t afi,
 				      safi_t safi,
@@ -1086,7 +1042,7 @@ static struct bgp_path_info *
 leak_update(struct bgp *to_bgp, struct bgp_dest *bn,
 	    struct attr *new_attr, /* already interned */
 	    afi_t afi, safi_t safi, struct bgp_path_info *source_bpi,
-	    mpls_label_t *label, uint32_t num_labels, struct bgp *bgp_orig,
+	    mpls_label_t *label, uint8_t num_labels, struct bgp *bgp_orig,
 	    struct prefix *nexthop_orig, int nexthop_self_flag, int debug)
 {
 	const struct prefix *p = bgp_dest_get_prefix(bn);
@@ -1094,6 +1050,9 @@ leak_update(struct bgp *to_bgp, struct bgp_dest *bn,
 	struct bgp_path_info *new;
 	struct bgp_path_info_extra *extra;
 	struct bgp_path_info *parent = source_bpi;
+	struct bgp_labels bgp_labels = {};
+	bool labelssame;
+	uint8_t i;
 
 	if (debug)
 		zlog_debug(
@@ -1128,8 +1087,15 @@ leak_update(struct bgp *to_bgp, struct bgp_dest *bn,
 			break;
 	}
 
+	bgp_labels.num_labels = num_labels;
+	for (i = 0; i < num_labels; i++) {
+		bgp_labels.label[i] = label[i];
+		bgp_set_valid_label(&bgp_labels.label[i]);
+	}
+
 	if (bpi) {
-		bool labelssame = labels_same(bpi, label, num_labels);
+		labelssame = bgp_path_info_labels_same(bpi, bgp_labels.label,
+						       bgp_labels.num_labels);
 
 		if (CHECK_FLAG(source_bpi->flags, BGP_PATH_REMOVED)
 		    && CHECK_FLAG(bpi->flags, BGP_PATH_REMOVED)) {
@@ -1187,11 +1153,13 @@ leak_update(struct bgp *to_bgp, struct bgp_dest *bn,
 		bpi->uptime = monotime(NULL);
 
 		/*
-		 * rewrite labels
+		 * update labels
 		 */
-		if (!labelssame)
-			setlabels(bpi, label, num_labels);
-
+		if (!labelssame) {
+			bgp_path_info_extra_get(bpi);
+			bgp_labels_unintern(&bpi->extra->labels);
+			bpi->extra->labels = bgp_labels_intern(&bgp_labels);
+		}
 
 		if (nexthop_self_flag)
 			bgp_path_info_set_flag(bn, bpi, BGP_PATH_ANNC_NH_SELF);
@@ -1249,8 +1217,8 @@ leak_update(struct bgp *to_bgp, struct bgp_dest *bn,
 	if (CHECK_FLAG(source_bpi->flags, BGP_PATH_ACCEPT_OWN))
 		bgp_path_info_set_flag(bn, new, BGP_PATH_ACCEPT_OWN);
 
-	if (num_labels)
-		setlabels(new, label, num_labels);
+	if (bgp_labels.num_labels)
+		new->extra->labels = bgp_labels_intern(&bgp_labels);
 
 	new->extra->vrfleak->parent = bgp_path_info_lock(parent);
 	bgp_dest_lock_node(
@@ -2102,8 +2070,8 @@ static void vpn_leak_to_vrf_update_onevrf(struct bgp *to_bgp,   /* to */
 	safi_t safi = SAFI_UNICAST;
 	const char *debugmsg;
 	struct prefix nexthop_orig;
-	mpls_label_t *pLabels = NULL;
-	uint32_t num_labels = 0;
+	mpls_label_t *label_pnt = NULL;
+	uint8_t num_labels = 0;
 	int nexthop_self_flag = 1;
 	struct bgp_path_info *bpi_ultimate = NULL;
 	struct bgp_path_info *bpi;
@@ -2349,21 +2317,16 @@ static void vpn_leak_to_vrf_update_onevrf(struct bgp *to_bgp,   /* to */
 				origin_local = 1;
 		}
 
-		/* copy labels */
-		if (!origin_local && path_vpn->extra
-		    && path_vpn->extra->num_labels) {
-			num_labels = path_vpn->extra->num_labels;
-			if (num_labels > BGP_MAX_LABELS)
-				num_labels = BGP_MAX_LABELS;
-			pLabels = path_vpn->extra->label;
-		}
+		num_labels = origin_local ? 0
+					  : bgp_path_info_num_labels(path_vpn);
+		label_pnt = num_labels ? path_vpn->extra->labels->label : NULL;
 	}
 
 	if (debug)
 		zlog_debug("%s: pfx %pBD: num_labels %d", __func__,
 			   path_vpn->net, num_labels);
 
-	if (!leak_update(to_bgp, bn, new_attr, afi, safi, path_vpn, pLabels,
+	if (!leak_update(to_bgp, bn, new_attr, afi, safi, path_vpn, label_pnt,
 			 num_labels, src_vrf, &nexthop_orig, nexthop_self_flag,
 			 debug))
 		bgp_dest_unlock_node(bn);
@@ -3995,7 +3958,7 @@ static void bgp_mplsvpn_nh_label_bind_send_nexthop_label(
 	struct bgp_mplsvpn_nh_label_bind_cache *bmnc, int cmd)
 {
 	struct prefix pfx_nh, *p = NULL;
-	uint32_t num_labels = 0, lsp_num_labels;
+	uint8_t num_labels = 0, lsp_num_labels;
 	mpls_label_t label[MPLS_MAX_LABELS];
 	struct nexthop *nh;
 	ifindex_t ifindex = IFINDEX_INTERNAL;
@@ -4130,7 +4093,7 @@ bool bgp_mplsvpn_path_uses_valid_mpls_label(struct bgp_path_info *pi)
 		/* prefix_sid attribute */
 		return false;
 
-	if (!pi->extra || !bgp_is_valid_label(&pi->extra->label[0]))
+	if (!bgp_path_info_has_valid_label(pi))
 		/* invalid MPLS label */
 		return false;
 	return true;
@@ -4237,14 +4200,17 @@ void bgp_mplsvpn_nh_label_bind_register_local_label(struct bgp *bgp,
 {
 	struct bgp_mplsvpn_nh_label_bind_cache *bmnc;
 	struct bgp_mplsvpn_nh_label_bind_cache_head *tree;
+	mpls_label_t label;
+
+	label = bgp_path_info_num_labels(pi)
+			? decode_label(&pi->extra->labels->label[0])
+			: MPLS_INVALID_LABEL;
 
 	tree = &bgp->mplsvpn_nh_label_bind;
-	bmnc = bgp_mplsvpn_nh_label_bind_find(
-		tree, &pi->nexthop->prefix, decode_label(&pi->extra->label[0]));
+	bmnc = bgp_mplsvpn_nh_label_bind_find(tree, &pi->nexthop->prefix, label);
 	if (!bmnc) {
-		bmnc = bgp_mplsvpn_nh_label_bind_new(
-			tree, &pi->nexthop->prefix,
-			decode_label(&pi->extra->label[0]));
+		bmnc = bgp_mplsvpn_nh_label_bind_new(tree, &pi->nexthop->prefix,
+						     label);
 		bmnc->bgp_vpn = bgp;
 		bmnc->allocation_in_progress = true;
 		bgp_lp_get(LP_TYPE_BGP_L3VPN_BIND, bmnc,

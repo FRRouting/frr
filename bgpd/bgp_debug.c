@@ -2713,7 +2713,7 @@ bool bgp_debug_zebra(const struct prefix *p)
 const char *bgp_debug_rdpfxpath2str(afi_t afi, safi_t safi,
 				    const struct prefix_rd *prd,
 				    union prefixconstptr pu,
-				    mpls_label_t *label, uint32_t num_labels,
+				    mpls_label_t *label, uint8_t num_labels,
 				    int addpath_valid, uint32_t addpath_id,
 				    struct bgp_route_evpn *overlay_index,
 				    char *str, int size)
