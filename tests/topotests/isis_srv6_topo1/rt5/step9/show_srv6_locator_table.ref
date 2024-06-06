@@ -9,10 +9,6 @@
       "argumentBitsLength":0,
       "statusUp":true,
       "chunks":[
-        {
-          "prefix":"fc00:0:5::/48",
-          "proto":"isis"
-        }
       ]
     }
   ]
