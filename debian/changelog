@@ -1,3 +1,9 @@
+frr (9.1.1-0) unstable; urgency=medium
+
+  * New upstream release FRR 9.1.1
+
+ -- Jafar Al-Gharaibeh <jafar@atcorp.com>  Thu, 06 Jun 2024 02:00:00 -0600
+
 frr (9.1-0) unstable; urgency=medium
 
   * New upstream release FRR 9.1

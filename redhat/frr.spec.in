@@ -799,7 +799,120 @@ sed -i 's/ -M rpki//' %{_sysconfdir}/frr/daemons
 
 %changelog
 
-* Thu Oct 09 2023 Donatas Abraitis <donatas@opensourcerouting.org> - %{version}
+* Thu Jun 06 2024 Jafar Al-Gharaibeh <jafar@atcorp.com> - %{version}
+
+* Thu Jun 06 2024 Jafar Al-Gharaibeh <jafar@atcorp.com> - 9.1.1
+- bgpd
+-    "default-originate" shouldn't withdraw non-default routes
+-    Aggr summary-only suppressed export to evpn
+-    Allow using optional table id for negative `no set table x` command
+-    Arrange peer notification to after zebra announce
+-    Check bgp evpn instance presence in soo
+-    Convert the bgp_advertise_attr->adv to a fifo
+-    Do not show tcp mss if the socket is broken
+-    Ensure bgp does not stop monitoring nexthops
+-    Ensure community data is freed in some cases.
+-    Ensure that the correct aspath is free'd
+-    Fix `match peer` when switching between ipv4/ipv6/interface
+-    Fix `no set as-path prepend asnum...`
+-    Fix bgp_best_selection heap-use-after-free
+-    Fix crash when deleting the srv6 locator
+-    Fix display when using `missing-as-worst`
+-    Fix dynamic peer graceful restart race condition
+-    Fix ecommunity_fill_pbr_action heap-buffer-overflow
+-    Fix error handling when receiving bgp prefix sid attribute
+-    Fix errors handling for mp/gr capabilities as dynamic capability
+-    Fix format overflow for graceful-restart debug logs
+-    Fix logging message when receiving a software version capability
+-    Fix no bgp as-path access-list  issue
+-    Fix route-map match probability deconfiguration callback
+-    Fix srv6 memory leak detection
+-    Fix the order of null check and zapi decode
+-    Fix vrf leaking with 'no bgp network import-check
+-    Free memory for srv6 functions and locator chunks
+-    Ignore validating the attribute flags if path-attribute is configured
+-    Include unsuppress-map as a valid outgoing policy
+-    Lttng tp add evpn route events
+-    Make `suppress-fib-pending` clear peering
+-    Note when receiving but not understanding a route notification
+-    Prevent from one more cve triggering this place
+-    Set correct ttl for the dynamic neighbor peers
+-    Update default-originate route-map actual map structure
+-    Revert "Fix pointer arithmetic in bgp snmp module"
+- doc
+-    Add param range for graceful-restart helper supported-grace-time
+-    Remove duplicated show route-map
+- isisd
+-    Fix _isis_spftree_del heap-use-after-free
+-    Fix dislaying lsp id
+-    Fix heap-after-free with prefix sid
+-    Fix ip/ipv6 reachability tlvs
+- lib
+-    Check for not being a blackhole route
+-    Fix show route map json output
+-    Do not convert evpn prefixes into ipv4/ipv6 if not needed
+-    Replace deprecated ares_gethostbyname
+-    Replace deprecated ares_process()
+- nhrpd
+-    Fix nhrp_peer leak
+-    Fix race condition
+-    Fix core dump on shutdown
+- ospf6d
+-    Ospfv3 route change comparision fixed for asbr-only change
+-    Prevent heap-buffer-overflow with unknown type
+- ospfd
+-    Add support for "no router-info [<area|as>] command"
+-    Can not delete "segment-routing node-msd" when sr if off
+-    Correct lsa parser which fulfill the ted
+-    Correct opaque lsa extended parser
+-    Correct sid check size
+-    Fix ospf dead-interval minimal hello-multiplier param range
+-    Fix the bug where ip_ospf_dead-interval_minimal_hello-multiplier did not reset hello timer
+-    Protect call to get_edge() in ospf_te.c
+-    Solved crash in ospf te parsing
+-    Solved crash in ri parsing with ospf te
+-    Revert "Fix some dicey pointer arith in snmp module"
+- pbrd
+-    Fix map seq installed flag in json
+-    Fix pbr handling for last rule deletion
+- pimd
+-    Fix crash unconfiguring rp keepalive timer
+-    Fix crash when configuring ssmpingd
+-    Fix dr-priority range
+-    Fix null register before aging out reg-stop
+-    Fix order of operations for evaluating join
+-    Re-evaluated s,g oils upon rp changes and for empty sg upstream oils
+-    Fix crash when mixing ssm/any-source joins
+- staticd
+-    Fix changing to source auto in bfd monitor
+- tests
+-    Check for 0.0.0.0/1 in bgp_default_route
+-    Check if ibgp session can drop invalid aigp attribute
+-    Extend tests for aspath exclude
+-    Update ospf te topotests
+- tools
+-    Apply black formatting for tools/frr-reload.py
+-    Fix frr-reload interface desc cmd
+-    Fix frr-reload multiple no description cmds
+-    Fix frr-reload multiple no description cmds
+-    Use error log level when failing to execute commands via frr-reload.py
+- topotests
+-    Do not check table version
+-    Redispatch tests in bfd_topo3
+-    Test wrong bfd source in bfd_topo3
+-    Vpnv4 route leaking with no import-check
+- vtysh
+-    Show `ip ospf network ...` even if it's not the same as the interface type
+- zebra
+-    Add missing whitespace when printing route entry status
+-    Deny the routes if ip protocol cli refers to an undefined rmap
+-    Don't deref vxlan-vni array
+-    Fix crash if macvlan link in another netns
+-    Fix crash on macvlan link down/up
+-    Fix evpn svd based remote nh neigh del
+-    Fix mpls command
+-    Fix route deletion during zebra shutdown
+-    The dplane_fpm_nl return path leaks memory
 
 * Thu Oct 09 2023 Donatas Abraitis <donatas@opensourcerouting.org> - 9.1
 - Major highlights:
