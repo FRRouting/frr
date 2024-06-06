@@ -106,9 +106,13 @@ def is_host_regex(restr):
 
 
 def get_host_regex(restr):
-    if len(restr) < 3 or restr[0] != "/" or restr[-1] != "/":
+    try:
+        if len(restr) < 3 or restr[0] != "/" or restr[-1] != "/":
+            return None
+        return re.compile(restr[1:-1])
+    except re.error:
+        logging.error("Invalid regex")
         return None
-    return re.compile(restr[1:-1])
 
 
 def host_in(restr, names):
@@ -126,8 +130,8 @@ def expand_host(restr, names):
     hosts = []
     regexp = get_host_regex(restr)
     if not regexp:
-        assert restr in names
-        hosts.append(restr)
+        if restr in names:
+            hosts.append(restr)
     else:
         for name in names:
             if regexp.fullmatch(name):

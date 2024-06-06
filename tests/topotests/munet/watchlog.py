@@ -15,7 +15,6 @@ from pathlib import Path
 
 class MatchFoundError(Exception):
     """An error raised when a match is not found."""
-
     def __init__(self, watchlog, match):
         self.watchlog = watchlog
         self.match = match

@@ -93,6 +93,9 @@
           "image": {
             "type": "string"
           },
+          "hostnet": {
+            "type": "boolean"
+          },
           "server": {
             "type": "string"
           },
@@ -383,6 +386,9 @@
               },
               "ipv6": {
                 "type": "string"
+              },
+              "external": {
+                "type": "boolean"
               }
             }
           }
@@ -421,6 +427,9 @@
               },
               "image": {
                 "type": "string"
+              },
+              "hostnet": {
+                "type": "boolean"
               },
               "server": {
                 "type": "string"
