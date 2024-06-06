@@ -325,7 +325,7 @@ Showing ISIS information
    Show topology IS-IS paths to Intermediate Systems, globally, in area
    (level-1) or domain (level-2).
 
-.. clicmd:: show isis [vrf <NAME|all>] route [level-1|level-2] [prefix-sid|backup] [algorithm [(128-255)]]
+.. clicmd:: show isis [vrf <NAME|all>] route [level-1|level-2] [prefix-sid] [backup] [algorithm [(128-255)]]
 
    Show the ISIS routing table, as determined by the most recent SPF
    calculation.
