@@ -317,12 +317,25 @@ Likewise the client should be cleaned up in the daemon cleanup routine.
 Back-End XPATH mappings
 ^^^^^^^^^^^^^^^^^^^^^^^
 
-In order for ``mgmtd`` to direct configuration to your daemon you need to add
+In order for ``mgmtd`` to direct YANG modeled data to your daemon you should add
 some XPATH mappings to ``mgmtd/mgmt_be_adapter.c``. These XPATHs determine which
-configuration changes get sent over the *back-end* interface to your daemon.
-There are 2 arrays to update the first for config support and the second for
-operational state.
+YANG modeled data (e.g., config changes) get sent over the *back-end* interface
+to your daemon. There are 4 arrays to possibly update: configuration,
+operational, notification, and RPC. You only need to add entries to the array
+that you require mapping for.
 
+Additionally the back-end client can specify these XPATH mappings when it
+first connects to mgmtd using it's initial ``SUBSCRIBE`` message.
+
+NOTE: the notif array (``be_client_notif_xpaths``), is a slightly different from
+the other 3 types (config, oper and rpc) in that it maps xpaths the back-end
+client wishes to *receive* notifications for, not the ones it may generate.
+Normally a back-end client is generating notifications; however, mgmtd supports
+back-end clients also "subscribing" to receive these notifications as well from
+other back-end clients through notif_xpath maps.
+
+Config Map Example
+""""""""""""""""""
 Below are the strings added for staticd config support:
 
 .. code-block:: c
@@ -342,6 +355,9 @@ Below are the strings added for staticd config support:
     #endif
     };
 
+
+Operational Map Example
+"""""""""""""""""""""""
 Below are the strings added for zebra operational state support (note zebra is
 not conditionalized b/c it should always be present):
 
@@ -357,6 +373,33 @@ not conditionalized b/c it should always be present):
     static const char *const *be_client_oper_xpaths[MGMTD_BE_CLIENT_ID_MAX] = {
             [MGMTD_BE_CLIENT_ID_ZEBRA] = zebra_oper_xpaths,
     };
+
+
+RPC Map Example
+"""""""""""""""
+Below is the string added for ripd RPC support:
+
+.. code-block:: c
+
+    static const char *const ripd_rpc_xpaths[] = {
+            "/frr-ripd",
+            NULL,
+    };
+
+    static const char *const *be_client_rpc_xpaths[MGMTD_BE_CLIENT_ID_MAX] = {
+    #ifdef HAVE_RIPD
+            [MGMTD_BE_CLIENT_ID_RIPD] = ripd_rpc_xpaths,
+    #endif
+    };
+
+
+Notification Map Example
+""""""""""""""""""""""""
+There are no current back-end daemons that wish to receive other back-end
+notifications so the array is empty. This may change in the future, and of
+course any back-end daemon can utilize the connect (``BeSubscribeReq``) messages
+as well.
+
 
 MGMTD Internals
 ---------------

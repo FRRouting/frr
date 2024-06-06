@@ -97,6 +97,8 @@ Following are some of the management operations supported:
  - Currently committing configurations from Candidate to Running database
    is only allowed, and not vice versa.
 
+Front-End Native Protobuf API
+"""""""""""""""""""""""""""""
 The exact set of message-based APIs are represented as Google Protobuf
 messages and can be found in the following file distributed with FRR codebase.
 
@@ -104,6 +106,14 @@ messages and can be found in the following file distributed with FRR codebase.
 
    lib/mgmt.proto
 
+Front-End Native (non-protobuf) API
+"""""""""""""""""""""""""""""""""""
+Additionally there exists a "native" API that does not utilize ``protobuf``s
+this native API and the front-end messages and structures it supports are
+documented in the header file ``lib/mgmt_msg_native.h``.
+
+Connecting to MGMTd
+"""""""""""""""""""
 The MGMT daemon implements a MGMT Frontend Server that opens a UNIX
 socket-based IPC channel on the following path to listen for incoming
 connections from all possible Frontend clients:
@@ -124,7 +134,9 @@ specification of this library can be found at:
 
    lib/mgmt_fe_client.h
 
-Following is a list of message types supported on the MGMT Frontend Interface:
+Following is a list of protobuf message types supported on the MGMT Frontend
+Interface:
+
  - SESSION_REQ<Client-Connection-Id, Destroy>
  - SESSION_REPLY<Client-Connection-Id, Destroy, Session-Id>
  - LOCK_DB_REQ <Session-Id, Database-Id>
@@ -139,8 +151,21 @@ Following is a list of message types supported on the MGMT Frontend Interface:
  - COMMIT_CONFIG_REPLY <Session-Id, Source-Db-id, Dest-Db-Id, Status>
  - GET_DATA_REQ <Session-Id, Database-Id, Base-Yang-Xpath>
  - GET_DATA_REPLY <Session-Id, Database-id, Base-Yang-Xpath, Yang-Data-Set>
- - REGISTER_NOTIFY_REQ <Session-Id, Database-Id, Base-Yang-Xpath>
- - DATA_NOTIFY_REQ <Database-Id, Base-Yang-Xpath, Yang-Data-Set>
+
+Following is a list of native messages types supported by the MGMTd Front-End
+API:
+
+ - ERROR (receive) - received in response to any sent native message.
+ - TREE_DATA (receive) - returned data from a datastore
+ - GET_DATA (send) - get a tree of data
+ - NOTIFY (receive) - a notification received from mgmtd
+ - EDIT (send) - edit configuration datastore
+ - EDIT_REPLY (receive) - reply for an edit operation
+ - RPC (send) - sending (invoking) an RPC.
+ - RPC_REPLY (receive) - reply from invoking an RPC
+ - NOTIFY_SELECT (send) - specify the sub-set of notifications the front-end
+   wishes to receive, rather than the default of receiving all.
+
 
 Please refer to the MGMT Frontend Client Developers Reference and Guide
 (coming soon) for more details.
