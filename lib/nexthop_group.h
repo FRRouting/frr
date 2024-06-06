@@ -107,6 +107,7 @@ RB_HEAD(nhgc_entry_head, nexthp_group_cmd);
 RB_PROTOTYPE(nhgc_entry_head, nexthop_group_cmd, nhgc_entry,
 	     nexthop_group_cmd_compare)
 DECLARE_QOBJ_TYPE(nexthop_group_cmd);
+extern struct nhgc_entry_head nhgc_entries;
 
 /*
  * Initialize nexthop_groups.  If you are interested in when
