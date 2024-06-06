@@ -475,16 +475,24 @@ static int zebra_sr_config(struct vty *vty)
 	struct listnode *node;
 	struct srv6_locator *locator;
 	char str[256];
+	bool display_source_srv6 = false;
+
+	if (srv6 && !IPV6_ADDR_SAME(&srv6->encap_src_addr, &in6addr_any))
+		display_source_srv6 = true;
 
 	vty_out(vty, "!\n");
-	if (zebra_srv6_is_enable()) {
+	if (display_source_srv6 || zebra_srv6_is_enable()) {
 		vty_out(vty, "segment-routing\n");
 		vty_out(vty, " srv6\n");
+	}
+	if (display_source_srv6) {
 		if (!IPV6_ADDR_SAME(&srv6->encap_src_addr, &in6addr_any)) {
 			vty_out(vty, "  encapsulation\n");
 			vty_out(vty, "   source-address %pI6\n",
 				&srv6->encap_src_addr);
 		}
+	}
+	if (zebra_srv6_is_enable()) {
 		vty_out(vty, "  locators\n");
 		for (ALL_LIST_ELEMENTS_RO(srv6->locators, node, locator)) {
 			inet_ntop(AF_INET6, &locator->prefix.prefix,
@@ -514,6 +522,8 @@ static int zebra_sr_config(struct vty *vty)
 		vty_out(vty, "  !\n");
 		vty_out(vty, " exit\n");
 		vty_out(vty, " !\n");
+	}
+	if (display_source_srv6 || zebra_srv6_is_enable()) {
 		vty_out(vty, "exit\n");
 		vty_out(vty, "!\n");
 	}
