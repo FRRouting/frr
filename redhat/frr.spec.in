@@ -804,7 +804,79 @@ sed -i 's/ -M rpki//' %{_sysconfdir}/frr/daemons
 
 %changelog
 
-* Mon Apr 08 2024 Jafar Al-Gharaibeh <jafar@atcorp.com> - %{version}
+* Thu Jun 06 2024 Jafar Al-Gharaibeh <jafar@atcorp.com> - %{version}
+
+* Thu Jun 06 2024 Jafar Al-Gharaibeh <jafar@atcorp.com> - 10.0.1
+- bgpd
+-    Fix route leaking from the default l3vrf
+-    Allow using optional table id for negative `no set table x` command
+-    Apply noop when doing negative commands for gr operations
+-    Drop newline in json output for `show bgp afi safi json detail`
+-    Fix `match peer` when switching between ipv4/ipv6/interface
+-    Fix `no set as-path prepend asnum...`
+-    Fix crash when deleting the srv6 locator
+-    Fix display when using `missing-as-worst`
+-    Fix dynamic peer graceful restart race condition
+-    Fix logging message when receiving a software version capability
+-    Fix show run of network route-distinguisher
+-    Fix srv6 memory leaks spotted by asan
+-    Fix the order of null check and zapi decode
+-    Ignore validating the attribute flags if path-attribute is configured
+-    Inherit `capability software-version` flag from the peer-group
+-    Inherit `enforce-first-as` flag from the peer-group
+-    Move srv6 cleanup functions
+-    Print old/new states of graceful restart fsm
+-    Revert "Fix pointer arithmetic in bgp snmp module"
+- debian, redhat, snapcraft
+-    Libyang min version is 2.1.128
+- isisd
+-    Fix heap-after-free with prefix sid
+-    Fix ip/ipv6 reachability tlvs
+- lib
+-    Check for not being a blackhole route
+-    Fix exit commands
+-    Remove nb/yang memory cleanup when daemonizing
+-    Replace deprecated ares_gethostbyname
+-    Replace deprecated ares_process()
+- nhrpd
+-    Fix race condition
+-    Fix core dump on shutdown
+-    Clean up shortcut cache entries on termination
+- ospf6d
+-    Accept cli `no` for point-to-multipoint
+-    Fix defun formatting wrecked by clang
+-    Fix loopback/ptp/ptmp conn. route checks
+-    Force recalculate on interface_up
+-    Prevent heap-buffer-overflow with unknown
+-    Ospfv3 route change comparision fixed for asbr-only change
+- ospfd
+-    Correct opaque lsa extended parser
+-    Fix the bug where ip_ospf_dead-interval_minimal_hello-multiplier did not reset hello timer
+-    Protect call to get_edge() in ospf_te.c
+-    Solved crash in ri parsing with ospf te
+-    Revert "Fix some dicey pointer arith in snmp module"
+- pimd
+-    Fix crash unconfiguring rp keepalive timer
+-    Fix dr-priority range
+-    Fix null register before aging out reg-stop
+-    Fix order of operations for evaluating join
+-    Fix crash when mixing ssm/any-source joins
+- tests
+-    Check if ibgp session can drop invalid aigp attribute
+- tools
+-    Frr-reload strip interface vrf ctx line
+-    Handle seq num for bgp as-path in frr-reload.py
+- topotests
+-    Do not check table version
+- vtysh
+-    Check if bgpd is enabled before installing vtysh commands for rpki
+-    Fix `show route-map` command when calling via `do`
+-    Show `ip ospf network ...` even if it's not the same as the interface type
+- zebra
+-    Deny the routes if ip protocol cli refers to an undefined rmap
+-    Fix encoded dnssl length
+-    Fix evpn svd based remote nh neigh del
+-    Fix mpls command
 
 * Mon Apr 08 2024 Jafar Al-Gharaibeh <jafar@atcorp.com> - 10.0
 - Major highlights:
