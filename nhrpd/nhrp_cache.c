@@ -74,6 +74,8 @@ static void nhrp_cache_free(struct nhrp_cache *c)
 	notifier_call(&c->notifier_list, NOTIFY_CACHE_DELETE);
 	assert(!notifier_active(&c->notifier_list));
 	hash_release(nifp->cache_hash, c);
+	if (c->cur.peer)
+		nhrp_peer_notify_del(c->cur.peer, &c->peer_notifier);
 	THREAD_OFF(c->t_timeout);
 	THREAD_OFF(c->t_auth);
 	XFREE(MTYPE_NHRP_CACHE, c);
