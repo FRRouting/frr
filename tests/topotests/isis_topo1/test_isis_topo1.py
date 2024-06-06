@@ -685,7 +685,7 @@ def _check_lsp_overload_bit(router, overloaded_router_lsp, att_p_ol_expected):
     )
 
     database_json = json.loads(isis_database_output)
-    att_p_ol = database_json["areas"][0]["levels"][1]["att-p-ol"]
+    att_p_ol = database_json["areas"][0]["levels"][1]["lsps"][0]["attPOl"]
     if att_p_ol == att_p_ol_expected:
         return True
     return "{} peer with expected att_p_ol {} got {} ".format(
