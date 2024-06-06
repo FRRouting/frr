@@ -28,8 +28,10 @@ from . import cli
 from .base import BaseMunet
 from .base import Bridge
 from .base import Commander
+from .base import InterfaceMixin
 from .base import LinuxNamespace
 from .base import MunetError
+from .base import SharedNamespace
 from .base import Timeout
 from .base import _async_get_exec_path
 from .base import _get_exec_path
@@ -130,6 +132,22 @@ def convert_ranges_to_bitmask(ranges):
             for b in range(x, y + 1):
                 bitmask |= 1 << b
     return bitmask
+
+
+class ExternalNetwork(SharedNamespace, InterfaceMixin):
+    """A network external to munet."""
+
+    def __init__(self, name=None, unet=None, logger=None, mtu=None, config=None):
+        """Create an external network."""
+        del logger  # avoid linter
+        del mtu  # avoid linter
+        # Do we want to use os.getpid() rather than unet.pid?
+        super().__init__(name, pid=unet.pid, nsflags=unet.nsflags, unet=unet)
+        self.config = config if config else {}
+
+    async def _async_delete(self):
+        self.logger.debug("%s: deleting", self)
+        await super()._async_delete()
 
 
 class L2Bridge(Bridge):
@@ -555,17 +573,38 @@ class NodeMixin:
         await super()._async_delete()
 
 
+class HostnetNode(NodeMixin, LinuxNamespace):
+    """A node for running commands in the host network namespace."""
+
+    def __init__(self, name, pid=True, **kwargs):
+        if "net" in kwargs:
+            del kwargs["net"]
+        super().__init__(name, pid=pid, net=False, **kwargs)
+
+        self.logger.debug("%s: creating", self)
+
+        self.mgmt_ip = None
+        self.mgmt_ip6 = None
+        self.set_ns_cwd(self.rundir)
+
+        super().pytest_hook_open_shell()
+        self.logger.info("%s: created", self)
+
+    def get_ifname(self, netname):  # pylint: disable=useless-return
+        del netname
+        return None
+
+    async def _async_delete(self):
+        self.logger.debug("%s: deleting", self)
+        await super()._async_delete()
+
+
 class SSHRemote(NodeMixin, Commander):
     """SSHRemote a node representing an ssh connection to something."""
 
     def __init__(
         self,
         name,
-        server,
-        port=22,
-        user=None,
-        password=None,
-        idfile=None,
         **kwargs,
     ):
         super().__init__(name, **kwargs)
@@ -580,32 +619,33 @@ class SSHRemote(NodeMixin, Commander):
         self.mgmt_ip = None
         self.mgmt_ip6 = None
 
-        self.port = port
-
-        if user:
-            self.user = user
-        elif "SUDO_USER" in os.environ:
-            self.user = os.environ["SUDO_USER"]
-        else:
+        self.server = self.config["server"]
+        self.port = int(self.config.get("server-port", 22))
+        self.sudo_user = os.environ.get("SUDO_USER")
+        self.user = self.config.get("ssh-user")
+        if not self.user:
+            self.user = self.sudo_user
+        if not self.user:
             self.user = getpass.getuser()
-        self.password = password
-        self.idfile = idfile
-
-        self.server = f"{self.user}@{server}"
+        self.password = self.config.get("ssh-password")
+        self.idfile = self.config.get("ssh-identity-file")
+        self.use_host_network = None
 
         # Setup our base `pre-cmd` values
         #
         # We maybe should add environment variable transfer here in particular
         # MUNET_NODENAME. The problem is the user has to explicitly approve
         # of SendEnv variables.
-        self.__base_cmd = [
-            get_exec_path_host("sudo"),
-            "-E",
-            f"-u{self.user}",
-            get_exec_path_host("ssh"),
-        ]
-        if port != 22:
-            self.__base_cmd.append(f"-p{port}")
+        self.__base_cmd = []
+        if self.idfile and self.sudo_user:
+            self.__base_cmd += [
+                get_exec_path_host("sudo"),
+                "-E",
+                f"-u{self.sudo_user}",
+            ]
+        self.__base_cmd.append(get_exec_path_host("ssh"))
+        if self.port != 22:
+            self.__base_cmd.append(f"-p{self.port}")
         self.__base_cmd.append("-q")
         self.__base_cmd.append("-oStrictHostKeyChecking=no")
         self.__base_cmd.append("-oUserKnownHostsFile=/dev/null")
@@ -615,15 +655,34 @@ class SSHRemote(NodeMixin, Commander):
         # self.__base_cmd.append("-oSendVar='TEST'")
         self.__base_cmd_pty = list(self.__base_cmd)
         self.__base_cmd_pty.append("-t")
-        self.__base_cmd.append(self.server)
-        self.__base_cmd_pty.append(self.server)
+        server_str = f"{self.user}@{self.server}"
+        self.__base_cmd.append(server_str)
+        self.__base_cmd_pty.append(server_str)
         # self.set_pre_cmd(pre_cmd, pre_cmd_tty)
 
         self.logger.info("%s: created", self)
 
     def _get_pre_cmd(self, use_str, use_pty, ns_only=False, **kwargs):
-        pre_cmd = []
-        if self.unet:
+        # None on first use, set after
+        if self.use_host_network is None:
+            # We have networks now so try and ping the server in the namespace
+            if not self.unet:
+                self.use_host_network = True
+            else:
+                rc, _, _ = self.unet.cmd_status(f"ping -w1 -c1 {self.server}")
+                if rc:
+                    self.use_host_network = True
+                else:
+                    self.use_host_network = False
+
+            if self.use_host_network:
+                self.logger.debug("Using host namespace for ssh connection")
+            else:
+                self.logger.debug("Using munet namespace for ssh connection")
+
+        if self.use_host_network:
+            pre_cmd = []
+        else:
             pre_cmd = self.unet._get_pre_cmd(False, use_pty, ns_only=False, **kwargs)
         if ns_only:
             return pre_cmd
@@ -979,17 +1038,16 @@ ff02::2\tip6-allrouters
             )
             self.unet.rootcmd.cmd_status(f"ip link set {dname} name {hname}")
 
-        rc, o, _ = self.unet.rootcmd.cmd_status("ip -o link show")
-        m = re.search(rf"\d+:\s+{re.escape(hname)}:.*", o)
-        if m:
-            self.unet.rootcmd.cmd_nostatus(f"ip link set {hname} down ")
-            self.unet.rootcmd.cmd_raises(f"ip link set {hname} netns {self.pid}")
+        # Make sure the interface is there.
+        self.unet.rootcmd.cmd_raises(f"ip -o link show {hname}")
+        self.unet.rootcmd.cmd_nostatus(f"ip link set {hname} down ")
+        self.unet.rootcmd.cmd_raises(f"ip link set {hname} netns {self.pid}")
+
         # Wait for interface to show up in namespace
         for retry in range(0, 10):
             rc, o, _ = self.cmd_status(f"ip -o link show {hname}")
             if not rc:
-                if re.search(rf"\d+: {re.escape(hname)}:.*", o):
-                    break
+                break
             if retry > 0:
                 await asyncio.sleep(1)
         self.cmd_raises(f"ip link set {hname} name {lname}")
@@ -1001,12 +1059,11 @@ ff02::2\tip6-allrouters
         lname = self.host_intfs[hname]
         self.cmd_raises(f"ip link set {lname} down")
         self.cmd_raises(f"ip link set {lname} name {hname}")
-        self.cmd_status(f"ip link set netns 1 dev {hname}")
-        # The above is failing sometimes and not sure why
-        # logging.error(
-        #     "XXX after setns %s",
-        #     self.unet.rootcmd.cmd_nostatus(f"ip link show {hname}"),
-        # )
+        # We need to NOT run this command in the new pid namespace so that pid 1 is the
+        # root init process and so the interface gets returned to the root namespace
+        self.unet.rootcmd.cmd_raises(
+            f"nsenter -t {self.pid} -n ip link set netns 1 dev {hname}"
+        )
         del self.host_intfs[hname]
 
     async def add_phy_intf(self, devaddr, lname):
@@ -1917,7 +1974,11 @@ class L3QemuVM(L3NodeMixin, LinuxNamespace):
     # InterfaceMixin override
     # We need a name unique in the shared namespace.
     def get_ns_ifname(self, ifname):
-        return self.name + ifname
+        ifname = self.name + ifname
+        ifname = re.sub("gigabitethernet", "GE", ifname, flags=re.I)
+        if len(ifname) >= 16:
+            ifname = ifname[0:7] + ifname[-8:]
+        return ifname
 
     async def add_host_intf(self, hname, lname, mtu=None):
         # L3QemuVM needs it's own add_host_intf for macvtap, We need to create the tap
@@ -2093,16 +2154,22 @@ class L3QemuVM(L3NodeMixin, LinuxNamespace):
             )
             con.cmd_raises(rf"rm -rf {tmpdir}")
 
-        self.logger.info("Saved coverage data in VM at %s", dest)
+        self.logger.debug("Saved coverage data in VM at %s", dest)
         ldest = os.path.join(self.rundir, "gcov-data.tgz")
         if self.use_ssh:
             self.cmd_raises(["/bin/cat", dest], stdout=open(ldest, "wb"))
-            self.logger.info("Saved coverage data on host at %s", ldest)
+            self.logger.debug("Saved coverage data on host at %s", ldest)
         else:
             output = con.cmd_raises(rf"base64 {dest}")
             with open(ldest, "wb") as f:
                 f.write(base64.b64decode(output))
-            self.logger.info("Saved coverage data on host at %s", ldest)
+            self.logger.debug("Saved coverage data on host at %s", ldest)
+        self.logger.info("Extracting coverage for %s into %s", self.name, ldest)
+
+        # We need to place the gcda files where munet expects to find them
+        gcdadir = Path(os.environ["GCOV_PREFIX"]) / self.name
+        self.unet.cmd_raises_nsonly(f"mkdir -p {gcdadir}")
+        self.unet.cmd_raises_nsonly(f"tar -C {gcdadir} -xzf {ldest}")
 
     async def _opencons(
         self,
@@ -2878,7 +2945,9 @@ ff02::2\tip6-allrouters
         else:
             node2.set_lan_addr(node1, c2)
 
-        if "physical" not in c1 and not node1.is_vm:
+        if isinstance(node1, ExternalNetwork):
+            pass
+        elif "physical" not in c1 and not node1.is_vm:
             node1.set_intf_constraints(if1, **c1)
         if "physical" not in c2 and not node2.is_vm:
             node2.set_intf_constraints(if2, **c2)
@@ -2891,14 +2960,8 @@ ff02::2\tip6-allrouters
             cls = L3QemuVM
         elif config and config.get("server"):
             cls = SSHRemote
-            kwargs["server"] = config["server"]
-            kwargs["port"] = int(config.get("server-port", 22))
-            if "ssh-identity-file" in config:
-                kwargs["idfile"] = config.get("ssh-identity-file")
-            if "ssh-user" in config:
-                kwargs["user"] = config.get("ssh-user")
-            if "ssh-password" in config:
-                kwargs["password"] = config.get("ssh-password")
+        elif config and config.get("hostnet"):
+            cls = HostnetNode
         else:
             cls = L3NamespaceNode
         return super().add_host(name, cls=cls, config=config, **kwargs)
@@ -2908,7 +2971,12 @@ ff02::2\tip6-allrouters
         if config is None:
             config = {}
 
-        cls = L3Bridge if config.get("ip") else L2Bridge
+        if config.get("external"):
+            cls = ExternalNetwork
+        elif config.get("ip"):
+            cls = L3Bridge
+        else:
+            cls = L2Bridge
         mtu = kwargs.get("mtu", config.get("mtu"))
         return super().add_switch(name, cls=cls, config=config, mtu=mtu, **kwargs)
 
@@ -2947,7 +3015,7 @@ ff02::2\tip6-allrouters
         bdir = Path(os.environ["GCOV_BUILD_DIR"])
         gcdadir = Path(os.environ["GCOV_PREFIX"])
 
-        # Create GCNO symlinks
+        # Create .gcno symlinks if they don't already exist, for kernel they will
         self.logger.info("Creating .gcno symlinks from '%s' to '%s'", gcdadir, bdir)
         commander.cmd_raises(
             f'cd "{gcdadir}"; bdir="{bdir}"'
@@ -2955,9 +3023,11 @@ ff02::2\tip6-allrouters
 for f in $(find . -name '*.gcda'); do
     f=${f#./};
     f=${f%.gcda}.gcno;
-    ln -fs $bdir/$f $f;
-    touch -h -r $bdir/$f $f;
-    echo $f;
+    if [ ! -h "$f" ]; then
+        ln -fs $bdir/$f $f;
+        touch -h -r $bdir/$f $f;
+        echo $f;
+    fi;
 done"""
         )
 
@@ -2977,10 +3047,30 @@ done"""
         #     f"\nCOVERAGE-SUMMARY-START\n{output}\nCOVERAGE-SUMMARY-END\n"
         # )
 
+    async def load_images(self, images):
+        tasks = []
+        for image in images:
+            logging.debug("Checking for image %s", image)
+            rc, _, _ = self.rootcmd.cmd_status(
+                f"podman image inspect {image}", warn=False
+            )
+            if not rc:
+                continue
+            logging.info("Pulling missing image %s", image)
+            aw = self.rootcmd.async_cmd_raises(f"podman pull {image}")
+            tasks.append(asyncio.create_task(aw))
+        if not tasks:
+            return
+        _, pending = await asyncio.wait(tasks, timeout=600)
+        assert not pending, "Failed to pull container images"
+
     async def run(self):
         tasks = []
-
         hosts = self.hosts.values()
+
+        images = {x.container_image for x in hosts if hasattr(x, "container_image")}
+        await self.load_images(images)
+
         launch_nodes = [x for x in hosts if hasattr(x, "launch")]
         launch_nodes = [x for x in launch_nodes if x.config.get("qemu")]
         run_nodes = [x for x in hosts if x.has_run_cmd()]
@@ -3049,10 +3139,10 @@ done"""
                     await asyncio.sleep(0.25)
                 logging.debug("%s is ready!", x)
 
+            tasks = [asyncio.create_task(wait_until_ready(x)) for x in ready_nodes]
+
             logging.debug("Waiting for ready on nodes: %s", ready_nodes)
-            _, pending = await asyncio.wait(
-                [wait_until_ready(x) for x in ready_nodes], timeout=30
-            )
+            _, pending = await asyncio.wait(tasks, timeout=30)
             if pending:
                 logging.warning("Timeout waiting for ready: %s", pending)
                 for nr in pending:

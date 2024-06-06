@@ -469,6 +469,8 @@ class Commander:  # pylint: disable=R0904
         env = {**(kwargs["env"] if "env" in kwargs else os.environ)}
         if "MUNET_NODENAME" not in env:
             env["MUNET_NODENAME"] = self.name
+        if "MUNET_PID" not in env and "MUNET_PID" in os.environ:
+            env["MUNET_PID"] = os.environ["MUNET_PID"]
         kwargs["env"] = env
 
         defaults.update(kwargs)
@@ -780,8 +782,14 @@ class Commander:  # pylint: disable=R0904
 
         ps1 = re.escape(ps1)
         ps2 = re.escape(ps2)
-
-        extra = "PAGER=cat; export PAGER; TERM=dumb; unset HISTFILE; set +o emacs +o vi"
+        extra = [
+            "TERM=dumb",
+            "set +o emacs",
+            "set +o vi",
+            "unset HISTFILE",
+            "PAGER=cat",
+            "export PAGER",
+        ]
         pchg = "PS1='{0}' PS2='{1}' PROMPT_COMMAND=''\n".format(ps1p, ps2p)
         p.send(pchg)
         return ShellWrapper(p, ps1, ps2, extra_init_cmd=extra, will_echo=will_echo)
@@ -934,15 +942,25 @@ class Commander:  # pylint: disable=R0904
 
     def _cmd_status(self, cmds, raises=False, warn=True, stdin=None, **kwargs):
         """Execute a command."""
+        timeout = None
+        if "timeout" in kwargs:
+            timeout = kwargs["timeout"]
+            del kwargs["timeout"]
+
         pinput, stdin = Commander._cmd_status_input(stdin)
         p, actual_cmd = self._popen("cmd_status", cmds, stdin=stdin, **kwargs)
-        o, e = p.communicate(pinput)
+        o, e = p.communicate(pinput, timeout=timeout)
         return self._cmd_status_finish(p, cmds, actual_cmd, o, e, raises, warn)
 
     async def _async_cmd_status(
         self, cmds, raises=False, warn=True, stdin=None, text=None, **kwargs
     ):
         """Execute a command."""
+        timeout = None
+        if "timeout" in kwargs:
+            timeout = kwargs["timeout"]
+            del kwargs["timeout"]
+
         pinput, stdin = Commander._cmd_status_input(stdin)
         p, actual_cmd = await self._async_popen(
             "async_cmd_status", cmds, stdin=stdin, **kwargs
@@ -955,7 +973,12 @@ class Commander:  # pylint: disable=R0904
 
         if encoding is not None and isinstance(pinput, str):
             pinput = pinput.encode(encoding)
-        o, e = await p.communicate(pinput)
+        try:
+            o, e = await asyncio.wait_for(p.communicate(), timeout=timeout)
+        except (TimeoutError, asyncio.TimeoutError) as error:
+            raise subprocess.TimeoutExpired(
+                cmd=actual_cmd, timeout=timeout, output=None, stderr=None
+            ) from error
         if encoding is not None:
             o = o.decode(encoding) if o is not None else o
             e = e.decode(encoding) if e is not None else e
@@ -1220,7 +1243,13 @@ class Commander:  # pylint: disable=R0904
         if self.is_vm and self.use_ssh and not ns_only:  # pylint: disable=E1101
             if isinstance(cmd, str):
                 cmd = shlex.split(cmd)
-            cmd = ["/usr/bin/env", f"MUNET_NODENAME={self.name}"] + cmd
+            cmd = [
+                "/usr/bin/env",
+                f"MUNET_NODENAME={self.name}",
+            ]
+            if "MUNET_PID" in os.environ:
+                cmd.append(f"MUNET_PID={os.environ.get('MUNET_PID')}")
+            cmd += cmd
 
             # get the ssh cmd
             cmd = self._get_pre_cmd(False, True, ns_only=ns_only) + [shlex.join(cmd)]
@@ -1240,6 +1269,8 @@ class Commander:  # pylint: disable=R0904
             envvars = f"MUNET_NODENAME={self.name} NODENAME={self.name}"
             if hasattr(self, "rundir"):
                 envvars += f" RUNDIR={self.rundir}"
+            if "MUNET_PID" in os.environ:
+                envvars += f" MUNET_PID={os.environ.get('MUNET_PID')}"
             if hasattr(self.unet, "config_dirname") and self.unet.config_dirname:
                 envvars += f" CONFIGDIR={self.unet.config_dirname}"
             elif "CONFIGDIR" in os.environ:
@@ -2520,7 +2551,7 @@ class Bridge(SharedNamespace, InterfaceMixin):
 
         self.logger.debug("Bridge: Creating")
 
-        assert len(self.name) <= 16  # Make sure fits in IFNAMSIZE
+        # assert len(self.name) <= 16  # Make sure fits in IFNAMSIZE
         self.cmd_raises(f"ip link delete {name} || true")
         self.cmd_raises(f"ip link add {name} type bridge")
         if self.mtu:
@@ -2644,10 +2675,6 @@ class BaseMunet(LinuxNamespace):
 
         self.cfgopt = munet_config.ConfigOptionsProxy(pytestconfig)
 
-        super().__init__(
-            name, mount=True, net=isolated, uts=isolated, pid=pid, unet=None, **kwargs
-        )
-
         # This allows us to cleanup any leftover running munet's
         if "MUNET_PID" in os.environ:
             if os.environ["MUNET_PID"] != str(our_pid):
@@ -2657,6 +2684,10 @@ class BaseMunet(LinuxNamespace):
                     os.environ["MUNET_PID"],
                 )
         os.environ["MUNET_PID"] = str(our_pid)
+
+        super().__init__(
+            name, mount=True, net=isolated, uts=isolated, pid=pid, unet=None, **kwargs
+        )
 
         # this is for testing purposes do not use
         if not BaseMunet.g_unet:
@@ -2765,7 +2796,7 @@ class BaseMunet(LinuxNamespace):
                 self.logger.error('"%s" len %s > 16', nsif1, len(nsif1))
             elif len(nsif2) > 16:
                 self.logger.error('"%s" len %s > 16', nsif2, len(nsif2))
-            assert len(nsif1) <= 16 and len(nsif2) <= 16  # Make sure fits in IFNAMSIZE
+            assert len(nsif1) < 16 and len(nsif2) < 16  # Make sure fits in IFNAMSIZE
 
             self.logger.debug("%s: Creating veth pair for link %s", self, lname)
 
@@ -2993,8 +3024,11 @@ if True:  # pylint: disable=using-constant-test
                     self._expectf = self.child.expect
 
             if extra_init_cmd:
-                self.expect_prompt()
-                self.child.sendline(extra_init_cmd)
+                if isinstance(extra_init_cmd, str):
+                    extra_init_cmd = [extra_init_cmd]
+                for ecmd in extra_init_cmd:
+                    self.expect_prompt()
+                    self.child.sendline(ecmd)
             self.expect_prompt()
 
         def expect_prompt(self, timeout=-1):

@@ -544,7 +544,9 @@ class TestCase:
         """
         js = self._command_json(target, cmd)
         if js is None:
-            return expect_fail, {}
+            # Always fail on bad json, even if user expected failure
+            # return expect_fail, {}
+            return False, {}
 
         try:
             # Convert to string to validate the input is valid JSON
@@ -556,7 +558,9 @@ class TestCase:
             self.olog.warning(
                 "JSON load failed. Check match value is in JSON format: %s", error
             )
-            return expect_fail, {}
+            # Always fail on bad json, even if user expected failure
+            # return expect_fail, {}
+            return False, {}
 
         if exact_match:
             deep_diff = json_cmp(expect, js)

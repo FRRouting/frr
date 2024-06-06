@@ -89,14 +89,14 @@ def main(*args):
     ecmd = "/usr/bin/nsenter"
     eargs = [ecmd]
 
-    # start mucmd same way base process is started
+    #start mucmd same way base process is started
     eargs.append(f"--mount=/proc/{pid}/ns/mnt")
     eargs.append(f"--net=/proc/{pid}/ns/net")
     eargs.append(f"--pid=/proc/{pid}/ns/pid_for_children")
     eargs.append(f"--uts=/proc/{pid}/ns/uts")
     eargs.append(f"--wd={rundir}")
     eargs += args.shellcmd
-    # print("Using ", eargs)
+    #print("Using ", eargs)
     return os.execvpe(ecmd, eargs, {**env, **envcfg})
 
 

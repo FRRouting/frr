@@ -19,6 +19,7 @@ from . import parser
 from .args import add_launch_args
 from .base import get_event_loop
 from .cleanup import cleanup_previous
+from .cleanup import is_running_in_rundir
 from .compat import PytestConfig
 
 
@@ -139,10 +140,11 @@ def main(*args):
     eap = ap.add_argument_group(title="Uncommon", description="uncommonly used options")
     eap.add_argument("--log-config", help="logging config file (yaml, toml, json, ...)")
     eap.add_argument(
-        "--no-kill",
+        "--kill",
         action="store_true",
-        help="Do not kill previous running processes",
+        help="Kill previous running processes using same rundir and exit",
     )
+    eap.add_argument("--no-kill", action="store_true", help=argparse.SUPPRESS)
     eap.add_argument(
         "--no-cli", action="store_true", help="Do not run the interactive CLI"
     )
@@ -157,7 +159,18 @@ def main(*args):
         sys.exit(0)
 
     rundir = args.rundir if args.rundir else "/tmp/munet"
+    rundir = os.path.abspath(rundir)
     args.rundir = rundir
+
+    if args.kill:
+        logging.info("Killing any previous run using rundir: {rundir}")
+        cleanup_previous(args.rundir)
+    elif is_running_in_rundir(args.rundir):
+        logging.fatal(
+            "Munet processes using rundir: %s, use `--kill` to cleanup first", rundir
+        )
+        return 1
+
     if args.cleanup:
         if os.path.exists(rundir):
             if not os.path.exists(f"{rundir}/config.json"):
@@ -169,6 +182,10 @@ def main(*args):
                 sys.exit(1)
             else:
                 subprocess.run(["/usr/bin/rm", "-rf", rundir], check=True)
+
+    if args.kill:
+        return 0
+
     subprocess.run(f"mkdir -p {rundir} && chmod 755 {rundir}", check=True, shell=True)
     os.environ["MUNET_RUNDIR"] = rundir
 
@@ -182,9 +199,6 @@ def main(*args):
     if not config["topology"]["nodes"]:
         logger.critical("No nodes defined in config file")
         return 1
-
-    if not args.no_kill:
-        cleanup_previous()
 
     loop = None
     status = 4
