@@ -39,6 +39,9 @@ struct nexthop_group {
 #define NEXTHOP_GROUP_ALLOW_RECURSION (1 << 0)
 #define NEXTHOP_GROUP_IBGP	      (1 << 1)
 	uint8_t flags;
+	/* nexthop group messages */
+#define NEXTHOP_GROUP_MESSAGE_SRTE (1 << 0)
+	uint8_t message;
 };
 
 struct nexthop_group *nexthop_group_new(void);
