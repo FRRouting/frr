@@ -1703,6 +1703,9 @@ static struct nexthop *nexthop_from_zapi(const struct zapi_nexthop *api_nh,
 	if (CHECK_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_WEIGHT))
 		nexthop->weight = api_nh->weight;
 
+	/* save srte color */
+	nexthop->srte_color = api_nh->srte_color;
+
 	if (CHECK_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_HAS_BACKUP)) {
 		/* Validate count */
 		if (api_nh->backup_num > NEXTHOP_MAX_BACKUPS) {
@@ -1952,6 +1955,7 @@ static int zapi_nhg_decode(struct stream *s, int cmd, struct zapi_nhg *api_nhg)
 	STREAM_GETL(s, api_nhg->resilience.idle_timer);
 	STREAM_GETL(s, api_nhg->resilience.unbalanced_timer);
 
+	STREAM_GETL(s, api_nhg->message);
 	STREAM_GETC(s, api_nhg->flags);
 
 	/* Nexthops */
@@ -1969,7 +1973,7 @@ static int zapi_nhg_decode(struct stream *s, int cmd, struct zapi_nhg *api_nhg)
 	for (i = 0; i < api_nhg->nexthop_num; i++) {
 		znh = &((api_nhg->nexthops)[i]);
 
-		if (zapi_nexthop_decode(s, znh, 0, 0) != 0) {
+		if (zapi_nexthop_decode(s, znh, 0, api_nhg->message) != 0) {
 			flog_warn(EC_ZEBRA_NEXTHOP_CREATION_FAILED,
 				  "%s: Nexthop creation failed", __func__);
 			return -1;
@@ -1985,7 +1989,7 @@ static int zapi_nhg_decode(struct stream *s, int cmd, struct zapi_nhg *api_nhg)
 	for (i = 0; i < api_nhg->backup_nexthop_num; i++) {
 		znh = &((api_nhg->backup_nexthops)[i]);
 
-		if (zapi_nexthop_decode(s, znh, 0, 0) != 0) {
+		if (zapi_nexthop_decode(s, znh, 0, api_nhg->message) != 0) {
 			flog_warn(EC_ZEBRA_NEXTHOP_CREATION_FAILED,
 				  "%s: Backup Nexthop creation failed",
 				  __func__);
