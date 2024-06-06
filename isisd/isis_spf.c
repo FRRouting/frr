@@ -2232,16 +2232,30 @@ static void isis_print_paths(struct vty *vty, struct isis_vertex_queue *queue,
 	struct listnode *node;
 	struct isis_vertex *vertex;
 	char buff[VID2STR_BUFFER];
+	char vertex_name[VID2STR_BUFFER];
+	char vertex_typestr[VID2STR_BUFFER];
+	char vertex_interface[VID2STR_BUFFER];
+	char vertex_parent[VID2STR_BUFFER + 11];
+	char vertex_nexthop[VID2STR_BUFFER];
+	char vertex_metricstr[20];
+	struct ttable *tt;
+	char *table;
 
-	vty_out(vty,
-		"Vertex               Type         Metric Next-Hop             Interface Parent\n");
+	/* Prepare table. */
+	tt = ttable_new(&ttable_styles[TTSTYLE_BLANK]);
+	ttable_add_row(tt, "Vertex|Type|Metric|Next-Hop|Interface|Parent");
+	tt->style.cell.rpad = 2;
+	tt->style.corner = '+';
+	ttable_restyle(tt);
+	ttable_rowseps(tt, 0, BOTTOM, true, '-');
 
 	for (ALL_QUEUE_ELEMENTS_RO(queue, node, vertex)) {
 		if (VTYPE_IS(vertex->type)
 		    && memcmp(vertex->N.id, root_sysid, ISIS_SYS_ID_LEN) == 0) {
-			vty_out(vty, "%-20s %-12s %-6s",
-				print_sys_hostname(root_sysid), "", "");
-			vty_out(vty, "%-30s\n", "");
+			/* display here */
+			ttable_add_row(tt, "%s|%s|%s|%s|%s|%s",
+				       print_sys_hostname(root_sysid), "", "",
+				       "", "", "");
 			continue;
 		}
 
@@ -2251,9 +2265,12 @@ static void isis_print_paths(struct vty *vty, struct isis_vertex_queue *queue,
 		struct isis_vertex_adj *vadj;
 		struct isis_vertex *pvertex;
 
-		vty_out(vty, "%-20s %-12s %-6u ",
-			vid2string(vertex, buff, sizeof(buff)),
-			vtype2string(vertex->type), vertex->d_N);
+		snprintf(vertex_name, sizeof(vertex_name), "%s",
+			 vid2string(vertex, buff, sizeof(buff)));
+		snprintf(vertex_typestr, sizeof(vertex_typestr), "%s",
+			 vtype2string(vertex->type));
+		snprintf(vertex_metricstr, sizeof(vertex_metricstr), "%u",
+			 vertex->d_N);
 		for (unsigned int i = 0;
 		     i < MAX(vertex->Adj_N ? listcount(vertex->Adj_N) : 0,
 			     vertex->parents ? listcount(vertex->parents) : 0);
@@ -2273,33 +2290,51 @@ static void isis_print_paths(struct vty *vty, struct isis_vertex_queue *queue,
 			}
 
 			if (rows) {
-				vty_out(vty, "\n");
-				vty_out(vty, "%-20s %-12s %-6s ", "", "", "");
+				/* display here */
+				ttable_add_row(tt, "%s|%s|%s|%s|%s|%s",
+					       vertex_name, vertex_typestr,
+					       vertex_metricstr, vertex_nexthop,
+					       vertex_interface, vertex_parent);
+
+				/* store the first 3 elements */
+				vertex_name[0] = '\0';
+				vertex_typestr[0] = '\0';
+				vertex_metricstr[0] = '\0';
 			}
 
 			if (vadj) {
 				struct isis_spf_adj *sadj = vadj->sadj;
 
-				vty_out(vty, "%-20s %-9s ",
-					print_sys_hostname(sadj->id),
-					sadj->adj ? sadj->adj->circuit
-							    ->interface->name
-						  : "-");
+				snprintf(vertex_nexthop, sizeof(vertex_nexthop),
+					 "%s", print_sys_hostname(sadj->id));
+				snprintf(vertex_interface,
+					 sizeof(vertex_interface), "%s",
+					 sadj->adj ? sadj->adj->circuit
+							     ->interface->name
+						   : "-");
 			}
 
 			if (pvertex) {
-				if (!vadj)
-					vty_out(vty, "%-20s %-9s ", "", "");
-
-				vty_out(vty, "%s(%d)",
-					vid2string(pvertex, buff, sizeof(buff)),
-					pvertex->type);
+				if (!vadj) {
+					vertex_nexthop[0] = '\0';
+					vertex_interface[0] = '\0';
+				}
+				snprintf(vertex_parent, sizeof(vertex_parent),
+					 "%s(%d)",
+					 vid2string(pvertex, buff, sizeof(buff)),
+					 pvertex->type);
 			}
 
 			++rows;
 		}
-		vty_out(vty, "\n");
+		ttable_add_row(tt, "%s|%s|%s|%s|%s|%s", vertex_name,
+			       vertex_typestr, vertex_metricstr, vertex_nexthop,
+			       vertex_interface, vertex_parent);
 	}
+	table = ttable_dump(tt, "\n");
+	vty_out(vty, "%s\n", table);
+	XFREE(MTYPE_TMP, table);
+	ttable_del(tt);
 }
 
 void isis_print_spftree(struct vty *vty, struct isis_spftree *spftree)
