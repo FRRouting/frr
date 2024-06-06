@@ -793,7 +793,69 @@ sed -i 's/ -M rpki//' %{_sysconfdir}/frr/daemons
 
 %changelog
 
-* Thu Jun 15 2023 Martin Winter <mwinter@opensourcerouting.org> - %{version}
+* Thu Jun 06 2024 Martin Winter <mwinter@opensourcerouting.org> - %{version}
+
+* Thu Jun 06 2024 Jafar Al-Gharaibeh <jafar@atcorp.com> - 8.4.5
+- babeld
+-    Fix #11808 to avoid infinite loops
+- bgpd
+-    Check mandatory attributes more carefully for update message
+-    Do not explicitly print maxttl value for ebgp-multihop vty output
+-    Do not process nlris if the attribute length is zero
+-    Don't read the first byte of orf header if we are ahead of stream
+-    Ensure community data is freed in some cases.
+-    Ensure that the correct aspath is free'd
+-    Evpn code was not properly unlocking rd_dest
+-    Fix error handling when receiving bgp prefix sid attribute
+-    Fix null argument warning
+-    Fix session reset issue caused by malformed core attributes
+-    Fix use beyond end of stream of labeled unicast parsing
+-    Handle mp_reach_nlri malformed packets with session reset
+-    Ignore handling nlris if we received mp_unreach_nlri
+-    Include unsuppress-map as a valid outgoing policy
+-    Prevent from one more cve triggering this place
+-    Treat eor as withdrawn to avoid unwanted handling of malformed attrs
+-    Use enum bgp_create_error_code as argument in header
+-    Use treat-as-withdraw for tunnel encapsulation attribute
+- isisd
+-    Fix heap-after-free with prefix sid
+-    Need to link directly against libyang
+- lib
+-    Allow unsetting walltime-warning and cpu-warning
+-    Make cmd_element->attr a bitmask & clarify
+-    Replace deprecated ares_gethostbyname
+-    Replace deprecated ares_process()
+- nhrpd
+-    Fix nhrp_peer leak
+-    Fix core dump on shutdown
+- ospf6d
+-    Fix crash because neighbor structure was freed
+-    Fix uninitialized warnings
+-    Ospfv3 route change comparision fixed for asbr-only change
+-    Stop crash in ospf6_write
+-    Prevent heap-buffer-overflow with unknown type
+- ospfd
+-    Check for nulls in vty code
+-    Correct opaque lsa extended parser
+-    Prevent use after free( and crash of ospf ) when no router ospf
+-    Protect call to get_edge() in ospf_te.c
+-    Solved crash in ospf te parsing
+-    Solved crash in ri parsing with ospf te
+- pimd
+-    Fix dr-priority range
+-    Fix null register before aging out reg-stop
+-    Fix order of operations for evaluating join
+-    Re-evaluated s,g oils upon rp changes and for empty sg upstream oils
+-    Fix crash when mixing ssm/any-source joins
+- ripd
+    Revert "cleanup memory allocations on shutdown"
+- ripngd
+    Revert "cleanup memory allocations on shutdown"
+- vtysh
+-    Print uniq lines when parsing `no service ...`
+- zebra
+-    Deny the routes if ip protocol cli refers to an undefined rmap
+-    Fix connected route deletion when multiple entry exists
 
 * Thu Jun 15 2023 Jafar Al-Gharaibeh <jafar@atcorp.com> - 8.4.4
 - This a convenience release/tag for house keeping
