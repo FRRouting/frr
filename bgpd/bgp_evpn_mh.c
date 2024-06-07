@@ -2461,7 +2461,7 @@ static void bgp_evpn_es_frag_show_detail(struct vty *vty,
 }
 
 static char *bgp_evpn_es_vteps_str(char *vtep_str, struct bgp_evpn_es *es,
-				   uint8_t vtep_str_size)
+				   size_t vtep_str_size)
 {
 	char vtep_flag_str[BGP_EVPN_FLAG_STR_SZ];
 	struct listnode *node;
@@ -3962,7 +3962,7 @@ void bgp_evpn_vni_es_cleanup(struct bgpevpn *vpn)
 
 static char *bgp_evpn_es_evi_vteps_str(char *vtep_str,
 				       struct bgp_evpn_es_evi *es_evi,
-				       uint8_t vtep_str_size)
+				       size_t vtep_str_size)
 {
 	char vtep_flag_str[BGP_EVPN_FLAG_STR_SZ];
 	struct listnode *node;
