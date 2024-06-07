@@ -2265,13 +2265,13 @@ static int srv6_manager_get_sid_internal(struct zebra_srv6_sid **sid,
 	if (IS_ZEBRA_DEBUG_PACKET)
 		zlog_debug("%s: getting SRv6 SID for ctx %s, sid_value=%pI6, locator_name=%s",
 			   __func__, srv6_sid_ctx2str(buf, sizeof(buf), ctx),
-			   sid_value, locator_name);
+			   sid_value ? sid_value : &in6addr_any, locator_name);
 
 	ret = get_srv6_sid(sid, ctx, sid_value, locator_name);
 	if (ret < 0) {
 		zlog_warn("%s: not got SRv6 SID for ctx %s, sid_value=%pI6, locator_name=%s",
 			  __func__, srv6_sid_ctx2str(buf, sizeof(buf), ctx),
-			  sid_value, locator_name);
+			  sid_value ? sid_value : &in6addr_any, locator_name);
 
 		/* Notify client about SID alloc failure */
 		zsend_srv6_sid_notify(client, ctx, NULL, 0, 0,
