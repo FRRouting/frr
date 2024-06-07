@@ -1,0 +1,115 @@
+{
+  "16020":{
+    "inLabel":16020,
+    "installed":true,
+    "nexthops":[
+      {
+        "type":"SR (IS-IS)",
+        "outLabel":3,
+        "installed":true,
+        "nexthop":"10.0.1.2",
+        "interface":"eth-sw1"
+      }
+    ]
+  },
+  "16021":{
+    "inLabel":16021,
+    "installed":true,
+    "nexthops":[
+      {
+        "type":"SR (IS-IS)",
+        "outLabel":3,
+        "installed":true,
+        "interface":"eth-sw1"
+      }
+    ]
+  },
+  "16030":{
+    "inLabel":16030,
+    "installed":true,
+    "nexthops":[
+      {
+        "type":"SR (IS-IS)",
+        "outLabel":3,
+        "installed":true,
+        "nexthop":"10.0.1.3",
+        "interface":"eth-sw1"
+      }
+    ]
+  },
+  "16031":{
+    "inLabel":16031,
+    "installed":true,
+    "nexthops":[
+      {
+        "type":"SR (IS-IS)",
+        "outLabel":3,
+        "installed":true,
+        "interface":"eth-sw1"
+      }
+    ]
+  },
+  "16050":{
+    "inLabel":16050,
+    "installed":true,
+    "nexthops":[
+      {
+        "type":"SR (IS-IS)",
+        "outLabel":16050,
+        "installed":true,
+        "nexthop":"10.0.1.3",
+        "interface":"eth-sw1"
+      }
+    ]
+  },
+  "16051":{
+    "inLabel":16051,
+    "installed":true,
+    "nexthops":[
+      {
+        "type":"SR (IS-IS)",
+        "outLabel":16051,
+        "installed":true,
+        "interface":"eth-sw1"
+      }
+    ]
+  },
+  "16060":{
+    "inLabel":16060,
+    "installed":true,
+    "nexthops":[
+      {
+        "type":"SR (IS-IS)",
+        "outLabel":16060,
+        "installed":true,
+        "nexthop":"10.0.1.3",
+        "interface":"eth-sw1"
+      },
+      {
+        "type":"SR (IS-IS)",
+        "outLabel":16060,
+        "installed":true,
+        "nexthop":"10.0.1.2",
+        "interface":"eth-sw1"
+      }
+    ]
+  },
+  "16061":{
+    "inLabel":16061,
+    "installed":true,
+    "nexthops":[
+      {
+        "type":"SR (IS-IS)",
+        "outLabel":16061,
+        "installed":true,
+        "interface":"eth-sw1"
+      },
+      {
+        "type":"SR (IS-IS)",
+        "outLabel":16061,
+        "installed":true,
+        "interface":"eth-sw1"
+      }
+    ]
+  }
+}
