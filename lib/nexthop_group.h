@@ -122,14 +122,13 @@ extern struct nhgc_entry_head nhgc_entries;
  * del_nexthop - A nexthop is deleted from the NHG
  * destroy - The NHG is deleted
  */
-void nexthop_group_init(
-	void (*create)(const char *name),
-	void (*modify)(const struct nexthop_group_cmd *nhgc),
-	void (*add_nexthop)(const struct nexthop_group_cmd *nhgc,
-			    const struct nexthop *nhop),
-	void (*del_nexthop)(const struct nexthop_group_cmd *nhgc,
-			    const struct nexthop *nhop),
-	void (*destroy)(const char *name));
+void nexthop_group_init(void (*create)(const char *name),
+			void (*modify)(const struct nexthop_group_cmd *nhgc),
+			void (*add_nexthop_or_child_group)(const struct nexthop_group_cmd *nhgc,
+							   const struct nexthop *nhop),
+			void (*del_nexthop_or_child_group)(const struct nexthop_group_cmd *nhgc,
+							   const struct nexthop *nhop),
+			void (*destroy)(const char *name));
 
 void nexthop_group_enable_vrf(struct vrf *vrf);
 void nexthop_group_disable_vrf(struct vrf *vrf);
