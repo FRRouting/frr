@@ -201,6 +201,7 @@ typedef enum {
 	ZEBRA_MLAG_FORWARD_MSG,
 	ZEBRA_NHG_ADD,
 	ZEBRA_NHG_DEL,
+	ZEBRA_NHG_CHILD_ADD,
 	ZEBRA_NHG_NOTIFY_OWNER,
 	ZEBRA_EVPN_REMOTE_NH_ADD,
 	ZEBRA_EVPN_REMOTE_NH_DEL,
@@ -496,6 +497,22 @@ struct zapi_nhg {
 
 	/* nexthop group flags */
 	uint8_t flags;
+};
+
+struct zapi_nhg_group {
+	uint16_t proto;
+	uint32_t id;
+
+	uint16_t child_group_num;
+	uint32_t child_group_id[MULTIPATH_NUM];
+
+	uint16_t backup_child_group_num;
+	uint32_t backup_child_group_id[MULTIPATH_NUM];
+
+	struct nhg_resilience resilience;
+
+	uint8_t flags;
+	uint8_t message;
 };
 
 /*
@@ -1188,6 +1205,9 @@ bool zapi_srv6_sid_notify_decode(struct stream *s, struct srv6_sid_ctx *ctx,
 /* Nexthop-group message apis */
 extern enum zclient_send_status
 zclient_nhg_send(struct zclient *zclient, int cmd, struct zapi_nhg *api_nhg);
+extern enum zclient_send_status
+zclient_nhg_child_send(struct zclient *zclient, int cmd,
+		       struct zapi_nhg_group *api_nhg_group);
 
 #define ZEBRA_IPSET_NAME_SIZE   32
 
