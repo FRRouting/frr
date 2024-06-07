@@ -1443,6 +1443,25 @@ void nexthop_group_disable_vrf(struct vrf *vrf)
 	}
 }
 
+void nexthop_group_child_group_match(
+	const char *nhgc_name,
+	void (*cb_func)(const struct nexthop_group_cmd *nhgc))
+{
+	struct nexthop_group_cmd *nhgc_tmp;
+	struct listnode *node;
+	char *child_group;
+
+	RB_FOREACH (nhgc_tmp, nhgc_entry_head, &nhgc_entries) {
+		for (ALL_LIST_ELEMENTS_RO(nhgc_tmp->nhg_child_group_list, node,
+					  child_group)) {
+			if (strmatch(child_group, nhgc_name) && cb_func) {
+				(*cb_func)(nhgc_tmp);
+				break;
+			}
+		}
+	}
+}
+
 void nexthop_group_interface_state_change(struct interface *ifp,
 					  ifindex_t oldifindex)
 {
