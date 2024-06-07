@@ -516,19 +516,32 @@ void srte_policy_update_srv6_binding_sid(struct srte_policy *policy,
 					 struct in6_addr *srv6_binding_sid)
 {
 	struct in6_addr srv6_binding_sid_zero = {};
+	struct srv6_sid_ctx ctx = {};
 
-	if (CHECK_FLAG(policy->flags, F_POLICY_BSID_IPV6_INSTALLED) &&
-	    (!srv6_binding_sid ||
-	     (srv6_binding_sid &&
-	      !IPV6_ADDR_SAME(&policy->srv6_binding_sid, srv6_binding_sid)))) {
-		(void)path_zebra_send_bsid(&policy->srv6_binding_sid, 0,
-					   ZEBRA_SEG6_LOCAL_ACTION_END_B6_ENCAP,
-					   NULL, 0);
-		UNSET_FLAG(policy->flags, F_POLICY_BSID_IPV6_INSTALLED);
+	ctx.vrf_id = VRF_DEFAULT;
+	ctx.behavior = ZEBRA_SEG6_LOCAL_ACTION_END_B6_ENCAP;
+	memcpy(&ctx.nh6, &policy->endpoint.ip._v6_addr, sizeof(struct in6_addr));
+	ctx.color = policy->color;
+
+	if (!srv6_binding_sid ||
+	    (srv6_binding_sid &&
+	     !IPV6_ADDR_SAME(&policy->srv6_binding_sid, srv6_binding_sid))) {
+		if (CHECK_FLAG(policy->flags, F_POLICY_BSID_IPV6_INSTALLED)) {
+			(void)path_zebra_send_bsid(&policy->srv6_binding_sid, 0,
+						   ZEBRA_SEG6_LOCAL_ACTION_END_B6_ENCAP,
+						   NULL, 0);
+			UNSET_FLAG(policy->flags, F_POLICY_BSID_IPV6_INSTALLED);
+		}
+		if (CHECK_FLAG(policy->flags, F_POLICY_BSID_ALLOCATED))
+			path_zebra_srv6_manager_release_sid(&ctx);
+		UNSET_FLAG(policy->flags, F_POLICY_BSID_ALLOCATED);
 	}
-	if (srv6_binding_sid)
+
+	if (srv6_binding_sid) {
 		IPV6_ADDR_COPY(&policy->srv6_binding_sid, srv6_binding_sid);
-	else
+		if (!CHECK_FLAG(policy->flags, F_POLICY_BSID_ALLOCATED))
+			path_zebra_srv6_manager_get_sid(&ctx, srv6_binding_sid);
+	} else
 		IPV6_ADDR_COPY(&policy->srv6_binding_sid,
 			       &srv6_binding_sid_zero);
 

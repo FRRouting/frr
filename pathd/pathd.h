@@ -372,6 +372,7 @@ struct srte_policy {
 #define F_POLICY_NEW 0x0002
 #define F_POLICY_MODIFIED 0x0004
 #define F_POLICY_DELETED 0x0008
+#define F_POLICY_BSID_ALLOCATED	     0x0010
 #define F_POLICY_BSID_IPV6_INSTALLED 0x0040
 	/* SRP id for PcInitiated support */
 	int srp_id;

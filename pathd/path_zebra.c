@@ -525,6 +525,7 @@ path_zebra_add_sr_policy_internal(struct srte_policy *policy,
 		zp.segment_list.nexthop_resolved_num = nhtd->nh_num;
 	}
 	if (znh && !sid_zero_ipv6(&policy->srv6_binding_sid) && segment_list &&
+	    CHECK_FLAG(policy->flags, F_POLICY_BSID_ALLOCATED) &&
 	    zp.segment_list.nexthop_resolved_num) {
 		(void)path_zebra_send_bsid(&policy->srv6_binding_sid,
 					   znh->ifindex,
@@ -824,10 +825,78 @@ static int path_zebra_opaque_msg_handler(ZAPI_CALLBACK_ARGS)
 	return ret;
 }
 
+static int path_zebra_srv6_sid_notify(ZAPI_CALLBACK_ARGS)
+{
+	struct srv6_sid_ctx ctx;
+	struct in6_addr sid_addr;
+	enum zapi_srv6_sid_notify note;
+	uint32_t sid_func;
+	struct srte_policy *policy, *safe_pol;
+	char buf[256];
+	char *locator_name = NULL;
+	char **p_locator_name = &locator_name;
+
+	/* Decode the received notification message */
+	if (!zapi_srv6_sid_notify_decode(zclient->ibuf, &ctx, &sid_addr,
+					 &sid_func, NULL, &note,
+					 p_locator_name)) {
+		zlog_err("%s : error in msg decode", __func__);
+		return -1;
+	}
+
+	PATH_ZEBRA_DEBUG("%s: received SRv6 SID notify: ctx %s sid_value %pI6 %s",
+			 __func__, srv6_sid_ctx2str(buf, sizeof(buf), &ctx),
+			 &sid_addr, zapi_srv6_sid_notify2str(note));
+
+	/* Get the SR-TE policy which has requested that SID */
+	RB_FOREACH_SAFE (policy, srte_policy_head, &srte_policies, safe_pol) {
+		if (!IPV6_ADDR_SAME(&policy->srv6_binding_sid, &sid_addr))
+			continue;
+
+		switch (note) {
+		case ZAPI_SRV6_SID_ALLOCATED:
+			PATH_ZEBRA_DEBUG("SRv6 SID %pI6 %s : ALLOCATED",
+					 &sid_addr,
+					 srv6_sid_ctx2str(buf, sizeof(buf),
+							  &ctx));
+			SET_FLAG(policy->flags, F_POLICY_BSID_ALLOCATED);
+			if (policy->best_candidate)
+				path_zebra_add_sr_policy(policy,
+							 policy->best_candidate
+								 ->lsp
+								 ->segment_list);
+			break;
+		case ZAPI_SRV6_SID_RELEASED:
+			PATH_ZEBRA_DEBUG("SRv6 SID %pI6 %s: RELEASED", &sid_addr,
+					 srv6_sid_ctx2str(buf, sizeof(buf),
+							  &ctx));
+			UNSET_FLAG(policy->flags, F_POLICY_BSID_ALLOCATED);
+			break;
+		case ZAPI_SRV6_SID_FAIL_ALLOC:
+			PATH_ZEBRA_DEBUG("SRv6 SID %pI6 %s: Failed to allocate",
+					 &sid_addr,
+					 srv6_sid_ctx2str(buf, sizeof(buf),
+							  &ctx));
+
+			/* Error will be logged by zebra module */
+			break;
+		case ZAPI_SRV6_SID_FAIL_RELEASE:
+			zlog_warn("%s: SRv6 SID %pI6 %s failure to release",
+				  __func__, &sid_addr,
+				  srv6_sid_ctx2str(buf, sizeof(buf), &ctx));
+
+			/* Error will be logged by zebra module */
+			break;
+		}
+	}
+	return 0;
+}
+
 static zclient_handler *const path_handlers[] = {
 	[ZEBRA_SR_POLICY_NOTIFY_STATUS] = path_zebra_sr_policy_notify_status,
 	[ZEBRA_ROUTER_ID_UPDATE] = path_zebra_router_id_update,
 	[ZEBRA_OPAQUE_MESSAGE] = path_zebra_opaque_msg_handler,
+	[ZEBRA_SRV6_SID_NOTIFY] = path_zebra_srv6_sid_notify,
 };
 
 /**
@@ -870,4 +939,26 @@ void path_zebra_stop(void)
 	event_cancel(&t_sync_connect);
 	zclient_stop(zclient_sync);
 	zclient_free(zclient_sync);
+}
+
+void path_zebra_srv6_manager_get_sid(struct srv6_sid_ctx *ctx,
+				     struct in6_addr *sid_addr)
+{
+	int ret;
+	uint32_t sid_func;
+
+	ret = srv6_manager_get_sid(zclient, ctx, sid_addr, NULL, &sid_func);
+	if (ret < 0)
+		/* TODO: need to re-send later GET_SID message */
+		zlog_warn("%s: error getting SRv6 SID!", __func__);
+}
+
+void path_zebra_srv6_manager_release_sid(struct srv6_sid_ctx *ctx)
+{
+	int ret;
+
+	ret = srv6_manager_release_sid(zclient, ctx);
+	if (ret < 0)
+		/* TODO: need to re-send later GET_SID message */
+		zlog_warn("%s: error releasing SRv6 SID!", __func__);
 }
