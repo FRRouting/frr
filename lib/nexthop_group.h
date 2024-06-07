@@ -140,6 +140,9 @@ void nexthop_group_disable_vrf(struct vrf *vrf);
 void nexthop_group_interface_state_change(struct interface *ifp,
 					  ifindex_t oldifindex);
 
+void nexthop_group_child_group_match(
+	const char *nhgc_name,
+	void (*cb_func)(const struct nexthop_group_cmd *nhgc));
 extern struct nexthop *nexthop_exists(const struct nexthop_group *nhg,
 				      const struct nexthop *nh);
 /* This assumes ordered */
