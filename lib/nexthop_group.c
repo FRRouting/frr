@@ -265,6 +265,20 @@ void nexthop_group_copy(struct nexthop_group *to,
 	copy_nexthops(&to->nexthop, from->nexthop, NULL);
 }
 
+/* append nexthops from 'from' nexthop-group to 'to' nexthop-group
+ */
+void nexthop_group_append_nexthops(struct nexthop_group *to,
+				   const struct nexthop_group *from)
+{
+	struct nexthop *nexthop = nexthop_group_tail(to);
+
+	/* Copy everything, including recursive info */
+	if (nexthop)
+		copy_nexthops(&nexthop, from->nexthop, NULL);
+	else
+		copy_nexthops(&to->nexthop, from->nexthop, NULL);
+}
+
 void nexthop_group_delete(struct nexthop_group **nhg)
 {
 	/* OK to call with NULL group */

@@ -49,6 +49,8 @@ void nexthop_group_delete(struct nexthop_group **nhg);
 
 void nexthop_group_copy(struct nexthop_group *to,
 			const struct nexthop_group *from);
+void nexthop_group_append_nexthops(struct nexthop_group *to,
+				   const struct nexthop_group *from);
 
 /*
  * Copy a list of nexthops in 'nh' to an nhg, enforcing canonical sort order
