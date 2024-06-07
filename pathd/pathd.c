@@ -1391,6 +1391,12 @@ void path_policy_show_debugging(struct vty *vty)
 		vty_out(vty, "  Path policy debugging is on\n");
 }
 
+void path_zebra_show_debugging(struct vty *vty)
+{
+	if (DEBUG_FLAGS_CHECK(&path_zebra_debug, PATH_ZEBRA_DEBUG_BASIC))
+		vty_out(vty, "  Path zebra debugging is on\n");
+}
+
 void pathd_shutdown(void)
 {
 	path_ted_teardown();

@@ -29,6 +29,18 @@ extern struct debug path_policy_debug;
 
 #define PATH_POLICY_DEBUG_BASIC 0x01
 
+extern struct debug path_zebra_debug;
+
+#define PATH_ZEBRA_DEBUG_BASIC 0x01
+
+#define PATH_ZEBRA_DEBUG(fmt, ...)                                             \
+	do {                                                                   \
+		if (DEBUG_FLAGS_CHECK(&path_zebra_debug,                       \
+				      PATH_ZEBRA_DEBUG_BASIC))                 \
+			DEBUGD(&path_zebra_debug, "policy: " fmt,              \
+			       ##__VA_ARGS__);                                 \
+	} while (0)
+
 enum srte_policy_status {
 	SRTE_POLICY_STATUS_UNKNOWN = 0,
 	SRTE_POLICY_STATUS_DOWN = 1,
@@ -500,6 +512,7 @@ const char *srte_origin2str(enum srte_protocol_origin origin);
 void pathd_shutdown(void);
 void path_policy_show_debugging(struct vty *vty);
 void trigger_pathd_candidate_removed(struct srte_candidate *candidate);
+void path_zebra_show_debugging(struct vty *vty);
 
 /* path_cli.c */
 void path_cli_init(void);
