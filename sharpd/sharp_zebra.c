@@ -518,13 +518,71 @@ void vrf_label_add(vrf_id_t vrf_id, afi_t afi, mpls_label_t label)
 	zclient_send_vrf_label(zclient, vrf_id, afi, label, ZEBRA_LSP_SHARP);
 }
 
-void nhg_add(uint32_t id, const struct nexthop_group *nhg,
-	     const struct nexthop_group *backup_nhg)
+static void nhg_add_parent(uint32_t id, const struct nexthop_group_cmd *nhgc)
+{
+	struct zapi_nhg_group api_nhg_group = {};
+	struct zapi_nhg api_nhg = {};
+	int child_group_num = 0;
+	const struct nexthop_group *nhg = &nhgc->nhg;
+	uint32_t group_id;
+	char *groupname;
+	struct listnode *node;
+
+	if (!listcount(nhgc->nhg_child_group_list))
+		return;
+
+	api_nhg_group.id = id;
+
+	api_nhg_group.flags = nhg->flags;
+	api_nhg_group.resilience = nhg->nhgr;
+
+	if (listcount(nhgc->nhg_child_group_list) >= MULTIPATH_NUM) {
+		zlog_warn("%s: %s, number of nexthops groups greater than max multipath size, truncating",
+			  __func__, nhgc->name);
+		return;
+	}
+	child_group_num = 0;
+	for (ALL_LIST_ELEMENTS_RO(nhgc->nhg_child_group_list, node, groupname)) {
+		group_id = sharp_nhgroup_get_id(groupname);
+		if (group_id == 0) {
+			zlog_warn("%s: nhg %s, child group %s has no identifier",
+				  __func__, nhgc->name, groupname);
+			continue;
+		}
+
+		if (sharp_nhgroup_id_needs_removal(group_id))
+			continue;
+
+		api_nhg_group.child_group_id[child_group_num++] = group_id;
+	}
+	api_nhg_group.child_group_num = child_group_num;
+	if (api_nhg_group.child_group_num == 0) {
+		if (sharp_nhgroup_id_is_installed(id)) {
+			api_nhg.id = id;
+			api_nhg.flags = nhg->flags;
+			api_nhg.resilience = nhg->nhgr;
+
+			zlog_debug("%s: nhg %u: no child groups, deleting nexthop group",
+				   __func__, id);
+			zclient_nhg_send(zclient, ZEBRA_NHG_DEL, &api_nhg);
+			return;
+		}
+		zlog_debug("%s: nhg %u not sent: no valid child groups",
+			   __func__, id);
+		return;
+	}
+
+	zclient_nhg_child_send(zclient, ZEBRA_NHG_CHILD_ADD, &api_nhg_group);
+}
+
+static void nhg_add_nexthop(uint32_t id, const struct nexthop_group_cmd *nhgc,
+			    const struct nexthop_group *backup_nhg)
 {
 	struct zapi_nhg api_nhg = {};
 	struct zapi_nexthop *api_nh;
 	struct nexthop *nh;
 	bool is_valid = true;
+	const struct nexthop_group *nhg = &nhgc->nhg;
 
 	api_nhg.id = id;
 
@@ -554,12 +612,7 @@ void nhg_add(uint32_t id, const struct nexthop_group *nhg,
 	}
 
 	if (api_nhg.nexthop_num == 0) {
-		if (sharp_nhgroup_id_is_installed(id)) {
-			zlog_debug("%s: nhg %u: no nexthops, deleting nexthop group", __func__,
-				   id);
-			zclient_nhg_send(zclient, ZEBRA_NHG_DEL, &api_nhg);
-			return;
-		}
+		/* assumption that child nhg are removed before when id is installed */
 		zlog_debug("%s: nhg %u not sent: no valid nexthops", __func__,
 			   id);
 		is_valid = false;
@@ -590,6 +643,14 @@ void nhg_add(uint32_t id, const struct nexthop_group *nhg,
 done:
 	if (is_valid)
 		zclient_nhg_send(zclient, ZEBRA_NHG_ADD, &api_nhg);
+}
+
+void nhg_add(uint32_t id, const struct nexthop_group_cmd *nhgc,
+	     const struct nexthop_group *backup_nhg)
+{
+	if (listcount(nhgc->nhg_child_group_list))
+		return nhg_add_parent(id, nhgc);
+	return nhg_add_nexthop(id, nhgc, backup_nhg);
 }
 
 void nhg_del(uint32_t id)
@@ -688,6 +749,9 @@ static void sharp_nexthop_update(struct vrf *vrf, struct prefix *matched,
 
 		nhg = &nhgc->nhg;
 
+		if (listcount(nhgc->nhg_child_group_list))
+			continue;
+
 		if (!CHECK_FLAG(nhg->message, NEXTHOP_GROUP_MESSAGE_SRTE))
 			continue;
 
@@ -701,13 +765,13 @@ static void sharp_nexthop_update(struct vrf *vrf, struct prefix *matched,
 			     nexthop->type == NEXTHOP_TYPE_IPV4) &&
 			    IPV4_ADDR_SAME(&matched->u.prefix4,
 					   &nexthop->gate.ipv4)) {
-				nhg_add(nhg_id, nhg, NULL);
+				nhg_add(nhg_id, nhgc, NULL);
 			} else if (matched->family == AF_INET6 &&
 				   (nexthop->type == NEXTHOP_TYPE_IPV6_IFINDEX ||
 				    nexthop->type == NEXTHOP_TYPE_IPV6) &&
 				   IPV6_ADDR_SAME(&matched->u.prefix6,
 						  &nexthop->gate.ipv6)) {
-				nhg_add(nhg_id, nhg, NULL);
+				nhg_add(nhg_id, nhgc, NULL);
 			}
 		}
 	}
@@ -952,8 +1016,11 @@ static int nhg_notify_owner(ZAPI_CALLBACK_ARGS)
 
 	switch (note) {
 	case ZAPI_NHG_INSTALLED:
-		sharp_nhgroup_id_set_installed(id, true);
+		if (sharp_nhgroup_id_is_installed(id))
+			break;
 		zlog_debug("Installed nhg %u", id);
+		sharp_nhgroup_id_set_installed(id, true);
+		sharp_nhgroup_child_trigger_add_nexthop(id);
 		break;
 	case ZAPI_NHG_FAIL_INSTALL:
 		zlog_debug("Failed install of nhg %u", id);
