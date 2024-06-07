@@ -477,6 +477,8 @@ extern uint8_t route_distance(int type);
 extern void zebra_rib_evaluate_rn_nexthops(struct route_node *rn, uint32_t seq,
 					   bool rt_delete);
 
+extern void rib_update_handle_vrf_all(enum rib_update_event event, int rtype);
+
 /*
  * rib_find_rn_from_ctx
  *
