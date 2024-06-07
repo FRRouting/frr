@@ -101,6 +101,8 @@ struct nexthop_group_cmd {
 
 	struct list *nhg_list;
 
+	struct list *nhg_child_group_list;
+
 	QOBJ_FIELDS;
 };
 RB_HEAD(nhgc_entry_head, nexthp_group_cmd);

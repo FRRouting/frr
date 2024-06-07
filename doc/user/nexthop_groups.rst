@@ -33,3 +33,10 @@ listing of ECMP nexthops used to forward packets.
    By default, a nexthop group is only marked as active when its nexthop is
    directly connected. The ``allow-recursion`` option allows zebra to resolve the
    nexthop using other types of routes.
+
+.. clicmd:: child-group NAME
+
+   Append a child nexthop group in the current nexthop group. The protocol daemon
+   using it will ensure that the child group is configured at the protocol level,
+   and installed at zebra level, before installing the parent nexthop group.
+   This option is very useful to consider nexthop groups having multiple paths.
