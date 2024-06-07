@@ -48,16 +48,16 @@
               "adjacency": [
                 {
                   "neighbor-sys-type": "level-1",
-                  "neighbor-sysid": "0000.0000.0001",
+                  "neighbor-sysid": "0000.0000.0002",
                   "hold-timer": 10,
-                  "neighbor-priority": 100,
+                  "neighbor-priority": 64,
                   "state": "up"
                 },
                 {
                   "neighbor-sys-type": "level-1",
-                  "neighbor-sysid": "0000.0000.0002",
+                  "neighbor-sysid": "0000.0000.0001",
                   "hold-timer": 10,
-                  "neighbor-priority": 64,
+                  "neighbor-priority": 100,
                   "state": "up"
                 }
               ]

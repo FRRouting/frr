@@ -467,10 +467,14 @@
     {
       "prefix":"10.0.8.0\/24",
       "protocol":"isis",
+      "selected":true,
+      "destSelected":true,
       "distance":115,
       "metric":30,
+      "installed":true,
       "nexthops":[
         {
+          "fib":true,
           "ip":"10.0.6.4",
           "afi":"ipv4",
           "interfaceName":"eth-rt4",
