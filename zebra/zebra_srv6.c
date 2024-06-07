@@ -2274,7 +2274,7 @@ static int srv6_manager_get_sid_internal(struct zebra_srv6_sid **sid,
 			  sid_value ? sid_value : &in6addr_any, locator_name);
 
 		/* Notify client about SID alloc failure */
-		zsend_srv6_sid_notify(client, ctx, NULL, 0, 0,
+		zsend_srv6_sid_notify(client, ctx, sid_value, 0, 0,
 				      ZAPI_SRV6_SID_FAIL_ALLOC);
 	} else if (ret == 0) {
 		if (IS_ZEBRA_DEBUG_PACKET)
