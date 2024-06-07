@@ -33,10 +33,8 @@ DEFINE_HOOK(pathd_candidate_updated, (struct srte_candidate * candidate),
 DEFINE_HOOK(pathd_candidate_removed, (struct srte_candidate * candidate),
 	    (candidate));
 
-struct debug path_policy_debug = {
-	.conf = "debug pathd policy",
-	.desc = "Pathd policy",
-};
+struct debug path_policy_debug;
+struct debug path_zebra_debug;
 
 #define PATH_POLICY_DEBUG(fmt, ...)                                            \
 	DEBUGD(&path_policy_debug, "policy: " fmt, ##__VA_ARGS__)
@@ -1277,6 +1275,18 @@ const char *srte_origin2str(enum srte_protocol_origin origin)
 	}
 
 	assert(!"Reached end of function we should never hit");
+}
+
+void path_policy_show_debugging(struct vty *vty)
+{
+	if (DEBUG_FLAGS_CHECK(&path_policy_debug, PATH_POLICY_DEBUG_BASIC))
+		vty_out(vty, "  Path policy debugging is on\n");
+}
+
+void path_zebra_show_debugging(struct vty *vty)
+{
+	if (DEBUG_FLAGS_CHECK(&path_zebra_debug, PATH_ZEBRA_DEBUG_BASIC))
+		vty_out(vty, "  Path zebra debugging is on\n");
 }
 
 void pathd_shutdown(void)

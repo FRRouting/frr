@@ -257,8 +257,8 @@ static void path_zebra_add_srv6_policy_internal(struct srte_policy *policy)
 		return;
 
 	cmd = ZEBRA_NEXTHOP_REGISTER;
-	zlog_debug("Registering nexthop(%pFX) for candidate %s pref %u",
-		   &lookup.nh, candidate->name, candidate->preference);
+	PATH_ZEBRA_DEBUG("Registering nexthop(%pFX) for candidate %s pref %u",
+			 &lookup.nh, candidate->name, candidate->preference);
 
 	if (zclient_send_rnh(zclient, cmd, &lookup.nh, SAFI_UNICAST, false,
 			     false, VRF_DEFAULT) == ZCLIENT_SEND_FAILURE)
@@ -393,8 +393,8 @@ void path_nht_removed(struct srte_candidate *candidate)
 	if (!was_zebra_registered)
 		return;
 
-	zlog_debug("Unregistering nexthop(%pFX) for candidate %s pref %u",
-		   &lookup.nh, candidate->name, candidate->preference);
+	PATH_ZEBRA_DEBUG("Unregistering nexthop(%pFX) for candidate %s pref %u",
+			 &lookup.nh, candidate->name, candidate->preference);
 
 	if (zclient_send_rnh(zclient, ZEBRA_NEXTHOP_UNREGISTER, &lookup.nh,
 			     SAFI_UNICAST, false, false,

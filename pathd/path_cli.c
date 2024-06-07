@@ -1105,7 +1105,10 @@ DEFPY_NOSH(show_debugging_pathd, show_debugging_pathd_cmd,
 	vty_out(vty, "Path debugging status:\n");
 
 	cmd_show_lib_debugs(vty);
-
+	/* nothing to do here */
+	path_ted_show_debugging(vty);
+	path_policy_show_debugging(vty);
+	path_zebra_show_debugging(vty);
 	return CMD_SUCCESS;
 }
 
@@ -1117,6 +1120,19 @@ DEFPY(debug_path_policy, debug_path_policy_cmd, "[no] debug pathd policy",
 	uint32_t mode = DEBUG_NODE2MODE(vty->node);
 
 	DEBUG_MODE_SET(&path_policy_debug, mode, !no);
+	return CMD_SUCCESS;
+}
+
+DEFPY(debug_path_zebra, debug_path_zebra_cmd, "[no] debug pathd zebra",
+      NO_STR DEBUG_STR
+      "path debugging\n"
+      "policy debugging\n")
+{
+	uint32_t mode = DEBUG_NODE2MODE(vty->node);
+	bool no_debug = no;
+
+	DEBUG_MODE_SET(&path_zebra_debug, mode, !no);
+	DEBUG_FLAGS_SET(&path_zebra_debug, PATH_ZEBRA_DEBUG_BASIC, !no_debug);
 	return CMD_SUCCESS;
 }
 
@@ -1340,6 +1356,8 @@ void path_cli_init(void)
 
 	install_element(ENABLE_NODE, &debug_path_policy_cmd);
 	install_element(CONFIG_NODE, &debug_path_policy_cmd);
+	install_element(ENABLE_NODE, &debug_path_zebra_cmd);
+	install_element(CONFIG_NODE, &debug_path_zebra_cmd);
 
 	install_element(CONFIG_NODE, &segment_routing_cmd);
 	install_element(SEGMENT_ROUTING_NODE, &sr_traffic_eng_cmd);
