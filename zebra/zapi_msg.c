@@ -1001,7 +1001,9 @@ void zsend_neighbor_notify(int cmd, struct interface *ifp,
 
 void zsend_srv6_sid_notify(struct zserv *client, const struct srv6_sid_ctx *ctx,
 			   struct in6_addr *sid_value, uint32_t func,
-			   uint32_t wide_func, enum zapi_srv6_sid_notify note)
+			   uint32_t wide_func, const char *locator_name,
+			   enum zapi_srv6_sid_notify note)
+
 {
 	struct stream *s;
 	uint16_t cmd = ZEBRA_SRV6_SID_NOTIFY;
@@ -1027,6 +1029,13 @@ void zsend_srv6_sid_notify(struct zserv *client, const struct srv6_sid_ctx *ctx,
 	stream_putl(s, func);
 	/* SRv6 wide SID function */
 	stream_putl(s, wide_func);
+	/* SRv6 locator name optional */
+	if (locator_name) {
+		stream_putw(s, strlen(locator_name));
+		stream_put(s, locator_name, strlen(locator_name));
+	} else
+		stream_putw(s, 0);
+
 	stream_putw_at(s, 0, stream_get_endp(s));
 
 	zserv_send_message(client, s);

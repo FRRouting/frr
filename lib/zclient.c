@@ -2136,9 +2136,12 @@ stream_failure:
 bool zapi_srv6_sid_notify_decode(struct stream *s, struct srv6_sid_ctx *ctx,
 				 struct in6_addr *sid_value, uint32_t *func,
 				 uint32_t *wide_func,
-				 enum zapi_srv6_sid_notify *note)
+				 enum zapi_srv6_sid_notify *note,
+				 char **p_locator_name)
 {
 	uint32_t f, wf;
+	uint16_t len;
+	static char locator_name[SRV6_LOCNAME_SIZE] = {};
 
 	STREAM_GET(note, s, sizeof(*note));
 	STREAM_GET(ctx, s, sizeof(struct srv6_sid_ctx));
@@ -2151,6 +2154,19 @@ bool zapi_srv6_sid_notify_decode(struct stream *s, struct srv6_sid_ctx *ctx,
 	if (wide_func)
 		*wide_func = wf;
 
+	STREAM_GETW(s, len);
+	if (len > SRV6_LOCNAME_SIZE) {
+		*p_locator_name = NULL;
+		return false;
+	}
+	if (p_locator_name) {
+		if (len == 0)
+			*p_locator_name = NULL;
+		else {
+			STREAM_GET(locator_name, s, len);
+			*p_locator_name = locator_name;
+		}
+	}
 	return true;
 
 stream_failure:

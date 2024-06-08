@@ -97,7 +97,7 @@ extern void zsend_neighbor_notify(int cmd, struct interface *ifp,
 extern void zsend_srv6_sid_notify(struct zserv *client,
 				  const struct srv6_sid_ctx *ctx,
 				  struct in6_addr *sid_value, uint32_t func,
-				  uint32_t wide_func,
+				  uint32_t wide_func, const char *locator_name,
 				  enum zapi_srv6_sid_notify note);
 
 extern int zsend_client_close_notify(struct zserv *client,
