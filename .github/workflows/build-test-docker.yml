@@ -68,11 +68,13 @@ jobs:
       - name: Run topotests
         run: |
           uname -a
-          sudo apt-get install -y linux-modules-extra-azure || true
-          sudo apt-get install -y python3-xmltodict || true
+          MODPKGVER=$(uname -r)
+          sudo apt-get update -y
+          # Github is running old kernels but installing newer packages :(
+          sudo apt-get install -y linux-modules-extra-azure linux-modules-${MODPKGVER} linux-modules-extra-${MODPKGVER} python3-xmltodict
           sudo modprobe vrf || true
-          sudo modprobe mpls-iptunnel || true
-          sudo modprobe mpls-router || true
+          sudo modprobe mpls-iptunnel
+          sudo modprobe mpls-router
           docker load --input /tmp/frr-ubuntu22.tar
 
           if ! grep CONFIG_IP_MROUTE_MULTIPLE_TABLES=y /boot/config*; then
