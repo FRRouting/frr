@@ -116,6 +116,8 @@ static inline uint16_t ospf6_lsa_size(struct ospf6_lsa_header *header)
 #define OSPF6_LSA_IS_CHANGED(L1, L2) ospf6_lsa_is_changed (L1, L2)
 #define OSPF6_LSA_IS_SEQWRAP(L) ((L)->header->seqnum == htonl(OSPF_MAX_SEQUENCE_NUMBER + 1))
 
+#define lsdesc_start(lsdesc_type, lsa)                                         \
+	((struct lsdesc_type *)((char *)lsa + sizeof(*lsa)))
 
 /* Router-LSA */
 #define OSPF6_ROUTER_LSA_MIN_SIZE              4U
