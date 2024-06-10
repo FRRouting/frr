@@ -321,6 +321,11 @@ int _foreach_lsdesc(struct ospf6_lsa_header *lsa_header,
 	case OSPF6_LSTYPE_LINK:
 	case OSPF6_LSTYPE_INTRA_PREFIX:
 		return each_prefix_in_link_lsa(lsa_header, handler, cb_data);
+	case OSPF6_LSTYPE_E_ROUTER:
+	case OSPF6_LSTYPE_E_NETWORK:
+	case OSPF6_LSTYPE_E_LINK:
+	case OSPF6_LSTYPE_E_INTRA_PREFIX:
+		return foreach_tlv_in_lsa(lsa_header, handler, cb_data, caller);
 	default:
 		zlog_err("%s: Unhandled LSA type: 0x%.2x", caller,
 			 ntohs(lsa_header->type));
@@ -739,6 +744,10 @@ void ospf6_lsa_show_summary(struct vty *vty, struct ospf6_lsa *lsa,
 	case OSPF6_LSTYPE_INTER_ROUTER:
 	case OSPF6_LSTYPE_AS_EXTERNAL:
 	case OSPF6_LSTYPE_TYPE_7:
+	case OSPF6_LSTYPE_E_INTER_PREFIX:
+	case OSPF6_LSTYPE_E_INTER_ROUTER:
+	case OSPF6_LSTYPE_E_AS_EXTERNAL:
+	case OSPF6_LSTYPE_E_TYPE_7:
 		if (use_json) {
 			json_object_string_add(
 				json_obj, "type",
@@ -769,8 +778,12 @@ void ospf6_lsa_show_summary(struct vty *vty, struct ospf6_lsa *lsa,
 	case OSPF6_LSTYPE_GROUP_MEMBERSHIP:
 	case OSPF6_LSTYPE_LINK:
 	case OSPF6_LSTYPE_INTRA_PREFIX:
-		while (handler->lh_get_prefix_str(lsa, buf, sizeof(buf), cnt)
-		       != NULL) {
+	case OSPF6_LSTYPE_E_ROUTER:
+	case OSPF6_LSTYPE_E_NETWORK:
+	case OSPF6_LSTYPE_E_LINK:
+	case OSPF6_LSTYPE_E_INTRA_PREFIX:
+		while (handler->lh_get_prefix_str(lsa, buf, sizeof(buf), cnt) !=
+		       NULL) {
 			if (use_json) {
 				json_object_string_add(
 					json_obj, "type",
