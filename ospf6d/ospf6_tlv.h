@@ -30,6 +30,8 @@ struct tlv_header {
 #define TLV_HDR_NEXT(tlvh)                                                     \
 	((struct tlv_header *)((char *)(tlvh) + TLV_SIZE(tlvh)))
 
+#define TLV_BODY(tlvh) ((char *)(tlvh) + TLV_HDR_SIZE)
+
 /*
  * RFC 5187 - OSPFv3 Graceful Restart - Grace-LSA
  * Graceful restart predates Extended-LSA TLVs and IANA TLV register.
@@ -71,7 +73,12 @@ enum ospf6_extended_lsa_tlv_types {
 	OSPF6_TLV_EXTERNAL_PREFIX = 5,
 	OSPF6_TLV_INTRA_AREA_PREFIX = 6,
 	OSPF6_TLV_IPV6_LL_ADDR = 7,
-	OSPF6_TLV_IPV4_LL_ADDR = 8
+	OSPF6_TLV_IPV4_LL_ADDR = 8,
+	/*
+	 * when adding new TLVs,
+	 * also update tlv_size_map[OSPF6_TLV_ENUM_END]
+	 */
+	OSPF6_TLV_ENUM_END
 };
 
 #define TLV_ROUTER_LINK_TYPE 1
@@ -143,6 +150,8 @@ struct tlv_ipv4_link_local_address {
 	struct in_addr addr;
 };
 
+
+extern int tlv_size_map[OSPF6_TLV_ENUM_END];
 
 /*
  * OSPFv3 Extended-LSA Sub-TLV Types

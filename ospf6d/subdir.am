@@ -34,6 +34,7 @@ ospf6d_libospf6_a_SOURCES = \
 	ospf6d/ospf6_route.c \
 	ospf6d/ospf6_spf.c \
 	ospf6d/ospf6_top.c \
+	ospf6d/ospf6_tlv.c \
 	ospf6d/ospf6_zebra.c \
 	ospf6d/ospf6d.c \
 	ospf6d/ospf6_auth_trailer.c \
