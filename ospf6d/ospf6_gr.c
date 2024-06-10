@@ -464,43 +464,49 @@ static bool ospf6_gr_check_adjs_lsa_transit(struct ospf6_area *area,
 	return true;
 }
 
+/*
+ * Checks whether the neighbour router in the desc is adjacent to the router
+ * in the callback data and updates the flag in the callback data.
+ * FIXME: rename this.
+ */
+static int cb_check_one_adj_lsa(void *desc, void *cb_data)
+{
+	struct ospf6_router_lsdesc *lsdesc = desc;
+	struct check_adjacency_cb_data *cbd = cb_data;
+
+	switch (lsdesc->type) {
+	case OSPF6_ROUTER_LSDESC_POINTTOPOINT:
+		if (!ospf6_gr_check_adj_id(cbd->area,
+					   lsdesc->neighbor_router_id))
+			cbd->out_adjacency_found = false;
+		break;
+	case OSPF6_ROUTER_LSDESC_TRANSIT_NETWORK:
+		if (!ospf6_gr_check_adjs_lsa_transit(cbd->area,
+						     lsdesc->neighbor_router_id,
+						     lsdesc->neighbor_interface_id))
+			cbd->out_adjacency_found = false;
+		break;
+	default:
+		break;
+	}
+
+	return 0;
+}
+
+/*
+ * Returns true if all are adjacent; false if any are not.
+ */
 static bool ospf6_gr_check_adjs_lsa(struct ospf6_area *area,
 				    struct ospf6_lsa *lsa)
 {
-	struct ospf6_router_lsa *router_lsa;
-	char *start, *end, *current;
+	struct check_adjacency_cb_data cbd = { .area = area,
+					       .router_id = 0,
+					       .out_adjacency_found = true };
+	struct tlv_handler handler = { .callback = cb_check_one_adj_lsa,
+				       .callback_data = &cbd };
 
-	router_lsa =
-		(struct ospf6_router_lsa *)((char *)lsa->header
-					    + sizeof(struct ospf6_lsa_header));
-
-	/* Iterate over all interfaces in the Router-LSA. */
-	start = (char *)router_lsa + sizeof(struct ospf6_router_lsa);
-	end = (char *)lsa->header + ntohs(lsa->header->length);
-	for (current = start;
-	     current + sizeof(struct ospf6_router_lsdesc) <= end;
-	     current += sizeof(struct ospf6_router_lsdesc)) {
-		struct ospf6_router_lsdesc *lsdesc;
-
-		lsdesc = (struct ospf6_router_lsdesc *)current;
-		switch (lsdesc->type) {
-		case OSPF6_ROUTER_LSDESC_POINTTOPOINT:
-			if (!ospf6_gr_check_adj_id(area,
-						   lsdesc->neighbor_router_id))
-				return false;
-			break;
-		case OSPF6_ROUTER_LSDESC_TRANSIT_NETWORK:
-			if (!ospf6_gr_check_adjs_lsa_transit(
-				    area, lsdesc->neighbor_router_id,
-				    lsdesc->neighbor_interface_id))
-				return false;
-			break;
-		default:
-			break;
-		}
-	}
-
-	return true;
+	foreach_lsdesc(lsa->header, &handler);
+	return cbd.out_adjacency_found;
 }
 
 /*
