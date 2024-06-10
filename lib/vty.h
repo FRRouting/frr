@@ -378,6 +378,8 @@ extern bool vty_set_include(struct vty *vty, const char *regexp);
  */
 extern int vty_json(struct vty *vty, struct json_object *json);
 extern int vty_json_no_pretty(struct vty *vty, struct json_object *json);
+void vty_json_key(struct vty *vty, const char *key, bool *first_key);
+void vty_json_close(struct vty *vty, bool first_key);
 extern void vty_json_empty(struct vty *vty, struct json_object *json);
 /* post fd to be passed to the vtysh client
  * fd is owned by the VTY code after this and will be closed when done
