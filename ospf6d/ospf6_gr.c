@@ -409,18 +409,38 @@ static bool ospf6_gr_check_adj_id(struct ospf6_area *area,
 	return true;
 }
 
+static int check_neighbor_adjacent(void *desc, void *cb_data)
+{
+	struct ospf6_network_lsdesc *lsdesc = desc;
+	struct check_adjacency_cb_data *cbd = cb_data;
+
+	/* Skip self in the pseudonode. */
+	if (lsdesc->router_id == cbd->router_id)
+		return 0;
+
+	/* Check if there's a fully formed adjacency with this router. */
+	if (!ospf6_gr_check_adj_id(cbd->area, lsdesc->router_id))
+		cbd->out_adjacency_found = false;
+
+	return 0;
+}
+
 static bool ospf6_gr_check_adjs_lsa_transit(struct ospf6_area *area,
 					    in_addr_t neighbor_router_id,
 					    uint32_t neighbor_interface_id)
 {
 	struct ospf6 *ospf6 = area->ospf6;
+	struct check_adjacency_cb_data cbd = { .area = area,
+					       .router_id = ospf6->router_id,
+					       .out_adjacency_found = true };
+	static const struct tlv_handler handlers[] = {
+		{ .callback = check_neighbor_adjacent },
+		{ 0 }
+	};
 
 	/* Check if we are the DR. */
 	if (neighbor_router_id == ospf6->router_id) {
 		struct ospf6_lsa *lsa;
-		char *start, *end, *current;
-		struct ospf6_network_lsa *network_lsa;
-		struct ospf6_network_lsdesc *lsdesc;
 
 		/* Lookup Network LSA corresponding to this interface. */
 		lsa = ospf6_lsdb_lookup(htons(OSPF6_LSTYPE_NETWORK),
@@ -430,27 +450,9 @@ static bool ospf6_gr_check_adjs_lsa_transit(struct ospf6_area *area,
 			return false;
 
 		/* Iterate over all routers present in the network. */
-		network_lsa = (struct ospf6_network_lsa
-				       *)((char *)lsa->header
-					  + sizeof(struct ospf6_lsa_header));
-		start = (char *)network_lsa + sizeof(struct ospf6_network_lsa);
-		end = (char *)lsa->header + ntohs(lsa->header->length);
-		for (current = start;
-		     current + sizeof(struct ospf6_network_lsdesc) <= end;
-		     current += sizeof(struct ospf6_network_lsdesc)) {
-			lsdesc = (struct ospf6_network_lsdesc *)current;
-
-			/* Skip self in the pseudonode. */
-			if (lsdesc->router_id == ospf6->router_id)
-				continue;
-
-			/*
-			 * Check if there's a fully formed adjacency with this
-			 * router.
-			 */
-			if (!ospf6_gr_check_adj_id(area, lsdesc->router_id))
-				return false;
-		}
+		foreach_lsdesc(lsa->header, handlers, &cbd);
+		if (!cbd.out_adjacency_found)
+			return false;
 	} else {
 		struct ospf6_neighbor *nbr;
 
