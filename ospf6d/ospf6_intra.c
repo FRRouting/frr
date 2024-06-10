@@ -614,27 +614,84 @@ static char *ospf6_link_lsa_get_prefix_str(struct ospf6_lsa *lsa, char *buf,
 	return buf;
 }
 
+struct cbd_prefix_printer {
+	struct vty *vty;
+	bool use_json;
+	json_object *json_arr;
+};
+
+static json_object *print_prefix(struct ospf6_prefix *prefix,
+				 struct cbd_prefix_printer *cbd)
+{
+	struct in6_addr in6;
+	json_object *json_obj = NULL;
+	char options[16], buf[60], prefix_string[64];
+
+	/*
+	 * FIXME: why would this be needed?
+	 * Surely this is invalid and should be handled much earlier?
+	 */
+	if (prefix->prefix_length == 0) {
+		zlog_debug("%s: Zero length prefix?!", __func__);
+		return NULL;
+	}
+
+	memset(&in6, 0, sizeof(in6));
+	memcpy(&in6, OSPF6_PREFIX_BODY(prefix),
+	       OSPF6_PREFIX_SPACE(prefix->prefix_length));
+	inet_ntop(AF_INET6, &in6, buf, sizeof(buf));
+
+	ospf6_prefix_options_printbuf(prefix->prefix_options, options, sizeof(options));
+
+	if (cbd->use_json) {
+		json_obj = json_object_new_object();
+		json_object_string_add(json_obj, "prefixOption", options);
+		snprintf(prefix_string, sizeof(prefix_string), "%s/%d", buf,
+			 prefix->prefix_length);
+		json_object_string_add(json_obj, "prefix", prefix_string);
+		json_object_array_add(cbd->json_arr, json_obj);
+	} else {
+		vty_out(cbd->vty, "     Prefix Options: %s\n", options);
+		vty_out(cbd->vty, "     Prefix: %s/%d\n", buf,
+			prefix->prefix_length);
+	}
+
+	return json_obj;
+}
+
+static int cb_print_inp_prefix(void *desc, void *cb_data)
+{
+	struct ospf6_prefix *prefix = desc;
+	struct cbd_prefix_printer *cbd = cb_data;
+	struct json_object *json_obj;
+
+	json_obj = print_prefix(prefix, cbd);
+
+	return 0;
+}
+
 static int ospf6_link_lsa_show(struct vty *vty, struct ospf6_lsa *lsa,
 			       json_object *json_obj, bool use_json)
 {
-	char *start, *end, *current;
 	struct ospf6_link_lsa *link_lsa;
 	int prefixnum;
 	char buf[128], options[32];
-	struct ospf6_prefix *prefix;
-	struct in6_addr in6;
-	json_object *json_loop;
-	json_object *json_arr = NULL;
-	char prefix_string[133];
+	struct cbd_prefix_printer cbd = { .vty = vty,
+					  .use_json = use_json };
+	static const struct tlv_handler handlers[] = {
+		{ OSPF6_TLV_RESERVED, cb_print_inp_prefix },
+		{ 0 }
+	};
 
 	link_lsa = lsa_after_header(lsa->header);
 
 	ospf6_options_printbuf(link_lsa->options, options, sizeof(options));
+
 	inet_ntop(AF_INET6, &link_lsa->linklocal_addr, buf, sizeof(buf));
-	prefixnum = ntohl(link_lsa->prefix_num);
+	prefixnum = ntohs(link_lsa->prefix_num);
 
 	if (use_json) {
-		json_arr = json_object_new_array();
+		cbd.json_arr = json_object_new_array();
 		json_object_int_add(json_obj, "priority", link_lsa->priority);
 		json_object_string_add(json_obj, "options", options);
 		json_object_string_add(json_obj, "linkLocalAddress", buf);
@@ -646,40 +703,11 @@ static int ospf6_link_lsa_show(struct vty *vty, struct ospf6_lsa *lsa,
 		vty_out(vty, "     Number of Prefix: %d\n", prefixnum);
 	}
 
-	start = (char *)link_lsa + sizeof(struct ospf6_link_lsa);
-	end = ospf6_lsa_end(lsa->header);
+	/* Print each prefix */
+	foreach_lsdesc(lsa->header, handlers, &cbd);
 
-	for (current = start; current < end;
-	     current += OSPF6_PREFIX_SIZE(prefix)) {
-		prefix = (struct ospf6_prefix *)current;
-		if (prefix->prefix_length == 0
-		    || current + OSPF6_PREFIX_SIZE(prefix) > end)
-			break;
-
-		ospf6_prefix_options_printbuf(prefix->prefix_options, buf,
-					      sizeof(buf));
-		if (use_json) {
-			json_loop = json_object_new_object();
-			json_object_string_add(json_loop, "prefixOption", buf);
-		} else
-			vty_out(vty, "     Prefix Options: %s\n", buf);
-
-		memset(&in6, 0, sizeof(in6));
-		memcpy(&in6, OSPF6_PREFIX_BODY(prefix),
-		       OSPF6_PREFIX_SPACE(prefix->prefix_length));
-		inet_ntop(AF_INET6, &in6, buf, sizeof(buf));
-		if (use_json) {
-			snprintf(prefix_string, sizeof(prefix_string), "%s/%d",
-				 buf, prefix->prefix_length);
-			json_object_string_add(json_loop, "prefix",
-					       prefix_string);
-			json_object_array_add(json_arr, json_loop);
-		} else
-			vty_out(vty, "     Prefix: %s/%d\n", buf,
-				prefix->prefix_length);
-	}
 	if (use_json)
-		json_object_object_add(json_obj, "prefix", json_arr);
+		json_object_object_add(json_obj, "prefix", cbd.json_arr);
 
 	return 0;
 }
