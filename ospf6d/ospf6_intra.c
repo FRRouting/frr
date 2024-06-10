@@ -419,30 +419,13 @@ void ospf6_router_lsa_originate(struct event *thread)
 static char *ospf6_network_lsa_get_ar_id(struct ospf6_lsa *lsa, char *buf,
 					 int buflen, int pos)
 {
-	char *start, *end, *current;
-	struct ospf6_network_lsa *network_lsa;
-	struct ospf6_network_lsdesc *lsdesc;
+	struct ospf6_network_lsdesc *lsdesc = nth_lsdesc(lsa->header, pos);
 
-	if (lsa) {
-		network_lsa = (struct ospf6_network_lsa
-				       *)((caddr_t)lsa->header
-					  + sizeof(struct ospf6_lsa_header));
+	if (!lsdesc || !buf || buflen < (1 + INET_ADDRSTRLEN))
+		return NULL;
 
-		start = (char *)network_lsa + sizeof(struct ospf6_network_lsa);
-		end = (char *)lsa->header + ntohs(lsa->header->length);
-		current = start + pos * (sizeof(struct ospf6_network_lsdesc));
-
-		if ((current + sizeof(struct ospf6_network_lsdesc)) <= end) {
-			lsdesc = (struct ospf6_network_lsdesc *)current;
-			if (buf) {
-				inet_ntop(AF_INET, &lsdesc->router_id, buf,
-					  buflen);
-				return buf;
-			}
-		}
-	}
-
-	return NULL;
+	inet_ntop(AF_INET, &lsdesc->router_id, buf, buflen);
+	return buf;
 }
 
 static int ospf6_network_lsa_show(struct vty *vty, struct ospf6_lsa *lsa,
