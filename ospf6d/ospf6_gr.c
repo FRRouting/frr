@@ -262,6 +262,25 @@ void ospf6_gr_restart_enter(struct ospf6 *ospf6,
 #define RTR_LSA_ADJ_FOUND 1
 #define RTR_LSA_ADJ_NOT_FOUND 2
 
+struct matcher_cb_data {
+	in_addr_t nbr_id;
+	bool out_adjacency_found;
+};
+
+static int match_adjacent_lsa(void *desc, void *cb_data)
+{
+	struct ospf6_router_lsdesc *lsdesc = desc;
+	struct matcher_cb_data *cbd = cb_data;
+
+	if (lsdesc->type == OSPF6_ROUTER_LSDESC_POINTTOPOINT &&
+	    lsdesc->neighbor_router_id == cbd->nbr_id) {
+		cbd->out_adjacency_found = true;
+	} else {
+		cbd->out_adjacency_found = false;
+	}
+	return 0;
+}
+
 /* Check if a Router-LSA exists and if it contains a given link. */
 static int ospf6_router_lsa_contains_adj(struct ospf6_area *area,
 					 in_addr_t adv_router,
@@ -270,33 +289,20 @@ static int ospf6_router_lsa_contains_adj(struct ospf6_area *area,
 	uint16_t type;
 	struct ospf6_lsa *lsa;
 	bool empty = true;
+	struct matcher_cb_data cbd = { .nbr_id = neighbor_router_id };
+	struct tlv_handler handler = { .tlv_type = 0,
+				       .callback = match_adjacent_lsa,
+				       .callback_data = &cbd };
+	int err;
 
 	type = ntohs(OSPF6_LSTYPE_ROUTER);
 	for (ALL_LSDB_TYPED_ADVRTR(area->lsdb, type, adv_router, lsa)) {
-		struct ospf6_router_lsa *router_lsa;
-		char *start, *end, *current;
-
 		empty = false;
-		router_lsa = (struct ospf6_router_lsa
-				      *)((char *)lsa->header
-					 + sizeof(struct ospf6_lsa_header));
+		err = foreach_lsdesc(lsa->header, &handler);
 
-		/* Iterate over all interfaces in the Router-LSA. */
-		start = (char *)router_lsa + sizeof(struct ospf6_router_lsa);
-		end = (char *)lsa->header + ntohs(lsa->header->length);
-		for (current = start;
-		     current + sizeof(struct ospf6_router_lsdesc) <= end;
-		     current += sizeof(struct ospf6_router_lsdesc)) {
-			struct ospf6_router_lsdesc *lsdesc;
-
-			lsdesc = (struct ospf6_router_lsdesc *)current;
-			if (lsdesc->type != OSPF6_ROUTER_LSDESC_POINTTOPOINT)
-				continue;
-
-			if (lsdesc->neighbor_router_id == neighbor_router_id) {
-				ospf6_lsa_unlock(&lsa);
-				return RTR_LSA_ADJ_FOUND;
-			}
+		if (!err && cbd.out_adjacency_found) {
+			ospf6_lsa_unlock(&lsa);
+			return RTR_LSA_ADJ_FOUND;
 		}
 	}
 
