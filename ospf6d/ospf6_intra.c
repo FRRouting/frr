@@ -44,41 +44,20 @@ uint32_t conf_debug_ospf6_brouter_specific_area_id;
 /* RFC2740 3.4.3.1 Router-LSA */
 /******************************/
 
+/* OSPF6_LSTYPE_ROUTER */
 static char *ospf6_router_lsa_get_nbr_id(struct ospf6_lsa *lsa, char *buf,
 					 int buflen, int pos)
 {
-	struct ospf6_router_lsa *router_lsa;
-	struct ospf6_router_lsdesc *lsdesc;
-	char *start, *end;
 	char buf1[INET_ADDRSTRLEN], buf2[INET_ADDRSTRLEN];
+	struct ospf6_router_lsdesc *lsdesc = nth_lsdesc(lsa->header, pos);
 
-	if (lsa) {
-		router_lsa = (struct ospf6_router_lsa
-				      *)((char *)lsa->header
-					 + sizeof(struct ospf6_lsa_header));
-		start = (char *)router_lsa + sizeof(struct ospf6_router_lsa);
-		end = (char *)lsa->header + ntohs(lsa->header->length);
+	if (!lsdesc || !buf || buflen < (2 + 2 * INET_ADDRSTRLEN))
+		return NULL;
 
-		lsdesc = (struct ospf6_router_lsdesc
-				  *)(start
-				     + pos * (sizeof(struct
-						     ospf6_router_lsdesc)));
-		if ((char *)lsdesc + sizeof(struct ospf6_router_lsdesc)
-		    <= end) {
-			if (buf && (buflen > INET_ADDRSTRLEN * 2)) {
-				inet_ntop(AF_INET,
-					  &lsdesc->neighbor_interface_id, buf1,
-					  sizeof(buf1));
-				inet_ntop(AF_INET, &lsdesc->neighbor_router_id,
-					  buf2, sizeof(buf2));
-				snprintf(buf, buflen, "%s/%s", buf2, buf1);
-
-				return buf;
-			}
-		}
-	}
-
-	return NULL;
+	inet_ntop(AF_INET, &lsdesc->neighbor_interface_id, buf1, sizeof(buf1));
+	inet_ntop(AF_INET, &lsdesc->neighbor_router_id, buf2, sizeof(buf2));
+	snprintf(buf, buflen, "%s/%s", buf2, buf1);
+	return buf;
 }
 
 static int ospf6_router_lsa_show(struct vty *vty, struct ospf6_lsa *lsa,
