@@ -417,41 +417,51 @@ static char *ospf6_network_lsa_get_ar_id(struct ospf6_lsa *lsa, char *buf,
 	return buf;
 }
 
+static int print_router_id(in_addr_t router_id, struct cbd_lsdesc_printer *cbd)
+{
+	char buf[128];
+
+	inet_ntop(AF_INET, &router_id, buf, sizeof(buf));
+	if (cbd->use_json)
+		json_object_array_add(cbd->json_arr,
+				      json_object_new_string(buf));
+	else
+		vty_out(cbd->vty, "     Attached Router: %s\n", buf);
+	return 0;
+}
+
+static int cb_print_network_lsdesc(void *desc, void *cb_data)
+{
+	struct ospf6_network_lsdesc *lsdesc = desc;
+	struct cbd_lsdesc_printer *cbd = cb_data;
+
+	return print_router_id(lsdesc->router_id, cbd);
+}
+
 static int ospf6_network_lsa_show(struct vty *vty, struct ospf6_lsa *lsa,
 				  json_object *json_obj, bool use_json)
 {
-	char *start, *end, *current;
 	struct ospf6_network_lsa *network_lsa;
-	struct ospf6_network_lsdesc *lsdesc;
-	char buf[128], options[32];
-	json_object *json_arr = NULL;
+	char options[32];
+	struct cbd_lsdesc_printer cbd = { .vty = vty, .use_json = use_json };
+	static const struct tlv_handler handlers[] = {
+		{ OSPF6_TLV_RESERVED, cb_print_network_lsdesc },
+		{ 0 }
+	};
 
 	network_lsa = lsa_after_header(lsa->header);
 
 	ospf6_options_printbuf(network_lsa->options, options, sizeof(options));
-	if (use_json)
+	if (use_json) {
 		json_object_string_add(json_obj, "options", options);
-	else
+		cbd.json_arr = json_object_new_array();
+	} else
 		vty_out(vty, "     Options: %s\n", options);
 
-	start = (char *)network_lsa + sizeof(struct ospf6_network_lsa);
-	end = (char *)lsa->header + ntohs(lsa->header->length);
-	if (use_json)
-		json_arr = json_object_new_array();
+	foreach_lsdesc(lsa->header, handlers, &cbd);
 
-	for (current = start;
-	     current + sizeof(struct ospf6_network_lsdesc) <= end;
-	     current += sizeof(struct ospf6_network_lsdesc)) {
-		lsdesc = (struct ospf6_network_lsdesc *)current;
-		inet_ntop(AF_INET, &lsdesc->router_id, buf, sizeof(buf));
-		if (use_json)
-			json_object_array_add(json_arr,
-					      json_object_new_string(buf));
-		else
-			vty_out(vty, "     Attached Router: %s\n", buf);
-	}
 	if (use_json)
-		json_object_object_add(json_obj, "attachedRouter", json_arr);
+		json_object_object_add(json_obj, "attachedRouter", cbd.json_arr);
 
 	return 0;
 }
