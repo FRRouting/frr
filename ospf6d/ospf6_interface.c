@@ -95,6 +95,7 @@ static void ospf6_interface_lsdb_hook(struct ospf6_lsa *lsa, unsigned int reason
 	oi = lsa->lsdb->data;
 	switch (ntohs(lsa->header->type)) {
 	case OSPF6_LSTYPE_LINK:
+	case OSPF6_LSTYPE_E_LINK:
 		if (oi->state == OSPF6_INTERFACE_DR)
 			OSPF6_INTRA_PREFIX_LSA_SCHEDULE_TRANSIT(oi);
 		if (oi->area)
