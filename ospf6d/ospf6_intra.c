@@ -60,80 +60,82 @@ static char *ospf6_router_lsa_get_nbr_id(struct ospf6_lsa *lsa, char *buf,
 	return buf;
 }
 
+struct cbd_lsdesc_printer {
+	struct vty *vty;
+	json_object *json_arr;
+	bool use_json;
+};
+
+static int cb_print_router_lsdesc(void *desc, void *cb_data)
+{
+	struct ospf6_router_lsdesc *lsdesc = desc;
+	struct cbd_lsdesc_printer *cbd = cb_data;
+	char buf[32], name[32];
+	json_object *json_loop;
+
+	if (lsdesc->type == OSPF6_ROUTER_LSDESC_POINTTOPOINT)
+		snprintf(name, sizeof(name), "Point-To-Point");
+	else if (lsdesc->type == OSPF6_ROUTER_LSDESC_TRANSIT_NETWORK)
+		snprintf(name, sizeof(name), "Transit-Network");
+	else if (lsdesc->type == OSPF6_ROUTER_LSDESC_STUB_NETWORK)
+		snprintf(name, sizeof(name), "Stub-Network");
+	else if (lsdesc->type == OSPF6_ROUTER_LSDESC_VIRTUAL_LINK)
+		snprintf(name, sizeof(name), "Virtual-Link");
+	else
+		snprintf(name, sizeof(name), "Unknown (%#x)", lsdesc->type);
+
+	if (cbd->use_json) {
+		json_loop = json_object_new_object();
+		json_object_string_add(json_loop, "type", name);
+		json_object_int_add(json_loop, "metric", ntohs(lsdesc->metric));
+		json_object_string_addf(json_loop, "interfaceId", "%pI4",
+					(in_addr_t *)&lsdesc->interface_id);
+		json_object_string_addf(json_loop, "neighborInterfaceId", "%pI4",
+					(in_addr_t *)&lsdesc
+						->neighbor_interface_id);
+		json_object_string_addf(json_loop, "neighborRouterId", "%pI4",
+					&lsdesc->neighbor_router_id);
+		json_object_array_add(cbd->json_arr, json_loop);
+	} else {
+		vty_out(cbd->vty, "    Type: %s Metric: %d\n", name,
+			ntohs(lsdesc->metric));
+		vty_out(cbd->vty, "    Interface ID: %s\n",
+			inet_ntop(AF_INET, &lsdesc->interface_id, buf,
+				  sizeof(buf)));
+		vty_out(cbd->vty, "    Neighbor Interface ID: %s\n",
+			inet_ntop(AF_INET, &lsdesc->neighbor_interface_id, buf,
+				  sizeof(buf)));
+		vty_out(cbd->vty, "    Neighbor Router ID: %s\n",
+			inet_ntop(AF_INET, &lsdesc->neighbor_router_id, buf,
+				  sizeof(buf)));
+	}
+	return 0;
+}
+
 static int ospf6_router_lsa_show(struct vty *vty, struct ospf6_lsa *lsa,
 				 json_object *json_obj, bool use_json)
 {
-	char *start, *end, *current;
-	char buf[32], name[32], bits[16], options[32];
+	char bits[16], options[32];
 	struct ospf6_router_lsa *router_lsa;
-	struct ospf6_router_lsdesc *lsdesc;
-	json_object *json_arr = NULL;
-	json_object *json_loop;
+	struct cbd_lsdesc_printer cbd = { .vty = vty,
+					  .use_json = use_json };
+	struct tlv_handler handler = { .callback = cb_print_router_lsdesc,
+				       .callback_data = &cbd };
 
-	router_lsa =
-		(struct ospf6_router_lsa *)((char *)lsa->header
-					    + sizeof(struct ospf6_lsa_header));
-
+	router_lsa = lsa_after_header(lsa->header);
 	ospf6_capability_printbuf(router_lsa->bits, bits, sizeof(bits));
 	ospf6_options_printbuf(router_lsa->options, options, sizeof(options));
 	if (use_json) {
 		json_object_string_add(json_obj, "bits", bits);
 		json_object_string_add(json_obj, "options", options);
-		json_arr = json_object_new_array();
+		cbd.json_arr = json_object_new_array();
 	} else
 		vty_out(vty, "    Bits: %s Options: %s\n", bits, options);
 
-	start = (char *)router_lsa + sizeof(struct ospf6_router_lsa);
-	end = (char *)lsa->header + ntohs(lsa->header->length);
-	for (current = start;
-	     current + sizeof(struct ospf6_router_lsdesc) <= end;
-	     current += sizeof(struct ospf6_router_lsdesc)) {
-		lsdesc = (struct ospf6_router_lsdesc *)current;
+	foreach_lsdesc(lsa->header, &handler);
 
-		if (lsdesc->type == OSPF6_ROUTER_LSDESC_POINTTOPOINT)
-			snprintf(name, sizeof(name), "Point-To-Point");
-		else if (lsdesc->type == OSPF6_ROUTER_LSDESC_TRANSIT_NETWORK)
-			snprintf(name, sizeof(name), "Transit-Network");
-		else if (lsdesc->type == OSPF6_ROUTER_LSDESC_STUB_NETWORK)
-			snprintf(name, sizeof(name), "Stub-Network");
-		else if (lsdesc->type == OSPF6_ROUTER_LSDESC_VIRTUAL_LINK)
-			snprintf(name, sizeof(name), "Virtual-Link");
-		else
-			snprintf(name, sizeof(name), "Unknown (%#x)",
-				 lsdesc->type);
-
-		if (use_json) {
-			json_loop = json_object_new_object();
-			json_object_string_add(json_loop, "type", name);
-			json_object_int_add(json_loop, "metric",
-					    ntohs(lsdesc->metric));
-			json_object_string_addf(
-				json_loop, "interfaceId", "%pI4",
-				(in_addr_t *)&lsdesc->interface_id);
-			json_object_string_addf(
-				json_loop, "neighborInterfaceId", "%pI4",
-				(in_addr_t *)&lsdesc->neighbor_interface_id);
-			json_object_string_addf(json_loop, "neighborRouterId",
-						"%pI4",
-						&lsdesc->neighbor_router_id);
-			json_object_array_add(json_arr, json_loop);
-		} else {
-			vty_out(vty, "    Type: %s Metric: %d\n", name,
-				ntohs(lsdesc->metric));
-			vty_out(vty, "    Interface ID: %s\n",
-				inet_ntop(AF_INET, &lsdesc->interface_id, buf,
-					  sizeof(buf)));
-			vty_out(vty, "    Neighbor Interface ID: %s\n",
-				inet_ntop(AF_INET,
-					  &lsdesc->neighbor_interface_id, buf,
-					  sizeof(buf)));
-			vty_out(vty, "    Neighbor Router ID: %s\n",
-				inet_ntop(AF_INET, &lsdesc->neighbor_router_id,
-					  buf, sizeof(buf)));
-		}
-	}
 	if (use_json)
-		json_object_object_add(json_obj, "lsaDescription", json_arr);
+		json_object_object_add(json_obj, "lsaDescription", cbd.json_arr);
 
 	return 0;
 }
