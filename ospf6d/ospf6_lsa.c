@@ -70,6 +70,65 @@ void *lsdesc_start(struct ospf6_lsa_header *header)
 
 static struct ospf6_lsa_handler *lsa_handlers[OSPF6_LSTYPE_SIZE];
 
+/* Router LSA */
+static int each_router_lsdesc(struct ospf6_lsa_header *lsa_header,
+			      struct tlv_handler *h)
+{
+	struct ospf6_router_lsdesc *desc = lsdesc_start(lsa_header);
+	char *lsa_end = ospf6_lsa_end(lsa_header);
+	int err = 0;
+
+	for (; (char *)(desc + 1) <= lsa_end && !err; desc++)
+		err = (*h->callback)(desc, h->callback_data);
+	return err;
+}
+
+/* Network LSA */
+static int each_network_lsdesc(struct ospf6_lsa_header *lsa_header,
+			       struct tlv_handler *h)
+{
+	struct ospf6_network_lsdesc *desc = lsdesc_start(lsa_header);
+	char *lsa_end = ospf6_lsa_end(lsa_header);
+	int err = 0;
+
+	for (; (char *)(desc + 1) <= lsa_end && !err; desc++)
+		err = (*h->callback)(desc, h->callback_data);
+	return err;
+}
+
+/* Link LSA */
+static int each_prefix_in_link_lsa(struct ospf6_lsa_header *lsa_header,
+				   struct tlv_handler *h)
+{
+	struct ospf6_prefix *prefix = lsdesc_start(lsa_header);
+	char *lsa_end = ospf6_lsa_end(lsa_header);
+	int err = 0;
+
+	for (; (char *)prefix + OSPF6_PREFIX_SIZE(prefix) <= lsa_end && !err;
+	     prefix = OSPF6_PREFIX_NEXT(prefix))
+		err = (*h->callback)(prefix, h->callback_data);
+	return err;
+}
+
+int foreach_lsdesc(struct ospf6_lsa_header *lsa_header,
+		   struct tlv_handler *handler)
+{
+	assert(handler && handler->callback && handler->callback_data);
+
+	switch (ntohs(lsa_header->type)) {
+	case OSPF6_LSTYPE_ROUTER:
+		return each_router_lsdesc(lsa_header, handler);
+	case OSPF6_LSTYPE_NETWORK:
+		return each_network_lsdesc(lsa_header, handler);
+	case OSPF6_LSTYPE_LINK:
+		return each_prefix_in_link_lsa(lsa_header, handler);
+	default:
+		zlog_err("Unhandled LSA type: %d", ntohs(lsa_header->type));
+		return -1;
+	}
+	return -1;
+}
+
 struct ospf6 *ospf6_get_by_lsdb(struct ospf6_lsa *lsa)
 {
 	struct ospf6 *ospf6 = NULL;

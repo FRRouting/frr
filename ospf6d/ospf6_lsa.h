@@ -314,6 +314,29 @@ struct ospf6_lsa_handler {
 	 || (type == OSPF6_LSTYPE_TYPE_7)		\
 	 || (type == OSPF6_LSTYPE_INTRA_PREFIX))
 
+typedef int (*cb_func)(void *desc, void *data);
+
+/*
+ * Provides the callback to execute for each lsdesc in an LSA.
+ * For classic non-TLV LSAs, tlv_type, *next and *sub_handler are unused.
+ * Stores an opaque pointer to the data needed by the callback.
+ *
+ * For Extended LSAs containing LSAs, the callback is associated with a TLV
+ * type and the *next and *sub_handler lists are for handling additional
+ * TLV types, and sub-TLVs.
+ */
+struct tlv_handler {
+	int tlv_type;
+	cb_func callback;
+	void *callback_data;
+	struct tlv_handler *next;
+	struct tlv_handler *sub_handler;
+};
+
+/* An iterator for handling each descriptor in a classic LSA, or TLV in E-LSA */
+int foreach_lsdesc(struct ospf6_lsa_header *lsa_header,
+		   struct tlv_handler *handler);
+
 /* Function Prototypes */
 extern const char *ospf6_lstype_name(uint16_t type);
 extern const char *ospf6_lstype_short_name(uint16_t type);
