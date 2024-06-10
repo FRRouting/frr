@@ -116,6 +116,71 @@ void *nth_prefix(struct ospf6_lsa_header *header, int pos)
 	return NULL;
 }
 
+/* Router LSA */
+static int each_router_lsdesc(struct ospf6_lsa_header *lsa_header,
+			      const struct tlv_handler *h, void *cb_data)
+{
+	struct ospf6_router_lsdesc *desc = lsdesc_start(lsa_header);
+	char *lsa_end = ospf6_lsa_end(lsa_header);
+	int err = 0;
+
+	for (; (char *)desc < lsa_end && (char *)(desc + 1) <= lsa_end && !err;
+	     desc++)
+		err = (*h->callback)(desc, cb_data);
+	return err;
+}
+
+/* Network LSA */
+static int each_network_lsdesc(struct ospf6_lsa_header *lsa_header,
+			       const struct tlv_handler *h, void *cb_data)
+{
+	struct ospf6_network_lsdesc *desc = lsdesc_start(lsa_header);
+	char *lsa_end = ospf6_lsa_end(lsa_header);
+	int err = 0;
+
+	for (; (char *)desc < lsa_end && (char *)(desc + 1) <= lsa_end && !err;
+	     desc++)
+		err = (*h->callback)(desc, cb_data);
+	return err;
+}
+
+/* Link LSA */
+static int each_prefix_in_link_lsa(struct ospf6_lsa_header *lsa_header,
+				   const struct tlv_handler *h, void *cb_data)
+{
+	struct ospf6_prefix *prefix = lsdesc_start(lsa_header);
+	char *lsa_end = ospf6_lsa_end(lsa_header);
+	int err = 0;
+
+	for (; (char *)prefix < lsa_end &&
+	       (char *)prefix + OSPF6_PREFIX_SIZE(prefix) <= lsa_end && !err;
+	     prefix = OSPF6_PREFIX_NEXT(prefix))
+		err = (*h->callback)(prefix, cb_data);
+	return err;
+}
+
+/* Use foreach_lsdesc() macro instead */
+int _foreach_lsdesc(struct ospf6_lsa_header *lsa_header,
+		    const struct tlv_handler *handler, void *cb_data,
+		    const char *caller)
+{
+	assert(handler && handler->callback && cb_data);
+
+	switch (ntohs(lsa_header->type)) {
+	case OSPF6_LSTYPE_ROUTER:
+		return each_router_lsdesc(lsa_header, handler, cb_data);
+	case OSPF6_LSTYPE_NETWORK:
+		return each_network_lsdesc(lsa_header, handler, cb_data);
+	case OSPF6_LSTYPE_LINK:
+		return each_prefix_in_link_lsa(lsa_header, handler, cb_data);
+	default:
+		zlog_err("%s: Unhandled LSA type: 0x%.2x", caller,
+			 ntohs(lsa_header->type));
+		return -1;
+	}
+	return -1;
+}
+
 struct ospf6 *ospf6_get_by_lsdb(struct ospf6_lsa *lsa)
 {
 	struct ospf6 *ospf6 = NULL;
