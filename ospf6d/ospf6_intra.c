@@ -196,9 +196,7 @@ int ospf6_router_is_stub_router(struct ospf6_lsa *lsa)
 	struct ospf6_router_lsa *rtr_lsa;
 
 	if (lsa != NULL && OSPF6_LSA_IS_TYPE(ROUTER, lsa)) {
-		rtr_lsa = (struct ospf6_router_lsa
-				   *)((caddr_t)lsa->header
-				      + sizeof(struct ospf6_lsa_header));
+		rtr_lsa = lsa_after_header(lsa->header);
 
 		if (!OSPF6_OPT_ISSET(rtr_lsa->options, OSPF6_OPT_R)) {
 			return OSPF6_IS_STUB_ROUTER;
@@ -459,9 +457,7 @@ static int ospf6_network_lsa_show(struct vty *vty, struct ospf6_lsa *lsa,
 	char buf[128], options[32];
 	json_object *json_arr = NULL;
 
-	network_lsa =
-		(struct ospf6_network_lsa *)((caddr_t)lsa->header
-					     + sizeof(struct ospf6_lsa_header));
+	network_lsa = lsa_after_header(lsa->header);
 
 	ospf6_options_printbuf(network_lsa->options, options, sizeof(options));
 	if (use_json)
@@ -682,8 +678,7 @@ static int ospf6_link_lsa_show(struct vty *vty, struct ospf6_lsa *lsa,
 	json_object *json_arr = NULL;
 	char prefix_string[133];
 
-	link_lsa = (struct ospf6_link_lsa *)((caddr_t)lsa->header
-					     + sizeof(struct ospf6_lsa_header));
+	link_lsa = lsa_after_header(lsa->header);
 
 	ospf6_options_printbuf(link_lsa->options, options, sizeof(options));
 	inet_ntop(AF_INET6, &link_lsa->linklocal_addr, buf, sizeof(buf));
@@ -852,10 +847,7 @@ static char *ospf6_intra_prefix_lsa_get_prefix_str(struct ospf6_lsa *lsa,
 	char tbuf[16];
 
 	if (lsa) {
-		intra_prefix_lsa =
-			(struct ospf6_intra_prefix_lsa
-				 *)((caddr_t)lsa->header
-				    + sizeof(struct ospf6_lsa_header));
+		intra_prefix_lsa = lsa_after_header(lsa->header);
 
 		prefixnum = ntohs(intra_prefix_lsa->prefix_num);
 		if ((pos + 1) > prefixnum)
@@ -906,9 +898,7 @@ static int ospf6_intra_prefix_lsa_show(struct vty *vty, struct ospf6_lsa *lsa,
 	json_object *json_arr = NULL;
 	char prefix_string[133];
 
-	intra_prefix_lsa = (struct ospf6_intra_prefix_lsa
-				    *)((caddr_t)lsa->header
-				       + sizeof(struct ospf6_lsa_header));
+	intra_prefix_lsa = lsa_after_header(lsa->header);
 
 	prefixnum = ntohs(intra_prefix_lsa->prefix_num);
 
@@ -1306,9 +1296,7 @@ void ospf6_intra_prefix_lsa_originate_transit(struct event *thread)
 			}
 		}
 
-		link_lsa = (struct ospf6_link_lsa
-				    *)((caddr_t)lsa->header
-				       + sizeof(struct ospf6_lsa_header));
+		link_lsa = lsa_after_header(lsa->header);
 
 		prefix_num = (unsigned short)ntohl(link_lsa->prefix_num);
 		start = (char *)link_lsa + sizeof(struct ospf6_link_lsa);

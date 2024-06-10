@@ -240,6 +240,7 @@ struct ospf6_lsa {
 	bool tobe_acknowledged;
 };
 
+
 #define OSPF6_LSA_HEADERONLY 0x01
 #define OSPF6_LSA_FLOODBACK  0x02
 #define OSPF6_LSA_DUPLICATE  0x04
