@@ -362,14 +362,22 @@ struct ospf6_lsa_handler {
 		continue;                                                      \
 	}
 
-#define CHECK_LSA_TOPO_CHG_ELIGIBLE(type)		\
-	((type == OSPF6_LSTYPE_ROUTER)			\
-	 || (type == OSPF6_LSTYPE_NETWORK)		\
-	 || (type == OSPF6_LSTYPE_INTER_PREFIX)		\
-	 || (type == OSPF6_LSTYPE_INTER_ROUTER)		\
-	 || (type == OSPF6_LSTYPE_AS_EXTERNAL)		\
-	 || (type == OSPF6_LSTYPE_TYPE_7)		\
-	 || (type == OSPF6_LSTYPE_INTRA_PREFIX))
+#define CHECK_LSA_TOPO_CHG_ELIGIBLE(type)                                       \
+	((type == OSPF6_LSTYPE_ROUTER) ||                                       \
+	 (type == OSPF6_LSTYPE_NETWORK) ||                                      \
+	 (type == OSPF6_LSTYPE_INTER_PREFIX) ||                                 \
+	 (type == OSPF6_LSTYPE_INTER_ROUTER) ||                                 \
+	 (type == OSPF6_LSTYPE_AS_EXTERNAL) ||                                  \
+	 (type == OSPF6_LSTYPE_TYPE_7) ||                                       \
+	 (type == OSPF6_LSTYPE_INTRA_PREFIX) ||                                 \
+	 (type == OSPF6_LSTYPE_E_ROUTER) ||                                     \
+	 (type == OSPF6_LSTYPE_E_NETWORK) ||                                    \
+	 (type == OSPF6_LSTYPE_E_INTER_PREFIX) ||                               \
+	 (type == OSPF6_LSTYPE_E_INTER_ROUTER) ||                               \
+	 (type == OSPF6_LSTYPE_E_AS_EXTERNAL) ||                                \
+	 (type == OSPF6_LSTYPE_E_TYPE_7) ||                                     \
+	 (type == OSPF6_LSTYPE_E_INTRA_PREFIX))
+
 
 typedef int (*cb_func)(void *desc, void *data);
 
