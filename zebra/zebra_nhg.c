@@ -3505,6 +3505,11 @@ struct nhg_hash_entry *zebra_nhg_proto_add(struct nhg_hash_entry *nhe,
 			/* Tell zebra that the route may be recursively resolved */
 			flags = ZEBRA_FLAG_ALLOW_RECURSION;
 
+
+		if (CHECK_FLAG(nhg->flags, NEXTHOP_GROUP_IBGP))
+			/* Tell zebra that the prefix originates from an IBGP peer */
+			SET_FLAG(flags, ZEBRA_FLAG_IBGP);
+
 		if (newhop->ifindex ||
 		    nexthop_active(newhop, nhe, NULL, type, flags, NULL,
 				   newhop->vrf_id))
