@@ -18,6 +18,7 @@
 
 #include "ospf6_proto.h"
 #include "ospf6_lsa.h"
+#include "ospf6_tlv.h"
 #include "ospf6_lsdb.h"
 #include "ospf6_message.h"
 #include "ospf6_asbr.h"
@@ -186,6 +187,123 @@ static int each_prefix_in_link_lsa(struct ospf6_lsa_header *lsa_header,
 	     prefix = OSPF6_PREFIX_NEXT(prefix))
 		err = (*h->callback)(prefix, cb_data);
 	return err;
+}
+
+static char *tlv_start_of_stlvs(struct tlv_header *header)
+{
+	struct ospf6_prefix *prefix;
+	enum ospf6_extended_lsa_tlv_types type = ntohs(header->type);
+	size_t size = tlv_body_min_size(type);
+
+	switch (type) {
+	case OSPF6_TLV_RESERVED:
+		return NULL;
+	case OSPF6_TLV_ROUTER_LINK:
+	case OSPF6_TLV_ATTACHED_ROUTERS:
+	case OSPF6_TLV_INTER_AREA_ROUTER:
+	case OSPF6_TLV_IPV6_LL_ADDR:
+	case OSPF6_TLV_IPV4_LL_ADDR:
+		break;
+	case OSPF6_TLV_INTER_AREA_PREFIX:
+	case OSPF6_TLV_EXTERNAL_PREFIX:
+	case OSPF6_TLV_INTRA_AREA_PREFIX:
+		prefix = (struct ospf6_prefix *)(TLV_BODY(header) + size);
+		size += OSPF6_PREFIX_SIZE(prefix);
+		break;
+	case OSPF6_TLV_ENUM_END:
+	default:
+		return NULL;
+	}
+	return (TLV_SIZE(header) == size) ? NULL : TLV_BODY(header) + size;
+}
+
+/* forward declaration */
+static int foreach_tlv(struct tlv_header *header, char *end,
+		       const struct tlv_handler *tlvhandler, void *cb_data,
+		       int lsa_type, const char *caller);
+
+static int handle_one_tlv(struct tlv_header *header,
+			  const struct tlv_handler *handler, void *cb_data,
+			  int lsa_type, const char *caller)
+{
+	struct tlv_header *stlv_start;
+	char *tlv_end;
+	const struct tlv_handler *sh;
+	int err;
+
+	err = (*handler->callback)(header, cb_data);
+
+	if (err)
+		return err;
+
+	/*
+	 * Are there any Sub-TLVs?
+	 * According to RFC 8362, "sub-TLVs may be nested to any level".
+	 * The sub-TLVs type IDs are mostly distinct in the E-LSA space,
+	 * but overlap with the TLV IDs, so they must be nested.
+	 *
+	 * FIXME: Calling the tlv iterator again creates an unbounded mutual
+	 * recursion, because the nesting is unbounded.
+	 */
+	tlv_end = (char *)header + TLV_SIZE(header);
+	stlv_start = (struct tlv_header *)tlv_start_of_stlvs(header);
+
+	if (stlv_start && (char *)stlv_start != (char *)tlv_end) {
+		sh = handler->sub_handler;
+
+		while (sh && sh->callback) {
+			err = foreach_tlv(stlv_start, tlv_end, sh, cb_data,
+					  lsa_type, caller);
+			if (err)
+				return err;
+			sh++;
+		}
+	}
+	return 0;
+}
+
+static int foreach_tlv(struct tlv_header *header, char *end,
+		       const struct tlv_handler *handler, void *cb_data,
+		       int lsa_type, const char *caller)
+{
+	int err = 0;
+	const struct tlv_handler *ch;
+
+	for (; (char *)header < end && (char *)header + TLV_SIZE(header) <= end && !err;
+	     header = TLV_HDR_NEXT(header)) {
+		ch = handler;
+		while (ch && ch->callback) {
+			assert(ch->callback);
+
+			if (ch->tlv_type && ch->tlv_type == ntohs(header->type)) {
+				err = handle_one_tlv(header, ch, cb_data,
+						     lsa_type, caller);
+				if (err) {
+					zlog_debug("%s: Handler for TLV type 0x%x in LSA type 0x%x, returned error %d",
+						   caller, ch->tlv_type,
+						   lsa_type, err);
+					return err;
+				}
+				break;
+			}
+			ch++;
+		}
+		if (IS_OSPF6_DEBUG_LSA_TYPE(lsa_type) && !ch)
+			zlog_debug("%s: No handler for TLV type 0x%x in LSA type 0x%x.",
+				   caller, ntohs(header->type), lsa_type);
+	}
+	return 0;
+}
+
+static int foreach_tlv_in_lsa(struct ospf6_lsa_header *lsa_header,
+			      const struct tlv_handler *h, void *cb_data,
+			      const char *caller)
+{
+	struct tlv_header *tlvh = lsdesc_start(lsa_header);
+	char *lsa_end = ospf6_lsa_end(lsa_header);
+
+	return foreach_tlv(tlvh, lsa_end, h, cb_data, ntohs(lsa_header->type),
+			   caller);
 }
 
 /* Use foreach_lsdesc() macro instead */

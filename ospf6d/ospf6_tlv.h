@@ -30,6 +30,8 @@ struct tlv_header {
 #define TLV_HDR_NEXT(tlvh)                                                     \
 	((struct tlv_header *)((char *)(tlvh) + TLV_SIZE(tlvh)))
 
+#define TLV_BODY(tlvh) ((char *)(tlvh) + TLV_HDR_SIZE)
+
 /*
  * RFC 5187 - OSPFv3 Graceful Restart - Grace-LSA
  * Graceful restart predates Extended-LSA TLVs and IANA TLV register.
@@ -148,6 +150,10 @@ enum ospf6_extended_lsa_tlv_types {
 	 */
 	OSPF6_TLV_ENUM_END
 };
+
+extern int tlv_min_size_map[OSPF6_TLV_ENUM_END];
+size_t tlv_body_min_size(uint16_t tlv_type);
+struct ospf6_prefix *get_prefix_in_tlv(struct tlv_header *tlvh);
 
 /*
  * OSPFv3 Extended-LSA Sub-TLV Types
