@@ -51,39 +51,44 @@ struct cbd_do_nth_lsdesc {
 	char *buf;
 };
 
+static int cb_router_nbr_id_to_buf(void *desc, void *cb_data)
+{
+	struct ospf6_router_lsdesc *lsdesc = desc;
+	struct cbd_do_nth_lsdesc *cbd = cb_data;
+	char buf1[INET_ADDRSTRLEN], buf2[INET_ADDRSTRLEN];
+
+	assert(cbd->buflen >= (2 + 2 * INET_ADDRSTRLEN)); /* FIXME */
+
+	if (cbd->pos == cbd->iterpos) {
+		inet_ntop(AF_INET, &lsdesc->neighbor_interface_id, buf1,
+			  sizeof(buf1));
+		inet_ntop(AF_INET, &lsdesc->neighbor_router_id, buf2,
+			  sizeof(buf2));
+		snprintf(cbd->buf, cbd->buflen, "%s/%s", buf2, buf1);
+		return 1; /* stop iterator */
+	}
+	(cbd->iterpos)++;
+	return 0;
+}
+
 static char *ospf6_router_lsa_get_nbr_id(struct ospf6_lsa *lsa, char *buf,
 					 int buflen, int pos)
 {
-	struct ospf6_router_lsa *router_lsa;
-	struct ospf6_router_lsdesc *lsdesc;
-	char *start, *end;
-	char buf1[INET_ADDRSTRLEN], buf2[INET_ADDRSTRLEN];
+	struct cbd_do_nth_lsdesc cbd = {
+		.iterpos = 0, .pos = pos, .buf = buf, .buflen = buflen
+	};
+	struct tlv_handler handler = { .callback = cb_router_nbr_id_to_buf,
+				       .callback_data = &cbd };
+	int found_it = 0;
 
-	if (lsa) {
-		router_lsa = (struct ospf6_router_lsa
-				      *)((char *)lsa->header
-					 + sizeof(struct ospf6_lsa_header));
-		start = (char *)router_lsa + sizeof(struct ospf6_router_lsa);
-		end = (char *)lsa->header + ntohs(lsa->header->length);
+	if (!lsa || !buf)
+		return NULL;
 
-		lsdesc = (struct ospf6_router_lsdesc
-				  *)(start
-				     + pos * (sizeof(struct
-						     ospf6_router_lsdesc)));
-		if ((char *)lsdesc + sizeof(struct ospf6_router_lsdesc)
-		    <= end) {
-			if (buf && (buflen > INET_ADDRSTRLEN * 2)) {
-				inet_ntop(AF_INET,
-					  &lsdesc->neighbor_interface_id, buf1,
-					  sizeof(buf1));
-				inet_ntop(AF_INET, &lsdesc->neighbor_router_id,
-					  buf2, sizeof(buf2));
-				snprintf(buf, buflen, "%s/%s", buf2, buf1);
+	found_it = foreach_lsdesc(lsa->header, &handler);
 
-				return buf;
-			}
-		}
-	}
+	/* found it? */
+	if (found_it && pos == cbd.iterpos)
+		return buf;
 
 	return NULL;
 }
