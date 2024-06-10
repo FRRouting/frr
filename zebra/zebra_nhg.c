@@ -2919,6 +2919,22 @@ backups_done:
 	return curr_active;
 }
 
+static bool nexthop_list_routemap_has_route_map(struct route_node *rn,
+						struct route_entry *re)
+{
+	const struct prefix *p, *src_p;
+	afi_t afi;
+	struct zebra_vrf *zvrf;
+
+	srcdest_rnode_prefixes(rn, &p, &src_p);
+
+	afi = family2afi(rn->p.family);
+
+	zvrf = zebra_vrf_lookup_by_id(re->vrf_id);
+
+	return PROTO_RM_NAME(zvrf, afi, re->type);
+}
+
 /*
  * Iterate over all nexthops of the given RIB entry and refresh their
  * ACTIVE flag.  If any nexthop is found to toggle the ACTIVE flag,
@@ -2931,7 +2947,7 @@ int nexthop_active_update(struct route_node *rn, struct route_entry *re)
 	struct nhg_hash_entry *curr_nhe;
 	uint32_t curr_active;
 
-	if (PROTO_OWNED(re->nhe))
+	if (PROTO_OWNED(re->nhe) && !nexthop_list_routemap_has_route_map(rn, re))
 		return nexthop_active_update_common(rn, re, re->nhe);
 
 	/* Make a local copy of the existing nhe, so we don't work on/modify
