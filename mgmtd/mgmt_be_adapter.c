@@ -155,6 +155,9 @@ static const char *const *be_client_oper_xpaths[MGMTD_BE_CLIENT_ID_MAX] = {
 	[MGMTD_BE_CLIENT_ID_ZEBRA] = zebra_oper_xpaths,
 };
 
+static const char *const *be_client_notif_xpaths[MGMTD_BE_CLIENT_ID_MAX] = {
+};
+
 static const char *const *be_client_rpc_xpaths[MGMTD_BE_CLIENT_ID_MAX] = {
 #ifdef HAVE_RIPD
 	[MGMTD_BE_CLIENT_ID_RIPD] = ripd_rpc_xpaths,
@@ -298,6 +301,13 @@ static void mgmt_be_xpath_map_init(void)
 						   MGMT_BE_XPATH_SUBSCR_TYPE_OPER);
 		}
 
+		/* Initialize the common NOTIF init map */
+		for (init = be_client_notif_xpaths[id]; init && *init; init++) {
+			__dbg(" - NOTIF XPATH: '%s'", *init);
+			mgmt_register_client_xpath(id, *init,
+						   MGMT_BE_XPATH_SUBSCR_TYPE_NOTIF);
+		}
+
 		/* Initialize the common RPC init map */
 		for (init = be_client_rpc_xpaths[id]; init && *init; init++) {
 			__dbg(" - RPC XPATH: '%s'", *init);
@@ -308,6 +318,7 @@ static void mgmt_be_xpath_map_init(void)
 
 	__dbg("Total Cfg XPath Maps: %u", darr_len(be_cfg_xpath_map));
 	__dbg("Total Oper XPath Maps: %u", darr_len(be_oper_xpath_map));
+	__dbg("Total Noitf XPath Maps: %u", darr_len(be_notif_xpath_map));
 	__dbg("Total RPC XPath Maps: %u", darr_len(be_rpc_xpath_map));
 }
 
