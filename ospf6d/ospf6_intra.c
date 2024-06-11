@@ -430,26 +430,41 @@ void ospf6_router_lsa_originate(struct event *thread)
 /* RFC2740 3.4.3.2 Network-LSA */
 /*******************************/
 
+static int cb_router_id_to_buf(void *desc, void *cb_data)
+{
+	struct ospf6_network_lsdesc *lsdesc = desc;
+	struct cbd_do_nth_lsdesc *cbd = cb_data;
+
+	if (cbd->iterpos == cbd->pos) {
+		inet_ntop(AF_INET, &lsdesc->router_id, cbd->buf, cbd->buflen);
+		return 1; /* stop iterating */
+	}
+	(cbd->iterpos)++;
+	return 0;
+}
+
+/*
+ * Find the Nth Adjacent Router ID in a Network LSA or E-Network LSA.
+ * Stores router_id of the Nth ospf6_network_lsdesc in the provided buffer.
+ * Returns a pointer to the buffer if the router id was stored, or NULL.
+ */
 static char *ospf6_network_lsa_get_ar_id(struct ospf6_lsa *lsa, char *buf,
 					 int buflen, int pos)
 {
-	struct ospf6_network_lsa *network_lsa;
-	struct ospf6_network_lsdesc *start, *current, *lsdesc;
+	struct cbd_do_nth_lsdesc cbd = {
+		.iterpos = 0, .pos = pos, .buf = buf, .buflen = buflen
+	};
+	struct tlv_handler handler = { .callback = cb_router_id_to_buf,
+				       .callback_data = &cbd };
 
-	if (!lsa)
+	if (!lsa || !buf)
 		return NULL;
 
-	network_lsa = lsa_from_container(ospf6_network_lsa, lsa);
-	start = lsdesc_start(lsa->header);
-	current = start + pos;
+	foreach_lsdesc(lsa->header, &handler);
 
-	if ((char *)(current + 1) <= ospf6_lsa_end(lsa->header)) {
-		lsdesc = current;
-		if (buf) {
-			inet_ntop(AF_INET, &lsdesc->router_id, buf, buflen);
-			return buf;
-		}
-	}
+	/* found it? */
+	if (pos == cbd.iterpos)
+		return buf;
 
 	return NULL;
 }
