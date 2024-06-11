@@ -1,0 +1,6 @@
+{
+  "multihop":false,
+  "peer":"10.0.8.5",
+  "interface":"eth-rt5",
+  "status":"down"
+}
