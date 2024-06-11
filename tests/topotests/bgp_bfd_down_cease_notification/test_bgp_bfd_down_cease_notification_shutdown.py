@@ -2,15 +2,15 @@
 # SPDX-License-Identifier: ISC
 
 #
-# bgp_bfd_down_cease_notification.py
+# bgp_bfd_down_cease_notification_shutdown.py
 #
-# Copyright (c) 2022 by
+# Copyright (c) 2024 by
 # Donatas Abraitis <donatas@opensourcerouting.org>
 #
 
 """
 Check if Cease/BFD Down notification message is sent/received
-when the BFD is down.
+when the BFD is down (administratively).
 """
 
 import os
@@ -64,12 +64,13 @@ def teardown_module(mod):
     tgen.stop_topology()
 
 
-def test_bgp_bfd_down_notification():
+def test_bgp_bfd_down_notification_shutdown():
     tgen = get_topogen()
 
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
+    r1 = tgen.gears["r1"]
     r2 = tgen.gears["r2"]
 
     def _bgp_converge():
@@ -90,7 +91,7 @@ def test_bgp_bfd_down_notification():
                 "lastNotificationReason": "Cease/BFD Down",
                 "lastNotificationHardReset": True,
                 "peerBfdInfo": {
-                    "status": "Up",
+                    "status": "Down",
                 },
             }
         }
@@ -98,15 +99,21 @@ def test_bgp_bfd_down_notification():
 
     step("Initial BGP converge")
     test_func = functools.partial(_bgp_converge)
-    _, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
     assert result is None, "Failed to see BGP convergence on R2"
 
-    step("Kill bfdd on R2")
-    kill_router_daemons(tgen, "r2", ["bfdd"])
+    r1.vtysh_cmd(
+        """
+    configure
+     bfd
+      profile r1
+       shutdown
+    """
+    )
 
     step("Check if we received Cease/BFD Down notification message")
     test_func = functools.partial(_bgp_bfd_down_notification)
-    _, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
     assert result is None, "Failed to see BGP Cease/BFD Down notification message on R2"
 
 
