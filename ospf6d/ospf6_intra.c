@@ -119,6 +119,21 @@ static int cb_print_router_lsdesc(void *desc, void *cb_data)
 	return print_router_lsdesc(lsdesc, cbd);
 }
 
+static int cb_print_tlv_router_link(void *desc, void *cb_data)
+{
+	struct tlv_router_link *tlv = desc;
+	struct cbd_lsdesc_printer *cbd = cb_data;
+
+	/*
+	 * The fields of struct tlv_router_link
+	 * are the same as a struct ospf6_router_lsdesc
+	 */
+	struct ospf6_router_lsdesc *lsdesc =
+		(struct ospf6_router_lsdesc *)&tlv->type;
+
+	return print_router_lsdesc(lsdesc, cbd);
+}
+
 static int ospf6_router_lsa_show(struct vty *vty, struct ospf6_lsa *lsa,
 				 json_object *json_obj, bool use_json)
 {
@@ -127,12 +142,14 @@ static int ospf6_router_lsa_show(struct vty *vty, struct ospf6_lsa *lsa,
 	struct cbd_lsdesc_printer cbd = { .vty = vty, .use_json = use_json };
 	static const struct tlv_handler handlers[] = {
 		{ OSPF6_TLV_RESERVED, cb_print_router_lsdesc },
+		{ OSPF6_TLV_ROUTER_LINK, cb_print_tlv_router_link },
 		{ 0 }
 	};
 
 	router_lsa = lsa_after_header(lsa->header);
 	ospf6_capability_printbuf(router_lsa->bits, bits, sizeof(bits));
 	ospf6_options_printbuf(router_lsa->options, options, sizeof(options));
+
 	if (use_json) {
 		json_object_string_add(json_obj, "bits", bits);
 		json_object_string_add(json_obj, "options", options);
