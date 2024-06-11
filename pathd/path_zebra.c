@@ -525,13 +525,15 @@ path_zebra_add_sr_policy_internal(struct srte_policy *policy,
 		zp.segment_list.nexthop_resolved_num = nhtd->nh_num;
 	}
 	if (znh && !sid_zero_ipv6(&policy->srv6_binding_sid) && segment_list &&
-	    zp.segment_list.nexthop_resolved_num)
+	    zp.segment_list.nexthop_resolved_num) {
 		(void)path_zebra_send_bsid(&policy->srv6_binding_sid,
 					   znh->ifindex,
 					   ZEBRA_SEG6_LOCAL_ACTION_END_B6_ENCAP,
 					   &zp.segment_list.srv6_segs.segs[0],
 					   zp.segment_list.srv6_segs.num_segs);
 
+		SET_FLAG(policy->flags, F_POLICY_BSID_IPV6_INSTALLED);
+	}
 
 	(void)zebra_send_sr_policy(zclient, ZEBRA_SR_POLICY_SET, &zp);
 }
