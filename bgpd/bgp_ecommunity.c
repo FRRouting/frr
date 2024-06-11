@@ -1856,7 +1856,7 @@ ecommunity_add_origin_validation_state(enum rpki_states rpki_state,
  */
 const uint8_t *ecommunity_linkbw_present(struct ecommunity *ecom, uint64_t *bw)
 {
-	const uint8_t *eval;
+	const uint8_t *data;
 	uint32_t i;
 
 	if (bw)
@@ -1869,9 +1869,18 @@ const uint8_t *ecommunity_linkbw_present(struct ecommunity *ecom, uint64_t *bw)
 		const uint8_t *pnt;
 		uint8_t type, sub_type;
 
-		eval = pnt = (ecom->val + (i * ecom->unit_size));
+		data = pnt = (ecom->val + (i * ecom->unit_size));
 		type = *pnt++;
 		sub_type = *pnt++;
+
+		const uint8_t *end = data + ecom->unit_size;
+		size_t len = end - data;
+
+		/* Sanity check for extended communities lenght, to avoid
+		 * overrun when dealing with bits, e.g. ptr_get_be64().
+		 */
+		if (len < ecom->unit_size)
+			return NULL;
 
 		if ((type == ECOMMUNITY_ENCODE_AS ||
 		     type == ECOMMUNITY_ENCODE_AS_NON_TRANS) &&
@@ -1886,10 +1895,13 @@ const uint8_t *ecommunity_linkbw_present(struct ecommunity *ecom, uint64_t *bw)
 							 ? bwval
 							 : ieee_float_uint32_to_uint32(
 								   bwval));
-			return eval;
+			return data;
 		} else if (type == ECOMMUNITY_ENCODE_AS4 &&
 			   sub_type == ECOMMUNITY_EXTENDED_LINK_BANDWIDTH) {
 			uint64_t bwval;
+
+			if (len < IPV6_ECOMMUNITY_SIZE)
+				return NULL;
 
 			pnt += 2; /* Reserved */
 			pnt = ptr_get_be64(pnt, &bwval);
@@ -1898,7 +1910,7 @@ const uint8_t *ecommunity_linkbw_present(struct ecommunity *ecom, uint64_t *bw)
 			if (bw)
 				*bw = bwval;
 
-			return eval;
+			return data;
 		}
 	}
 
