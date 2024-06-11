@@ -163,6 +163,8 @@ DECLARE_MTYPE(MSG_NATIVE_EDIT);
 DECLARE_MTYPE(MSG_NATIVE_EDIT_REPLY);
 DECLARE_MTYPE(MSG_NATIVE_RPC);
 DECLARE_MTYPE(MSG_NATIVE_RPC_REPLY);
+DECLARE_MTYPE(MSG_NATIVE_SESSION_REQ);
+DECLARE_MTYPE(MSG_NATIVE_SESSION_REPLY);
 
 /*
  * Native message codes
@@ -177,6 +179,8 @@ DECLARE_MTYPE(MSG_NATIVE_RPC_REPLY);
 #define MGMT_MSG_CODE_RPC	 7 /* Public API */
 #define MGMT_MSG_CODE_RPC_REPLY	 8 /* Public API */
 #define MGMT_MSG_CODE_NOTIFY_SELECT 9 /* Public API */
+#define MGMT_MSG_CODE_SESSION_REQ   10 /* Public API */
+#define MGMT_MSG_CODE_SESSION_REPLY 11 /* Public API */
 
 /*
  * Datastores
@@ -434,7 +438,7 @@ _Static_assert(sizeof(struct mgmt_msg_rpc_reply) ==
  * to the front-end client.
  *
  * @selectors: the xpath prefixes to selectors notifications through.
- * @repalce: if true replace existing selectors with `selectors`.
+ * @replace: if true replace existing selectors with `selectors`.
  */
 struct mgmt_msg_notify_select {
 	struct mgmt_msg_header;
@@ -448,12 +452,51 @@ _Static_assert(sizeof(struct mgmt_msg_notify_select) ==
 		       offsetof(struct mgmt_msg_notify_select, selectors),
 	       "Size mismatch");
 
+/**
+ * struct mgmt_msg_session_req - Create or delete a front-end session.
+ *
+ * @refer_id: Zero for create, otherwise the session-id to delete.
+ * @req_id: For create will use as client-id.
+ * @client_name: For first session request the client name, otherwise empty.
+ */
+struct mgmt_msg_session_req {
+	struct mgmt_msg_header;
+	uint8_t resv2[8]; /* bug in compiler produces error w/o this */
+
+	alignas(8) char client_name[];
+};
+
+_Static_assert(sizeof(struct mgmt_msg_session_req) ==
+		       offsetof(struct mgmt_msg_session_req, client_name),
+	       "Size mismatch");
+
+/**
+ * struct mgmt_msg_session_reply - Reply to session request message.
+ *
+ * @created: true if this is a reply to a create request, otherwise 0.
+ * @refer_id: The session-id for the action (create or delete) just taken.
+ */
+struct mgmt_msg_session_reply {
+	struct mgmt_msg_header;
+	uint8_t created;
+	uint8_t resv2[7];
+};
+
 /*
  * Validate that the message ends in a NUL terminating byte
  */
 #define MGMT_MSG_VALIDATE_NUL_TERM(msgp, len)                                  \
 	((len) >= sizeof(*msgp) + 1 && ((char *)msgp)[(len)-1] == 0)
 
+/**
+ * mgmt_msg_get_min_size() - Get minimum message size given the type
+ * @code: The type of the message (MGMT_MSG_CODE_*)
+ *
+ * Return:
+ *	The minimum size of a message of the given type or 0 if the message
+ *	code is unknown.
+ */
+size_t mgmt_msg_get_min_size(uint code);
 
 /**
  * Send a native message error to the other end of the connection.
