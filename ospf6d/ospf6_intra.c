@@ -513,7 +513,17 @@ static int ospf6_network_lsa_show(struct vty *vty, struct ospf6_lsa *lsa,
 	} else
 		vty_out(vty, "     Options: %s\n", options);
 
+	if (ntohs(lsa->header->type) == OSPF6_LSTYPE_E_NETWORK)
+		handler.tlv_type = OSPF6_TLV_ATTACHED_ROUTERS;
+	else
+		/*
+		 * Network LSA doesn't need a tlv_type;
+		 * Other types are not handled.
+		 */
+		handler.tlv_type = OSPF6_TLV_RESERVED;
+
 	foreach_lsdesc(lsa->header, &handler);
+
 	if (use_json)
 		json_object_object_add(json_obj, "attachedRouter", cbd.json_arr);
 
