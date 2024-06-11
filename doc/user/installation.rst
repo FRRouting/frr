@@ -422,7 +422,12 @@ options to the configuration script.
 Python dependency, documentation and tests
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-FRR's documentation and basic unit tests heavily use code written in Python.
+FRR uses Python for these components:
+
+* configuration reloading (see :ref:`FRR-RELOAD <frr-reload>` for details),
+* documentation,
+* unit tests.
+
 Additionally, FRR ships Python extensions written in C which are used during
 its build process.
 
