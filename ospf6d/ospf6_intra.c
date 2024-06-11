@@ -84,6 +84,15 @@ static char *ospf6_router_lsa_get_nbr_id(struct ospf6_lsa *lsa, char *buf,
 	if (!lsa || !buf)
 		return NULL;
 
+	if (lsa->header->type == OSPF6_LSTYPE_E_ROUTER)
+		handler.tlv_type = OSPF6_TLV_ROUTER_LINK;
+	else
+		/*
+		 * Router LSA doesn't need a tlv_type;
+		 * Other types are not handled.
+		 */
+		handler.tlv_type = OSPF6_TLV_RESERVED;
+
 	found_it = foreach_lsdesc(lsa->header, &handler);
 
 	/* found it? */
