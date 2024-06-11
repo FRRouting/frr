@@ -84,6 +84,11 @@ NOTIFY_FIELD_RESULT_TYPE = 0
 
 MSG_NOTIFY_SELECT_FMT = "=B7x"
 
+MSG_SESSION_REQ_FMT = "=8x"
+
+MSG_SESSION_REPLY_FMT = "=B7x"
+SESSION_REPLY_FIELD_CREATED = 0
+
 #
 # Native message codes
 #
@@ -93,6 +98,8 @@ MSG_CODE_TREE_DATA = 2
 MSG_CODE_GET_DATA = 3
 MSG_CODE_NOTIFY = 4
 MSG_CODE_NOTIFY_SELECT = 9
+MSG_CODE_SESSION_REQ = 10
+MSG_CODE_SESSION_REPLY = 11
 
 msg_native_formats = {
     MSG_CODE_ERROR: MSG_ERROR_FMT,
@@ -101,6 +108,8 @@ msg_native_formats = {
     MSG_CODE_GET_DATA: MSG_GET_DATA_FMT,
     MSG_CODE_NOTIFY: MSG_NOTIFY_FMT,
     MSG_CODE_NOTIFY_SELECT: MSG_NOTIFY_SELECT_FMT,
+    MSG_CODE_SESSION_REQ: MSG_SESSION_REQ_FMT,
+    MSG_CODE_SESSION_REPLY: MSG_SESSION_REPLY_FMT,
 }
 
 
@@ -183,27 +192,44 @@ class Session:
 
     client_id = 1
 
-    def __init__(self, sock):
+    def __init__(self, sock, use_protobuf):
         self.sock = sock
         self.next_req_id = 1
 
-        req = mgmt_pb2.FeMessage()
-        req.register_req.client_name = "test-client"
-        self.send_pb_msg(req)
-        logging.debug("Sent FeRegisterReq: %s", req)
+        if use_protobuf:
+            req = mgmt_pb2.FeMessage()
+            req.register_req.client_name = "test-client"
+            self.send_pb_msg(req)
+            logging.debug("Sent FeRegisterReq: %s", req)
 
-        req = mgmt_pb2.FeMessage()
-        req.session_req.create = 1
-        req.session_req.client_conn_id = Session.client_id
-        Session.client_id += 1
-        self.send_pb_msg(req)
-        logging.debug("Sent FeSessionReq: %s", req)
+            req = mgmt_pb2.FeMessage()
+            req.session_req.create = 1
+            req.session_req.client_conn_id = Session.client_id
+            Session.client_id += 1
+            self.send_pb_msg(req)
+            logging.debug("Sent FeSessionReq: %s", req)
 
-        reply = self.recv_pb_msg(mgmt_pb2.FeMessage())
-        logging.debug("Received FeSessionReply: %s", repr(reply))
+            reply = self.recv_pb_msg(mgmt_pb2.FeMessage())
+            logging.debug("Received FeSessionReply: %s", repr(reply))
 
-        assert reply.session_reply.success
-        self.sess_id = reply.session_reply.session_id
+            assert reply.session_reply.success
+            self.sess_id = reply.session_reply.session_id
+        else:
+            self.sess_id = 0
+            mdata, req_id = self.get_native_msg_header(MSG_CODE_SESSION_REQ)
+            mdata += struct.pack(MSG_SESSION_REQ_FMT)
+            mdata += "test-client".encode("utf-8") + b"\x00"
+
+            self.send_native_msg(mdata)
+            logging.debug("Sent native SESSION-REQ")
+
+            mhdr, mfixed, mdata = self.recv_native_msg()
+            if mhdr[HDR_FIELD_CODE] == MSG_CODE_SESSION_REPLY:
+                logging.debug("Recv native SESSION-REQ Message: %s: %s", mfixed, mdata)
+            else:
+                raise Exception(f"Recv NON-SESSION-REPLY Message: {mfixed}: {mdata}")
+            assert mfixed[0]
+            self.sess_id = mhdr[HDR_FIELD_SESS_ID]
 
     def close(self, clean=True):
         if clean:
@@ -368,6 +394,9 @@ def __parse_args():
         "-q", "--query", nargs="+", metavar="XPATH", help="xpath[s] to query"
     )
     parser.add_argument("-s", "--server", default=MPATH, help="path to server socket")
+    parser.add_argument(
+        "--use-protobuf", action="store_true", help="Use protobuf when there's a choice"
+    )
     parser.add_argument("-v", "--verbose", action="store_true", help="Be verbose")
     args = parser.parse_args()
 
@@ -392,7 +421,7 @@ def __server_connect(spath):
 def __main():
     args = __parse_args()
     sock = __server_connect(Path(args.server))
-    sess = Session(sock)
+    sess = Session(sock, use_protobuf=args.use_protobuf)
 
     if args.query:
         # Performa an xpath query

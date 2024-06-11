@@ -69,7 +69,7 @@ def test_frontend_notification(tgen):
     result = json_cmp(jsout, expected)
     assert result is None
 
-    output = r1.cmd_raises(fe_client_path + " --listen")
+    output = r1.cmd_raises(fe_client_path + " --use-protobuf --listen")
     jsout = json.loads(output)
 
     expected = {"frr-ripd:authentication-failure": {"interface-name": "r1-eth0"}}
