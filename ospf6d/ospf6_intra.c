@@ -455,6 +455,14 @@ static int cb_print_network_lsdesc(void *desc, void *cb_data)
 	return print_router_id(lsdesc->router_id, cbd);
 }
 
+static int cb_print_tlv_attached_routers(void *desc, void *cb_data)
+{
+	struct tlv_attached_routers *tlv = desc;
+	struct cbd_lsdesc_printer *cbd = cb_data;
+
+	return print_router_id(tlv->router_id, cbd);
+}
+
 static int ospf6_network_lsa_show(struct vty *vty, struct ospf6_lsa *lsa,
 				  json_object *json_obj, bool use_json)
 {
@@ -463,6 +471,7 @@ static int ospf6_network_lsa_show(struct vty *vty, struct ospf6_lsa *lsa,
 	struct cbd_lsdesc_printer cbd = { .vty = vty, .use_json = use_json };
 	static const struct tlv_handler handlers[] = {
 		{ OSPF6_TLV_RESERVED, cb_print_network_lsdesc },
+		{ OSPF6_TLV_ATTACHED_ROUTERS, cb_print_tlv_attached_routers },
 		{ 0 }
 	};
 
