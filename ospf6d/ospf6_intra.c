@@ -435,10 +435,14 @@ static int ospf6_network_lsa_show(struct vty *vty, struct ospf6_lsa *lsa,
 {
 	struct ospf6_network_lsa *network_lsa;
 	char options[32];
-	struct cbd_lsdesc_printer cbd = { .vty = vty,
-					  .use_json = use_json };
-	struct tlv_handler handler = { .callback = cb_print_network_lsdesc,
-				       .callback_data = &cbd };
+	struct cbd_lsdesc_printer cbd = { .vty = vty, .use_json = use_json };
+	struct tlv_handler h1 = { .tlv_type = OSPF6_TLV_RESERVED,
+				  .callback = cb_print_network_lsdesc,
+				  .callback_data = &cbd },
+			   h0 = { .tlv_type = OSPF6_TLV_ATTACHED_ROUTERS,
+				  .callback = cb_print_network_lsdesc,
+				  .callback_data = &cbd,
+				  .next = &h1 };
 
 	network_lsa = lsa_after_header(lsa->header);
 
@@ -449,7 +453,8 @@ static int ospf6_network_lsa_show(struct vty *vty, struct ospf6_lsa *lsa,
 	} else
 		vty_out(vty, "     Options: %s\n", options);
 
-	foreach_lsdesc(lsa->header, &handler);
+	foreach_lsdesc(lsa->header, &h0);
+
 	if (use_json)
 		json_object_object_add(json_obj, "attachedRouter", cbd.json_arr);
 
