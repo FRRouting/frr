@@ -1645,6 +1645,12 @@ static int get_srv6_sid_dynamic(struct zebra_srv6_sid **sid,
 	 * SID instead of allocating a new one.
 	 */
 	for (ALL_LIST_ELEMENTS_RO(srv6->sids, node, s)) {
+		if (locator && s->sid && s->sid->locator) {
+			if (strncmp(s->sid->locator->name, locator->name,
+				    SRV6_LOCNAME_SIZE)) {
+				continue;
+			}
+		}
 		if (memcmp(&s->ctx, ctx, sizeof(struct srv6_sid_ctx)) == 0) {
 			if (IS_ZEBRA_DEBUG_PACKET)
 				zlog_debug("%s: returning existing SID %s %pI6",
