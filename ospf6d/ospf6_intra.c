@@ -117,14 +117,19 @@ static int ospf6_router_lsa_show(struct vty *vty, struct ospf6_lsa *lsa,
 {
 	char bits[16], options[32];
 	struct ospf6_router_lsa *router_lsa;
-	struct cbd_lsdesc_printer cbd = { .vty = vty,
-					  .use_json = use_json };
-	struct tlv_handler handler = { .callback = cb_print_router_lsdesc,
-				       .callback_data = &cbd };
+	struct cbd_lsdesc_printer cbd = { .vty = vty, .use_json = use_json };
+	struct tlv_handler h1 = { .tlv_type = OSPF6_TLV_RESERVED,
+				  .callback = cb_print_router_lsdesc,
+				  .callback_data = &cbd },
+			   h0 = { .tlv_type = OSPF6_TLV_ROUTER_LINK,
+				  .callback = cb_print_router_lsdesc,
+				  .callback_data = &cbd,
+				  .next = &h1 };
 
 	router_lsa = lsa_after_header(lsa->header);
 	ospf6_capability_printbuf(router_lsa->bits, bits, sizeof(bits));
 	ospf6_options_printbuf(router_lsa->options, options, sizeof(options));
+
 	if (use_json) {
 		json_object_string_add(json_obj, "bits", bits);
 		json_object_string_add(json_obj, "options", options);
@@ -132,7 +137,7 @@ static int ospf6_router_lsa_show(struct vty *vty, struct ospf6_lsa *lsa,
 	} else
 		vty_out(vty, "    Bits: %s Options: %s\n", bits, options);
 
-	foreach_lsdesc(lsa->header, &handler);
+	foreach_lsdesc(lsa->header, &h0);
 
 	if (use_json)
 		json_object_object_add(json_obj, "lsaDescription", cbd.json_arr);
