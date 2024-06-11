@@ -165,6 +165,15 @@ static int ospf6_router_lsa_show(struct vty *vty, struct ospf6_lsa *lsa,
 	} else
 		vty_out(vty, "    Bits: %s Options: %s\n", bits, options);
 
+	if (lsa->header->type == OSPF6_LSTYPE_E_ROUTER)
+		handler.tlv_type = OSPF6_TLV_ROUTER_LINK;
+	else
+		/*
+		 * Router LSA doesn't need a tlv_type;
+		 * Other types are not handled.
+		 */
+		handler.tlv_type = OSPF6_TLV_RESERVED;
+
 	foreach_lsdesc(lsa->header, &handler);
 
 	if (use_json)
