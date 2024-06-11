@@ -44,6 +44,13 @@ uint32_t conf_debug_ospf6_brouter_specific_area_id;
 /* RFC2740 3.4.3.1 Router-LSA */
 /******************************/
 
+struct cbd_do_nth_lsdesc {
+	int pos;
+	int iterpos;
+	int buflen;
+	char *buf;
+};
+
 static char *ospf6_router_lsa_get_nbr_id(struct ospf6_lsa *lsa, char *buf,
 					 int buflen, int pos)
 {
