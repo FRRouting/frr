@@ -147,7 +147,7 @@ def check_rib(name, cmd, expected_file):
     logger.info('[+] check {} "{}" {}'.format(name, cmd, expected_file))
     tgen = get_topogen()
     func = functools.partial(_check, name, cmd, expected_file)
-    success, result = topotest.run_and_expect(func, None, count=10, wait=0.5)
+    _, result = topotest.run_and_expect(func, None, count=10, wait=0.5)
     assert result is None, "Failed"
 
 
