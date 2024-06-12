@@ -7317,10 +7317,10 @@ static void dplane_thread_loop(struct event *event)
 {
 	struct dplane_ctx_list_head work_list;
 	struct dplane_ctx_list_head error_list;
-	struct zebra_dplane_provider *prov;
+	struct zebra_dplane_provider *prov, *next_prov;
 	struct zebra_dplane_ctx *ctx;
 	int limit, counter, error_counter;
-	uint64_t curr, high;
+	uint64_t curr, out_curr, high;
 	bool reschedule = false;
 
 	/* Capture work limit per cycle */
@@ -7344,17 +7344,47 @@ static void dplane_thread_loop(struct event *event)
 	/* Locate initial registered provider */
 	prov = dplane_prov_list_first(&zdplane_info.dg_providers);
 
-	/* Move new work from incoming list to temp list */
-	for (counter = 0; counter < limit; counter++) {
-		ctx = dplane_ctx_list_pop(&zdplane_info.dg_update_list);
-		if (ctx) {
-			ctx->zd_provider = prov->dp_id;
+	curr = dplane_ctx_queue_count(&prov->dp_ctx_in_list);
+	out_curr = dplane_ctx_queue_count(&prov->dp_ctx_out_list);
 
-			dplane_ctx_list_add_tail(&work_list, ctx);
-		} else {
-			break;
+	if (curr >= (uint64_t)limit) {
+		if (IS_ZEBRA_DEBUG_DPLANE_DETAIL)
+			zlog_debug("%s: Current first provider(%s) Input queue is %" PRIu64
+				   ", holding off work",
+				   __func__, prov->dp_name, curr);
+		counter = 0;
+	} else if (out_curr >= (uint64_t)limit) {
+		if (IS_ZEBRA_DEBUG_DPLANE_DETAIL)
+			zlog_debug("%s: Current first provider(%s) Output queue is %" PRIu64
+				   ", holding off work",
+				   __func__, prov->dp_name, out_curr);
+		counter = 0;
+	} else {
+		int tlimit;
+		/*
+		 * Let's limit the work to how what can be put on the
+		 * in or out queue without going over
+		 */
+		tlimit = limit - MAX(curr, out_curr);
+		/* Move new work from incoming list to temp list */
+		for (counter = 0; counter < tlimit; counter++) {
+			ctx = dplane_ctx_list_pop(&zdplane_info.dg_update_list);
+			if (ctx) {
+				ctx->zd_provider = prov->dp_id;
+
+				dplane_ctx_list_add_tail(&work_list, ctx);
+			} else {
+				break;
+			}
 		}
 	}
+
+	/*
+	 * If there is anything still on the two input queues reschedule
+	 */
+	if (dplane_ctx_queue_count(&prov->dp_ctx_in_list) > 0 ||
+	    dplane_ctx_queue_count(&zdplane_info.dg_update_list) > 0)
+		reschedule = true;
 
 	DPLANE_UNLOCK();
 
@@ -7374,8 +7404,9 @@ static void dplane_thread_loop(struct event *event)
 		 * items.
 		 */
 		if (IS_ZEBRA_DEBUG_DPLANE_DETAIL)
-			zlog_debug("dplane enqueues %d new work to provider '%s'",
-				   counter, dplane_provider_get_name(prov));
+			zlog_debug("dplane enqueues %d new work to provider '%s' curr is %" PRIu64,
+				   counter, dplane_provider_get_name(prov),
+				   curr);
 
 		/* Capture current provider id in each context; check for
 		 * error status.
@@ -7433,17 +7464,60 @@ static void dplane_thread_loop(struct event *event)
 		if (!zdplane_info.dg_run)
 			break;
 
+		/* Locate next provider */
+		next_prov = dplane_prov_list_next(&zdplane_info.dg_providers,
+						  prov);
+		if (next_prov) {
+			curr = dplane_ctx_queue_count(
+				&next_prov->dp_ctx_in_list);
+			out_curr = dplane_ctx_queue_count(
+				&next_prov->dp_ctx_out_list);
+		} else
+			out_curr = curr = 0;
+
 		/* Dequeue completed work from the provider */
 		dplane_provider_lock(prov);
 
-		while (counter < limit) {
-			ctx = dplane_provider_dequeue_out_ctx(prov);
-			if (ctx) {
-				dplane_ctx_list_add_tail(&work_list, ctx);
-				counter++;
-			} else
-				break;
+		if (curr >= (uint64_t)limit) {
+			if (IS_ZEBRA_DEBUG_DPLANE_DETAIL)
+				zlog_debug("%s: Next Provider(%s) Input queue is %" PRIu64
+					   ", holding off work",
+					   __func__, next_prov->dp_name, curr);
+			counter = 0;
+		} else if (out_curr >= (uint64_t)limit) {
+			if (IS_ZEBRA_DEBUG_DPLANE_DETAIL)
+				zlog_debug("%s: Next Provider(%s) Output queue is %" PRIu64
+					   ", holding off work",
+					   __func__, next_prov->dp_name,
+					   out_curr);
+			counter = 0;
+		} else {
+			int tlimit;
+
+			/*
+			 * Let's limit the work to how what can be put on the
+			 * in or out queue without going over
+			 */
+			tlimit = limit - MAX(curr, out_curr);
+			while (counter < tlimit) {
+				ctx = dplane_provider_dequeue_out_ctx(prov);
+				if (ctx) {
+					dplane_ctx_list_add_tail(&work_list,
+								 ctx);
+					counter++;
+				} else
+					break;
+			}
 		}
+
+		/*
+		 * Let's check if there are still any items on the
+		 * input or output queus of the current provider
+		 * if so then we know we need to reschedule.
+		 */
+		if (dplane_ctx_queue_count(&prov->dp_ctx_in_list) > 0 ||
+		    dplane_ctx_queue_count(&prov->dp_ctx_out_list) > 0)
+			reschedule = true;
 
 		dplane_provider_unlock(prov);
 
@@ -7460,7 +7534,7 @@ static void dplane_thread_loop(struct event *event)
 		}
 
 		/* Locate next provider */
-		prov = dplane_prov_list_next(&zdplane_info.dg_providers, prov);
+		prov = next_prov;
 	}
 
 	/*
