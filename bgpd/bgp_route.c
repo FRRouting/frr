@@ -2487,6 +2487,7 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 		     && IN6_IS_ADDR_LINKLOCAL(&attr->mp_nexthop_local))
 		    || (!reflect && !transparent
 			&& IN6_IS_ADDR_LINKLOCAL(&peer->nexthop.v6_local)
+			&& IN6_IS_ADDR_LINKLOCAL(&attr->mp_nexthop_local)
 			&& peer->shared_network
 			&& (from == bgp->peer_self
 			    || peer->sort == BGP_PEER_EBGP))) {
