@@ -1177,6 +1177,11 @@ void bgp_peer_connection_buffers_free(struct peer_connection *connection)
 			connection->ibuf = NULL;
 		}
 
+		if (connection->ibuf_priority) {
+			stream_fifo_free(connection->ibuf_priority);
+			connection->ibuf_priority = NULL;
+		}
+
 		if (connection->obuf) {
 			stream_fifo_free(connection->obuf);
 			connection->obuf = NULL;
@@ -1211,6 +1216,7 @@ struct peer_connection *bgp_peer_connection_new(struct peer *peer)
 	connection->fd = -1;
 
 	connection->ibuf = stream_fifo_new();
+	connection->ibuf_priority = stream_fifo_new();
 	connection->obuf = stream_fifo_new();
 	pthread_mutex_init(&connection->io_mtx, NULL);
 

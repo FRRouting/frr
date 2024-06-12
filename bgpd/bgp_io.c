@@ -51,6 +51,7 @@ void bgp_writes_on(struct peer_connection *connection)
 	assert(connection->status != Deleted);
 	assert(connection->obuf);
 	assert(connection->ibuf);
+	assert(connection->ibuf_priority);
 	assert(connection->ibuf_work);
 	assert(!connection->t_connect_check_r);
 	assert(!connection->t_connect_check_w);
@@ -80,6 +81,7 @@ void bgp_reads_on(struct peer_connection *connection)
 
 	assert(connection->status != Deleted);
 	assert(connection->ibuf);
+	assert(connection->ibuf_priority);
 	assert(connection->fd);
 	assert(connection->ibuf_work);
 	assert(connection->obuf);
@@ -162,6 +164,7 @@ static int read_ibuf_work(struct peer_connection *connection)
 	/* packet size as given by header */
 	uint16_t pktsize = 0;
 	struct stream *pkt;
+	uint8_t type;
 
 	/* ============================================== */
 	frr_with_mutex (&connection->io_mtx) {
@@ -200,8 +203,18 @@ static int read_ibuf_work(struct peer_connection *connection)
 	stream_set_endp(pkt, pktsize);
 
 	frrtrace(2, frr_bgp, packet_read, connection->peer, pkt);
+
+	/* get the type of message */
+	stream_forward_getp(pkt, BGP_MARKER_SIZE + 2);
+	type = *stream_pnt(pkt);
+	stream_rewind_getp(pkt, BGP_MARKER_SIZE + 2);
+
 	frr_with_mutex (&connection->io_mtx) {
-		stream_fifo_push(connection->ibuf, pkt);
+		if (type == BGP_MSG_OPEN || type == BGP_MSG_KEEPALIVE ||
+		    type == BGP_MSG_NOTIFY)
+			stream_fifo_push(connection->ibuf_priority, pkt);
+		else
+			stream_fifo_push(connection->ibuf, pkt);
 	}
 
 	return pktsize;

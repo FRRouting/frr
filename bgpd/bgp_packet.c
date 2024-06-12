@@ -4027,7 +4027,9 @@ void bgp_process_packet(struct event *thread)
 		char notify_data_length[2];
 
 		frr_with_mutex (&connection->io_mtx) {
-			peer->curr = stream_fifo_pop(connection->ibuf);
+			peer->curr = stream_fifo_pop(connection->ibuf_priority);
+			if (peer->curr == NULL)
+				peer->curr = stream_fifo_pop(connection->ibuf);
 		}
 
 		if (peer->curr == NULL) // no packets to process, hmm...
@@ -4155,7 +4157,8 @@ void bgp_process_packet(struct event *thread)
 	    && fsm_update_result != FSM_PEER_STOPPED) {
 		frr_with_mutex (&connection->io_mtx) {
 			// more work to do, come back later
-			if (connection->ibuf->count > 0)
+			if (connection->ibuf->count > 0 ||
+			    connection->ibuf_priority->count)
 				event_add_event(bm->master, bgp_process_packet,
 						connection, 0,
 						&connection->t_process_packet);

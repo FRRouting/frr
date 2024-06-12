@@ -503,7 +503,7 @@ static void bgp_connect_timer(struct event *thread)
 /* BGP holdtime timer. */
 static void bgp_holdtime_timer(struct event *thread)
 {
-	atomic_size_t inq_count;
+	atomic_size_t inq_count, inq_count_priority;
 	struct peer_connection *connection = EVENT_ARG(thread);
 	struct peer *peer = connection->peer;
 
@@ -523,7 +523,11 @@ static void bgp_holdtime_timer(struct event *thread)
 	 */
 	inq_count = atomic_load_explicit(&connection->ibuf->count,
 					 memory_order_relaxed);
-	if (inq_count)
+	inq_count_priority =
+		atomic_load_explicit(&connection->ibuf_priority->count,
+				     memory_order_relaxed);
+
+	if (inq_count + inq_count_priority)
 		BGP_TIMER_ON(connection->t_holdtime, bgp_holdtime_timer,
 			     peer->v_holdtime);
 
@@ -1489,6 +1493,8 @@ enum bgp_fsm_state_progress bgp_stop(struct peer_connection *connection)
 	frr_with_mutex (&connection->io_mtx) {
 		if (connection->ibuf)
 			stream_fifo_clean(connection->ibuf);
+		if (connection->ibuf_priority)
+			stream_fifo_clean(connection->ibuf_priority);
 		if (connection->obuf)
 			stream_fifo_clean(connection->obuf);
 

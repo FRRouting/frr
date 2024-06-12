@@ -1197,6 +1197,8 @@ struct peer_connection {
 	/* Packet receive and send buffer. */
 	pthread_mutex_t io_mtx;	  // guards ibuf, obuf
 	struct stream_fifo *ibuf; // packets waiting to be processed
+	struct stream_fifo *ibuf_priority; // keepalive/open/notify packets
+					   // waiting to be processed
 	struct stream_fifo *obuf; // packets waiting to be written
 
 	struct ringbuf *ibuf_work; // WiP buffer used by bgp_read() only
