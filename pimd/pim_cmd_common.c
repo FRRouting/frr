@@ -100,25 +100,13 @@ int pim_process_no_join_prune_cmd(struct vty *vty)
 
 int pim_process_spt_switchover_infinity_cmd(struct vty *vty)
 {
-	const char *vrfname;
 	char spt_plist_xpath[XPATH_MAXLEN];
 	char spt_action_xpath[XPATH_MAXLEN];
 
-	vrfname = pim_cli_get_vrf_name(vty);
-	if (vrfname == NULL)
-		return CMD_WARNING_CONFIG_FAILED;
-
 	snprintf(spt_plist_xpath, sizeof(spt_plist_xpath),
-		 FRR_PIM_VRF_XPATH, "frr-pim:pimd", "pim", vrfname,
-		 FRR_PIM_AF_XPATH_VAL);
-	strlcat(spt_plist_xpath, "/spt-switchover/spt-infinity-prefix-list",
-		sizeof(spt_plist_xpath));
-
+		 "%s/spt-switchover/spt-infinity-prefix-list", VTY_CURR_XPATH);
 	snprintf(spt_action_xpath, sizeof(spt_action_xpath),
-		 FRR_PIM_VRF_XPATH, "frr-pim:pimd", "pim", vrfname,
-		 FRR_PIM_AF_XPATH_VAL);
-	strlcat(spt_action_xpath, "/spt-switchover/spt-action",
-		sizeof(spt_action_xpath));
+		 "%s/spt-switchover/spt-action", VTY_CURR_XPATH);
 
 	if (yang_dnode_exists(vty->candidate_config->dnode, spt_plist_xpath))
 		nb_cli_enqueue_change(vty, spt_plist_xpath, NB_OP_DESTROY,
@@ -132,55 +120,30 @@ int pim_process_spt_switchover_infinity_cmd(struct vty *vty)
 int pim_process_spt_switchover_prefixlist_cmd(struct vty *vty,
 					      const char *plist)
 {
-	const char *vrfname;
 	char spt_plist_xpath[XPATH_MAXLEN];
 	char spt_action_xpath[XPATH_MAXLEN];
 
-	vrfname = pim_cli_get_vrf_name(vty);
-	if (vrfname == NULL)
-		return CMD_WARNING_CONFIG_FAILED;
-
 	snprintf(spt_plist_xpath, sizeof(spt_plist_xpath),
-		 FRR_PIM_VRF_XPATH, "frr-pim:pimd", "pim", vrfname,
-		 FRR_PIM_AF_XPATH_VAL);
-	strlcat(spt_plist_xpath, "/spt-switchover/spt-infinity-prefix-list",
-		sizeof(spt_plist_xpath));
-
+		 "./spt-switchover/spt-infinity-prefix-list");
 	snprintf(spt_action_xpath, sizeof(spt_action_xpath),
-		 FRR_PIM_VRF_XPATH, "frr-pim:pimd", "pim", vrfname,
-		 FRR_PIM_AF_XPATH_VAL);
-	strlcat(spt_action_xpath, "/spt-switchover/spt-action",
-		sizeof(spt_action_xpath));
+		 "./spt-switchover/spt-action");
 
 	nb_cli_enqueue_change(vty, spt_action_xpath, NB_OP_MODIFY,
 			      "PIM_SPT_INFINITY");
-	nb_cli_enqueue_change(vty, spt_plist_xpath, NB_OP_MODIFY,
-			      plist);
+	nb_cli_enqueue_change(vty, spt_plist_xpath, NB_OP_MODIFY, plist);
 
 	return nb_cli_apply_changes(vty, NULL);
 }
 
 int pim_process_no_spt_switchover_cmd(struct vty *vty)
 {
-	const char *vrfname;
 	char spt_plist_xpath[XPATH_MAXLEN];
 	char spt_action_xpath[XPATH_MAXLEN];
 
-	vrfname = pim_cli_get_vrf_name(vty);
-	if (vrfname == NULL)
-		return CMD_WARNING_CONFIG_FAILED;
-
 	snprintf(spt_plist_xpath, sizeof(spt_plist_xpath),
-		 FRR_PIM_VRF_XPATH, "frr-pim:pimd", "pim", vrfname,
-		 FRR_PIM_AF_XPATH_VAL);
-	strlcat(spt_plist_xpath, "/spt-switchover/spt-infinity-prefix-list",
-		sizeof(spt_plist_xpath));
-
+		 "./spt-switchover/spt-infinity-prefix-list");
 	snprintf(spt_action_xpath, sizeof(spt_action_xpath),
-		 FRR_PIM_VRF_XPATH, "frr-pim:pimd", "pim", vrfname,
-		 FRR_PIM_AF_XPATH_VAL);
-	strlcat(spt_action_xpath, "/spt-switchover/spt-action",
-		sizeof(spt_action_xpath));
+		 "./spt-switchover/spt-action");
 
 	nb_cli_enqueue_change(vty, spt_plist_xpath, NB_OP_DESTROY, NULL);
 	nb_cli_enqueue_change(vty, spt_action_xpath, NB_OP_MODIFY,
@@ -217,35 +180,20 @@ int pim_process_no_pim_packet_cmd(struct vty *vty)
 
 int pim_process_keepalivetimer_cmd(struct vty *vty, const char *kat)
 {
-	const char *vrfname;
 	char ka_timer_xpath[XPATH_MAXLEN];
 
-	vrfname = pim_cli_get_vrf_name(vty);
-	if (vrfname == NULL)
-		return CMD_WARNING_CONFIG_FAILED;
+	snprintf(ka_timer_xpath, sizeof(ka_timer_xpath), "./keep-alive-timer");
 
-	snprintf(ka_timer_xpath, sizeof(ka_timer_xpath), FRR_PIM_VRF_XPATH,
-		 "frr-pim:pimd", "pim", vrfname, FRR_PIM_AF_XPATH_VAL);
-	strlcat(ka_timer_xpath, "/keep-alive-timer", sizeof(ka_timer_xpath));
-
-	nb_cli_enqueue_change(vty, ka_timer_xpath, NB_OP_MODIFY,
-			      kat);
+	nb_cli_enqueue_change(vty, ka_timer_xpath, NB_OP_MODIFY, kat);
 
 	return nb_cli_apply_changes(vty, NULL);
 }
 
 int pim_process_no_keepalivetimer_cmd(struct vty *vty)
 {
-	const char *vrfname;
 	char ka_timer_xpath[XPATH_MAXLEN];
 
-	vrfname = pim_cli_get_vrf_name(vty);
-	if (vrfname == NULL)
-		return CMD_WARNING_CONFIG_FAILED;
-
-	snprintf(ka_timer_xpath, sizeof(ka_timer_xpath), FRR_PIM_VRF_XPATH,
-		 "frr-pim:pimd", "pim", vrfname, FRR_PIM_AF_XPATH_VAL);
-	strlcat(ka_timer_xpath, "/keep-alive-timer", sizeof(ka_timer_xpath));
+	snprintf(ka_timer_xpath, sizeof(ka_timer_xpath), "./keep-alive-timer");
 
 	nb_cli_enqueue_change(vty, ka_timer_xpath, NB_OP_DESTROY, NULL);
 
@@ -254,35 +202,25 @@ int pim_process_no_keepalivetimer_cmd(struct vty *vty)
 
 int pim_process_rp_kat_cmd(struct vty *vty, const char *rpkat)
 {
-	const char *vrfname;
 	char rp_ka_timer_xpath[XPATH_MAXLEN];
 
-	vrfname = pim_cli_get_vrf_name(vty);
-	if (vrfname == NULL)
-		return CMD_WARNING_CONFIG_FAILED;
-
 	snprintf(rp_ka_timer_xpath, sizeof(rp_ka_timer_xpath),
-		 FRR_PIM_VRF_XPATH, "frr-pim:pimd", "pim", vrfname,
-		 FRR_PIM_AF_XPATH_VAL);
-	strlcat(rp_ka_timer_xpath, "/rp-keep-alive-timer",
-		sizeof(rp_ka_timer_xpath));
+		 "./rp-keep-alive-timer");
 
-	nb_cli_enqueue_change(vty, rp_ka_timer_xpath, NB_OP_MODIFY,
-			      rpkat);
+	nb_cli_enqueue_change(vty, rp_ka_timer_xpath, NB_OP_MODIFY, rpkat);
 
 	return nb_cli_apply_changes(vty, NULL);
 }
 
 int pim_process_no_rp_kat_cmd(struct vty *vty)
 {
-	const char *vrfname;
 	char rp_ka_timer[6];
 	char rp_ka_timer_xpath[XPATH_MAXLEN];
 	uint v;
 	char rs_timer_xpath[XPATH_MAXLEN];
 
-	snprintf(rs_timer_xpath, sizeof(rs_timer_xpath),
-		 FRR_PIM_ROUTER_XPATH, FRR_PIM_AF_XPATH_VAL);
+	snprintf(rs_timer_xpath, sizeof(rs_timer_xpath), FRR_PIM_ROUTER_XPATH,
+		 FRR_PIM_AF_XPATH_VAL);
 	strlcat(rs_timer_xpath, "/register-suppress-time",
 		sizeof(rs_timer_xpath));
 
@@ -301,18 +239,10 @@ int pim_process_no_rp_kat_cmd(struct vty *vty)
 		v = UINT16_MAX;
 	snprintf(rp_ka_timer, sizeof(rp_ka_timer), "%u", v);
 
-	vrfname = pim_cli_get_vrf_name(vty);
-	if (vrfname == NULL)
-		return CMD_WARNING_CONFIG_FAILED;
-
 	snprintf(rp_ka_timer_xpath, sizeof(rp_ka_timer_xpath),
-		 FRR_PIM_VRF_XPATH, "frr-pim:pimd", "pim", vrfname,
-		 FRR_PIM_AF_XPATH_VAL);
-	strlcat(rp_ka_timer_xpath, "/rp-keep-alive-timer",
-		sizeof(rp_ka_timer_xpath));
+		 "./rp-keep-alive-timer");
 
-	nb_cli_enqueue_change(vty, rp_ka_timer_xpath, NB_OP_MODIFY,
-			      rp_ka_timer);
+	nb_cli_enqueue_change(vty, rp_ka_timer_xpath, NB_OP_MODIFY, rp_ka_timer);
 
 	return nb_cli_apply_changes(vty, NULL);
 }
@@ -531,9 +461,7 @@ int pim_process_no_ip_mroute_cmd(struct vty *vty, const char *interface,
 int pim_process_rp_cmd(struct vty *vty, const char *rp_str,
 		       const char *group_str)
 {
-	const char *vrfname;
 	char group_xpath[XPATH_MAXLEN];
-	char rp_xpath[XPATH_MAXLEN];
 	int printed;
 	int result = 0;
 	struct prefix group;
@@ -575,14 +503,9 @@ int pim_process_rp_cmd(struct vty *vty, const char *rp_str,
 	}
 #endif
 
-	vrfname = pim_cli_get_vrf_name(vty);
-	if (vrfname == NULL)
-		return CMD_WARNING_CONFIG_FAILED;
-
-	snprintf(rp_xpath, sizeof(rp_xpath), FRR_PIM_STATIC_RP_XPATH,
-		 "frr-pim:pimd", "pim", vrfname, FRR_PIM_AF_XPATH_VAL, rp_str);
 	printed = snprintf(group_xpath, sizeof(group_xpath),
-			   "%s/group-list[.='%s']", rp_xpath, group_str);
+			   "./" FRR_PIM_STATIC_RP_XPATH "/group-list[.='%s']",
+			   rp_str, group_str);
 
 	if (printed >= (int)(sizeof(group_xpath))) {
 		vty_out(vty, "Xpath too long (%d > %u)", printed + 1,
@@ -601,15 +524,10 @@ int pim_process_no_rp_cmd(struct vty *vty, const char *rp_str,
 	char group_xpath[XPATH_MAXLEN];
 	char rp_xpath[XPATH_MAXLEN];
 	int printed;
-	const char *vrfname;
 	const struct lyd_node *group_dnode;
 
-	vrfname = pim_cli_get_vrf_name(vty);
-	if (vrfname == NULL)
-		return CMD_WARNING_CONFIG_FAILED;
-
-	snprintf(rp_xpath, sizeof(rp_xpath), FRR_PIM_STATIC_RP_XPATH,
-		 "frr-pim:pimd", "pim", vrfname, FRR_PIM_AF_XPATH_VAL, rp_str);
+	snprintf(rp_xpath, sizeof(rp_xpath), "%s/" FRR_PIM_STATIC_RP_XPATH,
+		 VTY_CURR_XPATH, rp_str);
 	printed = snprintf(group_xpath, sizeof(group_xpath),
 			   "%s/group-list[.='%s']", rp_xpath, group_str);
 
@@ -636,16 +554,10 @@ int pim_process_no_rp_cmd(struct vty *vty, const char *rp_str,
 int pim_process_rp_plist_cmd(struct vty *vty, const char *rp_str,
 			     const char *prefix_list)
 {
-	const char *vrfname;
 	char rp_plist_xpath[XPATH_MAXLEN];
 
-	vrfname = pim_cli_get_vrf_name(vty);
-	if (vrfname == NULL)
-		return CMD_WARNING_CONFIG_FAILED;
-
 	snprintf(rp_plist_xpath, sizeof(rp_plist_xpath),
-		 FRR_PIM_STATIC_RP_XPATH, "frr-pim:pimd", "pim", vrfname,
-		 FRR_PIM_AF_XPATH_VAL, rp_str);
+		 "./" FRR_PIM_STATIC_RP_XPATH, rp_str);
 	strlcat(rp_plist_xpath, "/prefix-list", sizeof(rp_plist_xpath));
 
 	nb_cli_enqueue_change(vty, rp_plist_xpath, NB_OP_MODIFY, prefix_list);
@@ -658,19 +570,12 @@ int pim_process_no_rp_plist_cmd(struct vty *vty, const char *rp_str,
 {
 	char rp_xpath[XPATH_MAXLEN];
 	char plist_xpath[XPATH_MAXLEN];
-	const char *vrfname;
 	const struct lyd_node *plist_dnode;
 	const char *plist;
 
-	vrfname = pim_cli_get_vrf_name(vty);
-	if (vrfname == NULL)
-		return CMD_WARNING_CONFIG_FAILED;
-
-	snprintf(rp_xpath, sizeof(rp_xpath), FRR_PIM_STATIC_RP_XPATH,
-		 "frr-pim:pimd", "pim", vrfname, FRR_PIM_AF_XPATH_VAL, rp_str);
-
-	snprintf(plist_xpath, sizeof(plist_xpath), FRR_PIM_STATIC_RP_XPATH,
-		 "frr-pim:pimd", "pim", vrfname, FRR_PIM_AF_XPATH_VAL, rp_str);
+	snprintf(rp_xpath, sizeof(rp_xpath), "%s/" FRR_PIM_STATIC_RP_XPATH,
+		 VTY_CURR_XPATH, rp_str);
+	snprintf(plist_xpath, sizeof(plist_xpath), "%s", rp_xpath);
 	strlcat(plist_xpath, "/prefix-list", sizeof(plist_xpath));
 
 	plist_dnode = yang_dnode_get(vty->candidate_config->dnode, plist_xpath);
@@ -679,7 +584,7 @@ int pim_process_no_rp_plist_cmd(struct vty *vty, const char *rp_str,
 		return NB_OK;
 	}
 
-	plist = yang_dnode_get_string(plist_dnode, "%s", plist_xpath);
+	plist = yang_dnode_get_string(plist_dnode, NULL);
 	if (strcmp(prefix_list, plist)) {
 		vty_out(vty, "%% Unable to find specified RP\n");
 		return NB_OK;
@@ -3408,21 +3313,11 @@ int gm_process_no_last_member_query_interval_cmd(struct vty *vty)
 int pim_process_ssmpingd_cmd(struct vty *vty, enum nb_operation operation,
 			     const char *src_str)
 {
-	const char *vrfname;
-	char ssmpingd_ip_xpath[XPATH_MAXLEN];
 	char ssmpingd_src_ip_xpath[XPATH_MAXLEN];
 	int printed;
 
-	vrfname = pim_cli_get_vrf_name(vty);
-	if (vrfname == NULL)
-		return CMD_WARNING_CONFIG_FAILED;
-
-	snprintf(ssmpingd_ip_xpath, sizeof(ssmpingd_ip_xpath),
-		 FRR_PIM_VRF_XPATH, "frr-pim:pimd", "pim", vrfname,
-		 FRR_PIM_AF_XPATH_VAL);
 	printed = snprintf(ssmpingd_src_ip_xpath, sizeof(ssmpingd_src_ip_xpath),
-			   "%s/ssm-pingd-source-ip[.='%s']", ssmpingd_ip_xpath,
-			   src_str);
+			   "./ssm-pingd-source-ip[.='%s']", src_str);
 	if (printed >= (int)sizeof(ssmpingd_src_ip_xpath)) {
 		vty_out(vty, "Xpath too long (%d > %u)", printed + 1,
 			XPATH_MAXLEN);
@@ -5704,4 +5599,35 @@ int pim_show_bsm_db_helper(const char *vrf, struct vty *vty, bool uj)
 	pim_show_bsm_db(v->info, vty, uj);
 
 	return CMD_SUCCESS;
+}
+
+int pim_router_config_write(struct vty *vty)
+{
+	struct vrf *vrf;
+	struct pim_instance *pim;
+	int writes = 0;
+	char framestr[64] = { 0 };
+
+	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
+		pim = vrf->info;
+
+		if (!pim)
+			continue;
+
+		snprintfrr(framestr, sizeof(framestr), "router %s",
+			   PIM_AF_ROUTER);
+		if (vrf->vrf_id != VRF_DEFAULT) {
+			strlcat(framestr, " vrf ", sizeof(framestr));
+			strlcat(framestr, vrf->name, sizeof(framestr));
+		}
+		vty_frame(vty, "%s\n", framestr);
+		++writes;
+
+		writes += pim_global_config_write_worker(pim, vty);
+
+		vty_endframe(vty, "exit\n");
+		++writes;
+	}
+
+	return writes;
 }

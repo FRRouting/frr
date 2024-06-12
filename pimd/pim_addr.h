@@ -26,6 +26,7 @@ typedef struct prefix_ipv4 prefix_pim;
 #define PIM_MAX_BITLEN	IPV4_MAX_BITLEN
 #define PIM_AF_NAME     "ip"
 #define PIM_AF_DBG	"pim"
+#define PIM_AF_ROUTER	"pim"
 #define GM_AF_DBG	"igmp"
 #define PIM_MROUTE_DBG  "mroute"
 #define PIMREG          "pimreg"
@@ -58,6 +59,7 @@ typedef struct prefix_ipv6 prefix_pim;
 #define PIM_MAX_BITLEN	IPV6_MAX_BITLEN
 #define PIM_AF_NAME     "ipv6"
 #define PIM_AF_DBG	"pimv6"
+#define PIM_AF_ROUTER	"pim6"
 #define GM_AF_DBG	"mld"
 #define PIM_MROUTE_DBG  "mroute6"
 #define PIMREG          "pim6reg"

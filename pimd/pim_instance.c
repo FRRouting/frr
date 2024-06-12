@@ -201,6 +201,7 @@ static int pim_vrf_config_write(struct vty *vty)
 {
 	struct vrf *vrf;
 	struct pim_instance *pim;
+	char spaces[10];
 
 	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
 		pim = vrf->info;
@@ -208,10 +209,24 @@ static int pim_vrf_config_write(struct vty *vty)
 		if (!pim)
 			continue;
 
-		if (vrf->vrf_id != VRF_DEFAULT)
+		if (vrf->vrf_id != VRF_DEFAULT) {
 			vty_frame(vty, "vrf %s\n", vrf->name);
+			snprintf(spaces, sizeof(spaces), "%s", " ");
+		} else {
+			snprintf(spaces, sizeof(spaces), "%s", "");
+		}
 
-		pim_global_config_write_worker(pim, vty);
+		/* Global IGMP/MLD configuration */
+		if (pim->gm_watermark_limit != 0) {
+#if PIM_IPV == 4
+			vty_out(vty,
+				"%s" PIM_AF_NAME " igmp watermark-warn %u\n",
+				spaces, pim->gm_watermark_limit);
+#else
+			vty_out(vty, "%s" PIM_AF_NAME " mld watermark-warn %u\n",
+				spaces, pim->gm_watermark_limit);
+#endif
+		}
 
 		if (vrf->vrf_id != VRF_DEFAULT)
 			vty_endframe(vty, "exit-vrf\n!\n");

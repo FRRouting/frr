@@ -1129,8 +1129,7 @@ int pim_rp_set_upstream_addr(struct pim_instance *pim, pim_addr *up,
 	return 1;
 }
 
-int pim_rp_config_write(struct pim_instance *pim, struct vty *vty,
-			const char *spaces)
+int pim_rp_config_write(struct pim_instance *pim, struct vty *vty)
 {
 	struct listnode *node;
 	struct rp_info *rp_info;
@@ -1146,13 +1145,11 @@ int pim_rp_config_write(struct pim_instance *pim, struct vty *vty,
 
 		rp_addr = rp_info->rp.rpf_addr;
 		if (rp_info->plist)
-			vty_out(vty,
-				"%s" PIM_AF_NAME
-				" pim rp %pPA prefix-list %s\n",
-				spaces, &rp_addr, rp_info->plist);
+			vty_out(vty, " rp %pPA prefix-list %s\n", &rp_addr,
+				rp_info->plist);
 		else
-			vty_out(vty, "%s" PIM_AF_NAME " pim rp %pPA %pFX\n",
-				spaces, &rp_addr, &rp_info->group);
+			vty_out(vty, " rp %pPA %pFX\n", &rp_addr,
+				&rp_info->group);
 		count++;
 	}
 
