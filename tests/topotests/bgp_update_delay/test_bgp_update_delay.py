@@ -90,7 +90,7 @@ def setup_module(mod):
 
     router_list = tgen.routers()
 
-    for i, (rname, router) in enumerate(router_list.items(), 1):
+    for _, (rname, router) in enumerate(router_list.items(), 1):
         router.load_config(
             TopoRouter.RD_ZEBRA, os.path.join(CWD, "{}/zebra.conf".format(rname))
         )
@@ -169,7 +169,7 @@ def test_bgp_update_delay():
 
     # Check r2 initial convergence in default table
     test_func = functools.partial(_bgp_converge, router2)
-    success, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
 
     assert result is None, 'Failed bgp convergence in "{}"'.format(router2)
 
@@ -195,7 +195,7 @@ def test_bgp_update_delay():
     router2.vtysh_cmd("""clear ip bgp *""")
 
     test_func = functools.partial(_bgp_check_update_delay_in_progress, router2)
-    success, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
 
     assert result is None, 'Failed to set update-delay max-delay timer "{}"'.format(
         router2
@@ -203,7 +203,7 @@ def test_bgp_update_delay():
 
     # Check that r2 only installs route learned from r4 after the max-delay timer expires
     test_func = functools.partial(_bgp_check_route_install, router2)
-    success, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
 
     assert result is None, 'Failed to install route after update-delay "{}"'.format(
         router2
@@ -219,7 +219,7 @@ def test_bgp_update_delay():
     )
 
     test_func = functools.partial(_bgp_check_update_delay_and_wait, router2)
-    success, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
 
     assert (
         result is None
@@ -229,7 +229,7 @@ def test_bgp_update_delay():
     router2.vtysh_cmd("""clear ip bgp *""")
 
     test_func = functools.partial(_bgp_check_route_install, router3)
-    success, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
 
     assert (
         result is None
@@ -250,7 +250,7 @@ def test_bgp_update_delay():
     router2.vtysh_cmd("""clear ip bgp *""")
 
     test_func = functools.partial(_bgp_check_route_install, router2)
-    success, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
 
     assert result is None, 'Failed to remove update-delay delay timing "{}"'.format(
         router2
@@ -266,14 +266,14 @@ def test_bgp_update_delay():
 
     # Check that r2 default instance and vrf1 have the max-delay and establish set
     test_func = functools.partial(_bgp_check_update_delay_and_wait, router2)
-    success, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
 
     assert result is None, 'Failed to set update-delay in default instance "{}"'.format(
         router2
     )
 
     test_func = functools.partial(_bgp_check_vrf_update_delay_and_wait, router2)
-    success, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
 
     assert result is None, 'Failed to set update-delay in vrf1 "{}"'.format(router2)
 
@@ -281,7 +281,7 @@ def test_bgp_update_delay():
     router2.vtysh_cmd("""clear ip bgp *""")
 
     test_func = functools.partial(_bgp_check_route_install, router3)
-    success, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
 
     assert (
         result is None

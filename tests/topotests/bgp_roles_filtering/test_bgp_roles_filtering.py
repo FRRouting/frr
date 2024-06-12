@@ -69,7 +69,7 @@ def test_r10_routes(tgen):
         ]
         return output == expected
 
-    success, result = topotest.run_and_expect(
+    success, _ = topotest.run_and_expect(
         _routes_half_converged, True, count=20, wait=3
     )
     assert success, "Routes did not converged"

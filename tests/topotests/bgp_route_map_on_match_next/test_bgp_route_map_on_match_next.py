@@ -42,7 +42,7 @@ def setup_module(mod):
 
     router_list = tgen.routers()
 
-    for i, (rname, router) in enumerate(router_list.items(), 1):
+    for _, (rname, router) in enumerate(router_list.items(), 1):
         router.load_config(
             TopoRouter.RD_ZEBRA, os.path.join(CWD, "{}/zebra.conf".format(rname))
         )
@@ -83,12 +83,12 @@ def test_bgp_route_map_on_match_next():
 
     # Check thst session is established
     test_func = functools.partial(_bgp_converge, router2)
-    success, result = topotest.run_and_expect(test_func, None, count=30, wait=0.5)
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=0.5)
     assert result is None, "Failed bgp convergence on r2"
 
     # Check that metric is 0 and weight is 100 for the received prefix
     test_func = functools.partial(_bgp_has_routes, router2, 0, 100)
-    success, result = topotest.run_and_expect(test_func, None, count=30, wait=0.5)
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=0.5)
     assert result is None, "r2 does not receive routes with metric 0 and weight 100"
 
     # Update the route-map and add "on-match next" to entry 10
@@ -102,7 +102,7 @@ def test_bgp_route_map_on_match_next():
 
     # Check that metric is 20 and weight is 100 for the received prefix
     test_func = functools.partial(_bgp_has_routes, router2, 20, 100)
-    success, result = topotest.run_and_expect(test_func, None, count=30, wait=0.5)
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=0.5)
     assert result is None, "r2 does not receive routes with metric 20 and weight 100"
 
 

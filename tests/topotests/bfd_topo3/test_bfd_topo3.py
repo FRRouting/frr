@@ -95,7 +95,7 @@ def expect_route_missing(router, iptype, route):
         "show {} route json".format(iptype),
         {route: None},
     )
-    rv, result = topotest.run_and_expect(test_func, None, count=20, wait=1)
+    _, result = topotest.run_and_expect(test_func, None, count=20, wait=1)
     assertmsg = '"{}" convergence failure'.format(router)
     assert result is None, assertmsg
 
