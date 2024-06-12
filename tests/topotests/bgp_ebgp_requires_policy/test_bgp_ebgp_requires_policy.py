@@ -71,7 +71,7 @@ def setup_module(mod):
 
     router_list = tgen.routers()
 
-    for i, (rname, router) in enumerate(router_list.items(), 1):
+    for _, (rname, router) in enumerate(router_list.items(), 1):
         router.load_config(
             TopoRouter.RD_ZEBRA, os.path.join(CWD, "{}/zebra.conf".format(rname))
         )
@@ -125,31 +125,31 @@ def test_ebgp_requires_policy():
     # Scenario 1.
     logger.info("Scenario 1: r2 receives 192.168.255.1/32 from r1")
     test_func = functools.partial(_bgp_converge, "r2")
-    success, result = topotest.run_and_expect(test_func, None, count=120, wait=0.5)
+    success, _ = topotest.run_and_expect(test_func, None, count=120, wait=0.5)
     assert success is True, "Failed bgp convergence (r2)"
 
     test_func = functools.partial(_bgp_has_routes, "r2")
-    success, result = topotest.run_and_expect(test_func, None, count=120, wait=0.5)
+    success, _ = topotest.run_and_expect(test_func, None, count=120, wait=0.5)
     assert success is True, "r2 does not receive 192.168.255.1/32"
 
     # Scenario 2.
     logger.info("Scenario 2: r3 must not send 192.168.255.1/32 to r4")
     test_func = functools.partial(_bgp_converge, "r4")
-    success, result = topotest.run_and_expect(test_func, None, count=120, wait=0.5)
+    success, _ = topotest.run_and_expect(test_func, None, count=120, wait=0.5)
     assert success is True, "Failed bgp convergence (r4)"
 
     test_func = functools.partial(_bgp_advertised_routes, "r3")
-    success, result = topotest.run_and_expect(test_func, None, count=120, wait=0.5)
+    success, _ = topotest.run_and_expect(test_func, None, count=120, wait=0.5)
     assert success is True, "r3 announced 192.168.255.1/32 to r4"
 
     # Scenario 3.
     logger.info("Scenario 3: r6 receives 192.168.255.1/32 from r5 (iBGP)")
     test_func = functools.partial(_bgp_converge, "r6")
-    success, result = topotest.run_and_expect(test_func, None, count=120, wait=0.5)
+    success, _ = topotest.run_and_expect(test_func, None, count=120, wait=0.5)
     assert success is True, "Failed bgp convergence (r6)"
 
     test_func = functools.partial(_bgp_has_routes, "r6")
-    success, result = topotest.run_and_expect(test_func, None, count=120, wait=0.5)
+    success, _ = topotest.run_and_expect(test_func, None, count=120, wait=0.5)
     assert success is True, "r6 does not receive 192.168.255.1/32"
 
 

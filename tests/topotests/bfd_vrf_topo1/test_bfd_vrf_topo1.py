@@ -61,7 +61,7 @@ def setup_module(mod):
     router_list = tgen.routers()
 
     # check for zebra capability
-    for rname, router in router_list.items():
+    for _, router in router_list.items():
         if router.check_capability(TopoRouter.RD_ZEBRA, "--vrfwnetns") == False:
             return pytest.skip(
                 "Skipping BFD Topo1 VRF NETNS feature. VRF NETNS backend not available on FRR"
