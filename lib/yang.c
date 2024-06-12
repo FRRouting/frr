@@ -795,7 +795,7 @@ char *yang_convert_lyd_format(const char *data, size_t data_len,
 
 	assert(out_format != LYD_LYB);
 
-	if (in_format != LYD_LYB && !MGMT_MSG_VALIDATE_NUL_TERM(data, data_len)) {
+	if (in_format != LYD_LYB && (!data_len || data[data_len - 1] != 0)) {
 		zlog_err("Corrupt input data, no NUL terminating byte");
 		return NULL;
 	}
