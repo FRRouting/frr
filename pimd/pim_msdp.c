@@ -1276,8 +1276,7 @@ static void pim_msdp_src_del(struct pim_msdp_mg *mg)
 }
 
 /*********************** MSDP feature APIs *********************************/
-int pim_msdp_config_write(struct pim_instance *pim, struct vty *vty,
-			  const char *spaces)
+int pim_msdp_config_write(struct pim_instance *pim, struct vty *vty)
 {
 	struct pim_msdp_mg *mg;
 	struct listnode *mbrnode;
@@ -1292,14 +1291,14 @@ int pim_msdp_config_write(struct pim_instance *pim, struct vty *vty,
 		if (mg->src_ip.s_addr != INADDR_ANY) {
 			pim_inet4_dump("<src?>", mg->src_ip, src_str,
 				       sizeof(src_str));
-			vty_out(vty, "%sip msdp mesh-group %s source %s\n",
-				spaces, mg->mesh_group_name, src_str);
+			vty_out(vty, " msdp mesh-group %s source %s\n",
+				mg->mesh_group_name, src_str);
 			++count;
 		}
 
 		for (ALL_LIST_ELEMENTS_RO(mg->mbr_list, mbrnode, mbr)) {
-			vty_out(vty, "%sip msdp mesh-group %s member %pI4\n",
-				spaces, mg->mesh_group_name, &mbr->mbr_ip);
+			vty_out(vty, " msdp mesh-group %s member %pI4\n",
+				mg->mesh_group_name, &mbr->mbr_ip);
 			++count;
 		}
 	}
@@ -1307,8 +1306,7 @@ int pim_msdp_config_write(struct pim_instance *pim, struct vty *vty,
 	return count;
 }
 
-bool pim_msdp_peer_config_write(struct vty *vty, struct pim_instance *pim,
-				const char *spaces)
+bool pim_msdp_peer_config_write(struct vty *vty, struct pim_instance *pim)
 {
 	struct pim_msdp_peer *mp;
 	struct listnode *node;
@@ -1319,8 +1317,8 @@ bool pim_msdp_peer_config_write(struct vty *vty, struct pim_instance *pim,
 		if (mp->flags & PIM_MSDP_PEERF_IN_GROUP)
 			continue;
 
-		vty_out(vty, "%sip msdp peer %pI4 source %pI4\n", spaces,
-			&mp->peer, &mp->local);
+		vty_out(vty, " msdp peer %pI4 source %pI4\n", &mp->peer,
+			&mp->local);
 		written = true;
 	}
 

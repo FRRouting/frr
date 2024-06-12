@@ -228,10 +228,8 @@ void pim_msdp_peer_pkt_rxed(struct pim_msdp_peer *mp);
 void pim_msdp_peer_stop_tcp_conn(struct pim_msdp_peer *mp, bool chg_state);
 void pim_msdp_peer_reset_tcp_conn(struct pim_msdp_peer *mp, const char *rc_str);
 void pim_msdp_write(struct event *thread);
-int pim_msdp_config_write(struct pim_instance *pim, struct vty *vty,
-			  const char *spaces);
-bool pim_msdp_peer_config_write(struct vty *vty, struct pim_instance *pim,
-				const char *spaces);
+int pim_msdp_config_write(struct pim_instance *pim, struct vty *vty);
+bool pim_msdp_peer_config_write(struct vty *vty, struct pim_instance *pim);
 void pim_msdp_peer_pkt_txed(struct pim_msdp_peer *mp);
 void pim_msdp_sa_ref(struct pim_instance *pim, struct pim_msdp_peer *mp,
 		     pim_sgaddr *sg, struct in_addr rp);
@@ -339,14 +337,13 @@ static inline void pim_msdp_sa_local_del(struct pim_instance *pim,
 }
 
 static inline int pim_msdp_config_write(struct pim_instance *pim,
-					struct vty *vty, const char *spaces)
+					struct vty *vty)
 {
 	return 0;
 }
 
 static inline bool pim_msdp_peer_config_write(struct vty *vty,
-					      struct pim_instance *pim,
-					      const char *spaces)
+					      struct pim_instance *pim)
 {
 	return false;
 }

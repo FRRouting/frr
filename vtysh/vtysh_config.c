@@ -497,6 +497,11 @@ void vtysh_config_parse_line(void *arg, const char *line)
 			config = config_get(BFD_NODE, line);
 		else if (strncmp(line, "rpki", strlen("rpki")) == 0)
 			config = config_get(RPKI_NODE, line);
+		else if (strncmp(line, "router pim", strlen("router pim")) == 0)
+			config = config_get(PIM_NODE, line);
+		else if (strncmp(line, "router pim6", strlen("router pim6")) ==
+			 0)
+			config = config_get(PIM6_NODE, line);
 		else {
 			if (strncmp(line, "log", strlen("log")) == 0 ||
 			    strncmp(line, "hostname", strlen("hostname")) == 0 ||
