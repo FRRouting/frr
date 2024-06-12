@@ -409,7 +409,7 @@ void isis_adj_state_change(struct isis_adjacency **padj,
 						master, send_l2_csnp, circuit,
 						0, &circuit->t_send_csnp[1]);
 				}
-			} else if (old_state == ISIS_ADJ_UP) {
+			} else if (old_state == ISIS_ADJ_UP || old_state == ISIS_ADJ_INITIALIZING) {
 				circuit->upadjcount[level - 1]--;
 				if (circuit->upadjcount[level - 1] == 0)
 					isis_tx_queue_clean(circuit->tx_queue);
