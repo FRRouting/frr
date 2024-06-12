@@ -2482,7 +2482,11 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 	 */
 	if (NEXTHOP_IS_V6) {
 		attr->mp_nexthop_len = BGP_ATTR_NHLEN_IPV6_GLOBAL;
-		if ((CHECK_FLAG(peer->af_flags[afi][safi],
+		if (CHECK_FLAG(peer->af_flags[afi][safi],
+				PEER_FLAG_NEXTHOP_LOCAL_UNCHANGED)
+		     && !IN6_IS_ADDR_LINKLOCAL(&attr->mp_nexthop_local)) {
+			zlog_debug("No link-local next-hop. Ignoring other checks");
+		} else if ((CHECK_FLAG(peer->af_flags[afi][safi],
 				PEER_FLAG_NEXTHOP_LOCAL_UNCHANGED)
 		     && IN6_IS_ADDR_LINKLOCAL(&attr->mp_nexthop_local))
 		    || (!reflect && !transparent
