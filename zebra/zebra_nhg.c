@@ -2921,39 +2921,14 @@ static uint32_t proto_nhg_nexthop_active_update(struct nexthop_group *nhg)
 	return curr_active;
 }
 
-/*
- * Iterate over all nexthops of the given RIB entry and refresh their
- * ACTIVE flag.  If any nexthop is found to toggle the ACTIVE flag,
- * the whole re structure is flagged with ROUTE_ENTRY_CHANGED.
- *
- * Return value is the new number of active nexthops.
- */
-int nexthop_active_update(struct route_node *rn, struct route_entry *re)
+static uint32_t nexthop_active_update_common(struct route_node *rn,
+					     struct route_entry *re,
+					     struct nhg_hash_entry *curr_nhe)
 {
-	struct nhg_hash_entry *curr_nhe;
 	uint32_t curr_active = 0, backup_active = 0;
-
-	if (PROTO_OWNED(re->nhe))
-		return proto_nhg_nexthop_active_update(&re->nhe->nhg);
-
 	afi_t rt_afi = family2afi(rn->p.family);
 
 	UNSET_FLAG(re->status, ROUTE_ENTRY_CHANGED);
-
-	/* Make a local copy of the existing nhe, so we don't work on/modify
-	 * the shared nhe.
-	 */
-	curr_nhe = zebra_nhe_copy(re->nhe, re->nhe->id);
-
-	if (IS_ZEBRA_DEBUG_NHG_DETAIL)
-		zlog_debug("%s: re %p nhe %p (%pNG), curr_nhe %p", __func__, re,
-			   re->nhe, re->nhe, curr_nhe);
-
-	/* Clear the existing id, if any: this will avoid any confusion
-	 * if the id exists, and will also force the creation
-	 * of a new nhe reflecting the changes we may make in this local copy.
-	 */
-	curr_nhe->id = 0;
 
 	/* Process nexthops */
 	curr_active = nexthop_list_active_update(rn, re, curr_nhe, false);
@@ -2999,6 +2974,41 @@ backups_done:
 	 */
 	if (curr_active)
 		zebra_nhg_set_valid_if_active(re->nhe);
+
+	return curr_active;
+}
+
+/*
+ * Iterate over all nexthops of the given RIB entry and refresh their
+ * ACTIVE flag.  If any nexthop is found to toggle the ACTIVE flag,
+ * the whole re structure is flagged with ROUTE_ENTRY_CHANGED.
+ *
+ * Return value is the new number of active nexthops.
+ */
+int nexthop_active_update(struct route_node *rn, struct route_entry *re)
+{
+	struct nhg_hash_entry *curr_nhe;
+	uint32_t curr_active;
+
+	if (PROTO_OWNED(re->nhe))
+		return proto_nhg_nexthop_active_update(&re->nhe->nhg);
+
+	/* Make a local copy of the existing nhe, so we don't work on/modify
+	 * the shared nhe.
+	 */
+	curr_nhe = zebra_nhe_copy(re->nhe, re->nhe->id);
+
+	if (IS_ZEBRA_DEBUG_NHG_DETAIL)
+		zlog_debug("%s: re %p nhe %p (%pNG), curr_nhe %p", __func__, re,
+			   re->nhe, re->nhe, curr_nhe);
+
+	/* Clear the existing id, if any: this will avoid any confusion
+	 * if the id exists, and will also force the creation
+	 * of a new nhe reflecting the changes we may make in this local copy.
+	 */
+	curr_nhe->id = 0;
+
+	curr_active = nexthop_active_update_common(rn, re, curr_nhe);
 
 	/*
 	 * Do not need the old / copied nhe anymore since it
