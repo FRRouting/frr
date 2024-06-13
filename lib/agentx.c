@@ -49,6 +49,7 @@ static int agentx_read_now(int fd)
 	netsnmp_large_fd_set lfds;
 	int flags, new_flags = 0;
 	int nonblock = false;
+	struct timeval timeout = {.tv_sec = 0, .tv_usec = 0};
 
 	/* fix for non blocking socket */
 	flags = fcntl(fd, F_GETFL, 0);
@@ -69,7 +70,8 @@ static int agentx_read_now(int fd)
 
 	netsnmp_large_fd_set_init(&lfds, FD_SETSIZE);
 	netsnmp_large_fd_setfd(fd, &lfds);
-	snmp_read2(&lfds);
+	if (netsnmp_large_fd_set_select(fd+1, &lfds, NULL, NULL, &timeout))
+		snmp_read2(&lfds);
 
 	/* Reset the flag */
 	if (!nonblock) {
