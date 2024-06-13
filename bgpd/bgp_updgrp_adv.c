@@ -1073,7 +1073,8 @@ void subgroup_default_originate(struct update_subgroup *subgrp, bool withdraw)
 			}
 
 			/* Advertise the default route */
-			if (bgp_in_graceful_shutdown(bgp))
+			if (bgp_in_graceful_shutdown(bgp) ||
+			    (CHECK_FLAG(peer->flags, PEER_FLAG_GRACEFUL_SHUTDOWN)))
 				bgp_attr_add_gshut_community(new_attr);
 
 			SET_FLAG(subgrp->sflags,
