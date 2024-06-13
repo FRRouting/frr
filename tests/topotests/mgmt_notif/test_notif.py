@@ -51,7 +51,7 @@ def test_frontend_notification(tgen):
 
     check_kernel_32(r1, "11.11.11.11", 1, "")
 
-    fe_client_path = CWD + "/../lib/fe_client.py"
+    fe_client_path = CWD + "/../lib/fe_client.py --verbose"
     rc, _, _ = r1.cmd_status(fe_client_path + " --help")
 
     if rc:
@@ -61,7 +61,7 @@ def test_frontend_notification(tgen):
     # So we filter to avoid that, all the rest are frr-ripd:authentication-failure
     # making our test deterministic
     output = r1.cmd_raises(
-        fe_client_path + " --listen  frr-ripd:authentication-failure"
+        fe_client_path + " --listen /frr-ripd:authentication-failure"
     )
     jsout = json.loads(output)
 
@@ -69,7 +69,7 @@ def test_frontend_notification(tgen):
     result = json_cmp(jsout, expected)
     assert result is None
 
-    output = r1.cmd_raises(fe_client_path + " --listen")
+    output = r1.cmd_raises(fe_client_path + " --use-protobuf --listen")
     jsout = json.loads(output)
 
     expected = {"frr-ripd:authentication-failure": {"interface-name": "r1-eth0"}}

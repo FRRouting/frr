@@ -24,6 +24,8 @@
  *  - darr_ensure_i
  *  - darr_ensure_i_mt
  *  - darr_free
+ *  - darr_free_free
+ *  - darr_free_func
  *  - darr_insert
  *  - darr_insert_mt
  *  - darr_insertz
@@ -215,6 +217,41 @@ void *__darr_resize(void *a, uint count, size_t esize, struct memtype *mt);
 			XFREE(__meta->mtype, __meta);                          \
 			(A) = NULL;                                            \
 		}                                                              \
+	} while (0)
+
+/**
+ * Free memory allocated for the dynamic array `A`, calling `darr_free` for
+ * each element of the array first.
+ *
+ * Args:
+ *	A: The dynamic array, can be NULL.
+ */
+#define darr_free_free(A)                                                      \
+	do {                                                                   \
+		for (uint __i = 0; __i < darr_len(A); __i++)                   \
+			if ((A)[__i]) {                                        \
+				struct darr_metadata *__meta =                 \
+					_darr_meta((A)[__i]);                  \
+				XFREE(__meta->mtype, __meta);                  \
+			}                                                      \
+		darr_free(A);                                                  \
+	} while (0)
+
+/**
+ * Free memory allocated for the dynamic array `A`, calling `F` routine
+ * for each element of the array first.
+ *
+ * Args:
+ *	A: The dynamic array, can be NULL.
+ *	F: The function to call for each element.
+ */
+
+#define darr_free_func(A, F)                                                   \
+	do {                                                                   \
+		for (uint __i = 0; __i < darr_len(A); __i++) {                 \
+			F((A)[__i]);                                           \
+		}                                                              \
+		darr_free(A);                                                  \
 	} while (0)
 
 /**

@@ -163,6 +163,8 @@ DECLARE_MTYPE(MSG_NATIVE_EDIT);
 DECLARE_MTYPE(MSG_NATIVE_EDIT_REPLY);
 DECLARE_MTYPE(MSG_NATIVE_RPC);
 DECLARE_MTYPE(MSG_NATIVE_RPC_REPLY);
+DECLARE_MTYPE(MSG_NATIVE_SESSION_REQ);
+DECLARE_MTYPE(MSG_NATIVE_SESSION_REPLY);
 
 /*
  * Native message codes
@@ -176,6 +178,9 @@ DECLARE_MTYPE(MSG_NATIVE_RPC_REPLY);
 #define MGMT_MSG_CODE_EDIT_REPLY 6 /* Public API */
 #define MGMT_MSG_CODE_RPC	 7 /* Public API */
 #define MGMT_MSG_CODE_RPC_REPLY	 8 /* Public API */
+#define MGMT_MSG_CODE_NOTIFY_SELECT 9 /* Public API */
+#define MGMT_MSG_CODE_SESSION_REQ   10 /* Public API */
+#define MGMT_MSG_CODE_SESSION_REPLY 11 /* Public API */
 
 /*
  * Datastores
@@ -426,12 +431,72 @@ _Static_assert(sizeof(struct mgmt_msg_rpc_reply) ==
 		       offsetof(struct mgmt_msg_rpc_reply, data),
 	       "Size mismatch");
 
+/**
+ * struct mgmt_msg_notify_select - Add notification selectors for FE client.
+ *
+ * Add xpath prefix notification selectors to limit the notifications sent
+ * to the front-end client.
+ *
+ * @selectors: the xpath prefixes to selectors notifications through.
+ * @replace: if true replace existing selectors with `selectors`.
+ */
+struct mgmt_msg_notify_select {
+	struct mgmt_msg_header;
+	uint8_t replace;
+	uint8_t resv2[7];
+
+	alignas(8) char selectors[];
+};
+
+_Static_assert(sizeof(struct mgmt_msg_notify_select) ==
+		       offsetof(struct mgmt_msg_notify_select, selectors),
+	       "Size mismatch");
+
+/**
+ * struct mgmt_msg_session_req - Create or delete a front-end session.
+ *
+ * @refer_id: Zero for create, otherwise the session-id to delete.
+ * @req_id: For create will use as client-id.
+ * @client_name: For first session request the client name, otherwise empty.
+ */
+struct mgmt_msg_session_req {
+	struct mgmt_msg_header;
+	uint8_t resv2[8]; /* bug in compiler produces error w/o this */
+
+	alignas(8) char client_name[];
+};
+
+_Static_assert(sizeof(struct mgmt_msg_session_req) ==
+		       offsetof(struct mgmt_msg_session_req, client_name),
+	       "Size mismatch");
+
+/**
+ * struct mgmt_msg_session_reply - Reply to session request message.
+ *
+ * @created: true if this is a reply to a create request, otherwise 0.
+ * @refer_id: The session-id for the action (create or delete) just taken.
+ */
+struct mgmt_msg_session_reply {
+	struct mgmt_msg_header;
+	uint8_t created;
+	uint8_t resv2[7];
+};
+
 /*
  * Validate that the message ends in a NUL terminating byte
  */
 #define MGMT_MSG_VALIDATE_NUL_TERM(msgp, len)                                  \
 	((len) >= sizeof(*msgp) + 1 && ((char *)msgp)[(len)-1] == 0)
 
+/**
+ * mgmt_msg_get_min_size() - Get minimum message size given the type
+ * @code: The type of the message (MGMT_MSG_CODE_*)
+ *
+ * Return:
+ *	The minimum size of a message of the given type or 0 if the message
+ *	code is unknown.
+ */
+size_t mgmt_msg_get_min_size(uint code);
 
 /**
  * Send a native message error to the other end of the connection.
@@ -523,6 +588,25 @@ extern int vmgmt_msg_native_send_error(struct msg_conn *conn,
 		memcpy(p, data, len);                                          \
 		p;                                                             \
 	})
+
+/**
+ * mgmt_msg_native_add_str() - Append [another] string to the msg.
+ * @msg: (IN/OUT) Pointer to the native message, variable may be updated.
+ * @s: string to append.
+ *
+ * Append string @s to the native message @msg. @msg is assumed to have a
+ * sequence of NUL-terminated strings at the end of it. This function appends
+ * the string @s and it's NUL terminating octet to the message.
+ *
+ * NOTE: Be aware @msg pointer may change as a result of reallocating the
+ * message to fit the new data. Any other pointers into the old message should
+ * be discarded.
+ */
+#define mgmt_msg_native_add_str(msg, s)                                        \
+	do {                                                                   \
+		int __len = strlen(s) + 1;                                     \
+		mgmt_msg_native_append(msg, s, __len);                         \
+	} while (0)
 
 /**
  * mgmt_msg_native_send_msg(msg, short_circuit_ok) - Send a native msg.
@@ -688,6 +772,27 @@ extern int vmgmt_msg_native_send_error(struct msg_conn *conn,
  */
 #define mgmt_msg_native_data_len_decode(msg, msglen)                           \
 	((msglen) - sizeof(*msg) - msg->vsplit)
+
+/**
+ * mgmt_msg_native_strings_decode() - Get dynamic array of str ptrs from the msg.
+ * @msg: Pointer to the native message.
+ * @msglen: Length of the message.
+ * @sdata: pointer to the variable length string data at end of @msg.
+ *
+ * Given a pointer to a sequence of NUL-terminated strings allocate
+ * and return a dynamic array of dynamic array strings. This function
+ * can be used to decode a message that was built using
+ * mgmt_msg_native_add_str().
+ *
+ * Return: a dynamic array (darr) of string pointers, or NULL if the message
+ * is corrupt.
+ */
+#define mgmt_msg_native_strings_decode(msg, msg_len, sdata)                    \
+	_mgmt_msg_native_strings_decode(sdata,                                 \
+					(msg_len) - ((sdata) - (char *)(msg)))
+
+extern const char **_mgmt_msg_native_strings_decode(const void *sdata,
+						    int sdlen);
 
 #ifdef __cplusplus
 }
