@@ -13366,7 +13366,9 @@ DEFUN (clear_ip_ospf_interface,
 		/* Interface name is specified. */
 		ifp = if_lookup_by_name(argv[idx_ifname]->arg, vrf_id);
 		if (ifp == NULL)
-			vty_out(vty, "No such interface name\n");
+			vty_out(vty, "%% No such interface name\n");
+		else if (ospf_oi_count(ifp) == 0)
+			vty_out(vty, "%% OSPF not enabled on this interface\n");
 		else
 			ospf_interface_clear(ifp);
 	}
