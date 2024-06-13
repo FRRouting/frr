@@ -333,6 +333,7 @@ static unsigned int updgrp_hash_key_make(const void *p)
 	 */
 #define SEED1 999331
 #define SEED2 2147483647
+#define SEED3 4258594758
 
 	updgrp = p;
 	peer = updgrp->conf;
@@ -438,6 +439,10 @@ static unsigned int updgrp_hash_key_make(const void *p)
 	    || CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_MAX_PREFIX_OUT))
 		key = jhash_1word(jhash(peer->host, strlen(peer->host), SEED2),
 				  key);
+
+	if (CHECK_FLAG(peer->flags, PEER_FLAG_GRACEFUL_SHUTDOWN))
+		key = jhash_1word(jhash(peer->host, strlen(peer->host), SEED3), key);
+
 	/*
 	 * Multiple sessions with the same neighbor should get their own
 	 * update-group if they have different roles.
