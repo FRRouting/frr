@@ -2702,10 +2702,13 @@ static int bgp_attr_encap(struct bgp_attr_parser_args *args)
 
 		if (BGP_ATTR_ENCAP == type) {
 			subtype = stream_getc(BGP_INPUT(peer));
-			sublength = (subtype < 128)
-					    ? stream_getc(BGP_INPUT(peer))
-					    : stream_getw(BGP_INPUT(peer));
-			length -= 2;
+			if (subtype < 128) {
+				sublength = stream_getc(BGP_INPUT(peer));
+				length -= 2;
+			} else {
+				sublength = stream_getw(BGP_INPUT(peer));
+				length -= 3;
+			}
 #ifdef ENABLE_BGP_VNC
 		} else {
 			subtype = stream_getw(BGP_INPUT(peer));
