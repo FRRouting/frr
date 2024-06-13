@@ -2492,8 +2492,11 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 		    || (!reflect && !transparent
 			&& IN6_IS_ADDR_LINKLOCAL(&peer->nexthop.v6_local)
 			&& peer->shared_network
-			&& (from == bgp->peer_self
-			    || peer->sort == BGP_PEER_EBGP))) {
+			&& ((from == bgp->peer_self
+				&& peer->sort == BGP_PEER_EBGP)
+				|| (from != bgp->peer_self
+					&& IN6_IS_ADDR_LINKLOCAL(&attr->mp_nexthop_local)
+					&& peer->sort == BGP_PEER_EBGP)))) {
 			if (safi == SAFI_MPLS_VPN)
 				attr->mp_nexthop_len =
 					BGP_ATTR_NHLEN_VPNV6_GLOBAL_AND_LL;
