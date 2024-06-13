@@ -11812,10 +11812,8 @@ DEFPY(clear_ip_ospf_neighbor, clear_ip_ospf_neighbor_cmd,
 	/* Clear all the ospf processes */
 	for (ALL_LIST_ELEMENTS_RO(om->ospf, node, ospf)) {
 		if (vrf && (ospf->vrf_id == vrf->vrf_id)) {
-			if (nbr_id_str &&
-			    IPV4_ADDR_SAME(&ospf->router_id, &nbr_id)) {
-				vty_out(vty,
-					"Self router-id is not allowed.\r\n ");
+			if (nbr_id_str && IPV4_ADDR_SAME(&ospf->router_id, &nbr_id)) {
+				vty_out(vty, "Self router-id is not allowed.\r\n ");
 				return CMD_SUCCESS;
 			}
 
@@ -13400,8 +13398,13 @@ DEFUN (clear_ip_ospf_interface,
 		ifp = if_lookup_by_name(argv[idx_ifname]->arg, vrf_id);
 		if (ifp == NULL)
 			vty_out(vty, "No such interface name\n");
-		else
-			ospf_interface_clear(ifp);
+		else {
+			if (ospf_oi_count(ifp) == 0) {
+				vty_out(vty, "OSPF not enabled on this interface\n");
+			} else {
+				ospf_interface_clear(ifp);
+			}
+		}
 	}
 
 	return CMD_SUCCESS;
