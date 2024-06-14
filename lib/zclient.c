@@ -1927,6 +1927,7 @@ int zapi_nexthop_from_nexthop(struct zapi_nexthop *znh,
 	znh->weight = nh->weight;
 	znh->ifindex = nh->ifindex;
 	znh->gate = nh->gate;
+	znh->srte_color = nh->srte_color;
 
 	if (CHECK_FLAG(nh->flags, NEXTHOP_FLAG_ONLINK))
 		SET_FLAG(znh->flags, ZAPI_NEXTHOP_FLAG_ONLINK);
