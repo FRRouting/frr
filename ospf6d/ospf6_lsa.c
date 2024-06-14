@@ -395,6 +395,7 @@ const char *ospf6_lstype_short_name(uint16_t type)
 uint8_t ospf6_lstype_debug(uint16_t type)
 {
 	const struct ospf6_lsa_handler *handler;
+
 	handler = ospf6_get_lsa_handler(type);
 	return handler->lh_debug;
 }
