@@ -2,7 +2,6 @@
 /*
  * Stub netlink parser library module
  * Copyright (c) 2023 Cisco Systems Inc.
- *
  */
 
 #include "config.h"
@@ -13,7 +12,11 @@ XREF_SETUP();
 /* Only used with netlink, for now */
 #ifdef HAVE_NETLINK
 
-#ifndef FRR_KERNEL_NETLINK
+/* This is built two ways: embedded in a zebra netlink module, and as a
+ * standalone shared-lib. We have to do a little bit of adaptation to make
+ * that work.
+ */
+#ifndef FRR_ZEBRA_KERNEL_NETLINK
 
 /* Need some things to build this code as standalone, outside zebra. */
 
@@ -32,7 +35,41 @@ void vzlogx(const struct xref_logmsg *xref, int prio, const char *fmt,
 {
 }
 
-#endif	/* FRR_KERNEL_NETLINK */
+#endif	/* FRR_ZEBRA_KERNEL_NETLINK */
+
+/*
+ * Init nl message in-place in a buffer
+ */
+struct nlmsghdr *nl_msg_init(int type, int flags, int seq, int pid,
+			     uint8_t *buf, uint32_t buflen)
+{
+	struct nlmsghdr *n;
+
+	if (buflen < sizeof(struct nlmsghdr))
+		return NULL;
+
+	n = (void *)buf;
+	memset(n, 0, sizeof(struct nlmsghdr));
+
+	n->nlmsg_type = type;
+	n->nlmsg_flags = flags;
+	n->nlmsg_seq = seq;
+	n->nlmsg_pid = pid;
+	n->nlmsg_len = NLMSG_LENGTH(0);
+
+	return n;
+}
+
+/* Access data from embedded message header */
+void nl_msg_get_data(const struct nlmsghdr *n, uint16_t *ptype, uint32_t *plen,
+		     uint16_t *pflags)
+{
+	if (n) {
+		*plen = n->nlmsg_len;
+		*ptype = n->nlmsg_type;
+		*pflags = n->nlmsg_flags;
+	}
+}
 
 void netlink_parse_rtattr(struct rtattr **tb, int max, struct rtattr *rta,
 			  int len)
@@ -54,6 +91,43 @@ void netlink_parse_rtattr(struct rtattr **tb, int max, struct rtattr *rta,
 			tb[type] = rta;
 		rta = RTA_NEXT(rta, len);
 	}
+}
+
+/*
+ * Given a message header, locate and parse out the atttributes
+ */
+struct nlmsghdr *netlink_parse_buf(struct rtattr **tb, int max,
+				   void *buf, size_t len)
+{
+	struct nlmsghdr *msg;
+	struct rtattr *rta;
+	uint8_t *ptr;
+	uint32_t offset = 0;
+
+	msg = buf;
+
+	if (len < msg->nlmsg_len)
+		return NULL;
+
+	/* Figure out where the attrs start, then use the attribute
+	 * parse api.
+	 */
+	if (msg->nlmsg_type == RTM_NEWROUTE ||
+	    msg->nlmsg_type == RTM_DELROUTE) {
+		offset = sizeof(struct rtmsg);
+	}
+	/* Add clauses for the messages we want to use in this path... */
+
+	if (offset > msg->nlmsg_len)
+		return NULL;
+
+	ptr = NLMSG_DATA(msg);
+	ptr += offset;
+	rta = (void *)ptr;
+
+	netlink_parse_rtattr(tb, max, rta, msg->nlmsg_len - offset);
+
+	return msg;
 }
 
 /**

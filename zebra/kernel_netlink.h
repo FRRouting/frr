@@ -46,6 +46,14 @@ struct zebra_ns;
 #define NL_RCV_PKT_BUF_SIZE     (34 * 1024)
 #define NL_PKT_BUF_SIZE         8192
 
+/* Init nl message in-place in a buffer */
+struct nlmsghdr *nl_msg_init(int type, int flags, int seq, int pid,
+			     uint8_t *buf, uint32_t buflen);
+struct nlmsghdr *netlink_parse_buf(struct rtattr **tb, int max, void *buf,
+				   size_t len);
+void nl_msg_get_data(const struct nlmsghdr *n, uint16_t *ptype, uint32_t *plen,
+		     uint16_t *pflags);
+
 /*
  * nl_attr_put - add an attribute to the Netlink message.
  *
@@ -104,6 +112,10 @@ extern void netlink_parse_rtattr_flags(struct rtattr **tb, int max,
 				 unsigned short flags);
 extern void netlink_parse_rtattr_nested(struct rtattr **tb, int max,
 					struct rtattr *rta);
+
+/* Parse attributes carried in a message. */
+void netlink_parse_rtattr_msg(struct rtattr **tb, int max,
+			      const struct nlmsghdr *msg);
 
 /*
  * nl_addraw_l copies raw form the netlink message buffer into netlink
