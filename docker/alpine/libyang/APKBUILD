@@ -21,6 +21,7 @@ source="$pkgname-$pkgver.tar.gz::https://github.com/CESNET/libyang/archive/v$pkg
 #     - CVE-2021-28906
 
 build() {
+	export ABUILD_APK_INDEX_OPTS="--allow-untrusted"
 	if [ "$CBUILD" != "$CHOST" ]; then
 		CMAKE_CROSSOPTS="-DCMAKE_SYSTEM_NAME=Linux -DCMAKE_HOST_SYSTEM_NAME=Linux"
 	fi
