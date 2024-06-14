@@ -323,6 +323,8 @@ struct zebra_dplane_ctx *dplane_ctx_get_head(struct dplane_ctx_list_head *q);
 /* Init a list of contexts */
 void dplane_ctx_q_init(struct dplane_ctx_list_head *q);
 
+uint32_t dplane_ctx_queue_count(struct dplane_ctx_list_head *q);
+
 /*
  * Accessors for information from the context object
  */

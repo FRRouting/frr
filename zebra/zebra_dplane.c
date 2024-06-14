@@ -969,6 +969,11 @@ struct zebra_dplane_ctx *dplane_ctx_dequeue(struct dplane_ctx_list_head *q)
 	return ctx;
 }
 
+uint32_t dplane_ctx_queue_count(struct dplane_ctx_list_head *q)
+{
+	return dplane_ctx_list_count(q);
+}
+
 /*
  * Accessors for information from the context object
  */
