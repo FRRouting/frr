@@ -40,7 +40,7 @@ def setup_module(mod):
 
     router_list = tgen.routers()
 
-    for i, (rname, router) in enumerate(router_list.items(), 1):
+    for _, (rname, router) in enumerate(router_list.items(), 1):
         router.load_config(
             TopoRouter.RD_ZEBRA, os.path.join(CWD, "{}/zebra.conf".format(rname))
         )
@@ -85,19 +85,19 @@ def test_bgp_default_originate_route_map():
         return topotest.json_cmp(output, expected)
 
     test_func = functools.partial(_bgp_check_if_received)
-    success, result = topotest.run_and_expect(test_func, None, count=30, wait=0.5)
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=0.5)
     assert result is None, "No 0.0.0.0/0 at r2 from r1"
 
     test_func = functools.partial(_bgp_check_if_originated)
-    success, result = topotest.run_and_expect(test_func, None, count=30, wait=0.5)
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=0.5)
     assert result is None, "No 0.0.0.0/0 from r1 to r2"
 
     test_func = functools.partial(_bgp_route_is_valid, tgen.gears["r2"], "0.0.0.0/0")
-    success, result = topotest.run_and_expect(test_func, None, count=30, wait=0.5)
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=0.5)
     assert result is None, "Failed to see 0.0.0.0/0 in r2"
 
     test_func = functools.partial(_bgp_route_is_valid, tgen.gears["r2"], "0.0.0.0/1")
-    success, result = topotest.run_and_expect(test_func, None, count=30, wait=0.5)
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=0.5)
     assert result is None, "Failed to see 0.0.0.0/1 in r2"
 
 

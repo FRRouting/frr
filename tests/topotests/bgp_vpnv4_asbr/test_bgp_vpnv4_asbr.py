@@ -203,7 +203,7 @@ def bgp_vpnv4_prefix_check(router, rd, prefix, label, nexthop):
         )
 
     func = functools.partial(_check, router, prefix, rd, label, nexthop)
-    success, result = topotest.run_and_expect(func, None, count=20, wait=0.5)
+    _, result = topotest.run_and_expect(func, None, count=20, wait=0.5)
     assert_msg = "{}, show bgp ipv4 vpn {}, rd {}, label {} nexthop {}".format(
         router.name, prefix, rd, label, nexthop
     )
@@ -324,7 +324,7 @@ def check_show_bgp_vpn_ok(router, vpnv4_entries):
 
     for prefix, rname_to_test in vpnv4_entries.items():
         func = functools.partial(_check_nexthop_available, router, prefix)
-        success, result = topotest.run_and_expect(func, None, count=20, wait=0.5)
+        _, result = topotest.run_and_expect(func, None, count=20, wait=0.5)
         assert result is None, "Failed to detect prefix {} on router {}".format(
             prefix, router.name
         )
@@ -456,7 +456,7 @@ def test_r3_prefixes_removed():
             prefix,
             "444:3",
         )
-        success, result = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+        success, _ = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
         assert success, "{}, vpnv4 update {} still present".format(router.name, prefix)
 
     # diagnostic
@@ -491,7 +491,7 @@ def test_r3_prefixes_removed():
         prefix,
         "444:3",
     )
-    success, result = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+    success, _ = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
     assert success, "{}, vpnv4 update {} still present".format(router.name, prefix)
 
     logger.info(
@@ -502,7 +502,7 @@ def test_r3_prefixes_removed():
     test_func = functools.partial(
         check_show_mpls_table_entry_label_not_found, router, label_ip_entries[prefix]
     )
-    success, result = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+    success, _ = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
     assert success, "r1, mpls entry with in_label {} still present".format(
         label_ip_entries[prefix]
     )
@@ -536,7 +536,7 @@ def test_r3_prefixes_added_back():
         prefix,
         "444:3",
     )
-    success, result = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+    success, _ = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
     assert success, "{}, vpnv4 update {} not present".format(router.name, prefix)
 
     logger.info(
@@ -564,7 +564,7 @@ def test_r3_prefixes_added_back():
             prefix,
             "444:3",
         )
-        success, result = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+        success, _ = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
         assert success, "{}, vpnv4 update {} not present".format(router.name, prefix)
 
     # diagnostic
@@ -611,7 +611,7 @@ def test_unconfigure_nexthop_change_nexthop_self():
         test_func = functools.partial(
             check_show_mpls_table_entry_label_not_found, router, label
         )
-        success, result = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+        success, _ = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
         assert success, "r1, mpls entry for {} with in_label {} still present".format(
             prefix, label
         )
@@ -626,7 +626,7 @@ def test_unconfigure_nexthop_change_nexthop_self():
             "444:3",
             label=label,
         )
-        success, result = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+        success, _ = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
         assert success, "{}, mpls vpn update {} label {} is present".format(
             router.name, prefix, label
         )
@@ -639,7 +639,7 @@ def test_unconfigure_nexthop_change_nexthop_self():
             "444:3",
             nexthop="192.168.1.3",
         )
-        success, result = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+        success, _ = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
         assert success, "{}, mpls vpn update {} label {} is present".format(
             router.name, prefix, label
         )
@@ -727,7 +727,7 @@ def test_declare_vpn_network_with_different_label():
             label=label,
             nexthop="192.168.1.3",
         )
-        success, result = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+        success, _ = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
         assert success, "{}, vpnv4 update {}, label {} not present".format(
             router.name, prefix, label
         )
@@ -787,7 +787,7 @@ def test_filter_vpn_network_from_r1():
             "172.31.0.0/24",
             "444:1",
         )
-        success, result = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+        success, _ = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
         assert success, "{}, vpnv4 update {}, is still present".format(
             router.name, prefix
         )
@@ -804,7 +804,7 @@ def test_filter_vpn_network_from_r1():
         test_func = functools.partial(
             check_show_mpls_table_entry_label_not_found, router, int(label)
         )
-        success, result = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+        success, _ = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
         assert success, "r1, mpls entry for {} with in_label {} still present".format(
             prefix, label
         )
@@ -833,7 +833,7 @@ def test_unfilter_vpn_network_from_r1():
     test_func = functools.partial(
         check_show_bgp_vpn_prefix_found, router, "ipv4", prefix, "444:1"
     )
-    success, result = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+    success, _ = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
     assert success, "{}, vpnv4 update {}, is not present".format(router.name, prefix)
 
     vpnv4_checks = {

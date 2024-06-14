@@ -93,11 +93,11 @@ def test_r1_receive_and_advertise_prefix_sid_type1():
         return topotest.json_cmp(output, expected)
 
     test_func = functools.partial(_check_type1_r1, router, "3.0.0.1/32", 800001, 1)
-    success, result = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+    _, result = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
     assert result is None, 'Failed _check_type1_r1 in "{}"'.format(router)
 
     test_func = functools.partial(_check_type1_r1, router, "3.0.0.2/32", 800002, 2)
-    success, result = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+    _, result = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
     assert result is None, 'Failed _check_type1_r1 in "{}"'.format(router)
 
 
@@ -160,11 +160,11 @@ def test_peer2_receive_prefix_sid_type1():
         return topotest.json_cmp(output, expected)
 
     test_func = functools.partial(_check_type1_peer2, "3.0.0.1/32", label=8001)
-    success, result = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+    _, result = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
     assert result is None, 'Failed _check_type1_peer2 in "{}"'.format("peer2")
 
     test_func = functools.partial(_check_type1_peer2, "3.0.0.2/32", label=8002)
-    success, result = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+    _, result = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
     assert result is None, 'Failed _check_type1_peer2 in "{}"'.format("peer2")
 
 

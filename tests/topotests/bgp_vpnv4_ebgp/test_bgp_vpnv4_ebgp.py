@@ -245,7 +245,7 @@ router bgp 65500 vrf vrf1
         prefix,
         "444:1",
     )
-    success, result = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+    success, _ = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
     assert success, "{}, vpnv4 update {} still present".format(router.name, prefix)
 
 
@@ -279,7 +279,7 @@ route-map RMAP permit 1
         prefix,
         "444:1",
     )
-    success, result = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+    success, _ = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
     assert success, "{}, vpnv4 update {} still not present".format(router.name, prefix)
 
 
@@ -309,7 +309,7 @@ route-map RMAP permit 1
         prefix,
         "444:1",
     )
-    success, result = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+    success, _ = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
     assert success, "{}, vpnv4 update {} still present".format(router.name, prefix)
 
 
@@ -339,7 +339,7 @@ router bgp 65500 vrf vrf1
         prefix,
         "444:1",
     )
-    success, result = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+    success, _ = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
     assert success, "{}, vpnv4 update {} still not present".format(router.name, prefix)
 
 
@@ -371,7 +371,7 @@ route-map RMAP permit 1
         prefix,
         "444:1",
     )
-    success, result = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+    success, _ = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
     assert success, "{}, vpnv4 update {} still present".format(router.name, prefix)
 
 
@@ -400,7 +400,7 @@ route-map RMAP permit 1
         prefix,
         "444:1",
     )
-    success, result = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+    success, _ = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
     assert success, "{}, vpnv4 update {} still not present".format(router.name, prefix)
 
 
@@ -482,7 +482,7 @@ router bgp 65501
         expected,
         exact=True,
     )
-    success, result = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+    success, _ = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
     assert success, "r2, vpnv4 update 172.31.0.1 still present"
 
 
