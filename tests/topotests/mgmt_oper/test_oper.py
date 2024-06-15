@@ -12,16 +12,10 @@ Test static route functionality
 
 import ipaddress
 import math
-import time
 
 import pytest
 from lib.topogen import Topogen
 from oper import check_kernel_32, do_oper_test
-
-try:
-    from deepdiff import DeepDiff as dd_json_cmp
-except ImportError:
-    dd_json_cmp = None
 
 pytestmark = [pytest.mark.staticd, pytest.mark.mgmtd]
 

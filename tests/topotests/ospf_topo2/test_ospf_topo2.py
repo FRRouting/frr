@@ -66,7 +66,7 @@ def tgen(request):
 
     router_list = tgen.routers()
 
-    for rname, router in router_list.items():
+    for _, router in router_list.items():
         router.load_frr_config("frr.conf")
 
     tgen.start_router()

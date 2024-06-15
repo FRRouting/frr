@@ -175,7 +175,7 @@ def verify_state_incremented(state_before, state_after):
     """
 
     for router, state_data in state_before.items():
-        for state, value in state_data.items():
+        for state, _ in state_data.items():
             if state_before[router][state] >= state_after[router][state]:
                 errormsg = (
                     "[DUT: %s]: state %s value has not"

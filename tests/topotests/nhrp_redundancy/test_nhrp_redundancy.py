@@ -10,7 +10,6 @@
 import os
 import sys
 import json
-from time import sleep
 from functools import partial
 import pytest
 
@@ -207,7 +206,7 @@ def test_protocols_convergence():
     router_list = tgen.routers()
 
     # Check NHRP cache on servers and clients
-    for rname, router in router_list.items():
+    for _, router in router_list.items():
 
         json_file = "{}/{}/nhrp_cache.json".format(CWD, router.name)
         if not os.path.isfile(json_file):

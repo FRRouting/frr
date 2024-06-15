@@ -29,7 +29,6 @@ from time import sleep
 from lib.common_config import (
     start_topology,
     write_test_header,
-    kill_router_daemons,
     write_test_footer,
     reset_config_on_routers,
     stop_router,
@@ -37,7 +36,6 @@ from lib.common_config import (
     verify_rib,
     create_static_routes,
     step,
-    start_router_daemons,
     create_route_maps,
     shutdown_bringup_interface,
     create_prefix_lists,
@@ -163,7 +161,7 @@ def setup_module(mod):
     logger.info("Running setup_module() done")
 
 
-def teardown_module(mod):
+def teardown_module():
     """
     Teardown the pytest environment.
 
@@ -2456,7 +2454,7 @@ def test_ospfv3_type5_summary_tc51_p2(request):
 
     step("Configure and re configure all the commands 10 times in a loop.")
 
-    for itrate in range(0, 10):
+    for _ in range(0, 10):
         ospf_summ_r1 = {
             "r0": {
                 "ospf6": {

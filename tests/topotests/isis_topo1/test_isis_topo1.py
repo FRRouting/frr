@@ -104,7 +104,7 @@ def setup_module(mod):
     tgen.start_router()
 
 
-def teardown_module(mod):
+def teardown_module():
     "Teardown the pytest environment"
     tgen = get_topogen()
 
@@ -160,7 +160,7 @@ def test_isis_route_installation():
             return topotest.json_cmp(actual, expected)
 
         test_func = functools.partial(compare_isis_installed_routes, router, expected)
-        (result, diff) = topotest.run_and_expect(test_func, None, wait=1, count=10)
+        (result, _) = topotest.run_and_expect(test_func, None, wait=1, count=10)
         assertmsg = "Router '{}' routes mismatch".format(rname)
         assert result, assertmsg
 
@@ -205,7 +205,7 @@ def test_isis_route6_installation():
         test_func = functools.partial(
             compare_isis_v6_installed_routes, router, expected
         )
-        (result, diff) = topotest.run_and_expect(test_func, None, wait=1, count=10)
+        (result, _) = topotest.run_and_expect(test_func, None, wait=1, count=10)
         assertmsg = "Router '{}' routes mismatch".format(rname)
         assert result, assertmsg
 
@@ -237,7 +237,7 @@ def test_isis_summary_json():
         pytest.skip(tgen.errors)
 
     logger.info("Checking 'show isis summary json'")
-    for rname, router in tgen.routers().items():
+    for rname, _ in tgen.routers().items():
         logger.info("Checking router %s", rname)
         json_output = tgen.gears[rname].vtysh_cmd("show isis summary json", isjson=True)
         assertmsg = "Test isis summary json failed in '{}' data '{}'".format(
@@ -257,7 +257,7 @@ def test_isis_interface_json():
         pytest.skip(tgen.errors)
 
     logger.info("Checking 'show isis interface json'")
-    for rname, router in tgen.routers().items():
+    for rname, _ in tgen.routers().items():
         logger.info("Checking router %s", rname)
         json_output = tgen.gears[rname].vtysh_cmd(
             "show isis interface json", isjson=True
@@ -294,7 +294,7 @@ def test_isis_neighbor_json():
 
     # tgen.mininet_cli()
     logger.info("Checking 'show isis neighbor json'")
-    for rname, router in tgen.routers().items():
+    for rname, _ in tgen.routers().items():
         logger.info("Checking router %s", rname)
         json_output = tgen.gears[rname].vtysh_cmd(
             "show isis neighbor json", isjson=True
@@ -330,7 +330,7 @@ def test_isis_database_json():
 
     # tgen.mininet_cli()
     logger.info("Checking 'show isis database json'")
-    for rname, router in tgen.routers().items():
+    for rname, _ in tgen.routers().items():
         logger.info("Checking router %s", rname)
         json_output = tgen.gears[rname].vtysh_cmd(
             "show isis database json", isjson=True
@@ -755,7 +755,7 @@ def dict_merge(dct, merge_dct):
     Source:
     https://gist.github.com/angstwad/bf22d1822c38a92ec0a9
     """
-    for k, v in merge_dct.items():
+    for k, _ in merge_dct.items():
         if k in dct and isinstance(dct[k], dict) and topotest.is_mapping(merge_dct[k]):
             dict_merge(dct[k], merge_dct[k])
         else:

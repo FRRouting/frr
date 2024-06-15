@@ -101,7 +101,7 @@ def setup_module(mod):
     app_helper.init(tgen)
 
 
-def teardown_module(mod):
+def teardown_module():
     "Teardown the pytest environment"
     tgen = get_topogen()
     app_helper.cleanup()

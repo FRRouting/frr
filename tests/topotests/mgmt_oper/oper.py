@@ -146,7 +146,7 @@ def check_kernel(r1, super_prefix, count, add, is_blackhole, vrf, matchvia):
 
     # logger.debug("checking kernel routing table%s:\n%s", vrfstr, kernel)
 
-    for i, net in enumerate(get_ip_networks(super_prefix, count)):
+    for _, net in enumerate(get_ip_networks(super_prefix, count)):
         if not add:
             assert str(net) not in kernel
             continue
@@ -233,7 +233,7 @@ def do_config(
         if vrf:
             f.write("vrf {}\n".format(vrf))
 
-        for i, net in enumerate(get_ip_networks(super_prefix, count)):
+        for _, net in enumerate(get_ip_networks(super_prefix, count)):
             if add:
                 f.write("ip route {} {}\n".format(net, via))
             else:

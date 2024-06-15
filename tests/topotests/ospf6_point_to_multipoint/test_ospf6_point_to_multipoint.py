@@ -153,7 +153,7 @@ def setup_module(mod):
     # tgen.mininet_cli()
 
 
-def teardown_module(mod):
+def teardown_module():
     "Teardown the pytest environment"
     tgen = get_topogen()
     tgen.stop_topology()
@@ -229,7 +229,7 @@ def test_ospfv3_routingTable():
     # tgen.mininet_cli()
 
     # Verify OSPFv3 Routing Table
-    for router, rnode in tgen.routers().items():
+    for router, _ in tgen.routers().items():
         logger.info('Waiting for router "%s" convergence', router)
 
         # Load expected results from the command

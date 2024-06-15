@@ -14,9 +14,7 @@ import sys
 import time
 import pytest
 from time import sleep
-from copy import deepcopy
 import json
-from lib.topotest import frr_unicode
 
 pytestmark = pytest.mark.ospf6d
 
@@ -39,11 +37,8 @@ from lib.common_config import (
     shutdown_bringup_interface,
 )
 from lib.topolog import logger
-from lib.topojson import build_topo_from_json, build_config_from_json
-from lib.ospf import verify_ospf6_neighbor, config_ospf6_interface, clear_ospf
-from ipaddress import IPv4Address
-
-# Global variables
+from lib.topojson import build_config_from_json
+from lib.ospf import verify_ospf6_neighbor, config_ospf6_interface
 topo = None
 # Reading the data from JSON File for topology creation
 jsonFile = "{}/ospfv3_authentication.json".format(CWD)
@@ -118,7 +113,7 @@ def setup_module(mod):
     logger.info("Running setup_module() done")
 
 
-def teardown_module(mod):
+def teardown_module():
     """
     Teardown the pytest environment.
     * `mod`: module name

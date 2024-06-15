@@ -14,12 +14,11 @@ from functools import partial
 import pytest
 
 from lib import topotest
-from lib.topogen import Topogen, TopoRouter, get_topogen
+from lib.topogen import Topogen, get_topogen
 from lib.topolog import logger
 
 from lib.common_config import verify_rib
 from lib.ospf import verify_ospf_rib
-from _ast import Try
 
 pytestmark = pytest.mark.ospfd
 
@@ -86,7 +85,7 @@ def setup_module(mod):
     tgen.start_router()
 
 
-def teardown_module(mod):
+def teardown_module():
     "Tear-down the test environment"
     tgen = get_topogen()
     tgen.stop_topology()

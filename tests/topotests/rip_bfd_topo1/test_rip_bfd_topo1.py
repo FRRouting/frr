@@ -20,7 +20,6 @@ import pytest
 from functools import partial
 from lib import topotest
 from lib.topogen import Topogen, TopoRouter
-from lib.topolog import logger
 
 pytestmark = [
     pytest.mark.bfdd,

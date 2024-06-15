@@ -33,5 +33,5 @@ def check_ping(name, dest_addr, expect_connected, count, wait, source_addr=None)
     logger.info("[+] check {} {} {}".format(name, dest_addr, match))
     tgen = get_topogen()
     func = functools.partial(_check, name, dest_addr, source_addr, match)
-    success, result = topotest.run_and_expect(func, None, count=count, wait=wait)
+    _, result = topotest.run_and_expect(func, None, count=count, wait=wait)
     assert result is None, "Failed"

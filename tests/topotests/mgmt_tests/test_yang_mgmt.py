@@ -66,7 +66,6 @@ from lib.common_config import (
     start_router_daemons,
 )
 from lib.topolog import logger
-from lib.bgp import verify_bgp_convergence, create_router_bgp, verify_bgp_rib
 from lib.topojson import build_config_from_json
 
 pytestmark = [pytest.mark.bgpd, pytest.mark.staticd, pytest.mark.mgmtd]

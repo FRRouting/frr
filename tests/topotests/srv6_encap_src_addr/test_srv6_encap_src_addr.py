@@ -18,7 +18,6 @@ import os
 import sys
 import json
 import pytest
-import functools
 
 CWD = os.path.dirname(os.path.realpath(__file__))
 sys.path.append(os.path.join(CWD, "../"))
@@ -56,7 +55,7 @@ def setup_module(mod):
     tgen.start_router()
 
 
-def teardown_module(mod):
+def teardown_module():
     tgen = get_topogen()
     tgen.stop_topology()
 

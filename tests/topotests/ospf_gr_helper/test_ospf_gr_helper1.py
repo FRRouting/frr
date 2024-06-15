@@ -29,7 +29,6 @@ from lib.common_config import (
     write_test_footer,
     reset_config_on_routers,
     step,
-    create_interfaces_cfg,
     scapy_send_raw_packet,
 )
 
@@ -38,7 +37,6 @@ from lib.topojson import build_config_from_json
 
 from lib.ospf import (
     verify_ospf_neighbor,
-    clear_ospf,
     verify_ospf_gr_helper,
     create_router_ospf,
 )

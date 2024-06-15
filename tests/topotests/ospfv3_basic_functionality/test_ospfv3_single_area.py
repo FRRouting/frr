@@ -36,7 +36,6 @@ from lib.common_config import (
     step,
     create_interfaces_cfg,
     create_debug_log_config,
-    apply_raw_config,
 )
 from lib.topolog import logger
 from lib.topojson import build_config_from_json
@@ -121,7 +120,7 @@ def setup_module(mod):
     logger.info("Running setup_module() done")
 
 
-def teardown_module(mod):
+def teardown_module():
     """
     Teardown the pytest environment.
 

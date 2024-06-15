@@ -333,7 +333,7 @@ def __create_bgp_global(tgen, input_dict, router, build=False):
             else:
                 del_action = False
 
-            for rs_timer, value in timer.items():
+            for rs_timer, _ in timer.items():
                 rs_timer_value = timer.setdefault(rs_timer, None)
 
                 if rs_timer_value and rs_timer != "delete":
@@ -1229,7 +1229,7 @@ def modify_bgp_config_when_bgpd_down(tgen, topo, input_dict):
         # Copy bgp config file to /etc/frr
         for dut in input_dict.keys():
             router_list = tgen.routers()
-            for router, rnode in router_list.items():
+            for router, _ in router_list.items():
                 if router != dut:
                     continue
 
@@ -1750,7 +1750,7 @@ def verify_as_numbers(tgen, topo, input_dict, expected=True):
 
             for bgp_neighbor, peer_data in bgp_neighbors.items():
                 remote_as = input_dict[bgp_neighbor]["bgp"]["local_as"]
-                for dest_link, peer_dict in peer_data["dest_link"].items():
+                for dest_link, _ in peer_data["dest_link"].items():
                     neighbor_ip = None
                     data = topo["routers"][bgp_neighbor]["links"]
 
@@ -1833,7 +1833,7 @@ def verify_bgp_convergence_from_running_config(tgen, dut=None, expected=True):
             return errormsg
 
         for vrf, addr_family_data in show_bgp_json.items():
-            for address_family, neighborship_data in addr_family_data.items():
+            for _, neighborship_data in addr_family_data.items():
                 total_peer = 0
                 no_of_peer = 0
 
@@ -1980,7 +1980,7 @@ def clear_bgp_and_verify(tgen, topo, router, rid=None):
             bgp_neighbors = bgp_addr_type[addr_type]["unicast"]["neighbor"]
 
             for bgp_neighbor, peer_data in bgp_neighbors.items():
-                for dest_link, peer_dict in peer_data["dest_link"].items():
+                for dest_link, _ in peer_data["dest_link"].items():
                     data = topo["routers"][bgp_neighbor]["links"]
 
                     if dest_link in data:
@@ -3231,7 +3231,7 @@ def verify_graceful_restart(
                 if bgp_neighbor != peer:
                     continue
 
-                for dest_link, peer_dict in peer_data["dest_link"].items():
+                for dest_link, _ in peer_data["dest_link"].items():
                     data = topo["routers"][bgp_neighbor]["links"]
 
                     if dest_link in data:
@@ -3479,7 +3479,7 @@ def verify_r_bit(tgen, topo, addr_type, input_dict, dut, peer, expected=True):
                 if bgp_neighbor != peer:
                     continue
 
-                for dest_link, peer_dict in peer_data["dest_link"].items():
+                for dest_link, _ in peer_data["dest_link"].items():
                     data = topo["routers"][bgp_neighbor]["links"]
 
                     if dest_link in data:
@@ -3597,7 +3597,7 @@ def verify_eor(tgen, topo, addr_type, input_dict, dut, peer, expected=True):
                 if bgp_neighbor != peer:
                     continue
 
-                for dest_link, peer_dict in peer_data["dest_link"].items():
+                for dest_link, _ in peer_data["dest_link"].items():
                     data = topo["routers"][bgp_neighbor]["links"]
 
                     if dest_link in data:
@@ -3762,7 +3762,7 @@ def verify_f_bit(tgen, topo, addr_type, input_dict, dut, peer, expected=True):
                 if bgp_neighbor != peer:
                     continue
 
-                for dest_link, peer_dict in peer_data["dest_link"].items():
+                for dest_link, _ in peer_data["dest_link"].items():
                     data = topo["routers"][bgp_neighbor]["links"]
 
                     if dest_link in data:
@@ -3890,7 +3890,7 @@ def verify_graceful_restart_timers(tgen, topo, addr_type, input_dict, dut, peer)
                 if bgp_neighbor != peer:
                     continue
 
-                for dest_link, peer_dict in peer_data["dest_link"].items():
+                for dest_link, _ in peer_data["dest_link"].items():
                     data = topo["routers"][bgp_neighbor]["links"]
 
                     if dest_link in data:
