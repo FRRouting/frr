@@ -681,6 +681,18 @@ nbr_gtsm_setup(int fd, int af, struct nbr_params *nbrp)
 	if (nbrp && CHECK_FLAG(nbrp->flags, F_NBRP_GTSM_HOPS))
 		ttl = 256 - nbrp->gtsm_hops;
 
+	/*
+	 * In linux networking stack, the received mpls packets
+	 * will be processed by the host twice, one as mpls packet,
+	 * the other as ip packet, so its ttl will be decreased 1.
+	 * This behavior is based on the new kernel (5.10 and 6.1),
+	 * and older versions may behave differently.
+	 *
+	 * Here, decrease 1 for IP_MINTTL if GTSM is enabled.
+	 * And this workaround makes the GTSM mechanism a bit deviation.
+	 */
+	ttl -= 1;
+
 	switch (af) {
 	case AF_INET:
 		if (sock_set_ipv4_minttl(fd, ttl) == -1)
