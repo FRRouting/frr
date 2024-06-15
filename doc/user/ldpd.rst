@@ -148,7 +148,7 @@ LDP Configuration
    configured password. PASSWORD is a clear text password wit its digest sent
    through the network.
 
-.. clicmd:: neighbor A.B.C.D holdtime HOLDTIME
+.. clicmd:: neighbor A.B.C.D session holdtime HOLDTIME
 
    The following command located under MPLS router node configures the holdtime
    value in seconds of the LDP neighbor ID. Configuring it triggers a keepalive
