@@ -2070,7 +2070,10 @@ DEFUN (show_ipv6_ripng,
 
 	/* Header of display. */
 	vty_out(vty,
-		"Codes: R - RIPng, C - connected, S - Static, O - OSPF, B - BGP\n"
+		"Codes: K - kernel route, C - connected, L - local, S - static,\n"
+		"       R - RIPng, O - OSPF, I - IS-IS, B - BGP, E - EIGRP, N - NHRP,\n"
+		"       T - Table, v - VNC, V - VNC-Direct, A - Babel, F - PBR,\n"
+		"       f - OpenFabric, t - Table-Direct\n"
 		"Sub-codes:\n"
 		"      (n) - normal, (s) - static, (d) - default, (r) - redistribute,\n"
 		"      (i) - interface, (a/S) - aggregated/Suppressed\n\n"
