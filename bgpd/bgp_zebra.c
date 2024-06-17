@@ -1792,6 +1792,8 @@ static void bgp_handle_route_announcements_to_zebra(struct event *e)
 	const struct prefix_evpn *evp = NULL;
 
 	while (count < ZEBRA_ANNOUNCEMENTS_LIMIT) {
+		is_evpn = false;
+
 		dest = zebra_announce_pop(&bm->zebra_announce_head);
 
 		if (!dest)
