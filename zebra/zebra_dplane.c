@@ -483,10 +483,8 @@ struct zebra_dplane_provider {
 	int (*dp_fini)(struct zebra_dplane_provider *prov, bool early_p);
 
 	_Atomic uint32_t dp_in_counter;
-	_Atomic uint32_t dp_in_queued;
 	_Atomic uint32_t dp_in_max;
 	_Atomic uint32_t dp_out_counter;
-	_Atomic uint32_t dp_out_queued;
 	_Atomic uint32_t dp_out_max;
 	_Atomic uint32_t dp_error_counter;
 
@@ -6137,17 +6135,19 @@ int dplane_show_provs_helper(struct vty *vty, bool detailed)
 
 	/* Show counters, useful info from each registered provider */
 	while (prov) {
+		dplane_provider_lock(prov);
+		in_q = dplane_ctx_queue_count(&prov->dp_ctx_in_list);
+		out_q = dplane_ctx_queue_count(&prov->dp_ctx_out_list);
+		dplane_provider_unlock(prov);
 
 		in = atomic_load_explicit(&prov->dp_in_counter,
 					  memory_order_relaxed);
-		in_q = atomic_load_explicit(&prov->dp_in_queued,
-					    memory_order_relaxed);
+
 		in_max = atomic_load_explicit(&prov->dp_in_max,
 					      memory_order_relaxed);
 		out = atomic_load_explicit(&prov->dp_out_counter,
 					   memory_order_relaxed);
-		out_q = atomic_load_explicit(&prov->dp_out_queued,
-					     memory_order_relaxed);
+
 		out_max = atomic_load_explicit(&prov->dp_out_max,
 					       memory_order_relaxed);
 
@@ -6299,10 +6299,6 @@ struct zebra_dplane_ctx *dplane_provider_dequeue_in_ctx(
 	dplane_provider_lock(prov);
 
 	ctx = dplane_ctx_list_pop(&(prov->dp_ctx_in_list));
-	if (ctx) {
-		atomic_fetch_sub_explicit(&prov->dp_in_queued, 1,
-					  memory_order_relaxed);
-	}
 
 	dplane_provider_unlock(prov);
 
@@ -6330,10 +6326,6 @@ int dplane_provider_dequeue_in_list(struct zebra_dplane_provider *prov,
 			break;
 	}
 
-	if (ret > 0)
-		atomic_fetch_sub_explicit(&prov->dp_in_queued, ret,
-					  memory_order_relaxed);
-
 	dplane_provider_unlock(prov);
 
 	return ret;
@@ -6358,10 +6350,7 @@ void dplane_provider_enqueue_out_ctx(struct zebra_dplane_provider *prov,
 	dplane_ctx_list_add_tail(&(prov->dp_ctx_out_list), ctx);
 
 	/* Maintain out-queue counters */
-	atomic_fetch_add_explicit(&(prov->dp_out_queued), 1,
-				  memory_order_relaxed);
-	curr = atomic_load_explicit(&prov->dp_out_queued,
-				    memory_order_relaxed);
+	curr = dplane_ctx_queue_count(&prov->dp_ctx_out_list);
 	high = atomic_load_explicit(&prov->dp_out_max,
 				    memory_order_relaxed);
 	if (curr > high)
@@ -6382,9 +6371,6 @@ dplane_provider_dequeue_out_ctx(struct zebra_dplane_provider *prov)
 	ctx = dplane_ctx_list_pop(&(prov->dp_ctx_out_list));
 	if (!ctx)
 		return NULL;
-
-	atomic_fetch_sub_explicit(&(prov->dp_out_queued), 1,
-				  memory_order_relaxed);
 
 	return ctx;
 }
@@ -7422,10 +7408,7 @@ static void dplane_thread_loop(struct event *event)
 
 		atomic_fetch_add_explicit(&prov->dp_in_counter, counter,
 					  memory_order_relaxed);
-		atomic_fetch_add_explicit(&prov->dp_in_queued, counter,
-					  memory_order_relaxed);
-		curr = atomic_load_explicit(&prov->dp_in_queued,
-					    memory_order_relaxed);
+		curr = dplane_ctx_queue_count(&prov->dp_ctx_in_list);
 		high = atomic_load_explicit(&prov->dp_in_max,
 					    memory_order_relaxed);
 		if (curr > high)
