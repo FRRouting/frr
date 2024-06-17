@@ -5108,6 +5108,17 @@ static int rib_dplane_results(struct dplane_ctx_list_head *ctxlist)
 	return 0;
 }
 
+uint32_t zebra_rib_dplane_results_count(void)
+{
+	uint32_t count;
+
+	frr_with_mutex (&dplane_mutex) {
+		count = dplane_ctx_queue_count(&rib_dplane_q);
+	}
+
+	return count;
+}
+
 /*
  * Ensure there are no empty slots in the route_info array.
  * Every route type in zebra should be present there.

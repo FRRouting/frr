@@ -6127,11 +6127,13 @@ int dplane_show_provs_helper(struct vty *vty, bool detailed)
 	struct zebra_dplane_provider *prov;
 	uint64_t in, in_q, in_max, out, out_q, out_max;
 
-	vty_out(vty, "Zebra dataplane providers:\n");
-
 	DPLANE_LOCK();
 	prov = dplane_prov_list_first(&zdplane_info.dg_providers);
+	in = dplane_ctx_queue_count(&zdplane_info.dg_update_list);
 	DPLANE_UNLOCK();
+
+	vty_out(vty, "dataplane Incoming Queue from Zebra: %" PRIu64 "\n", in);
+	vty_out(vty, "Zebra dataplane providers:\n");
 
 	/* Show counters, useful info from each registered provider */
 	while (prov) {
@@ -6151,12 +6153,18 @@ int dplane_show_provs_helper(struct vty *vty, bool detailed)
 		out_max = atomic_load_explicit(&prov->dp_out_max,
 					       memory_order_relaxed);
 
-		vty_out(vty, "%s (%u): in: %"PRIu64", q: %"PRIu64", q_max: %"PRIu64", out: %"PRIu64", q: %"PRIu64", q_max: %"PRIu64"\n",
-			prov->dp_name, prov->dp_id, in, in_q, in_max,
-			out, out_q, out_max);
+		vty_out(vty,
+			"  %s (%u): in: %" PRIu64 ", q: %" PRIu64
+			", q_max: %" PRIu64 ", out: %" PRIu64 ", q: %" PRIu64
+			", q_max: %" PRIu64 "\n",
+			prov->dp_name, prov->dp_id, in, in_q, in_max, out,
+			out_q, out_max);
 
 		prov = dplane_prov_list_next(&zdplane_info.dg_providers, prov);
 	}
+
+	out = zebra_rib_dplane_results_count();
+	vty_out(vty, "dataplane Outgoing Queue to Zebra: %" PRIu64 "\n", out);
 
 	return CMD_SUCCESS;
 }
