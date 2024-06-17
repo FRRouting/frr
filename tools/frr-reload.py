@@ -94,7 +94,7 @@ class Vtysh(object):
 
         output = self("configure")
 
-        if "VTY configuration is locked by other VTY" in output:
+        if "configuration is locked" in output.lower():
             log.error("vtysh 'configure' returned\n%s\n" % (output))
             return False
 
@@ -261,6 +261,8 @@ ctx_keywords = {
     "router ospf6": {},
     "router eigrp ": {},
     "router babel": {},
+    "router pim": {},
+    "router pim6": {},
     "mpls ldp": {"address-family ": {"interface ": {}}},
     "l2vpn ": {"member pseudowire ": {}},
     "key chain ": {"key ": {}},
@@ -306,11 +308,61 @@ class Config(object):
 
         file_output = self.vtysh.mark_file(filename)
 
+        vrf_context = None
+        pim_vrfs = []
+
         for line in file_output.split("\n"):
             line = line.strip()
 
             # Compress duplicate whitespaces
             line = " ".join(line.split())
+
+            # Detect when we are within a vrf context for converting legacy PIM commands
+            if vrf_context:
+                re_vrf = re.match("^(exit-vrf|exit|end)$", line)
+                if re_vrf:
+                    vrf_context = None
+            else:
+                re_vrf = re.match("^vrf ([a-z]+)$", line)
+                if re_vrf:
+                    vrf_context = re_vrf.group(1)
+
+            # Detect legacy pim commands that need to move under the router pim context
+            re_pim = re.match("^ip(v6)? pim ((ecmp|join|keep|mlag|packets|register|rp|send|spt|ssm).*)$", line)
+            if re_pim and re_pim.group(2):
+                router_pim = "router pim"
+                if re_pim.group(1):
+                    router_pim += "6"
+                if vrf_context:
+                    router_pim += " vrf " + vrf_context
+
+                if vrf_context:
+                    pim_vrfs.append(router_pim)
+                    pim_vrfs.append(re_pim.group(2))
+                    pim_vrfs.append("exit")
+                    line="# PIM VRF LINE MOVED TO ROUTER PIM"
+                else:
+                    self.lines.append(router_pim)
+                    self.lines.append(re_pim.group(2))
+                    line = "exit"
+
+            re_pim = re.match("^ip(v6)? ((ssmpingd|msdp).*)$", line)
+            if re_pim and re_pim.group(2):
+                router_pim = "router pim"
+                if re_pim.group(1):
+                    router_pim += "6"
+                if vrf_context:
+                    router_pim += " vrf " + vrf_context
+
+                if vrf_context:
+                    pim_vrfs.append(router_pim)
+                    pim_vrfs.append(re_pim.group(2))
+                    pim_vrfs.append("exit")
+                    line="# PIM VRF LINE MOVED TO ROUTER PIM"
+                else:
+                    self.lines.append(router_pim)
+                    self.lines.append(re_pim.group(2))
+                    line = "exit"
 
             # Remove 'vrf <vrf_name>' from 'interface <x> vrf <vrf_name>'
             if line.startswith("interface ") and "vrf" in line:
@@ -347,6 +399,8 @@ class Config(object):
                 line = "end"
 
             self.lines.append(line)
+
+        self.lines.append(pim_vrfs)
 
         self.load_contexts()
 
@@ -1683,9 +1737,11 @@ def compare_context_objects(newconf, running):
                 lines_to_del.append((running_ctx_keys, None))
 
             # We cannot do 'no interface' or 'no vrf' in FRR, and so deal with it
-            elif running_ctx_keys[0].startswith("interface") or running_ctx_keys[
-                0
-            ].startswith("vrf"):
+            elif (
+                running_ctx_keys[0].startswith("interface")
+                or running_ctx_keys[0].startswith("vrf")
+                or running_ctx_keys[0].startswith("router pim")
+            ):
                 for line in running_ctx.lines:
                     lines_to_del.append((running_ctx_keys, line))
 
