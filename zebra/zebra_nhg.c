@@ -1747,6 +1747,12 @@ static struct nexthop *nexthop_set_resolved(afi_t afi,
 	SET_FLAG(resolved_hop->flags, NEXTHOP_FLAG_ACTIVE);
 
 	resolved_hop->vrf_id = nexthop->vrf_id;
+
+	/* Using weighted ECMP, we should respect the weight and use
+	 * the same value for non-recursive next-hop.
+	 */
+	resolved_hop->weight = nexthop->weight;
+
 	switch (newhop->type) {
 	case NEXTHOP_TYPE_IPV4:
 	case NEXTHOP_TYPE_IPV4_IFINDEX:
