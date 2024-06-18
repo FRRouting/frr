@@ -10,7 +10,6 @@
 
 import os
 import sys
-import json
 from time import sleep
 from functools import partial
 import pytest
@@ -18,13 +17,10 @@ import pytest
 # pylint: disable=C0413
 # Import topogen and topotest helpers
 from lib import topotest
-from lib.topogen import Topogen, TopoRouter, get_topogen
+from lib.topogen import Topogen, get_topogen
 from lib.topolog import logger
 
 from lib.common_config import (
-    run_frr_cmd,
-    shutdown_bringup_interface,
-    start_router_daemons,
     step,
 )
 
@@ -116,7 +112,7 @@ def setup_module(mod):
     tgen.start_router()
 
 
-def teardown_module(mod):
+def teardown_module():
     "Teardown the pytest environment"
     tgen = get_topogen()
     tgen.stop_topology()

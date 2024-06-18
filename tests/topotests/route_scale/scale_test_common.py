@@ -182,7 +182,6 @@ def route_install_helper(iter):
 
     # Build up a list of dicts with params for each step of the test;
     # use defaults where the step doesn't supply a value
-    scale_setups = []
     s = scale_steps[iter]
 
     d = dict(zip(scale_keys, s))

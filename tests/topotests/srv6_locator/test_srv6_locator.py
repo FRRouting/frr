@@ -56,7 +56,7 @@ def setup_module(mod):
     tgen.start_router()
 
 
-def teardown_module(mod):
+def teardown_module():
     tgen = get_topogen()
     tgen.stop_topology()
 
@@ -81,12 +81,12 @@ def test_srv6():
 
     def check_srv6_locator(router, expected_file):
         func = functools.partial(_check_srv6_locator, router, expected_file)
-        success, result = topotest.run_and_expect(func, None, count=10, wait=0.5)
+        _, result = topotest.run_and_expect(func, None, count=10, wait=0.5)
         assert result is None, "Failed"
 
     def check_sharpd_chunk(router, expected_file):
         func = functools.partial(_check_sharpd_chunk, router, expected_file)
-        success, result = topotest.run_and_expect(func, None, count=10, wait=0.5)
+        _, result = topotest.run_and_expect(func, None, count=10, wait=0.5)
         assert result is None, "Failed"
 
     # FOR DEVELOPER:

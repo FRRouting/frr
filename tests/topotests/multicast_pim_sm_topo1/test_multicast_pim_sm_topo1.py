@@ -64,7 +64,6 @@ from lib.common_config import (
     reset_config_on_routers,
     shutdown_bringup_interface,
     required_linux_kernel_version,
-    topo_daemons,
 )
 from lib.pim import (
     create_pim_config,
@@ -214,7 +213,7 @@ def verify_state_incremented(state_before, state_after):
     """
 
     for router, state_data in state_before.items():
-        for state, value in state_data.items():
+        for state, _ in state_data.items():
             if state_before[router][state] >= state_after[router][state]:
                 errormsg = (
                     "[DUT: %s]: state %s value has not"

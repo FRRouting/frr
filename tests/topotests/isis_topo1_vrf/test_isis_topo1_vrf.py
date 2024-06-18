@@ -118,7 +118,7 @@ def setup_module(mod):
     tgen.start_router()
 
 
-def teardown_module(mod):
+def teardown_module():
     "Teardown the pytest environment"
     tgen = get_topogen()
     # move back rx-eth0 to default VRF
@@ -287,7 +287,7 @@ def dict_merge(dct, merge_dct):
     Source:
     https://gist.github.com/angstwad/bf22d1822c38a92ec0a9
     """
-    for k, v in merge_dct.items():
+    for k, _ in merge_dct.items():
         if k in dct and isinstance(dct[k], dict) and topotest.is_mapping(merge_dct[k]):
             dict_merge(dct[k], merge_dct[k])
         else:

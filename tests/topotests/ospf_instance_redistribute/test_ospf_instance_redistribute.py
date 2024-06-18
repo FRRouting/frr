@@ -15,7 +15,6 @@ test_ospf_instance_redistribute
 """
 
 import os
-import re
 import sys
 import pytest
 import json

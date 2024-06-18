@@ -15,7 +15,6 @@ test_zebra_multiple_connected.py: Testing multiple connected
 """
 
 import os
-import re
 import sys
 import pytest
 import json
@@ -29,7 +28,6 @@ sys.path.append(os.path.join(CWD, "../"))
 # Import topogen and topotest helpers
 from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
-from lib.topolog import logger
 
 # Required to instantiate the topology builder class.
 
@@ -157,7 +155,7 @@ def test_zebra_noprefix_connected():
     test_func = partial(
         topotest.router_output_cmp, router, "show ip route 192.168.44.0/24", expected
     )
-    result, diff = topotest.run_and_expect(test_func, "", count=20, wait=1)
+    result, _ = topotest.run_and_expect(test_func, "", count=20, wait=1)
     assert result, "Connected Route should not have been added"
 
 

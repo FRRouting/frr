@@ -14,7 +14,6 @@ test_fpm_topo1.py: Testing FPM module
 
 """
 import os
-import re
 import sys
 import pytest
 import json
@@ -28,7 +27,6 @@ sys.path.append(os.path.join(CWD, "../"))
 # Import topogen and topotest helpers
 from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
-from lib.topolog import logger
 
 
 pytestmark = [pytest.mark.fpm, pytest.mark.sharpd]

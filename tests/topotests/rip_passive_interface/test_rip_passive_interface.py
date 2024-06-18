@@ -21,7 +21,7 @@ sys.path.append(os.path.join(CWD, "../"))
 
 # pylint: disable=C0413
 from lib import topotest
-from lib.topogen import Topogen, TopoRouter, get_topogen
+from lib.topogen import Topogen, get_topogen
 from lib.common_config import step
 
 pytestmark = [pytest.mark.ripd]
@@ -40,7 +40,7 @@ def setup_module(mod):
     tgen.start_router()
 
 
-def teardown_module(mod):
+def teardown_module():
     tgen = get_topogen()
     tgen.stop_topology()
 

@@ -14,11 +14,8 @@ test_route_scale1.py: Testing route scale
 
 """
 import os
-import re
 import sys
 import pytest
-import json
-from functools import partial
 
 # Save the Current Working Directory to find configuration files.
 CWD = os.path.dirname(os.path.realpath(__file__))
@@ -26,9 +23,6 @@ sys.path.append(os.path.join(CWD, "../"))
 
 # pylint: disable=C0413
 # Import topogen and topotest helpers
-from lib import topotest
-from lib.topogen import Topogen, TopoRouter, get_topogen
-from lib.topolog import logger
 
 from scale_test_common import (
     scale_build_common,

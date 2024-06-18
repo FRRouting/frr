@@ -7,7 +7,6 @@
 
 import functools
 import ipaddress
-import json
 import os
 import platform
 import socket
@@ -442,7 +441,7 @@ def check_router_status(tgen):
 
     try:
         router_list = tgen.routers()
-        for router, rnode in router_list.items():
+        for _, rnode in router_list.items():
             result = rnode.check_router_running()
             if result != "":
                 daemons = []
@@ -686,7 +685,7 @@ def prep_load_config_to_routers(tgen, *config_name_list):
     """
 
     routers = tgen.routers()
-    for rname, router in routers.items():
+    for rname, _ in routers.items():
         destname = "{}/{}/{}".format(tgen.logdir, rname, FRRCFG_FILE)
         wmode = "w"
         for cfbase in config_name_list:
@@ -871,7 +870,7 @@ def get_frr_ipv6_linklocal(tgen, router, intf=None, vrf=None):
     """
 
     router_list = tgen.routers()
-    for rname, rnode in router_list.items():
+    for rname, _ in router_list.items():
         if rname != router:
             continue
 
@@ -887,7 +886,7 @@ def get_frr_ipv6_linklocal(tgen, router, intf=None, vrf=None):
             cmd = "show interface vrf {}".format(vrf)
         else:
             cmd = "show interface"
-        for chk_ll in range(0, 60):
+        for _ in range(0, 60):
             sleep(1 / 4)
             ifaces = router_list[router].run('vtysh -c "{}"'.format(cmd))
             # Fix newlines (make them all the same)
@@ -3095,7 +3094,7 @@ def configure_brctl(tgen, topo, input_dict):
                             "{} dev {} master {}".format(ip_cmd, brctl_name, vrf)
                         )
 
-                        for intf_name, data in topo["routers"][dut]["links"].items():
+                        for _, data in topo["routers"][dut]["links"].items():
                             if "vrf" not in data:
                                 continue
 
@@ -4942,7 +4941,7 @@ def scapy_send_raw_packet(tgen, topo, senderRouter, intf, packet=None):
     sender_interface = intf
     rnode = tgen.routers()[senderRouter]
 
-    for destLink, data in topo["routers"][senderRouter]["links"].items():
+    for _, data in topo["routers"][senderRouter]["links"].items():
         if "type" in data and data["type"] == "loopback":
             continue
 

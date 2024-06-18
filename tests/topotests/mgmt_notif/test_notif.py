@@ -10,7 +10,6 @@
 Test YANG Notifications
 """
 import json
-import logging
 import os
 
 import pytest
@@ -35,7 +34,7 @@ def tgen(request):
     tgen.start_topology()
 
     router_list = tgen.routers()
-    for rname, router in router_list.items():
+    for _, router in router_list.items():
         router.load_frr_config("frr.conf")
 
     tgen.start_router()

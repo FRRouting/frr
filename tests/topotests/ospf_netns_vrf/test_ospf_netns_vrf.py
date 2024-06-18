@@ -104,13 +104,13 @@ def setup_module(mod):
             tgen.set_error("unsupported version")
 
 
-def teardown_module(mod):
+def teardown_module():
     "Teardown the pytest environment"
     tgen = get_topogen()
 
     # Move interfaces out of vrf namespace and delete the namespace
     router_list = tgen.routers()
-    for rname, router in router_list.items():
+    for rname, _ in router_list.items():
         tgen.net[rname].reset_intf_netns(rname + "-eth0")
         tgen.net[rname].reset_intf_netns(rname + "-eth1")
         tgen.net[rname].delete_netns(rname + "-ospf-cust1")

@@ -9,7 +9,6 @@
 # noqa: E501
 #
 import argparse
-import json
 import logging
 import os
 import socket
@@ -216,7 +215,7 @@ class Session:
             self.sess_id = reply.session_reply.session_id
         else:
             self.sess_id = 0
-            mdata, req_id = self.get_native_msg_header(MSG_CODE_SESSION_REQ)
+            mdata, _ = self.get_native_msg_header(MSG_CODE_SESSION_REQ)
             mdata += struct.pack(MSG_SESSION_REQ_FMT)
             mdata += "test-client".encode("utf-8") + b"\x00"
 
@@ -324,7 +323,7 @@ class Session:
 
     def get_data(self, query, data=True, config=False):
         # Create the message
-        mdata, req_id = self.get_native_msg_header(MSG_CODE_GET_DATA)
+        mdata, _ = self.get_native_msg_header(MSG_CODE_GET_DATA)
         flags = GET_DATA_FLAG_STATE if data else 0
         flags |= GET_DATA_FLAG_CONFIG if config else 0
         mdata += struct.pack(MSG_GET_DATA_FMT, MSG_FORMAT_JSON, flags)
@@ -333,7 +332,7 @@ class Session:
         self.send_native_msg(mdata)
         logging.debug("Sent GET-TREE")
 
-        mhdr, mfixed, mdata = self.recv_native_msg()
+        _, mfixed, mdata = self.recv_native_msg()
         assert mdata[-1] == 0
         result = mdata[:-1].decode("utf-8")
 
@@ -342,7 +341,7 @@ class Session:
 
     def add_notify_select(self, replace, notif_xpaths):
         # Create the message
-        mdata, req_id = self.get_native_msg_header(MSG_CODE_NOTIFY_SELECT)
+        mdata, _ = self.get_native_msg_header(MSG_CODE_NOTIFY_SELECT)
         mdata += struct.pack(MSG_NOTIFY_SELECT_FMT, replace)
 
         for xpath in notif_xpaths:
@@ -355,7 +354,7 @@ class Session:
         if xpaths:
             self.add_notify_select(True, xpaths)
 
-        for remaining in Timeout(60):
+        for _ in Timeout(60):
             logging.debug("Waiting for Notify Message")
             mhdr, mfixed, mdata = self.recv_native_msg()
             if mhdr[HDR_FIELD_CODE] == MSG_CODE_NOTIFY:

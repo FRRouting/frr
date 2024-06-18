@@ -16,7 +16,6 @@ import signal
 import subprocess
 import sys
 import time
-from datetime import datetime, timedelta
 from functools import partial
 
 import pytest
@@ -35,8 +34,7 @@ from lib.topotest import interface_set_status, json_cmp
 # pylint: disable=C0413
 # Import topogen and topotest helpers
 from lib import topotest
-from lib.topogen import Topogen, TopoRouter, get_topogen
-from lib.topolog import logger
+from lib.topogen import Topogen, TopoRouter
 
 pytestmark = [pytest.mark.ospfd]
 

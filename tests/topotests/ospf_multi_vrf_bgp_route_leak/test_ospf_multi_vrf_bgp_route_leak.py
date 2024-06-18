@@ -16,7 +16,7 @@ import pytest
 # pylint: disable=C0413
 # Import topogen and topotest helpers
 from lib import topotest
-from lib.topogen import Topogen, TopoRouter, get_topogen
+from lib.topogen import Topogen, get_topogen
 from lib.topolog import logger
 
 
@@ -139,7 +139,7 @@ def setup_module(mod):
             tgen.set_error("unsupported version")
 
 
-def teardown_module(mod):
+def teardown_module():
     "Teardown the pytest environment"
     tgen = get_topogen()
     tgen.stop_topology()

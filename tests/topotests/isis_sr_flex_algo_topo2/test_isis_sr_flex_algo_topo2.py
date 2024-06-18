@@ -47,7 +47,6 @@ import os
 import sys
 import pytest
 import json
-import time
 from functools import partial
 
 # Save the Current Working Directory to find configuration files.
@@ -67,7 +66,6 @@ pytestmark = [pytest.mark.isisd]
 def build_topo(tgen):
     "Build function"
 
-    routers = []
     for i in range(0, 10):
         rt = tgen.add_router("rt{}".format(i))
         rt.run("sysctl -w net.ipv4.fib_multipath_hash_policy=1")
@@ -140,7 +138,7 @@ def setup_module(mod):
     tgen.start_router()
 
 
-def teardown_module(mod):
+def teardown_module():
     "Teardown the pytest environment"
     tgen = get_topogen()
     tgen.stop_topology()
@@ -174,7 +172,7 @@ def check_rib(name, cmd, expected_file):
     logger.info('[+] check {} "{}" {}'.format(name, cmd, expected_file))
     tgen = get_topogen()
     func = partial(_check, name, cmd, expected_file)
-    success, result = topotest.run_and_expect(func, None, count=120, wait=0.5)
+    _, result = topotest.run_and_expect(func, None, count=120, wait=0.5)
     assert result is None, "Failed"
 
 

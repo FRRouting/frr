@@ -1545,7 +1545,7 @@ def verify_ospf_database(
                             )
                             return errormsg
     if ospf_external_lsa:
-        for ospf_ext_lsa, ext_lsa_data in ospf_external_lsa.items():
+        for ospf_ext_lsa, _ in ospf_external_lsa.items():
             if ospf_ext_lsa in show_ospf_json["AS External Link States"]:
                 logger.info(
                     "[DUT: %s]  OSPF LSDB:External LSA %s", router, ospf_ext_lsa
@@ -2509,7 +2509,7 @@ def verify_ospf_gr_helper(tgen, topo, dut, input_dict=None):
         raise ValueError(errormsg)
         return errormsg
 
-    for ospf_gr, gr_data in input_dict.items():
+    for ospf_gr, _ in input_dict.items():
         try:
             if input_dict[ospf_gr] == show_ospf_json[ospf_gr]:
                 logger.info(

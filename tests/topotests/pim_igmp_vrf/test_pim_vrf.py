@@ -92,7 +92,7 @@ from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
 from lib.topotest import iproute2_is_vrf_capable
-from lib.common_config import required_linux_kernel_version, retry
+from lib.common_config import required_linux_kernel_version
 from lib.pim import McastTesterHelper
 
 
@@ -205,7 +205,7 @@ def setup_module(module):
         )
 
 
-def teardown_module(module):
+def teardown_module():
     tgen = get_topogen()
     tgen.stop_topology()
 

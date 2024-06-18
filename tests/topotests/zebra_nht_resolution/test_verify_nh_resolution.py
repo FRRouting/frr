@@ -16,7 +16,6 @@ import sys
 import pytest
 
 from lib.common_config import (
-    start_topology,
     verify_rib,
     verify_ip_nht,
     step,
@@ -24,7 +23,6 @@ from lib.common_config import (
 )
 
 # pylint: disable=C0413
-from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
 

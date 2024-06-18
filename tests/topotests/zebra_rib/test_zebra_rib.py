@@ -71,7 +71,7 @@ def setup_module(mod):
     tgen.start_router()
 
 
-def teardown_module(mod):
+def teardown_module():
     "Teardown the pytest environment"
     tgen = get_topogen()
     tgen.stop_topology()
@@ -235,7 +235,7 @@ def test_route_map_usage():
         return topotest.json_cmp(output, expected)
 
     test_func = partial(check_initial_routes_installed, r1)
-    success, result = topotest.run_and_expect(test_func, None, count=40, wait=1)
+    _, result = topotest.run_and_expect(test_func, None, count=40, wait=1)
 
     static_rmapfile = "%s/r1/static_rmap.ref" % (thisDir)
     expected = open(static_rmapfile).read().rstrip()

@@ -51,7 +51,6 @@ from lib.common_config import (
     create_static_routes,
     step,
     topo_daemons,
-    shutdown_bringup_interface,
     check_router_status,
     start_topology,
     write_test_header,
@@ -65,8 +64,6 @@ from lib.common_config import (
     write_test_header,
     write_test_footer,
     reset_config_on_routers,
-    stop_router,
-    start_router,
     step,
     create_static_routes,
     kill_router_daemons,
@@ -163,7 +160,7 @@ def setup_module(mod):
     logger.info("Running setup_module() done")
 
 
-def teardown_module(mod):
+def teardown_module():
     """
     Teardown the pytest environment.
 

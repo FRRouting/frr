@@ -143,7 +143,6 @@ def test_zebra_ipv4_routingTable():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    failures = 0
     router_list = tgen.routers().values()
     for router in router_list:
         output = router.vtysh_cmd("show ip route json", isjson=True)

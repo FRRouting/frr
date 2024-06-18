@@ -57,7 +57,7 @@ sys.path.append(os.path.join(CWD, "../lib/"))
 # pylint: disable=C0413
 # Import topogen and topotest helpers
 from lib import topotest
-from lib.topogen import Topogen, TopoRouter, get_topogen
+from lib.topogen import Topogen, get_topogen
 from lib.common_config import (
     start_topology,
     write_test_header,
@@ -68,7 +68,6 @@ from lib.common_config import (
     apply_raw_config,
     check_router_status,
     required_linux_kernel_version,
-    topo_daemons,
 )
 from lib.pim import (
     create_pim_config,
@@ -354,7 +353,7 @@ def verify_pim_stats_increament(stats_before, stats_after):
     """
 
     for router, stats_data in stats_before.items():
-        for stats, value in stats_data.items():
+        for stats, _ in stats_data.items():
             if stats_before[router][stats] >= stats_after[router][stats]:
                 errormsg = (
                     "[DUT: %s]: state %s value has not"
