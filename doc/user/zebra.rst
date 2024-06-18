@@ -1021,6 +1021,35 @@ and this section also helps that case.
       !
    ...
 
+.. clicmd:: format NAME
+
+   Specify the SID allocation schema for the SIDs allocated from this locator. Currently,
+   FRR supports supports the following allocation schemas:
+
+   - `usid-f3216`
+   - `uncompressed`
+
+::
+
+   router# configure terminal
+   router(config)# segment-routinig
+   router(config-sr)# srv6
+   router(config-srv6)# locators
+   router(config-srv6-locators)# locator loc1
+   router(config-srv6-locator)# prefix fc00:0:1::/48
+   router(config-srv6-locator)# format usid-f3216
+
+   router(config-srv6-locator)# show run
+   ...
+   segment-routing
+    srv6
+     locators
+      locator loc1
+       prefix fc00:0:1::/48
+       format usid-f3216
+      !
+   ...
+
 .. clicmd:: encapsulation
 
    Configure parameters for SRv6 encapsulation.
@@ -1028,6 +1057,61 @@ and this section also helps that case.
 .. clicmd:: source-address X:X::X:X
 
    Configure the source address of the outer encapsulating IPv6 header.
+
+.. clicmd:: formats
+
+   Configure SRv6 SID formats.
+
+.. clicmd:: format NAME
+
+   Configure SRv6 SID format.
+
+.. clicmd:: compressed usid
+
+   Enable SRv6 uSID compression and configure SRv6 uSID compression parameters.
+
+.. clicmd:: local-id-block start START
+
+   Configure the start value for the Local ID Block (LIB).
+
+.. clicmd:: local-id-block explicit start START end END
+
+   Configure the start/end values for the Explicit LIB (ELIB).
+
+.. clicmd:: wide-local-id-block start START end END
+
+   Configure the start/end values for the Wide LIB (W-LIB).
+
+.. clicmd:: wide-local-id-block explicit start START
+
+   Configure the start value for the Explicit Wide LIB (EW-LIB).
+
+::
+
+   router# configure terminal
+   router(config)# segment-routinig
+   router(config-sr)# srv6
+   router(config-srv6)# formats
+   router(config-srv6-formats)# format usid-f3216
+   router(config-srv6-format)# compressed usid
+   router(config-srv6-format-usid)# local-id-block start 0xD000
+   router(config-srv6-format-usid)# local-id-block explicit start 0xF000 end 0xFDFF
+   router(config-srv6-format-usid)# wide-local-id-block start 0xFFF4 end 0xFFF5
+   router(config-srv6-format-usid)# wide-local-id-block explicit start 0xFFF4
+
+   router(config-srv6-locator)# show run
+   ...
+   segment-routing
+    srv6
+     formats
+      format usid-f3216
+       compressed usid
+        local-id-block start 0xD000
+        local-id-block explicit start 0xF000 end 0xFDFF
+        wide-local-id-block start 0xFFF4 end 0xFFF5
+        wide-local-id-block explicit start 0xFFF4
+      !
+   ...
 
 .. _multicast-rib-commands:
 

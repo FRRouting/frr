@@ -20,6 +20,8 @@
 #define SRH_BASE_HEADER_LENGTH 8
 #define SRH_SEGMENT_LENGTH     16
 
+#define SRV6_SID_FORMAT_NAME_SIZE 512
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -127,6 +129,12 @@ struct srv6_locator {
 	uint8_t flags;
 #define SRV6_LOCATOR_USID (1 << 0) /* The SRv6 Locator is a uSID Locator */
 
+	/* Pointer to the SID format. */
+	struct srv6_sid_format *sid_format;
+
+	/* Pointer to the parent SID block of the locator. */
+	void *sid_block;
+
 	QOBJ_FIELDS;
 };
 DECLARE_QOBJ_TYPE(srv6_locator);
@@ -181,6 +189,72 @@ struct nexthop_srv6 {
 
 	/* SRv6 Headend-behaviour */
 	struct seg6_seg_stack *seg6_segs;
+};
+
+/* SID format type */
+enum srv6_sid_format_type {
+	SRV6_SID_FORMAT_TYPE_UNSPEC = 0,
+	/* SRv6 SID uncompressed format */
+	SRV6_SID_FORMAT_TYPE_UNCOMPRESSED = 1,
+	/* SRv6 SID compressed uSID format */
+	SRV6_SID_FORMAT_TYPE_USID = 2,
+};
+
+/* SRv6 SID format */
+struct srv6_sid_format {
+	/* Name of the format */
+	char name[SRV6_SID_FORMAT_NAME_SIZE];
+
+	/* Format type: uncompressed vs compressed */
+	enum srv6_sid_format_type type;
+
+	/*
+	 * Lengths of block/node/function/argument parts of the SIDs allocated
+	 * using this format
+	 */
+	uint8_t block_len;
+	uint8_t node_len;
+	uint8_t function_len;
+	uint8_t argument_len;
+
+	union {
+		/* Configuration settings for compressed uSID format type */
+		struct {
+			/* Start of the Local ID Block (LIB) range */
+			uint32_t lib_start;
+
+			/* Start/End of the Explicit LIB range */
+			uint32_t elib_start;
+			uint32_t elib_end;
+
+			/* Start/End of the Wide LIB range */
+			uint32_t wlib_start;
+			uint32_t wlib_end;
+
+			/* Start/End of the Explicit Wide LIB range */
+			uint32_t ewlib_start;
+		} usid;
+
+		/* Configuration settings for uncompressed format type */
+		struct {
+			/* Start of the Explicit range */
+			uint32_t explicit_start;
+		} uncompressed;
+	} config;
+
+	QOBJ_FIELDS;
+};
+DECLARE_QOBJ_TYPE(srv6_sid_format);
+
+/* Context for an SRv6 SID */
+struct srv6_sid_ctx {
+	/* Behavior associated with the SID */
+	enum seg6local_action_t behavior;
+
+	/* Behavior-specific attributes */
+	struct in_addr nh4;
+	struct in6_addr nh6;
+	vrf_id_t vrf_id;
 };
 
 static inline const char *seg6_mode2str(enum seg6_mode_t mode)
@@ -246,6 +320,54 @@ const char *seg6local_context2str(char *str, size_t size,
 				  const struct seg6local_context *ctx,
 				  uint32_t action);
 
+static inline const char *srv6_sid_ctx2str(char *str, size_t size,
+					   const struct srv6_sid_ctx *ctx)
+{
+	int len = 0;
+
+	len += snprintf(str + len, size - len, "%s",
+			seg6local_action2str(ctx->behavior));
+
+	switch (ctx->behavior) {
+	case ZEBRA_SEG6_LOCAL_ACTION_UNSPEC:
+		break;
+
+	case ZEBRA_SEG6_LOCAL_ACTION_END:
+		len += snprintf(str + len, size - len, " USP");
+		break;
+
+	case ZEBRA_SEG6_LOCAL_ACTION_END_X:
+	case ZEBRA_SEG6_LOCAL_ACTION_END_DX6:
+		len += snprintfrr(str + len, size - len, " nh6 %pI6", &ctx->nh6);
+		break;
+
+	case ZEBRA_SEG6_LOCAL_ACTION_END_DX4:
+		len += snprintfrr(str + len, size - len, " nh4 %pI4", &ctx->nh4);
+		break;
+
+	case ZEBRA_SEG6_LOCAL_ACTION_END_T:
+	case ZEBRA_SEG6_LOCAL_ACTION_END_DT6:
+	case ZEBRA_SEG6_LOCAL_ACTION_END_DT4:
+	case ZEBRA_SEG6_LOCAL_ACTION_END_DT46:
+		len += snprintf(str + len, size - len, " vrf_id %u",
+				ctx->vrf_id);
+		break;
+
+	case ZEBRA_SEG6_LOCAL_ACTION_END_DX2:
+	case ZEBRA_SEG6_LOCAL_ACTION_END_B6:
+	case ZEBRA_SEG6_LOCAL_ACTION_END_B6_ENCAP:
+	case ZEBRA_SEG6_LOCAL_ACTION_END_BM:
+	case ZEBRA_SEG6_LOCAL_ACTION_END_S:
+	case ZEBRA_SEG6_LOCAL_ACTION_END_AS:
+	case ZEBRA_SEG6_LOCAL_ACTION_END_AM:
+	case ZEBRA_SEG6_LOCAL_ACTION_END_BPF:
+	default:
+		len += snprintf(str + len, size - len, " unknown(%s)", __func__);
+	}
+
+	return str;
+}
+
 int snprintf_seg6_segs(char *str,
 		size_t size, const struct seg6_segs *segs);
 
@@ -254,11 +376,23 @@ extern struct srv6_locator_chunk *srv6_locator_chunk_alloc(void);
 extern void srv6_locator_free(struct srv6_locator *locator);
 extern void srv6_locator_chunk_list_free(void *data);
 extern void srv6_locator_chunk_free(struct srv6_locator_chunk **chunk);
+extern void srv6_locator_copy(struct srv6_locator *copy,
+			      const struct srv6_locator *locator);
 json_object *srv6_locator_chunk_json(const struct srv6_locator_chunk *chunk);
 json_object *srv6_locator_json(const struct srv6_locator *loc);
 json_object *srv6_locator_detailed_json(const struct srv6_locator *loc);
 json_object *
 srv6_locator_chunk_detailed_json(const struct srv6_locator_chunk *chunk);
+
+extern struct srv6_sid_format *srv6_sid_format_alloc(const char *name);
+extern void srv6_sid_format_free(struct srv6_sid_format *format);
+extern void delete_srv6_sid_format(void *format);
+
+extern struct srv6_sid_ctx *srv6_sid_ctx_alloc(enum seg6local_action_t behavior,
+					       struct in_addr *nh4,
+					       struct in6_addr *nh6,
+					       vrf_id_t vrf_id);
+extern void srv6_sid_ctx_free(struct srv6_sid_ctx *ctx);
 
 #ifdef __cplusplus
 }

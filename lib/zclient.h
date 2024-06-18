@@ -209,6 +209,9 @@ typedef enum {
 	ZEBRA_SRV6_LOCATOR_DELETE,
 	ZEBRA_SRV6_MANAGER_GET_LOCATOR_CHUNK,
 	ZEBRA_SRV6_MANAGER_RELEASE_LOCATOR_CHUNK,
+	ZEBRA_SRV6_MANAGER_GET_LOCATOR,
+	ZEBRA_SRV6_MANAGER_GET_SRV6_SID,
+	ZEBRA_SRV6_MANAGER_RELEASE_SRV6_SID,
 	ZEBRA_ERROR,
 	ZEBRA_CLIENT_CAPABILITIES,
 	ZEBRA_OPAQUE_MESSAGE,
@@ -235,6 +238,7 @@ typedef enum {
 	ZEBRA_TC_FILTER_ADD,
 	ZEBRA_TC_FILTER_DELETE,
 	ZEBRA_OPAQUE_NOTIFY,
+	ZEBRA_SRV6_SID_NOTIFY,
 } zebra_message_types_t;
 /* Zebra message types. Please update the corresponding
  * command_types array with any changes!
@@ -761,6 +765,13 @@ enum zapi_iptable_notify_owner {
 	ZAPI_IPTABLE_FAIL_REMOVE,
 };
 
+enum zapi_srv6_sid_notify {
+	ZAPI_SRV6_SID_FAIL_ALLOC = 0,
+	ZAPI_SRV6_SID_ALLOCATED,
+	ZAPI_SRV6_SID_RELEASED,
+	ZAPI_SRV6_SID_FAIL_RELEASE,
+};
+
 enum zclient_send_status {
 	ZCLIENT_SEND_FAILURE = -1,
 	ZCLIENT_SEND_SUCCESS = 0,
@@ -807,6 +818,28 @@ zapi_rule_notify_owner2str(enum zapi_rule_notify_owner note)
 		break;
 	case ZAPI_RULE_REMOVED:
 		ret = "ZAPI_RULE_REMOVED";
+		break;
+	}
+
+	return ret;
+}
+
+static inline const char *zapi_srv6_sid_notify2str(enum zapi_srv6_sid_notify note)
+{
+	const char *ret = "UNKNOWN";
+
+	switch (note) {
+	case ZAPI_SRV6_SID_FAIL_ALLOC:
+		ret = "ZAPI_SRV6_SID_FAIL_ALLOC";
+		break;
+	case ZAPI_SRV6_SID_ALLOCATED:
+		ret = "ZAPI_SRV6_SID_ALLOCATED";
+		break;
+	case ZAPI_SRV6_SID_FAIL_RELEASE:
+		ret = "ZAPI_SRV6_SID_FAIL_RELEASE";
+		break;
+	case ZAPI_SRV6_SID_RELEASED:
+		ret = "ZAPI_SRV6_SID_RELEASED";
 		break;
 	}
 
@@ -1070,10 +1103,23 @@ extern int tm_get_table_chunk(struct zclient *zclient, uint32_t chunk_size,
 			      uint32_t *start, uint32_t *end);
 extern int tm_release_table_chunk(struct zclient *zclient, uint32_t start,
 				  uint32_t end);
+
+/* Zebra SRv6 Manager flags */
+#define ZAPI_SRV6_MANAGER_SID_FLAG_HAS_SID_VALUE 0x01
+#define ZAPI_SRV6_MANAGER_SID_FLAG_HAS_LOCATOR	 0x02
+
 extern int srv6_manager_get_locator_chunk(struct zclient *zclient,
 					  const char *locator_name);
 extern int srv6_manager_release_locator_chunk(struct zclient *zclient,
 					      const char *locator_name);
+extern int srv6_manager_get_locator(struct zclient *zclient,
+				    const char *locator_name);
+extern int srv6_manager_get_sid(struct zclient *zclient,
+				const struct srv6_sid_ctx *ctx,
+				struct in6_addr *sid_value,
+				const char *locator_name, uint32_t *sid_func);
+extern int srv6_manager_release_sid(struct zclient *zclient,
+				    const struct srv6_sid_ctx *ctx);
 
 extern enum zclient_send_status zebra_send_sr_policy(struct zclient *zclient,
 						     int cmd,
@@ -1128,6 +1174,11 @@ bool zapi_rule_notify_decode(struct stream *s, uint32_t *seqno,
 bool zapi_ipset_notify_decode(struct stream *s,
 			      uint32_t *unique,
 			     enum zapi_ipset_notify_owner *note);
+bool zapi_srv6_sid_notify_decode(struct stream *s, struct srv6_sid_ctx *ctx,
+				 struct in6_addr *sid_value, uint32_t *func,
+				 uint32_t *wide_func,
+				 enum zapi_srv6_sid_notify *note,
+				 char **locator_name);
 
 /* Nexthop-group message apis */
 extern enum zclient_send_status

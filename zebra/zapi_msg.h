@@ -94,6 +94,11 @@ extern int zsend_sr_policy_notify_status(uint32_t color,
 extern void zsend_neighbor_notify(int cmd, struct interface *ifp,
 				  struct ipaddr *ipaddr, int ndm_state,
 				  union sockunion *link_layer_ipv4, int ip_len);
+extern void zsend_srv6_sid_notify(struct zserv *client,
+				  const struct srv6_sid_ctx *ctx,
+				  struct in6_addr *sid_value, uint32_t func,
+				  uint32_t wide_func, const char *locator_name,
+				  enum zapi_srv6_sid_notify note);
 
 extern int zsend_client_close_notify(struct zserv *client,
 				     struct zserv *closed_client);
@@ -109,6 +114,9 @@ extern int zsend_zebra_srv6_locator_delete(struct zserv *client,
 					   struct srv6_locator *loc);
 extern int zsend_srv6_manager_get_locator_chunk_response(struct zserv *client,
 		vrf_id_t vrf_id, struct srv6_locator *loc);
+
+extern int zsend_srv6_manager_get_locator_response(struct zserv *client,
+						   struct srv6_locator *locator);
 
 #ifdef __cplusplus
 }
