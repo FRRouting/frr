@@ -3256,15 +3256,6 @@ void bgp_best_selection(struct bgp *bgp, struct bgp_dest *dest,
 				if (!peer_established(pi->peer->connection))
 					continue;
 
-			if (!bgp_path_info_nexthop_cmp(pi, new_select)) {
-				if (debug)
-					zlog_debug(
-						"%pBD(%s): %s has the same nexthop as the bestpath, skip it",
-						dest, bgp->name_pretty,
-						path_buf);
-				continue;
-			}
-
 			bgp_path_info_cmp(bgp, pi, new_select, &paths_eq,
 					  mpath_cfg, debug, pfx_buf, afi, safi,
 					  &dest->reason);
