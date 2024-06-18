@@ -545,7 +545,7 @@ DEFPY (install_seg6local_routes,
 	sg.r.nhop.ifindex = ifname2ifindex(seg6l_oif, vrf->vrf_id);
 	sg.r.nhop.vrf_id = vrf->vrf_id;
 	sg.r.nhop_group.nexthop = &sg.r.nhop;
-	nexthop_add_srv6_seg6local(&sg.r.nhop, action, &ctx);
+	nexthop_add_srv6_seg6local(&sg.r.nhop, action, &ctx, NULL, 0);
 
 	sg.r.vrf_id = vrf->vrf_id;
 	sharp_install_routes_helper(&sg.r.orig_prefix, sg.r.vrf_id, sg.r.inst,

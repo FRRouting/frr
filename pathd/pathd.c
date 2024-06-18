@@ -17,6 +17,7 @@
 #include "pathd/path_zebra.h"
 #include "pathd/path_debug.h"
 #include "pathd/path_ted.h"
+#include "srv6.h"
 
 #define HOOK_DELAY 3
 
@@ -500,6 +501,36 @@ void srte_policy_update_binding_sid(struct srte_policy *policy,
 }
 
 /**
+ * Update a policy SRv6 binding SID.
+ *
+ * @param policy The policy for which the SID should be updated
+ * @param srv6_binding_sid The new binding SID for the given policy
+ */
+void srte_policy_update_srv6_binding_sid(struct srte_policy *policy,
+					 struct in6_addr *srv6_binding_sid)
+{
+	struct in6_addr srv6_binding_sid_zero = {};
+
+	if (!srv6_binding_sid ||
+	    (srv6_binding_sid &&
+	     !IPV6_ADDR_SAME(&policy->srv6_binding_sid, srv6_binding_sid)))
+		(void)path_zebra_send_bsid(&policy->srv6_binding_sid, 0,
+					   ZEBRA_SEG6_LOCAL_ACTION_END_B6_ENCAP,
+					   NULL, 0);
+
+	if (srv6_binding_sid)
+		IPV6_ADDR_COPY(&policy->srv6_binding_sid, srv6_binding_sid);
+	else
+		IPV6_ADDR_COPY(&policy->srv6_binding_sid,
+			       &srv6_binding_sid_zero);
+
+	/* Reinstall the Binding-SID if necessary. */
+	if (policy->best_candidate)
+		path_zebra_add_sr_policy(policy, policy->best_candidate->lsp
+							 ->segment_list);
+}
+
+/**
  * Gives the policy best candidate path.
  *
  * @param policy The policy we want the best candidate path from
@@ -608,7 +639,8 @@ void srte_policy_apply_changes(struct srte_policy *policy)
 			UNSET_FLAG(old_best_candidate->flags, F_CANDIDATE_BEST);
 			SET_FLAG(old_best_candidate->flags,
 				 F_CANDIDATE_MODIFIED);
-
+			if (old_best_candidate->lsp)
+				path_nht_removed(old_best_candidate);
 			/*
 			 * Rely on replace semantics if there's a new best
 			 * candidate.
@@ -621,7 +653,6 @@ void srte_policy_apply_changes(struct srte_policy *policy)
 			SET_FLAG(new_best_candidate->flags, F_CANDIDATE_BEST);
 			SET_FLAG(new_best_candidate->flags,
 				 F_CANDIDATE_MODIFIED);
-
 			path_zebra_add_sr_policy(
 				policy, new_best_candidate->lsp->segment_list);
 		}

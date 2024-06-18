@@ -169,6 +169,9 @@ struct srte_segment_entry {
 	/* Label Value. */
 	mpls_label_t sid_value;
 
+	/* SRv6 SID. */
+	struct in6_addr srv6_sid_value;
+
 	/* NAI Type */
 	enum srte_segment_nai_type nai_type;
 	/* NAI local address when nai type is not NONE */
@@ -209,6 +212,7 @@ struct srte_segment_list {
 #define F_SEGMENT_LIST_MODIFIED 0x0004
 #define F_SEGMENT_LIST_DELETED 0x0008
 #define F_SEGMENT_LIST_SID_CONFLICT 0x0010
+#define F_SEGMENT_LIST_NHT_REGISTERED 0x0020
 };
 RB_HEAD(srte_segment_list_head, srte_segment_list);
 RB_PROTOTYPE(srte_segment_list_head, srte_segment_list, entry,
@@ -334,6 +338,9 @@ struct srte_policy {
 	/* Binding SID */
 	mpls_label_t binding_sid;
 
+	/* SRv6 Binding SID */
+	struct in6_addr srv6_binding_sid;
+
 	/* The Protocol-Origin. */
 	enum srte_protocol_origin protocol_origin;
 
@@ -396,6 +403,8 @@ struct srte_policy *srte_policy_find(uint32_t color, struct ipaddr *endpoint);
 int srte_policy_update_ted_sid(void);
 void srte_policy_update_binding_sid(struct srte_policy *policy,
 				    uint32_t binding_sid);
+void srte_policy_update_srv6_binding_sid(struct srte_policy *policy,
+					 struct in6_addr *srv6_binding_sid);
 void srte_apply_changes(void);
 void srte_clean_zebra(void);
 void srte_policy_apply_changes(struct srte_policy *policy);
