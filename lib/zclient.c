@@ -2134,6 +2134,7 @@ struct nexthop *nexthop_from_zapi_nexthop(const struct zapi_nexthop *znh)
 	n->ifindex = znh->ifindex;
 	n->gate = znh->gate;
 	n->srte_color = znh->srte_color;
+	n->weight = znh->weight;
 
 	/*
 	 * This function currently handles labels
