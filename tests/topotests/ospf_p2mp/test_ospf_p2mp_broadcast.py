@@ -140,22 +140,6 @@ def verify_p2mp_interface(tgen, router, nbr_cnt, nbr_adj_cnt, nbr_filter):
         "interfaces": {
             "r1-eth0": {
                 "ospfEnabled": True,
-                "interfaceIp": {
-                    "10.1.0.1": {
-                        "ipAddress": "10.1.0.1",
-                        "ipAddressPrefixlen": 24,
-                        "ospfIfType": "Broadcast",
-                        "routerId": "1.1.1.1",
-                        "networkType": "POINTOMULTIPOINT",
-                        "cost": 10,
-                        "state": "Point-To-Point",
-                        "nbrCount": nbr_cnt,
-                        "nbrAdjacentCount": nbr_adj_cnt,
-                        "prefixSuppression": False,
-                        "p2mpDelayReflood": False,
-                        "nbrFilterPrefixList": nbr_filter,
-                    }
-                },
                 "ipAddress": "10.1.0.1",
                 "ipAddressPrefixlen": 24,
                 "ospfIfType": "Broadcast",
@@ -201,17 +185,6 @@ def verify_non_p2mp_interface(tgen):
         "interfaces": {
             "r1-eth0": {
                 "ospfEnabled": True,
-                "interfaceIp": {
-                    "10.1.0.1": {
-                        "ipAddress": "10.1.0.1",
-                        "ipAddressPrefixlen": 24,
-                        "ospfIfType": "Broadcast",
-                        "routerId": "1.1.1.1",
-                        "networkType": "BROADCAST",
-                        "cost": 10,
-                        "prefixSuppression": False,
-                    }
-                },
                 "ipAddress": "10.1.0.1",
                 "ipAddressPrefixlen": 24,
                 "ospfIfType": "Broadcast",
