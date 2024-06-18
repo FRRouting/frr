@@ -237,11 +237,11 @@ static bool route_add(const struct prefix *p, vrf_id_t vrf_id, uint8_t instance,
 	memcpy(&api.prefix, p, sizeof(*p));
 
 	api.flags = flags;
-	SET_FLAG(api.message, ZAPI_MESSAGE_NEXTHOP);
 
 	if (nhgid)
 		zapi_route_set_nhg_id(&api, &nhgid);
 	else {
+		SET_FLAG(api.message, ZAPI_MESSAGE_NEXTHOP);
 		for (ALL_NEXTHOPS_PTR(nhg, nh)) {
 			/* Check if we set a VNI label */
 			if (nh->nh_label &&
