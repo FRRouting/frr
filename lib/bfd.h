@@ -464,6 +464,8 @@ extern bool bfd_protocol_integration_shutting_down(void);
 extern int bfd_nht_update(const struct prefix *match,
 			  const struct zapi_route *route);
 
+extern bool bfd_session_is_down(const struct bfd_session_params *session);
+
 #ifdef __cplusplus
 }
 #endif

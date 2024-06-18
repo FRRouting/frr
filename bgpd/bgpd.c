@@ -4507,6 +4507,12 @@ bool peer_active(struct peer *peer)
 {
 	if (BGP_CONNECTION_SU_UNSPEC(peer->connection))
 		return false;
+
+	if (peer->bfd_config) {
+		if (bfd_session_is_down(peer->bfd_config->session))
+			return false;
+	}
+
 	if (peer->afc[AFI_IP][SAFI_UNICAST] || peer->afc[AFI_IP][SAFI_MULTICAST]
 	    || peer->afc[AFI_IP][SAFI_LABELED_UNICAST]
 	    || peer->afc[AFI_IP][SAFI_MPLS_VPN] || peer->afc[AFI_IP][SAFI_ENCAP]
