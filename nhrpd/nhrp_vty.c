@@ -12,6 +12,9 @@
 
 #include "nhrpd.h"
 #include "netlink.h"
+#include "nhrp_protocol.h"
+
+#include "nhrpd/nhrp_vty_clippy.c"
 
 static int nhrp_config_write(struct vty *vty);
 static struct cmd_node zebra_node = {
@@ -458,6 +461,55 @@ DEFUN(if_no_nhrp_holdtime, if_no_nhrp_holdtime_cmd,
 
 	return CMD_SUCCESS;
 }
+
+#define NHRP_CISCO_PASS_LEN 8
+DEFPY(if_nhrp_authentication, if_nhrp_authentication_cmd,
+      AFI_CMD "nhrp authentication PASSWORD$password",
+      AFI_STR
+      NHRP_STR
+      "Specify plain text password used for authenticantion\n"
+      "Password, plain text, limited to 8 characters\n")
+{
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+	struct nhrp_cisco_authentication_extension *auth;
+	struct nhrp_interface *nifp = ifp->info;
+	int pass_len = strlen(password);
+
+	if (pass_len > NHRP_CISCO_PASS_LEN) {
+		vty_out(vty, "Password size limit exceeded (%d>%d)\n",
+			pass_len, NHRP_CISCO_PASS_LEN);
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	if (nifp->auth_token)
+		zbuf_free(nifp->auth_token);
+
+	nifp->auth_token = zbuf_alloc(pass_len + sizeof(uint32_t));
+	auth = (struct nhrp_cisco_authentication_extension *)
+		       nifp->auth_token->buf;
+	auth->type = htonl(NHRP_AUTHENTICATION_PLAINTEXT);
+	memcpy(auth->secret, password, pass_len);
+
+	return CMD_SUCCESS;
+}
+
+
+DEFPY(if_no_nhrp_authentication, if_no_nhrp_authentication_cmd,
+      "no " AFI_CMD "nhrp authentication PASSWORD$password",
+      NO_STR
+      AFI_STR
+      NHRP_STR
+      "Specify plain text password used for authenticantion\n"
+	  "Password, plain text, limited to 8 characters\n")
+{
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+	struct nhrp_interface *nifp = ifp->info;
+
+	if (nifp->auth_token)
+		zbuf_free(nifp->auth_token);
+	return CMD_SUCCESS;
+}
+
 
 DEFUN(if_nhrp_mtu, if_nhrp_mtu_cmd,
 	"ip nhrp mtu <(576-1500)|opennhrp>",
@@ -1053,6 +1105,7 @@ DEFUN(show_dmvpn, show_dmvpn_cmd,
 static void clear_nhrp_cache(struct nhrp_cache *c, void *data)
 {
 	struct info_ctx *ctx = data;
+
 	if (c->cur.type <= NHRP_CACHE_DYNAMIC) {
 		nhrp_cache_update_binding(c, c->cur.type, -1, NULL, 0, NULL,
 					  NULL);
@@ -1129,6 +1182,7 @@ static void interface_config_write_nhrp_map(struct nhrp_cache_config *c,
 static int interface_config_write(struct vty *vty)
 {
 	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
+	struct nhrp_cisco_authentication_extension *auth;
 	struct write_map_ctx mapctx;
 	struct interface *ifp;
 	struct nhrp_interface *nifp;
@@ -1154,6 +1208,12 @@ static int interface_config_write(struct vty *vty)
 		}
 		if (nifp->source)
 			vty_out(vty, " tunnel source %s\n", nifp->source);
+
+		if (nifp->auth_token) {
+			auth = (struct nhrp_cisco_authentication_extension *)
+				       nifp->auth_token->buf;
+			vty_out(vty, " ip nhrp authentication %s\n", auth->secret);
+		}
 
 		for (afi = 0; afi < AFI_MAX; afi++) {
 			struct nhrp_afi_data *ad = &nifp->afi[afi];
@@ -1256,6 +1316,8 @@ void nhrp_config_init(void)
 	install_element(INTERFACE_NODE, &if_no_nhrp_network_id_cmd);
 	install_element(INTERFACE_NODE, &if_nhrp_holdtime_cmd);
 	install_element(INTERFACE_NODE, &if_no_nhrp_holdtime_cmd);
+	install_element(INTERFACE_NODE, &if_nhrp_authentication_cmd);
+	install_element(INTERFACE_NODE, &if_no_nhrp_authentication_cmd);
 	install_element(INTERFACE_NODE, &if_nhrp_mtu_cmd);
 	install_element(INTERFACE_NODE, &if_no_nhrp_mtu_cmd);
 	install_element(INTERFACE_NODE, &if_nhrp_flags_cmd);

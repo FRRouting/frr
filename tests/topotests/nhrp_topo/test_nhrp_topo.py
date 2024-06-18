@@ -28,7 +28,7 @@ sys.path.append(os.path.join(CWD, "../"))
 from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
-from lib.common_config import required_linux_kernel_version
+from lib.common_config import required_linux_kernel_version, retry
 
 # Required to instantiate the topology builder class.
 
@@ -214,19 +214,64 @@ def test_protocols_convergence():
 def test_nhrp_connection():
     "Assert that the NHRP peers can find themselves."
     tgen = get_topogen()
+    pingrouter = tgen.gears["r1"]
+    hubrouter = tgen.gears["r2"]
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    pingrouter = tgen.gears["r1"]
-    logger.info("Check Ping IPv4 from  R1 to R2 = 10.255.255.2)")
-    output = pingrouter.run("ping 10.255.255.2 -f -c 1000")
-    logger.info(output)
-    if "1000 packets transmitted, 1000 received" not in output:
-        assertmsg = "expected ping IPv4 from R1 to R2 should be ok"
-        assert 0, assertmsg
-    else:
-        logger.info("Check Ping IPv4 from R1 to R2 OK")
+    def ping_helper():
+        output = pingrouter.run("ping 10.255.255.2 -f -c 100")
+        logger.info(output)
+        return output
 
+    # force session to reinitialize
+    def relink_session():
+        for r in ["r1", "r2"]:
+            tgen.gears[r].vtysh_cmd("clear ip nhrp cache")
+            tgen.net[r].cmd("ip l del {}-gre0".format(r));
+        _populate_iface();
+
+    @retry(retry_timeout=40, initial_wait=5)
+    def verify_same_password():
+        output = ping_helper()
+        if "100 packets transmitted, 100 received" not in output:
+            assertmsg = "expected ping IPv4 from R1 to R2 should be ok"
+            assert 0, assertmsg
+        else:
+            logger.info("Check Ping IPv4 from R1 to R2 OK")
+
+    @retry(retry_timeout=40, initial_wait=5)
+    def verify_mismatched_password():
+        output = ping_helper()
+        if "Network is unreachable" not in output:
+            assertmsg = "expected ping IPv4 from R1 to R2 - should be down"
+            assert 0, assertmsg
+        else:
+            logger.info("Check Ping IPv4 from R1 to R2 missing - OK")
+
+    ### Passwords are the same
+    logger.info("Check Ping IPv4 from  R1 to R2 = 10.255.255.2")
+    verify_same_password()
+
+    ### Passwords are different
+    logger.info("Modify password and send ping again, should drop")
+    hubrouter.vtysh_cmd("""
+        configure
+            interface r2-gre0
+                ip nhrp authentication secret12
+    """)
+    relink_session()
+    verify_mismatched_password()
+    
+    ### Passwords are the same - again
+    logger.info("Recover password and verify conectivity is back")
+    hubrouter.vtysh_cmd("""
+        configure
+            interface r2-gre0
+                ip nhrp authentication secret
+    """)
+    relink_session()
+    verify_same_password()
 
 def test_route_install():
     "Test use of NHRP routes by other protocols (sharpd here)."
