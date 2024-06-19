@@ -242,15 +242,15 @@ bool zebra_nhg_parent_is_empty(const struct nhg_hash_entry *nhe)
 }
 
 static void zebra_nhg_parent_del(struct nhg_hash_entry *from,
-				 struct nhg_hash_entry *dependent)
+				 struct nhg_hash_entry *parent)
 {
-	nhg_connected_tree_del_nhe(&from->nhg_parent, dependent);
+	nhg_connected_tree_del_nhe(&from->nhg_parent, parent);
 }
 
 static void zebra_nhg_parent_add(struct nhg_hash_entry *to,
-				 struct nhg_hash_entry *dependent)
+				 struct nhg_hash_entry *parent)
 {
-	nhg_connected_tree_add_nhe(&to->nhg_parent, dependent);
+	nhg_connected_tree_add_nhe(&to->nhg_parent, parent);
 }
 
 static void zebra_nhg_parent_init(struct nhg_hash_entry *nhe)
@@ -265,7 +265,7 @@ static void zebra_nhg_parent_release(struct nhg_hash_entry *nhe)
 
 	frr_each_safe (nhg_connected_tree, &nhe->nhg_parent, rb_node_dep) {
 		zebra_nhg_child_del(rb_node_dep->nhe, nhe);
-		/* recheck validity of the dependent */
+		/* recheck validity of the parent */
 		zebra_nhg_check_valid(rb_node_dep->nhe);
 	}
 }
@@ -619,10 +619,9 @@ static int zebra_nhg_process_grp(struct nexthop_group *nhg,
 		depend = depends_find_id_add(depends, grp[i].id);
 
 		if (!depend) {
-			flog_err(
-				EC_ZEBRA_NHG_SYNC,
-				"Received Nexthop Group from the kernel with a dependent Nexthop ID (%u) which we do not have in our table",
-				grp[i].id);
+			flog_err(EC_ZEBRA_NHG_SYNC,
+				 "Received Nexthop Group from the kernel with a parent Nexthop ID (%u) which we do not have in our table",
+				 grp[i].id);
 			return -1;
 		}
 
@@ -781,7 +780,7 @@ static bool zebra_nhe_find(struct nhg_hash_entry **nhe, /* return value */
 	if (recursive)
 		SET_FLAG(newnhe->flags, NEXTHOP_GROUP_RECURSIVE);
 
-	/* Attach dependent backpointers to singletons */
+	/* Attach parent backpointers to singletons */
 	zebra_nhg_connect_depends(newnhe, &newnhe->nhg_child);
 
 	/**
@@ -1108,13 +1107,12 @@ static void zebra_nhg_handle_install(struct nhg_hash_entry *nhe, bool install)
 
 	frr_each_safe (nhg_connected_tree, &nhe->nhg_parent, rb_node_dep) {
 		zebra_nhg_set_valid(rb_node_dep->nhe, true);
-		/* install dependent NHG into kernel */
+		/* install parent NHG into kernel */
 		if (install) {
 			if (IS_ZEBRA_DEBUG_NHG_DETAIL)
-				zlog_debug(
-					"%s nh id %u (flags 0x%x) associated dependent NHG %pNG install",
-					__func__, nhe->id, nhe->flags,
-					rb_node_dep->nhe);
+				zlog_debug("%s nh id %u (flags 0x%x) associated parent NHG %pNG install",
+					   __func__, nhe->id, nhe->flags,
+					   rb_node_dep->nhe);
 			zebra_nhg_install_kernel(rb_node_dep->nhe);
 		}
 	}
@@ -3419,7 +3417,7 @@ struct nhg_hash_entry *zebra_nhg_proto_add(uint32_t id, int type,
 	if (old) {
 		/*
 		 * This is a replace, just release NHE from ID for now, The
-		 * depends/dependents may still be used in the replacement so
+		 * depends/parents may still be used in the replacement so
 		 * we don't touch them other than to remove their refs to their
 		 * old parent.
 		 */
@@ -3669,7 +3667,7 @@ void zebra_interface_nhg_reinstall(struct interface *ifp)
 		/* Check for singleton NHG associated to interface */
 		if (!nexthop_is_blackhole(nh) &&
 		    zebra_nhg_child_is_empty(rb_node_dep->nhe)) {
-			struct nhg_connected *rb_node_dependent;
+			struct nhg_connected *rb_node_parent;
 
 			if (IS_ZEBRA_DEBUG_NHG)
 				zlog_debug(
@@ -3678,22 +3676,22 @@ void zebra_interface_nhg_reinstall(struct interface *ifp)
 					rb_node_dep->nhe->flags);
 			zebra_nhg_install_kernel(rb_node_dep->nhe);
 
-			/* Don't need to modify dependents if installed */
+			/* Don't need to modify parents if installed */
 			if (CHECK_FLAG(rb_node_dep->nhe->flags,
 				       NEXTHOP_GROUP_INSTALLED))
 				continue;
 
-			/* mark dependent uninstalled; when interface associated
-			 * singleton is installed, install dependent
+			/* mark parent uninstalled; when interface associated
+			 * singleton is installed, install parent
 			 */
 			frr_each_safe (nhg_connected_tree,
 				       &rb_node_dep->nhe->nhg_parent,
-				       rb_node_dependent) {
+				       rb_node_parent) {
 				if (IS_ZEBRA_DEBUG_NHG)
-					zlog_debug("%s dependent nhe %pNG Setting Reinstall flag",
+					zlog_debug("%s parent nhe %pNG Setting Reinstall flag",
 						   __func__,
-						   rb_node_dependent->nhe);
-				SET_FLAG(rb_node_dependent->nhe->flags,
+						   rb_node_parent->nhe);
+				SET_FLAG(rb_node_parent->nhe->flags,
 					 NEXTHOP_GROUP_REINSTALL);
 			}
 		}
