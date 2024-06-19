@@ -2336,7 +2336,9 @@ static void isis_print_paths(struct vty *vty, struct isis_vertex_queue *queue,
 		vty_out(vty, "%s\n", table);
 		XFREE(MTYPE_TMP, table);
 	} else
-		*json = ttable_json(tt, "ssdsss");
+		*json = ttable_json_with_json_text(
+			tt, "ssdsss",
+			"vertex|type|metric|nextHop|interface|parent");
 	ttable_del(tt);
 }
 
