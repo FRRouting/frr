@@ -32,7 +32,6 @@ All conditions are tested against an eBGP peer in a public ASN.
 import os
 import sys
 import json
-import time
 import pytest
 
 CWD = os.path.dirname(os.path.realpath(__file__))
@@ -118,7 +117,7 @@ def setup_module(mod):
     tgen.start_router()
 
 
-def teardown_module(mod):
+def teardown_module():
     tgen = get_topogen()
     tgen.stop_topology()
 

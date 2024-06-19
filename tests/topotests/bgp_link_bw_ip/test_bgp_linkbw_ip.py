@@ -152,7 +152,7 @@ def setup_module(mod):
     # tgen.mininet_cli()
 
 
-def teardown_module(mod):
+def teardown_module():
     "Teardown the pytest environment"
     tgen = get_topogen()
     tgen.stop_topology()

@@ -129,7 +129,7 @@ def setup_module(mod):
         peers[peer].start(peer_dir, env_file)
 
 
-def teardown_module(mod):
+def teardown_module():
     "Teardown the pytest environment"
     tgen = get_topogen()
 

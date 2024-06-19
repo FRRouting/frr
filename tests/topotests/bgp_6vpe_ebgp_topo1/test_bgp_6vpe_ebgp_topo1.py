@@ -12,7 +12,6 @@ Test the FRR BGP 6VPE functionality
 import os
 import sys
 import json
-import functools
 from functools import partial
 import pytest
 

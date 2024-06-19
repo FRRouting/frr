@@ -179,7 +179,7 @@ def bgp_vpnv6_table_check(router, group, label_list=None, label_value_expected=N
         )
 
         dump = router.vtysh_cmd("show bgp ipv6 vpn {} json".format(prefix), isjson=True)
-        for rd, pathes in dump.items():
+        for _, pathes in dump.items():
             for path in pathes["paths"]:
                 assert (
                     "remoteLabel" in path.keys()
@@ -300,7 +300,7 @@ def mpls_table_check(router, blacklist=None, label_list=None, whitelist=None):
     test_func = functools.partial(
         check_show_mpls_table, router, blacklist, label_list, whitelist
     )
-    success, _ = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+    success, result = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
     assert success, "{}, MPLS labels check fail: {}".format(router.name, result)
 
 
@@ -798,7 +798,7 @@ def test_reconfigure_allocation_mode_nexthop():
     test_func = functools.partial(
         check_show_mpls_table_entry_label_not_found, router, 17
     )
-    success, result = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+    success, _ = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
     assert success, "r1, mpls entry with label 17 still present"
 
     # Check vpnv6 routes from r1

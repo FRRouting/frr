@@ -61,7 +61,7 @@ def setup_module(mod):
     peer.start(os.path.join(CWD, "peer1"), os.path.join(CWD, "exabgp.env"))
 
 
-def teardown_module(mod):
+def teardown_module():
     tgen = get_topogen()
     tgen.stop_topology()
 

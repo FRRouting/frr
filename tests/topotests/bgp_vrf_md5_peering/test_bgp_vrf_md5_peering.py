@@ -53,7 +53,7 @@ def setup_module(mod):
     r1.cmd_raises("ip link set r1-eth0 master public")
 
 
-def teardown_module(mod):
+def teardown_module():
     tgen = get_topogen()
     tgen.stop_topology()
 

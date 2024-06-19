@@ -73,7 +73,7 @@ def setup_module(mod):
     tgen.start_router()
 
 
-def teardown_module(mod):
+def teardown_module():
     tgen = get_topogen()
     tgen.stop_topology()
 
@@ -146,7 +146,7 @@ def check_mpls_table(label, protocol):
 
     if label == "auto" and protocol:
         output_copy = deepcopy(output)
-        for key, data in output_copy.items():
+        for _, data in output_copy.items():
             for nexthop in data.get("nexthops", []):
                 if nexthop.get("type", None) != protocol:
                     continue

@@ -16,7 +16,6 @@ import os
 import sys
 import json
 import functools
-from functools import partial
 import pytest
 
 # Save the Current Working Directory to find configuration files.
