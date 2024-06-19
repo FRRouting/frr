@@ -3015,7 +3015,11 @@ void isis_print_routes(struct vty *vty, struct isis_spftree *spftree,
 		vty_out(vty, "%s\n", table);
 		XFREE(MTYPE_TMP, table);
 	} else if (json) {
-		*json = ttable_json(tt, prefix_sid ? "sdssdsdd" : "sdsss");
+		*json = ttable_json_with_json_text(
+			tt, prefix_sid ? "sdssdsdd" : "sdsss",
+			prefix_sid
+				? "prefix|metric|interface|nextHop|segmentIdentifier|labelOperation|Algorithm"
+				: "prefix|metric|interface|nextHop|label(s)");
 	}
 	ttable_del(tt);
 }
