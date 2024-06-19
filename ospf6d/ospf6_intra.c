@@ -574,52 +574,26 @@ void ospf6_network_lsa_originate(struct event *thread)
 static char *ospf6_link_lsa_get_prefix_str(struct ospf6_lsa *lsa, char *buf,
 					   int buflen, int pos)
 {
-	char *start, *end, *current;
-	struct ospf6_link_lsa *link_lsa;
-	struct in6_addr in6;
-	struct ospf6_prefix *prefix;
-	int cnt = 0, prefixnum;
+	struct ospf6_link_lsa *link_lsa = lsa_after_header(lsa->header);
+	struct ospf6_prefix *prefix = nth_prefix(lsa->header, pos);
+	struct in6_addr in6 = { 0 };
 
-	if (lsa) {
-		link_lsa = (struct ospf6_link_lsa
-				    *)((caddr_t)lsa->header
-				       + sizeof(struct ospf6_lsa_header));
+	if (!lsa || !prefix || !buf || buflen < (1 + INET6_ADDRSTRLEN))
+		return NULL;
 
-		if (pos == 0) {
-			inet_ntop(AF_INET6, &link_lsa->linklocal_addr, buf,
-				  buflen);
-			return (buf);
-		}
-
-		prefixnum = ntohl(link_lsa->prefix_num);
-		if (pos > prefixnum)
-			return NULL;
-
-		start = (char *)link_lsa + sizeof(struct ospf6_link_lsa);
-		end = (char *)lsa->header + ntohs(lsa->header->length);
-		current = start;
-
-		while (current + sizeof(struct ospf6_prefix) <= end) {
-			prefix = (struct ospf6_prefix *)current;
-			if (prefix->prefix_length == 0
-			    || current + OSPF6_PREFIX_SIZE(prefix) > end) {
-				return NULL;
-			}
-
-			if (cnt < (pos - 1)) {
-				current += OSPF6_PREFIX_SIZE(prefix);
-				cnt++;
-			} else {
-				memset(&in6, 0, sizeof(in6));
-				memcpy(&in6, OSPF6_PREFIX_BODY(prefix),
-				       OSPF6_PREFIX_SPACE(
-					       prefix->prefix_length));
-				inet_ntop(AF_INET6, &in6, buf, buflen);
-				return (buf);
-			}
-		}
+	/* position zero is used for the lladdr in the body of the LSA */
+	if (pos == 0) {
+		inet_ntop(AF_INET6, &link_lsa->linklocal_addr, buf, buflen);
+		return buf;
 	}
-	return NULL;
+
+	memcpy(&in6, OSPF6_PREFIX_BODY(prefix),
+	       OSPF6_PREFIX_SPACE(prefix->prefix_length));
+	inet_ntop(AF_INET6, &in6, buf, buflen);
+
+	return buf;
+
+
 }
 
 static int ospf6_link_lsa_show(struct vty *vty, struct ospf6_lsa *lsa,
