@@ -1241,12 +1241,12 @@ static void show_nexthop_group_out(struct vty *vty, struct nhg_hash_entry *nhe,
 				nhe->ifp->ifindex);
 	}
 
-	if (!zebra_nhg_depends_is_empty(nhe)) {
+	if (!zebra_nhg_child_is_empty(nhe)) {
 		if (json)
 			json_depends = json_object_new_array();
 		else
 			vty_out(vty, "     Child groups:");
-		frr_each(nhg_connected_tree, &nhe->nhg_depends, rb_node_dep) {
+		frr_each (nhg_connected_tree, &nhe->nhg_child, rb_node_dep) {
 			if (json_depends)
 				json_object_array_add(
 					json_depends,
