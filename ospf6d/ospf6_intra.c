@@ -636,54 +636,52 @@ void ospf6_network_lsa_originate(struct event *thread)
 /* RFC2740 3.4.3.6 Link-LSA */
 /****************************/
 
+static int cb_prefix_to_str(void *desc, void *cb_data)
+{
+	struct ospf6_prefix *prefix = desc;
+	struct cbd_do_nth_lsdesc *cbd = cb_data;
+	struct in6_addr in6;
+
+	if (cbd->iterpos == cbd->pos) {
+		memset(&in6, 0, sizeof(in6));
+		memcpy(&in6, OSPF6_PREFIX_BODY(prefix),
+		       OSPF6_PREFIX_SPACE(prefix->prefix_length));
+		inet_ntop(AF_INET6, &in6, cbd->buf, cbd->buflen);
+		return 1; /* stop iterating */
+	}
+	(cbd->iterpos)++;
+	return 0;
+}
+
 static char *ospf6_link_lsa_get_prefix_str(struct ospf6_lsa *lsa, char *buf,
 					   int buflen, int pos)
 {
-	char *start, *end, *current;
-	struct ospf6_link_lsa *link_lsa;
-	struct in6_addr in6;
-	struct ospf6_prefix *prefix;
-	int cnt = 0, prefixnum;
+	int found_it;
 
-	if (lsa) {
-		link_lsa = (struct ospf6_link_lsa
-				    *)((caddr_t)lsa->header
-				       + sizeof(struct ospf6_lsa_header));
+	struct cbd_do_nth_lsdesc cbd = {
+		.iterpos = 0, .pos = pos, .buf = buf, .buflen = buflen
+	};
+	struct tlv_handler handler = { .callback = cb_prefix_to_str,
+				       .callback_data = &cbd };
 
-		if (pos == 0) {
-			inet_ntop(AF_INET6, &link_lsa->linklocal_addr, buf,
-				  buflen);
-			return (buf);
-		}
+	if (!lsa || !buf)
+		return NULL;
 
-		prefixnum = ntohl(link_lsa->prefix_num);
-		if (pos > prefixnum)
-			return NULL;
-
-		start = (char *)link_lsa + sizeof(struct ospf6_link_lsa);
-		end = (char *)lsa->header + ntohs(lsa->header->length);
-		current = start;
-
-		while (current + sizeof(struct ospf6_prefix) <= end) {
-			prefix = (struct ospf6_prefix *)current;
-			if (prefix->prefix_length == 0
-			    || current + OSPF6_PREFIX_SIZE(prefix) > end) {
-				return NULL;
-			}
-
-			if (cnt < (pos - 1)) {
-				current += OSPF6_PREFIX_SIZE(prefix);
-				cnt++;
-			} else {
-				memset(&in6, 0, sizeof(in6));
-				memcpy(&in6, OSPF6_PREFIX_BODY(prefix),
-				       OSPF6_PREFIX_SPACE(
-					       prefix->prefix_length));
-				inet_ntop(AF_INET6, &in6, buf, buflen);
-				return (buf);
-			}
-		}
+	/* Apparantly position zero is special and refers to the field in the
+	 * body of the LSA, rather than a descriptor.
+	 */
+	if (pos == 0) {
+		struct ospf6_link_lsa *link_lsa = lsa_after_header(lsa->header);
+		inet_ntop(AF_INET6, &link_lsa->linklocal_addr, buf,
+				buflen);
+		return buf;
 	}
+
+	found_it = foreach_lsdesc(lsa->header, &handler);
+
+	if (found_it)
+		return buf;
+
 	return NULL;
 }
 
