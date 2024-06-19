@@ -618,6 +618,7 @@ struct cbd_prefix_printer {
 	struct vty *vty;
 	bool use_json;
 	json_object *json_arr;
+	bool print_metric;
 };
 
 static json_object *print_prefix(struct ospf6_prefix *prefix,
@@ -641,7 +642,8 @@ static json_object *print_prefix(struct ospf6_prefix *prefix,
 	       OSPF6_PREFIX_SPACE(prefix->prefix_length));
 	inet_ntop(AF_INET6, &in6, buf, sizeof(buf));
 
-	ospf6_prefix_options_printbuf(prefix->prefix_options, options, sizeof(options));
+	ospf6_prefix_options_printbuf(prefix->prefix_options, options,
+				      sizeof(options));
 
 	if (cbd->use_json) {
 		json_obj = json_object_new_object();
@@ -666,6 +668,15 @@ static int cb_print_inp_prefix(void *desc, void *cb_data)
 	struct json_object *json_obj;
 
 	json_obj = print_prefix(prefix, cbd);
+
+	if (cbd->print_metric) {
+		if (json_obj)
+			json_object_int_add(json_obj, "metric",
+					    ntohs(prefix->prefix_metric));
+		else
+			vty_out(cbd->vty, "     Metric: %d\n",
+				ntohs(prefix->prefix_metric));
+	}
 
 	return 0;
 }
@@ -836,81 +847,45 @@ static char *ospf6_intra_prefix_lsa_get_prefix_str(struct ospf6_lsa *lsa,
 static int ospf6_intra_prefix_lsa_show(struct vty *vty, struct ospf6_lsa *lsa,
 				       json_object *json_obj, bool use_json)
 {
-	char *start, *end, *current;
 	struct ospf6_intra_prefix_lsa *intra_prefix_lsa;
 	int prefixnum;
-	char buf[128];
-	struct ospf6_prefix *prefix;
 	char id[16], adv_router[16];
-	struct in6_addr in6;
-	json_object *json_loop;
-	json_object *json_arr = NULL;
-	char prefix_string[133];
+	struct cbd_prefix_printer cbd = { .vty = vty,
+					  .use_json = use_json,
+					  .print_metric = true };
+	static const struct tlv_handler handlers[] = {
+		{ OSPF6_TLV_RESERVED, cb_print_inp_prefix },
+		{ 0 }
+	};
 
 	intra_prefix_lsa = lsa_after_header(lsa->header);
 
 	prefixnum = ntohs(intra_prefix_lsa->prefix_num);
 
-	if (use_json) {
-		json_arr = json_object_new_array();
-		json_object_int_add(json_obj, "numberOfPrefix", prefixnum);
-	} else
-		vty_out(vty, "     Number of Prefix: %d\n", prefixnum);
-
 	inet_ntop(AF_INET, &intra_prefix_lsa->ref_id, id, sizeof(id));
 	inet_ntop(AF_INET, &intra_prefix_lsa->ref_adv_router, adv_router,
 		  sizeof(adv_router));
+
 	if (use_json) {
-		json_object_string_add(
-			json_obj, "reference",
-			ospf6_lstype_name(intra_prefix_lsa->ref_type));
+		cbd.json_arr = json_object_new_array();
+		json_object_int_add(json_obj, "numberOfPrefix", prefixnum);
+		json_object_string_add(json_obj, "reference",
+				       ospf6_lstype_name(
+					       intra_prefix_lsa->ref_type));
 		json_object_string_add(json_obj, "referenceId", id);
 		json_object_string_add(json_obj, "referenceAdv", adv_router);
-	} else
+	} else {
+		vty_out(vty, "     Number of Prefix: %d\n", prefixnum);
 		vty_out(vty, "     Reference: %s Id: %s Adv: %s\n",
 			ospf6_lstype_name(intra_prefix_lsa->ref_type), id,
 			adv_router);
-
-	start = (char *)intra_prefix_lsa
-		+ sizeof(struct ospf6_intra_prefix_lsa);
-	end = ospf6_lsa_end(lsa->header);
-
-	for (current = start; current < end;
-	     current += OSPF6_PREFIX_SIZE(prefix)) {
-		prefix = (struct ospf6_prefix *)current;
-		if (prefix->prefix_length == 0
-		    || current + OSPF6_PREFIX_SIZE(prefix) > end)
-			break;
-
-		ospf6_prefix_options_printbuf(prefix->prefix_options, buf,
-					      sizeof(buf));
-		if (use_json) {
-			json_loop = json_object_new_object();
-			json_object_string_add(json_loop, "prefixOption", buf);
-		} else
-			vty_out(vty, "     Prefix Options: %s\n", buf);
-
-		memset(&in6, 0, sizeof(in6));
-		memcpy(&in6, OSPF6_PREFIX_BODY(prefix),
-		       OSPF6_PREFIX_SPACE(prefix->prefix_length));
-		inet_ntop(AF_INET6, &in6, buf, sizeof(buf));
-		if (use_json) {
-			snprintf(prefix_string, sizeof(prefix_string), "%s/%d",
-				 buf, prefix->prefix_length);
-			json_object_string_add(json_loop, "prefix",
-					       prefix_string);
-			json_object_int_add(json_loop, "metric",
-					    ntohs(prefix->prefix_metric));
-			json_object_array_add(json_arr, json_loop);
-		} else {
-			vty_out(vty, "     Prefix: %s/%d\n", buf,
-				prefix->prefix_length);
-			vty_out(vty, "     Metric: %d\n",
-				ntohs(prefix->prefix_metric));
-		}
 	}
+
+	/* Print each prefix */
+	foreach_lsdesc(lsa->header, handlers, &cbd);
+
 	if (use_json)
-		json_object_object_add(json_obj, "prefix", json_arr);
+		json_object_object_add(json_obj, "prefix", cbd.json_arr);
 
 	return 0;
 }

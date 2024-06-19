@@ -172,6 +172,7 @@ int _foreach_lsdesc(struct ospf6_lsa_header *lsa_header,
 	case OSPF6_LSTYPE_NETWORK:
 		return each_network_lsdesc(lsa_header, handler, cb_data);
 	case OSPF6_LSTYPE_LINK:
+	case OSPF6_LSTYPE_INTRA_PREFIX:
 		return each_prefix_in_link_lsa(lsa_header, handler, cb_data);
 	default:
 		zlog_err("%s: Unhandled LSA type: 0x%.2x", caller,
