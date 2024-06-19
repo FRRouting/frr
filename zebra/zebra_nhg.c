@@ -230,40 +230,40 @@ static void zebra_nhg_depends_init(struct nhg_hash_entry *nhe)
 	nhg_connected_tree_init(&nhe->nhg_depends);
 }
 
-unsigned int zebra_nhg_dependents_count(const struct nhg_hash_entry *nhe)
+unsigned int zebra_nhg_parent_count(const struct nhg_hash_entry *nhe)
 {
-	return nhg_connected_tree_count(&nhe->nhg_dependents);
+	return nhg_connected_tree_count(&nhe->nhg_parent);
 }
 
 
-bool zebra_nhg_dependents_is_empty(const struct nhg_hash_entry *nhe)
+bool zebra_nhg_parent_is_empty(const struct nhg_hash_entry *nhe)
 {
-	return nhg_connected_tree_is_empty(&nhe->nhg_dependents);
+	return nhg_connected_tree_is_empty(&nhe->nhg_parent);
 }
 
-static void zebra_nhg_dependents_del(struct nhg_hash_entry *from,
-				     struct nhg_hash_entry *dependent)
+static void zebra_nhg_parent_del(struct nhg_hash_entry *from,
+				 struct nhg_hash_entry *dependent)
 {
-	nhg_connected_tree_del_nhe(&from->nhg_dependents, dependent);
+	nhg_connected_tree_del_nhe(&from->nhg_parent, dependent);
 }
 
-static void zebra_nhg_dependents_add(struct nhg_hash_entry *to,
-				     struct nhg_hash_entry *dependent)
+static void zebra_nhg_parent_add(struct nhg_hash_entry *to,
+				 struct nhg_hash_entry *dependent)
 {
-	nhg_connected_tree_add_nhe(&to->nhg_dependents, dependent);
+	nhg_connected_tree_add_nhe(&to->nhg_parent, dependent);
 }
 
-static void zebra_nhg_dependents_init(struct nhg_hash_entry *nhe)
+static void zebra_nhg_parent_init(struct nhg_hash_entry *nhe)
 {
-	nhg_connected_tree_init(&nhe->nhg_dependents);
+	nhg_connected_tree_init(&nhe->nhg_parent);
 }
 
 /* Release this nhe from anything depending on it */
-static void zebra_nhg_dependents_release(struct nhg_hash_entry *nhe)
+static void zebra_nhg_parent_release(struct nhg_hash_entry *nhe)
 {
 	struct nhg_connected *rb_node_dep = NULL;
 
-	frr_each_safe(nhg_connected_tree, &nhe->nhg_dependents, rb_node_dep) {
+	frr_each_safe (nhg_connected_tree, &nhe->nhg_parent, rb_node_dep) {
 		zebra_nhg_depends_del(rb_node_dep->nhe, nhe);
 		/* recheck validity of the dependent */
 		zebra_nhg_check_valid(rb_node_dep->nhe);
@@ -278,7 +278,7 @@ static void zebra_nhg_depends_release(struct nhg_hash_entry *nhe)
 
 		frr_each_safe(nhg_connected_tree, &nhe->nhg_depends,
 			       rb_node_dep) {
-			zebra_nhg_dependents_del(rb_node_dep->nhe, nhe);
+			zebra_nhg_parent_del(rb_node_dep->nhe, nhe);
 		}
 	}
 }
@@ -312,7 +312,7 @@ static void zebra_nhg_set_if(struct nhg_hash_entry *nhe, struct interface *ifp)
 	struct zebra_if *zif = (struct zebra_if *)ifp->info;
 
 	nhe->ifp = ifp;
-	nhg_connected_tree_add_nhe(&zif->nhg_dependents, nhe);
+	nhg_connected_tree_add_nhe(&zif->nhg_parent, nhe);
 }
 
 static void
@@ -329,7 +329,7 @@ zebra_nhg_connect_depends(struct nhg_hash_entry *nhe,
 	nhe->nhg_depends = *nhg_depends;
 
 	/* Attach backpointer to anything that it depends on */
-	zebra_nhg_dependents_init(nhe);
+	zebra_nhg_parent_init(nhe);
 	if (!zebra_nhg_depends_is_empty(nhe)) {
 		frr_each(nhg_connected_tree, &nhe->nhg_depends, rb_node_dep) {
 			if (IS_ZEBRA_DEBUG_NHG_DETAIL)
@@ -337,7 +337,7 @@ zebra_nhg_connect_depends(struct nhg_hash_entry *nhe,
 					   __func__, nhe, nhe, rb_node_dep->nhe,
 					   rb_node_dep->nhe);
 
-			zebra_nhg_dependents_add(rb_node_dep->nhe, nhe);
+			zebra_nhg_parent_add(rb_node_dep->nhe, nhe);
 		}
 	}
 }
@@ -1050,7 +1050,7 @@ static void zebra_nhg_set_valid(struct nhg_hash_entry *nhe, bool valid)
 	}
 
 	/* Update validity of nexthops depending on it */
-	frr_each(nhg_connected_tree, &nhe->nhg_dependents, rb_node_dep)
+	frr_each (nhg_connected_tree, &nhe->nhg_parent, rb_node_dep)
 		zebra_nhg_set_valid(rb_node_dep->nhe, valid);
 }
 
@@ -1074,11 +1074,11 @@ static void zebra_nhg_release_all_deps(struct nhg_hash_entry *nhe)
 {
 	/* Remove it from any lists it may be on */
 	zebra_nhg_depends_release(nhe);
-	zebra_nhg_dependents_release(nhe);
+	zebra_nhg_parent_release(nhe);
 	if (nhe->ifp) {
 		struct zebra_if *zif = nhe->ifp->info;
 
-		nhg_connected_tree_del_nhe(&zif->nhg_dependents, nhe);
+		nhg_connected_tree_del_nhe(&zif->nhg_parent, nhe);
 	}
 }
 
@@ -1110,7 +1110,7 @@ static void zebra_nhg_handle_install(struct nhg_hash_entry *nhe, bool install)
 	/* Update validity of groups depending on it */
 	struct nhg_connected *rb_node_dep;
 
-	frr_each_safe (nhg_connected_tree, &nhe->nhg_dependents, rb_node_dep) {
+	frr_each_safe (nhg_connected_tree, &nhe->nhg_parent, rb_node_dep) {
 		zebra_nhg_set_valid(rb_node_dep->nhe, true);
 		/* install dependent NHG into kernel */
 		if (install) {
@@ -1598,7 +1598,7 @@ static void zebra_nhg_free_members(struct nhg_hash_entry *nhe)
 	/* Decrement to remove connection ref */
 	nhg_connected_tree_decrement_ref(&nhe->nhg_depends);
 	nhg_connected_tree_free(&nhe->nhg_depends);
-	nhg_connected_tree_free(&nhe->nhg_dependents);
+	nhg_connected_tree_free(&nhe->nhg_parent);
 }
 
 void zebra_nhg_free(struct nhg_hash_entry *nhe)
@@ -1664,7 +1664,7 @@ void zebra_nhg_hash_free_zero_id(struct hash_bucket *b, void *arg)
 		nhg_connected_free(dep);
 	}
 
-	while ((dep = nhg_connected_tree_pop(&nhe->nhg_dependents)))
+	while ((dep = nhg_connected_tree_pop(&nhe->nhg_parent)))
 		nhg_connected_free(dep);
 
 	if (nhe->backup_info && nhe->backup_info->nhe->id == 0) {
@@ -3662,7 +3662,7 @@ void zebra_interface_nhg_reinstall(struct interface *ifp)
 			"%s: Installing interface %s associated NHGs into kernel",
 			__func__, ifp->name);
 
-	frr_each (nhg_connected_tree, &zif->nhg_dependents, rb_node_dep) {
+	frr_each (nhg_connected_tree, &zif->nhg_parent, rb_node_dep) {
 		nh = rb_node_dep->nhe->nhg.nexthop;
 		if (zebra_nhg_set_valid_if_active(rb_node_dep->nhe)) {
 			if (IS_ZEBRA_DEBUG_NHG_DETAIL)
@@ -3692,7 +3692,7 @@ void zebra_interface_nhg_reinstall(struct interface *ifp)
 			 * singleton is installed, install dependent
 			 */
 			frr_each_safe (nhg_connected_tree,
-				       &rb_node_dep->nhe->nhg_dependents,
+				       &rb_node_dep->nhe->nhg_parent,
 				       rb_node_dependent) {
 				if (IS_ZEBRA_DEBUG_NHG)
 					zlog_debug("%s dependent nhe %pNG Setting Reinstall flag",

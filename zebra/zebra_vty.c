@@ -1359,13 +1359,12 @@ static void show_nexthop_group_out(struct vty *vty, struct nhg_hash_entry *nhe,
 					       json_backup_nexthop_array);
 	}
 
-	if (!zebra_nhg_dependents_is_empty(nhe)) {
+	if (!zebra_nhg_parent_is_empty(nhe)) {
 		if (json)
 			json_dependants = json_object_new_array();
 		else
 			vty_out(vty, "     Parent groups:");
-		frr_each(nhg_connected_tree, &nhe->nhg_dependents,
-			  rb_node_dep) {
+		frr_each (nhg_connected_tree, &nhe->nhg_parent, rb_node_dep) {
 			if (json)
 				json_object_array_add(
 					json_dependants,
@@ -1484,7 +1483,7 @@ static void if_nexthop_group_dump_vty(struct vty *vty, struct interface *ifp)
 
 	zebra_if = ifp->info;
 
-	frr_each (nhg_connected_tree, &zebra_if->nhg_dependents, rb_node_dep) {
+	frr_each (nhg_connected_tree, &zebra_if->nhg_parent, rb_node_dep) {
 		if (first) {
 			vty_out(vty, "Interface %s:\n", ifp->name);
 			first = false;
