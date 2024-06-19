@@ -4829,6 +4829,8 @@ void bgp_shutdown_enable(struct bgp *bgp, const char *msg)
 
 	/* iterate through peers of BGP instance */
 	for (ALL_LIST_ELEMENTS_RO(bgp->peer, node, peer)) {
+		peer->last_reset = PEER_DOWN_USER_SHUTDOWN;
+
 		/* continue, if peer is already in administrative shutdown. */
 		if (CHECK_FLAG(peer->flags, PEER_FLAG_SHUTDOWN))
 			continue;
@@ -4883,8 +4885,10 @@ void bgp_shutdown_disable(struct bgp *bgp)
 	/* clear the BGP instances shutdown flag */
 	UNSET_FLAG(bgp->flags, BGP_FLAG_SHUTDOWN);
 
-	for (ALL_LIST_ELEMENTS_RO(bgp->peer, node, peer))
+	for (ALL_LIST_ELEMENTS_RO(bgp->peer, node, peer)) {
 		bgp_timer_set(peer->connection);
+		peer->last_reset = PEER_DOWN_WAITING_OPEN;
+	}
 }
 
 /* Change specified peer flag. */
@@ -4956,6 +4960,10 @@ static int peer_flag_modify(struct peer *peer, uint64_t flag, int set)
 				bgp_zebra_terminate_radv(peer->bgp, peer);
 		}
 
+		if (flag == PEER_FLAG_SHUTDOWN)
+			peer->last_reset = set ? PEER_DOWN_USER_SHUTDOWN
+					       : PEER_DOWN_WAITING_OPEN;
+
 		/* Execute flag action on peer. */
 		if (action.type == peer_change_reset)
 			peer_flag_modify_action(peer, flag);
@@ -4990,6 +4998,10 @@ static int peer_flag_modify(struct peer *peer, uint64_t flag, int set)
 		if (flag == PEER_FLAG_CAPABILITY_ENHE && !member->conf_if)
 			set ? bgp_zebra_initiate_radv(member->bgp, member)
 			    : bgp_zebra_terminate_radv(member->bgp, member);
+
+		if (flag == PEER_FLAG_SHUTDOWN)
+			member->last_reset = set ? PEER_DOWN_USER_SHUTDOWN
+						 : PEER_DOWN_WAITING_OPEN;
 
 		/* Execute flag action on peer-group member. */
 		if (action.type == peer_change_reset)
