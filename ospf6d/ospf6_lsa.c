@@ -96,8 +96,8 @@ static int each_network_lsdesc(struct ospf6_lsa_header *lsa_header,
 	return err;
 }
 
-/* Link LSA */
-static int each_prefix_in_link_lsa(struct ospf6_lsa_header *lsa_header,
+/* Link or intra prefix LSA */
+static int each_prefix_in_lsa(struct ospf6_lsa_header *lsa_header,
 				   struct tlv_handler *h)
 {
 	struct ospf6_prefix *prefix = lsdesc_start(lsa_header);
@@ -121,7 +121,8 @@ int foreach_lsdesc(struct ospf6_lsa_header *lsa_header,
 	case OSPF6_LSTYPE_NETWORK:
 		return each_network_lsdesc(lsa_header, handler);
 	case OSPF6_LSTYPE_LINK:
-		return each_prefix_in_link_lsa(lsa_header, handler);
+	case OSPF6_LSTYPE_INTRA_PREFIX:
+		return each_prefix_in_lsa(lsa_header, handler);
 	default:
 		zlog_err("Unhandled LSA type: %d", ntohs(lsa_header->type));
 		return -1;

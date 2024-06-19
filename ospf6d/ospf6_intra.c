@@ -635,18 +635,34 @@ void ospf6_network_lsa_originate(struct event *thread)
 /****************************/
 /* RFC2740 3.4.3.6 Link-LSA */
 /****************************/
+struct cbd_prefix_to_str {
+	int pos;
+	int iterpos;
+	int buflen;
+	char *buf;
+	int print_length;
+};
+
 
 static int cb_prefix_to_str(void *desc, void *cb_data)
 {
 	struct ospf6_prefix *prefix = desc;
-	struct cbd_do_nth_lsdesc *cbd = cb_data;
+	struct cbd_prefix_to_str *cbd = cb_data;
 	struct in6_addr in6;
+	char tbuf[16];
 
 	if (cbd->iterpos == cbd->pos) {
 		memset(&in6, 0, sizeof(in6));
 		memcpy(&in6, OSPF6_PREFIX_BODY(prefix),
 		       OSPF6_PREFIX_SPACE(prefix->prefix_length));
 		inet_ntop(AF_INET6, &in6, cbd->buf, cbd->buflen);
+
+		if (cbd->print_length) {
+			snprintf(tbuf, sizeof(tbuf), "/%d",
+				 prefix->prefix_length);
+			strlcat(cbd->buf, tbuf, cbd->buflen);
+		}
+
 		return 1; /* stop iterating */
 	}
 	(cbd->iterpos)++;
@@ -658,7 +674,7 @@ static char *ospf6_link_lsa_get_prefix_str(struct ospf6_lsa *lsa, char *buf,
 {
 	int found_it;
 
-	struct cbd_do_nth_lsdesc cbd = {
+	struct cbd_prefix_to_str cbd = {
 		.iterpos = 0, .pos = pos, .buf = buf, .buflen = buflen
 	};
 	struct tlv_handler handler = { .callback = cb_prefix_to_str,
@@ -876,49 +892,22 @@ static char *ospf6_intra_prefix_lsa_get_prefix_str(struct ospf6_lsa *lsa,
 						   char *buf, int buflen,
 						   int pos)
 {
-	char *start, *end, *current;
-	struct ospf6_intra_prefix_lsa *intra_prefix_lsa;
-	struct in6_addr in6;
-	int prefixnum, cnt = 0;
-	struct ospf6_prefix *prefix;
-	char tbuf[16];
+	int found_it;
+	struct cbd_prefix_to_str cbd = { .iterpos = 0,
+					 .pos = pos,
+					 .buf = buf,
+					 .buflen = buflen,
+					 .print_length = 1 };
+	struct tlv_handler handler = { .callback = cb_prefix_to_str,
+				       .callback_data = &cbd };
 
-	if (lsa) {
-		intra_prefix_lsa = lsa_from_container(ospf6_intra_prefix_lsa,
-						      lsa);
+	if (!lsa || !buf)
+		return NULL;
 
-		prefixnum = ntohs(intra_prefix_lsa->prefix_num);
-		if ((pos + 1) > prefixnum)
-			return NULL;
+	found_it = foreach_lsdesc(lsa->header, &handler);
 
-		start = (char *)intra_prefix_lsa
-			+ sizeof(struct ospf6_intra_prefix_lsa);
-		end = ospf6_lsa_end(lsa->header);
-		current = start;
-
-		while (current + sizeof(struct ospf6_prefix) <= end) {
-			prefix = (struct ospf6_prefix *)current;
-			if (prefix->prefix_length == 0
-			    || current + OSPF6_PREFIX_SIZE(prefix) > end) {
-				return NULL;
-			}
-
-			if (cnt < pos) {
-				current += OSPF6_PREFIX_SIZE(prefix);
-				cnt++;
-			} else {
-				memset(&in6, 0, sizeof(in6));
-				memcpy(&in6, OSPF6_PREFIX_BODY(prefix),
-				       OSPF6_PREFIX_SPACE(
-					       prefix->prefix_length));
-				inet_ntop(AF_INET6, &in6, buf, buflen);
-				snprintf(tbuf, sizeof(tbuf), "/%d",
-					 prefix->prefix_length);
-				strlcat(buf, tbuf, buflen);
-				return (buf);
-			}
-		}
-	}
+	if (found_it)
+		return buf;
 	return NULL;
 }
 
