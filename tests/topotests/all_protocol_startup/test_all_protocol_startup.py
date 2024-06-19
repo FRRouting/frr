@@ -436,7 +436,7 @@ def verify_nexthop_group(nhg_id, recursive=False, ecmp=0):
             continue
 
         if ecmp or recursive:
-            ecmpcount = re.search(r"Depends:.*\n", output)
+            ecmpcount = re.search(r"Child groups:.*\n", output)
             if ecmpcount is None:
                 found = False
                 sleep(1)
