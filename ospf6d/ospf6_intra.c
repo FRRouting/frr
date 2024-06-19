@@ -769,49 +769,22 @@ static char *ospf6_intra_prefix_lsa_get_prefix_str(struct ospf6_lsa *lsa,
 						   char *buf, int buflen,
 						   int pos)
 {
-	char *start, *end, *current;
-	struct ospf6_intra_prefix_lsa *intra_prefix_lsa;
-	struct in6_addr in6;
-	int prefixnum, cnt = 0;
-	struct ospf6_prefix *prefix;
+	struct ospf6_prefix *prefix = nth_prefix(lsa->header, pos);
+	struct in6_addr in6 = { 0 };
 	char tbuf[16];
 
-	if (lsa) {
-		intra_prefix_lsa = lsa_after_header(lsa->header);
+	/* ensure buflen >= INET6_ADDRSTRLEN + '/128\0' */
+	if (!lsa || !prefix || !buf || buflen < (5 + INET6_ADDRSTRLEN))
+		return NULL;
 
-		prefixnum = ntohs(intra_prefix_lsa->prefix_num);
-		if ((pos + 1) > prefixnum)
-			return NULL;
+	memcpy(&in6, OSPF6_PREFIX_BODY(prefix),
+	       OSPF6_PREFIX_SPACE(prefix->prefix_length));
+	inet_ntop(AF_INET6, &in6, buf, buflen);
 
-		start = (char *)intra_prefix_lsa
-			+ sizeof(struct ospf6_intra_prefix_lsa);
-		end = ospf6_lsa_end(lsa->header);
-		current = start;
+	snprintf(tbuf, sizeof(tbuf), "/%d", prefix->prefix_length);
+	strlcat(buf, tbuf, buflen);
 
-		while (current + sizeof(struct ospf6_prefix) <= end) {
-			prefix = (struct ospf6_prefix *)current;
-			if (prefix->prefix_length == 0
-			    || current + OSPF6_PREFIX_SIZE(prefix) > end) {
-				return NULL;
-			}
-
-			if (cnt < pos) {
-				current += OSPF6_PREFIX_SIZE(prefix);
-				cnt++;
-			} else {
-				memset(&in6, 0, sizeof(in6));
-				memcpy(&in6, OSPF6_PREFIX_BODY(prefix),
-				       OSPF6_PREFIX_SPACE(
-					       prefix->prefix_length));
-				inet_ntop(AF_INET6, &in6, buf, buflen);
-				snprintf(tbuf, sizeof(tbuf), "/%d",
-					 prefix->prefix_length);
-				strlcat(buf, tbuf, buflen);
-				return (buf);
-			}
-		}
-	}
-	return NULL;
+	return buf;
 }
 
 static int ospf6_intra_prefix_lsa_show(struct vty *vty, struct ospf6_lsa *lsa,
