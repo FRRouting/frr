@@ -420,7 +420,7 @@ def verify_nexthop_group(nhg_id, recursive=False, ecmp=0):
     count = 0
     valid = None
     ecmpcount = None
-    depends = None
+    children = None
     resolved_id = None
     installed = None
     found = False
@@ -443,21 +443,21 @@ def verify_nexthop_group(nhg_id, recursive=False, ecmp=0):
                 continue
 
             # list of IDs in group
-            depends = re.findall(r"\((\d+)\)", ecmpcount.group(0))
+            children = re.findall(r"\((\d+)\)", ecmpcount.group(0))
 
             if ecmp:
-                if len(depends) != ecmp:
+                if len(children) != ecmp:
                     found = False
                     sleep(1)
                     continue
             else:
                 # If recursive, we need to look at its resolved group
-                if len(depends) != 1:
+                if len(children) != 1:
                     found = False
                     sleep(1)
                     continue
 
-                resolved_id = int(depends[0])
+                resolved_id = int(children[0])
                 verify_nexthop_group(resolved_id, False)
         else:
             installed = re.search(r"Installed", output)
@@ -469,19 +469,17 @@ def verify_nexthop_group(nhg_id, recursive=False, ecmp=0):
 
     assert valid is not None, "Nexthop Group ID={} not marked Valid".format(nhg_id)
     if ecmp or recursive:
-        assert ecmpcount is not None, "Nexthop Group ID={} has no depends".format(
+        assert ecmpcount is not None, "Nexthop Group ID={} has no children".format(
             nhg_id
         )
         if ecmp:
             assert (
-                len(depends) == ecmp
+                len(children) == ecmp
             ), "Nexthop Group ID={} doesn't match ecmp size".format(nhg_id)
         else:
             assert (
-                len(depends) == 1
-            ), "Nexthop Group ID={} should only have one recursive depend".format(
-                nhg_id
-            )
+                len(children) == 1
+            ), "Nexthop Group ID={} should only have one recursive child".format(nhg_id)
     else:
         assert installed is not None, "Nexthop Group ID={} not marked Installed".format(
             nhg_id
