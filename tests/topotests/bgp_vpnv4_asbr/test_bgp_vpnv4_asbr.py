@@ -312,7 +312,7 @@ def check_show_bgp_vpn_ok(router, vpnv4_entries):
             return "{0}, {1}, route distinguisher not present".format(
                 router.name, prefix
             )
-        for rd, pathes in dump.items():
+        for _, pathes in dump.items():
             for path in pathes["paths"]:
                 if "remoteLabel" not in path.keys():
                     return "{0}, {1}, remoteLabel not present".format(

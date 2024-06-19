@@ -1845,7 +1845,7 @@ def test_vrf_vlan_routing_table_p1(request):
         dut = "r3"
         vrf = "RED_A"
 
-        for c_link, c_data in topo["routers"][dut]["links"].items():
+        for _, c_data in topo["routers"][dut]["links"].items():
             if c_data["vrf"] != vrf:
                 continue
 
@@ -2634,7 +2634,7 @@ def test_delete_and_re_add_vrf_p1(request):
     vrfs = ["RED_A", "BLUE_A"]
 
     for vrf in vrfs:
-        for c_link, c_data in topo["routers"][dut]["links"].items():
+        for _, c_data in topo["routers"][dut]["links"].items():
             if c_data["vrf"] != vrf:
                 continue
 
@@ -3584,7 +3584,7 @@ def test_vrf_name_significance_p1(request):
     vrfs = ["GREY_A", "PINK_A"]
 
     for vrf in vrfs:
-        for c_link, c_data in topo_modify["routers"][dut]["links"].items():
+        for _, c_data in topo_modify["routers"][dut]["links"].items():
             if c_data["vrf"] != vrf:
                 continue
 

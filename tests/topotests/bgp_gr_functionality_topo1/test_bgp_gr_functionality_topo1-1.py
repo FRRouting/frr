@@ -102,7 +102,6 @@ from lib.bgp import (
     verify_graceful_restart,
     create_router_bgp,
     verify_r_bit,
-    verify_f_bit,
     verify_bgp_convergence,
     verify_bgp_convergence_from_running_config,
 )

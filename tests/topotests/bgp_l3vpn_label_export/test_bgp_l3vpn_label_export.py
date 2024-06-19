@@ -146,7 +146,7 @@ def check_mpls_table(label, protocol):
 
     if label == "auto" and protocol:
         output_copy = deepcopy(output)
-        for key, data in output_copy.items():
+        for _, data in output_copy.items():
             for nexthop in data.get("nexthops", []):
                 if nexthop.get("type", None) != protocol:
                     continue

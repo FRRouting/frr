@@ -12,7 +12,6 @@ Test BGP nexthop conformity with IPv4,6 MP-BGP over IPv4 peering
 import os
 import sys
 import json
-import functools
 from functools import partial
 import pytest
 

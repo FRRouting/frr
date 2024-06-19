@@ -98,9 +98,7 @@ from lib.bgp import (
     verify_eor,
     verify_f_bit,
     verify_bgp_convergence,
-    verify_gr_address_family,
     modify_bgp_config_when_bgpd_down,
-    verify_graceful_restart_timers,
     verify_bgp_convergence_from_running_config,
 )
 
@@ -114,7 +112,6 @@ from lib.common_config import (
     check_address_types,
     write_test_footer,
     check_router_status,
-    step,
     get_frr_ipv6_linklocal,
     required_linux_kernel_version,
 )
@@ -169,7 +166,7 @@ def setup_module(mod):
     # Api call verify whether BGP is converged
     ADDR_TYPES = check_address_types()
 
-    for addr_type in ADDR_TYPES:
+    for _ in ADDR_TYPES:
         BGP_CONVERGENCE = verify_bgp_convergence(tgen, topo)
         assert BGP_CONVERGENCE is True, "setup_module : Failed \n Error:" " {}".format(
             BGP_CONVERGENCE

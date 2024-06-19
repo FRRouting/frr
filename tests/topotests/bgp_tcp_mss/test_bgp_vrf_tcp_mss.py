@@ -17,12 +17,7 @@ Need to verify if the tcp-mss value is reflected in the TCP session and in VRF.
 
 import os
 import sys
-import json
 import pytest
-import functools
-import platform
-import socket
-import subprocess
 
 # add after imports, before defining classes or functions:
 pytestmark = [pytest.mark.bgpd]
@@ -31,43 +26,27 @@ CWD = os.path.dirname(os.path.realpath(__file__))
 sys.path.append(os.path.join(CWD, "../"))
 
 # pylint: disable=C0413
-from lib import topotest
-from lib.topogen import Topogen, TopoRouter, get_topogen
+from lib.topogen import Topogen, get_topogen
 from lib.topojson import build_config_from_json
-from lib.topolog import logger
 import time
 from lib.bgp import (
     clear_bgp,
-    clear_bgp_and_verify,
     create_router_bgp,
-    modify_as_number,
-    verify_as_numbers,
     verify_bgp_convergence,
     verify_bgp_rib,
-    verify_bgp_timers_and_functionality,
-    verify_router_id,
     verify_tcp_mss,
 )
 from lib.common_config import (
     kill_router_daemons,
     start_router_daemons,
-    addKernelRoute,
     apply_raw_config,
     check_address_types,
     check_router_status,
-    create_prefix_lists,
-    create_route_maps,
     create_static_routes,
     required_linux_kernel_version,
-    reset_config_on_routers,
     start_topology,
     step,
-    verify_admin_distance_for_static_routes,
-    verify_bgp_community,
-    verify_fib_routes,
-    verify_rib,
     write_test_footer,
-    write_test_header,
 )
 
 # Global variables
